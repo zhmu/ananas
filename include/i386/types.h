@@ -3,6 +3,8 @@
 
 #define PAGE_SIZE	4096
 
+#ifndef __ASSEMBLY__
+
 typedef char		int8_t;
 typedef unsigned char	uint8_t;
 typedef short		int16_t;
@@ -15,5 +17,7 @@ typedef unsigned long	uint64_t;
 typedef uint32_t	addr_t;
 typedef int32_t		size_t;
 typedef uint32_t	ssize_t;
+
+#endif /* __ASSEMBLY__ */
 
 #endif /* __TYPES_H__ */

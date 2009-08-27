@@ -1,3 +1,5 @@
+#include "i386/types.h"
+
 #ifndef __I386_VM_H__
 #define __I386_VM_H__
 
@@ -64,6 +66,8 @@
 #define GDT_IDX_USER_DATA	6
 #define GDT_IDX_TASK		7
 
+#ifndef __ASSEMBLY__
+
 /*
  * Pointer to our page directory; set by i386/startup.c:md_start
  */
@@ -71,5 +75,7 @@ extern uint32_t* pagedir;
 
 /* Map memory of a device so it can be accessed */
 void* vm_map_device(addr_t addr, size_t len);
+
+#endif /* __ASSEMBLY__ */
 
 #endif /* __I386_VM_H__ */
