@@ -64,4 +64,12 @@
 #define GDT_IDX_USER_DATA	6
 #define GDT_IDX_TASK		7
 
+/*
+ * Pointer to our page directory; set by i386/startup.c:md_start
+ */
+extern uint32_t* pagedir;
+
+/* Map memory of a device so it can be accessed */
+void* vm_map_device(addr_t addr, size_t len);
+
 #endif /* __I386_VM_H__ */
