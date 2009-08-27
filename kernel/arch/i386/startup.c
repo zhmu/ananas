@@ -13,7 +13,7 @@ extern void* __end;
 extern void* __entry;
 
 /* Pointer to our page directory */
-void* pagedir;
+uint32_t* pagedir;
 
 /* Global/Interrupt descriptor tables, as preallocated by stub.s */
 extern void *idt, *gdt;
@@ -130,7 +130,7 @@ md_startup()
 	/*
 	 * Paging has been setup; this means we can sensibly use kernel memory now.
 	 */
-	pagedir = (void*)((addr_t)pd | KERNBASE);
+	pagedir = (uint32_t*)((addr_t)pd | KERNBASE);
 
 	/*
 	 * The next step is to set up the Global Descriptor Table (GDT); this is
