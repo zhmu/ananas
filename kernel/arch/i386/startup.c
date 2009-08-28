@@ -210,18 +210,16 @@ md_startup()
 		if (r.eax != 0x534d4150)
 			break;
 
-		/*
-		 * 
-		 */
+#if 0
 		uint8_t* ptr = (uint8_t*)&realmode_store;
 		uint8_t* hexchars = "0123456789abcdef";
-		outb(0xe9, '!');
 		for (i = 0; i < 20; i++) {
 			uint8_t c = ptr[i];
 			outb(0xe9, hexchars[c >> 4]);
 			outb(0xe9, hexchars[c & 0xf]);
 		}
 		outb(0xe9, '\n');
+#endif
 
 		asm("cld");
 		asm("cld");

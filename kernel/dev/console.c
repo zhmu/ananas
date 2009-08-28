@@ -10,7 +10,7 @@ static uint8_t console_attr = 0xf;
 void
 console_init()
 {
-	console_mem = vm_map_device(CONSOLE_MEM_BASE, CONSOLE_MEM_LENGTH);
+	console_mem = (uint8_t*)vm_map_device(CONSOLE_MEM_BASE, CONSOLE_MEM_LENGTH);
 	memset(console_mem, 0, CONSOLE_MEM_LENGTH);
 }
 
@@ -34,8 +34,8 @@ console_putc(char c)
 		console_y++;
 		if (console_y >= CONSOLE_HEIGHT) {
 			/* Scroll the screen up a row */
-			memcpy((console_mem),
-			       (console_mem + (CONSOLE_WIDTH * 2)),
+			memcpy((void*)(console_mem),
+			       (void*)(console_mem + (CONSOLE_WIDTH * 2)),
 			       (CONSOLE_HEIGHT - 1) * CONSOLE_WIDTH * 2);
 			console_y--;
 		}
