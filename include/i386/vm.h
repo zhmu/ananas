@@ -73,9 +73,6 @@
  */
 extern uint32_t* pagedir;
 
-/* Map memory of a device so it can be accessed */
-void* vm_map_device(addr_t addr, size_t len);
-
-#endif /* !ASM */
+#endif
 
 #endif /* __I386_VM_H__ */
