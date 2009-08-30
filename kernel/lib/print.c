@@ -2,7 +2,7 @@
 #include "stdarg.h"
 #include "dev/console.h"
 
-#define putc(x) console_putc(x)
+#define putc(x) vga_putc(x)
 
 static const uint8_t hextab[16] = "0123456789ABCDEF";
 
