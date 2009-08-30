@@ -11,5 +11,8 @@ I386_OBJS=	arch/i386/stub.o arch/i386/startup.o arch/i386/interrupts.o \
 kernel.i386:	$(OBJS) conf/ld.i386 $(I386_OBJS)
 		$(LD) -b elf32-i386 -T conf/ld.i386 -o kernel.i386 $(I386_OBJS) $(OBJS)
 
+kernel.symbols:	kernel.i386
+		nm kernel.i386|awk '{print $$1" "$$3}'|sort > kernel.symbols
+
 clean:
 		rm -f $(OBJS) $(I386_OBJS)
