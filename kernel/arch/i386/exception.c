@@ -1,4 +1,5 @@
 #include "i386/types.h"
+#include "lib.h"
 
 void
 exception_handler(
@@ -8,8 +9,13 @@ exception_handler(
 	uint32_t ecx, uint32_t eax, uint32_t errcode,
 	uint32_t eip, uint32_t cs)
 {
-	/* TODO Handle exception... */
-	while (1);
+	kprintf("FATAL: exception %x at cs:eip = %x:%x\n", no, cs, eip);
+	kprintf("eax=%x ebx=%x ecx=%x edx=%x\n", eax, ebx, ecx, edx);
+	kprintf("esi=%x edi=%x ebp=%x\n", esi, edi, ebp);
+	kprintf("ds=%x es=%x fs=%x gs=%x\n", ds, es, fs, gs);
+	kprintf("ss:esp = %x:%x\n", ss, esp);
+
+	panic("exception");
 }
 
 /* vim:set ts=2 sw=2: */
