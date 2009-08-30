@@ -4,6 +4,7 @@
 #include "i386/macro.h"
 #include "i386/realmode.h"
 #include "lib.h"
+#include "mm.h"
 #include "param.h"
 
 /* __end is defined by the linker script and indicates the end of the kernel */
@@ -17,6 +18,10 @@ uint32_t* pagedir;
 
 /* Global/Interrupt descriptor tables, as preallocated by stub.s */
 extern void *idt, *gdt;
+
+/* Used for temporary mappings during VM bootstrap */
+extern void* temp_pt_entry;
+
 
 /*
  * i386-dependant startup code, called by stub.s.
@@ -197,7 +202,27 @@ md_startup()
 	: : "a" (&idtr));
 
 	/*
+	 * Clear the temporary pagetable entry; this ensures we won't status with
+	 * bogus mappings.
+	 */
+	memset(&temp_pt_entry, 0, PAGE_SIZE);
+
+	/* Ensure the memory manager is available for action */
+	mm_init();
+
+#define PHYSMEM_MAX 10
+	struct PHYSMEM {
+		addr_t	address;
+		size_t	length;
+	} physmem[PHYSMEM_MAX];
+	unsigned int physmem_num = 0;
+
+	/*
 	 * We are good to go; we now need to use the BIOS to obtain the memory map.
+	 * Note that we only *obtain* the memory map and do not yet add it, because
+	 * we keep switching from protected mode -> realmode -> protected mode and
+	 * back, which will mess up any lower mappings since there are not
+	 * adequately restored XXX
 	 */
 	struct realmode_regs r;
 	r.ebx = 0;
@@ -210,22 +235,47 @@ md_startup()
 		if (r.eax != 0x534d4150)
 			break;
 
-#if 0
-		uint8_t* ptr = (uint8_t*)&realmode_store;
-		uint8_t* hexchars = "0123456789abcdef";
-		for (i = 0; i < 20; i++) {
-			uint8_t c = ptr[i];
-			outb(0xe9, hexchars[c >> 4]);
-			outb(0xe9, hexchars[c & 0xf]);
-		}
-		outb(0xe9, '\n');
-#endif
+		#define SMAP_TYPE_MEMORY   0x01
+		#define SMAP_TYPE_RESERVED 0x02
+		#define SMAP_TYPE_RECLAIM  0x03
+		#define SMAP_TYPE_NVS      0x04
 
-		asm("cld");
-		asm("cld");
-		asm("cld");
-		asm("cld");
+		struct SMAP_ENTRY {
+			uint32_t base_lo, base_hi;
+			uint32_t len_lo, len_hi;
+			uint32_t type;
+		} __attribute__((packed)) *sme = (struct SMAP_ENTRY*)&realmode_store;
+		/* CTASSERT(sizeof(smap_entry) == 20, "smap entry length invalid"); */
+
+		/* Ignore any memory that is not specifically available */
+		if (sme->type != SMAP_TYPE_MEMORY)
+			continue;
+
+		/* This piece of memory is available; add it */
+		addr_t base = /* sme->base_hi << 32 | */ sme->base_lo;
+		size_t len = /* sme->len_hi << 32 | */ sme->len_lo;
+
+		/* Round base up to a page, and length down a page if needed */
+		base  = (base + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+		len  &= ~(PAGE_SIZE - 1);
+
+		physmem[physmem_num].address = base;
+		physmem[physmem_num].length = len;
+		physmem_num++;
 	} while (r.ebx != 0);
+
+	/* We have the chunks, feed them to the memory manager */
+	for (i = 0; i < physmem_num; i++) {
+		mm_zone_add(physmem[i].address, physmem[i].length);
+
+		/*
+		 * Once the first zone has been added, we can finally do away
+		 * with the temp_pt hack which we need in order to get an
+		 * initial pagemapping.
+		 */
+		if (i == 0)
+			vm_init();
+	}
 
 	/* All done - it's up to the machine-independant code now */
 	mi_startup();
