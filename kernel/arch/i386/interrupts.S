@@ -4,7 +4,7 @@
 .text
 .globl exception0, exception1, exception2, exception3, exception4, exception5
 .globl exception6, exception7, exception8, exception9, exceptionA, exceptionB
-.globl exceptionC, exceptionD, exceptionE, exceptionF
+.globl exceptionC, exceptionD, exceptionE
 
 #include "i386/vm.h"
 
