@@ -50,10 +50,6 @@ realmode16_stub:
 	mov	%ax, %fs
 	mov	%ax, %gs
 
-	cli
-	cli
-	cli
-
 	/* Now, we can leave protected mode */
 	movl	%cr0, %eax
 	andl	$0xfffffffe, %eax
