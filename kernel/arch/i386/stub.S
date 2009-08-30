@@ -22,6 +22,41 @@ __entry:
 	/* don't trust what the bootloader gives us, set up a stack */
 	mov	$R(KERNEL_STACK), %esp
 
+	/* disable serial interrupts */
+	mov	$0x3f8+1,%dx
+	mov	$0x00, %al
+	outb	%al, %dx
+
+	/* enable DLAB (sets baud rate divisor) */
+	mov	$0x3f8+3,%dx
+	mov	$0x80, %al
+	outb	%al, %dx
+
+	/* set divisor low byte for 9600 baud */
+	mov	$0x3f8+0,%dx
+	mov	$0x0c, %al
+	outb	%al, %dx
+
+	/* set divisor hi byte for 9600 baud */
+	mov	$0x3f8+1,%dx
+	mov	$0x0, %al
+	outb	%al, %dx
+
+	/* 8 bits, no parity and 1 stop bit */
+	mov	$0x3f8+3,%dx
+	mov	$0x3, %al
+	outb	%al, %dx
+
+	/* enable FIFO, clear it and set it for a 14 byte threshold */
+	mov	$0x3f8+2,%dx
+	mov	$0xc7, %al
+	outb	%al, %dx
+
+	/* re-enable interrupts */
+	mov	$0x3f8+4,%dx
+	mov	$0x0b, %al
+	outb	%al, %dx
+
 	jmp	md_startup
 
 .align 32
