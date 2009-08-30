@@ -1,7 +1,7 @@
 TARGET:		kernel.i386
 
-OBJS=		kern/startup.o lib/memset.o lib/memcpy.o \
-		dev/console.o
+OBJS=		kern/startup.o lib/memset.o lib/memcpy.o lib/print.o \
+		dev/console.o lib/misc.o
 CPPFLAGS=	-m32 -march=i386 -I../include -I.
 ASFLAGS=	-DASM
 I386_OBJS=	arch/i386/stub.o arch/i386/startup.o arch/i386/interrupts.o \
