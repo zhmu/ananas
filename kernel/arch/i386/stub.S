@@ -5,8 +5,9 @@
 .text
 
 #include "param.h"
+#include "types.h"
 
-.global __entry, idt, gdt
+.global __entry, idt, gdt, temp_pt_entry
 
 /* Macro used to reallocate a virtual address to physical */
 #define R(x) ((x) - KERNBASE)
@@ -37,3 +38,11 @@ gdt:
 
 idt:
 	.space	IDT_NUM_ENTRIES * 8
+
+/*
+ * Reserve space for a temporary page directory entry; this is needed because
+ * it is the only way we can pre-setup a mapping.
+ */
+.align 4096
+temp_pt_entry:
+	.space	PAGE_SIZE
