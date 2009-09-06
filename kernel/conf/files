@@ -1,6 +1,7 @@
 kern/init.c		mandatory
 kern/mm.c		mandatory
 kern/device.c		mandatory
+kern/console.c		mandatory
 lib/misc.c		mandatory
 lib/memset.c		mandatory
 lib/memcpy.c		mandatory

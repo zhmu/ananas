@@ -3,3 +3,5 @@ ident		LINT
 
 device		vga
 device		sio
+
+console		vga
