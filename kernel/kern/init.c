@@ -4,7 +4,8 @@
 void
 mi_startup()
 {
-	vga_init();
+//	vga_init();
+	device_init();
 
 	size_t mem_avail, mem_total;
 	kmem_stats(&mem_avail, &mem_total);
