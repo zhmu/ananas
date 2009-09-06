@@ -1,0 +1,9 @@
+kern/init.c		mandatory
+kern/mm.c		mandatory
+kern/device.c		mandatory
+lib/misc.c		mandatory
+lib/memset.c		mandatory
+lib/memcpy.c		mandatory
+lib/print.c		mandatory
+dev/vga.c		optional vga
+dev/sio.c		optional sio
