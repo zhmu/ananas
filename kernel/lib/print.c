@@ -1,8 +1,12 @@
 #include "types.h"
 #include "stdarg.h"
+#include "device.h"
 #include "dev/console.h"
 
-#define putc(x) vga_putc(x)
+void
+putc(int x)
+{
+}
 
 static const uint8_t hextab[16] = "0123456789ABCDEF";
 
