@@ -164,4 +164,10 @@ kmalloc(size_t len)
 	return ptr;
 }
 
+void
+kfree(void* addr)
+{
+	panic("kfree(): write me!");
+}
+
 /* vim:set ts=2 sw=2: */

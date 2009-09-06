@@ -63,5 +63,6 @@ void mm_zone_add(addr_t addr, size_t length);
 void kmem_stats(size_t* avail, size_t* total);
 void* kmem_alloc(size_t len);
 void* kmalloc(size_t len);
+void  kfree(void* ptr);
 
 #endif /* __MM_H__ */
