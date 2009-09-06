@@ -1,0 +1,2 @@
+# ignore any files in the compile trees
+^kernel/arch/.*/compile/
