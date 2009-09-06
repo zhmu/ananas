@@ -1,10 +1,10 @@
-#include "dev/console.h"
+#include "device.h"
+#include "mm.h"
 #include "lib.h"
 
 void
 mi_startup()
 {
-//	vga_init();
 	device_init();
 
 	size_t mem_avail, mem_total;

@@ -3,6 +3,7 @@
 #include "i386/io.h"
 #include "i386/macro.h"
 #include "i386/realmode.h"
+#include "init.h"
 #include "lib.h"
 #include "mm.h"
 #include "param.h"

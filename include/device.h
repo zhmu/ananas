@@ -46,4 +46,6 @@ struct PROBE {
 		.bus    = STRINGIFY(bs) \
 	};
 
+void device_init();
+
 #endif /* __DEVICE_H__ */
