@@ -1,0 +1,5 @@
+arch		i386
+ident		LINT
+
+device		vga
+device		sio
