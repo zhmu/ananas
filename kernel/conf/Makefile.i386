@@ -5,7 +5,7 @@ S=		../../../..
 %OBJS
 %FILES
 
-CFLAGS=		-m32 -march=i386 -I$S/../include -I$S -std=c99
+CFLAGS=		-m32 -march=i386 -I$S/../include -I$S -I. -std=c99
 kernel:		$(OBJS) $S/conf/ld.i386
 		$(LD) -b elf32-i386 -T $S/conf/ld.i386 -o kernel $(OBJS)
 
