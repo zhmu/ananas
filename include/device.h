@@ -58,5 +58,6 @@ struct PROBE {
 	};
 
 void device_init();
+int device_attach_single(device_t* dev, device_t bus, driver_t driver);
 
 #endif /* __DEVICE_H__ */

@@ -1,3 +1,4 @@
+#include "console.h"
 #include "device.h"
 #include "lib.h"
 #include "mm.h"
@@ -20,6 +21,36 @@ device_alloc(driver_t drv)
 	dev->driver = drv;
 	strcpy(dev->name, drv->name);
 	return dev;
+}
+
+int
+device_attach_single(device_t* dev, device_t bus, driver_t driver)
+{
+	int result;
+
+	*dev = device_alloc(driver);
+	if (driver->drv_probe != NULL) {
+		/*
+		 * This device has a probe function; we must call it to figure out
+	 	 * whether the device actually exists or we're about to attach
+		 * something out of thin air here...
+		 */
+		result = driver->drv_probe(*dev);
+		if (result)
+			goto fail;
+	}
+	if (driver->drv_attach != NULL) {
+		result = driver->drv_attach(*dev);
+		if (result)
+			goto fail;
+	}
+
+	return 0;
+
+fail:
+	kfree(*dev);
+	*dev = NULL;
+	return result;
 }
 
 /*
@@ -46,27 +77,15 @@ device_attach_bus(device_t bus)
 		 */
 		driver_t driver = (*p)->driver;
 		KASSERT(driver != NULL, "matched a probe device without a driver!");
-		device_t dev = device_alloc(driver);
-		if (driver->drv_probe != NULL) {
-			/*
-			 * This device has a probe function; we must call it to figure out
-		 	 * whether the device actually exists or we're about to attach
-			 * something out of thin air here...
-			 */
-			if (driver->drv_probe(dev))
-				goto fail;
-		}
-		if (driver->drv_attach != NULL)
-			if (driver->drv_attach(dev))
-				goto fail;
 
-		/* Excellent - inform the attachment and give this device a whirl */
+		device_t dev;
+		int result = device_attach_single(&dev, bus, driver);
+		if (result != 0)
+			continue;
+
+		/* We have a device; tell the user and see if anything lives on this bus */
 		kprintf("%s on %s\n", dev->name, bus->name);
 		device_attach_bus(dev);
-		continue;
-
-fail:
-		kfree(dev);
 	}
 }
 
