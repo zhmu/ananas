@@ -41,11 +41,14 @@ sio_write(device_t dev, const char* data, size_t len)
 }
 
 struct DRIVER drv_sio = {
+	.name					= "sio",
 	.drv_probe		= NULL,
 	.drv_attach		= sio_attach,
 	.drv_write		= sio_write
 };
 
-DRIVER_PROBE(sio, core);
+DRIVER_PROBE(sio)
+DRIVER_PROBE_BUS(corebus)
+DRIVER_PROBE_END()
 
 /* vim:set ts=2 sw=2: */

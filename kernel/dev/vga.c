@@ -56,11 +56,14 @@ vga_write(device_t dev, const char* data, size_t len)
 }
 
 struct DRIVER drv_vga = {
+	.name					= "vga",
 	.drv_probe		= NULL,
 	.drv_attach		= vga_attach,
 	.drv_write		= vga_write
 };
 
-DRIVER_PROBE(vga, core);
+DRIVER_PROBE(vga)
+DRIVER_PROBE_BUS(corebus)
+DRIVER_PROBE_END()
 
 /* vim:set ts=2 sw=2: */

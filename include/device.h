@@ -11,6 +11,8 @@ typedef struct PROBE* probe_t;
  *  This describes a device driver.
  */
 struct DRIVER {
+	char*   name;
+
 	int	(*drv_probe)(device_t);
 	int	(*drv_attach)(device_t);
 	ssize_t	(*drv_write)(device_t, const char*, size_t);
@@ -23,7 +25,9 @@ struct DRIVER {
  */
 struct DEVICE {
 	/* Device's driver */
-	driver_t*	driver;
+	driver_t	driver;
+
+	char		name[128 /* XXX */];
 };
 
 /*
@@ -34,16 +38,23 @@ struct DEVICE {
  */
 struct PROBE {
 	/* Driver we are attaching */
-	driver_t*	driver;
+	driver_t	driver;
 
-	/* Parent bus */
-	const char*	bus;
+	/* Busses this device appears on */
+	const char*	bus[];
 };
 
-#define DRIVER_PROBE(drv,bs) \
-	static struct PROBE probe_##bus##_##drv = { \
-		.driver = NULL, \
-		.bus    = STRINGIFY(bs) \
+#define DRIVER_PROBE(drvr) \
+	struct PROBE probe_##drvr = { \
+		.driver = &drv_##drvr, \
+		.bus = {
+
+#define DRIVER_PROBE_BUS(bus) \
+			STRINGIFY(bus),
+
+#define DRIVER_PROBE_END() \
+			NULL \
+		} \
 	};
 
 void device_init();
