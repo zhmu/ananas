@@ -42,12 +42,15 @@ entry_add(struct ENTRY** root, const char* v)
 	new_entry->value = strdup(v);
 	new_entry->matched = 0;
 
+	new_entry->next = NULL;
 	if (*root == NULL) {
-		new_entry->next = NULL;
+		*root = new_entry;
 	} else {
-		new_entry->next = *root;
+		struct ENTRY* e = *root;
+		while (e->next != NULL)
+			e = e->next;
+		e->next = new_entry;
 	}
-	*root = new_entry;
 }
 
 struct ENTRY*
@@ -385,8 +388,8 @@ main(int argc, char* argv[])
 
 	check_ident();
 
-	parse_devfile(NULL);
 	parse_devfile(architecture);
+	parse_devfile(NULL);
 
 	create_makefile();
 
