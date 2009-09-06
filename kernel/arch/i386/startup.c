@@ -6,6 +6,7 @@
 #include "lib.h"
 #include "mm.h"
 #include "param.h"
+#include "vm.h"
 
 /* __end is defined by the linker script and indicates the end of the kernel */
 extern void* __end;
@@ -96,7 +97,7 @@ md_startup()
 	}
 
 	/* It's time to... throw the switch! */
-	asm(
+	__asm(
 		/* Set CR3 to the physical address of the page directory */
 		"movl	%%eax, %%cr3\n"
 		"jmp	l1\n"
@@ -125,7 +126,7 @@ md_startup()
 		pd[i >> 22] = 0;
 	}
 
-	asm(
+	__asm(
 		/* Reload the page directory */
 		"movl	%%eax, %%cr3\n"
 		"jmp	l4\n"
@@ -159,7 +160,7 @@ md_startup()
 	MAKE_RREGISTER(gdtr, &gdt, GDT_NUM_ENTRIES);
 
 	/* Load the GDT, and reload our registers */
-	asm(
+	__asm(
 		"lgdt (%%eax)\n"
 		"mov %%bx, %%ds\n"
 		"mov %%bx, %%es\n"
@@ -197,7 +198,7 @@ md_startup()
 	MAKE_RREGISTER(idtr, &idt, IDT_NUM_ENTRIES);
 
 	/* Load the IDT */
-	asm(
+	__asm(
 		"lidt (%%eax)\n"
 	: : "a" (&idtr));
 

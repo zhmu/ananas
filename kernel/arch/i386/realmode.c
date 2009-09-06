@@ -55,7 +55,7 @@ realmode_call_int(unsigned char num, struct realmode_regs* r)
 	}
 
 	/* (1) Transfer control to a linear address that is identity mapped */
-	asm (
+	__asm (
 		"movl	$l1, %%eax\n"
 		"subl	%%ebx, %%eax\n"
 		"jmp *%%eax\n"
@@ -67,12 +67,12 @@ realmode_call_int(unsigned char num, struct realmode_regs* r)
 	addr_t lowIDT = (addr_t)0;
 	MAKE_RREGISTER(low_gdtr, lowGDT, GDT_NUM_ENTRIES);
 	MAKE_RREGISTER(low_idtr, lowIDT, 0);
-	asm (
+	__asm (
 		"lidt (%%eax)\n"
 		"lgdt (%%ebx)\n"
 	: : "a" (&low_idtr),
 	    "b" (&low_gdtr));
-	asm(
+	__asm(
 		/* store the entry point of the return call */
 		"pushl	%%eax\n"
 		"pushl	$l2\n"
@@ -92,7 +92,7 @@ realmode_call_int(unsigned char num, struct realmode_regs* r)
 	/* OK, we are done; restore the GDT/IDT */
 	MAKE_RREGISTER(gdtr, &gdt, GDT_NUM_ENTRIES);
 	MAKE_RREGISTER(idtr, &idt, IDT_NUM_ENTRIES);
-	asm (
+	__asm (
 		"lidt (%%eax)\n"
 		"lgdt (%%ebx)\n"
 	: : "a" (&idtr),
