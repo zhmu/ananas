@@ -23,4 +23,6 @@ size_t strlen(const char* s);
 
 int memcmp(const void* s1, const void* s2, size_t len);
 
+unsigned long strtoul(const char* ptr, char** endptr, int base);
+
 #endif /* __LIBKERN_H__ */

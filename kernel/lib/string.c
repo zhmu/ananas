@@ -53,4 +53,36 @@ memcmp(const void* s1, const void* s2, size_t len)
 	return len > 0 ? *c1 - *c2 : 0;
 }
 
+unsigned long
+strtoul(const char* ptr, char** endptr, int base)
+{
+	unsigned long val = 0;
+
+	/* detect 0x hex modifier */
+	if (base == 0 && *ptr == '0' && *(ptr + 1) == 'x') {
+		base = 16; ptr += 2;
+	}
+	while (*ptr) {
+		if (*ptr >= '0' && *ptr <= '9') {
+			val = (val * base) + (*ptr - '0');
+			ptr++;
+			continue;
+		}
+		if (base == 0x10 && (*ptr >= 'a' && *ptr <= 'f')) {
+		val = (val * base) + (*ptr - 'a') + 0xa;
+			ptr++;
+			continue;
+		}
+		if (base == 0x10 && (*ptr >= 'A' && *ptr <= 'F')) {
+		val = (val * base) + (*ptr - 'A') + 0xa;
+			ptr++;
+			continue;
+		}
+		if (endptr != NULL)
+			*endptr = (char*)ptr;
+		break;
+	}
+	return val;
+}
+
 /* vim:set ts=2 sw=2: */
