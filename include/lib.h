@@ -14,8 +14,13 @@ void* memset(void* b, int c, size_t len);
 void vaprintf(const char* fmt, va_list ap);
 void kprintf(const char* fmt, ...);
 void panic(const char* fmt, ...);
+int sprintf(char* str, const char* fmt, ...);
 
 char* strcpy(char* dst, const char* src);
 int   strcmp(const char* s1, const char* s2);
+char* strchr(const char* s, int c);
+size_t strlen(const char* s);
+
+int memcmp(const void* s1, const void* s2, size_t len);
 
 #endif /* __LIBKERN_H__ */
