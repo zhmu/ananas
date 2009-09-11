@@ -28,6 +28,23 @@ putnumber(void(*putch)(void*, int), void* v, const char* tab, unsigned int i)
 }
 
 static void
+putint(void(*putch)(void*, int), void* v, unsigned int n)
+{
+	/*
+	 * Note that 1234 is just 1*10^3 + 2*10^2 + 3*10^1 + 4*10^0 =
+	 * 1000 + 200 + 30 + 4. This means we have to figure out the highest power p
+	 * of 10 first (p=3 in this case) and then print 'n divide. The digit we
+	 * need to print is n % 10^p, so 1234 % 10^3 = 1, 234 % 10^2 = 2 etc)
+	 */
+	unsigned int i, p = 0, base = 1;
+	for (i = n; i > 10; i /= 10, p++, base *= 10);
+	/* Write values from n/(p^10) .. n/1 */
+	for (i = 0; i<= p; i++, base /= 10) {
+		putch(v, '0' + (n / base) % 10);
+	}
+}
+
+static void
 vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 {
 	const char* s;
@@ -61,6 +78,10 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 				break;
 			case 'X': /* hex int XXX assumed 32 bit */
 				putnumber(putch, v, hextab_hi, va_arg(ap, unsigned int));
+				break;
+			case 'u': /* unsigned integer */
+			case 'i': /* integer XXX */
+				putint(putch, v, va_arg(ap, unsigned int));
 				break;
 			default: /* unknown, just print it */
 				putch(v, '%');
