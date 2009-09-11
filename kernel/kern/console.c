@@ -3,6 +3,7 @@
 #include "console.inc"
 
 device_t console_dev = NULL;
+extern const char* config_hints[];
 
 void
 console_init()
@@ -14,7 +15,9 @@ console_init()
 	 */
 #ifdef CONSOLE_DRIVER
 	extern struct DRIVER CONSOLE_DRIVER;
-	device_attach_single(&console_dev, NULL, &CONSOLE_DRIVER);
+	console_dev = device_alloc(NULL, &CONSOLE_DRIVER);
+	device_get_resources(console_dev, config_hints);
+	device_attach_single(&console_dev);
 #endif /* CONSOLE_DRIVER */
 }
 

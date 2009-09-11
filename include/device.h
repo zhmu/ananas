@@ -27,6 +27,13 @@ struct DEVICE {
 	/* Device's driver */
 	driver_t	driver;
 
+	/* Parent device */
+	device_t	parent;
+
+	/* Unit number */
+	unsigned int	unit;
+
+	/* Formatted name XXX */
 	char		name[128 /* XXX */];
 };
 
@@ -58,6 +65,7 @@ struct PROBE {
 	};
 
 void device_init();
-int device_attach_single(device_t* dev, device_t bus, driver_t driver);
+device_t device_alloc(device_t bus, driver_t drv);
+int device_attach_single(device_t dev);
 
 #endif /* __DEVICE_H__ */
