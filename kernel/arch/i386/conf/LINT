@@ -1,6 +1,9 @@
 arch		i386
 ident		LINT
 
+hints		hints.i386
+
+device		isa
 device		vga
 device		sio
 

@@ -36,6 +36,11 @@ sio_write(device_t dev, const char* data, size_t len)
 			"test	$0x20, %%al\n"
 			"jz	 	z2f\n"
 		: : "b" (*data), "c" (SIO_PORT));
+		/* XXX KLUDGE */
+		if (len == 1 && *data == '\n') {
+			char tmp = '\r';
+			sio_write(dev, &tmp, 1);
+		}
 	}
 	return amount;
 }
@@ -48,7 +53,7 @@ struct DRIVER drv_sio = {
 };
 
 DRIVER_PROBE(sio)
-DRIVER_PROBE_BUS(corebus)
+DRIVER_PROBE_BUS(isa)
 DRIVER_PROBE_END()
 
 /* vim:set ts=2 sw=2: */

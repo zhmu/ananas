@@ -75,7 +75,7 @@ struct DRIVER drv_vga = {
 };
 
 DRIVER_PROBE(vga)
-DRIVER_PROBE_BUS(corebus)
+DRIVER_PROBE_BUS(isa)
 DRIVER_PROBE_END()
 
 /* vim:set ts=2 sw=2: */
