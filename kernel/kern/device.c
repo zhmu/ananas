@@ -56,6 +56,24 @@ device_attach_single(device_t dev)
 	return 0;
 }
 
+static int
+device_resolve_type(char** value)
+{
+	if (!memcmp(*value, "mem=", 4)) {
+		*value += 4;
+		return RESTYPE_MEMORY;
+	}
+	if (!memcmp(*value, "io=", 3)) {
+		*value += 3;
+		return RESTYPE_IO;
+	}
+	if (!memcmp(*value, "irq=", 4)) {
+		*value += 4;
+		return RESTYPE_IRQ;
+	}
+	return RESTYPE_UNUSED;
+}
+
 /*
  * Handles retrieving the resources for a bus.device.unit from
  * the hints.
@@ -66,19 +84,59 @@ device_get_resources(device_t dev, const char** hints)
 	const char** curhint;
 	char tmpname[32 /* XXX */];
 
-	if (dev->parent != NULL)
-		sprintf(tmpname, "%s.%s.%x.", dev->parent->name, dev->name, dev->unit);
-	else
-		sprintf(tmpname, "%s.%x.", dev->name, dev->unit);
+	memset(dev->resource, 0, sizeof(struct RESOURCE) * DEVICE_MAX_RESOURCES);
 
+	if (dev->parent != NULL)
+		sprintf(tmpname, "%s.%s.%u.", dev->parent->name, dev->name, dev->unit);
+	else
+		sprintf(tmpname, "%s.%u.", dev->name, dev->unit);
+
+	unsigned int numhints = 0;
 	for (curhint = hints; *curhint != NULL; curhint++) {
 		if (strlen(*curhint) < strlen(tmpname))
 			continue;
 		if (memcmp(*curhint, tmpname, strlen(tmpname)))
 			continue;
 
-		kprintf("[%s]: matched hint [%s]\n", tmpname, *curhint);
+		/*
+		 * We got a resource match; need to figure out the type.
+		 */
+		char* value = (char*)(*curhint + strlen(tmpname));
+		int type = device_resolve_type(&value);
+		if (type == RESTYPE_UNUSED) {
+			kprintf("%s: ignoring unparsable resource '%s'\n", dev->name, *curhint);
+			continue;
+		}
+		unsigned long v = strtoul(value, NULL, 0);
+		if (numhints >= DEVICE_MAX_RESOURCES) {
+			kprintf("%s: skipping resource type 0x%x, too many specified\n", dev->name, type);
+			continue;
+		}
+		dev->resource[numhints].type = type;
+		dev->resource[numhints].base = v;
+		numhints++;
 	}
+}
+
+static void
+device_print_attachment(device_t dev)
+{
+	KASSERT(dev->parent != NULL, "can't print device which doesn't have a parent bus");
+	kprintf("%s%u on %s%u ", dev->name, dev->unit, dev->parent->name, dev->parent->unit);
+	int i;
+	for (i = 0; i < DEVICE_MAX_RESOURCES; i++) {
+		switch (dev->resource[i].type) {
+			case RESTYPE_MEMORY: kprintf("memory "); break;
+			case RESTYPE_IO: kprintf("io "); break;
+			case RESTYPE_IRQ: kprintf("irq "); break;
+			default: continue;
+		}
+		kprintf("0x%x", dev->resource[i].base);
+		if (dev->resource[i].length > 0)
+			kprintf("-0x%x", dev->resource[i].base + dev->resource[i].length);
+		kprintf(" ");
+	}
+	kprintf("\n");
 }
 
 /*
@@ -115,7 +173,8 @@ device_attach_bus(device_t bus)
 #ifdef CONSOLE_DRIVER
 		extern struct DRIVER CONSOLE_DRIVER;
 		if (driver == &CONSOLE_DRIVER) {
-			kprintf("%s on %s\n", console_dev->name, bus->name);
+			console_dev->parent = bus;
+			device_print_attachment(console_dev);
 			continue;
 		}
 #endif
@@ -129,7 +188,7 @@ device_attach_bus(device_t bus)
 		}
 
 		/* We have a device; tell the user and see if anything lives on this bus */
-		kprintf("%s on %s\n", dev->name, bus->name);
+		device_print_attachment(dev);
 		device_attach_bus(dev);
 	}
 }

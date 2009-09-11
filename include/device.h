@@ -7,6 +7,21 @@ typedef struct DEVICE* device_t;
 typedef struct DRIVER* driver_t;
 typedef struct PROBE* probe_t;
 
+#define DEVICE_MAX_RESOURCES	16
+
+enum resource_type_t {
+	RESTYPE_UNUSED,
+	RESTYPE_MEMORY,
+	RESTYPE_IO,
+	RESTYPE_IRQ
+};
+
+struct RESOURCE {
+	enum resource_type_t	type;
+	unsigned int	base;
+	unsigned int	length;
+};
+
 /*
  *  This describes a device driver.
  */
@@ -32,6 +47,9 @@ struct DEVICE {
 
 	/* Unit number */
 	unsigned int	unit;
+
+	/* Device resources */
+	struct RESOURCE	resource[DEVICE_MAX_RESOURCES];
 
 	/* Formatted name XXX */
 	char		name[128 /* XXX */];
