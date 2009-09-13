@@ -86,4 +86,6 @@ void device_init();
 device_t device_alloc(device_t bus, driver_t drv);
 int device_attach_single(device_t dev);
 
+int device_get_resources(device_t dev, const char** hints);
+
 #endif /* __DEVICE_H__ */
