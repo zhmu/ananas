@@ -17,7 +17,7 @@ console_init()
 	extern struct DRIVER CONSOLE_DRIVER;
 	console_dev = device_alloc(NULL, &CONSOLE_DRIVER);
 	device_get_resources(console_dev, config_hints);
-	device_attach_single(&console_dev);
+	device_attach_single(console_dev);
 #endif /* CONSOLE_DRIVER */
 }
 
