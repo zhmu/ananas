@@ -113,9 +113,6 @@ kmem_alloc(size_t len)
 
 	len /= PAGE_SIZE;
 	for (curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
-
-//kprintf("kmem_alloc(): inspecting zone %x\n", curzone);
-
 		/* Skip any zone that hasn't got enough space */
 		if (curzone->num_cont_free < len)
 			continue;
@@ -123,8 +120,6 @@ kmem_alloc(size_t len)
 		unsigned int n;
 		for (n = 0; n < curzone->num_chunks; n++) {
 			struct MM_CHUNK* chunk = (struct MM_CHUNK*)((addr_t)curzone->chunks + n * sizeof(struct MM_CHUNK));
-
-//kprintf("kmem_alloc():  inspecting chunk %x/%x @ %x (chunks=%x)\n", n, curzone->num_chunks, chunk, curzone->chunks);
 
 			if (chunk->flags & MM_CHUNK_FLAG_USED)
 				continue;
@@ -140,8 +135,6 @@ kmem_alloc(size_t len)
 				chunk->chain_length = len;
 				chunk++; len--;
 			}
-
-//kprintf("kmem_alloc():  allocated chunk, address=%x\n", addr);
 
 			return (void*)addr;
 		}
@@ -160,14 +153,44 @@ kmalloc(size_t len)
 	void* ptr = kmem_alloc(len);
 	len /= PAGE_SIZE;
 	vm_map((addr_t)ptr, len);
-	kprintf("kmalloc(): got ptr=%x, len=%x\n", ptr, len);
 	return ptr;
 }
 
 void
 kfree(void* addr)
 {
-	panic("kfree(): write me!");
+	KASSERT((addr_t)addr % PAGE_SIZE == 0, "addr 0x%x isn't page-aligned", (addr_t)addr);
+
+	/*
+	 * This is quite unpleasant; we have to trace through all zones before we know
+	 * where this address belongs. And then, we can free it.
+	 */
+	struct MM_ZONE* curzone;
+	for (curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
+		unsigned int n;
+		for (n = 0; n < curzone->num_chunks; n++) {
+			struct MM_CHUNK* chunk = (struct MM_CHUNK*)((addr_t)curzone->chunks + n * sizeof(struct MM_CHUNK));
+			if (chunk->address != (addr_t)addr)
+				continue;
+
+			if ((chunk->flags & MM_CHUNK_FLAG_USED) == 0)
+				panic("freeing unallocated pointer 0x%x", (addr_t)addr);
+
+			/*
+			 * OK, we located the chunk. Just mark it as free for now
+			 * XXX we should merge it, but that's for later XXX
+			 */
+			unsigned int i = chunk->chain_length;
+			while (i > 0) {
+				KASSERT(chunk->flags & MM_CHUNK_FLAG_USED, "chunk 0x%x (%u) should be allocated, but isn't!", chunk, i);
+				chunk->flags &= ~MM_CHUNK_FLAG_USED;
+				chunk++; i--;
+			}
+			return;
+		}
+	}
+
+	panic("freeing unlocatable pointer 0x%x", (addr_t)addr);
 }
 
 /* vim:set ts=2 sw=2: */
