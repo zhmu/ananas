@@ -7,4 +7,4 @@ device		isa
 device		vga
 device		sio
 
-console		vga
+console		isa.vga
