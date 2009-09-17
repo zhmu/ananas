@@ -8,16 +8,27 @@ typedef struct DRIVER* driver_t;
 typedef struct PROBE* probe_t;
 
 #define DEVICE_MAX_RESOURCES	16
+#define DEVICE_RESOURCE_NONE 0xffffffff
 
-enum resource_type_t {
+enum RESOURCE_TYPE {
 	RESTYPE_UNUSED,
+	/* Base resource types */
 	RESTYPE_MEMORY,
 	RESTYPE_IO,
-	RESTYPE_IRQ
+	RESTYPE_IRQ,
+	/* PCI-specific resource types */
+	RESTYPE_PCI_VENDORID,
+	RESTYPE_PCI_DEVICEID,
+	RESTYPE_PCI_BUS,
+	RESTYPE_PCI_DEVICE,
+	RESTYPE_PCI_FUNCTION,
+	RESTYPE_PCI_CLASS,
 };
 
+typedef enum RESOURCE_TYPE resource_type_t;
+
 struct RESOURCE {
-	enum resource_type_t	type;
+	resource_type_t	type;
 	unsigned int	base;
 	unsigned int	length;
 };
@@ -84,8 +95,15 @@ struct PROBE {
 
 void device_init();
 device_t device_alloc(device_t bus, driver_t drv);
+void device_free(device_t dev);
 int device_attach_single(device_t dev);
 
+int device_get_resources_byhint(device_t dev, const char* hint, const char** hints);
 int device_get_resources(device_t dev, const char** hints);
+
+void* device_alloc_resource(device_t dev, resource_type_t type, size_t len);
+
+int device_add_resource(device_t dev, resource_type_t type, unsigned int base, unsigned int len);
+struct RESOURCE* device_get_resource(device_t dev, resource_type_t type, int index);
 
 #endif /* __DEVICE_H__ */
