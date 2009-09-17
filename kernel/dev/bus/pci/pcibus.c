@@ -3,6 +3,8 @@
 #include "device.h"
 #include "lib.h"
 
+extern struct PROBE* devprobe[];
+
 extern uint32_t pci_read_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg);
 
 static int
@@ -62,10 +64,34 @@ pcibus_attach(device_t dev)
 			device_add_resource(new_dev, RESTYPE_PCI_DEVICEID, dev_vendor >> 16, 0);
 			device_add_resource(new_dev, RESTYPE_PCI_CLASS, PCI_CLASS(class), 0);
 
-			kprintf("%s%u: no match for vendor 0x%x device 0x%x class %u, device ignored\n",
-				dev->name, dev->unit, dev_vendor & 0xffff, dev_vendor >> 16, PCI_CLASS(class));
+			/* Walk through any device that attached on our bus, and see if it works */
+			int device_attached = 0;
+			struct PROBE** p = devprobe;
+			for (; *p != NULL; p++) {
+				/* See if the device lives on our bus */
+				int exists = 0;
+				for (const char** curbus = (*p)->bus; *curbus != NULL; curbus++) {
+					if (strcmp(*curbus, dev->name) == 0) {
+						exists = 1;
+						break;
+					}
+				}
+				if (!exists)
+					continue;
 
-			device_free(new_dev);
+				/* This device may work - give it a chance to attach */
+				new_dev->driver = (*p)->driver;
+				device_attached = device_attach_single(dev);
+				if (device_attached)
+					break;
+			}
+
+			if (!device_attached) {
+				kprintf("%s%u: no match for vendor 0x%x device 0x%x class %u, device ignored\n",
+					dev->name, dev->unit, dev_vendor & 0xffff, dev_vendor >> 16, PCI_CLASS(class));
+				new_dev->driver = NULL;
+				device_free(new_dev);
+			}
 		}
 	}
 	return 0;
