@@ -1,5 +1,6 @@
 #include "console.h"
 #include "device.h"
+#include "lib.h"
 #include "console.inc"
 
 device_t console_dev = NULL;
@@ -16,7 +17,18 @@ console_init()
 #ifdef CONSOLE_DRIVER
 	extern struct DRIVER CONSOLE_DRIVER;
 	console_dev = device_alloc(NULL, &CONSOLE_DRIVER);
-	device_get_resources(console_dev, config_hints);
+	/*
+	 * Cheat: we have no way to figure out what the eventual bus is the
+	 * console driver will be attached to, so we allow this to be hardcoded
+	 * in the configuration as well.
+	 */
+	char tmphint[32 /* XXX */];
+#ifdef CONSOLE_BUS
+	sprintf(tmphint, "%s.%s.%u.", CONSOLE_BUS, console_dev->name, console_dev->unit);
+#else
+	sprintf(tmphint, "%s.%u.", console_dev->name, console_dev->unit);
+#endif
+	device_get_resources_byhint(console_dev, tmphint, config_hints);
 	device_attach_single(console_dev);
 #endif /* CONSOLE_DRIVER */
 }
