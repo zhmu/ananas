@@ -2,11 +2,16 @@
 #include "device.h"
 #include "lib.h"
 
-#define SIO_PORT 0x3f8
+uint32_t sio_port = 0;
 
 static int
 sio_attach(device_t dev)
 {
+	void* res = device_alloc_resource(dev, RESTYPE_IO, 7);
+	if (res == NULL)
+		return 1; /* XXX */
+	sio_port = (uint32_t)res;
+
 	return 0;
 }
 
@@ -35,7 +40,7 @@ sio_write(device_t dev, const char* data, size_t len)
 			"in		%%dx,%%al\n"
 			"test	$0x20, %%al\n"
 			"jz	 	z2f\n"
-		: : "b" (*data), "c" (SIO_PORT));
+		: : "b" (*data), "c" (sio_port));
 		/* XXX KLUDGE */
 		if (len == 1 && *data == '\n') {
 			char tmp = '\r';
