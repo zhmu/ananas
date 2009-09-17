@@ -7,4 +7,7 @@ device		isa
 device		vga
 device		sio
 
+device		pcihb
+device		pci
+
 console		isa.vga

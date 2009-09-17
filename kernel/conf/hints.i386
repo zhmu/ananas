@@ -1,3 +1,4 @@
 isa.sio.0.io=0x3f8
 isa.sio.0.irq=3
 isa.vga.0.mem=0xb8000
+isa.pcihb.0.io=0xcf8

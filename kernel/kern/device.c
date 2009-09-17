@@ -160,6 +160,12 @@ device_print_attachment(device_t dev)
 			case RESTYPE_MEMORY: kprintf("memory "); hex = 1; break;
 			case RESTYPE_IO: kprintf("io "); hex = 1; break;
 			case RESTYPE_IRQ: kprintf("irq "); break;
+			case RESTYPE_PCI_BUS: kprintf("bus "); break;
+			case RESTYPE_PCI_DEVICE: kprintf("dev "); break;
+			case RESTYPE_PCI_FUNCTION: kprintf("func "); break;
+			case RESTYPE_PCI_VENDORID: kprintf("vendor "); hex = 1; break;
+			case RESTYPE_PCI_DEVICEID: kprintf("device "); hex = 1; break;
+			case RESTYPE_PCI_CLASS: kprintf("class "); break;
 			default: continue;
 		}
 		kprintf(hex ? "0x%x" : "%u", dev->resource[i].base);

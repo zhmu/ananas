@@ -8,5 +8,7 @@ lib/memcpy.c		mandatory
 lib/print.c		mandatory
 lib/string.c		mandatory
 dev/bus/isa.c		optional isa
+dev/bus/pci/pci.c	optional pci
+dev/bus/pci/pcibus.c	optional pci
 dev/vga.c		optional vga
 dev/sio.c		optional sio
