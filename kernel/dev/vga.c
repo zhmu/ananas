@@ -5,12 +5,6 @@
 #include "lib.h"
 #include "vm.h"
 
-/* Base memory address of the console memory */
-#define VGA_MEM_BASE 0xb8000
-
-/* Video memory length */
-#define VGA_MEM_LENGTH 4000
-
 /* Console height */
 #define VGA_HEIGHT 25
 
@@ -25,8 +19,10 @@ static uint8_t vga_attr = 0xf;
 static int
 vga_attach(device_t dev)
 {
-	vga_mem = (uint8_t*)vm_map_device(VGA_MEM_BASE, VGA_MEM_LENGTH);
-	memset(vga_mem, 0, VGA_MEM_LENGTH);
+	vga_mem = device_alloc_resource(dev, RESTYPE_MEMORY, 0x7fff);
+	if (vga_mem == NULL)
+		return 1; /* XXX */
+	memset(vga_mem, 0, VGA_HEIGHT * VGA_WIDTH * 2);
 
 	return 0;
 }
@@ -54,13 +50,13 @@ vga_write(device_t dev, const char* data, size_t len)
 		if (vga_x >= VGA_WIDTH) {
 			vga_x = 0;
 			vga_y++;
-			if (vga_y >= VGA_HEIGHT) {
-				/* Scroll the screen up a row */
-				memcpy((void*)(vga_mem),
-							 (void*)(vga_mem + (VGA_WIDTH * 2)),
-							 (VGA_HEIGHT - 1) * VGA_WIDTH * 2);
-				vga_y--;
-			}
+		}
+		if (vga_y >= VGA_HEIGHT) {
+			/* Scroll the screen up a row */
+			memcpy((void*)(vga_mem),
+						 (void*)(vga_mem + (VGA_WIDTH * 2)),
+						 (VGA_HEIGHT - 1) * VGA_WIDTH * 2);
+			vga_y--;
 		}
 	}
 
