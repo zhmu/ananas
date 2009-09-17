@@ -2,6 +2,7 @@
 #include "device.h"
 #include "lib.h"
 #include "mm.h"
+#include "vm.h"
 #include "console.inc"
 
 /*
@@ -17,18 +18,24 @@
 
 static device_t corebus = NULL;
 
+/* Note: drv = NULL will be used if the driver isn't yet known! */
 device_t
 device_alloc(device_t bus, driver_t drv)
 {
-	KASSERT(drv != NULL, "tried to allocate a NULL driver");
-
-	device_t dev = kmalloc(sizeof(device_t));
-	memset(dev, 0, sizeof(device_t));
+	device_t dev = kmalloc(sizeof(struct DEVICE));
+	memset(dev, 0, sizeof(struct DEVICE));
 	dev->driver = drv;
 	dev->parent = bus;
 	dev->unit = 0; /* XXX */
-	strcpy(dev->name, drv->name);
+	if (drv != NULL)
+		strcpy(dev->name, drv->name);
 	return dev;
+}
+
+void
+device_free(device_t dev)
+{
+	kfree(dev);
 }
 
 int
@@ -74,6 +81,56 @@ device_resolve_type(char** value)
 	return RESTYPE_UNUSED;
 }
 
+int
+device_add_resource(device_t dev, resource_type_t type, unsigned int base, unsigned int len)
+{
+	unsigned int curhint;
+
+	for (curhint = 0; curhint < DEVICE_MAX_RESOURCES; curhint++) {
+		if (dev->resource[curhint].type != RESTYPE_UNUSED)
+			continue;
+		dev->resource[curhint].type = type;
+		dev->resource[curhint].base = base;
+		dev->resource[curhint].length = len;
+		return 1;
+	}
+
+	return 0;
+}
+
+/*
+ * Handles retrieving the resources for a device based on a given hint.
+ */
+int
+device_get_resources_byhint(device_t dev, const char* hint, const char** hints)
+{
+	const char** curhint;
+
+	/* Clear out any current device resources */
+	memset(dev->resource, 0, sizeof(struct RESOURCE) * DEVICE_MAX_RESOURCES);
+	for (curhint = hints; *curhint != NULL; curhint++) {
+		if (strlen(*curhint) < strlen(hint))
+			continue;
+		if (memcmp(*curhint, hint, strlen(hint)))
+			continue;
+
+		/*
+		 * We got a resource match; need to figure out the type.
+		 */
+		char* value = (char*)(*curhint + strlen(hint));
+		int type = device_resolve_type(&value);
+		if (type == RESTYPE_UNUSED) {
+			kprintf("%s: ignoring unparsable resource '%s'\n", dev->name, *curhint);
+			continue;
+		}
+		unsigned long v = strtoul(value, NULL, 0);
+		if (!device_add_resource(dev, type, v, 0)) {
+			kprintf("%s: skipping resource type 0x%x, too many specified\n", dev->name, type);
+			continue;
+		}
+	}
+}
+
 /*
  * Handles retrieving the resources for a bus.device.unit from
  * the hints.
@@ -81,62 +138,71 @@ device_resolve_type(char** value)
 int
 device_get_resources(device_t dev, const char** hints)
 {
-	const char** curhint;
-	char tmpname[32 /* XXX */];
-
-	memset(dev->resource, 0, sizeof(struct RESOURCE) * DEVICE_MAX_RESOURCES);
+	char tmphint[32 /* XXX */];
 
 	if (dev->parent != NULL)
-		sprintf(tmpname, "%s.%s.%u.", dev->parent->name, dev->name, dev->unit);
+		sprintf(tmphint, "%s.%s.%u.", dev->parent->name, dev->name, dev->unit);
 	else
-		sprintf(tmpname, "%s.%u.", dev->name, dev->unit);
+		sprintf(tmphint, "%s.%u.", dev->name, dev->unit);
 
-	unsigned int numhints = 0;
-	for (curhint = hints; *curhint != NULL; curhint++) {
-		if (strlen(*curhint) < strlen(tmpname))
-			continue;
-		if (memcmp(*curhint, tmpname, strlen(tmpname)))
-			continue;
-
-		/*
-		 * We got a resource match; need to figure out the type.
-		 */
-		char* value = (char*)(*curhint + strlen(tmpname));
-		int type = device_resolve_type(&value);
-		if (type == RESTYPE_UNUSED) {
-			kprintf("%s: ignoring unparsable resource '%s'\n", dev->name, *curhint);
-			continue;
-		}
-		unsigned long v = strtoul(value, NULL, 0);
-		if (numhints >= DEVICE_MAX_RESOURCES) {
-			kprintf("%s: skipping resource type 0x%x, too many specified\n", dev->name, type);
-			continue;
-		}
-		dev->resource[numhints].type = type;
-		dev->resource[numhints].base = v;
-		numhints++;
-	}
+	return device_get_resources_byhint(dev, tmphint, hints);
 }
 
-static void
+void
 device_print_attachment(device_t dev)
 {
 	KASSERT(dev->parent != NULL, "can't print device which doesn't have a parent bus");
 	kprintf("%s%u on %s%u ", dev->name, dev->unit, dev->parent->name, dev->parent->unit);
 	int i;
 	for (i = 0; i < DEVICE_MAX_RESOURCES; i++) {
+		int hex = 0;
 		switch (dev->resource[i].type) {
-			case RESTYPE_MEMORY: kprintf("memory "); break;
-			case RESTYPE_IO: kprintf("io "); break;
+			case RESTYPE_MEMORY: kprintf("memory "); hex = 1; break;
+			case RESTYPE_IO: kprintf("io "); hex = 1; break;
 			case RESTYPE_IRQ: kprintf("irq "); break;
 			default: continue;
 		}
-		kprintf("0x%x", dev->resource[i].base);
+		kprintf(hex ? "0x%x" : "%u", dev->resource[i].base);
 		if (dev->resource[i].length > 0)
-			kprintf("-0x%x", dev->resource[i].base + dev->resource[i].length);
+			kprintf(hex ? "-0x%x" : "-%u", dev->resource[i].base + dev->resource[i].length);
 		kprintf(" ");
 	}
 	kprintf("\n");
+}
+
+struct RESOURCE*
+device_get_resource(device_t dev, resource_type_t type, int index)
+{
+	int i;
+	for (i = 0; i < DEVICE_MAX_RESOURCES; i++) {
+		if (dev->resource[i].type != type)
+			continue;
+		if (index-- > 0)
+			continue;
+		return &dev->resource[i];
+	}
+
+	return NULL;
+}
+
+void*
+device_alloc_resource(device_t dev, resource_type_t type, size_t len)
+{
+	struct RESOURCE* res = device_get_resource(dev, type, 0);
+	if (res == NULL)
+		/* No such resource! */
+		return NULL;
+
+	res->length = len;
+
+	switch(type) {
+		case RESTYPE_MEMORY:
+			return (void*)vm_map_device(res->base, len);
+		case RESTYPE_IO:
+			return (void*)(res->base);
+	}
+
+	panic("%s: resource type %u exists, but can't allocate", dev->name, type);
 }
 
 /*
@@ -183,7 +249,7 @@ device_attach_bus(device_t bus)
 		device_get_resources(dev, config_hints);
 		int result = device_attach_single(dev);
 		if (result != 0) {
-			kfree(dev);
+			device_free(dev);
 			continue;
 		}
 
