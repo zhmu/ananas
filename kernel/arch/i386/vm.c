@@ -57,6 +57,29 @@ vm_map(addr_t addr, size_t num_pages)
 	}
 }
 
+void
+vm_unmap(addr_t addr, size_t num_pages)
+{
+	KASSERT(addr % PAGE_SIZE == 0, "unaligned address 0x%x", addr);
+
+	/* Don't care if the VM isn't yet initialized; mappings will vanish anyway */
+	if (!vm_initialized)
+		return;
+
+	while (num_pages > 0) {
+		uint32_t pd_entrynum = addr >> 22;
+		if (pagedir[pd_entrynum] == 0) {
+			panic("address 0x%x not mapped", addr);
+		}
+
+		uint32_t* pt = (uint32_t*)(pagedir[pd_entrynum] & ~(PAGE_SIZE - 1));
+		pt[(((addr >> 12) & ((1 << 10) - 1)))] = 0;
+
+		num_pages--;
+		addr += PAGE_SIZE;
+	}
+}
+
 void*
 vm_map_device(addr_t addr, size_t len)
 {
