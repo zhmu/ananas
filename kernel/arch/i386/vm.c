@@ -14,8 +14,6 @@ static int vm_initialized = 0;
 static void
 vm_map_bootstrap(addr_t addr, size_t num_pages)
 {
-//	kprintf("vm_map_bootstrap(): addr=%x, num_pages=%x\n", addr, num_pages);
-
 	while (num_pages > 0) {
 		uint32_t pd_entrynum = addr >> 22;
 		if (pagedir[pd_entrynum] == 0) {
@@ -37,8 +35,6 @@ vm_map(addr_t addr, size_t num_pages)
 
 	if (!vm_initialized)
 		return vm_map_bootstrap(addr, num_pages);
-
-//	kprintf("vm_map(): addr=%x, num_pages=%x\n", addr, num_pages);
 
 	while (num_pages > 0) {
 		uint32_t pd_entrynum = addr >> 22;
@@ -114,8 +110,14 @@ vm_init()
 	}
 
 	/*
-	 * We are in business and can use vm_map() now.
+	 * We are in business and can use vm_map() now. We must reload cr3 to force
+	 * the CPU to refresh its cache.
 	 */
+	__asm(
+		"movl	%%eax, %%cr3\n"
+		"jmp	l1\n"
+"l1:\n"
+	: : "a" (((addr_t)pagedir) & ~KERNBASE));
 	vm_initialized = 1;
 }
 
