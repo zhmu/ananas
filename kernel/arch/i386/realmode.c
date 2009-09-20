@@ -50,9 +50,7 @@ realmode_call_int(unsigned char num, struct realmode_regs* r)
 	 * and this function. The easiest way to do this, is to just re-map the entire
 	 * kernel space back to where our bootloader left us.
 	 */
-	for (i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << 22)) {
-		pagedir[i >> 22] = pagedir[(i + KERNBASE) >> 22];
-	}
+	vm_map_kernel_lowaddr(pagedir);
 
 	/* (1) Transfer control to a linear address that is identity mapped */
 	__asm (
@@ -99,9 +97,7 @@ realmode_call_int(unsigned char num, struct realmode_regs* r)
 	    "b" (&gdtr));
 
 	/* Throw away the mappings */
-	for (i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << 22)) {
-		pagedir[i >> 22] = 0;
-	}
+	vm_unmap_kernel_lowaddr(pagedir);
 
 	/* Last but not least, copy the register contents back */
 	memcpy(r, &realmode_regs, sizeof(struct realmode_regs));

@@ -93,7 +93,7 @@ md_startup()
 	 * Resolve this by duplicating the PD mappings to KERNBASE - __end to the
 	 * mappings minus KERNBASE.
 	 */
-	md_map_kernel_lowaddr(pd);
+	vm_map_kernel_lowaddr(pd);
 
 	/* It's time to... throw the switch! */
 	__asm(
@@ -121,7 +121,7 @@ md_startup()
 	 * We can throw the duplicate mappings away now, since we are now
 	 * using our virtual mappings.
 	 */
-	md_unmap_kernel_lowaddr(pd);
+	vm_unmap_kernel_lowaddr(pd);
 
 	__asm(
 		/* Reload the page directory */
@@ -280,7 +280,7 @@ md_startup()
 }
 
 void
-md_map_kernel_lowaddr(uint32_t* pd)
+vm_map_kernel_lowaddr(uint32_t* pd)
 {
 	int i;
 	for (i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << 22)) {
@@ -289,7 +289,7 @@ md_map_kernel_lowaddr(uint32_t* pd)
 }
 
 void
-md_unmap_kernel_lowaddr(uint32_t* pd)
+vm_unmap_kernel_lowaddr(uint32_t* pd)
 {
 	int i;
 	for (i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << 22)) {

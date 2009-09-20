@@ -73,6 +73,12 @@
  */
 extern uint32_t* pagedir;
 
+/* Used to create mappings for the low (1MB) kernel addresses; used if paging needs to be disabled */
+void vm_map_kernel_lowaddr(uint32_t* pd);
+
+/* Used to remove mappings for the low (1MB) kernel addresses */
+void vm_unmap_kernel_lowaddr(uint32_t* pd);
+
 #endif
 
 #endif /* __I386_VM_H__ */
