@@ -3,6 +3,8 @@
 #include "mm.h"
 #include "lib.h"
 
+void smp_init();
+
 void
 mi_startup()
 {
@@ -18,6 +20,9 @@ mi_startup()
 	kmem_stats(&mem_avail, &mem_total);
 	kprintf("Hello world, this is Ananas/%s %u.%u\n", "i386", 0, 1);
 	kprintf("Memory: %uKB available / %uKB total\n", mem_avail / 1024, mem_total / 1024);
+
+	/* Try the SMP dance */
+	smp_init();
 
 	/* Give the devices a spin */
 	device_init();

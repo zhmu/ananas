@@ -93,9 +93,7 @@ md_startup()
 	 * Resolve this by duplicating the PD mappings to KERNBASE - __end to the
 	 * mappings minus KERNBASE.
 	 */
-	for (i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << 22)) {
-		pd[i >> 22] = pd[(i + KERNBASE) >> 22];
-	}
+	md_map_kernel_lowaddr(pd);
 
 	/* It's time to... throw the switch! */
 	__asm(
@@ -123,9 +121,7 @@ md_startup()
 	 * We can throw the duplicate mappings away now, since we are now
 	 * using our virtual mappings.
 	 */
-	for (i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << 22)) {
-		pd[i >> 22] = 0;
-	}
+	md_unmap_kernel_lowaddr(pd);
 
 	__asm(
 		/* Reload the page directory */
@@ -281,6 +277,24 @@ md_startup()
 
 	/* All done - it's up to the machine-independant code now */
 	mi_startup();
+}
+
+void
+md_map_kernel_lowaddr(uint32_t* pd)
+{
+	int i;
+	for (i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << 22)) {
+		pd[i >> 22] = pd[(i + KERNBASE) >> 22];
+	}
+}
+
+void
+md_unmap_kernel_lowaddr(uint32_t* pd)
+{
+	int i;
+	for (i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << 22)) {
+		pd[i >> 22] = 0;
+	}
 }
 
 /* vim:set ts=2 sw=2: */
