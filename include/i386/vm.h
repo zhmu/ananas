@@ -64,7 +64,7 @@
 #define GDT_IDX_KERNEL_DATA16	4
 #define GDT_IDX_USER_CODE	5
 #define GDT_IDX_USER_DATA	6
-#define GDT_IDX_TASK		7
+#define GDT_IDX_KERNEL_TASK	7
 
 #ifndef ASM
 

@@ -2,6 +2,7 @@
 #include "i386/vm.h"
 #include "i386/io.h"
 #include "i386/macro.h"
+#include "i386/thread.h"
 #include "i386/realmode.h"
 #include "init.h"
 #include "lib.h"
@@ -24,6 +25,8 @@ extern void *idt, *gdt;
 /* Used for temporary mappings during VM bootstrap */
 extern void* temp_pt_entry;
 
+/* Initial TSS used by the kernel */
+struct TSS kernel_tss;
 
 /*
  * i386-dependant startup code, called by stub.s.
@@ -153,6 +156,7 @@ md_startup()
 	GDT_SET_ENTRY16(GDT_IDX_KERNEL_DATA16, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, stub16);
 	GDT_SET_ENTRY32(GDT_IDX_USER_CODE,     SEG_TYPE_CODE, SEG_DPL_USER,       0);
 	GDT_SET_ENTRY32(GDT_IDX_USER_DATA,     SEG_TYPE_DATA, SEG_DPL_USER,       0);
+	GDT_SET_TSS(GDT_IDX_KERNEL_TASK, 0, (addr_t)&kernel_tss - KERNBASE, sizeof(struct TSS));
 
 	MAKE_RREGISTER(gdtr, &gdt, GDT_NUM_ENTRIES);
 
@@ -198,6 +202,16 @@ md_startup()
 	__asm(
 		"lidt (%%eax)\n"
 	: : "a" (&idtr));
+
+	/*
+	 * Load the kernel TSS - we need this once we are going to transition between
+	 * ring 0 and 3 code, as it tells the CPU where the necessary stacks are
+	 * located.
+	 */
+	memset(&kernel_tss, 0, sizeof(struct TSS));
+	__asm(
+		"ltr %%ax\n"
+	: : "a" (GDT_IDX_KERNEL_TASK * 8));
 
 	/*
 	 * Clear the temporary pagetable entry; this ensures we won't status with

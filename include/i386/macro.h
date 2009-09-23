@@ -33,6 +33,22 @@
 	p[7] = ((base) >> 24) & 0xff; \
 } while(0);
 
+#define GDT_SET_TSS(num, dpl, base, size) do { \
+	uint8_t* p = ((uint8_t*)&gdt + num * 8); \
+	/* Segment Limit 15:00  */ \
+	p[0] = (size) & 0xff; p[1] = ((size) >> 8) & 0xff; \
+	/* Base Address 15:00 */ \
+	p[2] = (base) & 0xff; p[3] = ((base) >> 8) & 0xff; \
+	/* Base Address 23:15 */ \
+	p[4] = (base >> 16) & 0xff; \
+	/* Type 8:11, Zero 12, Privilege Level 13:14, Present 15 */ \
+	p[5] = 0x9 | (dpl << 5) | SEG_P; \
+	/* Seg. Limit 19:16, AVL 20, G 23 */ \
+	p[6] = ((size) >> 16) & 0x7; \
+	/*  Base 24:31 */ \
+	p[7] = ((base) >> 24) & 0xff; \
+} while (0);
+
 /*
  * Convenience macro to create a XXXr 6-byte 'limit, base' variable
  * which are needed for LGDT and LIDT.
