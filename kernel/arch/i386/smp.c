@@ -263,10 +263,6 @@ smp_init()
 	 */
 	*((uint32_t*)LAPIC_ICR_LOW) = 0xc4500;	/* INIT */
 	delay(10);
-	__asm("cli");
-	__asm("cli");
-	__asm("cli");
-	__asm("cli");
 	*((uint32_t*)LAPIC_ICR_LOW) = 0xc4600 | (addr_t)ap_code >> 12;	/* SIPI */
 	delay(200);
 	*((uint32_t*)LAPIC_ICR_LOW) = 0xc4600 | (addr_t)ap_code >> 12;	/* SIPI */
