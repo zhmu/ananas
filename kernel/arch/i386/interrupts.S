@@ -5,8 +5,14 @@
 .globl exception0, exception1, exception2, exception3, exception4, exception5
 .globl exception6, exception7, exception8, exception9, exceptionA, exceptionB
 .globl exceptionC, exceptionD, exceptionE
+.globl scheduler_irq
+
+.globl currentctx
 
 #include "i386/vm.h"
+
+/* XXX this must be per-cpu */
+currentctx:	.long	0
 
 /* Basic exception handler framework */
 #define EXCEPTION_HANDLER_BODY(num) \
@@ -49,6 +55,29 @@ exception ## num: \
 	EXCEPTION_HANDLER_BODY(num);
 	iret
 
+/*
+ * The scheduler interrupt is pure magic; it forcefully stores the context of the
+ * current thread, and then calls the scheduler, which restores the context of
+ * whatever thread it wants.
+ */
+scheduler_irq:
+	/*
+	 * If we don't have a current context pointer, don't bother storing it.
+	 * Note that this nukes eflags, but that doesn't matter because md_store_ctx
+	 * uses the eflags stored by the interrupt
+	 */
+	cmpl	$0, (currentctx)
+	jz	skip_store
+
+	pushl	(currentctx)
+	call	md_store_ctx
+	addl	$4, %esp
+
+skip_store:
+	jmp	schedule
+	/* UNREACHED - schedule never returns */
+	
+
 /* Now we just need to list the exception handlers */
 EXCEPTION_HANDLER(0)
 EXCEPTION_HANDLER(1)
@@ -65,3 +94,5 @@ EXCEPTION_HANDLER_ERRORCODE(B)
 EXCEPTION_HANDLER_ERRORCODE(C)
 EXCEPTION_HANDLER_ERRORCODE(D)
 EXCEPTION_HANDLER_ERRORCODE(E)
+
+

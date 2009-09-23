@@ -195,6 +195,8 @@ md_startup()
 	IDT_SET_ENTRY(0xc, 0, exceptionC);
 	IDT_SET_ENTRY(0xd, 0, exceptionD);
 	IDT_SET_ENTRY(0xe, 0, exceptionE);
+	void* scheduler_irq;
+	IDT_SET_ENTRY(0x90, 0, scheduler_irq);
 
 	MAKE_RREGISTER(idtr, &idt, IDT_NUM_ENTRIES);
 
