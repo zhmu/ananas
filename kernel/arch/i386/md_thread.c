@@ -11,6 +11,16 @@ extern struct CONTEXT* currentctx; /* XXX make me per-cpu */
 
 void md_restore_ctx(struct CONTEXT* ctx);
 
+static void
+thread_code()
+{
+	while (1) {
+		kprintf("hi, this is %x\n", currentctx);
+		/* force a switch! */
+		__asm("int $0x90");
+	}
+}
+
 int
 md_thread_init(thread_t thread)
 {
@@ -35,6 +45,7 @@ md_thread_init(thread_t thread)
 	md->ctx.esi = 0xfaabbeef;
 	md->ctx.edi = 0x87654321;
 	md->ctx.esp = (addr_t)md->stack;
+	md->ctx.eip = (addr_t)&thread_code;
 
 	/* Fill out the Task State Segment */
 	md->ctx.cs = GDT_IDX_KERNEL_CODE * 8;
