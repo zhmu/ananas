@@ -311,4 +311,22 @@ vm_unmap_kernel_lowaddr(uint32_t* pd)
 	}
 }
 
+void
+vm_map_kernel_addr(uint32_t* pd)
+{
+	addr_t i;
+	for (i = (addr_t)&__entry; i < (addr_t)&__end; i += PAGE_SIZE) {
+		uint32_t pd_entrynum = i >> 22;
+		if (pd[pd_entrynum] == 0) {
+			/* There's no directory entry yet for this item, so create one */
+			addr_t new_entry = (addr_t)kmalloc(PAGE_SIZE);
+			memset((void*)new_entry, 0, PAGE_SIZE);
+			pd[pd_entrynum] = new_entry | PDE_P;
+		}
+
+		uint32_t* pt = (uint32_t*)(pd[pd_entrynum] & ~(PAGE_SIZE - 1));
+		pt[(((i >> 12) & ((1 << 10) - 1)))] = (i - KERNBASE) | PTE_P;
+	}
+}
+
 /* vim:set ts=2 sw=2: */
