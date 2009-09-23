@@ -7,14 +7,11 @@
  */
 #define REALSTUB_RELOC	0x00010000
 
-/* Maximum number of concurrent tasks we can handle */
-#define MAX_TASKS	32
-
 /* Number of Global Descriptor Table entries */
-#define GDT_NUM_ENTRIES	(8 + MAX_TASKS)
+#define GDT_NUM_ENTRIES	8
 
 /* Number of Interrupt Descriptor Table entries */
-#define IDT_NUM_ENTRIES	(256)
+#define IDT_NUM_ENTRIES	256
 
 /* Kernel stack size */
 #define KERNEL_STACK_SIZE	0x2000
