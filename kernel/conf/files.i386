@@ -11,4 +11,4 @@ arch/i386/smp.c			mandatory
 arch/i386/cntx.S		mandatory
 arch/i386/mp_stub.S		mandatory
 arch/i386/md_thread.c		mandatory
-arch/i386/dev/pcihb.c		optional pci
+arch/i386/dev/pcihb.c		optional pcihb
