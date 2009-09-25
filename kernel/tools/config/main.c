@@ -5,26 +5,26 @@
 #include <string.h>
 #include <unistd.h>
 
-#define KEYWORD_UNKNOWN		0
-#define KEYWORD_ARCH			1
-#define KEYWORD_DEVICE		2
-#define KEYWORD_IDENT			3
-#define KEYWORD_CONSOLE		4
-#define KEYWORD_HINTS			5
+enum TOKEN {
+	UNKNOWN,
+	ARCH, DEVICE, IDENT,
+	CONSOLE, HINTS, MANDATORY,
+	OPTIONAL, OPTION
+};
 
-#define OPTION_MANDATORY	"mandatory"
-#define OPTION_OPTIONAL		"optional"
-
-struct KEYWORD {
-	const char* keyword;
-	int         value;
-} keywords[] = {
-	{ "arch",			KEYWORD_ARCH },
-	{ "device",		KEYWORD_DEVICE },
-	{ "ident",		KEYWORD_IDENT },
-	{ "console",	KEYWORD_CONSOLE },
-	{ "hints",		KEYWORD_HINTS },
-	{ NULL,    	 KEYWORD_UNKNOWN }
+struct TOKENS {
+	const char* token;
+	enum TOKEN  value;
+} tokens[] = {
+	{ "arch",      ARCH },
+	{ "device",    DEVICE },
+	{ "ident",     IDENT },
+	{ "console",   CONSOLE },
+	{ "hints",     HINTS },
+	{ "mandatory", MANDATORY },
+	{ "optional",  OPTIONAL },
+	{ "option",		 OPTION },
+	{ NULL,        UNKNOWN }
 };
 
 struct ENTRY {
@@ -35,12 +35,17 @@ struct ENTRY {
 };
 
 struct ENTRY* devices = NULL;
+struct ENTRY* options = NULL;
 struct ENTRY* files = NULL;
 const char* architecture = NULL;
 const char* ident = NULL;
 const char* console = NULL;
 const char* hints = NULL;
 
+/*
+ * Adds an entry 'v' to the chained list of 'root'. This will preserve order;
+ * newer entries are always added last.
+ */
 void
 entry_add(struct ENTRY** root, const char* v)
 {
@@ -59,8 +64,11 @@ entry_add(struct ENTRY** root, const char* v)
 	}
 }
 
+/*
+ * Locate entry 'line' in the chained-list of entries
+ */
 struct ENTRY*
-find_device(struct ENTRY* root, char* line)
+find_entry(struct ENTRY* root, char* line)
 {
 	char* current = line;
 
@@ -71,7 +79,7 @@ find_device(struct ENTRY* root, char* line)
 		}
 
 		/* We need to match 'line' */
-		struct ENTRY* e = devices;
+		struct ENTRY* e = root;
 		while (e != NULL) {
 			if (!strcasecmp(e->value, line))
 				return e;
@@ -84,6 +92,21 @@ find_device(struct ENTRY* root, char* line)
 	return NULL;
 }
 
+/*
+ * Checks entry list root to ensure all entries have been matched.
+ */
+void
+check_entries(struct ENTRY* root, const char* type)
+{
+	struct ENTRY* e = root;
+
+	while (e != NULL) {
+		if (!e->matched)
+			errx(1, "unknown %s '%s', aborting", type, e->value);
+		e = e->next;
+	}
+}
+
 void
 usage()
 {
@@ -92,17 +115,23 @@ usage()
 	exit(EXIT_FAILURE);
 }
 
-int
-resolve_keyword(const char* keyword)
+/*
+ * Classifies string 'token' to a token.
+ */
+enum TOKEN
+resolve_token(const char* token)
 {
-	struct KEYWORD* kw;
-	for (kw = keywords; kw->keyword != NULL; kw++) {
-		if (!strcasecmp(kw->keyword, keyword))
-			return kw->value;
+	struct TOKENS* tk;
+	for (tk = tokens; tk->token != NULL; tk++) {
+		if (!strcasecmp(tk->token, token))
+			return tk->value;
 	}
-	return kw->value;
+	return tk->value;
 }
 
+/*
+ * Parses a kernel configuration file.
+ */
 void
 parse_configfile(const char* fname)
 {
@@ -122,7 +151,7 @@ parse_configfile(const char* fname)
 			continue;
 
 		/* split the line in two space-seperated pieces, if possible */
-		int keyword = KEYWORD_UNKNOWN;
+		enum TOKEN token = UNKNOWN;
 		char* value = strchr(line, ' ');
 		if (value == NULL)
 			value = strchr(line, '\t');
@@ -130,36 +159,38 @@ parse_configfile(const char* fname)
 			*value++ = '\0';
 			while (isspace(*value))
 				value++;
-			keyword = resolve_keyword(line);
+			token = resolve_token(line);
 		}
 
-		switch (keyword) {
-			case KEYWORD_ARCH:
+		switch (token) {
+			case ARCH:
 				if (architecture != NULL)
 					errx(1, "%s:%u: architecture re-specified (was %s)", fname, lineno, architecture);
 				architecture = strdup(value);
 				break;
-			case KEYWORD_DEVICE:
+			case DEVICE:
 				entry_add(&devices, value);
 				break;
-			case KEYWORD_IDENT:
+			case IDENT:
 				if (ident != NULL)
 					errx(1, "%s:%u: identification re-specified (was %s)", fname, lineno, ident);
 				ident = strdup(value);
 				break;
-			case KEYWORD_CONSOLE:
+			case CONSOLE:
 				if (console != NULL)
 					errx(1, "%s:%u: console re-specified (was %s)", fname, lineno, console);
 				console = strdup(value);
 				break;
-			case KEYWORD_HINTS:
+			case HINTS:
 				if (hints != NULL)
 					errx(1, "%s:%u: hints re-specified (was %s)", fname, lineno, hints);
 				hints = strdup(value);
 				break;
+			case OPTION:
+				entry_add(&options, value);
+				break;
 			default:
-				fprintf(stderr, "%s:%u: parse error\n", fname, lineno);
-				exit(EXIT_FAILURE);
+				errx(1 , "%s:%u: parse error", fname, lineno);
 		}
 	}
 
@@ -197,46 +228,62 @@ parse_devfile(const char* arch)
 		}
 
 		/* split the line in a filename -> options piece */
-		char* options = strchr(line, ' ');
-		if (options == NULL)
+		char* opts = strchr(line, ' ');
+		if (opts == NULL)
 			errx(1, "%s:%u: parse error", path, lineno);
 
-		*options++ = '\0';
-		while (isspace(*options))
-			options++;
+		*opts++ = '\0';
+		while (isspace(*opts))
+			opts++;
 
 		/*
 		 * OK, there are two options: either it's optional, or it's not;
 		 * corner-case the first case to keep the flow understandable.
 		 */
-		if (!strcasecmp(options, OPTION_MANDATORY)) {
+		enum TOKEN token = resolve_token(opts);
+		if (token == MANDATORY) {
 			/* Must include */
 			entry_add(&files, line);
 			continue;
 		}
 
 		/* split the line in clause -> device piece */
-		char* value = strchr(options, ' ');
+		char* value = strchr(opts, ' ');
 		if (value == NULL)
 			errx(1, "%s:%u: parse error", path, lineno);
 		*value++ = '\0';
-		/* We only support optional devices yet... */
-		if (strcasecmp(options, OPTION_OPTIONAL) != 0) {
-			errx(1, "%s:%u: parse error", path, lineno);
-		}
 
-		/*
-		 * OK, we need to see whether a device in our kernel matches whatever
-		 * is listed for this device.
-		 */
-		struct ENTRY* e = find_device(devices, value);
-		if (e == NULL)
-			continue;
+		token = resolve_token(opts);
+		struct ENTRY* e;
+		switch(token) {
+			case OPTIONAL:
+				/*
+				 * OK, we need to see whether a device in our kernel matches whatever
+				 * is listed for this device.
+				 */
+				e = find_entry(devices, value);
+				if (e == NULL)
+					continue;
 
-		/* We have a match */
-		e->matched = 1;
-		e->source = strdup(line);
-		entry_add(&files, line);
+				/* We have a match */
+				e->matched = 1;
+				e->source = strdup(line);
+				entry_add(&files, line);
+				break;
+			case OPTION:
+				e = find_entry(options, value);
+				if (e == NULL)
+					continue;
+
+				/* We have a match */
+				e->matched = 1;
+				e->source = strdup(line);
+				entry_add(&files, line);
+				break;
+			default:
+				errx(1, "%s:%u: parse error", path, lineno);
+				break;
+			}
 	}
 
 	fclose(f);
@@ -434,9 +481,9 @@ create_console()
 			bus = NULL;
 		}
 
-		if (find_device(devices, console_dev) == NULL)
+		if (find_entry(devices, console_dev) == NULL)
 			errx(1, "console driver '%s' does not exist", console_dev);
-		if (bus != NULL && find_device(devices, bus) == NULL)
+		if (bus != NULL && find_entry(devices, bus) == NULL)
 			errx(1, "console bus '%s' does not exist", bus);
 	}
 
@@ -510,6 +557,27 @@ create_hints()
 	fclose(out);
 }
 
+void
+create_options()
+{
+	char path[PATH_MAX];
+	FILE* f;
+
+	snprintf(path, sizeof(path), "../compile/%s/options.h", ident);
+	f = fopen(path, "w");
+	if (f == NULL)
+		err(1, "cannot create %s", path);
+
+	fprintf(f, "/* This file is automatically generated by config - do not edit! */\n\n");
+
+	struct ENTRY* e;
+	for (e = options; e != NULL; e = e->next) {
+		/* Remove any path information */
+		fprintf(f, "#define %s\n", e->value);
+	}
+	fclose(f);
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -540,10 +608,14 @@ main(int argc, char* argv[])
 	parse_devfile(architecture);
 	parse_devfile(NULL);
 
+	check_entries(devices, "device");
+	check_entries(options, "option");
+
 	create_makefile();
 	create_devprobe();
 	create_console();
 	create_hints();
+	create_options();
 
 	return 0;
 }
