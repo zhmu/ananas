@@ -1,3 +1,4 @@
+#include "options.h"
 #include "device.h"
 #include "console.h"
 #include "mm.h"
@@ -22,17 +23,21 @@ mi_startup()
 	kprintf("Hello world, this is Ananas/%s %u.%u\n", "i386", 0, 1);
 	kprintf("Memory: %uKB available / %uKB total\n", mem_avail / 1024, mem_total / 1024);
 
+#ifdef SMP
 	/* Try the SMP dance */
 	smp_init();
+#endif
 
 	/* Give the devices a spin */
 	device_init();
 
+#if 0
 	thread_t t1 = thread_alloc();
 	thread_t t2 = thread_alloc();
 
 	/* gooo! */
 	schedule();
+#endif
 
 	panic("mi_startup(): what now?");
 }
