@@ -2,6 +2,7 @@ kern/init.c		mandatory
 kern/mm.c		mandatory
 kern/device.c		mandatory
 kern/console.c		mandatory
+kern/pcpu.c		mandatory
 kern/thread.c		mandatory
 kern/scheduler.c	mandatory
 lib/misc.c		mandatory

@@ -4,6 +4,7 @@
 #include "mm.h"
 #include "lib.h"
 #include "thread.h"
+#include "i386/vm.h"
 
 void smp_init();
 
@@ -31,13 +32,11 @@ mi_startup()
 	/* Give the devices a spin */
 	device_init();
 
-#if 0
 	thread_t t1 = thread_alloc();
 	thread_t t2 = thread_alloc();
 
 	/* gooo! */
 	schedule();
-#endif
 
 	panic("mi_startup(): what now?");
 }

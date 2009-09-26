@@ -6,18 +6,23 @@
 #include "param.h"
 #include "thread.h"
 
-extern void *gdt;
-extern struct CONTEXT* currentctx; /* XXX make me per-cpu */
-
 void md_restore_ctx(struct CONTEXT* ctx);
 
 static void
 thread_code()
 {
 	while (1) {
-		kprintf("hi, this is %x\n", currentctx);
+		uint32_t ctx = 0;
+		kprintf("hi, %x ", ctx);
 		/* force a switch! */
-		__asm("int $0x90");
+		__asm(
+			"cli\n"
+			"cli\n"
+			"cli\n"
+			"cli\n"
+			"cli\n"
+			"int $0x90\n"
+			);
 	}
 }
 
@@ -76,9 +81,17 @@ void
 md_thread_switch(thread_t thread)
 {
 	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
+	struct CONTEXT* ctx = (struct CONTEXT*)&md->ctx;
 
-	currentctx = (struct CONTEXT*)&md->ctx;
-	md_restore_ctx(currentctx);
+	/*
+	 * Activate this context as the current CPU context. XXX lock
+	 */
+	__asm(
+		"movw %%bx, %%fs\n"
+		"movl	%%eax, %%fs:0\n"
+	: : "a" (ctx), "b" (GDT_IDX_KERNEL_PCPU * 8));
+
+	md_restore_ctx(ctx);
 }
 
 /* vim:set ts=2 sw=2: */

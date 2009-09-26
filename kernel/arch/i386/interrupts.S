@@ -7,12 +7,7 @@
 .globl exceptionC, exceptionD, exceptionE
 .globl scheduler_irq
 
-.globl currentctx
-
 #include "i386/vm.h"
-
-/* XXX this must be per-cpu */
-currentctx:	.long	0
 
 /* Basic exception handler framework */
 #define EXCEPTION_HANDLER_BODY(num) \
@@ -63,20 +58,24 @@ exception ## num: \
 scheduler_irq:
 	/*
 	 * If we don't have a current context pointer, don't bother storing it.
-	 * Note that this nukes eflags, but that doesn't matter because md_store_ctx
-	 * uses the eflags stored by the interrupt
+	 * Note that this nukes eflags, but that doesn't matter because
+	 * md_store_ctx uses the eflags stored by the interrupt
 	 */
-	cmpl	$0, (currentctx)
+
+	pushl	%fs
+	pushl	%eax
+	movw	$0x28, %ax /* XXX */
+	movw	%ax, %fs
+	cmpl	$0, %fs:0
+	popl	%eax
+	pop	%fs
 	jz	skip_store
 
-	pushl	(currentctx)
 	call	md_store_ctx
-	addl	$4, %esp
 
 skip_store:
 	jmp	schedule
 	/* UNREACHED - schedule never returns */
-	
 
 /* Now we just need to list the exception handlers */
 EXCEPTION_HANDLER(0)

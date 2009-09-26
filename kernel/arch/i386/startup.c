@@ -3,9 +3,11 @@
 #include "i386/io.h"
 #include "i386/macro.h"
 #include "i386/thread.h"
+#include "i386/pcpu.h"
 #include "i386/realmode.h"
 #include "init.h"
 #include "lib.h"
+#include "pcpu.h"
 #include "mm.h"
 #include "param.h"
 #include "vm.h"
@@ -27,6 +29,9 @@ extern void* temp_pt_entry;
 
 /* Initial TSS used by the kernel */
 struct TSS kernel_tss;
+
+/* Boot CPU pcpu structure */
+static struct PCPU bsp_pcpu;
 
 /*
  * i386-dependant startup code, called by stub.s.
@@ -150,12 +155,14 @@ md_startup()
 	 */
 	memset(&gdt, 0, GDT_NUM_ENTRIES * 8);
 	addr_t stub16 = (addr_t)&realmode16_stub - KERNBASE;
-	GDT_SET_ENTRY32(GDT_IDX_KERNEL_CODE,   SEG_TYPE_CODE, SEG_DPL_SUPERVISOR, 0);
-	GDT_SET_ENTRY32(GDT_IDX_KERNEL_DATA,   SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, 0);
+	addr_t bsp_addr = (addr_t)&bsp_pcpu;
+	GDT_SET_ENTRY32(GDT_IDX_KERNEL_CODE,   SEG_TYPE_CODE, SEG_DPL_SUPERVISOR, 0, 0xfffff);
+	GDT_SET_ENTRY32(GDT_IDX_KERNEL_DATA,   SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, 0, 0xfffff);
 	GDT_SET_ENTRY16(GDT_IDX_KERNEL_CODE16, SEG_TYPE_CODE, SEG_DPL_SUPERVISOR, stub16);
 	GDT_SET_ENTRY16(GDT_IDX_KERNEL_DATA16, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, stub16);
-	GDT_SET_ENTRY32(GDT_IDX_USER_CODE,     SEG_TYPE_CODE, SEG_DPL_USER,       0);
-	GDT_SET_ENTRY32(GDT_IDX_USER_DATA,     SEG_TYPE_DATA, SEG_DPL_USER,       0);
+	GDT_SET_ENTRY32(GDT_IDX_KERNEL_PCPU,   SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, bsp_addr, sizeof(struct PCPU));
+	GDT_SET_ENTRY32(GDT_IDX_USER_CODE,     SEG_TYPE_CODE, SEG_DPL_USER,       0, 0xfffff);
+	GDT_SET_ENTRY32(GDT_IDX_USER_DATA,     SEG_TYPE_DATA, SEG_DPL_USER,       0, 0xfffff);
 	GDT_SET_TSS(GDT_IDX_KERNEL_TASK, 0, (addr_t)&kernel_tss - KERNBASE, sizeof(struct TSS));
 
 	MAKE_RREGISTER(gdtr, &gdt, GDT_NUM_ENTRIES);
@@ -214,6 +221,8 @@ md_startup()
 	__asm(
 		"ltr %%ax\n"
 	: : "a" (GDT_IDX_KERNEL_TASK * 8));
+
+	bsp_pcpu.lapic_id = 0xdeadbabe;
 
 	/*
 	 * Clear the temporary pagetable entry; this ensures we won't status with

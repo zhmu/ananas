@@ -1,18 +1,18 @@
 #ifndef __I386_MACRO_H__
 #define __I386_MACRO_H__
 
-#define GDT_SET_ENTRY32(num, type, dpl, base) do { \
+#define GDT_SET_ENTRY32(num, type, dpl, base, limit) do { \
 	uint8_t* p = ((uint8_t*)&gdt + num * 8); \
 	/* Segment Limit 15:00 = 4GB */ \
-	p[0] = 0xff; p[1] = 0xff; \
+	p[0] = (limit >> 8) & 0xff; p[1] = (limit) & 0xff; \
 	/* Base Address 15:00 */ \
-	p[2] = (base >> 8) & 0xff; p[3] = (base) & 0xff; \
+	p[2] = (base); p[3] = ((base) >> 8) & 0xff; \
 	/* Base Address 23:15 */ \
 	p[4] = (base >> 16) & 0xff; \
 	/* Type 8:11, System 12, Privilege Level 13:14, Present 15 */ \
 	p[5] = type | SEG_S | (dpl << 5) | SEG_P; \
 	/* Seg. Limit 19:16, AVL 20, D/B 22, G 23 */ \
-	p[6] = 0xf | SEG_DB | SEG_G; \
+	p[6] = ((limit >> 16) & 0xf) | SEG_DB | SEG_G; \
 	/* Base 31:24 */ \
 	p[7] = (base >> 24) & 0xff; \
 } while(0);
