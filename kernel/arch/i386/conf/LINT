@@ -10,4 +10,6 @@ device		sio
 device		pcihb
 device		pci
 
+#option		SMP
+
 console		isa.vga
