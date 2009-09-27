@@ -8,6 +8,7 @@
 .globl scheduler_irq
 
 #include "i386/vm.h"
+#include "param.h"
 
 /* Basic exception handler framework */
 #define EXCEPTION_HANDLER_BODY(num) \
@@ -22,6 +23,10 @@
 	movl	$GDT_IDX_KERNEL_DATA * 8, %eax; \
 	movw	%ax, %ds; \
 	movw	%ax, %es; \
+	/* Set paging table back XXX */ \
+	movl	pagedir, %eax; \
+	subl	$KERNBASE, %eax; \
+	movl	%eax, %cr3; \
 	/* Call the exception handler */ \
 	pushl	$0x ## num; \
 	call	exception_handler; \
