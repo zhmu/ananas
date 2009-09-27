@@ -163,7 +163,7 @@ md_startup()
 	GDT_SET_ENTRY32(GDT_IDX_KERNEL_PCPU,   SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, bsp_addr, sizeof(struct PCPU));
 	GDT_SET_ENTRY32(GDT_IDX_USER_CODE,     SEG_TYPE_CODE, SEG_DPL_USER,       0, 0xfffff);
 	GDT_SET_ENTRY32(GDT_IDX_USER_DATA,     SEG_TYPE_DATA, SEG_DPL_USER,       0, 0xfffff);
-	GDT_SET_TSS(GDT_IDX_KERNEL_TASK, 0, (addr_t)&kernel_tss - KERNBASE, sizeof(struct TSS));
+	GDT_SET_TSS(GDT_IDX_KERNEL_TASK, 0, (addr_t)&kernel_tss, sizeof(struct TSS));
 
 	MAKE_RREGISTER(gdtr, &gdt, GDT_NUM_ENTRIES);
 
@@ -203,7 +203,7 @@ md_startup()
 	IDT_SET_ENTRY(0xd, 0, exceptionD);
 	IDT_SET_ENTRY(0xe, 0, exceptionE);
 	void* scheduler_irq;
-	IDT_SET_ENTRY(0x90, 0, scheduler_irq);
+	IDT_SET_ENTRY(0x90, 3, scheduler_irq);
 
 	MAKE_RREGISTER(idtr, &idt, IDT_NUM_ENTRIES);
 
@@ -215,9 +215,11 @@ md_startup()
 	/*
 	 * Load the kernel TSS - we need this once we are going to transition between
 	 * ring 0 and 3 code, as it tells the CPU where the necessary stacks are
-	 * located.
+	 * located. Note that we don't fill out the esp0 part, because this is
+	 * different per-thread - md_thread_witch() will deal with it.
 	 */
 	memset(&kernel_tss, 0, sizeof(struct TSS));
+	kernel_tss.ss0 = GDT_IDX_KERNEL_DATA * 8;
 	__asm(
 		"ltr %%ax\n"
 	: : "a" (GDT_IDX_KERNEL_TASK * 8));
@@ -332,11 +334,11 @@ vm_map_kernel_addr(uint32_t* pd)
 			/* There's no directory entry yet for this item, so create one */
 			addr_t new_entry = (addr_t)kmalloc(PAGE_SIZE);
 			memset((void*)new_entry, 0, PAGE_SIZE);
-			pd[pd_entrynum] = new_entry | PDE_P;
+			pd[pd_entrynum] = new_entry | PDE_P | PDE_US;
 		}
 
 		uint32_t* pt = (uint32_t*)(pd[pd_entrynum] & ~(PAGE_SIZE - 1));
-		pt[(((i >> 12) & ((1 << 10) - 1)))] = (i - KERNBASE) | PTE_P;
+		pt[(((i >> 12) & ((1 << 10) - 1)))] = (i - KERNBASE) | PTE_P | PTE_US;
 	}
 }
 
