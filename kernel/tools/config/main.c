@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -578,6 +579,18 @@ create_options()
 	fclose(f);
 }
 
+void
+create_symlink()
+{
+	char src_path[PATH_MAX];
+	char dst_path[PATH_MAX];
+
+	snprintf(src_path, sizeof(src_path), "../../../../../include/%s", architecture);
+	snprintf(dst_path, sizeof(dst_path), "../compile/%s/machine", ident);
+	if (symlink(src_path, dst_path) < 0 && errno != EEXIST)
+		err(1, "symlink");
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -616,6 +629,7 @@ main(int argc, char* argv[])
 	create_console();
 	create_hints();
 	create_options();
+	create_symlink();
 
 	return 0;
 }
