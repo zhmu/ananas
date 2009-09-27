@@ -29,7 +29,7 @@
 
 /* Page Table Entry bits */
 #define PTE_P		(1 << 0)	/* Present */
-#define PTE_RW		(1 << 1)	/* Read/Write *
+#define PTE_RW		(1 << 1)	/* Read/Write */
 #define PTE_US		(1 << 2)	/* User/Supervisor */
 #define PTE_PWT		(1 << 3)	/* Write-Through */
 #define PTE_PCD		(1 << 4)	/* Cache Disabled *
