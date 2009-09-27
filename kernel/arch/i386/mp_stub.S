@@ -47,7 +47,7 @@ m:	pop	%si
 	.byte	0x66
 	.byte	0xea
 	.long	mp_stub32_jmp - KERNBASE
-	.word	GDT_IDX_KERNEL_CODE * 8
+	.word	GDT_SEL_KERNEL_CODE
 
 .code32
 
@@ -56,7 +56,7 @@ mp_stub32_jmp:
 
 mp_stub32:
 	/* Restore 32 bit registers */
-	mov	$GDT_IDX_KERNEL_DATA * 8, %ax
+	mov	$GDT_SEL_KERNEL_DATA, %ax
 	mov	%ax, %ds
 	mov	%ax, %es
 	mov	%ax, %fs

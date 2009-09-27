@@ -20,7 +20,7 @@
 	push	%gs; \
 	push	%ss; \
 	/* Set up kernel data */ \
-	movl	$GDT_IDX_KERNEL_DATA * 8, %eax; \
+	movl	$GDT_SEL_KERNEL_DATA, %eax; \
 	movw	%ax, %ds; \
 	movw	%ax, %es; \
 	/* Set paging table back XXX */ \

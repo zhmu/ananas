@@ -57,15 +57,23 @@
 #define SEG_DPL_SUPERVISOR	0	/* Descriptor Privilege Level (kernel) */
 #define SEG_DPL_USER		3	/* Descriptor Privilege Level (user) */
 
-/* GDT entry index numbers */
+/* GDT entry index numbers and corresponding selectors */
 #define GDT_IDX_KERNEL_CODE	1
+#define GDT_SEL_KERNEL_CODE	(GDT_IDX_KERNEL_CODE * 8)
 #define GDT_IDX_KERNEL_DATA	2
+#define GDT_SEL_KERNEL_DATA	(GDT_IDX_KERNEL_DATA * 8)
 #define GDT_IDX_KERNEL_CODE16	3
+#define GDT_SEL_KERNEL_CODE16	(GDT_IDX_KERNEL_CODE16 * 8)
 #define GDT_IDX_KERNEL_DATA16	4
+#define GDT_SEL_KERNEL_DATA16	(GDT_IDX_KERNEL_DATA16 * 8)
 #define GDT_IDX_KERNEL_PCPU	5
+#define GDT_SEL_KERNEL_PCPU	(GDT_IDX_KERNEL_PCPU * 8)
 #define GDT_IDX_USER_CODE	6
+#define GDT_SEL_USER_CODE	(GDT_IDX_USER_CODE * 8)
 #define GDT_IDX_USER_DATA	7
+#define GDT_SEL_USER_DATA	(GDT_IDX_USER_DATA * 8)
 #define GDT_IDX_KERNEL_TASK	8
+#define GDT_SEL_KERNEL_TASK	(GDT_IDX_KERNEL_TASK * 8)
 
 #ifndef ASM
 

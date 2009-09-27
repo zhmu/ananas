@@ -60,10 +60,10 @@ md_thread_init(thread_t thread)
 	vm_map_pagedir(md->pagedir, (addr_t)buf, 1, 1);
 
 	/* Fill out the thread's context */ 
-	md->ctx.cs = GDT_IDX_USER_CODE * 8 + 3;
-	md->ctx.ds = GDT_IDX_USER_DATA * 8;
-	md->ctx.es = GDT_IDX_USER_DATA * 8;
-	md->ctx.ss = GDT_IDX_USER_DATA * 8 + 3;
+	md->ctx.cs = GDT_SEL_USER_CODE + SEG_DPL_USER;
+	md->ctx.ds = GDT_SEL_USER_DATA;
+	md->ctx.es = GDT_SEL_USER_DATA;
+	md->ctx.ss = GDT_SEL_USER_DATA + SEG_DPL_USER;
 	md->ctx.cr3 = (addr_t)md->pagedir;
 
 	return 1;
@@ -97,7 +97,7 @@ md_thread_switch(thread_t thread)
 	__asm(
 		"movw %%bx, %%fs\n"
 		"movl	%%eax, %%fs:0\n"
-	: : "a" (ctx), "b" (GDT_IDX_KERNEL_PCPU * 8));
+	: : "a" (ctx), "b" (GDT_SEL_KERNEL_PCPU));
 
 	/* Activate the corresponding kernel stack in the TSS */
 	kernel_tss.esp0 = ctx->esp0;

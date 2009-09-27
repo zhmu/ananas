@@ -40,7 +40,7 @@ realmode16_stub:
 	rep addr32 movsb
 
 	/* Set segment registers to the 16 bit versions */
-	mov	$GDT_IDX_KERNEL_DATA16 * 8, %ax
+	mov	$GDT_SEL_KERNEL_DATA16, %ax
 	mov	%ax, %ds
 	mov	%ax, %es
 	mov	%ax, %ss
@@ -119,7 +119,7 @@ m:	pop	%si
 	.byte	0x66
 	.byte	0xea
 	.long	stub32 - KERNBASE
-	.word	GDT_IDX_KERNEL_CODE * 8
+	.word	GDT_SEL_KERNEL_CODE
 
 esp_store:
 	.long	0
@@ -138,7 +138,7 @@ stub32:
 	 */
 
 	/* Restore 32 bit registers */
-	mov	$GDT_IDX_KERNEL_DATA * 8, %ax
+	mov	$GDT_SEL_KERNEL_DATA, %ax
 	mov	%ax, %ds
 	mov	%ax, %es
 	mov	%ax, %fs
@@ -172,7 +172,7 @@ stub32:
 	movl	%eax, %cr0
 
 	/* Restore ss:esp */
-	mov	$GDT_IDX_KERNEL_DATA * 8, %ax
+	mov	$GDT_SEL_KERNEL_DATA, %ax
 	mov	%ax, %ss
 	movl	$R(esp_store), %esi
 	mov	(%esi),%esp

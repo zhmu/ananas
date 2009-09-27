@@ -79,8 +79,8 @@ realmode_call_int(unsigned char num, struct realmode_regs* r)
 		"pushl	$0\n"
 		"lret\n"
 "l2:\n"
-	 : : "a" (GDT_IDX_KERNEL_CODE   * 8),
-	     "b" (GDT_IDX_KERNEL_CODE16 * 8));
+	 : : "a" (GDT_SEL_KERNEL_CODE),
+	     "b" (GDT_SEL_KERNEL_CODE16));
 
 	/*
 	 * Control is now in the hands of 'realmode16_stub'. Once it is done,

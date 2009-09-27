@@ -179,31 +179,31 @@ md_startup()
 		"lret\n"		/* retf */
 "l5:\n"
 	: : "a" (&gdtr),
- 	    "b" (GDT_IDX_KERNEL_DATA * 8),
-	    "c" (GDT_IDX_KERNEL_CODE * 8));
+ 	    "b" (GDT_SEL_KERNEL_DATA),
+	    "c" (GDT_SEL_KERNEL_CODE));
 
 	/*
 	 * Prepare the IDT entries; this means mapping the exception interrupts to
 	 * handlers.
 	 */
 	memset(&idt, 0, IDT_NUM_ENTRIES * 8);
-	IDT_SET_ENTRY(0x0, 0, exception0);
-	IDT_SET_ENTRY(0x1, 0, exception1);
-	IDT_SET_ENTRY(0x2, 0, exception2);
-	IDT_SET_ENTRY(0x3, 0, exception3);
-	IDT_SET_ENTRY(0x4, 0, exception4);
-	IDT_SET_ENTRY(0x5, 0, exception5);
-	IDT_SET_ENTRY(0x6, 0, exception6);
-	IDT_SET_ENTRY(0x7, 0, exception7);
-	IDT_SET_ENTRY(0x8, 0, exception8);
-	IDT_SET_ENTRY(0x9, 0, exception9);
-	IDT_SET_ENTRY(0xa, 0, exceptionA);
-	IDT_SET_ENTRY(0xb, 0, exceptionB);
-	IDT_SET_ENTRY(0xc, 0, exceptionC);
-	IDT_SET_ENTRY(0xd, 0, exceptionD);
-	IDT_SET_ENTRY(0xe, 0, exceptionE);
+	IDT_SET_ENTRY(0x0, SEG_DPL_SUPERVISOR, exception0);
+	IDT_SET_ENTRY(0x1, SEG_DPL_SUPERVISOR, exception1);
+	IDT_SET_ENTRY(0x2, SEG_DPL_SUPERVISOR, exception2);
+	IDT_SET_ENTRY(0x3, SEG_DPL_SUPERVISOR, exception3);
+	IDT_SET_ENTRY(0x4, SEG_DPL_SUPERVISOR, exception4);
+	IDT_SET_ENTRY(0x5, SEG_DPL_SUPERVISOR, exception5);
+	IDT_SET_ENTRY(0x6, SEG_DPL_SUPERVISOR, exception6);
+	IDT_SET_ENTRY(0x7, SEG_DPL_SUPERVISOR, exception7);
+	IDT_SET_ENTRY(0x8, SEG_DPL_SUPERVISOR, exception8);
+	IDT_SET_ENTRY(0x9, SEG_DPL_SUPERVISOR, exception9);
+	IDT_SET_ENTRY(0xa, SEG_DPL_SUPERVISOR, exceptionA);
+	IDT_SET_ENTRY(0xb, SEG_DPL_SUPERVISOR, exceptionB);
+	IDT_SET_ENTRY(0xc, SEG_DPL_SUPERVISOR, exceptionC);
+	IDT_SET_ENTRY(0xd, SEG_DPL_SUPERVISOR, exceptionD);
+	IDT_SET_ENTRY(0xe, SEG_DPL_SUPERVISOR, exceptionE);
 	void* scheduler_irq;
-	IDT_SET_ENTRY(0x90, 3, scheduler_irq);
+	IDT_SET_ENTRY(0x90, SEG_DPL_USER, scheduler_irq);
 
 	MAKE_RREGISTER(idtr, &idt, IDT_NUM_ENTRIES);
 
@@ -219,10 +219,10 @@ md_startup()
 	 * different per-thread - md_thread_witch() will deal with it.
 	 */
 	memset(&kernel_tss, 0, sizeof(struct TSS));
-	kernel_tss.ss0 = GDT_IDX_KERNEL_DATA * 8;
+	kernel_tss.ss0 = GDT_SEL_KERNEL_DATA;
 	__asm(
 		"ltr %%ax\n"
-	: : "a" (GDT_IDX_KERNEL_TASK * 8));
+	: : "a" (GDT_SEL_KERNEL_TASK));
 
 	bsp_pcpu.lapic_id = 0xdeadbabe;
 
