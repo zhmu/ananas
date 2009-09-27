@@ -65,12 +65,14 @@ struct CONTEXT {
 	uint32_t	/* 38 */ ss;
 	uint32_t	/* 3c */ cr3;
 	uint32_t	/* 40 */ eflags;
+	uint32_t	/* 44 */ esp0;
 };
 
 struct MD_THREAD {
 	struct CONTEXT	ctx;
 	void*		pagedir;
 	void*		stack;
+	void*		kstack;
 };
 
 #endif /* __I386_THREAD_H__ */

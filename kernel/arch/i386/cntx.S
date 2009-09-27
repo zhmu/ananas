@@ -26,6 +26,17 @@ md_store_ctx:
 	movw	$0x10, %bx
 	movw	%bx, %ds
 
+	/*
+	 * We must activate the kernel pagetable because each process can only
+	 * see kernel memory and not the thread structures...
+	 *
+	 * Note that we never update %cr3 in the process-structure because it
+	 * cannot be altered by userspace.
+	 */
+        movl    pagedir, %ebx
+        subl    $KERNBASE, %ebx
+        movl    %ebx, %cr3
+
 	/* Fetch the address from the context from the per-cpu info */
 	movl	%fs:0, %ebx
 
@@ -36,32 +47,33 @@ md_store_ctx:
 	movl	%esi, 0x10(%ebx)
 	movl	%edi, 0x14(%ebx)
 	movl	%ebp, 0x18(%ebx)
-	movl	%esp, 0x1c(%ebx)
+
 	/*
-	 * The %esp we just stored isn't correct, as we're a variable
-	 * and a stackframe further. Current stack looks like this
-	 * (note that pushl does esp-4, so we need to add things back
-	 * to it to obtain the data!)
+	 * We got here by means of a context switch, which means we have to
+	 * grab %ss:%esp from the interrupt frame (because we are now using
+	 * the kernel ring 0 stack as specified in the TSS)
 	 *
-	 *      + 28 - original stack
-	 *      + 24 - interrupt: saved eflags
-	 *      + 20 - interrupt: original cs
-	 *      + 16 - interrupt: original eip
-	 *      + 12 - caller: return eip
-	 *      +  8 - original ebx
-	 *      +  4 - original fs
-	 * %esp +  0 - original ds
+	 *      + 32 = interrupted ss
+	 *      + 28 = interrupted esp
+	 *      + 24 = interrupted eflags
+	 *      + 20 = interrupted cs
+	 *      + 16 = interrupted eip
+	 *      + 12 = (caller md_store_context)
+	 *      +  8 = stored ebx
+	 *      +  4 = stored fs
+	 *  esp +  0 = stored ds
 	 */
-	addl	$28, 0x1c(%ebx)		/* update esp */
+	movl	28(%esp), %eax
+	movl	%eax, 0x1c(%ebx)
+	movl	32(%esp), %eax
+	movl	%eax, 0x38(%ebx)
+
+	/* Store segment registers es/gs */
 	xor	%eax, %eax
 	movw	%es,  %ax
 	movl	%eax,  0x2c(%ebx)
 	movw	%gs,  %ax
 	movl	%eax,  0x34(%ebx)
-	movw	%ss,  %ax
-	movl	%eax,  0x38(%ebx)
-	movl	%cr3, %eax
-	movl	%eax, 0x3c(%ebx)
 
 	/* Store original ds */
 	popl	%eax
@@ -99,50 +111,67 @@ md_restore_ctx:
 	movl	4(%esp), %ebx
 
 	/*
-	 * First of all, restore the segment registers, pagetable and
-	 * flags; this clobbers %eax. Note that we can restore the
-	 * flags here because the flags will not be affected by any
-	 * instruction we use.
+	 * First of all, restore the segment registers es/fs/gs.
 	 */
-	movl	0x28(%ebx), %eax
-	movw	%ax, %ds
 	movl	0x2c(%ebx), %eax
 	movw	%ax, %es
 	movl	0x30(%ebx), %eax
 	movw	%ax, %fs
 	movl	0x34(%ebx), %eax
 	movw	%ax, %gs
-	movl	0x38(%ebx), %eax
-	movw	%ax, %ss
-	movl	0x3c(%ebx), %eax
-	movl	%eax, %cr3
 
 	/* Restore the standard registers as far as we can */
+	movl	0x00(%ebx), %eax
 	movl	0x08(%ebx), %ecx
 	movl	0x0c(%ebx), %edx
 	movl	0x10(%ebx), %esi
 	movl	0x14(%ebx), %edi
 	movl	0x18(%ebx), %ebp
-	movl	0x1c(%ebx), %esp
 
 	/*
-	 * Restore flags; we need a popfl for that, which we can only do now
-	 * because ss:esp is initialized.
+	 * We need to switch to the thread's kernelstack as soon as possible,
+	 * because we cannot access our kernel stack anymore once we activate
+	 * the thread's page directory.
 	 */
-	movl	0x40(%ebx), %eax
-	push	%eax
-	popfl
-
-	/* Restore eax */
-	movl	0x00(%ebx), %eax
+	movl	0x44(%ebx), %esp
 
 	/*
-	 * OK, almost there; put cs:eip from the context on the stack so we can
-	 * return far into them.
+	 * OK, almost there; note that, on i386, an 'iret' will also pop %ss:%esp
+	 * from the stack before fetching the eflags and %cs:%eip; this actually
+	 * makes a lot of sense, since you cannot set %ss:%esp beforehand as they
+	 * are for different privilege levels...
+	 *
+	 * The magic phrase is 'If the return is to another privilege level, the
+	 * IRET instruction also pops the stack pointer and SS from the stack,
+	 * before resuming program execution' (IA-32 Intel Architecture Software
+ 	 * Developer's Manual Volume 2, page 3-354)
 	 */
+	pushl	0x38(%ebx)	/* ss */
+	pushl	0x1c(%ebx)	/* esp */
+	pushl	0x40(%ebx)	/* eflags*/
 	pushl	0x24(%ebx)	/* cs */
 	pushl	0x20(%ebx)	/* eip */
 
-	/* Finally, restore %ebx and go */
+	/* Store %eax, we're not quite there yet and need a register we can safely clobber */
+	pushl	%eax
+
+	/* Restore ds */
+	movl	0x28(%ebx), %eax
+	movw	%ax, %ds
+
+	/*
+	 * Grab the page directory in %eax; we can't touch %ebx anymore once we
+	 * set it, so place it on the stack.
+	 */
+	movl	0x3c(%ebx), %eax
+	pushl	%eax
+
+	/* Restore ebx and activate paging */
 	movl	0x04(%ebx), %ebx
-	lret
+
+	popl	%eax
+	movl	%eax, %cr3
+
+	/* Finally, restore %eax and go */
+	popl	%eax
+	iret

@@ -7,22 +7,20 @@
 #include "thread.h"
 
 void md_restore_ctx(struct CONTEXT* ctx);
+void vm_map_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages, int user);
+
+extern struct TSS kernel_tss;
 
 static void
 thread_code()
 {
 	while (1) {
+#if 0
 		uint32_t ctx = 0;
 		kprintf("hi, %x ", ctx);
+#endif
 		/* force a switch! */
-		__asm(
-			"cli\n"
-			"cli\n"
-			"cli\n"
-			"cli\n"
-			"cli\n"
-			"int $0x90\n"
-			);
+		__asm("int $0x90");
 	}
 }
 
@@ -32,15 +30,18 @@ md_thread_init(thread_t thread)
 	/* Note that this function relies on thread->md being zero-filled before calling */
 	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
 
-	/* Allocate a stack */
-	md->stack = kmalloc(THREAD_STACK_SIZE);
-
 	/* Create a pagedirectory and map the kernel pages in there */
 	md->pagedir = kmalloc(PAGE_SIZE);
 	memset(md->pagedir, 0, PAGE_SIZE);
 	vm_map_kernel_addr(md->pagedir);
 
-	memcpy(md->pagedir, pagedir, PAGE_SIZE); /* HACK */
+	/* XXX */
+	char* buf = kmalloc(PAGE_SIZE);
+	memcpy(buf, &thread_code, 4096);
+
+	/* Allocate stacks: one for the thread and one for the kernel */
+	md->stack  = kmalloc(THREAD_STACK_SIZE);
+	md->kstack = kmalloc(KERNEL_STACK_SIZE);
 
 	/* XXX Debugging! */
 	md->ctx.eax = 0x12345679;
@@ -49,14 +50,20 @@ md_thread_init(thread_t thread)
 	md->ctx.edx = 0xcafeb00b;
 	md->ctx.esi = 0xfaabbeef;
 	md->ctx.edi = 0x87654321;
-	md->ctx.esp = (addr_t)md->stack;
-	md->ctx.eip = (addr_t)&thread_code;
+	md->ctx.esp  = (addr_t)md->stack  + THREAD_STACK_SIZE;
+	md->ctx.esp0 = (addr_t)md->kstack + KERNEL_STACK_SIZE;
+	md->ctx.eip = (addr_t)buf;
 
-	/* Fill out the Task State Segment */
-	md->ctx.cs = GDT_IDX_KERNEL_CODE * 8;
-	md->ctx.ds = GDT_IDX_KERNEL_DATA * 8;
-	md->ctx.es = GDT_IDX_KERNEL_DATA * 8;
-	md->ctx.ss = GDT_IDX_KERNEL_DATA * 8;
+	/* Perform adequate mapping for the stack / code */
+	vm_map_pagedir(md->pagedir, (addr_t)md->stack,  THREAD_STACK_SIZE / PAGE_SIZE, 1);
+	vm_map_pagedir(md->pagedir, (addr_t)md->kstack, KERNEL_STACK_SIZE / PAGE_SIZE, 0);
+	vm_map_pagedir(md->pagedir, (addr_t)buf, 1, 1);
+
+	/* Fill out the thread's context */ 
+	md->ctx.cs = GDT_IDX_USER_CODE * 8 + 3;
+	md->ctx.ds = GDT_IDX_USER_DATA * 8;
+	md->ctx.es = GDT_IDX_USER_DATA * 8;
+	md->ctx.ss = GDT_IDX_USER_DATA * 8 + 3;
 	md->ctx.cr3 = (addr_t)md->pagedir;
 
 	return 1;
@@ -75,6 +82,7 @@ md_thread_destroy(thread_t thread)
 
 	kfree(md->pagedir);
 	kfree(md->stack);
+	kfree(md->kstack);
 }
 
 void
@@ -91,6 +99,10 @@ md_thread_switch(thread_t thread)
 		"movl	%%eax, %%fs:0\n"
 	: : "a" (ctx), "b" (GDT_IDX_KERNEL_PCPU * 8));
 
+	/* Activate the corresponding kernel stack in the TSS */
+	kernel_tss.esp0 = ctx->esp0;
+
+	/* Go! */
 	md_restore_ctx(ctx);
 }
 
