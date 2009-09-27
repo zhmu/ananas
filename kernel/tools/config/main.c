@@ -148,7 +148,7 @@ parse_configfile(const char* fname)
 		lineno++;
 
 		/* ignore empty lines and lines starting with a # */
-		if (line[0] == '\n' || line[0] == '\0')
+		if (line[0] == '\n' || line[0] == '\0' || line[0] == '#')
 			continue;
 
 		/* split the line in two space-seperated pieces, if possible */
