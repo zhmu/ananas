@@ -29,12 +29,9 @@ vm_map_bootstrap(addr_t addr, size_t num_pages)
 }
 
 void
-vm_map(addr_t addr, size_t num_pages)
+vm_map_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages, uint32_t user)
 {
 	KASSERT(addr % PAGE_SIZE == 0, "unaligned address 0x%x", addr);
-
-	if (!vm_initialized)
-		return vm_map_bootstrap(addr, num_pages);
 
 	while (num_pages > 0) {
 		uint32_t pd_entrynum = addr >> 22;
@@ -46,11 +43,11 @@ vm_map(addr_t addr, size_t num_pages)
 			 */
 			addr_t new_entry = (addr_t)kmalloc(PAGE_SIZE);
 			memset((void*)new_entry, 0, PAGE_SIZE);
-			pagedir[pd_entrynum] = new_entry | PDE_P | PTE_RW;
+			pagedir[pd_entrynum] = new_entry | PDE_P | PTE_RW | (user ? PDE_US : 0);
 		}
 
 		uint32_t* pt = (uint32_t*)(pagedir[pd_entrynum] & ~(PAGE_SIZE - 1));
-		pt[(((addr >> 12) & ((1 << 10) - 1)))] = addr | PTE_P | PTE_RW;
+		pt[(((addr >> 12) & ((1 << 10) - 1)))] = addr | PTE_P | PTE_RW | (user ? PTE_US : 0);
 
 		num_pages--;
 		addr += PAGE_SIZE;
@@ -58,13 +55,9 @@ vm_map(addr_t addr, size_t num_pages)
 }
 
 void
-vm_unmap(addr_t addr, size_t num_pages)
+vm_unmap_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages)
 {
 	KASSERT(addr % PAGE_SIZE == 0, "unaligned address 0x%x", addr);
-
-	/* Don't care if the VM isn't yet initialized; mappings will vanish anyway */
-	if (!vm_initialized)
-		return;
 
 	while (num_pages > 0) {
 		uint32_t pd_entrynum = addr >> 22;
@@ -79,6 +72,25 @@ vm_unmap(addr_t addr, size_t num_pages)
 		addr += PAGE_SIZE;
 	}
 }
+
+void
+vm_map(addr_t addr, size_t num_pages)
+{
+	if (!vm_initialized)
+		return vm_map_bootstrap(addr, num_pages);
+	vm_map_pagedir(pagedir, addr, num_pages, 0);
+}
+
+void
+vm_unmap(addr_t addr, size_t num_pages)
+{
+	/* Don't care if the VM isn't yet initialized; mappings will vanish anyway */
+	if (!vm_initialized)
+		return;
+
+	vm_unmap_pagedir(pagedir, addr, num_pages);
+}
+
 
 void*
 vm_map_device(addr_t addr, size_t len)
