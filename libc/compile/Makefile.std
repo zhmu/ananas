@@ -1,0 +1,23 @@
+TARGET:		libc.a
+
+S=		../
+
+CFLAGS+=	-nostdlib -nostdinc
+OBJS+=		memfuncs.o print.o string.o
+
+ASMFLAGS=	$(CFLAGS) -DASM
+
+memfuncs.o:	$S/lib/memfuncs.c
+		$(CC) $(CFLAGS) -c -o memfuncs.o ../lib/memfuncs.c
+
+print.o:	$S/lib/print.c
+		$(CC) $(CFLAGS) -c -o print.o ../lib/print.c
+
+string.o:	$S/lib/string.c
+		$(CC) $(CFLAGS) -c -o string.o ../lib/string.c
+
+libc.a:		$(OBJS) $(MDOBJS)
+		$(AR) cr libc.a $(OBJS) $(MDOBJS)
+
+clean:
+		rm -f libc.a $(OBJS) $(MDOBJS)
