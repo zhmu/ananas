@@ -1,6 +1,7 @@
 #include "i386/types.h"
 #include "i386/vm.h"
 #include "i386/io.h"
+#include "i386/interrupts.h"
 #include "i386/macro.h"
 #include "i386/thread.h"
 #include "i386/pcpu.h"
@@ -202,6 +203,7 @@ md_startup()
 	IDT_SET_ENTRY(0xc, SEG_DPL_SUPERVISOR, exceptionC);
 	IDT_SET_ENTRY(0xd, SEG_DPL_SUPERVISOR, exceptionD);
 	IDT_SET_ENTRY(0xe, SEG_DPL_SUPERVISOR, exceptionE);
+	IDT_SET_ENTRY(SYSCALL_INT, SEG_DPL_USER, syscall_int);
 	void* scheduler_irq;
 	IDT_SET_ENTRY(0x90, SEG_DPL_USER, scheduler_irq);
 

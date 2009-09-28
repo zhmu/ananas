@@ -19,6 +19,16 @@ thread_code()
 		uint32_t ctx = 0;
 		kprintf("hi, %x ", ctx);
 #endif
+		/* syscall test */
+		__asm(
+			"movl	$0x1, %eax\n"
+			"movl	$0x2, %ebx\n"
+			"movl	$0x3, %ecx\n"
+			"movl	$0x4, %edx\n"
+			"movl	$0x5, %esi\n"
+			"movl	$0x6, %edi\n"
+			"int $0x30\n");
+
 		/* force a switch! */
 		__asm("int $0x90");
 	}
