@@ -3,7 +3,7 @@ TARGET:		libc.a
 S=		../
 
 CFLAGS+=	-nostdlib -nostdinc
-OBJS+=		memfuncs.o print.o string.o
+OBJS+=		memfuncs.o print.o string.o io.o
 
 ASMFLAGS=	$(CFLAGS) -DASM
 
@@ -15,6 +15,9 @@ print.o:	$S/lib/print.c
 
 string.o:	$S/lib/string.c
 		$(CC) $(CFLAGS) -c -o string.o ../lib/string.c
+
+io.o:		$S/gen/io.c
+		$(CC) $(CFLAGS) -c -o io.o ../gen/io.c
 
 libc.a:		$(OBJS) $(MDOBJS)
 		$(AR) cr libc.a $(OBJS) $(MDOBJS)
