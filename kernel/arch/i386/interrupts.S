@@ -104,20 +104,20 @@ syscall_int:
 	 * in place. Note that the stack grows backward, so we need
 	 * to place them in reverse order.
 	 */
-	movl	%eax, -24(%ebp)
-	movl	%ebx, -20(%ebp)
-	movl	%ecx, -16(%ebp)
-	movl	%edx, -12(%ebp)
-	movl	%esi,  -8(%ebp)
-	movl	%edi,  -4(%ebp)
+	movl	%eax, -28(%ebp)
+	movl	%ebx, -24(%ebp)
+	movl	%ecx, -20(%ebp)
+	movl	%edx, -16(%ebp)
+	movl	%esi, -12(%ebp)
+	movl	%edi,  -8(%ebp)
 
 	/*
 	 * Calculate the address to the base of the structure; this is passed
 	 * to the syscall function.
 	 */
 	movl	%ebp, %eax
-	subl	$24,  %eax
-	movl	%eax, (%ebp)
+	subl	$28,  %eax
+	movl	%eax, -4(%ebp)
 
 	/* Switch to the kernel pagetables */
 	movl	%cr3, %eax
@@ -130,7 +130,7 @@ syscall_int:
 	 * Invoke the generic syscall hander; return values will be passed in
 	 * %eax, so we cannot thrash that.
 	 */
-	pushl	(%ebp)
+	pushl	-4(%ebp)
 	call	syscall
 	addl	$4, %esp
 
