@@ -29,12 +29,13 @@ vm_map_bootstrap(addr_t addr, size_t num_pages)
 }
 
 void
-vm_map_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages, uint32_t user)
+vm_mapto_pagedir(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, uint32_t user)
 {
-	KASSERT(addr % PAGE_SIZE == 0, "unaligned address 0x%x", addr);
+	KASSERT(virt % PAGE_SIZE == 0, "unaligned address 0x%x", virt);
+	KASSERT(phys % PAGE_SIZE == 0, "unaligned address 0x%x", phys);
 
 	while (num_pages > 0) {
-		uint32_t pd_entrynum = addr >> 22;
+		uint32_t pd_entrynum = virt >> 22;
 		if (pagedir[pd_entrynum] == 0) {
 
 			/*
@@ -47,11 +48,17 @@ vm_map_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages, uint32_t user)
 		}
 
 		uint32_t* pt = (uint32_t*)(pagedir[pd_entrynum] & ~(PAGE_SIZE - 1));
-		pt[(((addr >> 12) & ((1 << 10) - 1)))] = addr | PTE_P | PTE_RW | (user ? PTE_US : 0);
+		pt[(((virt >> 12) & ((1 << 10) - 1)))] = phys | PTE_P | PTE_RW | (user ? PTE_US : 0);
 
 		num_pages--;
-		addr += PAGE_SIZE;
+		virt += PAGE_SIZE; phys += PAGE_SIZE;
 	}
+}
+
+void
+vm_map_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages, uint32_t user)
+{
+	vm_mapto_pagedir(pagedir, addr, addr, num_pages, user);
 }
 
 void
