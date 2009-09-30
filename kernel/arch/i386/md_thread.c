@@ -11,29 +11,6 @@ void vm_map_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages, int user);
 
 extern struct TSS kernel_tss;
 
-static void
-thread_code()
-{
-	while (1) {
-#if 0
-		uint32_t ctx = 0;
-		kprintf("hi, %x ", ctx);
-#endif
-		/* syscall test */
-		__asm(
-			"movl	$0x1, %eax\n"
-			"movl	$0x2, %ebx\n"
-			"movl	$0x3, %ecx\n"
-			"movl	$0x4, %edx\n"
-			"movl	$0x5, %esi\n"
-			"movl	$0x6, %edi\n"
-			"int $0x30\n");
-
-		/* force a switch! */
-		__asm("int $0x90");
-	}
-}
-
 int
 md_thread_init(thread_t thread)
 {
@@ -45,31 +22,17 @@ md_thread_init(thread_t thread)
 	memset(md->pagedir, 0, PAGE_SIZE);
 	vm_map_kernel_addr(md->pagedir);
 
-	/* XXX */
-	char* buf = kmalloc(PAGE_SIZE);
-	memcpy(buf, &thread_code, 4096);
-
 	/* Allocate stacks: one for the thread and one for the kernel */
 	md->stack  = kmalloc(THREAD_STACK_SIZE);
 	md->kstack = kmalloc(KERNEL_STACK_SIZE);
 
-	/* XXX Debugging! */
-	md->ctx.eax = 0x12345679;
-	md->ctx.ebx = 0x0f00c0de;
-	md->ctx.ecx = 0xdeadbabe;
-	md->ctx.edx = 0xcafeb00b;
-	md->ctx.esi = 0xfaabbeef;
-	md->ctx.edi = 0x87654321;
-	md->ctx.esp  = (addr_t)md->stack  + THREAD_STACK_SIZE;
-	md->ctx.esp0 = (addr_t)md->kstack + KERNEL_STACK_SIZE;
-	md->ctx.eip = (addr_t)buf;
-
 	/* Perform adequate mapping for the stack / code */
 	vm_map_pagedir(md->pagedir, (addr_t)md->stack,  THREAD_STACK_SIZE / PAGE_SIZE, 1);
 	vm_map_pagedir(md->pagedir, (addr_t)md->kstack, KERNEL_STACK_SIZE / PAGE_SIZE, 0);
-	vm_map_pagedir(md->pagedir, (addr_t)buf, 1, 1);
 
-	/* Fill out the thread's context */ 
+	/* Fill out the thread's registers - anything not here will be zero */ 
+	md->ctx.esp  = (addr_t)md->stack  + THREAD_STACK_SIZE;
+	md->ctx.esp0 = (addr_t)md->kstack + KERNEL_STACK_SIZE;
 	md->ctx.cs = GDT_SEL_USER_CODE + SEG_DPL_USER;
 	md->ctx.ds = GDT_SEL_USER_DATA;
 	md->ctx.es = GDT_SEL_USER_DATA;
