@@ -56,6 +56,8 @@ vga_write(device_t dev, const char* data, size_t len)
 			memcpy((void*)(vga_mem),
 						 (void*)(vga_mem + (VGA_WIDTH * 2)),
 						 (VGA_HEIGHT - 1) * VGA_WIDTH * 2);
+			/* Blank the bottom row */
+			memset((void*)(vga_mem + (VGA_WIDTH * 2) * (VGA_HEIGHT - 1)), 0, (VGA_WIDTH * 2));
 			vga_y--;
 		}
 	}
