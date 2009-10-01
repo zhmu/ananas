@@ -1,6 +1,7 @@
 #include "i386/thread.h"
 #include "i386/vm.h"
 #include "i386/macro.h"
+#include "i386/realmode.h"
 #include "lib.h"
 #include "mm.h"
 #include "param.h"
@@ -38,6 +39,7 @@ md_thread_init(thread_t thread)
 	md->ctx.es = GDT_SEL_USER_DATA;
 	md->ctx.ss = GDT_SEL_USER_DATA + SEG_DPL_USER;
 	md->ctx.cr3 = (addr_t)md->pagedir;
+	md->ctx.eflags = EFLAGS_IF;
 
 	return 1;
 }

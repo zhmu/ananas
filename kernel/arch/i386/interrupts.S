@@ -61,14 +61,20 @@
 	jl	skip_pic2_ ## num; \
 	outb	%al, $0xa0; \
 skip_pic2_ ## num: ; \
-	/* Set paging table back XXX */ \
+	/* Store old cr3 */ \
+	movl	%cr3, %eax; \
+	pushl	%eax; \
+	/* Set paging table to kernel pagetables */ \
 	movl	pagedir, %eax; \
 	subl	$KERNBASE, %eax; \
 	movl	%eax, %cr3; \
 	/* Call the exception handler */ \
 	pushl	$0x ## num; \
 	call	irq_handler; \
-	addl	$8, %esp; /* Don't restore ss register */ \
+	addl	$4, %esp; \
+	pop	%eax; \
+	movl	%eax, %cr3; \
+	addl	$4, %esp; /* Don't restore ss register */ \
 	/* Restore previous state */ \
 	pop	%gs; \
 	pop	%fs; \
@@ -91,13 +97,13 @@ exception ## num: \
 
 #define EXCEPTION_HANDLER(num) \
 exception ## num: \
-	EXCEPTION_HANDLER_BODY(num);
+	EXCEPTION_HANDLER_BODY(num); \
 	iret
 
 /* IRQ handlers are a lot simpler: they come in a single easy flavour */
 #define IRQ_HANDLER(num) \
 irq ## num: \
-	IRQ_HANDLER_BODY(num);
+	IRQ_HANDLER_BODY(num); \
 	iret
 
 /*
@@ -110,7 +116,7 @@ scheduler_irq:
 	 * If we don't have a current context pointer, don't bother storing it.
 	 * Note that this nukes eflags, but that doesn't matter because
 	 * md_store_ctx uses the eflags stored by the interrupt
-	 */
+	*/
 	pushl	%fs
 	pushl	%eax
 	movw	$0x28, %ax /* XXX */
@@ -120,10 +126,17 @@ scheduler_irq:
 	pop	%fs
 	jz	skip_store
 
+	/* Store current context, please */
 	call	md_store_ctx
 
 skip_store:
+	/* Acknowledge IRQ! */
+	movb	$0x20, %al
+	outb	%al, $0x20
+
+	/* Next context */
 	jmp	schedule
+
 	/* UNREACHED - schedule never returns */
 
 /*
@@ -209,7 +222,6 @@ EXCEPTION_HANDLER_ERRORCODE(D)
 EXCEPTION_HANDLER_ERRORCODE(E)
 
 /* ...and the IRQ handlers */
-IRQ_HANDLER(0)
 IRQ_HANDLER(1)
 IRQ_HANDLER(2)
 IRQ_HANDLER(3)
