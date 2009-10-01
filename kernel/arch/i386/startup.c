@@ -184,25 +184,68 @@ md_startup()
 	    "c" (GDT_SEL_KERNEL_CODE));
 
 	/*
+	 * Remap the interrupts; by default, IRQ 0-7 are mapped to interrupts 0x08 - 0x0f
+	 * and IRQ 8-15 to 0x70 - 0x77. We remap IRQ 0-15 to 0x20-0x2f (since 0..0x1f is
+	 * reserved by Intel).
+	 */
+#define IO_WAIT() do { int i = 10; while (i--) /* NOTHING */ ; } while (0);
+
+	unsigned int mask1 = inb(PIC1_DATA);
+	unsigned int mask2 = inb(PIC2_DATA);
+	/* Start initialization: the PIC will wait for 3 command bta ytes */
+	outb(PIC1_CMD, ICW1_INIT | ICW1_ICW4); IO_WAIT();
+	outb(PIC2_CMD, ICW1_INIT | ICW1_ICW4); IO_WAIT();
+	/* Data byte 1 is the interrupt vector offset - program for interrupt 0x20-0x2f */
+	outb(PIC1_DATA, 0x20); IO_WAIT();
+	outb(PIC2_DATA, 0x28); IO_WAIT();
+	/* Data byte 2 tells the PIC how they are wired */
+	outb(PIC1_DATA, 0x04); IO_WAIT();
+	outb(PIC2_DATA, 0x02); IO_WAIT();
+	/* Data byte 3 contains environment flags */
+	outb(PIC1_DATA, ICW4_8086); IO_WAIT();
+	outb(PIC2_DATA, ICW4_8086); IO_WAIT();
+	/* Restore PIC masks */
+	outb(PIC1_DATA, mask1);
+	outb(PIC2_DATA, mask2);
+
+
+	/*
 	 * Prepare the IDT entries; this means mapping the exception interrupts to
 	 * handlers.
 	 */
 	memset(&idt, 0, IDT_NUM_ENTRIES * 8);
-	IDT_SET_ENTRY(0x0, SEG_DPL_SUPERVISOR, exception0);
-	IDT_SET_ENTRY(0x1, SEG_DPL_SUPERVISOR, exception1);
-	IDT_SET_ENTRY(0x2, SEG_DPL_SUPERVISOR, exception2);
-	IDT_SET_ENTRY(0x3, SEG_DPL_SUPERVISOR, exception3);
-	IDT_SET_ENTRY(0x4, SEG_DPL_SUPERVISOR, exception4);
-	IDT_SET_ENTRY(0x5, SEG_DPL_SUPERVISOR, exception5);
-	IDT_SET_ENTRY(0x6, SEG_DPL_SUPERVISOR, exception6);
-	IDT_SET_ENTRY(0x7, SEG_DPL_SUPERVISOR, exception7);
-	IDT_SET_ENTRY(0x8, SEG_DPL_SUPERVISOR, exception8);
-	IDT_SET_ENTRY(0x9, SEG_DPL_SUPERVISOR, exception9);
-	IDT_SET_ENTRY(0xa, SEG_DPL_SUPERVISOR, exceptionA);
-	IDT_SET_ENTRY(0xb, SEG_DPL_SUPERVISOR, exceptionB);
-	IDT_SET_ENTRY(0xc, SEG_DPL_SUPERVISOR, exceptionC);
-	IDT_SET_ENTRY(0xd, SEG_DPL_SUPERVISOR, exceptionD);
-	IDT_SET_ENTRY(0xe, SEG_DPL_SUPERVISOR, exceptionE);
+	IDT_SET_ENTRY(0x00, SEG_DPL_SUPERVISOR, exception0);
+	IDT_SET_ENTRY(0x01, SEG_DPL_SUPERVISOR, exception1);
+	IDT_SET_ENTRY(0x02, SEG_DPL_SUPERVISOR, exception2);
+	IDT_SET_ENTRY(0x03, SEG_DPL_SUPERVISOR, exception3);
+	IDT_SET_ENTRY(0x04, SEG_DPL_SUPERVISOR, exception4);
+	IDT_SET_ENTRY(0x05, SEG_DPL_SUPERVISOR, exception5);
+	IDT_SET_ENTRY(0x06, SEG_DPL_SUPERVISOR, exception6);
+	IDT_SET_ENTRY(0x07, SEG_DPL_SUPERVISOR, exception7);
+	IDT_SET_ENTRY(0x08, SEG_DPL_SUPERVISOR, exception8);
+	IDT_SET_ENTRY(0x09, SEG_DPL_SUPERVISOR, exception9);
+	IDT_SET_ENTRY(0x0a, SEG_DPL_SUPERVISOR, exceptionA);
+	IDT_SET_ENTRY(0x0b, SEG_DPL_SUPERVISOR, exceptionB);
+	IDT_SET_ENTRY(0x0c, SEG_DPL_SUPERVISOR, exceptionC);
+	IDT_SET_ENTRY(0x0d, SEG_DPL_SUPERVISOR, exceptionD);
+	IDT_SET_ENTRY(0x0e, SEG_DPL_SUPERVISOR, exceptionE);
+	IDT_SET_ENTRY(0x20, SEG_DPL_SUPERVISOR, irq0);
+	IDT_SET_ENTRY(0x21, SEG_DPL_SUPERVISOR, irq1);
+	IDT_SET_ENTRY(0x22, SEG_DPL_SUPERVISOR, irq2);
+	IDT_SET_ENTRY(0x23, SEG_DPL_SUPERVISOR, irq3);
+	IDT_SET_ENTRY(0x24, SEG_DPL_SUPERVISOR, irq4);
+	IDT_SET_ENTRY(0x25, SEG_DPL_SUPERVISOR, irq5);
+	IDT_SET_ENTRY(0x26, SEG_DPL_SUPERVISOR, irq6);
+	IDT_SET_ENTRY(0x27, SEG_DPL_SUPERVISOR, irq7);
+	IDT_SET_ENTRY(0x28, SEG_DPL_SUPERVISOR, irq8);
+	IDT_SET_ENTRY(0x29, SEG_DPL_SUPERVISOR, irq9);
+	IDT_SET_ENTRY(0x2a, SEG_DPL_SUPERVISOR, irqA);
+	IDT_SET_ENTRY(0x2b, SEG_DPL_SUPERVISOR, irqB);
+	IDT_SET_ENTRY(0x2c, SEG_DPL_SUPERVISOR, irqC);
+	IDT_SET_ENTRY(0x2d, SEG_DPL_SUPERVISOR, irqD);
+	IDT_SET_ENTRY(0x2e, SEG_DPL_SUPERVISOR, irqE);
+	IDT_SET_ENTRY(0x2f, SEG_DPL_SUPERVISOR, irqF);
+
 	IDT_SET_ENTRY(SYSCALL_INT, SEG_DPL_USER, syscall_int);
 	void* scheduler_irq;
 	IDT_SET_ENTRY(0x90, SEG_DPL_USER, scheduler_irq);

@@ -5,6 +5,8 @@
 .globl exception0, exception1, exception2, exception3, exception4, exception5
 .globl exception6, exception7, exception8, exception9, exceptionA, exceptionB
 .globl exceptionC, exceptionD, exceptionE
+.globl irq0, irq1, irq2, irq3, irq4, irq5, irq6, irq7, irq8, irq9
+.globl irqA, irqB, irqC, irqD, irqE, irqF
 .globl scheduler_irq, syscall_int
 
 #include "i386/vm.h"
@@ -38,6 +40,43 @@
 	pop	%ds; \
 	popal
 
+/* Basic IRQ handler framework */
+#define IRQ_HANDLER_BODY(num) \
+	/* Save the previous state first */ \
+	pushal; \
+	push	%ds; \
+	push	%es; \
+	push	%fs; \
+	push	%gs; \
+	push	%ss; \
+	/* Set up kernel data */ \
+	movl	$GDT_SEL_KERNEL_DATA, %eax; \
+	movw	%ax, %ds; \
+	movw	%ax, %es; \
+	/* Acknowledge the interrupt */ \
+	movb	$0x20, %al; \
+	outb	%al, $0x20; \
+	movl	$0x ## num, %ebx; \
+	cmp	$0x8, %ebx; \
+	jl	skip_pic2_ ## num; \
+	outb	%al, $0xa0; \
+skip_pic2_ ## num: ; \
+	/* Set paging table back XXX */ \
+	movl	pagedir, %eax; \
+	subl	$KERNBASE, %eax; \
+	movl	%eax, %cr3; \
+	/* Call the exception handler */ \
+	pushl	$0x ## num; \
+	call	irq_handler; \
+	addl	$8, %esp; /* Don't restore ss register */ \
+	/* Restore previous state */ \
+	pop	%gs; \
+	pop	%fs; \
+	pop	%es; \
+	pop	%ds; \
+	popal; \
+	iret
+
 /*
  * There exist two versions of exceptions: those with an error code, and those
  * without one. Our handler code expects to be called with an error code, so
@@ -53,6 +92,12 @@ exception ## num: \
 #define EXCEPTION_HANDLER(num) \
 exception ## num: \
 	EXCEPTION_HANDLER_BODY(num);
+	iret
+
+/* IRQ handlers are a lot simpler: they come in a single easy flavour */
+#define IRQ_HANDLER(num) \
+irq ## num: \
+	IRQ_HANDLER_BODY(num);
 	iret
 
 /*
@@ -162,3 +207,21 @@ EXCEPTION_HANDLER_ERRORCODE(B)
 EXCEPTION_HANDLER_ERRORCODE(C)
 EXCEPTION_HANDLER_ERRORCODE(D)
 EXCEPTION_HANDLER_ERRORCODE(E)
+
+/* ...and the IRQ handlers */
+IRQ_HANDLER(0)
+IRQ_HANDLER(1)
+IRQ_HANDLER(2)
+IRQ_HANDLER(3)
+IRQ_HANDLER(4)
+IRQ_HANDLER(5)
+IRQ_HANDLER(6)
+IRQ_HANDLER(7)
+IRQ_HANDLER(8)
+IRQ_HANDLER(9)
+IRQ_HANDLER(A)
+IRQ_HANDLER(B)
+IRQ_HANDLER(C)
+IRQ_HANDLER(D)
+IRQ_HANDLER(E)
+IRQ_HANDLER(F)

@@ -18,4 +18,10 @@ exception_handler(
 	panic("exception");
 }
 
+void
+irq_handler(uint32_t no)
+{
+	kprintf("interrupt %u fired\n", no);
+}
+
 /* vim:set ts=2 sw=2: */
