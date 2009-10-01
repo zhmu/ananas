@@ -119,7 +119,7 @@ scheduler_irq:
 	*/
 	pushl	%fs
 	pushl	%eax
-	movw	$0x28, %ax /* XXX */
+	movw	$GDT_SEL_KERNEL_PCPU, %ax
 	movw	%ax, %fs
 	cmpl	$0, %fs:0
 	popl	%eax

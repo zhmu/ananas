@@ -2,6 +2,7 @@
 
 #include "param.h"
 #include "types.h"
+#include "machine/vm.h"
 
 .global md_store_ctx, md_restore_ctx
 
@@ -19,11 +20,11 @@ md_store_ctx:
 	pushl	%ebx
 	pushl	%fs
 	pushl	%ds
-	movw	$0x28, %bx
+	movw	$GDT_SEL_KERNEL_PCPU, %bx
 	movw	%bx, %fs
 
 	/* Setup ds so we can store the registers */
-	movw	$0x10, %bx
+	movw	$GDT_SEL_KERNEL_DATA, %bx
 	movw	%bx, %ds
 
 	/*
