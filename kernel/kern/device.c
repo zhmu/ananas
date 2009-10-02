@@ -205,6 +205,7 @@ device_alloc_resource(device_t dev, resource_type_t type, size_t len)
 		case RESTYPE_MEMORY:
 			return (void*)vm_map_device(res->base, len);
 		case RESTYPE_IO:
+		case RESTYPE_IRQ: /* XXX should allocate, not just return */
 			return (void*)(res->base);
 	}
 
