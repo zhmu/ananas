@@ -6,10 +6,11 @@ hints		hints.i386
 device		isa
 device		vga
 device		sio
+device		atkbd
 
 device		pcihb
 device		pci
 
-#option		SMP
+option		SMP
 
 console		isa.vga

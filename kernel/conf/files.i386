@@ -11,5 +11,6 @@ arch/i386/cntx.S		mandatory
 arch/i386/md_thread.c		mandatory
 kern/exec_elf32.c		mandatory
 arch/i386/dev/pcihb.c		optional pcihb
+arch/i386/dev/atkbd.c		optional atkbd
 arch/i386/mp_stub.S		option SMP
 arch/i386/smp.c			option SMP
