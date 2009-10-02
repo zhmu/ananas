@@ -9,18 +9,24 @@ struct THREAD* curthread = NULL; /* XXX make me per-CPU */
 void
 schedule()
 {
-	if (curthread == NULL)
-		curthread = threads;
+	struct THREAD* newthread = curthread;
+
+	if (newthread == NULL)
+		newthread = threads;
 	else {
-		curthread = curthread->next;
-		if (curthread == NULL)
-			curthread = threads;
+		newthread = newthread->next;
+		if (newthread == NULL)
+			newthread = threads;
 	}
 
-	if (curthread == NULL)
+	if (newthread == NULL)
 		panic("no threads!");
 
-/*	kprintf("schedule: switching to thread %x\n", curthread);*/
+#if 0
+	if (newthread != curthread)
+		kprintf("schedule: switching to thread %x\n", newthread);
+#endif
+	curthread = newthread;
 	md_thread_switch(curthread);
 	/* NOTREACHED */
 }
