@@ -1,15 +1,18 @@
+#include "lock.h"
 #include "mm.h"
 #include "vm.h"
 #include "lib.h"
 
 static int zone_root_initialized;
 static struct MM_ZONE* zone_root;
+static struct SPINLOCK spl_mm;
 
 void
 mm_init()
 {
 	zone_root_initialized = 0;
 	zone_root = NULL;
+	spinlock_init(&spl_mm);
 }
 
 void
@@ -72,6 +75,7 @@ kprintf("zone_add: addr=%x, chunks=%x\n", zone->address, zone->chunks);
 	}
 
 	/* Finally, add this zone to the available zones */
+	spinlock_lock(&spl_mm);
 	if (zone_root_initialized) {
 		struct MM_ZONE* curzone;
 		for (curzone = zone_root; curzone->next_zone != NULL; curzone = curzone->next_zone);
@@ -79,6 +83,8 @@ kprintf("zone_add: addr=%x, chunks=%x\n", zone->address, zone->chunks);
 	} else {
 		zone_root = zone; zone_root_initialized = 1;
 	}
+
+	spinlock_unlock(&spl_mm);
 }
 
 void
@@ -89,6 +95,7 @@ kmem_stats(size_t* avail, size_t* total)
 	if (!zone_root_initialized)
 		return;
 
+	spinlock_lock(&spl_mm);
 	struct MM_ZONE* curzone = zone_root;
 	while (1) {
 		*total += curzone->length * PAGE_SIZE;
@@ -97,6 +104,7 @@ kmem_stats(size_t* avail, size_t* total)
 		if (curzone == NULL)
 			break;
 	}
+	spinlock_unlock(&spl_mm);
 }
 
 /*
@@ -112,6 +120,7 @@ kmem_alloc(size_t len)
 		len += PAGE_SIZE - (len % PAGE_SIZE);
 
 	len /= PAGE_SIZE;
+	spinlock_lock(&spl_mm);
 	for (curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
 		/* Skip any zone that hasn't got enough space */
 		if (curzone->num_cont_free < len)
@@ -136,11 +145,13 @@ kmem_alloc(size_t len)
 				chunk++; len--;
 			}
 
+			spinlock_unlock(&spl_mm);
 			return (void*)addr;
 		}
 	}
 
 	/* No zones available to honor this request */
+	spinlock_unlock(&spl_mm);
 	return NULL;
 }
 
@@ -166,6 +177,7 @@ kfree(void* addr)
 	 * where this address belongs. And then, we can free it.
 	 */
 	struct MM_ZONE* curzone;
+	spinlock_lock(&spl_mm);
 	for (curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
 		unsigned int n;
 		for (n = 0; n < curzone->num_chunks; n++) {
@@ -173,8 +185,10 @@ kfree(void* addr)
 			if (chunk->address != (addr_t)addr)
 				continue;
 
-			if ((chunk->flags & MM_CHUNK_FLAG_USED) == 0)
+			if ((chunk->flags & MM_CHUNK_FLAG_USED) == 0) {
+				spinlock_unlock(&spl_mm);
 				panic("freeing unallocated pointer 0x%x", (addr_t)addr);
+			}
 
 			/*
 			 * OK, we located the chunk. Just mark it as free for now
@@ -186,10 +200,12 @@ kfree(void* addr)
 				chunk->flags &= ~MM_CHUNK_FLAG_USED;
 				chunk++; i--;
 			}
+			spinlock_unlock(&spl_mm);
 			return;
 		}
 	}
 
+	spinlock_unlock(&spl_mm);
 	panic("freeing unlocatable pointer 0x%x", (addr_t)addr);
 }
 
