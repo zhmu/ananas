@@ -84,6 +84,7 @@ struct IA32_CPU {
 	/* NOTE: order is important - refer to mp_stub.S */
 	uint8_t		lapic_id;	/* Local APIC ID */
 	char*		stack;		/* CPU stack */
+	char*		gdt;		/* Global Descriptor Table */
 };
 
 #endif /* __I386_SMP_H__ */

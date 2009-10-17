@@ -97,9 +97,23 @@ mp_stub32_paging:
 	mov	(%edx), %al		/* eax = lapic2cpuid[lapicid] */
 	shl	$2, %eax
 	addl	cpus, %eax
-	movl	(%eax), %eax		/* eax = cpus[lapic2cpid[lapicid]] */
+	movl	(%eax), %eax		/* eax = cpus[lapic2cpuid[lapicid]] */
 	movl	4(%eax), %esp
+	movl	8(%eax), %edx		/* edx = private gdt */
 
+	call	pm
+	.word	(GDT_NUM_ENTRIES * 8) - 1
+	.long	0
+pm:	pop	%esi
+	movl	%edx, 2(%esi)		/* overwrite gdt address above */
+	lgdt	(%esi)
+
+	call	pn
+	.word	(IDT_NUM_ENTRIES * 8) - 1
+	.long	idt
+pn: 	pop	%esi
+	lidt	(%esi)
+	
 	/* Call mp_ap_startup with our corresponding lapic id */
 	pushl	%ebx
 	call	mp_ap_startup
