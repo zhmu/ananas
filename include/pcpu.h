@@ -1,4 +1,5 @@
 #include "types.h"
+#include "machine/pcpu.h"
 
 #ifndef __PCPU_H__
 #define __PCPU_H__
