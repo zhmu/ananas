@@ -85,4 +85,19 @@ strtoul(const char* ptr, char** endptr, int base)
 	return val;
 }
 
+char*
+strcat(char* dst, const char* src)
+{
+	char* org_dest = dst;
+
+	while (*dst != '\0') dst++;
+
+	while (*src != '\0')
+		*dst++ = *src++;
+	*dst = '\0';
+
+	return org_dest;
+}
+
+
 /* vim:set ts=2 sw=2: */
