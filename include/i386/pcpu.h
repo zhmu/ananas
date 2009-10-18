@@ -4,6 +4,7 @@
 /* i386-specific per-cpu structure */
 #define MD_PCPU_FIELDS \
 	void		*context; \
-	uint32_t	lapic_id;
+	uint32_t	lapic_id; \
+	addr_t		tss;
 
 #endif /* __I386_PCPU_H__ */
