@@ -40,7 +40,7 @@ putint(void(*putch)(void*, int), void* v, unsigned int n)
 	 * need to print is n % 10^p, so 1234 % 10^3 = 1, 234 % 10^2 = 2 etc)
 	 */
 	unsigned int i, p = 0, base = 1;
-	for (i = n; i > 10; i /= 10, p++, base *= 10);
+	for (i = n; i >= 10; i /= 10, p++, base *= 10);
 	/* Write values from n/(p^10) .. n/1 */
 	for (i = 0; i<= p; i++, base /= 10) {
 		putch(v, '0' + (n / base) % 10);
