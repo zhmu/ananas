@@ -1,10 +1,13 @@
 #include "types.h"
 #include "console.h"
 #include "device.h"
+#include "lock.h"
 #include "stdarg.h"
 
 static const uint8_t hextab_hi[16] = "0123456789ABCDEF";
 static const uint8_t hextab_lo[16] = "0123456789abcdef";
+
+struct SPINLOCK spl_print = { 0 };
 
 int
 puts(const char* s)
@@ -101,7 +104,9 @@ kprintf_putch(void* v, int c)
 void
 vaprintf(const char* fmt, va_list ap)
 {
+	spinlock_lock(&spl_print);
 	vapprintf(fmt, kprintf_putch, NULL, ap);
+	spinlock_unlock(&spl_print);
 }
 
 void
