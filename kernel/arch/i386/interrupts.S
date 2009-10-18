@@ -161,6 +161,11 @@ syscall_int:
 	pushl	%esi
 	pushl	%edi
 
+	/* Save segment registers as well; we only use ds/es/fs */
+	pushl	%ds
+	pushl	%es
+	pushl	%fs
+
 	/*
 	 * Set up a pointer to the structure, and copy 6 arguments
 	 * in place. Note that the stack grows backward, so we need
@@ -188,6 +193,13 @@ syscall_int:
 	subl	$KERNBASE, %eax
 	movl	%eax, %cr3
 
+	/* Switch to kernel register context */
+	movw	$GDT_SEL_KERNEL_DATA, %ax
+	movw	%ax, %ds
+	movw	%ax, %es
+	movw	$GDT_SEL_KERNEL_PCPU, %ax
+	movw	%ax, %fs
+
 	/*
 	 * Invoke the generic syscall hander; return values will be passed in
 	 * %eax, so we cannot thrash that.
@@ -199,6 +211,10 @@ syscall_int:
 	/* Restore paging and the other registers */
 	popl	%ebx
 	movl	%ebx, %cr3
+
+	popl	%fs
+	popl	%es
+	popl	%ds
 
 	popl	%edi
 	popl	%esi
