@@ -6,11 +6,9 @@
 
 /* Per-CPU information pointer */
 struct PCPU {
-	/* Machine-dependant data next */
-	MD_PCPU_FIELDS
-
-	/* current thread */
-	void* curthread;
+	MD_PCPU_FIELDS				/* Machine-dependant data */
+	uint32_t cpuid;				/* CPU ID */
+	void* curthread;			/* current thread */
 };
 
 /* Retrieve the size of the machine-dependant structure */

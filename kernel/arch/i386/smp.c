@@ -242,9 +242,10 @@ smp_init()
 		cpus[i]->stack = kmalloc(KERNEL_STACK_SIZE);
 		KASSERT(cpus[i]->stack != NULL, "out of memory?");
 
-		uint32_t admin_length = GDT_NUM_ENTRIES * 8 + sizeof(struct TSS) + sizeof(struct PCPU);
-		char* buf = kmalloc(admin_length);
-
+		/*
+		 * Allocate one buffer and place all necessary administration in there.
+		 */
+		char* buf = kmalloc(GDT_NUM_ENTRIES * 8 + sizeof(struct TSS) + sizeof(struct PCPU));
 		cpus[i]->gdt = buf;
 extern void* gdt;
 		memcpy(cpus[i]->gdt, &gdt, GDT_NUM_ENTRIES * 8);
@@ -255,6 +256,7 @@ struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
 		cpus[i]->tss = (char*)tss;
 struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS));
 		memset(pcpu, 0, sizeof(struct PCPU));
+		pcpu->cpuid = i;
 		pcpu->tss = (addr_t)cpus[i]->tss;
 		GDT_SET_ENTRY32(cpus[i]->gdt, GDT_IDX_KERNEL_PCPU, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, (addr_t)pcpu, sizeof(struct PCPU));
 	}
@@ -295,7 +297,7 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 
 	/*
 	 * Initialize the SMP launch spinlock; every AP will try this as well. Once
-	 * we are done, the BSP unlocks, causing every 
+	 * we are done, the BSP unlocks, causing every AP to run.
 	 */
 	spinlock_init(&spl_smp_launch);
 	spinlock_lock(&spl_smp_launch);

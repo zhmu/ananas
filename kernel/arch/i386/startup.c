@@ -269,8 +269,9 @@ md_startup()
 	: : "a" (GDT_SEL_KERNEL_TASK));
 
 	bsp_pcpu.lapic_id = 0;
+	bsp_pcpu.cpuid = 0;
 	bsp_pcpu.tss = &kernel_tss;
-	bsp_pcpu.curthread = 0;
+	bsp_pcpu.curthread = NULL;
 
 	/*
 	 * Clear the temporary pagetable entry; this ensures we won't status with
