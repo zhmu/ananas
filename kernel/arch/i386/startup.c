@@ -157,14 +157,14 @@ md_startup()
 	memset(&gdt, 0, GDT_NUM_ENTRIES * 8);
 	addr_t stub16 = (addr_t)&realmode16_stub - KERNBASE;
 	addr_t bsp_addr = (addr_t)&bsp_pcpu;
-	GDT_SET_ENTRY32(GDT_IDX_KERNEL_CODE,   SEG_TYPE_CODE, SEG_DPL_SUPERVISOR, 0, 0xfffff);
-	GDT_SET_ENTRY32(GDT_IDX_KERNEL_DATA,   SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, 0, 0xfffff);
-	GDT_SET_ENTRY16(GDT_IDX_KERNEL_CODE16, SEG_TYPE_CODE, SEG_DPL_SUPERVISOR, stub16);
-	GDT_SET_ENTRY16(GDT_IDX_KERNEL_DATA16, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, stub16);
-	GDT_SET_ENTRY32(GDT_IDX_KERNEL_PCPU,   SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, bsp_addr, sizeof(struct PCPU));
-	GDT_SET_ENTRY32(GDT_IDX_USER_CODE,     SEG_TYPE_CODE, SEG_DPL_USER,       0, 0xfffff);
-	GDT_SET_ENTRY32(GDT_IDX_USER_DATA,     SEG_TYPE_DATA, SEG_DPL_USER,       0, 0xfffff);
-	GDT_SET_TSS(GDT_IDX_KERNEL_TASK, 0, (addr_t)&kernel_tss, sizeof(struct TSS));
+	GDT_SET_ENTRY32(&gdt, GDT_IDX_KERNEL_CODE,   SEG_TYPE_CODE, SEG_DPL_SUPERVISOR, 0, 0xfffff);
+	GDT_SET_ENTRY32(&gdt, GDT_IDX_KERNEL_DATA,   SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, 0, 0xfffff);
+	GDT_SET_ENTRY16(&gdt, GDT_IDX_KERNEL_CODE16, SEG_TYPE_CODE, SEG_DPL_SUPERVISOR, stub16);
+	GDT_SET_ENTRY16(&gdt, GDT_IDX_KERNEL_DATA16, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, stub16);
+	GDT_SET_ENTRY32(&gdt, GDT_IDX_KERNEL_PCPU,   SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, bsp_addr, sizeof(struct PCPU));
+	GDT_SET_ENTRY32(&gdt, GDT_IDX_USER_CODE,     SEG_TYPE_CODE, SEG_DPL_USER,       0, 0xfffff);
+	GDT_SET_ENTRY32(&gdt, GDT_IDX_USER_DATA,     SEG_TYPE_DATA, SEG_DPL_USER,       0, 0xfffff);
+	GDT_SET_TSS(&gdt, GDT_IDX_KERNEL_TASK, 0, (addr_t)&kernel_tss, sizeof(struct TSS));
 
 	MAKE_RREGISTER(gdtr, &gdt, GDT_NUM_ENTRIES);
 
@@ -173,7 +173,7 @@ md_startup()
 		"lgdt (%%eax)\n"
 		"mov %%bx, %%ds\n"
 		"mov %%bx, %%es\n"
-		"mov %%bx, %%fs\n"
+		"mov %%dx, %%fs\n"
 		"mov %%bx, %%gs\n"
 		"pushl %%ecx\n"
 		"pushl $l5\n"
@@ -181,7 +181,8 @@ md_startup()
 "l5:\n"
 	: : "a" (&gdtr),
  	    "b" (GDT_SEL_KERNEL_DATA),
-	    "c" (GDT_SEL_KERNEL_CODE));
+	    "c" (GDT_SEL_KERNEL_CODE),
+	    "d" (GDT_SEL_KERNEL_PCPU));
 
 	/*
 	 * Remap the interrupts; by default, IRQ 0-7 are mapped to interrupts 0x08 - 0x0f
@@ -267,7 +268,9 @@ md_startup()
 		"ltr %%ax\n"
 	: : "a" (GDT_SEL_KERNEL_TASK));
 
-	bsp_pcpu.lapic_id = 0xdeadbabe;
+	bsp_pcpu.lapic_id = 0;
+	bsp_pcpu.tss = &kernel_tss;
+	bsp_pcpu.curthread = 0;
 
 	/*
 	 * Clear the temporary pagetable entry; this ensures we won't status with

@@ -1,8 +1,8 @@
 #ifndef __I386_MACRO_H__
 #define __I386_MACRO_H__
 
-#define GDT_SET_ENTRY32(num, type, dpl, base, limit) do { \
-	uint8_t* p = ((uint8_t*)&gdt + num * 8); \
+#define GDT_SET_ENTRY32(ptr, num, type, dpl, base, limit) do { \
+	uint8_t* p = ((uint8_t*)ptr + num * 8); \
 	/* Segment Limit 15:00 = 4GB */ \
 	p[0] = (limit >> 8) & 0xff; p[1] = (limit) & 0xff; \
 	/* Base Address 15:00 */ \
@@ -17,8 +17,8 @@
 	p[7] = (base >> 24) & 0xff; \
 } while(0);
 
-#define GDT_SET_ENTRY16(num, type, dpl, base) do { \
-	uint8_t* p = ((uint8_t*)&gdt + num * 8); \
+#define GDT_SET_ENTRY16(ptr, num, type, dpl, base) do { \
+	uint8_t* p = ((uint8_t*)ptr + num * 8); \
 	/* Segment Limit 15:00 = 64KB */ \
 	p[0] = 0xff; p[1] = 0xff; \
 	/* Base Address 15:00 */ \
@@ -33,8 +33,8 @@
 	p[7] = ((base) >> 24) & 0xff; \
 } while(0);
 
-#define GDT_SET_TSS(num, dpl, base, size) do { \
-	uint8_t* p = ((uint8_t*)&gdt + num * 8); \
+#define GDT_SET_TSS(ptr, num, dpl, base, size) do { \
+	uint8_t* p = ((uint8_t*)ptr + num * 8); \
 	/* Segment Limit 15:00  */ \
 	p[0] = (size) & 0xff; p[1] = ((size) >> 8) & 0xff; \
 	/* Base Address 15:00 */ \
