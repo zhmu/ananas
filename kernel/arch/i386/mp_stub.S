@@ -59,9 +59,10 @@ mp_stub32:
 	mov	$GDT_SEL_KERNEL_DATA, %ax
 	mov	%ax, %ds
 	mov	%ax, %es
-	mov	%ax, %fs
 	mov	%ax, %gs
 	mov	%ax, %ss
+	mov	$GDT_SEL_KERNEL_PCPU, %ax
+	mov	%ax, %fs
 
 	/*
 	 * Locate our APIC ID; we use this to determine which stack we have to
@@ -113,6 +114,10 @@ pm:	pop	%esi
 	.long	idt
 pn: 	pop	%esi
 	lidt	(%esi)
+
+	/* Load the task register */
+	movw	$GDT_SEL_KERNEL_TASK, %ax
+	ltr	%ax
 	
 	/* Call mp_ap_startup with our corresponding lapic id */
 	pushl	%ebx
