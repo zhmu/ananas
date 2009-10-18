@@ -1,4 +1,5 @@
 #include "i386/types.h"
+#include "pcpu.h"
 #include "lib.h"
 
 void
@@ -9,7 +10,7 @@ exception_handler(
 	uint32_t ecx, uint32_t eax, uint32_t errcode,
 	uint32_t eip, uint32_t cs)
 {
-	kprintf("FATAL: exception %u at cs:eip = %x:%x\n", no, cs, eip);
+	kprintf("FATAL (CPU %u): exception %u at cs:eip = %x:%x\n", PCPU_GET(cpuid), no, cs, eip);
 	kprintf("eax=%x ebx=%x ecx=%x edx=%x\n", eax, ebx, ecx, edx);
 	kprintf("esi=%x edi=%x ebp=%x\n", esi, edi, ebp);
 	kprintf("ds=%x es=%x fs=%x gs=%x\n", ds, es, fs, gs);

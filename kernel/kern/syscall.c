@@ -1,4 +1,5 @@
 #include "syscall.h"
+#include "pcpu.h"
 
 register_t
 syscall(struct SYSCALL_ARGS* a)
@@ -8,7 +9,8 @@ syscall(struct SYSCALL_ARGS* a)
 			kprintf("%c", a->arg1);
 			break;
 		default:
-			kprintf("syscall, no=%x,a1=%u,a2=%u,a3=%u,a4=%u,a5=%u\n",
+			kprintf("syscall, CPU=%u, no=%x,a1=%u,a2=%u,a3=%u,a4=%u,a5=%u\n",
+			 PCPU_GET(cpuid),
 			 a->number, a->arg1, a->arg2, a->arg3, a->arg4, a->arg5);
 			break;
 	}
