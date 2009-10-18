@@ -85,6 +85,11 @@ struct IA32_CPU {
 	uint8_t		lapic_id;	/* Local APIC ID */
 	char*		stack;		/* CPU stack */
 	char*		gdt;		/* Global Descriptor Table */
+	char*		tss;		/* Task State Segment */
 };
+
+uint32_t get_num_cpus();
+struct IA32_CPU* get_cpu_struct(int i);
+
 
 #endif /* __I386_SMP_H__ */

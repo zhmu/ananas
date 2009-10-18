@@ -1,7 +1,13 @@
 #include "types.h"
 #include "i386/smp.h"
+#include "i386/pcpu.h"
 #include "i386/apic.h"
+#include "i386/macro.h"
+#include "i386/thread.h"
+#include "i386/vm.h"
+#include "lock.h"
 #include "param.h"
+#include "pcpu.h"
 #include "vm.h"
 #include "mm.h"
 #include "lib.h"
@@ -14,6 +20,9 @@ extern uint32_t* pagedir;
 
 struct IA32_CPU** cpus;
 uint8_t* lapic2cpuid;
+static uint32_t num_cpu;
+
+static struct SPINLOCK spl_smp_launch;
 
 static void
 delay(int n) {
@@ -49,6 +58,18 @@ validate_checksum(addr_t base, size_t length)
 		base++; length--;
 	}
 	return cksum == 0;
+}
+
+uint32_t
+get_num_cpus()
+{
+	return num_cpu;
+}
+
+struct IA32_CPU*
+get_cpu_struct(int i)
+{
+	return (struct IA32_CPU*)(cpus + (sizeof(struct IA32_CPU*) * num_cpu) + i * sizeof(struct IA32_CPU));
 }
 
 static addr_t
@@ -169,7 +190,8 @@ smp_init()
 	 * First of all, count the number of entries; this is needed because we
 	 * allocate memory for each item as needed.
 	 */
-	int i, num_cpu = 0, num_ioapic = 0;
+	num_cpu = 0;
+	int i, num_ioapic = 0;
 	int bsp_apic_id = -1, max_apic_id = -1;
 	uint16_t num_entries = mpct->entry_count;
 	addr_t entry_addr = (addr_t)mpct + sizeof(struct MP_CONFIGURATION_TABLE);
@@ -213,14 +235,28 @@ smp_init()
 	for (i = 0; i < num_cpu; i++) {
 		cpus[i] = (struct IA32_CPU*)(cpus + (sizeof(struct IA32_CPU*) * num_cpu) + i * sizeof(struct IA32_CPU));
 
-		/*
-		 * Note that we don't need to allocate a stack for the BSP, since the
-		 * stack in stub.S will already be used.
-		 */
-		if (i != 0) {
-			cpus[i]->stack = kmalloc(KERNEL_STACK_SIZE);
-			KASSERT(cpus[i]->stack != NULL, "out of memory?");
-		}
+		/* Note that we don't need to allocate anything extra for the BSP */
+		if (i == 0)
+			continue;
+
+		cpus[i]->stack = kmalloc(KERNEL_STACK_SIZE);
+		KASSERT(cpus[i]->stack != NULL, "out of memory?");
+
+		uint32_t admin_length = GDT_NUM_ENTRIES * 8 + sizeof(struct TSS) + sizeof(struct PCPU);
+		char* buf = kmalloc(admin_length);
+
+		cpus[i]->gdt = buf;
+extern void* gdt;
+		memcpy(cpus[i]->gdt, &gdt, GDT_NUM_ENTRIES * 8);
+struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
+		memset(tss, 0, sizeof(struct TSS));
+		tss->ss0 = GDT_SEL_KERNEL_DATA;
+		GDT_SET_TSS(cpus[i]->gdt, GDT_IDX_KERNEL_TASK, 0, (addr_t)tss, sizeof(struct TSS));
+		cpus[i]->tss = (char*)tss;
+struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS));
+		memset(pcpu, 0, sizeof(struct PCPU));
+		pcpu->tss = (addr_t)cpus[i]->tss;
+		GDT_SET_ENTRY32(cpus[i]->gdt, GDT_IDX_KERNEL_PCPU, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, (addr_t)pcpu, sizeof(struct PCPU));
 	}
 
 	/* Wade through the table */
@@ -258,6 +294,13 @@ smp_init()
 	*((uint32_t*)LAPIC_SVR) |= LAPIC_SVR_APIC_EN;
 
 	/*
+	 * Initialize the SMP launch spinlock; every AP will try this as well. Once
+	 * we are done, the BSP unlocks, causing every 
+	 */
+	spinlock_init(&spl_smp_launch);
+	spinlock_lock(&spl_smp_launch);
+
+	/*
 	 * Broadcast INIT-SIPI-SIPI-IPI to all AP's; this will wake them up and cause
 	 * them to run the AP entry code.
 	 */
@@ -270,11 +313,27 @@ smp_init()
 }
 
 /*
+ * Called on the Boot Strap Processor, in order to fully launch the AP's.
+ */
+void
+smp_launch()
+{
+	spinlock_unlock(&spl_smp_launch);
+}
+
+/*
  * Called by mp_stub.S for every Application Processor. Should not return.
  */
 void
 mp_ap_startup(uint32_t lapic_id)
 {
+	spinlock_lock(&spl_smp_launch);
+	spinlock_unlock(&spl_smp_launch);
+
+	/*
+	 * We're up and running!
+	 */
+	schedule();
 }
 
 /* vim:set ts=2 sw=2: */
