@@ -1,9 +1,11 @@
 #include "i386/thread.h"
 #include "i386/vm.h"
 #include "i386/macro.h"
+#include "i386/smp.h"
 #include "i386/realmode.h"
 #include "lib.h"
 #include "mm.h"
+#include "options.h"
 #include "param.h"
 #include "thread.h"
 
@@ -30,6 +32,18 @@ md_thread_init(thread_t thread)
 	/* Perform adequate mapping for the stack / code */
 	vm_map_pagedir(md->pagedir, (addr_t)md->stack,  THREAD_STACK_SIZE / PAGE_SIZE, 1);
 	vm_map_pagedir(md->pagedir, (addr_t)md->kstack, KERNEL_STACK_SIZE / PAGE_SIZE, 0);
+
+#ifdef SMP	
+	/*
+	 * Grr - for some odd reason, the GDT had to be subject to paging. This means
+	 * we have to insert a suitable mapping for every CPU... :-/
+	 */
+	uint32_t i;
+	for (i = 0; i < get_num_cpus(); i++) {
+		struct IA32_CPU* cpu = get_cpu_struct(i);
+		vm_map_pagedir(md->pagedir, (addr_t)cpu->gdt, 1 /* XXX */, 0);
+	}
+#endif
 
 	/* Fill out the thread's registers - anything not here will be zero */ 
 	md->ctx.esp  = (addr_t)md->stack  + THREAD_STACK_SIZE;
@@ -61,10 +75,10 @@ md_thread_destroy(thread_t thread)
 }
 
 void
-md_thread_switch(thread_t thread)
+md_thread_switch(thread_t new, thread_t old)
 {
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
-	struct CONTEXT* ctx = (struct CONTEXT*)&md->ctx;
+	struct MD_THREAD* md_new = (struct MD_THREAD*)new->md;
+	struct CONTEXT* ctx_new = (struct CONTEXT*)&md_new->ctx;
 
 	/*
 	 * Activate this context as the current CPU context. XXX lock
@@ -72,13 +86,27 @@ md_thread_switch(thread_t thread)
 	__asm(
 		"movw %%bx, %%fs\n"
 		"movl	%%eax, %%fs:0\n"
-	: : "a" (ctx), "b" (GDT_SEL_KERNEL_PCPU));
+	: : "a" (ctx_new), "b" (GDT_SEL_KERNEL_PCPU));
+
+	/* Fetch kernel TSS */
+	struct TSS* tss;
+	__asm(
+		"movl	%%fs:8, %0\n"
+	: "=r" (tss));
+
+	if (old != NULL) {
+		struct MD_THREAD* md_old = (struct MD_THREAD*)old->md;
+		struct CONTEXT* ctx_old = (struct CONTEXT*)&md_old->ctx;
+
+		/* Activate the corresponding kernel stack in the TSS */
+		//ctx_old->esp0 = tss->esp0;
+	}
 
 	/* Activate the corresponding kernel stack in the TSS */
-	kernel_tss.esp0 = ctx->esp0;
+	tss->esp0 = ctx_new->esp0;
 
 	/* Go! */
-	md_restore_ctx(ctx);
+	md_restore_ctx(ctx_new);
 }
 
 /* vim:set ts=2 sw=2: */
