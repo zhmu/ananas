@@ -5,6 +5,7 @@
 
 typedef struct THREAD* thread_t;
 
+
 struct THREAD {
 	/*
 	 * Machine-dependant data - must be first.
@@ -13,6 +14,8 @@ struct THREAD {
 	struct THREAD* prev;
 	struct THREAD* next;
 
+	unsigned int flags;
+#define THREAD_FLAG_ACTIVE	0x0001	/* Thread is scheduled somewhere */
 	unsigned int tid;		/* Thread ID */
 };
 
@@ -27,6 +30,6 @@ void md_thread_destroy(thread_t thread);
 
 thread_t thread_alloc();
 void thread_free(thread_t);
-void md_thread_switch(thread_t thread);
+void md_thread_switch(thread_t new, thread_t old);
 
 #endif
