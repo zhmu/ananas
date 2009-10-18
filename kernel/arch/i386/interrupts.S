@@ -134,6 +134,10 @@ skip_store:
 	movb	$0x20, %al
 	outb	%al, $0x20
 
+	/* Restore per-cpu context in fs */
+	movw	$GDT_SEL_KERNEL_PCPU, %ax
+	movw	%ax, %fs
+
 	/* Next context */
 	jmp	schedule
 
