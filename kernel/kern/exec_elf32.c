@@ -30,7 +30,7 @@ elf32_load(thread_t thread, const char* data, size_t datalen)
 	/* We only support static binaries for now, so reject anything without a program table */
 	if (ehdr->e_phnum == 0)
 		return -1;
-	kprintf("phentsize, struct=%u,%u\n", ehdr->e_phentsize, sizeof(Elf32_Phdr));
+	/*kprintf("phentsize, struct=%u,%u\n", ehdr->e_phentsize, sizeof(Elf32_Phdr));*/
 	if (ehdr->e_phentsize < sizeof(Elf32_Phdr))
 		return -1;
 
@@ -53,9 +53,11 @@ elf32_load(thread_t thread, const char* data, size_t datalen)
 		int num_pages = (phdr->p_memsz + PAGE_SIZE - 1) / PAGE_SIZE;
 		vm_mapto_pagedir(md->pagedir, phdr->p_vaddr, buf, num_pages, 1);
 
-		kprintf("phdr %u, type=%x,offs=%x,vaddr=%x,paddr=%x,filesz=%u,memsz=%u,flags=%x,align=%x\n",
+/*
+	 	kprintf("phdr %u, type=%x,offs=%x,vaddr=%x,paddr=%x,filesz=%u,memsz=%u,flags=%x,align=%x\n",
 		 i, phdr->p_type, phdr->p_offset, phdr->p_vaddr, phdr->p_paddr, phdr->p_filesz,
 		 phdr->p_memsz, phdr->p_flags, phdr->p_align);
+*/
 	}
 
 	/* XXX i386 */
