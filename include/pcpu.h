@@ -7,6 +7,9 @@
 struct PCPU {
 	/* Machine-dependant data next */
 	MD_PCPU_FIELDS
+
+	/* current thread */
+	void* curthread;
 };
 
 /* Retrieve the size of the machine-dependant structure */
