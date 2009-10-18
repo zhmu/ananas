@@ -115,6 +115,10 @@ pm:	pop	%esi
 pn: 	pop	%esi
 	lidt	(%esi)
 
+	/* Force a reload of the per-CPU descriptor; it has changed */
+	mov	$GDT_SEL_KERNEL_PCPU, %ax
+	mov	%ax, %fs
+
 	/* Load the task register */
 	movw	$GDT_SEL_KERNEL_TASK, %ax
 	ltr	%ax
