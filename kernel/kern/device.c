@@ -273,8 +273,8 @@ device_init()
 	 * First of all, create the core bus; this is as bare to the metal as it
 	 * gets.
 	 */
-	corebus = (device_t)kmalloc(sizeof(device_t));
-	memset(corebus, 0, sizeof(device_t));
+	corebus = (device_t)kmalloc(sizeof(struct DEVICE));
+	memset(corebus, 0, sizeof(struct DEVICE));
 	strcpy(corebus->name, "corebus");
 	device_attach_bus(corebus);
 }
