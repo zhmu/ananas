@@ -1,6 +1,12 @@
 #ifndef __I386_SMP_H__
 #define __I386_SMP_H__
 
+#define IMCR_ADDRESS	0x22		/* IMCR address port */
+#define IMCR_DATA	0x23		/* IMCR data port */
+
+#define IMCR_ADDR_IMCR	0x70		/* IMCR address value */
+#define IMCR_DATA_MP	0x01		/* Symmetric I/O mode */
+
 struct MP_FLOATING_POINTER {
 	uint32_t	signature;
 #define MP_FPS_SIGNATURE	0x5f504d5f	/* _MP_ */
@@ -10,7 +16,7 @@ struct MP_FLOATING_POINTER {
 	uint8_t		checksum;
 	uint8_t		feature1;
 	uint8_t		feature2;
-#define MP_FPS_FEAT2_IMCRP	0x80
+#define MP_FPS_FEAT2_IMCRP	0x80		/* IMCR present */
 	uint8_t		feature3;
 	uint8_t		feature4;
 	uint8_t		feature5;
@@ -52,6 +58,7 @@ struct MP_ENTRY_BUS {
 struct MP_ENTRY_IOAPIC {
 	uint8_t		ioapic_id;
 	uint8_t		version;
+#define MP_IOAPIC_FLAG_EN	0x01	/* IOAPIC enabled */
 	uint8_t		flags;
 	uint32_t	addr;
 } __attribute__((packed));
@@ -86,6 +93,21 @@ struct IA32_CPU {
 	char*		stack;		/* CPU stack */
 	char*		gdt;		/* Global Descriptor Table */
 	char*		tss;		/* Task State Segment */
+};
+
+struct IA32_BUS {
+	int		id;
+	int		type;
+#define BUS_TYPE_UNKNOWN	0
+#define BUS_TYPE_ISA		1
+
+};
+
+struct IA32_INTERRUPT {
+	int                 source_no;
+	int                 dest_no;
+	struct IA32_IOAPIC* ioapic;
+	struct IA32_BUS*    bus;
 };
 
 uint32_t get_num_cpus();

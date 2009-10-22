@@ -8,6 +8,7 @@
 #include "i386/realmode.h"
 #include "init.h"
 #include "lib.h"
+#include "options.h"
 #include "pcpu.h"
 #include "mm.h"
 #include "param.h"
@@ -248,6 +249,10 @@ md_startup()
 	IDT_SET_ENTRY(0x2f, SEG_DPL_SUPERVISOR, irqF);
 
 	IDT_SET_ENTRY(SYSCALL_INT, SEG_DPL_USER, syscall_int);
+
+#ifdef SMP
+	IDT_SET_ENTRY(0xff, SEG_DPL_SUPERVISOR, spurious_irq);
+#endif
 
 	MAKE_RREGISTER(idtr, &idt, IDT_NUM_ENTRIES);
 

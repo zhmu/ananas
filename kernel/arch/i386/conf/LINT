@@ -8,9 +8,10 @@ device		vga
 device		sio
 device		atkbd
 
-device		pcihb
-device		pci
+#device		pcihb
+#device		pci
 
 option		SMP
 
-console		isa.vga
+#console		isa.vga
+console		isa.sio

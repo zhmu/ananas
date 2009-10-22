@@ -7,9 +7,10 @@
 .globl exceptionC, exceptionD, exceptionE
 .globl irq0, irq1, irq2, irq3, irq4, irq5, irq6, irq7, irq8, irq9
 .globl irqA, irqB, irqC, irqD, irqE, irqF
-.globl scheduler_irq, syscall_int
+.globl scheduler_irq, syscall_int, spurious_irq
 
 #include "i386/vm.h"
+#include "options.h"
 #include "param.h"
 
 /* Basic exception handler framework */
@@ -40,6 +41,24 @@
 	pop	%ds; \
 	popal
 
+#ifdef SMP
+#define EOI(num) \
+	movl	$0xfee000b0, %eax; \
+	movl	$0x0, (%eax)
+
+#else
+
+#define EOI(num) \
+	movb	$0x20, %al; \
+	outb	%al, $0x20; \
+	movl	$0x ## num, %ebx; \
+	cmp	$0x8, %ebx; \
+	jl	skip_pic2_ ## num; \
+	outb	%al, $0xa0; \
+skip_pic2_ ## num:
+
+#endif
+
 /* Basic IRQ handler framework */
 #define IRQ_HANDLER_BODY(num) \
 	/* Save the previous state first */ \
@@ -53,14 +72,6 @@
 	movl	$GDT_SEL_KERNEL_DATA, %eax; \
 	movw	%ax, %ds; \
 	movw	%ax, %es; \
-	/* Acknowledge the interrupt */ \
-	movb	$0x20, %al; \
-	outb	%al, $0x20; \
-	movl	$0x ## num, %ebx; \
-	cmp	$0x8, %ebx; \
-	jl	skip_pic2_ ## num; \
-	outb	%al, $0xa0; \
-skip_pic2_ ## num: ; \
 	/* Store old cr3 */ \
 	movl	%cr3, %eax; \
 	pushl	%eax; \
@@ -68,10 +79,15 @@ skip_pic2_ ## num: ; \
 	movl	pagedir, %eax; \
 	subl	$KERNBASE, %eax; \
 	movl	%eax, %cr3; \
+	/* Set up per-CPU context */  \
+	movl	$GDT_SEL_KERNEL_PCPU, %eax; \
+	movw	%ax, %fs; \
 	/* Call the exception handler */ \
 	pushl	$0x ## num; \
 	call	irq_handler; \
 	addl	$4, %esp; \
+	/* Acknowledge the interrupt - must be done before restoring %cr3 */ \
+	EOI(num); \
 	pop	%eax; \
 	movl	%eax, %cr3; \
 	addl	$4, %esp; /* Don't restore ss register */ \
@@ -131,8 +147,7 @@ scheduler_irq:
 
 skip_store:
 	/* Acknowledge IRQ! */
-	movb	$0x20, %al
-	outb	%al, $0x20
+	EOI(1)
 
 	/* Restore per-cpu context in fs */
 	movw	$GDT_SEL_KERNEL_PCPU, %ax
@@ -222,6 +237,11 @@ syscall_int:
 
 	leave
 	iret
+
+#ifdef SMP
+spurious_irq:
+	iret
+#endif
 
 
 /* Now we just need to list the exception handlers */

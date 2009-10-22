@@ -2,6 +2,8 @@
 #include "i386/smp.h"
 #include "i386/pcpu.h"
 #include "i386/apic.h"
+#include "i386/io.h"
+#include "i386/ioapic.h"
 #include "i386/macro.h"
 #include "i386/thread.h"
 #include "i386/vm.h"
@@ -21,6 +23,15 @@ extern uint32_t* pagedir;
 struct IA32_CPU** cpus;
 uint8_t* lapic2cpuid;
 static uint32_t num_cpu;
+
+struct IA32_IOAPIC** ioapics;
+static uint32_t num_ioapic;
+
+struct IA32_BUS** busses;
+static uint32_t num_bus;
+
+struct IA32_INTERRUPT** ints;
+static uint32_t num_ints;
 
 static struct SPINLOCK spl_smp_launch;
 
@@ -124,6 +135,76 @@ locate_mpfps()
 	return mpfps;
 }
 
+void
+ioapic_write(struct IA32_IOAPIC* apic, uint32_t reg, uint32_t val)
+{
+	*(uint32_t*)(apic->addr + IOREGSEL) = reg & 0xff;
+	*(uint32_t*)(apic->addr + IOWIN) = val;
+	kprintf("ioapic: %x => %x\n", reg, val);
+}
+
+uint32_t
+ioapic_read(struct IA32_IOAPIC* apic, uint32_t reg)
+{
+kprintf("addr, %x\n", apic->addr + IOREGSEL);
+	*(uint32_t*)(apic->addr + IOREGSEL) = reg & 0xff;
+	return *(uint32_t*)(apic->addr + IOWIN);
+}
+
+static int
+resolve_bus_type(struct MP_ENTRY_BUS* bus)
+{
+	struct BUSTYPE {
+		char* name;
+		int type;
+	} bustypes[] = {
+		{ "ISA   ", BUS_TYPE_ISA },
+		{ NULL, 0 }
+	};
+
+	for (struct BUSTYPE* bt = bustypes; bt->name != NULL; bt++) {
+		int i;
+		for (i = 0; i < sizeof(bus->type) && bus->type[i] == bt->name[i]; i++);
+		if (i != sizeof(bus->type))
+			continue;
+
+		return bt->type;
+	}
+	return BUS_TYPE_UNKNOWN;
+}
+
+static struct IA32_BUS*
+find_bus(int id)
+{
+	struct IA32_BUS** bus = busses;
+	int i;
+
+	for (i = 0; i < num_bus; i++, bus++) {
+		if ((*bus)->id == id)
+			return *bus;
+	}
+	return NULL;
+}
+
+static struct IA32_IOAPIC*
+find_ioapic(int id)
+{
+	struct IA32_IOAPIC** ioapic = ioapics;
+	int i;
+
+	for (i = 0; i < num_ioapic; i++, ioapic++) {
+		if ((*ioapic)->ioapic_id == id)
+			return *ioapic;
+	}
+	return NULL;
+}
+
+void
+smp_ack_int(uint32_t num)
+{
+	*((uint32_t*)LAPIC_EOI) = 0;
+}
+
 /*
  * Called on the Boot Strap Processor, in order to prepare the system for
  * multiprocessing.
@@ -190,9 +271,9 @@ smp_init()
 	 * First of all, count the number of entries; this is needed because we
 	 * allocate memory for each item as needed.
 	 */
-	num_cpu = 0;
-	int i, num_ioapic = 0;
-	int bsp_apic_id = -1, max_apic_id = -1;
+	num_cpu = 0; num_ioapic = 0; num_bus = 0; num_ints = 0;
+	int i;
+	int bsp_apic_id = -1, max_apic_id = -1, max_ioapic_id = -1;
 	uint16_t num_entries = mpct->entry_count;
 	addr_t entry_addr = (addr_t)mpct + sizeof(struct MP_CONFIGURATION_TABLE);
 	for (i = 0; i < num_entries; i++) {
@@ -209,8 +290,20 @@ smp_init()
 				entry_addr += 20;
 				break;
 			case MP_ENTRY_TYPE_IOAPIC:
-				num_ioapic++;
-				/* FALLTHROUGH */
+				if (entry->u.ioapic.flags & MP_IOAPIC_FLAG_EN)
+					num_ioapic++;
+				if (entry->u.ioapic.ioapic_id > max_ioapic_id)
+					max_ioapic_id = entry->u.ioapic.ioapic_id;
+				entry_addr += 8;
+				break;
+			case MP_ENTRY_TYPE_BUS:
+				num_bus++;
+				entry_addr += 8;
+				break;
+			case MP_ENTRY_TYPE_IOINT:
+				num_ints++;
+				entry_addr += 8;
+				break;
 			default:
 				entry_addr += 8;
 				break;
@@ -261,8 +354,29 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 		GDT_SET_ENTRY32(cpus[i]->gdt, GDT_IDX_KERNEL_PCPU, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, (addr_t)pcpu, sizeof(struct PCPU));
 	}
 
+	/* Prepare the IOAPIC structure */
+	ioapics = (struct IA32_IOAPIC**)kmalloc((sizeof(struct IA32_IOAPIC*) + sizeof(struct IA32_IOAPIC)) * num_ioapic);
+	memset(ioapics, 0, ((sizeof(struct IA32_IOAPIC*) + sizeof(struct IA32_IOAPIC)) * num_ioapic));
+	for (i = 0; i < num_ioapic ; i++) {
+		ioapics[i] = (struct IA32_IOAPIC*)(ioapics + (sizeof(struct IA32_IOAPIC*) * num_ioapic) + i * sizeof(struct IA32_IOAPIC));
+	}
+
+	/* Prepare the BUS structure */
+	busses = (struct IA32_BUS**)kmalloc((sizeof(struct IA32_BUS*) + sizeof(struct IA32_BUS)) * num_bus);
+	memset(busses, 0, (sizeof(struct IA32_BUS*) + sizeof(struct IA32_BUS)) * num_bus);
+	for (i = 0; i < num_bus ; i++) {
+		busses[i] = (struct IA32_BUS*)(busses + (sizeof(struct IA32_BUS*) * num_bus) + i * sizeof(struct IA32_BUS));
+	}
+
+	/* Prepare the INTERRUPTS structure */
+	ints = (struct IA32_INTERRUPT**)kmalloc((sizeof(struct IA32_INTERRUPT*) + sizeof(struct IA32_INTERRUPT)) * num_ints);
+	memset(ints, 0, (sizeof(struct IA32_INTERRUPT*) + sizeof(struct IA32_INTERRUPT)) * num_ints);
+	for (i = 0; i < num_ints; i++) {
+		ints[i] = (struct IA32_INTERRUPT*)(ints + (sizeof(struct IA32_INTERRUPT*) * num_ints) + i * sizeof(struct IA32_INTERRUPT));
+	}
+
 	/* Wade through the table */
-	int cur_cpu = 0;
+	int cur_cpu = 0, cur_ioapic = 0, cur_bus = 0, cur_int = 0;
 	entry_addr = (addr_t)mpct + sizeof(struct MP_CONFIGURATION_TABLE);
 	for (i = 0; i < num_entries; i++) {
 		struct MP_ENTRY* entry = (struct MP_ENTRY*)entry_addr;
@@ -270,11 +384,54 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 			case MP_ENTRY_TYPE_PROCESSOR:
 				if (entry->u.proc.flags & MP_PROC_FLAG_EN == 0)
 					break;
-				kprintf("CPU%u: ID #%u, %x,%x,%x !\n", cur_cpu, entry->u.proc.lapic_id, entry->u.proc.signature, entry->u.proc.features, entry->u.proc.flags);
+				kprintf("cpu%u: %s, id #%u\n",
+				 cur_cpu, bsp_apic_id == entry->u.proc.lapic_id ? "BSP" : "AP",
+				 entry->u.proc.lapic_id);
 				lapic2cpuid[entry->u.proc.lapic_id] = cur_cpu;
 				cur_cpu++;
 				break;
-			default:
+			case MP_ENTRY_TYPE_IOAPIC:
+				if (entry->u.ioapic.flags & MP_IOAPIC_FLAG_EN == 0)
+					break;
+#if 0
+				kprintf("ioapic%u: id #%u, mem %x\n",
+				 cur_ioapic, entry->u.ioapic.ioapic_id,
+				 entry->u.ioapic.addr);
+#endif
+				ioapics[cur_ioapic]->ioapic_id = entry->u.ioapic.ioapic_id;
+				ioapics[cur_ioapic]->addr = entry->u.ioapic.addr;
+				vm_map(entry->u.ioapic.addr, 1);
+				/* Is this really necessary or just over-paranoid? */
+				if ((ioapic_read(ioapics[cur_ioapic], IOAPICID) >> 24) & 7 != entry->u.ioapic.ioapic_id)
+					panic("smp: ioapic doesn't agree with its own id");
+				cur_ioapic++;
+				break;
+			case MP_ENTRY_TYPE_IOINT:
+#if 0
+				kprintf("Interrupt: type %u flags %u bus %u irq %u, ioapic %u int %u \n",
+				 entry->u.interrupt.type,
+				 entry->u.interrupt.flags,
+				 entry->u.interrupt.source_busid,
+				 entry->u.interrupt.source_irq,
+				 entry->u.interrupt.dest_ioapicid,
+				 entry->u.interrupt.dest_ioapicint);
+#endif
+				ints[cur_int]->source_no = entry->u.interrupt.source_irq;
+				ints[cur_int]->dest_no = entry->u.interrupt.dest_ioapicint;
+				ints[cur_int]->bus = find_bus(entry->u.interrupt.source_busid);
+				ints[cur_int]->ioapic = find_ioapic(entry->u.interrupt.dest_ioapicid);
+				cur_int++;
+				break;
+			case MP_ENTRY_TYPE_BUS:
+#if 0
+				kprintf("Bus: id %u type [%c][%c][%c][%c][%c][%c]\n",
+				 entry->u.bus.bus_id,
+				 entry->u.bus.type[0], entry->u.bus.type[1], entry->u.bus.type[2],
+				 entry->u.bus.type[3], entry->u.bus.type[4], entry->u.bus.type[5]);
+#endif
+				busses[cur_bus]->id = entry->u.bus.bus_id;
+				busses[cur_bus]->type = resolve_bus_type(&entry->u.bus);
+				cur_bus++;
 				break;
 		}
 		entry_addr += (entry->type == MP_ENTRY_TYPE_PROCESSOR) ? 20 : 8;
@@ -295,6 +452,40 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 	vm_map_device(LAPIC_BASE, LAPIC_SIZE);
 	*((uint32_t*)LAPIC_SVR) |= LAPIC_SVR_APIC_EN;
 
+	/* Wire the APIC for Symmetric Mode */
+	if (mpfps.feature2 & MP_FPS_FEAT2_IMCRP) {
+		outb(IMCR_ADDRESS, IMCR_ADDR_IMCR);
+		outb(IMCR_DATA, IMCR_DATA_MP);
+	}
+
+	/*
+	 * Program the I/O APIC - we currently just wire all ISA interrupts
+	 * to the first CPU.
+	 */
+	for (i = 0; i < num_ints; i++) {
+		kprintf("int %u: source=%u, dest=%u, bus=%x, apic=%x\n",
+		 i, ints[i]->source_no, ints[i]->dest_no, ints[i]->bus, ints[i]->ioapic);
+
+		if (ints[i]->bus == NULL || ints[i]->bus->type != BUS_TYPE_ISA)
+			continue;
+		if (ints[i]->ioapic == NULL)
+			continue;
+
+		uint32_t reg = IOREDTBL + (ints[i]->dest_no * 2);
+
+		if (ints[i]->source_no == 0) {
+			/* XXX this is a hack, but we want the timer interrupt to be delivered to all cpus */
+			ioapic_write(ints[i]->ioapic, reg, TRIGGER_EDGE | DESTMOD_PHYSICAL | DELMOD_FIXED | (ints[i]->source_no + 0x20));
+			ioapic_write(ints[i]->ioapic, reg + 1, 0xff000000);
+		} else {
+			ioapic_write(ints[i]->ioapic, reg, TRIGGER_EDGE | DESTMOD_PHYSICAL | DELMOD_FIXED | (ints[i]->source_no + 0x20));
+			ioapic_write(ints[i]->ioapic, reg + 1, 0 << 24);
+		}
+	}
+
+	/* Tell the PIC to mask all interrupts; we use the APIC now */
+	outb(PIC1_DATA, 0xff); outb(PIC2_DATA, 0xff);
+
 	/*
 	 * Initialize the SMP launch spinlock; every AP will try this as well. Once
 	 * we are done, the BSP unlocks, causing every AP to run.
@@ -306,11 +497,11 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 	 * Broadcast INIT-SIPI-SIPI-IPI to all AP's; this will wake them up and cause
 	 * them to run the AP entry code.
 	 */
-	*((uint32_t*)LAPIC_ICR_LOW) = 0xc4500;	/* INIT */
+	*((uint32_t*)LAPIC_ICR_LO) = 0xc4500;	/* INIT */
 	delay(10);
-	*((uint32_t*)LAPIC_ICR_LOW) = 0xc4600 | (addr_t)ap_code >> 12;	/* SIPI */
+	*((uint32_t*)LAPIC_ICR_LO) = 0xc4600 | (addr_t)ap_code >> 12;	/* SIPI */
 	delay(200);
-	*((uint32_t*)LAPIC_ICR_LOW) = 0xc4600 | (addr_t)ap_code >> 12;	/* SIPI */
+	*((uint32_t*)LAPIC_ICR_LO) = 0xc4600 | (addr_t)ap_code >> 12;	/* SIPI */
 	delay(200);
 }
 
