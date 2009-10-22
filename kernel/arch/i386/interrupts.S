@@ -30,6 +30,9 @@
 	movl	pagedir, %eax; \
 	subl	$KERNBASE, %eax; \
 	movl	%eax, %cr3; \
+	/* Ensure per-cpu stuff works */ \
+	movl	$GDT_SEL_KERNEL_PCPU, %eax; \
+	movl	%ax, %fs; \
 	/* Call the exception handler */ \
 	pushl	$0x ## num; \
 	call	exception_handler; \
