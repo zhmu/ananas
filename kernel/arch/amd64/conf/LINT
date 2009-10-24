@@ -1,0 +1,4 @@
+arch		amd64
+ident		LINT
+
+hints		hints.i386
