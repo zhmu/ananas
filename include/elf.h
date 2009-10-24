@@ -8,6 +8,14 @@ typedef uint32_t Elf32_Off;
 typedef  int32_t Elf32_Sword;
 typedef uint32_t Elf32_Word;
 
+typedef uint64_t Elf64_Addr;
+typedef uint64_t Elf64_Off;
+typedef uint16_t Elf64_Half;
+typedef uint32_t Elf64_Word;
+typedef  int32_t Elf64_Sword;
+typedef uint64_t Elf64_Xword;
+typedef  int64_t Elf64_Sxword;
+
 #define EI_NIDENT	16
 
 typedef struct {
@@ -28,8 +36,13 @@ typedef struct {
 #define  ELFDATANONE	0	/* Invalid data encoding */
 #define  ELFDATA2LSB	1	/* Least Significant (0x0102 stored 0x02 0x01) */
 #define  ELFDATA2MSB	2	/* Most Significant (0x0102 stored 0x01 0x02) */
-#define EI_VERSION	6	/* File verison */
-#define EI_PAD		7	/* Start of padding bytes */
+#define EI_VERSION	6	/* File version */
+#define EI_OSABI	7	/* OS/ABI identification */
+ #define ELFOSABI_SYSV	0	/* System V ABI */
+ #define ELFOSABI_HPUX	1	/* HP-UX */
+ #define ELFOSABI_STANDALONE 255 /* Standalone (embedded) application */
+#define EI_ABIVERSION	8	/* ABI version */
+#define EI_PAD		9	/* Start of padding bytes */
 	Elf32_Half	e_type;
 #define ET_NONE		0	/* No file type */
 #define ET_REL		1	/* Relocatable file */
@@ -47,6 +60,7 @@ typedef struct {
 #define EM_860		7	/* Intel 80860 */
 #define EM_MIPS		8	/* MIPS RS3000 Big-Endian */
 #define EM_MIPS_RS4_BE	9	/* MIPS RS4000 Big-Endian */
+#define EM_X86_64	62	/* AMD64 */
 	Elf32_Word	e_version;
 #define EV_NONE		0	/* Invalid version */
 #define EV_CURRENT	1	/* Current version */
@@ -68,6 +82,23 @@ typedef struct {
 #define SH_HIRESERVE	0xffff
 	Elf32_Half	e_shstrndx;
 } Elf32_Ehdr;
+
+typedef struct {
+	unsigned char	e_ident[EI_NIDENT];	/* ELF identification */
+	Elf64_Half	e_type;			/* Object file type */
+	Elf64_Half	e_machine;		/* Machine type */
+	Elf64_Word	e_version;		/* Object file version */
+	Elf64_Addr	e_entry;		/* Entry point address */
+	Elf64_Off	e_phoff;		/* Program header offset */
+	Elf64_Off	e_shoff;		/* Section header offset */
+	Elf64_Word	e_flags;		/* Processor-specific flags */
+	Elf64_Half	e_ehsize;		/* ELF header size */
+	Elf64_Half	e_phentsize;		/* Size of program header entry */
+	Elf64_Half	e_phnum;		/* Number of program header entries */
+	Elf64_Half	e_shentsize;		/* Size of section header entry */
+	Elf64_Half	e_shnum;		/* Number of seciton header entries */
+	Elf64_Half	e_shstrndx;		/* Section name string table index */
+} Elf64_Ehdr;
 
 typedef struct {
 	Elf32_Word	sh_name;
@@ -103,6 +134,20 @@ typedef struct {
 }  Elf32_Shdr;
 
 typedef struct {
+	Elf64_Word	sh_name;		/* Section name */
+	Elf64_Word	sh_type;		/* Section type */
+	Elf64_Xword	sh_flags;		/* Section attributes */
+	Elf64_Addr	sh_addr;		/* Virtual address in memory */
+	Elf64_Off	sh_offset;		/* Offset in file */
+	Elf64_Xword	sh_size;		/* Size of section */
+	Elf64_Word	sh_link;		/* Link to other section */
+	Elf64_Word	sh_info;		/* Miscellaneous information */
+	Elf64_Xword	sh_addralign;		/* Address alignment boundary */
+	Elf64_Xword	sh_entsize;		/* Size of entries, if section ha table */
+
+} Elf64_Shdr;
+
+typedef struct {
 	Elf32_Word	st_name;		/* String table index */
 	Elf32_Addr	st_value;		/* Symbol value */
 	Elf32_Word	st_size;		/* Symbol size */
@@ -127,6 +172,15 @@ typedef struct {
 } Elf32_Sym;
 
 typedef struct {
+	Elf64_Word	st_name;		/* Symbol name */
+	unsigned char	st_info;		/* Type and Binding attributes */
+	unsigned char	st_other;		/* Reserved */
+	Elf64_Half	st_shndx;		/* Section table index */
+	Elf64_Addr	st_value;		/* Symbol value */
+	Elf64_Xword	st_size;		/* Size of object (e.g., common) */
+} Elf64_Sym;
+
+typedef struct {
 	Elf32_Addr	r_offset;		/* Relocation action offset */
 	Elf32_Word	r_info;			/* Relocation info */
 #define ELF32_R_SYM(i)		((i)>>8)
@@ -135,10 +189,21 @@ typedef struct {
 } Elf32_Rel;
 
 typedef struct {
+	Elf64_Addr	r_offset;		/* Address of reference */
+	Elf64_Xword	r_info;			/* Symbol index and type of relocation */
+} Elf64_Rel;
+
+typedef struct {
 	Elf32_Addr	r_offset;		/* Relocation action offset */
 	Elf32_Word	r_info;			/* Relocation info */
 	Elf32_Sword	r_addend;		/* Constant addend */
 } Elf32_Rela;
+
+typedef struct {
+	Elf64_Addr	r_offset;		/* Address of reference */
+	Elf64_Xword	r_info;			/* Symbol index and type of relocation */
+	Elf64_Sxword	r_addend;		/* Constant part of expression */
+} Elf64_Rela;
 
 typedef struct {
 	Elf32_Word	p_type;			/* Segment type */
@@ -159,5 +224,57 @@ typedef struct {
 	Elf32_Word	p_flags;		/* Flags */
 	Elf32_Word	p_align;		/* Alignment restriction */
 } Elf32_Phdr;
+
+typedef struct {
+	Elf64_Word	p_type;			/* Type of segment */
+	Elf64_Word	p_flags;		/* Segment attributes */
+	Elf64_Off	p_offset;		/* Offset in file */
+	Elf64_Addr	p_vaddr;		/* Virtual address in memory */
+	Elf64_Addr	p_paddr;		/* Reserved */
+	Elf64_Xword	p_filesz;		/* Size of segment in file */
+	Elf64_Xword	p_memsz;		/* Size of segment in memory */
+	Elf64_Xword	p_align;		/* Alignment of segment */
+} Elf64_Phdr;
+
+typedef struct {
+	Elf64_Sxword	d_tag;
+#define DT_NULL		0	/* Marks end of the dynamic array */
+#define DT_NEEDED	1	/* The string table offset of the name of a needed library */
+#define DT_PLTRELSZ	2	/* Total size, in bytes, of the relocation entries associated with the procedure linkage table */
+#define DT_PLTGOT	3	/* Contains an address associated with the linkage table */
+#define DT_HASH		4	/* Address of the symbol hash table */
+#define DT_STRTAB	5	/* Address of the dynamic string table */
+#define DT_SYMTAB	6	/* Address of the dynamic symbol table */
+#define DT_RELA		7	/* Address of a relocation table with Elf64_Rela entries */
+#define DT_RELASZ	8	/* Total size, in bytes, of the DT_RELA relocation table */
+#define DT_RELAENT	9	/* Size, in bytes, of each DT_RELA relocation entry */
+#define DT_STRSZ	10	/* Total size, in bytes, of the string table */
+#define DT_SYMENT	11	/* Size, in bytes, of each symbol table entry */
+#define DT_INIT		12	/* Address of the initialization function */
+#define DT_FINI		13	/* Address of the termination function */
+#define DT_SONAME	14	/* The string table offset of the name of this shared object */
+#define DT_RPATH	15	/* The string table offset of a shared library search path string */
+#define DT_SYMBOLIC	16	/* Presence modifies symbol resolution algorithm/
+#define DT_REL		17	/* Address of a relocation table with Elf64_Rel entries *
+#define DT_RELSZ	18	/* Total size, in bytes, of the DT_REL relocation table */
+#define DT_RELENT	19	/* Size, in bytes, of each DT_REL relocation entry */
+#define DT_PLTREL	20	/* Type of relocation entries used for procedure linkage table (DT_REL / DT_RELA) */
+#define DT_DEBUG	21	/* Reserved for debugger use */
+#define DT_TEXTREL	22	/* Presence signals that the relocation table contains relocation for a non-writable segment */
+#define DT_JMPREL	23	/* Address of the relocations associated with the procedure linkage table */
+#define DT_BIND_NOW	24	/* Presence signals that all relocations must be processed before transferring control to program */
+#define DT_INIT_ARRAY	25	/* Pointer to an array of pointers of initalization functions */
+#define DT_FINI_ARRAY	26	/* Pointer to an array of pointers of termination functions */
+#define DT_INIT_ARRAYSZ	27	/* Size, in bytes, of the array of initialization functions */
+#define DT_FINI_ARRAYSZ	28	/* Size, in bytes, of the array of termination functions */
+#define DT_LOOS		0x60000000 /* Defines a range of dynamic table tags for environment-specific use */
+#define DT_HIOS		0x6fffffff
+#define DT_LOPROC	0x70000000 /* Defines a range of dynamic table tags for processor-specific use */
+#define DT_HIPROC	0x7fffffff
+	union {
+		Elf64_Xword	d_val;
+		Elf64_Addr	d_ptr;
+	} d_un;
+} Elf64_Dyn;
 
 #endif /* __ELF_H__ */
