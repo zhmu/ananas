@@ -7,7 +7,7 @@ S=		../../../..
 
 CFLAGS=		-m64 -march=athlon64 -mcmodel=large -I$S/../include -I$S -I. -std=c99
 kernel:		$(OBJS) $S/conf/ld.i386
-		$(LD) -b elf64-x86-64 -T $S/conf/ld.amd64 -o kernel $(OBJS)
+		$(LD) -b elf64-x86-64 -T $S/conf/ld.amd64 -nostdlib -nodefaultlibs -o kernel $(OBJS)
 
 kernel.symbols:	kernel
 		nm kernel|awk '{print $$1" "$$3}'|sort > kernel.symbols
