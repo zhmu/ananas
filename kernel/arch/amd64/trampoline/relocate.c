@@ -2,7 +2,7 @@
 #include "elf.h"
 #include "trampoline.h"
 
-#include "kernel.inc"
+extern unsigned char* kernel;
 
 uint64_t kernel_rip;
 
@@ -57,7 +57,7 @@ relocate_elf64(void* data)
 int
 relocate_kernel()
 {
-	kernel_rip = relocate_elf64(kernel);
+	kernel_rip = relocate_elf64(&kernel);
 
 	return 0;
 }

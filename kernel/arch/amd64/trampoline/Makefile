@@ -1,4 +1,4 @@
-TARGET:		trampoline
+TARGET:		trampoline.a
 
 S=		../../..
 
@@ -7,8 +7,8 @@ ASFLAGS=	$(CFLAGS) -DASM
 
 OBJS=		entry.o relocate.o init.o lib.o
 
-trampoline:	$(OBJS)
-		$(LD) -b elf32-i386 -T $S/conf/ld.trampoline.amd64 -o trampoline $(OBJS)
+trampoline.a:	$(OBJS)
+		$(AR) rcs trampoline.a $(OBJS)
 
 clean:
-		rm -f trampoline $(OBJS)
+		rm -f trampoline.a $(OBJS)
