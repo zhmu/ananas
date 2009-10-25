@@ -1,5 +1,4 @@
-/* XXX */
-#include "i386/types.h"
+#include "machine/types.h"
 
 #define NULL 0L
 
