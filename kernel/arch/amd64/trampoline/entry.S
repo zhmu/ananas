@@ -74,12 +74,14 @@ cpuid_ok:
  	 */
 	movl	$0x80000001, %eax
 	cpuid
-	and	$CPUID_LM, %edx
+	andl	$CPUID_LM, %edx
+	orl	%edx, %edx
 	jnz	lm_ok
 
 	/* CPU does not support long mode */
 	movw	$msg_nolm - code16, %si
 	call	puts
+	hlt
 
 lm_ok:
 	/*
