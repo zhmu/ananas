@@ -82,6 +82,12 @@ cpuid_ok:
 	call	puts
 
 lm_ok:
+	/*
+	 * Clear out the registers - some bios'es do weird
+	 * things if lingering high bits are set.
+	 */
+	xorl	%ebp, %ebp
+	xorl	%esi, %esi
 
 	/* Location of the memory map */
 	movw	$E820MAP >> 4, %ax
@@ -106,7 +112,8 @@ mmap:
 
 	add	$20, %di
 
-	jmp	mmap
+	orl	%ebx, %ebx
+	jnz	mmap
 
 mmap_done:
 	/* End the memory map with a sequence of 0xff */
