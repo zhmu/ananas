@@ -1,36 +1,27 @@
 #include "types.h"
+#include "amd64/bootinfo.h"
 #include "elf.h"
 #include "param.h"
 #include "trampoline.h"
 
-#define PE_P		(1ULL <<  0)
-#define PE_RW		(1ULL <<  1)
-#define PE_US		(1ULL <<  2)
-#define PE_PWT	(1ULL <<  3)
-#define PE_PCD	(1ULL <<  4)
-#define PE_A		(1ULL <<  5)
-#define PE_D		(1ULL <<  6)
-#define PE_PS		(1ULL <<  7)
-#define PE_G		(1ULL <<  8)
-#define PE_PAT	(1ULL << 12)
-#define PE_NX		(1ULL << 63)
 
 /* Points to the next available free page */
 void* avail;
+
+/* Boot structures */
+struct BOOTINFO* bootinfo;
 
 /* PML4 pointer */
 uint64_t* pml4;
 
 static void*
-get_page(size_t num)
+get_page_one()
 {
 	void* ptr = avail;
-	memset(ptr, 0, num * PAGE_SIZE);
-	avail += (num * PAGE_SIZE);
+	memset(ptr, 0, PAGE_SIZE);
+	avail += PAGE_SIZE;
 	return ptr;
 }
-
-#define get_page_one() get_page(1)
 
 void
 vm_map(uint64_t dest, addr_t src, int num_pages)
@@ -47,9 +38,6 @@ vm_map(uint64_t dest, addr_t src, int num_pages)
 	 * XXX we currently ignore bits 48-63
 	 */
 	while(num_pages--) {
-__asm("cli");
-__asm("cli");
-__asm("cli");
 		if (pml4[(dest >> 39) & 0x1ff] == 0) {
 			/* No entry there */
 			pml4[(dest >> 39) & 0x1ff] = (uint64_t)((addr_t)get_page_one()) | PE_RW | PE_P;
@@ -68,7 +56,7 @@ __asm("cli");
 }
 
 void
-startup()
+startup(void* e820map)
 {
 	/*
 	 * Once this function is called, we assume to be run in 32 bit protected mode
@@ -84,12 +72,27 @@ startup()
 	 */
 	avail = (void*)AVAIL_ADDR;
 
+	/*
+	 * Prepare boot information structure; this is used by the kernel to obtain
+ 	 * memory maps etc
+	 */
+	bootinfo = (struct BOOTINFO*)get_page_one();
+	bootinfo->bi_ident = BI_IDENT;
+	bootinfo->bi_e820_addr = (addr_t)e820map;
+
+	/* Create our initial paging tabl */
 	pml4 = (uint64_t*)get_page_one();
 
 	/* Provide an identity mapping for our trampoline code */
 	void *__entry, *__end;
 	vm_map((uint64_t)ROUND_2MB((addr_t)&__entry), ROUND_2MB((addr_t)&__entry), 1 /* 2MB ought to be enough */);
 //(&__end - &__entry) / 1024 * 1024 * 2
+
+	/*
+	 * Provide an identity mapping for the bootinfo structure XXX since we map 2MB at once, we assume
+	 * this maps the E820 buffer too...
+	 */
+	vm_map((uint64_t)ROUND_2MB((addr_t)bootinfo), ROUND_2MB((addr_t)bootinfo), 1);
 
 	/* Relocate the kernel */
 	relocate_kernel();
