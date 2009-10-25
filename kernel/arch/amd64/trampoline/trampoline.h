@@ -1,4 +1,4 @@
-#include "types.h"
+#include "i386/types.h"
 
 #ifndef __TRAMPOLINE_H__
 #define __TRAMPOLINE_H__

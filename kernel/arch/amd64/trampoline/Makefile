@@ -7,8 +7,11 @@ ASFLAGS=	$(CFLAGS) -DASM
 
 OBJS=		entry.o relocate.o init.o lib.o
 
-trampoline.a:	$(OBJS)
+trampoline.a:	machine $(OBJS)
 		$(AR) rcs trampoline.a $(OBJS)
 
+machine:
+		ln -sf ../../../../include/i386 machine
+
 clean:
-		rm -f trampoline.a $(OBJS)
+		rm -f trampoline.a machine $(OBJS)
