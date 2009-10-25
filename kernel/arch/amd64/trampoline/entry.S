@@ -63,7 +63,7 @@ code16_2:
 	jnz	cpuid_ok
 
 	/* CPU does not support cpuid */
-	movw	msg_nocpuid - code16, %si
+	movw	$msg_nocpuid - code16, %si
 	call	puts
 	hlt
 
@@ -78,7 +78,7 @@ cpuid_ok:
 	jnz	lm_ok
 
 	/* CPU does not support long mode */
-	movw	msg_nolm - code16, %si
+	movw	$msg_nolm - code16, %si
 	call	puts
 
 lm_ok:
