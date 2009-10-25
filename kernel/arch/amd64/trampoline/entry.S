@@ -210,12 +210,11 @@ entry64:
 	movw	%ax, %es
 
 	/* Obtain bootinfo structure; this is passed to the kernel as %rsi */
-	xorq	%rsi, %rsi
-	movl	$bootinfo, %esi
-	movl	(%rsi), %esi
+	xorq	%rax, %rax
+	movl	$bootinfo, %eax
+	movl	(%rax), %edi
 
 	/* Transfer control to the ELF file we loaded */
-	xorq	%rax, %rax
 	movl	$kernel_rip, %eax
 	call	*(%rax)
 
