@@ -1,4 +1,4 @@
-#include "i386/thread.h"
+#include "machine/thread.h"
 #include "pcpu.h"
 #include "lib.h"
 #include "lock.h"
@@ -43,7 +43,7 @@ schedule()
 	if (newthread == NULL)
 		panic("schedule: CPU %u has no threads", PCPU_GET(cpuid));
 
-	if (newthread != curthread)
+	if (newthread != curthread && 0)
 		kprintf("schedule: CPU %u: switching %x to %x\n", PCPU_GET(cpuid), curthread, newthread);
 
 	md_thread_switch(newthread, curthread);
