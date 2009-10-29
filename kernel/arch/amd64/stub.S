@@ -10,7 +10,11 @@
 
 __entry:
 	movq	$KERNEL_STACK, %rsp
-	jmp	md_startup
+
+	call	md_startup
+
+	/* why are we here? */
+	hlt
 
 .align 32
 
