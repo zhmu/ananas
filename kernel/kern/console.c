@@ -36,6 +36,12 @@ console_init()
 void
 console_putchar(int c)
 {
+#if 0
+	/* HACK */
+	outb(0xe9, c);
+	return;
+#endif
+
 	if (console_dev == NULL)
 		return;
 

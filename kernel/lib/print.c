@@ -52,6 +52,7 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 {
 	const char* s;
 	unsigned int i;
+	uint64_t u64;
 
 	while(*fmt) {
 		if (*fmt != '%') {
@@ -85,6 +86,12 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 			case 'u': /* unsigned integer */
 			case 'i': /* integer XXX */
 				putint(putch, v, va_arg(ap, unsigned int));
+				break;
+			case 'p': /* pointer XXX assuemd 64 bit */
+				u64 = va_arg(ap, addr_t);
+				if (u64 >= (1L << 32))
+					putnumber(putch, v, hextab_lo, u64 >> 32);
+				putnumber(putch, v, hextab_lo, u64 & 0xffffffff);
 				break;
 			default: /* unknown, just print it */
 				putch(v, '%');
