@@ -96,6 +96,8 @@ startup(void* e820map)
 
 	/* Relocate the kernel */
 	relocate_kernel();
+	extern uint64_t kernel_end;
+	bootinfo->bi_kern_end = kernel_end;
 }
 
 /* vim:set ts=2 sw=2: */

@@ -4,12 +4,13 @@
 
 extern unsigned char* kernel;
 
-uint64_t kernel_rip;
+uint64_t kernel_rip, kernel_end;
 
-uint64_t
-relocate_elf64(void* data)
+int
+relocate_elf64(void* data, uint64_t* rip, uint64_t* end)
 {
 	Elf64_Ehdr* ehdr = (Elf64_Ehdr*)data;
+	*end = 0;
 
 	/* Perform basic ELF checks; must be 64 bit LSB statically-linked executable */
 	if (ehdr->e_ident[EI_MAG0] != ELFMAG0 || ehdr->e_ident[EI_MAG1] != ELFMAG1 ||
@@ -45,21 +46,24 @@ relocate_elf64(void* data)
 		void* dest = (void*)(addr_t)(phdr->p_vaddr & 0x0fffffff);
 		memcpy(dest, (void*)(data + phdr->p_offset), phdr->p_filesz);
 
+		/* Store the ending address; this will be passed to the binary */
+		if (phdr->p_vaddr + phdr->p_memsz > *end)
+			*end = phdr->p_vaddr + phdr->p_memsz;
+
 		/* Create a page mapping from the virtual->physical address */
 		size_t size = (phdr->p_filesz + 0x1fffff) / 0x200000;
 #define ROUND64_2MB(x) ((x) & 0xffffffffffe00000)
 		vm_map(ROUND64_2MB(phdr->p_vaddr), ROUND_2MB((addr_t)dest), size);
 	}
 
-	return ehdr->e_entry;
+	*rip = ehdr->e_entry;
+	return 1;
 }
 
 int
 relocate_kernel()
 {
-	kernel_rip = relocate_elf64(&kernel);
-
-	return 0;
+	return relocate_elf64(&kernel, &kernel_rip, &kernel_end);
 }
 
 /* vim:set ts=2 sw=2: */
