@@ -6,6 +6,9 @@
 /* Map a piece of memory */
 void vm_map(addr_t addr, size_t len);
 
+/* Map a piece of memory to a specific location */
+void vm_mapto(addr_t virt, addr_t phys, size_t num_pages);
+
 /* Unmap a piece of memory */
 void vm_unmap(addr_t addr, size_t len);
 
