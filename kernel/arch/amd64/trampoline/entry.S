@@ -5,7 +5,7 @@
 
 #define CR0_PE		1
 
-#define E820MAP		0x08000
+#define E820MAP		0x00500
 #define RELOC_BASE	0x10000
 
 #define EFLAGS_CPUID	(1 << 21)
