@@ -16,4 +16,10 @@ exception(struct STACKFRAME* sf)
 	panic("fatal exception");
 }
 
+void
+interrupt(struct STACKFRAME* sf)
+{
+	irq_handler(sf->sf_trapno);
+}
+
 /* vim:set ts=2 sw=2: */

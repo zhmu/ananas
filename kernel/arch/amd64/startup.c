@@ -95,12 +95,55 @@ md_startup(struct BOOTINFO* bi)
 	IDT_SET_ENTRY(idt, 17, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, exception16);
 	IDT_SET_ENTRY(idt, 18, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, exception18);
 	IDT_SET_ENTRY(idt, 19, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, exception19);
+	IDT_SET_ENTRY(idt, 32, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, scheduler_irq);
+	IDT_SET_ENTRY(idt, 33, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq1);
+	IDT_SET_ENTRY(idt, 34, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq2);
+	IDT_SET_ENTRY(idt, 35, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq3);
+	IDT_SET_ENTRY(idt, 36, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq4);
+	IDT_SET_ENTRY(idt, 37, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq5);
+	IDT_SET_ENTRY(idt, 38, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq6);
+	IDT_SET_ENTRY(idt, 39, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq7);
+	IDT_SET_ENTRY(idt, 40, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq8);
+	IDT_SET_ENTRY(idt, 41, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq9);
+	IDT_SET_ENTRY(idt, 42, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq10);
+	IDT_SET_ENTRY(idt, 43, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq11);
+	IDT_SET_ENTRY(idt, 44, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq12);
+	IDT_SET_ENTRY(idt, 45, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq13);
+	IDT_SET_ENTRY(idt, 46, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq14);
+	IDT_SET_ENTRY(idt, 47, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq15);
 
 	/* Load the IDT */
 	MAKE_RREGISTER(idtr, idt, IDT_NUM_ENTRIES);
 	__asm(
 		"lidt (%%rax)\n"
 	: : "a" (&idtr));
+
+	/*
+	 * Remap the interrupts; by default, IRQ 0-7 are mapped to interrupts 0x08 - 0x0f
+	 * and IRQ 8-15 to 0x70 - 0x77. We remap IRQ 0-15 to 0x20-0x2f (since 0..0x1f is
+	 * reserved by Intel).
+	 *
+	 * XXX this is duplicated in i386/startup.c - best make it uniform
+	 */
+#define IO_WAIT() do { int i = 10; while (i--) /* NOTHING */ ; } while (0);
+
+	unsigned int mask1 = inb(PIC1_DATA);
+	unsigned int mask2 = inb(PIC2_DATA);
+	/* Start initialization: the PIC will wait for 3 command bta ytes */
+	outb(PIC1_CMD, ICW1_INIT | ICW1_ICW4); IO_WAIT();
+	outb(PIC2_CMD, ICW1_INIT | ICW1_ICW4); IO_WAIT();
+	/* Data byte 1 is the interrupt vector offset - program for interrupt 0x20-0x2f */
+	outb(PIC1_DATA, 0x20); IO_WAIT();
+	outb(PIC2_DATA, 0x28); IO_WAIT();
+	/* Data byte 2 tells the PIC how they are wired */
+	outb(PIC1_DATA, 0x04); IO_WAIT();
+	outb(PIC2_DATA, 0x02); IO_WAIT();
+	/* Data byte 3 contains environment flags */
+	outb(PIC1_DATA, ICW4_8086); IO_WAIT();
+	outb(PIC2_DATA, ICW4_8086); IO_WAIT();
+	/* Restore PIC masks */
+	outb(PIC1_DATA, mask1);
+	outb(PIC2_DATA, mask2);
 
 	/*
 	 * The loader tells us how large the kernel is; we use pages directly after
