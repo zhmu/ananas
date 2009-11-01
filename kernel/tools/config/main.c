@@ -349,6 +349,23 @@ emit_compile(FILE* f, char* dst, const char* src)
 	}
 }
 
+const char*
+extra_deps(const char* src) 
+{
+	char* ext = strrchr(src, '.');
+	if (ext == NULL)
+		err(1, "internal error: '%s' doesn't have an extension", src);
+	ext++;
+
+	switch(*ext) {
+		case 'c':
+			return "";
+		case 'S':
+			return " asmsyms.h";
+	}
+	err(1, "extension '%s' unsupported - help!", ext);
+}
+
 void
 emit_files(FILE* f, struct ENTRY* entrylist)
 {
@@ -359,7 +376,7 @@ emit_files(FILE* f, struct ENTRY* entrylist)
 		strncpy(tmp, e->value, sizeof(tmp));
 
 		char* objname = build_object(tmp);
-		fprintf(f, "%s:\t\t$S/%s\n", objname, e->value);
+		fprintf(f, "%s:\t\t$S/%s%s\n", objname, e->value, extra_deps(e->value));
 		emit_compile(f, objname, e->value);
 		fprintf(f, "\n");
 	}

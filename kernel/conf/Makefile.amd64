@@ -1,6 +1,7 @@
 TARGET:		kernel
 
 S=		../../../..
+ARCH=		amd64
 
 %OBJS
 %FILES
@@ -11,6 +12,15 @@ kernel.elf:	$(OBJS) $S/conf/ld.amd64
 
 kernel.symbols:	kernel.elf
 		nm kernel.elf|awk '{print $$1" "$$3}'|sort > kernel.symbols
+
+#
+# Assembly symbols: we need a way to pass symbols to our assembly scripts.
+#
+asmsyms.o:	$S/arch/${ARCH}/asmsyms.c
+		$(CC) $(CFLAGS) -c -o asmsyms.o $S/arch/${ARCH}/asmsyms.c
+
+asmsyms.h:	asmsyms.o $S/tools/gen_asmsyms.sh
+		$S/tools/gen_asmsyms.sh asmsyms.o > asmsyms.h
 
 #
 # The amd64 kernel uses a small trampoline so get the system running in long
@@ -33,4 +43,4 @@ $S/arch/amd64/trampoline/trampoline.a:
 		(cd $S/arch/amd64/trampoline/Makefile && ${MAKE} trampoline.a)
 
 clean:
-		rm -f kernel kernel.elf $(OBJS)
+		rm -f kernel kernel.elf asmsyms.o asmsyms.h $(OBJS)
