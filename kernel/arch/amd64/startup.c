@@ -2,6 +2,7 @@
 #include "machine/bootinfo.h"
 #include "machine/macro.h"
 #include "machine/vm.h"
+#include "i386/io.h"			/* XXX for PIC I/O */
 #include "vm.h"
 #include "param.h"
 #include "mm.h"
@@ -56,13 +57,15 @@ md_startup(struct BOOTINFO* bi)
 		"lgdt (%%rax)\n"
 		"mov %%bx, %%ds\n"
 		"mov %%bx, %%es\n"
+		"mov %%bx, %%ss\n"
 		/*
 		 * All we need is 'mov %%cx, %%cs'; For the first time, directly editing
+	iop
 		 * CS is useful, so it can't be used :-)
 		 */
 		"pushw	%%cx\n"
 		"pushq	$l1\n"
-		"retq\n"
+		"lretq\n"
 "l1:\n"
 	: : "a" (&gdtr),
  	    "b" (GDT_SEL_KERNEL_DATA),
