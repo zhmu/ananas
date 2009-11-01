@@ -4,3 +4,5 @@ arch/amd64/vm.c			mandatory
 arch/amd64/io.c			mandatory
 arch/amd64/md_thread.c		mandatory
 arch/amd64/startup.c		mandatory
+arch/amd64/interrupts.S		mandatory
+arch/amd64/exception.c		mandatory
