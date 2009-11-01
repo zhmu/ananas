@@ -16,8 +16,8 @@ kernel.symbols:	kernel
 #
 # Assembly symbols: we need a way to pass symbols to our assembly scripts.
 #
-asmsyms.o:	$S/machine/asmsyms.c
-		$(CC) $(CFLAGS) -c -o asmsyms.o $S/amachine/asmsyms.c
+asmsyms.o:	$S/arch/${ARCH}/asmsyms.c
+		$(CC) $(CFLAGS) -c -o asmsyms.o $S/arch/${ARCH}/asmsyms.c
 
 asmsyms.h:	asmsyms.o $S/tools/gen_asmsyms.sh
 		$S/tools/gen_asmsyms.sh asmsyms.o > asmsyms.h
