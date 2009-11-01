@@ -14,6 +14,8 @@
 #include "mm.h"
 #include "lib.h"
 
+#undef SMP_DEBUG
+
 /* Application Processor's entry point and end */
 void *__ap_entry, *__ap_entry_end;
 
@@ -140,13 +142,11 @@ ioapic_write(struct IA32_IOAPIC* apic, uint32_t reg, uint32_t val)
 {
 	*(uint32_t*)(apic->addr + IOREGSEL) = reg & 0xff;
 	*(uint32_t*)(apic->addr + IOWIN) = val;
-	kprintf("ioapic: %x => %x\n", reg, val);
 }
 
 uint32_t
 ioapic_read(struct IA32_IOAPIC* apic, uint32_t reg)
 {
-kprintf("addr, %x\n", apic->addr + IOREGSEL);
 	*(uint32_t*)(apic->addr + IOREGSEL) = reg & 0xff;
 	return *(uint32_t*)(apic->addr + IOWIN);
 }
@@ -313,8 +313,6 @@ smp_init()
 		panic("smp: no BSP processor defined!\n");
 
 	kprintf("SMP: %u CPU(s) detected, %u IOAPIC(s)\n", num_cpu, num_ioapic);
-	if (num_cpu < 2)
-		return;
 
 	/*
 	 * Prepare the LAPIC ID -> CPU ID array, we use this to quickly look up
@@ -393,7 +391,7 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 			case MP_ENTRY_TYPE_IOAPIC:
 				if (entry->u.ioapic.flags & MP_IOAPIC_FLAG_EN == 0)
 					break;
-#if 0
+#ifdef SMP_DEBUG
 				kprintf("ioapic%u: id #%u, mem %x\n",
 				 cur_ioapic, entry->u.ioapic.ioapic_id,
 				 entry->u.ioapic.addr);
@@ -401,13 +399,17 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 				ioapics[cur_ioapic]->ioapic_id = entry->u.ioapic.ioapic_id;
 				ioapics[cur_ioapic]->addr = entry->u.ioapic.addr;
 				vm_map(entry->u.ioapic.addr, 1);
-				/* Is this really necessary or just over-paranoid? */
+#ifdef notyet
+				/*
+				 * Is this really necessary or just over-paranoid? It fails with a 1-CPU Bochs...
+				 */
 				if ((ioapic_read(ioapics[cur_ioapic], IOAPICID) >> 24) & 7 != entry->u.ioapic.ioapic_id)
 					panic("smp: ioapic doesn't agree with its own id");
+#endif
 				cur_ioapic++;
 				break;
 			case MP_ENTRY_TYPE_IOINT:
-#if 0
+#ifdef SMP_DEBUG
 				kprintf("Interrupt: type %u flags %u bus %u irq %u, ioapic %u int %u \n",
 				 entry->u.interrupt.type,
 				 entry->u.interrupt.flags,
@@ -423,7 +425,7 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 				cur_int++;
 				break;
 			case MP_ENTRY_TYPE_BUS:
-#if 0
+#ifdef SMP_DEBUG
 				kprintf("Bus: id %u type [%c][%c][%c][%c][%c][%c]\n",
 				 entry->u.bus.bus_id,
 				 entry->u.bus.type[0], entry->u.bus.type[1], entry->u.bus.type[2],
@@ -463,8 +465,10 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 	 * to the first CPU.
 	 */
 	for (i = 0; i < num_ints; i++) {
+#ifdef SMP_DEBUG
 		kprintf("int %u: source=%u, dest=%u, bus=%x, apic=%x\n",
 		 i, ints[i]->source_no, ints[i]->dest_no, ints[i]->bus, ints[i]->ioapic);
+#endif
 
 		if (ints[i]->bus == NULL || ints[i]->bus->type != BUS_TYPE_ISA)
 			continue;
