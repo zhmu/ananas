@@ -19,8 +19,11 @@ schedule()
 	curthread = PCPU_GET(curthread);
 
 	newthread = curthread;
-	if (newthread == NULL)
+	if (newthread == NULL) {
 		newthread = threads;
+		if (newthread == NULL)
+			goto no_thread;
+	}
 
 	while (newthread->flags & THREAD_FLAG_ACTIVE) {
 		newthread = newthread->next;
@@ -40,8 +43,11 @@ schedule()
 	PCPU_SET(curthread, newthread);
 	spinlock_unlock(&spl_scheduler);
 
-	if (newthread == NULL)
+	if (newthread == NULL) {
+no_thread:
+		/* XXX pick the idle there here */
 		panic("schedule: CPU %u has no threads", PCPU_GET(cpuid));
+	}
 
 	if (newthread != curthread && 0)
 		kprintf("schedule: CPU %u: switching %x to %x\n", PCPU_GET(cpuid), curthread, newthread);
