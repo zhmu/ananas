@@ -13,10 +13,10 @@
 
 #define PCPU_GET(name) ({							\
 	PCPU_TYPE(name) p;							\
-	if (sizeof(p) != 1 && sizeof(p) != 2 && sizeof(p) != 4)			\
+	if (sizeof(p) != 1 && sizeof(p) != 2 && sizeof(p) != 4 && sizeof(p) != 8)	\
 		panic("PCPU_GET: Unsupported field size %u", sizeof(p));	\
 	__asm __volatile (							\
-		"mov %%fs:%1, %0"						\
+		"mov %%gs:%1, %0"						\
 		: "=r" (p)							\
 		: "m" (*(uint32_t*)(PCPU_OFFSET(name)))				\
 	);									\
@@ -26,10 +26,10 @@
 #define PCPU_SET(name, val) do {						\
 	PCPU_TYPE(name) p;							\
 	p = (val);								\
-	if (sizeof(p) != 1 && sizeof(p) != 2 && sizeof(p) != 4)			\
+	if (sizeof(p) != 1 && sizeof(p) != 2 && sizeof(p) != 4 && sizeof(p) != 8)	\
 		panic("PCPU_SET: Unsupported field size %u", sizeof(p));	\
 	__asm __volatile (							\
-		"mov %1,%%fs:%0"						\
+		"mov %1,%%gs:%0"						\
 		: "=m" (*(uint32_t*)PCPU_OFFSET(name))				\
 		: "r" (p));							\
 } while (0)

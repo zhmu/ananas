@@ -2,9 +2,11 @@
 #include "machine/bootinfo.h"
 #include "machine/macro.h"
 #include "machine/vm.h"
+#include "machine/pcpu.h"
 #include "i386/io.h"			/* XXX for PIC I/O */
 #include "vm.h"
 #include "param.h"
+#include "pcpu.h"
 #include "mm.h"
 #include "lib.h"
 
@@ -19,6 +21,9 @@ uint8_t gdt[GDT_NUM_ENTRIES * 16];
 
 /* Interrupt Descriptor Table */
 uint8_t idt[IDT_NUM_ENTRIES * 16];
+
+/* Boot CPU pcpu structure */
+static struct PCPU bsp_pcpu;
 
 void*
 bootstrap_get_page()
@@ -57,6 +62,8 @@ md_startup(struct BOOTINFO* bi)
 		"lgdt (%%rax)\n"
 		"mov %%bx, %%ds\n"
 		"mov %%bx, %%es\n"
+		"mov %%bx, %%fs\n"
+		"mov %%bx, %%gs\n"
 		"mov %%bx, %%ss\n"
 		/*
 		 * All we need is 'mov %%cx, %%cs'; For the first time, directly editing
@@ -144,6 +151,26 @@ md_startup(struct BOOTINFO* bi)
 	/* Restore PIC masks */
 	outb(PIC1_DATA, mask1);
 	outb(PIC2_DATA, mask2);
+
+	/* Set up the %fs base adress to zero (it should be, but don't take chances) */
+	__asm("wrmsr\n" : : "a" (0), "d" (0), "c" (MSR_FS_BASE));
+
+	/*
+	 * Set up the kernel / current %gs base; this points to our per-cpu data; the
+	 * current %gs base must be set because the interrupt code will not swap it
+	 * if we came from kernel context.
+	 */
+	__asm(
+		"wrmsr\n"
+		"movl	%%ebx, %%ecx\n"
+		"wrmsr\n"
+	: : "a" (((addr_t)&bsp_pcpu) & 0xffffffff),
+	    "d" (((addr_t)&bsp_pcpu) >> 32),
+      "c" (MSR_KERNEL_GS_BASE),
+      "b" (MSR_GS_BASE));
+	
+	/* Now that we can use the PCPU data, initialize it */
+	memset(&bsp_pcpu, 0, sizeof(struct PCPU));
 
 	/*
 	 * The loader tells us how large the kernel is; we use pages directly after

@@ -82,11 +82,27 @@ skip_pic2:
 do_exception:
 	SAVE_REGISTERS
 
+	/* If we didn't come from the kernel, swap the %gs register */
+	cmpl	$GDT_SEL_KERNEL_CODE, SF_CS(%rsp)
+	je	exc_swapgs1
+
+	swapgs
+
+exc_swapgs1:
+
 	/* Call the exception handler! */
 	movq	%rsp, %rdi
 	call	exception
 
 do_return:
+	/* Restore %gs if needed */
+	cmpl	$GDT_SEL_KERNEL_CODE, SF_CS(%rsp)
+	je	exc_swapgs2
+
+	swapgs
+
+exc_swapgs2:
+
 	RESTORE_REGISTERS
 
 	/* skip over the stackframe */
@@ -96,6 +112,13 @@ do_return:
 do_interrupt:
 	SAVE_REGISTERS
 
+	/* If we didn't come from the kernel, swap the %gs register */
+	cmpl	$GDT_SEL_KERNEL_CODE, SF_CS(%rsp)
+	je	int_swapgs
+
+	swapgs
+
+int_swapgs:
 	/* Call the interrupt handler! */
 	movq	%rsp, %rdi
 	call	interrupt
@@ -111,6 +134,13 @@ scheduler_irq:
 	subq	$SF_RIP, %rsp
 	SAVE_REGISTERS
 
+	/* If we didn't come from the kernel, swap the %gs register */
+	cmpl	$GDT_SEL_KERNEL_CODE, SF_CS(%rsp)
+	je	sched_swapgs
+
+	swapgs
+
+sched_swapgs:
 	xorq	%rbx, %rbx
 	call	eoi
 

@@ -18,6 +18,11 @@
 #define SEG_DPL_SUPERVISOR	0	/* Descriptor Privilege Level (kernel) */
 #define SEG_DPL_USER		3	/* Descriptor Privilege Level (user) */
 
+/* Machine Specific Registers */
+#define MSR_FS_BASE		0xc0000100
+#define MSR_GS_BASE		0xc0000101
+#define MSR_KERNEL_GS_BASE	0xc0000102
+
 /* GDT entry index numbers and corresponding selectors */
 #define GDT_IDX_KERNEL_CODE	1
 #define GDT_SEL_KERNEL_CODE	(GDT_IDX_KERNEL_CODE * 16)
