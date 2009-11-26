@@ -13,32 +13,13 @@
 #include "options.h"
 #include "param.h"
 #include "asmsyms.h"
-
-#define EXCEPTION_WITHOUT_ERRCODE(n) \
-exception ## n: \
-	subq	$SF_RIP, %rsp; \
-	movq	$n, SF_TRAPNO(%rsp); \
-	movq	$0, SF_ERRNUM(%rsp); \
-	jmp	do_exception
-
-#define EXCEPTION_WITH_ERRCODE(n) \
-exception ## n: \
-	subq	$SF_ERRNUM, %rsp; \
-	movq	$n, SF_TRAPNO(%rsp); \
-	jmp	do_exception
-
-#define IRQ(n) \
-irq ## n: \
-	subq	$SF_RIP, %rsp; \
-	movq	$n, SF_TRAPNO(%rsp); \
-	movq	$0, SF_ERRNUM(%rsp); \
-	jmp	do_interrupt
+#include "machine/macro.h"
 
 #define SAVE_REGISTERS \
 	movq	%rax, SF_RAX(%rsp); \
 	movq	%rbx, SF_RBX(%rsp); \
 	movq	%rcx, SF_RCX(%rsp); \
-	movq	%rdx, SF_RDX(%rsp); \ 
+	movq	%rdx, SF_RDX(%rsp); \
 	movq	%rbp, SF_RBP(%rsp); \
 	movq	%rsi, SF_RSI(%rsp); \
 	movq	%rdi, SF_RDI(%rsp); \
@@ -70,6 +51,26 @@ irq ## n: \
 	movq	SF_R14(%rsp), %r14; \
 	movq	SF_R15(%rsp), %r15
 
+#define EXCEPTION_WITHOUT_ERRCODE(n) \
+exception ## n: \
+	subq	$SF_RIP, %rsp; \
+	movq	$n, SF_TRAPNO(%rsp); \
+	movq	$0, SF_ERRNUM(%rsp); \
+	jmp	do_exception
+
+#define EXCEPTION_WITH_ERRCODE(n) \
+exception ## n: \
+	subq	$SF_ERRNUM, %rsp; \
+	movq	$n, SF_TRAPNO(%rsp); \
+	jmp	do_exception
+
+#define IRQ(n) \
+irq ## n: \
+	subq	$SF_RIP, %rsp; \
+	movq	$n, SF_TRAPNO(%rsp); \
+	movq	$0, SF_ERRNUM(%rsp); \
+	jmp	do_interrupt
+
 /* EOI's the interrupt vector in %rbx */
 eoi:	movb	$0x20, %al
 	outb	%al, $0x20
@@ -89,6 +90,16 @@ do_exception:
 	swapgs
 
 exc_swapgs1:
+	/* Restore the page map */
+	movq	%cr3, %rax
+	movq	pml4, %rbx
+	andq	$0x0fffffff, %rbx
+	cmp	%rax, %rbx
+	je	exc_skip_pt
+
+	movq	%rbx, %cr3
+
+exc_skip_pt:
 
 	/* Call the exception handler! */
 	movq	%rsp, %rdi
@@ -119,6 +130,17 @@ do_interrupt:
 	swapgs
 
 int_swapgs:
+	/* Restore the page map */
+	movq	%cr3, %rax
+	movq	pml4, %rbx
+	andq	$0x0fffffff, %rbx
+	cmp	%rax, %rbx
+	je	int_skip_pt
+
+	movq	%rbx, %cr3
+
+int_skip_pt:
+
 	/* Call the interrupt handler! */
 	movq	%rsp, %rdi
 	call	interrupt
@@ -129,10 +151,23 @@ int_swapgs:
 
 	jmp	do_return
 
-/* Scheduler interrupt is magic */
+/*
+ * Scheduler interrupt is magic - it needs to store the context to the current-context
+ * pointer in the per-cpu part.
+ *
+ * However, we cheat and store the context on the stack initially; if we decide that it
+ * has to be stored on the thread, we copy it over.
+ */
 scheduler_irq:
 	subq	$SF_RIP, %rsp
 	SAVE_REGISTERS
+
+	/*
+	 * Correct the %rsp value; note that we need to add 48 because the
+	 * amd64 stores ss, rsp, rflags, cs, rip and 'error code'. FIXME Why is
+	 * the last one there?
+	 */
+	addq	$SF_RIP + 48, SF_RSP(%rsp)
 
 	/* If we didn't come from the kernel, swap the %gs register */
 	cmpl	$GDT_SEL_KERNEL_CODE, SF_CS(%rsp)
@@ -141,12 +176,33 @@ scheduler_irq:
 	swapgs
 
 sched_swapgs:
+	/* Restore the page map */
+	movq	%cr3, %rax
+	movq	pml4, %rbx
+	andq	$0x0fffffff, %rbx
+	cmp	%rax, %rbx
+	je	sched_skip_pt
+
+	movq	%rbx, %cr3
+
+sched_skip_pt:
+	cmpl	$0, %gs:PCPU_CTX
+	jz	skip_ctxcopy
+
+	/* Copy the stored context to the per-cpu context */
+	movq	%rsp, %rsi
+	movq	%gs:(PCPU_CTX), %rdi
+	movq	$SF_SIZE, %rcx
+	rep	movsb
+
+skip_ctxcopy:
 	xorq	%rbx, %rbx
 	call	eoi
 
-	RESTORE_REGISTERS
-	addq	$SF_RIP, %rsp
-	iretq
+	/* Dear scheduler - go! */
+	jmp	schedule
+
+	/* NOTREACHED - scheduler calls md_restore_ctx */
 
 /* Now we just need to list the exception handlers */
 EXCEPTION_WITHOUT_ERRCODE(0)

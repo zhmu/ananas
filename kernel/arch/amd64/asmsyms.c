@@ -1,5 +1,8 @@
 #include "asmsymbols.h"
 #include "machine/frame.h"
+#include "machine/pcpu.h"
+#include "machine/thread.h"
+#include "pcpu.h"
 
 ASM_SYMBOL(SF_TRAPNO, offsetof(struct STACKFRAME, sf_trapno));
 ASM_SYMBOL(SF_RAX,    offsetof(struct STACKFRAME, sf_rax));
@@ -19,5 +22,11 @@ ASM_SYMBOL(SF_R13,    offsetof(struct STACKFRAME, sf_r13));
 ASM_SYMBOL(SF_R14,    offsetof(struct STACKFRAME, sf_r14));
 ASM_SYMBOL(SF_R15,    offsetof(struct STACKFRAME, sf_r15));
 ASM_SYMBOL(SF_ERRNUM, offsetof(struct STACKFRAME, sf_errnum));
+ASM_SYMBOL(SF_RFLAGS, offsetof(struct STACKFRAME, sf_rflags));
 ASM_SYMBOL(SF_RIP,    offsetof(struct STACKFRAME, sf_rip));
 ASM_SYMBOL(SF_CS,     offsetof(struct STACKFRAME, sf_cs));
+ASM_SYMBOL(SF_SIZE,   sizeof(struct STACKFRAME));
+
+ASM_SYMBOL(PCPU_CTX,  offsetof(struct PCPU, context));
+
+ASM_SYMBOL(CTX_PML4,  offsetof(struct CONTEXT, pml4));

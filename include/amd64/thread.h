@@ -1,32 +1,40 @@
 #include "types.h"
+#include "frame.h"
 
 #ifndef __AMD64_THREAD_H__
 #define __AMD64_THREAD_H__
 
-/* Stored thread context - note that this must match cntx.S ! */
+/* Details a 64-bit Task State Segment */
+struct TSS {
+	uint32_t	_reserved0;
+	uint64_t	rsp0;
+	uint64_t	rsp1;
+	uint64_t	rsp2;
+	uint64_t	_reserved1;
+	uint64_t	ist1;
+	uint64_t	ist2;
+	uint64_t	ist3;
+	uint64_t	ist4;
+	uint64_t	ist5;
+	uint64_t	ist6;
+	uint64_t	ist7;
+	uint64_t	_reserved2;
+	uint32_t	_reserved3;
+	uint32_t	iomap_base;
+} __attribute__((packed));
+
+/* amd64 thread context */
 struct CONTEXT {
-	uint64_t	/* 00 */ rax;
-	uint64_t	/* 04 */ rbx;
-	uint64_t	/* 08 */ rcx;
-	uint64_t	/* 0c */ rdx;
-	uint64_t	/* 10 */ rsi;
-	uint64_t	/* 14 */ rdi;
-	uint64_t	/* 18 */ rbp;
-	uint64_t	/* 1c */ rsp;
-	uint64_t	/* 20 */ rip;
-	uint64_t	/* 24 */ cs;
-	uint64_t	/* 28 */ ds;
-	uint64_t	/* 2c */ es;
-	uint64_t	/* 30 */ fs;
-	uint64_t	/* 34 */ gs;
-	uint64_t	/* 38 */ ss;
-	uint64_t	/* 3c */ cr3;
-	uint64_t	/* 40 */ eflags;
-	uint64_t	/* 44 */ rsp0;
+	struct		STACKFRAME sf;
+	uint64_t	pml4;
 };
 
 struct MD_THREAD {
 	struct CONTEXT	ctx;
+
+	void*		pml4;
+	void*		stack;
+	void*		kstack;
 };
 
 #endif /* __I386_THREAD_H__ */

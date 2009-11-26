@@ -3,6 +3,7 @@
 #include "machine/macro.h"
 #include "machine/vm.h"
 #include "machine/pcpu.h"
+#include "machine/thread.h"
 #include "i386/io.h"			/* XXX for PIC I/O */
 #include "vm.h"
 #include "param.h"
@@ -24,6 +25,9 @@ uint8_t idt[IDT_NUM_ENTRIES * 16];
 
 /* Boot CPU pcpu structure */
 static struct PCPU bsp_pcpu;
+
+/* TSS used by the kernel */
+struct TSS kernel_tss;
 
 void*
 bootstrap_get_page()
@@ -55,6 +59,7 @@ md_startup(struct BOOTINFO* bi)
 	GDT_SET_DATA64(gdt, GDT_IDX_KERNEL_DATA, SEG_DPL_SUPERVISOR);
 	GDT_SET_CODE64(gdt, GDT_IDX_USER_CODE, SEG_DPL_USER);
 	GDT_SET_DATA64(gdt, GDT_IDX_USER_DATA, SEG_DPL_USER);
+	GDT_SET_TSS64 (gdt, GDT_IDX_TASK, 0, (addr_t)&kernel_tss, sizeof(struct TSS));
 	MAKE_RREGISTER(gdtr, gdt, GDT_NUM_ENTRIES);
 
 	/* Load the GDT, and reload our registers */
@@ -171,6 +176,13 @@ md_startup(struct BOOTINFO* bi)
 	
 	/* Now that we can use the PCPU data, initialize it */
 	memset(&bsp_pcpu, 0, sizeof(struct PCPU));
+
+	/*
+	 * Load the kernel TSS; this is still needed to switch stacks between
+	 * ring 0 and 3 code.
+	 */
+	memset(&kernel_tss, 0, sizeof(struct TSS));
+	__asm("ltr %%ax\n" : : "a" (GDT_SEL_TASK));
 
 	/*
 	 * The loader tells us how large the kernel is; we use pages directly after
