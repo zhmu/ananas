@@ -52,9 +52,9 @@ md_startup(struct BOOTINFO* bi)
 	 */
 	memset(gdt, 0, sizeof(gdt));
 	GDT_SET_CODE64(gdt, GDT_IDX_KERNEL_CODE, SEG_DPL_SUPERVISOR);
-	GDT_SET_DATA64(gdt, GDT_IDX_KERNEL_DATA);
+	GDT_SET_DATA64(gdt, GDT_IDX_KERNEL_DATA, SEG_DPL_SUPERVISOR);
 	GDT_SET_CODE64(gdt, GDT_IDX_USER_CODE, SEG_DPL_USER);
-	GDT_SET_DATA64(gdt, GDT_IDX_USER_DATA);
+	GDT_SET_DATA64(gdt, GDT_IDX_USER_DATA, SEG_DPL_USER);
 	MAKE_RREGISTER(gdtr, gdt, GDT_NUM_ENTRIES);
 
 	/* Load the GDT, and reload our registers */
@@ -99,7 +99,7 @@ md_startup(struct BOOTINFO* bi)
 	IDT_SET_ENTRY(idt, 13, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, exception13);
 	IDT_SET_ENTRY(idt, 14, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, exception14);
 	IDT_SET_ENTRY(idt, 16, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, exception16);
-	IDT_SET_ENTRY(idt, 17, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, exception16);
+	IDT_SET_ENTRY(idt, 17, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, exception17);
 	IDT_SET_ENTRY(idt, 18, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, exception18);
 	IDT_SET_ENTRY(idt, 19, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, exception19);
 	IDT_SET_ENTRY(idt, 32, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, scheduler_irq);
@@ -224,6 +224,18 @@ md_startup(struct BOOTINFO* bi)
 	}
 
 	mi_startup();
+}
+
+void
+vm_map_kernel_addr(void* pml4)
+{
+	void *__entry, *__end;
+	addr_t from = (addr_t)&__entry & ~(PAGE_SIZE - 1);
+	addr_t   to = (addr_t)&__end;
+	to += PAGE_SIZE - to % PAGE_SIZE;
+	
+	/* XXX */
+	vm_mapto_pagedir(pml4, from, from & 0x0fffffff /* HACK */, 32, 1);
 }
 
 /* vim:set ts=2 sw=2: */
