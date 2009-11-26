@@ -1,10 +1,11 @@
 TARGET:		libc.a
 
 CFLAGS=		-m32 -march=i386 -I$S/../include -std=c99
+ARCH=		i386
 
 MDOBJS		+= syscall.o crt0.o
 
-include Makefile.std
+include ../../conf/Makefile.std
 
 syscall.o:	$S/arch/i386/syscall.S
 		$(CC) $(ASMFLAGS) -c -o syscall.o $S/arch/i386/syscall.S
