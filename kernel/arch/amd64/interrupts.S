@@ -113,7 +113,15 @@ do_return:
 	swapgs
 
 exc_swapgs2:
+	/* Restore the original pagetable, if it has changed */
+	popq	%rbx
+	movq	%cr3, %rax
+	cmp	%rax, %rbx
+	je	int_skiprest_pt
 
+	movq	%rbx, %cr3
+
+int_skiprest_pt:
 	RESTORE_REGISTERS
 
 	/* skip over the stackframe */
@@ -130,8 +138,9 @@ do_interrupt:
 	swapgs
 
 int_swapgs:
-	/* Restore the page map */
+	/* Restore the kernel page map */
 	movq	%cr3, %rax
+	pushq	%rax
 	movq	pml4, %rbx
 	andq	$0x0fffffff, %rbx
 	cmp	%rax, %rbx
@@ -143,6 +152,7 @@ int_skip_pt:
 
 	/* Call the interrupt handler! */
 	movq	%rsp, %rdi
+	addq	$8, %rdi	/* skip stored pagetable */
 	call	interrupt
 
 	/* End-Of-Interrupt the interrupt */
