@@ -27,7 +27,7 @@
  *     set...
  */
 #define GDT_SET_CODE64(ptr, num, dpl) GDT_SET_ENTRY64(ptr, num, dpl, 1)
-#define GDT_SET_DATA64(ptr, num)      GDT_SET_ENTRY64(ptr, num,   0, 0)
+#define GDT_SET_DATA64(ptr, num, dpl) GDT_SET_ENTRY64(ptr, num, dpl, 0)
 
 #define GDT_SET_TSS64(ptr, num, dpl, base, size) do { \
 	uint8_t* p = ((uint8_t*)ptr + num * 16); \
