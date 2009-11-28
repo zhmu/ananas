@@ -31,6 +31,12 @@ md_restore_ctx:
 	movq	SF_R14(%rsi), %r14
 	movq	SF_R15(%rsi), %r15
 
+	/*
+	 * Go to the new kernel stack; we need to do this, because the new
+	 * thread will not have the old kernel stack mapped.
+	 */
+	movq	SF_SP(%rsi), %rsp
+
 	/* Place necessary things on the stack for iretq */
 	pushq	$GDT_SEL_USER_DATA + 3
 	pushq	SF_RSP(%rsi)

@@ -23,6 +23,7 @@ ASM_SYMBOL(SF_R14,    offsetof(struct STACKFRAME, sf_r14));
 ASM_SYMBOL(SF_R15,    offsetof(struct STACKFRAME, sf_r15));
 ASM_SYMBOL(SF_ERRNUM, offsetof(struct STACKFRAME, sf_errnum));
 ASM_SYMBOL(SF_RFLAGS, offsetof(struct STACKFRAME, sf_rflags));
+ASM_SYMBOL(SF_SP,     offsetof(struct STACKFRAME, sf_sp));
 ASM_SYMBOL(SF_RIP,    offsetof(struct STACKFRAME, sf_rip));
 ASM_SYMBOL(SF_CS,     offsetof(struct STACKFRAME, sf_cs));
 ASM_SYMBOL(SF_SIZE,   sizeof(struct STACKFRAME));
