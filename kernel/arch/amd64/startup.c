@@ -196,8 +196,9 @@ md_startup(struct BOOTINFO* bi)
 	addr_t from = (addr_t)&__entry & ~(PAGE_SIZE - 1);
 	addr_t   to = (addr_t)&__end;
 	to += PAGE_SIZE - to % PAGE_SIZE;
-	
-	vm_mapto(from, from & 0x0fffffff /* HACK */, 32);
+
+	kprintf("map length = 0x%x bytes\n", to - from);
+	vm_mapto(from, from & 0x0fffffff /* HACK */, 64);
 
 	/* Map the bootinfo block */
 	vm_map((addr_t)bi, 1);
@@ -234,6 +235,7 @@ md_startup(struct BOOTINFO* bi)
 		len  &= ~(PAGE_SIZE - 1);
 		mm_zone_add(base, len);
 	}
+	vm_init();
 
 	mi_startup();
 }
@@ -246,7 +248,6 @@ vm_map_kernel_addr(void* pml4)
 	addr_t   to = (addr_t)&__end;
 	to += PAGE_SIZE - to % PAGE_SIZE;
 	
-	/* XXX */
 	vm_mapto_pagedir(pml4, from, from & 0x0fffffff /* HACK */, 32, 1);
 }
 
