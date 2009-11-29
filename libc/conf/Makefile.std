@@ -4,7 +4,7 @@ S=		../..
 I=		$S/../include
 
 CFLAGS+=	-nostdlib -nostdinc -I${I} -I.
-OBJS+=		memfuncs.o print.o string.o io.o
+OBJS+=		memfuncs.o print.o string.o io.o syscall.o
 
 ASMFLAGS=	$(CFLAGS) -DASM
 
@@ -19,6 +19,9 @@ string.o:	$S/lib/string.c
 
 io.o:		$S/gen/io.c
 		$(CC) $(CFLAGS) -c -o io.o $S/gen/io.c
+
+syscall.o:	$S/gen/syscall.c $S/gen/syscalls.inc.c
+		$(CC) $(CFLAGS) -c -o syscall.o $S/gen/syscall.c
 
 machine:	$S/../include/${ARCH}
 		ln -sf $S/../include/${ARCH} machine
