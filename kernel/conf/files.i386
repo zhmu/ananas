@@ -6,7 +6,7 @@ arch/i386/realcode.S		mandatory
 arch/i386/realmode.c		mandatory
 arch/i386/startup.c		mandatory
 arch/i386/vm.c			mandatory
-arch/i386/io.c			mandatory
+arch/i386/pio.c			mandatory
 arch/i386/cntx.S		mandatory
 arch/i386/md_thread.c		mandatory
 arch/i386/md_lock.c		mandatory
