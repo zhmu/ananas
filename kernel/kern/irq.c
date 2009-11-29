@@ -37,7 +37,7 @@ irq_handler(unsigned int no)
 		return;
 	}
 
-	kprintf("irq_handler(): (CPU %u) handling irq %u\n", cpuid, no);
+/*	kprintf("irq_handler(): (CPU %u) handling irq %u\n", cpuid, no);*/
 	irq[no].handler(irq[no].dev);
 }
 
