@@ -221,7 +221,7 @@ skip_ctxcopy:
  */
 syscall_handler:
 	/* First of all, store the syscall arguments */
-	subq	$SYSARG_ARG5, %rsp
+	subq	$SYSARG_SIZE, %rsp
 	movq	%rax, SYSARG_NUM(%rsp)
 	movq	%rdi, SYSARG_ARG1(%rsp)
 	movq	%rsi, SYSARG_ARG2(%rsp)
@@ -268,7 +268,7 @@ syscall_handler:
 	popq	%rbx
 	/* Restore %rcx (it is used by sysret) and fix the stack */
 	popq	%rcx
-	addq	$SYSARG_ARG5, %rsp
+	addq	$SYSARG_SIZE, %rsp
 	sysretq
 
 /* Now we just need to list the exception handlers */

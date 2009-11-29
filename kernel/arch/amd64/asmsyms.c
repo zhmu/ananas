@@ -39,3 +39,4 @@ ASM_SYMBOL(SYSARG_ARG2,	offsetof(struct SYSCALL_ARGS, arg2));
 ASM_SYMBOL(SYSARG_ARG3,	offsetof(struct SYSCALL_ARGS, arg3));
 ASM_SYMBOL(SYSARG_ARG4,	offsetof(struct SYSCALL_ARGS, arg4));
 ASM_SYMBOL(SYSARG_ARG5,	offsetof(struct SYSCALL_ARGS, arg5));
+ASM_SYMBOL(SYSARG_SIZE,	sizeof(struct SYSCALL_ARGS));
