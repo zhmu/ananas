@@ -18,3 +18,5 @@ dev/bus/pci/pci.c	optional pci
 dev/bus/pci/pcibus.c	optional pci
 dev/vga.c		optional vga
 dev/sio.c		optional sio
+gen/std.c		mandatory
+gen/io.c		mandatory
