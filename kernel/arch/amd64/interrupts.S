@@ -215,11 +215,60 @@ skip_ctxcopy:
 	/* NOTREACHED - scheduler calls md_restore_ctx */
 
 /*
- * System call handler - will be called using SYSCALL; only cs/ss will be set up.
+ * System call handler - will be called using SYSCALL; only cs/ss will be set
+ * up. We use the same calling convention as Linux, as outlined in the System V
+ * ABI AMD64 specification 0.99, section A.2.1.
  */
 syscall_handler:
-	nop
-	nop
+	/* First of all, store the syscall arguments */
+	subq	$SYSARG_ARG5, %rsp
+	movq	%rax, SYSARG_NUM(%rsp)
+	movq	%rdi, SYSARG_ARG1(%rsp)
+	movq	%rsi, SYSARG_ARG2(%rsp)
+	movq	%rdx, SYSARG_ARG3(%rsp)
+	movq	%r10, SYSARG_ARG4(%rsp)
+	movq	%r8,  SYSARG_ARG5(%rsp)
+	/* movq	%r9,  SYSARG_ARG6(%rsp) */
+
+	/* Store the argument for syscall() later on */
+	movq	%rsp, %rdi
+
+	pushq	%rcx
+	/* Store the registers required by the ABI spec */
+	pushq	%rbx
+	pushq	%rbp
+	pushq	%r12
+	pushq	%r13
+	pushq	%r14
+	pushq	%r15
+	swapgs
+
+	/* Activate the kernel pagemap */
+	movq	%cr3, %rax
+	pushq	%rax
+	movq	pml4, %rax
+	andq	$0x0fffffff, %rax
+	movq	%rax, %cr3
+
+	/* Invoke syscall - note that this uses %rdi set above */
+	call	syscall
+
+	swapgs
+
+	/* Restore the old userland map */
+	popq	%rbx
+	movq	%rbx, %cr3
+
+	/* Restore the required registers */
+	popq	%r15
+	popq	%r14
+	popq	%r13
+	popq	%r12
+	popq	%rbp
+	popq	%rbx
+	/* Restore %rcx (it is used by sysret) and fix the stack */
+	popq	%rcx
+	addq	$SYSARG_ARG5, %rsp
 	sysretq
 
 /* Now we just need to list the exception handlers */

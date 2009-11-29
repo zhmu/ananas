@@ -3,6 +3,7 @@
 #include "machine/pcpu.h"
 #include "machine/thread.h"
 #include "pcpu.h"
+#include "syscall.h"
 
 ASM_SYMBOL(SF_TRAPNO, offsetof(struct STACKFRAME, sf_trapno));
 ASM_SYMBOL(SF_RAX,    offsetof(struct STACKFRAME, sf_rax));
@@ -31,3 +32,10 @@ ASM_SYMBOL(SF_SIZE,   sizeof(struct STACKFRAME));
 ASM_SYMBOL(PCPU_CTX,  offsetof(struct PCPU, context));
 
 ASM_SYMBOL(CTX_PML4,  offsetof(struct CONTEXT, pml4));
+
+ASM_SYMBOL(SYSARG_NUM,	offsetof(struct SYSCALL_ARGS, number));
+ASM_SYMBOL(SYSARG_ARG1,	offsetof(struct SYSCALL_ARGS, arg1));
+ASM_SYMBOL(SYSARG_ARG2,	offsetof(struct SYSCALL_ARGS, arg2));
+ASM_SYMBOL(SYSARG_ARG3,	offsetof(struct SYSCALL_ARGS, arg3));
+ASM_SYMBOL(SYSARG_ARG4,	offsetof(struct SYSCALL_ARGS, arg4));
+ASM_SYMBOL(SYSARG_ARG5,	offsetof(struct SYSCALL_ARGS, arg5));
