@@ -13,5 +13,6 @@ device		atkbd
 
 option		SMP
 
-console		isa.vga
+inputdev	isa.atkbd
+outputdev	isa.vga
 #console		isa.sio

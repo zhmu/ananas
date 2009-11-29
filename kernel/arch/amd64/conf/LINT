@@ -7,4 +7,5 @@ device		isa
 device		vga
 device		atkbd
 
-console		isa.vga
+inputdev	isa.atkbd
+outputdev	isa.vga
