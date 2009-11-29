@@ -6,8 +6,10 @@
 #include "lib.h"
 #include "mm.h"
 #include "options.h"
+#include "pcpu.h"
 #include "param.h"
 #include "thread.h"
+#include "vm.h"
 
 void md_restore_ctx(struct CONTEXT* ctx);
 void vm_map_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages, int user);
@@ -107,6 +109,22 @@ md_thread_switch(thread_t new, thread_t old)
 
 	/* Go! */
 	md_restore_ctx(ctx_new);
+}
+
+void*
+md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
+{
+	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
+	KASSERT(length <= PAGE_SIZE, "no support for >PAGE_SIZE mappings yet!");
+
+	addr_t addr = (addr_t)ptr & ~(PAGE_SIZE - 1);
+	addr_t phys = vm_get_phys(md->pagedir, addr, write);
+	if (phys == 0)
+		return NULL;
+
+	addr_t virt = TEMP_USERLAND_ADDR + PCPU_GET(cpuid) * TEMP_USERLAND_SIZE;
+	vm_mapto(virt, phys, 2 /* XXX */);
+	return (void*)virt + ((addr_t)ptr % PAGE_SIZE);
 }
 
 /* vim:set ts=2 sw=2: */

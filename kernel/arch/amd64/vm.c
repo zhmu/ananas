@@ -12,11 +12,26 @@ void* bootstrap_get_page();
 static void*
 vm_get_nextpage()
 {
-	if (!vm_initialized)
+	if (!vm_initialized) {
 		return bootstrap_get_page();
+	}
 
-	panic("vm_get_nextpage(): code me");
-	return NULL;
+	void* ptr = kmalloc(PAGE_SIZE);
+	memset(ptr, 0, PAGE_SIZE);
+	kprintf("vm_get_nextpage(): malloc said %p\n", ptr);
+	return ptr;
+}
+
+uint64_t*
+vm_get_ptr(addr_t ptr)
+{
+	extern void *__entry, *avail;
+	return (uint64_t*)(ptr | KERNBASE);
+/*
+	if(ptr >= (addr_t)&__entry && ptr <= (addr_t)&avail)
+		return (uint64_t*)(ptr | KERNBASE);
+	return (uint64_t*)ptr;
+*/
 }
 
 void
@@ -27,22 +42,42 @@ vm_mapto_pagedir(uint64_t* pml4, addr_t virt, addr_t phys, size_t num_pages, uin
 		if (pml4[(virt >> 39) & 0x1ff] == 0) {
 			pml4[(virt >> 39) & 0x1ff] = (uint64_t)((addr_t)vm_get_nextpage() & MEMMASK) | (user ? PE_US : 0) | PE_RW | PE_P;
 		}
-		uint64_t* pdpe = (uint64_t*)(((addr_t)pml4[(virt >> 39) & 0x1ff] & ~0xfff) | KERNBASE);
+		uint64_t* pdpe = (uint64_t*)(vm_get_ptr((addr_t)pml4[(virt >> 39) & 0x1ff] & ~0xfff));
 
 		if (pdpe[(virt >> 30) & 0x1ff] == 0) {
 			pdpe[(virt >> 30) & 0x1ff] = (uint64_t)((addr_t)vm_get_nextpage() & MEMMASK) | (user ? PE_US : 0) | PE_RW | PE_P;
 		}
-		uint64_t* pde = (uint64_t*)(((addr_t)pdpe[(virt >> 30) & 0x1ff] & ~0xfff) | KERNBASE);
+		uint64_t* pde = (uint64_t*)vm_get_ptr((addr_t)pdpe[(virt >> 30) & 0x1ff] & ~0xfff);
 
 		if (pde[(virt >> 21) & 0x1ff] == 0) {
 			pde[(virt >> 21) & 0x1ff] = (uint64_t)((addr_t)vm_get_nextpage() & MEMMASK) | (user ? PE_US : 0) | PE_RW | PE_P;
 		}
-		uint64_t* pte = (uint64_t*)(((addr_t)pde[(virt >> 21) & 0x1ff] & ~0xfff) | KERNBASE);
+		uint64_t* pte = (uint64_t*)vm_get_ptr((addr_t)pde[(virt >> 21) & 0x1ff] & ~0xfff);
 
 		pte[(virt >> 12) & 0x1ff] = (uint64_t)phys | (user ? PE_US : 0) | PE_RW | PE_P;
 
 		virt += PAGE_SIZE; phys += PAGE_SIZE;
 	}
+}
+
+addr_t
+vm_get_phys(uint64_t* pagedir, addr_t addr, int write)
+{
+	if (!(pml4[(addr >> 39) & 0x1ff] & PE_P))
+		return 0;
+	uint64_t* pdpe = (uint64_t*)(vm_get_ptr((addr_t)pml4[(addr >> 39) & 0x1ff] & ~0xfff));
+	if (!(pdpe[(addr >> 30) & 0x1ff] & PE_P))
+		return 0;
+	uint64_t* pde = (uint64_t*)vm_get_ptr((addr_t)pdpe[(addr >> 30) & 0x1ff] & ~0xfff);
+	if (!(pde[(addr >> 21) & 0x1ff] & PE_P))
+		return 0;
+	uint64_t* pte = (uint64_t*)vm_get_ptr((addr_t)pde[(addr >> 21) & 0x1ff] & ~0xfff);
+	uint64_t val = pte[(addr >> 12) & 0x1ff];
+	if (!(val & PE_P))
+		return 0;
+	if (write && !(val & PE_RW))
+		return 0;
+	return val & ~(PAGE_SIZE - 1);
 }
 
 void
@@ -74,6 +109,10 @@ vm_map_device(addr_t addr, size_t len)
 void
 vm_init()
 {
+#ifdef NOTYET
+	/* TODO - copy all current pages to new malloc'ed pages */
+	vm_initialized = 1;
+#endif
 }
 
 /* vim:set ts=2 sw=2: */

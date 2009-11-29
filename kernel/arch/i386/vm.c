@@ -28,6 +28,21 @@ vm_map_bootstrap(addr_t addr, size_t num_pages)
 	}
 }
 
+addr_t
+vm_get_phys(uint32_t* pagedir, addr_t addr, int write)
+{
+	uint32_t pd_entrynum = addr >> 22;
+	if (!(pagedir[pd_entrynum] & PTE_P))
+		return 0;
+	uint32_t* pt = (uint32_t*)(pagedir[pd_entrynum] & ~(PAGE_SIZE - 1));
+	uint32_t val = pt[(((addr >> 12) & ((1 << 10) - 1)))];
+	if (!(val & PTE_P))
+		return 0;
+	if (write && !(val & PTE_RW))
+		return 0;
+	return val & ~(PAGE_SIZE - 1);
+}
+
 void
 vm_mapto_pagedir(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, uint32_t user)
 {
@@ -86,6 +101,12 @@ vm_map(addr_t addr, size_t num_pages)
 	if (!vm_initialized)
 		return vm_map_bootstrap(addr, num_pages);
 	vm_map_pagedir(pagedir, addr, num_pages, 0);
+}
+
+void
+vm_mapto(addr_t virt, addr_t phys, size_t num_pages)
+{
+	vm_mapto_pagedir(pagedir, virt, phys, num_pages, 0);
 }
 
 void
