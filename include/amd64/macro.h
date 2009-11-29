@@ -1,8 +1,12 @@
 #ifndef __AMD64_MACRO_H__
 #define __AMD64_MACRO_H__
 
-#define GDT_SET_ENTRY64(ptr, num, dpl, iscode) do { \
-	uint8_t* p = ((uint8_t*)ptr + num * 16); \
+/*
+ * Sets up a GDT entry, either for code or data. Note that these entries only
+ * take up 8 bytes.
+ */
+#define GDT_SET_ENTRY64(ptr, offs, dpl, iscode) do { \
+	uint8_t* p = ((uint8_t*)ptr + offs); \
 	/* Segment Limit 0:15 (ignored) */ \
 	p[ 0] = 0; p[1] = 0; \
 	/* Base Address 0:15 (ignored) */ \
@@ -15,9 +19,6 @@
 	p[ 6] = (1 << 5); \
 	/* Base address 24:31 (ignored) */ \
 	p[ 7] = 0; \
-	/* Reserved */ \
-	p[ 8] = 0; p[ 9] = 0; p[10] = 0; p[11] = 0; \
-	p[12] = 0; p[13] = 0; p[14] = 0; p[15] = 0; \
 } while(0)
 
 /*
@@ -26,11 +27,14 @@
  *     Bochs 2.4.1 will not allow the descriptor to be used for %ss unless its
  *     set...
  */
-#define GDT_SET_CODE64(ptr, num, dpl) GDT_SET_ENTRY64(ptr, num, dpl, 1)
-#define GDT_SET_DATA64(ptr, num, dpl) GDT_SET_ENTRY64(ptr, num, dpl, 0)
+#define GDT_SET_CODE64(ptr, offs, dpl) GDT_SET_ENTRY64(ptr, offs, dpl, 1)
+#define GDT_SET_DATA64(ptr, offs, dpl) GDT_SET_ENTRY64(ptr, offs, dpl, 0)
 
-#define GDT_SET_TSS64(ptr, num, dpl, base, size) do { \
-	uint8_t* p = ((uint8_t*)ptr + num * 16); \
+/*
+ * Sets up a GDT entry for a TSS. Note that this entry takes up 16 bytes.
+ */
+#define GDT_SET_TSS64(ptr, offs, dpl, base, size) do { \
+	uint8_t* p = ((uint8_t*)ptr + offs); \
 	/* Segment Limit 0:15 */ \
 	p[ 0] = (size) & 0xff; p[1] = ((size) >> 8) & 0xff; \
 	/* Base Address 0:15 */ \
@@ -54,11 +58,11 @@
  * Convenience macro to create a XXXr 6-byte 'limit, base' variable
  * which are needed for LGDT and LIDT.
  */
-#define MAKE_RREGISTER(name, x, num_entries) \
+#define MAKE_RREGISTER(name, x, size) \
 	uint8_t name[10]; \
 	do { \
-		name[0] = ((num_entries * 16) - 1) & 0xff; \
-		name[1] = ((num_entries * 16) - 1) >> 8; \
+		name[0] = (size) & 0xff; \
+		name[1] = (size) >> 8; \
 		name[2] = ((addr_t)(x)      ) & 0xff; \
 		name[3] = ((addr_t)(x) >>  8) & 0xff; \
 		name[4] = ((addr_t)(x) >> 16) & 0xff; \

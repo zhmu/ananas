@@ -19,20 +19,30 @@
 #define SEG_DPL_USER		3	/* Descriptor Privilege Level (user) */
 
 /* Machine Specific Registers */
+#define MSR_EFER		0xc0000080
+ #define MSR_EFER_SCE		(1 <<  0)	/* System Call Extensions */
+ #define MSR_EFER_LME		(1 <<  8)	/* Long Mode Enable */
+ #define MSR_EFER_LMA		(1 << 10)	/* Long Mode Active */
+ #define MSR_EFER_NXE		(1 << 11)	/* No-Execute Enable */
+ #define MSR_EFER_SVME		(1 << 12)	/* Secuure VM Enable */
+ #define MSR_EFER_FFXSR		(1 << 14)	/* Fast FXSAVE/FXRSTOR */
+#define MSR_STAR		0xc0000081
+#define MSR_LSTAR		0xc0000082
+#define MSR_CSTAR		0xc0000083
+#define MSR_SFMASK		0xc0000084
 #define MSR_FS_BASE		0xc0000100
 #define MSR_GS_BASE		0xc0000101
 #define MSR_KERNEL_GS_BASE	0xc0000102
 
-/* GDT entry index numbers and corresponding selectors */
-#define GDT_IDX_KERNEL_CODE	1
-#define GDT_SEL_KERNEL_CODE	(GDT_IDX_KERNEL_CODE * 16)
-#define GDT_IDX_KERNEL_DATA	2
-#define GDT_SEL_KERNEL_DATA	(GDT_IDX_KERNEL_DATA * 16)
-#define GDT_IDX_USER_CODE	3
-#define GDT_SEL_USER_CODE	(GDT_IDX_USER_CODE * 16)
-#define GDT_IDX_USER_DATA	4
-#define GDT_SEL_USER_DATA	(GDT_IDX_USER_DATA * 16)
-#define GDT_IDX_TASK		5
-#define GDT_SEL_TASK		(GDT_IDX_TASK * 16)
+/*
+ * GDT entry selectors, which are the offset in the GDT. We don't use indexes
+ * here because the task entry is 16 bytes whereas everything else is 8 bytes.
+ */
+#define GDT_SEL_KERNEL_CODE	0x08
+#define GDT_SEL_KERNEL_DATA	0x10
+#define GDT_SEL_USER_CODE	0x18
+#define GDT_SEL_USER_DATA	0x20
+#define GDT_SEL_TASK		0x28
+#define GDT_LENGTH		(GDT_SEL_TASK + 0x10)
 
 #endif /* __AMD64_VM_H__ */

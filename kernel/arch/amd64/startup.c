@@ -29,6 +29,27 @@ static struct PCPU bsp_pcpu;
 /* TSS used by the kernel */
 struct TSS kernel_tss;
 
+uint64_t
+rdmsr(uint32_t msr)
+{
+	uint32_t hi, lo;
+
+	__asm(
+		"rdmsr\n"
+	: "=a" (lo), "=d" (hi) : "c" (msr));
+	return ((uint64_t)hi << 32) | (uint64_t)lo;
+}
+
+void
+wrmsr(uint32_t msr, uint64_t val)
+{
+	__asm(
+		"wrmsr\n"
+	: : "a" (val & 0xffffffff),
+	    "d" (val >> 32),
+      "c" (msr));
+}
+
 void*
 bootstrap_get_page()
 {
@@ -55,12 +76,12 @@ md_startup(struct BOOTINFO* bi)
 	 * things like a TSS.
 	 */
 	memset(gdt, 0, sizeof(gdt));
-	GDT_SET_CODE64(gdt, GDT_IDX_KERNEL_CODE, SEG_DPL_SUPERVISOR);
-	GDT_SET_DATA64(gdt, GDT_IDX_KERNEL_DATA, SEG_DPL_SUPERVISOR);
-	GDT_SET_CODE64(gdt, GDT_IDX_USER_CODE, SEG_DPL_USER);
-	GDT_SET_DATA64(gdt, GDT_IDX_USER_DATA, SEG_DPL_USER);
-	GDT_SET_TSS64 (gdt, GDT_IDX_TASK, 0, (addr_t)&kernel_tss, sizeof(struct TSS));
-	MAKE_RREGISTER(gdtr, gdt, GDT_NUM_ENTRIES);
+	GDT_SET_CODE64(gdt, GDT_SEL_KERNEL_CODE, SEG_DPL_SUPERVISOR);
+	GDT_SET_DATA64(gdt, GDT_SEL_KERNEL_DATA, SEG_DPL_SUPERVISOR);
+	GDT_SET_CODE64(gdt, GDT_SEL_USER_CODE, SEG_DPL_USER);
+	GDT_SET_DATA64(gdt, GDT_SEL_USER_DATA, SEG_DPL_USER);
+	GDT_SET_TSS64 (gdt, GDT_SEL_TASK, 0, (addr_t)&kernel_tss, sizeof(struct TSS));
+	MAKE_RREGISTER(gdtr, gdt, GDT_LENGTH - 1);
 
 	/* Load the GDT, and reload our registers */
 	__asm(
@@ -125,7 +146,7 @@ md_startup(struct BOOTINFO* bi)
 	IDT_SET_ENTRY(idt, 47, SEG_DPL_SUPERVISOR, GDT_SEL_KERNEL_CODE, irq15);
 
 	/* Load the IDT */
-	MAKE_RREGISTER(idtr, idt, IDT_NUM_ENTRIES);
+	MAKE_RREGISTER(idtr, idt, (IDT_NUM_ENTRIES * 16) - 1);
 	__asm(
 		"lidt (%%rax)\n"
 	: : "a" (&idtr));
@@ -183,6 +204,16 @@ md_startup(struct BOOTINFO* bi)
 	 */
 	memset(&kernel_tss, 0, sizeof(struct TSS));
 	__asm("ltr %%ax\n" : : "a" (GDT_SEL_TASK));
+
+	/*
+	 * Set up the fast system call (SYSCALL/SYSEXIT) mechanism.
+	 */
+	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | MSR_EFER_SCE);
+	wrmsr(MSR_STAR, ((uint64_t)(GDT_SEL_USER_CODE - 0x10) | SEG_DPL_USER) << 48L |
+                  ((uint64_t)GDT_SEL_KERNEL_CODE << 32L));
+extern void* syscall_handler;
+	wrmsr(MSR_LSTAR, (addr_t)&syscall_handler);
+	wrmsr(MSR_SFMASK, 0x200 /* IF */);
 
 	/*
 	 * The loader tells us how large the kernel is; we use pages directly after

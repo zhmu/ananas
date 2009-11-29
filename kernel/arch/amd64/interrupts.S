@@ -7,7 +7,7 @@
 .globl exception12, exception13, exception14, exception16, exception17
 .globl exception18, exception19
 .globl irq1, irq2, irq3, irq4, irq5, irq6, irq7, irq8, irq9, irq10 
-.globl irq11, irq12, irq13, irq14, irq15, scheduler_irq
+.globl irq11, irq12, irq13, irq14, irq15, scheduler_irq, syscall_handler
 
 #include "machine/vm.h"
 #include "options.h"
@@ -213,6 +213,14 @@ skip_ctxcopy:
 	jmp	schedule
 
 	/* NOTREACHED - scheduler calls md_restore_ctx */
+
+/*
+ * System call handler - will be called using SYSCALL; only cs/ss will be set up.
+ */
+syscall_handler:
+	nop
+	nop
+	sysretq
 
 /* Now we just need to list the exception handlers */
 EXCEPTION_WITHOUT_ERRCODE(0)
