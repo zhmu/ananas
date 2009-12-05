@@ -36,6 +36,7 @@ md_thread_init(thread_t thread)
 
 	md->ctx.sf.sf_rsp = (addr_t)md->stack  + THREAD_STACK_SIZE - 8 /* XXX */;
 	md->ctx.sf.sf_sp  = (addr_t)md->kstack + KERNEL_STACK_SIZE - 8 /* XXX */;
+
 	md->ctx.sf.sf_cs = GDT_SEL_USER_CODE + SEG_DPL_USER;
 	md->ctx.sf.sf_ss = GDT_SEL_KERNEL_DATA;
 	md->ctx.sf.sf_rflags = 0x200 /* RFLAGS_IF */;
@@ -70,7 +71,7 @@ md_thread_switch(thread_t new, thread_t old)
 	 * Activate this context as the current CPU context. XXX lock
 	 */
 	__asm(
-		"movl	%%eax, %%gs:0\n"
+		"movq	%%rax, %%gs:0\n"
 	: : "a" (ctx_new));
 
 	if (old != NULL) {
