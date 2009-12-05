@@ -25,7 +25,7 @@ console_init()
 	 * console driver will be attached to, so we allow this to be hardcoded
 	 * in the configuration as well.
 	 */
-#ifdef CONSOLE_BUS
+#ifdef CONSOLE_INPUT_BUS
 	sprintf(tmphint, "%s.%s.%u.", CONSOLE_INPUT_BUS, input_dev->name, input_dev->unit);
 #else
 	sprintf(tmphint, "%s.%u.", input_dev->name, input_dev->unit);
@@ -37,7 +37,7 @@ console_init()
 #ifdef CONSOLE_OUTPUT_DRIVER
 	extern struct DRIVER CONSOLE_OUTPUT_DRIVER;
 	output_dev = device_alloc(NULL, &CONSOLE_OUTPUT_DRIVER);
-#ifdef CONSOLE_BUS
+#ifdef CONSOLE_OUTPUT_BUS
 	sprintf(tmphint, "%s.%s.%u.", CONSOLE_OUTPUT_BUS, output_dev->name, output_dev->unit);
 #else
 	sprintf(tmphint, "%s.%u.", output_dev->name, output_dev->unit);

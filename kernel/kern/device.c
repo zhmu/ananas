@@ -238,16 +238,24 @@ device_attach_bus(device_t bus)
 		KASSERT(driver != NULL, "matched a probe device without a driver!");
 
 		/*
-		 * If a console driver was specified, we need to skip attaching it
-		 * again; we cheat and claim we attached it, yet we already did a long
+		 * If an input- or output driver was specified, we need to skip attaching
+		 * it again; we cheat and claim we attached it, yet we already did a long
 		 * time ago ;-)
 		 * 
 		 */
-#ifdef CONSOLE_DRIVER
-		extern struct DRIVER CONSOLE_DRIVER;
-		if (driver == &CONSOLE_DRIVER) {
-			console_dev->parent = bus;
-			device_print_attachment(console_dev);
+#ifdef CONSOLE_INPUT_DRIVER
+		extern struct DRIVER CONSOLE_INPUT_DRIVER;
+		if (driver == &CONSOLE_INPUT_DRIVER) {
+			input_dev->parent = bus;
+			device_print_attachment(input_dev);
+			continue;
+		}
+#endif
+#ifdef CONSOLE_OUTPUT_DRIVER
+		extern struct DRIVER CONSOLE_OUTPUT_DRIVER;
+		if (driver == &CONSOLE_OUTPUT_DRIVER) {
+			output_dev->parent = bus;
+			device_print_attachment(output_dev);
 			continue;
 		}
 #endif
