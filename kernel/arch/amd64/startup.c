@@ -93,7 +93,6 @@ md_startup(struct BOOTINFO* bi)
 		"mov %%bx, %%ss\n"
 		/*
 		 * All we need is 'mov %%cx, %%cs'; For the first time, directly editing
-	iop
 		 * CS is useful, so it can't be used :-)
 		 */
 		"pushw	%%cx\n"
