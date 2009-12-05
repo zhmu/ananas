@@ -41,7 +41,7 @@
 	movq	SF_RBP(%rsp), %rbp; \
 	movq	SF_RSI(%rsp), %rsi; \
 	movq	SF_RDI(%rsp), %rdi; \
-	movq	SF_RSP(%rsp), %rsp; \
+	/* movq	SF_RSP(%rsp), %rsp; */ \
 	movq	SF_R8 (%rsp), %r8; \
 	movq	SF_R9 (%rsp), %r9; \
 	movq	SF_R10(%rsp), %r10; \
@@ -173,11 +173,31 @@ scheduler_irq:
 	SAVE_REGISTERS
 
 	/*
-	 * Correct the %rsp value; note that we need to add 48 because the
-	 * amd64 stores ss, rsp, rflags, cs, rip and 'error code'. FIXME Why is
-	 * the last one there?
+	 * This is just annoying: the scheduler interrupt does not really
+	 * return (it just calls 'schedule', which in turn calls
+	 * 'md_set_contex' to return us to the correct thread context).
+	 *
+	 * This means we have to force the thread's %rsp in shape again,
+	 * because the thread will just have to believe nothing happened it
+	 * it's happily continueing running, without any sudden stuff on their
+	 * stack.
+	 * 
+	 * Because the interrupt is running in supervisor mode, SF_SP(%rsp)
+	 * contains the userland stackpointer and likewise, SF_RSP(%rsp)
+	 * contains the kernel one!
+	 *
+	 * We need to exchange them, but the kernel stackpointer must be
+	 * updated - this is because the CPU will have pushed (in order)
+	 * ss, rsp, rflags, cs, rip on there, which it expects to restore
+	 * on the interrupts 'iretq'. However, since we never actually quite
+	 * do the 'iretq', we must adjust the kernel stack ourselves, or
+	 * just remove the 5 registers (which take up 5 * 8 = 40 bytes)
 	 */
-	addq	$SF_RIP + 48, SF_RSP(%rsp)
+	movq	SF_SP(%rsp), %rax
+	movq	%rax, SF_RSP(%rsp)
+	movq	%rsp, %rax
+	addq	$SF_RIP + 40, %rax
+	movq	%rax, SF_SP(%rsp)
 
 	/* If we didn't come from the kernel, swap the %gs register */
 	cmpl	$GDT_SEL_KERNEL_CODE, SF_CS(%rsp)
@@ -220,6 +240,9 @@ skip_ctxcopy:
  * ABI AMD64 specification 0.99, section A.2.1.
  */
 syscall_handler:
+	swapgs
+	movq	%rsp, %gs:PCPU_TEMPRSP
+
 	/* First of all, store the syscall arguments */
 	subq	$SYSARG_SIZE, %rsp
 	movq	%rax, SYSARG_NUM(%rsp)
@@ -241,7 +264,6 @@ syscall_handler:
 	pushq	%r13
 	pushq	%r14
 	pushq	%r15
-	swapgs
 
 	/* Activate the kernel pagemap */
 	movq	%cr3, %rax
@@ -252,8 +274,6 @@ syscall_handler:
 
 	/* Invoke syscall - note that this uses %rdi set above */
 	call	syscall
-
-	swapgs
 
 	/* Restore the old userland map */
 	popq	%rbx
@@ -268,7 +288,9 @@ syscall_handler:
 	popq	%rbx
 	/* Restore %rcx (it is used by sysret) and fix the stack */
 	popq	%rcx
-	addq	$SYSARG_SIZE, %rsp
+
+	movq	%gs:PCPU_TEMPRSP, %rsp
+	swapgs
 	sysretq
 
 /* Now we just need to list the exception handlers */

@@ -29,9 +29,10 @@ ASM_SYMBOL(SF_RIP,    offsetof(struct STACKFRAME, sf_rip));
 ASM_SYMBOL(SF_CS,     offsetof(struct STACKFRAME, sf_cs));
 ASM_SYMBOL(SF_SIZE,   sizeof(struct STACKFRAME));
 
-ASM_SYMBOL(PCPU_CTX,  offsetof(struct PCPU, context));
+ASM_SYMBOL(PCPU_CTX,	 offsetof(struct PCPU, context));
+ASM_SYMBOL(PCPU_TEMPRSP, offsetof(struct PCPU, temp_rsp));
 
-ASM_SYMBOL(CTX_PML4,  offsetof(struct CONTEXT, pml4));
+ASM_SYMBOL(CTX_PML4,	offsetof(struct CONTEXT, pml4));
 
 ASM_SYMBOL(SYSARG_NUM,	offsetof(struct SYSCALL_ARGS, number));
 ASM_SYMBOL(SYSARG_ARG1,	offsetof(struct SYSCALL_ARGS, arg1));
