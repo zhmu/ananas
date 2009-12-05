@@ -16,7 +16,6 @@ md_restore_ctx:
 	 * Restore as much as we can from our context.
 	 */
 	movq	%gs:PCPU_CTX, %rsi
-	movq	SF_RAX(%rsi), %rax
 	movq	SF_RBX(%rsi), %rbx
 	movq	SF_RCX(%rsi), %rcx
 	movq	SF_RDX(%rsi), %rdx
