@@ -2,8 +2,13 @@
 #define __AMD64_PCPU_H__
 
 /* amd64-specific per-cpu structure */
-#define MD_PCPU_FIELDS \
-	void		*context;
+#define MD_PCPU_FIELDS								\
+	void		*context;						\
+	/*									\
+	 * temp_rsp is the place we use to store the original stack pointer	\
+	 * during a system call.						\
+	 */									\
+	uint64_t	temp_rsp;
 
 #define PCPU_TYPE(x) \
 	__typeof(((struct PCPU*)0)->x)
