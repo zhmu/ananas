@@ -61,6 +61,8 @@ strtoul(const char* ptr, char** endptr, int base)
 	/* detect 0x hex modifier */
 	if (base == 0 && *ptr == '0' && *(ptr + 1) == 'x') {
 		base = 16; ptr += 2;
+	} else if (base == 0) {
+		base = 10;
 	}
 	while (*ptr) {
 		if (*ptr >= '0' && *ptr <= '9') {
@@ -69,12 +71,12 @@ strtoul(const char* ptr, char** endptr, int base)
 			continue;
 		}
 		if (base == 0x10 && (*ptr >= 'a' && *ptr <= 'f')) {
-		val = (val * base) + (*ptr - 'a') + 0xa;
+			val = (val * base) + (*ptr - 'a') + 0xa;
 			ptr++;
 			continue;
 		}
 		if (base == 0x10 && (*ptr >= 'A' && *ptr <= 'F')) {
-		val = (val * base) + (*ptr - 'A') + 0xa;
+			val = (val * base) + (*ptr - 'A') + 0xa;
 			ptr++;
 			continue;
 		}
