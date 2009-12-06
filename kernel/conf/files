@@ -16,6 +16,7 @@ dev/bus/isa.c		optional isa
 dev/bus/isa/atkbd.c	optional atkbd
 dev/bus/pci/pci.c	optional pci
 dev/bus/pci/pcibus.c	optional pci
+dev/ata.c		optional ata
 dev/vga.c		optional vga
 dev/sio.c		optional sio
 gen/std.c		mandatory
