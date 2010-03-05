@@ -150,7 +150,7 @@ scheduler_irq:
 
 skip_store:
 	/* Acknowledge IRQ! */
-	EOI(1)
+	EOI(0)
 
 	/* Restore per-cpu context in fs */
 	movw	$GDT_SEL_KERNEL_PCPU, %ax
