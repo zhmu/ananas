@@ -80,7 +80,6 @@ ata_identify(device_t dev, int slave)
 	if (ATA_GET_WORD(identify->features2) & ATA_FEAT2_LBA48) {
 		size  = ATA_GET_WORD(identify->lba48_sectors);
 		size |= (uint32_t)ATA_GET_WORD(identify->lba48_sectors) >> 16;
-		kprintf("lba48 size!\n");
 	}
 
 	kprintf("model [%s] - foo\n", identify->model);
@@ -103,9 +102,6 @@ ata_attach(device_t dev)
 	if (res_io == NULL || res_irq == NULL)
 		return 1; /* XXX */
 	ata_port = (uint32_t)res_io;
-
-	kprintf("size = %u\n", sizeof(struct ATA_IDENTIFY));
-	kprintf("offs=%u\n", __builtin_offsetof(struct ATA_IDENTIFY, checksum));
 
 	/* Ensure there's something living at the I/O addresses */
 	if (inb(ata_port + ATA_PIO_STATCMD) == 0xff) return 1;
