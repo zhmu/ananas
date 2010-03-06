@@ -1,5 +1,5 @@
-#include "i386/vm.h"
-#include "i386/io.h"
+#include "machine/vm.h"
+#include "machine/io.h"
 #include "console.h"
 #include "device.h"
 #include "lib.h"
@@ -11,19 +11,38 @@
 /* Console width */
 #define VGA_WIDTH  80
 
+static uint32_t vga_io = 0;
 static uint8_t* vga_mem = NULL;
 static uint8_t vga_x = 0;
 static uint8_t vga_y = 0;
 static uint8_t vga_attr = 0xf;
 
+static void
+vga_crtc_write(device_t dev, uint8_t reg, uint8_t val)
+{
+	outb(vga_io + 0x14, reg);
+	outb(vga_io + 0x15, val);
+}
+
 static int
 vga_attach(device_t dev)
 {
 	vga_mem = device_alloc_resource(dev, RESTYPE_MEMORY, 0x7fff);
-	if (vga_mem == NULL)
+	void* res = device_alloc_resource(dev, RESTYPE_IO, 0x1f);
+	if (vga_mem == NULL || res == NULL)
 		return 1; /* XXX */
-	memset(vga_mem, 0, VGA_HEIGHT * VGA_WIDTH * 2);
+	vga_io = (uint32_t)res;
 
+	/* Clear the display; we must set the attribute everywhere for the cursor */
+	uint8_t* ptr = vga_mem;
+	int size = VGA_HEIGHT * VGA_WIDTH;
+	while(size--) {
+		*ptr++ = ' '; *ptr++ = vga_attr;
+	}
+
+	/* set cursor shape */
+	vga_crtc_write(dev, 0xa, 14);
+	vga_crtc_write(dev, 0xb, 15);
 	return 0;
 }
 
@@ -61,6 +80,10 @@ vga_write(device_t dev, const char* data, size_t len)
 			vga_y--;
 		}
 	}
+
+	/* reposition the cursor */
+	vga_crtc_write(dev, 0xe, (vga_x + vga_y * VGA_WIDTH) >> 8);
+	vga_crtc_write(dev, 0xf, (vga_x + vga_y * VGA_WIDTH) & 0xff);
 
 	return len;
 }
