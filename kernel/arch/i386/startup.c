@@ -7,6 +7,7 @@
 #include "i386/pcpu.h"
 #include "i386/realmode.h"
 #include "x86/pic.h"
+#include "x86/smap.h"
 #include "init.h"
 #include "lib.h"
 #include "options.h"
@@ -294,19 +295,8 @@ md_startup()
 		if (r.eax != 0x534d4150)
 			break;
 
-		#define SMAP_TYPE_MEMORY   0x01
-		#define SMAP_TYPE_RESERVED 0x02
-		#define SMAP_TYPE_RECLAIM  0x03
-		#define SMAP_TYPE_NVS      0x04
-
-		struct SMAP_ENTRY {
-			uint32_t base_lo, base_hi;
-			uint32_t len_lo, len_hi;
-			uint32_t type;
-		} __attribute__((packed)) *sme = (struct SMAP_ENTRY*)&realmode_store;
-		/* CTASSERT(sizeof(smap_entry) == 20, "smap entry length invalid"); */
-
 		/* Ignore any memory that is not specifically available */
+		struct SMAP_ENTRY* sme = (struct SMAP_ENTRY*)&realmode_store;
 		if (sme->type != SMAP_TYPE_MEMORY)
 			continue;
 

@@ -5,6 +5,7 @@
 #include "machine/pcpu.h"
 #include "machine/thread.h"
 #include "x86/pic.h"
+#include "x86/smap.h"
 #include "vm.h"
 #include "param.h"
 #include "pcpu.h"
@@ -218,18 +219,6 @@ extern void* syscall_handler;
 		/* Set CR3 to the physical address of the page directory */
 		"movq %%rax, %%cr3\n"
 	: : "a" ((addr_t)pml4 & 0x0fffffff /* HACK */));
-
-	#define SMAP_TYPE_MEMORY   0x01
-	#define SMAP_TYPE_RESERVED 0x02
-	#define SMAP_TYPE_RECLAIM  0x03
-	#define SMAP_TYPE_NVS      0x04
-	#define SMAP_TYPE_FINAL    0xFFFFFFFF /* added by the bootloader */
-
-	struct SMAP_ENTRY {
-		uint32_t base_lo, base_hi;
-		uint32_t len_lo, len_hi;
-		uint32_t type;
-	} __attribute__((packed));
 
 	/* Walk the memory map, and add each item one by one */
 	struct SMAP_ENTRY* sme;
