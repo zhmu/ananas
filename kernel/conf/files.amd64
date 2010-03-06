@@ -7,4 +7,5 @@ arch/amd64/startup.c		mandatory
 arch/amd64/interrupts.S		mandatory
 arch/amd64/exception.c		mandatory
 arch/amd64/cntx.S		mandatory
+arch/x86/pic.c			mandatory
 kern/exec_elf64.c		mandatory

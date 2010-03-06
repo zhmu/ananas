@@ -4,7 +4,7 @@
 #include "machine/vm.h"
 #include "machine/pcpu.h"
 #include "machine/thread.h"
-#include "i386/io.h"			/* XXX for PIC I/O */
+#include "x86/pic.h"
 #include "vm.h"
 #include "param.h"
 #include "pcpu.h"
@@ -151,31 +151,11 @@ md_startup(struct BOOTINFO* bi)
 	: : "a" (&idtr));
 
 	/*
-	 * Remap the interrupts; by default, IRQ 0-7 are mapped to interrupts 0x08 - 0x0f
-	 * and IRQ 8-15 to 0x70 - 0x77. We remap IRQ 0-15 to 0x20-0x2f (since 0..0x1f is
-	 * reserved by Intel).
-	 *
-	 * XXX this is duplicated in i386/startup.c - best make it uniform
+	 * Remap the interrupts; by default, IRQ 0-7 are mapped to interrupts 0x08 -
+	 * 0x0f and IRQ 8-15 to 0x70 - 0x77. We remap IRQ 0-15 to 0x20-0x2f (since
+	 * 0..0x1f is reserved by Intel).
 	 */
-#define IO_WAIT() do { int i = 10; while (i--) /* NOTHING */ ; } while (0);
-
-	unsigned int mask1 = inb(PIC1_DATA);
-	unsigned int mask2 = inb(PIC2_DATA);
-	/* Start initialization: the PIC will wait for 3 command bta ytes */
-	outb(PIC1_CMD, ICW1_INIT | ICW1_ICW4); IO_WAIT();
-	outb(PIC2_CMD, ICW1_INIT | ICW1_ICW4); IO_WAIT();
-	/* Data byte 1 is the interrupt vector offset - program for interrupt 0x20-0x2f */
-	outb(PIC1_DATA, 0x20); IO_WAIT();
-	outb(PIC2_DATA, 0x28); IO_WAIT();
-	/* Data byte 2 tells the PIC how they are wired */
-	outb(PIC1_DATA, 0x04); IO_WAIT();
-	outb(PIC2_DATA, 0x02); IO_WAIT();
-	/* Data byte 3 contains environment flags */
-	outb(PIC1_DATA, ICW4_8086); IO_WAIT();
-	outb(PIC2_DATA, ICW4_8086); IO_WAIT();
-	/* Restore PIC masks */
-	outb(PIC1_DATA, mask1);
-	outb(PIC2_DATA, mask2);
+	x86_pic_remap();
 
 	/* Set up the %fs base adress to zero (it should be, but don't take chances) */
 	__asm("wrmsr\n" : : "a" (0), "d" (0), "c" (MSR_FS_BASE));

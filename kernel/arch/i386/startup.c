@@ -6,6 +6,7 @@
 #include "i386/thread.h"
 #include "i386/pcpu.h"
 #include "i386/realmode.h"
+#include "x86/pic.h"
 #include "init.h"
 #include "lib.h"
 #include "options.h"
@@ -186,30 +187,11 @@ md_startup()
 	    "d" (GDT_SEL_KERNEL_PCPU));
 
 	/*
-	 * Remap the interrupts; by default, IRQ 0-7 are mapped to interrupts 0x08 - 0x0f
-	 * and IRQ 8-15 to 0x70 - 0x77. We remap IRQ 0-15 to 0x20-0x2f (since 0..0x1f is
-	 * reserved by Intel).
+	 * Remap the interrupts; by default, IRQ 0-7 are mapped to interrupts 0x08 -
+	 * 0x0f and IRQ 8-15 to 0x70 - 0x77. We remap IRQ 0-15 to 0x20-0x2f (since
+	 * 0..0x1f is reserved by Intel).
 	 */
-#define IO_WAIT() do { int i = 10; while (i--) /* NOTHING */ ; } while (0);
-
-	unsigned int mask1 = inb(PIC1_DATA);
-	unsigned int mask2 = inb(PIC2_DATA);
-	/* Start initialization: the PIC will wait for 3 command bta ytes */
-	outb(PIC1_CMD, ICW1_INIT | ICW1_ICW4); IO_WAIT();
-	outb(PIC2_CMD, ICW1_INIT | ICW1_ICW4); IO_WAIT();
-	/* Data byte 1 is the interrupt vector offset - program for interrupt 0x20-0x2f */
-	outb(PIC1_DATA, 0x20); IO_WAIT();
-	outb(PIC2_DATA, 0x28); IO_WAIT();
-	/* Data byte 2 tells the PIC how they are wired */
-	outb(PIC1_DATA, 0x04); IO_WAIT();
-	outb(PIC2_DATA, 0x02); IO_WAIT();
-	/* Data byte 3 contains environment flags */
-	outb(PIC1_DATA, ICW4_8086); IO_WAIT();
-	outb(PIC2_DATA, ICW4_8086); IO_WAIT();
-	/* Restore PIC masks */
-	outb(PIC1_DATA, mask1);
-	outb(PIC2_DATA, mask2);
-
+	x86_pic_remap();
 
 	/*
 	 * Prepare the IDT entries; this means mapping the exception interrupts to
