@@ -7,6 +7,7 @@
 #include "i386/macro.h"
 #include "i386/thread.h"
 #include "i386/vm.h"
+#include "x86/pic.h"
 #include "lock.h"
 #include "param.h"
 #include "pcpu.h"
