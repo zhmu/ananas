@@ -3,8 +3,8 @@
  */
 .text
 .globl exception0, exception1, exception2, exception3, exception4, exception5
-.globl exception6, exception7, exception8, exception9, exceptionA, exceptionB
-.globl exceptionC, exceptionD, exceptionE
+.globl exception6, exception7, exception8, exception9, exception10, exception11
+.globl exception12, exception13, exception14
 .globl irq0, irq1, irq2, irq3, irq4, irq5, irq6, irq7, irq8, irq9
 .globl irqA, irqB, irqC, irqD, irqE, irqF
 .globl scheduler_irq, syscall_int, spurious_irq
@@ -12,37 +12,48 @@
 #include "i386/vm.h"
 #include "options.h"
 #include "param.h"
+#include "asmsyms.h"
 
-/* Basic exception handler framework */
-#define EXCEPTION_HANDLER_BODY(num) \
-	/* Save the previous state first */ \
-	pushal; \
-	push	%ds; \
-	push	%es; \
-	push	%fs; \
-	push	%gs; \
-	push	%ss; \
-	/* Set up kernel data */ \
-	movl	$GDT_SEL_KERNEL_DATA, %eax; \
+#define SAVE_REGISTERS \
+	movl	%eax, SF_EAX(%esp); \
+	movl	%ebx, SF_EBX(%esp); \
+	movl	%ecx, SF_ECX(%esp); \
+	movl	%edx, SF_EDX(%esp); \
+	movl	%ebp, SF_EBP(%esp); \
+	movl	%esp, SF_ESP(%esp); \
+	movl	%edi, SF_EDI(%esp); \
+	movl	%esi, SF_ESI(%esp);
+
+#define SAVE_SEGS \
+	xorl	%eax, %eax; \
+	movw	%ds, %ax; \
+	movl	%eax, SF_DS(%esp); \
+	movw	%es, %ax; \
+	movl	%eax, SF_ES(%esp); \
+	movw	%fs, %ax; \
+	movl	%eax, SF_FS(%esp); \
+	movw	%gs, %ax; \
+	movl	%eax, SF_GS(%esp);
+
+#define RESTORE_REGISTERS \
+	movl	SF_EAX(%esp), %eax; \
+	movl	SF_EBX(%esp), %ebx; \
+	movl	SF_ECX(%esp), %ecx; \
+	movl	SF_EDX(%esp), %edx; \
+	movl	SF_EBP(%esp), %ebp; \
+	/* movl	SF_ESP(%esp), %esp; */ \
+	movl	SF_EDI(%esp), %edi; \
+	movl	SF_ESI(%esp), %esi;
+
+#define RESTORE_SEGS \
+	movl	SF_DS(%esp), %eax; \
 	movw	%ax, %ds; \
+	movl	SF_ES(%esp), %eax; \
 	movw	%ax, %es; \
-	/* Set paging table back XXX */ \
-	movl	pagedir, %eax; \
-	subl	$KERNBASE, %eax; \
-	movl	%eax, %cr3; \
-	/* Ensure per-cpu stuff works */ \
-	movl	$GDT_SEL_KERNEL_PCPU, %eax; \
+	movl	SF_FS(%esp), %eax; \
 	movw	%ax, %fs; \
-	/* Call the exception handler */ \
-	pushl	$0x ## num; \
-	call	exception_handler; \
-	addl	$8, %esp; /* Don't restore ss register */ \
-	/* Restore previous state */ \
-	pop	%gs; \
-	pop	%fs; \
-	pop	%es; \
-	pop	%ds; \
-	popal
+	movl	SF_GS(%esp), %eax; \
+	movw	%ax, %gs;
 
 #ifdef SMP
 #define EOI(num) \
@@ -102,6 +113,45 @@ skip_pic2_ ## num:
 	popal; \
 	iret
 
+do_exception:
+	SAVE_REGISTERS
+	SAVE_SEGS
+
+	/* Set up kernel data */
+	movl	$GDT_SEL_KERNEL_DATA, %eax
+	movw	%ax, %ds
+	movw	%ax, %es
+
+	/* Set paging table back */
+	movl	%cr3, %ebx
+	pushl	%ebx
+	movl	pagedir, %eax
+	subl	$KERNBASE, %eax
+	movl	%eax, %cr3
+
+	/* Ensure per-cpu stuff works */
+	movl	$GDT_SEL_KERNEL_PCPU, %eax
+	movw	%ax, %fs
+
+	/*
+	 * Call the exception handler. Note that we have hand %esp + 4 as the
+	 * argument, because we have placed our saved %cr3 on the stack.
+	 */
+	movl	%esp, %eax
+	addl	$4, %eax
+	pushl	%eax
+	call	exception_handler
+	addl	$4, %esp
+
+	popl	%ebx
+	movl	%ebx, %cr3
+
+	/* Restore previous state */
+	RESTORE_SEGS
+	RESTORE_REGISTERS
+	addl	$SF_EIP, %esp
+	iretl
+
 /*
  * There exist two versions of exceptions: those with an error code, and those
  * without one. Our handler code expects to be called with an error code, so
@@ -109,15 +159,16 @@ skip_pic2_ ## num:
  */
 #define EXCEPTION_HANDLER_ERRORCODE(num) \
 exception ## num: \
-	pushl $0; \
-	EXCEPTION_HANDLER_BODY(num); \
-	addl $4, %esp;  \
-	iret
+	subl	$SF_ERRNUM, %esp; \
+	movl	$num, SF_TRAPNO(%esp); \
+	jmp	do_exception
 
 #define EXCEPTION_HANDLER(num) \
 exception ## num: \
-	EXCEPTION_HANDLER_BODY(num); \
-	iret
+	subl	$SF_EIP, %esp; \
+	movl	$num, SF_TRAPNO(%esp); \
+	movl	$0, SF_ERRNUM(%esp); \
+	jmp	do_exception
 
 /* IRQ handlers are a lot simpler: they come in a single easy flavour */
 #define IRQ_HANDLER(num) \
@@ -258,11 +309,11 @@ EXCEPTION_HANDLER(6)
 EXCEPTION_HANDLER(7)
 EXCEPTION_HANDLER_ERRORCODE(8)
 EXCEPTION_HANDLER(9)
-EXCEPTION_HANDLER_ERRORCODE(A)
-EXCEPTION_HANDLER_ERRORCODE(B)
-EXCEPTION_HANDLER_ERRORCODE(C)
-EXCEPTION_HANDLER_ERRORCODE(D)
-EXCEPTION_HANDLER_ERRORCODE(E)
+EXCEPTION_HANDLER_ERRORCODE(10)
+EXCEPTION_HANDLER_ERRORCODE(11)
+EXCEPTION_HANDLER_ERRORCODE(12)
+EXCEPTION_HANDLER_ERRORCODE(13)
+EXCEPTION_HANDLER_ERRORCODE(14)
 
 /* ...and the IRQ handlers */
 IRQ_HANDLER(1)
