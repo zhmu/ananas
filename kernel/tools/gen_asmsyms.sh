@@ -26,7 +26,8 @@ ${NM} $1 | ${AWK} '
 		part3 = substr($1, length($1) - 3);
 	}
 	/ C sym_.*_3$/ {
-		symname = substr($0, index($0, "sym_") + 4, length($0) - 25)
+		symname = substr($0, index($0, "sym_") + 4)
+		sub(/_[0-9]+$/, "", symname)
 		part4 = substr($1, length($1) - 3);
 		total = part4 part3 part2 part1
 		sub("^0*", "", total)
