@@ -6,7 +6,7 @@
 .globl exception6, exception7, exception8, exception9, exception10, exception11
 .globl exception12, exception13, exception14
 .globl irq0, irq1, irq2, irq3, irq4, irq5, irq6, irq7, irq8, irq9
-.globl irqA, irqB, irqC, irqD, irqE, irqF
+.globl irq10, irq11, irq12, irq13, irq14, irq15
 .globl scheduler_irq, syscall_int, spurious_irq
 
 #include "i386/vm.h"
@@ -55,63 +55,60 @@
 	movl	SF_GS(%esp), %eax; \
 	movw	%ax, %gs;
 
+eoi:
+	/* interrupt to EOI is in %edx */
 #ifdef SMP
-#define EOI(num) \
-	movl	$0xfee000b0, %eax; \
+	movl	$0xfee000b0, %eax
 	movl	$0x0, (%eax)
-
 #else
-
-#define EOI(num) \
-	movb	$0x20, %al; \
-	outb	%al, $0x20; \
-	movl	$0x ## num, %ebx; \
-	cmp	$0x8, %ebx; \
-	jl	skip_pic2_ ## num; \
-	outb	%al, $0xa0; \
-skip_pic2_ ## num:
-
+	movb	$0x20, %al
+	outb	%al, $0x20
+	cmp	$0x8, %dl
+	jl	skip_pic2
+	outb	%al, $0xa0
+skip_pic2:
 #endif
+	ret
 
-/* Basic IRQ handler framework */
-#define IRQ_HANDLER_BODY(num) \
-	/* Save the previous state first */ \
-	pushal; \
-	push	%ds; \
-	push	%es; \
-	push	%fs; \
-	push	%gs; \
-	push	%ss; \
-	/* Set up kernel data */ \
-	movl	$GDT_SEL_KERNEL_DATA, %eax; \
-	movw	%ax, %ds; \
-	movw	%ax, %es; \
-	/* Store old cr3 */ \
-	movl	%cr3, %eax; \
-	pushl	%eax; \
-	/* Set paging table to kernel pagetables */ \
-	movl	pagedir, %eax; \
-	subl	$KERNBASE, %eax; \
-	movl	%eax, %cr3; \
-	/* Set up per-CPU context */  \
-	movl	$GDT_SEL_KERNEL_PCPU, %eax; \
-	movw	%ax, %fs; \
-	/* Call the exception handler */ \
-	pushl	$0x ## num; \
-	call	irq_handler; \
-	addl	$4, %esp; \
-	/* Acknowledge the interrupt - must be done before restoring %cr3 */ \
-	EOI(num); \
-	pop	%eax; \
-	movl	%eax, %cr3; \
-	addl	$4, %esp; /* Don't restore ss register */ \
-	/* Restore previous state */ \
-	pop	%gs; \
-	pop	%fs; \
-	pop	%es; \
-	pop	%ds; \
-	popal; \
-	iret
+do_irq:
+	SAVE_REGISTERS
+	SAVE_SEGS
+
+	/* Set up kernel data */
+	movl	$GDT_SEL_KERNEL_DATA, %eax
+	movw	%ax, %ds
+	movw	%ax, %es
+
+	/* Store trapframe number %edx; this is our IRQ number */
+	movl	SF_TRAPNO(%esp), %edx
+
+	/* Set paging table back */
+	movl	%cr3, %ebx
+	pushl	%ebx
+	movl	pagedir, %eax
+	subl	$KERNBASE, %eax
+	movl	%eax, %cr3
+
+	/* Ensure per-cpu stuff works */
+	movl	$GDT_SEL_KERNEL_PCPU, %eax
+	movw	%ax, %fs
+
+	/* Call the IRQ handler, using stored irq number in %edx */
+	pushl	%edx
+	call	irq_handler
+	popl	%edx
+
+	/* Acknowledge the interrupt */
+	call	eoi
+
+	popl	%ebx
+	movl	%ebx, %cr3
+
+	/* Restore previous state */
+	RESTORE_SEGS
+	RESTORE_REGISTERS
+	addl	$SF_EIP, %esp
+	iretl
 
 do_exception:
 	SAVE_REGISTERS
@@ -173,8 +170,9 @@ exception ## num: \
 /* IRQ handlers are a lot simpler: they come in a single easy flavour */
 #define IRQ_HANDLER(num) \
 irq ## num: \
-	IRQ_HANDLER_BODY(num); \
-	iret
+	subl	$SF_EIP, %esp; \
+	movl	$num, SF_TRAPNO(%esp); \
+	jmp	do_irq
 
 /*
  * The scheduler interrupt is pure magic; it forcefully stores the context of the
@@ -201,7 +199,8 @@ scheduler_irq:
 
 skip_store:
 	/* Acknowledge IRQ! */
-	EOI(0)
+	xorl	%edx, %edx
+	call	eoi
 
 	/* Restore per-cpu context in fs */
 	movw	$GDT_SEL_KERNEL_PCPU, %ax
@@ -325,9 +324,9 @@ IRQ_HANDLER(6)
 IRQ_HANDLER(7)
 IRQ_HANDLER(8)
 IRQ_HANDLER(9)
-IRQ_HANDLER(A)
-IRQ_HANDLER(B)
-IRQ_HANDLER(C)
-IRQ_HANDLER(D)
-IRQ_HANDLER(E)
-IRQ_HANDLER(F)
+IRQ_HANDLER(10)
+IRQ_HANDLER(11)
+IRQ_HANDLER(12)
+IRQ_HANDLER(13)
+IRQ_HANDLER(14)
+IRQ_HANDLER(15)
