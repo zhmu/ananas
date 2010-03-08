@@ -33,9 +33,6 @@ elf64_load(thread_t thread, const char* data, size_t datalen)
 	if (ehdr->e_phentsize < sizeof(Elf64_Phdr))
 		return 0;
 
-	/* XXX amd64 */
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
-
 	unsigned int i;
 	for (i = 0; i < ehdr->e_phnum; i++) {
 		Elf64_Phdr* phdr = (Elf64_Phdr*)(data + ehdr->e_phoff + i * ehdr->e_phentsize);
@@ -46,24 +43,12 @@ elf64_load(thread_t thread, const char* data, size_t datalen)
 		 * The program need not begin at a page-size, so we may need to adjust.
 		 */
 		int delta = phdr->p_vaddr % PAGE_SIZE;
-
-		/*
-	 	 * Allocate memory and copy the image in place.
-		 */
-		uint8_t* buf = (uint8_t*)kmalloc(phdr->p_memsz + delta);
-		/*
-	 	 * Be sure to clear memory first - this prevents information leakage, and ensures
-		 * program data will be set to zero if needed.
-		 */
-		memset(buf, 0, phdr->p_memsz + delta);
-		memcpy(buf, (void*)(data + phdr->p_offset + delta), phdr->p_filesz);
-
-		/* XXX amd64 */
-		int num_pages = (phdr->p_memsz + PAGE_SIZE - 1) / PAGE_SIZE;
-		vm_mapto_pagedir(md->pml4, phdr->p_vaddr, buf, num_pages, 1);
+		struct THREAD_MAPPING* tm = thread_mapto(thread, phdr->p_vaddr - delta, NULL, phdr->p_memsz + delta, THREAD_MAP_ALLOC);
+		memcpy(tm->ptr, (void*)(data + phdr->p_offset + delta), phdr->p_filesz);
 	}
 
 	/* XXX amd64 */
+	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
 	md->ctx.sf.sf_rip = ehdr->e_entry;
 	return 1;
 }

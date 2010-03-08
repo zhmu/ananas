@@ -6,10 +6,11 @@
 typedef struct THREAD* thread_t;
 
 struct THREAD_MAPPING {
-	addr_t	start;			/* userland address */
-	size_t	len;			/* length */
-	void*	ptr;			/* kernel ptr */
-	struct THREAD_MAPPING* next;
+	uint32_t	flags;
+	addr_t		start;			/* userland address */
+	size_t		len;			/* length */
+	void*		ptr;			/* kernel ptr */
+	struct		THREAD_MAPPING* next;
 };
 
 struct THREAD {
@@ -44,5 +45,9 @@ void md_thread_switch(thread_t new, thread_t old);
 
 void* md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags);
 int md_thread_unmap(thread_t thread, void* addr, size_t length);
+
+#define THREAD_MAP_ALLOC 0x800
+struct THREAD_MAPPING* thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags);
+struct THREAD_MAPPING* thread_map(thread_t t, void* from, size_t len, uint32_t flags);
 
 #endif
