@@ -21,7 +21,7 @@ elf32_load(thread_t thread, const char* data, size_t datalen)
 	if (ehdr->e_type != ET_EXEC)
 		return -1;
 
-	/* XXX i386 specific */
+	/* XXX This specifically checks for i386 at the moment */
 	if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB)
 		return -1;
 	if (ehdr->e_machine != EM_386)
@@ -53,10 +53,7 @@ elf32_load(thread_t thread, const char* data, size_t datalen)
 		 phdr->p_memsz, phdr->p_flags, phdr->p_align);
 */
 	}
-
-	/* XXX i386 */
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
-	md->ctx.eip = ehdr->e_entry;
+	md_thread_set_entrypoint(thread, ehdr->e_entry);
 
 	return 0;
 }

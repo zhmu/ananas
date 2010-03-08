@@ -43,6 +43,7 @@ thread_t thread_alloc();
 void thread_free(thread_t);
 void md_thread_switch(thread_t new, thread_t old);
 
+void md_thread_set_entrypoint(thread_t thread, addr_t entry);
 void* md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags);
 int md_thread_unmap(thread_t thread, void* addr, size_t length);
 

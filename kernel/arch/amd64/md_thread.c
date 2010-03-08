@@ -133,4 +133,11 @@ md_thread_unmap(thread_t thread, void* addr, size_t length)
 	return 0;
 }
 
+void
+md_thread_set_entrypoint(thread_t thread, addr_t entry)
+{
+	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
+	md->ctx.sf.sf_rip = entry;
+}
+
 /* vim:set ts=2 sw=2: */

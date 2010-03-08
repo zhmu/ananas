@@ -21,7 +21,7 @@ elf64_load(thread_t thread, const char* data, size_t datalen)
 	if (ehdr->e_type != ET_EXEC)
 		return 0;
 
-	/* XXX amd64 specific */
+	/* XXX This specifically checks for amd64 at the moment */
 	if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB)
 		return 0;
 	if (ehdr->e_machine != EM_X86_64)
@@ -47,9 +47,7 @@ elf64_load(thread_t thread, const char* data, size_t datalen)
 		memcpy(tm->ptr, (void*)(data + phdr->p_offset + delta), phdr->p_filesz);
 	}
 
-	/* XXX amd64 */
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
-	md->ctx.sf.sf_rip = ehdr->e_entry;
+	md_thread_set_entrypoint(thread, ehdr->e_entry);
 	return 1;
 }
 
