@@ -4,7 +4,7 @@
  */
 .text
 
-#include "../../../include/i386/interrupts.h"
+#include "machine/interrupts.h"
 
 .global syscall0, syscall1, syscall2, syscall3, syscall4, syscall5
 

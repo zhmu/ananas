@@ -29,8 +29,8 @@ malloc.o:	$S/lib/malloc.c
 syscall.o:	$S/gen/syscall.c $S/gen/syscalls.inc.c
 		$(CC) $(CFLAGS) -c -o syscall.o $S/gen/syscall.c
 
-machine:	$S/../include/${ARCH}
-		ln -sf $S/../include/${ARCH} machine
+machine:	$S/../include/sys/${ARCH}
+		ln -sf $S/../include/sys/${ARCH} machine
 
 libc.a:		machine $(OBJS) $(MDOBJS)
 		$(AR) cr libc.a $(OBJS) $(MDOBJS)

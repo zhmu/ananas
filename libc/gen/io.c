@@ -1,6 +1,7 @@
-#include "lib.h"
+#include <types.h>
+#include <unistd.h>
 
-void
+int
 putchar(int c)
 {
 	write(1 /* STDOUT_FILENO */, &c, 1);

@@ -1,12 +1,9 @@
-#include "types.h"
-#include "console.h"
-#include "device.h"
-#include "stdarg.h"
+#include <types.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 static const uint8_t hextab_hi[16] = "0123456789ABCDEF";
 static const uint8_t hextab_lo[16] = "0123456789abcdef";
-
-void putchar(char ch);
 
 int
 puts(const char* s)
@@ -105,7 +102,7 @@ vaprintf(const char* fmt, va_list ap)
 	vapprintf(fmt, va_putchar, NULL, ap);
 }
 
-void
+int
 printf(const char* fmt, ...)
 {
 	va_list ap;
@@ -113,6 +110,8 @@ printf(const char* fmt, ...)
 	va_start(ap, fmt);
 	vaprintf(fmt, ap);
 	va_end(ap);
+
+	return 0; /* XXX */
 }
 
 static void

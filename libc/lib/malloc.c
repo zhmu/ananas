@@ -486,9 +486,9 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 #endif /* DLMALLOC_VERSION */
 
 
-/* For Ananas: sbrk/brk() isn't implemented, so we must use mmap() */
-#include "types.h"
-#include "lib.h"
+/* For Ananas: sbrk/brk() isn't implemented and never will be, so we must use mmap() */
+#include <types.h>
+#include <resource.h>
 
 #define HAVE_MORECORE 0
 #define HAVE_MMAP 1
@@ -496,12 +496,9 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 #define MMAP_DEFAULT(s)       mmap(0, (s), 0, 0, -1, 0)
 //#define MMAP_DEFAULT(s)       mmap(0, (s), MMAP_PROT, MMAP_FLAGS, -1, 0)
 
-#define LACKS_STDLIB_H
-#define LACKS_SYS_TYPES_H
 #define LACKS_ERRNO_H
 #define LACKS_SYS_MMAN_H
 #define LACKS_FCNTL_H
-#define LACKS_STRING_H
 #define LACKS_UNISTD_H
 #define LACKS_SYS_PARAM_H
 
@@ -513,7 +510,7 @@ static void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offs
 }
 
 static void* munmap(void* addr, size_t len) {
-	return unmap(addr, len);
+	return unmap(addr, len) ? addr : NULL;
 }
 
 /* End of Ananas options */
@@ -1316,9 +1313,7 @@ int mspace_mallopt(int, int);
 #pragma warning( disable : 4146 ) /* no "unsigned" warnings */
 #endif /* WIN32 */
 
-#ifdef NOTYET
 #include <stdio.h>       /* for printing in malloc_stats */
-#endif
 
 #ifndef LACKS_ERRNO_H
 #include <errno.h>       /* for MALLOC_FAILURE_ACTION */
@@ -1369,7 +1364,7 @@ int mspace_mallopt(int, int);
 #include <unistd.h>     /* for sbrk, sysconf */
 #else /* LACKS_UNISTD_H */
 #if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__NetBSD__)
-extern void*     sbrk(ptrdiff_t);
+/*extern void*     sbrk(ptrdiff_t);*/
 #endif /* FreeBSD etc */
 #endif /* LACKS_UNISTD_H */
 

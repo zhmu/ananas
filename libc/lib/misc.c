@@ -1,4 +1,5 @@
-#include "lib.h"
+#include <types.h>
+#include <stdio.h>
 
 void
 abort()
