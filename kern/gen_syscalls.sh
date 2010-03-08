@@ -28,8 +28,10 @@ $AWK '
 	/^#/ { next; }
 	/^[0-9]+/ {
 		FUNCNAME=substr($0, index($0, "{") + 1, index($0, ";") - index($0, "{") - 1)
-		if (index(FUNCNAME, ",") == 0)
+		if (index(FUNCNAME, ",") == 0 && index(FUNCNAME, "()") > 0)
 			print FUNCNAME " { SYSCALL0(" $1 "); }"
+		else if (index(FUNCNAME, ",") == 0)
+			print FUNCNAME " { SYSCALL1(" $1 "); }"
 		else
 			print FUNCNAME " { SYSCALL" gsub(",", "!", FUNCNAME) + 1 "(" $1 "); }"
 	}
@@ -72,8 +74,10 @@ $AWK '
 	/^[0-9]+/ {
 		FUNC=substr($0, index($0, "{") + 1, index($0, ";") - index($0, "{") - 1)
 		gsub(/^[ \t]+/, "", FUNC)
-		if (index(FUNC, ",") == 0)
+		if (index(FUNC, ",") == 0 && index(FUNC, "()" > 0))
 			NARGS=0
+		else if (index(FUNC, ",") == 0)
+			NARGS=1
 		else
 			NARGS=gsub(",", ",", FUNC) + 1
 		FUNCNAME=substr(FUNC, length($3) + 1)
