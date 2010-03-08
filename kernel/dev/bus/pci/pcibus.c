@@ -1,5 +1,5 @@
 #include "bus/pci.h"
-#include "i386/io.h"
+#include "machine/io.h"
 #include "device.h"
 #include "lib.h"
 

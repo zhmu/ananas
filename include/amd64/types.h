@@ -1,5 +1,5 @@
-#ifndef __TYPES_H__
-#define __TYPES_H__
+#ifndef __AMD64_TYPES_H__
+#define __AMD64_TYPES_H__
 
 #define PAGE_SIZE	4096
 
@@ -15,11 +15,14 @@ typedef long		int64_t;
 typedef unsigned long	uint64_t;
 
 typedef uint64_t	addr_t;
+typedef uint64_t	off_t;
 typedef int64_t		size_t;
 typedef uint64_t	ssize_t;
 
 typedef unsigned long	register_t;
 
+typedef uint64_t	uintptr_t;
+
 #endif /* ASM */
 
-#endif /* __TYPES_H__ */
+#endif /* __AMD64_TYPES_H__ */

@@ -1,4 +1,4 @@
-#include "i386/io.h"
+#include "machine/io.h"
 #include "dev/ata.h"
 #include "device.h"
 #include "lib.h"

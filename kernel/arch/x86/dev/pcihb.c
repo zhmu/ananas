@@ -1,5 +1,5 @@
-#include "i386/vm.h"
-#include "i386/io.h"
+#include "machine/vm.h"
+#include "machine/io.h"
 #include "console.h"
 #include "device.h"
 #include "lib.h"
