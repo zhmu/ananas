@@ -43,7 +43,7 @@ elf64_load(thread_t thread, const char* data, size_t datalen)
 		 * The program need not begin at a page-size, so we may need to adjust.
 		 */
 		int delta = phdr->p_vaddr % PAGE_SIZE;
-		struct THREAD_MAPPING* tm = thread_mapto(thread, phdr->p_vaddr - delta, NULL, phdr->p_memsz + delta, THREAD_MAP_ALLOC);
+		struct THREAD_MAPPING* tm = thread_mapto(thread, (void*)phdr->p_vaddr - delta, NULL, phdr->p_memsz + delta, THREAD_MAP_ALLOC);
 		memcpy(tm->ptr, (void*)(data + phdr->p_offset + delta), phdr->p_filesz);
 	}
 

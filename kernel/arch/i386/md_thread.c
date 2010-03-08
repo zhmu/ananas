@@ -11,9 +11,6 @@
 #include "thread.h"
 #include "vm.h"
 
-void md_restore_ctx(struct CONTEXT* ctx);
-void vm_map_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages, int user);
-
 extern struct TSS kernel_tss;
 
 int
@@ -97,14 +94,6 @@ md_thread_switch(thread_t new, thread_t old)
 		"movl	%%fs:8, %0\n"
 	: "=r" (tss));
 
-	if (old != NULL) {
-		struct MD_THREAD* md_old = (struct MD_THREAD*)old->md;
-		struct CONTEXT* ctx_old = (struct CONTEXT*)&md_old->ctx;
-
-		/* Activate the corresponding kernel stack in the TSS */
-		//ctx_old->esp0 = tss->esp0;
-	}
-
 	/* Activate the corresponding kernel stack in the TSS */
 	tss->esp0 = ctx_new->esp0;
 
@@ -136,7 +125,7 @@ md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
 	if (length % PAGE_SIZE > 0)
 		num_pages++;
 	/* XXX cannot specify flags yet */
-	vm_mapto_pagedir(md->pagedir, to, from, num_pages, 1);
+	vm_mapto_pagedir(md->pagedir, (addr_t)to, (addr_t)from, num_pages, 1);
 	return to;
 }
 
@@ -148,7 +137,7 @@ md_thread_unmap(thread_t thread, void* addr, size_t length)
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)
 		num_pages++;
-	vm_unmap_pagedir(md->pagedir, addr, num_pages);
+	vm_unmap_pagedir(md->pagedir, (addr_t)addr, num_pages);
 	return 0;
 }
 

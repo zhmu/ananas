@@ -18,7 +18,7 @@ puts(const char* s)
 }
 
 static void
-putnumber(void(*putch)(void*, int), void* v, const char* tab, unsigned int i)
+putnumber(void(*putch)(void*, int), void* v, const uint8_t* tab, unsigned int i)
 {
 	if (i >= 0x10000000) putch(v, tab[(i >> 28) & 0xf]);
 	if (i >= 0x1000000)  putch(v, tab[(i >> 24) & 0xf]);
@@ -51,7 +51,6 @@ static void
 vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 {
 	const char* s;
-	unsigned int i;
 	uint64_t u64;
 
 	while(*fmt) {
@@ -87,10 +86,12 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 			case 'i': /* integer XXX */
 				putint(putch, v, va_arg(ap, unsigned int));
 				break;
-			case 'p': /* pointer XXX assuemd 64 bit */
+			case 'p': /* pointer XXX assumed 64 bit */
 				u64 = va_arg(ap, addr_t);
+#ifdef __AMD64__
 				if (u64 >= (1L << 32))
 					putnumber(putch, v, hextab_lo, u64 >> 32);
+#endif
 				putnumber(putch, v, hextab_lo, u64 & 0xffffffff);
 				break;
 			default: /* unknown, just print it */

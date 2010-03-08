@@ -42,8 +42,7 @@ pcibus_attach(device_t dev)
 			/* Walk through the BAR registers */
 			unsigned int bar;
 			for (bar = PCI_REG_BAR0; bar <= PCI_REG_BAR5; bar += 4) {
-				uint32_t res = pci_read_config_l(busno, devno, funcno, bar);
-
+//				uint32_t res = pci_read_config_l(busno, devno, funcno, bar);
 //#define  PCI_BAR_MMIO		0x01
 			//	kprintf("%x=%x ",bar, res);
 			}
@@ -52,7 +51,7 @@ pcibus_attach(device_t dev)
 			 * Retrieve the PCI device class; drivers may use this to determine whether
 			 * they need to attach.
 			 */
-			uint32_t stat_cmd = pci_read_config_l(busno, devno, funcno, PCI_REG_STATUSCOMMAND);
+//			uint32_t stat_cmd = pci_read_config_l(busno, devno, funcno, PCI_REG_STATUSCOMMAND);
 			uint32_t class = pci_read_config_l(busno, devno, funcno, PCI_REG_CLASSREVISION);
 
 			/* Create a new device and pollute it with PCI resources */

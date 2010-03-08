@@ -16,7 +16,7 @@ pci_attach(device_t dev)
 	 	 * does not exist, we assume the bus doesn't exist.
 		 */
 		uint32_t dev_vendor = pci_read_config_l(bus, 0, 0, PCI_REG_DEVICEVENDOR);
-		if (dev_vendor & 0xffff == PCI_NOVENDOR)
+		if ((dev_vendor & 0xffff) == PCI_NOVENDOR)
 			continue;
 
 		device_t new_bus = device_alloc(dev, &drv_pcibus);

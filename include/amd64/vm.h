@@ -1,3 +1,5 @@
+#include "types.h"
+
 #ifndef __AMD64_VM_H__
 #define __AMD64_VM_H__
 
@@ -44,5 +46,17 @@
 #define GDT_SEL_USER_CODE	0x20
 #define GDT_SEL_TASK		0x28
 #define GDT_LENGTH		(GDT_SEL_TASK + 0x10)
+
+#ifndef ASM
+
+void vm_mapto_pagedir(uint64_t* pml4, addr_t virt, addr_t phys, size_t num_pages, uint32_t user);
+addr_t vm_get_phys(uint64_t* pagedir, addr_t addr, int write);
+void vm_map_pagedir(uint64_t* pml4, addr_t addr, size_t num_pages, uint32_t user);
+void vm_map(addr_t addr, size_t num_pages);
+void vm_mapto(addr_t virt, addr_t phys, size_t num_pages);
+void* vm_map_device(addr_t addr, size_t len);
+void vm_map_kernel_addr(void* pml4);
+
+#endif
 
 #endif /* __AMD64_VM_H__ */

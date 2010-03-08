@@ -21,4 +21,6 @@
 #define ICW4_BUF_MASTER		0x0c	/* Buffered mode master */
 #define ICW4_SNFM		0x10	/* Not Special Fully Nested */
 
+void x86_pic_remap();
+
 #endif /* __X86_PIC_H__ */

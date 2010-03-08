@@ -46,9 +46,13 @@ void md_thread_switch(thread_t new, thread_t old);
 void md_thread_set_entrypoint(thread_t thread, addr_t entry);
 void* md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags);
 int md_thread_unmap(thread_t thread, void* addr, size_t length);
+void* md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write);
 
 #define THREAD_MAP_ALLOC 0x800
 struct THREAD_MAPPING* thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags);
 struct THREAD_MAPPING* thread_map(thread_t t, void* from, size_t len, uint32_t flags);
+int thread_unmap(thread_t t, void* ptr, size_t len);
+
+void schedule();
 
 #endif

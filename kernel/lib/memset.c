@@ -7,4 +7,5 @@ memset(void* b, int c, size_t len)
 	while (len--) {
 		*ptr++ = c;
 	}
+	return b;
 }

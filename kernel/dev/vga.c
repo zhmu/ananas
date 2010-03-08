@@ -31,7 +31,7 @@ vga_attach(device_t dev)
 	void* res = device_alloc_resource(dev, RESTYPE_IO, 0x1f);
 	if (vga_mem == NULL || res == NULL)
 		return 1; /* XXX */
-	vga_io = (uint32_t)res;
+	vga_io = (uintptr_t)res;
 
 	/* Clear the display; we must set the attribute everywhere for the cursor */
 	uint8_t* ptr = vga_mem;

@@ -1,6 +1,7 @@
 #include "machine/types.h"
 #include "machine/frame.h"
 #include "pcpu.h"
+#include "irq.h"
 #include "lib.h"
 
 void

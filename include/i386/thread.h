@@ -75,4 +75,6 @@ struct MD_THREAD {
 	void*		kstack;
 };
 
+void md_restore_ctx(struct CONTEXT* ctx);
+
 #endif /* __I386_THREAD_H__ */

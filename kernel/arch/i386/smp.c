@@ -13,6 +13,7 @@
 #include "pcpu.h"
 #include "vm.h"
 #include "mm.h"
+#include "thread.h"
 #include "lib.h"
 
 #undef SMP_DEBUG
@@ -231,7 +232,7 @@ smp_init()
 		kprintf("SMP: mpfps structure corrupted, ignoring\n");
 		return;
 	}
-	if (mpfps.feature1 & 0x7f != 0) {
+	if ((mpfps.feature1 & 0x7f) != 0) {
 		kprintf("SMP: predefined configuration %u not implemented\n", mpfps.feature1 & 0x7f);
 		return;
 	}
@@ -381,7 +382,7 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 		struct MP_ENTRY* entry = (struct MP_ENTRY*)entry_addr;
 		switch(entry->type) {
 			case MP_ENTRY_TYPE_PROCESSOR:
-				if (entry->u.proc.flags & MP_PROC_FLAG_EN == 0)
+				if ((entry->u.proc.flags & MP_PROC_FLAG_EN) == 0)
 					break;
 				kprintf("cpu%u: %s, id #%u\n",
 				 cur_cpu, bsp_apic_id == entry->u.proc.lapic_id ? "BSP" : "AP",
@@ -390,7 +391,7 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 				cur_cpu++;
 				break;
 			case MP_ENTRY_TYPE_IOAPIC:
-				if (entry->u.ioapic.flags & MP_IOAPIC_FLAG_EN == 0)
+				if ((entry->u.ioapic.flags & MP_IOAPIC_FLAG_EN) == 0)
 					break;
 #ifdef SMP_DEBUG
 				kprintf("ioapic%u: id #%u, mem %x\n",

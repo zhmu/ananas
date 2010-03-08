@@ -16,8 +16,6 @@ extern uint8_t* realmode_store;
 void
 realmode_call_int(unsigned char num, struct realmode_regs* r)
 {
-	uint32_t i;
-
 	/*
 	 * Set up the interrupt number; this is just patched in the code.
 	 */

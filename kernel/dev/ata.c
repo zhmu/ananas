@@ -1,6 +1,7 @@
 #include "machine/io.h"
 #include "dev/ata.h"
 #include "device.h"
+#include "irq.h"
 #include "lib.h"
 
 #define ATA_GET_WORD(x) ((uint16_t)(x)[0] << 8 | (x)[1])
@@ -13,10 +14,11 @@ ata_irq(device_t dev)
 	kprintf("ata_irq: TODO\n");
 }
 
+#if 0
 static int
 ata_read_sectors(device_t dev, int slave, uint32_t lba, uint32_t count)
 {
-	outb(ata_port + ATA_PIO_DRIVEHEAD, 0xa0 | (slave ? 0x10 : 0) | (lba >> 24) & 0xf);
+	outb(ata_port + ATA_PIO_DRIVEHEAD, 0xa0 | (slave ? 0x10 : 0) | ((lba >> 24) & 0xf));
 	/*outb(ata_port + ATA_PIO_ERROR, 0);*/
 	outb(ata_port + ATA_PIO_COUNT, count);
 	outb(ata_port + ATA_PIO_LBA_1, lba & 0xff);
@@ -47,6 +49,7 @@ ata_read_sectors(device_t dev, int slave, uint32_t lba, uint32_t count)
 
 	return 1;
 }
+#endif
 
 static int
 ata_identify(device_t dev, int slave)
@@ -101,12 +104,12 @@ ata_attach(device_t dev)
 	void* res_irq = device_alloc_resource(dev, RESTYPE_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
 		return 1; /* XXX */
-	ata_port = (uint32_t)res_io;
+	ata_port = (uintptr_t)res_io;
 
 	/* Ensure there's something living at the I/O addresses */
 	if (inb(ata_port + ATA_PIO_STATCMD) == 0xff) return 1;
 
-	if (!irq_register((uint32_t)res_irq, dev, ata_irq))
+	if (!irq_register((uintptr_t)res_irq, dev, ata_irq))
 		return 1;
 
 	ata_identify(dev, 0);

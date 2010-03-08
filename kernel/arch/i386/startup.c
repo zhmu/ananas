@@ -258,7 +258,7 @@ md_startup()
 
 	bsp_pcpu.lapic_id = 0;
 	bsp_pcpu.cpuid = 0;
-	bsp_pcpu.tss = &kernel_tss;
+	bsp_pcpu.tss = (addr_t)&kernel_tss;
 	bsp_pcpu.curthread = NULL;
 
 	/*

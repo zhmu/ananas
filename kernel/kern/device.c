@@ -129,6 +129,8 @@ device_get_resources_byhint(device_t dev, const char* hint, const char** hints)
 			continue;
 		}
 	}
+
+	return 0;
 }
 
 /*
@@ -206,10 +208,13 @@ device_alloc_resource(device_t dev, resource_type_t type, size_t len)
 			return (void*)vm_map_device(res->base, len);
 		case RESTYPE_IO:
 		case RESTYPE_IRQ: /* XXX should allocate, not just return */
-			return (void*)(res->base);
+			return (void*)(uintptr_t)res->base;
+		default:
+			panic("%s: resource type %u exists, but can't allocate", dev->name, type);
 	}
 
-	panic("%s: resource type %u exists, but can't allocate", dev->name, type);
+	/* NOTREACHED */
+	return NULL;
 }
 
 /*

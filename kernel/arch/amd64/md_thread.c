@@ -9,8 +9,6 @@
 
 extern struct TSS kernel_tss;
 
-void vm_map_pagedir(uint64_t* pml4, addr_t addr, size_t num_pages, uint32_t user);
-
 int
 md_thread_init(thread_t thread)
 {
@@ -40,7 +38,7 @@ md_thread_init(thread_t thread)
 	md->ctx.sf.sf_cs = GDT_SEL_USER_CODE + SEG_DPL_USER;
 	md->ctx.sf.sf_ss = GDT_SEL_KERNEL_DATA;
 	md->ctx.sf.sf_rflags = 0x200 /* RFLAGS_IF */;
-	md->ctx.pml4 = md->pml4;
+	md->ctx.pml4 = (addr_t)md->pml4;
 
 	thread->next_mapping = 1048576;
 	return 1;
@@ -75,14 +73,6 @@ md_thread_switch(thread_t new, thread_t old)
 		"movq	%%rax, %%gs:0\n"
 	: : "a" (ctx_new));
 
-	if (old != NULL) {
-		struct MD_THREAD* md_old = (struct MD_THREAD*)old->md;
-		struct CONTEXT* ctx_old = (struct CONTEXT*)&md_old->ctx;
-
-		/* Activate the corresponding kernel stack in the TSS */
-		//ctx_old->esp0 = tss->esp0;
-	}
-
 	/* Activate the corresponding kernel stack in the TSS */
 	kernel_tss.rsp0 = ctx_new->sf.sf_sp;
 
@@ -114,14 +104,14 @@ md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
 	if (length % PAGE_SIZE > 0)
 		num_pages++;
 	/* XXX cannot specify flags yet */
-	vm_mapto_pagedir(md->pml4, to, from, num_pages, 1);
+	vm_mapto_pagedir(md->pml4, (addr_t)to, (addr_t)from, num_pages, 1);
 	return to;
 }
 
 int
 md_thread_unmap(thread_t thread, void* addr, size_t length)
 {
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
+//	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
 
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)

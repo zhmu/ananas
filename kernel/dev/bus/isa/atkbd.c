@@ -83,9 +83,9 @@ atkbd_attach(device_t dev)
 	void* res_irq = device_alloc_resource(dev, RESTYPE_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
 		return 1; /* XXX */
-	atkbd_port = (uint32_t)res_io;
+	atkbd_port = (uintptr_t)res_io;
 
-	if (!irq_register((uint32_t)res_irq, dev, atkbd_irq))
+	if (!irq_register((uintptr_t)res_irq, dev, atkbd_irq))
 		return 1;
 
 	return 0;

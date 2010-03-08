@@ -1,6 +1,7 @@
 #include "types.h"
 #include "device.h"
 #include "lib.h"
+#include "thread.h"
 #include "pcpu.h"
 
 extern device_t input_dev;
@@ -21,7 +22,7 @@ sys_read(int fd, void* buf, size_t count)
 ssize_t
 sys_write(int fd, const void* buf, size_t count)
 {
-	void* x = md_map_thread_memory(PCPU_GET(curthread), buf, count, 0);
+	void* x = md_map_thread_memory(PCPU_GET(curthread), (void*)buf, count, 0);
 	if (x == NULL)
 		return -1;
 	if (fd != 1)

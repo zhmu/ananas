@@ -1,4 +1,5 @@
 #include "syscall.h"
+#include "lib.h"
 #include "pcpu.h"
 #include "syscalls.h"
 

@@ -105,5 +105,6 @@ void* device_alloc_resource(device_t dev, resource_type_t type, size_t len);
 
 int device_add_resource(device_t dev, resource_type_t type, unsigned int base, unsigned int len);
 struct RESOURCE* device_get_resource(device_t dev, resource_type_t type, int index);
+void device_print_attachment(device_t dev);
 
 #endif /* __DEVICE_H__ */

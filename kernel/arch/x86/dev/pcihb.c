@@ -31,7 +31,7 @@ pcihb_attach(device_t dev)
 	void* res = device_alloc_resource(dev, RESTYPE_IO, 7);
 	if (res == NULL)
 		return 1; /* XXX */
-	pcihb_io = (uint32_t)res;
+	pcihb_io = (uintptr_t)res;
 
 	return 0;
 }

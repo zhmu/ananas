@@ -47,7 +47,7 @@ thread_free(thread_t t)
 	struct THREAD_MAPPING* next;
 	while (tm != NULL) {
 		if (tm->flags & THREAD_MAP_ALLOC)
-			kfree(tm->start);
+			kfree((void*)tm->start);
 		next = tm->next;
 		kfree(tm);
 		tm = next;
@@ -75,7 +75,7 @@ thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags)
 	}
 
 	tm->ptr = from;
-	tm->start = to;
+	tm->start = (addr_t)to;
 	tm->len = len;
 	tm->flags = flags;
 	tm->next = t->mappings;
@@ -109,7 +109,7 @@ thread_unmap(thread_t t, void* ptr, size_t len)
 	while (tm != NULL) {
 		if (tm->start == (addr_t)ptr && tm->len == len) {
 			/* found it */
-			if(prev = NULL)
+			if(prev == NULL)
 				t->mappings = tm->next;
 			else
 				prev->next = tm->next;

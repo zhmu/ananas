@@ -20,7 +20,7 @@ vm_map_bootstrap(addr_t addr, size_t num_pages)
 			pagedir[pd_entrynum] = ((addr_t)&temp_pt_entry & ~KERNBASE) | PDE_P | PTE_RW;
 		}
 
-		uint32_t* pt = (uint32_t*)(pagedir[pd_entrynum] & ~(PAGE_SIZE - 1) | KERNBASE);
+		uint32_t* pt = (uint32_t*)((pagedir[pd_entrynum] & ~(PAGE_SIZE - 1)) | KERNBASE);
 		pt[(((addr >> 12) & ((1 << 10) - 1)))] = addr | PTE_P | PTE_RW;
 
 		num_pages--;

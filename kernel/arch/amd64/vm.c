@@ -1,5 +1,6 @@
 #include "types.h"
 #include "machine/vm.h"
+#include "mm.h"
 #include "lib.h"
 #include "param.h"
 
@@ -25,7 +26,7 @@ vm_get_nextpage()
 uint64_t*
 vm_get_ptr(addr_t ptr)
 {
-	extern void *__entry, *avail;
+//	extern void *__entry, *avail;
 	return (uint64_t*)(ptr | KERNBASE);
 /*
 	if(ptr >= (addr_t)&__entry && ptr <= (addr_t)&avail)

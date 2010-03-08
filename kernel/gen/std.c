@@ -13,7 +13,7 @@ sys_map(size_t len)
 {
 	thread_t thread = PCPU_GET(curthread);
 	struct THREAD_MAPPING* tm = thread_map(thread, NULL, len, THREAD_MAP_ALLOC);
-	return tm->start;
+	return (void*)tm->start;
 }
 
 int

@@ -6,6 +6,7 @@
 #include "machine/thread.h"
 #include "x86/pic.h"
 #include "x86/smap.h"
+#include "init.h"
 #include "vm.h"
 #include "param.h"
 #include "pcpu.h"

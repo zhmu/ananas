@@ -254,8 +254,8 @@ typedef struct {
 #define DT_FINI		13	/* Address of the termination function */
 #define DT_SONAME	14	/* The string table offset of the name of this shared object */
 #define DT_RPATH	15	/* The string table offset of a shared library search path string */
-#define DT_SYMBOLIC	16	/* Presence modifies symbol resolution algorithm/
-#define DT_REL		17	/* Address of a relocation table with Elf64_Rel entries *
+#define DT_SYMBOLIC	16	/* Presence modifies symbol resolution algorithm */
+#define DT_REL		17	/* Address of a relocation table with Elf64_Rel entries */
 #define DT_RELSZ	18	/* Total size, in bytes, of the DT_REL relocation table */
 #define DT_RELENT	19	/* Size, in bytes, of each DT_REL relocation entry */
 #define DT_PLTREL	20	/* Type of relocation entries used for procedure linkage table (DT_REL / DT_RELA) */

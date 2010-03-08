@@ -68,7 +68,7 @@ console_getchar()
 	if (input_dev == NULL)
 		return 0;
 	uint8_t c;
-	if (input_dev->driver->drv_read(input_dev, (const char*)&c, 1) < 1)
+	if (input_dev->driver->drv_read(input_dev, (char*)&c, 1) < 1)
 		return 0;
 	return c;
 }

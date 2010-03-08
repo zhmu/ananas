@@ -32,7 +32,7 @@
 #define PTE_RW		(1 << 1)	/* Read/Write */
 #define PTE_US		(1 << 2)	/* User/Supervisor */
 #define PTE_PWT		(1 << 3)	/* Write-Through */
-#define PTE_PCD		(1 << 4)	/* Cache Disabled *
+#define PTE_PCD		(1 << 4)	/* Cache Disabled */
 #define PTE_A		(1 << 5)	/* Accessed */
 #define PTE_D		(1 << 6)	/* Dirty */
 #define PTE_PAT		(1 << 7)	/* Page Table Attribute index */
@@ -90,6 +90,11 @@ void vm_unmap_kernel_lowaddr(uint32_t* pd);
 
 /* Used to create mappings for the kernel; used for a new thread */
 void vm_map_kernel_addr(uint32_t* pd);
+
+addr_t vm_get_phys(uint32_t* pagedir, addr_t addr, int write);
+void vm_mapto_pagedir(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, uint32_t user);
+void vm_map_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages, uint32_t user);
+void vm_unmap_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages);
 
 #endif
 
