@@ -57,6 +57,7 @@ md_thread_init(thread_t thread)
 	md->ctx.cr3 = (addr_t)md->pagedir;
 	md->ctx.eflags = EFLAGS_IF;
 
+	thread->next_mapping = 1048576;
 	return 1;
 }
 
@@ -125,6 +126,30 @@ md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
 	addr_t virt = TEMP_USERLAND_ADDR + PCPU_GET(cpuid) * TEMP_USERLAND_SIZE;
 	vm_mapto(virt, phys, 2 /* XXX */);
 	return (void*)virt + ((addr_t)ptr % PAGE_SIZE);
+}
+
+void*
+md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
+{
+	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
+	int num_pages = length / PAGE_SIZE;
+	if (length % PAGE_SIZE > 0)
+		num_pages++;
+	/* XXX cannot specify flags yet */
+	vm_mapto_pagedir(md->pagedir, to, from, num_pages, 1);
+	return to;
+}
+
+int
+md_thread_unmap(thread_t thread, void* addr, size_t length)
+{
+	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
+
+	int num_pages = length / PAGE_SIZE;
+	if (length % PAGE_SIZE > 0)
+		num_pages++;
+	vm_unmap_pagedir(md->pagedir, addr, num_pages);
+	return 0;
 }
 
 /* vim:set ts=2 sw=2: */

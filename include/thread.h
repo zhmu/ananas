@@ -5,6 +5,12 @@
 
 typedef struct THREAD* thread_t;
 
+struct THREAD_MAPPING {
+	addr_t	start;			/* userland address */
+	size_t	len;			/* length */
+	void*	ptr;			/* kernel ptr */
+	struct THREAD_MAPPING* next;
+};
 
 struct THREAD {
 	/*
@@ -17,6 +23,10 @@ struct THREAD {
 	unsigned int flags;
 #define THREAD_FLAG_ACTIVE	0x0001	/* Thread is scheduled somewhere */
 	unsigned int tid;		/* Thread ID */
+
+	addr_t next_mapping;		/* address of next mapping */
+
+	struct THREAD_MAPPING* mappings;
 };
 
 /* Machine-dependant callback to initialize a thread */
@@ -31,5 +41,8 @@ void md_thread_destroy(thread_t thread);
 thread_t thread_alloc();
 void thread_free(thread_t);
 void md_thread_switch(thread_t new, thread_t old);
+
+void* md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags);
+int md_thread_unmap(thread_t thread, void* addr, size_t length);
 
 #endif
