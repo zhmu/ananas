@@ -44,14 +44,24 @@ elf32_load(thread_t thread, const char* data, size_t datalen)
 			continue;
 
 		/*
+		 * The program need not begin at a page-size, so we may need to adjust.
+		 */
+		int delta = phdr->p_vaddr % PAGE_SIZE;
+
+		/*
 		 * Allocate memory and copy the image in place.
 		 */
-		uint8_t* buf = (uint8_t*)kmalloc(phdr->p_memsz);
-		memcpy(buf, (void*)(data + phdr->p_offset), phdr->p_filesz);
+		uint8_t* buf = (uint8_t*)kmalloc(phdr->p_memsz + delta);
+		/*
+	 	 * Be sure to clear memory first - this prevents information leakage, and ensures
+		 * program data will be set to zero if needed.
+		 */
+		memset(buf, 0, phdr->p_memsz + delta);
+		memcpy(buf, (void*)(data + phdr->p_offset + delta), phdr->p_filesz);
 
 		/* XXX i386 */
 		int num_pages = (phdr->p_memsz + PAGE_SIZE - 1) / PAGE_SIZE;
-		vm_mapto_pagedir(md->pagedir, phdr->p_vaddr, buf, num_pages, 1);
+		vm_mapto_pagedir(md->pagedir, phdr->p_vaddr - delta, buf, num_pages, 1);
 
 /*
 	 	kprintf("phdr %u, type=%x,offs=%x,vaddr=%x,paddr=%x,filesz=%u,memsz=%u,flags=%x,align=%x\n",

@@ -43,10 +43,20 @@ elf64_load(thread_t thread, const char* data, size_t datalen)
 			continue;
 
 		/*
+		 * The program need not begin at a page-size, so we may need to adjust.
+		 */
+		int delta = phdr->p_vaddr % PAGE_SIZE;
+
+		/*
 	 	 * Allocate memory and copy the image in place.
 		 */
-		uint8_t* buf = (uint8_t*)kmalloc(phdr->p_memsz);
-		memcpy(buf, (void*)(data + phdr->p_offset), phdr->p_filesz);
+		uint8_t* buf = (uint8_t*)kmalloc(phdr->p_memsz + delta);
+		/*
+	 	 * Be sure to clear memory first - this prevents information leakage, and ensures
+		 * program data will be set to zero if needed.
+		 */
+		memset(buf, 0, phdr->p_memsz + delta);
+		memcpy(buf, (void*)(data + phdr->p_offset + delta), phdr->p_filesz);
 
 		/* XXX amd64 */
 		int num_pages = (phdr->p_memsz + PAGE_SIZE - 1) / PAGE_SIZE;
