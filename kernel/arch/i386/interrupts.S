@@ -9,9 +9,8 @@
 .globl irq10, irq11, irq12, irq13, irq14, irq15
 .globl scheduler_irq, syscall_int, spurious_irq
 
-#include "i386/vm.h"
-#include "options.h"
-#include "param.h"
+#include "machine/param.h"
+#include "machine/vm.h"
 #include "asmsyms.h"
 
 #define SAVE_REGISTERS \

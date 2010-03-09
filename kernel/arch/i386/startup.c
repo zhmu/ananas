@@ -1,4 +1,5 @@
-#include "i386/types.h"
+#include <types.h>
+#include <machine/param.h>
 #include "i386/vm.h"
 #include "i386/io.h"
 #include "i386/interrupts.h"
@@ -13,7 +14,6 @@
 #include "options.h"
 #include "pcpu.h"
 #include "mm.h"
-#include "param.h"
 #include "vm.h"
 
 /* __end is defined by the linker script and indicates the end of the kernel */
@@ -266,6 +266,10 @@ md_startup()
 	 * bogus mappings.
 	 */
 	memset(&temp_pt_entry, 0, PAGE_SIZE);
+
+	/* Initialize the FPU */
+	uint16_t cw = 0x37f;
+	__asm("fldcw %0; finit" : : "m" (cw));
 
 	/* Ensure the memory manager is available for action */
 	mm_init();

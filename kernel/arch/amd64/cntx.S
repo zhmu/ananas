@@ -1,10 +1,10 @@
 .text
 
+#include <types.h>
+#include <machine/param.h>
+#include <machine/vm.h>
+#include <machine/macro.h>
 #include "asmsyms.h"
-#include "param.h"
-#include "types.h"
-#include "machine/vm.h"
-#include "machine/macro.h"
 
 .global md_store_ctx, md_restore_ctx
 

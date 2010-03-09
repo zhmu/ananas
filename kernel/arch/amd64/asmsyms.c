@@ -1,9 +1,9 @@
+#include <machine/frame.h>
+#include <machine/pcpu.h>
+#include <machine/thread.h>
+#include <pcpu.h>
+#include <syscall.h>
 #include "asmsymbols.h"
-#include "machine/frame.h"
-#include "machine/pcpu.h"
-#include "machine/thread.h"
-#include "pcpu.h"
-#include "syscall.h"
 
 ASM_SYMBOL(SF_TRAPNO, offsetof(struct STACKFRAME, sf_trapno));
 ASM_SYMBOL(SF_RAX,    offsetof(struct STACKFRAME, sf_rax));

@@ -1,7 +1,7 @@
-#include "types.h"
-#include "machine/frame.h"
-#include "pcpu.h"
-#include "lib.h"
+#include <types.h>
+#include <pcpu.h>
+#include <lib.h>
+#include <machine/frame.h>
 
 void
 exception_handler(struct STACKFRAME* sf)

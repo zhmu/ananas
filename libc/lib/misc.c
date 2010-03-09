@@ -1,5 +1,5 @@
-#include <types.h>
 #include <stdio.h>
+#include <string.h>
 
 void
 abort()

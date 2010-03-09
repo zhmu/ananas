@@ -1,11 +1,11 @@
-#include "machine/thread.h"
-#include "machine/vm.h"
-#include "param.h"
-#include "thread.h"
-#include "lib.h"
-#include "mm.h"
-#include "pcpu.h"
-#include "vm.h"
+#include <machine/param.h>
+#include <machine/thread.h>
+#include <machine/vm.h>
+#include <thread.h>
+#include <lib.h>
+#include <mm.h>
+#include <pcpu.h>
+#include <vm.h>
 
 extern struct TSS kernel_tss;
 

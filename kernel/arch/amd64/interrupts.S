@@ -9,11 +9,11 @@
 .globl irq1, irq2, irq3, irq4, irq5, irq6, irq7, irq8, irq9, irq10 
 .globl irq11, irq12, irq13, irq14, irq15, scheduler_irq, syscall_handler
 
-#include "machine/vm.h"
+#include <machine/vm.h>
+#include <machine/param.h>
+#include <machine/macro.h>
 #include "options.h"
-#include "param.h"
 #include "asmsyms.h"
-#include "machine/macro.h"
 
 #define SAVE_REGISTERS \
 	movq	%rax, SF_RAX(%rsp); \

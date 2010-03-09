@@ -1,8 +1,7 @@
 .text
 
-#include "param.h"
-#include "types.h"
-#include "machine/vm.h"
+#include <machine/param.h>
+#include <machine/vm.h>
 
 .global md_store_ctx, md_restore_ctx
 

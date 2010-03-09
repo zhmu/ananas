@@ -1,8 +1,8 @@
-#include "machine/types.h"
-#include "machine/frame.h"
-#include "pcpu.h"
-#include "irq.h"
-#include "lib.h"
+#include <types.h>
+#include <machine/frame.h>
+#include <pcpu.h>
+#include <irq.h>
+#include <lib.h>
 
 void
 exception(struct STACKFRAME* sf)

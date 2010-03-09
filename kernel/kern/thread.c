@@ -1,3 +1,5 @@
+#include <types.h>
+#include <machine/param.h>
 #include "thread.h"
 #include "lib.h"
 #include "mm.h"

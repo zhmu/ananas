@@ -1,8 +1,8 @@
-#include "i386/types.h"
+#include <types.h>
+#include <machine/param.h>
 #include "i386/vm.h"
 #include "lib.h"
 #include "mm.h"
-#include "param.h"
 
 extern void* temp_pt_entry;
 static int vm_initialized = 0;

@@ -4,8 +4,7 @@
  */
 .text
 
-#include "param.h"
-#include "types.h"
+#include <machine/param.h>
 
 .global __entry, idt, gdt, temp_pt_entry
 

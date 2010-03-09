@@ -1,17 +1,17 @@
-#include "types.h"
-#include "machine/bootinfo.h"
-#include "machine/macro.h"
-#include "machine/vm.h"
-#include "machine/pcpu.h"
-#include "machine/thread.h"
-#include "x86/pic.h"
-#include "x86/smap.h"
-#include "init.h"
-#include "vm.h"
-#include "param.h"
-#include "pcpu.h"
-#include "mm.h"
-#include "lib.h"
+#include <types.h>
+#include <machine/param.h>
+#include <machine/bootinfo.h>
+#include <machine/macro.h>
+#include <machine/vm.h>
+#include <machine/pcpu.h>
+#include <machine/thread.h>
+#include <x86/pic.h>
+#include <x86/smap.h>
+#include <init.h>
+#include <vm.h>
+#include <pcpu.h>
+#include <mm.h>
+#include <lib.h>
 
 /* Pointer to the next available page */
 void* avail;

@@ -1,8 +1,9 @@
-#include "types.h"
+#include <types.h>
+#include <machine/thread.h>
+#include <machine/param.h>
 #include "elf.h"
 #include "lib.h"
 #include "thread.h"
-#include "machine/thread.h"
 #include "mm.h"
 
 int

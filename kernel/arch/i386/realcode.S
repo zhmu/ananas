@@ -1,9 +1,8 @@
 .text
 .code16
 
-#include "i386/vm.h"
-#include "i386/macro.h"
-#include "param.h"
+#include <machine/param.h>
+#include <machine/vm.h>
 
 .globl realmode16_stub, realmode16_code
 .globl realmode_regs, realmode_int, realmode_store

@@ -1,3 +1,5 @@
+#include <types.h>
+#include <machine/param.h>
 #include "i386/thread.h"
 #include "i386/vm.h"
 #include "i386/macro.h"
@@ -7,7 +9,6 @@
 #include "mm.h"
 #include "options.h"
 #include "pcpu.h"
-#include "param.h"
 #include "thread.h"
 #include "vm.h"
 

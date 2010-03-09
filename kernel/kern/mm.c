@@ -1,3 +1,5 @@
+#include <types.h>
+#include <machine/param.h>
 #include "lock.h"
 #include "mm.h"
 #include "vm.h"
