@@ -29,11 +29,7 @@
 extern "C" {
 #endif
 
-#ifdef NOTYET
 #include <stddef.h>   /* for size_t */
-#else
-#include <types.h>
-#endif
 
 #ifndef ONLY_MSPACES
 #define ONLY_MSPACES 0     /* define to a value */

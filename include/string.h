@@ -1,7 +1,8 @@
-#include <types.h>
-
 #ifndef __STRING_H__
 #define __STRING_H__
+
+#include <machine/_types.h>
+#include <sys/_null.h>
 
 char* strcpy(char* dst, const char* src);
 void* memcpy(void* dest, const void* source, size_t len);

@@ -1,5 +1,3 @@
-#include "machine/types.h"
-
 #ifndef __VARARGS_H__
 #define __VARARGS_H__
 

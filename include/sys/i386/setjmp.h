@@ -1,7 +1,7 @@
 #ifndef __I386_SETJMP_H__
 #define __I386_SETJMP_H__
 
-#include <types.h>
+#include <machine/_types.h>
 
 typedef struct {
 	uint32_t	addr;

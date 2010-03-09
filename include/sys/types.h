@@ -1,11 +1,10 @@
-#include "machine/types.h"
-
 #ifndef __TYPES_H__
 #define __TYPES_H__
 
-#define NULL 0L
-
 #ifndef ASM
+
+#include <machine/_types.h>
+#include <_null.h>
 
 typedef unsigned char	u_char;
 typedef unsigned short	u_short;

@@ -1,3 +1,5 @@
+#include <machine/_types.h>
+
 #ifndef __UNISTD_H___
 #define __UNISTD_H__
 

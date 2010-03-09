@@ -1,4 +1,4 @@
-#include <types.h>
+#include <machine/_types.h>
 
 #ifndef __RESOURCE_H__
 #define __RESOURCE_H__
