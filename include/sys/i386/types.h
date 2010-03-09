@@ -16,12 +16,13 @@ typedef unsigned long long uint64_t;
 
 typedef uint32_t	addr_t;
 typedef uint32_t	off_t;
-typedef int32_t		size_t;
-typedef uint32_t	ssize_t;
+typedef uint32_t	size_t;
+typedef int32_t		ssize_t;
 
 typedef uint32_t	register_t;
 
 typedef uint32_t	uintptr_t;
+typedef uint32_t	ptrdiff_t;
 
 #endif /* ASM */
 
