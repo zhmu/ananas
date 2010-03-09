@@ -78,11 +78,115 @@ strtoul(const char* ptr, char** endptr, int base)
 			ptr++;
 			continue;
 		}
-		if (endptr != NULL)
-			*endptr = (char*)ptr;
+		/* what's this? */
 		break;
 	}
+	if (endptr != NULL)
+		*endptr = (char*)ptr;
 	return val;
+}
+
+char*
+strcat(char* dst, const char* src)
+{
+	char* ptr = dst;
+	while (*ptr != '\0') ptr++;
+	while (*src != '\0') *ptr++ = *src++;
+	*ptr = '\0';
+	return dst;
+}
+
+char*
+strncat(char* dst, const char* src, size_t n)
+{
+	char* ptr = dst;
+	while (*ptr != '\0') ptr++;
+
+	while (*src != '\0' && n > 0) { *ptr++ = *src++; n--; }
+	*ptr = '\0';
+	return dst;
+}
+
+char*
+strncpy(char* dst, const char* src, size_t n)
+{
+	char* ptr = dst;
+
+	while (*src && n > 0) {
+		*ptr++ = *src++; n--;
+	}
+	if (n > 0)
+		*ptr = '\0';
+	return dst;
+}
+
+void*
+memchr(const void* src, int c, size_t len)
+{
+	uint8_t* ptr = (uint8_t*)src;
+	while (len-- > 0) {
+		if (*ptr == c)
+			return ptr;
+		ptr++;
+	}
+	return NULL;
+}
+
+char*
+strstr(const char* large, const char* small)
+{
+	const char* s = large;
+
+	while (*s != '\0') {
+		if (*s != *small) {
+			s++;
+			continue;
+		}
+		/* First char matches; try the rest */
+		const char* q = s;
+		const char* find = small;
+		while (*q != '\0' && *find != '\0' && *q == *find) { q++; find++; }
+		if (*q == '\0' && *find == '\0')
+			return (char*)s;
+		s++;
+	}
+	return NULL;
+}
+
+size_t
+strcspn(const char* s1, const char* s2)
+{
+	const char* ptr = s1;
+	while (*ptr != '\0') {
+		const char* search = s2;
+		while (*search != '\0' && *ptr != *search)
+			search++;
+		if (*search != '\0')
+			break;
+	}
+	return (ptr - s1);
+}
+
+char*
+strpbrk(const char* s1, const char* s2)
+{
+	for (; *s1 != '\0'; s1++)
+		for (const char *search = s2; search != '\0'; search++)
+			if (*search == *s1)
+				return (char*)s1;
+	return NULL;
+}
+
+int
+strcoll(const char* s1, const char* s2)
+{
+	return strcmp(s1, s2);
+}
+
+double
+strtod(const char* ptr, char** endptr)
+{
+	return (double)strtoul(ptr, endptr, 10);
 }
 
 /* vim:set ts=2 sw=2: */
