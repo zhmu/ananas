@@ -5,7 +5,8 @@
 #define MD_PCPU_FIELDS \
 	void		*context; \
 	uint32_t	lapic_id; \
-	addr_t		tss;
+	addr_t		tss; \
+	void		*fpu_context;
 
 #define PCPU_TYPE(x) \
 	__typeof(((struct PCPU*)0)->x)

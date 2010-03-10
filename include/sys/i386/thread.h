@@ -68,8 +68,13 @@ struct CONTEXT {
 	uint32_t	/* 44 */ esp0;
 };
 
+struct FPUREGS {
+	uint8_t		_reg[108];
+};
+
 struct MD_THREAD {
 	struct CONTEXT	ctx;
+	struct FPUREGS	fpu_ctx __attribute__ ((aligned(16)));
 	void*		pagedir;
 	void*		stack;
 	void*		kstack;

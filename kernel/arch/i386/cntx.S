@@ -2,6 +2,7 @@
 
 #include <machine/param.h>
 #include <machine/vm.h>
+#include "asmsyms.h"
 
 .global md_store_ctx, md_restore_ctx
 
@@ -79,6 +80,20 @@ md_store_ctx:
 	popl	%eax
 	movl	%eax,  0x28(%ebx)
 
+	/*
+	 * Store the FPU context, if needed; %fs still points to the
+	 * per-CPU data.
+	 */
+	movl	%fs:(PCPU_FPUCTX), %eax
+	orl	%eax, %eax
+	jz	md_store_ctx_skip_fpu
+
+	fsave	(%eax)
+
+	/* Disown the FPU; we have stored it */
+	movl	$0, %fs:(PCPU_FPUCTX)
+
+md_store_ctx_skip_fpu:
 	/* Store original fs */
 	popl	%eax
 	movl	%eax,  0x30(%ebx)
@@ -158,6 +173,15 @@ md_restore_ctx:
 	/* Restore ds */
 	movl	0x28(%ebx), %eax
 	movw	%ax, %ds
+
+	/*
+	 * Enable the task-switched flag; this will cause an exception to be
+	 * thrown for every FPU instruction. We use this to restore the
+	 * adequate context.
+	 */
+	movl    %cr0, %eax
+	orl     $CR0_TS, %eax
+	movl    %eax, %cr0
 
 	/*
 	 * Grab the page directory in %eax; we can't touch %ebx anymore once we
