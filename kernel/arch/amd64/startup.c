@@ -204,13 +204,11 @@ extern void* syscall_handler;
 	pml4 = (uint64_t*)bootstrap_get_page();
 
 	/* First of all, map the kernel; we won't get far without it */
-	void *__entry, *__end;
+	extern void *__entry, *__end;
 	addr_t from = (addr_t)&__entry & ~(PAGE_SIZE - 1);
-	addr_t   to = (addr_t)&__end;
-	to += PAGE_SIZE - to % PAGE_SIZE;
-
-	kprintf("map length = 0x%x bytes\n", to - from);
-	vm_mapto(from, from & 0x0fffffff /* HACK */, 64);
+	addr_t   to = (addr_t)&__end | (PAGE_SIZE - 1) + 1;
+	to += 1048576; /* XXX */
+	vm_mapto(from, from & 0x0fffffff /* HACK */, (to - from) / PAGE_SIZE);
 
 	/* Map the bootinfo block */
 	vm_map((addr_t)bi, 1);
@@ -243,12 +241,12 @@ extern void* syscall_handler;
 void
 vm_map_kernel_addr(void* pml4)
 {
-	void *__entry, *__end;
+	extern void *__entry, *__end;
 	addr_t from = (addr_t)&__entry & ~(PAGE_SIZE - 1);
 	addr_t   to = (addr_t)&__end;
 	to += PAGE_SIZE - to % PAGE_SIZE;
 	
-	vm_mapto_pagedir(pml4, from, from & 0x0fffffff /* HACK */, 32, 1);
+	vm_mapto_pagedir(pml4, from, from & 0x0fffffff /* HACK */, (to - from) / PAGE_SIZE, 1);
 }
 
 /* vim:set ts=2 sw=2: */

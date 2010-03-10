@@ -1,5 +1,6 @@
 #include "types.h"
 #include "amd64/bootinfo.h"
+#include "amd64/param.h"
 #include "elf.h"
 #include "param.h"
 #include "trampoline.h"
