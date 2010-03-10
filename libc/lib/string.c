@@ -183,10 +183,4 @@ strcoll(const char* s1, const char* s2)
 	return strcmp(s1, s2);
 }
 
-double
-strtod(const char* ptr, char** endptr)
-{
-	return (double)strtoul(ptr, endptr, 10);
-}
-
 /* vim:set ts=2 sw=2: */

@@ -5,6 +5,9 @@
 static const uint8_t hextab_hi[16] = "0123456789ABCDEF";
 static const uint8_t hextab_lo[16] = "0123456789abcdef";
 
+/* from dtoa.c */
+char* dtoa(double dd, int mode, int ndigits, int *decpt, int *sign, char **rve);
+
 int
 puts(const char* s)
 {
@@ -57,6 +60,8 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 
 		/* formatted output */
 		fmt++;
+		/* XXX skip '.', '*' precision stuff */
+		while ((*fmt >= '0' && *fmt <= '9') || *fmt == '*' || *fmt == '.') fmt++;
 		switch(*fmt) {
 			case 's': /* string */
 				s = va_arg(ap, const char*);
@@ -71,6 +76,18 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 				break;
 			case 'c': /* char */
 				putch(v, va_arg(ap, unsigned int));
+				break;
+			case 'f': /* float */
+			case 'g': { /* float */
+					int sign, decpt;
+					char* tmp = dtoa(va_arg(ap, double), 2, 10, &decpt, &sign, NULL);
+					if (sign) putch(v, '-');
+					while (*tmp) {
+						if (decpt-- == 0)
+							putch(v, '.');
+						putch(v, *tmp++);
+					}
+				}
 				break;
 			case 'x': /* hex int XXX assumed 32 bit */
 				putnumber(putch, v, hextab_lo, va_arg(ap, unsigned int));
