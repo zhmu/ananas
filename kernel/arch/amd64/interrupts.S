@@ -92,6 +92,7 @@ do_exception:
 exc_swapgs1:
 	/* Restore the page map */
 	movq	%cr3, %rax
+	pushq	%rax
 	movq	pml4, %rbx
 	andq	$0x0fffffff, %rbx
 	cmp	%rax, %rbx
@@ -103,6 +104,7 @@ exc_skip_pt:
 
 	/* Call the exception handler! */
 	movq	%rsp, %rdi
+	addq	$8, %rdi	/* Adjust for saved %cr3 */
 	call	exception
 
 do_return:
@@ -216,6 +218,21 @@ sched_swapgs:
 	movq	%rbx, %cr3
 
 sched_skip_pt:
+	/*
+	 * If our current thread owns the FPU, we need to store the registers. This
+	 * value is only non-zero if an exception was raised due to the TS flag being
+	 * set, so the FPU context will only be stored if needed.
+	 */
+	movq	%gs:(PCPU_FPUCTX), %rbx
+	orq	%rbx, %rbx
+	jz	sched_skip_fpu
+
+	fxsave	(%rbx)
+
+	/* Disown the FPU; we have stored it */
+	movq	$0, %gs:(PCPU_FPUCTX)
+
+sched_skip_fpu:
 	cmpl	$0, %gs:PCPU_CTX
 	jz	skip_ctxcopy
 

@@ -235,6 +235,18 @@ extern void* syscall_handler;
 	}
 	vm_init();
 
+	/*
+	 * Initialize the FPU. We assume that any CPU that can do Long Mode will also
+	 * support SSE/SSE2 instructions.
+	 *
+	 * XXX should we check whether this stuff is supported ?
+	 */
+	__asm(
+		"movq	%cr4, %rax\n"
+		"orq	$0x600, %rax\n"		/* OSFXSR | OSXMMEXCPT */
+		"movq	%rax, %cr4\n"
+	);
+
 	mi_startup();
 }
 

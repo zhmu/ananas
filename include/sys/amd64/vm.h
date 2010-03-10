@@ -36,6 +36,13 @@
 #define MSR_GS_BASE		0xc0000101
 #define MSR_KERNEL_GS_BASE	0xc0000102
 
+/* CR0 specific flags */
+#define CR0_TS			(1 << 3)	/* Task switched */
+
+/* CR4 specific flags */
+#define CR4_OSFXSR		(1 << 9)	/* OS saves/restores SSE state */
+#define CR4_OSXMMEXCPT		(1 << 10)	/* OS will handle SIMD exceptions */
+
 /*
  * GDT entry selectors, which are the offset in the GDT. We don't use indexes
  * here because the task entry is 16 bytes whereas everything else is 8 bytes.

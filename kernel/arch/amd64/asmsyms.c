@@ -30,6 +30,7 @@ ASM_SYMBOL(SF_CS,     offsetof(struct STACKFRAME, sf_cs));
 ASM_SYMBOL(SF_SIZE,   sizeof(struct STACKFRAME));
 
 ASM_SYMBOL(PCPU_CTX,	 offsetof(struct PCPU, context));
+ASM_SYMBOL(PCPU_FPUCTX,	 offsetof(struct PCPU, fpu_context));
 ASM_SYMBOL(PCPU_TEMPRSP, offsetof(struct PCPU, temp_rsp));
 
 ASM_SYMBOL(CTX_PML4,	offsetof(struct CONTEXT, pml4));

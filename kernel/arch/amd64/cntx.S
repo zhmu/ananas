@@ -55,6 +55,15 @@ md_restore_ctx:
 	movw	$GDT_SEL_USER_DATA + 3, %ax
 	movw	%ax, %ds
 
+	/*
+	 * Enable the task-switched flag; this will cause an exception to be
+	 * thrown for every FPU instruction. We use this to restore the
+	 * adequate context.
+	 */
+	movq	%cr0, %rax
+	orq	$CR0_TS, %rax
+	movq	%rax, %cr0
+
 	/* Restore %rax/%rsi and activate the thread's new context */
 	popq	%rax
 	popq	%rsi

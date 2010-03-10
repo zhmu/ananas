@@ -23,9 +23,14 @@ struct TSS {
 	uint32_t	iomap_base;
 } __attribute__((packed));
 
+struct FPUREGS {
+	uint8_t		_reg[512];
+} __attribute__((packed));
+
 /* amd64 thread context */
 struct CONTEXT {
 	struct		STACKFRAME sf;
+	struct		FPUREGS fpu __attribute__ ((aligned(16)));
 	uint64_t	pml4;
 };
 

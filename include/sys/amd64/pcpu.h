@@ -8,7 +8,13 @@
 	 * temp_rsp is the place we use to store the original stack pointer	\
 	 * during a system call.						\
 	 */									\
-	uint64_t	temp_rsp;
+	uint64_t	temp_rsp;						\
+	/*									\
+	 * fpu_context is used to refer to the struct that holds the current	\
+	 * FPU context, or NULL if there is none. Being non-NULL means the	\
+	 * current thread is using the FPU and thus the context must be saved.	\
+	 */									\
+	void		*fpu_context;
 
 #define PCPU_TYPE(x) \
 	__typeof(((struct PCPU*)0)->x)
