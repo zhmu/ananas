@@ -1,6 +1,6 @@
 TARGET:		libc.a
 
-CFLAGS=		-m64 -march=athlon64 -I$S/../include -std=c99
+CFLAGS=		-m64 -march=athlon64 -I$S/../include -std=c99 -DAMD64
 ARCH=		amd64
 
 MDOBJS		+= md_syscall.o crt0.o setjmp.o

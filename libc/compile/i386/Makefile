@@ -1,6 +1,6 @@
 TARGET:		libc.a
 
-CFLAGS=		-m32 -march=i386 -I$S/../include -std=c99
+CFLAGS=		-m32 -march=i386 -I$S/../include -std=c99 -DI386
 ARCH=		i386
 
 MDOBJS		+= md_syscall.o crt0.o setjmp.o
