@@ -32,8 +32,8 @@ md_thread_init(thread_t thread)
 	md->ctx.sf.sf_rax = 0x123456789abcdef;
 	md->ctx.sf.sf_rbx = 0xdeadf00dbabef00;
 
-	md->ctx.sf.sf_rsp = (addr_t)md->stack  + THREAD_STACK_SIZE - 8 /* XXX */;
-	md->ctx.sf.sf_sp  = (addr_t)md->kstack + KERNEL_STACK_SIZE - 8 /* XXX */;
+	md->ctx.sf.sf_rsp = (addr_t)md->stack  + THREAD_STACK_SIZE;
+	md->ctx.sf.sf_sp  = (addr_t)md->kstack + KERNEL_STACK_SIZE;
 
 	md->ctx.sf.sf_cs = GDT_SEL_USER_CODE + SEG_DPL_USER;
 	md->ctx.sf.sf_ss = GDT_SEL_KERNEL_DATA;
