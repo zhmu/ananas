@@ -1,8 +1,8 @@
-#include <types.h>
+#include <sys/types.h>
 #include <machine/vm.h>
 #include <machine/param.h>
-#include <mm.h>
-#include <lib.h>
+#include <sys/mm.h>
+#include <sys/lib.h>
 
 #define MEMMASK 0x0fffffff /* HACK */
 

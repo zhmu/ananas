@@ -1,8 +1,8 @@
-#include <types.h>
+#include <sys/types.h>
 #include <machine/param.h>
-#include "thread.h"
-#include "lib.h"
-#include "mm.h"
+#include <sys/thread.h>
+#include <sys/lib.h>
+#include <sys/mm.h>
 
 struct THREAD* threads = NULL;
 

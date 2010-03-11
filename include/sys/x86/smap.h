@@ -1,4 +1,4 @@
-#include "types.h"
+#include <sys/types.h>
 
 #ifndef __X86_SMAP_H__
 #define __X86_SMAP_H__

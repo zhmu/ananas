@@ -1,8 +1,8 @@
-#include "machine/io.h"
-#include "dev/ata.h"
-#include "device.h"
-#include "irq.h"
-#include "lib.h"
+#include <machine/io.h>
+#include <sys/dev/ata.h>
+#include <sys/device.h>
+#include <sys/irq.h>
+#include <sys/lib.h>
 
 #define ATA_GET_WORD(x) ((uint16_t)(x)[0] << 8 | (x)[1])
 

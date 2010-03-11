@@ -1,6 +1,6 @@
-#include "i386/io.h"
-#include "device.h"
-#include "lib.h"
+#include <machine/io.h>
+#include <sys/device.h>
+#include <sys/lib.h>
 
 uint32_t sio_port = 0;
 

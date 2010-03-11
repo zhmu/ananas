@@ -1,6 +1,6 @@
-#include "console.h"
-#include "device.h"
-#include "lib.h"
+#include <sys/console.h>
+#include <sys/device.h>
+#include <sys/lib.h>
 #include "console.inc"
 
 device_t input_dev = NULL;
@@ -50,12 +50,6 @@ console_init()
 void
 console_putchar(int c)
 {
-#if 0
-	/* HACK */
-	outb(0xe9, c);
-	return;
-#endif
-
 	if (output_dev == NULL)
 		return;
 

@@ -1,20 +1,20 @@
-#include <types.h>
+#include <sys/types.h>
 #include <machine/param.h>
-#include "i386/vm.h"
-#include "i386/io.h"
-#include "i386/interrupts.h"
-#include "i386/macro.h"
-#include "i386/thread.h"
-#include "i386/pcpu.h"
-#include "i386/realmode.h"
-#include "x86/pic.h"
-#include "x86/smap.h"
-#include "init.h"
-#include "lib.h"
+#include <machine/vm.h>
+#include <machine/io.h>
+#include <machine/interrupts.h>
+#include <machine/macro.h>
+#include <machine/thread.h>
+#include <machine/pcpu.h>
+#include <machine/realmode.h>
+#include <sys/x86/pic.h>
+#include <sys/x86/smap.h>
+#include <sys/init.h>
+#include <sys/lib.h>
+#include <sys/pcpu.h>
+#include <sys/mm.h>
+#include <sys/vm.h>
 #include "options.h"
-#include "pcpu.h"
-#include "mm.h"
-#include "vm.h"
 
 /* __end is defined by the linker script and indicates the end of the kernel */
 extern void* __end;

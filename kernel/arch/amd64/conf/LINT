@@ -7,5 +7,10 @@ device		isa
 device		vga
 device		atkbd
 
+device		pcihb
+device		pci
+
+device		ata
+
 inputdev	isa.atkbd
 outputdev	isa.vga

@@ -1,5 +1,5 @@
-#include <types.h>
-#include <lock.h>
+#include <sys/types.h>
+#include <sys/lock.h>
 
 /*
  * The spinlock implementation is based on IA-32 Intel Architecture Software
@@ -9,6 +9,7 @@
 void
 md_spinlock_lock(spinlock_t s)
 {
+#if 0
 	__asm(
 "l1:\n"
 		"cmpl $0, (%%rax)\n"
@@ -21,14 +22,17 @@ md_spinlock_lock(spinlock_t s)
 		"cmpq	$0, %%rbx\n"
 		"jne	l1\n"
 	: : "a" (&s->var) : "rbx");
+#endif
 }
 
 void
 md_spinlock_unlock(spinlock_t s)
 {
+#if 0
 	__asm(
 		"movl	$0, (%%rax)\n"
 	: : "a" (&s->var));
+#endif
 }
 
 void

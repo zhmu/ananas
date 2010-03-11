@@ -1,4 +1,4 @@
-#include "types.h"
+#include <sys/types.h>
 
 #ifndef __I386_LOCK_H__
 #define __I386_LOCK_H__

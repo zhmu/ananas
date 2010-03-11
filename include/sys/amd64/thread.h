@@ -1,5 +1,5 @@
-#include "types.h"
-#include "frame.h"
+#include <sys/types.h>
+#include <machine/frame.h>
 
 #ifndef __AMD64_THREAD_H__
 #define __AMD64_THREAD_H__

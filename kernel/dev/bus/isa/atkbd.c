@@ -1,7 +1,7 @@
-#include "machine/io.h"
-#include "device.h"
-#include "irq.h"
-#include "lib.h"
+#include <machine/io.h>
+#include <sys/device.h>
+#include <sys/irq.h>
+#include <sys/lib.h>
 
 uint32_t atkbd_port = 0;
 

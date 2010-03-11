@@ -1,9 +1,9 @@
-#include <types.h>
+#include <sys/types.h>
 #include <machine/param.h>
-#include <i386/macro.h>
-#include <i386/vm.h>
-#include <i386/realmode.h>
-#include "lib.h"
+#include <machine/macro.h>
+#include <machine/vm.h>
+#include <machine/realmode.h>
+#include <sys/lib.h>
 
 extern void *__end, *__entry;
 extern uint32_t* pagedir;

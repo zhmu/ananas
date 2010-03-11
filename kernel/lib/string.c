@@ -1,4 +1,4 @@
-#include "lib.h"
+#include <sys/lib.h>
 
 char*
 strcpy(char* dst, const char* src)

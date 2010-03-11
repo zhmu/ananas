@@ -1,6 +1,6 @@
-#include "mm.h"
-#include "machine/pcpu.h"
-#include "pcpu.h"
+#include <machine/pcpu.h>
+#include <sys/mm.h>
+#include <sys/pcpu.h>
 
 struct PCPU*
 pcpu_init()

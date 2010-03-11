@@ -1,12 +1,12 @@
-#include <types.h>
+#include <sys/types.h>
 #include <machine/frame.h>
 #include <machine/interrupts.h>
 #include <machine/thread.h>
-#include <thread.h>
-#include <x86/exceptions.h>
-#include <pcpu.h>
-#include <irq.h>
-#include <lib.h>
+#include <sys/x86/exceptions.h>
+#include <sys/thread.h>
+#include <sys/pcpu.h>
+#include <sys/irq.h>
+#include <sys/lib.h>
 
 static void
 exception_nm(struct STACKFRAME* sf)

@@ -1,6 +1,6 @@
-#include "lib.h"
-#include "pcpu.h"
-#include "thread.h"
+#include <sys/lib.h>
+#include <sys/pcpu.h>
+#include <sys/thread.h>
 
 void
 sys_exit()

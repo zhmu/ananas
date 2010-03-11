@@ -1,5 +1,5 @@
-#include "machine/io.h"
-#include "x86/pic.h"
+#include <machine/io.h>
+#include <sys/x86/pic.h>
 
 void
 x86_pic_remap() {

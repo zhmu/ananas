@@ -4,7 +4,7 @@
  */
 .text
 
-#include "types.h"
+#include <sys/types.h>
 
 .global __entry
 

@@ -1,4 +1,4 @@
-#include "lib.h"
+#include <sys/lib.h>
 
 void
 panic(const char* fmt, ...)

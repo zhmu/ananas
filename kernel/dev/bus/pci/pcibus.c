@@ -1,7 +1,7 @@
-#include "bus/pci.h"
-#include "machine/io.h"
-#include "device.h"
-#include "lib.h"
+#include <sys/bus/pci.h>
+#include <machine/io.h>
+#include <sys/device.h>
+#include <sys/lib.h>
 
 extern struct PROBE* devprobe[];
 

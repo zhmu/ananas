@@ -1,9 +1,9 @@
-#include "machine/vm.h"
-#include "machine/io.h"
-#include "console.h"
-#include "device.h"
-#include "lib.h"
-#include "vm.h"
+#include <machine/vm.h>
+#include <machine/io.h>
+#include <sys/console.h>
+#include <sys/device.h>
+#include <sys/lib.h>
+#include <sys/vm.h>
 
 /*
  * This file implements a PCI Host Bridge driver; such a driver is responsible

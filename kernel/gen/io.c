@@ -1,8 +1,8 @@
-#include "types.h"
-#include "device.h"
-#include "lib.h"
-#include "thread.h"
-#include "pcpu.h"
+#include <sys/types.h>
+#include <sys/device.h>
+#include <sys/lib.h>
+#include <sys/thread.h>
+#include <sys/pcpu.h>
 
 extern device_t input_dev;
 extern device_t output_dev;

@@ -1,9 +1,9 @@
-#include "machine/thread.h"
-#include "pcpu.h"
-#include "lib.h"
-#include "lock.h"
-#include "pcpu.h"
-#include "thread.h"
+#include <machine/thread.h>
+#include <sys/pcpu.h>
+#include <sys/lib.h>
+#include <sys/lock.h>
+#include <sys/pcpu.h>
+#include <sys/thread.h>
 
 extern struct THREAD* threads;
 

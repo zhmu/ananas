@@ -1,4 +1,4 @@
-#include <types.h>
+#include <sys/types.h>
 
 #ifndef __AMD64_FRAME_H__
 #define __AMD64_FRAME_H__

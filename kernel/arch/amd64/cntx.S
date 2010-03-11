@@ -1,6 +1,6 @@
 .text
 
-#include <types.h>
+#include <sys/types.h>
 #include <machine/param.h>
 #include <machine/vm.h>
 #include <machine/macro.h>

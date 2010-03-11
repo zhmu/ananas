@@ -4,7 +4,7 @@
 #ifndef ASM
 
 #include <machine/_types.h>
-#include <_null.h>
+#include <sys/_null.h>
 
 typedef unsigned char	u_char;
 typedef unsigned short	u_short;

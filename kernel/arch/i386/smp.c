@@ -1,20 +1,20 @@
-#include "types.h"
-#include "i386/smp.h"
-#include "i386/pcpu.h"
-#include "i386/apic.h"
-#include "i386/io.h"
-#include "i386/ioapic.h"
-#include "i386/macro.h"
-#include "i386/thread.h"
-#include "i386/vm.h"
-#include "x86/pic.h"
-#include "lock.h"
-#include "param.h"
-#include "pcpu.h"
-#include "vm.h"
-#include "mm.h"
-#include "thread.h"
-#include "lib.h"
+#include <sys/types.h>
+#include <machine/smp.h>
+#include <machine/pcpu.h>
+#include <machine/apic.h>
+#include <machine/io.h>
+#include <machine/ioapic.h>
+#include <machine/macro.h>
+#include <machine/thread.h>
+#include <machine/vm.h>
+#include <sys/x86/pic.h>
+#include <sys/lock.h>
+#include <machine/param.h>
+#include <sys/pcpu.h>
+#include <sys/vm.h>
+#include <sys/mm.h>
+#include <sys/thread.h>
+#include <sys/lib.h>
 
 #undef SMP_DEBUG
 

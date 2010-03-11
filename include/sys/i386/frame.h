@@ -1,4 +1,4 @@
-#include <types.h>
+#include <sys/types.h>
 
 #ifndef __I386_FRAME_H__
 #define __I386_FRAME_H__

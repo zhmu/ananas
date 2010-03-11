@@ -1,8 +1,8 @@
-#include "types.h"
-#include "console.h"
-#include "device.h"
-#include "lock.h"
-#include "stdarg.h"
+#include <sys/types.h>
+#include <sys/console.h>
+#include <sys/device.h>
+#include <sys/lock.h>
+#include <stdarg.h>
 
 static const uint8_t hextab_hi[16] = "0123456789ABCDEF";
 static const uint8_t hextab_lo[16] = "0123456789abcdef";
@@ -88,7 +88,7 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 				break;
 			case 'p': /* pointer XXX assumed 64 bit */
 				u64 = va_arg(ap, addr_t);
-#ifdef __AMD64__
+#if 1
 				if (u64 >= (1L << 32))
 					putnumber(putch, v, hextab_lo, u64 >> 32);
 #endif

@@ -1,7 +1,7 @@
 #ifndef __I386_VM_H__
 #define __I386_VM_H__
 
-#include <types.h>
+#include <sys/types.h>
 
 /* CR0 register bits */
 #define CR0_PE		(1 << 0)	/* Protection Enable */

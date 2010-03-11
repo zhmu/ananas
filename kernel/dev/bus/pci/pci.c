@@ -1,7 +1,7 @@
-#include "bus/pci.h"
-#include "machine/io.h"
-#include "device.h"
-#include "lib.h"
+#include <machine/io.h>
+#include <sys/bus/pci.h>
+#include <sys/device.h>
+#include <sys/lib.h>
 
 extern uint32_t pci_read_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg);
 extern struct DRIVER drv_pcibus;

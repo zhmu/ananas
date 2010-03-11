@@ -1,4 +1,4 @@
-#include "device.h"
+#include <sys/device.h>
 
 struct DRIVER drv_isa = {
 	.name				= "isa",

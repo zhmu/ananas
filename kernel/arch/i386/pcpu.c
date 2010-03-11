@@ -1,4 +1,4 @@
-#include "pcpu.h"
+#include <sys/pcpu.h>
 
 volatile static struct THREAD*
 pcpu_curthread()

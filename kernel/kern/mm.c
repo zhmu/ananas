@@ -1,9 +1,9 @@
-#include <types.h>
+#include <sys/types.h>
 #include <machine/param.h>
-#include "lock.h"
-#include "mm.h"
-#include "vm.h"
-#include "lib.h"
+#include <sys/lock.h>
+#include <sys/mm.h>
+#include <sys/vm.h>
+#include <sys/lib.h>
 
 static int zone_root_initialized;
 static struct MM_ZONE* zone_root;

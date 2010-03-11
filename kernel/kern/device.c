@@ -1,8 +1,8 @@
-#include "console.h"
-#include "device.h"
-#include "lib.h"
-#include "mm.h"
-#include "vm.h"
+#include <sys/console.h>
+#include <sys/device.h>
+#include <sys/lib.h>
+#include <sys/mm.h>
+#include <sys/vm.h>
 #include "console.inc"
 
 /*

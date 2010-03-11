@@ -1,4 +1,4 @@
-#include "types.h"
+#include <sys/types.h>
 
 #ifndef __AMD64_IO_H__
 #define __AMD64_IO_H__

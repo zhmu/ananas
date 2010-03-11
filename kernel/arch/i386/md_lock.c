@@ -1,5 +1,5 @@
-#include <types.h>
-#include <lock.h>
+#include <sys/types.h>
+#include <sys/lock.h>
 
 /*
  * The spinlock implementation is based on IA-32 Intel Architecture Software

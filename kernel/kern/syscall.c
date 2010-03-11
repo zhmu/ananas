@@ -1,7 +1,7 @@
-#include "syscall.h"
-#include "lib.h"
-#include "pcpu.h"
-#include "../syscalls.h" /* XXX gross */
+#include <sys/syscall.h>
+#include <sys/lib.h>
+#include <sys/pcpu.h>
+#include <syscalls.h>
 
 register_t
 syscall(struct SYSCALL_ARGS* a)

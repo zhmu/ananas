@@ -1,10 +1,10 @@
-#include <types.h>
+#include <sys/types.h>
 #include <machine/thread.h>
 #include <machine/param.h>
-#include "elf.h"
-#include "lib.h"
-#include "thread.h"
-#include "mm.h"
+#include <sys/lib.h>
+#include <sys/thread.h>
+#include <sys/mm.h>
+#include <elf.h>
 
 int
 elf64_load(thread_t thread, const char* data, size_t datalen)

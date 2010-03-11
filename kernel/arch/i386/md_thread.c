@@ -1,16 +1,16 @@
-#include <types.h>
+#include <sys/types.h>
 #include <machine/param.h>
-#include "i386/thread.h"
-#include "i386/vm.h"
-#include "i386/macro.h"
-#include "i386/smp.h"
-#include "i386/realmode.h"
-#include "lib.h"
-#include "mm.h"
+#include <machine/thread.h>
+#include <machine/vm.h>
+#include <machine/macro.h>
+#include <machine/smp.h>
+#include <machine/realmode.h>
+#include <sys/lib.h>
+#include <sys/mm.h>
+#include <sys/pcpu.h>
+#include <sys/thread.h>
+#include <sys/vm.h>
 #include "options.h"
-#include "pcpu.h"
-#include "thread.h"
-#include "vm.h"
 
 extern struct TSS kernel_tss;
 

@@ -1,7 +1,7 @@
-#include "machine/interrupts.h"
-#include "pcpu.h"
-#include "irq.h"
-#include "lib.h"
+#include <machine/interrupts.h>
+#include <sys/pcpu.h>
+#include <sys/irq.h>
+#include <sys/lib.h>
 
 static struct IRQ irq[MAX_IRQS];
 
