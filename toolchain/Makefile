@@ -8,6 +8,7 @@ GCC_VER=	4.4.3
 
 # environment settings
 MIRROR?=	http://ftp.gnu.org/gnu
+MAKE_BUILDARG?=	-j4
 
 # tools to use
 DOWNLOAD?=	wget
@@ -48,7 +49,7 @@ pre-everything:
 
 .bu.build:	.bu.configure
 		@${ECHO} ">> Building binutils"
-		(cd build/binutils && make)
+		(cd build/binutils && make ${MAKE_BUILDARG})
 		@${TOUCH} .bu.build
 
 .bu.install:	.bu.build
@@ -85,7 +86,7 @@ pre-everything:
 
 .gcc.build:	.gcc.configure
 		@${ECHO} ">> Building gcc (this takes some time)"
-		(cd build/gcc && make)
+		(cd build/gcc && make ${MAKE_BUILDARG})
 		@${TOUCH} .gcc.build
 
 .gcc.install:	.gcc.build
