@@ -1,11 +1,11 @@
 TARGET:		libc.a
 
-CFLAGS=		-I$S/../include -std=c99 -fPIC
+CFLAGS=		-I$S/../../include -I. -std=c99 -fPIC
 ARCH=		i386
-CC=		./../../../toolchain/prefix/bin/i586-elf-ananas-gcc
-AR=		./../../../toolchain/prefix/bin/i586-elf-ananas-ar
+CC=		../../../../toolchain/prefix/bin/i586-elf-ananas-gcc
+AR=		../../../../toolchain/prefix/bin/i586-elf-ananas-ar
 
-MDOBJS		+= md_syscall.o crt0.o setjmp.o
+MDOBJS		+= md_syscall.o setjmp.o
 
 include ../../conf/Makefile.std
 
