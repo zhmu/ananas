@@ -1,4 +1,4 @@
-#include "device.h"
+#include <sys/device.h>
 
 #ifndef __IRQ_H__
 #define __IRQ_H__

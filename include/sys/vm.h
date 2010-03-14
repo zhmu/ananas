@@ -1,4 +1,4 @@
-#include "types.h"
+#include <sys/types.h>
 
 #ifndef __VM_H__
 #define __VM_H__

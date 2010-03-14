@@ -1,5 +1,5 @@
-#include "types.h"
-#include "stdarg.h"
+#include <sys/types.h>
+#include <stdarg.h>
 
 #ifndef __LIBKERN_H__
 #define __LIBKERN_H__

@@ -1,4 +1,4 @@
-#include "types.h"
+#include <sys/types.h>
 
 #ifndef __THREAD_H__
 #define __THREAD_H__

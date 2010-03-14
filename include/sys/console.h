@@ -1,4 +1,4 @@
-#include "device.h"
+#include <sys/device.h>
 
 #ifndef __CONSOLE_H__
 #define __CONSOLE_H__
