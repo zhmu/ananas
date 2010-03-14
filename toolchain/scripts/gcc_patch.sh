@@ -44,7 +44,18 @@ echo '#undef TARGET_OS_CPP_BUILTINS
   } while(0);
 
 #undef TARGET_VERSION
-#define TARGET_VERSION fprintf(stderr, " (i386 ananas)");' > $T/gcc/config/ananas.h
+#define TARGET_VERSION fprintf(stderr, " (i386 ananas)");
+
+/*
+ * STARTFILE_SPEC is used to determine which file is used as startup
+ * object while linking.
+ */
+#undef STARTFILE_SPEC
+#define STARTFILE_SPEC "		\
+%{!shared:crt1.o%s}			\
+crtbegin.o%s				\
+"
+' > $T/gcc/config/ananas.h
 
 # patch 'libgcc/config.host'
 awk '
