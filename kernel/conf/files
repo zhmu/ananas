@@ -21,3 +21,4 @@ dev/vga.c		optional vga
 dev/sio.c		optional sio
 gen/std.c		mandatory
 gen/io.c		mandatory
+lib/teken/teken.c	mandatory

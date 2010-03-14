@@ -1,15 +1,24 @@
+#include <sys/device.h>
+#include <sys/console.h>
+#include <sys/mm.h>
+#include <sys/lib.h>
+#include <sys/thread.h>
+#include <machine/vm.h>
 #include "options.h"
-#include "device.h"
-#include "console.h"
-#include "mm.h"
-#include "lib.h"
-#include "thread.h"
-#include "machine/vm.h"
 
+#define I386
+#define AMD64x
+
+#ifdef I386
 #include "../../../../sh.inc"
-#include "../../../../q.inc"
+#endif
+
+#ifdef AMD64
+#include "../../../../sh.64.inc"
+#endif
 
 int elf32_load(thread_t t, const char* data, size_t datalen);
+int elf64_load(thread_t t, const char* data, size_t datalen);
 
 void smp_init();
 void smp_launch();
@@ -30,6 +39,19 @@ mi_startup()
 	kprintf("Hello world, this is Ananas/%s %u.%u\n", ARCHITECTURE, 0, 1);
 	kprintf("Memory: %uKB available / %uKB total\n", mem_avail / 1024, mem_total / 1024);
 
+/*
+	__asm(
+		"movl	$0x12345678, %eax\n"
+		"movl	$0x87654321, %ebx\n"
+		"movl	$0xf00dbabe, %ecx\n"
+		"movl	$0xdeadd00d, %edx\n"
+		"movl	$0x1, %esi\n"
+		"movl	$0x2, %edi\n"
+		"movl	$0x3, %ebp\n"
+		"movl (0), %eax\n"
+	);
+*/
+
 #ifdef SMP
 	/* Try the SMP dance */
 	smp_init();
@@ -38,28 +60,25 @@ mi_startup()
 	/* Give the devices a spin */
 	device_init();
 
-#if 0
+#ifdef I386
 	thread_t t1 = thread_alloc();
-	elf32_load(t1, sh, sh_LENGTH);
-	thread_t t2 = thread_alloc();
-	elf32_load(t2, q, q_LENGTH);
-	thread_t t3 = thread_alloc();
-	elf32_load(t3, sh, q_LENGTH);
+	elf32_load(t1, (char*)sh, sh_LENGTH);
+#endif
+
+#ifdef AMD64
+	thread_t t1 = thread_alloc();
+	elf64_load(t1, (char*)sh, sh_LENGTH);
 #endif
 
 #ifdef SMP
-//	smp_launch();
+	smp_launch();
 #endif
 
-	while(1);
-
-#if 1
 	/* gooo! */
 	__asm(
 		"sti\n"
 		"hlt\n"
 	);
-#endif
 
 	panic("mi_startup(): what now?");
 }

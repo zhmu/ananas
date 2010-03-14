@@ -55,7 +55,8 @@ realmode16_stub:
 	movl	%eax, %cr0
 
 	/* Execute a JMP FAR to our real-mode location */
-	ljmp	$REALSTUB_RELOC / 16, $0
+	/*ljmp	$REALSTUB_RELOC / 16, $0*/
+	ljmp	$0x1000, $0
 
 realmode16_code:
 	/*

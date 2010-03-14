@@ -1,9 +1,11 @@
-#include "machine/vm.h"
-#include "machine/io.h"
-#include "console.h"
-#include "device.h"
-#include "lib.h"
-#include "vm.h"
+#include <machine/vm.h>
+#include <machine/io.h>
+#include <sys/console.h>
+#include <sys/device.h>
+#include <sys/lib.h>
+#include <sys/mm.h>
+
+#include <teken.h>
 
 /* Console height */
 #define VGA_HEIGHT 25
@@ -16,6 +18,163 @@ static uint8_t* vga_mem = NULL;
 static uint8_t vga_x = 0;
 static uint8_t vga_y = 0;
 static uint8_t vga_attr = 0xf;
+static teken_t vga_teken;
+
+/* XXX this doesn't really belong here */
+static tf_bell_t		term_bell;
+static tf_cursor_t	term_cursor;
+static tf_putchar_t	term_putchar;
+static tf_fill_t		term_fill;
+static tf_copy_t		term_copy;
+static tf_param_t		term_param;
+static tf_respond_t	term_respond;
+
+static void vga_crtc_write(device_t dev, uint8_t reg, uint8_t val);
+
+static teken_funcs_t tf = {
+	.tf_bell		= term_bell,
+	.tf_cursor	= term_cursor,
+	.tf_putchar	= term_putchar,
+	.tf_fill		= term_fill,
+	.tf_copy		=	term_copy,
+	.tf_param		= term_param,
+	.tf_respond	= term_respond
+};
+
+struct pixel {
+	teken_char_t	c;
+	teken_attr_t	a;
+};
+
+static struct pixel buffer[VGA_WIDTH][VGA_HEIGHT];
+
+static void
+printchar(const teken_pos_t* p)
+{
+	KASSERT(p->tp_row < VGA_HEIGHT, "row not in range");
+	KASSERT(p->tp_col < VGA_WIDTH, "col not in range");
+	struct pixel* px = &buffer[p->tp_col][p->tp_row];
+
+	if (vga_mem == NULL)
+		return;
+
+	addr_t offs = (p->tp_row * VGA_WIDTH + p->tp_col) * 2;
+	*(vga_mem + offs    ) = px->c;
+	*(vga_mem + offs + 1) = teken_256to8(px->a.ta_fgcolor) + 8 * teken_256to8(px->a.ta_bgcolor);
+}
+
+static void
+term_bell(void* s)
+{
+	/* nothing */
+}
+
+static void
+term_cursor(void* s, const teken_pos_t* p)
+{
+	/* reposition the cursor */
+	int offs = (p->tp_col + p->tp_row * VGA_WIDTH);
+	vga_crtc_write(s, 0xe, offs >> 8);
+	vga_crtc_write(s, 0xf, offs & 0xff);
+}
+	
+static void
+term_putchar(void *s, const teken_pos_t* p, teken_char_t c, const teken_attr_t* a)
+{
+	buffer[p->tp_col][p->tp_row].c = c;
+	buffer[p->tp_col][p->tp_row].a = *a;
+	printchar(p);
+}
+
+static void
+term_fill(void* s, const teken_rect_t* r, teken_char_t c, const teken_attr_t* a)
+{
+	teken_pos_t p;
+
+	/* Braindead implementation of fill() - just call putchar(). */
+	for (p.tp_row = r->tr_begin.tp_row; p.tp_row < r->tr_end.tp_row; p.tp_row++)
+		for (p.tp_col = r->tr_begin.tp_col; p.tp_col < r->tr_end.tp_col; p.tp_col++)
+			term_putchar(s, &p, c, a);
+}
+
+static void
+term_copy(void* s, const teken_rect_t* r, const teken_pos_t* p)
+{
+       int nrow, ncol, x, y; /* has to be signed - >= 0 comparison */
+        teken_pos_t d;
+
+        /*
+         * copying is a little tricky. we must make sure we do it in
+         * correct order, to make sure we don't overwrite our own data.
+         */
+
+        nrow = r->tr_end.tp_row - r->tr_begin.tp_row;
+        ncol = r->tr_end.tp_col - r->tr_begin.tp_col;
+
+        if (p->tp_row < r->tr_begin.tp_row) {
+                /* copy from top to bottom. */
+                if (p->tp_col < r->tr_begin.tp_col) {
+                        /* copy from left to right. */
+                        for (y = 0; y < nrow; y++) {
+                                d.tp_row = p->tp_row + y;
+                                for (x = 0; x < ncol; x++) {
+                                        d.tp_col = p->tp_col + x;
+                                        buffer[d.tp_col][d.tp_row] =
+                                            buffer[r->tr_begin.tp_col + x][r->tr_begin.tp_row + y];
+                                        printchar(&d);
+                                }
+                        }
+                } else {
+                        /* copy from right to left. */
+                        for (y = 0; y < nrow; y++) {
+                                d.tp_row = p->tp_row + y;
+                                for (x = ncol - 1; x >= 0; x--) {
+                                        d.tp_col = p->tp_col + x;
+                                        buffer[d.tp_col][d.tp_row] =
+                                            buffer[r->tr_begin.tp_col + x][r->tr_begin.tp_row + y];
+                                        printchar(&d);
+                                }
+                        }
+                }
+        } else {
+                /* copy from bottom to top. */
+                if (p->tp_col < r->tr_begin.tp_col) {
+                        /* copy from left to right. */
+                        for (y = nrow - 1; y >= 0; y--) {
+                                d.tp_row = p->tp_row + y;
+                                for (x = 0; x < ncol; x++) {
+                                        d.tp_col = p->tp_col + x;
+                                        buffer[d.tp_col][d.tp_row] =
+                                            buffer[r->tr_begin.tp_col + x][r->tr_begin.tp_row + y];
+                                        printchar(&d);
+                                }
+                        }
+                } else {
+                        /* copy from right to left. */
+                        for (y = nrow - 1; y >= 0; y--) {
+                                d.tp_row = p->tp_row + y;
+                                for (x = ncol - 1; x >= 0; x--) {
+                                        d.tp_col = p->tp_col + x;
+                                        buffer[d.tp_col][d.tp_row] =
+                                            buffer[r->tr_begin.tp_col + x][r->tr_begin.tp_row + y];
+                                        printchar(&d);
+                                }
+                        }
+                }
+        }
+}
+
+static void
+term_param(void* s, int cmd, unsigned int value)
+{
+	/* TODO */
+}
+
+static void
+term_respond(void* s, const void* buf, size_t len)
+{
+	/* TODO */
+}
 
 static void
 vga_crtc_write(device_t dev, uint8_t reg, uint8_t val)
@@ -43,49 +202,27 @@ vga_attach(device_t dev)
 	/* set cursor shape */
 	vga_crtc_write(dev, 0xa, 14);
 	vga_crtc_write(dev, 0xb, 15);
+
+	/* initialize teken library */
+	teken_pos_t tp;
+	tp.tp_row = VGA_HEIGHT; tp.tp_col = VGA_WIDTH;
+	teken_init(&vga_teken, &tf, NULL);
+	teken_set_winsize(&vga_teken, &tp);
 	return 0;
 }
 
 static ssize_t
 vga_write(device_t dev, const char* data, size_t len)
 {
-	size_t amount;
-
-	if (vga_mem == NULL)
-		return -1;
-
-	for (amount = 0; amount < len; amount++, data++) {
-		addr_t offs = (vga_y * VGA_WIDTH + vga_x) * 2;
-		switch(*data) {
-			case '\n':
-				vga_x = 0; vga_y++;
-				break;
-			default:
-				*(vga_mem + offs    ) = *data;
-				*(vga_mem + offs + 1) = vga_attr;
-				vga_x++;
-				break;
-		}
-		if (vga_x >= VGA_WIDTH) {
-			vga_x = 0;
-			vga_y++;
-		}
-		if (vga_y >= VGA_HEIGHT) {
-			/* Scroll the screen up a row */
-			memcpy((void*)(vga_mem),
-						 (void*)(vga_mem + (VGA_WIDTH * 2)),
-						 (VGA_HEIGHT - 1) * VGA_WIDTH * 2);
-			/* Blank the bottom row */
-			memset((void*)(vga_mem + (VGA_WIDTH * 2) * (VGA_HEIGHT - 1)), 0, (VGA_WIDTH * 2));
-			vga_y--;
-		}
+	size_t origlen = len;
+	while(len--) {
+		/* XXX this is a hack which should be performed in a TTY layer, once we have one */
+		if(*data == '\n')
+			teken_input(&vga_teken, "\r", 1);
+		teken_input(&vga_teken, data, 1);
+		data++;
 	}
-
-	/* reposition the cursor */
-	vga_crtc_write(dev, 0xe, (vga_x + vga_y * VGA_WIDTH) >> 8);
-	vga_crtc_write(dev, 0xf, (vga_x + vga_y * VGA_WIDTH) & 0xff);
-
-	return len;
+	return origlen;
 }
 
 struct DRIVER drv_vga = {

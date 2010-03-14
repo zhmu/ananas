@@ -1,10 +1,14 @@
 OBJS=	main.o
-LIBS=	../../libc/compile/libc.a
+S=	../..
+LIBS=	$S/libc/compile/i386/libc.a
 
-CFLAGS=	-m32 -march=i386 -I$S/../include -std=c99
+CFLAGS=	-m32 -march=i386 -I$S/include -I. -std=c99
 
-sh:	$(OBJS)
+sh:	machine $(OBJS)
 	$(CC) $(CFLAGS) -Bstatic -nostdlib -u _start -o sh $(OBJS) $(LIBS)
 
+machine:
+	ln -sf $S/include/sys/i386 machine
+
 clean:
-	rm -f sh $(OBJS)
+	rm -f sh machine $(OBJS)

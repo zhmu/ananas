@@ -11,8 +11,11 @@ device		atkbd
 #device		pcihb
 #device		pci
 
-option		SMP
+#option		SMP
+
+#device		ata
 
 inputdev	isa.atkbd
 outputdev	isa.vga
-#console		isa.sio
+#inputdev	isa.sio
+#outputdev	isa.sio
