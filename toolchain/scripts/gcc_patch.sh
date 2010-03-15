@@ -28,6 +28,11 @@ awk '{ print }
         print "\ttmake_file=\"i386/t-i386elf svr4\""
         print "\tuse_fixproto=\"yes\""
         print "\t;;"
+	print "x86_64-*-ananas*)"
+        print "\ttm_file=\"${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h ananas.h\""
+        print "\ttmake_file=\"i386/t-crtstuff\""
+        print "\tuse_fixproto=\"yes\""
+        print "\t;;"
 	STATE = 0
 }
 ' < $T/gcc/config.gcc > $T/gcc/config.gcc.new
@@ -44,7 +49,7 @@ echo '#undef TARGET_OS_CPP_BUILTINS
   } while(0);
 
 #undef TARGET_VERSION
-#define TARGET_VERSION fprintf(stderr, " (i386 ananas)");
+#define TARGET_VERSION fprintf(stderr, " (ananas)");
 
 /*
  * STARTFILE_SPEC is used to determine which file is used as startup
@@ -63,6 +68,8 @@ awk '
 /case \${host} in/ { STATE = 1 }
 /# Support site-specific machine types./ && STATE == 1 {
 	print "i[3-7]86-*-ananas*)"
+	print "\t;;"
+	print "x86_64-*-ananas*)"
 	print "\t;;"
 	STATE = 0
 }' < $T/libgcc/config.host > $T/libgcc/config.host.new
