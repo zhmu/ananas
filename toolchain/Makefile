@@ -106,6 +106,11 @@ distfiles/gcc-${GCC_VER}.tar.bz2:
 		(cd distfiles && ${DOWNLOAD} ${MIRROR}/gcc/gcc-${GCC_VER}/gcc-${GCC_VER}.tar.bz2)
 
 clean:
-		rm -rf src prefix build
-		rm -f .bu.extract .bu.patch .bu.configure .bu.build .bu.install .bu.includes
-		rm -f .gcc.extract .gcc.patch .gcc.configure .gcc.build .gcc.install
+		rm -rf prefix build
+		rm -f .bu.configure .bu.build .bu.install .bu.includes
+		rm -f .gcc.configure .gcc.build .gcc.install
+
+reallyclean:	clean
+		rm -rf src
+		rm -f .bu.extract .bu.patch
+		rm -f .gcc.extract .gcc.patch
