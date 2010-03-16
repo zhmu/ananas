@@ -60,6 +60,11 @@ echo '#undef TARGET_OS_CPP_BUILTINS
 %{!shared:crt1.o%s}			\
 crtbegin.o%s				\
 "
+
+#undef ENDFILE_SPEC
+#define ENDFILE_SPEC "			\
+crtend.o%s				\
+"
 ' > $T/gcc/config/ananas.h
 
 # patch 'libgcc/config.host'
