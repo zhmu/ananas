@@ -28,12 +28,15 @@ asmsyms.h:	asmsyms.o $S/tools/gen_asmsyms.sh
 # copy of the kernel's ELF file, which is linked the trampoline.a containing
 # the amd64 trampoline code itself...
 #
+# XXX This is a crude hack: we use the host system's cc/ld to build this as
+# our toolchain will not give a valid ELF file for grub yet XXX
+#
 trampoline.o:	kernel.elf $S/tools/file2inc/file2inc
 		$S/tools/file2inc/file2inc kernel.elf trampoline.c kernel
-		$(CC) -m32 -march=i386 -c -o trampoline.o trampoline.c
+		cc -m32 -march=i386 -c -o trampoline.o trampoline.c
 
 kernel:		trampoline.o $S/arch/amd64/trampoline/trampoline.a
-		$(LD) -b elf32-i386 -T $S/conf/ld.trampoline.amd64 -o kernel -u __entry trampoline.o $S/arch/amd64/trampoline/trampoline.a
+		ld -b elf32-i386 -T $S/conf/ld.trampoline.amd64 -o kernel -u __entry trampoline.o $S/arch/amd64/trampoline/trampoline.a
 
 # Necessary tools
 $S/tools/file2inc/file2inc:
