@@ -1,9 +1,9 @@
-#include "types.h"
-#include "amd64/bootinfo.h"
-#include "amd64/param.h"
-#include "elf.h"
+#include <sys/types.h>
+#include <sys/amd64/bootinfo.h>
+#include <sys/amd64/param.h>
+#include <elf.h>
+#include <trampoline.h>
 #include "param.h"
-#include "trampoline.h"
 
 
 /* Points to the next available free page */

@@ -2,8 +2,9 @@ TARGET:		trampoline.a
 
 S=		../../..
 
-CFLAGS=		-m32 -march=i386 -I$S/../include/sys -I$S -I. -std=c99
+CFLAGS=		-m32 -march=i386 -I$S/../include -I$S -I. -std=c99
 ASFLAGS=	$(CFLAGS) -DASM
+#CC=		../../../../toolchain/prefix64/bin/amd64-elf-ananas-gcc
 
 OBJS=		entry.o relocate.o init.o lib.o
 

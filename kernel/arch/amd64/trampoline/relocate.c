@@ -1,5 +1,5 @@
-#include <types.h>
-#include "elf.h"
+#include <sys/types.h>
+#include <elf.h>
 #include "trampoline.h"
 
 extern unsigned char* kernel;
