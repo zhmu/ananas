@@ -6,15 +6,12 @@
 #include <machine/vm.h>
 #include "options.h"
 
-#define I386
-#define AMD64x
-
-#ifdef I386
-#include "../../../../sh.inc"
+#ifdef __i386__
+#include "../../../../../output/moonsh.i386.inc"
 #endif
 
-#ifdef AMD64
-#include "../../../../sh.64.inc"
+#ifdef __amd64__
+#include "../../../../../output/moonsh.amd64.inc"
 #endif
 
 int elf32_load(thread_t t, const char* data, size_t datalen);
@@ -60,14 +57,12 @@ mi_startup()
 	/* Give the devices a spin */
 	device_init();
 
-#ifdef I386
+	/* Construct our shell process */
 	thread_t t1 = thread_alloc();
-	elf32_load(t1, (char*)sh, sh_LENGTH);
-#endif
-
-#ifdef AMD64
-	thread_t t1 = thread_alloc();
-	elf64_load(t1, (char*)sh, sh_LENGTH);
+#ifdef __amd64__
+	elf64_load(t1, (char*)moonsh, moonsh_LENGTH);
+#else
+	elf32_load(t1, (char*)moonsh, moonsh_LENGTH);
 #endif
 
 #ifdef SMP
