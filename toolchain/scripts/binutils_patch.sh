@@ -19,6 +19,7 @@ awk '{ print }
 	print "    ;;"
 	print "  x86_64-*-ananas*)"
 	print "    targ_defvec=bfd_elf64_x86_64_vec"
+	print "    targ_selvecs=bfd_elf32_i386_vec"
 	print "    ;;"
 }' < $T/bfd/config.bfd > $T/bfd/config.bfd.new
 mv $T/bfd/config.bfd.new $T/bfd/config.bfd
