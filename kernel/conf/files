@@ -11,6 +11,7 @@ lib/misc.c		mandatory
 lib/memset.c		mandatory
 lib/memcpy.c		mandatory
 lib/print.c		mandatory
+lib/qdivrem.c		mandatory
 lib/string.c		mandatory
 dev/bus/isa.c		optional isa
 dev/bus/isa/atkbd.c	optional atkbd
