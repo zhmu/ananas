@@ -62,8 +62,8 @@ typedef uint64_t	u_quad_t;
 typedef int64_t		quad_t;
 
 /* XXX only for i386/amd64 */
-#define	_QUAD_HIGHWORD	0
-#define	_QUAD_LOWWORD	1
+#define	_QUAD_HIGHWORD	1
+#define	_QUAD_LOWWORD	0
 
 /*
  * Depending on the desired operation, we view a `long long' (aka quad_t) in
