@@ -48,18 +48,19 @@ mm_zone_add(addr_t addr, size_t length)
 	 * Note that we actually allocate these structures from the end of
 	 * the kernel memory, because this ensures we do not overwrite
 	 * important structures etc.
-	 *
-	 * Number of chunks is 
 	 */
 	size_t num_chunks = (length - PAGE_SIZE) / (PAGE_SIZE + sizeof(struct MM_CHUNK));
 	size_t num_pages =
 		(
 			/* MM_ZONE struct describing the zone itself */
 			sizeof(struct MM_ZONE) +
+			/* For every chunk, we have a MM_CHUNK structure */
 			num_chunks * sizeof(struct MM_CHUNK) +
+			/* Round up */
 			PAGE_SIZE - 1
 		) / PAGE_SIZE;
 	addr_t admin_addr = addr + length - (num_pages * PAGE_SIZE);
+	KMEM_ASSERT(admin_addr + (num_pages * PAGE_SIZE) == (addr + length), "adminstration does not fill up zone");
 	vm_map(admin_addr, num_pages);
 
 	/*
@@ -114,7 +115,7 @@ kprintf("zone_add: chunkaddr=%x, chunks=%x\n", zone->address, zone->chunks);
 	/*
 	 * If we just added a zone that began at 0x0, reserve the first page.
 	 */
-	if (addr == 0)
+	if (addr == 0) 
 		kmem_mark_used(0, 1);
 }
 
@@ -142,20 +143,22 @@ kmem_dump()
 		 curzone, curzone->address, curzone->length, curzone->num_chunks,
 		 curzone->num_free, curzone->num_cont_free, curzone->flags, curzone->chunks,
 		 curzone->next_zone);
+
+		struct MM_CHUNK* curchunk = curzone->chunks;
+		for (unsigned int n = 0; n < curzone->num_chunks; n++) {
+			kprintf("   %u: @ %x, flags %x, chain %u\n", n,
+			 curchunk->address, curchunk->flags, curchunk->chain_length);
+			curchunk++;
+		}
 	}
 }
 
 /*
- * Allocates a chunk of memory, but does not map it.
+ * Allocates a chunk of memory, but does not map it. Note that len is in PAGES !
  */
 void*
 kmem_alloc(size_t len)
 {
-	/* round up to a full page */
-	if (len % PAGE_SIZE > 0)
-		len += PAGE_SIZE - (len % PAGE_SIZE);
-
-	len /= PAGE_SIZE;
 	spinlock_lock(&spl_mm);
 	for (struct MM_ZONE* curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
 		KMEM_ASSERT(curzone->magic == MM_ZONE_MAGIC, "zone %p corrupted", curzone);
@@ -180,6 +183,7 @@ kmem_alloc(size_t len)
 			curzone->num_free -= len;
 			addr_t addr = chunk->address;
 			while (len > 0) {
+				KMEM_ASSERT(!(chunk->flags & MM_CHUNK_FLAG_USED), "chunk %p is free chain is used", chunk);
 				chunk->flags |= MM_CHUNK_FLAG_USED;
 				chunk->chain_length = len;
 				chunk++; len--;
@@ -202,11 +206,12 @@ kmem_alloc(size_t len)
 void*
 kmalloc(size_t len)
 {
-	/* Round len up to a full page*/
-	if (len % PAGE_SIZE > 0)
-		len += PAGE_SIZE - (len % PAGE_SIZE);
-	void* ptr = kmem_alloc(len);
+	/* Calculate len in pages - always round up */
+	if (len & (PAGE_SIZE - 1))
+		len += PAGE_SIZE;
 	len /= PAGE_SIZE;
+
+	void* ptr = kmem_alloc(len);
 	if (ptr == NULL) {
 		kmem_dump();
 		panic("kmalloc: out of memory");

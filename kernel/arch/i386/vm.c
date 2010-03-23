@@ -145,7 +145,7 @@ vm_init()
 		 * OK, we have found the page entry in question. Grab a new
 		 * page first, so we can copy the data.
 		 */
-		void* new_page = kmem_alloc(PAGE_SIZE);
+		void* new_page = kmem_alloc(1);
 		KASSERT(new_page != NULL, "got null pointer from kmem_alloc");
 
 		/*
