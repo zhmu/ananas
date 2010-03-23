@@ -277,4 +277,10 @@ typedef struct {
 	} d_un;
 } Elf64_Dyn;
 
+struct VFS_FILE;
+
+typedef int (*elf_getfunc_t)(void* priv, void* buf, off_t offset, size_t len);
+int elf_load(thread_t thread, void* priv, elf_getfunc_t obtain);
+int elf_load_from_file(thread_t thread, struct VFS_FILE* file);
+
 #endif /* __ELF_H__ */
