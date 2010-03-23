@@ -331,11 +331,14 @@ md_startup()
 	}
 
 	/*
-	 * Mark the pages occupied by the kernel as used; this prevents
-	 * the memory allocator from handing out memory where the kernel
-	 * lives.
+	 * Mark the pages occupied by the kernel as used; this prevents the memory
+	 * allocator from handing out memory where the kernel lives.
+	 *
+	 * Note that we always use the first few pages directly after the kernel for
+	 * our page directory (these will not be relocated by vm_init()) so be sure
+	 * to include them (this is why we use avail and not __end !)
 	 */
-	size_t kern_pages = ((addr_t)&__end - (addr_t)&__entry + PAGE_SIZE - 1) / PAGE_SIZE;
+	size_t kern_pages = ((addr_t)avail - ((addr_t)&__entry - KERNBASE)) / PAGE_SIZE;
 	kmem_mark_used((void*)(addr_t)&__entry - KERNBASE, kern_pages);
 
 	/* All done - it's up to the machine-independant code now */
