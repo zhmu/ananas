@@ -16,6 +16,8 @@ enum RESOURCE_TYPE {
 	RESTYPE_MEMORY,
 	RESTYPE_IO,
 	RESTYPE_IRQ,
+	/* Generic child devices */
+	RESTYPE_CHILDNUM,
 	/* PCI-specific resource types */
 	RESTYPE_PCI_VENDORID,
 	RESTYPE_PCI_DEVICEID,
@@ -50,6 +52,9 @@ struct DRIVER {
  * is also used during probe / attach phase.
  */
 struct DEVICE {
+	/* Next driver XXX enumeration kludge */
+	struct	DEVICE*	next;
+
 	/* Device's driver */
 	driver_t	driver;
 
@@ -64,6 +69,9 @@ struct DEVICE {
 
 	/* Formatted name XXX */
 	char		name[128 /* XXX */];
+
+	/* Private data for the device driver */
+	void*		privdata;
 };
 
 /*
@@ -106,5 +114,7 @@ void* device_alloc_resource(device_t dev, resource_type_t type, size_t len);
 int device_add_resource(device_t dev, resource_type_t type, unsigned int base, unsigned int len);
 struct RESOURCE* device_get_resource(device_t dev, resource_type_t type, int index);
 void device_print_attachment(device_t dev);
+
+struct DEVICE* device_find(const char* name);
 
 #endif /* __DEVICE_H__ */

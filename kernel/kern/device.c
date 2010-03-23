@@ -29,6 +29,11 @@ device_alloc(device_t bus, driver_t drv)
 	dev->unit = 0; /* XXX */
 	if (drv != NULL)
 		strcpy(dev->name, drv->name);
+	/* hook the device up to the chain */
+	if (corebus != NULL) {
+		dev->next = corebus->next;
+		corebus->next = dev;
+	}
 	return dev;
 }
 
@@ -36,6 +41,7 @@ void
 device_free(device_t dev)
 {
 	kfree(dev);
+	/* XXX unhook */
 }
 
 int
@@ -162,6 +168,7 @@ device_print_attachment(device_t dev)
 			case RESTYPE_MEMORY: kprintf("memory "); hex = 1; break;
 			case RESTYPE_IO: kprintf("io "); hex = 1; break;
 			case RESTYPE_IRQ: kprintf("irq "); break;
+			case RESTYPE_CHILDNUM: kprintf("child "); break;
 			case RESTYPE_PCI_BUS: kprintf("bus "); break;
 			case RESTYPE_PCI_DEVICE: kprintf("dev "); break;
 			case RESTYPE_PCI_FUNCTION: kprintf("func "); break;
@@ -207,6 +214,7 @@ device_alloc_resource(device_t dev, resource_type_t type, size_t len)
 		case RESTYPE_MEMORY:
 			return (void*)vm_map_device(res->base, len);
 		case RESTYPE_IO:
+		case RESTYPE_CHILDNUM:
 		case RESTYPE_IRQ: /* XXX should allocate, not just return */
 			return (void*)(uintptr_t)res->base;
 		default:
@@ -290,6 +298,20 @@ device_init()
 	memset(corebus, 0, sizeof(struct DEVICE));
 	strcpy(corebus->name, "corebus");
 	device_attach_bus(corebus);
+}
+
+struct DEVICE*
+device_find(const char* name)
+{
+	char* ptr = (char*)name;
+	while (*ptr != '\0' && (*ptr < '0' || *ptr > '9')) ptr++;
+	int unit = (*ptr != '\0') ? strtoul(ptr, NULL, 10) : 0;
+
+	for (struct DEVICE* dev = corebus; dev != NULL; dev = dev->next) {
+		if (!strncmp(dev->name, name, ptr - name) && dev->unit == unit)
+			return dev;
+	}
+	return NULL;
 }
 
 /* vim:set ts=2 sw=2: */
