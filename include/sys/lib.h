@@ -15,12 +15,16 @@ void vaprintf(const char* fmt, va_list ap);
 void kprintf(const char* fmt, ...);
 void panic(const char* fmt, ...);
 int sprintf(char* str, const char* fmt, ...);
+char* strdup(const char* s);
 
 char* strcpy(char* dst, const char* src);
 int   strcmp(const char* s1, const char* s2);
+int   strncmp(const char* s1, const char* s2, size_t n);
 char* strchr(const char* s, int c);
 size_t strlen(const char* s);
 char* strcat(char* dst, const char* src);
+
+char* strncpy(char* dst, const char* src, size_t n);
 
 int memcmp(const void* s1, const void* s2, size_t len);
 

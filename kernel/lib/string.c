@@ -1,4 +1,5 @@
 #include <sys/lib.h>
+#include <sys/mm.h>
 
 char*
 strcpy(char* dst, const char* src)
@@ -19,6 +20,15 @@ strcmp(const char* s1, const char* s2)
 		s1++; s2++;
 	}
 	return *s1 - *s2;
+}
+
+int
+strncmp(const char* s1, const char* s2, size_t n)
+{
+	while (n > 0 && *s1 != '\0' && *s2 != '\0' && *s1 == *s2) {
+		n--; s1++; s2++;
+	}
+	return (n == 0) ? n : *s1 - *s2;
 }
 
 char*
@@ -101,5 +111,26 @@ strcat(char* dst, const char* src)
 	return org_dest;
 }
 
+char*
+strdup(const char* s)
+{
+	char* ptr = kmalloc(strlen(s) + 1);
+	if (ptr == NULL) return NULL;
+	strcpy(ptr, s);
+	return ptr;
+}
+
+char*
+strncpy(char* dst, const char* src, size_t n)
+{
+	char* ptr = dst;
+
+	while (*src && n > 0) {
+		*ptr++ = *src++; n--;
+	}
+	if (n >= 0)
+		*ptr = '\0';
+	return dst;
+}
 
 /* vim:set ts=2 sw=2: */
