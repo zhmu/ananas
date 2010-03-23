@@ -1,24 +1,24 @@
 #include <sys/device.h>
+#include <sys/bio.h>
 #include <sys/console.h>
 #include <sys/mm.h>
 #include <sys/lib.h>
 #include <sys/thread.h>
+#include <sys/vfs.h>
 #include <machine/vm.h>
+#include <elf.h>
 #include "options.h"
 
 #ifdef __i386__
-#include "../../../../../output/moonsh.i386.inc"
+#define SHELL_BIN "usr/bin/moonsh.i386"
+#elif defined(__amd64__)
+#define SHELL_BIN "usr/bin/moonsh.amd64"
 #endif
-
-#ifdef __amd64__
-#include "../../../../../output/moonsh.amd64.inc"
-#endif
-
-int elf32_load(thread_t t, const char* data, size_t datalen);
-int elf64_load(thread_t t, const char* data, size_t datalen);
 
 void smp_init();
 void smp_launch();
+
+void kmem_dump();
 
 void
 mi_startup()
@@ -54,16 +54,34 @@ mi_startup()
 	smp_init();
 #endif
 
+	/* Initialize I/O */
+	bio_init();
+
 	/* Give the devices a spin */
 	device_init();
 
+	/* Init VFS and mount something */
+	vfs_init();
+	kprintf("vfs_mount(): %i\n", vfs_mount("slice0", "/", "ext2", NULL));
+
+	kmem_stats(&mem_avail, &mem_total);
+	kprintf("CURRENT Memory: %uKB available / %uKB total\n", mem_avail / 1024, mem_total / 1024);
+
 	/* Construct our shell process */
+#ifdef SHELL_BIN 
 	thread_t t1 = thread_alloc();
-#ifdef __amd64__
-	elf64_load(t1, (char*)moonsh, moonsh_LENGTH);
-#else
-	elf32_load(t1, (char*)moonsh, moonsh_LENGTH);
-#endif
+	struct VFS_FILE f;
+	kprintf("Lauching MoonShell.. ");
+	if (vfs_open(SHELL_BIN, &f)) {
+		if (elf_load_from_file(t1, &f)) {
+			kprintf(" ok\n");
+		} else {
+			kprintf(" fail\n");
+		}
+	} else {
+		kprintf(" fail - file not found\n");
+	}
+#endif /* SHELL_BIN  */
 
 #ifdef SMP
 	smp_launch();
