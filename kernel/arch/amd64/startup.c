@@ -247,6 +247,14 @@ extern void* syscall_handler;
 		"movq	%rax, %cr4\n"
 	);
 
+	/*
+	 * Mark the pages occupied by the kernel as used; this prevents
+	 * the memory allocator from handing out memory where the kernel
+	 * lives.
+	 */
+	size_t kern_pages = ((addr_t)&__end - (addr_t)&__entry + PAGE_SIZE - 1) / PAGE_SIZE;
+	kmem_mark_used((void*)((addr_t)from & 0x0fffffff) /* HACK */, (to - from) / PAGE_SIZE);
+
 	mi_startup();
 }
 
