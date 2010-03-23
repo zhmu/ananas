@@ -16,4 +16,6 @@ struct IRQ {
 int irq_register(unsigned int no, device_t dev, irqhandler_t handler);
 void irq_handler(unsigned int no);
 
+int interrupts_enabled();
+
 #endif /* __IRQ_H__ */

@@ -26,4 +26,23 @@ x86_pic_remap() {
 #undef IO_WAIT
 }
 
+int
+md_interrupts_enabled()
+{
+	int i;
+
+#ifdef __i386__
+	__asm(
+		"pushfl\n"
+		"pop 	%%eax\n"
+	: "=a" (i));
+#elif defined(__amd64__)
+	__asm(
+		"pushfq\n"
+		"pop 	%%rax\n"
+	: "=a" (i));
+#endif /* __i386__ */
+	return (i & 0x200);
+}
+
 /* vim:set ts=2 sw=2: */
