@@ -1,8 +1,11 @@
 #include <machine/io.h>
 #include <sys/device.h>
 #include <sys/lib.h>
+#include <sys/mm.h>
 
-uint32_t sio_port = 0;
+struct SIO_PRIVDATA {
+	uint32_t io_port;
+};
 
 static int
 sio_attach(device_t dev)
@@ -10,14 +13,18 @@ sio_attach(device_t dev)
 	void* res = device_alloc_resource(dev, RESTYPE_IO, 7);
 	if (res == NULL)
 		return 1; /* XXX */
-	sio_port = (uint32_t)res;
 
+	struct SIO_PRIVDATA* privdata = kmalloc(sizeof(struct SIO_PRIVDATA));
+	privdata->io_port = (uint32_t)(uintptr_t)res;
+
+	dev->privdata = privdata;
 	return 0;
 }
 
 static ssize_t
 sio_write(device_t dev, const char* data, size_t len)
 {
+	struct SIO_PRIVDATA* privdata = (struct SIO_PRIVDATA*)dev->privdata;
 	size_t amount;
 
 	for (amount = 0; amount < len; amount++, data++) {
@@ -40,7 +47,7 @@ sio_write(device_t dev, const char* data, size_t len)
 			"in		%%dx,%%al\n"
 			"test	$0x20, %%al\n"
 			"jz	 	z2f\n"
-		: : "b" (*data), "c" (sio_port));
+		: : "b" (*data), "c" (privdata->io_port));
 		/* XXX KLUDGE */
 		if (len == 1 && *data == '\n') {
 			char tmp = '\r';
