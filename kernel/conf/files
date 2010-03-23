@@ -7,6 +7,7 @@ kern/thread.c		mandatory
 kern/scheduler.c	mandatory
 kern/syscall.c		mandatory
 kern/irq.c		mandatory
+kern/bio.c		mandatory
 lib/misc.c		mandatory
 lib/memset.c		mandatory
 lib/memcpy.c		mandatory
@@ -20,6 +21,9 @@ dev/bus/pci/pcibus.c	optional pci
 dev/ata.c		optional ata
 dev/vga.c		optional vga
 dev/sio.c		optional sio
+# XXX maybe make disk-stuff optional?
+kern/disk_mbr.c		mandatory
+kern/disk_slice.c	mandatory
 gen/std.c		mandatory
 gen/io.c		mandatory
 lib/teken/teken.c	mandatory
