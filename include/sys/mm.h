@@ -3,6 +3,9 @@
 #ifndef __MM_H__
 #define __MM_H__
 
+#define MM_ZONE_MAGIC		0x19830708
+#define MM_CHUNK_MAGIC		0x20080801
+
 #define MM_CHUNK_FLAG_USED	0x0001
 
 /*
@@ -13,6 +16,9 @@ struct MM_ZONE {
 	/* Zone's base address */
 	addr_t	address;
 
+	/* Magic number, to check whether the zone wasn't corrupted */
+	uint32_t magic;
+
 	/* Zone length, in pages */
 	size_t	length;
 
@@ -22,12 +28,7 @@ struct MM_ZONE {
 	/* Number of available pages */
 	size_t	num_free;
 
-	/*
-	 * Maximum number of available contiguous pages. This is needed because
-	 * even though a zone may have a large amount of memory available, we
-	 * need to know before-hand whether the zone needs to be considered at
-	 * all.
-	 */
+	/* Number of contigous available pages */
 	size_t	num_cont_free;
 
 	/* Flags */
@@ -47,6 +48,9 @@ struct MM_CHUNK {
 	/* Chunk's base address */
 	addr_t	address;
 
+	/* Magic number, to check whether the chunk wasn't corrupted */
+	uint32_t magic;
+
 	/* Chunk flags */
 	int	flags;
 
@@ -64,5 +68,7 @@ void kmem_stats(size_t* avail, size_t* total);
 void* kmem_alloc(size_t len);
 void* kmalloc(size_t len);
 void  kfree(void* ptr);
+
+void kmem_mark_used(void* addr, size_t num_pages);
 
 #endif /* __MM_H__ */

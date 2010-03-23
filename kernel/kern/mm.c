@@ -5,14 +5,32 @@
 #include <sys/vm.h>
 #include <sys/lib.h>
 
-static int zone_root_initialized;
 static struct MM_ZONE* zone_root;
 static struct SPINLOCK spl_mm;
+
+void kmem_dump();
+
+static void
+kmem_assert(int c, const char* cond, int line, const char* msg, ...)
+{
+ va_list ap;
+	if (c)
+		return;
+
+	kmem_dump();
+
+	va_start(ap, msg);
+	vaprintf(msg, ap);
+	kprintf("\n");
+	va_end(ap);
+	panic("%s:%u: assertion '%s' failed", __FILE__, line, cond);
+}
+
+#define KMEM_ASSERT(x,msg...) kmem_assert((x), STRINGIFY(x), __LINE__, ##msg);
 
 void
 mm_init()
 {
-	zone_root_initialized = 0;
 	zone_root = NULL;
 	spinlock_init(&spl_mm);
 }
@@ -20,8 +38,8 @@ mm_init()
 void
 mm_zone_add(addr_t addr, size_t length)
 {
-	KASSERT(addr % PAGE_SIZE == 0, "addr 0x%x isn't page-aligned", addr);
-	KASSERT(length % PAGE_SIZE == 0, "length 0x%x isn't page-aligned", length);
+	KMEM_ASSERT(addr % PAGE_SIZE == 0, "addr 0x%x isn't page-aligned", addr);
+	KMEM_ASSERT(length % PAGE_SIZE == 0, "length 0x%x isn't page-aligned", length);
 
 	/*
 	 * First of all, we need to calculate the number of pages needed to store the
@@ -30,13 +48,15 @@ mm_zone_add(addr_t addr, size_t length)
 	 * Note that we actually allocate these structures from the end of
 	 * the kernel memory, because this ensures we do not overwrite
 	 * important structures etc.
+	 *
+	 * Number of chunks is 
 	 */
-	int num_pages =
+	size_t num_chunks = (length - PAGE_SIZE) / (PAGE_SIZE + sizeof(struct MM_CHUNK));
+	size_t num_pages =
 		(
 			/* MM_ZONE struct describing the zone itself */
 			sizeof(struct MM_ZONE) +
-			/* each page is described by a MM_CHUNK structure */
-			(length / PAGE_SIZE) * sizeof(struct MM_CHUNK) +
+			num_chunks * sizeof(struct MM_CHUNK) +
 			PAGE_SIZE - 1
 		) / PAGE_SIZE;
 	addr_t admin_addr = addr + length - (num_pages * PAGE_SIZE);
@@ -47,23 +67,24 @@ mm_zone_add(addr_t addr, size_t length)
 	 */
 	struct MM_ZONE* zone = (struct MM_ZONE*)admin_addr;
 	zone->address = addr;
-	zone->length = length / PAGE_SIZE;
-	zone->num_chunks = length / PAGE_SIZE;
-	zone->num_free = zone->num_chunks - num_pages;
+	zone->magic = MM_ZONE_MAGIC;
+	zone->length = num_chunks;
+	zone->num_chunks = num_chunks - num_pages;
+	zone->num_free = zone->num_chunks;
 	zone->num_cont_free = zone->num_free;
 	zone->flags = 0;
 	zone->chunks = (struct MM_CHUNK*)(admin_addr + sizeof(struct MM_ZONE));
 	zone->next_zone = NULL;
 #if 0
-kprintf("zone_add: addr=%x,len=%x,num_chunks=%x,num_free=%x,np=%x\n", addr, length, zone->num_chunks, zone->length, zone->num_free);
-kprintf("zone_add: addr=%x, chunks=%x\n", zone->address, zone->chunks);
+kprintf("zone_add: memaddr=%p. length=%x => #chunks=%u, #free=%u\n", addr, length, zone->num_chunks, zone->num_free);
+kprintf("zone_add: chunkaddr=%x, chunks=%x\n", zone->address, zone->chunks);
 #endif
 
 	/*
 	 * Figure out the location of the first chunk's data - this is directly after
 	 * the zone and chunk structures, rounded to a page.
 	 */
-	addr_t data_addr = addr + (num_pages * PAGE_SIZE);
+	addr_t data_addr = addr;
 
 	/*
 	 * Initialize the chunks, one at a time.
@@ -71,22 +92,30 @@ kprintf("zone_add: addr=%x, chunks=%x\n", zone->address, zone->chunks);
 	unsigned int n;
 	for (n = 0; n < zone->num_chunks; n++, data_addr += PAGE_SIZE) {
 		struct MM_CHUNK* chunk = (struct MM_CHUNK*)((addr_t)zone->chunks + n * sizeof(struct MM_CHUNK));
+		KMEM_ASSERT(data_addr < admin_addr, "chunk %u@%p would overwrite administrativa", n, chunk);
 		chunk->address = data_addr;
+		chunk->magic = MM_CHUNK_MAGIC;
 		chunk->flags = 0;
 		chunk->chain_length = zone->num_chunks - n;
 	}
 
 	/* Finally, add this zone to the available zones */
 	spinlock_lock(&spl_mm);
-	if (zone_root_initialized) {
+	if (zone_root != NULL) {
 		struct MM_ZONE* curzone;
 		for (curzone = zone_root; curzone->next_zone != NULL; curzone = curzone->next_zone);
 		curzone->next_zone = zone;
 	} else {
-		zone_root = zone; zone_root_initialized = 1;
+		zone_root = zone;
 	}
 
 	spinlock_unlock(&spl_mm);
+
+	/*
+	 * If we just added a zone that began at 0x0, reserve the first page.
+	 */
+	if (addr == 0)
+		kmem_mark_used(0, 1);
 }
 
 void
@@ -94,19 +123,26 @@ kmem_stats(size_t* avail, size_t* total)
 {
 	*avail = 0; *total = 0;
 
-	if (!zone_root_initialized)
-		return;
-
 	spinlock_lock(&spl_mm);
-	struct MM_ZONE* curzone = zone_root;
-	while (1) {
+	for (struct MM_ZONE* curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
 		*total += curzone->length * PAGE_SIZE;
 		*avail += curzone->num_free * PAGE_SIZE;
-		curzone = curzone->next_zone;
-		if (curzone == NULL)
-			break;
 	}
 	spinlock_unlock(&spl_mm);
+}
+
+void
+kmem_dump()
+{
+	struct MM_ZONE* curzone = zone_root;
+
+	kprintf("zone dump\n");
+	for (curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
+		kprintf("zone 0x%p: addr 0x%x, length 0x%x, #chunks %u, num_free %u, num_cont_free %u, flags %u, chunks %p, next %p\n",
+		 curzone, curzone->address, curzone->length, curzone->num_chunks,
+		 curzone->num_free, curzone->num_cont_free, curzone->flags, curzone->chunks,
+		 curzone->next_zone);
+	}
 }
 
 /*
@@ -115,22 +151,23 @@ kmem_stats(size_t* avail, size_t* total)
 void*
 kmem_alloc(size_t len)
 {
-	struct MM_ZONE* curzone = zone_root;
-
 	/* round up to a full page */
 	if (len % PAGE_SIZE > 0)
 		len += PAGE_SIZE - (len % PAGE_SIZE);
 
 	len /= PAGE_SIZE;
 	spinlock_lock(&spl_mm);
-	for (curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
+	for (struct MM_ZONE* curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
+		KMEM_ASSERT(curzone->magic == MM_ZONE_MAGIC, "zone %p corrupted", curzone);
+#ifdef NOTYET
 		/* Skip any zone that hasn't got enough space */
 		if (curzone->num_cont_free < len)
 			continue;
+#endif
 
-		unsigned int n;
-		for (n = 0; n < curzone->num_chunks; n++) {
+		for (unsigned int n = 0; n < curzone->num_chunks; n++) {
 			struct MM_CHUNK* chunk = (struct MM_CHUNK*)((addr_t)curzone->chunks + n * sizeof(struct MM_CHUNK));
+			KMEM_ASSERT(chunk->magic == MM_CHUNK_MAGIC, "chunk %p corrupted", chunk);
 
 			if (chunk->flags & MM_CHUNK_FLAG_USED)
 				continue;
@@ -140,6 +177,7 @@ kmem_alloc(size_t len)
 			/*
 			 * OK, we hit a chunk that we can use. 
 			 */
+			curzone->num_free -= len;
 			addr_t addr = chunk->address;
 			while (len > 0) {
 				chunk->flags |= MM_CHUNK_FLAG_USED;
@@ -150,6 +188,10 @@ kmem_alloc(size_t len)
 			spinlock_unlock(&spl_mm);
 			return (void*)addr;
 		}
+
+#ifdef NOTYET
+		panic("zone %p is supposed to have space for %u pages, but does not", curzone, len);
+#endif
 	}
 
 	/* No zones available to honor this request */
@@ -165,6 +207,10 @@ kmalloc(size_t len)
 		len += PAGE_SIZE - (len % PAGE_SIZE);
 	void* ptr = kmem_alloc(len);
 	len /= PAGE_SIZE;
+	if (ptr == NULL) {
+		kmem_dump();
+		panic("kmalloc: out of memory");
+	}
 	vm_map((addr_t)ptr, len);
 	return ptr;
 }
@@ -172,33 +218,32 @@ kmalloc(size_t len)
 void
 kfree(void* addr)
 {
-	KASSERT((addr_t)addr % PAGE_SIZE == 0, "addr 0x%x isn't page-aligned", (addr_t)addr);
+	KMEM_ASSERT((addr_t)addr % PAGE_SIZE == 0, "addr 0x%x isn't page-aligned", (addr_t)addr);
 
-	/*
-	 * This is quite unpleasant; we have to trace through all zones before we know
-	 * where this address belongs. And then, we can free it.
-	 */
-	struct MM_ZONE* curzone;
 	spinlock_lock(&spl_mm);
-	for (curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
-		unsigned int n;
-		for (n = 0; n < curzone->num_chunks; n++) {
+	for (struct MM_ZONE* curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
+		/* Skip the zone if we know the address won't be in it */
+		if ((addr_t)addr < (addr_t)curzone->address ||
+		    (addr_t)addr > (addr_t)(curzone->address + curzone->length * PAGE_SIZE))
+			continue;
+
+		/*
+		 * We have no choice but to do a sequantial scan for the chunk in question.
+		 */
+		for (unsigned int n = 0; n < curzone->num_chunks; n++) {
 			struct MM_CHUNK* chunk = (struct MM_CHUNK*)((addr_t)curzone->chunks + n * sizeof(struct MM_CHUNK));
 			if (chunk->address != (addr_t)addr)
 				continue;
-
-			if ((chunk->flags & MM_CHUNK_FLAG_USED) == 0) {
-				spinlock_unlock(&spl_mm);
-				panic("freeing unallocated pointer 0x%x", (addr_t)addr);
-			}
 
 			/*
 			 * OK, we located the chunk. Just mark it as free for now
 			 * XXX we should merge it, but that's for later XXX
 			 */
 			unsigned int i = chunk->chain_length;
+			curzone->num_free += i;
 			while (i > 0) {
-				KASSERT(chunk->flags & MM_CHUNK_FLAG_USED, "chunk 0x%x (%u) should be allocated, but isn't!", chunk, i);
+				KMEM_ASSERT(chunk->flags & MM_CHUNK_FLAG_USED, "chunk 0x%x (%u) should be allocated, but isn't!", chunk, i);
+				KMEM_ASSERT(chunk->chain_length == i, "chunk %p does not belong in chain", chunk);
 				chunk->flags &= ~MM_CHUNK_FLAG_USED;
 				chunk++; i--;
 			}
@@ -208,7 +253,38 @@ kfree(void* addr)
 	}
 
 	spinlock_unlock(&spl_mm);
-	panic("freeing unlocatable pointer 0x%x", (addr_t)addr);
+	KMEM_ASSERT(0, "freeing unlocatable pointer 0x%x", (addr_t)addr);
+}
+
+void
+kmem_mark_used(void* addr, size_t num_pages)
+{
+	KMEM_ASSERT((addr_t)addr % PAGE_SIZE == 0, "addr 0x%x isn't page-aligned", (addr_t)addr);
+
+	size_t num_marked = 0;
+
+	spinlock_lock(&spl_mm);
+	for (struct MM_ZONE* curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
+		/* Skip the zone if we know the address won't be in it */
+		if ((addr_t)addr < (addr_t)curzone->address ||
+		    (addr_t)addr + num_pages > (addr_t)(curzone->address + curzone->length * PAGE_SIZE))
+			continue;
+
+		for (unsigned int n = 0; n < curzone->num_chunks && num_marked < num_pages; n++) {
+			struct MM_CHUNK* chunk = (struct MM_CHUNK*)((addr_t)curzone->chunks + n * sizeof(struct MM_CHUNK));
+
+			if (chunk->address != (addr_t)addr)
+				continue;
+
+			chunk->flags |= MM_CHUNK_FLAG_USED;
+			chunk->chain_length = num_pages - num_marked;
+
+			num_marked++; addr += PAGE_SIZE;
+		}
+	}
+	spinlock_unlock(&spl_mm);
+
+	KMEM_ASSERT(num_marked == num_pages, "could only mark %u of %u pages as used", num_marked, num_pages);
 }
 
 /* vim:set ts=2 sw=2: */
