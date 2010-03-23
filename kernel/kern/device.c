@@ -27,6 +27,7 @@ device_alloc(device_t bus, driver_t drv)
 	dev->driver = drv;
 	dev->parent = bus;
 	dev->unit = 0; /* XXX */
+	dev->biodev = dev; /* by default every driver performs its own I/O */
 	if (drv != NULL)
 		strcpy(dev->name, drv->name);
 	/* hook the device up to the chain */
@@ -298,6 +299,15 @@ device_init()
 	memset(corebus, 0, sizeof(struct DEVICE));
 	strcpy(corebus->name, "corebus");
 	device_attach_bus(corebus);
+}
+
+void
+device_set_biodev(device_t dev, device_t biodev)
+{
+	KASSERT(biodev->driver != NULL, "block device without a driver");
+	KASSERT(biodev->driver->drv_start != NULL, "block device without drv_start");
+
+	dev->biodev = biodev;
 }
 
 struct DEVICE*

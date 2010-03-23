@@ -45,6 +45,8 @@ struct DRIVER {
 	int	(*drv_attach)(device_t);
 	ssize_t	(*drv_write)(device_t, const char*, size_t);
 	ssize_t	(*drv_read)(device_t, char*, size_t);
+	/* for block devices: start request queue */
+	void	(*drv_start)(device_t);
 };
 
 /*
@@ -60,6 +62,9 @@ struct DEVICE {
 
 	/* Parent device */
 	device_t	parent;
+
+	/* Block I/O device - if not NULL, I/O's will be sent to this device instead */
+	device_t	biodev;
 
 	/* Unit number */
 	unsigned int	unit;
@@ -115,6 +120,7 @@ int device_add_resource(device_t dev, resource_type_t type, unsigned int base, u
 struct RESOURCE* device_get_resource(device_t dev, resource_type_t type, int index);
 void device_print_attachment(device_t dev);
 
+void device_set_biodev(device_t dev, device_t biodev);
 struct DEVICE* device_find(const char* name);
 
 #endif /* __DEVICE_H__ */
