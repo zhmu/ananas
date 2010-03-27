@@ -4,7 +4,7 @@
 #include <machine/vm.h>
 #include "asmsyms.h"
 
-.global md_store_ctx, md_restore_ctx
+.global md_store_ctx, md_restore_ctx, reschedule
 
 /*
  * Stores the current thread context. This function expects to be
@@ -126,6 +126,23 @@ md_restore_ctx:
 	movl	4(%esp), %ebx
 
 	/*
+	 * If we are switching to kernel context, this must be because of a
+	 * system call that call reschedule(); in this case, we can opt for the
+	 * easy way out as we don't have to restore every little detail (the
+	 * segment registers, pagetable etc is already correct)
+	 *
+	 * Note that we have to compare the entire cs:eip thing,
+	 * because failure to do so would cause kernel threads to
+	 * have problems.
+	 */
+	cmpl	$GDT_SEL_KERNEL_CODE, 0x24(%ebx)	/* check cs */
+	jne	md_restore_ctx2
+	cmpl	$reschedule_back, 0x20(%ebx)		/* check eip */
+	je	md_restore_ctx_kernel
+
+md_restore_ctx2:
+
+	/*
 	 * First of all, restore the segment registers es/fs/gs.
 	 */
 	movl	0x2c(%ebx), %eax
@@ -160,10 +177,11 @@ md_restore_ctx:
 	 * IRET instruction also pops the stack pointer and SS from the stack,
 	 * before resuming program execution' (IA-32 Intel Architecture Software
  	 * Developer's Manual Volume 2, page 3-354)
+ 	 *
 	 */
 	pushl	0x38(%ebx)	/* ss */
 	pushl	0x1c(%ebx)	/* esp */
-	pushl	0x40(%ebx)	/* eflags*/
+	pushl	0x40(%ebx)	/* eflags */
 	pushl	0x24(%ebx)	/* cs */
 	pushl	0x20(%ebx)	/* eip */
 
@@ -199,3 +217,69 @@ md_restore_ctx:
 	/* Finally, restore %eax and go */
 	popl	%eax
 	iret
+
+md_restore_ctx_kernel:
+	/*
+	 * Restore the saved registers.
+	 */
+	movl	0x04(%ebx), %ecx		/* ecx = stored ebx! */
+	movl	0x10(%ebx), %esi
+	movl	0x14(%ebx), %edi
+	movl	0x18(%ebx), %ebp
+
+	movl	0x1c(%ebx), %esp
+
+	/*
+	 * Note this is a kernel -> kernel return, so we do not have to mess
+	 * with a stack. It will be returned by our system call handler.
+	 */
+	pushl	0x20(%ebx)	/* eip */
+	ret
+
+/*
+ * Reschedule can be called at any moment and causes two things to happen:
+ *
+ * - current thread context will be stored
+ * - schedule() will be called to schedule a new thread to run
+ *
+ * Once the function returns, the calling thread will have been re-scheduled,
+ * hence the name.
+ */
+reschedule:
+	/*
+	 * First of all, we need to store the context. We assume this will
+	 * always be called from kernel context - most importantly, this means
+	 * both %fs and %cr3 are already set up.
+	 *
+	 * We do not save/restore any segment registers, as the contex-switch
+	 * code is smart enough not to touch them if it's returning to
+	 * kernel context.
+	 *
+	 * System V Application Binary Interface, i386 supplement 4th edition
+	 * page 3-11 we only have to store %ebp, %edi, %esi and %ebx.
+	 */
+
+	/* Store %ebx/%esi/%ebp/%edi/%esp */
+	movl	%fs:0, %eax
+	movl	%ebx, 0x04(%eax)
+	movl	%esi, 0x10(%eax)
+	movl	%edi, 0x14(%eax)
+	movl	%ebp, 0x18(%eax)
+	movl	%esp, 0x1c(%eax)
+
+	/* Now, insert our return point, %cs:%eip */
+	movl	$GDT_SEL_KERNEL_CODE, 0x24(%eax)
+	movl	$reschedule_back, 0x20(%eax)
+	
+	/* All is set - schedule a new thread! */
+	call	schedule
+
+	/*
+	 * We're back! schedule() calls md_thread_switch()
+	 * which will have restored our context (md_restore_ctx()
+	 * takes a shortcut as most 'expensive' registers will
+	 * be at their correct values already)
+	 */
+
+reschedule_back:
+	ret
