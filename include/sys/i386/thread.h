@@ -72,13 +72,13 @@ struct FPUREGS {
 	uint8_t		_reg[108];
 };
 
-struct MD_THREAD {
-	struct CONTEXT	ctx;
-	struct FPUREGS	fpu_ctx __attribute__ ((aligned(16)));
-	void*		pagedir;
-	void*		stack;
-	void*		kstack;
-};
+/* i386-specific thread detais */
+#define MD_THREAD_FIELDS \
+	struct CONTEXT	md_ctx; \
+	struct FPUREGS	md_fpu_ctx __attribute__ ((aligned(16))); \
+	void*		md_pagedir; \
+	void*		md_stack; \
+	void*		md_kstack; \
 
 void md_restore_ctx(struct CONTEXT* ctx);
 

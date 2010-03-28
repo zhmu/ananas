@@ -15,23 +15,20 @@
 extern struct TSS kernel_tss;
 
 int
-md_thread_init(thread_t thread)
+md_thread_init(thread_t t)
 {
-	/* Note that this function relies on thread->md being zero-filled before calling */
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
-
 	/* Create a pagedirectory and map the kernel pages in there */
-	md->pagedir = kmalloc(PAGE_SIZE);
-	memset(md->pagedir, 0, PAGE_SIZE);
-	vm_map_kernel_addr(md->pagedir);
+	t->md_pagedir = kmalloc(PAGE_SIZE);
+	memset(t->md_pagedir, 0, PAGE_SIZE);
+	vm_map_kernel_addr(t->md_pagedir);
 
 	/* Allocate stacks: one for the thread and one for the kernel */
-	md->stack  = kmalloc(THREAD_STACK_SIZE);
-	md->kstack = kmalloc(KERNEL_STACK_SIZE);
+	t->md_stack  = kmalloc(THREAD_STACK_SIZE);
+	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
 
 	/* Perform adequate mapping for the stack / code */
-	vm_map_pagedir(md->pagedir, (addr_t)md->stack,  THREAD_STACK_SIZE / PAGE_SIZE, 1);
-	vm_map_pagedir(md->pagedir, (addr_t)md->kstack, KERNEL_STACK_SIZE / PAGE_SIZE, 0);
+	vm_map_pagedir(t->md_pagedir, (addr_t)t->md_stack,  THREAD_STACK_SIZE / PAGE_SIZE, 1);
+	vm_map_pagedir(t->md_pagedir, (addr_t)t->md_kstack, KERNEL_STACK_SIZE / PAGE_SIZE, 0);
 
 #ifdef SMP	
 	/*
@@ -46,40 +43,31 @@ md_thread_init(thread_t thread)
 #endif
 
 	/* Fill out the thread's registers - anything not here will be zero */ 
-	md->ctx.esp  = (addr_t)md->stack  + THREAD_STACK_SIZE;
-	md->ctx.esp0 = (addr_t)md->kstack + KERNEL_STACK_SIZE;
-	md->ctx.cs = GDT_SEL_USER_CODE + SEG_DPL_USER;
-	md->ctx.ds = GDT_SEL_USER_DATA;
-	md->ctx.es = GDT_SEL_USER_DATA;
-	md->ctx.ss = GDT_SEL_USER_DATA + SEG_DPL_USER;
-	md->ctx.cr3 = (addr_t)md->pagedir;
-	md->ctx.eflags = EFLAGS_IF;
+	t->md_ctx.esp  = (addr_t)t->md_stack  + THREAD_STACK_SIZE;
+	t->md_ctx.esp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE;
+	t->md_ctx.cs = GDT_SEL_USER_CODE + SEG_DPL_USER;
+	t->md_ctx.ds = GDT_SEL_USER_DATA;
+	t->md_ctx.es = GDT_SEL_USER_DATA;
+	t->md_ctx.ss = GDT_SEL_USER_DATA + SEG_DPL_USER;
+	t->md_ctx.cr3 = (addr_t)t->md_pagedir;
+	t->md_ctx.eflags = EFLAGS_IF;
 
-	thread->next_mapping = 1048576;
+	t->next_mapping = 1048576;
 	return 1;
 }
 
-size_t
-md_thread_get_privdata_length()
-{
-	return sizeof(struct MD_THREAD);
-}
-
 void
-md_thread_destroy(thread_t thread)
+md_thread_destroy(thread_t t)
 {
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
-
-	kfree(md->pagedir);
-	kfree(md->stack);
-	kfree(md->kstack);
+	kfree(t->md_pagedir);
+	kfree(t->md_stack);
+	kfree(t->md_kstack);
 }
 
 void
 md_thread_switch(thread_t new, thread_t old)
 {
-	struct MD_THREAD* md_new = (struct MD_THREAD*)new->md;
-	struct CONTEXT* ctx_new = (struct CONTEXT*)&md_new->ctx;
+	struct CONTEXT* ctx_new = (struct CONTEXT*)&new->md_ctx;
 
 	/*
 	 * Activate this context as the current CPU context. XXX lock
@@ -105,11 +93,10 @@ md_thread_switch(thread_t new, thread_t old)
 void*
 md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
 {
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
 	KASSERT(length <= PAGE_SIZE, "no support for >PAGE_SIZE mappings yet!");
 
 	addr_t addr = (addr_t)ptr & ~(PAGE_SIZE - 1);
-	addr_t phys = vm_get_phys(md->pagedir, addr, write);
+	addr_t phys = vm_get_phys(thread->md_pagedir, addr, write);
 	if (phys == 0)
 		return NULL;
 
@@ -121,32 +108,28 @@ md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
 void*
 md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
 {
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)
 		num_pages++;
 	/* XXX cannot specify flags yet */
-	vm_mapto_pagedir(md->pagedir, (addr_t)to, (addr_t)from, num_pages, 1);
+	vm_mapto_pagedir(thread->md_pagedir, (addr_t)to, (addr_t)from, num_pages, 1);
 	return to;
 }
 
 int
 md_thread_unmap(thread_t thread, void* addr, size_t length)
 {
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
-
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)
 		num_pages++;
-	vm_unmap_pagedir(md->pagedir, (addr_t)addr, num_pages);
+	vm_unmap_pagedir(thread->md_pagedir, (addr_t)addr, num_pages);
 	return 0;
 }
 
 void
 md_thread_set_entrypoint(thread_t thread, addr_t entry)
 {
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
-	md->ctx.eip = entry;
+	thread->md_ctx.eip = entry;
 }
 
 /* vim:set ts=2 sw=2: */

@@ -10,61 +10,49 @@
 extern struct TSS kernel_tss;
 
 int
-md_thread_init(thread_t thread)
+md_thread_init(thread_t t)
 {
-	/* Note that this function relies on thread->md being zero-filled before calling */
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
-
 	/* Create a pagedirectory and map the kernel pages in there */
-	md->pml4 = kmalloc(PAGE_SIZE);
-	memset(md->pml4, 0, PAGE_SIZE);
-	vm_map_kernel_addr(md->pml4);
+	t->md_pml4 = kmalloc(PAGE_SIZE);
+	memset(t->md_pml4, 0, PAGE_SIZE);
+	vm_map_kernel_addr(t->md_pml4);
 
 	/* Allocate stacks: one for the thread and one for the kernel */
-	md->stack  = kmalloc(THREAD_STACK_SIZE);
-	md->kstack = kmalloc(KERNEL_STACK_SIZE);
+	t->md_stack  = kmalloc(THREAD_STACK_SIZE);
+	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
 
 	/* Perform adequate mapping for the stack / code */
-	vm_map_pagedir(md->pml4, (addr_t)md->stack,  THREAD_STACK_SIZE / PAGE_SIZE, 1);
-	vm_map_pagedir(md->pml4, (addr_t)md->kstack, KERNEL_STACK_SIZE / PAGE_SIZE, 0);
+	vm_map_pagedir(t->md_pml4, (addr_t)t->md_stack,  THREAD_STACK_SIZE / PAGE_SIZE, 1);
+	vm_map_pagedir(t->md_pml4, (addr_t)t->md_kstack, KERNEL_STACK_SIZE / PAGE_SIZE, 0);
 
 	/* Set up the context  */
-	md->ctx.sf.sf_rax = 0x123456789abcdef;
-	md->ctx.sf.sf_rbx = 0xdeadf00dbabef00;
+	t->md_ctx.sf.sf_rax = 0x123456789abcdef;
+	t->md_ctx.sf.sf_rbx = 0xdeadf00dbabef00;
 
-	md->ctx.sf.sf_rsp = (addr_t)md->stack  + THREAD_STACK_SIZE;
-	md->ctx.sf.sf_sp  = (addr_t)md->kstack + KERNEL_STACK_SIZE;
+	t->md_ctx.sf.sf_rsp = (addr_t)t->md_stack  + THREAD_STACK_SIZE;
+	t->md_ctx.sf.sf_sp  = (addr_t)t->md_kstack + KERNEL_STACK_SIZE;
 
-	md->ctx.sf.sf_cs = GDT_SEL_USER_CODE + SEG_DPL_USER;
-	md->ctx.sf.sf_ss = GDT_SEL_KERNEL_DATA;
-	md->ctx.sf.sf_rflags = 0x200 /* RFLAGS_IF */;
-	md->ctx.pml4 = (addr_t)md->pml4;
+	t->md_ctx.sf.sf_cs = GDT_SEL_USER_CODE + SEG_DPL_USER;
+	t->md_ctx.sf.sf_ss = GDT_SEL_USER_DATA + SEG_DPL_USER;
+	t->md_ctx.sf.sf_rflags = 0x200 /* RFLAGS_IF */;
+	t->md_ctx.pml4 = (addr_t)t->md_pml4;
 
-	thread->next_mapping = 1048576;
+	t->next_mapping = 1048576;
 	return 1;
 }
 
-size_t
-md_thread_get_privdata_length()
-{
-	return sizeof(struct MD_THREAD);
-}
-
 void
-md_thread_destroy(thread_t thread)
+md_thread_destroy(thread_t t)
 {
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
-
-	kfree(md->pml4);
-	kfree(md->stack);
-	kfree(md->kstack);
+	kfree(t->md_pml4);
+	kfree(t->md_stack);
+	kfree(t->md_kstack);
 }
 
 void
 md_thread_switch(thread_t new, thread_t old)
 {
-	struct MD_THREAD* md_new = (struct MD_THREAD*)new->md;
-	struct CONTEXT* ctx_new = (struct CONTEXT*)&md_new->ctx;
+	struct CONTEXT* ctx_new = (struct CONTEXT*)&new->md_ctx;
 
 	/*
 	 * Activate this context as the current CPU context. XXX lock
@@ -83,11 +71,10 @@ md_thread_switch(thread_t new, thread_t old)
 void*
 md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
 {
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
 	KASSERT(length <= PAGE_SIZE, "no support for >PAGE_SIZE mappings yet!");
 
 	addr_t addr = (addr_t)ptr & ~(PAGE_SIZE - 1);
-	addr_t phys = vm_get_phys(md->pml4, addr, write);
+	addr_t phys = vm_get_phys(thread->md_pml4, addr, write);
 	if (phys == 0)
 		return NULL;
 
@@ -99,25 +86,22 @@ md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
 void*
 md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
 {
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)
 		num_pages++;
 	/* XXX cannot specify flags yet */
-	vm_mapto_pagedir(md->pml4, (addr_t)to, (addr_t)from, num_pages, 1);
+	vm_mapto_pagedir(thread->md_pml4, (addr_t)to, (addr_t)from, num_pages, 1);
 	return to;
 }
 
 int
 md_thread_unmap(thread_t thread, void* addr, size_t length)
 {
-//	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
-
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)
 		num_pages++;
 #if 0
-	vm_unmap_pagedir(md->pml4, addr, num_pages);
+	vm_unmap_pagedir(thread->md_pml4, addr, num_pages);
 #endif
 	panic("md_thread_unmap() todo");
 	return 0;
@@ -126,8 +110,7 @@ md_thread_unmap(thread_t thread, void* addr, size_t length)
 void
 md_thread_set_entrypoint(thread_t thread, addr_t entry)
 {
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
-	md->ctx.sf.sf_rip = entry;
+	thread->md_ctx.sf.sf_rip = entry;
 }
 
 /* vim:set ts=2 sw=2: */

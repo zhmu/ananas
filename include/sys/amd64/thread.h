@@ -34,13 +34,12 @@ struct CONTEXT {
 	uint64_t	pml4;
 };
 
-struct MD_THREAD {
-	struct CONTEXT	ctx;
-
-	void*		pml4;
-	void*		stack;
-	void*		kstack;
-};
+/* amd64-specific thread detais */
+#define MD_THREAD_FIELDS \
+	struct CONTEXT	md_ctx; \
+	void*		md_pml4; \
+	void*		md_stack; \
+	void*		md_kstack;
 
 void md_restore_ctx(struct CONTEXT* ctx);
 

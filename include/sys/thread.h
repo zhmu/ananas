@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <sys/vfs.h>
+#include <machine/thread.h>
 
 #ifndef __THREAD_H__
 #define __THREAD_H__
@@ -17,10 +18,8 @@ struct THREAD_MAPPING {
 };
 
 struct THREAD {
-	/*
-	 * Machine-dependant data - must be first.
-	 */
-	void* md;
+	/* Machine-dependant data - must be first */
+	MD_THREAD_FIELDS
 	struct THREAD* prev;
 	struct THREAD* next;
 
@@ -37,12 +36,10 @@ struct THREAD {
 /* Machine-dependant callback to initialize a thread */
 int md_thread_init(thread_t thread);
 
-/* Retrieve the size of the machine-dependant structure */
-size_t md_thread_get_privdata_length();
-
 /* Machine-dependant callback to destroy a thread */
 void md_thread_destroy(thread_t thread);
 
+void thread_init(thread_t t);
 thread_t thread_alloc();
 void thread_free(thread_t);
 void md_thread_switch(thread_t new, thread_t old);
