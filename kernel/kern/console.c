@@ -1,10 +1,11 @@
 #include <sys/console.h>
 #include <sys/device.h>
+#include <sys/tty.h>
 #include <sys/lib.h>
 #include "console.inc"
 
 extern const char* config_hints[];
-extern device_t console_tty = NULL;
+device_t console_tty = NULL;
 
 void
 console_init()
@@ -54,7 +55,6 @@ console_putchar(int c)
 {
 	if (console_tty == NULL)
 		return;
-;
 	device_write(console_tty, (const char*)&c, 1);
 }
 
@@ -64,7 +64,7 @@ console_getchar()
 	if (console_tty == NULL)
 		return 0;
 	uint8_t c;
-	if (device_read(console_tty, (const char*)&c, 1) < 1)
+	if (device_read(console_tty, (char*)&c, 1) < 1)
 		return 0;
 	return c;
 }
