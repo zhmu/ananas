@@ -10,3 +10,4 @@ arch/amd64/exception.c		mandatory
 arch/amd64/cntx.S		mandatory
 arch/x86/dev/pcihb.c		optional pcihb
 arch/x86/pic.c			mandatory
+arch/x86/exceptions.c		mandatory

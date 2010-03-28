@@ -2,6 +2,7 @@
 #include <machine/frame.h>
 #include <machine/interrupts.h>
 #include <machine/thread.h>
+#include <machine/vm.h>
 #include <sys/x86/exceptions.h>
 #include <sys/pcpu.h>
 #include <sys/thread.h>
@@ -31,6 +32,27 @@ exception_nm(struct STACKFRAME* sf)
 }
 
 void
+exception_generic(struct STACKFRAME* sf)
+{
+	const char* descr = x86_exception_name(sf->sf_trapno);
+	int userland = (sf->sf_cs & 3) == SEG_DPL_USER;
+
+	kprintf("(CPU %u) %s exception: %s (%u) at cs:eip = %x:%x\n",
+		PCPU_GET(cpuid), userland ? "user land" : "kernel", descr,
+		sf->sf_trapno, sf->sf_cs, sf->sf_eip);
+	kprintf("eax=%x ebx=%x ecx=%x edx=%x\n", sf->sf_eax, sf->sf_ebx, sf->sf_ecx, sf->sf_edx);
+	kprintf("esi=%x edi=%x ebp=%x\n", sf->sf_esi, sf->sf_edi, sf->sf_ebp);
+	kprintf("ds=%x es=%x fs=%x gs=%x\n", sf->sf_ds, sf->sf_es, sf->sf_fs, sf->sf_gs);
+	kprintf("possible ss:esp = %x:%x\n", sf->sf_ss, sf->sf_esp);
+	if (userland) {
+		/* A thread was naughty. Kill it */
+		thread_exit();
+		/* NOTREACHED */
+	}
+	panic("kernel exception");
+}
+
+void
 exception_handler(struct STACKFRAME* sf)
 {
 	switch(sf->sf_trapno) {
@@ -38,12 +60,7 @@ exception_handler(struct STACKFRAME* sf)
 			exception_nm(sf);
 			return;
 		default:
-			kprintf("FATAL (CPU %u): exception %u at cs:eip = %x:%x\n", PCPU_GET(cpuid), sf->sf_trapno, sf->sf_cs, sf->sf_eip);
-			kprintf("eax=%x ebx=%x ecx=%x edx=%x\n", sf->sf_eax, sf->sf_ebx, sf->sf_ecx, sf->sf_edx);
-			kprintf("esi=%x edi=%x ebp=%x\n", sf->sf_esi, sf->sf_edi, sf->sf_ebp);
-			kprintf("ds=%x es=%x fs=%x gs=%x\n", sf->sf_ds, sf->sf_es, sf->sf_fs, sf->sf_gs);
-			kprintf("ss:esp = %x:%x\n", sf->sf_ss, sf->sf_esp);
-			panic("exception");
+			exception_generic(sf);
 			return;
 	}
 }

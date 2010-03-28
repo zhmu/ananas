@@ -20,4 +20,6 @@
 #define EXC_MC	18	/* Machine Check Exception */
 #define EXC_XF	19	/* SIMD Floating-Point Exception */
 
+const char* x86_exception_name(int num);
+
 #endif /* __X86_EXCEPTIONS_H__ */
