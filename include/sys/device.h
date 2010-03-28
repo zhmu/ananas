@@ -113,6 +113,8 @@ int device_attach_single(device_t dev);
 
 int device_get_resources_byhint(device_t dev, const char* hint, const char** hints);
 int device_get_resources(device_t dev, const char** hints);
+ssize_t	device_write(device_t dev, const char* buf, size_t len);
+ssize_t	device_read(device_t dev, char* buf, size_t len);
 
 void* device_alloc_resource(device_t dev, resource_type_t type, size_t len);
 
