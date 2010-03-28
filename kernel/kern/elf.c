@@ -142,3 +142,5 @@ elf_load_from_file(thread_t t, struct VFS_FILE* f)
 {
 	return elf_load(t, f, elf_load_filefunc);
 }
+
+/* vim:set ts=2 sw=2: */
