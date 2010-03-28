@@ -2,6 +2,7 @@
 #include <machine/param.h>
 #include <sys/console.h>
 #include <sys/device.h>
+#include <sys/pcpu.h>
 #include <sys/thread.h>
 #include <sys/lib.h>
 #include <sys/mm.h>
@@ -152,6 +153,20 @@ thread_resume(thread_t t)
 {
 	KASSERT(t->flags & THREAD_FLAG_SUSPENDED, "suspending active thread");
 	t->flags &= ~THREAD_FLAG_SUSPENDED;
+}
+	
+void
+thread_exit()
+{
+	thread_t thread = PCPU_GET(curthread);
+	KASSERT(thread != NULL, "thread_exit() without thread");
+	thread_free(thread);
+
+	/* disown the current thread, it no longer exists */
+	PCPU_SET(curthread, NULL);
+
+	/* force a context switch - won't return */
+	schedule();
 }
 
 /* vim:set ts=2 sw=2: */

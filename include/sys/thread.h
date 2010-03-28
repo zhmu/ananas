@@ -60,6 +60,7 @@ int thread_unmap(thread_t t, void* ptr, size_t len);
 
 void thread_suspend(thread_t t);
 void thread_resume(thread_t t);
+void thread_exit();
 
 void schedule();
 
