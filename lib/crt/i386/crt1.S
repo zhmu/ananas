@@ -11,3 +11,7 @@ _start:
 	pushl	$0x0
 	pushl	$0x0
 	call	cstart
+
+	/* main finished; pass it's exit code to the exit syscall */
+	call	sys_exit
+
