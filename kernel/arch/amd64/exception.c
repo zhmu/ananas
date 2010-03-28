@@ -17,8 +17,7 @@ exception_nm(struct STACKFRAME* sf)
 	 * obtain the FPU state and bind it tot the thread.
 	 */
 	struct THREAD* thread = PCPU_GET(curthread);
-	struct MD_THREAD* md = (struct MD_THREAD*)thread->md;
-	PCPU_SET(fpu_context, &md->ctx.fpu);
+	PCPU_SET(fpu_context, &thread->md_ctx.fpu);
 
 	/*
 	 * Clear the task-switched-flag; this is what triggered this exception in
@@ -29,7 +28,7 @@ exception_nm(struct STACKFRAME* sf)
 	__asm(
 			"clts\n"
 			"frstor (%%eax)\n"
-		: : "a" (&md->ctx.fpu));
+		: : "a" (&thread->md_ctx.fpu));
 }
 
 void
