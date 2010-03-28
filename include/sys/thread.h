@@ -1,7 +1,10 @@
 #include <sys/types.h>
+#include <sys/vfs.h>
 
 #ifndef __THREAD_H__
 #define __THREAD_H__
+
+#define THREAD_MAX_FILES	16
 
 typedef struct THREAD* thread_t;
 
@@ -26,8 +29,9 @@ struct THREAD {
 	unsigned int tid;		/* Thread ID */
 
 	addr_t next_mapping;		/* address of next mapping */
-
 	struct THREAD_MAPPING* mappings;
+
+	struct VFS_FILE file[THREAD_MAX_FILES];	/* Opened files */
 };
 
 /* Machine-dependant callback to initialize a thread */
