@@ -63,7 +63,7 @@ thread_free(thread_t t)
 	struct THREAD_MAPPING* next;
 	while (tm != NULL) {
 		if (tm->flags & THREAD_MAP_ALLOC)
-			kfree((void*)tm->start);
+			kfree((void*)tm->ptr);
 		next = tm->next;
 		kfree(tm);
 		tm = next;

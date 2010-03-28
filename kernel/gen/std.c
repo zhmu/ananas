@@ -5,7 +5,12 @@
 void
 sys_exit()
 {
-	panic("sys_exit");
+	thread_t thread = PCPU_GET(curthread);
+	thread_free(thread);
+
+	/* force a context switch */
+	PCPU_SET(curthread, NULL);
+	schedule();
 }
 
 void*
