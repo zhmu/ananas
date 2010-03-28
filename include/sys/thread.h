@@ -25,6 +25,7 @@ struct THREAD {
 
 	unsigned int flags;
 #define THREAD_FLAG_ACTIVE	0x0001	/* Thread is scheduled somewhere */
+#define THREAD_FLAG_SUSPENDED	0x0002	/* Thread is currently suspended */
 	unsigned int tid;		/* Thread ID */
 
 	addr_t next_mapping;		/* address of next mapping */
@@ -38,6 +39,9 @@ int md_thread_init(thread_t thread);
 
 /* Machine-dependant callback to destroy a thread */
 void md_thread_destroy(thread_t thread);
+
+/* Machine-dependant idle thread activation */
+void md_thread_setidle(thread_t thread);
 
 void thread_init(thread_t t);
 thread_t thread_alloc();
@@ -53,6 +57,9 @@ void* md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
 struct THREAD_MAPPING* thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags);
 struct THREAD_MAPPING* thread_map(thread_t t, void* from, size_t len, uint32_t flags);
 int thread_unmap(thread_t t, void* ptr, size_t len);
+
+void thread_suspend(thread_t t);
+void thread_resume(thread_t t);
 
 void schedule();
 

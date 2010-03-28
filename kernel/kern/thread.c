@@ -6,19 +6,14 @@
 #include <sys/lib.h>
 #include <sys/mm.h>
 
-/* XXX */
-extern device_t input_dev;
-extern device_t output_dev;
-
 struct THREAD* threads = NULL;
 
-thread_t
-thread_alloc()
+void
+thread_init(thread_t t)
 {
-	thread_t t = kmalloc(sizeof(struct THREAD) + md_thread_get_privdata_length());
-	memset(t, 0, sizeof(struct THREAD) + md_thread_get_privdata_length());
-	t->md = (void*)((addr_t)t + sizeof(struct THREAD));
+	memset(t, 0, sizeof(struct THREAD));
 	t->mappings = NULL;
+	t->flags = THREAD_FLAG_SUSPENDED;
 
 	/*
 	 * Initialize file mappings.
@@ -37,7 +32,13 @@ thread_alloc()
 		threads->prev = t;
 		threads = t;
 	}
+}
 
+thread_t
+thread_alloc()
+{
+	thread_t t = kmalloc(sizeof(struct THREAD));
+	thread_init(t);
 	return t;
 }
 
@@ -137,7 +138,20 @@ thread_unmap(thread_t t, void* ptr, size_t len)
 		prev = tm; tm = tm->next;
 	}
 	return 0;
-	
+}
+
+void
+thread_suspend(thread_t t)
+{
+	KASSERT(t->flags & THREAD_FLAG_SUSPENDED == 0, "suspending suspended thread");
+	t->flags |= THREAD_FLAG_SUSPENDED;
+}
+
+void
+thread_resume(thread_t t)
+{
+	KASSERT(t->flags & THREAD_FLAG_SUSPENDED, "suspending active thread");
+	t->flags &= ~THREAD_FLAG_SUSPENDED;
 }
 
 /* vim:set ts=2 sw=2: */

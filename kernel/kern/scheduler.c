@@ -25,7 +25,7 @@ schedule()
 			goto no_thread;
 	}
 
-	while (newthread->flags & THREAD_FLAG_ACTIVE) {
+	while (newthread->flags & (THREAD_FLAG_ACTIVE | THREAD_FLAG_SUSPENDED)) {
 		newthread = newthread->next;
 		if (newthread == curthread)
 			break;
@@ -45,8 +45,8 @@ schedule()
 
 	if (newthread == NULL) {
 no_thread:
-		/* XXX pick the idle there here */
-		panic("schedule: CPU %u has no threads", PCPU_GET(cpuid));
+		/* No (usuable) thread; pick the idle thread */
+		newthread = PCPU_GET(idlethread_ptr);
 	}
 
 	if (newthread != curthread && 0)
