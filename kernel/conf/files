@@ -10,6 +10,7 @@ kern/syscall.c		mandatory
 kern/irq.c		mandatory
 kern/bio.c		mandatory
 kern/vfs.c		mandatory
+kern/tty.c		mandatory
 lib/misc.c		mandatory
 lib/memset.c		mandatory
 lib/memcpy.c		mandatory

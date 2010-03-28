@@ -1,8 +1,14 @@
 #include <sys/types.h>
 #include <machine/param.h>
+#include <sys/console.h>
+#include <sys/device.h>
 #include <sys/thread.h>
 #include <sys/lib.h>
 #include <sys/mm.h>
+
+/* XXX */
+extern device_t input_dev;
+extern device_t output_dev;
 
 struct THREAD* threads = NULL;
 
@@ -13,6 +19,13 @@ thread_alloc()
 	memset(t, 0, sizeof(struct THREAD) + md_thread_get_privdata_length());
 	t->md = (void*)((addr_t)t + sizeof(struct THREAD));
 	t->mappings = NULL;
+
+	/*
+	 * Initialize file mappings.
+	 */
+	t->file[0 /* STDIN  */].device = console_tty;
+	t->file[1 /* STDOUT */].device = console_tty;
+	t->file[2 /* STDERR */].device = console_tty;
 
 	md_thread_init(t);
 

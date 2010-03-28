@@ -2,6 +2,7 @@
 #include <sys/device.h>
 #include <sys/lib.h>
 #include <sys/mm.h>
+#include <sys/tty.h>
 #include <sys/vm.h>
 #include "console.inc"
 
@@ -260,6 +261,7 @@ device_attach_bus(device_t bus)
 #ifdef CONSOLE_INPUT_DRIVER
 		extern struct DRIVER CONSOLE_INPUT_DRIVER;
 		if (driver == &CONSOLE_INPUT_DRIVER) {
+			device_t input_dev = tty_get_inputdev(console_tty);
 			input_dev->parent = bus;
 			device_print_attachment(input_dev);
 			continue;
@@ -268,6 +270,7 @@ device_attach_bus(device_t bus)
 #ifdef CONSOLE_OUTPUT_DRIVER
 		extern struct DRIVER CONSOLE_OUTPUT_DRIVER;
 		if (driver == &CONSOLE_OUTPUT_DRIVER) {
+			device_t output_dev = tty_get_outputdev(console_tty);
 			output_dev->parent = bus;
 			device_print_attachment(output_dev);
 			continue;

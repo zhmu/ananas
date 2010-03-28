@@ -3,14 +3,15 @@
 #include <sys/lib.h>
 #include "console.inc"
 
-device_t input_dev = NULL;
-device_t output_dev = NULL;
 extern const char* config_hints[];
+extern device_t console_tty = NULL;
 
 void
 console_init()
 {
 	char tmphint[32 /* XXX */];
+	device_t input_dev;
+	device_t output_dev;
 
 	/*
 	 * The console is magic; it consists of two parts: input/output, and it's
@@ -45,24 +46,25 @@ console_init()
 	device_get_resources_byhint(output_dev, tmphint, config_hints);
 	device_attach_single(output_dev);
 #endif /* CONSOLE_DRIVER */
+	console_tty = tty_alloc(input_dev, output_dev);
 }
 
 void
 console_putchar(int c)
 {
-	if (output_dev == NULL)
+	if (console_tty == NULL)
 		return;
-
-	output_dev->driver->drv_write(output_dev, (const char*)&c, 1);
+;
+	device_write(console_tty, (const char*)&c, 1);
 }
 
 uint8_t
 console_getchar()
 {
-	if (input_dev == NULL)
+	if (console_tty == NULL)
 		return 0;
 	uint8_t c;
-	if (input_dev->driver->drv_read(input_dev, (char*)&c, 1) < 1)
+	if (device_read(console_tty, (const char*)&c, 1) < 1)
 		return 0;
 	return c;
 }
