@@ -178,15 +178,39 @@ vfs_close(struct VFS_FILE* file)
 {
 	if(file->inode != NULL)
 		vfs_free_inode(file->inode);
-	file->inode = NULL;
+	file->inode = NULL; file->device = NULL;
 }
 
 size_t
 vfs_read(struct VFS_FILE* file, void* buf, size_t len)
 {
-	if (file->inode == NULL)
-		return 0;
+	KASSERT(file->inode != NULL || file->device != NULL, "vfs_read on nonbacked file");
+	if (file->device != NULL) {
+		if (file->device->driver == NULL || file->device->driver->drv_read == NULL)
+			return -1;
+		else {
+			return file->device->driver->drv_read(file->device, buf, len);
+		}
+	}
+
+	if (file->inode == NULL || file->inode->iops == NULL || file->inode->iops->read == NULL)
+		return -1;
 	return file->inode->iops->read(file, buf, len);
+}
+
+size_t
+vfs_write(struct VFS_FILE* file, const void* buf, size_t len)
+{
+	KASSERT(file->inode != NULL || file->device != NULL, "vfs_write on nonbacked file");
+	if (file->device != NULL)
+		if (file->device->driver == NULL || file->device->driver->drv_write == NULL)
+			return -1;
+		else
+			return file->device->driver->drv_write(file->device, buf, len);
+
+	if (file->inode == NULL || file->inode->iops == NULL || file->inode->iops->write != NULL)
+		return -1;
+	return file->inode->iops->write(file, buf, len);
 }
 
 int
@@ -199,5 +223,14 @@ vfs_seek(struct VFS_FILE* file, off_t offset)
 	file->offset = offset;
 	return 1;
 }
+
+size_t
+vfs_readdir(struct VFS_FILE* file, struct VFS_DIRENT* dirents, size_t numents)
+{
+	KASSERT(file->inode != NULL, "vfs_readdir on nonbacked file");
+	/* XXX check dir */
+
+	return file->inode->iops->readdir(file, dirents, numents);
+}	
 
 /* vim:set ts=2 sw=2: */

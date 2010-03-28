@@ -28,7 +28,11 @@ struct VFS_INODE {
  */
 struct VFS_FILE {
 	off_t			offset;
+	/*
+	 * An opened file can have an inode or device as backend.
+	 */
 	struct VFS_INODE*	inode;
+	struct DEVICE*		device;
 };
 
 /*
@@ -102,6 +106,12 @@ struct VFS_INODE_OPS {
 	 * bytes read.
 	 */
 	size_t (*read)(struct VFS_FILE* file, void* buf, size_t len);
+
+	/*
+	 * Writes inode data from a buffer, up to len bytes. Returns the number of
+	 * bytes written.
+	 */
+	size_t (*write)(struct VFS_FILE* file, const void* buf, size_t len);
 };
 
 void vfs_init();
@@ -123,6 +133,8 @@ struct VFS_INODE* vfs_lookup(const char* dentry);
 int vfs_open(const char* fname, struct VFS_FILE* file);
 void vfs_close(struct VFS_FILE* file);
 size_t vfs_read(struct VFS_FILE* file, void* buf, size_t len);
+size_t vfs_write(struct VFS_FILE* file, const void* buf, size_t len);
 int vfs_seek(struct VFS_FILE* file, off_t offset);
+size_t vfs_readdir(struct VFS_FILE* file, struct VFS_DIRENT* dirents, size_t numents);
 
 #endif /* __SYS_VFS_H__ */
