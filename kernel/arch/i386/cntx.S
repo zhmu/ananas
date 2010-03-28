@@ -4,7 +4,7 @@
 #include <machine/vm.h>
 #include "asmsyms.h"
 
-.global md_store_ctx, md_restore_ctx, reschedule
+.global md_store_ctx, md_restore_ctx, reschedule, md_idle_thread
 
 /*
  * Stores the current thread context. This function expects to be
@@ -283,3 +283,10 @@ reschedule:
 
 reschedule_back:
 	ret
+
+/*
+ * This is our idle thread; it just waits for an interrupt.
+ */
+md_idle_thread:
+	hlt
+	jmp	md_idle_thread

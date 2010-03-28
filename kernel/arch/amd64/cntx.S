@@ -6,7 +6,7 @@
 #include <machine/macro.h>
 #include "asmsyms.h"
 
-.global md_store_ctx, md_restore_ctx, reschedule
+.global md_store_ctx, md_restore_ctx, reschedule, md_idle_thread
 
 /*
  * Restores the thread context and jumps to the thread
@@ -48,7 +48,7 @@ md_restore_ctx2:
 	movq	SF_SP(%rsi), %rsp
 
 	/* Place necessary things on the stack for iretq */
-	pushq	$GDT_SEL_USER_DATA + 3
+	pushq	SF_SS(%rsi)
 	pushq	SF_RSP(%rsi)
 	pushq	SF_RFLAGS(%rsi)
 	pushq	SF_CS(%rsi)
@@ -126,3 +126,10 @@ reschedule:
 reschedule_back:
 	/* We are back from a scheduler trip, and must return to the caller */
 	ret
+
+/*
+ * This is our idle thread; it just waits for an interrupt.
+ */
+md_idle_thread:
+	hlt
+	jmp	md_idle_thread

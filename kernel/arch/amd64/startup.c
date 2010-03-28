@@ -176,9 +176,6 @@ md_startup(struct BOOTINFO* bi)
       "c" (MSR_KERNEL_GS_BASE),
       "b" (MSR_GS_BASE));
 	
-	/* Now that we can use the PCPU data, initialize it */
-	memset(&bsp_pcpu, 0, sizeof(struct PCPU));
-
 	/*
 	 * Load the kernel TSS; this is still needed to switch stacks between
 	 * ring 0 and 3 code.
@@ -254,6 +251,12 @@ extern void* syscall_handler;
 	 */
 	size_t kern_pages = ((addr_t)&__end - (addr_t)&__entry + PAGE_SIZE - 1) / PAGE_SIZE;
 	kmem_mark_used((void*)((addr_t)from & 0x0fffffff) /* HACK */, (to - from) / PAGE_SIZE);
+
+	/*
+	 * Initialize the per-CPU thread; this needs a working memory allocator, so that is why
+	 * we delay it.
+	 */
+	pcpu_init(&bsp_pcpu);
 
 	mi_startup();
 }

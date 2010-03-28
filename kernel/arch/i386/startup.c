@@ -256,11 +256,6 @@ md_startup()
 		"ltr %%ax\n"
 	: : "a" (GDT_SEL_KERNEL_TASK));
 
-	bsp_pcpu.lapic_id = 0;
-	bsp_pcpu.cpuid = 0;
-	bsp_pcpu.tss = (addr_t)&kernel_tss;
-	bsp_pcpu.curthread = NULL;
-
 	/*
 	 * Clear the temporary pagetable entry; this ensures we won't status with
 	 * bogus mappings.
@@ -340,6 +335,13 @@ md_startup()
 	 */
 	size_t kern_pages = ((addr_t)avail - ((addr_t)&__entry - KERNBASE)) / PAGE_SIZE;
 	kmem_mark_used((void*)(addr_t)&__entry - KERNBASE, kern_pages);
+
+	/*
+	 * Initialize the per-CPU thread; this needs a working memory allocator, so that is why
+	 * we delay it.
+	 */
+	pcpu_init(&bsp_pcpu);
+	bsp_pcpu.tss = (addr_t)&kernel_tss;
 
 	/* All done - it's up to the machine-independant code now */
 	mi_startup();

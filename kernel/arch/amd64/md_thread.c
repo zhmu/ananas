@@ -8,6 +8,7 @@
 #include <sys/vm.h>
 
 extern struct TSS kernel_tss;
+void md_idle_thread();
 
 int
 md_thread_init(thread_t t)
@@ -111,6 +112,18 @@ void
 md_thread_set_entrypoint(thread_t thread, addr_t entry)
 {
 	thread->md_ctx.sf.sf_rip = entry;
+}
+
+void
+md_thread_setidle(thread_t thread)
+{
+	/*
+	 * The idle thread uses hlt to wait for the next interrupt, so it must
+	 * run in kernel code context.
+	 */
+	thread->md_ctx.sf.sf_ss = GDT_SEL_KERNEL_DATA;
+	thread->md_ctx.sf.sf_cs = GDT_SEL_KERNEL_CODE;
+	thread->md_ctx.sf.sf_rip = (addr_t)&md_idle_thread;
 }
 
 /* vim:set ts=2 sw=2: */

@@ -27,6 +27,7 @@ ASM_SYMBOL(SF_RFLAGS, offsetof(struct STACKFRAME, sf_rflags));
 ASM_SYMBOL(SF_SP,     offsetof(struct STACKFRAME, sf_sp));
 ASM_SYMBOL(SF_RIP,    offsetof(struct STACKFRAME, sf_rip));
 ASM_SYMBOL(SF_CS,     offsetof(struct STACKFRAME, sf_cs));
+ASM_SYMBOL(SF_SS,     offsetof(struct STACKFRAME, sf_ss));
 ASM_SYMBOL(SF_SIZE,   sizeof(struct STACKFRAME));
 
 ASM_SYMBOL(PCPU_CTX,	 offsetof(struct PCPU, context));
