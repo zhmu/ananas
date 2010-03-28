@@ -1,4 +1,4 @@
-TC_PREFIX?=	../../../toolchain/prefix
+TC_PREFIX?=	../../../toolchain/prefix.amd64
 CC=		${TC_PREFIX}/bin/amd64-elf-ananas-gcc
 LD=		${TC_PREFIX}/bin/amd64-elf-ananas-ld
 OBJS=		crt1_s.o cstart.o

@@ -4,11 +4,10 @@
 .text
 
 .globl _start
-.extern cstart
+.extern cstart, sys_exit
 
 _start:
 	/* XXX argc, argv */
-	pushq	$0x0
-	pushq	$0x0
+	pushl	$0x0
+	pushl	$0x0
 	call	cstart
-

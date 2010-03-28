@@ -8,7 +8,6 @@
 
 _start:
 	/* XXX argc, argv */
-	pushl	$0x0
-	pushl	$0x0
+	pushq	$0x0
+	pushq	$0x0
 	call	cstart
-

@@ -1,4 +1,4 @@
-TC_PREFIX?=	../../../toolchain/prefix
+TC_PREFIX?=	../../../toolchain/prefix.i386
 CC=		${TC_PREFIX}/bin/i586-elf-ananas-gcc
 LD=		${TC_PREFIX}/bin/i586-elf-ananas-ld
 OBJS=		crt1_s.o cstart.o
