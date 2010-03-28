@@ -44,6 +44,7 @@ relocate_elf64(void* data, uint64_t* rip, uint64_t* end)
 	 	 * we have and chop off necessary bits
 		 */
 		void* dest = (void*)(addr_t)(phdr->p_vaddr & 0x0fffffff);
+		memset(dest, 0, phdr->p_memsz);
 		memcpy(dest, (void*)(data + phdr->p_offset), phdr->p_filesz);
 
 		/* Store the ending address; this will be passed to the binary */
