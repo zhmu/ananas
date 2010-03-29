@@ -144,7 +144,7 @@ thread_unmap(thread_t t, void* ptr, size_t len)
 void
 thread_suspend(thread_t t)
 {
-	KASSERT(t->flags & THREAD_FLAG_SUSPENDED == 0, "suspending suspended thread");
+	KASSERT((t->flags & THREAD_FLAG_SUSPENDED) == 0, "suspending suspended thread");
 	t->flags |= THREAD_FLAG_SUSPENDED;
 }
 
@@ -167,6 +167,19 @@ thread_exit()
 
 	/* force a context switch - won't return */
 	schedule();
+}
+
+void
+thread_dump()
+{
+	struct THREAD* t = threads;
+	struct THREAD* cur = PCPU_CURTHREAD();
+	kprintf("thread dump\n");
+	while (t != NULL) {
+		kprintf ("%p: flags %u%s\n",
+			t, t->flags, (t == cur) ? " <- current" : "");
+		t = t->next;
+	}
 }
 
 /* vim:set ts=2 sw=2: */
