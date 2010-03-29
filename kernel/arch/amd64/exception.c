@@ -15,9 +15,10 @@ exception_nm(struct STACKFRAME* sf)
 	/*
 	 * This is the Device Not Available-exception, which will be triggered if
 	 * an FPU access is made while the task-switched-flag is set. We will
-	 * obtain the FPU state and bind it tot the thread.
+	 * obtain the FPU state and bind it to the thread.
 	 */
 	struct THREAD* thread = PCPU_GET(curthread);
+	KASSERT(thread != NULL, "curthread is NULL");
 	PCPU_SET(fpu_context, &thread->md_ctx.fpu);
 
 	/*
