@@ -20,4 +20,7 @@ size_t md_pcpu_get_privdata_length();
 /* Introduce a per-cpu structure */
 void pcpu_init(struct PCPU* pcpu);
 
+/* Get the current thread */
+#define PCPU_CURTHREAD() PCPU_GET(curthread)
+
 #endif /* __PCPU_H__ */
