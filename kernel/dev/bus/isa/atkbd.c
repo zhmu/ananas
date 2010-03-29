@@ -2,6 +2,8 @@
 #include <sys/device.h>
 #include <sys/irq.h>
 #include <sys/lib.h>
+#include <sys/tty.h>
+#include <sys/console.h>
 
 uint32_t atkbd_port = 0;
 
@@ -74,6 +76,9 @@ atkbd_irq(device_t dev)
 
 	atkbd_buffer[atkbd_buffer_writepos] = ascii;
 	atkbd_buffer_writepos = (atkbd_buffer_writepos + 1) % ATKBD_BUFFER_SIZE;
+
+	/* XXX signal consumers - this is a hack */
+	tty_signal_data(console_tty);
 }
 
 static int
