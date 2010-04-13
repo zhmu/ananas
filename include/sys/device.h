@@ -43,6 +43,7 @@ struct DRIVER {
 
 	int	(*drv_probe)(device_t);
 	int	(*drv_attach)(device_t);
+	void	(*drv_attach_children)(device_t);
 	ssize_t	(*drv_write)(device_t, const char*, size_t);
 	ssize_t	(*drv_read)(device_t, char*, size_t);
 	/* for block devices: start request queue */
@@ -120,9 +121,10 @@ void* device_alloc_resource(device_t dev, resource_type_t type, size_t len);
 
 int device_add_resource(device_t dev, resource_type_t type, unsigned int base, unsigned int len);
 struct RESOURCE* device_get_resource(device_t dev, resource_type_t type, int index);
-void device_print_attachment(device_t dev);
 
 void device_set_biodev(device_t dev, device_t biodev);
 struct DEVICE* device_find(const char* name);
+
+void device_printf(device_t dev, const char* fmt, ...);
 
 #endif /* __DEVICE_H__ */

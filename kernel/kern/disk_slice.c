@@ -44,7 +44,6 @@ slice_create(device_t dev, block_t begin, block_t length)
 	privdata->biodev = dev->biodev;	/* force I/O to go through our parent */
 	new_dev->privdata = privdata;
 	device_attach_single(new_dev);
-	device_print_attachment(new_dev);
 
 	return new_dev;
 }

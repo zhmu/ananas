@@ -17,6 +17,8 @@
  */
 #include "hints.inc"
 
+static void device_print_attachment(device_t dev);
+
 static device_t corebus = NULL;
 
 /* Note: drv = NULL will be used if the driver isn't yet known! */
@@ -62,6 +64,13 @@ device_attach_single(device_t dev)
 		if (result)
 			return result;
 	}
+	/*
+	 * XXX This is a kludge: it prevents us from displaying attach information for drivers
+	 * that will be initialize outside the probe tree (such as the console which will be
+	 * initialized as soon as possible.
+	 */
+	if (dev->parent != NULL)
+		device_print_attachment(dev);
 	if (driver->drv_attach != NULL) {
 		result = driver->drv_attach(dev);
 		if (result)
@@ -158,7 +167,7 @@ device_get_resources(device_t dev, const char** hints)
 	return device_get_resources_byhint(dev, tmphint, hints);
 }
 
-void
+static void
 device_print_attachment(device_t dev)
 {
 	KASSERT(dev->parent != NULL, "can't print device which doesn't have a parent bus");
@@ -279,14 +288,29 @@ device_attach_bus(device_t bus)
 
 		device_t dev = device_alloc(bus, driver);
 		device_get_resources(dev, config_hints);
-		int result = device_attach_single(dev);
+
+		int result = 0;
+		if (driver->drv_probe != NULL) {
+			/*
+			 * This device has a probe function; we must call it to figure out
+			 * whether the device actually exists or we're about to attach
+			 * something out of thin air here...
+			 */
+			result = driver->drv_probe(dev);
+		}
+		if (result == 0) {
+			device_print_attachment(dev);
+			if (driver->drv_attach != NULL)
+				result = driver->drv_attach(dev);
+		}
 		if (result != 0) {
 			device_free(dev);
 			continue;
 		}
 
-		/* We have a device; tell the user and see if anything lives on this bus */
-		device_print_attachment(dev);
+		/* We have a device; attach any children on this bus if needed */
+		if (driver->drv_attach_children != NULL)
+			driver->drv_attach_children(dev);
 		device_attach_bus(dev);
 	}
 }
@@ -343,6 +367,19 @@ device_read(device_t dev, char* buf, size_t len)
 	KASSERT(dev->driver->drv_read != NULL, "device_read() without drv_read");
 
 	return dev->driver->drv_read(dev, buf, len);
+}
+
+void
+device_printf(device_t dev, const char* fmt, ...)
+{
+	va_list va;
+
+	/* XXX will interleave printf's in SMP */
+	kprintf("%s%u: ", dev->name, dev->unit);
+	va_start(va, fmt);
+	vaprintf(fmt, va);
+	va_end(va);
+	kprintf("\n");
 }
 
 /* vim:set ts=2 sw=2: */

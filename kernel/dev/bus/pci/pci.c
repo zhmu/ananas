@@ -24,7 +24,6 @@ pci_attach(device_t dev)
 		device_add_resource(new_bus, RESTYPE_PCI_VENDORID, dev_vendor & 0xffff, 0);
 		device_add_resource(new_bus, RESTYPE_PCI_DEVICEID, dev_vendor >> 16, 0);
 
-		device_print_attachment(new_bus);
 		device_attach_single(new_bus);
 	}
 	return 0;
