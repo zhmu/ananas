@@ -6,24 +6,10 @@
 #include <sys/mm.h>
 #include <sys/lib.h>
 
-#define ATA_GET_WORD(x) \
-	((uint16_t)(x)[0] << 8 | (x)[1])
-#define ATA_GET_DWORD(x) \
-	((uint32_t)(ATA_GET_WORD(x+2) << 16) | \
-	((uint32_t)(ATA_GET_WORD(x))))
-#define ATA_GET_QWORD(x) \
-	((uint64_t)(ATA_GET_DWORD(x+4) << 32) | \
-	((uint64_t)(ATA_GET_DWORD(x))))
-
-struct ATA_PRIVDATA {
-	uint32_t	io_port;
-};
-
 struct BIO* ata_currentbio = NULL;
 
 extern struct DRIVER drv_atadisk;
-	
-#define SECTOR_SIZE 512 /* XXX */
+extern struct DRIVER drv_atacd;
 
 int md_interrupts_enabled(); /* XXX */
 
@@ -57,11 +43,11 @@ ata_irq(device_t dev)
 }
 
 static int
-ata_read_sectors(device_t dev, int slave, uint32_t lba, uint32_t count)
+ata_read_sectors(device_t dev, int unit, uint32_t lba, uint32_t count)
 {
 	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
 
-	outb(priv->io_port + ATA_PIO_DRIVEHEAD, 0xe0 | (slave ? 0x10 : 0) | ((lba >> 24) & 0xf));
+	outb(priv->io_port + ATA_PIO_DRIVEHEAD, 0xe0 | (unit ? 0x10 : 0) | ((lba >> 24) & 0xf));
 	/*outb(priv->io_port + ATA_PIO_ERROR, 0);*/
 	outb(priv->io_port + ATA_PIO_COUNT, count);
 	outb(priv->io_port + ATA_PIO_LBA_1, lba & 0xff);
@@ -72,59 +58,67 @@ ata_read_sectors(device_t dev, int slave, uint32_t lba, uint32_t count)
 	return 1;
 }
 
+/*
+ * This handles identification of a master/slave device on a given ata bus. It
+ * will attempt both the ATA IDENTIFY and ATAPI IDENTIFY commands.
+ *
+ * This function returns 0 on failure or the identify command code that worked
+ * on success.
+ */
 static int
-ata_identify(device_t dev, int slave)
+ata_identify(device_t dev, int unit, struct ATA_IDENTIFY* identify)
 {
 	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
+	uint8_t identify_cmds[] = { ATA_CMD_IDENTIFY, ATA_CMD_IDENTIFY_PACKET, 0 };
 
-	outb(priv->io_port + ATA_PIO_DRIVEHEAD, 0xa0 | (slave ? 0x10 : 0));
-	outb(priv->io_port + ATA_PIO_STATCMD, ATA_CMD_IDENTIFY);
-	int x = inb(priv->io_port + ATA_PIO_STATCMD);
-	if (x == 0)
-		return 0;
+	for (int cur_cmd = 0; identify_cmds[cur_cmd] != 0; cur_cmd++) {
+		outb(priv->io_port + ATA_PIO_DRIVEHEAD, 0xa0 | (unit ? 0x10 : 0));
+		outb(priv->io_port + ATA_PIO_STATCMD, identify_cmds[cur_cmd]);
+		int x = inb(priv->io_port + ATA_PIO_STATCMD);
+		if (x == 0)
+			continue;
 
-	/* Wait until ERR is turned on, or !BSY && DRQ */
-	while (1) {
-		x = inb(priv->io_port  + ATA_PIO_STATCMD);
-		if (!(x & ATA_PIO_STATUS_BSY) && (x & ATA_PIO_STATUS_DRQ))
-			break;
+		/* Wait until ERR is turned on, or !BSY && DRQ */
+		while (1) {
+			x = inb(priv->io_port  + ATA_PIO_STATCMD);
+			if (!(x & ATA_PIO_STATUS_BSY) && (x & ATA_PIO_STATUS_DRQ))
+				break;
+			if (x & ATA_PIO_STATUS_ERR)
+				break;
+		}
 		if (x & ATA_PIO_STATUS_ERR)
-			return 0;
+			continue;
+
+		/* Grab the result of the identification command XXX implement insw() */
+		char* buf = (char*)identify;
+		for (int count = 0; count < SECTOR_SIZE; ) {
+			x = inw(priv->io_port + ATA_PIO_DATA);
+			buf[count++] = x >> 8;
+			buf[count++] = x & 0xff; 
+		}
+
+		/* Chop off the trailing spaces off the identity */
+		for (int i = sizeof(identify->model) - 1; i > 0; i--) {
+			if (identify->model[i] != ' ')
+				break;
+			identify->model[i] = '\0';
+		}
+
+	#if 0
+		kprintf("model [%s] - foo\n", identify->model);
+		kprintf("size: %u sectors (%u MB)\n", size, size / ((1024UL * 1024UL) / 512UL));
+
+		/* Add the disk to our bus */
+		device_t new_dev = device_alloc(dev, &drv_atadisk);
+		device_set_biodev(new_dev, dev);	/* force I/O to go through us */
+		device_add_resource(new_dev, RESTYPE_CHILDNUM, 0 /* master */, 0);
+		device_attach_single(new_dev);
+		device_print_attachment(new_dev);
+	#endif
+		return identify_cmds[cur_cmd];
 	}
 
-	/* Grab the result of the identification command */
-	char buf[sizeof(struct ATA_IDENTIFY)];
-	struct ATA_IDENTIFY* identify = (struct ATA_IDENTIFY*)buf;
-	int count = 0 ;
-	while (count < SECTOR_SIZE) {
-		x = inw(priv->io_port + ATA_PIO_DATA);
-		buf[count++] = x >> 8;
-		buf[count++] = x & 0xff; 
-	}
-
-	/* Calculate the length of the disk */
-	unsigned long size = ATA_GET_DWORD(identify->lba_sectors);
-	if (ATA_GET_WORD(identify->features2) & ATA_FEAT2_LBA48) {
-		size  = ATA_GET_QWORD(identify->lba48_sectors);
-	}
-
-	/* Chop off the trailing spaces off the identity */
-	for (int i = sizeof(identify->model) - 1; i > 0; i--) {
-		if (identify->model[i] != ' ')
-			break;
-		identify->model[i] = '\0';
-	}
-
-	kprintf("model [%s] - foo\n", identify->model);
-	kprintf("size: %u sectors (%u MB)\n", size, size / ((1024UL * 1024UL) / 512UL));
-
-	/* Add the disk to our bus */
-	device_t new_dev = device_alloc(dev, &drv_atadisk);
-	device_set_biodev(new_dev, dev);	/* force I/O to go through us */
-	device_add_resource(new_dev, RESTYPE_CHILDNUM, 0 /* master */, 0);
-	device_attach_single(new_dev);
-	device_print_attachment(new_dev);
-	return 1;
+	return 0;
 }
 
 static int
@@ -145,7 +139,6 @@ ata_attach(device_t dev)
 	if (!irq_register((uintptr_t)res_irq, dev, ata_irq))
 		return 1;
 
-	ata_identify(dev, 0);
 	return 0;
 }
 
@@ -169,7 +162,7 @@ ata_start(device_t dev)
 	ata_currentbio = bio;
 
 	/* feed it to the disk */
-	ata_read_sectors(dev->biodev, 0 /* XXX slave */, bio->block, bio->length / 512);
+	ata_read_sectors(dev->biodev, 0 /* XXX unit */, bio->block, bio->length / 512);
 
 	/*
 	 * We may get called while interrupts are disabled. If this is the case, wait for
@@ -191,10 +184,55 @@ ata_start(device_t dev)
 	ata_irq(dev->biodev);
 }
 
+static void
+ata_attach_children(device_t dev)
+{
+	struct ATA_IDENTIFY identify;
+
+	for (int unit = 0; unit < 2; unit++) {
+		int cmd = ata_identify(dev, unit, &identify);
+		if (!cmd)
+			continue;
+
+		struct DRIVER* driver = NULL;
+		if (cmd == ATA_CMD_IDENTIFY) {
+			driver = &drv_atadisk;
+		} else if (cmd == ATA_CMD_IDENTIFY_PACKET) {
+			/*
+			 * We found something that replied to ATAPI. First of all, do a sanity
+			 * check to ensure it speaks valid ATAPI.
+			 */
+			uint16_t general_cfg = ATA_GET_WORD(identify.general_cfg);
+			if ((general_cfg & ATA_GENCFG_NONATA) == 0 ||
+					(general_cfg & ATA_GENCFG_NONATAPI) != 0)
+				continue;
+
+			/* Isolate the device type; this tells us which driver we need to use */
+			uint8_t dev_type = (general_cfg >> 8) & 0x1f;
+			switch (dev_type) {
+				case ATA_TYPE_CDROM:
+					driver = &drv_atacd;
+					break;
+				default:
+					kprintf("%s: detected unsupported device as unit %u, ignored\n", dev->name, unit);
+					continue;
+			}
+		}
+
+		KASSERT(driver != NULL, "identified device, yet no driver");
+		device_t new_dev = device_alloc(dev, driver);
+		new_dev->privdata = (void*)&identify; /* XXX this is a hack */
+		device_set_biodev(new_dev, dev);	/* force I/O to go through us */
+		device_add_resource(new_dev, RESTYPE_CHILDNUM, unit, 0);
+		device_attach_single(new_dev);
+	}
+}
+
 struct DRIVER drv_ata = {
 	.name					= "ata",
 	.drv_probe		= NULL,
 	.drv_attach		= ata_attach,
+	.drv_attach_children		= ata_attach_children,
 	.drv_start		= ata_start
 };
 

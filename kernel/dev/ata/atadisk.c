@@ -8,6 +8,18 @@ static int
 atadisk_attach(device_t dev)
 {
 	void* res = device_alloc_resource(dev, RESTYPE_CHILDNUM, 0);
+	struct ATA_IDENTIFY* identify = (struct ATA_IDENTIFY*)dev->privdata;
+
+	/* Calculate the length of the disk */
+	unsigned long size = ATA_GET_DWORD(identify->lba_sectors);
+	if (ATA_GET_WORD(identify->features2) & ATA_FEAT2_LBA48) {
+		size  = ATA_GET_QWORD(identify->lba48_sectors);
+	}
+
+	device_printf(dev, "<%s> - %u MB",
+	 identify->model,
+ 	 size / ((1024UL * 1024UL) / 512UL));
+
 
 	struct BIO* bio = bio_read(dev, 0, 512);
 	if (BIO_IS_ERROR(bio))
@@ -20,7 +32,6 @@ atadisk_attach(device_t dev)
 
 struct DRIVER drv_atadisk = {
 	.name					= "atadisk",
-	.drv_probe		= NULL,
 	.drv_attach		= atadisk_attach
 };
 
