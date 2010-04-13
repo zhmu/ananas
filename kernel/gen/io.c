@@ -41,7 +41,6 @@ sys_read(int fd, void* buf, size_t count)
 		return -1;
 
 	void* x = md_map_thread_memory(PCPU_GET(curthread), buf, count, 0);
-kprintf("sys_read: %p, %u\n", x, count);
 	if (x == NULL)
 		return -1;
 
