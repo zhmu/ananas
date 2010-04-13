@@ -69,7 +69,24 @@ struct CONTEXT {
 };
 
 struct FPUREGS {
-	uint8_t		_reg[108];
+	uint16_t	cw;		/* control word */
+	uint16_t	reserved0;
+	uint16_t	sw;		/* status word */
+	uint16_t	reserved1;
+	uint16_t	tw;		/* tag word */
+	uint16_t	reserved2;
+	uint32_t	ip;		/* instruction pointer */
+	uint32_t	op_ip_sel;	/* opcode, ip selector */
+	uint32_t	op;		/* operand */
+	uint32_t	op_selector;	/* operand selector */
+	uint8_t		r0[10];
+	uint8_t		r1[10];
+	uint8_t		r2[10];
+	uint8_t		r3[10];
+	uint8_t		r4[10];
+	uint8_t		r5[10];
+	uint8_t		r6[10];
+	uint8_t		r7[10];
 };
 
 /* i386-specific thread detais */

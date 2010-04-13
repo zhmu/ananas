@@ -4,7 +4,8 @@
 .text
 .globl exception0, exception1, exception2, exception3, exception4, exception5
 .globl exception6, exception7, exception8, exception9, exception10, exception11
-.globl exception12, exception13, exception14
+.globl exception12, exception13, exception14, exception16, exception17
+.globl exception18, exception19
 .globl irq0, irq1, irq2, irq3, irq4, irq5, irq6, irq7, irq8, irq9
 .globl irq10, irq11, irq12, irq13, irq14, irq15
 .globl scheduler_irq, syscall_int, spurious_irq
@@ -312,6 +313,10 @@ EXCEPTION_HANDLER_ERRORCODE(11)
 EXCEPTION_HANDLER_ERRORCODE(12)
 EXCEPTION_HANDLER_ERRORCODE(13)
 EXCEPTION_HANDLER_ERRORCODE(14)
+EXCEPTION_HANDLER(16)
+EXCEPTION_HANDLER_ERRORCODE(17)
+EXCEPTION_HANDLER(18)
+EXCEPTION_HANDLER(19)
 
 /* ...and the IRQ handlers */
 IRQ_HANDLER(1)

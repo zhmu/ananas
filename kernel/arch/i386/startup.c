@@ -214,6 +214,10 @@ md_startup()
 	IDT_SET_ENTRY(0x0c, SEG_DPL_SUPERVISOR, exception12);
 	IDT_SET_ENTRY(0x0d, SEG_DPL_SUPERVISOR, exception13);
 	IDT_SET_ENTRY(0x0e, SEG_DPL_SUPERVISOR, exception14);
+	IDT_SET_ENTRY(0x10, SEG_DPL_SUPERVISOR, exception16);
+	IDT_SET_ENTRY(0x11, SEG_DPL_SUPERVISOR, exception17);
+	IDT_SET_ENTRY(0x12, SEG_DPL_SUPERVISOR, exception18);
+	IDT_SET_ENTRY(0x13, SEG_DPL_SUPERVISOR, exception19);
 	IDT_SET_ENTRY(0x20, SEG_DPL_SUPERVISOR, scheduler_irq);
 	IDT_SET_ENTRY(0x21, SEG_DPL_SUPERVISOR, irq1);
 	IDT_SET_ENTRY(0x22, SEG_DPL_SUPERVISOR, irq2);
@@ -262,9 +266,20 @@ md_startup()
 	 */
 	memset(&temp_pt_entry, 0, PAGE_SIZE);
 
-	/* Initialize the FPU */
+	/*
+	 * Initialize the FPU; this consists of loading it with a known control
+	 * word, and requesting exception handling using the more modern #MF
+	 * exception mechanism.
+	 *
+ 	 * XXX What does this do without a FPU?
+	 */
 	uint16_t cw = 0x37f;
 	__asm("fldcw %0; finit" : : "m" (cw));
+	__asm(
+		"movl	%%cr0, %%eax\n"
+		"orl	%%ebx, %%eax\n"
+		"movl	%%eax, %%cr0\n"
+	: : "b" (CR0_NE));
 
 	/* Ensure the memory manager is available for action */
 	mm_init();

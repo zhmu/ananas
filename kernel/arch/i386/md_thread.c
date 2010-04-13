@@ -53,6 +53,10 @@ md_thread_init(thread_t t)
 	t->md_ctx.cr3 = (addr_t)t->md_pagedir;
 	t->md_ctx.eflags = EFLAGS_IF;
 
+	/* initialize FPU state similar to what finit would do */
+	t->md_fpu_ctx.cw = 0x37f;
+	t->md_fpu_ctx.tw = 0xffff;
+
 	t->next_mapping = 1048576;
 	return 1;
 }
