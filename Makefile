@@ -18,7 +18,7 @@ toolchain:	${TC_PREFIX}
 		(cd toolchain && make TARGET=${TARGET} PREFIX=$(realpath ${TC_PREFIX}))
 
 crt:
-		(cd lib/csu/${ARCH} && make install TC_PREFIX=$(realpath ${TC_PREFIX}))
+		(cd lib/crt/${ARCH} && make install TC_PREFIX=$(realpath ${TC_PREFIX}))
 
 syscalls:	lib/libc/gen/syscalls.inc.c include/syscalls.h kernel/kern/syscalls.inc.c
 
@@ -63,7 +63,8 @@ pre-everything:
 		if [ ! -d output ]; then mkdir output; fi
 
 clean:
-		(cd lib/csu/${ARCH} && make clean)
+		(cd lib/crt/${ARCH} && make clean)
+		(cd kern && make clean)
 		(cd lib/libc/compile/${ARCH} && make clean)
 		(cd apps/moonsh && make clean)
 		(cd kernel/tools/config && make clean)
