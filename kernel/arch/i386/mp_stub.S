@@ -1,8 +1,8 @@
 .text
 
-#include "i386/vm.h"
-#include "i386/macro.h"
-#include "param.h"
+#include <machine/vm.h>
+#include <machine/macro.h>
+#include <machine/param.h>
 
 .globl __ap_entry, __ap_entry_end, mp_ap_startup, panic
 .globl	lapic2cpuid, cpus
