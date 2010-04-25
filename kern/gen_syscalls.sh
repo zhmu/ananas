@@ -19,7 +19,7 @@ fi
 #
 # becomes
 #
-#   void foo(int a, int b, int c) { SYSCALL3(1234); }
+#   void sys_foo(int a, int b, int c) { SYSCALL3(1234); }
 #
 $AWK '
 	BEGIN {
@@ -27,13 +27,17 @@ $AWK '
 	}
 	/^#/ { next; }
 	/^[0-9]+/ {
-		FUNCNAME=substr($0, index($0, "{") + 1, index($0, ";") - index($0, "{") - 1)
-		if (index(FUNCNAME, ",") == 0 && index(FUNCNAME, "()") > 0)
-			print FUNCNAME " { SYSCALL0(" $1 "); }"
-		else if (index(FUNCNAME, ",") == 0)
-			print FUNCNAME " { SYSCALL1(" $1 "); }"
+		FUNCTYPE=substr($0, index($0, "{") + 1, index($0, ";") - index($0, "{") - 1)
+		gsub(/^ */, "", FUNCTYPE)
+		FTYPE=substr(FUNCTYPE, 0, index(FUNCTYPE, " ") - 1)
+		FNAME=substr(FUNCTYPE, index(FUNCTYPE, " "))
+		gsub(/^ */, "", FNAME)
+		if (index(FUNCTYPE, ",") == 0 && index(FUNCTYPE, "()") > 0)
+			print FTYPE " sys_" FNAME " { SYSCALL0(" $1 "); }"
+		else if (index(FNAME, ",") == 0)
+			print FTYPE " sys_" FNAME " { SYSCALL1(" $1 "); }"
 		else
-			print FUNCNAME " { SYSCALL" gsub(",", "!", FUNCNAME) + 1 "(" $1 "); }"
+			print FTYPE " sys_" FNAME " { SYSCALL" gsub(",", "!", FUNCTYPE) + 1 "(" $1 "); }"
 	}
 ' < $1 > $2
 
