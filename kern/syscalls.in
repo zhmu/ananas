@@ -2,7 +2,7 @@
 # Specifies all systems calls. Must be in format:
 # <number> { prototype }
 #
-0	{ void exit(); }
+0	{ void exit(int exitcode); }
 1	{ ssize_t read(int fd, void* buf, size_t len); }
 2	{ ssize_t write(int fd, const void* buf, size_t len); }
 3	{ void* map(size_t len); }

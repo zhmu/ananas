@@ -19,11 +19,30 @@
 
 #define ATA_CMD_READ_SECTORS	0x20
 #define ATA_CMD_IDENTIFY	0xec
+#define ATA_CMD_PACKET		0xa0
+#define ATA_CMD_IDENTIFY_PACKET	0xa1
 
 struct ATA_IDENTIFY {
 	/*   0 */ uint8_t general_cfg[2];
-#define ATA_GENCFG_NONATA	(1 << 0)
+#define ATA_GENCFG_NONATA	(1 << 15)
+#define ATA_GENCFG_NONATAPI	(1 << 14)
 #define ATA_GENCFG_REMOVABLE	(1 << 7)
+/* Bits 8-12 define the device typ */
+#define ATA_TYPE_DIRECTACCESS	0x00
+#define ATA_TYPE_SEQACCESS	0x01
+#define ATA_TYPE_PRINTER	0x02
+#define ATA_TYPE_PROCESSOR	0x03
+#define ATA_TYPE_WRITEONCE	0x04
+#define ATA_TYPE_CDROM		0x05
+#define ATA_TYPE_SCANNER	0x06
+#define ATA_TYPE_OPTICALMEM	0x07
+#define ATA_TYPE_CHANGER	0x08
+#define ATA_TYPE_COMMS		0x09
+#define ATA_TYPE_ARRAY		0x0c
+#define ATA_TYPE_ENCLOSURE	0x0d
+#define ATA_TYPE_REDUCEDBLK	0x0e
+#define ATA_TYPE_OPTICARD	0x0f
+#define ATA_TYPE_UNKNOWN	0x1f
 	/*   1 */ uint8_t num_cyl[2];
 	/*   2 */ uint8_t reserved0[2];
 	/*   3 */ uint8_t num_heads[2];
@@ -210,5 +229,20 @@ struct ATA_IDENTIFY {
 	/* 206 */ uint8_t reserved8[98];
 	/* 255 */ uint8_t checksum[2];
 } __attribute__((packed));
+
+struct ATA_PRIVDATA {
+	uint32_t	io_port;
+};
+
+#define ATA_GET_WORD(x) \
+	((uint16_t)(x)[0] << 8 | (x)[1])
+#define ATA_GET_DWORD(x) \
+	((uint32_t)(ATA_GET_WORD(x+2) << 16) | \
+	((uint32_t)(ATA_GET_WORD(x))))
+#define ATA_GET_QWORD(x) \
+	((uint64_t)(ATA_GET_DWORD(x+4) << 32) | \
+	((uint64_t)(ATA_GET_DWORD(x))))
+	
+#define SECTOR_SIZE 512 /* XXX */
 
 #endif /* __ATA_H__ */

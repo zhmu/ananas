@@ -3,7 +3,12 @@
 #ifndef __UNISTD_H___
 #define __UNISTD_H__
 
-ssize_t read(int d, void* buf, size_t len);
-ssize_t write(int d, const void* buf, size_t len);
+#define STDIN_FILENO	0
+#define STDOUT_FILENO	1
+#define STDERR_FILENO	2
+
+ssize_t read(int fd, void* buf, size_t len);
+ssize_t write(int fd, const void* buf, size_t len);
+off_t	lseek(int fd, off_t offset, int whence);
 
 #endif /* __UNISTD_H__ */

@@ -1,0 +1,29 @@
+TARGET:		libc.a
+
+S=		../..
+
+CFLAGS+=	-nostdlib
+SOURCES=	$(shell find $S -name "*.c" ! -name "syscalls.inc.c" )
+OBJS+=		$(patsubst %.c,%.o,$(SOURCES))
+
+ASMFLAGS=	$(CFLAGS) -DASM
+
+%.o:		%.c
+		$(CC) $(CFLAGS) -c -o $@ $<
+
+syscall.o:	$S/gen/syscall.c $S/gen/syscalls.inc.c
+		$(CC) $(CFLAGS) -c -o syscall.o $S/gen/syscall.c
+
+syscalls.inc.o:	
+
+machine:	$S/../../include/sys/${ARCH}
+		ln -sf $S/../../include/sys/${ARCH} machine
+
+libc.a:		machine $(OBJS) $(MDOBJS)
+		$(AR) cr libc.a $(OBJS) $(MDOBJS)
+
+libc.so.1:	machine $(OBJS) $(MDOBJS)
+		$(CC) -shared -Wl,-soname,libc.so.1 -o libc.so.1.0 $(OBJS) $(MDOBJS)
+
+clean:
+		rm -f libc.a machine $(OBJS) $(MDOBJS)

@@ -44,9 +44,14 @@ typedef uint32_t	uintptr_t;
 typedef int64_t		intmax_t;
 typedef uint64_t	uintmax_t;
 
+/*
+ * Do not define ptrdiff_t or size_t -- these will be defined by stddef.h.
+ */
+#if 0
 /* 7.17.2: Common definitions for stddef.h */
 typedef uint32_t	ptrdiff_t;
 typedef uint32_t	size_t;
+#endif
 
 /*
  * Below are standard types.
