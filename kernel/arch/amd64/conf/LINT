@@ -5,12 +5,17 @@ hints		hints.i386
 
 device		isa
 device		vga
+device		sio
 device		atkbd
 
 device		pcihb
 device		pci
 
+option		EXT2FS
+
 device		ata
 
 inputdev	isa.atkbd
 outputdev	isa.vga
+#inputdev	isa.sio
+#outputdev	isa.sio

@@ -8,12 +8,13 @@ device		vga
 device		sio
 device		atkbd
 
-#device		pcihb
-#device		pci
+device		pcihb
+device		pci
 
-#option		SMP
+option		SMP
+option		EXT2FS
 
-#device		ata
+device		ata
 
 inputdev	isa.atkbd
 outputdev	isa.vga
