@@ -1,2 +1,12 @@
 # ignore any files in the compile trees
 ^kernel/arch/.*/compile/
+# ignore all toolchain aspects, only the patches/makefiles matter
+^toolchain/src
+^toolchain/build
+^toolchain/prefix.*
+^toolchain/.*
+# ignore output
+$output/
+# ignore object/archive files
+.o$
+.a$
