@@ -785,4 +785,7 @@ int ferror( FILE * stream );
 */
 void perror( const char * s );
 
+/* Convert an error code to a string */
+char* strerror( int errnum );
+
 #endif /* __STDIO_H__ */
