@@ -34,12 +34,13 @@ md_thread_init(thread_t t)
 #ifdef SMP	
 	/*
 	 * Grr - for some odd reason, the GDT had to be subject to paging. This means
-	 * we have to insert a suitable mapping for every CPU... :-/
+	 * we have to insert a suitable mapping for every CPU (this does not apply
+ 	 * to the BSP as it is not allocated)
 	 */
 	uint32_t i;
-	for (i = 0; i < get_num_cpus(); i++) {
+	for (i = 1; i < get_num_cpus(); i++) {
 		struct IA32_CPU* cpu = get_cpu_struct(i);
-		vm_map_pagedir(md->pagedir, (addr_t)cpu->gdt, 1 /* XXX */, 0);
+		vm_map_pagedir(t->md_pagedir, (addr_t)cpu->gdt, 1 /* XXX */, 0);
 	}
 #endif
 

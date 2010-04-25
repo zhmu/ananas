@@ -328,9 +328,15 @@ smp_init()
 	for (i = 0; i < num_cpu; i++) {
 		cpus[i] = (struct IA32_CPU*)(cpus + (sizeof(struct IA32_CPU*) * num_cpu) + i * sizeof(struct IA32_CPU));
 
-		/* Note that we don't need to allocate anything extra for the BSP */
-		if (i == 0)
+		/*
+	 	 * Note that we don't need to allocate anything extra for the BSP, but
+		 * we have to setup the pointers.
+		 */
+		if (i == 0) {
+extern void* gdt;
+			cpus[i]->gdt = gdt;
 			continue;
+		}
 
 		cpus[i]->stack = kmalloc(KERNEL_STACK_SIZE);
 		KASSERT(cpus[i]->stack != NULL, "out of memory?");
@@ -349,7 +355,7 @@ struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
 		cpus[i]->tss = (char*)tss;
 struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS));
 		memset(pcpu, 0, sizeof(struct PCPU));
-		pcpu_init(&pcpu);
+		pcpu_init(pcpu);
 		pcpu->cpuid = i;
 		pcpu->tss = (addr_t)cpus[i]->tss;
 		GDT_SET_ENTRY32(cpus[i]->gdt, GDT_IDX_KERNEL_PCPU, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, (addr_t)pcpu, sizeof(struct PCPU));
