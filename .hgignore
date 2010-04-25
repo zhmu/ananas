@@ -7,6 +7,10 @@
 ^toolchain/.*
 # ignore output
 $output/
+# ignore generated files for the system call infrastructure
+^include/syscalls.h$
+^kernel/kern/syscalls.inc.c$
+^lib/libc/gen/syscalls.inc.c$
 # ignore object/archive files
 .o$
 .a$
