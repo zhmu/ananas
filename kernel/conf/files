@@ -17,6 +17,8 @@ lib/memcpy.c		mandatory
 lib/print.c		mandatory
 lib/qdivrem.c		mandatory
 lib/string.c		mandatory
+# XXX this should be optional - depend on vga for now?
+lib/teken/teken.c	mandatory
 dev/bus/isa.c		optional isa
 dev/bus/isa/atkbd.c	optional atkbd
 dev/bus/pci/pci.c	optional pci
@@ -32,5 +34,4 @@ kern/disk_mbr.c		mandatory
 kern/disk_slice.c	mandatory
 gen/std.c		mandatory
 gen/io.c		mandatory
-lib/teken/teken.c	mandatory
 fs/ext2fs.c		option EXT2FS

@@ -10,10 +10,12 @@
 #include "options.h"
 
 #ifdef __i386__
-#define SHELL_BIN "usr/bin/moonsh.i386"
+#define SHELL_BIN "/usr/bin/moonsh.i386"
 #elif defined(__amd64__)
-#define SHELL_BIN "usr/bin/moonsh.amd64"
+#define SHELL_BIN "/usr/bin/moonsh.amd64"
 #endif
+
+#define ROOT_DEVICE "slice0"
 
 void smp_init();
 void smp_launch();
@@ -62,19 +64,29 @@ mi_startup()
 
 	/* Init VFS and mount something */
 	vfs_init();
-	kprintf("vfs_mount(): %i\n", vfs_mount("slice0", "/", "ext2", NULL));
+	kprintf("- Mounting / from %s...", ROOT_DEVICE);
+	if (vfs_mount(ROOT_DEVICE, "/", "ext2", NULL) == 1) {
+		kprintf(" ok\n");
+	} else {
+		kprintf(" failed\n");
+	}
 
+#if 0
 	kmem_stats(&mem_avail, &mem_total);
 	kprintf("CURRENT Memory: %uKB available / %uKB total\n", mem_avail / 1024, mem_total / 1024);
+#endif
 
 	/* Construct our shell process */
+#if 1
 #ifdef SHELL_BIN 
 	thread_t t1 = thread_alloc();
+
 	struct VFS_FILE f;
-	kprintf("Lauching MoonShell.. ");
+	kprintf("- Lauching MoonShell from %s...", SHELL_BIN);
 	if (vfs_open(SHELL_BIN, &f)) {
 		if (elf_load_from_file(t1, &f)) {
 			kprintf(" ok\n");
+			thread_resume(t1);
 		} else {
 			kprintf(" fail\n");
 		}
@@ -82,6 +94,23 @@ mi_startup()
 		kprintf(" fail - file not found\n");
 	}
 #endif /* SHELL_BIN  */
+#endif
+#if 0
+	thread_t t2 = thread_alloc();
+
+	struct VFS_FILE f;
+	kprintf("Lauching q...");
+	if (vfs_open("q", &f)) {
+		if (elf_load_from_file(t2, &f)) {
+			kprintf(" ok\n");
+			thread_resume(t2);
+		} else {
+			kprintf(" fail\n");
+		}
+	} else {
+		kprintf(" fail - file not found\n");
+	}
+#endif
 
 #ifdef SMP
 	smp_launch();
