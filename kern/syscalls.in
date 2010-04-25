@@ -7,3 +7,7 @@
 2	{ ssize_t write(int fd, const void* buf, size_t len); }
 3	{ void* map(size_t len); }
 4	{ int unmap(void* addr, size_t length); }
+5	{ int open(const char* path, int flags); }
+6	{ void close(int fd); }
+7	{ off_t lseek(int fd, off_t offset, int whence); }
+8	{ int getdirents(int fd, void* buf, size_t numitems); }
