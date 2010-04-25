@@ -218,7 +218,6 @@ static void double2string( double value, struct _PDCLIB_status_t * status )
     }
 
     char* tmp = dtoa( value, 3, ndigits, &decpt, &sign, &rve);
-printf("status.prec= %u, sign=%i, decpt=%i, [%s]\n", status->prec, sign, decpt, tmp);
     if (sign) {
         DELIVER( '-' );
     }
