@@ -60,5 +60,10 @@ typedef uint32_t	addr_t;
 typedef uint64_t	off_t;
 typedef int32_t		ssize_t;
 typedef uint32_t	register_t;
+typedef int32_t		time_t;
+typedef int32_t		clock_t;
+
+/* XXX does not belong here */
+#define	CLOCKS_PER_SEC	1
 
 #endif /* __I386_TYPES_H__ */
