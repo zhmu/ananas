@@ -356,7 +356,6 @@ static int pmain (lua_State *L) {
     s->status = 1;
     return 0;
   }
-printf("hello, %f, %u !!\n", 1.234, 481);
   if (has_v) print_version();
   s->status = runargs(L, argv, (script > 0) ? script : s->argc);
   if (s->status != 0) return 0;
