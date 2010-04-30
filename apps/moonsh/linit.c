@@ -25,6 +25,7 @@ static const luaL_Reg lualibs[] = {
 #ifdef ANANAS_TODO
   {LUA_MATHLIBNAME, luaopen_math},
 #endif /* ANANAS_TODO */
+  {LUA_OWNLIBNAME, luaopen_ananas},
   {LUA_DBLIBNAME, luaopen_debug},
   {NULL, NULL}
 };

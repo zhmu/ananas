@@ -7,6 +7,7 @@ OBJS+=	lauxlib.o lbaselib.o ldblib.o
 OBJS+=	ltablib.o lstrlib.o linit.o
 #OBJS+=	lmathlib.o
 OBJS+=	liolib.o loslib.o loadlib.o
+OBJS+=	lua-ananas.o
 
 ARCH?=	i386
 S=	../..
