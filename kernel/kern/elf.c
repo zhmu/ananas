@@ -49,7 +49,7 @@ elf32_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 		 */
 		int delta = phdr.p_vaddr % PAGE_SIZE;
 		struct THREAD_MAPPING* tm = thread_mapto(thread, (void*)(phdr.p_vaddr - delta), NULL, phdr.p_memsz + delta, THREAD_MAP_ALLOC);
-		if (!obtain(priv, tm->ptr, phdr.p_offset + delta, phdr.p_filesz))
+		if (!obtain(priv, tm->ptr + delta, phdr.p_offset, phdr.p_filesz))
 			return 0;
 	}
 	md_thread_set_entrypoint(thread, ehdr.e_entry);
@@ -102,7 +102,7 @@ elf64_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 		 */
 		int delta = phdr.p_vaddr % PAGE_SIZE;
 		struct THREAD_MAPPING* tm = thread_mapto(thread, (void*)phdr.p_vaddr - delta, NULL, phdr.p_memsz + delta, THREAD_MAP_ALLOC);
-		if (!obtain(priv, tm->ptr, phdr.p_offset + delta, phdr.p_filesz))
+		if (!obtain(priv, tm->ptr + delta, phdr.p_offset, phdr.p_filesz))
 			return 0;
 	}
 
