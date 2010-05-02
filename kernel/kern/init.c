@@ -117,10 +117,8 @@ mi_startup()
 #endif
 
 	/* gooo! */
-	__asm(
-		"sti\n"
-		"hlt\n"
-	);
+	scheduler_activate();
+	__asm("hlt\n");
 
 	panic("mi_startup(): what now?");
 }
