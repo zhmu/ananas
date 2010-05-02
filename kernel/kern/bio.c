@@ -91,8 +91,11 @@ bio_read(device_t dev, block_t block, size_t len)
 	struct BIO* bio = bio_alloc(dev, block, len);
 	bio->flags |= BIO_FLAG_READ;
 
-	/* kick the device; we want it to read XXX we rely on this blocking for now! */
+	/* kick the device; we want it to read */
 	device_read(dev, bio, len, block);
+
+	/* ... and wait until we have something to report... */
+	bio_waitcomplete(bio);
 	return bio;
 }
 
