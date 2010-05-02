@@ -1,3 +1,5 @@
+#include <sys/queue.h>
+
 #ifndef __ATA_H__
 #define __ATA_H__
 
@@ -230,8 +232,20 @@ struct ATA_IDENTIFY {
 	/* 255 */ uint8_t checksum[2];
 } __attribute__((packed));
 
+QUEUE_DEFINE(ATA_REQUEST_QUEUE)
+
+struct ATA_REQUEST_ITEM {
+	uint8_t		command;	/* command */
+	uint8_t		unit;		/* unit (0=master, 1=slave) */
+	uint8_t		count;		/* amount of sectors */
+	uint64_t	lba;		/* start LBA */
+	struct BIO*	bio;		/* associated I/O buffer */
+	QUEUE_FIELDS;
+};
+
 struct ATA_PRIVDATA {
 	uint32_t	io_port;
+	struct ATA_REQUEST_QUEUE requests;
 };
 
 #define ATA_GET_WORD(x) \

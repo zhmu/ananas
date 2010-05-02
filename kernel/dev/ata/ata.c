@@ -6,8 +6,6 @@
 #include <sys/mm.h>
 #include <sys/lib.h>
 
-struct BIO* ata_currentbio = NULL;
-
 extern struct DRIVER drv_atadisk;
 extern struct DRIVER drv_atacd;
 
@@ -17,29 +15,31 @@ void
 ata_irq(device_t dev)
 {
 	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
+
 	/* If we were not doing a request, no point in continuing */
-	if (ata_currentbio == NULL)
+	if (QUEUE_EMPTY(&priv->requests))
 		return;
+	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests, struct ATA_REQUEST_ITEM);
+	QUEUE_POP_HEAD(&priv->requests, struct ATA_REQUEST_ITEM);
 
 	int stat = inb(priv->io_port + ATA_PIO_STATCMD);
 	if (stat & ATA_PIO_STATUS_ERR) {
-		ata_currentbio->flags |= BIO_FLAG_ERROR;
+		item->bio->flags |= BIO_FLAG_ERROR;
 		kprintf("ata error %u!\n", priv->io_port);
 	} else {
 		/*
 		 * Request OK - fill the bio data XXX need to port 'rep insw'. We do this
 		 * before updating the buffer status to prevent 
 		 */
-		for(int count = 0; count < ata_currentbio->length; ) {
+		for(int count = 0; count < item->bio->length; ) {
 			uint16_t data = inw(priv->io_port + ATA_PIO_DATA);
-			ata_currentbio->data[count++] = data & 0xff;
-			ata_currentbio->data[count++] = data >> 8;
+			item->bio->data[count++] = data & 0xff;
+			item->bio->data[count++] = data >> 8;
 		}
 	}
 
 	/* Current request is done. Sign it off and away it goes */
-	ata_currentbio->flags |= BIO_FLAG_DONE;
-	ata_currentbio = NULL;
+	item->bio->flags |= BIO_FLAG_DONE;
 }
 
 static int
@@ -131,6 +131,7 @@ ata_attach(device_t dev)
 
 	struct ATA_PRIVDATA* priv = kmalloc(sizeof(struct ATA_PRIVDATA));
 	priv->io_port = (uint32_t)(uintptr_t)res_io;
+	QUEUE_INIT(&priv->requests);
 	dev->privdata = priv;
 
 	/* Ensure there's something living at the I/O addresses */
@@ -142,6 +143,7 @@ ata_attach(device_t dev)
 	return 0;
 }
 
+#if 0
 static void
 ata_start(device_t dev)
 {
@@ -183,6 +185,46 @@ ata_start(device_t dev)
 	}
 	ata_irq(dev->biodev);
 }
+#endif
+
+static void
+ata_start(device_t dev)
+{
+	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
+
+	KASSERT(!QUEUE_EMPTY(&priv->requests), "ata_start() with empty queue");
+
+	/* XXX locking */
+	/* XXX only do a single item now */
+
+	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests, struct ATA_REQUEST_ITEM);
+
+	/* Feed the request to the drive */
+	//kprintf("ata_start(): cmd=%x, lba=%x, count=%x\n", item->command, item->lba, item->count);
+	outb(priv->io_port + ATA_PIO_DRIVEHEAD, 0xe0 | (item->unit ? 0x10 : 0) | ((item->lba >> 24) & 0xf));
+	outb(priv->io_port + ATA_PIO_COUNT, item->count);
+	outb(priv->io_port + ATA_PIO_LBA_1, item->lba & 0xff);
+	outb(priv->io_port + ATA_PIO_LBA_2, (item->lba >> 8) & 0xff);
+	outb(priv->io_port + ATA_PIO_LBA_3, (item->lba >> 16) & 0xff);
+	outb(priv->io_port + ATA_PIO_STATCMD, item->command);
+
+	/* XXX this is a hack - and this does not work correctly yet */
+	if (md_interrupts_enabled()) {
+		kprintf("we have interrupts, will not wait for completion here\n");
+		return;
+	}
+
+	/* XXX polling for now */
+	int x;
+	while (1) {
+		x = inb(priv->io_port + ATA_PIO_STATCMD);
+		if (!(x & ATA_PIO_STATUS_BSY) && (x & ATA_PIO_STATUS_DRQ))
+			break;
+		if (x & ATA_PIO_STATUS_ERR)
+			break;
+	}
+	ata_irq(dev);
+}
 
 static void
 ata_attach_children(device_t dev)
@@ -214,18 +256,24 @@ ata_attach_children(device_t dev)
 					driver = &drv_atacd;
 					break;
 				default:
-					kprintf("%s: detected unsupported device as unit %u, ignored\n", dev->name, unit);
+					device_printf(dev, "detected unsupported device as unit %u, ignored", unit);
 					continue;
 			}
 		}
 
 		KASSERT(driver != NULL, "identified device, yet no driver");
 		device_t new_dev = device_alloc(dev, driver);
-		new_dev->privdata = (void*)&identify; /* XXX this is a hack */
-		device_set_biodev(new_dev, dev);	/* force I/O to go through us */
+		new_dev->privdata = (void*)&identify; /* XXX this is a hack; we should have an userpointer */
 		device_add_resource(new_dev, RESTYPE_CHILDNUM, unit, 0);
 		device_attach_single(new_dev);
 	}
+}
+
+static void
+ata_enqueue(device_t dev, struct ATA_REQUEST_ITEM* item)
+{
+	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
+	QUEUE_ADD_TAIL(&priv->requests, item, struct ATA_REQUEST_ITEM);
 }
 
 struct DRIVER drv_ata = {
@@ -233,6 +281,7 @@ struct DRIVER drv_ata = {
 	.drv_probe		= NULL,
 	.drv_attach		= ata_attach,
 	.drv_attach_children		= ata_attach_children,
+	.drv_enqueue	= ata_enqueue,
 	.drv_start		= ata_start
 };
 
