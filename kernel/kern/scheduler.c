@@ -6,6 +6,7 @@
 #include <sys/thread.h>
 
 extern struct THREAD* threads;
+int scheduler_active = 0;
 
 struct SPINLOCK spl_scheduler = { 0 };
 
@@ -68,6 +69,12 @@ schedule()
 
 	md_thread_switch(newthread, curthread);
 	/* NOTREACHED */
+}
+
+void
+scheduler_activate()
+{
+	scheduler_active++;
 }
 
 /* vim:set ts=2 sw=2: */
