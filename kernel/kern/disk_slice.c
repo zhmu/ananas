@@ -10,27 +10,19 @@ struct SLICE_PRIVATE {
 	size_t	length;
 };
 
-static void
-slice_start(device_t dev)
+static ssize_t
+slice_read(device_t dev, char* buf, size_t length, off_t offset)
 {
 	/*
-	 * All we do is grab the request, mangle it and call the parent's start routine.
+	 * All we do is grab the request, mangle it and call the parent's read routine.
 	 */
 	struct SLICE_PRIVATE* privdata = (struct SLICE_PRIVATE*)dev->privdata;
-	struct BIO* bio = bio_get_next(dev);
-	KASSERT(bio != NULL, "slice_start without pending requests");
-
-	/* Update the request */
-	bio->block += privdata->first_block;
-	bio->device = privdata->biodev;
-
-	/* chain the request to our I/O driver */
-	privdata->biodev->driver->drv_start(bio->device);
+	return dev->parent->driver->drv_read(dev->parent, buf, length, offset + privdata->first_block);
 }
 
 struct DRIVER drv_slice = {
 	.name	= "slice",
-	.drv_start = slice_start 
+	.drv_read = slice_read
 };
 
 struct DEVICE*
@@ -41,7 +33,6 @@ slice_create(device_t dev, block_t begin, block_t length)
 	privdata->length = length;
 
 	device_t new_dev = device_alloc(dev, &drv_slice);
-	privdata->biodev = dev->biodev;	/* force I/O to go through our parent */
 	new_dev->privdata = privdata;
 	device_attach_single(new_dev);
 

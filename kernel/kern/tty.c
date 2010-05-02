@@ -74,7 +74,7 @@ static ssize_t
 tty_write(device_t dev, const char* data, size_t len)
 {
 	struct TTY_PRIVDATA* priv = (struct TTY_PRIVDATA*)dev->privdata;
-	return priv->output_dev->driver->drv_write(priv->output_dev, data, len);
+	return priv->output_dev->driver->drv_write(priv->output_dev, data, len, 0);
 }
 
 static ssize_t
@@ -152,9 +152,9 @@ tty_putchar(device_t dev, unsigned char ch)
 	struct TTY_PRIVDATA* priv = (struct TTY_PRIVDATA*)dev->privdata;
 	if (priv->termios.c_oflag & OPOST) {
 		if ((priv->termios.c_oflag & ONLCR) && ch == NL)
-			device_write(priv->output_dev, "\r", 1);
+			device_write(priv->output_dev, "\r", 1, 0);
 	}
-	device_write(priv->output_dev, &ch, 1);
+	device_write(priv->output_dev, &ch, 1, 0);
 }
 
 static void
@@ -164,7 +164,7 @@ tty_handle_echo(device_t dev, unsigned char byte)
 	if ((priv->termios.c_iflag & ICANON) && (priv->termios.c_oflag & ECHOE) && byte == priv->termios.c_cc[VERASE]) {
 		/* Need to echo erase char */
 		char erase_seq[3] = { 8, ' ', 8 };
-		device_write(priv->output_dev, erase_seq, sizeof(erase_seq));
+		device_write(priv->output_dev, erase_seq, sizeof(erase_seq), 0);
 		return;
 	}
 	if ((priv->termios.c_lflag & (ICANON | ECHONL)) && byte == NL) {
@@ -185,7 +185,7 @@ tty_signal_data(device_t dev)
 	 * This will be called once data is available from our input device; we need
 	 * to queue it up.
 	 */
-	while (device_read(priv->input_dev, &byte, 1)) {
+	while (device_read(priv->input_dev, &byte, 1, 0)) {
 		/* If we are out of buffer space, just eat the charachter XXX possibly unnecessary for VERASE */
 		if ((priv->in_writepos + 1) % MAX_INPUT == priv->in_readpos)
 			continue;

@@ -30,7 +30,6 @@ device_alloc(device_t bus, driver_t drv)
 	dev->driver = drv;
 	dev->parent = bus;
 	dev->unit = 0; /* XXX */
-	dev->biodev = dev; /* by default every driver performs its own I/O */
 	if (drv != NULL)
 		strcpy(dev->name, drv->name);
 	/* hook the device up to the chain */
@@ -328,15 +327,6 @@ device_init()
 	device_attach_bus(corebus);
 }
 
-void
-device_set_biodev(device_t dev, device_t biodev)
-{
-	KASSERT(biodev->driver != NULL, "block device without a driver");
-	KASSERT(biodev->driver->drv_start != NULL, "block device without drv_start");
-
-	dev->biodev = biodev;
-}
-
 struct DEVICE*
 device_find(const char* name)
 {
@@ -352,21 +342,21 @@ device_find(const char* name)
 }
 
 ssize_t
-device_write(device_t dev, const char* buf, size_t len)
+device_write(device_t dev, const char* buf, size_t len, off_t offset)
 {
 	KASSERT(dev->driver != NULL, "device_write() without a driver");
 	KASSERT(dev->driver->drv_write != NULL, "device_write() without drv_write");
 
-	return dev->driver->drv_write(dev, buf, len);
+	return dev->driver->drv_write(dev, buf, len, offset);
 }
 
 ssize_t
-device_read(device_t dev, char* buf, size_t len)
+device_read(device_t dev, char* buf, size_t len, off_t offset)
 {
 	KASSERT(dev->driver != NULL, "device_read() without a driver");
 	KASSERT(dev->driver->drv_read != NULL, "device_read() without drv_read");
 
-	return dev->driver->drv_read(dev, buf, len);
+	return dev->driver->drv_read(dev, buf, len, offset);
 }
 
 void

@@ -189,7 +189,7 @@ vfs_read(struct VFS_FILE* file, void* buf, size_t len)
 		if (file->device->driver == NULL || file->device->driver->drv_read == NULL)
 			return -1;
 		else {
-			return file->device->driver->drv_read(file->device, buf, len);
+			return file->device->driver->drv_read(file->device, buf, len, 0);
 		}
 	}
 
@@ -206,7 +206,7 @@ vfs_write(struct VFS_FILE* file, const void* buf, size_t len)
 		if (file->device->driver == NULL || file->device->driver->drv_write == NULL)
 			return -1;
 		else
-			return file->device->driver->drv_write(file->device, buf, len);
+			return file->device->driver->drv_write(file->device, buf, len, 0);
 
 	if (file->inode == NULL || file->inode->iops == NULL || file->inode->iops->write != NULL)
 		return -1;
