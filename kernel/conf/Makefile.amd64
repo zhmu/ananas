@@ -8,7 +8,7 @@ AWK?=		awk
 %OBJS
 %FILES
 
-CFLAGS=		-m64 -march=athlon64 -mcmodel=large -I$S/../include -I$S -I. -std=c99
+CFLAGS=		-m64 -march=athlon64 -mcmodel=large -I$S/../include -I$S -I. -std=c99 -mno-red-zone
 kernel.elf:	$(OBJS) $S/conf/ld.amd64
 		$(LD) -b elf64-x86-64 -T $S/conf/ld.amd64 -nostdlib -nodefaultlibs -o kernel.elf $(OBJS)
 
