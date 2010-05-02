@@ -97,7 +97,7 @@ md_startup(struct BOOTINFO* bi)
 		 * All we need is 'mov %%cx, %%cs'; For the first time, directly editing
 		 * CS is useful, so it can't be used :-)
 		 */
-		"pushw	%%cx\n"
+		"pushq	%%rcx\n"
 		"pushq	$l1\n"
 		"lretq\n"
 "l1:\n"
@@ -258,6 +258,16 @@ extern void* syscall_handler;
 	 */
 	pcpu_init(&bsp_pcpu);
 
+	/*
+	 * Enable interrupts. We do this right before the machine-independant code
+	 * because it will allow us to rely on interrupts when probing devices etc.
+	 *
+	 * Note that we explicitely block the scheduler, as this only should be
+	 * enabled once we are ready to run userland threads.
+	 */
+	__asm("sti");
+
+	/* All done - it's up to the machine-independant code now */
 	mi_startup();
 }
 

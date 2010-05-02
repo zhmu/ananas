@@ -179,8 +179,16 @@ irq ## num: \
  * The scheduler interrupt is pure magic; it forcefully stores the context of the
  * current thread, and then calls the scheduler, which restores the context of
  * whatever thread it wants.
+ *
+ * Note that the scheduler is effectively disabled using the 'scheduler_active'
+ * global variable - we need this during early startup when we are probing
+ * devices (as interrupts will be enabled)
  */
 scheduler_irq:
+	/* If the scheduler is not yet enabled, go away */
+	cmpl	$0, %cs:scheduler_active
+	je	scheduler_cancel
+
 	/*
 	 * If we don't have a current context pointer, don't bother storing it.
 	 * Note that this nukes eflags, but that doesn't matter because
@@ -209,8 +217,17 @@ skip_store:
 
 	/* Next context */
 	jmp	schedule
-
 	/* UNREACHED - schedule never returns */
+
+scheduler_cancel:
+	/* Acknowledge the interrupt before exiting */
+	pushl	%eax
+	pushl	%edx
+	xorl	%edx, %edx
+	call	eoi
+	popl	%edx
+	popl	%eax
+	iret
 
 /*
  * System call interrupt; we expect to be called with %eax the syscall function,

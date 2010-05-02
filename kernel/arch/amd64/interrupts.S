@@ -169,8 +169,16 @@ int_skip_pt:
  *
  * However, we cheat and store the context on the stack initially; if we decide that it
  * has to be stored on the thread, we copy it over.
+ *
+ * Note that the scheduler is effectively disabled using the 'scheduler_active'
+ * global variable - we need this during early startup when we are probing
+ * devices (as interrupts will be enabled)
  */
 scheduler_irq:
+	/* If the scheduler is not yet enabled, go away */
+	cmpq	$0, %cs:scheduler_active
+	je	scheduler_cancel
+
 	subq	$SF_RIP, %rsp
 	SAVE_REGISTERS
 
@@ -250,6 +258,16 @@ skip_ctxcopy:
 	jmp	schedule
 
 	/* NOTREACHED - scheduler calls md_restore_ctx */
+
+scheduler_cancel:
+	/* Acknowledge the interrupt before exiting */
+	pushq	%rax
+	pushq	%rbx
+	xorq	%rbx, %rbx
+	call	eoi
+	popq	%rbx
+	popq	%rax
+	iretq
 
 /*
  * System call handler - will be called using SYSCALL; only cs/ss will be set
