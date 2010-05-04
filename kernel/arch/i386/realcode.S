@@ -141,8 +141,9 @@ stub32:
 	mov	$GDT_SEL_KERNEL_DATA, %ax
 	mov	%ax, %ds
 	mov	%ax, %es
-	mov	%ax, %fs
 	mov	%ax, %gs
+	mov	$GDT_SEL_KERNEL_PCPU, %ax
+	mov	%ax, %fs
 
 	/*
 	 * Before we restore paging, we should copy the relocated
