@@ -63,7 +63,4 @@ void thread_resume(thread_t t);
 void thread_exit();
 void thread_dump();
 
-void reschedule();
-void schedule();
-
 #endif
