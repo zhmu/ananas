@@ -257,10 +257,15 @@ reschedule:
 	 *
 	 * System V Application Binary Interface, i386 supplement 4th edition
 	 * page 3-11 we only have to store %ebp, %edi, %esi and %ebx.
+	 *
+	 * If we are in kernel context, thus %fs:0 is zero, we shortcut and just
+	 * wait for the very first interrupt that shows up.
 	 */
+	movl	%fs:0, %eax
+	orl	%eax, %eax
+	jz	reschedule_kernctx
 
 	/* Store %ebx/%esi/%ebp/%edi/%esp */
-	movl	%fs:0, %eax
 	movl	%ebx, 0x04(%eax)
 	movl	%esi, 0x10(%eax)
 	movl	%edi, 0x14(%eax)
@@ -282,6 +287,10 @@ reschedule:
 	 */
 
 reschedule_back:
+	ret
+	
+reschedule_kernctx:
+	hlt
 	ret
 
 /*
