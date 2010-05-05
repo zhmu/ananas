@@ -33,6 +33,8 @@ struct BIO {
 
 void bio_init();
 int bio_waitcomplete(struct BIO* bio);
+void bio_set_error(struct BIO* bio);
+void bio_set_done(struct BIO* bio);
 struct BIO* bio_read(device_t dev, block_t block, size_t len);
 struct BIO* bio_get_next(device_t dev);
 void bio_free(struct BIO* bio);

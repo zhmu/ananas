@@ -1,6 +1,7 @@
 #include <sys/mm.h>
 #include <sys/bio.h>
 #include <sys/lib.h>
+#include <sys/schedule.h>
 
 #define SECTOR_SIZE	 512	/* XXX */
 #define BIO_NUM_BUFS 128
@@ -82,7 +83,9 @@ bio_waitcomplete(struct BIO* bio)
 {	
 	KASSERT(bio->flags & BIO_FLAG_INUSE, "bio is not in use");
 
-	while(!(bio->flags & BIO_FLAG_DONE)) /* nothing */;
+	while(!(bio->flags & BIO_FLAG_DONE)) {
+		reschedule();
+	}
 }
 
 struct BIO*
@@ -98,5 +101,20 @@ bio_read(device_t dev, block_t block, size_t len)
 	bio_waitcomplete(bio);
 	return bio;
 }
+
+void
+bio_set_error(struct BIO* bio)
+{
+	KASSERT(bio->flags & BIO_FLAG_INUSE, "bio is not in use");
+	bio->flags |= BIO_FLAG_DONE | BIO_FLAG_ERROR;
+}
+
+void
+bio_set_done(struct BIO* bio)
+{
+	KASSERT(bio->flags & BIO_FLAG_INUSE, "bio is not in use");
+	bio->flags |= BIO_FLAG_DONE;
+}
+
 
 /* vim:set ts=2 sw=2: */
