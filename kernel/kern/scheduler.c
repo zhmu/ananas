@@ -3,6 +3,7 @@
 #include <sys/lib.h>
 #include <sys/lock.h>
 #include <sys/pcpu.h>
+#include <sys/schedule.h>
 #include <sys/thread.h>
 
 extern struct THREAD* threads;
@@ -75,6 +76,12 @@ void
 scheduler_activate()
 {
 	scheduler_active++;
+}
+
+void
+scheduler_deactivate()
+{
+	scheduler_active--;
 }
 
 /* vim:set ts=2 sw=2: */
