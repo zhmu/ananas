@@ -11,6 +11,7 @@
 #define ATA_PIO_LBA_2		4		/* Cylinder number (bits  8-15) */
 #define ATA_PIO_LBA_3		5		/* Cylinder number (bits 16-23) */
 #define ATA_PIO_DRIVEHEAD	6		/* Drive/head */
+#define ATA_PIO_DCR		6		/* Device Control Register */
 #define ATA_PIO_STATCMD		7		/* Status/command */
  #define ATA_PIO_STATUS_BSY	(1 << 7)	/* Drive is busy */
  #define ATA_PIO_STATUS_RDY	(1 << 6)	/* Drive is ready */
@@ -24,12 +25,15 @@
 #define ATA_CMD_PACKET		0xa0
 #define ATA_CMD_IDENTIFY_PACKET	0xa1
 
+#define ATAPI_CMD_READ_CAPACITY	0x25
+#define ATAPI_CMD_READ_SECTORS	0xa8
+
 struct ATA_IDENTIFY {
 	/*   0 */ uint8_t general_cfg[2];
 #define ATA_GENCFG_NONATA	(1 << 15)
 #define ATA_GENCFG_NONATAPI	(1 << 14)
 #define ATA_GENCFG_REMOVABLE	(1 << 7)
-/* Bits 8-12 define the device typ */
+/* Bits 8-12 define the device type */
 #define ATA_TYPE_DIRECTACCESS	0x00
 #define ATA_TYPE_SEQACCESS	0x01
 #define ATA_TYPE_PRINTER	0x02
@@ -237,15 +241,12 @@ QUEUE_DEFINE(ATA_REQUEST_QUEUE)
 struct ATA_REQUEST_ITEM {
 	uint8_t		command;	/* command */
 	uint8_t		unit;		/* unit (0=master, 1=slave) */
-	uint8_t		count;		/* amount of sectors */
+	uint16_t		count;	/* amount of sectors or bytes */
 	uint64_t	lba;		/* start LBA */
 	struct BIO*	bio;		/* associated I/O buffer */
+	/* if command = ATA_CMD_PACKET, this is an ATAPI command and we need to send 6 command words */
+	uint8_t		atapi_command[12];
 	QUEUE_FIELDS;
-};
-
-struct ATA_PRIVDATA {
-	uint32_t	io_port;
-	struct ATA_REQUEST_QUEUE requests;
 };
 
 #define ATA_GET_WORD(x) \

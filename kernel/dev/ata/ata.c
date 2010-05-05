@@ -9,7 +9,10 @@
 extern struct DRIVER drv_atadisk;
 extern struct DRIVER drv_atacd;
 
-int md_interrupts_enabled(); /* XXX */
+struct ATA_PRIVDATA {
+	uint32_t	io_port;
+	struct ATA_REQUEST_QUEUE requests;
+};
 
 void
 ata_irq(device_t dev)
@@ -17,45 +20,46 @@ ata_irq(device_t dev)
 	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
 
 	/* If we were not doing a request, no point in continuing */
-	if (QUEUE_EMPTY(&priv->requests))
+	if (QUEUE_EMPTY(&priv->requests)) {
 		return;
+	}
+
+	/*
+	 * Fetch the request and remove it from the queue; ATA may give extra interrupts, which we
+	 * happily ignore as the queue is empty when they arrive.
+	 */
 	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests, struct ATA_REQUEST_ITEM);
 	QUEUE_POP_HEAD(&priv->requests, struct ATA_REQUEST_ITEM);
 
-	int stat = inb(priv->io_port + ATA_PIO_STATCMD);
-	if (stat & ATA_PIO_STATUS_ERR) {
-		item->bio->flags |= BIO_FLAG_ERROR;
-		kprintf("ata error %u!\n", priv->io_port);
-	} else {
+	/* If this is an ATAPI command, we may need to send the command bytes at this point */
+	if (item->command == ATA_CMD_PACKET) {
 		/*
-		 * Request OK - fill the bio data XXX need to port 'rep insw'. We do this
-		 * before updating the buffer status to prevent 
+		 * In ATAPI-land, we obtain the number of bytes that could actually be read - this much
+		 * data is waiting for us.
 		 */
-		for(int count = 0; count < item->bio->length; ) {
-			uint16_t data = inw(priv->io_port + ATA_PIO_DATA);
-			item->bio->data[count++] = data & 0xff;
-			item->bio->data[count++] = data >> 8;
-		}
+		uint16_t len = (uint16_t)inb(priv->io_port + ATA_PIO_LBA_3) << 8 | 
+		                         inb(priv->io_port + ATA_PIO_LBA_2);
+		item->bio->length = len;
 	}
 
+	int stat = inb(priv->io_port + ATA_PIO_STATCMD);
+	if (stat & ATA_PIO_STATUS_ERR) {
+		kprintf("ata error %u!\n", priv->io_port);
+		bio_set_error(item->bio);
+		return;
+	}
+	/*
+	 * Request OK - fill the bio data XXX need to port 'rep insw'. We do this
+	 * before updating the buffer status to prevent 
+	 */
+	for(int count = 0; count < item->bio->length; ) {
+		uint16_t data = inw(priv->io_port + ATA_PIO_DATA);
+		item->bio->data[count++] = data & 0xff;
+		item->bio->data[count++] = data >> 8;
+	}
+	
 	/* Current request is done. Sign it off and away it goes */
 	item->bio->flags |= BIO_FLAG_DONE;
-}
-
-static int
-ata_read_sectors(device_t dev, int unit, uint32_t lba, uint32_t count)
-{
-	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
-
-	outb(priv->io_port + ATA_PIO_DRIVEHEAD, 0xe0 | (unit ? 0x10 : 0) | ((lba >> 24) & 0xf));
-	/*outb(priv->io_port + ATA_PIO_ERROR, 0);*/
-	outb(priv->io_port + ATA_PIO_COUNT, count);
-	outb(priv->io_port + ATA_PIO_LBA_1, lba & 0xff);
-	outb(priv->io_port + ATA_PIO_LBA_2, (lba >> 8) & 0xff);
-	outb(priv->io_port + ATA_PIO_LBA_3, (lba >> 16) & 0xff);
-	outb(priv->io_port + ATA_PIO_STATCMD, ATA_CMD_READ_SECTORS);
-
-	return 1;
 }
 
 /*
@@ -104,17 +108,6 @@ ata_identify(device_t dev, int unit, struct ATA_IDENTIFY* identify)
 			identify->model[i] = '\0';
 		}
 
-	#if 0
-		kprintf("model [%s] - foo\n", identify->model);
-		kprintf("size: %u sectors (%u MB)\n", size, size / ((1024UL * 1024UL) / 512UL));
-
-		/* Add the disk to our bus */
-		device_t new_dev = device_alloc(dev, &drv_atadisk);
-		device_set_biodev(new_dev, dev);	/* force I/O to go through us */
-		device_add_resource(new_dev, RESTYPE_CHILDNUM, 0 /* master */, 0);
-		device_attach_single(new_dev);
-		device_print_attachment(new_dev);
-	#endif
 		return identify_cmds[cur_cmd];
 	}
 
@@ -140,52 +133,14 @@ ata_attach(device_t dev)
 	if (!irq_register((uintptr_t)res_irq, dev, ata_irq))
 		return 1;
 
+	/* reset the control register - this ensures we receive interrupts */
+	outb(priv->io_port + ATA_PIO_DCR, 0);
 	return 0;
 }
 
-#if 0
-static void
-ata_start(device_t dev)
-{
-	/* XXX we only do a single request at a time */
-	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->biodev->privdata;
-	struct BIO* bio = bio_get_next(dev);
-	KASSERT(bio != NULL, "ata_start without pending requests");
-
-	KASSERT(BIO_IS_INUSE(bio), "pending bio isn't in use");
-	KASSERT(!BIO_IS_DONE(bio), "pending bio already completed");
-	if (BIO_IS_WRITE(bio)) {
-		kprintf("ata_start(): XXX no writes yet\n");
-		bio->flags |= BIO_FLAG_DONE | BIO_FLAG_ERROR;
-		return;
-	}
-
-	/* XXX lock ?? */
-	ata_currentbio = bio;
-
-	/* feed it to the disk */
-	ata_read_sectors(dev->biodev, 0 /* XXX unit */, bio->block, bio->length / 512);
-
-	/*
-	 * We may get called while interrupts are disabled. If this is the case, wait for
-	 * completion here by polling.
-	 */
-	if (md_interrupts_enabled())
-		return;
-
-	/* Handle polling of the status */
-	//kprintf("ata_start(): doing polling\n");
-	int x;
-	while (1) {
-		x = inb(priv->io_port + ATA_PIO_STATCMD);
-		if (!(x & ATA_PIO_STATUS_BSY) && (x & ATA_PIO_STATUS_DRQ))
-			break;
-		if (x & ATA_PIO_STATUS_ERR)
-			break;
-	}
-	ata_irq(dev->biodev);
-}
-#endif
+#define ATA_DELAY() \
+		inb(priv->io_port + 0x206); inb(priv->io_port + 0x206);  \
+		inb(priv->io_port + 0x206); inb(priv->io_port + 0x206); 
 
 static void
 ata_start(device_t dev)
@@ -199,31 +154,45 @@ ata_start(device_t dev)
 
 	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests, struct ATA_REQUEST_ITEM);
 
-	/* Feed the request to the drive */
-	//kprintf("ata_start(): cmd=%x, lba=%x, count=%x\n", item->command, item->lba, item->count);
-	outb(priv->io_port + ATA_PIO_DRIVEHEAD, 0xe0 | (item->unit ? 0x10 : 0) | ((item->lba >> 24) & 0xf));
-	outb(priv->io_port + ATA_PIO_COUNT, item->count);
-	outb(priv->io_port + ATA_PIO_LBA_1, item->lba & 0xff);
-	outb(priv->io_port + ATA_PIO_LBA_2, (item->lba >> 8) & 0xff);
-	outb(priv->io_port + ATA_PIO_LBA_3, (item->lba >> 16) & 0xff);
-	outb(priv->io_port + ATA_PIO_STATCMD, item->command);
+	if (item->command != ATA_CMD_PACKET) {
+		/* Feed the request to the drive - disk */
+		outb(priv->io_port + ATA_PIO_DRIVEHEAD, 0xe0 | (item->unit ? 0x10 : 0) | ((item->lba >> 24) & 0xf));
+		outb(priv->io_port + ATA_PIO_COUNT, item->count);
+		outb(priv->io_port + ATA_PIO_LBA_1, item->lba & 0xff);
+		outb(priv->io_port + ATA_PIO_LBA_2, (item->lba >> 8) & 0xff);
+		outb(priv->io_port + ATA_PIO_LBA_3, (item->lba >> 16) & 0xff);
+		outb(priv->io_port + ATA_PIO_STATCMD, item->command);
+	} else {
+		/* Feed the request to the device - ATAPI */
+		outb(priv->io_port + ATA_PIO_DRIVEHEAD, item->unit << 4);
+		ATA_DELAY(); ATA_DELAY();
+		outb(priv->io_port + ATA_PIO_ERROR, 0); /* no DMA yet! */
+		outb(priv->io_port + ATA_PIO_LBA_2, item->count & 0xff); /* note: in bytes! */
+		outb(priv->io_port + ATA_PIO_LBA_3, item->count >> 8);
+		outb(priv->io_port + ATA_PIO_STATCMD, item->command);
 
-	/* XXX this is a hack - and this does not work correctly yet */
-	if (md_interrupts_enabled()) {
-		kprintf("we have interrupts, will not wait for completion here\n");
-		return;
+		/* Wait until the command is accepted */
+		uint8_t status;
+		while (inb(priv->io_port + ATA_PIO_STATCMD) & ATA_PIO_STATUS_BSY) ;
+		while (1) {
+			status = inb(priv->io_port + ATA_PIO_STATCMD);
+			if (status & ATA_PIO_STATUS_ERR) {
+				/* Got an error - this means the request cannot be completed */
+				bio_set_error(item->bio);
+;				return;
+			}
+			if (status & ATA_PIO_STATUS_DRQ)
+				break;
+		}
+		for (unsigned int i = 0; i < 6; i++) {
+			/* XXX We really need outsw() */
+			outw(priv->io_port + ATA_PIO_DATA, *(uint16_t*)(&item->atapi_command[i * 2]));
+		}
 	}
 
-	/* XXX polling for now */
-	int x;
-	while (1) {
-		x = inb(priv->io_port + ATA_PIO_STATCMD);
-		if (!(x & ATA_PIO_STATUS_BSY) && (x & ATA_PIO_STATUS_DRQ))
-			break;
-		if (x & ATA_PIO_STATUS_ERR)
-			break;
-	}
-	ata_irq(dev);
+	/*
+	 * Now, we must wait for the IRQ to handle it. XXX what about errors?
+ 	 */
 }
 
 static void

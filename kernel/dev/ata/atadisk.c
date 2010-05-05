@@ -2,43 +2,59 @@
 #include <sys/dev/ata.h>
 #include <sys/bio.h>
 #include <sys/lib.h>
+#include <sys/mm.h>
 #include <mbr.h>
+
+struct ATADISK_PRIVDATA {
+	int unit;
+	uint64_t size;	/* in sectors */
+};
 
 static int
 atadisk_attach(device_t dev)
 {
-	void* res = device_alloc_resource(dev, RESTYPE_CHILDNUM, 0);
-	/* XXX store res */
+	int unit = (int)device_alloc_resource(dev, RESTYPE_CHILDNUM, 0);
 	struct ATA_IDENTIFY* identify = (struct ATA_IDENTIFY*)dev->privdata;
 
+	/* Allocate our private data */
+	struct ATADISK_PRIVDATA* priv = kmalloc(sizeof(struct ATADISK_PRIVDATA));
+	dev->privdata = priv;
+	priv->unit = unit;
+
 	/* Calculate the length of the disk */
-	unsigned long size = ATA_GET_DWORD(identify->lba_sectors);
+	priv->size = ATA_GET_DWORD(identify->lba_sectors);
 	if (ATA_GET_WORD(identify->features2) & ATA_FEAT2_LBA48) {
-		size  = ATA_GET_QWORD(identify->lba48_sectors);
+		priv->size  = ATA_GET_QWORD(identify->lba48_sectors);
 	}
 
 	device_printf(dev, "<%s> - %u MB",
 	 identify->model,
- 	 size / ((1024UL * 1024UL) / 512UL));
+ 	 priv->size / ((1024UL * 1024UL) / 512UL));
 
-
+	/*
+	 * Read the first sector and pass it to the MBR code; this is crude
+	 * and does not really belong here.
+	 */
 	struct BIO* bio = bio_read(dev, 0, 512);
-	if (BIO_IS_ERROR(bio))
+	if (BIO_IS_ERROR(bio)) {
+		kfree(priv);
 		return 0;
-
-	/* XXX certainly does not belong here */
+	}
 	mbr_process(dev, bio);
+	bio_free(bio);
 	return 1;
 }
 
 static ssize_t
 atadisk_read(device_t dev, char* buffer, size_t length, off_t offset)
 {
+	struct ATADISK_PRIVDATA* priv = (struct ATADISK_PRIVDATA*)dev->privdata;
 	struct ATA_REQUEST_ITEM item;
 	KASSERT(length > 0, "invalid length");
 	KASSERT(length % 512 == 0, "invalid length"); /* XXX */
 
-	item.unit = 0; /* XXX */
+	/* XXX boundary check */
+	item.unit = priv->unit;
 	item.lba = offset;
 	item.count = length / 512;
 	item.bio = (struct BIO*)buffer;
