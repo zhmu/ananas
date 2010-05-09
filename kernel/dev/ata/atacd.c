@@ -16,6 +16,7 @@ atacd_attach(device_t dev)
 	struct ATA_IDENTIFY* identify = (struct ATA_IDENTIFY*)dev->privdata;
 
 	struct ATACD_PRIVDATA* priv = kmalloc(sizeof(struct ATACD_PRIVDATA));
+	dev->privdata = priv;
 	priv->unit = unit;
 
 	device_printf(dev, "<%s>", identify->model);
@@ -24,7 +25,7 @@ atacd_attach(device_t dev)
 }
 
 static ssize_t
-atacd_read(device_t dev, char* buffer, size_t length, off_t offset)
+atacd_read(device_t dev, void* buffer, size_t length, off_t offset)
 {
 	struct ATACD_PRIVDATA* priv = (struct ATACD_PRIVDATA*)dev->privdata;
 	struct ATA_REQUEST_ITEM item;

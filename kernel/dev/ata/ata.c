@@ -44,7 +44,7 @@ ata_irq(device_t dev)
 
 	int stat = inb(priv->io_port + ATA_PIO_STATCMD);
 	if (stat & ATA_PIO_STATUS_ERR) {
-		kprintf("ata error %u!\n", priv->io_port);
+		kprintf("ata error %x ==> %x\n", stat,inb(priv->io_port + 1));
 		bio_set_error(item->bio);
 		return;
 	}
@@ -153,6 +153,7 @@ ata_start(device_t dev)
 	/* XXX only do a single item now */
 
 	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests, struct ATA_REQUEST_ITEM);
+	KASSERT(item->unit >= 0 && item->unit <= 1, "corrupted item number");
 
 	if (item->command != ATA_CMD_PACKET) {
 		/* Feed the request to the drive - disk */
@@ -229,8 +230,9 @@ ata_attach_children(device_t dev)
 					continue;
 			}
 		}
+		if (driver == NULL)
+			continue;
 
-		KASSERT(driver != NULL, "identified device, yet no driver");
 		device_t new_dev = device_alloc(dev, driver);
 		new_dev->privdata = (void*)&identify; /* XXX this is a hack; we should have an userpointer */
 		device_add_resource(new_dev, RESTYPE_CHILDNUM, unit, 0);
@@ -239,9 +241,10 @@ ata_attach_children(device_t dev)
 }
 
 static void
-ata_enqueue(device_t dev, struct ATA_REQUEST_ITEM* item)
+ata_enqueue(device_t dev, void* request)
 {
 	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
+	struct ATA_REQUEST_ITEM* item = (struct ATA_REQUEST_ITEM*)request;
 	QUEUE_ADD_TAIL(&priv->requests, item, struct ATA_REQUEST_ITEM);
 }
 

@@ -46,7 +46,7 @@ atadisk_attach(device_t dev)
 }
 
 static ssize_t
-atadisk_read(device_t dev, char* buffer, size_t length, off_t offset)
+atadisk_read(device_t dev, void* buffer, size_t length, off_t offset)
 {
 	struct ATADISK_PRIVDATA* priv = (struct ATADISK_PRIVDATA*)dev->privdata;
 	struct ATA_REQUEST_ITEM item;
