@@ -44,8 +44,8 @@ struct DRIVER {
 	int	(*drv_probe)(device_t);
 	int	(*drv_attach)(device_t);
 	void	(*drv_attach_children)(device_t);
-	ssize_t	(*drv_write)(device_t, const char*, size_t, off_t);
-	ssize_t	(*drv_read)(device_t, char*, size_t, off_t);
+	ssize_t	(*drv_write)(device_t, const void*, size_t, off_t);
+	ssize_t	(*drv_read)(device_t, void*, size_t, off_t);
 	/* for block devices: enqueue request */
 	void	(*drv_enqueue)(device_t, void*);
 	/* for block devices: start request queue */

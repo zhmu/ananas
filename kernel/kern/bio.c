@@ -95,7 +95,7 @@ bio_read(device_t dev, block_t block, size_t len)
 	bio->flags |= BIO_FLAG_READ;
 
 	/* kick the device; we want it to read */
-	device_read(dev, bio, len, block);
+	device_read(dev, (void*)bio, len, (off_t)block);
 
 	/* ... and wait until we have something to report... */
 	bio_waitcomplete(bio);
@@ -115,6 +115,5 @@ bio_set_done(struct BIO* bio)
 	KASSERT(bio->flags & BIO_FLAG_INUSE, "bio is not in use");
 	bio->flags |= BIO_FLAG_DONE;
 }
-
 
 /* vim:set ts=2 sw=2: */

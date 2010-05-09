@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/device.h>
 #include <sys/pcpu.h>
+#include <sys/schedule.h>
 #include <sys/limits.h>
 #include <sys/mm.h>
 #include <sys/lib.h>
@@ -71,16 +72,17 @@ tty_get_outputdev(device_t dev)
 }
 
 static ssize_t
-tty_write(device_t dev, const char* data, size_t len)
+tty_write(device_t dev, const void* data, size_t len, off_t offset)
 {
 	struct TTY_PRIVDATA* priv = (struct TTY_PRIVDATA*)dev->privdata;
-	return priv->output_dev->driver->drv_write(priv->output_dev, data, len, 0);
+	return priv->output_dev->driver->drv_write(priv->output_dev, data, len, offset);
 }
 
 static ssize_t
-tty_read(device_t dev, char* data, size_t len)
+tty_read(device_t dev, void* buf, size_t len, off_t offset)
 {
 	struct TTY_PRIVDATA* priv = (struct TTY_PRIVDATA*)dev->privdata;
+	char* data = (char*)buf;
 
 	/*
 	 * We must read from a tty. XXX We assume blocking does not apply.
