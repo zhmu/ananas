@@ -17,7 +17,7 @@ readdir(DIR* dirp)
 
 		if (dirp->d_cur_pos == 0) {
 			/* Buffer is empty; must re-read */
-			int num_read = sys_getdirents(dirp->d_fd, dirp->d_buffer, dirp->d_buf_size / sizeof(struct VFS_DIRENT));
+			int num_read = sys_getdirents(dirp->d_fd, dirp->d_buffer, dirp->d_buf_size);
 			if (num_read < 0) {
 				/* could not read */
 				/* errno = ? */
@@ -31,11 +31,13 @@ readdir(DIR* dirp)
 			} 
 		}
 
-		struct dirent* de = (struct dirent*)(dirp->d_buffer + dirp->d_cur_pos);
-		dirp->d_cur_pos += sizeof(struct VFS_DIRENT);
-		if (de->d_ino == 0)
+		struct VFS_DIRENT* de = (struct VFS_DIRENT*)(dirp->d_buffer + dirp->d_cur_pos);
+		dirp->d_cur_pos += DE_LENGTH(de);
+		if (de->de_name_length == 0)
 			continue;
-		return de;
+		dirp->d_entry.d_ino = 0; /* XXX not supported yet */
+		strcpy(dirp->d_entry.d_name, DE_NAME(de));
+		return &dirp->d_entry;
 	}
 
 	/* NOTREACHED */

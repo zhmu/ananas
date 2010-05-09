@@ -35,8 +35,6 @@
 
 #define EXT2_INODES_PER_BLOCK(x) (privdata->sb.s_inode_size / (x)->block_size)
 
-#define SECTOR_SIZE(x)		512
-
 struct EXT2_FS_PRIVDATA {
 	struct EXT2_SUPERBLOCK sb;
 
@@ -190,17 +188,16 @@ ext2_read(struct VFS_FILE* file, void* buf, size_t len)
 }
 
 static size_t
-ext2_readdir(struct VFS_FILE* file, struct VFS_DIRENT* dirents, size_t numents)
+ext2_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 {
 	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)file->inode->fs->privdata;
 	block_t blocknum = (block_t)file->offset / (block_t)privdata->block_size;
 	uint32_t offset = file->offset % privdata->block_size;
-	size_t ents = 0;
+	size_t written = 0;
 
-	struct VFS_DIRENT* de = dirents;
 	struct BIO* bio = NULL;
 	block_t curblock = 0;
-	while(numents > 0) {
+	while(entsize > 0) {
 		block_t block = ext2_find_block(file, blocknum);
 		if (block == 0) {
 			/*
@@ -224,13 +221,18 @@ ext2_readdir(struct VFS_FILE* file, struct VFS_DIRENT* dirents, size_t numents)
 		 * specification.
 		 */
 		struct EXT2_DIRENTRY* ext2de = (struct EXT2_DIRENTRY*)(void*)(BIO_DATA(bio) + offset);
-		ino_t inum = EXT2_TO_LE32(ext2de->inode);
+		uint32_t inum = EXT2_TO_LE32(ext2de->inode);
 		if (inum > 0) {
-			/* Inode number values of zero indicate the entry is not used */
-			de->inum = inum;
-			memcpy(de->name, ext2de->name, ext2de->name_len);
-			de->name[ext2de->name_len] = '\0';
-			ents++; de++; numents--;
+			/*
+			 * Inode number values of zero indicate the entry is not used; this entry
+			 * works and we mustreturn it.
+			 */
+			int filled = vfs_filldirent(&dirents, &entsize, (const void*)&inum, file->inode->fs->fsop_size, ext2de->name, ext2de->name_len);
+			if (!filled) {
+				/* out of space! */
+				break;
+			}
+			written += filled;
 		}
 
 		/*
@@ -245,33 +247,36 @@ ext2_readdir(struct VFS_FILE* file, struct VFS_DIRENT* dirents, size_t numents)
 		}
 	}
 	if (bio != NULL) bio_free(bio);
-	return ents;
+	return written;
 }
 
 struct VFS_INODE*
 ext2_lookup(struct VFS_INODE* dirinode, const char* dentry)
 {
 	struct VFS_FILE dir;
-	struct VFS_DIRENT de[8 /* XXX */];
+	char tmp[1024]; /* XXX */
+	char* tmp_ptr = tmp;
 
 	/*
 	 * XXX This is a very naive implementation which does not use the
-	 * possible directory index. We read in chunks of 8, which is great
-	 * for a 1KB blocksize filesystem.
+	 * possible directory index.
 	 */
 	dir.offset = 0;
 	dir.inode = dirinode;
 	while (1) {
-		size_t n = dirinode->iops->readdir(&dir, de, sizeof(de) / sizeof(struct VFS_DIRENT));
-		if (n <= 0)
+		size_t left = dirinode->iops->readdir(&dir, tmp, sizeof(tmp));
+		if (left <= 0)
 			break;
 
-		for(unsigned int i = 0; i < n; i++) {
-			if (strcmp(de[i].name, dentry) != 0)
+		while (left > 0) {
+			struct VFS_DIRENT* de = (struct VFS_DIRENT*)tmp_ptr;
+			left -= DE_LENGTH(de); tmp_ptr += DE_LENGTH(de);
+			
+			if (strcmp(de->de_fsop + de->de_fsop_length, dentry) != 0)
 				continue;
 
 			/* Found it! */
-			struct VFS_INODE* inode = vfs_get_inode(dirinode->fs, de[i].inum);
+			struct VFS_INODE* inode = vfs_get_inode(dirinode->fs, de->de_fsop);
 			if (inode == NULL)
 				return NULL;
 			return inode;
@@ -295,17 +300,17 @@ static struct VFS_INODE_OPS ext2_dir_ops = {
  * Reads a filesystem inode and fills a corresponding inode structure.
  */
 static int
-ext2_read_inode(struct VFS_INODE* inode)
+ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 {
 	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)inode->fs->privdata;
-	KASSERT(inode->inum - 1 < privdata->sb.s_inodes_count, "inode out of range");
 
 	/*
 	 * Inode number zero does not exists within ext2 (or Linux for that matter),
 	 * but it is considered wasteful to ignore an inode, so inode 1 maps to the
 	 * first inode entry on disk...
 	 */
-	ino_t inum = inode->inum - 1;
+	uint32_t inum = (*(uint32_t*)fsop) - 1;
+	KASSERT(inum < privdata->sb.s_inodes_count, "inode out of range");
 
 	/*
 	 * Every block group has a fixed number of inodes, so we can find the
@@ -387,6 +392,10 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 	privdata->num_blockgroups = (sb->s_blocks_count - sb->s_first_data_block - 1) / sb->s_blocks_per_group + 1;
 	privdata->blockgroup = (struct EXT2_BLOCKGROUP*)kmalloc(sizeof(struct EXT2_BLOCKGROUP) * privdata->num_blockgroups);
 
+	/* Fill out filesystem fields */
+	fs->block_size = privdata->block_size;
+	fs->fsop_size = sizeof(uint32_t);
+
 	/* Free the superblock */
 	bio_free(bio);
 
@@ -420,20 +429,32 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 #endif
 
 	/* Read the root inode */
-	fs->root_inode = vfs_alloc_inode(fs, EXT2_ROOT_INO);
-	if (!ext2_read_inode(fs->root_inode))
+	fs->root_inode = vfs_alloc_inode(fs);
+	uint32_t root_fsop = EXT2_ROOT_INO;
+	if (!ext2_read_inode(fs->root_inode, &root_fsop))
 		return 0;
 
 #if 0
 	struct VFS_FILE dir;
+	char tmp[1024]; /* XXX */
+	char* tmp_ptr = tmp;
 	dir.offset = 0;
 	dir.inode = fs->root_inode;
+	while (1) {
+		size_t left = fs->root_inode->iops->readdir(&dir, tmp, sizeof(tmp));
+		if (left <= 0)
+			break;
 
-	struct VFS_DIRENT de;
-	while (fs->root_inode->iops->readdir(&dir, &de, 1)) {
-		kprintf("readdir:[%s],%u\n", de.name, de.inum);
+		while (left > 0) {
+			struct VFS_DIRENT* de = (struct VFS_DIRENT*)tmp_ptr;
+			left -= DE_LENGTH(de); tmp_ptr += DE_LENGTH(de);
+			
+			kprintf("%u:[%s]\n", *(uint32_t*)DE_FSOP(de), DE_NAME(de));
+		}
 	}
+#endif
 
+#if 0
 	struct VFS_INODE* inode = fs->root_inode->iops->lookup(fs->root_inode, "moonshx");
 	if (inode == NULL)
 		panic("foo");

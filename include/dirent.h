@@ -6,14 +6,11 @@
 #define DIRENT_BUFFER_SIZE	4096 /* XXX */
 
 #define DE_FLAG_DONE		0x0001	/* Everything has been read */
+#define MAXNAMELEN		255	/* Name cannot be longer than this */
 
 struct dirent {
-	union {
-		struct VFS_DIRENT vfs_dirent;
-	} u;
-#define d_ino	u.vfs_dirent.inum
-#define d_name	u.vfs_dirent.name
-#define d_type	0
+	ino_t		d_ino;
+	char		d_name[MAXNAMELEN + 1];
 };
 
 typedef struct {
@@ -22,6 +19,7 @@ typedef struct {
 	void*	d_buffer;	/* buffer for temporary storage */
 	unsigned int d_cur_pos;	/* Current position */
 	unsigned int d_buf_size;	/* Buffer size */
+	struct dirent d_entry;	/* Current dir entry */
 } DIR;
 
 int closedir(DIR* dirp);

@@ -109,7 +109,7 @@ sys_lseek(int fd, off_t offset, int whence)
 }
 
 int
-sys_getdirents(int fd, void* buf, size_t numitems)
+sys_getdirents(int fd, void* buf, size_t size)
 {
 	if (fd < 0 || fd >= THREAD_MAX_FILES)
 		return -1;
@@ -118,10 +118,10 @@ sys_getdirents(int fd, void* buf, size_t numitems)
 	if (file->inode == NULL)
 		return -1;
 
-	void* x = md_map_thread_memory(t, (void*)buf, sizeof(struct VFS_DIRENT) * numitems, 1);
+	void* x = md_map_thread_memory(t, (void*)buf, size, 1);
 	if (x == NULL)
 		return -1;
-	return vfs_readdir(file, x, numitems);
+	return vfs_readdir(file, x, size);
 }
 
 /* vim:set ts=2 sw=2: */

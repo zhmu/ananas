@@ -10,6 +10,7 @@
 struct VFS_MOUNTED_FS mountedfs[VFS_MOUNTED_FS_MAX];
 
 extern struct VFS_FILESYSTEM_OPS fsops_ext2;
+extern struct VFS_FILESYSTEM_OPS fsops_iso9660;
 
 void
 vfs_init()
@@ -45,6 +46,7 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 
 	/* XXX kludge */
 	fs->fsops = &fsops_ext2;
+	//fs->fsops = &fsops_iso9660;
 
 	if (!fs->fsops->mount(fs)) {
 		kfree((void*)fs->mountpoint);
@@ -72,7 +74,7 @@ vfs_destroy_inode(struct VFS_INODE* inode)
 }
 
 struct VFS_INODE*
-vfs_alloc_inode(struct VFS_MOUNTED_FS* fs, ino_t inum)
+vfs_alloc_inode(struct VFS_MOUNTED_FS* fs)
 {
 	struct VFS_INODE* inode;
 
@@ -81,7 +83,6 @@ vfs_alloc_inode(struct VFS_MOUNTED_FS* fs, ino_t inum)
 	} else {
 		inode = vfs_make_inode(fs);
 	}
-	inode->inum = inum;
 	return inode;
 }
 
@@ -102,12 +103,12 @@ vfs_bread(struct VFS_MOUNTED_FS* fs, block_t block, size_t len)
 }
 
 struct VFS_INODE*
-vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum)
+vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop)
 {
-	struct VFS_INODE* inode = vfs_alloc_inode(fs, inum);
+	struct VFS_INODE* inode = vfs_alloc_inode(fs);
 	if (inode == NULL)
 		return NULL;
-	if (!fs->fsops->read_inode(inode)) {
+	if (!fs->fsops->read_inode(inode, fsop)) {
 		vfs_free_inode(inode);
 		return NULL;
 	}
@@ -232,5 +233,28 @@ vfs_readdir(struct VFS_FILE* file, struct VFS_DIRENT* dirents, size_t numents)
 
 	return file->inode->iops->readdir(file, dirents, numents);
 }	
+
+int
+vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, const char* name, int namelen)
+{
+	/*
+	 * First of all, ensure we have sufficient space. Note that we use the fact
+	 * that de_fsop is only a single byte; we count it as the \0 byte.
+	 */
+	int de_length = sizeof(struct VFS_DIRENT) + fsoplen + namelen;
+	if (*size < de_length)
+		return 0;
+
+	struct VFS_DIRENT* de = (struct VFS_DIRENT*)*dirents;
+	*dirents += de_length;
+
+	de->de_flags = 0; /* TODO */
+	de->de_fsop_length = fsoplen;
+	de->de_name_length = namelen;
+	memcpy(de->de_fsop, fsop, fsoplen);
+	memcpy(de->de_fsop + fsoplen, name, namelen);
+	de->de_fsop[fsoplen + namelen] = '\0'; /* zero terminate */
+	return de_length;
+}
 
 /* vim:set ts=2 sw=2: */

@@ -1,4 +1,5 @@
 #include <sys/types.h>
+#include <sys/device.h>
 
 #ifndef __SYS_VFS_H__
 #define __SYS_VFS_H__
@@ -13,7 +14,6 @@ struct VFS_FILESYSTEM_OPS;
  * VFS_INODE refers to an inode.
  */
 struct VFS_INODE {
-	ino_t		inum;			/* Inode number */
 	off_t		length;			/* Length of the inode */
 
 	struct VFS_INODE_OPS* iops;		/* Inode operations */
@@ -36,20 +36,32 @@ struct VFS_FILE {
 };
 
 /*
- * Directory entry, as returned by the kernel.
+ * Directory entry, as returned by the kernel. The fsop length is stored
+ * for easy iteration on the caller side.
  */
 struct VFS_DIRENT {
-	ino_t		inum;			/* Inode number */
-	char		name[VFS_MAX_NAME_LEN + 1];	/* Entry name, \0-terminated */
+	uint32_t	de_flags;		/* Flags */
+	uint8_t		de_fsop_length;		/* Length of identifier */
+	uint8_t		de_name_length;		/* Length of name */
+	char		de_fsop[1];		/* Identifier */
+	/*
+	 * de_name will be stored directory after the fsop.
+	 */
 };
+#define DE_LENGTH(x) (sizeof(struct VFS_DIRENT) + (x)->de_fsop_length + (x)->de_name_length)
+#define DE_FSOP(x) (&((x)->de_fsop))
+#define DE_NAME(x) (&((x)->de_fsop[(x)->de_fsop_length]))
+
 
 /*
  * VFS_MOUNTED_FS is used to refer to a mounted filesystem. Note that
  * we will also use it during the filesystem-operations mount() call.
  */
 struct VFS_MOUNTED_FS {
-	struct DEVICE*	device;			/* Device where the filesystem lives */
+	device_t	device;			/* Device where the filesystem lives */
 	const char*	mountpoint;		/* Mount point */
+	uint32_t	block_size;		/* Block size */
+	uint8_t		fsop_size;		/* FSOP identifier length */
 	void*		privdata;		/* Private filesystem data */
  
 	struct VFS_FILESYSTEM_OPS* fsops;	/* Filesystem operations */
@@ -58,7 +70,7 @@ struct VFS_MOUNTED_FS {
 
 /*
  * VFS_FILESYSTEM_OPS are operations corresponding to the highest level:
- * mount/unmoun a filesystem and obtaining statistics.
+ * mount/unmount a filesystem and obtaining statistics.
  */
 struct VFS_FILESYSTEM_OPS {
 	/*
@@ -83,9 +95,9 @@ struct VFS_FILESYSTEM_OPS {
 
 	/*
 	 * Read an inode from disk; inode is pre-allocated using alloc_inode().
-	 * The 'fs' and 'inum' fields of the inode are guaranteed to be filled out.
+	 * The 'fs' field of the inode is guaranteed to be filled out.
 	 */
-	int (*read_inode)(struct VFS_INODE* inode);
+	int (*read_inode)(struct VFS_INODE* inode, void* fsop);
 };
 
 struct VFS_INODE_OPS {
@@ -93,7 +105,7 @@ struct VFS_INODE_OPS {
 	 * Reads directory entries, up to numents (dirents must be big enough to hold
 	 * them). Returns the number of entries read and updates file's offset.
 	 */
-	size_t (*readdir)(struct VFS_FILE* file, struct VFS_DIRENT* dirents, size_t numents);
+	size_t (*readdir)(struct VFS_FILE* file, void* ents, size_t numents);
 
 	/*
 	 * Looks up an entry within a directory and returns its inode or NULL
@@ -119,13 +131,13 @@ int vfs_mount(const char* from, const char* to, const char* type, void* options)
 struct BIO* vfs_bread(struct VFS_MOUNTED_FS* fs, block_t block, size_t len);
 
 
-struct VFS_INODE* vfs_alloc_inode(struct VFS_MOUNTED_FS* fs, ino_t inum);
+struct VFS_INODE* vfs_alloc_inode(struct VFS_MOUNTED_FS* fs);
 void vfs_free_inode(struct VFS_INODE* inode);
 
 struct VFS_INODE* vfs_make_inode(struct VFS_MOUNTED_FS* fs);
 void vfs_destroy_inode(struct VFS_INODE* inode);
 
-struct VFS_INODE* vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum);
+struct VFS_INODE* vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop);
 
 struct VFS_INODE* vfs_lookup(const char* dentry);
 
@@ -136,5 +148,6 @@ size_t vfs_read(struct VFS_FILE* file, void* buf, size_t len);
 size_t vfs_write(struct VFS_FILE* file, const void* buf, size_t len);
 int vfs_seek(struct VFS_FILE* file, off_t offset);
 size_t vfs_readdir(struct VFS_FILE* file, struct VFS_DIRENT* dirents, size_t numents);
+int vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, const char* name, int namelen);
 
 #endif /* __SYS_VFS_H__ */
