@@ -13,6 +13,7 @@ device		pci
 
 option		SMP
 option		EXT2FS
+option		ISO9660FS
 
 device		ata
 
