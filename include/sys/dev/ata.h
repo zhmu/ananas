@@ -3,22 +3,26 @@
 #ifndef __ATA_H__
 #define __ATA_H__
 
-#define ATA_PIO_DATA		0		/* Data port */
-#define ATA_PIO_ERROR		1		/* Features/Error Info (ATAPI) */
- #define ATA_PIO_ERROR_SLAVE	(1 << 7)
-#define ATA_PIO_COUNT		2		/* Sector count */
-#define ATA_PIO_LBA_1		3		/* Cylinder number (bits  0- 7) */
-#define ATA_PIO_LBA_2		4		/* Cylinder number (bits  8-15) */
-#define ATA_PIO_LBA_3		5		/* Cylinder number (bits 16-23) */
-#define ATA_PIO_DRIVEHEAD	6		/* Drive/head */
-#define ATA_PIO_DCR		6		/* Device Control Register */
-#define ATA_PIO_STATCMD		7		/* Status/command */
- #define ATA_PIO_STATUS_BSY	(1 << 7)	/* Drive is busy */
- #define ATA_PIO_STATUS_RDY	(1 << 6)	/* Drive is ready */
- #define ATA_PIO_STATUS_DF	(1 << 5)	/* Drive fault */
- #define ATA_PIO_STATUS_SRV	(1 << 4)	/* Overlapped mode service request */
- #define ATA_PIO_STATUS_DRQ	(1 << 3)	/* Set when data is available/ready to be accepted */
- #define ATA_PIO_STATUS_ERR	(1 << 0)	/* Error flag */
+#define ATA_REG_DATA		0		/* Data Register (R/W) */
+#define ATA_REG_ERROR		1		/* Error Register (R) */
+#define ATA_REG_FEATURES	1		/* Features Register (W) */
+#define ATA_REG_SECTORCOUNT	2		/* Sector count (W) */
+#define ATA_REG_SECTORNUM	3		/* Sector Number (R/W) */
+#define ATA_REG_CYL_LO		4		/* Cylinder Low Register (R/W) */
+#define ATA_REG_CYL_HI		5		/* Cylinder High Register (R/W) */
+#define ATA_REG_DEVICEHEAD	6		/* Device/Head Register (R/W) */
+#define ATA_REG_STATUS		7		/* Status Register (R) */
+ #define ATA_STAT_ERR		(1 << 0)	/* Error */
+ #define ATA_STAT_DRQ		(1 << 3)	/* Data Request */
+ #define ATA_STAT_DRDY		(1 << 6)	/* Device Ready */
+ #define ATA_STAT_BSY		(1 << 7)	/* Busy */
+#define ATA_REG_COMMAND		7		/* Command Register (W) */
+
+#define ATA_REG_DEVCONTROL	2		/* Device Control Register (W) */
+ #define ATA_DCR_nIEN		(1 << 1)	/* Interrupt Enable Bit */
+ #define ATA_DCR_SRST		(1 << 2)	/* Software Reset Bit */
+#define ATA_REG_ALTSTATUS	2		/* Alternate Status Register (R) */
+#define ATA_REG_DEVADDR		3		/* Device Address Register (R) */
 
 #define ATA_CMD_READ_SECTORS	0x20
 #define ATA_CMD_IDENTIFY	0xec
@@ -26,7 +30,7 @@
 #define ATA_CMD_IDENTIFY_PACKET	0xa1
 
 #define ATAPI_CMD_READ_CAPACITY	0x25
-#define ATAPI_CMD_READ_SECTORS	0xa8
+#define ATAPI_CMD_READ_SECTORS	0x28
 
 struct ATA_IDENTIFY {
 	/*   0 */ uint8_t general_cfg[2];

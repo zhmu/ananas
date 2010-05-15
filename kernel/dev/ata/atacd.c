@@ -42,7 +42,8 @@ atacd_read(device_t dev, void* buffer, size_t length, off_t offset)
 	item.atapi_command[3] = (offset >> 16) & 0xff;
 	item.atapi_command[4] = (offset >>  8) & 0xff;
 	item.atapi_command[5] = (offset      ) & 0xff;
-	item.atapi_command[9] = length / 2048;
+	item.atapi_command[7] = (length / 2048) >> 8;
+	item.atapi_command[8] = (length / 2048) & 0xff;
 	dev->parent->driver->drv_enqueue(dev->parent, &item);
 	dev->parent->driver->drv_start(dev->parent);
 }

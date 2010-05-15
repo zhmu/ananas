@@ -11,6 +11,7 @@ extern struct DRIVER drv_atacd;
 
 struct ATA_PRIVDATA {
 	uint32_t	io_port;
+	uint32_t	io_port2;
 	struct ATA_REQUEST_QUEUE requests;
 };
 
@@ -18,6 +19,8 @@ void
 ata_irq(device_t dev)
 {
 	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
+
+	int stat = inb(priv->io_port + ATA_REG_STATUS);
 
 	/* If we were not doing a request, no point in continuing */
 	if (QUEUE_EMPTY(&priv->requests)) {
@@ -37,13 +40,12 @@ ata_irq(device_t dev)
 		 * In ATAPI-land, we obtain the number of bytes that could actually be read - this much
 		 * data is waiting for us.
 		 */
-		uint16_t len = (uint16_t)inb(priv->io_port + ATA_PIO_LBA_3) << 8 | 
-		                         inb(priv->io_port + ATA_PIO_LBA_2);
+		uint16_t len = (uint16_t)inb(priv->io_port + ATA_REG_CYL_HI) << 8 | 
+		                         inb(priv->io_port + ATA_REG_CYL_LO);
 		item->bio->length = len;
 	}
 
-	int stat = inb(priv->io_port + ATA_PIO_STATCMD);
-	if (stat & ATA_PIO_STATUS_ERR) {
+	if (stat & ATA_STAT_ERR) {
 		kprintf("ata error %x ==> %x\n", stat,inb(priv->io_port + 1));
 		bio_set_error(item->bio);
 		return;
@@ -53,13 +55,19 @@ ata_irq(device_t dev)
 	 * before updating the buffer status to prevent 
 	 */
 	for(int count = 0; count < item->bio->length; ) {
-		uint16_t data = inw(priv->io_port + ATA_PIO_DATA);
+		uint16_t data = inw(priv->io_port + ATA_REG_DATA);
 		item->bio->data[count++] = data & 0xff;
 		item->bio->data[count++] = data >> 8;
 	}
 	
 	/* Current request is done. Sign it off and away it goes */
 	item->bio->flags |= BIO_FLAG_DONE;
+}
+
+static uint8_t
+ata_read_status(device_t dev) {
+	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
+	return inb(priv->io_port2 + ATA_REG_ALTSTATUS);
 }
 
 /*
@@ -73,45 +81,119 @@ static int
 ata_identify(device_t dev, int unit, struct ATA_IDENTIFY* identify)
 {
 	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
-	uint8_t identify_cmds[] = { ATA_CMD_IDENTIFY, ATA_CMD_IDENTIFY_PACKET, 0 };
+	//uint8_t identify_cmds[] = { ATA_CMD_IDENTIFY, ATA_CMD_IDENTIFY_PACKET, 0 };
+	uint8_t cmd = ATA_CMD_IDENTIFY;
 
-	for (int cur_cmd = 0; identify_cmds[cur_cmd] != 0; cur_cmd++) {
-		outb(priv->io_port + ATA_PIO_DRIVEHEAD, 0xa0 | (unit ? 0x10 : 0));
-		outb(priv->io_port + ATA_PIO_STATCMD, identify_cmds[cur_cmd]);
-		int x = inb(priv->io_port + ATA_PIO_STATCMD);
-		if (x == 0)
-			continue;
+#define TINY_WAIT() \
+	do { \
+		inb(priv->io_port2 + ATA_REG_ALTSTATUS); \
+		inb(priv->io_port2 + ATA_REG_ALTSTATUS); \
+		inb(priv->io_port2 + ATA_REG_ALTSTATUS); \
+		inb(priv->io_port2 + ATA_REG_ALTSTATUS); \
+	} while(0);
 
-		/* Wait until ERR is turned on, or !BSY && DRQ */
-		while (1) {
-			x = inb(priv->io_port  + ATA_PIO_STATCMD);
-			if (!(x & ATA_PIO_STATUS_BSY) && (x & ATA_PIO_STATUS_DRQ))
-				break;
-			if (x & ATA_PIO_STATUS_ERR)
-				break;
-		}
-		if (x & ATA_PIO_STATUS_ERR)
-			continue;
+	/* Select drive */
+	outb(priv->io_port + ATA_REG_DEVICEHEAD, 0xa0 | (unit << 4));
+	TINY_WAIT();
 
-		/* Grab the result of the identification command XXX implement insw() */
-		char* buf = (char*)identify;
-		for (int count = 0; count < SECTOR_SIZE; ) {
-			x = inw(priv->io_port + ATA_PIO_DATA);
-			buf[count++] = x >> 8;
-			buf[count++] = x & 0xff; 
-		}
+	/* Perform a software reset */
+	outb(priv->io_port2 + ATA_REG_DEVCONTROL, ATA_DCR_SRST);
+	outb(priv->io_port2 + ATA_REG_DEVCONTROL, 0);
+	TINY_WAIT();
 
-		/* Chop off the trailing spaces off the identity */
-		for (int i = sizeof(identify->model) - 1; i > 0; i--) {
-			if (identify->model[i] != ' ')
-				break;
-			identify->model[i] = '\0';
-		}
+	/*
+	 * Select a device and ask it to identify itself; this is used to figure out
+	 * whether it exists and what kind of device it is.
+	 */
+	outb(priv->io_port + ATA_REG_DEVICEHEAD, 0xa0 | (unit << 4));
+	TINY_WAIT();
+	outb(priv->io_port + ATA_REG_COMMAND, cmd);
+	TINY_WAIT();
 
-		return identify_cmds[cur_cmd];
+	/*
+	 * Now we wait for BSY to clear, and DRDY to be set. If this times out, we
+	 * assume there is no device.
+	 */
+	int timeout = 50000;
+
+	while (ata_read_status(dev) & ATA_STAT_BSY) {
+		TINY_WAIT();
+		if (timeout--)
+			break;
+	}
+	while ((ata_read_status(dev) & ATA_STAT_DRDY) == 0) {
+		TINY_WAIT();
+		if (timeout == 0)
+			break;
+		timeout--;
+	}
+	if (timeout == 0) {
+		device_printf(dev, "timeout waiting for unit %u", unit);
+		return 0;
 	}
 
-	return 0;
+	/* OK, now we can get the device type */
+	int atapi = 0;
+	uint8_t cl = inb(priv->io_port + ATA_REG_CYL_LO);
+	uint8_t ch = inb(priv->io_port + ATA_REG_CYL_HI);
+	if (cl == 0x14 && ch == 0xeb) {
+		/* This is a magic identifier for ATAPI devices! */
+		atapi++;
+	} else if (cl == 0x69 && ch == 0x96) {
+		/* This is a magic identifier for SATA-ATAPI devices! */
+		atapi++;
+	} else if (cl == 0x3c && ch == 0xc3) {
+		/* This is a magic identifier for SATA devices! */
+	} else if (cl == 0 && ch == 0) {
+		/* Plain old ATA disk */
+	} else {
+		device_printf(dev, "unit %u does not report recognized type (got 0x%x), assuming disk",
+			unit, ch << 8 | cl);
+	}
+
+	if (ata_read_status(dev) & ATA_STAT_ERR) {
+		/* An error is expected in ATAPI-land; they had to introduce a new identify command */
+		if (!atapi)
+			return 0;
+		cmd = ATA_CMD_IDENTIFY_PACKET;
+
+		outb(priv->io_port + ATA_REG_DEVICEHEAD, 0xa0 | (unit << 4));
+		TINY_WAIT();
+		outb(priv->io_port + ATA_REG_COMMAND, cmd);
+		TINY_WAIT();
+
+		/* Wait until ERR is turned on, or !BSY && DRQ */
+		int timeout = 5000;
+		while (1) {
+			uint8_t x = ata_read_status(dev);
+			if (!(x & ATA_STAT_BSY) && (x & ATA_STAT_DRQ))
+				break;
+			if (x & ATA_STAT_ERR)
+				return 0;
+			timeout--;
+		}
+		if (timeout == 0) {
+			device_printf(dev, "timeout waiting for atapi identification of unit %u", unit);
+			return 0;
+		}
+	}
+
+	/* Grab the result of the identification command XXX implement insw() */
+	char* buf = (char*)identify;
+	for (int count = 0; count < SECTOR_SIZE; ) {
+		uint16_t x = inw(priv->io_port + ATA_REG_DATA);
+		buf[count++] = x >> 8;
+		buf[count++] = x & 0xff; 
+	}
+
+	/* Chop off the trailing spaces off the identity */
+	for (int i = sizeof(identify->model) - 1; i > 0; i--) {
+		if (identify->model[i] != ' ')
+			break;
+		identify->model[i] = '\0';
+	}
+
+	return cmd;
 }
 
 static int
@@ -124,17 +206,26 @@ ata_attach(device_t dev)
 
 	struct ATA_PRIVDATA* priv = kmalloc(sizeof(struct ATA_PRIVDATA));
 	priv->io_port = (uint32_t)(uintptr_t)res_io;
+	/* XXX this is a hack - at least, until we properly support multiple resources */
+	if (priv->io_port == 0x170) {
+		priv->io_port2 = (uint32_t)0x374;
+	} else if (priv->io_port == 0x1f0) {
+		priv->io_port2 = (uint32_t)0x3f4;
+	} else {
+		device_printf(dev, "couldn't determine second I/O range");
+		return 1;
+	}
 	QUEUE_INIT(&priv->requests);
 	dev->privdata = priv;
 
 	/* Ensure there's something living at the I/O addresses */
-	if (inb(priv->io_port + ATA_PIO_STATCMD) == 0xff) return 1;
+	if (inb(priv->io_port + ATA_REG_STATUS) == 0xff) return 1;
 
 	if (!irq_register((uintptr_t)res_irq, dev, ata_irq))
 		return 1;
 
 	/* reset the control register - this ensures we receive interrupts */
-	outb(priv->io_port + ATA_PIO_DCR, 0);
+	outb(priv->io_port + ATA_REG_DEVCONTROL, 0);
 	return 0;
 }
 
@@ -157,37 +248,37 @@ ata_start(device_t dev)
 
 	if (item->command != ATA_CMD_PACKET) {
 		/* Feed the request to the drive - disk */
-		outb(priv->io_port + ATA_PIO_DRIVEHEAD, 0xe0 | (item->unit ? 0x10 : 0) | ((item->lba >> 24) & 0xf));
-		outb(priv->io_port + ATA_PIO_COUNT, item->count);
-		outb(priv->io_port + ATA_PIO_LBA_1, item->lba & 0xff);
-		outb(priv->io_port + ATA_PIO_LBA_2, (item->lba >> 8) & 0xff);
-		outb(priv->io_port + ATA_PIO_LBA_3, (item->lba >> 16) & 0xff);
-		outb(priv->io_port + ATA_PIO_STATCMD, item->command);
+		outb(priv->io_port + ATA_REG_DEVICEHEAD, 0xe0 | (item->unit ? 0x10 : 0) | ((item->lba >> 24) & 0xf));
+		outb(priv->io_port + ATA_REG_SECTORCOUNT, item->count);
+		outb(priv->io_port + ATA_REG_SECTORNUM, item->lba & 0xff);
+		outb(priv->io_port + ATA_REG_CYL_LO, (item->lba >> 8) & 0xff);
+		outb(priv->io_port + ATA_REG_CYL_HI, (item->lba >> 16) & 0xff);
+		outb(priv->io_port + ATA_REG_COMMAND, item->command);
 	} else {
 		/* Feed the request to the device - ATAPI */
-		outb(priv->io_port + ATA_PIO_DRIVEHEAD, item->unit << 4);
+		outb(priv->io_port + ATA_REG_DEVICEHEAD, item->unit << 4);
 		ATA_DELAY(); ATA_DELAY();
-		outb(priv->io_port + ATA_PIO_ERROR, 0); /* no DMA yet! */
-		outb(priv->io_port + ATA_PIO_LBA_2, item->count & 0xff); /* note: in bytes! */
-		outb(priv->io_port + ATA_PIO_LBA_3, item->count >> 8);
-		outb(priv->io_port + ATA_PIO_STATCMD, item->command);
+		outb(priv->io_port + ATA_REG_FEATURES, 0); /* no DMA yet! */
+		outb(priv->io_port + ATA_REG_CYL_LO, item->count & 0xff); /* note: in bytes! */
+		outb(priv->io_port + ATA_REG_CYL_HI, item->count >> 8);
+		outb(priv->io_port + ATA_REG_COMMAND, item->command);
 
 		/* Wait until the command is accepted */
 		uint8_t status;
-		while (inb(priv->io_port + ATA_PIO_STATCMD) & ATA_PIO_STATUS_BSY) ;
+		while (ata_read_status(dev) & ATA_STAT_BSY) ;
 		while (1) {
-			status = inb(priv->io_port + ATA_PIO_STATCMD);
-			if (status & ATA_PIO_STATUS_ERR) {
+			status = ata_read_status(dev);
+			if (status & ATA_STAT_ERR) {
 				/* Got an error - this means the request cannot be completed */
 				bio_set_error(item->bio);
 ;				return;
 			}
-			if (status & ATA_PIO_STATUS_DRQ)
+			if (status & ATA_STAT_DRQ)
 				break;
 		}
 		for (unsigned int i = 0; i < 6; i++) {
 			/* XXX We really need outsw() */
-			outw(priv->io_port + ATA_PIO_DATA, *(uint16_t*)(&item->atapi_command[i * 2]));
+			outw(priv->io_port + ATA_REG_DATA, *(uint16_t*)(&item->atapi_command[i * 2]));
 		}
 	}
 
@@ -199,6 +290,7 @@ ata_start(device_t dev)
 static void
 ata_attach_children(device_t dev)
 {
+	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
 	struct ATA_IDENTIFY identify;
 
 	for (int unit = 0; unit < 2; unit++) {
