@@ -33,12 +33,9 @@
 #define EXT2_TO_LE16(x) (x)
 #define EXT2_TO_LE32(x) (x)
 
-#define EXT2_INODES_PER_BLOCK(x) (privdata->sb.s_inode_size / (x)->block_size)
-
 struct EXT2_FS_PRIVDATA {
 	struct EXT2_SUPERBLOCK sb;
 
-	size_t block_size;
 	unsigned int num_blockgroups;
 	struct EXT2_BLOCKGROUP* blockgroup;
 };
@@ -54,8 +51,8 @@ static struct BIO*
 ext2_bread(struct VFS_MOUNTED_FS* fs, block_t block)
 {
 	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)fs->privdata;
-	block *= (privdata->block_size / 512);
-	return vfs_bread(fs, block, privdata->block_size);
+	block *= (fs->block_size / 512);
+	return vfs_bread(fs, block, fs->block_size);
 }
 
 static void
@@ -115,6 +112,7 @@ ext2_dump_inode(struct EXT2_INODE* inode)
 static block_t
 ext2_find_block(struct VFS_FILE* file, block_t block)
 {
+	struct VFS_MOUNTED_FS* fs = file->inode->fs;
 	struct EXT2_FS_PRIVDATA* fs_privdata = (struct EXT2_FS_PRIVDATA*)file->inode->fs->privdata;
 	struct EXT2_INODE_PRIVDATA* in_privdata = (struct EXT2_INODE_PRIVDATA*)file->inode->privdata;
 
@@ -133,7 +131,7 @@ ext2_find_block(struct VFS_FILE* file, block_t block)
 	if (block < 12)
 		return in_privdata->block[block];
 
-	if (block < 12 + fs_privdata->block_size / 4) {
+	if (block < 12 + fs->block_size / 4) {
 		/*
 		 * (b) Need to look up the block the first indirect block, 13.
 		 */
@@ -149,9 +147,10 @@ ext2_find_block(struct VFS_FILE* file, block_t block)
 static size_t
 ext2_read(struct VFS_FILE* file, void* buf, size_t len)
 {
+	struct VFS_MOUNTED_FS* fs = file->inode->fs;
 	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)file->inode->fs->privdata;
-	block_t blocknum = (block_t)file->offset / (block_t)privdata->block_size;
-	uint32_t offset = file->offset % privdata->block_size;
+	block_t blocknum = (block_t)file->offset / (block_t)fs->block_size;
+	uint32_t offset = file->offset % fs->block_size;
 	size_t numread = 0;
 
 	/* Normalize len so that it cannot expand beyond the file size */
@@ -170,16 +169,15 @@ ext2_read(struct VFS_FILE* file, void* buf, size_t len)
 		 * Fetch the block and copy what we have so far.
 		 */
 		struct BIO* bio = ext2_bread(file->inode->fs, block);
-		size_t chunklen = (privdata->block_size < len ? privdata->block_size : len);
-		if (chunklen + offset > privdata->block_size)
-			chunklen = privdata->block_size - offset;
-//kprintf("len=%u,blocksz=%u,chunklen=%u,offset=%u\n", len, privdata->block_size, chunklen, offset);
+		size_t chunklen = (fs->block_size < len ? fs->block_size : len);
+		if (chunklen + offset > fs->block_size)
+			chunklen = fs->block_size - offset;
 		memcpy(buf, (void*)(BIO_DATA(bio) + offset), chunklen);
 		buf += chunklen; numread += chunklen; len -= chunklen;
 		bio_free(bio);
 
 		/* Update pointers */
-		offset = (offset + chunklen) % privdata->block_size;
+		offset = (offset + chunklen) % fs->block_size;
 		file->offset += chunklen;
 		blocknum++;
 	}
@@ -190,9 +188,10 @@ ext2_read(struct VFS_FILE* file, void* buf, size_t len)
 static size_t
 ext2_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 {
+	struct VFS_MOUNTED_FS* fs = file->inode->fs;
 	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)file->inode->fs->privdata;
-	block_t blocknum = (block_t)file->offset / (block_t)privdata->block_size;
-	uint32_t offset = file->offset % privdata->block_size;
+	block_t blocknum = (block_t)file->offset / (block_t)fs->block_size;
+	uint32_t offset = file->offset % fs->block_size;
 	size_t written = 0;
 
 	struct BIO* bio = NULL;
@@ -241,8 +240,8 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 		 */
 		file->offset += EXT2_TO_LE16(ext2de->rec_len);
 		offset += EXT2_TO_LE16(ext2de->rec_len);
-		if (offset >= privdata->block_size) {
-			offset -= privdata->block_size;
+		if (offset >= fs->block_size) {
+			offset -= fs->block_size;
 			blocknum++;
 		}
 	}
@@ -302,6 +301,7 @@ static struct VFS_INODE_OPS ext2_dir_ops = {
 static int
 ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 {
+	struct VFS_MOUNTED_FS* fs = inode->fs;
 	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)inode->fs->privdata;
 
 	/*
@@ -320,11 +320,11 @@ ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 	 */
 	uint32_t bgroup = inum / privdata->sb.s_inodes_per_group;
 	uint32_t iindex = inum % privdata->sb.s_inodes_per_group;
-	block_t block = privdata->blockgroup[bgroup].bg_inode_table + (iindex * privdata->sb.s_inode_size) / privdata->block_size;
+	block_t block = privdata->blockgroup[bgroup].bg_inode_table + (iindex * privdata->sb.s_inode_size) / fs->block_size;
 
 	/* Fetch the block and make a pointer to the inode */
 	struct BIO* bio = ext2_bread(inode->fs, block); /* XXX error handling */
-	unsigned int idx = (iindex * privdata->sb.s_inode_size) % privdata->block_size;
+	unsigned int idx = (iindex * privdata->sb.s_inode_size) % fs->block_size;
 	struct EXT2_INODE* ext2inode = (struct EXT2_INODE*)((void*)BIO_DATA(bio) + idx);
 	inode->length = EXT2_TO_LE32(ext2inode->i_size);
 
@@ -388,12 +388,11 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 	memcpy(&privdata->sb, sb, sizeof(*sb));
 	fs->privdata = privdata;
 
-	privdata->block_size = 1024L << sb->s_log_block_size;
 	privdata->num_blockgroups = (sb->s_blocks_count - sb->s_first_data_block - 1) / sb->s_blocks_per_group + 1;
 	privdata->blockgroup = (struct EXT2_BLOCKGROUP*)kmalloc(sizeof(struct EXT2_BLOCKGROUP) * privdata->num_blockgroups);
 
 	/* Fill out filesystem fields */
-	fs->block_size = privdata->block_size;
+	fs->block_size = 1024L << sb->s_log_block_size;
 	fs->fsop_size = sizeof(uint32_t);
 
 	/* Free the superblock */
@@ -409,11 +408,11 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 		 * The +1 is because we need to skip the superblock, and the s_first_data_block
 	 	 * increment is because we need to count from the superblock onwards...
 		 */
-		block_t blocknum = 1 + (n * sizeof(struct EXT2_BLOCKGROUP)) / privdata->block_size;
+		block_t blocknum = 1 + (n * sizeof(struct EXT2_BLOCKGROUP)) / fs->block_size;
 		blocknum += privdata->sb.s_first_data_block;
 		bio = ext2_bread(fs, blocknum);
 		memcpy((void*)(privdata->blockgroup + n),
-		       (void*)(BIO_DATA(bio) + ((n * sizeof(struct EXT2_BLOCKGROUP)) % privdata->block_size)),
+		       (void*)(BIO_DATA(bio) + ((n * sizeof(struct EXT2_BLOCKGROUP)) % fs->block_size)),
 		       sizeof(struct EXT2_BLOCKGROUP));
 		bio_free(bio);
 	}
@@ -434,51 +433,6 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 	if (!ext2_read_inode(fs->root_inode, &root_fsop))
 		return 0;
 
-#if 0
-	struct VFS_FILE dir;
-	char tmp[1024]; /* XXX */
-	char* tmp_ptr = tmp;
-	dir.offset = 0;
-	dir.inode = fs->root_inode;
-	while (1) {
-		size_t left = fs->root_inode->iops->readdir(&dir, tmp, sizeof(tmp));
-		if (left <= 0)
-			break;
-
-		while (left > 0) {
-			struct VFS_DIRENT* de = (struct VFS_DIRENT*)tmp_ptr;
-			left -= DE_LENGTH(de); tmp_ptr += DE_LENGTH(de);
-			
-			kprintf("%u:[%s]\n", *(uint32_t*)DE_FSOP(de), DE_NAME(de));
-		}
-	}
-#endif
-
-#if 0
-	struct VFS_INODE* inode = fs->root_inode->iops->lookup(fs->root_inode, "moonshx");
-	if (inode == NULL)
-		panic("foo");
-
-	struct VFS_FILE f;
-	f.offset = 0;
-	f.inode = inode;
-	
-	uint32_t cksum = 0;
-	char buf[1025];
-	size_t l = 0;
-	while (1) {
-		size_t s = inode->iops->read(&f, buf, 1024);
-		if (s <= 0)
-			break;
-		buf[s] = '\0';
-		l += s;
-
-		for (unsigned int i = 0; i < s; i++) {
-			cksum += (uint8_t)buf[i];
-		}
-	}
-	kprintf("total = %u, cksum=%x\n", l, cksum);
-#endif
 	return 1;
 }
 
