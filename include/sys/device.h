@@ -40,6 +40,7 @@ struct RESOURCE {
  */
 struct DRIVER {
 	char*   name;
+	unsigned int current_unit;
 
 	int	(*drv_probe)(device_t);
 	int	(*drv_attach)(device_t);

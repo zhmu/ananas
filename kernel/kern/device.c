@@ -29,9 +29,10 @@ device_alloc(device_t bus, driver_t drv)
 	memset(dev, 0, sizeof(struct DEVICE));
 	dev->driver = drv;
 	dev->parent = bus;
-	dev->unit = 0; /* XXX */
-	if (drv != NULL)
+	if (drv != NULL) {
 		strcpy(dev->name, drv->name);
+		dev->unit = drv->current_unit++;
+	} 
 	/* hook the device up to the chain */
 	if (corebus != NULL) {
 		dev->next = corebus->next;
@@ -121,6 +122,7 @@ int
 device_get_resources_byhint(device_t dev, const char* hint, const char** hints)
 {
 	const char** curhint;
+	int num_hints = 0;
 
 	/* Clear out any current device resources */
 	memset(dev->resource, 0, sizeof(struct RESOURCE) * DEVICE_MAX_RESOURCES);
@@ -143,10 +145,12 @@ device_get_resources_byhint(device_t dev, const char* hint, const char** hints)
 		if (!device_add_resource(dev, type, v, 0)) {
 			kprintf("%s: skipping resource type 0x%x, too many specified\n", dev->name, type);
 			continue;
+		} else {
+			num_hints++;
 		}
 	}
 
-	return 0;
+	return num_hints;
 }
 
 /*
@@ -285,32 +289,38 @@ device_attach_bus(device_t bus)
 		}
 #endif
 
-		device_t dev = device_alloc(bus, driver);
-		device_get_resources(dev, config_hints);
-
 		int result = 0;
-		if (driver->drv_probe != NULL) {
-			/*
-			 * This device has a probe function; we must call it to figure out
-			 * whether the device actually exists or we're about to attach
-			 * something out of thin air here...
-			 */
-			result = driver->drv_probe(dev);
-		}
-		if (result == 0) {
-			device_print_attachment(dev);
-			if (driver->drv_attach != NULL)
-				result = driver->drv_attach(dev);
-		}
-		if (result != 0) {
-			device_free(dev);
-			continue;
-		}
+		int unit = 0;
+		while (result == 0) {
+			device_t dev = device_alloc(bus, driver);
+			if (device_get_resources(dev, config_hints) == 0 && unit > 0)
+				break;
 
-		/* We have a device; attach any children on this bus if needed */
-		if (driver->drv_attach_children != NULL)
-			driver->drv_attach_children(dev);
-		device_attach_bus(dev);
+			int result = 0;
+			if (driver->drv_probe != NULL) {
+				/*
+				 * This device has a probe function; we must call it to figure out
+				 * whether the device actually exists or we're about to attach
+				 * something out of thin air here...
+				 */
+				result = driver->drv_probe(dev);
+			}
+			if (result == 0) {
+				device_print_attachment(dev);
+				if (driver->drv_attach != NULL)
+					result = driver->drv_attach(dev);
+			}
+			if (result != 0) {
+				device_free(dev);
+				break;
+			}
+
+			/* We have a device; attach any children on this bus if needed */
+			if (driver->drv_attach_children != NULL)
+				driver->drv_attach_children(dev);
+			device_attach_bus(dev);
+			unit++;
+		}
 	}
 }
 
