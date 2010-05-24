@@ -1,0 +1,14 @@
+OUTPUT_ARCH(i386)
+OUTPUT_FORMAT("binary")
+ENTRY(entry)
+SECTIONS {
+	.text 0x1000 : { 
+		text = .;
+		*(.text)
+		*(.rodata)
+		*(.data)
+		*(.bss)
+		*(COMMON)
+	}
+	__end = . ;
+}
