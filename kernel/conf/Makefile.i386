@@ -10,7 +10,7 @@ AWK?=		awk
 %OBJS
 %FILES
 
-CFLAGS=		-I$S/../include -I$S -I. -std=c99
+CFLAGS=		-I$S/../include -I$S -I. -std=c99 -DKERNEL
 kernel:		$(OBJS) $S/conf/ld.i386
 		$(LD) -b elf32-i386 -T $S/conf/ld.i386 -o kernel $(OBJS)
 
