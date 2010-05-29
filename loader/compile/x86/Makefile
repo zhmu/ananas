@@ -4,7 +4,7 @@ S=		../..
 CFLAGS=		-I$S/../include -I$S -I. -std=c99
 CFLAGS+=	-DDEBUG
 OBJS=		stub.o platform.o main.o lib.o io.o diskio.o ext2fs.o vfs.o \
-		elf.o
+		elf.o pxe.o
 
 stub.o:		$S/x86/stub.S
 		$(CC) $(CFLAGS) -c -o stub.o $S/x86/stub.S
@@ -33,9 +33,13 @@ vfs.o:		$S/common/vfs.c
 elf.o:		$S/common/elf.c
 		$(CC) $(CFLAGS) -c -o elf.o $S/common/elf.c
 
+pxe.o:		$S/x86/pxe.c
+		$(CC) $(CFLAGS) -c -o pxe.o $S/x86/pxe.c
+
 loader:		$(OBJS) $S/conf/ld.x86
 		$(LD) -b elf32-i386 -T $S/conf/ld.x86 -o loader $(OBJS)
 		../../../boot/merge_mbr ../../../boot/bootblock loader /home/rink/beundisk.img
+		cp loader /srv/tftpd
 
 machine:
 		ln -sf ../../../include/sys/i386 machine
