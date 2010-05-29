@@ -66,10 +66,14 @@
 
 #define IDT_SET_ENTRY(num, dpl, handler) do { \
 	extern void* handler; \
+	IDT_SET_ENTRY_DIRECT(num, dpl, &handler); \
+} while(0);
+
+#define IDT_SET_ENTRY_DIRECT(num, dpl, addr) do { \
 	uint8_t* p = ((uint8_t*)&idt + num * 8); \
 	/* Offset 15:0 */ \
-	p[0] = (((addr_t)&handler)     ) & 0xff; \
-	p[1] = (((addr_t)&handler) >> 8) & 0xff; \
+	p[0] = (((addr_t)addr)     ) & 0xff; \
+	p[1] = (((addr_t)addr) >> 8) & 0xff; \
 	/* Segment Selector */ \
 	p[2] = ((GDT_IDX_KERNEL_CODE * 8)     ) & 0xff; \
 	p[3] = ((GDT_IDX_KERNEL_CODE * 8) >> 8) & 0xff; \
@@ -78,8 +82,8 @@
 	/* Type 9:10, size of gate 11, DPL 13:14, Present 15 */ \
 	p[5] = SEG_IGATE_TYPE | SEG_IGATE_D | (dpl << 5) | SEG_IGATE_P; \
 	/* Offset 31:16 */ \
-	p[6] = (((addr_t)&handler) >> 16) & 0xff; \
-	p[7] = (((addr_t)&handler) >> 24) & 0xff; \
+	p[6] = (((addr_t)addr) >> 16) & 0xff; \
+	p[7] = (((addr_t)addr) >> 24) & 0xff; \
 } while(0);
 
 #endif /* __I386_MACRO_H__ */
