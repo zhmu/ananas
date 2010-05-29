@@ -48,13 +48,38 @@ vfs_mount(int iodevice, const char** type)
 }
 
 /* These are just simple wrappers */
-int vfs_open(const char* fname) { return vfs_current->open(fname); } 
-size_t vfs_read(void* buffer, size_t len) { return vfs_current->read(buffer, len); }
-size_t vfs_pread(void* buffer, size_t len, uint32_t offset) {
-	if (offset >= vfs_curfile_length) return 0;
+int
+vfs_open(const char* fname)
+{
+	if (vfs_current == NULL)
+		return 0;
+	return vfs_current->open(fname);
+}
+
+size_t
+vfs_read(void* buffer, size_t len) {
+	if (vfs_current == NULL)
+		return 0;
+	return vfs_current->read(buffer, len);
+}
+
+size_t
+vfs_pread(void* buffer, size_t len, uint32_t offset)
+{
+	if (vfs_current == NULL)
+		return 0;
+	if (offset >= vfs_curfile_length)
+		return 0;
 	vfs_curfile_offset = offset;
 	return vfs_read(buffer, len);
 }
-const char* vfs_readdir() { return vfs_current->readdir(); }
+
+const char*
+vfs_readdir()
+{
+	if (vfs_current == NULL)
+		return NULL;
+ return vfs_current->readdir();
+}
 
 /* vim:set ts=2 sw=2: */
