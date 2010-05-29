@@ -27,6 +27,8 @@ struct MBR {
 	uint8_t		signature[2];
 } __attribute__((packed));
 
+#ifdef KERNEL
 int mbr_process(device_t dev, struct BIO* bio);
+#endif
 
 #endif /* __MBR_H__ */

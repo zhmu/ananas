@@ -15,9 +15,42 @@ struct DISK_DEVICE {
 	uint32_t length;
 };
 
-struct DISK_DEVICE* disk_device;
+#define DISK_CACHE_SIZE 8192
+#define NUM_CACHE_ENTRIES (DISK_CACHE_SIZE / sizeof(struct CACHE_ENTRY))
 
-int num_disk_devices = 0;
+struct DISK_DEVICE* disk_device;
+struct CACHE_ENTRY* disk_cache;
+
+static int num_disk_devices = 0;
+static int cache_avail_num = 0;
+
+static int
+diskio_find_cache(int device, uint32_t lba, struct CACHE_ENTRY** centry)
+{
+	struct CACHE_ENTRY* first_avail = NULL;
+	for(unsigned int i = 0; i < NUM_CACHE_ENTRIES; i++) {
+		struct CACHE_ENTRY* entry = (struct CACHE_ENTRY*)&disk_cache[i];
+		if (entry->device == device && entry->lba == lba) {
+			/* Got it */
+			*centry = entry;
+			return 1;
+		}
+		if (first_avail == NULL & entry->device == -1) {
+			first_avail = entry;
+		}
+	}
+
+	/* Couldn't find it - do we have an available entry? */
+	if (first_avail != NULL) {
+		*centry = first_avail;
+		return 0;
+	}
+
+	/* No; just sacrifice the first in the row */
+	*centry = (struct CACHE_ENTRY*)&disk_cache[cache_avail_num];
+	cache_avail_num = (cache_avail_num + 1) % NUM_CACHE_ENTRIES;
+	return 0;
+}
 
 static int
 diskio_add_device(char* name, int device, uint32_t start_lba, uint32_t length)
@@ -33,13 +66,42 @@ diskio_add_device(char* name, int device, uint32_t start_lba, uint32_t length)
 	return 1;
 }
 
-int
+struct CACHE_ENTRY*
+diskio_read(int disknum, uint32_t lba)
+{
+	if (num_disk_devices >= MAX_DISK_DEVICES)
+		return 0;
+
+	struct DISK_DEVICE* disk = &disk_device[disknum];
+	struct CACHE_ENTRY* centry;
+	lba += disk->start_lba;
+	if (diskio_find_cache(disk->device, lba, &centry))
+		return centry;
+
+	int tries = 5;
+	while(tries > 0) {
+		if (platform_read_disk(disk->device, lba, centry->data, SECTOR_SIZE) == SECTOR_SIZE) {
+			centry->device = disk->device; centry->lba = lba;
+			return centry;
+		}
+		tries--;
+	}
+	if (!tries) {
+		printf("diskio: read error\n");
+		return NULL;
+	}
+}
+
+unsigned int
 diskio_init()
 {
 	unsigned char buf[SECTOR_SIZE];
 	char newname[MAX_DISK_DEVICE_NAME];
 
 	disk_device = platform_get_memory(sizeof(struct DISK_DEVICE) * MAX_DISK_DEVICES);
+	disk_cache = platform_get_memory(DISK_CACHE_SIZE);
+	for (int i = 0; i < NUM_CACHE_ENTRIES; i++)
+		disk_cache[i].device = -1;
 
 	/* Detect disks/slices. Note that we only support x86 MBR's for now */
 	for (int disk = 0; disk < MAX_DISKS; disk++) {
@@ -86,6 +148,15 @@ diskio_init()
 		printf("%s ", disk->name);
 	}
 	platform_putch('\n');
+	return num_disk_devices;
+}
+
+const char*
+diskio_get_name(int device)
+{
+	if (num_disk_devices >= MAX_DISK_DEVICES)
+		return "(none)";
+	return disk_device[device].name;
 }
 
 /* vim:set ts=2 sw=2: */

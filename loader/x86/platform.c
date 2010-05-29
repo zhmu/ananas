@@ -53,7 +53,7 @@ void*
 platform_get_memory(uint32_t length)
 {
 	void* ptr = (void*)x86_pool_pointer;
-	//memset(ptr, 0, length);
+	memset(ptr, 0, length);
 	x86_pool_pointer += length;
 	return ptr;
 }
