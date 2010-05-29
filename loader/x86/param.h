@@ -2,7 +2,7 @@
  * CODE_BASE is where we are loaded, REALLOC_BASE is where the code was
  * linked at. We have to alter every offset throughout this file :-(
  */
-#define CODE_BASE	0x7e00
+#define CODE_BASE	0x7c00
 #define REALLOC_BASE	0x1000
 
 /*
