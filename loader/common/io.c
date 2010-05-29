@@ -45,6 +45,7 @@ static void
 vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 {
 	const char* s;
+	uint32_t u32;
 	uint64_t u64;
 
 	while(*fmt) {
@@ -130,6 +131,16 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 			case 'p': /* pointer XXX assumed 64 bit */
 				u64 = va_arg(ap, addr_t);
 				putnumber(putch, v, u64 & 0xffffffff);
+				break;
+			case '$': /* shift-4: ipv4 address */
+				u32 = va_arg(ap, uint32_t);
+				putint(putch, v, (u32      ) & 0xff);
+				putch(v, '.');
+				putint(putch, v, (u32 >>  8) & 0xff);
+				putch(v, '.');
+				putint(putch, v, (u32 >> 16) & 0xff);
+				putch(v, '.');
+				putint(putch, v, (u32 >> 24));
 				break;
 			default: /* unknown, just print it */
 				putch(v, '%');
