@@ -27,4 +27,7 @@ int platform_init_slices();
 /* Reads a block from a disk to buffer. Returns numbers of bytes read */
 int platform_read_disk(int disk, uint32_t lba, void* buffer, int num_bytes);
 
+/* Initialize netboot environment, if applicable. Returns non-zero if netbooting */
+int platform_init_netboot();
+
 #endif /* __PLATFORM_H__ */
