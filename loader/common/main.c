@@ -21,6 +21,8 @@ main()
 	int num_disk_devices = diskio_init();
 	vfs_init();
 
+	int netbooting = platform_init_netboot();
+
 	/*
 	 * Find something we can mount as boot filesystem.
 	 */
@@ -39,8 +41,7 @@ main()
 	/*
 	 * Try our list of kernels.
 	 */
-	const char** kernel = kernels;
-	while (*kernel != NULL) {
+	for (const char** kernel = kernels; *kernel != NULL; kernel++) {
 		printf("Trying '%s'...", *kernel);
 		if (!vfs_open(*kernel)) {
 			printf(" failed, cannot open\n");
