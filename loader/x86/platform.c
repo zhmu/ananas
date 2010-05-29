@@ -8,35 +8,11 @@
 #include <sys/x86/smap.h>
 #include <sys/i386/param.h>	/* for page-size */
 #include <loader/diskio.h>
+#include <loader/x86.h>
 #include <stdio.h> /* for printf */
 #include "param.h"
 
 uint32_t x86_pool_pointer = POOL_BASE;
-
-struct REALMODE_REGS {
-	uint32_t	eax;
-	uint32_t	ebx;
-	uint32_t	ecx;
-	uint32_t	edx;
-	uint32_t	ebp;
-	uint32_t	esi;
-	uint32_t	edi;
-	uint32_t	eflags;
-#define EFLAGS_CF	(1 << 0)		/* Carry flag */
-#define EFLAGS_PF	(1 << 2)		/* Parity flag */
-#define EFLAGS_AF	(1 << 4)		/* Auxiliary carry flag */
-#define EFLAGS_ZF	(1 << 6)		/* Zero flag */
-#define EFLAGS_SF	(1 << 7)		/* Sign flag */
-#define EFLAGS_IF	(1 << 9)		/* Interrupt flag */
-#define EFLAGS_DF	(1 << 10)		/* Direction flag */
-	uint8_t		interrupt;
-} __attribute__((packed));
-
-extern void  realcall();
-extern void* rm_regs;
-extern void* entry;
-extern void* rm_buffer;
-#define REALMODE_BUFFER ((uint32_t)&rm_buffer - (uint32_t)&entry)
 
 #undef DEBUG_DISK
 
@@ -48,6 +24,7 @@ struct REALMODE_DISKINFO {
 };
 
 struct REALMODE_DISKINFO* realmode_diskinfo;
+uint32_t x86_realmode_worksp;
 
 void*
 platform_get_memory(uint32_t length)
@@ -58,7 +35,23 @@ platform_get_memory(uint32_t length)
 	return ptr;
 }
 
-static void
+void
+x86_realmode_init(struct REALMODE_REGS* regs)
+{
+	memset(regs, 0, sizeof(struct REALMODE_REGS));
+	regs->esp = (uint32_t)&rm_stack - (uint32_t)&entry;
+	x86_realmode_worksp = (uint32_t)&rm_stack;
+}
+
+void
+x86_realmode_push16(struct REALMODE_REGS* regs, uint16_t value)
+{
+	x86_realmode_worksp -= 2;
+	regs->esp -= 2;
+	*(uint16_t*)x86_realmode_worksp = value;
+}
+
+void
 x86_realmode_call(struct REALMODE_REGS* regs)
 {
 	memcpy(&rm_regs, regs, sizeof(struct REALMODE_REGS));
@@ -71,7 +64,7 @@ platform_putch(uint8_t ch)
 {
 	struct REALMODE_REGS regs;
 
-	memset(&regs, 0, sizeof(regs));
+	x86_realmode_init(&regs);
 	regs.eax = 0x0e00 | ch;		/* video: tty output */
 	regs.interrupt = 0x10;
 	x86_realmode_call(&regs);
@@ -86,7 +79,7 @@ platform_getch()
 {
 	struct REALMODE_REGS regs;
 
-	memset(&regs, 0, sizeof(regs));
+	x86_realmode_init(&regs);
 	regs.eax = 0x0;			/* keyboard: get keystroke*/
 	regs.interrupt = 0x16;
 	x86_realmode_call(&regs);
@@ -99,7 +92,7 @@ platform_check_key()
 {
 	struct REALMODE_REGS regs;
 
-	memset(&regs, 0, sizeof(regs));
+	x86_realmode_init(&regs);
 	regs.eax = 0x01;		/* keyboard: check keystroke */
 	regs.interrupt = 0x16;
 	x86_realmode_call(&regs);
@@ -113,7 +106,7 @@ platform_init_memory_map()
 	struct REALMODE_REGS regs;
 	uint32_t total_kb = 0;
 
-	memset(&regs, 0, sizeof(regs));
+	x86_realmode_init(&regs);
 	regs.ebx = 0;
 	regs.interrupt = 0x15;
 	do {
@@ -155,7 +148,7 @@ platform_init_disks()
 
 	realmode_diskinfo = platform_get_memory(sizeof(struct REALMODE_DISKINFO) * MAX_DISKS);
 	for (uint8_t drive = 0x80; drive < 0x80 + MAX_DISKS; drive++) {
-		memset(&regs, 0, sizeof(regs));
+		x86_realmode_init(&regs);
 		regs.eax = 0x0800;		/* disk: get drive parameters */
 		regs.edx = drive;
 		regs.interrupt = 0x13;
@@ -199,7 +192,7 @@ platform_read_disk(int disk, uint32_t lba, void* buffer, int num_bytes)
 #endif
 
 		struct REALMODE_REGS regs;
-		memset(&regs, 0, sizeof(regs));
+		x86_realmode_init(&regs);
 		regs.eax = 0x0201;		/* disk: read one sector into memory */
 		regs.ebx = REALMODE_BUFFER;
 		regs.ecx = ((cylinder & 0xff) << 8) | ((cylinder & 0xc0) << 2) | sector;

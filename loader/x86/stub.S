@@ -1,7 +1,7 @@
 .text
 .code16
 .globl	entry, realcall
-.globl	rm_regs, rm_buffer
+.globl	rm_stack, rm_regs, rm_buffer
 
 #include "param.h"
 
@@ -181,42 +181,76 @@ realcall16:
 	movw	%ax, %ss
 	movw	%ax, %ds
 	movw	%ax, %es
-	movw	$(rm_stack - entry), %sp
 
-	/* Patch the interrupt number. Hey, this is realmode - anything goes! */
+	/* Patch the interrupt number and call pointer. Hey, this is realmode - anything goes! */
 	movb	(r_int - entry), %al
 	movb	%al, (rm_int - entry)
+	movw	(r_cs - entry), %ax
+	movw	%ax, (rm_cs - entry)
+	movw	(r_ip - entry), %ax
+	movw	%ax, (rm_ip - entry)
+
+	/* If different ds/es segments are given, update them */
+	movw	(r_es - entry), %ax
+	orw	%ax, %ax
+	jz	skip_es
+	movw	%es, %ax
+skip_es:
+	movw	(r_ds - entry), %ax
+	orw	%ax, %ax
+	jz	skip_ds
+	movw	%ds, %ax
+skip_ds:
 
 	/* Restore the flags */
-	movl	(r_flags - entry), %eax
+	movl	%cs:(r_flags - entry), %eax
 	pushl	%eax
 	popfl
 
 	/* Restore the registers */
-	movl	(r_eax - entry), %eax
-	movl	(r_ebx - entry), %ebx
-	movl	(r_ecx - entry), %ecx
-	movl	(r_edx - entry), %edx
-	movl	(r_ebp - entry), %ebp
-	movl	(r_esi - entry), %esi
-	movl	(r_edi - entry), %edi
+	movl	%cs:(r_eax - entry), %eax
+	movl	%cs:(r_ebx - entry), %ebx
+	movl	%cs:(r_ecx - entry), %ecx
+	movl	%cs:(r_edx - entry), %edx
+	movl	%cs:(r_ebp - entry), %ebp
+	movl	%cs:(r_esi - entry), %esi
+	movl	%cs:(r_edi - entry), %edi
+	movl	%cs:(r_esp - entry), %esp
+
+	/* Do a FAR CALL if there's no interrupt */
+	cmpb	$0, %cs:(rm_int - entry)
+	je	do_call
 
 	.byte	0xcd
 rm_int:	.byte	0x03
 
-	/* Save the registers */
-	movl	%eax, (r_eax - entry)
-	movl	%ebx, (r_ebx - entry)
-	movl	%ecx, (r_ecx - entry)
-	movl	%edx, (r_edx - entry)
-	movl	%ebp, (r_ebp - entry)
-	movl	%esi, (r_esi - entry)
-	movl	%edi, (r_edi - entry)
+	jmp	skip_call
+
+do_call:
+
+	.byte	0x9a
+rm_ip:	.word	0
+rm_cs:	.word	0
+
+skip_call:
+
+	/* Save the registers - we ignore %esp */
+	movl	%eax, %cs:(r_eax - entry)
+	movl	%ebx, %cs:(r_ebx - entry)
+	movl	%ecx, %cs:(r_ecx - entry)
+	movl	%edx, %cs:(r_edx - entry)
+	movl	%ebp, %cs:(r_ebp - entry)
+	movl	%esi, %cs:(r_esi - entry)
+	movl	%edi, %cs:(r_edi - entry)
+	movw	%ds, %ax
+	movw	%ax, %cs:(r_ds - entry)
+	movw	%es, %ax
+	movw	%ax, %cs:(r_es - entry)
 
 	/* Store our flags */
 	pushfl
 	popl	%eax
-	movl	%eax, (r_flags - entry)
+	movl	%eax, %cs:(r_flags - entry)
 
 	/* Ensure interrupts are not set - this would hurt us */
 	cli
@@ -257,8 +291,13 @@ r_edx:	.long	0
 r_ebp:	.long	0
 r_esi:	.long	0
 r_edi:	.long	0
+r_esp:	.long	0
+r_ds:	.word	0
+r_es:	.word	0
 r_flags:.long	0
 r_int:	.byte	0
+r_cs:	.word	0
+r_ip:	.word	0
 	
 realcall_esp:	.long	0
 
