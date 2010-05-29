@@ -166,7 +166,7 @@ platform_init_disks()
 		struct REALMODE_DISKINFO* dskinfo = &realmode_diskinfo[numdisks];
 		dskinfo->drive = drive;
 		dskinfo->cylinders = ((regs.ecx & 0xff00) >> 8) | ((regs.ecx & 0xc0) << 2);
-		dskinfo->heads = (regs.edx & 0xff00) >> 8;
+		dskinfo->heads = ((regs.edx & 0xff00) >> 8) + 1;
 		dskinfo->sectors = (regs.ecx & 0x3f);
 #ifdef DEBUG_DISK
 		printf("disk %u: drive 0x%x, c/h/s = %u/%u/%u\n",
