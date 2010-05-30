@@ -5,12 +5,18 @@
 #define VFS_SCRATCHPAD_SIZE 1024
 
 extern struct LOADER_FS_DRIVER loaderfs_ext2;
+extern struct LOADER_FS_DRIVER loaderfs_pxe_tftp;
 
 struct VFS_FILESYSTEMS {
 	const char* name;
 	struct LOADER_FS_DRIVER* driver;
 } vfs_filesystems[] = {
+#ifdef EXT2
 	{ "ext2", &loaderfs_ext2 },
+#endif
+#ifdef PXE
+	{ "pxe-tftp", &loaderfs_pxe_tftp },
+#endif
 	{ NULL, NULL }
 };
 
@@ -68,9 +74,14 @@ vfs_pread(void* buffer, size_t len, uint32_t offset)
 {
 	if (vfs_current == NULL)
 		return 0;
-	if (offset >= vfs_curfile_length)
-		return 0;
-	vfs_curfile_offset = offset;
+	if (vfs_current->seek != NULL) {
+		if (!vfs_current->seek(offset))
+			return 0;
+	} else {
+		if (offset >= vfs_curfile_length)
+			return 0;
+		vfs_curfile_offset = offset;
+	}
 	return vfs_read(buffer, len);
 }
 

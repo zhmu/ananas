@@ -20,9 +20,19 @@ struct LOADER_FS_DRIVER {
 	int (*open)(const char* name);
 
 	/*
+	 * Closes the currently opened file.
+	 */
+	void (*close)();
+
+	/*
 	 * Reads a file.
 	 */
 	size_t (*read)(void* ptr, size_t length);
+
+	/*
+	 * Seeks in the current file.
+	 */
+	int (*seek)(uint32_t offset);
 
 	/*
 	 * Reads a directory entry.
