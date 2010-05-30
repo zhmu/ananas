@@ -1,9 +1,7 @@
 /*
- * CODE_BASE is where we are loaded, REALLOC_BASE is where the code was
- * linked at. We have to alter every offset throughout this file :-(
+ * CODE_BASE is where we are linked; we expect to be loaded there.
  */
 #define CODE_BASE	0x7c00
-#define REALLOC_BASE	0x1000
 
 /*
  * Amount of stack available.
