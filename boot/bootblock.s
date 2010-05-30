@@ -18,7 +18,6 @@ entry:
 	 * just move our code to, say, 0x500... *sigh*
 	 */
 	nop
-	xchg	%bx,%bx
 
 	/* First of all, reset all high words */
 	xorl	%eax, %eax
