@@ -4,7 +4,7 @@ S=		../..
 CFLAGS=		-I$S/../include -I$S -I. -std=c99
 CFLAGS+=	-DEXT2 -DPXE
 OBJS=		stub.o platform.o main.o lib.o io.o diskio.o ext2fs.o vfs.o \
-		elf.o pxe.o
+		elf.o pxe.o interact.o
 
 stub.o:		$S/x86/stub.S
 		$(CC) $(CFLAGS) -c -o stub.o $S/x86/stub.S
@@ -32,6 +32,9 @@ vfs.o:		$S/common/vfs.c
 
 elf.o:		$S/common/elf.c
 		$(CC) $(CFLAGS) -c -o elf.o $S/common/elf.c
+
+interact.o:	$S/common/interact.c
+		$(CC) $(CFLAGS) -c -o interact.o $S/common/interact.c
 
 pxe.o:		$S/x86/pxe.c
 		$(CC) $(CFLAGS) -c -o pxe.o $S/x86/pxe.c
