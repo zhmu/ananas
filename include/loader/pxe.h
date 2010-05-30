@@ -4,7 +4,7 @@
 #define __PXE_H__
 
 struct PXE_ENVPLUS {
-	uint8_t   Signature[6];        /* "PXENV+" */
+	uint8_t         Signature[6];        /* "PXENV+" */
 	uint16_t	Version;             /* Version, must be >= 0x201 */
 	uint8_t		Length;              /* Length in bytes */
 	uint8_t		Checksum;            /* Checksum */
@@ -25,7 +25,7 @@ struct PXE_ENVPLUS {
 } __attribute__((packed));
 
 struct PXE_BANGPXE {
-	uint8_t   Signature[4];        /* '!PXE' */
+	uint8_t         Signature[4];        /* '!PXE' */
 	uint8_t		StructLength;        /* Length in bytes */
 	uint8_t		StructCksum;         /* Checksum */
 	uint8_t		StructRev;           /* Revision (0) */
@@ -40,8 +40,41 @@ struct PXE_BANGPXE {
 	uint32_t	FirstSelector;       /* First protected mode descriptor for PXE */
 } __attribute__((packed));
 
+#define PXENV_UNDI_SHUTDOWN 0x0005
+#define PXENV_STOP_UNDI 0x0015
+
+#define PXENV_TFTP_OPEN 0x0020
+typedef struct s_PXENV_TFTP_OPEN {
+	uint16_t	Status;
+	uint32_t	ServerIPAddress;
+	uint32_t	GatewayIPAddress;
+	uint8_t		FileName[128];
+	uint16_t	TFTPPort;
+	uint16_t	PacketSize;
+} __attribute__((packed)) t_PXENV_TFTP_OPEN;
+
+#define PXENV_TFTP_CLOSE 0x0021
+typedef struct s_PXENV_TFTP_CLOSE {
+	uint16_t	Status;
+} __attribute__((packed)) t_PXENV_TFTP_CLOSE;
+
+#define PXENV_TFTP_READ 0x0022
+typedef struct s_PXENV_TFTP_READ {
+	uint16_t	Status;
+	uint16_t	PacketNumber;
+	uint16_t	BufferSize;
+	uint16_t	BufferOffset;
+	uint16_t	BufferSegment;
+} __attribute__((packed)) t_PXENV_TFTP_READ;
+
+#define PXENV_UNLOAD_STACK 0x0070
+typedef struct s_PXENV_UNLOAD_STACK {
+	uint16_t	Status;
+	uint8_t		Reserved[10];
+} __attribute__((packed)) t_PXENV_UNLOAD_STACK;
+
 #define PXENV_GET_CACHED_INFO 0x0071
-struct PXENV_CACHED_INFO {
+typedef struct s_PXENV_GET_CACHED_INFO {
 	uint16_t	Status;
 	uint16_t	PacketType;
 #define PXENV_PACKET_TYPE_DHCP_DISCOVER 1
@@ -51,10 +84,15 @@ struct PXENV_CACHED_INFO {
 	uint16_t	BufferOffset;
 	uint16_t	BufferSegment;
 	uint16_t	BufferLimit;
-} __attribute__((packed));
+} __attribute__((packed)) t_PXENV_GET_CACHED_INFO;
+
+#define PXENV_STOP_BASE 0x0076
 
 #define PXENV_EXIT_SUCCESS 0x0
 #define PXENV_EXIT_FAILURE 0x1
+
+#define PXENV_STATUS_SUCCESS 0x0000
+#define PXENV_STATUS_FAILURE 0x0001
 
 struct BOOTP {
 	uint8_t  opcode;                /* Message opcode */
