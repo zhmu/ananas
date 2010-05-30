@@ -69,7 +69,7 @@ diskio_add_device(char* name, int device, uint32_t start_lba, uint32_t length)
 struct CACHE_ENTRY*
 diskio_read(int disknum, uint32_t lba)
 {
-	if (num_disk_devices >= MAX_DISK_DEVICES)
+	if (disknum < 0 || disknum >= MAX_DISK_DEVICES)
 		return 0;
 
 	struct DISK_DEVICE* disk = &disk_device[disknum];
