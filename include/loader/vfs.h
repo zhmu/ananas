@@ -54,6 +54,7 @@ void vfs_init();
 
 int vfs_mount(int iodevice, const char** type);
 int vfs_open(const char* fname);
+void vfs_close();
 size_t vfs_read(void* buffer, size_t len);
 size_t vfs_pread(void* buffer, size_t len, uint32_t offset);
 uint32_t vfs_get_length();

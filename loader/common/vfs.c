@@ -62,6 +62,14 @@ vfs_open(const char* fname)
 	return vfs_current->open(fname);
 }
 
+void
+vfs_close()
+{
+	if (vfs_current == NULL || vfs_current->close == NULL)
+		return 0;
+	vfs_current->close();
+}
+
 size_t
 vfs_read(void* buffer, size_t len) {
 	if (vfs_current == NULL)
