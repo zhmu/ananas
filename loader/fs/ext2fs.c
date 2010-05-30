@@ -10,6 +10,8 @@
 #include <string.h>
 #include <ext2.h>
 
+#ifdef EXT2
+
 struct EXT2_MOUNTED_FILESYSTEM {
 	int      device;
 	uint32_t inode_count;
@@ -239,8 +241,12 @@ ext2_mount(int device)
 
 	/* Read the superblock; this has to be done in two parts */
 	centry = diskio_read(device, 2);
+	if (centry == NULL)
+		return 0;
 	memcpy((char*)(&sb), centry->data, SECTOR_SIZE);
 	centry = diskio_read(device, 3);
+	if (centry == NULL)
+		return 0;
 	memcpy((char*)(&sb + SECTOR_SIZE), centry->data, SECTOR_SIZE);
 	if (sb.s_magic != EXT2_SUPER_MAGIC) {
 		/* This is not an ext2 file system */
@@ -270,5 +276,7 @@ struct LOADER_FS_DRIVER loaderfs_ext2 = {
 	.read = ext2_read,
 	.readdir = ext2_readdir,
 };
+
+#endif /* EXT2 */
 
 /* vim:set ts=2 sw=2: */
