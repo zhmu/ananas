@@ -12,6 +12,7 @@ struct REALMODE_REGS {
 	uint32_t	esp;
 	uint16_t	ds;
 	uint16_t	es;
+	uint16_t	ss;
 	uint32_t	eflags;
 #define EFLAGS_CF	(1 << 0)		/* Carry flag */
 #define EFLAGS_PF	(1 << 2)		/* Parity flag */

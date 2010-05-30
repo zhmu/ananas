@@ -39,7 +39,10 @@ void
 x86_realmode_init(struct REALMODE_REGS* regs)
 {
 	memset(regs, 0, sizeof(struct REALMODE_REGS));
-	regs->esp = (uint32_t)&rm_stack - (uint32_t)&entry;
+	regs->ds = (CODE_BASE >> 4);
+	regs->es = (CODE_BASE >> 4);
+	regs->ss = 0;
+	regs->esp = (uint32_t)&rm_stack;
 	x86_realmode_worksp = (uint32_t)&rm_stack;
 }
 

@@ -11,11 +11,6 @@ entry:
 	 * platform with so many annoying implementation details that it
 	 * isn't even funny.
 	 *
-	 * For the moment, let's assume someone loads this code at a
-	 * reasonable location (CODE_BASE). Then we have to reallocate our
-	 * code to where we are linked (REALLOC_BASE) and jump to protected
-	 * mode,
-	 *
 	 * Strictly speaking, this entire hunk of code can function easily
 	 * in unreal mode and move everything it loads to the correct location.
 	 * However, this involves overly complicating our toolchain as it
@@ -27,20 +22,11 @@ entry:
 	 * to correctly implement I/O functions that work in protected mode...)
 	 */
 	cli
-	movw	%cs, %ax
+	cld
+	xorw	%ax, %ax
 	movw	%ax, %ds
 	movw	%ax, %ss
-	movw	$(rm_stack - entry), %sp
-
-	/*
-	 * Reallocate our code to what we were built for.
-	 */
-	movw	$(REALLOC_BASE >> 4), %ax
-	movw	%ax, %es
-	movw	$CODE_BASE, %si
-	xorw	%di, %di
-	movw	$8192, %cx		/* 32KB (64 sectors) */
-	rep	movsd
+	movw	$(rm_stack), %sp
 
 	/*
 	 * Before we can jump to protected mode, we first have to enable the
@@ -53,7 +39,7 @@ entry:
 	 * It's time to jump to big bad protected mode. First of all, we
 	 * must load the GDT. Then we can jump to pmode.
 	 */
-	lgdt	(gdtr - entry + CODE_BASE)
+	lgdt	(gdtr)
 
 	/* Flip the protected mode bit */
 	movl	%cr0, %eax
@@ -63,7 +49,7 @@ entry:
 	/* Go to 32 bit pmode */
 	.byte	0x66
 	.byte	0xea
-	.long	(REALLOC_BASE + code32 - entry)
+	.long	code32
 	.word	0x8
 
 enable_a20:
@@ -103,15 +89,14 @@ code32:
 	movw	%ax, %ds
 	movw	%ax, %es
 	movw	%ax, %ss
-	movl	(x86_pool_pointer - entry + REALLOC_BASE), %esp
-	addl	$STACK_SIZE, %esp
-	addl	$STACK_SIZE, (x86_pool_pointer - entry + REALLOC_BASE)
+	addl	$STACK_SIZE, x86_pool_pointer
+	movl	x86_pool_pointer, %esp
 
 	/* Call our main function - this shouldn't return */
 	call	main
 
 gdtr:	.word	(gdt_end - gdt)
-	.long	(gdt - entry + CODE_BASE)
+	.long	gdt
 
 .align	16
 
@@ -125,11 +110,11 @@ gdt:	.long	0			/*  0: null descriptor */
 	.long	0x00cf9200
 
 	.word	0xffff			/* 18: 16-bit code */
-	.word	REALLOC_BASE & 0xffff
+	.word	CODE_BASE & 0xffff
 	.long	0x00009800
 
 	.word	0xffff			/* 20: 16-bit data */
-	.word	REALLOC_BASE & 0xffff
+	.word	CODE_BASE & 0xffff
 	.long	0x00009200
 
 gdt_end:
@@ -167,58 +152,52 @@ realcall16_pm:
 
 	/* ...and force a jump to realmode */
 	.byte	0xea
-	.word	realcall16 - entry
-	.word	REALLOC_BASE >> 4
+	.word	realcall16
+	.word	0
 
 .code16
 
 realcall16:
 	/*
 	 * OK, we are in 16 bit realmode now. Set up a stack, restore the
-	 * registers and call the freakin' interrupt!
+	 * registers and call the freakin' interrupt! Note that we
+	 * are called using a far direct call, so we can assume %cs = 0. Thus,
+	 * if we index with %cs, we are certain that we can use direct offsets.
 	 */
-	movw	%cs, %ax
-	movw	%ax, %ss
-	movw	%ax, %ds
-	movw	%ax, %es
 
 	/* Patch the interrupt number and call pointer. Hey, this is realmode - anything goes! */
-	movb	(r_int - entry), %al
-	movb	%al, (rm_int - entry)
-	movw	(r_cs - entry), %ax
-	movw	%ax, (rm_cs - entry)
-	movw	(r_ip - entry), %ax
-	movw	%ax, (rm_ip - entry)
+	movb	%cs:(r_int), %al
+	movb	%al, %cs:(rm_int)
+	movw	%cs:(r_cs), %ax
+	movw	%ax, %cs:(rm_cs)
+	movw	%cs:(r_ip), %ax
+	movw	%ax, %cs:(rm_ip)
 
-	/* If different ds/es segments are given, update them */
-	movw	(r_es - entry), %ax
-	orw	%ax, %ax
-	jz	skip_es
-	movw	%es, %ax
-skip_es:
-	movw	(r_ds - entry), %ax
-	orw	%ax, %ax
-	jz	skip_ds
-	movw	%ds, %ax
-skip_ds:
+	/* Update ds/es/ss segments */
+	movw	%cs:(r_ss), %ax
+	movw	%ax, %ss
+	movw	%cs:(r_es), %ax
+	movw	%ax, %es
+	movw	%cs:(r_ds), %ax
+	movw	%ax, %ds
 
 	/* Restore the flags */
-	movl	%cs:(r_flags - entry), %eax
+	movl	%cs:(r_flags), %eax
 	pushl	%eax
 	popfl
 
 	/* Restore the registers */
-	movl	%cs:(r_eax - entry), %eax
-	movl	%cs:(r_ebx - entry), %ebx
-	movl	%cs:(r_ecx - entry), %ecx
-	movl	%cs:(r_edx - entry), %edx
-	movl	%cs:(r_ebp - entry), %ebp
-	movl	%cs:(r_esi - entry), %esi
-	movl	%cs:(r_edi - entry), %edi
-	movl	%cs:(r_esp - entry), %esp
+	movl	%cs:(r_eax), %eax
+	movl	%cs:(r_ebx), %ebx
+	movl	%cs:(r_ecx), %ecx
+	movl	%cs:(r_edx), %edx
+	movl	%cs:(r_ebp), %ebp
+	movl	%cs:(r_esi), %esi
+	movl	%cs:(r_edi), %edi
+	movl	%cs:(r_esp), %esp
 
 	/* Do a FAR CALL if there's no interrupt */
-	cmpb	$0, %cs:(rm_int - entry)
+	cmpb	$0, %cs:(rm_int)
 	je	do_call
 
 	.byte	0xcd
@@ -228,6 +207,9 @@ rm_int:	.byte	0x03
 
 do_call:
 
+	xchg	%bx,%bx
+	nop
+
 	.byte	0x9a
 rm_ip:	.word	0
 rm_cs:	.word	0
@@ -235,22 +217,22 @@ rm_cs:	.word	0
 skip_call:
 
 	/* Save the registers - we ignore %esp */
-	movl	%eax, %cs:(r_eax - entry)
-	movl	%ebx, %cs:(r_ebx - entry)
-	movl	%ecx, %cs:(r_ecx - entry)
-	movl	%edx, %cs:(r_edx - entry)
-	movl	%ebp, %cs:(r_ebp - entry)
-	movl	%esi, %cs:(r_esi - entry)
-	movl	%edi, %cs:(r_edi - entry)
+	movl	%eax, %cs:(r_eax)
+	movl	%ebx, %cs:(r_ebx)
+	movl	%ecx, %cs:(r_ecx)
+	movl	%edx, %cs:(r_edx)
+	movl	%ebp, %cs:(r_ebp)
+	movl	%esi, %cs:(r_esi)
+	movl	%edi, %cs:(r_edi)
 	movw	%ds, %ax
-	movw	%ax, %cs:(r_ds - entry)
+	movw	%ax, %cs:(r_ds)
 	movw	%es, %ax
-	movw	%ax, %cs:(r_es - entry)
+	movw	%ax, %cs:(r_es)
 
 	/* Store our flags */
 	pushfl
 	popl	%eax
-	movl	%eax, %cs:(r_flags - entry)
+	movl	%eax, %cs:(r_flags)
 
 	/* Ensure interrupts are not set - this would hurt us */
 	cli
@@ -265,7 +247,7 @@ skip_call:
 	/* Go to 32 bit pmode */
 	.byte	0x66
 	.byte	0xea
-	.long	(REALLOC_BASE + rc32_return - entry)
+	.long	rc32_return
 	.word	0x8
 
 .code32
@@ -294,6 +276,7 @@ r_edi:	.long	0
 r_esp:	.long	0
 r_ds:	.word	0
 r_es:	.word	0
+r_ss:	.word	0
 r_flags:.long	0
 r_int:	.byte	0
 r_cs:	.word	0
