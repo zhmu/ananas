@@ -66,7 +66,7 @@ void
 vfs_close()
 {
 	if (vfs_current == NULL || vfs_current->close == NULL)
-		return 0;
+		return;
 	vfs_current->close();
 }
 
@@ -96,7 +96,7 @@ vfs_pread(void* buffer, size_t len, uint32_t offset)
 const char*
 vfs_readdir()
 {
-	if (vfs_current == NULL)
+	if (vfs_current == NULL || vfs_current->readdir == NULL)
 		return NULL;
  return vfs_current->readdir();
 }
