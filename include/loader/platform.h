@@ -33,4 +33,7 @@ int platform_init_netboot();
 /* Cleans up the netboot environment, if applicable. */
 void platform_cleanup_netboot();
 
+/* Reboots the system */
+void platform_reboot();
+
 #endif /* __PLATFORM_H__ */

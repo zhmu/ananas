@@ -213,4 +213,17 @@ platform_read_disk(int disk, uint32_t lba, void* buffer, int num_bytes)
 	return num_read;
 }
 
+void
+platform_reboot()
+{
+	/*
+	 * We just call the reset handler; this will never return.
+	 */
+	struct REALMODE_REGS regs;
+	x86_realmode_init(&regs);
+	regs.cs = 0xf000;
+	regs.ip = 0xfff0;
+	x86_realmode_call(&regs);
+}
+
 /* vim:set ts=2 sw=2: */
