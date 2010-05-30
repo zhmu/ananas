@@ -24,18 +24,31 @@ main()
 	int netbooting = platform_init_netboot();
 
 	/*
-	 * Find something we can mount as boot filesystem.
+	 * Find something we can mount as boot filesystem. We prefer netbooting if it's
+	 * available.
 	 */
-	unsigned int dev = 0;
-	for (dev = 0; dev < num_disk_devices; dev++) {
+	int got_root = 0;
+	if (netbooting) {
 		const char* type;
-		if (vfs_mount(dev, &type)) {
-			printf(">> Mounted '%s' as '%s'\n", diskio_get_name(dev), type);
-			break;
+		if (vfs_mount(-1, &type)) {
+			printf(">> Mounted 'network' as '%s'\n", type);
+			got_root++;
 		}
 	}
 
-	if (dev == num_disk_devices)
+	if (!got_root) {
+		unsigned int dev = 0;
+		for (dev = 0; dev < num_disk_devices; dev++) {
+			const char* type;
+			if (vfs_mount(dev, &type)) {
+				printf(">> Mounted '%s' as '%s'\n", diskio_get_name(dev), type);
+				got_root++;
+				break;
+			}
+		}
+	}
+
+	if (!got_root)
 		printf("WARNING: no usuable disks found!\n");
 
 	/*
@@ -56,6 +69,9 @@ main()
 
 		uint32_t entry32 = (entry & 0x0fffffff);
 		printf(" ok, launching from 0x%x!\n", entry32);
+
+		platform_cleanup_netboot();
+
 		((kentry*)entry32)();
 
 		/* Why are we here? */
