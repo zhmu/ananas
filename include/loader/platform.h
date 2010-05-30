@@ -30,6 +30,9 @@ int platform_read_disk(int disk, uint32_t lba, void* buffer, int num_bytes);
 /* Initialize netboot environment, if applicable. Returns non-zero if netbooting */
 int platform_init_netboot();
 
+/* Cleans up the environment - must be called before launching kernel */
+void platform_cleanup();
+
 /* Cleans up the netboot environment, if applicable. */
 void platform_cleanup_netboot();
 

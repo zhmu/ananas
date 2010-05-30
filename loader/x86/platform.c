@@ -226,4 +226,10 @@ platform_reboot()
 	x86_realmode_call(&regs);
 }
 
+void
+platform_cleanup()
+{
+	platform_cleanup_netboot();
+}
+
 /* vim:set ts=2 sw=2: */
