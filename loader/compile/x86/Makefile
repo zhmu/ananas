@@ -2,7 +2,7 @@ TARGET:		machine loader
 S=		../..
 
 CFLAGS=		-I$S/../include -I$S -I. -std=c99
-CFLAGS+=	-DDEBUG
+CFLAGS+=	-DEXT2 -DPXE
 OBJS=		stub.o platform.o main.o lib.o io.o diskio.o ext2fs.o vfs.o \
 		elf.o pxe.o
 
