@@ -11,6 +11,7 @@ sed -r 's/(\-aros\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub > $T/config.sub.ne
 mv $T/config.sub.new $T/config.sub
 
 # patch 'gcc/config.gcc'
+# XXX we do not override powerpc-*-elf yet (should we?)
 awk '{ print }
 /# Common parts for widely ported systems/ { STATE = 1 }
 /case \${target} in/ && STATE == 0 { STATE = 2 }
@@ -32,6 +33,11 @@ awk '{ print }
         print "\ttm_file=\"${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h ananas.h\""
         print "\ttmake_file=\"i386/t-crtstuff\""
         print "\tuse_fixproto=\"yes\""
+        print "\t;;"
+	print "powerpc-*-ananas*)"
+	print "\ttm_file=\"${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/eabi.h rs6000/e500.h rs6000/eabispe.h\""
+	print "\textra_options=\"${extra_options} rs6000/sysv4.opt\""
+	print "\ttmake_file=\"rs6000/t-spe rs6000/t-ppccomm\""
         print "\t;;"
 	STATE = 0
 }
@@ -75,6 +81,8 @@ awk '
 	print "i[3-7]86-*-ananas*)"
 	print "\t;;"
 	print "x86_64-*-ananas*)"
+	print "\t;;"
+	print "powerpc-*-ananas*)"
 	print "\t;;"
 	STATE = 0
 }' < $T/libgcc/config.host > $T/libgcc/config.host.new

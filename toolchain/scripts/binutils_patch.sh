@@ -21,6 +21,10 @@ awk '{ print }
 	print "    targ_defvec=bfd_elf64_x86_64_vec"
 	print "    targ_selvecs=bfd_elf32_i386_vec"
 	print "    ;;"
+	print "   powerpc-*-ananas*)"
+	print "    targ_defvec=bfd_elf32_powerpc_vec"
+	print "    targ_selvecs=\"bfd_elf32_powerpcle_vec ppcboot_vec\""
+	print "    ;;"
 }' < $T/bfd/config.bfd > $T/bfd/config.bfd.new
 mv $T/bfd/config.bfd.new $T/bfd/config.bfd
 
@@ -29,7 +33,9 @@ mv $T/bfd/config.bfd.new $T/bfd/config.bfd
 awk '{ print }
 /i386-ibm-aix\*)/ {
 	print "  i386-*-ananas)\t\t\tfmt=elf ;;"
-}' < $T/gas/configure.tgt > $T/gas/configure.tgt.new
+	print "  ppc-*-ananas*)\t\t\tfmt=elf ;;"
+}
+' < $T/gas/configure.tgt > $T/gas/configure.tgt.new
 mv $T/gas/configure.tgt.new $T/gas/configure.tgt
 
 # patch 'ld/configure.tgt'
@@ -37,6 +43,7 @@ awk '{print }
 /^case "\$\{targ\}" in$/ {
 	print "i[3-7]86-*-ananas*)\t\ttarg_emul=ananas_i386 ;;"
 	print "x86_64-*-ananas*)\t\ttarg_emul=ananas_amd64 ;;"
+	print "powerpc-*-ananas*)\t\ttarg_emul=elf32ppc ;;"
 }' < $T/ld/configure.tgt > $T/ld/configure.tgt.new
 mv $T/ld/configure.tgt.new $T/ld/configure.tgt
 
@@ -73,6 +80,8 @@ NO_SMALL_DATA=yes
 LARGE_SECTIONS=yes
 SEPARATE_GOTPLT=24
 IREL_IN_PLT=' > $T/ld/emulparams/ananas_amd64.sh
+
+# XXX no ananas_powerpc32.sh yet - will the defaults do ?
 
 # patch 'ld/Makefile.in'
 awk '{print} END {
