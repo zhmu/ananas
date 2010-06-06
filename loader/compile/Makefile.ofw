@@ -1,0 +1,13 @@
+OBJS+=		ofw.o deviceio.o devicetree.o memory.o
+
+ofw.o:		$S/ofw/ofw.c
+		$(CC) $(CFLAGS) -c -o ofw.o $S/ofw/ofw.c
+
+deviceio.o:	$S/ofw/deviceio.c
+		$(CC) $(CFLAGS) -c -o deviceio.o $S/ofw/deviceio.c
+
+devicetree.o:	$S/ofw/devicetree.c
+		$(CC) $(CFLAGS) -c -o devicetree.o $S/ofw/devicetree.c
+
+memory.o:	$S/ofw/memory.c
+		$(CC) $(CFLAGS) -c -o memory.o $S/ofw/memory.c
