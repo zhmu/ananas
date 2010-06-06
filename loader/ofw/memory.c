@@ -3,7 +3,7 @@
 #include <ofw.h>
 
 void*
-ofw_claim(ofw_cell_t virt, ofw_cell_t size)
+ofw_claim(ofw_cell_t virt, ofw_cell_t size, ofw_cell_t align)
 {
 	struct {
 		ofw_cell_t	service;
@@ -21,10 +21,10 @@ ofw_claim(ofw_cell_t virt, ofw_cell_t size)
 
 	args.virt = virt;
 	args.size = size;
-	args.align = 0;
-	ofw_entry(&args);
+	args.align = align;
+	if (ofw_entry(&args) == -1)
+		return (void*)-1;
 	return (void*)args.baseaddr;
-	
 }
 
 void

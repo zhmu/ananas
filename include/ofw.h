@@ -17,6 +17,7 @@ struct ofw_reg {
 /* general functions */
 void ofw_init();
 void ofw_putch(char ch);
+int ofw_getch();
 void* ofw_heap_alloc(unsigned int size);
 uint32_t ofw_get_memory_size();
 
@@ -32,7 +33,7 @@ int ofw_getprop(ofw_cell_t phandle, const char* name, void* buf, int length);
 ofw_cell_t ofw_instance_to_package(ofw_cell_t ihandle);
 
 /* memory */
-void* ofw_claim(ofw_cell_t virt, ofw_cell_t size);
+void* ofw_claim(ofw_cell_t virt, ofw_cell_t size, ofw_cell_t align);
 void ofw_release(ofw_cell_t virt, ofw_cell_t size);
 
 #endif /* __OPENFIRMWARE_H__ */

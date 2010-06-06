@@ -42,6 +42,16 @@ ofw_putch(char ch)
 	ofw_write(ofw_ihandle_stdout, &ch, 1);
 }
 
+int
+ofw_getch()
+{
+	unsigned char ch;
+
+	while (ofw_read(ofw_ihandle_stdin, &ch, 1) == 0)
+		/* wait */;
+	return ch;
+}
+
 void
 ofw_init()
 {
@@ -58,7 +68,7 @@ ofw_init()
 	/* Get the first block of available data; this will be our scratchpad */
 	struct ofw_reg avail;
 	ofw_getprop(p_memory, "available", &avail, sizeof(avail));
-	ofw_heap_base = ofw_claim(avail.base, OFW_HEAP_SIZE);
+	ofw_heap_base = ofw_claim(avail.base, OFW_HEAP_SIZE, sizeof(int));
 	if (ofw_heap_base == (void*)-1) {
 		printf("FATAL: cannot establish heap!\n");
 		return;
