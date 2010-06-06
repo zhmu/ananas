@@ -1,0 +1,12 @@
+<CHRP-BOOT>
+<COMPATIBLE>
+MacRISC MacRISC3 MacRISC4
+</COMPATIBLE>
+<DESCRIPTION>
+ Ananas/ppc
+</DESCRIPTION>
+<BOOT-SCRIPT>
+ " screen" output
+ boot cd:,\boot\loader cd:0
+</BOOT-SCRIPT>
+</CHRP-BOOT>

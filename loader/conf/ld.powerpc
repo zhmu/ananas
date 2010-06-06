@@ -1,0 +1,14 @@
+OUTPUT_ARCH(powerpc)
+OUTPUT_FORMAT(elf32-powerpc)
+ENTRY(entry)
+SECTIONS {
+	.text 0x01c00000 : { 
+		text = .;
+		*(.text)
+		*(.rodata)
+		*(.data)
+		*(.bss)
+		*(COMMON)
+	}
+	__end = . ;
+}

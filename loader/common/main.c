@@ -4,6 +4,12 @@
 #include <loader/vfs.h>
 #include <loader/elf.h>
 
+#if defined(__i386__)
+#define PLATFORM "x86"
+#elif defined(__PPC__)
+#define PLATFORM "powerpc"
+#endif
+
 typedef void kentry(void);
 
 void interact();
@@ -11,9 +17,11 @@ void interact();
 int
 main()
 {
-	printf("Ananas/x86 Loader: ");
+	printf("Ananas/"PLATFORM" Loader: ");
 	printf("%u KB memory", platform_init_memory_map());
 	printf(" / %u disk(s)\n", platform_init_disks());
+
+#if 0
 
 	int num_disk_devices = diskio_init();
 	vfs_init();
@@ -51,6 +59,9 @@ main()
 	interact();
 
 	/* NOTREACHED */
+#endif
+
+	return 0;
 }
 
 /* vim:set ts=2 sw=2: */

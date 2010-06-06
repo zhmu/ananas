@@ -37,10 +37,15 @@ elf32_load(uint64_t* entry)
 		ELF_ABORT("bad type");
 
 	/* XXX This specifically checks for i386 at the moment */
+#ifdef __i386__
 	if (ehdr.e_ident[EI_DATA] != ELFDATA2LSB)
 		ELF_ABORT("not i386 LSB");
 	if (ehdr.e_machine != EM_386)
 		ELF_ABORT("not i386");
+#elif defined(__PowerPC__)
+	if (ehdr.e_ident[EI_DATA] != ELFDATA2MSB)
+		ELF_ABORT("not ppc MSB");
+#endif
 
 	/* We only support static binaries for now, so reject anything without a program table */
 	if (ehdr.e_phnum == 0)
