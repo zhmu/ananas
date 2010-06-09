@@ -1,7 +1,7 @@
 CFLAGS+=	-I$S/../include -I$S -I. -std=c99
 
 OBJS+=		stub.o platform.o main.o lib.o io.o diskio.o ext2fs.o vfs.o \
-		elf.o interact.o
+		elf.o interact.o iso9660.o
 
 main.o:		$S/common/main.c
 		$(CC) $(CFLAGS) -c -o main.o $S/common/main.c
@@ -24,6 +24,8 @@ vfs.o:		$S/common/vfs.c
 elf.o:		$S/common/elf.c
 		$(CC) $(CFLAGS) -c -o elf.o $S/common/elf.c
 
+iso9660.o:	$S/fs/iso9660.c
+		$(CC) $(CFLAGS) -c -o iso9660.o $S/fs/iso9660.c
+
 interact.o:	$S/common/interact.c
 		$(CC) $(CFLAGS) -c -o interact.o $S/common/interact.c
-
