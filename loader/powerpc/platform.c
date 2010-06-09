@@ -3,6 +3,14 @@
 #include <loader/platform.h>
 #include <ofw.h>
 
+struct OFW_DISKINFO {
+	char device[128];
+	ofw_cell_t ihandle;
+};
+
+static struct OFW_DISKINFO* ofw_diskinfo;
+static int ofw_curdisk = -1;
+
 void*
 platform_get_memory(uint32_t length)
 {
@@ -18,24 +26,96 @@ platform_putch(uint8_t ch)
 int
 platform_getch()
 {
-	return 0;
+	return ofw_getch();
 }
 
 int
 platform_init_disks()
 {
-	return 0;
+	int numdisks = 0;
+
+	ofw_diskinfo = (struct OFW_DISKINFO*)platform_get_memory(sizeof(struct OFW_DISKINFO) * MAX_DISKS);
+	for(int i = 0; i < MAX_DISKS; i++)
+		ofw_diskinfo[i].device[0] = '\0';
+
+	/*
+	 * In order to have some idea of the disks in this machine, we look at the
+ 	 * /aliases list and see if any of the devices is a block device.
+	 */
+	ofw_cell_t aliases = ofw_finddevice("/aliases");
+	char current[32], name[32];
+	name[0] = '\0';
+	while(1) {
+		if (numdisks == MAX_DISKS) {
+			printf("Warning: already found %u disks, will not parse more\n", numdisks);
+			break;
+		}
+
+		/* Fetch the next item */
+		strcpy(current, name);
+		if (ofw_nextprop(aliases, current, name) != 1)
+			break;
+
+		/* Found something; obtain the name */
+		char realname[128];
+		if (ofw_getprop(aliases, name, realname, sizeof(realname)) == sizeof(realname))
+			continue;
+
+		ofw_cell_t device = ofw_finddevice(realname);
+		char devicetype[32];
+		int dtlen = ofw_getprop(device, "device_type", devicetype, sizeof(devicetype));
+		if (dtlen <= 0 || dtlen == sizeof(devicetype))
+			continue;
+
+		/* Skip non-block devices */
+		if (strcmp(devicetype, "block") != 0)
+			continue;
+
+		strcpy(ofw_diskinfo[numdisks].device, realname);
+		ofw_diskinfo[numdisks].ihandle = 0;
+		numdisks++;
+	}
+
+	return numdisks;
 }
 
 int
 platform_read_disk(int disk, uint32_t lba, void* buffer, int num_bytes)
 {
-	return 0;
+	if (disk < 0 || disk >= MAX_DISKS)
+		return 0;
+
+	struct OFW_DISKINFO* odi = &ofw_diskinfo[disk];
+	if (odi->device[0] == '\0')
+		return 0;
+
+	/* If this is not the current disk, open it */
+	if (ofw_curdisk != disk) {
+		if (ofw_curdisk != -1) {
+			ofw_close(ofw_diskinfo[ofw_curdisk].ihandle);
+			ofw_diskinfo[ofw_curdisk].ihandle = 0;
+			ofw_curdisk = -1;
+		}
+
+		ofw_cell_t ihandle = ofw_open(ofw_diskinfo[disk].device);
+		if (ihandle == 0)
+			return 0;
+	
+		ofw_diskinfo[disk].ihandle = ihandle;
+		ofw_curdisk = disk;
+	}
+
+
+	if (ofw_seek(odi->ihandle, lba * SECTOR_SIZE) < 0)
+		return 0;
+
+	return ofw_read(odi->ihandle, buffer, num_bytes);
 }
 
 void
 platform_reboot()
 {
+	ofw_exit();
 }
 
 void
