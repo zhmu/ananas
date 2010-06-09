@@ -72,3 +72,15 @@ strlen(const char* s)
 	for (; *s != '\0'; s++, len++);
 	return len;
 }
+
+int
+memcmp(const void* s1, const void* s2, size_t len)
+{
+	const char* c1 = s1;
+	const char* c2 = s2;
+
+	while (len > 0 && *c1 == *c2) {
+		len--; c1++; c2++;
+	}
+	return len > 0 ? *c1 - *c2 : 0;
+}
