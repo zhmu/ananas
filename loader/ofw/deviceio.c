@@ -2,6 +2,44 @@
 #include <sys/lib.h> 
 #include <ofw.h> 
 
+ofw_cell_t
+ofw_open(const char* device)
+{
+	struct {
+		ofw_cell_t	service;
+		ofw_cell_t	n_args;
+		ofw_cell_t	n_returns;
+		ofw_cell_t	device_specifier;
+		ofw_cell_t	ihandle;
+	} args = {
+		.service = (ofw_cell_t)"open",
+		.n_args    = 1,
+		.n_returns = 1,
+	};
+
+	args.device_specifier = (ofw_cell_t)device;
+	ofw_entry(&args);
+	return args.ihandle;
+}
+
+void
+ofw_close(ofw_cell_t ihandle)
+{
+	struct {
+		ofw_cell_t	service;
+		ofw_cell_t	n_args;
+		ofw_cell_t	n_returns;
+		ofw_cell_t	ihandle;
+	} args = {
+		.service = (ofw_cell_t)"close",
+		.n_args    = 1,
+		.n_returns = 0,
+	};
+
+	args.ihandle = ihandle;
+	ofw_entry(&args);
+}
+
 int
 ofw_read(ofw_cell_t ihandle, void* buf, unsigned int length)
 {
