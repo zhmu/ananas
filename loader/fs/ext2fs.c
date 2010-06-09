@@ -33,9 +33,13 @@ struct EXT2_ACTIVE_INODE {
 static struct EXT2_MOUNTED_FILESYSTEM* ext2_fsinfo;
 static struct EXT2_ACTIVE_INODE* ext2_activeinode;
 
-/* These macro's should be defined based on endianess... */
+#ifdef _BIG_ENDIAN
+#define EXT2_TO_LE32(x) ((x >> 16) | (((x & 0xffff)) << 16))
+#define EXT2_TO_LE16(x) ((x >> 8) | ((x & 0xff) << 8))
+#else
 #define EXT2_TO_LE32(x) (x)
 #define EXT2_TO_LE16(x) (x)
+#endif
 
 /* Locates the block-th block of the active inode */
 static uint32_t
