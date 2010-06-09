@@ -27,3 +27,9 @@ stack:
 
 ofw_entry:
 	.long	0
+
+	/*
+	 * XXX for some reason, the 4 bytes after here are corrupted; best
+	 * place a dummy here to avoid problems... XXX
+	 */
+	.long	0
