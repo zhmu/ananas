@@ -32,7 +32,7 @@ struct ISO9660_ACTIVE_FILESYSTEM {
 struct ISO9660_ACTIVE_FILE {
 	uint32_t start_lba;
 	uint32_t next_lba;
-	uint16_t next_length;
+	uint32_t next_length;
 	uint8_t current_entryname[256];
 };
 
@@ -42,7 +42,9 @@ static struct ISO9660_ACTIVE_FILE* iso9660_activefile;
 static void*
 iso9660_get_block(int device, int block)
 {
-	void* buffer = platform_get_memory(0);
+	static void* buffer = NULL;
+	if (buffer == NULL)
+		buffer = platform_get_memory(ISO9660_BLOCK_SIZE);
 
 	for (unsigned int i = 0; i < ISO9660_BLOCK_SIZE / SECTOR_SIZE; i++) {
 		struct CACHE_ENTRY* centry = diskio_read(device, (block * (ISO9660_BLOCK_SIZE / SECTOR_SIZE)) + i);
@@ -171,9 +173,10 @@ iso9660_open(const char* fname)
 	while (1) {
 		while (*fname == '/')
 			fname++;
-		if (*fname == '\0')
+		if (*fname == '\0') {
 			/* all done! */
 			return 1;
+		}
 
 		/* figure out how much bytes we have to check */
 		char* ptr = strchr(fname, '/');
