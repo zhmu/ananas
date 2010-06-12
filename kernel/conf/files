@@ -11,12 +11,12 @@ kern/irq.c		mandatory
 kern/bio.c		mandatory
 kern/vfs.c		mandatory
 kern/tty.c		mandatory
-lib/misc.c		mandatory
-lib/memset.c		mandatory
-lib/memcpy.c		mandatory
-lib/print.c		mandatory
-lib/qdivrem.c		mandatory
-lib/string.c		mandatory
+lib/kern/misc.c		mandatory
+lib/kern/memset.c	mandatory
+lib/kern/memcpy.c	mandatory
+lib/kern/print.c	mandatory
+lib/kern/qdivrem.c	mandatory
+lib/kern/string.c	mandatory
 # XXX this should be optional - depend on vga for now?
 lib/teken/teken.c	mandatory
 dev/bus/isa.c		optional isa
