@@ -21,7 +21,6 @@ main()
 	printf("%u KB memory", platform_init_memory_map());
 	printf(" / %u disk(s)\n", platform_init_disks());
 
-#if 0
 
 	int num_disk_devices = diskio_init();
 	vfs_init();
@@ -59,7 +58,6 @@ main()
 	interact();
 
 	/* NOTREACHED */
-#endif
 
 	return 0;
 }
