@@ -1,0 +1,14 @@
+# Note that the order in this file is the same order passed to the linker!
+arch/powerpc/stub.S		mandatory
+arch/powerpc/startup.c		mandatory
+arch/powerpc/cntx.S		mandatory
+arch/powerpc/vm.c		mandatory
+arch/powerpc/md_thread.c	mandatory
+arch/powerpc/md_lock.c		mandatory
+lib/kern/ucmpdi2.c		mandatory
+# ofw stuff
+lib/ofw/control.c		mandatory
+lib/ofw/deviceio.c		mandatory
+lib/ofw/devicetree.c		mandatory
+lib/ofw/memory.c		mandatory
+lib/ofw/ofw.c			mandatory

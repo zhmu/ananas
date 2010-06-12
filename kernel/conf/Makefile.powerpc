@@ -1,0 +1,34 @@
+TARGET:		kernel
+
+S=		../../../..
+ARCH=		powerpc
+
+CC?=		cc
+LD?=		ld
+AWK?=		awk
+
+%OBJS
+%FILES
+
+CFLAGS=		-I$S/../include -I$S -I. -std=c99 -mcpu=G4 -DKERNEL
+kernel:		$(OBJS) $S/conf/ld.powerpc
+		$(LD) -b elf32-powerpc -T $S/conf/ld.powerpc -o kernel $(OBJS)
+
+#
+# Assembly symbols: we need a way to pass symbols to our assembly scripts.
+#
+asmsyms.o:	$S/arch/${ARCH}/asmsyms.c
+		$(CC) $(CFLAGS) -c -o asmsyms.o $S/arch/${ARCH}/asmsyms.c
+
+asmsyms.h:	asmsyms.o $S/tools/gen_asmsyms.sh
+		$S/tools/gen_asmsyms.sh asmsyms.o > asmsyms.h
+
+# XXX this file is actually only needed if teken is to be included XXX
+teken_state.h:	$S/lib/teken/gensequences $S/lib/teken/sequences
+		${AWK} -f $S/lib/teken/gensequences $S/lib/teken/sequences > teken_state.h
+
+# pull in teken_state.h for teken.o
+teken.o:	teken_state.h
+
+clean:
+		rm -f kernel $(OBJS)
