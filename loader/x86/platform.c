@@ -232,4 +232,12 @@ platform_cleanup()
 	platform_cleanup_netboot();
 }
 
+void
+platform_exec(uint64_t kernel)
+{
+	typedef void kentry(void);
+	uint32_t entry32 = (kernel_entry & 0x0fffffff);
+	((kentry*)entry32)();
+}
+
 /* vim:set ts=2 sw=2: */

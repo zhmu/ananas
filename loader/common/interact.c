@@ -123,9 +123,7 @@ cmd_exec(int num_args, char** arg)
 
 	platform_cleanup();
 
-	typedef void kentry(void);
-	uint32_t entry32 = (kernel_entry & 0x0fffffff);
-	((kentry*)entry32)();
+	platform_exec(kernel_entry);
 }
 
 static void

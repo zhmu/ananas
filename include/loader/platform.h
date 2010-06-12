@@ -39,4 +39,7 @@ void platform_cleanup_netboot();
 /* Reboots the system */
 void platform_reboot();
 
+/* Launches a loaded kernel */
+void platform_exec(uint64_t entry);
+
 #endif /* __PLATFORM_H__ */

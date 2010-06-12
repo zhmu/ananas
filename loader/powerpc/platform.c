@@ -143,4 +143,17 @@ platform_init(int r3, int r4, unsigned int r5)
 	main();
 }
 
+void
+platform_exec(uint64_t entry)
+{
+	typedef void kentry(uint32_t r3, uint32_t r4, uint32_t r5);
+
+	/*
+	 * XXX This will only work with powerpc32 binaries yet. Note that we
+	 *     add the OFW entry point so that it's easier to obtain and use.
+	 */
+	uint32_t entry32 = (entry & 0xffffffff);
+	((kentry*)entry32)(0, 0, (uint32_t)ofw_entry);
+}
+
 /* vim:set ts=2 sw=2: */
