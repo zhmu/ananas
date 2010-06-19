@@ -183,7 +183,7 @@ kmem_alloc(size_t len)
 			curzone->num_free -= len;
 			addr_t addr = chunk->address;
 			while (len > 0) {
-				KMEM_ASSERT(!(chunk->flags & MM_CHUNK_FLAG_USED), "chunk %p is free chain is used", chunk);
+				KMEM_ASSERT(!(chunk->flags & MM_CHUNK_FLAG_USED), "chunk %p in free chain is used", chunk);
 				chunk->flags |= MM_CHUNK_FLAG_USED;
 				chunk->chain_length = len;
 				chunk++; len--;
@@ -275,7 +275,42 @@ kmem_mark_used(void* addr, size_t num_pages)
 		    (addr_t)addr + num_pages > (addr_t)(curzone->address + curzone->length * PAGE_SIZE))
 			continue;
 
-		for (unsigned int n = 0; n < curzone->num_chunks && num_marked < num_pages; n++) {
+		/*
+		 * First of all, locate our chunk of memory. As we need to walk through the
+		 * zone from front to back, we locate the final available free item as well,
+		 * as we must update it to exclude the memory we're marking as available.
+		 */
+		unsigned int n = 0;
+		int last_free_chunk = -1;
+		for (; n < curzone->num_chunks; n++) {
+			struct MM_CHUNK* chunk = (struct MM_CHUNK*)((addr_t)curzone->chunks + n * sizeof(struct MM_CHUNK));
+
+			if (chunk->address == (addr_t)addr)
+				break;
+
+			if ((chunk->flags & MM_CHUNK_FLAG_USED) == 0) {
+				if (last_free_chunk < 0)
+					last_free_chunk = n;
+			} else {
+				/* Chunk is used, so we may reset the counter */
+				last_free_chunk = -1;
+			}
+		}
+		KMEM_ASSERT(curzone->num_chunks != n, "chunk not found");
+
+		/*
+		 * OK, memory found. We now have to shrink the memory chunk before us,
+		 * as these pages may still consider us free.
+		 */
+		if (last_free_chunk >= 0) {
+			for (int i = last_free_chunk; i < n; i++) {
+				struct MM_CHUNK* chunk = (struct MM_CHUNK*)((addr_t)curzone->chunks + i * sizeof(struct MM_CHUNK));
+				KMEM_ASSERT((chunk->flags & MM_CHUNK_FLAG_USED) == 0, "attempt to mark chunk that is currently in use");
+				chunk->chain_length = n - i;
+			}
+		}
+
+		for (; n < curzone->num_chunks && num_marked < num_pages; n++) {
 			struct MM_CHUNK* chunk = (struct MM_CHUNK*)((addr_t)curzone->chunks + n * sizeof(struct MM_CHUNK));
 
 			if (chunk->address != (addr_t)addr)
@@ -286,6 +321,7 @@ kmem_mark_used(void* addr, size_t num_pages)
 
 			num_marked++; addr += PAGE_SIZE;
 		}
+		curzone->num_free -= num_marked;
 	}
 	spinlock_unlock(&spl_mm);
 
