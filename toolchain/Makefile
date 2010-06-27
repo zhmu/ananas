@@ -5,6 +5,7 @@ PREFIX?=	$(realpath prefix)
 # versions to use
 BINUTILS_VER=	2.20.1
 GCC_VER=	4.4.3
+GDB_VER=	7.1
 
 # environment settings
 MIRROR?=	http://ftp.gnu.org/gnu
@@ -20,6 +21,7 @@ TARGET:		gcc
 
 binutils:	pre-everything .bu.includes
 gcc:		binutils .gcc.extract .gcc.patch .gcc.configure .gcc.build .gcc.install
+gdb:		.gdb.install
 
 #
 # This kludge exists because gmake will have processed $(realpath ...) before
@@ -94,6 +96,34 @@ pre-everything:
 		(cd build/gcc && make install)
 		@${TOUCH} .gcc.install
 
+# GDB steps
+.gdb.extract:	distfiles/gdb-${GDB_VER}.tar.bz2
+		@${ECHO} ">> Extracting gdb-${GDB_VER}.tar.bz2..."
+		if [ ! -d src ]; then mkdir src; fi
+		${TAR} xf distfiles/gdb-${GDB_VER}.tar.bz2 -C src
+		@${TOUCH} .gdb.extract
+
+.gdb.patch:	.gdb.extract
+		@${ECHO} ">> Apply local patches to gdb"
+		scripts/gdb_patch.sh src/gdb-${GDB_VER}
+		@${TOUCH} .gdb.patch
+
+.gdb.configure:	.gdb.patch
+		@${ECHO} ">> Configuring gdb"
+		if [ ! -d build/gdb ]; then mkdir -p build/gdb; fi
+		(cd build/gdb && ../../src/gdb-${GDB_VER}/configure --target=${TARGET} --prefix=${PREFIX})
+		@${TOUCH} .gdb.configure
+
+.gdb.build:	.gdb.configure
+		@${ECHO} ">> Building gdb"
+		(cd build/gdb && make ${MAKE_BUILDARG})
+		@${TOUCH} .gdb.build
+
+.gdb.install:	.gdb.build
+		@${ECHO} ">> Installing gdb (in ${PREFIX})"
+		(cd build/gdb && make install)
+		@${TOUCH} .gdb.install
+
 # downloading of necessary distfiles
 distfiles/binutils-${BINUTILS_VER}.tar.bz2:
 		@${ECHO} ">> Downloading binutils-${BINUTILS_VER}.tar.bz2"
@@ -104,6 +134,11 @@ distfiles/gcc-${GCC_VER}.tar.bz2:
 		@${ECHO} ">> Downloading gcc-${GCC_VER}.tar.bz2"
 		if [ ! -d distfiles ]; then mkdir distfiles; fi
 		(cd distfiles && ${DOWNLOAD} ${MIRROR}/gcc/gcc-${GCC_VER}/gcc-${GCC_VER}.tar.bz2)
+
+distfiles/gdb-${GDB_VER}.tar.bz2:
+		@${ECHO} ">> Downloading gdb-${GDB_VER}.tar.bz2"
+		if [ ! -d distfiles ]; then mkdir distfiles; fi
+		(cd distfiles && ${DOWNLOAD} ${MIRROR}/gdb/gdb-${GDB_VER}.tar.bz2)
 
 clean:
 		rm -rf prefix build
