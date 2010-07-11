@@ -1,0 +1,102 @@
+Porting Ananas to a new platform
+--------------------------------
+
+This file contains notes how to port Ananas to a new platform.
+
+Required functions
+------------------
+
+The following functions must be implemented by each platform:
+
+- md_spinlock_{lock,unlock,init} (spinlock_t s)
+
+  Lock, unlock and initialize a spinlock. spinlock_t is a MD type which a
+  platform can specify as it sees fit. The behaviour of locking or unlocking an
+  uninitialized spinlocks is not defined - if possible, a panic() would be preferable.
+  
+- md_thread_{init,destroy} (thread_t t)
+
+  This will be called to initialize or destroy platform-specific fields for a
+  given thread t. 
+
+- md_thread_switch (thread_t new, thread_t old)
+
+  Called if a new thread must be activated. This function must not return, but rather
+  replace the current context by that of thread 'new'. This will generaly also cause a
+  context switch from kernel to usermode.
+
+- md_thread_set_entrypoint (thread_t thread, addr_t entry)
+
+  Sets the entry point for a given thread. This will be used by the ELF parser.
+
+- md_map_thread_memory(thread_t t, void* ptr, size_t len, int write)
+
+  Called by the kernel if it wants to obtain a pointer to userspace data. It must
+  map the data into kernelspace and return a pointer. The mapping must be kernel
+  only read-only (or read/write if write is nonzero)
+
+- md_thread_{,un}map (thread_t thread, void* to, void* from, size_t length, int flags)
+
+  Maps or unmaps a region of memory to a thread.
+
+- md_thread_setidle (thread_t thread)
+
+  The platform should initialize 'thread' as the system idle thread. This thread will
+  be activated by the scheduler (using md_thread_switch()) like any ordinary thread
+  if there is nothing else to schedule.
+
+- vm_map{,_device} (addr_t addr, size_t num_pages 
+
+  Used to identity map memory or device memory for use in the kernel. The
+  resulting mapping must be R/W for the kernel only and must be active for all
+  CPU's in the system.
+
+- reschedule()
+
+  This function will be used by kernel calls to suspend the current running thread and
+  schedule a new thread. Once this function returns, the calling thread will have been
+  re-scheduled again. 
+
+In the SMP case, more functions are needed:
+
+- smp_init()
+
+  This function should enumerate the CPU's and bring them up. The non-boot-CPU's
+  should await for a signal, and execute 'schedule()' after that to pick a thread
+  to run.
+
+- smp_lauch()
+
+  This is called once the non-boot CPU's should start running threads.
+
+Startup
+-------
+
+The platform-specific code must take care of the following things, in the following
+recommended order (note that platforms may deviate as they see fit)
+
+- Setup interrupts
+
+  On most platforms, this includes enabling exceptions, which are interested to have
+  as soon as possible to ease debugging.
+
+- Initialize memory management
+
+  This generally consists of creating a pagetable and mapping kernel memory.
+
+- Add all zones of available memory
+
+  This must be don using mm_zone_add(addr_t base, size_t len); this function will
+  add the given zone to the memory manager. It uses vm_map() to map structures needed
+  for administration, so the MMU must be functional at this point.
+
+- Enable interrupts
+
+  Device probing may depend on interrupts being enabled; the scheduler will not
+  run unless scheduler_activate() is run, so the initialization will not be
+  interrupted.
+
+- Call mi_startup()
+
+  The machine-independant code will take over and initialize devices, launch
+  threads etc.
