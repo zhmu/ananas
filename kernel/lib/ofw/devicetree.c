@@ -18,7 +18,7 @@ ofw_peer(ofw_cell_t phandle)
 	};
 
 	args.phandle = phandle;
-	ofw_entry(&args);
+	ofw_call(&args);
 	return args.sibling_phandle;
 }
 
@@ -38,7 +38,7 @@ ofw_child(ofw_cell_t phandle)
 	};
 
 	args.phandle = phandle;
-	ofw_entry(&args);
+	ofw_call(&args);
 	return args.child_phandle;
 }
 
@@ -58,7 +58,7 @@ ofw_finddevice(const char* device)
 	};
 
 	args.devicespecifier = (ofw_cell_t)device;
-	ofw_entry(&args);
+	ofw_call(&args);
 	return args.phandle;
 }
 int
@@ -79,7 +79,8 @@ ofw_getproplen(ofw_cell_t phandle, const char* name)
 
 	args.phandle = phandle;
 	args.name = (ofw_cell_t)name;
-	ofw_entry(&args);
+	if (ofw_call(&args) < 0)
+		return -1;
 	return args.proplen;
 }
 
@@ -105,7 +106,7 @@ ofw_getprop(ofw_cell_t phandle, const char* name, void* buf, int length)
 	args.name = (ofw_cell_t)name;
 	args.buf = (ofw_cell_t)buf;
 	args.buflen = length;
-	ofw_entry(&args);
+	ofw_call(&args);
 	return args.size;
 }
 
@@ -129,7 +130,7 @@ ofw_nextprop(ofw_cell_t phandle, const char* prev, void* buf)
 	args.phandle = phandle;
 	args.previous = (ofw_cell_t)prev;
 	args.buf = (ofw_cell_t)buf;
-	ofw_entry(&args);
+	ofw_call(&args);
 	return args.flag;
 }
 
@@ -149,7 +150,7 @@ ofw_instance_to_package(ofw_cell_t ihandle)
 	};
 
 	args.ihandle = ihandle;
-	ofw_entry(&args);
+	ofw_call(&args);
 	return args.phandle;
 }
 
@@ -173,7 +174,7 @@ ofw_package_to_path(ofw_cell_t phandle, void* buffer, int buflen)
 	args.phandle = phandle;
 	args.buf = (ofw_cell_t)buffer;
 	args.buflen = buflen;
-	ofw_entry(&args);
+	ofw_call(&args);
 	return (args.length >= buflen) ? 0 : 1;
 }
 

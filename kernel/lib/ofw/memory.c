@@ -22,7 +22,7 @@ ofw_claim(ofw_cell_t virt, ofw_cell_t size, ofw_cell_t align)
 	args.virt = virt;
 	args.size = size;
 	args.align = align;
-	if (ofw_entry(&args) == -1)
+	if (ofw_call(&args) == -1)
 		return (void*)-1;
 	return (void*)args.baseaddr;
 }
@@ -44,7 +44,7 @@ ofw_release(ofw_cell_t virt, ofw_cell_t size)
 
 	args.virt = virt;
 	args.size = size;
-	ofw_entry(&args);
+	ofw_call(&args);
 	
 }
 

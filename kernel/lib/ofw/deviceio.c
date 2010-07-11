@@ -18,7 +18,7 @@ ofw_open(const char* device)
 	};
 
 	args.device_specifier = (ofw_cell_t)device;
-	ofw_entry(&args);
+	ofw_call(&args);
 	return args.ihandle;
 }
 
@@ -37,7 +37,7 @@ ofw_close(ofw_cell_t ihandle)
 	};
 
 	args.ihandle = ihandle;
-	ofw_entry(&args);
+	ofw_call(&args);
 }
 
 int
@@ -60,7 +60,7 @@ ofw_read(ofw_cell_t ihandle, void* buf, unsigned int length)
 	args.ihandle = ihandle;
 	args.addr = (ofw_cell_t)buf;
 	args.len = length;
-	ofw_entry(&args);
+	ofw_call(&args);
 	return args.actual;
 }
 
@@ -84,7 +84,7 @@ ofw_write(ofw_cell_t ihandle, const void* buf, unsigned int length)
 	args.ihandle = ihandle;
 	args.addr = (ofw_cell_t)buf;
 	args.len = length;
-	ofw_entry(&args);
+	ofw_call(&args);
 	return args.actual;
 }
 
@@ -108,7 +108,7 @@ ofw_seek(ofw_cell_t ihandle, uint64_t position)
 	args.ihandle = ihandle;
 	args.pos_hi = (position >> 32) & 0xffffffff;
 	args.pos_lo = (position      ) & 0xffffffff;
-	ofw_entry(&args);
+	ofw_call(&args);
 	return args.status;
 }
 

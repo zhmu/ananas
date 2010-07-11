@@ -1,12 +1,12 @@
 #ifndef __OPENFIRMWARE_H__
 #define __OPENFIRMWARE_H__
 
-/* 6.3.1 calls a field in the OFW structure 'cel'l */
-typedef unsigned long int ofw_cell_t;
+/* 6.3.1 calls a field in the OFW structure a 'cell' */
+typedef uint32_t ofw_cell_t;
 
 /* Entry point to OFW services */
 typedef int (*ofw_entry_t)(void*);
-extern ofw_entry_t ofw_entry;
+extern int ofw_call(void*);
 
 /* 'reg' structure */
 struct ofw_reg {

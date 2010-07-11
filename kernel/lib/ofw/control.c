@@ -15,7 +15,7 @@ ofw_enter()
 		.n_returns = 0,
 	};
 
-	ofw_entry(&args);
+	ofw_call(&args);
 }
 
 void
@@ -31,7 +31,7 @@ ofw_exit()
 		.n_returns = 0,
 	};
 
-	ofw_entry(&args);
+	ofw_call(&args);
 }
 
 
