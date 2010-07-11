@@ -3,7 +3,7 @@
 #include <sys/lib.h>
 #include <sys/device.h>
 #include <sys/slice.h>
-#include "mbr.h"
+#include <mbr.h>
 
 extern struct DRIVER drv_slice;
 
