@@ -35,9 +35,9 @@ awk '{ print }
         print "\tuse_fixproto=\"yes\""
         print "\t;;"
 	print "powerpc-*-ananas*)"
-	print "\ttm_file=\"${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/eabi.h rs6000/e500.h rs6000/eabispe.h\""
+	print "\ttm_file=\"${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h ananas.h\""
 	print "\textra_options=\"${extra_options} rs6000/sysv4.opt\""
-	print "\ttmake_file=\"rs6000/t-spe rs6000/t-ppccomm\""
+	print "\ttmake_file=\"rs6000/t-fprules rs6000/t-fprules-fpbit rs6000/t-ppcos ${tmake_file} rs6000/t-ppccomm\""
         print "\t;;"
 	STATE = 0
 }
