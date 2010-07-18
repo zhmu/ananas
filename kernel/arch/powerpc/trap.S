@@ -1,6 +1,7 @@
 .text
 .globl	generic_int, generic_int_len
 .globl	dsi_trap, dsi_trap_len
+.globl	md_thread_switch
 
 #include "asmsyms.h"
 
@@ -109,6 +110,26 @@ generic_int_len = . - generic_int
 	lwz	%r31, SF_R31(%r1);		\
 	mfsprg2	%r1
 
+/* Restores all segment registers; assumes %r1 points to the stackframe to use */
+#define RESTORE_SREGS \
+	lwz	%r30 ,  SF_SR0(%r1); mtsr  0, %r30; \
+	lwz	%r30 ,  SF_SR1(%r1); mtsr  1, %r30; \
+	lwz	%r30 ,  SF_SR2(%r1); mtsr  2, %r30; \
+	lwz	%r30 ,  SF_SR3(%r1); mtsr  3, %r30; \
+	lwz	%r30 ,  SF_SR4(%r1); mtsr  4, %r30; \
+	lwz	%r30 ,  SF_SR5(%r1); mtsr  5, %r30; \
+	lwz	%r30 ,  SF_SR6(%r1); mtsr  6, %r30; \
+	lwz	%r30 ,  SF_SR7(%r1); mtsr  7, %r30; \
+	lwz	%r30 ,  SF_SR8(%r1); mtsr  8, %r30; \
+	lwz	%r30 ,  SF_SR9(%r1); mtsr  9, %r30; \
+	lwz	%r30 , SF_SR10(%r1); mtsr 10, %r30; \
+	lwz	%r30 , SF_SR11(%r1); mtsr 11, %r30; \
+	lwz	%r30 , SF_SR12(%r1); mtsr 12, %r30; \
+	lwz	%r30 , SF_SR13(%r1); mtsr 13, %r30; \
+	lwz	%r30 , SF_SR14(%r1); mtsr 14, %r30; \
+	lwz	%r30 , SF_SR15(%r1); mtsr 15, %r30; \
+	isync
+
 /*
  * This is the generic trapcode; it will be called with:
  *
@@ -135,14 +156,27 @@ trapshortcut:
 	STORE_REGS
 
 	/* Determine exception number */
-	mflr	%r3;
+	mflr	%r3
 	andi.	%r3, %r3, 0xff00
-	stw	%r3,  SF_EXC(%r1);
+	stw	%r3,  SF_EXC(%r1)
+
+	/* Store the trap information */
+	mfsrr0	%r3
+	stw	%r3,  SF_SRR0(%r1)
+	mfsrr1	%r3
+	stw	%r3,  SF_SRR1(%r1)
 	
 	/* Set up our argument */
 	addi	%r3,  %r1, 0
 
-	/* Restore the original stack */
+	/* Restore the kernel segment registers */
+	lis	%r1, bsp_sf@ha
+	addi	%r1, %r1, bsp_sf@l
+	RESTORE_SREGS
+
+	/* Restore the original stack XXX should we? this causes problems
+	 * if the original stack is faulty (and it likely isn't mapped anyway)
+	 */
 	mfsprg1	%r1;
 
 	/* Launch the exception handler! */
@@ -151,6 +185,8 @@ trapshortcut:
 	/* Restore our registers */
 	mfsprg0	%r1				/* Get PCPU data */
 	lwz	%r1,(PCPU_CONTEXT)(%r1)		/* Get current context in r1 */
+
+	RESTORE_SREGS
 	RESTORE_REGS
 
 	rfi
@@ -179,11 +215,11 @@ dsicode:
 
 	/*
 	 * As claimed above, we need to figure out whether we are in kernel mode.
-	 * This can easily be done by transferring the Machine Status Word to
-	 * the condition register as we can then immediately check the desired
-	 * PR bit (17).
+	 * This can easily be done by transferring the saved Machine Status
+	 * Word to the condition register as we can then immediately check the
+	 * desired PR bit (17).
 	 */
-	mfmsr	%r2
+	mfsrr1	%r2
 	mtcr	%r2
 	bt	17, dsiuser
 
@@ -213,8 +249,6 @@ dsicode:
 	
 	mfsprg1	%r1				/* Restore %r1 */
 	rfi
-	rfi
-	rfi
 
 dsiuser:
 	/*
@@ -228,6 +262,12 @@ dsiuser:
 
 	li	%r2, 0x300
 	mtlr	%r2				/* Fake 0x300 in LR */
+
+	mfdar	%r2
+	stw	%r2, SF_DAR(%r1)		/* Store %dar */
+
+	mfdsisr	%r2
+	stw	%r2, SF_DSISR(%r1)		/* Store %disr */
 	
 	lwz	%r2, SF_CR(%r1)
 	mtcr	%r2				/* Restore %cr */
@@ -240,3 +280,32 @@ dsiuser:
 	 * %sprg1 is saved %r1.
 	 */
 	ba	trapshortcut
+
+md_thread_switch:
+	/*
+	 * Per ELF PowerPC ABI, %r3 = new thread, %r4 = old thread
+	 */
+	addi	%r1,%r3,THREAD_SF 		/* Get thread context in %r1 */
+
+	/* Set up %srr1; this is what rfi will restore as %msr */
+	lwz	%r2, SF_SRR1(%r1)
+	mtsrr1	%r2
+
+	/*
+	 * Copy the thread's nia (Next Instruction Address) to %srr0; this is where
+	 * we shall continue.
+	 */
+	lwz	%r2, SF_NIA(%r1)
+	mtsrr0	%r2
+
+	/* Copy the thread's %r1 to %sprg2 - this is what RESTORE_REGS will restore */
+	lwz	%r2, SF_R1(%r1)
+	mtsprg2	%r2
+
+	/* Update our current context in the per-CPU structure */
+	mfsprg0	%r2
+	stw	%r1,(PCPU_CONTEXT)(%r2)
+
+	RESTORE_SREGS
+	RESTORE_REGS
+	rfi

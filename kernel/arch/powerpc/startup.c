@@ -3,6 +3,7 @@
 #include <machine/vm.h>
 #include <machine/interrupts.h>
 #include <machine/macro.h>
+#include <machine/mmu.h>
 #include <sys/mm.h>
 #include <sys/pcpu.h>
 #include <sys/lib.h>

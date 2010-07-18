@@ -5,6 +5,7 @@
 
 struct STACKFRAME;
 
+void mmu_init();
 void mmu_map(struct STACKFRAME* sf, uint32_t va, uint32_t pa);
 
 #endif /* __POWERPC_MMU_H__ */

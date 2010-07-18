@@ -48,12 +48,12 @@ mmu_map(struct STACKFRAME* sf, uint32_t va, uint32_t pa)
 {
 	if (sf->sf_sr[va >> 28] == INVALID_VSID)
 		sf->sf_sr[va >> 28] = mmu_alloc_vsid() | SR_Kp;
-	uint32_t vsid = sf->sf_sr[va >> 28] & 0xfffff;
+	uint32_t vsid = sf->sf_sr[va >> 28] & 0xffffff;
 
 	for (int hashnum = 0; hashnum < 2; hashnum++) {
 		uint32_t htaborg = (addr_t)pteg >> 16;
 		uint16_t page = (va >> 12) & 0xffff;
-		uint32_t h = (vsid & 0x7ffff) ^ page;
+		uint32_t h = vsid ^ page;
 		if (hashnum)
 			h = (~h) & 0xfffff;
 		uint16_t v = (((h >> 10) & 0x1ff) & htabmask) | (htaborg & 0x1ff);
@@ -69,7 +69,8 @@ mmu_map(struct STACKFRAME* sf, uint32_t va, uint32_t pa)
 			ptegs->pte[i].pt_hi = (vsid << 7) | (page >> 10);
 			if (hashnum)
 				ptegs->pte[i].pt_hi |= PT_HI_H;
-			ptegs->pte[i].pt_lo  = pa;
+			ptegs->pte[i].pt_lo   = pa;
+			ptegs->pte[i].pt_lo  |= 2; // PP
 			__asm __volatile("sync");
 			ptegs->pte[i].pt_hi |= PT_HI_V;
 			return;

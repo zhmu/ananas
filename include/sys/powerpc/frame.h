@@ -17,6 +17,9 @@ struct STACKFRAME {
 	uint32_t	sf_sr[PPC_NUM_SREGS];
 	uint32_t	sf_srr0;
 	uint32_t	sf_srr1;
+	uint32_t	sf_nia;
+	uint32_t	sf_dar;
+	uint32_t	sf_dsisr;
 };
 
 #endif /* __POWERPC_FRAME_H__ */

@@ -11,7 +11,8 @@ struct CONTEXT {
 
 /* powerpc-specific thread details */
 #define MD_THREAD_FIELDS \
-	struct CONTEXT	md_ctx;
+	struct CONTEXT	md_ctx; \
+	void*		md_stack;
 
 
 #endif /* __POWERPC_THREAD_H__ */

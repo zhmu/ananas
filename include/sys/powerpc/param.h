@@ -3,3 +3,9 @@
 
 /* This is the base address where the kernel should be linked to */
 #define KERNBASE		0x0100000
+
+/* Kernel stack size */
+#define KERNEL_STACK_SIZE	0x2000
+
+/* Thread stack size */
+#define THREAD_STACK_SIZE	0x2000

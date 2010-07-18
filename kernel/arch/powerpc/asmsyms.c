@@ -33,6 +33,7 @@ ASM_SYMBOL(SF_R28,   offsetof(struct STACKFRAME, sf_reg[28]));
 ASM_SYMBOL(SF_R29,   offsetof(struct STACKFRAME, sf_reg[29]));
 ASM_SYMBOL(SF_R30,   offsetof(struct STACKFRAME, sf_reg[30]));
 ASM_SYMBOL(SF_R31,   offsetof(struct STACKFRAME, sf_reg[31]));
+ASM_SYMBOL(SF_NIA,   offsetof(struct STACKFRAME, sf_nia));
 
 ASM_SYMBOL(SF_SR0,   offsetof(struct STACKFRAME, sf_sr[ 0]));
 ASM_SYMBOL(SF_SR1,   offsetof(struct STACKFRAME, sf_sr[ 1]));
@@ -56,9 +57,13 @@ ASM_SYMBOL(SF_CR,    offsetof(struct STACKFRAME, sf_cr));
 ASM_SYMBOL(SF_XER,   offsetof(struct STACKFRAME, sf_xer));
 ASM_SYMBOL(SF_CTR,   offsetof(struct STACKFRAME, sf_ctr));
 ASM_SYMBOL(SF_EXC,   offsetof(struct STACKFRAME, sf_exc));
+ASM_SYMBOL(SF_DAR,   offsetof(struct STACKFRAME, sf_dar));
+ASM_SYMBOL(SF_DSISR, offsetof(struct STACKFRAME, sf_dsisr));
 
 ASM_SYMBOL(SF_SRR0,  offsetof(struct STACKFRAME, sf_srr0));
 ASM_SYMBOL(SF_SRR1,  offsetof(struct STACKFRAME, sf_srr1));
 
 ASM_SYMBOL(PCPU_CONTEXT, offsetof(struct PCPU, context));
 ASM_SYMBOL(PCPU_TEMP_R1, offsetof(struct PCPU, temp_r1));
+
+ASM_SYMBOL(THREAD_SF,   offsetof(struct THREAD, md_ctx.sf));
