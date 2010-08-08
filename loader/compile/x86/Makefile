@@ -2,8 +2,8 @@ TARGET:		machine loader
 S=		../..
 
 CFLAGS=		-DEXT2 -DPXE
-OBJS=		pxe.o
 include		$S/compile/Makefile.common
+OBJS+=		pxe.o
 
 stub.o:		$S/x86/stub.S
 		$(CC) $(CFLAGS) -c -o stub.o $S/x86/stub.S
