@@ -233,10 +233,10 @@ platform_cleanup()
 }
 
 void
-platform_exec(uint64_t kernel)
+platform_exec(uint64_t entry)
 {
 	typedef void kentry(void);
-	uint32_t entry32 = (kernel_entry & 0x0fffffff);
+	uint32_t entry32 = (entry & 0x0fffffff);
 	((kentry*)entry32)();
 }
 
