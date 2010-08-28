@@ -92,6 +92,12 @@ md_startup(uint32_t r3, uint32_t r4, uint32_t r5)
 	/* Fire up the MMU; this will initialize the memory manager as well */
 	mmu_init();
 
+	/*
+	 * Initialize the per-CPU data; this needs a working memory allocator
+	 * so we can't do it before here
+	 */
+	pcpu_init(&bsp_pcpu);
+
 #if 0
 	/* XXX we should obtain this info from the loader - note that the OFW map will already
 	 * have removed the kernel from the memory map */
