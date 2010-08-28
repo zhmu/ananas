@@ -5,16 +5,15 @@ S=		../..
 CFLAGS+=	-nostdlib
 SOURCES=	$(shell find $S -name "*.c" ! -name "syscalls.inc.c" )
 OBJS+=		$(patsubst %.c,%.o,$(SOURCES))
+OBJS+=		syscall.o
 
 ASMFLAGS=	$(CFLAGS) -DASM
 
 %.o:		%.c
 		$(CC) $(CFLAGS) -c -o $@ $<
 
-syscall.o:	$S/gen/syscall.c $S/gen/syscalls.inc.c
-		$(CC) $(CFLAGS) -c -o syscall.o $S/gen/syscall.c
-
-syscalls.inc.o:	
+syscall.o:	$S/arch/${ARCH}/syscall.S $S/gen/syscalls.inc.S
+		$(CC) $(CFLAGS) -c -o syscall.o $S/arch/${ARCH}/syscall.S
 
 machine:	$S/../../include/sys/${ARCH}
 		ln -sf $S/../../include/sys/${ARCH} machine

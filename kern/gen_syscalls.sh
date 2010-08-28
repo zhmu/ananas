@@ -8,7 +8,7 @@
 AWK=awk
 
 if [ "$4" == "" ]; then
-	echo "usage: gen_syscalls.sh syscall.in libc/kern/syscall.h include/syscalls.h kern/syscalls.inc.c"
+	echo "usage: gen_syscalls.sh syscall.in.S libc/kern/syscall.h include/syscalls.h kern/syscalls.inc.c"
 	exit
 fi
 
@@ -19,7 +19,7 @@ fi
 #
 # becomes
 #
-#   void sys_foo(int a, int b, int c) { SYSCALL3(1234); }
+#   SYSCALL3(foo)
 #
 $AWK '
 	BEGIN {
@@ -27,17 +27,11 @@ $AWK '
 	}
 	/^#/ { next; }
 	/^[0-9]+/ {
-		FUNCTYPE=substr($0, index($0, "{") + 1, index($0, ";") - index($0, "{") - 1)
-		gsub(/^ */, "", FUNCTYPE)
-		FTYPE=substr(FUNCTYPE, 0, index(FUNCTYPE, " ") - 1)
-		FNAME=substr(FUNCTYPE, index(FUNCTYPE, " "))
-		gsub(/^ */, "", FNAME)
-		if (index(FUNCTYPE, ",") == 0 && index(FUNCTYPE, "()") > 0)
-			print FTYPE " sys_" FNAME " { SYSCALL0(" $1 "); }"
-		else if (index(FNAME, ",") == 0)
-			print FTYPE " sys_" FNAME " { SYSCALL1(" $1 "); }"
-		else
-			print FTYPE " sys_" FNAME " { SYSCALL" gsub(",", "!", FUNCTYPE) + 1 "(" $1 "); }"
+		NR=$1
+		FUNCNAME=substr($4, 0, index($4, "(") - 1)
+		print ".globl sys_" FUNCNAME
+		print "sys_" FUNCNAME ":"
+		print "\tSYSCALL(" NR ")"
 	}
 ' < $1 > $2
 
