@@ -27,6 +27,16 @@ mtsrin(uint32_t sr, uint32_t val)
 	: : "r" (val), "r" (sr));
 }
 
+inline static uint32_t
+mfsrin(uint32_t sr)
+{
+	register uint32_t sreg;
+	__asm __volatile(
+		"mfsrin %0,%1\n"
+	: "=r" (sreg) :  "r" (sr));
+	return sreg;
+}
+
 #define TRACE(x...) \
 	kprintf(x)
 

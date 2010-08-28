@@ -3,6 +3,7 @@
 #ifndef __POWERPC_VM_H__
 #define __POWERPC_VM_H__
 
+#ifndef ASM
 struct PTE {
 #define PT_HI_V		0x80000000		/* Entry valid (=1) */
 #define PT_HI_H		0x00000040		/* Hash function identifier */
@@ -20,6 +21,7 @@ struct BAT {
 	uint32_t bat_u;
 	uint32_t bat_l;
 };
+#endif
 
 /* BAT mapping length */
 #define BAT_BL_128KB	0x0000
@@ -79,5 +81,11 @@ struct BAT {
 /* Maximum number of VSID's that will be allocated */
 #define MAX_VSIDS	8192
 #define INVALID_VSID	0xfffff0
+
+#ifndef ASM
+void vm_map(addr_t addr, size_t num_pages);
+void vm_mapto(addr_t virt, addr_t phys, size_t num_pages);
+void vm_unmap(addr_t addr, size_t num_pages);
+#endif
 
 #endif /* __POWERPC_VM_H__ */

@@ -7,5 +7,7 @@ struct STACKFRAME;
 
 void mmu_init();
 void mmu_map(struct STACKFRAME* sf, uint32_t va, uint32_t pa);
+int mmu_unmap(struct STACKFRAME* sf, uint32_t va);
+void mmu_map_kernel(struct STACKFRAME* sf);
 
 #endif /* __POWERPC_MMU_H__ */
