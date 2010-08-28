@@ -80,6 +80,19 @@ mmu_map(struct STACKFRAME* sf, uint32_t va, uint32_t pa)
 }
 
 void
+mmu_map_kernel(struct STACKFRAME* sf)
+{
+	extern void* __end;
+	uint32_t kern_base = 0x0100000;
+	uint32_t kern_length = (((addr_t)&__end - kern_base) | (PAGE_SIZE - 1)) + 1;
+	TRACE("mmu_map_kernel: mapping %p - %p\n", kern_base, kern_base + kern_length);
+	for (int i = 0; i < kern_length; i += PAGE_SIZE) {
+		mmu_map(sf, kern_base, kern_base);
+		kern_base += PAGE_SIZE;
+	}
+}
+
+void
 mmu_init()
 {
 	struct ofw_reg ofw_total[OFW_MAX_AVAIL];
@@ -242,6 +255,19 @@ mmu_init()
 		}
 	}
 
+	/*
+	 * Map the kernel space; this mapping will not be used until we deactive the BAT
+	 * mapping covering the first 256MB of memory (where the kernel lives).
+	 */
+	mmu_map_kernel(&bsp_sf);
+
+	/* Map the PTEG map too, we will be needing this to map more memory later */
+	uint32_t pteg_addr = (addr_t)pteg;
+	for (size_t i = 0; i < pteg_size; i += PAGE_SIZE) {
+		mmu_map(&bsp_sf, pteg_addr, pteg_addr);
+		pteg_addr += PAGE_SIZE;
+	}
+
 	/* It's time to... throw the switch! Really, let's activate the pagetable */
 	uint32_t htab = (addr_t)pteg | (((pteg_count * sizeof(struct PTEG)) >> 16) - 1);
 	TRACE("activating htab (%x)\n", htab);
@@ -252,8 +278,17 @@ mmu_init()
 		mtsrin(i << 28, bsp_sf.sf_sr[i]);
 	__asm __volatile("sync");
 
+	/* Throw away our BAT mapping; this will allow us to catch NULL pointers */
+	bat[0x0].bat_u = 0;
+	bat[0x0].bat_l = 0;
+	__asm(
+		"mtibatu 0,%0; mtibatl 0,%1; isync;"
+		"mtdbatu 0,%0; mtdbatl 0,%1; isync;"
+	: : "r" (bat[0].bat_u), "r" (bat[0].bat_l));
+
 	/*
-	 * Our MMU is fired up; now we can add all regions of memory that the OFW reported.
+	 * Our MMU is completely fired up; now we can add all regions of memory that
+	 * the OFW reported.
 	 */
 	for (unsigned int i = 0; i < availlen / sizeof(struct ofw_reg); i++) {
 		struct ofw_reg* reg = &ofw_avail[i];
