@@ -79,6 +79,42 @@ mmu_map(struct STACKFRAME* sf, uint32_t va, uint32_t pa)
 	panic("mmu_map: pteg for vsid %x=, va=%x full", vsid, va);
 }
 
+int
+mmu_unmap(struct STACKFRAME* sf, uint32_t va)
+{
+	if (sf->sf_sr[va >> 28] == INVALID_VSID) {
+		/* entry was never mapped */
+		return 0;
+	}
+	uint32_t vsid = sf->sf_sr[va >> 28] & 0xffffff;
+
+	for (int hashnum = 0; hashnum < 2; hashnum++) {
+		uint32_t htaborg = (addr_t)pteg >> 16;
+		uint16_t page = (va >> 12) & 0xffff;
+		uint32_t h = vsid ^ page;
+		if (hashnum)
+			h = (~h) & 0xfffff;
+		uint16_t v = (((h >> 10) & 0x1ff) & htabmask) | (htaborg & 0x1ff);
+		uint32_t ph = (((htaborg >> 9) & 0x7f) << 25) | (v << 16) | ((h & 0x3ff) << 6);
+
+		struct PTEG* ptegs = (struct PTEG*)ph;
+		for (uint32_t i = 0; i < 8; i++) {
+			if ((ptegs->pte[i].pt_hi & PT_HI_V) == 0)
+				continue;
+			if (ptegs->pte[i].pt_hi != (PT_HI_V | (vsid << 7) | (page >> 10) | ((hashnum) ? PT_HI_H : 0)))
+				continue;
+			ptegs->pte[i].pt_hi &= ~PT_HI_V;
+			__asm __volatile("sync");
+			__asm __volatile("tlbie %0" : : "r" (&ptegs->pte[i]));
+			__asm __volatile("sync");
+			__asm __volatile("tlbsync");
+			__asm __volatile("sync");
+			return 1;
+		}
+	}
+	return 0;
+}
+
 void
 mmu_map_kernel(struct STACKFRAME* sf)
 {
