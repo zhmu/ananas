@@ -20,3 +20,5 @@ __eabi:
 .align	4
 	.space	16384
 stack:
+
+.globl	stack

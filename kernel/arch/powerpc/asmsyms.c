@@ -63,7 +63,8 @@ ASM_SYMBOL(SF_DSISR, offsetof(struct STACKFRAME, sf_dsisr));
 ASM_SYMBOL(SF_SRR0,  offsetof(struct STACKFRAME, sf_srr0));
 ASM_SYMBOL(SF_SRR1,  offsetof(struct STACKFRAME, sf_srr1));
 
-ASM_SYMBOL(PCPU_CONTEXT, offsetof(struct PCPU, context));
-ASM_SYMBOL(PCPU_TEMP_R1, offsetof(struct PCPU, temp_r1));
+ASM_SYMBOL(PCPU_CONTEXT,   offsetof(struct PCPU, context));
+ASM_SYMBOL(PCPU_CURTHREAD, offsetof(struct PCPU, curthread));
+ASM_SYMBOL(PCPU_TEMP_R1,   offsetof(struct PCPU, temp_r1));
 
 ASM_SYMBOL(THREAD_SF,   offsetof(struct THREAD, md_ctx.sf));

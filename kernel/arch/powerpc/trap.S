@@ -3,7 +3,10 @@
 .globl	dsi_trap, dsi_trap_len
 .globl	md_thread_switch
 
+.globl	trapreturn /* DEBUG */
+
 #include "asmsyms.h"
+#include <machine/vm.h>
 
 /*
  * This code will be copied to most interrupt vectors; it determines
@@ -59,7 +62,11 @@ generic_int_len = . - generic_int
 	mfcr	%r5;				\
 	stw	%r3,  SF_XER(%r1);		\
 	stw	%r4,  SF_CTR(%r1);		\
-	stw	%r5,  SF_CR(%r1);		\
+	stw	%r5,   SF_CR(%r1);		\
+	mfsrr0	%r3;				\
+	mfsrr1	%r4;				\
+	stw	%r3,  SF_SRR0(%r1);		\
+	stw	%r4,  SF_SRR1(%r1);		\
 	mfsprg2	%r3;				\
 	stw	%r3,   SF_LR(%r1);		\
 	mfsprg1	%r3;				\
@@ -75,6 +82,10 @@ generic_int_len = . - generic_int
 	mtctr	%r4;				\
 	mtlr	%r5;				\
 	mtcr	%r6;				\
+	lwz	%r3, SF_SRR0(%r1);		\
+	lwz	%r4, SF_SRR1(%r1);		\
+	mtsrr0	%r3;				\
+	mtsrr1	%r4;				\
 	lwz	%r0 ,  SF_R1(%r1);		\
 	mtsprg2	%r0;				\
 	lwz	%r0 ,  SF_R0(%r1);		\
@@ -110,24 +121,27 @@ generic_int_len = . - generic_int
 	lwz	%r31, SF_R31(%r1);		\
 	mfsprg2	%r1
 
-/* Restores all segment registers; assumes %r1 points to the stackframe to use */
+/*
+ * Restores all segment registers; assumes %r1 points to the stackframe to use
+ * note that it also assumes that %sr0 must be restored last!
+ */
 #define RESTORE_SREGS \
-	lwz	%r30 ,  SF_SR0(%r1); mtsr  0, %r30; \
-	lwz	%r30 ,  SF_SR1(%r1); mtsr  1, %r30; \
-	lwz	%r30 ,  SF_SR2(%r1); mtsr  2, %r30; \
-	lwz	%r30 ,  SF_SR3(%r1); mtsr  3, %r30; \
-	lwz	%r30 ,  SF_SR4(%r1); mtsr  4, %r30; \
-	lwz	%r30 ,  SF_SR5(%r1); mtsr  5, %r30; \
-	lwz	%r30 ,  SF_SR6(%r1); mtsr  6, %r30; \
-	lwz	%r30 ,  SF_SR7(%r1); mtsr  7, %r30; \
-	lwz	%r30 ,  SF_SR8(%r1); mtsr  8, %r30; \
-	lwz	%r30 ,  SF_SR9(%r1); mtsr  9, %r30; \
-	lwz	%r30 , SF_SR10(%r1); mtsr 10, %r30; \
-	lwz	%r30 , SF_SR11(%r1); mtsr 11, %r30; \
-	lwz	%r30 , SF_SR12(%r1); mtsr 12, %r30; \
-	lwz	%r30 , SF_SR13(%r1); mtsr 13, %r30; \
-	lwz	%r30 , SF_SR14(%r1); mtsr 14, %r30; \
 	lwz	%r30 , SF_SR15(%r1); mtsr 15, %r30; \
+	lwz	%r30 , SF_SR14(%r1); mtsr 14, %r30; \
+	lwz	%r30 , SF_SR13(%r1); mtsr 13, %r30; \
+	lwz	%r30 , SF_SR12(%r1); mtsr 12, %r30; \
+	lwz	%r30 , SF_SR11(%r1); mtsr 11, %r30; \
+	lwz	%r30 , SF_SR10(%r1); mtsr 10, %r30; \
+	lwz	%r30 ,  SF_SR9(%r1); mtsr  9, %r30; \
+	lwz	%r30 ,  SF_SR8(%r1); mtsr  8, %r30; \
+	lwz	%r30 ,  SF_SR7(%r1); mtsr  7, %r30; \
+	lwz	%r30 ,  SF_SR6(%r1); mtsr  6, %r30; \
+	lwz	%r30 ,  SF_SR5(%r1); mtsr  5, %r30; \
+	lwz	%r30 ,  SF_SR4(%r1); mtsr  4, %r30; \
+	lwz	%r30 ,  SF_SR3(%r1); mtsr  3, %r30; \
+	lwz	%r30 ,  SF_SR2(%r1); mtsr  2, %r30; \
+	lwz	%r30 ,  SF_SR1(%r1); mtsr  1, %r30; \
+	lwz	%r30 ,  SF_SR0(%r1); mtsr  0, %r30; \
 	isync
 
 /*
@@ -160,34 +174,56 @@ trapshortcut:
 	andi.	%r3, %r3, 0xff00
 	stw	%r3,  SF_EXC(%r1)
 
-	/* Store the trap information */
-	mfsrr0	%r3
-	stw	%r3,  SF_SRR0(%r1)
-	mfsrr1	%r3
-	stw	%r3,  SF_SRR1(%r1)
-	
 	/* Set up our argument */
-	addi	%r3,  %r1, 0
+	mr	%r3,%r1
 
 	/* Restore the kernel segment registers */
 	lis	%r1, bsp_sf@ha
 	addi	%r1, %r1, bsp_sf@l
 	RESTORE_SREGS
 
-	/* Restore the original stack XXX should we? this causes problems
-	 * if the original stack is faulty (and it likely isn't mapped anyway)
+	/*
+	 * Enable instruction/data translation. Note that we have to use the
+	 * current %msr (not the one from %srr0) as we don't want to switch
+	 * things like the PR bit.
 	 */
-	mfsprg1	%r1;
+	mfmsr	%r2
+	ori	%r2, %r2, (MSR_DR | MSR_IR)
+	mtmsr	%r2
+	sync
+
+	/* Restore the original kernel stack; it's available and we can be sure
+	 * it's mapped (XXX This will mess up in SMP - we need per-cpu stacks
+	 * there!)
+	 */
+	lis	%r1, stack@ha
+	addi	%r1, %r1, stack@l
 
 	/* Launch the exception handler! */
 	bl	exception_handler
+
+trapreturn:
 
 	/* Restore our registers */
 	mfsprg0	%r1				/* Get PCPU data */
 	lwz	%r1,(PCPU_CONTEXT)(%r1)		/* Get current context in r1 */
 
-	RESTORE_SREGS
+	mtsprg1	%r1				/* Save %r1 in %sprg1 */
 	RESTORE_REGS
+
+	/*
+	 * Restored %r1 still lives in %sprg2; so we don't have to save it.
+	 * Do store %r30 though - %r1 and %sprg2 are used by RESTORE_SREGS
+	 */
+	mtsprg3 %r30
+
+	/* Restore %r1 context so we can restore segment regs */
+	mfsprg1	%r1
+	RESTORE_SREGS
+
+	/* Finally, restore saved %r1 and %r30 */
+	mfsprg2	%r1
+	mfsprg3	%r30
 
 	rfi
 
@@ -305,7 +341,27 @@ md_thread_switch:
 	/* Update our current context in the per-CPU structure */
 	mfsprg0	%r2
 	stw	%r1,(PCPU_CONTEXT)(%r2)
+	stw	%r3,(PCPU_CURTHREAD)(%r2)
 
-	RESTORE_SREGS
+	/*
+	 * Once we restore our segment registers, we cannot touch our thread
+	 * structure anymore as it will be inaccessible. Thus, we will have to
+	 * restore the registers as much as we can, and then touch the
+	 * segment registers.
+	 */ 
+	mtsprg1	%r1		/* Save %r1 in %sprg1 */
+
 	RESTORE_REGS
+
+	/* Store restored %r1 and %r30 - these are used by RESTORE_SREGS */
+	mtsprg2	%r1
+	mtsprg3 %r30
+
+	/* Restore %r1 context so we can restore segment regs */
+	mfsprg1	%r1
+	RESTORE_SREGS
+
+	/* Finally, restore saved %r1 and %r30 */
+	mfsprg2	%r1
+	mfsprg3	%r30
 	rfi
