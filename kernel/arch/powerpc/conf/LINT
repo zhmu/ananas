@@ -2,3 +2,8 @@ arch		powerpc
 ident		LINT
 
 option		ISO9660FS
+
+device		ofwconsole
+
+inputdev	ofwconsole
+outputdev	ofwconsole
