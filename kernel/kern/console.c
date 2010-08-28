@@ -37,6 +37,9 @@ console_init()
 #endif /* CONSOLE_INPUT_DRIVER */
 
 #ifdef CONSOLE_OUTPUT_DRIVER
+#if defined(CONSOLE_INPUT_DRIVER) && CONSOLE_INPUT_DRIVER == CONSOLE_OUTPUT_DRIVER
+	output_dev = input_dev;
+#else
 	extern struct DRIVER CONSOLE_OUTPUT_DRIVER;
 	output_dev = device_alloc(NULL, &CONSOLE_OUTPUT_DRIVER);
 #ifdef CONSOLE_OUTPUT_BUS
@@ -46,6 +49,7 @@ console_init()
 #endif
 	device_get_resources_byhint(output_dev, tmphint, config_hints);
 	device_attach_single(output_dev);
+#endif
 #endif /* CONSOLE_DRIVER */
 	console_tty = tty_alloc(input_dev, output_dev);
 }
