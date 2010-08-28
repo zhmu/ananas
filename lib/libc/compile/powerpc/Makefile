@@ -6,7 +6,7 @@ ARCH=		powerpc
 CC=		${TC_PREFIX}/bin/powerpc-elf-ananas-gcc
 AR=		${TC_PREFIX}/bin/powerpc-elf-ananas-ar
 
-#MDOBJS		+= setjmp.o
+MDOBJS		+= setjmp.o
 
 include ../../conf/Makefile.std
 
