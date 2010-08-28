@@ -6,7 +6,12 @@
 #include <sys/vfs.h>
 #include <elf.h>
 
-#ifdef __i386__
+/* XXX */
+#ifdef _ARCH_PPC
+#define __PowerPC__
+#endif
+
+#if defined(__i386__) || defined(__PowerPC__)
 static int
 elf32_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 {
@@ -26,10 +31,16 @@ elf32_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 		return 0;
 
 	/* XXX This specifically checks for i386 at the moment */
+#if defined(__i386__) || defined(__amd64__)
 	if (ehdr.e_ident[EI_DATA] != ELFDATA2LSB)
 		return 0;
 	if (ehdr.e_machine != EM_386)
 		return 0;
+#endif
+#if defined(__PowerPC__)
+	if (ehdr.e_ident[EI_DATA] != ELFDATA2MSB)
+		return 0;
+#endif
 
 	/* We only support static binaries for now, so reject anything without a program table */
 	if (ehdr.e_phnum == 0)
@@ -127,7 +138,7 @@ elf_load(thread_t t, void* priv, elf_getfunc_t obtain)
 	 * XXX this should detect the type.
 	 */
 	return
-#ifdef __i386__
+#if defined(__i386__ ) || defined(__PowerPC__)
 		elf32_load(t, priv, obtain)
 #elif defined(__amd64__)
 		elf64_load(t, priv, obtain)
