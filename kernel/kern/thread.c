@@ -103,6 +103,23 @@ thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags)
 }
 
 /*
+ * Locate a thread mapping, or 0 if the memory is not mapped.
+ */
+addr_t
+thread_find_mapping(thread_t t, void* addr)
+{
+	addr_t address = (addr_t)addr & ~(PAGE_SIZE - 1);
+	struct THREAD_MAPPING* tm = t->mappings;
+	while (tm != NULL) {
+		if ((address >= (addr_t)tm->start) && (address <= (addr_t)(tm->start + tm->len))) {
+			return (addr_t)tm->ptr + (addr - (addr_t)tm->start);
+		}
+		tm = tm->next;
+	}
+	return 0;
+}
+
+/*
  * Maps a piece of kernel memory 'from' for a thread 't'; returns the
  * address where it was mapped to. Calls thread_mapto(), so refer to
  * flags there.
@@ -130,7 +147,6 @@ thread_unmap(thread_t t, void* ptr, size_t len)
 				t->mappings = tm->next;
 			else
 				prev->next = tm->next;
-			/*kprintf("unmapping: userland '%p'; len=%u\n", tm->start, len);*/
 			md_thread_unmap(t, (void*)tm->start, tm->len);
 			kfree(tm->ptr);
 			kfree(tm);

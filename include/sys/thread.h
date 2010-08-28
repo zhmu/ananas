@@ -57,6 +57,7 @@ void* md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
 struct THREAD_MAPPING* thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags);
 struct THREAD_MAPPING* thread_map(thread_t t, void* from, size_t len, uint32_t flags);
 int thread_unmap(thread_t t, void* ptr, size_t len);
+addr_t thread_find_mapping(thread_t t, void* addr);
 
 void thread_suspend(thread_t t);
 void thread_resume(thread_t t);
