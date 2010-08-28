@@ -66,6 +66,8 @@ fb_putchar(struct FB_PRIVDATA* fb, unsigned int x, unsigned int y, const unsigne
 			uint8_t d = c->data[j];
 			if (d & (1 << i))
 				putpixel(fb, x + i, y + j - c->yshift, 0);
+			else
+				putpixel(fb, x + i, y + j - c->yshift, 0xff);
 		}
 	}
 }
@@ -210,6 +212,25 @@ fb_write(device_t dev, const char* data, size_t len)
 	return origlen;
 }
 
+static int
+fb_probe(device_t dev)
+{
+	ofw_cell_t chosen = ofw_finddevice("/chosen");
+	ofw_cell_t ihandle_stdout;
+	ofw_getprop(chosen, "stdout", &ihandle_stdout, sizeof(ihandle_stdout));
+
+	ofw_cell_t node = ofw_instance_to_package(ihandle_stdout);
+	if (node == -1)
+		return 1;
+
+	char type[16] = {0};
+	ofw_getprop(node, "device_type", type, sizeof(type));
+	if (strcmp(type, "display") != 0) {
+		/* Not a framebuffer-backed device; bail out */
+		return 1;
+	}
+	return 0;
+}
 
 static int
 fb_attach(device_t dev)
@@ -217,25 +238,17 @@ fb_attach(device_t dev)
 	ofw_cell_t chosen = ofw_finddevice("/chosen");
 	ofw_cell_t ihandle_stdout;
 	ofw_getprop(chosen, "stdout", &ihandle_stdout, sizeof(ihandle_stdout));
-	
-	kprintf("fb_attach!\n");
 
 	ofw_cell_t node = ofw_instance_to_package(ihandle_stdout);
 	if (node == -1)
 		return 1;
 
-	char type[16] = {0};
 	int height, width, depth, bytes_per_line, phys;
-	ofw_getprop(node, "device_type", type, sizeof(type));
 	ofw_getprop(node, "height", &height, sizeof(height));
 	ofw_getprop(node, "width", &width, sizeof(width));
 	ofw_getprop(node, "depth", &depth, sizeof(depth));
 	ofw_getprop(node, "linebytes", &bytes_per_line, sizeof(bytes_per_line));
 	ofw_getprop(node, "address", &phys, sizeof(phys));
-	if (strcmp(type, "display") != 0) {
-		/* Not a framebuffer-backed device; bail out */
-		return 1;
-	}
 
 	struct FB_PRIVDATA* fb = (struct FB_PRIVDATA*)kmalloc(sizeof(struct FB_PRIVDATA));
 	fb->fb_memory = (void*)phys;
@@ -262,19 +275,20 @@ fb_attach(device_t dev)
 	teken_init(&fb->fb_teken, &tf, fb);
 	teken_set_winsize(&fb->fb_teken, &tp);
 
-kprintf("teken initted; console is %u x %u @ %u bpp\n",
- fb->fb_height, fb->fb_width, fb->fb_depth);
+	kprintf("%s: console is %u x %u @ %u bpp\n",
+	 dev->name, fb->fb_height, fb->fb_width, fb->fb_depth);
 	return 0;
 }
 
 struct DRIVER drv_fb = {
 	.name					= "fb",
-	.drv_probe		= NULL,
+	.drv_probe		= fb_probe,
 	.drv_attach		= fb_attach,
 	.drv_write		= fb_write
 };
 
 DRIVER_PROBE(fb)
+DRIVER_PROBE_BUS(corebus)
 DRIVER_PROBE_END()
 
 /* vim:set ts=2 sw=2: */
