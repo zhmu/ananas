@@ -12,17 +12,33 @@ extern struct STACKFRAME bsp_sf;
 void
 vm_map(addr_t addr, size_t num_pages)
 {
+	vm_mapto(addr, addr, num_pages);
+}
+
+void
+vm_mapto(addr_t virt, addr_t phys, size_t num_pages)
+{
 	while (num_pages--) {
-		uint32_t vsid = bsp_sf.sf_sr[addr >> 28];
-		mmu_map(&bsp_sf, addr, addr);
+		uint32_t vsid = bsp_sf.sf_sr[virt >> 28];
+		mmu_map(&bsp_sf, virt, phys);
 		/*
 		 * We reload the segment register if the mapping changed the appropriate
 		 * segment... maybe this is too crude?
 		 */
-		if (bsp_sf.sf_sr[addr >> 28] != vsid) {
-			mtsrin(addr, bsp_sf.sf_sr[addr >> 28]);
+		if (bsp_sf.sf_sr[virt >> 28] != vsid) {
+			mtsrin(virt, bsp_sf.sf_sr[virt >> 28]);
 			__asm __volatile("sync");
 		}
+		virt += PAGE_SIZE;
+		phys += PAGE_SIZE;
+	}
+}
+
+void
+vm_unmap(addr_t addr, size_t num_pages)
+{
+	while (num_pages--) {
+		mmu_unmap(&bsp_sf, addr);
 		addr += PAGE_SIZE;
 	}
 }
