@@ -84,4 +84,10 @@ scheduler_deactivate()
 	scheduler_active--;
 }
 
+int
+scheduler_activated()
+{
+	return scheduler_active;
+}
+
 /* vim:set ts=2 sw=2: */
