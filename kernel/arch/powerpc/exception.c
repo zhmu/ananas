@@ -8,7 +8,7 @@ extern void generic_int();
 extern void dsi_trap();
 extern void* generic_int_len;
 extern void* dsi_trap_len;
-	
+
 static const char* ppc_exceptions[] = {
 	"Reserved", "System Reset", "Machine Check", "Data Storage",
 	"Instruction Storage", "External", "Alignment", "Program",
@@ -16,7 +16,7 @@ static const char* ppc_exceptions[] = {
 	"Reserved", "System Call", "Trace", "Floating-Point Assist"
 };
 
-static uint32_t
+static void
 syscall_handler(struct STACKFRAME* sf)
 {
 	struct SYSCALL_ARGS sa;
@@ -29,11 +29,13 @@ syscall_handler(struct STACKFRAME* sf)
 	sf->sf_reg[3] = syscall(&sa);
 }
 
-uint32_t
+void
 exception_handler(struct STACKFRAME* sf)
 {
-	if (sf->sf_exc == INT_SC)
-		return syscall_handler(sf);
+	if (sf->sf_exc == INT_SC) {
+		syscall_handler(sf);
+		return;
+	}
 
 	const char* exception_text = "Reserved";
 	if ((sf->sf_exc & 0xff) == 0 && sf->sf_exc / 0x100 <= sizeof(ppc_exceptions) / sizeof(char*))
@@ -71,7 +73,6 @@ exception_handler(struct STACKFRAME* sf)
 #endif
 
 	panic("exception");
-	return 0; /* NOTREACHED */
 }
 
 void
