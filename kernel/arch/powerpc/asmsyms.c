@@ -33,7 +33,6 @@ ASM_SYMBOL(SF_R28,   offsetof(struct STACKFRAME, sf_reg[28]));
 ASM_SYMBOL(SF_R29,   offsetof(struct STACKFRAME, sf_reg[29]));
 ASM_SYMBOL(SF_R30,   offsetof(struct STACKFRAME, sf_reg[30]));
 ASM_SYMBOL(SF_R31,   offsetof(struct STACKFRAME, sf_reg[31]));
-ASM_SYMBOL(SF_NIA,   offsetof(struct STACKFRAME, sf_nia));
 
 ASM_SYMBOL(SF_SR0,   offsetof(struct STACKFRAME, sf_sr[ 0]));
 ASM_SYMBOL(SF_SR1,   offsetof(struct STACKFRAME, sf_sr[ 1]));

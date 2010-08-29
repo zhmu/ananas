@@ -323,17 +323,6 @@ md_thread_switch:
 	 */
 	addi	%r1,%r3,THREAD_SF 		/* Get thread context in %r1 */
 
-	/* Set up %srr1; this is what rfi will restore as %msr */
-	lwz	%r2, SF_SRR1(%r1)
-	mtsrr1	%r2
-
-	/*
-	 * Copy the thread's nia (Next Instruction Address) to %srr0; this is where
-	 * we shall continue.
-	 */
-	lwz	%r2, SF_NIA(%r1)
-	mtsrr0	%r2
-
 	/* Copy the thread's %r1 to %sprg2 - this is what RESTORE_REGS will restore */
 	lwz	%r2, SF_R1(%r1)
 	mtsprg2	%r2
