@@ -256,6 +256,7 @@ extern void* syscall_handler;
 	 * Initialize the per-CPU thread; this needs a working memory allocator, so that is why
 	 * we delay it.
 	 */
+	memset(&bsp_pcpu, 0, sizeof(bsp_pcpu));
 	pcpu_init(&bsp_pcpu);
 
 	/*

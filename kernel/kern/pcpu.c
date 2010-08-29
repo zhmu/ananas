@@ -7,8 +7,6 @@
 void
 pcpu_init(struct PCPU* pcpu)
 {
-	memset(pcpu, 0, sizeof(struct PCPU));
-
 	/*
 	 * Initialize the per-CPU idle thread. This does not have to be per-CPU, but
 	 * this may come in handy later during stats-collection.
