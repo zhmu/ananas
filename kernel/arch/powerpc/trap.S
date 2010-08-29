@@ -196,8 +196,8 @@ trapshortcut:
 	 * it's mapped (XXX This will mess up in SMP - we need per-cpu stacks
 	 * there!)
 	 */
-	lis	%r1, stack@ha
-	addi	%r1, %r1, stack@l
+	lis	%r1, int_stack@ha
+	addi	%r1, %r1, int_stack@l
 
 	/* Launch the exception handler! */
 	bl	exception_handler
@@ -208,7 +208,6 @@ trapreturn:
 	mfsprg0	%r1				/* Get PCPU data */
 	lwz	%r1,(PCPU_CONTEXT)(%r1)		/* Get current context in r1 */
 
-	mtsprg1	%r1				/* Save %r1 in %sprg1 */
 	RESTORE_REGS
 
 	/*
@@ -218,7 +217,8 @@ trapreturn:
 	mtsprg3 %r30
 
 	/* Restore %r1 context so we can restore segment regs */
-	mfsprg1	%r1
+	mfsprg0	%r1
+	lwz	%r1,(PCPU_CONTEXT)(%r1)		/* Get current context in r1 */
 	RESTORE_SREGS
 
 	/* Finally, restore saved %r1 and %r30 */
@@ -354,3 +354,10 @@ md_thread_switch:
 	mfsprg2	%r1
 	mfsprg3	%r30
 	rfi
+
+.data
+.align  4
+        .space  2048
+int_stack:
+
+.globl  int_stack
