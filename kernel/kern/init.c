@@ -3,6 +3,7 @@
 #include <sys/console.h>
 #include <sys/mm.h>
 #include <sys/lib.h>
+#include <sys/schedule.h>
 #include <sys/thread.h>
 #include <sys/vfs.h>
 #include <machine/vm.h>
@@ -37,19 +38,6 @@ mi_startup()
 	kmem_stats(&mem_avail, &mem_total);
 	kprintf("Hello world, this is Ananas/%s %u.%u\n", ARCHITECTURE, 0, 1);
 	kprintf("Memory: %uKB available / %uKB total\n", mem_avail / 1024, mem_total / 1024);
-
-/*
-	__asm(
-		"movl	$0x12345678, %eax\n"
-		"movl	$0x87654321, %ebx\n"
-		"movl	$0xf00dbabe, %ecx\n"
-		"movl	$0xdeadd00d, %edx\n"
-		"movl	$0x1, %esi\n"
-		"movl	$0x2, %edi\n"
-		"movl	$0x3, %ebp\n"
-		"movl (0), %eax\n"
-	);
-*/
 
 #ifdef SMP
 	/* Try the SMP dance */
@@ -118,7 +106,12 @@ mi_startup()
 
 	/* gooo! */
 	scheduler_activate();
+#if defined(__i386__) || defined(__amd64__)
 	__asm("hlt\n");
+#else
+	/* Wait for an interrupt to come and steal our context... */
+	while(1);
+#endif
 
 	panic("mi_startup(): what now?");
 }
