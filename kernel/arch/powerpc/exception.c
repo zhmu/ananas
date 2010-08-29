@@ -1,12 +1,13 @@
 #include <sys/types.h>
 #include <machine/interrupts.h>
 #include <machine/thread.h>
-#include <sys/syscall.h>
 #include <sys/lib.h>
 
 extern void generic_int();
+extern void syscall_int();
 extern void dsi_trap();
 extern void* generic_int_len;
+extern void* syscall_int_len;
 extern void* dsi_trap_len;
 
 static const char* ppc_exceptions[] = {
@@ -16,29 +17,11 @@ static const char* ppc_exceptions[] = {
 	"Reserved", "System Call", "Trace", "Floating-Point Assist"
 };
 
-static void
-syscall_handler(struct STACKFRAME* sf)
-{
-	struct SYSCALL_ARGS sa;
-	sa.number = sf->sf_reg[0];
-	sa.arg1 = sf->sf_reg[3];
-	sa.arg2 = sf->sf_reg[4];
-	sa.arg3 = sf->sf_reg[5];
-	sa.arg4 = sf->sf_reg[6];
-	sa.arg5 = sf->sf_reg[7];
-	sf->sf_reg[3] = syscall(&sa);
-}
-
 void
 exception_handler(struct STACKFRAME* sf)
 {
 	if (sf->sf_exc == INT_DEC) {
 		decrementer_interrupt();
-		return;
-	}
-
-	if (sf->sf_exc == INT_SC) {
-		syscall_handler(sf);
 		return;
 	}
 
@@ -97,7 +80,7 @@ exception_init()
 	memcpy((void*)INT_P,   (void*)&generic_int, (size_t)&generic_int_len);
 	memcpy((void*)INT_FPU, (void*)&generic_int, (size_t)&generic_int_len);
 	memcpy((void*)INT_DEC, (void*)&generic_int, (size_t)&generic_int_len);
-	memcpy((void*)INT_SC,  (void*)&generic_int, (size_t)&generic_int_len);
+	memcpy((void*)INT_SC,  (void*)&syscall_int, (size_t)&syscall_int_len);
 	memcpy((void*)INT_T,   (void*)&generic_int, (size_t)&generic_int_len);
 	memcpy((void*)INT_FPA, (void*)&generic_int, (size_t)&generic_int_len);
 }

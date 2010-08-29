@@ -1,4 +1,5 @@
 #include <sys/pcpu.h>
+#include <sys/syscall.h>
 #include <sys/asmsymbols.h>
 
 ASM_SYMBOL(SF_R0,    offsetof(struct STACKFRAME, sf_reg[ 0]));
@@ -67,3 +68,10 @@ ASM_SYMBOL(PCPU_CURTHREAD, offsetof(struct PCPU, curthread));
 ASM_SYMBOL(PCPU_TEMP_R1,   offsetof(struct PCPU, temp_r1));
 
 ASM_SYMBOL(THREAD_SF,   offsetof(struct THREAD, md_ctx.sf));
+
+ASM_SYMBOL(SC_NUMBER,  offsetof(struct SYSCALL_ARGS, number));
+ASM_SYMBOL(SC_ARG1,    offsetof(struct SYSCALL_ARGS, arg1));
+ASM_SYMBOL(SC_ARG2,    offsetof(struct SYSCALL_ARGS, arg2));
+ASM_SYMBOL(SC_ARG3,    offsetof(struct SYSCALL_ARGS, arg3));
+ASM_SYMBOL(SC_ARG4,    offsetof(struct SYSCALL_ARGS, arg4));
+ASM_SYMBOL(SC_ARG5,    offsetof(struct SYSCALL_ARGS, arg5));

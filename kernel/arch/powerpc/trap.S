@@ -1,5 +1,6 @@
 .text
 .globl	generic_int, generic_int_len
+.globl	syscall_int, syscall_int_len
 .globl	dsi_trap, dsi_trap_len
 .globl	md_thread_switch
 
@@ -22,6 +23,15 @@ generic_int:
 	bla	trapcode
 
 generic_int_len = . - generic_int
+
+/*
+ * XXX This chain is only to ease debugging, so the actual system call
+ * code corresponds to entries in our symbols)
+ */
+syscall_int:
+	ba	syscallcode
+
+syscall_int_len = . - syscall_int
 
 /* Stores all registers; assumes %r1 points to the stackframe to use */
 #define STORE_REGS \
@@ -125,23 +135,23 @@ generic_int_len = . - generic_int
  * Restores all segment registers; assumes %r1 points to the stackframe to use
  * note that it also assumes that %sr0 must be restored last!
  */
-#define RESTORE_SREGS \
-	lwz	%r30 , SF_SR15(%r1); mtsr 15, %r30; \
-	lwz	%r30 , SF_SR14(%r1); mtsr 14, %r30; \
-	lwz	%r30 , SF_SR13(%r1); mtsr 13, %r30; \
-	lwz	%r30 , SF_SR12(%r1); mtsr 12, %r30; \
-	lwz	%r30 , SF_SR11(%r1); mtsr 11, %r30; \
-	lwz	%r30 , SF_SR10(%r1); mtsr 10, %r30; \
-	lwz	%r30 ,  SF_SR9(%r1); mtsr  9, %r30; \
-	lwz	%r30 ,  SF_SR8(%r1); mtsr  8, %r30; \
-	lwz	%r30 ,  SF_SR7(%r1); mtsr  7, %r30; \
-	lwz	%r30 ,  SF_SR6(%r1); mtsr  6, %r30; \
-	lwz	%r30 ,  SF_SR5(%r1); mtsr  5, %r30; \
-	lwz	%r30 ,  SF_SR4(%r1); mtsr  4, %r30; \
-	lwz	%r30 ,  SF_SR3(%r1); mtsr  3, %r30; \
-	lwz	%r30 ,  SF_SR2(%r1); mtsr  2, %r30; \
-	lwz	%r30 ,  SF_SR1(%r1); mtsr  1, %r30; \
-	lwz	%r30 ,  SF_SR0(%r1); mtsr  0, %r30; \
+#define RESTORE_SREGS(s) \
+	lwz	%r30 , SF_SR15(s); mtsr 15, %r30; \
+	lwz	%r30 , SF_SR14(s); mtsr 14, %r30; \
+	lwz	%r30 , SF_SR13(s); mtsr 13, %r30; \
+	lwz	%r30 , SF_SR12(s); mtsr 12, %r30; \
+	lwz	%r30 , SF_SR11(s); mtsr 11, %r30; \
+	lwz	%r30 , SF_SR10(s); mtsr 10, %r30; \
+	lwz	%r30 ,  SF_SR9(s); mtsr  9, %r30; \
+	lwz	%r30 ,  SF_SR8(s); mtsr  8, %r30; \
+	lwz	%r30 ,  SF_SR7(s); mtsr  7, %r30; \
+	lwz	%r30 ,  SF_SR6(s); mtsr  6, %r30; \
+	lwz	%r30 ,  SF_SR5(s); mtsr  5, %r30; \
+	lwz	%r30 ,  SF_SR4(s); mtsr  4, %r30; \
+	lwz	%r30 ,  SF_SR3(s); mtsr  3, %r30; \
+	lwz	%r30 ,  SF_SR2(s); mtsr  2, %r30; \
+	lwz	%r30 ,  SF_SR1(s); mtsr  1, %r30; \
+	lwz	%r30 ,  SF_SR0(s); mtsr  0, %r30; \
 	isync
 
 /*
@@ -180,7 +190,7 @@ trapshortcut:
 	/* Restore the kernel segment registers */
 	lis	%r1, bsp_sf@ha
 	addi	%r1, %r1, bsp_sf@l
-	RESTORE_SREGS
+	RESTORE_SREGS(%r1)
 
 	/*
 	 * Enable instruction/data translation. Note that we have to use the
@@ -192,7 +202,7 @@ trapshortcut:
 	mtmsr	%r2
 	sync
 
-	/* Restore the original kernel stack; it's available and we can be sure
+	/* Activate the interupt kernel stack; it's available and we can be sure
 	 * it's mapped (XXX This will mess up in SMP - we need per-cpu stacks
 	 * there!)
 	 */
@@ -219,7 +229,7 @@ trapreturn:
 	/* Restore %r1 context so we can restore segment regs */
 	mfsprg0	%r1
 	lwz	%r1,(PCPU_CONTEXT)(%r1)		/* Get current context in r1 */
-	RESTORE_SREGS
+	RESTORE_SREGS(%r1)
 
 	/* Finally, restore saved %r1 and %r30 */
 	mfsprg2	%r1
@@ -348,11 +358,134 @@ md_thread_switch:
 
 	/* Restore %r1 context so we can restore segment regs */
 	mfsprg1	%r1
-	RESTORE_SREGS
+	RESTORE_SREGS(%r1)
 
 	/* Finally, restore saved %r1 and %r30 */
 	mfsprg2	%r1
 	mfsprg3	%r30
+	rfi
+
+syscallcode:
+	/*
+	 * According to the E500 architecture ABI, we do not need to store
+	 * all registers; only r1, r2, r13-r31, lr and cr must be saved.
+	 *
+	 * Note that we also store srr0/srr1 because these will get destroyed
+	 * by interrupts.
+	 *
+	 * XXX is storing r13 really needed?
+	 */
+	mfsprg0	%r10				/* Get PCPU data */
+	lwz	%r10,(PCPU_CONTEXT)(%r10)	/* Get current context in r10 */
+
+	/* Store the registers outlined above */
+	stw	%r1 ,  SF_R1 (%r10)
+	stw	%r2 ,  SF_R2 (%r10)
+	stw	%r13,  SF_R13(%r10)
+	stw	%r14,  SF_R14(%r10)
+	stw	%r15,  SF_R15(%r10)
+	stw	%r16,  SF_R16(%r10)
+	stw	%r17,  SF_R17(%r10)
+	stw	%r18,  SF_R18(%r10)
+	stw	%r19,  SF_R19(%r10)
+	stw	%r20,  SF_R20(%r10)
+	stw	%r21,  SF_R21(%r10)
+	stw	%r22,  SF_R22(%r10)
+	stw	%r23,  SF_R23(%r10)
+	stw	%r24,  SF_R24(%r10)
+	stw	%r25,  SF_R25(%r10)
+	stw	%r26,  SF_R26(%r10)
+	stw	%r27,  SF_R27(%r10)
+	stw	%r28,  SF_R28(%r10)
+	stw	%r29,  SF_R29(%r10)
+	stw	%r30,  SF_R30(%r10)
+	stw	%r31,  SF_R31(%r10)
+	mflr	%r14
+	mfcr	%r15
+	mfsrr0	%r16
+	mfsrr1	%r17
+	stw	%r14,  SF_LR(%r10)
+	stw	%r15,  SF_CR(%r10)
+	stw	%r16, SF_SRR0(%r10)
+	stw	%r17, SF_SRR1(%r10)
+
+	/* Restore the kernel segment registers */
+	lis	%r1, bsp_sf@ha
+	addi	%r1, %r1, bsp_sf@l
+	RESTORE_SREGS(%r1)
+
+	/* Enable instruction/data translation */
+	mfmsr	%r2
+	ori	%r2, %r2, (MSR_DR | MSR_IR)
+	mtmsr	%r2
+	sync
+
+	/*
+	 * Restore the kernel stack; as we are in a system call, we are done
+	 * bootstrapping the system so we can use it.
+	 * XXX This will mess up in SMP - we need per-cpu stacks there!
+	 */
+	lis	%r1, stack@ha
+	addi	%r1, %r1, stack@l
+
+	/* Create the SYSCALL_ARGS structure */
+	stwu	%r1,-64(%r1)		/* XXX should be x >= sizeof(args) where x mod 16 = 0 */
+	addi	%r31, %r1, 8
+	stw	%r0, SC_NUMBER(%r31)
+	stw	%r3, SC_ARG1(%r31)
+	stw	%r4, SC_ARG2(%r31)
+	stw	%r5, SC_ARG3(%r31)
+	stw	%r6, SC_ARG4(%r31)
+	stw	%r7, SC_ARG5(%r31)
+
+	/* Launch the system call handler! */
+	mr	%r3, %r31
+	bl	syscall
+
+	/*
+	 * Now, it's time to restore our context. Note that %r3 and %r4 are
+	 * used to provide the system call return value, so we must not
+	 * trash them.
+	 */
+	mfsprg0	%r10				/* Get PCPU data */
+	lwz	%r10,(PCPU_CONTEXT)(%r10)	/* Get current context in r10 */
+
+	lwz	%r14,  SF_LR(%r10)
+	lwz	%r15,  SF_CR(%r10)
+	lwz	%r16, SF_SRR0(%r10)
+	lwz	%r17, SF_SRR1(%r10)
+	mtlr	%r14
+	mtcr	%r15
+	mtsrr0	%r16
+	mtsrr1	%r17
+
+	lwz	%r1 ,  SF_R1 (%r10)
+	lwz	%r2 ,  SF_R2 (%r10)
+	lwz	%r13,  SF_R13(%r10)
+	lwz	%r14,  SF_R14(%r10)
+	lwz	%r15,  SF_R15(%r10)
+	lwz	%r16,  SF_R16(%r10)
+	lwz	%r17,  SF_R17(%r10)
+	lwz	%r18,  SF_R18(%r10)
+	lwz	%r19,  SF_R19(%r10)
+	lwz	%r20,  SF_R20(%r10)
+	lwz	%r21,  SF_R21(%r10)
+	lwz	%r22,  SF_R22(%r10)
+	lwz	%r23,  SF_R23(%r10)
+	lwz	%r24,  SF_R24(%r10)
+	lwz	%r25,  SF_R25(%r10)
+	lwz	%r26,  SF_R26(%r10)
+	lwz	%r27,  SF_R27(%r10)
+	lwz	%r28,  SF_R28(%r10)
+	lwz	%r29,  SF_R29(%r10)
+	lwz	%r30,  SF_R30(%r10)
+	mtsprg2	%r30				/* Temporary store %r30 */
+	lwz	%r31,  SF_R31(%r10)
+
+	/* Store segment regs - this trashes %r30, so we place it in sprg2 */
+	RESTORE_SREGS(%r10)
+
+	mfsprg2	%r30
 	rfi
 
 .data
