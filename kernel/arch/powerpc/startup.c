@@ -104,6 +104,10 @@ md_startup(uint32_t r3, uint32_t r4, uint32_t r5)
 	kmem_mark_used((void*)0x00100000, 32);
 #endif
 
+	/* Initialize the timer */
+	timer_init();
+
+	/* Do the machine independant stuff */
 	mi_startup();
 }
 

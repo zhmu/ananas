@@ -32,6 +32,11 @@ syscall_handler(struct STACKFRAME* sf)
 void
 exception_handler(struct STACKFRAME* sf)
 {
+	if (sf->sf_exc == INT_DEC) {
+		decrementer_interrupt();
+		return;
+	}
+
 	if (sf->sf_exc == INT_SC) {
 		syscall_handler(sf);
 		return;

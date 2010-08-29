@@ -8,6 +8,7 @@ arch/powerpc/md_thread.c	mandatory
 arch/powerpc/md_lock.c		mandatory
 arch/powerpc/trap.S		mandatory
 arch/powerpc/exception.c	mandatory
+arch/powerpc/timer.c		mandatory
 lib/kern/ucmpdi2.c		mandatory
 # ofw stuff
 lib/ofw/control.c		mandatory

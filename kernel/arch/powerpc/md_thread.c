@@ -46,7 +46,7 @@ md_thread_init(thread_t t)
 	t->md_ctx.sf.sf_reg[1] -= 16;
 
 	/* Establish initial context */
-	t->md_ctx.sf.sf_srr1 = MSR_DR | MSR_IR | MSR_RI | MSR_PR;
+	t->md_ctx.sf.sf_srr1 = MSR_DR | MSR_IR | MSR_RI | MSR_PR | MSR_EE;
 	/* XXX Until FPU support is properly implemented */
 	t->md_ctx.sf.sf_srr1 |= MSR_FP;
 
