@@ -37,18 +37,22 @@ console_init()
 #endif /* CONSOLE_INPUT_DRIVER */
 
 #ifdef CONSOLE_OUTPUT_DRIVER
-#if defined(CONSOLE_INPUT_DRIVER) && CONSOLE_INPUT_DRIVER == CONSOLE_OUTPUT_DRIVER
-	output_dev = input_dev;
-#else
-	extern struct DRIVER CONSOLE_OUTPUT_DRIVER;
-	output_dev = device_alloc(NULL, &CONSOLE_OUTPUT_DRIVER);
-#ifdef CONSOLE_OUTPUT_BUS
-	sprintf(tmphint, "%s.%s.%u.", CONSOLE_OUTPUT_BUS, output_dev->name, output_dev->unit);
-#else
-	sprintf(tmphint, "%s.%u.", output_dev->name, output_dev->unit);
+#ifdef CONSOLE_INPUT_DRIVER
+	if (strcmp(STRINGIFY(CONSOLE_INPUT_DRIVER), STRINGIFY(CONSOLE_OUTPUT_DRIVER)) == 0) {
+		output_dev = input_dev;
+	} else {
 #endif
-	device_get_resources_byhint(output_dev, tmphint, config_hints);
-	device_attach_single(output_dev);
+		extern struct DRIVER CONSOLE_OUTPUT_DRIVER;
+		output_dev = device_alloc(NULL, &CONSOLE_OUTPUT_DRIVER);
+#ifdef CONSOLE_OUTPUT_BUS
+		sprintf(tmphint, "%s.%s.%u.", CONSOLE_OUTPUT_BUS, output_dev->name, output_dev->unit);
+#else
+		sprintf(tmphint, "%s.%u.", output_dev->name, output_dev->unit);
+#endif
+		device_get_resources_byhint(output_dev, tmphint, config_hints);
+		device_attach_single(output_dev);
+#ifdef CONSOLE_INPUT_DRIVER
+	}
 #endif
 #endif /* CONSOLE_DRIVER */
 	console_tty = tty_alloc(input_dev, output_dev);
