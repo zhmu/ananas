@@ -57,10 +57,9 @@ typedef uint32_t	size_t;
  * Below are standard types.
  */
 typedef uint32_t	addr_t;
-typedef uint64_t	off_t;
+typedef int64_t		off_t;
 typedef int32_t		ssize_t;
 typedef uint32_t	register_t;
-typedef int32_t		time_t;
 typedef int32_t		clock_t;
 
 /* XXX does not belong here */

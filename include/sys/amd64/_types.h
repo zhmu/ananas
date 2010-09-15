@@ -53,7 +53,7 @@ typedef uint64_t	size_t;
  * Below are standard types.
  */
 typedef uint64_t	addr_t;
-typedef uint64_t	off_t;
+typedef int64_t		off_t;
 typedef int64_t		ssize_t;
 typedef uint64_t	register_t;
 typedef int64_t		time_t;

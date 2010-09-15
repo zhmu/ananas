@@ -13,7 +13,7 @@
 #define INT64_MAX		9223372036854775807LL
 
 #define UINT8_MAX		255
-#define UINT16_MAX		65536
+#define UINT16_MAX		65535
 #define UINT32_MAX		4294967295U
 #define UINT64_MAX		18446744073709551615ULL
 
@@ -65,15 +65,13 @@
 
 #define SIZE_MAX		UINT32_MAX
 
-#define WCHAR_MIN		CHAR_MIN
-#define WCHAR_MAX		CHAR_MAX
+#define SIG_ATOMIC_MIN		INT32_MIN
+#define SIG_ATOMIC_MAX		INT32_MAX
 
-#ifdef NOTYET
-#define SIG_ATOMIC_MIN		...
-#define SIG_ATOMIC_MAX		...
-#define WINT_MIN		...
-#define WINT_MAX		...
-#endif
+#define WCHAR_MIN		INT32_MIN	/* XXX assume wchar = 32 bit */
+#define WCHAR_MAX		INT32_MAX
+#define WINT_MIN		INT32_MIN	/* XXX assume wint = 32 bit */
+#define WINT_MAX		INT32_MAX
 
 /* 7.18.4: Macros for integer constants */
 #define INT8_C(c)		(c)
