@@ -4,6 +4,7 @@
 #include <machine/interrupts.h>
 #include <machine/macro.h>
 #include <machine/mmu.h>
+#include <sys/handle.h>
 #include <sys/mm.h>
 #include <sys/pcpu.h>
 #include <sys/lib.h>
@@ -91,6 +92,9 @@ md_startup(uint32_t r3, uint32_t r4, uint32_t r5)
 
 	/* Fire up the MMU; this will initialize the memory manager as well */
 	mmu_init();
+
+	/* Initialize the handles; this is needed by the per-CPU code as it initialize threads */
+	handle_init();
 
 	/*
 	 * Initialize the per-CPU data; this needs a working memory allocator

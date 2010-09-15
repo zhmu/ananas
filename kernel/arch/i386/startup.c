@@ -9,6 +9,7 @@
 #include <machine/realmode.h>
 #include <sys/x86/pic.h>
 #include <sys/x86/smap.h>
+#include <sys/handle.h>
 #include <sys/init.h>
 #include <sys/lib.h>
 #include <sys/pcpu.h>
@@ -350,6 +351,9 @@ md_startup()
 	 */
 	size_t kern_pages = ((addr_t)avail - ((addr_t)&__entry - KERNBASE)) / PAGE_SIZE;
 	kmem_mark_used((void*)(addr_t)&__entry - KERNBASE, kern_pages);
+
+	/* Initialize the handles; this is needed by the per-CPU code as it initialize threads */
+	handle_init();
 
 	/*
 	 * Initialize the per-CPU thread; this needs a working memory allocator, so that is why

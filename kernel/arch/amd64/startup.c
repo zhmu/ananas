@@ -7,6 +7,7 @@
 #include <machine/thread.h>
 #include <sys/x86/pic.h>
 #include <sys/x86/smap.h>
+#include <sys/handle.h>
 #include <sys/init.h>
 #include <sys/vm.h>
 #include <sys/pcpu.h>
@@ -251,6 +252,9 @@ extern void* syscall_handler;
 	 */
 	size_t kern_pages = ((addr_t)&__end - (addr_t)&__entry + PAGE_SIZE - 1) / PAGE_SIZE;
 	kmem_mark_used((void*)((addr_t)from & 0x0fffffff) /* HACK */, (to - from) / PAGE_SIZE);
+
+	/* Initialize the handles; this is needed by the per-CPU code as it initialize threads */
+	handle_init();
 
 	/*
 	 * Initialize the per-CPU thread; this needs a working memory allocator, so that is why
