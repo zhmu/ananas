@@ -14,14 +14,14 @@
 #define SHRT_MIN	-32767		/* Minimum value for a short int */
 #define SHRT_MAX	32767		/* Maximum value for a short int */
 #define USHRT_MAX	65535		/* Maximum value for a unsigned short int */
-#define INT_MIN		-2147483647	/* Minimum value for an int */
+#define INT_MIN		-2147483648	/* Minimum value for an int */
 #define INT_MAX		2147483647	/* Maximum value for an int */
 #define UINT_MAX	4294967295	/* Maximum value for an unsigned int */
-#define LONG_MIN	-2147483647	/* Minimum value for a long */
+#define LONG_MIN	-2147483648	/* Minimum value for a long */
 #define LONG_MAX	2147483647	/* Maximum value for a long */
 #define ULONG_MAX	4294967295	/* Maximum value for a unsigned long */
 
-#define LLONG_MIN	-9223372036854775807	/* Minimum value for a long long */
+#define LLONG_MIN	-9223372036854775808	/* Minimum value for a long long */
 #define LLONG_MAX	9223372036854775807	/* Maximum value for a long long */
 #define ULLONG_MAX	18446744073709551615	/* Maximum value for a unsigned long long */
 
