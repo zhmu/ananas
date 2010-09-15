@@ -47,7 +47,7 @@
 #error Compiler does not define _ _STDC_HOSTED_ _ to 0 or 1 (not standard-compliant)!
 #endif
 
-#if _PDCLIB_C_VERSION != 99
+#if 0 && _PDCLIB_C_VERSION != 99
 #error PDCLib might not be fully conforming to either C89 or C95 prior to v2.x.
 #endif
 
