@@ -14,21 +14,30 @@
 
 extern struct TSS kernel_tss;
 void md_idle_thread();
+void clone_return();
 
 int
 md_thread_init(thread_t t)
 {
 	/* Create a pagedirectory and map the kernel pages in there */
 	t->md_pagedir = kmalloc(PAGE_SIZE);
-	memset(t->md_pagedir, 0, PAGE_SIZE);
-	vm_map_kernel_addr(t->md_pagedir);
 
 	/* Allocate stacks: one for the thread and one for the kernel */
 	t->md_stack  = kmalloc(THREAD_STACK_SIZE);
 	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
 
+	md_thread_setup(t);
+	return 1;
+}
+
+void
+md_thread_setup(thread_t t)
+{
+	memset(t->md_pagedir, 0, PAGE_SIZE);
+	vm_map_kernel_addr(t->md_pagedir);
+
 	/* Perform adequate mapping for the stack / code */
-	vm_map_pagedir(t->md_pagedir, (addr_t)t->md_stack,  THREAD_STACK_SIZE / PAGE_SIZE, 1);
+	vm_mapto_pagedir(t->md_pagedir, USERLAND_STACK_ADDR, (addr_t)t->md_stack,  THREAD_STACK_SIZE / PAGE_SIZE, 1);
 	vm_map_pagedir(t->md_pagedir, (addr_t)t->md_kstack, KERNEL_STACK_SIZE / PAGE_SIZE, 0);
 
 #ifdef SMP	
@@ -45,7 +54,7 @@ md_thread_init(thread_t t)
 #endif
 
 	/* Fill out the thread's registers - anything not here will be zero */ 
-	t->md_ctx.esp  = (addr_t)t->md_stack  + THREAD_STACK_SIZE;
+	t->md_ctx.esp  = (addr_t)USERLAND_STACK_ADDR + THREAD_STACK_SIZE;
 	t->md_ctx.esp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE;
 	t->md_ctx.cs = GDT_SEL_USER_CODE + SEG_DPL_USER;
 	t->md_ctx.ds = GDT_SEL_USER_DATA;
@@ -59,11 +68,10 @@ md_thread_init(thread_t t)
 	t->md_fpu_ctx.tw = 0xffff;
 
 	t->next_mapping = 1048576;
-	return 1;
 }
 
 void
-md_thread_destroy(thread_t t)
+md_thread_free(thread_t t)
 {
 	kfree(t->md_pagedir);
 	kfree(t->md_stack);

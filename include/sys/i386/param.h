@@ -7,6 +7,9 @@
 /* Temporary mapping address for userland - will shift per CPU */
 #define TEMP_USERLAND_ADDR	0xbfff0000
 
+/* Virtual address of the per-thread stack */
+#define USERLAND_STACK_ADDR	0xa000
+
 /* Temporary mapping address size */
 #define TEMP_USERLAND_SIZE	PAGE_SIZE
 
