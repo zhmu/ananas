@@ -7,10 +7,9 @@
 .extern cstart, sys_exit
 
 _start:
-	/* XXX argc, argv */
-	pushl	$0x0
-	pushl	$0x0
+	push	%esi		/* threadinfo */
 	call	cstart
+	add	$4, %esp
 
 	/* main finished; pass it's exit code to the exit syscall */
 	call	sys_exit
