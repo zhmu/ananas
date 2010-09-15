@@ -33,6 +33,7 @@ ata_irq(device_t dev)
 	 */
 	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests, struct ATA_REQUEST_ITEM);
 	QUEUE_POP_HEAD(&priv->requests, struct ATA_REQUEST_ITEM);
+	KASSERT(item->bio != NULL, "ata queue item without associated bio buffer!");
 
 	/* If this is an ATAPI command, we may need to send the command bytes at this point */
 	if (item->command == ATA_CMD_PACKET) {
@@ -48,6 +49,7 @@ ata_irq(device_t dev)
 	if (stat & ATA_STAT_ERR) {
 		kprintf("ata error %x ==> %x\n", stat,inb(priv->io_port + 1));
 		bio_set_error(item->bio);
+		kfree(item);
 		return;
 	}
 	/*
@@ -62,6 +64,7 @@ ata_irq(device_t dev)
 	
 	/* Current request is done. Sign it off and away it goes */
 	item->bio->flags |= BIO_FLAG_DONE;
+	kfree(item);
 }
 
 static uint8_t
@@ -337,7 +340,14 @@ ata_enqueue(device_t dev, void* request)
 {
 	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
 	struct ATA_REQUEST_ITEM* item = (struct ATA_REQUEST_ITEM*)request;
-	QUEUE_ADD_TAIL(&priv->requests, item, struct ATA_REQUEST_ITEM);
+	KASSERT(item->bio != NULL, "ata_enqueue(): request without bio data buffer");
+	/*
+	 * XXX Duplicate the request; this should be converted to a preallocated list
+	 *     or something someday.
+	 */
+	struct ATA_REQUEST_ITEM* newitem = kmalloc(sizeof(struct ATA_REQUEST_ITEM));
+	memcpy(newitem, request, sizeof(struct ATA_REQUEST_ITEM));
+	QUEUE_ADD_TAIL(&priv->requests, newitem, struct ATA_REQUEST_ITEM);
 }
 
 struct DRIVER drv_ata = {

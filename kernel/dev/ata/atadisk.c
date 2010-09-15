@@ -52,6 +52,7 @@ atadisk_read(device_t dev, void* buffer, size_t length, off_t offset)
 	struct ATA_REQUEST_ITEM item;
 	KASSERT(length > 0, "invalid length");
 	KASSERT(length % 512 == 0, "invalid length"); /* XXX */
+	KASSERT(buffer != NULL, "invalid buffer");
 
 	/* XXX boundary check */
 	item.unit = priv->unit;
