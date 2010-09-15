@@ -225,7 +225,8 @@ static void double2string( double value, struct _PDCLIB_status_t * status )
     while (*tmp) {
         if (decpt-- == 0)
             DELIVER( '.' );
-        DELIVER( *tmp++ );
+        DELIVER( *tmp );
+	tmp++;
     }
 }
 
@@ -444,7 +445,8 @@ const char * _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status 
                 char * s = va_arg( status->arg, char * );
                 while ( *s != '\0' )
                 {
-                    DELIVER( *(s++) );
+                    DELIVER( *s );
+                    s++;
                 }
                 return ++spec;
             }
