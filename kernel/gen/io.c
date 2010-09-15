@@ -2,22 +2,15 @@
 #include <sys/types.h>
 #include <sys/device.h>
 #include <sys/lib.h>
+#include <sys/handle.h>
 #include <sys/thread.h>
 #include <sys/pcpu.h>
+#include <sys/stat.h>
+#include <sys/schedule.h>
 #include <sys/vfs.h>
 
 extern device_t input_dev;
 extern device_t output_dev;
-
-static int
-find_avail_fd(thread_t t)
-{
-	for(unsigned int i = 0; i < THREAD_MAX_FILES; i++) {
-		if (t->file[i].device == NULL && t->file[i].inode == NULL)
-			return i;
-	}
-	return -1;
-}
 
 static char*
 map_string(thread_t t, void* ptr)
@@ -31,16 +24,17 @@ map_string(thread_t t, void* ptr)
 }
 
 ssize_t
-sys_read(int fd, void* buf, size_t count)
+sys_read(struct HANDLE* handle, void* buf, size_t count)
 {
-	if (fd < 0 || fd >= THREAD_MAX_FILES)
-		return -1;
 	struct THREAD* t = PCPU_GET(curthread);
-	struct VFS_FILE* file = &t->file[fd];
+	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE))
+		return -1;
+
+	struct VFS_FILE* file = &handle->data.vfs_file;
 	if (file->inode == NULL && file->device == NULL)
 		return -1;
 
-	void* x = md_map_thread_memory(PCPU_GET(curthread), buf, count, 0);
+	void* x = md_map_thread_memory(t, buf, count, 0);
 	if (x == NULL)
 		return -1;
 
@@ -48,12 +42,13 @@ sys_read(int fd, void* buf, size_t count)
 }
 
 ssize_t
-sys_write(int fd, const void* buf, size_t count)
+sys_write(struct HANDLE* handle, const void* buf, size_t count)
 {
-	if (fd < 0 || fd >= THREAD_MAX_FILES)
-		return -1;
 	struct THREAD* t = PCPU_GET(curthread);
-	struct VFS_FILE* file = &t->file[fd];
+	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE))
+		return -1;
+
+	struct VFS_FILE* file = &handle->data.vfs_file;
 	if (file->inode == NULL && file->device == NULL)
 		return -1;
 
@@ -64,64 +59,199 @@ sys_write(int fd, const void* buf, size_t count)
 	return vfs_write(file, x, count);
 }
 
-int
+void*
 sys_open(const char* path, int flags)
 {
 	struct THREAD* t = PCPU_GET(curthread);
-
-	int fd = find_avail_fd(t);
-	if (fd < 0)
-		return -1;
+	struct HANDLE* handle = handle_alloc(HANDLE_TYPE_FILE, t);
+	if (handle == NULL)
+		return NULL;
 
 	char* userpath = map_string(t, (void*)path);
-	if (userpath == NULL)
-		return -1;
+	if (userpath == NULL) {
+		handle_free(handle);
+		return NULL;
+	}
 
-	if (!vfs_open(userpath, &t->file[fd]))
-		return -1;
-	return fd;
+	struct VFS_FILE* file = &handle->data.vfs_file;
+	if (!vfs_open(userpath, file)) {
+		handle_free(handle);
+		return NULL;
+	}
+	return handle;
 }
 
-void
-sys_close(int fd)
+int
+sys_close(struct HANDLE* handle)
 {
-	if (fd < 0 || fd >= THREAD_MAX_FILES)
-		return;
-
 	struct THREAD* t = PCPU_GET(curthread);
-	struct VFS_FILE* file = &t->file[fd];
-	vfs_close(file);
+	if (!handle_isvalid(handle, t, HANDLE_TYPE_ANY))
+		return -1;
+
+	handle_free(handle);
+	return 0;
+}
+
+void*
+sys_clone(struct HANDLE* handle)
+{
+	struct THREAD* t = PCPU_GET(curthread);
+	if (!handle_isvalid(handle, t, HANDLE_TYPE_ANY))
+		return NULL;
+
+	return handle_clone(handle);
 }
 
 off_t
-sys_lseek(int fd, off_t offset, int whence)
+sys_seek(struct HANDLE* handle, off_t offset, int whence)
 {
-	if (fd < 0 || fd >= THREAD_MAX_FILES)
+	struct THREAD* t = PCPU_GET(curthread);
+	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE))
 		return -1;
 
-	struct THREAD* t = PCPU_GET(curthread);
-	struct VFS_FILE* file = &t->file[fd];
-	if (file->inode == NULL)
-		return 0;
+	struct VFS_FILE* file = &handle->data.vfs_file;
+	if (file->inode == NULL && file->device == NULL)
+		return -1;
 
 	/* TODO */
 	return -1;
 }
 
 int
-sys_getdirents(int fd, void* buf, size_t size)
+sys_getdirents(struct HANDLE* handle, void* buf, size_t size)
 {
-	if (fd < 0 || fd >= THREAD_MAX_FILES)
-		return -1;
 	struct THREAD* t = PCPU_GET(curthread);
-	struct VFS_FILE* file = &t->file[fd];
-	if (file->inode == NULL)
+	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE))
 		return -1;
+
+	/* XXX check file for directory */
+	void* x = md_map_thread_memory(t, (void*)buf, size, 1);
+	if (x == NULL)
+		return -1;
+
+	struct VFS_FILE* file = &handle->data.vfs_file;
+	if (file->inode == NULL && file->device == NULL)
+		return -1;
+
+	return vfs_readdir(file, x, size);
+}
+
+int
+sys_getcwd(char* buf, size_t size)
+{
+	struct THREAD* t = PCPU_GET(curthread);
 
 	void* x = md_map_thread_memory(t, (void*)buf, size, 1);
 	if (x == NULL)
 		return -1;
-	return vfs_readdir(file, x, size);
+
+	strncpy(x, t->current_path, size);
+	return 0;
+}
+
+int
+sys_setcwd(void* handle)
+{
+	struct THREAD* t = PCPU_GET(curthread);
+	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE))
+		return -1;
+
+	/* XXX check file for directory */
+
+	return 0;
+}
+
+int
+sys_chdir(const char* buf)
+{
+	struct THREAD* t = PCPU_GET(curthread);
+
+	char* userpath = map_string(t, (void*)buf);
+	if (userpath == NULL)
+		return -1;
+
+	kprintf("chdir: todo\n");
+	return -1;
+}
+
+int
+sys_stat(struct HANDLE* handle, struct stat* sb)
+{
+	struct THREAD* t = PCPU_GET(curthread);
+	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE))
+		return -1;
+
+	void* x = md_map_thread_memory(t, (void*)sb, sizeof(struct stat), 1);
+	if (x == NULL)
+		return -1;
+
+	return 0;
+}
+
+handle_event_result_t
+sys_wait(void* handle, handle_event_t* event)
+{
+	struct THREAD* t = PCPU_GET(curthread);
+	if (!handle_isvalid(handle, t, HANDLE_TYPE_ANY))
+		return -1;
+
+	handle_event_t* e = NULL;
+	if (event != NULL) {
+		e = md_map_thread_memory(t, (void*)event, sizeof(handle_event_t), 1);
+		if (e == NULL)
+			return -1;
+	}
+
+	return handle_wait(t, handle, e);
+}
+
+void*
+sys_summon(struct HANDLE* handle, int flags, const char* args)
+{
+	struct THREAD* t = PCPU_GET(curthread);
+	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE /* XXX for now */))
+		return NULL;
+
+	if (args != NULL) {
+		args = map_string(t, (void*)args);
+		if (args == NULL)
+			return NULL;
+	}
+
+	/* create a new thread */
+	struct THREAD* newthread = thread_alloc();
+	if (newthread == NULL)
+		return NULL;
+	if (!elf_load_from_file(newthread, &handle->data.vfs_file)) {
+		/* failure - no option but to kill the thread */
+		thread_free(newthread);
+		thread_destroy(newthread);
+		return NULL;
+	}
+
+	if (args != NULL)
+		thread_set_args(newthread, args);
+
+	thread_resume(newthread); /* XXX */
+	return newthread->thread_handle;
+}
+
+int sys_remove(struct HANDLE* handle)
+{
+	struct THREAD* t = PCPU_GET(curthread);
+	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE /* XXX for now */))
+		return -1;
+
+	return -1;
+}
+
+off_t sys_truncate(struct HANDLE* handle, off_t offs)
+{
+	struct THREAD* t = PCPU_GET(curthread);
+	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE /* XXX for now */))
+		return -1;
+
+	return -1;
 }
 
 /* vim:set ts=2 sw=2: */

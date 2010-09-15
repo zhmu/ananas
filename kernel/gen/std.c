@@ -3,9 +3,9 @@
 #include <sys/thread.h>
 
 void
-sys_exit()
+sys_exit(int exitcode)
 {
-	thread_exit();
+	thread_exit(THREAD_MAKE_EXITCODE(THREAD_TERM_SYSCALL, exitcode));
 }
 
 void*
