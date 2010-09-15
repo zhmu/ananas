@@ -49,6 +49,8 @@ static uint8_t atkbd_keymap_shift[128] = {
 
 #define ATKBD_BUFFER_SIZE	16
 #define ATKBD_FLAG_SHIFT 1
+#define ATKBD_FLAG_CONTROL 2
+#define ATKBD_FLAG_ALT 4
 
 uint8_t atkbd_buffer[ATKBD_BUFFER_SIZE];
 uint8_t atkbd_buffer_readpos = 0;
@@ -67,8 +69,30 @@ atkbd_irq(device_t dev)
 			atkbd_flags |=  ATKBD_FLAG_SHIFT;
 		return;
 	}
+	/* right-alt is 0xe0 0x38 but that does not matter */
+	if ((scancode & 0x7f) == 0x38 /* ALT */) {
+		if (scancode & 0x80)
+			atkbd_flags &= ~ATKBD_FLAG_ALT;
+		else
+			atkbd_flags |=  ATKBD_FLAG_ALT;
+		return;
+	}
+	/* right-control is 0xe0 0x1d but that does not matter */
+	if ((scancode & 0x7f) == 0x1d /* CONTROL */) {
+		if (scancode & 0x80)
+			atkbd_flags &= ~ATKBD_FLAG_CONTROL;
+		else
+			atkbd_flags |=  ATKBD_FLAG_CONTROL;
+		return;
+	}
 	if (scancode & 0x80)
 		return;
+
+	/* XXX debug */
+	if ((atkbd_flags == ATKBD_FLAG_CONTROL | ATKBD_FLAG_SHIFT) && scancode == 0x29 /* tilde */) {
+		thread_dump();
+		return;
+	}
 
 	uint8_t ascii = ((atkbd_flags & ATKBD_FLAG_SHIFT) ? atkbd_keymap_shift : atkbd_keymap)[scancode];
 	if (ascii == 0)
