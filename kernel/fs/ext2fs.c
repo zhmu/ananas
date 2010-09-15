@@ -112,6 +112,9 @@ ext2_dump_inode(struct EXT2_INODE* inode)
 static block_t
 ext2_find_block(struct VFS_FILE* file, block_t block)
 {
+	KASSERT(file->inode != NULL, "file without inode");
+	KASSERT(file->inode->fs != NULL, "file without fs");
+
 	struct VFS_MOUNTED_FS* fs = file->inode->fs;
 	struct EXT2_FS_PRIVDATA* fs_privdata = (struct EXT2_FS_PRIVDATA*)file->inode->fs->privdata;
 	struct EXT2_INODE_PRIVDATA* in_privdata = (struct EXT2_INODE_PRIVDATA*)file->inode->privdata;
@@ -254,7 +257,6 @@ ext2_lookup(struct VFS_INODE* dirinode, const char* dentry)
 {
 	struct VFS_FILE dir;
 	char tmp[1024]; /* XXX */
-	char* tmp_ptr = tmp;
 
 	/*
 	 * XXX This is a very naive implementation which does not use the
@@ -267,9 +269,10 @@ ext2_lookup(struct VFS_INODE* dirinode, const char* dentry)
 		if (left <= 0)
 			break;
 
+		char* cur_ptr = tmp;
 		while (left > 0) {
-			struct VFS_DIRENT* de = (struct VFS_DIRENT*)tmp_ptr;
-			left -= DE_LENGTH(de); tmp_ptr += DE_LENGTH(de);
+			struct VFS_DIRENT* de = (struct VFS_DIRENT*)cur_ptr;
+			left -= DE_LENGTH(de); cur_ptr += DE_LENGTH(de);
 			
 			if (strcmp(de->de_fsop + de->de_fsop_length, dentry) != 0)
 				continue;
