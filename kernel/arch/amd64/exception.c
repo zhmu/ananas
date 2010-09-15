@@ -50,7 +50,7 @@ exception_generic(struct STACKFRAME* sf)
 	kprintf("errnum=%p, ss:esp = %x:%p\n", sf->sf_errnum, sf->sf_ss, sf->sf_sp);
 	if (userland) {
 		/* A thread was naughty. Kill it */
-		thread_exit();
+		thread_exit(THREAD_MAKE_EXITCODE(THREAD_TERM_FAULT, sf->sf_trapno));
 		/* NOTREACHED */
 	}
 	panic("kernel exception");
