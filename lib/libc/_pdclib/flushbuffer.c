@@ -16,8 +16,6 @@
 #ifndef REGTEST
 #include <_PDCLIB/_PDCLIB_glue.h>
 
-extern ssize_t sys_write( int fd, const void * buf, size_t count );
-
 /* The number of attempts to complete an output buffer flushing before giving
  *    up.
  *    */
@@ -41,7 +39,7 @@ int _PDCLIB_flushbuffer( struct _PDCLIB_file_t * stream )
     */
     for ( unsigned int retries = _PDCLIB_IO_RETRIES; retries > 0; --retries )
     {
-        rc = (int)sys_write( stream->handle, stream->buffer + written, stream->bufidx - written );
+        rc = (int)write( stream->handle, stream->buffer + written, stream->bufidx - written );
         if ( rc < 0 )
         {
 	/* XXX Ananas: no errno yet */

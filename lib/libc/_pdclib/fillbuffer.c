@@ -15,12 +15,10 @@
 #ifndef REGTEST
 #include <_PDCLIB/_PDCLIB_glue.h>
 
-extern ssize_t sys_read( int fd, void * buf, size_t count );
-
 int _PDCLIB_fillbuffer( struct _PDCLIB_file_t * stream )
 {
     /* No need to handle buffers > INT_MAX, as PDCLib doesn't allow them */
-    ssize_t rc = sys_read( stream->handle, stream->buffer, stream->bufsize );
+    ssize_t rc = read( stream->handle, stream->buffer, stream->bufsize );
     if ( rc > 0 )
     {
         /* Reading successful. */

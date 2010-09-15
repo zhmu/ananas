@@ -19,9 +19,10 @@
 
 #include <sys/types.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <unistd.h>
 
-int _PDCLIB_open( char const * const filename, unsigned int mode )
+_PDCLIB_fd_t _PDCLIB_open( char const * const filename, unsigned int mode )
 {
     /* This is an example implementation of _PDCLIB_open() fit for use with
        POSIX kernels.
@@ -50,22 +51,24 @@ int _PDCLIB_open( char const * const filename, unsigned int mode )
             osmode = O_RDWR | O_APPEND | O_CREAT;
             break;
         default: /* Invalid mode */
-            return -1;
+            return (_PDCLIB_fd_t)0;
     }
-    int rc;
+    _PDCLIB_fd_t rc;
+#if 0
     if ( osmode & O_CREAT )
     {
 	/* XXX Ananas: cannot yet create either */
-        rc = sys_open( filename, osmode /* , S_IRUSR | S_IWUSR */ );
+        rc = open( filename, osmode /* , S_IRUSR | S_IWUSR */ );
     }
     else
     {
-        rc = sys_open( filename, osmode );
+#endif
+        rc = open( filename, osmode );
+#if 0
     }
+#endif
     if ( rc == -1 )
     {
-	/* XXX Ananas: no errno yet */
-#if 0
         switch ( errno )
         {
             case EACCES:
@@ -86,11 +89,8 @@ int _PDCLIB_open( char const * const filename, unsigned int mode )
             case ETXTBSY:
                 _PDCLIB_errno = _PDCLIB_EIO;
             default:
-#endif
                 _PDCLIB_errno = _PDCLIB_EUNKNOWN;
-#if 0
         }
-#endif
     }
     return rc;
 }

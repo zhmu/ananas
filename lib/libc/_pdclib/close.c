@@ -10,16 +10,14 @@
    kernels.
 */
 
-#include <stdio.h>
+#include <unistd.h>
 
 #ifndef REGTEST
 #include <_PDCLIB/_PDCLIB_glue.h>
 
-extern int sys_close( int fd );
-
-int _PDCLIB_close( int fd )
+int _PDCLIB_close( _PDCLIB_fd_t fd )
 {
-    return sys_close( fd );
+    return close( fd );
 }
 
 #endif

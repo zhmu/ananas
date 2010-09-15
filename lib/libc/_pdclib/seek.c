@@ -13,8 +13,6 @@
 #include <_PDCLIB/_PDCLIB_glue.h>
 #endif
 
-extern int sys_lseek( int fd, int offset, int whence );
-
 _PDCLIB_int64_t _PDCLIB_seek( struct _PDCLIB_file_t * stream, _PDCLIB_int64_t offset, int whence )
 {
     switch ( whence )
@@ -29,7 +27,7 @@ _PDCLIB_int64_t _PDCLIB_seek( struct _PDCLIB_file_t * stream, _PDCLIB_int64_t of
             return EOF;
             break;
     }
-    _PDCLIB_int64_t rc = sys_lseek( stream->handle, offset, whence );
+    _PDCLIB_int64_t rc = lseek( stream->handle, offset, whence );
     if ( rc != EOF )
     {
         stream->ungetidx = 0;
