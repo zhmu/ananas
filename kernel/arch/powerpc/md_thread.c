@@ -38,6 +38,9 @@ md_thread_init(thread_t t)
 	thread_mapto(t, stack_addr, t->md_stack, THREAD_STACK_SIZE, 0);
 	t->md_ctx.sf.sf_reg[1] = stack_addr + THREAD_STACK_SIZE;
 
+	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
+	memset(t->md_kstack, 0, KERNEL_STACK_SIZE);
+
 	/*
 	 * Initially, the E500 ABI specifies that the stack frame
 	 * must be 16 byte aligned, and that it must point to a single
@@ -56,7 +59,7 @@ md_thread_init(thread_t t)
 }
 
 void
-md_thread_destroy(thread_t t)
+md_thread_free(thread_t t)
 {
 	/* XXX we should unmap everything the thread has mapped here */
 	kfree(t->md_stack);
@@ -117,6 +120,12 @@ void
 md_thread_set_entrypoint(thread_t thread, addr_t entry)
 {
 	thread->md_ctx.sf.sf_srr0 = entry;
+}
+
+void
+md_thread_set_argument(thread_t thread, addr_t arg)
+{
+	thread->md_ctx.sf.sf_r3 = arg;
 }
 
 /* vim:set ts=2 sw=2: */
