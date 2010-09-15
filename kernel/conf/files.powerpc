@@ -1,7 +1,6 @@
 # Note that the order in this file is the same order passed to the linker!
 arch/powerpc/stub.S		mandatory
 arch/powerpc/startup.c		mandatory
-arch/powerpc/cntx.S		mandatory
 arch/powerpc/vm.c		mandatory
 arch/powerpc/mmu.c		mandatory
 arch/powerpc/md_thread.c	mandatory
