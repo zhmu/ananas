@@ -9,6 +9,7 @@ kern/scheduler.c	mandatory
 kern/syscall.c		mandatory
 kern/irq.c		mandatory
 kern/bio.c		mandatory
+kern/handle.c		mandatory
 kern/vfs.c		mandatory
 kern/tty.c		mandatory
 lib/kern/misc.c		mandatory
