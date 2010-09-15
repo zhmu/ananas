@@ -16,54 +16,24 @@ extern struct _PDCLIB_file_t * _PDCLIB_filelist;
 
 struct _PDCLIB_file_t * fopen( const char * _PDCLIB_restrict filename, const char * _PDCLIB_restrict mode )
 {
-    struct _PDCLIB_file_t * rc;
     if ( mode == NULL || filename == NULL || filename[0] == '\0' )
     {
         /* Mode or filename invalid */
         return NULL;
     }
-    if ( ( rc = calloc( 1, sizeof( struct _PDCLIB_file_t ) ) ) == NULL )
-    {
-        /* no memory for another FILE */
-        return NULL;
-    }
-    if ( ( rc->status = _PDCLIB_filemode( mode ) ) == 0 ) 
-    {
-        /* invalid mode */
-        free( rc );
-        return NULL;
-    }
-    rc->handle = _PDCLIB_open( filename, rc->status );
-    if ( rc->handle == _PDCLIB_NOHANDLE )
+
+    int fd = _PDCLIB_open( filename, _PDCLIB_filemode(mode) );
+    if ( fd == _PDCLIB_NOHANDLE )
     {
         /* OS open() failed */
-        free( rc );
         return NULL;
     }
-    /* Adding to list of open files */
-    rc->next = _PDCLIB_filelist;
-    _PDCLIB_filelist = rc;
-    /* Setting buffer, and mark as internal. TODO: Check for unbuffered */
-    if ( ( rc->buffer = malloc( BUFSIZ ) ) == NULL )
-    {
-        free( rc );
-        return NULL;
+
+    struct _PDCLIB_file_t* rc = fdopen( fd, mode );
+    if (rc == NULL) {
+        /* open failure */
+        _PDCLIB_close( fd );
     }
-    if ( ( rc->ungetbuf = malloc( _PDCLIB_UNGETCBUFSIZE ) ) == NULL )
-    {
-       free( rc->buffer );
-       free( rc );
-       return NULL;
-    }
-    rc->bufsize = BUFSIZ;
-    rc->bufidx = 0;
-    rc->ungetidx = 0;
-    /* Setting buffer to _IOLBF because "when opened, a stream is fully
-       buffered if and only if it can be determined not to refer to an
-       interactive device."
-    */
-    rc->status |= _PDCLIB_LIBBUFFER | _IOLBF;
-    /* TODO: Setting mbstate */
     return rc;
 }
 

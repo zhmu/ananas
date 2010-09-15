@@ -13,6 +13,10 @@
 
 #include <stdint.h>
 
+/* XXX this is a horrible hack to prevent a segfault; min is actually one less */
+#undef LLONG_MIN
+#define LLONG_MIN  -9223372036854775807
+
 long long int strtoll( const char * s, char ** endptr, int base )
 {
     long long int rc;

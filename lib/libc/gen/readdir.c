@@ -1,4 +1,7 @@
 #include <sys/types.h>
+#include <sys/handle.h>
+#include <sys/stat.h>
+#include <string.h>
 #include <dirent.h>
 #include <syscalls.h>
 

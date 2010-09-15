@@ -13,7 +13,7 @@ ASMFLAGS=	$(CFLAGS) -DASM
 		$(CC) $(CFLAGS) -c -o $@ $<
 
 syscall.o:	$S/arch/${ARCH}/syscall.S $S/gen/syscalls.inc.S
-		$(CC) $(CFLAGS) -c -o syscall.o $S/arch/${ARCH}/syscall.S
+		$(CC) $(CFLAGS) -DASM -c -o syscall.o $S/arch/${ARCH}/syscall.S
 
 machine:	$S/../../include/sys/${ARCH}
 		ln -sf $S/../../include/sys/${ARCH} machine
