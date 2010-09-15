@@ -147,6 +147,12 @@ md_thread_set_entrypoint(thread_t thread, addr_t entry)
 }
 
 void
+md_thread_set_argument(thread_t thread, addr_t arg)
+{
+	thread->md_ctx.esi = arg;
+}
+
+void
 md_thread_setidle(thread_t thread)
 {
 	/*
@@ -155,6 +161,30 @@ md_thread_setidle(thread_t thread)
 	 */
 	thread->md_ctx.cs = GDT_SEL_KERNEL_CODE;
 	thread->md_ctx.eip = (addr_t)&md_idle_thread;
+}
+	
+void
+md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
+{
+	/* Copy the entire context over */
+	memcpy(&t->md_ctx, &parent->md_ctx, sizeof(t->md_ctx));
+
+	/*
+	 * XXX upon activating the thread; information will get
+	 * overwritten so do it at a point where we don't care.
+	 */
+	t->md_ctx.esp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE - 128;
+
+	t->md_ctx.cr3  = (addr_t)t->md_pagedir;
+
+	/* Copy stack contents */
+	memcpy(t->md_stack,  parent->md_stack, THREAD_STACK_SIZE);
+	memcpy(t->md_kstack, parent->md_kstack, KERNEL_STACK_SIZE);
+
+	/* Handle return value */
+	t->md_ctx.cs = GDT_SEL_KERNEL_CODE;
+	t->md_ctx.eip = (addr_t)&clone_return;
+	t->md_ctx.eax = retval;
 }
 
 /* vim:set ts=2 sw=2: */

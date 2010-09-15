@@ -331,6 +331,51 @@ syscall_int:
 	leave
 	iret
 
+clone_return:
+	/*
+	 * We expect to be called with %esp as the main kernel
+	 * stack for the new thread; we have to do some nifty
+	 * calculations to line up with the registers we intend
+	 * to store.
+	 *
+	 * We need to go 6 * 4 bytes back; this allows us to
+	 * retrieve %ebp, %eip, %cs, %eflags and %ss. However,
+	 * we came here by an kernel->kernel switch, so the
+	 * top 2 * 4 bytes have been overwritten by cs:eip where
+	 * we came from - as we have shifted the stack 128 bytes,
+	 * this means we have to go that amount back minus 16
+	 * bytes (6 * 4 - 2 * 4 = 4 * 4 = 16).
+	 */
+	addl	$(128 - 16), %esp
+
+	/*
+	 * There will be a 32-byte stackframe here created for the
+	 * system call structure; our saved %ebx, %esi etc are
+	 * beyond that so grab 'm.
+	 *
+	 * Note that we must use -36 as the initial offset as the
+	 * frame starts at offset -4 from where we are now ...
+	 */
+	movl	-36(%esp), %ebx
+	movl	-40(%esp), %esi
+	movl	-44(%esp), %edi
+	movl	-48(%esp), %eax
+	movw	%ax, %ds
+	movl	-52(%esp), %eax
+	movw	%ax, %es
+	movl	-56(%esp), %eax
+	movw	%ax, %fs
+
+	/*
+	 * XXX hack: force return value of zero - should be
+	 * made more generic somehow.
+	 */
+	xorl	%eax, %eax
+
+	/* Finally, restore our %ebp and return to the new thread */
+	pop	%ebp
+	iret
+
 #ifdef SMP
 spurious_irq:
 	iret
