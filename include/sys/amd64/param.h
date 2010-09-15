@@ -1,3 +1,6 @@
+/* amd64 is little endian */
+#define LITTLE_ENDIAN
+
 /* Page size */
 #define PAGE_SIZE		4096
 
