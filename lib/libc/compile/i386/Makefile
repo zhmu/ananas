@@ -1,4 +1,4 @@
-ARGET:		libc.a
+TARGET:		libc.a
 TC_PREFIX?=	../../../../toolchain/prefix.i386
 
 CFLAGS=		-I$S/../../include -I. -std=c99 
@@ -8,7 +8,7 @@ ARCH=		i386
 CC=		${TC_PREFIX}/bin/i586-elf-ananas-gcc
 AR=		${TC_PREFIX}/bin/i586-elf-ananas-ar
 
-MDOBJS		+= md_syscall.o setjmp.o
+MDOBJS		+= setjmp.o
 
 include		../../conf/Makefile.std
 

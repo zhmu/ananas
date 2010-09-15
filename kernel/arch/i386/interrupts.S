@@ -9,6 +9,7 @@
 .globl irq0, irq1, irq2, irq3, irq4, irq5, irq6, irq7, irq8, irq9
 .globl irq10, irq11, irq12, irq13, irq14, irq15
 .globl scheduler_irq, syscall_int, spurious_irq
+.globl clone_return
 
 #include "options.h"
 #include "machine/param.h"
@@ -253,15 +254,36 @@ syscall_int:
 	pushl	%fs
 
 	/*
+	 * Fetch the caller's stack pointer; this will be saved at our
+	 * current stack - but note that we have already created a
+	 * stackframe, so we just use that as base.
+	 *
+	 * The 16 comes from stored %ebp, %eip, %cs, %flags, %esp, %ss
+	 * as they occur on offsets 0     4     8    12      16
+	 */
+	movl 16(%ebp), %esi
+
+	/* 
+	 * Store the caller's cs:eip 
+	 */
+	movw	$GDT_SEL_KERNEL_PCPU, %bx
+	movw	%bx, %fs
+
+	/*
 	 * Set up a pointer to the structure, and copy 6 arguments
 	 * in place. Note that the stack grows backward, so we need
 	 * to place them in reverse order.
 	 */
 	movl	%eax, -28(%ebp)
-	movl	%ebx, -24(%ebp)
-	movl	%ecx, -20(%ebp)
-	movl	%edx, -16(%ebp)
-	movl	%esi, -12(%ebp)
+	movl	 4(%esi), %eax
+	movl	 8(%esi), %ebx
+	movl	12(%esi), %ecx
+	movl	16(%esi), %edx
+	movl	20(%esi), %edi
+	movl	%eax, -24(%ebp)
+	movl	%ebx, -20(%ebp)
+	movl	%ecx, -16(%ebp)
+	movl	%edx, -12(%ebp)
 	movl	%edi,  -8(%ebp)
 
 	/*
