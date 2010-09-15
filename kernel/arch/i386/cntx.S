@@ -272,6 +272,14 @@ reschedule:
 	movl	%ebp, 0x18(%eax)
 	movl	%esp, 0x1c(%eax)
 
+	/*
+	 * Note that the 'call' we are about to do
+	 * decrements esp by 4, so adjust.
+	 */
+	movl	%esp, %ebx
+	subl	$4, %ebx
+	movl	%ebx, 0x1c(%eax)
+
 	/* Now, insert our return point, %cs:%eip */
 	movl	$GDT_SEL_KERNEL_CODE, 0x24(%eax)
 	movl	$reschedule_back, 0x20(%eax)
