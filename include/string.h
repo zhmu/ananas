@@ -180,4 +180,6 @@ char * strerror( int errnum );
 */
 size_t strlen( const char * s );
 
+char* strerror(int errnum);
+
 #endif

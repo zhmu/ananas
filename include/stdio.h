@@ -149,6 +149,11 @@ int fflush( FILE * stream );
 */
 FILE * fopen( const char * _PDCLIB_restrict filename, const char * _PDCLIB_restrict mode );
 
+/*
+   Associate a stream with a file descriptor
+ */ 
+FILE * fdopen( int fildes, const char * _PDCLIB_restrict mode );
+
 /* Close any file currently associated with the given stream. Open the file
    identified by the given filename with the given mode (equivalent to fopen()),
    and associate it with the given stream. If filename is a NULL pointer,
@@ -737,6 +742,9 @@ int fgetpos( FILE * _PDCLIB_restrict stream, fpos_t * _PDCLIB_restrict pos );
 */
 int fseek( FILE * stream, long int offset, int whence );
 
+/* fseeko() is fseek() with an off_t typed offset */
+int fseeko( FILE * stream, off_t offset, int whence );
+
 /* Set the position indicator (and, where appropriate the mbstate_t status
    object) for the given stream to the given pos object (created by an earlier
    call to fgetpos() on the same file).
@@ -757,6 +765,9 @@ int fsetpos( FILE * stream, const fpos_t * pos );
    TODO: Implementation-defined errno setting for ftell().
 */
 long int ftell( FILE * stream );
+
+/* ftello() is ftell() returning an off_t */
+off_t ftello( FILE * stream );
 
 /* Equivalent to (void)fseek( stream, 0L, SEEK_SET ), except that the error
    indicator for the stream is also cleared.
@@ -787,5 +798,11 @@ void perror( const char * s );
 
 /* Convert an error code to a string */
 char* strerror( int errnum );
+
+/* Map a stream pointer to a file descriptor */
+int fileno( FILE * stream );
+
+/* extensions */
+int fpurge( FILE * stream );
 
 #endif /* __STDIO_H__ */

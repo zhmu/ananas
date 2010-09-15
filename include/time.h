@@ -17,6 +17,12 @@ struct tm {
 	long tm_gmtoff;		/* offset from UTC in seconds */
 };
 
+struct timespec {
+	time_t	tv_sec;		/* Seconds */
+	long	tv_nsec;	/* Nanoseconds */
+};
+
+void tzset(void);
 time_t time(time_t* loc);
 clock_t clock(void);
 struct tm* gmtime(const time_t* clock);
@@ -24,5 +30,6 @@ struct tm* localtime(const time_t* clock);
 time_t mktime(struct tm* tm);
 double difftime(time_t time1, time_t time0);
 size_t strftime(char* buf, size_t maxsize, const char* format, const struct tm* timeptr);
+int nanosleep(const struct timespec* rqtp, struct timespec* rmtp);
 
 #endif /* __TIME_H__ */
