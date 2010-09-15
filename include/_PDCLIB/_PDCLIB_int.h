@@ -21,7 +21,8 @@
 #include <_PDCLIB/_PDCLIB_aux.h>
 #endif
 
-#include <stdint.h>
+#include <machine/_stdint.h>
+#include <machine/_types.h>
 #include <limits.h>
 
 /* null pointer constant */
