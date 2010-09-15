@@ -244,6 +244,7 @@ vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, cons
 	int de_length = sizeof(struct VFS_DIRENT) + fsoplen + namelen;
 	if (*size < de_length)
 		return 0;
+	*size -= de_length;
 
 	struct VFS_DIRENT* de = (struct VFS_DIRENT*)*dirents;
 	*dirents += de_length;
