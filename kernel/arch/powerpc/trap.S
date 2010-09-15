@@ -3,6 +3,7 @@
 .globl	syscall_int, syscall_int_len
 .globl	dsi_trap, dsi_trap_len
 .globl	md_thread_switch
+.globl	reschedule
 
 .globl	trapreturn /* DEBUG */
 
@@ -368,17 +369,155 @@ md_thread_switch:
 syscallcode:
 	/*
 	 * According to the E500 architecture ABI, we do not need to store
-	 * all registers; only r1, r2, r13-r31, lr and cr must be saved.
+	 * all registers; only r1, r2, r13-r31, lr and cr must be saved -
+	 * but we also need srr0 and srr1 as these determine the context
+	 * we will return to.
 	 *
-	 * Note that we also store srr0/srr1 because these will get destroyed
-	 * by interrupts.
-	 *
+	 * What we do is, we store these on the caller's stack; this makes
+	 * things work should we get interrupted by an interrupt, since it
+	 * will just restore us to where we were. We make a standard stack-
+	 * frame, which eases debugging and already stores %lr and %r31,
+	 * which we need to store anyway.
+	 * 
 	 * XXX is storing r13 really needed?
+	 *
+	 * XXX we shouldn't use the userland stack for storing temp data,
+	 *     it can be influenced by other threads and is insecure XXX
+	 */
+
+	/*
+	 * First of all, enable data/instruction translation; this gives us access
+	 * to the caller's stack.
+	 */
+	mfmsr	%r10
+	ori	%r10, %r10, (MSR_DR | MSR_IR)
+	mtmsr	%r10
+	isync				/* XXX is this necessary? mtmsr is context switching? */
+
+	/* Create the stack frame */
+	stwu	%r1, -128(%r1)
+	mflr	%r10			/* store LR */
+	stw	%r10, 132(%r1)
+	stw	%r31, 124(%r1)		/* store %r31 */
+	mr	%r31, %r1		/* %r31 = stack frame */
+
+	/* Store the registers outlined above */
+	stw	%r2,   16(%r31)
+	stw	%r13,  20(%r31)
+	stw	%r14,  24(%r31)
+	stw	%r15,  28(%r31)
+	stw	%r16,  32(%r31)
+	stw	%r17,  36(%r31)
+	stw	%r18,  40(%r31)
+	stw	%r19,  44(%r31)
+	stw	%r20,  48(%r31)
+	stw	%r21,  52(%r31)
+	stw	%r22,  56(%r31)
+	stw	%r23,  60(%r31)
+	stw	%r24,  64(%r31)
+	stw	%r25,  68(%r31)
+	stw	%r26,  72(%r31)
+	stw	%r27,  76(%r31)
+	stw	%r28,  80(%r31)
+	stw	%r29,  84(%r31)
+	stw	%r30,  88(%r31)
+	mfcr	%r10
+	mfsrr0	%r11
+	mfsrr1	%r12
+	stw	%r10,  92(%r31)
+	stw	%r11,  96(%r31)
+	stw	%r12, 100(%r31)
+
+	/*
+	 * OK; we have stored enough of our context. We can use any register
+	 * we want - so let's start by responding the kernel's segments. We
+	 * need this in order to access the thread's kernel stack, as the
+	 * thread itself will not have it mapped.
+	 */
+	lis	%r10, bsp_sf@ha
+	addi	%r10, %r10, bsp_sf@l
+	RESTORE_SREGS(%r10)
+
+	/* Let us switch to our process kernel stack */
+	mfsprg0	%r10				/* Get PCPU data */
+	lwz	%r10,(PCPU_CURTHREAD)(%r10)
+	lwz	%r1,(THREAD_KSTACK)(%r10)
+
+	/* Create the SYSCALL_ARGS structure */
+	stwu	%r1,-64(%r1)		/* XXX should be x >= sizeof(args) where x mod 16 = 0 */
+	addi	%r30, %r1, 8
+	stw	%r0, SC_NUMBER(%r30)
+	stw	%r3, SC_ARG1(%r30)
+	stw	%r4, SC_ARG2(%r30)
+	stw	%r5, SC_ARG3(%r30)
+	stw	%r6, SC_ARG4(%r30)
+	stw	%r7, SC_ARG5(%r30)
+
+	/*
+	 * Launch the system call handler - we use the fact that
+	 * it wil not touch %r31 here
+	 */
+	mr	%r3, %r30
+	bl	syscall
+
+	/*
+	 * Restore the thread segment registers; we cannot access the user stack
+	 * without doing so.
+	 */
+	mfsprg0	%r1
+	lwz	%r1,(PCPU_CONTEXT)(%r1)
+	RESTORE_SREGS(%r1)
+
+	/* Restore the registers */
+	lwz	%r10, 100(%r31)
+	lwz	%r11,  96(%r31)
+	lwz	%r12,  92(%r31)
+	mtsrr0	%r11
+	mtsrr1	%r10
+	mtcr	%r12
+	lwz	%r30,  88(%r31)
+	lwz	%r29,  84(%r31)
+	lwz	%r28,  80(%r31)
+	lwz	%r27,  76(%r31)
+	lwz	%r26,  72(%r31)
+	lwz	%r25,  68(%r31)
+	lwz	%r24,  64(%r31)
+	lwz	%r23,  60(%r31)
+	lwz	%r22,  56(%r31)
+	lwz	%r21,  52(%r31)
+	lwz	%r20,  48(%r31)
+	lwz	%r19,  44(%r31)
+	lwz	%r18,  40(%r31)
+	lwz	%r17,  36(%r31)
+	lwz	%r16,  32(%r31)
+	lwz	%r15,  28(%r31)
+	lwz	%r14,  24(%r31)
+	lwz	%r13,  20(%r31)
+	lwz	%r2,   16(%r31)
+
+	/* Tear down our stack frame */
+	addi	%r11, %r31, 128
+	lwz	%r0,  4(%r11)
+	mtlr	%r0
+	lwz	%r31, -4(%r11)
+	mr	%r1,  %r11
+	rfi
+
+reschedule:
+	/*
+	 * reschedule will be called from kernel context; all we need to
+	 * do is to update the caller's context so the next scheduling
+	 * takes us to reschedule_back - in effect, we are scheduling
+	 * a kernel-ish thread.
+	 *
+	 * Note that we only need to store part of our context, as this
+	 * will be considered a function call (the compiler doesn't care
+	 * that we have done the whole scheduler dance!)
 	 */
 	mfsprg0	%r10				/* Get PCPU data */
 	lwz	%r10,(PCPU_CONTEXT)(%r10)	/* Get current context in r10 */
 
-	/* Store the registers outlined above */
+	/* Store the registers as required by the ABI */
 	stw	%r1 ,  SF_R1 (%r10)
 	stw	%r2 ,  SF_R2 (%r10)
 	stw	%r13,  SF_R13(%r10)
@@ -402,91 +541,31 @@ syscallcode:
 	stw	%r31,  SF_R31(%r10)
 	mflr	%r14
 	mfcr	%r15
-	mfsrr0	%r16
+	lis	%r16,  reschedule_back@ha
+	addi	%r16,  %r16, reschedule_back@l
 	mfsrr1	%r17
+	li	%r17, 0x30 /* XXX fix me; we're boosting the thread here! */
 	stw	%r14,  SF_LR(%r10)
 	stw	%r15,  SF_CR(%r10)
 	stw	%r16, SF_SRR0(%r10)
 	stw	%r17, SF_SRR1(%r10)
 
-	/* Restore the kernel segment registers */
-	lis	%r1, bsp_sf@ha
-	addi	%r1, %r1, bsp_sf@l
-	RESTORE_SREGS(%r1)
+	/* Force the scheduler to pick a new thread */
+	b	schedule
 
-	/* Enable instruction/data translation */
-	mfmsr	%r2
-	ori	%r2, %r2, (MSR_DR | MSR_IR)
-	mtmsr	%r2
-	sync
-
+reschedule_back:
 	/*
-	 * Restore the kernel stack; as we are in a system call, we are done
-	 * bootstrapping the system so we can use it.
-	 * XXX This will mess up in SMP - we need per-cpu stacks there!
+	 * XXX force the kernel segmentation regs; we should
+	 *     add a flag to preventing the user-segment
+	 *     restoration as we are effectively undoing it.
 	 */
-	lis	%r1, stack@ha
-	addi	%r1, %r1, stack@l
-
-	/* Create the SYSCALL_ARGS structure */
-	stwu	%r1,-64(%r1)		/* XXX should be x >= sizeof(args) where x mod 16 = 0 */
-	addi	%r31, %r1, 8
-	stw	%r0, SC_NUMBER(%r31)
-	stw	%r3, SC_ARG1(%r31)
-	stw	%r4, SC_ARG2(%r31)
-	stw	%r5, SC_ARG3(%r31)
-	stw	%r6, SC_ARG4(%r31)
-	stw	%r7, SC_ARG5(%r31)
-
-	/* Launch the system call handler! */
-	mr	%r3, %r31
-	bl	syscall
-
-	/*
-	 * Now, it's time to restore our context. Note that %r3 and %r4 are
-	 * used to provide the system call return value, so we must not
-	 * trash them.
-	 */
-	mfsprg0	%r10				/* Get PCPU data */
-	lwz	%r10,(PCPU_CONTEXT)(%r10)	/* Get current context in r10 */
-
-	lwz	%r14,  SF_LR(%r10)
-	lwz	%r15,  SF_CR(%r10)
-	lwz	%r16, SF_SRR0(%r10)
-	lwz	%r17, SF_SRR1(%r10)
-	mtlr	%r14
-	mtcr	%r15
-	mtsrr0	%r16
-	mtsrr1	%r17
-
-	lwz	%r1 ,  SF_R1 (%r10)
-	lwz	%r2 ,  SF_R2 (%r10)
-	lwz	%r13,  SF_R13(%r10)
-	lwz	%r14,  SF_R14(%r10)
-	lwz	%r15,  SF_R15(%r10)
-	lwz	%r16,  SF_R16(%r10)
-	lwz	%r17,  SF_R17(%r10)
-	lwz	%r18,  SF_R18(%r10)
-	lwz	%r19,  SF_R19(%r10)
-	lwz	%r20,  SF_R20(%r10)
-	lwz	%r21,  SF_R21(%r10)
-	lwz	%r22,  SF_R22(%r10)
-	lwz	%r23,  SF_R23(%r10)
-	lwz	%r24,  SF_R24(%r10)
-	lwz	%r25,  SF_R25(%r10)
-	lwz	%r26,  SF_R26(%r10)
-	lwz	%r27,  SF_R27(%r10)
-	lwz	%r28,  SF_R28(%r10)
-	lwz	%r29,  SF_R29(%r10)
-	lwz	%r30,  SF_R30(%r10)
-	mtsprg2	%r30				/* Temporary store %r30 */
-	lwz	%r31,  SF_R31(%r10)
-
-	/* Store segment regs - this trashes %r30, so we place it in sprg2 */
+	lis	%r10, bsp_sf@ha
+	addi	%r10, %r10, bsp_sf@l
 	RESTORE_SREGS(%r10)
 
-	mfsprg2	%r30
-	rfi
+	/* XXX force the thread back to user mode */
+
+	blr
 
 .data
 .align  4
