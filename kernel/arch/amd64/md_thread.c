@@ -43,7 +43,7 @@ md_thread_init(thread_t t)
 }
 
 void
-md_thread_destroy(thread_t t)
+md_thread_free(thread_t t)
 {
 	kfree(t->md_pml4);
 	kfree(t->md_stack);
@@ -112,6 +112,12 @@ void
 md_thread_set_entrypoint(thread_t thread, addr_t entry)
 {
 	thread->md_ctx.sf.sf_rip = entry;
+}
+
+void
+md_thread_set_argument(thread_t thread, addr_t arg)
+{
+	thread->md_ctx.sf.sf_rsi = arg;
 }
 
 void
