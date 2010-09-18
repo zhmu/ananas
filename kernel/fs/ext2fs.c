@@ -252,7 +252,7 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 	return written;
 }
 
-struct VFS_INODE*
+static struct VFS_INODE*
 ext2_lookup(struct VFS_INODE* dirinode, const char* dentry)
 {
 	struct VFS_FILE dir;

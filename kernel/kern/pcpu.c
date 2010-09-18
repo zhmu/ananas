@@ -11,7 +11,7 @@ pcpu_init(struct PCPU* pcpu)
 	 * Initialize the per-CPU idle thread. This does not have to be per-CPU, but
 	 * this may come in handy later during stats-collection.
 	 */
-	thread_init(&pcpu->idlethread);
+	thread_init(&pcpu->idlethread, NULL);
 	md_thread_setidle(&pcpu->idlethread);
 	pcpu->idlethread_ptr = &pcpu->idlethread;
 }

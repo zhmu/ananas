@@ -139,10 +139,10 @@ void vfs_destroy_inode(struct VFS_INODE* inode);
 
 struct VFS_INODE* vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop);
 
-struct VFS_INODE* vfs_lookup(const char* dentry);
+struct VFS_INODE* vfs_lookup(const char* dentry, struct VFS_INODE* cwd);
 
 /* Higher-level interface */
-int vfs_open(const char* fname, struct VFS_FILE* file);
+int vfs_open(const char* fname, struct VFS_INODE* cwd, struct VFS_FILE* file);
 void vfs_close(struct VFS_FILE* file);
 size_t vfs_read(struct VFS_FILE* file, void* buf, size_t len);
 size_t vfs_write(struct VFS_FILE* file, const void* buf, size_t len);

@@ -10,11 +10,7 @@
 #include <elf.h>
 #include "options.h"
 
-#ifdef __i386__
-#define SHELL_BIN "/usr/bin/moonsh.i386"
-#elif defined(__amd64__)
-#define SHELL_BIN "/usr/bin/moonsh.amd64"
-#endif
+#define SHELL_BIN "/bin/sh"
 
 #define ROOT_DEVICE "slice0"
 
@@ -67,13 +63,14 @@ mi_startup()
 	/* Construct our shell process */
 #if 1
 #ifdef SHELL_BIN 
-	thread_t t1 = thread_alloc();
+	thread_t t1 = thread_alloc(NULL);
 
 	struct VFS_FILE f;
-	kprintf("- Lauching MoonShell from %s...", SHELL_BIN);
-	if (vfs_open(SHELL_BIN, &f)) {
+	kprintf("- Lauching %s...", SHELL_BIN);
+	if (vfs_open(SHELL_BIN, NULL, &f)) {
 		if (elf_load_from_file(t1, &f)) {
 			kprintf(" ok\n");
+			thread_set_args(t1, "sh\0\0");
 			thread_resume(t1);
 		} else {
 			kprintf(" fail\n");

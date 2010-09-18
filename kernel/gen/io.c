@@ -74,7 +74,7 @@ sys_open(const char* path, int flags)
 	}
 
 	struct VFS_FILE* file = &handle->data.vfs_file;
-	if (!vfs_open(userpath, file)) {
+	if (!vfs_open(userpath, t->path_handle->data.vfs_file.inode, file)) {
 		handle_free(handle);
 		return NULL;
 	}
@@ -137,41 +137,22 @@ sys_getdirents(struct HANDLE* handle, void* buf, size_t size)
 }
 
 int
-sys_getcwd(char* buf, size_t size)
-{
-	struct THREAD* t = PCPU_GET(curthread);
-
-	void* x = md_map_thread_memory(t, (void*)buf, size, 1);
-	if (x == NULL)
-		return -1;
-
-	strncpy(x, t->current_path, size);
-	return 0;
-}
-
-int
-sys_setcwd(void* handle)
+sys_setcwd(struct HANDLE* handle)
 {
 	struct THREAD* t = PCPU_GET(curthread);
 	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE))
 		return -1;
 
-	/* XXX check file for directory */
-
-	return 0;
-}
-
-int
-sys_chdir(const char* buf)
-{
-	struct THREAD* t = PCPU_GET(curthread);
-
-	char* userpath = map_string(t, (void*)buf);
-	if (userpath == NULL)
+	struct VFS_FILE* file = &handle->data.vfs_file;
+	if (file->inode == NULL && file->device == NULL)
+		return -1;
+	if (!S_ISDIR(file->inode->sb.st_mode))
 		return -1;
 
-	kprintf("chdir: todo\n");
-	return -1;
+	/* XXX lock */
+	handle_free(t->path_handle);
+	t->path_handle = handle;
+	return 0;
 }
 
 int
@@ -224,7 +205,7 @@ sys_summon(struct HANDLE* handle, int flags, const char* args)
 	}
 
 	/* create a new thread */
-	struct THREAD* newthread = thread_alloc();
+	struct THREAD* newthread = thread_alloc(t);
 	if (newthread == NULL)
 		return NULL;
 	if (!elf_load_from_file(newthread, &handle->data.vfs_file)) {

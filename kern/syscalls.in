@@ -13,9 +13,8 @@
 8	{ int getdirents(void* handle, void* buf, size_t numitems); }
 9	{ void* clone(void* handle); }
 10	{ int stat(void* handle, struct stat* sb); }
-11	{ int getcwd(char* buf, size_t size); }
+11	{ off_t truncate(void* handle, off_t length); }
 12	{ int setcwd(void* handle); }
 13	{ handle_event_result_t wait(void* handle, handle_event_t* event); }
 14	{ void* summon(void* handle, int flags, const char* args); }
 15	{ void* remove(void* handle); }
-16	{ off_t truncate(void* handle, off_t length); }

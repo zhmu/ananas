@@ -13,14 +13,23 @@
 struct THREAD* threads = NULL;
 
 void
-thread_init(thread_t t)
+thread_init(thread_t t, thread_t parent)
 {
 	memset(t, 0, sizeof(struct THREAD));
 	t->mappings = NULL;
 	t->flags = THREAD_FLAG_SUSPENDED;
 	t->thread_handle = handle_alloc(HANDLE_TYPE_THREAD, t /* XXX should be parent? */);
 	t->thread_handle->data.thread = t;
-	strcpy(t->current_path, "/");
+
+	if (parent != NULL) {
+		t->path_handle = handle_clone(parent->path_handle);
+	} else {
+		/* No parent; use / as current path */
+		t->path_handle = handle_alloc(HANDLE_TYPE_FILE, t);
+		if (!vfs_open("/", NULL, &t->path_handle->data.vfs_file)) {
+			kprintf("couldn't reopen root path handle\n");
+		}
+	}
 
 	md_thread_init(t);
 
@@ -49,10 +58,10 @@ thread_init(thread_t t)
 }
 
 thread_t
-thread_alloc()
+thread_alloc(thread_t parent)
 {
 	thread_t t = kmalloc(sizeof(struct THREAD));
-	thread_init(t);
+	thread_init(t, parent);
 	return t;
 }
 
@@ -251,7 +260,7 @@ thread_dump()
 struct THREAD*
 thread_clone(struct THREAD* parent, int flags)
 {
-	struct THREAD* t = thread_alloc();
+	struct THREAD* t = thread_alloc(parent);
 	if (t == NULL)
 		return NULL;
 
@@ -263,9 +272,6 @@ thread_clone(struct THREAD* parent, int flags)
 		struct THREAD_MAPPING* ttm = thread_mapto(t, (void*)tm->start, NULL, tm->len, THREAD_MAP_ALLOC);
 		memcpy(ttm->ptr, tm->ptr, tm->len);
 	}
-
-	/* I/O - XXX need to think about handles */
-	strcpy(t->current_path, parent->current_path);
 
 	/*
 	 * Must copy the thread state over; note that this is the

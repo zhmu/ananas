@@ -65,10 +65,21 @@ vfs_make_inode(struct VFS_MOUNTED_FS* fs)
 	memset(inode, 0, sizeof(*inode));
 	inode->fs = fs;
 	/* Fill out the stat fields we can */
-	inode->sb.st_dev = fs->device;
-	inode->sb.st_rdev = fs->device;
+	inode->sb.st_dev = (dev_t)fs->device;
+	inode->sb.st_rdev = (dev_t)fs->device;
 	inode->sb.st_blksize = fs->block_size;
 	return inode;
+}
+
+void
+vfs_dump_inode(struct VFS_INODE* inode)
+{
+	struct stat* sb = &inode->sb;
+	kprintf("ino     = %u\n", sb->st_ino);
+	kprintf("mode    = 0x%x\n", sb->st_mode);
+	kprintf("uid/gid = %u:%u\n", sb->st_uid, sb->st_gid);
+	kprintf("size    = %li\n", sb->st_size);
+	kprintf("blksize = %u\n", sb->st_blksize);
 }
 
 void
@@ -120,15 +131,31 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop)
 }
 
 struct VFS_INODE*
-vfs_lookup(const char* dentry)
+vfs_lookup(const char* dentry, struct VFS_INODE* curinode)
 {
 	char tmp[VFS_MAX_NAME_LEN + 1];
 
-	/* XXX we only consider the first filesystem! */
-	struct VFS_MOUNTED_FS* fs = &mountedfs[0];
-	struct VFS_INODE* rootinode = fs->root_inode;
-	if (*dentry == '/')
-		dentry++;
+	if (curinode == NULL || *dentry == '/') {
+		/* XXX we only consider the first filesystem! */
+		struct VFS_MOUNTED_FS* fs = &mountedfs[0];
+		if (fs->mountpoint == NULL)
+			return NULL;
+		if (*dentry == '/')
+			dentry++;
+
+		/* Start by looking up the root inode */
+		curinode = fs->root_inode;
+		KASSERT(curinode != NULL, "no root inode");
+
+		/* XXX */
+		if (*dentry == '\0')
+			return curinode;
+	}
+	/* XXX */
+	if (*dentry == '.' && *(dentry + 1) == '\0') {
+		return curinode;
+	}
+	KASSERT(S_ISDIR(curinode->sb.st_mode) != 0, "current inode isn't a directory");
 
 	const char* curdentry = dentry;
 	const char* lookupptr;
@@ -145,9 +172,10 @@ vfs_lookup(const char* dentry)
 		}
 
 		/* Attempt to look up whatever entry we need */
-		struct VFS_INODE* inode = rootinode->iops->lookup(rootinode, lookupptr);
+		struct VFS_MOUNTED_FS* fs = curinode->fs;
+		struct VFS_INODE* inode = curinode->iops->lookup(curinode, lookupptr);
 		if (inode == NULL) {
-			if (rootinode != fs->root_inode) vfs_free_inode(rootinode);
+			if (curinode != fs->root_inode) vfs_free_inode(curinode);
 			return NULL;
 		}
 
@@ -155,20 +183,20 @@ vfs_lookup(const char* dentry)
 		 * OK, the lookup succeeded. Continue if needed.
 		 */
 		if (curdentry == NULL) {
-			if (rootinode != fs->root_inode) vfs_free_inode(rootinode);
+			if (curinode != fs->root_inode) vfs_free_inode(curinode);
 			return inode;
 		}
 
-		rootinode = inode;
+		curinode = inode;
 	}
 
 	/* NOTREACHED */
 }
 
 int
-vfs_open(const char* fname, struct VFS_FILE* file)
+vfs_open(const char* fname, struct VFS_INODE* cwd, struct VFS_FILE* file)
 {
-	struct VFS_INODE* inode = vfs_lookup(fname);
+	struct VFS_INODE* inode = vfs_lookup(fname, cwd);
 	if (inode == NULL)
 		return 0;
 
