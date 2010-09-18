@@ -127,7 +127,7 @@ struct EXT2_INODE {
 	uint32_t	i_mtime;
 	uint32_t	i_dtime;
 	uint16_t	i_gid;
-	uint16_t	i_links_acount;
+	uint16_t	i_links_count;
 	uint32_t	i_blocks;
 	uint32_t	i_flags;
 #define EXT2_SECRM_FL		0x00000001

@@ -185,6 +185,11 @@ sys_stat(struct HANDLE* handle, struct stat* sb)
 	if (x == NULL)
 		return -1;
 
+	struct VFS_FILE* file = &handle->data.vfs_file;
+	if (file->inode == NULL && file->device == NULL)
+		return -1;
+
+	memcpy(x, &file->inode->sb, sizeof(struct stat));
 	return 0;
 }
 

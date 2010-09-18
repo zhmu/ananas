@@ -157,8 +157,8 @@ ext2_read(struct VFS_FILE* file, void* buf, size_t len)
 	size_t numread = 0;
 
 	/* Normalize len so that it cannot expand beyond the file size */
-	if (file->offset + len > file->inode->length)
-		len = file->inode->length - file->offset;
+	if (file->offset + len > file->inode->sb.st_size)
+		len = file->inode->sb.st_size - file->offset;
 
 	while(len > 0) {
 		block_t block = ext2_find_block(file, blocknum);
@@ -329,7 +329,18 @@ ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 	struct BIO* bio = ext2_bread(inode->fs, block); /* XXX error handling */
 	unsigned int idx = (iindex * privdata->sb.s_inode_size) % fs->block_size;
 	struct EXT2_INODE* ext2inode = (struct EXT2_INODE*)((void*)BIO_DATA(bio) + idx);
-	inode->length = EXT2_TO_LE32(ext2inode->i_size);
+
+	/* Fill the stat buffer with date */
+	inode->sb.st_ino    = *(uint32_t*)fsop;
+	inode->sb.st_mode   = EXT2_TO_LE16(ext2inode->i_mode);
+	inode->sb.st_nlink  = EXT2_TO_LE16(ext2inode->i_links_count);
+	inode->sb.st_uid    = EXT2_TO_LE16(ext2inode->i_uid);
+	inode->sb.st_gid    = EXT2_TO_LE16(ext2inode->i_gid);
+	inode->sb.st_atime  = EXT2_TO_LE32(ext2inode->i_atime);
+	inode->sb.st_mtime  = EXT2_TO_LE32(ext2inode->i_mtime);
+	inode->sb.st_ctime  = EXT2_TO_LE32(ext2inode->i_ctime);
+	inode->sb.st_blocks = EXT2_TO_LE32(ext2inode->i_blocks);
+	inode->sb.st_size   = EXT2_TO_LE32(ext2inode->i_size);
 
 	/*
 	 * Copy the block pointers to the private inode structure; we need them for

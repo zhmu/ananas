@@ -64,6 +64,10 @@ vfs_make_inode(struct VFS_MOUNTED_FS* fs)
 
 	memset(inode, 0, sizeof(*inode));
 	inode->fs = fs;
+	/* Fill out the stat fields we can */
+	inode->sb.st_dev = fs->device;
+	inode->sb.st_rdev = fs->device;
+	inode->sb.st_blksize = fs->block_size;
 	return inode;
 }
 
@@ -219,7 +223,7 @@ vfs_seek(struct VFS_FILE* file, off_t offset)
 {
 	if (file->inode == NULL)
 		return 0;
-	if (offset > file->inode->length)
+	if (offset > file->inode->sb.st_size)
 		return 0;
 	file->offset = offset;
 	return 1;

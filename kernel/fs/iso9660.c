@@ -79,7 +79,7 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs)
 	fs->fsop_size = sizeof(uint64_t);
 
 	struct ISO9660_INODE_PRIVDATA* privdata = (struct ISO9660_INODE_PRIVDATA*)fs->root_inode->privdata;
-	fs->root_inode->length = ISO9660_GET_DWORD(rootentry->de_data_length);
+	fs->root_inode->sb.st_size = ISO9660_GET_DWORD(rootentry->de_data_length);
 	fs->root_inode->iops = &iso9660_dir_ops;
 	privdata->lba = ISO9660_GET_DWORD(rootentry->de_extent_lba);
 
@@ -104,12 +104,24 @@ iso9660_read_inode(struct VFS_INODE* inode, void* fsop)
 	/* Convert the inode */
 	struct ISO9660_DIRECTORY_ENTRY* iso9660_de = (struct ISO9660_DIRECTORY_ENTRY*)(BIO_DATA(bio) + offset);
 	struct ISO9660_INODE_PRIVDATA* privdata = (struct ISO9660_INODE_PRIVDATA*)inode->privdata;
-	inode->length = ISO9660_GET_DWORD(iso9660_de->de_data_length);
+	inode->sb.st_ino = block << 16 | offset;
+	inode->sb.st_mode = S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH; /* r-xr-xr-x */
+	inode->sb.st_nlink = 1;
+	inode->sb.st_uid = 0;
+	inode->sb.st_gid = 0;
+	inode->sb.st_size = ISO9660_GET_DWORD(iso9660_de->de_data_length);
+	inode->sb.st_atime = 0; /* XXX */
+	inode->sb.st_mtime = 0; /* XXX */
+	inode->sb.st_ctime = 0; /* XXX */
+	inode->sb.st_blocks = inode->sb.st_size / inode->fs->block_size;
+
 	privdata->lba = ISO9660_GET_DWORD(iso9660_de->de_extent_lba);
 	if (iso9660_de->de_flags & DE_FLAG_DIRECTORY) {
 		inode->iops = &iso9660_dir_ops;
+		inode->sb.st_mode |= S_IFDIR;
 	} else {
 		inode->iops = &iso9660_file_ops;
+		inode->sb.st_mode |= S_IFREG;
 	}
 	return 1;
 }
@@ -146,7 +158,7 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 	struct BIO* bio = NULL;
 	block_t curblock = 0;
 	while(entsize > 0) {
-		if (block > privdata->lba + file->inode->length / fs->block_size) {
+		if (block > privdata->lba + file->inode->sb.st_size / fs->block_size) {
 			/*
 			 * We've run out of blocks. Need to stop here.
 			 */
@@ -258,8 +270,8 @@ iso9660_read(struct VFS_FILE* file, void* buf, size_t len)
 	size_t numread = 0;
 
 	/* Normalize len so that it cannot expand beyond the file size */
-	if (file->offset + len > file->inode->length)
-		len = file->inode->length - file->offset;
+	if (file->offset + len > file->inode->sb.st_size)
+		len = file->inode->sb.st_size - file->offset;
 
 	while(len > 0) {
 		/*

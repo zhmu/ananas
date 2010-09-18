@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <sys/device.h>
+#include <sys/stat.h>
 
 #ifndef __SYS_VFS_H__
 #define __SYS_VFS_H__
@@ -14,8 +15,7 @@ struct VFS_FILESYSTEM_OPS;
  * VFS_INODE refers to an inode.
  */
 struct VFS_INODE {
-	off_t		length;			/* Length of the inode */
-
+	struct stat sb;				/* Inode information */
 	struct VFS_INODE_OPS* iops;		/* Inode operations */
 
 	struct VFS_MOUNTED_FS* fs;		/* Filesystem where the inode lives */
