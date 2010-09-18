@@ -156,7 +156,8 @@ static void int2base( intmax_t value, struct _PDCLIB_status_t * status )
         preidx = 0;
         while ( preface[ preidx ] != '\0' )
         {
-            DELIVER( preface[ preidx++ ] );
+            DELIVER( preface[ preidx ] );
+            preidx++;
             ++(status->this);
         }
         if ( ( ! ( status->flags & E_minus ) ) && ( status->flags & E_zero ) )
@@ -552,7 +553,7 @@ const char * _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status 
                 ++(status->this);
             }
         }
-        if ( status->i >= status->n )
+        if ( status->i >= status->n && status->n > 0 )
         {
             status->s[status->n - 1] = '\0';
         }
