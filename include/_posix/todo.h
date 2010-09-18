@@ -2,6 +2,7 @@
 #define _POSIX_TODO_H_
 
 #include <stdio.h>	/* for printf() */
+#include <errno.h>	/* for errno :-) */
 
 #define TODO 								\
 	do {								\
