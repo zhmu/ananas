@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include <sys/threadinfo.h>
+#include <ananas/threadinfo.h>
 #include <_posix/fdmap.h>
 
 extern void* sys_clone(void* handle);

@@ -2,8 +2,8 @@
 #define __SIGNAL_H__
 
 #include <machine/_types.h>
-#include <sys/_types/pid.h>
-#include <sys/_types/uid.h>
+#include <ananas/_types/pid.h>
+#include <ananas/_types/uid.h>
 
 /*
  * Note that Ananas does not support POSIX signals; anything here will be

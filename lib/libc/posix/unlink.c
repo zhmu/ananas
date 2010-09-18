@@ -1,7 +1,7 @@
-#include <sys/stat.h>
+#include <ananas/stat.h>
 #include <fcntl.h>
-#include <sys/handle.h>
-#include <sys/stat.h>
+#include <ananas/handle.h>
+#include <ananas/stat.h>
 #include <syscalls.h>
 
 int unlink(const char* path)

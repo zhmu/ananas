@@ -1,10 +1,10 @@
 #include <machine/io.h>
-#include <sys/dev/ata.h>
-#include <sys/bio.h>
-#include <sys/device.h>
-#include <sys/irq.h>
-#include <sys/mm.h>
-#include <sys/lib.h>
+#include <ananas/dev/ata.h>
+#include <ananas/bio.h>
+#include <ananas/device.h>
+#include <ananas/irq.h>
+#include <ananas/mm.h>
+#include <ananas/lib.h>
 
 extern struct DRIVER drv_atadisk;
 extern struct DRIVER drv_atacd;

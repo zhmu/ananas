@@ -1,4 +1,4 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/param.h>
 #include <machine/vm.h>
 #include <machine/io.h>
@@ -7,14 +7,14 @@
 #include <machine/thread.h>
 #include <machine/pcpu.h>
 #include <machine/realmode.h>
-#include <sys/x86/pic.h>
-#include <sys/x86/smap.h>
-#include <sys/handle.h>
-#include <sys/init.h>
-#include <sys/lib.h>
-#include <sys/pcpu.h>
-#include <sys/mm.h>
-#include <sys/vm.h>
+#include <ananas/x86/pic.h>
+#include <ananas/x86/smap.h>
+#include <ananas/handle.h>
+#include <ananas/init.h>
+#include <ananas/lib.h>
+#include <ananas/pcpu.h>
+#include <ananas/mm.h>
+#include <ananas/vm.h>
 #include "options.h"
 
 /* __end is defined by the linker script and indicates the end of the kernel */

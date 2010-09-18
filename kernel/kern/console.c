@@ -1,7 +1,7 @@
-#include <sys/console.h>
-#include <sys/device.h>
-#include <sys/tty.h>
-#include <sys/lib.h>
+#include <ananas/console.h>
+#include <ananas/device.h>
+#include <ananas/tty.h>
+#include <ananas/lib.h>
 #include "console.inc"
 
 extern const char* config_hints[];
@@ -61,8 +61,12 @@ console_init()
 void
 console_putchar(int c)
 {
-	if (console_tty == NULL)
+	if (console_tty == NULL) {
+#ifdef _ARCH_PPC
+ofw_putch(c); /* XXX */
+#endif
 		return;
+	}
 	uint8_t ch = c; // cannot cast due to endianness!
 	device_write(console_tty, &ch, 1, 0);
 }

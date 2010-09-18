@@ -1,8 +1,8 @@
 #include <machine/pcpu.h>
-#include <sys/mm.h>
-#include <sys/lib.h>
-#include <sys/pcpu.h>
-#include <sys/thread.h>
+#include <ananas/mm.h>
+#include <ananas/lib.h>
+#include <ananas/pcpu.h>
+#include <ananas/thread.h>
 
 void
 pcpu_init(struct PCPU* pcpu)

@@ -1,8 +1,8 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/param.h>
 #include <machine/vm.h>
-#include <sys/lib.h>
-#include <sys/mm.h>
+#include <ananas/lib.h>
+#include <ananas/mm.h>
 
 extern void* temp_pt_entry;
 static int vm_initialized = 0;

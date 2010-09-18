@@ -1,5 +1,5 @@
-#include <sys/types.h>
-#include <sys/device.h>
+#include <ananas/types.h>
+#include <ananas/device.h>
 
 #ifndef __SLICE_H__
 #define __SLICE_H__

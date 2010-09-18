@@ -1,9 +1,9 @@
 #include <machine/io.h>
-#include <sys/device.h>
-#include <sys/irq.h>
-#include <sys/lib.h>
-#include <sys/tty.h>
-#include <sys/console.h>
+#include <ananas/device.h>
+#include <ananas/irq.h>
+#include <ananas/lib.h>
+#include <ananas/tty.h>
+#include <ananas/console.h>
 
 uint32_t atkbd_port = 0;
 

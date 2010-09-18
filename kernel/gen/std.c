@@ -1,6 +1,6 @@
-#include <sys/lib.h>
-#include <sys/pcpu.h>
-#include <sys/thread.h>
+#include <ananas/lib.h>
+#include <ananas/pcpu.h>
+#include <ananas/thread.h>
 
 void
 sys_exit(int exitcode)

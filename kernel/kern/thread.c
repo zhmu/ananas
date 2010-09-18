@@ -1,14 +1,14 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/param.h>
-#include <sys/console.h>
-#include <sys/device.h>
-#include <sys/handle.h>
-#include <sys/pcpu.h>
-#include <sys/schedule.h>
-#include <sys/thread.h>
-#include <sys/threadinfo.h>
-#include <sys/lib.h>
-#include <sys/mm.h>
+#include <ananas/console.h>
+#include <ananas/device.h>
+#include <ananas/handle.h>
+#include <ananas/pcpu.h>
+#include <ananas/schedule.h>
+#include <ananas/thread.h>
+#include <ananas/threadinfo.h>
+#include <ananas/lib.h>
+#include <ananas/mm.h>
 
 struct THREAD* threads = NULL;
 

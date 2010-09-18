@@ -1,4 +1,4 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/smp.h>
 #include <machine/pcpu.h>
 #include <machine/apic.h>
@@ -7,14 +7,14 @@
 #include <machine/macro.h>
 #include <machine/thread.h>
 #include <machine/vm.h>
-#include <sys/x86/pic.h>
-#include <sys/lock.h>
+#include <ananas/x86/pic.h>
+#include <ananas/lock.h>
 #include <machine/param.h>
-#include <sys/pcpu.h>
-#include <sys/vm.h>
-#include <sys/mm.h>
-#include <sys/thread.h>
-#include <sys/lib.h>
+#include <ananas/pcpu.h>
+#include <ananas/vm.h>
+#include <ananas/mm.h>
+#include <ananas/thread.h>
+#include <ananas/lib.h>
 
 #undef SMP_DEBUG
 

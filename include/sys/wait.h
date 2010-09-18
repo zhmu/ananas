@@ -1,7 +1,7 @@
 #ifndef __SYS_WAIT_H__
 #define __SYS_WAIT_H__
 
-#include <sys/_types/pid.h>
+#include <ananas/_types/pid.h>
 
 pid_t wait(int* stat_loc);
 pid_t waitpid(pid_t pid, int* stat_loc, int options);

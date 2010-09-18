@@ -1,7 +1,7 @@
-#include <sys/device.h>
-#include <sys/irq.h>
-#include <sys/lib.h>
-#include <sys/mm.h>
+#include <ananas/device.h>
+#include <ananas/irq.h>
+#include <ananas/lib.h>
+#include <ananas/mm.h>
 
 static int
 ofw_attach(device_t dev)

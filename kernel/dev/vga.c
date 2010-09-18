@@ -1,9 +1,9 @@
 #include <machine/vm.h>
 #include <machine/io.h>
-#include <sys/console.h>
-#include <sys/device.h>
-#include <sys/lib.h>
-#include <sys/mm.h>
+#include <ananas/console.h>
+#include <ananas/device.h>
+#include <ananas/lib.h>
+#include <ananas/mm.h>
 
 #include <teken.h>
 

@@ -1,9 +1,9 @@
-#include <sys/console.h>
-#include <sys/device.h>
-#include <sys/lib.h>
-#include <sys/mm.h>
-#include <sys/tty.h>
-#include <sys/vm.h>
+#include <ananas/console.h>
+#include <ananas/device.h>
+#include <ananas/lib.h>
+#include <ananas/mm.h>
+#include <ananas/tty.h>
+#include <ananas/vm.h>
 #include "console.inc"
 
 /*

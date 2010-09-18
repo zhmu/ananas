@@ -1,4 +1,4 @@
-#include <sys/device.h>
+#include <ananas/device.h>
 
 #ifndef __IRQ_H__
 #define __IRQ_H__

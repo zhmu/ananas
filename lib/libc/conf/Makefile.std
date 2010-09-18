@@ -15,8 +15,8 @@ ASMFLAGS=	$(CFLAGS) -DASM
 syscall.o:	$S/arch/${ARCH}/syscall.S $S/gen/syscalls.inc.S
 		$(CC) $(CFLAGS) -DASM -c -o syscall.o $S/arch/${ARCH}/syscall.S
 
-machine:	$S/../../include/sys/${ARCH}
-		ln -sf $S/../../include/sys/${ARCH} machine
+machine:	$S/../../include/ananas/${ARCH}
+		ln -sf $S/../../include/ananas/${ARCH} machine
 
 libc.a:		machine $(OBJS) $(MDOBJS)
 		$(AR) cr libc.a $(OBJS) $(MDOBJS)

@@ -1,4 +1,4 @@
-#include <sys/pcpu.h>
+#include <ananas/pcpu.h>
 
 volatile static struct THREAD*
 pcpu_curthread()

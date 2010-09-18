@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <_posix/fdmap.h>
-#include <sys/threadinfo.h>
+#include <ananas/threadinfo.h>
 
 void* fd_handle_map[FDMAP_SIZE] = { 0 };
 

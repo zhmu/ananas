@@ -1,15 +1,15 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/param.h>
 #include <machine/thread.h>
 #include <machine/vm.h>
 #include <machine/macro.h>
 #include <machine/smp.h>
 #include <machine/realmode.h>
-#include <sys/lib.h>
-#include <sys/mm.h>
-#include <sys/pcpu.h>
-#include <sys/thread.h>
-#include <sys/vm.h>
+#include <ananas/lib.h>
+#include <ananas/mm.h>
+#include <ananas/pcpu.h>
+#include <ananas/thread.h>
+#include <ananas/vm.h>
 #include "options.h"
 
 extern struct TSS kernel_tss;

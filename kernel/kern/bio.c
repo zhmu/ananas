@@ -1,7 +1,7 @@
-#include <sys/mm.h>
-#include <sys/bio.h>
-#include <sys/lib.h>
-#include <sys/schedule.h>
+#include <ananas/mm.h>
+#include <ananas/bio.h>
+#include <ananas/lib.h>
+#include <ananas/schedule.h>
 
 #define SECTOR_SIZE	 512	/* XXX */
 #define BIO_NUM_BUFS 128

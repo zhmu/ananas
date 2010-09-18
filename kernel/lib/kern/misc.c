@@ -1,5 +1,5 @@
-#include <sys/lib.h>
-#include <sys/schedule.h>
+#include <ananas/lib.h>
+#include <ananas/schedule.h>
 
 void
 panic(const char* fmt, ...)

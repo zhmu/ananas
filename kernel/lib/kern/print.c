@@ -1,7 +1,7 @@
-#include <sys/types.h>
-#include <sys/console.h>
-#include <sys/device.h>
-#include <sys/lock.h>
+#include <ananas/types.h>
+#include <ananas/console.h>
+#include <ananas/device.h>
+#include <ananas/lock.h>
 #include <stdarg.h>
 
 static const uint8_t hextab_hi[16] = "0123456789ABCDEF";

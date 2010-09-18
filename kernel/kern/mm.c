@@ -1,9 +1,9 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/param.h>
-#include <sys/lock.h>
-#include <sys/mm.h>
-#include <sys/vm.h>
-#include <sys/lib.h>
+#include <ananas/lock.h>
+#include <ananas/mm.h>
+#include <ananas/vm.h>
+#include <ananas/lib.h>
 
 static struct MM_ZONE* zone_root;
 static struct SPINLOCK spl_mm;

@@ -1,6 +1,6 @@
-#include <sys/types.h>
-#include <sys/device.h>
-#include <machine/param.h>
+#include <ananas/types.h>
+#include <ananas/device.h>
+#include <machine/param.h>	/* for PAGE_SIZE */
 
 #ifndef __BIO_H__
 #define __BIO_H__

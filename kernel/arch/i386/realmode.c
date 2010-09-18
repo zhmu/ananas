@@ -1,9 +1,9 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/param.h>
 #include <machine/macro.h>
 #include <machine/vm.h>
 #include <machine/realmode.h>
-#include <sys/lib.h>
+#include <ananas/lib.h>
 
 extern void *__end, *__entry;
 extern uint32_t* pagedir;

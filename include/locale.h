@@ -1,7 +1,7 @@
 #ifndef __LOCALE_H__
 #define __LOCALE_H__
 
-#include <sys/_types/null.h>
+#include <ananas/_types/null.h>
 
 struct lconv {
 	char*	currency_symbol;

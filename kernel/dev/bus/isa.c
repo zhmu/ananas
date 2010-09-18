@@ -1,4 +1,4 @@
-#include <sys/device.h>
+#include <ananas/device.h>
 
 struct DRIVER drv_isa = {
 	.name				= "isa",

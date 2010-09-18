@@ -488,7 +488,7 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 
 /* For Ananas: sbrk/brk() isn't implemented and never will be, so we must use mmap() */
 #include <resource.h>
-#include <sys/_types/null.h>
+#include <ananas/_types/null.h>
 
 #define HAVE_MORECORE 0
 #define HAVE_MMAP 1

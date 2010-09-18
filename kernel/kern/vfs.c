@@ -1,9 +1,9 @@
-#include <sys/types.h>
-#include <sys/bio.h>
-#include <sys/device.h>
-#include <sys/lib.h>
-#include <sys/mm.h>
-#include <sys/vfs.h>
+#include <ananas/types.h>
+#include <ananas/bio.h>
+#include <ananas/device.h>
+#include <ananas/lib.h>
+#include <ananas/mm.h>
+#include <ananas/vfs.h>
 
 #define VFS_MOUNTED_FS_MAX	16
 

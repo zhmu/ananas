@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include <sys/stat.h>
+#include <ananas/stat.h>
 #include <_posix/fdmap.h>
 
 int lstat(const char* path, struct stat* buf)

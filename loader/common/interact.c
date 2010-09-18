@@ -166,6 +166,8 @@ interact()
 	char line[MAX_LINE_SIZE + 1];
 	char* args[MAX_ARGS];
 
+cmd_autoboot(0, NULL);
+
 	while (1) {
 		/* Assemble an input line */
 		printf("loader> ");

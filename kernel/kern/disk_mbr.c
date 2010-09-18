@@ -1,8 +1,8 @@
-#include <sys/types.h>
-#include <sys/bio.h>
-#include <sys/lib.h>
-#include <sys/device.h>
-#include <sys/slice.h>
+#include <ananas/types.h>
+#include <ananas/bio.h>
+#include <ananas/lib.h>
+#include <ananas/device.h>
+#include <ananas/slice.h>
 #include <mbr.h>
 
 extern struct DRIVER drv_slice;

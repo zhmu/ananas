@@ -2,9 +2,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
-#include <sys/handle.h>
-#include <sys/stat.h>
+#include <ananas/handle.h>
+#include <ananas/stat.h>
 #include <syscalls.h>
 
 int execlp(const char *path, const char* arg0, ...)
@@ -27,7 +28,7 @@ int execlp(const char *path, const char* arg0, ...)
 	char* args = malloc(len);
 	if (args == NULL) {
 		errno = ENOMEM;
-		return NULL;
+		return -1;
 	}
 	int pos = 0;
 	va_start(va, arg0);
@@ -62,7 +63,7 @@ int execlp(const char *path, const char* arg0, ...)
 		sys_exit((int)e);
 	}
 
-	return NULL;
+	return -1;
 }
 
 /* vim:set ts=2 sw=2: */

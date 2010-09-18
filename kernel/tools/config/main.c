@@ -629,7 +629,7 @@ create_symlink()
 	char src_path[PATH_MAX];
 	char dst_path[PATH_MAX];
 
-	snprintf(src_path, sizeof(src_path), "../../../../../include/sys/%s", architecture);
+	snprintf(src_path, sizeof(src_path), "../../../../../include/ananas/%s", architecture);
 	snprintf(dst_path, sizeof(dst_path), "../compile/%s/machine", ident);
 	if (symlink(src_path, dst_path) < 0 && errno != EEXIST)
 		err(1, "symlink");

@@ -2,7 +2,7 @@
 #define __NETDB_H__
 
 #include <inttypes.h>
-#include <sys/_types/socklen.h>
+#include <ananas/_types/socklen.h>
 
 struct hostent {
 	char*		h_name;

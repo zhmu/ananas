@@ -1,7 +1,7 @@
-#include <sys/bus/pci.h>
+#include <ananas/bus/pci.h>
 #include <machine/io.h>
-#include <sys/device.h>
-#include <sys/lib.h>
+#include <ananas/device.h>
+#include <ananas/lib.h>
 
 extern struct PROBE* devprobe[];
 

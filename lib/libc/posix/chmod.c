@@ -1,5 +1,5 @@
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <ananas/types.h>
+#include <ananas/stat.h>
 
 int chmod(const char* path, mode_t mode)
 {

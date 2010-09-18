@@ -1,12 +1,12 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/frame.h>
 #include <machine/interrupts.h>
 #include <machine/thread.h>
 #include <machine/vm.h>
-#include <sys/x86/exceptions.h>
-#include <sys/thread.h>
-#include <sys/pcpu.h>
-#include <sys/lib.h>
+#include <ananas/x86/exceptions.h>
+#include <ananas/thread.h>
+#include <ananas/pcpu.h>
+#include <ananas/lib.h>
 
 static void
 exception_nm(struct STACKFRAME* sf)

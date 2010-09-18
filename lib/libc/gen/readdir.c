@@ -1,6 +1,6 @@
-#include <sys/types.h>
-#include <sys/handle.h>
-#include <sys/stat.h>
+#include <ananas/types.h>
+#include <ananas/handle.h>
+#include <ananas/stat.h>
 #include <string.h>
 #include <dirent.h>
 #include <syscalls.h>

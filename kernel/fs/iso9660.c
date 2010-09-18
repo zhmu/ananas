@@ -7,11 +7,11 @@
  * any filesystem (and if we cache enough, speed loss shouldn't be that
  * noticable)
  */
-#include <sys/types.h>
-#include <sys/bio.h>
-#include <sys/vfs.h>
-#include <sys/lib.h>
-#include <sys/mm.h>
+#include <ananas/types.h>
+#include <ananas/bio.h>
+#include <ananas/vfs.h>
+#include <ananas/lib.h>
+#include <ananas/mm.h>
 #include <iso9660.h>
 
 /* XXX These macros need to be updated for non-LE architectures */

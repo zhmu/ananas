@@ -1,5 +1,6 @@
 # change me, maybe
-TARGET?=	i586-elf-ananas
+#TARGET?=	i586-elf-ananas
+TARGET?=	powerpc-elf-ananas
 PREFIX?=	$(realpath prefix)
 
 # versions to use
@@ -9,7 +10,7 @@ GDB_VER=	7.1
 
 # environment settings
 MIRROR?=	http://ftp.gnu.org/gnu
-MAKE_BUILDARG?=	-j4
+#MAKE_BUILDARG?=	-j4
 
 # tools to use
 DOWNLOAD?=	wget

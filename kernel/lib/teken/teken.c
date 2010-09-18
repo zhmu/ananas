@@ -24,8 +24,8 @@
 #define	teken_assert(x)		MPASS(x)
 #define	teken_printf(x,...)
 #else /* For Ananas */
-#include <sys/types.h>
-#include <sys/lib.h>
+#include <ananas/types.h>
+#include <ananas/lib.h>
 #define	teken_assert(x)		KASSERT(x, #x)
 #define	teken_printf(x,...)
 #endif /* __FreeBSD__ && _KERNEL */

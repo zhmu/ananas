@@ -1,10 +1,10 @@
-#include <sys/types.h>
-#include <sys/handle.h>
-#include <sys/lib.h>
-#include <sys/lock.h>
-#include <sys/mm.h>
-#include <sys/schedule.h>
-#include <sys/thread.h>
+#include <ananas/types.h>
+#include <ananas/handle.h>
+#include <ananas/lib.h>
+#include <ananas/lock.h>
+#include <ananas/mm.h>
+#include <ananas/schedule.h>
+#include <ananas/thread.h>
 
 #define NUM_HANDLES 1000 /* XXX shouldn't be static */
 

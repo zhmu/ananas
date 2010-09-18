@@ -1,7 +1,7 @@
 #include <machine/frame.h>
 #include <machine/pcpu.h>
-#include <sys/asmsymbols.h>
-#include <sys/pcpu.h>
+#include <ananas/asmsymbols.h>
+#include <ananas/pcpu.h>
 
 ASM_SYMBOL(SF_TRAPNO, offsetof(struct STACKFRAME, sf_trapno));
 ASM_SYMBOL(SF_EAX,    offsetof(struct STACKFRAME, sf_eax));

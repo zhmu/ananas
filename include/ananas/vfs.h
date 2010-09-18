@@ -1,6 +1,6 @@
-#include <sys/types.h>
-#include <sys/device.h>
-#include <sys/stat.h>
+#include <ananas/types.h>
+#include <ananas/device.h>
+#include <ananas/stat.h>
 
 #ifndef __SYS_VFS_H__
 #define __SYS_VFS_H__

@@ -1,6 +1,6 @@
-#include <sys/types.h>
-#include <sys/vfs.h>
-#include <sys/limits.h>
+#include <ananas/types.h>
+#include <ananas/vfs.h>
+#include <ananas/limits.h>
 #include <machine/thread.h>
 
 #ifndef __THREAD_H__

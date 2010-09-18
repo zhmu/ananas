@@ -1,13 +1,13 @@
 #include <machine/param.h>
-#include <sys/types.h>
-#include <sys/device.h>
-#include <sys/lib.h>
-#include <sys/handle.h>
-#include <sys/thread.h>
-#include <sys/pcpu.h>
-#include <sys/stat.h>
-#include <sys/schedule.h>
-#include <sys/vfs.h>
+#include <ananas/types.h>
+#include <ananas/device.h>
+#include <ananas/lib.h>
+#include <ananas/handle.h>
+#include <ananas/thread.h>
+#include <ananas/pcpu.h>
+#include <ananas/stat.h>
+#include <ananas/schedule.h>
+#include <ananas/vfs.h>
 
 extern device_t input_dev;
 extern device_t output_dev;
@@ -170,6 +170,8 @@ sys_stat(struct HANDLE* handle, struct stat* sb)
 	if (file->inode == NULL && file->device == NULL)
 		return -1;
 
+	if (file->inode == NULL)
+		return -1; /* XXX device stat support */
 	memcpy(x, &file->inode->sb, sizeof(struct stat));
 	return 0;
 }

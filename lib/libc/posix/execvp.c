@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/handle.h>
-#include <sys/stat.h>
+#include <ananas/handle.h>
+#include <ananas/stat.h>
 #include <syscalls.h>
 
 int execvp(const char *path, char *const argv[])

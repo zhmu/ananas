@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include <sys/stat.h>
+#include <ananas/stat.h>
 #include <_posix/fdmap.h>
 
 extern int sys_stat(void* handle, void* buf);

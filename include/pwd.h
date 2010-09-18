@@ -1,8 +1,8 @@
 #ifndef __PWD_H__
 #define __PWD_H__
 
-#include <sys/_types/uid.h>
-#include <sys/_types/gid.h>
+#include <ananas/_types/uid.h>
+#include <ananas/_types/gid.h>
 
 struct passwd {
 	char*	pw_name;

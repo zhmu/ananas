@@ -1,10 +1,10 @@
 #include <machine/thread.h>
-#include <sys/pcpu.h>
-#include <sys/lib.h>
-#include <sys/lock.h>
-#include <sys/pcpu.h>
-#include <sys/schedule.h>
-#include <sys/thread.h>
+#include <ananas/pcpu.h>
+#include <ananas/lib.h>
+#include <ananas/lock.h>
+#include <ananas/pcpu.h>
+#include <ananas/schedule.h>
+#include <ananas/thread.h>
 
 extern struct THREAD* threads;
 int scheduler_active = 0;

@@ -1,4 +1,4 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/frame.h>
 
 #ifndef __POWERPC_THREAD_H__

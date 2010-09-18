@@ -1,8 +1,8 @@
 #ifndef __SYS_HANDLE_H__
 #define __SYS_HANDLE_H__
 
-#include <sys/lock.h>
-#include <sys/vfs.h>
+#include <ananas/lock.h>
+#include <ananas/vfs.h>
 
 typedef unsigned int handle_event_t;
 typedef unsigned int handle_event_result_t;

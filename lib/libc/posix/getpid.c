@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include <sys/threadinfo.h>
+#include <ananas/threadinfo.h>
 
 pid_t
 getpid()

@@ -1,9 +1,9 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/thread.h>
 #include <machine/param.h>
-#include <sys/lib.h>
-#include <sys/thread.h>
-#include <sys/vfs.h>
+#include <ananas/lib.h>
+#include <ananas/thread.h>
+#include <ananas/vfs.h>
 #include <elf.h>
 
 /* XXX */

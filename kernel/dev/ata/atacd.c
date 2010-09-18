@@ -1,8 +1,8 @@
 #include <machine/io.h>
-#include <sys/dev/ata.h>
-#include <sys/bio.h>
-#include <sys/lib.h>
-#include <sys/mm.h>
+#include <ananas/dev/ata.h>
+#include <ananas/bio.h>
+#include <ananas/lib.h>
+#include <ananas/mm.h>
 #include <mbr.h>
 
 struct ATACD_PRIVDATA {

@@ -1,4 +1,4 @@
-#include <sys/device.h>
+#include <ananas/device.h>
 
 #ifndef __CONSOLE_H__
 #define __CONSOLE_H__

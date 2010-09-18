@@ -18,6 +18,8 @@
 	unsigned char sym_ ## x ## _2[((uint64_t)(y) >> 32) & 0xffff]; \
 	unsigned char sym_ ## x ## _3[((uint64_t)(y) >> 48) & 0xffff];
 
+#ifndef offsetof
 #define offsetof __builtin_offsetof /* XXX should be in a cdefs.h file */
+#endif
 
 #endif /* __ASM_SYMS_H__ */

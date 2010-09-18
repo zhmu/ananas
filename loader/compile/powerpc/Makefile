@@ -16,9 +16,10 @@ loader:		$(OBJS) $S/conf/ld.powerpc
 		$(LD) -b elf32-powerpc -T $S/conf/ld.powerpc -o loader $(OBJS)
 		cp loader /srv/tftpd/loader.ppc
 
-ananasppc.iso:	loader boot.tbxi hfs.map
+ananasppc.iso:	loader boot.tbxi hfs.map ../../../kernel/arch/powerpc/compile/LINT/kernel
 		mkdir -p tmp
 		mkdir -p tmp/boot
+		cp ../../../kernel/arch/powerpc/compile/LINT/kernel tmp
 		cp loader tmp/boot
 		cp boot.tbxi tmp/boot
 		mkisofs -hfs -o ananasppc.iso -no-desktop -r -hfs-volid "ANA" -part -hfs-bless tmp/boot -l -J -L -map hfs.map tmp

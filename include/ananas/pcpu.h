@@ -1,5 +1,5 @@
-#include <sys/types.h>
-#include <sys/thread.h>
+#include <ananas/types.h>
+#include <ananas/thread.h>
 #include <machine/pcpu.h>
 
 #ifndef __PCPU_H__

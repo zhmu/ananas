@@ -2,13 +2,13 @@
  * Implementation of our TTY device; this multiplexes input/output devices to a
  * single device, and handles the TTY magic.
  */
-#include <sys/types.h>
-#include <sys/device.h>
-#include <sys/pcpu.h>
-#include <sys/schedule.h>
-#include <sys/limits.h>
-#include <sys/mm.h>
-#include <sys/lib.h>
+#include <ananas/types.h>
+#include <ananas/device.h>
+#include <ananas/pcpu.h>
+#include <ananas/schedule.h>
+#include <ananas/limits.h>
+#include <ananas/mm.h>
+#include <ananas/lib.h>
 #include <termios.h>
 
 /* Newline char - cannot be modified using c_cc */

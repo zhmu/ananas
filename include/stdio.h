@@ -14,7 +14,7 @@
 #include <_PDCLIB/_PDCLIB_int.h>
 #endif
 
-#include <sys/types.h>
+#include <ananas/types.h>
 
 /* See setvbuf(), third argument */
 #define _IOFBF 1

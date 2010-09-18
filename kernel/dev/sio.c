@@ -1,8 +1,8 @@
 #include <machine/io.h>
-#include <sys/device.h>
-#include <sys/irq.h>
-#include <sys/lib.h>
-#include <sys/mm.h>
+#include <ananas/device.h>
+#include <ananas/irq.h>
+#include <ananas/lib.h>
+#include <ananas/mm.h>
 
 #define SIO_REG_DATA	0		/* Data register (R/W) */
 #define SIO_REG_IER		1 	/* Interrupt Enable Register */

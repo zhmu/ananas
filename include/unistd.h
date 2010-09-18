@@ -1,7 +1,7 @@
 #include <machine/_types.h>
-#include <sys/_types/uid.h>
-#include <sys/_types/gid.h>
-#include <sys/_types/pid.h>
+#include <ananas/_types/uid.h>
+#include <ananas/_types/gid.h>
+#include <ananas/_types/pid.h>
 
 #ifndef __UNISTD_H___
 #define __UNISTD_H__

@@ -1,5 +1,5 @@
 #ifdef KERNEL
-#include <sys/thread.h>
+#include <ananas/thread.h>
 #endif
 
 #ifndef __ELF_H__

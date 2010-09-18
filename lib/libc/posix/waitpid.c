@@ -1,7 +1,7 @@
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <ananas/types.h>
+#include <ananas/stat.h>
+#include <ananas/handle.h>
 #include <sys/wait.h>
-#include <sys/handle.h>
 #include <syscalls.h>
 
 pid_t waitpid(pid_t pid, int *stat_loc, int options)
