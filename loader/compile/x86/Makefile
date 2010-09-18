@@ -20,7 +20,7 @@ loader:		$(OBJS) $S/conf/ld.x86
 		cp loader /srv/tftpd
 
 machine:
-		ln -sf ../../../include/sys/i386 machine
+		ln -sf ../../../include/ananas/i386 machine
 
 clean:
 		rm -f loader machine $(OBJS)

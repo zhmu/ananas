@@ -1,5 +1,6 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <stdarg.h>
+#include <loader/lib.h>
 #include <loader/platform.h>
 
 static const uint8_t hextab[16] = "0123456789abcdef";
@@ -7,8 +8,12 @@ static const uint8_t hextab[16] = "0123456789abcdef";
 int
 puts(const char* s)
 {
-	while(*s)
+	int n = 0;
+	while(*s) {
 		platform_putch(*s++);
+		n++;
+	}
+	return n;
 }
 
 static void

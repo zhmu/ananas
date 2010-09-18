@@ -1,9 +1,9 @@
-#include <stdio.h>
+#include <ananas/types.h>
 #include <loader/diskio.h>
+#include <loader/lib.h>
 #include <loader/platform.h>
 #include <loader/vfs.h>
 #include <loader/elf.h>
-#include <string.h>
 
 #define MAX_LINE_SIZE 128
 #define MAX_ARGS 16

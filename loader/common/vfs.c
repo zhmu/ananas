@@ -1,6 +1,6 @@
 #include <loader/platform.h>
+#include <loader/lib.h>
 #include <loader/vfs.h>
-#include <stdio.h>
 
 #define VFS_SCRATCHPAD_SIZE 1024
 

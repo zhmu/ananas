@@ -1,7 +1,8 @@
-#include <sys/types.h>
+#include <ananas/types.h>
+#include <loader/lib.h>
 
 void*
-memcpy(void* dest, const char* src, size_t len)
+memcpy(void* dest, const void* src, size_t len)
 {
 	char* d = (char*)dest;
 	char* s = (char*)src;

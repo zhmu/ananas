@@ -1,5 +1,5 @@
 /* Implements commands as described in 6.3.2.2: device tree */
-#include <sys/lib.h> 
+#include <loader/lib.h>
 #include <ofw.h> 
 
 ofw_cell_t

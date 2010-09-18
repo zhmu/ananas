@@ -3,13 +3,12 @@
  * calling the BIOS interrupts for the intended functionality and converting
  * values from and to more general values (i.e. LBA instead of CHS)
  */
-#include <stdint.h> 
-#include <sys/lib.h> 
-#include <sys/x86/smap.h>
-#include <sys/i386/param.h>	/* for page-size */
+#include <ananas/types.h> 
+#include <ananas/x86/smap.h>
+#include <ananas/i386/param.h>	/* for page-size */
 #include <loader/diskio.h>
+#include <loader/lib.h>
 #include <loader/x86.h>
-#include <stdio.h> /* for printf */
 #include "param.h"
 
 uint32_t x86_pool_pointer = POOL_BASE;

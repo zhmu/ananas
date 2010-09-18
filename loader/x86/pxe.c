@@ -1,9 +1,8 @@
-#include <sys/lib.h> 
+#include <loader/lib.h>
 #include <loader/x86.h>
 #include <loader/pxe.h>
 #include <loader/platform.h>
 #include <loader/vfs.h>
-#include <stdio.h> /* for printf */
 #include "param.h"
 
 #ifdef PXE

@@ -1,9 +1,8 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <loader/vfs.h>
+#include <loader/lib.h>
 #include <loader/platform.h>
 #include <elf.h>
-#include <string.h>
-#include <stdio.h>
 
 #undef DEBUG_ELF
 

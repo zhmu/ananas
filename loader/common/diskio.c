@@ -1,9 +1,8 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <loader/diskio.h>
+#include <loader/lib.h>
 #include <loader/platform.h>
 #include <mbr.h>
-#include <stdio.h>
-#include <string.h>
 
 #define MAX_DISK_DEVICE_NAME 8
 #define MAX_DISK_DEVICES 16

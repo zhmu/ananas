@@ -26,7 +26,7 @@ ananasppc.iso:	loader boot.tbxi hfs.map ../../../kernel/arch/powerpc/compile/LIN
 		rm -rf tmp
 
 machine:
-		ln -sf ../../../include/sys/powerpc machine
+		ln -sf ../../../include/ananas/powerpc machine
 
 clean:
 		rm -f loader machine $(OBJS)

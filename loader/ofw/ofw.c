@@ -1,6 +1,5 @@
-#include <sys/lib.h> 
+#include <loader/lib.h>
 #include <ofw.h> 
-#include <stdio.h> /* for printf */
 
 #define OFW_HEAP_SIZE 0x8000
 

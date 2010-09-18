@@ -1,4 +1,4 @@
-#include <sys/lib.h> 
+#include <loader/lib.h>
 #include <loader/diskio.h>
 #include <loader/platform.h>
 #include <ofw.h>

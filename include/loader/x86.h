@@ -1,6 +1,8 @@
 #ifndef __LOADER_X86_H__
 #define __LOADER_X86_H__
 
+#include <ananas/types.h>
+
 struct REALMODE_REGS {
 	uint32_t	eax;
 	uint32_t	ebx;

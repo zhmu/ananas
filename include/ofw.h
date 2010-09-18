@@ -46,4 +46,13 @@ void ofw_release(ofw_cell_t virt, ofw_cell_t size);
 void ofw_enter();
 void ofw_exit();
 
+#ifdef LOADER
+/*
+ * For the loader, calling the OFW is very straightforward, so make the
+ * entry point available here - the kernel needs to jump through all
+ * kinds of hoops, so let's not bother there.
+ */
+extern ofw_entry_t ofw_entry;
+#endif
+
 #endif /* __OPENFIRMWARE_H__ */
