@@ -3,89 +3,73 @@
 #include <ananas/device.h>
 #include <ananas/lib.h>
 #include <ananas/handle.h>
+#include <ananas/error.h>
 #include <ananas/thread.h>
 #include <ananas/pcpu.h>
 #include <ananas/stat.h>
 #include <ananas/schedule.h>
+#include <ananas/syscall.h>
 #include <ananas/vfs.h>
-
-extern device_t input_dev;
-extern device_t output_dev;
-
-static char*
-map_string(thread_t t, void* ptr)
-{
-	char* x = (char*)md_map_thread_memory(t, ptr, PAGE_SIZE, 0);
-	/* ensure it's zero terminated */
-	for(int i = 0; i < PAGE_SIZE /* XXX */; i++)
-		if (x[i] == '\0')
-			return x;
-	return NULL;
-}
+#include <elf.h>
 
 ssize_t
 sys_read(struct HANDLE* handle, void* buf, size_t count)
 {
 	struct THREAD* t = PCPU_GET(curthread);
-	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE))
+	struct VFS_FILE* file = syscall_get_file(t, handle);
+	if (file == NULL)
 		return -1;
 
-	struct VFS_FILE* file = &handle->data.vfs_file;
-	if (file->inode == NULL && file->device == NULL)
+	void* buffer = syscall_map_buffer(t, buf, count, THREAD_MAP_WRITE);
+	if (buffer == NULL)
 		return -1;
 
-	void* x = md_map_thread_memory(t, buf, count, 0);
-	if (x == NULL)
-		return -1;
-
-	return vfs_read(file, x, count);
+	return vfs_read(file, buffer, count);
 }
 
 ssize_t
 sys_write(struct HANDLE* handle, const void* buf, size_t count)
 {
 	struct THREAD* t = PCPU_GET(curthread);
-	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE))
+	struct VFS_FILE* file = syscall_get_file(t, handle);
+	if (file == NULL)
 		return -1;
 
-	struct VFS_FILE* file = &handle->data.vfs_file;
-	if (file->inode == NULL && file->device == NULL)
+	void* buffer = syscall_map_buffer(t, buf, count, THREAD_MAP_READ);
+	if (buffer == NULL)
 		return -1;
 
-	void* x = md_map_thread_memory(t, (void*)buf, count, 1);
-	if (x == NULL)
-		return -1;
-
-	return vfs_write(file, x, count);
+	return vfs_write(file, buffer, count);
 }
 
 void*
 sys_open(const char* path, int flags)
 {
 	struct THREAD* t = PCPU_GET(curthread);
-	struct HANDLE* handle = handle_alloc(HANDLE_TYPE_FILE, t);
-	if (handle == NULL)
+	const char* userpath = syscall_map_string(t, path);
+	if (userpath == NULL)
 		return NULL;
 
-	char* userpath = map_string(t, (void*)path);
-	if (userpath == NULL) {
-		handle_free(handle);
+	struct HANDLE* handle = handle_alloc(HANDLE_TYPE_FILE, t);
+	if (handle == NULL) {
+		thread_set_errorcode(t, ANANAS_ERROR_OUT_OF_HANDLES);
 		return NULL;
 	}
 
-	struct VFS_FILE* file = &handle->data.vfs_file;
-	if (!vfs_open(userpath, t->path_handle->data.vfs_file.inode, file)) {
+	if (!vfs_open(userpath, t->path_handle->data.vfs_file.inode, &handle->data.vfs_file)) {
 		handle_free(handle);
+		thread_set_errorcode(t, ANANAS_ERROR_NO_FILE); /* XXX - more possibilities! */
 		return NULL;
 	}
 	return handle;
 }
 
 int
-sys_close(struct HANDLE* handle)
+sys_close(void* handle)
 {
 	struct THREAD* t = PCPU_GET(curthread);
-	if (!handle_isvalid(handle, t, HANDLE_TYPE_ANY))
+	struct HANDLE* h = syscall_get_handle(t, handle);
+	if (h == NULL)
 		return -1;
 
 	handle_free(handle);
@@ -96,7 +80,8 @@ void*
 sys_clone(struct HANDLE* handle)
 {
 	struct THREAD* t = PCPU_GET(curthread);
-	if (!handle_isvalid(handle, t, HANDLE_TYPE_ANY))
+	struct HANDLE* h = syscall_get_handle(t, handle);
+	if (h == NULL)
 		return NULL;
 
 	return handle_clone(handle);
@@ -106,48 +91,46 @@ off_t
 sys_seek(struct HANDLE* handle, off_t offset, int whence)
 {
 	struct THREAD* t = PCPU_GET(curthread);
-	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE))
+	struct VFS_FILE* file = syscall_get_file(t, handle);
+	if (file == NULL)
 		return -1;
 
-	struct VFS_FILE* file = &handle->data.vfs_file;
-	if (file->inode == NULL && file->device == NULL)
-		return -1;
-
-	/* TODO */
+	kprintf("sys_seek(): todo\n");
 	return -1;
 }
 
-int
+ssize_t
 sys_getdirents(struct HANDLE* handle, void* buf, size_t size)
 {
 	struct THREAD* t = PCPU_GET(curthread);
-	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE))
+	struct VFS_FILE* file = syscall_get_file(t, handle);
+	if (file == NULL)
 		return -1;
 
-	/* XXX check file for directory */
-	void* x = md_map_thread_memory(t, (void*)buf, size, 1);
-	if (x == NULL)
+	if (!S_ISDIR(file->inode->sb.st_mode)) {
+		thread_set_errorcode(t, ANANAS_ERROR_NOT_A_DIRECTORY);
+		return -1;
+	}
+
+	void* buffer = syscall_map_buffer(t, buf, size, THREAD_MAP_WRITE);
+	if (buffer == NULL)
 		return -1;
 
-	struct VFS_FILE* file = &handle->data.vfs_file;
-	if (file->inode == NULL && file->device == NULL)
-		return -1;
-
-	return vfs_readdir(file, x, size);
+	return vfs_readdir(file, buffer, size);
 }
 
 int
 sys_setcwd(struct HANDLE* handle)
 {
 	struct THREAD* t = PCPU_GET(curthread);
-	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE))
+	struct VFS_FILE* file = syscall_get_file(t, handle);
+	if (file == NULL)
 		return -1;
 
-	struct VFS_FILE* file = &handle->data.vfs_file;
-	if (file->inode == NULL && file->device == NULL)
+	if (!S_ISDIR(file->inode->sb.st_mode)) {
+		thread_set_errorcode(t, ANANAS_ERROR_NOT_A_DIRECTORY);
 		return -1;
-	if (!S_ISDIR(file->inode->sb.st_mode))
-		return -1;
+	}
 
 	/* XXX lock */
 	handle_free(t->path_handle);
@@ -159,49 +142,56 @@ int
 sys_stat(struct HANDLE* handle, struct stat* sb)
 {
 	struct THREAD* t = PCPU_GET(curthread);
-	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE))
+	struct VFS_FILE* file = syscall_get_file(t, handle);
+	if (file == NULL) {
 		return -1;
+	}
 
-	void* x = md_map_thread_memory(t, (void*)sb, sizeof(struct stat), 1);
-	if (x == NULL)
-		return -1;
-
-	struct VFS_FILE* file = &handle->data.vfs_file;
-	if (file->inode == NULL && file->device == NULL)
-		return -1;
-
-	if (file->inode == NULL)
+	if (file->inode == NULL) {
 		return -1; /* XXX device stat support */
-	memcpy(x, &file->inode->sb, sizeof(struct stat));
-	return 0;
+	}
+
+	void* buffer = syscall_map_buffer(t, sb, sizeof(struct stat), THREAD_MAP_WRITE);
+	if (buffer == NULL) {
+		return -1;
+	}
+
+	memcpy(buffer, &file->inode->sb, sizeof(struct stat));
+	return sizeof(struct stat);
 }
 
 handle_event_result_t
 sys_wait(void* handle, handle_event_t* event)
 {
 	struct THREAD* t = PCPU_GET(curthread);
-	if (!handle_isvalid(handle, t, HANDLE_TYPE_ANY))
+	struct HANDLE* h = syscall_get_handle(t, handle);
+	if (h == NULL)
 		return -1;
 
 	handle_event_t* e = NULL;
 	if (event != NULL) {
-		e = md_map_thread_memory(t, (void*)event, sizeof(handle_event_t), 1);
+		e = syscall_map_buffer(t, event, sizeof(handle_event_t), THREAD_MAP_WRITE);
 		if (e == NULL)
 			return -1;
 	}
 
-	return handle_wait(t, handle, e);
+	return handle_wait(t, h, e);
 }
 
 void*
 sys_summon(struct HANDLE* handle, int flags, const char* args)
 {
 	struct THREAD* t = PCPU_GET(curthread);
-	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE /* XXX for now */))
+	/*
+	 * XXX This limits summoning to file-based handles.
+	 */
+	struct VFS_FILE* file = syscall_get_file(t, handle);
+	if (file == NULL)
 		return NULL;
 
+	/* Obtain arguments if needed */
 	if (args != NULL) {
-		args = map_string(t, (void*)args);
+		args = syscall_map_buffer(t, args, PAGE_SIZE /* XXX */, THREAD_MAP_READ);
 		if (args == NULL)
 			return NULL;
 	}
@@ -210,8 +200,9 @@ sys_summon(struct HANDLE* handle, int flags, const char* args)
 	struct THREAD* newthread = thread_alloc(t);
 	if (newthread == NULL)
 		return NULL;
-	if (!elf_load_from_file(newthread, &handle->data.vfs_file)) {
+	if (!elf_load_from_file(newthread, file)) {
 		/* failure - no option but to kill the thread */
+		thread_set_errorcode(t, ANANAS_ERROR_BAD_EXEC);
 		thread_free(newthread);
 		thread_destroy(newthread);
 		return NULL;
@@ -220,25 +211,29 @@ sys_summon(struct HANDLE* handle, int flags, const char* args)
 	if (args != NULL)
 		thread_set_args(newthread, args);
 
-	thread_resume(newthread); /* XXX */
+	thread_resume(newthread); /* XXX - shouldn't this be a flag? */
 	return newthread->thread_handle;
 }
 
 int sys_remove(struct HANDLE* handle)
 {
 	struct THREAD* t = PCPU_GET(curthread);
-	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE /* XXX for now */))
+	struct VFS_FILE* file = syscall_get_file(t, handle);
+	if (file == NULL)
 		return -1;
 
+	kprintf("sys_remove(): todo\n");
 	return -1;
 }
 
 off_t sys_truncate(struct HANDLE* handle, off_t offs)
 {
 	struct THREAD* t = PCPU_GET(curthread);
-	if (!handle_isvalid(handle, t, HANDLE_TYPE_FILE /* XXX for now */))
+	struct VFS_FILE* file = syscall_get_file(t, handle);
+	if (file == NULL)
 		return -1;
 
+	kprintf("sys_truncate(): todo\n");
 	return -1;
 }
 

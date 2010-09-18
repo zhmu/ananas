@@ -35,5 +35,6 @@ kern/disk_mbr.c		mandatory
 kern/disk_slice.c	mandatory
 gen/std.c		mandatory
 gen/io.c		mandatory
+gen/support.c		mandatory
 fs/ext2fs.c		option EXT2FS
 fs/iso9660.c		option ISO9660FS

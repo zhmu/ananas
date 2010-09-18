@@ -62,6 +62,9 @@ void thread_destroy(thread_t);
 void thread_set_args(thread_t t, const char* args);
 void md_thread_switch(thread_t new, thread_t old);
 
+#define THREAD_MAP_READ 	0x01
+#define THREAD_MAP_WRITE	0x02
+#define THREAD_MAP_EXECUTE	0x04
 void md_thread_set_entrypoint(thread_t thread, addr_t entry);
 void md_thread_set_argument(thread_t thread, addr_t arg);
 void* md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags);
@@ -81,5 +84,6 @@ void thread_resume(thread_t t);
 void thread_exit(int exitcode);
 void thread_dump();
 struct THREAD* thread_clone(struct THREAD* parent, int flags);
+void thread_set_errorcode(thread_t t, errorcode_t code);
 
 #endif

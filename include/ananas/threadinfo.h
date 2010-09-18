@@ -1,4 +1,5 @@
 #include <ananas/types.h>
+#include <ananas/_types/errorcode.h>
 
 #ifndef __SYS_THREADINFO_H__
 #define __SYS_THREADINFO_H__
@@ -6,12 +7,13 @@
 #define THREADINFO_ARGS_LENGTH	256
 
 struct THREADINFO {
-	int	ti_size;				/* structure length */
-	void*	ti_handle;				/* thread handle */
-	void*	ti_handle_stdin;			/* stdin handle */
-	void*	ti_handle_stdout;			/* stdout handle */
-	void*	ti_handle_stderr;			/* stderr handle */
-	char	ti_args[THREADINFO_ARGS_LENGTH];	/* commandline arguments */
+	int		ti_size;				/* structure length */
+	void*		ti_handle;				/* thread handle */
+	void*		ti_handle_stdin;			/* stdin handle */
+	void*		ti_handle_stdout;			/* stdout handle */
+	void*		ti_handle_stderr;			/* stderr handle */
+	char		ti_args[THREADINFO_ARGS_LENGTH];	/* commandline arguments */
+	errorcode_t	ti_errorcode;				/* last error code */
 };
 
 #ifndef KERNEL

@@ -298,4 +298,10 @@ thread_set_args(thread_t t, const char* args)
 	memcpy(t->threadinfo->ti_args, args, i + 2 /* terminating \0\0 */);
 }
 
+void
+thread_set_errorcode(thread_t t, errorcode_t code)
+{
+	t->threadinfo->ti_errorcode = code;
+}
+
 /* vim:set ts=2 sw=2: */

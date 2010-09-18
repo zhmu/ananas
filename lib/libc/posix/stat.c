@@ -1,4 +1,6 @@
+#include <assert.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <ananas/stat.h>
 #include <_posix/fdmap.h>
 
@@ -13,5 +15,9 @@ int stat(const char* path, struct stat* buf)
 		return -1;
 	int result = sys_stat(handle, buf);
 	sys_close(handle);
-	return result;
+	if (sizeof(struct stat) != result) {
+		fprintf(stderr, "kernel/userland stat not in sync\n");
+		assert(0);
+	}
+	return 0;
 }
