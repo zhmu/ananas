@@ -1,8 +1,8 @@
 #include <unistd.h>
+#include <_posix/todo.h>
 
-uid_t
-getuid()
+uid_t getuid()
 {
-	/* XXX implement me */
+	TODO;
 	return 0;
 }

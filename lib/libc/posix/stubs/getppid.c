@@ -1,8 +1,8 @@
 #include <unistd.h>
+#include <_posix/todo.h>
 
-pid_t
-getppid()
+pid_t getppid()
 {
-	/* XXX implement me */
+	TODO;
 	return (pid_t)1;
 }

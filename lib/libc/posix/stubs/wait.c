@@ -3,9 +3,10 @@
 #include <sys/wait.h>
 #include <sys/handle.h>
 #include <syscalls.h>
+#include <_posix/todo.h>
 
 pid_t wait(int *stat_loc)
 {
-	/* TODO */
+	TODO;
 	return (pid_t)-1;
 }

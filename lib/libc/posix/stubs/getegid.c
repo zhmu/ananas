@@ -1,8 +1,8 @@
 #include <unistd.h>
+#include <_posix/todo.h>
 
-gid_t
-getegid()
+gid_t getegid()
 {
-	/* XXX implement me */
+	TODO;
 	return 0;
 }

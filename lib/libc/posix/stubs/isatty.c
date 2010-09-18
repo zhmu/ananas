@@ -1,7 +1,8 @@
 #include <unistd.h>
+#include <_posix/todo.h>
 
 int isatty(int filedes)
 {
-	/* TODO */
+	TODO;
 	return 1;
 }

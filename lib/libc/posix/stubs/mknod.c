@@ -1,7 +1,8 @@
 #include <sys/stat.h>
+#include <_posix/todo.h>
 
 int mknod(const char* path, mode_t mode, dev_t dev)
 {
-	/* TODO - likely will never be supported */
+	TODO;
 	return -1;
 }

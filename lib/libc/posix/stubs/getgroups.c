@@ -1,8 +1,9 @@
 #include <sys/types.h>
 #include <unistd.h>
+#include <_posix/todo.h>
 
 int getgroups(int gidsetsize, gid_t grouplist[])
 {
-	/* XXX no groups yet */
+	TODO;
 	return 0;
 }
