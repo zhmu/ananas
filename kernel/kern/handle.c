@@ -68,7 +68,7 @@ handle_alloc(int type, struct THREAD* t)
 		/* XXX unlock thread */
 	} else {
 		handle->next = NULL;
-	};
+	}
 
 	KASSERT(((addr_t)handle % sizeof(struct HANDLE)) == 0, "handle address %p is not 0x%x byte aligned", (addr_t)handle, sizeof(struct HANDLE));
 	return handle;
