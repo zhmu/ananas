@@ -20,8 +20,8 @@ bio_init()
  * Allocate a new bio buffer. This must always return a valid bio and wait for
  * one if needed.
  */
-struct BIO*
-bio_new()
+static struct BIO*
+bio_alloc(device_t dev, block_t block, size_t len)
 {
 	/*
 	 * XXX yes, we should implement a freelist some day. oh, and locking. yeah...
@@ -36,6 +36,9 @@ bio_new()
 		 * we can't anything more sensible yet)
 		 */
 		bio_buffer[i].flags = BIO_FLAG_INUSE;
+		bio_buffer[i].device = dev;
+		bio_buffer[i].block = block;
+		bio_buffer[i].length = len;
 		return &bio_buffer[i];
 	}
 
@@ -64,18 +67,6 @@ bio_get_next(device_t dev)
 			return bio;
 	}
 	return NULL;
-}
-
-struct BIO*
-bio_alloc(device_t dev, block_t block, size_t len)
-{
-	KASSERT(len <= BIO_BUF_DATASIZE, "size out of range");
-
-	struct BIO* bio = bio_new();
-	bio->device = dev;
-	bio->block = block;
-	bio->length = len;
-	return bio;
 }
 
 int
