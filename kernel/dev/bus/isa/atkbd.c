@@ -1,9 +1,11 @@
 #include <machine/io.h>
 #include <ananas/device.h>
 #include <ananas/irq.h>
+#include <ananas/kdb.h>
 #include <ananas/lib.h>
 #include <ananas/tty.h>
 #include <ananas/console.h>
+#include "options.h"
 
 uint32_t atkbd_port = 0;
 
@@ -88,11 +90,12 @@ atkbd_irq(device_t dev)
 	if (scancode & 0x80)
 		return;
 
-	/* XXX debug */
+#ifdef KDB
 	if ((atkbd_flags == ATKBD_FLAG_CONTROL | ATKBD_FLAG_SHIFT) && scancode == 0x29 /* tilde */) {
-		thread_dump();
+		kdb_enter("keyboard sequence");
 		return;
 	}
+#endif
 
 	uint8_t ascii = ((atkbd_flags & ATKBD_FLAG_SHIFT) ? atkbd_keymap_shift : atkbd_keymap)[scancode];
 	if (ascii == 0)
