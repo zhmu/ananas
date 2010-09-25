@@ -13,24 +13,9 @@
 #include "options.h"
 
 extern struct TSS kernel_tss;
-void md_idle_thread();
 void clone_return();
 
-int
-md_thread_init(thread_t t)
-{
-	/* Create a pagedirectory and map the kernel pages in there */
-	t->md_pagedir = kmalloc(PAGE_SIZE);
-
-	/* Allocate stacks: one for the thread and one for the kernel */
-	t->md_stack  = kmalloc(THREAD_STACK_SIZE);
-	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
-
-	md_thread_setup(t);
-	return 1;
-}
-
-void
+static void
 md_thread_setup(thread_t t)
 {
 	memset(t->md_pagedir, 0, PAGE_SIZE);
@@ -68,6 +53,20 @@ md_thread_setup(thread_t t)
 	t->md_fpu_ctx.tw = 0xffff;
 
 	t->next_mapping = 1048576;
+}
+
+int
+md_thread_init(thread_t t)
+{
+	/* Create a pagedirectory and map the kernel pages in there */
+	t->md_pagedir = kmalloc(PAGE_SIZE);
+
+	/* Allocate stacks: one for the thread and one for the kernel */
+	t->md_stack  = kmalloc(THREAD_STACK_SIZE);
+	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
+
+	md_thread_setup(t);
+	return 1;
 }
 
 void
@@ -153,14 +152,18 @@ md_thread_set_argument(thread_t thread, addr_t arg)
 }
 
 void
-md_thread_setidle(thread_t thread)
+md_thread_setkthread(thread_t thread, kthread_func_t kfunc)
 {
 	/*
-	 * The idle thread uses hlt to wait for the next interrupt, so it must
-	 * run in kernel code context.
+	 * Kernel threads must share the environment with the kernel; so they have to
+	 * run with supervisor privileges and use the kernel page directory.
 	 */
 	thread->md_ctx.cs = GDT_SEL_KERNEL_CODE;
-	thread->md_ctx.eip = (addr_t)&md_idle_thread;
+	thread->md_ctx.ds = GDT_SEL_KERNEL_DATA;
+	thread->md_ctx.es = GDT_SEL_KERNEL_DATA;
+	thread->md_ctx.fs = GDT_SEL_KERNEL_PCPU;
+	thread->md_ctx.eip = (addr_t)kfunc;
+	thread->md_ctx.cr3 = (addr_t)pagedir - KERNBASE;
 }
 	
 void

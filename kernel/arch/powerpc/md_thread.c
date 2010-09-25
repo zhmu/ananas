@@ -111,9 +111,10 @@ md_thread_unmap(thread_t thread, void* addr, size_t length)
 }
 
 void
-md_thread_setidle(thread_t thread)
+md_thread_setkthread(thread_t thread, kthread_func_t kfunc)
 {
-	thread->md_ctx.sf.sf_srr0 = (addr_t)&md_idle_thread;
+	/* XXX enable supervisor mode */
+	thread->md_ctx.sf.sf_srr0 = (addr_t)kfunc;
 }
 
 void

@@ -4,7 +4,7 @@
 #include <machine/vm.h>
 #include "asmsyms.h"
 
-.global md_store_ctx, md_restore_ctx, reschedule, md_idle_thread
+.global md_store_ctx, md_restore_ctx, md_reschedule, md_idle_thread
 
 /*
  * Stores the current thread context. This function expects to be
@@ -245,7 +245,7 @@ md_restore_ctx_kernel:
  * Once the function returns, the calling thread will have been re-scheduled,
  * hence the name.
  */
-reschedule:
+md_reschedule:
 	/*
 	 * First of all, we need to store the context. We assume this will
 	 * always be called from kernel context - most importantly, this means

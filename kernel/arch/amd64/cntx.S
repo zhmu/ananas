@@ -6,7 +6,7 @@
 #include <machine/macro.h>
 #include "asmsyms.h"
 
-.global md_store_ctx, md_restore_ctx, reschedule, md_idle_thread
+.global md_store_ctx, md_restore_ctx, md_reschedule, md_idle_thread
 
 /*
  * Restores the thread context and jumps to the thread
@@ -94,7 +94,7 @@ md_restore_ctx_kernel:
 	movq	SF_RIP(%rsi), %rax
 	jmp	*%rax
 
-reschedule:
+md_reschedule:
 	/*
 	 * According to the System V ABI AMD64 specification, section A.2.1,
 	 * %rbp, %rbx, %r12 - %r15 'belong' to the calling function and the

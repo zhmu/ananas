@@ -3,7 +3,7 @@
 .globl	syscall_int, syscall_int_len
 .globl	dsi_trap, dsi_trap_len
 .globl	md_thread_switch
-.globl	reschedule
+.globl	md_reschedule
 
 .globl	trapreturn /* DEBUG */
 
@@ -503,7 +503,7 @@ syscallcode:
 	mr	%r1,  %r11
 	rfi
 
-reschedule:
+md_reschedule:
 	/*
 	 * reschedule will be called from kernel context; all we need to
 	 * do is to update the caller's context so the next scheduling

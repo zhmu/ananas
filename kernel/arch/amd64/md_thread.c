@@ -121,15 +121,11 @@ md_thread_set_argument(thread_t thread, addr_t arg)
 }
 
 void
-md_thread_setidle(thread_t thread)
+md_thread_setkthread(thread_t thread, kthread_func_t kfunc)
 {
-	/*
-	 * The idle thread uses hlt to wait for the next interrupt, so it must
-	 * run in kernel code context.
-	 */
 	thread->md_ctx.sf.sf_ss = GDT_SEL_KERNEL_DATA;
 	thread->md_ctx.sf.sf_cs = GDT_SEL_KERNEL_CODE;
-	thread->md_ctx.sf.sf_rip = (addr_t)&md_idle_thread;
+	thread->md_ctx.sf.sf_rip = (addr_t)kfunc;
 }
 
 /* vim:set ts=2 sw=2: */
