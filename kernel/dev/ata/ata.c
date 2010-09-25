@@ -56,14 +56,15 @@ ata_irq(device_t dev)
 	 * Request OK - fill the bio data XXX need to port 'rep insw'. We do this
 	 * before updating the buffer status to prevent 
 	 */
-	for(int count = 0; count < item->bio->length; ) {
+	uint8_t* bio_data = item->bio->data;
+	for(int count = 0; count < item->bio->length / 2; count++) {
 		uint16_t data = inw(priv->io_port + ATA_REG_DATA);
-		item->bio->data[count++] = data & 0xff;
-		item->bio->data[count++] = data >> 8;
+		*bio_data++ = data & 0xff;
+		*bio_data++ = data >> 8;
 	}
 	
 	/* Current request is done. Sign it off and away it goes */
-	item->bio->flags |= BIO_FLAG_DONE;
+	item->bio->flags &= ~BIO_FLAG_DIRTY;
 	kfree(item);
 }
 
@@ -248,6 +249,7 @@ ata_start(device_t dev)
 
 	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests, struct ATA_REQUEST_ITEM);
 	KASSERT(item->unit >= 0 && item->unit <= 1, "corrupted item number");
+	KASSERT(item->count > 0, "corrupted count number");
 
 	if (item->command != ATA_CMD_PACKET) {
 		/* Feed the request to the drive - disk */
