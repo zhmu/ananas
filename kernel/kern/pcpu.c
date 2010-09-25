@@ -12,7 +12,7 @@ pcpu_init(struct PCPU* pcpu)
 	 * this may come in handy later during stats-collection.
 	 */
 	thread_init(&pcpu->idlethread, NULL);
-	md_thread_setidle(&pcpu->idlethread);
+	md_thread_setkthread(&pcpu->idlethread, &md_idle_thread);
 	pcpu->idlethread_ptr = &pcpu->idlethread;
 }
 
