@@ -202,15 +202,17 @@ thread_unmap(thread_t t, void* ptr, size_t len)
 void
 thread_suspend(thread_t t)
 {
-	KASSERT((t->flags & THREAD_FLAG_SUSPENDED) == 0, "suspending suspended thread");
+	if (t == NULL)
+		return;
 	t->flags |= THREAD_FLAG_SUSPENDED;
 }
 
 void
 thread_resume(thread_t t)
 {
-	KASSERT(t->flags & THREAD_FLAG_SUSPENDED, "resuming active thread");
-	KASSERT((t->flags & THREAD_FLAG_TERMINATING) == 0, "resuming terminating thread");
+	if (t == NULL)
+		return;
+	KASSERT((t->flags & THREAD_FLAG_TERMINATING) == 0, "resuming terminating thread %p", t);
 	t->flags &= ~THREAD_FLAG_SUSPENDED;
 }
 	
