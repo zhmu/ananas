@@ -1,5 +1,5 @@
-#ifndef __SYS_QUEUE_H__
-#define __SYS_QUEUE_H__
+#ifndef __ANANAS_QUEUE_H__
+#define __ANANAS_QUEUE_H__
 
 /*
  * A queue is a singly-linked structure; obtaining/removing the head takes
@@ -8,17 +8,25 @@
  *
  * Each queue has a 'head' and 'tail' element. It should be used like this:
  *
- * QUEUE_DEFINE(test);
- * struct test {
+ * struct test_item {
  *   ...
- *   QUEUE_ENTRY(test);
- *   ...
+ *   QUEUE_FIELDS;
  * };
- *
- * QUEUE_DECLARE(test);
+ * QUEUE_DEFINE(test_queue);
  *
  * void main() {
- *  
+ *   struct test_queue t;
+ *   QUEUE_INIT(&t);
+ *
+ *   struct test_item* ti;
+
+ *   QUEUE_ADD_TAIL(&t, ti, struct test_queue);
+ *   QUEUE_ADD_TAIL(&t, ti, struct test_queue);
+ *   while (!QUEUE_EMPTY(&t)) {
+ *     struct test_item* headitem = QUEUE_HEAD(&t, struct test_queue);
+ *     QUEUE_POP_HEAD(&t, struct test_queue);
+ *     ...
+ *   }
  * }
  */
 
@@ -53,4 +61,4 @@
 #define QUEUE_EMPTY(q)						\
 	((q)->head == NULL)
 
-#endif /* __SYS_QUEUE_H__ */
+#endif /* __ANANAS_QUEUE_H__ */
