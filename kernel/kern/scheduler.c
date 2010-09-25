@@ -73,6 +73,24 @@ schedule()
 }
 
 void
+scheduler_switchto(thread_t newthread)
+{
+	spinlock_lock(&spl_scheduler);
+	thread_t curthread = PCPU_GET(curthread);
+	if (curthread != NULL) {
+		/* We have a current thread; remove the active flag */
+		curthread->flags &= ~THREAD_FLAG_ACTIVE;
+	}
+
+	newthread->flags |= THREAD_FLAG_ACTIVE;
+	PCPU_SET(curthread, newthread);
+	spinlock_unlock(&spl_scheduler);
+
+	/* all set - ask the md-code to run the thread */
+	md_thread_switch(newthread, curthread);
+}
+
+void
 scheduler_activate()
 {
 	scheduler_active++;
@@ -89,5 +107,18 @@ scheduler_activated()
 {
 	return scheduler_active;
 }
+
+void
+reschedule()
+{
+	if (scheduler_active == 0) {
+		struct THREAD* curthread = PCPU_GET(curthread);
+		/* If the caller suspended our thread, we need to revive it */
+		thread_resume(curthread);
+		return;
+	}
+	md_reschedule();
+}
+
 
 /* vim:set ts=2 sw=2: */
