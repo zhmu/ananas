@@ -2,6 +2,7 @@
 #include <ananas/bio.h>
 #include <ananas/console.h>
 #include <ananas/mm.h>
+#include <ananas/kdb.h>
 #include <ananas/lib.h>
 #include <ananas/schedule.h>
 #include <ananas/thread.h>
@@ -34,6 +35,10 @@ mi_startup()
 	kmem_stats(&mem_avail, &mem_total);
 	kprintf("Hello world, this is Ananas/%s %u.%u\n", ARCHITECTURE, 0, 1);
 	kprintf("Memory: %uKB available / %uKB total\n", mem_avail / 1024, mem_total / 1024);
+
+#ifdef KDB
+	kdb_init();
+#endif
 
 #ifdef SMP
 	/* Try the SMP dance */
@@ -103,6 +108,7 @@ mi_startup()
 
 	/* gooo! */
 	scheduler_activate();
+
 #if defined(__i386__) || defined(__amd64__)
 	__asm("hlt\n");
 #else
