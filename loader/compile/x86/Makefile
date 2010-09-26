@@ -1,7 +1,7 @@
 TARGET:		machine loader
 S=		../..
 
-CFLAGS=		-DEXT2 -DPXE
+CFLAGS=		-DEXT2 -DPXE -DRAMDISK
 include		$S/compile/Makefile.common
 OBJS+=		pxe.o
 
@@ -16,7 +16,7 @@ pxe.o:		$S/x86/pxe.c
 
 loader:		$(OBJS) $S/conf/ld.x86
 		$(LD) -b elf32-i386 -T $S/conf/ld.x86 -o loader $(OBJS)
-		../../../boot/merge_mbr ../../../boot/bootblock loader /home/rink/beundisk.img
+		../../../boot/merge_mbr ../../../boot/bootblock loader /home/rink/ananas.disk.img
 		cp loader /srv/tftpd
 
 machine:

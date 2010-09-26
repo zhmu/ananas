@@ -22,15 +22,14 @@ main()
 	printf("%u KB memory", platform_init_memory_map());
 	printf(" / %u disk(s)\n", platform_init_disks());
 
-
 	int num_disk_devices = diskio_init();
 	vfs_init();
 
 	int netbooting = platform_init_netboot();
 
 	/*
-	 * Find something we can mount as boot filesystem. We prefer netbooting if it's
-	 * available.
+	 * Find something we can mount as boot filesystem. We prefer netbooting if
+	 * it's available.
 	 */
 	int got_root = 0;
 	if (netbooting) {

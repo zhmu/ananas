@@ -6,8 +6,10 @@
 #include <ananas/types.h> 
 #include <ananas/x86/smap.h>
 #include <ananas/i386/param.h>	/* for page-size */
+#include <ananas/bootinfo.h>
 #include <loader/diskio.h>
 #include <loader/lib.h>
+#include <loader/platform.h>
 #include <loader/x86.h>
 #include "param.h"
 
@@ -102,11 +104,11 @@ platform_check_key()
 	return regs.eflags & EFLAGS_ZF;
 }
 
-uint32_t
+size_t
 platform_init_memory_map()
 {
 	struct REALMODE_REGS regs;
-	uint32_t total_kb = 0;
+	size_t total_kb = 0;
 
 	x86_realmode_init(&regs);
 	regs.ebx = 0;
@@ -232,11 +234,11 @@ platform_cleanup()
 }
 
 void
-platform_exec(uint64_t entry)
+platform_exec(uint64_t entry, struct BOOTINFO* bootinfo)
 {
-	typedef void kentry(void);
+	typedef void kentry(int, void*, int);
 	uint32_t entry32 = (entry & 0x0fffffff);
-	((kentry*)entry32)();
+	((kentry*)entry32)(BOOTINFO_MAGIC_1, bootinfo, BOOTINFO_MAGIC_2);
 }
 
 /* vim:set ts=2 sw=2: */

@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <loader/vfs.h>
 #include <loader/lib.h>
+#include <loader/elf.h>
 #include <loader/platform.h>
 #include <elf.h>
 
@@ -18,7 +19,7 @@
 #endif
 
 static int
-elf32_load(uint64_t* entry)
+elf32_load(struct LOADER_ELF_INFO* elf_info)
 {
 	Elf32_Ehdr ehdr;
 	if (vfs_pread(&ehdr, sizeof(ehdr), 0) != sizeof(ehdr))
@@ -63,6 +64,8 @@ elf32_load(uint64_t* entry)
 		ELF_ABORT("pheader read error");
 	/* XXX we should attempt to sort the phent's to ensure we can stream the input file */
 
+	elf_info->elf_start_addr = 0xffffffffffffffff;
+	elf_info->elf_end_addr = 0;
 	for (unsigned int i = 0; i < ehdr.e_phnum; i++) {
 		Elf32_Phdr* phdr = (Elf32_Phdr*)(phent + i * ehdr.e_phentsize);
 		if (phdr->p_type != PT_LOAD)
@@ -76,16 +79,20 @@ elf32_load(uint64_t* entry)
 #endif
 		if (vfs_pread(dest, phdr->p_filesz, phdr->p_offset) != phdr->p_filesz)
 			ELF_ABORT("data read error");
+		if (elf_info->elf_start_addr > phdr->p_paddr)
+			elf_info->elf_start_addr = phdr->p_paddr;
+		if (elf_info->elf_end_addr < phdr->p_paddr + phdr->p_memsz)
+			elf_info->elf_end_addr = phdr->p_paddr + phdr->p_memsz;
 	}
 
-	*entry = (uint64_t)ehdr.e_entry;
+	elf_info->elf_entry = (uint64_t)ehdr.e_entry;
 	return 1;
 }
 
 int
-elf_load(uint64_t* entry)
+elf_load(struct LOADER_ELF_INFO* elf_info)
 {
-	return elf32_load(entry);
+	return elf32_load(elf_info);
 }
 
 /* vim:set ts=2 sw=2: */

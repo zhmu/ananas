@@ -144,7 +144,7 @@ platform_init(int r3, int r4, unsigned int r5)
 }
 
 void
-platform_exec(uint64_t entry)
+platform_exec(uint64_t entry, struct BOOTINFO* bootinfo)
 {
 	typedef void kentry(uint32_t r3, uint32_t r4, uint32_t r5);
 
@@ -153,7 +153,7 @@ platform_exec(uint64_t entry)
 	 *     add the OFW entry point so that it's easier to obtain and use.
 	 */
 	uint32_t entry32 = (entry & 0xffffffff);
-	((kentry*)entry32)(0, 0, (uint32_t)ofw_entry);
+	((kentry*)entry32)(BOOTINFO_MAGIC_1, bootinfo, (uint32_t)ofw_entry);
 }
 
 /* vim:set ts=2 sw=2: */

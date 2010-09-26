@@ -1,9 +1,11 @@
 #include <ananas/types.h>
+#include <ananas/bootinfo.h>
 #include <loader/diskio.h>
 #include <loader/lib.h>
 #include <loader/platform.h>
 #include <loader/vfs.h>
 #include <loader/elf.h>
+#include <loader/ramdisk.h>
 
 #define MAX_LINE_SIZE 128
 #define MAX_ARGS 16
@@ -18,8 +20,10 @@ static command_t cmd_exec;
 static command_t cmd_boot;
 static command_t cmd_reboot;
 static command_t cmd_autoboot;
+static command_t cmd_ramdisk;
 
-static uint64_t kernel_entry = 0;
+static struct BOOTINFO bootinfo = { 0 };
+static addr_t kernel_entry = 0;
 
 struct COMMAND {
 	const char* cmd;
@@ -30,6 +34,9 @@ struct COMMAND {
 	{ "ls",       &cmd_ls,       "List files" },
 	{ "cat",      &cmd_cat,      "Display file contents" },
 	{ "load",     &cmd_load,     "Load a kernel" },
+#ifdef RAMDISK
+	{ "ramdisk",  &cmd_ramdisk,  "Load a ramdisk" },
+#endif
 	{ "exec",     &cmd_exec,     "Execute loaded kernel" },
 	{ "boot",     &cmd_boot,     "Load and execute a kernel" },
 	{ "reboot",   &cmd_reboot,   "Reboot" },
@@ -41,7 +48,6 @@ static const char* kernels[] = {
 	"kernel",
 	NULL
 };
-
 
 static void
 cmd_help(int num_args, char** arg)
@@ -94,6 +100,8 @@ cmd_cat(int num_args, char** arg)
 static void
 cmd_load(int num_args, char** arg)
 {	
+	struct LOADER_ELF_INFO elf_info;
+
 	if (num_args != 2) {
 		printf("need an argument\n");
 		return;
@@ -102,14 +110,23 @@ cmd_load(int num_args, char** arg)
 		printf("cannot open '%s'\n", arg[1]);
 		return;
 	}
-	if (!elf_load(&kernel_entry)) {
+	if (!elf_load(&elf_info)) {
 		printf("couldn't load kernel\n");
 		vfs_close();
 		return;
 	}
 	vfs_close();
 
-	printf("loaded successfully, entry point is 0x%x\n", kernel_entry & 0xffffffff);
+	memset(&bootinfo, 0, sizeof(struct BOOTINFO));
+	bootinfo.bi_size             = sizeof(struct BOOTINFO);
+	bootinfo.bi_kernel_firstaddr = elf_info.elf_start_addr;
+	bootinfo.bi_kernel_size      = elf_info.elf_end_addr - elf_info.elf_start_addr;
+
+	kernel_entry = elf_info.elf_entry;
+	printf("loaded successfully at 0x%x-0x%x, entry point is 0x%x\n",
+	 bootinfo.bi_kernel_firstaddr,
+	 bootinfo.bi_kernel_firstaddr + bootinfo.bi_kernel_size,
+	 kernel_entry);
 }
 
 static void
@@ -123,7 +140,7 @@ cmd_exec(int num_args, char** arg)
 
 	platform_cleanup();
 
-	platform_exec(kernel_entry);
+	platform_exec(kernel_entry, &bootinfo);
 }
 
 static void
@@ -166,7 +183,13 @@ interact()
 	char line[MAX_LINE_SIZE + 1];
 	char* args[MAX_ARGS];
 
-cmd_autoboot(0, NULL);
+	const char* kernelfile[] = { NULL, "kernel" };
+	cmd_load(sizeof(kernelfile) / sizeof(char*), (char**)kernelfile);
+
+	const char* ramdiskfile[] = { NULL, "root.fs" };
+	cmd_ramdisk(sizeof(ramdiskfile) / sizeof(char*), (char**)ramdiskfile);
+
+	cmd_exec(0, NULL);
 
 	while (1) {
 		/* Assemble an input line */
@@ -242,5 +265,38 @@ cmd_autoboot(0, NULL);
 		cmd->func(num_args, args);
 	}
 }
+
+#ifdef RAMDISK
+static void
+cmd_ramdisk(int num_args, char** arg)
+{	
+	if (num_args != 2) {
+		printf("need an argument\n");
+		return;
+	}
+	if (bootinfo.bi_kernel_size == 0) {
+		printf("a kernel must be loaded first\n");
+		return;
+	}
+	if (!vfs_open(arg[1])) {
+		printf("cannot open '%s'\n", arg[1]);
+		return;
+	}
+	struct LOADER_RAMDISK_INFO ram_info;
+	ram_info.ram_start = bootinfo.bi_kernel_firstaddr + bootinfo.bi_kernel_size;
+	if (!ramdisk_load(&ram_info)) {
+		printf("couldn't load ramdisk\n");
+		vfs_close();
+		return;
+	}
+	vfs_close();
+	bootinfo.bi_ramdisk_firstaddr = ram_info.ram_start;
+	bootinfo.bi_ramdisk_size      = ram_info.ram_size;
+
+	printf("ramdisk loaded successfully at 0x%x-0x%x\n",
+	 bootinfo.bi_ramdisk_firstaddr,
+	 bootinfo.bi_ramdisk_firstaddr + bootinfo.bi_ramdisk_size);
+}
+#endif
 
 /* vim:set ts=2 sw=2: */
