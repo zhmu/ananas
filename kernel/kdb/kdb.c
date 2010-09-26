@@ -17,6 +17,7 @@ extern kdb_func_t kdb_cmd_exit;
 extern kdb_func_t kdb_cmd_threads;
 extern kdb_func_t kdb_cmd_bio;
 extern kdb_func_t kdb_cmd_bootinfo;
+extern kdb_func_t kdb_cmd_memory;
 
 struct KDB_COMMAND {
 	const char* cmd;
@@ -28,6 +29,7 @@ struct KDB_COMMAND {
 	{ "threads", "Display thread information", &kdb_cmd_threads },
 	{ "bio", "Display BIO information", &kdb_cmd_bio },
 	{ "bootinfo", "Display bootinfo", &kdb_cmd_bootinfo },
+	{ "memory", "Display memory information", &kdb_cmd_memory },
 	{ NULL, NULL, NULL }
 };
 

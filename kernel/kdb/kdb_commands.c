@@ -31,4 +31,14 @@ kdb_cmd_bootinfo(int num_args, char** arg)
 	 bootinfo->bi_ramdisk_firstaddr + bootinfo->bi_ramdisk_size);
 }
 
+void
+kdb_cmd_memory(int num_args, char** arg)
+{
+	size_t avail, total;
+	kmem_stats(&avail, &total);
+
+	kprintf("memory: %u KB available of %u KB total\n",
+	 avail / 1024, total / 1024);
+}
+
 /* vim:set ts=2 sw=2: */
