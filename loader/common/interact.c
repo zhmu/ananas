@@ -284,6 +284,11 @@ cmd_ramdisk(int num_args, char** arg)
 	}
 	struct LOADER_RAMDISK_INFO ram_info;
 	ram_info.ram_start = bootinfo.bi_kernel_firstaddr + bootinfo.bi_kernel_size;
+	/*
+	 * XXX give the kernel some slack - most implementations use some data after the
+	 *     kernel for temporary storage while initializing
+	 */
+	ram_info.ram_start += 64 * 1024;
 	if (!ramdisk_load(&ram_info)) {
 		printf("couldn't load ramdisk\n");
 		vfs_close();
