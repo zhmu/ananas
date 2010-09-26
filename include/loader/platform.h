@@ -3,6 +3,8 @@
 #ifndef __PLATFORM_H__
 #define __PLATFORM_H__
 
+struct BOOTINFO;
+
 /* Retrieve a block of length bytes available for use - must be zeroed out */
 void* platform_get_memory(uint32_t length);
 
@@ -16,7 +18,7 @@ int platform_getch();
 int platform_check_key();
 
 /* Retrieve the platform's memory map for passing to the kernel. Returns KB's of memory available */
-uint64_t platform_init_memory_map();
+size_t platform_init_memory_map();
 
 /* Initialize disk subsystem. Returns number of disks available */
 int platform_init_disks();
@@ -40,6 +42,6 @@ void platform_cleanup_netboot();
 void platform_reboot();
 
 /* Launches a loaded kernel */
-void platform_exec(uint64_t entry);
+void platform_exec(uint64_t entry, struct BOOTINFO* bootinfo);
 
 #endif /* __PLATFORM_H__ */
