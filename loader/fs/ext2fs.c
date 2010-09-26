@@ -45,12 +45,17 @@ static struct EXT2_ACTIVE_INODE* ext2_activeinode;
 static uint32_t
 ext2_find_block(uint32_t block)
 {
+	uint32_t pointers_per_block = (ext2_fsinfo->block_size / sizeof(uint32_t));
+	uint32_t sectors_per_block = (ext2_fsinfo->block_size / SECTOR_SIZE);
+
+	/* direct blocks */
 	if (block < 12)
 		return ext2_activeinode->block[block];
 
-	if (block < 12 + ext2_fsinfo->block_size / 4) {
+	/* first indirect block */
+	if (block < 12 + pointers_per_block) {
 		uint32_t blknum = ext2_activeinode->block[12];
-		blknum *= (ext2_fsinfo->block_size / SECTOR_SIZE);
+		blknum *= sectors_per_block;
 		struct CACHE_ENTRY* centry = diskio_read(
 		 ext2_fsinfo->device,
 		 blknum + (((block - 12) * sizeof(uint32_t)) / SECTOR_SIZE)
@@ -58,7 +63,26 @@ ext2_find_block(uint32_t block)
 		return EXT2_TO_LE32(*(uint32_t*)(centry->data + ((block - 12) * sizeof(uint32_t)) % SECTOR_SIZE));
 	}
 
-	printf("ext2_find_block() needs support for doubly/triple indirect blocks!");
+	/* double indirect block */
+	if (block < (12 + pointers_per_block + (pointers_per_block * pointers_per_block))) {
+		/* get the doubly-indirect block map */
+		uint32_t indirect_blknum = (block - 12 - pointers_per_block);
+		uint32_t first_block = ext2_activeinode->block[13] * sectors_per_block;
+		struct CACHE_ENTRY* centry1 = diskio_read(
+		 ext2_fsinfo->device,
+		 first_block + ((indirect_blknum / pointers_per_block) * sizeof(uint32_t) / SECTOR_SIZE)
+		);
+		/* now read the first indirect inside that map */
+		uint32_t blknum = EXT2_TO_LE32(*(uint32_t*)(centry1->data + (((indirect_blknum / pointers_per_block) * sizeof(uint32_t)) % SECTOR_SIZE)));
+		//printf("double indirect for block=%u:=ind blkum=%u, block=%u -> ", block, indirect_blknum, blknum);
+		blknum *= sectors_per_block;
+		struct CACHE_ENTRY* centry2 = diskio_read(ext2_fsinfo->device, blknum + (((indirect_blknum % pointers_per_block) * sizeof(uint32_t)) / SECTOR_SIZE));
+		uint32_t r = EXT2_TO_LE32(*(uint32_t*)(centry2->data + (((indirect_blknum % pointers_per_block) * sizeof(uint32_t)) % SECTOR_SIZE)));
+		//printf("result=%u\n", r);
+		return r;
+	}
+
+	printf("ext2_find_block() needs support for triple indirect blocks!\n");
 	return 0;
 }
 
@@ -77,7 +101,7 @@ ext2_read(void* buf, size_t len)
 		uint32_t block = ext2_find_block(blocknum);
 		if (block == 0) {
 			/* We've run out of blocks; this shouldn't happen... */
-			printf("ext2_read(): no block found, maybe sparse file?");
+			printf("ext2_read(): no block found, maybe sparse file?\n");
 			break;
 		}
 
