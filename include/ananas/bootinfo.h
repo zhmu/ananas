@@ -20,7 +20,7 @@ struct BOOTINFO {
 #define BOOTINFO_MAGIC_1	0x52505753
 #define BOOTINFO_MAGIC_2	0x62303074
 
-#ifdef KERNEL
+#if defined(KERNEL) && !defined(ASM)
 /* To be supplied by the MD-code */
 extern struct BOOTINFO* bootinfo;
 #endif
