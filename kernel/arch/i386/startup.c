@@ -9,6 +9,7 @@
 #include <machine/realmode.h>
 #include <ananas/x86/pic.h>
 #include <ananas/x86/smap.h>
+#include <ananas/bootinfo.h>
 #include <ananas/handle.h>
 #include <ananas/init.h>
 #include <ananas/lib.h>
@@ -38,13 +39,32 @@ struct TSS kernel_tss;
 /* Boot CPU pcpu structure */
 static struct PCPU bsp_pcpu;
 
+/* Bootinfo as supplied by the loader, or NULL */
+struct BOOTINFO* bootinfo = NULL;
+static struct BOOTINFO _bootinfo;
+
 /*
  * i386-dependant startup code, called by stub.s.
  */
 void
-md_startup()
+md_startup(struct BOOTINFO* bootinfo_ptr)
 {
 	uint32_t i;
+
+	/*
+	 * As long as we do not have any paging, we can access any
+	 * memory location we want - this is handy while we are copying
+	 * and validating the loader-supplied bootinfo.
+	 */	
+	if (bootinfo_ptr != NULL) {
+		/*
+		 * Copy enough bytes to cover our bootinfo - but only activate the bootinfo
+	   * if the size is correct.
+		 */
+		memcpy((void*)((addr_t)&_bootinfo - KERNBASE), bootinfo_ptr, sizeof(struct BOOTINFO));
+		if (bootinfo_ptr->bi_size >= sizeof(struct BOOTINFO))
+			*(uint32_t*)((addr_t)&bootinfo - KERNBASE) = (addr_t)&_bootinfo;
+	}
 
 	/*
 	 * Once this is called, we don't have any paging set up yet. This
