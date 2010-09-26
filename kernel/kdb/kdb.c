@@ -16,6 +16,7 @@ extern kdb_func_t kdb_cmd_help;
 extern kdb_func_t kdb_cmd_exit;
 extern kdb_func_t kdb_cmd_threads;
 extern kdb_func_t kdb_cmd_bio;
+extern kdb_func_t kdb_cmd_bootinfo;
 
 struct KDB_COMMAND {
 	const char* cmd;
@@ -26,6 +27,7 @@ struct KDB_COMMAND {
 	{ "exit", "Leave the debugger", &kdb_cmd_exit },
 	{ "threads", "Display thread information", &kdb_cmd_threads },
 	{ "bio", "Display BIO information", &kdb_cmd_bio },
+	{ "bootinfo", "Display bootinfo", &kdb_cmd_bootinfo },
 	{ NULL, NULL, NULL }
 };
 
