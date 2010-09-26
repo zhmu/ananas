@@ -372,6 +372,12 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	size_t kern_pages = ((addr_t)avail - ((addr_t)&__entry - KERNBASE)) / PAGE_SIZE;
 	kmem_mark_used((void*)(addr_t)&__entry - KERNBASE, kern_pages);
 
+	/* If we have a ramdisk, protect it from the allocator */
+	if (bootinfo != NULL && bootinfo->bi_ramdisk_firstaddr != 0) {
+		size_t ramdisk_pages = (bootinfo->bi_ramdisk_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
+		kmem_mark_used((void*)bootinfo->bi_ramdisk_firstaddr, ramdisk_pages);
+	}
+
 	/* Initialize the handles; this is needed by the per-CPU code as it initialize threads */
 	handle_init();
 
