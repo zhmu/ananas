@@ -7,6 +7,7 @@
 #define __THREAD_H__
 
 typedef struct THREAD* thread_t;
+typedef void (*kthread_func_t)(void);
 struct THREADINFO;
 
 #define THREAD_EVENT_EXIT 1
@@ -52,8 +53,8 @@ int md_thread_init(thread_t thread);
 /* Machine-dependant callback to free thread data */
 void md_thread_free(thread_t thread);
 
-/* Machine-dependant idle thread activation */
-void md_thread_setidle(thread_t thread);
+/* Machine-dependant kernel thread activation */
+void md_thread_setkthread(thread_t thread, kthread_func_t kfunc);
 
 void thread_init(thread_t t, thread_t parent);
 thread_t thread_alloc(thread_t parent);
@@ -61,6 +62,8 @@ void thread_free(thread_t);
 void thread_destroy(thread_t);
 void thread_set_args(thread_t t, const char* args);
 void md_thread_switch(thread_t new, thread_t old);
+
+void md_idle_thread();
 
 #define THREAD_MAP_READ 	0x01
 #define THREAD_MAP_WRITE	0x02
