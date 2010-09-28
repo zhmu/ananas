@@ -11,6 +11,7 @@ struct VFS_MOUNTED_FS mountedfs[VFS_MOUNTED_FS_MAX];
 
 extern struct VFS_FILESYSTEM_OPS fsops_ext2;
 extern struct VFS_FILESYSTEM_OPS fsops_iso9660;
+extern struct VFS_FILESYSTEM_OPS fsops_cramfs;
 
 void
 vfs_init()
@@ -25,6 +26,18 @@ vfs_get_availmountpoint()
 		struct VFS_MOUNTED_FS* fs = &mountedfs[n];
 		/* XXX lock etc */
 		if (fs->mountpoint == NULL)
+			return fs;
+	}
+	return NULL;
+}
+
+static struct VFS_MOUNTED_FS*
+vfs_get_rootfs()
+{
+	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {
+		struct VFS_MOUNTED_FS* fs = &mountedfs[n];
+		/* XXX lock etc */
+		if (fs->mountpoint != NULL && strcmp(fs->mountpoint, "/") == 0)
 			return fs;
 	}
 	return NULL;
@@ -45,7 +58,8 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	fs->mountpoint = strdup(to);
 
 	/* XXX kludge */
-	fs->fsops = &fsops_ext2;
+	//fs->fsops = &fsops_ext2;
+	fs->fsops = &fsops_cramfs;
 	//fs->fsops = &fsops_iso9660;
 
 	if (!fs->fsops->mount(fs)) {
@@ -78,7 +92,7 @@ vfs_dump_inode(struct VFS_INODE* inode)
 	kprintf("ino     = %u\n", sb->st_ino);
 	kprintf("mode    = 0x%x\n", sb->st_mode);
 	kprintf("uid/gid = %u:%u\n", sb->st_uid, sb->st_gid);
-	kprintf("size    = %li\n", sb->st_size);
+	kprintf("size    = %u\n", (uint32_t)sb->st_size); /* XXX for now */
 	kprintf("blksize = %u\n", sb->st_blksize);
 }
 
@@ -130,15 +144,25 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop)
 	return inode;
 }
 
+
+/*
+ * Called to perform a lookup from directory entry 'dentry' to an inode,
+ * or NULL on failure. 'curinode' is the initial inode to start the
+ * lookup relative to, or NULL to start from the root.
+ */
 struct VFS_INODE*
 vfs_lookup(const char* dentry, struct VFS_INODE* curinode)
 {
 	char tmp[VFS_MAX_NAME_LEN + 1];
 
+	/*
+	 * First of all, see if we need to lookup relative to the root; if so,
+	 * we must update the current inode.
+	 */
 	if (curinode == NULL || *dentry == '/') {
-		/* XXX we only consider the first filesystem! */
-		struct VFS_MOUNTED_FS* fs = &mountedfs[0];
-		if (fs->mountpoint == NULL)
+		struct VFS_MOUNTED_FS* fs = vfs_get_rootfs();
+		if (fs == NULL)
+			/* If there is no root filesystem, nothing to do */
 			return NULL;
 		if (*dentry == '/')
 			dentry++;
@@ -146,51 +170,60 @@ vfs_lookup(const char* dentry, struct VFS_INODE* curinode)
 		/* Start by looking up the root inode */
 		curinode = fs->root_inode;
 		KASSERT(curinode != NULL, "no root inode");
-
-		/* XXX */
-		if (*dentry == '\0')
-			return curinode;
 	}
-	/* XXX */
-	if (*dentry == '.' && *(dentry + 1) == '\0') {
-		return curinode;
-	}
-	KASSERT(S_ISDIR(curinode->sb.st_mode) != 0, "current inode isn't a directory");
 
+	/* Bail if there is no current inode; this makes the caller's path easier */
+	if (curinode == NULL)
+		return NULL;
+
+	struct VFS_INODE* lookup_root_inode = curinode;
 	const char* curdentry = dentry;
-	const char* lookupptr;
-	while (1) {
+	const char* curlookup;
+	while (curdentry != NULL && *curdentry != '\0' /* for trailing /-es */) {
+		/*
+		 * Isolate the next part of the part we have to look up. Note that
+		 * we consider the input dentry as const, so we can't mess with it;
+		 * this is why we need to make copies in 'tmp'.
+		 */
 		char* ptr = strchr(curdentry, '/');
 		if (ptr != NULL) {
 			/* There's a slash in the path - must lookup next part */
 			strncpy(tmp, curdentry, ptr - curdentry);
 			curdentry = ++ptr;
-			lookupptr = tmp;
+			curlookup = tmp;
 		} else {
-			lookupptr = curdentry;
+			curlookup = curdentry;
 			curdentry = NULL;
 		}
 
-		/* Attempt to look up whatever entry we need */
-		struct VFS_MOUNTED_FS* fs = curinode->fs;
-		struct VFS_INODE* inode = curinode->iops->lookup(curinode, lookupptr);
-		if (inode == NULL) {
-			if (curinode != fs->root_inode) vfs_free_inode(curinode);
+		/* If the entry to find is '.', we are done */
+		if (strcmp(curlookup, ".") == 0)
+			return curinode;
+
+		/*
+		 * We need to recurse; this can only be done if this is a directory, so
+		 * refuse if this isn't the case.
+		 */
+		if (S_ISDIR(curinode->sb.st_mode) == 0) {
+			if (lookup_root_inode != curinode)
+				vfs_free_inode(curinode);
 			return NULL;
 		}
 
 		/*
-		 * OK, the lookup succeeded. Continue if needed.
+	 	 * Attempt to look up whatever entry we need. Once this is done, we can
+		 * get rid of the current loookup inode (as it won't be the inode itself
+		 * since we special-case "." above).
 		 */
-		if (curdentry == NULL) {
-			if (curinode != fs->root_inode) vfs_free_inode(curinode);
-			return inode;
-		}
+		struct VFS_INODE* inode = curinode->iops->lookup(curinode, curlookup);
+		if (lookup_root_inode != curinode)
+			vfs_free_inode(curinode);
+		if (inode == NULL)
+			return NULL;
 
 		curinode = inode;
 	}
-
-	/* NOTREACHED */
+	return curinode;
 }
 
 int
