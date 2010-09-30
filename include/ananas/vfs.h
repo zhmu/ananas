@@ -150,4 +150,7 @@ int vfs_seek(struct VFS_FILE* file, off_t offset);
 size_t vfs_readdir(struct VFS_FILE* file, struct VFS_DIRENT* dirents, size_t numents);
 int vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, const char* name, int namelen);
 
+/* Generic functions */
+struct VFS_INODE* vfs_generic_lookup(struct VFS_INODE* dirinode, const char* dentry);
+
 #endif /* __SYS_VFS_H__ */

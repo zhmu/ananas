@@ -11,6 +11,7 @@ kern/irq.c		mandatory
 kern/bio.c		mandatory
 kern/handle.c		mandatory
 kern/vfs.c		mandatory
+kern/vfs-generic.c	mandatory
 kern/tty.c		mandatory
 lib/kern/misc.c		mandatory
 lib/kern/memset.c	mandatory
