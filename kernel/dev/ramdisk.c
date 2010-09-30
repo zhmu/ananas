@@ -20,7 +20,6 @@ ramdisk_attach(device_t dev)
 	kprintf("%s: %u KB\n", dev->name, bootinfo->bi_ramdisk_size / 1024);
 	uint32_t len = (bootinfo->bi_ramdisk_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
 	vm_map(bootinfo->bi_ramdisk_firstaddr, len);
-	kprintf("mapped %u pages (from %x)\n", len, bootinfo->bi_ramdisk_firstaddr);
 	return 0;
 }
 
