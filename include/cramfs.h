@@ -12,13 +12,15 @@ struct CRAMFS_INFO {
 
 struct CRAMFS_INODE {
 	uint16_t	in_mode;
+#define CRAMFS_S_IFREG	0x8000
+#define CRAMFS_S_IFDIR	0x4000
 	uint16_t	in_uid;
 	uint32_t	in_size_gid;				/* 24 bit size, 8 bit gid */
-#define CRAMFS_INODE_SIZE(x) (((x)>>8)&0xffffff)
-#define CRAMFS_INODE_GID(x)  ((x)&0xff)
+#define CRAMFS_INODE_SIZE(x) ((x)&0xffffff)
+#define CRAMFS_INODE_GID(x)  (((x)>>24)&0xff)
 	uint32_t	in_namelen_offset;			/* 6 bit namelen, 26 bit offset */
-#define CRAMFS_INODE_NAMELEN(x) (((x)>>26)&0x3f)
-#define CRAMFS_INODE_OFFSET(x) ((x)&0x7ffffff)
+#define CRAMFS_INODE_NAMELEN(x) ((x)&0x3f)
+#define CRAMFS_INODE_OFFSET(x) ((x>>6)&0x7ffffff)
 } __attribute__((packed));
 
 struct CRAMFS_SUPERBLOCK {
@@ -35,7 +37,7 @@ struct CRAMFS_SUPERBLOCK {
 #define CRAMFS_SIGNATURE	"Compressed ROMFS"
 	struct CRAMFS_INFO c_info;
 	uint8_t		c_name[16];
-	struct CRAMFS_INFO c_rootinode;
+	struct CRAMFS_INODE c_rootinode;
 } __attribute__((packed));
 
 /* The flags mask that makes the image acceptable */

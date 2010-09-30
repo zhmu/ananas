@@ -7,6 +7,7 @@ device		isa
 device		vga
 device		sio
 device		atkbd
+device		ramdisk
 
 device		pcihb
 device		pci
@@ -14,6 +15,10 @@ device		pci
 option		SMP
 option		EXT2FS
 option		ISO9660FS
+option		KDB
+
+option		ZLIB
+option		CRAMFS
 
 device		ata
 
