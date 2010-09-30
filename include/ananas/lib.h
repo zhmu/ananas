@@ -6,14 +6,17 @@
 
 #define KASSERT(x, msg, args...) \
 	if (!(x)) \
-		panic("%s: "msg"\n", __func__, ## args)
+		_panic(__FILE__, __func__, __LINE__, msg, ## args)
+
+#define panic(msg, args...) \
+		_panic(__FILE__, __func__, __LINE__, msg, ##args)
 
 
 void* memcpy(void* dst, const void* src, size_t len);
 void* memset(void* b, int c, size_t len);
 void vaprintf(const char* fmt, va_list ap);
 void kprintf(const char* fmt, ...);
-void panic(const char* fmt, ...);
+void _panic(const char* file, const char* func, int line, const char* fmt, ...);
 int sprintf(char* str, const char* fmt, ...);
 char* strdup(const char* s);
 
