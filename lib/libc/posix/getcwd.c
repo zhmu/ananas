@@ -1,10 +1,19 @@
 #include <unistd.h>
+#include <string.h>
+#include <errno.h>
 
-extern int sys_getcwd(char* buf, size_t size);
+extern char _posix_cwd[];
 
 char* getcwd( char* buf, size_t size)
 {
-	if (sys_getcwd(buf, size) != 0)
+	if (size == 0) {
+		errno = EINVAL;
 		return NULL;
+	}
+	if (strlen(_posix_cwd) >= size) {
+		errno = ERANGE;
+		return NULL;
+	}
+	strcpy(buf, _posix_cwd);
 	return buf;
 }
