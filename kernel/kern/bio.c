@@ -15,6 +15,8 @@ static struct SPINLOCK spl_bucket[BIO_BUCKET_SIZE];
 static struct SPINLOCK spl_bio_lists;
 static struct SPINLOCK spl_bio_bitmap;
 
+#define BIO_TRACE
+
 void bio_dump();
 
 void
@@ -83,6 +85,8 @@ bio_flush(struct BIO* bio)
 static void
 bio_cleanup()
 {
+	BIO_TRACE("bio_cleanup(): called\n");
+
 	spinlock_lock(&spl_bio_lists);
 	KASSERT(bio_usedlist != NULL, "usedlist is NULL");
 
@@ -140,6 +144,7 @@ static struct BIO*
 bio_get(device_t dev, block_t block, size_t len)
 {
 	KASSERT((len % BIO_SECTOR_SIZE) == 0, "length %u not a multiple of bio sector size", len);
+	BIO_TRACE("bio_get(): dev=%p, block=%u, len=%u", dev, (int)block, len);
 
 	/* First of all, lock the corresponding queue */
 	unsigned int bucket_num = block % BIO_BUCKET_SIZE;
@@ -173,6 +178,7 @@ bio_restart:
 
 		spinlock_unlock(&spl_bucket[bucket_num]);
 		KASSERT(bio->length == len, "bio item found with length %u, requested length %u", bio->length, len); /* XXX should avoid... somehow */
+		BIO_TRACE(" ==> returning cached bio=%p\n", bio);
 		return bio;
 	}
 	
@@ -181,7 +187,8 @@ bio_restart:
 	struct BIO* bio = bio_freelist;
 	if (bio_freelist != NULL) {
 		bio_freelist = bio_freelist->chain_next;
-		bio_freelist->chain_prev = bio->chain_prev;
+		if (bio_freelist != NULL)
+			bio_freelist->chain_prev = bio->chain_prev;
 	}
 
 	if (bio == NULL) {
@@ -251,29 +258,8 @@ bio_restartdata:
 	bio->block = block;
 	bio->length = len;
 	bio->data = bio_data + (cur_data_block * BIO_SECTOR_SIZE);
+	BIO_TRACE(" ==> returning cached bio=%p\n", bio);
 	return bio;
-}
-
-/*
- * Locates a given BIO buffer. Note that this function gives a race between allocate and use XXX
- */
-static struct BIO*
-bio_find(device_t dev, block_t block, size_t len)
-{
-	unsigned int bucket_num = block % BIO_BUCKET_SIZE;
-
-	spinlock_lock(&spl_bucket[bucket_num]);
-	for (struct BIO* bio = bio_bucket[bucket_num]; bio != NULL; bio = bio->bucket_next) {
-		if (bio->device != dev)
-			continue;
-
-		KASSERT(bio->length == len, "bio item found with length %u, requested length %u", bio->length, len); /* XXX should avoid... somehow */
-		spinlock_unlock(&spl_bucket[bucket_num]);
-		return bio;
-	}
-	spinlock_unlock(&spl_bucket[bucket_num]);
-
-	return NULL;
 }
 
 /*
@@ -282,14 +268,17 @@ bio_find(device_t dev, block_t block, size_t len)
 void
 bio_free(struct BIO* bio)
 {
+	BIO_TRACE("bio_free(): bio=%p\n", bio);
 }
 
 int
 bio_waitcomplete(struct BIO* bio)
 {	
+	BIO_TRACE("bio_waitcomplete(): bio=%p ==>", bio);
 	while((bio->flags & BIO_FLAG_DIRTY) != 0) {
 		reschedule();
 	}
+	BIO_TRACE(" done\n");
 }
 
 struct BIO*
@@ -300,8 +289,10 @@ bio_read(device_t dev, block_t block, size_t len)
 	 * If we have a block that is not dirty, this means we can return it. XXX
 	 * what about dirty write?
 	 */
-	if ((bio->flags & BIO_FLAG_DIRTY) == 0)
+	if ((bio->flags & BIO_FLAG_DIRTY) == 0) {
+		BIO_TRACE("bio_read(): dev=%p, block=%u, len=%u ==> cached block %p\n", dev, (int)block, len, bio);
 		return bio;
+	}
 	bio->flags |= BIO_FLAG_READ;
 
 	/* kick the device; we want it to read */
@@ -309,18 +300,21 @@ bio_read(device_t dev, block_t block, size_t len)
 
 	/* ... and wait until we have something to report... */
 	bio_waitcomplete(bio);
+	BIO_TRACE("bio_read(): dev=%p, block=%u, len=%u ==> new block %p\n", dev, (int)block, len, bio);
 	return bio;
 }
 
 void
 bio_set_error(struct BIO* bio)
 {
+	BIO_TRACE("bio_set_error(): bio=%p\n", bio);
 	bio->flags = (bio->flags & ~BIO_FLAG_DIRTY) | BIO_FLAG_ERROR;
 }
 
 void
 bio_set_ready(struct BIO* bio)
 {
+	BIO_TRACE("bio_set_ready(): bio=%p\n", bio);
 	bio->flags &= ~BIO_FLAG_DIRTY;
 }
 
