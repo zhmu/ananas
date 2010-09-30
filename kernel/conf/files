@@ -19,6 +19,18 @@ lib/kern/memcpy.c	mandatory
 lib/kern/print.c	mandatory
 lib/kern/qdivrem.c	mandatory
 lib/kern/string.c	mandatory
+# zlib
+lib/zlib/adler32.c	option ZLIB
+lib/zlib/compress.c	option ZLIB
+lib/zlib/crc32.c	option ZLIB
+lib/zlib/deflate.c	option ZLIB
+lib/zlib/infback.c	option ZLIB
+lib/zlib/inffast.c	option ZLIB
+lib/zlib/inflate.c	option ZLIB
+lib/zlib/inftrees.c	option ZLIB
+lib/zlib/trees.c	option ZLIB
+lib/zlib/uncompr.c	option ZLIB
+lib/zlib/zutil.c	option ZLIB
 # XXX this should be optional - depend on vga for now?
 lib/teken/teken.c	mandatory
 dev/bus/isa.c		optional isa
