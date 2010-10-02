@@ -14,7 +14,11 @@
 #include "param.h"
 
 uint32_t x86_pool_pointer = POOL_BASE;
+static uint32_t x86_pool_left = 0;
+struct SMAP_ENTRY* x86_smap = NULL; 
+int x86_smap_entries = 0;
 
+#undef DEBUG_POOL
 #undef DEBUG_DISK
 
 struct REALMODE_DISKINFO {
@@ -33,7 +37,15 @@ platform_get_memory(uint32_t length)
 	void* ptr = (void*)x86_pool_pointer;
 	memset(ptr, 0, length);
 	x86_pool_pointer += length;
+	if (x86_smap_entries > 0)
+		x86_pool_left -= length;
 	return ptr;
+}
+
+uint32_t
+platform_get_memory_left()
+{
+	return x86_pool_left;
 }
 
 void
@@ -110,6 +122,14 @@ platform_init_memory_map()
 	struct REALMODE_REGS regs;
 	size_t total_kb = 0;
 
+	/*
+	 * Find a place to locate our memory. Don't worry about the size, we will
+	 * relocate the base memory pointer once we know how much memory there is
+	 * anyway.
+ 	 */
+	x86_smap = platform_get_memory(0);
+	x86_smap_entries = 0;
+
 	x86_realmode_init(&regs);
 	regs.ebx = 0;
 	regs.interrupt = 0x15;
@@ -131,15 +151,35 @@ platform_init_memory_map()
 			continue;
 
 		/* Round base up to a page, and length down a page if needed */
-		uint64_t base = (uint64_t)sme->base_hi << 32 | sme->base_lo;
 		uint64_t length  = (uint64_t)sme->len_hi << 32  | sme->len_lo;
-		base    = (base + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
 		length &= ~(PAGE_SIZE - 1);
 
-		/* Store it XXX */
+		/* Store it */
+		memcpy(&x86_smap[x86_smap_entries], sme, sizeof(struct SMAP_ENTRY));
+		x86_smap_entries++;
 		total_kb += length >> 10;
-	
 	} while (regs.ebx != 0);
+
+	/* Locate the loader pool at the far end of the memory */
+	for (int i = x86_smap_entries - 1; i >= 0; i--) {
+		struct SMAP_ENTRY* sme = (struct SMAP_ENTRY*)&x86_smap[i];
+
+		/* Skip anything not in the 4GB range */
+		if (sme->base_hi > 0)
+			continue;
+		uint64_t length  = (uint64_t)sme->len_hi << 32  | sme->len_lo;
+		length &= ~(PAGE_SIZE - 1);
+
+		/* XXX Steal 1MB for now, ensure it doesn't cross 4GB boundary */
+		uint64_t addr = sme->base_lo + length - (1 * 1024 * 1024);
+
+		x86_pool_pointer = (uint32_t)addr;
+		x86_pool_left = (uint64_t)(sme->base_lo + length) - addr;
+#ifdef DEBUG_POOL
+		printf("memory pool at 0x%x, %u bytes left\n", x86_pool_pointer, x86_pool_left);
+#endif
+		break;
+	}
 
 	return total_kb;
 }
