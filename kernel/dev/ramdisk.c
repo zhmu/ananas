@@ -9,7 +9,7 @@
 static int
 ramdisk_probe(device_t dev)
 {
-	if (bootinfo == NULL || bootinfo->bi_ramdisk_firstaddr == 0)
+	if (bootinfo == NULL || bootinfo->bi_ramdisk_addr == 0)
 		return 1;
 	return 0;
 }
@@ -19,7 +19,7 @@ ramdisk_attach(device_t dev)
 {
 	kprintf("%s: %u KB\n", dev->name, bootinfo->bi_ramdisk_size / 1024);
 	uint32_t len = (bootinfo->bi_ramdisk_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
-	vm_map(bootinfo->bi_ramdisk_firstaddr, len);
+	vm_map(bootinfo->bi_ramdisk_addr, len);
 	return 0;
 }
 
@@ -33,7 +33,7 @@ ramdisk_read(device_t dev, void* buffer, size_t length, off_t offset)
 	KASSERT((offset * 512) + length < bootinfo->bi_ramdisk_size, "attempted to read beyond ramdisk range");
 
 	struct BIO* bio = buffer;
-	void* addr = (void*)(bootinfo->bi_ramdisk_firstaddr + offset * 512);
+	void* addr = (void*)(bootinfo->bi_ramdisk_addr + offset * 512);
 	memcpy(bio->data, addr, length);
 	bio->flags &= ~BIO_FLAG_DIRTY;
 	return length;

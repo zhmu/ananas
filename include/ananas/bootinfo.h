@@ -6,9 +6,11 @@
 #ifndef ASM
 struct BOOTINFO {
 	uint32_t	bi_size;
-	addr_t		bi_kernel_firstaddr;
+	/* Kernel address and length */
+	addr_t		bi_kernel_addr;
 	size_t		bi_kernel_size;
-	addr_t		bi_ramdisk_firstaddr;
+	/* Ramdisk address and length, if any */
+	addr_t		bi_ramdisk_addr;
 	size_t		bi_ramdisk_size;
 };
 #endif

@@ -118,14 +118,14 @@ cmd_load(int num_args, char** arg)
 	vfs_close();
 
 	memset(&bootinfo, 0, sizeof(struct BOOTINFO));
-	bootinfo.bi_size             = sizeof(struct BOOTINFO);
-	bootinfo.bi_kernel_firstaddr = elf_info.elf_start_addr;
-	bootinfo.bi_kernel_size      = elf_info.elf_end_addr - elf_info.elf_start_addr;
+	bootinfo.bi_size        = sizeof(struct BOOTINFO);
+	bootinfo.bi_kernel_addr = elf_info.elf_start_addr;
+	bootinfo.bi_kernel_size = elf_info.elf_end_addr - elf_info.elf_start_addr;
 
 	kernel_entry = elf_info.elf_entry;
 	printf("loaded successfully at 0x%x-0x%x, entry point is 0x%x\n",
-	 bootinfo.bi_kernel_firstaddr,
-	 bootinfo.bi_kernel_firstaddr + bootinfo.bi_kernel_size,
+	 bootinfo.bi_kernel_addr,
+	 bootinfo.bi_kernel_addr + bootinfo.bi_kernel_size,
 	 kernel_entry);
 }
 
@@ -283,7 +283,7 @@ cmd_ramdisk(int num_args, char** arg)
 		return;
 	}
 	struct LOADER_RAMDISK_INFO ram_info;
-	ram_info.ram_start = bootinfo.bi_kernel_firstaddr + bootinfo.bi_kernel_size;
+	ram_info.ram_start = bootinfo.bi_kernel_addr + bootinfo.bi_kernel_size;
 	/*
 	 * XXX give the kernel some slack - most implementations use some data after the
 	 *     kernel for temporary storage while initializing
@@ -295,12 +295,12 @@ cmd_ramdisk(int num_args, char** arg)
 		return;
 	}
 	vfs_close();
-	bootinfo.bi_ramdisk_firstaddr = ram_info.ram_start;
-	bootinfo.bi_ramdisk_size      = ram_info.ram_size;
+	bootinfo.bi_ramdisk_addr = ram_info.ram_start;
+	bootinfo.bi_ramdisk_size = ram_info.ram_size;
 
 	printf("ramdisk loaded successfully at 0x%x-0x%x\n",
-	 bootinfo.bi_ramdisk_firstaddr,
-	 bootinfo.bi_ramdisk_firstaddr + bootinfo.bi_ramdisk_size);
+	 bootinfo.bi_ramdisk_addr,
+	 bootinfo.bi_ramdisk_addr + bootinfo.bi_ramdisk_size);
 }
 #endif
 
