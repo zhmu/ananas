@@ -1,3 +1,17 @@
+/*
+ * This file takes care of all I/O activity. For performance reasons, it uses a
+ * sorted cache to prevent reading blocks over and over.
+ *
+ * All blocks are hard-coded to 512 bytes, which means this is the only amount
+ * of data that can be read (successive reads are needed to work with
+ * filesystems that have a larger blocksize) - this is done because it keeps
+ * the I/O layer much simpler.
+ *
+ * All blocks in the cache are kept sorted in a most-recent-first fashion, and
+ * the used blocks are always at the front. This makes it easy to locate a
+ * new block to use and to evict used blocks.
+ *
+ */
 #include <ananas/types.h>
 #include <loader/diskio.h>
 #include <loader/lib.h>
@@ -21,33 +35,57 @@ struct DISK_DEVICE* disk_device;
 struct CACHE_ENTRY* disk_cache;
 
 static int num_disk_devices = 0;
-static int cache_avail_num = 0;
+static int diskio_hits      = 0;
+static int diskio_misses    = 0;
+static int diskio_used      = 0;
+
+static void
+diskio_place_head(struct CACHE_ENTRY* entry)
+{
+	if (entry == disk_cache)
+		return;
+	if (entry->prev != NULL)
+		entry->prev->next = entry->next;
+	if (entry->next != NULL)
+		entry->next->prev = entry->prev;
+	entry->prev = disk_cache->prev;
+	entry->next = disk_cache;
+	disk_cache->prev = entry;
+	disk_cache = entry;
+}
 
 static int
 diskio_find_cache(int device, uint32_t lba, struct CACHE_ENTRY** centry)
 {
-	struct CACHE_ENTRY* first_avail = NULL;
-	for(unsigned int i = 0; i < NUM_CACHE_ENTRIES; i++) {
-		struct CACHE_ENTRY* entry = (struct CACHE_ENTRY*)&disk_cache[i];
+	struct CACHE_ENTRY* entry = disk_cache;
+	for (; entry->next != NULL; entry = entry->next) {
 		if (entry->device == device && entry->lba == lba) {
 			/* Got it */
+			diskio_place_head(entry);
 			*centry = entry;
+			diskio_hits++;
 			return 1;
 		}
-		if (first_avail == NULL & entry->device == -1) {
-			first_avail = entry;
-		}
-	}
 
-	/* Couldn't find it - do we have an available entry? */
-	if (first_avail != NULL) {
-		*centry = first_avail;
+		/* If this block is used, it's not the block we are looking for */
+		if (entry->device != -1) {
+			continue;
+		}
+
+		/*
+		 * Found an unused block - we know that we've reached the end of the
+		 * chain, so we can just use whatever block is here.
+		 */
+		diskio_place_head(entry);
+		*centry = entry;
+		diskio_used++;
 		return 0;
 	}
 
-	/* No; just sacrifice the first in the row */
-	*centry = (struct CACHE_ENTRY*)&disk_cache[cache_avail_num];
-	cache_avail_num = (cache_avail_num + 1) % NUM_CACHE_ENTRIES;
+	/* List is full (entry->next is NULL) - sacrifice this final block */
+	*centry = entry;
+	diskio_place_head(entry);
+	diskio_misses++;
 	return 0;
 }
 
@@ -99,8 +137,17 @@ diskio_init()
 
 	disk_device = platform_get_memory(sizeof(struct DISK_DEVICE) * MAX_DISK_DEVICES);
 	disk_cache = platform_get_memory(DISK_CACHE_SIZE);
-	for (int i = 0; i < NUM_CACHE_ENTRIES; i++)
+	for (int i = 0; i < NUM_CACHE_ENTRIES; i++) {
+		if (i > 0)
+			disk_cache[i].prev = &disk_cache[i - 1];
+		else
+			disk_cache[i].prev = NULL;
+		if (i < NUM_CACHE_ENTRIES - 1)
+			disk_cache[i].next = &disk_cache[i + 1];
+		else
+			disk_cache[i].next = NULL;
 		disk_cache[i].device = -1;
+	}
 
 	/* Detect disks/slices. Note that we only support x86 MBR's for now */
 	for (int disk = 0; disk < MAX_DISKS; disk++) {
@@ -156,6 +203,15 @@ diskio_get_name(int device)
 	if (num_disk_devices >= MAX_DISK_DEVICES)
 		return "(none)";
 	return disk_device[device].name;
+}
+
+void
+diskio_stats()
+{
+	printf("Cache entries: %u used / %u total\n",
+	 diskio_used, NUM_CACHE_ENTRIES);
+	printf("Cache utilization: %u hits, %u misses\n",
+	 diskio_hits, diskio_misses);
 }
 
 /* vim:set ts=2 sw=2: */
