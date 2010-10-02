@@ -56,7 +56,6 @@ typedef uint64_t	addr_t;
 typedef int64_t		off_t;
 typedef int64_t		ssize_t;
 typedef uint64_t	register_t;
-typedef int64_t		time_t;
 typedef int32_t		clock_t;
 
 /* XXX does not belong here */
