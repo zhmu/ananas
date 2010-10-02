@@ -8,6 +8,9 @@ struct BOOTINFO;
 /* Retrieve a block of length bytes available for use - must be zeroed out */
 void* platform_get_memory(uint32_t length);
 
+/* Retrieve the amount of platform memory available, or 0 if unknown */
+uint32_t platform_get_memory_left();
+
 /* Display a single charachter */
 void platform_putch(uint8_t ch);
 

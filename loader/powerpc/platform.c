@@ -17,6 +17,12 @@ platform_get_memory(uint32_t length)
 	return ofw_heap_alloc(length);
 }
 
+uint32_t
+platform_get_memory_left()
+{
+	return 0; /* TODO */
+}
+
 void
 platform_putch(uint8_t ch)
 {

@@ -28,11 +28,12 @@ struct DISK_DEVICE {
 	uint32_t length;
 };
 
-#define DISK_CACHE_SIZE 8192
-#define NUM_CACHE_ENTRIES (DISK_CACHE_SIZE / sizeof(struct CACHE_ENTRY))
+/* Default amount of memory used for disk I/O cache, in bytes */
+#define DEFAULT_DISK_CACHE_SIZE 8192
 
 struct DISK_DEVICE* disk_device;
 struct CACHE_ENTRY* disk_cache;
+static int diskio_cache_size = 0;
 
 static int num_disk_devices = 0;
 static int diskio_hits      = 0;
@@ -136,13 +137,24 @@ diskio_init()
 	char newname[MAX_DISK_DEVICE_NAME];
 
 	disk_device = platform_get_memory(sizeof(struct DISK_DEVICE) * MAX_DISK_DEVICES);
-	disk_cache = platform_get_memory(DISK_CACHE_SIZE);
-	for (int i = 0; i < NUM_CACHE_ENTRIES; i++) {
+	if (platform_get_memory_left() > (64 * 1024)) {
+		/*
+		 * We have an indication of how much memory there is (and it's >64KB!) - use all
+		 * but 64KB for cache buffers.
+		 */
+		diskio_cache_size = platform_get_memory_left() - (64 * 1024);
+	} else {
+		diskio_cache_size = DEFAULT_DISK_CACHE_SIZE;
+	}
+
+	disk_cache = platform_get_memory(diskio_cache_size);
+	int num_entries = diskio_cache_size / sizeof(struct CACHE_ENTRY);
+	for (int i = 0; i < num_entries; i++) {
 		if (i > 0)
 			disk_cache[i].prev = &disk_cache[i - 1];
 		else
 			disk_cache[i].prev = NULL;
-		if (i < NUM_CACHE_ENTRIES - 1)
+		if (i < num_entries - 1)
 			disk_cache[i].next = &disk_cache[i + 1];
 		else
 			disk_cache[i].next = NULL;
@@ -209,7 +221,7 @@ void
 diskio_stats()
 {
 	printf("Cache entries: %u used / %u total\n",
-	 diskio_used, NUM_CACHE_ENTRIES);
+	 diskio_used, diskio_cache_size / sizeof(struct CACHE_ENTRY));
 	printf("Cache utilization: %u hits, %u misses\n",
 	 diskio_hits, diskio_misses);
 }
