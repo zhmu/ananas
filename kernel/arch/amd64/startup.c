@@ -1,18 +1,18 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/param.h>
 #include <machine/bootinfo.h>
 #include <machine/macro.h>
 #include <machine/vm.h>
 #include <machine/pcpu.h>
 #include <machine/thread.h>
-#include <sys/x86/pic.h>
-#include <sys/x86/smap.h>
-#include <sys/handle.h>
-#include <sys/init.h>
-#include <sys/vm.h>
-#include <sys/pcpu.h>
-#include <sys/mm.h>
-#include <sys/lib.h>
+#include <ananas/x86/pic.h>
+#include <ananas/x86/smap.h>
+#include <ananas/handle.h>
+#include <ananas/init.h>
+#include <ananas/vm.h>
+#include <ananas/pcpu.h>
+#include <ananas/mm.h>
+#include <ananas/lib.h>
 
 /* Pointer to the next available page */
 void* avail;

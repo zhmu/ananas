@@ -1,11 +1,11 @@
 #include <machine/param.h>
 #include <machine/thread.h>
 #include <machine/vm.h>
-#include <sys/thread.h>
-#include <sys/lib.h>
-#include <sys/mm.h>
-#include <sys/pcpu.h>
-#include <sys/vm.h>
+#include <ananas/thread.h>
+#include <ananas/lib.h>
+#include <ananas/mm.h>
+#include <ananas/pcpu.h>
+#include <ananas/vm.h>
 
 extern struct TSS kernel_tss;
 void md_idle_thread();

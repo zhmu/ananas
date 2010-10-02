@@ -1,8 +1,8 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/vm.h>
 #include <machine/param.h>
-#include <sys/mm.h>
-#include <sys/lib.h>
+#include <ananas/mm.h>
+#include <ananas/lib.h>
 
 #define MEMMASK 0x0fffffff /* HACK */
 
