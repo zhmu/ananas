@@ -305,60 +305,43 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	/* Ensure the memory manager is available for action */
 	mm_init();
 
-#define PHYSMEM_MAX 10
-	struct PHYSMEM {
-		addr_t	address;
-		size_t	length;
-	} physmem[PHYSMEM_MAX];
-	unsigned int physmem_num = 0;
-
 	/*
-	 * We are good to go; we now need to use the BIOS to obtain the memory map.
-	 * Note that we only *obtain* the memory map and do not yet add it, because
-	 * we keep switching from protected mode -> realmode -> protected mode and
-	 * back, which will mess up any lower mappings since there are not
-	 * adequately restored XXX
+	 * We are good to go; we now need to add the chunks of memory that are
+	 * present in the system. However, we cannot obtain them as this is only
+	 * possible within realmode. To prevent this mess, the loader obtains this
+	 * information for us.
 	 */
-	struct realmode_regs r;
-	r.ebx = 0;
-	do {
-		r.eax = 0xe820;
-		r.edx = 0x534d4150; /* SMAP */
-		r.ecx = 20;
-		r.edi = realmode_get_storage_offs();
-		realmode_call_int(0x15, &r);
-		if (r.eax != 0x534d4150)
-			break;
+	if (bootinfo != NULL && bootinfo->bi_memory_map_addr != NULL &&
+	    bootinfo->bi_memory_map_size > 0 &&
+	    (bootinfo->bi_memory_map_size % sizeof(struct SMAP_ENTRY)) == 0) {
+		int mem_map_pages = (bootinfo->bi_memory_map_size + PAGE_SIZE - 1) / PAGE_SIZE;
+		vm_map((addr_t)bootinfo->bi_memory_map_addr, mem_map_pages);
+		struct SMAP_ENTRY* smap_entry = bootinfo->bi_memory_map_addr;
+		for (int i = 0; i < bootinfo->bi_memory_map_size / sizeof(struct SMAP_ENTRY); i++, smap_entry++) {
+			if (smap_entry->type != SMAP_TYPE_MEMORY)
+				continue;
 
-		/* Ignore any memory that is not specifically available */
-		struct SMAP_ENTRY* sme = (struct SMAP_ENTRY*)&realmode_store;
-		if (sme->type != SMAP_TYPE_MEMORY)
-			continue;
+			/* This piece of memory is available; add it */
+			addr_t base = /* smap_entry->base_hi << 32 | */ smap_entry->base_lo;
+			size_t len = /* smap_entry->len_hi << 32 | */ smap_entry->len_lo;
+			/* Round base up to a page, and length down a page if needed */
+			base  = (base + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+			len  &= ~(PAGE_SIZE - 1);
+			mm_zone_add(base, len);
 
-		/* This piece of memory is available; add it */
-		addr_t base = /* sme->base_hi << 32 | */ sme->base_lo;
-		size_t len = /* sme->len_hi << 32 | */ sme->len_lo;
+			/*
+			 * Once the first zone has been added, we can finally do away
+			 * with the temp_pt hack which we need in order to get an
+			 * initial pagemapping.
+			 */
+			if (i == 0)
+				vm_init();
 
-		/* Round base up to a page, and length down a page if needed */
-		base  = (base + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-		len  &= ~(PAGE_SIZE - 1);
-
-		physmem[physmem_num].address = base;
-		physmem[physmem_num].length = len;
-		physmem_num++;
-	} while (r.ebx != 0);
-
-	/* We have the chunks, feed them to the memory manager */
-	for (i = 0; i < physmem_num; i++) {
-		mm_zone_add(physmem[i].address, physmem[i].length);
-
-		/*
-		 * Once the first zone has been added, we can finally do away
-		 * with the temp_pt hack which we need in order to get an
-		 * initial pagemapping.
-		 */
-		if (i == 0)
-			vm_init();
+		}
+		vm_unmap((addr_t)bootinfo->bi_memory_map_addr, mem_map_pages);
+	} else {
+		/* Loader did not provide a sensible memory map - now what? */
+		panic("No memory map!");
 	}
 
 	/*
