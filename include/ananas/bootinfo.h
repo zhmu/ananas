@@ -12,6 +12,9 @@ struct BOOTINFO {
 	/* Ramdisk address and length, if any */
 	addr_t		bi_ramdisk_addr;
 	size_t		bi_ramdisk_size;
+	/* MD memory map and size */
+	void*		bi_memory_map_addr;
+	size_t		bi_memory_map_size;
 };
 #endif
 

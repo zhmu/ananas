@@ -277,6 +277,12 @@ void
 platform_exec(uint64_t entry, struct BOOTINFO* bootinfo)
 {
 	typedef void kentry(int, void*, int);
+
+	/* Complete the MD-parts of the bootinfo structure */
+	bootinfo->bi_memory_map_addr = x86_smap;
+	bootinfo->bi_memory_map_size = x86_smap_entries * sizeof(struct SMAP_ENTRY);
+
+	/* And launch the kernel */
 	uint32_t entry32 = (entry & 0x0fffffff);
 	((kentry*)entry32)(BOOTINFO_MAGIC_1, bootinfo, BOOTINFO_MAGIC_2);
 }
