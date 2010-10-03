@@ -23,12 +23,15 @@ kdb_cmd_bootinfo(int num_args, char** arg)
 		kprintf("no bootinfo supplied by loader\n");
 		return;
 	}
-	kprintf("kernel location : %x - %x\n",
-	 bootinfo->bi_kernel_firstaddr,
-	 bootinfo->bi_kernel_firstaddr + bootinfo->bi_kernel_size);
-	kprintf("ramdisk location: %x - %x\n",
-	 bootinfo->bi_ramdisk_firstaddr,
-	 bootinfo->bi_ramdisk_firstaddr + bootinfo->bi_ramdisk_size);
+	kprintf("kernel location   : %x - %x\n",
+	 bootinfo->bi_kernel_addr,
+	 bootinfo->bi_kernel_addr + bootinfo->bi_kernel_size);
+	kprintf("ramdisk location  : %x - %x\n",
+	 bootinfo->bi_ramdisk_addr,
+	 bootinfo->bi_ramdisk_addr + bootinfo->bi_ramdisk_size);
+	kprintf("memorymap location: %x - %x\n",
+	 bootinfo->bi_memory_map_addr,
+	 bootinfo->bi_memory_map_addr + bootinfo->bi_memory_map_size);
 }
 
 void
