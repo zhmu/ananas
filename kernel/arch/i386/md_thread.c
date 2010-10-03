@@ -1,10 +1,10 @@
 #include <ananas/types.h>
+#include <machine/frame.h>
 #include <machine/param.h>
 #include <machine/thread.h>
 #include <machine/vm.h>
 #include <machine/macro.h>
 #include <machine/smp.h>
-#include <machine/realmode.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/pcpu.h>
