@@ -9,11 +9,11 @@ AWK?=		awk
 %FILES
 
 CFLAGS=		-m64 -march=athlon64 -mcmodel=large -I$S/../include -I$S -I. -std=c99 -mno-red-zone -DKERNEL
-kernel.elf:	$(OBJS) $S/conf/ld.amd64
-		$(LD) -b elf64-x86-64 -T $S/conf/ld.amd64 -nostdlib -nodefaultlibs -o kernel.elf $(OBJS)
+kernel:		$(OBJS) $S/conf/ld.amd64
+		$(LD) -b elf64-x86-64 -T $S/conf/ld.amd64 -nostdlib -nodefaultlibs -o kernel $(OBJS)
 
-kernel.symbols:	kernel.elf
-		nm kernel.elf|awk '{print $$1" "$$3}'|sort > kernel.symbols
+kernel.symbols:	kernel
+		nm kernel|awk '{print $$1" "$$3}'|sort > kernel.symbols
 
 #
 # Assembly symbols: we need a way to pass symbols to our assembly scripts.
@@ -31,28 +31,5 @@ teken_state.h:	$S/lib/teken/gensequences $S/lib/teken/sequences
 # pull in teken_state.h for teken.o
 teken.o:	teken_state.h
 
-#
-# The amd64 kernel uses a small trampoline so get the system running in long
-# mode. This works by generating a 'trampoline.o' file which contains a raw
-# copy of the kernel's ELF file, which is linked the trampoline.a containing
-# the amd64 trampoline code itself...
-#
-# XXX This is a crude hack: we use the host system's cc/ld to build this as
-# our toolchain will not give a valid ELF file for grub yet XXX
-#
-trampoline.o:	kernel.elf $S/tools/file2inc/file2inc
-		$S/tools/file2inc/file2inc kernel.elf trampoline.c kernel
-		cc -m32 -march=i386 -c -o trampoline.o trampoline.c
-
-kernel:		trampoline.o $S/arch/amd64/trampoline/trampoline.a
-		ld -b elf32-i386 -T $S/conf/ld.trampoline.amd64 -o kernel -u __entry trampoline.o $S/arch/amd64/trampoline/trampoline.a
-
-# Necessary tools
-$S/tools/file2inc/file2inc:
-		(cd $S/tools/file2inc/file2inc && ${MAKE} file2inc)
-
-$S/arch/amd64/trampoline/trampoline.a:
-		(cd $S/arch/amd64/trampoline && ${MAKE} trampoline.a)
-
 clean:
-		rm -f kernel kernel.elf asmsyms.o asmsyms.h $(OBJS)
+		rm -f kernel asmsyms.o asmsyms.h $(OBJS)
