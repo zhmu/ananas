@@ -4,17 +4,26 @@
 #include <ananas/types.h>
 
 #ifndef ASM
+/*
+ * This structure will be used by the loader, which is always 32 bit. Thus, it
+ * will always store the structures in the first 4GB of memory (using addr_t
+ * and such will cause problems if the kernel is 64 bit since they will not
+ * match up)
+ */
+typedef uint32_t bi_addr_t;
+typedef uint32_t bi_size_t;
+
 struct BOOTINFO {
 	uint32_t	bi_size;
 	/* Kernel address and length */
-	addr_t		bi_kernel_addr;
-	size_t		bi_kernel_size;
+	bi_addr_t	bi_kernel_addr;
+	bi_size_t	bi_kernel_size;
 	/* Ramdisk address and length, if any */
-	addr_t		bi_ramdisk_addr;
-	size_t		bi_ramdisk_size;
+	bi_addr_t	bi_ramdisk_addr;
+	bi_size_t	bi_ramdisk_size;
 	/* MD memory map and size */
-	void*		bi_memory_map_addr;
-	size_t		bi_memory_map_size;
+	bi_addr_t	bi_memory_map_addr;
+	bi_size_t	bi_memory_map_size;
 };
 #endif
 
