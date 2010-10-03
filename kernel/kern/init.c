@@ -109,14 +109,14 @@ mi_startup()
 	/* gooo! */
 	scheduler_activate();
 
-#if defined(__i386__) || defined(__amd64__)
-	__asm("hlt\n");
-#else
 	/* Wait for an interrupt to come and steal our context... */
-	while(1);
+	while (1) {
+#if defined(__i386__) || defined(__amd64__)
+		__asm("hlt\n");
 #endif
+	}
 
-	panic("mi_startup(): what now?");
+	/* NOTREACHED */
 }
 
 /* vim:set ts=2 sw=2: */
