@@ -4,6 +4,7 @@
 #define __PLATFORM_H__
 
 struct BOOTINFO;
+struct LOADER_ELF_INFO;
 
 /* Retrieve a block of length bytes available for use - must be zeroed out */
 void* platform_get_memory(uint32_t length);
@@ -45,6 +46,6 @@ void platform_cleanup_netboot();
 void platform_reboot();
 
 /* Launches a loaded kernel */
-void platform_exec(uint64_t entry, struct BOOTINFO* bootinfo);
+void platform_exec(struct LOADER_ELF_INFO* loadinfo, struct BOOTINFO* bootinfo);
 
 #endif /* __PLATFORM_H__ */

@@ -23,7 +23,7 @@ static command_t cmd_autoboot;
 static command_t cmd_ramdisk;
 
 static struct BOOTINFO bootinfo = { 0 };
-static addr_t kernel_entry = 0;
+struct LOADER_ELF_INFO elf_info = { 0 };
 
 struct COMMAND {
 	const char* cmd;
@@ -41,7 +41,7 @@ struct COMMAND {
 	{ "boot",     &cmd_boot,     "Load and execute a kernel" },
 	{ "reboot",   &cmd_reboot,   "Reboot" },
 	{ "autoboot", &cmd_autoboot, "Find a kernel and launch it" },
-	{ NULL,     NULL,        NULL }
+	{ NULL,       NULL,          NULL }
 };
 
 static const char* kernels[] = {
@@ -100,8 +100,6 @@ cmd_cat(int num_args, char** arg)
 static void
 cmd_load(int num_args, char** arg)
 {	
-	struct LOADER_ELF_INFO elf_info;
-
 	if (num_args != 2) {
 		printf("need an argument\n");
 		return;
@@ -122,32 +120,31 @@ cmd_load(int num_args, char** arg)
 	bootinfo.bi_kernel_addr = elf_info.elf_start_addr;
 	bootinfo.bi_kernel_size = elf_info.elf_end_addr - elf_info.elf_start_addr;
 
-	kernel_entry = elf_info.elf_entry;
-	printf("loaded successfully at 0x%x-0x%x, entry point is 0x%x\n",
+	printf("loaded successfully at 0x%x-0x%x (%u bit kernel)\n",
 	 bootinfo.bi_kernel_addr,
 	 bootinfo.bi_kernel_addr + bootinfo.bi_kernel_size,
-	 kernel_entry);
+	 elf_info.elf_bits);
 }
 
 static void
 cmd_exec(int num_args, char** arg)
 {	
 	/* TODO: arguments */
-	if (kernel_entry == 0) {
+	if (elf_info.elf_bits == 0) {
 		printf("no kernel loaded\n");
 		return;
 	}
 
 	platform_cleanup();
 
-	platform_exec(kernel_entry, &bootinfo);
+	platform_exec(&elf_info, &bootinfo);
 }
 
 static void
 cmd_boot(int num_args, char** arg)
 {	
 	cmd_load(num_args, arg);
-	if (kernel_entry == 0) {
+	if (elf_info.elf_bits == 0) {
 		/* Must have gone wrong... */
 		return;
 	}
@@ -170,7 +167,7 @@ cmd_autoboot(int num_args, char** arg)
 		printf("Trying '%s'...", *kernel);
 		const char* kernelfile[] = { NULL, *kernel };
 		cmd_load(sizeof(kernelfile) / sizeof(char*), (char**)kernelfile);
-		if (kernel_entry == 0)
+		if (elf_info.elf_bits == 0)
 			continue;
 		
 		cmd_exec(num_args, arg);
