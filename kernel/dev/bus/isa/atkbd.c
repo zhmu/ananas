@@ -119,6 +119,12 @@ atkbd_attach(device_t dev)
 
 	if (!irq_register((uintptr_t)res_irq, dev, atkbd_irq))
 		return 1;
+	
+	/*
+	 * Ensure the keyboard's input buffer is empty; this will cause it to
+	 * send IRQ's to us.
+	 */
+	inb(atkbd_port);
 
 	return 0;
 }
