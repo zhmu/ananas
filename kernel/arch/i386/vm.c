@@ -58,6 +58,7 @@ vm_mapto_pagedir(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, 
 			 * where we can map the pointer.
 			 */
 			addr_t new_entry = (addr_t)kmalloc(PAGE_SIZE);
+			KASSERT((new_entry & (PAGE_SIZE - 1)) == 0, "pagedir entry not page-aligned");
 			memset((void*)new_entry, 0, PAGE_SIZE);
 			pagedir[pd_entrynum] = new_entry | PDE_P | PTE_RW | (user ? PDE_US : 0);
 		}
@@ -67,6 +68,19 @@ vm_mapto_pagedir(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, 
 
 		num_pages--;
 		virt += PAGE_SIZE; phys += PAGE_SIZE;
+	}
+}
+
+void
+vm_free_pagedir(uint32_t* pagedir)
+{
+	for (unsigned int i = 0; i < PAGE_SIZE / sizeof(uint32_t); i++) {
+		uint32_t pde = pagedir[i];
+		if (pde == 0)
+			continue;
+		pde &= ~(PAGE_SIZE - 1);
+		kfree((void*)pde);
+		pagedir[i] = 0;
 	}
 }
 

@@ -72,6 +72,7 @@ md_thread_init(thread_t t)
 void
 md_thread_free(thread_t t)
 {
+	vm_free_pagedir(t->md_pagedir);
 	kfree(t->md_pagedir);
 	kfree(t->md_stack);
 	kfree(t->md_kstack);
