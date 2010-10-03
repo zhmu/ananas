@@ -162,4 +162,11 @@ platform_exec(uint64_t entry, struct BOOTINFO* bootinfo)
 	((kentry*)entry32)(BOOTINFO_MAGIC_1, bootinfo, (uint32_t)ofw_entry);
 }
 
+int
+platform_is_numbits_capable(int bits)
+{
+	/* no 64 bit support yet... */
+	return (bits == 32);
+}
+
 /* vim:set ts=2 sw=2: */

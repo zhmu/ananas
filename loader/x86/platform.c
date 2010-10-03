@@ -301,4 +301,20 @@ platform_exec(struct LOADER_ELF_INFO* loadinfo, struct BOOTINFO* bootinfo)
 	}
 }
 
+int
+platform_is_numbits_capable(int bits)
+{
+	switch(bits) {
+		case 32:
+			return 1;
+#ifdef X86_64
+		case 64: {
+			extern int cpu_64bit_capable;
+			return cpu_64bit_capable;
+		}
+#endif
+	}
+	return 0;
+}
+
 /* vim:set ts=2 sw=2: */

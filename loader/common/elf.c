@@ -7,18 +7,13 @@
 
 #if defined(ELF32) || defined(ELF64)
 
-#define DEBUG_ELF
+#undef DEBUG_ELF
 
-#ifdef DEBUG_ELF
-# define ELF_ABORT(x...) \
+#define ELF_ABORT(x...) \
 	do { \
 		printf(x); \
 		return 0; \
 	} while (0)
-#else
-# define ELF_ABORT(x...) \
-	return 0;
-#endif
 
 #ifdef ELF32
 static int
@@ -181,6 +176,8 @@ elf_load(struct LOADER_ELF_INFO* elf_info)
 	switch(ehdr->e_ident[EI_CLASS]) {
 		case ELFCLASS32:
 #ifdef ELF32
+			if (!platform_is_numbits_capable(32))
+				ELF_ABORT("platform is not 32-bit capable");
 			return elf32_load(header_data, elf_info);
 #else
 			ELF_ABORT("32 bit ELF files not supported");
@@ -188,6 +185,8 @@ elf_load(struct LOADER_ELF_INFO* elf_info)
 			break;
 		case ELFCLASS64:
 #ifdef ELF64
+			if (!platform_is_numbits_capable(64))
+				ELF_ABORT("platform is not 64-bit capable");
 			return elf64_load(header_data, elf_info);
 #else
 			ELF_ABORT("64 bit ELF files not supported");

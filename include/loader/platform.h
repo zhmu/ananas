@@ -48,4 +48,7 @@ void platform_reboot();
 /* Launches a loaded kernel */
 void platform_exec(struct LOADER_ELF_INFO* loadinfo, struct BOOTINFO* bootinfo);
 
+/* Checks whether the platform can handle a certain bit executable */
+int platform_is_numbits_capable(int bits);
+
 #endif /* __PLATFORM_H__ */

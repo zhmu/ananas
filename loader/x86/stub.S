@@ -2,8 +2,14 @@
 .code16
 .globl	entry, realcall
 .globl	rm_stack, rm_regs, rm_buffer
+#ifdef X86_64
+.globl	cpu_64bit_capable
+#endif
 
 #include "param.h"
+
+#define EFLAGS_CPUID	(1 << 21)
+#define CPUID_LM	(1 << 29)
 
 entry:
 	/*
@@ -92,6 +98,38 @@ code32:
 	addl	$STACK_SIZE, x86_pool_pointer
 	movl	x86_pool_pointer, %esp
 
+#ifdef X86_64
+	/*
+	 * See if this CPU is 64 bit (so-called Long Mode) capable; this allows us
+	 * to have the loader reject 64 bit kernels if they are not supported
+	 * instead of just rebooting.
+	 *
+	 * The following code is based on AMD64 Architecture Programmers Manual
+	 * Volume 3: General Purpose and System Functions, CPUID instruction.
+	 */
+	pushfl
+	pop	%eax
+	movl	%eax, %ebx			/* store original flags */
+	xorl	$EFLAGS_CPUID, %eax		/* try to toggle CPUID bit */
+	pushl	%eax
+	popfl
+
+	pushfl
+	popl	%eax				/* get flags; if the bit changed... */
+	cmp	%eax, %ebx			/* ... we do not support cpuid... */
+	je	not_lm_capable			/* ... and thus no long mode either */
+
+	movl	$0x80000001, %eax		/* Ask CPU for extended flags */
+	cpuid
+	andl	$CPUID_LM, %edx
+	orl	%edx, %edx
+	jz	not_lm_capable
+
+	incl	cpu_64bit_capable
+
+not_lm_capable:
+#endif /* X86_64 */
+
 	/* Call our main function - this shouldn't return */
 	call	main
 
@@ -115,6 +153,12 @@ gdt:	.long	0			/*  0: null descriptor */
 
 	.word	0xffff			/* 20: 16-bit data */
 	.word	CODE_BASE & 0xffff
+	.long	0x00009200
+
+	.long	0         		/* 28: 64-bit code */
+	.long	0x00209800
+
+	.long	0         		/* 30: 64-bit data */
 	.long	0x00009200
 
 gdt_end:
@@ -207,9 +251,6 @@ rm_int:	.byte	0x03
 
 do_call:
 
-	xchg	%bx,%bx
-	nop
-
 	.byte	0x9a
 rm_ip:	.word	0
 rm_cs:	.word	0
@@ -264,6 +305,11 @@ rc32_return:
 	movl	realcall_esp, %esp
 	popl	%ebp
 	ret
+
+#ifdef X86_64
+cpu_64bit_capable:
+	.long	0
+#endif
 
 rm_regs:
 r_eax:	.long	0
