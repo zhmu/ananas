@@ -2,8 +2,6 @@
 arch/i386/stub.S		mandatory
 arch/i386/exception.c		mandatory
 arch/i386/interrupts.S		mandatory
-arch/i386/realcode.S		mandatory
-arch/i386/realmode.c		mandatory
 arch/i386/startup.c		mandatory
 arch/i386/vm.c			mandatory
 arch/i386/cntx.S		mandatory
