@@ -21,6 +21,7 @@ static command_t cmd_boot;
 static command_t cmd_reboot;
 static command_t cmd_autoboot;
 static command_t cmd_ramdisk;
+static command_t cmd_cache;
 
 static struct BOOTINFO bootinfo = { 0 };
 struct LOADER_ELF_INFO elf_info = { 0 };
@@ -41,6 +42,7 @@ struct COMMAND {
 	{ "boot",     &cmd_boot,     "Load and execute a kernel" },
 	{ "reboot",   &cmd_reboot,   "Reboot" },
 	{ "autoboot", &cmd_autoboot, "Find a kernel and launch it" },
+	{ "cache",    &cmd_cache,    "Display I/O cache stats" },
 	{ NULL,       NULL,          NULL }
 };
 
@@ -117,8 +119,8 @@ cmd_load(int num_args, char** arg)
 
 	memset(&bootinfo, 0, sizeof(struct BOOTINFO));
 	bootinfo.bi_size        = sizeof(struct BOOTINFO);
-	bootinfo.bi_kernel_addr = elf_info.elf_start_addr;
-	bootinfo.bi_kernel_size = elf_info.elf_end_addr - elf_info.elf_start_addr;
+	bootinfo.bi_kernel_addr = elf_info.elf_phys_start_addr;
+	bootinfo.bi_kernel_size = elf_info.elf_phys_end_addr - elf_info.elf_phys_start_addr;
 
 	printf("loaded successfully at 0x%x-0x%x (%u bit kernel)\n",
 	 bootinfo.bi_kernel_addr,
@@ -261,6 +263,12 @@ interact()
 
 		cmd->func(num_args, args);
 	}
+}
+
+static void
+cmd_cache(int num_args, char** arg)
+{
+	diskio_stats();
 }
 
 #ifdef RAMDISK
