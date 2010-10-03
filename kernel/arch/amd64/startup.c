@@ -1,6 +1,5 @@
 #include <ananas/types.h>
 #include <machine/param.h>
-#include <machine/bootinfo.h>
 #include <machine/macro.h>
 #include <machine/vm.h>
 #include <machine/pcpu.h>
@@ -8,6 +7,7 @@
 #include <ananas/x86/pic.h>
 #include <ananas/x86/smap.h>
 #include <ananas/handle.h>
+#include <ananas/bootinfo.h>
 #include <ananas/init.h>
 #include <ananas/vm.h>
 #include <ananas/pcpu.h>
@@ -31,6 +31,10 @@ static struct PCPU bsp_pcpu;
 
 /* TSS used by the kernel */
 struct TSS kernel_tss;
+
+/* Bootinfo as supplied by the loader, or NULL */
+struct BOOTINFO* bootinfo = NULL;
+static struct BOOTINFO _bootinfo;
 
 uint64_t
 rdmsr(uint32_t msr)
@@ -63,15 +67,25 @@ bootstrap_get_page()
 }
 
 void
-md_startup(struct BOOTINFO* bi)
+md_startup(struct BOOTINFO* bootinfo_ptr)
 {
 	/*
-	 * This function will be called by the trampoline code, and hands us a bootinfo
-	 * structure which contains the E820 memory map. We use this data to bootstrap
-	 * the VM and initialize the memory manager.
+	 * This function will be called by the loader, which hands us a bootinfo
+	 * structure containing a lot of useful information. We need it as soon
+	 * as possible to bootstrap the VM and initialize the memory manager.
 	 */
-	if (bi->bi_ident != BI_IDENT)
-		panic("going nowhere without my bootinfo!");
+	if (bootinfo_ptr != NULL) {
+		/*
+		 * Copy enough bytes to cover our bootinfo - but only activate the bootinfo
+	   * if the size is correct.
+		 */
+		memcpy(&_bootinfo, bootinfo_ptr, sizeof(struct BOOTINFO));
+		if (bootinfo_ptr->bi_size >= sizeof(struct BOOTINFO))
+			bootinfo = (struct BOOTINFO*)&_bootinfo;
+	}
+
+	if (bootinfo == NULL)
+		panic("going nowhere without my bootinfo");
 
 	/*
 	 * First of all, initialize a new Global Descriptor Table; the trampoline
@@ -198,19 +212,15 @@ extern void* syscall_handler;
 	 * The loader tells us how large the kernel is; we use pages directly after
 	 * the kernel.
 	 */
-	avail = (void*)bi->bi_kern_end;
+	extern void *__entry, *__end;
+	avail = (void*)((addr_t)&__entry + bootinfo->bi_kernel_size);
 	pml4 = (uint64_t*)bootstrap_get_page();
 
 	/* First of all, map the kernel; we won't get far without it */
-	extern void *__entry, *__end;
 	addr_t from = (addr_t)&__entry & ~(PAGE_SIZE - 1);
 	addr_t   to = (addr_t)&__end | (PAGE_SIZE - 1) + 1;
 	to += 1048576; /* XXX */
 	vm_mapto(from, from & 0x0fffffff /* HACK */, (to - from) / PAGE_SIZE);
-
-	/* Map the bootinfo block */
-	vm_map((addr_t)bi, 1);
-	vm_map((addr_t)bi->bi_e820_addr, 1);
 
 	__asm(
 		/* Set CR3 to the physical address of the page directory */
@@ -218,19 +228,32 @@ extern void* syscall_handler;
 	: : "a" ((addr_t)pml4 & 0x0fffffff /* HACK */));
 
 	/* Walk the memory map, and add each item one by one */
-	struct SMAP_ENTRY* sme;
-	for (sme = (struct SMAP_ENTRY*)(addr_t)bi->bi_e820_addr; sme->type != SMAP_TYPE_FINAL; sme++) {
-		/* Ignore any memory that is not specifically available */
-		if (sme->type != SMAP_TYPE_MEMORY)
-			continue;
+	kprintf("bootinfo=%p; bi_map=%x, bi_map_size=%x\n",
+	 bootinfo, bootinfo->bi_memory_map_addr, bootinfo->bi_memory_map_size);
+	if (bootinfo != NULL && bootinfo->bi_memory_map_addr != NULL &&
+	    bootinfo->bi_memory_map_size > 0 &&
+	    (bootinfo->bi_memory_map_size % sizeof(struct SMAP_ENTRY)) == 0) {
+		int mem_map_pages = (bootinfo->bi_memory_map_size + PAGE_SIZE - 1) / PAGE_SIZE;
+		vm_map((addr_t)bootinfo->bi_memory_map_addr, mem_map_pages);
+		struct SMAP_ENTRY* smap_entry = bootinfo->bi_memory_map_addr;
+		for (int i = 0; i < bootinfo->bi_memory_map_size / sizeof(struct SMAP_ENTRY); i++, smap_entry++) {
+			if (smap_entry->type != SMAP_TYPE_MEMORY)
+				continue;
 
-		addr_t base = (addr_t)sme->base_hi << 32 | sme->base_lo;
-		size_t len = (size_t)sme->len_hi << 32 | sme->len_lo;
-
-		base  = (base + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-		len  &= ~(PAGE_SIZE - 1);
-		mm_zone_add(base, len);
+			/* This piece of memory is available; add it */
+			addr_t base = (addr_t)smap_entry->base_hi << 32 | smap_entry->base_lo;
+			size_t len = (size_t)smap_entry->len_hi << 32 | smap_entry->len_lo;
+			base  = (base + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+			len  &= ~(PAGE_SIZE - 1);
+			mm_zone_add(base, len);
+		}
+		vm_unmap((addr_t)bootinfo->bi_memory_map_addr, mem_map_pages);
+	} else {
+		/* Loader did not provide a sensible memory map - now what? */
+		panic("No memory map!");
 	}
+
+	/* We have memory - initialize our VM */
 	vm_init();
 
 	/*
