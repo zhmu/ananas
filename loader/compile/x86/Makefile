@@ -1,9 +1,9 @@
 TARGET:		machine loader
 S=		../..
 
-CFLAGS=		-DEXT2 -DPXE -DRAMDISK
+CFLAGS=		-DEXT2 -DPXE -DRAMDISK -DX86_64 -DELF32 -DELF64
 include		$S/compile/Makefile.common
-OBJS+=		pxe.o
+OBJS+=		pxe.o x86_64.o stub_x86_64.o
 
 stub.o:		$S/x86/stub.S
 		$(CC) $(CFLAGS) -c -o stub.o $S/x86/stub.S
@@ -13,6 +13,12 @@ platform.o:	$S/x86/platform.c
 
 pxe.o:		$S/x86/pxe.c
 		$(CC) $(CFLAGS) -c -o pxe.o $S/x86/pxe.c
+
+x86_64.o:	$S/x86/x86_64.c
+		$(CC) $(CFLAGS) -c -o x86_64.o $S/x86/x86_64.c
+
+stub_x86_64.o:	$S/x86/stub_x86_64.S
+		$(CC) $(CFLAGS) -c -o stub_x86_64.o $S/x86/stub_x86_64.S
 
 loader:		$(OBJS) $S/conf/ld.x86
 		$(LD) -b elf32-i386 -T $S/conf/ld.x86 -o loader $(OBJS)
