@@ -274,7 +274,7 @@ vfs_write(struct VFS_FILE* file, const void* buf, size_t len)
 		else
 			return file->device->driver->drv_write(file->device, buf, len, 0);
 
-	if (file->inode == NULL || file->inode->iops == NULL || file->inode->iops->write != NULL)
+	if (file->inode == NULL || file->inode->iops == NULL || file->inode->iops->write == NULL)
 		return -1;
 	return file->inode->iops->write(file, buf, len);
 }
