@@ -150,6 +150,7 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 	while (entsize > 0 && left > 0) {
 		unsigned int new_block = cur_offset / fs->block_size;
 		if (new_block != cur_block) {
+			if (bio != NULL) bio_free(bio);
 			bio = vfs_bread(fs, new_block, fs->block_size);
 			/* XXX errors */
 			cur_block = new_block;
@@ -208,6 +209,7 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 		KASSERT(left >= entry_len, "removing beyond directory inode length");
 		left -= entry_len;
 	}
+	if (bio != NULL) bio_free(bio);
 
 	CRAMFS_DEBUG_READDIR("cramfs_readdir(): done, returning %u bytes\n", written);
 	return written;
