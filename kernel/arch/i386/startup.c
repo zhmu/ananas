@@ -6,7 +6,6 @@
 #include <machine/macro.h>
 #include <machine/thread.h>
 #include <machine/pcpu.h>
-#include <machine/realmode.h>
 #include <ananas/x86/pic.h>
 #include <ananas/x86/smap.h>
 #include <ananas/bootinfo.h>
@@ -179,12 +178,9 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * tasks is handeled using paging.
 	 */
 	memset(&gdt, 0, GDT_NUM_ENTRIES * 8);
-	addr_t stub16 = (addr_t)&realmode16_stub - KERNBASE;
 	addr_t bsp_addr = (addr_t)&bsp_pcpu;
 	GDT_SET_ENTRY32(&gdt, GDT_IDX_KERNEL_CODE,   SEG_TYPE_CODE, SEG_DPL_SUPERVISOR, 0, 0xfffff);
 	GDT_SET_ENTRY32(&gdt, GDT_IDX_KERNEL_DATA,   SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, 0, 0xfffff);
-	GDT_SET_ENTRY16(&gdt, GDT_IDX_KERNEL_CODE16, SEG_TYPE_CODE, SEG_DPL_SUPERVISOR, stub16);
-	GDT_SET_ENTRY16(&gdt, GDT_IDX_KERNEL_DATA16, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, stub16);
 	GDT_SET_ENTRY32(&gdt, GDT_IDX_KERNEL_PCPU,   SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, bsp_addr, sizeof(struct PCPU));
 	GDT_SET_ENTRY32(&gdt, GDT_IDX_USER_CODE,     SEG_TYPE_CODE, SEG_DPL_USER,       0, 0xfffff);
 	GDT_SET_ENTRY32(&gdt, GDT_IDX_USER_DATA,     SEG_TYPE_DATA, SEG_DPL_USER,       0, 0xfffff);

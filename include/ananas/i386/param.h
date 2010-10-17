@@ -23,7 +23,7 @@
 #define REALSTUB_RELOC		0x00010000
 
 /* Number of Global Descriptor Table entries */
-#define GDT_NUM_ENTRIES		9
+#define GDT_NUM_ENTRIES		7
 
 /* Number of Interrupt Descriptor Table entries */
 #define IDT_NUM_ENTRIES		256
