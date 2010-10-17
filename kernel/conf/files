@@ -53,5 +53,7 @@ gen/io.c		mandatory
 gen/support.c		mandatory
 fs/ext2fs.c		option EXT2FS
 fs/iso9660.c		option ISO9660FS
+fs/cramfs.c		option CRAMFS
+fs/fatfs.c		option FATFS
 kdb/kdb.c		option KDB
 kdb/kdb_commands.c	option KDB
