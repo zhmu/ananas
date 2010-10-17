@@ -4,6 +4,8 @@
 #include <ananas/lib.h>
 #include <ananas/vfs.h>
 
+#undef DEBUG_VFS_LOOKUP
+
 struct VFS_INODE*
 vfs_generic_lookup(struct VFS_INODE* dirinode, const char* dentry)
 {
@@ -25,6 +27,10 @@ vfs_generic_lookup(struct VFS_INODE* dirinode, const char* dentry)
 		while (left > 0) {
 			struct VFS_DIRENT* de = (struct VFS_DIRENT*)cur_ptr;
 			left -= DE_LENGTH(de); cur_ptr += DE_LENGTH(de);
+
+#ifdef DEBUG_VFS_LOOKUP
+			kprintf("vfs_generic_lookup('%s'): comparing with '%s'\n", dentry, de->de_fsop + de->de_fsop_length);
+#endif
 	
 			if (strcmp(de->de_fsop + de->de_fsop_length, dentry) != 0)
 				continue;
