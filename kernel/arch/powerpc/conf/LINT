@@ -4,6 +4,7 @@ ident		LINT
 option		ISO9660FS
 
 device		ofwconsole
+device		fb
 
 inputdev	ofwconsole
 outputdev	ofwconsole
