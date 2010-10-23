@@ -7,11 +7,12 @@ if [ "x$T" == "x" ]; then
 fi
 
 # patch 'config.sub'
-sed -r 's/(\-aros\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub > $T/config.sub.new
-mv $T/config.sub.new $T/config.sub
+sed -r 's/(\-aos\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub > $T/config.sub.tmp # gcc 4.4+
+sed -r 's/(\-aros\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub.tmp > $T/config.sub # gcc 4.2
 
 # patch 'gcc/config.gcc'
 # XXX we do not override powerpc-*-elf yet (should we?)
+# XXX is using the linux tmake fiels for avr32 ok?
 awk '{ print }
 /# Common parts for widely ported systems/ { STATE = 1 }
 /case \${target} in/ && STATE == 0 { STATE = 2 }
@@ -39,6 +40,12 @@ awk '{ print }
 	print "\textra_options=\"${extra_options} rs6000/sysv4.opt\""
 	print "\ttmake_file=\"rs6000/t-fprules rs6000/t-fprules-fpbit rs6000/t-ppcos ${tmake_file} rs6000/t-ppccomm\""
         print "\t;;"
+	print "avr32-*-ananas*)"
+	print "\ttm_file=\"dbxelf.h elfos.h ananas.h ananas-avr32.h avr32/avr32.h\""
+	print "\ttmake_file=\"t-linux avr32/t-avr32 avr32/t-elf\""
+        print "\textra_modes=avr32/avr32-modes.def"
+        print "\tgnu_ld=yes"
+	print "\t;;"
 	STATE = 0
 }
 ' < $T/gcc/config.gcc > $T/gcc/config.gcc.new
@@ -73,17 +80,30 @@ crtend.o%s				\
 "
 ' > $T/gcc/config/ananas.h
 
-# patch 'libgcc/config.host'
-awk '
-{ print }
-/case \${host} in/ { STATE = 1 }
-/# Support site-specific machine types./ && STATE == 1 {
-	print "i[3-7]86-*-ananas*)"
-	print "\t;;"
-	print "x86_64-*-ananas*)"
-	print "\t;;"
-	print "powerpc-*-ananas*)"
-	print "\t;;"
-	STATE = 0
-}' < $T/libgcc/config.host > $T/libgcc/config.host.new
-mv $T/libgcc/config.host.new $T/libgcc/config.host
+# generate 'gcc/config/ananas-avr32.h'
+echo '#undef TARGET_CPU_CPP_BUILTINS
+#define TARGET_CPU_CPP_BUILTINS()        \
+  do {                                   \
+    builtin_define_std ("__avr32__");    \
+    builtin_define_std ("__AVR32__");    \
+    builtin_define (avr32_part->macro);  \
+    builtin_define (avr32_arch->macro);  \
+  } while(0);
+' > $T/gcc/config/ananas-avr32.h
+
+# patch 'libgcc/config.host' - note: not for gcc 4.2
+if [ -f $T/libgcc/config.host ]; then
+	awk '
+	{ print }
+	/case \${host} in/ { STATE = 1 }
+	/# Support site-specific machine types./ && STATE == 1 {
+		print "i[3-7]86-*-ananas*)"
+		print "\t;;"
+		print "x86_64-*-ananas*)"
+		print "\t;;"
+		print "powerpc-*-ananas*)"
+		print "\t;;"
+		STATE = 0
+	}' < $T/libgcc/config.host > $T/libgcc/config.host.new
+	mv $T/libgcc/config.host.new $T/libgcc/config.host
+fi

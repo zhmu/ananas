@@ -7,8 +7,8 @@ if [ "x$T" == "x" ]; then
 fi
 
 # patch 'config.sub'
-sed -r 's/(\-aros\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub > $T/config.sub.new
-mv $T/config.sub.new $T/config.sub
+sed -r 's/(\-aos\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub > $T/config.sub.tmp # binutils 2.18
+sed -r 's/(\-aros\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub.tmp > $T/config.sub # binuils 2.20+
 
 # patch 'bfd/config.bfd file'
 awk '{ print }
@@ -25,6 +25,9 @@ awk '{ print }
 	print "    targ_defvec=bfd_elf32_powerpc_vec"
 	print "    targ_selvecs=\"bfd_elf32_powerpcle_vec ppcboot_vec\""
 	print "    ;;"
+	print "   avr32-*-ananas*)"
+	print "    targ_defvec=bfd_elf32_avr32_vec"
+	print "    ;;"
 }' < $T/bfd/config.bfd > $T/bfd/config.bfd.new
 mv $T/bfd/config.bfd.new $T/bfd/config.bfd
 
@@ -34,16 +37,18 @@ awk '{ print }
 /i386-ibm-aix\*)/ {
 	print "  i386-*-ananas)\t\t\tfmt=elf ;;"
 	print "  ppc-*-ananas*)\t\t\tfmt=elf ;;"
+	print "  avr32-*-ananas*)\t\tfmt=elf  bfd_gas=yes ;;"
 }
 ' < $T/gas/configure.tgt > $T/gas/configure.tgt.new
 mv $T/gas/configure.tgt.new $T/gas/configure.tgt
 
-# patch 'ld/configure.tgt'
+# patch 'ld/configure.tgt' XXX avr32linux ?!
 awk '{print }
 /^case "\$\{targ\}" in$/ {
 	print "i[3-7]86-*-ananas*)\t\ttarg_emul=ananas_i386 ;;"
 	print "x86_64-*-ananas*)\t\ttarg_emul=ananas_amd64 ;;"
 	print "powerpc-*-ananas*)\t\ttarg_emul=elf32ppc ;;"
+	print "avr32-*-ananas*)\t\ttarg_emul=avr32linux ;;"
 }' < $T/ld/configure.tgt > $T/ld/configure.tgt.new
 mv $T/ld/configure.tgt.new $T/ld/configure.tgt
 
@@ -81,7 +86,7 @@ LARGE_SECTIONS=yes
 SEPARATE_GOTPLT=24
 IREL_IN_PLT=' > $T/ld/emulparams/ananas_amd64.sh
 
-# XXX no ananas_powerpc32.sh yet - will the defaults do ?
+# XXX no ananas_powerpc32.sh / ananas_avr32.sh yet - will the defaults do ?
 
 # patch 'ld/Makefile.in'
 awk '{print} END {
