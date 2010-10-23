@@ -94,6 +94,12 @@ vm_map(addr_t addr, size_t num_pages)
 }
 
 void
+vm_unmap(addr_t addr, size_t num_pages)
+{
+	/* XXX write me */
+}
+
+void
 vm_mapto(addr_t virt, addr_t phys, size_t num_pages)
 {
 	vm_mapto_pagedir(pml4, virt, phys, num_pages, 0);
