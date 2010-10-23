@@ -86,7 +86,7 @@ recommended order (note that platforms may deviate as they see fit)
 
 - Add all zones of available memory
 
-  This must be don using mm_zone_add(addr_t base, size_t len); this function will
+  This must be done using mm_zone_add(addr_t base, size_t len); this function will
   add the given zone to the memory manager. It uses vm_map() to map structures needed
   for administration, so the MMU must be functional at this point.
 
