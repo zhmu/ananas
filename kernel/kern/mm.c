@@ -17,7 +17,7 @@ kmem_assert(int c, const char* cond, int line, const char* msg, ...)
 	if (c)
 		return;
 
-	kmem_dump();
+//	kmem_dump();
 
 	va_start(ap, msg);
 	vaprintf(msg, ap);
@@ -203,25 +203,8 @@ kmem_alloc(size_t len)
 	return NULL;
 }
 
-void*
-kmalloc(size_t len)
-{
-	/* Calculate len in pages - always round up */
-	if (len & (PAGE_SIZE - 1))
-		len += PAGE_SIZE;
-	len /= PAGE_SIZE;
-
-	void* ptr = kmem_alloc(len);
-	if (ptr == NULL) {
-		kmem_dump();
-		panic("kmalloc: out of memory");
-	}
-	vm_map((addr_t)ptr, len);
-	return ptr;
-}
-
 void
-kfree(void* addr)
+kmem_free(void* addr)
 {
 	KMEM_ASSERT((addr_t)addr % PAGE_SIZE == 0, "addr 0x%x isn't page-aligned", (addr_t)addr);
 
@@ -259,6 +242,29 @@ kfree(void* addr)
 
 	spinlock_unlock(&spl_mm);
 	KMEM_ASSERT(0, "freeing unlocatable pointer 0x%x", (addr_t)addr);
+}
+
+void*
+kmalloc(size_t len)
+{
+	/* Calculate len in pages - always round up */
+	if (len & (PAGE_SIZE - 1))
+		len += PAGE_SIZE;
+	len /= PAGE_SIZE;
+
+	void* ptr = kmem_alloc(len);
+	if (ptr == NULL) {
+		kmem_dump();
+		panic("kmalloc: out of memory");
+	}
+	vm_map((addr_t)ptr, len);
+	return ptr;
+}
+
+void
+kfree(void* addr)
+{
+	kmem_free(addr);
 }
 
 void

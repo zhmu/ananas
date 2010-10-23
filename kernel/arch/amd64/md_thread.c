@@ -128,4 +128,10 @@ md_thread_setkthread(thread_t thread, kthread_func_t kfunc)
 	thread->md_ctx.sf.sf_rip = (addr_t)kfunc;
 }
 
+void
+md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
+{
+	panic("md_thread_clone");
+}
+
 /* vim:set ts=2 sw=2: */
