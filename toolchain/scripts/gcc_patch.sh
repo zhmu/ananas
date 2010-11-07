@@ -1,7 +1,9 @@
 #!/bin/sh
 
+set -e
+
 T=$1
-if [ "x$T" == "x" ]; then
+if [ -z "$T" ]; then
 	echo "usage: $0 path_to_gcc"
 	exit 1
 fi

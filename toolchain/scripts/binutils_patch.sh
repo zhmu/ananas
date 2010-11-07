@@ -1,7 +1,9 @@
 #!/bin/sh
 
+set -e
+
 T=$1
-if [ "x$T" == "x" ]; then
+if [ -z "$T" ]; then
 	echo "usage: $0 path_to_binutils"
 	exit 1
 fi
@@ -34,7 +36,7 @@ mv $T/bfd/config.bfd.new $T/bfd/config.bfd
 # patch 'gas/configure.tgt'. note that we need 'i386' here due to
 # name mangling done in the script (wants to treat amd64/i386 identical)
 awk '{ print }
-/i386-ibm-aix\*)/ {
+/i386-ibm-aix\*\)/ {
 	print "  i386-*-ananas)\t\t\tfmt=elf ;;"
 	print "  ppc-*-ananas*)\t\t\tfmt=elf ;;"
 	print "  avr32-*-ananas*)\t\tfmt=elf  bfd_gas=yes ;;"
