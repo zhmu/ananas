@@ -2,7 +2,9 @@
 #include <ananas/device.h>
 #include <ananas/tty.h>
 #include <ananas/lib.h>
+#include <ananas/debug-console.h>
 #include "console.inc"
+#include "options.h"
 
 extern const char* config_hints[];
 device_t console_tty = NULL;
@@ -61,12 +63,11 @@ console_init()
 void
 console_putchar(int c)
 {
-	if (console_tty == NULL) {
-#ifdef _ARCH_PPC
-ofw_putch(c); /* XXX */
-#endif
+#ifdef DEBUG_CONSOLE
+	debugcon_putch(c);
+#endif /* DEBUG_CONSOLE */
+	if (console_tty == NULL)
 		return;
-	}
 	uint8_t ch = c; // cannot cast due to endianness!
 	device_write(console_tty, &ch, 1, 0);
 }
@@ -74,6 +75,11 @@ ofw_putch(c); /* XXX */
 uint8_t
 console_getchar()
 {
+#ifdef DEBUG_CONSOLE
+	int ch = debugcon_getch();
+	if (ch != 0)
+		return ch;
+#endif /* DEBUG_CONSOLE */
 	if (console_tty == NULL)
 		return 0;
 	uint8_t c;

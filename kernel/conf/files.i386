@@ -13,3 +13,4 @@ arch/x86/dev/pcihb.c		optional pcihb
 arch/x86/pic.c			mandatory
 arch/x86/pio.c			mandatory
 arch/x86/exceptions.c		mandatory
+arch/x86/debug-console.c	option DEBUG_CONSOLE

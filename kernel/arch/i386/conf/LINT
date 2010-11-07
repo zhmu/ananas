@@ -12,6 +12,8 @@ device		ramdisk
 device		pcihb
 device		pci
 
+option		DEBUG_CONSOLE
+
 option		SMP
 option		EXT2FS
 option		ISO9660FS
