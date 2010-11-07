@@ -1,11 +1,11 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/vm.h>
 #include <machine/param.h>
 #include <machine/macro.h>
 #include <machine/mmu.h>
-#include <sys/mm.h>
-#include <sys/thread.h>
-#include <sys/lib.h>
+#include <ananas/mm.h>
+#include <ananas/thread.h>
+#include <ananas/lib.h>
 
 extern struct STACKFRAME bsp_sf;
 

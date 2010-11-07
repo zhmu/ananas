@@ -1,7 +1,7 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/interrupts.h>
 #include <machine/thread.h>
-#include <sys/lib.h>
+#include <ananas/lib.h>
 
 extern void generic_int();
 extern void syscall_int();

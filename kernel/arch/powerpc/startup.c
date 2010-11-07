@@ -1,13 +1,13 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/param.h>
 #include <machine/vm.h>
 #include <machine/interrupts.h>
 #include <machine/macro.h>
 #include <machine/mmu.h>
-#include <sys/handle.h>
-#include <sys/mm.h>
-#include <sys/pcpu.h>
-#include <sys/lib.h>
+#include <ananas/handle.h>
+#include <ananas/mm.h>
+#include <ananas/pcpu.h>
+#include <ananas/lib.h>
 #include <ofw.h>
 
 static uint32_t ofw_msr;

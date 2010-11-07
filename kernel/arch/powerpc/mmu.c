@@ -1,9 +1,9 @@
-#include <sys/types.h>
+#include <ananas/types.h>
 #include <machine/macro.h>
 #include <machine/vm.h>
 #include <machine/param.h>
-#include <sys/thread.h>
-#include <sys/lib.h>
+#include <ananas/thread.h>
+#include <ananas/lib.h>
 #include <ofw.h>
 
 #define OFW_MAX_AVAIL 32

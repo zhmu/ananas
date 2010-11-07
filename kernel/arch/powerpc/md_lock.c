@@ -1,5 +1,5 @@
-#include <sys/types.h>
-#include <sys/lock.h>
+#include <ananas/types.h>
+#include <ananas/lock.h>
 
 void
 md_spinlock_lock(spinlock_t s)

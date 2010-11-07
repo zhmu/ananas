@@ -2,11 +2,11 @@
 #include <machine/thread.h>
 #include <machine/vm.h>
 #include <machine/mmu.h>
-#include <sys/thread.h>
-#include <sys/lib.h>
-#include <sys/mm.h>
-#include <sys/pcpu.h>
-#include <sys/vm.h>
+#include <ananas/thread.h>
+#include <ananas/lib.h>
+#include <ananas/mm.h>
+#include <ananas/pcpu.h>
+#include <ananas/vm.h>
 
 void
 md_idle_thread()
@@ -126,7 +126,13 @@ md_thread_set_entrypoint(thread_t thread, addr_t entry)
 void
 md_thread_set_argument(thread_t thread, addr_t arg)
 {
-	thread->md_ctx.sf.sf_r3 = arg;
+	thread->md_ctx.sf.sf_reg[3] = arg;
+}
+
+void
+md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
+{
+	panic("md_thread_clone");
 }
 
 /* vim:set ts=2 sw=2: */

@@ -1,6 +1,6 @@
-#include <sys/pcpu.h>
-#include <sys/syscall.h>
-#include <sys/asmsymbols.h>
+#include <ananas/pcpu.h>
+#include <ananas/syscall.h>
+#include <ananas/asmsymbols.h>
 
 ASM_SYMBOL(SF_R0,    offsetof(struct STACKFRAME, sf_reg[ 0]));
 ASM_SYMBOL(SF_R1,    offsetof(struct STACKFRAME, sf_reg[ 1]));

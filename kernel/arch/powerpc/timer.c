@@ -1,8 +1,8 @@
 #include <machine/vm.h>
 #include <machine/macro.h>
 #include <machine/timer.h>
-#include <sys/lib.h>
-#include <sys/schedule.h>
+#include <ananas/lib.h>
+#include <ananas/schedule.h>
 #include <ofw.h>
 
 #define HZ 100 /* XXX does not belong here */
