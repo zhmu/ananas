@@ -7,7 +7,7 @@
 #
 AWK=awk
 
-if [ "$4" == "" ]; then
+if [ -z "$4" ]; then
 	echo "usage: gen_syscalls.sh syscall.in.S libc/kern/syscall.h include/syscalls.h kern/syscalls.inc.c"
 	exit
 fi
