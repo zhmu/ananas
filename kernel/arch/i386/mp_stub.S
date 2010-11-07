@@ -133,7 +133,10 @@ pn: 	pop	%esi
 	shr	$24, %eax
 	pushl	%eax
 	pushl	$mp_panicmsg
-	call	panic
+	pushl	$0
+	pushl	$0
+	pushl	$0
+	call	_panic
 	/* NOTREACHED */
 
 mp_panicmsg:
