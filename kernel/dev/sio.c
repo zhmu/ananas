@@ -3,15 +3,7 @@
 #include <ananas/irq.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
-
-#define SIO_REG_DATA	0		/* Data register (R/W) */
-#define SIO_REG_IER		1 	/* Interrupt Enable Register */
-#define SIO_REG_FIFO	2		/* Interrupt Identification and FIFO Registers */
-#define SIO_REG_LCR		3		/* Line Control Register */
-#define SIO_REG_MCR		4		/* Modem Control Register */
-#define SIO_REG_LSR		5		/* Line Status Register */
-#define SIO_REG_MSR		6		/* Modem Status Register */
-#define SIO_REG_SR		7		/* Scratch Register */
+#include <ananas/x86/sio.h>
 
 #define SIO_BUFFER_SIZE	16
 
@@ -29,7 +21,6 @@ sio_irq(device_t dev)
 	struct SIO_PRIVDATA* privdata = (struct SIO_PRIVDATA*)dev->privdata;
 
 	uint8_t ch = inb(privdata->io_port + SIO_REG_DATA);
-kprintf("ch => [%x]\n", ch);
 	privdata->buffer[privdata->buffer_writepos] = ch;
 	privdata->buffer_writepos = (privdata->buffer_writepos + 1) % SIO_BUFFER_SIZE;
 }
