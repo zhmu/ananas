@@ -13,7 +13,7 @@ static const char* x86_exceptions[] = {
 const char*
 x86_exception_name(int num)
 {
-	if (num >= sizeof(x86_exceptions) / sizeof(char*))
+	if (num < 0 || num >= sizeof(x86_exceptions) / sizeof(char*))
 		return "?";
 	return x86_exceptions[num];
 }
