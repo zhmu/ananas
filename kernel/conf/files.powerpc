@@ -17,3 +17,4 @@ lib/ofw/memory.c		mandatory
 lib/ofw/ofw.c			mandatory
 dev/ofwconsole.c		optional ofwconsole
 dev/fb.c			optional fb
+arch/powerpc/debug-console.c	option DEBUG_CONSOLE

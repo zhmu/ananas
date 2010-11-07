@@ -3,6 +3,7 @@ ident		LINT
 
 option		ISO9660FS
 
+option		DEBUG_CONSOLE
 device		ofwconsole
 device		fb
 
