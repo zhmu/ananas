@@ -1,5 +1,6 @@
 #include <machine/vm.h>
 #include <machine/macro.h>
+#include <machine/hal.h>
 #include <machine/timer.h>
 #include <ananas/lib.h>
 #include <ananas/schedule.h>
@@ -7,7 +8,6 @@
 
 #define HZ 100 /* XXX does not belong here */
 
-static uint32_t cpu_freq = 0;
 static uint32_t cpu_dec_base = 0;
 extern int scheduler_active;
 
@@ -32,19 +32,13 @@ timer_init()
 		"mttbl %r0\n"
 	);
 
-	/* Obtain the running CPU */
-	ofw_cell_t chosen = ofw_finddevice("/chosen");
-	ofw_cell_t ihandle_cpu;
-	ofw_getprop(chosen, "cpu", &ihandle_cpu, sizeof(ihandle_cpu));
-
-	ofw_cell_t node = ofw_instance_to_package(ihandle_cpu);
-	cpu_freq = 100000000; /* XXX default to 100MHz for psim */
-	if (node != -1)
-		ofw_getprop(node, "clock-frequency", &cpu_freq, sizeof(cpu_freq));
+	/* Update the decrementer to fire every 1/HZ seconds */
+	uint32_t cpu_freq = hal_get_cpu_speed();
+	cpu_dec_base = cpu_freq / HZ;
 
 	/* Update the decrementer to fire every 1/HZ seconds */
 	cpu_dec_base = cpu_freq / HZ;
-	kprintf("cpu at %u MHz\n", cpu_freq, cpu_dec_base);
+	kprintf("cpu at %u MHz\n", cpu_freq / 1000000);
 	__asm __volatile("mtdec %0" : : "r" (cpu_dec_base));
 
 	/*

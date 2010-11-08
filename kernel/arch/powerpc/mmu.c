@@ -1,31 +1,22 @@
 #include <ananas/types.h>
 #include <machine/macro.h>
+#include <machine/hal.h>
 #include <machine/vm.h>
+#include <machine/mmu.h>
 #include <machine/param.h>
 #include <ananas/thread.h>
 #include <ananas/lib.h>
 #include <ofw.h>
-
-#define OFW_MAX_AVAIL 32
-static struct ofw_reg ofw_avail[OFW_MAX_AVAIL];
-
-struct ofw_translation {
-	ofw_cell_t	virt;
-	ofw_cell_t	size;	
-	ofw_cell_t	phys;
-	ofw_cell_t	mode;
-} __attribute__((packed));
+#include "options.h"
 
 static uint8_t vsid_list[MAX_VSIDS	/ 8];
 
-size_t ppc_memory_total;
 static addr_t pagemap_addr;
 static uint32_t pteg_count; /* number of PTEGs */
 static uint8_t htabmask;
 static struct PTEG* pteg;
 struct BAT bat[16];
 
-extern struct STACKFRAME bsp_sf;
 int mmu_debug = 0;
 
 static uint32_t
@@ -131,8 +122,6 @@ mmu_map_kernel(struct STACKFRAME* sf)
 void
 mmu_init()
 {
-	struct ofw_reg ofw_total[OFW_MAX_AVAIL];
-
 	/*
 	 * The PowerPC memory management consists of two major mechanisms:
 	 *
@@ -182,20 +171,12 @@ mmu_init()
 	 */
 	wrmsr(rdmsr() | MSR_DR | MSR_IR);
 
-	/* Fetch the memory phandle; we need this to obtain our memory map */
-	ofw_cell_t i_memory;
-	ofw_cell_t chosen = ofw_finddevice("/chosen");
-	ofw_getprop(chosen, "memory", &i_memory, sizeof(i_memory));
-	ofw_cell_t p_memory = ofw_instance_to_package(i_memory);
-
 	/*
-	 * Figure out the total amount of memory we have; this is needed to determine
-	 * the size of our pagetables.
+	 * Initialize memory-aspects; this should cause our corresponding HAL to
+	 * query memory maps and the like. It will return the total amount of
+	 * memory found (in bytes), which we need to size the pagetables.
 	 */
-	unsigned int totallen = ofw_getprop(p_memory, "reg", ofw_total, sizeof(struct ofw_reg) * OFW_MAX_AVAIL);
-	for (unsigned int i = 0; i < totallen / sizeof(struct ofw_reg); i++) {
-	  ppc_memory_total += ofw_total[i].size;
-	}
+	size_t memory_total = hal_init_memory();
 
 	/*
 	 * In the PowerPC architecture, the page map is always of a fixed size.
@@ -206,7 +187,7 @@ mmu_init()
 	 */
 
 	/* Wire for 8MB initially */
-	uint32_t mem_size = ppc_memory_total;
+	uint32_t mem_size = memory_total;
 	pteg_count = 1024;
 	if (mem_size < 8 * 1024 * 1024)
 		return;
@@ -214,25 +195,24 @@ mmu_init()
 	for(; mem_size > 0; pteg_count <<= 1, mem_size >>= 1) ;
 	size_t pteg_size = pteg_count * sizeof(struct PTEG);
 	TRACE("mmu_init(): %u MB memory, %u PTEG's (%u bytes total)\n",
-	 ppc_memory_total / (1024 * 1024), pteg_count, pteg_size);
+	 memory_total / (1024 * 1024), pteg_count, pteg_size);
 
 	/*
-	 * OK; now get the free memory map and place the page table in the first
-	 * available entry.
+	 * Find a location for the PTEG; this is done by traversing the memory map
+	 * obtained by the HAL and using the first available entry.
 	 */
-	unsigned int availlen = ofw_getprop(p_memory, "available", ofw_avail, sizeof(struct ofw_reg) * OFW_MAX_AVAIL);
-	pteg = NULL;
-	for (unsigned int i = 0; i < availlen / sizeof(struct ofw_reg); i++) {
-		struct ofw_reg* reg = &ofw_avail[i];
-		if (reg->size < pteg_size || reg->base < 0x0100000)
+	struct HAL_REGION* hal_avail; int hal_num_avail;
+	hal_get_available_memory(&hal_avail, &hal_num_avail);
+	for (unsigned int i = 0; i < hal_num_avail; i++) {
+		if (hal_avail[i].reg_size < pteg_size || hal_avail[i].reg_base < 0x0100000)
 			continue;
-		pteg = (struct PTEG*)reg->base;
+		pteg = (struct PTEG*)hal_avail[i].reg_base;
 		if (((addr_t)pteg & 0xffff) > 0) {
 			/* Handle alignment */
 			uint32_t align = 0x10000 - ((addr_t)pteg & 0xffff);
 			pteg = (struct PTEG*)((addr_t)pteg + align); pteg_size += align;
 		}
-		reg->base += pteg_size; reg->size -= pteg_size;
+		hal_avail[i].reg_base += pteg_size; hal_avail[i].reg_size -= pteg_size;
 		break;
 	}
 	if (pteg == NULL)
@@ -247,49 +227,14 @@ mmu_init()
 	/* Clear the VSID list; they will be allocated by mmu_map() as needed */
 	memset(&vsid_list, 0, sizeof(vsid_list));
 
+#ifdef OFW
 	/*
 	 * OpenFirmware will have allocated a series of memory mappings, which we
 	 * will have to copy - if we don't do this, any OFW call will tumble over
 	 * and die. Note that this is an PowerPC-specific OFW extension.
 	 */
-	ofw_cell_t i_mmu;
-	ofw_getprop(chosen, "mmu",  &i_mmu,  sizeof(i_mmu));
-	ofw_cell_t p_mmu = ofw_instance_to_package(i_mmu);
-
-	/* Use whatever first memory is available for the temporary mmu translations */
-	struct ofw_translation* translation = (struct ofw_translation*)ofw_avail[0].base;
-	unsigned int translen = ofw_getprop(p_mmu, "translations", translation, 65536);
-	if (translen == -1)
-		panic("Cannot retrieve OFW translations");
-	for (int i = 0; i < translen / sizeof(struct ofw_translation); i++) {
-		/*
-		 * If the mapping is 1:1, our BAT entries should cover it; this should
-		 * apply to device memory. Note that we page in BAT entries as needed
-		 * for the OpenFirmware (the same mappings are useful for accessing device
-		 * data later on)
-		 */
-		if (translation[i].phys == translation[i].virt)
-			continue;
-
-		/* If the mapping is not at least a page, ignore it */
-		if (translation[i].size < PAGE_SIZE)
-			continue;
-
-		/*
-		 * OK, we should add a mapping for the Virtual->Physical memory. This should
-		 * allow us to call OpenFirmware once we have fired up paging.
-		 */
-		TRACE("ofw mapping %u: phys %x->virt %x (%x bytes), mode=%x\n",
-			i,
-			translation[i].phys, translation[i].virt,
-			translation[i].size, translation[i].mode);
-		translation[i].size /= PAGE_SIZE;
-		while (translation[i].size > 0) {
-			mmu_map(&bsp_sf, translation[i].virt, translation[i].phys);
-			translation[i].virt += PAGE_SIZE; translation[i].phys += PAGE_SIZE;
-			translation[i].size--;
-		}
-	}
+	ofw_md_setup_mmu();
+#endif /* OFW */
 
 	/*
 	 * Map the kernel space; this mapping will not be used until we deactive the BAT
@@ -326,14 +271,13 @@ mmu_init()
 	 * Our MMU is completely fired up; now we can add all regions of memory that
 	 * the OFW reported.
 	 */
-	for (unsigned int i = 0; i < availlen / sizeof(struct ofw_reg); i++) {
-		struct ofw_reg* reg = &ofw_avail[i];
-
+	hal_get_available_memory(&hal_avail, &hal_num_avail);
+	for (unsigned int i = 0; i < hal_num_avail; i++) {
 		TRACE("memory region %u: base=0x%x, size=0x%x\n",
-		 i, reg->base, reg->size);
+		 i, hal_avail[i].reg_base, hal_avail[i].reg_size);
 
-		uint32_t base = reg->base;
-		uint32_t size = reg->size;
+		uint32_t base = hal_avail[i].reg_base;
+		uint32_t size = hal_avail[i].reg_size;
 		base  = (base + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
 		size &= ~(PAGE_SIZE - 1);
 		mm_zone_add(base, size);

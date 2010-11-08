@@ -4,6 +4,7 @@
 #define __POWERPC_MMU_H__
 
 struct STACKFRAME;
+extern struct STACKFRAME bsp_sf;
 
 void mmu_init();
 void mmu_map(struct STACKFRAME* sf, uint32_t va, uint32_t pa);

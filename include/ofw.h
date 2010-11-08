@@ -14,8 +14,17 @@ struct ofw_reg {
 	ofw_cell_t	size;
 };
 
+/* 'translation' structure' */
+struct ofw_translation {
+	ofw_cell_t	virt;
+	ofw_cell_t	size;	
+	ofw_cell_t	phys;
+	ofw_cell_t	mode;
+} __attribute__((packed));
+
 /* machine-dependant functions */
 void ofw_md_init(register_t entry);
+void ofw_md_setup_mmu();
 
 /* general functions */
 void ofw_init_io();

@@ -2,6 +2,8 @@
 #include <ananas/lib.h>
 #include <machine/frame.h>
 #include <machine/macro.h>
+#include <machine/mmu.h>
+#include <machine/param.h>
 #include <machine/vm.h>
 #include <ofw.h>
 
@@ -70,6 +72,52 @@ ofw_md_init(register_t entry)
 	/* XXX As of now, there's no support for real-mode mapped OpenFirmware */
 	if ((ofw_msr & (MSR_DR | MSR_IR)) != (MSR_DR | MSR_IR))
 		panic("OpenFirmware isn't page-mapped");
+}
+
+void
+ofw_md_setup_mmu()
+{
+#define MAX_TRANSLATIONS 64
+	struct ofw_translation ofw_trans[MAX_TRANSLATIONS];
+
+	ofw_cell_t i_mmu;
+	ofw_cell_t chosen = ofw_finddevice("/chosen");
+	ofw_getprop(chosen, "mmu",  &i_mmu,  sizeof(i_mmu));
+	ofw_cell_t p_mmu = ofw_instance_to_package(i_mmu);
+
+	/* Use whatever first memory is available for the temporary mmu translations */
+	unsigned int translen = ofw_getprop(p_mmu, "translations", ofw_trans, sizeof(ofw_trans));
+	if (translen == -1)
+		panic("Cannot retrieve OFW translations");
+	for (int i = 0; i < translen / sizeof(struct ofw_translation); i++) {
+		/*
+		 * If the mapping is 1:1, our BAT entries should cover it; this should
+		 * apply to device memory. Note that we page in BAT entries as needed
+		 * for the OpenFirmware (the same mappings are useful for accessing device
+		 * data later on)
+		 */
+		if (ofw_trans[i].phys == ofw_trans[i].virt)
+			continue;
+
+		/* If the mapping is not at least a page, ignore it */
+		if (ofw_trans[i].size < PAGE_SIZE)
+			continue;
+
+		/*
+		 * OK, we should add a mapping for the Virtual->Physical memory. This should
+		 * allow us to call OpenFirmware once we have fired up paging.
+		 */
+		TRACE("ofw mapping %u: phys %x->virt %x (%x bytes), mode=%x\n",
+			i,
+			ofw_trans[i].phys, ofw_trans[i].virt,
+			ofw_trans[i].size, ofw_trans[i].mode);
+		ofw_trans[i].size /= PAGE_SIZE;
+		while (ofw_trans[i].size > 0) {
+			mmu_map(&bsp_sf, ofw_trans[i].virt, ofw_trans[i].phys);
+			ofw_trans[i].virt += PAGE_SIZE; ofw_trans[i].phys += PAGE_SIZE;
+			ofw_trans[i].size--;
+		}
+	}
 }
 
 /* vim:set ts=2 sw=2: */
