@@ -7,7 +7,7 @@
 NM=nm
 AWK=awk
 
-if [ "$1x" == "x" ]; then
+if [ -z "$1" ]; then
 	echo "usage: $0 filename"
 	exit
 fi
