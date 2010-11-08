@@ -9,12 +9,15 @@ arch/powerpc/trap.S		mandatory
 arch/powerpc/exception.c	mandatory
 arch/powerpc/timer.c		mandatory
 lib/kern/ucmpdi2.c		mandatory
+# debugger code
+arch/powerpc/debug-console.c	option DEBUG_CONSOLE
 # ofw stuff
-lib/ofw/control.c		mandatory
-lib/ofw/deviceio.c		mandatory
-lib/ofw/devicetree.c		mandatory
-lib/ofw/memory.c		mandatory
-lib/ofw/ofw.c			mandatory
+arch/powerpc/md_ofw.c		option OFW
+lib/ofw/control.c		option OFW
+lib/ofw/deviceio.c		option OFW
+lib/ofw/devicetree.c		option OFW
+lib/ofw/memory.c		option OFW
+lib/ofw/ofw.c			option OFW
+# ofw console and framebuffer
 dev/ofwconsole.c		optional ofwconsole
 dev/fb.c			optional fb
-arch/powerpc/debug-console.c	option DEBUG_CONSOLE

@@ -14,8 +14,11 @@ struct ofw_reg {
 	ofw_cell_t	size;
 };
 
+/* machine-dependant functions */
+void ofw_md_init(register_t entry);
+
 /* general functions */
-void ofw_init();
+void ofw_init_io();
 void ofw_putch(char ch);
 int ofw_getch();
 void* ofw_heap_alloc(unsigned int size);

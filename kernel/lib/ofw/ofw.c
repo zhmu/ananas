@@ -28,7 +28,7 @@ ofw_getch()
 }
 
 void
-ofw_init()
+ofw_init_io()
 {
 	/* Obtain the in/output device handles; once we have them, we can putch/getch */
 	ofw_cell_t chosen = ofw_finddevice("/chosen");
