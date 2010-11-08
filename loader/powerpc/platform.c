@@ -1,5 +1,7 @@
+#include <ananas/bootinfo.h>
 #include <loader/lib.h>
 #include <loader/diskio.h>
+#include <loader/elf.h>
 #include <loader/platform.h>
 #include <ofw.h>
 
@@ -135,7 +137,7 @@ platform_init_netboot()
 	return 0;
 }
 
-uint64_t
+size_t
 platform_init_memory_map()
 {
 	return ofw_get_memory_size();
@@ -146,19 +148,20 @@ platform_init(int r3, int r4, unsigned int r5)
 {
 	ofw_init();
 
+	extern void main();
 	main();
 }
 
 void
-platform_exec(uint64_t entry, struct BOOTINFO* bootinfo)
+platform_exec(struct LOADER_ELF_INFO* loadinfo, struct BOOTINFO* bootinfo)
 {
-	typedef void kentry(uint32_t r3, uint32_t r4, uint32_t r5);
+	typedef void kentry(uint32_t r3, struct BOOTINFO* r4, uint32_t r5);
 
 	/*
 	 * XXX This will only work with powerpc32 binaries yet. Note that we
 	 *     add the OFW entry point so that it's easier to obtain and use.
 	 */
-	uint32_t entry32 = (entry & 0xffffffff);
+	uint32_t entry32 = (loadinfo->elf_entry & 0xffffffff);
 	((kentry*)entry32)(BOOTINFO_MAGIC_1, bootinfo, (uint32_t)ofw_entry);
 }
 

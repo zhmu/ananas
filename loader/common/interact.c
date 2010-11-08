@@ -185,8 +185,10 @@ interact()
 	const char* kernelfile[] = { NULL, "kernel" };
 	cmd_load(sizeof(kernelfile) / sizeof(char*), (char**)kernelfile);
 
+#ifdef RAMDISK
 	const char* ramdiskfile[] = { NULL, "root.fs" };
 	cmd_ramdisk(sizeof(ramdiskfile) / sizeof(char*), (char**)ramdiskfile);
+#endif
 
 	cmd_exec(0, NULL);
 

@@ -1,7 +1,7 @@
 TARGET:		machine loader
 S=		../..
 
-CFLAGS=		-mcpu=G4 -DISO9660
+CFLAGS=		-mcpu=G4 -DISO9660 -DELF -DELF32
 OBJS=
 include		$S/compile/Makefile.common
 include		$S/compile/Makefile.ofw
