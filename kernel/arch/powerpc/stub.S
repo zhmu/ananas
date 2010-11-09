@@ -1,12 +1,13 @@
 .text
 .globl	entry, __eabi, ofw_entry
 
+#include <machine/vm.h>
 #include "options.h"
 
 entry:
 	/* This is our entry point; we need to set up a stack */
-	lis	1, stack@ha
-	addi	1, 1, stack@l
+	lis	%r1, stack@ha
+	addi	%r1, %r1, stack@l
 
 #ifdef DEBUG_CONSOLE
 	/* make sure we have a debugger console available immediately */
