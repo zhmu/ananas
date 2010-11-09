@@ -16,7 +16,7 @@
  *            source 0x00000000
  *            24MB main memory we are executing from (MEM1)
  *    DBAT1 - dest   0xcc000000-0xcdffffff (32MB)
- *            source 0x00c00000
+ *            source 0x0c000000-0x0dffffff
  *            hardware registers
  * [DI]BAT2 - dest   0x10000000-0x13ffffff (64MB)
  *            source 0x10000000
