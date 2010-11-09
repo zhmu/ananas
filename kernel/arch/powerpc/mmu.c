@@ -6,6 +6,7 @@
 #include <machine/param.h>
 #include <ananas/thread.h>
 #include <ananas/lib.h>
+#include <ananas/mm.h>
 #include <ofw.h>
 #include "options.h"
 
@@ -272,6 +273,7 @@ mmu_init()
 	 * the OFW reported.
 	 */
 	hal_get_available_memory(&hal_avail, &hal_num_avail);
+	mm_init();
 	for (unsigned int i = 0; i < hal_num_avail; i++) {
 		TRACE("memory region %u: base=0x%x, size=0x%x\n",
 		 i, hal_avail[i].reg_base, hal_avail[i].reg_size);
