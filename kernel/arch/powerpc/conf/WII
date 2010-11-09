@@ -1,3 +1,7 @@
 arch		powerpc
 ident		WII
 option		WII
+
+# note that the debug console requires the gecko for now...
+option		DEBUG_CONSOLE
+device		usbgecko
