@@ -1,0 +1,14 @@
+OUTPUT_ARCH(powerpc)
+OUTPUT_FORMAT(binary)
+ENTRY(entry)
+SECTIONS {
+	.text 0x04000 : { 
+		text = .;
+		*(.text)
+		*(.rodata)
+		*(.data)
+		*(.bss)
+		*(COMMON)
+
+	}
+}
