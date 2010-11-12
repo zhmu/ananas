@@ -227,6 +227,16 @@ trapreturn:
 	 */
 	mtsprg3 %r30
 
+	/*
+	 * Disable DR/IR again; 'mtsr' gets cranky without this. It will be
+	 * restored by 'rfi'. Note that this requires that PCPU_CONTEXT
+	 * and the stackframe are identity mapped (are they always?) XXX
+	 */
+	mfmsr	%r30
+	andi.	%r30, %r30, ~(MSR_DR | MSR_IR)@l
+	mtmsr	%r30
+	isync
+
 	/* Restore %r1 context so we can restore segment regs */
 	mfsprg0	%r1
 	lwz	%r1,(PCPU_CONTEXT)(%r1)		/* Get current context in r1 */
@@ -356,6 +366,16 @@ md_thread_switch:
 	/* Store restored %r1 and %r30 - these are used by RESTORE_SREGS */
 	mtsprg2	%r1
 	mtsprg3 %r30
+
+	/*
+	 * Disable DR/IR again; 'mtsr' gets cranky without this. It will be
+	 * restored by 'rfi'. Note that this requires that PCPU_CONTEXT
+	 * and the stackframe are identity mapped (are they always?) XXX
+	 */
+	mfmsr	%r30
+	andi.	%r30, %r30, ~(MSR_DR | MSR_IR)@l
+	mtmsr	%r30
+	isync
 
 	/* Restore %r1 context so we can restore segment regs */
 	mfsprg1	%r1
