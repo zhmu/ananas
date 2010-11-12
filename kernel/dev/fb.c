@@ -263,7 +263,7 @@ fb_write(device_t dev, const void* data, size_t len, off_t offset)
 		if(*c== '\n')
 			teken_input(&fb->fb_teken, "\r", 1);
 		teken_input(&fb->fb_teken, c, 1);
-		data++;
+		c++;
 	}
 	return origlen;
 }
