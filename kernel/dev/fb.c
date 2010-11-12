@@ -4,7 +4,9 @@
 #include <ananas/device.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
+#include <ananas/wii/video.h>
 #include <ofw.h>
+#include "options.h"
 
 #include <teken.h>
 
@@ -51,14 +53,17 @@ static teken_funcs_t tf = {
 	.tf_respond	= term_respond
 };
 
+#ifdef OFW
 static void putpixel(struct FB_PRIVDATA* fb,unsigned int x, unsigned int y, int color)
 {
 	*(uint8_t*)(fb->fb_memory + fb->fb_bytes_per_line * y + x) = color;
 }
+#endif
 
 static void
 fb_putchar(struct FB_PRIVDATA* fb, unsigned int x, unsigned int y, const unsigned char ch)
 {
+#ifdef OFW
 	struct CHARACTER* c = &fb->fb_font->chars[ch];
 	y += fb->fb_font->height;
 	for (int j = 0; j < c->height; j++) {
@@ -70,6 +75,56 @@ fb_putchar(struct FB_PRIVDATA* fb, unsigned int x, unsigned int y, const unsigne
 				putpixel(fb, x + i, y + j - c->yshift, 0xff);
 		}
 	}
+#elif defined(WII)
+	/*
+	 * The Wii has a YUV2-encoded framebuffer; this means we'll have to write two
+	 * pixels at the same time.
+	 */
+	uint32_t fg_color = 0xffff00;
+	uint32_t bg_color = 0x000000;
+
+	struct CHARACTER* c = &fb->fb_font->chars[ch];
+	y += fb->fb_font->height - c->yshift;
+	for (int j = 0; j < c->height; j++) {
+		uint32_t* dst = (uint32_t*)(fb->fb_memory + (fb->fb_bytes_per_line * (y + j)) + (x * 2));
+		for (int i = 0; i <= c->width / 2; i++) {
+			uint8_t v1 = c->data[j] & (1 << (i * 2));
+			uint8_t v2;
+			if (j < 8)
+				v2 = c->data[j] & (1 << ((i * 2) + 1));
+			else
+				v2 = c->data[j + 1] & 1;
+
+			uint32_t color;
+			uint32_t rgb1 = v1 ? fg_color : bg_color;
+			uint32_t rgb2 = v2 ? fg_color : bg_color;
+
+			/*
+			 * Converts RGB to Y'CbCr; based on the Wikipedia article
+			 * (http://en.wikipedia.org/wiki/YCbCr; note that floating point is
+			 * avoided by multiplying everything) and libogc.
+			 */
+#define CONV_RGB_TO_YCBCR(y, cb, cr, r, g, b) \
+	do { \
+    (y) = (299 * (r) + 587 * (g) + 114 * (b)) / 1000; \
+    (cb) = (-16874 * (r) - 33126 * (g) + 50000 * (b) + 12800000) / 100000; \
+    (cr) = (50000 * (r) - 41869 * (g) - 8131 * (b) + 12800000) / 100000; \
+	} while(0)
+
+			int y1, cb1, cr1, y2, cb2, cr2;
+			CONV_RGB_TO_YCBCR(y1, cb1, cr1, (rgb1 >> 24) & 0xff, (rgb1 >> 16) & 0xff, (rgb1 & 0xff));
+			CONV_RGB_TO_YCBCR(y2, cb2, cr2, (rgb2 >> 24) & 0xff, (rgb2 >> 16) & 0xff, (rgb2 & 0xff));
+
+#undef CONV_RGB_TO_YCBCR
+
+			uint8_t cb = (cb1 + cb2) / 2;
+			uint8_t cr = (cr1 + cr2) / 2;
+
+			color = (y1 << 24) | (cb << 16) | (y2 << 8) | cr;
+			*dst++ = color;
+		}
+	}
+#endif
 }
 
 static void
@@ -198,15 +253,16 @@ term_respond(void* s, const void* buf, size_t len)
 }
 
 static ssize_t
-fb_write(device_t dev, const char* data, size_t len)
+fb_write(device_t dev, const void* data, size_t len, off_t offset)
 {
 	struct FB_PRIVDATA* fb = (struct FB_PRIVDATA*)dev->privdata;
 	size_t origlen = len;
+	const char* c = data;
 	while(len--) {
 		/* XXX this is a hack which should be performed in a TTY layer, once we have one */
-		if(*data == '\n')
+		if(*c== '\n')
 			teken_input(&fb->fb_teken, "\r", 1);
-		teken_input(&fb->fb_teken, data, 1);
+		teken_input(&fb->fb_teken, c, 1);
 		data++;
 	}
 	return origlen;
@@ -215,6 +271,7 @@ fb_write(device_t dev, const char* data, size_t len)
 static int
 fb_probe(device_t dev)
 {
+#ifdef OFW
 	ofw_cell_t chosen = ofw_finddevice("/chosen");
 	ofw_cell_t ihandle_stdout;
 	ofw_getprop(chosen, "stdout", &ihandle_stdout, sizeof(ihandle_stdout));
@@ -229,12 +286,17 @@ fb_probe(device_t dev)
 		/* Not a framebuffer-backed device; bail out */
 		return 1;
 	}
+#elif defined(WII)
+	return wiivideo_init();
+#endif
 	return 0;
 }
 
 static int
 fb_attach(device_t dev)
 {
+	int height, width, depth, bytes_per_line;
+#ifdef OFW
 	ofw_cell_t chosen = ofw_finddevice("/chosen");
 	ofw_cell_t ihandle_stdout;
 	ofw_getprop(chosen, "stdout", &ihandle_stdout, sizeof(ihandle_stdout));
@@ -243,12 +305,18 @@ fb_attach(device_t dev)
 	if (node == -1)
 		return 1;
 
-	int height, width, depth, bytes_per_line, phys;
+	int phys;
 	ofw_getprop(node, "height", &height, sizeof(height));
 	ofw_getprop(node, "width", &width, sizeof(width));
 	ofw_getprop(node, "depth", &depth, sizeof(depth));
 	ofw_getprop(node, "linebytes", &bytes_per_line, sizeof(bytes_per_line));
 	ofw_getprop(node, "address", &phys, sizeof(phys));
+#elif defined(WII)
+	void* phys = wiivideo_get_framebuffer();
+	wiivideo_get_size(&height, &width);
+	depth = 16;
+	bytes_per_line = width * 2;
+#endif
 
 	struct FB_PRIVDATA* fb = (struct FB_PRIVDATA*)kmalloc(sizeof(struct FB_PRIVDATA));
 	fb->fb_memory = (void*)phys;
@@ -265,9 +333,11 @@ fb_attach(device_t dev)
 	memset(fb->fb_buffer, 0, fb->fb_height * fb->fb_width * sizeof(struct pixel));
 	dev->privdata = fb;
 
+#ifdef OFW
 	/* map the framebuffer nd clear it */	
 	vm_map(phys, ((height * bytes_per_line) + PAGE_SIZE - 1) / PAGE_SIZE);
 	memset((void*)phys, 0xff, (height * bytes_per_line));
+#endif
 
 	/* initialize teken library */
 	teken_pos_t tp;

@@ -5,3 +5,9 @@ option		WII
 # note that the debug console requires the gecko for now...
 option		DEBUG_CONSOLE
 device		usbgecko
+
+# note that fb requires wiivideo for now...
+device		fb
+device		wiivideo
+
+outputdev	fb
