@@ -12,7 +12,7 @@
  * Note that, for the Wii, there does not seem to be any consensus on what to
  * expect, so we just re-initialize the BAT tables to the following:
  *
- * [DI]BAT0 - dest   0x00000000-0x07ffffff (32MB)
+ * [DI]BAT0 - dest   0x00000000-0x01ffffff (32MB)
  *            source 0x00000000
  *            24MB main memory we are executing from (MEM1)
  *    DBAT1 - dest   0xcc000000-0xcdffffff (32MB)
@@ -21,6 +21,9 @@
  * [DI]BAT2 - dest   0x10000000-0x13ffffff (64MB)
  *            source 0x10000000
  *            64MB extra memory available for use (MEM2)
+ *    DBAT3 - dest   0xc0000000-0xcbffffff (32MB)
+ *            source 0x00000000-0x07ffffff
+ *            24MB main memory, no caching
  *
  * This will give all available memory to the kernel, and also give most
  * hardware.
@@ -78,6 +81,13 @@ start:
 	mtdbatu	2, %r7
 	mtibatl	2, %r8
 	mtdbatl 2, %r8
+
+	/* DBAT3 */
+	lis	%r7, 0xc000
+	ori	%r7, %r7, 0x3ff		/* to: 0xc0000000, size: 32MB (up to 0xc1ffffff) */
+	li	%r8, 0x2a		/* from: 0x0, WIMG=0101, PP=11 */
+	mtdbatu	3, %r7
+	mtdbatl	3, %r8
 	sync
 	isync
 
