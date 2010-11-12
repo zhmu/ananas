@@ -13,8 +13,8 @@ void
 console_init()
 {
 	char tmphint[32 /* XXX */];
-	device_t input_dev;
-	device_t output_dev;
+	device_t input_dev = NULL;
+	device_t output_dev = NULL;
 
 	/*
 	 * The console is magic; it consists of two parts: input/output, and it's
@@ -57,7 +57,8 @@ console_init()
 	}
 #endif
 #endif /* CONSOLE_DRIVER */
-	console_tty = tty_alloc(input_dev, output_dev);
+	if (input_dev != NULL || output_dev != NULL)
+		console_tty = tty_alloc(input_dev, output_dev);
 }
 
 void
