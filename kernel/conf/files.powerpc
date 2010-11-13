@@ -26,6 +26,7 @@ arch/powerpc/wii/ipc.c		option WII
 arch/powerpc/wii/ios.c		option WII
 arch/powerpc/wii/usbgecko.c	optional usbgecko
 arch/powerpc/wii/wii_video.c	optional wiivideo
+arch/powerpc/wii/wii_sd.c	optional wiisd
 # ofw console and framebuffer
 dev/ofwconsole.c		optional ofwconsole
 dev/fb.c			optional fb
