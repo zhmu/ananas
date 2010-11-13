@@ -21,6 +21,7 @@ lib/ofw/ofw.c			option OFW
 arch/powerpc/hal_ofw.c		option OFW
 # wii stuff
 arch/powerpc/wii/hal_wii.c	option WII
+arch/powerpc/wii/invalidate.c	option WII
 arch/powerpc/wii/usbgecko.c	optional usbgecko
 arch/powerpc/wii/wii_video.c	optional wiivideo
 # ofw console and framebuffer
