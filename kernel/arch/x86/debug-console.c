@@ -1,5 +1,5 @@
 #include <ananas/debug-console.h>
-#include <ananas/i386/io.h>
+#include <ananas/x86/io.h>
 #include <ananas/x86/sio.h>
 #include <machine/param.h> /* for KERNBASE */
 

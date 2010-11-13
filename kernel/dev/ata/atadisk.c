@@ -1,5 +1,6 @@
-#include <machine/io.h>
+#include <ananas/types.h>
 #include <ananas/dev/ata.h>
+#include <ananas/x86/io.h>
 #include <ananas/bio.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>

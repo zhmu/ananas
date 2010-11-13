@@ -1,11 +1,11 @@
 #include <ananas/types.h>
 #include <machine/param.h>
 #include <machine/vm.h>
-#include <machine/io.h>
 #include <machine/interrupts.h>
 #include <machine/macro.h>
 #include <machine/thread.h>
 #include <machine/pcpu.h>
+#include <ananas/x86/io.h>
 #include <ananas/x86/pic.h>
 #include <ananas/x86/smap.h>
 #include <ananas/bootinfo.h>

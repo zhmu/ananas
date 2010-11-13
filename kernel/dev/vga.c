@@ -1,6 +1,7 @@
+#include <ananas/types.h>
 #include <machine/vm.h>
-#include <machine/io.h>
 #include <ananas/console.h>
+#include <ananas/x86/io.h>
 #include <ananas/device.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>

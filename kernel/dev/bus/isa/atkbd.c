@@ -1,10 +1,10 @@
-#include <machine/io.h>
 #include <ananas/device.h>
 #include <ananas/irq.h>
 #include <ananas/kdb.h>
 #include <ananas/lib.h>
 #include <ananas/tty.h>
 #include <ananas/console.h>
+#include <ananas/x86/io.h>
 #include "options.h"
 
 uint32_t atkbd_port = 0;
