@@ -1,0 +1,131 @@
+diff -rubB dash-0.5.6/src/bltin/times.c dash-0.5.6.patched/src/bltin/times.c
+--- dash-0.5.6/src/bltin/times.c	2008-05-02 08:09:44.000000000 +0200
++++ dash-0.5.6.patched/src/bltin/times.c	2010-11-13 21:38:22.157548002 +0100
+@@ -2,8 +2,6 @@
+  * Copyright (c) 1999 Herbert Xu <herbert@gondor.apana.org.au>
+  * This file contains code for the times builtin.
+  */
+-
+-#include <sys/times.h>
+ #include <unistd.h>
+ #ifdef USE_GLIBC_STDIO
+ #include <stdio.h>
+@@ -13,18 +11,6 @@
+ #include "system.h"
+ 
+ int timescmd() {
+-	struct tms buf;
+-	long int clk_tck = sysconf(_SC_CLK_TCK);
+-
+-	times(&buf);
+-	printf("%dm%fs %dm%fs\n%dm%fs %dm%fs\n",
+-	       (int) (buf.tms_utime / clk_tck / 60),
+-	       ((double) buf.tms_utime) / clk_tck,
+-	       (int) (buf.tms_stime / clk_tck / 60),
+-	       ((double) buf.tms_stime) / clk_tck,
+-	       (int) (buf.tms_cutime / clk_tck / 60),
+-	       ((double) buf.tms_cutime) / clk_tck,
+-	       (int) (buf.tms_cstime / clk_tck / 60),
+-	       ((double) buf.tms_cstime) / clk_tck);
++	printf("not implemented\n");
+ 	return 0;
+ }
+diff -rubB dash-0.5.6/src/builtins.def.in dash-0.5.6.patched/src/builtins.def.in
+--- dash-0.5.6/src/builtins.def.in	2010-03-09 05:31:36.000000000 +0100
++++ dash-0.5.6.patched/src/builtins.def.in	2010-11-13 21:38:22.157548002 +0100
+@@ -46,7 +46,7 @@
+  */
+ 
+ #ifndef JOBS
+-#define JOBS 1
++#define JOBS 0
+ #endif
+ 
+ #if JOBS
+diff -rubB dash-0.5.6/src/expand.c dash-0.5.6.patched/src/expand.c
+--- dash-0.5.6/src/expand.c	2010-03-09 05:31:36.000000000 +0100
++++ dash-0.5.6.patched/src/expand.c	2010-11-13 21:38:22.153546002 +0100
+@@ -45,7 +45,9 @@
+ #include <stdint.h>
+ #include <limits.h>
+ #include <string.h>
++#ifdef HAVE_FNMATCH
+ #include <fnmatch.h>
++#endif
+ #ifdef HAVE_GLOB
+ #include <glob.h>
+ #endif
+diff -rubB dash-0.5.6/src/input.c dash-0.5.6.patched/src/input.c
+--- dash-0.5.6/src/input.c	2010-03-09 05:31:37.000000000 +0100
++++ dash-0.5.6.patched/src/input.c	2010-11-13 21:38:22.157548002 +0100
+@@ -195,6 +195,7 @@
+ 	if (nr < 0) {
+ 		if (errno == EINTR)
+ 			goto retry;
++#ifndef __Ananas__
+ 		if (parsefile->fd == 0 && errno == EWOULDBLOCK) {
+ 			int flags = fcntl(0, F_GETFL, 0);
+ 			if (flags >= 0 && flags & O_NONBLOCK) {
+@@ -205,6 +206,7 @@
+ 				}
+ 			}
+ 		}
++#endif
+ 	}
+ 	return nr;
+ }
+diff -rubB dash-0.5.6/src/jobs.c dash-0.5.6.patched/src/jobs.c
+--- dash-0.5.6/src/jobs.c	2009-06-27 14:28:21.000000000 +0200
++++ dash-0.5.6.patched/src/jobs.c	2010-11-13 21:38:22.153546002 +0100
+@@ -46,6 +46,8 @@
+ #endif
+ #include <sys/ioctl.h>
+ 
++static int fork_pid = 0; /* XXX */
++
+ #include "shell.h"
+ #if JOBS
+ #include <termios.h>
+@@ -890,6 +892,7 @@
+ forkparent(struct job *jp, union node *n, int mode, pid_t pid)
+ {
+ 	TRACE(("In parent shell:  child = %d\n", pid));
++	fork_pid = pid;
+ 	if (!jp) {
+ 		while (jobless && dowait(DOWAIT_NORMAL, 0) > 0);
+ 		jobless++;
+@@ -1132,7 +1135,11 @@
+ #endif
+ 
+ 	do {
++#ifdef __Ananas__
++		err = waitpid(/* -1 */ fork_pid, status, flags);
++#else
+ 		err = wait3(status, flags, NULL);
++#endif
+ 		if (err || !block)
+ 			break;
+ 
+diff -rubB dash-0.5.6/src/mkinit.c dash-0.5.6.patched/src/mkinit.c
+--- dash-0.5.6/src/mkinit.c	2008-05-02 08:09:44.000000000 +0200
++++ dash-0.5.6.patched/src/mkinit.c	2010-11-13 21:38:22.153546002 +0100
+@@ -47,7 +47,6 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+-#include <fcntl.h>
+ #include <unistd.h>
+ 
+ 
+diff -rubB dash-0.5.6/src/shell.h dash-0.5.6.patched/src/shell.h
+--- dash-0.5.6/src/shell.h	2008-05-02 08:09:44.000000000 +0200
++++ dash-0.5.6.patched/src/shell.h	2010-11-13 21:38:22.145542002 +0100
+@@ -52,7 +52,7 @@
+ #include <sys/param.h>
+ 
+ #ifndef JOBS
+-#define JOBS 1
++#define JOBS 0
+ #endif
+ #ifndef BSD
+ #define BSD 1
