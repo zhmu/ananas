@@ -1,5 +1,6 @@
 #include <ananas/types.h>
 #include <machine/hal.h>
+#include <ananas/wii/ipc.h>
 #include <ananas/wii/pi.h>
 #include <ananas/lib.h>
 
@@ -66,19 +67,22 @@ hal_external_interrupt()
 
 	if (cause & PI_INT_RESET)
 		reset_interrupt();
+	if (cause & PI_INT_HOLLYWOOD)
+		ipc_interrupt();
 	*(volatile uint32_t*)(PI + PI_INTCAUSE) = cause;
 }
 
 void
 hal_init_interrupts()
 {
-	uint32_t mask = 0xf0 | PI_INT_RESET;
+	uint32_t mask = 0xf0 | PI_INT_RESET | PI_INT_HOLLYWOOD;
 	*(volatile uint32_t*)(PI + PI_INTMASK) = mask;
 }
 
 void
 hal_init_late()
 {
+	ipc_init();
 }
 
 /* vim:set ts=2 sw=2: */
