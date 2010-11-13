@@ -4,12 +4,10 @@
 #include <machine/timer.h>
 #include <ananas/lib.h>
 #include <ananas/schedule.h>
-#include <ofw.h>
 
 #define HZ 100 /* XXX does not belong here */
 
 static uint32_t cpu_dec_base = 0;
-extern int scheduler_active;
 
 void
 decrementer_interrupt()
