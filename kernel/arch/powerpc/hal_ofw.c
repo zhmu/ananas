@@ -62,4 +62,19 @@ hal_get_cpu_speed()
 	return cpu_freq;
 }
 
+void
+hal_init_interrupts()
+{
+}
+
+void
+hal_external_interrupt()
+{
+}
+
+void
+hal_init_late()
+{
+}
+
 /* vim:set ts=2 sw=2: */

@@ -1,4 +1,5 @@
 #include <ananas/types.h>
+#include <machine/hal.h>
 #include <machine/interrupts.h>
 #include <machine/thread.h>
 #include <ananas/lib.h>
@@ -22,6 +23,10 @@ exception_handler(struct STACKFRAME* sf)
 {
 	if (sf->sf_exc == INT_DEC) {
 		decrementer_interrupt();
+		return;
+	}
+	if (sf->sf_exc == INT_EXT) {
+		hal_external_interrupt();
 		return;
 	}
 

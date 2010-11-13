@@ -23,5 +23,13 @@ void hal_get_available_memory(struct HAL_REGION** region, int* num_regions);
 /* Retrieve the CPU speed in Hz */
 uint32_t hal_get_cpu_speed();
 
+/* Initialize interrupt handling */
+void hal_init_interrupts();
+
+/* Called when an external interrupt occurs */
+void hal_external_interrupt();
+
+/* Late initialization; performed right before the console */
+void hal_init_late();
 
 #endif /* __ANANAS_POWERPC_HAL_H__ */

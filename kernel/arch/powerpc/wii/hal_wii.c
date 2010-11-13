@@ -1,5 +1,6 @@
 #include <ananas/types.h>
 #include <machine/hal.h>
+#include <ananas/wii/pi.h>
 #include <ananas/lib.h>
 
 /*
@@ -16,11 +17,12 @@
  * However, we need to reserve some memory from the MEM1 range:
  *  - 0x0 - 0x3f00   - contains various information on the Wii
  */
-
 static struct HAL_REGION hal_avail_region[] = {
  { .reg_base = 0x00000000, .reg_size = 0x1697fff },		/* MEM1: 24MB - 2MB framebuffer = 22MB */
  { .reg_base = 0x10000000, .reg_size = 0x33dffff },		/* MEM2: 64MB - IOS = 52MB */
 };
+
+static volatile void* PI = (volatile void*)0xCC003000;	/* Processor Interface */
 
 size_t
 hal_init_memory()
@@ -49,6 +51,34 @@ uint32_t
 hal_get_cpu_speed()
 {
 	return 729000000; /* 729MHz */
+}
+
+static void
+reset_interrupt()
+{
+	kprintf("[reset]");
+}
+
+void
+hal_external_interrupt()
+{
+	uint32_t cause = *(volatile uint32_t*)(PI + PI_INTCAUSE) & PI_INT_MASK;
+
+	if (cause & PI_INT_RESET)
+		reset_interrupt();
+	*(volatile uint32_t*)(PI + PI_INTCAUSE) = cause;
+}
+
+void
+hal_init_interrupts()
+{
+	uint32_t mask = 0xf0 | PI_INT_RESET;
+	*(volatile uint32_t*)(PI + PI_INTMASK) = mask;
+}
+
+void
+hal_init_late()
+{
 }
 
 /* vim:set ts=2 sw=2: */
