@@ -41,6 +41,8 @@ thread_init(thread_t t, thread_t parent)
 	t->threadinfo->ti_handle_stdin  = handle_alloc(HANDLE_TYPE_FILE, t);
 	t->threadinfo->ti_handle_stdout = handle_alloc(HANDLE_TYPE_FILE, t);
 	t->threadinfo->ti_handle_stderr = handle_alloc(HANDLE_TYPE_FILE, t);
+	if (parent != NULL)
+		thread_set_environment(t, parent->threadinfo->ti_env);
 	((struct HANDLE*)t->threadinfo->ti_handle_stdin)->data.vfs_file.device  = console_tty;
 	((struct HANDLE*)t->threadinfo->ti_handle_stdout)->data.vfs_file.device = console_tty;
 	((struct HANDLE*)t->threadinfo->ti_handle_stderr)->data.vfs_file.device = console_tty;
@@ -298,6 +300,19 @@ thread_set_args(thread_t t, const char* args)
 		panic("thread_set_args(): args must be doubly nul-terminated");
 
 	memcpy(t->threadinfo->ti_args, args, i + 2 /* terminating \0\0 */);
+}
+
+void
+thread_set_environment(thread_t t, const char* env)
+{
+	unsigned int i;
+	for (i = 0; i < THREADINFO_ENV_LENGTH - 1; i++)
+		if(env[i] == '\0' && env[i + 1] == '\0')
+			break;
+	if (i == THREADINFO_ENV_LENGTH)
+		panic("thread_set_environment(): environmen must be doubly nul-terminated");
+
+	memcpy(t->threadinfo->ti_env, env, i + 2 /* terminating \0\0 */);
 }
 
 void

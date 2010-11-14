@@ -5,6 +5,7 @@
 #define __SYS_THREADINFO_H__
 
 #define THREADINFO_ARGS_LENGTH	256
+#define THREADINFO_ENV_LENGTH	1024
 
 struct THREADINFO {
 	int		ti_size;				/* structure length */
@@ -13,6 +14,7 @@ struct THREADINFO {
 	void*		ti_handle_stdout;			/* stdout handle */
 	void*		ti_handle_stderr;			/* stderr handle */
 	char		ti_args[THREADINFO_ARGS_LENGTH];	/* commandline arguments */
+	char		ti_env[THREADINFO_ENV_LENGTH];		/* environment */
 	errorcode_t	ti_errorcode;				/* last error code */
 };
 

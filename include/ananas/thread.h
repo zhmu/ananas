@@ -61,6 +61,7 @@ thread_t thread_alloc(thread_t parent);
 void thread_free(thread_t);
 void thread_destroy(thread_t);
 void thread_set_args(thread_t t, const char* args);
+void thread_set_environment(thread_t t, const char* env);
 void md_thread_switch(thread_t new, thread_t old);
 
 void md_idle_thread();

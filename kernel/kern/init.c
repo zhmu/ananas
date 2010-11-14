@@ -76,6 +76,7 @@ mi_startup()
 		if (elf_load_from_file(t1, &f)) {
 			kprintf(" ok\n");
 			thread_set_args(t1, "sh\0\0");
+			thread_set_environment(t1, "OS=Ananas\0USER=root\0\0");
 			thread_resume(t1);
 		} else {
 			kprintf(" fail\n");
