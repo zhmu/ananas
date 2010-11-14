@@ -1,0 +1,99 @@
+diff -rubB coreutils-8.7/build-aux/config.sub coreutils-8.7.patched/build-aux/config.sub
+--- coreutils-8.7/build-aux/config.sub	2010-09-30 14:33:39.000000000 +0200
++++ coreutils-8.7.patched/build-aux/config.sub	2010-11-14 19:18:06.109439641 +0100
+@@ -1460,6 +1460,8 @@
+ 		;;
+         -nacl*)
+ 	        ;;
++	-ananas)
++		;;
+ 	-none)
+ 		;;
+ 	*)
+diff -rubB coreutils-8.7/configure coreutils-8.7.patched/configure
+--- coreutils-8.7/configure	2010-11-13 17:21:57.000000000 +0100
++++ coreutils-8.7.patched/configure	2010-11-14 21:05:37.409858190 +0100
+@@ -54702,9 +54702,9 @@
+    test "$GCC" = "yes"; then
+   {
+   if test -z "$optional_bin_progs"; then
+-    optional_bin_progs=stdbuf
++    optional_bin_progs=
+   else
+-    optional_bin_progs="$optional_bin_progs stdbuf"
++    optional_bin_progs="$optional_bin_progs "
+   fi
+ }
+ fi
+diff -rubB coreutils-8.7/lib/freadahead.c coreutils-8.7.patched/lib/freadahead.c
+--- coreutils-8.7/lib/freadahead.c	2010-06-10 18:45:26.000000000 +0200
++++ coreutils-8.7.patched/lib/freadahead.c	2010-11-14 20:11:06.827983672 +0100
+@@ -79,6 +79,8 @@
+ #elif defined SLOW_BUT_NO_HACKS     /* users can define this */
+   abort ();
+   return 0;
++#elif defined _PDCLIB_C_VERSION     /* PDCLIB */
++  return 0;
+ #else
+  #error "Please port gnulib freadahead.c to your platform! Look at the definition of fflush, fread, ungetc on your system, then report this to bug-gnulib."
+ #endif
+diff -rubB coreutils-8.7/lib/freading.c coreutils-8.7.patched/lib/freading.c
+--- coreutils-8.7/lib/freading.c	2010-06-10 18:45:26.000000000 +0200
++++ coreutils-8.7.patched/lib/freading.c	2010-11-14 20:11:40.095983786 +0100
+@@ -60,6 +60,8 @@
+ # else
+   return (fp->__buffer < fp->__get_limit /*|| fp->__bufp == fp->__put_limit ??*/);
+ # endif
++#elif defined _PDCLIB_C_VERSION     /* PDCLIBC */
++  return (fp->status & _PDCLIB_FREAD) != 0;
+ #else
+  #error "Please port gnulib freading.c to your platform!"
+ #endif
+diff -rubB coreutils-8.7/lib/freadptr.c coreutils-8.7.patched/lib/freadptr.c
+--- coreutils-8.7/lib/freadptr.c	2010-06-10 18:45:26.000000000 +0200
++++ coreutils-8.7.patched/lib/freadptr.c	2010-11-14 20:12:54.451984182 +0100
+@@ -97,6 +97,9 @@
+   /* This implementation is correct on any ANSI C platform.  It is just
+      awfully slow.  */
+   return NULL;
++#elif defined _PDCLIB_C_VERSION     /* PDCLIB */
++  /* TODO */
++  return NULL;
+ #else
+  #error "Please port gnulib freadptr.c to your platform! Look at the definition of fflush, fread, getc, getc_unlocked on your system, then report this to bug-gnulib."
+ #endif
+diff -rubB coreutils-8.7/lib/freadseek.c coreutils-8.7.patched/lib/freadseek.c
+--- coreutils-8.7/lib/freadseek.c	2010-06-10 18:45:26.000000000 +0200
++++ coreutils-8.7.patched/lib/freadseek.c	2010-11-14 20:13:34.491982859 +0100
+@@ -56,6 +56,7 @@
+ #elif defined __MINT__              /* Atari FreeMiNT */
+   fp->__bufp += increment;
+ #elif defined SLOW_BUT_NO_HACKS     /* users can define this */
++#elif defined _PDCLIB_C_VERSION     /* PDCLIB */
+ #else
+  #error "Please port gnulib freadseek.c to your platform! Look at the definition of getc, getc_unlocked on your system, then report this to bug-gnulib."
+ #endif
+diff -rubB coreutils-8.7/lib/fseeko.c coreutils-8.7.patched/lib/fseeko.c
+--- coreutils-8.7/lib/fseeko.c	2010-09-06 11:08:01.000000000 +0200
++++ coreutils-8.7.patched/lib/fseeko.c	2010-11-14 20:26:45.407983787 +0100
+@@ -88,6 +88,8 @@
+       && fp->__get_limit == fp->__bufp
+       && fp->__put_limit == fp->__bufp
+       && !fp->__pushed_back)
++#elif defined _PDCLIB_C_VERSION     /* PDCLIB */
++  if (fp->bufidx == 0)
+ #else
+   #error "Please port gnulib fseeko.c to your platform! Look at the code in fpurge.c, then report this to bug-gnulib."
+ #endif
+diff -rubB coreutils-8.7/lib/fseterr.c coreutils-8.7.patched/lib/fseterr.c
+--- coreutils-8.7/lib/fseterr.c	2010-06-10 18:45:26.000000000 +0200
++++ coreutils-8.7.patched/lib/fseterr.c	2010-11-14 20:14:02.335983787 +0100
+@@ -43,6 +43,8 @@
+   fp->_Mode |= 0x200 /* _MERR */;
+ #elif defined __MINT__              /* Atari FreeMiNT */
+   fp->__error = 1;
++#elif defined _PDCLIB_C_VERSION     /* PDCLIBC */
++  fp->status |= _PDCLIB_ERRORFLAG;
+ #elif 0                             /* unknown  */
+   /* Portable fallback, based on an idea by Rich Felker.
+      Wow! 6 system calls for something that is just a bit operation!
