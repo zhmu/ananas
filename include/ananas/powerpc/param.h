@@ -12,3 +12,9 @@
 
 /* Thread stack size */
 #define THREAD_STACK_SIZE	0x2000
+
+/*
+ * Temporary address used for mapping thread pointers. Must have only the top
+ * 16 bits set.
+ */
+#define THREAD_MAP_ADDR		0xa0000000

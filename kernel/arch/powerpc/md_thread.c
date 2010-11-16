@@ -2,11 +2,15 @@
 #include <machine/thread.h>
 #include <machine/vm.h>
 #include <machine/mmu.h>
+#include <machine/macro.h>
 #include <ananas/thread.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/pcpu.h>
 #include <ananas/vm.h>
+
+/* Segment register used for temporary maps */
+#define THREAD_MAP_SR (THREAD_MAP_ADDR & 0xf0000000)
 
 void
 md_idle_thread()
@@ -14,8 +18,6 @@ md_idle_thread()
 	/* XXX this needs some work */
 	while(1);
 }
-
-#define THREAD_TEMP_SPACE 0xd0008000
 
 int
 md_thread_init(thread_t t)
@@ -69,20 +71,24 @@ md_thread_free(thread_t t)
 void*
 md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
 {
-	KASSERT(length <= PAGE_SIZE, "cannot map more than a page yet"); /* XXX */
-//	kprintf("md_map_thread_memory(): t=%x, ptr=%p, length=%u\n", thread, ptr, length);
-
-	addr_t addr = thread_find_mapping(thread, ptr);
-	if (addr == 0)
+	/*
+	 * Mapping thread memory works by obtaining the VSID for the given user pointer segment,
+	 * and updating out kernel's mapping VSID so that it corresponds with the user one; this
+	 * allows us to just fetch the value without any issues.
+	 *
+	 * XXX We should deal with data storage problems in the exception handler; they must abort
+	 *     the system call.
+	 */
+	int sr = (addr_t)ptr >> 28;
+	uint32_t vsid = thread->md_ctx.sf.sf_sr[sr];
+	if (vsid == INVALID_VSID)
 		return NULL;
-	uint32_t delta = (addr_t)ptr & (PAGE_SIZE - 1);
 
-	/* yes this is cruel */
-	vm_unmap(THREAD_TEMP_SPACE, 1);
+	struct STACKFRAME* cpu_sf = PCPU_GET(context);
+	cpu_sf->sf_sr[THREAD_MAP_SR >> 28] = vsid;
+	mtsrin(THREAD_MAP_SR, vsid);
 
-	vm_mapto(THREAD_TEMP_SPACE, (addr_t)(addr - delta), 1);
-	__asm __volatile("isync"); /* FIXME why is this needed? */
-	return (void*)(THREAD_TEMP_SPACE + delta);
+	return (void*)(((addr_t)ptr & 0x0fffffff) | THREAD_MAP_SR);
 }
 
 void*
