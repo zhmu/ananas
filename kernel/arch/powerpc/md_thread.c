@@ -35,11 +35,12 @@ md_thread_init(thread_t t)
 	uint32_t stack_addr = 0x8000000;
 	t->md_stack  = kmalloc(THREAD_STACK_SIZE);
 	memset(t->md_stack, 0, THREAD_STACK_SIZE);
-	thread_mapto(t, stack_addr, t->md_stack, THREAD_STACK_SIZE, 0);
+	thread_mapto(t, (void*)stack_addr, t->md_stack, THREAD_STACK_SIZE, 0);
 	t->md_ctx.sf.sf_reg[1] = stack_addr + THREAD_STACK_SIZE;
 
 	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
 	memset(t->md_kstack, 0, KERNEL_STACK_SIZE);
+	t->md_kstack += KERNEL_STACK_SIZE - 16;
 
 	/*
 	 * Initially, the E500 ABI specifies that the stack frame
