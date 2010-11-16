@@ -18,7 +18,8 @@ void
 debugcon_putch(int ch)
 {
 #ifdef OFW
-	ofw_putch(ch);
+	if (console_tty == NULL)
+		ofw_putch(ch);
 #endif
 #ifdef WII
 	usbgecko_putch(ch);
