@@ -55,15 +55,22 @@
 
 #include <sys/cdefs.h>
 #include <sys/types.h>
+#include <machine/param.h>	/* for ..._ENDIAN */
 #include <limits.h>
 
-/* XXXX does not belong here */
+/* XXXPORTABILITY does not belong here */
 typedef uint64_t	u_quad_t;
 typedef int64_t		quad_t;
 
-/* XXX only for i386/amd64 */
-#define	_QUAD_HIGHWORD	1
-#define	_QUAD_LOWWORD	0
+#ifdef LITTLE_ENDIAN
+# define _QUAD_HIGHWORD	1
+# define _QUAD_LOWWORD	0
+#elif defined(BIG_ENDIAN)
+# define _QUAD_HIGHWORD	0
+# define _QUAD_LOWWORD	1
+#else
+# error What is your endianness?
+#endif
 
 /*
  * Depending on the desired operation, we view a `long long' (aka quad_t) in
