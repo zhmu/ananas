@@ -11,6 +11,12 @@
 #define __PowerPC__
 #endif
 
+#if 0
+#define TRACE(x,...) kprintf("%s:%u: "x"\n", __FILE__, __LINE__, __VA_ARGS__)
+#else
+#define TRACE
+#endif
+
 #if defined(__i386__) || defined(__PowerPC__)
 static int
 elf32_load(thread_t thread, void* priv, elf_getfunc_t obtain)
@@ -48,10 +54,15 @@ elf32_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 	if (ehdr.e_phentsize < sizeof(Elf32_Phdr))
 		return 0;
 
+	TRACE("found %u program headers", ehdr.e_phnum);
 	for (unsigned int i = 0; i < ehdr.e_phnum; i++) {
 		Elf32_Phdr phdr;
-		if (!obtain(priv, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr)))
+		TRACE("ph %u: obtaining header from offset %u", i, ehdr.e_phoff + i * ehdr.e_phentsize);
+		if (!obtain(priv, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr))) {
+			TRACE("ph %u: obtain failed", i);
 			return 0;
+		}
+		TRACE("ph %u: obtained, header type=%u", phdr.p_type);
 		if (phdr.p_type != PT_LOAD)
 			continue;
 
@@ -59,10 +70,14 @@ elf32_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 		 * The program need not begin at a page-size, so we may need to adjust.
 		 */
 		int delta = phdr.p_vaddr % PAGE_SIZE;
+		TRACE("ph %u: instantiating mapping for %x (%u bytes)",
+		 i, (phdr.p_vaddr - delta), phdr.p_memsz + delta);
 		struct THREAD_MAPPING* tm = thread_mapto(thread, (void*)(phdr.p_vaddr - delta), NULL, phdr.p_memsz + delta, THREAD_MAP_ALLOC);
+		TRACE("ph %u: loading to 0x%x (%u bytes, file offset is %u)", i, tm->ptr + delta, phdr.p_offset, phdr.p_filesz);
 		if (!obtain(priv, tm->ptr + delta, phdr.p_offset, phdr.p_filesz))
 			return 0;
 	}
+	TRACE("done, entry point is 0x%x", ehdr.e_entry);
 	md_thread_set_entrypoint(thread, ehdr.e_entry);
 
 	return 1;
