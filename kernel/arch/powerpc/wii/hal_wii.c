@@ -1,8 +1,10 @@
 #include <ananas/types.h>
 #include <machine/hal.h>
+#include <machine/param.h>
 #include <ananas/wii/ipc.h>
 #include <ananas/wii/pi.h>
 #include <ananas/lib.h>
+#include <ananas/mm.h>
 
 /*
  * Wii physical memory map is as follows (http://www.wiibrew.org/wiki/Memory_Map)
@@ -52,6 +54,15 @@ uint32_t
 hal_get_cpu_speed()
 {
 	return 729000000; /* 729MHz */
+}
+
+void
+hal_init_post_mmu()
+{
+	/* Mark all memory occupied by our kernel as used */
+	extern void *entry, *__end;
+	uint32_t kernel_len = (((addr_t)&__end - (addr_t)&entry) | (PAGE_SIZE - 1)) + 1;
+	kmem_mark_used((void*)&entry, kernel_len / PAGE_SIZE);
 }
 
 static void
