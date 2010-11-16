@@ -63,6 +63,15 @@ hal_get_cpu_speed()
 }
 
 void
+hal_init_post_mmu()
+{
+	/*
+	 * TODO if we are loaded by the loader, we should mark all kernel memory as
+	 * used - OFW already does this for us by altering the available memory map.
+	 */
+}
+
+void
 hal_init_interrupts()
 {
 }

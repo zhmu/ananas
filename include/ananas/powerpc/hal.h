@@ -32,4 +32,7 @@ void hal_external_interrupt();
 /* Late initialization; performed right before the console */
 void hal_init_late();
 
+/* Post MMU initialization; called right after the MMU is live and memory has been added */
+void hal_init_post_mmu();
+
 #endif /* __ANANAS_POWERPC_HAL_H__ */

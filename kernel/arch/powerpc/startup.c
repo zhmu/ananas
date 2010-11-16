@@ -36,6 +36,9 @@ md_startup(uint32_t r3, uint32_t r4, uint32_t r5)
 	/* Fire up the MMU; this will initialize the memory manager as well */
 	mmu_init();
 
+	/* Allow the HAL to perform post-MMU actions */
+	hal_init_post_mmu();
+
 	/* Initialize the handles; this is needed by the per-CPU code as it initialize threads */
 	handle_init();
 
@@ -44,12 +47,6 @@ md_startup(uint32_t r3, uint32_t r4, uint32_t r5)
 	 * so we can't do it before here
 	 */
 	pcpu_init(&bsp_pcpu);
-
-#if 0
-	/* XXX we should obtain this info from the loader - note that the OFW map will already
-	 * have removed the kernel from the memory map */
-	kmem_mark_used((void*)0x00100000, 32);
-#endif
 
 	/* Initialize the interrupt code */
 	hal_init_interrupts();
