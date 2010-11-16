@@ -196,7 +196,7 @@ fat_do_read(struct VFS_FILE* file, void* buf, size_t len, block_t* cur_block, in
 		 * length; the FAT isn't needed to traverse them.
 		 */
 		block_t want_block;
-		if (privdata->root_inode) {
+		if (privdata->root_inode && fs_privdata->fat_type != 32) {
 			want_block = fs_privdata->first_rootdir_sector + (file->offset / (block_t)fs->block_size);
 			if (file->offset >= (fs_privdata->num_rootdir_sectors * fs_privdata->sector_size))
 				break;
@@ -221,6 +221,7 @@ fat_do_read(struct VFS_FILE* file, void* buf, size_t len, block_t* cur_block, in
 		int chunk_len = fs->block_size - *cur_offset;
 		if (chunk_len > len)
 			chunk_len = len;
+		KASSERT(chunk_len > 0, "attempt to handle empty chunk");
 		memcpy(buf, (void*)(BIO_DATA(bio) + *cur_offset), chunk_len);
 
 		written += chunk_len;
@@ -263,7 +264,7 @@ fat_dump_entry(struct FAT_ENTRY* fentry)
  * complete.
  */
 static int
-fat_construct_file(struct FAT_ENTRY* fentry, char* fat_filename, int* cur_pos)
+fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename, int* cur_pos)
 {
 #define ADD_CHAR(c) \
 	do { \
@@ -271,7 +272,36 @@ fat_construct_file(struct FAT_ENTRY* fentry, char* fat_filename, int* cur_pos)
 			(*cur_pos)++; \
 	} while(0)
 
-	/* Convert the filename bits XXX LFN */
+	if (fentry->fe_attributes == FAT_ATTRIBUTE_LFN) {
+		struct FAT_ENTRY_LFN* lfnentry = (struct FAT_ENTRY_LFN*)fentry;
+
+		/* LFN XXX should we bother about the checksum? */
+
+		/* LFN, part 1 XXX we throw away the upper 8 bits */
+		for (int i = 0; i < 5; i++) {
+			ADD_CHAR(lfnentry->lfn_name_1[i * 2]);
+		}
+
+		/* LFN, part 2 XXX we throw away the upper 8 bits */
+		for (int i = 0; i < 5; i++) {
+			ADD_CHAR(lfnentry->lfn_name_2[i * 2]);
+		}
+
+		/* LFN, part 3 XXX we throw away the upper 8 bits */
+		for (int i = 0; i < 2; i++) {
+			ADD_CHAR(lfnentry->lfn_name_3[i * 2]);
+		}
+		return 0;
+	}
+
+	/*
+	 * If we have a current LFN entry, we should use that instead and
+	 * ignore the old 8.3 filename.
+	 */
+	if (*cur_pos > 0)
+			return 1;
+
+	/* Convert the filename bits */
 	for (int i = 0; i < 11; i++) {
 		unsigned char ch = fentry->fe_filename[i];
 		if (ch == 0x20)
@@ -299,7 +329,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 	size_t written = 0;
 	char cur_filename[128]; /* currently assembled filename */
 	int cur_filename_len = 0;
-	
+
 	while(entsize > 0) {
 		struct FAT_ENTRY fentry;
 		block_t cur_block;
@@ -312,10 +342,24 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 			break;
 		}
 
+		if (fentry.fe_filename[0] == 0xe5) {
+			/* Deleted file; we'll skip it */
+			continue;
+		}
+
 		/* Convert the filename bits */
-		cur_filename_len = 0;
-		if (!fat_construct_file(&fentry, cur_filename, &cur_filename_len))
-			panic("XXX deal with LFN");
+		if (!fat_construct_filename(&fentry, cur_filename, &cur_filename_len))
+			/* This is part of a long file entry name - get more */
+			continue;
+
+		/*
+		 * If this is a volume entry, ignore it (but do this after the LFN has been handled
+		 * because these will always have the volume bit set)
+		 */
+		if (fentry.fe_attributes & FAT_ATTRIBUTE_VOLUMEID) {
+			cur_filename_len = 0;
+			continue;
+		}
 
 		/* And hand it to the fill function */
 		uint64_t fsop = cur_block << 16 | cur_offs;
@@ -324,7 +368,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 			/* out of space! */
 			break;
 		}
-		written += filled;
+		written += filled; cur_filename_len = 0;
 	}
 
 	return written;
@@ -370,6 +414,8 @@ fat_fill_inode(struct VFS_INODE* inode, void* fsop, struct FAT_ENTRY* fentry)
 		inode->sb.st_size = fs_privdata->num_rootdir_sectors * fs_privdata->sector_size;
 		inode->iops = &fat_dir_ops;
 		inode->sb.st_mode |= S_IFDIR;
+		if (fs_privdata->fat_type == 32)
+			privdata->first_cluster = fs_privdata->first_rootdir_sector;
 	}
 	inode->sb.st_blocks = inode->sb.st_size / (fs_privdata->sectors_per_cluster * fs_privdata->sector_size);
 }
@@ -382,10 +428,10 @@ fat_read_inode(struct VFS_INODE* inode, void* fsop)
 	struct FAT_INODE_PRIVDATA* privdata = inode->privdata;
 
 	/*
-	 * FAT12/16 have the inode stored on a fixed place on disk.
+	 * FAT doesn't really have a root inode, so we just fake one. The root_inode
+	 * flag makes the read/write functions do the right thing.
 	 */
 	if (*(uint64_t*)fsop == FAT_ROOTINODE_FSOP) {
-		KASSERT(fs_privdata->fat_type == 12 || fs_privdata->fat_type == 16, "Magic root inode only valid for FAT12/16!");
 		privdata->root_inode = 1;
 		fat_fill_inode(inode, fsop, NULL);
 		return 1;
@@ -418,6 +464,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 	struct FAT_BPB* bpb = (struct FAT_BPB*)BIO_DATA(bio);
 	struct FAT_FS_PRIVDATA* privdata = kmalloc(sizeof(struct FAT_FS_PRIVDATA));
 	memset(privdata, 0, sizeof(struct FAT_FS_PRIVDATA));
+	fs->privdata = privdata; /* immediately, this is used by other functions */
 
 #define FAT_ABORT(x...) \
 	do { \
@@ -470,7 +517,6 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 	 privdata->fat_type, fat_size, privdata->first_rootdir_sector, privdata->first_data_sector);
 
 	/* Everything is in order - fill out our filesystem details */
-  fs->privdata = privdata;
   fs->block_size = privdata->sector_size;
   fs->fsop_size = sizeof(uint64_t);
   fs->root_inode = vfs_alloc_inode(fs);
