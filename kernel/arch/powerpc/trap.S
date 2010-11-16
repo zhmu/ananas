@@ -453,10 +453,23 @@ syscallcode:
 	 * we want - so let's start by responding the kernel's segments. We
 	 * need this in order to access the thread's kernel stack, as the
 	 * thread itself will not have it mapped.
+	 *
+	 * Note that we need data/instruction translation off for this to
+	 * work, so do that first. XXX There has to be a better way...
 	 */
+	mfmsr	%r14
+	andi.	%r13, %r14, ~(MSR_DR | MSR_IR)@l
+	mtmsr	%r13
+	isync
+
+	/* Restore segment registers... */
 	lis	%r10, bsp_sf@ha
 	addi	%r10, %r10, bsp_sf@l
 	RESTORE_SREGS(%r10)
+
+	/* ... and turn translation back on */
+	mtmsr	%r14
+	isync
 
 	/* Let us switch to our process kernel stack */
 	mfsprg0	%r10				/* Get PCPU data */
@@ -475,18 +488,27 @@ syscallcode:
 
 	/*
 	 * Launch the system call handler - we use the fact that
-	 * it wil not touch %r31 here
+	 * it will not touch %r31 here
 	 */
 	mr	%r3, %r30
 	bl	syscall
 
 	/*
 	 * Restore the thread segment registers; we cannot access the user stack
-	 * without doing so.
+	 * without doing so. Note that the translation off thing still applies.
 	 */
+	mfmsr	%r12
+	andi.	%r13, %r12, ~(MSR_DR | MSR_IR)@l
+	mtmsr	%r13
+	isync
+
 	mfsprg0	%r1
 	lwz	%r1,(PCPU_CONTEXT)(%r1)
 	RESTORE_SREGS(%r1)
+
+	/* And turn translation back on */
+	mtmsr	%r12
+	isync
 
 	/* Restore the registers */
 	lwz	%r10, 100(%r31)
