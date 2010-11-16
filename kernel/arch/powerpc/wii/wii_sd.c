@@ -93,7 +93,7 @@ static int
 wiisd_select(device_t dev)
 {
 	struct WIISD_PRIVDATA* priv = dev->privdata;
-	uint16_t reply[4];
+	uint32_t reply[4];
 
 	return wiisd_command(dev, SD_CMD_SELECT, SD_TYPE_AC, SD_RESP_R1B, priv->rca, 0, 0, NULL, reply);
 }
@@ -102,7 +102,7 @@ static int
 wiisd_set_blocklength(device_t dev, uint32_t len)
 {
 	struct WIISD_PRIVDATA* priv = dev->privdata;
-	uint16_t reply[4];
+	uint32_t reply[4];
 
 	return wiisd_command(dev, SD_CMD_SET_BLOCKLEN, SD_TYPE_AC, SD_RESP_R1, len, 0, 0, NULL, reply);
 }
@@ -118,7 +118,7 @@ static int
 wiisd_set_buswidth4(device_t dev)
 {
 	struct WIISD_PRIVDATA* priv = dev->privdata;
-	uint16_t reply[4];
+	uint32_t reply[4];
 
 	int width = 2; /* means width 4 */
 	int ret = wiisd_command(dev, SD_CMD_APP_CMD, SD_TYPE_AC, SD_RESP_R1, priv->rca, 0, 0, NULL, reply);
@@ -141,7 +141,7 @@ wiisd_set_buswidth4(device_t dev)
 static int
 wiisd_read_block(device_t dev, uint32_t block, void* buffer)
 {
-	uint16_t reply[4];
+	uint32_t reply[4];
 	return wiisd_data_command(dev, SD_CMD_READ_MULTIPLE_BLOCK, SD_TYPE_AC, SD_RESP_R1, 512 * block, 1, 512, buffer, reply);
 }
 
