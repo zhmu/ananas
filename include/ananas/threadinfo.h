@@ -9,13 +9,12 @@
 
 struct THREADINFO {
 	int		ti_size;				/* structure length */
-	void*		ti_handle;				/* thread handle */
-	void*		ti_handle_stdin;			/* stdin handle */
-	void*		ti_handle_stdout;			/* stdout handle */
-	void*		ti_handle_stderr;			/* stderr handle */
+	handle_t	ti_handle;				/* thread handle */
+	handle_t	ti_handle_stdin;			/* stdin handle */
+	handle_t	ti_handle_stdout;			/* stdout handle */
+	handle_t	ti_handle_stderr;			/* stderr handle */
 	char		ti_args[THREADINFO_ARGS_LENGTH];	/* commandline arguments */
 	char		ti_env[THREADINFO_ENV_LENGTH];		/* environment */
-	errorcode_t	ti_errorcode;				/* last error code */
 };
 
 #ifndef KERNEL

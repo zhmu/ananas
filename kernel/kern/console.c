@@ -70,7 +70,8 @@ console_putchar(int c)
 	if (console_tty == NULL)
 		return;
 	uint8_t ch = c; // cannot cast due to endianness!
-	device_write(console_tty, &ch, 1, 0);
+	size_t len = sizeof(ch);
+	device_write(console_tty, (const char*)&ch, &len, 0);
 }
 
 uint8_t
@@ -84,7 +85,8 @@ console_getchar()
 	if (console_tty == NULL)
 		return 0;
 	uint8_t c;
-	if (device_read(console_tty, (char*)&c, 1, 0) < 1)
+	size_t len = sizeof(c);
+	if (device_read(console_tty, (char*)&c, &len, 0) < 1)
 		return 0;
 	return c;
 }

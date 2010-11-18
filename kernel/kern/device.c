@@ -351,8 +351,8 @@ device_find(const char* name)
 	return NULL;
 }
 
-ssize_t
-device_write(device_t dev, const char* buf, size_t len, off_t offset)
+int
+device_write(device_t dev, const char* buf, size_t* len, off_t offset)
 {
 	KASSERT(dev->driver != NULL, "device_write() without a driver");
 	KASSERT(dev->driver->drv_write != NULL, "device_write() without drv_write");
@@ -360,8 +360,8 @@ device_write(device_t dev, const char* buf, size_t len, off_t offset)
 	return dev->driver->drv_write(dev, buf, len, offset);
 }
 
-ssize_t
-device_read(device_t dev, char* buf, size_t len, off_t offset)
+int
+device_read(device_t dev, char* buf, size_t* len, off_t offset)
 {
 	KASSERT(dev->driver != NULL, "device_read() without a driver");
 	KASSERT(dev->driver->drv_read != NULL, "device_read() without drv_read");

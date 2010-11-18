@@ -1,4 +1,5 @@
 #include <ananas/types.h>
+#include <ananas/error.h>
 #include <ananas/dev/ata.h>
 #include <ananas/x86/io.h>
 #include <ananas/bio.h>
@@ -46,23 +47,24 @@ atadisk_attach(device_t dev)
 	return 1;
 }
 
-static ssize_t
-atadisk_read(device_t dev, void* buffer, size_t length, off_t offset)
+static int
+atadisk_read(device_t dev, void* buffer, size_t* length, off_t offset)
 {
 	struct ATADISK_PRIVDATA* priv = (struct ATADISK_PRIVDATA*)dev->privdata;
 	struct ATA_REQUEST_ITEM item;
-	KASSERT(length > 0, "invalid length");
-	KASSERT(length % 512 == 0, "invalid length"); /* XXX */
+	KASSERT(*length > 0, "invalid length");
+	KASSERT(*length % 512 == 0, "invalid length"); /* XXX */
 	KASSERT(buffer != NULL, "invalid buffer");
 
 	/* XXX boundary check */
 	item.unit = priv->unit;
 	item.lba = offset;
-	item.count = length / 512;
+	item.count = *length / 512;
 	item.bio = (struct BIO*)buffer;
 	item.command = ATA_CMD_READ_SECTORS;
 	dev->parent->driver->drv_enqueue(dev->parent, &item);
 	dev->parent->driver->drv_start(dev->parent);
+	return ANANAS_ERROR_OK;
 }
 
 struct DRIVER drv_atadisk = {

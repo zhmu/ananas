@@ -1,32 +1,44 @@
 #include <ananas/types.h>
 #include <ananas/bio.h>
 #include <ananas/device.h>
+#include <ananas/error.h>
 #include <ananas/lib.h>
+#include <ananas/trace.h>
 #include <ananas/vfs.h>
+
+TRACE_SETUP;
 
 #undef DEBUG_VFS_LOOKUP
 
-struct VFS_INODE*
-vfs_generic_lookup(struct VFS_INODE* dirinode, const char* dentry)
+int
+vfs_generic_lookup(struct VFS_INODE* dirinode, struct VFS_INODE** destinode, const char* dentry)
 {
 	struct VFS_FILE dir;
-	char tmp[1024]; /* XXX */
+	char buf[1024]; /* XXX */
+
+#ifdef DEBUG_VFS_LOOKUP
+	kprintf("vfs_generic_lookup: target='%s'\n", dentry);
+#endif
 
 	/*
 	 * XXX This is a very naive implementation which does not use the
 	 * possible directory index.
 	 */
-	dir.offset = 0;
+	KASSERT(S_ISDIR(dirinode->sb.st_mode), "supplied inode is not a directory");
+	memset(&dir, 0, sizeof(dir));
 	dir.inode = dirinode;
 	while (1) {
-		size_t left = dirinode->iops->readdir(&dir, tmp, sizeof(tmp));
-		if (left <= 0)
-			break;
+		size_t buf_len = sizeof(buf);
+		int result = vfs_read(&dir, buf, &buf_len);
+		if (result != ANANAS_ERROR_NONE)
+			return result;
+		if (buf_len == 0)
+			return ANANAS_ERROR(NO_FILE);
 
-		char* cur_ptr = tmp;
-		while (left > 0) {
+		char* cur_ptr = buf;
+		while (buf_len > 0) {
 			struct VFS_DIRENT* de = (struct VFS_DIRENT*)cur_ptr;
-			left -= DE_LENGTH(de); cur_ptr += DE_LENGTH(de);
+			buf_len -= DE_LENGTH(de); cur_ptr += DE_LENGTH(de);
 
 #ifdef DEBUG_VFS_LOOKUP
 			kprintf("vfs_generic_lookup('%s'): comparing with '%s'\n", dentry, de->de_fsop + de->de_fsop_length);
@@ -36,15 +48,9 @@ vfs_generic_lookup(struct VFS_INODE* dirinode, const char* dentry)
 				continue;
 
 			/* Found it! */
-			struct VFS_INODE* inode = vfs_get_inode(dirinode->fs, de->de_fsop);
-			if (inode == NULL)
-				return NULL;
-			return inode;
+			return vfs_get_inode(dirinode->fs, de->de_fsop, destinode);
 		}
 	}
-
-	/* Not found */
-	return NULL;
 }
 
 /* vim:set ts=2 sw=2: */

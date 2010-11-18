@@ -1,6 +1,7 @@
 #include <ananas/device.h>
 #include <ananas/bio.h>
 #include <ananas/console.h>
+#include <ananas/error.h>
 #include <ananas/mm.h>
 #include <ananas/kdb.h>
 #include <ananas/lib.h>
@@ -12,7 +13,6 @@
 #include "options.h"
 
 #define SHELL_BIN "/bin/sh"
-
 #define ROOT_DEVICE "slice0"
 
 void smp_init();
@@ -23,7 +23,7 @@ void kmem_dump();
 void
 mi_startup()
 {
-	size_t mem_avail, mem_total;
+	errorcode_t err;
 
 	/*
 	 * Cheat and initialize the console driver first; this ensures the user
@@ -31,7 +31,10 @@ mi_startup()
 	 */
 	console_init();
 
+	kprintf("\n\n\n\n"); /* HACK */
+
 	/* Show a startup banner */
+	size_t mem_avail, mem_total;
 	kmem_stats(&mem_avail, &mem_total);
 	kprintf("Hello world, this is Ananas/%s %u.%u\n", ARCHITECTURE, 0, 1);
 	kprintf("Memory: %uKB available / %uKB total\n", mem_avail / 1024, mem_total / 1024);
@@ -54,10 +57,11 @@ mi_startup()
 	/* Init VFS and mount something */
 	vfs_init();
 	kprintf("- Mounting / from %s...", ROOT_DEVICE);
-	if (vfs_mount(ROOT_DEVICE, "/", "ext2", NULL) == 1) {
+	err = vfs_mount(ROOT_DEVICE, "/", "ext2", NULL);
+	if (err == ANANAS_ERROR_NONE) {
 		kprintf(" ok\n");
 	} else {
-		kprintf(" failed\n");
+		kprintf(" failed, error %i\n", err);
 	}
 
 #if 0
@@ -65,43 +69,30 @@ mi_startup()
 	kprintf("CURRENT Memory: %uKB available / %uKB total\n", mem_avail / 1024, mem_total / 1024);
 #endif
 
-	/* Construct our shell process */
-#if 1
 #ifdef SHELL_BIN 
-	thread_t t1 = thread_alloc(NULL);
-
-	struct VFS_FILE f;
-	kprintf("- Lauching %s...", SHELL_BIN);
-	if (vfs_open(SHELL_BIN, NULL, &f)) {
-		if (elf_load_from_file(t1, &f)) {
-			kprintf(" ok\n");
-			thread_set_args(t1, "sh\0\0");
-			thread_set_environment(t1, "OS=Ananas\0USER=root\0\0");
-			thread_resume(t1);
+	thread_t t1;
+	err = thread_alloc(NULL, &t1);
+	if (err == ANANAS_ERROR_NONE) {
+		struct VFS_FILE f;
+		kprintf("- Lauching %s...", SHELL_BIN);
+		err = vfs_open(SHELL_BIN, NULL, &f);
+		if (err == ANANAS_ERROR_NONE) {
+			err = elf_load_from_file(t1, &f);
+			if (err == ANANAS_ERROR_NONE) {
+				kprintf(" ok\n");
+				thread_set_args(t1, "sh\0\0", PAGE_SIZE);
+				thread_set_environment(t1, "OS=Ananas\0USER=root\0\0", PAGE_SIZE);
+				thread_resume(t1);
+			} else {
+				kprintf(" fail - error %i\n", err);
+			}
 		} else {
-			kprintf(" fail\n");
+			kprintf(" fail - error %i\n", err);
 		}
 	} else {
-		kprintf(" fail - file not found\n");
+		kprintf(" couldn't create process, %i\n", err);
 	}
 #endif /* SHELL_BIN  */
-#endif
-#if 0
-	thread_t t2 = thread_alloc();
-
-	struct VFS_FILE f;
-	kprintf("Lauching q...");
-	if (vfs_open("q", &f)) {
-		if (elf_load_from_file(t2, &f)) {
-			kprintf(" ok\n");
-			thread_resume(t2);
-		} else {
-			kprintf(" fail\n");
-		}
-	} else {
-		kprintf(" fail - file not found\n");
-	}
-#endif
 
 #ifdef SMP
 	smp_launch();

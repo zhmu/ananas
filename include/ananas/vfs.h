@@ -45,7 +45,7 @@ struct VFS_DIRENT {
 	uint8_t		de_name_length;		/* Length of name */
 	char		de_fsop[1];		/* Identifier */
 	/*
-	 * de_name will be stored directory after the fsop.
+	 * de_name will be stored directly after the fsop.
 	 */
 };
 #define DE_LENGTH(x) (sizeof(struct VFS_DIRENT) + (x)->de_fsop_length + (x)->de_name_length)
@@ -77,7 +77,7 @@ struct VFS_FILESYSTEM_OPS {
 	 * Mount a filesystem. device, mountpoint and fsops in 'fs' are
 	 * guaranteed to be filled out.
 	 */
-	int (*mount)(struct VFS_MOUNTED_FS* fs);
+	errorcode_t (*mount)(struct VFS_MOUNTED_FS* fs);
 
 	/*
 	 * Allocate an inode. The purpose for this function is to initialize
@@ -97,60 +97,57 @@ struct VFS_FILESYSTEM_OPS {
 	 * Read an inode from disk; inode is pre-allocated using alloc_inode().
 	 * The 'fs' field of the inode is guaranteed to be filled out.
 	 */
-	int (*read_inode)(struct VFS_INODE* inode, void* fsop);
+	errorcode_t (*read_inode)(struct VFS_INODE* inode, void* fsop);
 };
 
 struct VFS_INODE_OPS {
 	/*
-	 * Reads directory entries, up to numents (dirents must be big enough to hold
-	 * them). Returns the number of entries read and updates file's offset.
+	 * Reads directory entries. Must set length to amount of data filled on
+	 * success.
 	 */
-	size_t (*readdir)(struct VFS_FILE* file, void* ents, size_t numents);
+	errorcode_t (*readdir)(struct VFS_FILE* file, void* buf, size_t* length);
 
 	/*
-	 * Looks up an entry within a directory and returns its inode or NULL
-	 * if nothing is found.
+	 * Looks up an entry within a directory, updates 'destinode' on success.
 	 */
-	struct VFS_INODE* (*lookup)(struct VFS_INODE* dirinode, const char* dentry);
+	errorcode_t (*lookup)(struct VFS_INODE* dirinode, struct VFS_INODE** destinode, const char* dentry);
 
 	/*
-	 * Reads inode data to a buffer, up to len bytes. Returns the number of
-	 * bytes read.
+	 * Reads inode data to a buffer, up to len bytes. Must update len on success
+	 * with the amount of data read.
 	 */
-	size_t (*read)(struct VFS_FILE* file, void* buf, size_t len);
+	errorcode_t (*read)(struct VFS_FILE* file, void* buf, size_t* len);
 
 	/*
-	 * Writes inode data from a buffer, up to len bytes. Returns the number of
-	 * bytes written.
+	 * Writes inode data from a buffer, up to len bytes. Must update len on success
+	 * wit hthe amount of data written.
 	 */
-	size_t (*write)(struct VFS_FILE* file, const void* buf, size_t len);
+	errorcode_t (*write)(struct VFS_FILE* file, const void* buf, size_t* len);
 };
 
 void vfs_init();
-int vfs_mount(const char* from, const char* to, const char* type, void* options);
+errorcode_t vfs_mount(const char* from, const char* to, const char* type, void* options);
 struct BIO* vfs_bread(struct VFS_MOUNTED_FS* fs, block_t block, size_t len);
 
-
+/* Low-level interface */
 struct VFS_INODE* vfs_alloc_inode(struct VFS_MOUNTED_FS* fs);
-void vfs_free_inode(struct VFS_INODE* inode);
-
 struct VFS_INODE* vfs_make_inode(struct VFS_MOUNTED_FS* fs);
+void vfs_free_inode(struct VFS_INODE* inode);
 void vfs_destroy_inode(struct VFS_INODE* inode);
-
-struct VFS_INODE* vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop);
-
-struct VFS_INODE* vfs_lookup(const char* dentry, struct VFS_INODE* cwd);
+errorcode_t vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinode);
+errorcode_t vfs_lookup(struct VFS_INODE* cwd, struct VFS_INODE** destinode, const char* dentry);
 
 /* Higher-level interface */
-int vfs_open(const char* fname, struct VFS_INODE* cwd, struct VFS_FILE* file);
-void vfs_close(struct VFS_FILE* file);
-size_t vfs_read(struct VFS_FILE* file, void* buf, size_t len);
-size_t vfs_write(struct VFS_FILE* file, const void* buf, size_t len);
-int vfs_seek(struct VFS_FILE* file, off_t offset);
-size_t vfs_readdir(struct VFS_FILE* file, struct VFS_DIRENT* dirents, size_t numents);
-int vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, const char* name, int namelen);
+errorcode_t vfs_open(const char* fname, struct VFS_INODE* cwd, struct VFS_FILE* file);
+errorcode_t vfs_close(struct VFS_FILE* file);
+errorcode_t vfs_read(struct VFS_FILE* file, void* buf, size_t* len);
+errorcode_t vfs_write(struct VFS_FILE* file, const void* buf, size_t* len);
+errorcode_t vfs_seek(struct VFS_FILE* file, off_t offset);
 
 /* Generic functions */
-struct VFS_INODE* vfs_generic_lookup(struct VFS_INODE* dirinode, const char* dentry);
+errorcode_t vfs_generic_lookup(struct VFS_INODE* dirinode, struct VFS_INODE** destinode, const char* dentry);
+
+/* Filesystem specific functions */
+size_t vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, const char* name, int namelen);
 
 #endif /* __SYS_VFS_H__ */

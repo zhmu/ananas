@@ -11,6 +11,9 @@ typedef unsigned int handle_event_result_t;
 #define HANDLE_TYPE_UNUSED	0
 #define HANDLE_TYPE_FILE	1
 #define HANDLE_TYPE_THREAD	2
+#define HANDLE_TYPE_MEMORY	3
+
+#define HANDLE_EVENT_ANY	0
 
 #define HANDLE_VALUE_INVALID	0
 #define HANDLE_MAX_WAITERS	10	/* XXX should be any limit*/
@@ -27,6 +30,11 @@ struct HANDLE_WAITER {
 	handle_event_result_t result;
 };
 
+struct HANDLE_MEMORY_INFO {
+	void* addr;
+	size_t length;
+};
+
 struct HANDLE {
 	int type;
 	struct THREAD* thread;			/* owning thread */
@@ -38,16 +46,17 @@ struct HANDLE {
 	union {
 		struct VFS_FILE vfs_file;
 		struct THREAD*  thread;
+		struct HANDLE_MEMORY_INFO memory;
 	} data;
 };
 
 void handle_init();
-struct HANDLE* handle_alloc(int type, struct THREAD* t);
-void handle_free(struct HANDLE* handle);
-int handle_isvalid(struct HANDLE* handle, struct THREAD* t, int type);
-struct HANDLE* handle_clone(struct HANDLE* handle);
+errorcode_t handle_alloc(int type, struct THREAD* t, struct HANDLE** out);
+errorcode_t handle_free(struct HANDLE* handle);
+errorcode_t handle_isvalid(struct HANDLE* handle, struct THREAD* t, int type);
+errorcode_t handle_clone(struct HANDLE* in, struct HANDLE** out);
 
-handle_event_result_t handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* mask);
+errorcode_t handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event, handle_event_result_t* h);
 void handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t result);
 
 #endif /* __SYS_HANDLE_H__ */

@@ -1,4 +1,5 @@
 #include <ananas/types.h>
+#include <ananas/error.h>
 #include <ananas/dev/ata.h>
 #include <ananas/x86/io.h>
 #include <ananas/bio.h>
@@ -25,17 +26,17 @@ atacd_attach(device_t dev)
 	return 1;
 }
 
-static ssize_t
-atacd_read(device_t dev, void* buffer, size_t length, off_t offset)
+static int
+atacd_read(device_t dev, void* buffer, size_t* length, off_t offset)
 {
 	struct ATACD_PRIVDATA* priv = (struct ATACD_PRIVDATA*)dev->privdata;
 	struct ATA_REQUEST_ITEM item;
-	KASSERT(length == 2048, "invalid length"); /* XXX */
+	KASSERT(*length == 2048, "invalid length"); /* XXX */
 
 	/* XXX boundary check */
 	memset(&item, 0, sizeof(item));
 	item.unit = priv->unit;
-	item.count = length;
+	item.count = *length;
 	item.bio = (struct BIO*)buffer;
 	item.command = ATA_CMD_PACKET;
 	item.atapi_command[0] = ATAPI_CMD_READ_SECTORS;
@@ -43,10 +44,11 @@ atacd_read(device_t dev, void* buffer, size_t length, off_t offset)
 	item.atapi_command[3] = (offset >> 16) & 0xff;
 	item.atapi_command[4] = (offset >>  8) & 0xff;
 	item.atapi_command[5] = (offset      ) & 0xff;
-	item.atapi_command[7] = (length / 2048) >> 8;
-	item.atapi_command[8] = (length / 2048) & 0xff;
+	item.atapi_command[7] = (*length / 2048) >> 8;
+	item.atapi_command[8] = (*length / 2048) & 0xff;
 	dev->parent->driver->drv_enqueue(dev->parent, &item);
 	dev->parent->driver->drv_start(dev->parent);
+	return ANANAS_ERROR_OK;
 }
 
 struct DRIVER drv_atacd = {

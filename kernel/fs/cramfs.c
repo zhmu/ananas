@@ -29,6 +29,7 @@
  */
 #include <ananas/types.h>
 #include <ananas/bio.h>
+#include <ananas/error.h>
 #include <ananas/vfs.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
@@ -51,14 +52,14 @@ struct CRAMFS_INODE_PRIVDATA {
 static unsigned char temp_buf[CRAMFS_PAGE_SIZE * 2]; /* XXX */
 static unsigned char decompress_buf[CRAMFS_PAGE_SIZE + 4]; /* XXX */
 
-static size_t
-cramfs_read(struct VFS_FILE* file, void* buf, size_t len)
+static errorcode_t
+cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
 	struct VFS_MOUNTED_FS* fs = file->inode->fs;
 	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)file->inode->privdata;
 
-	size_t total = 0;
-	while (len > 0) {
+	size_t total = 0, toread = *len;
+	while (toread > 0) {
 		uint32_t page_index = file->offset / CRAMFS_PAGE_SIZE;
 		uint32_t next_offset = 0;
 		int cur_block = -1;
@@ -112,24 +113,25 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t len)
 		KASSERT(err == Z_STREAM_END, "inflate() error %d", err);
 		KASSERT(cramfs_zstream.total_out <= CRAMFS_PAGE_SIZE, "inflate() gave more data than a page");
 
-		int copy_chunk = (cramfs_zstream.total_out > len) ? len :  cramfs_zstream.total_out;
+		int copy_chunk = (cramfs_zstream.total_out > toread) ? toread :  cramfs_zstream.total_out;
 		memcpy(buf, &decompress_buf[file->offset % CRAMFS_PAGE_SIZE], copy_chunk);
 
 		file->offset += copy_chunk;
 		buf += copy_chunk;
 		total += copy_chunk;
-		len -= copy_chunk;
+		toread -= copy_chunk;
 	}
-		
-	return total;
+
+	*len = total;
+	return ANANAS_ERROR_OK;
 }
 
-static size_t
-cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
+static errorcode_t
+cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	struct VFS_MOUNTED_FS* fs = file->inode->fs;
 	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)file->inode->privdata;
-	size_t written = 0;
+	size_t written = 0, toread = *len;
 
 	uint32_t cur_offset = privdata->offset + file->offset;
 	uint32_t left = file->inode->sb.st_size - file->offset;
@@ -147,7 +149,7 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 
 	unsigned int cur_block = (unsigned int)-1;
 	struct BIO* bio = NULL;
-	while (entsize > 0 && left > 0) {
+	while (toread > 0 && left > 0) {
 		unsigned int new_block = cur_offset / fs->block_size;
 		if (new_block != cur_block) {
 			if (bio != NULL) bio_free(bio);
@@ -197,7 +199,7 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 
 		/* And hand it to the fill function */
 		uint32_t fsop = cur_offset;
-		int filled = vfs_filldirent(&dirents, &entsize, (const void*)&fsop, file->inode->fs->fsop_size, ((char*)(cram_inode + 1)), real_name_len);
+		int filled = vfs_filldirent(&dirents, &toread, (const void*)&fsop, file->inode->fs->fsop_size, ((char*)(cram_inode + 1)), real_name_len);
 		if (!filled) {
 			/* out of space! */
 			break;
@@ -212,7 +214,8 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 	if (bio != NULL) bio_free(bio);
 
 	CRAMFS_DEBUG_READDIR("cramfs_readdir(): done, returning %u bytes\n", written);
-	return written;
+	*len = written;
+	return ANANAS_ERROR_OK;
 }
 
 static struct VFS_INODE_OPS cramfs_file_ops = {

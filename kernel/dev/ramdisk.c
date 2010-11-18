@@ -1,4 +1,5 @@
 #include <ananas/types.h>
+#include <ananas/error.h>
 #include <machine/param.h>		/* for PAGE_SIZE */
 #include <ananas/bootinfo.h>
 #include <ananas/bio.h>
@@ -23,20 +24,20 @@ ramdisk_attach(device_t dev)
 	return 0;
 }
 
-static ssize_t
-ramdisk_read(device_t dev, void* buffer, size_t length, off_t offset)
+static int
+ramdisk_read(device_t dev, void* buffer, size_t* length, off_t offset)
 {
-	KASSERT(length > 0, "invalid length");
-	KASSERT(length % 512 == 0, "invalid length"); /* XXX */
+	KASSERT(*length > 0, "invalid length");
+	KASSERT(*length % 512 == 0, "invalid length"); /* XXX */
 	KASSERT(buffer != NULL, "invalid buffer");
 
-	KASSERT((offset * 512) + length < bootinfo->bi_ramdisk_size, "attempted to read beyond ramdisk range");
+	KASSERT((offset * 512) + *length < bootinfo->bi_ramdisk_size, "attempted to read beyond ramdisk range");
 
 	struct BIO* bio = buffer;
-	void* addr = (void*)(bootinfo->bi_ramdisk_addr + offset * 512);
-	memcpy(bio->data, addr, length);
+	void* addr = (void*)((addr_t)bootinfo->bi_ramdisk_addr + (addr_t)offset * 512);
+	memcpy(bio->data, addr, *length);
 	bio->flags &= ~BIO_FLAG_DIRTY;
-	return length;
+	return ANANAS_ERROR_OK;
 }
 
 struct DRIVER drv_ramdisk = {

@@ -1,4 +1,5 @@
 #include <ananas/device.h>
+#include <ananas/error.h>
 #include <ananas/irq.h>
 #include <ananas/kdb.h>
 #include <ananas/lib.h>
@@ -91,7 +92,7 @@ atkbd_irq(device_t dev)
 		return;
 
 #ifdef KDB
-	if ((atkbd_flags == ATKBD_FLAG_CONTROL | ATKBD_FLAG_SHIFT) && scancode == 0x29 /* tilde */) {
+	if ((atkbd_flags == (ATKBD_FLAG_CONTROL | ATKBD_FLAG_SHIFT)) && scancode == 0x29 /* tilde */) {
 		kdb_enter("keyboard sequence");
 		return;
 	}
@@ -129,19 +130,20 @@ atkbd_attach(device_t dev)
 	return 0;
 }
 
-static ssize_t
-atkbd_read(device_t dev, char* data, size_t len)
+static int
+atkbd_read(device_t dev, void* data, size_t* len, off_t off)
 {
-	size_t returned = 0;
+	size_t returned = 0, to_read = *len;
 
-	while (len-- > 0) {
+	while (to_read-- > 0) {
 		if (atkbd_buffer_readpos == atkbd_buffer_writepos)
 			break;
 
-		data[returned++] = atkbd_buffer[atkbd_buffer_readpos];
+		*(uint8_t*)(data + returned++) = atkbd_buffer[atkbd_buffer_readpos];
 		atkbd_buffer_readpos = (atkbd_buffer_readpos + 1) % ATKBD_BUFFER_SIZE;
 	}
-	return returned;
+	*len = returned;
+	return ANANAS_ERROR_OK;
 }
 
 struct DRIVER drv_atkbd = {

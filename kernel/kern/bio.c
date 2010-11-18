@@ -1,5 +1,6 @@
 #include <ananas/mm.h>
 #include <ananas/bio.h>
+#include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/lock.h>
 #include <ananas/schedule.h>
@@ -15,9 +16,7 @@ static struct SPINLOCK spl_bucket[BIO_BUCKET_SIZE];
 static struct SPINLOCK spl_bio_lists;
 static struct SPINLOCK spl_bio_bitmap;
 
-#define BIO_TRACE
-
-void bio_dump();
+#define BIO_TRACE(x...) (void)0
 
 void
 bio_init()
@@ -61,7 +60,7 @@ bio_init()
 	 * in the slack section, they cannot be used.
 	 */
 	memset(bio_bitmap, 0, bio_bitmap_size);
-	if ((BIO_DATA_SIZE / BIO_SECTOR_SIZE) & 7 != 0) {
+	if (((BIO_DATA_SIZE / BIO_SECTOR_SIZE) & 7) != 0) {
 		/*
 	 	 * This means the bitmap size is not a multiple of a byte; we need to set
 		 * the trailing bits to prevent buffers from being allocated that do not
@@ -279,6 +278,7 @@ bio_waitcomplete(struct BIO* bio)
 		reschedule();
 	}
 	BIO_TRACE(" done\n");
+	return 0;
 }
 
 struct BIO*
@@ -296,7 +296,12 @@ bio_read(device_t dev, block_t block, size_t len)
 	bio->flags |= BIO_FLAG_READ;
 
 	/* kick the device; we want it to read */
-	device_read(dev, (void*)bio, len, (off_t)block);
+	size_t amount = len;
+	errorcode_t err = device_read(dev, (void*)bio, &amount, (off_t)block);
+	if (err != ANANAS_ERROR_NONE) {
+		/* XXX now what? */
+		kprintf("bio_read(): device_read() failed, %i\n", err);
+	}
 
 	/* ... and wait until we have something to report... */
 	bio_waitcomplete(bio);

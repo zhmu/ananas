@@ -1,12 +1,19 @@
 #include <ananas/types.h>
+#include <ananas/error.h>
 #include <ananas/handle.h>
 #include <ananas/lib.h>
 #include <ananas/lock.h>
 #include <ananas/mm.h>
 #include <ananas/schedule.h>
+#include <ananas/trace.h>
 #include <ananas/thread.h>
 
+TRACE_SETUP;
+
 #define NUM_HANDLES 1000 /* XXX shouldn't be static */
+#undef DEBUG_CLONE
+#undef DEBUG_WAIT
+#undef DEBUG_SIGNAL
 
 static struct HANDLE* handle_pool = NULL;
 static struct SPINLOCK spl_handlepool = { 0 };
@@ -36,16 +43,18 @@ handle_init()
 	handle_memory_end   = (char*)handle_pool + sizeof(struct HANDLE) * NUM_HANDLES;
 }
 
-struct HANDLE*
-handle_alloc(int type, struct THREAD* t)
+errorcode_t
+handle_alloc(int type, struct THREAD* t, struct HANDLE** out)
 {
 	KASSERT(handle_pool != NULL, "handle_alloc() without pool");
 
 	/* Grab a handle from the pool */
 	spinlock_lock(&spl_handlepool);
 	struct HANDLE* handle = handle_pool;
-	if (handle == NULL)
-		panic("out of handles"); /* XXX deal with this */
+	if (handle == NULL) {
+		/* XXX should we wait for a new handle, or just give an error? */
+		panic("out of handles");
+	}
 	if (handle->next != NULL)
 		handle->next->prev = NULL;
 	handle_pool = handle->next;
@@ -71,10 +80,11 @@ handle_alloc(int type, struct THREAD* t)
 	}
 
 	KASSERT(((addr_t)handle % sizeof(struct HANDLE)) == 0, "handle address %p is not 0x%x byte aligned", (addr_t)handle, sizeof(struct HANDLE));
-	return handle;
+	*out = handle;
+	return ANANAS_ERROR_OK;
 }
 
-void
+errorcode_t
 handle_free(struct HANDLE* handle)
 {
 	KASSERT(handle->type != HANDLE_TYPE_UNUSED, "freeing free handle");
@@ -104,65 +114,69 @@ handle_free(struct HANDLE* handle)
 		handle_pool->prev = handle;
 	handle_pool = handle;
 	spinlock_unlock(&spl_handlepool);
+	return ANANAS_ERROR_OK;
 }
 
-int
+errorcode_t
 handle_isvalid(struct HANDLE* handle, struct THREAD* t, int type)
 {
 	/* see if the handle resides in handlespace */
 	if ((void*)handle < handle_memory_start || (void*)handle >= handle_memory_end)
-		return 0;
+		return ANANAS_ERROR(BAD_HANDLE);
 	/* ensure the alignment is ok */
 	if (((addr_t)handle % sizeof(struct HANDLE)) != 0)
-		return 0;
+		return ANANAS_ERROR(BAD_HANDLE);
 	/* ensure handle is properly owned by the thread */
 	/* XXX does not work with inherited handles yet XXX */
 #if 0
 	if (handle->thread != t)
-		return 0;
+		return ANANAS_ERROR(BAD_HANDLE);
 #endif
 	/* ensure handle type is correct */
 	if (type != HANDLE_TYPE_ANY && handle->type != type)
-		return 0;
+		return ANANAS_ERROR(BAD_HANDLE);
 	/* ... yet unused handles are never valid */
 	if (handle->type == HANDLE_TYPE_UNUSED)
-		return 0;
-	return 1;
+		return ANANAS_ERROR(BAD_HANDLE);
+	return ANANAS_ERROR_OK;
 }
 
-struct HANDLE*
-handle_clone(struct HANDLE* handle)
+errorcode_t
+handle_clone(struct HANDLE* handle, struct HANDLE** out)
 {
+	errorcode_t err;
+
 	spinlock_lock(&handle->spl_handle);
 	switch(handle->type) {
 		case HANDLE_TYPE_THREAD: {
-			struct THREAD* newthread = thread_clone(handle->thread, 0);
+			struct THREAD* newthread;
+			err = thread_clone(handle->thread, 0, &newthread);
 			spinlock_unlock(&handle->spl_handle);
-			if (newthread == NULL)
-				return NULL;
+			ANANAS_ERROR_RETURN(err);
 #ifdef DEBUG_CLONE
 			kprintf("newthread handle = %x\n", newthread->thread_handle);
 #endif
-			return newthread->thread_handle;
+			*out = newthread->thread_handle;
+			return ANANAS_ERROR_OK;
 		}
 		default: {
-			struct HANDLE* newhandle = handle_alloc(handle->type, handle->thread);
-			if (newhandle == NULL)
-				return NULL;
+			struct HANDLE* newhandle;
+			err = handle_alloc(handle->type, handle->thread, &newhandle);
+			ANANAS_ERROR_RETURN(err);
 			memcpy(&newhandle->data, &handle->data, sizeof(handle->data));
 			spinlock_unlock(&handle->spl_handle);
-			return newhandle;
+			*out = newhandle;
+			return ANANAS_ERROR_OK;
 		}
 	}
 	/* NOTREACHED */
-	return NULL;
 }
 
-handle_event_result_t
-handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event)
+errorcode_t
+handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event, handle_event_result_t* result)
 {
 #ifdef DEBUG_WAIT
-	kprintf("handle_wait(): t=%p, handle=%p, event=%p\n", thread, handle, event);
+	kprintf("handle_wait(t=%p): handle=%p, event=%p\n", thread, handle, event);
 #endif
 
 	spinlock_lock(&handle->spl_handle);
@@ -172,18 +186,19 @@ handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event)
 	 * should return immediately with the appropriate exit code. The reason is that
 	 * there's no control, should a child die, that it dies before the parent got
 	 * a chance to do this wait...
+	 *
+	 * XXX need to handle mask
 	 */
 	if ((handle->type == HANDLE_TYPE_THREAD) &&
 	    (handle->data.thread->flags & THREAD_FLAG_TERMINATING) != 0) {
 		/* Need to replicate what thread_exit() does here... */
-		if (event != NULL)
-			*event = THREAD_EVENT_EXIT;
-		handle_event_result_t result = handle->data.thread->terminate_info;
+		*event = THREAD_EVENT_EXIT;
+		*result = handle->data.thread->terminate_info;
 		spinlock_unlock(&handle->spl_handle);
 #ifdef DEBUG_WAIT
-		kprintf("handle_wait(): done1\n");
+		kprintf("handle_wait(t=%p): done, thread already gone\n", thread);
 #endif
-		return result;
+		return ANANAS_ERROR_OK;
 	}
 
 	/* schedule the wait as usual */
@@ -193,10 +208,7 @@ handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event)
 			break;
 	KASSERT(waiter_id < HANDLE_MAX_WAITERS, "FIXME: no waiter handles available");
 	handle->waiters[waiter_id].thread = thread;
-	if (event != NULL)
-		handle->waiters[waiter_id].event_mask = *event;
-	else
-		handle->waiters[waiter_id].event_mask = (handle_event_t)-1;
+	handle->waiters[waiter_id].event_mask = *event;
 	handle->waiters[waiter_id].event_reported = 0;
 	spinlock_unlock(&handle->spl_handle);
 
@@ -206,17 +218,16 @@ handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event)
 
 	/* Obtain the result */
 	spinlock_lock(&handle->spl_handle);
-	handle_event_result_t result = handle->waiters[waiter_id].result;
-	if (event != NULL)
-		*event = handle->waiters[waiter_id].event_reported;
+	*result = handle->waiters[waiter_id].result;
+	*event = handle->waiters[waiter_id].event_reported;
 	/* And free the waiter slot */
 	handle->waiters[waiter_id].thread = NULL;
 	spinlock_unlock(&handle->spl_handle);
 
 #ifdef DEBUG_WAIT
-	kprintf("handle_wait(): done2\n");
+	kprintf("handle_wait(t=%p): done\n", thread);
 #endif
-	return result;
+	return ANANAS_ERROR_OK;
 }
 
 void
@@ -229,7 +240,7 @@ handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t
 	for (int waiter_id = 0; waiter_id <  HANDLE_MAX_WAITERS; waiter_id++) {
 		if (handle->waiters[waiter_id].thread == NULL)
 			continue;
-		if ((event != 0) && (handle->waiters[waiter_id].event_mask & event) == 0)
+		if ((event != 0) && ((handle->waiters[waiter_id].event_mask != HANDLE_EVENT_ANY) && (handle->waiters[waiter_id].event_mask & event) == 0))
 			continue;
 
 		handle->waiters[waiter_id].event_reported = event;

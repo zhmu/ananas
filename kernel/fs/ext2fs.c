@@ -24,6 +24,7 @@
  */
 #include <ananas/types.h>
 #include <ananas/bio.h>
+#include <ananas/error.h>
 #include <ananas/vfs.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
@@ -49,7 +50,6 @@ struct EXT2_INODE_PRIVDATA {
 static struct BIO*
 ext2_bread(struct VFS_MOUNTED_FS* fs, block_t block)
 {
-	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)fs->privdata;
 	block *= (fs->block_size / 512);
 	return vfs_bread(fs, block, fs->block_size);
 }
@@ -80,6 +80,7 @@ ext2_free_inode(struct VFS_INODE* inode)
 	vfs_destroy_inode(inode);
 }
 
+#if 0
 static void	
 ext2_dump_inode(struct EXT2_INODE* inode)
 {
@@ -92,6 +93,7 @@ ext2_dump_inode(struct EXT2_INODE* inode)
 	}
 	kprintf("\n");
 }
+#endif
 
 /*
  * Retrieves the disk block for a given file block. In ext2, the first 12 blocks
@@ -115,7 +117,6 @@ ext2_find_block(struct VFS_FILE* file, block_t block)
 	KASSERT(file->inode->fs != NULL, "file without fs");
 
 	struct VFS_MOUNTED_FS* fs = file->inode->fs;
-	struct EXT2_FS_PRIVDATA* fs_privdata = (struct EXT2_FS_PRIVDATA*)file->inode->fs->privdata;
 	struct EXT2_INODE_PRIVDATA* in_privdata = (struct EXT2_INODE_PRIVDATA*)file->inode->privdata;
 
 	/*
@@ -144,22 +145,23 @@ ext2_find_block(struct VFS_FILE* file, block_t block)
 	}
 
 	panic("ext2_find_block() needs support for doubly/triple indirect blocks!");
+	return 0;
 }
 
-static size_t
-ext2_read(struct VFS_FILE* file, void* buf, size_t len)
+static errorcode_t
+ext2_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
 	struct VFS_MOUNTED_FS* fs = file->inode->fs;
-	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)file->inode->fs->privdata;
 	block_t blocknum = (block_t)file->offset / (block_t)fs->block_size;
 	uint32_t offset = file->offset % fs->block_size;
 	size_t numread = 0;
+	size_t left = *len;
 
-	/* Normalize len so that it cannot expand beyond the file size */
-	if (file->offset + len > file->inode->sb.st_size)
-		len = file->inode->sb.st_size - file->offset;
+	/* Normalize left so that it cannot expand beyond the file size */
+	if (file->offset + left > file->inode->sb.st_size)
+		left = file->inode->sb.st_size - file->offset;
 
-	while(len > 0) {
+	while(left > 0) {
 		block_t block = ext2_find_block(file, blocknum);
 		if (block == 0) {
 			/* We've run out of blocks; this shouldn't happen... */
@@ -171,11 +173,11 @@ ext2_read(struct VFS_FILE* file, void* buf, size_t len)
 		 * Fetch the block and copy what we have so far.
 		 */
 		struct BIO* bio = ext2_bread(file->inode->fs, block);
-		size_t chunklen = (fs->block_size < len ? fs->block_size : len);
+		size_t chunklen = (fs->block_size < left ? fs->block_size : left);
 		if (chunklen + offset > fs->block_size)
 			chunklen = fs->block_size - offset;
 		memcpy(buf, (void*)(BIO_DATA(bio) + offset), chunklen);
-		buf += chunklen; numread += chunklen; len -= chunklen;
+		buf += chunklen; numread += chunklen; left -= chunklen;
 		bio_free(bio);
 
 		/* Update pointers */
@@ -184,21 +186,21 @@ ext2_read(struct VFS_FILE* file, void* buf, size_t len)
 		blocknum++;
 	}
 
-	return numread;
+	*len = numread;
+	return ANANAS_ERROR_OK;
 }
 
-static size_t
-ext2_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
+static errorcode_t
+ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	struct VFS_MOUNTED_FS* fs = file->inode->fs;
-	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)file->inode->fs->privdata;
 	block_t blocknum = (block_t)file->offset / (block_t)fs->block_size;
 	uint32_t offset = file->offset % fs->block_size;
-	size_t written = 0;
+	size_t written = 0, left = *len;
 
 	struct BIO* bio = NULL;
 	block_t curblock = 0;
-	while(entsize > 0) {
+	while(left > 0) {
 		block_t block = ext2_find_block(file, blocknum);
 		if (block == 0) {
 			/*
@@ -228,7 +230,7 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 			 * Inode number values of zero indicate the entry is not used; this entry
 			 * works and we mustreturn it.
 			 */
-			int filled = vfs_filldirent(&dirents, &entsize, (const void*)&inum, file->inode->fs->fsop_size, ext2de->name, ext2de->name_len);
+			int filled = vfs_filldirent(&dirents, &left, (const void*)&inum, file->inode->fs->fsop_size, (const char*)ext2de->name, ext2de->name_len);
 			if (!filled) {
 				/* out of space! */
 				break;
@@ -248,7 +250,8 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 		}
 	}
 	if (bio != NULL) bio_free(bio);
-	return written;
+	*len = written;
+	return ANANAS_ERROR_OK;
 }
 
 static struct VFS_INODE_OPS ext2_file_ops = {
@@ -324,27 +327,7 @@ ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 	}
 	bio_free(bio);
 
-	return 1;
-}
-
-static int
-is_pow_of(unsigned int p, unsigned int val)
-{
-	int b = p;
-	while (val > b)
-		b *= p;
-	return val == b;
-}
-
-static int
-blockgroup_has_superblock(struct VFS_MOUNTED_FS* fs, block_t blocknum)
-{
-	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)fs->privdata;
-	if (blocknum <= 1)
-		return 1;
-	if (!(privdata->sb.s_feature_ro_compat & EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER))
-		return 1;
-	return is_pow_of(3, blocknum) || is_pow_of(5, blocknum) || is_pow_of(7, blocknum);
+	return ANANAS_ERROR_OK;
 }
 
 static int

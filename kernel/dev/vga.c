@@ -1,4 +1,5 @@
 #include <ananas/types.h>
+#include <ananas/error.h>
 #include <machine/vm.h>
 #include <ananas/console.h>
 #include <ananas/x86/io.h>
@@ -16,8 +17,6 @@
 
 static uint32_t vga_io = 0;
 static uint8_t* vga_mem = NULL;
-static uint8_t vga_x = 0;
-static uint8_t vga_y = 0;
 static uint8_t vga_attr = 0xf;
 static teken_t vga_teken;
 
@@ -212,18 +211,19 @@ vga_attach(device_t dev)
 	return 0;
 }
 
-static ssize_t
-vga_write(device_t dev, const char* data, size_t len)
+static errorcode_t
+vga_write(device_t dev, const void* data, size_t* len, off_t off)
 {
-	size_t origlen = len;
-	while(len--) {
+	const uint8_t* ptr = data;
+	size_t left = *len;
+	while(left--) {
 		/* XXX this is a hack which should be performed in a TTY layer, once we have one */
-		if(*data == '\n')
+		if(*ptr == '\n')
 			teken_input(&vga_teken, "\r", 1);
-		teken_input(&vga_teken, data, 1);
-		data++;
+		teken_input(&vga_teken, ptr, 1);
+		ptr++;
 	}
-	return origlen;
+	return ANANAS_ERROR_OK;
 }
 
 struct DRIVER drv_vga = {

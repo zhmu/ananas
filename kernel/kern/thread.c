@@ -2,32 +2,51 @@
 #include <machine/param.h>
 #include <ananas/console.h>
 #include <ananas/device.h>
+#include <ananas/error.h>
 #include <ananas/handle.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
+#include <ananas/trace.h>
 #include <ananas/thread.h>
 #include <ananas/threadinfo.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 
+TRACE_SETUP;
+
 struct THREAD* threads = NULL;
 
-void
+errorcode_t
 thread_init(thread_t t, thread_t parent)
 {
+	errorcode_t err;
+
 	memset(t, 0, sizeof(struct THREAD));
 	t->mappings = NULL;
 	t->flags = THREAD_FLAG_SUSPENDED;
-	t->thread_handle = handle_alloc(HANDLE_TYPE_THREAD, t /* XXX should be parent? */);
+	err = handle_alloc(HANDLE_TYPE_THREAD, t /* XXX should be parent? */, &t->thread_handle);
+	ANANAS_ERROR_RETURN(err);
 	t->thread_handle->data.thread = t;
 
 	if (parent != NULL) {
-		t->path_handle = handle_clone(parent->path_handle);
+		err = handle_clone(parent->path_handle, &t->path_handle);
+		if (err != ANANAS_ERROR_NONE) {
+			/*
+			 * XXX Unable to clone parent's path - what now? Our VFS isn't mature enough
+			 * to deal with abandoned handles (or even abandon handles in the first
+			 * place), so this should never, ever happen.
+			 */
+			panic("thread_init(): could not clone root path");
+		}
 	} else {
-		/* No parent; use / as current path */
-		t->path_handle = handle_alloc(HANDLE_TYPE_FILE, t);
-		if (!vfs_open("/", NULL, &t->path_handle->data.vfs_file)) {
-			kprintf("couldn't reopen root path handle\n");
+		/*
+		 * No parent; use / as current path. This will not work in very early
+		 * initialiation, but that is fine - our lookup code should know what
+		 * to do.
+		 */
+		err = handle_alloc(HANDLE_TYPE_FILE, t, &t->path_handle);
+		if (err != ANANAS_ERROR_NONE) {
+			err = vfs_open("/", NULL, &t->path_handle->data.vfs_file);
 		}
 	}
 
@@ -38,17 +57,32 @@ thread_init(thread_t t, thread_t parent)
 	memset(t->threadinfo, 0, sizeof(t->threadinfo));
 	t->threadinfo->ti_size = sizeof(struct THREADINFO);
 	t->threadinfo->ti_handle = t->thread_handle;
-	t->threadinfo->ti_handle_stdin  = handle_alloc(HANDLE_TYPE_FILE, t);
-	t->threadinfo->ti_handle_stdout = handle_alloc(HANDLE_TYPE_FILE, t);
-	t->threadinfo->ti_handle_stderr = handle_alloc(HANDLE_TYPE_FILE, t);
+	err = handle_alloc(HANDLE_TYPE_FILE, t, (struct HANDLE**)&t->threadinfo->ti_handle_stdin);
+	if (err != ANANAS_ERROR_NONE)
+		goto fail;
+	err = handle_alloc(HANDLE_TYPE_FILE, t, (struct HANDLE**)&t->threadinfo->ti_handle_stdout);
+	if (err != ANANAS_ERROR_NONE)
+		goto fail;
+	err = handle_alloc(HANDLE_TYPE_FILE, t, (struct HANDLE**)&t->threadinfo->ti_handle_stderr);
+	if (err != ANANAS_ERROR_NONE)
+		goto fail;
 	if (parent != NULL)
-		thread_set_environment(t, parent->threadinfo->ti_env);
+		thread_set_environment(t, parent->threadinfo->ti_env, PAGE_SIZE /* XXX */);
+
+	/*
+	 * XXX hook the console as our std{in,out,err} handles; this is not correct,
+	 * it should be inherited from the parent
+	 */
 	((struct HANDLE*)t->threadinfo->ti_handle_stdin)->data.vfs_file.device  = console_tty;
 	((struct HANDLE*)t->threadinfo->ti_handle_stdout)->data.vfs_file.device = console_tty;
 	((struct HANDLE*)t->threadinfo->ti_handle_stderr)->data.vfs_file.device = console_tty;
-	struct THREAD_MAPPING* tm = thread_map(t, t->threadinfo, sizeof(struct THREADINFO), 0);
+	struct THREAD_MAPPING* tm;
+	err = thread_map(t, t->threadinfo, sizeof(struct THREADINFO), 0, &tm);
+	if (err != ANANAS_ERROR_NONE)
+		goto fail;
 	md_thread_set_argument(t, tm->start);
 
+	/* XXX lock */
 	if (threads == NULL) {
 		threads = t;
 	} else {
@@ -57,14 +91,22 @@ thread_init(thread_t t, thread_t parent)
 		threads->prev = t;
 		threads = t;
 	}
+	return ANANAS_ERROR_OK;
+
+fail:
+	/* XXXLEAK cleanup */
+	kprintf("thread_init(): XXX deal with error case cleanups (err=%i)\n", err);
+	return err;
 }
 
-thread_t
-thread_alloc(thread_t parent)
+errorcode_t
+thread_alloc(thread_t parent, thread_t* dest)
 {
 	thread_t t = kmalloc(sizeof(struct THREAD));
-	thread_init(t, parent);
-	return t;
+	errorcode_t err = thread_init(t, parent);
+	if (err == ANANAS_ERROR_NONE)
+		*dest = t;
+	return err;
 }
 
 void
@@ -83,7 +125,6 @@ thread_free_mappings(thread_t t)
 		kfree(tm);
 		tm = next;
 	}
-
 }
 
 void
@@ -122,8 +163,8 @@ thread_destroy(thread_t t)
  *  THREAD_MAP_ALLOC - allocate a new piece of memory (will be zeroed first)
  * Returns the new mapping structure
  */
-struct THREAD_MAPPING*
-thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags)
+errorcode_t
+thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags, struct THREAD_MAPPING** out)
 {
 	struct THREAD_MAPPING* tm = kmalloc(sizeof(*tm));
 	memset(tm, 0, sizeof(*tm));
@@ -141,7 +182,8 @@ thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags)
 	t->mappings = tm;
 
 	md_thread_map(t, to, from, len, 0);
-	return tm;
+	*out = tm;
+	return ANANAS_ERROR_OK;
 }
 
 /*
@@ -166,8 +208,8 @@ thread_find_mapping(thread_t t, void* addr)
  * address where it was mapped to. Calls thread_mapto(), so refer to
  * flags there.
  */
-struct THREAD_MAPPING*
-thread_map(thread_t t, void* from, size_t len, uint32_t flags)
+errorcode_t
+thread_map(thread_t t, void* from, size_t len, uint32_t flags, struct THREAD_MAPPING** out)
 {
 	/*
 	 * Locate a new address to map to; we currently never re-use old addresses.
@@ -176,10 +218,10 @@ thread_map(thread_t t, void* from, size_t len, uint32_t flags)
 	t->next_mapping += len;
 	if ((t->next_mapping & (PAGE_SIZE - 1)) > 0)
 		t->next_mapping += PAGE_SIZE - (t->next_mapping & (PAGE_SIZE - 1));
-	return thread_mapto(t, addr, from, len, flags);
+	return thread_mapto(t, addr, from, len, flags, out);
 }
 
-int
+errorcode_t
 thread_unmap(thread_t t, void* ptr, size_t len)
 {
 	struct THREAD_MAPPING* tm = t->mappings;
@@ -194,11 +236,11 @@ thread_unmap(thread_t t, void* ptr, size_t len)
 			md_thread_unmap(t, (void*)tm->start, tm->len);
 			kfree(tm->ptr);
 			kfree(tm);
-			return 1;
+			return ANANAS_ERROR_OK;
 		}
 		prev = tm; tm = tm->next;
 	}
-	return 0;
+	return ANANAS_ERROR(BAD_ADDRESS);
 }
 
 void
@@ -261,19 +303,28 @@ thread_dump()
 	}
 }
 
-struct THREAD*
-thread_clone(struct THREAD* parent, int flags)
+errorcode_t
+thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 {
-	struct THREAD* t = thread_alloc(parent);
-	if (t == NULL)
-		return NULL;
+	errorcode_t err;
+
+	struct THREAD* t;
+	err = thread_alloc(parent, &t);
+	ANANAS_ERROR_RETURN(err);
 
 	/*
 	 * OK; we have a fresh thread. Copy all memory mappings over
-	 * XXX we could just re-add the mapping; but this needs refcounting etc... XXX
+	 * XXX we could just re-add the mapping; but this needs refcounting etc... and only works for
+	 * readonly things XXX
 	 */
 	for (struct THREAD_MAPPING* tm = parent->mappings; tm != NULL; tm = tm->next) {
-		struct THREAD_MAPPING* ttm = thread_mapto(t, (void*)tm->start, NULL, tm->len, THREAD_MAP_ALLOC);
+		struct THREAD_MAPPING* ttm;
+		err = thread_mapto(t, (void*)tm->start, NULL, tm->len, THREAD_MAP_ALLOC, &ttm);
+		if (err != ANANAS_ERROR_NONE) {
+			thread_free(t);
+			thread_destroy(t);
+			return err;
+		}
 		memcpy(ttm->ptr, tm->ptr, tm->len);
 	}
 
@@ -282,43 +333,35 @@ thread_clone(struct THREAD* parent, int flags)
 	 * result of a system call, so we want to influence the
 	 * return value.
 	 */
-	md_thread_clone(t, parent, 0);
+	md_thread_clone(t, parent, ANANAS_ERROR(CLONED));
 
 	/* Thread is ready to rock */
 	thread_resume(t);
-	return t;
+	*dest = t;
+	return ANANAS_ERROR_OK;
 }
 
-void
-thread_set_args(thread_t t, const char* args)
+errorcode_t
+thread_set_args(thread_t t, const char* args, size_t args_len)
 {
-	unsigned int i;
-	for (i = 0; i < THREADINFO_ARGS_LENGTH - 1; i++)
-		if(args[i] == '\0' && args[i + 1] == '\0')
-			break;
-	if (i == THREADINFO_ARGS_LENGTH)
-		panic("thread_set_args(): args must be doubly nul-terminated");
-
-	memcpy(t->threadinfo->ti_args, args, i + 2 /* terminating \0\0 */);
+	for (unsigned int i = 0; i < ((THREADINFO_ARGS_LENGTH - 1) < args_len ? (THREADINFO_ARGS_LENGTH - 1) : args_len); i++)
+		if(args[i] == '\0' && args[i + 1] == '\0') {
+			memcpy(t->threadinfo->ti_args, args, i + 2 /* terminating \0\0 */);
+			return ANANAS_ERROR_OK;
+		}
+	return ANANAS_ERROR(BAD_LENGTH);
 }
 
-void
-thread_set_environment(thread_t t, const char* env)
+errorcode_t
+thread_set_environment(thread_t t, const char* env, size_t env_len)
 {
-	unsigned int i;
-	for (i = 0; i < THREADINFO_ENV_LENGTH - 1; i++)
-		if(env[i] == '\0' && env[i + 1] == '\0')
-			break;
-	if (i == THREADINFO_ENV_LENGTH)
-		panic("thread_set_environment(): environmen must be doubly nul-terminated");
+	for (unsigned int i = 0; i < ((THREADINFO_ENV_LENGTH - 1) < env_len ? (THREADINFO_ENV_LENGTH - 1) : env_len); i++)
+		if(env[i] == '\0' && env[i + 1] == '\0') {
+			memcpy(t->threadinfo->ti_env, env, i + 2 /* terminating \0\0 */);
+			return ANANAS_ERROR_OK;
+		}
 
-	memcpy(t->threadinfo->ti_env, env, i + 2 /* terminating \0\0 */);
-}
-
-void
-thread_set_errorcode(thread_t t, errorcode_t code)
-{
-	t->threadinfo->ti_errorcode = code;
+	return ANANAS_ERROR(BAD_LENGTH);
 }
 
 /* vim:set ts=2 sw=2: */

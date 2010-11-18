@@ -1,17 +1,18 @@
 #include <ananas/types.h>
 #include <ananas/bio.h>
 #include <ananas/device.h>
+#include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
+#include <ananas/trace.h>
 #include <ananas/vfs.h>
+#include "options.h"
+
+TRACE_SETUP;
 
 #define VFS_MOUNTED_FS_MAX	16
 
 struct VFS_MOUNTED_FS mountedfs[VFS_MOUNTED_FS_MAX];
-
-extern struct VFS_FILESYSTEM_OPS fsops_ext2;
-extern struct VFS_FILESYSTEM_OPS fsops_iso9660;
-extern struct VFS_FILESYSTEM_OPS fsops_cramfs;
 
 void
 vfs_init()
@@ -43,32 +44,54 @@ vfs_get_rootfs()
 	return NULL;
 }
 
-int
+static struct VFS_FILESYSTEM_OPS*
+vfs_get_fstype(const char* type)
+{
+	/* XXX This isn't perfect, but it will get the job done */
+#ifdef EXT2FS
+	extern struct VFS_FILESYSTEM_OPS fsops_ext2;
+	if (!strcmp(type, "ext2")) return &fsops_ext2;
+#endif
+#ifdef ISO9660FS
+	extern struct VFS_FILESYSTEM_OPS fsops_iso9660;
+	if (!strcmp(type, "iso9660")) return &fsops_iso9660;
+#endif
+#ifdef CRAMFS
+	extern struct VFS_FILESYSTEM_OPS fsops_cramfs;
+	if (!strcmp(type, "cramfs")) return &fsops_cramfs;
+#endif
+#ifdef FATFS
+	extern struct VFS_FILESYSTEM_OPS fsops_fat;
+	if (!strcmp(type, "fatfs")) return &fsops_fat;
+#endif
+	return NULL;
+}
+
+errorcode_t
 vfs_mount(const char* from, const char* to, const char* type, void* options)
 {
+	struct VFS_FILESYSTEM_OPS* fsops = vfs_get_fstype(type);
+	if (fsops == NULL)
+		return ANANAS_ERROR(BAD_TYPE);
 	struct VFS_MOUNTED_FS* fs = vfs_get_availmountpoint();
 	if (fs == NULL)
-		return -1;
+		return ANANAS_ERROR(OUT_OF_HANDLES);
 
 	struct DEVICE* dev = device_find(from);
 	if (dev == NULL)
-		return -2;
+		return ANANAS_ERROR(NO_FILE);
 
 	fs->device = dev;
 	fs->mountpoint = strdup(to);
+	fs->fsops = fsops;
 
-	/* XXX kludge */
-	//fs->fsops = &fsops_ext2;
-	fs->fsops = &fsops_cramfs;
-	//fs->fsops = &fsops_iso9660;
-
-	if (!fs->fsops->mount(fs)) {
+	int ret = fs->fsops->mount(fs);
+	if (ret != ANANAS_ERROR_NONE) {
 		kfree((void*)fs->mountpoint);
 		memset(fs, 0, sizeof(*fs));
-		return -3;
 	}
 	
-	return 1;
+	return ret;
 }
 
 struct VFS_INODE*
@@ -131,27 +154,28 @@ vfs_bread(struct VFS_MOUNTED_FS* fs, block_t block, size_t len)
 	return bio_read(fs->device, block, len);
 }
 
-struct VFS_INODE*
-vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop)
+errorcode_t
+vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinode)
 {
 	struct VFS_INODE* inode = vfs_alloc_inode(fs);
 	if (inode == NULL)
-		return NULL;
-	if (!fs->fsops->read_inode(inode, fsop)) {
+		return ANANAS_ERROR(OUT_OF_HANDLES);
+	errorcode_t result = fs->fsops->read_inode(inode, fsop);
+	if (result != ANANAS_ERROR_NONE) {
 		vfs_free_inode(inode);
-		return NULL;
+		return result;
 	}
-	return inode;
+	*destinode = inode;
+	return ANANAS_ERROR_OK;
 }
 
-
 /*
- * Called to perform a lookup from directory entry 'dentry' to an inode,
- * or NULL on failure. 'curinode' is the initial inode to start the
- * lookup relative to, or NULL to start from the root.
+ * Called to perform a lookup from directory entry 'dentry' to an inode;
+ * 'curinode' is the initial inode to start the lookup relative to, or NULL to
+ * start from the root.
  */
-struct VFS_INODE*
-vfs_lookup(const char* dentry, struct VFS_INODE* curinode)
+errorcode_t
+vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char* dentry)
 {
 	char tmp[VFS_MAX_NAME_LEN + 1];
 
@@ -163,7 +187,7 @@ vfs_lookup(const char* dentry, struct VFS_INODE* curinode)
 		struct VFS_MOUNTED_FS* fs = vfs_get_rootfs();
 		if (fs == NULL)
 			/* If there is no root filesystem, nothing to do */
-			return NULL;
+			return ANANAS_ERROR(NO_FILE);
 		if (*dentry == '/')
 			dentry++;
 
@@ -174,7 +198,7 @@ vfs_lookup(const char* dentry, struct VFS_INODE* curinode)
 
 	/* Bail if there is no current inode; this makes the caller's path easier */
 	if (curinode == NULL)
-		return NULL;
+		return ANANAS_ERROR(NO_FILE);
 
 	struct VFS_INODE* lookup_root_inode = curinode;
 	const char* curdentry = dentry;
@@ -198,7 +222,7 @@ vfs_lookup(const char* dentry, struct VFS_INODE* curinode)
 
 		/* If the entry to find is '.', we are done */
 		if (strcmp(curlookup, ".") == 0)
-			return curinode;
+			break;
 
 		/*
 		 * We need to recurse; this can only be done if this is a directory, so
@@ -207,7 +231,7 @@ vfs_lookup(const char* dentry, struct VFS_INODE* curinode)
 		if (S_ISDIR(curinode->sb.st_mode) == 0) {
 			if (lookup_root_inode != curinode)
 				vfs_free_inode(curinode);
-			return NULL;
+			return ANANAS_ERROR(NO_FILE);
 		}
 
 		/*
@@ -215,91 +239,107 @@ vfs_lookup(const char* dentry, struct VFS_INODE* curinode)
 		 * get rid of the current loookup inode (as it won't be the inode itself
 		 * since we special-case "." above).
 		 */
-		struct VFS_INODE* inode = curinode->iops->lookup(curinode, curlookup);
+		struct VFS_INODE* inode;
+		int err = curinode->iops->lookup(curinode, &inode, curlookup);
 		if (lookup_root_inode != curinode)
 			vfs_free_inode(curinode);
-		if (inode == NULL)
-			return NULL;
+		ANANAS_ERROR_RETURN(err);
 
 		curinode = inode;
 	}
-	return curinode;
+	*destinode = curinode;
+	return ANANAS_ERROR_OK;
 }
 
-int
+errorcode_t
 vfs_open(const char* fname, struct VFS_INODE* cwd, struct VFS_FILE* file)
 {
-	struct VFS_INODE* inode = vfs_lookup(fname, cwd);
-	if (inode == NULL)
-		return 0;
+	struct VFS_INODE* inode;
+	int err = vfs_lookup(cwd, &inode, fname);
+	ANANAS_ERROR_RETURN(err);
 
 	memset(file, 0, sizeof(struct VFS_FILE));
 	file->inode = inode;
 	file->offset = 0;
-	return 1;
+	return ANANAS_ERROR_OK;
 }
 
-void
+int
 vfs_close(struct VFS_FILE* file)
 {
 	if(file->inode != NULL)
 		vfs_free_inode(file->inode);
 	file->inode = NULL; file->device = NULL;
+	return ANANAS_ERROR_OK;
 }
 
-size_t
-vfs_read(struct VFS_FILE* file, void* buf, size_t len)
+errorcode_t
+vfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
 	KASSERT(file->inode != NULL || file->device != NULL, "vfs_read on nonbacked file");
 	if (file->device != NULL) {
+		/* Device */
 		if (file->device->driver == NULL || file->device->driver->drv_read == NULL)
-			return -1;
+			return ANANAS_ERROR(BAD_OPERATION);
 		else {
 			return file->device->driver->drv_read(file->device, buf, len, 0);
 		}
 	}
 
-	if (file->inode == NULL || file->inode->iops == NULL || file->inode->iops->read == NULL)
-		return -1;
-	return file->inode->iops->read(file, buf, len);
+	if (file->inode == NULL || file->inode->iops == NULL)
+		return ANANAS_ERROR(BAD_OPERATION);
+
+	if (!S_ISDIR(file->inode->sb.st_mode)) {
+		/* Regular file */
+		if (file->inode->iops->read == NULL)
+			return ANANAS_ERROR(BAD_OPERATION);
+		return file->inode->iops->read(file, buf, len);
+	}
+
+	/* Directory */
+	if (file->inode->iops->readdir == NULL)
+		return ANANAS_ERROR(BAD_OPERATION);
+	return file->inode->iops->readdir(file, buf, len);
 }
 
-size_t
-vfs_write(struct VFS_FILE* file, const void* buf, size_t len)
+errorcode_t
+vfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
 {
 	KASSERT(file->inode != NULL || file->device != NULL, "vfs_write on nonbacked file");
-	if (file->device != NULL)
+	if (file->device != NULL) {
+		/* Device */
 		if (file->device->driver == NULL || file->device->driver->drv_write == NULL)
-			return -1;
+			return ANANAS_ERROR(BAD_OPERATION);
 		else
 			return file->device->driver->drv_write(file->device, buf, len, 0);
+	}
 
-	if (file->inode == NULL || file->inode->iops == NULL || file->inode->iops->write == NULL)
-		return -1;
+	if (file->inode == NULL || file->inode->iops == NULL)
+		return ANANAS_ERROR(BAD_OPERATION);
+
+	if (S_ISDIR(file->inode->sb.st_mode)) {
+		/* Directory */
+		return ANANAS_ERROR(BAD_OPERATION);
+	}
+
+	/* Regular file */
+	if (file->inode->iops->write == NULL)
+		return ANANAS_ERROR(BAD_OPERATION);
 	return file->inode->iops->write(file, buf, len);
 }
 
-int
+errorcode_t
 vfs_seek(struct VFS_FILE* file, off_t offset)
 {
 	if (file->inode == NULL)
-		return 0;
+		return ANANAS_ERROR(BAD_HANDLE);
 	if (offset > file->inode->sb.st_size)
-		return 0;
+		return ANANAS_ERROR(BAD_RANGE);
 	file->offset = offset;
-	return 1;
+	return ANANAS_ERROR_OK;
 }
 
 size_t
-vfs_readdir(struct VFS_FILE* file, struct VFS_DIRENT* dirents, size_t numents)
-{
-	KASSERT(file->inode != NULL, "vfs_readdir on nonbacked file");
-	/* XXX check dir */
-
-	return file->inode->iops->readdir(file, dirents, numents);
-}	
-
-int
 vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, const char* name, int namelen)
 {
 	/*

@@ -1,5 +1,6 @@
-#include <machine/io.h>
+#include <ananas/x86/io.h>
 #include <ananas/device.h>
+#include <ananas/error.h>
 #include <ananas/irq.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
@@ -54,14 +55,14 @@ sio_attach(device_t dev)
 	return 0;
 }
 
-static ssize_t
-sio_write(device_t dev, const void* data, size_t len, off_t offset)
+static errorcode_t
+sio_write(device_t dev, const void* data, size_t* len, off_t offset)
 {
 	struct SIO_PRIVDATA* privdata = (struct SIO_PRIVDATA*)dev->privdata;
-	size_t amount;
+	size_t written = 0;
 	const char* ch = (const char*)data;
 
-	for (amount = 0; amount < len; amount++, ch++) {
+	for (unsigned int n = 0; n < *len; written++, ch++) {
 		__asm(
 			/* Poll the LSR to ensure we're not sending another character */
 			"mov	%%ecx, %%edx\n"
@@ -83,24 +84,26 @@ sio_write(device_t dev, const void* data, size_t len, off_t offset)
 			"jz	 	z2f\n"
 		: : "b" (*ch), "c" (privdata->io_port));
 	}
-	return amount;
+	*len = written;
+	return ANANAS_ERROR_OK;
 }
 
-static ssize_t
-sio_read(device_t dev, void* data, size_t len, off_t offset)
+static errorcode_t
+sio_read(device_t dev, void* data, size_t* len, off_t offset)
 {
 	struct SIO_PRIVDATA* privdata = (struct SIO_PRIVDATA*)dev->privdata;
-	size_t returned = 0;
+	size_t returned = 0, left = *len;
 	char* buf = (char*)data;
 
-	while (len-- > 0) {
+	while (left-- > 0) {
 		if (privdata->buffer_readpos == privdata->buffer_writepos)
 			break;
 
 		buf[returned++] = privdata->buffer[privdata->buffer_readpos];
 		privdata->buffer_readpos = (privdata->buffer_readpos + 1) % SIO_BUFFER_SIZE;
 	}
-	return returned;
+	*len = returned;
+	return ANANAS_ERROR_OK;
 }
 
 struct DRIVER drv_sio = {

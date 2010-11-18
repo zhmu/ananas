@@ -1,4 +1,5 @@
 #include <ananas/types.h>
+#include <ananas/error.h>
 #include <ananas/bio.h>
 #include <ananas/device.h>
 #include <ananas/lib.h>
@@ -10,8 +11,8 @@ struct SLICE_PRIVATE {
 	size_t	length;
 };
 
-static ssize_t
-slice_read(device_t dev, char* buf, size_t length, off_t offset)
+static errorcode_t
+slice_read(device_t dev, void* buf, size_t* length, off_t offset)
 {
 	/*
 	 * All we do is grab the request, mangle it and call the parent's read routine.

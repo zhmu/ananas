@@ -31,6 +31,7 @@
  */
 #include <ananas/types.h>
 #include <ananas/bio.h>
+#include <ananas/error.h>
 #include <ananas/vfs.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
@@ -179,18 +180,19 @@ fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clus
  * Performs a FAT file read; the cur_block/cur_offset parts are needed to construct
  * FSOP's when traversing a directory.
  */
-static size_t
-fat_do_read(struct VFS_FILE* file, void* buf, size_t len, block_t* cur_block, int* cur_offset)
+static errorcode_t
+fat_do_read(struct VFS_FILE* file, void* buf, size_t* len, block_t* cur_block, int* cur_offset)
 {
 	struct VFS_INODE* inode = file->inode;
 	struct FAT_INODE_PRIVDATA* privdata = inode->privdata;
 	struct VFS_MOUNTED_FS* fs = inode->fs;
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->privdata;
 	size_t written = 0;
+	size_t left = *len;
 
 	struct BIO* bio = NULL;
 	*cur_block = 0;
-	while(len > 0) {
+	while(left > 0) {
 		/*
 		 * FAT12/16 root inodes are special as they have a fixed location and
 		 * length; the FAT isn't needed to traverse them.
@@ -219,22 +221,23 @@ fat_do_read(struct VFS_FILE* file, void* buf, size_t len, block_t* cur_block, in
 		/* Walk through the current entry */
 		*cur_offset = (file->offset % (block_t)fs->block_size);
 		int chunk_len = fs->block_size - *cur_offset;
-		if (chunk_len > len)
-			chunk_len = len;
+		if (chunk_len > left)
+			chunk_len = left;
 		KASSERT(chunk_len > 0, "attempt to handle empty chunk");
 		memcpy(buf, (void*)(BIO_DATA(bio) + *cur_offset), chunk_len);
 
 		written += chunk_len;
 		buf += chunk_len;
-		len -= chunk_len;
+		left -= chunk_len;
 		file->offset += chunk_len;
 	}
 	if (bio != NULL) bio_free(bio);
-	return written;
+	*len = written;
+	return ANANAS_ERROR_OK;
 }
 
-static size_t
-fat_read(struct VFS_FILE* file, void* buf, size_t len)
+static errorcode_t
+fat_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
 	block_t cur_block;
 	int cur_offs;
@@ -319,23 +322,31 @@ fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename, int* cur_po
 
 	return 1;
 }
-static size_t
-fat_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
+static errorcode_t
+fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	struct VFS_INODE* inode = file->inode;
 	struct FAT_INODE_PRIVDATA* privdata = inode->privdata;
 	struct VFS_MOUNTED_FS* fs = inode->fs;
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->privdata;
 	size_t written = 0;
+	size_t left = *len;
 	char cur_filename[128]; /* currently assembled filename */
 	int cur_filename_len = 0;
+	errorcode_t err = ANANAS_ERROR_OK;
 
-	while(entsize > 0) {
+	while(left > 0) {
 		struct FAT_ENTRY fentry;
 		block_t cur_block;
 		int cur_offs;
-		if (fat_do_read(file, &fentry, sizeof(struct FAT_ENTRY), &cur_block, &cur_offs) != sizeof(struct FAT_ENTRY))
+		size_t entry_length = sizeof(struct FAT_ENTRY);
+		err = fat_do_read(file, &fentry, &entry_length, &cur_block, &cur_offs);
+		if (err != ANANAS_ERROR_NONE)
 			break;
+		if (entry_length != sizeof(struct FAT_ENTRY)) {
+			err = ANANAS_ERROR(SHORT_READ);
+			break;
+		}
 
 		if (fentry.fe_filename[0] == '\0') {
 			/* First charachter is nul - this means there are no more entries to come */
@@ -363,15 +374,15 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t entsize)
 
 		/* And hand it to the fill function */
 		uint64_t fsop = cur_block << 16 | cur_offs;
-		int filled = vfs_filldirent(&dirents, &entsize, (const void*)&fsop, file->inode->fs->fsop_size, cur_filename, cur_filename_len);
+		int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, file->inode->fs->fsop_size, cur_filename, cur_filename_len);
 		if (!filled) {
 			/* out of space! */
 			break;
 		}
 		written += filled; cur_filename_len = 0;
 	}
-
-	return written;
+	*len = written;
+	return err;
 }
 
 static struct VFS_INODE_OPS fat_dir_ops = {

@@ -56,14 +56,14 @@ void md_thread_free(thread_t thread);
 /* Machine-dependant kernel thread activation */
 void md_thread_setkthread(thread_t thread, kthread_func_t kfunc);
 
-void thread_init(thread_t t, thread_t parent);
-thread_t thread_alloc(thread_t parent);
+errorcode_t thread_init(thread_t t, thread_t parent);
+errorcode_t thread_alloc(thread_t parent, thread_t* dest);
 void thread_free(thread_t);
 void thread_destroy(thread_t);
-void thread_set_args(thread_t t, const char* args);
-void thread_set_environment(thread_t t, const char* env);
-void md_thread_switch(thread_t new, thread_t old);
+errorcode_t thread_set_args(thread_t t, const char* args, size_t args_len);
+errorcode_t thread_set_environment(thread_t t, const char* env, size_t env_len);
 
+void md_thread_switch(thread_t new, thread_t old);
 void md_idle_thread();
 
 #define THREAD_MAP_READ 	0x01
@@ -77,8 +77,8 @@ void* md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
 void md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval);
 
 #define THREAD_MAP_ALLOC 0x800
-struct THREAD_MAPPING* thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags);
-struct THREAD_MAPPING* thread_map(thread_t t, void* from, size_t len, uint32_t flags);
+errorcode_t thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags, struct THREAD_MAPPING** out);
+errorcode_t thread_map(thread_t t, void* from, size_t len, uint32_t flags, struct THREAD_MAPPING** out);
 int thread_unmap(thread_t t, void* ptr, size_t len);
 addr_t thread_find_mapping(thread_t t, void* addr);
 void thread_free_mappings(thread_t t);
@@ -87,7 +87,6 @@ void thread_suspend(thread_t t);
 void thread_resume(thread_t t);
 void thread_exit(int exitcode);
 void thread_dump();
-struct THREAD* thread_clone(struct THREAD* parent, int flags);
-void thread_set_errorcode(thread_t t, errorcode_t code);
+errorcode_t thread_clone(struct THREAD* parent, int flags, struct THREAD** dest);
 
 #endif

@@ -256,10 +256,10 @@ struct ATA_REQUEST_ITEM {
 #define ATA_GET_WORD(x) \
 	((uint16_t)(x)[0] << 8 | (x)[1])
 #define ATA_GET_DWORD(x) \
-	((uint32_t)(ATA_GET_WORD(x+2) << 16) | \
-	((uint32_t)(ATA_GET_WORD(x))))
+	(((uint32_t)ATA_GET_WORD(x+2) << 16) | \
+	 ((uint32_t)(ATA_GET_WORD(x))))
 #define ATA_GET_QWORD(x) \
-	((uint64_t)(ATA_GET_DWORD(x+4) << 32) | \
+	(((uint64_t)ATA_GET_DWORD(x+4) << 32) | \
 	((uint64_t)(ATA_GET_DWORD(x))))
 	
 #define SECTOR_SIZE 512 /* XXX */
