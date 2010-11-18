@@ -91,6 +91,7 @@ addr_t vm_get_phys(uint32_t* pagedir, addr_t addr, int write);
 void vm_mapto_pagedir(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, uint32_t user);
 void vm_map_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages, uint32_t user);
 void vm_unmap_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages);
+void vm_free_pagedir(uint32_t* pagedir);
 
 #endif
 

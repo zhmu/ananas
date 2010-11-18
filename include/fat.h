@@ -59,6 +59,7 @@ struct FAT_ENTRY {
 
 struct FAT_ENTRY_LFN {
 	uint8_t		lfn_order;			/* order number */
+#define LFN_ORDER_LAST 0x40
 	uint8_t		lfn_name_1[10];			/* first 5x 16bit filename */
 	uint8_t		lfn_attribute;			/* attribute (must be FAT_ATTRIBUTE_LFN) */
 	uint8_t		lfn_type;			/* long entry type */
