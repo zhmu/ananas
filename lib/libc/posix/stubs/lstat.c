@@ -1,6 +1,4 @@
-#include <unistd.h>
-#include <ananas/stat.h>
-#include <_posix/fdmap.h>
+#include <sys/stat.h>
 
 int lstat(const char* path, struct stat* buf)
 {

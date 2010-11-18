@@ -1,23 +1,37 @@
-#include <assert.h>
+#include <ananas/types.h>
+#include <ananas/error.h>
+#include <ananas/syscalls.h>
+#include <_posix/error.h>
+#include <errno.h>
+#include <string.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <ananas/stat.h>
-#include <_posix/fdmap.h>
-
-extern void* sys_open(const char* path, int flagS);
-extern void  sys_close(void* handle);
-extern int sys_stat(void* handle, void* buf);
 
 int stat(const char* path, struct stat* buf)
 {
-	void* handle = sys_open(path, 0);
-	if (handle == NULL)
-		return -1;
-	int result = sys_stat(handle, buf);
-	sys_close(handle);
-	if (sizeof(struct stat) != result) {
-		fprintf(stderr, "kernel/userland stat not in sync\n");
-		assert(0);
-	}
+	errorcode_t err;
+	void* handle;
+
+	struct OPEN_OPTIONS openopts;
+	memset(&openopts, 0, sizeof(openopts));
+	openopts.op_size = sizeof(openopts);
+	openopts.op_path = path;
+	openopts.op_mode = OPEN_MODE_NONE;
+	err = sys_open(&openopts, &handle);
+	if (err != ANANAS_ERROR_NONE)
+		goto fail;
+
+	struct HCTL_STAT_ARG statarg;
+	statarg.st_stat_len = sizeof(struct stat);
+	statarg.st_stat = buf;
+	err = sys_handlectl(handle, HCTL_FILE_STAT, &statarg, sizeof(statarg));
+	sys_destroy(handle);
+	if (err != ANANAS_ERROR_NONE)
+		goto fail;
+
 	return 0;
+
+fail:
+	_posix_map_error(err);
+	return -1;
 }

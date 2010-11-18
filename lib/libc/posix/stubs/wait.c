@@ -1,9 +1,6 @@
 #include <ananas/types.h>
-#include <ananas/stat.h>
-#include <ananas/handle.h>
-#include <sys/wait.h>
-#include <syscalls.h>
 #include <_posix/todo.h>
+#include <sys/wait.h>
 
 pid_t wait(int *stat_loc)
 {

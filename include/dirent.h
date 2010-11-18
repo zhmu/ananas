@@ -19,6 +19,7 @@ typedef struct {
 	void*	d_buffer;	/* buffer for temporary storage */
 	unsigned int d_cur_pos;	/* Current position */
 	unsigned int d_buf_size;	/* Buffer size */
+	unsigned int d_buf_filled;	/* Amount of buffer in use */
 	struct dirent d_entry;	/* Current dir entry */
 } DIR;
 

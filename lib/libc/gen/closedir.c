@@ -1,9 +1,11 @@
 #include <dirent.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 int
 closedir(DIR* dirp)
 {
-	sys_close(dirp->d_fd);
+	close(dirp->d_fd);
 	free(dirp->d_buffer);
 	free(dirp);
 	return 0;

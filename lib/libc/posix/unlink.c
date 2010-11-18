@@ -1,14 +1,30 @@
-#include <ananas/stat.h>
-#include <fcntl.h>
-#include <ananas/handle.h>
-#include <ananas/stat.h>
-#include <syscalls.h>
+#include <ananas/types.h>
+#include <ananas/error.h>
+#include <ananas/syscalls.h>
+#include <_posix/error.h>
+#include <string.h>
+#include <unistd.h>
 
 int unlink(const char* path)
 {
-	void* handle = sys_open(path, 0 /* XXX */);
-	if (handle == NULL)
-		return -1;
-	sys_remove(handle);
-	return 0;
+	errorcode_t err;
+	void* handle;
+
+	struct OPEN_OPTIONS openopts;
+	memset(&openopts, 0, sizeof(openopts));
+	openopts.op_size = sizeof(openopts);
+	openopts.op_path = path;
+	openopts.op_mode = OPEN_MODE_NONE;
+	err = sys_open(&openopts, &handle);
+	if (err != ANANAS_ERROR_NONE)
+		goto fail;
+
+	err = sys_unlink(handle);
+	sys_destroy(handle); /* don't really care if this works */
+	if (err == ANANAS_ERROR_NONE)
+		return 0;
+
+fail:
+	_posix_map_error(err);
+	return -1;
 }

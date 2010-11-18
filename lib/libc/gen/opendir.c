@@ -5,14 +5,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
-#include <syscalls.h>
+#include <unistd.h>
 
 DIR*
 opendir(const char* filename)
 {
 	DIR* dirp;
 
-	int fd = sys_open(filename, O_RDONLY);
+	int fd = open(filename, O_RDONLY | O_DIRECTORY);
 	if (fd < 0) {
 		errno = ENOENT;
 		return NULL;
@@ -39,6 +39,6 @@ fail:
 			free(dirp->d_buffer);
 		free(dirp);
 	}
-	sys_close(fd);
+	close(fd);
 	return NULL;
 }

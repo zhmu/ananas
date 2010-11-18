@@ -1,4 +1,5 @@
 #include <sys/utsname.h>
+#include <string.h>
 
 int uname(struct utsname* utsname)
 {

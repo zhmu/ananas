@@ -1,27 +1,39 @@
+#include <ananas/types.h>
+#include <ananas/error.h>
+#include <ananas/syscalls.h>
+#include <_posix/error.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <ananas/handle.h>
-#include <ananas/stat.h>
-#include <syscalls.h>
 
 char _posix_cwd[256] = { 0 };
 
 int chdir(const char* path)
 {
-	void* handle = sys_open(path, O_RDONLY);
-	if (handle == NULL)
-		return -1;
-	
-	if (sys_setcwd(handle) == 0) {
-		if (path[0] == '/') {
-			strncpy(_posix_cwd, path, sizeof(_posix_cwd));
-		} else {
-			strncat(_posix_cwd, path, sizeof(_posix_cwd));
-		}
-		_posix_cwd[sizeof(_posix_cwd) - 1] = '\0';
-		return 0;
-	}
+	errorcode_t err;
+	void* handle;
+	struct OPEN_OPTIONS opts;
+	memset(&opts, 0, sizeof(opts));
+	opts.op_size = sizeof(opts);
+	opts.op_path = path;
+	opts.op_mode = OPEN_MODE_READ | OPEN_MODE_DIRECTORY;
+	err = sys_open(&opts, &handle);
+	if (err != ANANAS_ERROR_NONE)
+		goto fail;
+	 
+	err = sys_handlectl(handle, HCTL_FILE_SETCWD, NULL, 0);
+	if (err != ANANAS_ERROR_NONE)
+		goto fail;
 
+	if (path[0] == '/') {
+		strncpy(_posix_cwd, path, sizeof(_posix_cwd));
+	} else {
+		strncat(_posix_cwd, path, sizeof(_posix_cwd));
+	}
+	_posix_cwd[sizeof(_posix_cwd) - 1] = '\0';
+	return 0;
+
+fail:
+	_posix_map_error(err);
 	return -1;
 }

@@ -488,7 +488,12 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 
 /* For Ananas: sbrk/brk() isn't implemented and never will be, so we must use mmap() */
 #include <resource.h>
-#include <ananas/_types/null.h>
+#include <ananas/types.h>
+#include <ananas/error.h>
+#include <ananas/syscalls.h>
+#include <_posix/error.h>
+#include <assert.h>
+#include <string.h>
 
 #define HAVE_MORECORE 0
 #define HAVE_MMAP 1
@@ -503,16 +508,58 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 #define LACKS_SYS_TYPES_H
 
 #define MALLOC_FAILURE_ACTION
+
+struct MMAP_HEADER {
+	uint32_t	mh_magic;
+#define MMAP_HEADER_MAGIC 0x4d654d7e
+	void*		mh_handle;
+	size_t		mh_length;
+};
+
+#include <stdio.h>
         
 static unsigned int time(void* ptr) { return 1; }
 static void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offset) {
-	void* sys_map(size_t);
-	return sys_map(len);
+	/*
+	 * Emulate fetching a block of memory by allocating a few bytes more
+	 * and using these to store the pointer. This could be more efficient,
+	 * but how?
+	 */
+	errorcode_t err;
+	struct CREATE_OPTIONS cropts;
+	void* handle;
+	memset(&cropts, 0, sizeof(cropts));
+	cropts.cr_size = sizeof(cropts);
+	cropts.cr_type = CREATE_TYPE_MEMORY;
+	cropts.cr_length = len + sizeof(struct MMAP_HEADER);
+	err = sys_create(&cropts, &handle);
+	if (err != ANANAS_ERROR_NONE) {
+		_posix_map_error(err);
+		return NULL;
+	}
+
+	/* OK, allocation worked. Now fetch the memory base */
+	struct HCTL_MEMORY_GET_INFO_ARG meminfo;
+	err = sys_handlectl(handle, HCTL_MEMORY_GET_INFO, &meminfo, sizeof(meminfo));
+	if (err != ANANAS_ERROR_NONE) {
+		sys_destroy(handle); /* don't care if this fails or not */
+		_posix_map_error(err);
+		return NULL;
+	}
+	struct MMAP_HEADER* mh = meminfo.in_base;
+	mh->mh_magic = MMAP_HEADER_MAGIC;
+	mh->mh_handle = handle;
+	mh->mh_length = meminfo.in_length;
+	return (void*)((addr_t)meminfo.in_base + sizeof(struct MMAP_HEADER));
 }
 
-static void* munmap(void* addr, size_t len) {
-	void* sys_unmap(void*, size_t);
-	return sys_unmap(addr, len) ? addr : NULL;
+
+static int munmap(void* addr, size_t len) {
+	struct MMAP_HEADER* mh = (struct MMAP_HEADER*)((addr_t)addr - sizeof(struct MMAP_HEADER));
+	assert((addr_t)addr > sizeof(struct MMAP_HEADER));
+	assert(mh->mh_magic == MMAP_HEADER_MAGIC);
+	sys_destroy(mh->mh_handle);
+	return 0;
 }
 
 /* End of Ananas options */
@@ -536,7 +583,6 @@ static void* munmap(void* addr, size_t len) {
 #define LACKS_UNISTD_H
 #define LACKS_SYS_PARAM_H
 #define LACKS_SYS_MMAN_H
-#define LACKS_STRING_H
 #define LACKS_STRINGS_H
 #define LACKS_SYS_TYPES_H
 #define LACKS_ERRNO_H

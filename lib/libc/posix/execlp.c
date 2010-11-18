@@ -1,31 +1,33 @@
+#include <ananas/types.h>
+#include <ananas/syscalls.h>
+#include <ananas/error.h>
+#include <_posix/error.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ananas/handle.h>
-#include <ananas/stat.h>
-#include <syscalls.h>
 
 int execlp(const char *path, const char* arg0, ...)
 {
+	errorcode_t err;
 	va_list va;
 
 	/*
 	 * Determine the length of the arguments.
 	 */
-	int len = strlen(arg0) + 1 /* arg0 \0 */ + 1 /* terminating \0 */;
+	int args_len = strlen(arg0) + 1 /* arg0 \0 */ + 1 /* terminating \0 */;
 	va_start(va, arg0);
 	while(1) {
 		const char* arg = va_arg(va, const char*);
 		if (arg == NULL)
 			break;
-		len += strlen(arg) + 1;
+		args_len += strlen(arg) + 1;
 	}
 
 	/* Construct the argument list */
-	char* args = malloc(len);
+	char* args = malloc(args_len);
 	if (args == NULL) {
 		errno = ENOMEM;
 		return -1;
@@ -39,30 +41,51 @@ int execlp(const char *path, const char* arg0, ...)
 		strcpy((args + pos), arg);
 		pos += strlen(arg) + 1;
 	}
-	args[pos] = '\0';
+	args[pos] = '\0'; /* double \0 termination */
 
-	void* handle = sys_open(path, O_RDONLY);
-	if (handle == NULL) {
+	/* Now, open the executable */
+	void* handle;
+	struct OPEN_OPTIONS openopts;
+	memset(&openopts, 0, sizeof(openopts));
+	openopts.op_size = sizeof(openopts);
+	openopts.op_path = path;
+	openopts.op_mode = OPEN_MODE_READ;
+	err = sys_open(&openopts, &handle);
+	if (err != ANANAS_ERROR_NONE) {
 		free(args);
-		errno = ENOENT;
-		return -1;
+		goto fail;
 	}
 
-	void* newhandle = sys_summon(handle, 0, args);
+	/* Attempt to invoke the executable just opened */
+	void* child;
+	struct SUMMON_OPTIONS summonopts;
+	memset(&summonopts, 0, sizeof(summonopts));
+	summonopts.su_size = sizeof(summonopts);
+	summonopts.su_flags = SUMMON_FLAG_RUNNING;
+	summonopts.su_args_len = args_len;
+	summonopts.su_args = args;
+	err = sys_summon(handle, &summonopts, &child);
 	free(args);
-	sys_close(handle);
-	if (newhandle != NULL) {
+	sys_destroy(handle);
+	if (err == ANANAS_ERROR_NONE) {
 		/* thread worked; wait for it to die */
-		handle_event_result_t e = sys_wait(newhandle, NULL);
-		sys_close(newhandle);
+		handle_event_t event = HANDLE_EVENT_ANY;
+		handle_event_result_t result;
+		err = sys_wait(child, &event, &result);
+		sys_destroy(child);
+		if (err != ANANAS_ERROR_NONE)
+			goto fail;
 
 		/*
 		 * Now, we have to commit suicide using the exit code of the
 	 	 * previous thread...
 		 */
-		sys_exit((int)e);
+		sys_exit((int)result);
 	}
 
+fail:
+	/* Summoning failed - report the code and leave */
+	_posix_map_error(err);
 	return -1;
 }
 

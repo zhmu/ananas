@@ -1,8 +1,8 @@
+#include <_posix/fdmap.h>
 #include <fcntl.h>
 #include <stdarg.h>
-#include <_posix/fdmap.h>
-
-extern void* sys_clone(void* handle);
+#include <unistd.h>
+#include <errno.h>
 
 int fcntl(int fildes, int cmd, ...)
 {
@@ -10,8 +10,10 @@ int fcntl(int fildes, int cmd, ...)
 	va_start(va, cmd);
 
 	void* handle = fdmap_deref(fildes);
-	if (handle  == NULL)
+	if (handle  == NULL) {
+		errno = EBADF;
 		return -1;
+	}
 
 	switch (cmd) {
 		case F_DUPFD: {
@@ -19,16 +21,14 @@ int fcntl(int fildes, int cmd, ...)
 			for (; minfd < FDMAP_SIZE; minfd++) {
 				if (fdmap_deref(minfd) != NULL)
 					continue;
-				void* newhandle = sys_clone(handle);
-				if (newhandle == NULL)
-					return -1;
-				fdmap_set_handle(minfd, newhandle);
-				return minfd;
+				return dup2(fildes, minfd);
 			}
 			/* out of descriptors */
+			errno = EMFILE;
 			return -1;
 		}
 		default:
+			errno = EINVAL;
 			return -1;
 	}
 	/* NOTREACHED */

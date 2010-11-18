@@ -1,15 +1,24 @@
 #include <ananas/types.h>
-#include <ananas/handle.h>
-#include <ananas/stat.h>
+#include <ananas/syscalls.h>
+#include <ananas/error.h>
+#include <_posix/error.h>
+#include <_posix/fdmap.h>
+#include <errno.h>
 #include <string.h>
 #include <dirent.h>
-#include <syscalls.h>
 
 struct dirent*
 readdir(DIR* dirp)
 {
+	/* Dereference the directory handle; this should ensure that the structure is sane */
+	void* handle = fdmap_deref(dirp->d_fd);
+	if (handle == NULL) {
+		errno = EBADF;
+		return NULL;
+	}
+
 	while (1) {
-		if (dirp->d_cur_pos >= dirp->d_buf_size) {
+		if (dirp->d_cur_pos >= dirp->d_buf_filled) {
 			/* Must re-read */
 			if (dirp->d_flags & DE_FLAG_DONE) {
 				/* Everything has been read */
@@ -20,16 +29,18 @@ readdir(DIR* dirp)
 
 		if (dirp->d_cur_pos == 0) {
 			/* Buffer is empty; must re-read */
-			int num_read = sys_getdirents(dirp->d_fd, dirp->d_buffer, dirp->d_buf_size);
-			if (num_read < 0) {
-				/* could not read */
-				/* errno = ? */
+			size_t len = dirp->d_buf_size;
+			errorcode_t err = sys_read(handle, dirp->d_buffer, &len);
+			if (err != ANANAS_ERROR_NONE) {
+				_posix_map_error(err);
 				return NULL;
 			}
-			if (num_read == 0) {
+			dirp->d_buf_filled = len;
+
+			if (dirp->d_buf_filled == 0) {
 				/* out of entries */
 				dirp->d_flags |= DE_FLAG_DONE;
-				dirp->d_cur_pos = dirp->d_buf_size;
+				dirp->d_cur_pos = dirp->d_buf_filled;
 				return NULL;
 			} 
 		}
