@@ -3,18 +3,13 @@
 # <number> { prototype }
 #
 0	{ void exit(int exitcode); }
-1	{ ssize_t read(void* handle, void* buf, size_t len); }
-2	{ ssize_t write(void* handle, const void* buf, size_t len); }
-3	{ void* map(size_t len); }
-4	{ int unmap(void* addr, size_t length); }
-5	{ void* open(const char* path, int flags); }
-6	{ void close(void* handle); }
-7	{ off_t seek(void* handle, off_t offset, int whence); }
-8	{ int getdirents(void* handle, void* buf, size_t numitems); }
-9	{ void* clone(void* handle); }
-10	{ int stat(void* handle, struct stat* sb); }
-11	{ off_t truncate(void* handle, off_t length); }
-12	{ int setcwd(void* handle); }
-13	{ handle_event_result_t wait(void* handle, handle_event_t* event); }
-14	{ void* summon(void* handle, int flags, const char* args); }
-15	{ void* remove(void* handle); }
+1	{ errorcode_t read(handle_t handle, void* buf, size_t* len); }
+2	{ errorcode_t write(handle_t handle, const void* buf, size_t* len); }
+3	{ errorcode_t open(struct OPEN_OPTIONS* opts, handle_t* result); }
+4	{ errorcode_t destroy(handle_t handle); }
+5	{ errorcode_t unlink(handle_t handle); }
+6	{ errorcode_t create(struct CREATE_OPTIONS* opts, handle_t* out); }
+7	{ errorcode_t handlectl(handle_t handle, unsigned int op, void* arg, size_t len); }
+8	{ errorcode_t clone(handle_t handle, struct CLONE_OPTIONS* opts, handle_t* out); }
+9	{ errorcode_t wait(handle_t handle, handle_event_t* event, handle_event_result_t* result); }
+10	{ errorcode_t summon(handle_t handle, struct SUMMON_OPTIONS* opts, handle_t* out); }
