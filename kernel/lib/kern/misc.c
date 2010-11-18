@@ -9,8 +9,6 @@ _panic(const char* file, const char* func, int line, const char* fmt, ...)
 	__asm ("cli");
 #endif
 	va_list ap;
-	char hack[128 /* XXXX */];
-
 	/* disable the scheduler - this ensures any extra BSP's will not run threads either */
 	scheduler_deactivate();
 

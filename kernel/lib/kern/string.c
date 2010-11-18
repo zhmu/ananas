@@ -90,10 +90,10 @@ strtoul(const char* ptr, char** endptr, int base)
 			ptr++;
 			continue;
 		}
-		if (endptr != NULL)
-			*endptr = (char*)ptr;
 		break;
 	}
+	if (endptr != NULL)
+		*endptr = (char*)ptr;
 	return val;
 }
 

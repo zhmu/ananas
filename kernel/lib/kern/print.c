@@ -62,10 +62,8 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 		/* formatted output */
 		fmt++;
 
-		int flags = 0;
 		unsigned int min_width = 0;
 		unsigned int precision = 0;
-		unsigned int length_modifier = 0;
 
 		/* Try to handle flags */
 		switch(*fmt) {
@@ -137,7 +135,8 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 				break;
 			case 'p': /* pointer XXX assumed 64 bit */
 				u64 = va_arg(ap, addr_t);
-#if 1
+#ifdef __amd64__
+				/* XXXPORTABILITY */
 				if (u64 >= (1L << 32))
 					putnumber(putch, v, hextab_lo, u64 >> 32);
 #endif
