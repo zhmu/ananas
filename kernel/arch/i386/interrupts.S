@@ -359,18 +359,12 @@ clone_return:
 	movl	-36(%esp), %ebx
 	movl	-40(%esp), %esi
 	movl	-44(%esp), %edi
-	movl	-48(%esp), %eax
-	movw	%ax, %ds
-	movl	-52(%esp), %eax
-	movw	%ax, %es
-	movl	-56(%esp), %eax
-	movw	%ax, %fs
-
-	/*
-	 * XXX hack: force return value of zero - should be
-	 * made more generic somehow.
-	 */
-	xorl	%eax, %eax
+	movl	-48(%esp), %edx
+	movw	%dx, %ds
+	movl	-52(%esp), %edx
+	movw	%dx, %es
+	movl	-56(%esp), %edx
+	movw	%dx, %fs
 
 	/* Finally, restore our %ebp and return to the new thread */
 	pop	%ebp
