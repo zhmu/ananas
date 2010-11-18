@@ -14,6 +14,7 @@ _start:
 	stw	%r0,  12(%r1)		/* Backchain */
 	mr	%r31, %r1
 
+	/* Call the startup code; argument is in %r3 which we didn't touch */
 	bl	cstart
 
 	/* main returned - call the exit syscall with the result code */

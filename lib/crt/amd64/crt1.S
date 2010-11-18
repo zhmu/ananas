@@ -7,9 +7,7 @@
 .extern cstart
 
 _start:
-	/* XXX argc, argv */
-	pushq	$0x0
-	pushq	$0x0
+	/* threadinfo should be passed in %rsi, which we won't touch */
 	call	cstart
 
 	/* main returned - call the exit syscall with the result code */

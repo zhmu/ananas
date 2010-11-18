@@ -13,4 +13,3 @@ _start:
 
 	/* main finished; pass it's exit code to the exit syscall */
 	call	sys_exit
-
