@@ -50,7 +50,8 @@ int fclose( struct _PDCLIB_file_t * stream )
                 _PDCLIB_filelist = stream->next;
             }
             /* Free stream */
-            free( stream );
+            if ( (stream->status & _PDCLIB_STATIC) == 0)
+		    free( stream );
             return 0;
         }
         previous = current;
