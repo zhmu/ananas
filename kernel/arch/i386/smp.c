@@ -2,15 +2,16 @@
 #include <machine/smp.h>
 #include <machine/pcpu.h>
 #include <machine/apic.h>
-#include <machine/io.h>
 #include <machine/ioapic.h>
 #include <machine/macro.h>
 #include <machine/thread.h>
 #include <machine/vm.h>
 #include <ananas/x86/pic.h>
+#include <ananas/x86/io.h>
 #include <ananas/lock.h>
 #include <machine/param.h>
 #include <ananas/pcpu.h>
+#include <ananas/schedule.h>
 #include <ananas/vm.h>
 #include <ananas/mm.h>
 #include <ananas/thread.h>

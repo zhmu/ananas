@@ -307,12 +307,12 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * possible within realmode. To prevent this mess, the loader obtains this
 	 * information for us.
 	 */
-	if (bootinfo != NULL && bootinfo->bi_memory_map_addr != NULL &&
+	if (bootinfo != NULL && bootinfo->bi_memory_map_addr != 0 &&
 	    bootinfo->bi_memory_map_size > 0 &&
 	    (bootinfo->bi_memory_map_size % sizeof(struct SMAP_ENTRY)) == 0) {
 		int mem_map_pages = (bootinfo->bi_memory_map_size + PAGE_SIZE - 1) / PAGE_SIZE;
 		vm_map((addr_t)bootinfo->bi_memory_map_addr, mem_map_pages);
-		struct SMAP_ENTRY* smap_entry = bootinfo->bi_memory_map_addr;
+		struct SMAP_ENTRY* smap_entry = (struct SMAP_ENTRY*)bootinfo->bi_memory_map_addr;
 		for (int i = 0; i < bootinfo->bi_memory_map_size / sizeof(struct SMAP_ENTRY); i++, smap_entry++) {
 			if (smap_entry->type != SMAP_TYPE_MEMORY)
 				continue;
