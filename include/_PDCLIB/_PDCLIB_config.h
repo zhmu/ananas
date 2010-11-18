@@ -142,7 +142,7 @@ typedef __builtin_va_list _PDCLIB_va_list;
 /* I/O ---------------------------------------------------------------------- */
 
 /* The type of the file descriptor returned by _PDCLIB_open(). */
-typedef void* _PDCLIB_fd_t;
+typedef int _PDCLIB_fd_t;
 
 /* The value (of type _PDCLIB_fd_t) returned by _PDCLIB_open() if the operation
    failed.
