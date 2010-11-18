@@ -296,7 +296,6 @@ ata_start(device_t dev)
 static void
 ata_attach_children(device_t dev)
 {
-	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
 	struct ATA_IDENTIFY identify;
 
 	for (int unit = 0; unit < 2; unit++) {

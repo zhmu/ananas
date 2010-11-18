@@ -1,5 +1,5 @@
 #include <machine/vm.h>
-#include <machine/io.h>
+#include <ananas/x86/io.h>
 #include <ananas/console.h>
 #include <ananas/device.h>
 #include <ananas/lib.h>
