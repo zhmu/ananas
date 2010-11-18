@@ -1,7 +1,9 @@
 #include <ananas/kdb.h>
 #include <ananas/lib.h>
 #include <ananas/console.h>
+#include <ananas/error.h>
 #include <ananas/pcpu.h>
+#include <ananas/schedule.h>
 
 #define KDB_MAX_LINE 128
 #define KDB_MAX_ARGS 16
@@ -15,9 +17,11 @@ typedef void kdb_func_t(int num_args, char** arg);
 extern kdb_func_t kdb_cmd_help;
 extern kdb_func_t kdb_cmd_exit;
 extern kdb_func_t kdb_cmd_threads;
+extern kdb_func_t kdb_cmd_thread;
 extern kdb_func_t kdb_cmd_bio;
 extern kdb_func_t kdb_cmd_bootinfo;
 extern kdb_func_t kdb_cmd_memory;
+extern kdb_func_t kdb_cmd_handle;
 
 struct KDB_COMMAND {
 	const char* cmd;
@@ -26,10 +30,12 @@ struct KDB_COMMAND {
 } kdb_commands[] = {
 	{ "help", "Lists all commands", &kdb_cmd_help },
 	{ "exit", "Leave the debugger", &kdb_cmd_exit },
-	{ "threads", "Display thread information", &kdb_cmd_threads },
+	{ "threads", "Display list of threads", &kdb_cmd_threads },
+	{ "thread", "Display specific thread information", &kdb_cmd_thread },
 	{ "bio", "Display BIO information", &kdb_cmd_bio },
 	{ "bootinfo", "Display bootinfo", &kdb_cmd_bootinfo },
 	{ "memory", "Display memory information", &kdb_cmd_memory },
+	{ "handle", "Display specific handle information", &kdb_cmd_handle },
 	{ NULL, NULL, NULL }
 };
 
@@ -66,7 +72,9 @@ kdb_func()
 	/* loop for commands */
 	while(1) {
 		kprintf("kdb> ");
-		size_t len = device_read(console_tty, line, KDB_MAX_LINE, 0);
+		size_t len = KDB_MAX_LINE;
+		errorcode_t err = device_read(console_tty, line, &len, 0);
+		KASSERT(err == ANANAS_ERROR_NONE, "tty read failed with error %i", err);
 		KASSERT(len > 0, "tty read returned without data");
 		line[len] = '\0';
 
@@ -75,7 +83,7 @@ kdb_func()
 			line[len - 1] = '\0';
 
 		/* Dissect the line */
-		const char* cur_line = line;
+		char* cur_line = line;
 		unsigned int cur_arg = 0;
 		while(1) {
 			arg[cur_arg++] = cur_line;
