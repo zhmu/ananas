@@ -66,6 +66,12 @@ vm_mapto_pagedir(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, 
 		uint32_t* pt = (uint32_t*)(pagedir[pd_entrynum] & ~(PAGE_SIZE - 1));
 		pt[(((virt >> 12) & ((1 << 10) - 1)))] = phys | PTE_P | PTE_RW | (user ? PTE_US : 0);
 
+		/*
+		 * Invalidate the address we just added to ensure it'll become active
+		 * without delay.
+		 */
+		__asm __volatile("invlpg %0" : : "m" (*(char*)virt) : "memory");
+
 		num_pages--;
 		virt += PAGE_SIZE; phys += PAGE_SIZE;
 	}
@@ -188,7 +194,7 @@ vm_init()
 
 	/*
 	 * We are in business and can use vm_map() now. We must reload cr3 to force
-	 * the CPU to refresh its cache.
+	 * the CPU to refresh its cache. XXX This is 486+ only
 	 */
 	__asm(
 		"movl	%%eax, %%cr3\n"
