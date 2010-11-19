@@ -72,14 +72,15 @@ void md_idle_thread();
 void md_thread_set_entrypoint(thread_t thread, addr_t entry);
 void md_thread_set_argument(thread_t thread, addr_t arg);
 void* md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags);
-int md_thread_unmap(thread_t thread, void* addr, size_t length);
+errorcode_t thread_unmap(thread_t t, void* ptr, size_t len);
 void* md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write);
 void md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval);
+errorcode_t md_thread_unmap(thread_t thread, void* addr, size_t length);
 
 #define THREAD_MAP_ALLOC 0x800
 errorcode_t thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags, struct THREAD_MAPPING** out);
 errorcode_t thread_map(thread_t t, void* from, size_t len, uint32_t flags, struct THREAD_MAPPING** out);
-int thread_unmap(thread_t t, void* ptr, size_t len);
+errorcode_t thread_unmap(thread_t t, void* ptr, size_t len);
 addr_t thread_find_mapping(thread_t t, void* addr);
 void thread_free_mappings(thread_t t);
 
