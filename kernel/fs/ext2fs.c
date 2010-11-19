@@ -392,9 +392,11 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 	/* Read the root inode */
 	fs->root_inode = vfs_alloc_inode(fs);
 	uint32_t root_fsop = EXT2_ROOT_INO;
-	if (!ext2_read_inode(fs->root_inode, &root_fsop))
-		return ANANAS_ERROR(NO_DEVICE);
-
+	errorcode_t err = ext2_read_inode(fs->root_inode, &root_fsop);
+	if (err != ANANAS_ERROR_NONE) {
+		kfree(privdata);
+		return err;
+	}
 	return ANANAS_ERROR_OK;
 }
 
