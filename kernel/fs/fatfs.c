@@ -34,6 +34,7 @@
 #include <ananas/error.h>
 #include <ananas/vfs.h>
 #include <ananas/lib.h>
+#include <ananas/trace.h>
 #include <ananas/mm.h>
 #include <fat.h>
 
@@ -62,6 +63,8 @@ struct FAT_INODE_PRIVDATA {
  * just uses a normal cluster as FAT12/16 do for subdirectories.
  */
 #define FAT_ROOTINODE_FSOP 0xfffffffe
+
+TRACE_SETUP;
 
 /*
  * Reads a given sector.
