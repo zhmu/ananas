@@ -103,7 +103,7 @@ elf64_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 	errorcode_t err;
 	Elf64_Ehdr ehdr;
 
-	err = obtain(priv, &ehdr, 0, sizeof(ehdr))
+	err = obtain(priv, &ehdr, 0, sizeof(ehdr));
 	ANANAS_ERROR_RETURN(err);
 
 	/* Perform basic ELF checks; must be 64 bit LSB statically-linked executable */
@@ -141,7 +141,11 @@ elf64_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 		 * The program need not begin at a page-size, so we may need to adjust.
 		 */
 		int delta = phdr.p_vaddr % PAGE_SIZE;
-		struct THREAD_MAPPING* tm = thread_mapto(thread, (void*)phdr.p_vaddr - delta, NULL, phdr.p_memsz + delta, THREAD_MAP_ALLOC);
+		struct THREAD_MAPPING* tm;
+		/* XXX deal with mode */
+		int mode = THREAD_MAP_ALLOC;
+		err = thread_mapto(thread, (void*)(phdr.p_vaddr - delta), NULL, phdr.p_memsz + delta, mode, &tm);
+		ANANAS_ERROR_RETURN(err);
 		err = obtain(priv, tm->ptr + delta, phdr.p_offset, phdr.p_filesz);
 		ANANAS_ERROR_RETURN(err);
 	}
