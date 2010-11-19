@@ -2,6 +2,7 @@
 #include <machine/thread.h>
 #include <machine/vm.h>
 #include <ananas/thread.h>
+#include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/pcpu.h>
@@ -10,7 +11,7 @@
 extern struct TSS kernel_tss;
 void md_idle_thread();
 
-int
+errorcode_t
 md_thread_init(thread_t t)
 {
 	/* Create a pagedirectory and map the kernel pages in there */
@@ -39,7 +40,7 @@ md_thread_init(thread_t t)
 	t->md_ctx.pml4 = (addr_t)t->md_pml4;
 
 	t->next_mapping = 1048576;
-	return 1;
+	return ANANAS_ERROR_OK;
 }
 
 void
@@ -95,7 +96,7 @@ md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
 	return to;
 }
 
-int
+errorcode_t
 md_thread_unmap(thread_t thread, void* addr, size_t length)
 {
 	int num_pages = length / PAGE_SIZE;
@@ -105,7 +106,7 @@ md_thread_unmap(thread_t thread, void* addr, size_t length)
 	vm_unmap_pagedir(thread->md_pml4, addr, num_pages);
 #endif
 	panic("md_thread_unmap() todo");
-	return 0;
+	return ANANAS_ERROR_OK;
 }
 
 void

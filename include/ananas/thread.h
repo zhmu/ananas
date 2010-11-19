@@ -48,7 +48,7 @@ struct THREAD {
 };
 
 /* Machine-dependant callback to initialize a thread */
-int md_thread_init(thread_t thread);
+errorcode_t md_thread_init(thread_t thread);
 
 /* Machine-dependant callback to free thread data */
 void md_thread_free(thread_t thread);

@@ -5,6 +5,7 @@
 #include <machine/macro.h>
 #include <ananas/thread.h>
 #include <ananas/lib.h>
+#include <ananas/error.h>
 #include <ananas/mm.h>
 #include <ananas/pcpu.h>
 #include <ananas/vm.h>
@@ -19,9 +20,11 @@ md_idle_thread()
 	while(1);
 }
 
-int
+errorcode_t
 md_thread_init(thread_t t)
 {
+	errorcode_t err;
+
 	/*
 	 * First of all, reset all segment register mappings; this will
 	 * result in mmu_map() doing the right thing by allocating
@@ -37,7 +40,13 @@ md_thread_init(thread_t t)
 	uint32_t stack_addr = 0x8000000;
 	t->md_stack  = kmalloc(THREAD_STACK_SIZE);
 	memset(t->md_stack, 0, THREAD_STACK_SIZE);
-	thread_mapto(t, (void*)stack_addr, t->md_stack, THREAD_STACK_SIZE, 0);
+	struct THREAD_MAPPING* tm;
+	err = thread_mapto(t, (void*)stack_addr, t->md_stack, THREAD_STACK_SIZE, 0, &tm);
+	if (err != ANANAS_ERROR_NONE) {
+		kfree(t->md_stack);
+		/* XXX remove kernel mmu mappings */
+		return err;
+	}
 	t->md_ctx.sf.sf_reg[1] = stack_addr + THREAD_STACK_SIZE;
 
 	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
@@ -110,11 +119,11 @@ md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
 	return NULL;
 }
 
-int
+errorcode_t
 md_thread_unmap(thread_t thread, void* addr, size_t length)
 {
 	panic("md_thread_unmap(): not implemented");
-	return 0;
+	return ANANAS_ERROR_OK;
 }
 
 void

@@ -16,7 +16,7 @@
 extern struct TSS kernel_tss;
 void clone_return();
 
-static void
+static errorcode_t
 md_thread_setup(thread_t t)
 {
 	memset(t->md_pagedir, 0, PAGE_SIZE);
@@ -54,9 +54,10 @@ md_thread_setup(thread_t t)
 	t->md_fpu_ctx.tw = 0xffff;
 
 	t->next_mapping = 1048576;
+	return ANANAS_ERROR_OK;
 }
 
-int
+errorcode_t
 md_thread_init(thread_t t)
 {
 	/* Create a pagedirectory and map the kernel pages in there */
@@ -66,8 +67,7 @@ md_thread_init(thread_t t)
 	t->md_stack  = kmalloc(THREAD_STACK_SIZE);
 	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
 
-	md_thread_setup(t);
-	return 1;
+	return md_thread_setup(t);
 }
 
 void
