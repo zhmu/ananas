@@ -32,6 +32,15 @@ _posix_map_error(errorcode_t err)
 			SET_ERRNO(EOVERFLOW);
 		case ANANAS_ERROR_BAD_SYSCALL:
 			SET_ERRNO(ENOSYS);
+		case ANANAS_ERROR_BAD_LENGTH:
+		case ANANAS_ERROR_BAD_FLAG:
+			SET_ERRNO(EINVAL);
+		case ANANAS_ERROR_IO:
+			SET_ERRNO(EIO);
+		case ANANAS_ERROR_NO_DEVICE:
+		case ANANAS_ERROR_NO_RESOURCE:
+			SET_ERRNO(ENXIO);
+		case ANANAS_ERROR_CLONED: /* should never end up here */
 		case ANANAS_ERROR_UNKNOWN:
 		default:
 			SET_ERRNO(EOPNOTSUPP);

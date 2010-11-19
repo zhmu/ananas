@@ -19,6 +19,9 @@
 #define ANANAS_ERROR_UNKNOWN		13		/* Shouldn't happen :-) */
 #define ANANAS_ERROR_BAD_FLAG		14		/* Unsupported flags given */
 #define ANANAS_ERROR_CLONED		15		/* Result code for a cloned thread call */
+#define ANANAS_ERROR_IO			16		/* General I/O error */
+#define ANANAS_ERROR_NO_DEVICE		17		/* Device not found */
+#define ANANAS_ERROR_NO_RESOURCE	18		/* Resources cannot be found or acquired */
 
 #define ANANAS_ERROR_RETURN(x) \
 	if((x) != ANANAS_ERROR_NONE) \
