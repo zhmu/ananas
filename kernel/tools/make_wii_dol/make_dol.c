@@ -155,9 +155,13 @@ elf_load(const char* fname)
 		if (FROM_BE_32(phdr.p_vaddr) != FROM_BE_32(phdr.p_paddr))
 			errx(1, "physical != virtual address");
 
-		/* OK, we have a piece that we need to load */
+		/* OK, we have a piece that we may need to load */
 		size_t memsz  = FROM_BE_32(phdr.p_memsz);
 		size_t filesz = FROM_BE_32(phdr.p_filesz);
+		if (memsz == 0) {
+			/* Piece does not contain anything in-memory: ignore */
+			continue;
+		}
 		void* data = malloc(memsz);
 		if (data == NULL)
 			err(1, "malloc");
