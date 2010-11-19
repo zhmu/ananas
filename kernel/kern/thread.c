@@ -233,7 +233,8 @@ thread_unmap(thread_t t, void* ptr, size_t len)
 				t->mappings = tm->next;
 			else
 				prev->next = tm->next;
-			md_thread_unmap(t, (void*)tm->start, tm->len);
+			errorcode_t err = md_thread_unmap(t, (void*)tm->start, tm->len);
+			ANANAS_ERROR_RETURN(err);
 			kfree(tm->ptr);
 			kfree(tm);
 			return ANANAS_ERROR_OK;

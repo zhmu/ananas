@@ -5,6 +5,7 @@
 #include <machine/vm.h>
 #include <machine/macro.h>
 #include <machine/smp.h>
+#include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/pcpu.h>
@@ -130,14 +131,14 @@ md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
 	return to;
 }
 
-int
+errorcode_t
 md_thread_unmap(thread_t thread, void* addr, size_t length)
 {
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)
 		num_pages++;
 	vm_unmap_pagedir(thread->md_pagedir, (addr_t)addr, num_pages);
-	return 0;
+	return ANANAS_ERROR_OK;
 }
 
 void

@@ -264,7 +264,7 @@ vfs_open(const char* fname, struct VFS_INODE* cwd, struct VFS_FILE* file)
 	return ANANAS_ERROR_OK;
 }
 
-int
+errorcode_t
 vfs_close(struct VFS_FILE* file)
 {
 	if(file->inode != NULL)

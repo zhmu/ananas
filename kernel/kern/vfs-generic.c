@@ -10,7 +10,7 @@ TRACE_SETUP;
 
 #undef DEBUG_VFS_LOOKUP
 
-int
+errorcode_t
 vfs_generic_lookup(struct VFS_INODE* dirinode, struct VFS_INODE** destinode, const char* dentry)
 {
 	struct VFS_FILE dir;
