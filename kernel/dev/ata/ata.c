@@ -231,7 +231,7 @@ ata_attach(device_t dev)
 	if (inb(priv->io_port + ATA_REG_STATUS) == 0xff) return 1;
 
 	if (!irq_register((uintptr_t)res_irq, dev, ata_irq))
-		return ANANAS_ERROR(NO_RESOURCES);
+		return ANANAS_ERROR(NO_RESOURCE);
 
 	/* reset the control register - this ensures we receive interrupts */
 	outb(priv->io_port + ATA_REG_DEVCONTROL, 0);
