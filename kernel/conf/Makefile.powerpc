@@ -6,13 +6,22 @@ ARCH=		powerpc
 CC?=		cc
 LD?=		ld
 AWK?=		awk
+OBJCOPY?=	objcopy
 
 %OBJS
 %FILES
 
 CFLAGS=		-I$S/../include -I$S -I. -std=c99 -mcpu=G4 -DKERNEL
-kernel:		$(OBJS) $S/conf/ld.powerpc
-		$(LD) -b elf32-powerpc -T $S/conf/ld.powerpc -o kernel $(OBJS)
+
+kernel:		kernel.full fileids.txt
+		$(OBJCOPY) -R '.traceids' -R '.tracenames' -R '.comment' kernel.full kernel 2> /dev/null
+
+kernel.full:	$(OBJS) $S/conf/ld.powerpc
+		$(LD) -b elf32-powerpc -T $S/conf/ld.powerpc -o kernel.full $(OBJS)
+
+fileids.txt:	kernel.full ../../../../tools/extract_fileids.pl
+		$(OBJCOPY) -j '.traceids' -j '.tracenames' kernel.full tracesyms.elf 2>/dev/null
+		../../../../tools/extract_fileids.pl ${OBJDUMP} tracesyms.elf fileids.txt
 
 #
 # Assembly symbols: we need a way to pass symbols to our assembly scripts.
@@ -31,4 +40,4 @@ teken_state.h:	$S/lib/teken/gensequences $S/lib/teken/sequences
 teken.o:	teken_state.h
 
 clean:
-		rm -f kernel $(OBJS)
+		rm -f kernel asmsyms.o asmsyms.h teken_state.h fileids.txt kernel.full tracesyms.elf $(OBJS)

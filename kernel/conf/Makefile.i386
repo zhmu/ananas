@@ -44,4 +44,4 @@ teken_state.h:	$S/lib/teken/gensequences $S/lib/teken/sequences
 teken.o:	teken_state.h
 
 clean:
-		rm -f kernel teken_state.h fileids.txt kernel.full tracesyms.elf $(OBJS)
+		rm -f kernel asmsyms.o asmsyms.h teken_state.h fileids.txt kernel.full tracesyms.elf $(OBJS)

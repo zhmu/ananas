@@ -43,6 +43,8 @@ get_format_info {
 
 	# returns little_endian (0 or 1), address length (4 or8)
 	return [ 0, 4 ] if $format =~ /-i386$/;
+	return [ 0, 8 ] if $format =~ /64-x86-64$/;
+	return [ 1, 4 ] if $format =~ /32-powerpc$/;
 	die "unknown format '$format'";
 }
 

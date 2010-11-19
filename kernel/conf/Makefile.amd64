@@ -4,13 +4,23 @@ S=		../../../..
 ARCH=		amd64
 
 AWK?=		awk
+OBJCOPY?=	objcopy
+OBJDUMP?=	objdump
 
 %OBJS
 %FILES
 
 CFLAGS=		-m64 -march=athlon64 -mcmodel=large -I$S/../include -I$S -I. -std=c99 -mno-red-zone -DKERNEL
-kernel:		$(OBJS) $S/conf/ld.amd64
-		$(LD) -b elf64-x86-64 -T $S/conf/ld.amd64 -nostdlib -nodefaultlibs -o kernel $(OBJS)
+
+kernel:		kernel.full fileids.txt
+		$(OBJCOPY) -R '.traceids' -R '.tracenames' -R '.comment' kernel.full kernel 2> /dev/null
+
+kernel.full:	$(OBJS) $S/conf/ld.amd64
+		$(LD) -b elf64-x86-64 -T $S/conf/ld.amd64 -nostdlib -nodefaultlibs -o kernel.full $(OBJS)
+
+fileids.txt:	kernel.full ../../../../tools/extract_fileids.pl
+		$(OBJCOPY) -j '.traceids' -j '.tracenames' kernel.full tracesyms.elf 2>/dev/null
+		../../../../tools/extract_fileids.pl ${OBJDUMP} tracesyms.elf fileids.txt
 
 kernel.symbols:	kernel
 		nm kernel|awk '{print $$1" "$$3}'|sort > kernel.symbols
@@ -32,4 +42,4 @@ teken_state.h:	$S/lib/teken/gensequences $S/lib/teken/sequences
 teken.o:	teken_state.h
 
 clean:
-		rm -f kernel asmsyms.o asmsyms.h $(OBJS)
+		rm -f kernel asmsyms.o asmsyms.h teken_state.h fileids.txt kernel.full tracesyms.elf $(OBJS)
