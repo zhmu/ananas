@@ -14,6 +14,7 @@
 
 #define SHELL_BIN "/bin/sh"
 #define ROOT_DEVICE "slice0"
+#define ROOT_FS_TYPE "fatfs"
 
 void smp_init();
 void smp_launch();
@@ -57,7 +58,7 @@ mi_startup()
 	/* Init VFS and mount something */
 	vfs_init();
 	kprintf("- Mounting / from %s...", ROOT_DEVICE);
-	err = vfs_mount(ROOT_DEVICE, "/", "ext2", NULL);
+	err = vfs_mount(ROOT_DEVICE, "/", ROOT_FS_TYPE, NULL);
 	if (err == ANANAS_ERROR_NONE) {
 		kprintf(" ok\n");
 	} else {

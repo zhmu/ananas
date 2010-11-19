@@ -3,9 +3,13 @@
 #include <ananas/bio.h>
 #include <ananas/wii/ios.h>
 #include <ananas/wii/sd.h>
+#include <ananas/error.h>
 #include <ananas/lib.h>
+#include <ananas/trace.h>
 #include <ananas/mm.h>
 #include <mbr.h> /* XXX */
+
+TRACE_SETUP;
 
 struct WIISD_PRIVDATA {
 	int fd;							/* IOS file handle */
@@ -145,18 +149,18 @@ wiisd_read_block(device_t dev, uint32_t block, void* buffer)
 	return wiisd_data_command(dev, SD_CMD_READ_MULTIPLE_BLOCK, SD_TYPE_AC, SD_RESP_R1, 512 * block, 1, 512, buffer, reply);
 }
 
-static ssize_t
-wiisd_read(device_t dev, void* buffer, size_t length, off_t offset)
+static errorcode_t
+wiisd_read(device_t dev, void* buffer, size_t* length, off_t offset)
 {
-	KASSERT(length == 512, "invalid length"); /* XXX */
+	KASSERT(*length == 512, "invalid length"); /* XXX */
 	struct BIO* bio = buffer;
 
 	if (wiisd_read_block(dev, offset, bio->data)) {
 		kprintf("wiisd_read(): i/o error");
-		return 0;
+		return ANANAS_ERROR(IO);
 	}
 	bio->flags &= ~BIO_FLAG_DIRTY;
-	return length;
+	return ANANAS_ERROR_OK;
 }
 
 static int

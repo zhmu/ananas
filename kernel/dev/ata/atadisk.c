@@ -4,15 +4,18 @@
 #include <ananas/x86/io.h>
 #include <ananas/bio.h>
 #include <ananas/lib.h>
+#include <ananas/trace.h>
 #include <ananas/mm.h>
 #include <mbr.h>
+
+TRACE_SETUP;
 
 struct ATADISK_PRIVDATA {
 	int unit;
 	uint64_t size;	/* in sectors */
 };
 
-static int
+static errorcode_t
 atadisk_attach(device_t dev)
 {
 	int unit = (int)device_alloc_resource(dev, RESTYPE_CHILDNUM, 0);
@@ -40,14 +43,14 @@ atadisk_attach(device_t dev)
 	struct BIO* bio = bio_read(dev, 0, 512);
 	if (BIO_IS_ERROR(bio)) {
 		kfree(priv);
-		return 0;
+		return ANANAS_ERROR(IO); /* XXX should get error from bio */
 	}
 	mbr_process(dev, bio);
 	bio_free(bio);
 	return 1;
 }
 
-static int
+static errorcode_t
 atadisk_read(device_t dev, void* buffer, size_t* length, off_t offset)
 {
 	struct ATADISK_PRIVDATA* priv = (struct ATADISK_PRIVDATA*)dev->privdata;

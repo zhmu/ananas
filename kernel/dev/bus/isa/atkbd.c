@@ -4,9 +4,12 @@
 #include <ananas/kdb.h>
 #include <ananas/lib.h>
 #include <ananas/tty.h>
+#include <ananas/trace.h>
 #include <ananas/console.h>
 #include <ananas/x86/io.h>
 #include "options.h"
+
+TRACE_SETUP;
 
 uint32_t atkbd_port = 0;
 
@@ -109,17 +112,17 @@ atkbd_irq(device_t dev)
 	tty_signal_data(console_tty);
 }
 
-static int
+static errorcode_t
 atkbd_attach(device_t dev)
 {
 	void* res_io  = device_alloc_resource(dev, RESTYPE_IO, 7);
 	void* res_irq = device_alloc_resource(dev, RESTYPE_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
-		return 1; /* XXX */
+		return ANANAS_ERROR(NO_RESOURCE);
 	atkbd_port = (uintptr_t)res_io;
 
 	if (!irq_register((uintptr_t)res_irq, dev, atkbd_irq))
-		return 1;
+		return ANANAS_ERROR(NO_RESOURCE);
 	
 	/*
 	 * Ensure the keyboard's input buffer is empty; this will cause it to
@@ -127,10 +130,10 @@ atkbd_attach(device_t dev)
 	 */
 	inb(atkbd_port);
 
-	return 0;
+	return ANANAS_ERROR_OK;
 }
 
-static int
+static errorcode_t
 atkbd_read(device_t dev, void* data, size_t* len, off_t off)
 {
 	size_t returned = 0, to_read = *len;

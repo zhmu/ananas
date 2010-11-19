@@ -42,15 +42,15 @@ struct DRIVER {
 	char*   name;
 	unsigned int current_unit;
 
-	int	(*drv_probe)(device_t);
-	int	(*drv_attach)(device_t);
-	void	(*drv_attach_children)(device_t);
-	int	(*drv_write)(device_t, const void*, size_t*, off_t);
-	int	(*drv_read)(device_t, void*, size_t*, off_t);
+	errorcode_t	(*drv_probe)(device_t);
+	errorcode_t	(*drv_attach)(device_t);
+	void		(*drv_attach_children)(device_t);
+	errorcode_t	(*drv_write)(device_t, const void*, size_t*, off_t);
+	errorcode_t	(*drv_read)(device_t, void*, size_t*, off_t);
 	/* for block devices: enqueue request */
-	void	(*drv_enqueue)(device_t, void*);
+	void		(*drv_enqueue)(device_t, void*);
 	/* for block devices: start request queue */
-	void	(*drv_start)(device_t);
+	void		(*drv_start)(device_t);
 };
 
 /*
@@ -110,12 +110,12 @@ struct PROBE {
 void device_init();
 device_t device_alloc(device_t bus, driver_t drv);
 void device_free(device_t dev);
-int device_attach_single(device_t dev);
+errorcode_t device_attach_single(device_t dev);
 
 int device_get_resources_byhint(device_t dev, const char* hint, const char** hints);
 int device_get_resources(device_t dev, const char** hints);
-int device_write(device_t dev, const char* buf, size_t* len, off_t offset);
-int device_read(device_t dev, char* buf, size_t* len, off_t offset);
+errorcode_t device_write(device_t dev, const char* buf, size_t* len, off_t offset);
+errorcode_t device_read(device_t dev, char* buf, size_t* len, off_t offset);
 
 void* device_alloc_resource(device_t dev, resource_type_t type, size_t len);
 

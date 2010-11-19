@@ -1,16 +1,16 @@
 #include <ananas/x86/io.h>
 #include <ananas/bus/pci.h>
 #include <ananas/device.h>
+#include <ananas/error.h>
 #include <ananas/lib.h>
 
 extern uint32_t pci_read_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg);
 extern struct DRIVER drv_pcibus;
 
-static int
+static errorcode_t
 pci_attach(device_t dev)
 {
-	unsigned int bus;
-	for (bus = 0; bus < PCI_MAX_BUSSES; bus++) {
+	for (unsigned int bus = 0; bus < PCI_MAX_BUSSES; bus++) {
 		/*
 	 	 * Attempt to obtain the vendor/device ID of device 0 on this bus. If it
 	 	 * does not exist, we assume the bus doesn't exist.
@@ -26,7 +26,7 @@ pci_attach(device_t dev)
 
 		device_attach_single(new_bus);
 	}
-	return 0;
+	return ANANAS_ERROR_OK;
 }
 
 struct DRIVER drv_pci = {

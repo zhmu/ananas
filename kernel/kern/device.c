@@ -1,5 +1,6 @@
 #include <ananas/console.h>
 #include <ananas/device.h>
+#include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/tty.h>
@@ -48,10 +49,9 @@ device_free(device_t dev)
 	/* XXX unhook */
 }
 
-int
+errorcode_t
 device_attach_single(device_t dev)
 {
-	int result;
 	driver_t driver = dev->driver;
 
 	if (driver->drv_probe != NULL) {
@@ -60,9 +60,8 @@ device_attach_single(device_t dev)
 	 	 * whether the device actually exists or we're about to attach
 		 * something out of thin air here...
 		 */
-		result = driver->drv_probe(dev);
-		if (result)
-			return result;
+		errorcode_t err = driver->drv_probe(dev);
+		ANANAS_ERROR_RETURN(err);
 	}
 	/*
 	 * XXX This is a kludge: it prevents us from displaying attach information for drivers
@@ -72,12 +71,11 @@ device_attach_single(device_t dev)
 	if (dev->parent != NULL)
 		device_print_attachment(dev);
 	if (driver->drv_attach != NULL) {
-		result = driver->drv_attach(dev);
-		if (result)
-			return result;
+		errorcode_t err = driver->drv_attach(dev);
+		ANANAS_ERROR_RETURN(err);
 	}
 
-	return 0;
+	return ANANAS_ERROR_OK;
 }
 
 static int
@@ -296,21 +294,21 @@ device_attach_bus(device_t bus)
 			if (device_get_resources(dev, config_hints) == 0 && unit > 0)
 				break;
 
-			int result = 0;
+			errorcode_t err = ANANAS_ERROR_OK;
 			if (driver->drv_probe != NULL) {
 				/*
 				 * This device has a probe function; we must call it to figure out
 				 * whether the device actually exists or we're about to attach
 				 * something out of thin air here...
 				 */
-				result = driver->drv_probe(dev);
+				err = driver->drv_probe(dev);
 			}
-			if (result == 0) {
+			if (err == ANANAS_ERROR_OK) {
 				device_print_attachment(dev);
 				if (driver->drv_attach != NULL)
-					result = driver->drv_attach(dev);
+					err = driver->drv_attach(dev);
 			}
-			if (result != 0) {
+			if (err != ANANAS_ERROR_OK) {
 				device_free(dev);
 				break;
 			}
@@ -351,7 +349,7 @@ device_find(const char* name)
 	return NULL;
 }
 
-int
+errorcode_t
 device_write(device_t dev, const char* buf, size_t* len, off_t offset)
 {
 	KASSERT(dev->driver != NULL, "device_write() without a driver");
@@ -360,7 +358,7 @@ device_write(device_t dev, const char* buf, size_t* len, off_t offset)
 	return dev->driver->drv_write(dev, buf, len, offset);
 }
 
-int
+errorcode_t
 device_read(device_t dev, char* buf, size_t* len, off_t offset)
 {
 	KASSERT(dev->driver != NULL, "device_read() without a driver");

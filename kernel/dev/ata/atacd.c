@@ -11,7 +11,7 @@ struct ATACD_PRIVDATA {
 	int unit;
 };
 
-static int
+static errorcode_t
 atacd_attach(device_t dev)
 {
 	int unit = (int)device_alloc_resource(dev, RESTYPE_CHILDNUM, 0);
@@ -23,10 +23,10 @@ atacd_attach(device_t dev)
 
 	device_printf(dev, "<%s>", identify->model);
 
-	return 1;
+	return ANANAS_ERROR_OK;
 }
 
-static int
+static errorcode_t
 atacd_read(device_t dev, void* buffer, size_t* length, off_t offset)
 {
 	struct ATACD_PRIVDATA* priv = (struct ATACD_PRIVDATA*)dev->privdata;

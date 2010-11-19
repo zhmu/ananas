@@ -1,13 +1,14 @@
 #include <ananas/bus/pci.h>
 #include <ananas/x86/io.h>
 #include <ananas/device.h>
+#include <ananas/error.h>
 #include <ananas/lib.h>
 
 extern struct PROBE* devprobe[];
 
 extern uint32_t pci_read_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg);
 
-static int
+static errorcode_t
 pcibus_attach(device_t dev)
 {
 	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PCI_BUS, 0);
@@ -93,7 +94,7 @@ pcibus_attach(device_t dev)
 			}
 		}
 	}
-	return 0;
+	return ANANAS_ERROR_OK;
 }
 
 struct DRIVER drv_pcibus = {

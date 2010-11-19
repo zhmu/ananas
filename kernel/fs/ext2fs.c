@@ -27,8 +27,11 @@
 #include <ananas/error.h>
 #include <ananas/vfs.h>
 #include <ananas/lib.h>
+#include <ananas/trace.h>
 #include <ananas/mm.h>
 #include <ext2.h>
+
+TRACE_SETUP;
 
 #define EXT2_TO_LE16(x) (x)
 #define EXT2_TO_LE32(x) (x)
@@ -266,7 +269,7 @@ static struct VFS_INODE_OPS ext2_dir_ops = {
 /*
  * Reads a filesystem inode and fills a corresponding inode structure.
  */
-static int
+static errorcode_t
 ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 {
 	struct VFS_MOUNTED_FS* fs = inode->fs;
@@ -330,7 +333,7 @@ ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 	return ANANAS_ERROR_OK;
 }
 
-static int
+static errorcode_t
 ext2_mount(struct VFS_MOUNTED_FS* fs)
 {
 	struct BIO* bio = vfs_bread(fs, 2, 1024);
@@ -339,7 +342,7 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 	ext2_conv_superblock(sb);
 	if (sb->s_magic != EXT2_SUPER_MAGIC) {
 		bio_free(bio);
-		return 0;
+		return ANANAS_ERROR(NO_DEVICE);
 	}
 
 	/* Victory */
@@ -390,9 +393,9 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 	fs->root_inode = vfs_alloc_inode(fs);
 	uint32_t root_fsop = EXT2_ROOT_INO;
 	if (!ext2_read_inode(fs->root_inode, &root_fsop))
-		return 0;
+		return ANANAS_ERROR(NO_DEVICE);
 
-	return 1;
+	return ANANAS_ERROR_OK;
 }
 
 struct VFS_FILESYSTEM_OPS fsops_ext2 = {

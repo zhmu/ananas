@@ -434,7 +434,7 @@ fat_fill_inode(struct VFS_INODE* inode, void* fsop, struct FAT_ENTRY* fentry)
 	inode->sb.st_blocks = inode->sb.st_size / (fs_privdata->sectors_per_cluster * fs_privdata->sector_size);
 }
 
-static int
+static errorcode_t
 fat_read_inode(struct VFS_INODE* inode, void* fsop)
 {
 	struct VFS_MOUNTED_FS* fs = inode->fs;
@@ -448,7 +448,7 @@ fat_read_inode(struct VFS_INODE* inode, void* fsop)
 	if (*(uint64_t*)fsop == FAT_ROOTINODE_FSOP) {
 		privdata->root_inode = 1;
 		fat_fill_inode(inode, fsop, NULL);
-		return 1;
+		return ANANAS_ERROR_OK;
 	}
 
 	/*
@@ -464,10 +464,10 @@ fat_read_inode(struct VFS_INODE* inode, void* fsop)
 	/* Fill out the inode details */
 	fat_fill_inode(inode, fsop, fentry);
 	bio_free(bio);
-	return 1;
+	return ANANAS_ERROR_OK;
 }
 
-static int
+static errorcode_t
 fat_mount(struct VFS_MOUNTED_FS* fs)
 {
 	/* XXX this should be made a compile-time check */
@@ -484,7 +484,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 	do { \
 		kfree(privdata); \
 		kprintf(x); \
-		return 0; \
+		return ANANAS_ERROR(NO_DEVICE); \
 	} while(0)
 
 	privdata->sector_size = FAT_FROM_LE16(bpb->bpb_bytespersector);
@@ -535,9 +535,12 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
   fs->fsop_size = sizeof(uint64_t);
   fs->root_inode = vfs_alloc_inode(fs);
 	uint64_t root_fsop = FAT_ROOTINODE_FSOP;
-	if (!fat_read_inode(fs->root_inode, &root_fsop))
-		FAT_ABORT("fat: cannot read root inode");
-	return 1;
+	errorcode_t err = fat_read_inode(fs->root_inode, &root_fsop);
+	if (err != ANANAS_ERROR_NONE) {
+		kfree(privdata);
+		return err;
+	}
+	return ANANAS_ERROR_NONE;
 }
 
 struct VFS_FILESYSTEM_OPS fsops_fat = {

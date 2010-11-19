@@ -5,6 +5,7 @@
 #include <ananas/x86/io.h>
 #include <ananas/device.h>
 #include <ananas/lib.h>
+#include <ananas/trace.h>
 #include <ananas/mm.h>
 
 #include <teken.h>
@@ -14,6 +15,8 @@
 
 /* Console width */
 #define VGA_WIDTH  80
+
+TRACE_SETUP;
 
 static uint32_t vga_io = 0;
 static uint8_t* vga_mem = NULL;
@@ -183,13 +186,13 @@ vga_crtc_write(device_t dev, uint8_t reg, uint8_t val)
 	outb(vga_io + 0x15, val);
 }
 
-static int
+static errorcode_t
 vga_attach(device_t dev)
 {
 	vga_mem = device_alloc_resource(dev, RESTYPE_MEMORY, 0x7fff);
 	void* res = device_alloc_resource(dev, RESTYPE_IO, 0x1f);
 	if (vga_mem == NULL || res == NULL)
-		return 1; /* XXX */
+		return ANANAS_ERROR(NO_RESOURCE);
 	vga_io = (uintptr_t)res;
 
 	/* Clear the display; we must set the attribute everywhere for the cursor */
@@ -208,7 +211,7 @@ vga_attach(device_t dev)
 	tp.tp_row = VGA_HEIGHT; tp.tp_col = VGA_WIDTH;
 	teken_init(&vga_teken, &tf, NULL);
 	teken_set_winsize(&vga_teken, &tp);
-	return 0;
+	return ANANAS_ERROR_OK;
 }
 
 static errorcode_t

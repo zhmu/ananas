@@ -2,8 +2,12 @@
 #include <ananas/x86/io.h>
 #include <ananas/console.h>
 #include <ananas/device.h>
+#include <ananas/error.h>
 #include <ananas/lib.h>
+#include <ananas/trace.h>
 #include <ananas/vm.h>
+
+TRACE_SETUP;
 
 /*
  * This file implements a PCI Host Bridge driver; such a driver is responsible
@@ -25,15 +29,15 @@ pci_read_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg)
 	return inl(pcihb_io + 4);
 }
 
-static int
+static errorcode_t
 pcihb_attach(device_t dev)
 {
 	void* res = device_alloc_resource(dev, RESTYPE_IO, 7);
 	if (res == NULL)
-		return 1; /* XXX */
+		return ANANAS_ERROR(NO_RESOURCE);
 	pcihb_io = (uintptr_t)res;
 
-	return 0;
+	return ANANAS_ERROR_OK;
 }
 
 struct DRIVER drv_pcihb = {

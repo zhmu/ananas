@@ -33,10 +33,13 @@
 #include <ananas/vfs.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
+#include <ananas/trace.h>
 #include <ananas/zlib.h>
 #include <cramfs.h>
 
-#define CRAMFS_DEBUG_READDIR
+TRACE_SETUP;
+
+#define CRAMFS_DEBUG_READDIR(x...)
 
 #define CRAMFS_PAGE_SIZE 4096
 
@@ -254,7 +257,7 @@ cramfs_convert_inode(uint32_t offset, struct CRAMFS_INODE* cinode, struct VFS_IN
 	}
 }
 
-static int
+static errorcode_t
 cramfs_mount(struct VFS_MOUNTED_FS* fs)
 {
 	struct BIO* bio = vfs_bread(fs, 0, 512);
@@ -262,12 +265,12 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs)
 	struct CRAMFS_SUPERBLOCK* sb = BIO_DATA(bio);
 	if (CRAMFS_TO_LE32(sb->c_magic) != CRAMFS_MAGIC) {
 		bio_free(bio);
-		return 0;
+		return ANANAS_ERROR(NO_DEVICE);
 	}
 
 	if ((CRAMFS_TO_LE32(sb->c_flags) & ~CRAMFS_FLAG_MASK) != 0) {
 		kprintf("cramfs: unsupported flags, refusing to mount\n");
-		return 0;
+		return ANANAS_ERROR(NO_DEVICE);
 	}
 
 	/* Everything is ok; fill out the filesystem details */
@@ -280,11 +283,11 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs)
 	cramfs_zstream.next_in = NULL;
 	cramfs_zstream.avail_in = 0;
 	inflateInit(&cramfs_zstream);
-	
-	return 1;
+
+	return ANANAS_ERROR_OK;
 }
 
-static int
+static errorcode_t
 cramfs_read_inode(struct VFS_INODE* inode, void* fsop)
 {
 	struct VFS_MOUNTED_FS* fs = inode->fs;
@@ -299,7 +302,7 @@ cramfs_read_inode(struct VFS_INODE* inode, void* fsop)
 
 	bio_free(bio);
 
-	return 1;
+	return ANANAS_ERROR_OK;
 }
 
 static struct VFS_INODE*

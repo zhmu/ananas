@@ -12,8 +12,11 @@
 #include <ananas/error.h>
 #include <ananas/vfs.h>
 #include <ananas/lib.h>
+#include <ananas/trace.h>
 #include <ananas/mm.h>
 #include <iso9660.h>
+
+TRACE_SETUP;
 
 /* XXX These macros need to be updated for non-LE architectures */
 #define ISO9660_GET_WORD(x) (*(uint16_t*)(x))
@@ -26,6 +29,7 @@ struct ISO9660_INODE_PRIVDATA {
 static struct VFS_INODE_OPS iso9660_dir_ops;
 static struct VFS_INODE_OPS iso9660_file_ops;
 
+#if 0
 static void
 iso9660_dump_dirent(struct ISO9660_DIRECTORY_ENTRY* e)
 {
@@ -42,11 +46,12 @@ iso9660_dump_dirent(struct ISO9660_DIRECTORY_ENTRY* e)
 		kprintf("%c", e->de_filename[i]);
 	kprintf("'\n");
 }
+#endif
 
-static int
+static errorcode_t
 iso9660_mount(struct VFS_MOUNTED_FS* fs)
 {
-	int result = 0;
+	errorcode_t err = ANANAS_ERROR(NO_DEVICE);
 
 	struct BIO* bio = vfs_bread(fs, 16, 2048);
 	/* XXX handle errors */
@@ -84,14 +89,14 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs)
 	fs->root_inode->iops = &iso9660_dir_ops;
 	privdata->lba = ISO9660_GET_DWORD(rootentry->de_extent_lba);
 
-	result = 1;
+	err = ANANAS_ERROR_OK;
 
 fail:
 	bio_free(bio);
-	return result;
+	return err;
 }
 
-static int
+static errorcode_t
 iso9660_read_inode(struct VFS_INODE* inode, void* fsop)
 {
 	uint64_t iso9660_fsop = *(uint64_t*)fsop;
@@ -124,7 +129,7 @@ iso9660_read_inode(struct VFS_INODE* inode, void* fsop)
 		inode->iops = &iso9660_file_ops;
 		inode->sb.st_mode |= S_IFREG;
 	}
-	return 1;
+	return ANANAS_ERROR_OK;
 }
 
 static struct VFS_INODE*
@@ -201,7 +206,7 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			}
 
 			uint64_t fsop = (uint64_t)curblock << 16 | offset;
-			int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, file->inode->fs->fsop_size, iso9660de->de_filename, iso9660de->de_filename_len);
+			int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, file->inode->fs->fsop_size, (const char*)iso9660de->de_filename, iso9660de->de_filename_len);
 			if (!filled) {
 				/* out of space! */
 				break;

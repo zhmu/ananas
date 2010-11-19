@@ -2,6 +2,7 @@
 #include <machine/param.h>
 #include <ananas/console.h>
 #include <ananas/device.h>
+#include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/wii/video.h>
@@ -252,20 +253,20 @@ term_respond(void* s, const void* buf, size_t len)
 	/* TODO */
 }
 
-static ssize_t
-fb_write(device_t dev, const void* data, size_t len, off_t offset)
+static errorcode_t
+fb_write(device_t dev, const void* data, size_t* len, off_t offset)
 {
 	struct FB_PRIVDATA* fb = (struct FB_PRIVDATA*)dev->privdata;
-	size_t origlen = len;
-	const char* c = data;
-	while(len--) {
+	const uint8_t* ptr = data;
+	size_t left = *len;
+	while(left--) {
 		/* XXX this is a hack which should be performed in a TTY layer, once we have one */
-		if(*c== '\n')
+		if(*ptr == '\n')
 			teken_input(&fb->fb_teken, "\r", 1);
-		teken_input(&fb->fb_teken, c, 1);
-		c++;
+		teken_input(&fb->fb_teken, ptr, 1);
+		ptr++;
 	}
-	return origlen;
+	return ANANAS_ERROR_OK;
 }
 
 static int

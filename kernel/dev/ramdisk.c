@@ -4,27 +4,30 @@
 #include <ananas/bootinfo.h>
 #include <ananas/bio.h>
 #include <ananas/device.h>
+#include <ananas/trace.h>
 #include <ananas/lib.h>
 #include <ananas/vm.h>
 
-static int
+TRACE_SETUP;
+
+static errorcode_t
 ramdisk_probe(device_t dev)
 {
 	if (bootinfo == NULL || bootinfo->bi_ramdisk_addr == 0)
-		return 1;
-	return 0;
+		return ANANAS_ERROR(NO_DEVICE);
+	return ANANAS_ERROR_OK;
 }
 
-static int
+static errorcode_t
 ramdisk_attach(device_t dev)
 {
 	kprintf("%s: %u KB\n", dev->name, bootinfo->bi_ramdisk_size / 1024);
 	uint32_t len = (bootinfo->bi_ramdisk_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
 	vm_map(bootinfo->bi_ramdisk_addr, len);
-	return 0;
+	return ANANAS_ERROR_OK;
 }
 
-static int
+static errorcode_t
 ramdisk_read(device_t dev, void* buffer, size_t* length, off_t offset)
 {
 	KASSERT(*length > 0, "invalid length");

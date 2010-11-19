@@ -72,14 +72,14 @@ tty_get_outputdev(device_t dev)
 	return priv->output_dev;
 }
 
-static ssize_t
+static errorcode_t
 tty_write(device_t dev, const void* data, size_t* len, off_t offset)
 {
 	struct TTY_PRIVDATA* priv = (struct TTY_PRIVDATA*)dev->privdata;
 	return device_write(priv->output_dev, data, len, offset);
 }
 
-static int
+static errorcode_t
 tty_read(device_t dev, void* buf, size_t* len, off_t offset)
 {
 	struct TTY_PRIVDATA* priv = (struct TTY_PRIVDATA*)dev->privdata;
