@@ -32,8 +32,8 @@ ata_irq(device_t dev)
 	 * Fetch the request and remove it from the queue; ATA may give extra interrupts, which we
 	 * happily ignore as the queue is empty when they arrive.
 	 */
-	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests, struct ATA_REQUEST_ITEM);
-	QUEUE_POP_HEAD(&priv->requests, struct ATA_REQUEST_ITEM);
+	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests);
+	QUEUE_POP_HEAD(&priv->requests);
 	KASSERT(item->bio != NULL, "ata queue item without associated bio buffer!");
 
 	/* If this is an ATAPI command, we may need to send the command bytes at this point */
@@ -248,7 +248,7 @@ ata_start(device_t dev)
 	/* XXX locking */
 	/* XXX only do a single item now */
 
-	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests, struct ATA_REQUEST_ITEM);
+	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests);
 	KASSERT(item->unit >= 0 && item->unit <= 1, "corrupted item number");
 	KASSERT(item->count > 0, "corrupted count number");
 
@@ -349,7 +349,7 @@ ata_enqueue(device_t dev, void* request)
 	 */
 	struct ATA_REQUEST_ITEM* newitem = kmalloc(sizeof(struct ATA_REQUEST_ITEM));
 	memcpy(newitem, request, sizeof(struct ATA_REQUEST_ITEM));
-	QUEUE_ADD_TAIL(&priv->requests, newitem, struct ATA_REQUEST_ITEM);
+	QUEUE_ADD_TAIL(&priv->requests, newitem);
 }
 
 struct DRIVER drv_ata = {

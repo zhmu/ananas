@@ -240,8 +240,6 @@ struct ATA_IDENTIFY {
 	/* 255 */ uint8_t checksum[2];
 } __attribute__((packed));
 
-QUEUE_DEFINE(ATA_REQUEST_QUEUE)
-
 struct ATA_REQUEST_ITEM {
 	uint8_t		command;	/* command */
 	uint8_t		unit;		/* unit (0=master, 1=slave) */
@@ -250,8 +248,10 @@ struct ATA_REQUEST_ITEM {
 	struct BIO*	bio;		/* associated I/O buffer */
 	/* if command = ATA_CMD_PACKET, this is an ATAPI command and we need to send 6 command words */
 	uint8_t		atapi_command[12];
-	QUEUE_FIELDS;
+	QUEUE_FIELDS(struct ATA_REQUEST_ITEM);
 };
+
+QUEUE_DEFINE(ATA_REQUEST_QUEUE, struct ATA_REQUEST_ITEM)
 
 #define ATA_GET_WORD(x) \
 	((uint16_t)(x)[0] << 8 | (x)[1])

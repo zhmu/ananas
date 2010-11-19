@@ -12,7 +12,7 @@
 
 #define DEBUG
 
-QUEUE_DEFINE(IPC_REQUEST_QUEUE);
+QUEUE_DEFINE(IPC_REQUEST_QUEUE, struct IPC_REQUEST);
 
 /* Round requests to 32 bytes */
 #define IPC_REQUEST_SIZE ((sizeof(struct IPC_REQUEST) | 0x1f) + 1)
@@ -47,10 +47,10 @@ ipc_interrupt()
 	if ((status & (IPC_PPCCTRL_IYI1 | IPC_PPCCTRL_Y1)) == (IPC_PPCCTRL_IYI1 | IPC_PPCCTRL_Y1)) {
 		/* Reply */
 		struct IPC_REQUEST* req = (struct IPC_REQUEST*)(*(vuint32_t*)(IPC + IPC_ARMMSG));
-		KASSERT(QUEUE_HEAD(&ipc_requests, struct IPC_REQUEST) == req, "top of queue not handled!");
+		KASSERT(QUEUE_HEAD(&ipc_requests) == req, "top of queue not handled!");
 		invalidate_for_read(req, 32); /* flush cache */
 
-		QUEUE_POP_HEAD(&ipc_requests, struct IPC_REQUEST);
+		QUEUE_POP_HEAD(&ipc_requests);
 		DEBUG("ipc_interrupt(): got req=%x\n", req);
 		KASSERT(req->magic == IPC_REQUEST_MAGIC, "ipc request corrupt");
 		req->magic = 0;
@@ -85,7 +85,7 @@ ipc_queue_request(struct IPC_REQUEST* req)
 
 	spinlock_lock(&spl_ipc_items);
 	int queue_empty = QUEUE_EMPTY(&ipc_requests);
-	QUEUE_ADD_TAIL(&ipc_requests, req, struct IPC_REQUEST);
+	QUEUE_ADD_TAIL(&ipc_requests, req);
 	if (queue_empty)
 		ipc_send_request(req);
 	spinlock_unlock(&spl_ipc_items);

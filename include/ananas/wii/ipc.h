@@ -72,7 +72,7 @@ struct IPC_REQUEST {
 	/* Ensure we don't accept anything*/
 	uint32_t magic;
 #define IPC_REQUEST_MAGIC 0xabcd6780
-	QUEUE_FIELDS;
+	QUEUE_FIELDS(struct IPC_REQUEST);
 } __attribute__((packed));
 
 void ipc_init();
