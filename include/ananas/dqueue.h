@@ -76,10 +76,24 @@ do {								\
 	     (it) != NULL;					\
 	     (it) = DQUEUE_NEXT(it))
 
+#define DQUEUE_FOREACH_SAFE(q, it, TYPE)			\
+	for (TYPE *(it) = DQUEUE_HEAD(q),			\
+	     *__it = DQUEUE_NEXT(it);				\
+	     (it) != NULL;					\
+	     (it) = __it,					\
+	     __it = (__it != NULL) ? DQUEUE_NEXT(__it) : NULL)
+
 #define DQUEUE_FOREACH_REVERSE(q, it, TYPE)			\
 	for (TYPE* (it) = DQUEUE_TAIL(q);			\
 	     (it) != NULL;					\
 	     (it) = DQUEUE_PREV(it))
+
+#define DQUEUE_FOREACH_REVERSE_SAFE(q, it, TYPE)		\
+	for (TYPE *(it) = DQUEUE_TAIL(q),			\
+	     *__it = DQUEUE_PREV(it);				\
+	     (it) != NULL;					\
+	     (it) = __it,					\
+	     __it = (__it != NULL) ? DQUEUE_PREV(__it) : NULL)
 
 #define DQUEUE_REMOVE(q, it)					\
 do {								\

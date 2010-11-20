@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "../include/ananas/queue.h"
+#include "../../include/ananas/queue.h"
 
 struct test_item {
 	int value;

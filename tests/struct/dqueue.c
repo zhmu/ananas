@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "../include/ananas/dqueue.h"
+#include "../../include/ananas/dqueue.h"
 
 struct test_item {
 	int value;
@@ -27,7 +27,7 @@ main()
 	ti[4].value = 4;
 
 	/* Add an item; queue must not be empty */
-	DQUEUE_ADD_TAIL(&tq, &ti[0])
+	DQUEUE_ADD_TAIL(&tq, &ti[0]);
 	assert(!DQUEUE_EMPTY(&tq));
 	DQUEUE_ADD_TAIL(&tq, &ti[1]);
 	assert(!DQUEUE_EMPTY(&tq));
@@ -111,6 +111,58 @@ main()
 	DQUEUE_REMOVE(&tq, &ti[3]);
 	it = DQUEUE_HEAD(&tq); assert(it == &ti[1]); assert(DQUEUE_PREV(it) == NULL);
 	it = DQUEUE_NEXT(it);  assert(it == NULL);
+
+	/* Start over and pollute the list */
+	DQUEUE_INIT(&tq);
+	DQUEUE_ADD_TAIL(&tq, &ti[0]);
+	DQUEUE_ADD_TAIL(&tq, &ti[1]);
+	DQUEUE_ADD_TAIL(&tq, &ti[2]);
+	DQUEUE_ADD_TAIL(&tq, &ti[3]);
+	DQUEUE_ADD_TAIL(&tq, &ti[4]);
+
+	/* Check whether the safe version works out */
+	i = 0;
+	DQUEUE_FOREACH_SAFE(&tq, iter, struct test_item) {
+		assert(iter == &ti[i]);
+		if(i % 2 == 1)
+			DQUEUE_REMOVE(&tq, iter);
+		i++;
+	}
+	assert(i == 5);
+
+	/* See if the correct things were removed */
+	i = 0;
+	DQUEUE_FOREACH(&tq, iter, struct test_item) {
+		switch(i) {
+			case 0: assert(iter == &ti[0]); break;
+			case 1: assert(iter == &ti[2]); break;
+			case 2: assert(iter == &ti[4]); break;
+			default: assert(0);
+		}
+		i++;
+	}
+	assert(i == 3);
+
+	/* Try the reverse version */
+	i = 0;
+	DQUEUE_FOREACH_REVERSE_SAFE(&tq, iter, struct test_item) {
+		if (i == 1)
+			DQUEUE_REMOVE(&tq, iter);
+		i++;
+	}
+	assert(i == 3);
+
+	/* And see if we end up with what we expect */
+	i = 0;
+	DQUEUE_FOREACH(&tq, iter, struct test_item) {
+		switch(i) {
+			case 0: assert(iter == &ti[0]); break;
+			case 1: assert(iter == &ti[4]); break;
+			default: assert(0);
+		}
+		i++;
+	}
+	assert(i == 2);
 
 	return 0;
 }
