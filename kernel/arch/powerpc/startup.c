@@ -2,9 +2,12 @@
 #include <machine/param.h>
 #include <machine/vm.h>
 #include <machine/interrupts.h>
+#include <machine/hal.h>
 #include <machine/macro.h>
+#include <machine/timer.h>
 #include <machine/mmu.h>
 #include <ananas/handle.h>
+#include <ananas/init.h>
 #include <ananas/mm.h>
 #include <ananas/pcpu.h>
 #include <ananas/lib.h>

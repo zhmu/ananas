@@ -2,6 +2,7 @@
 #include <machine/hal.h>
 #include <machine/interrupts.h>
 #include <machine/thread.h>
+#include <machine/timer.h>
 #include <ananas/lib.h>
 
 extern void generic_int();

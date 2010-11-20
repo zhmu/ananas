@@ -18,4 +18,6 @@
 #define INT_T	0x0d00			/* Trace */
 #define INT_FPA	0x0e00			/* Floating-Point Assist */
 
+void exception_init();
+
 #endif /* __POWERPC_INTERRUPTS_H__ */
