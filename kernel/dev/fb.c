@@ -5,11 +5,14 @@
 #include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
+#include <ananas/trace.h>
 #include <ananas/wii/video.h>
 #include <ofw.h>
 #include "options.h"
 
 #include <teken.h>
+
+TRACE_SETUP;
 
 #include "fb_font.c" /* XXX this is a kludge */
 
@@ -269,7 +272,7 @@ fb_write(device_t dev, const void* data, size_t* len, off_t offset)
 	return ANANAS_ERROR_OK;
 }
 
-static int
+static errorcode_t
 fb_probe(device_t dev)
 {
 #ifdef OFW
@@ -279,21 +282,21 @@ fb_probe(device_t dev)
 
 	ofw_cell_t node = ofw_instance_to_package(ihandle_stdout);
 	if (node == -1)
-		return 1;
+		return ANANAS_ERROR(NO_DEVICE);
 
 	char type[16] = {0};
 	ofw_getprop(node, "device_type", type, sizeof(type));
 	if (strcmp(type, "display") != 0) {
 		/* Not a framebuffer-backed device; bail out */
-		return 1;
+		return ANANAS_ERROR(NO_DEVICE);
 	}
 #elif defined(WII)
 	return wiivideo_init();
 #endif
-	return 0;
+	return ANANAS_ERROR_OK; 
 }
 
-static int
+static errorcode_t
 fb_attach(device_t dev)
 {
 	int height, width, depth, bytes_per_line;
@@ -304,7 +307,7 @@ fb_attach(device_t dev)
 
 	ofw_cell_t node = ofw_instance_to_package(ihandle_stdout);
 	if (node == -1)
-		return 1;
+		return ANANAS_ERROR(NO_DEVICE);
 
 	int phys;
 	ofw_getprop(node, "height", &height, sizeof(height));
@@ -348,7 +351,7 @@ fb_attach(device_t dev)
 
 	kprintf("%s: console is %u x %u @ %u bpp\n",
 	 dev->name, fb->fb_height, fb->fb_width, fb->fb_depth);
-	return 0;
+	return ANANAS_ERROR_OK;
 }
 
 struct DRIVER drv_fb = {

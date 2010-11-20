@@ -1,38 +1,43 @@
 #include <ananas/device.h>
+#include <ananas/error.h>
 #include <ananas/irq.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
+#include <ofw.h>
 
-static int
-ofw_attach(device_t dev)
+static errorcode_t
+ofwconsole_attach(device_t dev)
 {
-	return 0;
+	return ANANAS_ERROR_OK;
 }
 
-static ssize_t
-ofw_write(device_t dev, const void* data, size_t len, off_t offset)
+static errorcode_t
+ofwconsole_write(device_t dev, const void* data, size_t* len, off_t offset)
 {
 	uint8_t* ptr = (uint8_t*)data;
 	const char* ch = (const char*)data;
-	size_t amount = 0;
+	size_t left = *len;
 
-	for (amount = 0; amount < len; amount++, ch++)
+	while (left > 0) {
 		ofw_putch(*ch);
-	return amount;
+		ch++; left--;
+	}
+	return ANANAS_ERROR_OK;
 }
 
-static ssize_t
-ofw_read(device_t dev, void* data, size_t len, off_t offset)
+static errorcode_t
+ofwconsole_read(device_t dev, void* data, size_t* len, off_t offset)
 {
-	return 0;
+	*len = 0;
+	return ANANAS_ERROR_OK;
 }
 
 struct DRIVER drv_ofwconsole = {
 	.name					= "ofwconsole",
 	.drv_probe		= NULL,
-	.drv_attach		= ofw_attach,
-	.drv_write		= ofw_write,
-	.drv_read     = ofw_read
+	.drv_attach		= ofwconsole_attach,
+	.drv_write		= ofwconsole_write,
+	.drv_read     = ofwconsole_read
 };
 
 DRIVER_PROBE(ofwconsole)
