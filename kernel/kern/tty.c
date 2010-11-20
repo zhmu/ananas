@@ -24,8 +24,6 @@ struct TTY_PRIVDATA {
 	char						input_queue[MAX_INPUT];
 	unsigned int		in_writepos;
 	unsigned int		in_readpos;
-
-	thread_t				in_sleeper;
 };
 
 static struct DRIVER drv_tty;
@@ -95,9 +93,14 @@ tty_read(device_t dev, void* buf, size_t* len, off_t offset)
 		}
 
 		if (priv->in_readpos == priv->in_writepos) {
-			/* Buffer is empty - wait a bit for it to be refilled */
-			priv->in_sleeper = PCPU_CURTHREAD();
-			thread_suspend(priv->in_sleeper);
+			/*
+			 * Buffer is empty - schedule the thread for a wakeup once we have data.
+			 * Note that we use a LIFO system, as the last thread requesting data
+			 * is (expected to be) in the foreground.
+			  */
+			thread_t curthread = PCPU_CURTHREAD();
+			device_waiter_add_head(dev, curthread);
+			thread_suspend(curthread);
 			reschedule();
 			continue;
 		}
@@ -128,8 +131,9 @@ tty_read(device_t dev, void* buf, size_t* len, off_t offset)
 #undef CHAR_AT
 		if (n == in_len) {
 			/* Line is not complete - try again later */
-			priv->in_sleeper = PCPU_CURTHREAD();
-			thread_suspend(priv->in_sleeper);
+			thread_t curthread = PCPU_CURTHREAD();
+			device_waiter_add_head(dev, curthread);
+			thread_suspend(curthread);
 			reschedule();
 			continue;
 		}
@@ -230,11 +234,8 @@ tty_signal_data(device_t dev)
 		tty_handle_echo(dev, byte);
 	}
 
-	/* If we have a sleeper, awaken him XXX dies if thread dies! */
-	if (priv->in_sleeper != NULL) {
-		thread_resume(priv->in_sleeper);
-		priv->in_sleeper = NULL;
-	}
+	/* If we have a sleeper, awaken him */
+	device_waiter_signal(dev);
 }
 
 static struct DRIVER drv_tty = {
