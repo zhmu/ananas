@@ -4,6 +4,7 @@
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/tty.h>
+#include <ananas/thread.h>
 #include <ananas/vm.h>
 #include "console.inc"
 
@@ -30,10 +31,20 @@ device_alloc(device_t bus, driver_t drv)
 	memset(dev, 0, sizeof(struct DEVICE));
 	dev->driver = drv;
 	dev->parent = bus;
+	spinlock_init(&dev->spl_waiters);
+	DQUEUE_INIT(&dev->waiters);
+	DQUEUE_INIT(&dev->avail_waiters);
+
+	/* Pollute the available waiters queue */
+	for (int i = 0; i < DEVICE_MAX_WAITERS; i++) {
+		struct DEVICE_WAITER* w = kmalloc(sizeof(*w));
+		DQUEUE_ADD_TAIL(&dev->avail_waiters, w);
+	}
+
 	if (drv != NULL) {
 		strcpy(dev->name, drv->name);
 		dev->unit = drv->current_unit++;
-	} 
+	}
 	/* hook the device up to the chain */
 	if (corebus != NULL) {
 		dev->next = corebus->next;
@@ -45,6 +56,21 @@ device_alloc(device_t bus, driver_t drv)
 void
 device_free(device_t dev)
 {
+	/* Clean up the waiters, if any */
+	spinlock_lock(&dev->spl_waiters);
+	while (!DQUEUE_EMPTY(&dev->waiters)) {
+		struct DEVICE_WAITER* waiter = DQUEUE_HEAD(&dev->waiters);
+		DQUEUE_POP_HEAD(&dev->waiters);
+		kfree(waiter);
+		/* XXX should signal ? */
+	}
+	while (!DQUEUE_EMPTY(&dev->avail_waiters)) {
+		struct DEVICE_WAITER* waiter = DQUEUE_HEAD(&dev->avail_waiters);
+		DQUEUE_POP_HEAD(&dev->avail_waiters);
+		kfree(waiter);
+	}
+	spinlock_unlock(&dev->spl_waiters);
+
 	kfree(dev);
 	/* XXX unhook */
 }
@@ -378,6 +404,49 @@ device_printf(device_t dev, const char* fmt, ...)
 	vaprintf(fmt, va);
 	va_end(va);
 	kprintf("\n");
+}
+
+void
+device_waiter_add_head(device_t dev, struct THREAD* thread)
+{
+	spinlock_lock(&dev->spl_waiters);
+	KASSERT(!DQUEUE_EMPTY(&dev->avail_waiters), "no more waiters!");
+	struct DEVICE_WAITER* w = DQUEUE_HEAD(&dev->avail_waiters);
+	DQUEUE_POP_HEAD(&dev->avail_waiters);
+	w->thread = thread;
+	DQUEUE_ADD_HEAD(&dev->waiters, w);
+	spinlock_unlock(&dev->spl_waiters);
+}
+
+void
+device_waiter_add_tail(device_t dev, struct THREAD* thread)
+{
+	spinlock_lock(&dev->spl_waiters);
+	KASSERT(!DQUEUE_EMPTY(&dev->avail_waiters), "no more waiters!");
+	struct DEVICE_WAITER* w = DQUEUE_HEAD(&dev->avail_waiters);
+	DQUEUE_POP_HEAD(&dev->avail_waiters);
+	w->thread = thread;
+	DQUEUE_ADD_TAIL(&dev->waiters, w);
+	spinlock_unlock(&dev->spl_waiters);
+}
+
+void
+device_waiter_signal(device_t dev)
+{
+	struct THREAD* thread = NULL;
+
+	spinlock_lock(&dev->spl_waiters);
+	if(!DQUEUE_EMPTY(&dev->waiters)) {
+		struct DEVICE_WAITER* waiter = DQUEUE_HEAD(&dev->waiters);
+		thread = waiter->thread;
+		DQUEUE_POP_HEAD(&dev->waiters);
+		DQUEUE_ADD_TAIL(&dev->avail_waiters, waiter);
+	}
+	spinlock_unlock(&dev->spl_waiters);
+
+	if (thread == NULL)
+		return;
+	thread_resume(thread);
 }
 
 /* vim:set ts=2 sw=2: */

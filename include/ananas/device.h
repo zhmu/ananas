@@ -1,4 +1,6 @@
 #include <ananas/types.h>
+#include <ananas/dqueue.h>
+#include <ananas/lock.h>
 
 #ifndef __DEVICE_H__
 #define __DEVICE_H__
@@ -7,9 +9,13 @@ typedef struct DEVICE* device_t;
 typedef struct DRIVER* driver_t;
 typedef struct PROBE* probe_t;
 
-#define DEVICE_MAX_RESOURCES	16
-#define DEVICE_RESOURCE_NONE 0xffffffff
+/* Maximum number of resources a given device can have */
+#define DEVICE_MAX_RESOURCES 16
 
+/* Maximum number of waiters on a given device */
+#define DEVICE_MAX_WAITERS 8
+
+/* Resources types */
 enum RESOURCE_TYPE {
 	RESTYPE_UNUSED,
 	/* Base resource types */
@@ -29,6 +35,7 @@ enum RESOURCE_TYPE {
 
 typedef enum RESOURCE_TYPE resource_type_t;
 
+/* A resource is just a type with an <base,length> tuple */
 struct RESOURCE {
 	resource_type_t	type;
 	unsigned int	base;
@@ -39,8 +46,8 @@ struct RESOURCE {
  *  This describes a device driver.
  */
 struct DRIVER {
-	char*   name;
-	unsigned int current_unit;
+	char*   	name;
+	unsigned int	current_unit;
 
 	errorcode_t	(*drv_probe)(device_t);
 	errorcode_t	(*drv_attach)(device_t);
@@ -52,6 +59,21 @@ struct DRIVER {
 	/* for block devices: start request queue */
 	void		(*drv_start)(device_t);
 };
+
+/*
+ * Defines a thread waiting on the device; this is used for blocking calls
+ * for which the driver needs to determine who to wake up when there is
+ * data, an event etc. It is generalized here so that dying threads can
+ * be adequately cleaned up.
+ */
+struct DEVICE_WAITER {
+	/* Thread that is waiting */
+	struct THREAD*	thread;
+
+	/* XXX we should also have awakening criteria */
+	DQUEUE_FIELDS(struct DEVICE_WAITER);
+};
+DQUEUE_DEFINE(DEVICE_WAITER_QUEUE, struct DEVICE_WAITER);
 
 /*
  * This describes a device; it is generally attached but this structure
@@ -78,6 +100,11 @@ struct DEVICE {
 
 	/* Private data for the device driver */
 	void*		privdata;
+
+	/* Lock protecting the waiter queue*/
+	struct SPINLOCK	spl_waiters;
+	struct DEVICE_WAITER_QUEUE waiters;
+	struct DEVICE_WAITER_QUEUE avail_waiters;
 };
 
 /*
@@ -122,9 +149,12 @@ void* device_alloc_resource(device_t dev, resource_type_t type, size_t len);
 int device_add_resource(device_t dev, resource_type_t type, unsigned int base, unsigned int len);
 struct RESOURCE* device_get_resource(device_t dev, resource_type_t type, int index);
 
-void device_set_biodev(device_t dev, device_t biodev);
 struct DEVICE* device_find(const char* name);
 
 void device_printf(device_t dev, const char* fmt, ...);
+
+void device_waiter_add_head(device_t dev, struct THREAD* thread);
+void device_waiter_add_tail(device_t dev, struct THREAD* thread);
+void device_waiter_signal(device_t dev);
 
 #endif /* __DEVICE_H__ */
