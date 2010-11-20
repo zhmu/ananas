@@ -10,7 +10,7 @@ OBJDUMP?=	objdump
 %OBJS
 %FILES
 
-CFLAGS=		-m64 -march=athlon64 -mcmodel=large -I$S/../include -I$S -I. -std=c99 -mno-red-zone -DKERNEL
+CFLAGS=		-m64 -march=athlon64 -mcmodel=large -I$S/../include -I$S -I. -std=c99 -mno-red-zone -fno-stack-protector -DKERNEL
 
 kernel:		kernel.full fileids.txt
 		$(OBJCOPY) -R '.traceids' -R '.tracenames' -R '.comment' kernel.full kernel 2> /dev/null
