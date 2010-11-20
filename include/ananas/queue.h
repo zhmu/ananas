@@ -19,17 +19,21 @@
 	};
 
 #define QUEUE_INIT(q) 						\
+do {								\
 	(q)->head = NULL;					\
 	(q)->tail = NULL;					\
+} while(0)
 
 #define QUEUE_ADD_TAIL(q, item)					\
+do {								\
 	(item)->qi_next = NULL;					\
 	if ((q)->head == NULL) {				\
 		(q)->head = (item);				\
 	} else {						\
 		(q)->tail->qi_next = (item);			\
 	}							\
-	(q)->tail = (item);
+	(q)->tail = (item);					\
+} while(0)
 
 #define QUEUE_HEAD(q) 						\
 	((q)->head)

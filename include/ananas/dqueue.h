@@ -24,10 +24,13 @@
 	};
 
 #define DQUEUE_INIT(q) 						\
+do {								\
 	(q)->dq_head = NULL;					\
 	(q)->dq_tail = NULL;					\
+} while(0)
 
 #define DQUEUE_ADD_TAIL(q, item)				\
+do {								\
 	(item)->qi_next = NULL;					\
 	if ((q)->dq_head == NULL) {				\
 		(item)->qi_prev = NULL;				\
@@ -36,7 +39,8 @@
 		(item)->qi_prev = (q)->dq_tail;			\
 		(q)->dq_tail->qi_next = (item);			\
 	}							\
-	(q)->dq_tail = (item);
+	(q)->dq_tail = (item);					\
+} while(0)
 
 #define DQUEUE_HEAD(q) 						\
 	((q)->dq_head)
@@ -45,14 +49,18 @@
 	((q)->dq_tail)
 
 #define DQUEUE_POP_HEAD(q)					\
+do {								\
 	(q)->dq_head = (q)->dq_head->qi_next;			\
 	if ((q)->dq_head != NULL)				\
-		(q)->dq_head->qi_prev = NULL;
+		(q)->dq_head->qi_prev = NULL;			\
+} while(0)
 
 #define DQUEUE_POP_TAIL(q)					\
+do {								\
 	(q)->dq_tail = (q)->dq_tail->qi_prev;			\
 	if ((q)->dq_tail != NULL)				\
-		(q)->dq_tail->qi_next = NULL;
+		(q)->dq_tail->qi_next = NULL;			\
+} while(0)
 
 #define DQUEUE_EMPTY(q)						\
 	((q)->dq_head == NULL)
@@ -74,6 +82,7 @@
 	     (it) = DQUEUE_PREV(it))
 
 #define DQUEUE_REMOVE(q, it)					\
+do {								\
 	if ((it)->qi_prev != NULL)				\
 		(it)->qi_prev->qi_next = (it)->qi_next;		\
 	if ((it)->qi_next != NULL)				\
@@ -81,6 +90,7 @@
 	if ((q)->dq_head == (it)) 				\
 		(q)->dq_head = (it)->qi_next;			\
 	if ((q)->dq_tail == (it)) 				\
-		(q)->dq_tail = (it)->qi_prev;
+		(q)->dq_tail = (it)->qi_prev;			\
+} while(0)
 
 #endif /* __ANANAS_DQUEUE_H__ */
