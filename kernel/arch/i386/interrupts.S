@@ -180,34 +180,25 @@ irq ## num: \
  * The scheduler interrupt is pure magic; it forcefully stores the context of the
  * current thread, and then calls the scheduler, which restores the context of
  * whatever thread it wants.
- *
- * Note that the scheduler is effectively disabled using the 'scheduler_active'
- * global variable - we need this during early startup when we are probing
- * devices (as interrupts will be enabled)
  */
 scheduler_irq:
-	/* If the scheduler is not yet enabled, go away */
-	cmpl	$0, %cs:scheduler_active
-	je	scheduler_cancel
-
 	/*
-	 * If we don't have a current context pointer, don't bother storing it.
-	 * Note that this nukes eflags, but that doesn't matter because
-	 * md_store_ctx uses the eflags stored by the interrupt
-	*/
+	 * If we don't have a current context pointer, we just continue. This
+	 * indicates that the scheduling isn't set up yet and thus, there's
+	 * nothing for us here.
+	 */
 	pushl	%fs
 	pushl	%eax
 	movw	$GDT_SEL_KERNEL_PCPU, %ax
 	movw	%ax, %fs
-	cmpl	$0, %fs:0
+	cmpl	$0, %fs:(PCPU_CONTEXT)
 	popl	%eax
 	pop	%fs
-	jz	skip_store
+	jz	scheduler_cancel
 
 	/* Store current context, please */
 	call	md_store_ctx
 
-skip_store:
 	/* Acknowledge IRQ! */
 	xorl	%edx, %edx
 	call	eoi

@@ -3,6 +3,7 @@
 #include <machine/hal.h>
 #include <machine/timer.h>
 #include <ananas/lib.h>
+#include <ananas/pcpu.h>
 #include <ananas/schedule.h>
 
 #define HZ 100 /* XXX does not belong here */
@@ -15,7 +16,7 @@ decrementer_interrupt()
 	/* schedule the next interrupt XXX should take current value into account! */
 	__asm __volatile("mtdec %0" : : "r" (cpu_dec_base));
 
-	if (scheduler_activated())
+	if (PCPU_GET(curthread) != NULL)
 		schedule();
 }
 

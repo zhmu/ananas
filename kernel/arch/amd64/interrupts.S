@@ -175,9 +175,27 @@ int_skip_pt:
  * devices (as interrupts will be enabled)
  */
 scheduler_irq:
-	/* If the scheduler is not yet enabled, go away */
-	cmpq	$0, %cs:scheduler_active
-	je	scheduler_cancel
+	/*
+	 * See if there is a current CPU context; if not, the scheduler isn't
+	 * active yet and we just need to return.
+	 */
+	pushq	%rax
+	movl	%eax, %cs
+	cmpl	$GDT_SEL_KERNEL_CODE, %eax
+	je	scheduler_kern
+
+	/* Activate kernel %gs */
+	swapgs
+
+scheduler_kern:
+	/*
+	 * Per-CPU data is available. See if we have a CPU context, bail
+	 * out if not - note that we hand it the saved %rax so that it
+	 * can restore %gs if needed.
+	 */
+	cmpl	$0, %gs:PCPU_CTX
+	jz	scheduler_cancel
+	popq	%rax
 
 	subq	$SF_RIP, %rsp
 	SAVE_REGISTERS
@@ -209,13 +227,6 @@ scheduler_irq:
 	addq	$SF_RIP + 40, %rax
 	movq	%rax, SF_SP(%rsp)
 
-	/* If we didn't come from the kernel, swap the %gs register */
-	cmpl	$GDT_SEL_KERNEL_CODE, SF_CS(%rsp)
-	je	sched_swapgs
-
-	swapgs
-
-sched_swapgs:
 	/* Restore the page map */
 	movq	%cr3, %rax
 	movq	pml4, %rbx
@@ -241,16 +252,12 @@ sched_skip_pt:
 	movq	$0, %gs:(PCPU_FPUCTX)
 
 sched_skip_fpu:
-	cmpl	$0, %gs:PCPU_CTX
-	jz	skip_ctxcopy
-
 	/* Copy the stored context to the per-cpu context */
 	movq	%rsp, %rsi
 	movq	%gs:(PCPU_CTX), %rdi
 	movq	$SF_SIZE, %rcx
 	rep	movsb
 
-skip_ctxcopy:
 	xorq	%rbx, %rbx
 	call	eoi
 
@@ -266,6 +273,14 @@ scheduler_cancel:
 	xorq	%rbx, %rbx
 	call	eoi
 	popq	%rbx
+	popq	%rax
+
+	/* Almost done - restore the kernel gs if needed */
+	cmpl	$GDT_SEL_KERNEL_CODE, %eax
+	je	sched_skip_gs
+
+	swapgs
+sched_skip_gs:
 	popq	%rax
 	iretq
 

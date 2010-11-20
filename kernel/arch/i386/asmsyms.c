@@ -19,4 +19,5 @@ ASM_SYMBOL(SF_GS,     offsetof(struct STACKFRAME, sf_gs));
 ASM_SYMBOL(SF_ERRNUM, offsetof(struct STACKFRAME, sf_errnum));
 ASM_SYMBOL(SF_EIP,    offsetof(struct STACKFRAME, sf_eip));
 
+ASM_SYMBOL(PCPU_CONTEXT, offsetof(struct PCPU, context));
 ASM_SYMBOL(PCPU_FPUCTX, offsetof(struct PCPU, fpu_context));
