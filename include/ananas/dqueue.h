@@ -42,6 +42,19 @@ do {								\
 	(q)->dq_tail = (item);					\
 } while(0)
 
+#define DQUEUE_ADD_HEAD(q, item)				\
+do {								\
+	(item)->qi_prev = NULL;					\
+	if ((q)->dq_head == NULL) {				\
+		(item)->qi_next = NULL;				\
+		(q)->dq_tail = (item);				\
+	} else {						\
+		(item)->qi_next = (q)->dq_head;			\
+		(q)->dq_head->qi_prev = (item);			\
+	}							\
+	(q)->dq_head = (item);					\
+} while(0)
+
 #define DQUEUE_HEAD(q) 						\
 	((q)->dq_head)
 

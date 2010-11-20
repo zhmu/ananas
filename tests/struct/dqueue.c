@@ -164,6 +164,25 @@ main()
 	}
 	assert(i == 2);
 
+	/* Check whether adding elements to the head works as intended */
+	DQUEUE_INIT(&tq);
+	DQUEUE_ADD_HEAD(&tq, &ti[0]);
+	DQUEUE_ADD_HEAD(&tq, &ti[1]);
+	DQUEUE_ADD_HEAD(&tq, &ti[2]);
+	DQUEUE_ADD_HEAD(&tq, &ti[3]);
+	DQUEUE_ADD_HEAD(&tq, &ti[4]);
+	i = 5;
+	DQUEUE_FOREACH(&tq, iter, struct test_item) {
+		assert(iter == &ti[i - 1]);
+		i--;
+	}
+	assert(i == 0);
+	DQUEUE_FOREACH_REVERSE(&tq, iter, struct test_item) {
+		assert(iter == &ti[i]);
+		i++;
+	}
+	assert(i == 5);
+
 	return 0;
 }
 
