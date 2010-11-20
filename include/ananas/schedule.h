@@ -3,9 +3,9 @@
 #ifndef __SCHEDULE_H__
 #define __SCHEDULE_H__
 
-void reschedule();
-void md_reschedule();
 void schedule();
+void md_reschedule();
+#define reschedule md_reschedule
 void scheduler_activate();
 void scheduler_deactivate();
 int scheduler_activated();
