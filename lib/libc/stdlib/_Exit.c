@@ -12,6 +12,11 @@
 #ifndef REGTEST
 #include <_PDCLIB/_PDCLIB_glue.h>
 
+void _exit(int status)
+{
+	return _Exit(status);
+}
+
 void _Exit( int status )
 {
     /* TODO: Flush and close open streams. Remove tmpfile() files. Make this
