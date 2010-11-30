@@ -10,55 +10,56 @@
 
 TRACE_SETUP;
 
-#define NUM_HANDLES 1000 /* XXX shouldn't be static */
-#undef DEBUG_CLONE
-#undef DEBUG_WAIT
-#undef DEBUG_SIGNAL
+#define TRACE(x...)
 
-static struct HANDLE* handle_pool = NULL;
-static struct SPINLOCK spl_handlepool = { 0 };
+#define NUM_HANDLES 1000 /* XXX shouldn't be static */
+
+static struct HANDLE_QUEUE handle_freelist;
+static struct SPINLOCK spl_handlequeue;
 static void *handle_memory_start = NULL;
 static void *handle_memory_end = NULL;
 
 void
 handle_init()
 {
-	handle_pool = kmalloc(sizeof(struct HANDLE) * (NUM_HANDLES + 1));
+	struct HANDLE* pool = kmalloc(sizeof(struct HANDLE) * (NUM_HANDLES + 1));
+	spinlock_init(&spl_handlequeue);
+
 	/*
 	 * Ensure handle pool is aligned; this makes checking for valid handles
 	 * easier.
 	 */
-	handle_pool = (struct HANDLE*)((addr_t)handle_pool + (sizeof(struct HANDLE) - (addr_t)handle_pool % sizeof(struct HANDLE)));
-	memset(handle_pool, 0, sizeof(struct HANDLE) * NUM_HANDLES);
+	pool = (struct HANDLE*)((addr_t)pool + (sizeof(struct HANDLE) - (addr_t)pool % sizeof(struct HANDLE)));
+	memset(pool, 0, sizeof(struct HANDLE) * NUM_HANDLES);
 
+	/* Add all handles to the queue one by one */
+	DQUEUE_INIT(&handle_freelist);
 	for (unsigned int i = 0; i < NUM_HANDLES; i++) {
-		if (i < NUM_HANDLES - 1)
-			handle_pool[i].next = &handle_pool[i + 1];
-		if (i > 0)
-			handle_pool[i].prev = &handle_pool[i - 1];
-		spinlock_init(&handle_pool[i].spl_handle);
+		struct HANDLE* h = &pool[i];
+		DQUEUE_ADD_TAIL(&handle_freelist, h);
+		spinlock_init(&h->spl_handle);
 	}
 
-	handle_memory_start = handle_pool;
-	handle_memory_end   = (char*)handle_pool + sizeof(struct HANDLE) * NUM_HANDLES;
+	/* Store the handle pool range; this allows us to quickly verify whether a handle is valid */
+	handle_memory_start = pool;
+	handle_memory_end   = (char*)pool + sizeof(struct HANDLE) * NUM_HANDLES;
 }
 
 errorcode_t
 handle_alloc(int type, struct THREAD* t, struct HANDLE** out)
 {
-	KASSERT(handle_pool != NULL, "handle_alloc() without pool");
+	KASSERT(handle_memory_start != NULL, "handle_alloc() without pool");
+	KASSERT(t != NULL, "handle_alloc() without thread");
 
 	/* Grab a handle from the pool */
-	spinlock_lock(&spl_handlepool);
-	struct HANDLE* handle = handle_pool;
-	if (handle == NULL) {
+	spinlock_lock(&spl_handlequeue);
+	if (DQUEUE_EMPTY(&handle_freelist)) {
 		/* XXX should we wait for a new handle, or just give an error? */
 		panic("out of handles");
 	}
-	if (handle->next != NULL)
-		handle->next->prev = NULL;
-	handle_pool = handle->next;
-	spinlock_unlock(&spl_handlepool);
+	struct HANDLE* handle = DQUEUE_HEAD(&handle_freelist);
+	DQUEUE_POP_HEAD(&handle_freelist);
+	spinlock_unlock(&spl_handlequeue);
 
 	/* Sanity checks */
 	KASSERT(handle->type == HANDLE_TYPE_UNUSED, "handle from pool must be unused");
@@ -66,18 +67,11 @@ handle_alloc(int type, struct THREAD* t, struct HANDLE** out)
 	/* Hook the handle to the thread */
 	handle->type = type;
 	handle->thread = t;
-	handle->prev = NULL;
 
-	if (t != NULL) {
-		/* XXX lock thread */
-		handle->next = t->handle;
-		if (t->handle != NULL)
-			t->handle->prev = handle;
-	t->handle = handle;
-		/* XXX unlock thread */
-	} else {
-		handle->next = NULL;
-	}
+	/* Hook the handle to the thread queue */
+	spinlock_lock(&t->spl_thread);
+	DQUEUE_ADD_TAIL(&t->handles, handle);
+	spinlock_unlock(&t->spl_thread);
 
 	KASSERT(((addr_t)handle % sizeof(struct HANDLE)) == 0, "handle address %p is not 0x%x byte aligned", (addr_t)handle, sizeof(struct HANDLE));
 	*out = handle;
@@ -85,35 +79,51 @@ handle_alloc(int type, struct THREAD* t, struct HANDLE** out)
 }
 
 errorcode_t
-handle_free(struct HANDLE* handle)
+handle_destroy(struct HANDLE* handle, int free_resources)
 {
 	KASSERT(handle->type != HANDLE_TYPE_UNUSED, "freeing free handle");
+	TRACE("handle_destroy(): handle=%p, free_resource=%u\n", handle, free_resources);
 
-	/* Remove us from the handle context */
-	if (handle->prev != NULL)
-		handle->prev->next = handle->next;
-	if (handle->next != NULL)
-		handle->next->prev = handle->prev;
+	/* Remove us from the thread handle queue, if necessary */
+	if (handle->thread != NULL) {
+		spinlock_lock(&handle->thread->spl_thread);
+		DQUEUE_REMOVE(&handle->thread->handles, handle);
+		spinlock_unlock(&handle->thread->spl_thread);
+	}
 
-	/* XXX lock thread */
-	/* Remove us from the thread's handle context */
-	if (handle->thread != NULL && handle->thread->handle == handle) {
-		handle->thread->handle = handle->next;
+	/* If we need to free our resources, do so */
+	if (free_resources) {
+		switch(handle->type) {
+			case HANDLE_TYPE_FILE: {
+				/* If we have a backing inode, release it - this will free it if needed */
+				struct VFS_INODE* inode = handle->data.vfs_file.inode;
+				if (inode != NULL)
+					vfs_release_inode(inode);
+				break;
+			}
+			case HANDLE_TYPE_THREAD: {
+				struct THREAD* t = handle->data.thread;
+				KASSERT(t != NULL, "no backing thread");
+				thread_free(t);
+				thread_destroy(t);
+				break;
+			}
+			case HANDLE_TYPE_MEMORY: {
+				thread_free_mapping(handle->thread, handle->data.memory.mapping);
+				break;
+			}
+		}
 	}
 
 	/* Clear the handle */
 	memset(&handle->data, 0, sizeof(handle->data));
 	handle->type = HANDLE_TYPE_UNUSED; /* just to ensure the value matches */
 	handle->thread = NULL;
-	handle->prev = NULL;
 
 	/* Hand it back to the the pool */
-	spinlock_lock(&spl_handlepool);
-	handle->next = handle_pool;
-	if (handle_pool != NULL)
-		handle_pool->prev = handle;
-	handle_pool = handle;
-	spinlock_unlock(&spl_handlepool);
+	spinlock_lock(&spl_handlequeue);
+	DQUEUE_ADD_TAIL(&handle_freelist, handle);
+	spinlock_unlock(&spl_handlequeue);
 	return ANANAS_ERROR_OK;
 }
 
@@ -142,7 +152,7 @@ handle_isvalid(struct HANDLE* handle, struct THREAD* t, int type)
 }
 
 errorcode_t
-handle_clone(struct HANDLE* handle, struct HANDLE** out)
+handle_clone(struct THREAD* t, struct HANDLE* handle, struct HANDLE** out)
 {
 	errorcode_t err;
 
@@ -153,12 +163,30 @@ handle_clone(struct HANDLE* handle, struct HANDLE** out)
 			err = thread_clone(handle->thread, 0, &newthread);
 			spinlock_unlock(&handle->spl_handle);
 			ANANAS_ERROR_RETURN(err);
-#ifdef DEBUG_CLONE
-			kprintf("newthread handle = %x\n", newthread->thread_handle);
-#endif
+			TRACE("newthread handle = %x\n", newthread->thread_handle);
 			*out = newthread->thread_handle;
 			return ANANAS_ERROR_OK;
 		}
+		case HANDLE_TYPE_FILE: {
+			/*
+			 * If the handle has a backing inode reference, we have to increase it's
+			 * reference count as we, too, depend on it. Closing the handle
+			 * will release the inode, which will remove it if needed.
+			 */
+			struct VFS_INODE* inode = handle->data.vfs_file.inode;
+			if (inode != NULL)
+				vfs_ref_inode(inode);
+
+			/* Now, just copy the handle data over */
+			struct HANDLE* newhandle;
+			err = handle_alloc(handle->type, t, &newhandle);
+			ANANAS_ERROR_RETURN(err);
+			memcpy(&newhandle->data, &handle->data, sizeof(handle->data));
+			spinlock_unlock(&handle->spl_handle);
+			*out = newhandle;
+			return ANANAS_ERROR_OK;
+		}
+#if 0
 		default: {
 			struct HANDLE* newhandle;
 			err = handle_alloc(handle->type, handle->thread, &newhandle);
@@ -168,6 +196,9 @@ handle_clone(struct HANDLE* handle, struct HANDLE** out)
 			*out = newhandle;
 			return ANANAS_ERROR_OK;
 		}
+#endif
+		default:
+			panic("handle_clone(): unimplemented type %u\n", handle->type);
 	}
 	/* NOTREACHED */
 }
@@ -175,9 +206,7 @@ handle_clone(struct HANDLE* handle, struct HANDLE** out)
 errorcode_t
 handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event, handle_event_result_t* result)
 {
-#ifdef DEBUG_WAIT
-	kprintf("handle_wait(t=%p): handle=%p, event=%p\n", thread, handle, event);
-#endif
+	TRACE("handle_wait(t=%p): handle=%p, event=%p\n", thread, handle, event);
 
 	spinlock_lock(&handle->spl_handle);
 
@@ -195,9 +224,7 @@ handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event,
 		*event = THREAD_EVENT_EXIT;
 		*result = handle->data.thread->terminate_info;
 		spinlock_unlock(&handle->spl_handle);
-#ifdef DEBUG_WAIT
-		kprintf("handle_wait(t=%p): done, thread already gone\n", thread);
-#endif
+		TRACE("handle_wait(t=%p): done, thread already gone\n", thread);
 		return ANANAS_ERROR_OK;
 	}
 
@@ -224,18 +251,14 @@ handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event,
 	handle->waiters[waiter_id].thread = NULL;
 	spinlock_unlock(&handle->spl_handle);
 
-#ifdef DEBUG_WAIT
-	kprintf("handle_wait(t=%p): done\n", thread);
-#endif
+	TRACE("handle_wait(t=%p): done\n", thread);
 	return ANANAS_ERROR_OK;
 }
 
 void
 handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t result)
 {
-#ifdef DEBUG_SIGNAL
-	kprintf("handle_signal(): handle=%p, event=%p, result=0x%x\n", handle, event, result);
-#endif
+	TRACE("handle_signal(): handle=%p, event=%p, result=0x%x\n", handle, event, result);
 	spinlock_lock(&handle->spl_handle);
 	for (int waiter_id = 0; waiter_id <  HANDLE_MAX_WAITERS; waiter_id++) {
 		if (handle->waiters[waiter_id].thread == NULL)
@@ -248,9 +271,7 @@ handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t
 		thread_resume(handle->waiters[waiter_id].thread);
 	}
 	spinlock_unlock(&handle->spl_handle);
-#ifdef DEBUG_SIGNAL
-	kprintf("handle_signal(): done\n");
-#endif
+	TRACE("handle_signal(): done\n");
 }
 
 /* vim:set ts=2 sw=2: */

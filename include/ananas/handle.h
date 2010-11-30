@@ -2,6 +2,7 @@
 #define __SYS_HANDLE_H__
 
 #include <ananas/lock.h>
+#include <ananas/dqueue.h>
 #include <ananas/vfs.h>
 
 typedef unsigned int handle_event_t;
@@ -31,6 +32,7 @@ struct HANDLE_WAITER {
 };
 
 struct HANDLE_MEMORY_INFO {
+	struct THREAD_MAPPING* mapping;
 	void* addr;
 	size_t length;
 };
@@ -38,8 +40,8 @@ struct HANDLE_MEMORY_INFO {
 struct HANDLE {
 	int type;
 	struct THREAD* thread;			/* owning thread */
-	struct HANDLE *prev, *next;		/* chain */
 	struct SPINLOCK spl_handle;		/* spinlock guarding the handle */
+	DQUEUE_FIELDS(struct HANDLE);		/* used for the queue structure */
 
 	/* Waiters are those who are waiting on this handle */
 	struct HANDLE_WAITER waiters[HANDLE_MAX_WAITERS];
@@ -50,13 +52,18 @@ struct HANDLE {
 	} data;
 };
 
+DQUEUE_DEFINE(HANDLE_QUEUE, struct HANDLE);
+
 void handle_init();
 errorcode_t handle_alloc(int type, struct THREAD* t, struct HANDLE** out);
-errorcode_t handle_free(struct HANDLE* handle);
+errorcode_t handle_destroy(struct HANDLE* handle, int free_resources);
 errorcode_t handle_isvalid(struct HANDLE* handle, struct THREAD* t, int type);
-errorcode_t handle_clone(struct HANDLE* in, struct HANDLE** out);
+errorcode_t handle_clone(struct THREAD* t, struct HANDLE* in, struct HANDLE** out);
 
 errorcode_t handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event, handle_event_result_t* h);
 void handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t result);
+
+#define handle_free(handle) \
+	handle_destroy((handle), 1)
 
 #endif /* __SYS_HANDLE_H__ */
