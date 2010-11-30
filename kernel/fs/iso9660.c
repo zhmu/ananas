@@ -29,6 +29,8 @@ struct ISO9660_INODE_PRIVDATA {
 static struct VFS_INODE_OPS iso9660_dir_ops;
 static struct VFS_INODE_OPS iso9660_file_ops;
 
+static struct VFS_INODE* iso9660_alloc_inode(struct VFS_MOUNTED_FS* fs);
+
 #if 0
 static void
 iso9660_dump_dirent(struct ISO9660_DIRECTORY_ENTRY* e)
@@ -80,7 +82,7 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs)
 		kprintf("iso9660: root entry corrupted\n");
 		goto fail;
 	}
-  fs->root_inode = vfs_alloc_inode(fs);
+  fs->root_inode = iso9660_alloc_inode(fs);
 	fs->block_size = ISO9660_GET_WORD(pvd->pv_blocksize);
 	fs->fsop_size = sizeof(uint64_t);
 
@@ -146,7 +148,7 @@ iso9660_alloc_inode(struct VFS_MOUNTED_FS* fs)
 }
 
 static void
-iso9660_free_inode(struct VFS_INODE* inode)
+iso9660_destroy_inode(struct VFS_INODE* inode)
 {
 	kfree(inode->privdata);
 	vfs_destroy_inode(inode);
@@ -277,7 +279,7 @@ static struct VFS_INODE_OPS iso9660_file_ops = {
 struct VFS_FILESYSTEM_OPS fsops_iso9660 = {
 	.mount = iso9660_mount,
 	.alloc_inode = iso9660_alloc_inode,
-	.free_inode = iso9660_free_inode,
+	.destroy_inode = iso9660_destroy_inode,
 	.read_inode = iso9660_read_inode
 };
 

@@ -100,9 +100,10 @@ fat_alloc_inode(struct VFS_MOUNTED_FS* fs)
 }
 
 static void
-fat_free_inode(struct VFS_INODE* inode)
+fat_destroy_inode(struct VFS_INODE* inode)
 {
 	kfree(inode->privdata);
+	vfs_destroy_inode(inode);
 }
 
 /*
@@ -533,7 +534,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 	/* Everything is in order - fill out our filesystem details */
   fs->block_size = privdata->sector_size;
   fs->fsop_size = sizeof(uint64_t);
-  fs->root_inode = vfs_alloc_inode(fs);
+  fs->root_inode = fat_alloc_inode(fs);
 	uint64_t root_fsop = FAT_ROOTINODE_FSOP;
 	errorcode_t err = fat_read_inode(fs->root_inode, &root_fsop);
 	if (err != ANANAS_ERROR_NONE) {
@@ -546,7 +547,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 struct VFS_FILESYSTEM_OPS fsops_fat = {
 	.mount = fat_mount,
 	.alloc_inode = fat_alloc_inode,
-	.free_inode = fat_free_inode,
+	.destroy_inode = fat_destroy_inode,
 	.read_inode = fat_read_inode
 };
 

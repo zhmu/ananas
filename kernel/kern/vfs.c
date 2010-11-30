@@ -4,43 +4,54 @@
 #include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
+#include <ananas/schedule.h>
 #include <ananas/trace.h>
 #include <ananas/vfs.h>
 #include "options.h"
 
 TRACE_SETUP;
+#define TRACE(x...)
 
 #define VFS_MOUNTED_FS_MAX	16
 
+struct SPINLOCK spl_mountedfs;
 struct VFS_MOUNTED_FS mountedfs[VFS_MOUNTED_FS_MAX];
 
 void
 vfs_init()
 {
 	memset(mountedfs, 0, sizeof(mountedfs));
+	spinlock_init(&spl_mountedfs);
 }
 
 static struct VFS_MOUNTED_FS*
 vfs_get_availmountpoint()
 {
+	spinlock_lock(&spl_mountedfs);
 	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {
 		struct VFS_MOUNTED_FS* fs = &mountedfs[n];
-		/* XXX lock etc */
-		if (fs->mountpoint == NULL)
+		if ((fs->flags & VFS_FLAG_INUSE) == 0) {
+			fs->flags |= VFS_FLAG_INUSE;
+			spinlock_unlock(&spl_mountedfs);
 			return fs;
+		}
 	}
+	spinlock_unlock(&spl_mountedfs);
 	return NULL;
 }
 
 static struct VFS_MOUNTED_FS*
 vfs_get_rootfs()
 {
+	spinlock_lock(&spl_mountedfs);
 	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {
 		struct VFS_MOUNTED_FS* fs = &mountedfs[n];
-		/* XXX lock etc */
-		if (fs->mountpoint != NULL && strcmp(fs->mountpoint, "/") == 0)
+		if ((fs->flags & VFS_FLAG_INUSE) && (fs->mountpoint != NULL) && (strcmp(fs->mountpoint, "/") == 0)) {
+			spinlock_unlock(&spl_mountedfs);
 			return fs;
+		}
 	}
+	spinlock_unlock(&spl_mountedfs);
 	return NULL;
 }
 
@@ -82,16 +93,42 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 		return ANANAS_ERROR(NO_FILE);
 
 	fs->device = dev;
-	fs->mountpoint = strdup(to);
 	fs->fsops = fsops;
+	icache_init(fs);
 
-	int ret = fs->fsops->mount(fs);
-	if (ret != ANANAS_ERROR_NONE) {
-		kfree((void*)fs->mountpoint);
+	errorcode_t err = fs->fsops->mount(fs);
+	if (err != ANANAS_ERROR_NONE) {
+		icache_destroy(fs);
 		memset(fs, 0, sizeof(*fs));
+		return err;
 	}
-	
-	return ret;
+	TRACE("vfs_mount(): rootinode=%p\n", fs->root_inode);
+
+	KASSERT(fs->root_inode != NULL, "successful mount without a root inode");
+	KASSERT(S_ISDIR(fs->root_inode->sb.st_mode), "root inode isn't a directory");
+	/* The refcount must be two: one for the fs->root_inode reference and one for the cache */
+	KASSERT(fs->root_inode->refcount == 2, "bad refcount of root inode (must be 2, is %u)", fs->root_inode->refcount);
+	fs->mountpoint = strdup(to);
+	return ANANAS_ERROR_OK;
+}
+
+errorcode_t
+vfs_unmount(const char* path)
+{
+	spinlock_lock(&spl_mountedfs);
+	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {
+		struct VFS_MOUNTED_FS* fs = &mountedfs[n];
+		if ((fs->flags & VFS_FLAG_INUSE) && (fs->mountpoint != NULL) && (strcmp(fs->mountpoint, path) == 0)) {
+			/* Got it; disown it immediately. XXX What about pending inodes etc? */
+			fs->mountpoint = NULL;
+			spinlock_unlock(&spl_mountedfs);
+			/* XXX Ask filesystem politely to unmount */
+			fs->flags = 0; /* Available */
+			return ANANAS_ERROR_OK;
+		}
+	}
+	spinlock_unlock(&spl_mountedfs);
+	return ANANAS_ERROR(BAD_HANDLE); /* XXX */
 }
 
 struct VFS_INODE*
@@ -99,12 +136,16 @@ vfs_make_inode(struct VFS_MOUNTED_FS* fs)
 {
 	struct VFS_INODE* inode = kmalloc(sizeof(struct VFS_INODE));
 
+	/* Set up the basic inode information */
 	memset(inode, 0, sizeof(*inode));
+	spinlock_init(&inode->spl_inode);
+	inode->refcount++;
 	inode->fs = fs;
 	/* Fill out the stat fields we can */
 	inode->sb.st_dev = (dev_t)fs->device;
 	inode->sb.st_rdev = (dev_t)fs->device;
 	inode->sb.st_blksize = fs->block_size;
+	TRACE("vfs_make_inode(): inode=%p, refcount=%u\n", inode, inode->refcount);
 	return inode;
 }
 
@@ -113,6 +154,7 @@ vfs_dump_inode(struct VFS_INODE* inode)
 {
 	struct stat* sb = &inode->sb;
 	kprintf("ino     = %u\n", sb->st_ino);
+	kprintf("refcount= %u\n", inode->refcount);
 	kprintf("mode    = 0x%x\n", sb->st_mode);
 	kprintf("uid/gid = %u:%u\n", sb->st_uid, sb->st_gid);
 	kprintf("size    = %u\n", (uint32_t)sb->st_size); /* XXX for now */
@@ -125,7 +167,7 @@ vfs_destroy_inode(struct VFS_INODE* inode)
 	kfree(inode);
 }
 
-struct VFS_INODE*
+static struct VFS_INODE*
 vfs_alloc_inode(struct VFS_MOUNTED_FS* fs)
 {
 	struct VFS_INODE* inode;
@@ -139,13 +181,28 @@ vfs_alloc_inode(struct VFS_MOUNTED_FS* fs)
 }
 
 void
-vfs_free_inode(struct VFS_INODE* inode)
+vfs_release_inode_locked(struct VFS_INODE* inode)
 {
+	TRACE("vfs_release_inode_locked(): inode=%p,cur refcount=%u\n", inode, inode->refcount);
+	if (--inode->refcount > 0) {
+		/* Refcount isn't zero; don't throw the inode away */
+		spinlock_unlock(&inode->spl_inode);
+		return;
+	}
+
+	/* Note: we never unlock - the inode does not exist past here */
 	if (inode->fs->fsops->alloc_inode != NULL) {
-		inode->fs->fsops->free_inode(inode);
+		inode->fs->fsops->destroy_inode(inode);
 	} else {
 		vfs_destroy_inode(inode);
 	}
+}
+
+void
+vfs_release_inode(struct VFS_INODE* inode)
+{
+	spinlock_lock(&inode->spl_inode);
+	vfs_release_inode_locked(inode);
 }
 
 struct BIO*
@@ -157,14 +214,45 @@ vfs_bread(struct VFS_MOUNTED_FS* fs, block_t block, size_t len)
 errorcode_t
 vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinode)
 {
+	
+	struct ICACHE_ITEM* ii = NULL;
+
+	/*
+	 * Wait until we obtain a cache spot - this waits for pending inodes to be
+	 * finished up.
+	 */
+	while(1) {
+		ii = icache_find_item_or_add_pending(fs, fsop);
+		if (ii != NULL)
+			break;
+		TRACE("vfs_get_inode(): fsop is already pending, waiting...\n");
+		/* XXX There should be a wakeup signal of some kind */
+		reschedule();
+	}
+
+	if (ii->inode != NULL) {
+		/* Already have the inode cached -> return it (refcount will already be incremented) */
+		*destinode = ii->inode;
+		return ANANAS_ERROR_OK;
+	}
+
+	/*
+	 * Must read the inode; if this fails, we have to ask the cache to remove the
+	 * pending item. Because multiple callers for the same FSOP will not reach
+	 * this point (they keep rescheduling, waiting for us to deal with it)
+	 */
 	struct VFS_INODE* inode = vfs_alloc_inode(fs);
-	if (inode == NULL)
+	if (inode == NULL) {
+		icache_remove_pending(fs, ii);
 		return ANANAS_ERROR(OUT_OF_HANDLES);
+	}
 	errorcode_t result = fs->fsops->read_inode(inode, fsop);
 	if (result != ANANAS_ERROR_NONE) {
-		vfs_free_inode(inode);
+		vfs_release_inode(inode);
 		return result;
 	}
+	icache_set_pending(fs, ii, inode);
+	ii->inode = inode;
 	*destinode = inode;
 	return ANANAS_ERROR_OK;
 }
@@ -200,7 +288,14 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 	if (curinode == NULL)
 		return ANANAS_ERROR(NO_FILE);
 
-	struct VFS_INODE* lookup_root_inode = curinode;
+	/*
+	 * Explicitely reference the inode; this is normally done by the VFS lookup
+	 * function when it returns an inode, but we need some place to start. The
+	 * added benefit is that we won't need any exceptions, as we can just free
+	 * any inode that doesn't work.
+	 */
+	vfs_ref_inode(curinode);
+
 	const char* curdentry = dentry;
 	const char* curlookup;
 	while (curdentry != NULL && *curdentry != '\0' /* for trailing /-es */) {
@@ -229,8 +324,7 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 		 * refuse if this isn't the case.
 		 */
 		if (S_ISDIR(curinode->sb.st_mode) == 0) {
-			if (lookup_root_inode != curinode)
-				vfs_free_inode(curinode);
+			vfs_release_inode(curinode);
 			return ANANAS_ERROR(NO_FILE);
 		}
 
@@ -240,9 +334,8 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 		 * since we special-case "." above).
 		 */
 		struct VFS_INODE* inode;
-		int err = curinode->iops->lookup(curinode, &inode, curlookup);
-		if (lookup_root_inode != curinode)
-			vfs_free_inode(curinode);
+		errorcode_t err = curinode->iops->lookup(curinode, &inode, curlookup);
+		vfs_release_inode(curinode);
 		ANANAS_ERROR_RETURN(err);
 
 		curinode = inode;
@@ -255,7 +348,7 @@ errorcode_t
 vfs_open(const char* fname, struct VFS_INODE* cwd, struct VFS_FILE* file)
 {
 	struct VFS_INODE* inode;
-	int err = vfs_lookup(cwd, &inode, fname);
+	errorcode_t err = vfs_lookup(cwd, &inode, fname);
 	ANANAS_ERROR_RETURN(err);
 
 	memset(file, 0, sizeof(struct VFS_FILE));
@@ -268,7 +361,7 @@ errorcode_t
 vfs_close(struct VFS_FILE* file)
 {
 	if(file->inode != NULL)
-		vfs_free_inode(file->inode);
+		vfs_release_inode(file->inode);
 	file->inode = NULL; file->device = NULL;
 	return ANANAS_ERROR_OK;
 }
@@ -361,6 +454,30 @@ vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, cons
 	memcpy(de->de_fsop + fsoplen, name, namelen);
 	de->de_fsop[fsoplen + namelen] = '\0'; /* zero terminate */
 	return de_length;
+}
+
+void
+vfs_ref_inode(struct VFS_INODE* inode)
+{
+	TRACE("vfs_ref_inode(): inode=%p,cur refcount=%u\n", inode, inode->refcount);
+	spinlock_lock(&inode->spl_inode);
+	KASSERT(inode->refcount > 0, "referencing a dead inode");
+	inode->refcount++;
+	spinlock_unlock(&inode->spl_inode);
+}
+
+void
+vfs_dump()
+{
+	spinlock_lock(&spl_mountedfs);
+	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {
+		struct VFS_MOUNTED_FS* fs = &mountedfs[n];
+		if ((fs->flags & VFS_FLAG_INUSE) == 0)
+			continue;
+		kprintf(">> vfs=%p, flags=0x%x, mountpoint='%s'\n", fs, fs->flags, fs->mountpoint);
+		icache_dump(fs);
+	}
+	spinlock_unlock(&spl_mountedfs);
 }
 
 /* vim:set ts=2 sw=2: */

@@ -77,7 +77,7 @@ ext2_alloc_inode(struct VFS_MOUNTED_FS* fs)
 }
 
 static void
-ext2_free_inode(struct VFS_INODE* inode)
+ext2_destroy_inode(struct VFS_INODE* inode)
 {
 	kfree(inode->privdata);
 	vfs_destroy_inode(inode);
@@ -390,9 +390,8 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 #endif
 
 	/* Read the root inode */
-	fs->root_inode = vfs_alloc_inode(fs);
 	uint32_t root_fsop = EXT2_ROOT_INO;
-	errorcode_t err = ext2_read_inode(fs->root_inode, &root_fsop);
+	errorcode_t err = vfs_get_inode(fs, &root_fsop, &fs->root_inode);
 	if (err != ANANAS_ERROR_NONE) {
 		kfree(privdata);
 		return err;
@@ -403,7 +402,7 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 struct VFS_FILESYSTEM_OPS fsops_ext2 = {
 	.mount = ext2_mount,
 	.alloc_inode = ext2_alloc_inode,
-	.free_inode = ext2_free_inode,
+	.destroy_inode = ext2_destroy_inode,
 	.read_inode = ext2_read_inode
 };
 

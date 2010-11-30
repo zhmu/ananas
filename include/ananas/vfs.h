@@ -1,5 +1,6 @@
 #include <ananas/types.h>
 #include <ananas/device.h>
+#include <ananas/icache.h>
 #include <ananas/stat.h>
 
 #ifndef __SYS_VFS_H__
@@ -12,9 +13,14 @@ struct VFS_INODE_OPS;
 struct VFS_FILESYSTEM_OPS;
 
 /*
- * VFS_INODE refers to an inode.
+ * VFS_INODE refers to an inode; it must be locked before any fields can
+ * be updated. The refcount protects the inode from disappearing while
+ * it is still being used.
  */
 struct VFS_INODE {
+	struct SPINLOCK	spl_inode;		/* Spinlock protecting inode */
+	refcount_t	refcount;		/* Refcount, must be >=1 */
+
 	struct stat sb;				/* Inode information */
 	struct VFS_INODE_OPS* iops;		/* Inode operations */
 
@@ -52,20 +58,35 @@ struct VFS_DIRENT {
 #define DE_FSOP(x) (&((x)->de_fsop))
 #define DE_NAME(x) (&((x)->de_fsop[(x)->de_fsop_length]))
 
-
 /*
  * VFS_MOUNTED_FS is used to refer to a mounted filesystem. Note that
  * we will also use it during the filesystem-operations mount() call.
+ *
+ * Fields marked with (R) are readonly and must never be changed after
+ * mounting.
  */
 struct VFS_MOUNTED_FS {
-	device_t	device;			/* Device where the filesystem lives */
-	const char*	mountpoint;		/* Mount point */
-	uint32_t	block_size;		/* Block size */
-	uint8_t		fsop_size;		/* FSOP identifier length */
-	void*		privdata;		/* Private filesystem data */
- 
-	struct VFS_FILESYSTEM_OPS* fsops;	/* Filesystem operations */
-	struct VFS_INODE* root_inode;		/* Filesystem's root inode */
+	struct SPINLOCK	spl_fs;			/* Protects fields marked with (F) */
+	device_t	device;			/* (F) Device where the filesystem lives */
+	unsigned int	flags;			/* (F) Filesystem flags */
+#define VFS_FLAG_INUSE    0x0001		/* Filesystem entry is in use */
+#define VFS_FLAG_READONLY 0x0002		/* Filesystem is readonly */
+	const char*	mountpoint;		/* (R) Mount point */
+	uint32_t	block_size;		/* (R) Block size */
+	uint8_t		fsop_size;		/* (R) FSOP identifier length */
+	void*		privdata;		/* (R) Private filesystem data */
+
+	/*
+	 * Below are the inode cache fields; the spinlock protecting them,
+	 * and the in-use cache and free list.
+	 */
+	struct SPINLOCK		spl_icache;	/* Protects fields marked with (I) */
+	struct ICACHE_QUEUE	icache_inuse;	/* (I) Currently used inodes */
+	struct ICACHE_QUEUE	icache_free;	/* (I) Available inode list */
+	void*			icache_buffer;	/* (I) Inode cache buffer, for cleanup */
+
+	struct VFS_FILESYSTEM_OPS* fsops;	/* (R) Filesystem operations */
+	struct VFS_INODE* root_inode;		/* (R) Filesystem's root inode */
 };
 
 /*
@@ -82,20 +103,21 @@ struct VFS_FILESYSTEM_OPS {
 	/*
 	 * Allocate an inode. The purpose for this function is to initialize
 	 * the 'privdata' field of the inode - the function should call
-	 * vfs_make_inode() to obtain the new inode.
+	 * vfs_make_inode() to obtain the new, locked inode.
 	 */
 	struct VFS_INODE* (*alloc_inode)(struct VFS_MOUNTED_FS* fs);
 
 	/*
-	 * Free an inode. The purpose for this function is to deinitialize
+	 * Destroy a locked inode. The purpose for this function is to deinitialize
 	 * the 'privdata' field of the inode. The function should end by
-	 * calling vfs_destroy_inode() to remove the inode.
+	 * calling vfs_destroy_inode() to remove the inode itself.
 	 */
-	void (*free_inode)(struct VFS_INODE* inode);
+	void (*destroy_inode)(struct VFS_INODE* inode);
 
 	/*
-	 * Read an inode from disk; inode is pre-allocated using alloc_inode().
-	 * The 'fs' field of the inode is guaranteed to be filled out.
+	 * Read an inode from disk; inode is locked and pre-allocated using
+	 * alloc_inode().  The 'fs' field of the inode is guaranteed to be
+	 * filled out.
 	 */
 	errorcode_t (*read_inode)(struct VFS_INODE* inode, void* fsop);
 };
@@ -129,12 +151,42 @@ void vfs_init();
 errorcode_t vfs_mount(const char* from, const char* to, const char* type, void* options);
 struct BIO* vfs_bread(struct VFS_MOUNTED_FS* fs, block_t block, size_t len);
 
-/* Low-level interface */
-struct VFS_INODE* vfs_alloc_inode(struct VFS_MOUNTED_FS* fs);
+/* Low-level interface - designed for filesystem use (must not be used otherwise) */
+
+/*
+ * Creates a new, empty inode for the given filesystem. The corresponding inode is
+ * locked, has a refcount of one and must be filled by the filesystem before
+ * unlocking.
+ */
 struct VFS_INODE* vfs_make_inode(struct VFS_MOUNTED_FS* fs);
-void vfs_free_inode(struct VFS_INODE* inode);
+
+/*
+ * Destroys a locked inode; this should be called by the filesystem's
+ * 'destroy_inode' function.
+ */
 void vfs_destroy_inode(struct VFS_INODE* inode);
+
+/* Internal interface only */
+void vfs_release_inode_locked(struct VFS_INODE* inode);
+void vfs_dump_inode(struct VFS_INODE* inode);
+
+/* Low-level interface */
+/*
+ * Obtains an inode for a given FSOP. The destination inode will have a reference count of
+ * at least 2 (one for the caller, and one for the cache).
+ */
 errorcode_t vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinode);
+
+/*
+ * Removes an inode reference; cleans up the inode if the refcount is zero.
+ */
+void vfs_release_inode(struct VFS_INODE* inode);
+
+/*
+ * Explicitely add a reference to a given inode.
+ */
+void vfs_ref_inode(struct VFS_INODE* inode);
+
 errorcode_t vfs_lookup(struct VFS_INODE* cwd, struct VFS_INODE** destinode, const char* dentry);
 
 /* Higher-level interface */

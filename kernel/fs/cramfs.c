@@ -55,6 +55,8 @@ struct CRAMFS_INODE_PRIVDATA {
 static unsigned char temp_buf[CRAMFS_PAGE_SIZE * 2]; /* XXX */
 static unsigned char decompress_buf[CRAMFS_PAGE_SIZE + 4]; /* XXX */
 
+static struct VFS_INODE* cramfs_alloc_inode(struct VFS_MOUNTED_FS* fs);
+
 static errorcode_t
 cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
@@ -276,7 +278,7 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs)
 	/* Everything is ok; fill out the filesystem details */
 	fs->block_size = 512;
 	fs->fsop_size = sizeof(uint32_t);
-	fs->root_inode = vfs_alloc_inode(fs);
+	fs->root_inode = cramfs_alloc_inode(fs);
 	cramfs_convert_inode((addr_t)&sb->c_rootinode - (addr_t)sb, &sb->c_rootinode, fs->root_inode);
 
 	/* Initialize our deflater */
@@ -318,7 +320,7 @@ cramfs_alloc_inode(struct VFS_MOUNTED_FS* fs)
 }
 
 static void
-cramfs_free_inode(struct VFS_INODE* inode)
+cramfs_destroy_inode(struct VFS_INODE* inode)
 {
 	kfree(inode->privdata);
 	vfs_destroy_inode(inode);
@@ -327,7 +329,7 @@ cramfs_free_inode(struct VFS_INODE* inode)
 struct VFS_FILESYSTEM_OPS fsops_cramfs = {
 	.mount = cramfs_mount,
 	.alloc_inode = cramfs_alloc_inode,
-	.free_inode = cramfs_free_inode,
+	.destroy_inode = cramfs_destroy_inode,
 	.read_inode = cramfs_read_inode
 };
 
