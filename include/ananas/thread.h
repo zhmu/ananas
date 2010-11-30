@@ -1,6 +1,8 @@
 #include <ananas/types.h>
+#include <ananas/dqueue.h>
 #include <ananas/vfs.h>
 #include <ananas/limits.h>
+#include <ananas/handle.h>
 #include <machine/thread.h>
 
 #ifndef __THREAD_H__
@@ -18,7 +20,11 @@ struct THREAD_MAPPING {
 	size_t		len;			/* length */
 	void*		ptr;			/* kernel ptr */
 	struct		THREAD_MAPPING* next;
+
+	DQUEUE_FIELDS(struct THREAD_MAPPING);
 };
+
+DQUEUE_DEFINE(THREAD_MAPPING_QUEUE, struct THREAD_MAPPING);
 
 struct THREAD {
 	/* Machine-dependant data - must be first */
@@ -26,10 +32,13 @@ struct THREAD {
 	struct THREAD* prev;
 	struct THREAD* next;
 
+	struct SPINLOCK spl_thread;
+
 	unsigned int flags;
 #define THREAD_FLAG_ACTIVE	0x0001	/* Thread is scheduled somewhere */
 #define THREAD_FLAG_SUSPENDED	0x0002	/* Thread is currently suspended */
 #define THREAD_FLAG_TERMINATING	0x0004	/* Thread is terminating */
+#define THREAD_FLAG_ZOMBIE	0x0008	/* Thread has no more resources */
 
 	unsigned int terminate_info;
 #define THREAD_MAKE_EXITCODE(a,b) (((a) << 24) | ((b) & 0x00ffffff))
@@ -38,12 +47,13 @@ struct THREAD {
 #define THREAD_TERM_FAILURE	0x3	/* generic failure */
 
 	addr_t next_mapping;		/* address of next mapping */
-	struct THREAD_MAPPING* mappings;
+	struct THREAD_MAPPING_QUEUE mappings;
 
 	struct THREADINFO* threadinfo;	/* Thread startup information */
-	struct HANDLE* thread_handle;	/* Handle identifying this thread */
-	struct HANDLE* handle;		/* First handle */
 
+	/* Thread handles */
+	struct HANDLE* thread_handle;	/* Handle identifying this thread */
+	struct HANDLE_QUEUE handles;	/* Handles owned by the thread */
 	struct HANDLE* path_handle;	/* Current path */
 };
 
@@ -82,6 +92,7 @@ errorcode_t thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t 
 errorcode_t thread_map(thread_t t, void* from, size_t len, uint32_t flags, struct THREAD_MAPPING** out);
 errorcode_t thread_unmap(thread_t t, void* ptr, size_t len);
 addr_t thread_find_mapping(thread_t t, void* addr);
+void thread_free_mapping(thread_t t, struct THREAD_MAPPING* tm);
 void thread_free_mappings(thread_t t);
 
 void thread_suspend(thread_t t);

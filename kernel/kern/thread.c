@@ -14,6 +14,8 @@
 
 TRACE_SETUP;
 
+#define TRACE(x...)
+
 struct THREAD* threads = NULL;
 
 errorcode_t
@@ -22,14 +24,14 @@ thread_init(thread_t t, thread_t parent)
 	errorcode_t err;
 
 	memset(t, 0, sizeof(struct THREAD));
-	t->mappings = NULL;
+	DQUEUE_INIT(&t->mappings);
 	t->flags = THREAD_FLAG_SUSPENDED;
 	err = handle_alloc(HANDLE_TYPE_THREAD, t /* XXX should be parent? */, &t->thread_handle);
 	ANANAS_ERROR_RETURN(err);
 	t->thread_handle->data.thread = t;
 
 	if (parent != NULL) {
-		err = handle_clone(parent->path_handle, &t->path_handle);
+		err = handle_clone(t, parent->path_handle, &t->path_handle);
 		if (err != ANANAS_ERROR_NONE) {
 			/*
 			 * XXX Unable to clone parent's path - what now? Our VFS isn't mature enough
@@ -68,6 +70,13 @@ thread_init(thread_t t, thread_t parent)
 		goto fail;
 	if (parent != NULL)
 		thread_set_environment(t, parent->threadinfo->ti_env, PAGE_SIZE /* XXX */);
+
+	TRACE("thread_alloc(): t=%p, stdin=%p, stdout=%p, stderr=%p\n",
+	 t,
+	 t->threadinfo->ti_handle_stdin,
+	 t->threadinfo->ti_handle_stdout,
+	 t->threadinfo->ti_handle_stderr);
+
 
 	/*
 	 * XXX hook the console as our std{in,out,err} handles; this is not correct,
@@ -110,40 +119,76 @@ thread_alloc(thread_t parent, thread_t* dest)
 }
 
 void
+thread_free_mapping(thread_t t, struct THREAD_MAPPING* tm)
+{
+	DQUEUE_REMOVE(&t->mappings, tm);
+	if (tm->flags & THREAD_MAP_ALLOC)
+		kfree((void*)tm->ptr);
+	kfree(tm);
+}
+
+void
 thread_free_mappings(thread_t t)
 {
 	/*
 	 * Free all mapped process memory, if needed. We don't bother to unmap them
 	 * in the thread's VM as it's going away anyway XXX we should for !x86
 	 */
-	struct THREAD_MAPPING* tm = t->mappings;
-	struct THREAD_MAPPING* next;
-	while (tm != NULL) {
-		if (tm->flags & THREAD_MAP_ALLOC)
-			kfree((void*)tm->ptr);
-		next = tm->next;
-		kfree(tm);
-		tm = next;
+	while(!DQUEUE_EMPTY(&t->mappings)) {
+		struct THREAD_MAPPING* tm = DQUEUE_HEAD(&t->mappings);
+		thread_free_mapping(t, tm); /* also removed the mapping */
 	}
 }
 
 void
 thread_free(thread_t t)
 {
-	/* free all thread mappings */
+	/* If the thread is already freed, do not bother */
+	if (t->flags & THREAD_FLAG_ZOMBIE)
+		return;
+
+	/*
+	 * Free all handles in use by the thread. Note that we must not free the thread
+	 * handle itself, as the thread isn't destroyed yet (we are just freeing all
+	 * resources here - the thread handle itself is necessary for obtaining the
+	 * result code etc)
+	 */
+	DQUEUE_FOREACH_SAFE(&t->handles, h, struct HANDLE) {
+		if (h == t->thread_handle)
+			continue;
+		DQUEUE_REMOVE(&t->handles, h);
+		handle_free(h);
+	}
+	KASSERT(!DQUEUE_EMPTY(&t->handles), "thread handle was not part of thread handle queue");
+
+	/*
+	 Free all thread mappings; this must be done afterwards because memory handles are
+	 * implemented as mappings and they are already gone by now
+	 */
 	thread_free_mappings(t);
 
-	/* free all handles in use by the thread */
-	while (t->handle != NULL)
-		handle_free(t->handle);
+	/*
+	 * Mark the thread as terminating if it isn't already; having to do so means
+	 * the thread's isn't exiting voluntary.
+	 */
+	if ((t->flags & THREAD_FLAG_TERMINATING) == 0) {
+		t->flags |= THREAD_FLAG_TERMINATING;
+		t->terminate_info = THREAD_MAKE_EXITCODE(THREAD_TERM_FAILURE, 0);
+		handle_signal(t->thread_handle, THREAD_EVENT_EXIT, t->terminate_info);
+	}
 
-	/* free the machine-dependant bits */
+	/* Free the machine-dependant bits */
 	md_thread_free(t);
+
+	/* Thread is alive, yet lingering... */
+	t->flags |= THREAD_FLAG_ZOMBIE;
 }
 
 void
 thread_destroy(thread_t t)
 {
+	KASSERT(t->flags & THREAD_FLAG_ZOMBIE, "thread_destroy() on a non-zombie thread");
+
 	/* XXX lock */
 	if (threads == t) {
 		threads = t->next;
@@ -154,6 +199,9 @@ thread_destroy(thread_t t)
 	}
 	/* XXX unlock */
 
+	/* Ensure the thread handle itself won't have a thread anymore */
+	t->thread_handle->thread = NULL;
+	handle_destroy(t->thread_handle, 0);
 	kfree(t);
 }
 
@@ -178,8 +226,7 @@ thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags, struc
 	tm->start = (addr_t)to;
 	tm->len = len;
 	tm->flags = flags;
-	tm->next = t->mappings;
-	t->mappings = tm;
+	DQUEUE_ADD_TAIL(&t->mappings, tm);
 
 	md_thread_map(t, to, from, len, 0);
 	*out = tm;
@@ -193,12 +240,10 @@ addr_t
 thread_find_mapping(thread_t t, void* addr)
 {
 	addr_t address = (addr_t)addr & ~(PAGE_SIZE - 1);
-	struct THREAD_MAPPING* tm = t->mappings;
-	while (tm != NULL) {
+	DQUEUE_FOREACH(&t->mappings, tm, struct THREAD_MAPPING) {
 		if ((address >= (addr_t)tm->start) && (address <= (addr_t)(tm->start + tm->len))) {
 			return (addr_t)tm->ptr + ((addr_t)addr - (addr_t)tm->start);
 		}
-		tm = tm->next;
 	}
 	return 0;
 }
@@ -221,6 +266,7 @@ thread_map(thread_t t, void* from, size_t len, uint32_t flags, struct THREAD_MAP
 	return thread_mapto(t, addr, from, len, flags, out);
 }
 
+#if 0
 errorcode_t
 thread_unmap(thread_t t, void* ptr, size_t len)
 {
@@ -243,6 +289,7 @@ thread_unmap(thread_t t, void* ptr, size_t len)
 	}
 	return ANANAS_ERROR(BAD_ADDRESS);
 }
+#endif
 
 void
 thread_suspend(thread_t t)
@@ -295,11 +342,19 @@ thread_dump()
 	struct THREAD* cur = PCPU_CURTHREAD();
 	kprintf("thread dump\n");
 	while (t != NULL) {
-		kprintf ("%p: flags [", t);
+		kprintf ("thread %p (handle %p): %s: flags [", t, t->thread_handle, t->threadinfo->ti_args);
 		if (t->flags & THREAD_FLAG_ACTIVE)    kprintf(" active");
 		if (t->flags & THREAD_FLAG_SUSPENDED) kprintf(" suspended");
 		if (t->flags & THREAD_FLAG_TERMINATING) kprintf(" terminating");
+		if (t->flags & THREAD_FLAG_ZOMBIE) kprintf(" zombie");
 		kprintf(" ]%s\n", (t == cur) ? " <- current" : "");
+		kprintf("handles\n");
+		if(!DQUEUE_EMPTY(&t->handles)) {
+			DQUEUE_FOREACH_SAFE(&t->handles, handle, struct HANDLE) {
+				kprintf(" handle %p, type %u\n",
+				 handle, handle->type);
+			}
+		}
 		t = t->next;
 	}
 }
@@ -318,7 +373,7 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 	 * XXX we could just re-add the mapping; but this needs refcounting etc... and only works for
 	 * readonly things XXX
 	 */
-	for (struct THREAD_MAPPING* tm = parent->mappings; tm != NULL; tm = tm->next) {
+	DQUEUE_FOREACH(&parent->mappings, tm, struct THREAD_MAPPING) {
 		struct THREAD_MAPPING* ttm;
 		err = thread_mapto(t, (void*)tm->start, NULL, tm->len, THREAD_MAP_ALLOC, &ttm);
 		if (err != ANANAS_ERROR_NONE) {
