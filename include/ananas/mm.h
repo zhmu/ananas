@@ -7,6 +7,7 @@
 #define MM_CHUNK_MAGIC		0x20080801
 
 #define MM_CHUNK_FLAG_USED	0x0001
+#define MM_CHUNK_FLAG_RESERVED	0x0002
 
 /*
  * A zone describes a contiguous piece of memory. Every zone consists of a

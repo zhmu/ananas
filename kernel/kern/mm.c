@@ -231,6 +231,7 @@ kmem_free(void* addr)
 			curzone->num_free += i;
 			while (i > 0) {
 				KMEM_ASSERT(chunk->flags & MM_CHUNK_FLAG_USED, "chunk 0x%x (%u) should be allocated, but isn't!", chunk, i);
+				KMEM_ASSERT((chunk->flags & MM_CHUNK_FLAG_RESERVED) == 0, "chunk 0x%x (%u) is forced as allocated", chunk, i);
 				KMEM_ASSERT(chunk->chain_length == i, "chunk %p does not belong in chain", chunk);
 				chunk->flags &= ~MM_CHUNK_FLAG_USED;
 				chunk++; i--;
@@ -322,7 +323,7 @@ kmem_mark_used(void* addr, size_t num_pages)
 			if (chunk->address != (addr_t)addr)
 				continue;
 
-			chunk->flags |= MM_CHUNK_FLAG_USED;
+			chunk->flags |= MM_CHUNK_FLAG_USED | MM_CHUNK_FLAG_RESERVED;
 			chunk->chain_length = num_pages - num_marked;
 
 			num_marked++; addr += PAGE_SIZE;
