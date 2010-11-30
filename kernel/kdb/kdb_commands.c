@@ -1,9 +1,11 @@
 #include <ananas/kdb.h>
 #include <ananas/thread.h>
+#include <ananas/threadinfo.h>
 #include <ananas/bio.h>
 #include <ananas/handle.h>
 #include <ananas/bootinfo.h>
 #include <ananas/lib.h>
+#include <ananas/vfs.h>
 #include <ananas/mm.h>
 
 void
@@ -28,17 +30,18 @@ kdb_cmd_thread(int num_args, char** arg)
 	}
 
 	struct THREAD* thread = (void*)addr;
+	kprintf("arg          : '%s'\n", thread->threadinfo->ti_args);
 	kprintf("flags        : 0x%x\n", thread->flags);
 	kprintf("terminateinfo: 0x%x\n", thread->terminate_info);
 	kprintf("mappings:\n");
-	struct THREAD_MAPPING* tm = thread->mappings; 
-	while (tm != NULL) {
-		kprintf("   flags      : 0x%x\n", tm->flags);
-		kprintf("   address    : 0x%x - 0x%x\n", tm->start, tm->start + tm->len);
-		kprintf("   length     : %u\n", tm->len);
-		kprintf("   backing ptr: 0x%x - 0x%x\n", tm->ptr, tm->ptr + tm->len);
-		kprintf("\n");
-		tm = tm->next;
+	if (!DQUEUE_EMPTY(&thread->mappings)) {
+		DQUEUE_FOREACH(&thread->mappings, tm, struct THREAD_MAPPING) {
+			kprintf("   flags      : 0x%x\n", tm->flags);
+			kprintf("   address    : 0x%x - 0x%x\n", tm->start, tm->start + tm->len);
+			kprintf("   length     : %u\n", tm->len);
+			kprintf("   backing ptr: 0x%x - 0x%x\n", tm->ptr, tm->ptr + tm->len);
+			kprintf("\n");
+		}
 	}
 }
 
@@ -125,6 +128,12 @@ kdb_cmd_handle(int num_args, char** arg)
 			break;
 		}
 	}
+}
+
+void
+kdb_cmd_fsinfo(int num_args, char** arg)
+{
+	vfs_dump();
 }
 
 /* vim:set ts=2 sw=2: */
