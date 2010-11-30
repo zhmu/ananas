@@ -17,6 +17,7 @@
 #include <ananas/_types/blkcnt.h>
 #include <ananas/_types/block.h>
 #include <ananas/_types/errorcode.h>
+#include <ananas/_types/refcount.h>
 #include <ananas/_types/time.h>
 
 typedef unsigned char	u_char;
