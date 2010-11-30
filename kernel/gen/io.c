@@ -140,7 +140,7 @@ sys_clone(thread_t t, handle_t in, struct CLONE_OPTIONS* opts, handle_t* out)
 
 	/* Try to clone it */
 	struct HANDLE* dest;
-	err = handle_clone(handle, &dest);
+	err = handle_clone(t, handle, &dest);
 	ANANAS_ERROR_RETURN(err);
 
 	/*
@@ -325,6 +325,7 @@ sys_create(thread_t t, struct CREATE_OPTIONS* opts, handle_t* out)
 				handle_free(outhandle);
 				return err;
 			}
+			outhandle->data.memory.mapping = tm;
 			outhandle->data.memory.addr = (void*)tm->start;
 			outhandle->data.memory.length = tm->len;
 			return ANANAS_ERROR_OK;
@@ -359,28 +360,53 @@ sys_handlectl_file(thread_t t, handle_t handle, unsigned int op, void* arg, size
 	struct VFS_FILE* file;
 	err = syscall_get_file(t, handle, &file);
 	if (err != ANANAS_ERROR_OK)
-		return err;
+		goto fail;
 
 	switch(op) {
 		case HCTL_FILE_SETCWD: {
 			/* Ensure we are dealing with a directory here */
-			if (!S_ISDIR(file->inode->sb.st_mode))
-				return ANANAS_ERROR(NOT_A_DIRECTORY);
+			if (!S_ISDIR(file->inode->sb.st_mode)) {
+				err = ANANAS_ERROR(NOT_A_DIRECTORY);
+				goto fail;
+			}
 
-			/* XXX lock */
+			/* XXX We should lock the thread? */
+
+#if 0
+			/*
+			 * The inode must be owned by the thread already, so we could just hand
+			 * it over without dealing with the reference count. However, closing the
+			 * handle (as we don't want the thread to mess with it anymore) is the
+			 * safest way to continue - so we just continue by referencing the inode
+			 * and then freeing the handle (yes, this is a kludge).
+			 *
+			 * XXX Why isn't this necessary?
+			 */
+			vfs_ref_inode(file->inode);
+#endif
+
+			/* Disown the previous handle; it is no longer of concern */
 			handle_free(t->path_handle);
+
+			/* And update the handle */
 			t->path_handle = handle;
-			return ANANAS_ERROR_OK;
+			break;
 		}
 		case HCTL_FILE_SEEK: {
 			/* Ensure we understand the whence */
 			struct HCTL_SEEK_ARG* se = arg;
-			if (arg == NULL)
-				return ANANAS_ERROR(BAD_ADDRESS);
-			if (len != sizeof(*se))
-				return ANANAS_ERROR(BAD_LENGTH);
-			if (se->se_whence != HCTL_SEEK_WHENCE_SET && se->se_whence != HCTL_SEEK_WHENCE_CUR && se->se_whence != HCTL_SEEK_WHENCE_END)
-				return ANANAS_ERROR(BAD_FLAG);
+			if (arg == NULL) {
+				err = ANANAS_ERROR(BAD_ADDRESS);
+				goto fail;
+			}
+			if (len != sizeof(*se)) {
+				err = ANANAS_ERROR(BAD_LENGTH);
+				goto fail;
+			}
+			if (se->se_whence != HCTL_SEEK_WHENCE_SET && se->se_whence != HCTL_SEEK_WHENCE_CUR && se->se_whence != HCTL_SEEK_WHENCE_END) {
+				err = ANANAS_ERROR(BAD_FLAG);
+				goto fail;
+			}
 			off_t offset;
 			err = syscall_fetch_offset(t, se->se_offs, &offset);
 			if (err != ANANAS_ERROR_OK)
@@ -396,40 +422,55 @@ sys_handlectl_file(thread_t t, handle_t handle, unsigned int op, void* arg, size
 					offset = file->inode->sb.st_size - offset;
 					break;
 			}
-			if (offset < 0 || offset >= file->inode->sb.st_size)
-				return ANANAS_ERROR(BAD_RANGE);
+			if (offset < 0 || offset >= file->inode->sb.st_size) {
+				err = ANANAS_ERROR(BAD_RANGE);
+				goto fail;
+			}
 			err = syscall_set_offset(t, se->se_offs, offset);
 			if (err != ANANAS_ERROR_OK)
-				return err;
+				goto fail;
 			file->offset = offset;
-			return ANANAS_ERROR_OK;
+			break;
 		}
 		case HCTL_FILE_STAT: {
 			/* Ensure we understand the arguments */
 			struct HCTL_STAT_ARG* st = arg;
-			if (arg == NULL)
-				return ANANAS_ERROR(BAD_ADDRESS);
-			if (len != sizeof(*st))
-				return ANANAS_ERROR(BAD_LENGTH);
-			if (st->st_stat_len != sizeof(struct stat))
-				return ANANAS_ERROR(BAD_LENGTH);
+			if (arg == NULL) {
+				err = ANANAS_ERROR(BAD_ADDRESS);
+				goto fail;
+			}
+			if (len != sizeof(*st)) {
+				err = ANANAS_ERROR(BAD_LENGTH);
+				goto fail;
+			}
+			if (st->st_stat_len != sizeof(struct stat)) {
+				err = ANANAS_ERROR(BAD_LENGTH);
+				goto fail;
+			}
 
 			/* XXX for now, only support filesystem-backed inode stat */
-			if (file->inode == NULL)
-				return ANANAS_ERROR(BAD_OPERATION);
+			if (file->inode == NULL) {
+				err = ANANAS_ERROR(BAD_OPERATION);
+				goto fail;
+			}
 
 			/* Copy the data over */
 			void* dest;
 			err = syscall_map_buffer(t, st->st_stat, sizeof(struct stat), THREAD_MAP_WRITE, &dest);
-			ANANAS_ERROR_RETURN(err);
+			if (err != ANANAS_ERROR_OK)
+				goto fail;
 			/* Copy the data and we're done */
 			memcpy(dest, &file->inode->sb, sizeof(struct stat));
-			return ANANAS_ERROR_OK;
+			break;
 		}
+		default:
+			/* What's this? */
+			err = ANANAS_ERROR(BAD_SYSCALL);
+			break;
 	}
 
-	/* What's this? */
-	return ANANAS_ERROR(BAD_SYSCALL);
+fail:
+	return err;
 }
 
 static errorcode_t
@@ -468,11 +509,15 @@ sys_handlectl(thread_t t, handle_t handle, unsigned int op, void* arg, size_t le
 	err = syscall_get_handle(t, handle, &h);
 	ANANAS_ERROR_RETURN(err);
 
+	/* Lock the handle; we don't want it leaving our sight */
+	spinlock_lock(&h->spl_handle);
+
 	/* Obtain arguments (note that some calls do not have an argument) */
 	void* handlectl_arg = NULL;
 	if (arg != NULL) {
 		err = syscall_map_buffer(t, arg, len, THREAD_MAP_READ | THREAD_MAP_WRITE, &handlectl_arg);
-		ANANAS_ERROR_RETURN(err);
+		if(err != ANANAS_ERROR_OK)
+			goto fail;
 	}
 
 	if (op >= _HCTL_FILE_FIRST && op <= _HCTL_FILE_LAST)
@@ -482,6 +527,8 @@ sys_handlectl(thread_t t, handle_t handle, unsigned int op, void* arg, size_t le
 	else
 		err = ANANAS_ERROR(BAD_SYSCALL);
 
+fail:
+	spinlock_unlock(&h->spl_handle);
 	return err;
 }
 
