@@ -22,5 +22,7 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options)
 			*stat_loc = (W_EXITED << 8) | (result & 0xff);
 		}
 	}
+	/* We got all we needed from the thread; give it a proper burial */
+	sys_destroy((void*)pid);
 	return (pid_t)pid;
 }
