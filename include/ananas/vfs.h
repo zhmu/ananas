@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/device.h>
 #include <ananas/icache.h>
+#include <ananas/dentry.h>
 #include <ananas/stat.h>
 
 #ifndef __SYS_VFS_H__
@@ -76,14 +77,18 @@ struct VFS_MOUNTED_FS {
 	uint8_t		fsop_size;		/* (R) FSOP identifier length */
 	void*		privdata;		/* (R) Private filesystem data */
 
-	/*
-	 * Below are the inode cache fields; the spinlock protecting them,
-	 * and the in-use cache and free list.
-	 */
+	/* Inode cache */
 	struct SPINLOCK		spl_icache;	/* Protects fields marked with (I) */
 	struct ICACHE_QUEUE	icache_inuse;	/* (I) Currently used inodes */
 	struct ICACHE_QUEUE	icache_free;	/* (I) Available inode list */
 	void*			icache_buffer;	/* (I) Inode cache buffer, for cleanup */
+
+	/* Dentry cache */
+	struct SPINLOCK		spl_dcache;	/* Protects fields marked with (D) */
+	struct DENTRY_CACHE_QUEUE	dcache_inuse;	/* (D) Currently used items */
+	struct DENTRY_CACHE_QUEUE	dcache_free;	/* (D) Currently used items */
+	void*				dcache_buffer;	/* (D) Dentry cache buffer, for cleanup */
+
 
 	struct VFS_FILESYSTEM_OPS* fsops;	/* (R) Filesystem operations */
 	struct VFS_INODE* root_inode;		/* (R) Filesystem's root inode */

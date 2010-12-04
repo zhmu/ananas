@@ -95,9 +95,11 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	fs->device = dev;
 	fs->fsops = fsops;
 	icache_init(fs);
+	dcache_init(fs);
 
 	errorcode_t err = fs->fsops->mount(fs);
 	if (err != ANANAS_ERROR_NONE) {
+		dcache_destroy(fs);
 		icache_destroy(fs);
 		memset(fs, 0, sizeof(*fs));
 		return err;
@@ -329,6 +331,31 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 		}
 
 		/*
+		 * See if the item is in the cache; we will add it regardless.
+		 * finished up.
+		 */
+		struct DENTRY_CACHE_ITEM* dentry;
+		while(1) {
+			dentry = dcache_find_item_or_add_pending(curinode, curlookup);
+			if (dentry != NULL)
+				break;
+			TRACE("vfs_lookup(): dentry item is already pending, waiting...\n");
+			/* XXX There should be a wakeup signal of some kind */
+			reschedule();
+		}
+
+		if (dentry->d_flags & DENTRY_FLAG_NEGATIVE) {
+			/* Entry is in the cache but cannot be found */
+			return ANANAS_ERROR(NO_FILE);
+		}
+
+		if (dentry->d_entry_inode != NULL) {
+			/* Already have the inode cached -> return it (refcount will already be incremented) */
+			curinode = dentry->d_entry_inode;
+			continue;
+		}
+
+		/*
 	 	 * Attempt to look up whatever entry we need. Once this is done, we can
 		 * get rid of the current loookup inode (as it won't be the inode itself
 		 * since we special-case "." above).
@@ -336,8 +363,18 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 		struct VFS_INODE* inode;
 		errorcode_t err = curinode->iops->lookup(curinode, &inode, curlookup);
 		vfs_release_inode(curinode);
-		ANANAS_ERROR_RETURN(err);
-
+		if (err == ANANAS_ERROR_NONE) {
+			/*
+			 * Lookup worked - if we got here, we have to hook the inode we found up
+			 * to the dentry cache.
+			 */
+			dentry->d_entry_inode = inode;
+		} else {
+			/* Lookup failed; make the entry cache negative */
+			dentry->d_flags |= DENTRY_FLAG_NEGATIVE;
+			return err;
+		}
+		
 		curinode = inode;
 	}
 	*destinode = curinode;
@@ -476,6 +513,7 @@ vfs_dump()
 			continue;
 		kprintf(">> vfs=%p, flags=0x%x, mountpoint='%s'\n", fs, fs->flags, fs->mountpoint);
 		icache_dump(fs);
+		dcache_dump(fs);
 	}
 	spinlock_unlock(&spl_mountedfs);
 }
