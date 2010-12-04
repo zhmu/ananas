@@ -21,6 +21,8 @@
 
 TRACE_SETUP;
 
+#define TRACE(x...)
+
 void
 dcache_init(struct VFS_MOUNTED_FS* fs)
 {
@@ -150,7 +152,7 @@ retry:
 	strcpy(d->d_entry, entry);
 	DQUEUE_ADD_TAIL(&fs->dcache_inuse, d);
 	spinlock_unlock(&fs->spl_dcache);
-	kprintf("dcache: got entry, d=%p, entry='%s'\n", d, entry);
+	TRACE("dcache: got entry, d=%p, entry='%s'\n", d, entry);
 	return d;
 }
 
