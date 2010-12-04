@@ -136,4 +136,13 @@ kdb_cmd_fsinfo(int num_args, char** arg)
 	vfs_dump();
 }
 
+void
+kdb_cmd_devices(int num_args, char** arg)
+{
+	DQUEUE_FOREACH(device_get_queue(), dev, struct DEVICE) {
+		kprintf("device %p: '%s' unit %u\n",
+	 	 dev, dev->name, dev->unit);
+	}
+}
+
 /* vim:set ts=2 sw=2: */

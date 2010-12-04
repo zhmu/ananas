@@ -23,6 +23,7 @@ extern kdb_func_t kdb_cmd_bootinfo;
 extern kdb_func_t kdb_cmd_memory;
 extern kdb_func_t kdb_cmd_handle;
 extern kdb_func_t kdb_cmd_fsinfo;
+extern kdb_func_t kdb_cmd_devices;
 
 struct KDB_COMMAND {
 	const char* cmd;
@@ -38,6 +39,7 @@ struct KDB_COMMAND {
 	{ "memory", "Display memory information", &kdb_cmd_memory },
 	{ "handle", "Display specific handle information", &kdb_cmd_handle },
 	{ "fsinfo", "Display filesystem information", &kdb_cmd_fsinfo },
+	{ "devices", "Display devices list", &kdb_cmd_devices },
 	{ NULL, NULL, NULL }
 };
 
@@ -132,8 +134,6 @@ kdb_enter(const char* why)
 	/* Force our thread to restart and reset the entry point */
 	md_thread_setkthread(&kdb_thread, kdb_func);
 	thread_resume(&kdb_thread);
-
-	kdb_cmd_threads(0, NULL);
 }
 
 /* vim:set ts=2 sw=2: */
