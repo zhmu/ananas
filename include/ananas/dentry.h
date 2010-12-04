@@ -15,6 +15,7 @@ struct DENTRY_CACHE_ITEM {
 	struct VFS_INODE* d_entry_inode;	/* Backing entry inode, or NULL */
 	uint32_t d_flags;			/* Item flags */
 #define DENTRY_FLAG_NEGATIVE	0x0001		/* Negative entry; does not exist */
+#define DENTRY_FLAG_PERMANENT	0x0002		/* Entry must not be removed */
 	char	d_entry[DCACHE_MAX_NAME_LEN];	/* Entry name */
 	DQUEUE_FIELDS(struct DENTRY_CACHE_ITEM);
 };

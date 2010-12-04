@@ -81,6 +81,7 @@ vfs_get_fstype(const char* type)
 errorcode_t
 vfs_mount(const char* from, const char* to, const char* type, void* options)
 {
+	errorcode_t err;
 	struct VFS_FILESYSTEM_OPS* fsops = vfs_get_fstype(type);
 	if (fsops == NULL)
 		return ANANAS_ERROR(BAD_TYPE);
@@ -88,16 +89,46 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	if (fs == NULL)
 		return ANANAS_ERROR(OUT_OF_HANDLES);
 
-	struct DEVICE* dev = device_find(from);
-	if (dev == NULL)
-		return ANANAS_ERROR(NO_FILE);
+	/*
+	 * First of all, do an explicit lookup for the mountpoint; this will result
+	 * in the inode on the parent filesystem. Once the filesystem is mounted, we
+	 * update the cache so that looking it up will work and thus, the inode can
+	 * be used.
+	 *
+	 * XXX Note that we hack around to prevent doing this in the root case.
+	 */
+	struct DENTRY_CACHE_ITEM* d = NULL;
+	if (strcmp(to, "/") != 0) {
+		/* First of all, grab the 'to' path and chop the final part of */
+		char tmp[VFS_MAX_NAME_LEN + 1];
+		strcpy(tmp, to);
+		char* ptr = strrchr(tmp, '/');
+		KASSERT(ptr != NULL, "invalid path '%s'", to);
+		*ptr = '\0';
+
+		/* Look up the inode to the containing path */
+		struct VFS_INODE* inode;
+		err = vfs_lookup(NULL, &inode, tmp);
+		if (err != ANANAS_ERROR_NONE) {
+			memset(fs, 0, sizeof(*fs));
+			return err;
+		}
+		d = dcache_find_item_or_add_pending(inode, ptr + 1);
+	}
+
+	struct DEVICE* dev = NULL;
+	if (from != NULL) {
+		dev = device_find(from);
+		if (dev == NULL)
+			return ANANAS_ERROR(NO_FILE);
+	}
 
 	fs->device = dev;
 	fs->fsops = fsops;
 	icache_init(fs);
 	dcache_init(fs);
 
-	errorcode_t err = fs->fsops->mount(fs);
+	err = fs->fsops->mount(fs);
 	if (err != ANANAS_ERROR_NONE) {
 		dcache_destroy(fs);
 		icache_destroy(fs);
@@ -111,6 +142,19 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	/* The refcount must be two: one for the fs->root_inode reference and one for the cache */
 	KASSERT(fs->root_inode->refcount == 2, "bad refcount of root inode (must be 2, is %u)", fs->root_inode->refcount);
 	fs->mountpoint = strdup(to);
+
+	/*
+	 * Override the previous inode with our root inode; this effectively hooks
+	 * our filesystem to the parent.
+	 */
+	if (d != NULL) {
+		if (d->d_entry_inode != NULL)
+			vfs_release_inode(d->d_entry_inode);
+		d->d_entry_inode = fs->root_inode;
+		/* Ensure our entry will never be purged from the cache */
+		d->d_flags |= DENTRY_FLAG_NEGATIVE;
+	}
+	
 	return ANANAS_ERROR_OK;
 }
 
