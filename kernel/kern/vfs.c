@@ -75,6 +75,10 @@ vfs_get_fstype(const char* type)
 	extern struct VFS_FILESYSTEM_OPS fsops_fat;
 	if (!strcmp(type, "fatfs")) return &fsops_fat;
 #endif
+#ifdef DEVFS
+	extern struct VFS_FILESYSTEM_OPS fsops_devfs;
+	if (!strcmp(type, "devfs")) return &fsops_devfs;
+#endif
 	return NULL;
 }
 

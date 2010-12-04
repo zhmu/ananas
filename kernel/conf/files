@@ -57,5 +57,6 @@ fs/ext2fs.c		option EXT2FS
 fs/iso9660.c		option ISO9660FS
 fs/cramfs.c		option CRAMFS
 fs/fatfs.c		option FATFS
+fs/devfs.c		option DEVFS
 kdb/kdb.c		option KDB
 kdb/kdb_commands.c	option KDB
