@@ -42,6 +42,18 @@ strchr(const char* s, int c)
 	return NULL;
 }
 
+char*
+strrchr(const char* s, int c)
+{
+	char* ptr = (char*)(s + strlen(s) - 1);
+	while (ptr >= s) {
+		if (*ptr == c)
+			return (char*)s;
+		ptr--;
+	}
+	return NULL;
+}
+
 size_t
 strlen(const char* s)
 {
