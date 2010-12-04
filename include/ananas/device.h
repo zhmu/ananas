@@ -80,9 +80,6 @@ DQUEUE_DEFINE(DEVICE_WAITER_QUEUE, struct DEVICE_WAITER);
  * is also used during probe / attach phase.
  */
 struct DEVICE {
-	/* Next driver XXX enumeration kludge */
-	struct	DEVICE*	next;
-
 	/* Device's driver */
 	driver_t	driver;
 
@@ -105,7 +102,11 @@ struct DEVICE {
 	struct SPINLOCK	spl_waiters;
 	struct DEVICE_WAITER_QUEUE waiters;
 	struct DEVICE_WAITER_QUEUE avail_waiters;
+
+	/* Queue fields */
+	DQUEUE_FIELDS(struct DEVICE);
 };
+DQUEUE_DEFINE(DEVICE_QUEUE, struct DEVICE);
 
 /*
  * The Device Probe structure describes a possible relationship between a bus
@@ -150,6 +151,7 @@ int device_add_resource(device_t dev, resource_type_t type, unsigned int base, u
 struct RESOURCE* device_get_resource(device_t dev, resource_type_t type, int index);
 
 struct DEVICE* device_find(const char* name);
+struct DEVICE_QUEUE* device_get_queue();
 
 void device_printf(device_t dev, const char* fmt, ...);
 

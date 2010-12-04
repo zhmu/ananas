@@ -21,7 +21,7 @@
 
 static void device_print_attachment(device_t dev);
 
-static device_t corebus = NULL;
+static struct DEVICE_QUEUE device_queue;
 
 /* Note: drv = NULL will be used if the driver isn't yet known! */
 device_t
@@ -45,11 +45,9 @@ device_alloc(device_t bus, driver_t drv)
 		strcpy(dev->name, drv->name);
 		dev->unit = drv->current_unit++;
 	}
-	/* hook the device up to the chain */
-	if (corebus != NULL) {
-		dev->next = corebus->next;
-		corebus->next = dev;
-	}
+
+	/* Hook the device up to the chain */
+	DQUEUE_ADD_TAIL(&device_queue, dev);
 	return dev;
 }
 
@@ -71,8 +69,9 @@ device_free(device_t dev)
 	}
 	spinlock_unlock(&dev->spl_waiters);
 
+	/* XXX there should be some lock */
+	DQUEUE_REMOVE(&device_queue, dev);
 	kfree(dev);
-	/* XXX unhook */
 }
 
 errorcode_t
@@ -351,11 +350,13 @@ device_attach_bus(device_t bus)
 void
 device_init()
 {
+	DQUEUE_INIT(&device_queue);
+
 	/*
 	 * First of all, create the core bus; this is as bare to the metal as it
 	 * gets.
 	 */
-	corebus = (device_t)kmalloc(sizeof(struct DEVICE));
+	device_t corebus = (device_t)kmalloc(sizeof(struct DEVICE));
 	memset(corebus, 0, sizeof(struct DEVICE));
 	strcpy(corebus->name, "corebus");
 	device_attach_bus(corebus);
@@ -368,7 +369,7 @@ device_find(const char* name)
 	while (*ptr != '\0' && (*ptr < '0' || *ptr > '9')) ptr++;
 	int unit = (*ptr != '\0') ? strtoul(ptr, NULL, 10) : 0;
 
-	for (struct DEVICE* dev = corebus; dev != NULL; dev = dev->next) {
+	DQUEUE_FOREACH(&device_queue, dev, struct DEVICE) {
 		if (!strncmp(dev->name, name, ptr - name) && dev->unit == unit)
 			return dev;
 	}
@@ -447,6 +448,12 @@ device_waiter_signal(device_t dev)
 	if (thread == NULL)
 		return;
 	thread_resume(thread);
+}
+
+struct DEVICE_QUEUE*
+device_get_queue()
+{
+	return &device_queue;
 }
 
 /* vim:set ts=2 sw=2: */
