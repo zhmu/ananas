@@ -152,7 +152,7 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 			vfs_release_inode(d->d_entry_inode);
 		d->d_entry_inode = fs->root_inode;
 		/* Ensure our entry will never be purged from the cache */
-		d->d_flags |= DENTRY_FLAG_NEGATIVE;
+		d->d_flags |= DENTRY_FLAG_PERMANENT;
 	}
 	
 	return ANANAS_ERROR_OK;
