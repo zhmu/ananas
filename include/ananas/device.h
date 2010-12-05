@@ -54,6 +54,7 @@ struct DRIVER {
 	void		(*drv_attach_children)(device_t);
 	errorcode_t	(*drv_write)(device_t, const void*, size_t*, off_t);
 	errorcode_t	(*drv_read)(device_t, void*, size_t*, off_t);
+	errorcode_t	(*drv_stat)(device_t, void*);
 	/* for block devices: enqueue request */
 	void		(*drv_enqueue)(device_t, void*);
 	/* for block devices: start request queue */

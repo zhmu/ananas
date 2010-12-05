@@ -1,5 +1,6 @@
 #include <machine/param.h>
 #include <ananas/types.h>
+#include <ananas/bio.h>
 #include <ananas/device.h>
 #include <ananas/lib.h>
 #include <ananas/handle.h>
@@ -148,30 +149,6 @@ sys_clone(thread_t t, handle_t in, struct CLONE_OPTIONS* opts, handle_t* out)
 	 * overriden for the new child.
 	 */
 	return syscall_set_handle(t, out, dest);
-}
-
-errorcode_t
-sys_stat(thread_t t, handle_t handle, struct stat* sb)
-{
-	errorcode_t err;
-
-	/* Fetch the file handle */
-	struct VFS_FILE* file;
-	err = syscall_get_file(t, handle, &file);
-	ANANAS_ERROR_RETURN(err);
-
-	/* XXX for now, only support filesystem-backed inode stat */
-	if (file->inode == NULL)
-		return ANANAS_ERROR(BAD_OPERATION);
-
-	/* Map the buffer write-only */
-	void* buffer;
-	err = syscall_map_buffer(t, sb, sizeof(struct stat), THREAD_MAP_WRITE, &buffer);
-	ANANAS_ERROR_RETURN(err);
-
-	/* Copy the data and we're done */
-	memcpy(buffer, &file->inode->sb, sizeof(struct stat));
-	return ANANAS_ERROR_OK;
 }
 
 errorcode_t
@@ -448,19 +425,34 @@ sys_handlectl_file(thread_t t, handle_t handle, unsigned int op, void* arg, size
 				goto fail;
 			}
 
-			/* XXX for now, only support filesystem-backed inode stat */
-			if (file->inode == NULL) {
-				err = ANANAS_ERROR(BAD_OPERATION);
-				goto fail;
-			}
-
-			/* Copy the data over */
 			void* dest;
 			err = syscall_map_buffer(t, st->st_stat, sizeof(struct stat), THREAD_MAP_WRITE, &dest);
 			if (err != ANANAS_ERROR_OK)
 				goto fail;
-			/* Copy the data and we're done */
-			memcpy(dest, &file->inode->sb, sizeof(struct stat));
+
+			if (file->inode != NULL) {
+				/* Copy the data and we're done */
+				memcpy(dest, &file->inode->sb, sizeof(struct stat));
+			} else {
+				/* First of all, start by filling with defaults */
+				struct stat* st = dest;
+				st->st_dev     = (dev_t)file->device;
+				st->st_ino     = (ino_t)0;
+				st->st_mode    = 0666;
+				st->st_nlink   = 1;
+				st->st_uid     = 0;
+				st->st_gid     = 0;
+				st->st_rdev    = (dev_t)file->device;
+				st->st_size    = 0;
+				st->st_atime   = 0;
+				st->st_mtime   = 0;
+				st->st_ctime   = 0;
+				st->st_blksize = BIO_SECTOR_SIZE;
+				if (file->device->driver->drv_stat != NULL) {
+					/* Allow the device driver to update */
+					err = file->device->driver->drv_stat(file->device, st);
+				}
+			}
 			break;
 		}
 		default:
