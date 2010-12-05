@@ -386,12 +386,30 @@ device_write(device_t dev, const char* buf, size_t* len, off_t offset)
 }
 
 errorcode_t
+device_bwrite(device_t dev, struct BIO* bio)
+{
+	KASSERT(dev->driver != NULL, "device_bwrite() without a driver");
+	KASSERT(dev->driver->drv_bwrite != NULL, "device_bwrite() without drv_bwrite");
+
+	return dev->driver->drv_bwrite(dev, bio);
+}
+
+errorcode_t
 device_read(device_t dev, char* buf, size_t* len, off_t offset)
 {
 	KASSERT(dev->driver != NULL, "device_read() without a driver");
 	KASSERT(dev->driver->drv_read != NULL, "device_read() without drv_read");
 
 	return dev->driver->drv_read(dev, buf, len, offset);
+}
+
+errorcode_t
+device_bread(device_t dev, struct BIO* bio)
+{
+	KASSERT(dev->driver != NULL, "device_bread() without a driver");
+	KASSERT(dev->driver->drv_bread != NULL, "device_bread() without drv_bread");
+
+	return dev->driver->drv_bread(dev, bio);
 }
 
 void

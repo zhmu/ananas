@@ -150,12 +150,11 @@ wiisd_read_block(device_t dev, uint32_t block, void* buffer)
 }
 
 static errorcode_t
-wiisd_read(device_t dev, void* buffer, size_t* length, off_t offset)
+wiisd_bread(device_t dev, struct BIO* bio)
 {
-	KASSERT(*length == 512, "invalid length"); /* XXX */
-	struct BIO* bio = buffer;
+	KASSERT(bio->length == 512, "invalid length"); /* XXX */
 
-	if (wiisd_read_block(dev, offset, bio->data)) {
+	if (wiisd_read_block(dev, bio->io_block, bio->data)) {
 		kprintf("wiisd_read(): i/o error");
 		return ANANAS_ERROR(IO);
 	}
@@ -230,7 +229,7 @@ struct DRIVER drv_wiisd = {
 	.name       = "sd",
 	.drv_probe  = NULL,
 	.drv_attach = wiisd_attach,
-	.drv_read   = wiisd_read
+	.drv_bread  = wiisd_bread
 };
 
 DRIVER_PROBE(wiisd)

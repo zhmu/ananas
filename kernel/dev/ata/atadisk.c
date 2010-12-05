@@ -51,19 +51,19 @@ atadisk_attach(device_t dev)
 }
 
 static errorcode_t
-atadisk_read(device_t dev, void* buffer, size_t* length, off_t offset)
+atadisk_bread(device_t dev, struct BIO* bio)
 {
 	struct ATADISK_PRIVDATA* priv = (struct ATADISK_PRIVDATA*)dev->privdata;
 	struct ATA_REQUEST_ITEM item;
-	KASSERT(*length > 0, "invalid length");
-	KASSERT(*length % 512 == 0, "invalid length"); /* XXX */
-	KASSERT(buffer != NULL, "invalid buffer");
+	KASSERT(bio != NULL, "invalid buffer");
+	KASSERT(bio->length > 0, "invalid length");
+	KASSERT(bio->length % 512 == 0, "invalid length"); /* XXX */
 
 	/* XXX boundary check */
 	item.unit = priv->unit;
-	item.lba = offset;
-	item.count = *length / 512;
-	item.bio = (struct BIO*)buffer;
+	item.lba = bio->io_block;
+	item.count = bio->length / 512;
+	item.bio = bio;
 	item.command = ATA_CMD_READ_SECTORS;
 	dev->parent->driver->drv_enqueue(dev->parent, &item);
 	dev->parent->driver->drv_start(dev->parent);
@@ -73,7 +73,7 @@ atadisk_read(device_t dev, void* buffer, size_t* length, off_t offset)
 struct DRIVER drv_atadisk = {
 	.name					= "atadisk",
 	.drv_attach		= atadisk_attach,
-	.drv_read			= atadisk_read
+	.drv_bread		= atadisk_bread
 };
 
 /* vim:set ts=2 sw=2: */

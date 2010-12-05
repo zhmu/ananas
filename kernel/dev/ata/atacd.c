@@ -27,25 +27,25 @@ atacd_attach(device_t dev)
 }
 
 static errorcode_t
-atacd_read(device_t dev, void* buffer, size_t* length, off_t offset)
+atacd_bread(device_t dev, struct BIO* bio)
 {
 	struct ATACD_PRIVDATA* priv = (struct ATACD_PRIVDATA*)dev->privdata;
 	struct ATA_REQUEST_ITEM item;
-	KASSERT(*length == 2048, "invalid length"); /* XXX */
+	KASSERT(bio->length == 2048, "invalid length"); /* XXX */
 
 	/* XXX boundary check */
 	memset(&item, 0, sizeof(item));
 	item.unit = priv->unit;
-	item.count = *length;
-	item.bio = (struct BIO*)buffer;
+	item.count = bio->length;
+	item.bio = bio;
 	item.command = ATA_CMD_PACKET;
 	item.atapi_command[0] = ATAPI_CMD_READ_SECTORS;
-	item.atapi_command[2] = (offset >> 24) & 0xff;
-	item.atapi_command[3] = (offset >> 16) & 0xff;
-	item.atapi_command[4] = (offset >>  8) & 0xff;
-	item.atapi_command[5] = (offset      ) & 0xff;
-	item.atapi_command[7] = (*length / 2048) >> 8;
-	item.atapi_command[8] = (*length / 2048) & 0xff;
+	item.atapi_command[2] = (bio->io_block >> 24) & 0xff;
+	item.atapi_command[3] = (bio->io_block >> 16) & 0xff;
+	item.atapi_command[4] = (bio->io_block >>  8) & 0xff;
+	item.atapi_command[5] = (bio->io_block      ) & 0xff;
+	item.atapi_command[7] = (bio->length / 2048) >> 8;
+	item.atapi_command[8] = (bio->length / 2048) & 0xff;
 	dev->parent->driver->drv_enqueue(dev->parent, &item);
 	dev->parent->driver->drv_start(dev->parent);
 	return ANANAS_ERROR_OK;
@@ -55,7 +55,7 @@ struct DRIVER drv_atacd = {
 	.name					= "atacd",
 	.drv_probe		= NULL,
 	.drv_attach		= atacd_attach,
-	.drv_read			= atacd_read
+	.drv_bread		= atacd_bread
 };
 
 /* vim:set ts=2 sw=2: */

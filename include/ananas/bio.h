@@ -34,6 +34,7 @@ struct BIO {
 #define BIO_FLAG_ERROR	0x8000		/* Request failed */
 	device_t	device;		/* Device I/O'ing from */
 	block_t		block;		/* Block number to I/O */
+	block_t		io_block;	/* Translated block number to I/O */
 	unsigned int	length;		/* Length in bytes (<= PAGE_SIZE, so int will do) */
 	void*		data;		/* Pointer to BIO data */
 

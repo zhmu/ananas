@@ -42,6 +42,8 @@ struct RESOURCE {
 	unsigned int	length;
 };
 
+struct BIO;
+
 /*
  *  This describes a device driver.
  */
@@ -53,7 +55,9 @@ struct DRIVER {
 	errorcode_t	(*drv_attach)(device_t);
 	void		(*drv_attach_children)(device_t);
 	errorcode_t	(*drv_write)(device_t, const void*, size_t*, off_t);
+	errorcode_t	(*drv_bwrite)(device_t, struct BIO*);
 	errorcode_t	(*drv_read)(device_t, void*, size_t*, off_t);
+	errorcode_t	(*drv_bread)(device_t, struct BIO*);
 	errorcode_t	(*drv_stat)(device_t, void*);
 	/* for block devices: enqueue request */
 	void		(*drv_enqueue)(device_t, void*);
@@ -144,7 +148,9 @@ errorcode_t device_attach_single(device_t dev);
 int device_get_resources_byhint(device_t dev, const char* hint, const char** hints);
 int device_get_resources(device_t dev, const char** hints);
 errorcode_t device_write(device_t dev, const char* buf, size_t* len, off_t offset);
+errorcode_t device_bwrite(device_t dev, struct BIO* bio);
 errorcode_t device_read(device_t dev, char* buf, size_t* len, off_t offset);
+errorcode_t device_bread(device_t dev, struct BIO* bio);
 
 void* device_alloc_resource(device_t dev, resource_type_t type, size_t len);
 

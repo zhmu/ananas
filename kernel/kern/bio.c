@@ -256,6 +256,7 @@ bio_restartdata:
 	bio->flags = BIO_FLAG_DIRTY;
 	bio->device = dev;
 	bio->block = block;
+	bio->io_block = block;
 	bio->length = len;
 	bio->data = bio_data + (cur_data_block * BIO_SECTOR_SIZE);
 	TRACE(BIO, INFO, "returning cached bio=%p", bio);
@@ -297,7 +298,7 @@ bio_read(device_t dev, block_t block, size_t len)
 
 	/* kick the device; we want it to read */
 	size_t amount = len;
-	errorcode_t err = device_read(dev, (void*)bio, &amount, (off_t)block);
+	errorcode_t err = device_bread(dev, bio);
 	if (err != ANANAS_ERROR_NONE) {
 		/* XXX now what? */
 		kprintf("bio_read(): device_read() failed, %i\n", err);

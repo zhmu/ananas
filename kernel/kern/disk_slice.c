@@ -12,18 +12,19 @@ struct SLICE_PRIVATE {
 };
 
 static errorcode_t
-slice_read(device_t dev, void* buf, size_t* length, off_t offset)
+slice_bread(device_t dev, struct BIO* bio)
 {
 	/*
 	 * All we do is grab the request, mangle it and call the parent's read routine.
 	 */
 	struct SLICE_PRIVATE* privdata = (struct SLICE_PRIVATE*)dev->privdata;
-	return dev->parent->driver->drv_read(dev->parent, buf, length, offset + privdata->first_block);
+	bio->io_block += privdata->first_block;
+	return device_bread(dev->parent, bio);
 }
 
 struct DRIVER drv_slice = {
 	.name	= "slice",
-	.drv_read = slice_read
+	.drv_bread = slice_bread
 };
 
 struct DEVICE*
