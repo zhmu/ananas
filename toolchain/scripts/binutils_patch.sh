@@ -9,8 +9,8 @@ if [ -z "$T" ]; then
 fi
 
 # patch 'config.sub'
-sed -r 's/(\-aos\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub > $T/config.sub.tmp # binutils 2.18
-sed -r 's/(\-aros\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub.tmp > $T/config.sub # binuils 2.20+
+${SED} -r 's/(\-aos\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub > $T/config.sub.tmp # binutils 2.18
+${SED} -r 's/(\-aros\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub.tmp > $T/config.sub # binuils 2.20+
 
 # patch 'bfd/config.bfd file'
 awk '{ print }

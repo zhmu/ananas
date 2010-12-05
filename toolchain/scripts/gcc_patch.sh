@@ -9,8 +9,8 @@ if [ -z "$T" ]; then
 fi
 
 # patch 'config.sub'
-sed -r 's/(\-aos\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub > $T/config.sub.tmp # gcc 4.4+
-sed -r 's/(\-aros\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub.tmp > $T/config.sub # gcc 4.2
+${SED} -r 's/(\-aos\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub > $T/config.sub.tmp # gcc 4.4+
+${SED} -r 's/(\-aros\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub.tmp > $T/config.sub # gcc 4.2
 
 # patch 'gcc/config.gcc'
 # XXX we do not override powerpc-*-elf yet (should we?)

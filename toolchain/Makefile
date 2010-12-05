@@ -66,7 +66,7 @@ endif
 
 .bu.patch:	.bu.prepatch scripts/binutils_patch.sh
 		@${ECHO} ">> Applying local patches to binutils"
-		scripts/binutils_patch.sh src/binutils-${BINUTILS_VER}
+		SED=${SED} scripts/binutils_patch.sh src/binutils-${BINUTILS_VER}
 		@${TOUCH} .bu.patch
 
 .bu.configure: .bu.patch
@@ -80,12 +80,12 @@ endif
 
 .bu.build:	.bu.configure
 		@${ECHO} ">> Building binutils"
-		(cd build/binutils && make ${MAKE_BUILDARG})
+		(cd build/binutils && ${MAKE} ${MAKE_BUILDARG})
 		@${TOUCH} .bu.build
 
 .bu.install:	.bu.build
 		@${ECHO} ">> Installing binutils (in ${PREFIX})"
-		(cd build/binutils && make install)
+		(cd build/binutils && ${MAKE} install)
 		@${TOUCH} .bu.install
 
 .bu.includes:	.bu.install
@@ -123,7 +123,7 @@ distfiles/gcc-${GCC_VER}.diff:
 
 .gcc.patch:	.gcc.prepatch
 		@${ECHO} ">> Applying local patches to gcc"
-		scripts/gcc_patch.sh src/gcc-${GCC_VER}
+		SED=${SED} scripts/gcc_patch.sh src/gcc-${GCC_VER}
 		@${TOUCH} .gcc.patch
 
 .gcc.configure:	.gcc.patch
@@ -137,12 +137,12 @@ distfiles/gcc-${GCC_VER}.diff:
 
 .gcc.build:	.gcc.configure
 		@${ECHO} ">> Building gcc (this takes some time)"
-		(cd build/gcc && make ${MAKE_BUILDARG})
+		(cd build/gcc && ${MAKE} ${MAKE_BUILDARG})
 		@${TOUCH} .gcc.build
 
 .gcc.install:	.gcc.build
 		@${ECHO} ">> Installing gcc (in ${PREFIX})"
-		(cd build/gcc && make install)
+		(cd build/gcc && ${MAKE} install)
 		@${TOUCH} .gcc.install
 
 # GDB steps
@@ -165,12 +165,12 @@ distfiles/gcc-${GCC_VER}.diff:
 
 .gdb.build:	.gdb.configure
 		@${ECHO} ">> Building gdb"
-		(cd build/gdb && make ${MAKE_BUILDARG})
+		(cd build/gdb && ${MAKE} ${MAKE_BUILDARG})
 		@${TOUCH} .gdb.build
 
 .gdb.install:	.gdb.build
 		@${ECHO} ">> Installing gdb (in ${PREFIX})"
-		(cd build/gdb && make install)
+		(cd build/gdb && ${MAKE} install)
 		@${TOUCH} .gdb.install
 
 # downloading of necessary distfiles
