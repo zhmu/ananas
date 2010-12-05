@@ -17,6 +17,7 @@ option		DEBUG_CONSOLE
 option		SMP
 option		EXT2FS
 option		FATFS
+option		DEVFS
 option		ISO9660FS
 option		KDB
 

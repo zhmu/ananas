@@ -6,6 +6,7 @@
  * make it accessible to third party programs.
  */
 #include <ananas/types.h>
+#include <ananas/bio.h>
 #include <ananas/error.h>
 #include <ananas/vfs.h>
 #include <ananas/trace.h>
@@ -74,12 +75,39 @@ static struct VFS_INODE_OPS devfs_rootdir_ops = {
 static errorcode_t
 devfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
-	kprintf("devfs_read: todo\n");
-	return ANANAS_ERROR(IO);
+	struct DEVFS_INODE_PRIVDATA* privdata = file->inode->privdata;
+	errorcode_t err = ANANAS_ERROR_OK;
+
+	if (privdata->device->driver->drv_read != NULL) {
+		size_t length = *len;
+		err = device_read(privdata->device, buf, &length, file->offset);
+		if (err == ANANAS_ERROR_NONE) {
+			/* Read went OK; update the file pointer */
+			file->offset += length;
+			*len = length;
+		}
+	} else if (privdata->device->driver->drv_bread != NULL) {
+		/*
+		 * This is a block device; I/O must be done using BIO calls.
+		 */
+		off_t offset = file->offset / 512; /* XXX */
+		struct BIO* bio = bio_read(privdata->device, offset, *len);
+		if (BIO_IS_ERROR(bio)) {
+			err = ANANAS_ERROR(IO);
+		} else {
+			memcpy(buf, BIO_DATA(bio), bio->length);
+			file->offset += (bio->length / 512); /* XXX */
+			*len = bio->length;
+		}
+		bio_free(bio);
+	} else {
+		err = ANANAS_ERROR(BAD_OPERATION);
+	}
+	return err;
 }
 
 static errorcode_t
-devfs_write(struct VFS_FILE* file, void* buf, size_t* len)
+devfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
 {
 	kprintf("devfs_write: todo\n");
 	return ANANAS_ERROR(IO);
@@ -93,6 +121,7 @@ static struct VFS_INODE_OPS devfs_file_ops = {
 static errorcode_t
 devfs_read_inode(struct VFS_INODE* inode, void* fsop)
 {
+	struct DEVFS_INODE_PRIVDATA* privdata = inode->privdata;
 	uint32_t ino = *(uint32_t*)fsop;
 
 	inode->sb.st_ino = ino;
@@ -110,6 +139,15 @@ devfs_read_inode(struct VFS_INODE* inode, void* fsop)
 		inode->iops = &devfs_rootdir_ops;
 	} else {
 		inode->iops = &devfs_file_ops;
+
+		/* Obtain the device pointer XXX This is racey */
+		struct DEVICE* dev = DQUEUE_HEAD(device_get_queue());
+		for (unsigned int i = DEVFS_ROOTINODE_FSOP + 1; i < ino && dev != NULL; i++) {
+			dev = DQUEUE_NEXT(dev);
+		}
+		if (dev == NULL)
+			return ANANAS_ERROR(NO_FILE);
+		privdata->device = dev;
 	}
 	return ANANAS_ERROR_NONE;
 }
