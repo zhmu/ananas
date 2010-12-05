@@ -4,6 +4,9 @@
 #include <ananas/lib.h>
 #include <ananas/lock.h>
 #include <ananas/schedule.h>
+#include <ananas/trace.h>
+
+TRACE_SETUP;
 
 static struct BIO* bio_freelist = NULL;
 static struct BIO* bio_usedlist = NULL;
@@ -15,8 +18,6 @@ static uint8_t* bio_data = NULL;
 static struct SPINLOCK spl_bucket[BIO_BUCKET_SIZE];
 static struct SPINLOCK spl_bio_lists;
 static struct SPINLOCK spl_bio_bitmap;
-
-#define BIO_TRACE(x...) (void)0
 
 void
 bio_init()
@@ -84,7 +85,7 @@ bio_flush(struct BIO* bio)
 static void
 bio_cleanup()
 {
-	BIO_TRACE("bio_cleanup(): called\n");
+	TRACE(BIO, FUNC, "called");
 
 	spinlock_lock(&spl_bio_lists);
 	KASSERT(bio_usedlist != NULL, "usedlist is NULL");
@@ -142,8 +143,8 @@ bio_cleanup()
 static struct BIO*
 bio_get(device_t dev, block_t block, size_t len)
 {
+	TRACE(BIO, FUNC, "dev=%p, block=%u, len=%u", dev, (int)block, len);
 	KASSERT((len % BIO_SECTOR_SIZE) == 0, "length %u not a multiple of bio sector size", len);
-	BIO_TRACE("bio_get(): dev=%p, block=%u, len=%u", dev, (int)block, len);
 
 	/* First of all, lock the corresponding queue */
 	unsigned int bucket_num = block % BIO_BUCKET_SIZE;
@@ -177,7 +178,7 @@ bio_restart:
 
 		spinlock_unlock(&spl_bucket[bucket_num]);
 		KASSERT(bio->length == len, "bio item found with length %u, requested length %u", bio->length, len); /* XXX should avoid... somehow */
-		BIO_TRACE(" ==> returning cached bio=%p\n", bio);
+		TRACE(BIO, INFO, "returning cached bio=%p", bio);
 		return bio;
 	}
 	
@@ -257,7 +258,7 @@ bio_restartdata:
 	bio->block = block;
 	bio->length = len;
 	bio->data = bio_data + (cur_data_block * BIO_SECTOR_SIZE);
-	BIO_TRACE(" ==> returning cached bio=%p\n", bio);
+	TRACE(BIO, INFO, "returning cached bio=%p", bio);
 	return bio;
 }
 
@@ -267,17 +268,16 @@ bio_restartdata:
 void
 bio_free(struct BIO* bio)
 {
-	BIO_TRACE("bio_free(): bio=%p\n", bio);
+	TRACE(BIO, FUNC, "bio=%p", bio);
 }
 
 int
 bio_waitcomplete(struct BIO* bio)
 {	
-	BIO_TRACE("bio_waitcomplete(): bio=%p ==>", bio);
+	TRACE(BIO, FUNC, " bio=%p", bio);
 	while((bio->flags & BIO_FLAG_DIRTY) != 0) {
 		reschedule();
 	}
-	BIO_TRACE(" done\n");
 	return 0;
 }
 
@@ -290,7 +290,7 @@ bio_read(device_t dev, block_t block, size_t len)
 	 * what about dirty write?
 	 */
 	if ((bio->flags & BIO_FLAG_DIRTY) == 0) {
-		BIO_TRACE("bio_read(): dev=%p, block=%u, len=%u ==> cached block %p\n", dev, (int)block, len, bio);
+		TRACE(BIO, INFO, "dev=%p, block=%u, len=%u ==> cached block %p", dev, (int)block, len, bio);
 		return bio;
 	}
 	bio->flags |= BIO_FLAG_READ;
@@ -305,21 +305,21 @@ bio_read(device_t dev, block_t block, size_t len)
 
 	/* ... and wait until we have something to report... */
 	bio_waitcomplete(bio);
-	BIO_TRACE("bio_read(): dev=%p, block=%u, len=%u ==> new block %p\n", dev, (int)block, len, bio);
+	TRACE(BIO, INFO, "dev=%p, block=%u, len=%u ==> new block %p", dev, (int)block, len, bio);
 	return bio;
 }
 
 void
 bio_set_error(struct BIO* bio)
 {
-	BIO_TRACE("bio_set_error(): bio=%p\n", bio);
+	TRACE(BIO, FUNC, "bio=%p", bio);
 	bio->flags = (bio->flags & ~BIO_FLAG_DIRTY) | BIO_FLAG_ERROR;
 }
 
 void
 bio_set_ready(struct BIO* bio)
 {
-	BIO_TRACE("bio_set_ready(): bio=%p\n", bio);
+	TRACE(BIO, FUNC, "bio=%p", bio);
 	bio->flags &= ~BIO_FLAG_DIRTY;
 }
 

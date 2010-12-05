@@ -15,6 +15,7 @@ kern/vfs-generic.c	mandatory
 kern/vfs-icache.c	mandatory
 kern/vfs-dentry.c	mandatory
 kern/tty.c		mandatory
+kern/trace.c		mandatory
 lib/kern/misc.c		mandatory
 lib/kern/memset.c	mandatory
 lib/kern/memcpy.c	mandatory

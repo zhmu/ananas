@@ -14,8 +14,6 @@
 
 TRACE_SETUP;
 
-#define TRACE(x...)
-
 struct THREAD* threads = NULL;
 
 errorcode_t
@@ -71,7 +69,7 @@ thread_init(thread_t t, thread_t parent)
 	if (parent != NULL)
 		thread_set_environment(t, parent->threadinfo->ti_env, PAGE_SIZE /* XXX */);
 
-	TRACE("thread_alloc(): t=%p, stdin=%p, stdout=%p, stderr=%p\n",
+	TRACE(THREAD, INFO, "t=%p, stdin=%p, stdout=%p, stderr=%p",
 	 t,
 	 t->threadinfo->ti_handle_stdin,
 	 t->threadinfo->ti_handle_stdout,

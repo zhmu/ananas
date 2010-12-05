@@ -15,12 +15,6 @@ TRACE_SETUP;
 #define __PowerPC__
 #endif
 
-#if 0
-#define TRACE(x,...) kprintf("%s:%u: "x"\n", __FILE__, __LINE__, __VA_ARGS__)
-#else
-#define TRACE(x,...)
-#endif
-
 #if defined(__i386__) || defined(__PowerPC__)
 static errorcode_t
 elf32_load(thread_t thread, void* priv, elf_getfunc_t obtain)
@@ -60,16 +54,16 @@ elf32_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 	if (ehdr.e_phentsize < sizeof(Elf32_Phdr))
 		return ANANAS_ERROR(BAD_EXEC);
 
-	TRACE("found %u program headers", ehdr.e_phnum);
+	TRACE(EXEC, INFO, "found %u program headers", ehdr.e_phnum);
 	for (unsigned int i = 0; i < ehdr.e_phnum; i++) {
 		Elf32_Phdr phdr;
-		TRACE("ph %u: obtaining header from offset %u", i, ehdr.e_phoff + i * ehdr.e_phentsize);
+		TRACE(EXEC, INFO, "ph %u: obtaining header from offset %u", i, ehdr.e_phoff + i * ehdr.e_phentsize);
 		err = obtain(priv, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr));
 		if (err != ANANAS_ERROR_NONE) {
-			TRACE("ph %u: obtain failed: %i", i, err);
+			TRACE(EXEC, INFO, "ph %u: obtain failed: %i", i, err);
 			return err;
 		}
-		TRACE("ph %u: obtained, header type=%u", i, phdr.p_type);
+		TRACE(EXEC, INFO, "ph %u: obtained, header type=%u", i, phdr.p_type);
 		if (phdr.p_type != PT_LOAD)
 			continue;
 
@@ -77,7 +71,7 @@ elf32_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 		 * The program need not begin at a page-size, so we may need to adjust.
 		 */
 		int delta = phdr.p_vaddr % PAGE_SIZE;
-		TRACE("ph %u: instantiating mapping for %x (%u bytes)",
+		TRACE(EXEC, INFO, "ph %u: instantiating mapping for %x (%u bytes)",
 		 i, (phdr.p_vaddr - delta), phdr.p_memsz + delta);
 		struct THREAD_MAPPING* tm;
 		/* XXX deal with mode */
@@ -85,11 +79,11 @@ elf32_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 		err = thread_mapto(thread, (void*)(phdr.p_vaddr - delta), NULL, phdr.p_memsz + delta, mode, &tm);
 		ANANAS_ERROR_RETURN(err);
 	
-		TRACE("ph %u: loading to 0x%x (%u bytes, file offset is %u)", i, tm->ptr + delta, phdr.p_filesz, phdr.p_offset);
+		TRACE(EXEC, INFO, "ph %u: loading to 0x%x (%u bytes, file offset is %u)", i, tm->ptr + delta, phdr.p_filesz, phdr.p_offset);
 		err = obtain(priv, tm->ptr + delta, phdr.p_offset, phdr.p_filesz);
 		ANANAS_ERROR_RETURN(err);
 	}
-	TRACE("done, entry point is 0x%x", ehdr.e_entry);
+	TRACE(EXEC, INFO, "done, entry point is 0x%x", ehdr.e_entry);
 	md_thread_set_entrypoint(thread, ehdr.e_entry);
 
 	return ANANAS_ERROR_OK;

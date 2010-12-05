@@ -10,7 +10,6 @@
 #include "options.h"
 
 TRACE_SETUP;
-#define TRACE(x...)
 
 #define VFS_MOUNTED_FS_MAX	16
 
@@ -139,7 +138,7 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 		memset(fs, 0, sizeof(*fs));
 		return err;
 	}
-	TRACE("vfs_mount(): rootinode=%p\n", fs->root_inode);
+	TRACE(VFS, INFO, "rootinode=%p", fs->root_inode);
 
 	KASSERT(fs->root_inode != NULL, "successful mount without a root inode");
 	KASSERT(S_ISDIR(fs->root_inode->sb.st_mode), "root inode isn't a directory");
@@ -195,7 +194,7 @@ vfs_make_inode(struct VFS_MOUNTED_FS* fs)
 	inode->sb.st_dev = (dev_t)fs->device;
 	inode->sb.st_rdev = (dev_t)fs->device;
 	inode->sb.st_blksize = fs->block_size;
-	TRACE("vfs_make_inode(): inode=%p, refcount=%u\n", inode, inode->refcount);
+	TRACE(VFS, INFO, "made inode inode=%p with refcount=%u", inode, inode->refcount);
 	return inode;
 }
 
@@ -233,7 +232,7 @@ vfs_alloc_inode(struct VFS_MOUNTED_FS* fs)
 void
 vfs_release_inode_locked(struct VFS_INODE* inode)
 {
-	TRACE("vfs_release_inode_locked(): inode=%p,cur refcount=%u\n", inode, inode->refcount);
+	TRACE(VFS, FUNC, "inode=%p,cur refcount=%u", inode, inode->refcount);
 	if (--inode->refcount > 0) {
 		/* Refcount isn't zero; don't throw the inode away */
 		spinlock_unlock(&inode->spl_inode);
@@ -275,7 +274,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinod
 		ii = icache_find_item_or_add_pending(fs, fsop);
 		if (ii != NULL)
 			break;
-		TRACE("vfs_get_inode(): fsop is already pending, waiting...\n");
+		TRACE(VFS, WARN, "fsop is already pending, waiting...");
 		/* XXX There should be a wakeup signal of some kind */
 		reschedule();
 	}
@@ -387,7 +386,7 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 			dentry = dcache_find_item_or_add_pending(curinode, curlookup);
 			if (dentry != NULL)
 				break;
-			TRACE("vfs_lookup(): dentry item is already pending, waiting...\n");
+			TRACE(VFS, WARN, "dentry item is already pending, waiting...");
 			/* XXX There should be a wakeup signal of some kind */
 			reschedule();
 		}
@@ -544,7 +543,7 @@ vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, cons
 void
 vfs_ref_inode(struct VFS_INODE* inode)
 {
-	TRACE("vfs_ref_inode(): inode=%p,cur refcount=%u\n", inode, inode->refcount);
+	TRACE(VFS, FUNC, "inode=%p,cur refcount=%u", inode, inode->refcount);
 	spinlock_lock(&inode->spl_inode);
 	KASSERT(inode->refcount > 0, "referencing a dead inode");
 	inode->refcount++;

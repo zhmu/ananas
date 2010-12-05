@@ -26,6 +26,35 @@
 #define TRACE_FILE_ID \
 	(((addr_t)&__trace_id - (addr_t)&__traceid_begin) / sizeof(addr_t) + 1)
 
+/* Available subsystem trace types */
+#define TRACE_SUBSYSTEM_DEBUG   0			/* Plain debugging */
+#define TRACE_SUBSYSTEM_VFS     1			/* VFS layer */
+#define TRACE_SUBSYSTEM_THREAD	2			/* Threads framework */
+#define TRACE_SUBSYSTEM_EXEC	3			/* Execution  */
+#define TRACE_SUBSYSTEM_BIO	4			/* Block I/O layer */
+#define TRACE_SUBSYSTEM_HANDLE	5			/* Handle framework */
+#define TRACE_SUBSYSTEM_SYSCALL	6			/* System calls */
+#define TRACE_SUBSYSTEM_LAST	(TRACE_SUBSYSTEM_SYSCALL)
+
+/* Available tracelevels */
+#define TRACE_LEVEL_FUNC	0x0001			/* Function call tracing */
+#define TRACE_LEVEL_ERROR	0x0002			/* Error report */
+#define TRACE_LEVEL_INFO	0x0004			/* Information */
+#define TRACE_LEVEL_WARN	0x0008			/* Warning */
+
+#define TRACE(s,l,x...)	 \
+	if (trace_subsystem_mask[TRACE_SUBSYSTEM_##s] & TRACE_LEVEL_##l) \
+		tracef(TRACE_FILE_ID, __func__, x)
+
+#define TRACE_ENABLE(s,l) \
+	trace_subsystem_mask[TRACE_SUBSYSTEM_##s] |= TRACE_LEVEL_##l
+
+#define TRACE_DISABLE(s,l) \
+	trace_subsystem_mask[TRACE_SUBSYSTEM_##s] &= ~TRACE_LEVEL_##l
+	
+		
 extern void *__traceid_begin, *__traceid_end;
+extern uint32_t trace_subsystem_mask[];
+void tracef(int fileid, const char* func, const char* fmt, ...);
 
 #endif /* __ANANAS_TRACE_H__ */

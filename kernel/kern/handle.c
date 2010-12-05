@@ -10,8 +10,6 @@
 
 TRACE_SETUP;
 
-#define TRACE(x...)
-
 #define NUM_HANDLES 1000 /* XXX shouldn't be static */
 
 static struct HANDLE_QUEUE handle_freelist;
@@ -82,7 +80,7 @@ errorcode_t
 handle_destroy(struct HANDLE* handle, int free_resources)
 {
 	KASSERT(handle->type != HANDLE_TYPE_UNUSED, "freeing free handle");
-	TRACE("handle_destroy(): handle=%p, free_resource=%u\n", handle, free_resources);
+	TRACE(HANDLE, FUNC, "handle=%p, free_resource=%u", handle, free_resources);
 
 	/* Remove us from the thread handle queue, if necessary */
 	if (handle->thread != NULL) {
@@ -163,7 +161,7 @@ handle_clone(struct THREAD* t, struct HANDLE* handle, struct HANDLE** out)
 			err = thread_clone(handle->thread, 0, &newthread);
 			spinlock_unlock(&handle->spl_handle);
 			ANANAS_ERROR_RETURN(err);
-			TRACE("newthread handle = %x\n", newthread->thread_handle);
+			TRACE(HANDLE, INFO, "newthread handle = %x", newthread->thread_handle);
 			*out = newthread->thread_handle;
 			return ANANAS_ERROR_OK;
 		}
@@ -206,7 +204,7 @@ handle_clone(struct THREAD* t, struct HANDLE* handle, struct HANDLE** out)
 errorcode_t
 handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event, handle_event_result_t* result)
 {
-	TRACE("handle_wait(t=%p): handle=%p, event=%p\n", thread, handle, event);
+	TRACE(HANDLE, FUNC, "handle=%p, event=%p", thread, handle, event);
 
 	spinlock_lock(&handle->spl_handle);
 
@@ -224,7 +222,7 @@ handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event,
 		*event = THREAD_EVENT_EXIT;
 		*result = handle->data.thread->terminate_info;
 		spinlock_unlock(&handle->spl_handle);
-		TRACE("handle_wait(t=%p): done, thread already gone\n", thread);
+		TRACE(HANDLE, INFO, "done, thread already gone", thread);
 		return ANANAS_ERROR_OK;
 	}
 
@@ -251,14 +249,14 @@ handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event,
 	handle->waiters[waiter_id].thread = NULL;
 	spinlock_unlock(&handle->spl_handle);
 
-	TRACE("handle_wait(t=%p): done\n", thread);
+	TRACE(HANDLE, INFO, "t=%p, done", thread);
 	return ANANAS_ERROR_OK;
 }
 
 void
 handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t result)
 {
-	TRACE("handle_signal(): handle=%p, event=%p, result=0x%x\n", handle, event, result);
+	TRACE(HANDLE, FUNC, "handle=%p, event=%p, result=0x%x", handle, event, result);
 	spinlock_lock(&handle->spl_handle);
 	for (int waiter_id = 0; waiter_id <  HANDLE_MAX_WAITERS; waiter_id++) {
 		if (handle->waiters[waiter_id].thread == NULL)
@@ -271,7 +269,7 @@ handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t
 		thread_resume(handle->waiters[waiter_id].thread);
 	}
 	spinlock_unlock(&handle->spl_handle);
-	TRACE("handle_signal(): done\n");
+	TRACE(HANDLE, INFO, "done");
 }
 
 /* vim:set ts=2 sw=2: */

@@ -17,8 +17,6 @@
 
 TRACE_SETUP;
 
-#define TRACE(x...)
-
 void
 icache_init(struct VFS_MOUNTED_FS* fs)
 {
@@ -128,7 +126,7 @@ retry:
 			ii->inode->refcount++;
 			spinlock_unlock(&ii->inode->spl_inode);
 
-			TRACE("vfs_ref_inode(): inode=%p,new refcount=%u\n", ii->inode, ii->inode->refcount);
+			TRACE(VFS, INFO, "returning inode %p with refcount=%u", ii->inode, ii->inode->refcount);
 
 			/*
 			 * Push the the item to the head of the cache; we expect the caller to
