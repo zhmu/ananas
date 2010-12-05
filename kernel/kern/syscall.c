@@ -25,10 +25,10 @@ syscall(struct SYSCALL_ARGS* a)
 {
 	struct THREAD* curthread = PCPU_GET(curthread);
 
-	TRACE(SYSCALL, FUNC, "syscall, t=%x, no=%u,a1=0x%x,a2=0x%x,a3=0x%x,a4=0x%x,a5=0x%x",
-		curthread, a->number, a->arg1, a->arg2, a->arg3, a->arg4, a->arg5);
-
 	errorcode_t err = perform_syscall(curthread, a);
+
+	if (err != ANANAS_ERROR_NONE)
+		TRACE(SYSCALL, WARN, "err=%u", err);
 	return err;
 }
 

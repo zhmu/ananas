@@ -21,6 +21,7 @@ TRACE_SETUP;
 errorcode_t
 sys_read(thread_t t, handle_t handle, void* buf, size_t* len)
 {
+	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, buf=%p, len=%p", t, handle, buf, len);
 	errorcode_t err;
 
 	/* Fetch the file handle */
@@ -49,6 +50,7 @@ sys_read(thread_t t, handle_t handle, void* buf, size_t* len)
 errorcode_t
 sys_write(thread_t t, handle_t handle, const void* buf, size_t* len)
 {
+	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, buf=%p, len=%p", t, handle, buf, len);
 	errorcode_t err;
 
 	/* Fetch the file handle */
@@ -77,6 +79,7 @@ sys_write(thread_t t, handle_t handle, const void* buf, size_t* len)
 errorcode_t
 sys_open(thread_t t, struct OPEN_OPTIONS* opts, handle_t* result)
 {
+	TRACE(SYSCALL, FUNC, "t=%p, opts=%p, result=%p", t, opts, result);
 	errorcode_t err;
 
 	/* Obtain open options */
@@ -100,6 +103,7 @@ sys_open(thread_t t, struct OPEN_OPTIONS* opts, handle_t* result)
 	/* XXX we should do something with the mode */
 
 	/* And open the path */
+	TRACE(SYSCALL, INFO, "opening userpath '%s'", userpath);
 	err = vfs_open(userpath, t->path_handle->data.vfs_file.inode, &handle->data.vfs_file);
 
 	/* Finally, hand the handle back if necessary and we're done */
@@ -108,6 +112,8 @@ sys_open(thread_t t, struct OPEN_OPTIONS* opts, handle_t* result)
 	if (err != ANANAS_ERROR_NONE) {
 		/* Do not forget to release the handle on error! */
 		handle_free(handle);
+	} else {
+		TRACE(SYSCALL, INFO, "success, handle=%p", handle);
 	}
 	return err;
 }
@@ -115,6 +121,8 @@ sys_open(thread_t t, struct OPEN_OPTIONS* opts, handle_t* result)
 errorcode_t
 sys_destroy(thread_t t, handle_t handle)
 {
+	TRACE(SYSCALL, FUNC, "t=%p, handle=%p", t, handle);
+
 	struct HANDLE* h;
 	errorcode_t err = syscall_get_handle(t, handle, &h);
 	ANANAS_ERROR_RETURN(err);
@@ -124,6 +132,7 @@ sys_destroy(thread_t t, handle_t handle)
 errorcode_t
 sys_clone(thread_t t, handle_t in, struct CLONE_OPTIONS* opts, handle_t* out)
 {
+	TRACE(SYSCALL, FUNC, "t=%p, in=%p, opts=%p, out=%p", t, in, opts, out);
 	errorcode_t err;
 
 	/* Obtain clone options */
@@ -154,6 +163,7 @@ sys_clone(thread_t t, handle_t in, struct CLONE_OPTIONS* opts, handle_t* out)
 errorcode_t
 sys_wait(thread_t t, handle_t handle, handle_event_t* event, handle_event_result_t* result)
 {
+	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, event=%p, result=%p", t, handle, event, result);
 	errorcode_t err;
 
 	/* Fetch the handle */
@@ -198,6 +208,7 @@ sys_wait(thread_t t, handle_t handle, handle_event_t* event, handle_event_result
 errorcode_t
 sys_summon(thread_t t, handle_t handle, struct SUMMON_OPTIONS* opts, handle_t* out)
 {
+	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, opts=%p, out=%p", t, handle, opts, out);
 	errorcode_t err;
 
 	/*
@@ -265,6 +276,7 @@ fail:
 errorcode_t
 sys_create(thread_t t, struct CREATE_OPTIONS* opts, handle_t* out)
 {
+	TRACE(SYSCALL, FUNC, "t=%p, opts=%p, out=%p", t, opts, out);
 	errorcode_t err;
 
 	/* Obtain arguments */
@@ -317,6 +329,7 @@ sys_create(thread_t t, struct CREATE_OPTIONS* opts, handle_t* out)
 errorcode_t
 sys_unlink(thread_t t, handle_t handle)
 {
+	TRACE(SYSCALL, FUNC, "t=%p, handle=%p", t, handle);
 	errorcode_t err;
 
 	/* Fetch the handle */
@@ -494,6 +507,7 @@ sys_handlectl_memory(thread_t t, handle_t handle, unsigned int op, void* arg, si
 errorcode_t
 sys_handlectl(thread_t t, handle_t handle, unsigned int op, void* arg, size_t len)
 {
+	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, op=%u, arg=%p, len=0x%x", t, handle, op, arg, len);
 	errorcode_t err;
 
 	/* Fetch the handle */
