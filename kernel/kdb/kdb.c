@@ -4,6 +4,7 @@
 #include <ananas/error.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
+#include <machine/param.h> /* for PAGE_SIZE */
 
 #define KDB_MAX_LINE 128
 #define KDB_MAX_ARGS 16
@@ -121,6 +122,7 @@ void
 kdb_init()
 {
 	thread_init(&kdb_thread, NULL);
+	thread_set_args(&kdb_thread, "[kdb]\0\0", PAGE_SIZE);
 }
 
 void
