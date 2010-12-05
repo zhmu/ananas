@@ -20,7 +20,6 @@ int fstat(int fd, struct stat* buf)
 	statarg.st_stat_len = sizeof(struct stat);
 	statarg.st_stat = buf;
 	err = sys_handlectl(handle, HCTL_FILE_STAT, &statarg, sizeof(statarg));
-	sys_destroy(handle);
 	if (err != ANANAS_ERROR_NONE) {
 		_posix_map_error(err);
 		return -1;
