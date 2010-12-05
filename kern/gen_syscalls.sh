@@ -5,7 +5,9 @@
 #
 # XXX This code is ugly, mostly due to my awk(1) skills lacking...
 #
-AWK=awk
+if [ -z "$AWK" ]; then
+	AWK=awk
+fi
 
 if [ -z "$4" ]; then
 	echo "usage: gen_syscalls.sh syscall.in.S libc/kern/syscall.h include/syscalls.h kern/syscalls.inc.c"
@@ -28,7 +30,7 @@ $AWK '
 	/^#/ { next; }
 	/^[0-9]+/ {
 		NR=$1
-		FUNCNAME=substr($4, 0, index($4, "("))
+		FUNCNAME=substr($4, 1, index($4, "(") - 1)
 		print ".globl sys_" FUNCNAME
 		print "sys_" FUNCNAME ":"
 		print "\tSYSCALL(" NR ")"
@@ -56,8 +58,8 @@ $AWK '
 	}
 	/^#/ { next; }
 	/^[0-9]+/ {
-		print "#define SYSCALL_" substr($4, 0, index($4, "(")) " "$1;
-		print $3 " sys_" substr($4, 0, index($4, "(")) "(ARG_CURTHREAD " substr($0, index($0, "(") + 1, index($0, "}") - index($0, "(") - 1)
+		print "#define SYSCALL_" substr($4, 1, index($4, "(") - 1) " "$1;
+		print $3 " sys_" substr($4, 1, index($4, "(")) "ARG_CURTHREAD " substr($0, index($0, "(") + 1, index($0, "}") - index($0, "(") - 1)
 	}
 ' < $1 > $3
 
