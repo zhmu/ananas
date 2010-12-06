@@ -33,7 +33,7 @@ dash-${VERSION}.tar.gz:
 		@${TOUCH} .configure
 
 .build:		.configure
-		(cd dash-${VERSION} && make)
+		(cd dash-${VERSION} && ${MAKE})
 		@${TOUCH} .build
 
 dash-${ARCH}:	.build
