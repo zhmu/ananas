@@ -129,3 +129,15 @@ diff -rubB dash-0.5.6/src/shell.h dash-0.5.6.patched/src/shell.h
  #endif
  #ifndef BSD
  #define BSD 1
+diff -rubB dash-0.5.6.patched/src/mksignames.c dash-0.5.6/src/mksignames.c
+--- dash-0.5.6/src/mksignames.c	2008-05-03 08:54:12.000000000 +0200
++++ dash-0.5.6.patched/src/mksignames.c	2010-12-06 22:33:08.000000000 +0100
+@@ -44,7 +44,7 @@
+    I don't want to allocate so much unused space for the intervening signal
+    numbers, so we just punt if SIGRTMAX is past the bounds of the
+    signal_names array (handled in configure). */
+-#if defined (SIGRTMAX) && defined (UNUSABLE_RT_SIGNALS)
++#if defined (SIGRTMAX) && defined (UNUSABLE_RT_SIGNALS) || 1
+ #  undef SIGRTMAX
+ #  undef SIGRTMIN
+ #endif
