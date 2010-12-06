@@ -6,6 +6,7 @@ ARCH=		i386
 CC?=		cc
 LD?=		ld
 AWK?=		awk
+NM?=		nm
 OBJCOPY?=	objcopy
 OBJDUMP?=	objdump
 
@@ -25,7 +26,7 @@ fileids.txt:	kernel.full ../../../../tools/extract_fileids.pl
 		../../../../tools/extract_fileids.pl ${OBJDUMP} tracesyms.elf fileids.txt
 
 kernel.symbols:	kernel
-		nm kernel|awk '{print $$1" "$$3}'|sort > kernel.symbols
+		${NM} kernel|${AWK} '{print $$1" "$$3}'|sort > kernel.symbols
 
 #
 # Assembly symbols: we need a way to pass symbols to our assembly scripts.
@@ -34,7 +35,7 @@ asmsyms.o:	$S/arch/${ARCH}/asmsyms.c
 		$(CC) $(CFLAGS) -c -o asmsyms.o $S/arch/${ARCH}/asmsyms.c
 
 asmsyms.h:	asmsyms.o $S/tools/gen_asmsyms.sh
-		$S/tools/gen_asmsyms.sh asmsyms.o > asmsyms.h
+		$S/tools/gen_asmsyms.sh ${NM} ${AWK} asmsyms.o > asmsyms.h
 
 # XXX this file is actually only needed if teken is to be included XXX
 teken_state.h:	$S/lib/teken/gensequences $S/lib/teken/sequences
