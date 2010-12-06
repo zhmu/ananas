@@ -1,6 +1,6 @@
 # ARCH can be any of {i386,amd64,powerpc,avr32}
 ARCH?=		i386
-PREFIX?=	$(realpath prefix)
+PREFIX?=	$(realpath prefix.${ARCH})
 TARGET=		${ARCH}-elf-ananas
 
 # determine binutils/gcc versions to use and extra patches
@@ -30,9 +30,9 @@ SED?=		sed
 
 TARGET:		gcc
 
-binutils:	pre-everything .bu.includes
-gcc:		binutils .gcc.extract .gcc.patch .gcc.configure .gcc.build .gcc.install
-gdb:		.gdb.install
+binutils:	pre-everything .bu.${BINUTILS_VER}.${ARCH}.includes
+gcc:		binutils .gcc.${GCC_VER}.extract .gcc.${GCC_VER}.patch .gcc.${GCC_VER}.${ARCH}.configure .gcc.${GCC_VER}.${ARCH}.build .gcc.${GCC_VER}.${ARCH}.install
+gdb:		.gdb.${GDB_VER}.${ARCH}.install
 
 #
 # This kludge exists because gmake will have processed $(realpath ...) before
@@ -43,11 +43,11 @@ pre-everything:
 		@if [ "x${PREFIX}" = "x" ]; then echo "*** prefix directory does not exist - please create"; false; fi
 
 # binutils steps
-.bu.extract:	distfiles/binutils-${BINUTILS_VER}.tar.bz2
+.bu.${BINUTILS_VER}.extract:	distfiles/binutils-${BINUTILS_VER}.tar.bz2
 		@${ECHO} ">> Extracting binutils-${BINUTILS_VER}.tar.bz2..."
 		if [ ! -d src ]; then mkdir src; fi
 		${TAR} xf distfiles/binutils-${BINUTILS_VER}.tar.bz2 -C src
-		@${TOUCH} .bu.extract
+		@${TOUCH} .bu.${BINUTILS_VER}.extract
 
 ifdef BINUTILS_PATCH
 distfiles/binutils-${BINUTILS_VER}.diff.bz2:
@@ -55,51 +55,51 @@ distfiles/binutils-${BINUTILS_VER}.diff.bz2:
 		if [ ! -d distfiles ]; then mkdir distfiles; fi
 		(cd distfiles && ${DOWNLOAD} -O binutils-${BINUTILS_VER}.diff.bz2 ${BINUTILS_PATCH})
 
-.bu.prepatch:	distfiles/binutils-${BINUTILS_VER}.diff.bz2 .bu.extract
+.bu.${BINUTILS_VER}.prepatch:	distfiles/binutils-${BINUTILS_VER}.diff.bz2 .bu.${BINUTILS_VER}.extract
 		@${ECHO} ">> Applying additional patches to binutils"
 		(cd src/binutils-${BINUTILS_VER} && bzcat ../../distfiles/binutils-${BINUTILS_VER}.diff.bz2|patch -p1)
-		@${TOUCH} .bu.prepatch
+		@${TOUCH} .bu.${BINUTILS_VER} prepatch
 else
-.bu.prepatch:	.bu.extract
-		@${TOUCH} .bu.prepatch
+.bu.${BINUTILS_VER}.prepatch:	.bu.${BINUTILS_VER}.extract
+		@${TOUCH} .bu.${BINUTILS_VER}.prepatch
 endif
 
-.bu.patch:	.bu.prepatch scripts/binutils_patch.sh
+.bu.${BINUTILS_VER}.patch:	.bu.${BINUTILS_VER}.prepatch scripts/binutils_patch.sh
 		@${ECHO} ">> Applying local patches to binutils"
 		SED=${SED} scripts/binutils_patch.sh src/binutils-${BINUTILS_VER}
-		@${TOUCH} .bu.patch
+		@${TOUCH} .bu.${BINUTILS_VER}.patch
 
-.bu.configure: .bu.patch
-		@${ECHO} ">> Configuring binutils"
-		if [ ! -d build/binutils ]; then mkdir -p build/binutils; fi
-		(cd build/binutils && ../../src/binutils-${BINUTILS_VER}/configure --target=${TARGET} --prefix=${PREFIX})
+.bu.${BINUTILS_VER}.${ARCH}.configure: .bu.${BINUTILS_VER}.patch
+		@${ECHO} ">> Configuring binutils (${ARCH})"
+		if [ ! -d build/binutils.${BINUTILS_VER}.${ARCH} ]; then mkdir -p build/binutils.${BINUTILS_VER}.${ARCH}; fi
+		(cd build/binutils.${BINUTILS_VER}.${ARCH} && ../../src/binutils-${BINUTILS_VER}/configure --target=${TARGET} --prefix=${PREFIX})
 		@# hack for old binutils that misdetect makeinfo >=4.11
-		${SED} -r 's#^MAKEINFO = .*missing makeinfo#MAKEINFO = /usr/bin/makeinfo#' < build/binutils/Makefile > build/binutils/Makefile.tmp
-		mv build/binutils/Makefile.tmp build/binutils/Makefile
-		@${TOUCH} .bu.configure
+		${SED} -r 's#^MAKEINFO = .*missing makeinfo#MAKEINFO = /usr/bin/makeinfo#' < build/binutils.${BINUTILS_VER}.${ARCH}/Makefile > build/binutils.${BINUTILS_VER}.${ARCH}/Makefile.tmp
+		mv build/binutils.${BINUTILS_VER}.${ARCH}/Makefile.tmp build/binutils.${BINUTILS_VER}.${ARCH}/Makefile
+		@${TOUCH} .bu.${BINUTILS_VER}.${ARCH}.configure
 
-.bu.build:	.bu.configure
-		@${ECHO} ">> Building binutils"
-		(cd build/binutils && ${MAKE} ${MAKE_BUILDARG})
-		@${TOUCH} .bu.build
+.bu.${BINUTILS_VER}.${ARCH}.build:	.bu.${BINUTILS_VER}.${ARCH}.configure
+		@${ECHO} ">> Building binutils (${ARCH})"
+		(cd build/binutils.${BINUTILS_VER}.${ARCH} && ${MAKE} ${MAKE_BUILDARG})
+		@${TOUCH} .bu.${BINUTILS_VER}.${ARCH}.build
 
-.bu.install:	.bu.build
+.bu.${BINUTILS_VER}.${ARCH}.install:	.bu.${BINUTILS_VER}.${ARCH}.build
 		@${ECHO} ">> Installing binutils (in ${PREFIX})"
-		(cd build/binutils && ${MAKE} install)
-		@${TOUCH} .bu.install
+		(cd build/binutils.${BINUTILS_VER}.${ARCH} && ${MAKE} install)
+		@${TOUCH} .bu.${BINUTILS_VER}.${ARCH}.install
 
-.bu.includes:	.bu.install
+.bu.${BINUTILS_VER}.${ARCH}.includes:	.bu.${BINUTILS_VER}.${ARCH}.install
 		@${ECHO} ">> Setting up include symlink (in ${PREFIX})"
 		@# XXX gmake-ism
 		ln -sf $(realpath ../include) ${PREFIX}
-		@${TOUCH} .bu.includes
+		@${TOUCH} .bu.${BINUTILS_VER}.${ARCH}.includes
 
 # GCC steps
-.gcc.extract:	distfiles/gcc-${GCC_VER}.tar.bz2
+.gcc.${GCC_VER}.extract:	distfiles/gcc-${GCC_VER}.tar.bz2
 		@${ECHO} ">> Extracting gcc-${GCC_VER}.tar.bz2..."
 		if [ ! -d src ]; then mkdir src; fi
 		${TAR} xf distfiles/gcc-${GCC_VER}.tar.bz2 -C src
-		@${TOUCH} .gcc.extract
+		@${TOUCH} .gcc.${GCC_VER}.extract
 
 ifdef GCC_PATCH
 distfiles/gcc-${GCC_VER}.diff.bz2:
@@ -107,13 +107,13 @@ distfiles/gcc-${GCC_VER}.diff.bz2:
 		if [ ! -d distfiles ]; then mkdir distfiles; fi
 		(cd distfiles && ${DOWNLOAD} -O gcc-${GCC_VER}.diff.bz2 ${GCC_PATCH})
 
-.gcc.prepatch:	distfiles/gcc-${GCC_VER}.diff.bz2 .gcc.extract
+.gcc.${GCC_VER}.prepatch:	distfiles/gcc-${GCC_VER}.diff.bz2 .gcc.${GCC_VER}.extract
 		@${ECHO} ">> Applying additional patches to gcc"
 		(cd src/gcc-${GCC_VER} && bzcat ../../distfiles/gcc-${GCC_VER}.diff.bz2|patch -p1)
-		@${TOUCH} .gcc.prepatch
+		@${TOUCH} .gcc.${GCC_VER}.prepatch
 else
-.gcc.prepatch:	.gcc.extract
-		@${TOUCH} .gcc.prepatch
+.gcc.${GCC_VER}.prepatch:	.gcc.${GCC_VER}.extract
+		@${TOUCH} .gcc.${GCC_VER}.prepatch
 endif
 
 distfiles/gcc-${GCC_VER}.diff:
@@ -121,57 +121,57 @@ distfiles/gcc-${GCC_VER}.diff:
 		if [ ! -d distfiles ]; then mkdir distfiles; fi
 		(cd distfiles && ${DOWNLOAD} -O gcc-${GCC_VER}.diff ${GCC_PATCH})
 
-.gcc.patch:	.gcc.prepatch
+.gcc.${GCC_VER}.patch:	.gcc.${GCC_VER}.prepatch
 		@${ECHO} ">> Applying local patches to gcc"
 		SED=${SED} scripts/gcc_patch.sh src/gcc-${GCC_VER}
-		@${TOUCH} .gcc.patch
+		@${TOUCH} .gcc.${GCC_VER}.patch
 
-.gcc.configure:	.gcc.patch
-		@${ECHO} ">> Configuring gcc"
-		if [ ! -d build/gcc ]; then mkdir -p build/gcc; fi
+.gcc.${GCC_VER}.${ARCH}.configure:	.gcc.${GCC_VER}.patch
+		@${ECHO} ">> Configuring gcc (${ARCH})"
+		if [ ! -d build/gcc.${GCC_VER}.${ARCH} ]; then mkdir -p build/gcc.${GCC_VER}.${ARCH}; fi
 		@# XXX the '--disable-libssp' is a temporary kludge since we do
 		@# not define the necessary things in stdio.h yet (it tries to
 		@# open /dev/urandom and read from it)
-		(cd build/gcc && ../../src/gcc-${GCC_VER}/configure --target=${TARGET} --prefix=${PREFIX} --disable-nls --enable-languages=c --without-headers --with-gmp=/usr/local --with-mpfr=/usr/local --disable-libssp)
-		@${TOUCH} .gcc.configure
+		(cd build/gcc.${GCC_VER}.${ARCH} && ../../src/gcc-${GCC_VER}/configure --target=${TARGET} --prefix=${PREFIX} --disable-nls --enable-languages=c --without-headers --with-gmp=/usr/local --with-mpfr=/usr/local --disable-libssp)
+		@${TOUCH} .gcc.${GCC_VER}.${ARCH}.configure
 
-.gcc.build:	.gcc.configure
-		@${ECHO} ">> Building gcc (this takes some time)"
-		(cd build/gcc && ${MAKE} ${MAKE_BUILDARG})
-		@${TOUCH} .gcc.build
+.gcc.${GCC_VER}.${ARCH}.build:	.gcc.${GCC_VER}.${ARCH}.configure
+		@${ECHO} ">> Building gcc (${ARCH}; this takes some time)"
+		(cd build/gcc.${GCC_VER}.${ARCH} && ${MAKE} ${MAKE_BUILDARG})
+		@${TOUCH} .gcc.${GCC_VER}.${ARCH}.build
 
-.gcc.install:	.gcc.build
+.gcc.${GCC_VER}.${ARCH}.install:	.gcc.${GCC_VER}.${ARCH}.build
 		@${ECHO} ">> Installing gcc (in ${PREFIX})"
-		(cd build/gcc && ${MAKE} install)
-		@${TOUCH} .gcc.install
+		(cd build/gcc.${GCC_VER}.${ARCH} && ${MAKE} install)
+		@${TOUCH} .gcc.${GCC_VER}.${ARCH}.install
 
 # GDB steps
-.gdb.extract:	distfiles/gdb-${GDB_VER}.tar.bz2
+.gdb.${GDB_VER}.extract:	distfiles/gdb-${GDB_VER}.tar.bz2
 		@${ECHO} ">> Extracting gdb-${GDB_VER}.tar.bz2..."
 		if [ ! -d src ]; then mkdir src; fi
 		${TAR} xf distfiles/gdb-${GDB_VER}.tar.bz2 -C src
-		@${TOUCH} .gdb.extract
+		@${TOUCH} .gdb.${GDB_VER}.extract
 
-.gdb.patch:	.gdb.extract
+.gdb.${GDB_VER}.patch:	.gdb.${GDB_VER}.extract
 		@${ECHO} ">> Apply local patches to gdb"
 		scripts/gdb_patch.sh src/gdb-${GDB_VER}
-		@${TOUCH} .gdb.patch
+		@${TOUCH} .gdb.${GDB_VER}.patch
 
-.gdb.configure:	.gdb.patch
-		@${ECHO} ">> Configuring gdb"
-		if [ ! -d build/gdb ]; then mkdir -p build/gdb; fi
-		(cd build/gdb && ../../src/gdb-${GDB_VER}/configure --target=${TARGET} --prefix=${PREFIX})
-		@${TOUCH} .gdb.configure
+.gdb.${GDB_VER}.${ARCH}.configure:	.gdb.${GDB_VER}.patch
+		@${ECHO} ">> Configuring gdb (${ARCH})"
+		if [ ! -d build/gdb.${GDB_VER}.${ARCH} ]; then mkdir -p build/gdb.${GDB_VER}.${ARCH}; fi
+		(cd build/gdb.${GDB_VER}.${ARCH} && ../../src/gdb-${GDB_VER}/configure --target=${TARGET} --prefix=${PREFIX})
+		@${TOUCH} .gdb.${GDB_VER}.${ARCH}.configure
 
-.gdb.build:	.gdb.configure
-		@${ECHO} ">> Building gdb"
-		(cd build/gdb && ${MAKE} ${MAKE_BUILDARG})
-		@${TOUCH} .gdb.build
+.gdb.${GDB_VER}.${ARCH}.build:	.gdb.${GDB_VER}.${ARCH}configure
+		@${ECHO} ">> Building gdb (${ARCH})"
+		(cd build/gdb.${GDB_VER}.${ARCH} && ${MAKE} ${MAKE_BUILDARG})
+		@${TOUCH} .gdb.${GDB_VER}.${ARCH}.build
 
-.gdb.install:	.gdb.build
+.gdb.${GDB_VER}.${ARCH}.install:	.gdb.${GDB_VER}.${ARCH}.build
 		@${ECHO} ">> Installing gdb (in ${PREFIX})"
-		(cd build/gdb && ${MAKE} install)
-		@${TOUCH} .gdb.install
+		(cd build/gdb.${GDB_VER}.${ARCH} && ${MAKE} install)
+		@${TOUCH} .gdb.${GDB_VER}.${ARCH}.install
 
 # downloading of necessary distfiles
 distfiles/binutils-${BINUTILS_VER}.tar.bz2:
@@ -191,10 +191,10 @@ distfiles/gdb-${GDB_VER}.tar.bz2:
 
 clean:
 		rm -rf prefix build
-		rm -f .bu.configure .bu.build .bu.install .bu.includes
-		rm -f .gcc.configure .gcc.build .gcc.install
+		rm -f .bu.${BINUTILS_VER}.${ARCH}.configure .bu.${BINUTILS_VER}.${ARCH}.build .bu.${BINUTILS_VER}.${ARCH}.install .bu.${BINUTILS_VER}.${ARCH}.includes
+		rm -f .gcc.${GCC_VER}.${ARCH}.configure .gcc.${GCC_VER}.${ARCH}.build .gcc.${GCC_VER}.${ARCH}.install
 
 reallyclean:	clean
 		rm -rf src
-		rm -f .bu.extract .bu.patch
-		rm -f .gcc.extract .gcc.patch
+		rm -f .bu.${BINUTILS_VER}.extract .bu.${BINUTILS_VER}.patch .bu.${BINUTILS_VER}.prepatch
+		rm -f .gcc.${GCC_VER}.extract .gcc.${GCC_VER}.patch .gcc.${GCC_VER}.prepatch
