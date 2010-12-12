@@ -62,6 +62,7 @@ _panic(const char* file, const char* func, int line, const char* fmt, ...)
 	va_start(ap, fmt);
 	vprintf(fmt, ap);
 	va_end(ap);
+	printf("\n");
 	abort();
 }
 
