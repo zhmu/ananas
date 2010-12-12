@@ -7,9 +7,14 @@ KCFLAGS=	$(WCFLAGS) -I../../include
 ARCH?=		amd64
 K?=		../../kernel
 
-target:		machine vfstest
+GENEXT2FS?=	genext2fs 
 
-vfstest:	$(OBJS)
+target:		test
+
+test:		vfstest image.ext2
+		./vfstest image.ext2
+
+vfstest:	machine $(OBJS)
 		$(CC) -o vfstest $(OBJS)
 
 vfstest.o:	vfstest.c
@@ -55,5 +60,12 @@ machine:
 ananas:
 		ln -sf ../../include/ananas
 
+image.ext2:	vfstest
+		mkdir -p image
+		mkdir -p image/dev
+		cp vfstest image
+		${GENEXT2FS} -b 1024 -d image image.ext2
+		rm -rf image
+
 clean:
-		rm -f vfstest machine ananas options.h $(OBJS)
+		rm -f vfstest machine ananas options.h image.ext2 $(OBJS)
