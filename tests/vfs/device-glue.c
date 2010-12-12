@@ -17,12 +17,13 @@ static struct DEVICE drv_image = {
 	.name = "image"
 };
 
+extern char* vfstest_fsimage;
 static struct DEVICE_QUEUE device_queue;
 
 void
 device_init()
 {
-	dev_fd = open("/home/rink/ananas.disk.img", O_RDONLY);
+	dev_fd = open(vfstest_fsimage, O_RDONLY);
 	if (dev_fd < 0)
 		panic("cannot open disk image");
 	dev_len = lseek(dev_fd, 0, SEEK_END);
@@ -43,8 +44,6 @@ errorcode_t
 device_bread(device_t dev, struct BIO* bio)
 {
 	off_t off = bio->io_block * 512;
-	/* This is a very ugly hack to use the correct partition */
-	off += 63 * 512;
 	if (pread(dev_fd, bio->data, bio->length, off) != bio->length)
 		panic("read error");
 	bio->flags &= ~BIO_FLAG_DIRTY;

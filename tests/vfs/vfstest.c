@@ -7,7 +7,7 @@
 #include <ananas/vfs.h>
 
 /* Files to use for testing */
-#define FILE1 "kernel"
+#define FILE1 "vfstest"
 #define FILE2 "doesnotexist"
 
 #define DEVFS_MOUNTPOINT "dev"
@@ -17,6 +17,8 @@
 
 #define CHECK_ERROR(x,e) \
 	check_err((x), ANANAS_ERROR_##e, STRINGIFY(x))
+
+char* vfstest_fsimage = NULL;
 
 static void
 check_err(errorcode_t err, errorcode_t e, const char* func)
@@ -47,6 +49,12 @@ main(int argc, char* argv[])
 	int icache_size, dcache_size;
 	struct ICACHE_ITEM* ii;
 	struct DENTRY_CACHE_ITEM* di;
+
+	if (argc != 2) {
+		printf("usage: vfstest image.ext2\n");
+		return 1;
+	}
+	vfstest_fsimage = argv[1];
 
 	/* Give the subsystems a go, as we depend on them */
 	device_init();
@@ -108,9 +116,37 @@ main(int argc, char* argv[])
 	/* And it must not be a negative entry */
 	assert((di->d_flags & DENTRY_FLAG_NEGATIVE) == 0);
 
-	/* XXX Try reading etc */
+	/*
+	 * Let's try to read our test file and compare it. We read in oddly-sized
+	 * chunks to cause extra strain in the VFS/BIO layers.
+	 */
+#define CHUNK_LEN 987
+	char source_data[CHUNK_LEN], dest_data[CHUNK_LEN];
+	FILE* f = fopen(FILE1, "rb");
+	if (f == NULL) {
+		printf("cannot open '%s' in local directory\n", FILE1);
+		abort();
+	}
+	while (1) {
+		size_t source_len = fread(source_data, 1, CHUNK_LEN, f);
+		size_t dest_len   = CHUNK_LEN;
+ 		CHECK_OK(vfs_read(&file1, dest_data, &dest_len));
+		if (source_len != dest_len) {
+			printf("read length mismatch, source=%zu, dest=%zu\n", source_len, dest_len);
+			abort();
+		}
+		if (source_len == 0)
+			/* end of file! */
+			break;
 
-	/* Now, we close the file */
+		if (memcmp(source_data, dest_data, source_len) != 0) {
+			printf("read data mismatch\n");
+			abort();
+		}
+	}
+	fclose(f);
+
+	/* Now, we close the VFS file */
 	struct VFS_INODE* file1inode = file1.inode;
 	CHECK_OK(vfs_close(&file1));
 
