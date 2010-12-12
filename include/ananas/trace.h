@@ -23,8 +23,12 @@
 	static const char __trace_filename[]  __attribute__((section(".tracenames"))) = __FILE__; \
 	static addr_t __trace_id  __attribute__((section(".traceids"))) = (addr_t)&__trace_filename;
 
+#ifdef KERNEL
 #define TRACE_FILE_ID \
 	(((addr_t)&__trace_id - (addr_t)&__traceid_begin) / sizeof(addr_t) + 1)
+#else
+#define TRACE_FILE_ID 0
+#endif
 
 /* Available subsystem trace types */
 #define TRACE_SUBSYSTEM_DEBUG   0			/* Plain debugging */
