@@ -44,6 +44,7 @@ struct EXT2_SUPERBLOCK {
 #define EXT2_DEF_RESUID		0
 	uint16_t	s_def_resgid;
 #define EXT2_DEF_RESGID		0
+	/* Note: next fields do not exist in the good old revision */
 	uint32_t	s_first_ino;
 	uint16_t	s_inode_size;
 	uint16_t	s_block_group_nr;
@@ -180,5 +181,8 @@ struct EXT2_DIRENTRY {
 #define EXT2_FT_SYMLINK		7
 	uint8_t		name[0];
 } __attribute__((packed));
+
+/* Values for old filesystems (that have the good old revision) */
+#define EXT2_GOOD_OLD_INODE_SIZE 128
 
 #endif /* __EXT2_H__ */

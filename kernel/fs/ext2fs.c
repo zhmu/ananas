@@ -345,6 +345,11 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 
+	/* Fill out some fields with the defaults for very old ext2 filesystems */
+	if (sb->s_rev_level == EXT2_GOOD_OLD_REV) {
+		sb->s_inode_size = EXT2_GOOD_OLD_INODE_SIZE;
+	}
+
 	/* Victory */
 	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)kmalloc(sizeof *privdata);
 	memcpy(&privdata->sb, sb, sizeof(*sb));
