@@ -147,6 +147,14 @@ devfs_read_inode(struct VFS_INODE* inode, void* fsop)
 		}
 		if (dev == NULL)
 			return ANANAS_ERROR(NO_FILE);
+
+		/* Advertise a character, block or regular file based on available driver functions */
+		if (dev->driver->drv_read != NULL || dev->driver->drv_write != NULL)
+			inode->sb.st_mode |= S_IFCHR;
+		else if (dev->driver->drv_bread != NULL || dev->driver->drv_bwrite != NULL)
+			inode->sb.st_mode |= S_IFBLK;
+		else
+			inode->sb.st_mode |= S_IFREG;
 		privdata->device = dev;
 	}
 	return ANANAS_ERROR_NONE;
