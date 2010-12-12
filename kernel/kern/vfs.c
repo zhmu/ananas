@@ -116,7 +116,12 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 			memset(fs, 0, sizeof(*fs));
 			return err;
 		}
+		/*
+		 * XXX There is a race here; we must lock the cache item (but not the inode as
+		 * we no longer need it)
+		 */
 		d = dcache_find_item_or_add_pending(inode, ptr + 1);
+		vfs_release_inode(inode);
 	}
 
 	struct DEVICE* dev = NULL;
@@ -397,7 +402,9 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 		}
 
 		if (dentry->d_entry_inode != NULL) {
-			/* Already have the inode cached -> return it (refcount will already be incremented) */
+			/* Already have the inode cached; release the previous inode */
+			vfs_release_inode(curinode);
+			/* And return the entry from the cache (refcount will already be incremented) */
 			curinode = dentry->d_entry_inode;
 			continue;
 		}
