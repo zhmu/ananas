@@ -15,6 +15,7 @@ option		EXT2FS
 option		ISO9660FS
 
 device		ata
+device		ataisa
 
 inputdev	isa.atkbd
 outputdev	isa.vga

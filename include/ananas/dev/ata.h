@@ -1,4 +1,5 @@
 #include <ananas/queue.h>
+#include <ananas/device.h>
 
 #ifndef __ATA_H__
 #define __ATA_H__
@@ -263,5 +264,16 @@ QUEUE_DEFINE(ATA_REQUEST_QUEUE, struct ATA_REQUEST_ITEM)
 	((uint64_t)(ATA_GET_DWORD(x))))
 	
 #define SECTOR_SIZE 512 /* XXX */
+
+struct ATA_PRIVDATA {
+	uint32_t	io_port;
+	uint32_t	io_port2;
+	struct ATA_REQUEST_QUEUE requests;
+};
+
+void ata_irq(device_t dev);
+void ata_start(device_t dev);
+void ata_attach_children(device_t dev);
+void ata_enqueue(device_t dev, void* request);
 
 #endif /* __ATA_H__ */

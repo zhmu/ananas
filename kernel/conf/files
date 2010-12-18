@@ -41,9 +41,10 @@ dev/bus/isa.c		optional isa
 dev/bus/isa/atkbd.c	optional atkbd
 dev/bus/pci/pci.c	optional pci
 dev/bus/pci/pcibus.c	optional pci
-dev/ata/ata.c		optional ata
+dev/ata/ata-isa.c	optional ataisa
 dev/ramdisk.c		optional ramdisk
 # XXX maybe divide IDE stuff in disk, cd, etc ?
+dev/ata/ata.c		optional ata
 dev/ata/atadisk.c	optional ata
 dev/ata/atacd.c		optional ata
 dev/vga.c		optional vga

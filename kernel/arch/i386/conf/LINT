@@ -25,6 +25,7 @@ option		ZLIB
 option		CRAMFS
 
 device		ata
+device		ataisa
 
 inputdev	isa.atkbd
 outputdev	isa.vga
