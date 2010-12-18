@@ -100,6 +100,11 @@ device_attach_single(device_t dev)
 		ANANAS_ERROR_RETURN(err);
 	}
 
+	/* Attempt to attach child devices, if any */
+	if (driver->drv_attach_children != NULL)
+		driver->drv_attach_children(dev);
+	device_attach_bus(dev);
+
 	return ANANAS_ERROR_OK;
 }
 
@@ -312,37 +317,22 @@ device_attach_bus(device_t bus)
 		}
 #endif
 
-		int result = 0;
-		int unit = 0;
-		while (result == 0) {
+		/* Attach any units */
+		while (1) {
 			device_t dev = device_alloc(bus, driver);
-			if (device_get_resources(dev, config_hints) == 0 && unit > 0)
+			/*
+			 * Obtain resources; note that if we cannot obtain any, we still attempt
+			 * to attach the first unit of the device (as it may not require any
+			 * additional resources to function properly)
+			 */
+			if (device_get_resources(dev, config_hints) == 0 && dev->unit > 0)
 				break;
 
-			errorcode_t err = ANANAS_ERROR_OK;
-			if (driver->drv_probe != NULL) {
-				/*
-				 * This device has a probe function; we must call it to figure out
-				 * whether the device actually exists or we're about to attach
-				 * something out of thin air here...
-				 */
-				err = driver->drv_probe(dev);
-			}
-			if (err == ANANAS_ERROR_OK) {
-				device_print_attachment(dev);
-				if (driver->drv_attach != NULL)
-					err = driver->drv_attach(dev);
-			}
+			errorcode_t err = device_attach_single(dev);
 			if (err != ANANAS_ERROR_OK) {
 				device_free(dev);
-				break;
+				continue;
 			}
-
-			/* We have a device; attach any children on this bus if needed */
-			if (driver->drv_attach_children != NULL)
-				driver->drv_attach_children(dev);
-			device_attach_bus(dev);
-			unit++;
 		}
 	}
 }
