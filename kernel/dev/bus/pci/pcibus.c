@@ -52,8 +52,7 @@ pcibus_attach(device_t dev)
 			 * Retrieve the PCI device class; drivers may use this to determine whether
 			 * they need to attach.
 			 */
-//			uint32_t stat_cmd = pci_read_config_l(busno, devno, funcno, PCI_REG_STATUSCOMMAND);
-			uint32_t class = pci_read_config_l(busno, devno, funcno, PCI_REG_CLASSREVISION);
+			uint32_t class_revision = pci_read_config_l(busno, devno, funcno, PCI_REG_CLASSREVISION);
 
 			/* Create a new device and pollute it with PCI resources */
 			device_t new_dev = device_alloc(dev, NULL);
@@ -62,7 +61,7 @@ pcibus_attach(device_t dev)
 			device_add_resource(new_dev, RESTYPE_PCI_FUNCTION, funcno, 0);
 			device_add_resource(new_dev, RESTYPE_PCI_VENDORID, dev_vendor & 0xffff, 0);
 			device_add_resource(new_dev, RESTYPE_PCI_DEVICEID, dev_vendor >> 16, 0);
-			device_add_resource(new_dev, RESTYPE_PCI_CLASS, PCI_CLASS(class), 0);
+			device_add_resource(new_dev, RESTYPE_PCI_CLASSREV, class_revision, 0);
 
 			/* Walk through any device that attached on our bus, and see if it works */
 			int device_attached = 0;
@@ -88,7 +87,7 @@ pcibus_attach(device_t dev)
 
 			if (!device_attached) {
 				kprintf("%s%u: no match for vendor 0x%x device 0x%x class %u, device ignored\n",
-					dev->name, dev->unit, dev_vendor & 0xffff, dev_vendor >> 16, PCI_CLASS(class));
+					dev->name, dev->unit, dev_vendor & 0xffff, dev_vendor >> 16, PCI_CLASS(class_revision));
 				new_dev->driver = NULL;
 				device_free(new_dev);
 			}

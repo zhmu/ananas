@@ -216,7 +216,7 @@ device_print_attachment(device_t dev)
 			case RESTYPE_PCI_FUNCTION: kprintf("func "); break;
 			case RESTYPE_PCI_VENDORID: kprintf("vendor "); hex = 1; break;
 			case RESTYPE_PCI_DEVICEID: kprintf("device "); hex = 1; break;
-			case RESTYPE_PCI_CLASS: kprintf("class "); break;
+			case RESTYPE_PCI_CLASSREV: kprintf("class/revision "); break;
 			default: continue;
 		}
 		kprintf(hex ? "0x%x" : "%u", dev->resource[i].base);
