@@ -11,7 +11,6 @@
 #define TFTP_PACKET_SIZE 512
 
 static struct PXE_BANGPXE* bangpxe = NULL;
-#define PXE_SCRATCHPAD_LENGTH 1024
 static void* pxe_scratchpad;
 static uint32_t pxe_server_ip;
 static uint32_t pxe_gateway_ip;
@@ -97,8 +96,8 @@ pxe_tftp_read(void* ptr, size_t length)
 
 		/* Have to read a new chunk */
 		t_PXENV_TFTP_READ* tr = (t_PXENV_TFTP_READ*)&rm_buffer;
-		tr->BufferOffset = ((uint32_t)pxe_scratchpad & 0xffff);
-		tr->BufferSegment = ((uint32_t)pxe_scratchpad >> 16);
+		tr->BufferOffset = ((uint32_t)pxe_scratchpad & 0xf);
+		tr->BufferSegment = ((uint32_t)pxe_scratchpad >> 4);
 		if ((pxe_call(PXENV_TFTP_READ) != PXENV_EXIT_SUCCESS) || tr->Status != PXENV_STATUS_SUCCESS)
 			break;
 
@@ -153,8 +152,13 @@ platform_init_netboot()
 		return 0;
 	}
 
-	/* If we got this far, initialize some scratchpad memory */
-	pxe_scratchpad = platform_get_memory(PXE_SCRATCHPAD_LENGTH);
+	/*
+	 * If we got this far, initialize some scratchpad memory; this is used to
+	 * store the last TFTP packet received. It must reside in memory <1MB due to
+	 * the wonderful aspects of realmode (which we are kind of forced to use,
+	 * as the PXE protected mode interface is even a greater pain to use)
+	 */
+	pxe_scratchpad = ((addr_t)&rm_buffer + 64);
 
 	/*
 	 * Note: it appears that supplying your own buffer does not work with all PXE's,

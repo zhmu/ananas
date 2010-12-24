@@ -334,7 +334,7 @@ realcall_esp:	.long	0
  * We need a realmode buffer; this is used to read sectors etc.
  */
 rm_buffer:
-	.space	512
+	.space	1024
 
 /*
  * Stack used for realmode work. This must be kept here since
