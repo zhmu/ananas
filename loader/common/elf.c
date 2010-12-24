@@ -83,6 +83,10 @@ elf64_load(void* header , struct LOADER_ELF_INFO* elf_info)
 {
 	Elf64_Ehdr* ehdr = header;
 
+	/* First of all, read the remaining few bits */
+	if (vfs_pread((header + sizeof(Elf32_Ehdr)), sizeof(Elf64_Ehdr) - sizeof(Elf32_Ehdr), sizeof(Elf32_Ehdr)) != sizeof(Elf64_Ehdr) - sizeof(Elf32_Ehdr))
+		ELF_ABORT("cannot read full ELF64 header");
+
 	/* Perform basic ELF checks */
 	if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB)
 		return 0;
@@ -156,11 +160,13 @@ elf_load(struct LOADER_ELF_INFO* elf_info)
 	elf_info->elf_end_addr = elf_info->elf_phys_end_addr = 0;
 
 	/*
-	 * Grab the kernel header. In a 32-bit case, we may read a bit too much, but
-	 * that is alright as we won't use it.
+	 * Grab the kernel header. We just read a meager 32 bit header to ensure we
+	 * will never read too much (some VFS drivers cannot seek, so we must stream
+	 * if we can) - if this happens to be a 64-bit kernel, we'll just read the
+	 * remaining part.
 	 */
 	char header_data[sizeof(Elf64_Ehdr)];
-	if (vfs_pread(header_data, sizeof(header_data), 0) != sizeof(header_data))
+	if (vfs_pread(header_data, sizeof(Elf32_Ehdr), 0) != sizeof(Elf32_Ehdr))
 		ELF_ABORT("header read error");
 
 	/* Perform basic ELF checks; identical for ELF32/64 cases */
