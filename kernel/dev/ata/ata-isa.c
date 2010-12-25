@@ -19,29 +19,7 @@ ataisa_attach(device_t dev)
 	if (res_io == NULL || res_irq == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 
-	struct ATA_PRIVDATA* priv = kmalloc(sizeof(struct ATA_PRIVDATA));
-	priv->io_port = (uint32_t)(uintptr_t)res_io;
-	/* XXX this is a hack - at least, until we properly support multiple resources */
-	if (priv->io_port == 0x170) {
-		priv->io_port2 = (uint32_t)0x374;
-	} else if (priv->io_port == 0x1f0) {
-		priv->io_port2 = (uint32_t)0x3f4;
-	} else {
-		device_printf(dev, "couldn't determine second I/O range");
-		return ANANAS_ERROR(NO_RESOURCE);
-	}
-	QUEUE_INIT(&priv->requests);
-	dev->privdata = priv;
-
-	/* Ensure there's something living at the I/O addresses */
-	if (inb(priv->io_port + ATA_REG_STATUS) == 0xff) return 1;
-
-	if (!irq_register((uintptr_t)res_irq, dev, ata_irq))
-		return ANANAS_ERROR(NO_RESOURCE);
-
-	/* reset the control register - this ensures we receive interrupts */
-	outb(priv->io_port + ATA_REG_DEVCONTROL, 0);
-	return ANANAS_ERROR_OK;
+	return ata_attach(dev, (uint32_t)res_io, (uint32_t)res_irq)
 }
 
 struct DRIVER drv_ataisa = {
