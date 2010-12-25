@@ -84,8 +84,8 @@ static int
 ata_identify(device_t dev, int unit, struct ATA_IDENTIFY* identify)
 {
 	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
-	//uint8_t identify_cmds[] = { ATA_CMD_IDENTIFY, ATA_CMD_IDENTIFY_PACKET, 0 };
-	uint8_t cmd = ATA_CMD_IDENTIFY;
+	uint8_t cmd;
+	int stat; /* used to store the ATA_REG_STATUS value */
 
 #define TINY_WAIT() \
 	do { \
@@ -95,39 +95,35 @@ ata_identify(device_t dev, int unit, struct ATA_IDENTIFY* identify)
 		inb(priv->io_port2 + ATA_REG_ALTSTATUS); \
 	} while(0);
 
-	/* Select drive */
-	outb(priv->io_port + ATA_REG_DEVICEHEAD, 0xa0 | (unit << 4));
-	TINY_WAIT();
+#define HUGE_WAIT() \
+	do { \
+		for (int i = 0; i < 10000; i++) \
+			inb(priv->io_port2 + ATA_REG_ALTSTATUS);  \
+	} while(0)
 
-	/* Perform a software reset */
-	outb(priv->io_port2 + ATA_REG_DEVCONTROL, ATA_DCR_SRST);
+	/* Perform a software reset (resets the entire channel) */
+	outb(priv->io_port + ATA_REG_DEVICEHEAD, 0xa0);
+	TINY_WAIT();
+	outb(priv->io_port2 + ATA_REG_DEVCONTROL, ATA_DCR_nIEN | ATA_DCR_SRST);
+	HUGE_WAIT();
 	outb(priv->io_port2 + ATA_REG_DEVCONTROL, 0);
-	TINY_WAIT();
+	HUGE_WAIT();
+	(void)inb(priv->io_port + ATA_REG_ERROR);
 
-	/*
-	 * Select a device and ask it to identify itself; this is used to figure out
-	 * whether it exists and what kind of device it is.
-	 */
+	/* Select our drive */
 	outb(priv->io_port + ATA_REG_DEVICEHEAD, 0xa0 | (unit << 4));
 	TINY_WAIT();
-	outb(priv->io_port + ATA_REG_COMMAND, cmd);
-	TINY_WAIT();
 
 	/*
-	 * Now we wait for BSY to clear, and DRDY to be set. If this times out, we
-	 * assume there is no device.
+	 * Now we wait for BSY to clear. If this times out, we assume there is no
+	 * device.
 	 */
 	int timeout = 50000;
-
-	while (ata_read_status(dev) & ATA_STAT_BSY) {
-		TINY_WAIT();
-		if (timeout--)
+	while (timeout > 0) {
+		stat = inb(priv->io_port + ATA_REG_STATUS);
+		if ((stat & ATA_STAT_BSY) == 0)
 			break;
-	}
-	while ((ata_read_status(dev) & ATA_STAT_DRDY) == 0) {
 		TINY_WAIT();
-		if (timeout == 0)
-			break;
 		timeout--;
 	}
 	if (timeout == 0) {
@@ -154,31 +150,36 @@ ata_identify(device_t dev, int unit, struct ATA_IDENTIFY* identify)
 			unit, ch << 8 | cl);
 	}
 
-	if (ata_read_status(dev) & ATA_STAT_ERR) {
-		/* An error is expected in ATAPI-land; they had to introduce a new identify command */
-		if (!atapi)
-			return 0;
-		cmd = ATA_CMD_IDENTIFY_PACKET;
+	/* Use the correct identify command based on whether we think this is ATAPI or not */
+	cmd = atapi ? ATA_CMD_IDENTIFY_PACKET : ATA_CMD_IDENTIFY;
 
-		outb(priv->io_port + ATA_REG_DEVICEHEAD, 0xa0 | (unit << 4));
-		TINY_WAIT();
-		outb(priv->io_port + ATA_REG_COMMAND, cmd);
-		TINY_WAIT();
+	/*
+	 * Select the device and ask it to identify itself; this is used to figure out
+	 * whether it exists and what kind of device it is.
+	 */
+	outb(priv->io_port + ATA_REG_DEVICEHEAD, 0xa0 | (unit << 4));
+	TINY_WAIT();
+	outb(priv->io_port + ATA_REG_COMMAND, cmd);
+	TINY_WAIT();
 
-		/* Wait until ERR is turned on, or !BSY && DRQ */
-		int timeout = 5000;
-		while (1) {
-			uint8_t x = ata_read_status(dev);
-			if (!(x & ATA_STAT_BSY) && (x & ATA_STAT_DRQ))
-				break;
-			if (x & ATA_STAT_ERR)
-				return 0;
-			timeout--;
-		}
-		if (timeout == 0) {
-			device_printf(dev, "timeout waiting for atapi identification of unit %u", unit);
-			return 0;
-		}
+	/* Wait for result, BSY must be cleared... */
+	timeout = 5000;
+	while (timeout > 0) {
+		stat = inb(priv->io_port + ATA_REG_STATUS);
+		if ((stat & ATA_STAT_BSY) == 0)
+			break;
+		TINY_WAIT();
+		timeout--;
+	}
+	/* ... and DRDY must be set */
+	while (timeout > 0 && ((stat & ATA_STAT_DRDY) == 0)) {
+		stat = inb(priv->io_port + ATA_REG_STATUS);
+		TINY_WAIT();
+		timeout--;
+	}
+	if (!timeout) {
+		device_printf(dev, "timeout waiting for identification of unit %u", unit);
+		return 0;
 	}
 
 	/* Grab the result of the identification command XXX implement insw() */
