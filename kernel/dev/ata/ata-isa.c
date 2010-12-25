@@ -19,7 +19,7 @@ ataisa_attach(device_t dev)
 	if (res_io == NULL || res_irq == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 
-	return ata_attach(dev, (uint32_t)res_io, (uint32_t)res_irq)
+	return ata_attach(dev, (uint32_t)res_io, (uint32_t)res_irq);
 }
 
 struct DRIVER drv_ataisa = {
