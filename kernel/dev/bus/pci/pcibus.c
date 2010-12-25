@@ -88,6 +88,11 @@ pcibus_attach(device_t dev)
 				}
 			}
 
+			/* Fetch the IRQ line, if any */
+			uint32_t irq = pci_read_config_l(busno, devno, funcno, PCI_REG_INTERRUPT) & 0xff;
+			if (irq != 0 && irq != 0xff)
+				device_add_resource(new_dev, RESTYPE_IRQ, irq, 0);
+
 			/* Walk through any device that attached on our bus, and see if it works */
 			int device_attached = 0;
 			struct PROBE** p = devprobe;
