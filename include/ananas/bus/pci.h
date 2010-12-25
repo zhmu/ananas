@@ -31,6 +31,7 @@
 #define  PCI_CMD_IO		0x00000001 /* I/O Access Enable */
 #define PCI_REG_CLASSREVISION	0x08
 #define PCI_CLASS(x)		((x) >> 24)
+#define PCI_SUBCLASS(x)		(((x) >> 16) & 0xff)
 #define  PCI_CLASS_STORAGE	0x01       /* Mass storage controller */
 #define   PCI_SUBCLASS_SCSI	0x00
 #define   PCI_SUBCLASS_IDE	0x01

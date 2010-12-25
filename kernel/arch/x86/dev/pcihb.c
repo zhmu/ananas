@@ -29,6 +29,14 @@ pci_read_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg)
 	return inl(pcihb_io + 4);
 }
 
+void
+pci_write_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, uint32_t value)
+{
+	uint32_t addr = 0x80000000L | (bus << 16) | (dev << 11) | (func << 8) | reg;
+	outl(pcihb_io, addr);
+	outl(pcihb_io + 4, value);
+}
+
 static errorcode_t
 pcihb_attach(device_t dev)
 {
