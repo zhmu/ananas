@@ -144,6 +144,8 @@ void device_init();
 device_t device_alloc(device_t bus, driver_t drv);
 void device_free(device_t dev);
 errorcode_t device_attach_single(device_t dev);
+void device_attach_bus(device_t bus);
+device_t device_clone(device_t dev);
 
 int device_get_resources_byhint(device_t dev, const char* hint, const char** hints);
 int device_get_resources(device_t dev, const char** hints);

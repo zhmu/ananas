@@ -51,6 +51,21 @@ device_alloc(device_t bus, driver_t drv)
 	return dev;
 }
 
+/* Clones a device; it will get a new unit number */
+device_t
+device_clone(device_t dev)
+{
+	device_t new_dev = device_alloc(dev->parent, dev->driver);
+
+	/* Copy the resources over */
+	for (int i = 0; i < DEVICE_MAX_RESOURCES; i++) {
+		new_dev->resource[i].type = dev->resource[i].type;
+		new_dev->resource[i].base = dev->resource[i].base;
+		new_dev->resource[i].length = dev->resource[i].length;
+	}
+	return new_dev;
+}
+
 void
 device_free(device_t dev)
 {
