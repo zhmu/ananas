@@ -11,6 +11,8 @@
 
 TRACE_SETUP;
 
+extern struct DRIVER drv_atapci;
+
 static errorcode_t
 atapci_probe(device_t dev)
 {
@@ -37,11 +39,27 @@ atapci_attach(device_t dev)
 	return ANANAS_ERROR_NONE;
 }
 
+static void
+atapci_attach_children(device_t dev)
+{
+	ata_attach_children(dev);
+
+	/*
+	 * We will find only a single atapci card even if there are two channels; to
+	 * ensure we'll attach the other channel as well, forcefully attach ourselves
+	 * to the other channel, too.
+	 */
+	if (dev->unit == 0) {
+		device_t new_dev = device_clone(dev);
+		device_attach_single(new_dev);
+	}
+}
+
 struct DRIVER drv_atapci = {
 	.name					= "atapci",
 	.drv_probe		= atapci_probe,
 	.drv_attach		= atapci_attach,
-	.drv_attach_children		= ata_attach_children,
+	.drv_attach_children		= atapci_attach_children,
 	.drv_enqueue	= ata_enqueue,
 	.drv_start		= ata_start
 };
