@@ -111,13 +111,15 @@ pcibus_attach(device_t dev)
 				/* This device may work - give it a chance to attach */
 				new_dev->driver = (*p)->driver;
 				strcpy(new_dev->name, new_dev->driver->name);
-				new_dev->unit = new_dev->driver->current_unit;
+				new_dev->unit = new_dev->driver->current_unit++;
 				errorcode_t err = device_attach_single(new_dev);
 				if (err == ANANAS_ERROR_NONE) {
 					/* This worked; use the next unit for the new device */
-					new_dev->driver->current_unit++;
 					device_attached++;
 					break;
+				} else {
+					/* No luck, revert the unit number */
+					new_dev->driver->current_unit--;
 				}
 			}
 
