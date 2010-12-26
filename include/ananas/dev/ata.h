@@ -1,5 +1,6 @@
 #include <ananas/queue.h>
 #include <ananas/device.h>
+#include <ananas/dev/ata-pci.h>
 
 #ifndef __ATA_H__
 #define __ATA_H__
@@ -25,13 +26,14 @@
 #define ATA_REG_ALTSTATUS	2		/* Alternate Status Register (R) */
 #define ATA_REG_DEVADDR		3		/* Device Address Register (R) */
 
-#define ATA_CMD_READ_SECTORS	0x20
-#define ATA_CMD_IDENTIFY	0xec
-#define ATA_CMD_PACKET		0xa0
-#define ATA_CMD_IDENTIFY_PACKET	0xa1
+#define ATA_CMD_READ_SECTORS		0x20	/* 28 bit PIO */
+#define ATA_CMD_DMA_READ_SECTORS	0xc8	/* 28 bit DMA */
+#define ATA_CMD_IDENTIFY		0xec
+#define ATA_CMD_PACKET			0xa0
+#define ATA_CMD_IDENTIFY_PACKET		0xa1
 
-#define ATAPI_CMD_READ_CAPACITY	0x25
-#define ATAPI_CMD_READ_SECTORS	0x28
+#define ATAPI_CMD_READ_CAPACITY		0x25
+#define ATAPI_CMD_READ_SECTORS		0x28
 
 struct ATA_IDENTIFY {
 	/*   0 */ uint8_t general_cfg[2];
@@ -245,6 +247,11 @@ struct ATA_REQUEST_ITEM {
 	uint8_t		command;	/* command */
 	uint8_t		unit;		/* unit (0=master, 1=slave) */
 	uint16_t		count;	/* amount of sectors or bytes */
+	uint32_t	flags;		/* request flags */
+#define ATA_ITEM_FLAG_READ	(1 << 0)	/* Read */
+#define ATA_ITEM_FLAG_WRITE	(1 << 1)	/* Write */
+#define ATA_ITEM_FLAG_ATAPI	(1 << 2)	/* ATAPI request */
+#define ATA_ITEM_FLAG_DMA	(1 << 3)	/* Use DMA */
 	uint64_t	lba;		/* start LBA */
 	struct BIO*	bio;		/* associated I/O buffer */
 	/* if command = ATA_CMD_PACKET, this is an ATAPI command and we need to send 6 command words */
@@ -269,8 +276,13 @@ struct ATA_PRIVDATA {
 	uint32_t	io_port;
 	uint32_t	io_port2;
 	struct ATA_REQUEST_QUEUE requests;
+	struct ATAPCI_PRIVDATA atapci;
 };
 
+#define ATA_DMA_CAPABLE(x) \
+	(((struct ATA_PRIVDATA*)(x)->privdata)->atapci.atapci_io != 0)
+
+errorcode_t ata_attach(device_t dev, uint32_t io, uint32_t irq);
 void ata_irq(device_t dev);
 void ata_start(device_t dev);
 void ata_attach_children(device_t dev);

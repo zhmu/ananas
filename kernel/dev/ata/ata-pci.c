@@ -36,6 +36,13 @@ atapci_attach(device_t dev)
 	ANANAS_ERROR_RETURN(err);
 
 	/* Device initialization went OK; now we should initialize the PCI DMA aspects */
+	void* res_io = device_alloc_resource(dev, RESTYPE_IO, 16);
+	if (res_io == NULL)
+		return ANANAS_ERROR(NO_RESOURCE);
+
+	struct ATA_PRIVDATA* privdata = dev->privdata;
+	privdata->atapci.atapci_io = (uint32_t)res_io;
+
 	return ANANAS_ERROR_NONE;
 }
 

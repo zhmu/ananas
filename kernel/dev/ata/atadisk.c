@@ -13,6 +13,8 @@ TRACE_SETUP;
 struct ATADISK_PRIVDATA {
 	int unit;
 	uint64_t size;	/* in sectors */
+	uint32_t flags;
+#define ATADISK_FLAG_DMA	(1 << 0)
 };
 
 static errorcode_t
@@ -35,6 +37,13 @@ atadisk_attach(device_t dev)
 	device_printf(dev, "<%s> - %u MB",
 	 identify->model,
  	 priv->size / ((1024UL * 1024UL) / 512UL));
+
+	/* If we are attached to a DMA-capable ATA controller, see if it's capable */
+	if (ATA_DMA_CAPABLE(dev->parent)) {
+		/* XXX We should check the registers to see if DMA support is configured */
+		priv->flags |= ATADISK_FLAG_DMA;
+		device_printf(dev, "using DMA transfers");
+	}
 
 	/*
 	 * Read the first sector and pass it to the MBR code; this is crude
@@ -65,6 +74,9 @@ atadisk_bread(device_t dev, struct BIO* bio)
 	item.count = bio->length / 512;
 	item.bio = bio;
 	item.command = ATA_CMD_READ_SECTORS;
+	item.flags = ATA_ITEM_FLAG_READ;
+	if (priv->flags & ATADISK_FLAG_DMA)
+		item.flags |= ATA_ITEM_FLAG_DMA;
 	dev->parent->driver->drv_enqueue(dev->parent, &item);
 	dev->parent->driver->drv_start(dev->parent);
 	return ANANAS_ERROR_OK;

@@ -35,7 +35,7 @@ ata_irq(device_t dev)
 	KASSERT(item->bio != NULL, "ata queue item without associated bio buffer!");
 
 	/* If this is an ATAPI command, we may need to send the command bytes at this point */
-	if (item->command == ATA_CMD_PACKET) {
+	if (item->flags & ATA_ITEM_FLAG_ATAPI) {
 		/*
 		 * In ATAPI-land, we obtain the number of bytes that could actually be read - this much
 		 * data is waiting for us.
@@ -45,21 +45,39 @@ ata_irq(device_t dev)
 		item->bio->length = len;
 	}
 
-	if (stat & ATA_STAT_ERR) {
-		kprintf("ata error %x ==> %x\n", stat,inb(priv->io_port + 1));
-		bio_set_error(item->bio);
-		kfree(item);
-		return;
-	}
-	/*
-	 * Request OK - fill the bio data XXX need to port 'rep insw'. We do this
-	 * before updating the buffer status to prevent 
-	 */
-	uint8_t* bio_data = item->bio->data;
-	for(int count = 0; count < item->bio->length / 2; count++) {
-		uint16_t data = inw(priv->io_port + ATA_REG_DATA);
-		*bio_data++ = data & 0xff;
-		*bio_data++ = data >> 8;
+	if (item->flags & ATA_ITEM_FLAG_DMA) {
+		/*
+		 * DMA request; this means we'll have to determine whether the request worked and
+		 * flag the buffer as such - it should have already been filled.
+		 */
+		outb(priv->atapci.atapci_io + ATA_PCI_REG_PRI_COMMAND, 0);
+
+		stat = inb(priv->atapci.atapci_io + ATA_PCI_REG_PRI_STATUS);
+		if (stat & ATA_PCI_STAT_ERROR)
+			bio_set_error(item->bio);
+
+		/* Reset the status bits */
+		outb(priv->atapci.atapci_io + ATA_PCI_REG_PRI_STATUS, stat);
+	} else {
+		/* Use old-style error checking first */
+		if (stat & ATA_STAT_ERR) {
+			kprintf("ata error %x ==> %x\n", stat,inb(priv->io_port + 1));
+			bio_set_error(item->bio);
+			kfree(item);
+			return;
+		}
+
+
+		/*
+		 * PIO request OK - fill the bio data XXX need to port 'rep insw'. We do
+		 * this before updating the buffer status to prevent races.
+		 */
+		uint8_t* bio_data = item->bio->data;
+		for(int count = 0; count < item->bio->length / 2; count++) {
+			uint16_t data = inw(priv->io_port + ATA_REG_DATA);
+			*bio_data++ = data & 0xff;
+			*bio_data++ = data >> 8;
+		}
 	}
 	
 	/* Current request is done. Sign it off and away it goes */
@@ -204,19 +222,10 @@ ata_identify(device_t dev, int unit, struct ATA_IDENTIFY* identify)
 		inb(priv->io_port + 0x206); inb(priv->io_port + 0x206);  \
 		inb(priv->io_port + 0x206); inb(priv->io_port + 0x206); 
 
-void
-ata_start(device_t dev)
+static void
+ata_start_pio(device_t dev, struct ATA_REQUEST_ITEM* item)
 {
 	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
-
-	KASSERT(!QUEUE_EMPTY(&priv->requests), "ata_start() with empty queue");
-
-	/* XXX locking */
-	/* XXX only do a single item now */
-
-	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests);
-	KASSERT(item->unit >= 0 && item->unit <= 1, "corrupted item number");
-	KASSERT(item->count > 0, "corrupted count number");
 
 	if (item->command != ATA_CMD_PACKET) {
 		/* Feed the request to the drive - disk */
@@ -253,6 +262,57 @@ ata_start(device_t dev)
 			outw(priv->io_port + ATA_REG_DATA, *(uint16_t*)(&item->atapi_command[i * 2]));
 		}
 	}
+}
+
+static void
+ata_start_dma(device_t dev, struct ATA_REQUEST_ITEM* item)
+{
+	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
+
+	struct ATAPCI_PRDT* prdt = &priv->atapci.atapci_prdt[0];
+	KASSERT(((addr_t)prdt & 3) == 0, "prdt not dword-aligned");
+
+	/* XXX For now, we assume a single request per go */
+	prdt->prdt_base = BIO_DATA(item->bio);
+	prdt->prdt_size = item->bio->length | ATA_PRDT_EOT;
+
+	/* Program the DMA parts of the PCI bus */
+	outl(priv->atapci.atapci_io + ATA_PCI_REG_PRI_PRDT, prdt);
+	outw(priv->atapci.atapci_io + ATA_PCI_REG_PRI_STATUS, ATA_PCI_STAT_IRQ | ATA_PCI_STAT_ERROR);
+
+	/* Feed the request to the drive - disk */
+	outb(priv->io_port + ATA_REG_DEVICEHEAD, 0xe0 | (item->unit ? 0x10 : 0) | ((item->lba >> 24) & 0xf));
+	outb(priv->io_port + ATA_REG_SECTORCOUNT, item->count);
+	outb(priv->io_port + ATA_REG_SECTORNUM, item->lba & 0xff);
+	outb(priv->io_port + ATA_REG_CYL_LO, (item->lba >> 8) & 0xff);
+	outb(priv->io_port + ATA_REG_CYL_HI, (item->lba >> 16) & 0xff);
+	outb(priv->io_port + ATA_REG_COMMAND, ATA_CMD_DMA_READ_SECTORS);
+
+	/* Go! */
+	uint32_t cmd = ATA_PCI_CMD_START;
+	if (item->flags & ATA_ITEM_FLAG_READ)
+		cmd |= ATA_PCI_CMD_RW;
+	outb(priv->atapci.atapci_io + ATA_PCI_REG_PRI_COMMAND, cmd);
+}
+
+void
+ata_start(device_t dev)
+{
+	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
+
+	KASSERT(!QUEUE_EMPTY(&priv->requests), "ata_start() with empty queue");
+
+	/* XXX locking */
+	/* XXX only do a single item now */
+
+	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests);
+	KASSERT(item->unit >= 0 && item->unit <= 1, "corrupted item number");
+	KASSERT(item->count > 0, "corrupted count number");
+
+	if (item->flags & ATA_ITEM_FLAG_DMA)
+		ata_start_dma(dev, item);
+	else
+		ata_start_pio(dev, item);
 
 	/*
 	 * Now, we must wait for the IRQ to handle it. XXX what about errors?

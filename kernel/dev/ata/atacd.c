@@ -39,6 +39,7 @@ atacd_bread(device_t dev, struct BIO* bio)
 	item.count = bio->length;
 	item.bio = bio;
 	item.command = ATA_CMD_PACKET;
+	item.flags = ATA_ITEM_FLAG_READ | ATA_ITEM_FLAG_ATAPI;
 	item.atapi_command[0] = ATAPI_CMD_READ_SECTORS;
 	item.atapi_command[2] = (bio->io_block >> 24) & 0xff;
 	item.atapi_command[3] = (bio->io_block >> 16) & 0xff;
