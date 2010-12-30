@@ -17,6 +17,9 @@
 struct PCPU bsp_pcpu;
 struct STACKFRAME bsp_sf;
 
+/* CPU clock speed, in MHz */
+int md_cpu_clock_mhz = 0;
+
 void
 md_startup(uint32_t r3, uint32_t r4, uint32_t r5)
 {
@@ -59,6 +62,9 @@ md_startup(uint32_t r3, uint32_t r4, uint32_t r5)
 
 	/* Do the final late initialization */
 	hal_init_late();
+
+	/* Obtain the CPU speed */
+	md_cpu_clock_mhz = hal_get_cpu_speed() / 1000000;
 
 	/* Do the machine independant stuff */
 	mi_startup();
