@@ -127,10 +127,11 @@ md_thread_unmap(thread_t thread, void* addr, size_t length)
 }
 
 void
-md_thread_setkthread(thread_t thread, kthread_func_t kfunc)
+md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
 {
 	/* XXX enable supervisor mode */
 	thread->md_ctx.sf.sf_srr0 = (addr_t)kfunc;
+	thread->md_ctx.sf.sf_r3 = (addr_t)arg;
 }
 
 void

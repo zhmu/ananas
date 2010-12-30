@@ -9,7 +9,7 @@
 #define __THREAD_H__
 
 typedef struct THREAD* thread_t;
-typedef void (*kthread_func_t)(void);
+typedef void (*kthread_func_t)(void*);
 struct THREADINFO;
 
 #define THREAD_EVENT_EXIT 1
@@ -64,7 +64,7 @@ errorcode_t md_thread_init(thread_t thread);
 void md_thread_free(thread_t thread);
 
 /* Machine-dependant kernel thread activation */
-void md_thread_setkthread(thread_t thread, kthread_func_t kfunc);
+void md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg);
 
 errorcode_t thread_init(thread_t t, thread_t parent);
 errorcode_t thread_alloc(thread_t parent, thread_t* dest);

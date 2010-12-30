@@ -154,7 +154,7 @@ md_thread_set_argument(thread_t thread, addr_t arg)
 }
 
 void
-md_thread_setkthread(thread_t thread, kthread_func_t kfunc)
+md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
 {
 	/*
 	 * Kernel threads must share the environment with the kernel; so they have to
@@ -166,6 +166,15 @@ md_thread_setkthread(thread_t thread, kthread_func_t kfunc)
 	thread->md_ctx.fs = GDT_SEL_KERNEL_PCPU;
 	thread->md_ctx.eip = (addr_t)kfunc;
 	thread->md_ctx.cr3 = (addr_t)pagedir - KERNBASE;
+
+	/*
+	 * Now, push 'arg' on the stack, as i386 passes arguments by the stack. Note that
+	 * we must first place the value and then update esp0 because the interrupt code
+	 * heavily utilized the stack, and the -= 4 protects our value from being
+ 	 * destroyed.
+	 */
+	*(uint32_t*)thread->md_ctx.esp0 = arg;
+	thread->md_ctx.esp0 -= 4;
 }
 	
 void

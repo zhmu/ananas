@@ -122,11 +122,12 @@ md_thread_set_argument(thread_t thread, addr_t arg)
 }
 
 void
-md_thread_setkthread(thread_t thread, kthread_func_t kfunc)
+md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
 {
 	thread->md_ctx.sf.sf_ss = GDT_SEL_KERNEL_DATA;
 	thread->md_ctx.sf.sf_cs = GDT_SEL_KERNEL_CODE;
 	thread->md_ctx.sf.sf_rip = (addr_t)kfunc;
+	thread->md_ctx.sf.sf_rsi = (addr_t)arg;
 }
 
 void
