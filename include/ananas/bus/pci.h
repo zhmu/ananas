@@ -1,6 +1,8 @@
 #ifndef __BUS_PCI_H__
 #define __BUS_PCI_H__
 
+#include <ananas/device.h>
+
 #define PCI_NOVENDOR		0xFFFF
 #define PCI_MAX_BUSSES		256
 #define PCI_MAX_DEVICES		32
@@ -32,6 +34,7 @@
 #define PCI_REG_CLASSREVISION	0x08
 #define PCI_CLASS(x)		((x) >> 24)
 #define PCI_SUBCLASS(x)		(((x) >> 16) & 0xff)
+#define PCI_PROGINT(x)		((x) & 0xff)
 #define  PCI_CLASS_STORAGE	0x01       /* Mass storage controller */
 #define   PCI_SUBCLASS_SCSI	0x00
 #define   PCI_SUBCLASS_IDE	0x01
@@ -102,5 +105,8 @@
 #define PCI_REG_CAPABILITIES	0x34
 #define _PCI_REG_RESERVED	0x38
 #define PCI_REG_INTERRUPT	0x3c
+
+void pci_write_cfg(device_t dev, uint32_t reg, uint32_t val, int size);
+uint32_t pci_read_cfg(device_t dev, uint32_t reg, int size);
 
 #endif /* __BUS_PCI_H__ */

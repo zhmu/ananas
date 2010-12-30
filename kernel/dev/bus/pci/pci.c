@@ -7,6 +7,11 @@
 extern uint32_t pci_read_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg);
 extern struct DRIVER drv_pcibus;
 
+uint32_t pci_read_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg);
+uint16_t pci_read_config_w(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg);
+uint32_t pci_write_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, uint32_t value);
+uint32_t pci_write_config_w(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, uint16_t value);
+
 static errorcode_t
 pci_attach(device_t dev)
 {
@@ -27,6 +32,36 @@ pci_attach(device_t dev)
 		device_attach_single(new_bus);
 	}
 	return ANANAS_ERROR_OK;
+}
+
+void
+pci_write_cfg(device_t dev, uint32_t reg, uint32_t val, int size)
+{
+	struct RESOURCE* bus_res = device_get_resource(dev, RESTYPE_PCI_BUS, 0);
+	struct RESOURCE* dev_res = device_get_resource(dev, RESTYPE_PCI_DEVICE, 0);
+	struct RESOURCE* func_res = device_get_resource(dev, RESTYPE_PCI_FUNCTION, 0);
+	KASSERT(bus_res != NULL && dev_res != NULL && func_res != NULL, "missing pci resources");
+
+	switch(size) {
+		case 2: pci_write_config_w(bus_res->base, dev_res->base, func_res->base, reg, val); return;
+		case 4: pci_write_config_l(bus_res->base, dev_res->base, func_res->base, reg, val); return;
+	}
+	panic("unsupported size");
+}
+
+uint32_t
+pci_read_cfg(device_t dev, uint32_t reg, int size)
+{
+	struct RESOURCE* bus_res = device_get_resource(dev, RESTYPE_PCI_BUS, 0);
+	struct RESOURCE* dev_res = device_get_resource(dev, RESTYPE_PCI_DEVICE, 0);
+	struct RESOURCE* func_res = device_get_resource(dev, RESTYPE_PCI_FUNCTION, 0);
+	KASSERT(bus_res != NULL && dev_res != NULL && func_res != NULL, "missing pci resources");
+
+	switch(size) {
+		case 2: return pci_read_config_w(bus_res->base, dev_res->base, func_res->base, reg);
+		case 4: return pci_read_config_l(bus_res->base, dev_res->base, func_res->base, reg);
+	}
+	panic("unsupported size");
 }
 
 struct DRIVER drv_pci = {
