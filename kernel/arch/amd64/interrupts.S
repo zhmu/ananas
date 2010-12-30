@@ -180,7 +180,7 @@ scheduler_irq:
 	 * active yet and we just need to return.
 	 */
 	pushq	%rax
-	movl	%eax, %cs
+	movl	%cs, %eax
 	cmpl	$GDT_SEL_KERNEL_CODE, %eax
 	je	scheduler_kern
 
