@@ -21,5 +21,6 @@
 # define PIT_MODE_BCD		(1 << 0)	/* BCD mode */
 
 void x86_pit_init();
+uint32_t x86_pit_calc_cpuspeed_mhz();
 
 #endif /* __X86_PIT_H__ */

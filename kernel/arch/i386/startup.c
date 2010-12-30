@@ -43,6 +43,9 @@ static struct PCPU bsp_pcpu;
 struct BOOTINFO* bootinfo = NULL;
 static struct BOOTINFO _bootinfo;
 
+/* CPU clock speed, in MHz */
+int md_cpu_clock_mhz = 0;
+
 /*
  * i386-dependant startup code, called by stub.s.
  */
@@ -380,6 +383,9 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * enabled once we are ready to run userland threads.
 	 */
 	__asm("sti");
+
+	/* Find out how quick the CPU is; this requires interrupts and will be needed for delay() */
+	md_cpu_clock_mhz = x86_pit_calc_cpuspeed_mhz();
 
 	/* All done - it's up to the machine-independant code now */
 	mi_startup();

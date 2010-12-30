@@ -36,6 +36,9 @@ struct TSS kernel_tss;
 struct BOOTINFO* bootinfo = NULL;
 static struct BOOTINFO _bootinfo;
 
+/* CPU clock speed, in MHz */
+int md_cpu_clock_mhz = 0;
+
 uint64_t
 rdmsr(uint32_t msr)
 {
@@ -296,6 +299,9 @@ extern void* syscall_handler;
 	 * enabled once we are ready to run userland threads.
 	 */
 	__asm("sti");
+
+	/* Find out how quick the CPU is; this requires interrupts and will be needed for delay() */
+	md_cpu_clock_mhz = x86_pit_calc_cpuspeed_mhz();
 
 	/* All done - it's up to the machine-independant code now */
 	mi_startup();
