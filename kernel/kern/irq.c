@@ -25,6 +25,19 @@ irq_register(unsigned int no, device_t dev, irqhandler_t handler)
 }
 
 void
+irq_dump()
+{
+	kprintf("irq dump\n");
+	for (int no = 0; no < MAX_IRQS; no++) {
+		kprintf("irq %u: ", no);
+		if (irq[no].handler)
+			kprintf("%s (%p)\n", irq[no].dev != NULL ? irq[no].dev->name : "?", irq[no].handler);
+		else
+			kprintf("(unassigned)\n");
+	}
+}
+
+void
 irq_handler(unsigned int no)
 {
 	int cpuid = PCPU_GET(cpuid);

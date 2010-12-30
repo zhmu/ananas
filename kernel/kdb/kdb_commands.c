@@ -3,6 +3,7 @@
 #include <ananas/threadinfo.h>
 #include <ananas/bio.h>
 #include <ananas/handle.h>
+#include <ananas/irq.h>
 #include <ananas/bootinfo.h>
 #include <ananas/lib.h>
 #include <ananas/vfs.h>
@@ -143,6 +144,12 @@ kdb_cmd_devices(int num_args, char** arg)
 		kprintf("device %p: '%s' unit %u\n",
 	 	 dev, dev->name, dev->unit);
 	}
+}
+
+void
+kdb_cmd_irq(int num_args, char** arg)
+{
+	irq_dump();
 }
 
 /* vim:set ts=2 sw=2: */

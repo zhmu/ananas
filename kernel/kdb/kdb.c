@@ -25,6 +25,7 @@ extern kdb_func_t kdb_cmd_memory;
 extern kdb_func_t kdb_cmd_handle;
 extern kdb_func_t kdb_cmd_fsinfo;
 extern kdb_func_t kdb_cmd_devices;
+extern kdb_func_t kdb_cmd_irq;
 
 struct KDB_COMMAND {
 	const char* cmd;
@@ -41,6 +42,7 @@ struct KDB_COMMAND {
 	{ "handle", "Display specific handle information", &kdb_cmd_handle },
 	{ "fsinfo", "Display filesystem information", &kdb_cmd_fsinfo },
 	{ "devices", "Display devices list", &kdb_cmd_devices },
+	{ "irq", "Display IRQ list", &kdb_cmd_irq },
 	{ NULL, NULL, NULL }
 };
 
@@ -63,7 +65,7 @@ kdb_cmd_exit(int num_args, char** arg)
 }
 
 static void
-kdb_func()
+kdb_func(void* ptr)
 {
 	char line[KDB_MAX_LINE + 1];
 	char* arg[KDB_MAX_ARGS];
@@ -134,7 +136,7 @@ kdb_enter(const char* why)
 	kdb_why = why;
 
 	/* Force our thread to restart and reset the entry point */
-	md_thread_setkthread(&kdb_thread, kdb_func);
+	md_thread_setkthread(&kdb_thread, kdb_func, NULL);
 	thread_resume(&kdb_thread);
 }
 
