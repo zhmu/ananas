@@ -13,7 +13,8 @@ debugcon_init()
 	/*
 	 * Checks for the bochs 0xe9 'hack', which is actually a very handy feature;
 	 * it allows us to dump debugger output to the bochs console, which we will
-	 * do in addition to the serial port (since we cannot read from it)
+	 * do in addition to writing the serial port (since we cannot read from this
+	 * port)
 	 */
 	outb(0x80, 0xff);
 	if(inb(0xe9) == 0xe9) {
@@ -37,12 +38,13 @@ debugcon_init()
 void
 debugcon_putch(int ch)
 {
-	if (debugcon_bochs_console)
+	if (debugcon_bochs_console) {
 		outb(0xe9, ch);
-
-	while((inb(DEBUGCON_IO + SIO_REG_LSR) & 0x20) == 0)
-		/* wait for the transfer buffer to become empty */ ;
-	outb(DEBUGCON_IO + SIO_REG_DATA, ch);
+	} else {
+		while((inb(DEBUGCON_IO + SIO_REG_LSR) & 0x20) == 0)
+			/* wait for the transfer buffer to become empty */ ;
+		outb(DEBUGCON_IO + SIO_REG_DATA, ch);
+	}
 }
 
 int
