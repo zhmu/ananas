@@ -191,6 +191,7 @@ scheduler_irq:
 	pushl	%eax
 	movw	$GDT_SEL_KERNEL_PCPU, %ax
 	movw	%ax, %fs
+	incl	%fs:(PCPU_TICKCOUNT)
 	cmpl	$0, %fs:(PCPU_CONTEXT)
 	popl	%eax
 	pop	%fs

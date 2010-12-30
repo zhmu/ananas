@@ -14,7 +14,9 @@
 	 * FPU context, or NULL if there is none. Being non-NULL means the	\
 	 * current thread is using the FPU and thus the context must be saved.	\
 	 */									\
-	void		*fpu_context;
+	void		*fpu_context;						\
+	/* Per-cpu interrupt tick counter */					\
+	uint32_t	tickcount;
 
 #define PCPU_TYPE(x) \
 	__typeof(((struct PCPU*)0)->x)

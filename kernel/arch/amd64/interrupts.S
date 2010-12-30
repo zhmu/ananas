@@ -188,6 +188,9 @@ scheduler_irq:
 	swapgs
 
 scheduler_kern:
+	/* Increment per-cpu tick count */
+	incl	%gs:(PCPU_TICKCOUNT)
+
 	/*
 	 * Per-CPU data is available. See if we have a CPU context, bail
 	 * out if not - note that we hand it the saved %rax so that it

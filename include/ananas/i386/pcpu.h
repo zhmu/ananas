@@ -6,7 +6,8 @@
 	void		*context; \
 	uint32_t	lapic_id; \
 	addr_t		tss; \
-	void		*fpu_context;
+	void		*fpu_context; \
+	uint32_t	tickcount;
 
 #define PCPU_TYPE(x) \
 	__typeof(((struct PCPU*)0)->x)
