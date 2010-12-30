@@ -38,3 +38,11 @@ inl(uint16_t port)
 	__asm volatile ("inl %1, %0" : "=a" (a) : "id" (port));
 	return a;
 }
+
+uint64_t
+rdtsc()
+{
+	uint32_t hi, lo;
+	__asm __volatile("rdtsc" : "=a" (lo), "=d" (hi) :);
+	return ((uint64_t)hi << 32) | lo;
+}
