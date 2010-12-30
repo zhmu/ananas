@@ -7,6 +7,7 @@
 #include <machine/pcpu.h>
 #include <ananas/x86/io.h>
 #include <ananas/x86/pic.h>
+#include <ananas/x86/pit.h>
 #include <ananas/x86/smap.h>
 #include <ananas/bootinfo.h>
 #include <ananas/handle.h>
@@ -367,6 +368,9 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	memset(&bsp_pcpu, 0, sizeof(bsp_pcpu));
 	pcpu_init(&bsp_pcpu);
 	bsp_pcpu.tss = (addr_t)&kernel_tss;
+
+	/* Initialize the PIT */
+	x86_pit_init();
 
 	/*
 	 * Enable interrupts. We do this right before the machine-independant code
