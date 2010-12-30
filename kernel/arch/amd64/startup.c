@@ -214,6 +214,8 @@ extern void* syscall_handler;
 	 */
 	extern void *__entry, *__end;
 	avail = (void*)((addr_t)&__entry + bootinfo->bi_kernel_size);
+	if ((addr_t)avail % PAGE_SIZE > 0)
+		avail += (PAGE_SIZE - ((addr_t)avail % PAGE_SIZE));
 	pml4 = (uint64_t*)bootstrap_get_page();
 
 	/* First of all, map the kernel; we won't get far without it */
