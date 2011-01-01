@@ -40,6 +40,9 @@ static uint32_t num_ints;
 
 static struct SPINLOCK spl_smp_launch;
 
+/* Used by interrupts.S to acknowledge IRQ's in the proper way */
+int lapic_initialized = 0;
+
 static void
 delay(int n) {
 	while (n-- > 0) {
@@ -460,6 +463,9 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 	KASSERT ((addr_t)ap_code < 0x100000, "ap code must be below 1MB"); /* XXX crude */
 	memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
 
+	/* Kill interrupts for a bit while we're programming the APIC */
+	__asm("cli");
+
 	/* Map the local APIC memory and enable it */
 	vm_map_device(LAPIC_BASE, LAPIC_SIZE);
 	*((uint32_t*)LAPIC_SVR) |= LAPIC_SVR_APIC_EN;
@@ -517,6 +523,15 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 	delay(200);
 	*((uint32_t*)LAPIC_ICR_LO) = 0xc4600 | (addr_t)ap_code >> 12;	/* SIPI */
 	delay(200);
+
+	/*
+	 * Mark the APIC as being there; this will cause us to acknowlege interrupts
+	 * in the APIC-way.
+	 */
+	lapic_initialized++;
+
+	/* Re-enable interrupts back again */
+	__asm("sti");
 }
 
 /*

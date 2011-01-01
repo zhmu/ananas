@@ -60,16 +60,19 @@
 eoi:
 	/* interrupt to EOI is in %edx */
 #ifdef SMP
+	cmpl	$0, lapic_initialized
+	jz	eoi_pic
 	movl	$0xfee000b0, %eax
 	movl	$0x0, (%eax)
-#else
+	ret
+eoi_pic:
+#endif
 	movb	$0x20, %al
 	outb	%al, $0x20
 	cmp	$0x8, %dl
 	jl	skip_pic2
 	outb	%al, $0xa0
 skip_pic2:
-#endif
 	ret
 
 do_irq:
