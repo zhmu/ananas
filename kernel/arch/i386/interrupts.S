@@ -325,28 +325,47 @@ syscall_int:
 
 clone_return:
 	/*
-	 * We expect to be called with %esp as the main kernel
-	 * stack for the new thread; we have to do some nifty
-	 * calculations to line up with the registers we intend
-	 * to store.
+	 * Once here, the to-be-cloned thread is scheduled to be
+	 * resumed. We need to intercept it, because the kernel
+	 * stackframe contains references to the parent thread's
+	 * stack (which we cannot access) - and even worse,
+	 * we are running from the userland(!) stack, because we
+	 * currently run in kernel mode and thus esp0 is not
+	 * restored.
 	 *
-	 * We need to go 6 * 4 bytes back; this allows us to
-	 * retrieve %ebp, %eip, %cs, %eflags and %ss. However,
-	 * we came here by an kernel->kernel switch, so the
-	 * top 2 * 4 bytes have been overwritten by cs:eip where
-	 * we came from - as we have shifted the stack 128 bytes,
-	 * this means we have to go that amount back minus 16
-	 * bytes (6 * 4 - 2 * 4 = 4 * 4 = 16).
+	 * However, the top of the kernel stack will still have
+	 * the stackframe set up by our syscall routine (as there
+	 * is no other way to do a clone) - we can use that
+	 * information to restore the caller.
+	 *
+	 * Note that we must not touch %eax in any way since it is
+	 * used to pass the return code to the cloned thread.
 	 */
-	addl	$(128 - 16), %esp
+
+	/* Switch to the process' kernel stack */
+	movw	$GDT_SEL_KERNEL_PCPU, %bx
+	movw	%bx, %fs
+	movl	%fs:(0), %ebx		/* %ebx = thread context */
+	movl	CTX_ESP0(%ebx), %esp
+
+	/* And to the process page tables */
+	movl	CTX_CR3(%ebx), %edx
+	movl	%edx, %cr3
 
 	/*
-	 * There will be a 32-byte stackframe here created for the
-	 * system call structure; our saved %ebx, %esi etc are
-	 * beyond that so grab 'm.
+	 * The syscall code will have created a stackframe to
+	 * pass the arguments to the syscall handler; we need to
+	 * unwind it, since we'll have to restore the registers the
+	 * ABI wanted us to preserve: %ebx, %esi and %edi.
 	 *
-	 * Note that we must use -36 as the initial offset as the
-	 * frame starts at offset -4 from where we are now ...
+	 * First, let's move our stack to where it was once the syscall was
+	 * invoked, plus the stored %ebp; we need to restore that first.
+	 */
+	subl	$(6 * 4), %esp
+
+	/*
+	 * There is an 'push %ebp; subl $32, %esp' in the syscall handler; this
+	 * means our saved registers are at %esp-36 downwards.
 	 */
 	movl	-36(%esp), %ebx
 	movl	-40(%esp), %esi
