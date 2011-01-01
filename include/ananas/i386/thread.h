@@ -48,25 +48,25 @@ struct TSS {
 
 /* Stored thread context - note that this must match cntx.S ! */
 struct CONTEXT {
-	uint32_t	/* 00 */ eax;
-	uint32_t	/* 04 */ ebx;
-	uint32_t	/* 08 */ ecx;
-	uint32_t	/* 0c */ edx;
-	uint32_t	/* 10 */ esi;
-	uint32_t	/* 14 */ edi;
-	uint32_t	/* 18 */ ebp;
-	uint32_t	/* 1c */ esp;
-	uint32_t	/* 20 */ eip;
-	uint32_t	/* 24 */ cs;
-	uint32_t	/* 28 */ ds;
-	uint32_t	/* 2c */ es;
-	uint32_t	/* 30 */ fs;
-	uint32_t	/* 34 */ gs;
-	uint32_t	/* 38 */ ss;
-	uint32_t	/* 3c */ cr3;
-	uint32_t	/* 40 */ eflags;
-	uint32_t	/* 44 */ esp0;
-};
+	uint32_t	eax;
+	uint32_t	ebx;
+	uint32_t	ecx;
+	uint32_t	edx;
+	uint32_t	esi;
+	uint32_t	edi;
+	uint32_t	ebp;
+	uint32_t	esp;
+	uint32_t	eip;
+	uint32_t	cs;
+	uint32_t	ds;
+	uint32_t	es;
+	uint32_t	fs;
+	uint32_t	gs;
+	uint32_t	ss;
+	uint32_t	cr3;
+	uint32_t	eflags;
+	uint32_t	esp0;
+} __attribute__((packed));
 
 struct FPUREGS {
 	uint16_t	cw;		/* control word */
@@ -87,7 +87,7 @@ struct FPUREGS {
 	uint8_t		r5[10];
 	uint8_t		r6[10];
 	uint8_t		r7[10];
-};
+} __attribute__((packed));
 
 /* i386-specific thread detais */
 #define MD_THREAD_FIELDS \

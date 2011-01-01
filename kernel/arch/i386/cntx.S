@@ -42,20 +42,31 @@ md_store_ctx:
 	movl	%fs:0, %ebx
 
 	/* Store the current registers - we have to do %ebx last */
-	movl	%eax, 0x00(%ebx)
-	movl	%ecx, 0x08(%ebx)
-	movl	%edx, 0x0c(%ebx)
-	movl	%esi, 0x10(%ebx)
-	movl	%edi, 0x14(%ebx)
-	movl	%ebp, 0x18(%ebx)
+	movl	%eax, CTX_EAX(%ebx)
+	movl	%ecx, CTX_ECX(%ebx)
+	movl	%edx, CTX_EDX(%ebx)
+	movl	%esi, CTX_ESI(%ebx)
+	movl	%edi, CTX_EDI(%ebx)
+	movl	%ebp, CTX_EBP(%ebx)
+
+	/*
+	 * The i386 CPU does not store the original %ss:%esp if the interrupt
+	 * occured in the same privilege level.
+	 *
+	 * Unfortunately, we'll have to detect this condition ourselves and
+	 * store our original %ss:%esp (we only do the latter because %ss is
+	 * fixed anyway)
+	 */
+	cmpl	$GDT_SEL_KERNEL_CODE, 20(%esp)
+	je	md_store_kernel
 
 	/*
 	 * We got here by means of a context switch, which means we have to
 	 * grab %ss:%esp from the interrupt frame (because we are now using
 	 * the kernel ring 0 stack as specified in the TSS)
 	 *
-	 *      + 32 = interrupted ss
-	 *      + 28 = interrupted esp
+	 *      + 32 = interrupted ss  (iff ring3->0 transition)
+	 *      + 28 = interrupted esp (iff ring3->0 transition)
 	 *      + 24 = interrupted eflags
 	 *      + 20 = interrupted cs
 	 *      + 16 = interrupted eip
@@ -65,9 +76,9 @@ md_store_ctx:
 	 *  esp +  0 = stored ds
 	 */
 	movl	28(%esp), %eax
-	movl	%eax, 0x1c(%ebx)
+	movl	%eax, CTX_ESP(%ebx)
 	movl	32(%esp), %eax
-	movl	%eax, 0x38(%ebx)
+	movl	%eax, CTX_SS(%ebx)
 
 	/* Store segment registers es/gs */
 	xor	%eax, %eax
@@ -96,26 +107,42 @@ md_store_ctx:
 md_store_ctx_skip_fpu:
 	/* Store original fs */
 	popl	%eax
-	movl	%eax,  0x30(%ebx)
+	movl	%eax, CTX_FS(%ebx)
 
 	/* Store ebx */
 	movl	%ebx, %edx
 	popl	%ebx
-	movl	%ebx, 0x04(%edx)
+	movl	%ebx, CTX_EBX(%edx)
 
 	/*
 	 * Store cs:eip and eflags - we grab those from the interrupt context.
 	 * Note that these are 12 earlier (i.e. eip is at esp+4 instead of
 	 * esp+16) because we have pop'ed %ebx/fs/ds a few lines back.
 	 */
-	movl	4(%esp), %eax
-	movl	%eax, 0x20(%edx)
-	movl	8(%esp), %eax
-	movl	%eax, 0x24(%edx)
-	movl	12(%esp), %eax
-	movl	%eax, 0x40(%edx)
-
+	movl	4(%esp), %eax		/* eip */
+	movl	%eax, CTX_EIP(%edx)
+	movl	8(%esp), %eax		/* cs */
+	movl	%eax, CTX_CS(%edx)
+	movl	12(%esp), %eax		/* eflags */
+	movl	%eax, CTX_EFLAGS(%edx)
 	ret
+
+md_store_kernel:
+	/*
+	 * Store our original %esp; this is before the
+	 * entire interrupt makeover. We'll have
+	 * 3x push in this function, a call return address,
+	 * the stored cs:eip and eflags, total 7 dwords.
+	 */
+	movl	%esp, %eax
+	addl	$(7 * 4), %eax
+	movl	%eax, CTX_ESP(%ebx)
+
+	/* Trash %ds */
+	addl	$4, %esp
+
+	/* Skip segment registers and FPU; they'll never be used */
+	jmp	md_store_ctx_skip_fpu
 
 /*
  * Restores the thread context and jumps to the thread
@@ -135,61 +162,83 @@ md_restore_ctx:
 	 * because failure to do so would cause kernel threads to
 	 * have problems.
 	 */
-	cmpl	$GDT_SEL_KERNEL_CODE, 0x24(%ebx)	/* check cs */
+	cmpl	$GDT_SEL_KERNEL_CODE, CTX_CS(%ebx)	/* check cs */
 	jne	md_restore_ctx2
-	cmpl	$reschedule_back, 0x20(%ebx)		/* check eip */
+	cmpl	$reschedule_back, CTX_EIP(%ebx)		/* check eip */
 	je	md_restore_ctx_kernel
 
 md_restore_ctx2:
-
 	/*
 	 * First of all, restore the segment registers es/fs/gs.
 	 */
-	movl	0x2c(%ebx), %eax
+	movl	CTX_ES(%ebx), %eax
 	movw	%ax, %es
-	movl	0x30(%ebx), %eax
+	movl	CTX_FS(%ebx), %eax
 	movw	%ax, %fs
-	movl	0x34(%ebx), %eax
+	movl	CTX_GS(%ebx), %eax
 	movw	%ax, %gs
 
 	/* Restore the standard registers as far as we can */
-	movl	0x00(%ebx), %eax
-	movl	0x08(%ebx), %ecx
-	movl	0x0c(%ebx), %edx
-	movl	0x10(%ebx), %esi
-	movl	0x14(%ebx), %edi
-	movl	0x18(%ebx), %ebp
-
-	/*
-	 * We need to switch to the thread's kernelstack as soon as possible,
-	 * because we cannot access our kernel stack anymore once we activate
-	 * the thread's page directory.
-	 */
-	movl	0x44(%ebx), %esp
+	movl	CTX_EAX(%ebx), %eax
+	movl	CTX_ECX(%ebx), %ecx
+	movl	CTX_EDX(%ebx), %edx
+	movl	CTX_ESI(%ebx), %esi
+	movl	CTX_EDI(%ebx), %edi
+	movl	CTX_EBP(%ebx), %ebp
 
 	/*
 	 * OK, almost there; note that, on i386, an 'iret' will also pop %ss:%esp
 	 * from the stack before fetching the eflags and %cs:%eip; this actually
 	 * makes a lot of sense, since you cannot set %ss:%esp beforehand as they
-	 * are for different privilege levels...
+	 * are for different privilege levels... (thus, should we be transitioning
+	 * to a kernel thread, we musn't do this!)
 	 *
 	 * The magic phrase is 'If the return is to another privilege level, the
 	 * IRET instruction also pops the stack pointer and SS from the stack,
 	 * before resuming program execution' (IA-32 Intel Architecture Software
  	 * Developer's Manual Volume 2, page 3-354)
- 	 *
 	 */
-	pushl	0x38(%ebx)	/* ss */
-	pushl	0x1c(%ebx)	/* esp */
-	pushl	0x40(%ebx)	/* eflags */
-	pushl	0x24(%ebx)	/* cs */
-	pushl	0x20(%ebx)	/* eip */
+	cmpl	$GDT_SEL_KERNEL_CODE, 0x24(%ebx)	/* check cs */
+	jne	r_uthread
+
+	/*
+	 * Need to restore a kernel thread; note that %ss:%esp will not be
+	 * restored because of the reasoning above, so we'll have to do
+	 * work around this.
+	 *
+	 * We do not need to restore %cr3 or %ds as these are already the
+	 * kernel versions. All we have to do is enter the thread with
+	 * our correct stackpointer.
+	 *
+	 * XXX We don't clear CR0_TS (but kernel code shouldn't use FP anyway)
+	 */
+	movl	CTX_ESP(%ebx), %esp
+
+	pushl	CTX_EFLAGS(%ebx)	/* eflags */
+	pushl	CTX_CS(%ebx)		/* cs */
+	pushl	CTX_EIP(%ebx)		/* eip */
+	iret
+
+r_uthread:
+	/*
+	 * We need to switch to the thread's kernelstack as soon as possible,
+	 * because we cannot access our kernel stack anymore once we activate
+	 * the thread's page directory.
+	 */
+	movl	CTX_ESP0(%ebx), %esp
+
+	/* Prepare the stack for return */
+	pushl	CTX_SS(%ebx)		/* userland ss */
+	pushl	CTX_ESP(%ebx)		/* userland esp */
+	pushl	CTX_EFLAGS(%ebx)	/* eflags */
+	pushl	CTX_CS(%ebx)		/* cs */
+	pushl	CTX_EIP(%ebx)		/* eip */
 
 	/* Store %eax, we're not quite there yet and need a register we can safely clobber */
 	pushl	%eax
 
 	/* Restore ds */
-	movl	0x28(%ebx), %eax
+	movl	CTX_DS(%ebx), %eax
 	movw	%ax, %ds
 
 	/*
@@ -205,11 +254,11 @@ md_restore_ctx2:
 	 * Grab the page directory in %eax; we can't touch %ebx anymore once we
 	 * set it, so place it on the stack.
 	 */
-	movl	0x3c(%ebx), %eax
+	movl	CTX_CR3(%ebx), %eax
 	pushl	%eax
 
 	/* Restore ebx and activate paging */
-	movl	0x04(%ebx), %ebx
+	movl	CTX_EBX(%ebx), %ebx
 
 	popl	%eax
 	movl	%eax, %cr3
@@ -222,18 +271,17 @@ md_restore_ctx_kernel:
 	/*
 	 * Restore the saved registers.
 	 */
-	movl	0x04(%ebx), %ecx		/* ecx = stored ebx! */
-	movl	0x10(%ebx), %esi
-	movl	0x14(%ebx), %edi
-	movl	0x18(%ebx), %ebp
-
-	movl	0x1c(%ebx), %esp
+	movl	CTX_EBX(%ebx), %ecx		/* ecx = stored ebx! */
+	movl	CTX_ESI(%ebx), %esi
+	movl	CTX_EDI(%ebx), %edi
+	movl	CTX_EBP(%ebx), %ebp
+	movl	CTX_ESP(%ebx), %esp
 
 	/*
 	 * Note this is a kernel -> kernel return, so we do not have to mess
 	 * with a stack. It will be returned by our system call handler.
 	 */
-	pushl	0x20(%ebx)	/* eip */
+	pushl	CTX_EIP(%ebx)	/* eip */
 	ret
 
 /*
@@ -266,11 +314,11 @@ md_reschedule:
 	jz	reschedule_kernctx
 
 	/* Store %ebx/%esi/%ebp/%edi/%esp */
-	movl	%ebx, 0x04(%eax)
-	movl	%esi, 0x10(%eax)
-	movl	%edi, 0x14(%eax)
-	movl	%ebp, 0x18(%eax)
-	movl	%esp, 0x1c(%eax)
+	movl	%ebx, CTX_EBX(%eax)
+	movl	%esi, CTX_ESI(%eax)
+	movl	%edi, CTX_EDI(%eax)
+	movl	%ebp, CTX_EBP(%eax)
+	movl	%esp, CTX_ESP(%eax)
 
 	/*
 	 * Note that the 'call' we are about to do
@@ -278,7 +326,7 @@ md_reschedule:
 	 */
 	movl	%esp, %ebx
 	subl	$4, %ebx
-	movl	%ebx, 0x1c(%eax)
+	movl	%ebx, CTX_ESP(%eax)
 
 	/* Now, insert our return point, %cs:%eip */
 	movl	$GDT_SEL_KERNEL_CODE, 0x24(%eax)

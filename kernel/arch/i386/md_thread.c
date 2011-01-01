@@ -173,8 +173,14 @@ md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
 	 * heavily utilized the stack, and the -= 4 protects our value from being
  	 * destroyed.
 	 */
-	*(uint32_t*)thread->md_ctx.esp0 = arg;
+	*(uint32_t*)thread->md_ctx.esp0 = (uint32_t)arg;
 	thread->md_ctx.esp0 -= 4;
+
+	/*
+	 * We do not differentiate between user/kernelstack because we cannot switch
+	 * adequately between them (and they cannot do syscalls anyway)
+	 */
+	thread->md_ctx.esp = thread->md_ctx.esp0;
 }
 	
 void
@@ -184,14 +190,20 @@ md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
 	memcpy(&t->md_ctx, &parent->md_ctx, sizeof(t->md_ctx));
 
 	/*
-	 * XXX upon activating the thread; information will get
-	 * overwritten so do it at a point where we don't care.
+	 * A kernel stack is not subject to paging; this is unavoidable as we need it
+	 * during a context switch, so it must reside in the kernel address space.
+	 *
+	 * This means we'll have to reinitialize a kernel stack - the clone_return
+	 * code will perform the adequate magic.
 	 */
-	t->md_ctx.esp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE - 128;
-
+	t->md_ctx.esp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE;
 	t->md_ctx.cr3  = (addr_t)t->md_pagedir;
 
-	/* Copy stack contents */
+	/*
+	 * Copy stack content; we copy the kernel stack over
+	 * because we can obtain the stackframe from it, which
+	 * allows us to return to the intended caller.
+	 */
 	memcpy(t->md_stack,  parent->md_stack, THREAD_STACK_SIZE);
 	memcpy(t->md_kstack, parent->md_kstack, KERNEL_STACK_SIZE);
 
