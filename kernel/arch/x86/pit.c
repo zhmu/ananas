@@ -7,6 +7,8 @@
 
 #define HZ 100 /* XXX does not belong here */
 
+extern int md_cpu_clock_mhz;
+
 void
 x86_pit_init()
 {
@@ -46,6 +48,25 @@ x86_pit_calc_cpuspeed_mhz()
 	while (PCPU_GET(tickcount) < tickcount);	/* wait for yet another tick */
 	tsc_current = rdtsc();
 	return ((tsc_current - tsc_base) * HZ) / 1000000;
+}
+
+void
+delay(int ms)
+{
+	/* XXX For now, always delay using the TSC */
+
+	/*
+	 * Delaying using the TSC; we should already have initialized md_cpu_clock_mhz
+	 * by now; this is the number of MHz the CPU clock is running at; so delaying
+	 * one second will take 'md_cpu_clock_mhz * 1000000' ticks. This means
+	 * delaying one millisecond is 1000 times faster, so we'll just have to
+	 * wait 'ms * md_cpu_clock_mhz * 1000' ticks.
+	 */
+	uint64_t delay_in_ticks = ms * md_cpu_clock_mhz * 1000;
+	uint64_t base = rdtsc();
+	uint64_t end = base + delay_in_ticks;
+	while (rdtsc() < end)
+		/* wait for it */ ;
 }
 
 /* vim:set ts=2 sw=2: */
