@@ -63,3 +63,11 @@ fs/fatfs.c		option FATFS
 fs/devfs.c		option DEVFS
 kdb/kdb.c		option KDB
 kdb/kdb_commands.c	option KDB
+# USB
+dev/bus/usb/usb-core.c		option USB
+dev/bus/usb/usb-device.c	option USB
+dev/bus/usb/usb-config.c	option USB
+dev/bus/usb/uhci-hcd.c		optional uhci
+dev/bus/usb/uhci-roothub.c	optional uhci
+# USB peripherals
+dev/bus/usb/usb-keyboard.c	optional usbkeyboard

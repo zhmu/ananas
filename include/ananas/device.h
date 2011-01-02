@@ -43,6 +43,7 @@ struct RESOURCE {
 };
 
 struct BIO;
+struct USB_TRANSFER;
 
 /*
  *  This describes a device driver.
@@ -63,6 +64,9 @@ struct DRIVER {
 	void		(*drv_enqueue)(device_t, void*);
 	/* for block devices: start request queue */
 	void		(*drv_start)(device_t);
+	/* USB */
+	errorcode_t	(*drv_usb_xfer)(device_t, struct USB_TRANSFER*);
+	errorcode_t	(*drv_roothub_xfer)(device_t, struct USB_TRANSFER*);
 };
 
 /*

@@ -31,3 +31,7 @@ inputdev	isa.atkbd
 outputdev	isa.vga
 #inputdev	isa.sio
 #outputdev	isa.sio
+
+option		USB
+device		uhci
+device		usbkeyboard
