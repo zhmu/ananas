@@ -34,7 +34,8 @@
 #define PCI_REG_CLASSREVISION	0x08
 #define PCI_CLASS(x)		((x) >> 24)
 #define PCI_SUBCLASS(x)		(((x) >> 16) & 0xff)
-#define PCI_PROGINT(x)		((x) & 0xff)
+#define PCI_PROGINT(x)		(((x) >> 8) & 0xff)
+#define PCI_REVISION(x)		((x) & 0xff)
 #define  PCI_CLASS_STORAGE	0x01       /* Mass storage controller */
 #define   PCI_SUBCLASS_SCSI	0x00
 #define   PCI_SUBCLASS_IDE	0x01
