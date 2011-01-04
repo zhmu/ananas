@@ -194,9 +194,9 @@ usb_attach_callback(struct USB_TRANSFER* usb_xfer)
 }
 
 void
-usb_attach_device(device_t parent, device_t hub)
+usb_attach_device(device_t parent, device_t hub, void* hcd_privdata)
 {
-	struct USB_DEVICE* usb_dev = usb_alloc_device(parent, hub);
+	struct USB_DEVICE* usb_dev = usb_alloc_device(parent, hub, hcd_privdata);
 
 	/* Now at step 0 */
 	usb_dev->usb_attachstep = 0;

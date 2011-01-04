@@ -57,6 +57,7 @@ enum usb_devstat_t {
 struct USB_DEVICE {
 	device_t	usb_device;			/* Device reference */
 	device_t	usb_hub;			/* Hub reference */
+	void*		usb_hcd_privdata;		/* HCD data for the given device */
 	int		usb_address;		   	/* Assigned USB address */
 	int		usb_max_packet_sz0;		/* Maximum packet size for endpoint 0 */
 #define USB_DEVICE_DEFAULT_MAX_PACKET_SZ0	8
@@ -104,11 +105,11 @@ struct USB_TRANSFER {
 DQUEUE_DEFINE(USB_TRANSFER_QUEUE, struct USB_TRANSFER);
 
 void usb_init();
-struct USB_DEVICE* usb_alloc_device(device_t root, device_t hub);
+struct USB_DEVICE* usb_alloc_device(device_t root, device_t hub, void* hcd_privdata);
 struct USB_TRANSFER* usb_alloc_transfer(struct USB_DEVICE* dev, int type, int flags, int endpt);
 errorcode_t usb_schedule_transfer(struct USB_TRANSFER* xfer);
 void usb_free_transfer(struct USB_TRANSFER* xfer);
-void usb_attach_device(device_t parent, device_t hub);
+void usb_attach_device(device_t parent, device_t hub, void* hcd_privdata);
 void usb_completed_transfer(struct USB_TRANSFER* xfer);
 
 #endif /* __ANANAS_USB_CORE_H__ */

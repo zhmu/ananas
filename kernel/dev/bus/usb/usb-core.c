@@ -18,11 +18,12 @@ struct DRIVER drv_usb = {
 };
 
 struct USB_DEVICE*
-usb_alloc_device(device_t root, device_t hub)
+usb_alloc_device(device_t root, device_t hub, void* hcd_privdata)
 {
 	struct USB_DEVICE* usb_dev = kmalloc(sizeof *usb_dev);
 	memset(usb_dev, 0, sizeof *usb_dev);
 	usb_dev->usb_device = device_alloc(root, &drv_usb);
+	usb_dev->usb_hcd_privdata = hcd_privdata;
 	usb_dev->usb_hub = hub;
 	usb_dev->usb_device->privdata = usb_dev;
 	usb_dev->usb_max_packet_sz0 = USB_DEVICE_DEFAULT_MAX_PACKET_SZ0;
