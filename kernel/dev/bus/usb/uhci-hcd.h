@@ -31,5 +31,12 @@ struct UHCI_HCD_PRIVDATA {
 	/* Currently scheduled queue items */
 	struct UHCI_SCHEDULED_ITEM_QUEUE uhci_scheduled_items;
 };
+
+struct UHCI_DEV_PRIVDATA {
+	int dev_flags;
+#define UHCI_DEV_FLAG_LOWSPEED	1
+};
+
+void* uhci_device_init_privdata(int ls);
 				
 #endif /* __UHCI_HCD_H__ */

@@ -167,7 +167,6 @@ uhci_irq(device_t dev)
 
 	if (stat & UHCI_USBSTS_ERR) {
 		device_printf(dev, "USB ERROR received");
-		//uhci_dump(dev);
 	}
 
 	if (stat & UHCI_USBSTS_HCHALTED) {
@@ -252,7 +251,8 @@ static errorcode_t
 uhci_ctrl_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 {
 	struct UHCI_HCD_PRIVDATA* privdata = dev->privdata;
-	int ls = TD_STATUS_LS; /* XXX Musn't force */
+	struct UHCI_DEV_PRIVDATA* hcd_privdata = xfer->xfer_device->usb_hcd_privdata;
+	int ls = (hcd_privdata->dev_flags & UHCI_DEV_FLAG_LOWSPEED) ? TD_STATUS_LS : 0;
 	void* next_setup_ptr;
 	uint32_t token_addr = TD_TOKEN_ENDPOINT(xfer->xfer_endpoint) | TD_TOKEN_ADDRESS(xfer->xfer_address);
 	int isread = xfer->xfer_flags & TRANSFER_FLAG_READ;
@@ -318,7 +318,8 @@ static errorcode_t
 uhci_interrupt_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 {
 	struct UHCI_HCD_PRIVDATA* privdata = dev->privdata;
-	int ls = TD_STATUS_LS; /* XXX Musn't force */
+	struct UHCI_DEV_PRIVDATA* hcd_privdata = xfer->xfer_device->usb_hcd_privdata;
+	int ls = (hcd_privdata->dev_flags & UHCI_DEV_FLAG_LOWSPEED) ? TD_STATUS_LS : 0;
 	void* next_setup_ptr;
 	uint32_t token_addr = TD_TOKEN_ENDPOINT(xfer->xfer_endpoint) | TD_TOKEN_ADDRESS(xfer->xfer_address);
 	int isread = xfer->xfer_flags & TRANSFER_FLAG_READ;
@@ -498,6 +499,15 @@ uhci_attach(device_t dev)
 	uhci_hub_create(dev, num_ports);
 
 	return ANANAS_ERROR_NONE;
+}
+
+void*
+uhci_device_init_privdata(int ls)
+{
+	struct UHCI_DEV_PRIVDATA* privdata = kmalloc(sizeof *privdata);
+	memset(privdata, 0, sizeof *privdata);
+	privdata->dev_flags = ls;
+	return privdata;
 }
 
 static int

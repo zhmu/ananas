@@ -217,8 +217,9 @@ uhci_hub_pollthread(void* ptr)
 						delay(50);
 
 						/* Time to initialize it */
+						void* dev_privdata = uhci_device_init_privdata((stat & UHCI_PORTSC_LOWSPEED) ? UHCI_DEV_FLAG_LOWSPEED : 0);
 						hub_privdata->hub_flags |= HUB_FLAG_ATTACHING;
-						usb_attach_device(hub_privdata->hub_uhcidev, dev);
+						usb_attach_device(hub_privdata->hub_uhcidev, dev, dev_privdata);
 					} else {
 						device_printf(dev, "port %u reset timeout", portno);
 					}
