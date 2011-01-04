@@ -209,7 +209,14 @@ uhci_hub_pollthread(void* ptr)
 					}
 
 					if (tries > 0) {
-						/* Alright, the device seems stable - time to initialize it */
+						/*
+						 * Alright, the device seems stable - we should give the
+						 * hub and device some time to enable the port; the device may
+						 * still be lingering a bit.
+						 */
+						delay(50);
+
+						/* Time to initialize it */
 						hub_privdata->hub_flags |= HUB_FLAG_ATTACHING;
 						usb_attach_device(hub_privdata->hub_uhcidev, dev);
 					} else {

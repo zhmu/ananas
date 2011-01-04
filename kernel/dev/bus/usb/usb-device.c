@@ -32,6 +32,14 @@ usb_attach_driver(struct USB_DEVICE* usb_dev)
 }
 
 static void
+usb_hub_attach_done(device_t usb_hub)
+{
+	struct USB_TRANSFER xfer_hub_ack;
+	xfer_hub_ack.xfer_type = TRANSFER_TYPE_HUB_ATTACH_DONE;
+	usb_hub->driver->drv_roothub_xfer(usb_hub, &xfer_hub_ack);
+}
+
+static void
 usb_attach_callback(struct USB_TRANSFER* usb_xfer)
 {
 	struct USB_DEVICE* usb_dev = usb_xfer->xfer_device;	
@@ -42,6 +50,15 @@ usb_attach_callback(struct USB_TRANSFER* usb_xfer)
 	kprintf("xfer real / length = %u / %u\n",
 	 usb_xfer->xfer_length, usb_xfer->xfer_result_length);
  */
+
+	/* If anything went wrong, abort the attach */
+	if (usb_xfer->xfer_flags & TRANSFER_FLAG_ERROR) {
+		device_printf(dev, "usb communication failure, aborting attach");
+		usb_hub_attach_done(usb_dev->usb_hub);
+
+		/* XXX We should clean up the device */
+		return;
+	}
 
 	switch(usb_dev->usb_attachstep++ /* <== mind the ++ */) {
 		case 0: { /* Retrieved partial device descriptor */
@@ -73,10 +90,7 @@ usb_attach_callback(struct USB_TRANSFER* usb_xfer)
 			device_printf(usb_dev->usb_device, "logical address is %u", usb_dev->usb_address);
 
 			/* We can now let the hub know that it can continue resetting new devices */
-			struct USB_TRANSFER xfer_hub_ack;
-			xfer_hub_ack.xfer_type = TRANSFER_TYPE_HUB_ATTACH_DONE;
-			usb_dev->usb_hub->driver->drv_roothub_xfer(usb_dev->usb_hub, &xfer_hub_ack);
-
+			usb_hub_attach_done(usb_dev->usb_hub);
 
 			/* Now, obtain the entire device descriptor */
 			next_xfer = usb_create_get_descriptor_xfer(usb_dev, USB_DESCR_TYPE_DEVICE, 0, 0, sizeof(struct USB_DESCR_DEVICE));
