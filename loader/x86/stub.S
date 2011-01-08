@@ -35,6 +35,41 @@ entry:
 	movw	$(rm_stack), %sp
 
 	/*
+	 * Setup a serial port if wanted, to aid in debugging.
+	 */
+#ifdef DEBUG_SERIAL
+	/* disable serial interrupts */
+	mov     $0x3f8+1,%dx
+	mov     $0x00, %al
+	outb    %al, %dx
+
+	/* enable DLAB (sets baud rate divisor) */
+	mov     $0x3f8+3,%dx
+	mov     $0x80, %al
+	outb    %al, %dx
+
+	/* set divisor low byte for 9600 baud */
+	mov     $0x3f8+0,%dx
+	mov     $0x0c, %al
+	outb    %al, %dx
+
+	/* set divisor hi byte for 9600 baud */
+	mov     $0x3f8+1,%dx
+	mov     $0x0, %al
+	outb    %al, %dx
+
+	/* 8 bits, no parity and 1 stop bit */
+	mov     $0x3f8+3,%dx
+	mov     $0x3, %al
+	outb    %al, %dx
+
+	/* enable FIFO, clear it and set it for a 14 byte threshold */
+	mov     $0x3f8+2,%dx
+	mov     $0xc7, %al
+	outb    %al, %dx
+#endif
+
+	/*
 	 * Before we can jump to protected mode, we first have to enable the
 	 * A20 line (which is a horrible hack to ensure compatibility back in
 	 * the 8086 days and should have been nuked a long time ago...).

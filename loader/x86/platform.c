@@ -79,6 +79,7 @@ x86_realmode_call(struct REALMODE_REGS* regs)
 void
 platform_putch(uint8_t ch)
 {
+#ifndef DEBUG_SERIAL
 	struct REALMODE_REGS regs;
 
 	x86_realmode_init(&regs);
@@ -89,6 +90,20 @@ platform_putch(uint8_t ch)
 	/* XXX this a hack */
 	if (ch == '\n')
 		platform_putch('\r');
+#else /* DEBUG_SERIAL */
+	__asm __volatile(
+		"movw	%%cx, %%dx\n"
+		"addw $5,  %%dx\n"				/* Line Status Register */
+		"pushl %%eax\n"
+		"l1:\n"
+		" inb %%dx, %%al\n"
+		" test $0x20, %%al\n"			/* Empty? */
+		" jz l1\n"								/* No, wait */
+		"pop %%eax\n"
+		"movw	%%cx, %%dx\n"				/* Data Register */
+		"outb %%al, %%dx\n"
+	: : "a" (ch), "c" (0x3f8) : "%edx");
+#endif
 }
 
 int
