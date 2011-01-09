@@ -1,11 +1,15 @@
 .text
 .code16
 .globl	entry, realcall
-.globl	rm_stack, rm_regs, rm_buffer
+.globl	rm_buffer
 #ifdef X86_64
 .globl	cpu_64bit_capable
 #endif
+#ifdef PXE
+.globl	pxe_trampoline
+#endif
 
+#include <loader/x86-asm.h>
 #include "param.h"
 
 #define EFLAGS_CPUID	(1 << 21)
@@ -32,7 +36,7 @@ entry:
 	xorw	%ax, %ax
 	movw	%ax, %ds
 	movw	%ax, %ss
-	movw	$(rm_stack), %sp
+	movw	$REALMODE_STACK, %sp
 
 	/*
 	 * Setup a serial port if wanted, to aid in debugging.
@@ -130,8 +134,7 @@ code32:
 	movw	%ax, %ds
 	movw	%ax, %es
 	movw	%ax, %ss
-	addl	$STACK_SIZE, x86_pool_pointer
-	movl	x86_pool_pointer, %esp
+	movl	$0x7c00, %esp			/* 0:0x7c00 downwards is our stack */
 
 #ifdef X86_64
 	/*
@@ -206,7 +209,10 @@ realcall:
 	 * alternative would be so hack up the entire loader to run in 16 bit
 	 * unreal mode, but that'd just be nasty - how do you get GCC to generate
 	 * 16 bit code anyway these days?))
+	 *
+	 * Prototype is: void realcall(struct REALMODE_REGS*);
 	 */
+	cli
 
 	/*
 	 * We must store %esp (which we have to do in a temporary register as it will
@@ -214,6 +220,8 @@ realcall:
 	 */
 	pushl	%ebp
 	movl	%esp, realcall_esp
+	movl	8(%esp), %ebx
+	movl	%ebx, realcall_regs
 
 	/*
 	 * Go to 16 bit pmode - you can't go from 32 bit pmode -> 16 bit realmode in a
@@ -244,36 +252,50 @@ realcall16:
 	 * if we index with %cs, we are certain that we can use direct offsets.
 	 */
 
-	/* Patch the interrupt number and call pointer. Hey, this is realmode - anything goes! */
-	movb	%cs:(r_int), %al
-	movb	%al, %cs:(rm_int)
-	movw	%cs:(r_cs), %ax
-	movw	%ax, %cs:(rm_cs)
-	movw	%cs:(r_ip), %ax
-	movw	%ax, %cs:(rm_ip)
-
-	/* Update ds/es/ss segments */
-	movw	%cs:(r_ss), %ax
-	movw	%ax, %ss
-	movw	%cs:(r_es), %ax
-	movw	%ax, %es
-	movw	%cs:(r_ds), %ax
+	/*
+	 * First of all, start with a clean data segment; this will
+	 * actually make our RM_xxx(%bx) macro's work.
+	 */
+	xorw	%ax, %ax
 	movw	%ax, %ds
 
-	/* Restore the flags */
-	movl	%cs:(r_flags), %eax
-	pushl	%eax
+	/* Patch the interrupt number and call pointer. Hey, this is realmode - anything goes! */
+	movb	RM_INT(%bx), %al
+	movb	%al, (rm_int)
+	movw	RM_CS(%bx), %ax
+	movw	%ax, (rm_cs)
+	movw	RM_IP(%bx), %ax
+	movw	%ax, (rm_ip)
+
+	/* Update %es/%ss segments; we'll do %ds later */
+	movw	RM_ES(%bx), %ax
+	movw	%ax, %es
+	movw	RM_SS(%bx), %ax
+	movw	%ax, %ss
+
+	/* Restore most of our registers - not yet %eax */
+	movl	RM_EAX(%bx), %eax
+	movl	RM_ECX(%bx), %ecx
+	movl	RM_EDX(%bx), %edx
+	movl	RM_EBP(%bx), %ebp
+	movl	RM_ESI(%bx), %esi
+	movl	RM_EDI(%bx), %edi
+	movl	RM_ESP(%bx), %esp
+	pushl	RM_EFLAGS(%ebx)
 	popfl
 
-	/* Restore the registers */
-	movl	%cs:(r_eax), %eax
-	movl	%cs:(r_ebx), %ebx
-	movl	%cs:(r_ecx), %ecx
-	movl	%cs:(r_edx), %edx
-	movl	%cs:(r_ebp), %ebp
-	movl	%cs:(r_esi), %esi
-	movl	%cs:(r_edi), %edi
-	movl	%cs:(r_esp), %esp
+	/*
+	 * We need to store %eax someplace safe, as we'll still need to
+	 * fix %ebx, %ds.
+	 */
+	movl	%eax, realcall_eax
+	movw	RM_DS(%bx), %ax
+	movw	%ax, %ds
+	movl	%cs:RM_EBX(%bx), %ebx
+	movl	%cs:realcall_eax, %eax
+
+	/* Enable interrupts */
+	sti
 
 	/* Do a FAR CALL if there's no interrupt */
 	cmpb	$0, %cs:(rm_int)
@@ -291,27 +313,40 @@ rm_ip:	.word	0
 rm_cs:	.word	0
 
 skip_call:
+	movl	%eax, %cs:realcall_eax
+	movl	%ebx, %cs:realcall_ebx
+	movl	%cs:realcall_regs, %ebx
 
-	/* Save the registers - we ignore %esp */
-	movl	%eax, %cs:(r_eax)
-	movl	%ebx, %cs:(r_ebx)
-	movl	%ecx, %cs:(r_ecx)
-	movl	%edx, %cs:(r_edx)
-	movl	%ebp, %cs:(r_ebp)
-	movl	%esi, %cs:(r_esi)
-	movl	%edi, %cs:(r_edi)
+	/* Store %ds first; we can restore it again to get rid of the %cs prefixes */
 	movw	%ds, %ax
-	movw	%ax, %cs:(r_ds)
+	movw	%ax, %cs:RM_DS(%bx)
+	xorw	%ax, %ax
+	movw	%ax, %ds
+
+	/* Save all other the registers */
+	movl	realcall_eax, %eax
+	movl	%eax, RM_EAX(%bx)
+	movl	realcall_ebx, %eax
+	movl	%eax, RM_EBX(%bx)
+	movl	%ecx, RM_ECX(%bx)
+	movl	%edx, RM_EDX(%bx)
+	movl	%ebp, RM_EBP(%bx)
+	movl	%esi, RM_ESI(%bx)
+	movl	%edi, RM_EDI(%bx)
+	movl	%esp, RM_ESP(%bx)
 	movw	%es, %ax
-	movw	%ax, %cs:(r_es)
+	movw	%ax, RM_ES(%bx)
 
 	/* Store our flags */
 	pushfl
 	popl	%eax
-	movl	%eax, %cs:(r_flags)
+	movl	%eax, RM_EFLAGS(%bx)
 
 	/* Ensure interrupts are not set - this would hurt us */
 	cli
+
+	/* Ensure we use the correct GDT */
+	lgdt	%cs:(gdtr)
 
 	/*
 	 * That was fun. Now, we need to return to protected mode!
@@ -325,6 +360,24 @@ skip_call:
 	.byte	0xea
 	.long	rc32_return
 	.word	0x8
+
+#ifdef PXE
+pxe_trampoline:
+	/* PXE wants stuff to be passed using the stack */
+	pushl	%ebx		/* Buffer address */
+	pushw	%ax		/* Function number */
+
+	/* Fake an lcall */
+	pushw	%cs		/* Return segment */
+	pushw	$pxe_return	/* Return offset */
+	pushl	%ecx
+	lret
+
+pxe_return:
+	/* Throw away the stuff we put on the stack */
+	addw	$6, %sp
+	lret
+#endif
 
 .code32
 rc32_return:
@@ -346,35 +399,14 @@ cpu_64bit_capable:
 	.long	0
 #endif
 
-rm_regs:
-r_eax:	.long	0
-r_ebx:	.long	0
-r_ecx:	.long	0
-r_edx:	.long	0
-r_ebp:	.long	0
-r_esi:	.long	0
-r_edi:	.long	0
-r_esp:	.long	0
-r_ds:	.word	0
-r_es:	.word	0
-r_ss:	.word	0
-r_flags:.long	0
-r_int:	.byte	0
-r_cs:	.word	0
-r_ip:	.word	0
-	
+/* Temporary registers used during mode switches */
+realcall_regs:	.long	0
 realcall_esp:	.long	0
+realcall_eax:	.long	0
+realcall_ebx:	.long	0
 
 /*
  * We need a realmode buffer; this is used to read sectors etc.
  */
 rm_buffer:
 	.space	1024
-
-/*
- * Stack used for realmode work. This must be kept here since
- * it must exist in the same segment as the realmode code.
- */
-	.space	1024
-rm_stack:
-

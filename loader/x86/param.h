@@ -4,11 +4,6 @@
 #define CODE_BASE	0x7c00
 
 /*
- * Amount of stack available.
- */
-#define STACK_SIZE	4096
-
-/*
  * POOL_BASE is a pool of memory which we can freely use; the goal is
  * to make the loader image smaller by just grabbing memory we need
  * from the pool.
@@ -17,4 +12,10 @@
  * have obtained it, we use the final few MB for temporary loader storage as
  * we can be certain it will not be used.
  */
-#define POOL_BASE	0x4000
+#define POOL_BASE	0x10000
+
+/* Realmode stack address*/
+#define REALMODE_STACK	0x2000
+
+/* Protected mode stack base */
+#define PMODE_STACK	0x8000

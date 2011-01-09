@@ -56,24 +56,7 @@ x86_realmode_init(struct REALMODE_REGS* regs)
 	regs->ds = (CODE_BASE >> 4);
 	regs->es = (CODE_BASE >> 4);
 	regs->ss = 0;
-	regs->esp = (uint32_t)&rm_stack;
-	x86_realmode_worksp = (uint32_t)&rm_stack;
-}
-
-void
-x86_realmode_push16(struct REALMODE_REGS* regs, uint16_t value)
-{
-	x86_realmode_worksp -= 2;
-	regs->esp -= 2;
-	*(uint16_t*)x86_realmode_worksp = value;
-}
-
-void
-x86_realmode_call(struct REALMODE_REGS* regs)
-{
-	memcpy(&rm_regs, regs, sizeof(struct REALMODE_REGS));
-	realcall();
-	memcpy(regs, &rm_regs, sizeof(struct REALMODE_REGS));
+	regs->esp = REALMODE_STACK;
 }
 
 void
@@ -112,7 +95,7 @@ platform_getch()
 	struct REALMODE_REGS regs;
 
 	x86_realmode_init(&regs);
-	regs.eax = 0x0;			/* keyboard: get keystroke*/
+	regs.eax = 0x0;			/* keyboard: get keystroke */
 	regs.interrupt = 0x16;
 	x86_realmode_call(&regs);
 
@@ -206,6 +189,12 @@ platform_init_disks()
 	struct REALMODE_REGS regs;
 	int numdisks = 0;
 
+	/* Reset the disk subsystem */
+	x86_realmode_init(&regs);
+	regs.interrupt = 0x13;
+	x86_realmode_call(&regs);
+
+	/* Now try to probe the disks, one by one */
 	realmode_diskinfo = platform_get_memory(sizeof(struct REALMODE_DISKINFO) * MAX_DISKS);
 	for (uint8_t drive = 0x80; drive < 0x80 + MAX_DISKS; drive++) {
 		x86_realmode_init(&regs);
@@ -214,6 +203,9 @@ platform_init_disks()
 		regs.interrupt = 0x13;
 		x86_realmode_call(&regs);
 		if (regs.eflags & EFLAGS_CF)
+			break;
+		/* Some BIOS'es do not seem to set CF, so bail if the result makes no sense */
+		if (regs.ecx == 0 || regs.edx == 0)
 			break;
 		
 		struct REALMODE_DISKINFO* dskinfo = &realmode_diskinfo[numdisks];
