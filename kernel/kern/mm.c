@@ -41,6 +41,10 @@ mm_zone_add(addr_t addr, size_t length)
 	KMEM_ASSERT(addr % PAGE_SIZE == 0, "addr 0x%x isn't page-aligned", addr);
 	KMEM_ASSERT(length % PAGE_SIZE == 0, "length 0x%x isn't page-aligned", length);
 
+	/* Don't bother dealing with any zone less than 2 pages */
+	if (length < PAGE_SIZE * 2)
+		return;
+
 	/*
 	 * First of all, we need to calculate the number of pages needed to store the
 	 * administration involved in this zone.
