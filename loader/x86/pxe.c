@@ -10,6 +10,7 @@
 #define TFTP_PORT 69
 #define TFTP_PACKET_SIZE 512
 
+extern void* pxe_trampoline;
 static struct PXE_BANGPXE* bangpxe = NULL;
 static void* pxe_scratchpad;
 static uint32_t pxe_server_ip;
@@ -42,11 +43,10 @@ pxe_call(uint16_t func)
 
 	struct REALMODE_REGS regs;
 	x86_realmode_init(&regs);
-	x86_realmode_push16(&regs, (uint16_t)((uint32_t)&rm_buffer >> 16));
-	x86_realmode_push16(&regs, (uint16_t)((uint32_t)&rm_buffer & 0xffff));
-	x86_realmode_push16(&regs, func);
-	regs.cs = bangpxe->EntryPointSP >> 16;
-	regs.ip = bangpxe->EntryPointSP & 0xffff;
+	regs.ip = &pxe_trampoline;
+	regs.eax = func;
+	regs.ebx = &rm_buffer;
+	regs.ecx = bangpxe->EntryPointSP;
 	x86_realmode_call(&regs);
 	return regs.eax & 0xffff;
 }
@@ -60,8 +60,9 @@ pxe_tftp_open(const char* name)
 	strcpy(to->FileName, name);
 	to->TFTPPort = htons(TFTP_PORT);
 	to->PacketSize = TFTP_PACKET_SIZE;
-	if (pxe_call(PXENV_TFTP_OPEN) != PXENV_EXIT_SUCCESS || (to->Status == PXENV_STATUS_SUCCESS))
+	if (pxe_call(PXENV_TFTP_OPEN) != PXENV_EXIT_SUCCESS || (to->Status != PXENV_STATUS_SUCCESS)) {
 		return PXENV_STATUS_FAILURE;
+	}
 	pxe_readbuf_offset = 0;
 	pxe_readbuf_left = 0;
 	vfs_curfile_offset = 0;
