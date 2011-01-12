@@ -2,6 +2,7 @@ TARGET:		machine loader
 S=		../..
 
 CFLAGS=		-DEXT2 -DPXE -DRAMDISK -DX86_64 -DELF32 -DELF64
+#CFLAGS+=	-DDEBUG_SERIAL
 include		$S/compile/Makefile.common
 OBJS+=		pxe.o x86_64.o stub_x86_64.o
 
@@ -23,7 +24,6 @@ stub_x86_64.o:	$S/x86/stub_x86_64.S
 loader:		$(OBJS) $S/conf/ld.x86
 		$(LD) -b elf32-i386 -T $S/conf/ld.x86 -o loader $(OBJS)
 		../../../boot/merge_mbr ../../../boot/bootblock loader /home/rink/ananas.disk.img
-		cp loader /srv/tftpd
 
 machine:
 		ln -sf ../../../include/ananas/i386 machine

@@ -14,7 +14,6 @@ platform.o:	$S/powerpc/platform.c
 
 loader:		$(OBJS) $S/conf/ld.powerpc
 		$(LD) -b elf32-powerpc -T $S/conf/ld.powerpc -o loader $(OBJS)
-		cp loader /srv/tftpd/loader.ppc
 
 ananasppc.iso:	loader boot.tbxi hfs.map ../../../kernel/arch/powerpc/compile/LINT/kernel
 		mkdir -p tmp
