@@ -1,6 +1,8 @@
 arch		amd64
 ident		LINT
 
+include		../../../conf/LINT
+
 hints		hints.i386
 
 device		isa
@@ -9,12 +11,9 @@ device		sio
 device		atkbd
 
 device		pcihb
-device		pci
 
-option		EXT2FS
-option		ISO9660FS
+option		DEBUG_CONSOLE
 
-device		ata
 device		ataisa
 
 inputdev	isa.atkbd

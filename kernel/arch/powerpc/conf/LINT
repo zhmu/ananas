@@ -1,7 +1,8 @@
 arch		powerpc
 ident		LINT
 
-option		ISO9660FS
+#not yet; we lack too much support for this to be possible
+#include		../../../conf/LINT
 
 option		DEBUG_CONSOLE
 option		OFW
