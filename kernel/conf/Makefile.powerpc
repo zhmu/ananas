@@ -8,6 +8,7 @@ LD?=		ld
 AWK?=		awk
 NM?=		nm
 OBJCOPY?=	objcopy
+OBJDUMP?=	objdump
 
 %OBJS
 %FILES
