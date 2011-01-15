@@ -124,8 +124,10 @@ pcibus_attach(device_t dev)
 			}
 
 			if (!device_attached) {
+#if 0
 				kprintf("%s%u: no match for vendor 0x%x device 0x%x class %u, device ignored\n",
 					dev->name, dev->unit, dev_vendor & 0xffff, dev_vendor >> 16, PCI_CLASS(class_revision));
+#endif
 				new_dev->driver = NULL;
 				device_free(new_dev);
 			}
