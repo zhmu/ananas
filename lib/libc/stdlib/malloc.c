@@ -518,6 +518,8 @@ struct MMAP_HEADER {
 
 #include <stdio.h>
         
+#define MMAP_FAIL ((void*)-1)
+
 static unsigned int time(void* ptr) { return 1; }
 static void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offset) {
 	/*
@@ -535,7 +537,7 @@ static void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offs
 	err = sys_create(&cropts, &handle);
 	if (err != ANANAS_ERROR_NONE) {
 		_posix_map_error(err);
-		return NULL;
+		return MMAP_FAIL;
 	}
 
 	/* OK, allocation worked. Now fetch the memory base */
@@ -544,7 +546,7 @@ static void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offs
 	if (err != ANANAS_ERROR_NONE) {
 		sys_destroy(handle); /* don't care if this fails or not */
 		_posix_map_error(err);
-		return NULL;
+		return MMAP_FAIL;
 	}
 	struct MMAP_HEADER* mh = meminfo.in_base;
 	mh->mh_magic = MMAP_HEADER_MAGIC;
@@ -553,6 +555,7 @@ static void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offs
 	return (void*)((addr_t)meminfo.in_base + sizeof(struct MMAP_HEADER));
 }
 
+#undef MMAP_FAIL
 
 static int munmap(void* addr, size_t len) {
 	struct MMAP_HEADER* mh = (struct MMAP_HEADER*)((addr_t)addr - sizeof(struct MMAP_HEADER));
