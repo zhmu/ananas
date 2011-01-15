@@ -29,7 +29,7 @@ exception_nm(struct STACKFRAME* sf)
 	 */
 	__asm(
 			"clts\n"
-			"frstor (%%eax)\n"
+			"frstor (%%rax)\n"
 		: : "a" (&thread->md_ctx.fpu));
 }
 
