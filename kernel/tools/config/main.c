@@ -10,7 +10,8 @@ enum TOKEN {
 	UNKNOWN,
 	ARCH, DEVICE, IDENT,
 	INPUT, HINTS, MANDATORY,
-	OPTIONAL, OPTION, OUTPUT
+	OPTIONAL, OPTION, OUTPUT,
+	INCLUDE
 };
 
 struct TOKENS {
@@ -24,8 +25,9 @@ struct TOKENS {
 	{ "hints",     HINTS },
 	{ "mandatory", MANDATORY },
 	{ "optional",  OPTIONAL },
-	{ "option",		 OPTION },
+	{ "option",    OPTION },
 	{ "outputdev", OUTPUT },
+	{ "include",   INCLUDE },
 	{ NULL,        UNKNOWN }
 };
 
@@ -136,14 +138,10 @@ resolve_token(const char* token)
  * Parses a kernel configuration file.
  */
 void
-parse_configfile(const char* fname)
+parse_configfile(FILE* f, const char* fname)
 {
 	char line[255];
 	int lineno = 0;
-
-	FILE* f = fopen(fname, "rt");
-	if (f == NULL)
-		err(1, "fopen");
 
 	while (fgets(line, sizeof(line), f) != NULL) {
 		line[strlen(line) - 1] = '\0';
@@ -197,12 +195,18 @@ parse_configfile(const char* fname)
 			case OPTION:
 				entry_add(&options, value);
 				break;
+			case INCLUDE: {
+				FILE* incfile = fopen(value, "rb");
+				if (incfile == NULL)
+					err(1, "fopen");
+				parse_configfile(incfile, value);
+				fclose(incfile);
+				break;
+			}
 			default:
 				errx(1 , "%s:%u: parse error", fname, lineno);
 		}
 	}
-
-	fclose(f);
 }
 
 void
@@ -652,7 +656,12 @@ main(int argc, char* argv[])
 	if (argc != 1)
 		usage();
 
-	parse_configfile(argv[0]);
+	FILE* cfgfile = fopen(argv[0], "rb");
+	if (cfgfile == NULL)
+		err(1, "fopen");
+	parse_configfile(cfgfile, argv[0]);
+	fclose(cfgfile);
+
 	if (architecture == NULL)
 		errx(1, "%s: no architecture specified", argv[0]);
 	if (input_dev == NULL)
