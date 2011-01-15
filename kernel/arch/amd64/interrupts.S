@@ -175,12 +175,9 @@ int_skip_pt:
  * devices (as interrupts will be enabled)
  */
 scheduler_irq:
-	/*
-	 * See if there is a current CPU context; if not, the scheduler isn't
-	 * active yet and we just need to return.
-	 */
+	/* If we are coming from kernel mode, no need to exchange %gs */
 	pushq	%rax
-	movl	%cs, %eax
+	movl	16(%rsp), %eax		/* extra +8 because of the push */
 	cmpl	$GDT_SEL_KERNEL_CODE, %eax
 	je	scheduler_kern
 
@@ -294,7 +291,9 @@ sched_skip_gs:
  */
 syscall_handler:
 	swapgs
-	movq	%rsp, %gs:PCPU_TEMPRSP
+	movq	%rsp, %gs:PCPU_TEMPRSP		/* Store user rsp */
+	/* Now, we must switch to the kernel stack */
+	movq	%gs:PCPU_KERNELRSP, %rsp
 
 	/* First of all, store the syscall arguments */
 	subq	$SYSARG_SIZE, %rsp

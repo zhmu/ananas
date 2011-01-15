@@ -24,14 +24,14 @@ md_thread_init(thread_t t)
 	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
 
 	/* Perform adequate mapping for the stack / code */
-	vm_map_pagedir(t->md_pml4, (addr_t)t->md_stack,  THREAD_STACK_SIZE / PAGE_SIZE, 1);
+	vm_mapto_pagedir(t->md_pml4, USERLAND_STACK_ADDR, (addr_t)t->md_stack,  THREAD_STACK_SIZE / PAGE_SIZE, 1);
 	vm_map_pagedir(t->md_pml4, (addr_t)t->md_kstack, KERNEL_STACK_SIZE / PAGE_SIZE, 0);
 
 	/* Set up the context  */
 	t->md_ctx.sf.sf_rax = 0x123456789abcdef;
 	t->md_ctx.sf.sf_rbx = 0xdeadf00dbabef00;
 
-	t->md_ctx.sf.sf_rsp = (addr_t)t->md_stack  + THREAD_STACK_SIZE;
+	t->md_ctx.sf.sf_rsp = (addr_t)USERLAND_STACK_ADDR + THREAD_STACK_SIZE;
 	t->md_ctx.sf.sf_sp  = (addr_t)t->md_kstack + KERNEL_STACK_SIZE;
 
 	t->md_ctx.sf.sf_cs = GDT_SEL_USER_CODE + SEG_DPL_USER;
@@ -59,9 +59,8 @@ md_thread_switch(thread_t new, thread_t old)
 	/*
 	 * Activate this context as the current CPU context. XXX lock
 	 */
-	__asm(
-		"movq	%%rax, %%gs:0\n"
-	: : "a" (ctx_new));
+	PCPU_SET(context, ctx_new);
+	PCPU_SET(kernel_rsp, ctx_new->sf.sf_sp);
 
 	/* Activate the corresponding kernel stack in the TSS */
 	kernel_tss.rsp0 = ctx_new->sf.sf_sp;
@@ -128,6 +127,12 @@ md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
 	thread->md_ctx.sf.sf_cs = GDT_SEL_KERNEL_CODE;
 	thread->md_ctx.sf.sf_rip = (addr_t)kfunc;
 	thread->md_ctx.sf.sf_rdi = (addr_t)arg;
+
+	/*
+	 * Kernel threads only have a single stack; they cannot use the userland
+	 * stack because it is not mapped.
+	 */
+	thread->md_ctx.sf.sf_rsp = thread->md_ctx.sf.sf_sp;
 }
 
 void

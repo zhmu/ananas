@@ -31,6 +31,7 @@ ASM_SYMBOL(SF_SS,     offsetof(struct STACKFRAME, sf_ss));
 ASM_SYMBOL(SF_SIZE,   sizeof(struct STACKFRAME));
 
 ASM_SYMBOL(PCPU_CTX,	 offsetof(struct PCPU, context));
+ASM_SYMBOL(PCPU_KERNELRSP, offsetof(struct PCPU, kernel_rsp));
 ASM_SYMBOL(PCPU_FPUCTX,	 offsetof(struct PCPU, fpu_context));
 ASM_SYMBOL(PCPU_TEMPRSP, offsetof(struct PCPU, temp_rsp));
 ASM_SYMBOL(PCPU_TICKCOUNT, offsetof(struct PCPU, tickcount));

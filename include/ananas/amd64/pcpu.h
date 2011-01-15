@@ -10,6 +10,11 @@
 	 */									\
 	uint64_t	temp_rsp;						\
 	/*									\
+	 * kernel_rsp is the place we use to store the kernel stack pointer for	\
+	 * the given thread; it's restored during a system call.		\
+	 */									\
+	uint64_t	kernel_rsp;						\
+	/*									\
 	 * fpu_context is used to refer to the struct that holds the current	\
 	 * FPU context, or NULL if there is none. Being non-NULL means the	\
 	 * current thread is using the FPU and thus the context must be saved.	\
