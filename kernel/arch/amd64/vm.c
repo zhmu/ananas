@@ -64,9 +64,9 @@ vm_mapto_pagedir(uint64_t* pml4, addr_t virt, addr_t phys, size_t num_pages, uin
 addr_t
 vm_get_phys(uint64_t* pagedir, addr_t addr, int write)
 {
-	if (!(pml4[(addr >> 39) & 0x1ff] & PE_P))
+	if (!(pagedir[(addr >> 39) & 0x1ff] & PE_P))
 		return 0;
-	uint64_t* pdpe = (uint64_t*)(vm_get_ptr((addr_t)pml4[(addr >> 39) & 0x1ff] & ~0xfff));
+	uint64_t* pdpe = (uint64_t*)(vm_get_ptr((addr_t)pagedir[(addr >> 39) & 0x1ff] & ~0xfff));
 	if (!(pdpe[(addr >> 30) & 0x1ff] & PE_P))
 		return 0;
 	uint64_t* pde = (uint64_t*)vm_get_ptr((addr_t)pdpe[(addr >> 30) & 0x1ff] & ~0xfff);
