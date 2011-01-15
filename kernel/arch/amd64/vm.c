@@ -57,6 +57,12 @@ vm_mapto_pagedir(uint64_t* pml4, addr_t virt, addr_t phys, size_t num_pages, uin
 
 		pte[(virt >> 12) & 0x1ff] = (uint64_t)phys | (user ? PE_US : 0) | PE_RW | PE_P;
 
+		/*
+		 * Invalidate the address we just added to ensure it'll become active
+		 * without delay.
+		 */
+		__asm __volatile("invlpg %0" : : "m" (*(char*)virt) : "memory");
+
 		virt += PAGE_SIZE; phys += PAGE_SIZE;
 	}
 }
