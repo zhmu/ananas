@@ -8,6 +8,7 @@
 .globl exception18, exception19
 .globl irq1, irq2, irq3, irq4, irq5, irq6, irq7, irq8, irq9, irq10 
 .globl irq11, irq12, irq13, irq14, irq15, scheduler_irq, syscall_handler
+.globl clone_return
 
 #include <machine/vm.h>
 #include <machine/param.h>
@@ -291,8 +292,12 @@ sched_skip_gs:
  */
 syscall_handler:
 	swapgs
-	movq	%rsp, %gs:PCPU_TEMPRSP		/* Store user rsp */
-	/* Now, we must switch to the kernel stack */
+
+	/*
+	 * Do a stack switch; %r9 be used to store the userland %rsp
+	 * XXX trashes argument 6 which we don't yet support
+	 */
+	movq	%rsp, %r9
 	movq	%gs:PCPU_KERNELRSP, %rsp
 
 	/* First of all, store the syscall arguments */
@@ -303,12 +308,13 @@ syscall_handler:
 	movq	%rdx, SYSARG_ARG3(%rsp)
 	movq	%r10, SYSARG_ARG4(%rsp)
 	movq	%r8,  SYSARG_ARG5(%rsp)
-	/* movq	%r9,  SYSARG_ARG6(%rsp) */
 
 	/* Store the argument for syscall() later on */
 	movq	%rsp, %rdi
 
-	pushq	%rcx
+	pushq	%r9		/* userland %rsp */
+	pushq	%rcx		/* return %rip */
+	pushq	%r11		/* return %rflags */
 	/* Store the registers required by the ABI spec */
 	pushq	%rbx
 	pushq	%rbp
@@ -338,10 +344,57 @@ syscall_handler:
 	popq	%r12
 	popq	%rbp
 	popq	%rbx
-	/* Restore %rcx (it is used by sysret) and fix the stack */
+	/* Restore %r11/%rcx (used by sysret) and fix the stack */
+	popq	%r11
 	popq	%rcx
+	popq	%rsp
 
-	movq	%gs:PCPU_TEMPRSP, %rsp
+	swapgs
+	sysretq
+
+clone_return:
+	/*
+	 * This function will be called in the cloned thread;
+	 * the purpose is to dissect the kernel stack and
+	 * return to the syscall-invoking thread.
+	 *
+	 * Note that the md_thread_clone() function will already
+	 * have updated the stackpointer to protect our saved
+	 * registers; we must take the offsets into account.
+	 *
+	 * %rax must not be touched here; it's the return value
+	 * of clone and thus must be left unharmed.
+	 */
+	movq	%rsp, %rdx
+
+	/* Restore all stored registers */
+	movq	(80- 8)(%rdx), %rsp
+	movq	(80-16)(%rdx), %rcx
+	movq	(80-24)(%rdx), %r11
+	movq	(80-32)(%rdx), %rbx
+	movq	(80-40)(%rdx), %rbp
+	movq	(80-48)(%rdx), %r12
+	movq	(80-56)(%rdx), %r13
+	movq	(80-64)(%rdx), %r14
+	movq	(80-72)(%rdx), %r15
+
+	/*
+	 * Update the thread's kernel %rsp; we don't need to protect the
+	 * stored registers anymore.
+	 *
+	 * XXX This needs a 'quick' transition to kernel pagetables XXX
+	 */
+	movq	%cr3, %r10
+	movq	pml4, %rdx
+	andq	$0x0fffffff, %rdx
+	movq	%rdx, %cr3
+
+	/* Undo the sf_sp mangling done in md_thread_clone() */
+	movq	%gs:(PCPU_CTX), %rdx
+	addq	$SYSARG_SIZE+80, SF_SP(%rdx)
+
+	movq	%r10, %cr3
+
 	swapgs
 	sysretq
 

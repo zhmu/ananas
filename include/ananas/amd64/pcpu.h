@@ -5,11 +5,6 @@
 #define MD_PCPU_FIELDS								\
 	void		*context;						\
 	/*									\
-	 * temp_rsp is the place we use to store the original stack pointer	\
-	 * during a system call.						\
-	 */									\
-	uint64_t	temp_rsp;						\
-	/*									\
 	 * kernel_rsp is the place we use to store the kernel stack pointer for	\
 	 * the given thread; it's restored during a system call.		\
 	 */									\

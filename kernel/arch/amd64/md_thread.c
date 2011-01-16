@@ -6,10 +6,12 @@
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/pcpu.h>
+#include <ananas/syscall.h>
 #include <ananas/vm.h>
 
 extern struct TSS kernel_tss;
 void md_idle_thread();
+void clone_return();
 
 errorcode_t
 md_thread_init(thread_t t)
@@ -138,7 +140,38 @@ md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
 void
 md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
 {
-	panic("md_thread_clone");
+	/* Copy the entire context over */
+	memcpy(&t->md_ctx, &parent->md_ctx, sizeof(t->md_ctx));
+
+	/*
+	 * A kernel stack is not subject to paging; this is unavoidable as we need it
+	 * during a context switch, so it must reside in the kernel address space.
+	 *
+	 * This means we'll have to reinitialize a kernel stack - the clone_return
+	 * code will perform the adequate magic.
+	 */
+	t->md_ctx.sf.sf_sp = (addr_t)t->md_kstack + KERNEL_STACK_SIZE;
+	t->md_ctx.pml4 = (addr_t)t->md_pml4;
+
+	/*
+	 * Because our interrupt code uses the stack to temporary stash variables, we
+	 * must protect our stackframe. The value is directly used in interrupts.S,
+	 * so be careful when changing it.
+	 */
+	t->md_ctx.sf.sf_sp -= sizeof(struct SYSCALL_ARGS) + 80;
+
+	/*
+	 * Copy stack content; we copy the kernel stack over
+	 * because we can obtain the stackframe from it, which
+	 * allows us to return to the intended caller.
+	 */
+	memcpy(t->md_stack,  parent->md_stack, THREAD_STACK_SIZE);
+	memcpy(t->md_kstack, parent->md_kstack, KERNEL_STACK_SIZE);
+
+	/* Handle return value */
+	t->md_ctx.sf.sf_cs = GDT_SEL_KERNEL_CODE;
+	t->md_ctx.sf.sf_rip = (addr_t)&clone_return;
+	t->md_ctx.sf.sf_rax = retval;
 }
 
 /* vim:set ts=2 sw=2: */
