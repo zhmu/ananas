@@ -47,9 +47,24 @@ md_restore_ctx2:
 	 */
 	movq	SF_SP(%rsi), %rsp
 
-	/* Place necessary things on the stack for iretq */
+	/*
+	 * Place necessary things on the stack for iretq; if this is a kernel
+	 * thread, we have to use the kernel stack.
+	 */
+	cmpq	$GDT_SEL_KERNEL_CODE, SF_CS(%rsi)
+	je	md_restore_kctx
+
+	/* User stack */
 	pushq	SF_SS(%rsi)
 	pushq	SF_RSP(%rsi)
+	jmp	md_restore_ok
+
+md_restore_kctx:
+	/* Kernel stack */
+	pushq	$GDT_SEL_KERNEL_DATA
+	pushq	SF_SP(%rsi)
+
+md_restore_ok:
 	pushq	SF_RFLAGS(%rsi)
 	pushq	SF_CS(%rsi)
 	pushq	SF_RIP(%rsi)
