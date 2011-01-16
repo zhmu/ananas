@@ -41,6 +41,10 @@ md_thread_init(thread_t t)
 	t->md_ctx.sf.sf_rflags = 0x200 /* RFLAGS_IF */;
 	t->md_ctx.pml4 = (addr_t)t->md_pml4;
 
+	/* initialize FPU state similar to what finit would do */
+	t->md_ctx.fpu.fcw = 0x37f;
+	t->md_ctx.fpu.ftw = 0xffff;
+
 	t->next_mapping = 1048576;
 	return ANANAS_ERROR_OK;
 }
