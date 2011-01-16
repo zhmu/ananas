@@ -17,9 +17,10 @@
 #define INT_MIN		-2147483648	/* Minimum value for an int */
 #define INT_MAX		2147483647	/* Maximum value for an int */
 #define UINT_MAX	4294967295	/* Maximum value for an unsigned int */
-#define LONG_MIN	-2147483648	/* Minimum value for a long */
-#define LONG_MAX	2147483647	/* Maximum value for a long */
-#define ULONG_MAX	4294967295	/* Maximum value for a unsigned long */
+
+#define LONG_MIN	-9223372036854775808	/* Minimum value for a long */
+#define LONG_MAX	9223372036854775807	/* Maximum value for a long */
+#define ULONG_MAX	18446744073709551615	/* Maximum value for a unsigned long */
 
 #define LLONG_MIN	-9223372036854775808	/* Minimum value for a long long */
 #define LLONG_MAX	9223372036854775807	/* Maximum value for a long long */
