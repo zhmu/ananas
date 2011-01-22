@@ -226,4 +226,14 @@ diskio_stats()
 	 diskio_hits, diskio_misses);
 }
 
+void
+diskio_lsdev()
+{
+	for(int i = 0; i < num_disk_devices; i++) {
+		struct DISK_DEVICE* disk = &disk_device[i];
+		printf("disk %u: device %u, name '%s', start lba %u, length %u\n",
+		 i, disk->device, disk->name, disk->start_lba, disk->length);
+	}
+}
+
 /* vim:set ts=2 sw=2: */

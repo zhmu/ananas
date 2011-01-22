@@ -22,6 +22,7 @@ static command_t cmd_reboot;
 static command_t cmd_autoboot;
 static command_t cmd_ramdisk;
 static command_t cmd_cache;
+static command_t cmd_lsdev;
 
 static struct BOOTINFO bootinfo = { 0 };
 struct LOADER_ELF_INFO elf_info = { 0 };
@@ -33,6 +34,7 @@ struct COMMAND {
 } commands[] = {
 	{ "?",        &cmd_help,     "This help" },
 	{ "ls",       &cmd_ls,       "List files" },
+	{ "lsdev",    &cmd_lsdev,    "List devices" },
 	{ "cat",      &cmd_cat,      "Display file contents" },
 	{ "load",     &cmd_load,     "Load a kernel" },
 #ifdef RAMDISK
@@ -182,6 +184,7 @@ interact()
 	char line[MAX_LINE_SIZE + 1];
 	char* args[MAX_ARGS];
 
+#if 0
 	const char* kernelfile[] = { NULL, "kernel" };
 	cmd_load(sizeof(kernelfile) / sizeof(char*), (char**)kernelfile);
 
@@ -191,6 +194,7 @@ interact()
 #endif
 
 	cmd_exec(0, NULL);
+#endif
 
 	while (1) {
 		/* Assemble an input line */
@@ -310,5 +314,11 @@ cmd_ramdisk(int num_args, char** arg)
 	 bootinfo.bi_ramdisk_addr + bootinfo.bi_ramdisk_size);
 }
 #endif
+
+static void
+cmd_lsdev(int num_args, char** arg)
+{
+	diskio_lsdev();
+}
 
 /* vim:set ts=2 sw=2: */
