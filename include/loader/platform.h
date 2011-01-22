@@ -51,4 +51,7 @@ void platform_exec(struct LOADER_ELF_INFO* loadinfo, struct BOOTINFO* bootinfo);
 /* Checks whether the platform can handle a certain bit executable */
 int platform_is_numbits_capable(int bits);
 
+/* Establish a memory mapping for a piece of memory */
+void platform_map_memory(void* ptr, size_t len);
+
 #endif /* __PLATFORM_H__ */

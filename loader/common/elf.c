@@ -54,11 +54,12 @@ elf32_load(void* header, struct LOADER_ELF_INFO* elf_info)
 			continue;
 
 		void* dest = (void*)phdr->p_paddr;
-		memset(dest, 0, phdr->p_memsz);
 #ifdef DEBUG_ELF
 		printf("ELF: reading %u bytes at offset %u to 0x%x\n",
 		 phdr->p_filesz, phdr->p_offset, dest);
 #endif
+		platform_map_memory(dest, phdr->p_memsz);
+		memset(dest, 0, phdr->p_memsz);
 		if (vfs_pread(dest, phdr->p_filesz, phdr->p_offset) != phdr->p_filesz)
 			ELF_ABORT("data read error");
 		if (elf_info->elf_start_addr > phdr->p_vaddr)
@@ -127,11 +128,12 @@ elf64_load(void* header , struct LOADER_ELF_INFO* elf_info)
 			ELF_ABORT("section not present in first 4gb");
 
 		uint32_t paddr = phdr->p_paddr & 0xfffffff; /* XXX kludge */
-		memset((void*)paddr, 0, phdr->p_memsz);
 #ifdef DEBUG_ELF
 		printf("ELF: reading %u bytes at offset %u to 0x%x\n",
 		 (int)phdr->p_filesz, (int)phdr->p_offset, paddr);
 #endif
+		platform_map_memory((void*)paddr, phdr->p_memsz);
+		memset((void*)paddr, 0, phdr->p_memsz);
 		if (vfs_pread(paddr, phdr->p_filesz, phdr->p_offset) != phdr->p_filesz)
 			ELF_ABORT("data read error");
 		if (elf_info->elf_start_addr > phdr->p_vaddr)

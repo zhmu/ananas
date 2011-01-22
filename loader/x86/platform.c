@@ -324,4 +324,10 @@ platform_is_numbits_capable(int bits)
 	return 0;
 }
 
+void
+platform_map_memory(void* ptr, size_t len)
+{
+	/* Not needed for x86; we run without paging so any memory is available */
+}
+
 /* vim:set ts=2 sw=2: */

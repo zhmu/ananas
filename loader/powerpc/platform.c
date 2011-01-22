@@ -172,4 +172,12 @@ platform_is_numbits_capable(int bits)
 	return (bits == 32);
 }
 
+void
+platform_map_memory(void* ptr, size_t len)
+{
+	/* Note that we'll assume 4 byte alignment for now */
+	if (len > 0)
+		ofw_claim((ofw_cell_t)ptr, len, sizeof(int));
+}
+
 /* vim:set ts=2 sw=2: */
