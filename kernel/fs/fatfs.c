@@ -536,7 +536,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
   fs->fsop_size = sizeof(uint64_t);
   fs->root_inode = fat_alloc_inode(fs);
 	uint64_t root_fsop = FAT_ROOTINODE_FSOP;
-	errorcode_t err = fat_read_inode(fs->root_inode, &root_fsop);
+	errorcode_t err = vfs_get_inode(fs, &root_fsop, &fs->root_inode);
 	if (err != ANANAS_ERROR_NONE) {
 		kfree(privdata);
 		return err;
