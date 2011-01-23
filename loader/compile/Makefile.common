@@ -1,7 +1,7 @@
 CFLAGS+=	-I$S/../include -I$S -I. -std=c99 -DLOADER
 
 OBJS+=		stub.o platform.o main.o lib.o io.o diskio.o ext2fs.o vfs.o \
-		elf.o interact.o iso9660.o ramdisk.o
+		elf.o interact.o iso9660.o ramdisk.o fat.o
 
 main.o:		$S/common/main.c
 		$(CC) $(CFLAGS) -c -o main.o $S/common/main.c
@@ -32,3 +32,6 @@ iso9660.o:	$S/fs/iso9660.c
 
 interact.o:	$S/common/interact.c
 		$(CC) $(CFLAGS) -c -o interact.o $S/common/interact.c
+
+fat.o:		$S/fs/fat.c
+		$(CC) $(CFLAGS) -c -o fat.o $S/fs/fat.c

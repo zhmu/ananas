@@ -7,6 +7,7 @@
 extern struct LOADER_FS_DRIVER loaderfs_ext2;
 extern struct LOADER_FS_DRIVER loaderfs_pxe_tftp;
 extern struct LOADER_FS_DRIVER loaderfs_iso9660;
+extern struct LOADER_FS_DRIVER loaderfs_fat;
 
 struct VFS_FILESYSTEMS {
 	const char* name;
@@ -14,6 +15,9 @@ struct VFS_FILESYSTEMS {
 } vfs_filesystems[] = {
 #ifdef EXT2
 	{ "ext2", &loaderfs_ext2 },
+#endif
+#ifdef FAT
+	{ "fat", &loaderfs_fat },
 #endif
 #ifdef PXE
 	{ "pxe-tftp", &loaderfs_pxe_tftp },

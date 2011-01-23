@@ -1,7 +1,7 @@
 TARGET:		machine loader
 S=		../..
 
-CFLAGS=		-DEXT2 -DPXE -DRAMDISK -DX86_64 -DELF32 -DELF64
+CFLAGS=		-DEXT2 -DPXE -DRAMDISK -DX86_64 -DELF32 -DELF64 -DFAT
 #CFLAGS+=	-DDEBUG_SERIAL
 include		$S/compile/Makefile.common
 OBJS+=		pxe.o x86_64.o stub_x86_64.o
