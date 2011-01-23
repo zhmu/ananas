@@ -64,7 +64,7 @@ struct FAT_ENTRY_LFN {
 	uint8_t		lfn_attribute;			/* attribute (must be FAT_ATTRIBUTE_LFN) */
 	uint8_t		lfn_type;			/* long entry type */
 	uint8_t		lfn_checksum;			/* checksum */
-	uint8_t		lfn_name_2[10];			/* second 5x 16bit filename */
+	uint8_t		lfn_name_2[12];			/* second 5x 16bit filename */
 	uint8_t		lfn_zero[2];			/* always zero */
 	uint8_t		lfn_name_3[4];			/* final 2x 16bit filename */
 } __attribute__((packed));
