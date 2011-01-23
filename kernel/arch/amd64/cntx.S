@@ -120,6 +120,8 @@ md_reschedule:
 	 * md_restore_ctx() which causes only these registers to be restored.
 	 */
 	movq	%gs:PCPU_CTX, %rsi
+	orq	%rsi, %rsi			/* got a thread? */
+	jz	reschedule_nothread		/* no, take a shortcut */
 	movq	%rbp, SF_RBP(%rsi)
 	movq	%rbx, SF_RBX(%rsi)
 	movq	%r12, SF_R12(%rsi)
@@ -140,6 +142,14 @@ md_reschedule:
 
 reschedule_back:
 	/* We are back from a scheduler trip, and must return to the caller */
+	ret
+
+reschedule_nothread:
+	/*
+	 * We end up here if there wasn't a thread to reschedule; this means
+	 * we're at early boot and likely just need to wait for an interrupt.
+	 */
+	hlt
 	ret
 
 /*
