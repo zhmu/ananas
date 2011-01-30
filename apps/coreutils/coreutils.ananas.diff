@@ -97,3 +97,21 @@ diff -rubB coreutils-8.7/lib/fseterr.c coreutils-8.7.patched/lib/fseterr.c
  #elif 0                             /* unknown  */
    /* Portable fallback, based on an idea by Rich Felker.
       Wow! 6 system calls for something that is just a bit operation!
+diff -rubB coreutils-8.7/lib/xstrtol.c coreutils-8.7.patched/lib/xstrtol.c
+--- coreutils-8.7/lib/xstrtol.c	2010-06-10 18:45:26.000000000 +0200
++++ coreutils-8.7.patched/lib/xstrtol.c	2011-01-30 12:02:23.939944997 +0100
+@@ -46,7 +46,13 @@
+ static strtol_error
+ bkm_scale (__strtol_t *x, int scale_factor)
+ {
+-  if (TYPE_SIGNED (__strtol_t) && *x < STRTOL_T_MINIMUM / scale_factor)
++#ifdef __i386__
++  /* XXX This is a hack to work around GCC bug 45683 */
++  __strtol_t st_min = (unsigned long long)STRTOL_T_MINIMUM / scale_factor;
++#else
++  __strtol_t st_min = STRTOL_T_MINIMUM / scale_factor;
++#endif
++  if (TYPE_SIGNED (__strtol_t) && *x < st_min)
+     {
+       *x = STRTOL_T_MINIMUM;
+       return LONGINT_OVERFLOW;
