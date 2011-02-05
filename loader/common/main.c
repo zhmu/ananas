@@ -11,8 +11,6 @@
 #define PLATFORM "powerpc"
 #endif
 
-typedef void kentry(void);
-
 void interact();
 
 int
