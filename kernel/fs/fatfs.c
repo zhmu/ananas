@@ -337,6 +337,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	size_t left = *len;
 	char cur_filename[128]; /* currently assembled filename */
 	int cur_filename_len = 0;
+	off_t full_filename_offset = file->offset;
 	errorcode_t err = ANANAS_ERROR_OK;
 
 	while(left > 0) {
@@ -380,10 +381,22 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		uint64_t fsop = cur_block << 16 | cur_offs;
 		int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, file->inode->fs->fsop_size, cur_filename, cur_filename_len);
 		if (!filled) {
-			/* out of space! */
+			/*
+			 * Out of space - we need to restore the offset of the LFN chain. This must
+			 * be done because we have assembled a full filename, only to find out that
+			 * it does not fit; we need to do all this work again for the next readdir
+		 	 * call.
+			 */
+			file->offset = full_filename_offset;
 			break;
 		}
 		written += filled; cur_filename_len = 0;
+		/*
+		 * Store the next offset; this is where our next filename starts (which
+	 	 * does not have to fit in the destination buffer, so we'll have to
+		 * read everything again)
+		 */
+		full_filename_offset = file->offset;
 	}
 	*len = written;
 	return err;
@@ -401,7 +414,7 @@ fat_fill_inode(struct VFS_INODE* inode, void* fsop, struct FAT_ENTRY* fentry)
 	struct FAT_INODE_PRIVDATA* privdata = inode->privdata;
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->privdata;
 
-	inode->sb.st_ino = (uint32_t)fsop; /* XXX */
+	inode->sb.st_ino = (*(uint64_t*)fsop) & 0xffffffff; /* XXX */
 	inode->sb.st_mode = 0755;
 	inode->sb.st_nlink = 1;
 	inode->sb.st_uid = 0;
