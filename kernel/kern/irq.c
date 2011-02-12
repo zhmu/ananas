@@ -5,6 +5,9 @@
 
 static struct IRQ irq[MAX_IRQS];
 
+/* Number of stray IRQ's that occur before reporting stops */
+#define IRQ_MAX_STRAY_COUNT 10
+
 void
 irq_init()
 {
@@ -16,11 +19,12 @@ irq_register(unsigned int no, device_t dev, irqhandler_t handler)
 {
 	KASSERT(no < MAX_IRQS, "interrupt %u out of range", no);
 
-	if (irq[no].handler != NULL)
+	if (irq[no].irq_handler != NULL)
 		return 0;
 
-	irq[no].dev = dev;
-	irq[no].handler = handler;
+	irq[no].irq_dev = dev;
+	irq[no].irq_handler = handler;
+	irq[no].irq_straycount = 0;
 	return 1;
 }
 
@@ -30,10 +34,15 @@ irq_dump()
 	kprintf("irq dump\n");
 	for (int no = 0; no < MAX_IRQS; no++) {
 		kprintf("irq %u: ", no);
-		if (irq[no].handler)
-			kprintf("%s (%p)\n", irq[no].dev != NULL ? irq[no].dev->name : "?", irq[no].handler);
+		if (irq[no].irq_handler)
+			kprintf("%s (%p)", irq[no].irq_dev != NULL ? irq[no].irq_dev->name : "?", irq[no].irq_handler);
 		else
-			kprintf("(unassigned)\n");
+			kprintf("(unassigned)");
+		if (irq[no].irq_straycount > 0)
+			kprintf(", %u stray%s",
+			 irq[no].irq_straycount,
+			 (irq[no].irq_straycount == IRQ_MAX_STRAY_COUNT) ? ", no longer reporting" : "");
+		kprintf("\n");
 	}
 }
 
@@ -41,17 +50,18 @@ void
 irq_handler(unsigned int no)
 {
 	int cpuid = PCPU_GET(cpuid);
-
-	if (no >= MAX_IRQS)
-		panic("irq_handler: (CPU %u) impossible irq %u fired", cpuid, no);
-
-	if (irq[no].handler == NULL) {
-		kprintf("irq_handler(): (CPU %u) unhandled irq %u, ignored\n", cpuid, no);
+	KASSERT(no < MAX_IRQS, "irq_handler: (CPU %u) impossible irq %u fired", cpuid, no);
+	if (irq[no].irq_handler == NULL) {
+		if (irq[no].irq_straycount >= IRQ_MAX_STRAY_COUNT)
+			return;
+		kprintf("irq_handler(): (CPU %u) stray irq %u, ignored\n", cpuid, no);
+		if (++irq[no].irq_straycount == IRQ_MAX_STRAY_COUNT)
+			kprintf("irq_handler(): not reporting stray irq %u anymore\n", no);
 		return;
 	}
 
 /*	kprintf("irq_handler(): (CPU %u) handling irq %u\n", cpuid, no);*/
-	irq[no].handler(irq[no].dev);
+	irq[no].irq_handler(irq[no].irq_dev);
 }
 
 /* vim:set ts=2 sw=2: */

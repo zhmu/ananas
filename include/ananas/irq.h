@@ -9,8 +9,9 @@ typedef void (*irqhandler_t)(device_t);
  * Describes an IRQ in machine-independant context.
  */
 struct IRQ {
-	device_t dev;
-	irqhandler_t handler;
+	device_t	irq_dev;
+	irqhandler_t	irq_handler;
+	int		irq_straycount;
 };
 
 int irq_register(unsigned int no, device_t dev, irqhandler_t handler);
