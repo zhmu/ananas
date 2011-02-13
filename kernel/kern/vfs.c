@@ -369,9 +369,12 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 			curdentry = NULL;
 		}
 
-		/* If the entry to find is '.', we are done */
+		/*
+		 * If the entry to find is '.', continue to the next one; we are already
+		 * there.
+		 */
 		if (strcmp(curlookup, ".") == 0)
-			break;
+			continue;
 
 		/*
 		 * We need to recurse; this can only be done if this is a directory, so
@@ -411,7 +414,7 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 
 		/*
 	 	 * Attempt to look up whatever entry we need. Once this is done, we can
-		 * get rid of the current loookup inode (as it won't be the inode itself
+		 * get rid of the current lookup inode (as it won't be the inode itself
 		 * since we special-case "." above).
 		 */
 		struct VFS_INODE* inode;
