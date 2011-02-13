@@ -10,12 +10,14 @@ kern/syscall.c		mandatory
 kern/irq.c		mandatory
 kern/bio.c		mandatory
 kern/handle.c		mandatory
-kern/vfs.c		mandatory
-kern/vfs-generic.c	mandatory
-kern/vfs-icache.c	mandatory
-kern/vfs-dentry.c	mandatory
 kern/tty.c		mandatory
 kern/trace.c		mandatory
+# XXX vfs shouldn't be mandatory
+vfs/vfs.c		mandatory
+vfs/vfs-generic.c	mandatory
+vfs/vfs-icache.c	mandatory
+vfs/vfs-dentry.c	mandatory
+# libkern library
 lib/kern/misc.c		mandatory
 lib/kern/memset.c	mandatory
 lib/kern/memcpy.c	mandatory
