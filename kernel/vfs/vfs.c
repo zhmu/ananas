@@ -13,8 +13,8 @@ TRACE_SETUP;
 
 #define VFS_MOUNTED_FS_MAX	16
 
-struct SPINLOCK spl_mountedfs;
-struct VFS_MOUNTED_FS mountedfs[VFS_MOUNTED_FS_MAX];
+static struct SPINLOCK spl_mountedfs;
+static struct VFS_MOUNTED_FS mountedfs[VFS_MOUNTED_FS_MAX];
 
 void
 vfs_init()
@@ -560,8 +560,9 @@ vfs_ref_inode(struct VFS_INODE* inode)
 	spinlock_unlock(&inode->spl_inode);
 }
 
+#ifdef KDB
 void
-vfs_dump()
+kdb_cmd_vfs(int num_args, char** arg)
 {
 	spinlock_lock(&spl_mountedfs);
 	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {
@@ -574,5 +575,6 @@ vfs_dump()
 	}
 	spinlock_unlock(&spl_mountedfs);
 }
+#endif /* KDB */
 
 /* vim:set ts=2 sw=2: */

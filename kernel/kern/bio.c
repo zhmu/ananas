@@ -5,6 +5,7 @@
 #include <ananas/lock.h>
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
+#include "options.h"
 
 TRACE_SETUP;
 
@@ -324,8 +325,9 @@ bio_set_ready(struct BIO* bio)
 	bio->flags &= ~BIO_FLAG_DIRTY;
 }
 
+#ifdef KDB
 void
-bio_dump()
+kdb_cmd_bio(int num_args, char** arg)
 {
 	kprintf("bio dump\n");
 
@@ -387,5 +389,6 @@ bio_dump()
 
 	KASSERT(databuf_avail <= (BIO_DATA_SIZE / BIO_SECTOR_SIZE), "more bio data available than total");
 }
+#endif /* KDB */
 
 /* vim:set ts=2 sw=2: */

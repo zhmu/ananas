@@ -11,6 +11,7 @@
 #include <ananas/threadinfo.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
+#include "options.h"
 
 TRACE_SETUP;
 
@@ -333,46 +334,6 @@ thread_exit(int exitcode)
 	schedule();
 }
 
-void
-thread_dump(int num_args, char** arg)
-{
-	int flags = 0;
-#define FLAG_HANDLE 1
-
-	/* we use arguments as a mask to determine which information is to be dumped */
-	for (int i = 1; i < num_args; i++) {
-		for (char* ptr = arg[i]; *ptr != '\0'; ptr++)
-			switch(*ptr) {
-				case 'h': flags |= FLAG_HANDLE; break;
-				default:
-					kprintf("unknown modifier '%c', ignored\n", *ptr);
-					break;
-			}
-	}
-
-	struct THREAD* t = threads;
-	struct THREAD* cur = PCPU_CURTHREAD();
-	kprintf("thread dump\n");
-	while (t != NULL) {
-		kprintf ("thread %p (handle %p): %s: flags [", t, t->thread_handle, t->threadinfo->ti_args);
-		if (t->flags & THREAD_FLAG_ACTIVE)    kprintf(" active");
-		if (t->flags & THREAD_FLAG_SUSPENDED) kprintf(" suspended");
-		if (t->flags & THREAD_FLAG_TERMINATING) kprintf(" terminating");
-		if (t->flags & THREAD_FLAG_ZOMBIE) kprintf(" zombie");
-		kprintf(" ]%s\n", (t == cur) ? " <- current" : "");
-		if (flags & FLAG_HANDLE) {
-			kprintf("handles\n");
-			if(!DQUEUE_EMPTY(&t->handles)) {
-				DQUEUE_FOREACH_SAFE(&t->handles, handle, struct HANDLE) {
-					kprintf(" handle %p, type %u\n",
-					 handle, handle->type);
-				}
-			}
-		}
-		t = t->next;
-	}
-}
-
 errorcode_t
 thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 {
@@ -433,5 +394,78 @@ thread_set_environment(thread_t t, const char* env, size_t env_len)
 
 	return ANANAS_ERROR(BAD_LENGTH);
 }
+
+#ifdef KDB
+void
+kdb_cmd_threads(int num_args, char** arg)
+{
+	int flags = 0;
+#define FLAG_HANDLE 1
+
+	/* we use arguments as a mask to determine which information is to be dumped */
+	for (int i = 1; i < num_args; i++) {
+		for (char* ptr = arg[i]; *ptr != '\0'; ptr++)
+			switch(*ptr) {
+				case 'h': flags |= FLAG_HANDLE; break;
+				default:
+					kprintf("unknown modifier '%c', ignored\n", *ptr);
+					break;
+			}
+	}
+
+	struct THREAD* t = threads;
+	struct THREAD* cur = PCPU_CURTHREAD();
+	kprintf("thread dump\n");
+	while (t != NULL) {
+		kprintf ("thread %p (handle %p): %s: flags [", t, t->thread_handle, t->threadinfo->ti_args);
+		if (t->flags & THREAD_FLAG_ACTIVE)    kprintf(" active");
+		if (t->flags & THREAD_FLAG_SUSPENDED) kprintf(" suspended");
+		if (t->flags & THREAD_FLAG_TERMINATING) kprintf(" terminating");
+		if (t->flags & THREAD_FLAG_ZOMBIE) kprintf(" zombie");
+		kprintf(" ]%s\n", (t == cur) ? " <- current" : "");
+		if (flags & FLAG_HANDLE) {
+			kprintf("handles\n");
+			if(!DQUEUE_EMPTY(&t->handles)) {
+				DQUEUE_FOREACH_SAFE(&t->handles, handle, struct HANDLE) {
+					kprintf(" handle %p, type %u\n",
+					 handle, handle->type);
+				}
+			}
+		}
+		t = t->next;
+	}
+}
+
+void
+kdb_cmd_thread(int num_args, char** arg)
+{
+	if (num_args != 2) {
+		kprintf("need an argument\n");
+		return;
+	}
+
+	char* ptr;
+	addr_t addr = (addr_t)strtoul(arg[1], &ptr, 16);
+	if (*ptr != '\0') {
+		kprintf("parse error at '%s'\n", ptr);
+		return;
+	}
+
+	struct THREAD* thread = (void*)addr;
+	kprintf("arg          : '%s'\n", thread->threadinfo->ti_args);
+	kprintf("flags        : 0x%x\n", thread->flags);
+	kprintf("terminateinfo: 0x%x\n", thread->terminate_info);
+	kprintf("mappings:\n");
+	if (!DQUEUE_EMPTY(&thread->mappings)) {
+		DQUEUE_FOREACH(&thread->mappings, tm, struct THREAD_MAPPING) {
+			kprintf("   flags      : 0x%x\n", tm->flags);
+			kprintf("   address    : 0x%x - 0x%x\n", tm->start, tm->start + tm->len);
+			kprintf("   length     : %u\n", tm->len);
+			kprintf("   backing ptr: 0x%x - 0x%x\n", tm->ptr, tm->ptr + tm->len);
+			kprintf("\n");
+		}
+	}
+}
+#endif /* KDB */
 
 /* vim:set ts=2 sw=2: */

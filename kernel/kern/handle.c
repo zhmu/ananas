@@ -7,6 +7,7 @@
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
 #include <ananas/thread.h>
+#include "options.h"
 
 TRACE_SETUP;
 
@@ -271,5 +272,58 @@ handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t
 	spinlock_unlock(&handle->spl_handle);
 	TRACE(HANDLE, INFO, "done");
 }
+
+#ifdef KDB
+void
+kdb_cmd_handle(int num_args, char** arg)
+{
+	if (num_args != 2) {
+		kprintf("need an argument\n");
+		return;
+	}
+
+	char* ptr;
+	addr_t addr = (addr_t)strtoul(arg[1], &ptr, 16);
+	if (*ptr != '\0') {
+		kprintf("parse error at '%s'\n", ptr);
+		return;
+	}
+
+	struct HANDLE* handle = (void*)addr;
+	kprintf("type          : %u\n", handle->type);
+	kprintf("owner thread  : 0x%x\n", handle->thread);
+	kprintf("waiters:\n");
+	for (unsigned int i = 0; i < HANDLE_MAX_WAITERS; i++) {
+		if (handle->waiters[i].thread == NULL)
+			continue;
+		kprintf("   wait thread    : 0x%x\n", handle->waiters[i].thread);
+		kprintf("   wait event     : %u\n", handle->waiters[i].event);
+		kprintf("   event mask     : %u\n", handle->waiters[i].event_mask);
+		kprintf("   event reported : %u\n", handle->waiters[i].event_reported);
+		kprintf("   result         : %u\n", handle->waiters[i].result);
+	}
+
+	switch(handle->type) {
+		case HANDLE_TYPE_FILE: {
+			kprintf("file handle specifics:\n");
+			kprintf("   offset         : %u\n", handle->data.vfs_file.offset); /* XXXSIZE */
+			kprintf("   inode          : 0x%x\n", handle->data.vfs_file.inode);
+			kprintf("   device         : 0x%x\n", handle->data.vfs_file.device);
+			break;
+		}
+		case HANDLE_TYPE_THREAD: {
+			kprintf("thread handle specifics:\n");
+			kprintf("   thread         : 0x%x\n", handle->data.thread);
+			break;
+		}
+		case HANDLE_TYPE_MEMORY: {
+			kprintf("memory handle specifics:\n");
+			kprintf("   address        : 0x%x\n", handle->data.memory.addr);
+			kprintf("   size           : %u\n", handle->data.memory.length);
+			break;
+		}
+	}
+}
+#endif
 
 /* vim:set ts=2 sw=2: */

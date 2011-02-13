@@ -6,6 +6,7 @@
 #include <ananas/tty.h>
 #include <ananas/thread.h>
 #include <ananas/vm.h>
+#include "options.h"
 #include "console.inc"
 
 /*
@@ -478,5 +479,16 @@ device_get_queue()
 {
 	return &device_queue;
 }
+
+#ifdef KDB
+void
+kdb_cmd_devices(int num_args, char** arg)
+{
+	DQUEUE_FOREACH(&device_queue, dev, struct DEVICE) {
+		kprintf("device %p: '%s' unit %u\n",
+	 	 dev, dev->name, dev->unit);
+	}
+}
+#endif
 
 /* vim:set ts=2 sw=2: */

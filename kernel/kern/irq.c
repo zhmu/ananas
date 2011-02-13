@@ -2,6 +2,7 @@
 #include <ananas/pcpu.h>
 #include <ananas/irq.h>
 #include <ananas/lib.h>
+#include "options.h"
 
 static struct IRQ irq[MAX_IRQS];
 
@@ -29,24 +30,6 @@ irq_register(unsigned int no, device_t dev, irqhandler_t handler)
 }
 
 void
-irq_dump()
-{
-	kprintf("irq dump\n");
-	for (int no = 0; no < MAX_IRQS; no++) {
-		kprintf("irq %u: ", no);
-		if (irq[no].irq_handler)
-			kprintf("%s (%p)", irq[no].irq_dev != NULL ? irq[no].irq_dev->name : "?", irq[no].irq_handler);
-		else
-			kprintf("(unassigned)");
-		if (irq[no].irq_straycount > 0)
-			kprintf(", %u stray%s",
-			 irq[no].irq_straycount,
-			 (irq[no].irq_straycount == IRQ_MAX_STRAY_COUNT) ? ", no longer reporting" : "");
-		kprintf("\n");
-	}
-}
-
-void
 irq_handler(unsigned int no)
 {
 	int cpuid = PCPU_GET(cpuid);
@@ -63,5 +46,25 @@ irq_handler(unsigned int no)
 /*	kprintf("irq_handler(): (CPU %u) handling irq %u\n", cpuid, no);*/
 	irq[no].irq_handler(irq[no].irq_dev);
 }
+
+#ifdef KDB
+void
+kdb_cmd_irq(int num_args, char** arg)
+{
+	kprintf("irq dump\n");
+	for (int no = 0; no < MAX_IRQS; no++) {
+		kprintf("irq %u: ", no);
+		if (irq[no].irq_handler)
+			kprintf("%s (%p)", irq[no].irq_dev != NULL ? irq[no].irq_dev->name : "?", irq[no].irq_handler);
+		else
+			kprintf("(unassigned)");
+		if (irq[no].irq_straycount > 0)
+			kprintf(", %u stray%s",
+			 irq[no].irq_straycount,
+			 (irq[no].irq_straycount == IRQ_MAX_STRAY_COUNT) ? ", no longer reporting" : "");
+		kprintf("\n");
+	}
+}
+#endif /* KDB */
 
 /* vim:set ts=2 sw=2: */
