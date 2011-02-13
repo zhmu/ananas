@@ -334,8 +334,22 @@ thread_exit(int exitcode)
 }
 
 void
-thread_dump()
+thread_dump(int num_args, char** arg)
 {
+	int flags = 0;
+#define FLAG_HANDLE 1
+
+	/* we use arguments as a mask to determine which information is to be dumped */
+	for (int i = 1; i < num_args; i++) {
+		for (char* ptr = arg[i]; *ptr != '\0'; ptr++)
+			switch(*ptr) {
+				case 'h': flags |= FLAG_HANDLE; break;
+				default:
+					kprintf("unknown modifier '%c', ignored\n", *ptr);
+					break;
+			}
+	}
+
 	struct THREAD* t = threads;
 	struct THREAD* cur = PCPU_CURTHREAD();
 	kprintf("thread dump\n");
@@ -346,11 +360,13 @@ thread_dump()
 		if (t->flags & THREAD_FLAG_TERMINATING) kprintf(" terminating");
 		if (t->flags & THREAD_FLAG_ZOMBIE) kprintf(" zombie");
 		kprintf(" ]%s\n", (t == cur) ? " <- current" : "");
-		kprintf("handles\n");
-		if(!DQUEUE_EMPTY(&t->handles)) {
-			DQUEUE_FOREACH_SAFE(&t->handles, handle, struct HANDLE) {
-				kprintf(" handle %p, type %u\n",
-				 handle, handle->type);
+		if (flags & FLAG_HANDLE) {
+			kprintf("handles\n");
+			if(!DQUEUE_EMPTY(&t->handles)) {
+				DQUEUE_FOREACH_SAFE(&t->handles, handle, struct HANDLE) {
+					kprintf(" handle %p, type %u\n",
+					 handle, handle->type);
+				}
 			}
 		}
 		t = t->next;

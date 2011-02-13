@@ -12,7 +12,7 @@
 void
 kdb_cmd_threads(int num_args, char** arg)
 {
-	thread_dump();
+	thread_dump(num_args, arg);
 }
 
 void

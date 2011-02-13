@@ -98,7 +98,7 @@ void thread_free_mappings(thread_t t);
 void thread_suspend(thread_t t);
 void thread_resume(thread_t t);
 void thread_exit(int exitcode);
-void thread_dump();
+void thread_dump(int num_args, char** arg);
 errorcode_t thread_clone(struct THREAD* parent, int flags, struct THREAD** dest);
 
 #endif
