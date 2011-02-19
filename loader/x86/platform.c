@@ -247,7 +247,7 @@ platform_read_disk(int disk, uint32_t lba, void* buffer, int num_bytes)
 		x86_realmode_init(&regs);
 		regs.eax = 0x0201;		/* disk: read one sector into memory */
 		regs.ebx = REALMODE_BUFFER;
-		regs.ecx = ((cylinder & 0xff) << 8) | ((cylinder & 0xc0) << 2) | sector;
+		regs.ecx = ((cylinder & 0xff) << 8) | ((cylinder >> 2) & 0xc0) | sector;
 		regs.edx = dskinfo->drive | (head << 8);
 		regs.interrupt = 0x13;
 		x86_realmode_call(&regs);
