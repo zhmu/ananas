@@ -140,14 +140,14 @@ fat_read(void* buf, size_t len)
 		/* Figure out which block we need */
 		uint32_t want_block;
 		if (fat_activefile->file_isroot) {
-			/* FAT16 root directory; this resides on a fixed location */
+			/* FAT12/16 root directory; this resides on a fixed location */
 			want_block = fat_fsinfo->fat_first_rootdir_item + (vfs_curfile_offset / fat_fsinfo->fat_sector_size);
 			if (vfs_curfile_offset >= fat_fsinfo->fat_num_rootdir_sectors * fat_fsinfo->fat_sector_size) {
 				/* End of root directory reached */
 				return 0;
 			}
 		} else {
-			/* Either not FAT16 or not root; need to traverse to the correct cluster */
+			/* Either not FAT12/16 or not root; need to traverse to the correct cluster */
 			uint32_t want_cluster = fat_get_cluster(fat_activefile->file_first_cluster, vfs_curfile_offset / (fat_fsinfo->fat_sector_size * fat_fsinfo->fat_sectors_per_cluster));
 			want_block  = fat_cluster_to_block(want_cluster);
 			want_block += (vfs_curfile_offset % (fat_fsinfo->fat_sector_size * fat_fsinfo->fat_sectors_per_cluster)) / fat_fsinfo->fat_sector_size;
