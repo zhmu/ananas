@@ -95,7 +95,7 @@ atkbd_irq(device_t dev)
 		return;
 
 #ifdef KDB
-	if ((atkbd_flags == (ATKBD_FLAG_CONTROL | ATKBD_FLAG_SHIFT)) && scancode == 0x29 /* tilde */) {
+	if ((atkbd_flags == (ATKBD_FLAG_CONTROL | ATKBD_FLAG_SHIFT)) && scancode == 1 /* escape */) {
 		kdb_enter("keyboard sequence");
 		return;
 	}
