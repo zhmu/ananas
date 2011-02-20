@@ -32,17 +32,17 @@ options.h:	Makefile
 		echo '#define DEVFS' >> options.h
 
 # kernel files below here
-vfs.o:		$K/kern/vfs.c ananas options.h
-		$(CC) $(KCFLAGS) -c -o vfs.o $K/kern/vfs.c
+vfs.o:		$K/vfs/vfs.c ananas options.h
+		$(CC) $(KCFLAGS) -c -o vfs.o $K/vfs/vfs.c
 
-vfs-generic.o:	$K/kern/vfs-generic.c
-		$(CC) $(KCFLAGS) -c -o vfs-generic.o $K/kern/vfs-generic.c
+vfs-generic.o:	$K/vfs/vfs-generic.c
+		$(CC) $(KCFLAGS) -c -o vfs-generic.o $K/vfs/vfs-generic.c
 
-vfs-icache.o:	$K/kern/vfs-icache.c
-		$(CC) $(KCFLAGS) -c -o vfs-icache.o $K/kern/vfs-icache.c
+vfs-icache.o:	$K/vfs/vfs-icache.c
+		$(CC) $(KCFLAGS) -c -o vfs-icache.o $K/vfs/vfs-icache.c
 
-vfs-dentry.o:	$K/kern/vfs-dentry.c
-		$(CC) $(KCFLAGS) -c -o vfs-dentry.o $K/kern/vfs-dentry.c
+vfs-dentry.o:	$K/vfs/vfs-dentry.c
+		$(CC) $(KCFLAGS) -c -o vfs-dentry.o $K/vfs/vfs-dentry.c
 
 bio.o:		$K/kern/bio.c
 		$(CC) $(KCFLAGS) -c -o bio.o $K/kern/bio.c
