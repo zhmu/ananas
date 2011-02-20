@@ -108,10 +108,18 @@ scheduler_activate()
 	if (scheduler_active++ > 0)
 		return;
 
+	/*
+	 * Remove the 'active' flag of our current thread; this will cause it to be
+	 * rescheduled if necessary.
+	 */
+	struct THREAD* curthread = PCPU_GET(curthread);
+	if (curthread != NULL)
+		curthread->flags &= ~THREAD_FLAG_ACTIVE;
+
 	/* Activate our idle thread; the timer interrupt will steal the context away */
 	struct THREAD* newthread = PCPU_GET(idlethread_ptr);
 	PCPU_SET(curthread, newthread);
-	md_thread_switch(newthread, newthread);
+	md_thread_switch(newthread, curthread);
 	/* NOTREACHED */
 }
 
