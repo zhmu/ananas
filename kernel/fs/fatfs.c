@@ -38,6 +38,8 @@
 #include <ananas/mm.h>
 #include <fat.h>
 
+#undef DEBUG_FAT
+
 #define FAT_FROM_LE16(x) (((uint8_t*)(x))[0] | (((uint8_t*)(x))[1] << 8))
 #define FAT_FROM_LE32(x) (((uint8_t*)(x))[0] | (((uint8_t*)(x))[1] << 8) | (((uint8_t*)(x))[2] << 16) | (((uint8_t*)(x))[3] << 24))
 
@@ -541,8 +543,10 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 		privdata->fat_type = 32;
 		privdata->first_rootdir_sector = FAT_FROM_LE32(bpb->epb.fat32.epb_root_cluster);
 	}
+#ifdef DEBUG_FAT
 	kprintf("fat: FAT%u, fat_size=%u, first_root_sector=%u, first_data_sector=%u\n",
 	 privdata->fat_type, fat_size, privdata->first_rootdir_sector, privdata->first_data_sector);
+#endif
 
 	/* Everything is in order - fill out our filesystem details */
   fs->block_size = privdata->sector_size;
