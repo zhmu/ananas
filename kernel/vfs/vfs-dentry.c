@@ -102,12 +102,8 @@ retry:
 			 * Now, we must increase the entry' backing inode refcount; the caller
 			 * expects an inode that will not go away.
 			 */
-			if (d->d_entry_inode != NULL) {
-				spinlock_lock(&d->d_entry_inode->spl_inode);
-				KASSERT(d->d_entry_inode->refcount > 0, "inode from cache has no refs! (refcount is %u)", d->d_entry_inode->refcount);
-				d->d_entry_inode->refcount++;
-				spinlock_unlock(&d->d_entry_inode->spl_inode);
-			}
+			if (d->d_entry_inode != NULL)
+				vfs_ref_inode(d->d_entry_inode);
 
 			/*
 			 * Push the the item to the head of the cache; we expect the caller to
@@ -128,8 +124,43 @@ retry:
 		d = DQUEUE_HEAD(&fs->dcache_free);
 		DQUEUE_POP_HEAD(&fs->dcache_free);
 	} else {
-		/* Freelist is empty; we need to sarifice an item from the cache */
-		panic("XXX WRITEME");
+		/* Freelist is empty; we need to sacrifice an item from the cache */
+		DQUEUE_FOREACH_REVERSE_SAFE(&fs->dcache_inuse, dd, struct DENTRY_CACHE_ITEM) {
+			/* Skip permanent entries outright */
+			if (dd->d_flags & DENTRY_FLAG_PERMANENT)
+				continue;
+			/* Skip pending entries; we're not responsible for their cleanup */
+			if (dd->d_entry_inode == NULL)
+				continue;
+
+			/*
+			 * See if the item has a refcount of just one, this indicates it's only
+			 * in the cache and we can safely remove it then.
+			 */
+			struct VFS_INODE* inode = dd->d_entry_inode;
+			spinlock_lock(&inode->spl_inode);
+			KASSERT(inode->refcount > 0, "cached inode has no refs! (refcount is %u)", inode->refcount);
+			if (inode->refcount > 1) {
+				/* Refcount is more than one; can't use it */
+				spinlock_unlock(&inode->spl_inode);
+				continue;
+			}
+
+			/* This item just has got to go */
+			vfs_release_inode_locked(inode);
+
+			/* Remove any references to this inode from the inode cache */
+			icache_remove_inode(inode);
+
+			/* Throw away the backing inode and remove this item from the cache */
+			DQUEUE_REMOVE(&fs->dcache_inuse, dd);
+
+			/* Unlock the inode; it's can be used again */
+			spinlock_unlock(&inode->spl_inode);
+			d = dd;
+			break;
+		}
+		/* Note that d can still be NULL if nothing could be removed */
 	}
 
 	/*
@@ -152,6 +183,29 @@ retry:
 	spinlock_unlock(&fs->spl_dcache);
 	TRACE(VFS, INFO, "dcache: got entry, d=%p, entry='%s'", d, entry);
 	return d;
+}
+
+void
+dentry_remove_inode(struct VFS_INODE* inode)
+{
+	struct VFS_MOUNTED_FS* fs = inode->fs;
+	KASSERT(inode->refcount == 0, "inode still referenced");
+
+	spinlock_lock(&fs->spl_dcache);
+	if (!DQUEUE_EMPTY(&fs->dcache_inuse)) {
+		DQUEUE_FOREACH_SAFE(&fs->dcache_inuse, d, struct DENTRY_CACHE_ITEM) {
+			if (d->d_dir_inode != d && d->d_entry_inode != d)
+				continue;
+			/* Free the entry inode if we are removing its parent inode */
+			if (d->d_dir_inode == d && d->d_entry_inode != NULL)
+				vfs_release_inode(d->d_entry_inode);
+
+			/* Remove from in-use and add to free list */
+			DQUEUE_REMOVE(&fs->dcache_inuse, d);
+			DQUEUE_ADD_TAIL(&fs->dcache_free, d);
+		}
+	}
+	spinlock_unlock(&fs->spl_dcache);
 }
 
 /* vim:set ts=2 sw=2: */

@@ -257,6 +257,7 @@ vfs_release_inode(struct VFS_INODE* inode)
 {
 	spinlock_lock(&inode->spl_inode);
 	vfs_release_inode_locked(inode);
+	spinlock_unlock(&inode->spl_inode);
 }
 
 struct BIO*

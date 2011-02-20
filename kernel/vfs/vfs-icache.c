@@ -108,7 +108,7 @@ retry:
 			 * caller to finish up.
 			 */
 			if (ii->inode == NULL) {
-				spinlock_lock(&fs->spl_icache);
+				spinlock_unlock(&fs->spl_icache);
 				return NULL;
 			}
 
@@ -121,11 +121,7 @@ retry:
 			 * because this creates a race: the item may be removed while we are
 			 * waiting for the inode lock.
 			 */
-			spinlock_lock(&ii->inode->spl_inode);
-			KASSERT(ii->inode->refcount > 0, "inode from cache has no refs! (refcount is %u)", ii->inode->refcount);
-			ii->inode->refcount++;
-			spinlock_unlock(&ii->inode->spl_inode);
-
+			vfs_ref_inode(ii->inode);
 			TRACE(VFS, INFO, "returning inode %p with refcount=%u", ii->inode, ii->inode->refcount);
 
 			/*
@@ -148,7 +144,6 @@ retry:
 		DQUEUE_POP_HEAD(&fs->icache_free);
 	} else {
 		/* Freelist is empty; we need to sarifice an item from the cache */
-		ii = NULL;
 		DQUEUE_FOREACH_REVERSE_SAFE(&fs->icache_inuse, jj, struct ICACHE_ITEM) {
 			/*
 			 * Skip any pending items - we are not responsible for their cleanup (and
@@ -171,7 +166,15 @@ retry:
 
 			/* This item just has got to go */
 			vfs_release_inode_locked(jj->inode);
+
+			/* Remove any references to this inode from the dentry cache */
+			dentry_remove_inode(jj->inode);
+
+			/* Remove item from our cache */
 			DQUEUE_REMOVE(&fs->icache_inuse, jj);
+
+			/* Unlock the inode; it's can be used again */
+			spinlock_unlock(&jj->inode->spl_inode);
 			ii = jj;
 			break;
 		}
@@ -214,12 +217,31 @@ icache_set_pending(struct VFS_MOUNTED_FS* fs, struct ICACHE_ITEM* ii, struct VFS
 	KASSERT(fs == inode->fs, "inode does not belong to this filesystem");
 
 	/* First of all, increment the inode's refcount so that it will not go away while in the cache */
-	spinlock_lock(&inode->spl_inode);
-	inode->refcount++;
-	spinlock_unlock(&inode->spl_inode);
+	vfs_ref_inode(inode);
 
 	/* A lock is unnecessary here; the item will not be touched */
 	ii->inode = inode;
+}
+
+void
+icache_remove_inode(struct VFS_INODE* inode)
+{
+	struct VFS_MOUNTED_FS* fs = inode->fs;
+	KASSERT(inode->refcount == 0, "inode still referenced");
+
+	spinlock_lock(&fs->spl_icache);
+	if (!DQUEUE_EMPTY(&fs->icache_inuse)) {
+		DQUEUE_FOREACH_SAFE(&fs->icache_inuse, ii, struct ICACHE_ITEM) {
+			if (ii->inode != inode)
+				continue;
+			
+			/* Remove from in-use and add to free list */
+			DQUEUE_REMOVE(&fs->icache_inuse, ii);
+			DQUEUE_ADD_TAIL(&fs->icache_free, ii);
+			break; /* an entry is at most a single time in the inode cache */
+		}
+	}
+	spinlock_unlock(&fs->spl_icache);
 }
 
 /* vim:set ts=2 sw=2: */
