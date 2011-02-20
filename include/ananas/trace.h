@@ -38,7 +38,8 @@
 #define TRACE_SUBSYSTEM_BIO	4			/* Block I/O layer */
 #define TRACE_SUBSYSTEM_HANDLE	5			/* Handle framework */
 #define TRACE_SUBSYSTEM_SYSCALL	6			/* System calls */
-#define TRACE_SUBSYSTEM_LAST	(TRACE_SUBSYSTEM_SYSCALL)
+#define TRACE_SUBSYSTEM_MACHDEP	7			/* Machine dependent */
+#define TRACE_SUBSYSTEM_LAST	(TRACE_SUBSYSTEM_MACHDEP)
 
 /* Available tracelevels */
 #define TRACE_LEVEL_FUNC	0x0001			/* Function call tracing */

@@ -1,11 +1,14 @@
 #include <ananas/types.h>
 #include <ananas/lib.h>
+#include <ananas/trace.h>
 #include <machine/frame.h>
 #include <machine/macro.h>
 #include <machine/mmu.h>
 #include <machine/param.h>
 #include <machine/vm.h>
 #include <ofw.h>
+
+TRACE_SETUP;
 
 static uint32_t ofw_msr;
 static uint32_t ofw_sprg[4];
@@ -67,7 +70,7 @@ ofw_md_init(register_t entry)
 
 	/* Initial OpenFirmware I/O, this will make kprintf() work */
 	ofw_init_io();
-	TRACE("OFW entry point is 0x%x\n", ofw_entry);
+	TRACE(MACHDEP, INFO, "OFW entry point is 0x%x\n", ofw_entry);
 
 	/* XXX As of now, there's no support for real-mode mapped OpenFirmware */
 	if ((ofw_msr & (MSR_DR | MSR_IR)) != (MSR_DR | MSR_IR))
@@ -107,7 +110,7 @@ ofw_md_setup_mmu()
 		 * OK, we should add a mapping for the Virtual->Physical memory. This should
 		 * allow us to call OpenFirmware once we have fired up paging.
 		 */
-		TRACE("ofw mapping %u: phys %x->virt %x (%x bytes), mode=%x\n",
+		TRACE(MACHDEP, INFO, "ofw mapping %u: phys %x->virt %x (%x bytes), mode=%x\n",
 			i,
 			ofw_trans[i].phys, ofw_trans[i].virt,
 			ofw_trans[i].size, ofw_trans[i].mode);

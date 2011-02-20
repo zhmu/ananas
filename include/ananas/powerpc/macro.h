@@ -37,7 +37,4 @@ mfsrin(uint32_t sr)
 	return sreg;
 }
 
-#define TRACE(x...) \
-	kprintf(x)
-
 #endif /* __POWERPC_MACRO_H__ */

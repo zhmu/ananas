@@ -5,10 +5,13 @@
 #include <machine/mmu.h>
 #include <machine/param.h>
 #include <ananas/thread.h>
+#include <ananas/trace.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ofw.h>
 #include "options.h"
+
+TRACE_SETUP;
 
 static uint8_t vsid_list[MAX_VSIDS	/ 8];
 
@@ -113,7 +116,7 @@ mmu_map_kernel(struct STACKFRAME* sf)
 	extern void* __end;
 	uint32_t kern_base = 0x0100000;
 	uint32_t kern_length = (((addr_t)&__end - kern_base) | (PAGE_SIZE - 1)) + 1;
-	TRACE("mmu_map_kernel: mapping %p - %p\n", kern_base, kern_base + kern_length);
+	TRACE(MACHDEP, INFO, "mmu_map_kernel: mapping %p - %p\n", kern_base, kern_base + kern_length);
 	for (int i = 0; i < kern_length; i += PAGE_SIZE) {
 		mmu_map(sf, kern_base, kern_base);
 		kern_base += PAGE_SIZE;
@@ -195,7 +198,7 @@ mmu_init()
 	mem_size >>= 24;
 	for(; mem_size > 0; pteg_count <<= 1, mem_size >>= 1) ;
 	size_t pteg_size = pteg_count * sizeof(struct PTEG);
-	TRACE("mmu_init(): %u MB memory, %u PTEG's (%u bytes total)\n",
+	TRACE(MACHDEP, INFO, "mmu_init(): %u MB memory, %u PTEG's (%u bytes total)\n",
 	 memory_total / (1024 * 1024), pteg_count, pteg_size);
 
 	/*
@@ -205,6 +208,8 @@ mmu_init()
 	struct HAL_REGION* hal_avail; int hal_num_avail;
 	hal_get_available_memory(&hal_avail, &hal_num_avail);
 	for (unsigned int i = 0; i < hal_num_avail; i++) {
+		TRACE(MACHDEP, INFO, "mmu_init(): hal_avail[%i]: reg_size=%u, base=0x%x\n",
+		 i, hal_avail[i].reg_size, hal_avail[i].reg_base);
 		if (hal_avail[i].reg_size < pteg_size || hal_avail[i].reg_base < 0x0100000)
 			continue;
 		pteg = (struct PTEG*)hal_avail[i].reg_base;
@@ -220,7 +225,7 @@ mmu_init()
 		panic("could not find memory for pteg");
 
 	/* Grab the memory and blank it */
-	TRACE("Allocated pteg @ %p - %p\n", (addr_t)pteg, (addr_t)pteg + pteg_size);
+	TRACE(MACHDEP, INFO, "allocated pteg @ %p - %p\n", (addr_t)pteg, (addr_t)pteg + pteg_size);
 	KASSERT(((addr_t)pteg & 0xffff) == 0, "PTEG alignment failure");
 	memset(pteg, 0, pteg_count * sizeof(struct PTEG));
 	htabmask = ((pteg_count * sizeof(struct PTEG)) >> 16) - 1;
@@ -252,7 +257,7 @@ mmu_init()
 
 	/* It's time to... throw the switch! Really, let's activate the pagetable */
 	uint32_t htab = (addr_t)pteg | (((pteg_count * sizeof(struct PTEG)) >> 16) - 1);
-	TRACE("activating htab (%x)\n", htab);
+	TRACE(MACHDEP, INFO, "activating htab (%x)\n", htab);
 	__asm("mtsdr1 %0" : : "r" (htab));
 
 	/* Reload the segment registers  */
@@ -275,7 +280,7 @@ mmu_init()
 	hal_get_available_memory(&hal_avail, &hal_num_avail);
 	mm_init();
 	for (unsigned int i = 0; i < hal_num_avail; i++) {
-		TRACE("memory region %u: base=0x%x, size=0x%x\n",
+		TRACE(MACHDEP, INFO, "memory region %u: base=0x%x, size=0x%x\n",
 		 i, hal_avail[i].reg_base, hal_avail[i].reg_size);
 
 		uint32_t base = hal_avail[i].reg_base;
