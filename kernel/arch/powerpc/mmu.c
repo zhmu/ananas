@@ -210,7 +210,12 @@ mmu_init()
 	for (unsigned int i = 0; i < hal_num_avail; i++) {
 		TRACE(MACHDEP, INFO, "mmu_init(): hal_avail[%i]: reg_size=%u, base=0x%x\n",
 		 i, hal_avail[i].reg_size, hal_avail[i].reg_base);
-		if (hal_avail[i].reg_size < pteg_size || hal_avail[i].reg_base < 0x0100000)
+		/* Ensure we never use a NULL pointer */
+		if (hal_avail[i].reg_base == 0) {
+			hal_avail[i].reg_base += PAGE_SIZE;
+			hal_avail[i].reg_size -= PAGE_SIZE;
+		}
+		if (hal_avail[i].reg_size < pteg_size)
 			continue;
 		pteg = (struct PTEG*)hal_avail[i].reg_base;
 		if (((addr_t)pteg & 0xffff) > 0) {
