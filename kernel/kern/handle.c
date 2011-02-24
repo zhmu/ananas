@@ -96,7 +96,7 @@ handle_destroy(struct HANDLE* handle, int free_resources)
 		switch(handle->type) {
 			case HANDLE_TYPE_FILE: {
 				/* If we have a backing inode, dereference it - this will free it if needed */
-				struct VFS_INODE* inode = handle->data.vfs_file.inode;
+				struct VFS_INODE* inode = handle->data.vfs_file.f_inode;
 				if (inode != NULL) {
 					kprintf("handle_destroy(): handle=%p, inode=%p, dereffing\n", handle, inode);
 					vfs_deref_inode(inode);
@@ -175,7 +175,7 @@ handle_clone(struct THREAD* t, struct HANDLE* handle, struct HANDLE** out)
 			 * reference count as we, too, depend on it. Closing the handle
 			 * will release the inode, which will remove it if needed.
 			 */
-			struct VFS_INODE* inode = handle->data.vfs_file.inode;
+			struct VFS_INODE* inode = handle->data.vfs_file.f_inode;
 			if (inode != NULL) {
 				kprintf("handle_clone(): inode=%p\n", inode);
 				vfs_ref_inode(inode);
@@ -312,9 +312,9 @@ kdb_cmd_handle(int num_args, char** arg)
 	switch(handle->type) {
 		case HANDLE_TYPE_FILE: {
 			kprintf("file handle specifics:\n");
-			kprintf("   offset         : %u\n", handle->data.vfs_file.offset); /* XXXSIZE */
-			kprintf("   inode          : 0x%x\n", handle->data.vfs_file.inode);
-			kprintf("   device         : 0x%x\n", handle->data.vfs_file.device);
+			kprintf("   offset         : %u\n", handle->data.vfs_file.f_offset); /* XXXSIZE */
+			kprintf("   inode          : 0x%x\n", handle->data.vfs_file.f_inode);
+			kprintf("   device         : 0x%x\n", handle->data.vfs_file.f_device);
 			break;
 		}
 		case HANDLE_TYPE_THREAD: {

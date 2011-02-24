@@ -10,6 +10,11 @@ struct VFS_MOUNTED_FS;
 struct VFS_INODE_OPS;
 struct VFS_FILESYSTEM_OPS;
 
+#define INODE_LOCK(i) \
+	spinlock_lock(&(i)->i_spinlock)
+#define INODE_UNLOCK(i) \
+	spinlock_unlock(&(i)->i_spinlock)
+
 /*
  * VFS_INODE refers to an inode; it must be locked before any fields can
  * be updated. The refcount protects the inode from disappearing while
@@ -33,12 +38,12 @@ struct VFS_INODE {
  * inode and a position.
  */
 struct VFS_FILE {
-	off_t			offset;
+	off_t			f_offset;
 	/*
 	 * An opened file can have an inode or device as backend.
 	 */
-	struct VFS_INODE*	inode;
-	struct DEVICE*		device;
+	struct VFS_INODE*	f_inode;
+	struct DEVICE*		f_device;
 };
 
 /*
@@ -66,31 +71,31 @@ struct VFS_DIRENT {
  * mounting.
  */
 struct VFS_MOUNTED_FS {
-	struct SPINLOCK	spl_fs;			/* Protects fields marked with (F) */
-	device_t	device;			/* (F) Device where the filesystem lives */
-	unsigned int	flags;			/* (F) Filesystem flags */
+	struct SPINLOCK	fs_spinlock;		/* Protects fields marked with (F) */
+	device_t	fs_device;		/* (F) Device where the filesystem lives */
+	unsigned int	fs_flags;		/* (F) Filesystem flags */
 #define VFS_FLAG_INUSE    0x0001		/* Filesystem entry is in use */
 #define VFS_FLAG_READONLY 0x0002		/* Filesystem is readonly */
-	const char*	mountpoint;		/* (R) Mount point */
-	uint32_t	block_size;		/* (R) Block size */
-	uint8_t		fsop_size;		/* (R) FSOP identifier length */
-	void*		privdata;		/* (R) Private filesystem data */
+	const char*	fs_mountpoint;		/* (R) Mount point */
+	uint32_t	fs_block_size;		/* (R) Block size */
+	uint8_t		fs_fsop_size;		/* (R) FSOP identifier length */
+	void*		fs_privdata;		/* (R) Private filesystem data */
 
 	/* Inode cache */
-	struct SPINLOCK		spl_icache;	/* Protects fields marked with (I) */
-	struct ICACHE_QUEUE	icache_inuse;	/* (I) Currently used inodes */
-	struct ICACHE_QUEUE	icache_free;	/* (I) Available inode list */
-	void*			icache_buffer;	/* (I) Inode cache buffer, for cleanup */
+	struct SPINLOCK		fs_icache_lock;		/* Protects fields marked with (I) */
+	struct ICACHE_QUEUE	fs_icache_inuse;	/* (I) Currently used inodes */
+	struct ICACHE_QUEUE	fs_icache_free;		/* (I) Available inode list */
+	void*			fs_icache_buffer;	/* (I) Inode cache buffer, for cleanup */
 
 	/* Dentry cache */
-	struct SPINLOCK		spl_dcache;	/* Protects fields marked with (D) */
-	struct DENTRY_CACHE_QUEUE	dcache_inuse;	/* (D) Currently used items */
-	struct DENTRY_CACHE_QUEUE	dcache_free;	/* (D) Currently used items */
-	void*				dcache_buffer;	/* (D) Dentry cache buffer, for cleanup */
+	struct SPINLOCK			fs_dcache_lock;		/* Protects fields marked with (D) */
+	struct DENTRY_CACHE_QUEUE	fs_dcache_inuse;	/* (D) Currently used items */
+	struct DENTRY_CACHE_QUEUE	fs_dcache_free;		/* (D) Currently used items */
+	void*				fs_dcache_buffer;	/* (D) Dentry cache buffer, for cleanup */
 
 
-	struct VFS_FILESYSTEM_OPS* fsops;	/* (R) Filesystem operations */
-	struct VFS_INODE* root_inode;		/* (R) Filesystem's root inode */
+	struct VFS_FILESYSTEM_OPS* fs_fsops;		/* (R) Filesystem operations */
+	struct VFS_INODE* fs_root_inode;		/* (R) Filesystem's root inode */
 };
 
 /*

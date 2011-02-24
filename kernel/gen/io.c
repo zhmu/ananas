@@ -104,7 +104,7 @@ sys_open(thread_t t, struct OPEN_OPTIONS* opts, handle_t* result)
 
 	/* And open the path */
 	TRACE(SYSCALL, INFO, "opening userpath '%s'", userpath);
-	err = vfs_open(userpath, t->path_handle->data.vfs_file.inode, &handle->data.vfs_file);
+	err = vfs_open(userpath, t->path_handle->data.vfs_file.f_inode, &handle->data.vfs_file);
 
 	/* Finally, hand the handle back if necessary and we're done */
 	if (err == ANANAS_ERROR_NONE)
@@ -355,7 +355,7 @@ sys_handlectl_file(thread_t t, handle_t handle, unsigned int op, void* arg, size
 	switch(op) {
 		case HCTL_FILE_SETCWD: {
 			/* Ensure we are dealing with a directory here */
-			if (!S_ISDIR(file->inode->i_sb.st_mode)) {
+			if (!S_ISDIR(file->f_inode->i_sb.st_mode)) {
 				err = ANANAS_ERROR(NOT_A_DIRECTORY);
 				goto fail;
 			}
@@ -406,20 +406,20 @@ sys_handlectl_file(thread_t t, handle_t handle, unsigned int op, void* arg, size
 				case HCTL_SEEK_WHENCE_SET:
 					break;
 				case HCTL_SEEK_WHENCE_CUR:
-					offset = file->offset + offset;
+					offset = file->f_offset + offset;
 					break;
 				case HCTL_SEEK_WHENCE_END:
-					offset = file->inode->i_sb.st_size - offset;
+					offset = file->f_inode->i_sb.st_size - offset;
 					break;
 			}
-			if (offset < 0 || offset >= file->inode->i_sb.st_size) {
+			if (offset < 0 || offset >= file->f_inode->i_sb.st_size) {
 				err = ANANAS_ERROR(BAD_RANGE);
 				goto fail;
 			}
 			err = syscall_set_offset(t, se->se_offs, offset);
 			if (err != ANANAS_ERROR_OK)
 				goto fail;
-			file->offset = offset;
+			file->f_offset = offset;
 			break;
 		}
 		case HCTL_FILE_STAT: {
@@ -443,27 +443,27 @@ sys_handlectl_file(thread_t t, handle_t handle, unsigned int op, void* arg, size
 			if (err != ANANAS_ERROR_OK)
 				goto fail;
 
-			if (file->inode != NULL) {
+			if (file->f_inode != NULL) {
 				/* Copy the data and we're done */
-				memcpy(dest, &file->inode->i_sb, sizeof(struct stat));
+				memcpy(dest, &file->f_inode->i_sb, sizeof(struct stat));
 			} else {
 				/* First of all, start by filling with defaults */
 				struct stat* st = dest;
-				st->st_dev     = (dev_t)file->device;
+				st->st_dev     = (dev_t)file->f_device;
 				st->st_ino     = (ino_t)0;
 				st->st_mode    = 0666;
 				st->st_nlink   = 1;
 				st->st_uid     = 0;
 				st->st_gid     = 0;
-				st->st_rdev    = (dev_t)file->device;
+				st->st_rdev    = (dev_t)file->f_device;
 				st->st_size    = 0;
 				st->st_atime   = 0;
 				st->st_mtime   = 0;
 				st->st_ctime   = 0;
 				st->st_blksize = BIO_SECTOR_SIZE;
-				if (file->device->driver->drv_stat != NULL) {
+				if (file->f_device->driver->drv_stat != NULL) {
 					/* Allow the device driver to update */
-					err = file->device->driver->drv_stat(file->device, st);
+					err = file->f_device->driver->drv_stat(file->f_device, st);
 				}
 			}
 			break;

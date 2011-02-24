@@ -54,8 +54,8 @@ struct EXT2_INODE_PRIVDATA {
 static struct BIO*
 ext2_bread(struct VFS_MOUNTED_FS* fs, block_t block)
 {
-	block *= (fs->block_size / 512);
-	return vfs_bread(fs, block, fs->block_size);
+	block *= (fs->fs_block_size / 512);
+	return vfs_bread(fs, block, fs->fs_block_size);
 }
 
 static void
@@ -117,11 +117,11 @@ ext2_dump_inode(struct EXT2_INODE* inode)
 static block_t
 ext2_find_block(struct VFS_FILE* file, block_t block)
 {
-	KASSERT(file->inode != NULL, "file without inode");
-	KASSERT(file->inode->i_fs != NULL, "file without fs");
+	KASSERT(file->f_inode != NULL, "file without inode");
+	KASSERT(file->f_inode->i_fs != NULL, "file without fs");
 
-	struct VFS_MOUNTED_FS* fs = file->inode->i_fs;
-	struct EXT2_INODE_PRIVDATA* in_privdata = (struct EXT2_INODE_PRIVDATA*)file->inode->i_privdata;
+	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
+	struct EXT2_INODE_PRIVDATA* in_privdata = (struct EXT2_INODE_PRIVDATA*)file->f_inode->i_privdata;
 
 	/*
 	 * We need to figure out whether we have to look up the block in the single,
@@ -138,11 +138,11 @@ ext2_find_block(struct VFS_FILE* file, block_t block)
 	if (block < 12)
 		return in_privdata->block[block];
 
-	if (block < 12 + fs->block_size / 4) {
+	if (block < 12 + fs->fs_block_size / 4) {
 		/*
 		 * (b) Need to look up the block the first indirect block, 13.
 		 */
-		struct BIO* bio = ext2_bread(file->inode->i_fs, in_privdata->block[12]);
+		struct BIO* bio = ext2_bread(file->f_inode->i_fs, in_privdata->block[12]);
 		uint32_t iblock = EXT2_TO_LE32(*(uint32_t*)(BIO_DATA(bio) + (block - 12) * sizeof(uint32_t)));
 		bio_free(bio);
 		return iblock;
@@ -155,15 +155,15 @@ ext2_find_block(struct VFS_FILE* file, block_t block)
 static errorcode_t
 ext2_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
-	struct VFS_MOUNTED_FS* fs = file->inode->i_fs;
-	block_t blocknum = (block_t)file->offset / (block_t)fs->block_size;
-	uint32_t offset = file->offset % fs->block_size;
+	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
+	block_t blocknum = (block_t)file->f_offset / (block_t)fs->fs_block_size;
+	uint32_t offset = file->f_offset % fs->fs_block_size;
 	size_t numread = 0;
 	size_t left = *len;
 
 	/* Normalize left so that it cannot expand beyond the file size */
-	if (file->offset + left > file->inode->i_sb.st_size)
-		left = file->inode->i_sb.st_size - file->offset;
+	if (file->f_offset + left > file->f_inode->i_sb.st_size)
+		left = file->f_inode->i_sb.st_size - file->f_offset;
 
 	while(left > 0) {
 		block_t block = ext2_find_block(file, blocknum);
@@ -176,17 +176,17 @@ ext2_read(struct VFS_FILE* file, void* buf, size_t* len)
 		/*
 		 * Fetch the block and copy what we have so far.
 		 */
-		struct BIO* bio = ext2_bread(file->inode->i_fs, block);
-		size_t chunklen = (fs->block_size < left ? fs->block_size : left);
-		if (chunklen + offset > fs->block_size)
-			chunklen = fs->block_size - offset;
+		struct BIO* bio = ext2_bread(file->f_inode->i_fs, block);
+		size_t chunklen = (fs->fs_block_size < left ? fs->fs_block_size : left);
+		if (chunklen + offset > fs->fs_block_size)
+			chunklen = fs->fs_block_size - offset;
 		memcpy(buf, (void*)(BIO_DATA(bio) + offset), chunklen);
 		buf += chunklen; numread += chunklen; left -= chunklen;
 		bio_free(bio);
 
 		/* Update pointers */
-		offset = (offset + chunklen) % fs->block_size;
-		file->offset += chunklen;
+		offset = (offset + chunklen) % fs->fs_block_size;
+		file->f_offset += chunklen;
 		blocknum++;
 	}
 
@@ -197,9 +197,9 @@ ext2_read(struct VFS_FILE* file, void* buf, size_t* len)
 static errorcode_t
 ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
-	struct VFS_MOUNTED_FS* fs = file->inode->i_fs;
-	block_t blocknum = (block_t)file->offset / (block_t)fs->block_size;
-	uint32_t offset = file->offset % fs->block_size;
+	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
+	block_t blocknum = (block_t)file->f_offset / (block_t)fs->fs_block_size;
+	uint32_t offset = file->f_offset % fs->fs_block_size;
 	size_t written = 0, left = *len;
 
 	struct BIO* bio = NULL;
@@ -214,7 +214,7 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		}
 		if(curblock != block) {
 			if (bio != NULL) bio_free(bio);
-			bio = ext2_bread(file->inode->i_fs, block);
+			bio = ext2_bread(file->f_inode->i_fs, block);
 			/* XXX handle error */
 			curblock = block;
 		}
@@ -234,7 +234,7 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			 * Inode number values of zero indicate the entry is not used; this entry
 			 * works and we mustreturn it.
 			 */
-			int filled = vfs_filldirent(&dirents, &left, (const void*)&inum, file->inode->i_fs->fsop_size, (const char*)ext2de->name, ext2de->name_len);
+			int filled = vfs_filldirent(&dirents, &left, (const void*)&inum, file->f_inode->i_fs->fs_fsop_size, (const char*)ext2de->name, ext2de->name_len);
 			if (!filled) {
 				/* out of space! */
 				break;
@@ -246,10 +246,10 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		 * Update the offsets; this ensures we will read the correct block next
 		 * time.
 		 */
-		file->offset += EXT2_TO_LE16(ext2de->rec_len);
+		file->f_offset += EXT2_TO_LE16(ext2de->rec_len);
 		offset += EXT2_TO_LE16(ext2de->rec_len);
-		if (offset >= fs->block_size) {
-			offset -= fs->block_size;
+		if (offset >= fs->fs_block_size) {
+			offset -= fs->fs_block_size;
 			blocknum++;
 		}
 	}
@@ -274,7 +274,7 @@ static errorcode_t
 ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 {
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
-	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)inode->i_fs->privdata;
+	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)inode->i_fs->fs_privdata;
 
 	/*
 	 * Inode number zero does not exists within ext2 (or Linux for that matter),
@@ -292,11 +292,11 @@ ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 	 */
 	uint32_t bgroup = inum / privdata->sb.s_inodes_per_group;
 	uint32_t iindex = inum % privdata->sb.s_inodes_per_group;
-	block_t block = privdata->blockgroup[bgroup].bg_inode_table + (iindex * privdata->sb.s_inode_size) / fs->block_size;
+	block_t block = privdata->blockgroup[bgroup].bg_inode_table + (iindex * privdata->sb.s_inode_size) / fs->fs_block_size;
 
 	/* Fetch the block and make a pointer to the inode */
 	struct BIO* bio = ext2_bread(inode->i_fs, block); /* XXX error handling */
-	unsigned int idx = (iindex * privdata->sb.s_inode_size) % fs->block_size;
+	unsigned int idx = (iindex * privdata->sb.s_inode_size) % fs->fs_block_size;
 	struct EXT2_INODE* ext2inode = (struct EXT2_INODE*)((void*)BIO_DATA(bio) + idx);
 
 	/* Fill the stat buffer with date */
@@ -354,14 +354,14 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 	/* Victory */
 	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)kmalloc(sizeof *privdata);
 	memcpy(&privdata->sb, sb, sizeof(*sb));
-	fs->privdata = privdata;
+	fs->fs_privdata = privdata;
 
 	privdata->num_blockgroups = (sb->s_blocks_count - sb->s_first_data_block - 1) / sb->s_blocks_per_group + 1;
 	privdata->blockgroup = (struct EXT2_BLOCKGROUP*)kmalloc(sizeof(struct EXT2_BLOCKGROUP) * privdata->num_blockgroups);
 
 	/* Fill out filesystem fields */
-	fs->block_size = 1024L << sb->s_log_block_size;
-	fs->fsop_size = sizeof(uint32_t);
+	fs->fs_block_size = 1024L << sb->s_log_block_size;
+	fs->fs_fsop_size = sizeof(uint32_t);
 
 	/* Free the superblock */
 	bio_free(bio);
@@ -376,11 +376,11 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 		 * The +1 is because we need to skip the superblock, and the s_first_data_block
 	 	 * increment is because we need to count from the superblock onwards...
 		 */
-		block_t blocknum = 1 + (n * sizeof(struct EXT2_BLOCKGROUP)) / fs->block_size;
+		block_t blocknum = 1 + (n * sizeof(struct EXT2_BLOCKGROUP)) / fs->fs_block_size;
 		blocknum += privdata->sb.s_first_data_block;
 		bio = ext2_bread(fs, blocknum);
 		memcpy((void*)(privdata->blockgroup + n),
-		       (void*)(BIO_DATA(bio) + ((n * sizeof(struct EXT2_BLOCKGROUP)) % fs->block_size)),
+		       (void*)(BIO_DATA(bio) + ((n * sizeof(struct EXT2_BLOCKGROUP)) % fs->fs_block_size)),
 		       sizeof(struct EXT2_BLOCKGROUP));
 		bio_free(bio);
 	}
@@ -397,7 +397,7 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 
 	/* Read the root inode */
 	uint32_t root_fsop = EXT2_ROOT_INO;
-	errorcode_t err = vfs_get_inode(fs, &root_fsop, &fs->root_inode);
+	errorcode_t err = vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
 	if (err != ANANAS_ERROR_NONE) {
 		kfree(privdata);
 		return err;

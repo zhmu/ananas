@@ -75,13 +75,13 @@ TRACE_SETUP;
 inline static struct BIO*
 fat_bread(struct VFS_MOUNTED_FS* fs, block_t block)
 {
-	return vfs_bread(fs, block, fs->block_size);
+	return vfs_bread(fs, block, fs->fs_block_size);
 }
 
 static block_t
 fat_cluster_to_sector(struct VFS_MOUNTED_FS* fs, uint32_t cluster)
 {
-	struct FAT_FS_PRIVDATA* privdata = (struct FAT_FS_PRIVDATA*)fs->privdata;
+	struct FAT_FS_PRIVDATA* privdata = (struct FAT_FS_PRIVDATA*)fs->fs_privdata;
 	KASSERT(cluster >= 2, "invalid cluster number %u specified", cluster);
 
 	block_t ret = cluster - 2 /* really; the first 2 are reserved or something? */;
@@ -115,7 +115,7 @@ fat_destroy_inode(struct VFS_INODE* inode)
 static block_t
 fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clusternum)
 {
-	struct FAT_FS_PRIVDATA* fs_privdata = fs->privdata;
+	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 	uint32_t cur_cluster = first_cluster;
 
 	/* XXX this function would benefit a lot from caching */
@@ -189,10 +189,10 @@ fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clus
 static errorcode_t
 fat_do_read(struct VFS_FILE* file, void* buf, size_t* len, block_t* cur_block, int* cur_offset)
 {
-	struct VFS_INODE* inode = file->inode;
+	struct VFS_INODE* inode = file->f_inode;
 	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
-	struct FAT_FS_PRIVDATA* fs_privdata = fs->privdata;
+	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 	size_t written = 0;
 	size_t left = *len;
 
@@ -205,15 +205,15 @@ fat_do_read(struct VFS_FILE* file, void* buf, size_t* len, block_t* cur_block, i
 		 */
 		block_t want_block;
 		if (privdata->root_inode && fs_privdata->fat_type != 32) {
-			want_block = fs_privdata->first_rootdir_sector + (file->offset / (block_t)fs->block_size);
-			if (file->offset >= (fs_privdata->num_rootdir_sectors * fs_privdata->sector_size))
+			want_block = fs_privdata->first_rootdir_sector + (file->f_offset / (block_t)fs->fs_block_size);
+			if (file->f_offset >= (fs_privdata->num_rootdir_sectors * fs_privdata->sector_size))
 				break;
 		} else {
-			uint32_t cluster = fat_get_cluster(fs, privdata->first_cluster, (file->offset / (fs_privdata->sectors_per_cluster * fs_privdata->sector_size)));
+			uint32_t cluster = fat_get_cluster(fs, privdata->first_cluster, (file->f_offset / (fs_privdata->sectors_per_cluster * fs_privdata->sector_size)));
 			if (cluster == 0) /* end of the chain */
 				break;
 			want_block  = fat_cluster_to_sector(fs, cluster);
-			want_block += ((file->offset % (fs_privdata->sectors_per_cluster * fs_privdata->sector_size)) / fs->block_size);
+			want_block += ((file->f_offset % (fs_privdata->sectors_per_cluster * fs_privdata->sector_size)) / fs->fs_block_size);
 		}
 
 		/* Grab the block if needed */
@@ -225,8 +225,8 @@ fat_do_read(struct VFS_FILE* file, void* buf, size_t* len, block_t* cur_block, i
 		}
 
 		/* Walk through the current entry */
-		*cur_offset = (file->offset % (block_t)fs->block_size);
-		int chunk_len = fs->block_size - *cur_offset;
+		*cur_offset = (file->f_offset % (block_t)fs->fs_block_size);
+		int chunk_len = fs->fs_block_size - *cur_offset;
 		if (chunk_len > left)
 			chunk_len = left;
 		KASSERT(chunk_len > 0, "attempt to handle empty chunk");
@@ -235,7 +235,7 @@ fat_do_read(struct VFS_FILE* file, void* buf, size_t* len, block_t* cur_block, i
 		written += chunk_len;
 		buf += chunk_len;
 		left -= chunk_len;
-		file->offset += chunk_len;
+		file->f_offset += chunk_len;
 	}
 	if (bio != NULL) bio_free(bio);
 	*len = written;
@@ -337,7 +337,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	size_t left = *len;
 	char cur_filename[128]; /* currently assembled filename */
 	int cur_filename_len = 0;
-	off_t full_filename_offset = file->offset;
+	off_t full_filename_offset = file->f_offset;
 	errorcode_t err = ANANAS_ERROR_OK;
 
 	while(left > 0) {
@@ -379,7 +379,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 
 		/* And hand it to the fill function */
 		uint64_t fsop = cur_block << 16 | cur_offs;
-		int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, file->inode->i_fs->fsop_size, cur_filename, cur_filename_len);
+		int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, file->f_inode->i_fs->fs_fsop_size, cur_filename, cur_filename_len);
 		if (!filled) {
 			/*
 			 * Out of space - we need to restore the offset of the LFN chain. This must
@@ -387,7 +387,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			 * it does not fit; we need to do all this work again for the next readdir
 		 	 * call.
 			 */
-			file->offset = full_filename_offset;
+			file->f_offset = full_filename_offset;
 			break;
 		}
 		written += filled; cur_filename_len = 0;
@@ -396,7 +396,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	 	 * does not have to fit in the destination buffer, so we'll have to
 		 * read everything again)
 		 */
-		full_filename_offset = file->offset;
+		full_filename_offset = file->f_offset;
 	}
 	*len = written;
 	return err;
@@ -412,7 +412,7 @@ fat_fill_inode(struct VFS_INODE* inode, void* fsop, struct FAT_ENTRY* fentry)
 {
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
-	struct FAT_FS_PRIVDATA* fs_privdata = fs->privdata;
+	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 
 	inode->i_sb.st_ino = (*(uint64_t*)fsop) & 0xffffffff; /* XXX */
 	inode->i_sb.st_mode = 0755;
@@ -470,7 +470,7 @@ fat_read_inode(struct VFS_INODE* inode, void* fsop)
 	 */
 	uint32_t block  = (*(uint64_t*)fsop) >> 16;
 	uint32_t offset = (*(uint64_t*)fsop) & 0xffff;
-	KASSERT(offset <= fs->block_size - sizeof(struct FAT_ENTRY), "fsop inode offset %u out of range", offset);
+	KASSERT(offset <= fs->fs_block_size - sizeof(struct FAT_ENTRY), "fsop inode offset %u out of range", offset);
 	struct BIO* bio = fat_bread(inode->i_fs, block);
 	/* XXX error handling */
 	struct FAT_ENTRY* fentry = (struct FAT_ENTRY*)(void*)(BIO_DATA(bio) + offset);
@@ -491,7 +491,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 	struct FAT_BPB* bpb = (struct FAT_BPB*)BIO_DATA(bio);
 	struct FAT_FS_PRIVDATA* privdata = kmalloc(sizeof(struct FAT_FS_PRIVDATA));
 	memset(privdata, 0, sizeof(struct FAT_FS_PRIVDATA));
-	fs->privdata = privdata; /* immediately, this is used by other functions */
+	fs->fs_privdata = privdata; /* immediately, this is used by other functions */
 
 #define FAT_ABORT(x...) \
 	do { \
@@ -546,11 +546,11 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 #endif
 
 	/* Everything is in order - fill out our filesystem details */
-  fs->block_size = privdata->sector_size;
-  fs->fsop_size = sizeof(uint64_t);
-  fs->root_inode = fat_alloc_inode(fs);
+  fs->fs_block_size = privdata->sector_size;
+  fs->fs_fsop_size = sizeof(uint64_t);
+  fs->fs_root_inode = fat_alloc_inode(fs);
 	uint64_t root_fsop = FAT_ROOTINODE_FSOP;
-	errorcode_t err = vfs_get_inode(fs, &root_fsop, &fs->root_inode);
+	errorcode_t err = vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
 	if (err != ANANAS_ERROR_NONE) {
 		kfree(privdata);
 		return err;
