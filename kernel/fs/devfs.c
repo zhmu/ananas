@@ -48,20 +48,20 @@ devfs_readdir_root(struct VFS_FILE* file, void* dirents, size_t* len)
 	uint32_t inum = DEVFS_ROOTINODE_FSOP + 1;
 
 	struct DEVICE* dev = DQUEUE_HEAD(device_get_queue());
-	for (unsigned int i = 0; i < file->offset && dev != NULL; i++) {
+	for (unsigned int i = 0; i < file->f_offset && dev != NULL; i++) {
 		dev = DQUEUE_NEXT(dev); inum++;
 	}
 
 	while (left > 0 && dev != NULL) {
 		char devname[128 /* XXX */];
 		sprintf(devname, "%s%u", dev->name, dev->unit);
-		int filled = vfs_filldirent(&dirents, &left, (const void*)&inum, file->inode->i_fs->fsop_size, devname, strlen(devname));
+		int filled = vfs_filldirent(&dirents, &left, (const void*)&inum, file->f_inode->i_fs->fs_fsop_size, devname, strlen(devname));
 		if (!filled) {
 			/* out of space! */
 			break;
 		}
 		written += filled; inum++;
-		file->offset++; dev = DQUEUE_NEXT(dev);
+		file->f_offset++; dev = DQUEUE_NEXT(dev);
 	}
 
 	*len = written;
@@ -76,28 +76,28 @@ static struct VFS_INODE_OPS devfs_rootdir_ops = {
 static errorcode_t
 devfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
-	struct DEVFS_INODE_PRIVDATA* privdata = file->inode->i_privdata;
+	struct DEVFS_INODE_PRIVDATA* privdata = file->f_inode->i_privdata;
 	errorcode_t err = ANANAS_ERROR_OK;
 
 	if (privdata->device->driver->drv_read != NULL) {
 		size_t length = *len;
-		err = device_read(privdata->device, buf, &length, file->offset);
+		err = device_read(privdata->device, buf, &length, file->f_offset);
 		if (err == ANANAS_ERROR_NONE) {
 			/* Read went OK; update the file pointer */
-			file->offset += length;
+			file->f_offset += length;
 			*len = length;
 		}
 	} else if (privdata->device->driver->drv_bread != NULL) {
 		/*
 		 * This is a block device; I/O must be done using BIO calls.
 		 */
-		off_t offset = file->offset / 512; /* XXX */
+		off_t offset = file->f_offset / 512; /* XXX */
 		struct BIO* bio = bio_read(privdata->device, offset, *len);
 		if (BIO_IS_ERROR(bio)) {
 			err = ANANAS_ERROR(IO);
 		} else {
 			memcpy(buf, BIO_DATA(bio), bio->length);
-			file->offset += (bio->length / 512); /* XXX */
+			file->f_offset += (bio->length / 512); /* XXX */
 			*len = bio->length;
 		}
 		bio_free(bio);
@@ -164,11 +164,11 @@ devfs_read_inode(struct VFS_INODE* inode, void* fsop)
 static errorcode_t
 devfs_mount(struct VFS_MOUNTED_FS* fs)
 {
-	fs->block_size = DEVFS_BLOCK_SIZE;
-	fs->fsop_size = sizeof(uint32_t);
-	fs->root_inode = devfs_alloc_inode(fs);
+	fs->fs_block_size = DEVFS_BLOCK_SIZE;
+	fs->fs_fsop_size = sizeof(uint32_t);
+	fs->fs_root_inode = devfs_alloc_inode(fs);
 	uint32_t root_fsop = DEVFS_ROOTINODE_FSOP;
-	return vfs_get_inode(fs, &root_fsop, &fs->root_inode);
+	return vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
 }
 
 struct VFS_FILESYSTEM_OPS fsops_devfs = {

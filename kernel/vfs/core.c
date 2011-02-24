@@ -28,9 +28,9 @@ vfs_make_inode(struct VFS_MOUNTED_FS* fs)
 	inode->i_refcount++;
 	inode->i_fs = fs;
 	/* Fill out the stat fields we can */
-	inode->i_sb.st_dev = (dev_t)fs->device;
-	inode->i_sb.st_rdev = (dev_t)fs->device;
-	inode->i_sb.st_blksize = fs->block_size;
+	inode->i_sb.st_dev = (dev_t)fs->fs_device;
+	inode->i_sb.st_rdev = (dev_t)fs->fs_device;
+	inode->i_sb.st_blksize = fs->fs_block_size;
 	TRACE(VFS, INFO, "made inode inode=%p with refcount=%u", inode, inode->i_refcount);
 	return inode;
 }
@@ -58,8 +58,8 @@ vfs_alloc_inode(struct VFS_MOUNTED_FS* fs)
 {
 	struct VFS_INODE* inode;
 
-	if (fs->fsops->alloc_inode != NULL) {
-		inode = fs->fsops->alloc_inode(fs);
+	if (fs->fs_fsops->alloc_inode != NULL) {
+		inode = fs->fs_fsops->alloc_inode(fs);
 	} else {
 		inode = vfs_make_inode(fs);
 	}
@@ -72,13 +72,13 @@ vfs_deref_inode_locked(struct VFS_INODE* inode)
 	TRACE(VFS, FUNC, "inode=%p,cur refcount=%u", inode, inode->i_refcount);
 	if (--inode->i_refcount > 0) {
 		/* Refcount isn't zero; don't throw the inode away */
-		spinlock_unlock(&inode->i_spinlock);
+		INODE_UNLOCK(inode);
 		return;
 	}
 
 	/* Note: we never unlock - the inode does not exist past here */
-	if (inode->i_fs->fsops->alloc_inode != NULL) {
-		inode->i_fs->fsops->destroy_inode(inode);
+	if (inode->i_fs->fs_fsops->alloc_inode != NULL) {
+		inode->i_fs->fs_fsops->destroy_inode(inode);
 	} else {
 		vfs_destroy_inode(inode);
 	}
@@ -87,15 +87,15 @@ vfs_deref_inode_locked(struct VFS_INODE* inode)
 void
 vfs_deref_inode(struct VFS_INODE* inode)
 {
-	spinlock_lock(&inode->i_spinlock);
+	INODE_LOCK(inode);
 	vfs_deref_inode_locked(inode);
-	spinlock_unlock(&inode->i_spinlock);
+	INODE_UNLOCK(inode);
 }
 
 struct BIO*
 vfs_bread(struct VFS_MOUNTED_FS* fs, block_t block, size_t len)
 {
-	return bio_read(fs->device, block, len);
+	return bio_read(fs->fs_device, block, len);
 }
 
 errorcode_t
@@ -133,7 +133,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinod
 		icache_remove_pending(fs, ii);
 		return ANANAS_ERROR(OUT_OF_HANDLES);
 	}
-	errorcode_t result = fs->fsops->read_inode(inode, fsop);
+	errorcode_t result = fs->fs_fsops->read_inode(inode, fsop);
 	if (result != ANANAS_ERROR_NONE) {
 		vfs_deref_inode(inode);
 		return result;
@@ -172,10 +172,10 @@ void
 vfs_ref_inode(struct VFS_INODE* inode)
 {
 	TRACE(VFS, FUNC, "inode=%p,cur refcount=%u", inode, inode->i_refcount);
-	spinlock_lock(&inode->i_spinlock);
+	INODE_LOCK(inode);
 	KASSERT(inode->i_refcount > 0, "referencing a dead inode");
 	inode->i_refcount++;
-	spinlock_unlock(&inode->i_spinlock);
+	INODE_UNLOCK(inode);
 }
 
 /* vim:set ts=2 sw=2: */

@@ -81,9 +81,9 @@ thread_init(thread_t t, thread_t parent)
 	 * XXX hook the console as our std{in,out,err} handles; this is not correct,
 	 * it should be inherited from the parent
 	 */
-	((struct HANDLE*)t->threadinfo->ti_handle_stdin)->data.vfs_file.device  = console_tty;
-	((struct HANDLE*)t->threadinfo->ti_handle_stdout)->data.vfs_file.device = console_tty;
-	((struct HANDLE*)t->threadinfo->ti_handle_stderr)->data.vfs_file.device = console_tty;
+	((struct HANDLE*)t->threadinfo->ti_handle_stdin)->data.vfs_file.f_device  = console_tty;
+	((struct HANDLE*)t->threadinfo->ti_handle_stdout)->data.vfs_file.f_device = console_tty;
+	((struct HANDLE*)t->threadinfo->ti_handle_stderr)->data.vfs_file.f_device = console_tty;
 	struct THREAD_MAPPING* tm;
 	err = thread_map(t, t->threadinfo, sizeof(struct THREADINFO), 0, &tm);
 	if (err != ANANAS_ERROR_NONE)

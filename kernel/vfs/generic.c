@@ -26,7 +26,7 @@ vfs_generic_lookup(struct VFS_INODE* dirinode, struct VFS_INODE** destinode, con
 	 */
 	KASSERT(S_ISDIR(dirinode->i_sb.st_mode), "supplied inode is not a directory");
 	memset(&dir, 0, sizeof(dir));
-	dir.inode = dirinode;
+	dir.f_inode = dirinode;
 	while (1) {
 		size_t buf_len = sizeof(buf);
 		int result = vfs_read(&dir, buf, &buf_len);

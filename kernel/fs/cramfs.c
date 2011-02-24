@@ -61,35 +61,35 @@ static struct VFS_INODE* cramfs_alloc_inode(struct VFS_MOUNTED_FS* fs);
 static errorcode_t
 cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
-	struct VFS_MOUNTED_FS* fs = file->inode->i_fs;
-	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)file->inode->i_privdata;
+	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
+	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)file->f_inode->i_privdata;
 
 	size_t total = 0, toread = *len;
 	while (toread > 0) {
-		uint32_t page_index = file->offset / CRAMFS_PAGE_SIZE;
+		uint32_t page_index = file->f_offset / CRAMFS_PAGE_SIZE;
 		uint32_t next_offset = 0;
 		int cur_block = -1;
 		struct BIO* bio = NULL;
 
 		/* Calculate the compressed data offset of this page */
-		cur_block = (privdata->offset + page_index * sizeof(uint32_t)) / fs->block_size;
-		bio = vfs_bread(fs, cur_block, fs->block_size);
+		cur_block = (privdata->offset + page_index * sizeof(uint32_t)) / fs->fs_block_size;
+		bio = vfs_bread(fs, cur_block, fs->fs_block_size);
 		/* XXX errors */
-		next_offset = *(uint32_t*)(BIO_DATA(bio) + (privdata->offset + page_index * sizeof(uint32_t)) % fs->block_size);
+		next_offset = *(uint32_t*)(BIO_DATA(bio) + (privdata->offset + page_index * sizeof(uint32_t)) % fs->fs_block_size);
 
 		uint32_t start_offset = 0;
 		if (page_index > 0) {
 			/* Now, fetch the offset of the previous page; this gives us the length of the compressed chunk */
-			int prev_block = (privdata->offset + (page_index - 1) * sizeof(uint32_t)) / fs->block_size;
+			int prev_block = (privdata->offset + (page_index - 1) * sizeof(uint32_t)) / fs->fs_block_size;
 			if (cur_block != prev_block) {
-				bio = vfs_bread(fs, prev_block, fs->block_size);
+				bio = vfs_bread(fs, prev_block, fs->fs_block_size);
 				/* XXX errors */
 			}
-			start_offset = *(uint32_t*)(BIO_DATA(bio) + (privdata->offset + (page_index - 1) * sizeof(uint32_t)) % fs->block_size);
+			start_offset = *(uint32_t*)(BIO_DATA(bio) + (privdata->offset + (page_index - 1) * sizeof(uint32_t)) % fs->fs_block_size);
 		} else {
 			/* In case of the first page, we have to set the offset ourselves as there is no index we can use */
 			start_offset  = privdata->offset;
-			start_offset += (((file->inode->i_sb.st_size - 1) / CRAMFS_PAGE_SIZE) + 1) * sizeof(uint32_t);
+			start_offset += (((file->f_inode->i_sb.st_size - 1) / CRAMFS_PAGE_SIZE) + 1) * sizeof(uint32_t);
 		}
 
 		uint32_t left = next_offset - start_offset;
@@ -97,13 +97,13 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 
 		uint32_t buf_pos = 0;
 		while(buf_pos < left) {
-			cur_block = (start_offset + buf_pos) / fs->block_size;
-			bio = vfs_bread(fs, cur_block, fs->block_size);
+			cur_block = (start_offset + buf_pos) / fs->fs_block_size;
+			bio = vfs_bread(fs, cur_block, fs->fs_block_size);
 			/* XXX errors */
-			int piece_len = fs->block_size - ((start_offset + buf_pos) % fs->block_size);
+			int piece_len = fs->fs_block_size - ((start_offset + buf_pos) % fs->fs_block_size);
 			if (piece_len > left)
 				piece_len = left;
-			memcpy(temp_buf + buf_pos, (void*)(BIO_DATA(bio) + ((start_offset + buf_pos) % fs->block_size)), piece_len);
+			memcpy(temp_buf + buf_pos, (void*)(BIO_DATA(bio) + ((start_offset + buf_pos) % fs->fs_block_size)), piece_len);
 			buf_pos += piece_len;
 		}
 
@@ -120,9 +120,9 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 		KASSERT(cramfs_zstream.total_out <= CRAMFS_PAGE_SIZE, "inflate() gave more data than a page");
 
 		int copy_chunk = (cramfs_zstream.total_out > toread) ? toread :  cramfs_zstream.total_out;
-		memcpy(buf, &decompress_buf[file->offset % CRAMFS_PAGE_SIZE], copy_chunk);
+		memcpy(buf, &decompress_buf[file->f_offset % CRAMFS_PAGE_SIZE], copy_chunk);
 
-		file->offset += copy_chunk;
+		file->f_offset += copy_chunk;
 		buf += copy_chunk;
 		total += copy_chunk;
 		toread -= copy_chunk;
@@ -135,14 +135,14 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 static errorcode_t
 cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
-	struct VFS_MOUNTED_FS* fs = file->inode->i_fs;
-	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)file->inode->i_privdata;
+	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
+	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)file->f_inode->i_privdata;
 	size_t written = 0, toread = *len;
 
-	uint32_t cur_offset = privdata->offset + file->offset;
-	uint32_t left = file->inode->i_sb.st_size - file->offset;
+	uint32_t cur_offset = privdata->offset + file->f_offset;
+	uint32_t left = file->f_inode->i_sb.st_size - file->f_offset;
 	CRAMFS_DEBUG_READDIR("cramfs_readdir(): privdata_offs=%u, cur_offset=%u, size=%u, left=%u\n",
-	 privdata->offset, cur_offset, file->inode->i_sb.st_size, left);
+	 privdata->offset, cur_offset, file->f_inode->i_sb.st_size, left);
 
 	/*
 	 * Note that cramfs does not have any alignment requirements on inodes; they
@@ -156,15 +156,15 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	unsigned int cur_block = (unsigned int)-1;
 	struct BIO* bio = NULL;
 	while (toread > 0 && left > 0) {
-		unsigned int new_block = cur_offset / fs->block_size;
+		unsigned int new_block = cur_offset / fs->fs_block_size;
 		if (new_block != cur_block) {
 			if (bio != NULL) bio_free(bio);
-			bio = vfs_bread(fs, new_block, fs->block_size);
+			bio = vfs_bread(fs, new_block, fs->fs_block_size);
 			/* XXX errors */
 			cur_block = new_block;
 		}
 
-		struct CRAMFS_INODE* cram_inode = (void*)((addr_t)BIO_DATA(bio) + cur_offset % fs->block_size);
+		struct CRAMFS_INODE* cram_inode = (void*)((addr_t)BIO_DATA(bio) + cur_offset % fs->fs_block_size);
 		if (partial_inode_len > 0) {
 			/* Previous inode was partial; append whatever we can after it */
 			memcpy(&partial_inode_data[partial_inode_len], BIO_DATA(bio), sizeof(partial_inode_data) - partial_inode_len);
@@ -176,11 +176,11 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			cur_offset -= partial_inode_len;
 			partial_inode_len = 0;
 		} else {
-			int partial_offset = cur_offset % fs->block_size;
-			if ((partial_offset + sizeof(struct CRAMFS_INODE) > fs->block_size) ||
-					(partial_offset + (CRAMFS_INODE_NAMELEN(CRAMFS_TO_LE32(cram_inode->in_namelen_offset)) * 4) > fs->block_size)) {
+			int partial_offset = cur_offset % fs->fs_block_size;
+			if ((partial_offset + sizeof(struct CRAMFS_INODE) > fs->fs_block_size) ||
+					(partial_offset + (CRAMFS_INODE_NAMELEN(CRAMFS_TO_LE32(cram_inode->in_namelen_offset)) * 4) > fs->fs_block_size)) {
 				/* This inode is partial; we must store it and grab the next block */
-				partial_inode_len = fs->block_size - partial_offset;
+				partial_inode_len = fs->fs_block_size - partial_offset;
 				memcpy(partial_inode_data, cram_inode, partial_inode_len);
 				cur_offset += partial_inode_len;
 				continue;
@@ -205,7 +205,7 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 
 		/* And hand it to the fill function */
 		uint32_t fsop = cur_offset;
-		int filled = vfs_filldirent(&dirents, &toread, (const void*)&fsop, file->inode->i_fs->fsop_size, ((char*)(cram_inode + 1)), real_name_len);
+		int filled = vfs_filldirent(&dirents, &toread, (const void*)&fsop, file->f_inode->i_fs->fs_fsop_size, ((char*)(cram_inode + 1)), real_name_len);
 		if (!filled) {
 			/* out of space! */
 			break;
@@ -213,7 +213,7 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		written += filled;
 
 		cur_offset += entry_len;
-		file->offset += entry_len;
+		file->f_offset += entry_len;
 		KASSERT(left >= entry_len, "removing beyond directory inode length");
 		left -= entry_len;
 	}
@@ -277,10 +277,10 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs)
 	}
 
 	/* Everything is ok; fill out the filesystem details */
-	fs->block_size = 512;
-	fs->fsop_size = sizeof(uint32_t);
-	fs->root_inode = cramfs_alloc_inode(fs);
-	cramfs_convert_inode((addr_t)&sb->c_rootinode - (addr_t)sb, &sb->c_rootinode, fs->root_inode);
+	fs->fs_block_size = 512;
+	fs->fs_fsop_size = sizeof(uint32_t);
+	fs->fs_root_inode = cramfs_alloc_inode(fs);
+	cramfs_convert_inode((addr_t)&sb->c_rootinode - (addr_t)sb, &sb->c_rootinode, fs->fs_root_inode);
 
 	/* Initialize our deflater */
 	cramfs_zstream.next_in = NULL;
@@ -297,9 +297,9 @@ cramfs_read_inode(struct VFS_INODE* inode, void* fsop)
 
 	uint32_t offset = *(uint32_t*)fsop;
 
-	struct BIO* bio = vfs_bread(fs, offset / fs->block_size, fs->block_size);
+	struct BIO* bio = vfs_bread(fs, offset / fs->fs_block_size, fs->fs_block_size);
 	/* XXX errors */
-	struct CRAMFS_INODE* cram_inode = (void*)((addr_t)BIO_DATA(bio) + offset % fs->block_size);
+	struct CRAMFS_INODE* cram_inode = (void*)((addr_t)BIO_DATA(bio) + offset % fs->fs_block_size);
 
 	cramfs_convert_inode(offset, cram_inode, inode);
 
