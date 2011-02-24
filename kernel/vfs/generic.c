@@ -24,7 +24,7 @@ vfs_generic_lookup(struct VFS_INODE* dirinode, struct VFS_INODE** destinode, con
 	 * XXX This is a very naive implementation which does not use the
 	 * possible directory index.
 	 */
-	KASSERT(S_ISDIR(dirinode->sb.st_mode), "supplied inode is not a directory");
+	KASSERT(S_ISDIR(dirinode->i_sb.st_mode), "supplied inode is not a directory");
 	memset(&dir, 0, sizeof(dir));
 	dir.inode = dirinode;
 	while (1) {
@@ -48,7 +48,7 @@ vfs_generic_lookup(struct VFS_INODE* dirinode, struct VFS_INODE** destinode, con
 				continue;
 
 			/* Found it! */
-			return vfs_get_inode(dirinode->fs, de->de_fsop, destinode);
+			return vfs_get_inode(dirinode->i_fs, de->de_fsop, destinode);
 		}
 	}
 }

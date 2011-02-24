@@ -31,6 +31,7 @@
 #include <ananas/bio.h>
 #include <ananas/error.h>
 #include <ananas/vfs.h>
+#include <ananas/vfs/generic.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/trace.h>
@@ -60,8 +61,8 @@ static struct VFS_INODE* cramfs_alloc_inode(struct VFS_MOUNTED_FS* fs);
 static errorcode_t
 cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
-	struct VFS_MOUNTED_FS* fs = file->inode->fs;
-	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)file->inode->privdata;
+	struct VFS_MOUNTED_FS* fs = file->inode->i_fs;
+	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)file->inode->i_privdata;
 
 	size_t total = 0, toread = *len;
 	while (toread > 0) {
@@ -88,7 +89,7 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 		} else {
 			/* In case of the first page, we have to set the offset ourselves as there is no index we can use */
 			start_offset  = privdata->offset;
-			start_offset += (((file->inode->sb.st_size - 1) / CRAMFS_PAGE_SIZE) + 1) * sizeof(uint32_t);
+			start_offset += (((file->inode->i_sb.st_size - 1) / CRAMFS_PAGE_SIZE) + 1) * sizeof(uint32_t);
 		}
 
 		uint32_t left = next_offset - start_offset;
@@ -134,14 +135,14 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 static errorcode_t
 cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
-	struct VFS_MOUNTED_FS* fs = file->inode->fs;
-	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)file->inode->privdata;
+	struct VFS_MOUNTED_FS* fs = file->inode->i_fs;
+	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)file->inode->i_privdata;
 	size_t written = 0, toread = *len;
 
 	uint32_t cur_offset = privdata->offset + file->offset;
-	uint32_t left = file->inode->sb.st_size - file->offset;
+	uint32_t left = file->inode->i_sb.st_size - file->offset;
 	CRAMFS_DEBUG_READDIR("cramfs_readdir(): privdata_offs=%u, cur_offset=%u, size=%u, left=%u\n",
-	 privdata->offset, cur_offset, file->inode->sb.st_size, left);
+	 privdata->offset, cur_offset, file->inode->i_sb.st_size, left);
 
 	/*
 	 * Note that cramfs does not have any alignment requirements on inodes; they
@@ -204,7 +205,7 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 
 		/* And hand it to the fill function */
 		uint32_t fsop = cur_offset;
-		int filled = vfs_filldirent(&dirents, &toread, (const void*)&fsop, file->inode->fs->fsop_size, ((char*)(cram_inode + 1)), real_name_len);
+		int filled = vfs_filldirent(&dirents, &toread, (const void*)&fsop, file->inode->i_fs->fsop_size, ((char*)(cram_inode + 1)), real_name_len);
 		if (!filled) {
 			/* out of space! */
 			break;
@@ -235,26 +236,26 @@ static struct VFS_INODE_OPS cramfs_dir_ops = {
 static void
 cramfs_convert_inode(uint32_t offset, struct CRAMFS_INODE* cinode, struct VFS_INODE* inode)
 {
-	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)inode->privdata;
+	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)inode->i_privdata;
 	privdata->offset = CRAMFS_INODE_OFFSET(CRAMFS_TO_LE32(cinode->in_namelen_offset)) * 4;
 
-	inode->sb.st_ino    = offset;
-	inode->sb.st_mode   = CRAMFS_TO_LE16(cinode->in_mode);
-	inode->sb.st_nlink  = 1;
-	inode->sb.st_uid    = CRAMFS_TO_LE16(cinode->in_uid);
-	inode->sb.st_gid    = CRAMFS_INODE_GID(CRAMFS_TO_LE32(cinode->in_size_gid));
-	inode->sb.st_atime  = 0; /* XXX */
-	inode->sb.st_mtime  = 0;
-	inode->sb.st_ctime  = 0;
-	inode->sb.st_blocks = 0;
-	inode->sb.st_size   = CRAMFS_INODE_SIZE(CRAMFS_TO_LE32(cinode->in_size_gid));
+	inode->i_sb.st_ino    = offset;
+	inode->i_sb.st_mode   = CRAMFS_TO_LE16(cinode->in_mode);
+	inode->i_sb.st_nlink  = 1;
+	inode->i_sb.st_uid    = CRAMFS_TO_LE16(cinode->in_uid);
+	inode->i_sb.st_gid    = CRAMFS_INODE_GID(CRAMFS_TO_LE32(cinode->in_size_gid));
+	inode->i_sb.st_atime  = 0; /* XXX */
+	inode->i_sb.st_mtime  = 0;
+	inode->i_sb.st_ctime  = 0;
+	inode->i_sb.st_blocks = 0;
+	inode->i_sb.st_size   = CRAMFS_INODE_SIZE(CRAMFS_TO_LE32(cinode->in_size_gid));
 	
-	switch(inode->sb.st_mode & 0xf000) {
+	switch(inode->i_sb.st_mode & 0xf000) {
 		case CRAMFS_S_IFREG:
-			inode->iops = &cramfs_file_ops;
+			inode->i_iops = &cramfs_file_ops;
 			break;
 		case CRAMFS_S_IFDIR:
-			inode->iops = &cramfs_dir_ops;
+			inode->i_iops = &cramfs_dir_ops;
 			break;
 	}
 }
@@ -292,7 +293,7 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs)
 static errorcode_t
 cramfs_read_inode(struct VFS_INODE* inode, void* fsop)
 {
-	struct VFS_MOUNTED_FS* fs = inode->fs;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 
 	uint32_t offset = *(uint32_t*)fsop;
 
@@ -315,14 +316,14 @@ cramfs_alloc_inode(struct VFS_MOUNTED_FS* fs)
 		return NULL;
 	struct CRAMFS_INODE_PRIVDATA* privdata = kmalloc(sizeof(struct CRAMFS_INODE_PRIVDATA));
 	memset(privdata, 0, sizeof(struct CRAMFS_INODE_PRIVDATA));
-	inode->privdata = privdata;
+	inode->i_privdata = privdata;
 	return inode;
 }
 
 static void
 cramfs_destroy_inode(struct VFS_INODE* inode)
 {
-	kfree(inode->privdata);
+	kfree(inode->i_privdata);
 	vfs_destroy_inode(inode);
 }
 

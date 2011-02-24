@@ -9,6 +9,7 @@
 #include <ananas/bio.h>
 #include <ananas/error.h>
 #include <ananas/vfs.h>
+#include <ananas/vfs/generic.h>
 #include <ananas/trace.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
@@ -28,15 +29,15 @@ devfs_alloc_inode(struct VFS_MOUNTED_FS* fs)
 	struct VFS_INODE* inode = vfs_make_inode(fs);
 	if (inode == NULL)
 		return NULL;
-	inode->privdata = kmalloc(sizeof(struct DEVFS_INODE_PRIVDATA));
-	memset(inode->privdata, 0, sizeof(struct DEVFS_INODE_PRIVDATA));
+	inode->i_privdata = kmalloc(sizeof(struct DEVFS_INODE_PRIVDATA));
+	memset(inode->i_privdata, 0, sizeof(struct DEVFS_INODE_PRIVDATA));
 	return inode;
 }
 
 static void
 devfs_destroy_inode(struct VFS_INODE* inode)
 {
-	kfree(inode->privdata);
+	kfree(inode->i_privdata);
 	vfs_destroy_inode(inode);
 }
 
@@ -54,7 +55,7 @@ devfs_readdir_root(struct VFS_FILE* file, void* dirents, size_t* len)
 	while (left > 0 && dev != NULL) {
 		char devname[128 /* XXX */];
 		sprintf(devname, "%s%u", dev->name, dev->unit);
-		int filled = vfs_filldirent(&dirents, &left, (const void*)&inum, file->inode->fs->fsop_size, devname, strlen(devname));
+		int filled = vfs_filldirent(&dirents, &left, (const void*)&inum, file->inode->i_fs->fsop_size, devname, strlen(devname));
 		if (!filled) {
 			/* out of space! */
 			break;
@@ -75,7 +76,7 @@ static struct VFS_INODE_OPS devfs_rootdir_ops = {
 static errorcode_t
 devfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
-	struct DEVFS_INODE_PRIVDATA* privdata = file->inode->privdata;
+	struct DEVFS_INODE_PRIVDATA* privdata = file->inode->i_privdata;
 	errorcode_t err = ANANAS_ERROR_OK;
 
 	if (privdata->device->driver->drv_read != NULL) {
@@ -121,24 +122,24 @@ static struct VFS_INODE_OPS devfs_file_ops = {
 static errorcode_t
 devfs_read_inode(struct VFS_INODE* inode, void* fsop)
 {
-	struct DEVFS_INODE_PRIVDATA* privdata = inode->privdata;
+	struct DEVFS_INODE_PRIVDATA* privdata = inode->i_privdata;
 	uint32_t ino = *(uint32_t*)fsop;
 
-	inode->sb.st_ino = ino;
-	inode->sb.st_mode = 0444;
-	inode->sb.st_nlink = 1;
-	inode->sb.st_uid = 0;
-	inode->sb.st_gid = 0;
-	inode->sb.st_atime = 0;
-	inode->sb.st_mtime = 0;
-	inode->sb.st_ctime = 0;
-	inode->sb.st_size = 0;
+	inode->i_sb.st_ino = ino;
+	inode->i_sb.st_mode = 0444;
+	inode->i_sb.st_nlink = 1;
+	inode->i_sb.st_uid = 0;
+	inode->i_sb.st_gid = 0;
+	inode->i_sb.st_atime = 0;
+	inode->i_sb.st_mtime = 0;
+	inode->i_sb.st_ctime = 0;
+	inode->i_sb.st_size = 0;
 
 	if (ino == DEVFS_ROOTINODE_FSOP) {
-		inode->sb.st_mode |= S_IFDIR | 0111;
-		inode->iops = &devfs_rootdir_ops;
+		inode->i_sb.st_mode |= S_IFDIR | 0111;
+		inode->i_iops = &devfs_rootdir_ops;
 	} else {
-		inode->iops = &devfs_file_ops;
+		inode->i_iops = &devfs_file_ops;
 
 		/* Obtain the device pointer XXX This is racey */
 		struct DEVICE* dev = DQUEUE_HEAD(device_get_queue());
@@ -150,11 +151,11 @@ devfs_read_inode(struct VFS_INODE* inode, void* fsop)
 
 		/* Advertise a character, block or regular file based on available driver functions */
 		if (dev->driver->drv_read != NULL || dev->driver->drv_write != NULL)
-			inode->sb.st_mode |= S_IFCHR;
+			inode->i_sb.st_mode |= S_IFCHR;
 		else if (dev->driver->drv_bread != NULL || dev->driver->drv_bwrite != NULL)
-			inode->sb.st_mode |= S_IFBLK;
+			inode->i_sb.st_mode |= S_IFBLK;
 		else
-			inode->sb.st_mode |= S_IFREG;
+			inode->i_sb.st_mode |= S_IFREG;
 		privdata->device = dev;
 	}
 	return ANANAS_ERROR_NONE;

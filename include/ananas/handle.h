@@ -3,7 +3,7 @@
 
 #include <ananas/lock.h>
 #include <ananas/dqueue.h>
-#include <ananas/vfs.h>
+#include <ananas/vfs/types.h>
 
 typedef unsigned int handle_event_t;
 typedef unsigned int handle_event_result_t;
@@ -20,7 +20,6 @@ typedef unsigned int handle_event_result_t;
 #define HANDLE_MAX_WAITERS	10	/* XXX should be any limit*/
 
 struct THREAD;
-struct VFS_FILE;
 
 /* Waiters are threads waiting for an event on a thread */
 struct HANDLE_WAITER {

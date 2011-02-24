@@ -33,6 +33,7 @@
 #include <ananas/bio.h>
 #include <ananas/error.h>
 #include <ananas/vfs.h>
+#include <ananas/vfs/generic.h>
 #include <ananas/lib.h>
 #include <ananas/trace.h>
 #include <ananas/mm.h>
@@ -71,10 +72,9 @@ TRACE_SETUP;
 /*
  * Reads a given sector.
  */
-static struct BIO*
+inline static struct BIO*
 fat_bread(struct VFS_MOUNTED_FS* fs, block_t block)
 {
-	struct FAT_FS_PRIVDATA* privdata = (struct FAT_FS_PRIVDATA*)fs->privdata;
 	return vfs_bread(fs, block, fs->block_size);
 }
 
@@ -96,15 +96,15 @@ fat_alloc_inode(struct VFS_MOUNTED_FS* fs)
 	struct VFS_INODE* inode = vfs_make_inode(fs);
 	if (inode == NULL)
 		return NULL;
-	inode->privdata = kmalloc(sizeof(struct FAT_INODE_PRIVDATA));
-	memset(inode->privdata, 0, sizeof(struct FAT_INODE_PRIVDATA));
+	inode->i_privdata = kmalloc(sizeof(struct FAT_INODE_PRIVDATA));
+	memset(inode->i_privdata, 0, sizeof(struct FAT_INODE_PRIVDATA));
 	return inode;
 }
 
 static void
 fat_destroy_inode(struct VFS_INODE* inode)
 {
-	kfree(inode->privdata);
+	kfree(inode->i_privdata);
 	vfs_destroy_inode(inode);
 }
 
@@ -190,8 +190,8 @@ static errorcode_t
 fat_do_read(struct VFS_FILE* file, void* buf, size_t* len, block_t* cur_block, int* cur_offset)
 {
 	struct VFS_INODE* inode = file->inode;
-	struct FAT_INODE_PRIVDATA* privdata = inode->privdata;
-	struct VFS_MOUNTED_FS* fs = inode->fs;
+	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->privdata;
 	size_t written = 0;
 	size_t left = *len;
@@ -219,7 +219,7 @@ fat_do_read(struct VFS_FILE* file, void* buf, size_t* len, block_t* cur_block, i
 		/* Grab the block if needed */
 		if (*cur_block != want_block) {
 			if (bio != NULL) bio_free(bio);
-			bio = fat_bread(inode->fs, want_block);
+			bio = fat_bread(inode->i_fs, want_block);
 			/* XXX errors */
 			*cur_block = want_block;
 		}
@@ -254,6 +254,7 @@ static struct VFS_INODE_OPS fat_file_ops = {
 	.read = fat_read,
 };
 
+#if 0
 static void
 fat_dump_entry(struct FAT_ENTRY* fentry)
 {
@@ -267,6 +268,7 @@ fat_dump_entry(struct FAT_ENTRY* fentry)
 	kprintf("cluster    %u\n", cluster);
 	kprintf("size       %u\n", FAT_FROM_LE32(fentry->fe_size));
 }
+#endif
 
 /*
  * Used to construct a FAT filename. Returns zero if the filename is not
@@ -331,10 +333,6 @@ fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename, int* cur_po
 static errorcode_t
 fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
-	struct VFS_INODE* inode = file->inode;
-	struct FAT_INODE_PRIVDATA* privdata = inode->privdata;
-	struct VFS_MOUNTED_FS* fs = inode->fs;
-	struct FAT_FS_PRIVDATA* fs_privdata = fs->privdata;
 	size_t written = 0;
 	size_t left = *len;
 	char cur_filename[128]; /* currently assembled filename */
@@ -381,7 +379,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 
 		/* And hand it to the fill function */
 		uint64_t fsop = cur_block << 16 | cur_offs;
-		int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, file->inode->fs->fsop_size, cur_filename, cur_filename_len);
+		int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, file->inode->i_fs->fsop_size, cur_filename, cur_filename_len);
 		if (!filled) {
 			/*
 			 * Out of space - we need to restore the offset of the LFN chain. This must
@@ -412,50 +410,49 @@ static struct VFS_INODE_OPS fat_dir_ops = {
 static void
 fat_fill_inode(struct VFS_INODE* inode, void* fsop, struct FAT_ENTRY* fentry)
 {
-	struct VFS_MOUNTED_FS* fs = inode->fs;
-	struct FAT_INODE_PRIVDATA* privdata = inode->privdata;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->privdata;
 
-	inode->sb.st_ino = (*(uint64_t*)fsop) & 0xffffffff; /* XXX */
-	inode->sb.st_mode = 0755;
-	inode->sb.st_nlink = 1;
-	inode->sb.st_uid = 0;
-	inode->sb.st_gid = 0;
+	inode->i_sb.st_ino = (*(uint64_t*)fsop) & 0xffffffff; /* XXX */
+	inode->i_sb.st_mode = 0755;
+	inode->i_sb.st_nlink = 1;
+	inode->i_sb.st_uid = 0;
+	inode->i_sb.st_gid = 0;
 	/* TODO */
-	inode->sb.st_atime = 0;
-	inode->sb.st_mtime = 0;
-	inode->sb.st_ctime = 0;
+	inode->i_sb.st_atime = 0;
+	inode->i_sb.st_mtime = 0;
+	inode->i_sb.st_ctime = 0;
 	if (fentry != NULL) {
-		inode->sb.st_size = FAT_FROM_LE32(fentry->fe_size);
+		inode->i_sb.st_size = FAT_FROM_LE32(fentry->fe_size);
 		uint32_t cluster  = FAT_FROM_LE16(fentry->fe_cluster_lo);
 		if (fs_privdata->fat_type == 32)
 			cluster |= FAT_FROM_LE16(fentry->fe_cluster_hi) << 16;
 		privdata->first_cluster = cluster;
 		/* Distinguish between directory and inode */
 		if (fentry->fe_attributes & FAT_ATTRIBUTE_DIRECTORY) {
-			inode->iops = &fat_dir_ops;
-			inode->sb.st_mode |= S_IFDIR;
+			inode->i_iops = &fat_dir_ops;
+			inode->i_sb.st_mode |= S_IFDIR;
 		} else {
-			inode->iops = &fat_file_ops;
-			inode->sb.st_mode |= S_IFREG;
+			inode->i_iops = &fat_file_ops;
+			inode->i_sb.st_mode |= S_IFREG;
 		}
 	} else {
 		/* Root inode */
-		inode->sb.st_size = fs_privdata->num_rootdir_sectors * fs_privdata->sector_size;
-		inode->iops = &fat_dir_ops;
-		inode->sb.st_mode |= S_IFDIR;
+		inode->i_sb.st_size = fs_privdata->num_rootdir_sectors * fs_privdata->sector_size;
+		inode->i_iops = &fat_dir_ops;
+		inode->i_sb.st_mode |= S_IFDIR;
 		if (fs_privdata->fat_type == 32)
 			privdata->first_cluster = fs_privdata->first_rootdir_sector;
 	}
-	inode->sb.st_blocks = inode->sb.st_size / (fs_privdata->sectors_per_cluster * fs_privdata->sector_size);
+	inode->i_sb.st_blocks = inode->i_sb.st_size / (fs_privdata->sectors_per_cluster * fs_privdata->sector_size);
 }
 
 static errorcode_t
 fat_read_inode(struct VFS_INODE* inode, void* fsop)
 {
-	struct VFS_MOUNTED_FS* fs = inode->fs;
-	struct FAT_FS_PRIVDATA* fs_privdata = fs->privdata;
-	struct FAT_INODE_PRIVDATA* privdata = inode->privdata;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
 
 	/*
 	 * FAT doesn't really have a root inode, so we just fake one. The root_inode
@@ -474,7 +471,7 @@ fat_read_inode(struct VFS_INODE* inode, void* fsop)
 	uint32_t block  = (*(uint64_t*)fsop) >> 16;
 	uint32_t offset = (*(uint64_t*)fsop) & 0xffff;
 	KASSERT(offset <= fs->block_size - sizeof(struct FAT_ENTRY), "fsop inode offset %u out of range", offset);
-	struct BIO* bio = fat_bread(inode->fs, block);
+	struct BIO* bio = fat_bread(inode->i_fs, block);
 	/* XXX error handling */
 	struct FAT_ENTRY* fentry = (struct FAT_ENTRY*)(void*)(BIO_DATA(bio) + offset);
 	/* Fill out the inode details */

@@ -8,7 +8,7 @@
  */
 #include <ananas/types.h>
 #include <ananas/vfs.h>
-#include <ananas/icache.h>
+#include <ananas/vfs/icache.h>
 #include <ananas/mm.h>
 #include <ananas/lock.h>
 #include <ananas/schedule.h>
@@ -56,7 +56,7 @@ icache_destroy(struct VFS_MOUNTED_FS* fs)
 	spinlock_lock(&fs->spl_icache);
 	DQUEUE_FOREACH(&fs->icache_inuse, ii, struct ICACHE_ITEM) {
 		if (ii->inode != NULL)
-			vfs_release_inode(ii->inode);
+			vfs_deref_inode(ii->inode);
 	}
 	kfree(fs->icache_buffer);
 	fs->icache_buffer = NULL;
@@ -122,7 +122,7 @@ retry:
 			 * waiting for the inode lock.
 			 */
 			vfs_ref_inode(ii->inode);
-			TRACE(VFS, INFO, "returning inode %p with refcount=%u", ii->inode, ii->inode->refcount);
+			TRACE(VFS, INFO, "returning inode %p with refcount=%u", ii->inode, ii->inode->i_refcount);
 
 			/*
 			 * Push the the item to the head of the cache; we expect the caller to
@@ -156,16 +156,16 @@ retry:
 			 * Lock the item; if the refcount is one, it means the cache is the
 			 * sole owner and we can just grab the inode.
 			 */
-			spinlock_lock(&jj->inode->spl_inode);
-			KASSERT(jj->inode->refcount > 0, "cached inode has no refs! (refcount is %u)", jj->inode->refcount);
-			if (jj->inode->refcount > 1) {
+			spinlock_lock(&jj->inode->i_spinlock);
+			KASSERT(jj->inode->i_refcount > 0, "cached inode has no refs! (refcount is %u)", jj->inode->i_refcount);
+			if (jj->inode->i_refcount > 1) {
 				/* Not just in the cache, this one */
-				spinlock_unlock(&jj->inode->spl_inode);
+				spinlock_unlock(&jj->inode->i_spinlock);
 				continue;
 			}
 
 			/* This item just has got to go */
-			vfs_release_inode_locked(jj->inode);
+			vfs_deref_inode_locked(jj->inode);
 
 			/* Remove any references to this inode from the dentry cache */
 			dentry_remove_inode(jj->inode);
@@ -174,7 +174,7 @@ retry:
 			DQUEUE_REMOVE(&fs->icache_inuse, jj);
 
 			/* Unlock the inode; it's can be used again */
-			spinlock_unlock(&jj->inode->spl_inode);
+			spinlock_unlock(&jj->inode->i_spinlock);
 			ii = jj;
 			break;
 		}
@@ -214,7 +214,7 @@ void
 icache_set_pending(struct VFS_MOUNTED_FS* fs, struct ICACHE_ITEM* ii, struct VFS_INODE* inode)
 {
 	KASSERT(ii->inode == NULL, "updating an item that is not pending");
-	KASSERT(fs == inode->fs, "inode does not belong to this filesystem");
+	KASSERT(fs == inode->i_fs, "inode does not belong to this filesystem");
 
 	/* First of all, increment the inode's refcount so that it will not go away while in the cache */
 	vfs_ref_inode(inode);
@@ -226,8 +226,8 @@ icache_set_pending(struct VFS_MOUNTED_FS* fs, struct ICACHE_ITEM* ii, struct VFS
 void
 icache_remove_inode(struct VFS_INODE* inode)
 {
-	struct VFS_MOUNTED_FS* fs = inode->fs;
-	KASSERT(inode->refcount == 0, "inode still referenced");
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	KASSERT(inode->i_refcount == 0, "inode still referenced");
 
 	spinlock_lock(&fs->spl_icache);
 	if (!DQUEUE_EMPTY(&fs->icache_inuse)) {

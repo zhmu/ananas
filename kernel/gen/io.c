@@ -355,7 +355,7 @@ sys_handlectl_file(thread_t t, handle_t handle, unsigned int op, void* arg, size
 	switch(op) {
 		case HCTL_FILE_SETCWD: {
 			/* Ensure we are dealing with a directory here */
-			if (!S_ISDIR(file->inode->sb.st_mode)) {
+			if (!S_ISDIR(file->inode->i_sb.st_mode)) {
 				err = ANANAS_ERROR(NOT_A_DIRECTORY);
 				goto fail;
 			}
@@ -409,10 +409,10 @@ sys_handlectl_file(thread_t t, handle_t handle, unsigned int op, void* arg, size
 					offset = file->offset + offset;
 					break;
 				case HCTL_SEEK_WHENCE_END:
-					offset = file->inode->sb.st_size - offset;
+					offset = file->inode->i_sb.st_size - offset;
 					break;
 			}
-			if (offset < 0 || offset >= file->inode->sb.st_size) {
+			if (offset < 0 || offset >= file->inode->i_sb.st_size) {
 				err = ANANAS_ERROR(BAD_RANGE);
 				goto fail;
 			}
@@ -445,7 +445,7 @@ sys_handlectl_file(thread_t t, handle_t handle, unsigned int op, void* arg, size
 
 			if (file->inode != NULL) {
 				/* Copy the data and we're done */
-				memcpy(dest, &file->inode->sb, sizeof(struct stat));
+				memcpy(dest, &file->inode->i_sb, sizeof(struct stat));
 			} else {
 				/* First of all, start by filling with defaults */
 				struct stat* st = dest;

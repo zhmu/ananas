@@ -74,6 +74,7 @@ handle_alloc(int type, struct THREAD* t, struct HANDLE** out)
 
 	KASSERT(((addr_t)handle % sizeof(struct HANDLE)) == 0, "handle address %p is not 0x%x byte aligned", (addr_t)handle, sizeof(struct HANDLE));
 	*out = handle;
+	TRACE(HANDLE, INFO, "thread=%p, type=%u => handle=%p", t, type, handle);
 	return ANANAS_ERROR_OK;
 }
 
@@ -94,10 +95,12 @@ handle_destroy(struct HANDLE* handle, int free_resources)
 	if (free_resources) {
 		switch(handle->type) {
 			case HANDLE_TYPE_FILE: {
-				/* If we have a backing inode, release it - this will free it if needed */
+				/* If we have a backing inode, dereference it - this will free it if needed */
 				struct VFS_INODE* inode = handle->data.vfs_file.inode;
-				if (inode != NULL)
-					vfs_release_inode(inode);
+				if (inode != NULL) {
+					kprintf("handle_destroy(): handle=%p, inode=%p, dereffing\n", handle, inode);
+					vfs_deref_inode(inode);
+				}
 				break;
 			}
 			case HANDLE_TYPE_THREAD: {
@@ -173,8 +176,10 @@ handle_clone(struct THREAD* t, struct HANDLE* handle, struct HANDLE** out)
 			 * will release the inode, which will remove it if needed.
 			 */
 			struct VFS_INODE* inode = handle->data.vfs_file.inode;
-			if (inode != NULL)
+			if (inode != NULL) {
+				kprintf("handle_clone(): inode=%p\n", inode);
 				vfs_ref_inode(inode);
+			}
 
 			/* Now, just copy the handle data over */
 			struct HANDLE* newhandle;
@@ -200,12 +205,13 @@ handle_clone(struct THREAD* t, struct HANDLE* handle, struct HANDLE** out)
 			panic("handle_clone(): unimplemented type %u\n", handle->type);
 	}
 	/* NOTREACHED */
+	return ANANAS_ERROR_OK;
 }
 
 errorcode_t
 handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event, handle_event_result_t* result)
 {
-	TRACE(HANDLE, FUNC, "handle=%p, event=%p", thread, handle, event);
+	TRACE(HANDLE, FUNC, "handle=%p, event=%p, thread=%p", handle, event, thread);
 
 	spinlock_lock(&handle->spl_handle);
 

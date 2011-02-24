@@ -1,5 +1,5 @@
 /*
- * Ananas dentry cache (heavily based on vfs-icache.c)
+ * Ananas dentry cache (heavily based on icache.c)
  *
  * A 'dentry' is a directory entry, and can be seen as the function f:
  * directory_inode x entry_name -> inode. These are cached on a per-filesystem
@@ -11,8 +11,8 @@
  * 
  */
 #include <ananas/types.h>
-#include <ananas/vfs.h>
-#include <ananas/dentry.h>
+#include <ananas/vfs/core.h>
+#include <ananas/vfs/dentry.h>
 #include <ananas/mm.h>
 #include <ananas/lock.h>
 #include <ananas/schedule.h>
@@ -59,7 +59,7 @@ dcache_destroy(struct VFS_MOUNTED_FS* fs)
 	spinlock_lock(&fs->spl_dcache);
 	DQUEUE_FOREACH(&fs->dcache_inuse, d, struct DENTRY_CACHE_ITEM) {
 		if (d->d_entry_inode != NULL)
-			vfs_release_inode(d->d_entry_inode);
+			vfs_deref_inode(d->d_entry_inode);
 	}
 	kfree(fs->dcache_buffer);
 	fs->dcache_buffer = NULL;
@@ -74,7 +74,7 @@ dcache_destroy(struct VFS_MOUNTED_FS* fs)
 struct DENTRY_CACHE_ITEM*
 dcache_find_item_or_add_pending(struct VFS_INODE* inode, const char* entry)
 {
-	struct VFS_MOUNTED_FS* fs = inode->fs;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	KASSERT(fs->dcache_buffer != NULL, "dcache pool not initialized");
 
 retry:
@@ -138,16 +138,16 @@ retry:
 			 * in the cache and we can safely remove it then.
 			 */
 			struct VFS_INODE* inode = dd->d_entry_inode;
-			spinlock_lock(&inode->spl_inode);
-			KASSERT(inode->refcount > 0, "cached inode has no refs! (refcount is %u)", inode->refcount);
-			if (inode->refcount > 1) {
+			spinlock_lock(&inode->i_spinlock);
+			KASSERT(inode->i_refcount > 0, "cached inode has no refs! (refcount is %u)", inode->i_refcount);
+			if (inode->i_refcount > 1) {
 				/* Refcount is more than one; can't use it */
-				spinlock_unlock(&inode->spl_inode);
+				spinlock_unlock(&inode->i_spinlock);
 				continue;
 			}
 
 			/* This item just has got to go */
-			vfs_release_inode_locked(inode);
+			vfs_deref_inode_locked(inode);
 
 			/* Remove any references to this inode from the inode cache */
 			icache_remove_inode(inode);
@@ -156,7 +156,7 @@ retry:
 			DQUEUE_REMOVE(&fs->dcache_inuse, dd);
 
 			/* Unlock the inode; it's can be used again */
-			spinlock_unlock(&inode->spl_inode);
+			spinlock_unlock(&inode->i_spinlock);
 			d = dd;
 			break;
 		}
@@ -188,17 +188,17 @@ retry:
 void
 dentry_remove_inode(struct VFS_INODE* inode)
 {
-	struct VFS_MOUNTED_FS* fs = inode->fs;
-	KASSERT(inode->refcount == 0, "inode still referenced");
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	KASSERT(inode->i_refcount == 0, "inode still referenced");
 
 	spinlock_lock(&fs->spl_dcache);
 	if (!DQUEUE_EMPTY(&fs->dcache_inuse)) {
 		DQUEUE_FOREACH_SAFE(&fs->dcache_inuse, d, struct DENTRY_CACHE_ITEM) {
-			if (d->d_dir_inode != d && d->d_entry_inode != d)
+			if (d->d_dir_inode != inode && d->d_entry_inode != inode)
 				continue;
 			/* Free the entry inode if we are removing its parent inode */
-			if (d->d_dir_inode == d && d->d_entry_inode != NULL)
-				vfs_release_inode(d->d_entry_inode);
+			if (d->d_dir_inode == inode && d->d_entry_inode != NULL)
+				vfs_deref_inode(d->d_entry_inode);
 
 			/* Remove from in-use and add to free list */
 			DQUEUE_REMOVE(&fs->dcache_inuse, d);
