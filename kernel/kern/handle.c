@@ -98,7 +98,6 @@ handle_destroy(struct HANDLE* handle, int free_resources)
 				/* If we have a backing inode, dereference it - this will free it if needed */
 				struct VFS_INODE* inode = handle->data.vfs_file.f_inode;
 				if (inode != NULL) {
-					kprintf("handle_destroy(): handle=%p, inode=%p, dereffing\n", handle, inode);
 					vfs_deref_inode(inode);
 				}
 				break;
@@ -177,7 +176,6 @@ handle_clone(struct THREAD* t, struct HANDLE* handle, struct HANDLE** out)
 			 */
 			struct VFS_INODE* inode = handle->data.vfs_file.f_inode;
 			if (inode != NULL) {
-				kprintf("handle_clone(): inode=%p\n", inode);
 				vfs_ref_inode(inode);
 			}
 
