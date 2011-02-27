@@ -1,9 +1,11 @@
-OBJS=		vfstest.o kernel-glue.o vfs.o vfs-generic.o vfs-icache.o vfs-dentry.o \
-		bio.o device-glue.o ext2fs.o devfs.o
+OBJS=		vfstest.o kernel-glue.o core.o generic.o icache.o dentry.o \
+		standard.o mount.o bio.o device-glue.o ext2fs.o devfs.o
+# general cflags
+CFLAGS=		-g
 # cflags for our wrapper code
-WCFLAGS=	-std=c99 -I.
+WCFLAGS=	-std=c99 -I. $(CFLAGS)
 # cflags for kernel stuff
-KCFLAGS=	$(WCFLAGS) -I../../include
+KCFLAGS=	$(WCFLAGS) -I../../include $(CFLAGS)
 ARCH?=		amd64
 K?=		../../kernel
 
@@ -32,17 +34,24 @@ options.h:	Makefile
 		echo '#define DEVFS' >> options.h
 
 # kernel files below here
-vfs.o:		$K/vfs/vfs.c ananas options.h
-		$(CC) $(KCFLAGS) -c -o vfs.o $K/vfs/vfs.c
+core.o:		$K/vfs/core.c ananas options.h
+		$(CC) $(KCFLAGS) -c -o core.o $K/vfs/core.c
 
-vfs-generic.o:	$K/vfs/vfs-generic.c
-		$(CC) $(KCFLAGS) -c -o vfs-generic.o $K/vfs/vfs-generic.c
+generic.o:	$K/vfs/generic.c
+		$(CC) $(KCFLAGS) -c -o generic.o $K/vfs/generic.c
 
-vfs-icache.o:	$K/vfs/vfs-icache.c
-		$(CC) $(KCFLAGS) -c -o vfs-icache.o $K/vfs/vfs-icache.c
+icache.o:	$K/vfs/icache.c
+		$(CC) $(KCFLAGS) -c -o icache.o $K/vfs/icache.c
 
-vfs-dentry.o:	$K/vfs/vfs-dentry.c
-		$(CC) $(KCFLAGS) -c -o vfs-dentry.o $K/vfs/vfs-dentry.c
+dentry.o:	$K/vfs/dentry.c
+		$(CC) $(KCFLAGS) -c -o dentry.o $K/vfs/dentry.c
+
+standard.o:	$K/vfs/standard.c
+		$(CC) $(KCFLAGS) -c -o standard.o $K/vfs/standard.c
+
+mount.o:	$K/vfs/mount.c
+		$(CC) $(KCFLAGS) -c -o mount.o $K/vfs/mount.c
+
 
 bio.o:		$K/kern/bio.c
 		$(CC) $(KCFLAGS) -c -o bio.o $K/kern/bio.c
@@ -64,6 +73,10 @@ image.ext2:	vfstest
 		mkdir -p image
 		mkdir -p image/dev
 		cp vfstest image
+		@for i in 0 1 2 3 4 5 6 7 8 9; do \
+			for j in 0 1 2 3 4 5 6 7 8 9; do \
+				touch image/$$i$$j;\
+		done; done;
 		${GENEXT2FS} -b 1024 -d image image.ext2
 		rm -rf image
 
