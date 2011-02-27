@@ -127,7 +127,7 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 		memset(fs, 0, sizeof(*fs));
 		return err;
 	}
-	TRACE(VFS, INFO, "rootinode=%p", fs->fs_root_inode);
+	TRACE(VFS, INFO, "to='%s',fs=%p,rootinode=%p", to, fs, fs->fs_root_inode);
 
 	KASSERT(fs->fs_root_inode != NULL, "successful mount without a root inode");
 	KASSERT(S_ISDIR(fs->fs_root_inode->i_sb.st_mode), "root inode isn't a directory");

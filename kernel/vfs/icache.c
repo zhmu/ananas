@@ -7,6 +7,7 @@
  * variable length.
  */
 #include <ananas/types.h>
+#include <ananas/error.h>
 #include <ananas/vfs.h>
 #include <ananas/vfs/icache.h>
 #include <ananas/mm.h>
@@ -21,6 +22,65 @@ TRACE_SETUP;
 	spinlock_lock(&(fs)->fs_icache_lock);
 #define ICACHE_UNLOCK(fs) \
 	spinlock_unlock(&(fs)->fs_icache_lock);
+
+#define ICACHE_DEBUG
+
+static char*
+fsop_to_string(struct VFS_MOUNTED_FS* fs, void* fsop)
+{
+	static char out[128];
+	char tmp[8];
+	strcpy(out, "");
+	for (int i = 0; i < fs->fs_fsop_size; i++) {
+		sprintf(tmp, "%x", ((char*)fsop)[i]);
+		if (i > 0)
+			strcat(out, ",");
+		strcat(out, tmp);
+	}
+	return out;
+}
+
+static int
+fsop_compare(struct VFS_MOUNTED_FS* fs, void* fsop1, void* fsop2)
+{
+	uint8_t* f1 = fsop1;
+	uint8_t* f2 = fsop2;
+
+	/* XXX this is just a dumb big-endian compare for now */
+	for (int i = fs->fs_fsop_size - 1; i >= 0; i--) {
+		if (f1[i] < f2[i])
+			return -1;
+		else if (f1[i] > f2[i])
+			return 1;
+		/* else equal; continue */
+	}
+	return 0;
+}
+
+#ifdef ICACHE_DEBUG
+static void
+icache_sanity_check(struct VFS_MOUNTED_FS* fs)
+{
+	DQUEUE_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
+		DQUEUE_FOREACH(&fs->fs_icache_inuse, jj, struct ICACHE_ITEM) {
+			if (ii == jj)
+				continue;
+
+			KASSERT(fsop_compare(fs, ii->fsop, jj->fsop) != 0, "duplicate fsop in cache");
+			KASSERT(ii->inode != jj->inode, "duplicate inode in cache");
+		}
+	}
+}
+#endif
+
+void
+icache_ensure_inode_gone(struct VFS_INODE* inode)
+{
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	DQUEUE_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
+		KASSERT(ii->inode != inode, "removing inode %p still in cache", inode);
+	}
+}
 
 void
 icache_init(struct VFS_MOUNTED_FS* fs)
@@ -45,19 +105,25 @@ icache_init(struct VFS_MOUNTED_FS* fs)
 void
 icache_dump(struct VFS_MOUNTED_FS* fs)
 {
-	ICACHE_LOCK(fs);
 	kprintf("icache_dump(): fs=%p\n", fs);
+	int i = 0;
 	DQUEUE_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
-		kprintf("icache_entry=%p, inode=%p\n",ii, ii->inode);
+		kprintf("icache_entry=%p, inode=%p, fsop=",ii, ii->inode);
+		for (int i = 0; i < fs->fs_fsop_size; i++)
+			kprintf("%x ", (unsigned char)ii->fsop[i]);
+		kprintf("\n");
 		if (ii->inode != NULL)
 			vfs_dump_inode(ii->inode);
+		i++;
 	}		
-	ICACHE_UNLOCK(fs);
+	kprintf("icache_dump(): %u entries\n", i);
 }
 
 void
 icache_destroy(struct VFS_MOUNTED_FS* fs)
 {	
+	panic("icache_destroy");
+#if 0
 	ICACHE_LOCK(fs);
 	DQUEUE_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
 		if (ii->inode != NULL)
@@ -66,23 +132,7 @@ icache_destroy(struct VFS_MOUNTED_FS* fs)
 	kfree(fs->fs_icache_buffer);
 	fs->fs_icache_buffer = NULL;
 	ICACHE_UNLOCK(fs);
-}
-
-static int
-fsop_compare(struct VFS_MOUNTED_FS* fs, void* fsop1, void* fsop2)
-{
-	uint8_t* f1 = fsop1;
-	uint8_t* f2 = fsop2;
-
-	/* XXX this is just a dumb big-endian compare for now */
-	for (int i = fs->fs_fsop_size - 1; i >= 0; i--) {
-		if (f1[i] < f2[i])
-			return -1;
-		else if (f1[i] > f2[i])
-			return 1;
-		/* else equal; continue */
-	}
-	return 0;
+#endif
 }
 
 /*
@@ -91,7 +141,7 @@ fsop_compare(struct VFS_MOUNTED_FS* fs, void* fsop1, void* fsop2)
  * the result is NULL if a pending inode is already in the cache.
  * 
  */
-struct ICACHE_ITEM*
+static struct ICACHE_ITEM*
 icache_find_item_or_add_pending(struct VFS_MOUNTED_FS* fs, void* fsop)
 {
 	KASSERT(fs->fs_icache_buffer != NULL, "icache pool not initialized");
@@ -115,6 +165,8 @@ retry:
 			 */
 			if (ii->inode == NULL) {
 				ICACHE_UNLOCK(fs);
+				kprintf("icache_find_item_or_add_pending(): pending item, waiting\n");
+				panic("musn't happen");
 				return NULL;
 			}
 
@@ -128,7 +180,6 @@ retry:
 			 * waiting for the inode lock.
 			 */
 			vfs_ref_inode(ii->inode);
-			TRACE(VFS, INFO, "returning inode %p with refcount=%u", ii->inode, ii->inode->i_refcount);
 
 			/*
 			 * Push the the item to the head of the cache; we expect the caller to
@@ -138,6 +189,7 @@ retry:
 			DQUEUE_REMOVE(&fs->fs_icache_inuse, ii);
 			DQUEUE_ADD_HEAD(&fs->fs_icache_inuse, ii);
 			ICACHE_UNLOCK(fs);
+			TRACE(VFS, INFO, "cache hit: fs=%p,fsop=% => ii=%p, inode=%p\n", fs, fsop_to_string(fs, fsop), ii, ii->inode);
 			return ii;
 		}
 	}
@@ -163,24 +215,21 @@ retry:
 			 * sole owner and we can just grab the inode.
 			 */
 			INODE_LOCK(jj->inode);
-			KASSERT(jj->inode->i_refcount > 0, "cached inode has no refs! (refcount is %u)", jj->inode->i_refcount);
+			KASSERT(jj->inode->i_refcount > 0, "cached inode %p has no refs! (refcount is %u)", jj->inode, jj->inode->i_refcount);
 			if (jj->inode->i_refcount > 1) {
 				/* Not just in the cache, this one */
 				INODE_UNLOCK(jj->inode);
 				continue;
 			}
-
-			/* This item just has got to go */
-			vfs_deref_inode_locked(jj->inode);
-
-			/* Remove any references to this inode from the dentry cache */
-			dentry_remove_inode(jj->inode);
+			TRACE(VFS, INFO, "removing only-cache item, jj=%p, inode=%p", jj, jj->inode);
 
 			/* Remove item from our cache */
 			DQUEUE_REMOVE(&fs->fs_icache_inuse, jj);
 
-			/* Unlock the inode; it's can be used again */
-			INODE_UNLOCK(jj->inode);
+			/* This item just has got to go */
+			vfs_deref_inode_locked(jj->inode);
+
+			/* No need to unlock the inode; the pointer is gone */
 			ii = jj;
 			break;
 		}
@@ -198,6 +247,7 @@ retry:
 	}
 
 	/* Initialize the item */
+	TRACE(VFS, INFO, "cache miss: fs=%p, fsop=%s => ii=%p", fs, fsop_to_string(fs, fsop), ii);
 	ii->inode = NULL;
 	memcpy(ii->fsop, fsop, fs->fs_fsop_size);
 	DQUEUE_ADD_TAIL(&fs->fs_icache_inuse, ii);
@@ -205,9 +255,10 @@ retry:
 	return ii;
 }
 
-void
+static void
 icache_remove_pending(struct VFS_MOUNTED_FS* fs, struct ICACHE_ITEM* ii)
 {
+	panic("musn't happen");
 	KASSERT(ii->inode == NULL, "removing an item that is not pending");
 
 	ICACHE_LOCK(fs);
@@ -216,38 +267,83 @@ icache_remove_pending(struct VFS_MOUNTED_FS* fs, struct ICACHE_ITEM* ii)
 	ICACHE_UNLOCK(fs);
 }
 
-void
-icache_set_pending(struct VFS_MOUNTED_FS* fs, struct ICACHE_ITEM* ii, struct VFS_INODE* inode)
+static struct VFS_INODE*
+vfs_alloc_inode(struct VFS_MOUNTED_FS* fs)
 {
-	KASSERT(ii->inode == NULL, "updating an item that is not pending");
-	KASSERT(fs == inode->i_fs, "inode does not belong to this filesystem");
+	struct VFS_INODE* inode;
 
-	/* First of all, increment the inode's refcount so that it will not go away while in the cache */
-	vfs_ref_inode(inode);
-
-	/* A lock is unnecessary here; the item will not be touched */
-	ii->inode = inode;
+	if (fs->fs_fsops->alloc_inode != NULL) {
+		inode = fs->fs_fsops->alloc_inode(fs);
+	} else {
+		inode = vfs_make_inode(fs);
+	}
+	return inode;
 }
 
-void
-icache_remove_inode(struct VFS_INODE* inode)
+/*
+ * Retrieves an inode by fsop. The inode's refcount will always be incremented
+ * so the caller is responsible for calling vfs_deref_inode() once it is done.
+ */
+errorcode_t
+vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinode)
 {
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
-	KASSERT(inode->i_refcount == 0, "inode still referenced");
+	struct ICACHE_ITEM* ii = NULL;
 
-	ICACHE_LOCK(fs);
-	if (!DQUEUE_EMPTY(&fs->fs_icache_inuse)) {
-		DQUEUE_FOREACH_SAFE(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
-			if (ii->inode != inode)
-				continue;
-			
-			/* Remove from in-use and add to free list */
-			DQUEUE_REMOVE(&fs->fs_icache_inuse, ii);
-			DQUEUE_ADD_TAIL(&fs->fs_icache_free, ii);
-			break; /* an entry is at most a single time in the inode cache */
-		}
+	TRACE(VFS, FUNC, "fs=%p, fsop=%s", fs, fsop_to_string(fs, fsop));
+
+	/*
+	 * Wait until we obtain a cache spot - this waits for pending inodes to be
+	 * finished up. By ensuring we fill the cache we ensure the inode can only
+	 * exist a single time.
+	 */
+	while(1) {
+		ii = icache_find_item_or_add_pending(fs, fsop);
+		if (ii != NULL)
+			break;
+		TRACE(VFS, WARN, "fsop is already pending, waiting...");
+		/* XXX There should be a wakeup signal of some kind */
+		reschedule();
 	}
-	ICACHE_UNLOCK(fs);
+
+	if (ii->inode != NULL) {
+		/* Already have the inode cached -> return it (refcount will already be incremented) */
+		*destinode = ii->inode;
+		TRACE(VFS, INFO, "cache hit: fs=%p, fsop=%s => ii=%p,inode=%p", fs, fsop_to_string(fs, fsop), ii, ii->inode);
+		return ANANAS_ERROR_OK;
+	}
+
+	/*
+	 * Must read the inode; if this fails, we have to ask the cache to remove the
+	 * pending item. Because multiple callers for the same FSOP will not reach
+	 * this point (they keep rescheduling, waiting for us to deal with it)
+	 */
+	struct VFS_INODE* inode = vfs_alloc_inode(fs);
+	if (inode == NULL) {
+panic("fooo");
+		icache_remove_pending(fs, ii);
+		return ANANAS_ERROR(OUT_OF_HANDLES);
+	}
+	errorcode_t result = fs->fs_fsops->read_inode(inode, fsop);
+	if (result != ANANAS_ERROR_NONE) {
+panic("waah - %u", result);
+		vfs_deref_inode(inode); /* throws it away */
+		return result;
+	}
+
+	/*
+	 * First of all, increment the inode's refcount so that it will not go away while in the cache;
+	 * the caller has one ref, and the cache has the second.
+	 */
+	KASSERT(inode != NULL, "wtf");
+	vfs_ref_inode(inode);
+	ii->inode = inode;
+	KASSERT(ii->inode->i_refcount == 2, "fresh inode refcount incorrect");
+#ifdef ICACHE_DEBUG
+	icache_sanity_check(fs);
+#endif
+	TRACE(VFS, INFO, "cache miss: fs=%p, fsop=%s => ii=%p,inode=%p", fs, fsop_to_string(fs, fsop), ii, inode);
+	*destinode = inode;
+	return ANANAS_ERROR_OK;
 }
 
 /* vim:set ts=2 sw=2: */

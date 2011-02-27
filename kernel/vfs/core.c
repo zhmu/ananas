@@ -11,6 +11,10 @@
 
 TRACE_SETUP;
 
+#define INODE_ASSERT_SANE(i) \
+	KASSERT(((i)->i_flags & INODE_FLAG_GONE) == 0, "referencing gone inode"); \
+	KASSERT((i)->i_refcount > 0, "referencing inode with no refs");
+
 void
 vfs_init()
 {
@@ -25,7 +29,7 @@ vfs_make_inode(struct VFS_MOUNTED_FS* fs)
 	/* Set up the basic inode information */
 	memset(inode, 0, sizeof(*inode));
 	spinlock_init(&inode->i_spinlock);
-	inode->i_refcount++;
+	inode->i_refcount = 1;
 	inode->i_fs = fs;
 	/* Fill out the stat fields we can */
 	inode->i_sb.st_dev = (dev_t)fs->fs_device;
@@ -50,21 +54,13 @@ vfs_dump_inode(struct VFS_INODE* inode)
 void
 vfs_destroy_inode(struct VFS_INODE* inode)
 {
+	KASSERT(inode->i_flags & INODE_FLAG_GONE, "destroying inode that isn't gone");
+	KASSERT(inode->i_refcount == 0, "destroying inode which still has refs");
 	kfree(inode);
+	TRACE(VFS, INFO, "destroyed inode=%p", inode);
 }
 
-static struct VFS_INODE*
-vfs_alloc_inode(struct VFS_MOUNTED_FS* fs)
-{
-	struct VFS_INODE* inode;
-
-	if (fs->fs_fsops->alloc_inode != NULL) {
-		inode = fs->fs_fsops->alloc_inode(fs);
-	} else {
-		inode = vfs_make_inode(fs);
-	}
-	return inode;
-}
+void icache_ensure_inode_gone(struct VFS_INODE* inode);
 
 void
 vfs_deref_inode_locked(struct VFS_INODE* inode)
@@ -76,7 +72,13 @@ vfs_deref_inode_locked(struct VFS_INODE* inode)
 		return;
 	}
 
-	/* Note: we never unlock - the inode does not exist past here */
+	/*
+	 * Note: we never unlock - the inode does not exist past here and all references should
+	 * be gone. If this isn't the case, that's a bug - which we hope to catch by setting
+	 * the GONE flag so people can assert on it.
+	 */
+	inode->i_flags |= INODE_FLAG_GONE;
+icache_ensure_inode_gone(inode);
 	if (inode->i_fs->fs_fsops->alloc_inode != NULL) {
 		inode->i_fs->fs_fsops->destroy_inode(inode);
 	} else {
@@ -87,61 +89,16 @@ vfs_deref_inode_locked(struct VFS_INODE* inode)
 void
 vfs_deref_inode(struct VFS_INODE* inode)
 {
+	INODE_ASSERT_SANE(inode);
 	INODE_LOCK(inode);
 	vfs_deref_inode_locked(inode);
-	INODE_UNLOCK(inode);
+	/* INODE_UNLOCK(inode); - no need, inode must be dead by now */
 }
 
 struct BIO*
 vfs_bread(struct VFS_MOUNTED_FS* fs, block_t block, size_t len)
 {
 	return bio_read(fs->fs_device, block, len);
-}
-
-errorcode_t
-vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinode)
-{
-	
-	struct ICACHE_ITEM* ii = NULL;
-
-	/*
-	 * Wait until we obtain a cache spot - this waits for pending inodes to be
-	 * finished up.
-	 */
-	while(1) {
-		ii = icache_find_item_or_add_pending(fs, fsop);
-		if (ii != NULL)
-			break;
-		TRACE(VFS, WARN, "fsop is already pending, waiting...");
-		/* XXX There should be a wakeup signal of some kind */
-		reschedule();
-	}
-
-	if (ii->inode != NULL) {
-		/* Already have the inode cached -> return it (refcount will already be incremented) */
-		*destinode = ii->inode;
-		return ANANAS_ERROR_OK;
-	}
-
-	/*
-	 * Must read the inode; if this fails, we have to ask the cache to remove the
-	 * pending item. Because multiple callers for the same FSOP will not reach
-	 * this point (they keep rescheduling, waiting for us to deal with it)
-	 */
-	struct VFS_INODE* inode = vfs_alloc_inode(fs);
-	if (inode == NULL) {
-		icache_remove_pending(fs, ii);
-		return ANANAS_ERROR(OUT_OF_HANDLES);
-	}
-	errorcode_t result = fs->fs_fsops->read_inode(inode, fsop);
-	if (result != ANANAS_ERROR_NONE) {
-		vfs_deref_inode(inode);
-		return result;
-	}
-	icache_set_pending(fs, ii, inode);
-	ii->inode = inode;
-	*destinode = inode;
-	return ANANAS_ERROR_OK;
 }
 
 size_t
@@ -172,6 +129,8 @@ void
 vfs_ref_inode(struct VFS_INODE* inode)
 {
 	TRACE(VFS, FUNC, "inode=%p,cur refcount=%u", inode, inode->i_refcount);
+	INODE_ASSERT_SANE(inode);
+
 	INODE_LOCK(inode);
 	KASSERT(inode->i_refcount > 0, "referencing a dead inode");
 	inode->i_refcount++;
