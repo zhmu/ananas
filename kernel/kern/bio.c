@@ -298,7 +298,6 @@ bio_read(device_t dev, block_t block, size_t len)
 	bio->flags |= BIO_FLAG_READ;
 
 	/* kick the device; we want it to read */
-	size_t amount = len;
 	errorcode_t err = device_bread(dev, bio);
 	if (err != ANANAS_ERROR_NONE) {
 		/* XXX now what? */

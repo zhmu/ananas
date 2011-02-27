@@ -47,7 +47,7 @@ no_bootinfo:
 	call	debugcon_init
 #endif
 
-	push	%ebx
+	pushl	%ebx
 	call	md_startup
 	/* NOTREACHED */
 
