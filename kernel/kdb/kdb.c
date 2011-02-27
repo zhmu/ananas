@@ -23,7 +23,7 @@ extern kdb_func_t kdb_cmd_bio;
 extern kdb_func_t kdb_cmd_bootinfo;
 extern kdb_func_t kdb_cmd_memory;
 extern kdb_func_t kdb_cmd_handle;
-extern kdb_func_t kdb_cmd_vfs;
+extern kdb_func_t kdb_cmd_vfs_mounts;
 extern kdb_func_t kdb_cmd_devices;
 extern kdb_func_t kdb_cmd_irq;
 
@@ -40,7 +40,7 @@ struct KDB_COMMAND {
 	{ "bootinfo", "Display bootinfo", &kdb_cmd_bootinfo },
 	{ "memory", "Display memory information", &kdb_cmd_memory },
 	{ "handle", "Display specific handle information", &kdb_cmd_handle },
-	{ "vfs", "Display filesystem information", &kdb_cmd_vfs },
+	{ "vfs", "Display filesystem information", &kdb_cmd_vfs_mounts },
 	{ "devices", "Display devices list", &kdb_cmd_devices },
 	{ "irq", "Display IRQ list", &kdb_cmd_irq },
 	{ NULL, NULL, NULL }
