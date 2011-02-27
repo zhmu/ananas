@@ -49,7 +49,7 @@ void md_spinlock_unlock(struct SPINLOCK* s) {}
 void
 md_reschedule()
 {
-	panic("md_reschedule");
+	panic("md_reschedule() must not be called");
 }
 
 void
