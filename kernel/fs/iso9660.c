@@ -87,6 +87,9 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs)
 	fs->fs_block_size = ISO9660_GET_WORD(pvd->pv_blocksize);
 	fs->fs_fsop_size = sizeof(uint64_t);
 
+	/* Initialize the inode cache right before reading the root directory inode */
+	icache_init(fs);
+
 	struct ISO9660_INODE_PRIVDATA* privdata = (struct ISO9660_INODE_PRIVDATA*)fs->fs_root_inode->i_privdata;
 	fs->fs_root_inode->i_sb.st_size = ISO9660_GET_DWORD(rootentry->de_data_length);
 	fs->fs_root_inode->i_iops = &iso9660_dir_ops;

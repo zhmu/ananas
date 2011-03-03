@@ -276,9 +276,12 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs)
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 
+	/* Initialize the inode cache right before reading the root directory inode */
+	fs->fs_fsop_size = sizeof(uint32_t);
+	icache_init(fs);
+
 	/* Everything is ok; fill out the filesystem details */
 	fs->fs_block_size = 512;
-	fs->fs_fsop_size = sizeof(uint32_t);
 	fs->fs_root_inode = cramfs_alloc_inode(fs);
 	cramfs_convert_inode((addr_t)&sb->c_rootinode - (addr_t)sb, &sb->c_rootinode, fs->fs_root_inode);
 

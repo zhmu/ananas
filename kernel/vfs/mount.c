@@ -117,7 +117,6 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 
 	fs->fs_device = dev;
 	fs->fs_fsops = fsops;
-	icache_init(fs);
 	dcache_init(fs);
 
 	err = fs->fs_fsops->mount(fs);

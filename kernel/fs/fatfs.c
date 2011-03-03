@@ -546,9 +546,14 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 #endif
 
 	/* Everything is in order - fill out our filesystem details */
-  fs->fs_block_size = privdata->sector_size;
-  fs->fs_fsop_size = sizeof(uint64_t);
-  fs->fs_root_inode = fat_alloc_inode(fs);
+	fs->fs_block_size = privdata->sector_size;
+	fs->fs_fsop_size = sizeof(uint64_t);
+
+	/* Initialize the inode cache right before reading the root directory inode */
+	icache_init(fs);
+
+	/* Grab the root directory inode */
+	fs->fs_root_inode = fat_alloc_inode(fs);
 	uint64_t root_fsop = FAT_ROOTINODE_FSOP;
 	errorcode_t err = vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
 	if (err != ANANAS_ERROR_NONE) {

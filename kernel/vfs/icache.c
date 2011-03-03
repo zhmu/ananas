@@ -85,6 +85,7 @@ icache_ensure_inode_gone(struct VFS_INODE* inode)
 void
 icache_init(struct VFS_MOUNTED_FS* fs)
 {
+	KASSERT(fs->fs_fsop_size > 0, "fsop size not initialized");
 	spinlock_init(&fs->fs_icache_lock);
 	DQUEUE_INIT(&fs->fs_icache_inuse);
 	DQUEUE_INIT(&fs->fs_icache_free);

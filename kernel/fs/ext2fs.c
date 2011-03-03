@@ -395,6 +395,9 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 	}
 #endif
 
+	/* Initialize the inode cache right before reading the root directory inode */
+	icache_init(fs);
+
 	/* Read the root inode */
 	uint32_t root_fsop = EXT2_ROOT_INO;
 	errorcode_t err = vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);

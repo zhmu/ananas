@@ -166,6 +166,7 @@ devfs_mount(struct VFS_MOUNTED_FS* fs)
 {
 	fs->fs_block_size = DEVFS_BLOCK_SIZE;
 	fs->fs_fsop_size = sizeof(uint32_t);
+	icache_init(fs);
 	fs->fs_root_inode = devfs_alloc_inode(fs);
 	uint32_t root_fsop = DEVFS_ROOTINODE_FSOP;
 	return vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
