@@ -43,10 +43,10 @@ thread_init(thread_t t, thread_t parent)
 		/*
 		 * No parent; use / as current path. This will not work in very early
 		 * initialiation, but that is fine - our lookup code should know what
-		 * to do.
+		 * to do with the NULL backing inode.
 		 */
 		err = handle_alloc(HANDLE_TYPE_FILE, t, &t->path_handle);
-		if (err != ANANAS_ERROR_NONE) {
+		if (err == ANANAS_ERROR_NONE) {
 			err = vfs_open("/", NULL, &t->path_handle->data.vfs_file);
 		}
 	}
