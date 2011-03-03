@@ -109,16 +109,16 @@ main(int argc, char* argv[])
 	/* There should now be two entries in the inode cache... */
 	CALCULATE_ICACHE_SIZE(root_inode->i_fs, icache_size);
 	assert(icache_size == 2);
-	/* ... first is the root inode ... */
+	/* First is the file we just opened (as it is most recently used) */
 	ii = DQUEUE_HEAD(&root_inode->i_fs->fs_icache_inuse);
-	assert(ii->inode == root_inode);
-	/* ... with a refcount of 4 (fs->root_inode, root_inode, dentry.parent and cache) */
-	assert(root_inode->i_refcount == 4);
-	/* ... and second is the file we just opened */
-	ii = DQUEUE_NEXT(ii);
 	assert(ii->inode == file1.f_inode);
 	/* With a refcount of 3 (file, dentry cache, inode cache) */
 	assert(ii->inode->i_refcount == 3);
+	/* ...second is the root inode ... */
+	ii = DQUEUE_NEXT(ii);
+	assert(ii->inode == root_inode);
+	/* ... with a refcount of 4 (fs->root_inode, root_inode, dentry.parent and cache) */
+	assert(root_inode->i_refcount == 4);
 
 	/* There should be a single item in the entry cache... */
 	CALCULATE_DCACHE_SIZE(root_inode->i_fs, dcache_size);
@@ -170,7 +170,6 @@ main(int argc, char* argv[])
 	CALCULATE_ICACHE_SIZE(root_inode->i_fs, icache_size);
 	assert(icache_size == 2);
 	ii = DQUEUE_HEAD(&root_inode->i_fs->fs_icache_inuse);
-	ii = DQUEUE_NEXT(ii);
 	assert(ii->inode == file1inode);
 	/* ... but the refcount must be only one (inode cache, dentry cache) */
 	assert(file1inode->i_refcount == 2);
@@ -210,15 +209,15 @@ main(int argc, char* argv[])
 	CALCULATE_ICACHE_SIZE(root_inode->i_fs, icache_size);
 	assert(icache_size == 2);
 
-	/* ...the first is the root inode... */
+	/* The first is the file inode... */
 	ii = DQUEUE_HEAD(&root_inode->i_fs->fs_icache_inuse);
+	/* ...with 2 refs (dentry cache, inode cache) */
+	assert(ii->inode->i_refcount == 2);
+	/* And then the root inode... */
+	ii = DQUEUE_NEXT(ii);
 	assert(ii->inode == root_inode);
 	/* ...with a refcount of 6 (5 + dentry for /dev dir)... */
 	assert(ii->inode->i_refcount == 6);
-	/* ...second is the file inode... */
-	ii = DQUEUE_NEXT(ii);
-	/* ...with 2 refs (dentry cache, inode cache) */
-	assert(ii->inode->i_refcount == 2);
 
 	/*
 	 * Obtain the new filesystem's root inode; we can't check the inode or entry
@@ -261,13 +260,15 @@ main(int argc, char* argv[])
 	CALCULATE_ICACHE_SIZE(root_inode->i_fs, icache_size);
 	assert(icache_size == 2);
 	ii = DQUEUE_HEAD(&root_inode->i_fs->fs_icache_inuse);
-	assert(ii->inode == root_inode);
-	/* Refcount must be 6 (fs->root_inode, root_inode, cache, 3x dentry parent dir) */
-	assert(ii->inode->i_refcount == 6);
-	ii = DQUEUE_NEXT(ii);
+	/* First is the file inode... */
 	assert(ii->inode == file1inode);
 	/* ... but the refcount must be two (inode cache, dentry cache) */
 	assert(file1inode->i_refcount == 2);
+	ii = DQUEUE_NEXT(ii);
+	/* Then the root inode ... */
+	assert(ii->inode == root_inode);
+	/* ... refcount must be 6 (fs->root_inode, root_inode, cache, 3x dentry parent dir) */
+	assert(ii->inode->i_refcount == 6);
 
 	/*
 	 * Part 3: Overload conditions.
@@ -341,13 +342,15 @@ main(int argc, char* argv[])
 	CALCULATE_ICACHE_SIZE(root_inode->i_fs, icache_size);
 	assert(icache_size == 2);
 	ii = DQUEUE_HEAD(&root_inode->i_fs->fs_icache_inuse);
-	assert(ii->inode == root_inode);
-	/* Refcount must be 3 (fs->root_inode, root_inode, inode cache) +  #cache_items */
-	assert(ii->inode->i_refcount == 3 + DCACHE_ITEMS_PER_FS);
-	ii = DQUEUE_NEXT(ii);
+	/* First the file inode... */
 	assert(ii->inode == file1inode);
 	/* ... but the refcount must remain at two (inode cache, dentry cache) */
 	assert(file1inode->i_refcount == 2);
+	ii = DQUEUE_NEXT(ii);
+	/* And then the root inode... */
+	assert(ii->inode == root_inode);
+	/* ... refcount must be 3 (fs->root_inode, root_inode, inode cache) +  #cache_items */
+	assert(ii->inode->i_refcount == 3 + DCACHE_ITEMS_PER_FS);
 
 	/* Now, let's request yet another nonexistent file ... */
 	struct VFS_FILE file4;
@@ -385,9 +388,9 @@ main(int argc, char* argv[])
 	assert((di->d_flags & DENTRY_FLAG_PERMANENT) != 0);
 	di = DQUEUE_NEXT(di);
 
-	/* And finally, we have FILE2 */
-	assert(strcmp(di->d_entry, FILE2) == 0);
-	assert((di->d_flags & DENTRY_FLAG_NEGATIVE) != 0);
+	/* And finally, we have FILE1 (because we prefer to remove non-negative entries) */
+	assert(strcmp(di->d_entry, FILE1) == 0);
+	assert((di->d_flags & DENTRY_FLAG_NEGATIVE) == 0);
 	assert((di->d_flags & DENTRY_FLAG_PERMANENT) == 0);
 	assert(DQUEUE_NEXT(di) == NULL); /* just a safeguard to verify the logic above */
 
@@ -398,14 +401,17 @@ main(int argc, char* argv[])
 	 */
 	CALCULATE_ICACHE_SIZE(root_inode->i_fs, icache_size);
 	assert(icache_size == 2);
+
 	ii = DQUEUE_HEAD(&root_inode->i_fs->fs_icache_inuse);
-	assert(ii->inode == root_inode);
-	/* Refcount must be 3 (fs->root_inode, root_inode, inode cache) + #cache_items */
-	assert(ii->inode->i_refcount == 3 + DCACHE_ITEMS_PER_FS);
-	ii = DQUEUE_NEXT(ii);
+	/* First the file inode.. .*/
 	assert(ii->inode == file1inode);
-	/* ... yet file1's refcount must be one (inode cache only) */
-	assert(file1inode->i_refcount == 1);
+	/* ... yet file1's refcount must be two (inode and dentry cache) */
+	assert(file1inode->i_refcount == 2);
+	ii = DQUEUE_NEXT(ii);
+	/* Then the root inode... */
+	assert(ii->inode == root_inode);
+	/* .. .refcount must be 3 (fs->root_inode, root_inode, inode cache) + #cache_items */
+	assert(ii->inode->i_refcount == 3 + DCACHE_ITEMS_PER_FS);
 
 	/*
 	 * Fill the inode cache by requesting files that actually exist; we
@@ -453,24 +459,9 @@ main(int argc, char* argv[])
 	}
 
 	/*
-	 * Everything else in the dentry cache must be non-permanent and negative,
-	 * except the devfs mountpoint, which should be permanent and non-negative
-	 * instead.
-	 */
-	while(di != NULL) {
-		if(di->d_flags & DENTRY_FLAG_PERMANENT) {
-			assert(strcmp(di->d_entry, DEVFS_MOUNTPOINT) == 0);
-			assert((di->d_flags & DENTRY_FLAG_NEGATIVE) == 0);
-		} else {
-			assert((di->d_flags & DENTRY_FLAG_NEGATIVE) != 0);
-		}
-		di = DQUEUE_NEXT(di);
-	}
-
-	/*
-	 * OK - inode cache is fully filled, dentry cache is fully filled. Now, fill the entire
-	 * dentry cache with requests. Because it is at least the inode cache size, this cannot be
-	 * satisfied.
+	 * OK - inode cache is fully filled, dentry cache is fully filled. Now, fill
+	 * the entire dentry cache with requests. Because it is at least the inode
+	 * cache size, this cannot be satisfied.
 	 */
 	for (int i = 0; i < DCACHE_ITEMS_PER_FS; i++) {
 		struct VFS_FILE file;
@@ -480,16 +471,39 @@ main(int argc, char* argv[])
 		CHECK_OK(vfs_close(&file));
 	}
 
-	/* Inode and dentry caches must be completely filled now */
+	/* Inode cache must be completely filled now... */
 	CALCULATE_ICACHE_SIZE(root_inode->i_fs, icache_size);
 	assert(icache_size == ICACHE_ITEMS_PER_FS);
+
+	/*
+	 * ... yet we can't expect the dentry cache to be completely filled,
+	 * because the inode code is free to clear it; all we can do is check
+	 * that at least the files we opened are in there, but as the test
+	 * filesystem image isn't specially generated, matching them is quite
+	 * hard - so we just have to settle for a check that at least the
+	 * cache entries are in there.
+	 *
+	 */
 	CALCULATE_DCACHE_SIZE(root_inode->i_fs, dcache_size);
-	assert(dcache_size == DCACHE_ITEMS_PER_FS);
+	assert(dcache_size >= ICACHE_ITEMS_PER_FS);
+	for (int i = 0; i < DCACHE_ITEMS_PER_FS; i++) {
+		struct VFS_FILE file;
+		char filename[64 /* XXX */];
+		snprintf(filename, sizeof(filename), FILENAME_DUMMY, i);
 
-	//dcache_dump(root_inode->i_fs);
-	//icache_dump(root_inode->i_fs);
+		/* See if the filename lives in the dentry cache; it should because the latter is larger */
+		int found = 0;
+		DQUEUE_FOREACH(&root_inode->i_fs->fs_dcache_inuse, di, struct DENTRY_CACHE_ITEM) {
+			if (strcmp(di->d_entry, filename) != 0)
+				continue;
+			/* Got it; it must be non-negative and non-permanent */
+			assert((di->d_flags & DENTRY_FLAG_NEGATIVE) == 0);
+			assert((di->d_flags & DENTRY_FLAG_PERMANENT) == 0);
+			found++;
+		}
+		assert(found == 1);
+	}
 
-//TRACE_ENABLE(VFS, ALL);
 	return 0;
 }
 
