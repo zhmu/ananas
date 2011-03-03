@@ -23,7 +23,7 @@ TRACE_SETUP;
 #define ICACHE_UNLOCK(fs) \
 	spinlock_unlock(&(fs)->fs_icache_lock);
 
-#define ICACHE_DEBUG
+#undef ICACHE_DEBUG
 
 static char*
 fsop_to_string(struct VFS_MOUNTED_FS* fs, void* fsop)
@@ -106,7 +106,7 @@ void
 icache_dump(struct VFS_MOUNTED_FS* fs)
 {
 	kprintf("icache_dump(): fs=%p\n", fs);
-	int i = 0;
+	int n = 0;
 	DQUEUE_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
 		kprintf("icache_entry=%p, inode=%p, fsop=",ii, ii->inode);
 		for (int i = 0; i < fs->fs_fsop_size; i++)
@@ -114,9 +114,9 @@ icache_dump(struct VFS_MOUNTED_FS* fs)
 		kprintf("\n");
 		if (ii->inode != NULL)
 			vfs_dump_inode(ii->inode);
-		i++;
-	}		
-	kprintf("icache_dump(): %u entries\n", i);
+		n++;
+	}               
+	kprintf("icache_dump(): %u entries\n", n);
 }
 
 void
@@ -211,6 +211,13 @@ retry:
 				continue;
 
 			/*
+			 * Purge the cache for the given entry; this should free the refs up and
+			 * allow us to throw the inode away. Note that this can always be done
+			 * because an entry that is not in the cache will be added as needed.
+			 */
+			dcache_remove_inode(jj->inode);
+
+			/*
 			 * Lock the item; if the refcount is one, it means the cache is the
 			 * sole owner and we can just grab the inode.
 			 */
@@ -246,11 +253,11 @@ retry:
 		goto retry;
 	}
 
-	/* Initialize the item */
+	/* Initialize the item and place it at the head; it's most recently used after all */
 	TRACE(VFS, INFO, "cache miss: fs=%p, fsop=%s => ii=%p", fs, fsop_to_string(fs, fsop), ii);
 	ii->inode = NULL;
 	memcpy(ii->fsop, fsop, fs->fs_fsop_size);
-	DQUEUE_ADD_TAIL(&fs->fs_icache_inuse, ii);
+	DQUEUE_ADD_HEAD(&fs->fs_icache_inuse, ii);
 	ICACHE_UNLOCK(fs);
 	return ii;
 }
@@ -319,13 +326,12 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinod
 	 */
 	struct VFS_INODE* inode = vfs_alloc_inode(fs);
 	if (inode == NULL) {
-panic("fooo");
 		icache_remove_pending(fs, ii);
 		return ANANAS_ERROR(OUT_OF_HANDLES);
 	}
+
 	errorcode_t result = fs->fs_fsops->read_inode(inode, fsop);
 	if (result != ANANAS_ERROR_NONE) {
-panic("waah - %u", result);
 		vfs_deref_inode(inode); /* throws it away */
 		return result;
 	}

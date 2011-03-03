@@ -37,12 +37,12 @@ dcache_init(struct VFS_MOUNTED_FS* fs)
 	 * Make an empty cache; we allocate one big pool and set up pointers to the
 	 * items as necessary.
 	 */
-	fs->fs_dcache_buffer = kmalloc(DCACHE_ITEMS_PER_FS * (sizeof(struct DENTRY_CACHE_ITEM) + fs->fs_fsop_size));
-	memset(fs->fs_dcache_buffer, 0, DCACHE_ITEMS_PER_FS * (sizeof(struct DENTRY_CACHE_ITEM) + fs->fs_fsop_size));
+	fs->fs_dcache_buffer = kmalloc(DCACHE_ITEMS_PER_FS * sizeof(struct DENTRY_CACHE_ITEM));
+	memset(fs->fs_dcache_buffer, 0, DCACHE_ITEMS_PER_FS * sizeof(struct DENTRY_CACHE_ITEM));
 	addr_t dcache_ptr = (addr_t)fs->fs_dcache_buffer;
 	for (int i = 0; i < DCACHE_ITEMS_PER_FS; i++) {
 		DQUEUE_ADD_TAIL(&fs->fs_dcache_free, (struct DENTRY_CACHE_ITEM*)dcache_ptr);
-		dcache_ptr += sizeof(struct DENTRY_CACHE_ITEM) + fs->fs_fsop_size;
+		dcache_ptr += sizeof(struct DENTRY_CACHE_ITEM);
 	}
 }
 
@@ -50,11 +50,14 @@ void
 dcache_dump(struct VFS_MOUNTED_FS* fs)
 {
 	/* XXX Don't lock; this is for debugging purposes only */
+	int n = 0;
 	kprintf("dcache_dump(): fs=%p\n", fs);
 	DQUEUE_FOREACH(&fs->fs_dcache_inuse, d, struct DENTRY_CACHE_ITEM) {
 		kprintf("dcache_entry=%p, dir_inode=%p, entry_inode=%p, name='%s', flags=0x%x\n",
 		 d, d->d_dir_inode, d->d_entry_inode, d->d_entry, d->d_flags);
+		n++;
 	}
+	kprintf("dcache_dump(): %u entries\n", n);
 }
 
 void
@@ -144,6 +147,10 @@ retry:
 		 * away whatever we like; a subsequent lookup will simple re-add it as
 		 * needed. We attempt to take the final entry and make our way back, as the
 		 * most recently used items are placed near the start.
+		 *
+		 * XXX Note that we'll prefer a negative cache entry over a position one to
+		 * waste; this makes us likely waste time while searching for one. However,
+		 * this can be solved by splitting the in-use queue, which is for later XXX
 		 */
 		DQUEUE_FOREACH_REVERSE_SAFE(&fs->fs_dcache_inuse, dd, struct DENTRY_CACHE_ITEM) {
 			/* Skip permanent entries outright */
@@ -153,17 +160,24 @@ retry:
 			if ((dd->d_flags & DENTRY_FLAG_NEGATIVE) == 0 && dd->d_entry_inode == NULL)
 				continue;
 
+			/* This entry will do */
+			d = dd;
+
+			/* If we have a negative cache item, prefer it over any real item */
+			if (dd->d_flags & DENTRY_FLAG_NEGATIVE)
+				break;
+		}
+
+		/* Note that d can still be NULL if nothing could be removed */
+		if (d != NULL) {
 			/* Throw away the backing inode and remove this item from the cache */
-			DQUEUE_REMOVE(&fs->fs_dcache_inuse, dd);
+			DQUEUE_REMOVE(&fs->fs_dcache_inuse, d);
 
 			/* Dereference the inodes; we've removed our entry */
-			if (dd->d_entry_inode != NULL)
-				vfs_deref_inode(dd->d_entry_inode);
-			vfs_deref_inode(dd->d_dir_inode);
-			d = dd;
-			break;
+			if (d->d_entry_inode != NULL)
+				vfs_deref_inode(d->d_entry_inode);
+			vfs_deref_inode(d->d_dir_inode);
 		}
-		/* Note that d can still be NULL if nothing could be removed */
 	}
 
 	/*
@@ -173,7 +187,6 @@ retry:
 	if (d == NULL) {
 		DCACHE_UNLOCK(fs);
 		kprintf("dcache_find_item_or_add_pending(): cache full and no empty entries, retrying!\n");
-		panic("mustn't happen\n");
 		reschedule();
 		goto retry;
 	}
@@ -193,29 +206,29 @@ retry:
 	return d;
 }
 
-#if 0
 void
 dcache_remove_inode(struct VFS_INODE* inode)
 {
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
-	KASSERT(inode->i_refcount == 0, "inode still referenced");
 
 	DCACHE_LOCK(fs);
 	if (!DQUEUE_EMPTY(&fs->fs_dcache_inuse)) {
 		DQUEUE_FOREACH_SAFE(&fs->fs_dcache_inuse, d, struct DENTRY_CACHE_ITEM) {
-			if (d->d_dir_inode != inode && d->d_entry_inode != inode)
+			/* Never touch pending entries; the lookup code deals with them */
+			if (d->d_entry_inode == NULL)
 				continue;
-			/* Free the entry inode if we are removing its parent inode */
-			if (d->d_dir_inode == inode && d->d_entry_inode != NULL)
+			/* Free the inode */
+			vfs_deref_inode(d->d_dir_inode);
+			if (d->d_entry_inode != NULL)
 				vfs_deref_inode(d->d_entry_inode);
 
 			/* Remove from in-use and add to free list */
 			DQUEUE_REMOVE(&fs->fs_dcache_inuse, d);
 			DQUEUE_ADD_TAIL(&fs->fs_dcache_free, d);
+			TRACE(VFS, INFO, "freed cache item: d=%p, dir_inode=%p, entry_inode=%p", d, d->d_dir_inode, d->d_entry_inode);
 		}
 	}
 	DCACHE_UNLOCK(fs);
 }
-#endif
 
 /* vim:set ts=2 sw=2: */

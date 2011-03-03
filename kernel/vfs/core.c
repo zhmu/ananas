@@ -128,6 +128,7 @@ vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, cons
 void
 vfs_ref_inode(struct VFS_INODE* inode)
 {
+	KASSERT(inode != NULL, "reffing a null inode");
 	TRACE(VFS, FUNC, "inode=%p,cur refcount=%u", inode, inode->i_refcount);
 	INODE_ASSERT_SANE(inode);
 
