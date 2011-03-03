@@ -12,6 +12,7 @@
 static struct THREAD kdb_thread;
 static const char* kdb_why = NULL;
 static int kdb_active = 0;
+struct THREAD* kdb_curthread = NULL;
 
 typedef void kdb_func_t(int num_args, char** arg);
 
@@ -138,6 +139,27 @@ kdb_enter(const char* why)
 	/* Force our thread to restart and reset the entry point */
 	md_thread_setkthread(&kdb_thread, kdb_func, NULL);
 	thread_resume(&kdb_thread);
+}
+
+void
+kdb_panic()
+{
+	/*
+	 * Disable the current thread and enter the debugger; note that this cannot
+	 * be done if there is no current thread (i.e. in early bootup) so we'll just
+	 * halt there for the time being XXX
+	 */
+	struct THREAD* curthread = PCPU_GET(curthread);
+	if (curthread != NULL) {
+		kdb_curthread = curthread; /* switch to the panicing thread */
+		thread_suspend(curthread);
+		kdb_enter("panic");
+		scheduler_activate(); /* so that we'll enter the debugger */
+		reschedule();
+	} else {
+		scheduler_deactivate();
+		while(1);
+	}
 }
 
 /* vim:set ts=2 sw=2: */
