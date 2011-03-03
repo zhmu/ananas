@@ -19,6 +19,7 @@ vfs/generic.c		mandatory
 vfs/icache.c		mandatory
 vfs/mount.c		mandatory
 vfs/standard.c		mandatory
+vfs/vfs-kdb.c		option KDB
 # libkern library
 lib/kern/misc.c		mandatory
 lib/kern/memset.c	mandatory

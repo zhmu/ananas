@@ -27,6 +27,7 @@ extern kdb_func_t kdb_cmd_handle;
 extern kdb_func_t kdb_cmd_vfs_mounts;
 extern kdb_func_t kdb_cmd_devices;
 extern kdb_func_t kdb_cmd_irq;
+extern kdb_func_t kdb_cmd_inodes;
 
 struct KDB_COMMAND {
 	const char* cmd;
@@ -44,6 +45,7 @@ struct KDB_COMMAND {
 	{ "vfs", "Display filesystem information", &kdb_cmd_vfs_mounts },
 	{ "devices", "Display devices list", &kdb_cmd_devices },
 	{ "irq", "Display IRQ list", &kdb_cmd_irq },
+	{ "inodes", "Display inode cache", &kdb_cmd_inodes },
 	{ NULL, NULL, NULL }
 };
 
