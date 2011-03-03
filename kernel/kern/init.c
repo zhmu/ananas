@@ -87,6 +87,7 @@ mi_startup()
 			} else {
 				kprintf(" fail - error %i\n", err);
 			}
+			vfs_close(&f);
 		} else {
 			kprintf(" fail - error %i\n", err);
 		}
