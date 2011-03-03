@@ -46,10 +46,17 @@
 #define TRACE_LEVEL_ERROR	0x0002			/* Error report */
 #define TRACE_LEVEL_INFO	0x0004			/* Information */
 #define TRACE_LEVEL_WARN	0x0008			/* Warning */
+#define TRACE_LEVEL_ALL		0xffff			/* Everything */
 
+#define TRACE_IS_ENABLED(s, l) \
+	(trace_subsystem_mask[TRACE_SUBSYSTEM_##s] & TRACE_LEVEL_##l)
+
+#define TRACE_DO(x...) \
+	tracef(TRACE_FILE_ID, __func__, x)
+	
 #define TRACE(s,l,x...)	 \
-	if (trace_subsystem_mask[TRACE_SUBSYSTEM_##s] & TRACE_LEVEL_##l) \
-		tracef(TRACE_FILE_ID, __func__, x)
+	if (TRACE_IS_ENABLED(s, l)) \
+		TRACE_DO(x)
 
 #define TRACE_ENABLE(s,l) \
 	trace_subsystem_mask[TRACE_SUBSYSTEM_##s] |= TRACE_LEVEL_##l
