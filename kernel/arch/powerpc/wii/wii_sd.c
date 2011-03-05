@@ -155,10 +155,11 @@ wiisd_bread(device_t dev, struct BIO* bio)
 	KASSERT(bio->length == 512, "invalid length"); /* XXX */
 
 	if (wiisd_read_block(dev, bio->io_block, bio->data)) {
+		bio_set_error(bio);
 		kprintf("wiisd_read(): i/o error");
 		return ANANAS_ERROR(IO);
 	}
-	bio->flags &= ~BIO_FLAG_DIRTY;
+	bio_set_available(bio);
 	return ANANAS_ERROR_OK;
 }
 

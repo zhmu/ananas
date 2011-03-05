@@ -39,7 +39,7 @@ ramdisk_read(device_t dev, void* buffer, size_t* length, off_t offset)
 	struct BIO* bio = buffer;
 	void* addr = (void*)((addr_t)bootinfo->bi_ramdisk_addr + (addr_t)offset * 512);
 	memcpy(bio->data, addr, *length);
-	bio->flags &= ~BIO_FLAG_DIRTY;
+	bio_set_available(bio);
 	return ANANAS_ERROR_OK;
 }
 

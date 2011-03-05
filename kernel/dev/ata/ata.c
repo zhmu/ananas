@@ -81,7 +81,7 @@ ata_irq(device_t dev)
 	}
 	
 	/* Current request is done. Sign it off and away it goes */
-	item->bio->flags &= ~BIO_FLAG_DIRTY;
+	bio_set_available(item->bio);
 	kfree(item);
 }
 
