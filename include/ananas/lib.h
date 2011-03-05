@@ -1,4 +1,5 @@
 #include <ananas/types.h>
+#include <ananas/cdefs.h>
 #include <stdarg.h>
 
 #ifndef __LIBKERN_H__
@@ -12,28 +13,26 @@
 		_panic(__FILE__, __func__, __LINE__, msg, ##args)
 
 
-void* memcpy(void* dst, const void* src, size_t len);
-void* memset(void* b, int c, size_t len);
+void* memcpy(void* dst, const void* src, size_t len) __nonnull;
+void* memset(void* b, int c, size_t len) __nonnull;
 void vaprintf(const char* fmt, va_list ap);
 void kprintf(const char* fmt, ...);
-void _panic(const char* file, const char* func, int line, const char* fmt, ...);
+void _panic(const char* file, const char* func, int line, const char* fmt, ...) __noreturn;
 int sprintf(char* str, const char* fmt, ...);
-char* strdup(const char* s);
+char* strdup(const char* s) __nonnull;
 
-char* strcpy(char* dst, const char* src);
-int   strcmp(const char* s1, const char* s2);
-int   strncmp(const char* s1, const char* s2, size_t n);
-char* strchr(const char* s, int c);
-char* strrchr(const char* s, int c);
-size_t strlen(const char* s);
-char* strcat(char* dst, const char* src);
+char* strcpy(char* dst, const char* src) __nonnull;
+int   strcmp(const char* s1, const char* s2) __nonnull;
+int   strncmp(const char* s1, const char* s2, size_t n) __nonnull;
+char* strchr(const char* s, int c) __nonnull;
+char* strrchr(const char* s, int c) __nonnull;
+size_t strlen(const char* s) __nonnull;
+char* strcat(char* dst, const char* src) __nonnull;
 
-char* strncpy(char* dst, const char* src, size_t n);
+char* strncpy(char* dst, const char* src, size_t n) __nonnull;
 
-int memcmp(const void* s1, const void* s2, size_t len);
+int memcmp(const void* s1, const void* s2, size_t len) __nonnull;
 
 unsigned long strtoul(const char* ptr, char** endptr, int base);
-
-void abort();
 
 #endif /* __LIBKERN_H__ */

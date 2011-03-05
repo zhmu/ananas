@@ -1,4 +1,5 @@
 #include <ananas/types.h>
+#include <ananas/cdefs.h>
 
 #ifndef __MM_H__
 #define __MM_H__
@@ -67,7 +68,7 @@ void mm_init();
 void mm_zone_add(addr_t addr, size_t length);
 void kmem_stats(size_t* avail, size_t* total);
 void* kmem_alloc(size_t len);
-void* kmalloc(size_t len);
+void* kmalloc(size_t len) __malloc;
 void  kfree(void* ptr);
 
 void kmem_mark_used(void* addr, size_t num_pages);
