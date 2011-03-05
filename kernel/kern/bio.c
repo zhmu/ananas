@@ -129,8 +129,11 @@ bio_cleanup()
 		if(bio->bucket_next != NULL)
 			bio->bucket_next->bucket_prev = bio->bucket_prev;
 	}
-	/* nuke the bio info */
-	bio->flags = 0;
+	/*
+	 * Clear the bio info; it's available again for use (but set it as pending as
+	 * the data it's not yet available)
+	 */
+	bio->flags = BIO_FLAG_PENDING;
 	bio->data = NULL;
 	spinlock_unlock(&spl_bucket[bucket_num]);
 	spinlock_unlock(&spl_bio_bitmap);
@@ -251,16 +254,17 @@ bio_restartdata:
 	spinlock_unlock(&spl_bucket[bucket_num]);
 
 	/*
-	 * Throw away any flags the buffer has (as this is a new request,
-	 * we can't anything more sensible yet)
+	 * Throw away any flags the buffer has (as this is a new request, we can't
+	 * anything more sensible yet) - note that we need to set the pending flag
+	 * because the data isn't ready yet.
 	 */
-	bio->flags = BIO_FLAG_DIRTY;
+	bio->flags = BIO_FLAG_PENDING;
 	bio->device = dev;
 	bio->block = block;
 	bio->io_block = block;
 	bio->length = len;
 	bio->data = bio_data + (cur_data_block * BIO_SECTOR_SIZE);
-	TRACE(BIO, INFO, "returning cached bio=%p", bio);
+	TRACE(BIO, INFO, "returning new bio=%p", bio);
 	return bio;
 }
 
@@ -277,7 +281,7 @@ int
 bio_waitcomplete(struct BIO* bio)
 {	
 	TRACE(BIO, FUNC, " bio=%p", bio);
-	while((bio->flags & BIO_FLAG_DIRTY) != 0) {
+	while((bio->flags & BIO_FLAG_PENDING) != 0) {
 		reschedule();
 	}
 	return 0;
@@ -288,10 +292,10 @@ bio_read(device_t dev, block_t block, size_t len)
 {
 	struct BIO* bio = bio_get(dev, block, len);
 	/*
-	 * If we have a block that is not dirty, this means we can return it. XXX
-	 * what about dirty write?
+	 * If we have a block that is not pending, we can just return it. Note that
+	 * dirty blocks are never pending.
 	 */
-	if ((bio->flags & BIO_FLAG_DIRTY) == 0) {
+	if ((bio->flags & BIO_FLAG_PENDING) == 0) {
 		TRACE(BIO, INFO, "dev=%p, block=%u, len=%u ==> cached block %p", dev, (int)block, len, bio);
 		return bio;
 	}
@@ -300,8 +304,9 @@ bio_read(device_t dev, block_t block, size_t len)
 	/* kick the device; we want it to read */
 	errorcode_t err = device_bread(dev, bio);
 	if (err != ANANAS_ERROR_NONE) {
-		/* XXX now what? */
 		kprintf("bio_read(): device_read() failed, %i\n", err);
+		bio_set_error(bio);
+		return bio;
 	}
 
 	/* ... and wait until we have something to report... */
@@ -314,14 +319,14 @@ void
 bio_set_error(struct BIO* bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", bio);
-	bio->flags = (bio->flags & ~BIO_FLAG_DIRTY) | BIO_FLAG_ERROR;
+	bio->flags = (bio->flags & ~BIO_FLAG_PENDING) | BIO_FLAG_ERROR;
 }
 
 void
-bio_set_ready(struct BIO* bio)
+bio_set_available(struct BIO* bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", bio);
-	bio->flags &= ~BIO_FLAG_DIRTY;
+	bio->flags &= ~BIO_FLAG_PENDING;
 }
 
 #ifdef KDB

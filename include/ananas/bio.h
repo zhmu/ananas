@@ -28,10 +28,11 @@
  */
 struct BIO {
 	uint32_t	flags;
-#define BIO_FLAG_DIRTY	0x0001		/* I/O needs to be read/written */
-#define BIO_FLAG_READ	0x0002		/* Must read data */
-#define BIO_FLAG_WRITE	0x0004		/* Must write data */
-#define BIO_FLAG_ERROR	0x8000		/* Request failed */
+#define BIO_FLAG_PENDING	0x0001	/* Block is pending read */
+#define BIO_FLAG_DIRTY		0x0002	/* I/O needs to be written */
+#define BIO_FLAG_READ		0x0004	/* Must read data */
+#define BIO_FLAG_WRITE		0x0008	/* Must write data */
+#define BIO_FLAG_ERROR		0x8000	/* Request failed */
 	device_t	device;		/* Device I/O'ing from */
 	block_t		block;		/* Block number to I/O */
 	block_t		io_block;	/* Translated block number to I/O */
@@ -47,7 +48,7 @@ struct BIO {
 void bio_init();
 int bio_waitcomplete(struct BIO* bio);
 void bio_set_error(struct BIO* bio);
-void bio_set_done(struct BIO* bio);
+void bio_set_available(struct BIO* bio);
 struct BIO* bio_read(device_t dev, block_t block, size_t len);
 struct BIO* bio_get_next(device_t dev);
 void bio_free(struct BIO* bio);
