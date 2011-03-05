@@ -139,10 +139,8 @@ kmem_stats(size_t* avail, size_t* total)
 void
 kmem_dump()
 {
-	struct MM_ZONE* curzone = zone_root;
-
 	kprintf("zone dump\n");
-	for (curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
+	for (struct MM_ZONE* curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
 		kprintf("zone 0x%p: addr 0x%x, length 0x%x, #chunks %u, num_free %u, num_cont_free %u, flags %u, chunks %p, next %p\n",
 		 curzone, curzone->address, curzone->length, curzone->num_chunks,
 		 curzone->num_free, curzone->num_cont_free, curzone->flags, curzone->chunks,
