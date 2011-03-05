@@ -1,5 +1,6 @@
 #include <ananas/threadinfo.h>
 #include <_posix/fdmap.h>
+#include <_posix/init.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,6 +44,14 @@ libc_initialize_arg(const char* arg, char*** dest, int* count)
 }
 
 void
+libc_reinit_environ()
+{
+	if (environ != NULL)
+		free(environ);
+	libc_initialize_arg(libc_threadinfo->ti_env, &environ, NULL);
+}
+
+void
 libc_init(struct THREADINFO* ti)
 {
 	libc_threadinfo = ti;
@@ -50,7 +59,7 @@ libc_init(struct THREADINFO* ti)
 
 	/* Initialize argument and environment variables */
 	libc_initialize_arg(ti->ti_args, &libc_argv, &libc_argc);
-	libc_initialize_arg(ti->ti_env,  &environ, NULL);
+	libc_reinit_environ();
 }
 
 /* vim:set ts=2 sw=2: */
