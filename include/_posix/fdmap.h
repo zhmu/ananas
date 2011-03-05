@@ -3,7 +3,7 @@
 
 #define FDMAP_SIZE	16
 
-struct THREADINFO* ti;
+struct THREADINFO;
 
 void fdmap_init(struct THREADINFO* ti);
 int fdmap_alloc_fd(void* handle);
