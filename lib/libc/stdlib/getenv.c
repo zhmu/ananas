@@ -18,7 +18,6 @@ extern char * * environ;
 
 char * getenv( const char * name )
 {
-#if 0
     size_t len = strlen( name );
     size_t index = 0;
     while ( environ[ index ] != NULL )
@@ -29,7 +28,6 @@ char * getenv( const char * name )
         }
         index++;
     }
-#endif
     return NULL;
 }
 
