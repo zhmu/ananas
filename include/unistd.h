@@ -6,6 +6,9 @@
 #ifndef __UNISTD_H___
 #define __UNISTD_H__
 
+/* XXX We lie and claim to support IEEE Std 1003.1-2001 */
+#define _POSIX_VERSION 200112L
+
 #define STDIN_FILENO	0
 #define STDOUT_FILENO	1
 #define STDERR_FILENO	2
