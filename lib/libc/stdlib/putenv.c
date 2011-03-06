@@ -1,4 +1,5 @@
 #include <ananas/threadinfo.h>
+#include <_posix/init.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,7 +32,7 @@ putenv(char* string)
 		 * that is in the ti_env field; we'll use this to remove the key if
 		 * necessary.
 		 */
-		const char** env = environ;
+		char** env = environ;
 		while (*env != NULL) {
 			if (strncmp(*env, string, ptr - string) == 0)
 				break;
