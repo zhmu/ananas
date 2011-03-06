@@ -11,6 +11,7 @@
 */
 
 #include <stdio.h>
+#include <unistd.h>
 
 #ifndef REGTEST
 #include <_PDCLIB/_PDCLIB_glue.h>
@@ -32,25 +33,7 @@ int _PDCLIB_fillbuffer( struct _PDCLIB_file_t * stream )
     }
     if ( rc < 0 )
     {
-	/* XXX ananas doesn't support errno yet */
-#if 0
-        /* Reading error */
-        switch ( errno )
-        {
-            case EBADF:
-            case EFAULT:
-            case EINTR:
-            case EINVAL:
-            case EIO:
-                _PDCLIB_errno = _PDCLIB_EIO;
-                break;
-            default:
-#endif
-                _PDCLIB_errno = _PDCLIB_EUNKNOWN;
-#if 0
-                break;
-        }
-#endif
+        /* note that read() sets errno for us */
         stream->status |= _PDCLIB_ERRORFLAG;
         return EOF;
     }

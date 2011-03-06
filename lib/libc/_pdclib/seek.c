@@ -7,6 +7,7 @@
 */
 
 #include <stdio.h>
+#include <unistd.h>
 
 #ifndef _PDCLIB_GLUE_H
 #define _PDCLIB_GLUE_H
@@ -27,8 +28,9 @@ _PDCLIB_int64_t _PDCLIB_seek( struct _PDCLIB_file_t * stream, _PDCLIB_int64_t of
             return EOF;
             break;
     }
+    /* note that lseek() sets errno, so we won't have to */
     _PDCLIB_int64_t rc = lseek( stream->handle, offset, whence );
-    if ( rc != EOF )
+    if ( rc >= 0 )
     {
         stream->ungetidx = 0;
         stream->bufidx = 0;
@@ -36,20 +38,6 @@ _PDCLIB_int64_t _PDCLIB_seek( struct _PDCLIB_file_t * stream, _PDCLIB_int64_t of
         stream->pos.offset = rc;
         return rc;
     }
-#if 0
-    switch ( errno )
-    {
-        case EBADF:
-        case EFAULT:
-            _PDCLIB_errno = _PDCLIB_EIO;
-            break;
-        default:
-#endif
-            _PDCLIB_errno = _PDCLIB_EUNKNOWN;
-#if 0
-            break;
-    }
-#endif
     return EOF;
 }
 

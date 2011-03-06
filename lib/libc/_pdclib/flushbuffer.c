@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #ifndef REGTEST
 #include <_PDCLIB/_PDCLIB_glue.h>
@@ -33,37 +34,16 @@ int _PDCLIB_flushbuffer( struct _PDCLIB_file_t * stream )
     }
     /* No need to handle buffers > INT_MAX, as PDCLib doesn't allow them */
     _PDCLIB_size_t written = 0;
-    int rc;
+    ssize_t rc;
     /* Keep trying to write data until everything is written, an error
        occurs, or the configured number of retries is exceeded.
     */
     for ( unsigned int retries = _PDCLIB_IO_RETRIES; retries > 0; --retries )
     {
-        rc = (int)write( stream->handle, stream->buffer + written, stream->bufidx - written );
+        rc = write( stream->handle, stream->buffer + written, stream->bufidx - written );
         if ( rc < 0 )
         {
-	/* XXX Ananas: no errno yet */
-#if 0
-            /* Write error */
-            switch ( errno )
-            {
-                case EBADF:
-                case EFAULT:
-                case EFBIG:
-                case EINTR:
-                case EINVAL:
-                case EIO:
-                case ENOSPC:
-                case EPIPE:
-                    _PDCLIB_errno = _PDCLIB_EIO;
-                    break;
-                default:
-#endif
-                    _PDCLIB_errno = _PDCLIB_EUNKNOWN;
-#if 0
-                    break;
-            }
-#endif
+            /* note that write() sets errno for us */
             stream->status |= _PDCLIB_ERRORFLAG;
             /* Move unwritten remains to begin of buffer. */
             stream->bufidx -= written;
