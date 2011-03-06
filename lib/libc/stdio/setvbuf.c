@@ -14,6 +14,8 @@
 
 int setvbuf( struct _PDCLIB_file_t * _PDCLIB_restrict stream, char * _PDCLIB_restrict buf, int mode, size_t size )
 {
+    unsigned int prev_status = stream->status;
+
     switch ( mode )
     {
         case _IONBF:
@@ -24,7 +26,7 @@ int setvbuf( struct _PDCLIB_file_t * _PDCLIB_restrict stream, char * _PDCLIB_res
             break;
         case _IOFBF:
         case _IOLBF:
-            if ( size > INT_MAX || size == NULL )
+            if ( size > INT_MAX || size == 0 )
             {
                 /* PDCLib only supports buffers up to INT_MAX in size. A size
                    of zero doesn't make sense.
@@ -51,6 +53,9 @@ int setvbuf( struct _PDCLIB_file_t * _PDCLIB_restrict stream, char * _PDCLIB_res
                         /* Out of memory error. */
                         return -1;
                     }
+                } else {
+                    /* No need to resize - use the current buffer */
+                    buf = stream->buffer;
                 }
             }
             else
@@ -60,7 +65,12 @@ int setvbuf( struct _PDCLIB_file_t * _PDCLIB_restrict stream, char * _PDCLIB_res
                 */
                 stream->status &= ~ _PDCLIB_LIBBUFFER;
             }
-            free( stream->buffer );
+            /*
+             * Free the old buffer - but only if necessary (i.e. new buffer and
+             * we are responsible for it.
+             */
+            if ((prev_status & _PDCLIB_LIBBUFFER) && (stream->buffer != buf))
+                free( stream->buffer );
             stream->buffer = buf;
             stream->bufsize = size;
             break;
@@ -72,6 +82,8 @@ int setvbuf( struct _PDCLIB_file_t * _PDCLIB_restrict stream, char * _PDCLIB_res
     stream->status &= ~( _IOFBF | _IOLBF | _IONBF );
     /* Set user-defined mode */
     stream->status |= mode;
+    /* Rewind the buffer index */
+    stream->bufidx = 0;
     return 0;
 }
 
