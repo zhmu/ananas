@@ -183,6 +183,44 @@ fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clus
 }
 
 /*
+ * Maps the given block of an inode to the block device's block to use; note
+ * that on FAT, a block size is identical to a sector size.
+ */
+static errorcode_t
+fat_block_map(struct VFS_INODE* inode, block_t block_in, block_t* block_out, int create)
+{
+	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
+	struct BIO* bio = NULL;
+
+	/* XXX Writing isn't yet supported */
+	KASSERT(!create, "no writing yet");
+
+	/*
+	 * FAT12/16 root inodes are special as they have a fixed location and
+	 * length; the FAT isn't needed to traverse them.
+	 */
+	block_t want_block;
+	if (privdata->root_inode && fs_privdata->fat_type != 32) {
+		want_block = fs_privdata->first_rootdir_sector + block_in;
+		if (block_in >= (fs_privdata->num_rootdir_sectors * fs_privdata->sector_size))
+			return ANANAS_ERROR(BAD_RANGE);
+	} else {
+		uint32_t cluster = fat_get_cluster(fs, privdata->first_cluster, block_in / fs_privdata->sectors_per_cluster);
+		if (cluster == 0) {
+			/* end of the chain */
+			return ANANAS_ERROR(BAD_RANGE);
+		}
+		want_block  = fat_cluster_to_sector(fs, cluster);
+		want_block += block_in % fs_privdata->sectors_per_cluster;
+	}
+
+	*block_out = want_block;
+	return ANANAS_ERROR_OK;
+}
+
+/*
  * Performs a FAT file read; the cur_block/cur_offset parts are needed to construct
  * FSOP's when traversing a directory.
  */
@@ -195,26 +233,13 @@ fat_do_read(struct VFS_FILE* file, void* buf, size_t* len, block_t* cur_block, i
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 	size_t written = 0;
 	size_t left = *len;
-
 	struct BIO* bio = NULL;
+
 	*cur_block = 0;
 	while(left > 0) {
-		/*
-		 * FAT12/16 root inodes are special as they have a fixed location and
-		 * length; the FAT isn't needed to traverse them.
-		 */
 		block_t want_block;
-		if (privdata->root_inode && fs_privdata->fat_type != 32) {
-			want_block = fs_privdata->first_rootdir_sector + (file->f_offset / (block_t)fs->fs_block_size);
-			if (file->f_offset >= (fs_privdata->num_rootdir_sectors * fs_privdata->sector_size))
-				break;
-		} else {
-			uint32_t cluster = fat_get_cluster(fs, privdata->first_cluster, (file->f_offset / (fs_privdata->sectors_per_cluster * fs_privdata->sector_size)));
-			if (cluster == 0) /* end of the chain */
-				break;
-			want_block  = fat_cluster_to_sector(fs, cluster);
-			want_block += ((file->f_offset % (fs_privdata->sectors_per_cluster * fs_privdata->sector_size)) / fs->fs_block_size);
-		}
+		errorcode_t err = fat_block_map(inode, (file->f_offset / (block_t)fs->fs_block_size), &want_block, 0);
+		ANANAS_ERROR_RETURN(err);
 
 		/* Grab the block if needed */
 		if (*cur_block != want_block) {
@@ -242,16 +267,9 @@ fat_do_read(struct VFS_FILE* file, void* buf, size_t* len, block_t* cur_block, i
 	return ANANAS_ERROR_OK;
 }
 
-static errorcode_t
-fat_read(struct VFS_FILE* file, void* buf, size_t* len)
-{
-	block_t cur_block;
-	int cur_offs;
-	return fat_do_read(file, buf, len, &cur_block, &cur_offs);
-}
-
 static struct VFS_INODE_OPS fat_file_ops = {
-	.read = fat_read,
+	.read = vfs_generic_read,
+	.block_map = fat_block_map
 };
 
 #if 0
@@ -330,56 +348,66 @@ fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename, int* cur_po
 
 	return 1;
 }
+
 static errorcode_t
 fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
+	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
 	size_t written = 0;
 	size_t left = *len;
 	char cur_filename[128]; /* currently assembled filename */
 	int cur_filename_len = 0;
 	off_t full_filename_offset = file->f_offset;
+	struct BIO* bio = NULL;
 	errorcode_t err = ANANAS_ERROR_OK;
 
+	block_t cur_block;
 	while(left > 0) {
-		struct FAT_ENTRY fentry;
-		block_t cur_block;
-		int cur_offs;
-		size_t entry_length = sizeof(struct FAT_ENTRY);
-		err = fat_do_read(file, &fentry, &entry_length, &cur_block, &cur_offs);
-		if (err != ANANAS_ERROR_NONE)
-			break;
-		if (entry_length != sizeof(struct FAT_ENTRY)) {
-			err = ANANAS_ERROR(SHORT_READ);
-			break;
+		/* Obtain the current directory block data */
+		block_t want_block;
+		errorcode_t err = fat_block_map(file->f_inode, (file->f_offset / (block_t)fs->fs_block_size), &want_block, 0);
+		ANANAS_ERROR_RETURN(err);
+		if (want_block != cur_block || bio == NULL) {
+			if (bio != NULL) bio_free(bio);
+			bio = fat_bread(fs, want_block);
+			if (bio == NULL) {
+				/* XXX error handling */
+				return ANANAS_ERROR(IO);
+			}
+			cur_block = want_block;
 		}
 
-		if (fentry.fe_filename[0] == '\0') {
+		uint32_t cur_offs = file->f_offset % fs->fs_block_size;
+		file->f_offset += sizeof(struct FAT_ENTRY);
+		struct FAT_ENTRY* fentry = BIO_DATA(bio) + cur_offs;
+		if (fentry->fe_filename[0] == '\0') {
 			/* First charachter is nul - this means there are no more entries to come */
 			break;
 		}
 
-		if (fentry.fe_filename[0] == 0xe5) {
+		if (fentry->fe_filename[0] == 0xe5) {
 			/* Deleted file; we'll skip it */
 			continue;
 		}
 
 		/* Convert the filename bits */
-		if (!fat_construct_filename(&fentry, cur_filename, &cur_filename_len))
+		if (!fat_construct_filename(fentry, cur_filename, &cur_filename_len)) {
 			/* This is part of a long file entry name - get more */
 			continue;
+		}
 
 		/*
 		 * If this is a volume entry, ignore it (but do this after the LFN has been handled
 		 * because these will always have the volume bit set)
 		 */
-		if (fentry.fe_attributes & FAT_ATTRIBUTE_VOLUMEID) {
+		if (fentry->fe_attributes & FAT_ATTRIBUTE_VOLUMEID) {
 			cur_filename_len = 0;
 			continue;
 		}
 
 		/* And hand it to the fill function */
 		uint64_t fsop = cur_block << 16 | cur_offs;
-		int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, file->f_inode->i_fs->fs_fsop_size, cur_filename, cur_filename_len);
+		int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, fs->fs_fsop_size, cur_filename, cur_filename_len);
 		if (!filled) {
 			/*
 			 * Out of space - we need to restore the offset of the LFN chain. This must
@@ -398,6 +426,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		 */
 		full_filename_offset = file->f_offset;
 	}
+	if (bio != NULL) bio_free(bio);
 	*len = written;
 	return err;
 }
