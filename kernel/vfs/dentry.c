@@ -171,6 +171,8 @@ retry:
 		/* Note that d can still be NULL if nothing could be removed */
 		if (d != NULL) {
 			/* Throw away the backing inode and remove this item from the cache */
+			TRACE(VFS, INFO, "purging entry d=%p, entryinode=%p, entry='%s'",
+			 d, d->d_entry_inode, d->d_entry);
 			DQUEUE_REMOVE(&fs->fs_dcache_inuse, d);
 
 			/* Dereference the inodes; we've removed our entry */
@@ -225,7 +227,8 @@ dcache_remove_inode(struct VFS_INODE* inode)
 			/* Remove from in-use and add to free list */
 			DQUEUE_REMOVE(&fs->fs_dcache_inuse, d);
 			DQUEUE_ADD_TAIL(&fs->fs_dcache_free, d);
-			TRACE(VFS, INFO, "freed cache item: d=%p, dir_inode=%p, entry_inode=%p", d, d->d_dir_inode, d->d_entry_inode);
+			TRACE(VFS, INFO, "freed cache item: d=%p, entry='%s', dir_inode=%p, entry_inode=%p",
+			 d, d->d_entry, d->d_dir_inode, d->d_entry_inode);
 		}
 	}
 	DCACHE_UNLOCK(fs);
