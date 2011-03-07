@@ -144,6 +144,12 @@ struct VFS_INODE_OPS {
 	errorcode_t (*lookup)(struct VFS_INODE* dirinode, struct VFS_INODE** destinode, const char* dentry);
 
 	/*
+	 * Maps the inode's given block number to a block device's block
+	 * number. A new block is to be allocated if create is non-zero.
+	 */
+	errorcode_t (*block_map)(struct VFS_INODE* inode, block_t block_in, block_t* block_out, int create);
+
+	/*
 	 * Reads inode data to a buffer, up to len bytes. Must update len on success
 	 * with the amount of data read.
 	 */
