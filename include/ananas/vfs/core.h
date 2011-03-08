@@ -12,7 +12,6 @@ struct VFS_FILESYSTEM_OPS;
 
 void vfs_init();
 errorcode_t vfs_mount(const char* from, const char* to, const char* type, void* options);
-struct BIO* vfs_bread(struct VFS_MOUNTED_FS* fs, block_t block, size_t len);
 
 /* Low-level interface - designed for filesystem use (must not be used otherwise) */
 
@@ -49,6 +48,11 @@ void vfs_deref_inode(struct VFS_INODE* inode);
  * Explicitely add a reference to a given inode.
  */
 void vfs_ref_inode(struct VFS_INODE* inode);
+
+/*
+ * Reads a block for the given filesystem to bio.
+ */
+errorcode_t vfs_bread(struct VFS_MOUNTED_FS* fs, block_t block, struct BIO** bio);
 
 errorcode_t vfs_lookup(struct VFS_INODE* cwd, struct VFS_INODE** destinode, const char* dentry);
 

@@ -69,15 +69,6 @@ struct FAT_INODE_PRIVDATA {
 
 TRACE_SETUP;
 
-/*
- * Reads a given sector.
- */
-inline static struct BIO*
-fat_bread(struct VFS_MOUNTED_FS* fs, block_t block)
-{
-	return vfs_bread(fs, block, fs->fs_block_size);
-}
-
 static block_t
 fat_cluster_to_sector(struct VFS_MOUNTED_FS* fs, uint32_t cluster)
 {
@@ -136,8 +127,9 @@ fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clus
 		}
 		uint32_t sector_num = fs_privdata->reserved_sectors + (offset / fs_privdata->sector_size);
 		offset %= fs_privdata->sector_size;
-		struct BIO* bio = fat_bread(fs, sector_num);
-		/* XXX errors */
+		struct BIO* bio;
+		errorcode_t err = vfs_bread(fs, sector_num, &bio);
+		ANANAS_ERROR_RETURN(err);
 
 		/* Grab the value from the FAT */
 		switch (fs_privdata->fat_type) {
@@ -148,8 +140,12 @@ fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clus
 				 */
 				uint16_t fat_value;
 				if (offset == (fs_privdata->sector_size - 1)) {
-					struct BIO* bio2 = fat_bread(fs, sector_num + 1);
-					/* XXX errors */
+					struct BIO* bio2;
+					err = vfs_bread(fs, sector_num + 1, &bio2);
+					if (err != ANANAS_ERROR_OK) {
+						bio_free(bio);
+						return err;
+					}
 					fat_value  = *(uint8_t*)(BIO_DATA(bio) + offset);
 					fat_value |= *(uint8_t*)(BIO_DATA(bio2)) << 8;
 					bio_free(bio2);
@@ -244,8 +240,8 @@ fat_do_read(struct VFS_FILE* file, void* buf, size_t* len, block_t* cur_block, i
 		/* Grab the block if needed */
 		if (*cur_block != want_block) {
 			if (bio != NULL) bio_free(bio);
-			bio = fat_bread(inode->i_fs, want_block);
-			/* XXX errors */
+			err = vfs_bread(fs, want_block, &bio);
+			ANANAS_ERROR_RETURN(err);
 			*cur_block = want_block;
 		}
 
@@ -369,11 +365,8 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		ANANAS_ERROR_RETURN(err);
 		if (want_block != cur_block || bio == NULL) {
 			if (bio != NULL) bio_free(bio);
-			bio = fat_bread(fs, want_block);
-			if (bio == NULL) {
-				/* XXX error handling */
-				return ANANAS_ERROR(IO);
-			}
+			err = vfs_bread(fs, want_block, &bio);
+			ANANAS_ERROR_RETURN(err);
 			cur_block = want_block;
 		}
 
@@ -500,10 +493,11 @@ fat_read_inode(struct VFS_INODE* inode, void* fsop)
 	uint32_t block  = (*(uint64_t*)fsop) >> 16;
 	uint32_t offset = (*(uint64_t*)fsop) & 0xffff;
 	KASSERT(offset <= fs->fs_block_size - sizeof(struct FAT_ENTRY), "fsop inode offset %u out of range", offset);
-	struct BIO* bio = fat_bread(inode->i_fs, block);
-	/* XXX error handling */
-	struct FAT_ENTRY* fentry = (struct FAT_ENTRY*)(void*)(BIO_DATA(bio) + offset);
+	struct BIO* bio;
+	errorcode_t err = vfs_bread(fs, block, &bio);
+	ANANAS_ERROR_RETURN(err);
 	/* Fill out the inode details */
+	struct FAT_ENTRY* fentry = (struct FAT_ENTRY*)(void*)(BIO_DATA(bio) + offset);
 	fat_fill_inode(inode, fsop, fentry);
 	bio_free(bio);
 	return ANANAS_ERROR_OK;
@@ -515,8 +509,13 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 	/* XXX this should be made a compile-time check */
 	KASSERT(sizeof(struct FAT_ENTRY) == 32, "compiler error: fat entry is not 32 bytes!");
 
-	struct BIO* bio = vfs_bread(fs, 0, 512);
-	/* XXX handle errors */
+	/* Fill out a sector size and grab the first block */
+	struct BIO* bio;
+	fs->fs_block_size = BIO_SECTOR_SIZE;
+	errorcode_t err = vfs_bread(fs, 0, &bio);
+	ANANAS_ERROR_RETURN(err);
+
+	/* Parse what we just read */
 	struct FAT_BPB* bpb = (struct FAT_BPB*)BIO_DATA(bio);
 	struct FAT_FS_PRIVDATA* privdata = kmalloc(sizeof(struct FAT_FS_PRIVDATA));
 	memset(privdata, 0, sizeof(struct FAT_FS_PRIVDATA));
@@ -584,7 +583,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 	/* Grab the root directory inode */
 	fs->fs_root_inode = fat_alloc_inode(fs);
 	uint64_t root_fsop = FAT_ROOTINODE_FSOP;
-	errorcode_t err = vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
+	err = vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
 	if (err != ANANAS_ERROR_NONE) {
 		kfree(privdata);
 		return err;

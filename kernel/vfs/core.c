@@ -95,10 +95,13 @@ vfs_deref_inode(struct VFS_INODE* inode)
 	/* INODE_UNLOCK(inode); - no need, inode must be dead by now */
 }
 
-struct BIO*
-vfs_bread(struct VFS_MOUNTED_FS* fs, block_t block, size_t len)
+errorcode_t
+vfs_bread(struct VFS_MOUNTED_FS* fs, block_t block, struct BIO** bio)
 {
-	return bio_read(fs->fs_device, block, len);
+	*bio = bio_read(fs->fs_device, block * (fs->fs_block_size / BIO_SECTOR_SIZE), fs->fs_block_size);
+	if (*bio == NULL)
+		return ANANAS_ERROR(IO);
+	return ANANAS_ERROR_OK;
 }
 
 size_t

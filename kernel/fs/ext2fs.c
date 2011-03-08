@@ -48,16 +48,6 @@ struct EXT2_INODE_PRIVDATA {
 	block_t block[EXT2_INODE_BLOCKS];
 };
 
-/*
- * This will read a filesystem block; it will not skip any reserved blocks.
- */
-static struct BIO*
-ext2_bread(struct VFS_MOUNTED_FS* fs, block_t block)
-{
-	block *= (fs->fs_block_size / 512);
-	return vfs_bread(fs, block, fs->fs_block_size);
-}
-
 static void
 ext2_conv_superblock(struct EXT2_SUPERBLOCK* sb)
 {
@@ -114,14 +104,11 @@ ext2_dump_inode(struct EXT2_INODE* inode)
  * an doubly-indirect block. With an 1KB blocksize, each doubly-indirect block
  * contains X * X blocks, so we can store X * X * X = 16777216 blocks.
  */
-static block_t
-ext2_find_block(struct VFS_FILE* file, block_t block)
+static errorcode_t
+ext2_block_map(struct VFS_INODE* inode, block_t block_in, block_t* block_out, int create)
 {
-	KASSERT(file->f_inode != NULL, "file without inode");
-	KASSERT(file->f_inode->i_fs != NULL, "file without fs");
-
-	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
-	struct EXT2_INODE_PRIVDATA* in_privdata = (struct EXT2_INODE_PRIVDATA*)file->f_inode->i_privdata;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	struct EXT2_INODE_PRIVDATA* in_privdata = inode->i_privdata;
 
 	/*
 	 * We need to figure out whether we have to look up the block in the single,
@@ -135,21 +122,25 @@ ext2_find_block(struct VFS_FILE* file, block_t block)
 	 */
 
 	/* (a) Direct blocks are easy */
-	if (block < 12)
-		return in_privdata->block[block];
+	if (block_in < 12) {
+		*block_out = in_privdata->block[block_in];
+		return ANANAS_ERROR_OK;
+	}
 
-	if (block < 12 + fs->fs_block_size / 4) {
+	if (block_in < 12 + fs->fs_block_size / 4) {
 		/*
 		 * (b) Need to look up the block the first indirect block, 13.
 		 */
-		struct BIO* bio = ext2_bread(file->f_inode->i_fs, in_privdata->block[12]);
-		uint32_t iblock = EXT2_TO_LE32(*(uint32_t*)(BIO_DATA(bio) + (block - 12) * sizeof(uint32_t)));
+		struct BIO* bio;
+		errorcode_t err = vfs_bread(fs, in_privdata->block[12], &bio);
+		ANANAS_ERROR_RETURN(err);
+		*block_out = EXT2_TO_LE32(*(uint32_t*)(BIO_DATA(bio) + (block_in - 12) * sizeof(uint32_t)));
 		bio_free(bio);
-		return iblock;
+		return ANANAS_ERROR_OK;
 	}
 
-	panic("ext2_find_block() needs support for doubly/triple indirect blocks!");
-	return 0;
+	panic("ext2_block_map() needs support for doubly/triple indirect blocks!");
+	return ANANAS_ERROR(BAD_RANGE);
 }
 
 static errorcode_t
@@ -166,7 +157,9 @@ ext2_read(struct VFS_FILE* file, void* buf, size_t* len)
 		left = file->f_inode->i_sb.st_size - file->f_offset;
 
 	while(left > 0) {
-		block_t block = ext2_find_block(file, blocknum);
+		block_t block;
+		errorcode_t err = ext2_block_map(file->f_inode, blocknum, &block, 0);
+		ANANAS_ERROR_RETURN(err);
 		if (block == 0) {
 			/* We've run out of blocks; this shouldn't happen... */
 			panic("ext2_read(): no block found, maybe sparse file?");
@@ -176,7 +169,9 @@ ext2_read(struct VFS_FILE* file, void* buf, size_t* len)
 		/*
 		 * Fetch the block and copy what we have so far.
 		 */
-		struct BIO* bio = ext2_bread(file->f_inode->i_fs, block);
+		struct BIO* bio;
+		err = vfs_bread(fs, block, &bio);
+		ANANAS_ERROR_RETURN(err);
 		size_t chunklen = (fs->fs_block_size < left ? fs->fs_block_size : left);
 		if (chunklen + offset > fs->fs_block_size)
 			chunklen = fs->fs_block_size - offset;
@@ -205,7 +200,9 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	struct BIO* bio = NULL;
 	block_t curblock = 0;
 	while(left > 0) {
-		block_t block = ext2_find_block(file, blocknum);
+		block_t block;
+		errorcode_t err = ext2_block_map(file->f_inode, blocknum, &block, 0);
+		ANANAS_ERROR_RETURN(err);
 		if (block == 0) {
 			/*
 			 * We've run out of blocks. Need to stop here.
@@ -214,8 +211,8 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		}
 		if(curblock != block) {
 			if (bio != NULL) bio_free(bio);
-			bio = ext2_bread(file->f_inode->i_fs, block);
-			/* XXX handle error */
+			err = vfs_bread(fs, block, &bio);
+			ANANAS_ERROR_RETURN(err);
 			curblock = block;
 		}
 
@@ -259,7 +256,8 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 }
 
 static struct VFS_INODE_OPS ext2_file_ops = {
-	.read = ext2_read,
+	.read = vfs_generic_read,
+	.block_map = ext2_block_map
 };
 
 static struct VFS_INODE_OPS ext2_dir_ops = {
@@ -295,7 +293,9 @@ ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 	block_t block = privdata->blockgroup[bgroup].bg_inode_table + (iindex * privdata->sb.s_inode_size) / fs->fs_block_size;
 
 	/* Fetch the block and make a pointer to the inode */
-	struct BIO* bio = ext2_bread(inode->i_fs, block); /* XXX error handling */
+	struct BIO* bio;
+	errorcode_t err = vfs_bread(fs, block, &bio);
+	ANANAS_ERROR_RETURN(err);
 	unsigned int idx = (iindex * privdata->sb.s_inode_size) % fs->fs_block_size;
 	struct EXT2_INODE* ext2inode = (struct EXT2_INODE*)((void*)BIO_DATA(bio) + idx);
 
@@ -337,8 +337,13 @@ ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 static errorcode_t
 ext2_mount(struct VFS_MOUNTED_FS* fs)
 {
-	struct BIO* bio = vfs_bread(fs, 2, 1024);
-	/* XXX handle errors */
+	/* Default to 1KB blocksize and fetch the superblock */
+	struct BIO* bio;
+	fs->fs_block_size = 1024;
+	errorcode_t err = vfs_bread(fs, 1, &bio);
+	ANANAS_ERROR_RETURN(err);
+
+	/* See if something ext2-y lives here */
 	struct EXT2_SUPERBLOCK* sb = (struct EXT2_SUPERBLOCK*)BIO_DATA(bio);
 	ext2_conv_superblock(sb);
 	if (sb->s_magic != EXT2_SUPER_MAGIC) {
@@ -378,7 +383,11 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 		 */
 		block_t blocknum = 1 + (n * sizeof(struct EXT2_BLOCKGROUP)) / fs->fs_block_size;
 		blocknum += privdata->sb.s_first_data_block;
-		bio = ext2_bread(fs, blocknum);
+		err = vfs_bread(fs, blocknum, &bio);
+		if (err != ANANAS_ERROR_OK) {
+			kfree(privdata);
+			return err;
+		}
 		memcpy((void*)(privdata->blockgroup + n),
 		       (void*)(BIO_DATA(bio) + ((n * sizeof(struct EXT2_BLOCKGROUP)) % fs->fs_block_size)),
 		       sizeof(struct EXT2_BLOCKGROUP));
@@ -400,7 +409,7 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 
 	/* Read the root inode */
 	uint32_t root_fsop = EXT2_ROOT_INO;
-	errorcode_t err = vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
+	err = vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
 	if (err != ANANAS_ERROR_NONE) {
 		kfree(privdata);
 		return err;

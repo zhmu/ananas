@@ -54,12 +54,15 @@ iso9660_dump_dirent(struct ISO9660_DIRECTORY_ENTRY* e)
 static errorcode_t
 iso9660_mount(struct VFS_MOUNTED_FS* fs)
 {
-	errorcode_t err = ANANAS_ERROR(NO_DEVICE);
+	/* Obtain the primary volume descriptor; it contains vital information */
+	fs->fs_block_size = 2048;
+	struct BIO* bio;
+	errorcode_t err = vfs_bread(fs, 4, &bio);
+	ANANAS_ERROR_RETURN(err);
 
-	struct BIO* bio = vfs_bread(fs, 16, 2048);
-	/* XXX handle errors */
-
+	/* Verify the primary volume descriptor */
 	struct ISO9660_PRIMARY_VOLUME_DESCR* pvd = (struct ISO9660_PRIMARY_VOLUME_DESCR*)BIO_DATA(bio);
+	err = ANANAS_ERROR(NO_DEVICE);
 	if (pvd->pv_typecode != 1 || memcmp(pvd->pv_stdentry, "CD001", 5) || pvd->pv_version != 1 || pvd->pv_structure_version != 1) {
 		/* Not an ISO9660 filesystem */
 		goto fail;
@@ -110,8 +113,10 @@ iso9660_read_inode(struct VFS_INODE* inode, void* fsop)
 	uint16_t offset = iso9660_fsop & 0xffff;
 	KASSERT(offset < inode->i_fs->fs_block_size + sizeof(struct ISO9660_DIRECTORY_ENTRY), "offset does not reside in block");
 
-	struct BIO* bio = vfs_bread(inode->i_fs, block, inode->i_fs->fs_block_size);
-	/* XXX error handling */
+	/* Grab the block containing the inode */
+	struct BIO* bio;
+	errorcode_t err = vfs_bread(inode->i_fs, block, &bio);
+	ANANAS_ERROR_RETURN(err);
 
 	/* Convert the inode */
 	struct ISO9660_DIRECTORY_ENTRY* iso9660_de = (struct ISO9660_DIRECTORY_ENTRY*)(BIO_DATA(bio) + offset);
@@ -178,8 +183,8 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		}
 		if(curblock != block) {
 			if (bio != NULL) bio_free(bio);
-			bio = vfs_bread(fs, block, fs->fs_block_size);
-			/* XXX handle error */
+			errorcode_t err = vfs_bread(fs, block, &bio);
+			ANANAS_ERROR_RETURN(err);
 			curblock = block;
 		}
 
@@ -250,10 +255,12 @@ iso9660_read(struct VFS_FILE* file, void* buf, size_t* len)
 		left = file->f_inode->i_sb.st_size - file->f_offset;
 
 	while(left > 0) {
-		/*
-		 * Fetch the block and copy what we have so far.
-		 */
-		struct BIO* bio = vfs_bread(fs, privdata->lba + blocknum, fs->fs_block_size);
+		/* Fetch the block */
+		struct BIO* bio;
+		errorcode_t err = vfs_bread(fs, privdata->lba + blocknum, &bio);
+		ANANAS_ERROR_RETURN(err);
+
+		/* Copy what we can so far */
 		size_t chunklen = (fs->fs_block_size < left ? fs->fs_block_size : left);
 		if (chunklen + offset > fs->fs_block_size)
 			chunklen = fs->fs_block_size - offset;
