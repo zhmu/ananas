@@ -28,6 +28,7 @@ struct CREATE_OPTIONS {
 #define CREATE_MEMORY_FLAG_MASK \
 	(CREATE_MEMORY_FLAG_READ | CREATE_MEMORY_FLAG_WRITE | CREATE_MEMORY_FLAG_EXECUTE)
 	size_t		cr_length;		/* length of creation, if any */
+	unsigned int	cr_mode;		/* mode, if any */
 };
 
 struct OPEN_OPTIONS {

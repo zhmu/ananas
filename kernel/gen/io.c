@@ -291,6 +291,32 @@ sys_create(thread_t t, struct CREATE_OPTIONS* opts, handle_t* out)
 
 	struct HANDLE* outhandle;
 	switch(cropts.cr_type) {
+		case CREATE_TYPE_FILE: {
+			/* Fetch the new path name */
+			const char* path;
+			err = syscall_map_string(t, cropts.cr_path, &path);
+			ANANAS_ERROR_RETURN(err);
+
+			/* Fetch a new handle first; this will likely work */
+			err = handle_alloc(HANDLE_TYPE_FILE, t, &outhandle);
+			ANANAS_ERROR_RETURN(err);
+
+			/* Attempt to create the new file */
+			struct VFS_INODE* newinode;
+			err = vfs_create(t->path_handle->data.vfs_file.f_inode, &outhandle->data.vfs_file, path, cropts.cr_mode);
+			if (err == ANANAS_ERROR_OK) {
+				/* This worked; hand the handle to the thread */
+				err = syscall_set_handle(t, out, outhandle);
+				if (err != ANANAS_ERROR_NONE) {
+					/* Remove the handle (frees the inode as well) */
+					handle_free(outhandle);
+				}
+			} else {
+				/* Failure - throw away the handle we created */
+				handle_free(outhandle);
+			}
+			return err;
+		}
 		case CREATE_TYPE_MEMORY: {
 			/* See if the flags mask works */
 			if ((cropts.cr_flags & ~(CREATE_MEMORY_FLAG_MASK)) != 0)

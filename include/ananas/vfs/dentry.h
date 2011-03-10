@@ -27,5 +27,6 @@ void dcache_dump(struct VFS_MOUNTED_FS* fs);
 void dcache_destroy(struct VFS_MOUNTED_FS* fs);
 struct DENTRY_CACHE_ITEM* dcache_find_item_or_add_pending(struct VFS_INODE* inode, const char* entry);
 void dcache_remove_inode(struct VFS_INODE* inode);
+void dcache_set_inode(struct DENTRY_CACHE_ITEM* de, struct VFS_INODE* inode);
 
 #endif /*  __ANANAS_DENTRY_H__ */

@@ -22,6 +22,7 @@
 #define ANANAS_ERROR_IO			16		/* General I/O error */
 #define ANANAS_ERROR_NO_DEVICE		17		/* Device not found */
 #define ANANAS_ERROR_NO_RESOURCE	18		/* Resources cannot be found or acquired */
+#define ANANAS_ERROR_FILE_EXISTS	19		/* File already exists */
 
 #define ANANAS_ERROR_RETURN(x) \
 	if((x) != ANANAS_ERROR_NONE) \

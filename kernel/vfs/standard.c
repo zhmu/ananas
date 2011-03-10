@@ -13,6 +13,14 @@
 
 TRACE_SETUP;
 
+static void
+vfs_make_file(struct VFS_FILE* file, struct VFS_INODE* inode)
+{
+	memset(file, 0, sizeof(struct VFS_FILE));
+	file->f_inode = inode;
+	file->f_offset = 0;
+}
+
 errorcode_t
 vfs_open(const char* fname, struct VFS_INODE* cwd, struct VFS_FILE* file)
 {
@@ -20,9 +28,7 @@ vfs_open(const char* fname, struct VFS_INODE* cwd, struct VFS_FILE* file)
 	errorcode_t err = vfs_lookup(cwd, &inode, fname);
 	ANANAS_ERROR_RETURN(err);
 
-	memset(file, 0, sizeof(struct VFS_FILE));
-	file->f_inode = inode;
-	file->f_offset = 0;
+	vfs_make_file(file, inode);
 	return ANANAS_ERROR_OK;
 }
 
@@ -102,12 +108,13 @@ vfs_seek(struct VFS_FILE* file, off_t offset)
 }
 
 /*
- * Called to perform a lookup from directory entry 'dentry' to an inode;
+ * Internally used to perform a lookup from directory entry 'dentry' to an inode;
  * 'curinode' is the initial inode to start the lookup relative to, or NULL to
- * start from the root.
+ * start from the root. This fills out the final dcache entry of the lookup; if
+ * the last entry of the inode was to be resolved, final will be non-zero
  */
-errorcode_t
-vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char* dentry)
+static errorcode_t
+vfs_lookup_internal(struct VFS_INODE* curinode, const char* dentry, struct VFS_INODE** destinode, struct DENTRY_CACHE_ITEM** ditem, int* final)
 {
 	char tmp[VFS_MAX_NAME_LEN + 1];
 
@@ -140,6 +147,11 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 	 */
 	vfs_ref_inode(curinode);
 
+	/* Start with a clean slate */
+	*final = 0;
+	*destinode = NULL;
+	*ditem = NULL;
+
 	const char* curdentry = dentry;
 	const char* curlookup;
 	while (curdentry != NULL && *curdentry != '\0' /* for trailing /-es */) {
@@ -157,6 +169,8 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 		} else {
 			curlookup = curdentry;
 			curdentry = NULL;
+			/* This has to be the final entry */
+			(*final)++;
 		}
 
 		/*
@@ -188,6 +202,7 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 			/* XXX There should be a wakeup signal of some kind */
 			reschedule();
 		}
+		*ditem = dentry;
 
 		if (dentry->d_flags & DENTRY_FLAG_NEGATIVE) {
 			/* Entry is in the cache but cannot be found; release the previous inode */
@@ -224,6 +239,8 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 		} else {
 			/* Lookup failed; make the entry cache negative */
 			dentry->d_flags |= DENTRY_FLAG_NEGATIVE;
+			/* Store the current inode; this is the directory that ought to contain the inode */
+			*destinode = curinode;
 			return err;
 		}
 		
@@ -233,5 +250,72 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 	return ANANAS_ERROR_OK;
 }
 
+/*
+ * Called to perform a lookup from directory entry 'dentry' to an inode;
+ * 'curinode' is the initial inode to start the lookup relative to, or NULL to
+ * start from the root.
+ */
+errorcode_t
+vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char* dentry)
+{
+	struct DENTRY_CACHE_ITEM* de;
+	int final;
+	return vfs_lookup_internal(curinode, dentry, destinode, &de, &final);
+}
+
+/*
+ * Creates a new inode in directory 'dirinode'; sets 'destinode' to the newly
+ * created inode on success.
+ */
+errorcode_t
+vfs_create(struct VFS_INODE* dirinode, struct VFS_FILE* file, const char* dentry, int mode)
+{
+	struct DENTRY_CACHE_ITEM* de;
+	int final;
+	struct VFS_INODE* parentinode;
+	errorcode_t err = vfs_lookup_internal(dirinode, dentry, &parentinode, &de, &final);
+	if (ANANAS_ERROR_CODE(err) != ANANAS_ERROR_NO_FILE) {
+		/*
+		 * A 'no file found' error is expected as we are creating the new file; we
+		 * are using the lookup code in order to obtain the cache item entry.
+	 	 */
+		if (err == ANANAS_ERROR_OK) {
+			/* The lookup worked?! The file already exists; clean up the inode */
+			KASSERT(parentinode != NULL, "successful lookup without inode");
+			vfs_deref_inode(parentinode);
+			/* Update the error code */
+			err = ANANAS_ERROR(FILE_EXISTS);
+		}
+		return err;
+	}
+
+	/* Request failed; if this wasn't the final entry, bail: path is not present */
+	if (!final) {
+		vfs_deref_inode(parentinode);
+		return err;
+	}
+
+	/*
+	 * Excellent, the path works but the final entry doesn't. Mark the directory
+	 * entry as pending (as we are creating it) - this prevents it from going
+	 * away.
+	 */
+	de->d_flags &= ~DENTRY_FLAG_NEGATIVE;
+	KASSERT(S_ISDIR(parentinode->i_sb.st_mode), "final entry isn't an inode");
+
+	/* Dear filesystem, create a new inode for us */
+	err = parentinode->i_iops->create(parentinode, de, mode);
+	if (err != ANANAS_ERROR_OK) {
+		/* Failure; remark the directory entry (we don't own it anymore) and report the failure */
+		de->d_flags |= DENTRY_FLAG_NEGATIVE;
+	} else {
+		/* Success; report the inode we created */
+		vfs_make_file(file, de->d_entry_inode);
+	}
+
+	/* Don't need the parent inode anymore */
+	vfs_deref_inode(parentinode);
+	return err;
+}
 
 /* vim:set ts=2 sw=2: */

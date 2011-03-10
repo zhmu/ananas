@@ -160,6 +160,12 @@ struct VFS_INODE_OPS {
 	 * wit hthe amount of data written.
 	 */
 	errorcode_t (*write)(struct VFS_FILE* file, const void* buf, size_t* len);
+
+	/*
+	 * Creates a new entry in the directory. On success, calls
+	 * dentry_set_inode() to fill out the entry's inode.
+	 */
+	errorcode_t (*create)(struct VFS_INODE* dir, struct DENTRY_CACHE_ITEM* de, int mode);
 };
 
 #endif /* __ANANAS_VFS_TYPES_H__ */
