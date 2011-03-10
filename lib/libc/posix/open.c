@@ -13,23 +13,31 @@ int open( const char* filename, int mode, ... )
 	errorcode_t err;
 	void* handle;
 
-	/* XXX we should deal with O_CREAT and O_TRUNC */
-
-	struct OPEN_OPTIONS openopts;
-	memset(&openopts, 0, sizeof(openopts));
-	openopts.op_size = sizeof(openopts);
-	openopts.op_path = filename;
-	openopts.op_mode = OPEN_MODE_NONE;
-	if (mode & O_RDONLY)
-		openopts.op_mode |= OPEN_MODE_READ;
-	if (mode & O_WRONLY)
-		openopts.op_mode |= OPEN_MODE_WRITE;
-	if (mode & O_RDWR)
-		openopts.op_mode |= (OPEN_MODE_READ | OPEN_MODE_WRITE);
-	if (mode & O_DIRECTORY)
-		openopts.op_mode |= OPEN_MODE_DIRECTORY;
-
-	err = sys_open(&openopts, &handle);
+	if (mode & O_CREAT) {
+		struct CREATE_OPTIONS cropts;
+		memset(&cropts, 0, sizeof(cropts));
+		cropts.cr_size = sizeof(cropts);
+		cropts.cr_type = CREATE_TYPE_FILE;
+		cropts.cr_path = filename;
+		cropts.cr_flags = 0; /* XXX */
+		cropts.cr_mode = mode;
+		err = sys_create(&cropts, &handle);
+	} else { /* (mode & O_CREAT) == 0 */
+		struct OPEN_OPTIONS openopts;
+		memset(&openopts, 0, sizeof(openopts));
+		openopts.op_size = sizeof(openopts);
+		openopts.op_path = filename;
+		openopts.op_mode = OPEN_MODE_NONE;
+		if (mode & O_RDONLY)
+			openopts.op_mode |= OPEN_MODE_READ;
+		if (mode & O_WRONLY)
+			openopts.op_mode |= OPEN_MODE_WRITE;
+		if (mode & O_RDWR)
+			openopts.op_mode |= (OPEN_MODE_READ | OPEN_MODE_WRITE);
+		if (mode & O_DIRECTORY)
+			openopts.op_mode |= OPEN_MODE_DIRECTORY;
+		err = sys_open(&openopts, &handle);
+	}
 	if (err != ANANAS_ERROR_NONE) {
 		_posix_map_error(err);
 		return -1;
