@@ -74,11 +74,8 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 		/* Grab the next block if necessary */
 		if (cur_block != want_block || bio == NULL) {
 			if (bio != NULL) bio_free(bio);
-			bio = vfs_bread(fs, want_block, fs->fs_block_size);
-			if (bio == NULL) {
-				/* XXX we need better error handling */
-				return ANANAS_ERROR(IO);
-			}
+			err = vfs_bread(fs, want_block, &bio);
+			ANANAS_ERROR_RETURN(err);
 			cur_block = want_block;
 		}
 
