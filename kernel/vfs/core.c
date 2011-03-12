@@ -96,9 +96,9 @@ vfs_deref_inode(struct VFS_INODE* inode)
 }
 
 errorcode_t
-vfs_bread(struct VFS_MOUNTED_FS* fs, block_t block, struct BIO** bio)
+vfs_bget(struct VFS_MOUNTED_FS* fs, block_t block, struct BIO** bio, int flags)
 {
-	*bio = bio_read(fs->fs_device, block * (fs->fs_block_size / BIO_SECTOR_SIZE), fs->fs_block_size);
+	*bio = bio_get(fs->fs_device, block * (fs->fs_block_size / BIO_SECTOR_SIZE), fs->fs_block_size, flags);
 	if (*bio == NULL)
 		return ANANAS_ERROR(IO);
 	return ANANAS_ERROR_OK;
