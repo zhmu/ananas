@@ -91,13 +91,13 @@ devfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 		/*
 		 * This is a block device; I/O must be done using BIO calls.
 		 */
-		off_t offset = file->f_offset / 512; /* XXX */
+		off_t offset = file->f_offset / BIO_SECTOR_SIZE;
 		struct BIO* bio = bio_read(privdata->device, offset, *len);
 		if (BIO_IS_ERROR(bio)) {
 			err = ANANAS_ERROR(IO);
 		} else {
 			memcpy(buf, BIO_DATA(bio), bio->length);
-			file->f_offset += (bio->length / 512); /* XXX */
+			file->f_offset += (bio->length / BIO_SECTOR_SIZE);
 			*len = bio->length;
 		}
 		bio_free(bio);

@@ -49,7 +49,7 @@ atadisk_attach(device_t dev)
 	 * Read the first sector and pass it to the MBR code; this is crude
 	 * and does not really belong here.
 	 */
-	struct BIO* bio = bio_read(dev, 0, 512);
+	struct BIO* bio = bio_read(dev, 0, BIO_SECTOR_SIZE);
 	if (BIO_IS_ERROR(bio)) {
 		kfree(priv);
 		return ANANAS_ERROR(IO); /* XXX should get error from bio */
