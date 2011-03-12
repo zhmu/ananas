@@ -81,6 +81,7 @@ bio_init()
 static void
 bio_flush(struct BIO* bio)
 {
+	TRACE(BIO, FUNC, "bio=%p", bio);
 }
 
 static void
@@ -145,7 +146,7 @@ bio_cleanup()
  * allocate a new one as required.
  */
 static struct BIO*
-bio_get(device_t dev, block_t block, size_t len)
+bio_get_buffer(device_t dev, block_t block, size_t len)
 {
 	TRACE(BIO, FUNC, "dev=%p, block=%u, len=%u", dev, (int)block, len);
 	KASSERT((len % BIO_SECTOR_SIZE) == 0, "length %u not a multiple of bio sector size", len);
@@ -280,7 +281,7 @@ bio_free(struct BIO* bio)
 int
 bio_waitcomplete(struct BIO* bio)
 {	
-	TRACE(BIO, FUNC, " bio=%p", bio);
+	TRACE(BIO, FUNC, "bio=%p", bio);
 	while((bio->flags & BIO_FLAG_PENDING) != 0) {
 		reschedule();
 	}
@@ -288,9 +289,21 @@ bio_waitcomplete(struct BIO* bio)
 }
 
 struct BIO*
-bio_read(device_t dev, block_t block, size_t len)
+bio_get(device_t dev, block_t block, size_t len, int flags)
 {
-	struct BIO* bio = bio_get(dev, block, len);
+	struct BIO* bio = bio_get_buffer(dev, block, len);
+	if (flags & BIO_READ_NODATA) {
+		/*
+		 * The requester doesn't want the actual data; this means we needn't
+	 	 * schedule the read or even bother to check whether it's pending
+	 	 * or not; we just return the bio constructed above without it
+		 * being pending - caller is likely to destroy any data in it
+		 * either way.
+		 */
+		bio->flags &= ~BIO_FLAG_PENDING;
+		return bio;
+	}
+
 	/*
 	 * If we have a block that is not pending, we can just return it. Note that
 	 * dirty blocks are never pending.
@@ -299,7 +312,6 @@ bio_read(device_t dev, block_t block, size_t len)
 		TRACE(BIO, INFO, "dev=%p, block=%u, len=%u ==> cached block %p", dev, (int)block, len, bio);
 		return bio;
 	}
-	bio->flags |= BIO_FLAG_READ;
 
 	/* kick the device; we want it to read */
 	errorcode_t err = device_bread(dev, bio);
@@ -327,6 +339,13 @@ bio_set_available(struct BIO* bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	bio->flags &= ~BIO_FLAG_PENDING;
+}
+
+void
+bio_set_dirty(struct BIO* bio)
+{
+	TRACE(BIO, FUNC, "bio=%p", bio);
+	bio->flags |= BIO_FLAG_DIRTY;
 }
 
 #ifdef KDB
