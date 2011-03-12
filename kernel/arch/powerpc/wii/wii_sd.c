@@ -17,6 +17,8 @@ struct WIISD_PRIVDATA {
 	uint32_t status;
 };
 
+#define SD_SECTOR_SIZE 512
+
 static int
 wiisd_hc_read(device_t dev, int reg, uint32_t* val)
 {
@@ -146,13 +148,13 @@ static int
 wiisd_read_block(device_t dev, uint32_t block, void* buffer)
 {
 	uint32_t reply[4];
-	return wiisd_data_command(dev, SD_CMD_READ_MULTIPLE_BLOCK, SD_TYPE_AC, SD_RESP_R1, 512 * block, 1, 512, buffer, reply);
+	return wiisd_data_command(dev, SD_CMD_READ_MULTIPLE_BLOCK, SD_TYPE_AC, SD_RESP_R1, SD_SECTOR_SIZE * block, 1, SD_SECTOR_SIZE, buffer, reply);
 }
 
 static errorcode_t
 wiisd_bread(device_t dev, struct BIO* bio)
 {
-	KASSERT(bio->length == 512, "invalid length"); /* XXX */
+	KASSERT(bio->length == SD_SECTOR_SIZE, "invalid length"); /* XXX */
 
 	if (wiisd_read_block(dev, bio->io_block, bio->data)) {
 		bio_set_error(bio);
@@ -195,7 +197,7 @@ wiisd_attach(device_t dev)
 		goto fail;
 	}
 
-	if (wiisd_set_blocklength(dev, 512)) {
+	if (wiisd_set_blocklength(dev, SD_SECTOR_SIZE)) {
 		kprintf("wiisd_attach(): couldn't set block length\n");
 		goto fail;
 	}
@@ -212,7 +214,7 @@ wiisd_attach(device_t dev)
 	 * XXX Read the first sector and pass it to the MBR code; this is crude and
 	 * does not really belong here.
    */
-	struct BIO* bio = bio_read(dev, 0, 512);
+	struct BIO* bio = bio_read(dev, 0, SD_SECTOR_SIZE);
 	if (!BIO_IS_ERROR(bio)) {
 		mbr_process(dev, bio);
 	}
