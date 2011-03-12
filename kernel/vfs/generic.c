@@ -97,4 +97,60 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 	return ANANAS_ERROR_OK;
 }
 
+errorcode_t
+vfs_generic_write(struct VFS_FILE* file, void* buf, size_t* len)
+{
+	struct VFS_INODE* inode = file->f_inode;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	size_t written = 0;
+	size_t left = *len;
+	struct BIO* bio = NULL;
+
+	KASSERT(inode->i_iops->block_map != NULL, "called without block_map implementation");
+
+	block_t cur_block = 0;
+	while(left > 0) {
+		int create = 0;
+		block_t logical_block = file->f_offset / (block_t)fs->fs_block_size;
+		if (logical_block >= inode->i_sb.st_blocks /* XXX is this correct with sparse files? */)
+			create++;
+
+		/* Figure out which block to use next */
+		block_t want_block;
+		errorcode_t err = inode->i_iops->block_map(inode, logical_block, &want_block, create);
+		ANANAS_ERROR_RETURN(err);
+
+		/* Calculate how much we have to put in the block */
+		off_t cur_offset = file->f_offset % (block_t)fs->fs_block_size;
+		int chunk_len = fs->fs_block_size - cur_offset;
+		if (chunk_len > left)
+			chunk_len = left;
+
+		/* Grab the next block if necessary */
+		if (cur_block != want_block || bio == NULL) {
+			if (bio != NULL) bio_free(bio);
+			/* Only read the block if it's a new one or we're not replacing everything */
+			err = vfs_bget(fs, want_block, &bio, (create || chunk_len == fs->fs_block_size) ? BIO_READ_NODATA : 0);
+			ANANAS_ERROR_RETURN(err);
+			cur_block = want_block;
+		}
+
+		/* Copy as much tp the block as we can */
+		KASSERT(chunk_len > 0, "attempt to handle empty chunk");
+		memcpy((void*)(BIO_DATA(bio) + cur_offset), buf, chunk_len);
+		bio_set_dirty(bio);
+
+		if (create)
+			inode->i_sb.st_size += chunk_len;
+
+		written += chunk_len;
+		buf += chunk_len;
+		left -= chunk_len;
+		file->f_offset += chunk_len;
+	}
+	if (bio != NULL) bio_free(bio);
+	*len = written;
+	return ANANAS_ERROR_OK;
+}
+
 /* vim:set ts=2 sw=2: */
