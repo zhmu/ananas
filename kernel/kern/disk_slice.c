@@ -18,13 +18,25 @@ slice_bread(device_t dev, struct BIO* bio)
 	 * All we do is grab the request, mangle it and call the parent's read routine.
 	 */
 	struct SLICE_PRIVATE* privdata = (struct SLICE_PRIVATE*)dev->privdata;
-	bio->io_block += privdata->first_block;
+	bio->io_block = bio->block + privdata->first_block;
 	return device_bread(dev->parent, bio);
+}
+
+static errorcode_t
+slice_bwrite(device_t dev, struct BIO* bio)
+{
+	/*
+	 * All we do is grab the request, mangle it and call the parent's read routine.
+	 */
+	struct SLICE_PRIVATE* privdata = (struct SLICE_PRIVATE*)dev->privdata;
+	bio->io_block = bio->block + privdata->first_block;
+	return device_bwrite(dev->parent, bio);
 }
 
 struct DRIVER drv_slice = {
 	.name	= "slice",
-	.drv_bread = slice_bread
+	.drv_bread = slice_bread,
+	.drv_bwrite = slice_bwrite
 };
 
 struct DEVICE*
