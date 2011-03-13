@@ -234,4 +234,19 @@ dcache_remove_inode(struct VFS_INODE* inode)
 	DCACHE_UNLOCK(fs);
 }
 
+void
+dcache_set_inode(struct DENTRY_CACHE_ITEM* de, struct VFS_INODE* inode)
+{
+#if 0
+	/* XXX NOTYET - negative flag is cleared to keep the entry alive */
+	KASSERT((de->d_flags & DENTRY_FLAG_NEGATIVE), "entry is not negative");
+#endif
+	KASSERT(inode != NULL, "no inode given");
+
+	/* Increase the refcount - the cache will have a ref to the inode now */
+	vfs_ref_inode(inode);
+	de->d_entry_inode = inode;
+	de->d_flags &= ~DENTRY_FLAG_NEGATIVE;
+}
+
 /* vim:set ts=2 sw=2: */
