@@ -82,6 +82,23 @@ static void
 bio_flush(struct BIO* bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", bio);
+
+	/* If the bio isn't dirty, we needn't write it so just return */
+	if ((bio->flags & BIO_FLAG_DIRTY) == 0)
+		return;
+
+	errorcode_t err = device_bwrite(bio->device, bio);
+	if (err != ANANAS_ERROR_NONE) {
+		kprintf("bio_flush(): device_write() failed, %i\n", err);
+		bio_set_error(bio);
+	} else {
+		/* ... and wait until we have something to report... */
+		bio_waitcomplete(bio);
+		/*
+		 * We're all set - the block I/O driver is responsible for clearing the dirty flag if
+		 * necessary
+		 */
+	}
 }
 
 static void
@@ -346,6 +363,7 @@ bio_set_dirty(struct BIO* bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	bio->flags |= BIO_FLAG_DIRTY;
+	bio_flush(bio); /* XXX debug aid so that the image can be inspected */
 }
 
 #ifdef KDB
