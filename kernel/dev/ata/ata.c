@@ -67,16 +67,22 @@ ata_irq(device_t dev)
 			return;
 		}
 
-
 		/*
 		 * PIO request OK - fill the bio data XXX need to port 'rep insw'. We do
 		 * this before updating the buffer status to prevent races.
 		 */
-		uint8_t* bio_data = item->bio->data;
-		for(int count = 0; count < item->bio->length / 2; count++) {
-			uint16_t data = inw(priv->io_port + ATA_REG_DATA);
-			*bio_data++ = data & 0xff;
-			*bio_data++ = data >> 8;
+		if (item->flags & ATA_ITEM_FLAG_READ) {
+			uint8_t* bio_data = item->bio->data;
+			for(int count = 0; count < item->bio->length / 2; count++) {
+				uint16_t data = inw(priv->io_port + ATA_REG_DATA);
+				*bio_data++ = data & 0xff;
+				*bio_data++ = data >> 8;
+			}
+		}
+
+		if (item->flags & ATA_ITEM_FLAG_WRITE) {
+			/* Write completed - bio is no longer dirty XXX errors? */
+			item->bio->flags &= ~BIO_FLAG_DIRTY;
 		}
 	}
 	
@@ -235,6 +241,17 @@ ata_start_pio(device_t dev, struct ATA_REQUEST_ITEM* item)
 		outb(priv->io_port + ATA_REG_CYL_LO, (item->lba >> 8) & 0xff);
 		outb(priv->io_port + ATA_REG_CYL_HI, (item->lba >> 16) & 0xff);
 		outb(priv->io_port + ATA_REG_COMMAND, item->command);
+
+		/* If we need to write data, do so */
+		if (item->flags & ATA_ITEM_FLAG_WRITE) {
+			/* XXX We really need outsw() or similar */
+			uint8_t* bio_data = item->bio->data;
+			for(int i = 0; i < item->bio->length; i += 2) {
+				uint16_t v = bio_data[0] | (uint16_t)bio_data[1] << 8;
+				outw(priv->io_port + ATA_REG_DATA, v);
+				bio_data += 2;
+			}
+		}
 	} else {
 		/* Feed the request to the device - ATAPI */
 		outb(priv->io_port + ATA_REG_DEVICEHEAD, item->unit << 4);

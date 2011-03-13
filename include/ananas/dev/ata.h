@@ -28,6 +28,8 @@
 
 #define ATA_CMD_READ_SECTORS		0x20	/* 28 bit PIO */
 #define ATA_CMD_DMA_READ_SECTORS	0xc8	/* 28 bit DMA */
+#define ATA_CMD_WRITE_SECTORS		0x30	/* 28 bit PIO */
+#define ATA_CMD_DMA_WRITE_SECTORS	0xca	/* 28 bit DMA */
 #define ATA_CMD_IDENTIFY		0xec
 #define ATA_CMD_PACKET			0xa0
 #define ATA_CMD_IDENTIFY_PACKET		0xa1

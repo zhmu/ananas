@@ -82,10 +82,36 @@ atadisk_bread(device_t dev, struct BIO* bio)
 	return ANANAS_ERROR_OK;
 }
 
+static errorcode_t
+atadisk_bwrite(device_t dev, struct BIO* bio)
+{
+	struct ATADISK_PRIVDATA* priv = (struct ATADISK_PRIVDATA*)dev->privdata;
+	struct ATA_REQUEST_ITEM item;
+	KASSERT(bio != NULL, "invalid buffer");
+	KASSERT(bio->length > 0, "invalid length");
+	KASSERT(bio->length % 512 == 0, "invalid length"); /* XXX */
+
+	/* XXX boundary check */
+	item.unit = priv->unit;
+	item.lba = bio->io_block;
+	item.count = bio->length / 512;
+	item.bio = bio;
+	item.command = ATA_CMD_WRITE_SECTORS;
+	item.flags = ATA_ITEM_FLAG_WRITE;
+#ifdef NOTYET
+	if (priv->flags & ATADISK_FLAG_DMA)
+		item.flags |= ATA_ITEM_FLAG_DMA;
+#endif
+	dev->parent->driver->drv_enqueue(dev->parent, &item);
+	dev->parent->driver->drv_start(dev->parent);
+	return ANANAS_ERROR_OK;
+}
+
 struct DRIVER drv_atadisk = {
 	.name					= "atadisk",
 	.drv_attach		= atadisk_attach,
-	.drv_bread		= atadisk_bread
+	.drv_bread		= atadisk_bread,
+	.drv_bwrite   = atadisk_bwrite
 };
 
 /* vim:set ts=2 sw=2: */
