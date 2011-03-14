@@ -75,6 +75,24 @@ bio_init()
 	spinlock_init(&spl_bio_bitmap);
 }
 
+static void
+bio_waitcomplete(struct BIO* bio)
+{	
+	TRACE(BIO, FUNC, "bio=%p", bio);
+	while((bio->flags & BIO_FLAG_PENDING) != 0) {
+		reschedule();
+	}
+}
+
+static void
+bio_waitdirty(struct BIO* bio)
+{	
+	TRACE(BIO, FUNC, "bio=%p", bio);
+	while((bio->flags & BIO_FLAG_DIRTY) != 0) {
+		reschedule();
+	}
+}
+
 /*
  * Called to queue a bio to storage; called with list lock held.
  */
@@ -87,13 +105,15 @@ bio_flush(struct BIO* bio)
 	if ((bio->flags & BIO_FLAG_DIRTY) == 0)
 		return;
 
+	TRACE(BIO, INFO, "bio %p (lba %u) is dirty, flushing", bio, (uint32_t)bio->io_block);
+
 	errorcode_t err = device_bwrite(bio->device, bio);
 	if (err != ANANAS_ERROR_NONE) {
 		kprintf("bio_flush(): device_write() failed, %i\n", err);
 		bio_set_error(bio);
 	} else {
 		/* ... and wait until we have something to report... */
-		bio_waitcomplete(bio);
+		bio_waitdirty(bio);
 		/*
 		 * We're all set - the block I/O driver is responsible for clearing the dirty flag if
 		 * necessary
@@ -293,16 +313,6 @@ void
 bio_free(struct BIO* bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", bio);
-}
-
-int
-bio_waitcomplete(struct BIO* bio)
-{	
-	TRACE(BIO, FUNC, "bio=%p", bio);
-	while((bio->flags & BIO_FLAG_PENDING) != 0) {
-		reschedule();
-	}
-	return 0;
 }
 
 struct BIO*
