@@ -244,6 +244,20 @@ ata_start_pio(device_t dev, struct ATA_REQUEST_ITEM* item)
 
 		/* If we need to write data, do so */
 		if (item->flags & ATA_ITEM_FLAG_WRITE) {
+			/* Wait until the command is accepted */
+			uint8_t status;
+			while (ata_read_status(dev) & ATA_STAT_BSY);
+			while (1) {
+				status = ata_read_status(dev);
+				if (status & ATA_STAT_ERR) {
+					/* Got an error - this means the request cannot be completed */
+					bio_set_error(item->bio);
+					return;
+				}
+				if (status & ATA_STAT_DRQ)
+					break;
+			}
+
 			/* XXX We really need outsw() or similar */
 			uint8_t* bio_data = item->bio->data;
 			for(int i = 0; i < item->bio->length; i += 2) {
@@ -263,13 +277,13 @@ ata_start_pio(device_t dev, struct ATA_REQUEST_ITEM* item)
 
 		/* Wait until the command is accepted */
 		uint8_t status;
-		while (ata_read_status(dev) & ATA_STAT_BSY) ;
+		while (ata_read_status(dev) & ATA_STAT_BSY);
 		while (1) {
 			status = ata_read_status(dev);
 			if (status & ATA_STAT_ERR) {
 				/* Got an error - this means the request cannot be completed */
 				bio_set_error(item->bio);
-;				return;
+				return;
 			}
 			if (status & ATA_STAT_DRQ)
 				break;
