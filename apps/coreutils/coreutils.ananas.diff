@@ -115,3 +115,20 @@ diff -rubB coreutils-8.7/lib/xstrtol.c coreutils-8.7.patched/lib/xstrtol.c
      {
        *x = STRTOL_T_MINIMUM;
        return LONGINT_OVERFLOW;
+diff -rubB coreutils-8.7/src/system.h coreutils-8.7.patched/src/system.h
+--- coreutils-8.7/src/system.h	2010-10-25 12:07:57.000000000 +0200
++++ coreutils-8.7.patched/src/system.h	2011-03-15 20:59:04.314524002 +0100
+@@ -671,11 +671,11 @@
+    In the future we could use the above method if available
+    and default to io_blksize() if not.
+  */
+-enum { IO_BUFSIZE = 32*1024 };
++enum { IO_BUFSIZE = 4*1024 }; /* XXX Ananas has no support for >PAGE_SIZE mappings yet XXX */
+ static inline size_t
+ io_blksize (struct stat sb)
+ {
+-  return MAX (IO_BUFSIZE, ST_BLKSIZE (sb));
++  return IO_BUFSIZE;
+ }
+ 
+ void usage (int status) ATTRIBUTE_NORETURN;
