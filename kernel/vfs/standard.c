@@ -208,6 +208,8 @@ vfs_lookup_internal(struct VFS_INODE* curinode, const char* dentry, struct VFS_I
 			/* Entry is in the cache but cannot be found; release the previous inode */
 			KASSERT(dentry->d_entry_inode == NULL, "negative lookup with inode?");
 			vfs_deref_inode(curinode);
+			/* Store the current inode; this is the directory that ought to contain the inode */
+			*destinode = curinode;
 			return ANANAS_ERROR(NO_FILE);
 		}
 
@@ -301,6 +303,7 @@ vfs_create(struct VFS_INODE* dirinode, struct VFS_FILE* file, const char* dentry
 	 * away.
 	 */
 	de->d_flags &= ~DENTRY_FLAG_NEGATIVE;
+	KASSERT(parentinode != NULL, "attempt to create entry without a parent inode");
 	KASSERT(S_ISDIR(parentinode->i_sb.st_mode), "final entry isn't an inode");
 
 	/* Dear filesystem, create a new inode for us */
