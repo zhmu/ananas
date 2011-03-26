@@ -386,33 +386,28 @@ fat_dump_entry(struct FAT_ENTRY* fentry)
  * complete.
  */
 static int
-fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename, int* cur_pos)
+fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename)
 {
-#define ADD_CHAR(c) \
-	do { \
-			fat_filename[*cur_pos] = (c); \
-			(*cur_pos)++; \
+#define ADD_CHAR(c) do { \
+		fat_filename[pos] = (c); \
+		pos++; \
 	} while(0)
 
+	int pos = 0;
 	if (fentry->fe_attributes == FAT_ATTRIBUTE_LFN) {
 		struct FAT_ENTRY_LFN* lfnentry = (struct FAT_ENTRY_LFN*)fentry;
 
+    /* LFN entries needn't be sequential, so fill them out as they pass by */
+    pos = ((lfnentry->lfn_order & ~LFN_ORDER_LAST) - 1) * 13;
+
 		/* LFN XXX should we bother about the checksum? */
-
-		/* LFN, part 1 XXX we throw away the upper 8 bits */
-		for (int i = 0; i < 5; i++) {
+		/* XXX we throw away the upper 8 bits */
+		for (int i = 0; i < 5; i++)
 			ADD_CHAR(lfnentry->lfn_name_1[i * 2]);
-		}
-
-		/* LFN, part 2 XXX we throw away the upper 8 bits */
-		for (int i = 0; i < 5; i++) {
+		for (int i = 0; i < 6; i++)
 			ADD_CHAR(lfnentry->lfn_name_2[i * 2]);
-		}
-
-		/* LFN, part 3 XXX we throw away the upper 8 bits */
-		for (int i = 0; i < 2; i++) {
+		for (int i = 0; i < 2; i++)
 			ADD_CHAR(lfnentry->lfn_name_3[i * 2]);
-		}
 		return 0;
 	}
 
@@ -420,7 +415,7 @@ fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename, int* cur_po
 	 * If we have a current LFN entry, we should use that instead and
 	 * ignore the old 8.3 filename.
 	 */
-	if (*cur_pos > 0)
+	if (fat_filename[0] != '\0')
 			return 1;
 
 	/* Convert the filename bits */
@@ -454,6 +449,8 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	struct BIO* bio = NULL;
 	errorcode_t err = ANANAS_ERROR_OK;
 
+	memset(cur_filename, 0, sizeof(cur_filename));
+
 	blocknr_t cur_block;
 	while(left > 0) {
 		/* Obtain the current directory block data */
@@ -483,7 +480,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		}
 
 		/* Convert the filename bits */
-		if (!fat_construct_filename(fentry, cur_filename, &cur_filename_len)) {
+		if (!fat_construct_filename(fentry, cur_filename)) {
 			/* This is part of a long file entry name - get more */
 			continue;
 		}
@@ -492,14 +489,12 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		 * If this is a volume entry, ignore it (but do this after the LFN has been handled
 		 * because these will always have the volume bit set)
 		 */
-		if (fentry->fe_attributes & FAT_ATTRIBUTE_VOLUMEID) {
-			cur_filename_len = 0;
+		if (fentry->fe_attributes & FAT_ATTRIBUTE_VOLUMEID)
 			continue;
-		}
 
 		/* And hand it to the fill function */
 		uint64_t fsop = cur_block << 16 | cur_offs;
-		int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, fs->fs_fsop_size, cur_filename, cur_filename_len);
+		int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, fs->fs_fsop_size, cur_filename, strlen(cur_filename));
 		if (!filled) {
 			/*
 			 * Out of space - we need to restore the offset of the LFN chain. This must
@@ -517,6 +512,9 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		 * read everything again)
 		 */
 		full_filename_offset = file->f_offset;
+
+		/* Start over from the next filename */
+		memset(cur_filename, 0, sizeof(cur_filename));
 	}
 	if (bio != NULL) bio_free(bio);
 	*len = written;
