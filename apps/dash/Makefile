@@ -13,7 +13,6 @@ TOUCH?=		touch
 R=		${CURDIR}
 CC=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-gcc
 LD=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-ld
-CFLAGS=		-I${R}/../../include -I${R}/include-${ARCH}
 
 dash:		.extract .configure .build dash-${ARCH}
 
@@ -28,7 +27,7 @@ dash-${VERSION}.tar.gz:
 		(cd dash-${VERSION} && patch -p1 < ${R}/dash.ananas.diff)
 		@${TOUCH} .patch
 
-.configure:	.patch include-${ARCH}
+.configure:	.patch
 		(cd dash-${VERSION} && ./configure CFLAGS="${CFLAGS}" CC=${CC} LD=${LD} --host=${TARGET})
 		@${TOUCH} .configure
 
@@ -39,9 +38,6 @@ dash-${VERSION}.tar.gz:
 dash-${ARCH}:	.build
 		cp dash-${VERSION}/src/dash dash-${ARCH}
 
-include-${ARCH}:
-		(mkdir include-${ARCH} && cd include-${ARCH} && ln -sf ${R}/../../include/ananas/${ARCH} machine)
-
 clean:
-		rm -rf dash-${VERSION} include-${ARCH}
+		rm -rf dash-${VERSION}
 		rm -f .extract .patch .configure .build dash-${ARCH}

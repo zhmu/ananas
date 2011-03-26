@@ -14,7 +14,6 @@ TOUCH?=		touch
 R=		${CURDIR}
 CC=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-gcc
 LD=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-ld
-CFLAGS=		-I${R}/../../include -I${R}/include-${ARCH}
 # XXX this is unfortunate, but required for now
 CFLAGS+=	-DOK_TO_USE_1S_CLOCK
 CPPFLAGS=	${CFLAGS}
@@ -32,7 +31,7 @@ coreutils-${VERSION}.tar.gz:
 		(cd coreutils-${VERSION} && patch -p1 < ${R}/coreutils.ananas.diff)
 		@${TOUCH} .patch
 
-.configure:	.patch include-${ARCH}
+.configure:	.patch
 		(cd coreutils-${VERSION} && ./configure CFLAGS="${CFLAGS}" CPPFLAGS="${CPPFLAGS}" CC=${CC} LD=${LD} --host=${TARGET} --prefix=${PREFIX})
 		@${TOUCH} .configure
 
@@ -43,9 +42,6 @@ coreutils-${VERSION}.tar.gz:
 .install:	.build
 		(cd coreutils-${VERSION} && make install)
 
-include-${ARCH}:
-		(mkdir include-${ARCH} && cd include-${ARCH} && ln -sf ${R}/../../include/ananas/${ARCH} machine)
-
 clean:
-		rm -rf coreutils-${VERSION} include-${ARCH}
+		rm -rf coreutils-${VERSION}
 		rm -f .extract .patch .configure .build
