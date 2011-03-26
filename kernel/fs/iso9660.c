@@ -168,12 +168,12 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
 	struct ISO9660_INODE_PRIVDATA* privdata = (struct ISO9660_INODE_PRIVDATA*)file->f_inode->i_privdata;
-	block_t block = privdata->lba + file->f_offset / fs->fs_block_size;
+	blocknr_t block = privdata->lba + file->f_offset / fs->fs_block_size;
 	uint32_t offset = file->f_offset % fs->fs_block_size;
 	size_t written = 0, left = *len;
 
 	struct BIO* bio = NULL;
-	block_t curblock = 0;
+	blocknr_t curblock = 0;
 	while(left > 0) {
 		if (block > privdata->lba + file->f_inode->i_sb.st_size / fs->fs_block_size) {
 			/*
@@ -246,7 +246,7 @@ iso9660_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
 	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
 	struct ISO9660_INODE_PRIVDATA* privdata = (struct ISO9660_INODE_PRIVDATA*)file->f_inode->i_privdata;
-	block_t blocknum = (block_t)file->f_offset / fs->fs_block_size;
+	blocknr_t blocknum = (blocknr_t)file->f_offset / fs->fs_block_size;
 	uint32_t offset = file->f_offset % fs->fs_block_size;
 	size_t numread = 0, left = *len;
 

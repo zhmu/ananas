@@ -83,13 +83,13 @@ struct FAT_INODE_PRIVDATA {
 
 TRACE_SETUP;
 
-static inline block_t
+static inline blocknr_t
 fat_cluster_to_sector(struct VFS_MOUNTED_FS* fs, uint32_t cluster)
 {
 	struct FAT_FS_PRIVDATA* privdata = (struct FAT_FS_PRIVDATA*)fs->fs_privdata;
 	KASSERT(cluster >= 2, "invalid cluster number %u specified", cluster);
 
-	block_t ret = cluster - 2 /* really; the first 2 are reserved or something? */;
+	blocknr_t ret = cluster - 2 /* really; the first 2 are reserved or something? */;
 	ret *= privdata->sectors_per_cluster;
 	ret += privdata->first_data_sector;
 	return ret;
@@ -114,7 +114,7 @@ fat_destroy_inode(struct VFS_INODE* inode)
 }
 
 static inline void
-fat_make_cluster_block_offset(struct VFS_MOUNTED_FS* fs, uint32_t cluster, block_t* sector, uint32_t* offset)
+fat_make_cluster_block_offset(struct VFS_MOUNTED_FS* fs, uint32_t cluster, blocknr_t* sector, uint32_t* offset)
 {
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 
@@ -150,7 +150,7 @@ fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clus
 	/* XXX this function would benefit a lot from caching */
 	*cluster_out = first_cluster;
 	while (cur_cluster != 0 && clusternum-- > 0) {
-		block_t sector_num;
+		blocknr_t sector_num;
 		uint32_t offset;
 		fat_make_cluster_block_offset(fs, cur_cluster, &sector_num, &offset);
 		struct BIO* bio;
@@ -217,7 +217,7 @@ fat_set_cluster(struct VFS_MOUNTED_FS* fs, struct BIO** bio, uint32_t cluster_nu
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 
 	/* Calculate the block and offset within that block of the cluster */
-	block_t sector_num;
+	blocknr_t sector_num;
 	uint32_t offset;
 	fat_make_cluster_block_offset(fs, cluster_num, &sector_num, &offset);
 
@@ -263,12 +263,12 @@ fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
 	}
 
 	/* XXX We do a dumb find-first on the filesystem for now */
-	block_t cur_block;
+	blocknr_t cur_block;
 	struct BIO* bio = NULL;
 	for (uint32_t clusterno = fs_privdata->next_avail_cluster; clusterno < fs_privdata->total_clusters; clusterno++) {
 		/* Obtain the FAT block, if necessary */
 		uint32_t offset;
-		block_t want_block;
+		blocknr_t want_block;
 		fat_make_cluster_block_offset(fs, clusterno, &want_block, &offset);
 		if (want_block != cur_block || bio == NULL) {
 			if (bio != NULL) bio_free(bio);
@@ -323,7 +323,7 @@ fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
  * that on FAT, a block size is identical to a sector size.
  */
 static errorcode_t
-fat_block_map(struct VFS_INODE* inode, block_t block_in, block_t* block_out, int create)
+fat_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out, int create)
 {
 	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
@@ -334,7 +334,7 @@ fat_block_map(struct VFS_INODE* inode, block_t block_in, block_t* block_out, int
 	 * FAT12/16 root inodes are special as they have a fixed location and
 	 * length; the FAT isn't needed to traverse them.
 	 */
-	block_t want_block;
+	blocknr_t want_block;
 	if (privdata->root_inode && fs_privdata->fat_type != 32) {
 		want_block = fs_privdata->first_rootdir_sector + block_in;
 		if (block_in >= (fs_privdata->num_rootdir_sectors * fs_privdata->sector_size))
@@ -454,11 +454,11 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	struct BIO* bio = NULL;
 	errorcode_t err = ANANAS_ERROR_OK;
 
-	block_t cur_block;
+	blocknr_t cur_block;
 	while(left > 0) {
 		/* Obtain the current directory block data */
-		block_t want_block;
-		errorcode_t err = fat_block_map(file->f_inode, (file->f_offset / (block_t)fs->fs_block_size), &want_block, 0);
+		blocknr_t want_block;
+		errorcode_t err = fat_block_map(file->f_inode, (file->f_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
 		ANANAS_ERROR_RETURN(err);
 		if (want_block != cur_block || bio == NULL) {
 			if (bio != NULL) bio_free(bio);
@@ -577,14 +577,14 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 	if (dentry != NULL)
 		chain_needed += (strlen(dentry) + 12) / 13;
 
-	block_t cur_block;
+	blocknr_t cur_block;
 	uint32_t current_filename_offset = (uint32_t)-1;
 	int	cur_lfn_chain = 0;
 	uint32_t cur_dir_offset = 0;
 	while(1) {
 		/* Obtain the current directory block data */
-		block_t want_block;
-		errorcode_t err = fat_block_map(dir, (cur_dir_offset / (block_t)fs->fs_block_size), &want_block, 0);
+		blocknr_t want_block;
+		errorcode_t err = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
 		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE) {
 			/* We've hit an end-of-file - this means we'll have to enlarge the directory */
 			cur_lfn_chain = -1;
@@ -668,8 +668,8 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 	int filename_len = strlen(dentry);
 	for(int cur_entry_idx = 0; cur_entry_idx < chain_needed; cur_entry_idx++) {
 		/* Fetch/allocate the desired block */
-		block_t want_block;
-		errorcode_t err = fat_block_map(dir, (current_filename_offset / (block_t)fs->fs_block_size), &want_block, (cur_lfn_chain < 0));
+		blocknr_t want_block;
+		errorcode_t err = fat_block_map(dir, (current_filename_offset / (blocknr_t)fs->fs_block_size), &want_block, (cur_lfn_chain < 0));
 		ANANAS_ERROR_RETURN(err);
 		if (want_block != cur_block) {
 			bio_free(bio);

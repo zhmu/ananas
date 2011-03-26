@@ -15,7 +15,7 @@
 #include <ananas/_types/dev.h>
 #include <ananas/_types/blksize.h>
 #include <ananas/_types/blkcnt.h>
-#include <ananas/_types/block.h>
+#include <ananas/_types/blocknr.h>
 #include <ananas/_types/errorcode.h>
 #include <ananas/_types/refcount.h>
 #include <ananas/_types/time.h>

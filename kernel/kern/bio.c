@@ -183,7 +183,7 @@ bio_cleanup()
  * allocate a new one as required.
  */
 static struct BIO*
-bio_get_buffer(device_t dev, block_t block, size_t len)
+bio_get_buffer(device_t dev, blocknr_t block, size_t len)
 {
 	TRACE(BIO, FUNC, "dev=%p, block=%u, len=%u", dev, (int)block, len);
 	KASSERT((len % BIO_SECTOR_SIZE) == 0, "length %u not a multiple of bio sector size", len);
@@ -316,7 +316,7 @@ bio_free(struct BIO* bio)
 }
 
 struct BIO*
-bio_get(device_t dev, block_t block, size_t len, int flags)
+bio_get(device_t dev, blocknr_t block, size_t len, int flags)
 {
 	struct BIO* bio = bio_get_buffer(dev, block, len);
 	if (flags & BIO_READ_NODATA) {

@@ -7,7 +7,7 @@
 
 struct SLICE_PRIVATE {
 	device_t biodev;
-	block_t	first_block;
+	blocknr_t	first_block;
 	size_t	length;
 };
 
@@ -40,7 +40,7 @@ struct DRIVER drv_slice = {
 };
 
 struct DEVICE*
-slice_create(device_t dev, block_t begin, block_t length)
+slice_create(device_t dev, blocknr_t begin, blocknr_t length)
 {
 	struct SLICE_PRIVATE* privdata = (struct SLICE_PRIVATE*)kmalloc(sizeof(struct SLICE_PRIVATE));
 	privdata->first_block = begin;

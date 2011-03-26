@@ -97,7 +97,7 @@ vfs_deref_inode(struct VFS_INODE* inode)
 }
 
 errorcode_t
-vfs_bget(struct VFS_MOUNTED_FS* fs, block_t block, struct BIO** bio, int flags)
+vfs_bget(struct VFS_MOUNTED_FS* fs, blocknr_t block, struct BIO** bio, int flags)
 {
 	*bio = bio_get(fs->fs_device, block * (fs->fs_block_size / BIO_SECTOR_SIZE), fs->fs_block_size, flags);
 	if (*bio == NULL)

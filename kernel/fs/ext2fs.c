@@ -45,7 +45,7 @@ struct EXT2_FS_PRIVDATA {
 };
 
 struct EXT2_INODE_PRIVDATA {
-	block_t block[EXT2_INODE_BLOCKS];
+	blocknr_t block[EXT2_INODE_BLOCKS];
 };
 
 static void
@@ -105,7 +105,7 @@ ext2_dump_inode(struct EXT2_INODE* inode)
  * contains X * X blocks, so we can store X * X * X = 16777216 blocks.
  */
 static errorcode_t
-ext2_block_map(struct VFS_INODE* inode, block_t block_in, block_t* block_out, int create)
+ext2_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out, int create)
 {
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	struct EXT2_INODE_PRIVDATA* in_privdata = inode->i_privdata;
@@ -147,7 +147,7 @@ static errorcode_t
 ext2_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
 	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
-	block_t blocknum = (block_t)file->f_offset / (block_t)fs->fs_block_size;
+	blocknr_t blocknum = (blocknr_t)file->f_offset / (blocknr_t)fs->fs_block_size;
 	uint32_t offset = file->f_offset % fs->fs_block_size;
 	size_t numread = 0;
 	size_t left = *len;
@@ -157,7 +157,7 @@ ext2_read(struct VFS_FILE* file, void* buf, size_t* len)
 		left = file->f_inode->i_sb.st_size - file->f_offset;
 
 	while(left > 0) {
-		block_t block;
+		blocknr_t block;
 		errorcode_t err = ext2_block_map(file->f_inode, blocknum, &block, 0);
 		ANANAS_ERROR_RETURN(err);
 		if (block == 0) {
@@ -193,14 +193,14 @@ static errorcode_t
 ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
-	block_t blocknum = (block_t)file->f_offset / (block_t)fs->fs_block_size;
+	blocknr_t blocknum = (blocknr_t)file->f_offset / (blocknr_t)fs->fs_block_size;
 	uint32_t offset = file->f_offset % fs->fs_block_size;
 	size_t written = 0, left = *len;
 
 	struct BIO* bio = NULL;
-	block_t curblock = 0;
+	blocknr_t curblock = 0;
 	while(left > 0) {
-		block_t block;
+		blocknr_t block;
 		errorcode_t err = ext2_block_map(file->f_inode, blocknum, &block, 0);
 		ANANAS_ERROR_RETURN(err);
 		if (block == 0) {
@@ -290,7 +290,7 @@ ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 	 */
 	uint32_t bgroup = inum / privdata->sb.s_inodes_per_group;
 	uint32_t iindex = inum % privdata->sb.s_inodes_per_group;
-	block_t block = privdata->blockgroup[bgroup].bg_inode_table + (iindex * privdata->sb.s_inode_size) / fs->fs_block_size;
+	blocknr_t block = privdata->blockgroup[bgroup].bg_inode_table + (iindex * privdata->sb.s_inode_size) / fs->fs_block_size;
 
 	/* Fetch the block and make a pointer to the inode */
 	struct BIO* bio;
@@ -381,7 +381,7 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 		 * The +1 is because we need to skip the superblock, and the s_first_data_block
 	 	 * increment is because we need to count from the superblock onwards...
 		 */
-		block_t blocknum = 1 + (n * sizeof(struct EXT2_BLOCKGROUP)) / fs->fs_block_size;
+		blocknr_t blocknum = 1 + (n * sizeof(struct EXT2_BLOCKGROUP)) / fs->fs_block_size;
 		blocknum += privdata->sb.s_first_data_block;
 		err = vfs_bread(fs, blocknum, &bio);
 		if (err != ANANAS_ERROR_OK) {

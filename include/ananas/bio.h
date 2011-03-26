@@ -32,8 +32,8 @@ struct BIO {
 #define BIO_FLAG_DIRTY		0x0002	/* I/O needs to be written */
 #define BIO_FLAG_ERROR		0x8000	/* Request failed */
 	device_t	device;		/* Device I/O'ing from */
-	block_t		block;		/* Block number to I/O */
-	block_t		io_block;	/* Translated block number to I/O */
+	blocknr_t	block;		/* Block number to I/O */
+	blocknr_t	io_block;	/* Translated block number to I/O */
 	unsigned int	length;		/* Length in bytes (<= PAGE_SIZE, so int will do) */
 	void*		data;		/* Pointer to BIO data */
 
@@ -50,9 +50,9 @@ void bio_init();
 void bio_set_error(struct BIO* bio);
 void bio_set_available(struct BIO* bio);
 void bio_set_dirty(struct BIO* bio);
-struct BIO* bio_get(device_t dev, block_t block, size_t len, int flags);
+struct BIO* bio_get(device_t dev, blocknr_t block, size_t len, int flags);
 
-static inline struct BIO* bio_read(device_t dev, block_t block, size_t len)
+static inline struct BIO* bio_read(device_t dev, blocknr_t block, size_t len)
 {
 	return bio_get(dev, block, len, 0);
 }

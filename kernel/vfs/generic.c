@@ -69,11 +69,11 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 		left = file->f_inode->i_sb.st_size - file->f_offset;
 	}
 
-	block_t cur_block = 0;
+	blocknr_t cur_block = 0;
 	while(left > 0) {
 		/* Figure out which block to use next */
-		block_t want_block;
-		errorcode_t err = inode->i_iops->block_map(inode, (file->f_offset / (block_t)fs->fs_block_size), &want_block, 0);
+		blocknr_t want_block;
+		errorcode_t err = inode->i_iops->block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
 		ANANAS_ERROR_RETURN(err);
 
 		/* Grab the next block if necessary */
@@ -85,7 +85,7 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 		}
 
 		/* Copy as much from the current entry as we can */
-		off_t cur_offset = file->f_offset % (block_t)fs->fs_block_size;
+		off_t cur_offset = file->f_offset % (blocknr_t)fs->fs_block_size;
 		int chunk_len = fs->fs_block_size - cur_offset;
 		if (chunk_len > left)
 			chunk_len = left;
@@ -114,20 +114,20 @@ vfs_generic_write(struct VFS_FILE* file, void* buf, size_t* len)
 	KASSERT(inode->i_iops->block_map != NULL, "called without block_map implementation");
 
 	int inode_dirty = 0;
-	block_t cur_block = 0;
+	blocknr_t cur_block = 0;
 	while(left > 0) {
 		int create = 0;
-		block_t logical_block = file->f_offset / (block_t)fs->fs_block_size;
+		blocknr_t logical_block = file->f_offset / (blocknr_t)fs->fs_block_size;
 		if (logical_block >= inode->i_sb.st_blocks /* XXX is this correct with sparse files? */)
 			create++;
 
 		/* Figure out which block to use next */
-		block_t want_block;
+		blocknr_t want_block;
 		errorcode_t err = inode->i_iops->block_map(inode, logical_block, &want_block, create);
 		ANANAS_ERROR_RETURN(err);
 
 		/* Calculate how much we have to put in the block */
-		off_t cur_offset = file->f_offset % (block_t)fs->fs_block_size;
+		off_t cur_offset = file->f_offset % (blocknr_t)fs->fs_block_size;
 		int chunk_len = fs->fs_block_size - cur_offset;
 		if (chunk_len > left)
 			chunk_len = left;
