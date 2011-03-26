@@ -459,6 +459,8 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		/* Obtain the current directory block data */
 		blocknr_t want_block;
 		errorcode_t err = fat_block_map(file->f_inode, (file->f_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
+		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE)
+			break;
 		ANANAS_ERROR_RETURN(err);
 		if (want_block != cur_block || bio == NULL) {
 			if (bio != NULL) bio_free(bio);
