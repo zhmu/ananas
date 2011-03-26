@@ -17,11 +17,11 @@ AR=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-ar
 
 binutils:	.install
 
-mpfr-${VERSION}.tar.gz:
-		${DOWNLOAD} ${MIRROR}/mpfr-${VERSION}.tar.gz
+../distfiles/mpfr-${VERSION}.tar.gz:
+		(cd ../distfiles && ${DOWNLOAD} ${MIRROR}/mpfr-${VERSION}.tar.gz)
 
-.extract:	mpfr-${VERSION}.tar.gz
-		${TAR} xf mpfr-${VERSION}.tar.gz
+.extract:	../distfiles/mpfr-${VERSION}.tar.gz
+		${TAR} xf ../distfiles/mpfr-${VERSION}.tar.gz
 		@${TOUCH} .extract
 
 .patch:		.extract mpfr.ananas.diff

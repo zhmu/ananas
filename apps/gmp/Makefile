@@ -19,11 +19,11 @@ NM=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-nm
 
 binutils:	.install
 
-gmp-${VERSION}.tar.bz2:
-		${DOWNLOAD} ${MIRROR}/gmp-${VERSION}.tar.bz2
+../distfiles/gmp-${VERSION}.tar.bz2:
+		(cd ../distfiles && ${DOWNLOAD} ${MIRROR}/gmp-${VERSION}.tar.bz2)
 
-.extract:	gmp-${VERSION}.tar.bz2
-		${TAR} xf gmp-${VERSION}.tar.bz2
+.extract:	../distfiles/gmp-${VERSION}.tar.bz2
+		${TAR} xf ../distfiles/gmp-${VERSION}.tar.bz2
 		@${TOUCH} .extract
 
 .patch:		.extract gmp.ananas.diff

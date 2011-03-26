@@ -21,11 +21,11 @@ CPPFLAGS=	${CFLAGS}
 
 gcc:		.install
 
-gcc-${VERSION}.tar.gz:
-		${DOWNLOAD} ${MIRROR}/gcc-${VERSION}/gcc-${VERSION}.tar.gz
+../distfiles/gcc-${VERSION}.tar.gz:
+		(cd ../distfiles && ${DOWNLOAD} ${MIRROR}/gcc-${VERSION}/gcc-${VERSION}.tar.gz)
 
-.extract:	gcc-${VERSION}.tar.gz
-		${TAR} xf gcc-${VERSION}.tar.gz
+.extract:	../distfiles/gcc-${VERSION}.tar.gz
+		${TAR} xf ../distfiles/gcc-${VERSION}.tar.gz
 		@${TOUCH} .extract
 
 .patch:		.extract

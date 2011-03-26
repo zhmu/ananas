@@ -20,11 +20,11 @@ CPPFLAGS=	${CFLAGS}
 
 coreutils:	.install
 
-coreutils-${VERSION}.tar.gz:
-		${DOWNLOAD} ${MIRROR}/coreutils-${VERSION}.tar.gz
+../distfiles/coreutils-${VERSION}.tar.gz:
+		(cd ../distfiles && ${DOWNLOAD} ${MIRROR}/coreutils-${VERSION}.tar.gz)
 
-.extract:	coreutils-${VERSION}.tar.gz
-		${TAR} xf coreutils-${VERSION}.tar.gz
+.extract:	../distfiles/coreutils-${VERSION}.tar.gz
+		${TAR} xf ../distfiles/coreutils-${VERSION}.tar.gz
 		@${TOUCH} .extract
 
 .patch:		.extract coreutils.ananas.diff

@@ -18,11 +18,11 @@ CPPFLAGS=	${CFLAGS}
 
 make:		.install
 
-make-${VERSION}.tar.gz:
-		${DOWNLOAD} ${MIRROR}/make-${VERSION}.tar.gz
+../distfiles/make-${VERSION}.tar.gz:
+		(cd ../distfiles && ${DOWNLOAD} ${MIRROR}/make-${VERSION}.tar.gz)
 
-.extract:	make-${VERSION}.tar.gz
-		${TAR} xf make-${VERSION}.tar.gz
+.extract:	../distfiles/make-${VERSION}.tar.gz
+		${TAR} xf ../distfiles/make-${VERSION}.tar.gz
 		@${TOUCH} .extract
 
 .patch:		.extract make.ananas.diff

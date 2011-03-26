@@ -16,11 +16,11 @@ LD=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-ld
 
 dash:		.extract .configure .build dash-${ARCH}
 
-dash-${VERSION}.tar.gz:
-		${DOWNLOAD} ${MIRROR}/dash-${VERSION}.tar.gz
+../distfiles/dash-${VERSION}.tar.gz:
+		(cd ../distfiles && ${DOWNLOAD} ${MIRROR}/dash-${VERSION}.tar.gz)
 
-.extract:	dash-${VERSION}.tar.gz
-		${TAR} xf dash-${VERSION}.tar.gz
+.extract:	../distfiles/dash-${VERSION}.tar.gz
+		${TAR} xf ../distfiles/dash-${VERSION}.tar.gz
 		@${TOUCH} .extract
 
 .patch:		.extract dash.ananas.diff
