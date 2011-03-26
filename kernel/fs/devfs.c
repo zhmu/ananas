@@ -24,9 +24,9 @@ struct DEVFS_INODE_PRIVDATA {
 };
 
 static struct VFS_INODE*
-devfs_alloc_inode(struct VFS_MOUNTED_FS* fs)
+devfs_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 {
-	struct VFS_INODE* inode = vfs_make_inode(fs);
+	struct VFS_INODE* inode = vfs_make_inode(fs, fsop);
 	if (inode == NULL)
 		return NULL;
 	inode->i_privdata = kmalloc(sizeof(struct DEVFS_INODE_PRIVDATA));
@@ -167,8 +167,8 @@ devfs_mount(struct VFS_MOUNTED_FS* fs)
 	fs->fs_block_size = DEVFS_BLOCK_SIZE;
 	fs->fs_fsop_size = sizeof(uint32_t);
 	icache_init(fs);
-	fs->fs_root_inode = devfs_alloc_inode(fs);
 	uint32_t root_fsop = DEVFS_ROOTINODE_FSOP;
+	fs->fs_root_inode = devfs_alloc_inode(fs, (const void*)&root_fsop);
 	return vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
 }
 

@@ -22,15 +22,16 @@ vfs_init()
 }
 
 struct VFS_INODE*
-vfs_make_inode(struct VFS_MOUNTED_FS* fs)
+vfs_make_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 {
-	struct VFS_INODE* inode = kmalloc(sizeof(struct VFS_INODE));
+	struct VFS_INODE* inode = kmalloc(sizeof(struct VFS_INODE) + fs->fs_fsop_size);
 
 	/* Set up the basic inode information */
 	memset(inode, 0, sizeof(*inode));
 	spinlock_init(&inode->i_spinlock);
 	inode->i_refcount = 1;
 	inode->i_fs = fs;
+	memcpy(inode->i_fsop, fsop, fs->fs_fsop_size);
 	/* Fill out the stat fields we can */
 	inode->i_sb.st_dev = (dev_t)fs->fs_device;
 	inode->i_sb.st_rdev = (dev_t)fs->fs_device;
@@ -139,6 +140,19 @@ vfs_ref_inode(struct VFS_INODE* inode)
 	KASSERT(inode->i_refcount > 0, "referencing a dead inode");
 	inode->i_refcount++;
 	INODE_UNLOCK(inode);
+}
+
+void
+vfs_set_inode_dirty(struct VFS_INODE* inode)
+{
+	/* Ref the inode to prevent it from going away */
+	vfs_ref_inode(inode);
+	
+	/* XXX For now, we just immediately write the inode */
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	fs->fs_fsops->write_inode(inode);
+
+	vfs_deref_inode(inode);
 }
 
 /* vim:set ts=2 sw=2: */

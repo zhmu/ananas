@@ -276,14 +276,14 @@ icache_remove_pending(struct VFS_MOUNTED_FS* fs, struct ICACHE_ITEM* ii)
 }
 
 static struct VFS_INODE*
-vfs_alloc_inode(struct VFS_MOUNTED_FS* fs)
+vfs_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 {
 	struct VFS_INODE* inode;
 
 	if (fs->fs_fsops->alloc_inode != NULL) {
-		inode = fs->fs_fsops->alloc_inode(fs);
+		inode = fs->fs_fsops->alloc_inode(fs, fsop);
 	} else {
-		inode = vfs_make_inode(fs);
+		inode = vfs_make_inode(fs, fsop);
 	}
 	return inode;
 }
@@ -325,7 +325,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinod
 	 * pending item. Because multiple callers for the same FSOP will not reach
 	 * this point (they keep rescheduling, waiting for us to deal with it)
 	 */
-	struct VFS_INODE* inode = vfs_alloc_inode(fs);
+	struct VFS_INODE* inode = vfs_alloc_inode(fs, fsop);
 	if (inode == NULL) {
 		icache_remove_pending(fs, ii);
 		return ANANAS_ERROR(OUT_OF_HANDLES);

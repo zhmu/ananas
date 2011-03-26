@@ -20,13 +20,16 @@ errorcode_t vfs_mount(const char* from, const char* to, const char* type, void* 
  * locked, has a refcount of one and must be filled by the filesystem before
  * unlocking.
  */
-struct VFS_INODE* vfs_make_inode(struct VFS_MOUNTED_FS* fs);
+struct VFS_INODE* vfs_make_inode(struct VFS_MOUNTED_FS* fs, const void* fsop);
 
 /*
  * Destroys a locked inode; this should be called by the filesystem's
  * 'destroy_inode' function.
  */
 void vfs_destroy_inode(struct VFS_INODE* inode);
+
+/* Marks an inode as dirty; will trigger the filesystem's 'write_inode' function */
+void vfs_set_inode_dirty(struct VFS_INODE* inode);
 
 /* Internal interface only */
 void vfs_deref_inode_locked(struct VFS_INODE* inode);

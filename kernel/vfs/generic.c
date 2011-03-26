@@ -108,6 +108,7 @@ vfs_generic_write(struct VFS_FILE* file, void* buf, size_t* len)
 
 	KASSERT(inode->i_iops->block_map != NULL, "called without block_map implementation");
 
+	int inode_dirty = 0;
 	block_t cur_block = 0;
 	while(left > 0) {
 		int create = 0;
@@ -140,8 +141,10 @@ vfs_generic_write(struct VFS_FILE* file, void* buf, size_t* len)
 		memcpy((void*)(BIO_DATA(bio) + cur_offset), buf, chunk_len);
 		bio_set_dirty(bio);
 
-		if (create)
+		if (create) {
 			inode->i_sb.st_size += chunk_len;
+			inode_dirty++;
+		}
 
 		written += chunk_len;
 		buf += chunk_len;
@@ -150,6 +153,9 @@ vfs_generic_write(struct VFS_FILE* file, void* buf, size_t* len)
 	}
 	if (bio != NULL) bio_free(bio);
 	*len = written;
+
+	if (inode_dirty)
+		vfs_set_inode_dirty(inode);
 	return ANANAS_ERROR_OK;
 }
 

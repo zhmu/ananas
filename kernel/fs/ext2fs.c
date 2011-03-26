@@ -56,9 +56,9 @@ ext2_conv_superblock(struct EXT2_SUPERBLOCK* sb)
 }
 
 static struct VFS_INODE*
-ext2_alloc_inode(struct VFS_MOUNTED_FS* fs)
+ext2_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 {
-	struct VFS_INODE* inode = vfs_make_inode(fs);
+	struct VFS_INODE* inode = vfs_make_inode(fs, fsop);
 	if (inode == NULL)
 		return NULL;
 	struct EXT2_INODE_PRIVDATA* privdata = kmalloc(sizeof(struct EXT2_INODE_PRIVDATA));

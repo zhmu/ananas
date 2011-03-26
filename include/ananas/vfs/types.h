@@ -31,6 +31,7 @@ struct VFS_INODE {
 
 	struct VFS_MOUNTED_FS* i_fs;		/* Filesystem where the inode lives */
 	void*		i_privdata;		/* Filesystem-specific data */
+	uint8_t		i_fsop[1];		/* File system object pointer */
 };
 
 /*
@@ -114,7 +115,7 @@ struct VFS_FILESYSTEM_OPS {
 	 * the 'privdata' field of the inode - the function should call
 	 * vfs_make_inode() to obtain the new, locked inode.
 	 */
-	struct VFS_INODE* (*alloc_inode)(struct VFS_MOUNTED_FS* fs);
+	struct VFS_INODE* (*alloc_inode)(struct VFS_MOUNTED_FS* fs, const void* fsop);
 
 	/*
 	 * Destroy a locked inode. The purpose for this function is to deinitialize
@@ -129,6 +130,11 @@ struct VFS_FILESYSTEM_OPS {
 	 * filled out.
 	 */
 	errorcode_t (*read_inode)(struct VFS_INODE* inode, void* fsop);
+
+	/*
+	 * Writes an inode back to disk; inode is locked.
+	 */
+	errorcode_t (*write_inode)(struct VFS_INODE* inode);
 };
 
 struct VFS_INODE_OPS {
