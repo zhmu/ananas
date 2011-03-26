@@ -44,6 +44,18 @@
 #define FAT_FROM_LE16(x) (((uint8_t*)(x))[0] | (((uint8_t*)(x))[1] << 8))
 #define FAT_FROM_LE32(x) (((uint8_t*)(x))[0] | (((uint8_t*)(x))[1] << 8) | (((uint8_t*)(x))[2] << 16) | (((uint8_t*)(x))[3] << 24))
 
+#define FAT_TO_LE16(x, y) do { \
+		((uint8_t*)(x))[0] =  (y)       & 0xff; \
+		((uint8_t*)(x))[1] = ((y) >> 8) & 0xff; \
+	} while(0)
+
+#define FAT_TO_LE32(x, y) do { \
+		((uint8_t*)(x))[0] =  (y)        & 0xff; \
+		((uint8_t*)(x))[1] = ((y) >>  8) & 0xff; \
+		((uint8_t*)(x))[2] = ((y) >> 16) & 0xff; \
+		((uint8_t*)(x))[3] = ((y) >> 24) & 0xff; \
+	} while(0)
+
 struct FAT_FS_PRIVDATA {
 	int fat_type;                     /* FAT type: 12, 16 or 32 */
 	int	sector_size;                  /* Sector size, in bytes */
@@ -53,6 +65,8 @@ struct FAT_FS_PRIVDATA {
 	int num_rootdir_sectors;          /* Number of sectors occupying root dir */
 	uint32_t first_rootdir_sector;    /* First sector containing root dir */
 	uint32_t first_data_sector;       /* First sector containing file data */
+	uint32_t total_clusters;          /* Total number of clusters on filesystem */
+	uint32_t next_avail_cluster;      /* Next available cluster */
 };
 
 struct FAT_INODE_PRIVDATA {
@@ -69,7 +83,7 @@ struct FAT_INODE_PRIVDATA {
 
 TRACE_SETUP;
 
-static block_t
+static inline block_t
 fat_cluster_to_sector(struct VFS_MOUNTED_FS* fs, uint32_t cluster)
 {
 	struct FAT_FS_PRIVDATA* privdata = (struct FAT_FS_PRIVDATA*)fs->fs_privdata;
@@ -82,9 +96,9 @@ fat_cluster_to_sector(struct VFS_MOUNTED_FS* fs, uint32_t cluster)
 }
 
 static struct VFS_INODE*
-fat_alloc_inode(struct VFS_MOUNTED_FS* fs)
+fat_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 {
-	struct VFS_INODE* inode = vfs_make_inode(fs);
+	struct VFS_INODE* inode = vfs_make_inode(fs, fsop);
 	if (inode == NULL)
 		return NULL;
 	inode->i_privdata = kmalloc(sizeof(struct FAT_INODE_PRIVDATA));
@@ -99,34 +113,46 @@ fat_destroy_inode(struct VFS_INODE* inode)
 	vfs_destroy_inode(inode);
 }
 
+static inline void
+fat_make_cluster_block_offset(struct VFS_MOUNTED_FS* fs, uint32_t cluster, block_t* sector, uint32_t* offset)
+{
+	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
+
+	uint32_t block;
+	switch(fs_privdata->fat_type) {
+		case 16:
+			block = 2 * cluster;
+			break;
+		case 32:
+			block = 4 * cluster;
+			break;
+		case 12:
+			block = cluster + (cluster / 2); /* = 1.5 * cluster */
+			/* XXX FALLTHROUGH for now - write will fail */
+		default:
+			panic("fat_get_cluster(): unsupported fat size %u", fs_privdata->fat_type);
+	}
+	*sector = fs_privdata->reserved_sectors + (block / fs_privdata->sector_size);
+	*offset = block % fs_privdata->sector_size;
+}
+
 /*
- * Used to obtain the clusternum'th cluster of a file starting at first_cluster. Returns
- * zero if the end marker was detected.
+ * Used to obtain the clusternum'th cluster of a file starting at
+ * first_cluster. Returns BAD_RANGE error if end-of-file was found (but
+ * cluster_out will be set to the final cluster found_
  */
-static block_t
-fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clusternum)
+static errorcode_t
+fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clusternum, uint32_t* cluster_out)
 {
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 	uint32_t cur_cluster = first_cluster;
 
 	/* XXX this function would benefit a lot from caching */
+	*cluster_out = first_cluster;
 	while (cur_cluster != 0 && clusternum-- > 0) {
+		block_t sector_num;
 		uint32_t offset;
-		switch(fs_privdata->fat_type) {
-			case 12:
-				offset = cur_cluster + (cur_cluster / 2); /* = 1.5 * cur_cluster */
-				break;
-			case 16:
-				offset = 2 * cur_cluster;
-				break;
-			case 32:
-				offset = 4 * cur_cluster;
-				break;
-			default:
-				panic("fat_get_cluster(): unsupported fat size %u", fs_privdata->fat_type);
-		}
-		uint32_t sector_num = fs_privdata->reserved_sectors + (offset / fs_privdata->sector_size);
-		offset %= fs_privdata->sector_size;
+		fat_make_cluster_block_offset(fs, cur_cluster, &sector_num, &offset);
 		struct BIO* bio;
 		errorcode_t err = vfs_bread(fs, sector_num, &bio);
 		ANANAS_ERROR_RETURN(err);
@@ -174,8 +200,122 @@ fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clus
 				break;
 		}
 		bio_free(bio);
+		if (cur_cluster != 0)
+			*cluster_out = cur_cluster;
 	}
-	return cur_cluster;
+	return cur_cluster != 0 ? ANANAS_ERROR_OK : ANANAS_ERROR(BAD_RANGE);
+}
+
+/*
+ * Sets a cluster value to a given value. If *bio isn't NULL, it's assumed to be
+ * the buffer containing the cluster data - otherwise it will be updated to
+ * contain just that.
+ */
+static errorcode_t
+fat_set_cluster(struct VFS_MOUNTED_FS* fs, struct BIO** bio, uint32_t cluster_num, uint32_t cluster_val)
+{
+	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
+
+	/* Calculate the block and offset within that block of the cluster */
+	block_t sector_num;
+	uint32_t offset;
+	fat_make_cluster_block_offset(fs, cluster_num, &sector_num, &offset);
+
+	/* If a bio buffer isn't given, read it */
+	if (*bio == NULL) {
+		errorcode_t err = vfs_bread(fs, sector_num, bio);
+		ANANAS_ERROR_RETURN(err);
+	}
+
+	switch (fs_privdata->fat_type) {
+		case 12:
+			panic("writeme: fat12 support");
+		case 16:
+			FAT_TO_LE16((char*)(BIO_DATA(*bio) + offset), cluster_val);
+			break;
+		case 32: /* actually FAT-28... */
+			FAT_TO_LE32((char*)(BIO_DATA(*bio) + offset), cluster_val);
+			break;
+		default:
+			panic("unsuported fat type");
+	}
+
+	bio_set_dirty(*bio);
+	return ANANAS_ERROR_OK;
+}
+
+/*
+ * 	Appends a new cluster to an inode; returns the next cluster.
+ */
+static errorcode_t
+fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
+{
+	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
+
+	/* Figure out the last cluster of the file */
+	uint32_t last_cluster;
+	errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, (uint32_t)-1, &last_cluster);
+	if (ANANAS_ERROR_CODE(err) != ANANAS_ERROR_BAD_RANGE) {
+		KASSERT(err != ANANAS_ERROR_OK, "able to obtain impossible cluster");
+		return err;
+	}
+
+	/* XXX We do a dumb find-first on the filesystem for now */
+	block_t cur_block;
+	struct BIO* bio = NULL;
+	for (uint32_t clusterno = fs_privdata->next_avail_cluster; clusterno < fs_privdata->total_clusters; clusterno++) {
+		/* Obtain the FAT block, if necessary */
+		uint32_t offset;
+		block_t want_block;
+		fat_make_cluster_block_offset(fs, clusterno, &want_block, &offset);
+		if (want_block != cur_block || bio == NULL) {
+			if (bio != NULL) bio_free(bio);
+			errorcode_t err = vfs_bread(fs, want_block, &bio);
+			ANANAS_ERROR_RETURN(err);
+			cur_block = want_block;
+		}
+
+		/* Obtain the cluster value */
+		uint32_t val = -1;
+		switch (fs_privdata->fat_type) {
+			case 12:
+				panic("writeme: fat12 support");
+			case 16:
+				val = FAT_FROM_LE16((char*)(BIO_DATA(bio) + offset));
+				if (val == 0)
+					FAT_TO_LE16((char*)(BIO_DATA(bio) + offset), 0xfff8);
+				break;
+			case 32: /* actually FAT-28... */
+				val = FAT_FROM_LE32((char*)(BIO_DATA(bio) + offset)) & 0xfffffff;
+				if (val == 0)
+					FAT_TO_LE32((char*)(BIO_DATA(bio) + offset), 0xffffff8);
+				break;
+		}
+		if (val != 0)
+			continue;
+
+		/* OK; this one is available (and we just claimed it) */
+		bio_set_dirty(bio);
+		bio_free(bio);
+
+		/* If the file didn't have any clusters before, it sure does now */
+		if (privdata->first_cluster == 0) {
+			privdata->first_cluster = clusterno;
+			vfs_set_inode_dirty(inode);
+		} else {
+			/* Append this cluster to the chain */
+			bio = NULL;
+			err = fat_set_cluster(fs, &bio, last_cluster, clusterno);
+			ANANAS_ERROR_RETURN(err); /* XXX leaks clusterno */
+		}
+		*cluster_out = clusterno;
+		return ANANAS_ERROR_OK;
+	}
+
+	/* out of space */
+	panic("out of space (deal with me)");
 }
 
 /*
@@ -190,9 +330,6 @@ fat_block_map(struct VFS_INODE* inode, block_t block_in, block_t* block_out, int
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 	struct BIO* bio = NULL;
 
-	/* XXX Writing isn't yet supported */
-	KASSERT(!create, "no writing yet");
-
 	/*
 	 * FAT12/16 root inodes are special as they have a fixed location and
 	 * length; the FAT isn't needed to traverse them.
@@ -201,65 +338,24 @@ fat_block_map(struct VFS_INODE* inode, block_t block_in, block_t* block_out, int
 	if (privdata->root_inode && fs_privdata->fat_type != 32) {
 		want_block = fs_privdata->first_rootdir_sector + block_in;
 		if (block_in >= (fs_privdata->num_rootdir_sectors * fs_privdata->sector_size))
+			/* Cannot expand the root directory */
 			return ANANAS_ERROR(BAD_RANGE);
 	} else {
-		uint32_t cluster = fat_get_cluster(fs, privdata->first_cluster, block_in / fs_privdata->sectors_per_cluster);
-		if (cluster == 0) {
+		uint32_t cluster;
+		errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, block_in / fs_privdata->sectors_per_cluster, &cluster);
+		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE) {
 			/* end of the chain */
-			return ANANAS_ERROR(BAD_RANGE);
+			if (!create)
+				return err;
+			err = fat_append_cluster(inode, &cluster);
 		}
+		ANANAS_ERROR_RETURN(err);
+
 		want_block  = fat_cluster_to_sector(fs, cluster);
 		want_block += block_in % fs_privdata->sectors_per_cluster;
 	}
 
 	*block_out = want_block;
-	return ANANAS_ERROR_OK;
-}
-
-/*
- * Performs a FAT file read; the cur_block/cur_offset parts are needed to construct
- * FSOP's when traversing a directory.
- */
-static errorcode_t
-fat_do_read(struct VFS_FILE* file, void* buf, size_t* len, block_t* cur_block, int* cur_offset)
-{
-	struct VFS_INODE* inode = file->f_inode;
-	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
-	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
-	size_t written = 0;
-	size_t left = *len;
-	struct BIO* bio = NULL;
-
-	*cur_block = 0;
-	while(left > 0) {
-		block_t want_block;
-		errorcode_t err = fat_block_map(inode, (file->f_offset / (block_t)fs->fs_block_size), &want_block, 0);
-		ANANAS_ERROR_RETURN(err);
-
-		/* Grab the block if needed */
-		if (*cur_block != want_block) {
-			if (bio != NULL) bio_free(bio);
-			err = vfs_bread(fs, want_block, &bio);
-			ANANAS_ERROR_RETURN(err);
-			*cur_block = want_block;
-		}
-
-		/* Walk through the current entry */
-		*cur_offset = (file->f_offset % (block_t)fs->fs_block_size);
-		int chunk_len = fs->fs_block_size - *cur_offset;
-		if (chunk_len > left)
-			chunk_len = left;
-		KASSERT(chunk_len > 0, "attempt to handle empty chunk");
-		memcpy(buf, (void*)(BIO_DATA(bio) + *cur_offset), chunk_len);
-
-		written += chunk_len;
-		buf += chunk_len;
-		left -= chunk_len;
-		file->f_offset += chunk_len;
-	}
-	if (bio != NULL) bio_free(bio);
-	*len = written;
 	return ANANAS_ERROR_OK;
 }
 
@@ -447,7 +543,7 @@ fat_sanitize_83_name(const char* fname, char* shortname)
 
 	/* Calculate the checksum for LFN entries */
 	uint8_t a = 0;
-	for (int i = 11; i >= 0; i--) {
+	for (int i = 10; i >= 0; i--) {
 		a  = ((a & 1) ? 0x80 : 0) | (a >> 1); /* a = a ror 1 */
 		a |= shortname[i];
 	}
@@ -721,6 +817,36 @@ fat_read_inode(struct VFS_INODE* inode, void* fsop)
 }
 
 static errorcode_t
+fat_write_inode(struct VFS_INODE* inode)
+{
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
+	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
+	uint64_t fsop = *(uint64_t*)inode->i_fsop;
+	KASSERT(fsop != FAT_ROOTINODE_FSOP, "writing the root inode");
+
+	/* Grab the current inode data block */
+	uint32_t block  = fsop >> 16;
+	uint32_t offset = fsop & 0xffff;
+	KASSERT(offset <= fs->fs_block_size - sizeof(struct FAT_ENTRY), "fsop inode offset %u out of range", offset);
+	struct BIO* bio;
+	errorcode_t err = vfs_bread(fs, block, &bio);
+	ANANAS_ERROR_RETURN(err);
+
+	/* Fill out the inode details */
+	struct FAT_ENTRY* fentry = (struct FAT_ENTRY*)(void*)(BIO_DATA(bio) + offset);
+	FAT_TO_LE32(fentry->fe_size, inode->i_sb.st_size);
+	FAT_TO_LE16(fentry->fe_cluster_lo, privdata->first_cluster & 0xffff);
+	if (fs_privdata->fat_type == 32)
+		FAT_TO_LE16(fentry->fe_cluster_hi, privdata->first_cluster >> 16);
+
+	/* And off it goes */
+	bio_set_dirty(bio);
+	bio_free(bio);
+	return ANANAS_ERROR_OK; /* XXX How should we deal with errors? */
+}
+
+static errorcode_t
 fat_mount(struct VFS_MOUNTED_FS* fs)
 {
 	/* XXX this should be made a compile-time check */
@@ -776,10 +902,10 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 		fat_size = FAT_FROM_LE32(bpb->epb.fat32.epb_sectors_per_fat);
 	privdata->first_rootdir_sector = privdata->reserved_sectors + (privdata->num_fats * fat_size);
 	privdata->first_data_sector = privdata->first_rootdir_sector + privdata->num_rootdir_sectors;
-	uint32_t num_data_clusters = (num_sectors - privdata->first_data_sector) / privdata->sectors_per_cluster;
-	if (num_data_clusters < 4085) {
+	privdata->total_clusters = (num_sectors - privdata->first_data_sector) / privdata->sectors_per_cluster; /* actually number of data clusters */
+	if (privdata->total_clusters < 4085) {
 		privdata->fat_type = 12;
-	} else if (num_data_clusters < 65525) {
+	} else if (privdata->total_clusters < 65525) {
 		privdata->fat_type = 16;
 	} else {
 		privdata->fat_type = 32;
@@ -798,8 +924,8 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 	icache_init(fs);
 
 	/* Grab the root directory inode */
-	fs->fs_root_inode = fat_alloc_inode(fs);
 	uint64_t root_fsop = FAT_ROOTINODE_FSOP;
+	fs->fs_root_inode = fat_alloc_inode(fs, (const void*)&root_fsop);
 	err = vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
 	if (err != ANANAS_ERROR_NONE) {
 		kfree(privdata);
@@ -812,7 +938,8 @@ struct VFS_FILESYSTEM_OPS fsops_fat = {
 	.mount = fat_mount,
 	.alloc_inode = fat_alloc_inode,
 	.destroy_inode = fat_destroy_inode,
-	.read_inode = fat_read_inode
+	.read_inode = fat_read_inode,
+	.write_inode = fat_write_inode
 };
 
 /* vim:set ts=2 sw=2: */
