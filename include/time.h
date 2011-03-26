@@ -32,5 +32,6 @@ double difftime(time_t time1, time_t time0);
 size_t strftime(char* buf, size_t maxsize, const char* format, const struct tm* timeptr);
 int nanosleep(const struct timespec* rqtp, struct timespec* rmtp);
 char* ctime(const time_t* clock);
+char* asctime(const struct tm* timeptr);
 
 #endif /* __TIME_H__ */
