@@ -31,7 +31,7 @@ binutils-${VERSION}.tar.gz:
 		@${TOUCH} .patch
 
 .configure:	.patch
-		(cd binutils-${VERSION} && ./configure CFLAGS="${CFLAGS}" CPP=${CPP} CPPFLAGS="${CPPFLAGS}" CC=${CC} LD=${LD} AR=${AR} --host=${TARGET} --prefix=${PREFIX})
+		(cd binutils-${VERSION} && ./configure CFLAGS="${CFLAGS}" CPP=${CPP} CPPFLAGS="${CPPFLAGS}" CC=${CC} LD=${LD} AR=${AR} --host=${TARGET} --prefix=${PREFIX} --disable-nls)
 		@${TOUCH} .configure
 
 .build:		.configure
