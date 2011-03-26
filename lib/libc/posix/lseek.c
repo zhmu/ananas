@@ -28,7 +28,7 @@ lseek(int fd, off_t offset, int whence)
 
 	err = sys_handlectl(handle, HCTL_FILE_SEEK, &seekarg, sizeof(seekarg));
 	if (err == ANANAS_ERROR_NONE)
-		return 0; /* XXX incorrect; should be the offset */
+		return offset;
 
 	_posix_map_error(err);
 	return -1;
