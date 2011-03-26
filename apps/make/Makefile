@@ -14,7 +14,6 @@ TOUCH?=		touch
 R=		${CURDIR}
 CC=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-gcc
 LD=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-ld
-CFLAGS=		-I${R}/../../include -I${R}/include-${ARCH}
 CPPFLAGS=	${CFLAGS}
 
 make:		.install
@@ -30,7 +29,7 @@ make-${VERSION}.tar.gz:
 		(cd make-${VERSION} && patch -p1 < ${R}/make.ananas.diff)
 		@${TOUCH} .patch
 
-.configure:	.patch include-${ARCH}
+.configure:	.patch
 		(cd make-${VERSION} && ./configure CFLAGS="${CFLAGS}" CPPFLAGS="${CPPFLAGS}" CC=${CC} LD=${LD} --host=${TARGET} --prefix=${PREFIX})
 		@${TOUCH} .configure
 
@@ -41,9 +40,6 @@ make-${VERSION}.tar.gz:
 .install:	.build
 		(cd make-${VERSION} && make install)
 
-include-${ARCH}:
-		(mkdir include-${ARCH} && cd include-${ARCH} && ln -sf ${R}/../../include/ananas/${ARCH} machine)
-
 clean:
-		rm -rf make-${VERSION} include-${ARCH}
+		rm -rf make-${VERSION}
 		rm -f .extract .patch .configure .build
