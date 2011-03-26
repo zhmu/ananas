@@ -198,7 +198,7 @@ md_restore_ctx2:
 	 * before resuming program execution' (IA-32 Intel Architecture Software
  	 * Developer's Manual Volume 2, page 3-354)
 	 */
-	cmpl	$GDT_SEL_KERNEL_CODE, 0x24(%ebx)	/* check cs */
+	cmpl	$GDT_SEL_KERNEL_CODE, CTX_CS(%ebx)
 	jne	r_uthread
 
 	/*
@@ -217,6 +217,9 @@ md_restore_ctx2:
 	pushl	CTX_EFLAGS(%ebx)	/* eflags */
 	pushl	CTX_CS(%ebx)		/* cs */
 	pushl	CTX_EIP(%ebx)		/* eip */
+
+	/* Finally, restore ebx itself and go */
+	movl	CTX_EBX(%ebx), %ebx
 	iret
 
 r_uthread:
@@ -281,7 +284,7 @@ md_restore_ctx_kernel:
 	 * Note this is a kernel -> kernel return, so we do not have to mess
 	 * with a stack. It will be returned by our system call handler.
 	 */
-	pushl	CTX_EIP(%ebx)	/* eip */
+	pushl	CTX_EIP(%ebx)
 	ret
 
 /*
@@ -329,8 +332,8 @@ md_reschedule:
 	movl	%ebx, CTX_ESP(%eax)
 
 	/* Now, insert our return point, %cs:%eip */
-	movl	$GDT_SEL_KERNEL_CODE, 0x24(%eax)
-	movl	$reschedule_back, 0x20(%eax)
+	movl	$GDT_SEL_KERNEL_CODE, CTX_CS(%eax)
+	movl	$reschedule_back, CTX_EIP(%eax)
 	
 	/* All is set - schedule a new thread! */
 	call	schedule
