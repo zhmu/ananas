@@ -64,6 +64,11 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 
 	KASSERT(inode->i_iops->block_map != NULL, "called without block_map implementation");
 
+	/* Adjust left so that we don't attempt to read beyond the end of the file */
+	if ((file->f_inode->i_sb.st_size - file->f_offset) < left) {
+		left = file->f_inode->i_sb.st_size - file->f_offset;
+	}
+
 	block_t cur_block = 0;
 	while(left > 0) {
 		/* Figure out which block to use next */
