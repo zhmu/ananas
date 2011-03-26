@@ -1,0 +1,12 @@
+diff -rubB mpfr-3.0.0.original/config.sub mpfr-3.0.0/config.sub
+--- mpfr-3.0.0.original/config.sub	2010-06-10 13:00:30.000000000 +0200
++++ mpfr-3.0.0/config.sub	2011-03-20 19:58:28.014295001 +0100
+@@ -1446,6 +1446,8 @@
+ 	        ;;
+ 	-none)
+ 		;;
++	-ananas*)
++		;;
+ 	*)
+ 		# Get rid of the `-' at the beginning of $os.
+ 		os=`echo $os | sed 's/[^-]*-//'`

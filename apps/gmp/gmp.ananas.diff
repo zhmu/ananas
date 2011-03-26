@@ -1,0 +1,12 @@
+diff -rubB gmp-5.0.1.original/configfsf.sub gmp-5.0.1/configfsf.sub
+--- gmp-5.0.1.original/configfsf.sub	2010-02-06 13:43:13.000000000 +0100
++++ gmp-5.0.1/configfsf.sub	2011-03-20 20:07:45.274295000 +0100
+@@ -1405,6 +1405,8 @@
+ 		;;
+ 	-none)
+ 		;;
++	-ananas*)
++		;;
+ 	*)
+ 		# Get rid of the `-' at the beginning of $os.
+ 		os=`echo $os | sed 's/[^-]*-//'`
