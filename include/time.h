@@ -31,5 +31,6 @@ time_t mktime(struct tm* tm);
 double difftime(time_t time1, time_t time0);
 size_t strftime(char* buf, size_t maxsize, const char* format, const struct tm* timeptr);
 int nanosleep(const struct timespec* rqtp, struct timespec* rmtp);
+char* ctime(const time_t* clock);
 
 #endif /* __TIME_H__ */

@@ -233,5 +233,6 @@ size_t wcstombs( char * _PDCLIB_restrict s, const wchar_t * _PDCLIB_restrict pwc
 */
 
 int wctomb( char * s, wchar_t wc );
+char* mktemp(char * template);
 
 #endif

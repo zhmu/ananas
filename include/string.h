@@ -16,6 +16,11 @@
 
 #include <ananas/types.h>
 
+/*
+ * XXX This is not in the ISO spec, but binutils depends on it.
+ */
+#include <strings.h>
+
 /* String function conventions */
 
 /*
@@ -179,6 +184,10 @@ char * strerror( int errnum );
 /* Returns the length of the string s (excluding terminating '\0').
 */
 size_t strlen( const char * s );
+
+/* Duplicate the given string
+ */
+char* strdup(const char* s);
 
 char* strerror(int errnum);
 

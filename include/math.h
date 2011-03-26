@@ -4,6 +4,9 @@
 typedef float float_t;
 typedef double double_t;
 
-#define HUGE_VAL	__builtin_huge_val
+#define HUGE_VAL	__builtin_huge_val()
+
+double fabs(double x);
+float fabsf(float x);
 
 #endif /* __MATH_H__ */
