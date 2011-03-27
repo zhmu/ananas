@@ -235,7 +235,7 @@ platform_read_disk(int disk, uint32_t lba, void* buffer, int num_bytes)
 
 	int num_read = 0;
 	while (num_bytes > 0) {
-		uint8_t cylinder = (lba / dskinfo->sectors) / dskinfo->heads;
+		uint16_t cylinder = (lba / dskinfo->sectors) / dskinfo->heads;
 		uint8_t head = (lba / dskinfo->sectors) % dskinfo->heads;
 		uint8_t sector = (lba % dskinfo->sectors) + 1;
 
