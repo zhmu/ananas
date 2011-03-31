@@ -34,6 +34,9 @@ syscalls:	.syscalls
 libc.${ARCH}:	syscalls
 		(cd lib/libc/compile/${ARCH} && ${MAKE} install TC_PREFIX=$(realpath ${TC_PREFIX}))
 
+headers.${ARCH}:
+		(cd include && ${MAKE} install ARCH=${ARCH} TC_PREFIX=$(realpath ${TC_PREFIX}))
+
 kernel:		output.${ARCH}/kernel
 
 dash:		output.${ARCH}/dash
