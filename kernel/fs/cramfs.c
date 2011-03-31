@@ -56,7 +56,7 @@ struct CRAMFS_INODE_PRIVDATA {
 static unsigned char temp_buf[CRAMFS_PAGE_SIZE * 2]; /* XXX */
 static unsigned char decompress_buf[CRAMFS_PAGE_SIZE + 4]; /* XXX */
 
-static struct VFS_INODE* cramfs_alloc_inode(struct VFS_MOUNTED_FS* fs);
+static struct VFS_INODE* cramfs_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop);
 
 static errorcode_t
 cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
@@ -287,7 +287,8 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs)
 	icache_init(fs);
 
 	/* Everything is ok; fill out the filesystem details */
-	fs->fs_root_inode = cramfs_alloc_inode(fs);
+	uint32_t root_inode = 0;
+	fs->fs_root_inode = cramfs_alloc_inode(fs, &root_inode);
 	cramfs_convert_inode((addr_t)&sb->c_rootinode - (addr_t)sb, &sb->c_rootinode, fs->fs_root_inode);
 
 	/* Initialize our deflater */
@@ -319,9 +320,9 @@ cramfs_read_inode(struct VFS_INODE* inode, void* fsop)
 }
 
 static struct VFS_INODE*
-cramfs_alloc_inode(struct VFS_MOUNTED_FS* fs)
+cramfs_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 {
-	struct VFS_INODE* inode = vfs_make_inode(fs);
+	struct VFS_INODE* inode = vfs_make_inode(fs, fsop);
 	if (inode == NULL)
 		return NULL;
 	struct CRAMFS_INODE_PRIVDATA* privdata = kmalloc(sizeof(struct CRAMFS_INODE_PRIVDATA));
