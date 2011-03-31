@@ -47,6 +47,7 @@ int	setuid(uid_t uid);
 char*	crypt(const char* key, const char* salt);
 int	unlink(const char* path);
 int	chown(const char* path, uid_t owner, gid_t group);
+unsigned sleep(unsigned seconds);
 
 int	execvp(const char *path, char *const argv[]);
 int	execv(const char *path, char *const argv[]);
