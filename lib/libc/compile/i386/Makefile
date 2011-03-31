@@ -4,6 +4,7 @@ TC_PREFIX?=	../../../../toolchain/prefix.i386
 CFLAGS=		-I$S/../../include -I. -std=c99 
 # XXX does not work. wonder why?
 #CFLAGS+=	-fPIC
+CFLAGS+=	-Wall -Werror
 ARCH=		i386
 CC=		${TC_PREFIX}/bin/i386-elf-ananas-gcc
 AR=		${TC_PREFIX}/bin/i386-elf-ananas-ar
