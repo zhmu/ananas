@@ -8,5 +8,6 @@ typedef double double_t;
 
 double fabs(double x);
 float fabsf(float x);
+double frexp(double num, int* exp);
 
 #endif /* __MATH_H__ */
