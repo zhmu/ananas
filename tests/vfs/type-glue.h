@@ -8,6 +8,6 @@
 #include <stdint.h>
 
 typedef uint32_t errorcode_t;
-typedef uint64_t block_t;
+typedef uint64_t blocknr_t;
 
 #undef LITTLE_ENDIAN

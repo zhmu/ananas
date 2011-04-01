@@ -46,8 +46,14 @@ device_bread(device_t dev, struct BIO* bio)
 	off_t off = bio->io_block * 512;
 	if (pread(dev_fd, bio->data, bio->length, off) != bio->length)
 		panic("read error");
-	bio->flags &= ~BIO_FLAG_DIRTY;
+	bio_set_available(bio);
 	return ANANAS_ERROR_OK;
+}
+
+errorcode_t
+device_bwrite(device_t dev, struct BIO* bio)
+{
+	panic("device_bwrite");
 }
 
 errorcode_t
