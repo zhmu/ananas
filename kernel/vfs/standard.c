@@ -111,12 +111,20 @@ vfs_seek(struct VFS_FILE* file, off_t offset)
  * Internally used to perform a lookup from directory entry 'dentry' to an inode;
  * 'curinode' is the initial inode to start the lookup relative to, or NULL to
  * start from the root. This fills out the final dcache entry of the lookup; if
- * the last entry of the inode was to be resolved, final will be non-zero
+ * the last entry of the inode was to be resolved, final will be non-zero.
+ *
+ * Note that destinode, if filled out, will always be referenced; it is the
+ * responsibility of the caller to derefence it.
  */
 static errorcode_t
 vfs_lookup_internal(struct VFS_INODE* curinode, const char* dentry, struct VFS_INODE** destinode, struct DENTRY_CACHE_ITEM** ditem, int* final)
 {
 	char tmp[VFS_MAX_NAME_LEN + 1];
+
+	/* Start with a clean slate */
+	*final = 0;
+	*destinode = NULL;
+	*ditem = NULL;
 
 	/*
 	 * First of all, see if we need to lookup relative to the root; if so,
@@ -146,11 +154,6 @@ vfs_lookup_internal(struct VFS_INODE* curinode, const char* dentry, struct VFS_I
 	 * any inode that doesn't work.
 	 */
 	vfs_ref_inode(curinode);
-
-	/* Start with a clean slate */
-	*final = 0;
-	*destinode = NULL;
-	*ditem = NULL;
 
 	const char* curdentry = dentry;
 	const char* curlookup;
@@ -207,7 +210,6 @@ vfs_lookup_internal(struct VFS_INODE* curinode, const char* dentry, struct VFS_I
 		if (dentry->d_flags & DENTRY_FLAG_NEGATIVE) {
 			/* Entry is in the cache but cannot be found; release the previous inode */
 			KASSERT(dentry->d_entry_inode == NULL, "negative lookup with inode?");
-			vfs_deref_inode(curinode);
 			/* Store the current inode; this is the directory that ought to contain the inode */
 			*destinode = curinode;
 			return ANANAS_ERROR(NO_FILE);
@@ -228,7 +230,6 @@ vfs_lookup_internal(struct VFS_INODE* curinode, const char* dentry, struct VFS_I
 		 */
 		struct VFS_INODE* inode;
 		errorcode_t err = curinode->i_iops->lookup(curinode, &inode, curlookup);
-		vfs_deref_inode(curinode);
 		if (err == ANANAS_ERROR_NONE) {
 			/*
 			 * Lookup worked; we have a single-reffed inode now. We have to hook it
@@ -245,7 +246,9 @@ vfs_lookup_internal(struct VFS_INODE* curinode, const char* dentry, struct VFS_I
 			*destinode = curinode;
 			return err;
 		}
-		
+
+		/* Deref the previous current inode; we one level deeper in now */
+		vfs_deref_inode(curinode);
 		curinode = inode;
 	}
 	*destinode = curinode;
@@ -262,7 +265,14 @@ vfs_lookup(struct VFS_INODE* curinode, struct VFS_INODE** destinode, const char*
 {
 	struct DENTRY_CACHE_ITEM* de;
 	int final;
-	return vfs_lookup_internal(curinode, dentry, destinode, &de, &final);
+	errorcode_t err = vfs_lookup_internal(curinode, dentry, destinode, &de, &final);
+	if (err == ANANAS_ERROR_OK)
+		return err;
+
+	/* Lookup failed; dereference the destination if necessary */
+	if (*destinode != NULL)
+		vfs_deref_inode(*destinode);
+	return err;
 }
 
 /*
@@ -316,7 +326,10 @@ vfs_create(struct VFS_INODE* dirinode, struct VFS_FILE* file, const char* dentry
 		vfs_make_file(file, de->d_entry_inode);
 	}
 
-	/* Don't need the parent inode anymore */
+	/*
+	 * Dereference the parent inode; the dentry cache will have reffed it already and we don't
+	 * need it anymore.
+	 */
 	vfs_deref_inode(parentinode);
 	return err;
 }
