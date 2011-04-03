@@ -129,7 +129,9 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * Resolve this by duplicating the PD mappings to KERNBASE - __end to the
 	 * mappings minus KERNBASE.
 	 */
-	vm_map_kernel_lowaddr(pd);
+	for (int i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << 22)) {
+		pd[i >> 22] = pd[(i + KERNBASE) >> 22];
+	}
 
 	/* It's time to... throw the switch! */
 	__asm(
@@ -157,7 +159,9 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * We can throw the duplicate mappings away now, since we are now
 	 * using our virtual mappings.
 	 */
-	vm_unmap_kernel_lowaddr(pd);
+	for (int i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << 22)) {
+		pd[i >> 22] = 0;
+	}
 
 	__asm(
 		/* Reload the page directory */
@@ -389,24 +393,6 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 
 	/* All done - it's up to the machine-independant code now */
 	mi_startup();
-}
-
-void
-vm_map_kernel_lowaddr(uint32_t* pd)
-{
-	int i;
-	for (i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << 22)) {
-		pd[i >> 22] = pd[(i + KERNBASE) >> 22];
-	}
-}
-
-void
-vm_unmap_kernel_lowaddr(uint32_t* pd)
-{
-	int i;
-	for (i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << 22)) {
-		pd[i >> 22] = 0;
-	}
 }
 
 void
