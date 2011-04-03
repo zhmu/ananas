@@ -39,7 +39,7 @@ md_store_ctx:
         movl    %ebx, %cr3
 
 	/* Fetch the address from the context from the per-cpu info */
-	movl	%fs:0, %ebx
+	movl	%fs:(PCPU_CONTEXT), %ebx
 
 	/* Store the current registers - we have to do %ebx last */
 	movl	%eax, CTX_EAX(%ebx)
@@ -309,10 +309,10 @@ md_reschedule:
 	 * System V Application Binary Interface, i386 supplement 4th edition
 	 * page 3-11 we only have to store %ebp, %edi, %esi and %ebx.
 	 *
-	 * If we are in kernel context, thus %fs:0 is zero, we shortcut and just
-	 * wait for the very first interrupt that shows up.
+	 * If we are in kernel context, thus %fs:(PCPU_CONTEXT) is zero, we
+	 * shortcut and just wait for the very first interrupt that shows up.
 	 */
-	movl	%fs:0, %eax
+	movl	%fs:(PCPU_CONTEXT), %eax
 	orl	%eax, %eax
 	jz	reschedule_kernctx
 
