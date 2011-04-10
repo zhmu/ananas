@@ -8,26 +8,6 @@
 static struct MM_ZONE* zone_root;
 static struct SPINLOCK spl_mm;
 
-void kmem_dump();
-
-static void
-kmem_assert(int c, const char* cond, int line, const char* msg, ...)
-{
- va_list ap;
-	if (c)
-		return;
-
-//	kmem_dump();
-
-	va_start(ap, msg);
-	vaprintf(msg, ap);
-	kprintf("\n");
-	va_end(ap);
-	panic("%s:%u: assertion '%s' failed", __FILE__, line, cond);
-}
-
-#define KMEM_ASSERT(x,msg...) kmem_assert((x), STRINGIFY(x), __LINE__, ##msg);
-
 void
 mm_init()
 {
@@ -38,8 +18,8 @@ mm_init()
 void
 mm_zone_add(addr_t addr, size_t length)
 {
-	KMEM_ASSERT(addr % PAGE_SIZE == 0, "addr 0x%x isn't page-aligned", addr);
-	KMEM_ASSERT(length % PAGE_SIZE == 0, "length 0x%x isn't page-aligned", length);
+	KASSERT(addr % PAGE_SIZE == 0, "addr 0x%x isn't page-aligned", addr);
+	KASSERT(length % PAGE_SIZE == 0, "length 0x%x isn't page-aligned", length);
 
 	/* Don't bother dealing with any zone less than 2 pages */
 	if (length < PAGE_SIZE * 2)
@@ -64,7 +44,7 @@ mm_zone_add(addr_t addr, size_t length)
 			PAGE_SIZE - 1
 		) / PAGE_SIZE;
 	addr_t admin_addr = addr + length - (num_pages * PAGE_SIZE);
-	KMEM_ASSERT(admin_addr + (num_pages * PAGE_SIZE) == (addr + length), "adminstration does not fill up zone");
+	KASSERT(admin_addr + (num_pages * PAGE_SIZE) == (addr + length), "adminstration does not fill up zone");
 	vm_map(admin_addr, num_pages);
 
 	/*
@@ -97,7 +77,7 @@ kprintf("zone_add: chunkaddr=%x, chunks=%x\n", zone->address, zone->chunks);
 	unsigned int n;
 	for (n = 0; n < zone->num_chunks; n++, data_addr += PAGE_SIZE) {
 		struct MM_CHUNK* chunk = (struct MM_CHUNK*)((addr_t)zone->chunks + n * sizeof(struct MM_CHUNK));
-		KMEM_ASSERT(data_addr < admin_addr, "chunk %u@%p would overwrite administrativa", n, chunk);
+		KASSERT(data_addr < admin_addr, "chunk %u@%p would overwrite administrativa", n, chunk);
 		chunk->address = data_addr;
 		chunk->magic = MM_CHUNK_MAGIC;
 		chunk->flags = 0;
@@ -163,7 +143,7 @@ kmem_alloc(size_t len)
 {
 	spinlock_lock(&spl_mm);
 	for (struct MM_ZONE* curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
-		KMEM_ASSERT(curzone->magic == MM_ZONE_MAGIC, "zone %p corrupted", curzone);
+		KASSERT(curzone->magic == MM_ZONE_MAGIC, "zone %p corrupted", curzone);
 #ifdef NOTYET
 		/* Skip any zone that hasn't got enough space */
 		if (curzone->num_cont_free < len)
@@ -172,7 +152,7 @@ kmem_alloc(size_t len)
 
 		for (unsigned int n = 0; n < curzone->num_chunks; n++) {
 			struct MM_CHUNK* chunk = (struct MM_CHUNK*)((addr_t)curzone->chunks + n * sizeof(struct MM_CHUNK));
-			KMEM_ASSERT(chunk->magic == MM_CHUNK_MAGIC, "chunk %p corrupted", chunk);
+			KASSERT(chunk->magic == MM_CHUNK_MAGIC, "chunk %p corrupted", chunk);
 
 			if (chunk->flags & MM_CHUNK_FLAG_USED)
 				continue;
@@ -185,7 +165,7 @@ kmem_alloc(size_t len)
 			curzone->num_free -= len;
 			addr_t addr = chunk->address;
 			while (len > 0) {
-				KMEM_ASSERT(!(chunk->flags & MM_CHUNK_FLAG_USED), "chunk %p in free chain is used", chunk);
+				KASSERT(!(chunk->flags & MM_CHUNK_FLAG_USED), "chunk %p in free chain is used", chunk);
 				chunk->flags |= MM_CHUNK_FLAG_USED;
 				chunk->chain_length = len;
 				chunk++; len--;
@@ -208,7 +188,7 @@ kmem_alloc(size_t len)
 void
 kmem_free(void* addr)
 {
-	KMEM_ASSERT((addr_t)addr % PAGE_SIZE == 0, "addr 0x%x isn't page-aligned", (addr_t)addr);
+	KASSERT((addr_t)addr % PAGE_SIZE == 0, "addr 0x%x isn't page-aligned", (addr_t)addr);
 
 	spinlock_lock(&spl_mm);
 	for (struct MM_ZONE* curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
@@ -232,9 +212,9 @@ kmem_free(void* addr)
 			unsigned int i = chunk->chain_length;
 			curzone->num_free += i;
 			while (i > 0) {
-				KMEM_ASSERT(chunk->flags & MM_CHUNK_FLAG_USED, "chunk 0x%x (%u) should be allocated, but isn't!", chunk, i);
-				KMEM_ASSERT((chunk->flags & MM_CHUNK_FLAG_RESERVED) == 0, "chunk 0x%x (%u) is forced as allocated", chunk, i);
-				KMEM_ASSERT(chunk->chain_length == i, "chunk %p does not belong in chain", chunk);
+				KASSERT(chunk->flags & MM_CHUNK_FLAG_USED, "chunk 0x%x (%u) should be allocated, but isn't!", chunk, i);
+				KASSERT((chunk->flags & MM_CHUNK_FLAG_RESERVED) == 0, "chunk 0x%x (%u) is forced as allocated", chunk, i);
+				KASSERT(chunk->chain_length == i, "chunk %p does not belong in chain", chunk);
 				chunk->flags &= ~MM_CHUNK_FLAG_USED;
 				chunk++; i--;
 			}
@@ -244,7 +224,7 @@ kmem_free(void* addr)
 	}
 
 	spinlock_unlock(&spl_mm);
-	KMEM_ASSERT(0, "freeing unlocatable pointer 0x%x", (addr_t)addr);
+	panic("freeing unlocatable pointer 0x%x", (addr_t)addr);
 }
 
 void*
@@ -273,7 +253,7 @@ kfree(void* addr)
 void
 kmem_mark_used(void* addr, size_t num_pages)
 {
-	KMEM_ASSERT((addr_t)addr % PAGE_SIZE == 0, "addr 0x%x isn't page-aligned", (addr_t)addr);
+	KASSERT((addr_t)addr % PAGE_SIZE == 0, "addr 0x%x isn't page-aligned", (addr_t)addr);
 
 	size_t num_marked = 0;
 
@@ -305,7 +285,7 @@ kmem_mark_used(void* addr, size_t num_pages)
 				last_free_chunk = -1;
 			}
 		}
-		KMEM_ASSERT(curzone->num_chunks != n, "chunk not found");
+		KASSERT(curzone->num_chunks != n, "chunk not found");
 
 		/*
 		 * OK, memory found. We now have to shrink the memory chunk before us,
@@ -314,7 +294,7 @@ kmem_mark_used(void* addr, size_t num_pages)
 		if (last_free_chunk >= 0) {
 			for (int i = last_free_chunk; i < n; i++) {
 				struct MM_CHUNK* chunk = (struct MM_CHUNK*)((addr_t)curzone->chunks + i * sizeof(struct MM_CHUNK));
-				KMEM_ASSERT((chunk->flags & MM_CHUNK_FLAG_USED) == 0, "attempt to mark chunk that is currently in use");
+				KASSERT((chunk->flags & MM_CHUNK_FLAG_USED) == 0, "attempt to mark chunk that is currently in use");
 				chunk->chain_length = n - i;
 			}
 		}
@@ -334,7 +314,7 @@ kmem_mark_used(void* addr, size_t num_pages)
 	}
 	spinlock_unlock(&spl_mm);
 
-	KMEM_ASSERT(num_marked == num_pages, "could only mark %u of %u pages as used", num_marked, num_pages);
+	KASSERT(num_marked == num_pages, "could only mark %u of %u pages as used", num_marked, num_pages);
 }
 
 /* vim:set ts=2 sw=2: */
