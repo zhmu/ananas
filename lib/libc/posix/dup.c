@@ -2,7 +2,7 @@
 #include <ananas/error.h>
 #include <ananas/syscalls.h>
 #include <_posix/error.h>
-#include <_posix/fdmap.h>
+#include <_posix/handlemap.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
@@ -12,8 +12,8 @@ dup(int fildes)
 {
 	errorcode_t err;
 
-	void* handle = fdmap_deref(fildes);
-	if (handle  == NULL)  {
+	void* handle = handlemap_deref(fildes, HANDLEMAP_TYPE_FD);
+	if (handle == NULL)  {
 		errno = EBADF;
 		return -1;
 	}
@@ -28,7 +28,7 @@ dup(int fildes)
 		return -1;
 	}
 
-	int fd = fdmap_alloc_fd(newhandle);
+	int fd = handlemap_alloc_entry(HANDLEMAP_TYPE_FD, newhandle);
 	if (fd < 0) {
 		errno = EMFILE;
 		sys_destroy(newhandle);

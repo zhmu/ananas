@@ -2,7 +2,7 @@
 #include <ananas/syscalls.h>
 #include <ananas/error.h>
 #include <_posix/error.h>
-#include <_posix/fdmap.h>
+#include <_posix/handlemap.h>
 #include <errno.h>
 #include <string.h>
 #include <dirent.h>
@@ -11,7 +11,7 @@ struct dirent*
 readdir(DIR* dirp)
 {
 	/* Dereference the directory handle; this should ensure that the structure is sane */
-	void* handle = fdmap_deref(dirp->d_fd);
+	void* handle = handlemap_deref(dirp->d_fd, HANDLEMAP_TYPE_FD);
 	if (handle == NULL) {
 		errno = EBADF;
 		return NULL;
