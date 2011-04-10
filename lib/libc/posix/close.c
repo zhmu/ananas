@@ -1,14 +1,14 @@
 #include <ananas/types.h>
 #include <ananas/syscalls.h>
 #include <ananas/error.h>
-#include <_posix/fdmap.h>
+#include <_posix/handlemap.h>
 #include <_posix/error.h>
 #include <errno.h>
 #include <unistd.h>
 
-int close( int fd )
+int close(int fd)
 {
-	void* handle = fdmap_deref(fd);
+	void* handle = handlemap_deref(fd, HANDLEMAP_TYPE_FD);
 	if (handle == NULL) {
 		errno = EBADF;
 		return -1;
@@ -20,6 +20,6 @@ int close( int fd )
 		return -1;
 	}
 
-	fdmap_free_fd(fd);
+	handlemap_free_entry(fd);
 	return 0;
 }

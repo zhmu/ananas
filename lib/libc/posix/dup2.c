@@ -2,7 +2,7 @@
 #include <ananas/error.h>
 #include <ananas/syscalls.h>
 #include <_posix/error.h>
-#include <_posix/fdmap.h>
+#include <_posix/handlemap.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
@@ -12,17 +12,17 @@ dup2(int fildes, int fildes2)
 {
 	errorcode_t err;
 
-	void* handle = fdmap_deref(fildes);
+	void* handle = handlemap_deref(fildes, HANDLEMAP_TYPE_FD);
 	if (handle == NULL) {
 		errno = EBADF;
 		return -1;
 	}
-	if (fildes2 < 0 || fildes2 >= FDMAP_SIZE) {
+	if (fildes2 < 0 || fildes2 >= HANDLEMAP_SIZE) {
 		errno = EBADF;
 		return -1;
 	}
 
-	if (fdmap_deref(fildes2) != NULL)
+	if (handlemap_deref(fildes2, HANDLEMAP_TYPE_FD) != NULL)
 		close(fildes2);
 
 	void* newhandle;
@@ -35,7 +35,7 @@ dup2(int fildes, int fildes2)
 		return -1;
 	}
 
-	fdmap_set_handle(fildes2, newhandle);
+	handlemap_set_handle(fildes2, newhandle);
 	return 0;
 }
 

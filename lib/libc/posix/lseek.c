@@ -1,7 +1,7 @@
 #include <ananas/syscalls.h>
 #include <ananas/error.h>
 #include <_posix/error.h>
-#include <_posix/fdmap.h>
+#include <_posix/handlemap.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdio.h> /* for SEEK_... - XXX is this correct? */
@@ -20,7 +20,7 @@ lseek(int fd, off_t offset, int whence)
 		default: errno = EINVAL; return -1;
 	}
 
-	void* handle = fdmap_deref(fd);
+	void* handle = handlemap_deref(fd, HANDLEMAP_TYPE_FD);
 	if (handle == NULL) {
 		errno = EBADF;
 		return -1;

@@ -2,7 +2,7 @@
 #include <ananas/error.h>
 #include <ananas/syscalls.h>
 #include <_posix/error.h>
-#include <_posix/fdmap.h>
+#include <_posix/handlemap.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
@@ -43,7 +43,7 @@ int open( const char* filename, int mode, ... )
 		return -1;
 	}
 
-	int fd = fdmap_alloc_fd(handle);
+	int fd = handlemap_alloc_entry(HANDLEMAP_TYPE_FD, handle);
 	if (fd < 0) {
 		sys_destroy(handle);
 		errno = EMFILE;
