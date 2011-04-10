@@ -51,8 +51,8 @@ putenv(char* string)
 	}
 
 	/* Add the string and double-\0-terminate it */
-	strcpy(&libc_threadinfo->ti_env[i], string);
-	libc_threadinfo->ti_env[i + strlen(string) + 1] = '\0';
+	strcpy(&libc_threadinfo->ti_env[i + 1], string);
+	libc_threadinfo->ti_env[i + strlen(string) + 2] = '\0';
 
 	/* Reconstruct the environ array */
 	libc_reinit_environ();
