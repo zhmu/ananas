@@ -5,6 +5,7 @@
 #include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
+#include <ananas/vm.h>
 #include <ananas/trace.h>
 #include <ananas/wii/video.h>
 #include <ofw.h>
@@ -309,12 +310,16 @@ fb_attach(device_t dev)
 	if (node == -1)
 		return ANANAS_ERROR(NO_DEVICE);
 
-	int phys;
+	int physaddr;
 	ofw_getprop(node, "height", &height, sizeof(height));
 	ofw_getprop(node, "width", &width, sizeof(width));
 	ofw_getprop(node, "depth", &depth, sizeof(depth));
 	ofw_getprop(node, "linebytes", &bytes_per_line, sizeof(bytes_per_line));
-	ofw_getprop(node, "address", &phys, sizeof(phys));
+	ofw_getprop(node, "address", &physaddr, sizeof(physaddr));
+
+	/* Map the video buffer and clear it */
+	void* phys = vm_map_kernel(physaddr, ((height * bytes_per_line) + PAGE_SIZE - 1) / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
+	memset((void*)phys, 0xff, (height * bytes_per_line));
 #elif defined(WII)
 	void* phys = wiivideo_get_framebuffer();
 	wiivideo_get_size(&height, &width);
@@ -336,12 +341,6 @@ fb_attach(device_t dev)
 	fb->fb_buffer = kmalloc(fb->fb_height * fb->fb_width * sizeof(struct pixel));
 	memset(fb->fb_buffer, 0, fb->fb_height * fb->fb_width * sizeof(struct pixel));
 	dev->privdata = fb;
-
-#ifdef OFW
-	/* map the framebuffer nd clear it */	
-	vm_map(phys, ((height * bytes_per_line) + PAGE_SIZE - 1) / PAGE_SIZE);
-	memset((void*)phys, 0xff, (height * bytes_per_line));
-#endif
 
 	/* initialize teken library */
 	teken_pos_t tp;

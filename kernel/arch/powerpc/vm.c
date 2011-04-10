@@ -9,10 +9,11 @@
 
 extern struct STACKFRAME bsp_sf;
 
-void
-vm_map(addr_t addr, size_t num_pages)
+void*
+vm_map_kernel(addr_t addr, size_t num_pages)
 {
 	vm_mapto(addr, addr, num_pages);
+	return (void*)addr;
 }
 
 void

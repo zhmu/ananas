@@ -9,6 +9,7 @@
 #include <ananas/trace.h>
 #include <ananas/thread.h>
 #include <ananas/threadinfo.h>
+#include <ananas/vm.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include "options.h"
@@ -227,7 +228,7 @@ thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags, struc
 	tm->flags = flags;
 	DQUEUE_ADD_TAIL(&t->mappings, tm);
 
-	md_thread_map(t, to, from, len, 0);
+	md_thread_map(t, to, from, len, VM_FLAG_READ | VM_FLAG_WRITE);
 	*out = tm;
 	return ANANAS_ERROR_OK;
 }

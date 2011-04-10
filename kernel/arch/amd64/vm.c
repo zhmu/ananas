@@ -93,16 +93,23 @@ vm_map_pagedir(uint64_t* pml4, addr_t addr, size_t num_pages, uint32_t user)
 	vm_mapto_pagedir(pml4, addr, addr, num_pages, user);
 }
 
-void
-vm_map(addr_t addr, size_t num_pages)
+void*
+vm_map_kernel(addr_t addr, size_t num_pages, int flags)
 {
 	vm_mapto_pagedir(pml4, addr, addr, num_pages, 0);
+	return (void*)addr;
 }
 
 void
 vm_unmap(addr_t addr, size_t num_pages)
 {
 	/* XXX write me */
+}
+
+void
+vm_unmap_kernel(addr_t addr, size_t num_pages)
+{
+	/* XXX TODO */
 }
 
 void
@@ -115,8 +122,7 @@ void*
 vm_map_device(addr_t addr, size_t len)
 {
 	len = (len + PAGE_SIZE - 1) / PAGE_SIZE;
-	vm_map(addr, len);
-	return (void*)addr;
+	return vm_map_kernel(addr, len, 0);
 }
 
 void

@@ -45,12 +45,11 @@ mm_zone_add(addr_t addr, size_t length)
 		) / PAGE_SIZE;
 	addr_t admin_addr = addr + length - (num_pages * PAGE_SIZE);
 	KASSERT(admin_addr + (num_pages * PAGE_SIZE) == (addr + length), "adminstration does not fill up zone");
-	vm_map(admin_addr, num_pages);
+	struct MM_ZONE* zone = vm_map_kernel(admin_addr, num_pages, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
 
 	/*
 	 * Initialize the zone.
 	 */
-	struct MM_ZONE* zone = (struct MM_ZONE*)admin_addr;
 	zone->address = addr;
 	zone->magic = MM_ZONE_MAGIC;
 	zone->length = num_chunks;
@@ -58,7 +57,7 @@ mm_zone_add(addr_t addr, size_t length)
 	zone->num_free = zone->num_chunks;
 	zone->num_cont_free = zone->num_free;
 	zone->flags = 0;
-	zone->chunks = (struct MM_CHUNK*)(admin_addr + sizeof(struct MM_ZONE));
+	zone->chunks = (struct MM_CHUNK*)(zone + sizeof(struct MM_ZONE));
 	zone->next_zone = NULL;
 #if 0
 kprintf("zone_add: memaddr=%p. length=%x => #chunks=%u, #free=%u\n", addr, length, zone->num_chunks, zone->num_free);
@@ -240,13 +239,15 @@ kmalloc(size_t len)
 		kmem_dump();
 		panic("kmalloc: out of memory");
 	}
-	vm_map((addr_t)ptr, len);
-	return ptr;
+	return vm_map_kernel((addr_t)ptr, len, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
 }
 
 void
 kfree(void* addr)
 {
+#ifdef __i386__ /* XXX hack; this should be made more generic */
+	addr = (void*)((addr_t)addr & ~KERNBASE);
+#endif
 	kmem_free(addr);
 }
 

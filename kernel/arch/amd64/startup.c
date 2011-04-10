@@ -239,8 +239,8 @@ extern void* syscall_handler;
 	    bootinfo->bi_memory_map_size > 0 &&
 	    (bootinfo->bi_memory_map_size % sizeof(struct SMAP_ENTRY)) == 0) {
 		int mem_map_pages = (bootinfo->bi_memory_map_size + PAGE_SIZE - 1) / PAGE_SIZE;
-		vm_map((addr_t)bootinfo->bi_memory_map_addr, mem_map_pages);
-		struct SMAP_ENTRY* smap_entry = bootinfo->bi_memory_map_addr;
+		void* smap = vm_map_kernel((addr_t)bootinfo->bi_memory_map_addr, mem_map_pages, VM_FLAG_READ);
+		struct SMAP_ENTRY* smap_entry = smap;
 		for (int i = 0; i < bootinfo->bi_memory_map_size / sizeof(struct SMAP_ENTRY); i++, smap_entry++) {
 			if (smap_entry->type != SMAP_TYPE_MEMORY)
 				continue;
@@ -252,7 +252,7 @@ extern void* syscall_handler;
 			len  &= ~(PAGE_SIZE - 1);
 			mm_zone_add(base, len);
 		}
-		vm_unmap((addr_t)bootinfo->bi_memory_map_addr, mem_map_pages);
+		vm_unmap_kernel((addr_t)smap, mem_map_pages);
 	} else {
 		/* Loader did not provide a sensible memory map - now what? */
 		panic("No memory map!");

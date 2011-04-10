@@ -146,7 +146,8 @@ ipc_init()
 	 * necessary because the Starlet isn't very happy about doing non-32 bit 
 	 * writes to the lower 24MB...
 	 */
-	vm_map(IOS_BUFFER_BASE, IOS_BUFFER_SIZE / PAGE_SIZE);
+	/* XXX this relies on vm_map_kernel() using 1:1 mappings */
+	vm_map_kernel(IOS_BUFFER_BASE, IOS_BUFFER_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 
 	/* Initialize the IOS code too while we're at it */
 	ios_init();
