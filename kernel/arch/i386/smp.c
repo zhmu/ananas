@@ -52,7 +52,7 @@ delay(int n) {
 }
 
 static addr_t
-locate_mpfps_region(addr_t base, size_t length)
+locate_mpfps_region(void* base, size_t length)
 {
 	uint32_t* ptr = (uint32_t*)base;
 
@@ -112,33 +112,33 @@ locate_mpfps()
 	 * While here, figure out the last KB of the base memory too, just in case
 	 * we need it later on.
 	 */
-	vm_map(0, 1);
-	uint32_t ebda_addr = (*(uint16_t*)(0x40e)) << 4;
-	uint32_t basemem_last = (*(uint16_t*)(0x413) * 1024);
-	vm_unmap(0, 1);
+	void* biosinfo_ptr = vm_map_kernel(0, 1, VM_FLAG_READ);
+	uint32_t ebda_addr = (*(uint16_t*)((addr_t)biosinfo_ptr + 0x40e)) << 4;
+	uint32_t basemem_last = (*(uint16_t*)((addr_t)biosinfo_ptr + 0x413) * 1024);
+	vm_unmap_kernel(biosinfo_ptr, 1);
 
 	/*
 	 * Attempt to locate the MPFP structure in the EBDA memory space. Note that
 	 * we map 2 pages to ensure things won't go badly if we cross a paging
 	 * boundary.
 	 */
-	vm_map(ebda_addr & ~(PAGE_SIZE - 1), 2);
-	mpfps = locate_mpfps_region(ebda_addr, 1024);
-	vm_unmap(ebda_addr & ~(PAGE_SIZE - 1), 2);
+	void* ebda_ptr = vm_map_kernel(ebda_addr & ~(PAGE_SIZE - 1), 2, VM_FLAG_READ);
+	mpfps = locate_mpfps_region((void*)((addr_t)ebda_ptr + (ebda_addr % PAGE_SIZE)), 1024);
+	vm_unmap_kernel(ebda_ptr, 2);
 	if (mpfps != 0)
 		return mpfps;
 
 	/* Attempt to locate the MPFP structure in the last 1KB of base memory */
-	vm_map(basemem_last & ~(PAGE_SIZE - 1), 2);
+	void* basemem_ptr = vm_map_kernel(basemem_last & ~(PAGE_SIZE - 1), 2, VM_FLAG_READ);
 	mpfps = locate_mpfps_region(basemem_last, 1024);
-	vm_unmap(basemem_last & ~(PAGE_SIZE - 1), 2);
+	vm_unmap_kernel(basemem_ptr, 2);
 	if (mpfps != 0)
 		return mpfps;
 
 	/* Finally, attempt to locate the MPFP structure in the BIOS address space */
-	vm_map(0xf0000, 16);
-	mpfps = locate_mpfps_region(0xf0000, 65536);
-	vm_unmap(0xf0000, 16);
+	void* bios_addr = vm_map_kernel(0xf0000, 16, VM_FLAG_READ);
+	mpfps = locate_mpfps_region(bios_addr, 65536);
+	vm_unmap_kernel(bios_addr, 16);
 
 	return mpfps;
 }
@@ -226,10 +226,10 @@ smp_init()
 	 * We just copy the MPFPS structure, since it's a fixed length and it
 	 * makes it much easier to check requirements.
 	 */
-	vm_map(mpfps_addr & ~(PAGE_SIZE - 1), 1);
+	void* mpfps_ptr = vm_map_kernel(mpfps_addr & ~(PAGE_SIZE - 1), 1, VM_FLAG_READ);
 	struct MP_FLOATING_POINTER mpfps;
-	memcpy (&mpfps, (struct MP_FLOATING_POINTER*)mpfps_addr, sizeof(struct MP_FLOATING_POINTER));
-	vm_unmap(mpfps_addr & ~(PAGE_SIZE - 1), 1);
+	memcpy(&mpfps, (void*)((addr_t)mpfps_ptr + (mpfps_addr % PAGE_SIZE)), sizeof(struct MP_FLOATING_POINTER));
+	vm_unmap_kernel(mpfps_ptr, 1);
 
 	/* Verify checksum before we do anything else */
 	if (!validate_checksum((addr_t)&mpfps, sizeof(struct MP_FLOATING_POINTER))) {
@@ -249,17 +249,18 @@ smp_init()
 	 * Map the first page of the configuration table; this is needed to calculate
 	 * the length of the configuration, so we can map the whole thing.
 	 */
-	vm_map(mpfps.phys_ptr & ~(PAGE_SIZE - 1), 1);
-	struct MP_CONFIGURATION_TABLE* mpct = (struct MP_CONFIGURATION_TABLE*)mpfps.phys_ptr;
+	void* mpfps_phys_ptr = vm_map_kernel(mpfps.phys_ptr & ~(PAGE_SIZE - 1), 1, VM_FLAG_READ);
+	struct MP_CONFIGURATION_TABLE* mpct = (struct MP_CONFIGURATION_TABLE*)(mpfps_phys_ptr + (mpfps.phys_ptr % PAGE_SIZE));
 	uint32_t mpct_signature = mpct->signature;
 	uint32_t mpct_numpages = (sizeof(struct MP_CONFIGURATION_TABLE) + mpct->entry_count * 20 + PAGE_SIZE - 1) / PAGE_SIZE;
-	vm_unmap(mpfps.phys_ptr & ~(PAGE_SIZE - 1), 1);
+	vm_unmap_kernel(mpfps_phys_ptr, 1);
 	if (mpct_signature != MP_CT_SIGNATURE)
 		return;
 
-	vm_map(mpfps.phys_ptr & ~(PAGE_SIZE - 1), mpct_numpages);
-	if (!validate_checksum(mpfps.phys_ptr , mpct->base_len)) {
-		vm_unmap(mpfps.phys_ptr & ~(PAGE_SIZE - 1), mpct_numpages);
+	mpfps_phys_ptr = vm_map_kernel(mpfps.phys_ptr & ~(PAGE_SIZE - 1), mpct_numpages, VM_FLAG_READ);
+	mpct = (struct MP_CONFIGURATION_TABLE*)(mpfps_phys_ptr + (mpfps.phys_ptr % PAGE_SIZE));
+	if (!validate_checksum(mpfps.phys_ptr, mpct->base_len)) {
+		vm_unmap_kernel(mpfps_phys_ptr, mpct_numpages);
 		kprintf("SMP: mpct structure corrupted, ignoring\n");
 		return;
 	}
@@ -411,7 +412,8 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 #endif
 				ioapics[cur_ioapic]->ioapic_id = entry->u.ioapic.ioapic_id;
 				ioapics[cur_ioapic]->addr = entry->u.ioapic.addr;
-				vm_map(entry->u.ioapic.addr, 1);
+				/* XXX Assumes the address is in kernel space (it should be) */
+				vm_map_kernel(entry->u.ioapic.addr, 1, VM_FLAG_READ | VM_FLAG_WRITE);
 #ifdef notyet
 				/*
 				 * Is this really necessary or just over-paranoid? It fails with a 1-CPU Bochs...
@@ -452,7 +454,7 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 		entry_addr += (entry->type == MP_ENTRY_TYPE_PROCESSOR) ? 20 : 8;
 	}
 
-	vm_unmap(mpfps.phys_ptr & ~(PAGE_SIZE - 1), mpct_numpages);
+	vm_unmap_kernel(mpfps_phys_ptr, mpct_numpages);
 
 	/*
 	 * OK, the AP's start in real mode, so we need to provide them with a

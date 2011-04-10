@@ -87,13 +87,6 @@ do_irq:
 	/* Store trapframe number %edx; this is our IRQ number */
 	movl	SF_TRAPNO(%esp), %edx
 
-	/* Set paging table back */
-	movl	%cr3, %ebx
-	pushl	%ebx
-	movl	pagedir, %eax
-	subl	$KERNBASE, %eax
-	movl	%eax, %cr3
-
 	/* Ensure per-cpu stuff works */
 	movl	$GDT_SEL_KERNEL_PCPU, %eax
 	movw	%ax, %fs
@@ -105,9 +98,6 @@ do_irq:
 
 	/* Acknowledge the interrupt */
 	call	eoi
-
-	popl	%ebx
-	movl	%ebx, %cr3
 
 	/* Restore previous state */
 	RESTORE_SEGS
@@ -124,29 +114,16 @@ do_exception:
 	movw	%ax, %ds
 	movw	%ax, %es
 
-	/* Set paging table back */
-	movl	%cr3, %ebx
-	pushl	%ebx
-	movl	pagedir, %eax
-	subl	$KERNBASE, %eax
-	movl	%eax, %cr3
-
 	/* Ensure per-cpu stuff works */
 	movl	$GDT_SEL_KERNEL_PCPU, %eax
 	movw	%ax, %fs
 
 	/*
-	 * Call the exception handler. Note that we have hand %esp + 4 as the
-	 * argument, because we have placed our saved %cr3 on the stack.
+	 * Call the exception handler.
 	 */
-	movl	%esp, %eax
-	addl	$4, %eax
-	pushl	%eax
+	pushl	%esp
 	call	exception_handler
 	addl	$4, %esp
-
-	popl	%ebx
-	movl	%ebx, %cr3
 
 	/* Restore previous state */
 	RESTORE_SEGS
@@ -226,9 +203,10 @@ scheduler_cancel:
 	iret
 
 /*
- * System call interrupt; we expect to be called with %eax the syscall function,
- * and %ebx, %ecx, %edx, %esi and %edi the arguments. We only preserve what's
- * needed by the System V ABI because that's what everyone seems to use anyway.
+ * System call interrupt; system call number should be placed in %eax, all
+ * arguments are expected to be placed on the stack.  Note that we only
+ * preserve what's needed by the System V ABI because that's what everyone
+ * seems to use anyway.
  */
 syscall_int:
 	pushl	%ebp
@@ -258,9 +236,7 @@ syscall_int:
 	 */
 	movl 16(%ebp), %esi
 
-	/* 
-	 * Store the caller's cs:eip 
-	 */
+	/* Switch to kernel registers */ 
 	movw	$GDT_SEL_KERNEL_PCPU, %bx
 	movw	%bx, %fs
 
@@ -289,14 +265,7 @@ syscall_int:
 	subl	$28,  %eax
 	movl	%eax, -4(%ebp)
 
-	/* Switch to the kernel pagetables */
-	movl	%cr3, %eax
-	pushl	%eax
-	movl	pagedir, %eax
-	subl	$KERNBASE, %eax
-	movl	%eax, %cr3
-
-	/* Switch to kernel register context */
+	/* Switch to kernel segment register context (ds/es/fs) */
 	movw	$GDT_SEL_KERNEL_DATA, %ax
 	movw	%ax, %ds
 	movw	%ax, %es
@@ -311,10 +280,7 @@ syscall_int:
 	call	syscall
 	addl	$4, %esp
 
-	/* Restore paging and the other registers */
-	popl	%ebx
-	movl	%ebx, %cr3
-
+	/* Restore registers */
 	popl	%fs
 	popl	%es
 	popl	%ds
@@ -348,7 +314,7 @@ clone_return:
 	/* Switch to the process' kernel stack */
 	movw	$GDT_SEL_KERNEL_PCPU, %bx
 	movw	%bx, %fs
-	movl	%fs:(0), %ebx		/* %ebx = thread context */
+	movl	%fs:(PCPU_CONTEXT), %ebx
 	movl	CTX_ESP0(%ebx), %esp
 
 	/* And to the process page tables */

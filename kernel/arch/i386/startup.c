@@ -24,14 +24,11 @@ extern void* __end;
 /* __entry is the entry position and the first symbol in the kernel */
 extern void* __entry;
 
-/* Pointer to our page directory */
-uint32_t* pagedir;
+/* Pointer to the kernel page directory */
+uint32_t* kernel_pd;
 
 /* Global/Interrupt descriptor tables, as preallocated by stub.s */
 extern void *idt, *gdt;
-
-/* Used for temporary mappings during VM bootstrap */
-extern void* temp_pt_entry;
 
 /* Initial TSS used by the kernel */
 struct TSS kernel_tss;
@@ -52,8 +49,6 @@ int md_cpu_clock_mhz = 0;
 void
 md_startup(struct BOOTINFO* bootinfo_ptr)
 {
-	uint32_t i;
-
 	/*
 	 * As long as we do not have any paging, we can access any
 	 * memory location we want - this is handy while we are copying
@@ -77,7 +72,7 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * First of all, we figure out where the kernel ends and thus space is
 	 * available; this will already be rounded to a page.
 	 */
-	addr_t avail = (addr_t)&__end - KERNBASE;
+	addr_t availptr = (addr_t)&__end - KERNBASE;
 
 	/*
 	 * Paging on i386 works by having a 'page directory' (PD), which consists of
@@ -90,34 +85,36 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * We place the PD directly after the kernel itself, and follow this by any
 	 * PT's we need to map the virtual kernel addresses.
 	 */
-	uint32_t* pd = (uint32_t*)avail;
-	avail += PAGE_SIZE;
+	uint32_t* pd = (uint32_t*)availptr;
+	availptr += PAGE_SIZE;
 	memset((void*)pd, 0, PAGE_SIZE);
+
+	/* Allocate all kernel page tables and clear them */
+	uint32_t* pt = (uint32_t*)availptr;
+	availptr += VM_NUM_KERNEL_PTS * PAGE_SIZE;
+	memset(pt, 0, VM_NUM_KERNEL_PTS * PAGE_SIZE);
+
+	/* Hook the kernel page tables to the kernel page directory */
+	addr_t cur_pt = (addr_t)pt;
+	for (unsigned int n = 0; n < VM_NUM_KERNEL_PTS; n++, cur_pt += PAGE_SIZE) {
+		pd[VM_FIRST_KERNEL_PT + n] = cur_pt | PDE_P | PTE_RW;
+	}
 
 	/*
 	 * Now, walk through the memory occupied by the kernel and map the
-	 * pages. Note that the new page tables are placed after the kernel,
-	 * so we need to map these too (otherwise, we cannot update our
-	 * pagetables anymore once they are in place)
+	 * pages. Note that we'll want to map the pagetable entries as well
+	 * which we've placed after the kernel, so we'll need to map up to
+	 * availptr.
 	 */
-	addr_t last_addr = (addr_t)&__end;
-	for (i = (addr_t)&__entry; i < last_addr; i += PAGE_SIZE) {
-		uint32_t pd_entrynum = i >> 22;
-		if (pd[pd_entrynum] == 0) {
-			/* There's no directory entry yet for this item, so create one */
-			pd[pd_entrynum] = avail | PDE_P | PTE_RW;
-			memset((void*)avail, 0, PAGE_SIZE);
-			avail += PAGE_SIZE;
-			last_addr += PAGE_SIZE;
-		}
-
+	for (addr_t i = (addr_t)&__entry; i < (availptr | KERNBASE); i += PAGE_SIZE) {
 		/*
 		 * Determine the index within the page table; this is simply bits
 	 	 * 12-21, so we need to shift the lower 12 bits away and throw every
 	 	 * above bit 10 away.
 		 */
-		uint32_t* pt = (uint32_t*)(pd[pd_entrynum] & ~(PAGE_SIZE - 1));
-		pt[(((i >> 12) & ((1 << 10) - 1)))] = (i - KERNBASE) | PTE_P | PTE_RW;
+		uint32_t* pt = (uint32_t*)(pd[i >> VM_SHIFT_PT] & ~(PAGE_SIZE - 1));
+		KASSERT(pt != NULL, "kernel pt not mapped");
+		pt[(((i >> VM_SHIFT_PTE) & ((1 << 10) - 1)))] = (i - KERNBASE) | PTE_P | PTE_RW;
 	}
 
 	/*
@@ -127,10 +124,10 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * no longer mapped!
 	 *
 	 * Resolve this by duplicating the PD mappings to KERNBASE - __end to the
-	 * mappings minus KERNBASE.
+	 * mappings minus KERNBASE. No need to map the pagetable parts.
 	 */
-	for (int i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << 22)) {
-		pd[i >> 22] = pd[(i + KERNBASE) >> 22];
+	for (addr_t i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << VM_SHIFT_PT)) {
+		pd[i >> VM_SHIFT_PT] = pd[(i + KERNBASE) >> VM_SHIFT_PT];
 	}
 
 	/* It's time to... throw the switch! */
@@ -156,11 +153,16 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	: : "a" (pd), "b" (KERNBASE));
 
 	/*
+	 * Paging has been setup; this means we can sensibly use kernel memory now.
+	 */
+	kernel_pd = (uint32_t*)((addr_t)pd | KERNBASE);
+
+	/*
 	 * We can throw the duplicate mappings away now, since we are now
 	 * using our virtual mappings.
 	 */
-	for (int i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << 22)) {
-		pd[i >> 22] = 0;
+	for (int i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << VM_SHIFT_PT)) {
+		kernel_pd[i >> VM_SHIFT_PT] = 0;
 	}
 
 	__asm(
@@ -169,11 +171,6 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 		"jmp	l4\n"
 "l4:\n"
 	: : "a" (pd));
-
-	/*
-	 * Paging has been setup; this means we can sensibly use kernel memory now.
-	 */
-	pagedir = (uint32_t*)((addr_t)pd | KERNBASE);
 
 	/*
 	 * The next step is to set up the Global Descriptor Table (GDT); this is
@@ -286,12 +283,6 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	: : "a" (GDT_SEL_KERNEL_TASK));
 
 	/*
-	 * Clear the temporary pagetable entry; this ensures we won't status with
-	 * bogus mappings.
-	 */
-	memset(&temp_pt_entry, 0, PAGE_SIZE);
-
-	/*
 	 * Initialize the FPU; this consists of loading it with a known control
 	 * word, and requesting exception handling using the more modern #MF
 	 * exception mechanism.
@@ -315,38 +306,30 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * possible within realmode. To prevent this mess, the loader obtains this
 	 * information for us.
 	 */
-	if (bootinfo != NULL && bootinfo->bi_memory_map_addr != 0 &&
-	    bootinfo->bi_memory_map_size > 0 &&
-	    (bootinfo->bi_memory_map_size % sizeof(struct SMAP_ENTRY)) == 0) {
-		int mem_map_pages = (bootinfo->bi_memory_map_size + PAGE_SIZE - 1) / PAGE_SIZE;
-		vm_map((addr_t)bootinfo->bi_memory_map_addr, mem_map_pages);
-		struct SMAP_ENTRY* smap_entry = (struct SMAP_ENTRY*)bootinfo->bi_memory_map_addr;
-		for (int i = 0; i < bootinfo->bi_memory_map_size / sizeof(struct SMAP_ENTRY); i++, smap_entry++) {
-			if (smap_entry->type != SMAP_TYPE_MEMORY)
-				continue;
-
-			/* This piece of memory is available; add it */
-			addr_t base = /* smap_entry->base_hi << 32 | */ smap_entry->base_lo;
-			size_t len = /* smap_entry->len_hi << 32 | */ smap_entry->len_lo;
-			/* Round base up to a page, and length down a page if needed */
-			base  = (base + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-			len  &= ~(PAGE_SIZE - 1);
-			mm_zone_add(base, len);
-
-			/*
-			 * Once the first zone has been added, we can finally do away
-			 * with the temp_pt hack which we need in order to get an
-			 * initial pagemapping.
-			 */
-			if (i == 0)
-				vm_init();
-
-		}
-		vm_unmap((addr_t)bootinfo->bi_memory_map_addr, mem_map_pages);
-	} else {
+	if (bootinfo == NULL || bootinfo->bi_memory_map_addr == 0 ||
+	    bootinfo->bi_memory_map_size == 0 ||
+	    (bootinfo->bi_memory_map_size % sizeof(struct SMAP_ENTRY)) != 0) {
 		/* Loader did not provide a sensible memory map - now what? */
 		panic("No memory map!");
 	}
+
+	/* Present the chunks of memory to the memory manager */
+	int mem_map_pages = (bootinfo->bi_memory_map_size + PAGE_SIZE - 1) / PAGE_SIZE;
+	void* memory_map = vm_map_kernel((addr_t)bootinfo->bi_memory_map_addr, mem_map_pages, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
+	struct SMAP_ENTRY* smap_entry = memory_map;
+	for (int i = 0; i < bootinfo->bi_memory_map_size / sizeof(struct SMAP_ENTRY); i++, smap_entry++) {
+		if (smap_entry->type != SMAP_TYPE_MEMORY)
+			continue;
+
+		/* This piece of memory is available; add it */
+		addr_t base = /* smap_entry->base_hi << 32 | */ smap_entry->base_lo;
+		size_t len = /* smap_entry->len_hi << 32 | */ smap_entry->len_lo;
+		/* Round base up to a page, and length down a page if needed */
+		base  = (base + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+		len  &= ~(PAGE_SIZE - 1);
+		mm_zone_add(base, len);
+	}
+	vm_unmap_kernel((addr_t)memory_map, mem_map_pages);
 
 	/*
 	 * Mark the pages occupied by the kernel as used; this prevents the memory
@@ -356,7 +339,7 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * our page directory (these will not be relocated by vm_init()) so be sure
 	 * to include them (this is why we use avail and not __end !)
 	 */
-	size_t kern_pages = ((addr_t)avail - ((addr_t)&__entry - KERNBASE)) / PAGE_SIZE;
+	size_t kern_pages = ((addr_t)availptr - ((addr_t)&__entry - KERNBASE)) / PAGE_SIZE;
 	kmem_mark_used((void*)(addr_t)&__entry - KERNBASE, kern_pages);
 
 	/* If we have a ramdisk, protect it from the allocator */
@@ -393,24 +376,6 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 
 	/* All done - it's up to the machine-independant code now */
 	mi_startup();
-}
-
-void
-vm_map_kernel_addr(uint32_t* pd)
-{
-	addr_t i;
-	for (i = (addr_t)&__entry; i < (addr_t)&__end; i += PAGE_SIZE) {
-		uint32_t pd_entrynum = i >> 22;
-		if (pd[pd_entrynum] == 0) {
-			/* There's no directory entry yet for this item, so create one */
-			addr_t new_entry = (addr_t)kmalloc(PAGE_SIZE);
-			memset((void*)new_entry, 0, PAGE_SIZE);
-			pd[pd_entrynum] = new_entry | PDE_P | PDE_US;
-		}
-
-		uint32_t* pt = (uint32_t*)(pd[pd_entrynum] & ~(PAGE_SIZE - 1));
-		pt[(((i >> 12) & ((1 << 10) - 1)))] = (i - KERNBASE) | PTE_P | PTE_US;
-	}
 }
 
 /* vim:set ts=2 sw=2: */

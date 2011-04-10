@@ -15,6 +15,7 @@
 
 extern struct TSS kernel_tss;
 void clone_return();
+extern uint32_t* kernel_pd;
 
 static errorcode_t
 md_thread_setup(thread_t t)
@@ -23,10 +24,10 @@ md_thread_setup(thread_t t)
 	vm_map_kernel_addr(t->md_pagedir);
 
 	/* Perform adequate mapping for the stack / code */
-	vm_mapto_pagedir(t->md_pagedir, USERLAND_STACK_ADDR, (addr_t)t->md_stack,  THREAD_STACK_SIZE / PAGE_SIZE, 1);
-	vm_map_pagedir(t->md_pagedir, (addr_t)t->md_kstack, KERNEL_STACK_SIZE / PAGE_SIZE, 0);
+	md_map_pages(t->md_pagedir, USERLAND_STACK_ADDR, (addr_t)t->md_stack - KERNBASE, THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_USER);
+	md_map_pages(t->md_pagedir, (addr_t)t->md_kstack, (addr_t)t->md_kstack - KERNBASE, KERNEL_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
 
-#ifdef SMP	
+#ifdef NOTYET
 	/*
 	 * Grr - for some odd reason, the GDT had to be subject to paging. This means
 	 * we have to insert a suitable mapping for every CPU (this does not apply
@@ -46,7 +47,7 @@ md_thread_setup(thread_t t)
 	t->md_ctx.ds = GDT_SEL_USER_DATA;
 	t->md_ctx.es = GDT_SEL_USER_DATA;
 	t->md_ctx.ss = GDT_SEL_USER_DATA + SEG_DPL_USER;
-	t->md_ctx.cr3 = (addr_t)t->md_pagedir;
+	t->md_ctx.cr3 = (addr_t)t->md_pagedir - KERNBASE;
 	t->md_ctx.eflags = EFLAGS_IF;
 
 	/* initialize FPU state similar to what finit would do */
@@ -73,8 +74,14 @@ md_thread_init(thread_t t)
 void
 md_thread_free(thread_t t)
 {
+	/*
+	 * Switch to the kernel pagetables; we'll be destroying the thread's
+	 * pagetables shortly.
+	 */
+	t->md_ctx.cr3 = (addr_t)kernel_pd - KERNBASE;
+	__asm("mov %0, %%cr3" : : "r" (t->md_ctx.cr3));
+
 	vm_free_pagedir(t->md_pagedir);
-	kfree(t->md_pagedir);
 	kfree(t->md_stack);
 	kfree(t->md_kstack);
 }
@@ -84,21 +91,11 @@ md_thread_switch(thread_t new, thread_t old)
 {
 	struct CONTEXT* ctx_new = (struct CONTEXT*)&new->md_ctx;
 
-	/*
-	 * Activate this context as the current CPU context. XXX lock
-	 */
-	__asm(
-		"movw %%bx, %%fs\n"
-		"movl	%%eax, %%fs:0\n"
-	: : "a" (ctx_new), "b" (GDT_SEL_KERNEL_PCPU));
-
-	/* Fetch kernel TSS */
-	struct TSS* tss;
-	__asm(
-		"movl	%%fs:8, %0\n"
-	: "=r" (tss));
+	/* Activate this context as the current CPU context. XXX lock */
+	PCPU_SET(context, ctx_new);
 
 	/* Activate the corresponding kernel stack in the TSS */
+	struct TSS* tss = (struct TSS*)PCPU_GET(tss);
 	tss->esp0 = ctx_new->esp0;
 
 	/* Go! */
@@ -108,26 +105,18 @@ md_thread_switch(thread_t new, thread_t old)
 void*
 md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
 {
-	KASSERT(length <= PAGE_SIZE, "no support for >PAGE_SIZE mappings yet!");
-
-	addr_t addr = (addr_t)ptr & ~(PAGE_SIZE - 1);
-	addr_t phys = vm_get_phys(thread->md_pagedir, addr, write);
-	if (phys == 0)
-		return NULL;
-
-	addr_t virt = TEMP_USERLAND_ADDR + PCPU_GET(cpuid) * TEMP_USERLAND_SIZE;
-	vm_mapto(virt, phys, 2 /* XXX */);
-	return (void*)virt + ((addr_t)ptr % PAGE_SIZE);
+	return ptr;
 }
 
 void*
 md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
 {
+	KASSERT((flags & VM_FLAG_KERNEL) == 0, "attempt to map kernel memory");
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)
 		num_pages++;
-	/* XXX cannot specify flags yet */
-	vm_mapto_pagedir(thread->md_pagedir, (addr_t)to, (addr_t)from, num_pages, 1);
+	from = (void*)((addr_t)from & ~KERNBASE);
+	md_map_pages(thread->md_pagedir, (addr_t)to, (addr_t)from, num_pages, VM_FLAG_USER | flags);
 	return to;
 }
 
@@ -137,7 +126,7 @@ md_thread_unmap(thread_t thread, void* addr, size_t length)
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)
 		num_pages++;
-	vm_unmap_pagedir(thread->md_pagedir, (addr_t)addr, num_pages);
+	md_unmap_pages(thread->md_pagedir, (addr_t)addr, num_pages);
 	return ANANAS_ERROR_OK;
 }
 
@@ -165,7 +154,7 @@ md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
 	thread->md_ctx.es = GDT_SEL_KERNEL_DATA;
 	thread->md_ctx.fs = GDT_SEL_KERNEL_PCPU;
 	thread->md_ctx.eip = (addr_t)kfunc;
-	thread->md_ctx.cr3 = (addr_t)pagedir - KERNBASE;
+	thread->md_ctx.cr3 = (addr_t)kernel_pd - KERNBASE;
 
 	/*
 	 * Now, push 'arg' on the stack, as i386 passes arguments by the stack. Note that
@@ -197,12 +186,11 @@ md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
 	 * code will perform the adequate magic.
 	 */
 	t->md_ctx.esp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE;
-	t->md_ctx.cr3  = (addr_t)t->md_pagedir;
+	t->md_ctx.cr3  = (addr_t)t->md_pagedir - KERNBASE;
 
 	/*
-	 * Copy stack content; we copy the kernel stack over
-	 * because we can obtain the stackframe from it, which
-	 * allows us to return to the intended caller.
+	 * Copy stack content; we copy the kernel stack over because we can obtain
+	 * the stackframe from it, which allows us to return to the intended caller.
 	 */
 	memcpy(t->md_stack,  parent->md_stack, THREAD_STACK_SIZE);
 	memcpy(t->md_kstack, parent->md_kstack, KERNEL_STACK_SIZE);

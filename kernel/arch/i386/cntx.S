@@ -27,17 +27,6 @@ md_store_ctx:
 	movw	$GDT_SEL_KERNEL_DATA, %bx
 	movw	%bx, %ds
 
-	/*
-	 * We must activate the kernel pagetable because each process can only
-	 * see kernel memory and not the thread structures...
-	 *
-	 * Note that we never update %cr3 in the process-structure because it
-	 * cannot be altered by userspace.
-	 */
-        movl    pagedir, %ebx
-        subl    $KERNBASE, %ebx
-        movl    %ebx, %cr3
-
 	/* Fetch the address from the context from the per-cpu info */
 	movl	%fs:(PCPU_CONTEXT), %ebx
 
@@ -153,6 +142,17 @@ md_restore_ctx:
 	movl	4(%esp), %ebx
 
 	/*
+	 * First of all, restore thread's pagedir; we skip this if possible (it
+	 * forces a TLB flush which is expensive)
+	 */
+	movl	CTX_CR3(%ebx), %eax
+	movl	%cr3, %ecx
+	cmpl	%eax, %ecx
+	je	md_restore_ctx_skip_cr3
+	movl	%eax, %cr3
+md_restore_ctx_skip_cr3:
+
+	/*
 	 * If we are switching to kernel context, this must be because of a
 	 * system call that call reschedule(); in this case, we can opt for the
 	 * easy way out as we don't have to restore every little detail (the
@@ -253,20 +253,8 @@ r_uthread:
 	orl     $CR0_TS, %eax
 	movl    %eax, %cr0
 
-	/*
-	 * Grab the page directory in %eax; we can't touch %ebx anymore once we
-	 * set it, so place it on the stack.
-	 */
-	movl	CTX_CR3(%ebx), %eax
-	pushl	%eax
-
-	/* Restore ebx and activate paging */
+	/* Restore %ebx and %eax */
 	movl	CTX_EBX(%ebx), %ebx
-
-	popl	%eax
-	movl	%eax, %cr3
-
-	/* Finally, restore %eax and go */
 	popl	%eax
 	iret
 

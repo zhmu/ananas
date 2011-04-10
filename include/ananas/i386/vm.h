@@ -3,6 +3,55 @@
 
 #include <sys/types.h>
 
+/*
+ * For Ananas/i386, we use the following virtual memory map; the physical
+ * memory entries are irrelevant.
+ *
+ * 0x0000 0000         +---------------------------+
+ *                     | Unused                    |
+ *                     /                           /
+ *                     |                           |
+ * 0x0100 0000 (1MB)   +---------------------------+
+ *                     | Process memory            |
+ *                     /                           /
+ *                     |                           |
+ * 0xc000 0000 (3GB)   +---------------------------+
+ *                     | Kernel memory             |
+ *                     /                           /
+ *                     |                           |
+ * 0xffff ffff (4GB)   +---------------------------+
+ * 
+ *
+ * This gives us ~1GB of kernel virtual memory and ~3GB of process memory.
+ *
+ * On i386, there is a 4KB page-directory (PD) which contains pointers to 4KB
+ * page-tables (PT). Each page-table contains 4-byte entries (PTE's) which
+ * refer to the actual memory.
+ *
+ * We statically allocate the kernel PD and PT's during boot (they are placed
+ * after the kernel itself). The reason is that the kernel is capable of
+ * addressing up to 1GB of memory, and it needs to be able to map this memory
+ * in order to use it.
+ *
+ * As every PT is 4KB and every PTE is 4 bytes, a single PT can contain up to
+ * 4096 / 4 = 1024 entries, which means a single PT can address 1024 * 4096 =
+ * 4MB of memory. This means we need a total of 1GB / 4MB = 256 PT's for the
+ * kernel. User PT's will be allocated on the fly as necessary, there's no
+ * need to statically place them somewhere.
+ */
+
+/* First kernel PT; this is 3GB / 4MB = 768 */
+#define VM_FIRST_KERNEL_PT	768
+
+/* Number of kernel PT's (1GB / (1024 * 4KB) = 256, see above) */
+#define VM_NUM_KERNEL_PTS	256
+
+/* Amount of bits to shift away to get the corresponding PT */
+#define VM_SHIFT_PT		22	/* log_2(4MB) */
+
+/* Amount of bits to shift away to get the corresponding PTE */
+#define VM_SHIFT_PTE		12	/* log_2(4KB) */
+
 /* CR0 register bits */
 #define CR0_PE		(1 << 0)	/* Protection Enable */
 #define CR0_MP		(1 << 1)	/* Monitor Coprocessor */
@@ -76,15 +125,16 @@
 /*
  * Pointer to our page directory; set by i386/startup.c:md_start
  */
-extern uint32_t* pagedir;
+extern uint32_t* kernel_pagedir;
 
 /* Used to create mappings for the kernel; used for a new thread */
 void vm_map_kernel_addr(uint32_t* pd);
 
 addr_t vm_get_phys(uint32_t* pagedir, addr_t addr, int write);
+
+void md_map_pages(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, int flags);
 void vm_mapto_pagedir(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, uint32_t user);
-void vm_map_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages, uint32_t user);
-void vm_unmap_pagedir(uint32_t* pagedir, addr_t addr, size_t num_pages);
+void md_unmap_pages(uint32_t* pagedir, addr_t virt, size_t num_pages);
 void vm_free_pagedir(uint32_t* pagedir);
 
 #endif

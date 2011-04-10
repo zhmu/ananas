@@ -72,7 +72,7 @@ mp_stub32:
 	shrl	$24, %ebx
 
 	/* Set up the page directory */
-	movl	$pagedir, %eax
+	movl	$kernel_pd, %eax
 	subl	$KERNBASE, %eax
 	movl	(%eax), %eax
 	subl	$KERNBASE, %eax
