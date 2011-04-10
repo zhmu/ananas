@@ -1,26 +1,2 @@
-arch		i386
+include		EVERYTHING
 ident		LINT
-
-include		../../../conf/LINT
-
-hints		hints.i386
-
-device		isa
-device		vga
-device		sio
-device		atkbd
-
-device		pcihb
-
-option		DEBUG_CONSOLE
-
-option		SMP
-
-device		ataisa
-
-inputdev	isa.atkbd
-outputdev	isa.vga
-#inputdev	isa.sio
-#outputdev	isa.sio
-
-device		uhci
