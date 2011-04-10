@@ -1,7 +1,7 @@
 #include <unistd.h>
-#include <_posix/fdmap.h>
+#include <_posix/handlemap.h>
 
 int getdtablesize()
 {
-	return FDMAP_SIZE;
+	return HANDLEMAP_SIZE;
 }
