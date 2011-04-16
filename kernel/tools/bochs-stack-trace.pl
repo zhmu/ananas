@@ -20,8 +20,11 @@ sub lookup_sym {
 	return $cur_addr ne $addr ? sprintf("%s+0x%x", $cur_sym, $addr - $cur_addr) : $cur_sym;
 }
 
+my ($fname) = @ARGV;
+$fname = "kernel" unless $fname;
+
 my %syms;
-foreach (split(/\n/, `$NM kernel`)) {
+foreach (split(/\n/, `$NM $fname`)) {
 	die unless /^([a-z0-9]*)\s+.\s+(.+)$/;
 	next unless $1;
 	$syms{hex($1)} = $2;
@@ -32,6 +35,7 @@ our @syms;
 foreach (sort keys %syms) {
 	push @syms, [ $_, $syms{$_} ];
 }
+
 
 while(<>) {
 	next unless /^\((\d+)\) 0x([a-f0-9]+)$/;
