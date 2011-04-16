@@ -2,6 +2,7 @@
 #include <ananas/x86/io.h>
 #include <ananas/x86/sio.h>
 #include <machine/param.h> /* for KERNBASE */
+#include <machine/vm.h> /* for KVTOP */
 
 #define DEBUGCON_IO 0x3f8	/* COM1 */
 
@@ -20,7 +21,7 @@ debugcon_init()
 	if(inb(0xe9) == 0xe9) {
 #ifdef __i386__
 		/* Paging isn't set up in i386 yet... so this ugly hack is needed */
-		*(int*)((addr_t)&debugcon_bochs_console - KERNBASE) = 1;
+		*(int*)(KVTOP((addr_t)&debugcon_bochs_console)) = 1;
 #else
 		debugcon_bochs_console++;
 #endif
