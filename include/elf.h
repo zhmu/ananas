@@ -286,7 +286,7 @@ struct VFS_FILE;
 
 typedef errorcode_t (*elf_getfunc_t)(void* priv, void* buf, off_t offset, size_t len);
 errorcode_t elf_load(thread_t thread, void* priv, elf_getfunc_t obtain);
-errorcode_t elf_load_from_file(thread_t thread, struct VFS_FILE* file);
+errorcode_t elf_load_from_file(thread_t t, struct VFS_INODE* inode);
 #endif /* KERNEL */
 
 #endif /* __ELF_H__ */
