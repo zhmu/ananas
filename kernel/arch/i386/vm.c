@@ -17,9 +17,10 @@ md_map_pages(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, int 
 	if (pagedir != kernel_pd)
 		kprintf("md_map_pages(): v=%p, p=%p, flags=0x%x, num_pages=%u, pd=%p\n", virt, phys, flags, num_pages, pagedir);
 #endif
-	KASSERT(phys < KERNBASE, "mapping nonexistent memory");
 
 	uint32_t pt_flags = 0;
+	if (flags & VM_FLAG_READ)
+		pt_flags |= PTE_P; /* XXX */
 	if (flags & VM_FLAG_USER)
 		pt_flags |= PTE_US;
 	if (flags & VM_FLAG_WRITE)
@@ -36,11 +37,11 @@ md_map_pages(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, int 
 			addr_t new_pt = (addr_t)kmalloc(PAGE_SIZE);
 			KASSERT((new_pt & (PAGE_SIZE - 1)) == 0, "pagedir entry not page-aligned");
 			memset((void*)new_pt, 0, PAGE_SIZE);
-			pagedir[pd_entrynum] = (new_pt - KERNBASE) | PDE_P | pt_flags;
+			pagedir[pd_entrynum] = KVTOP(new_pt) | PDE_P | PDE_RW | pt_flags;
 		}
 
-		uint32_t* pt = (uint32_t*)((pagedir[pd_entrynum] & ~(PAGE_SIZE - 1)) | KERNBASE);
-		pt[(((virt >> 12) & ((1 << 10) - 1)))] = phys | PTE_P | pt_flags;
+		uint32_t* pt = (uint32_t*)(PTOKV(pagedir[pd_entrynum] & ~(PAGE_SIZE - 1)));
+		pt[(((virt >> 12) & ((1 << 10) - 1)))] = phys | pt_flags;
 
 		/*
 		 * Invalidate the address we just added to ensure it'll become active
@@ -61,7 +62,7 @@ md_unmap_pages(uint32_t* pagedir, addr_t virt, size_t num_pages)
 	while (num_pages > 0) {
 		uint32_t pd_entrynum = virt >> 22;
 		if (pagedir[pd_entrynum] & PDE_P) {
-			uint32_t* pt = (uint32_t*)((pagedir[pd_entrynum] & ~(PAGE_SIZE - 1)) | KERNBASE);
+			uint32_t* pt = (uint32_t*)PTOKV(pagedir[pd_entrynum] & ~(PAGE_SIZE - 1));
 			pt[(((virt >> 12) & ((1 << 10) - 1)))] = 0;
 		}
 
@@ -69,14 +70,28 @@ md_unmap_pages(uint32_t* pagedir, addr_t virt, size_t num_pages)
 	}
 }
 
+addr_t
+md_get_mapping(uint32_t* pagedir, addr_t virt, int flags)
+{
+	uint32_t pd_entrynum = virt >> 22;
+	if ((pagedir[pd_entrynum] & PDE_P) == 0)
+		return 0;
+
+	uint32_t* pt = (uint32_t*)(PTOKV(pagedir[pd_entrynum] & ~(PAGE_SIZE - 1)));
+	uint32_t  pte = pt[(((virt >> 12) & ((1 << 10) - 1)))];
+	if ((pte & PTE_P) == 0) /* not present? */
+		return 0;
+	if ((flags & VM_FLAG_WRITE) && ((pte & PTE_RW) == 0)) /* check writable */
+		return 0;
+	return pte & ~(PAGE_SIZE - 1);
+}
+
 /* Maps physical pages to kernel memory */
 void*
 vm_map_kernel(addr_t phys, size_t num_pages, int flags)
 {
-	KASSERT(phys < KERNBASE, "cannot map kernel address 0x%x", phys);
-	addr_t virt = phys | KERNBASE;
-	md_map_pages(kernel_pd, virt, phys, num_pages, flags);
-	return (void*)virt;
+	md_map_pages(kernel_pd, PTOKV(phys), phys, num_pages, flags);
+	return (void*)PTOKV(phys);
 }
 
 void*
@@ -99,7 +114,7 @@ vm_free_pagedir(uint32_t* pagedir)
 {
 	for(unsigned int i = 0; i < VM_FIRST_KERNEL_PT; i++) {
 		if (pagedir[i] & PDE_P) {
-			void* pt = (void*)((pagedir[i] & ~(PAGE_SIZE - 1)) | KERNBASE);
+			void* pt = (void*)PTOKV(pagedir[i] & ~(PAGE_SIZE - 1));
 			memset(pt, 0, PAGE_SIZE); /* XXX paranoia */
 			kfree(pt);
 		}
