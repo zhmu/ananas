@@ -3,9 +3,12 @@
 #include <machine/interrupts.h>
 #include <machine/thread.h>
 #include <machine/vm.h>
+#include <machine/param.h>
 #include <ananas/x86/exceptions.h>
 #include <ananas/thread.h>
+#include <ananas/error.h>
 #include <ananas/pcpu.h>
+#include <ananas/vm.h>
 #include <ananas/lib.h>
 
 static void
@@ -45,6 +48,12 @@ exception_generic(struct STACKFRAME* sf)
 	kprintf("esi=%x edi=%x ebp=%x\n", sf->sf_esi, sf->sf_edi, sf->sf_ebp);
 	kprintf("ds=%x es=%x fs=%x gs=%x\n", sf->sf_ds, sf->sf_es, sf->sf_fs, sf->sf_gs);
 	kprintf("possible ss:esp = %x:%x\n", sf->sf_ss, sf->sf_esp);
+	if (sf->sf_trapno == EXC_PF) {
+		/* Page fault; show offending address */
+		addr_t fault_addr;
+		__asm __volatile("mov %%cr2, %%eax" : "=a" (fault_addr));
+		kprintf("fault address=%x (flags %x)\n", fault_addr, sf->sf_errnum);
+	}
 	if (userland) {
 		/* A thread was naughty. Kill it */
 		thread_exit(THREAD_MAKE_EXITCODE(THREAD_TERM_FAULT, sf->sf_trapno));
@@ -53,12 +62,45 @@ exception_generic(struct STACKFRAME* sf)
 	panic("kernel exception");
 }
 
+static void
+exception_pf(struct STACKFRAME* sf)
+{
+	/* Obtain the fault address; it caused the page fault */
+	addr_t fault_addr;
+	__asm __volatile("mov %%cr2, %%eax" : "=a" (fault_addr));
+
+	int userland = (sf->sf_cs & 3) == SEG_DPL_USER;
+	if (userland) {
+		/*
+		 * Userland pagefault - we should see if there is an adequate mapping for this
+		 * thread
+		 */
+		int flags = 0;
+		if (sf->sf_errnum & EXC_PF_FLAG_RW)
+			flags |= VM_FLAG_WRITE;
+		else
+			flags |= VM_FLAG_READ;
+		if ((sf->sf_errnum & EXC_PF_FLAG_P) == 0) { /* page not present */
+			errorcode_t err = thread_handle_fault(PCPU_GET(curthread), fault_addr & ~(PAGE_SIZE - 1), flags);
+			if (err == ANANAS_ERROR_NONE) {
+				return; /* fault handeled */
+			}
+		}
+	}
+
+	/* Either not in userland or couldn't be handled; chain through */
+	exception_generic(sf);
+}
+
 void
 exception_handler(struct STACKFRAME* sf)
 {
 	switch(sf->sf_trapno) {
 		case EXC_NM:
 			exception_nm(sf);
+			return;
+		case EXC_PF:
+			exception_pf(sf);
 			return;
 		default:
 			exception_generic(sf);

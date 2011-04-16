@@ -15,6 +15,9 @@
 #define EXC_SS	12	/* Stack fault exception */
 #define EXC_GP	13	/* General Protection Fault exception */
 #define EXC_PF	14	/* Page Fault exception */
+#define EXC_PF_FLAG_P	(1 << 0)	/* 0 if page wasn't present */
+#define EXC_PF_FLAG_RW	(1 << 1)	/* 0 if readonly, 1 if write */
+#define EXC_PF_FLAG_US	(1 << 2)	/* 0 if supervisor, 1 if user mode */
 #define EXC_MF	16	/* FPU Floating-Point error */
 #define EXC_AC	17	/* Alignment Check Exception */
 #define EXC_MC	18	/* Machine Check Exception */
