@@ -12,6 +12,13 @@
 #define panic(msg, args...) \
 		_panic(__FILE__, __func__, __LINE__, msg, ##args)
 
+/* Rounds up 'n' to a multiple of 'mult' */
+#define ROUND_UP(n, mult) \
+	(((n) % (mult) == 0) ? (n) : (n) + ((mult) - (n) % (mult)))
+
+/* Rounds down 'n' to a multiple of 'mult' */
+#define ROUND_DOWN(n, mult) \
+	(((n) % (mult) == 0) ? (n) : (n) - (n) % (mult))
 
 void* memcpy(void* dst, const void* src, size_t len) __nonnull;
 void* memset(void* b, int c, size_t len) __nonnull;

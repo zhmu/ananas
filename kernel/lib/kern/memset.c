@@ -9,3 +9,5 @@ memset(void* b, int c, size_t len)
 	}
 	return b;
 }
+
+/* vim:set ts=2 sw=2: */
