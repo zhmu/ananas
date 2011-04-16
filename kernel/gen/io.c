@@ -230,7 +230,7 @@ sys_summon(thread_t t, handle_t handle, struct SUMMON_OPTIONS* opts, handle_t* o
 	ANANAS_ERROR_RETURN(err);
 
 	/* XXX should be more general */
-	err = elf_load_from_file(newthread, file);
+	err = elf_load_from_file(newthread, file->f_inode);
 	if (err != ANANAS_ERROR_NONE) {
 		/* Failure - no option but to kill the thread */
 		goto fail;
@@ -303,6 +303,7 @@ sys_create(thread_t t, struct CREATE_OPTIONS* opts, handle_t* out)
 
 			/* Attempt to create the new file */
 			struct VFS_INODE* newinode;
+			kprintf("sys_create(): p='%s'\n", path);
 			err = vfs_create(t->path_handle->data.vfs_file.f_inode, &outhandle->data.vfs_file, path, cropts.cr_mode);
 			if (err == ANANAS_ERROR_OK) {
 				/* This worked; hand the handle to the thread */
@@ -332,7 +333,7 @@ sys_create(thread_t t, struct CREATE_OPTIONS* opts, handle_t* out)
 			if (cropts.cr_flags & CREATE_MEMORY_FLAG_WRITE)   map_flags |= THREAD_MAP_WRITE;
 			if (cropts.cr_flags & CREATE_MEMORY_FLAG_EXECUTE) map_flags |= THREAD_MAP_EXECUTE;
 			struct THREAD_MAPPING* tm;
-			err = thread_map(t, NULL, cropts.cr_length, map_flags, &tm);
+			err = thread_map(t, (addr_t)NULL, cropts.cr_length, map_flags, &tm);
 			if (err == ANANAS_ERROR_NONE)
 				err = syscall_set_handle(t, out, outhandle);
 			if (err != ANANAS_ERROR_NONE) {
@@ -341,8 +342,8 @@ sys_create(thread_t t, struct CREATE_OPTIONS* opts, handle_t* out)
 				return err;
 			}
 			outhandle->data.memory.mapping = tm;
-			outhandle->data.memory.addr = (void*)tm->start;
-			outhandle->data.memory.length = tm->len;
+			outhandle->data.memory.addr = tm->tm_virt;
+			outhandle->data.memory.length = tm->tm_len;
 			return ANANAS_ERROR_OK;
 		}
 		default:

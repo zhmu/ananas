@@ -32,8 +32,6 @@ mi_startup()
 	 */
 	console_init();
 
-	kprintf("\n\n\n\n"); /* HACK */
-
 	/* Show a startup banner */
 	size_t mem_avail, mem_total;
 	kmem_stats(&mem_avail, &mem_total);
@@ -78,7 +76,7 @@ mi_startup()
 		kprintf("- Lauching %s...", SHELL_BIN);
 		err = vfs_open(SHELL_BIN, NULL, &f);
 		if (err == ANANAS_ERROR_NONE) {
-			err = elf_load_from_file(t1, &f);
+			err = elf_load_from_file(t1, f.f_inode);
 			if (err == ANANAS_ERROR_NONE) {
 				kprintf(" ok\n");
 				thread_set_args(t1, "sh\0\0", PAGE_SIZE);
