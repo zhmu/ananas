@@ -1,4 +1,5 @@
 #include <ananas/types.h>
+#include <machine/vm.h>
 #include <ananas/dev/ata.h>
 #include <ananas/x86/io.h>
 #include <ananas/bio.h>
@@ -304,11 +305,11 @@ ata_start_dma(device_t dev, struct ATA_REQUEST_ITEM* item)
 	KASSERT(((addr_t)prdt & 3) == 0, "prdt not dword-aligned");
 
 	/* XXX For now, we assume a single request per go */
-	prdt->prdt_base = (addr_t)BIO_DATA(item->bio) & ~KERNBASE; /* XXX 32 bit */
+	prdt->prdt_base = (addr_t)KVTOP((addr_t)BIO_DATA(item->bio)); /* XXX 32 bit */
 	prdt->prdt_size = item->bio->length | ATA_PRDT_EOT;
 
 	/* Program the DMA parts of the PCI bus */
-	outl(priv->atapci.atapci_io + ATA_PCI_REG_PRI_PRDT, (uint32_t)prdt & ~KERNBASE); /* XXX 32 bit */
+	outl(priv->atapci.atapci_io + ATA_PCI_REG_PRI_PRDT, (uint32_t)KVTOP((addr_t)prdt)); /* XXX 32 bit */
 	outw(priv->atapci.atapci_io + ATA_PCI_REG_PRI_STATUS, ATA_PCI_STAT_IRQ | ATA_PCI_STAT_ERROR);
 
 	/* Feed the request to the drive - disk */

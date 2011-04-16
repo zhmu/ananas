@@ -52,6 +52,12 @@
 /* Amount of bits to shift away to get the corresponding PTE */
 #define VM_SHIFT_PTE		12	/* log_2(4KB) */
 
+/* Convert a physical to a kernel virtual address */
+#define PTOKV(x)		((x) | KERNBASE)
+
+/* Convert a kernel virtual address to a physical address */
+#define KVTOP(x)		((x) & ~KERNBASE)
+
 /* CR0 register bits */
 #define CR0_PE		(1 << 0)	/* Protection Enable */
 #define CR0_MP		(1 << 1)	/* Monitor Coprocessor */

@@ -23,6 +23,12 @@ struct BAT {
 };
 #endif
 
+/* Convert a physical to a kernel virtual address */
+#define PTOKV(x)		(x)
+
+/* Convert a kernel virtual address to a physical address */
+#define KVTOP(x)		(x)
+
 /* BAT mapping length */
 #define BAT_BL_128KB	0x0000
 #define BAT_BL_256KB	0x0004

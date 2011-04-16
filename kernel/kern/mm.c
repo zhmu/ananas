@@ -1,5 +1,6 @@
 #include <ananas/types.h>
 #include <machine/param.h>
+#include <machine/vm.h>
 #include <ananas/lock.h>
 #include <ananas/mm.h>
 #include <ananas/vm.h>
@@ -245,10 +246,7 @@ kmalloc(size_t len)
 void
 kfree(void* addr)
 {
-#ifdef __i386__ /* XXX hack; this should be made more generic */
-	addr = (void*)((addr_t)addr & ~KERNBASE);
-#endif
-	kmem_free(addr);
+	kmem_free((void*)KVTOP((addr_t)addr));
 }
 
 void

@@ -3,6 +3,12 @@
 #ifndef __AMD64_VM_H__
 #define __AMD64_VM_H__
 
+/* Convert a physical to a kernel virtual address */
+#define PTOKV(x)		((x) | KERNBASE)
+
+/* Convert a kernel virtual address to a physical address */
+#define KVTOP(x)		((x) & ~KERNBASE)
+
 /* Page entry flags */
 #define PE_P		(1ULL <<  0)
 #define PE_RW		(1ULL <<  1)
