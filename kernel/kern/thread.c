@@ -12,6 +12,7 @@
 #include <ananas/vm.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
+#include <machine/vm.h> /* for aTOb; a,b in [PV] */
 #include "options.h"
 
 TRACE_SETUP;
@@ -86,10 +87,10 @@ thread_init(thread_t t, thread_t parent)
 	((struct HANDLE*)t->threadinfo->ti_handle_stdout)->data.vfs_file.f_device = console_tty;
 	((struct HANDLE*)t->threadinfo->ti_handle_stderr)->data.vfs_file.f_device = console_tty;
 	struct THREAD_MAPPING* tm;
-	err = thread_map(t, t->threadinfo, sizeof(struct THREADINFO), 0, &tm);
+	err = thread_map(t, KVTOP((addr_t)t->threadinfo), sizeof(struct THREADINFO), VM_FLAG_READ | VM_FLAG_WRITE, &tm);
 	if (err != ANANAS_ERROR_NONE)
 		goto fail;
-	md_thread_set_argument(t, tm->start);
+	md_thread_set_argument(t, tm->tm_virt);
 
 	/* XXX lock */
 	if (threads == NULL) {
@@ -121,9 +122,12 @@ thread_alloc(thread_t parent, thread_t* dest)
 void
 thread_free_mapping(thread_t t, struct THREAD_MAPPING* tm)
 {
+	TRACE(THREAD, INFO, "thread_free_mapping(): t=%p tm=%p tm->phys=%p", t, tm, tm->tm_phys);
 	DQUEUE_REMOVE(&t->mappings, tm);
-	if (tm->flags & THREAD_MAP_ALLOC)
-		kfree((void*)tm->ptr);
+	if (tm->tm_destroy != NULL)
+		tm->tm_destroy(t, tm);
+	if (tm->tm_flags & THREAD_MAP_ALLOC)
+		kmem_free((void*)tm->tm_phys);
 	kfree(tm);
 }
 
@@ -162,7 +166,7 @@ thread_free(thread_t t)
 	KASSERT(!DQUEUE_EMPTY(&t->handles), "thread handle was not part of thread handle queue");
 
 	/*
-	 Free all thread mappings; this must be done afterwards because memory handles are
+	 * Free all thread mappings; this must be done afterwards because memory handles are
 	 * implemented as mappings and they are already gone by now
 	 */
 	thread_free_mappings(t);
@@ -205,6 +209,19 @@ thread_destroy(thread_t t)
 	kfree(t);
 }
 
+static int
+thread_make_vmflags(unsigned int flags)
+{
+	int vm_flags = 0;
+	if (flags & THREAD_MAP_READ)
+		vm_flags |= VM_FLAG_READ;
+	if (flags & THREAD_MAP_WRITE)
+		vm_flags |= VM_FLAG_WRITE;
+	if (flags & THREAD_MAP_EXECUTE)
+		vm_flags |= VM_FLAG_EXECUTE;
+	return vm_flags;
+}
+
 /*
  * Maps a piece of kernel memory 'from' to 'to' for thread 't'.
  * 'len' is the length in bytes; 'flags' contains mapping flags:
@@ -212,40 +229,26 @@ thread_destroy(thread_t t)
  * Returns the new mapping structure
  */
 errorcode_t
-thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags, struct THREAD_MAPPING** out)
+thread_mapto(thread_t t, addr_t virt, addr_t phys, size_t len, uint32_t flags, struct THREAD_MAPPING** out)
 {
 	struct THREAD_MAPPING* tm = kmalloc(sizeof(*tm));
 	memset(tm, 0, sizeof(*tm));
 
 	if (flags & THREAD_MAP_ALLOC) {
-		from = kmalloc(len);
-		memset(from, 0, len);
+		phys = (addr_t)kmem_alloc((len + PAGE_SIZE - 1) / PAGE_SIZE);
+		/* XXX so how do we zero it out? */
 	}
 
-	tm->ptr = from;
-	tm->start = (addr_t)to;
-	tm->len = len;
-	tm->flags = flags;
+	tm->tm_phys = phys;
+	tm->tm_virt = virt;
+	tm->tm_len = len;
+	tm->tm_flags = flags;
 	DQUEUE_ADD_TAIL(&t->mappings, tm);
+	TRACE(THREAD, INFO, "thread_mapto(): t=%p, tm=%p, phys=%p, virt=%p, flags=0x%x", t, tm, phys, virt, flags);
 
-	md_thread_map(t, to, from, len, VM_FLAG_READ | VM_FLAG_WRITE);
+	md_thread_map(t, (void*)tm->tm_virt, (void*)tm->tm_phys, len, (flags & THREAD_MAP_LAZY) ? 0 : thread_make_vmflags(flags));
 	*out = tm;
 	return ANANAS_ERROR_OK;
-}
-
-/*
- * Locate a thread mapping, or 0 if the memory is not mapped.
- */
-addr_t
-thread_find_mapping(thread_t t, void* addr)
-{
-	addr_t address = (addr_t)addr & ~(PAGE_SIZE - 1);
-	DQUEUE_FOREACH(&t->mappings, tm, struct THREAD_MAPPING) {
-		if ((address >= (addr_t)tm->start) && (address <= (addr_t)(tm->start + tm->len))) {
-			return (addr_t)tm->ptr + ((addr_t)addr - (addr_t)tm->start);
-		}
-	}
-	return 0;
 }
 
 /*
@@ -254,16 +257,39 @@ thread_find_mapping(thread_t t, void* addr)
  * flags there.
  */
 errorcode_t
-thread_map(thread_t t, void* from, size_t len, uint32_t flags, struct THREAD_MAPPING** out)
+thread_map(thread_t t, addr_t phys, size_t len, uint32_t flags, struct THREAD_MAPPING** out)
 {
 	/*
 	 * Locate a new address to map to; we currently never re-use old addresses.
 	 */
-	void* addr = (void*)t->next_mapping;
+	addr_t virt = t->next_mapping;
 	t->next_mapping += len;
 	if ((t->next_mapping & (PAGE_SIZE - 1)) > 0)
 		t->next_mapping += PAGE_SIZE - (t->next_mapping & (PAGE_SIZE - 1));
-	return thread_mapto(t, addr, from, len, flags, out);
+	return thread_mapto(t, virt, phys, len, flags, out);
+}
+
+errorcode_t
+thread_handle_fault(thread_t t, addr_t virt, int flags)
+{
+	TRACE(THREAD, INFO, "thread_handle_fault(): thread=%p, virt=%p, flags=0x%x", t, virt, flags);
+
+	/* Walk through the mappings one by one */
+	if (!DQUEUE_EMPTY(&t->mappings)) {
+		DQUEUE_FOREACH(&t->mappings, tm, struct THREAD_MAPPING) {
+			if (!(virt >= tm->tm_virt && (virt < (tm->tm_virt + tm->tm_len))))
+				continue;
+			if (tm->tm_fault == NULL)
+				continue;
+
+			/* Map the page */
+			md_thread_map(t, (void*)virt, (void*)(tm->tm_phys + (virt - tm->tm_virt)), 1, thread_make_vmflags(tm->tm_flags));
+
+			/* Mapping found; request it to map the page */
+			return tm->tm_fault(t, tm, virt);
+		}
+	}
+	return ANANAS_ERROR(BAD_ADDRESS);
 }
 
 #if 0
@@ -340,6 +366,8 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 {
 	errorcode_t err;
 
+	KASSERT(PCPU_GET(curthread) == parent, "thread_clone(): unsupported from non-current thread");
+
 	struct THREAD* t;
 	err = thread_alloc(parent, &t);
 	ANANAS_ERROR_RETURN(err);
@@ -351,13 +379,50 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 	 */
 	DQUEUE_FOREACH(&parent->mappings, tm, struct THREAD_MAPPING) {
 		struct THREAD_MAPPING* ttm;
-		err = thread_mapto(t, (void*)tm->start, NULL, tm->len, THREAD_MAP_ALLOC, &ttm);
+		err = thread_mapto(t, tm->tm_virt, (addr_t)NULL, tm->tm_len, THREAD_MAP_ALLOC | (tm->tm_flags), &ttm);
 		if (err != ANANAS_ERROR_NONE) {
 			thread_free(t);
 			thread_destroy(t);
 			return err;
 		}
-		memcpy(ttm->ptr, tm->ptr, tm->len);
+
+		/*
+		 * Copy the page one by one; skip pages that cannot be copied XXX This is
+		 * horribly slow, we should use a copy-on-write mechanism (but that needs
+		 * a much more complex VM than we currently have)
+		 *
+		 * This loop assumes that our current process is the parent; thread_clone()
+		 * asserts on this.
+		 */
+		for (size_t n = 0; n < ROUND_UP(tm->tm_len, PAGE_SIZE); n += PAGE_SIZE) {
+			/* If the page isn't mapped in the parent thread; skip it */
+			addr_t va = md_thread_is_mapped(parent, tm->tm_virt + n, VM_FLAG_READ);
+			if (va == 0)
+				continue;
+
+			/* XXX make a temporary mapping to copy the data. We should do a copy-on-write */
+			void* ktmp = vm_map_kernel(ttm->tm_phys + n, 1, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
+			memcpy(ktmp, (void*)(tm->tm_virt + n), PAGE_SIZE);
+			vm_unmap_kernel((addr_t)ktmp, 1);
+
+			/* Mark the page as present in the cloned process */
+			md_thread_map(t, (void*)(ttm->tm_virt + n), (void*)(ttm->tm_phys + n), 1, thread_make_vmflags(tm->tm_flags));
+
+			/* Copy the mapping-specific parts */
+			ttm->tm_privdata = NULL; /* to be filled out by clone */
+			ttm->tm_fault = tm->tm_fault;
+			ttm->tm_destroy = tm->tm_destroy;
+			ttm->tm_clone = tm->tm_clone;
+
+			if (tm->tm_clone != NULL) {
+				err = tm->tm_clone(t, ttm, tm);
+				if (err != ANANAS_ERROR_OK) {
+					thread_free(t);
+					thread_destroy(t);
+					return err;
+				}
+			}
+		}
 	}
 
 	/*
@@ -459,10 +524,10 @@ kdb_cmd_thread(int num_args, char** arg)
 	kprintf("mappings:\n");
 	if (!DQUEUE_EMPTY(&thread->mappings)) {
 		DQUEUE_FOREACH(&thread->mappings, tm, struct THREAD_MAPPING) {
-			kprintf("   flags      : 0x%x\n", tm->flags);
-			kprintf("   address    : 0x%x - 0x%x\n", tm->start, tm->start + tm->len);
-			kprintf("   length     : %u\n", tm->len);
-			kprintf("   backing ptr: 0x%x - 0x%x\n", tm->ptr, tm->ptr + tm->len);
+			kprintf("   flags      : 0x%x\n", tm->tm_flags);
+			kprintf("   virtual    : 0x%x - 0x%x\n", tm->tm_virt, tm->tm_virt + tm->tm_len);
+			kprintf("   physical   : 0x%x - 0x%x\n", tm->tm_phys, tm->tm_phys + tm->tm_len);
+			kprintf("   length     : %u\n", tm->tm_len);
 			kprintf("\n");
 		}
 	}

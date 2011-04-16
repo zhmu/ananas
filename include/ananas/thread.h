@@ -11,15 +11,29 @@
 typedef struct THREAD* thread_t;
 typedef void (*kthread_func_t)(void*);
 struct THREADINFO;
+struct VFS_INODE;
+struct THREAD_MAPPING;
 
 #define THREAD_EVENT_EXIT 1
 
+/* Fault function: handles a page fault for thread t, mapping tm and address virt */
+typedef errorcode_t (*threadmap_fault_t)(thread_t t, struct THREAD_MAPPING* tm, addr_t virt);
+
+/* Clone function: copies mapping tsrc to tdest for thread t */
+typedef errorcode_t (*threadmap_clone_t)(thread_t t, struct THREAD_MAPPING* tdest, struct THREAD_MAPPING* tsrc);
+
+/* Destroy function: cleans up the given mapping's private data */
+typedef errorcode_t (*threadmap_destroy_t)(thread_t t, struct THREAD_MAPPING* tm);
+
 struct THREAD_MAPPING {
-	uint32_t	flags;
-	addr_t		start;			/* userland address */
-	size_t		len;			/* length */
-	void*		ptr;			/* kernel ptr */
-	struct		THREAD_MAPPING* next;
+	unsigned int		tm_flags;		/* flags */
+	addr_t			tm_virt;		/* userland address */
+	size_t			tm_len;			/* length */
+	addr_t			tm_phys;		/* physical address */
+	void*			tm_privdata;		/* private data */
+	threadmap_fault_t	tm_fault;		/* fault function */
+	threadmap_clone_t	tm_clone;		/* clone function */
+	threadmap_destroy_t	tm_destroy;		/* destroy function */
 
 	DQUEUE_FIELDS(struct THREAD_MAPPING);
 };
@@ -76,24 +90,25 @@ errorcode_t thread_set_environment(thread_t t, const char* env, size_t env_len);
 void md_thread_switch(thread_t new, thread_t old);
 void md_idle_thread();
 
-#define THREAD_MAP_READ 	0x01
-#define THREAD_MAP_WRITE	0x02
-#define THREAD_MAP_EXECUTE	0x04
+/* Thread memory map flags */
+#define THREAD_MAP_READ 	0x01	/* Read */
+#define THREAD_MAP_WRITE	0x02	/* Write */
+#define THREAD_MAP_EXECUTE	0x04	/* Execute */
+#define THREAD_MAP_LAZY		0x08	/* Lazy mapping: page in as needed */
+#define THREAD_MAP_ALLOC 	0x10	/* Allocate memory for mapping */
 void md_thread_set_entrypoint(thread_t thread, addr_t entry);
 void md_thread_set_argument(thread_t thread, addr_t arg);
 void* md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags);
-errorcode_t thread_unmap(thread_t t, void* ptr, size_t len);
+errorcode_t thread_unmap(thread_t t, addr_t virt, size_t len);
 void* md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write);
 void md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval);
-errorcode_t md_thread_unmap(thread_t thread, void* addr, size_t length);
+errorcode_t md_thread_unmap(thread_t thread, addr_t virt, size_t length);
 
-#define THREAD_MAP_ALLOC 0x800
-errorcode_t thread_mapto(thread_t t, void* to, void* from, size_t len, uint32_t flags, struct THREAD_MAPPING** out);
-errorcode_t thread_map(thread_t t, void* from, size_t len, uint32_t flags, struct THREAD_MAPPING** out);
-errorcode_t thread_unmap(thread_t t, void* ptr, size_t len);
-addr_t thread_find_mapping(thread_t t, void* addr);
+errorcode_t thread_mapto(thread_t t, addr_t virt, addr_t phys, size_t len, uint32_t flags, struct THREAD_MAPPING** out);
+errorcode_t thread_map(thread_t t, addr_t from, size_t len, uint32_t flags, struct THREAD_MAPPING** out);
 void thread_free_mapping(thread_t t, struct THREAD_MAPPING* tm);
 void thread_free_mappings(thread_t t);
+errorcode_t thread_handle_fault(thread_t t, addr_t virt, int flags);
 
 void thread_suspend(thread_t t);
 void thread_resume(thread_t t);
