@@ -58,7 +58,7 @@ mm_zone_add(addr_t addr, size_t length)
 	zone->num_free = zone->num_chunks;
 	zone->num_cont_free = zone->num_free;
 	zone->flags = 0;
-	zone->chunks = (struct MM_CHUNK*)(zone + sizeof(struct MM_ZONE));
+	zone->chunks = (struct MM_CHUNK*)((addr_t)zone + sizeof(struct MM_ZONE));
 	zone->next_zone = NULL;
 #if 0
 kprintf("zone_add: memaddr=%p. length=%x => #chunks=%u, #free=%u\n", addr, length, zone->num_chunks, zone->num_free);
