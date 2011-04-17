@@ -12,12 +12,17 @@
 __entry:
 	movq	$KERNEL_STACK, %rsp
 
-	call	md_startup
-
 #ifdef DEBUG_CONSOLE
-	/* make sure we have a debugger console available immediately */
+	/*
+	 * Make sure we have a debugger console available immediately; note that we must
+	 * store %rdi as it contains the bootinfo parameter.
+	 */
+	pushq	%rdi
 	call	debugcon_init
+	popq	%rdi
 #endif
+
+	call	md_startup
 
 	/* why are we here? */
 	hlt
