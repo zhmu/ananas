@@ -41,7 +41,7 @@ md_thread_init(thread_t t)
 	t->md_stack  = kmalloc(THREAD_STACK_SIZE);
 	memset(t->md_stack, 0, THREAD_STACK_SIZE);
 	struct THREAD_MAPPING* tm;
-	err = thread_mapto(t, (void*)stack_addr, t->md_stack, THREAD_STACK_SIZE, 0, &tm);
+	err = thread_mapto(t, (addr_t)stack_addr, (addr_t)t->md_stack, THREAD_STACK_SIZE, 0, &tm);
 	if (err != ANANAS_ERROR_NONE) {
 		kfree(t->md_stack);
 		/* XXX remove kernel mmu mappings */
@@ -120,7 +120,7 @@ md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
 }
 
 errorcode_t
-md_thread_unmap(thread_t thread, void* addr, size_t length)
+md_thread_unmap(thread_t thread, addr_t addr, size_t length)
 {
 	panic("md_thread_unmap(): not implemented");
 	return ANANAS_ERROR_OK;
@@ -144,6 +144,12 @@ void
 md_thread_set_argument(thread_t thread, addr_t arg)
 {
 	thread->md_ctx.sf.sf_reg[3] = arg;
+}
+
+addr_t
+md_thread_is_mapped(thread_t thread, addr_t virt, int flags)
+{
+	return mmu_resolve_mapping(&thread->md_ctx.sf, virt, flags);
 }
 
 void

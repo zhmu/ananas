@@ -36,7 +36,7 @@ vm_mapto(addr_t virt, addr_t phys, size_t num_pages)
 }
 
 void
-vm_unmap(addr_t addr, size_t num_pages)
+vm_unmap_kernel(addr_t addr, size_t num_pages)
 {
 	while (num_pages--) {
 		mmu_unmap(&bsp_sf, addr);

@@ -110,6 +110,35 @@ mmu_unmap(struct STACKFRAME* sf, uint32_t va)
 	return 0;
 }
 
+addr_t
+mmu_resolve_mapping(struct STACKFRAME* sf, uint32_t va, int flags)
+{
+	if (sf->sf_sr[va >> 28] == INVALID_VSID)
+		return 0;
+	uint32_t vsid = sf->sf_sr[va >> 28] & 0xffffff;
+
+	for (int hashnum = 0; hashnum < 2; hashnum++) {
+		uint32_t htaborg = (addr_t)pteg >> 16;
+		uint16_t page = (va >> 12) & 0xffff;
+		uint32_t h = vsid ^ page;
+		if (hashnum)
+			h = (~h) & 0xfffff;
+		uint16_t v = (((h >> 10) & 0x1ff) & htabmask) | (htaborg & 0x1ff);
+		uint32_t ph = (((htaborg >> 9) & 0x7f) << 25) | (v << 16) | ((h & 0x3ff) << 6);
+
+		struct PTEG* ptegs = (struct PTEG*)ph;
+		for (uint32_t i = 0; i < 8; i++) {
+			if ((ptegs->pte[i].pt_hi & PT_HI_V) == 0)
+				continue;
+			if (ptegs->pte[i].pt_hi != (PT_HI_V | (vsid << 7) | (page >> 10) | ((hashnum) ? PT_HI_H : 0)))
+				continue;
+			/* XXX check flags */
+			return ptegs->pte[i].pt_lo & ~(PAGE_SIZE - 1);
+		}
+	}
+	return 0;
+}
+
 void
 mmu_map_kernel(struct STACKFRAME* sf)
 {
@@ -193,8 +222,6 @@ mmu_init()
 	/* Wire for 8MB initially */
 	uint32_t mem_size = memory_total;
 	pteg_count = 1024;
-	if (mem_size < 8 * 1024 * 1024)
-		return;
 	mem_size >>= 24;
 	for(; mem_size > 0; pteg_count <<= 1, mem_size >>= 1) ;
 	size_t pteg_size = pteg_count * sizeof(struct PTEG);
