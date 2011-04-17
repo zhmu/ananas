@@ -78,16 +78,13 @@ md_thread_switch(thread_t new, thread_t old)
 void*
 md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
 {
-	KASSERT(length <= PAGE_SIZE, "no support for >PAGE_SIZE mappings yet!");
+	return ptr;
+}
 
-	addr_t addr = (addr_t)ptr & ~(PAGE_SIZE - 1);
-	addr_t phys = vm_get_phys(thread->md_pml4, addr, write);
-	if (phys == 0)
-		return NULL;
-
-	addr_t virt = TEMP_USERLAND_ADDR + PCPU_GET(cpuid) * TEMP_USERLAND_SIZE;
-	vm_mapto(virt, phys, 2 /* XXX */);
-	return (void*)virt + ((addr_t)ptr % PAGE_SIZE);
+addr_t
+md_thread_is_mapped(thread_t thread, addr_t virt, int flags)
+{
+	return vm_get_phys(thread->md_pml4, virt, flags);
 }
 
 void*
@@ -102,7 +99,7 @@ md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
 }
 
 errorcode_t
-md_thread_unmap(thread_t thread, void* addr, size_t length)
+md_thread_unmap(thread_t thread, addr_t addr, size_t length)
 {
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)
