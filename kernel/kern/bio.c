@@ -221,6 +221,18 @@ bio_restart:
 
 		spinlock_unlock(&spl_bucket[bucket_num]);
 		KASSERT(bio->length == len, "bio item found with length %u, requested length %u", bio->length, len); /* XXX should avoid... somehow */
+
+		/*
+		 * We have already found the I/O buffer in the cache; however, if two
+		 * threads request the same block at roughly the same time, one will
+		 * be stuck waiting for it to be read and the other will end up here.
+		 *
+		 * To prevent this, we'll have to wait until the BIO buffer is no
+		 * longer pending, as this ensures it will have been read.
+		 *
+		 * XXX What about the NODATA flag?
+		 */
+		bio_waitcomplete(bio);
 		TRACE(BIO, INFO, "returning cached bio=%p", bio);
 		return bio;
 	}
