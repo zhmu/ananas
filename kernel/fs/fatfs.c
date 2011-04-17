@@ -543,9 +543,9 @@ fat_sanitize_83_name(const char* fname, char* shortname)
 
 	/* Calculate the checksum for LFN entries */
 	uint8_t a = 0;
-	for (int i = 10; i >= 0; i--) {
+	for (int i = 0; i < 11; i++) {
 		a  = ((a & 1) ? 0x80 : 0) | (a >> 1); /* a = a ror 1 */
-		a |= shortname[i];
+		a += shortname[i];
 	}
 	return a;
 }
@@ -651,7 +651,7 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 	if (dentry != NULL) {
 		char tmp_fname[12];
 		sprintf(tmp_fname, "%u.LFN", current_filename_offset);
-		fat_sanitize_83_name(tmp_fname, fentry->fe_filename);
+		shortname_checksum = fat_sanitize_83_name(tmp_fname, fentry->fe_filename);
 	} /* else if (dentry == NULL) ... nothing to do, cur_entry_idx cannot be != chain_needed-1 */
 
 	/*
