@@ -116,7 +116,7 @@ elf32_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 #endif
 
 	struct ELF_THREADMAP_PROGHEADER elf_ph[1];
-#if 0
+#ifdef __i386__
 	if (ehdr.e_machine != EM_386)
 		return ANANAS_ERROR(BAD_EXEC);
 #endif
@@ -195,7 +195,7 @@ fail:
 
 #ifdef __amd64__
 static int
-elf64_load(thread_t thread, struct VFS_INODE* inode, elf_getfunc_t obtain)
+elf64_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 {
 	errorcode_t err;
 	Elf64_Ehdr ehdr;
@@ -215,10 +215,18 @@ elf64_load(thread_t thread, struct VFS_INODE* inode, elf_getfunc_t obtain)
 		return ANANAS_ERROR(BAD_EXEC);
 
 	/* XXX This specifically checks for amd64 at the moment */
+#ifdef LITTLE_ENDIAN
 	if (ehdr.e_ident[EI_DATA] != ELFDATA2LSB)
 		return ANANAS_ERROR(BAD_EXEC);
+#endif
+#ifdef BIG_ENDIAN
+	if (ehdr.e_ident[EI_DATA] != ELFDATA2MSB)
+		return ANANAS_ERROR(BAD_EXEC);
+#endif
+#ifdef __amd64__
 	if (ehdr.e_machine != EM_X86_64)
 		return ANANAS_ERROR(BAD_EXEC);
+#endif
 
 	/* We only support static binaries for now, so reject anything without a program table */
 	if (ehdr.e_phnum == 0)
@@ -226,28 +234,61 @@ elf64_load(thread_t thread, struct VFS_INODE* inode, elf_getfunc_t obtain)
 	if (ehdr.e_phentsize < sizeof(Elf64_Phdr))
 		return ANANAS_ERROR(BAD_EXEC);
 
-	unsigned int i;
-	for (i = 0; i < ehdr.e_phnum; i++) {
+	/* Note that we allocate worst-case; there can be no more than ehdr.e_phnum sections */
+	struct ELF_THREADMAP_PRIVDATA* privdata = kmalloc(sizeof(struct ELF_THREADMAP_PRIVDATA) + sizeof(struct ELF_THREADMAP_PROGHEADER) * (ehdr.e_phnum - 1));
+	privdata->elf_obtainpriv = priv;
+	privdata->elf_obtainfunc = obtain;
+	privdata->elf_num_ph = 0;
+	privdata->elf_num_refs = 0;
+
+	for (unsigned int i = 0; i < ehdr.e_phnum; i++) {
 		Elf64_Phdr phdr;
 		err = obtain(priv, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr));
-		ANANAS_ERROR_RETURN(err);
+		if (err != ANANAS_ERROR_NONE)
+			goto fail;
 		if (phdr.p_type != PT_LOAD)
 			continue;
+
+		/* Construct the flags for the actual mapping */
+		unsigned int flags = THREAD_MAP_ALLOC | THREAD_MAP_LAZY;
+		flags |= THREAD_MAP_READ; /* XXX */
+		flags |= THREAD_MAP_WRITE; /* XXX */
+		flags |= THREAD_MAP_EXECUTE; /* XXX */
 
 		/*
 		 * The program need not begin at a page-size, so we may need to adjust.
 		 */
-		int delta = phdr.p_vaddr % PAGE_SIZE;
+		addr_t virt_begin = ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE);
+		addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_memsz), PAGE_SIZE);
 		struct THREAD_MAPPING* tm;
-		/* XXX deal with mode */
-		err = thread_mapto(thread, (void*)(phdr.p_vaddr - delta), NULL, phdr.p_memsz + delta, THREAD_MAP_ALLOC, &tm);
-		ANANAS_ERROR_RETURN(err);
-		err = obtain(priv, tm->ptr + delta, phdr.p_offset, phdr.p_filesz);
-		ANANAS_ERROR_RETURN(err);
+		err = thread_mapto(thread, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &tm);
+		if (err != ANANAS_ERROR_OK)
+			goto fail;
+
+		/* Hook up the program header */
+		struct ELF_THREADMAP_PROGHEADER* ph = &privdata->elf_ph[privdata->elf_num_ph];
+		ph->ph_header = privdata;
+		ph->ph_virt_begin = virt_begin;
+		ph->ph_virt_end = virt_end;
+		ph->ph_inode_delta = phdr.p_offset % PAGE_SIZE;
+		ph->ph_inode_offset = phdr.p_offset;
+		ph->ph_inode_len = phdr.p_filesz;
+		privdata->elf_num_ph++;
+
+		/* Hook the program header to the mapping */
+		tm->tm_privdata = ph;
+		tm->tm_fault = elf_tm_fault_func;
+		tm->tm_destroy = elf_tm_destroy_func;
+		tm->tm_clone = elf_tm_clone_func;
+		privdata->elf_num_refs++;
 	}
 
 	md_thread_set_entrypoint(thread, ehdr.e_entry);
 	return ANANAS_ERROR_OK;
+
+fail:
+	kfree(privdata);
+	return err;
 }
 #endif /* __amd64__ */
 
