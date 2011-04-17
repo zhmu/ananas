@@ -12,11 +12,18 @@
 #define QUEUE_FIELDS(TYPE)					\
 	TYPE* qi_next;
 
-#define QUEUE_DEFINE(name, TYPE)				\
+
+#define QUEUE_DEFINE_BEGIN(name, TYPE)				\
 	struct name {						\
 		TYPE* head;					\
-		TYPE* tail;					\
+		TYPE* tail;
+
+#define QUEUE_DEFINE_END					\
 	};
+
+#define QUEUE_DEFINE(name, TYPE)				\
+	QUEUE_DEFINE_BEGIN(name, TYPE)				\
+	QUEUE_DEFINE_END
 
 #define QUEUE_INIT(q) 						\
 do {								\
