@@ -288,7 +288,7 @@ md_reschedule:
 	/*
 	 * First of all, we need to store the context. We assume this will
 	 * always be called from kernel context - most importantly, this means
-	 * both %fs and %cr3 are already set up.
+	 * %fs is already set up to the appropriate per-cpu context.
 	 *
 	 * We do not save/restore any segment registers, as the contex-switch
 	 * code is smart enough not to touch them if it's returning to
