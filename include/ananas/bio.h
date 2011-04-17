@@ -1,5 +1,6 @@
 #include <ananas/types.h>
 #include <ananas/device.h>
+#include <ananas/waitqueue.h>
 #include <machine/param.h>	/* for PAGE_SIZE */
 
 #ifndef __ANANAS_BIO_H__
@@ -27,15 +28,16 @@
  * A basic I/O buffer, the root of all I/O requests. 
  */
 struct BIO {
-	uint32_t	flags;
+	uint32_t  	flags;
 #define BIO_FLAG_PENDING	0x0001	/* Block is pending read */
 #define BIO_FLAG_DIRTY		0x0002	/* I/O needs to be written */
 #define BIO_FLAG_ERROR		0x8000	/* Request failed */
-	device_t	device;		/* Device I/O'ing from */
-	blocknr_t	block;		/* Block number to I/O */
-	blocknr_t	io_block;	/* Translated block number to I/O */
-	unsigned int	length;		/* Length in bytes (<= PAGE_SIZE, so int will do) */
-	void*		data;		/* Pointer to BIO data */
+	device_t	  device;	/* Device I/O'ing from */
+	blocknr_t	  block;	/* Block number to I/O */
+	blocknr_t	  io_block;	/* Translated block number to I/O */
+	unsigned int	  length;	/* Length in bytes (<= PAGE_SIZE, so int will do) */
+	void*		  data;		/* Pointer to BIO data */
+	struct WAIT_QUEUE wq;		/* Waiter queue for this BIO */
 
 	struct BIO*	chain_prev;	/* Previous BIO in chain (free/used list)*/
 	struct BIO*	chain_next;	/* Next BIO in chain (free/used list) */

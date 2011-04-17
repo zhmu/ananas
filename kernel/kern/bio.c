@@ -47,6 +47,7 @@ bio_init()
 	/* Construct the BIO freelist pointer chain */
 	memset(bio_freelist, 0, sizeof(struct BIO) * BIO_NUM_BUFFERS);
 	for (unsigned int i = 0; i < BIO_NUM_BUFFERS; i++) {
+		waitqueue_init(&bio_freelist[i].wq);
 		if (i > 0)
 			bio_freelist[i].chain_prev = &bio_freelist[i - 1];
 		else
@@ -80,7 +81,7 @@ bio_waitcomplete(struct BIO* bio)
 {	
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	while((bio->flags & BIO_FLAG_PENDING) != 0) {
-		reschedule();
+		waitqueue_wait(&bio->wq);
 	}
 }
 
@@ -89,7 +90,7 @@ bio_waitdirty(struct BIO* bio)
 {	
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	while((bio->flags & BIO_FLAG_DIRTY) != 0) {
-		reschedule();
+		waitqueue_wait(&bio->wq);
 	}
 }
 
@@ -359,6 +360,7 @@ bio_set_error(struct BIO* bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	bio->flags = (bio->flags & ~BIO_FLAG_PENDING) | BIO_FLAG_ERROR;
+	waitqueue_signal_all(&bio->wq);
 }
 
 void
@@ -366,6 +368,7 @@ bio_set_available(struct BIO* bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	bio->flags &= ~BIO_FLAG_PENDING;
+	waitqueue_signal_all(&bio->wq);
 }
 
 void
