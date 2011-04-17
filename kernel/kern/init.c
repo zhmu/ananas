@@ -8,6 +8,7 @@
 #include <ananas/schedule.h>
 #include <ananas/thread.h>
 #include <ananas/vfs.h>
+#include <ananas/waitqueue.h>
 #include <machine/vm.h>
 #include <elf.h>
 #include "options.h"
@@ -46,6 +47,9 @@ mi_startup()
 	/* Try the SMP dance */
 	smp_init();
 #endif
+
+	/* Initialize waitqueues */
+	waitqueue_init(NULL);
 
 	/* Initialize I/O */
 	bio_init();
