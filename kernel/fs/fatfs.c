@@ -427,8 +427,6 @@ fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename)
 			ADD_CHAR('.');
 		if (ch == 0x05) /* kanjii allows 0xe5 in filenames, so convert */
 			ch = 0xe5;
-		if (ch >= 'A' && ch <= 'Z') /* XXX lowercase */
-			ch += 'a' - 'A';
 		ADD_CHAR(ch);
 	}
 
