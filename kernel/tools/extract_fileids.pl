@@ -2,6 +2,7 @@
 
 use strict;
 use Data::Dumper;
+use bignum;
 
 my ($OBJDUMP, $FNAME, $OUTNAME) = @ARGV;
 die "usage: extract_fileids.pl objdump in out" unless defined $OUTNAME;
