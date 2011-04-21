@@ -100,9 +100,10 @@
 #define SEG_DB		(1 << 6)	/* default size flag */
 #define SEG_G		(1 << 7)	/* G (granularity) flag */
 
-#define SEG_IGATE_TYPE 6		/* Interrupt gate type */
-#define SEG_IGATE_D	(1 << 3)	/* Size of gate */
-#define SEG_IGATE_P	(1 << 7)	/* Present */
+#define SEG_IGATE_TYPE 6		/* Interrupt gate type (disables interrupts) */
+#define SEG_TGATE_TYPE 7		/* Trap gate type (keeps interrupts intact) */
+#define SEG_GATE_D	(1 << 3)	/* Size of gate */
+#define SEG_GATE_P	(1 << 7)	/* Present */
 
 /* Segment Register types */
 #define SEG_TYPE_CODE	10 		/* GDT entry type: code, execute-read */
