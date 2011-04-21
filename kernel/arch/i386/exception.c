@@ -69,6 +69,13 @@ exception_pf(struct STACKFRAME* sf)
 	addr_t fault_addr;
 	__asm __volatile("mov %%cr2, %%eax" : "=a" (fault_addr));
 
+	/*
+	 * If the interrupt flag was on, restore it - we have the fault address
+	 * so it can safely be overwritten.
+	 */
+	if (sf->sf_eflags & EFLAGS_IF)
+		__asm __volatile("sti");
+
 	int userland = (sf->sf_cs & 3) == SEG_DPL_USER;
 	if (userland) {
 		/*
