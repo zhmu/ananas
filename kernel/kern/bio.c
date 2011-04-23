@@ -77,20 +77,20 @@ bio_init()
 }
 
 static void
-bio_waitcomplete(struct BIO* bio)
+bio_waitcomplete(struct BIO* bio, struct WAITER* w)
 {	
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	while((bio->flags & BIO_FLAG_PENDING) != 0) {
-		waitqueue_wait(&bio->wq);
+		waitqueue_wait(w);
 	}
 }
 
 static void
-bio_waitdirty(struct BIO* bio)
+bio_waitdirty(struct BIO* bio, struct WAITER* w)
 {	
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	while((bio->flags & BIO_FLAG_DIRTY) != 0) {
-		waitqueue_wait(&bio->wq);
+		waitqueue_wait(w);
 	}
 }
 
@@ -106,6 +106,9 @@ bio_flush(struct BIO* bio)
 	if ((bio->flags & BIO_FLAG_DIRTY) == 0)
 		return;
 
+	/* Register ourself as a waiter; we need this to check for the 'written' event */
+	struct WAITER* w = waitqueue_add(&bio->wq);
+
 	TRACE(BIO, INFO, "bio %p (lba %u) is dirty, flushing", bio, (uint32_t)bio->io_block);
 
 	errorcode_t err = device_bwrite(bio->device, bio);
@@ -114,12 +117,13 @@ bio_flush(struct BIO* bio)
 		bio_set_error(bio);
 	} else {
 		/* ... and wait until we have something to report... */
-		bio_waitdirty(bio);
+		bio_waitdirty(bio, w);
 		/*
 		 * We're all set - the block I/O driver is responsible for clearing the dirty flag if
 		 * necessary
 		 */
 	}
+	waitqueue_remove(w);
 }
 
 static void
@@ -232,7 +236,9 @@ bio_restart:
 		 *
 		 * XXX What about the NODATA flag?
 		 */
-		bio_waitcomplete(bio);
+		struct WAITER* w = waitqueue_add(&bio->wq);
+		bio_waitcomplete(bio, w);
+		waitqueue_remove(w);
 		TRACE(BIO, INFO, "returning cached bio=%p", bio);
 		return bio;
 	}
@@ -353,16 +359,21 @@ bio_get(device_t dev, blocknr_t block, size_t len, int flags)
 		return bio;
 	}
 
+	/* register ourselves as a waiter on the given bio */
+	struct WAITER* w = waitqueue_add(&bio->wq);
+
 	/* kick the device; we want it to read */
 	errorcode_t err = device_bread(dev, bio);
 	if (err != ANANAS_ERROR_NONE) {
 		kprintf("bio_read(): device_read() failed, %i\n", err);
 		bio_set_error(bio);
+		waitqueue_remove(w);
 		return bio;
 	}
 
 	/* ... and wait until we have something to report... */
-	bio_waitcomplete(bio);
+	bio_waitcomplete(bio, w);
+	waitqueue_remove(w);
 	TRACE(BIO, INFO, "dev=%p, block=%u, len=%u ==> new block %p", dev, (int)block, len, bio);
 	return bio;
 }
@@ -372,7 +383,7 @@ bio_set_error(struct BIO* bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	bio->flags = (bio->flags & ~BIO_FLAG_PENDING) | BIO_FLAG_ERROR;
-	waitqueue_signal_all(&bio->wq);
+	waitqueue_signal(&bio->wq);
 }
 
 void
@@ -380,7 +391,7 @@ bio_set_available(struct BIO* bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	bio->flags &= ~BIO_FLAG_PENDING;
-	waitqueue_signal_all(&bio->wq);
+	waitqueue_signal(&bio->wq);
 }
 
 void
