@@ -14,7 +14,7 @@ TRACE_SETUP;
 
 extern struct DRIVER drv_atadisk;
 extern struct DRIVER drv_atacd;
-
+		
 void
 ata_irq(device_t dev)
 {
@@ -22,18 +22,22 @@ ata_irq(device_t dev)
 
 	int stat = inb(priv->io_port + ATA_REG_STATUS);
 
-	/* If we were not doing a request, no point in continuing */
-	if (QUEUE_EMPTY(&priv->requests)) {
-		return;
+	/* Grab the top request from the queue */
+	struct ATA_REQUEST_ITEM* item = NULL;
+	spinlock_lock(&priv->spl_requests);
+	if (!QUEUE_EMPTY(&priv->requests)) {
+		item = QUEUE_HEAD(&priv->requests);
+		QUEUE_POP_HEAD(&priv->requests);
+		KASSERT(item->bio != NULL, "ata queue item without associated bio buffer!");
 	}
+	spinlock_unlock(&priv->spl_requests);
 
 	/*
-	 * Fetch the request and remove it from the queue; ATA may give extra interrupts, which we
-	 * happily ignore as the queue is empty when they arrive.
+	 * If there are no requests, just leave -  ATA may give extra interrupts,
+	 * which we should happily ignore as the queue is empty when they arrive.
 	 */
-	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests);
-	QUEUE_POP_HEAD(&priv->requests);
-	KASSERT(item->bio != NULL, "ata queue item without associated bio buffer!");
+	if (item == NULL)
+		return;
 
 	/* If this is an ATAPI command, we may need to send the command bytes at this point */
 	if (item->flags & ATA_ITEM_FLAG_ATAPI) {
@@ -332,12 +336,16 @@ ata_start(device_t dev)
 {
 	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
 
+	/*
+	 * Fetch the first request from the queue - note that we do not
+	 * remove it; ata_irq() does that for us.
+	 */
+	spinlock_lock(&priv->spl_requests);
 	KASSERT(!QUEUE_EMPTY(&priv->requests), "ata_start() with empty queue");
-
-	/* XXX locking */
 	/* XXX only do a single item now */
-
 	struct ATA_REQUEST_ITEM* item = QUEUE_HEAD(&priv->requests);
+	spinlock_unlock(&priv->spl_requests);
+
 	KASSERT(item->unit >= 0 && item->unit <= 1, "corrupted item number");
 	KASSERT(item->count > 0, "corrupted count number");
 
@@ -347,7 +355,8 @@ ata_start(device_t dev)
 		ata_start_pio(dev, item);
 
 	/*
-	 * Now, we must wait for the IRQ to handle it. XXX what about errors?
+	 * Now, we must wait for the IRQ to handle it. XXX there should be a timeout
+	 * on the items as we won't get any IRQ's if the request errors out.
  	 */
 }
 
@@ -366,6 +375,7 @@ ata_attach(device_t dev, uint32_t io, uint32_t irq)
 		return ANANAS_ERROR(NO_RESOURCE);
 	}
 	QUEUE_INIT(&priv->requests);
+	spinlock_init(&priv->spl_requests);
 	dev->privdata = priv;
 
 	/* Ensure there's something living at the I/O addresses */
@@ -435,7 +445,9 @@ ata_enqueue(device_t dev, void* request)
 	 */
 	struct ATA_REQUEST_ITEM* newitem = kmalloc(sizeof(struct ATA_REQUEST_ITEM));
 	memcpy(newitem, request, sizeof(struct ATA_REQUEST_ITEM));
+	spinlock_lock(&priv->spl_requests);
 	QUEUE_ADD_TAIL(&priv->requests, newitem);
+	spinlock_unlock(&priv->spl_requests);
 }
 
 /* ATA itself will not be probed; ataisa/atapci take care of this */
