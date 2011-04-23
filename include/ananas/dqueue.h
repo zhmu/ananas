@@ -17,11 +17,17 @@
 	TYPE* qi_prev;						\
 	TYPE* qi_next;
 
-#define DQUEUE_DEFINE(name, TYPE)				\
+#define DQUEUE_DEFINE_BEGIN(name, TYPE)				\
 	struct name {						\
 		TYPE* dq_head;					\
-		TYPE* dq_tail;					\
+		TYPE* dq_tail;
+
+#define DQUEUE_DEFINE_END					\
 	};
+
+#define DQUEUE_DEFINE(name, TYPE)				\
+	DQUEUE_DEFINE_BEGIN(name, TYPE)				\
+	DQUEUE_DEFINE_END
 
 #define DQUEUE_INIT(q) 						\
 do {								\
