@@ -89,8 +89,10 @@ static void
 vga_syncthread(void* ptr)
 {
 	struct VGA_PRIVDATA* priv = ptr;
+	struct WAITER* w = waitqueue_add(&priv->vga_wq);
 	while (1) {
-		waitqueue_wait(&priv->vga_wq);
+		waitqueue_reset_waiter(w);
+		waitqueue_wait(w);
 
 		struct pixel* px = priv->vga_buffer;
 		for (unsigned int y = 0; y < VGA_HEIGHT; y++)
@@ -100,6 +102,7 @@ vga_syncthread(void* ptr)
 		/* reposition the cursor */
 		vga_place_cursor(priv, priv->vga_cursor_x, priv->vga_cursor_y);
 	}
+	waitqueue_remove(w);
 }
 #endif
 
