@@ -39,4 +39,7 @@ void waitqueue_wait(struct WAITER* w);
 /* Wakes all waiters of the given waitqueue */
 void waitqueue_signal(struct WAIT_QUEUE* wq);
 
+/* Resets the given waiter to unsignalled state */
+void waitqueue_reset_waiter(struct WAITER* w);
+
 #endif /* __WAITQUEUE_H__ */

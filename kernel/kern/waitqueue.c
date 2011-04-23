@@ -30,6 +30,17 @@ waitqueue_init(struct WAIT_QUEUE* wq)
 	spinlock_init(&wq->wq_lock);
 }
 
+void
+waitqueue_reset_waiter(struct WAITER* w)
+{
+	struct THREAD* t = PCPU_GET(curthread);
+	KASSERT(w->w_thread == t, "waiter does not belong to our thread");
+
+	spinlock_lock(&w->w_lock);
+	w->w_signalled = 0;
+	spinlock_unlock(&w->w_lock);
+}
+
 struct WAITER*
 waitqueue_add(struct WAIT_QUEUE* wq)
 {
