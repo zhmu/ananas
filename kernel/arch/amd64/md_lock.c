@@ -7,7 +7,7 @@
  * 7.6.9.1: "Use the pause instruction in spin-wait loops".
  */
 void
-md_spinlock_lock(spinlock_t s)
+spinlock_lock(spinlock_t s)
 {
 #if 0
 	__asm(
@@ -26,7 +26,7 @@ md_spinlock_lock(spinlock_t s)
 }
 
 void
-md_spinlock_unlock(spinlock_t s)
+spinlock_unlock(spinlock_t s)
 {
 #if 0
 	__asm(
@@ -36,9 +36,26 @@ md_spinlock_unlock(spinlock_t s)
 }
 
 void
-md_spinlock_init(spinlock_t s)
+spinlock_init(spinlock_t s)
 {
 	s->var = 0;
+}
+
+register_t
+spinlock_lock_unpremptible(spinlock_t s)
+{
+	register_t state;
+	__asm __volatile("pushfq; popq %%rax" : "=a" (state));
+	spinlock_lock(s);
+	__asm __volatile("cli"); /* disable interrupts after acquiring spinlock! */
+	return state;
+}
+
+void
+spinlock_unlock_unpremptible(spinlock_t s, register_t state)
+{
+	spinlock_unlock(s);
+	__asm __volatile("pushq %%rax; popfq" : : "a" (state));
 }
 
 /* vim:set ts=2 sw=2: */
