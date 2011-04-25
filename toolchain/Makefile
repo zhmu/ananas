@@ -163,7 +163,7 @@ distfiles/gcc-${GCC_VER}.diff:
 		(cd build/gdb.${GDB_VER}.${ARCH} && ../../src/gdb-${GDB_VER}/configure --target=${TARGET} --prefix=${PREFIX})
 		@${TOUCH} .gdb.${GDB_VER}.${ARCH}.configure
 
-.gdb.${GDB_VER}.${ARCH}.build:	.gdb.${GDB_VER}.${ARCH}configure
+.gdb.${GDB_VER}.${ARCH}.build:	.gdb.${GDB_VER}.${ARCH}.configure
 		@${ECHO} ">> Building gdb (${ARCH})"
 		(cd build/gdb.${GDB_VER}.${ARCH} && ${MAKE} ${MAKE_BUILDARG})
 		@${TOUCH} .gdb.${GDB_VER}.${ARCH}.build

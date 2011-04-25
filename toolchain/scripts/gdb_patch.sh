@@ -1,14 +1,14 @@
 #!/bin/sh
 
 T=$1
-if [ "x$T" == "x" ]; then
+if [ -z "$T" ]; then
 	echo "usage: $0 path_to_gdb"
 	exit 1
 fi
 
 # patch 'config.sub' file
 awk '{ print }
-/-none)/ {
+/-none\)/ {
 	print "\t\t;;"
 	print "\t-ananas)"
 	;;
