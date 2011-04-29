@@ -45,6 +45,7 @@ kdb_cmd_inodes(int num_args, char** arg)
 		}
 		kprintf(", dentry='%s'\n", dentry_name);
 
+#ifdef NOTYET
 		/* Now scour the handles for references to this inode */
 		for (struct THREAD* t = threads; t != NULL; t = t->next) {
 			if(!DQUEUE_EMPTY(&t->handles)) {
@@ -60,6 +61,7 @@ kdb_cmd_inodes(int num_args, char** arg)
 		if (expected_refs != ii->inode->i_refcount)
 			kprintf("WARNING: has %u refs, expected %u!!!\n",
 			 ii->inode->i_refcount, expected_refs);
+#endif
 	}		
 }
 
