@@ -2,17 +2,17 @@
 #include <ananas/lock.h>
 
 void
-md_spinlock_lock(spinlock_t s)
+spinlock_lock(spinlock_t s)
 {
 }
 
 void
-md_spinlock_unlock(spinlock_t s)
+spinlock_unlock(spinlock_t s)
 {
 }
 
 void
-md_spinlock_init(spinlock_t s)
+spinlock_init(spinlock_t s)
 {
 }
 
