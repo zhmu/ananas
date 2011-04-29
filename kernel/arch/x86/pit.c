@@ -8,6 +8,19 @@
 #define HZ 100 /* XXX does not belong here */
 
 extern int md_cpu_clock_mhz;
+static uint64_t tsc_boot_time;
+
+/*
+ * Obtains the number of milliseconds that have passed since boot. Because we
+ * know the CPU speed in MHz as md_cpu_clock_mhz, it means one second means
+ * '1000 * md_cpu_clock_mhz' ticks have passed.
+ */
+uint32_t
+x86_get_ms_since_boot()
+{
+	uint64_t tsc = rdtsc() - tsc_boot_time;
+	return (tsc / 1000) / md_cpu_clock_mhz;
+}
 
 void
 x86_pit_init()
@@ -47,6 +60,8 @@ x86_pit_calc_cpuspeed_mhz()
 	tsc_base = rdtsc();
 	while (PCPU_GET(tickcount) < tickcount);	/* wait for yet another tick */
 	tsc_current = rdtsc();
+	/* We use the tsc_current value as the boot time */
+	tsc_boot_time = tsc_current;
 	return ((tsc_current - tsc_base) * HZ) / 1000000;
 }
 
