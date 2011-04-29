@@ -19,6 +19,12 @@ pcpu_init(struct PCPU* pcpu)
 	thread_set_args(&pcpu->idlethread, tmp, PAGE_SIZE);
 	md_thread_setkthread(&pcpu->idlethread, &md_idle_thread, NULL);
 	pcpu->idlethread_ptr = &pcpu->idlethread;
+
+	/*
+	 * Mark the idle thread as running; it will never be in a runqueue but this should keep our
+	 * invariants safe.
+	 */
+	pcpu->idlethread.flags &= ~THREAD_FLAG_SUSPENDED;
 }
 
 /* vim:set ts=2 sw=2: */
