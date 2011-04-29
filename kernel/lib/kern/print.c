@@ -16,7 +16,7 @@ puts(const char* s)
 }
 
 static void
-putnumber(void(*putch)(void*, int), void* v, const uint8_t* tab, unsigned int i)
+putnumber(void(*putch)(void*, int), void* v, const uint8_t* tab, uintmax_t i)
 {
 	if (i >= 0x10000000) putch(v, tab[(i >> 28) & 0xf]);
 	if (i >= 0x1000000)  putch(v, tab[(i >> 24) & 0xf]);
@@ -49,7 +49,7 @@ static void
 vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 {
 	const char* s;
-	uint64_t u64;
+	register uintmax_t n;
 
 	while(*fmt) {
 		if (*fmt != '%') {
@@ -117,14 +117,17 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 						putch(v, ')');
 				}
 				break;
-			case 'c': /* char */
-				putch(v, va_arg(ap, unsigned int));
+			case 'c': /* char (upcast to unsigned int) */
+				n = va_arg(ap, unsigned int);
+				putch(v, n);
 				break;
-			case 'x': /* hex int XXX assumed 32 bit */
-				putnumber(putch, v, hextab_lo, va_arg(ap, unsigned int));
+			case 'x': /* hex int */
+				n = va_arg(ap, unsigned int);
+				putnumber(putch, v, hextab_lo, n);
 				break;
 			case 'X': /* hex int XXX assumed 32 bit */
-				putnumber(putch, v, hextab_hi, va_arg(ap, unsigned int));
+				n = va_arg(ap, unsigned int);
+				putnumber(putch, v, hextab_hi, n);
 				break;
 			case 'u': /* unsigned integer */
 			case 'd': /* decimal */
@@ -132,13 +135,8 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 				putint(putch, v, va_arg(ap, unsigned int));
 				break;
 			case 'p': /* pointer XXX assumed 64 bit */
-				u64 = va_arg(ap, addr_t);
-#ifdef __amd64__
-				/* XXXPORTABILITY */
-				if (u64 >= (1L << 32))
-					putnumber(putch, v, hextab_lo, u64 >> 32);
-#endif
-				putnumber(putch, v, hextab_lo, u64 & 0xffffffff);
+				n = va_arg(ap, addr_t);
+				putnumber(putch, v, hextab_lo, n);
 				break;
 			default: /* unknown, just print it */
 				putch(v, '%');
