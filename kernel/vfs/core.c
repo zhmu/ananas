@@ -126,6 +126,11 @@ vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, cons
 	memcpy(de->de_fsop, fsop, fsoplen);
 	memcpy(de->de_fsop + fsoplen, name, namelen);
 	de->de_fsop[fsoplen + namelen] = '\0'; /* zero terminate */
+
+	/*
+	 * TODO Now that we have the entry, this is a good time to add it to our
+	 * dentry cache.
+	 */
 	return de_length;
 }
 
