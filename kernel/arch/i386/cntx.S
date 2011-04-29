@@ -72,13 +72,13 @@ md_store_ctx:
 	/* Store segment registers es/gs */
 	xor	%eax, %eax
 	movw	%es,  %ax
-	movl	%eax,  0x2c(%ebx)
+	movl	%eax, CTX_ES(%ebx)
 	movw	%gs,  %ax
-	movl	%eax,  0x34(%ebx)
+	movl	%eax, CTX_GS(%ebx)
 
 	/* Store original ds */
 	popl	%eax
-	movl	%eax,  0x28(%ebx)
+	movl	%eax, CTX_DS(%ebx)
 
 	/*
 	 * Store the FPU context, if needed; %fs still points to the
@@ -196,7 +196,7 @@ md_restore_ctx2:
 	 * The magic phrase is 'If the return is to another privilege level, the
 	 * IRET instruction also pops the stack pointer and SS from the stack,
 	 * before resuming program execution' (IA-32 Intel Architecture Software
- 	 * Developer's Manual Volume 2, page 3-354)
+	 * Developer's Manual Volume 2, page 3-354)
 	 */
 	cmpl	$GDT_SEL_KERNEL_CODE, CTX_CS(%ebx)
 	jne	r_uthread
@@ -270,10 +270,13 @@ md_restore_ctx_kernel:
 
 	/*
 	 * Note this is a kernel -> kernel return, so we do not have to mess
-	 * with a stack. It will be returned by our system call handler.
+	 * with a stack. It will be returned by our system call handler. We do
+	 * have to restore the flags, however, so we'll use an iret.
 	 */
+	pushl	CTX_EFLAGS(%ebx)
+	pushl	CTX_CS(%ebx)
 	pushl	CTX_EIP(%ebx)
-	ret
+	iret
 
 /*
  * Reschedule can be called at any moment and causes two things to happen:
