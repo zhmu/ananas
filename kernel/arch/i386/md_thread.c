@@ -23,9 +23,10 @@ md_thread_setup(thread_t t)
 	memset(t->md_pagedir, 0, PAGE_SIZE);
 	vm_map_kernel_addr(t->md_pagedir);
 
-	/* Perform adequate mapping for the stack / code */
-	md_map_pages(t->md_pagedir, USERLAND_STACK_ADDR, KVTOP((addr_t)t->md_stack), THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_USER);
-	md_map_pages(t->md_pagedir, (addr_t)t->md_kstack, KVTOP((addr_t)t->md_kstack), KERNEL_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
+	/* Perform adequate mapping for the userland stack */
+	md_map_pages(t->md_pagedir, USERLAND_STACK_ADDR, KVTOP((addr_t)t->md_stack),  THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_USER);
+	md_map_pages(t->md_pagedir, KERNEL_STACK_ADDR,   KVTOP((addr_t)t->md_kstack), KERNEL_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
+	t->md_kstack_ptr = NULL;
 
 #ifdef NOTYET
 	/*
@@ -42,7 +43,7 @@ md_thread_setup(thread_t t)
 
 	/* Fill out the thread's registers - anything not here will be zero */ 
 	t->md_ctx.esp  = (addr_t)USERLAND_STACK_ADDR + THREAD_STACK_SIZE;
-	t->md_ctx.esp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE;
+	t->md_ctx.esp0 = (addr_t)KERNEL_STACK_ADDR + KERNEL_STACK_SIZE - 4;
 	t->md_ctx.cs = GDT_SEL_USER_CODE + SEG_DPL_USER;
 	t->md_ctx.ds = GDT_SEL_USER_DATA;
 	t->md_ctx.es = GDT_SEL_USER_DATA;
@@ -65,8 +66,8 @@ md_thread_init(thread_t t)
 	t->md_pagedir = kmalloc(PAGE_SIZE);
 
 	/* Allocate stacks: one for the thread and one for the kernel */
-	t->md_stack  = kmalloc(THREAD_STACK_SIZE);
-	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
+	t->md_stack  = kmem_alloc(THREAD_STACK_SIZE / PAGE_SIZE);
+	t->md_kstack = kmem_alloc(KERNEL_STACK_SIZE / PAGE_SIZE);
 
 	return md_thread_setup(t);
 }
@@ -75,15 +76,21 @@ void
 md_thread_free(thread_t t)
 {
 	/*
-	 * Switch to the kernel pagetables; we'll be destroying the thread's
-	 * pagetables shortly.
+	 * This is a royal pain: we are about to destroy the thread's mappings, but this also means
+	 * we destroy the thread's stack - and it won't be able to continue. To prevent this, we
+	 * can only be called from another thread (this means this code cannot be run until the
+	 * current thread is a zombie)
 	 */
-	t->md_ctx.cr3 = KVTOP((addr_t)kernel_pd);
-	__asm("mov %0, %%cr3" : : "r" (t->md_ctx.cr3));
+	KASSERT(t->flags & THREAD_FLAG_ZOMBIE, "cannot free non-zombie thread");
+	KASSERT(PCPU_GET(curthread) != t, "cannot free current thread");
 
+	/* Throw away the pagedir and stacks; they aren't in use so this will never hurt */
 	vm_free_pagedir(t->md_pagedir);
-	kfree(t->md_stack);
-	kfree(t->md_kstack);
+	kmem_free(t->md_stack);
+	if (t->md_kstack_ptr != NULL)
+		kfree(t->md_kstack_ptr);
+	else
+		kmem_free(t->md_kstack);
 }
 
 void
@@ -91,7 +98,10 @@ md_thread_switch(thread_t new, thread_t old)
 {
 	struct CONTEXT* ctx_new = (struct CONTEXT*)&new->md_ctx;
 
-	/* Activate this context as the current CPU context. XXX lock */
+	/* Force interrupts off - we cannot have any interruptions */
+	__asm __volatile("cli");
+
+	/* Activate this context as the current CPU context */
 	PCPU_SET(context, ctx_new);
 
 	/* Activate the corresponding kernel stack in the TSS */
@@ -162,6 +172,13 @@ md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
 	thread->md_ctx.cr3 = KVTOP((addr_t)kernel_pd);
 
 	/*
+	 * Kernel threads share the kernel pagemap and thus need to map the kernel
+	 * stack.
+	 */
+	thread->md_kstack_ptr = vm_map_kernel((addr_t)thread->md_kstack, KERNEL_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
+	thread->md_ctx.esp0 = (addr_t)thread->md_kstack_ptr + KERNEL_STACK_SIZE - 4;
+
+	/*
 	 * Now, push 'arg' on the stack, as i386 passes arguments by the stack. Note that
 	 * we must first place the value and then update esp0 because the interrupt code
 	 * heavily utilized the stack, and the -= 4 protects our value from being
@@ -175,6 +192,7 @@ md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
 	 * adequately between them (and they cannot do syscalls anyway)
 	 */
 	thread->md_ctx.esp = thread->md_ctx.esp0;
+kprintf("md_thread_setkthread(): t=%p esp=%x esp0=%x\n", thread, thread->md_ctx.esp, thread->md_ctx.esp0);
 }
 	
 void
@@ -183,22 +201,27 @@ md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
 	/* Copy the entire context over */
 	memcpy(&t->md_ctx, &parent->md_ctx, sizeof(t->md_ctx));
 
-	/*
-	 * A kernel stack is not subject to paging; this is unavoidable as we need it
-	 * during a context switch, so it must reside in the kernel address space.
-	 *
-	 * This means we'll have to reinitialize a kernel stack - the clone_return
-	 * code will perform the adequate magic.
-	 */
-	t->md_ctx.esp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE;
-	t->md_ctx.cr3  = KVTOP((addr_t)t->md_pagedir);
+	/* Restore the thread's own page directory */
+	t->md_ctx.cr3 = KVTOP((addr_t)t->md_pagedir);
 
 	/*
-	 * Copy stack content; we copy the kernel stack over because we can obtain
-	 * the stackframe from it, which allows us to return to the intended caller.
+	 * Copy stack content; we need to copy the kernel stack over because we can
+	 * obtain the stackframe from it, which allows us to return to the intended
+	 * caller. The user stackframe is important as it will allow the new thread
+	 * to return correctly from the clone syscall.
 	 */
-	memcpy(t->md_stack,  parent->md_stack, THREAD_STACK_SIZE);
-	memcpy(t->md_kstack, parent->md_kstack, KERNEL_STACK_SIZE);
+	void* ustack_src = vm_map_kernel((addr_t)parent->md_stack, THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ);
+	void* ustack_dst = vm_map_kernel((addr_t)t     ->md_stack, THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
+	memcpy(ustack_dst, ustack_src, THREAD_STACK_SIZE);
+	vm_unmap_kernel((addr_t)ustack_dst, THREAD_STACK_SIZE / PAGE_SIZE);
+	vm_unmap_kernel((addr_t)ustack_src, THREAD_STACK_SIZE / PAGE_SIZE);
+
+	/* Copy kernel stack over */
+	void* kstack_src = vm_map_kernel((addr_t)parent->md_kstack, KERNEL_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ);
+	void* kstack_dst = vm_map_kernel((addr_t)t     ->md_kstack, KERNEL_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
+	memcpy(kstack_dst, kstack_src, KERNEL_STACK_SIZE);
+	vm_unmap_kernel((addr_t)kstack_dst, KERNEL_STACK_SIZE / PAGE_SIZE);
+	vm_unmap_kernel((addr_t)kstack_src, KERNEL_STACK_SIZE / PAGE_SIZE);
 
 	/* Handle return value */
 	t->md_ctx.cs = GDT_SEL_KERNEL_CODE;

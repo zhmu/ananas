@@ -96,6 +96,7 @@ struct FPUREGS {
 	void*		md_pagedir; \
 	void*		md_stack; \
 	void*		md_kstack; \
+	void*		md_kstack_ptr;
 
 void md_restore_ctx(struct CONTEXT* ctx);
 
