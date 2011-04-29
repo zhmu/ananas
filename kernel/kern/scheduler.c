@@ -5,101 +5,83 @@
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
 #include <ananas/thread.h>
+#include "options.h"
 
-extern struct THREAD* threads;
 static int scheduler_active = 0;
 
 struct SPINLOCK spl_scheduler = { 0 };
+static struct SCHEDULER_QUEUE sched_queue;
+
+void
+scheduler_init_thread(struct THREAD* t)
+{
+	t->sched_priv.sp_thread = t;
+}
+
+void
+scheduler_add_thread(struct THREAD* t)
+{
+	KASSERT((t->flags & THREAD_FLAG_SUSPENDED) == 0, "scheduling suspend thread %p", t);
+	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
+	/* First of all, see if it's already in the list - this is a bug */
+	if (!DQUEUE_EMPTY(&sched_queue))
+		DQUEUE_FOREACH(&sched_queue, s, struct SCHED_PRIV) {
+			KASSERT(s->sp_thread != t, "thread %p already in queue", t);
+		}
+	DQUEUE_ADD_TAIL(&sched_queue, &t->sched_priv);
+	spinlock_unlock_unpremptible(&spl_scheduler, state);
+}
+
+void
+scheduler_remove_thread(struct THREAD* t)
+{
+	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
+	if (!DQUEUE_EMPTY(&sched_queue))
+		DQUEUE_FOREACH(&sched_queue, s, struct SCHED_PRIV) {
+			if (s->sp_thread == t) {
+				DQUEUE_REMOVE(&sched_queue, s);
+				spinlock_unlock_unpremptible(&spl_scheduler, state);
+				return;
+			}
+		}
+	spinlock_unlock_unpremptible(&spl_scheduler, state);
+	panic("thread %p not in queue", t);
+}
 
 void
 schedule()
 {
-	struct THREAD* curthread;
-	struct THREAD* newthread;
+	struct THREAD* curthread = PCPU_GET(curthread);
 
-	spinlock_lock(&spl_scheduler);
-	newthread = NULL;
+	/* Pick the next thread to schedule and add it to the back of the queue */
+	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
+	struct SCHED_PRIV* next_sched = NULL;
+	if (!DQUEUE_EMPTY(&sched_queue)) {
+		next_sched = DQUEUE_HEAD(&sched_queue);
+		DQUEUE_POP_HEAD(&sched_queue);
+		DQUEUE_ADD_TAIL(&sched_queue, next_sched);
+	}
+	spinlock_unlock_unpremptible(&spl_scheduler, state);
 
-	curthread = PCPU_GET(curthread);
-	if (scheduler_active) {
-		if (curthread != NULL) {
-			/* We have a current thread; remove the active flag */
-			curthread->flags &= ~THREAD_FLAG_ACTIVE;
-
-			/* Start with the next thread, if any */
-			newthread = curthread->next;
-		}
-
-		/* If we cannot pick a next thread, use the first */
-		if (newthread == NULL)
-			 newthread = threads;
-
-		/* Scan for the next thread to run */
-		while (newthread->flags & (THREAD_FLAG_ACTIVE | THREAD_FLAG_SUSPENDED)) {
-			newthread = newthread->next;
-			if (newthread == curthread)
-				break;
-			if (newthread == NULL)
-				newthread = threads;
-			if (newthread == curthread)
-				break;
-		}
-
-		/*
-		 * OK, scanning was done. If newthread is identical to curthread
-		 * and we cannot schedule curthread, it means no new thread can be
-		 * found and as such, we must activate the idle thread.
-		 */
-		if (newthread != curthread) {
-			/* This new thread will do */
-			newthread->flags |= THREAD_FLAG_ACTIVE;
-
-			/*
-			 * Safety checks. Note that we must skip this check in the idlethread case,
-			 * because it will always be marked as suspended. This prevents the scheduler
-			 * from picking it up, yet we can see if in the process list.
-			 */
-			KASSERT((newthread->flags & THREAD_FLAG_SUSPENDED) == 0, "schedule: activating non-idle thread %p", newthread);
-		} else {
-			newthread = PCPU_GET(idlethread_ptr);
-		}
-	} else {
-		/*
-		 * Scheduler is not active; schedule our current thread if we can, do the
-		 * idle thread otherwise. Note that we do _not_ update current thread, this
-		 * is a hack... XXX
-		 */
-		newthread = (curthread->flags & THREAD_FLAG_SUSPENDED) ? PCPU_GET(idlethread_ptr) : curthread;
-		spinlock_unlock(&spl_scheduler);
-		md_thread_switch(newthread, curthread);
-		/* NOTREACHED */
+	/* If there was no thread or the thread is already running, revert to idle */
+	if (next_sched == NULL || (next_sched->sp_thread->flags & THREAD_FLAG_ACTIVE)) {
+		next_sched = &((struct THREAD*)PCPU_GET(idlethread_ptr))->sched_priv;
 	}
 
-	PCPU_SET(curthread, newthread);
-	spinlock_unlock(&spl_scheduler);
-	if (newthread != curthread && 0)
-		kprintf("schedule: CPU %u: switching %x to %x\n", PCPU_GET(cpuid), curthread, newthread);
+	/* Sanity checks */
+	struct THREAD* newthread = next_sched->sp_thread;
+	KASSERT((newthread->flags & THREAD_FLAG_SUSPENDED) == 0, "activating suspended thread %p", newthread);
 
+	PCPU_SET(curthread, newthread);
+	if (newthread != curthread && 0) {
+		kprintf("schedule: CPU %u: switching %x to %x\n", PCPU_GET(cpuid), curthread, newthread);
+	}
+
+	if (curthread != NULL) /* happens if the thread exited */
+		curthread->flags &= ~THREAD_FLAG_ACTIVE;
+	newthread->flags |=  THREAD_FLAG_ACTIVE;
 	md_thread_switch(newthread, curthread);
 	/* NOTREACHED */
-}
-
-void
-scheduler_switchto(thread_t newthread)
-{
-	spinlock_lock(&spl_scheduler);
-	thread_t curthread = PCPU_GET(curthread);
-	if (curthread != NULL) {
-		/* We have a current thread; remove the active flag */
-		curthread->flags &= ~THREAD_FLAG_ACTIVE;
-	}
-
-	newthread->flags |= THREAD_FLAG_ACTIVE;
-	PCPU_SET(curthread, newthread);
-	spinlock_unlock(&spl_scheduler);
-
-	/* all set - ask the md-code to run the thread */
-	md_thread_switch(newthread, curthread);
 }
 
 void
@@ -134,5 +116,16 @@ scheduler_activated()
 {
 	return scheduler_active;
 }
+
+#ifdef KDB
+void
+kdb_cmd_scheduler(int num_args, char** arg)
+{
+	if (!DQUEUE_EMPTY(&sched_queue))
+		DQUEUE_FOREACH(&sched_queue, s, struct SCHED_PRIV) {
+			kprintf("thread %p\n", s->sp_thread);
+		}
+}
+#endif /* KDB */
 
 /* vim:set ts=2 sw=2: */

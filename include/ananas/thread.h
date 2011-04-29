@@ -3,6 +3,7 @@
 #include <ananas/vfs.h>
 #include <ananas/limits.h>
 #include <ananas/handle.h>
+#include <ananas/schedule.h>
 #include <machine/thread.h>
 
 #ifndef __THREAD_H__
@@ -15,7 +16,6 @@ struct VFS_INODE;
 struct THREAD_MAPPING;
 
 #define THREAD_EVENT_EXIT 1
-
 /* Fault function: handles a page fault for thread t, mapping tm and address virt */
 typedef errorcode_t (*threadmap_fault_t)(thread_t t, struct THREAD_MAPPING* tm, addr_t virt);
 
@@ -43,10 +43,8 @@ DQUEUE_DEFINE(THREAD_MAPPING_QUEUE, struct THREAD_MAPPING);
 struct THREAD {
 	/* Machine-dependant data - must be first */
 	MD_THREAD_FIELDS
-	struct THREAD* prev;
-	struct THREAD* next;
 
-	struct SPINLOCK spl_thread;
+	struct SPINLOCK spl_thread;	/* Lock protecting the thread data */
 
 	unsigned int flags;
 #define THREAD_FLAG_ACTIVE	0x0001	/* Thread is scheduled somewhere */
@@ -69,7 +67,14 @@ struct THREAD {
 	struct HANDLE* thread_handle;	/* Handle identifying this thread */
 	struct HANDLE_QUEUE handles;	/* Handles owned by the thread */
 	struct HANDLE* path_handle;	/* Current path */
+
+	/* Scheduler specific information */
+	struct SCHED_PRIV sched_priv;
+
+	DQUEUE_FIELDS(struct THREAD);
 };
+
+DQUEUE_DEFINE(THREAD_QUEUE, struct THREAD);
 
 /* Machine-dependant callback to initialize a thread */
 errorcode_t md_thread_init(thread_t thread);

@@ -28,6 +28,8 @@ extern kdb_func_t kdb_cmd_vfs_mounts;
 extern kdb_func_t kdb_cmd_devices;
 extern kdb_func_t kdb_cmd_irq;
 extern kdb_func_t kdb_cmd_inodes;
+extern kdb_func_t kdb_cmd_curthread;
+extern kdb_func_t kdb_cmd_scheduler;
 
 struct KDB_COMMAND {
 	const char* cmd;
@@ -37,7 +39,8 @@ struct KDB_COMMAND {
 	{ "help", "Lists all commands", &kdb_cmd_help },
 	{ "exit", "Leave the debugger", &kdb_cmd_exit },
 	{ "threads", "Display list of threads", &kdb_cmd_threads },
-	{ "thread", "Display specific thread information", &kdb_cmd_thread },
+	{ "curthread", "Set current thread", &kdb_cmd_curthread},
+	{ "thread", "Display current thread information", &kdb_cmd_thread },
 	{ "bio", "Display BIO information", &kdb_cmd_bio },
 	{ "bootinfo", "Display bootinfo", &kdb_cmd_bootinfo },
 	{ "memory", "Display memory information", &kdb_cmd_memory },
@@ -46,6 +49,9 @@ struct KDB_COMMAND {
 	{ "devices", "Display devices list", &kdb_cmd_devices },
 	{ "irq", "Display IRQ list", &kdb_cmd_irq },
 	{ "inodes", "Display inode cache", &kdb_cmd_inodes },
+	{ "regs", "Display current thread registers", &kdb_cmd_regs },
+	{ "trace", "Backtrace", &kdb_cmd_trace },
+	{ "scheduler", "Scheduler status", &kdb_cmd_scheduler },
 	{ NULL, NULL, NULL }
 };
 

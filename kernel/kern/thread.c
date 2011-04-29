@@ -17,7 +17,8 @@
 
 TRACE_SETUP;
 
-struct THREAD* threads = NULL;
+static struct SPINLOCK spl_threadqueue;
+static struct THREAD_QUEUE threadqueue;
 
 errorcode_t
 thread_init(thread_t t, thread_t parent)
@@ -92,15 +93,13 @@ thread_init(thread_t t, thread_t parent)
 		goto fail;
 	md_thread_set_argument(t, tm->tm_virt);
 
-	/* XXX lock */
-	if (threads == NULL) {
-		threads = t;
-	} else {
-		/* prepend t to the chain of threads */
-		t->next = threads;
-		threads->prev = t;
-		threads = t;
-	}
+	/* Initialize scheduler-specific parts */
+	scheduler_init_thread(t);
+
+	/* Add the thread to the thread queue */
+	spinlock_lock(&spl_threadqueue);
+	DQUEUE_ADD_TAIL(&threadqueue, t);
+	spinlock_unlock(&spl_threadqueue);
 	return ANANAS_ERROR_OK;
 
 fail:
@@ -181,11 +180,11 @@ thread_free(thread_t t)
 		handle_signal(t->thread_handle, THREAD_EVENT_EXIT, t->terminate_info);
 	}
 
-	/* Free the machine-dependant bits */
-	md_thread_free(t);
-
 	/* Thread is alive, yet lingering... */
 	t->flags |= THREAD_FLAG_ZOMBIE;
+
+	/* If the thread was on the scheduler queue, remove it */
+	scheduler_remove_thread(t);
 }
 
 void
@@ -193,15 +192,13 @@ thread_destroy(thread_t t)
 {
 	KASSERT(t->flags & THREAD_FLAG_ZOMBIE, "thread_destroy() on a non-zombie thread");
 
-	/* XXX lock */
-	if (threads == t) {
-		threads = t->next;
-		threads->prev = NULL;
-	} else {
-		threads->prev = t->next;
-		t->next->prev = threads->prev;
-	}
-	/* XXX unlock */
+	/* Free the machine-dependant bits */
+	md_thread_free(t);
+
+	/* Remove the queue from our queue */
+	spinlock_lock(&spl_threadqueue);
+	DQUEUE_REMOVE(&threadqueue, t);
+	spinlock_unlock(&spl_threadqueue);
 
 	/* Ensure the thread handle itself won't have a thread anymore */
 	t->thread_handle->thread = NULL;
@@ -320,18 +317,20 @@ thread_unmap(thread_t t, void* ptr, size_t len)
 void
 thread_suspend(thread_t t)
 {
-	if (t == NULL)
+	if (t == NULL || (t->flags & THREAD_FLAG_SUSPENDED) != 0)
 		return;
+	scheduler_remove_thread(t);
 	t->flags |= THREAD_FLAG_SUSPENDED;
 }
 
 void
 thread_resume(thread_t t)
 {
-	if (t == NULL)
+	if (t == NULL || (t->flags & THREAD_FLAG_SUSPENDED) == 0)
 		return;
 	KASSERT((t->flags & THREAD_FLAG_TERMINATING) == 0, "resuming terminating thread %p", t);
 	t->flags &= ~THREAD_FLAG_SUSPENDED;
+	scheduler_add_thread(t);
 }
 	
 void
@@ -342,20 +341,20 @@ thread_exit(int exitcode)
 	KASSERT((thread->flags & THREAD_FLAG_TERMINATING) == 0, "exiting already termating thread");
 
 	/*
-	 * Mark the thread as suspended and terminating; the thread will remain
-	 * in the terminating status until it is queried about its status.
+	 * Mark the thread as terminating; the thread will remain in the terminating
+	 * status until it is queried about its status.
 	 */
-	thread->flags |= THREAD_FLAG_SUSPENDED | THREAD_FLAG_TERMINATING;
+	thread->flags |= THREAD_FLAG_TERMINATING;
 	thread->terminate_info = exitcode;
-
-	/* disown the current thread, it is no longer schedulable */
-	PCPU_SET(curthread, NULL);
 
 	/* free as much of the thread as we can */
 	thread_free(thread);
 
 	/* signal anyone waiting on us */
 	handle_signal(thread->thread_handle, THREAD_EVENT_EXIT, thread->terminate_info);
+
+	/* disown the current thread, it is no longer schedulable */
+	PCPU_SET(curthread, NULL);
 
 	/* force a context switch - won't return */
 	schedule();
@@ -462,6 +461,8 @@ thread_set_environment(thread_t t, const char* env, size_t env_len)
 }
 
 #ifdef KDB
+extern struct THREAD* kdb_curthread;
+
 void
 kdb_cmd_threads(int num_args, char** arg)
 {
@@ -479,45 +480,39 @@ kdb_cmd_threads(int num_args, char** arg)
 			}
 	}
 
-	struct THREAD* t = threads;
 	struct THREAD* cur = PCPU_CURTHREAD();
+	spinlock_lock(&spl_threadqueue);
 	kprintf("thread dump\n");
-	while (t != NULL) {
-		kprintf ("thread %p (handle %p): %s: flags [", t, t->thread_handle, t->threadinfo->ti_args);
-		if (t->flags & THREAD_FLAG_ACTIVE)    kprintf(" active");
-		if (t->flags & THREAD_FLAG_SUSPENDED) kprintf(" suspended");
-		if (t->flags & THREAD_FLAG_TERMINATING) kprintf(" terminating");
-		if (t->flags & THREAD_FLAG_ZOMBIE) kprintf(" zombie");
-		kprintf(" ]%s\n", (t == cur) ? " <- current" : "");
-		if (flags & FLAG_HANDLE) {
-			kprintf("handles\n");
-			if(!DQUEUE_EMPTY(&t->handles)) {
-				DQUEUE_FOREACH_SAFE(&t->handles, handle, struct HANDLE) {
-					kprintf(" handle %p, type %u\n",
-					 handle, handle->type);
+	if (!DQUEUE_EMPTY(&threadqueue))
+		DQUEUE_FOREACH(&threadqueue, t, struct THREAD) {
+			kprintf ("thread %p (handle %p): %s: flags [", t, t->thread_handle, t->threadinfo->ti_args);
+			if (t->flags & THREAD_FLAG_ACTIVE)    kprintf(" active");
+			if (t->flags & THREAD_FLAG_SUSPENDED) kprintf(" suspended");
+			if (t->flags & THREAD_FLAG_TERMINATING) kprintf(" terminating");
+			if (t->flags & THREAD_FLAG_ZOMBIE) kprintf(" zombie");
+			kprintf(" ]%s\n", (t == cur) ? " <- current" : "");
+			if (flags & FLAG_HANDLE) {
+				kprintf("handles\n");
+				if(!DQUEUE_EMPTY(&t->handles)) {
+					DQUEUE_FOREACH_SAFE(&t->handles, handle, struct HANDLE) {
+						kprintf(" handle %p, type %u\n",
+						 handle, handle->type);
+					}
 				}
 			}
 		}
-		t = t->next;
-	}
+	spinlock_unlock(&spl_threadqueue);
 }
 
 void
 kdb_cmd_thread(int num_args, char** arg)
 {
-	if (num_args != 2) {
-		kprintf("need an argument\n");
+	if (kdb_curthread == NULL) {
+		kprintf("no current thread set\n");
 		return;
 	}
 
-	char* ptr;
-	addr_t addr = (addr_t)strtoul(arg[1], &ptr, 16);
-	if (*ptr != '\0') {
-		kprintf("parse error at '%s'\n", ptr);
-		return;
-	}
-
-	struct THREAD* thread = (void*)addr;
+	struct THREAD* thread = kdb_curthread;
 	kprintf("arg          : '%s'\n", thread->threadinfo->ti_args);
 	kprintf("flags        : 0x%x\n", thread->flags);
 	kprintf("terminateinfo: 0x%x\n", thread->terminate_info);
@@ -531,6 +526,24 @@ kdb_cmd_thread(int num_args, char** arg)
 			kprintf("\n");
 		}
 	}
+}
+
+void
+kdb_cmd_curthread(int num_args, char** arg)
+{
+	if (num_args != 2) {
+		kprintf("need an argument\n");
+		return;
+	}
+
+	char* ptr;
+	addr_t addr = (addr_t)strtoul(arg[1], &ptr, 16);
+	if (*ptr != '\0') {
+		kprintf("parse error at '%s'\n", ptr);
+		return;
+	}
+
+	kdb_curthread = (struct THREAD*)addr;
 }
 #endif /* KDB */
 
