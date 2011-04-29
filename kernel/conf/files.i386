@@ -15,3 +15,4 @@ arch/x86/pio.c			mandatory
 arch/x86/pit.c			mandatory
 arch/x86/exceptions.c		mandatory
 arch/x86/debug-console.c	option DEBUG_CONSOLE
+arch/i386/kdb-i386.c		option KDB

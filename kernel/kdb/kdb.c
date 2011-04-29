@@ -30,6 +30,10 @@ extern kdb_func_t kdb_cmd_irq;
 extern kdb_func_t kdb_cmd_inodes;
 extern kdb_func_t kdb_cmd_curthread;
 extern kdb_func_t kdb_cmd_scheduler;
+#ifdef __i386__
+extern kdb_func_t kdb_cmd_regs;
+extern kdb_func_t kdb_cmd_trace;
+#endif
 
 struct KDB_COMMAND {
 	const char* cmd;
@@ -49,8 +53,10 @@ struct KDB_COMMAND {
 	{ "devices", "Display devices list", &kdb_cmd_devices },
 	{ "irq", "Display IRQ list", &kdb_cmd_irq },
 	{ "inodes", "Display inode cache", &kdb_cmd_inodes },
+#ifdef __i386__
 	{ "regs", "Display current thread registers", &kdb_cmd_regs },
 	{ "trace", "Backtrace", &kdb_cmd_trace },
+#endif
 	{ "scheduler", "Scheduler status", &kdb_cmd_scheduler },
 	{ NULL, NULL, NULL }
 };
