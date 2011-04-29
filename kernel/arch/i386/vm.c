@@ -29,7 +29,6 @@ md_map_pages(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, int 
 	while (num_pages > 0) {
 		uint32_t pd_entrynum = virt >> 22;
 		if (pagedir[pd_entrynum] == 0) {
-			KASSERT((flags & VM_FLAG_KERNEL) == 0, "need to allocate page for kernel?");
 			/*
 			 * This page isn't yet mapped, so we need to allocate a new page entry
 			 * where we can map the pointer.
@@ -113,13 +112,9 @@ void
 vm_free_pagedir(uint32_t* pagedir)
 {
 	for(unsigned int i = 0; i < VM_FIRST_KERNEL_PT; i++) {
-		if (pagedir[i] & PDE_P) {
-			void* pt = (void*)PTOKV(pagedir[i] & ~(PAGE_SIZE - 1));
-			memset(pt, 0, PAGE_SIZE); /* XXX paranoia */
-			kfree(pt);
-		}
+		if (pagedir[i] & PDE_P)
+			kfree((void*)PTOKV(pagedir[i] & ~(PAGE_SIZE - 1)));
 	}
-	memset(pagedir, 0, PAGE_SIZE); /* XXX paranoia */
 	kfree(pagedir);
 }
 
