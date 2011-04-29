@@ -41,9 +41,32 @@ register_t
 spinlock_lock_unpremptible(spinlock_t s)
 {
 	register_t state;
-	__asm __volatile("pushfl; pop %%eax" : "=a" (state));
-	spinlock_lock(s);
-	__asm __volatile("cli"); /* disable interrupts after acquiring spinlock! */
+	__asm __volatile(
+		"pushfl\n"
+		"pop %%edx\n"
+"ll1:\n"
+		"cmpl $0, (%%eax)\n"
+		"je		ll2\n"
+		"pushl %%edx\n"
+		"popfl\n"
+		"pause\n"
+		"jmp	ll1\n"
+"ll2:\n"
+		/*
+	 	 * Attempt to lock spinlock; we must disable the interrupts as we
+		 * try because we must not be preempted while holding the lock.
+		 */
+		"cli\n"
+		"movl	$1, %%ebx\n"
+		"xchg	(%%eax), %%ebx\n"
+		"cmpl	$0, %%ebx\n"
+		"je	ll3\n"
+		/* Lock failed; restore interrupts and try again */
+		"pushl %%edx\n"
+		"popfl\n"
+		"jmp ll2\n"
+"ll3:\n"
+	: "=d" (state) : "a" (&s->var));
 	return state;
 }
 
