@@ -167,22 +167,6 @@ md_restore_ctx:
 md_restore_ctx_skip_cr3:
 
 	/*
-	 * If we are switching to kernel context, this must be because of a
-	 * system call that call reschedule(); in this case, we can opt for the
-	 * easy way out as we don't have to restore every little detail (the
-	 * segment registers, pagetable etc is already correct)
-	 *
-	 * Note that we have to compare the entire cs:eip thing,
-	 * because failure to do so would cause kernel threads to
-	 * have problems.
-	 */
-	cmpl	$GDT_SEL_KERNEL_CODE, CTX_CS(%ebx)	/* check cs */
-	jne	md_restore_ctx2
-	cmpl	$reschedule_back, CTX_EIP(%ebx)		/* check eip */
-	je	md_restore_ctx_kernel
-
-md_restore_ctx2:
-	/*
 	 * First of all, restore the segment registers es/fs/gs.
 	 */
 	movl	CTX_ES(%ebx), %eax
@@ -272,26 +256,6 @@ r_uthread:
 	popl	%eax
 	iret
 
-md_restore_ctx_kernel:
-	/*
-	 * Restore the saved registers.
-	 */
-	movl	CTX_EBX(%ebx), %ecx		/* ecx = stored ebx! */
-	movl	CTX_ESI(%ebx), %esi
-	movl	CTX_EDI(%ebx), %edi
-	movl	CTX_EBP(%ebx), %ebp
-	movl	CTX_ESP(%ebx), %esp
-
-	/*
-	 * Note this is a kernel -> kernel return, so we do not have to mess
-	 * with a stack. It will be returned by our system call handler. We do
-	 * have to restore the flags, however, so we'll use an iret.
-	 */
-	pushl	CTX_EFLAGS(%ebx)
-	pushl	CTX_CS(%ebx)
-	pushl	CTX_EIP(%ebx)
-	iret
-
 /*
  * Reschedule can be called at any moment and causes two things to happen:
  *
@@ -339,18 +303,30 @@ md_reschedule:
 	/* Now, insert our return point, %cs:%eip */
 	movl	$GDT_SEL_KERNEL_CODE, CTX_CS(%eax)
 	movl	$reschedule_back, CTX_EIP(%eax)
+
+	/*
+	 * Temporarily override %fs with our PCPU data; this is necessary
+	 * because we will be returned to kernel context. After rescheduling
+	 * is done, we'll restore the previous value - this prevents a
+	 * bogus %fs restore during context restoring of this thread, which
+	 * is expensive.
+	 */
+	pushl	CTX_FS(%eax)
+	movl	$GDT_SEL_KERNEL_PCPU, CTX_FS(%eax)
 	
 	/* All is set - schedule a new thread! */
 	call	schedule
 
+reschedule_back:
 	/*
 	 * We're back! schedule() calls md_thread_switch()
 	 * which will have restored our context (md_restore_ctx()
 	 * takes a shortcut as most 'expensive' registers will
-	 * be at their correct values already)
+	 * be at their correct values already). Note that we'll
+	 * have to update the thread's %fs.
 	 */
-
-reschedule_back:
+	movl	%fs:(PCPU_CONTEXT), %eax
+	popl	CTX_FS(%eax)
 	ret
 	
 reschedule_kernctx:
