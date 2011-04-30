@@ -70,11 +70,15 @@ console_putchar(int c)
 }
 
 const char*
-console_getbuf_reset()
+console_getbuf()
 {
 	console_buf[console_pos] = '\0';
-	console_pos = 0;
 	return console_buf;
+}
+
+void console_reset()
+{
+	console_pos = 0;
 }
 
 /* vim:set ts=2 sw=2: */
