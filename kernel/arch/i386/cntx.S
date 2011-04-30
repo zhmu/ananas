@@ -12,6 +12,13 @@
  */
 md_store_ctx:
 	/*
+	 * Disable any interrupts; we do not want to context to change while
+	 * we are storing it.
+	 */
+	pushfl
+	cli
+
+	/*
 	 * Start by saving some registers; this must be done because
 	 * we need to setup the per-cpu segment, data segment (we run
 	 * in kernel mode) - we use %ebx as a reference register, so
@@ -46,7 +53,7 @@ md_store_ctx:
 	 * store our original %ss:%esp (we only do the latter because %ss is
 	 * fixed anyway)
 	 */
-	cmpl	$GDT_SEL_KERNEL_CODE, 20(%esp)
+	cmpl	$GDT_SEL_KERNEL_CODE, 24(%esp)
 	je	md_store_kernel
 
 	/*
@@ -54,19 +61,20 @@ md_store_ctx:
 	 * grab %ss:%esp from the interrupt frame (because we are now using
 	 * the kernel ring 0 stack as specified in the TSS)
 	 *
-	 *      + 32 = interrupted ss  (iff ring3->0 transition)
-	 *      + 28 = interrupted esp (iff ring3->0 transition)
-	 *      + 24 = interrupted eflags
-	 *      + 20 = interrupted cs
-	 *      + 16 = interrupted eip
-	 *      + 12 = (caller md_store_context)
+	 *      + 36 = interrupted ss  (iff ring3->0 transition)
+	 *      + 32 = interrupted esp (iff ring3->0 transition)
+	 *      + 28 = interrupted eflags
+	 *      + 24 = interrupted cs
+	 *      + 20 = interrupted eip
+	 *      + 16 = (caller md_store_context)
+	 *      + 12 = stored eflags
 	 *      +  8 = stored ebx
 	 *      +  4 = stored fs
 	 *  esp +  0 = stored ds
 	 */
-	movl	28(%esp), %eax
-	movl	%eax, CTX_ESP(%ebx)
 	movl	32(%esp), %eax
+	movl	%eax, CTX_ESP(%ebx)
+	movl	36(%esp), %eax
 	movl	%eax, CTX_SS(%ebx)
 
 	/* Store segment registers es/gs */
@@ -108,23 +116,26 @@ md_store_ctx_skip_fpu:
 	 * Note that these are 12 earlier (i.e. eip is at esp+4 instead of
 	 * esp+16) because we have pop'ed %ebx/fs/ds a few lines back.
 	 */
-	movl	4(%esp), %eax		/* eip */
+	movl	8(%esp), %eax		/* eip */
 	movl	%eax, CTX_EIP(%edx)
-	movl	8(%esp), %eax		/* cs */
+	movl	12(%esp), %eax		/* cs */
 	movl	%eax, CTX_CS(%edx)
-	movl	12(%esp), %eax		/* eflags */
+	movl	16(%esp), %eax		/* eflags */
 	movl	%eax, CTX_EFLAGS(%edx)
+
+	/* Restore original flags */
+	popfl
 	ret
 
 md_store_kernel:
 	/*
 	 * Store our original %esp; this is before the
 	 * entire interrupt makeover. We'll have
-	 * 3x push in this function, a call return address,
+	 * 4x push in this function, a call return address,
 	 * the stored cs:eip and eflags, total 7 dwords.
 	 */
 	movl	%esp, %eax
-	addl	$(7 * 4), %eax
+	addl	$(8 * 4), %eax
 	movl	%eax, CTX_ESP(%ebx)
 
 	/* Trash %ds */
@@ -140,6 +151,9 @@ md_store_kernel:
  */
 md_restore_ctx:
 	movl	4(%esp), %ebx
+
+	/* Do not allow interrupts while restoring the context */
+	cli
 
 	/*
 	 * First of all, restore thread's pagedir; we skip this if possible (it
