@@ -191,4 +191,40 @@ sprintf(char* str, const char* fmt, ...)
 	return str - source;
 }
 
+struct SNPRINTF_CTX {
+	char* buf;
+	int cur_len;
+	int left;
+};
+
+static void
+snprintf_add(void* v, int c)
+{
+	struct SNPRINTF_CTX* ctx = v;
+	if (ctx->left == 0)
+		return;
+
+	*ctx->buf = c;
+	ctx->buf++;
+	ctx->left--;
+}
+
+int
+snprintf(char* str, int len, const char* fmt, ...)
+{
+	struct SNPRINTF_CTX ctx;
+
+	ctx.buf = str;
+	ctx.cur_len = 0;
+	ctx.left = len;
+	
+	va_list ap;
+	va_start(ap, fmt);
+	vapprintf(fmt, snprintf_add, &ctx, ap);
+	va_end(ap);
+	snprintf_add(&ctx, 0);
+
+	return ctx.cur_len;
+}
+
 /* vim:set ts=2 sw=2: */
