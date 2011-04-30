@@ -192,7 +192,6 @@ md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
 	 * adequately between them (and they cannot do syscalls anyway)
 	 */
 	thread->md_ctx.esp = thread->md_ctx.esp0;
-kprintf("md_thread_setkthread(): t=%p esp=%x esp0=%x\n", thread, thread->md_ctx.esp, thread->md_ctx.esp0);
 }
 	
 void
@@ -228,5 +227,19 @@ md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
 	t->md_ctx.eip = (addr_t)&clone_return;
 	t->md_ctx.eax = retval;
 }
+
+int
+md_thread_peek_32(thread_t thread, addr_t virt, uint32_t* val)
+{
+	addr_t phys = md_get_mapping(thread->md_pagedir, virt, VM_FLAG_READ);
+	if (phys == 0)
+		return 0;
+
+	void* ptr = vm_map_kernel(phys, 1, VM_FLAG_READ);
+	*val = *(uint32_t*)(ptr + (virt % PAGE_SIZE));
+	vm_unmap_kernel(ptr, 1);
+	return 1;
+}
+
 
 /* vim:set ts=2 sw=2: */

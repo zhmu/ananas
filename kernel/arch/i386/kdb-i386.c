@@ -34,8 +34,19 @@ kdb_cmd_trace(int num_args, char** arg)
 
 	int i = 1;
 	while(ebp != 0) {
-		kprintf("(%i) 0x%p\n", i++, *(uint32_t*)(ebp + 4));
-		ebp = *(uint32_t*)ebp;
+		uint32_t val;
+		if (md_thread_peek_32(kdb_curthread, ebp + 4, &val)) {
+			kprintf("(%i) 0x%p\n", i, val);
+		} else {
+			kprintf("(%i) ??? (cannot resolve 0x%p)\n", i, ebp + 4);
+		}
+		i++;
+
+		if (!md_thread_peek_32(kdb_curthread, ebp, &val)) {
+			kprintf("cannot resolve %p, aborting\n", ebp);
+			break;
+		}
+		ebp = val;
 	}
 }
 
