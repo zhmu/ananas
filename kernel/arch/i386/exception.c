@@ -7,6 +7,7 @@
 #include <ananas/x86/exceptions.h>
 #include <ananas/thread.h>
 #include <ananas/error.h>
+#include <ananas/irq.h>
 #include <ananas/pcpu.h>
 #include <ananas/vm.h>
 #include <ananas/lib.h>
@@ -113,6 +114,12 @@ exception_handler(struct STACKFRAME* sf)
 			exception_generic(sf);
 			return;
 	}
+}
+
+void
+interrupt_handler(struct STACKFRAME* sf)
+{
+	irq_handler(sf->sf_trapno);
 }
 
 /* vim:set ts=2 sw=2: */

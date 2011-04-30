@@ -84,19 +84,17 @@ do_irq:
 	movw	%ax, %ds
 	movw	%ax, %es
 
-	/* Store trapframe number %edx; this is our IRQ number */
-	movl	SF_TRAPNO(%esp), %edx
-
 	/* Ensure per-cpu stuff works */
 	movl	$GDT_SEL_KERNEL_PCPU, %eax
 	movw	%ax, %fs
 
-	/* Call the IRQ handler, using stored irq number in %edx */
-	pushl	%edx
-	call	irq_handler
-	popl	%edx
+	/* Call the interrupt handler */
+	pushl	%esp
+	call	interrupt_handler
+	addl	$4, %esp
 
-	/* Acknowledge the interrupt */
+	/* IRQ handler is done; it's safe to acknowledge the interrupt now */
+	movl	SF_TRAPNO(%esp), %edx
 	call	eoi
 
 	/* Restore previous state */
