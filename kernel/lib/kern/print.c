@@ -2,6 +2,7 @@
 #include <ananas/console.h>
 #include <ananas/device.h>
 #include <ananas/lock.h>
+#include <ananas/lib.h>
 #include <stdarg.h>
 
 static const uint8_t hextab_hi[16] = "0123456789ABCDEF";
@@ -16,20 +17,7 @@ puts(const char* s)
 }
 
 static void
-putnumber(void(*putch)(void*, int), void* v, const uint8_t* tab, uintmax_t i)
-{
-	if (i >= 0x10000000) putch(v, tab[(i >> 28) & 0xf]);
-	if (i >= 0x1000000)  putch(v, tab[(i >> 24) & 0xf]);
-	if (i >= 0x100000)   putch(v, tab[(i >> 20) & 0xf]);
-	if (i >= 0x10000)    putch(v, tab[(i >> 16) & 0xf]);
-	if (i >= 0x1000)     putch(v, tab[(i >> 12) & 0xf]);
-	if (i >= 0x100)      putch(v, tab[(i >>  8) & 0xf]);
-	if (i >= 0x10)       putch(v, tab[(i >>  4) & 0xf]);
-	putch(v, tab[i & 0xf]);
-}
-
-static void
-putint(void(*putch)(void*, int), void* v, unsigned int n)
+putint(void(*putch)(void*, int), void* v, int base, const char* tab, int min_field_len, char pad, uintmax_t n)
 {
 	/*
 	 * Note that 1234 is just 1*10^3 + 2*10^2 + 3*10^1 + 4*10^0 =
@@ -37,12 +25,25 @@ putint(void(*putch)(void*, int), void* v, unsigned int n)
 	 * of 10 first (p=3 in this case) and then print 'n divide. The digit we
 	 * need to print is n % 10^p, so 1234 % 10^3 = 1, 234 % 10^2 = 2 etc)
 	 */
-	unsigned int i, p = 0, base = 1;
-	for (i = n; i >= 10; i /= 10, p++, base *= 10);
-	/* Write values from n/(p^10) .. n/1 */
-	for (i = 0; i<= p; i++, base /= 10) {
-		putch(v, '0' + (n / base) % 10);
+	uintmax_t divisor = 1;
+	unsigned int p = 0, digits = 1;
+	for (uintmax_t i = n; i >= base; i /= base, p++, divisor *= base, digits++);
+	/* Now that we know the length, deal with the padding */
+	for (unsigned int i = digits; i < min_field_len; i++)
+		putch(v, pad);
+	/* Write values from n/(p^base) .. n/1 */
+	for (unsigned int i = 0; i <= p; i++, divisor /= base) {
+		putch(v, tab[(n / divisor) % base]);
 	}
+}
+
+static void
+putstr(void(*putch)(void*, int), void* v, int min_field_len, unsigned int precision, char pad, const char* s)
+{
+	for (unsigned int i = strlen(s); i < min_field_len; i++)
+		putch(v, pad);
+	while (*s && precision-- > 0)
+		putch(v, *s++);
 }
 
 static void
@@ -60,8 +61,9 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 		/* formatted output */
 		fmt++;
 
-		unsigned int min_width = 0;
+		unsigned int min_field_width = 0;
 		unsigned int precision = 0;
+		char padding = ' ';
 
 		/* Try to handle flags */
 		switch(*fmt) {
@@ -69,6 +71,7 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 				fmt++;
 				break;
 			case '0': /* Zero padding */
+				padding = '0';
 				fmt++;
 				break;
 			case '-': /* Negative field length */
@@ -80,7 +83,7 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 			case '+': /* Sign */
 				fmt++;
 				break;
-			case '\'': /* Decimal*/
+			case '\'': /* Decimal */
 				fmt++;
 				break;
 		}
@@ -88,8 +91,8 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 #define DIGIT(x) ((x) >= '0' && (x) <= '9')
 		/* Handle minimum width */
 		while (DIGIT(*fmt)) {
-			min_width *= 10;
-			min_width += (*fmt - '0');
+			min_field_width *= 10;
+			min_field_width += (*fmt - '0');
 			fmt++;
 		}
 
@@ -101,21 +104,15 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 				precision += (*fmt - '0');
 				fmt++;
 			}
-
 		}
 
 		switch(*fmt) {
 			case 's': /* string */
 				s = va_arg(ap, const char*);
-				if (s != NULL) {
-					if (!precision) precision = (unsigned int)-1;
-					while (*s && precision-- > 0)
-						putch(v, *s++);
-				} else {
-						putch(v, '(');
-						putch(v, 'n'); putch(v, 'u'); putch(v, 'l'); putch(v, 'l');
-						putch(v, ')');
-				}
+				if (s == NULL)
+					s = "(null)";
+				if (!precision) precision = (unsigned int)-1;
+				putstr(putch, v, min_field_width, precision, padding, s);
 				break;
 			case 'c': /* char (upcast to unsigned int) */
 				n = va_arg(ap, unsigned int);
@@ -123,20 +120,35 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 				break;
 			case 'x': /* hex int */
 				n = va_arg(ap, unsigned int);
-				putnumber(putch, v, hextab_lo, n);
+				putint(putch, v, 16, hextab_lo, min_field_width, padding, n);
 				break;
 			case 'X': /* hex int XXX assumed 32 bit */
 				n = va_arg(ap, unsigned int);
-				putnumber(putch, v, hextab_hi, n);
+				putint(putch, v, 16, hextab_hi, min_field_width, padding, n);
 				break;
 			case 'u': /* unsigned integer */
-			case 'd': /* decimal */
-			case 'i': /* integer XXX */
-				putint(putch, v, va_arg(ap, unsigned int));
+				n = va_arg(ap, unsigned int);
+				putint(putch, v, 10, hextab_lo, min_field_width, padding, n);
 				break;
-			case 'p': /* pointer XXX assumed 64 bit */
-				n = va_arg(ap, addr_t);
-				putnumber(putch, v, hextab_lo, n);
+			case 'o': /* octal */
+				n = va_arg(ap, unsigned int);
+				putint(putch, v, 8, hextab_lo, min_field_width, padding, n);
+				break;
+			case 'd': /* signal decimal */
+			case 'i': /* signal integer */
+			{
+				int i = va_arg(ap, int);
+				if (i < 0) {
+					/* Negative: flip the sign, show the line */
+					i = -i;
+					putch(v, '-');
+				}
+				putint(putch, v, 10, hextab_lo, min_field_width, padding, i);
+				break;
+			}
+			case 'p': /* pointer */
+				n = (uintmax_t)(addr_t)va_arg(ap, void*);
+				putint(putch, v, 16, hextab_lo, min_field_width, padding, n);
 				break;
 			default: /* unknown, just print it */
 				putch(v, '%');
@@ -194,7 +206,7 @@ sprintf(char* str, const char* fmt, ...)
 struct SNPRINTF_CTX {
 	char* buf;
 	int cur_len;
-	int left;
+	size_t left;
 };
 
 static void
@@ -210,7 +222,7 @@ snprintf_add(void* v, int c)
 }
 
 int
-snprintf(char* str, int len, const char* fmt, ...)
+snprintf(char* str, size_t len, const char* fmt, ...)
 {
 	struct SNPRINTF_CTX ctx;
 
