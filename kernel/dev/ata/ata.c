@@ -12,6 +12,8 @@
 
 TRACE_SETUP;
 
+#define ATA_FREELIST_LENGTH 16
+
 extern struct DRIVER drv_atadisk;
 extern struct DRIVER drv_atacd;
 		
@@ -68,7 +70,9 @@ ata_irq(device_t dev)
 		if (stat & ATA_STAT_ERR) {
 			kprintf("ata error %x ==> %x\n", stat,inb(priv->io_port + 1));
 			bio_set_error(item->bio);
-			kfree(item);
+			spinlock_lock(&priv->spl_freelist);
+			QUEUE_ADD_TAIL(&priv->freelist, item);
+			spinlock_unlock(&priv->spl_freelist);
 			return;
 		}
 
@@ -93,7 +97,9 @@ ata_irq(device_t dev)
 	
 	/* Current request is done. Sign it off and away it goes */
 	bio_set_available(item->bio);
-	kfree(item);
+	spinlock_lock(&priv->spl_freelist);
+	QUEUE_ADD_TAIL(&priv->freelist, item);
+	spinlock_unlock(&priv->spl_freelist);
 }
 
 static uint8_t
@@ -384,6 +390,13 @@ ata_attach(device_t dev, uint32_t io, uint32_t irq)
 	if (!irq_register(irq, dev, ata_irq))
 		return ANANAS_ERROR(NO_RESOURCE);
 
+	/* Initialize a freelist of request items */
+	QUEUE_INIT(&priv->freelist);
+	spinlock_init(&priv->spl_freelist);
+	struct ATA_REQUEST_ITEM* item = kmalloc(sizeof(struct ATA_REQUEST_ITEM) * ATA_FREELIST_LENGTH);
+	for (unsigned int i = 0; i < ATA_FREELIST_LENGTH; i++, item++)
+		QUEUE_ADD_TAIL(&priv->freelist, item);
+
 	/* reset the control register - this ensures we receive interrupts */
 	outb(priv->io_port + ATA_REG_DEVCONTROL, 0);
 	return ANANAS_ERROR_OK;
@@ -439,11 +452,17 @@ ata_enqueue(device_t dev, void* request)
 	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
 	struct ATA_REQUEST_ITEM* item = (struct ATA_REQUEST_ITEM*)request;
 	KASSERT(item->bio != NULL, "ata_enqueue(): request without bio data buffer");
+
 	/*
-	 * XXX Duplicate the request; this should be converted to a preallocated list
-	 *     or something someday.
+	 * Grab an item from our freelist and use it to store the request; this ensures the caller doesn't need to
+	 * allocate requests etc (XXX maybe that would be nicer?)
 	 */
-	struct ATA_REQUEST_ITEM* newitem = kmalloc(sizeof(struct ATA_REQUEST_ITEM));
+	spinlock_lock(&priv->spl_freelist);
+	KASSERT(!QUEUE_EMPTY(&priv->freelist), "out of freelist items"); /* XXX deal with */
+	struct ATA_REQUEST_ITEM* newitem = QUEUE_HEAD(&priv->freelist);
+	QUEUE_POP_HEAD(&priv->freelist);
+	spinlock_unlock(&priv->spl_freelist);
+
 	memcpy(newitem, request, sizeof(struct ATA_REQUEST_ITEM));
 	spinlock_lock(&priv->spl_requests);
 	QUEUE_ADD_TAIL(&priv->requests, newitem);
