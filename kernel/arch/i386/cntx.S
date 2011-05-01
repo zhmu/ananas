@@ -152,9 +152,6 @@ md_store_kernel:
 md_restore_ctx:
 	movl	4(%esp), %ebx
 
-	/* Do not allow interrupts while restoring the context */
-	cli
-
 	/*
 	 * First of all, restore thread's pagedir; we skip this if possible (it
 	 * forces a TLB flush which is expensive)
