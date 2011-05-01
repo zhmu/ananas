@@ -184,7 +184,8 @@ thread_free(thread_t t)
 	t->flags |= THREAD_FLAG_ZOMBIE;
 
 	/* If the thread was on the scheduler queue, remove it */
-	scheduler_remove_thread(t);
+	if ((t->flags & THREAD_FLAG_SUSPENDED) == 0)
+		scheduler_remove_thread(t);
 }
 
 void
