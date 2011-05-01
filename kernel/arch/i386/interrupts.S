@@ -315,10 +315,6 @@ clone_return:
 	movl	%fs:(PCPU_CONTEXT), %ebx
 	movl	CTX_ESP0(%ebx), %esp
 
-	/* And to the process page tables */
-	movl	CTX_CR3(%ebx), %edx
-	movl	%edx, %cr3
-
 	/*
 	 * The syscall code will have created a stackframe to
 	 * pass the arguments to the syscall handler; we need to
