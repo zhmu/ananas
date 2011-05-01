@@ -234,10 +234,6 @@ syscall_int:
 	 */
 	movl 16(%ebp), %esi
 
-	/* Switch to kernel registers */ 
-	movw	$GDT_SEL_KERNEL_PCPU, %bx
-	movw	%bx, %fs
-
 	/*
 	 * Set up a pointer to the structure, and copy 6 arguments
 	 * in place. Note that the stack grows backward, so we need
