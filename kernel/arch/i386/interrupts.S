@@ -344,7 +344,11 @@ clone_return:
 	movl	-56(%esp), %edx
 	movw	%dx, %fs
 
-	/* Finally, restore our %ebp and return to the new thread */
+	/*
+	 * Finally, restore our %ebp and return to the new thread; we'll use
+	 * the eflags from the original thread, which will conveniently enable
+	 * interrupts for us.
+	 */
 	pop	%ebp
 	iret
 

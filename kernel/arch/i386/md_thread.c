@@ -204,6 +204,14 @@ md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
 	t->md_ctx.cr3 = KVTOP((addr_t)t->md_pagedir);
 
 	/*
+	 * Temporarily disable the thread's interrupts; it's only possible to clone a
+	 * thread by using a syscall and we need to restore the part of the context
+	 * as ABI requirements dictate - thus the stack may not change and we'll
+	 * disable interrupts to ensure it will not.
+	 */
+	t->md_ctx.eflags &= ~EFLAGS_IF;
+
+	/*
 	 * Copy stack content; we need to copy the kernel stack over because we can
 	 * obtain the stackframe from it, which allows us to return to the intended
 	 * caller. The user stackframe is important as it will allow the new thread
