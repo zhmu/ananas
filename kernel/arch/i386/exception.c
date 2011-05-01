@@ -42,13 +42,12 @@ exception_generic(struct STACKFRAME* sf)
 	const char* descr = x86_exception_name(sf->sf_trapno);
 	int userland = (sf->sf_cs & 3) == SEG_DPL_USER;
 
-	kprintf("(CPU %u) %s exception: %s (%u) at cs:eip = %x:%x\n",
+	kprintf("(CPU %u) %s exception: %s (%u) at cs:eip = %04x:%08x\n",
 		PCPU_GET(cpuid), userland ? "user land" : "kernel", descr,
 		sf->sf_trapno, sf->sf_cs, sf->sf_eip);
-	kprintf("eax=%x ebx=%x ecx=%x edx=%x\n", sf->sf_eax, sf->sf_ebx, sf->sf_ecx, sf->sf_edx);
-	kprintf("esi=%x edi=%x ebp=%x\n", sf->sf_esi, sf->sf_edi, sf->sf_ebp);
-	kprintf("ds=%x es=%x fs=%x gs=%x\n", sf->sf_ds, sf->sf_es, sf->sf_fs, sf->sf_gs);
-	kprintf("possible ss:esp = %x:%x\n", sf->sf_ss, sf->sf_esp);
+	kprintf("eax=%08x ebx=%08x ecx=%08x edx=%08x\n", sf->sf_eax, sf->sf_ebx, sf->sf_ecx, sf->sf_edx);
+	kprintf("esi=%08x edi=%08x ebp=%08x esp=%08x\n", sf->sf_esi, sf->sf_edi, sf->sf_ebp, userland ? sf->sf_sp : sf->sf_esp);
+	kprintf("ds=%04x es=%04x fs=%04x gs=%04x ss=%04x\n", sf->sf_ds, sf->sf_es, sf->sf_fs, sf->sf_gs, userland ? sf->sf_ss : 0);
 	if (sf->sf_trapno == EXC_PF) {
 		/* Page fault; show offending address */
 		addr_t fault_addr;
