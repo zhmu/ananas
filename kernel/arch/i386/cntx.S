@@ -282,6 +282,19 @@ md_reschedule:
 	orl	%eax, %eax
 	jz	reschedule_kernctx
 
+	/*
+	 * Temporarily override %fs with our PCPU data; this is necessary
+	 * because we will be returned to kernel context. After rescheduling
+	 * is done, we'll restore the previous value - this prevents a
+	 * bogus %fs restore during context restoring of this thread, which
+	 * is expensive.
+	 *
+	 * Note that we must do this before we store %esp so that we restore
+	 * the correct %esp when we are re-scheduled.
+	 */
+	pushl	CTX_FS(%eax)
+	movl	$GDT_SEL_KERNEL_PCPU, CTX_FS(%eax)
+
 	/* Store %ebx/%esi/%ebp/%edi/%esp */
 	movl	%ebx, CTX_EBX(%eax)
 	movl	%esi, CTX_ESI(%eax)
@@ -289,30 +302,12 @@ md_reschedule:
 	movl	%ebp, CTX_EBP(%eax)
 	movl	%esp, CTX_ESP(%eax)
 
-	/*
-	 * Note that the 'call' we are about to do
-	 * decrements esp by 4, so adjust.
-	 */
-	movl	%esp, %ebx
-	subl	$4, %ebx
-	movl	%ebx, CTX_ESP(%eax)
-
 	/* Now, insert our return point, %cs:%eip */
 	movl	$GDT_SEL_KERNEL_CODE, CTX_CS(%eax)
 	movl	$reschedule_back, CTX_EIP(%eax)
-
-	/*
-	 * Temporarily override %fs with our PCPU data; this is necessary
-	 * because we will be returned to kernel context. After rescheduling
-	 * is done, we'll restore the previous value - this prevents a
-	 * bogus %fs restore during context restoring of this thread, which
-	 * is expensive.
-	 */
-	pushl	CTX_FS(%eax)
-	movl	$GDT_SEL_KERNEL_PCPU, CTX_FS(%eax)
 	
 	/* All is set - schedule a new thread! */
-	call	schedule
+	jmp	schedule
 
 reschedule_back:
 	/*
