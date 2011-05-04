@@ -1,4 +1,5 @@
 #include <ananas/types.h>
+#include <machine/debug.h>
 #include <machine/frame.h>
 #include <machine/param.h>
 #include <machine/thread.h>
@@ -50,6 +51,7 @@ md_thread_setup(thread_t t)
 	t->md_ctx.ss = GDT_SEL_USER_DATA + SEG_DPL_USER;
 	t->md_ctx.cr3 = KVTOP((addr_t)t->md_pagedir);
 	t->md_ctx.eflags = EFLAGS_IF;
+	t->md_ctx.dr[7] = DR7_LE | DR7_GE;
 
 	/* initialize FPU state similar to what finit would do */
 	t->md_fpu_ctx.cw = 0x37f;
@@ -107,6 +109,13 @@ md_thread_switch(thread_t new, thread_t old)
 	/* Activate the corresponding kernel stack in the TSS */
 	struct TSS* tss = (struct TSS*)PCPU_GET(tss);
 	tss->esp0 = ctx_new->esp0;
+
+	/* Set debug registers */
+	DR_SET(0, ctx_new->dr[0]);
+	DR_SET(1, ctx_new->dr[1]);
+	DR_SET(2, ctx_new->dr[2]);
+	DR_SET(3, ctx_new->dr[3]);
+	DR_SET(7, ctx_new->dr[7]);
 
 	/* Go! */
 	md_restore_ctx(ctx_new);
@@ -210,6 +219,9 @@ md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
 	 * disable interrupts to ensure it will not.
 	 */
 	t->md_ctx.eflags &= ~EFLAGS_IF;
+
+	/* Do not inherit breakpoints */
+	t->md_ctx.dr[7] = DR7_LE | DR7_GE;
 
 	/*
 	 * Copy stack content; we need to copy the kernel stack over because we can
