@@ -101,7 +101,7 @@ do_irq:
 	RESTORE_SEGS
 	RESTORE_REGISTERS
 	addl	$SF_EIP, %esp
-	iretl
+	iret
 
 do_exception:
 	SAVE_REGISTERS
@@ -127,7 +127,7 @@ do_exception:
 	RESTORE_SEGS
 	RESTORE_REGISTERS
 	addl	$SF_EIP, %esp
-	iretl
+	iret
 
 /*
  * There exist two versions of exceptions: those with an error code, and those
@@ -207,14 +207,12 @@ scheduler_cancel:
  * seems to use anyway.
  */
 syscall_int:
-	pushl	%ebp
-	movl	%esp, %ebp
-	subl	$32, %esp
-
 	/*
 	 * System V ABI for Intel386 Architecture says we only have to
-	 * preserve %ebx, %esi and %edi.
+	 * preserve %ebx, %esi, %edi, %ebp and %esp (the latter is done
+	 * implicitely by the hardware).
 	 */
+	pushl	%ebp
 	pushl	%ebx
 	pushl	%esi
 	pushl	%edi
@@ -225,76 +223,64 @@ syscall_int:
 	pushl	%fs
 
 	/*
+	 * Switch to kernel segment register context (ds/es/fs); this ensures
+	 * the stores below will work (%esi uses %ds implicitely)
+	 */
+	movw	$GDT_SEL_KERNEL_DATA, %bx
+	movw	%bx, %ds
+	movw	%bx, %es
+	movw	$GDT_SEL_KERNEL_PCPU, %bx
+	movw	%bx, %fs
+
+	/*
 	 * Fetch the caller's stack pointer; this will be saved at our
 	 * current stack - but note that we have already created a
 	 * stackframe, so we just use that as base.
 	 *
-	 * The 16 comes from stored %ebp, %eip, %cs, %flags, %esp, %ss
-	 * as they occur on offsets 0     4     8    12      16
+	 * The 40 comes from stored fs es ds edi esi ebx ebp eip cs flg esp ss
+	 * as they occur on offsets 0  4  8  12  16  20  24  28 32  36  40  44
 	 */
-	movl 16(%ebp), %esi
+	movl 40(%esp), %esi
 
 	/*
 	 * Set up a pointer to the structure, and copy 6 arguments
 	 * in place. Note that the stack grows backward, so we need
 	 * to place them in reverse order.
 	 */
-	movl	%eax, -28(%ebp)
-	movl	 4(%esi), %eax
-	movl	 8(%esi), %ebx
-	movl	12(%esi), %ecx
-	movl	16(%esi), %edx
-	movl	20(%esi), %edi
-	movl	%eax, -24(%ebp)
-	movl	%ebx, -20(%ebp)
-	movl	%ecx, -16(%ebp)
-	movl	%edx, -12(%ebp)
-	movl	%edi,  -8(%ebp)
-
-	/*
-	 * Calculate the address to the base of the structure; this is passed
-	 * to the syscall function.
-	 */
-	movl	%ebp, %eax
-	subl	$28,  %eax
-	movl	%eax, -4(%ebp)
-
-	/* Switch to kernel segment register context (ds/es/fs) */
-	movw	$GDT_SEL_KERNEL_DATA, %ax
-	movw	%ax, %ds
-	movw	%ax, %es
-	movw	$GDT_SEL_KERNEL_PCPU, %ax
-	movw	%ax, %fs
+	pushl	20(%esi)
+	pushl	16(%esi)
+	pushl	12(%esi)
+	pushl	 8(%esi)
+	pushl	 4(%esi)
+	pushl	%eax
 
 	/*
 	 * Invoke the generic syscall hander; return values will be passed in
-	 * %eax, so we cannot thrash that.
+	 * %eax, so we cannot thrash that. Note that our argument is pushed
+	 * beforehand, which simply points to the syscall values.
 	 */
-	pushl	-4(%ebp)
+	pushl	%esp
 	call	syscall
-	addl	$4, %esp
+	addl	$28, %esp	/* 6 regs + esp */
+
+syscall_return:
 
 	/* Restore registers */
 	popl	%fs
 	popl	%es
 	popl	%ds
-
 	popl	%edi
 	popl	%esi
 	popl	%ebx
-
-	leave
+	popl	%ebp
 	iret
 
 clone_return:
 	/*
 	 * Once here, the to-be-cloned thread is scheduled to be
-	 * resumed. We need to intercept it, because the kernel
-	 * stackframe contains references to the parent thread's
-	 * stack (which we cannot access) - and even worse,
-	 * we are running from the userland(!) stack, because we
-	 * currently run in kernel mode and thus esp0 is not
-	 * restored.
+	 * resumed. We are returning to a new thread, so we'll
+	 * need to restore the context exactly as it were when
+	 * the thread did the syscall.
 	 *
 	 * However, the top of the kernel stack will still have
 	 * the stackframe set up by our syscall routine (as there
@@ -308,47 +294,18 @@ clone_return:
 	/* Switch to the process' kernel stack */
 	movw	$GDT_SEL_KERNEL_PCPU, %bx
 	movw	%bx, %fs
+
+	/* Rewind the stack as created by syscall_int */
 	movl	%fs:(PCPU_CONTEXT), %ebx
 	movl	CTX_ESP0(%ebx), %esp
+	subl	$48, %esp
 
-	/*
-	 * The syscall code will have created a stackframe to
-	 * pass the arguments to the syscall handler; we need to
-	 * unwind it, since we'll have to restore the registers the
-	 * ABI wanted us to preserve: %ebx, %esi and %edi.
-	 *
-	 * First, let's move our stack to where it was once the syscall was
-	 * invoked, plus the stored %ebp; we need to restore that first.
-	 */
-	subl	$(6 * 4), %esp
-
-	/*
-	 * There is an 'push %ebp; subl $32, %esp' in the syscall handler; this
-	 * means our saved registers are at %esp-36 downwards.
-	 */
-	movl	-36(%esp), %ebx
-	movl	-40(%esp), %esi
-	movl	-44(%esp), %edi
-	movl	-48(%esp), %edx
-	movw	%dx, %ds
-	movl	-52(%esp), %edx
-	movw	%dx, %es
-	movl	-56(%esp), %edx
-	movw	%dx, %fs
-
-	/*
-	 * Finally, restore our %ebp and return to the new thread; we'll use
-	 * the eflags from the original thread, which will conveniently enable
-	 * interrupts for us.
-	 */
-	pop	%ebp
-	iret
+	jmp	syscall_return
 
 #ifdef SMP
 spurious_irq:
 	iret
 #endif
-
 
 /* Now we just need to list the exception handlers */
 EXCEPTION_HANDLER(0)
