@@ -46,8 +46,8 @@ md_thread_setup(thread_t t)
 	t->md_ctx.esp  = (addr_t)USERLAND_STACK_ADDR + THREAD_STACK_SIZE;
 	t->md_ctx.esp0 = (addr_t)KERNEL_STACK_ADDR + KERNEL_STACK_SIZE - 4;
 	t->md_ctx.cs = GDT_SEL_USER_CODE + SEG_DPL_USER;
-	t->md_ctx.ds = GDT_SEL_USER_DATA;
-	t->md_ctx.es = GDT_SEL_USER_DATA;
+	t->md_ctx.ds = GDT_SEL_USER_DATA + SEG_DPL_USER;
+	t->md_ctx.es = GDT_SEL_USER_DATA + SEG_DPL_USER;
 	t->md_ctx.ss = GDT_SEL_USER_DATA + SEG_DPL_USER;
 	t->md_ctx.cr3 = KVTOP((addr_t)t->md_pagedir);
 	t->md_ctx.eflags = EFLAGS_IF;
