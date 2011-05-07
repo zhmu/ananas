@@ -292,6 +292,7 @@ bio_restartdata:
 		spinlock_unlock(&spl_bio_bitmap);
 		spinlock_unlock(&spl_bucket[bucket_num]);
 		bio_cleanup();
+		spinlock_lock(&spl_bucket[bucket_num]);
 		goto bio_restartdata;
 	}
 	/* Walk back the number of blocks we need to allocate, we know they are free */
