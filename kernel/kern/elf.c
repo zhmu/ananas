@@ -158,12 +158,12 @@ elf32_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 		 */
 		addr_t virt_begin = ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE);
 		addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_memsz), PAGE_SIZE);
-		TRACE(EXEC, INFO, "ph %u: instantiated mapping for %x-%x",
-		 privdata->elf_num_ph, virt_begin, virt_end);
 		struct THREAD_MAPPING* tm;
 		err = thread_mapto(thread, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &tm);
 		if (err != ANANAS_ERROR_OK)
 			goto fail;
+		TRACE(EXEC, INFO, "ph %u: instantiated mapping for %x-%x at physical %x",
+		 privdata->elf_num_ph, virt_begin, virt_end, tm->tm_phys);
 
 		/* Hook up the program header */
 		struct ELF_THREADMAP_PROGHEADER* ph = &privdata->elf_ph[privdata->elf_num_ph];
