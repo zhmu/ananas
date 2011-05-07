@@ -374,6 +374,9 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	/* Initialize the PIT */
 	x86_pit_init();
 
+	/* Enable debug extensions */
+	__asm __volatile("movl %cr4, %eax; orl $0x8, %eax; mov %eax, %cr4");
+
 	/*
 	 * Enable interrupts. We do this right before the machine-independant code
 	 * because it will allow us to rely on interrupts when probing devices etc.
