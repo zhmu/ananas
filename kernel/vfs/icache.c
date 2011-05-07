@@ -29,10 +29,10 @@ static char*
 fsop_to_string(struct VFS_MOUNTED_FS* fs, void* fsop)
 {
 	static char out[128];
-	char tmp[8];
+	char tmp[32];
 	strcpy(out, "");
 	for (int i = 0; i < fs->fs_fsop_size; i++) {
-		sprintf(tmp, "%x", ((char*)fsop)[i]);
+		snprintf(tmp, sizeof(tmp), "%x", ((unsigned char*)fsop)[i]);
 		if (i > 0)
 			strcat(out, ",");
 		strcat(out, tmp);
@@ -190,7 +190,7 @@ retry:
 			DQUEUE_REMOVE(&fs->fs_icache_inuse, ii);
 			DQUEUE_ADD_HEAD(&fs->fs_icache_inuse, ii);
 			ICACHE_UNLOCK(fs);
-			TRACE(VFS, INFO, "cache hit: fs=%p,fsop=% => ii=%p, inode=%p\n", fs, fsop_to_string(fs, fsop), ii, ii->inode);
+			TRACE(VFS, INFO, "cache hit: fs=%p,fsop=% => ii=%p, inode=%p", fs, fsop_to_string(fs, fsop), ii, ii->inode);
 			return ii;
 		}
 	}
