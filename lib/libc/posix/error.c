@@ -40,6 +40,8 @@ _posix_map_error(errorcode_t err)
 		case ANANAS_ERROR_NO_DEVICE:
 		case ANANAS_ERROR_NO_RESOURCE:
 			SET_ERRNO(ENXIO);
+		case ANANAS_ERROR_FILE_EXISTS:
+			SET_ERRNO(EEXIST);
 		case ANANAS_ERROR_CLONED: /* should never end up here */
 		case ANANAS_ERROR_UNKNOWN:
 		default:
