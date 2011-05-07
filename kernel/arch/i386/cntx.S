@@ -6,6 +6,8 @@
 
 .global md_store_ctx, md_restore_ctx, md_reschedule, md_idle_thread
 
+#define SANITY_CHECKS
+
 /*
  * Stores the current thread context. This function expects to be
  * called from an interrupt context, as a near call.
@@ -232,6 +234,20 @@ r_uthread:
 	/* Restore ds */
 	movl	CTX_DS(%ebx), %eax
 	movw	%ax, %ds
+
+#ifdef SANITY_CHECKS
+	/*
+	 * Santity check: we must restore the userland ds; if we don't, the
+	 * iret will set %ds to the null descriptor - causing hard-to-debug
+	 * problems. Best to catch it beforehand.
+	 */
+	cmpw	$(GDT_SEL_USER_DATA + 3), %ax
+	je	md_restore_ctx_dsok
+
+	int	$3
+
+md_restore_ctx_dsok:
+#endif
 
 	/*
 	 * Enable the task-switched flag; this will cause an exception to be

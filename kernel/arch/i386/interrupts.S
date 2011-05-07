@@ -16,6 +16,8 @@
 #include "machine/vm.h"
 #include "asmsyms.h"
 
+#define SANITY_CHECKS
+
 #define SAVE_REGISTERS \
 	movl	%eax, SF_EAX(%esp); \
 	movl	%ebx, SF_EBX(%esp); \
@@ -222,6 +224,20 @@ syscall_int:
 	pushl	%es
 	pushl	%fs
 
+#ifdef SANITY_CHECKS
+	/*
+	 * Sanity check: a system call must be made from userland, thus %ds
+	 * must be userland version
+	 */
+	movw	%ds, %bx
+	cmpw	$(GDT_SEL_USER_DATA + 3), %bx
+	je	syscall_start_dsok
+
+	int 	$3
+
+syscall_start_dsok:
+#endif
+
 	/*
 	 * Switch to kernel segment register context (ds/es/fs); this ensures
 	 * the stores below will work (%esi uses %ds implicitely)
@@ -269,6 +285,22 @@ syscall_return:
 	popl	%fs
 	popl	%es
 	popl	%ds
+
+#ifdef SANITY_CHECKS
+	/*
+	 * Sanity check: we must have restored an userland ds; if we don't,
+	 * iret will reset %ds to null because it can't be accessed in ring 3,
+	 * leading to hard-to-debug problems. Best to verify it here.
+	 */
+	movw	%ds, %bx
+	cmpw	$(GDT_SEL_USER_DATA + 3), %bx
+	je	syscall_end_dsok
+
+	int	$3
+
+syscall_end_dsok:
+#endif
+
 	popl	%edi
 	popl	%esi
 	popl	%ebx
