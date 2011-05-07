@@ -1,5 +1,6 @@
 #include <ananas/types.h>
 #include <ananas/lock.h>
+#include <ananas/lib.h>
 
 /*
  * The spinlock implementation is based on IA-32 Intel Architecture Software
@@ -9,7 +10,7 @@
 void
 spinlock_lock(spinlock_t s)
 {
-	__asm(
+	__asm __volatile(
 "l1:\n"
 		"cmpl $0, (%%eax)\n"
 		"je		l2\n"
@@ -26,9 +27,12 @@ spinlock_lock(spinlock_t s)
 void
 spinlock_unlock(spinlock_t s)
 {
-	__asm(
-		"movl	$0, (%%eax)\n"
-	: : "a" (&s->var));
+	uint32_t oldval;
+	__asm __volatile(
+		"xorl %%ebx,%%ebx\n"
+		"xchg	(%%eax), %%ebx\n"
+	: "=b" (oldval) : "a" (&s->var));
+	KASSERT(oldval != 0, "unlocking spinlock 0x%p that isn't locked", s);
 }
 
 void
