@@ -231,7 +231,8 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	IDT_SET_ENTRY(0x05, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception5);
 	IDT_SET_ENTRY(0x06, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception6);
 	IDT_SET_ENTRY(0x07, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception7);
-	IDT_SET_ENTRY(0x08, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception8);
+	/* Double fault must disable interrupts as well to increase odds of it running till the end */
+	IDT_SET_ENTRY(0x08, SEG_IGATE_TYPE, SEG_DPL_SUPERVISOR, exception8);
 	IDT_SET_ENTRY(0x09, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception9);
 	IDT_SET_ENTRY(0x0a, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception10);
 	IDT_SET_ENTRY(0x0b, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception11);
