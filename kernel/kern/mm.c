@@ -200,8 +200,8 @@ kmem_free(void* addr)
 		/*
 		 * We have no choice but to do a sequantial scan for the chunk in question.
 		 */
-		for (unsigned int n = 0; n < curzone->num_chunks; n++) {
-			struct MM_CHUNK* chunk = (struct MM_CHUNK*)((addr_t)curzone->chunks + n * sizeof(struct MM_CHUNK));
+		struct MM_CHUNK* chunk = (struct MM_CHUNK*)curzone->chunks;
+		for (unsigned int n = 0; n < curzone->num_chunks; n++, chunk++) {
 			if (chunk->address != (addr_t)addr)
 				continue;
 
