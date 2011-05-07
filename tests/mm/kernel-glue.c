@@ -29,10 +29,10 @@ tracef(int fileid, const char* func, const char* fmt, ...)
 }
 
 /* There is no need to lock anything, so just stub the locking stuff out */
-struct SPINLOCK;
-void md_spinlock_init(struct SPINLOCK* s) {}
-void md_spinlock_lock(struct SPINLOCK* s) {}
-void md_spinlock_unlock(struct SPINLOCK* s) {}
+struct SPINLOCK { int var; };
+void spinlock_init(struct SPINLOCK* s) { s->var = 0;}
+void spinlock_lock(struct SPINLOCK* s) { KASSERT(s->var == 0, "deadlock"); s->var = 1; }
+void spinlock_unlock(struct SPINLOCK* s) { KASSERT(s->var != 0, "missing lock"); s->var = 0; }
 
 void
 md_reschedule()
@@ -60,9 +60,10 @@ vaprintf(const char* fmt, va_list va)
 	vprintf(fmt, va);
 }
 
-void
-vm_map(void* ptr, size_t len)
+void*
+vm_map_kernel(void* ptr, size_t len, int flags)
 {
+	return ptr;
 }
 
 /* vim:set ts=2 sw=2: */
