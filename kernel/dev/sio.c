@@ -67,29 +67,10 @@ sio_write(device_t dev, const void* data, size_t* len, off_t offset)
 	size_t written = 0;
 	const char* ch = (const char*)data;
 
-	for (unsigned int n = 0; n < *len; written++, ch++) {
-		__asm(
-			/* Poll the LSR to ensure we're not sending another character */
-			"mov	%%ecx, %%edx\n"
-			"addl	$5,%%edx\n"
-	"z1f:\n"
-			"in		%%dx,%%al\n"
-			"test	$0x20, %%al\n"
-			"jz	 	z1f\n"
-			/* Place the character in the data register */
-			"mov	%%ecx, %%edx\n"
-			"mov	%%ebx, %%eax\n"
-			"outb	%%al, %%dx\n"
-			"mov	%%ecx, %%edx\n"
-			"mov	%%ecx, %%edx\n"
-			"addl	$5,%%edx\n"
-	"z2f:\n"
-			"in		%%dx,%%al\n"
-			"test	$0x20, %%al\n"
-			"jz	 	z2f\n"
-		: : "b" (*ch), "c" (privdata->io_port));
+	for (size_t n = 0; n < *len; n++, ch++) {
+		while ((inb(privdata->io_port + SIO_REG_LSR) & 0x20) == 0);
+		outb(privdata->io_port + SIO_REG_DATA, *ch);
 	}
-	*len = written;
 	return ANANAS_ERROR_OK;
 }
 
