@@ -84,10 +84,6 @@ md_store_ctx:
 	movw	%gs,  %ax
 	movl	%eax, CTX_GS(%ebx)
 
-	/* Store original ds */
-	popl	%eax
-	movl	%eax, CTX_DS(%ebx)
-
 	/*
 	 * Store the FPU context, if needed; %fs still points to the
 	 * per-CPU data.
@@ -102,6 +98,10 @@ md_store_ctx:
 	movl	$0, %fs:(PCPU_FPUCTX)
 
 md_store_ctx_skip_fpu:
+	/* Store original ds */
+	popl	%eax
+	movl	%eax, CTX_DS(%ebx)
+
 	/* Store original fs */
 	popl	%eax
 	movl	%eax, CTX_FS(%ebx)
@@ -137,9 +137,6 @@ md_store_kernel:
 	movl	%esp, %eax
 	addl	$(8 * 4), %eax
 	movl	%eax, CTX_ESP(%ebx)
-
-	/* Trash %ds */
-	addl	$4, %esp
 
 	/* Skip segment registers and FPU; they'll never be used */
 	jmp	md_store_ctx_skip_fpu
@@ -213,18 +210,15 @@ md_restore_ctx_skip_cr3:
 	pushl	CTX_CS(%ebx)		/* cs */
 	pushl	CTX_EIP(%ebx)		/* eip */
 
+	/* Restore %ds */
+	pushl	CTX_DS(%ebx)
+	popl	%ds
+
 	/* Finally, restore ebx itself and go */
 	movl	CTX_EBX(%ebx), %ebx
 	iret
 
 r_uthread:
-	/*
-	 * We need to switch to the thread's kernelstack as soon as possible,
-	 * because we cannot access our kernel stack anymore once we activate
-	 * the thread's page directory.
-	 */
-	movl	CTX_ESP0(%ebx), %esp
-
 	/* Prepare the stack for return */
 	pushl	CTX_SS(%ebx)		/* userland ss */
 	pushl	CTX_ESP(%ebx)		/* userland esp */
