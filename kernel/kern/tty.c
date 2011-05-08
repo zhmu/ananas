@@ -1,12 +1,18 @@
 /*
  * Implementation of our TTY device; this multiplexes input/output devices to a
  * single device, and handles the TTY magic.
+ *
+ * Actual processing of data is handled by the 'tty' kernel thread; this is done
+ * because we cannot do so from interrupt context, which is typically the point
+ * where data enters the TTY device. Instead of creating one thread per device,
+ * we spawn a generic thread which takes care of all of them.
  */
 #include <ananas/types.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
+#include <ananas/queue.h>
 #include <ananas/limits.h>
 #include <ananas/mm.h>
 #include <ananas/lib.h>
@@ -17,6 +23,7 @@
 #define CR 0xd
 
 struct TTY_PRIVDATA {
+	device_t				device;
 	device_t				input_dev;
 	device_t				output_dev;
 
@@ -24,9 +31,22 @@ struct TTY_PRIVDATA {
 	char						input_queue[MAX_INPUT];
 	unsigned int		in_writepos;
 	unsigned int		in_readpos;
+
+	/*
+	 * This is crude, but we'll need a queue for all TTY devices so that
+	 * we can handle data for them one by one.
+	 */
+	QUEUE_FIELDS(struct TTY_PRIVDATA);
 };
 
+QUEUE_DEFINE_BEGIN(TTY_QUEUE, struct TTY_PRIVDATA)
+	struct SPINLOCK tq_lock;
+QUEUE_DEFINE_END
+
 static struct DRIVER drv_tty;
+static struct THREAD tty_thread;
+static struct TTY_QUEUE tty_queue;
+static struct WAIT_QUEUE tty_waitqueue;
 
 device_t
 tty_alloc(device_t input_dev, device_t output_dev)
@@ -39,6 +59,7 @@ tty_alloc(device_t input_dev, device_t output_dev)
 	memset(priv, 0, sizeof(struct TTY_PRIVDATA));
 	priv->input_dev = input_dev;
 	priv->output_dev = output_dev;
+	priv->device = dev; /* backref for kernel thread */
 	dev->privdata = priv;
 
 	/* Use sensible defaults for the termios structure */
@@ -53,6 +74,11 @@ tty_alloc(device_t input_dev, device_t output_dev)
 	priv->termios.c_oflag = OPOST | ONLCR;
 	priv->termios.c_lflag = ECHO | ECHOE;
 	priv->termios.c_cflag = CREAD;
+
+	/* Hook our device to the TTY queue so that we handle it in our thread */
+	spinlock_lock(&tty_queue.tq_lock);
+	QUEUE_ADD_TAIL(&tty_queue, priv);
+	spinlock_unlock(&tty_queue.tq_lock);
 	return dev;
 }
 
@@ -183,8 +209,8 @@ tty_handle_echo(device_t dev, unsigned char byte)
 		tty_putchar(dev, byte);
 }
 
-void
-tty_signal_data(device_t dev)
+static void
+tty_handle_input(device_t dev)
 {
 	struct TTY_PRIVDATA* priv = (struct TTY_PRIVDATA*)dev->privdata;
 
@@ -232,6 +258,49 @@ tty_signal_data(device_t dev)
 
 	/* If we have waiters, awaken them */
 	waitqueue_signal(&dev->waiters);
+}
+
+static void
+tty_thread_func(void* ptr)
+{
+	struct WAITER* w = waitqueue_add(&tty_waitqueue);
+	while(1) {
+		waitqueue_reset_waiter(w);
+		waitqueue_wait(w);
+
+		KASSERT(!QUEUE_EMPTY(&tty_queue), "woken up without tty's?");
+
+		spinlock_lock(&tty_queue.tq_lock);
+		QUEUE_FOREACH(&tty_queue, priv, struct TTY_PRIVDATA) {
+			tty_handle_input(priv->device);
+		}
+		spinlock_unlock(&tty_queue.tq_lock);
+	}
+}
+
+void
+tty_signal_data()
+{
+	waitqueue_signal(&tty_waitqueue);
+}
+
+void
+tty_preinit()
+{
+	/* Initialize the queue of all tty's */
+	QUEUE_INIT(&tty_queue);
+	spinlock_init(&tty_queue.tq_lock);
+	waitqueue_init(&tty_waitqueue);
+}
+
+void
+tty_init()
+{
+	/* Launch our kernel thread */
+	thread_init(&tty_thread, NULL);
+	thread_set_args(&tty_thread, "[tty]\0\0", 8);
+	md_thread_setkthread(&tty_thread, tty_thread_func, NULL);
+	thread_resume(&tty_thread);
 }
 
 static struct DRIVER drv_tty = {

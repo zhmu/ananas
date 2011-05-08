@@ -113,7 +113,7 @@ atkbd_irq(device_t dev)
 	priv->kbd_buffer_writepos = (priv->kbd_buffer_writepos + 1) % ATKBD_BUFFER_SIZE;
 
 	/* XXX signal consumers - this is a hack */
-	tty_signal_data(console_tty);
+	tty_signal_data();
 }
 
 static errorcode_t

@@ -31,6 +31,7 @@ mi_startup()
 	 * Cheat and initialize the console driver first; this ensures the user
 	 * will be able to see the initialization messages ;-)
 	 */
+	tty_preinit();
 	console_init();
 
 	/* Show a startup banner */
@@ -54,6 +55,9 @@ mi_startup()
 
 	/* Initialize waitqueues */
 	waitqueue_init(NULL);
+
+	/* Initialize TTY infastructure */
+	tty_init();
 
 	/* Initialize I/O */
 	bio_init();
