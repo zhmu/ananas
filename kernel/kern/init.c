@@ -36,8 +36,12 @@ mi_startup()
 	/* Show a startup banner */
 	size_t mem_avail, mem_total;
 	kmem_stats(&mem_avail, &mem_total);
-	kprintf("Hello world, this is Ananas/%s %u.%u\n", ARCHITECTURE, 0, 1);
+	kprintf("Ananas/%s - %s %s\n", ARCHITECTURE, __DATE__, __TIME__);
 	kprintf("Memory: %uKB available / %uKB total\n", mem_avail / 1024, mem_total / 1024);
+#if defined(__i386__) || defined(__amd64__)
+	extern int md_cpu_clock_mhz;
+	kprintf("CPU: %u MHz\n", md_cpu_clock_mhz);
+#endif
 
 #ifdef KDB
 	kdb_init();
