@@ -36,6 +36,7 @@ struct VGA_PRIVDATA {
 	uint8_t  vga_attr;
 	int      vga_dirty;
 	teken_t  vga_teken;
+	struct SPINLOCK vga_spl_teken;
 #ifdef VGA_KERNEL_THREAD
 	int      vga_cursor_x;
 	int      vga_cursor_y;
@@ -279,6 +280,7 @@ vga_attach(device_t dev)
 	tp.tp_row = VGA_HEIGHT; tp.tp_col = VGA_WIDTH;
 	teken_init(&vga_privdata->vga_teken, &tf, vga_privdata);
 	teken_set_winsize(&vga_privdata->vga_teken, &tp);
+	spinlock_init(&vga_privdata->vga_spl_teken);
 
 #ifdef VGA_KERNEL_THREAD
 	/*
@@ -302,6 +304,7 @@ vga_write(device_t dev, const void* data, size_t* len, off_t off)
 	struct VGA_PRIVDATA* priv = dev->privdata;
 	const uint8_t* ptr = data;
 	size_t left = *len;
+	spinlock_lock(&priv->vga_spl_teken);
 	while(left--) {
 		/* XXX this is a hack which should be performed in a TTY layer, once we have one */
 		if(*ptr == '\n')
@@ -309,6 +312,7 @@ vga_write(device_t dev, const void* data, size_t* len, off_t off)
 		teken_input(&priv->vga_teken, ptr, 1);
 		ptr++;
 	}
+	spinlock_unlock(&priv->vga_spl_teken);
 	return ANANAS_ERROR_OK;
 }
 
