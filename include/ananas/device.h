@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/dqueue.h>
 #include <ananas/lock.h>
+#include <ananas/waitqueue.h>
 
 #ifndef __DEVICE_H__
 #define __DEVICE_H__
@@ -11,9 +12,6 @@ typedef struct PROBE* probe_t;
 
 /* Maximum number of resources a given device can have */
 #define DEVICE_MAX_RESOURCES 16
-
-/* Maximum number of waiters on a given device */
-#define DEVICE_MAX_WAITERS 8
 
 /* Resources types */
 enum RESOURCE_TYPE {
@@ -70,21 +68,6 @@ struct DRIVER {
 };
 
 /*
- * Defines a thread waiting on the device; this is used for blocking calls
- * for which the driver needs to determine who to wake up when there is
- * data, an event etc. It is generalized here so that dying threads can
- * be adequately cleaned up.
- */
-struct DEVICE_WAITER {
-	/* Thread that is waiting */
-	struct THREAD*	thread;
-
-	/* XXX we should also have awakening criteria */
-	DQUEUE_FIELDS(struct DEVICE_WAITER);
-};
-DQUEUE_DEFINE(DEVICE_WAITER_QUEUE, struct DEVICE_WAITER);
-
-/*
  * This describes a device; it is generally attached but this structure
  * is also used during probe / attach phase.
  */
@@ -107,10 +90,8 @@ struct DEVICE {
 	/* Private data for the device driver */
 	void*		privdata;
 
-	/* Lock protecting the waiter queue*/
-	struct SPINLOCK	spl_waiters;
-	struct DEVICE_WAITER_QUEUE waiters;
-	struct DEVICE_WAITER_QUEUE avail_waiters;
+	/* Waiters */
+	struct WAIT_QUEUE waiters;
 
 	/* Queue fields */
 	DQUEUE_FIELDS(struct DEVICE);
