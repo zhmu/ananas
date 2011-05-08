@@ -131,7 +131,10 @@ void
 waitqueue_signal(struct WAIT_QUEUE* wq)
 {
 	spinlock_lock(&wq->wq_lock);
-	KASSERT(!DQUEUE_EMPTY(wq), "signalling without waiters");
+	if(DQUEUE_EMPTY(wq)) {
+		spinlock_unlock(&wq->wq_lock);
+		return;
+	}
 	DQUEUE_FOREACH(wq, w, struct WAITER) {
 		spinlock_lock(&w->w_lock);
 
