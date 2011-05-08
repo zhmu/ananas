@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/waitqueue.h>
 #include <ananas/lock.h>
+#include <ananas/pcpu.h>
 #include <ananas/schedule.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>

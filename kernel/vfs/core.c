@@ -6,6 +6,7 @@
 #include <ananas/mm.h>
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
+#include <ananas/vfs/types.h>
 #include <ananas/vfs/mount.h>
 #include "options.h"
 

@@ -2,9 +2,7 @@
 #define __WAITQUEUE_H__
 
 #include <ananas/types.h>
-#include <ananas/thread.h>
 #include <ananas/lock.h>
-#include <ananas/pcpu.h>
 #include <ananas/dqueue.h>
 
 /*
@@ -14,7 +12,7 @@
  */
 struct WAITER {
 	struct SPINLOCK	w_lock;			/* spinlock protecting the waiter */
-	thread_t	w_thread;		/* waiting thread */
+	struct THREAD*	w_thread;		/* waiting thread */
 	int		w_signalled;		/* number of times signalled */
 	struct WAIT_QUEUE* w_wq;		/* owner queue */
 	DQUEUE_FIELDS(struct WAITER);
