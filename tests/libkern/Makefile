@@ -1,9 +1,9 @@
-OBJS=		libkerntest.o print.o kernel-glue.o
+OBJS=		libkerntest.o print.o kernel-glue.o memset.o memcpy.o
 
 # cflags for our wrapper code
 WCFLAGS=	-std=c99 -I.
 # cflags for kernel stuff
-KCFLAGS=	$(WCFLAGS) -I../../include
+KCFLAGS=	$(WCFLAGS) -I../../include -Dmemset=kmemset -Dmemcpy=kmemcpy
 ARCH?=		amd64
 K?=		../../kernel
 
@@ -19,6 +19,12 @@ kernel-glue.o:	ananas kernel-glue.c
 # kernel files below here
 print.o:	$K/lib/kern/print.c
 		$(CC) $(KCFLAGS) -c -o print.o $K/lib/kern/print.c
+
+memset.o:	$K/lib/kern/memset.c
+		$(CC) $(KCFLAGS) -c -o memset.o $K/lib/kern/memset.c
+
+memcpy.o:	$K/lib/kern/memcpy.c
+		$(CC) $(KCFLAGS) -c -o memcpy.o $K/lib/kern/memcpy.c
 
 machine:
 		ln -sf ../../include/ananas/${ARCH} machine

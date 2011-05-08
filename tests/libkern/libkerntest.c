@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ananas/lib.h>
@@ -64,6 +65,65 @@ main(int argc, char* argv[])
 	KPRINTF_CHECK("12345", "% 4i", 12345);
 	KPRINTF_CHECK("   1.0002", "% 4i.%04i", 1, 2);
 	KPRINTF_CHECK(" foo", "%4s", "foo");
+
+	/* memset: 4 bytes aligned */
+	unsigned int dummy = (unsigned int)-1;
+	kmemset(&dummy, 0, sizeof(dummy));
+	assert(dummy == 0);
+
+	/* memset: 16 bytes aligned */
+	unsigned char buf[17] = { 0 };
+	kmemset(buf, 0xcd, 16);
+	for (int i = 0; i < 16; i++)
+		assert(buf[i] == 0xcd);
+	assert(buf[16] == 0);
+
+	/* memset: 3 bytes aligned */
+	kmemset(&buf, 0xab, 3);
+	assert(buf[0] == 0xab);
+	assert(buf[1] == 0xab);
+	assert(buf[2] == 0xab);
+	assert(buf[3] == 0xcd);
+
+	/* memset: 3 bytes unaligned */
+	kmemset(&buf[1], 0xaa, 3);
+	assert(buf[0] == 0xab);
+	assert(buf[1] == 0xaa);
+	assert(buf[2] == 0xaa);
+	assert(buf[3] == 0xaa);
+	assert(buf[4] == 0xcd);
+
+	/* memcpy: 4 bytes aligned */
+	unsigned int dummy2 = (unsigned int)-1;
+	kmemcpy(&dummy2, &dummy, sizeof(dummy));
+	assert(dummy2 == dummy);
+
+	/* memcpy: 16 bytes aligned */
+	unsigned char tmp[17] = {0};
+	kmemcpy(tmp, buf, 16);
+	for (int i = 0; i < 16; i++)
+		assert(tmp[i] == buf[i]);
+
+	/* memcpy: 3 bytes aligned */
+	kmemset(buf, 0x12, 3);
+	kmemcpy(tmp, buf, 3);
+	assert(tmp[0] == 0x12);
+	assert(tmp[1] == 0x12);
+	assert(tmp[2] == 0x12);
+	assert(tmp[3] == 0xaa);
+
+	/* memcpy: 7 bytes unaligned */
+	kmemset(buf, 0x24, 16);
+	kmemcpy(&tmp[1], &buf[2], 7);
+	assert(tmp[0] == 0x12);
+	assert(tmp[1] == 0x24);
+	assert(tmp[2] == 0x24);
+	assert(tmp[3] == 0x24);
+	assert(tmp[4] == 0x24);
+	assert(tmp[5] == 0x24);
+	assert(tmp[6] == 0x24);
+	assert(tmp[7] == 0x24);
+	assert(tmp[8] == 0xcd);
 
 	return 0;
 }
