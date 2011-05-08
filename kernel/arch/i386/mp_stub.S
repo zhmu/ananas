@@ -25,16 +25,6 @@ gdtr:	.word	(GDT_NUM_ENTRIES * 8) - 1
 m:	pop	%si
 	lgdt	(%si)
 
-	/*
-	 * Calculate the offset of mp_stub32; we do this because we are
-	 * sure a mapping to there exists. Without this trickery, we would
-	 * have to identify-map mp_stub32 - KERNBASE to mp_stub32, which is
-	 * much more work...
-	 */
-	movzx	%ax, %ebx
-	shl	$0x4, %ebx
-	add	$(mp_stub32 -  __ap_entry), %ebx
-
 	/* Jump to protected mode */
 	mov	%cr0, %eax
 	orl	$0x1, %eax
@@ -46,13 +36,10 @@ m:	pop	%si
 	 */
 	.byte	0x66
 	.byte	0xea
-	.long	mp_stub32_jmp - KERNBASE
+	.long	mp_stub32 - KERNBASE
 	.word	GDT_SEL_KERNEL_CODE
 
 .code32
-
-mp_stub32_jmp:
-	jmp	*%ebx
 
 mp_stub32:
 	/* Restore 32 bit registers */

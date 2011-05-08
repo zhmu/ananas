@@ -43,6 +43,14 @@ static struct BOOTINFO _bootinfo;
 /* CPU clock speed, in MHz */
 int md_cpu_clock_mhz = 0;
 
+void
+md_remove_low_mappings()
+{
+	for (int i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << VM_SHIFT_PT)) {
+		kernel_pd[i >> VM_SHIFT_PT] = 0;
+	}
+}
+
 /*
  * i386-dependant startup code, called by stub.s.
  */
@@ -157,13 +165,17 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 */
 	kernel_pd = (uint32_t*)((addr_t)pd | KERNBASE);
 
+#ifndef SMP
 	/*
-	 * We can throw the duplicate mappings away now, since we are now
-	 * using our virtual mappings.
+	 * We can throw the duplicate mappings away now, since we are now using our
+	 * virtual mappings...
+	 *
+	 * ...unless we're using SMP, because the AP code requires an identity
+	 * mapping so that paging can be enabled - we must delay until the AP's are
+	 * launched.
 	 */
-	for (int i = (addr_t)&__entry - KERNBASE; i < (addr_t)&__end - KERNBASE; i += (1 << VM_SHIFT_PT)) {
-		kernel_pd[i >> VM_SHIFT_PT] = 0;
-	}
+	md_remove_low_mappings();
+#endif
 
 	__asm(
 		/* Reload the page directory */

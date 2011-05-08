@@ -22,6 +22,7 @@
 /* Application Processor's entry point and end */
 void *__ap_entry, *__ap_entry_end;
 
+void md_remove_low_mappings();
 void md_map_kernel_lowaddr(uint32_t* pd);
 extern uint32_t* pagedir;
 
@@ -38,7 +39,9 @@ static uint32_t num_bus;
 struct IA32_INTERRUPT** ints;
 static uint32_t num_ints;
 
-static struct SPINLOCK spl_smp_launch;
+static char* ap_code;
+static int can_smp_launch = 0;
+static int num_smp_launched = 1; /* BSP is always launched */
 
 /* Used by interrupts.S to acknowledge IRQ's in the proper way */
 int lapic_initialized = 0;
@@ -115,7 +118,7 @@ locate_mpfps()
 	void* biosinfo_ptr = vm_map_kernel(0, 1, VM_FLAG_READ);
 	uint32_t ebda_addr = (*(uint16_t*)((addr_t)biosinfo_ptr + 0x40e)) << 4;
 	uint32_t basemem_last = (*(uint16_t*)((addr_t)biosinfo_ptr + 0x413) * 1024);
-	vm_unmap_kernel(biosinfo_ptr, 1);
+	vm_unmap_kernel((addr_t)biosinfo_ptr, 1);
 
 	/*
 	 * Attempt to locate the MPFP structure in the EBDA memory space. Note that
@@ -124,23 +127,25 @@ locate_mpfps()
 	 */
 	void* ebda_ptr = vm_map_kernel(ebda_addr & ~(PAGE_SIZE - 1), 2, VM_FLAG_READ);
 	mpfps = locate_mpfps_region((void*)((addr_t)ebda_ptr + (ebda_addr % PAGE_SIZE)), 1024);
-	vm_unmap_kernel(ebda_ptr, 2);
+	vm_unmap_kernel((addr_t)ebda_ptr, 2);
 	if (mpfps != 0)
-		return mpfps;
+		return KVTOP(mpfps);
 
 	/* Attempt to locate the MPFP structure in the last 1KB of base memory */
 	void* basemem_ptr = vm_map_kernel(basemem_last & ~(PAGE_SIZE - 1), 2, VM_FLAG_READ);
-	mpfps = locate_mpfps_region(basemem_last, 1024);
-	vm_unmap_kernel(basemem_ptr, 2);
+	mpfps = locate_mpfps_region(basemem_ptr, 1024);
+	vm_unmap_kernel((addr_t)basemem_ptr, 2);
 	if (mpfps != 0)
-		return mpfps;
+		return KVTOP(mpfps);
 
 	/* Finally, attempt to locate the MPFP structure in the BIOS address space */
 	void* bios_addr = vm_map_kernel(0xf0000, 16, VM_FLAG_READ);
 	mpfps = locate_mpfps_region(bios_addr, 65536);
-	vm_unmap_kernel(bios_addr, 16);
+	vm_unmap_kernel((addr_t)bios_addr, 16);
+	if (mpfps != 0)
+		return KVTOP(mpfps);
 
-	return mpfps;
+	return 0;
 }
 
 void
@@ -229,20 +234,20 @@ smp_init()
 	void* mpfps_ptr = vm_map_kernel(mpfps_addr & ~(PAGE_SIZE - 1), 1, VM_FLAG_READ);
 	struct MP_FLOATING_POINTER mpfps;
 	memcpy(&mpfps, (void*)((addr_t)mpfps_ptr + (mpfps_addr % PAGE_SIZE)), sizeof(struct MP_FLOATING_POINTER));
-	vm_unmap_kernel(mpfps_ptr, 1);
+	vm_unmap_kernel((addr_t)mpfps_ptr, 1);
 
 	/* Verify checksum before we do anything else */
 	if (!validate_checksum((addr_t)&mpfps, sizeof(struct MP_FLOATING_POINTER))) {
 		kprintf("SMP: mpfps structure corrupted, ignoring\n");
-		return;
+		goto smp_abort;
 	}
 	if ((mpfps.feature1 & 0x7f) != 0) {
 		kprintf("SMP: predefined configuration %u not implemented\n", mpfps.feature1 & 0x7f);
-		return;
+		goto smp_abort;
 	}
 	if (mpfps.phys_ptr == 0) {
 		kprintf("SMP: no MP configuration table specified\n");
-		return;
+		goto smp_abort;
 	}
 
 	/*
@@ -253,16 +258,16 @@ smp_init()
 	struct MP_CONFIGURATION_TABLE* mpct = (struct MP_CONFIGURATION_TABLE*)(mpfps_phys_ptr + (mpfps.phys_ptr % PAGE_SIZE));
 	uint32_t mpct_signature = mpct->signature;
 	uint32_t mpct_numpages = (sizeof(struct MP_CONFIGURATION_TABLE) + mpct->entry_count * 20 + PAGE_SIZE - 1) / PAGE_SIZE;
-	vm_unmap_kernel(mpfps_phys_ptr, 1);
+	vm_unmap_kernel((addr_t)mpfps_phys_ptr, 1);
 	if (mpct_signature != MP_CT_SIGNATURE)
-		return;
+		goto smp_abort;
 
 	mpfps_phys_ptr = vm_map_kernel(mpfps.phys_ptr & ~(PAGE_SIZE - 1), mpct_numpages, VM_FLAG_READ);
 	mpct = (struct MP_CONFIGURATION_TABLE*)(mpfps_phys_ptr + (mpfps.phys_ptr % PAGE_SIZE));
-	if (!validate_checksum(mpfps.phys_ptr, mpct->base_len)) {
-		vm_unmap_kernel(mpfps_phys_ptr, mpct_numpages);
+	if (!validate_checksum((addr_t)mpct, mpct->base_len)) {
+		vm_unmap_kernel((addr_t)mpfps_phys_ptr, mpct_numpages);
 		kprintf("SMP: mpct structure corrupted, ignoring\n");
-		return;
+		goto smp_abort;
 	}
 
 	kprintf("SMP: <%c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c%c%c%c%c> version 1.%u\n",
@@ -317,7 +322,7 @@ smp_init()
 		}
 	}
 	if (bsp_apic_id == -1)
-		panic("smp: no BSP processor defined!\n");
+		panic("smp: no BSP processor defined!");
 
 	kprintf("SMP: %u CPU(s) detected, %u IOAPIC(s)\n", num_cpu, num_ioapic);
 
@@ -454,15 +459,19 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 		entry_addr += (entry->type == MP_ENTRY_TYPE_PROCESSOR) ? 20 : 8;
 	}
 
-	vm_unmap_kernel(mpfps_phys_ptr, mpct_numpages);
+	vm_unmap_kernel((addr_t)mpfps_phys_ptr, mpct_numpages);
 
 	/*
 	 * OK, the AP's start in real mode, so we need to provide them with a
 	 * stub so they can run in protected mode. This stub must be located
-	 * in the lower 1MB...
+	 * in the lower 1MB.
+	 *
+	 * Note that the low memory mappings will not be removed in the SMP case, so
+	 * that the AP's can correctly switch to protected mode and enable paging.
+	 * Once this is all done, the mapping can safely be removed.
 	 */
-	char* ap_code = kmalloc(PAGE_SIZE);
-	KASSERT ((addr_t)ap_code < 0x100000, "ap code must be below 1MB"); /* XXX crude */
+	ap_code = kmalloc(PAGE_SIZE);
+	KASSERT (KVTOP((addr_t)ap_code) < 0x100000, "ap code %p must be below 1MB"); /* XXX crude */
 	memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
 
 	/* Kill interrupts for a bit while we're programming the APIC */
@@ -509,11 +518,11 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 	outb(PIC1_DATA, 0xff); outb(PIC2_DATA, 0xff);
 
 	/*
-	 * Initialize the SMP launch spinlock; every AP will try this as well. Once
-	 * we are done, the BSP unlocks, causing every AP to run.
+	 * Initialize the SMP launch variable; every AP will just spin and check this value. We don't
+	 * care about races here, because it doesn't matter if an AP needs a few moments to determine
+	 * that it needs to run.
 	 */
-	spinlock_init(&spl_smp_launch);
-	spinlock_lock(&spl_smp_launch);
+	can_smp_launch = 0;
 
 	/*
 	 * Broadcast INIT-SIPI-SIPI-IPI to all AP's; this will wake them up and cause
@@ -521,9 +530,9 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 	 */
 	*((uint32_t*)LAPIC_ICR_LO) = 0xc4500;	/* INIT */
 	delay(10);
-	*((uint32_t*)LAPIC_ICR_LO) = 0xc4600 | (addr_t)ap_code >> 12;	/* SIPI */
+	*((uint32_t*)LAPIC_ICR_LO) = 0xc4600 | (addr_t)KVTOP((addr_t)ap_code) >> 12;	/* SIPI */
 	delay(200);
-	*((uint32_t*)LAPIC_ICR_LO) = 0xc4600 | (addr_t)ap_code >> 12;	/* SIPI */
+	*((uint32_t*)LAPIC_ICR_LO) = 0xc4600 | (addr_t)KVTOP((addr_t)ap_code) >> 12;	/* SIPI */
 	delay(200);
 
 	/*
@@ -534,6 +543,10 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 
 	/* Re-enable interrupts back again */
 	__asm("sti");
+	return;
+
+smp_abort:
+	md_remove_low_mappings();
 }
 
 /*
@@ -542,7 +555,14 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 void
 smp_launch()
 {
-	spinlock_unlock(&spl_smp_launch);
+	can_smp_launch++;
+
+	while(num_smp_launched < num_cpu)
+		/* wait for it ... */ ;
+
+	/* All done - we can throw away the AP code and mappings */
+	kfree(ap_code);
+	md_remove_low_mappings();
 }
 
 /*
@@ -551,12 +571,13 @@ smp_launch()
 void
 mp_ap_startup(uint32_t lapic_id)
 {
-	spinlock_lock(&spl_smp_launch);
-	spinlock_unlock(&spl_smp_launch);
+	while (!can_smp_launch)
+		/* nothing */ ;
 
 	/*
-	 * We're up and running!
+	 * We're up and running! Increment the launched count and start scheduling.
 	 */
+	__asm("lock incl (num_smp_launched)");
 	schedule();
 }
 
