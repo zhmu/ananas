@@ -3,6 +3,7 @@
 #include <ananas/irq.h>
 #include <ananas/kdb.h>
 #include <ananas/lib.h>
+#include <ananas/mm.h>
 #include <ananas/tty.h>
 #include <ananas/trace.h>
 #include <ananas/console.h>
@@ -10,8 +11,6 @@
 #include "options.h"
 
 TRACE_SETUP;
-
-uint32_t atkbd_port = 0;
 
 /* Mapping of a scancode to an ASCII key value */
 static uint8_t atkbd_keymap[128] = {
@@ -58,55 +57,60 @@ static uint8_t atkbd_keymap_shift[128] = {
 #define ATKBD_FLAG_CONTROL 2
 #define ATKBD_FLAG_ALT 4
 
-uint8_t atkbd_buffer[ATKBD_BUFFER_SIZE];
-uint8_t atkbd_buffer_readpos = 0;
-uint8_t atkbd_buffer_writepos = 0;
-uint8_t atkbd_flags = 0;
+struct ATKBD_PRIVDATA {
+	int	 kbd_ioport;
+	char kbd_buffer[ATKBD_BUFFER_SIZE];
+	char kbd_buffer_readpos;
+	char kbd_buffer_writepos;
+	char kbd_flags;
+};
 
 void
 atkbd_irq(device_t dev)
 {
-	uint8_t scancode = inb(atkbd_port);
+	struct ATKBD_PRIVDATA* priv = dev->privdata;
+
+	uint8_t scancode = inb(priv->kbd_ioport);
 	if ((scancode & 0x7f) == 0x2a /* LSHIFT */ ||
 	    (scancode & 0x7f) == 0x36 /* RSHIFT */) {
 		if (scancode & 0x80)
-			atkbd_flags &= ~ATKBD_FLAG_SHIFT;
+			priv->kbd_flags &= ~ATKBD_FLAG_SHIFT;
 		else
-			atkbd_flags |=  ATKBD_FLAG_SHIFT;
+			priv->kbd_flags |=  ATKBD_FLAG_SHIFT;
 		return;
 	}
 	/* right-alt is 0xe0 0x38 but that does not matter */
 	if ((scancode & 0x7f) == 0x38 /* ALT */) {
 		if (scancode & 0x80)
-			atkbd_flags &= ~ATKBD_FLAG_ALT;
+			priv->kbd_flags &= ~ATKBD_FLAG_ALT;
 		else
-			atkbd_flags |=  ATKBD_FLAG_ALT;
+			priv->kbd_flags |=  ATKBD_FLAG_ALT;
 		return;
 	}
 	/* right-control is 0xe0 0x1d but that does not matter */
 	if ((scancode & 0x7f) == 0x1d /* CONTROL */) {
 		if (scancode & 0x80)
-			atkbd_flags &= ~ATKBD_FLAG_CONTROL;
+			priv->kbd_flags &= ~ATKBD_FLAG_CONTROL;
 		else
-			atkbd_flags |=  ATKBD_FLAG_CONTROL;
+			priv->kbd_flags |=  ATKBD_FLAG_CONTROL;
 		return;
 	}
-	if (scancode & 0x80)
+	if (scancode & 0x80) /* release event */
 		return;
 
 #ifdef KDB
-	if ((atkbd_flags == (ATKBD_FLAG_CONTROL | ATKBD_FLAG_SHIFT)) && scancode == 1 /* escape */) {
+	if ((priv->kbd_flags == (ATKBD_FLAG_CONTROL | ATKBD_FLAG_SHIFT)) && scancode == 1 /* escape */) {
 		kdb_enter("keyboard sequence");
 		return;
 	}
 #endif
 
-	uint8_t ascii = ((atkbd_flags & ATKBD_FLAG_SHIFT) ? atkbd_keymap_shift : atkbd_keymap)[scancode];
+	uint8_t ascii = ((priv->kbd_flags & ATKBD_FLAG_SHIFT) ? atkbd_keymap_shift : atkbd_keymap)[scancode];
 	if (ascii == 0)
 		return;
 
-	atkbd_buffer[atkbd_buffer_writepos] = ascii;
-	atkbd_buffer_writepos = (atkbd_buffer_writepos + 1) % ATKBD_BUFFER_SIZE;
+	priv->kbd_buffer[priv->kbd_buffer_writepos] = ascii;
+	priv->kbd_buffer_writepos = (priv->kbd_buffer_writepos + 1) % ATKBD_BUFFER_SIZE;
 
 	/* XXX signal consumers - this is a hack */
 	tty_signal_data(console_tty);
@@ -119,16 +123,25 @@ atkbd_attach(device_t dev)
 	void* res_irq = device_alloc_resource(dev, RESTYPE_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
-	atkbd_port = (uintptr_t)res_io;
 
-	if (!irq_register((uintptr_t)res_irq, dev, atkbd_irq))
+	/* Initialize private data; must be done before the interrupt is registered */
+	struct ATKBD_PRIVDATA* kbd_priv = kmalloc(sizeof(struct ATKBD_PRIVDATA));
+	kbd_priv->kbd_ioport = (uintptr_t)res_io;
+	kbd_priv->kbd_buffer_readpos;
+	kbd_priv->kbd_buffer_writepos;
+	kbd_priv->kbd_flags = 0;
+	dev->privdata = kbd_priv;
+
+	if (!irq_register((uintptr_t)res_irq, dev, atkbd_irq)) {
+		kfree(kbd_priv);
 		return ANANAS_ERROR(NO_RESOURCE);
+	}
 	
 	/*
 	 * Ensure the keyboard's input buffer is empty; this will cause it to
 	 * send IRQ's to us.
 	 */
-	inb(atkbd_port);
+	inb(kbd_priv->kbd_ioport);
 
 	return ANANAS_ERROR_OK;
 }
@@ -136,14 +149,15 @@ atkbd_attach(device_t dev)
 static errorcode_t
 atkbd_read(device_t dev, void* data, size_t* len, off_t off)
 {
-	size_t returned = 0, to_read = *len;
+	struct ATKBD_PRIVDATA* priv = dev->privdata;
+	size_t returned = 0, left = *len;
 
-	while (to_read-- > 0) {
-		if (atkbd_buffer_readpos == atkbd_buffer_writepos)
+	while (left-- > 0) {
+		if (priv->kbd_buffer_readpos == priv->kbd_buffer_writepos)
 			break;
 
-		*(uint8_t*)(data + returned++) = atkbd_buffer[atkbd_buffer_readpos];
-		atkbd_buffer_readpos = (atkbd_buffer_readpos + 1) % ATKBD_BUFFER_SIZE;
+		*(uint8_t*)(data + returned++) = priv->kbd_buffer[priv->kbd_buffer_readpos];
+		priv->kbd_buffer_readpos = (priv->kbd_buffer_readpos + 1) % ATKBD_BUFFER_SIZE;
 	}
 	*len = returned;
 	return ANANAS_ERROR_OK;
