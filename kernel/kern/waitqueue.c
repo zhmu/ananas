@@ -56,6 +56,7 @@ waitqueue_add(struct WAIT_QUEUE* wq)
 	w->w_thread = PCPU_GET(curthread);
 	w->w_wq = wq;
 	w->w_signalled = 0;
+	spinlock_init(&w->w_lock);
 
 	/* Append our waiter to the queue */
 	spinlock_lock(&wq->wq_lock);
