@@ -280,6 +280,22 @@ smp_init()
 	 mpct->spec_rev);
 
 	/*
+	 * OK, the AP's start in real mode, so we need to provide them with a
+	 * stub so they can run in protected mode. This stub must be located
+	 * in the lower 1MB.
+	 *
+	 * Note that the low memory mappings will not be removed in the SMP case, so
+	 * that the AP's can correctly switch to protected mode and enable paging.
+	 * Once this is all done, the mapping can safely be removed.
+	 *
+	 * XXX We do this before allocating kernel structures to increase the odds of
+	 * the AP code remaining in the lower 1MB. This needs a better solution.
+	 */
+	ap_code = kmalloc(PAGE_SIZE);
+	KASSERT (KVTOP((addr_t)ap_code) < 0x100000, "ap code %p must be below 1MB"); /* XXX crude */
+	memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
+
+	/*
 	 * First of all, count the number of entries; this is needed because we
 	 * allocate memory for each item as needed.
 	 */
@@ -460,19 +476,6 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 	}
 
 	vm_unmap_kernel((addr_t)mpfps_phys_ptr, mpct_numpages);
-
-	/*
-	 * OK, the AP's start in real mode, so we need to provide them with a
-	 * stub so they can run in protected mode. This stub must be located
-	 * in the lower 1MB.
-	 *
-	 * Note that the low memory mappings will not be removed in the SMP case, so
-	 * that the AP's can correctly switch to protected mode and enable paging.
-	 * Once this is all done, the mapping can safely be removed.
-	 */
-	ap_code = kmalloc(PAGE_SIZE);
-	KASSERT (KVTOP((addr_t)ap_code) < 0x100000, "ap code %p must be below 1MB"); /* XXX crude */
-	memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
 
 	/* Kill interrupts for a bit while we're programming the APIC */
 	__asm("cli");
