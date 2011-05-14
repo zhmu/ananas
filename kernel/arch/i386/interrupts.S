@@ -236,6 +236,15 @@ syscall_int:
 	int 	$3
 
 syscall_start_dsok:
+	/* Sanity check: interrupts must be enabled when entering */
+	movl	36(%esp), %ebx
+	andl	$0x200, %ebx
+	orl	%ebx, %ebx
+	jne	syscall_start_ifok
+
+	int	$3
+
+syscall_start_ifok:
 #endif
 
 	/*
@@ -299,6 +308,15 @@ syscall_return:
 	int	$3
 
 syscall_end_dsok:
+	/* Sanity check: interrupts must be enabled when a syscall is done */
+	movl	24(%esp), %ebx
+	andl	$0x200, %ebx
+	orl	%ebx, %ebx
+	jne	syscall_end_ifok
+
+	int	$3
+
+syscall_end_ifok:
 #endif
 
 	popl	%edi
