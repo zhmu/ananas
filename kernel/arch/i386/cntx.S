@@ -293,6 +293,15 @@ md_reschedule:
 	jz	reschedule_kernctx
 
 	/*
+	 * Store flags; these may have been changed from the original context.
+	 * For example, if we were just cloned, the context structure will not
+	 * have the interrupts enabled in the CTX_EFLAGS (but it will have
+	 * them enabled in reality) - so we need to explicitely store them.
+	 */
+	pushfl
+	popl	CTX_EFLAGS(%eax)
+
+	/*
 	 * Temporarily override %fs with our PCPU data; this is necessary
 	 * because we will be returned to kernel context. After rescheduling
 	 * is done, we'll restore the previous value - this prevents a
