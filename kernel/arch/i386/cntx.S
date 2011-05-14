@@ -302,6 +302,15 @@ md_reschedule:
 	popl	CTX_EFLAGS(%eax)
 
 	/*
+	 * XXX Disable interrupts - there are problems when a scheduler IRQ
+	 *     interrupts the schedule() call which result in it trashing our
+	 *     context structure - the result is that we do not end up in
+	 *     reschedule_back() but rather *after* the md_switch_context()
+	 *     function call... this still needs more analysis XXX
+	 */
+	cli
+
+	/*
 	 * Temporarily override %fs with our PCPU data; this is necessary
 	 * because we will be returned to kernel context. After rescheduling
 	 * is done, we'll restore the previous value - this prevents a
