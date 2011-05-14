@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/lock.h>
 #include <ananas/lib.h>
+#include <machine/macro.h>
 
 /*
  * The spinlock implementation is based on IA-32 Intel Architecture Software
@@ -10,6 +11,8 @@
 void
 spinlock_lock(spinlock_t s)
 {
+	if (scheduler_activated())
+		KASSERT(GET_EFLAGS() & 0x200, "interrups must be enabled");
 	__asm __volatile(
 "l1:\n"
 		"cmpl $0, (%%eax)\n"
@@ -47,7 +50,7 @@ spinlock_lock_unpremptible(spinlock_t s)
 	register_t state;
 	__asm __volatile(
 		"pushfl\n"
-		"pop %%edx\n"
+		"popl %%edx\n"
 "ll1:\n"
 		"cmpl $0, (%%eax)\n"
 		"je		ll2\n"
@@ -78,7 +81,7 @@ void
 spinlock_unlock_unpremptible(spinlock_t s, register_t state)
 {
 	spinlock_unlock(s);
-	__asm __volatile("push %%eax; popfl" : : "a" (state));
+	__asm __volatile("pushl %%eax; popfl" : : "a" (state));
 }
 
 /* vim:set ts=2 sw=2: */

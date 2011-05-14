@@ -86,4 +86,10 @@
 	p[7] = (((addr_t)addr) >> 24) & 0xff; \
 } while(0);
 
+#define GET_EFLAGS() ({ \
+		uint32_t eflags; \
+		__asm __volatile("pushfl; popl %0" : "=r" (eflags)); \
+		eflags; \
+	})
+
 #endif /* __I386_MACRO_H__ */
