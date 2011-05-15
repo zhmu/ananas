@@ -65,8 +65,12 @@ gen/support.c		mandatory
 fs/ext2fs.c		option EXT2FS
 fs/iso9660.c		option ISO9660FS
 fs/cramfs.c		option CRAMFS
-fs/fatfs.c		option FATFS
 fs/devfs.c		option DEVFS
+# fat
+fs/fat/fatfs.c		option FATFS
+fs/fat/block.c		option FATFS
+fs/fat/dir.c		option FATFS
+fs/fat/inode.c		option FATFS
 kdb/kdb.c		option KDB
 kdb/kdb_commands.c	option KDB
 # USB
