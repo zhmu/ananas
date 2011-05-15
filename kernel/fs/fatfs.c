@@ -35,6 +35,7 @@
 #include <ananas/vfs.h>
 #include <ananas/vfs/generic.h>
 #include <ananas/lib.h>
+#include <ananas/schedule.h>
 #include <ananas/trace.h>
 #include <ananas/mm.h>
 #include <fat.h>
@@ -56,6 +57,15 @@
 		((uint8_t*)(x))[3] = ((y) >> 24) & 0xff; \
 	} while(0)
 
+/* Number of cache items per filesystem */
+#define FAT_NUM_CACHEITEMS	1000
+
+struct FAT_CLUSTER_CACHEITEM {
+	uint32_t	f_clusterno;
+	uint32_t	f_index;
+	uint32_t	f_nextcluster;
+};
+
 struct FAT_FS_PRIVDATA {
 	int fat_type;                     /* FAT type: 12, 16 or 32 */
 	int	sector_size;                  /* Sector size, in bytes */
@@ -67,6 +77,8 @@ struct FAT_FS_PRIVDATA {
 	uint32_t first_data_sector;       /* First sector containing file data */
 	uint32_t total_clusters;          /* Total number of clusters on filesystem */
 	uint32_t next_avail_cluster;      /* Next available cluster */
+	struct SPINLOCK spl_cache;
+	struct FAT_CLUSTER_CACHEITEM cluster_cache[FAT_NUM_CACHEITEMS];
 };
 
 struct FAT_INODE_PRIVDATA {
@@ -82,6 +94,17 @@ struct FAT_INODE_PRIVDATA {
 #define FAT_ROOTINODE_FSOP 0xfffffffe
 
 TRACE_SETUP;
+
+static void
+fat_dump_cache(struct VFS_MOUNTED_FS* fs)
+{
+	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
+	struct FAT_CLUSTER_CACHEITEM* ci = fs_privdata->cluster_cache;
+	for(unsigned int n = 0; n < FAT_NUM_CACHEITEMS; n++, ci++) {
+		kprintf("ci[%i]: clusterno=%i, index=%i, nextcl=%u\n",
+		 n, ci->f_clusterno, ci->f_index, ci->f_nextcluster);
+	}
+}
 
 static inline blocknr_t
 fat_cluster_to_sector(struct VFS_MOUNTED_FS* fs, uint32_t cluster)
@@ -109,6 +132,48 @@ fat_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 static void
 fat_destroy_inode(struct VFS_INODE* inode)
 {
+	struct FAT_FS_PRIVDATA* fs_privdata = inode->i_fs->fs_privdata;
+	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
+
+	/*
+	 * If the file has backing storage, we need to throw away all inode's cluster
+	 * items in the cache; this works by searching for the last item in the
+	 * cluster cache and copying it over our removed blocks - this works because
+	 * the cache isn't sorted.
+	 */
+	if (privdata->first_cluster != 0) {
+		spinlock_lock(&fs_privdata->spl_cache);
+		unsigned int last_index = 0;
+		while (last_index < FAT_NUM_CACHEITEMS && fs_privdata->cluster_cache[last_index].f_clusterno != 0)
+			last_index++;
+		/* Cacheitems 0 ... i, for all i < last_index are in use */
+
+		/* Throw away all inode's cluster items in the cache */
+		struct FAT_CLUSTER_CACHEITEM* ci = fs_privdata->cluster_cache;
+		for(unsigned int n = 0; n < FAT_NUM_CACHEITEMS; n++, ci++) {
+			if (ci->f_clusterno != privdata->first_cluster)
+				continue;
+
+			/*
+			 * OK, this is an item we'll have to destroy - copy the last entry over it and remove that one.
+			 * If this is the final entry, we skip the copying.
+				*/
+			KASSERT(last_index >= 0 && last_index <= FAT_NUM_CACHEITEMS, "last index %u invalid", last_index);
+			if (n > last_index)
+				fat_dump_cache(inode->i_fs);
+			KASSERT(n <= last_index, "item to remove %u is beyond last index %i", n, last_index);
+			if (n != (last_index - 1)) {
+				/* Need to overwrite this item with the final cache item */
+				memcpy(ci, &fs_privdata->cluster_cache[last_index - 1], sizeof(*ci));
+				memset(&fs_privdata->cluster_cache[last_index - 1], 0, sizeof(*ci));
+				last_index--;
+			} else {
+				memset(ci, 0, sizeof(*ci));
+			}
+		}
+		spinlock_unlock(&fs_privdata->spl_cache);
+	}
+
 	kfree(inode->i_privdata);
 	vfs_destroy_inode(inode);
 }
@@ -147,7 +212,54 @@ fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clus
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 	uint32_t cur_cluster = first_cluster;
 
-	/* XXX this function would benefit a lot from caching */
+	/*
+	 * First of all, look through our cache. XXX linear search.
+	 *
+	 * We assume the cache items will never be removed while we are working with
+	 * the file because it will remain referenced - we throw away the cache items
+	 * when the inode is freed.
+	 */
+	int create = 0, found = 0;
+	struct FAT_CLUSTER_CACHEITEM* ci = NULL;
+	spinlock_lock(&fs_privdata->spl_cache);
+	for(int cache_item = 0; cache_item < FAT_NUM_CACHEITEMS; cache_item++) {
+		ci = &fs_privdata->cluster_cache[cache_item];
+		if (ci->f_clusterno == 0) {
+			/* Found empty item - use it (we assume this always occurs at the end of the items) */
+			create++;
+			ci->f_clusterno = first_cluster;
+			ci->f_index = clusternum;
+			ci->f_nextcluster = 0;
+			break;
+		}
+		if (ci->f_clusterno == first_cluster && ci->f_index == clusternum) {
+			/* Got it */
+			found++;
+			break;
+		}
+	}
+	spinlock_unlock(&fs_privdata->spl_cache);
+	if (create == 0 && found == 0) {
+		ci = NULL;
+		kprintf("fat_get_cluster(): out of cache items\n");
+	}
+
+	/*
+	 * If we are not creating, yet the next cluster value is zero, someone else is
+	 * looking up the item, we need to spin.
+	 */
+	if (ci != NULL && create == 0) {
+		while (ci->f_nextcluster == 0) {
+			kprintf("fat_get_cluster(): pending cluster found, waiting...\n");
+			reschedule();
+		}
+		if (ci->f_nextcluster == -1)
+			return ANANAS_ERROR(BAD_RANGE);
+		*cluster_out = ci->f_nextcluster;
+		return ANANAS_ERROR_NONE;
+	}
+
+	/* Not in the cache; we'll need to traverse the disk */
 	*cluster_out = first_cluster;
 	while (cur_cluster != 0 && clusternum-- > 0) {
 		blocknr_t sector_num;
@@ -170,6 +282,8 @@ fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clus
 					err = vfs_bread(fs, sector_num + 1, &bio2);
 					if (err != ANANAS_ERROR_OK) {
 						bio_free(bio);
+						if (ci != NULL)
+							ci->f_nextcluster = -1;
 						return err;
 					}
 					fat_value  = *(uint8_t*)(BIO_DATA(bio) + offset);
@@ -203,7 +317,15 @@ fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clus
 		if (cur_cluster != 0)
 			*cluster_out = cur_cluster;
 	}
-	return cur_cluster != 0 ? ANANAS_ERROR_OK : ANANAS_ERROR(BAD_RANGE);
+	if (cur_cluster != 0) {
+		if (ci != NULL)
+			ci->f_nextcluster = *cluster_out;
+		return ANANAS_ERROR_OK;
+	} else {
+		if (ci != NULL)
+			ci->f_nextcluster = -1;
+		return ANANAS_ERROR(BAD_RANGE);
+	}
 }
 
 /*
@@ -860,6 +982,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 	struct FAT_BPB* bpb = (struct FAT_BPB*)BIO_DATA(bio);
 	struct FAT_FS_PRIVDATA* privdata = kmalloc(sizeof(struct FAT_FS_PRIVDATA));
 	memset(privdata, 0, sizeof(struct FAT_FS_PRIVDATA));
+	spinlock_init(&privdata->spl_cache);
 	fs->fs_privdata = privdata; /* immediately, this is used by other functions */
 
 #define FAT_ABORT(x...) \
