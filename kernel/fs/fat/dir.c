@@ -242,17 +242,16 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 			cur_block = want_block;
 		}
 
-		/* See what the entry is all about */
+		/* See what this block's entry is all about */
 		uint32_t cur_offs = cur_dir_offset % fs->fs_block_size;
 		struct FAT_ENTRY* fentry = BIO_DATA(bio) + cur_offs;
 		if (fentry->fe_filename[0] == '\0') {
 			/*
 			 * First charachter is nul - this means there are no more entries to come
 			 * and we can just write our entry here. Note that we assume there are no
-			 * orphanaged LFN entries before here, which should be the case anyway
-			 * they should be removed already)
+			 * orphanaged LFN entries before here, which is conform the VFAT spec.
 		 	 */
-			current_filename_offset = cur_offs;
+			current_filename_offset = cur_dir_offset;
 			cur_lfn_chain = 0;
 			break;
 		}
@@ -263,7 +262,7 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 			 * first one as we may chose to re-use the entire chain.
 			 */
 			if (cur_lfn_chain++ == 0)
-				current_filename_offset = cur_offs;
+				current_filename_offset = cur_dir_offset;
 			cur_dir_offset += sizeof(struct FAT_ENTRY);
 			continue;
 		}
@@ -279,7 +278,7 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 		/*
 		 * This isn't a LFN entry, nor is it a removed entry; we must skip over it.
 		 */
-		current_filename_offset = cur_offs;
+		current_filename_offset = cur_dir_offset;
 		cur_lfn_chain = 0;
 		cur_dir_offset += sizeof(struct FAT_ENTRY);
 	}
