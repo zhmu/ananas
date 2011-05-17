@@ -214,22 +214,12 @@ fat_set_cluster(struct VFS_MOUNTED_FS* fs, struct BIO** bio, uint32_t cluster_nu
 }
 
 /*
- * 	Appends a new cluster to an inode; returns the next cluster.
+ * Obtains the first available cluster and marks it as being used.
  */
 static errorcode_t
-fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
+fat_claim_avail_cluster(struct VFS_MOUNTED_FS* fs, uint32_t* cluster_out)
 {
-	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
-
-	/* Figure out the last cluster of the file */
-	uint32_t last_cluster;
-	errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, (uint32_t)-1, &last_cluster);
-	if (ANANAS_ERROR_CODE(err) != ANANAS_ERROR_BAD_RANGE) {
-		KASSERT(err != ANANAS_ERROR_OK, "able to obtain impossible cluster");
-		return err;
-	}
 
 	/* XXX We do a dumb find-first on the filesystem for now */
 	blocknr_t cur_block;
@@ -253,43 +243,77 @@ fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
 				panic("writeme: fat12 support");
 			case 16:
 				val = FAT_FROM_LE16((char*)(BIO_DATA(bio) + offset));
-				if (val == 0)
+				if (val == 0) { /* available cluster? */
+					/* Yes; claim it */
 					FAT_TO_LE16((char*)(BIO_DATA(bio) + offset), 0xfff8);
+				}
 				break;
 			case 32: /* actually FAT-28... */
 				val = FAT_FROM_LE32((char*)(BIO_DATA(bio) + offset)) & 0xfffffff;
-				if (val == 0)
+				if (val == 0) { /* available cluster? */
+					/* Yes; claim it */
 					FAT_TO_LE32((char*)(BIO_DATA(bio) + offset), 0xffffff8);
+				}
 				break;
 		}
 		if (val != 0)
 			continue;
 
-		/* OK; this one is available (and we just claimed it) */
+		/* OK; this one is available (and we just claimed it) - flush the FAT entry */
 		bio_set_dirty(bio);
 		bio_free(bio);
 
-		/* If the file didn't have any clusters before, it sure does now */
-		if (privdata->first_cluster == 0) {
-			privdata->first_cluster = clusterno;
-			vfs_set_inode_dirty(inode);
-		} else {
-			/* Append this cluster to the chain */
-			bio = NULL;
-			err = fat_set_cluster(fs, &bio, last_cluster, clusterno);
-			ANANAS_ERROR_RETURN(err); /* XXX leaks clusterno */
-		}
+		/* XXX should update second fat */
 		*cluster_out = clusterno;
-		return ANANAS_ERROR_OK;
+		return ANANAS_ERROR_NONE;
 	}
 
-	/* out of space */
-	panic("out of space (deal with me)");
+	/* Out of available clusters */
+	return ANANAS_ERROR(NO_SPACE);
+}
+
+/*
+ * Appends a new cluster to an inode; returns the next cluster.
+ */
+static errorcode_t
+fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
+{
+	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
+
+	/* Figure out the last cluster of the file */
+	uint32_t last_cluster;
+	errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, (uint32_t)-1, &last_cluster);
+	if (ANANAS_ERROR_CODE(err) != ANANAS_ERROR_BAD_RANGE) {
+		KASSERT(err != ANANAS_ERROR_OK, "able to obtain impossible cluster");
+		return err;
+	}
+
+	/* Obtain the next cluster - this will also mark it as being in use */
+	uint32_t new_cluster;
+	err = fat_claim_avail_cluster(fs, &new_cluster);
+	ANANAS_ERROR_RETURN(err);
+
+	/* If the file didn't have any clusters before, it sure does now */
+	if (privdata->first_cluster == 0) {
+		privdata->first_cluster = new_cluster;
+		vfs_set_inode_dirty(inode);
+	} else {
+		/* Append this cluster to the file chain */
+		struct BIO* bio = NULL;
+		err = fat_set_cluster(fs, &bio, last_cluster, new_cluster);
+		ANANAS_ERROR_RETURN(err); /* XXX leaks clusterno */
+	}
+	*cluster_out = new_cluster;
+	return ANANAS_ERROR_OK;
 }
 
 /*
  * Maps the given block of an inode to the block device's block to use; note
- * that on FAT, a block size is identical to a sector size.
+ * that in our FAT implementation, a block size is identical to a sector size
+ * (this is necessary because the data may not begin at a sector number
+ * multiple of a cluster size)
  */
 errorcode_t
 fat_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out, int create)
