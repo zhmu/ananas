@@ -44,7 +44,11 @@ sys_read(thread_t t, handle_t handle, void* buf, size_t* len)
 	ANANAS_ERROR_RETURN(err);
 
 	/* Finally, inform the user of the length read - the read went OK */
-	return syscall_set_size(t, len, size);
+	err = syscall_set_size(t, len, size);
+	ANANAS_ERROR_RETURN(err);
+
+	TRACE(SYSCALL, FUNC, "t=%p, success: size=%u", t, size);
+	return err;
 }
 
 errorcode_t
@@ -73,7 +77,11 @@ sys_write(thread_t t, handle_t handle, const void* buf, size_t* len)
 	ANANAS_ERROR_RETURN(err);
 
 	/* Finally, inform the user of the length read - the read went OK */
-	return syscall_set_size(t, len, size);
+	err = syscall_set_size(t, len, size);
+	ANANAS_ERROR_RETURN(err);
+
+	TRACE(SYSCALL, FUNC, "t=%p, success: size=%u", t, size);
+	return err;
 }
 
 errorcode_t
@@ -126,7 +134,11 @@ sys_destroy(thread_t t, handle_t handle)
 	struct HANDLE* h;
 	errorcode_t err = syscall_get_handle(t, handle, &h);
 	ANANAS_ERROR_RETURN(err);
-	return handle_free(h);
+	err = handle_free(h);
+	ANANAS_ERROR_RETURN(err);
+
+	TRACE(SYSCALL, INFO, "t=%p, success", t);
+	return err;
 }
 
 errorcode_t
@@ -157,7 +169,11 @@ sys_clone(thread_t t, handle_t in, struct CLONE_OPTIONS* opts, handle_t* out)
 	 * And hand the cloned handle back - note that the return code will be
 	 * overriden for the new child.
 	 */
-	return syscall_set_handle(t, out, dest);
+	err = syscall_set_handle(t, out, dest);
+	ANANAS_ERROR_RETURN(err);
+
+	TRACE(SYSCALL, FUNC, "t=%p, success, new handle=%p", t, dest);
+	return err;
 }
 
 errorcode_t
@@ -202,6 +218,7 @@ sys_wait(thread_t t, handle_t handle, handle_event_t* event, handle_event_result
 	}
 
 	/* All done */
+	TRACE(SYSCALL, FUNC, "t=%p, success, event=0x%x, result=0x%x", t, wait_event, wait_result);
 	return ANANAS_ERROR_OK;
 }
 
@@ -262,8 +279,10 @@ sys_summon(thread_t t, handle_t handle, struct SUMMON_OPTIONS* opts, handle_t* o
 
 	/* Finally, hand the handle back if necessary and we're done */
 	err = syscall_set_handle(t, out, newthread->thread_handle);
-	if (err == ANANAS_ERROR_NONE)
+	if (err == ANANAS_ERROR_NONE) {
+		TRACE(SYSCALL, INFO, "t=%p, success, thread handle=%p", t, newthread->thread_handle);
 		return ANANAS_ERROR_OK;
+	}
 
 fail:
 	if (newthread != NULL) {
@@ -303,14 +322,15 @@ sys_create(thread_t t, struct CREATE_OPTIONS* opts, handle_t* out)
 
 			/* Attempt to create the new file */
 			struct VFS_INODE* newinode;
-			kprintf("sys_create(): p='%s'\n", path);
 			err = vfs_create(t->path_handle->data.vfs_file.f_inode, &outhandle->data.vfs_file, path, cropts.cr_mode);
-			if (err == ANANAS_ERROR_OK) {
+			if (err == ANANAS_ERROR_NONE) {
 				/* This worked; hand the handle to the thread */
 				err = syscall_set_handle(t, out, outhandle);
 				if (err != ANANAS_ERROR_NONE) {
 					/* Remove the handle (frees the inode as well) */
 					handle_free(outhandle);
+				} else {
+					TRACE(SYSCALL, INFO, "t=%p, success, result handle=%p", t, outhandle);
 				}
 			} else {
 				/* Failure - throw away the handle we created */
@@ -342,8 +362,9 @@ sys_create(thread_t t, struct CREATE_OPTIONS* opts, handle_t* out)
 				return err;
 			}
 			outhandle->data.memory.mapping = tm;
-			outhandle->data.memory.addr = tm->tm_virt;
+			outhandle->data.memory.addr = (void*)tm->tm_virt;
 			outhandle->data.memory.length = tm->tm_len;
+			TRACE(SYSCALL, INFO, "t=%p, success, result handle=%p", t, outhandle);
 			return ANANAS_ERROR_OK;
 		}
 		default:
@@ -407,6 +428,7 @@ sys_handlectl_file(thread_t t, handle_t handle, unsigned int op, void* arg, size
 
 			/* And update the handle */
 			t->path_handle = handle;
+			TRACE(SYSCALL, INFO, "t=%p, success", t);
 			break;
 		}
 		case HCTL_FILE_SEEK: {
@@ -447,6 +469,7 @@ sys_handlectl_file(thread_t t, handle_t handle, unsigned int op, void* arg, size
 			if (err != ANANAS_ERROR_OK)
 				goto fail;
 			file->f_offset = offset;
+			TRACE(SYSCALL, INFO, "t=%p, success, offset=%u", t, (int)offset);
 			break;
 		}
 		case HCTL_FILE_STAT: {
@@ -493,6 +516,8 @@ sys_handlectl_file(thread_t t, handle_t handle, unsigned int op, void* arg, size
 					err = file->f_device->driver->drv_stat(file->f_device, st);
 				}
 			}
+			if (err == ANANAS_ERROR_NONE)
+				TRACE(SYSCALL, INFO, "t=%p, success", t);
 			break;
 		}
 		default:
@@ -523,6 +548,7 @@ sys_handlectl_memory(thread_t t, handle_t handle, unsigned int op, void* arg, si
 				return ANANAS_ERROR(BAD_LENGTH);
 			in->in_base = h->data.memory.addr;
 			in->in_length = h->data.memory.length;
+			TRACE(SYSCALL, INFO, "t=%p, success", t);
 			return ANANAS_ERROR_OK;
 		}
 	}
