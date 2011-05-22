@@ -189,7 +189,7 @@ fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, uint32_t cluste
 	uint32_t offset;
 	fat_make_cluster_block_offset(fs, cluster_num, &sector_num, &offset);
 
-	/* If a bio buffer isn't given, read it */
+	/* Fetch the FAT data */
 	struct BIO* bio;
 	errorcode_t err = vfs_bread(fs, sector_num, &bio);
 	ANANAS_ERROR_RETURN(err);
@@ -324,6 +324,22 @@ fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
 		ANANAS_ERROR_RETURN(err); /* XXX leaks clusterno */
 	}
 	*cluster_out = new_cluster;
+
+	/*
+	 * Update the cache; if there is an entry for our inode which is marked as
+	 * nonexistent, we expect it to be the last one and overwrite it.
+	 */
+	spinlock_lock(&fs_privdata->spl_cache);
+	for(int cache_item = 0; cache_item < FAT_NUM_CACHEITEMS; cache_item++) {
+		struct FAT_CLUSTER_CACHEITEM* ci = &fs_privdata->cluster_cache[cache_item];
+		if (ci->f_clusterno == privdata->first_cluster && ci->f_nextcluster == -1) {
+			/* Found empty item - use it (we assume this always occurs at the end of the items) */
+			KASSERT(ci->f_index == (inode->i_sb.st_size + ((fs_privdata->sector_size * fs_privdata->sectors_per_cluster) - 1)) / (fs_privdata->sector_size * fs_privdata->sectors_per_cluster), "empty cache item isn't final item?");
+			ci->f_nextcluster = new_cluster;
+			break;
+		}
+	}
+	spinlock_unlock(&fs_privdata->spl_cache);
 
 	/* Update the block count of the inode */
 	privdata->last_cluster = new_cluster;
