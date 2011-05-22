@@ -141,20 +141,25 @@ vfs_generic_write(struct VFS_FILE* file, void* buf, size_t* len)
 			cur_block = want_block;
 		}
 
-		/* Copy as much tp the block as we can */
+		/* Copy as much to the block as we can */
 		KASSERT(chunk_len > 0, "attempt to handle empty chunk");
 		memcpy((void*)(BIO_DATA(bio) + cur_offset), buf, chunk_len);
 		bio_set_dirty(bio);
 
-		if (create) {
-			inode->i_sb.st_size += chunk_len;
-			inode_dirty++;
-		}
-
+		/* Update the offsets and sizes */
 		written += chunk_len;
 		buf += chunk_len;
 		left -= chunk_len;
 		file->f_offset += chunk_len;
+
+		/*
+		 * If we had to create a new block or we'd have to write beyond the current
+		 * inode's size, enlarge the inode and mark it as dirty.
+		 */
+		if (create || file->f_offset > inode->i_sb.st_size) {
+			inode->i_sb.st_size = file->f_offset;
+			inode_dirty++;
+		}
 	}
 	if (bio != NULL) bio_free(bio);
 	*len = written;
