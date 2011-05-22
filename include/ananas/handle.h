@@ -17,7 +17,7 @@ typedef unsigned int handle_event_result_t;
 #define HANDLE_EVENT_ANY	0
 
 #define HANDLE_VALUE_INVALID	0
-#define HANDLE_MAX_WAITERS	10	/* XXX should be any limit*/
+#define HANDLE_MAX_WAITERS	10	/* XXX should be any limit */
 
 struct THREAD;
 

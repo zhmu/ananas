@@ -114,8 +114,6 @@ elf32_load(thread_t thread, void* priv, elf_getfunc_t obtain)
 	if (ehdr.e_ident[EI_DATA] != ELFDATA2MSB)
 		return ANANAS_ERROR(BAD_EXEC);
 #endif
-
-	struct ELF_THREADMAP_PROGHEADER elf_ph[1];
 #ifdef __i386__
 	if (ehdr.e_machine != EM_386)
 		return ANANAS_ERROR(BAD_EXEC);

@@ -108,6 +108,8 @@ errorcode_t thread_unmap(thread_t t, addr_t virt, size_t len);
 void* md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write);
 void md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval);
 errorcode_t md_thread_unmap(thread_t thread, addr_t virt, size_t length);
+int md_thread_peek_32(thread_t thread, addr_t virt, uint32_t* val);
+addr_t md_thread_is_mapped(thread_t thread, addr_t virt, int flags);
 
 errorcode_t thread_mapto(thread_t t, addr_t virt, addr_t phys, size_t len, uint32_t flags, struct THREAD_MAPPING** out);
 errorcode_t thread_map(thread_t t, addr_t from, size_t len, uint32_t flags, struct THREAD_MAPPING** out);

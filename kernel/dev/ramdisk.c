@@ -6,6 +6,7 @@
 #include <ananas/device.h>
 #include <ananas/trace.h>
 #include <ananas/lib.h>
+#include <ananas/mm.h>
 #include <ananas/vm.h>
 
 TRACE_SETUP;

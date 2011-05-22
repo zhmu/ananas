@@ -5,8 +5,8 @@
 #include <ananas/lib.h>
 #include <stdarg.h>
 
-static const uint8_t hextab_hi[16] = "0123456789ABCDEF";
-static const uint8_t hextab_lo[16] = "0123456789abcdef";
+static const char hextab_hi[16] = "0123456789ABCDEF";
+static const char hextab_lo[16] = "0123456789abcdef";
 
 int
 puts(const char* s)

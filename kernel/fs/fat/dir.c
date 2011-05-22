@@ -208,9 +208,7 @@ static errorcode_t
 fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_ENTRY* fentry, void* fsop)
 {
 	struct VFS_MOUNTED_FS* fs = dir->i_fs;
-	size_t written = 0;
 	struct BIO* bio = NULL;
-	errorcode_t err = ANANAS_ERROR_OK;
 
 	/*
 	 * Calculate the number of entries we need; each LFN entry stores 13 characters,
@@ -294,7 +292,7 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 	if (dentry != NULL) {
 		char tmp_fname[12];
 		sprintf(tmp_fname, "%u.LFN", current_filename_offset);
-		shortname_checksum = fat_sanitize_83_name(tmp_fname, fentry->fe_filename);
+		shortname_checksum = fat_sanitize_83_name(tmp_fname, (char*)fentry->fe_filename);
 	} /* else if (dentry == NULL) ... nothing to do, cur_entry_idx cannot be != chain_needed-1 */
 
 	/*

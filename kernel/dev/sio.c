@@ -64,7 +64,6 @@ static errorcode_t
 sio_write(device_t dev, const void* data, size_t* len, off_t offset)
 {
 	struct SIO_PRIVDATA* privdata = (struct SIO_PRIVDATA*)dev->privdata;
-	size_t written = 0;
 	const char* ch = (const char*)data;
 
 	for (size_t n = 0; n < *len; n++, ch++) {

@@ -321,7 +321,6 @@ sys_create(thread_t t, struct CREATE_OPTIONS* opts, handle_t* out)
 			ANANAS_ERROR_RETURN(err);
 
 			/* Attempt to create the new file */
-			struct VFS_INODE* newinode;
 			err = vfs_create(t->path_handle->data.vfs_file.f_inode, &outhandle->data.vfs_file, path, cropts.cr_mode);
 			if (err == ANANAS_ERROR_NONE) {
 				/* This worked; hand the handle to the thread */

@@ -244,7 +244,7 @@ md_thread_peek_32(thread_t thread, addr_t virt, uint32_t* val)
 
 	void* ptr = vm_map_kernel(phys, 1, VM_FLAG_READ);
 	*val = *(uint32_t*)(ptr + (virt % PAGE_SIZE));
-	vm_unmap_kernel(ptr, 1);
+	vm_unmap_kernel((addr_t)ptr, 1);
 	return 1;
 }
 

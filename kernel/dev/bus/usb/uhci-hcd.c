@@ -27,6 +27,7 @@
 #include <ananas/mm.h>
 #include <ananas/trace.h>
 #include <ananas/lib.h>
+#include <ananas/time.h>
 #include "uhci-hcd.h"
 #include "uhci-roothub.h"
 #include "uhci-reg.h"
@@ -320,7 +321,6 @@ uhci_interrupt_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 	struct UHCI_HCD_PRIVDATA* privdata = dev->privdata;
 	struct UHCI_DEV_PRIVDATA* hcd_privdata = xfer->xfer_device->usb_hcd_privdata;
 	int ls = (hcd_privdata->dev_flags & UHCI_DEV_FLAG_LOWSPEED) ? TD_STATUS_LS : 0;
-	void* next_setup_ptr;
 	uint32_t token_addr = TD_TOKEN_ENDPOINT(xfer->xfer_endpoint) | TD_TOKEN_ADDRESS(xfer->xfer_address);
 	int isread = xfer->xfer_flags & TRANSFER_FLAG_READ;
 
@@ -338,7 +338,7 @@ uhci_interrupt_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 
 	/* Finally, hand the chain to the HD; it's ready to be transmitted */
 	privdata->uhci_qh_interrupt->qh_elementptr = (addr_t)td_chain;
-	
+	return ANANAS_ERROR_OK;
 }
 
 static errorcode_t

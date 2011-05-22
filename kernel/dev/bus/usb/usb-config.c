@@ -44,7 +44,7 @@ usb_parse_configuration(struct USB_DEVICE* usb_dev, void* data, int datalen)
 	for (int ifacenum = 0; ifacenum < cfg->cfg_numinterfaces; ifacenum++) {
 		/* Find the interface */
 		struct USB_DESCR_INTERFACE* iface;
-		if (!usb_find_type(&ptr, &left, USB_DESCR_TYPE_INTERFACE, &iface))
+		if (!usb_find_type(&ptr, &left, USB_DESCR_TYPE_INTERFACE, (void**)&iface))
 			return ANANAS_ERROR(NO_RESOURCE);
 
 		device_printf(dev,
@@ -61,7 +61,7 @@ usb_parse_configuration(struct USB_DEVICE* usb_dev, void* data, int datalen)
 		/* Handle all endpoints */
 		for (int epnum = 0; epnum < iface->if_numendpoints; epnum++) {
 			struct USB_DESCR_ENDPOINT* ep;
-			if (!usb_find_type(&ptr, &left, USB_DESCR_TYPE_ENDPOINT, &ep))
+			if (!usb_find_type(&ptr, &left, USB_DESCR_TYPE_ENDPOINT, (void**)&ep))
 				return ANANAS_ERROR(NO_RESOURCE);
 
 			device_printf(dev,

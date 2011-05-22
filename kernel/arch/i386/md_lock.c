@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/lock.h>
 #include <ananas/lib.h>
+#include <ananas/schedule.h>
 #include <machine/macro.h>
 
 #define LOAD_LOCK_VALUE \

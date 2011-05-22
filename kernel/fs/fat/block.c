@@ -359,7 +359,6 @@ fat_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out,
 	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
-	struct BIO* bio = NULL;
 
 	/*
 	 * FAT16 root inodes are special as they have a fixed location and

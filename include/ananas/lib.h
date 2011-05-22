@@ -26,6 +26,7 @@ void vaprintf(const char* fmt, va_list ap);
 void kprintf(const char* fmt, ...);
 void _panic(const char* file, const char* func, int line, const char* fmt, ...) __noreturn;
 int sprintf(char* str, const char* fmt, ...);
+int snprintf(char* str, size_t len, const char* fmt, ...);
 char* strdup(const char* s) __nonnull;
 
 char* strcpy(char* dst, const char* src) __nonnull;

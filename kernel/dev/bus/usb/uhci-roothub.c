@@ -10,6 +10,7 @@
 #include <ananas/trace.h>
 #include <ananas/thread.h>
 #include <ananas/schedule.h>
+#include <ananas/time.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <machine/param.h> /* for PAGE_SIZE */
@@ -141,9 +142,7 @@ uroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 static errorcode_t
 uroothub_xfer(device_t dev, struct USB_TRANSFER* xfer)
 {
-	struct USB_CONTROL_REQUEST* req = &xfer->xfer_control_req;
 	struct UHCI_HUB_PRIVDATA* hub_privdata = dev->privdata;
-	struct UHCI_HCD_PRIVDATA* hcd_privdata = hub_privdata->hub_uhcidev->privdata;
 
 	switch(xfer->xfer_type) {
 		case TRANSFER_TYPE_CONTROL:
@@ -177,6 +176,7 @@ uhci_hub_pollthread(void* ptr)
 				device_printf(dev, "port %u changed state to %s", portno,
 				 (stat & UHCI_PORTSC_CONNSTAT) ? "present" : "removed");
 				if (stat & UHCI_PORTSC_CONNSTAT) {
+
 					/*
 					 * There is a new device here, we must reset it. XXX Note that we
 					 * must never reset more than a single device; this needs work.

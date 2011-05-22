@@ -111,5 +111,6 @@ errorcode_t usb_schedule_transfer(struct USB_TRANSFER* xfer);
 void usb_free_transfer(struct USB_TRANSFER* xfer);
 void usb_attach_device(device_t parent, device_t hub, void* hcd_privdata);
 void usb_completed_transfer(struct USB_TRANSFER* xfer);
+int usb_get_next_address(struct USB_DEVICE* usb_dev);
 
 #endif /* __ANANAS_USB_CORE_H__ */

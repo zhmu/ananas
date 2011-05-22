@@ -288,7 +288,6 @@ struct ATA_PRIVDATA {
 	(((struct ATA_PRIVDATA*)(x)->privdata)->atapci.atapci_io != 0)
 
 errorcode_t ata_attach(device_t dev, uint32_t io, uint32_t irq);
-void ata_irq(device_t dev);
 void ata_start(device_t dev);
 void ata_attach_children(device_t dev);
 void ata_enqueue(device_t dev, void* request);

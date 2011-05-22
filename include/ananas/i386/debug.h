@@ -17,8 +17,8 @@ struct THREAD;
 /* Debug register 7 settings */
 #define DR7_L(x)	(1<<(2*(x)))		/* Local breakpoint x enable */
 #define DR7_G(x)	(1<<((2*(x))+1))	/* Global breakpoint x enable */
-#define DR7_LEN(n,x)	((n)<<(4*(x))+18)	/* Length n for breakpoint x */
-#define DR7_RW(n,x)	((n)<<(4*(x))+16)	/* Read/write n for breakpoint x */
+#define DR7_LEN(n,x)	((n)<<((4*(x))+18))	/* Length n for breakpoint x */
+#define DR7_RW(n,x)	((n)<<((4*(x))+16))	/* Read/write n for breakpoint x */
 
 /* Convenience macro's */
 #define DR7_L0		DR7_L(0)	/* Local breakpoint 0 enable */

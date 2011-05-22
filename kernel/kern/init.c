@@ -7,6 +7,7 @@
 #include <ananas/lib.h>
 #include <ananas/schedule.h>
 #include <ananas/thread.h>
+#include <ananas/tty.h>
 #include <ananas/vfs.h>
 #include <ananas/waitqueue.h>
 #include <machine/vm.h>
@@ -64,6 +65,7 @@ mi_startup()
 
 #ifdef USB
 	/* Initialize USB stack */
+	void usb_init();
 	usb_init();
 #endif
 

@@ -109,7 +109,7 @@ atkbd_irq(device_t dev)
 	if (ascii == 0)
 		return;
 
-	priv->kbd_buffer[priv->kbd_buffer_writepos] = ascii;
+	priv->kbd_buffer[(int)priv->kbd_buffer_writepos] = ascii;
 	priv->kbd_buffer_writepos = (priv->kbd_buffer_writepos + 1) % ATKBD_BUFFER_SIZE;
 
 	/* XXX signal consumers - this is a hack */
@@ -127,8 +127,8 @@ atkbd_attach(device_t dev)
 	/* Initialize private data; must be done before the interrupt is registered */
 	struct ATKBD_PRIVDATA* kbd_priv = kmalloc(sizeof(struct ATKBD_PRIVDATA));
 	kbd_priv->kbd_ioport = (uintptr_t)res_io;
-	kbd_priv->kbd_buffer_readpos;
-	kbd_priv->kbd_buffer_writepos;
+	kbd_priv->kbd_buffer_readpos = 0;
+	kbd_priv->kbd_buffer_writepos = 0;
 	kbd_priv->kbd_flags = 0;
 	dev->privdata = kbd_priv;
 
@@ -156,7 +156,7 @@ atkbd_read(device_t dev, void* data, size_t* len, off_t off)
 		if (priv->kbd_buffer_readpos == priv->kbd_buffer_writepos)
 			break;
 
-		*(uint8_t*)(data + returned++) = priv->kbd_buffer[priv->kbd_buffer_readpos];
+		*(uint8_t*)(data + returned++) = priv->kbd_buffer[(int)priv->kbd_buffer_readpos];
 		priv->kbd_buffer_readpos = (priv->kbd_buffer_readpos + 1) % ATKBD_BUFFER_SIZE;
 	}
 	*len = returned;
