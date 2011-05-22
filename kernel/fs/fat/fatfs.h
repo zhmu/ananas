@@ -45,6 +45,7 @@ struct FAT_FS_PRIVDATA {
 	uint16_t reserved_sectors;		/* Number of reserved sectors */
 	int      num_fats;			/* Number of FATs on disk */
 	int      num_rootdir_sectors;		/* Number of sectors occupying root dir */
+	uint32_t num_fat_sectors;		/* FAT size in sectors */
 	uint32_t first_rootdir_sector;		/* First sector containing root dir */
 	uint32_t first_data_sector;		/* First sector containing file data */
 	uint32_t total_clusters;		/* Total number of clusters on filesystem */
@@ -56,6 +57,7 @@ struct FAT_FS_PRIVDATA {
 struct FAT_INODE_PRIVDATA {
 	int      root_inode;
 	uint32_t first_cluster;
+	uint32_t last_cluster;
 };
 
 #endif /* __FATFS_H__ */

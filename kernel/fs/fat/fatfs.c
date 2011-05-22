@@ -100,10 +100,10 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 	 * Finally, we can now figure out the FAT type in use.
 	 */
 	privdata->num_rootdir_sectors = ((sizeof(struct FAT_ENTRY) * num_rootdir_entries) + (privdata->sector_size - 1)) / privdata->sector_size;
-	uint32_t fat_size = FAT_FROM_LE16(bpb->bpb_sectors_per_fat);
-	if (fat_size == 0)
-		fat_size = FAT_FROM_LE32(bpb->epb.fat32.epb_sectors_per_fat);
-	privdata->first_rootdir_sector = privdata->reserved_sectors + (privdata->num_fats * fat_size);
+	privdata->num_fat_sectors = FAT_FROM_LE16(bpb->bpb_sectors_per_fat);
+	if (privdata->num_fat_sectors == 0)
+		privdata->num_fat_sectors = FAT_FROM_LE32(bpb->epb.fat32.epb_sectors_per_fat);
+	privdata->first_rootdir_sector = privdata->reserved_sectors + (privdata->num_fats * privdata->num_fat_sectors);
 	privdata->first_data_sector = privdata->first_rootdir_sector + privdata->num_rootdir_sectors;
 	privdata->total_clusters = (num_sectors - privdata->first_data_sector) / privdata->sectors_per_cluster; /* actually number of data clusters */
 	if (privdata->total_clusters < 4085) {
@@ -115,8 +115,8 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 		privdata->first_rootdir_sector = FAT_FROM_LE32(bpb->epb.fat32.epb_root_cluster);
 	}
 #ifdef DEBUG_FAT
-	kprintf("fat: FAT%u, fat_size=%u, first_root_sector=%u, first_data_sector=%u\n",
-	 privdata->fat_type, fat_size, privdata->first_rootdir_sector, privdata->first_data_sector);
+	kprintf("fat: FAT%u, num_fat_sectors=%u, first_root_sector=%u, first_data_sector=%u\n",
+	 privdata->fat_type, privdata->num_fat_sectors, privdata->first_rootdir_sector, privdata->first_data_sector);
 #endif
 
 	/* Everything is in order - fill out our filesystem details */

@@ -65,30 +65,35 @@ fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clus
 	 * We assume the cache items will never be removed while we are working with
 	 * the file because it will remain referenced - we throw away the cache items
 	 * when the inode is freed.
+	 *
+	 * Note that we explicitely _do not_ cache cluster -1; it is used to find the
+	 * final cluster of the FAT chain.
 	 */
 	int create = 0, found = 0;
 	struct FAT_CLUSTER_CACHEITEM* ci = NULL;
-	spinlock_lock(&fs_privdata->spl_cache);
-	for(int cache_item = 0; cache_item < FAT_NUM_CACHEITEMS; cache_item++) {
-		ci = &fs_privdata->cluster_cache[cache_item];
-		if (ci->f_clusterno == 0) {
-			/* Found empty item - use it (we assume this always occurs at the end of the items) */
-			create++;
-			ci->f_clusterno = first_cluster;
-			ci->f_index = clusternum;
-			ci->f_nextcluster = 0;
-			break;
+	if (clusternum != -1) {
+		spinlock_lock(&fs_privdata->spl_cache);
+		for(int cache_item = 0; cache_item < FAT_NUM_CACHEITEMS; cache_item++) {
+			ci = &fs_privdata->cluster_cache[cache_item];
+			if (ci->f_clusterno == 0) {
+				/* Found empty item - use it (we assume this always occurs at the end of the items) */
+				create++;
+				ci->f_clusterno = first_cluster;
+				ci->f_index = clusternum;
+				ci->f_nextcluster = 0;
+				break;
+			}
+			if (ci->f_clusterno == first_cluster && ci->f_index == clusternum) {
+				/* Got it */
+				found++;
+				break;
+			}
 		}
-		if (ci->f_clusterno == first_cluster && ci->f_index == clusternum) {
-			/* Got it */
-			found++;
-			break;
+		spinlock_unlock(&fs_privdata->spl_cache);
+		if (create == 0 && found == 0) {
+			ci = NULL;
+			kprintf("fat_get_cluster(): out of cache items\n");
 		}
-	}
-	spinlock_unlock(&fs_privdata->spl_cache);
-	if (create == 0 && found == 0) {
-		ci = NULL;
-		kprintf("fat_get_cluster(): out of cache items\n");
 	}
 
 	/*
@@ -176,12 +181,10 @@ fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clus
 }
 
 /*
- * Sets a cluster value to a given value. If *bio isn't NULL, it's assumed to be
- * the buffer containing the cluster data - otherwise it will be updated to
- * contain just that.
+ * Sets a cluster value to a given value.
  */
 static errorcode_t
-fat_set_cluster(struct VFS_MOUNTED_FS* fs, struct BIO** bio, uint32_t cluster_num, uint32_t cluster_val)
+fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, uint32_t cluster_val)
 {
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 
@@ -191,25 +194,42 @@ fat_set_cluster(struct VFS_MOUNTED_FS* fs, struct BIO** bio, uint32_t cluster_nu
 	fat_make_cluster_block_offset(fs, cluster_num, &sector_num, &offset);
 
 	/* If a bio buffer isn't given, read it */
-	if (*bio == NULL) {
-		errorcode_t err = vfs_bread(fs, sector_num, bio);
-		ANANAS_ERROR_RETURN(err);
-	}
+	struct BIO* bio;
+	errorcode_t err = vfs_bread(fs, sector_num, &bio);
+	ANANAS_ERROR_RETURN(err);
 
 	switch (fs_privdata->fat_type) {
 		case 12:
 			panic("writeme: fat12 support");
 		case 16:
-			FAT_TO_LE16((char*)(BIO_DATA(*bio) + offset), cluster_val);
+			FAT_TO_LE16((char*)(BIO_DATA(bio) + offset), cluster_val);
 			break;
 		case 32: /* actually FAT-28... */
-			FAT_TO_LE32((char*)(BIO_DATA(*bio) + offset), cluster_val);
+			FAT_TO_LE32((char*)(BIO_DATA(bio) + offset), cluster_val);
 			break;
 		default:
 			panic("unsuported fat type");
 	}
 
-	bio_set_dirty(*bio);
+	bio_set_dirty(bio);
+
+	/* Sync all other FAT tables as well */
+	for (int i = 1; i < fs_privdata->num_fats; i++) {
+		sector_num += fs_privdata->num_fat_sectors;
+		struct BIO* bio2;
+		err = vfs_bread(fs, sector_num, &bio2);
+		if (err != ANANAS_ERROR_NONE) {
+			/* XXX we should free the cluster */
+			bio_free(bio);
+			kprintf("fat_set_cluster(): XXX leaking cluster %u\n", sector_num);
+			return err;
+		}
+		memcpy(BIO_DATA(bio2), BIO_DATA(bio), fs_privdata->sector_size);
+		bio_set_dirty(bio2);
+		bio_free(bio2);
+	}
+	bio_free(bio);
+
 	return ANANAS_ERROR_OK;
 }
 
@@ -282,17 +302,24 @@ fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 
-	/* Figure out the last cluster of the file */
-	uint32_t last_cluster;
-	errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, (uint32_t)-1, &last_cluster);
-	if (ANANAS_ERROR_CODE(err) != ANANAS_ERROR_BAD_RANGE) {
-		KASSERT(err != ANANAS_ERROR_OK, "able to obtain impossible cluster");
-		return err;
+	/*
+	 * Figure out the last cluster of the file; we cache this per inode as we don't
+	 * want to clutter the cluster-cache with it (these entries need to be updated
+	 * if we append a cluster)
+	 */
+	uint32_t last_cluster = privdata->last_cluster;
+	if (last_cluster == 0) {
+		errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, (uint32_t)-1, &last_cluster);
+		if (ANANAS_ERROR_CODE(err) != ANANAS_ERROR_BAD_RANGE) {
+			KASSERT(err != ANANAS_ERROR_OK, "able to obtain impossible cluster");
+			return err;
+		}
+		privdata->last_cluster = last_cluster;
 	}
 
 	/* Obtain the next cluster - this will also mark it as being in use */
 	uint32_t new_cluster;
-	err = fat_claim_avail_cluster(fs, &new_cluster);
+	errorcode_t err = fat_claim_avail_cluster(fs, &new_cluster);
 	ANANAS_ERROR_RETURN(err);
 
 	/* If the file didn't have any clusters before, it sure does now */
@@ -301,11 +328,14 @@ fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
 		vfs_set_inode_dirty(inode);
 	} else {
 		/* Append this cluster to the file chain */
-		struct BIO* bio = NULL;
-		err = fat_set_cluster(fs, &bio, last_cluster, new_cluster);
+		err = fat_set_cluster(fs, last_cluster, new_cluster);
 		ANANAS_ERROR_RETURN(err); /* XXX leaks clusterno */
 	}
 	*cluster_out = new_cluster;
+
+	/* Update the block count of the inode */
+	privdata->last_cluster = new_cluster;
+	inode->i_sb.st_blocks += fs_privdata->sectors_per_cluster;
 	return ANANAS_ERROR_OK;
 }
 
@@ -338,11 +368,16 @@ fat_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out,
 		errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, block_in / fs_privdata->sectors_per_cluster, &cluster);
 		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE) {
 			/* end of the chain */
-			if (!create)
+			if (!create) {
 				return err;
+			}
 			err = fat_append_cluster(inode, &cluster);
+			ANANAS_ERROR_RETURN(err);
+		} else if (err == ANANAS_ERROR_NONE) {
+			KASSERT(create == 0, "request to create block that already exists (blocknum=%u, cluster=%u)", (int)(block_in / fs_privdata->sectors_per_cluster), cluster);
+		} else {
+			return err;
 		}
-		ANANAS_ERROR_RETURN(err);
 
 		want_block  = fat_cluster_to_sector(fs, cluster);
 		want_block += block_in % fs_privdata->sectors_per_cluster;
