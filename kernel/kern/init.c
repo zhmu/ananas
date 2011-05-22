@@ -62,6 +62,11 @@ mi_startup()
 	/* Initialize I/O */
 	bio_init();
 
+#ifdef USB
+	/* Initialize USB stack */
+	usb_init();
+#endif
+
 	/* Give the devices a spin */
 	device_init();
 
