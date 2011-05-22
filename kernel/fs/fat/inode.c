@@ -27,45 +27,14 @@ fat_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 void
 fat_destroy_inode(struct VFS_INODE* inode)
 {
-	struct FAT_FS_PRIVDATA* fs_privdata = inode->i_fs->fs_privdata;
 	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
 
 	/*
 	 * If the file has backing storage, we need to throw away all inode's cluster
-	 * items in the cache; this works by searching for the last item in the
-	 * cluster cache and copying it over our removed blocks - this works because
-	 * the cache isn't sorted.
+	 * items in the cache.
 	 */
-	if (privdata->first_cluster != 0) {
-		spinlock_lock(&fs_privdata->spl_cache);
-		unsigned int last_index = 0;
-		while (last_index < FAT_NUM_CACHEITEMS && fs_privdata->cluster_cache[last_index].f_clusterno != 0)
-			last_index++;
-		/* Cacheitems 0 ... i, for all i < last_index are in use */
-
-		/* Throw away all inode's cluster items in the cache */
-		struct FAT_CLUSTER_CACHEITEM* ci = fs_privdata->cluster_cache;
-		for(unsigned int n = 0; n < FAT_NUM_CACHEITEMS; n++, ci++) {
-			if (ci->f_clusterno != privdata->first_cluster)
-				continue;
-
-			/*
-			 * OK, this is an item we'll have to destroy - copy the last entry over it and remove that one.
-			 * If this is the final entry, we skip the copying.
-				*/
-			KASSERT(last_index >= 0 && last_index <= FAT_NUM_CACHEITEMS, "last index %u invalid", last_index);
-			KASSERT(n <= last_index, "item to remove %u is beyond last index %i", n, last_index);
-			if (n != (last_index - 1)) {
-				/* Need to overwrite this item with the final cache item */
-				memcpy(ci, &fs_privdata->cluster_cache[last_index - 1], sizeof(*ci));
-				memset(&fs_privdata->cluster_cache[last_index - 1], 0, sizeof(*ci));
-				last_index--;
-			} else {
-				memset(ci, 0, sizeof(*ci));
-			}
-		}
-		spinlock_unlock(&fs_privdata->spl_cache);
-	}
+	if (privdata->first_cluster != 0)
+		fat_clear_cache(inode->i_fs, privdata->first_cluster);
 
 	kfree(inode->i_privdata);
 	vfs_destroy_inode(inode);
