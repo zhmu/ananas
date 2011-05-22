@@ -69,6 +69,7 @@ fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clus
 try_cache: ; /* dummy ; to keep gcc happy */
 	int create = 0, found = 0;
 	struct FAT_CLUSTER_CACHEITEM* ci = NULL;
+	struct FAT_CLUSTER_CACHEITEM* ci_closest = NULL;
 	if (clusternum != -1) {
 		spinlock_lock(&fs_privdata->spl_cache);
 		for(int cache_item = 0; cache_item < FAT_NUM_CACHEITEMS; cache_item++) {
@@ -81,11 +82,28 @@ try_cache: ; /* dummy ; to keep gcc happy */
 				ci->f_nextcluster = 0;
 				break;
 			}
-			if (ci->f_clusterno == first_cluster && ci->f_index == clusternum) {
-				/* Got it */
-				found++;
-				break;
+			if (ci->f_clusterno == first_cluster) {
+				if (ci->f_index == clusternum) {
+					/* Got it */
+					found++;
+					break;
+				}
+
+				/*
+				 * Cluster is fine, but index isn't. Attempt to use this item as a base;
+				 * the less items we'll have to walk through, the better.
+				 */
+				if (ci->f_index < clusternum && (ci_closest == NULL || ci->f_index > ci_closest->f_index))
+					ci_closest = ci;
 			}
+		}
+		/*
+		 * If we need to do a lookup, use the closest item as base; we do this
+		 * while holding the lock to ensure the item won't vanish.
+		 */
+		if (!found && ci_closest != NULL) {
+			cur_cluster = ci_closest->f_nextcluster;
+			clusternum -= ci_closest->f_index;
 		}
 		spinlock_unlock(&fs_privdata->spl_cache);
 
