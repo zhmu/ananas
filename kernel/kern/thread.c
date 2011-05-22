@@ -318,6 +318,7 @@ thread_unmap(thread_t t, void* ptr, size_t len)
 void
 thread_suspend(thread_t t)
 {
+	TRACE(THREAD, FUNC, "t=%p", t);
 	if (t == NULL || (t->flags & THREAD_FLAG_SUSPENDED) != 0)
 		return;
 	scheduler_remove_thread(t);
@@ -327,6 +328,7 @@ thread_suspend(thread_t t)
 void
 thread_resume(thread_t t)
 {
+	TRACE(THREAD, FUNC, "t=%p", t);
 	if (t == NULL || (t->flags & THREAD_FLAG_SUSPENDED) == 0)
 		return;
 	KASSERT((t->flags & THREAD_FLAG_TERMINATING) == 0, "resuming terminating thread %p", t);
@@ -338,6 +340,7 @@ void
 thread_exit(int exitcode)
 {
 	thread_t thread = PCPU_GET(curthread);
+	TRACE(THREAD, FUNC, "t=%p, exitcode=%u", thread, exitcode);
 	KASSERT(thread != NULL, "thread_exit() without thread");
 	KASSERT((thread->flags & THREAD_FLAG_TERMINATING) == 0, "exiting already termating thread");
 
@@ -364,9 +367,10 @@ thread_exit(int exitcode)
 errorcode_t
 thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 {
+	TRACE(THREAD, FUNC, "parent=%p, flags=%u", parent, flags);
 	errorcode_t err;
 
-	KASSERT(PCPU_GET(curthread) == parent, "thread_clone(): unsupported from non-current thread");
+	KASSERT(PCPU_GET(curthread) == parent, "thread_clone(): unsupported from non-current thread (curthread %p != parent %p)", PCPU_GET(curthread), parent);
 
 	struct THREAD* t;
 	err = thread_alloc(parent, &t);
