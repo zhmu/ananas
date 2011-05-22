@@ -137,7 +137,6 @@ try_cache: ; /* dummy ; to keep gcc happy */
 		*cluster_out = ci->f_nextcluster;
 		return ANANAS_ERROR_NONE;
 	}
-kprintf("cluster cache miss (first=%u num=%u)\n", first_cluster, clusternum);
 
 	/* Not in the cache; we'll need to traverse the disk */
 	*cluster_out = first_cluster;
