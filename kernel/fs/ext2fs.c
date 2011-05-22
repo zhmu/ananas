@@ -144,52 +144,6 @@ ext2_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out
 }
 
 static errorcode_t
-ext2_read(struct VFS_FILE* file, void* buf, size_t* len)
-{
-	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
-	blocknr_t blocknum = (blocknr_t)file->f_offset / (blocknr_t)fs->fs_block_size;
-	uint32_t offset = file->f_offset % fs->fs_block_size;
-	size_t numread = 0;
-	size_t left = *len;
-
-	/* Normalize left so that it cannot expand beyond the file size */
-	if (file->f_offset + left > file->f_inode->i_sb.st_size)
-		left = file->f_inode->i_sb.st_size - file->f_offset;
-
-	while(left > 0) {
-		blocknr_t block;
-		errorcode_t err = ext2_block_map(file->f_inode, blocknum, &block, 0);
-		ANANAS_ERROR_RETURN(err);
-		if (block == 0) {
-			/* We've run out of blocks; this shouldn't happen... */
-			panic("ext2_read(): no block found, maybe sparse file?");
-			break;
-		}
-
-		/*
-		 * Fetch the block and copy what we have so far.
-		 */
-		struct BIO* bio;
-		err = vfs_bread(fs, block, &bio);
-		ANANAS_ERROR_RETURN(err);
-		size_t chunklen = (fs->fs_block_size < left ? fs->fs_block_size : left);
-		if (chunklen + offset > fs->fs_block_size)
-			chunklen = fs->fs_block_size - offset;
-		memcpy(buf, (void*)(BIO_DATA(bio) + offset), chunklen);
-		buf += chunklen; numread += chunklen; left -= chunklen;
-		bio_free(bio);
-
-		/* Update pointers */
-		offset = (offset + chunklen) % fs->fs_block_size;
-		file->f_offset += chunklen;
-		blocknum++;
-	}
-
-	*len = numread;
-	return ANANAS_ERROR_OK;
-}
-
-static errorcode_t
 ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
