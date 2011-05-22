@@ -38,9 +38,6 @@ fat_make_cluster_block_offset(struct VFS_MOUNTED_FS* fs, uint32_t cluster, block
 		case 32:
 			block = 4 * cluster;
 			break;
-		case 12:
-			block = cluster + (cluster / 2); /* = 1.5 * cluster */
-			/* XXX FALLTHROUGH for now - write will fail */
 		default:
 			panic("fat_get_cluster(): unsupported fat size %u", fs_privdata->fat_type);
 	}
@@ -123,37 +120,6 @@ fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clus
 
 		/* Grab the value from the FAT */
 		switch (fs_privdata->fat_type) {
-			case 12: {
-				/*
-				 * FAT12 really sucks; a FAT entry may span over the border of the sector.
-				 * We'll have to be careful and check for this case...
-				 */
-				uint16_t fat_value;
-				if (offset == (fs_privdata->sector_size - 1)) {
-					struct BIO* bio2;
-					err = vfs_bread(fs, sector_num + 1, &bio2);
-					if (err != ANANAS_ERROR_OK) {
-						bio_free(bio);
-						if (ci != NULL)
-							ci->f_nextcluster = -1;
-						return err;
-					}
-					fat_value  = *(uint8_t*)(BIO_DATA(bio) + offset);
-					fat_value |= *(uint8_t*)(BIO_DATA(bio2)) << 8;
-					bio_free(bio2);
-				} else {
-					fat_value = FAT_FROM_LE16((char*)(BIO_DATA(bio) + offset));
-				}
-				if (cur_cluster & 1) {
-					fat_value >>= 4;
-				} else {
-					fat_value &= 0x0fff;
-				}
-				cur_cluster = fat_value;
-				if (cur_cluster >= 0xff8)
-					cur_cluster = 0;
-				break;
-			}
 			case 16:
 				cur_cluster = FAT_FROM_LE16((char*)(BIO_DATA(bio) + offset));
 				if (cur_cluster >= 0xfff8)
@@ -199,8 +165,6 @@ fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, uint32_t cluste
 	ANANAS_ERROR_RETURN(err);
 
 	switch (fs_privdata->fat_type) {
-		case 12:
-			panic("writeme: fat12 support");
 		case 16:
 			FAT_TO_LE16((char*)(BIO_DATA(bio) + offset), cluster_val);
 			break;
@@ -259,8 +223,6 @@ fat_claim_avail_cluster(struct VFS_MOUNTED_FS* fs, uint32_t* cluster_out)
 		/* Obtain the cluster value */
 		uint32_t val = -1;
 		switch (fs_privdata->fat_type) {
-			case 12:
-				panic("writeme: fat12 support");
 			case 16:
 				val = FAT_FROM_LE16((char*)(BIO_DATA(bio) + offset));
 				if (val == 0) { /* available cluster? */
@@ -354,7 +316,7 @@ fat_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out,
 	struct BIO* bio = NULL;
 
 	/*
-	 * FAT12/16 root inodes are special as they have a fixed location and
+	 * FAT16 root inodes are special as they have a fixed location and
 	 * length; the FAT isn't needed to traverse them.
 	 */
 	blocknr_t want_block;

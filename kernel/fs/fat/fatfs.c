@@ -119,6 +119,13 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 	 privdata->fat_type, privdata->num_fat_sectors, privdata->first_rootdir_sector, privdata->first_data_sector);
 #endif
 
+	/*
+	 * Reject FAT12; it's obsolete and would make the driver even more
+	 * complicated than it already is.
+	 */
+	if (privdata->fat_type == 12)
+		FAT_ABORT("FAT12 is unsupported");
+
 	/* Everything is in order - fill out our filesystem details */
 	fs->fs_block_size = privdata->sector_size;
 	fs->fs_fsop_size = sizeof(uint64_t);

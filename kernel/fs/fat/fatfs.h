@@ -4,9 +4,9 @@
 #include <ananas/types.h>
 
 /*
- * Used to uniquely identify a FAT12/16 root inode; it appears on a
+ * Used to uniquely identify a FAT16 root inode; it appears on a
  * special, fixed place and has a limited number of entries. FAT32
- * just uses a normal cluster as FAT12/16 do for subdirectories.
+ * just uses a normal cluster as FAT16 do for subdirectories.
  */
 #define FAT_ROOTINODE_FSOP 0xfffffffe
 
@@ -39,7 +39,7 @@ struct FAT_CLUSTER_CACHEITEM {
 };
 
 struct FAT_FS_PRIVDATA {
-	int      fat_type;			/* FAT type: 12, 16 or 32 */
+	int      fat_type;			/* FAT type: 16 or 32 */
 	int	 sector_size;			/* Sector size, in bytes */
 	uint32_t sectors_per_cluster;		/* Cluster size (in sectors) */
 	uint16_t reserved_sectors;		/* Number of reserved sectors */
