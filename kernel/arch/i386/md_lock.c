@@ -3,6 +3,9 @@
 #include <ananas/lib.h>
 #include <machine/macro.h>
 
+#define LOAD_LOCK_VALUE \
+		"movl	4(%%ebp), %%ebx\n"	/* return eip */
+
 /*
  * The spinlock implementation is based on IA-32 Intel Architecture Software
  * Developer's Manual, Volume 3: System programming guide, section 
@@ -20,7 +23,7 @@ spinlock_lock(spinlock_t s)
 		"pause\n"
 		"jmp	l1\n"
 "l2:\n"
-		"movl	$1, %%ebx\n"
+		LOAD_LOCK_VALUE
 		"xchg	(%%eax), %%ebx\n"
 		"cmpl	$0, %%ebx\n"
 		"jne	l1\n"
@@ -64,7 +67,7 @@ spinlock_lock_unpremptible(spinlock_t s)
 		 * try because we must not be preempted while holding the lock.
 		 */
 		"cli\n"
-		"movl	$1, %%ebx\n"
+		LOAD_LOCK_VALUE
 		"xchg	(%%eax), %%ebx\n"
 		"cmpl	$0, %%ebx\n"
 		"je	ll3\n"
