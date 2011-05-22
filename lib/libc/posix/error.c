@@ -42,6 +42,8 @@ _posix_map_error(errorcode_t err)
 			SET_ERRNO(ENXIO);
 		case ANANAS_ERROR_FILE_EXISTS:
 			SET_ERRNO(EEXIST);
+		case ANANAS_ERROR_NO_SPACE:
+			SET_ERRNO(ENOSPC);
 		case ANANAS_ERROR_CLONED: /* should never end up here */
 		case ANANAS_ERROR_UNKNOWN:
 		default:
