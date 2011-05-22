@@ -180,6 +180,9 @@ ata_identify(device_t dev, int unit, struct ATA_IDENTIFY* identify)
 		/* This is a magic identifier for SATA devices! */
 	} else if (cl == 0 && ch == 0) {
 		/* Plain old ATA disk */
+	} else if (cl == 0xff && ch == 0xff) {
+		/* Nothing there */
+		return 0;
 	} else {
 		device_printf(dev, "unit %u does not report recognized type (got 0x%x), assuming disk",
 			unit, ch << 8 | cl);
