@@ -50,7 +50,7 @@ struct FAT_FS_PRIVDATA {
 	uint32_t first_data_sector;		/* First sector containing file data */
 	uint32_t total_clusters;		/* Total number of clusters on filesystem */
 	uint32_t next_avail_cluster;		/* Next available cluster */
-	struct SPINLOCK spl_cache;
+	spinlock_t spl_cache;
 	struct FAT_CLUSTER_CACHEITEM cluster_cache[FAT_NUM_CACHEITEMS];
 };
 

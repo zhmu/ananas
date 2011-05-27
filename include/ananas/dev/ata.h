@@ -277,9 +277,9 @@ QUEUE_DEFINE(ATA_REQUEST_QUEUE, struct ATA_REQUEST_ITEM)
 struct ATA_PRIVDATA {
 	uint32_t	io_port;
 	uint32_t	io_port2;
-	struct SPINLOCK spl_requests;
+	spinlock_t	spl_requests;
 	struct ATA_REQUEST_QUEUE requests;
-	struct SPINLOCK spl_freelist;
+	spinlock_t	spl_freelist;
 	struct ATA_REQUEST_QUEUE freelist;
 	struct ATAPCI_PRIVDATA atapci;
 };

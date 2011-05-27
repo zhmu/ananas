@@ -6,13 +6,12 @@
 #include <ananas/vm.h>
 #include <ananas/lib.h>
 
-static struct MM_ZONE* zone_root;
-static struct SPINLOCK spl_mm;
+static struct MM_ZONE* zone_root = NULL;
+static spinlock_t spl_mm = SPINLOCK_DEFAULT_INIT;
 
 void
 mm_init()
 {
-	zone_root = NULL;
 	spinlock_init(&spl_mm);
 }
 

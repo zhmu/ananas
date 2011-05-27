@@ -8,7 +8,7 @@
 
 #define WAITER_QUEUE_SIZE 100
 
-static struct SPINLOCK spl_freelist;
+static spinlock_t spl_freelist;
 static struct WAIT_QUEUE w_freelist;
 
 void

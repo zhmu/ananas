@@ -16,9 +16,9 @@ static unsigned int bio_bitmap_size;
 static uint8_t* bio_bitmap = NULL;
 static uint8_t* bio_data = NULL;
 
-static struct SPINLOCK spl_bucket[BIO_BUCKET_SIZE];
-static struct SPINLOCK spl_bio_lists;
-static struct SPINLOCK spl_bio_bitmap;
+static spinlock_t spl_bucket[BIO_BUCKET_SIZE];
+static spinlock_t spl_bio_lists;
+static spinlock_t spl_bio_bitmap;
 
 void
 bio_init()

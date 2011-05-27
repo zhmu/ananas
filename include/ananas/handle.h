@@ -39,7 +39,7 @@ struct HANDLE_MEMORY_INFO {
 struct HANDLE {
 	int type;
 	struct THREAD* thread;			/* owning thread */
-	struct SPINLOCK spl_handle;		/* spinlock guarding the handle */
+	spinlock_t spl_handle;		/* spinlock guarding the handle */
 	DQUEUE_FIELDS(struct HANDLE);		/* used for the queue structure */
 
 	/* Waiters are those who are waiting on this handle */

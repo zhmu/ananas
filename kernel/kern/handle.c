@@ -14,7 +14,7 @@ TRACE_SETUP;
 #define NUM_HANDLES 1000 /* XXX shouldn't be static */
 
 static struct HANDLE_QUEUE handle_freelist;
-static struct SPINLOCK spl_handlequeue;
+static spinlock_t spl_handlequeue;
 static void *handle_memory_start = NULL;
 static void *handle_memory_end = NULL;
 

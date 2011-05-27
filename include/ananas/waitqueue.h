@@ -11,7 +11,7 @@
  * designed to be light-weight.
  */
 struct WAITER {
-	struct SPINLOCK	w_lock;			/* spinlock protecting the waiter */
+	spinlock_t	w_lock;			/* spinlock protecting the waiter */
 	struct THREAD*	w_thread;		/* waiting thread */
 	int		w_signalled;		/* number of times signalled */
 	struct WAIT_QUEUE* w_wq;		/* owner queue */
@@ -19,7 +19,7 @@ struct WAITER {
 };
 
 DQUEUE_DEFINE_BEGIN(WAIT_QUEUE, struct WAITER)
-	struct SPINLOCK	wq_lock;
+	spinlock_t	wq_lock;
 DQUEUE_DEFINE_END
 
 /* Initialize a given wait queue; if wq is NULL, initializes the freelist */

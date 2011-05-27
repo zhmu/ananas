@@ -9,7 +9,7 @@
 
 static int scheduler_active = 0;
 
-struct SPINLOCK spl_scheduler = { 0 };
+static spinlock_t spl_scheduler = SPINLOCK_DEFAULT_INIT;
 static struct SCHEDULER_QUEUE sched_queue;
 
 void

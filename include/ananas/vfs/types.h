@@ -21,7 +21,7 @@ struct VFS_FILESYSTEM_OPS;
  * it is still being used.
  */
 struct VFS_INODE {
-	struct SPINLOCK	i_spinlock;		/* Spinlock protecting inode */
+	spinlock_t	i_spinlock;		/* Spinlock protecting inode */
 	refcount_t	i_refcount;		/* Refcount, must be >=1 */
 	unsigned int	i_flags;		/* Inode flags */
 #define INODE_FLAG_GONE		(1 << 0)	/* Inode is gone */
@@ -72,7 +72,7 @@ struct VFS_DIRENT {
  * mounting.
  */
 struct VFS_MOUNTED_FS {
-	struct SPINLOCK	fs_spinlock;		/* Protects fields marked with (F) */
+	spinlock_t	fs_spinlock;		/* Protects fields marked with (F) */
 	device_t	fs_device;		/* (F) Device where the filesystem lives */
 	unsigned int	fs_flags;		/* (F) Filesystem flags */
 #define VFS_FLAG_INUSE    0x0001		/* Filesystem entry is in use */
@@ -83,13 +83,13 @@ struct VFS_MOUNTED_FS {
 	void*		fs_privdata;		/* (R) Private filesystem data */
 
 	/* Inode cache */
-	struct SPINLOCK		fs_icache_lock;		/* Protects fields marked with (I) */
+	spinlock_t		fs_icache_lock;		/* Protects fields marked with (I) */
 	struct ICACHE_QUEUE	fs_icache_inuse;	/* (I) Currently used inodes */
 	struct ICACHE_QUEUE	fs_icache_free;		/* (I) Available inode list */
 	void*			fs_icache_buffer;	/* (I) Inode cache buffer, for cleanup */
 
 	/* Dentry cache */
-	struct SPINLOCK			fs_dcache_lock;		/* Protects fields marked with (D) */
+	spinlock_t			fs_dcache_lock;		/* Protects fields marked with (D) */
 	struct DENTRY_CACHE_QUEUE	fs_dcache_inuse;	/* (D) Currently used items */
 	struct DENTRY_CACHE_QUEUE	fs_dcache_free;		/* (D) Currently used items */
 	void*				fs_dcache_buffer;	/* (D) Dentry cache buffer, for cleanup */

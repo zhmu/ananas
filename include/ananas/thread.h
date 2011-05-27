@@ -44,7 +44,7 @@ struct THREAD {
 	/* Machine-dependant data - must be first */
 	MD_THREAD_FIELDS
 
-	struct SPINLOCK spl_thread;	/* Lock protecting the thread data */
+	spinlock_t spl_thread;	/* Lock protecting the thread data */
 
 	unsigned int flags;
 #define THREAD_FLAG_ACTIVE	0x0001	/* Thread is scheduled somewhere */

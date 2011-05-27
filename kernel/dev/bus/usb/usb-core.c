@@ -11,7 +11,7 @@
 
 static struct THREAD usb_workerthread;
 static struct USB_TRANSFER_QUEUE usb_xfer_pendingqueue;
-static struct SPINLOCK spl_usb_xfer_pendingqueue;
+static spinlock_t spl_usb_xfer_pendingqueue;
 
 struct DRIVER drv_usb = {
 	.name = "usbdev"

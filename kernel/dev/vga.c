@@ -36,7 +36,7 @@ struct VGA_PRIVDATA {
 	uint8_t  vga_attr;
 	int      vga_dirty;
 	teken_t  vga_teken;
-	struct SPINLOCK vga_spl_teken;
+	spinlock_t vga_spl_teken;
 #ifdef VGA_KERNEL_THREAD
 	int      vga_cursor_x;
 	int      vga_cursor_y;

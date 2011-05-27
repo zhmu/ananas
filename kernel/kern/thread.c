@@ -17,7 +17,7 @@
 
 TRACE_SETUP;
 
-static struct SPINLOCK spl_threadqueue;
+static spinlock_t spl_threadqueue = SPINLOCK_DEFAULT_INIT;
 static struct THREAD_QUEUE threadqueue;
 
 errorcode_t

@@ -40,7 +40,7 @@ struct TTY_PRIVDATA {
 };
 
 QUEUE_DEFINE_BEGIN(TTY_QUEUE, struct TTY_PRIVDATA)
-	struct SPINLOCK tq_lock;
+	spinlock_t tq_lock;
 QUEUE_DEFINE_END
 
 static struct DRIVER drv_tty;

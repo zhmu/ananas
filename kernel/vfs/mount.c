@@ -12,14 +12,13 @@
 TRACE_SETUP;
 
 #define VFS_MOUNTED_FS_MAX	16
-static struct SPINLOCK spl_mountedfs;
+static spinlock_t spl_mountedfs = SPINLOCK_DEFAULT_INIT;
 static struct VFS_MOUNTED_FS mountedfs[VFS_MOUNTED_FS_MAX];
 
 void
 vfs_init_mount()
 {
 	memset(mountedfs, 0, sizeof(mountedfs));
-	spinlock_init(&spl_mountedfs);
 }
 
 static struct VFS_FILESYSTEM_OPS*
