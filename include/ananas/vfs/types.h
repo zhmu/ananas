@@ -11,9 +11,9 @@ struct VFS_INODE_OPS;
 struct VFS_FILESYSTEM_OPS;
 
 #define INODE_LOCK(i) \
-	spinlock_lock(&(i)->i_spinlock)
+	mutex_lock(&(i)->i_mutex)
 #define INODE_UNLOCK(i) \
-	spinlock_unlock(&(i)->i_spinlock)
+	mutex_unlock(&(i)->i_mutex)
 
 /*
  * VFS_INODE refers to an inode; it must be locked before any fields can
@@ -21,7 +21,7 @@ struct VFS_FILESYSTEM_OPS;
  * it is still being used.
  */
 struct VFS_INODE {
-	spinlock_t	i_spinlock;		/* Spinlock protecting inode */
+	mutex_t		i_mutex;		/* Mutex protecting inode */
 	refcount_t	i_refcount;		/* Refcount, must be >=1 */
 	unsigned int	i_flags;		/* Inode flags */
 #define INODE_FLAG_GONE		(1 << 0)	/* Inode is gone */

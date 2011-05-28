@@ -29,7 +29,7 @@ vfs_make_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 
 	/* Set up the basic inode information */
 	memset(inode, 0, sizeof(*inode));
-	spinlock_init(&inode->i_spinlock);
+	mutex_init(&inode->i_mutex, "inode");
 	inode->i_refcount = 1;
 	inode->i_fs = fs;
 	memcpy(inode->i_fsop, fsop, fs->fs_fsop_size);
