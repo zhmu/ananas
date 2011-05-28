@@ -1,5 +1,5 @@
 #ifndef __ANANAS_VFS_MOUNT_H__
-#define __ANANAS_VFS_MOUNTH__
+#define __ANANAS_VFS_MOUNT_H__
 
 void vfs_init_mount();
 
