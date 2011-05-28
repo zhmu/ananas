@@ -7,6 +7,7 @@ kern/pcpu.c		mandatory
 kern/thread.c		mandatory
 kern/scheduler.c	mandatory
 kern/syscall.c		mandatory
+kern/lock.c		mandatory
 kern/irq.c		mandatory
 kern/bio.c		mandatory
 kern/handle.c		mandatory
