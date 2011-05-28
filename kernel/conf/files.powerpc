@@ -4,7 +4,6 @@ arch/powerpc/startup.c		mandatory
 arch/powerpc/vm.c		mandatory
 arch/powerpc/mmu.c		mandatory
 arch/powerpc/md_thread.c	mandatory
-arch/powerpc/md_lock.c		mandatory
 arch/powerpc/trap.S		mandatory
 arch/powerpc/exception.c	mandatory
 arch/powerpc/timer.c		mandatory
