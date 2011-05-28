@@ -26,7 +26,7 @@ static inline int atomic_xchg(atomic_t* a, int v)
 		"lwarx	%0, %%r0, %1\n"	/* load and reserve */
 		"stwcx. %2, %%r0, %1\n"	/* store new value if still reserved */
 		"bne-	1b\n"		/* loop if lost reservation */
-	: "=r" (m) : "r" (&a->value), "r" (v));
+	: "+r" (m) : "r" (&a->value), "r" (v));
 	return m;
 		
 }
