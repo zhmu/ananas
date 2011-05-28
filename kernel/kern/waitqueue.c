@@ -16,7 +16,7 @@ waitqueue_init(struct WAIT_QUEUE* wq)
 {
 	if (wq == NULL) {
 		/* Create the freelist with WAITER_QUEUE_SIZE items */
-		struct WAITER* w_items = kmalloc(sizeof(struct WAIT_QUEUE) * WAITER_QUEUE_SIZE);
+		struct WAITER* w_items = kmalloc(sizeof(struct WAITER) * WAITER_QUEUE_SIZE);
 		DQUEUE_INIT(&w_freelist);
 		for (int i = 0; i < WAITER_QUEUE_SIZE; i++) {
 			DQUEUE_ADD_TAIL(&w_freelist, w_items);
