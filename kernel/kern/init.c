@@ -88,7 +88,7 @@ mi_startup()
 #endif
 
 #ifdef SHELL_BIN 
-	thread_t t1;
+	thread_t* t1;
 	err = thread_alloc(NULL, &t1);
 	if (err == ANANAS_ERROR_NONE) {
 		struct VFS_FILE f;

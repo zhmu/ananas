@@ -14,7 +14,7 @@ void md_idle_thread();
 void clone_return();
 
 errorcode_t
-md_thread_init(thread_t t)
+md_thread_init(thread_t* t)
 {
 	/* Create a pagedirectory and map the kernel pages in there */
 	t->md_pml4 = kmalloc(PAGE_SIZE);
@@ -50,7 +50,7 @@ md_thread_init(thread_t t)
 }
 
 void
-md_thread_free(thread_t t)
+md_thread_free(thread_t* t)
 {
 	kfree(t->md_pml4);
 	kfree(t->md_stack);
@@ -58,7 +58,7 @@ md_thread_free(thread_t t)
 }
 
 void
-md_thread_switch(thread_t new, thread_t old)
+md_thread_switch(thread_t* new, thread_t* old)
 {
 	struct CONTEXT* ctx_new = (struct CONTEXT*)&new->md_ctx;
 
@@ -76,19 +76,19 @@ md_thread_switch(thread_t new, thread_t old)
 }
 
 void*
-md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
+md_map_thread_memory(thread_t* thread, void* ptr, size_t length, int write)
 {
 	return ptr;
 }
 
 addr_t
-md_thread_is_mapped(thread_t thread, addr_t virt, int flags)
+md_thread_is_mapped(thread_t* thread, addr_t virt, int flags)
 {
 	return vm_get_phys(thread->md_pml4, virt, flags);
 }
 
 void*
-md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
+md_thread_map(thread_t* thread, void* to, void* from, size_t length, int flags)
 {
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)
@@ -99,7 +99,7 @@ md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
 }
 
 errorcode_t
-md_thread_unmap(thread_t thread, addr_t addr, size_t length)
+md_thread_unmap(thread_t* thread, addr_t addr, size_t length)
 {
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)
@@ -112,19 +112,19 @@ md_thread_unmap(thread_t thread, addr_t addr, size_t length)
 }
 
 void
-md_thread_set_entrypoint(thread_t thread, addr_t entry)
+md_thread_set_entrypoint(thread_t* thread, addr_t entry)
 {
 	thread->md_ctx.sf.sf_rip = entry;
 }
 
 void
-md_thread_set_argument(thread_t thread, addr_t arg)
+md_thread_set_argument(thread_t* thread, addr_t arg)
 {
 	thread->md_ctx.sf.sf_rdi = arg;
 }
 
 void
-md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
+md_thread_setkthread(thread_t* thread, kthread_func_t kfunc, void* arg)
 {
 	thread->md_ctx.sf.sf_ss = GDT_SEL_KERNEL_DATA;
 	thread->md_ctx.sf.sf_cs = GDT_SEL_KERNEL_CODE;

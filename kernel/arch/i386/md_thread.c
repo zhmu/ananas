@@ -19,7 +19,7 @@ void clone_return();
 extern uint32_t* kernel_pd;
 
 static errorcode_t
-md_thread_setup(thread_t t)
+md_thread_setup(thread_t* t)
 {
 	memset(t->md_pagedir, 0, PAGE_SIZE);
 	vm_map_kernel_addr(t->md_pagedir);
@@ -49,7 +49,7 @@ md_thread_setup(thread_t t)
 }
 
 errorcode_t
-md_thread_init(thread_t t)
+md_thread_init(thread_t* t)
 {
 	/* Create a pagedirectory and map the kernel pages in there */
 	t->md_pagedir = kmalloc(PAGE_SIZE);
@@ -62,7 +62,7 @@ md_thread_init(thread_t t)
 }
 
 void
-md_thread_free(thread_t t)
+md_thread_free(thread_t* t)
 {
 	/*
 	 * This is a royal pain: we are about to destroy the thread's mappings, but this also means
@@ -83,7 +83,7 @@ md_thread_free(thread_t t)
 }
 
 void
-md_thread_switch(thread_t new, thread_t old)
+md_thread_switch(thread_t* new, thread_t* old)
 {
 	struct CONTEXT* ctx_new = (struct CONTEXT*)&new->md_ctx;
 
@@ -109,13 +109,13 @@ md_thread_switch(thread_t new, thread_t old)
 }
 
 void*
-md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
+md_map_thread_memory(thread_t* thread, void* ptr, size_t length, int write)
 {
 	return ptr;
 }
 
 void*
-md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
+md_thread_map(thread_t* thread, void* to, void* from, size_t length, int flags)
 {
 	KASSERT((flags & VM_FLAG_KERNEL) == 0, "attempt to map kernel memory");
 	int num_pages = length / PAGE_SIZE;
@@ -126,13 +126,13 @@ md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
 }
 
 addr_t
-md_thread_is_mapped(thread_t thread, addr_t virt, int flags)
+md_thread_is_mapped(thread_t* thread, addr_t virt, int flags)
 {
 	return md_get_mapping(thread->md_pagedir, virt, flags);
 }
 
 errorcode_t
-md_thread_unmap(thread_t thread, addr_t addr, size_t length)
+md_thread_unmap(thread_t* thread, addr_t addr, size_t length)
 {
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)
@@ -142,19 +142,19 @@ md_thread_unmap(thread_t thread, addr_t addr, size_t length)
 }
 
 void
-md_thread_set_entrypoint(thread_t thread, addr_t entry)
+md_thread_set_entrypoint(thread_t* thread, addr_t entry)
 {
 	thread->md_ctx.eip = entry;
 }
 
 void
-md_thread_set_argument(thread_t thread, addr_t arg)
+md_thread_set_argument(thread_t* thread, addr_t arg)
 {
 	thread->md_ctx.esi = arg;
 }
 
 void
-md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
+md_thread_setkthread(thread_t* thread, kthread_func_t kfunc, void* arg)
 {
 	/*
 	 * Kernel threads must share the environment with the kernel; so they have to
@@ -191,7 +191,7 @@ md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
 }
 	
 void
-md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
+md_thread_clone(thread_t* t, thread_t* parent, register_t retval)
 {
 	/* Copy the entire context over */
 	memcpy(&t->md_ctx, &parent->md_ctx, sizeof(t->md_ctx));
@@ -236,7 +236,7 @@ md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
 }
 
 int
-md_thread_peek_32(thread_t thread, addr_t virt, uint32_t* val)
+md_thread_peek_32(thread_t* thread, addr_t virt, uint32_t* val)
 {
 	addr_t phys = md_get_mapping(thread->md_pagedir, virt, VM_FLAG_READ);
 	if (phys == 0)

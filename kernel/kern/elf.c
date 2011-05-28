@@ -36,7 +36,7 @@ struct ELF_THREADMAP_PRIVDATA {
 };
 
 static errorcode_t
-elf_tm_destroy_func(thread_t t, struct THREAD_MAPPING* tm)
+elf_tm_destroy_func(thread_t* t, struct THREAD_MAPPING* tm)
 {
 	struct ELF_THREADMAP_PROGHEADER* ph = tm->tm_privdata;
 	struct ELF_THREADMAP_PRIVDATA* privdata = ph->ph_header;
@@ -50,7 +50,7 @@ elf_tm_destroy_func(thread_t t, struct THREAD_MAPPING* tm)
 }
 
 static errorcode_t
-elf_tm_fault_func(thread_t t, struct THREAD_MAPPING* tm, addr_t virt)
+elf_tm_fault_func(thread_t* t, struct THREAD_MAPPING* tm, addr_t virt)
 {
 	struct ELF_THREADMAP_PROGHEADER* ph = tm->tm_privdata;
 	struct ELF_THREADMAP_PRIVDATA* privdata = ph->ph_header;
@@ -77,7 +77,7 @@ elf_tm_fault_func(thread_t t, struct THREAD_MAPPING* tm, addr_t virt)
 }
 
 static errorcode_t
-elf_tm_clone_func(thread_t t, struct THREAD_MAPPING* tdest, struct THREAD_MAPPING* tsrc)
+elf_tm_clone_func(thread_t* t, struct THREAD_MAPPING* tdest, struct THREAD_MAPPING* tsrc)
 {
 	/* We can just re-use the mapping; we add a ref to ensure it will not go away */
 	tdest->tm_privdata = tsrc->tm_privdata;
@@ -87,7 +87,7 @@ elf_tm_clone_func(thread_t t, struct THREAD_MAPPING* tdest, struct THREAD_MAPPIN
 
 #if defined(__i386__) || defined(__PowerPC__)
 static errorcode_t
-elf32_load(thread_t thread, void* priv, elf_getfunc_t obtain)
+elf32_load(thread_t* thread, void* priv, elf_getfunc_t obtain)
 {
 	errorcode_t err;
 	Elf32_Ehdr ehdr;
@@ -193,7 +193,7 @@ fail:
 
 #ifdef __amd64__
 static int
-elf64_load(thread_t thread, void* priv, elf_getfunc_t obtain)
+elf64_load(thread_t* thread, void* priv, elf_getfunc_t obtain)
 {
 	errorcode_t err;
 	Elf64_Ehdr ehdr;
@@ -316,7 +316,7 @@ elf_load_inodefunc(void* priv, void* buf, off_t offset, size_t len)
 }
 
 errorcode_t
-elf_load_from_file(thread_t t, struct VFS_INODE* inode)
+elf_load_from_file(thread_t* t, struct VFS_INODE* inode)
 {
 	/* Ensure the inode will not go away */
 	vfs_ref_inode(inode);

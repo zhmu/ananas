@@ -10,10 +10,13 @@
 TRACE_SETUP;
 
 static register_t
-perform_syscall(thread_t curthread, struct SYSCALL_ARGS* a)
+perform_syscall(thread_t* curthread, struct SYSCALL_ARGS* a)
 {
 	switch(a->number) {
 #include "syscalls.inc.c"
+		case 0x42:
+			reschedule();
+			return ANANAS_ERROR(BAD_SYSCALL);
 		default:
 			kprintf("warning: unsupported syscall %u\n", a->number);
 			return ANANAS_ERROR(BAD_SYSCALL);
@@ -23,7 +26,7 @@ perform_syscall(thread_t curthread, struct SYSCALL_ARGS* a)
 register_t
 syscall(struct SYSCALL_ARGS* a)
 {
-	struct THREAD* curthread = PCPU_GET(curthread);
+	thread_t* curthread = PCPU_GET(curthread);
 
 	errorcode_t err = perform_syscall(curthread, a);
 

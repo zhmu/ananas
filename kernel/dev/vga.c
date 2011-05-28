@@ -41,7 +41,7 @@ struct VGA_PRIVDATA {
 	int      vga_cursor_x;
 	int      vga_cursor_y;
 	struct WAIT_QUEUE vga_wq;
-	struct THREAD vga_workerthread;
+	thread_t vga_workerthread;
 #endif
 };
 

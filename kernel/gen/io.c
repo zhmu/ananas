@@ -19,7 +19,7 @@
 TRACE_SETUP;
 
 errorcode_t
-sys_read(thread_t t, handle_t handle, void* buf, size_t* len)
+sys_read(thread_t* t, handle_t handle, void* buf, size_t* len)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, buf=%p, len=%p", t, handle, buf, len);
 	errorcode_t err;
@@ -52,7 +52,7 @@ sys_read(thread_t t, handle_t handle, void* buf, size_t* len)
 }
 
 errorcode_t
-sys_write(thread_t t, handle_t handle, const void* buf, size_t* len)
+sys_write(thread_t* t, handle_t handle, const void* buf, size_t* len)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, buf=%p, len=%p", t, handle, buf, len);
 	errorcode_t err;
@@ -85,7 +85,7 @@ sys_write(thread_t t, handle_t handle, const void* buf, size_t* len)
 }
 
 errorcode_t
-sys_open(thread_t t, struct OPEN_OPTIONS* opts, handle_t* result)
+sys_open(thread_t* t, struct OPEN_OPTIONS* opts, handle_t* result)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, opts=%p, result=%p", t, opts, result);
 	errorcode_t err;
@@ -127,7 +127,7 @@ sys_open(thread_t t, struct OPEN_OPTIONS* opts, handle_t* result)
 }
 
 errorcode_t
-sys_destroy(thread_t t, handle_t handle)
+sys_destroy(thread_t* t, handle_t handle)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, handle=%p", t, handle);
 
@@ -142,7 +142,7 @@ sys_destroy(thread_t t, handle_t handle)
 }
 
 errorcode_t
-sys_clone(thread_t t, handle_t in, struct CLONE_OPTIONS* opts, handle_t* out)
+sys_clone(thread_t* t, handle_t in, struct CLONE_OPTIONS* opts, handle_t* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, in=%p, opts=%p, out=%p", t, in, opts, out);
 	errorcode_t err;
@@ -177,7 +177,7 @@ sys_clone(thread_t t, handle_t in, struct CLONE_OPTIONS* opts, handle_t* out)
 }
 
 errorcode_t
-sys_wait(thread_t t, handle_t handle, handle_event_t* event, handle_event_result_t* result)
+sys_wait(thread_t* t, handle_t handle, handle_event_t* event, handle_event_result_t* result)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, event=%p, result=%p", t, handle, event, result);
 	errorcode_t err;
@@ -223,7 +223,7 @@ sys_wait(thread_t t, handle_t handle, handle_event_t* event, handle_event_result
 }
 
 errorcode_t
-sys_summon(thread_t t, handle_t handle, struct SUMMON_OPTIONS* opts, handle_t* out)
+sys_summon(thread_t* t, handle_t handle, struct SUMMON_OPTIONS* opts, handle_t* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, opts=%p, out=%p", t, handle, opts, out);
 	errorcode_t err;
@@ -242,7 +242,7 @@ sys_summon(thread_t t, handle_t handle, struct SUMMON_OPTIONS* opts, handle_t* o
 	memcpy(&summon_opts, so, sizeof(summon_opts));
 
 	/* Create a new thread */
-	thread_t newthread = NULL;
+	thread_t* newthread = NULL;
 	err = thread_alloc(t, &newthread);
 	ANANAS_ERROR_RETURN(err);
 
@@ -293,7 +293,7 @@ fail:
 }
 
 errorcode_t
-sys_create(thread_t t, struct CREATE_OPTIONS* opts, handle_t* out)
+sys_create(thread_t* t, struct CREATE_OPTIONS* opts, handle_t* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, opts=%p, out=%p", t, opts, out);
 	errorcode_t err;
@@ -374,7 +374,7 @@ sys_create(thread_t t, struct CREATE_OPTIONS* opts, handle_t* out)
 }
 
 errorcode_t
-sys_unlink(thread_t t, handle_t handle)
+sys_unlink(thread_t* t, handle_t handle)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, handle=%p", t, handle);
 	errorcode_t err;
@@ -389,7 +389,7 @@ sys_unlink(thread_t t, handle_t handle)
 }
 
 static errorcode_t
-sys_handlectl_file(thread_t t, handle_t handle, unsigned int op, void* arg, size_t len)
+sys_handlectl_file(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
 {
 	errorcode_t err;
 
@@ -530,7 +530,7 @@ fail:
 }
 
 static errorcode_t
-sys_handlectl_memory(thread_t t, handle_t handle, unsigned int op, void* arg, size_t len)
+sys_handlectl_memory(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
 {
 	/* Ensure we are dealing with a memory handle here */
 	struct HANDLE* h = handle;
@@ -557,7 +557,7 @@ sys_handlectl_memory(thread_t t, handle_t handle, unsigned int op, void* arg, si
 }
 
 errorcode_t
-sys_handlectl(thread_t t, handle_t handle, unsigned int op, void* arg, size_t len)
+sys_handlectl(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, op=%u, arg=%p, len=0x%x", t, handle, op, arg, len);
 	errorcode_t err;

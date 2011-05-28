@@ -9,7 +9,7 @@
 TRACE_SETUP;
 
 errorcode_t
-syscall_get_handle(thread_t t, handle_t handle, struct HANDLE** out)
+syscall_get_handle(thread_t* t, handle_t handle, struct HANDLE** out)
 {
 	errorcode_t err = handle_isvalid(handle, t, HANDLE_TYPE_ANY);
 	ANANAS_ERROR_RETURN(err);
@@ -19,7 +19,7 @@ syscall_get_handle(thread_t t, handle_t handle, struct HANDLE** out)
 }
 
 errorcode_t
-syscall_get_file(thread_t t, handle_t handle, struct VFS_FILE** out)
+syscall_get_file(thread_t* t, handle_t handle, struct VFS_FILE** out)
 {
 	errorcode_t err = handle_isvalid(handle, t, HANDLE_TYPE_FILE);
 	ANANAS_ERROR_RETURN(err);
@@ -33,7 +33,7 @@ syscall_get_file(thread_t t, handle_t handle, struct VFS_FILE** out)
 }
 
 errorcode_t
-syscall_map_string(thread_t t, const void* ptr, const char** out)
+syscall_map_string(thread_t* t, const void* ptr, const char** out)
 {
 	const char* x = md_map_thread_memory(t, (void*)ptr, PAGE_SIZE, THREAD_MAP_READ);
 	if (x == NULL)
@@ -50,7 +50,7 @@ syscall_map_string(thread_t t, const void* ptr, const char** out)
 }
 
 errorcode_t
-syscall_map_buffer(thread_t t, const void* ptr, size_t len, int flags, void** out)
+syscall_map_buffer(thread_t* t, const void* ptr, size_t len, int flags, void** out)
 {
 	void* x = md_map_thread_memory(t, (void*)ptr, len, flags);
 	if (x == NULL)
@@ -61,7 +61,7 @@ syscall_map_buffer(thread_t t, const void* ptr, size_t len, int flags, void** ou
 }
 
 errorcode_t
-syscall_fetch_size(thread_t t, const void* ptr, size_t* out)
+syscall_fetch_size(thread_t* t, const void* ptr, size_t* out)
 {
 	size_t* s = md_map_thread_memory(t, (void*)ptr, sizeof(size_t), THREAD_MAP_READ);
 	if (s == NULL)
@@ -72,7 +72,7 @@ syscall_fetch_size(thread_t t, const void* ptr, size_t* out)
 }
 
 errorcode_t
-syscall_set_size(thread_t t, void* ptr, size_t len)
+syscall_set_size(thread_t* t, void* ptr, size_t len)
 {
 	size_t* s = md_map_thread_memory(t, (void*)ptr, sizeof(size_t), THREAD_MAP_WRITE);
 	if (s == NULL)
@@ -83,7 +83,7 @@ syscall_set_size(thread_t t, void* ptr, size_t len)
 }
 
 errorcode_t
-syscall_set_handle(thread_t t, handle_t* ptr, handle_t handle)
+syscall_set_handle(thread_t* t, handle_t* ptr, handle_t handle)
 {
 	handle_t* p = md_map_thread_memory(t, (void*)ptr, sizeof(handle_t), THREAD_MAP_WRITE);
 	if (p == NULL)
@@ -94,7 +94,7 @@ syscall_set_handle(thread_t t, handle_t* ptr, handle_t handle)
 }
 
 errorcode_t
-syscall_fetch_offset(thread_t t, const void* ptr, off_t* out)
+syscall_fetch_offset(thread_t* t, const void* ptr, off_t* out)
 {
 	off_t* o = md_map_thread_memory(t, (void*)ptr, sizeof(off_t), THREAD_MAP_READ);
 	if (o == NULL)
@@ -105,7 +105,7 @@ syscall_fetch_offset(thread_t t, const void* ptr, off_t* out)
 }
 
 errorcode_t
-syscall_set_offset(thread_t t, void* ptr, off_t len)
+syscall_set_offset(thread_t* t, void* ptr, off_t len)
 {
 	off_t* o = md_map_thread_memory(t, (void*)ptr, sizeof(size_t), THREAD_MAP_WRITE);
 	if (o == NULL)

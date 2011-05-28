@@ -20,7 +20,7 @@ exception_nm(struct STACKFRAME* sf)
 	 * an FPU access is made while the task-switched-flag is set. We will
 	 * obtain the FPU state and bind it to the thread.
 	 */
-	struct THREAD* thread = PCPU_GET(curthread);
+	thread_t* thread = PCPU_GET(curthread);
 	KASSERT(thread != NULL, "curthread is NULL");
 	PCPU_SET(fpu_context, &thread->md_fpu_ctx);
 
@@ -48,6 +48,7 @@ exception_generic(struct STACKFRAME* sf)
 	kprintf("eax=%08x ebx=%08x ecx=%08x edx=%08x\n", sf->sf_eax, sf->sf_ebx, sf->sf_ecx, sf->sf_edx);
 	kprintf("esi=%08x edi=%08x ebp=%08x esp=%08x\n", sf->sf_esi, sf->sf_edi, sf->sf_ebp, userland ? sf->sf_sp : sf->sf_esp);
 	kprintf("ds=%04x es=%04x fs=%04x gs=%04x ss=%04x\n", sf->sf_ds, sf->sf_es, sf->sf_fs, sf->sf_gs, userland ? sf->sf_ss : 0);
+	kprintf("eflags=%x\n", sf->sf_eflags);
 	if (sf->sf_trapno == EXC_PF) {
 		/* Page fault; show offending address */
 		addr_t fault_addr;

@@ -44,7 +44,7 @@ QUEUE_DEFINE_BEGIN(TTY_QUEUE, struct TTY_PRIVDATA)
 QUEUE_DEFINE_END
 
 static struct DRIVER drv_tty;
-static struct THREAD tty_thread;
+static thread_t tty_thread;
 static struct TTY_QUEUE tty_queue;
 static struct WAIT_QUEUE tty_waitqueue;
 

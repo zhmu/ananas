@@ -34,7 +34,7 @@ waitqueue_init(struct WAIT_QUEUE* wq)
 void
 waitqueue_reset_waiter(struct WAITER* w)
 {
-	struct THREAD* t = PCPU_GET(curthread);
+	thread_t* t = PCPU_GET(curthread);
 	KASSERT(w->w_thread == t, "waiter does not belong to our thread");
 
 	spinlock_lock(&w->w_lock);
@@ -69,7 +69,7 @@ waitqueue_add(struct WAIT_QUEUE* wq)
 void
 waitqueue_remove(struct WAITER* w)
 {
-	struct THREAD* t = PCPU_GET(curthread);
+	thread_t* t = PCPU_GET(curthread);
 	KASSERT(w->w_thread == t, "waiter does not belong to our thread");
 
 	/* Remove our waiter from the waitqueue */
@@ -87,7 +87,7 @@ waitqueue_remove(struct WAITER* w)
 void
 waitqueue_wait(struct WAITER* w)
 {
-	struct THREAD* t = PCPU_GET(curthread);
+	thread_t* t = PCPU_GET(curthread);
 	KASSERT(w->w_thread == t, "waiter does not belong to our thread");
 
 	if (t == NULL)

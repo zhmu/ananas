@@ -17,7 +17,7 @@ md_set_dr(int n, uint32_t val)
 }
 
 int
-md_thread_set_dr(struct THREAD* t, int len, int rw, addr_t addr)
+md_thread_set_dr(thread_t* t, int len, int rw, addr_t addr)
 {
 	for (int n = 0; n < DR_AMOUNT; n++) {
 		/* Skip debug registers that are in use */
@@ -39,7 +39,7 @@ md_thread_set_dr(struct THREAD* t, int len, int rw, addr_t addr)
 }
 
 void
-md_thread_clear_dr(struct THREAD* t, int n)
+md_thread_clear_dr(thread_t* t, int n)
 {
 	t->md_ctx.dr[n] = 0;
 	t->md_ctx.dr[7] &= ~DR7_CLR(n);

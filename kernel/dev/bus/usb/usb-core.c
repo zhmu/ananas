@@ -9,7 +9,7 @@
 #include <ananas/mm.h>
 #include <machine/param.h> /* for PAGE_SIZE */
 
-static struct THREAD usb_workerthread;
+static thread_t usb_workerthread;
 static struct USB_TRANSFER_QUEUE usb_xfer_pendingqueue;
 static spinlock_t spl_usb_xfer_pendingqueue;
 
@@ -96,7 +96,7 @@ usb_completed_transfer(struct USB_TRANSFER* xfer)
 static void
 usb_thread(void* arg)
 {
-	thread_t thread = PCPU_GET(curthread);
+	thread_t* thread = PCPU_GET(curthread);
 	while(1) {
 		/* Fetch an entry from the queue */
 		spinlock_lock(&spl_usb_xfer_pendingqueue);

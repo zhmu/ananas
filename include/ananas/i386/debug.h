@@ -2,8 +2,7 @@
 #define __I386_DEBUG_H__
 
 #include <ananas/types.h>
-
-struct THREAD;
+#include <ananas/thread.h>
 
 /* Debug register 6 flags */
 #define DR6_B0		(1 << 0)	/* Breakpoint condition 0 detected */
@@ -61,7 +60,7 @@ struct THREAD;
 /* Amount of debug registers */
 #define DR_AMOUNT	4
 
-int md_thread_set_dr(struct THREAD* t, int len, int rw, addr_t addr);
-void md_thread_clear_dr(struct THREAD* t, int n);
+int md_thread_set_dr(thread_t* t, int len, int rw, addr_t addr);
+void md_thread_clear_dr(thread_t* t, int n);
 
 #endif /* __I386_DEBUG_H__ */

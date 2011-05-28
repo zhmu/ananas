@@ -19,6 +19,7 @@
 #include <ananas/_types/errorcode.h>
 #include <ananas/_types/refcount.h>
 #include <ananas/_types/time.h>
+#include <ananas/_types/thread.h>
 
 typedef unsigned char	u_char;
 typedef unsigned short	u_short;

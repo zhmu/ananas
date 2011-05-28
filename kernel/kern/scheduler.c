@@ -13,13 +13,13 @@ static spinlock_t spl_scheduler = SPINLOCK_DEFAULT_INIT;
 static struct SCHEDULER_QUEUE sched_queue;
 
 void
-scheduler_init_thread(struct THREAD* t)
+scheduler_init_thread(thread_t* t)
 {
 	t->sched_priv.sp_thread = t;
 }
 
 void
-scheduler_add_thread(struct THREAD* t)
+scheduler_add_thread(thread_t* t)
 {
 	KASSERT((t->flags & THREAD_FLAG_SUSPENDED) == 0, "scheduling suspend thread %p", t);
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
@@ -33,7 +33,7 @@ scheduler_add_thread(struct THREAD* t)
 }
 
 void
-scheduler_remove_thread(struct THREAD* t)
+scheduler_remove_thread(thread_t* t)
 {
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
 	if (!DQUEUE_EMPTY(&sched_queue))
@@ -51,7 +51,7 @@ scheduler_remove_thread(struct THREAD* t)
 void
 schedule()
 {
-	struct THREAD* curthread = PCPU_GET(curthread);
+	thread_t* curthread = PCPU_GET(curthread);
 
 	/* Pick the next thread to schedule and add it to the back of the queue */
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
@@ -65,11 +65,11 @@ schedule()
 
 	/* If there was no thread or the thread is already running, revert to idle */
 	if (next_sched == NULL || (next_sched->sp_thread->flags & THREAD_FLAG_ACTIVE)) {
-		next_sched = &((struct THREAD*)PCPU_GET(idlethread_ptr))->sched_priv;
+		next_sched = &((thread_t*)PCPU_GET(idlethread_ptr))->sched_priv;
 	}
 
 	/* Sanity checks */
-	struct THREAD* newthread = next_sched->sp_thread;
+	thread_t* newthread = next_sched->sp_thread;
 	KASSERT((newthread->flags & THREAD_FLAG_SUSPENDED) == 0, "activating suspended thread %p", newthread);
 
 	PCPU_SET(curthread, newthread);
@@ -94,12 +94,12 @@ scheduler_activate()
 	 * Remove the 'active' flag of our current thread; this will cause it to be
 	 * rescheduled if necessary.
 	 */
-	struct THREAD* curthread = PCPU_GET(curthread);
+	thread_t* curthread = PCPU_GET(curthread);
 	if (curthread != NULL)
 		curthread->flags &= ~THREAD_FLAG_ACTIVE;
 
 	/* Activate our idle thread; the timer interrupt will steal the context away */
-	struct THREAD* newthread = PCPU_GET(idlethread_ptr);
+	thread_t* newthread = PCPU_GET(idlethread_ptr);
 	PCPU_SET(curthread, newthread);
 	md_thread_switch(newthread, curthread);
 	/* NOTREACHED */

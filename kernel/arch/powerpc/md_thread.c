@@ -21,7 +21,7 @@ md_idle_thread()
 }
 
 errorcode_t
-md_thread_init(thread_t t)
+md_thread_init(thread_t* t)
 {
 	errorcode_t err;
 
@@ -71,14 +71,14 @@ md_thread_init(thread_t t)
 }
 
 void
-md_thread_free(thread_t t)
+md_thread_free(thread_t* t)
 {
 	/* XXX we should unmap everything the thread has mapped here */
 	kfree(t->md_stack);
 }
 
 void*
-md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
+md_map_thread_memory(thread_t* thread, void* ptr, size_t length, int write)
 {
 	/*
 	 * Mapping thread memory works by obtaining the VSID for the given user pointer segment,
@@ -101,7 +101,7 @@ md_map_thread_memory(thread_t thread, void* ptr, size_t length, int write)
 }
 
 void*
-md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
+md_thread_map(thread_t* thread, void* to, void* from, size_t length, int flags)
 {
 	KASSERT((((addr_t)to % PAGE_SIZE) == 0), "to address %p not page-aligned", to);
 	KASSERT((((addr_t)from % PAGE_SIZE) == 0), "from address %p not page-aligned", from);
@@ -120,14 +120,14 @@ md_thread_map(thread_t thread, void* to, void* from, size_t length, int flags)
 }
 
 errorcode_t
-md_thread_unmap(thread_t thread, addr_t addr, size_t length)
+md_thread_unmap(thread_t* thread, addr_t addr, size_t length)
 {
 	panic("md_thread_unmap(): not implemented");
 	return ANANAS_ERROR_OK;
 }
 
 void
-md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
+md_thread_setkthread(thread_t* thread, kthread_func_t kfunc, void* arg)
 {
 	/* XXX enable supervisor mode */
 	thread->md_ctx.sf.sf_srr0 = (addr_t)kfunc;
@@ -135,19 +135,19 @@ md_thread_setkthread(thread_t thread, kthread_func_t kfunc, void* arg)
 }
 
 void
-md_thread_set_entrypoint(thread_t thread, addr_t entry)
+md_thread_set_entrypoint(thread_t* thread, addr_t entry)
 {
 	thread->md_ctx.sf.sf_srr0 = entry;
 }
 
 void
-md_thread_set_argument(thread_t thread, addr_t arg)
+md_thread_set_argument(thread_t* thread, addr_t arg)
 {
 	thread->md_ctx.sf.sf_reg[3] = arg;
 }
 
 addr_t
-md_thread_is_mapped(thread_t thread, addr_t virt, int flags)
+md_thread_is_mapped(thread_t* thread, addr_t virt, int flags)
 {
 	return mmu_resolve_mapping(&thread->md_ctx.sf, virt, flags);
 }

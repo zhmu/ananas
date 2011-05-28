@@ -45,7 +45,7 @@ handle_init()
 }
 
 errorcode_t
-handle_alloc(int type, struct THREAD* t, struct HANDLE** out)
+handle_alloc(int type, thread_t* t, struct HANDLE** out)
 {
 	KASSERT(handle_memory_start != NULL, "handle_alloc() without pool");
 	KASSERT(t != NULL, "handle_alloc() without thread");
@@ -103,7 +103,7 @@ handle_destroy(struct HANDLE* handle, int free_resources)
 				break;
 			}
 			case HANDLE_TYPE_THREAD: {
-				struct THREAD* t = handle->data.thread;
+				thread_t* t = handle->data.thread;
 				KASSERT(t != NULL, "no backing thread");
 				thread_free(t);
 				thread_destroy(t);
@@ -129,7 +129,7 @@ handle_destroy(struct HANDLE* handle, int free_resources)
 }
 
 errorcode_t
-handle_isvalid(struct HANDLE* handle, struct THREAD* t, int type)
+handle_isvalid(struct HANDLE* handle, thread_t* t, int type)
 {
 	/* see if the handle resides in handlespace */
 	if ((void*)handle < handle_memory_start || (void*)handle >= handle_memory_end)
@@ -153,14 +153,14 @@ handle_isvalid(struct HANDLE* handle, struct THREAD* t, int type)
 }
 
 errorcode_t
-handle_clone(struct THREAD* t, struct HANDLE* handle, struct HANDLE** out)
+handle_clone(thread_t* t, struct HANDLE* handle, struct HANDLE** out)
 {
 	errorcode_t err;
 
 	spinlock_lock(&handle->spl_handle);
 	switch(handle->type) {
 		case HANDLE_TYPE_THREAD: {
-			struct THREAD* newthread;
+			thread_t* newthread;
 			err = thread_clone(handle->thread, 0, &newthread);
 			spinlock_unlock(&handle->spl_handle);
 			ANANAS_ERROR_RETURN(err);
@@ -207,7 +207,7 @@ handle_clone(struct THREAD* t, struct HANDLE* handle, struct HANDLE** out)
 }
 
 errorcode_t
-handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event, handle_event_result_t* result)
+handle_wait(thread_t* thread, struct HANDLE* handle, handle_event_t* event, handle_event_result_t* result)
 {
 	TRACE(HANDLE, FUNC, "handle=%p, event=%p, thread=%p", handle, event, thread);
 

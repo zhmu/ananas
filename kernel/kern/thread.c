@@ -21,7 +21,7 @@ static spinlock_t spl_threadqueue = SPINLOCK_DEFAULT_INIT;
 static struct THREAD_QUEUE threadqueue;
 
 errorcode_t
-thread_init(thread_t t, thread_t parent)
+thread_init(thread_t* t, thread_t* parent)
 {
 	errorcode_t err;
 
@@ -109,9 +109,9 @@ fail:
 }
 
 errorcode_t
-thread_alloc(thread_t parent, thread_t* dest)
+thread_alloc(thread_t* parent, thread_t** dest)
 {
-	thread_t t = kmalloc(sizeof(struct THREAD));
+	thread_t* t = kmalloc(sizeof(struct THREAD));
 	errorcode_t err = thread_init(t, parent);
 	if (err == ANANAS_ERROR_NONE)
 		*dest = t;
@@ -119,7 +119,7 @@ thread_alloc(thread_t parent, thread_t* dest)
 }
 
 void
-thread_free_mapping(thread_t t, struct THREAD_MAPPING* tm)
+thread_free_mapping(thread_t* t, struct THREAD_MAPPING* tm)
 {
 	TRACE(THREAD, INFO, "thread_free_mapping(): t=%p tm=%p tm->phys=%p", t, tm, tm->tm_phys);
 	DQUEUE_REMOVE(&t->mappings, tm);
@@ -131,7 +131,7 @@ thread_free_mapping(thread_t t, struct THREAD_MAPPING* tm)
 }
 
 void
-thread_free_mappings(thread_t t)
+thread_free_mappings(thread_t* t)
 {
 	/*
 	 * Free all mapped process memory, if needed. We don't bother to unmap them
@@ -144,7 +144,7 @@ thread_free_mappings(thread_t t)
 }
 
 void
-thread_free(thread_t t)
+thread_free(thread_t* t)
 {
 	/* If the thread is already freed, do not bother */
 	if (t->flags & THREAD_FLAG_ZOMBIE)
@@ -189,7 +189,7 @@ thread_free(thread_t t)
 }
 
 void
-thread_destroy(thread_t t)
+thread_destroy(thread_t* t)
 {
 	KASSERT(t->flags & THREAD_FLAG_ZOMBIE, "thread_destroy() on a non-zombie thread");
 
@@ -227,7 +227,7 @@ thread_make_vmflags(unsigned int flags)
  * Returns the new mapping structure
  */
 errorcode_t
-thread_mapto(thread_t t, addr_t virt, addr_t phys, size_t len, uint32_t flags, struct THREAD_MAPPING** out)
+thread_mapto(thread_t* t, addr_t virt, addr_t phys, size_t len, uint32_t flags, struct THREAD_MAPPING** out)
 {
 	struct THREAD_MAPPING* tm = kmalloc(sizeof(*tm));
 	memset(tm, 0, sizeof(*tm));
@@ -255,7 +255,7 @@ thread_mapto(thread_t t, addr_t virt, addr_t phys, size_t len, uint32_t flags, s
  * flags there.
  */
 errorcode_t
-thread_map(thread_t t, addr_t phys, size_t len, uint32_t flags, struct THREAD_MAPPING** out)
+thread_map(thread_t* t, addr_t phys, size_t len, uint32_t flags, struct THREAD_MAPPING** out)
 {
 	/*
 	 * Locate a new address to map to; we currently never re-use old addresses.
@@ -268,7 +268,7 @@ thread_map(thread_t t, addr_t phys, size_t len, uint32_t flags, struct THREAD_MA
 }
 
 errorcode_t
-thread_handle_fault(thread_t t, addr_t virt, int flags)
+thread_handle_fault(thread_t* t, addr_t virt, int flags)
 {
 	TRACE(THREAD, INFO, "thread_handle_fault(): thread=%p, virt=%p, flags=0x%x", t, virt, flags);
 
@@ -292,7 +292,7 @@ thread_handle_fault(thread_t t, addr_t virt, int flags)
 
 #if 0
 errorcode_t
-thread_unmap(thread_t t, void* ptr, size_t len)
+thread_unmap(thread_t* t, void* ptr, size_t len)
 {
 	struct THREAD_MAPPING* tm = t->mappings;
 	struct THREAD_MAPPING* prev = NULL;
@@ -316,7 +316,7 @@ thread_unmap(thread_t t, void* ptr, size_t len)
 #endif
 
 void
-thread_suspend(thread_t t)
+thread_suspend(thread_t* t)
 {
 	TRACE(THREAD, FUNC, "t=%p", t);
 	if (t == NULL || (t->flags & THREAD_FLAG_SUSPENDED) != 0)
@@ -326,7 +326,7 @@ thread_suspend(thread_t t)
 }
 
 void
-thread_resume(thread_t t)
+thread_resume(thread_t* t)
 {
 	TRACE(THREAD, FUNC, "t=%p", t);
 	if (t == NULL || (t->flags & THREAD_FLAG_SUSPENDED) == 0)
@@ -339,7 +339,7 @@ thread_resume(thread_t t)
 void
 thread_exit(int exitcode)
 {
-	thread_t thread = PCPU_GET(curthread);
+	thread_t* thread = PCPU_GET(curthread);
 	TRACE(THREAD, FUNC, "t=%p, exitcode=%u", thread, exitcode);
 	KASSERT(thread != NULL, "thread_exit() without thread");
 	KASSERT((thread->flags & THREAD_FLAG_TERMINATING) == 0, "exiting already termating thread");
@@ -443,7 +443,7 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 }
 
 errorcode_t
-thread_set_args(thread_t t, const char* args, size_t args_len)
+thread_set_args(thread_t* t, const char* args, size_t args_len)
 {
 	for (unsigned int i = 0; i < ((THREADINFO_ARGS_LENGTH - 1) < args_len ? (THREADINFO_ARGS_LENGTH - 1) : args_len); i++)
 		if(args[i] == '\0' && args[i + 1] == '\0') {
@@ -454,7 +454,7 @@ thread_set_args(thread_t t, const char* args, size_t args_len)
 }
 
 errorcode_t
-thread_set_environment(thread_t t, const char* env, size_t env_len)
+thread_set_environment(thread_t* t, const char* env, size_t env_len)
 {
 	for (unsigned int i = 0; i < ((THREADINFO_ENV_LENGTH - 1) < env_len ? (THREADINFO_ENV_LENGTH - 1) : env_len); i++)
 		if(env[i] == '\0' && env[i + 1] == '\0') {
