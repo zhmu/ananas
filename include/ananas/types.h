@@ -21,6 +21,7 @@
 #include <ananas/_types/time.h>
 #include <ananas/_types/thread.h>
 
+
 typedef unsigned char	u_char;
 typedef unsigned short	u_short;
 typedef unsigned int	u_int;

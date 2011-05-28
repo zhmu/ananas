@@ -2,8 +2,8 @@
 #define __WAITQUEUE_H__
 
 #include <ananas/types.h>
-#include <ananas/lock.h>
 #include <ananas/dqueue.h>
+#include <ananas/_types/spinlock.h>
 
 /*
  * A waiter is a thread waiting on some event; these are implemented by having
