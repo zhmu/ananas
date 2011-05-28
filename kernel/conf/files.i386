@@ -6,7 +6,6 @@ arch/i386/startup.c		mandatory
 arch/i386/vm.c			mandatory
 arch/i386/cntx.S		mandatory
 arch/i386/md_thread.c		mandatory
-arch/i386/md_lock.c		mandatory
 arch/i386/mp_stub.S		option SMP
 arch/i386/smp.c			option SMP
 arch/x86/dev/pcihb.c		optional pcihb
