@@ -7,7 +7,7 @@
 
 static char open_devname[32] __attribute__((aligned(32)));
 
-static struct SPINLOCK spl_ios_fname;
+static spinlock_t spl_ios_fname;
 
 int
 ios_open(const char* fname, int mode)

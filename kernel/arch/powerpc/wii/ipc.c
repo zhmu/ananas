@@ -18,8 +18,8 @@ QUEUE_DEFINE(IPC_REQUEST_QUEUE, struct IPC_REQUEST);
 #define IPC_REQUEST_SIZE ((sizeof(struct IPC_REQUEST) | 0x1f) + 1)
 
 static volatile void* IPC = (volatile void*)0xCD000000;
-static struct SPINLOCK spl_ipc_hw;
-static struct SPINLOCK spl_ipc_items;
+static spinlock_t spl_ipc_hw;
+static spinlock_t spl_ipc_items;
 static struct IPC_REQUEST_QUEUE ipc_requests;
 
 #define IOS_BUFFER_BASE 0x133e0000
