@@ -67,7 +67,27 @@ md_thread_init(thread_t* t)
 
 	/* XXX We should use a more sensible address here */
 	t->next_mapping = 0x4000000;
-	return 1;
+	return ANANAS_ERROR_OK;
+}
+
+errorcode_t
+md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
+{
+	/* Duplicate the kernel's memory mappings */
+	for (int i = 0; i < PPC_NUM_SREGS; i++)
+		t->md_ctx.sf.sf_sr[i] = bsp_sf.sf_sr[i];
+
+	/* Establish context */
+	t->md_ctx.sf.sf_srr1 = MSR_DR | MSR_IR | MSR_RI | MSR_EE;
+
+	/* Allocate a stack; we'll only need a kernel stack */
+	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
+	t->md_ctx.sf.sf_reg[1] = (addr_t)t->md_kstack + THREAD_STACK_SIZE;
+
+	/* Setup function to call with argument */
+	t->md_ctx.sf.sf_srr0 = (addr_t)kfunc;
+	t->md_ctx.sf.sf_reg[3] = (addr_t)arg;
+	return ANANAS_ERROR_OK;
 }
 
 void
@@ -124,14 +144,6 @@ md_thread_unmap(thread_t* thread, addr_t addr, size_t length)
 {
 	panic("md_thread_unmap(): not implemented");
 	return ANANAS_ERROR_OK;
-}
-
-void
-md_thread_setkthread(thread_t* thread, kthread_func_t kfunc, void* arg)
-{
-	/* XXX enable supervisor mode */
-	thread->md_ctx.sf.sf_srr0 = (addr_t)kfunc;
-	thread->md_ctx.sf.sf_reg[3] = (addr_t)arg;
 }
 
 void
