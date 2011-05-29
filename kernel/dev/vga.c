@@ -288,9 +288,8 @@ vga_attach(device_t dev)
 	 * we will not busy wait attempting to write the video memory while we could
 	 * do a lot more useful things.
 	 */
-  thread_init(&vga_privdata->vga_workerthread, NULL);
+  kthread_init(&vga_privdata->vga_workerthread, &vga_syncthread, vga_privdata);
   thread_set_args(&vga_privdata->vga_workerthread, "[vga]\0\0", PAGE_SIZE);
-	md_thread_setkthread(&vga_privdata->vga_workerthread, vga_syncthread, vga_privdata);
 
 	waitqueue_init(&vga_privdata->vga_wq);
 	thread_resume(&vga_privdata->vga_workerthread);

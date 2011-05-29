@@ -242,9 +242,8 @@ uroothub_attach(device_t dev)
 	device_printf(dev, "%u port(s)", hub_privdata->hub_numports);
 
 	/* Create a kernel thread to monitor status updates */
-  thread_init(&hub_privdata->hub_pollthread, NULL);
-  thread_set_args(&hub_privdata->hub_pollthread, "[uroothub]\0\0", PAGE_SIZE);
-	md_thread_setkthread(&hub_privdata->hub_pollthread, uhci_hub_pollthread, hub_privdata->hub_dev);
+	kthread_init(&hub_privdata->hub_pollthread, &uhci_hub_pollthread, hub_privdata->hub_dev);
+	thread_set_args(&hub_privdata->hub_pollthread, "[uroothub]\0\0", PAGE_SIZE);
 	thread_resume(&hub_privdata->hub_pollthread);
 	return ANANAS_ERROR_OK;
 }

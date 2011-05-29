@@ -11,7 +11,7 @@
 
 static thread_t usb_workerthread;
 static struct USB_TRANSFER_QUEUE usb_xfer_pendingqueue;
-static spinlock_t spl_usb_xfer_pendingqueue;
+static spinlock_t spl_usb_xfer_pendingqueue = SPINLOCK_DEFAULT_INIT;
 
 struct DRIVER drv_usb = {
 	.name = "usbdev"
@@ -120,12 +120,10 @@ void
 usb_init()
 {
 	DQUEUE_INIT(&usb_xfer_pendingqueue);
-	spinlock_init(&spl_usb_xfer_pendingqueue);
 
 	/* Create a kernel thread to handle USB completed messages */
-  thread_init(&usb_workerthread, NULL);
-  thread_set_args(&usb_workerthread, "[usb]\0\0", PAGE_SIZE);
-	md_thread_setkthread(&usb_workerthread, usb_thread, NULL);
+	kthread_init(&usb_workerthread, &usb_thread, NULL);
+	thread_set_args(&usb_workerthread, "[usb]\0\0", PAGE_SIZE);
 }
 
 /* vim:set ts=2 sw=2: */
