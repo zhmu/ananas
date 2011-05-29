@@ -49,6 +49,25 @@ md_thread_init(thread_t* t)
 	return ANANAS_ERROR_OK;
 }
 
+errorcode_t
+md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
+{
+	errorcode_t err = md_thread_init(t);
+	ANANAS_ERROR_RETURN(err);
+
+	t->md_ctx.sf.sf_ss = GDT_SEL_KERNEL_DATA;
+	t->md_ctx.sf.sf_cs = GDT_SEL_KERNEL_CODE;
+	t->md_ctx.sf.sf_rip = (addr_t)kfunc;
+	t->md_ctx.sf.sf_rdi = (addr_t)arg;
+
+	/*
+	 * Kernel threads only have a single stack; they cannot use the userland
+	 * stack because it is not mapped.
+	 */
+	t->md_ctx.sf.sf_rsp = t->md_ctx.sf.sf_sp;
+	return ANANAS_ERROR_OK;
+}
+
 void
 md_thread_free(thread_t* t)
 {
@@ -121,21 +140,6 @@ void
 md_thread_set_argument(thread_t* thread, addr_t arg)
 {
 	thread->md_ctx.sf.sf_rdi = arg;
-}
-
-void
-md_thread_setkthread(thread_t* thread, kthread_func_t kfunc, void* arg)
-{
-	thread->md_ctx.sf.sf_ss = GDT_SEL_KERNEL_DATA;
-	thread->md_ctx.sf.sf_cs = GDT_SEL_KERNEL_CODE;
-	thread->md_ctx.sf.sf_rip = (addr_t)kfunc;
-	thread->md_ctx.sf.sf_rdi = (addr_t)arg;
-
-	/*
-	 * Kernel threads only have a single stack; they cannot use the userland
-	 * stack because it is not mapped.
-	 */
-	thread->md_ctx.sf.sf_rsp = thread->md_ctx.sf.sf_sp;
 }
 
 void
