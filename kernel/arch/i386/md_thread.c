@@ -61,6 +61,38 @@ md_thread_init(thread_t* t)
 	return md_thread_setup(t);
 }
 
+errorcode_t
+md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
+{
+	/* Set up the environment */
+	t->md_ctx.cs = GDT_SEL_KERNEL_CODE;
+	t->md_ctx.ds = GDT_SEL_KERNEL_DATA;
+	t->md_ctx.es = GDT_SEL_KERNEL_DATA;
+	t->md_ctx.fs = GDT_SEL_KERNEL_PCPU;
+	t->md_ctx.eip = (addr_t)kfunc;
+	t->md_ctx.cr3 = KVTOP((addr_t)kernel_pd);
+	t->md_ctx.eflags = EFLAGS_IF;
+	t->md_ctx.dr[7] = DR7_LE | DR7_GE;
+
+	/*
+	 * Kernel threads share the kernel pagemap and thus need to map the kernel
+	 * stack. We do not differentiate between kernel and userland stacks as
+	 * no kernelthread ever runs userland code.
+	 */
+	t->md_kstack_ptr = kmalloc(KERNEL_STACK_SIZE / PAGE_SIZE);
+	t->md_ctx.esp0 = (addr_t)t->md_kstack_ptr + KERNEL_STACK_SIZE - 4;
+	t->md_ctx.esp = t->md_ctx.esp0;
+
+	/*
+	 * Now, push 'arg' on the stack, as i386 passes arguments by the stack. Note that
+	 * we must first place the value and then update esp0 because the interrupt code
+	 * heavily utilized the stack, and the -= 4 protects our value from being
+ 	 * destroyed.
+	 */
+	*(uint32_t*)t->md_ctx.esp0 = (uint32_t)arg;
+	t->md_ctx.esp0 -= 4;
+}
+
 void
 md_thread_free(thread_t* t)
 {
@@ -68,18 +100,19 @@ md_thread_free(thread_t* t)
 	 * This is a royal pain: we are about to destroy the thread's mappings, but this also means
 	 * we destroy the thread's stack - and it won't be able to continue. To prevent this, we
 	 * can only be called from another thread (this means this code cannot be run until the
-	 * current thread is a zombie)
+	 * thread to be destroyed is a zombie)
 	 */
 	KASSERT(t->flags & THREAD_FLAG_ZOMBIE, "cannot free non-zombie thread");
 	KASSERT(PCPU_GET(curthread) != t, "cannot free current thread");
 
 	/* Throw away the pagedir and stacks; they aren't in use so this will never hurt */
-	vm_free_pagedir(t->md_pagedir);
-	kmem_free(t->md_stack);
-	if (t->md_kstack_ptr != NULL)
-		kfree(t->md_kstack_ptr);
-	else
+	if ((t->flags & THREAD_FLAG_KTHREAD) == 0) {
+		vm_free_pagedir(t->md_pagedir);
+		kmem_free(t->md_stack);
 		kmem_free(t->md_kstack);
+	} else {
+		kfree(t->md_kstack_ptr);
+	}
 }
 
 void
@@ -153,43 +186,6 @@ md_thread_set_argument(thread_t* thread, addr_t arg)
 	thread->md_ctx.esi = arg;
 }
 
-void
-md_thread_setkthread(thread_t* thread, kthread_func_t kfunc, void* arg)
-{
-	/*
-	 * Kernel threads must share the environment with the kernel; so they have to
-	 * run with supervisor privileges and use the kernel page directory.
-	 */
-	thread->md_ctx.cs = GDT_SEL_KERNEL_CODE;
-	thread->md_ctx.ds = GDT_SEL_KERNEL_DATA;
-	thread->md_ctx.es = GDT_SEL_KERNEL_DATA;
-	thread->md_ctx.fs = GDT_SEL_KERNEL_PCPU;
-	thread->md_ctx.eip = (addr_t)kfunc;
-	thread->md_ctx.cr3 = KVTOP((addr_t)kernel_pd);
-
-	/*
-	 * Kernel threads share the kernel pagemap and thus need to map the kernel
-	 * stack.
-	 */
-	thread->md_kstack_ptr = vm_map_kernel((addr_t)thread->md_kstack, KERNEL_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
-	thread->md_ctx.esp0 = (addr_t)thread->md_kstack_ptr + KERNEL_STACK_SIZE - 4;
-
-	/*
-	 * Now, push 'arg' on the stack, as i386 passes arguments by the stack. Note that
-	 * we must first place the value and then update esp0 because the interrupt code
-	 * heavily utilized the stack, and the -= 4 protects our value from being
- 	 * destroyed.
-	 */
-	*(uint32_t*)thread->md_ctx.esp0 = (uint32_t)arg;
-	thread->md_ctx.esp0 -= 4;
-
-	/*
-	 * We do not differentiate between user/kernelstack because we cannot switch
-	 * adequately between them (and they cannot do syscalls anyway)
-	 */
-	thread->md_ctx.esp = thread->md_ctx.esp0;
-}
-	
 void
 md_thread_clone(thread_t* t, thread_t* parent, register_t retval)
 {
