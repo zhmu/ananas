@@ -109,6 +109,36 @@ fail:
 }
 
 errorcode_t
+kthread_init(thread_t* t, kthread_func_t func, void* arg)
+{
+	errorcode_t err;
+
+	/* Create a basic thread; we'll only make a thread handle, no I/O */
+	memset(t, 0, sizeof(struct THREAD));
+	DQUEUE_INIT(&t->mappings);
+	t->flags = THREAD_FLAG_SUSPENDED | THREAD_FLAG_KTHREAD;
+	err = handle_alloc(HANDLE_TYPE_THREAD, t, &t->thread_handle);
+	ANANAS_ERROR_RETURN(err);
+	t->thread_handle->data.thread = t;
+
+	/* Initialize dummy threadinfo; this is used to store the thread name */
+	t->threadinfo = kmalloc(sizeof(struct THREADINFO));
+	memset(t->threadinfo, 0, sizeof(t->threadinfo));
+
+	/* Initialize MD-specifics */
+	md_kthread_init(t, func, arg);
+
+	/* Initialize scheduler-specific parts */
+	scheduler_init_thread(t);
+
+	/* Add the thread to the thread queue */
+	spinlock_lock(&spl_threadqueue);
+	DQUEUE_ADD_TAIL(&threadqueue, t);
+	spinlock_unlock(&spl_threadqueue);
+	return ANANAS_ERROR_OK;
+}
+
+errorcode_t
 thread_alloc(thread_t* parent, thread_t** dest)
 {
 	thread_t* t = kmalloc(sizeof(struct THREAD));

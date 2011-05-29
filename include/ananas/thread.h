@@ -50,6 +50,7 @@ struct THREAD {
 #define THREAD_FLAG_SUSPENDED	0x0002	/* Thread is currently suspended */
 #define THREAD_FLAG_TERMINATING	0x0004	/* Thread is terminating */
 #define THREAD_FLAG_ZOMBIE	0x0008	/* Thread has no more resources */
+#define THREAD_FLAG_KTHREAD	0x8000	/* Kernel thread */
 
 	unsigned int terminate_info;
 #define THREAD_MAKE_EXITCODE(a,b) (((a) << 24) | ((b) & 0x00ffffff))
@@ -77,14 +78,13 @@ DQUEUE_DEFINE(THREAD_QUEUE, thread_t);
 
 /* Machine-dependant callback to initialize a thread */
 errorcode_t md_thread_init(thread_t* thread);
+errorcode_t md_kthread_init(thread_t* thread, kthread_func_t func, void* arg);
 
 /* Machine-dependant callback to free thread data */
 void md_thread_free(thread_t* thread);
 
-/* Machine-dependant kernel thread activation */
-void md_thread_setkthread(thread_t* thread, kthread_func_t kfunc, void* arg);
-
 errorcode_t thread_init(thread_t* t, thread_t* parent);
+errorcode_t kthread_init(thread_t* t, kthread_func_t func, void* arg);
 errorcode_t thread_alloc(thread_t* parent, thread_t** dest);
 void thread_free(thread_t* t);
 void thread_destroy(thread_t* t);

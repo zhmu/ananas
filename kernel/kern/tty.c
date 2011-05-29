@@ -297,9 +297,8 @@ void
 tty_init()
 {
 	/* Launch our kernel thread */
-	thread_init(&tty_thread, NULL);
+	kthread_init(&tty_thread, tty_thread_func, NULL);
 	thread_set_args(&tty_thread, "[tty]\0\0", 8);
-	md_thread_setkthread(&tty_thread, tty_thread_func, NULL);
 	thread_resume(&tty_thread);
 }
 

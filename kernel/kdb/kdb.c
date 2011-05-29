@@ -138,7 +138,7 @@ kdb_func(void* ptr)
 void
 kdb_init()
 {
-	thread_init(&kdb_thread, NULL);
+	kthread_init(&kdb_thread, &kdb_func, NULL);
 	thread_set_args(&kdb_thread, "[kdb]\0\0", PAGE_SIZE);
 }
 
@@ -149,9 +149,6 @@ kdb_enter(const char* why)
 		return;
 
 	kdb_why = why;
-
-	/* Force our thread to restart and reset the entry point */
-	md_thread_setkthread(&kdb_thread, kdb_func, NULL);
 	thread_resume(&kdb_thread);
 }
 
