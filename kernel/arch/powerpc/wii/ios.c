@@ -7,7 +7,7 @@
 
 static char open_devname[32] __attribute__((aligned(32)));
 
-static spinlock_t spl_ios_fname;
+static spinlock_t spl_ios_fname = SPINLOCK_DEFAULT_INIT;
 
 int
 ios_open(const char* fname, int mode)
@@ -145,12 +145,6 @@ ios_ioctlv(int fd, uint32_t ioctl, uint32_t num_in, uint32_t num_out, struct ioc
 		invalidate_for_read(argv[i].buffer, argv[i].length);
 	}
 	return retval;
-}
-
-void
-ios_init()
-{
-	spinlock_init(&spl_ios_fname);
 }
 
 /* vim:set ts=2 sw=2: */

@@ -18,8 +18,8 @@ QUEUE_DEFINE(IPC_REQUEST_QUEUE, struct IPC_REQUEST);
 #define IPC_REQUEST_SIZE ((sizeof(struct IPC_REQUEST) | 0x1f) + 1)
 
 static volatile void* IPC = (volatile void*)0xCD000000;
-static spinlock_t spl_ipc_hw;
-static spinlock_t spl_ipc_items;
+static spinlock_t spl_ipc_hw = SPINLOCK_DEFAULT_INIT;
+static spinlock_t spl_ipc_items = SPINLOCK_DEFAULT_INIT;
 static struct IPC_REQUEST_QUEUE ipc_requests;
 
 #define IOS_BUFFER_BASE 0x133e0000
@@ -136,8 +136,6 @@ ipc_init()
 {
 	KASSERT(sizeof(struct IPC_REQUEST) <= IPC_REQUEST_SIZE, "IPC_REQUEST_SIZE too small");
 
-	spinlock_init(&spl_ipc_hw);
-	spinlock_init(&spl_ipc_items);
 	QUEUE_INIT(&ipc_requests);
 	memset(&ipc_request_inuse, 0, IOS_BUFFER_SIZE / IPC_REQUEST_SIZE);
 
@@ -148,9 +146,6 @@ ipc_init()
 	 */
 	/* XXX this relies on vm_map_kernel() using 1:1 mappings */
 	vm_map_kernel(IOS_BUFFER_BASE, IOS_BUFFER_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
-
-	/* Initialize the IOS code too while we're at it */
-	ios_init();
 }
 
 /* vim:set ts=2 sw=2: */
