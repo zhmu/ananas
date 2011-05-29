@@ -1,4 +1,5 @@
 /*
+
  * This file contains platform-specific functions; it mostly consists of
  * calling the BIOS interrupts for the intended functionality and converting
  * values from and to more general values (i.e. LBA instead of CHS)
@@ -27,7 +28,18 @@ struct REALMODE_DISKINFO {
 	uint16_t cylinders;
 	uint8_t heads;
 	uint8_t sectors;
+	int edd_version;
 };
+
+struct EDD_PACKET {
+	uint8_t  edd_size;
+	uint8_t  edd_reserved0;
+	uint8_t  edd_num_blocks;
+	uint8_t  edd_reserved1;
+	uint16_t edd_offset;
+	uint16_t edd_segment;
+	uint64_t edd_lba;
+} __attribute__((packed));
 
 struct REALMODE_DISKINFO* realmode_diskinfo;
 uint32_t x86_realmode_worksp;
@@ -213,25 +225,84 @@ platform_init_disks()
 		dskinfo->cylinders = ((regs.ecx & 0xff00) >> 8) + ((regs.ecx & 0xc0) << 2) + 1;
 		dskinfo->heads = ((regs.edx & 0xff00) >> 8) + 1;
 		dskinfo->sectors = (regs.ecx & 0x3f);
+		dskinfo->edd_version = 0;
+
+		/* Check whether we can use the int13 extensions */
+		x86_realmode_init(&regs);
+		regs.eax = 0x4100;		/* int 13 extensions: installation check */
+		regs.ebx = 0x55aa;
+		regs.edx = drive;
+		regs.interrupt = 0x13;
+		x86_realmode_call(&regs);
+		if ((regs.eflags & EFLAGS_CF) == 0 && regs.ebx == 0xaa55) {
+			dskinfo->edd_version = (regs.eax & 0xff00) >> 8;
+		}
+
 #ifdef DEBUG_DISK
-		printf("disk %u: drive 0x%x, c/h/s = %u/%u/%u\n",
+		printf("disk %u: drive 0x%x, c/h/s = %u/%u/%u, edd=%u.%u\n",
 		 drive, dskinfo->drive,
-		 dskinfo->cylinders, dskinfo->heads, dskinfo->sectors);
+		 dskinfo->cylinders, dskinfo->heads, dskinfo->sectors,
+		 dskinfo->edd_version >> 4, dskinfo->edd_version & 0xf);
 #endif
+		
 		numdisks++;
 	}
 
 	return numdisks;
 }
 
-int
-platform_read_disk(int disk, uint32_t lba, void* buffer, int num_bytes)
+static int
+platform_read_disk_edd(int disk, uint32_t lba, void* buffer, int num_bytes)
 {
 	struct REALMODE_DISKINFO* dskinfo = &realmode_diskinfo[disk];
-	if (disk >= MAX_DISKS || dskinfo->cylinders == 0 || dskinfo->heads == 0 || dskinfo->sectors == 0)
-		return 0;
-	if ((num_bytes % SECTOR_SIZE) != 0)
-		return 0;
+
+	/*
+	 * Because we only have 1KB of realmode storage, the EDD packet buffer is
+	 * positioned right after the sector we want to read. This limits us to
+	 * single-sector transfers, which should be OK for now.
+	 *
+	 * Note that we do not bother to use EDD 3.0 (which can write to any buffer
+	 * address) because it doesn't seem supported in Bochs and any benefits are
+	 * minimal for our application as we practically only do single-sector
+	 * reads anyway.
+	 */
+	struct EDD_PACKET* edd = (void*)((addr_t)&rm_buffer + 512);
+	edd->edd_size = sizeof(*edd);
+	edd->edd_reserved0 = 0;
+	edd->edd_reserved1 = 0;
+	edd->edd_offset = REALMODE_BUFFER;
+	edd->edd_segment = CODE_BASE >> 4;
+	edd->edd_lba = lba;
+
+	int num_read = 0;
+	while (num_bytes > 0) {
+		edd->edd_num_blocks = 1;
+
+		struct REALMODE_REGS regs;
+		x86_realmode_init(&regs);
+		regs.eax = 0x4200;		/* int 13 extensions: extended read */
+		regs.edx = dskinfo->drive;
+		regs.esi = REALMODE_BUFFER + 512;
+		regs.interrupt = 0x13;
+		x86_realmode_call(&regs);
+		if (regs.eflags & EFLAGS_CF)
+			break;
+		if (edd->edd_num_blocks != 1)
+			break;
+
+		int chunk_len = (num_bytes > SECTOR_SIZE ? SECTOR_SIZE : num_bytes);
+		memcpy(buffer, &rm_buffer, chunk_len);
+		buffer += chunk_len; num_read += chunk_len; num_bytes -= chunk_len;
+
+		edd->edd_lba++;
+	}
+	return num_read;
+}
+
+static int
+platform_read_disk_chs(int disk, uint32_t lba, void* buffer, int num_bytes)
+{
+	struct REALMODE_DISKINFO* dskinfo = &realmode_diskinfo[disk];
 
 	int num_read = 0;
 	while (num_bytes > 0) {
@@ -262,6 +333,21 @@ platform_read_disk(int disk, uint32_t lba, void* buffer, int num_bytes)
 	return num_read;
 }
 
+int
+platform_read_disk(int disk, uint32_t lba, void* buffer, int num_bytes)
+{
+	struct REALMODE_DISKINFO* dskinfo = &realmode_diskinfo[disk];
+	if (disk >= MAX_DISKS || dskinfo->cylinders == 0 || dskinfo->heads == 0 || dskinfo->sectors == 0)
+		return 0;
+	if ((num_bytes % SECTOR_SIZE) != 0)
+		return 0;
+
+	if (dskinfo->edd_version > 0)
+		return platform_read_disk_edd(disk, lba, buffer, num_bytes);
+	else
+		return platform_read_disk_chs(disk, lba, buffer, num_bytes);
+}
+
 void
 platform_reboot()
 {
@@ -287,7 +373,7 @@ platform_exec(struct LOADER_ELF_INFO* loadinfo, struct BOOTINFO* bootinfo)
 	typedef void kentry(int, void*, int);
 
 	/* Complete the MD-parts of the bootinfo structure */
-	bootinfo->bi_memory_map_addr = x86_smap;
+	bootinfo->bi_memory_map_addr = (addr_t)x86_smap;
 	bootinfo->bi_memory_map_size = x86_smap_entries * sizeof(struct SMAP_ENTRY);
 
 	/* And launch the kernel */
