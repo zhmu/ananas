@@ -72,7 +72,7 @@ $AWK '
 #
 # becomes
 #
-#   case 1234: sys_foo((int)a->arg1, (int)a->arg2, (int)a->arg3); return ANANAS_ERROR_NONE;
+#   case 1234: sys_foo(curthread, (int)a->arg1, (int)a->arg2, (int)a->arg3); return ANANAS_ERROR_NONE;
 #   case 4321: return (errorcode_t)sys_bar(curthread, (int)a->arg1);
 #
 $AWK '
@@ -82,14 +82,14 @@ $AWK '
 		PROTOTYPE=substr($0, index($0, "{") + 1, index($0, ";") - index($0, "{") - 1)
 		gsub(/^[ \t]+/, "", PROTOTYPE)
 		FULLARGS=substr(PROTOTYPE, index(PROTOTYPE, "(") + 1, index(PROTOTYPE, ")") - index(PROTOTYPE, "(") - 1)
-		split(FULLARGS, A, ",")
+		numargs=split(FULLARGS, A, ",")
 
 		FUNCNAME=substr(PROTOTYPE, length($3) + 1)
 		FUNCNAME=substr(FUNCNAME, 1, index(FUNCNAME, "(") - 1)
 		gsub(/^[ \t]+/, "", FUNCNAME)
 
 		ARGS="curthread"
-		for (x in A) {
+		for (x = 1; x <= numargs; x++) {
 			N=split(A[x], FIELD, " ")
 			TYPE=""
 			for (i = 1; i < N; i++) TYPE=TYPE " " FIELD[i]
