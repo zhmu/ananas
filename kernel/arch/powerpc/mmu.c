@@ -15,7 +15,6 @@ TRACE_SETUP;
 
 static uint8_t vsid_list[MAX_VSIDS	/ 8];
 
-static addr_t pagemap_addr;
 static uint32_t pteg_count; /* number of PTEGs */
 static uint8_t htabmask;
 static struct PTEG* pteg;

@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/debug-console.h>
 #include <ananas/console.h>
+#include <ananas/wii/usbgecko.h>
 #include <ofw.h>
 #include "options.h"
 

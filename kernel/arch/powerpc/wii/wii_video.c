@@ -55,6 +55,7 @@ static uint32_t fct_values[7] = {
 	/* fct6 = */ VI_FCT6_TAP24(  0) | VI_FCT6_TAP23(  8) | VI_FCT6_TAP22( 12) | VI_FCT6_TAP21( 15)
 };
 
+#if 0
 static struct video_registers vr_ntsc = {
 	.vtr   = VI_VTR_ACV(240) | VI_VTR_EQU(5),
 	.dcr   = VI_DCT_ENB,
@@ -80,6 +81,7 @@ static struct video_registers vr_ntsc = {
 	.hbs   = 0,
 	._u76  = 0xff, ._u78 = 0x00ff00ff, ._u7c = 0x00ff00ff
 };
+#endif
 
 static struct video_registers vr_pal50 = {
 	.vtr   = VI_VTR_ACV(287) | VI_VTR_EQU(5),

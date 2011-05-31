@@ -107,7 +107,6 @@ wiisd_select(device_t dev)
 static int
 wiisd_set_blocklength(device_t dev, uint32_t len)
 {
-	struct WIISD_PRIVDATA* priv = dev->privdata;
 	uint32_t reply[4];
 
 	return wiisd_command(dev, SD_CMD_SET_BLOCKLEN, SD_TYPE_AC, SD_RESP_R1, len, 0, 0, NULL, reply);
@@ -165,13 +164,13 @@ wiisd_bread(device_t dev, struct BIO* bio)
 	return ANANAS_ERROR_OK;
 }
 
-static int
+static errorcode_t
 wiisd_attach(device_t dev)
 {
 	int fd = ios_open("/dev/sdio/slot0", IOS_OPEN_MODE_R);
 	if (fd < 0) {
 		kprintf("wiisd_attach(): unable to open sd slot\n");
-		return 1;
+		return ANANAS_ERROR(NO_DEVICE);
 	}
 
 	struct WIISD_PRIVDATA* privdata = kmalloc(sizeof(struct WIISD_PRIVDATA));
@@ -220,12 +219,12 @@ wiisd_attach(device_t dev)
 	}
 	bio_free(bio);
 
-	return 0;
+	return ANANAS_ERROR_OK;
 
 fail:
 	kfree(privdata);
 	ios_close(fd);
-	return 1;
+	return ANANAS_ERROR(NO_DEVICE);
 }
 
 struct DRIVER drv_wiisd = {

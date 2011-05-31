@@ -10,7 +10,7 @@
 #include <ananas/wii/invalidate.h>
 #include <machine/param.h>
 
-#define DEBUG
+#define DEBUG(x...) (void)0
 
 QUEUE_DEFINE(IPC_REQUEST_QUEUE, struct IPC_REQUEST);
 
@@ -18,7 +18,6 @@ QUEUE_DEFINE(IPC_REQUEST_QUEUE, struct IPC_REQUEST);
 #define IPC_REQUEST_SIZE ((sizeof(struct IPC_REQUEST) | 0x1f) + 1)
 
 static volatile void* IPC = (volatile void*)0xCD000000;
-static spinlock_t spl_ipc_hw = SPINLOCK_DEFAULT_INIT;
 static spinlock_t spl_ipc_items = SPINLOCK_DEFAULT_INIT;
 static struct IPC_REQUEST_QUEUE ipc_requests;
 
