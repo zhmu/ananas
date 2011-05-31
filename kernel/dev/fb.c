@@ -6,14 +6,17 @@
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/vm.h>
-#include <ananas/trace.h>
 #include <ananas/wii/video.h>
 #include <ofw.h>
 #include "options.h"
 
 #include <teken.h>
 
+#ifndef WII
+/* XXX this is a kludge */
+#include <ananas/trace.h>
 TRACE_SETUP;
+#endif
 
 #include "fb_font.c" /* XXX this is a kludge */
 

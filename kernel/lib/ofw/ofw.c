@@ -5,7 +5,6 @@
 
 static ofw_cell_t ofw_ihandle_stdin  = 0;
 static ofw_cell_t ofw_ihandle_stdout = 0;
-static unsigned int ofw_heap_pos = 0;
 
 void
 ofw_putch(char ch)

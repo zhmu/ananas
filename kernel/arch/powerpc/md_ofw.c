@@ -16,7 +16,6 @@ static ofw_entry_t ofw_entry;
 
 static uint32_t orig_msr;
 static uint32_t orig_sprg0;
-static uint32_t orig_sr[PPC_NUM_SREGS];
 
 int
 ofw_call(void* arg)

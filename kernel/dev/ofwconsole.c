@@ -14,7 +14,6 @@ ofwconsole_attach(device_t dev)
 static errorcode_t
 ofwconsole_write(device_t dev, const void* data, size_t* len, off_t offset)
 {
-	uint8_t* ptr = (uint8_t*)data;
 	const char* ch = (const char*)data;
 	size_t left = *len;
 
