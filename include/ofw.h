@@ -27,6 +27,7 @@ void ofw_md_init(register_t entry);
 void ofw_md_setup_mmu();
 
 /* general functions */
+void ofw_init();
 void ofw_init_io();
 void ofw_putch(char ch);
 int ofw_getch();
