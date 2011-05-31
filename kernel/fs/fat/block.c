@@ -310,7 +310,7 @@ fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
 	}
 
 	/* Obtain the next cluster - this will also mark it as being in use */
-	uint32_t new_cluster;
+	uint32_t new_cluster = 0;
 	errorcode_t err = fat_claim_avail_cluster(fs, &new_cluster);
 	ANANAS_ERROR_RETURN(err);
 

@@ -95,7 +95,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 
 	memset(cur_filename, 0, sizeof(cur_filename));
 
-	blocknr_t cur_block;
+	blocknr_t cur_block = (blocknr_t)-1;
 	while(left > 0) {
 		/* Obtain the current directory block data */
 		blocknr_t want_block;
@@ -219,7 +219,7 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 	if (dentry != NULL)
 		chain_needed += (strlen(dentry) + 12) / 13;
 
-	blocknr_t cur_block;
+	blocknr_t cur_block = (blocknr_t)-1;
 	uint32_t current_filename_offset = (uint32_t)-1;
 	int	cur_lfn_chain = 0;
 	uint32_t cur_dir_offset = 0;
@@ -288,7 +288,7 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 	 * generation schema, we just roll our own - all that matters is that it's
 	 * unique in the directory, so we use the offset.
 	 */
-	uint8_t shortname_checksum;
+	uint8_t shortname_checksum = 0;
 	if (dentry != NULL) {
 		char tmp_fname[12];
 		sprintf(tmp_fname, "%u.LFN", current_filename_offset);
