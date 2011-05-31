@@ -43,9 +43,9 @@ pxe_call(uint16_t func)
 
 	struct REALMODE_REGS regs;
 	x86_realmode_init(&regs);
-	regs.ip = &pxe_trampoline;
+	regs.ip = (register_t)&pxe_trampoline;
 	regs.eax = func;
-	regs.ebx = &rm_buffer;
+	regs.ebx = (register_t)&rm_buffer;
 	regs.ecx = bangpxe->EntryPointSP;
 	x86_realmode_call(&regs);
 	return regs.eax & 0xffff;
@@ -159,7 +159,7 @@ platform_init_netboot()
 	 * the wonderful aspects of realmode (which we are kind of forced to use,
 	 * as the PXE protected mode interface is even a greater pain to use)
 	 */
-	pxe_scratchpad = ((addr_t)&rm_buffer + 64);
+	pxe_scratchpad = (void*)((addr_t)&rm_buffer + 64);
 
 	/*
 	 * Note: it appears that supplying your own buffer does not work with all PXE's,

@@ -134,7 +134,7 @@ elf64_load(void* header , struct LOADER_ELF_INFO* elf_info)
 #endif
 		platform_map_memory((void*)paddr, phdr->p_memsz);
 		memset((void*)paddr, 0, phdr->p_memsz);
-		if (vfs_pread(paddr, phdr->p_filesz, phdr->p_offset) != phdr->p_filesz)
+		if (vfs_pread((void*)paddr, phdr->p_filesz, phdr->p_offset) != phdr->p_filesz)
 			ELF_ABORT("data read error");
 		if (elf_info->elf_start_addr > phdr->p_vaddr)
 			elf_info->elf_start_addr = phdr->p_vaddr;
