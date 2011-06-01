@@ -5,6 +5,7 @@
 #include <machine/pcpu.h>
 #include <machine/thread.h>
 #include <ananas/x86/pic.h>
+#include <ananas/x86/pit.h>
 #include <ananas/x86/smap.h>
 #include <ananas/handle.h>
 #include <ananas/bootinfo.h>
@@ -223,7 +224,7 @@ extern void* syscall_handler;
 
 	/* First of all, map the kernel; we won't get far without it */
 	addr_t from = (addr_t)&__entry & ~(PAGE_SIZE - 1);
-	addr_t   to = (addr_t)&__end | (PAGE_SIZE - 1) + 1;
+	addr_t   to = ((addr_t)&__end | (PAGE_SIZE - 1)) + 1;
 	to += 1048576; /* XXX */
 	vm_mapto(from, from & 0x0fffffff /* HACK */, (to - from) / PAGE_SIZE);
 
@@ -235,7 +236,7 @@ extern void* syscall_handler;
 	/* Walk the memory map, and add each item one by one */
 	kprintf("bootinfo=%p; bi_map=%x, bi_map_size=%x\n",
 	 bootinfo, bootinfo->bi_memory_map_addr, bootinfo->bi_memory_map_size);
-	if (bootinfo != NULL && bootinfo->bi_memory_map_addr != NULL &&
+	if (bootinfo != NULL && bootinfo->bi_memory_map_addr != (addr_t)NULL &&
 	    bootinfo->bi_memory_map_size > 0 &&
 	    (bootinfo->bi_memory_map_size % sizeof(struct SMAP_ENTRY)) == 0) {
 		int mem_map_pages = (bootinfo->bi_memory_map_size + PAGE_SIZE - 1) / PAGE_SIZE;
@@ -278,7 +279,6 @@ extern void* syscall_handler;
 	 * the memory allocator from handing out memory where the kernel
 	 * lives.
 	 */
-	size_t kern_pages = ((addr_t)&__end - (addr_t)&__entry + PAGE_SIZE - 1) / PAGE_SIZE;
 	kmem_mark_used((void*)((addr_t)from & 0x0fffffff) /* HACK */, (to - from) / PAGE_SIZE);
 
 	/* Initialize the handles; this is needed by the per-CPU code as it initialize threads */
