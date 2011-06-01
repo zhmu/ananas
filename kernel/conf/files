@@ -27,8 +27,6 @@ lib/kern/misc.c		mandatory
 lib/kern/memset.c	mandatory
 lib/kern/memcpy.c	mandatory
 lib/kern/print.c	mandatory
-lib/kern/qdivrem.c	mandatory
-lib/kern/divdi3.c	mandatory
 lib/kern/string.c	mandatory
 # zlib
 lib/zlib/adler32.c	option ZLIB

@@ -8,6 +8,8 @@ arch/powerpc/trap.S		mandatory
 arch/powerpc/exception.c	mandatory
 arch/powerpc/timer.c		mandatory
 lib/kern/ucmpdi2.c		mandatory
+lib/kern/qdivrem.c		mandatory
+lib/kern/divdi3.c		mandatory
 # debugger code
 arch/powerpc/debug-console.c	option DEBUG_CONSOLE
 # ofw stuff
