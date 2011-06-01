@@ -34,8 +34,8 @@ vfs_make_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 	inode->i_fs = fs;
 	memcpy(inode->i_fsop, fsop, fs->fs_fsop_size);
 	/* Fill out the stat fields we can */
-	inode->i_sb.st_dev = (dev_t)fs->fs_device;
-	inode->i_sb.st_rdev = (dev_t)fs->fs_device;
+	inode->i_sb.st_dev = (dev_t)(uintptr_t)fs->fs_device;
+	inode->i_sb.st_rdev = (dev_t)(uintptr_t)fs->fs_device;
 	inode->i_sb.st_blksize = fs->fs_block_size;
 	TRACE(VFS, INFO, "made inode inode=%p with refcount=%u", inode, inode->i_refcount);
 	return inode;

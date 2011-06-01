@@ -14,7 +14,7 @@ struct ATACD_PRIVDATA {
 static errorcode_t
 atacd_attach(device_t dev)
 {
-	int unit = (int)device_alloc_resource(dev, RESTYPE_CHILDNUM, 0);
+	int unit = (int)(uintptr_t)device_alloc_resource(dev, RESTYPE_CHILDNUM, 0);
 	struct ATA_IDENTIFY* identify = (struct ATA_IDENTIFY*)dev->privdata;
 
 	struct ATACD_PRIVDATA* priv = kmalloc(sizeof(struct ATACD_PRIVDATA));

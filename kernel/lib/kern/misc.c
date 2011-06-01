@@ -18,12 +18,12 @@ _panic(const char* file, const char* func, int line, const char* fmt, ...)
 	 * Do our best to detect double panics; this will at least give more of a
 	 * clue what's going on instead of making it worse.
 	 */
-	if (atomic_read(&kdb_panicing) == (int)&_panic) {
+	if (atomic_read(&kdb_panicing) == (int)(addr_t)&_panic) {
 		md_interrupts_disable();
 		kprintf("double panic: %s:%u (%s) - dying!\n", file, line, func);
 		for(;;);
 	}
-	atomic_set(&kdb_panicing, (int)&_panic);
+	atomic_set(&kdb_panicing, (int)(addr_t)&_panic);
 
 	/* disable the scheduler - this ensures any extra BSP's will not run threads either */
 	scheduler_deactivate();

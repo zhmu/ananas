@@ -253,7 +253,7 @@ device_alloc_resource(device_t dev, resource_type_t type, size_t len)
 		case RESTYPE_IO:
 		case RESTYPE_CHILDNUM:
 		case RESTYPE_IRQ: /* XXX should allocate, not just return */
-			return (void*)res->base;
+			return (void*)(uintptr_t)res->base;
 		default:
 			panic("%s: resource type %u exists, but can't allocate", dev->name, type);
 	}
