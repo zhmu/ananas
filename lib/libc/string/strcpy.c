@@ -1,4 +1,4 @@
-/* $Id: strcpy.c 152 2006-03-08 15:36:14Z solar $ */
+/* $Id: strcpy.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* strcpy( char *, const char * )
 

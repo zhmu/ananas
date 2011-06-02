@@ -1,4 +1,4 @@
-/* $Id: fsetpos.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: fsetpos.c 480 2010-12-06 21:21:45Z solar $ */
 
 /* fsetpos( FILE *, const fpos_t * )
 
@@ -25,17 +25,18 @@ int fsetpos( struct _PDCLIB_file_t * stream, const struct _PDCLIB_fpos_t * pos )
         return EOF;
     }
     stream->pos.status = pos->status;
+    /* TODO: Add mbstate. */
     return 0;
 }
 
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main( void )
 {
-    TESTCASE( NO_TESTDRIVER );
+    /* fsetpos() tested together with fsetpos(). */
     return TEST_RESULTS;
 }
 

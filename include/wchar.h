@@ -8,7 +8,6 @@
 
 #include <ananas/types.h>
 
-
-size_t mbtowc( wchar_t * _PDCLIB_restrict pwc, const char * _PDCLIB_restrict s, size_t n);
+typedef int wint_t;
 
 #endif /* __WCHAR_H__ */

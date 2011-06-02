@@ -1,4 +1,4 @@
-/* $Id: fwrite.c 393 2010-03-12 11:08:14Z solar $ */
+/* $Id: fwrite.c 496 2010-12-16 06:00:24Z solar $ */
 
 /* fwrite( const void *, size_t, size_t, FILE * )
 
@@ -7,12 +7,13 @@
 */
 
 #include <stdio.h>
+
 #ifndef REGTEST
+
+#include <_PDCLIB/_PDCLIB_glue.h>
 
 #include <stdbool.h>
 #include <string.h>
-
-#include <_PDCLIB/_PDCLIB_glue.h>
 
 size_t fwrite( const void * _PDCLIB_restrict ptr, size_t size, size_t nmemb, struct _PDCLIB_file_t * _PDCLIB_restrict stream )
 {
@@ -27,7 +28,6 @@ size_t fwrite( const void * _PDCLIB_restrict ptr, size_t size, size_t nmemb, str
     {
         for ( size_t size_i = 0; size_i < size; ++size_i )
         {
-            /* TODO: Should line-buffered streams be flushed on '\n' or system EOL? */
             if ( ( stream->buffer[ stream->bufidx++ ] = ((char*)ptr)[ nmemb_i * size + size_i ] ) == '\n' )
             {
                 /* Remember last newline, in case we have to do a partial line-buffered flush */
@@ -87,13 +87,7 @@ size_t fwrite( const void * _PDCLIB_restrict ptr, size_t size, size_t nmemb, str
 
 int main( void )
 {
-    FILE * fh;
-    remove( "testfile" );
-    TESTCASE( ( fh = fopen( "testfile", "w" ) ) != NULL );
-    TESTCASE( fwrite( "SUCCESS testing fwrite()\n", 1, 25, fh ) == 25 );
-    TESTCASE( fclose( fh ) == 0 );
-    /* TODO: Add readback test. */
-    TESTCASE( remove( "testfile" ) == 0 );
+    /* Testing covered by fread(). */
     return TEST_RESULTS;
 }
 

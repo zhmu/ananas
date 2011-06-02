@@ -1,4 +1,4 @@
-/* $Id: memchr.c 172 2006-04-14 12:07:40Z solar $ */
+/* $Id: memchr.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* memchr( const void *, int, size_t )
 

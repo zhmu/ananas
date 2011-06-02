@@ -1,4 +1,4 @@
-/* $Id: errno.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: errno.c 516 2011-03-17 05:59:31Z solar $ */
 
 /* _PDCLIB_errno
 
@@ -25,7 +25,7 @@ int * _PDCLIB_errno_func()
 
 #include <errno.h>
 
-int main()
+int main( void )
 {
     errno = 0;
     TESTCASE( errno == 0 );

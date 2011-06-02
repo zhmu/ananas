@@ -1,5 +1,35 @@
+/* $Id: toupper.c 506 2010-12-29 13:19:53Z solar $ */
+
+/* toupper( int )
+
+   This file is part of the Public Domain C Library (PDCLib).
+   Permission is granted to use, modify, and / or redistribute at will.
+*/
+
 #include <ctype.h>
 
-int toupper(int c) {
-	return islower(c) ? (c | 0x20) : c;
+#ifndef REGTEST
+
+#include <locale.h>
+
+int toupper( int c )
+{
+    return _PDCLIB_lconv.ctype[c].upper;
 }
+
+#endif
+
+#ifdef TEST
+#include <_PDCLIB_test.h>
+
+int main( void )
+{
+    TESTCASE( toupper( 'a' ) == 'A' );
+    TESTCASE( toupper( 'z' ) == 'Z' );
+    TESTCASE( toupper( 'A' ) == 'A' );
+    TESTCASE( toupper( 'Z' ) == 'Z' );
+    TESTCASE( toupper( '@' ) == '@' );
+    TESTCASE( toupper( '[' ) == '[' );
+    return TEST_RESULTS;
+}
+#endif

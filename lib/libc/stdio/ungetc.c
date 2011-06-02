@@ -1,4 +1,4 @@
-/* $Id: ungetc.c 382 2009-10-26 22:27:59Z solar $ */
+/* $Id: ungetc.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* ungetc( int, FILE * )
 
@@ -22,7 +22,7 @@ int ungetc( int c, struct _PDCLIB_file_t * stream )
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main( void )
 {

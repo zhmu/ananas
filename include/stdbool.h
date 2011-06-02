@@ -1,4 +1,4 @@
-/* $Id: stdbool.h 152 2006-03-08 15:36:14Z solar $ */
+/* $Id: stdbool.h 416 2010-05-15 00:39:28Z solar $ */
 
 /* 7.16 Boolean type and values <stdbool.h>
 

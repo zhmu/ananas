@@ -1,4 +1,4 @@
-/* $Id: tmpnam.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: tmpnam.c 482 2010-12-09 05:18:55Z solar $ */
 
 /* tmpnam( char * )
 
@@ -7,25 +7,37 @@
 */
 
 #include <stdio.h>
-#include <stdarg.h>
 
 #ifndef REGTEST
 
+#include <string.h>
+#include <_PDCLIB/_PDCLIB_glue.h>
+
 char * tmpnam( char * s )
 {
-    /* TODO: Implement. */
-    return NULL;
+    static char filename[ L_tmpnam ];
+    FILE * file = tmpfile();
+    if ( s == NULL )
+    {
+        s = filename;
+    }
+    strcpy( s, file->filename );
+    fclose( file );
+    return s;
 }
 
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
+
+#include <string.h>
 
 int main( void )
 {
-    TESTCASE( NO_TESTDRIVER );
+    TESTCASE( strlen( tmpnam( NULL ) ) < L_tmpnam );
     return TEST_RESULTS;
 }
 
 #endif
+

@@ -1,4 +1,4 @@
-/* $Id: strtoll.c 393 2010-03-12 11:08:14Z solar $ */
+/* $Id: strtoll.c 489 2010-12-11 09:14:39Z solar $ */
 
 /* strtoll( const char *, char * *, int )
 
@@ -13,10 +13,6 @@
 
 #include <stdint.h>
 
-/* XXX this is a horrible hack to prevent a segfault; min is actually one less */
-#undef LLONG_MIN
-#define LLONG_MIN  -9223372036854775807
-
 long long int strtoll( const char * s, char ** endptr, int base )
 {
     long long int rc;
@@ -29,8 +25,6 @@ long long int strtoll( const char * s, char ** endptr, int base )
     }
     else
     {
-        /* FIXME: This breaks on some machines that round negatives wrongly */
-        /* FIXME: Sign error not caught by testdriver */
         rc = (long long int)_PDCLIB_strtox_main( &p, (unsigned)base, (uintmax_t)LLONG_MIN, (uintmax_t)( LLONG_MIN / -base ), (int)( -( LLONG_MIN % base ) ), &sign );
     }
     if ( endptr != NULL ) *endptr = ( p != NULL ) ? (char *) p : (char *) s;
@@ -89,36 +83,36 @@ int main( void )
     endptr = NULL;
     TESTCASE( strtoll( overflow, &endptr, 0 ) == 0 );
     TESTCASE( endptr == overflow );
-    /* These tests assume two-complement, but conversion should work for   */
-    /* one-complement and signed magnitude just as well. Anyone having a   */
-    /* platform to test this on?                                           */
+    /* TODO: These tests assume two-complement, but conversion should work */
+    /* for one-complement and signed magnitude just as well. Anyone having */
+    /* a platform to test this on?                                         */
     errno = 0;
-#if LLONG_MAX == 0x7fffffffffffffffLL
+#if LLONG_MAX >> 62 == 1
     /* testing "even" overflow, i.e. base is power of two */
-    TESTCASE( strtoll( "0x7FFFFFFFFFFFFFFF", NULL, 0 ) == 0x7fffffffffffffff );
+    TESTCASE( strtoll( "9223372036854775807", NULL, 0 ) == 0x7fffffffffffffff );
     TESTCASE( errno == 0 );
-    TESTCASE( strtoll( "0x8000000000000000", NULL, 0 ) == LLONG_MAX );
+    TESTCASE( strtoll( "9223372036854775808", NULL, 0 ) == LLONG_MAX );
     TESTCASE( errno == ERANGE );
     errno = 0;
-    TESTCASE( strtoll( "-0x7FFFFFFFFFFFFFFF", NULL, 0 ) == (long long)0x8000000000000001 );
+    TESTCASE( strtoll( "-9223372036854775807", NULL, 0 ) == (long long)0x8000000000000001 );
     TESTCASE( errno == 0 );
-    TESTCASE( strtoll( "-0x8000000000000000", NULL, 0 ) == LLONG_MIN );
+    TESTCASE( strtoll( "-9223372036854775808", NULL, 0 ) == LLONG_MIN );
     TESTCASE( errno == 0 );
-    TESTCASE( strtoll( "-0x8000000000000001", NULL, 0 ) == LLONG_MIN );
+    TESTCASE( strtoll( "-9223372036854775809", NULL, 0 ) == LLONG_MIN );
     TESTCASE( errno == ERANGE );
     /* TODO: test "odd" overflow, i.e. base is not power of two */
-#elif LLONG_MAX == 0x7fffffffffffffffffffffffffffffffLL
+#elif LLONG_MAX >> 126 == 1
     /* testing "even" overflow, i.e. base is power of two */
-    TESTCASE( strtoll( "0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", NULL, 0 ) == 0x7fffffffffffffffffffffffffffffff );
+    TESTCASE( strtoll( "170141183460469231731687303715884105728", NULL, 0 ) == 0x7fffffffffffffffffffffffffffffff );
     TESTCASE( errno == 0 );
-    TESTCASE( strtoll( "0x80000000000000000000000000000000", NULL, 0 ) == LLONG_MAX );
+    TESTCASE( strtoll( "170141183460469231731687303715884105729", NULL, 0 ) == LLONG_MAX );
     TESTCASE( errno == ERANGE );
     errno = 0;
-    TESTCASE( strtoll( "-0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", NULL, 0 ) == -0x80000000000000000000000000000001 );
+    TESTCASE( strtoll( "-170141183460469231731687303715884105728", NULL, 0 ) == -0x80000000000000000000000000000001 );
     TESTCASE( errno == 0 );
-    TESTCASE( strtoll( "-0x80000000000000000000000000000000", NULL, 0 ) == LLONG_MIN );
+    TESTCASE( strtoll( "-170141183460469231731687303715884105729", NULL, 0 ) == LLONG_MIN );
     TESTCASE( errno == 0 );
-    TESTCASE( strtoll( "-0x80000000000000000000000000000001", NULL, 0 ) == LLONG_MIN );
+    TESTCASE( strtoll( "-170141183460469231731687303715884105730", NULL, 0 ) == LLONG_MIN );
     TESTCASE( errno == ERANGE );
     /* TODO: test "odd" overflow, i.e. base is not power of two */
 #else

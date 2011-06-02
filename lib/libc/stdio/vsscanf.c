@@ -1,4 +1,4 @@
-/* $Id: vsscanf.c 394 2010-03-12 11:08:56Z solar $ */
+/* $Id: vsscanf.c 481 2010-12-08 05:53:09Z solar $ */
 
 /* vsscanf( const char *, const char *, va_list arg )
 
@@ -14,17 +14,19 @@
 
 int vsscanf( const char * _PDCLIB_restrict s, const char * _PDCLIB_restrict format, va_list arg )
 {
+    /* TODO: This function should interpret format as multibyte characters.  */
     struct _PDCLIB_status_t status;
     status.base = 0;
     status.flags = 0;
-    status.n = 0; 
+    status.n = 0;
     status.i = 0;
-    status.this = 0;
-    status.s = (char *)s;
+    status.current = 0;
+    status.s = (char *) s;
     status.width = 0;
     status.prec = 0;
     status.stream = NULL;
     va_copy( status.arg, arg );
+
     while ( *format != '\0' )
     {
         const char * rc;
@@ -46,6 +48,11 @@ int vsscanf( const char * _PDCLIB_restrict s, const char * _PDCLIB_restrict form
                 /* Non-whitespace char in format string: Match verbatim */
                 if ( *status.s != *format )
                 {
+                    if ( *status.s == '\0' && status.n == 0 )
+                    {
+                        /* Early input error */
+                        return EOF;
+                    }
                     /* Matching error */
                     return status.n;
                 }
@@ -59,12 +66,11 @@ int vsscanf( const char * _PDCLIB_restrict s, const char * _PDCLIB_restrict form
         }
         else
         {
-            /* NULL return code indicates input error */
+            /* NULL return code indicates error */
             if ( rc == NULL )
             {
-                if ( status.n == 0 )
+                if ( ( *status.s == '\n' ) && ( status.n == 0 ) )
                 {
-                    /* input error before any conversion returns EOF */
                     status.n = EOF;
                 }
                 break;
@@ -80,22 +86,24 @@ int vsscanf( const char * _PDCLIB_restrict s, const char * _PDCLIB_restrict form
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#define _PDCLIB_FILEID "stdio/vsscanf.c"
+#define _PDCLIB_STRINGIO
+
+#include <_PDCLIB/_PDCLIB_test.h>
+
+static int testscanf( char const * stream, char const * format, ... )
+{
+    va_list ap;
+    va_start( ap, format );
+    int result = vsscanf( stream, format, ap );
+    va_end( ap );
+    return result;
+}
 
 int main( void )
 {
-    char const * teststring1 = "abc  def";
-    char const * teststring2 = "abcdef";
-    char const * teststring3 = "abc%def";
-    int x;
-    TESTCASE( sscanf( teststring2, "abcdef%n", &x ) == 0 );
-    TESTCASE( x == 6 );
-    TESTCASE( sscanf( teststring1, "abc def%n", &x ) == 0 );
-    TESTCASE( x == 8 );
-    TESTCASE( sscanf( teststring2, "abc def%n", &x ) == 0 );
-    TESTCASE( x == 6 );
-    TESTCASE( sscanf( teststring3, "abc%%def%n", &x ) == 0 );
-    TESTCASE( x == 7 );
+    char source[100];
+#include "scanf_testcases.h"
     return TEST_RESULTS;
 }
 

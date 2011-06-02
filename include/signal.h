@@ -88,6 +88,7 @@ struct sigaction {
 #define SIG_SETMASK	1
 #define SIG_UNBLOCK	2
 
+int raise(int sig);
 int sigemptyset(sigset_t*);
 int sigfillset(sigset_t*);
 int sigaddset(sigset_t*, int);

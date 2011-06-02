@@ -1,4 +1,4 @@
-/* $Id: strtol.c 393 2010-03-12 11:08:14Z solar $ */
+/* $Id: strtol.c 489 2010-12-11 09:14:39Z solar $ */
 
 /* strtol( const char *, char * *, int )
 
@@ -25,7 +25,6 @@ long int strtol( const char * s, char ** endptr, int base )
     }
     else
     {
-        /* FIXME: This breaks on some machines that round negatives wrongly */
         rc = (long int)_PDCLIB_strtox_main( &p, (unsigned)base, (uintmax_t)LONG_MIN, (uintmax_t)( LONG_MIN / -base ), (int)( -( LONG_MIN % base ) ), &sign );
     }
     if ( endptr != NULL ) *endptr = ( p != NULL ) ? (char *) p : (char *) s;
@@ -84,36 +83,42 @@ int main( void )
     endptr = NULL;
     TESTCASE( strtol( overflow, &endptr, 0 ) == 0 );
     TESTCASE( endptr == overflow );
-    /* These tests assume two-complement, but conversion should work for   */
-    /* one-complement and signed magnitude just as well. Anyone having a   */
-    /* platform to test this on?                                           */
+    /* TODO: These tests assume two-complement, but conversion should work */
+    /* for one-complement and signed magnitude just as well. Anyone having */
+    /* a platform to test this on?                                         */
     errno = 0;
-#if LONG_MAX == 0x7fffffffL
+#if LONG_MAX >> 30 == 1
     /* testing "even" overflow, i.e. base is power of two */
-    TESTCASE( strtol( "0x7FFFFFFF", NULL, 0 ) == 0x7fffffff );
+    TESTCASE( strtol( "2147483647", NULL, 0 ) == 0x7fffffff );
     TESTCASE( errno == 0 );
-    TESTCASE( strtol( "0x80000000", NULL, 0 ) == LONG_MAX );
+    errno = 0;
+    TESTCASE( strtol( "2147483648", NULL, 0 ) == LONG_MAX );
     TESTCASE( errno == ERANGE );
     errno = 0;
-    TESTCASE( strtol( "-0x7FFFFFFF", NULL, 0 ) == (long)0x80000001 );
+    TESTCASE( strtol( "-2147483647", NULL, 0 ) == (long)0x80000001 );
     TESTCASE( errno == 0 );
-    TESTCASE( strtol( "-0x80000000", NULL, 0 ) == LONG_MIN );
+    errno = 0;
+    TESTCASE( strtol( "-2147483648", NULL, 0 ) == LONG_MIN );
     TESTCASE( errno == 0 );
-    TESTCASE( strtol( "-0x80000001", NULL, 0 ) == LONG_MIN );
+    errno = 0;
+    TESTCASE( strtol( "-2147483649", NULL, 0 ) == LONG_MIN );
     TESTCASE( errno == ERANGE );
     /* TODO: test "odd" overflow, i.e. base is not power of two */
-#elif LONG_MAX == 0x7fffffffffffffffL
+#elif LONG_MAX >> 62 == 1
     /* testing "even" overflow, i.e. base is power of two */
-    TESTCASE( strtol( "0x7FFFFFFFFFFFFFFF", NULL, 0 ) == 0x7fffffffffffffff );
+    TESTCASE( strtol( "9223372036854775807", NULL, 0 ) == 0x7fffffffffffffff );
     TESTCASE( errno == 0 );
-    TESTCASE( strtol( "0x8000000000000000", NULL, 0 ) == LONG_MAX );
+    errno = 0;
+    TESTCASE( strtol( "9223372036854775808", NULL, 0 ) == LONG_MAX );
     TESTCASE( errno == ERANGE );
     errno = 0;
-    TESTCASE( strtol( "-0x7FFFFFFFFFFFFFFF", NULL, 0 ) == (long)0x8000000000000001 );
+    TESTCASE( strtol( "-9223372036854775807", NULL, 0 ) == (long)0x8000000000000001 );
     TESTCASE( errno == 0 );
-    TESTCASE( strtol( "-0x8000000000000000", NULL, 0 ) == LONG_MIN );
+    errno = 0;
+    TESTCASE( strtol( "-9223372036854775808", NULL, 0 ) == LONG_MIN );
     TESTCASE( errno == 0 );
-    TESTCASE( strtol( "-0x8000000000000001", NULL, 0 ) == LONG_MIN );
+    errno = 0;
+    TESTCASE( strtol( "-9223372036854775809", NULL, 0 ) == LONG_MIN );
     TESTCASE( errno == ERANGE );
     /* TODO: test "odd" overflow, i.e. base is not power of two */
 #else

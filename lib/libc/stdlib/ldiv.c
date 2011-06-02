@@ -1,4 +1,4 @@
-/* $Id: ldiv.c 393 2010-03-12 11:08:14Z solar $ */
+/* $Id: ldiv.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* ldiv( long int, long int )
 

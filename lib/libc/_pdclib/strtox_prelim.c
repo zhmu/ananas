@@ -1,4 +1,4 @@
-/* $Id: strtox_prelim.c 371 2009-09-16 05:09:36Z solar $ */
+/* $Id: strtox_prelim.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* _PDCLIB_strtox_prelim( const char *, char *, int * )
 
@@ -52,7 +52,7 @@ const char * _PDCLIB_strtox_prelim( const char * p, char * sign, int * base )
 }
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main( void )
 {

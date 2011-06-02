@@ -1,8 +1,6 @@
 /*
  * This file is used to define integer types as per ISO/IEC 9899.
  */
-#include <stddef.h>
-
 #ifndef __AMD64_TYPES_H__
 #define __AMD64_TYPES_H__
 

@@ -1,4 +1,4 @@
-/* $Id: _PDCLIB_int.h 394 2010-03-12 11:08:56Z solar $ */
+/* $Id: _PDCLIB_int.h 508 2010-12-30 22:43:20Z solar $ */
 
 /* PDCLib internal integer logic <_PDCLIB_int.h>
 
@@ -23,6 +23,7 @@
 
 #include <machine/_stdint.h>
 #include <machine/_types.h>
+#include <stddef.h>
 #include <limits.h>
 
 /* null pointer constant */
@@ -72,37 +73,70 @@
 /* -------------------------------------------------------------------------- */
 /* <stdint.h> exact-width types and their limits                              */
 /* -------------------------------------------------------------------------- */
+/* Note that, for the "standard" widths of 8, 16, 32 and 64 bit, the "LEAST"  */
+/* types are identical to the "exact-width" types, by definition.             */
 
-/* Setting 'int8_t', its limits, and its literal.                             */
+/* Setting 'int8_t', its limits, its literal, and conversion macros.          */
 typedef int8_t	_PDCLIB_int8_t;
 typedef uint8_t	_PDCLIB_uint8_t;
 #define _PDCLIB_INT8_MAX   CHAR_MAX
 #define _PDCLIB_INT8_MIN   CHAR_MIN
 #define _PDCLIB_UINT8_MAX  UCHAR_MAX
+#if     CHAR_BIT == 8
+#define _PDCLIB_8_CONV     hh
+#else
+#error Unsupported width of char (not 8 bits).
+#endif
 
-/* Setting 'int16_t', its limits, and its literal                             */
+/* Setting 'int16_t', its limits, its literal, and conversion macros.         */
 typedef int16_t		_PDCLIB_int16_t;
 typedef uint16_t	_PDCLIB_uint16_t;
 #define _PDCLIB_INT16_MAX  INT_MAX
 #define _PDCLIB_INT16_MIN  INT_MIN
 #define _PDCLIB_UINT16_MAX UINT_MAX
+#if     UINT_MAX == 65535
+#define _PDCLIB_16_CONV
+#elif   USHRT_MAX == 65535
+#define _PDCLIB_16_CONV    h
+#else
+#error Neither 'short' nor 'int' are 16-bit.
+#endif
 
-/* Setting 'int32_t', its limits, and its literal                             */
+/* Setting 'int32_t', its limits, its literal, and conversion macros.         */
 typedef int32_t		_PDCLIB_int32_t;
 typedef uint32_t	_PDCLIB_uint32_t;
 #define _PDCLIB_INT32_MAX  INT32_MAX
 #define _PDCLIB_INT32_MIN  INT32_MIN
 #define _PDCLIB_UINT32_MAX UINT32_MAX
-#define _PDCLIB_INT32_LITERAL INT32_LITERAL
-#define _PDCLIB_UINT32_LITERAL UINT32_LITERAL
+#if     UINT32_MAX == 4294967295U
+#define _PDCLIB_INT32_LITERAL
+#define _PDCLIB_UINT32_LITERAL
+#define _PDCLIB_32_CONV
+#elif   ULONG_MAX == 4294967295U
+#define _PDCLIB_INT32_LITERAL  l
+#define _PDCLIB_UINT32_LITERAL ul
+#define _PDCLIB_32_CONV        l
+#else
+#error Neither 'int' nor 'long' are 32-bit.
+#endif
 
+/* Setting 'int64_t', its limits, its literal, and conversion macros.         */
 typedef int64_t		_PDCLIB_int64_t;
 typedef uint64_t	_PDCLIB_uint64_t;
 #define _PDCLIB_INT64_MAX  LONG_MAX
 #define _PDCLIB_INT64_MIN  LONG_MIN
 #define _PDCLIB_UINT64_MAX ULONG_MAX
+#if     ULONG_MAX == 18446744073709551615ULL
 #define _PDCLIB_INT64_LITERAL  l
 #define _PDCLIB_UINT64_LITERAL ul
+#define _PDCLIB_64_CONV        l
+#elif ULLONG_MAX == 18446744073709551615ULL
+#define _PDCLIB_INT64_LITERAL  ll
+#define _PDCLIB_UINT64_LITERAL ull
+#define _PDCLIB_64_CONV        ll
+#else
+#error Neither 'long' nor 'long long' are 64-bit.
+#endif
 
 /* -------------------------------------------------------------------------- */
 /* <stdint.h> "fastest" types and their limits                                */
@@ -147,7 +181,7 @@ typedef ptrdiff_t _PDCLIB_ptrdiff_t;
 #define _PDCLIB_SIG_ATOMIC_MIN SIG_ATOMIC_MIN
 #define _PDCLIB_SIG_ATOMIC_MAX SIG_ATOMIC_MAX
 
-typedef size_t	PDCLIB_size_t;
+typedef size_t	_PDCLIB_size_t;
 #define _PDCLIB_SIZE_MAX	SIZE_MAX
 
 typedef wchar_t			_PDCLIB_wchar_t;
@@ -168,8 +202,6 @@ typedef uintmax_t		_PDCLIB_uintmax_t;
 #define _PDCLIB_INTMAX_C( value )	INTMAX_C( value )
 #define _PDCLIB_UINTMAX_C( value )	UINTMAX_C( value )
 
-typedef size_t			_PDCLIB_size_t;
-
 /* -------------------------------------------------------------------------- */
 /* Various <stdio.h> internals                                                */
 /* -------------------------------------------------------------------------- */
@@ -184,12 +216,20 @@ typedef size_t			_PDCLIB_size_t;
 #define _PDCLIB_FBIN    128u
 
 /* Internal flags, made to fit the same status field as the flags above. */
-#define _PDCLIB_LIBBUFFER    512u
+/* -------------------------------------------------------------------------- */
+/* free() the buffer memory on closing (false for user-supplied buffer) */
+#define _PDCLIB_FREEBUFFER   512u
+/* stream has encountered error / EOF */
 #define _PDCLIB_ERRORFLAG   1024u
 #define _PDCLIB_EOFFLAG     2048u
+/* stream is wide-oriented */
 #define _PDCLIB_WIDESTREAM  4096u
+/* stream is byte-oriented */
 #define _PDCLIB_BYTESTREAM  8192u
-#define _PDCLIB_STATIC      16384u
+/* file associated with stream should be remove()d on closing (tmpfile()) */
+#define _PDCLIB_DELONCLOSE 16384u
+/* stream handle should not be free()d on close (stdin, stdout, stderr) */
+#define _PDCLIB_STATIC     32768u
 
 /* Position / status structure for getpos() / fsetpos(). */
 struct _PDCLIB_fpos_t
@@ -242,19 +282,18 @@ struct _PDCLIB_memnode_t
 /* Status structure required by _PDCLIB_print(). */
 struct _PDCLIB_status_t
 {
-    int              base;  /* base to which the value shall be converted    */
+    int              base;   /* base to which the value shall be converted   */
     _PDCLIB_int_fast32_t flags; /* flags and length modifiers                */
-    _PDCLIB_size_t   n;     /* print: maximum characters to be written       */
-                            /* scan:  number matched conversion specifiers   */
-    _PDCLIB_size_t   i;     /* number of characters read/written             */
-    _PDCLIB_size_t   this;  /* chars read/written in the CURRENT conversion  */
-    char *           s;     /* *sprintf(): target buffer                     */
-                            /* *sscanf():  source string                     */
-    _PDCLIB_size_t   width; /* specified field width                         */
-    _PDCLIB_size_t   prec;  /* specified field precision                     */
+    _PDCLIB_size_t   n;      /* print: maximum characters to be written      */
+                             /* scan:  number matched conversion specifiers  */
+    _PDCLIB_size_t   i;      /* number of characters read/written            */
+    _PDCLIB_size_t   current;/* chars read/written in the CURRENT conversion */
+    char *           s;      /* *sprintf(): target buffer                    */
+                             /* *sscanf():  source string                    */
+    _PDCLIB_size_t   width;  /* specified field width                        */
+    _PDCLIB_size_t   prec;   /* specified field precision                    */
     struct _PDCLIB_file_t * stream; /* *fprintf() / *fscanf() stream         */
-    _PDCLIB_va_list  arg;   /* argument stack                                */
-    char             spec;  /* *printf(): current specification modifier     */
+    _PDCLIB_va_list  arg;    /* argument stack                               */
 };
 
 /* -------------------------------------------------------------------------- */
@@ -309,22 +348,45 @@ int _PDCLIB_prepread( struct _PDCLIB_file_t * stream );
 */
 int _PDCLIB_prepwrite( struct _PDCLIB_file_t * stream );
 
+/* Closing all streams on program exit */
+void _PDCLIB_closeall( void );
+
 /* -------------------------------------------------------------------------- */
 /* errno                                                                      */
 /* -------------------------------------------------------------------------- */
 
+/* If PDCLib would call its error number "errno" directly, there would be no way
+   to catch its value from underlying system calls that also use it (i.e., POSIX
+   operating systems). That is why we use an internal name, providing a means to
+   access it through <errno.h>.
+*/
 extern int _PDCLIB_errno;
+
+/* A mechanism for delayed evaluation. (Not sure if this is really necessary, so
+   no detailed documentation on the "why".)
+*/
 int * _PDCLIB_errno_func( void );
 
-/* ERANGE and EDOM are specified by the standard. */
-#define _PDCLIB_ERANGE 1
-#define _PDCLIB_EDOM 2
-/* Used in the example implementation for any kind of I/O error. */
-#define _PDCLIB_EIO 3
-/* Used in the example implementation for "unknown error". */
-#define _PDCLIB_EUNKNOWN 4
-/* Used in the example implementation for "invalid parameter value". */
-#define _PDCLIB_EINVAL 5
-/* Used in the example implementation for "I/O retries exceeded". */
-#define _PDCLIB_ERETRY 6
+/* -------------------------------------------------------------------------- */
+/* <ctype.h> lookup tables                                                    */
+/* -------------------------------------------------------------------------- */
+
+#define _PDCLIB_CTYPE_ALPHA   1
+#define _PDCLIB_CTYPE_BLANK   2
+#define _PDCLIB_CTYPE_CNTRL   4
+#define _PDCLIB_CTYPE_GRAPH   8
+#define _PDCLIB_CTYPE_PUNCT  16
+#define _PDCLIB_CTYPE_SPACE  32
+#define _PDCLIB_CTYPE_LOWER  64
+#define _PDCLIB_CTYPE_UPPER 128
+#define _PDCLIB_CTYPE_DIGIT 256
+#define _PDCLIB_CTYPE_XDIGT 512
+
+struct _PDCLIB_ctype_t
+{
+    _PDCLIB_uint16_t flags;
+    unsigned char upper;
+    unsigned char lower;
+    unsigned char collation;
+};
 

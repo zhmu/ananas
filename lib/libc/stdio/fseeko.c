@@ -30,7 +30,7 @@ int fseeko( struct _PDCLIB_file_t * stream, off_t offset, int whence )
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main( void )
 {

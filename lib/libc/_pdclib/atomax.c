@@ -1,4 +1,4 @@
-/* $Id: atomax.c 159 2006-04-07 05:04:21Z solar $ */
+/* $Id: atomax.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* _PDCLIB_atomax( const char * )
 
@@ -29,7 +29,7 @@ _PDCLIB_intmax_t _PDCLIB_atomax( const char * s )
 }
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main( void )
 {

@@ -1,6 +1,6 @@
-/* $Id: string.h 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: string.h 503 2010-12-23 06:15:28Z solar $ */
 
-/* String handling <string.h>
+/* 7.21 String handling <string.h>
 
    This file is part of the Public Domain C Library (PDCLib).
    Permission is granted to use, modify, and / or redistribute at will.
@@ -14,10 +14,12 @@
 #include <_PDCLIB/_PDCLIB_int.h>
 #endif
 
-#include <ananas/types.h>
+#include <machine/_stddef.h>
+#include <ananas/_types/null.h>
 
 /*
- * XXX This is not in the ISO spec, but binutils depends on it.
+ * Drag in strings.h; this is historic but a lot of things seem to be depend on
+ * it
  */
 #include <strings.h>
 
@@ -177,9 +179,8 @@ void * memset( void * s, int c, size_t n );
 /* Map an error number to a (locale-specific) error message string. Error
    numbers are typically errno values, but any number is mapped to a message.
    TODO: PDCLib does not yet support locales.
-   TODO: strerror() not yet implemented.
-char * strerror( int errnum );
 */
+char * strerror( int errnum );
 
 /* Returns the length of the string s (excluding terminating '\0').
 */
@@ -188,7 +189,5 @@ size_t strlen( const char * s );
 /* Duplicate the given string
  */
 char* strdup(const char* s);
-
-char* strerror(int errnum);
 
 #endif

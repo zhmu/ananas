@@ -1,7 +1,9 @@
 #include <machine/_types.h>
+#include <machine/_stddef.h>
 #include <ananas/_types/uid.h>
 #include <ananas/_types/gid.h>
 #include <ananas/_types/pid.h>
+#include <ananas/_types/null.h>
 
 #ifndef __UNISTD_H___
 #define __UNISTD_H__
@@ -34,7 +36,6 @@ int	link(const char* path1, const char* path2);
 int	chdir(const char* path);
 int	fchdir(int fildes);
 int	fchown(int fildes, uid_t owner, gid_t group);
-int	raise(int sig);
 int	isatty(int fildes);
 int	ftruncate(int fildes, off_t length);
 int	rmdir(const char* path);

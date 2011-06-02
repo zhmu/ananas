@@ -1,4 +1,4 @@
-/* $Id: scanf.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: scanf.c 481 2010-12-08 05:53:09Z solar $ */
 
 /* scanf( const char *, ... )
 
@@ -21,11 +21,20 @@ int scanf( const char * _PDCLIB_restrict format, ... )
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#define _PDCLIB_FILEID "stdio/scanf.c"
+#define _PDCLIB_FILEIO
+
+#include <_PDCLIB/_PDCLIB_test.h>
+
+#define testscanf( stream, format, ... ) scanf( format, __VA_ARGS__ )
 
 int main( void )
 {
-    TESTCASE( NO_TESTDRIVER );
+    FILE * source;
+    TESTCASE( ( source = freopen( testfile, "wb+", stdin ) ) != NULL );
+#include "scanf_testcases.h"
+    TESTCASE( fclose( source ) == 0 );
+    TESTCASE( remove( testfile ) == 0 );
     return TEST_RESULTS;
 }
 

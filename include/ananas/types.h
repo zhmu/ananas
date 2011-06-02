@@ -4,6 +4,7 @@
 #ifndef ASM
 
 #include <machine/_types.h>
+#include <machine/_stddef.h>
 #include <ananas/_types/null.h>
 #include <ananas/_types/pid.h>
 #include <ananas/_types/uid.h>

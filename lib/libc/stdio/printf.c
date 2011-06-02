@@ -1,4 +1,4 @@
-/* $Id: printf.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: printf.c 481 2010-12-08 05:53:09Z solar $ */
 
 /* printf( const char *, ... )
 
@@ -24,11 +24,20 @@ int printf( const char * _PDCLIB_restrict format, ... )
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#define _PDCLIB_FILEID "stdio/printf.c"
+#define _PDCLIB_FILEIO
+
+#include <_PDCLIB/_PDCLIB_test.h>
+
+#define testprintf( stream, format, ... ) printf( format, __VA_ARGS__ )
 
 int main( void )
 {
-    TESTCASE( printf( "SUCCESS testing printf().\n" ) == 26 );
+    FILE * target;
+    TESTCASE( ( target = freopen( testfile, "wb+", stdout ) ) != NULL );
+#include "printf_testcases.h"
+    TESTCASE( fclose( target ) == 0 );
+    TESTCASE( remove( testfile ) == 0 );
     return TEST_RESULTS;
 }
 

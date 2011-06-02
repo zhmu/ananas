@@ -11,6 +11,7 @@
 */
 
 #include <stdio.h>
+#include <errno.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -59,7 +60,7 @@ int _PDCLIB_flushbuffer( struct _PDCLIB_file_t * stream )
             return 0;
         }
     }
-    _PDCLIB_errno = _PDCLIB_ERETRY;
+    _PDCLIB_errno = EIO;
     stream->status |= _PDCLIB_ERRORFLAG;
     /* Move unwritten remains to begin of buffer. */
     stream->bufidx -= written;
@@ -71,7 +72,7 @@ int _PDCLIB_flushbuffer( struct _PDCLIB_file_t * stream )
 
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main( void )
 {

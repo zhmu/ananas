@@ -1,4 +1,4 @@
-/* $Id: freopen.c 382 2009-10-26 22:27:59Z solar $ */
+/* $Id: freopen.c 481 2010-12-08 05:53:09Z solar $ */
 
 /* freopen( const char *, const char *, FILE * )
 
@@ -12,44 +12,93 @@
 
 #include <_PDCLIB/_PDCLIB_glue.h>
 #include <stdlib.h>
-
-/* Close any file currently associated with the given stream. Open the file
-   identified by the given filename with the given mode (equivalent to fopen()),
-   and associate it with the given stream. If filename is a NULL pointer,
-   attempt to change the mode of the given stream.
-   This implementation allows the following mode changes: TODO
-   (Primary use of this function is to redirect stdin, stdout, and stderr.)
-*/
+#include <string.h>
 
 struct _PDCLIB_file_t * freopen( const char * _PDCLIB_restrict filename, const char * _PDCLIB_restrict mode, struct _PDCLIB_file_t * _PDCLIB_restrict stream )
 {
-    /* FIXME: This is ad-hoc (to make the vprintf() testdriver work), and must be checked. */
-    /* FIXME: If filename is NULL, change mode. */
+    unsigned int status = stream->status & ( _IONBF | _IOLBF | _IOFBF | _PDCLIB_FREEBUFFER | _PDCLIB_DELONCLOSE );
     /* TODO: This function can change wide orientation of a stream */
-    if ( filename == NULL ) return NULL;
-    if ( stream->status & _PDCLIB_FWRITE ) fflush( stream );
-    if ( stream->status & _PDCLIB_LIBBUFFER ) free( stream->buffer );
+    if ( stream->status & _PDCLIB_FWRITE )
+    {
+        _PDCLIB_flushbuffer( stream );
+    }
+    if ( ( filename == NULL ) && ( stream->filename == NULL ) )
+    {
+        /* TODO: Special handling for mode changes on std-streams */
+        return NULL;
+    }
     _PDCLIB_close( stream->handle );
+    /* TODO: It is not nice to do this on a stream we just closed.
+       It does not matter with the current implementation of clearerr(),
+       but it might start to matter if someone replaced that implementation.
+    */
     clearerr( stream );
-    if ( ( mode == NULL ) || ( filename[0] == '\0' ) ) return NULL;
-    if ( ( stream->status = _PDCLIB_filemode( mode ) ) == 0 ) return NULL;
-    stream->handle = _PDCLIB_open( filename, stream->status );
-    if ( ( stream->buffer = malloc( BUFSIZ ) ) == NULL ) return NULL;
-    stream->bufsize = BUFSIZ;
+    /* The new filename might not fit the old buffer */
+    if ( filename == NULL )
+    {
+        /* Use previous filename */
+        filename = stream->filename;
+    }
+    else if ( ( stream->filename != NULL ) && ( strlen( stream->filename ) >= strlen( filename ) ) )
+    {
+        /* Copy new filename into existing buffer */
+        strcpy( stream->filename, filename );
+    }
+    else
+    {
+        /* Allocate new buffer */
+        if ( ( stream->filename = (char *)malloc( strlen( filename ) ) ) == NULL )
+        {
+            return NULL;
+        }
+        strcpy( stream->filename, filename );
+    }
+    if ( ( mode == NULL ) || ( filename[0] == '\0' ) )
+    {
+        return NULL;
+    }
+    if ( ( stream->status = _PDCLIB_filemode( mode ) ) == 0 )
+    {
+        return NULL;
+    }
+    /* Re-add the flags we saved above */
+    stream->status |= status;
     stream->bufidx = 0;
-    stream->status |= _PDCLIB_LIBBUFFER;
+    stream->bufend = 0;
+    stream->ungetidx = 0;
     /* TODO: Setting mbstate */
+    if ( ( stream->handle = _PDCLIB_open( filename, stream->status ) ) == _PDCLIB_NOHANDLE )
+    {
+        return NULL;
+    }
     return stream;
 }
 
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main( void )
 {
-    TESTCASE( NO_TESTDRIVER );
+    FILE * fin;
+    FILE * fout;
+    TESTCASE( ( fin = fopen( testfile1, "wb+" ) ) != NULL );
+    TESTCASE( fputc( 'x', fin ) == 'x' );
+    TESTCASE( fclose( fin ) == 0 );
+    TESTCASE( ( fin = freopen( testfile1, "rb", stdin ) ) != NULL );
+    TESTCASE( getchar() == 'x' );
+
+    TESTCASE( ( fout = freopen( testfile2, "wb+", stdout ) ) != NULL );
+    TESTCASE( putchar( 'x' ) == 'x' );
+    rewind( fout );
+    TESTCASE( fgetc( fout ) == 'x' );
+
+    TESTCASE( fclose( fin ) == 0 );
+    TESTCASE( fclose( fout ) == 0 );
+    TESTCASE( remove( testfile1 ) == 0 );
+    TESTCASE( remove( testfile2 ) == 0 );
+
     return TEST_RESULTS;
 }
 

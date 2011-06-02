@@ -1,8 +1,14 @@
-#ifndef __ERRNO_H__
-#define __ERRNO_H__
+#ifndef _PDCLIB_ERRNO_H
+#define _PDCLIB_ERRNO_H _PDCLIB_ERRNO_H
 
-/* XXX: this must be restructed for multiple thread support! */
-extern int errno;
+#ifndef _PDCLIB_INT_H
+#define _PDCLIB_INT_H _PDCLIB_INT_H
+#include <_PDCLIB/_PDCLIB_int.h>
+#endif
+
+#ifndef KERNEL
+#define errno (*_PDCLIB_errno_func())
+#endif
 
 /*
  * All error codes as described by POSIX. Note that most of them cannot occur
@@ -82,4 +88,8 @@ extern int errno;
 #define EWOULDBLOCK	72
 #define EXDEV		73
 
+/*
+ * NOTE: When adding error numbers, be sure to update _PDCLIB_config.h as well
+ * as it defines _PDCLIB_ERRNO_MAX and _pdclib/stdinit.c for the messages!
+ */
 #endif /* __ERRNO_H__ */

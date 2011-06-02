@@ -1,8 +1,6 @@
 /*
  * This file is used to define integer types as per ISO/IEC 9899.
  */
-#include <stddef.h>
-
 #ifndef __I386_TYPES_H__
 #define __I386_TYPES_H__
 
@@ -43,10 +41,6 @@ typedef uint32_t	uintptr_t;
 /* 7.18.1.5: Greatest-width integer types */
 typedef int64_t		intmax_t;
 typedef uint64_t	uintmax_t;
-
-/*
- * Do not define ptrdiff_t or size_t -- these will be defined by stddef.h.
- */
 
 /*
  * Below are standard types.

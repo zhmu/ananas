@@ -1,4 +1,4 @@
-/* $Id: strtok.c 152 2006-03-08 15:36:14Z solar $ */
+/* $Id: strtok.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* strtok( char *, const char * )
 
@@ -69,7 +69,7 @@ char * strtok( char * _PDCLIB_restrict s1, const char * _PDCLIB_restrict s2 )
 
     /* parsed to end of string */
     tmp = NULL;
-    return ( s1 );
+    return s1;
 }
 
 #endif
@@ -91,6 +91,16 @@ int main( void )
     TESTCASE( s[6] == '_' );
     TESTCASE( s[7] == 'd' );
     TESTCASE( s[8] == '\0' );
+    TESTCASE( strtok( NULL, "_" ) == NULL );
+    strcpy( s, "ab_cd" );
+    TESTCASE( strtok( s, "_" ) == &s[0] );
+    TESTCASE( s[0] == 'a' );
+    TESTCASE( s[1] == 'b' );
+    TESTCASE( s[2] == '\0' );
+    TESTCASE( strtok( NULL, "_" ) == &s[3] );
+    TESTCASE( s[3] == 'c' );
+    TESTCASE( s[4] == 'd' );
+    TESTCASE( s[5] == '\0' );
     TESTCASE( strtok( NULL, "_" ) == NULL );
     return TEST_RESULTS;
 }

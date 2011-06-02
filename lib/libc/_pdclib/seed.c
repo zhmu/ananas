@@ -1,4 +1,4 @@
-/* $Id: seed.c 152 2006-03-08 15:36:14Z solar $ */
+/* $Id: seed.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* _PDCLIB_seed
 
@@ -9,7 +9,7 @@
 unsigned long int _PDCLIB_seed = 1;
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main( void )
 {

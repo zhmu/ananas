@@ -1,4 +1,4 @@
-/* $Id: atoi.c 152 2006-03-08 15:36:14Z solar $ */
+/* $Id: atoi.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* atoi( const char * )
 

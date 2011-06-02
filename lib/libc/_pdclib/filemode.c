@@ -1,4 +1,4 @@
-/* $Id: filemode.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: filemode.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* _PDCLIB_filemode( const char * )
 
@@ -7,7 +7,6 @@
 */
 
 #include <stddef.h>
-#include <_PDCLIB/_PDCLIB_int.h>
 
 /* Helper function that parses the C-style mode string passed to fopen() into
    the PDCLib flags FREAD, FWRITE, FAPPEND, FRW (read-write) and FBIN (binary
@@ -56,7 +55,7 @@ unsigned int _PDCLIB_filemode( char const * const mode )
 }
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main( void )
 {

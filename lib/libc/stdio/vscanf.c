@@ -1,4 +1,4 @@
-/* $Id: vscanf.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: vscanf.c 481 2010-12-08 05:53:09Z solar $ */
 
 /* vscanf( const char *, va_list arg )
 
@@ -19,11 +19,28 @@ int vscanf( const char * _PDCLIB_restrict format, _PDCLIB_va_list arg )
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#define _PDCLIB_FILEID "stdio/vscanf.c"
+#define _PDCLIB_FILEIO
+
+#include <_PDCLIB/_PDCLIB_test.h>
+
+static int testscanf( FILE * stream, const char * format, ... )
+{
+    int i;
+    va_list arg;
+    va_start( arg, format );
+    i = vscanf( format, arg );
+    va_end( arg );
+    return i;
+}
 
 int main( void )
 {
-    TESTCASE( NO_TESTDRIVER );
+    FILE * source;
+    TESTCASE( ( source = freopen( testfile, "wb+", stdin ) ) != NULL );
+#include "scanf_testcases.h"
+    TESTCASE( fclose( source ) == 0 );
+    TESTCASE( remove( testfile ) == 0 );
     return TEST_RESULTS;
 }
 

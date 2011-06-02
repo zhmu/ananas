@@ -1,4 +1,4 @@
-/* $Id: rand.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: rand.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* rand( void )
 

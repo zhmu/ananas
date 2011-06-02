@@ -1,4 +1,4 @@
-/* $Id: setvbuf.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: setvbuf.c 496 2010-12-16 06:00:24Z solar $ */
 
 /* setvbuf( FILE *, char *, int, size_t )
 
@@ -14,8 +14,6 @@
 
 int setvbuf( struct _PDCLIB_file_t * _PDCLIB_restrict stream, char * _PDCLIB_restrict buf, int mode, size_t size )
 {
-    unsigned int prev_status = stream->status;
-
     switch ( mode )
     {
         case _IONBF:
@@ -38,39 +36,23 @@ int setvbuf( struct _PDCLIB_file_t * _PDCLIB_restrict stream, char * _PDCLIB_res
                 /* User requested buffer size, but leaves it to library to
                    allocate the buffer.
                 */
+                /* If current buffer is big enough for requested size, but not
+                   over twice as big (and wasting memory space), we use the
+                   current buffer (i.e., do nothing), to save the malloc() / 
+                   free() overhead.
+                */
                 if ( ( stream->bufsize < size ) || ( stream->bufsize > ( size << 1 ) ) )
                 {
-                    /* If current buffer is big enough for requested size, but
-                       not over twice as big (and wasting memory space), we use
-                       the current buffer (i.e., do nothing), to save the
-                       malloc() / free() overhead.
-                    */
-                    /* Free the buffer allocated by fopen(), and allocate a new
-                       one.
-                    */
+                    /* Buffer too small, or much too large - allocate. */
                     if ( ( buf = (char *) malloc( size ) ) == NULL )
                     {
                         /* Out of memory error. */
                         return -1;
                     }
-                } else {
-                    /* No need to resize - use the current buffer */
-                    buf = stream->buffer;
+                    /* This buffer must be free()d on fclose() */
+                    stream->status |= _PDCLIB_FREEBUFFER;
                 }
             }
-            else
-            {
-                /* User provided buffer -> set flag to not free() the buffer
-                   on fclose().
-                */
-                stream->status &= ~ _PDCLIB_LIBBUFFER;
-            }
-            /*
-             * Free the old buffer - but only if necessary (i.e. new buffer and
-             * we are responsible for it.
-             */
-            if ((prev_status & _PDCLIB_LIBBUFFER) && (stream->buffer != buf))
-                free( stream->buffer );
             stream->buffer = buf;
             stream->bufsize = size;
             break;
@@ -82,15 +64,13 @@ int setvbuf( struct _PDCLIB_file_t * _PDCLIB_restrict stream, char * _PDCLIB_res
     stream->status &= ~( _IOFBF | _IOLBF | _IONBF );
     /* Set user-defined mode */
     stream->status |= mode;
-    /* Rewind the buffer index */
-    stream->bufidx = 0;
     return 0;
 }
 
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 #include <errno.h>
 
@@ -99,32 +79,27 @@ int setvbuf( struct _PDCLIB_file_t * _PDCLIB_restrict stream, char * _PDCLIB_res
 int main( void )
 {
 #ifndef REGTEST
-    char const * const filename = "testfile";
     char buffer[ BUFFERSIZE ];
     FILE * fh;
-    remove( filename );
     /* full buffered, user-supplied buffer */
-    TESTCASE( ( fh = fopen( filename, "w" ) ) != NULL );
+    TESTCASE( ( fh = tmpfile() ) != NULL );
     TESTCASE( setvbuf( fh, buffer, _IOFBF, BUFFERSIZE ) == 0 );
     TESTCASE( fh->buffer == buffer );
     TESTCASE( fh->bufsize == BUFFERSIZE );
     TESTCASE( ( fh->status & ( _IOFBF | _IONBF | _IOLBF ) ) == _IOFBF );
     TESTCASE( fclose( fh ) == 0 );
-    TESTCASE( remove( filename ) == 0 );
     /* line buffered, lib-supplied buffer */
-    TESTCASE( ( fh = fopen( filename, "w" ) ) != NULL );
+    TESTCASE( ( fh = tmpfile() ) != NULL );
     TESTCASE( setvbuf( fh, NULL, _IOLBF, BUFFERSIZE ) == 0 );
     TESTCASE( fh->buffer != NULL );
     TESTCASE( fh->bufsize == BUFFERSIZE );
     TESTCASE( ( fh->status & ( _IOFBF | _IONBF | _IOLBF ) ) == _IOLBF );
     TESTCASE( fclose( fh ) == 0 );
-    TESTCASE( remove( filename ) == 0 );
     /* not buffered, user-supplied buffer */
-    TESTCASE( ( fh = fopen( filename, "w" ) ) != NULL );
+    TESTCASE( ( fh = tmpfile() ) != NULL );
     TESTCASE( setvbuf( fh, buffer, _IONBF, BUFFERSIZE ) == 0 );
     TESTCASE( ( fh->status & ( _IOFBF | _IONBF | _IOLBF ) ) == _IONBF );
     TESTCASE( fclose( fh ) == 0 );
-    TESTCASE( remove( filename ) == 0 );
 #else
     puts( " NOTEST setvbuf() test driver is PDCLib-specific." );
 #endif

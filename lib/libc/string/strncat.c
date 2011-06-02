@@ -1,4 +1,4 @@
-/* $Id: strncat.c 152 2006-03-08 15:36:14Z solar $ */
+/* $Id: strncat.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* strncat( char *, const char *, size_t )
 

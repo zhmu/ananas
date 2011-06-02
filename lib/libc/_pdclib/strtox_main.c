@@ -1,4 +1,4 @@
-/* $Id: strtox_main.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: strtox_main.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* _PDCLIB_strtox_main( const char * *, int, _PDCLIB_uintmax_t, _PDCLIB_uintmax_t, int )
 
@@ -9,6 +9,7 @@
 #define _PDCLIB_INT_H _PDCLIB_INT_H
 #include <_PDCLIB/_PDCLIB_int.h>
 #include <ctype.h>
+#include <errno.h>
 #include <string.h>
 #include <stdint.h>
 
@@ -16,7 +17,7 @@ _PDCLIB_uintmax_t _PDCLIB_strtox_main( const char ** p, unsigned int base, uintm
 {
     _PDCLIB_uintmax_t rc = 0;
     int digit = -1;
-    const char* x;
+    const char * x;
     while ( ( x = memchr( _PDCLIB_digits, tolower(**p), base ) ) != NULL )
     {
         digit = x - _PDCLIB_digits;
@@ -27,9 +28,7 @@ _PDCLIB_uintmax_t _PDCLIB_strtox_main( const char ** p, unsigned int base, uintm
         }
         else
         {
-#if 0
             errno = ERANGE;
-#endif
             /* TODO: Only if endptr != NULL - but do we really want *another* parameter? */
             /* TODO: Earlier version was missing tolower() here but was not caught by tests */
             while ( memchr( _PDCLIB_digits, tolower(**p), base ) != NULL ) ++(*p);
@@ -47,7 +46,7 @@ _PDCLIB_uintmax_t _PDCLIB_strtox_main( const char ** p, unsigned int base, uintm
 }
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 #include <errno.h>
 
 int main( void )

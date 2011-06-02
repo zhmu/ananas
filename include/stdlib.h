@@ -1,6 +1,6 @@
-/* $Id: stdlib.h 263 2007-09-12 04:08:48Z solar $ */
+/* $Id: stdlib.h 503 2010-12-23 06:15:28Z solar $ */
 
-/* General utilities <stdlib.h>
+/* 7.20 General utilities <stdlib.h>
 
    This file is part of the Public Domain C Library (PDCLib).
    Permission is granted to use, modify, and / or redistribute at will.
@@ -9,12 +9,20 @@
 #ifndef _PDCLIB_STDLIB_H
 #define _PDCLIB_STDLIB_H _PDCLIB_STDLIB_H
 
+/* For GNU programs that wonder if our header files are there */
+#ifndef _STDLIB_H
+#define _STDLIB_H
+#endif
+
 #ifndef _PDCLIB_INT_H
 #define _PDCLIB_INT_H _PDCLIB_INT_H
 #include <_PDCLIB/_PDCLIB_int.h>
 #endif
 
-#include <ananas/types.h>
+/* Import size_t and ptrdiff_t */
+#include <machine/_stddef.h>
+
+#include <ananas/_types/null.h>
 
 /* Numeric conversion functions */
 
@@ -43,6 +51,9 @@ long double strtold( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restri
    the return type, the functions return LONG_MIN, LONG_MAX, ULONG_MAX,
    LLONG_MIN, LLONG_MAX, or ULLONG_MAX respectively, depending on the sign of
    the integer representation and the return type, and errno is set to ERANGE.
+*/
+/* There is strtoimax() and strtoumax() in <inttypes.h> operating on intmax_t /
+   uintmax_t, if the long long versions do not suit your needs.
 */
 long int strtol( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restrict endptr, int base );
 long long int strtoll( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restrict endptr, int base );
@@ -221,18 +232,17 @@ div_t div( int numer, int denom );
 ldiv_t ldiv( long int numer, long int denom );
 lldiv_t lldiv( long long int numer, long long int denom );
 
+/* Temp file functions */
+char* mktemp(char* template);
+
 /* TODO: Multibyte / wide character conversion functions */
 
-/* TODO: Macro MB_CUR_MAX */
 #define MB_CUR_MAX 1
 
-/*
 int mblen( const char * s, size_t n );
+int mbtowc( wchar_t * _PDCLIB_restrict pwc, const char * _PDCLIB_restrict s, size_t n );
+int wctomb( char * s, wchar_t wc );
 size_t mbstowcs( wchar_t * _PDCLIB_restrict pwcs, const char * _PDCLIB_restrict s, size_t n );
 size_t wcstombs( char * _PDCLIB_restrict s, const wchar_t * _PDCLIB_restrict pwcs, size_t n );
-*/
-
-int wctomb( char * s, wchar_t wc );
-char* mktemp(char * template);
 
 #endif

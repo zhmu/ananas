@@ -1,4 +1,4 @@
-/* $Id: fread.c 393 2010-03-12 11:08:14Z solar $ */
+/* $Id: fread.c 496 2010-12-16 06:00:24Z solar $ */
 
 /* fwrite( void *, size_t, size_t, FILE * )
 
@@ -7,12 +7,13 @@
 */
 
 #include <stdio.h>
+
 #ifndef REGTEST
+
+#include <_PDCLIB/_PDCLIB_glue.h>
 
 #include <stdbool.h>
 #include <string.h>
-
-#include <_PDCLIB/_PDCLIB_glue.h>
 
 size_t fread( void * _PDCLIB_restrict ptr, size_t size, size_t nmemb, struct _PDCLIB_file_t * _PDCLIB_restrict stream )
 {
@@ -43,17 +44,39 @@ size_t fread( void * _PDCLIB_restrict ptr, size_t size, size_t nmemb, struct _PD
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main( void )
 {
     FILE * fh;
-    remove( "testfile" );
-    TESTCASE( ( fh = fopen( "testfile", "w" ) ) != NULL );
-    TESTCASE( fwrite( "SUCCESS testing fwrite()\n", 1, 25, fh ) == 25 );
+    char const * message = "Testing fwrite()...\n";
+    char buffer[21];
+    buffer[20] = 'x';
+    TESTCASE( ( fh = tmpfile() ) != NULL );
+    /* fwrite() / readback */
+    TESTCASE( fwrite( message, 1, 20, fh ) == 20 );
+    rewind( fh );
+    TESTCASE( fread( buffer, 1, 20, fh ) == 20 );
+    TESTCASE( memcmp( buffer, message, 20 ) == 0 );
+    TESTCASE( buffer[20] == 'x' );
+    /* same, different nmemb / size settings */
+    rewind( fh );
+    TESTCASE( memset( buffer, '\0', 20 ) == buffer );
+    TESTCASE( fwrite( message, 5, 4, fh ) == 4 );
+    rewind( fh );
+    TESTCASE( fread( buffer, 5, 4, fh ) == 4 );
+    TESTCASE( memcmp( buffer, message, 20 ) == 0 );
+    TESTCASE( buffer[20] == 'x' );
+    /* same... */
+    rewind( fh );
+    TESTCASE( memset( buffer, '\0', 20 ) == buffer );
+    TESTCASE( fwrite( message, 20, 1, fh ) == 1 );
+    rewind( fh );
+    TESTCASE( fread( buffer, 20, 1, fh ) == 1 );
+    TESTCASE( memcmp( buffer, message, 20 ) == 0 );
+    TESTCASE( buffer[20] == 'x' );
+    /* Done. */
     TESTCASE( fclose( fh ) == 0 );
-    /* TODO: Add readback test. */
-    TESTCASE( remove( "testfile" ) == 0 );
     return TEST_RESULTS;
 }
 

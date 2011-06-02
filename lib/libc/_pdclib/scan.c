@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $Id: scan.c 511 2011-01-11 05:49:19Z solar $ */
 
 /* _PDCLIB_scan( const char *, struct _PDCLIB_status_t * )
 
@@ -14,6 +14,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stddef.h>
+#include <limits.h>
 
 /* Using an integer's bits as flags for both the conversion flags and length
    modifiers.
@@ -31,18 +32,6 @@
 #define E_unsigned   1<<16
 
 
-/* Helper macro for assigning a readily converted integer value to the correct
-   parameter type, used in a switch on status->flags (see E_* flags above).
-   case_cond: combination of the E_* flags above, used for the switch-case
-   type:      integer type, used to get the correct type from the parameter
-              stack as well as for cast target.
-*/
-#define ASSIGN( case_cond, type ) \
-    case case_cond: \
-        *( va_arg( status->arg, type * ) ) = (type)( value * sign ); \
-        break
-
-
 /* Helper function to get a character from the string or stream, whatever is
    used for input. When reading from a string, returns EOF on end-of-string
    so that handling of the return value can be uniform for both streams and
@@ -50,7 +39,7 @@
 */
 static int GET( struct _PDCLIB_status_t * status )
 {
-    int rc;
+    int rc = EOF;
     if ( status->stream != NULL )
     {
         rc = getc( status->stream );
@@ -62,7 +51,7 @@ static int GET( struct _PDCLIB_status_t * status )
     if ( rc != EOF )
     {
         ++(status->i);
-        ++(status->this);
+        ++(status->current);
     }
     return rc;
 }
@@ -82,7 +71,45 @@ static void UNGET( int c, struct _PDCLIB_status_t * status )
         --(status->s);
     }
     --(status->i);
-    --(status->this);
+    --(status->current);
+}
+
+
+/* Helper function to check if a character is part of a given scanset */
+static bool IN_SCANSET( const char * scanlist, const char * end_scanlist, int rc )
+{
+    // SOLAR
+    int previous = -1;
+    while ( scanlist != end_scanlist )
+    {
+        if ( ( *scanlist == '-' ) && ( previous != -1 ) )
+        {
+            /* possible scangroup ("a-z") */
+            if ( ++scanlist == end_scanlist )
+            {
+                /* '-' at end of scanlist does not describe a scangroup */
+                return rc == '-';
+            }
+            while ( ++previous <= (unsigned char)*scanlist )
+            {
+                if ( previous == rc )
+                {
+                    return true;
+                }
+            }
+            previous = -1;
+        }
+        else
+        {
+            /* not a scangroup, check verbatim */
+            if ( rc == (unsigned char)*scanlist )
+            {
+                return true;
+            }
+            previous = (unsigned char)(*scanlist++);
+        }
+    }
+    return false;
 }
 
 
@@ -114,7 +141,7 @@ const char * _PDCLIB_scan( const char * spec, struct _PDCLIB_status_t * status )
     /* Initializing status structure */
     status->flags = 0;
     status->base = -1;
-    status->this = 0;
+    status->current = 0;
     status->width = 0;
     status->prec = 0;
 
@@ -233,7 +260,7 @@ const char * _PDCLIB_scan( const char * spec, struct _PDCLIB_status_t * status )
                 status->width = 1;
             }
             /* reading until width reached or input exhausted */
-            while ( ( status->this < status->width ) &&
+            while ( ( status->current < status->width ) &&
                     ( ( rc = GET( status ) ) != EOF ) )
             {
                 *(c++) = rc;
@@ -258,25 +285,28 @@ const char * _PDCLIB_scan( const char * spec, struct _PDCLIB_status_t * status )
         case 's':
         {
             char * c = va_arg( status->arg, char * );
-            while ( ( status->this < status->width ) && 
+            while ( ( status->current < status->width ) && 
                     ( ( rc = GET( status ) ) != EOF ) )
             {
                 if ( isspace( rc ) )
                 {
+                    UNGET( rc, status );
                     if ( value_parsed )
                     {
                         /* matching sequence terminated by whitespace */
                         *c = '\0';
-                        return spec;
+                        ++status->n;
+                        return ++spec;
                     }
                     else
                     {
-                        /* leading whitespace not counted against width */
-                        --(status->this);
+                        /* matching error */
+                        return NULL;
                     }
                 }
                 else
                 {
+                    /* match */
                     value_parsed = true;
                     *(c++) = rc;
                 }
@@ -292,6 +322,60 @@ const char * _PDCLIB_scan( const char * spec, struct _PDCLIB_status_t * status )
             {
                 /* input error, no character read */
                 if ( status->n == 0 )
+                {
+                    status->n = -1;
+                }
+                return NULL;
+            }
+        }
+        case '[':
+        {
+            const char * endspec = spec;
+            bool negative_scanlist = false;
+            if ( *(++endspec) == '^' )
+            {
+                negative_scanlist = true;
+                ++endspec;
+            }
+            spec = endspec;
+            do
+            {
+                // TODO: This can run beyond a malformed format string
+                ++endspec;
+            } while ( *endspec != ']' );
+            // read according to scanlist, equiv. to %s above
+            char * c = va_arg( status->arg, char * );
+            while ( ( status->current < status->width ) && 
+                    ( ( rc = GET( status ) ) != EOF ) )
+            {
+                if ( negative_scanlist )
+                {
+                    if ( IN_SCANSET( spec, endspec, rc ) )
+                    {
+                        UNGET( rc, status );
+                        break;
+                    }
+                }
+                else
+                {
+                    if ( ! IN_SCANSET( spec, endspec, rc ) )
+                    {
+                        UNGET( rc, status );
+                        break;
+                    }
+                }
+                value_parsed = true;
+                *(c++) = rc;
+            }
+            if ( value_parsed )
+            {
+                *c = '\0';
+                ++status->n;
+                return ++endspec;
+            }
+            else
+            {
+                if ( rc == EOF )
                 {
                     status->n = -1;
                 }
@@ -316,10 +400,10 @@ const char * _PDCLIB_scan( const char * spec, struct _PDCLIB_status_t * status )
     if ( status->base != -1 )
     {
         /* integer conversion */
-        uintmax_t value = 0;
+        uintmax_t value = 0;         /* absolute value read */
         bool prefix_parsed = false;
         int sign = 0;
-        while ( ( status->this < status->width ) &&
+        while ( ( status->current < status->width ) &&
                 ( ( rc = GET( status ) ) != EOF ) )
         {
             if ( isspace( rc ) )
@@ -333,7 +417,7 @@ const char * _PDCLIB_scan( const char * spec, struct _PDCLIB_status_t * status )
                 else
                 {
                     /* leading whitespace not counted against width */
-                    status->this--;
+                    status->current--;
                 }
             }
             else if ( ! sign )
@@ -371,7 +455,7 @@ const char * _PDCLIB_scan( const char * spec, struct _PDCLIB_status_t * status )
                 {
                     /* starts with zero, so it might be a prefix. */
                     /* check what follows next (might be 0x...) */
-                    if ( ( status->this < status->width ) &&
+                    if ( ( status->current < status->width ) &&
                          ( ( rc = GET( status ) ) != EOF ) )
                     {
                         if ( tolower( rc ) == 'x' )
@@ -428,38 +512,77 @@ const char * _PDCLIB_scan( const char * spec, struct _PDCLIB_status_t * status )
         {
             /* out of input before anything could be parsed - input error */
             /* FIXME: if first character does not match, value_parsed is not set - but it is NOT an input error */
-            if ( status->n == 0 )
+            if ( ( status->n == 0 ) && ( rc == EOF ) )
             {
                 status->n = -1;
             }
             return NULL;
         }
         /* convert value to target type and assign to parameter */
-        switch ( status->flags & ( E_char | E_short | E_long | E_llong |
-                                   E_intmax | E_size | E_ptrdiff |
-                                   E_unsigned ) )
+        if ( ! ( status->flags & E_suppressed ) )
         {
-            ASSIGN( E_char, char );
-            ASSIGN( E_char | E_unsigned, unsigned char );
-            ASSIGN( E_short, short );
-            ASSIGN( E_short | E_unsigned, unsigned short );
-            ASSIGN( 0, int );
-            ASSIGN( E_unsigned, unsigned int );
-            ASSIGN( E_long, long );
-            ASSIGN( E_long | E_unsigned, unsigned long );
-            ASSIGN( E_llong, long long );
-            ASSIGN( E_llong | E_unsigned, unsigned long long );
-            ASSIGN( E_intmax, intmax_t );
-            ASSIGN( E_intmax | E_unsigned, uintmax_t );
-            ASSIGN( E_size, size_t );
-            /* ASSIGN( E_size | E_unsigned, unsigned size_t ); */
-            ASSIGN( E_ptrdiff, ptrdiff_t );
-            /* ASSIGN( E_ptrdiff | E_unsigned, unsigned ptrdiff_t ); */
-            default:
-                puts( "UNSUPPORTED SCANF FLAG COMBINATION" );
-                return NULL; /* behaviour unspecified */
+            switch ( status->flags & ( E_char | E_short | E_long | E_llong |
+                                       E_intmax | E_size | E_ptrdiff |
+                                       E_unsigned ) )
+            {
+                case E_char:
+                    *( va_arg( status->arg,               char * ) ) =               (char)( value * sign );
+                    break;
+                case E_char | E_unsigned:
+                    *( va_arg( status->arg,      unsigned char * ) ) =      (unsigned char)( value * sign );
+                    break;
+
+                case E_short:
+                    *( va_arg( status->arg,              short * ) ) =              (short)( value * sign );
+                    break;
+                case E_short | E_unsigned:
+                    *( va_arg( status->arg,     unsigned short * ) ) =     (unsigned short)( value * sign );
+                    break;
+
+                case 0:
+                    *( va_arg( status->arg,                int * ) ) =                (int)( value * sign );
+                    break;
+                case E_unsigned:
+                    *( va_arg( status->arg,       unsigned int * ) ) =       (unsigned int)( value * sign );
+                    break;
+
+                case E_long:
+                    *( va_arg( status->arg,               long * ) ) =               (long)( value * sign );
+                    break;
+                case E_long | E_unsigned:
+                    *( va_arg( status->arg,      unsigned long * ) ) =      (unsigned long)( value * sign );
+                    break;
+
+                case E_llong:
+                    *( va_arg( status->arg,          long long * ) ) =          (long long)( value * sign );
+                    break;
+                case E_llong | E_unsigned:
+                    *( va_arg( status->arg, unsigned long long * ) ) = (unsigned long long)( value * sign );
+                    break;
+
+                case E_intmax:
+                    *( va_arg( status->arg,           intmax_t * ) ) =           (intmax_t)( value * sign );
+                    break;
+                case E_intmax | E_unsigned:
+                    *( va_arg( status->arg,          uintmax_t * ) ) =          (uintmax_t)( value * sign );
+                    break;
+
+                case E_size:
+                    /* E_size always implies unsigned */
+                    *( va_arg( status->arg,             size_t * ) ) =             (size_t)( value * sign );
+                    break;
+
+                case E_ptrdiff:
+                    /* E_ptrdiff always implies signed */
+                    *( va_arg( status->arg,          ptrdiff_t * ) ) =          (ptrdiff_t)( value * sign );
+                    break;
+
+                default:
+                    puts( "UNSUPPORTED SCANF FLAG COMBINATION" );
+                    return NULL; /* behaviour unspecified */
+            }
+            ++(status->n);
         }
-        ++(status->n);
         return ++spec;
     }
     /* TODO: Floats. */
@@ -468,14 +591,34 @@ const char * _PDCLIB_scan( const char * spec, struct _PDCLIB_status_t * status )
 
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
-#include <limits.h>
+#define _PDCLIB_FILEID "_PDCLIB/scan.c"
+#define _PDCLIB_STRINGIO
 
+#include <_PDCLIB/_PDCLIB_test.h>
 
- 
+static int testscanf( char const * s, char const * format, ... )
+{
+    struct _PDCLIB_status_t status;
+    status.n = 0;
+    status.i = 0;
+    status.s = (char *)s;
+    status.stream = NULL;
+    va_start( status.arg, format );
+    if ( *(_PDCLIB_scan( format, &status )) != '\0' )
+    {
+        printf( "_PDCLIB_scan() did not return end-of-specifier on '%s'.\n", format );
+        ++TEST_RESULTS;
+    }
+    va_end( status.arg );
+    return status.n;
+}
+
+#define TEST_CONVERSION_ONLY
+
 int main( void )
 {
-    /* Testing covered by fscanf.c */
+    char source[100];
+#include "scanf_testcases.h"
     return TEST_RESULTS;
 }
 

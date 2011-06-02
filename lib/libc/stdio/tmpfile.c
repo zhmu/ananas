@@ -19,7 +19,7 @@ struct _PDCLIB_file_t * tmpfile( void )
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main()
 {

@@ -1,4 +1,4 @@
-/* $Id: digits.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: digits.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* _PDCLIB_digits
 
@@ -17,7 +17,7 @@ char _PDCLIB_digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 char _PDCLIB_Xdigits[] = "0123456789ABCDEF";
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 #include <string.h>
 

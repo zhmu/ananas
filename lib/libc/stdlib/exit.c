@@ -1,4 +1,4 @@
-/* $Id: exit.c 152 2006-03-08 15:36:14Z solar $ */
+/* $Id: exit.c 425 2010-06-19 20:26:50Z solar $ */
 
 /* exit( int )
 
@@ -19,7 +19,7 @@
 */
 #define NUMBER_OF_SLOTS 40
 
-void (*_PDCLIB_regstack[ NUMBER_OF_SLOTS ])( void );
+void (*_PDCLIB_regstack[ NUMBER_OF_SLOTS ])( void ) = { _PDCLIB_closeall };
 size_t _PDCLIB_regptr = NUMBER_OF_SLOTS;
 
 void exit( int status )

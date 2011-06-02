@@ -1,4 +1,4 @@
-/* $Id: fgetc.c 393 2010-03-12 11:08:14Z solar $ */
+/* $Id: fgetc.c 494 2010-12-14 12:09:18Z solar $ */
 
 /* fgetc( FILE * )
 
@@ -20,15 +20,15 @@ int fgetc( struct _PDCLIB_file_t * stream )
     }
     if ( stream->ungetidx > 0 )
     {
-        return stream->ungetbuf[ stream->ungetidx-- ];
+        return (unsigned char)stream->ungetbuf[ --(stream->ungetidx) ];
     }
-    return stream->buffer[stream->bufidx++];
+    return (unsigned char)stream->buffer[stream->bufidx++];
 }
 
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main( void )
 {

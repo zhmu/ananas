@@ -1,20 +1,28 @@
-/* $Id: stdio.h 381 2009-10-26 22:25:33Z solar $ */
+/* $Id: stdio.h 503 2010-12-23 06:15:28Z solar $ */
 
-/* Input/output <stdio.h>
+/* 7.19 Input/output <stdio.h>
 
    This file is part of the Public Domain C Library (PDCLib).
    Permission is granted to use, modify, and / or redistribute at will.
 */
 
-#ifndef __STDIO_H__
-#define __STDIO_H__
+#ifndef _PDCLIB_STDIO_H
+#define _PDCLIB_STDIO_H _PDCLIB_STDIO_H
+
+/* For GNU programs that wonder if our header files are there */
+#ifndef _STDIO_H
+#define _STDIO_H
+#endif
 
 #ifndef _PDCLIB_INT_H
 #define _PDCLIB_INT_H _PDCLIB_INT_H
 #include <_PDCLIB/_PDCLIB_int.h>
 #endif
 
-#include <ananas/types.h>
+/* Import size_t and ptrdiff_t */
+#include <machine/_stddef.h>
+
+#include <ananas/_types/null.h>
 
 /* See setvbuf(), third argument */
 #define _IOFBF 1
@@ -23,7 +31,8 @@
 
 /* The following are platform-dependant, and defined in _PDCLIB_config.h. */
 typedef struct _PDCLIB_fpos_t fpos_t;
-typedef struct _PDCLIB_file_t FILE;
+typedef struct _PDCLIB_file_t file_t;
+#define FILE file_t			/* So that defined(FILE) is true */
 #define EOF -1
 #define BUFSIZ _PDCLIB_BUFSIZ
 #define FOPEN_MAX _PDCLIB_FOPEN_MAX
@@ -44,17 +53,18 @@ extern FILE * stderr;
 
 /* Remove the given file.
    Returns zero if successful, non-zero otherwise.
-   This implementation does detect if the filename corresponds to an open file,
-   and closes it before attempting the rename.
+   This implementation does detect if a file of that name is currently open,
+   and fails the remove in this case. This does not detect two distinct names
+   that merely result in the same file (e.g. "/home/user/foo" vs. "~/foo").
 */
 int remove( const char * filename );
 
 /* Rename the given old file to the given new name.
    Returns zero if successful, non-zero otherwise. 
    This implementation does detect if the old filename corresponds to an open
-   file, and closes it before attempting the rename.
-   If the already is a file with the new filename, behaviour is defined by the
-   OS.
+   file, and fails the rename in this case.
+   If there already is a file with the new filename, behaviour is defined by
+   the glue code (see functions/_PDCLIB/rename.c).
 */
 int rename( const char * old, const char * new );
 
@@ -150,15 +160,17 @@ int fflush( FILE * stream );
 FILE * fopen( const char * _PDCLIB_restrict filename, const char * _PDCLIB_restrict mode );
 
 /*
-   Associate a stream with a file descriptor
- */ 
-FILE * fdopen( int fildes, const char * _PDCLIB_restrict mode );
+ * Re-opens an existing file handle as a stream.
+ */
+FILE * fdopen( int fildes, const char* _PDCLIB_restrict mode );
 
 /* Close any file currently associated with the given stream. Open the file
    identified by the given filename with the given mode (equivalent to fopen()),
    and associate it with the given stream. If filename is a NULL pointer,
    attempt to change the mode of the given stream.
-   This implementation allows the following mode changes: TODO
+   This implementation allows any mode changes on "real" files, and associating
+   of the standard streams with files. It does *not* support mode changes on
+   standard streams.
    (Primary use of this function is to redirect stdin, stdout, and stderr.)
 */
 FILE * freopen( const char * _PDCLIB_restrict filename, const char * _PDCLIB_restrict mode, FILE * _PDCLIB_restrict stream );
@@ -745,6 +757,8 @@ int fseek( FILE * stream, long int offset, int whence );
 /* fseeko() is fseek() with an off_t typed offset */
 int fseeko( FILE * stream, off_t offset, int whence );
 
+/* ftello() is ftell() returning an off_t */
+
 /* Set the position indicator (and, where appropriate the mbstate_t status
    object) for the given stream to the given pos object (created by an earlier
    call to fgetpos() on the same file).
@@ -765,9 +779,6 @@ int fsetpos( FILE * stream, const fpos_t * pos );
    TODO: Implementation-defined errno setting for ftell().
 */
 long int ftell( FILE * stream );
-
-/* ftello() is ftell() returning an off_t */
-off_t ftello( FILE * stream );
 
 /* Equivalent to (void)fseek( stream, 0L, SEEK_SET ), except that the error
    indicator for the stream is also cleared.
@@ -796,13 +807,12 @@ int ferror( FILE * stream );
 */
 void perror( const char * s );
 
-/* Convert an error code to a string */
-char* strerror( int errnum );
-
-/* Map a stream pointer to a file descriptor */
+/* Return the file number of a given stream
+*/
 int fileno( FILE * stream );
 
-/* extensions */
-int fpurge( FILE * stream );
+/* Unofficial extensions
+ */
+int fpurge( FILE * stream )
 
-#endif /* __STDIO_H__ */
+#endif

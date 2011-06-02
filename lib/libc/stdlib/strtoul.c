@@ -1,4 +1,4 @@
-/* $Id: strtoul.c 371 2009-09-16 05:09:36Z solar $ */
+/* $Id: strtoul.c 441 2010-07-18 12:05:46Z solar $ */
 
 /* strtoul( const char *, char * *, int )
 
@@ -75,6 +75,31 @@ int main( void )
     endptr = NULL;
     TESTCASE( strtoul( overflow, &endptr, 0 ) == 0 );
     TESTCASE( endptr == overflow );
+    /* TODO: These tests assume two-complement, but conversion should work */
+    /* for one-complement and signed magnitude just as well. Anyone having */
+    /* a platform to test this on?                                         */
+    errno = 0;
+/* long -> 32 bit */
+#if ULONG_MAX >> 31 == 1
+    /* testing "even" overflow, i.e. base is power of two */
+    TESTCASE( strtoul( "4294967295", NULL, 0 ) == ULONG_MAX );
+    TESTCASE( errno == 0 );
+    errno = 0;
+    TESTCASE( strtoul( "4294967296", NULL, 0 ) == ULONG_MAX );
+    TESTCASE( errno == ERANGE );
+    /* TODO: test "odd" overflow, i.e. base is not power of two */
+/* long -> 64 bit */
+#elif ULONG_MAX >> 63 == 1
+    /* testing "even" overflow, i.e. base is power of two */
+    TESTCASE( strtoul( "18446744073709551615", NULL, 0 ) == ULONG_MAX );
+    TESTCASE( errno == 0 );
+    errno = 0;
+    TESTCASE( strtoul( "18446744073709551616", NULL, 0 ) == ULONG_MAX );
+    TESTCASE( errno == ERANGE );
+    /* TODO: test "odd" overflow, i.e. base is not power of two */
+#else
+#error Unsupported width of 'long' (neither 32 nor 64 bit).
+#endif
     return TEST_RESULTS;
 }
 

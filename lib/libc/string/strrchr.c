@@ -1,4 +1,4 @@
-/* $Id: strrchr.c 152 2006-03-08 15:36:14Z solar $ */
+/* $Id: strrchr.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* strrchr( const char *, int c )
 

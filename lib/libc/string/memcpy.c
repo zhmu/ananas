@@ -1,4 +1,4 @@
-/* $Id: memcpy.c 152 2006-03-08 15:36:14Z solar $ */
+/* $Id: memcpy.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* memcpy( void *, const void *, size_t )
 

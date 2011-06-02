@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <errno.h>
 
 #ifndef _PDCLIB_GLUE_H
 #define _PDCLIB_GLUE_H
@@ -24,7 +25,7 @@ _PDCLIB_int64_t _PDCLIB_seek( struct _PDCLIB_file_t * stream, _PDCLIB_int64_t of
             /* EMPTY - OK */
             break;
         default:
-            _PDCLIB_errno = _PDCLIB_EINVAL;
+            _PDCLIB_errno = EINVAL;
             return EOF;
             break;
     }
@@ -42,7 +43,7 @@ _PDCLIB_int64_t _PDCLIB_seek( struct _PDCLIB_file_t * stream, _PDCLIB_int64_t of
 }
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main()
 {

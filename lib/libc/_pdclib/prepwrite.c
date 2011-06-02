@@ -1,4 +1,4 @@
-/* $Id: prepwrite.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: prepwrite.c 508 2010-12-30 22:43:20Z solar $ */
 
 /* _PDCLIB_prepwrite( struct _PDCLIB_file_t * )
 
@@ -7,6 +7,7 @@
 */
 
 #include <stdio.h>
+#include <errno.h>
 
 int _PDCLIB_prepwrite( struct _PDCLIB_file_t * stream )
 {
@@ -14,11 +15,26 @@ int _PDCLIB_prepwrite( struct _PDCLIB_file_t * stream )
          ( stream->status & ( _PDCLIB_FREAD | _PDCLIB_ERRORFLAG | _PDCLIB_WIDESTREAM | _PDCLIB_EOFFLAG ) ) ||
          ! ( stream->status & ( _PDCLIB_FWRITE | _PDCLIB_FAPPEND | _PDCLIB_FRW ) ) )
     {
-        _PDCLIB_errno = _PDCLIB_EIO;
+        /* Function called on illegal (e.g. input) stream.
+           See the comments on implementation-defined errno values in
+           <_PDCLIB_config.h>.
+        */
+        _PDCLIB_errno = EBADF;
         stream->status |= _PDCLIB_ERRORFLAG;
         return EOF;
     }
     stream->status |= _PDCLIB_FWRITE | _PDCLIB_BYTESTREAM;
     return 0;
 }
+
+#ifdef TEST
+#include <_PDCLIB/_PDCLIB_test.h>
+
+int main( void )
+{
+    /* Testing covered by ftell.c */
+    return TEST_RESULTS;
+}
+
+#endif
 

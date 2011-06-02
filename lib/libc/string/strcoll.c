@@ -1,4 +1,4 @@
-/* $Id: strcoll.c 152 2006-03-08 15:36:14Z solar $ */
+/* $Id: strcoll.c 510 2010-12-31 08:47:37Z solar $ */
 
 /* strcoll( const char *, const char * )
 
@@ -10,10 +10,16 @@
 
 #ifndef REGTEST
 
-/* TODO: Dummy function, PDCLib does not support locales yet. */
+#include <locale.h>
+
 int strcoll( const char * s1, const char * s2 )
 {
-    return strcmp( s1, s2 );
+    while ( ( *s1 ) && ( _PDCLIB_lconv.ctype[(unsigned char)*s1].collation == _PDCLIB_lconv.ctype[(unsigned char)*s2].collation ) )
+    {
+        ++s1;
+        ++s2;
+    }
+    return ( _PDCLIB_lconv.ctype[(unsigned char)*s1].collation == _PDCLIB_lconv.ctype[(unsigned char)*s2].collation );
 }
 
 #endif

@@ -54,43 +54,13 @@ _PDCLIB_fd_t _PDCLIB_open( char const * const filename, unsigned int mode )
             return (_PDCLIB_fd_t)0;
     }
     _PDCLIB_fd_t rc;
-#if 0
     if ( osmode & O_CREAT )
     {
-	/* XXX Ananas: cannot yet create either */
-        rc = open( filename, osmode /* , S_IRUSR | S_IWUSR */ );
+        rc = open( filename, osmode, 0666 /* XXX */);
     }
     else
     {
-#endif
         rc = open( filename, osmode );
-#if 0
-    }
-#endif
-    if ( rc == -1 )
-    {
-        switch ( errno )
-        {
-            case EACCES:
-            case EFAULT:
-            case EINTR:
-            case EISDIR:
-            case ELOOP:
-            case EMFILE:
-            case ENAMETOOLONG:
-            case ENFILE:
-            case ENODEV:
-            case ENOENT:
-            case ENOMEM:
-            case ENOSPC:
-            case ENOTDIR:
-            case EOVERFLOW:
-            case EROFS:
-            case ETXTBSY:
-                _PDCLIB_errno = _PDCLIB_EIO;
-            default:
-                _PDCLIB_errno = _PDCLIB_EUNKNOWN;
-        }
     }
     return rc;
 }
@@ -98,7 +68,7 @@ _PDCLIB_fd_t _PDCLIB_open( char const * const filename, unsigned int mode )
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 #include <stdlib.h>
 #include <string.h>

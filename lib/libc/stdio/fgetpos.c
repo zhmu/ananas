@@ -1,4 +1,4 @@
-/* $Id: fgetpos.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: fgetpos.c 481 2010-12-08 05:53:09Z solar $ */
 
 /* fgetpos( FILE * , fpos_t * )
 
@@ -14,17 +14,29 @@ int fgetpos( struct _PDCLIB_file_t * _PDCLIB_restrict stream, struct _PDCLIB_fpo
 {
     pos->offset = stream->pos.offset + stream->bufidx - stream->ungetidx;
     pos->status = stream->pos.status;
+    /* TODO: Add mbstate. */
     return 0;
 }
 
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
+#include <string.h>
 
 int main( void )
 {
-    TESTCASE( NO_TESTDRIVER );
+    FILE * fh;
+    fpos_t pos1, pos2;
+    TESTCASE( ( fh = tmpfile() ) != NULL );
+    TESTCASE( fgetpos( fh, &pos1 ) == 0 );
+    TESTCASE( fwrite( teststring, 1, strlen( teststring ), fh ) == strlen( teststring ) );
+    TESTCASE( fgetpos( fh, &pos2 ) == 0 );
+    TESTCASE( fsetpos( fh, &pos1 ) == 0 );
+    TESTCASE( ftell( fh ) == 0 );
+    TESTCASE( fsetpos( fh, &pos2 ) == 0 );
+    TESTCASE( (size_t)ftell( fh ) == strlen( teststring ) );
+    TESTCASE( fclose( fh ) == 0 );
     return TEST_RESULTS;
 }
 

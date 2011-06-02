@@ -1,4 +1,4 @@
-/* $Id: perror.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: perror.c 508 2010-12-30 22:43:20Z solar $ */
 
 /* perror( const char * )
 
@@ -10,20 +10,49 @@
 
 #ifndef REGTEST
 
+#include <errno.h>
+#include <locale.h>
+
+/* TODO: Doing this via a static array is not the way to do it. */
 void perror( const char * s )
 {
-    /* TODO: Implement. */
+    if ( ( s != NULL ) && ( s[0] != '\n' ) )
+    {
+        fprintf( stderr, "%s: ", s );
+    }
+    if ( errno >= _PDCLIB_ERRNO_MAX )
+    {
+        fprintf( stderr, "Unknown error\n" );
+    }
+    else
+    {
+        fprintf( stderr, "%s\n", _PDCLIB_lconv._PDCLIB_errno_texts[errno] );
+    }
     return;
 }
 
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
+#include <stdlib.h>
+#include <string.h>
+#include <limits.h>
 
 int main( void )
 {
-    TESTCASE( NO_TESTDRIVER );
+    FILE * fh;
+    unsigned long long max = ULLONG_MAX;
+    char buffer[100];
+    sprintf( buffer, "%llu", max );
+    TESTCASE( ( fh = freopen( testfile, "wb+", stderr ) ) != NULL );
+    TESTCASE( strtol( buffer, NULL, 10 ) == LONG_MAX );
+    perror( "Test" );
+    rewind( fh );
+    TESTCASE( fread( buffer, 1, 7, fh ) == 7 );
+    TESTCASE( memcmp( buffer, "Test: ", 6 ) == 0 );
+    TESTCASE( fclose( fh ) == 0 );
+    TESTCASE( remove( testfile ) == 0 );
     return TEST_RESULTS;
 }
 

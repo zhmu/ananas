@@ -1,4 +1,4 @@
-/* $Id: clearerr.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: clearerr.c 481 2010-12-08 05:53:09Z solar $ */
 
 /* clearerr( FILE * )
 
@@ -23,12 +23,12 @@ void clearerr( struct _PDCLIB_file_t * stream )
 int main( void )
 {
     FILE * fh;
-    remove( "testfile" );
-    TESTCASE( ( fh = fopen( "testfile", "w+" ) ) != NULL );
+    TESTCASE( ( fh = tmpfile() ) != NULL );
     /* Flags should be clear */
     TESTCASE( ! ferror( fh ) );
     TESTCASE( ! feof( fh ) );
     /* Reading from input stream - should provoke error */
+    /* FIXME: Apparently glibc disagrees on this assumption. How to provoke error on glibc? */
     TESTCASE( fgetc( fh ) == EOF );
     TESTCASE( ferror( fh ) );
     TESTCASE( ! feof( fh ) );
@@ -46,7 +46,6 @@ int main( void )
     TESTCASE( ! ferror( fh ) );
     TESTCASE( ! feof( fh ) );
     TESTCASE( fclose( fh ) == 0 );
-    remove( "testfile" );
     return TEST_RESULTS;
 }
 

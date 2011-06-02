@@ -1,4 +1,4 @@
-/* $Id: _PDCLIB_aux.h 271 2008-05-28 06:16:15Z solar $ */
+/* $Id: _PDCLIB_aux.h 452 2010-07-19 15:17:37Z solar $ */
 
 /* Auxiliary PDCLib code <_PDCLIB_aux.h>
 
@@ -62,5 +62,4 @@
 
 #define _PDCLIB_symbol2value( x ) #x
 #define _PDCLIB_symbol2string( x ) _PDCLIB_symbol2value( x )
-#define _PDCLIB_symbol2identity( x ) x
 

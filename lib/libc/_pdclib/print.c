@@ -1,4 +1,4 @@
-/* $Id: print.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: print.c 495 2010-12-15 06:35:38Z solar $ */
 
 /* _PDCLIB_print( const char *, struct _PDCLIB_status_t * )
 
@@ -15,7 +15,9 @@
 /* Using an integer's bits as flags for both the conversion flags and length
    modifiers.
 */
-/* FIXME: one too many flags to work on a 16-bit machine */
+/* FIXME: one too many flags to work on a 16-bit machine, join some (e.g. the
+          width flags) into a combined field.
+*/
 #define E_minus    1<<0
 #define E_plus     1<<1
 #define E_alt      1<<2
@@ -33,7 +35,6 @@
 #define E_ldouble  1<<14
 #define E_lower    1<<15
 #define E_unsigned 1<<16
-#define E_double   1<<17
 
 /* This macro delivers a given character to either a memory buffer or a stream,
    depending on the contents of 'status' (struct _PDCLIB_status_t).
@@ -41,18 +42,99 @@
    i - pointer to number of characters already delivered in this call
    n - pointer to maximum number of characters to be delivered in this call
    s - the buffer into which the character shall be delivered
-   FIXME: ref. fputs() for a better way to buffer handling
 */
-#define DELIVER( x ) \
+#define PUT( x ) \
 do { \
+    int character = x; \
     if ( status->i < status->n ) { \
         if ( status->stream != NULL ) \
-            putc( x, status->stream ); \
+            putc( character, status->stream ); \
         else \
-            status->s[status->i] = x; \
+            status->s[status->i] = character; \
     } \
     ++(status->i); \
 } while ( 0 )
+
+
+static void intformat( intmax_t value, struct _PDCLIB_status_t * status )
+{
+    /* At worst, we need two prefix characters (hex prefix). */
+    char preface[3] = "\0";
+    size_t preidx = 0;
+    if ( ( status->flags & E_alt ) && ( status->base == 16 || status->base == 8 ) )
+    {
+        /* Octal / hexadecimal prefix for "%#" conversions */
+        preface[ preidx++ ] = '0';
+        if ( status->base == 16 )
+        {
+            preface[ preidx++ ] = ( status->flags & E_lower ) ? 'x' : 'X';
+        }
+    }
+    if ( value < 0 )
+    {
+        /* Negative sign for negative values - at all times. */
+        preface[ preidx++ ] = '-';
+    }
+    else if ( ! ( status->flags & E_unsigned ) )
+    {
+        /* plus sign / extra space are only for unsigned conversions */
+        if ( status->flags & E_plus )
+        {
+            preface[ preidx++ ] = '+';
+        }
+        else if ( status->flags & E_space )
+        {
+            preface[ preidx++ ] = ' ';
+        }
+    }
+    {
+    size_t prec_pads = ( status->prec > status->current ) ? ( status->prec - status->current ) : 0;
+    if ( ! ( status->flags & ( E_minus | E_zero ) ) )
+    {
+        /* Space padding is only done if no zero padding or left alignment
+           is requested. Leave space for any prefixes determined above.
+        */
+        /* The number of characters to be printed, plus prefixes if any. */
+        /* This line contained probably the most stupid, time-wasting bug
+           I've ever perpetrated. Greetings to Samface, DevL, and all
+           sceners at Breakpoint 2006.
+        */
+        size_t characters = preidx + ( ( status->current > status->prec ) ? status->current : status->prec );
+        if ( status->width > characters )
+        {
+            for ( size_t i = 0; i < status->width - characters; ++i )
+            {
+                PUT( ' ' );
+                ++(status->current);
+            }
+        }
+    }
+    /* Now we did the padding, do the prefixes (if any). */
+    preidx = 0;
+    while ( preface[ preidx ] != '\0' )
+    {
+        PUT( preface[ preidx++ ] );
+        ++(status->current);
+    }
+    if ( ( ! ( status->flags & E_minus ) ) && ( status->flags & E_zero ) )
+    {
+        /* If field is not left aligned, and zero padding is requested, do
+           so.
+        */
+        while ( status->current < status->width )
+        {
+            PUT( '0' );
+            ++(status->current);
+        }
+    }
+    /* Do the precision padding if necessary. */
+    for ( size_t i = 0; i < prec_pads; ++i )
+    {
+        PUT( '0' );
+    }
+    }
+}
+
 
 /* This function recursively converts a given integer value to a character
    stream. The conversion is done under the control of a given status struct
@@ -68,7 +150,7 @@ static void int2base( intmax_t value, struct _PDCLIB_status_t * status )
        already so it will be taken into account when the deepestmost recursion
        does the prefix / padding stuff.
     */
-    ++(status->this);
+    ++(status->current);
     if ( ( value / status->base ) != 0 )
     {
         /* More digits to be done - recurse deeper */
@@ -81,102 +163,7 @@ static void int2base( intmax_t value, struct _PDCLIB_status_t * status )
            have to do the sign, prefix, width, and precision padding stuff
            before printing the numbers while we resurface from the recursion.
         */
-        /* At worst, we need two prefix characters (hex prefix). */
-        char preface[3] = "\0";
-        size_t preidx = 0;
-        if ( ( status->flags & E_alt ) && ( status->base == 16 || status->base == 8 ) )
-        {
-            /* Octal / hexadecimal prefix for "%#" conversions */
-            preface[ preidx++ ] = '0';
-            if ( status->base == 16 )
-            {
-                preface[ preidx++ ] = ( status->flags & E_lower ) ? 'x' : 'X';
-            }
-        }
-        if ( value < 0 )
-        {
-            /* Negative sign for negative values - at all times. */
-            preface[ preidx++ ] = '-';
-        }
-        else if ( ! ( status->flags & E_unsigned ) )
-        {
-            /* plus sign / extra space are only for unsigned conversions */
-            if ( status->flags & E_plus )
-            {
-                preface[ preidx++ ] = '+';
-            }
-            else if ( status->flags & E_space )
-            {
-                preface[ preidx++ ] = ' ';
-            }
-        }
-        {
-        size_t prec_pads = ( status->prec > status->this ) ? ( status->prec - status->this ) : 0;
-        if ( ! ( status->flags & ( E_minus | E_zero ) ) )
-        {
-            /* Space padding is only done if no zero padding or left alignment
-               is requested. Leave space for any prefixes determined above.
-            */
-            /* The number of characters to be printed, plus prefixes if any. */
-            /* This line contained probably the most stupid, time-wasting bug
-               I've ever perpetrated. Greetings to Samface, DevL, and all
-               sceners at Breakpoint 2006.
-            */
-            size_t characters = preidx + ( ( status->this > status->prec ) ? status->this : status->prec );
-            if ( status->width > characters )
-            {
-                for ( size_t i = 0; i < status->width - characters; ++i )
-                {
-                    DELIVER( ' ' );
-                    /*
-                    do
-                    {
-                        if ( status->i < status->n )
-                        {
-                            if ( status->stream != 0 )
-                                do
-                                {
-                                    status->stream->buffer[status->stream->bufidx++] = (char)' ',
-                                    if ( ( status->stream->bufidx == status->stream->bufsize )
-                                      || ( ( status->stream->status & 2 ) && (char)' ' == '\n' )
-                                      || ( status->stream->status & 4 ) )
-                                        fflush( status->stream )
-                                } while (0),
-                                ' ';
-                            else status->s[status->i] = ' ';
-                        }
-                        ++(status->i);
-                    } while ( 0 );
-                    */
-                    ++(status->this);
-                }
-            }
-        }
-        /* Now we did the padding, do the prefixes (if any). */
-        preidx = 0;
-        while ( preface[ preidx ] != '\0' )
-        {
-            DELIVER( preface[ preidx ] );
-            preidx++;
-            ++(status->this);
-        }
-        if ( ( ! ( status->flags & E_minus ) ) && ( status->flags & E_zero ) )
-        {
-            /* If field is not left aligned, and zero padding is requested, do
-               so.
-            */
-            while ( status->this < status->width )
-            {
-                DELIVER( '0' );
-                ++(status->this);
-            }
-        }
-        /* Do the precision padding if necessary. */
-        for ( size_t i = 0; i < prec_pads; ++i )
-        {
-            DELIVER( '0' );
-        }
-        }
+        intformat( value, status );
     }
     /* Recursion tail - print the current digit. */
     {
@@ -188,48 +175,16 @@ static void int2base( intmax_t value, struct _PDCLIB_status_t * status )
     if ( status->flags & E_lower )
     {
         /* Lowercase letters. Same array used for strto...(). */
-        DELIVER( _PDCLIB_digits[ digit ] );
+        PUT( _PDCLIB_digits[ digit ] );
     }
     else
     {
         /* Uppercase letters. Array only used here, only 0-F. */
-        DELIVER( _PDCLIB_Xdigits[ digit ] );
+        PUT( _PDCLIB_Xdigits[ digit ] );
     }
     }
 }
 
-/* from lib/dtoa.c */
-char* dtoa( double value, int mode, int ndigits, int* decpt, int* sign, char** rve);
-
-static void double2string( double value, struct _PDCLIB_status_t * status )
-{
-#define DEFAULT_PREC 16
-    int decpt, sign, mode;
-    int ndigits = status->prec > 0 ? status->prec : DEFAULT_PREC;
-    char* rve;
-    /* XXX we should deal with NaN/Inf */
-
-    if (status->spec == 'f') {
-        mode = 3;
-    } else {
-       /* for the e/E modifier, we haveto round one digit more */
-       if (status->spec == 'e' || status->spec == 'E')
-          ndigits++;
-       mode = 2;
-    }
-
-    char* tmp = dtoa( value, 3, ndigits, &decpt, &sign, &rve);
-    if (sign) {
-        DELIVER( '-' );
-    }
-    /* XXX trailing digits */
-    while (*tmp) {
-        if (decpt-- == 0)
-            DELIVER( '.' );
-        DELIVER( *tmp );
-	tmp++;
-    }
-}
 
 const char * _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status )
 {
@@ -237,13 +192,13 @@ const char * _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status 
     if ( *(++spec) == '%' )
     {
         /* %% -> print single '%' */
-        DELIVER( *spec );
+        PUT( *spec );
         return ++spec;
     }
     /* Initializing status structure */
     status->flags = 0;
     status->base  = 0;
-    status->this  = 0;
+    status->current  = 0;
     status->width = 0;
     status->prec  = 0;
 
@@ -288,26 +243,16 @@ const char * _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status 
     if ( *spec == '*' )
     {
         /* Retrieve width value from argument stack */
-#if 1
         int width = va_arg( status->arg, int );
         if ( width < 0 )
         {
             status->flags |= E_minus;
-            status->width = width * -1; /* FIXME: Should be abs( width ) */
+            status->width = abs( width );
         }
         else
         {
             status->width = width;
         }
-#else
-        /* FIXME: Old version - with unsigned status->width, condition <0 is never true */
-        if ( ( status->width = va_arg( status->arg, int ) ) < 0 )
-        {
-            /* Negative value is '-' flag plus absolute value */
-            status->flags |= E_minus;
-            status->width *= -1;
-        }
-#endif
         ++spec;
     }
     else
@@ -401,7 +346,6 @@ const char * _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status 
     }
 
     /* Conversion specifier */
-    status->spec = *spec;
     switch ( *spec )
     {
         case 'd':
@@ -431,14 +375,13 @@ const char * _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status 
         case 'E':
         case 'g':
         case 'G':
-            status->flags |= E_double;
             break;
         case 'a':
         case 'A':
             break;
         case 'c':
             /* TODO: Flags, wide chars. */
-            DELIVER( va_arg( status->arg, int ) );
+            PUT( va_arg( status->arg, int ) );
             return ++spec;
         case 's':
             /* TODO: Flags, wide chars. */
@@ -446,8 +389,7 @@ const char * _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status 
                 char * s = va_arg( status->arg, char * );
                 while ( *s != '\0' )
                 {
-                    DELIVER( *s );
-                    s++;
+                    PUT( *(s++) );
                 }
                 return ++spec;
             }
@@ -468,7 +410,7 @@ const char * _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status 
     }
 
     /* Do the actual output based on our findings */
-    if ( status->base != 0 || (status->flags & E_double))
+    if ( status->base != 0 )
     {
         /* Integer conversions */
         /* TODO: Check for invalid flag combinations. */
@@ -496,10 +438,16 @@ const char * _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status 
                     value = (uintmax_t)va_arg( status->arg, size_t );
                     break;
             }
-            ++(status->this);
+            ++(status->current);
+            /* FIXME: The if clause means one-digit values do not get formatted */
+            /* Was introduced originally to get value to "safe" levels re. uintmax_t. */
             if ( ( value / status->base ) != 0 )
             {
                 int2base( (intmax_t)(value / status->base), status );
+            }
+            else
+            {
+                intformat( (intmax_t)value, status );
             }
             int digit = value % status->base;
             if ( digit < 0 )
@@ -508,16 +456,16 @@ const char * _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status 
             }
             if ( status->flags & E_lower )
             {
-                DELIVER( _PDCLIB_digits[ digit ] );
+                PUT( _PDCLIB_digits[ digit ] );
             }
             else
             {
-                DELIVER( _PDCLIB_Xdigits[ digit ] );
+                PUT( _PDCLIB_Xdigits[ digit ] );
             }
         }
         else
         {
-            switch ( status->flags & ( E_char | E_short | E_long | E_llong | E_intmax | E_double) )
+            switch ( status->flags & ( E_char | E_short | E_long | E_llong | E_intmax ) )
             {
                 case E_char:
                     int2base( (intmax_t)(char)va_arg( status->arg, int ), status );
@@ -540,17 +488,14 @@ const char * _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status 
                 case E_intmax:
                     int2base( va_arg( status->arg, intmax_t ), status );
                     break;
-                case E_double:
-                    double2string( va_arg( status->arg, double ), status );
-                    break;
             }
         }
         if ( status->flags & E_minus )
         {
-            while ( status->this < status->width )
+            while ( status->current < status->width )
             {
-                DELIVER( ' ' );
-                ++(status->this);
+                PUT( ' ' );
+                ++(status->current);
             }
         }
         if ( status->i >= status->n && status->n > 0 )
@@ -562,20 +507,20 @@ const char * _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status 
 }
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#define _PDCLIB_FILEID "_PDCLIB/print.c"
+#define _PDCLIB_STRINGIO
 
-#include <limits.h>
-#include <string.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
-static int testprintf( char * buffer, size_t n, const char * format, ... )
+static int testprintf( char * buffer, const char * format, ... )
 {
-    /* Members: base, flags, n, i, this, s, width, prec, stream, arg         */
+    /* Members: base, flags, n, i, current, s, width, prec, stream, arg      */
     struct _PDCLIB_status_t status;
     status.base = 0;
     status.flags = 0;
-    status.n = n;
+    status.n = 100;
     status.i = 0;
-    status.this = 0;
+    status.current = 0;
     status.s = buffer;
     status.width = 0;
     status.prec = 0;
@@ -585,253 +530,18 @@ static int testprintf( char * buffer, size_t n, const char * format, ... )
     if ( *(_PDCLIB_print( format, &status )) != '\0' )
     {
         printf( "_PDCLIB_print() did not return end-of-specifier on '%s'.\n", format );
-        ++rc;
+        ++TEST_RESULTS;
     }
     va_end( status.arg );
     return status.i;
 }
 
+#define TEST_CONVERSION_ONLY
+
 int main( void )
 {
-    char buffer[100];
-    TESTCASE( testprintf( buffer, 100, "%hhd", CHAR_MIN ) == 4 );
-    TESTCASE( strcmp( buffer, "-128" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%hhd", CHAR_MAX ) == 3 );
-    TESTCASE( strcmp( buffer, "127" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%hhd", 0 ) == 1 );
-    TESTCASE( strcmp( buffer, "0" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%hd", SHRT_MIN ) == 6 );
-    TESTCASE( strcmp( buffer, "-32768" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%hd", SHRT_MAX ) == 5 );
-    TESTCASE( strcmp( buffer, "32767" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%hd", 0 ) == 1 );
-    TESTCASE( strcmp( buffer, "0" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%d", 0 ) == 1 );
-    TESTCASE( strcmp( buffer, "0" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%ld", LONG_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%ld", LONG_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%ld", 0l ) == 1 );
-    TESTCASE( strcmp( buffer, "0" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%lld", LLONG_MIN ) == 20 );
-    TESTCASE( strcmp( buffer, "-9223372036854775808" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%lld", LLONG_MAX ) == 19 );
-    TESTCASE( strcmp( buffer, "9223372036854775807" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%lld", 0ll ) );
-    TESTCASE( strcmp( buffer, "0" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%hhu", UCHAR_MAX ) == 3 );
-    TESTCASE( strcmp( buffer, "255" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%hhu", (unsigned char)-1 ) == 3 );
-    TESTCASE( strcmp( buffer, "255" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%hu", USHRT_MAX ) == 5 );
-    TESTCASE( strcmp( buffer, "65535" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%hu", (unsigned short)-1 ) == 5 );
-    TESTCASE( strcmp( buffer, "65535" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%u", UINT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "4294967295" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%u", -1u ) == 10 );
-    TESTCASE( strcmp( buffer, "4294967295" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%lu", ULONG_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "4294967295" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%lu", -1ul ) == 10 );
-    TESTCASE( strcmp( buffer, "4294967295" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%llu", ULLONG_MAX ) == 20 );
-    TESTCASE( strcmp( buffer, "18446744073709551615" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%llu", -1ull ) == 20 );
-    TESTCASE( strcmp( buffer, "18446744073709551615" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%X", UINT_MAX ) == 8 );
-    TESTCASE( strcmp( buffer, "FFFFFFFF" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%#X", -1u ) == 10 );
-    TESTCASE( strcmp( buffer, "0XFFFFFFFF" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%x", UINT_MAX ) == 8 );
-    TESTCASE( strcmp( buffer, "ffffffff" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%#x", -1u ) == 10 );
-    TESTCASE( strcmp( buffer, "0xffffffff" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%o", UINT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, "37777777777" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%#o", -1u ) == 12 );
-    TESTCASE( strcmp( buffer, "037777777777" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%+d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%+d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, "+2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%+d", 0 ) == 2 );
-    TESTCASE( strcmp( buffer, "+0" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%+u", UINT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "4294967295" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%+u", -1u ) == 10 );
-    TESTCASE( strcmp( buffer, "4294967295" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "% d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "% d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, " 2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "% d", 0 ) == 2 );
-    TESTCASE( strcmp( buffer, " 0" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "% u", UINT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "4294967295" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "% u", -1u ) == 10 );
-    TESTCASE( strcmp( buffer, "4294967295" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%9d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%9d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%10d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%10d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%11d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%11d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, " 2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%12d", INT_MIN ) == 12 );
-    TESTCASE( strcmp( buffer, " -2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%12d", INT_MAX ) == 12 );
-    TESTCASE( strcmp( buffer, "  2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-9d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-9d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-10d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-10d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-11d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-11d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, "2147483647 " ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-12d", INT_MIN ) == 12 );
-    TESTCASE( strcmp( buffer, "-2147483648 " ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-12d", INT_MAX ) == 12 );
-    TESTCASE( strcmp( buffer, "2147483647  " ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%09d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%09d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%010d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%010d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%011d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%011d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, "02147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%012d", INT_MIN ) == 12 );
-    TESTCASE( strcmp( buffer, "-02147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%012d", INT_MAX ) == 12 );
-    TESTCASE( strcmp( buffer, "002147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-09d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-09d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-010d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-010d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-011d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-011d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, "2147483647 " ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-012d", INT_MIN ) == 12 );
-    TESTCASE( strcmp( buffer, "-2147483648 " ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%-012d", INT_MAX ) == 12 );
-    TESTCASE( strcmp( buffer, "2147483647  " ) == 0 );
-    TESTCASE( testprintf( buffer, 8, "%9d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483" ) == 0 );
-    TESTCASE( testprintf( buffer, 8, "%9d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-214748" ) == 0 );
-    TESTCASE( testprintf( buffer, 9, "%9d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "21474836" ) == 0 );
-    TESTCASE( testprintf( buffer, 9, "%9d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483" ) == 0 );
-    TESTCASE( testprintf( buffer, 10, "%9d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "214748364" ) == 0 );
-    TESTCASE( testprintf( buffer, 10, "%9d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-21474836" ) == 0 );
-    TESTCASE( testprintf( buffer, 9, "%10d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "21474836" ) == 0 );
-    TESTCASE( testprintf( buffer, 9, "%10d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483" ) == 0 );
-    TESTCASE( testprintf( buffer, 10, "%10d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "214748364" ) == 0 );
-    TESTCASE( testprintf( buffer, 10, "%10d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-21474836" ) == 0 );
-    TESTCASE( testprintf( buffer, 11, "%10d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 11, "%10d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-214748364" ) == 0 );
-    TESTCASE( testprintf( buffer, 10, "%11d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, " 21474836" ) == 0 );
-    TESTCASE( testprintf( buffer, 10, "%11d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-21474836" ) == 0 );
-    TESTCASE( testprintf( buffer, 11, "%11d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, " 214748364" ) == 0 );
-    TESTCASE( testprintf( buffer, 11, "%11d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-214748364" ) == 0 );
-    TESTCASE( testprintf( buffer, 12, "%11d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, " 2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 12, "%11d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 11, "%12d", INT_MAX ) == 12 );
-    TESTCASE( strcmp( buffer, "  21474836" ) == 0 );
-    TESTCASE( testprintf( buffer, 11, "%12d", INT_MIN ) == 12 );
-    TESTCASE( strcmp( buffer, " -21474836" ) == 0 );
-    TESTCASE( testprintf( buffer, 12, "%12d", INT_MAX ) == 12 );
-    TESTCASE( strcmp( buffer, "  214748364" ) == 0 );
-    TESTCASE( testprintf( buffer, 12, "%12d", INT_MIN ) == 12 );
-    TESTCASE( strcmp( buffer, " -214748364" ) == 0 );
-    TESTCASE( testprintf( buffer, 13, "%12d", INT_MAX ) == 12 );
-    TESTCASE( strcmp( buffer, "  2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 13, "%12d", INT_MIN ) == 12 );
-    TESTCASE( strcmp( buffer, " -2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%030.20d", INT_MAX ) == 30 );
-    TESTCASE( strcmp( buffer, "          00000000002147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%.6x", UINT_MAX ) == 8 );
-    TESTCASE( strcmp( buffer, "ffffffff" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%#6.3x", UINT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "0xffffffff" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%#3.6x", UINT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "0xffffffff" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%.6d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%6.3d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%3.6d", INT_MIN ) == 11 );
-    TESTCASE( strcmp( buffer, "-2147483648" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%#0.6x", UINT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "0xffffffff" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%#06.3x", UINT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "0xffffffff" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%#03.6x", UINT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "0xffffffff" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%#0.6d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%#06.3d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%#03.6d", INT_MAX ) == 10 );
-    TESTCASE( strcmp( buffer, "2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%#+.6d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, "+2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%#+6.3d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, "+2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%#+3.6d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, "+2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%+0.6d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, "+2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%+06.3d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, "+2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%+03.6d", INT_MAX ) == 11 );
-    TESTCASE( strcmp( buffer, "+2147483647" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%c", 'x' ) == 1 );
-    TESTCASE( strcmp( buffer, "x" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%s", "abcdef" ) == 6 );
-    TESTCASE( strcmp( buffer, "abcdef" ) == 0 );
-    TESTCASE( testprintf( buffer, 100, "%p", (void *)0xdeadbeef ) == 10 );
-    TESTCASE( strcmp( buffer, "0xdeadbeef" ) == 0 );
+    char target[100];
+#include "printf_testcases.h"
     return TEST_RESULTS;
 }
 

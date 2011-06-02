@@ -1,4 +1,4 @@
-/* $Id: ftell.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: ftell.c 496 2010-12-16 06:00:24Z solar $ */
 
 /* ftell( FILE * )
 
@@ -7,19 +7,45 @@
 */
 
 #include <stdio.h>
+#include <errno.h>
 #include <limits.h>
 
 #ifndef REGTEST
 
 long int ftell( struct _PDCLIB_file_t * stream )
 {
-    return (long int)ftello( stream );
+    /* ftell() must take into account:
+       - the actual *physical* offset of the file, i.e. the offset as recognized
+         by the operating system (and stored in stream->pos.offset); and
+       - any buffers held by PDCLib, which
+         - in case of unwritten buffers, count in *addition* to the offset; or
+         - in case of unprocessed pre-read buffers, count in *substraction* to
+           the offset. (Remember to count ungetidx into this number.)
+       Conveniently, the calculation ( ( bufend - bufidx ) + ungetidx ) results
+       in just the right number in both cases:
+         - in case of unwritten buffers, ( ( 0 - unwritten ) + 0 )
+           i.e. unwritten bytes as negative number
+         - in case of unprocessed pre-read, ( ( preread - processed ) + unget )
+           i.e. unprocessed bytes as positive number.
+       That is how the somewhat obscure return-value calculation works.
+    */
+    /*  If offset is too large for return type, report error instead of wrong
+        offset value.
+    */
+    /* TODO: Check what happens when ungetc() is called on a stream at offset 0 */
+    if ( ( stream->pos.offset - stream->bufend ) > ( LONG_MAX - ( stream->bufidx - stream->ungetidx ) ) )
+    {
+        /* integer overflow */
+        _PDCLIB_errno = ERANGE;
+        return -1;
+    }
+    return (long int)( stream->pos.offset - ( ( (int)stream->bufend - (int)stream->bufidx ) + stream->ungetidx ) );
 }
 
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 #include <stdlib.h>
 
@@ -31,13 +57,19 @@ int main( void )
     */
     /* The following functions delegate their tests to here:
        fgetc fflush rewind fputc ungetc fseek
-       flushbuffer seek fillbuffer
+       flushbuffer seek fillbuffer prepread prepwrite
     */
     char * buffer = (char*)malloc( 4 );
     FILE * fh;
-    remove( "testfile" );
-    TESTCASE( ( fh = fopen( "testfile", "w+" ) ) != NULL );
+    TESTCASE( ( fh = tmpfile() ) != NULL );
     TESTCASE( setvbuf( fh, buffer, _IOLBF, 4 ) == 0 );
+    /* Testing ungetc() at offset 0 */
+    rewind( fh );
+    TESTCASE( ungetc( 'x', fh ) == 'x' );
+    TESTCASE( ftell( fh ) == -1l );
+    rewind( fh );
+    TESTCASE( ftell( fh ) == 0l );
+    /* Commence "normal" tests */
     TESTCASE( fputc( '1', fh ) == '1' );
     TESTCASE( fputc( '2', fh ) == '2' );
     TESTCASE( fputc( '3', fh ) == '3' );
@@ -62,9 +94,8 @@ int main( void )
     TESTCASE_NOREG( fh->bufidx == 0 );
     /* Reading back first character after rewind for basic read check */
     TESTCASE( fgetc( fh ) == '1' );
-    TESTCASE( fclose( fh ) == 0 );
     /* TODO: t.b.c. */
-    remove( "testfile" );
+    TESTCASE( fclose( fh ) == 0 );
     return TEST_RESULTS;
 }
 

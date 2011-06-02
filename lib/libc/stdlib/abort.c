@@ -1,4 +1,4 @@
-/* $Id: abort.c 152 2006-03-08 15:36:14Z solar $ */
+/* $Id: abort.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* abort( void )
 
@@ -7,16 +7,13 @@
 */
 
 #include <stdlib.h>
+#include <signal.h>
 
 #ifndef REGTEST
 
 void abort( void )
 {
-    /* XXX ananas: we do not support signals */
-    *(int*)NULL = 0;
-#if 0
     raise( SIGABRT );
-#endif
     exit( EXIT_FAILURE );
 }
 

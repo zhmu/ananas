@@ -1,4 +1,4 @@
-/* $Id: fputs.c 382 2009-10-26 22:27:59Z solar $ */
+/* $Id: fputs.c 473 2010-12-01 22:01:42Z solar $ */
 
 /* fputs( const char *, FILE * )
 
@@ -24,9 +24,9 @@ int fputs( const char * _PDCLIB_restrict s, struct _PDCLIB_file_t * _PDCLIB_rest
            buffer runs full.
         */
         stream->buffer[ stream->bufidx++ ] = *s;
-        /* TODO: Should IOLBF flush on \n, or the correct EOL sequence of the system? */
-        if ( ( stream->bufidx == stream->bufsize )
-          || ( ( stream->status & _IOLBF ) && *s == '\n' ) )
+        if ( ( stream->bufidx == stream->bufsize ) ||
+             ( ( stream->status & _IOLBF ) && *s == '\n' )
+           )
         {
             if ( _PDCLIB_flushbuffer( stream ) == EOF )
             {
@@ -47,15 +47,13 @@ int fputs( const char * _PDCLIB_restrict s, struct _PDCLIB_file_t * _PDCLIB_rest
 
 #endif
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main( void )
 {
-    char const * const testfile = "testfile";
     char const * const message = "SUCCESS testing fputs()";
     FILE * fh;
-    remove( testfile );
-    TESTCASE( ( fh = fopen( testfile, "w+" ) ) != NULL );
+    TESTCASE( ( fh = tmpfile() ) != NULL );
     TESTCASE( fputs( message, fh ) >= 0 );
     rewind( fh );
     for ( size_t i = 0; i < 23; ++i )
@@ -63,7 +61,6 @@ int main( void )
         TESTCASE( fgetc( fh ) == message[i] );
     }
     TESTCASE( fclose( fh ) == 0 );
-    TESTCASE( remove( testfile ) == 0 );
     return TEST_RESULTS;
 }
 

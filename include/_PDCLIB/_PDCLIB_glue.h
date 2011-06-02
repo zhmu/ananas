@@ -1,4 +1,4 @@
-/* $Id: _PDCLIB_glue.h 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: _PDCLIB_glue.h 416 2010-05-15 00:39:28Z solar $ */
 
 /* OS glue functions declaration <_PDCLIB_glue.h>
 

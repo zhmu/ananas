@@ -3,5 +3,6 @@
 
 #include <machine/_stdint.h>
 #include <machine/_types.h>
+#include <stddef.h>
 
 #endif /* __SYS_STDINT_H__ */

@@ -1,4 +1,4 @@
-/* $Id: _Exit.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: _Exit.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* _Exit( int )
 
@@ -12,9 +12,9 @@
 #ifndef REGTEST
 #include <_PDCLIB/_PDCLIB_glue.h>
 
-void _exit(int status)
+void _exit( int status )
 {
-	return _Exit(status);
+	_Exit ( status );
 }
 
 void _Exit( int status )

@@ -1,4 +1,4 @@
-/* $Id: rewind.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: rewind.c 416 2010-05-15 00:39:28Z solar $ */
 
 /* rewind( FILE * )
 
@@ -19,7 +19,7 @@ void rewind( struct _PDCLIB_file_t * stream )
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main( void )
 {

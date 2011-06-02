@@ -7,6 +7,7 @@
 */
 
 #include <stdio.h>
+#include <errno.h>
 #include <limits.h>
 
 off_t ftello( struct _PDCLIB_file_t * stream )
@@ -17,7 +18,7 @@ off_t ftello( struct _PDCLIB_file_t * stream )
     if ( stream->pos.offset > ( LONG_MAX - stream->bufidx ) )
     {
         /* integer overflow */
-        _PDCLIB_errno = _PDCLIB_EINVAL;
+        _PDCLIB_errno = EINVAL;
         return -1;
     }
     /* Position of start-of-buffer, plus:

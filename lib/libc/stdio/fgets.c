@@ -1,4 +1,4 @@
-/* $Id: fgets.c 382 2009-10-26 22:27:59Z solar $ */
+/* $Id: fgets.c 481 2010-12-08 05:53:09Z solar $ */
 
 /* fgets( char *, int, FILE * )
 
@@ -15,44 +15,74 @@
 
 char * fgets( char * _PDCLIB_restrict s, int size, struct _PDCLIB_file_t * _PDCLIB_restrict stream )
 {
-    if ( size <= 1 )
+    if ( size == 0 )
     {
-        /* TODO: This is the letter of the standard, but is it the right thing to do? */
+        return NULL;
+    }
+    if ( size == 1 )
+    {
         *s = '\0';
         return s;
     }
-    if ( _PDCLIB_prepread( stdin ) == EOF )
+    if ( _PDCLIB_prepread( stream ) == EOF )
     {
         return NULL;
     }
     char * dest = s;
-    while ( ( ( *dest = stdin->buffer[stdin->bufidx++] ) != '\n' ) && --size > 0 )
+    while ( ( ( *dest++ = stream->buffer[stream->bufidx++] ) != '\n' ) && --size > 0 )
     {
-        if ( stdin->bufidx == stdin->bufend )
+        if ( stream->bufidx == stream->bufend )
         {
-            if ( _PDCLIB_fillbuffer( stdin ) == EOF )
+            if ( _PDCLIB_fillbuffer( stream ) == EOF )
             {
-                /* EOF adds \0, error leaves target indeterminate, so we can
-                   just add the \0 anyway.
+                /* In case of error / EOF before a character is read, this
+                   will lead to a \0 be written anyway. Since the results
+                   are "indeterminate" by definition, this does not hurt.
                 */
-                *dest = '\0';
-                return NULL;
+                break;
             }
         }
-        ++dest;
     }
     *dest = '\0';
-    return s;
+    return ( dest == s ) ? NULL : s;
 }
 
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
+#include <string.h>
 
 int main( void )
 {
-    TESTCASE( NO_TESTDRIVER );
+    FILE * fh;
+    char buffer[10];
+    char const * fgets_test = "foo\nbar\0baz\nweenie";
+    TESTCASE( ( fh = fopen( testfile, "wb+" ) ) != NULL );
+    TESTCASE( fwrite( fgets_test, 1, 18, fh ) == 18 );
+    rewind( fh );
+    TESTCASE( fgets( buffer, 10, fh ) == buffer );
+    TESTCASE( strcmp( buffer, "foo\n" ) == 0 );
+    TESTCASE( fgets( buffer, 10, fh ) == buffer );
+    TESTCASE( memcmp( buffer, "bar\0baz\n", 8 ) == 0 );
+    TESTCASE( fgets( buffer, 10, fh ) == buffer );
+    TESTCASE( strcmp( buffer, "weenie" ) == 0 );
+    TESTCASE( feof( fh ) );
+    TESTCASE( fseek( fh, -1, SEEK_END ) == 0 );
+    TESTCASE( fgets( buffer, 1, fh ) == buffer );
+    TESTCASE( strcmp( buffer, "" ) == 0 );
+    TESTCASE( fgets( buffer, 0, fh ) == NULL );
+    TESTCASE( ! feof( fh ) );
+    TESTCASE( fgets( buffer, 1, fh ) == buffer );
+    TESTCASE( strcmp( buffer, "" ) == 0 );
+    TESTCASE( ! feof( fh ) );
+    TESTCASE( fgets( buffer, 2, fh ) == buffer );
+    TESTCASE( strcmp( buffer, "e" ) == 0 );
+    TESTCASE( fseek( fh, 0, SEEK_END ) == 0 );
+    TESTCASE( fgets( buffer, 2, fh ) == NULL );
+    TESTCASE( feof( fh ) );
+    TESTCASE( fclose( fh ) == 0 );
+    TESTCASE( remove( testfile ) == 0 );
     return TEST_RESULTS;
 }
 

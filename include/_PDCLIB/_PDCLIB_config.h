@@ -66,6 +66,9 @@ struct _PDCLIB_lldiv_t
    locale.
 */
 
+/* <inttypes.h> defines imaxdiv(), which is equivalent to the div() function  */
+/* family (see further above) with intmax_t as basis.                         */
+
 /* -------------------------------------------------------------------------- */
 /* Floating Point                                                             */
 /* -------------------------------------------------------------------------- */
@@ -107,7 +110,7 @@ struct _PDCLIB_lldiv_t
    takes the address of member. This is undefined behaviour but should work on
    most compilers.
 */
-#define _PDCLIB_offsetof( type, member ) __builtin_offsetof
+#define _PDCLIB_offsetof( type, member ) __builtin_offsetof( type, member )
 
 /* Variable Length Parameter List Handling (<stdarg.h>)
 */
@@ -182,4 +185,5 @@ typedef int _PDCLIB_fd_t;
 */
 #define _PDCLIB_UNGETCBUFSIZE 1
 
-typedef long wint_t;
+/* Last error number */
+#define _PDCLIB_ERRNO_MAX	74

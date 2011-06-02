@@ -1,4 +1,4 @@
-/* $Id: assert.c 152 2006-03-08 15:36:14Z solar $ */
+/* $Id: assert.c 449 2010-07-19 11:36:38Z solar $ */
 
 /* _PDCLIB_assert( char const * )
 
@@ -14,7 +14,7 @@
 
 #ifndef _PDCLIB_AUX_H
 #define _PDCLIB_AUX_H _PDCLIB_AUX_H
-#include <_PDCLIB_aux.h>
+#include <_PDCLIB/_PDCLIB_aux.h>
 #endif
 
 #if _PDCLIB_C_VERSION == 99
@@ -36,7 +36,7 @@ void _PDCLIB_assert( char const * const message )
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 #include <signal.h>
 
 static int EXPECTED_ABORT = 0;
@@ -45,7 +45,7 @@ static int UNEXPECTED_ABORT = 1;
 static void aborthandler( int sig )
 {
     TESTCASE( ! EXPECTED_ABORT );
-    exit( (signed int)rc );
+    exit( (signed int)TEST_RESULTS );
 }
 
 #define NDEBUG

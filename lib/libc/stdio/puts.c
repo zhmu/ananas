@@ -1,4 +1,4 @@
-/* $Id: puts.c 366 2009-09-13 15:14:02Z solar $ */
+/* $Id: puts.c 498 2010-12-17 06:05:00Z solar $ */
 
 /* puts( const char * )
 
@@ -30,33 +30,37 @@ int puts( const char * s )
             }
         }
     }
-    s = _PDCLIB_eol;
-    while ( *s != '\0' )
-    {
-        stdout->buffer[ stdout->bufidx++ ] = *s++;
-        if ( stdout->bufidx == stdout->bufsize )
-        {
-            if ( _PDCLIB_flushbuffer( stdout ) == EOF )
-            {
-                return EOF;
-            }
-        }
-    }
-    if ( stdout->status & ( _IOLBF | _IONBF ) )
+    stdout->buffer[ stdout->bufidx++ ] = '\n';
+    if ( ( stdout->bufidx == stdout->bufsize ) ||
+         ( stdout->status & ( _IOLBF | _IONBF ) ) )
     {
         return _PDCLIB_flushbuffer( stdout );
     }
-    return 0;
+    else
+    {
+        return 0;
+    }
 }
 
 #endif
 
 #ifdef TEST
-#include <_PDCLIB_test.h>
+#include <_PDCLIB/_PDCLIB_test.h>
 
 int main( void )
 {
-    TESTCASE( puts( "SUCCESS testing puts()" ) >= 0 );
+    FILE * fh;
+    char const * message = "SUCCESS testing puts()";
+    char buffer[23];
+    buffer[22] = 'x';
+    TESTCASE( ( fh = freopen( testfile, "wb+", stdout ) ) != NULL );
+    TESTCASE( puts( message ) >= 0 );
+    rewind( fh );
+    TESTCASE( fread( buffer, 1, 22, fh ) == 22 );
+    TESTCASE( memcmp( buffer, message, 22 ) == 0 );
+    TESTCASE( buffer[22] == 'x' );
+    TESTCASE( fclose( fh ) == 0 );
+    TESTCASE( remove( testfile ) == 0 );
     return TEST_RESULTS;
 }
 
