@@ -18,12 +18,12 @@
 #define INT_MAX		2147483647	/* Maximum value for an int */
 #define UINT_MAX	4294967295U	/* Maximum value for an unsigned int */
 
-#define LONG_MIN	-9223372036854775808L	/* Minimum value for a long */
 #define LONG_MAX	9223372036854775807L	/* Maximum value for a long */
+#define LONG_MIN	(-LONG_MAX - 1L)	/* Minimum value for a long */
 #define ULONG_MAX	18446744073709551615UL	/* Maximum value for a unsigned long */
 
-#define LLONG_MIN	-9223372036854775808LL	/* Minimum value for a long long */
 #define LLONG_MAX	9223372036854775807LL	/* Maximum value for a long long */
+#define LLONG_MIN	(-LONG_MAX - 1LL)	/* Minimum value for a long long */
 #define ULLONG_MAX	18446744073709551615ULL	/* Maximum value for a unsigned long long */
 
 #endif /* __AMD64_LIMITS_H__ */

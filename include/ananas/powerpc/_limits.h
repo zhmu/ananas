@@ -21,8 +21,8 @@
 #define LONG_MAX	2147483647L	/* Maximum value for a long */
 #define ULONG_MAX	4294967295UL	/* Maximum value for a unsigned long */
 
-#define LLONG_MIN	-9223372036854775808LL	/* Minimum value for a long long */
-#define LLONG_MAX	9223372036854775807LL	/* Maximum value for a long long */
+#define LLONG_MAX	9223372036854775807L	/* Maximum value for a long */
+#define LLONG_MIN	(-LLONG_MAX - 1L)	/* Minimum value for a long */
 #define ULLONG_MAX	18446744073709551615ULL	/* Maximum value for a unsigned long long */
 
 #endif /* __POWERPC_LIMITS_H__ */
