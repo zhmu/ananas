@@ -4,8 +4,8 @@
 /* 7.18.2.1: Limits of exact-width integer types */
 #define INT8_MIN		(-128)
 #define INT16_MIN		(-32768)
-#define INT32_MIN		-2147483648
-#define INT64_MIN		-9223372036854775808LL
+#define INT32_MIN		(-2147483648)
+#define INT64_MIN		((-9223372036854775807LL) - 1)
 
 #define INT8_MAX		(127)
 #define INT16_MAX		(32767)
