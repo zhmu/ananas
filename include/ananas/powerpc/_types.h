@@ -2,6 +2,7 @@
  * This file is used to define integer types as per ISO/IEC 9899.
  */
 #include <stddef.h>
+
 #ifndef __POWERPC_TYPES_H__
 #define __POWERPC_TYPES_H__
 
@@ -12,8 +13,8 @@ typedef short		int16_t;
 typedef unsigned short	uint16_t;
 typedef int		int32_t;
 typedef unsigned int	uint32_t;
-typedef long long		int64_t;
-typedef unsigned long long	uint64_t;
+typedef long long	int64_t;
+typedef unsigned long long uint64_t;
 
 /* 7.18.1.2: Minimum-width integer types */
 typedef uint8_t		uint_least8_t;
@@ -36,18 +37,16 @@ typedef int32_t		int_fast32_t;
 typedef int64_t		int_fast64_t;
 
 /* 7.18.1.4: Integer types capable of holding pointers */
-typedef int64_t		intptr_t;
-typedef uint64_t	uintptr_t;
+typedef int32_t		intptr_t;
+typedef uint32_t	uintptr_t;
 
 /* 7.18.1.5: Greatest-width integer types */
 typedef int64_t		intmax_t;
 typedef uint64_t	uintmax_t;
 
-#if 0
-/* 7.17.2: Common definitions for stddef.h */
-typedef uint64_t	ptrdiff_t;
-typedef uint64_t	size_t;
-#endif
+/*
+ * Do not define ptrdiff_t or size_t -- these will be defined by stddef.h.
+ */
 
 /*
  * Below are standard types.

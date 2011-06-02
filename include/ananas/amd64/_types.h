@@ -2,6 +2,7 @@
  * This file is used to define integer types as per ISO/IEC 9899.
  */
 #include <stddef.h>
+
 #ifndef __AMD64_TYPES_H__
 #define __AMD64_TYPES_H__
 
@@ -43,11 +44,9 @@ typedef uint64_t	uintptr_t;
 typedef int64_t		intmax_t;
 typedef uint64_t	uintmax_t;
 
-#if 0
-/* 7.17.2: Common definitions for stddef.h */
-typedef uint64_t	ptrdiff_t;
-typedef uint64_t	size_t;
-#endif
+/*
+ * Do not define ptrdiff_t or size_t -- these will be defined by stddef.h.
+ */
 
 /*
  * Below are standard types.
