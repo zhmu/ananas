@@ -2,6 +2,7 @@ TARGET:		libc.a
 TC_PREFIX?=	../../../../toolchain/prefix.powerpc
 
 CFLAGS=		-I$S/../../include -I. -std=c99 -fPIC
+CFLAGS+=	-Wall -Werror
 ARCH=		powerpc
 CC=		${TC_PREFIX}/bin/powerpc-elf-ananas-gcc
 AR=		${TC_PREFIX}/bin/powerpc-elf-ananas-ar
