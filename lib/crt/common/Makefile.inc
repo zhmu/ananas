@@ -4,14 +4,16 @@ LD=		${TC_PREFIX}/bin/${ARCH}-elf-ananas-ld
 OBJS=		crt1_s.o cstart.o
 GCC_VER?=	4.4.3
 
+CFLAGS=		-Wall -Werror
+
 crt1.o:		$(OBJS)
 		$(LD) -r -o crt1.o $(OBJS)
 
 crt1_s.o:	crt1.S
-		$(CC) -c -o crt1_s.o crt1.S
+		$(CC) $(CFLAGS) -c -o crt1_s.o crt1.S
 
 cstart.o:	../common/cstart.c
-		$(CC) -c -o cstart.o ../common/cstart.c
+		$(CC) $(CFLAGS) -c -o cstart.o ../common/cstart.c
 
 install:	${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}/crt1.o
 
