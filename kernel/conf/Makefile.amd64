@@ -3,6 +3,8 @@ TARGET:		kernel
 S=		../../../..
 ARCH=		amd64
 
+CC?=		cc
+LD?=		ld
 AWK?=		awk
 NM?=		nm
 OBJCOPY?=	objcopy
@@ -12,6 +14,7 @@ OBJDUMP?=	objdump
 %FILES
 
 CFLAGS=		-m64 -march=athlon64 -mcmodel=large -I$S/../include -I$S -I. -std=c99 -mno-red-zone -fno-stack-protector -DKERNEL
+CFLAGS=		-Wall -Werror
 
 kernel:		kernel.full fileids.txt
 		$(OBJCOPY) -R '.traceids' -R '.tracenames' -R '.comment' kernel.full kernel 2> /dev/null
