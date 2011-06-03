@@ -150,7 +150,7 @@ typedef int _PDCLIB_fd_t;
 /* The value (of type _PDCLIB_fd_t) returned by _PDCLIB_open() if the operation
    failed.
 */
-#define _PDCLIB_NOHANDLE ( (_PDCLIB_fd_t) 0 )
+#define _PDCLIB_NOHANDLE ( (_PDCLIB_fd_t) -1 )
 
 /* The default size for file buffers. Must be at least 256. */
 #define _PDCLIB_BUFSIZ 1024
