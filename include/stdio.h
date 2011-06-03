@@ -813,6 +813,6 @@ int fileno( FILE * stream );
 
 /* Unofficial extensions
  */
-int fpurge( FILE * stream )
+int fpurge( FILE * stream );
 
 #endif
