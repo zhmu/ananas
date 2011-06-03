@@ -108,12 +108,33 @@ sys_open(thread_t* t, struct OPEN_OPTIONS* opts, handle_t* result)
 	err = handle_alloc(HANDLE_TYPE_FILE, t, &handle);
 	ANANAS_ERROR_RETURN(err);
 
-	/* XXX we should do something with the mode */
+	/*
+	 * If we could try to create the file, do so - if this fails, we'll attempt
+	 * the ordinary open. This should have the advantage of eliminating a race
+	 * condition.
+	 */
+	if (open_opts.op_mode & OPEN_MODE_CREATE) {
+		/* Attempt to create the new file */
+		err = vfs_create(t->path_handle->data.vfs_file.f_inode, &handle->data.vfs_file, userpath, open_opts.op_createmode);
+		if (err == ANANAS_ERROR_NONE)
+			goto skip_open;
+
+		/*
+		 * File could not be created; if we had to create the file, this is an
+		 * error whatever, otherwise we'll report anything but 'file already
+		 * exists' back to the caller.
+		 */
+		if ((open_opts.op_mode & OPEN_MODE_EXCLUSIVE) || ANANAS_ERROR_CODE(err) != ANANAS_ERROR_FILE_EXISTS)
+			goto skip_open;
+
+		/* File can't be created - try opening it instead */
+	}
 
 	/* And open the path */
 	TRACE(SYSCALL, INFO, "opening userpath '%s'", userpath);
 	err = vfs_open(userpath, t->path_handle->data.vfs_file.f_inode, &handle->data.vfs_file);
 
+skip_open:
 	/* Finally, hand the handle back if necessary and we're done */
 	if (err == ANANAS_ERROR_NONE)
 		err = syscall_set_handle(t, result, handle);
@@ -460,9 +481,15 @@ sys_handlectl_file(thread_t* t, handle_t handle, unsigned int op, void* arg, siz
 					offset = file->f_inode->i_sb.st_size - offset;
 					break;
 			}
-			if (offset < 0 || offset >= file->f_inode->i_sb.st_size) {
+			if (offset < 0) {
 				err = ANANAS_ERROR(BAD_RANGE);
 				goto fail;
+			}
+			if (offset >= file->f_inode->i_sb.st_size) {
+				/* File needs to be grown to accommodate for this offset */
+				err = vfs_grow(file, offset);
+				if (err != ANANAS_ERROR_OK)
+					goto fail;
 			}
 			err = syscall_set_offset(t, se->se_offs, offset);
 			if (err != ANANAS_ERROR_OK)

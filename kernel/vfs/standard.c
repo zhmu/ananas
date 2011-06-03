@@ -334,4 +334,29 @@ vfs_create(struct VFS_INODE* dirinode, struct VFS_FILE* file, const char* dentry
 	return err;
 }
 
+/*
+ * Grows a file to a given size.
+ */
+errorcode_t
+vfs_grow(struct VFS_FILE* file, off_t size)
+{
+	KASSERT(file->f_inode->i_sb.st_size < size, "no need to grow");
+
+	/* Allocate a dummy buffer with the file data */
+	char buffer[128];
+	memset(buffer, 0, sizeof(buffer));
+
+	/* Keep appending \0 until the file is done */
+	off_t cur_offset = file->f_offset;
+	file->f_offset = file->f_inode->i_sb.st_size;
+	while (file->f_inode->i_sb.st_size < size) {
+		size_t chunklen = (size - file->f_inode->i_sb.st_size) > sizeof(buffer) ? sizeof(buffer) : size - file->f_inode->i_sb.st_size;
+		size_t len = chunklen;
+		errorcode_t err = vfs_write(file, buffer, &len);
+		ANANAS_ERROR_RETURN(err);	
+	}
+	file->f_offset = cur_offset;
+	return ANANAS_ERROR_OK;
+}
+
 /* vim:set ts=2 sw=2: */
