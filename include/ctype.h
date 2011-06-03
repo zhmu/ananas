@@ -95,4 +95,8 @@ int tolower( int c );
 */
 int toupper( int c );
 
+/* Tests for a 7-bit US-ASCII charachter
+*/
+int isascii( int c );
+
 #endif
