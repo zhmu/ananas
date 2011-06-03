@@ -36,9 +36,13 @@ struct OPEN_OPTIONS {
 	const char*	op_path;		/* path to open */
 	unsigned int	op_mode;		/* open mode */
 #define OPEN_MODE_NONE		0x0000
-#define OPEN_MODE_READ		0x0001
-#define OPEN_MODE_WRITE		0x0002
-#define OPEN_MODE_DIRECTORY	0x0004
+#define OPEN_MODE_READ		0x0001		/* Read only */
+#define OPEN_MODE_WRITE		0x0002		/* Write only */
+#define OPEN_MODE_DIRECTORY	0x0004		/* Open as a directory */
+#define OPEN_MODE_CREATE	0x0008		/* Create if file not exists */
+#define OPEN_MODE_EXCLUSIVE	0x0010		/* Call must create the file */
+#define OPEN_MODE_TRUNCATE	0x0020		/* Truncate existing file */
+	unsigned int	op_createmode;
 };
 
 /* Handle options - files */
