@@ -23,4 +23,4 @@
 #define KERNEL_STACK_SIZE	0x1000
 
 /* Thread stack size */
-#define THREAD_STACK_SIZE	0x2000
+#define THREAD_STACK_SIZE	0x4000
