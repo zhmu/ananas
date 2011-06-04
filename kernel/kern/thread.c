@@ -88,7 +88,7 @@ thread_init(thread_t* t, thread_t* parent)
 	((struct HANDLE*)t->threadinfo->ti_handle_stdout)->data.vfs_file.f_device = console_tty;
 	((struct HANDLE*)t->threadinfo->ti_handle_stderr)->data.vfs_file.f_device = console_tty;
 	struct THREAD_MAPPING* tm;
-	err = thread_map(t, KVTOP((addr_t)t->threadinfo), sizeof(struct THREADINFO), VM_FLAG_READ | VM_FLAG_WRITE, &tm);
+	err = thread_map(t, KVTOP((addr_t)t->threadinfo), sizeof(struct THREADINFO), THREAD_MAP_READ | THREAD_MAP_WRITE | THREAD_MAP_PRIVATE, &tm);
 	if (err != ANANAS_ERROR_NONE)
 		goto fail;
 	md_thread_set_argument(t, tm->tm_virt);
@@ -418,11 +418,14 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 	ANANAS_ERROR_RETURN(err);
 
 	/*
-	 * OK; we have a fresh thread. Copy all memory mappings over
-	 * XXX we could just re-add the mapping; but this needs refcounting etc... and only works for
-	 * readonly things XXX
+	 * OK; we have a fresh thread. Copy all memory mappings over (except private
+	 * mappings)
+	 * XXX we could just re-add the mapping; but this needs refcounting etc...
+	 * and only works for readonly things XXX
 	 */
 	DQUEUE_FOREACH(&parent->mappings, tm, struct THREAD_MAPPING) {
+		if (tm->tm_flags & THREAD_MAP_PRIVATE)
+			continue;
 		struct THREAD_MAPPING* ttm;
 		err = thread_mapto(t, tm->tm_virt, (addr_t)NULL, tm->tm_len, THREAD_MAP_ALLOC | (tm->tm_flags), &ttm);
 		if (err != ANANAS_ERROR_NONE) {
