@@ -13,10 +13,12 @@ putenv(char* string)
 	 * append the string to there so we can immediately check whether it fits.
 	 */
 	int i = 0;
-	while(libc_threadinfo->ti_env[i] != '\0' &&
-	      libc_threadinfo->ti_env[i + 1] != '\0' &&
-	      i < THREADINFO_ENV_LENGTH - 2)
+	while(i < THREADINFO_ENV_LENGTH - 2) {
+		if (libc_threadinfo->ti_env[i    ] == '\0' &&
+		    libc_threadinfo->ti_env[i + 1] == '\0')
+			break;
 		i++;
+	}
 	if (i + strlen(string) >= THREADINFO_ENV_LENGTH) {
 		/* No space left */
 		errno = ENOMEM;
