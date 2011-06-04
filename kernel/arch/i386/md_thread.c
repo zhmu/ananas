@@ -91,6 +91,7 @@ md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
 	 */
 	*(uint32_t*)t->md_ctx.esp0 = (uint32_t)arg;
 	t->md_ctx.esp0 -= 4;
+	return ANANAS_ERROR_OK;
 }
 
 void
