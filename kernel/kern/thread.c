@@ -259,6 +259,17 @@ thread_make_vmflags(unsigned int flags)
 errorcode_t
 thread_mapto(thread_t* t, addr_t virt, addr_t phys, size_t len, uint32_t flags, struct THREAD_MAPPING** out)
 {
+	/* Check whether a mapping already exists; if so, we must refuse */
+	if (!DQUEUE_EMPTY(&t->mappings)) {
+		DQUEUE_FOREACH(&t->mappings, tm, struct THREAD_MAPPING) {
+			if ((virt >= tm->tm_virt && (virt + len) <= (tm->tm_virt + tm->tm_len)) ||
+			    (tm->tm_virt >= virt && (tm->tm_virt + tm->tm_len) <= (virt + len))) {
+				/* We have overlap - must reject the mapping */
+				return ANANAS_ERROR(BAD_ADDRESS);
+			}
+		}
+	}
+
 	struct THREAD_MAPPING* tm = kmalloc(sizeof(*tm));
 	memset(tm, 0, sizeof(*tm));
 
