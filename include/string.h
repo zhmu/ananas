@@ -168,6 +168,10 @@ char * strstr( const char * s1, const char * s2 );
 */
 char * strtok( char * _PDCLIB_restrict s1, const char * _PDCLIB_restrict s2 );
 
+/* Reentrant version of strtok; uses lasts to store context
+*/
+char * strtok_r( char * _PDCLIB_restrict s1, const char * _PDCLIB_restrict s2, char ** _PDCLIB_restrict lasts );
+
 /* Miscellaneous functions */
 
 /* Write the character c (interpreted as unsigned char) to the first n
