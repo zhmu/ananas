@@ -6,10 +6,8 @@
 static struct HANDLEMAP_ENTRY handle_map[HANDLEMAP_SIZE];
 
 void
-handlemap_init(struct THREADINFO* ti)
+handlemap_reinit(struct THREADINFO* ti)
 {
-	memset(handle_map, 0, HANDLEMAP_SIZE * sizeof(struct HANDLEMAP_ENTRY));
-
 	/* Hook up POSIX standard file handles */
 	handle_map[STDIN_FILENO ].hm_type   = HANDLEMAP_TYPE_FD;
 	handle_map[STDIN_FILENO ].hm_handle = ti->ti_handle_stdin;
@@ -17,6 +15,13 @@ handlemap_init(struct THREADINFO* ti)
 	handle_map[STDOUT_FILENO].hm_handle = ti->ti_handle_stdout;
 	handle_map[STDERR_FILENO].hm_type   = HANDLEMAP_TYPE_FD;
 	handle_map[STDERR_FILENO].hm_handle = ti->ti_handle_stderr;
+}
+
+void
+handlemap_init(struct THREADINFO* ti)
+{
+	memset(handle_map, 0, HANDLEMAP_SIZE * sizeof(struct HANDLEMAP_ENTRY));
+	handlemap_reinit(ti);
 }
 
 int
@@ -50,6 +55,8 @@ handlemap_deref(int idx, int type)
 	if (idx < 0 || idx >= HANDLEMAP_SIZE)
 		return NULL;
 	if (type != HANDLEMAP_TYPE_ANY && handle_map[idx].hm_type != type)
+		return NULL;
+	if (handle_map[idx].hm_type == HANDLEMAP_TYPE_UNUSED)
 		return NULL;
 	return handle_map[idx].hm_handle;
 }

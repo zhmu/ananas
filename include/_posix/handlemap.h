@@ -15,6 +15,7 @@ struct HANDLEMAP_ENTRY {
 struct THREADINFO;
 
 void handlemap_init(struct THREADINFO* ti);
+void handlemap_reinit(struct THREADINFO* ti);
 int handlemap_alloc_entry(int type, void* handle);
 void handlemap_free_entry(int idx);
 void* handlemap_deref(int idx, int type);
