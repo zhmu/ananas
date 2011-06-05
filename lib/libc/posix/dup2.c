@@ -36,7 +36,7 @@ dup2(int fildes, int fildes2)
 	}
 
 	handlemap_set_handle(fildes2, newhandle);
-	return 0;
+	return fildes2;
 }
 
 /* vim:set ts=2 sw=2: */
