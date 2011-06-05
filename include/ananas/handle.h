@@ -58,6 +58,7 @@ errorcode_t handle_alloc(int type, struct THREAD* t, struct HANDLE** out);
 errorcode_t handle_destroy(struct HANDLE* handle, int free_resources);
 errorcode_t handle_isvalid(struct HANDLE* handle, struct THREAD* t, int type);
 errorcode_t handle_clone(struct THREAD* t, struct HANDLE* in, struct HANDLE** out);
+errorcode_t handle_set_owner(struct HANDLE* handle, struct HANDLE* owner);
 
 errorcode_t handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event, handle_event_result_t* h);
 void handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t result);

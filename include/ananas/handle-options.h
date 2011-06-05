@@ -2,7 +2,7 @@
 #define __SYS_HANDLE_OPTIONS_H__
 
 struct CLONE_OPTIONS {
-	size_t	cl_size;
+	size_t		cl_size;
 };
 
 struct SUMMON_OPTIONS {
@@ -45,8 +45,13 @@ struct OPEN_OPTIONS {
 	unsigned int	op_createmode;
 };
 
+/* Handle options - generic */
+#define _HCTL_GENERIC_FIRST	1
+#define HCTL_GENERIC_SETOWNER	(_HCTL_GENERIC_FIRST+0)	/* Change handle ownership */
+#define _HCTL_GENERIC_LAST	99
+
 /* Handle options - files */
-#define _HCTL_FILE_FIRST	1
+#define _HCTL_FILE_FIRST	100
 #define HCTL_FILE_SETCWD	(_HCTL_FILE_FIRST+0)	/* Activate handle as current working directory */
 #define HCTL_FILE_SEEK		(_HCTL_FILE_FIRST+1)	/* Seek to a position in the handle */
 struct HCTL_SEEK_ARG {
@@ -61,15 +66,21 @@ struct HCTL_STAT_ARG {
 	size_t		st_stat_len;
 	struct stat*	st_stat;
 };
-#define _HCTL_FILE_LAST		99
+#define _HCTL_FILE_LAST		199
 
 /* Handle options - memory */
-#define _HCTL_MEMORY_FIRST	100
+#define _HCTL_MEMORY_FIRST	200
 #define HCTL_MEMORY_GET_INFO	(_HCTL_MEMORY_FIRST+0)	/* Retrieve information on memory handle */
 struct HCTL_MEMORY_GET_INFO_ARG {
 	void*		in_base;
 	size_t		in_length;
 };
-#define _HCTL_MEMORY_LAST	199
+#define _HCTL_MEMORY_LAST	299
+
+/* Handle options - thread */
+#define _HCTL_THREAD_FIRST	300
+#define HCTL_THREAD_SUSPEND	(_HCTL_THREAD_FIRST+0)	/* Suspend a given thread */
+#define HCTL_THREAD_RESUME	(_HCTL_THREAD_FIRST+1)	/* Resume a given thread */
+#define _HCTL_THREAD_LAST 	399
 
 #endif /* __SYS_HANDLE_OPTIONS_H__ */

@@ -277,6 +277,29 @@ handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t
 	TRACE(HANDLE, INFO, "done");
 }
 
+errorcode_t
+handle_set_owner(struct HANDLE* handle, struct HANDLE* owner)
+{
+	/* Fetch the thread */
+	errorcode_t err = handle_isvalid(owner, NULL, HANDLE_TYPE_THREAD);
+	ANANAS_ERROR_RETURN(err);
+	thread_t* new_thread = owner->data.thread;
+
+	/* XXX We should check the relationship between the current and new thread */
+
+	/* Remove the thread from the old thread's handles */
+	thread_t* old_thread = handle->thread;
+	spinlock_lock(&old_thread->spl_thread);
+	DQUEUE_REMOVE(&old_thread->handles, handle);
+	spinlock_unlock(&old_thread->spl_thread);
+
+	/* And hook it up the new thread's handles */
+	spinlock_lock(&new_thread->spl_thread);
+	DQUEUE_ADD_TAIL(&new_thread->handles, handle);
+	spinlock_unlock(&new_thread->spl_thread);
+	return ANANAS_ERROR_OK;
+}
+
 #ifdef KDB
 void
 kdb_cmd_handle(int num_args, char** arg)

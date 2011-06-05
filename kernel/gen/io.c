@@ -410,6 +410,35 @@ sys_unlink(thread_t* t, handle_t handle)
 }
 
 static errorcode_t
+sys_handlectl_generic(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
+{
+	errorcode_t err;
+
+	switch(op) {
+		case HCTL_GENERIC_SETOWNER: {
+			void* owner = arg;
+			if (len != sizeof(void*)) {
+				err = ANANAS_ERROR(BAD_LENGTH);
+				goto fail;
+			}
+			err = handle_set_owner(handle, owner);
+			if (err == ANANAS_ERROR_OK) {
+				TRACE(SYSCALL, INFO, "t=%p, handle=%p, new owner=%p, success", t, handle, owner);
+			} else {
+				TRACE(SYSCALL, ERROR, "t=%p, handle=%p, new owner=%p, failure, code %u", t, handle, owner, err);
+			}
+			break;
+		}
+		default:
+			/* What's this? */
+			err = ANANAS_ERROR(BAD_SYSCALL);
+			break;
+	}
+fail:
+	return err;
+}
+
+static errorcode_t
 sys_handlectl_file(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
 {
 	errorcode_t err;
@@ -583,6 +612,36 @@ sys_handlectl_memory(thread_t* t, handle_t handle, unsigned int op, void* arg, s
 	return ANANAS_ERROR(BAD_SYSCALL);
 }
 
+static errorcode_t
+sys_handlectl_thread(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
+{
+	/* Ensure we are dealing with a thread handle here */
+	struct HANDLE* h = handle;
+	if (h->type != HANDLE_TYPE_THREAD)
+		return ANANAS_ERROR(BAD_HANDLE);
+	thread_t* handle_thread = h->data.thread;
+
+	/* XXX Determine if we can manipulate the handle */
+
+	switch(op) {
+		case HCTL_THREAD_SUSPEND: {
+			if ((handle_thread->flags & THREAD_FLAG_SUSPENDED) != 0)
+				return ANANAS_ERROR(BAD_OPERATION);
+			thread_suspend(handle_thread);
+			return ANANAS_ERROR_OK;
+		}
+		case HCTL_THREAD_RESUME: {
+			if ((handle_thread->flags & THREAD_FLAG_SUSPENDED) == 0)
+				return ANANAS_ERROR(BAD_OPERATION);
+			thread_resume(handle_thread);
+			return ANANAS_ERROR_OK;
+		}
+	}
+
+	/* What's this? */
+	return ANANAS_ERROR(BAD_SYSCALL);
+}
+
 errorcode_t
 sys_handlectl(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
 {
@@ -605,10 +664,14 @@ sys_handlectl(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t l
 			goto fail;
 	}
 
-	if (op >= _HCTL_FILE_FIRST && op <= _HCTL_FILE_LAST)
+	if (op >= _HCTL_GENERIC_FIRST && op <= _HCTL_GENERIC_LAST)
+		err = sys_handlectl_generic(t, handle, op, handlectl_arg, len);
+	else if (op >= _HCTL_FILE_FIRST && op <= _HCTL_FILE_LAST)
 		err = sys_handlectl_file(t, handle, op, handlectl_arg, len);
 	else if (op >= _HCTL_MEMORY_FIRST && op <= _HCTL_MEMORY_LAST)
 		err = sys_handlectl_memory(t, handle, op, handlectl_arg, len);
+	else if (op >= _HCTL_THREAD_FIRST && op <= _HCTL_THREAD_LAST)
+		err = sys_handlectl_thread(t, handle, op, handlectl_arg, len);
 	else
 		err = ANANAS_ERROR(BAD_SYSCALL);
 
