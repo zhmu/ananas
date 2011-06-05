@@ -18,6 +18,18 @@ int execve(const char *path, char *const argv[], char *const envp[])
 		args_len += strlen(argv[i]) + 1;
 	}
 
+	/*
+	 * Construct the environment length; note that envp may be NULL (not by POSIX,
+	 * but we allow it anyway to simplify implementation of exev() and friends)
+	 */
+	int env_len = 0;
+	if (envp != NULL) {
+		env_len = 1; /* terminating \0 */
+		for (int i = 0; envp[i] != NULL; i++) {
+			env_len += strlen(envp[i]) + 1;
+		}
+	}
+
 	/* Construct the argument list */
 	char* args = malloc(args_len);
 	if (args == NULL) {
@@ -30,6 +42,23 @@ int execve(const char *path, char *const argv[], char *const envp[])
 		pos += strlen(argv[i]) + 1;
 	}
 	args[pos] = '\0';
+
+	/* Construct the evironment */
+	char* env = NULL;
+	if (env_len > 0) {
+		env = malloc(env_len);
+		if (env == NULL) {
+			free(args);
+			errno = ENOMEM;
+			return -1;
+		}
+		pos = 0;
+		for (int i = 0; envp[i] != NULL; i++) {
+			strcpy(&env[pos], envp[i]);
+			pos += strlen(envp[i]) + 1;
+		}
+		env[pos] = '\0';
+	}
 
 	/* Now, open the executable */
 	void* handle;
@@ -52,8 +81,12 @@ int execve(const char *path, char *const argv[], char *const envp[])
 	summonopts.su_flags = SUMMON_FLAG_RUNNING;
 	summonopts.su_args_len = args_len;
 	summonopts.su_args = args;
-	/* XXX env */
+	if (env != NULL) {
+		summonopts.su_env_len = env_len;
+		summonopts.su_env = env;
+	}
 	err = sys_summon(handle, &summonopts, &child);
+	if (env != NULL) free(env);
 	free(args);
 	sys_destroy(handle);
 	if (err == ANANAS_ERROR_NONE) {
