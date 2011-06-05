@@ -35,7 +35,8 @@ dup2(int fildes, int fildes2)
 		return -1;
 	}
 
-	handlemap_set_handle(fildes2, newhandle);
+	/* We've eliminated the previous descriptor, so we'll need to make a new one */
+	handlemap_set_entry(fildes2, HANDLEMAP_TYPE_FD, newhandle);
 	return fildes2;
 }
 

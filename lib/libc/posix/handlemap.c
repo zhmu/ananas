@@ -9,12 +9,9 @@ void
 handlemap_reinit(struct THREADINFO* ti)
 {
 	/* Hook up POSIX standard file handles */
-	handle_map[STDIN_FILENO ].hm_type   = HANDLEMAP_TYPE_FD;
-	handle_map[STDIN_FILENO ].hm_handle = ti->ti_handle_stdin;
-	handle_map[STDOUT_FILENO].hm_type   = HANDLEMAP_TYPE_FD;
-	handle_map[STDOUT_FILENO].hm_handle = ti->ti_handle_stdout;
-	handle_map[STDERR_FILENO].hm_type   = HANDLEMAP_TYPE_FD;
-	handle_map[STDERR_FILENO].hm_handle = ti->ti_handle_stderr;
+	handlemap_set_entry(STDIN_FILENO,  HANDLEMAP_TYPE_FD, ti->ti_handle_stdin);
+	handlemap_set_entry(STDOUT_FILENO, HANDLEMAP_TYPE_FD, ti->ti_handle_stdout);
+	handlemap_set_entry(STDERR_FILENO, HANDLEMAP_TYPE_FD, ti->ti_handle_stderr);
 }
 
 void
@@ -30,8 +27,7 @@ handlemap_alloc_entry(int type, void* handle)
 	for (unsigned int idx = 0; idx < HANDLEMAP_SIZE; idx++) {
 		if (handle_map[idx].hm_type != HANDLEMAP_TYPE_UNUSED)
 			continue;
-		handle_map[idx].hm_type = type;
-		handle_map[idx].hm_handle = handle;
+		handlemap_set_entry(idx, type, handle);
 		return idx;
 	}
 	return -1;
@@ -40,6 +36,13 @@ handlemap_alloc_entry(int type, void* handle)
 void
 handlemap_set_handle(int idx, void* handle)
 {
+	handle_map[idx].hm_handle = handle;
+}
+
+void
+handlemap_set_entry(int idx, int type, void* handle)
+{
+	handle_map[idx].hm_type = type;
 	handle_map[idx].hm_handle = handle;
 }
 

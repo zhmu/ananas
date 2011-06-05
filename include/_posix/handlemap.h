@@ -20,5 +20,6 @@ int handlemap_alloc_entry(int type, void* handle);
 void handlemap_free_entry(int idx);
 void* handlemap_deref(int idx, int type);
 void handlemap_set_handle(int idx, void* handle);
+void handlemap_set_entry(int idx, int type, void* handle);
 
 #endif /* __POSIX_HANDLEMAP_H__ */
