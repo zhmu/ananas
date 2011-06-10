@@ -23,6 +23,8 @@ static command_t cmd_autoboot;
 static command_t cmd_ramdisk;
 static command_t cmd_cache;
 static command_t cmd_lsdev;
+static command_t cmd_modes;
+static command_t cmd_setmode;
 
 static struct BOOTINFO bootinfo = { 0 };
 struct LOADER_ELF_INFO elf_info = { 0 };
@@ -45,6 +47,10 @@ struct COMMAND {
 	{ "reboot",   &cmd_reboot,   "Reboot" },
 	{ "autoboot", &cmd_autoboot, "Find a kernel and launch it" },
 	{ "cache",    &cmd_cache,    "Display I/O cache stats" },
+#ifdef VBE
+	{ "modes",    &cmd_modes,    "Display available screen modes" },
+	{ "setmode",  &cmd_setmode,  "Set screen resolution after boot" },
+#endif
 	{ NULL,       NULL,          NULL }
 };
 

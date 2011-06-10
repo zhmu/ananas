@@ -12,6 +12,7 @@
 #include <loader/elf.h>
 #include <loader/lib.h>
 #include <loader/platform.h>
+#include <loader/vbe.h>
 #include <loader/x86.h>
 #include "param.h"
 
@@ -375,6 +376,14 @@ platform_exec(struct LOADER_ELF_INFO* loadinfo, struct BOOTINFO* bootinfo)
 	/* Complete the MD-parts of the bootinfo structure */
 	bootinfo->bi_memory_map_addr = (addr_t)x86_smap;
 	bootinfo->bi_memory_map_size = x86_smap_entries * sizeof(struct SMAP_ENTRY);
+
+#ifdef VBE
+	/* Set the desired VBE video mode */
+	if (!vbe_setmode(bootinfo)) {
+		printf("cannot set VBE mode - execution aborted\n");
+		return;
+	}
+#endif
 
 	/* And launch the kernel */
 	switch(loadinfo->elf_bits) {

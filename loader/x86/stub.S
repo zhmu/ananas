@@ -168,6 +168,10 @@ code32:
 not_lm_capable:
 #endif /* X86_64 */
 
+#ifdef VBE
+	call	vbe_init
+#endif
+
 	/* Call our main function - this shouldn't return */
 	call	main
 
