@@ -85,3 +85,44 @@ memcmp(const void* s1, const void* s2, size_t len)
 	}
 	return len > 0 ? *c1 - *c2 : 0;
 }
+
+long int
+strtol(const char *nptr, char **endptr, int base)
+{
+	if (base < 2 || base > 16)
+		return -1;
+
+	/* If no base given, make a guess */
+	if (base == 0) {
+		if (nptr[0] == '0' && ((nptr[1] == 'x') || (nptr[1] == 'X'))) {
+			base = 16; nptr += 2;
+		} else
+			base = 10;
+	}
+
+	long int result = 0;
+	while(*nptr != '\0') {
+		int digit;
+		if (*nptr >= '0' && *nptr <= '9')
+			digit = *nptr - '0';
+		else if (*nptr >= 'a' && *nptr <= 'f')
+			digit = *nptr - 'a';
+		else if (*nptr >= 'A' && *nptr <= 'F')
+			digit = *nptr - 'A';
+		else
+			break; /* what's this? */
+
+		if (digit >= base)
+			break; /* digit not in range */
+
+		result *= base;
+		result += digit;
+		nptr++;
+	}
+
+	if (endptr != NULL)
+		*endptr = (char*)nptr;
+	return result;
+}
+
+/* vim:set ts=2 sw=2: */
