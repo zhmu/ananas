@@ -24,6 +24,11 @@ struct BOOTINFO {
 	/* MD memory map and size */
 	bi_addr_t	bi_memory_map_addr;
 	bi_size_t	bi_memory_map_size;
+	/* Video mode */
+	uint32_t	bi_video_xres;
+	uint32_t	bi_video_yres;
+	uint32_t	bi_video_bpp;
+	bi_addr_t	bi_video_framebuffer;
 };
 #endif
 
