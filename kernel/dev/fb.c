@@ -454,8 +454,6 @@ fb_devctl(device_t dev, thread_t* t, unsigned int op, void* arg, size_t len)
 			ANANAS_ERROR_RETURN(err);
 			claim->fb_framebuffer = (void*)tm->tm_virt;
 			claim->fb_size = fb_len;
-			kprintf("mapped: virt %p <- phys %p\n", tm->tm_virt, tm->tm_phys);
-			
 			return ANANAS_ERROR_OK;
 		}
 		case HCTL_FB_RELEASE: {	
