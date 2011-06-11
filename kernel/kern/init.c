@@ -17,6 +17,7 @@
 #define SHELL_BIN "/bin/sh"
 #define ROOT_DEVICE "slice0"
 #define ROOT_FS_TYPE "fatfs"
+#define DEVFS_MOUNTPOINT "/dev"
 
 void smp_init();
 void smp_launch();
@@ -81,6 +82,16 @@ mi_startup()
 	} else {
 		kprintf(" failed, error %i\n", err);
 	}
+
+#ifdef DEVFS
+	kprintf("- Mounting devfs on %s...", DEVFS_MOUNTPOINT);
+	err = vfs_mount(NULL, DEVFS_MOUNTPOINT, "devfs", NULL);
+	if (err == ANANAS_ERROR_NONE) {
+		kprintf(" ok\n");
+	} else {
+		kprintf(" failed, error %i\n", err);
+	}
+#endif
 
 #if 0
 	kmem_stats(&mem_avail, &mem_total);
