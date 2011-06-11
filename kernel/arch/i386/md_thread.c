@@ -155,7 +155,9 @@ md_thread_map(thread_t* thread, void* to, void* from, size_t length, int flags)
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)
 		num_pages++;
-	md_map_pages(thread->md_pagedir, (addr_t)to, KVTOP((addr_t)from), num_pages, VM_FLAG_USER | flags);
+	if ((flags & VM_FLAG_DEVICE) == 0)
+		from = (void*)KVTOP((addr_t)from);
+	md_map_pages(thread->md_pagedir, (addr_t)to, (addr_t)from, num_pages, VM_FLAG_USER | flags);
 	return to;
 }
 
