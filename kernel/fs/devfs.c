@@ -110,13 +110,38 @@ devfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 static errorcode_t
 devfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
 {
-	kprintf("devfs_write: todo\n");
-	return ANANAS_ERROR(IO);
+	struct DEVFS_INODE_PRIVDATA* privdata = file->f_inode->i_privdata;
+	errorcode_t err = ANANAS_ERROR_OK;
+
+	if (privdata->device->driver->drv_write != NULL) {
+		size_t length = *len;
+		err = device_write(privdata->device, buf, &length, file->f_offset);
+		if (err == ANANAS_ERROR_NONE) {
+			/* Write went OK; update the file pointer */
+			file->f_offset += length;
+			*len = length;
+		}
+	} else if (privdata->device->driver->drv_bwrite != NULL) {
+		/* TODO */
+		kprintf("devfs_write(): TODO: implement bwrite\n");
+		err = ANANAS_ERROR(BAD_OPERATION);
+	} else {
+		err = ANANAS_ERROR(BAD_OPERATION);
+	}
+	return err;
+}
+
+static void
+devfs_fill_file(struct VFS_INODE* inode, struct VFS_FILE* file)
+{
+	struct DEVFS_INODE_PRIVDATA* privdata = file->f_inode->i_privdata;
+	file->f_device = privdata->device;
 }
 
 static struct VFS_INODE_OPS devfs_file_ops = {
 	.read = devfs_read,
 	.write = devfs_write,
+	.fill_file = devfs_fill_file
 };
 
 static errorcode_t
