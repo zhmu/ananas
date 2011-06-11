@@ -172,6 +172,11 @@ struct VFS_INODE_OPS {
 	 * dentry_set_inode() to fill out the entry's inode.
 	 */
 	errorcode_t (*create)(struct VFS_INODE* dir, struct DENTRY_CACHE_ITEM* de, int mode);
+
+	/*
+	 * Fills out the file structure.
+	 */
+	void (*fill_file)(struct VFS_INODE* inode, struct VFS_FILE* file);
 };
 
 #endif /* __ANANAS_VFS_TYPES_H__ */

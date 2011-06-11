@@ -19,6 +19,8 @@ vfs_make_file(struct VFS_FILE* file, struct VFS_INODE* inode)
 	memset(file, 0, sizeof(struct VFS_FILE));
 	file->f_inode = inode;
 	file->f_offset = 0;
+	if (inode->i_iops->fill_file != NULL)
+		inode->i_iops->fill_file(inode, file);
 }
 
 errorcode_t
