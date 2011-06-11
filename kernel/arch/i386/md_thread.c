@@ -79,7 +79,7 @@ md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
 	 * stack. We do not differentiate between kernel and userland stacks as
 	 * no kernelthread ever runs userland code.
 	 */
-	t->md_kstack_ptr = kmalloc(KERNEL_STACK_SIZE / PAGE_SIZE);
+	t->md_kstack_ptr = kmalloc(KERNEL_STACK_SIZE);
 	t->md_ctx.esp0 = (addr_t)t->md_kstack_ptr + KERNEL_STACK_SIZE - 4;
 	t->md_ctx.esp = t->md_ctx.esp0;
 
