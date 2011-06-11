@@ -481,7 +481,6 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 	md_thread_clone(t, parent, ANANAS_ERROR(CLONED));
 
 	/* Thread is ready to rock */
-	thread_resume(t);
 	*dest = t;
 	return ANANAS_ERROR_OK;
 }
