@@ -22,6 +22,7 @@
 
 static void device_print_attachment(device_t dev);
 
+static spinlock_t spl_devicequeue = SPINLOCK_DEFAULT_INIT;
 static struct DEVICE_QUEUE device_queue;
 
 /* Note: drv = NULL will be used if the driver isn't yet known! */
@@ -39,8 +40,6 @@ device_alloc(device_t bus, driver_t drv)
 		dev->unit = drv->current_unit++;
 	}
 
-	/* Hook the device up to the chain */
-	DQUEUE_ADD_TAIL(&device_queue, dev);
 	return dev;
 }
 
@@ -64,9 +63,25 @@ device_free(device_t dev)
 {
 	/* XXX clear waiters; should we signal them? */
 
-	/* XXX there should be some lock */
+	spinlock_lock(&spl_devicequeue);
 	DQUEUE_REMOVE(&device_queue, dev);
+	spinlock_unlock(&spl_devicequeue);
 	kfree(dev);
+}
+
+static void
+device_add_to_tree(device_t dev)
+{
+	spinlock_lock(&spl_devicequeue);
+	if (!DQUEUE_EMPTY(&device_queue)) {
+		DQUEUE_FOREACH(&device_queue, dq_dev, struct DEVICE) {
+			if (dq_dev == dev)
+				goto skip;
+		}
+	}
+	DQUEUE_ADD_TAIL(&device_queue, dev);
+skip:
+	spinlock_unlock(&spl_devicequeue);
 }
 
 errorcode_t
@@ -83,6 +98,7 @@ device_attach_single(device_t dev)
 		errorcode_t err = driver->drv_probe(dev);
 		ANANAS_ERROR_RETURN(err);
 	}
+
 	/*
 	 * XXX This is a kludge: it prevents us from displaying attach information for drivers
 	 * that will be initialize outside the probe tree (such as the console which will be
@@ -94,6 +110,9 @@ device_attach_single(device_t dev)
 		errorcode_t err = driver->drv_attach(dev);
 		ANANAS_ERROR_RETURN(err);
 	}
+
+	/* Hook the device up to the tree */
+	device_add_to_tree(dev);
 
 	/* Attempt to attach child devices, if any */
 	if (driver->drv_attach_children != NULL)
@@ -299,6 +318,7 @@ device_attach_bus(device_t bus)
 			device_t input_dev = tty_get_inputdev(console_tty);
 			input_dev->parent = bus;
 			device_print_attachment(input_dev);
+			device_add_to_tree(input_dev);
 			continue;
 		}
 #endif
@@ -308,6 +328,7 @@ device_attach_bus(device_t bus)
 			device_t output_dev = tty_get_outputdev(console_tty);
 			output_dev->parent = bus;
 			device_print_attachment(output_dev);
+			device_add_to_tree(output_dev);
 			continue;
 		}
 #endif
