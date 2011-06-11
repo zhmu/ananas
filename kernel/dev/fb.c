@@ -1,5 +1,6 @@
 #include <machine/vm.h>
 #include <machine/param.h>
+#include <ananas/bootinfo.h>
 #include <ananas/console.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
@@ -40,7 +41,7 @@ struct FB_PRIVDATA {
 	struct FONT*  fb_font;
 };
 
-#define FB_BUFFER(x,y) (fb->fb_buffer[(y)*fb->fb_height+(x)])
+#define FB_BUFFER(x,y) (fb->fb_buffer[(y)*fb->fb_width+(x)])
 
 /* XXX this doesn't really belong here */
 static tf_bell_t		term_bell;
@@ -61,28 +62,51 @@ static teken_funcs_t tf = {
 	.tf_respond	= term_respond
 };
 
-#ifdef OFW
+#if defined(OFW) || defined(__i386__) || defined(__amd64__)
+static uint32_t make_rgb(int color)
+{
+	return !color ? 0x00ff00 : 0;
+}
+
 static void putpixel(struct FB_PRIVDATA* fb,unsigned int x, unsigned int y, int color)
 {
-	*(uint8_t*)(fb->fb_memory + fb->fb_bytes_per_line * y + x) = color;
+	uint8_t* ptr = (uint8_t*)(fb->fb_memory + fb->fb_bytes_per_line * y + x * (fb->fb_depth / 8));
+	if (fb->fb_depth == 8)
+		*ptr = color;
+	else if (fb->fb_depth == 16)
+		*(uint16_t*)ptr = color;
+	else if (fb->fb_depth == 32) {
+		uint32_t rgb = make_rgb(color);
+		*(uint32_t*)ptr = rgb;
+	} else if (fb->fb_depth == 24) {
+		uint32_t rgb = make_rgb(color);
+		*ptr++ = (rgb >> 16);
+		*ptr++ = (rgb >> 8) & 0xff;
+		*ptr++ = (rgb & 0xff);
+	}
 }
 #endif
 
 static void
 fb_putchar(struct FB_PRIVDATA* fb, unsigned int x, unsigned int y, const unsigned char ch)
 {
-#ifdef OFW
+#if defined(OFW) || defined(__i386__) || defined(__amd64__)
+	/* Draw the new char */
 	struct CHARACTER* c = &fb->fb_font->chars[ch];
-	y += fb->fb_font->height;
+	y += fb->fb_font->height - c->yshift;
 	for (int j = 0; j < c->height; j++) {
 		for (int i = 0; i <= c->width; i++) {
 			uint8_t d = c->data[j];
 			if (d & (1 << i))
-				putpixel(fb, x + i, y + j - c->yshift, 0);
+				putpixel(fb, x + i, y + j, 0);
 			else
-				putpixel(fb, x + i, y + j - c->yshift, 0xff);
+				putpixel(fb, x + i, y + j, 0xff);
 		}
 	}
+	/* Remove old pixels that aren't part of our new char */
+	for (int j = c->height; j < fb->fb_font_height; j++)
+		for (int i = c->width; i <= fb->fb_font_width; i++)
+			putpixel(fb, x + i, y + j, 0xff);
 #elif defined(WII)
 	/*
 	 * The Wii has a YUV2-encoded framebuffer; this means we'll have to write two
@@ -191,7 +215,6 @@ term_copy(void* s, const teken_rect_t* r, const teken_pos_t* p)
 	 * copying is a little tricky. we must make sure we do it in
 	 * correct order, to make sure we don't overwrite our own data.
 	 */
-
 	nrow = r->tr_end.tp_row - r->tr_begin.tp_row;
 	ncol = r->tr_end.tp_col - r->tr_begin.tp_col;
 
@@ -296,6 +319,14 @@ fb_probe(device_t dev)
 	}
 #elif defined(WII)
 	return wiivideo_init();
+#elif defined(__i386__) || defined(__amd64__)
+	if (bootinfo->bi_video_xres == 0 ||
+	    bootinfo->bi_video_yres == 0 ||
+	    bootinfo->bi_video_bpp == 0 ||
+	    bootinfo->bi_video_framebuffer == 0) {
+		/* Loader didn't supply a video device; bail */
+		return ANANAS_ERROR(NO_DEVICE);
+	}
 #endif
 	return ANANAS_ERROR_OK; 
 }
@@ -328,6 +359,12 @@ fb_attach(device_t dev)
 	wiivideo_get_size(&height, &width);
 	depth = 16;
 	bytes_per_line = width * 2;
+#elif defined(__i386__) || defined(__amd64__)
+	width = bootinfo->bi_video_xres;
+	height = bootinfo->bi_video_yres;
+	depth = bootinfo->bi_video_bpp;
+	bytes_per_line = width * (depth / 8);
+	void* phys = vm_map_kernel(bootinfo->bi_video_framebuffer, ((height * bytes_per_line) + PAGE_SIZE - 1) / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 #endif
 
 	struct FB_PRIVDATA* fb = (struct FB_PRIVDATA*)kmalloc(sizeof(struct FB_PRIVDATA));
@@ -337,7 +374,8 @@ fb_attach(device_t dev)
 	fb->fb_font = &font12; /* XXX */
 	fb->fb_bytes_per_line = bytes_per_line;
 	fb->fb_depth = depth;
-	fb->fb_height = height / fb->fb_font_height;
+	/* XXX Height is one less because of the way our glyphs are drawn (bottom up) */
+	fb->fb_height = (height / fb->fb_font_height) - 1;
 	fb->fb_width = width / fb->fb_font_width;
 	fb->fb_x = 0;
 	fb->fb_y = 0;
@@ -352,7 +390,8 @@ fb_attach(device_t dev)
 	teken_set_winsize(&fb->fb_teken, &tp);
 
 	kprintf("%s: console is %u x %u @ %u bpp\n",
-	 dev->name, fb->fb_height, fb->fb_width, fb->fb_depth);
+	 dev->name, fb->fb_width, fb->fb_height, fb->fb_depth);
+   
 	return ANANAS_ERROR_OK;
 }
 
