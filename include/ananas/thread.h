@@ -101,6 +101,7 @@ void md_idle_thread();
 #define THREAD_MAP_LAZY		0x08	/* Lazy mapping: page in as needed */
 #define THREAD_MAP_ALLOC 	0x10	/* Allocate memory for mapping */
 #define THREAD_MAP_PRIVATE 	0x20	/* Private mapping, will not be cloned */
+#define THREAD_MAP_DEVICE	0x40	/* Device memory */
 void md_thread_set_entrypoint(thread_t* thread, addr_t entry);
 void md_thread_set_argument(thread_t* thread, addr_t arg);
 void* md_thread_map(thread_t* thread, void* to, void* from, size_t length, int flags);

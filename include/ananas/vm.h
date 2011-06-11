@@ -8,6 +8,7 @@
 #define VM_FLAG_EXECUTE	0x0004
 #define VM_FLAG_KERNEL	0x0008
 #define VM_FLAG_USER	0x0010
+#define VM_FLAG_DEVICE	0x0020
 
 /* Map a piece of memory */
 void* vm_map_kernel(addr_t phys, size_t num_pages, int flags);

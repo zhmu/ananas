@@ -247,6 +247,8 @@ thread_make_vmflags(unsigned int flags)
 		vm_flags |= VM_FLAG_WRITE;
 	if (flags & THREAD_MAP_EXECUTE)
 		vm_flags |= VM_FLAG_EXECUTE;
+	if (flags & THREAD_MAP_DEVICE)
+		vm_flags |= VM_FLAG_DEVICE;
 	return vm_flags;
 }
 
