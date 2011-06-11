@@ -4,7 +4,9 @@
 #include <ananas/console.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
+#include <ananas/fb.h>
 #include <ananas/lib.h>
+#include <ananas/thread.h>
 #include <ananas/mm.h>
 #include <ananas/vm.h>
 #include <ananas/wii/video.h>
@@ -27,13 +29,16 @@ struct pixel {
 };
 
 struct FB_PRIVDATA {
-	void*         fb_memory;
+	void*         fb_framebuffer;
+	addr_t        fb_memory;
 	int           fb_bytes_per_line;
 	int           fb_depth;
 	int           fb_height; /* note: in chars */
 	int           fb_width;  /* note: in chars */
 	int           fb_x;
 	int           fb_y;
+	int           fb_xres;
+	int           fb_yres;
 	teken_t       fb_teken;
 	struct pixel* fb_buffer;
 	int           fb_font_height;
@@ -82,7 +87,7 @@ static uint32_t make_rgb(int color)
 #if defined(OFW) || defined(__i386__) || defined(__amd64__)
 static void putpixel(struct FB_PRIVDATA* fb,unsigned int x, unsigned int y, int color)
 {
-	uint8_t* ptr = (uint8_t*)(fb->fb_memory + fb->fb_bytes_per_line * y + x * (fb->fb_depth / 8));
+	uint8_t* ptr = (uint8_t*)(fb->fb_framebuffer + fb->fb_bytes_per_line * y + x * (fb->fb_depth / 8));
 	if (fb->fb_depth == 8) {
 		*ptr = color;
 		return;
@@ -135,7 +140,7 @@ fb_putchar(struct FB_PRIVDATA* fb, unsigned int x, unsigned int y, struct pixel*
 	struct CHARACTER* c = &fb->fb_font->chars[px->c];
 	y += fb->fb_font->height - c->yshift;
 	for (int j = 0; j < c->height; j++) {
-		uint32_t* dst = (uint32_t*)(fb->fb_memory + (fb->fb_bytes_per_line * (y + j)) + (x * 2));
+		uint32_t* dst = (uint32_t*)(fb->fb_framebuffer + (fb->fb_bytes_per_line * (y + j)) + (x * 2));
 		for (int i = 0; i <= c->width / 2; i++) {
 			uint8_t v1 = c->data[j] & (1 << (i * 2));
 			uint8_t v2;
@@ -183,7 +188,7 @@ printchar(struct FB_PRIVDATA* fb, const teken_pos_t* p)
 	KASSERT(p->tp_col < fb->fb_width, "col not in range");
 	struct pixel* px = &FB_BUFFER(p->tp_col, p->tp_row);
 
-	if (fb->fb_memory == NULL)
+	if (fb->fb_framebuffer == NULL)
 		return;
 
 	fb_putchar(fb, p->tp_col * fb->fb_font_width, p->tp_row * fb->fb_font_height, px);
@@ -369,6 +374,7 @@ fb_attach(device_t dev)
 	ofw_getprop(node, "address", &physaddr, sizeof(physaddr));
 
 	/* Map the video buffer and clear it */
+	void* memory = (void*)physaddr;
 	void* phys = vm_map_kernel(physaddr, ((height * bytes_per_line) + PAGE_SIZE - 1) / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 	memset((void*)phys, 0xff, (height * bytes_per_line));
 #elif defined(WII)
@@ -381,11 +387,15 @@ fb_attach(device_t dev)
 	height = bootinfo->bi_video_yres;
 	depth = bootinfo->bi_video_bpp;
 	bytes_per_line = width * (depth / 8);
-	void* phys = vm_map_kernel(bootinfo->bi_video_framebuffer, ((height * bytes_per_line) + PAGE_SIZE - 1) / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
+	addr_t memory = bootinfo->bi_video_framebuffer;
+	void* phys = vm_map_kernel(memory, ((height * bytes_per_line) + PAGE_SIZE - 1) / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 #endif
 
 	struct FB_PRIVDATA* fb = (struct FB_PRIVDATA*)kmalloc(sizeof(struct FB_PRIVDATA));
-	fb->fb_memory = (void*)phys;
+	fb->fb_memory = memory;
+	fb->fb_framebuffer = (void*)phys;
+	fb->fb_xres = width;
+	fb->fb_yres = height;
 	fb->fb_font_height = 12; /* XXX */
 	fb->fb_font_width = 8; /* XXX */
 	fb->fb_font = &font12; /* XXX */
@@ -412,11 +422,56 @@ fb_attach(device_t dev)
 	return ANANAS_ERROR_OK;
 }
 
+static errorcode_t
+fb_devctl(device_t dev, thread_t* t, unsigned int op, void* arg, size_t len)
+{
+	struct FB_PRIVDATA* fb = (struct FB_PRIVDATA*)dev->privdata;
+	errorcode_t err;
+
+	switch(op) {
+		case HCTL_FB_GETINFO: {
+			struct HCTL_FB_INFO_ARG* fbinfo = arg;
+			if (len != sizeof(*fbinfo))
+				return ANANAS_ERROR(BAD_LENGTH);
+			if (fbinfo == NULL)
+				return ANANAS_ERROR(BAD_ADDRESS);
+			/* Looks sane; fill out the info */
+			fbinfo->fb_xres = fb->fb_xres;
+			fbinfo->fb_yres = fb->fb_yres;
+			fbinfo->fb_bpp = fb->fb_depth;
+			return ANANAS_ERROR_OK;
+		}
+		case HCTL_FB_CLAIM: {
+			struct HCTL_FB_CLAIM_ARG* claim = arg;
+			if (len != sizeof(*claim))
+				return ANANAS_ERROR(BAD_LENGTH);
+			if (claim == NULL)
+				return ANANAS_ERROR(BAD_ADDRESS);
+			/* Map the video memory for the thread's use */
+			struct THREAD_MAPPING* tm;
+			size_t fb_len = (fb->fb_xres * fb->fb_yres * (fb->fb_depth / 8));
+			err = thread_map(t, fb->fb_memory, fb_len, THREAD_MAP_READ | THREAD_MAP_WRITE | THREAD_MAP_DEVICE, &tm);
+			ANANAS_ERROR_RETURN(err);
+			claim->fb_framebuffer = (void*)tm->tm_virt;
+			claim->fb_size = fb_len;
+			kprintf("mapped: virt %p <- phys %p\n", tm->tm_virt, tm->tm_phys);
+			
+			return ANANAS_ERROR_OK;
+		}
+		case HCTL_FB_RELEASE: {	
+			/* TODO */
+			return ANANAS_ERROR_OK;
+		}
+	}
+	return ANANAS_ERROR(BAD_OPERATION);
+}
+
 struct DRIVER drv_fb = {
 	.name					= "fb",
 	.drv_probe		= fb_probe,
 	.drv_attach		= fb_attach,
-	.drv_write		= fb_write
+	.drv_write		= fb_write,
+	.drv_devctl		= fb_devctl
 };
 
 DRIVER_PROBE(fb)
