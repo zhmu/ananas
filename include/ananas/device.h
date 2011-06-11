@@ -58,6 +58,7 @@ struct DRIVER {
 	errorcode_t	(*drv_read)(device_t, void*, size_t*, off_t);
 	errorcode_t	(*drv_bread)(device_t, struct BIO*);
 	errorcode_t	(*drv_stat)(device_t, void*);
+	errorcode_t	(*drv_devctl)(device_t, thread_t*, unsigned int, void*, size_t);
 	/* for block devices: enqueue request */
 	void		(*drv_enqueue)(device_t, void*);
 	/* for block devices: start request queue */

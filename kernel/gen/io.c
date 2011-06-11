@@ -642,6 +642,39 @@ sys_handlectl_thread(thread_t* t, handle_t handle, unsigned int op, void* arg, s
 	return ANANAS_ERROR(BAD_SYSCALL);
 }
 
+static errorcode_t
+sys_handlectl_device(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
+{
+	errorcode_t err;
+
+	/* Grab the file handle - we'll always need it as we're doing devices */
+	struct VFS_FILE* file;
+	err = syscall_get_file(t, handle, &file);
+	if (err != ANANAS_ERROR_OK)
+		goto fail;
+
+	/* See if it's device-backed; it must be for this handlectl to work */
+	if (file->f_device == NULL) {
+		err = ANANAS_ERROR(NO_DEVICE);
+		goto fail;
+	}
+
+	/* Device driver must implement the devctl call as we're about to call it */
+	if (file->f_device->driver->drv_devctl == NULL) {
+		err = ANANAS_ERROR(BAD_OPERATION);
+		goto fail;
+	}
+
+	/*
+	 * Note that arg/len are already filled out at this point, so we can just
+	 * call the devctl
+	 */
+	err = file->f_device->driver->drv_devctl(file->f_device, t, op, arg, len);
+
+fail:
+	return err;
+}
+
 errorcode_t
 sys_handlectl(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
 {
@@ -672,6 +705,8 @@ sys_handlectl(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t l
 		err = sys_handlectl_memory(t, handle, op, handlectl_arg, len);
 	else if (op >= _HCTL_THREAD_FIRST && op <= _HCTL_THREAD_LAST)
 		err = sys_handlectl_thread(t, handle, op, handlectl_arg, len);
+	else if (op >= _HCTL_DEVICE_FIRST && op <= _HCTL_DEVICE_LAST)
+		err = sys_handlectl_device(t, handle, op, handlectl_arg, len);
 	else
 		err = ANANAS_ERROR(BAD_SYSCALL);
 
