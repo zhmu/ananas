@@ -83,4 +83,8 @@ struct HCTL_MEMORY_GET_INFO_ARG {
 #define HCTL_THREAD_RESUME	(_HCTL_THREAD_FIRST+1)	/* Resume a given thread */
 #define _HCTL_THREAD_LAST 	399
 
+/* Handle options - device specific */
+#define _HCTL_DEVICE_FIRST	1000000
+#define _HCTL_DEVICE_LAST	1999999
+
 #endif /* __SYS_HANDLE_OPTIONS_H__ */
