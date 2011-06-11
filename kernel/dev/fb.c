@@ -62,60 +62,77 @@ static teken_funcs_t tf = {
 	.tf_respond	= term_respond
 };
 
-#if defined(OFW) || defined(__i386__) || defined(__amd64__)
 static uint32_t make_rgb(int color)
 {
-	return !color ? 0x00ff00 : 0;
+#define RGB(r,g,b) (((r) << 16) | ((g) << 8) | (b))
+	switch(color) {
+		case TC_RED:     return RGB(170,   0,   0);
+		case TC_GREEN:   return RGB(  0, 170,   0);
+		case TC_BROWN:   return RGB(170,  85,   0);
+		case TC_BLUE:    return RGB(  0,   0, 170);
+		case TC_MAGENTA: return RGB(170,   0, 170);
+		case TC_CYAN:    return RGB(  0, 170, 170);
+		case TC_WHITE:   return RGB(170, 170, 170);
+    default:
+		case TC_BLACK:   return RGB(  0,  0,  0);
+	}
+#undef RGB
 }
 
+#if defined(OFW) || defined(__i386__) || defined(__amd64__)
 static void putpixel(struct FB_PRIVDATA* fb,unsigned int x, unsigned int y, int color)
 {
 	uint8_t* ptr = (uint8_t*)(fb->fb_memory + fb->fb_bytes_per_line * y + x * (fb->fb_depth / 8));
-	if (fb->fb_depth == 8)
+	if (fb->fb_depth == 8) {
 		*ptr = color;
-	else if (fb->fb_depth == 16)
-		*(uint16_t*)ptr = color;
-	else if (fb->fb_depth == 32) {
-		uint32_t rgb = make_rgb(color);
-		*(uint32_t*)ptr = rgb;
-	} else if (fb->fb_depth == 24) {
-		uint32_t rgb = make_rgb(color);
-		*ptr++ = (rgb >> 16);
-		*ptr++ = (rgb >> 8) & 0xff;
-		*ptr++ = (rgb & 0xff);
+		return;
+	}
+
+	uint32_t rgb = make_rgb(color);
+	switch (fb->fb_depth) {
+		case 16:
+			/* We assume 5:6:5 is used */
+			*(uint16_t*)ptr = (((rgb >> 16) & 0x1f) << 11) | (((rgb >> 8) & 0x3f) << 5) | (rgb & 0x1f);
+			break;
+		case 24:
+			*ptr++ = (rgb >> 16);
+			*ptr++ = (rgb >> 8) & 0xff;
+			*ptr++ = (rgb & 0xff);
+			break;
+		case 32:
+			*(uint32_t*)ptr = rgb;
+			break;
 	}
 }
 #endif
 
 static void
-fb_putchar(struct FB_PRIVDATA* fb, unsigned int x, unsigned int y, const unsigned char ch)
+fb_putchar(struct FB_PRIVDATA* fb, unsigned int x, unsigned int y, struct pixel* px)
 {
 #if defined(OFW) || defined(__i386__) || defined(__amd64__)
+	/* Erase enter old char first */
+	for (int j = 0; j < fb->fb_font_height; j++)
+		for (int i = 0; i < 8; i++)
+			putpixel(fb, x + i, y + j, teken_256to8(px->a.ta_bgcolor));
+
 	/* Draw the new char */
-	struct CHARACTER* c = &fb->fb_font->chars[ch];
+	struct CHARACTER* c = &fb->fb_font->chars[px->c];
 	y += fb->fb_font->height - c->yshift;
 	for (int j = 0; j < c->height; j++) {
-		for (int i = 0; i <= c->width; i++) {
-			uint8_t d = c->data[j];
+		uint8_t d = c->data[j];
+		for (int i = 0; i <= c->width; i++)
 			if (d & (1 << i))
-				putpixel(fb, x + i, y + j, 0);
-			else
-				putpixel(fb, x + i, y + j, 0xff);
-		}
+				putpixel(fb, x + i, y + j, teken_256to8(px->a.ta_fgcolor));
 	}
-	/* Remove old pixels that aren't part of our new char */
-	for (int j = c->height; j < fb->fb_font_height; j++)
-		for (int i = c->width; i <= fb->fb_font_width; i++)
-			putpixel(fb, x + i, y + j, 0xff);
 #elif defined(WII)
 	/*
 	 * The Wii has a YUV2-encoded framebuffer; this means we'll have to write two
 	 * pixels at the same time.
 	 */
-	uint32_t fg_color = 0xffff00;
-	uint32_t bg_color = 0x000000;
+	uint32_t fg_color = make_rgb(teken_256to8(px->a.ta_fgcolor));
+	uint32_t bg_color = make_rgb(teken_256to8(px->a.ta_bgcolor));
 
-	struct CHARACTER* c = &fb->fb_font->chars[ch];
+	struct CHARACTER* c = &fb->fb_font->chars[px->c];
 	y += fb->fb_font->height - c->yshift;
 	for (int j = 0; j < c->height; j++) {
 		uint32_t* dst = (uint32_t*)(fb->fb_memory + (fb->fb_bytes_per_line * (y + j)) + (x * 2));
@@ -169,7 +186,7 @@ printchar(struct FB_PRIVDATA* fb, const teken_pos_t* p)
 	if (fb->fb_memory == NULL)
 		return;
 
-	fb_putchar(fb, p->tp_col * fb->fb_font_width, p->tp_row * fb->fb_font_height, px->c);
+	fb_putchar(fb, p->tp_col * fb->fb_font_width, p->tp_row * fb->fb_font_height, px);
 }
 
 static void
@@ -370,7 +387,7 @@ fb_attach(device_t dev)
 	struct FB_PRIVDATA* fb = (struct FB_PRIVDATA*)kmalloc(sizeof(struct FB_PRIVDATA));
 	fb->fb_memory = (void*)phys;
 	fb->fb_font_height = 12; /* XXX */
-	fb->fb_font_width = 10; /* XXX */
+	fb->fb_font_width = 8; /* XXX */
 	fb->fb_font = &font12; /* XXX */
 	fb->fb_bytes_per_line = bytes_per_line;
 	fb->fb_depth = depth;
