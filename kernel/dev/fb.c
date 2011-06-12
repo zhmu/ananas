@@ -6,6 +6,7 @@
 #include <ananas/error.h>
 #include <ananas/fb.h>
 #include <ananas/lib.h>
+#include <ananas/trace.h>
 #include <ananas/thread.h>
 #include <ananas/mm.h>
 #include <ananas/vm.h>
@@ -15,11 +16,7 @@
 
 #include <teken.h>
 
-#ifndef WII
-/* XXX this is a kludge */
-#include <ananas/trace.h>
 TRACE_SETUP;
-#endif
 
 #include "fb_font.c" /* XXX this is a kludge */
 
@@ -374,11 +371,12 @@ fb_attach(device_t dev)
 	ofw_getprop(node, "address", &physaddr, sizeof(physaddr));
 
 	/* Map the video buffer and clear it */
-	void* memory = (void*)physaddr;
+	addr_t memory = physaddr;
 	void* phys = vm_map_kernel(physaddr, ((height * bytes_per_line) + PAGE_SIZE - 1) / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 	memset((void*)phys, 0xff, (height * bytes_per_line));
 #elif defined(WII)
 	void* phys = wiivideo_get_framebuffer();
+	addr_t memory = (addr_t)phys;
 	wiivideo_get_size(&height, &width);
 	depth = 16;
 	bytes_per_line = width * 2;
