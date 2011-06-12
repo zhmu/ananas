@@ -37,18 +37,16 @@ ramdisk_attach(device_t dev)
 }
 
 static errorcode_t
-ramdisk_read(device_t dev, void* buffer, size_t* length, off_t offset)
+ramdisk_bread(device_t dev, struct BIO* bio)
 {
 	struct RAMDISK_PRIVDATA* privdata = (struct RAMDISK_PRIVDATA*)dev->privdata;
-	KASSERT(*length > 0, "invalid length");
-	KASSERT(*length % 512 == 0, "invalid length"); /* XXX */
-	KASSERT(buffer != NULL, "invalid buffer");
+	KASSERT(bio->length > 0, "invalid length");
+	KASSERT(bio->length % 512 == 0, "invalid length"); /* XXX */
 
-	KASSERT((offset * 512) + *length < privdata->ram_size, "attempted to read beyond ramdisk range");
+	KASSERT((bio->io_block * 512) + bio->length < privdata->ram_size, "attempted to read beyond ramdisk range");
 
-	struct BIO* bio = buffer;
-	void* addr = (void*)((addr_t)privdata->ram_size + (addr_t)offset * 512);
-	memcpy(bio->data, addr, *length);
+	memcpy(BIO_DATA(bio), (void*)((addr_t)privdata->ram_buffer + (addr_t)bio->io_block * 512), bio->length);
+
 	bio_set_available(bio);
 	return ANANAS_ERROR_OK;
 }
@@ -57,7 +55,7 @@ struct DRIVER drv_ramdisk = {
 	.name					= "ramdisk",
 	.drv_probe		= ramdisk_probe,
 	.drv_attach		= ramdisk_attach,
-	.drv_read			= ramdisk_read
+	.drv_bread		= ramdisk_bread
 };
 
 DRIVER_PROBE(ramdisk)
