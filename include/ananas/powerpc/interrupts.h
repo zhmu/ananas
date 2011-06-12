@@ -45,7 +45,7 @@ static inline void md_interrupts_restore(int enabled)
 {
 	__asm __volatile(
 		"mfmsr	%%r1\n"
-		"ori	%%r1, %%r1, %0\n"
+		"or	%%r1, %%r1, %0\n"
 		"mtmsr	%%r1\n"
 	: : "r" (enabled) : "%r1");
 }
