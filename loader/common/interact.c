@@ -62,8 +62,19 @@ static const char* kernels[] = {
 static void
 cmd_help(int num_args, char** arg)
 {
+	int width = 0;
+	/* Calculate the maximum width of a command */
 	for(struct COMMAND* cmd = commands; cmd->cmd != NULL; cmd++) {
-		printf("%s\n %s\n", cmd->cmd, cmd->descr);
+		int len = strlen(cmd->cmd);
+		if (width < len)
+			width = len;
+	}
+
+	for(struct COMMAND* cmd = commands; cmd->cmd != NULL; cmd++) {
+		printf("%s", cmd->cmd);
+		for (int i = strlen(cmd->cmd); i < width + 2; i++)
+			platform_putch(' ');
+		printf("%s\n", cmd->descr);
 	}
 }
 
@@ -189,6 +200,8 @@ interact()
 {
 	char line[MAX_LINE_SIZE + 1];
 	char* args[MAX_ARGS];
+
+	//cmd_setmode(0, NULL);
 
 #if 0
 	const char* kernelfile[] = { NULL, "kernel" };
