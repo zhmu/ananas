@@ -13,6 +13,7 @@ puts(const char* s)
 		platform_putch(*s++);
 		n++;
 	}
+	platform_putch('\n');
 	return n;
 }
 
