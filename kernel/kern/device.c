@@ -316,9 +316,11 @@ device_attach_bus(device_t bus)
 		extern struct DRIVER CONSOLE_INPUT_DRIVER;
 		if (driver == &CONSOLE_INPUT_DRIVER) {
 			device_t input_dev = tty_get_inputdev(console_tty);
-			input_dev->parent = bus;
-			device_print_attachment(input_dev);
-			device_add_to_tree(input_dev);
+			if (input_dev != NULL) {
+				input_dev->parent = bus;
+				device_print_attachment(input_dev);
+				device_add_to_tree(input_dev);
+			}
 			continue;
 		}
 #endif
@@ -326,9 +328,11 @@ device_attach_bus(device_t bus)
 		extern struct DRIVER CONSOLE_OUTPUT_DRIVER;
 		if (driver == &CONSOLE_OUTPUT_DRIVER) {
 			device_t output_dev = tty_get_outputdev(console_tty);
-			output_dev->parent = bus;
-			device_print_attachment(output_dev);
-			device_add_to_tree(output_dev);
+			if (output_dev != NULL) {
+				output_dev->parent = bus;
+				device_print_attachment(output_dev);
+				device_add_to_tree(output_dev);
+			}
 			continue;
 		}
 #endif

@@ -1,5 +1,6 @@
 #include <ananas/console.h>
 #include <ananas/device.h>
+#include <ananas/error.h>
 #include <ananas/tty.h>
 #include <ananas/lib.h>
 #include <ananas/debug-console.h>
@@ -21,6 +22,8 @@ console_init()
 	 * about the first thing we initialize (which makes sense, as we want to have
 	 * a means to show the user what's going on as early as possible).
 	 */
+	errorcode_t err;
+	(void)err; /* Prevent warning if no input/output driver is set */
 #ifdef CONSOLE_INPUT_DRIVER
 	extern struct DRIVER CONSOLE_INPUT_DRIVER;
 	input_dev = device_alloc(NULL, &CONSOLE_INPUT_DRIVER);
@@ -35,7 +38,11 @@ console_init()
 	sprintf(tmphint, "%s.%u.", input_dev->name, input_dev->unit);
 #endif
 	device_get_resources_byhint(input_dev, tmphint, config_hints);
-	device_attach_single(input_dev);
+	err = device_attach_single(input_dev);
+	if (err != ANANAS_ERROR_OK) {
+		device_free(input_dev);
+		input_dev = NULL;
+	}
 #endif /* CONSOLE_INPUT_DRIVER */
 
 #ifdef CONSOLE_OUTPUT_DRIVER
@@ -52,7 +59,11 @@ console_init()
 		sprintf(tmphint, "%s.%u.", output_dev->name, output_dev->unit);
 #endif
 		device_get_resources_byhint(output_dev, tmphint, config_hints);
-		device_attach_single(output_dev);
+		err = device_attach_single(output_dev);
+		if (err != ANANAS_ERROR_OK) {
+			device_free(output_dev);
+			output_dev = NULL;
+		}
 #ifdef CONSOLE_INPUT_DRIVER
 	}
 #endif
