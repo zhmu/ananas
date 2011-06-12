@@ -70,6 +70,8 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 		memcpy((void*)((addr_t)&_bootinfo - KERNBASE), bootinfo_ptr, sizeof(struct BOOTINFO));
 		if (bootinfo_ptr->bi_size >= sizeof(struct BOOTINFO))
 			*(uint32_t*)((addr_t)&bootinfo - KERNBASE) = (addr_t)&_bootinfo;
+		else
+			bootinfo_ptr = NULL;
 	}
 
 	/*
@@ -78,9 +80,15 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * substracting KERNBASE.
 	 *
 	 * First of all, we figure out where the kernel ends and thus space is
-	 * available; this will already be rounded to a page.
+	 * available; this will already be rounded to a page. Note that if we
+	 * have a ramdisk, it'll typically be positioned _after_ the kernel
+	 * so we'll have to increase this offset. We're still running unpaged,
+	 * so we use bootinfo_ptr.
 	 */
 	addr_t availptr = (addr_t)&__end - KERNBASE;
+	if (bootinfo_ptr != NULL && bootinfo_ptr->bi_ramdisk_addr != 0) {
+		availptr = (addr_t)bootinfo_ptr->bi_ramdisk_addr + bootinfo_ptr->bi_ramdisk_size;
+	}
 
 	/*
 	 * Paging on i386 works by having a 'page directory' (PD), which consists of
