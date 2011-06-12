@@ -62,58 +62,11 @@ vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
 		/* formatted output */
 		fmt++;
 
-		int flags = 0;
-		unsigned int min_width = 0;
-		unsigned int precision = 0;
-		unsigned int length_modifier = 0;
-
-		/* Try to handle flags */
-		switch(*fmt) {
-			case '#': /* Alternate form */
-				fmt++;
-				break;
-			case '0': /* Zero padding */
-				fmt++;
-				break;
-			case '-': /* Negative field length */
-				fmt++;
-				break;
-			case ' ': /* Blank left */
-				fmt++;
-				break;
-			case '+': /* Sign */
-				fmt++;
-				break;
-			case '\'': /* Decimal*/
-				fmt++;
-				break;
-		}
-
-#define DIGIT(x) ((x) >= '0' && (x) <= '9')
-		/* Handle minimum width */
-		while (DIGIT(*fmt)) {
-			min_width *= 10;
-			min_width += (*fmt - '0');
-			fmt++;
-		}
-
-		/* Precision */
-		if (*fmt == '.') {
-			fmt++;
-			while (DIGIT(*fmt)) {
-				precision *= 10;
-				precision += (*fmt - '0');
-				fmt++;
-			}
-
-		}
-
 		switch(*fmt) {
 			case 's': /* string */
 				s = va_arg(ap, const char*);
 				if (s != NULL) {
-					if (!precision) precision = (unsigned int)-1;
-					while (*s && precision-- > 0)
+					while (*s)
 						putch(v, *s++);
 				} else {
 					putch(v, '(');
