@@ -39,6 +39,11 @@ make:		.install
 
 .install:	.build
 		(cd jpeg-${VERSION} && make install)
+		mkdir -p ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/include
+		mkdir -p ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/lib
+		cp -R ${PREFIX}/include/* ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/include
+		cp -R ${PREFIX}/lib/* ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/lib
+		${TOUCH} .install
 
 clean:
 		rm -rf jpeg-${VERSION}
