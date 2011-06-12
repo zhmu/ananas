@@ -66,25 +66,34 @@ pcibus_attach(device_t dev)
 				 * this can be done by writing all ones to the BAR register and
 				 * re-reading it again (the PCI device will have forced all
 			 	 * address bits to zero); if we invert the value we've read,
-				 * we get all the address bits minus one, so we have to add
-				 * a single one and we'll be done.
+				 * we'll have obtained the length - we have to take the resource's
+				 * length into account while doing this.
 				 *
 				 * Note that we must restore the value once done with it.
 				 */
 				pci_write_config_l(busno, devno, funcno, bar, 0xffffffff);
 				uint32_t len = pci_read_config_l(busno, devno, funcno, bar);
 				pci_write_config_l(busno, devno, funcno, bar, res);
-				len = (~len) + 1;
+				if (len == 0 || len == 0xffffffff)
+					continue;
 
 				/* This appears to be a real resource; need to add it */
 				if (res & PCI_BAR_MMIO) {
 					/* memory mapped I/O space */
 					uint32_t mmio = res & 0xfffffffc;
-					device_add_resource(new_dev, RESTYPE_IO, mmio, len);
+					len = 0xfffffffc & len;
+					if (mmio != 0 && len != 0) {
+						len = (len & ~(len - 1)) - 1;
+						device_add_resource(new_dev, RESTYPE_IO, mmio, len);
+					}
 				} else {
 					/* memory space */
 					addr_t mem = res & 0xfffffff0;
-					device_add_resource(new_dev, RESTYPE_MEMORY, mem, len);
+					len = 0xfffffff0 & len;
+					if (mem != 0 && len != 0) {
+						len = (len & ~(len - 1)) - 1;
+						device_add_resource(new_dev, RESTYPE_MEMORY, mem, len);
+					}
 				}
 			}
 
