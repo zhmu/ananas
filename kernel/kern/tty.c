@@ -15,8 +15,11 @@
 #include <ananas/queue.h>
 #include <ananas/limits.h>
 #include <ananas/mm.h>
+#include <ananas/trace.h>
 #include <ananas/lib.h>
 #include <termios.h>
+
+TRACE_SETUP;
 
 /* Newline char - cannot be modified using c_cc */
 #define NL '\n'
@@ -100,6 +103,8 @@ static errorcode_t
 tty_write(device_t dev, const void* data, size_t* len, off_t offset)
 {
 	struct TTY_PRIVDATA* priv = (struct TTY_PRIVDATA*)dev->privdata;
+	if (priv->output_dev == NULL)
+		return ANANAS_ERROR(NO_DEVICE);
 	return device_write(priv->output_dev, data, len, offset);
 }
 
@@ -180,6 +185,7 @@ static void
 tty_putchar(device_t dev, unsigned char ch)
 {
 	struct TTY_PRIVDATA* priv = (struct TTY_PRIVDATA*)dev->privdata;
+
 	size_t len = 1;
 	if (priv->termios.c_oflag & OPOST) {
 		if ((priv->termios.c_oflag & ONLCR) && ch == NL) {
@@ -252,8 +258,9 @@ tty_handle_input(device_t dev)
 			priv->in_writepos = (priv->in_writepos + 1) % MAX_INPUT;
 		}
 
-		/* Handle writing the charachter, if needed */
-		tty_handle_echo(dev, byte);
+		/* Handle writing the charachter, if needed (and we can do so) */
+		if (priv->output_dev != NULL)
+			tty_handle_echo(dev, byte);
 	}
 
 	/* If we have waiters, awaken them */
