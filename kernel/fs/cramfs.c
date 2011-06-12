@@ -53,8 +53,10 @@ struct CRAMFS_INODE_PRIVDATA {
 	uint32_t offset;
 };
 
-static unsigned char temp_buf[CRAMFS_PAGE_SIZE * 2]; /* XXX */
-static unsigned char decompress_buf[CRAMFS_PAGE_SIZE + 4]; /* XXX */
+struct CRAMFS_PRIVDATA {
+	unsigned char temp_buf[CRAMFS_PAGE_SIZE * 2];
+	unsigned char decompress_buf[CRAMFS_PAGE_SIZE + 4];
+};
 
 static struct VFS_INODE* cramfs_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop);
 
@@ -62,7 +64,8 @@ static errorcode_t
 cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
 	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
-	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)file->f_inode->i_privdata;
+	struct CRAMFS_PRIVDATA* fs_privdata = (struct CRAMFS_PRIVDATA*)fs->fs_privdata;
+	struct CRAMFS_INODE_PRIVDATA* i_privdata = (struct CRAMFS_INODE_PRIVDATA*)file->f_inode->i_privdata;
 
 	size_t total = 0, toread = *len;
 	while (toread > 0) {
@@ -72,29 +75,29 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 		struct BIO* bio;
 
 		/* Calculate the compressed data offset of this page */
-		cur_block = (privdata->offset + page_index * sizeof(uint32_t)) / fs->fs_block_size;
+		cur_block = (i_privdata->offset + page_index * sizeof(uint32_t)) / fs->fs_block_size;
 		errorcode_t err = vfs_bread(fs, cur_block, &bio);
 		ANANAS_ERROR_RETURN(err);
-		next_offset = *(uint32_t*)(BIO_DATA(bio) + (privdata->offset + page_index * sizeof(uint32_t)) % fs->fs_block_size);
+		next_offset = *(uint32_t*)(BIO_DATA(bio) + (i_privdata->offset + page_index * sizeof(uint32_t)) % fs->fs_block_size);
 		bio_free(bio);
 
 		uint32_t start_offset = 0;
 		if (page_index > 0) {
 			/* Now, fetch the offset of the previous page; this gives us the length of the compressed chunk */
-			int prev_block = (privdata->offset + (page_index - 1) * sizeof(uint32_t)) / fs->fs_block_size;
+			int prev_block = (i_privdata->offset + (page_index - 1) * sizeof(uint32_t)) / fs->fs_block_size;
 			if (cur_block != prev_block) {
 				errorcode_t err = vfs_bread(fs, prev_block, &bio);
 				ANANAS_ERROR_RETURN(err);
 			}
-			start_offset = *(uint32_t*)(BIO_DATA(bio) + (privdata->offset + (page_index - 1) * sizeof(uint32_t)) % fs->fs_block_size);
+			start_offset = *(uint32_t*)(BIO_DATA(bio) + (i_privdata->offset + (page_index - 1) * sizeof(uint32_t)) % fs->fs_block_size);
 		} else {
 			/* In case of the first page, we have to set the offset ourselves as there is no index we can use */
-			start_offset  = privdata->offset;
+			start_offset  = i_privdata->offset;
 			start_offset += (((file->f_inode->i_sb.st_size - 1) / CRAMFS_PAGE_SIZE) + 1) * sizeof(uint32_t);
 		}
 
 		uint32_t left = next_offset - start_offset;
-		KASSERT(left < sizeof(temp_buf), "chunk too large");
+		KASSERT(left < sizeof(fs_privdata->temp_buf), "chunk too large");
 
 		uint32_t buf_pos = 0;
 		while(buf_pos < left) {
@@ -104,15 +107,15 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 			int piece_len = fs->fs_block_size - ((start_offset + buf_pos) % fs->fs_block_size);
 			if (piece_len > left)
 				piece_len = left;
-			memcpy(temp_buf + buf_pos, (void*)(BIO_DATA(bio) + ((start_offset + buf_pos) % fs->fs_block_size)), piece_len);
+			memcpy(fs_privdata->temp_buf + buf_pos, (void*)(BIO_DATA(bio) + ((start_offset + buf_pos) % fs->fs_block_size)), piece_len);
 			buf_pos += piece_len;
 		}
 
-		cramfs_zstream.next_in = temp_buf;
+		cramfs_zstream.next_in = fs_privdata->temp_buf;
 		cramfs_zstream.avail_in = left;
 
-		cramfs_zstream.next_out = decompress_buf;
-		cramfs_zstream.avail_out = sizeof(decompress_buf);
+		cramfs_zstream.next_out = fs_privdata->decompress_buf;
+		cramfs_zstream.avail_out = sizeof(fs_privdata->decompress_buf);
 
 		int zerr = inflateReset(&cramfs_zstream);
 		KASSERT(zerr == Z_OK, "inflateReset() error %d", zerr);
@@ -121,7 +124,7 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 		KASSERT(cramfs_zstream.total_out <= CRAMFS_PAGE_SIZE, "inflate() gave more data than a page");
 
 		int copy_chunk = (cramfs_zstream.total_out > toread) ? toread :  cramfs_zstream.total_out;
-		memcpy(buf, &decompress_buf[file->f_offset % CRAMFS_PAGE_SIZE], copy_chunk);
+		memcpy(buf, &fs_privdata->decompress_buf[file->f_offset % CRAMFS_PAGE_SIZE], copy_chunk);
 
 		file->f_offset += copy_chunk;
 		buf += copy_chunk;
@@ -137,13 +140,13 @@ static errorcode_t
 cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
-	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)file->f_inode->i_privdata;
+	struct CRAMFS_INODE_PRIVDATA* i_privdata = (struct CRAMFS_INODE_PRIVDATA*)file->f_inode->i_privdata;
 	size_t written = 0, toread = *len;
 
-	uint32_t cur_offset = privdata->offset + file->f_offset;
+	uint32_t cur_offset = i_privdata->offset + file->f_offset;
 	uint32_t left = file->f_inode->i_sb.st_size - file->f_offset;
 	CRAMFS_DEBUG_READDIR("cramfs_readdir(): privdata_offs=%u, cur_offset=%u, size=%u, left=%u\n",
-	 privdata->offset, cur_offset, file->f_inode->i_sb.st_size, left);
+	 i_privdata->offset, cur_offset, file->f_inode->i_sb.st_size, left);
 
 	/*
 	 * Note that cramfs does not have any alignment requirements on inodes; they
@@ -237,8 +240,8 @@ static struct VFS_INODE_OPS cramfs_dir_ops = {
 static void
 cramfs_convert_inode(uint32_t offset, struct CRAMFS_INODE* cinode, struct VFS_INODE* inode)
 {
-	struct CRAMFS_INODE_PRIVDATA* privdata = (struct CRAMFS_INODE_PRIVDATA*)inode->i_privdata;
-	privdata->offset = CRAMFS_INODE_OFFSET(CRAMFS_TO_LE32(cinode->in_namelen_offset)) * 4;
+	struct CRAMFS_INODE_PRIVDATA* i_privdata = (struct CRAMFS_INODE_PRIVDATA*)inode->i_privdata;
+	i_privdata->offset = CRAMFS_INODE_OFFSET(CRAMFS_TO_LE32(cinode->in_namelen_offset)) * 4;
 
 	inode->i_sb.st_ino    = offset;
 	inode->i_sb.st_mode   = CRAMFS_TO_LE16(cinode->in_mode);
@@ -282,14 +285,20 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs)
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 
+	fs->fs_privdata = kmalloc(sizeof(struct CRAMFS_PRIVDATA));
+
 	/* Initialize the inode cache right before reading the root directory inode */
 	fs->fs_fsop_size = sizeof(uint32_t);
 	icache_init(fs);
 
 	/* Everything is ok; fill out the filesystem details */
-	uint32_t root_inode = 0;
-	fs->fs_root_inode = cramfs_alloc_inode(fs, &root_inode);
-	cramfs_convert_inode((addr_t)&sb->c_rootinode - (addr_t)sb, &sb->c_rootinode, fs->fs_root_inode);
+	uint32_t root_fsop = __builtin_offsetof(struct CRAMFS_SUPERBLOCK, c_rootinode);
+	err = vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
+	if (err != ANANAS_ERROR_NONE) {
+		kfree(fs->fs_privdata);
+		bio_free(bio);
+		return ANANAS_ERROR(NO_DEVICE);
+	}
 
 	/* Initialize our deflater */
 	cramfs_zstream.next_in = NULL;
@@ -304,18 +313,17 @@ cramfs_read_inode(struct VFS_INODE* inode, void* fsop)
 {
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 
-	/* The fsop is the offset of the inode, so grab the corresponding block */
+	/*
+	 * Our fsop is just an offset in the filesystem, so all we have to do is
+	 * grab the block in which the inode resides and convert the inode.
+	 */
 	uint32_t offset = *(uint32_t*)fsop;
 	struct BIO* bio;
 	errorcode_t err = vfs_bread(fs, offset / fs->fs_block_size, &bio);
 	ANANAS_ERROR_RETURN(err);
-	/* XXX errors */
 	struct CRAMFS_INODE* cram_inode = (void*)((addr_t)BIO_DATA(bio) + offset % fs->fs_block_size);
-
 	cramfs_convert_inode(offset, cram_inode, inode);
-
 	bio_free(bio);
-
 	return ANANAS_ERROR_OK;
 }
 
@@ -325,9 +333,9 @@ cramfs_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 	struct VFS_INODE* inode = vfs_make_inode(fs, fsop);
 	if (inode == NULL)
 		return NULL;
-	struct CRAMFS_INODE_PRIVDATA* privdata = kmalloc(sizeof(struct CRAMFS_INODE_PRIVDATA));
-	memset(privdata, 0, sizeof(struct CRAMFS_INODE_PRIVDATA));
-	inode->i_privdata = privdata;
+	struct CRAMFS_INODE_PRIVDATA* i_privdata = kmalloc(sizeof(struct CRAMFS_INODE_PRIVDATA));
+	memset(i_privdata, 0, sizeof(struct CRAMFS_INODE_PRIVDATA));
+	inode->i_privdata = i_privdata;
 	return inode;
 }
 
