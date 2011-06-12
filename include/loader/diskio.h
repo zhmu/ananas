@@ -15,6 +15,7 @@ struct CACHE_ENTRY {
 unsigned int diskio_init();
 struct CACHE_ENTRY* diskio_read(int disknum, uint32_t lba);
 const char* diskio_get_name(int device);
+int diskio_find_disk(const char* name);
 void diskio_stats();
 void diskio_lsdev();
 

@@ -23,6 +23,7 @@ static command_t cmd_autoboot;
 static command_t cmd_ramdisk;
 static command_t cmd_cache;
 static command_t cmd_lsdev;
+static command_t cmd_mount;
 static command_t cmd_modes;
 static command_t cmd_setmode;
 
@@ -47,6 +48,7 @@ struct COMMAND {
 	{ "reboot",   &cmd_reboot,   "Reboot" },
 	{ "autoboot", &cmd_autoboot, "Find a kernel and launch it" },
 	{ "cache",    &cmd_cache,    "Display I/O cache stats" },
+	{ "mount",    &cmd_mount,    "Mount filesystem" },
 #ifdef VBE
 	{ "modes",    &cmd_modes,    "Display available screen modes" },
 	{ "setmode",  &cmd_setmode,  "Set screen resolution after boot" },
@@ -338,6 +340,38 @@ static void
 cmd_lsdev(int num_args, char** arg)
 {
 	diskio_lsdev();
+}
+
+static void
+cmd_mount(int num_args, char** arg)
+{
+	if (num_args == 1) {
+		if (vfs_current_device < 0) {
+			printf("nothing is mounted\n");
+		} else {
+			printf("currently mounted: %s (%s)\n",
+			 diskio_get_name(vfs_current_device), vfs_get_current_fstype());
+		}
+		return;
+	}
+
+	if (num_args > 2) {
+		printf("need a disk device, or nothing to show currently mounted device\n");
+		return;
+	}
+
+	int iodevice = diskio_find_disk(arg[1]);
+	if (iodevice < 0) {
+		printf("device not found\n");
+		return;
+	}
+
+	const char* type;
+	if (!vfs_mount(iodevice, &type)) {
+		printf("unable to mount\n");
+		return;
+	}
+	printf("mounted %s (%s)\n", arg[1], type);
 }
 
 /* vim:set ts=2 sw=2: */

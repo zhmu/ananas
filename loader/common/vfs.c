@@ -9,7 +9,7 @@ extern struct LOADER_FS_DRIVER loaderfs_pxe_tftp;
 extern struct LOADER_FS_DRIVER loaderfs_iso9660;
 extern struct LOADER_FS_DRIVER loaderfs_fat;
 
-struct VFS_FILESYSTEMS {
+static struct VFS_FILESYSTEMS {
 	const char* name;
 	struct LOADER_FS_DRIVER* driver;
 } vfs_filesystems[] = {
@@ -32,6 +32,7 @@ void* vfs_scratchpad;
 static struct LOADER_FS_DRIVER* vfs_current = NULL;
 uint32_t vfs_curfile_offset;
 uint32_t vfs_curfile_length;
+int vfs_current_device = -1;
 
 void
 vfs_init()
@@ -54,6 +55,7 @@ vfs_mount(int iodevice, const char** type)
 	for (struct VFS_FILESYSTEMS* fs = vfs_filesystems; fs->name != NULL; fs++) {
 		if (fs->driver->mount(iodevice)) {
 			if (type != NULL) *type = fs->name;
+			vfs_current_device = iodevice;
 			vfs_current = fs->driver;
 			return 1;
 		}
@@ -107,6 +109,17 @@ vfs_readdir()
 	if (vfs_current == NULL || vfs_current->readdir == NULL)
 		return NULL;
  return vfs_current->readdir();
+}
+
+const char*
+vfs_get_current_fstype()
+{
+	if (vfs_current == NULL)
+		return "none";
+	for (struct VFS_FILESYSTEMS* fs = vfs_filesystems; fs->name != NULL; fs++)
+		if (fs->driver == vfs_current)
+			return fs->name;
+	return "unknown";
 }
 
 /* vim:set ts=2 sw=2: */

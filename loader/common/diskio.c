@@ -217,6 +217,15 @@ diskio_get_name(int device)
 	return disk_device[device].name;
 }
 
+int
+diskio_find_disk(const char* name)
+{
+	for (int i = 0; i < MAX_DISK_DEVICES; i++)
+		if (!strcmp(disk_device[i].name, name))
+			return i;
+	return -1;
+}
+
 void
 diskio_stats()
 {

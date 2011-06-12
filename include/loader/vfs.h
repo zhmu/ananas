@@ -50,6 +50,12 @@ extern void* vfs_scratchpad;
 extern uint32_t vfs_curfile_offset;
 extern uint32_t vfs_curfile_length;
 
+/* Currently mounted device, or -1 */
+extern int vfs_current_device;
+
+/* Currently mounted filesystem type */
+const char* vfs_get_current_fstype();
+
 void vfs_init();
 
 int vfs_mount(int iodevice, const char** type);
