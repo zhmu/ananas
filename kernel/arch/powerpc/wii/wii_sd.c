@@ -19,36 +19,51 @@ struct WIISD_PRIVDATA {
 
 #define SD_SECTOR_SIZE 512
 
+/*
+ * The IPC SD code is very picky regarding alignment of anything being passed
+ * to it. This macro declares: 'T var[amount]' which is guaranteed to be
+ * aligned on a multiple of 'alignment' bytes. For convenience, it also
+ * declares 'var_len' which will contain the length of 'var' in bytes.
+ */
+#define DECLARE_ALIGNED(T, var, amount, alignment) \
+	uint8_t __##var[sizeof(T) * (amount) + (alignment - 1)]; \
+	T* var = (T*)((addr_t)__##var + (((addr_t)__##var & (alignment - 1)) ? alignment - ((addr_t)__##var & (alignment - 1)) : 0)); \
+	size_t var##_len = sizeof(T) * (amount); (void)var##_len;
+
 static int
 wiisd_hc_read(device_t dev, int reg, uint32_t* val)
 {
 	struct WIISD_PRIVDATA* priv = dev->privdata;
-	uint32_t op[6];
+	DECLARE_ALIGNED(uint32_t, op,   6, 32);
+	DECLARE_ALIGNED(uint32_t, temp, 1, 32);
 
-	memset(op, 0, sizeof(op));
+	memset(op, 0, op_len);
 	op[0] = reg;
 	op[3] = 1;
-	return ios_ioctl(priv->fd, SD_HC_READ8, op, sizeof(op), val, sizeof(*val));
+	int ret = ios_ioctl(priv->fd, SD_HC_READ8, op, op_len, temp, temp_len);
+	*val = *temp;
+	return ret;
 }
 
 static int
 wiisd_hc_write(device_t dev, int reg, uint32_t val)
 {
 	struct WIISD_PRIVDATA* priv = dev->privdata;
-	uint32_t op[6];
+	DECLARE_ALIGNED(uint32_t, op, 6, 32);
 
-	memset(op, 0, sizeof(op));
+	memset(op, 0, op_len);
 	op[0] = reg;
 	op[3] = 1;
 	op[4] = val;
-	return ios_ioctl(priv->fd, SD_HC_WRITE8, op, sizeof(op), NULL, 0);
+	return ios_ioctl(priv->fd, SD_HC_WRITE8, op, op_len, NULL, 0);
 }
 
 static int
 wiisd_command(device_t dev, uint32_t cmd, uint32_t cmd_type, uint32_t resp_type, uint32_t arg, uint32_t count, uint32_t sector_size, const void* buffer, void* reply)
 {
 	struct WIISD_PRIVDATA* priv = dev->privdata;
-	uint32_t op[9];
+	DECLARE_ALIGNED(uint32_t,       op, 9, 32);
+	DECLARE_ALIGNED(uint32_t, replybuf, 4, 32);
 
 	/* Construct the operation command block */
 	op[0] = cmd;
@@ -60,7 +75,10 @@ wiisd_command(device_t dev, uint32_t cmd, uint32_t cmd_type, uint32_t resp_type,
 	op[6] = (uint32_t)buffer;
 	op[7] = 0;
 	op[8] = 0;
-	return ios_ioctl(priv->fd, SD_COMMAND, op, sizeof(op), reply, 16);
+	int ret = ios_ioctl(priv->fd, SD_COMMAND, op, op_len, replybuf, replybuf_len);
+	if (reply != NULL)
+		memcpy(reply, replybuf, 16);
+	return ret;
 }
 
 static int
@@ -68,8 +86,9 @@ wiisd_data_command(device_t dev, uint32_t cmd, uint32_t cmd_type, uint32_t resp_
 {
 	struct WIISD_PRIVDATA* priv = dev->privdata;
 
-	struct ioctlv iovec[3];
-	uint32_t op[9];
+	DECLARE_ALIGNED(struct ioctlv, iovec, 3, 32);
+	DECLARE_ALIGNED(uint32_t,         op, 9, 32);
+	DECLARE_ALIGNED(uint32_t,   replybuf, 4, 32);
 
 	/* Construct the operation command block */
 	op[0] = cmd;
@@ -87,50 +106,50 @@ wiisd_data_command(device_t dev, uint32_t cmd, uint32_t cmd_type, uint32_t resp_
 	 * the IO vector is beyond me.
 	 */
 	iovec[0].buffer = op;
-	iovec[0].length = sizeof(op);
+	iovec[0].length = op_len;
 	iovec[1].buffer = buffer;
 	iovec[1].length = sector_size * count;
-	iovec[2].buffer = reply;
+	iovec[2].buffer = replybuf;
 	iovec[2].length = 16;
-	return ios_ioctlv(priv->fd, SD_COMMAND, 2, 1, iovec);
+	int ret = ios_ioctlv(priv->fd, SD_COMMAND, 2, 1, iovec);
+	if (reply != NULL)
+		memcpy(reply, replybuf, 16);
+	return ret;
 }
 
 static int
 wiisd_select(device_t dev)
 {
 	struct WIISD_PRIVDATA* priv = dev->privdata;
-	uint32_t reply[4];
-
-	return wiisd_command(dev, SD_CMD_SELECT, SD_TYPE_AC, SD_RESP_R1B, priv->rca, 0, 0, NULL, reply);
+	return wiisd_command(dev, SD_CMD_SELECT, SD_TYPE_AC, SD_RESP_R1B, priv->rca, 0, 0, NULL, NULL);
 }
 
 static int
 wiisd_set_blocklength(device_t dev, uint32_t len)
 {
-	uint32_t reply[4];
-
-	return wiisd_command(dev, SD_CMD_SET_BLOCKLEN, SD_TYPE_AC, SD_RESP_R1, len, 0, 0, NULL, reply);
+	return wiisd_command(dev, SD_CMD_SET_BLOCKLEN, SD_TYPE_AC, SD_RESP_R1, len, 0, 0, NULL, NULL);
 }
 
 static int
-wiisd_set_clock(device_t dev, uint32_t clock)
+wiisd_set_clock(device_t dev, uint32_t value)
 {
 	struct WIISD_PRIVDATA* priv = dev->privdata;
-	return ios_ioctl(priv->fd, SD_SET_CLOCK, &clock, sizeof(clock), NULL, 0);
+	DECLARE_ALIGNED(uint32_t, clock, 1, 32);
+	*clock = value;
+	return ios_ioctl(priv->fd, SD_SET_CLOCK, clock, clock_len, NULL, 0);
 }
 
 static int
 wiisd_set_buswidth4(device_t dev)
 {
 	struct WIISD_PRIVDATA* priv = dev->privdata;
-	uint32_t reply[4];
 
 	int width = 2; /* means width 4 */
-	int ret = wiisd_command(dev, SD_CMD_APP_CMD, SD_TYPE_AC, SD_RESP_R1, priv->rca, 0, 0, NULL, reply);
+	int ret = wiisd_command(dev, SD_CMD_APP_CMD, SD_TYPE_AC, SD_RESP_R1, priv->rca, 0, 0, NULL, NULL);
 	if (ret)
 		return ret;
 
-	ret = wiisd_command(dev, SD_CMD_APP_SETWIDTH, SD_TYPE_AC, SD_RESP_R1, width, 0, 0, NULL, reply);
+	ret = wiisd_command(dev, SD_CMD_APP_SETWIDTH, SD_TYPE_AC, SD_RESP_R1, width, 0, 0, NULL, NULL);
 	if (ret)
 		return ret;
 
@@ -139,6 +158,7 @@ wiisd_set_buswidth4(device_t dev)
 	ret = wiisd_hc_read(dev, SD_HD_HC, &hcr);
 	if (ret)
 		return ret;
+	hcr &= 0xff;
 	hcr |= SD_HD_HC_4BIT;
 	return wiisd_hc_write(dev, SD_HD_HC, hcr);
 }
@@ -146,8 +166,7 @@ wiisd_set_buswidth4(device_t dev)
 static int
 wiisd_read_block(device_t dev, uint32_t block, void* buffer)
 {
-	uint32_t reply[4];
-	return wiisd_data_command(dev, SD_CMD_READ_MULTIPLE_BLOCK, SD_TYPE_AC, SD_RESP_R1, SD_SECTOR_SIZE * block, 1, SD_SECTOR_SIZE, buffer, reply);
+	return wiisd_data_command(dev, SD_CMD_READ_MULTIPLE_BLOCK, SD_TYPE_AC, SD_RESP_R1, SD_SECTOR_SIZE * block, 1, SD_SECTOR_SIZE, buffer, NULL);
 }
 
 static errorcode_t
@@ -157,7 +176,7 @@ wiisd_bread(device_t dev, struct BIO* bio)
 
 	if (wiisd_read_block(dev, bio->io_block, bio->data)) {
 		bio_set_error(bio);
-		kprintf("wiisd_read(): i/o error");
+		kprintf("wiisd_read(): i/o error\n");
 		return ANANAS_ERROR(IO);
 	}
 	bio_set_available(bio);
