@@ -20,15 +20,21 @@ static command_t cmd_exec;
 static command_t cmd_boot;
 static command_t cmd_reboot;
 static command_t cmd_autoboot;
+#ifdef RAMDISK
 static command_t cmd_ramdisk;
+#endif
 static command_t cmd_cache;
 static command_t cmd_lsdev;
 static command_t cmd_mount;
-static command_t cmd_modes;
-static command_t cmd_setmode;
+#ifdef VBE
+extern command_t cmd_modes;
+extern command_t cmd_setmode;
+#endif
+static command_t cmd_source;
 
 static struct BOOTINFO bootinfo = { 0 };
 struct LOADER_ELF_INFO elf_info = { 0 };
+static int are_sourcing = 0;
 
 struct COMMAND {
 	const char* cmd;
@@ -40,6 +46,7 @@ struct COMMAND {
 	{ "lsdev",    &cmd_lsdev,    "List devices" },
 	{ "cat",      &cmd_cat,      "Display file contents" },
 	{ "load",     &cmd_load,     "Load a kernel" },
+	{ "source",   &cmd_source,   "Run a script" },
 #ifdef RAMDISK
 	{ "ramdisk",  &cmd_ramdisk,  "Load a ramdisk" },
 #endif
@@ -197,25 +204,81 @@ cmd_autoboot(int num_args, char** arg)
 	}
 }
 
+int
+execute(char* line)
+{
+	char* args[MAX_ARGS];
+
+	/*
+	 * Dissect the input line into arguments.
+	 */
+	char* ptr = line;
+	int num_args = 0;
+	while (num_args < MAX_ARGS) {
+		args[num_args++] = ptr;
+		char* tmp = strchr(ptr, ' ');
+		if (tmp == NULL)
+			break;
+		*tmp++ = '\0';
+		while(*tmp == ' ') tmp++;
+		ptr = tmp;
+	}
+	args[num_args] = NULL;
+
+	/* Find the command */
+	struct COMMAND* cmd = commands;
+	while(cmd->cmd != NULL) {
+		if (strcmp(args[0], cmd->cmd) == 0)
+			break;
+		cmd++;
+	}
+	if (cmd->cmd == NULL) {
+		printf("unsupported command '%s' - use ? for help\n", args[0]);
+		return 0;
+	}
+
+	cmd->func(num_args, args);
+	return 1;
+}
+
+static int
+source_file(const char* fname)
+{
+	if (!vfs_open(fname))
+		return 0;
+
+#define MAX_SOURCE_SIZE 1024
+	static char* buffer = NULL;
+	if (buffer == NULL)
+		buffer = platform_get_memory(MAX_SOURCE_SIZE + 1);
+	buffer[MAX_SOURCE_SIZE] = '\0';
+	size_t len = vfs_read(buffer, MAX_SOURCE_SIZE);
+	buffer[len] = '\0';
+	/* XXX Can't check whether the buffer is fully filled yet; FAT will always
+   * return what is requested as it doesn't check file sizes */
+
+	/* Run the commands one by one */
+	are_sourcing++;
+	char* line = buffer;
+	while(line < buffer + len) {
+		char* ptr = strchr(line, '\n');
+		if (ptr != NULL)
+			*ptr++ = '\0';
+		if (*line != '\0') /* ignore blanks */
+			execute(line);
+		if (ptr == NULL)
+			break;
+		line = ptr;
+	}
+	are_sourcing--;
+	vfs_close();
+	return 1;
+}
+
 void
 interact()
 {
 	char line[MAX_LINE_SIZE + 1];
-	char* args[MAX_ARGS];
-
-	//cmd_setmode(0, NULL);
-
-#if 0
-	const char* kernelfile[] = { NULL, "kernel" };
-	cmd_load(sizeof(kernelfile) / sizeof(char*), (char**)kernelfile);
-
-#ifdef RAMDISK
-	const char* ramdiskfile[] = { NULL, "root.fs" };
-	cmd_ramdisk(sizeof(ramdiskfile) / sizeof(char*), (char**)ramdiskfile);
-#endif
-
-	cmd_exec(0, NULL);
-#endif
 
 	while (1) {
 		/* Assemble an input line */
@@ -260,35 +323,7 @@ interact()
 		platform_putch('\n');
 		line[len] = '\0';
 
-		/*
-		 * Dissect the input line into arguments.
-		 */
-		char* ptr = line;
-		int num_args = 0;
-		while (num_args < MAX_ARGS) {
-			args[num_args++] = ptr;
-			char* tmp = strchr(ptr, ' ');
-			if (tmp == NULL)
-				break;
-			*tmp++ = '\0';
-			while(*tmp == ' ') tmp++;
-			ptr = tmp;
-		}
-		args[num_args] = NULL;
-
-		/* Find the command */
-		struct COMMAND* cmd = commands;
-		while(cmd->cmd != NULL) {
-			if (strcmp(args[0], cmd->cmd) == 0)
-				break;
-			cmd++;
-		}
-		if (cmd->cmd == NULL) {
-			printf("unsupported command - use ? for help\n");
-			continue;
-		}
-
-		cmd->func(num_args, args);
+		execute(line);
 	}
 }
 
@@ -372,6 +407,22 @@ cmd_mount(int num_args, char** arg)
 		return;
 	}
 	printf("mounted %s (%s)\n", arg[1], type);
+}
+
+static void
+cmd_source(int num_args, char** arg)
+{
+	if (are_sourcing) {
+		printf("'source' cannot be nested\n");
+		return;
+	}
+	if (num_args != 2) {
+		printf("need an argument\n");
+		return;
+	}
+
+	if (!source_file(arg[1]))
+		printf("cannot open source file\n");
 }
 
 /* vim:set ts=2 sw=2: */
