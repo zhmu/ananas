@@ -257,6 +257,7 @@ source_file()
 	buffer[MAX_SOURCE_SIZE] = '\0';
 	size_t len = vfs_read(buffer, MAX_SOURCE_SIZE);
 	buffer[len] = '\0';
+	vfs_close();
 	/* XXX Can't check whether the buffer is fully filled yet; FAT will always
    * return what is requested as it doesn't check file sizes */
 
@@ -274,7 +275,6 @@ source_file()
 		line = ptr;
 	}
 	are_sourcing--;
-	vfs_close();
 }
 
 void
