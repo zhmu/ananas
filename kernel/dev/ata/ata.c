@@ -57,14 +57,16 @@ ata_irq(device_t dev)
 		 * DMA request; this means we'll have to determine whether the request worked and
 		 * flag the buffer as such - it should have already been filled.
 		 */
-		outb(priv->atapci.atapci_io + ATA_PCI_REG_PRI_COMMAND, 0);
+		uint32_t dma_io = priv->atapci.atapci_io;
+		if (dev->unit > 0) dma_io += 8; /* XXX crude */
+		outb(dma_io + ATA_PCI_REG_PRI_COMMAND, 0);
 
-		stat = inb(priv->atapci.atapci_io + ATA_PCI_REG_PRI_STATUS);
+		stat = inb(dma_io + ATA_PCI_REG_PRI_STATUS);
 		if (stat & ATA_PCI_STAT_ERROR)
 			bio_set_error(item->bio);
 
 		/* Reset the status bits */
-		outb(priv->atapci.atapci_io + ATA_PCI_REG_PRI_STATUS, stat);
+		outb(dma_io + ATA_PCI_REG_PRI_STATUS, stat);
 	} else {
 		/* Use old-style error checking first */
 		if (stat & ATA_STAT_ERR) {
@@ -317,13 +319,16 @@ ata_start_dma(device_t dev, struct ATA_REQUEST_ITEM* item)
 	struct ATAPCI_PRDT* prdt = &priv->atapci.atapci_prdt[0];
 	KASSERT(((addr_t)prdt & 3) == 0, "prdt not dword-aligned");
 
+	uint32_t dma_io = priv->atapci.atapci_io;
+	if (dev->unit > 0) dma_io += 8; /* XXX crude */
+
 	/* XXX For now, we assume a single request per go */
 	prdt->prdt_base = (addr_t)KVTOP((addr_t)BIO_DATA(item->bio)); /* XXX 32 bit */
 	prdt->prdt_size = item->bio->length | ATA_PRDT_EOT;
 
 	/* Program the DMA parts of the PCI bus */
-	outl(priv->atapci.atapci_io + ATA_PCI_REG_PRI_PRDT, (uint32_t)KVTOP((addr_t)prdt)); /* XXX 32 bit */
-	outw(priv->atapci.atapci_io + ATA_PCI_REG_PRI_STATUS, ATA_PCI_STAT_IRQ | ATA_PCI_STAT_ERROR);
+	outl(dma_io + ATA_PCI_REG_PRI_PRDT, (uint32_t)KVTOP((addr_t)prdt)); /* XXX 32 bit */
+	outw(dma_io + ATA_PCI_REG_PRI_STATUS, ATA_PCI_STAT_IRQ | ATA_PCI_STAT_ERROR);
 
 	/* Feed the request to the drive - disk */
 	outb(priv->io_port + ATA_REG_DEVICEHEAD, 0xe0 | (item->unit ? 0x10 : 0) | ((item->lba >> 24) & 0xf));
@@ -337,7 +342,7 @@ ata_start_dma(device_t dev, struct ATA_REQUEST_ITEM* item)
 	uint32_t cmd = ATA_PCI_CMD_START;
 	if (item->flags & ATA_ITEM_FLAG_READ)
 		cmd |= ATA_PCI_CMD_RW;
-	outb(priv->atapci.atapci_io + ATA_PCI_REG_PRI_COMMAND, cmd);
+	outb(dma_io + ATA_PCI_REG_PRI_COMMAND, cmd);
 }
 
 void
