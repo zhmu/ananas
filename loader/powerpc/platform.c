@@ -194,4 +194,9 @@ platform_delay(int ms)
 		/* wait for it */ ;
 }
 
+void
+platform_init_video()
+{
+}
+
 /* vim:set ts=2 sw=2: */
