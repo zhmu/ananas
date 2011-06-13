@@ -45,7 +45,7 @@ pxe_call(uint16_t func)
 	x86_realmode_init(&regs);
 	regs.ip = (register_t)&pxe_trampoline;
 	regs.eax = func;
-	regs.ebx = (register_t)&rm_buffer;
+	regs.ebx = (register_t)realmode_buffer;
 	regs.ecx = bangpxe->EntryPointSP;
 	x86_realmode_call(&regs);
 	return regs.eax & 0xffff;
@@ -54,7 +54,7 @@ pxe_call(uint16_t func)
 static int
 pxe_tftp_open(const char* name)
 {
-	t_PXENV_TFTP_OPEN* to = (t_PXENV_TFTP_OPEN*)&rm_buffer;
+	t_PXENV_TFTP_OPEN* to = (t_PXENV_TFTP_OPEN*)realmode_buffer;
 	to->ServerIPAddress = pxe_server_ip;
 	to->GatewayIPAddress = pxe_gateway_ip;
 	strcpy(to->FileName, name);
@@ -72,7 +72,7 @@ pxe_tftp_open(const char* name)
 static void
 pxe_tftp_close()
 {
-	t_PXENV_TFTP_CLOSE* tc = (t_PXENV_TFTP_CLOSE*)&rm_buffer;
+	t_PXENV_TFTP_CLOSE* tc = (t_PXENV_TFTP_CLOSE*)realmode_buffer;
 	pxe_call(PXENV_TFTP_CLOSE);
 }
 
@@ -96,7 +96,7 @@ pxe_tftp_read(void* ptr, size_t length)
 		pxe_readbuf_offset = 0;
 
 		/* Have to read a new chunk */
-		t_PXENV_TFTP_READ* tr = (t_PXENV_TFTP_READ*)&rm_buffer;
+		t_PXENV_TFTP_READ* tr = (t_PXENV_TFTP_READ*)realmode_buffer;
 		tr->BufferOffset = ((uint32_t)pxe_scratchpad & 0xf);
 		tr->BufferSegment = ((uint32_t)pxe_scratchpad >> 4);
 		if ((pxe_call(PXENV_TFTP_READ) != PXENV_EXIT_SUCCESS) || tr->Status != PXENV_STATUS_SUCCESS)
@@ -159,13 +159,13 @@ platform_init_netboot()
 	 * the wonderful aspects of realmode (which we are kind of forced to use,
 	 * as the PXE protected mode interface is even a greater pain to use)
 	 */
-	pxe_scratchpad = (void*)((addr_t)&rm_buffer + 64);
+	pxe_scratchpad = (void*)((addr_t)realmode_buffer + 64);
 
 	/*
 	 * Note: it appears that supplying your own buffer does not work with all PXE's,
  	 * so just obtain their pointer instead.
 	 */
-	t_PXENV_GET_CACHED_INFO* gci = (t_PXENV_GET_CACHED_INFO*)&rm_buffer;
+	t_PXENV_GET_CACHED_INFO* gci = (t_PXENV_GET_CACHED_INFO*)realmode_buffer;
 	memset(gci, 0, sizeof(t_PXENV_GET_CACHED_INFO));
 	gci->PacketType = PXENV_PACKET_TYPE_CACHED_REPLY;
 	if (pxe_call(PXENV_GET_CACHED_INFO) != PXENV_EXIT_SUCCESS) {

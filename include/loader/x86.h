@@ -31,11 +31,13 @@ struct REALMODE_REGS {
 	uint16_t	ip;
 } __attribute__((packed));
 
+#define MAKE_SEGMENT(x) (((addr_t)x) >> 4)
+#define MAKE_OFFSET(x)  (((addr_t)x) & 0xf)
+
 extern void  realcall(struct REALMODE_REGS*);
 extern void* entry;
-extern void* rm_buffer;
 extern void* rm_stack;
-#define REALMODE_BUFFER ((uint32_t)&rm_buffer - (uint32_t)&entry)
+extern void* realmode_buffer;
 
 void x86_realmode_init(struct REALMODE_REGS* regs);
 void x86_realmode_push16(struct REALMODE_REGS* regs, uint16_t value);

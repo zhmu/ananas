@@ -16,13 +16,14 @@ vbe_init()
 	struct REALMODE_REGS regs;
 
 	/* Ask for VBE 2.0; we mainly care about the framebuffer so we need VBE2+ */
-	struct VbeInfoBlock* vbeInfoBlock = (struct VbeInfoBlock*)&rm_buffer;
+	struct VbeInfoBlock* vbeInfoBlock = (struct VbeInfoBlock*)realmode_buffer;
 	vbeInfoBlock->VbeSignature = VBEINFO_SIGNATURE_VBE2;
 
 	/* See if this machine can do VBE; it'd really be a miracle if it wouldn't */
 	x86_realmode_init(&regs);
 	regs.eax = 0x4f00;			/* vbe: return vbe controller information */
-	regs.edi = REALMODE_BUFFER;
+	regs.es  = MAKE_SEGMENT(realmode_buffer);
+	regs.edi = MAKE_OFFSET(realmode_buffer);
 	regs.interrupt = 0x10;
 	x86_realmode_call(&regs);
 	if ((regs.eax & 0xffff) != 0x4f)
@@ -51,14 +52,15 @@ vbe_init()
 		x86_realmode_init(&regs);
 		regs.eax = 0x4f01;			/* vbe: return vbe mode information */
 		regs.ecx = *mode;
-		regs.edi = REALMODE_BUFFER + 512; /* Don't overwrite the info block */
+		regs.es  = MAKE_SEGMENT(realmode_buffer);
+		regs.edi = MAKE_OFFSET(realmode_buffer) + 512; /* Don't overwrite the info block */
 		regs.interrupt = 0x10;
 		x86_realmode_call(&regs);
 		if ((regs.eax & 0xffff) != 0x4f)
 			continue;
 
 		/* Skip modes that cannot be set (why did we get it in the first place?!) */
-		struct ModeInfoBlock* modeInfoBlock = (struct ModeInfoBlock*)((addr_t)&rm_buffer + 512);
+		struct ModeInfoBlock* modeInfoBlock = (struct ModeInfoBlock*)((addr_t)realmode_buffer + 512);
 		if ((modeInfoBlock->ModeAttributes & VBE_MODEATTR_SUPPORTED) == 0)
 			continue;
 		/* Skip anything without a framebuffer too; it'll be useless to us */

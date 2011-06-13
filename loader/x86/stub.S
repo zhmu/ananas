@@ -180,7 +180,6 @@ not_lm_capable:
 
 skip_debugcall:
 #endif
-
 	/* Call our main function - this shouldn't return */
 	call	main
 
@@ -425,9 +424,3 @@ realcall_ebx:	.long	0
 #ifdef DEBUG_CALLS
 debug_calls:	.long	0
 #endif
-
-/*
- * We need a realmode buffer; this is used to read sectors etc.
- */
-rm_buffer:
-	.space	1024

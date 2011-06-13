@@ -15,10 +15,15 @@
 #include <loader/x86.h>
 #include "param.h"
 
-uint32_t x86_pool_pointer = POOL_BASE;
+extern void* __end;
+
+static uint32_t x86_pool_pointer = 0;
 static uint32_t x86_pool_left = 0;
 struct SMAP_ENTRY* x86_smap = NULL; 
+void* realmode_buffer = NULL;
 int x86_smap_entries = 0;
+
+#define SMAP_MAX_SIZE 1024
 
 #undef DEBUG_POOL
 #undef DEBUG_DISK
@@ -161,12 +166,14 @@ platform_init_memory_map()
 	size_t total_kb = 0;
 
 	/*
-	 * Find a place to locate our memory. Don't worry about the size, we will
-	 * relocate the base memory pointer once we know how much memory there is
-	 * anyway.
+	 * We'll place our memory map right at the end of our loader and assume this
+	 * will not need more than SMAP_MAX_SIZE bytes of memory.
  	 */
-	x86_smap = platform_get_memory(0);
+	x86_smap = (struct SMAP_ENTRY*)((addr_t)&__end + (PAGE_SIZE - ((addr_t)&__end & PAGE_SIZE - 1)));
 	x86_smap_entries = 0;
+
+	/* Place our realmode buffer after the smap */
+	realmode_buffer = (void*)((addr_t)x86_smap + SMAP_MAX_SIZE);
 
 	x86_realmode_init(&regs);
 	regs.ebx = 0;
@@ -178,13 +185,14 @@ platform_init_memory_map()
 		regs.eax = 0xe820;
 		regs.edx = 0x534d4150;		/* SMAP */
 		regs.ecx = 20;
-		regs.edi = REALMODE_BUFFER;
+		regs.es  = MAKE_SEGMENT(realmode_buffer);
+		regs.edi = MAKE_OFFSET(realmode_buffer);
 		x86_realmode_call(&regs);
 		if (regs.eax != 0x534d4150)
 			break;
 
 		/* ignore anything that is not memory */
-		struct SMAP_ENTRY* sme = (struct SMAP_ENTRY*)&rm_buffer;
+		struct SMAP_ENTRY* sme = realmode_buffer;
 		if (sme->type != SMAP_TYPE_MEMORY)
 			continue;
 
@@ -293,12 +301,12 @@ platform_read_disk_edd(int disk, uint32_t lba, void* buffer, int num_bytes)
 	 * minimal for our application as we practically only do single-sector
 	 * reads anyway.
 	 */
-	struct EDD_PACKET* edd = (void*)((addr_t)&rm_buffer + 512);
+	struct EDD_PACKET* edd = (struct EDD_PACKET*)realmode_buffer;
 	edd->edd_size = sizeof(*edd);
 	edd->edd_reserved0 = 0;
 	edd->edd_reserved1 = 0;
-	edd->edd_offset = REALMODE_BUFFER;
-	edd->edd_segment = CODE_BASE >> 4;
+	edd->edd_offset  = MAKE_OFFSET(realmode_buffer) + sizeof(*edd);
+	edd->edd_segment = MAKE_SEGMENT(realmode_buffer);
 	edd->edd_lba = lba;
  
 	int num_read = 0;
@@ -313,7 +321,8 @@ platform_read_disk_edd(int disk, uint32_t lba, void* buffer, int num_bytes)
 		x86_realmode_init(&regs);
 		regs.eax = 0x4200;		/* int 13 extensions: extended read */
 		regs.edx = dskinfo->drive;
-		regs.esi = REALMODE_BUFFER + 512;
+		regs.ds  = MAKE_SEGMENT(realmode_buffer);
+		regs.esi = MAKE_OFFSET(realmode_buffer);
 		regs.interrupt = 0x13;
 		x86_realmode_call(&regs);
 		if (regs.eflags & EFLAGS_CF)
@@ -322,7 +331,7 @@ platform_read_disk_edd(int disk, uint32_t lba, void* buffer, int num_bytes)
 			break;
 
 		int chunk_len = (num_bytes > SECTOR_SIZE ? SECTOR_SIZE : num_bytes);
-		memcpy(buffer, &rm_buffer, chunk_len);
+		memcpy(buffer, realmode_buffer + sizeof(*edd), chunk_len);
 		buffer += chunk_len; num_read += chunk_len; num_bytes -= chunk_len;
 
 		edd->edd_lba++;
@@ -348,7 +357,8 @@ platform_read_disk_chs(int disk, uint32_t lba, void* buffer, int num_bytes)
 		struct REALMODE_REGS regs;
 		x86_realmode_init(&regs);
 		regs.eax = 0x0201;		/* disk: read one sector into memory */
-		regs.ebx = REALMODE_BUFFER;
+		regs.es  = MAKE_SEGMENT(realmode_buffer);
+		regs.ebx = MAKE_OFFSET(realmode_buffer);
 		regs.ecx = ((cylinder & 0xff) << 8) | ((cylinder >> 2) & 0xc0) | sector;
 		regs.edx = dskinfo->drive | (head << 8);
 		regs.interrupt = 0x13;
@@ -357,7 +367,7 @@ platform_read_disk_chs(int disk, uint32_t lba, void* buffer, int num_bytes)
 			break;
 
 		int chunk_len = (num_bytes > SECTOR_SIZE ? SECTOR_SIZE : num_bytes);
-		memcpy(buffer, &rm_buffer, chunk_len);
+		memcpy(buffer, realmode_buffer, chunk_len);
 		buffer += chunk_len; num_read += chunk_len; num_bytes -= chunk_len;
 	}
 
@@ -467,6 +477,14 @@ platform_delay(int ms)
 	regs.edx = milliseconds & 0xffff;
 	regs.interrupt = 0x15;
 	x86_realmode_call(&regs);
+}
+
+void
+platform_init_video()
+{
+#ifdef VBE
+	vbe_init();
+#endif
 }
 
 /* vim:set ts=2 sw=2: */
