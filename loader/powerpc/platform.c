@@ -38,6 +38,12 @@ platform_getch()
 }
 
 int
+platform_check_key()
+{
+	return ofw_getch();
+}
+
+int
 platform_init_disks()
 {
 	int numdisks = 0;
