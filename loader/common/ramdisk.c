@@ -9,41 +9,40 @@
 #define DEBUG_RAMDISK
 
 #ifdef DEBUG_RAMDISK
-# define RAMDISK_ABORT(x...) \
+# define RAMDISK_ABORT(x) \
 	do { \
-		printf(x); \
+		puts(x); \
 		return 0; \
 	} while (0)
 #else
-# define RAMDISK_ABORT(x...) \
+# define RAMDISK_ABORT(x) \
 	return 0;
 #endif
 
 static int
 cramfs_load(struct LOADER_RAMDISK_INFO* ram_info)
 {
-	struct CRAMFS_SUPERBLOCK cramfs_sb;
-	if (vfs_pread(&cramfs_sb, sizeof(cramfs_sb), 0) != sizeof(cramfs_sb))
-		RAMDISK_ABORT("header read error");
-
-	if (cramfs_sb.c_magic != CRAMFS_MAGIC)
-		RAMDISK_ABORT("not a cramfs disk");
-
-	if ((cramfs_sb.c_flags & ~CRAMFS_FLAG_MASK) != 0)
-		RAMDISK_ABORT("unsupported flags");
-
-	/* Image checks out, we need to read it in full */
-	uint32_t offset = 0;
 	char* ptr = (char*)ram_info->ram_start;
 	ram_info->ram_size = 0;
 	while(1) {
-		size_t len = vfs_pread(ptr, 1024, offset);
+		size_t len = vfs_pread(ptr, 1024, ram_info->ram_size);
 		if (len == 0)
 			break;
+
+		if (ram_info->ram_size == 0) {
+			/* We have the first block - see if it's a cramfs disk */
+			struct CRAMFS_SUPERBLOCK* cramfs_sb = (struct CRAMFS_SUPERBLOCK*)ptr;
+			if (cramfs_sb->c_magic != CRAMFS_MAGIC)
+				RAMDISK_ABORT("not a cramfs disk");
+
+			if ((cramfs_sb->c_flags & ~CRAMFS_FLAG_MASK) != 0)
+				RAMDISK_ABORT("unsupported flags");
+		}
+
 		ram_info->ram_size += len;
-		ptr += len; offset += len;
+		ptr += len;
 	}
-	return 1;
+	return ram_info->ram_size > 0;
 }
 
 int
