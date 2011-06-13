@@ -54,4 +54,7 @@ int platform_is_numbits_capable(int bits);
 /* Establish a memory mapping for a piece of memory */
 void platform_map_memory(void* ptr, size_t len);
 
+/* Delay for given amount of milliseconds */
+void platform_delay(int ms);
+
 #endif /* __PLATFORM_H__ */

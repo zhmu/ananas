@@ -425,4 +425,18 @@ platform_map_memory(void* ptr, size_t len)
 	/* Not needed for x86; we run without paging so any memory is available */
 }
 
+void
+platform_delay(int ms)
+{
+	uint32_t milliseconds = ms * 1000;
+
+	struct REALMODE_REGS regs;
+	x86_realmode_init(&regs);
+	regs.eax = 0x8600; /* int 15: wait */
+	regs.ecx = milliseconds >> 16;
+	regs.edx = milliseconds & 0xffff;
+	regs.interrupt = 0x15;
+	x86_realmode_call(&regs);
+}
+
 /* vim:set ts=2 sw=2: */

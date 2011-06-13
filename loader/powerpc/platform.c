@@ -180,4 +180,12 @@ platform_map_memory(void* ptr, size_t len)
 		ofw_claim((ofw_cell_t)ptr, len, sizeof(int));
 }
 
+void
+platform_delay(int ms)
+{
+	uint32_t timeout = ofw_milliseconds() + ms;
+	while (ofw_milliseconds() <= timeout)
+		/* wait for it */ ;
+}
+
 /* vim:set ts=2 sw=2: */
