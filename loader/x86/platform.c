@@ -1,5 +1,4 @@
 /*
-
  * This file contains platform-specific functions; it mostly consists of
  * calling the BIOS interrupts for the intended functionality and converting
  * values from and to more general values (i.e. LBA instead of CHS)
@@ -71,6 +70,35 @@ x86_realmode_init(struct REALMODE_REGS* regs)
 	regs->ss = 0;
 	regs->esp = REALMODE_STACK;
 }
+
+#ifdef DEBUG_CALLS
+extern int debug_calls;
+
+void x86_realmode_call(struct REALMODE_REGS* regs)
+{
+	/* If we are not debugging, just pass through */
+	if (!debug_calls) {
+		realcall(regs);
+		return;
+	}
+
+	/* Obtain the return address */
+	register addr_t return_addr;
+	__asm __volatile("movl 4(%%ebp), %0" : "=r" (return_addr));
+	char caller[8];
+	sprintf(caller, "%x", return_addr);
+	while(strlen(caller) < 7)
+		strcat(caller, " ");
+	/* Place it at the top-right of the screen */
+	for (int i = 0; i < 7; i++)
+		*(uint16_t*)(0xb8000 + 144 + i * 2) = (uint16_t)(0x0f00 | caller[i]);
+	/* Call the interrupt function */
+	realcall(regs);
+	/* Remove the address */
+	for (int i = 0; i < 7; i++)
+		*(uint16_t*)(0xb8000 + 144 + i * 2) = (uint16_t)(0x0f00 | '-');
+}
+#endif
 
 void
 platform_putch(uint8_t ch)
@@ -272,10 +300,14 @@ platform_read_disk_edd(int disk, uint32_t lba, void* buffer, int num_bytes)
 	edd->edd_offset = REALMODE_BUFFER;
 	edd->edd_segment = CODE_BASE >> 4;
 	edd->edd_lba = lba;
-
+ 
 	int num_read = 0;
 	while (num_bytes > 0) {
 		edd->edd_num_blocks = 1;
+
+#ifdef DEBUG_DISK
+		printf("disk %u, lba %u\n", dskinfo->drive, lba);
+#endif
 
 		struct REALMODE_REGS regs;
 		x86_realmode_init(&regs);

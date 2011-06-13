@@ -3,6 +3,7 @@ S=		../..
 
 CFLAGS=		-DEXT2 -DPXE -DRAMDISK -DX86_64 -DELF32 -DELF64 -DFAT -DVBE
 #CFLAGS+=	-DDEBUG_SERIAL
+CFLAGS+=	-DDEBUG_CALLS
 include		$S/compile/Makefile.common
 OBJS+=		pxe.o x86_64.o stub_x86_64.o vbe.o
 

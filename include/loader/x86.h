@@ -39,8 +39,12 @@ extern void* rm_stack;
 
 void x86_realmode_init(struct REALMODE_REGS* regs);
 void x86_realmode_push16(struct REALMODE_REGS* regs, uint16_t value);
+#ifdef DEBUG_CALLS
+void x86_realmode_call(struct REALMODE_REGS*);
+#else
 #define x86_realmode_call(x) \
 	realcall(x)
+#endif
 void x86_64_exec(struct LOADER_ELF_INFO* loadinfo, struct BOOTINFO* bootinfo);
 void x86_64_launch(uint64_t elf_start_addr, struct BOOTINFO* bootinfo);
 

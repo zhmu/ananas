@@ -8,6 +8,9 @@
 #ifdef PXE
 .globl	pxe_trampoline
 #endif
+#ifdef DEBUG_CALLS
+.globl	debug_calls
+#endif
 
 #include <loader/x86-asm.h>
 #include "param.h"
@@ -170,6 +173,16 @@ not_lm_capable:
 
 #ifdef VBE
 	call	vbe_init
+#endif
+
+#ifdef DEBUG_CALLS
+	movb	0x417, %al			/* get keyboard status flags... */
+	testb	$2, %al				/* ...and see whether lshift is pressed... */
+	jz	skip_debugcall			/* ... if not, don't activate call debugging */
+
+	incl	(debug_calls)
+
+skip_debugcall:
 #endif
 
 	/* Call our main function - this shouldn't return */
@@ -346,6 +359,10 @@ skip_call:
 	popl	%eax
 	movl	%eax, RM_EFLAGS(%bx)
 
+	/* Nuke whatever flags the BIOS gave us */
+	pushl	$0
+	popfl
+
 	/* Ensure interrupts are not set - this would hurt us */
 	cli
 
@@ -408,6 +425,10 @@ realcall_regs:	.long	0
 realcall_esp:	.long	0
 realcall_eax:	.long	0
 realcall_ebx:	.long	0
+
+#ifdef DEBUG_CALLS
+debug_calls:	.long	0
+#endif
 
 /*
  * We need a realmode buffer; this is used to read sectors etc.
