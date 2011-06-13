@@ -9,6 +9,7 @@
 
 #define MAX_LINE_SIZE 128
 #define MAX_ARGS 16
+#define AUTOBOOT_TIMEOUT 3
 
 typedef void (command_t)(int num_args, char** arg);
 
@@ -65,6 +66,11 @@ struct COMMAND {
 
 static const char* kernels[] = {
 	"kernel",
+	NULL
+};
+
+static const char* loadercfgs[] = {
+	"loader.cfg",
 	NULL
 };
 
@@ -241,12 +247,9 @@ execute(char* line)
 	return 1;
 }
 
-static int
-source_file(const char* fname)
+static void
+source_file()
 {
-	if (!vfs_open(fname))
-		return 0;
-
 #define MAX_SOURCE_SIZE 1024
 	static char* buffer = NULL;
 	if (buffer == NULL)
@@ -272,7 +275,36 @@ source_file(const char* fname)
 	}
 	are_sourcing--;
 	vfs_close();
-	return 1;
+}
+
+void
+autoboot()
+{
+	/* Look for a config file we can read */
+	for (const char** cfg = loadercfgs; *cfg != NULL; cfg++) {
+		if (!vfs_open(*cfg))
+			continue;
+
+		/* This file seems to work */
+		printf("Launching '%s' in %u seconds...", *cfg, AUTOBOOT_TIMEOUT);
+		for (int i = AUTOBOOT_TIMEOUT; i > 0; i--) {
+			printf("%u...", i);
+			/* Delay in steps of 100ms to give the user a chance to abort */
+			for (int j = 0; j < 10; j++) {
+				platform_delay(100);
+				if (platform_check_key()) {
+					(void)platform_getch(); /* eat keystroke */
+					printf(" aborting\n");
+					return;
+				}
+			}
+		}
+
+		/* Timeout; launch the file. We break in case it returns */
+		printf(" 0!\n");
+		source_file();
+		break;
+	}
 }
 
 void
@@ -421,8 +453,12 @@ cmd_source(int num_args, char** arg)
 		return;
 	}
 
-	if (!source_file(arg[1]))
+	if (!vfs_open(arg[1])) {
 		printf("cannot open source file\n");
+		return;
+	}
+
+	source_file();
 }
 
 /* vim:set ts=2 sw=2: */

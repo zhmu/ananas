@@ -11,6 +11,7 @@
 #define PLATFORM "powerpc"
 #endif
 
+void autoboot();
 void interact();
 
 int
@@ -53,6 +54,7 @@ main()
 	if (!got_root)
 		printf("WARNING: no usuable disks found!\n");
 
+	autoboot();
 	interact();
 
 	/* NOTREACHED */
