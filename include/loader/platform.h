@@ -57,4 +57,7 @@ void platform_map_memory(void* ptr, size_t len);
 /* Delay for given amount of milliseconds */
 void platform_delay(int ms);
 
+/* Initialize video subsystem */
+void platform_init_video();
+
 #endif /* __PLATFORM_H__ */

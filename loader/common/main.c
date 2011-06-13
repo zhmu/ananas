@@ -17,9 +17,10 @@ void interact();
 int
 main()
 {
-	printf("Ananas/"PLATFORM" Loader: ");
-	printf("%u KB memory", platform_init_memory_map());
-	printf(" / %u disk(s)\n", platform_init_disks());
+	int mem_size = platform_init_memory_map();
+	int num_disks = platform_init_disks();
+	platform_init_video();
+	printf("Ananas/"PLATFORM" Loader: %u KB memory / %u disk(s)\n", mem_size, num_disks);
 
 	int num_disk_devices = diskio_init();
 	vfs_init();
