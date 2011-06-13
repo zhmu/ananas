@@ -111,7 +111,6 @@ platform_getch()
 	regs.eax = 0x0;			/* keyboard: get keystroke */
 	regs.interrupt = 0x16;
 	x86_realmode_call(&regs);
-
 	return regs.eax & 0xff;
 }
 
@@ -121,11 +120,10 @@ platform_check_key()
 	struct REALMODE_REGS regs;
 
 	x86_realmode_init(&regs);
-	regs.eax = 0x01;		/* keyboard: check keystroke */
+	regs.eax = 0x0100;		/* keyboard: check keystroke */
 	regs.interrupt = 0x16;
 	x86_realmode_call(&regs);
-	/* zero flag is set if we have a keystroke */
-	return regs.eflags & EFLAGS_ZF;
+	return regs.eax & 0xff; /* return the ASCII field */
 }
 
 size_t
