@@ -59,6 +59,9 @@ void ofw_release(ofw_cell_t virt, ofw_cell_t size);
 void ofw_enter();
 void ofw_exit();
 
+/* timekeeping */
+uint32_t ofw_milliseconds();
+
 #ifdef LOADER
 /*
  * For the loader, calling the OFW is very straightforward, so make the
