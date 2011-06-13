@@ -65,6 +65,19 @@ strchr(const char* s, int c)
 	return NULL;
 }
 
+char*
+strcat(char* dest, const char* src)
+{
+	char* ptr = strchr(dest, '\0');
+	while(1) {
+		*ptr++ = *src;
+		if (*src == '\0')
+			break;
+		src++;
+	}
+	return dest;
+}
+
 size_t
 strlen(const char* s)
 {
