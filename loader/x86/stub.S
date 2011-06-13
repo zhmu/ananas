@@ -171,10 +171,6 @@ code32:
 not_lm_capable:
 #endif /* X86_64 */
 
-#ifdef VBE
-	call	vbe_init
-#endif
-
 #ifdef DEBUG_CALLS
 	movb	0x417, %al			/* get keyboard status flags... */
 	testb	$2, %al				/* ...and see whether lshift is pressed... */
