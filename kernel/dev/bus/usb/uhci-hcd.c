@@ -28,6 +28,8 @@
 #include <ananas/trace.h>
 #include <ananas/lib.h>
 #include <ananas/time.h>
+#include <machine/param.h>
+#include <machine/vm.h>
 #include "uhci-hcd.h"
 #include "uhci-roothub.h"
 #include "uhci-reg.h"
@@ -88,7 +90,7 @@ uhci_dump_td(struct UHCI_TD* td)
 	 td->td_buffer);
 	if (td->td_linkptr & QH_PTR_T)
 		return;
-	uhci_dump_td((struct UHCI_TD*)UHCI_GET_PTR(td->td_linkptr));
+	uhci_dump_td((struct UHCI_TD*)UHCI_GET_PTR(PTOKV(td->td_linkptr)));
 }
 
 static void
@@ -97,14 +99,14 @@ uhci_dump_qh(struct UHCI_QH* qh)
 	kprintf("qh %p => vertptr 0x%x horizptr 0x%x\n", qh, qh->qh_headptr, qh->qh_elementptr);
 	if ((qh->qh_elementptr & QH_PTR_T) == 0) {
 		KASSERT((qh->qh_elementptr & QH_PTR_QH) == 0, "nesting qh in qh?");
-		uhci_dump_td((struct UHCI_TD*)UHCI_GET_PTR(qh->qh_elementptr));
+		uhci_dump_td((struct UHCI_TD*)UHCI_GET_PTR(PTOKV(qh->qh_elementptr)));
 	}
 	if (qh->qh_headptr & QH_PTR_T)
 		return;
 	if (qh->qh_headptr & QH_PTR_QH)
-		uhci_dump_qh((struct UHCI_QH*)UHCI_GET_PTR(qh->qh_headptr));
+		uhci_dump_qh((struct UHCI_QH*)UHCI_GET_PTR(PTOKV(qh->qh_headptr)));
 	else
-		uhci_dump_td((struct UHCI_TD*)UHCI_GET_PTR(qh->qh_headptr));
+		uhci_dump_td((struct UHCI_TD*)UHCI_GET_PTR(PTOKV(qh->qh_headptr)));
 }
 
 static void
@@ -123,8 +125,8 @@ uhci_dump(device_t dev)
 	kprintf(" sof %u",   inw(privdata->uhci_io + UHCI_REG_SOF));
 	kprintf(" portsc1 0x%x", inw(privdata->uhci_io + UHCI_REG_PORTSC1));
 	kprintf(" portsc2 0x%x", inw(privdata->uhci_io + UHCI_REG_PORTSC2));
-	KASSERT((addr_t)privdata->uhci_framelist == flbase, "framelist %p not in framelist base register %p?", privdata->uhci_framelist, flbase);
-	uint32_t fl_ptr = *(uint32_t*)(flbase + frnum * sizeof(uint32_t));
+	KASSERT((addr_t)privdata->uhci_framelist == PTOKV(flbase), "framelist %p not in framelist base register %p?", privdata->uhci_framelist, PTOKV(flbase));
+	uint32_t fl_ptr = *(uint32_t*)(PTOKV(flbase) + frnum * sizeof(uint32_t));
 	kprintf(" flptr 0x%x\n", fl_ptr);
 	KASSERT(((addr_t)fl_ptr & QH_PTR_QH) != 0, "fl_ptr %p: not a qh at the root?", fl_ptr);
 	uhci_dump_qh((struct UHCI_QH*)UHCI_GET_PTR(fl_ptr));
@@ -145,7 +147,7 @@ uhci_free_tdchain(device_t dev, addr_t addr, int* length, int* error)
 {
 	*length = 0; *error = 0;
 	while ((addr & QH_PTR_T) == 0) {
-		struct UHCI_TD* td = (struct UHCI_TD*)UHCI_GET_PTR(addr);
+		struct UHCI_TD* td = (struct UHCI_TD*)UHCI_GET_PTR(PTOKV(addr));
 		addr_t next_td = td->td_linkptr;
 		int l = TD_STATUS_ACTUALLEN(td->td_status);
 		if (l != TD_ACTUALLEN_NONE)
@@ -204,7 +206,7 @@ uhci_irq(device_t dev)
 
 				/* Throw away the TDs; they served their purpose. This also inspects them */
 				int error;
-				uhci_free_tdchain(dev, (addr_t)si->si_td, &si->si_xfer->xfer_result_length, &error);
+				uhci_free_tdchain(dev, KVTOP((addr_t)si->si_td), &si->si_xfer->xfer_result_length, &error);
 
 				/* If something failed, mark the transfer as such */
 				if (error)
@@ -236,10 +238,10 @@ uhci_create_data_tds(device_t dev, void* data, int size, int max_packet_size, in
 		if (i == 0 && last_td != NULL)
 			*last_td = td_data;
 		
-		td_data->td_linkptr = TO_REG32(TD_LINKPTR_VF | (addr_t)link_td);
+		td_data->td_linkptr = TO_REG32(TD_LINKPTR_VF | KVTOP((addr_t)link_td));
 		td_data->td_status = TO_REG32(ls | TD_STATUS_ACTIVE | TD_STATUS_INTONERR(3));
 		td_data->td_token = TO_REG32(token_addr | TD_TOKEN_MAXLEN(xfer_chunk_len) | TD_TOKEN_PID(token) | (data_token ? TD_TOKEN_DATA : 0));
-		td_data->td_buffer = cur_data_ptr - xfer_chunk_len;
+		td_data->td_buffer = KVTOP(cur_data_ptr - xfer_chunk_len);
 		data_token ^= 1;
 		link_td = td_data;
 		cur_data_ptr -= xfer_chunk_len;
@@ -290,10 +292,10 @@ uhci_ctrl_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 
 	/* Create the SETUP stage packet (SETUP + DATA0) */
 	struct UHCI_TD* td_setup = uhci_alloc_td(dev);
-	td_setup->td_linkptr = TO_REG32(TD_LINKPTR_VF | (addr_t)next_setup_ptr);
+	td_setup->td_linkptr = TO_REG32(TD_LINKPTR_VF | KVTOP((addr_t)next_setup_ptr));
 	td_setup->td_status = TO_REG32(ls | TD_STATUS_ACTIVE | TD_STATUS_INTONERR(3));
 	td_setup->td_token = TO_REG32(TD_TOKEN_MAXLEN(sizeof(struct USB_CONTROL_REQUEST)) | token_addr | TD_TOKEN_PID(TD_PID_SETUP));
-	td_setup->td_buffer = (addr_t)&xfer->xfer_control_req;
+	td_setup->td_buffer = KVTOP((addr_t)&xfer->xfer_control_req);
 
 	/* All set - need to hook the packet up XXX should be at the end */
 	//td_setup->td_linkptr = privdata->uhci_qh_control->qh_elementptr;
@@ -311,7 +313,7 @@ uhci_ctrl_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 
 	/* Finally, hand the chain to the HD; it's ready to be transmitted */
 	//kprintf("uhci: hooked %p to control ptr chain\n", td_setup);
-	privdata->uhci_qh_control->qh_elementptr = (addr_t)td_setup;
+	privdata->uhci_qh_control->qh_elementptr = KVTOP((addr_t)td_setup);
 	return ANANAS_ERROR_OK;
 }
 
@@ -337,7 +339,7 @@ uhci_interrupt_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 	DQUEUE_ADD_TAIL(&privdata->uhci_scheduled_items, si);
 
 	/* Finally, hand the chain to the HD; it's ready to be transmitted */
-	privdata->uhci_qh_interrupt->qh_elementptr = (addr_t)td_chain;
+	privdata->uhci_qh_interrupt->qh_elementptr = KVTOP((addr_t)td_chain);
 	return ANANAS_ERROR_OK;
 }
 
@@ -415,9 +417,9 @@ uhci_attach(device_t dev)
 	privdata->uhci_qh_bulk      = uhci_alloc_qh(dev);
 	struct UHCI_TD* last_td     = uhci_alloc_td(dev);
 	last_td->td_linkptr = TO_REG32(TD_LINKPTR_T);
-	privdata->uhci_qh_interrupt->qh_headptr = TO_REG32(QH_PTR_QH | (addr_t)privdata->uhci_qh_control);
-	privdata->uhci_qh_control->qh_headptr   = TO_REG32(QH_PTR_QH | (addr_t)privdata->uhci_qh_bulk);
-	privdata->uhci_qh_bulk->qh_headptr      = TO_REG32((addr_t)last_td);
+	privdata->uhci_qh_interrupt->qh_headptr = TO_REG32(QH_PTR_QH | KVTOP((addr_t)privdata->uhci_qh_control));
+	privdata->uhci_qh_control->qh_headptr   = TO_REG32(QH_PTR_QH | KVTOP((addr_t)privdata->uhci_qh_bulk));
+	privdata->uhci_qh_bulk->qh_headptr      = TO_REG32(KVTOP((addr_t)last_td));
 
 	/*
 	 * Set up the frame list; we add a dummy TD for isochronous data and then the
@@ -429,7 +431,7 @@ uhci_attach(device_t dev)
 		framelist_td->td_linkptr = TO_REG32(TD_LINKPTR_QH | (addr_t)privdata->uhci_qh_interrupt);
 #endif
 		//privdata->uhci_framelist[i] = TO_REG32(TD_LINKPTR_QH | (addr_t)framelist_td);
-		privdata->uhci_framelist[i] = TO_REG32(TD_LINKPTR_QH | (addr_t)privdata->uhci_qh_interrupt);
+		privdata->uhci_framelist[i] = TO_REG32(TD_LINKPTR_QH | KVTOP((addr_t)privdata->uhci_qh_interrupt));
 		//kprintf("fl[%u] = %p\n", i, privdata->uhci_framelist[i]);
 	}
 	KASSERT((((addr_t)privdata->uhci_framelist) & 0x3ff) == 0, "framelist %p misaligned", (addr_t)privdata->uhci_framelist);
@@ -463,7 +465,7 @@ uhci_attach(device_t dev)
 	 */
 	outw(privdata->uhci_io + UHCI_REG_FRNUM, 0);
 	outw(privdata->uhci_io + UHCI_REG_SOF, privdata->uhci_sof_modify);
-	outl(privdata->uhci_io + UHCI_REG_FLBASEADD, TO_REG32((addr_t)privdata->uhci_framelist));
+	outl(privdata->uhci_io + UHCI_REG_FLBASEADD, TO_REG32(KVTOP((addr_t)privdata->uhci_framelist)));
 
 	/* Tell the USB controller to start pumping frames */
 	outw(privdata->uhci_io + UHCI_REG_USBCMD, UHCI_USBCMD_MAXP | UHCI_USBCMD_RS);
