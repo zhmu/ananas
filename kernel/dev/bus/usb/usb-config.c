@@ -47,7 +47,7 @@ usb_parse_configuration(struct USB_DEVICE* usb_dev, void* data, int datalen)
 		if (!usb_find_type(&ptr, &left, USB_DESCR_TYPE_INTERFACE, (void**)&iface))
 			return ANANAS_ERROR(NO_RESOURCE);
 
-		device_printf(dev,
+		TRACE_DEV(USB, INFO, dev,
 		 "interface%u: class=%u, subclass=%u, protocol=%u, %u endpoint(s)",
 		 iface->if_number, iface->if_class, iface->if_subclass, iface->if_protocol,
 		 iface->if_numendpoints);
@@ -64,7 +64,7 @@ usb_parse_configuration(struct USB_DEVICE* usb_dev, void* data, int datalen)
 			if (!usb_find_type(&ptr, &left, USB_DESCR_TYPE_ENDPOINT, (void**)&ep))
 				return ANANAS_ERROR(NO_RESOURCE);
 
-			device_printf(dev,
+			TRACE_DEV(USB, INFO, dev,
 			 "endpoint %u: addr=%s:%u, attr=%u, maxpacketsz=%u",
 			 epnum, (ep->ep_addr & USB_EP_ADDR_IN) ? "in" : "out",
 			 USB_EP_ADDR(ep->ep_addr), USB_PE_ATTR_TYPE(ep->ep_attr),

@@ -8,7 +8,10 @@
 #include <ananas/thread.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
+#include <ananas/trace.h>
 #include <ananas/mm.h>
+
+TRACE_SETUP;
 
 static struct USB_TRANSFER*
 usb_create_get_descriptor_xfer(struct USB_DEVICE* usb_dev, int type, int v, int index, int len)
@@ -63,7 +66,7 @@ usb_attach_callback(struct USB_TRANSFER* usb_xfer)
 	switch(usb_dev->usb_attachstep++ /* <== mind the ++ */) {
 		case 0: { /* Retrieved partial device descriptor */
 			struct USB_DESCR_DEVICE* d = (void*)usb_xfer->xfer_data;
-			device_printf(dev,
+			TRACE_DEV(USB, INFO, dev,
 			 "got partial device descriptor: len=%u, type=%u, version=%u, class=%u, subclass=%u, protocol=%u, maxsize=%u",
 				d->dev_length, d->dev_type, d->dev_version, d->dev_class,
 				d->dev_subclass, d->dev_protocol, d->dev_maxsize0);
@@ -87,7 +90,7 @@ usb_attach_callback(struct USB_TRANSFER* usb_xfer)
 			break;
 		}
 		case 1: { /* Address configured */
-			device_printf(usb_dev->usb_device, "logical address is %u", usb_dev->usb_address);
+			TRACE_DEV(USB, INFO, usb_dev->usb_device, "logical address is %u", usb_dev->usb_address);
 
 			/* We can now let the hub know that it can continue resetting new devices */
 			usb_hub_attach_done(usb_dev->usb_hub);
@@ -99,7 +102,7 @@ usb_attach_callback(struct USB_TRANSFER* usb_xfer)
 		case 2: { /* Retrieved full device descriptor */
 			struct USB_DESCR_DEVICE* d = (void*)usb_xfer->xfer_data;
 
-			device_printf(dev,
+			TRACE_DEV(USB, INFO, dev,
 			 "got full device descriptor: len=%u, type=%u, version=%u, class=%u, subclass=%u, protocol=%u, maxsize=%u, vendor=%u, product=%u numconfigs=%u",
 				d->dev_length, d->dev_type, d->dev_version, d->dev_class,
 				d->dev_subclass, d->dev_protocol, d->dev_maxsize0, d->dev_vendor,
@@ -116,7 +119,7 @@ usb_attach_callback(struct USB_TRANSFER* usb_xfer)
 		case 3: { /* Retrieved string language code */
 			struct USB_DESCR_STRING* s = (void*)usb_xfer->xfer_data;
 			usb_dev->usb_langid = s->u.str_langid[0];
-			device_printf(dev, "got language code, first is %u", usb_dev->usb_langid);
+			TRACE_DEV(USB, INFO, dev, "got language code, first is %u", usb_dev->usb_langid);
 
 			/* Time to fetch strings; this must be done in two steps: length and content */
 			next_xfer = usb_create_get_descriptor_xfer(usb_dev, USB_DESCR_TYPE_STRING, usb_dev->usb_cur_string, usb_dev->usb_langid, 4 /* length only */);
@@ -124,7 +127,7 @@ usb_attach_callback(struct USB_TRANSFER* usb_xfer)
 		}
 		case 4: { /* Retrieved string length */
 			struct USB_DESCR_STRING* s = (void*)usb_xfer->xfer_data;
-			device_printf(dev, "got string length=%u", s->str_length);
+			TRACE_DEV(USB, INFO, dev, "got string length=%u", s->str_length);
 
 			/* Fetch the entire string this time */
 			next_xfer = usb_create_get_descriptor_xfer(usb_dev, USB_DESCR_TYPE_STRING, usb_dev->usb_cur_string, usb_dev->usb_langid, s->str_length);
@@ -150,7 +153,7 @@ usb_attach_callback(struct USB_TRANSFER* usb_xfer)
 		case 6: { /* Retrieved partial config descriptor */
 			struct USB_DESCR_CONFIG* c = (void*)usb_xfer->xfer_data;
 
-			device_printf(dev,
+			TRACE_DEV(USB, INFO, dev,
 			 "got partial config descriptor: len=%u, num_interfaces=%u, id=%u, stringidx=%u, attrs=%u, maxpower=%u, total=%u",
 			 c->cfg_length, c->cfg_numinterfaces, c->cfg_identifier, c->cfg_stringidx, c->cfg_attrs, c->cfg_maxpower,
 			 c->cfg_totallen);
@@ -160,7 +163,7 @@ usb_attach_callback(struct USB_TRANSFER* usb_xfer)
 			break;
 		}
 		case 7: { /* Retrieved full device descriptor */
-			device_printf(dev, "got full config descriptor");
+			TRACE_DEV(USB, INFO, dev, "got full config descriptor");
 
 			/* Handle the configuration */
 			struct USB_DESCR_CONFIG* c = (void*)usb_xfer->xfer_data;
@@ -178,7 +181,7 @@ usb_attach_callback(struct USB_TRANSFER* usb_xfer)
 			break;
 		}
 		case 8: { /* Configuration activated */
-			device_printf(dev, "configuration activated");
+			TRACE_DEV(USB, INFO, dev, "configuration activated");
 			usb_dev->usb_cur_interface = 0;
 
 			/* Now, we'll have to hook up some driver... */
