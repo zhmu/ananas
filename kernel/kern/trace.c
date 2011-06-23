@@ -2,7 +2,7 @@
 #include <ananas/lib.h>
 #include <ananas/trace.h>
 
-uint32_t trace_subsystem_mask[TRACE_SUBSYSTEM_LAST] = { 0 };
+uint32_t trace_subsystem_mask[TRACE_SUBSYSTEM_LAST];
 
 void
 tracef(int fileid, const char* func, const char* fmt, ...)
