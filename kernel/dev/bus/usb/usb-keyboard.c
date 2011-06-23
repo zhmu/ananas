@@ -20,7 +20,7 @@ usbkbd_probe(device_t dev)
 
 	/* XXX This is crude */
 	struct USB_INTERFACE* iface = &usb_dev->usb_interface[usb_dev->usb_cur_interface];
-	if (iface->if_class != USB_IF_CLASS_HID || iface->if_subclass != 1 /* keyboard */)
+	if (iface->if_class != USB_IF_CLASS_HID || iface->if_protocol != 1 /* keyboard */)
 		return ANANAS_ERROR(NO_DEVICE);
 
 	return ANANAS_ERROR_OK;
