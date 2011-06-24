@@ -76,6 +76,7 @@ kdb/kdb_commands.c	option KDB
 dev/bus/usb/usb-core.c		option USB
 dev/bus/usb/usb-device.c	option USB
 dev/bus/usb/usb-config.c	option USB
+dev/bus/usb/usb-pipe.c		option USB
 dev/bus/usb/uhci-hcd.c		optional uhci
 dev/bus/usb/uhci-roothub.c	optional uhci
 # USB peripherals

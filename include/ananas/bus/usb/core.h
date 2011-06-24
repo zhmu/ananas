@@ -4,6 +4,7 @@
 #include <ananas/device.h>
 #include <ananas/dqueue.h>
 #include <ananas/bus/usb/descriptor.h>
+#include <ananas/bus/usb/pipe.h>
 
 /* XXX This is ugly */
 #define TO_REG32(x) (x)
@@ -69,6 +70,7 @@ struct USB_DEVICE {
 	struct USB_DESCR_DEVICE usb_descr_device;
 	uint16_t	usb_langid;			/* Language ID */
 	int		usb_cur_string;
+	struct USB_PIPES usb_pipes;
 };
 
 typedef void (*usb_xfer_callback_t)(struct USB_TRANSFER*);
@@ -98,6 +100,7 @@ struct USB_TRANSFER {
 	int				xfer_length;
 	int				xfer_result_length;
 	usb_xfer_callback_t		xfer_callback;
+	void*				xfer_callback_data;
 	/* Provide queue structure */
 	DQUEUE_FIELDS(struct USB_TRANSFER);
 };

@@ -6,6 +6,7 @@
 #include <ananas/thread.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
+#include <ananas/trace.h>
 #include <ananas/mm.h>
 #include <machine/param.h> /* for PAGE_SIZE */
 
@@ -33,6 +34,7 @@ usb_alloc_device(device_t root, device_t hub, void* hcd_privdata)
 	usb_dev->usb_num_interfaces = 0;
 	usb_dev->usb_cur_interface = -1;
 	usb_dev->usb_langid = 0;
+	DQUEUE_INIT(&usb_dev->usb_pipes);
 	return usb_dev;
 }
 
