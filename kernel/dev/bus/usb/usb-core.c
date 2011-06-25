@@ -7,10 +7,12 @@
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
+#include <ananas/waitqueue.h>
 #include <ananas/mm.h>
 #include <machine/param.h> /* for PAGE_SIZE */
 
 static thread_t usb_workerthread;
+static struct WAIT_QUEUE usb_waitqueue;
 static struct USB_TRANSFER_QUEUE usb_xfer_pendingqueue;
 static spinlock_t spl_usb_xfer_pendingqueue = SPINLOCK_DEFAULT_INIT;
 
@@ -92,29 +94,34 @@ usb_completed_transfer(struct USB_TRANSFER* xfer)
 	DQUEUE_ADD_TAIL(&usb_xfer_pendingqueue, xfer);
 	spinlock_unlock(&spl_usb_xfer_pendingqueue);
 
-	thread_resume(&usb_workerthread);
+	waitqueue_signal(&usb_waitqueue);
 }
 
 static void
 usb_thread(void* arg)
 {
-	thread_t* thread = PCPU_GET(curthread);
+	struct WAITER* w = waitqueue_add(&usb_waitqueue);
 	while(1) {
-		/* Fetch an entry from the queue */
-		spinlock_lock(&spl_usb_xfer_pendingqueue);
-		KASSERT(!DQUEUE_EMPTY(&usb_xfer_pendingqueue), "queue empty?");
-		struct USB_TRANSFER* xfer = DQUEUE_HEAD(&usb_xfer_pendingqueue);
-		DQUEUE_POP_HEAD(&usb_xfer_pendingqueue);
-		spinlock_unlock(&spl_usb_xfer_pendingqueue);
-		
-		/* And handle it */
-		if (xfer->xfer_callback) {
-			xfer->xfer_callback(xfer);
-		}
-		usb_free_transfer(xfer);
+		/* Wait until there's something to report */
+		waitqueue_reset_waiter(w);
+		waitqueue_wait(w);
 
-		thread_suspend(thread);
-		reschedule();
+		/* Fetch an entry from the queue */
+		while (1) {
+			spinlock_lock(&spl_usb_xfer_pendingqueue);
+			if(DQUEUE_EMPTY(&usb_xfer_pendingqueue)) {
+				spinlock_unlock(&spl_usb_xfer_pendingqueue);
+				break;
+			}
+			struct USB_TRANSFER* xfer = DQUEUE_HEAD(&usb_xfer_pendingqueue);
+			DQUEUE_POP_HEAD(&usb_xfer_pendingqueue);
+			spinlock_unlock(&spl_usb_xfer_pendingqueue);
+		
+			/* And handle it */
+			if (xfer->xfer_callback)
+				xfer->xfer_callback(xfer);
+			usb_free_transfer(xfer);
+		}
 	}
 }
 
@@ -122,10 +129,12 @@ void
 usb_init()
 {
 	DQUEUE_INIT(&usb_xfer_pendingqueue);
+	waitqueue_init(&usb_waitqueue);
 
 	/* Create a kernel thread to handle USB completed messages */
 	kthread_init(&usb_workerthread, &usb_thread, NULL);
 	thread_set_args(&usb_workerthread, "[usb]\0\0", PAGE_SIZE);
+	thread_resume(&usb_workerthread);
 }
 
 /* vim:set ts=2 sw=2: */
