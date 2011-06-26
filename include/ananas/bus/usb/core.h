@@ -60,6 +60,7 @@ struct USB_DEVICE {
 	device_t	usb_device;			/* Device reference */
 	device_t	usb_hub;			/* Hub reference */
 	void*		usb_hcd_privdata;		/* HCD data for the given device */
+	void*		usb_privdata;			/* Private data */
 	int		usb_address;		   	/* Assigned USB address */
 	int		usb_max_packet_sz0;		/* Maximum packet size for endpoint 0 */
 #define USB_DEVICE_DEFAULT_MAX_PACKET_SZ0	8
