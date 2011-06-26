@@ -50,7 +50,7 @@ usb_attach_device_one(struct USB_DEVICE* usb_dev)
 	 */
 	struct USB_DESCR_DEVICE* d = &usb_dev->usb_descr_device;
 	len = 8;
-	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_DEVICE, 0), 0, d, &len, 0);
+	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_DEVICE, 0), 0, d, &len, 0);
 	ANANAS_ERROR_RETURN(err);
 
 	TRACE_DEV(USB, INFO, dev,
@@ -65,7 +65,7 @@ usb_attach_device_one(struct USB_DEVICE* usb_dev)
 	int dev_address = usb_get_next_address(usb_dev);
 
 	/* Assign the device a logical address */
-	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_SET_ADDRESS, USB_CONTROL_TYPE_STANDARD, dev_address, 0, NULL, NULL, 1);
+	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_SET_ADDRESS, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, dev_address, 0, NULL, NULL, 1);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Address configured */
@@ -77,7 +77,7 @@ usb_attach_device_one(struct USB_DEVICE* usb_dev)
 
 	/* Now, obtain the entire device descriptor */
 	len = sizeof(usb_dev->usb_descr_device);
-	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_DEVICE, 0), 0, d, &len, 0);
+	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_DEVICE, 0), 0, d, &len, 0);
 	ANANAS_ERROR_RETURN(err);
 
 	TRACE_DEV(USB, INFO, dev,
@@ -89,7 +89,7 @@ usb_attach_device_one(struct USB_DEVICE* usb_dev)
 	/* Obtain the language ID of this device */
 	struct USB_DESCR_STRING s;
 	len = 4  /* just the first language */ ;
-	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, 0), 0, &s, &len, 0);
+	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, 0), 0, &s, &len, 0);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Retrieved string language code */
@@ -98,7 +98,7 @@ usb_attach_device_one(struct USB_DEVICE* usb_dev)
 
 	/* Time to fetch strings; this must be done in two steps: length and content */
 	len = 4 /* length only */ ;
-	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, d->dev_productidx), langid, &s, &len, 0);
+	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, d->dev_productidx), langid, &s, &len, 0);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Retrieved string length */
@@ -108,7 +108,7 @@ usb_attach_device_one(struct USB_DEVICE* usb_dev)
 	struct USB_DESCR_STRING* s_full = (void*)tmp;
 	len = s.str_length;
 	KASSERT(len < sizeof(tmp), "very large string descriptor %u", s.str_length);
-	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, d->dev_productidx), langid, s_full, &len, 0);
+	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, d->dev_productidx), langid, s_full, &len, 0);
 	ANANAS_ERROR_RETURN(err);
 
 	kprintf("%s%u: product <", dev->name, dev->unit);
@@ -124,7 +124,7 @@ usb_attach_device_one(struct USB_DEVICE* usb_dev)
 	 */
 	struct USB_DESCR_CONFIG c;
 	len = sizeof(c);
-	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_CONFIG, 0), 0, &c, &len, 0);
+	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_CONFIG, 0), 0, &c, &len, 0);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Retrieved partial config descriptor */
@@ -137,7 +137,7 @@ usb_attach_device_one(struct USB_DEVICE* usb_dev)
 	struct USB_DESCR_CONFIG* c_full = (void*)tmp;
 	len = c.cfg_totallen;
 	KASSERT(len < sizeof(tmp), "very large configuration descriptor %u", c.cfg_totallen);
-	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_CONFIG, 0), 0, c_full, &len, 0);
+	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_CONFIG, 0), 0, c_full, &len, 0);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Retrieved full device descriptor */
@@ -148,7 +148,7 @@ usb_attach_device_one(struct USB_DEVICE* usb_dev)
 	ANANAS_ERROR_RETURN(err);
 
 	/* For now, we'll just activate the very first configuration */
-	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_SET_CONFIGURATION, USB_CONTROL_TYPE_STANDARD, c_full->cfg_identifier, 0, NULL, NULL, 1);
+	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_SET_CONFIGURATION, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, c_full->cfg_identifier, 0, NULL, NULL, 1);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Configuration activated */

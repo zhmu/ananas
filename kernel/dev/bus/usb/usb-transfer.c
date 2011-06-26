@@ -15,7 +15,7 @@
 TRACE_SETUP;
 
 errorcode_t
-usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int type, int value, int index, void* buf, size_t* len, int write)
+usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, int value, int index, void* buf, size_t* len, int write)
 {
 	/* Make the USB transfer itself */
 	int flags = 0;
@@ -26,7 +26,7 @@ usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int type, int value, int i
 	else
 		flags |= TRANSFER_FLAG_READ;
 	struct USB_TRANSFER* xfer = usb_alloc_transfer(usb_dev, TRANSFER_TYPE_CONTROL, flags, 0);
-	xfer->xfer_control_req.req_type = TO_REG32((write ? USB_CONTROL_RECIPIENT_DEVICE : USB_CONTROL_REQ_DEV2HOST) | USB_CONTROL_RECIPIENT_DEVICE | USB_CONTROL_REQ_TYPE(type));
+	xfer->xfer_control_req.req_type = TO_REG32((write ? 0 : USB_CONTROL_REQ_DEV2HOST) | USB_CONTROL_REQ_RECIPIENT(recipient) | USB_CONTROL_REQ_TYPE(type));
 	xfer->xfer_control_req.req_request = TO_REG32(req);
 	xfer->xfer_control_req.req_value = TO_REG32(value);
 	xfer->xfer_control_req.req_index = index;
