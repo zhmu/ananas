@@ -69,10 +69,13 @@ struct USB_DEVICE {
 	int		usb_num_interfaces;
 	int		usb_cur_interface;
 	struct USB_DESCR_DEVICE usb_descr_device;
-	uint16_t	usb_langid;			/* Language ID */
-	int		usb_cur_string;
 	struct USB_PIPES usb_pipes;
+
+	/* Provide queue structure for device attachment */
+	DQUEUE_FIELDS(struct USB_DEVICE);
 };
+
+DQUEUE_DEFINE(USB_DEVICE_QUEUE, struct USB_DEVICE);
 
 typedef void (*usb_xfer_callback_t)(struct USB_TRANSFER*);
 
@@ -114,8 +117,10 @@ struct USB_DEVICE* usb_alloc_device(device_t root, device_t hub, void* hcd_privd
 struct USB_TRANSFER* usb_alloc_transfer(struct USB_DEVICE* dev, int type, int flags, int endpt);
 errorcode_t usb_schedule_transfer(struct USB_TRANSFER* xfer);
 void usb_free_transfer(struct USB_TRANSFER* xfer);
-void usb_attach_device(device_t parent, device_t hub, void* hcd_privdata);
 void usb_completed_transfer(struct USB_TRANSFER* xfer);
 int usb_get_next_address(struct USB_DEVICE* usb_dev);
+
+void usb_attach_device(device_t parent, device_t hub, void* hcd_privdata);
+void usb_attach_init();
 
 #endif /* __ANANAS_USB_CORE_H__ */

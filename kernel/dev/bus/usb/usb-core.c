@@ -35,7 +35,6 @@ usb_alloc_device(device_t root, device_t hub, void* hcd_privdata)
 	usb_dev->usb_attachstep = -1;
 	usb_dev->usb_num_interfaces = 0;
 	usb_dev->usb_cur_interface = -1;
-	usb_dev->usb_langid = 0;
 	DQUEUE_INIT(&usb_dev->usb_pipes);
 	return usb_dev;
 }
@@ -141,6 +140,8 @@ usb_init()
 	kthread_init(&usb_workerthread, &usb_thread, NULL);
 	thread_set_args(&usb_workerthread, "[usb]\0\0", PAGE_SIZE);
 	thread_resume(&usb_workerthread);
+
+	usb_attach_init();
 }
 
 /* vim:set ts=2 sw=2: */

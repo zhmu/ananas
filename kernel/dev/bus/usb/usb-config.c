@@ -65,9 +65,10 @@ usb_parse_configuration(struct USB_DEVICE* usb_dev, void* data, int datalen)
 				return ANANAS_ERROR(NO_RESOURCE);
 
 			TRACE_DEV(USB, INFO, dev,
-			 "endpoint %u: addr=%s:%u, attr=%u, maxpacketsz=%u",
+			 "endpoint %u: addr=%s:%u, attr=%u, type=%u, maxpacketsz=%u",
 			 epnum, (ep->ep_addr & USB_EP_ADDR_IN) ? "in" : "out",
 			 USB_EP_ADDR(ep->ep_addr), USB_PE_ATTR_TYPE(ep->ep_attr),
+			 USB_PE_ATTR_TYPE(ep->ep_attr),
 			 ep->ep_maxpacketsz);
 
 			/* Resolve the endpoint type to our own */
