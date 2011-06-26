@@ -57,6 +57,7 @@ usb_alloc_transfer(struct USB_DEVICE* dev, int type, int flags, int endpt)
 	usb_xfer->xfer_flags = flags;
 	usb_xfer->xfer_address = dev->usb_address;
 	usb_xfer->xfer_endpoint = endpt;
+	waitqueue_init(&usb_xfer->xfer_waitqueue);
 	return usb_xfer;
 }
 
@@ -88,13 +89,18 @@ usb_completed_transfer(struct USB_TRANSFER* xfer)
 {
 	/*
 	 * This is generally called from interrupt context, so schedule a worker to
-	 * process the transfer.
+	 * process the transfer; if the transfer doesn't have a callback function,
+	 * assume we'll just have to signal its waitqueue.
 	 */
-	spinlock_lock(&spl_usb_xfer_pendingqueue);
-	DQUEUE_ADD_TAIL(&usb_xfer_pendingqueue, xfer);
-	spinlock_unlock(&spl_usb_xfer_pendingqueue);
+	if (xfer->xfer_callback != NULL) {
+		spinlock_lock(&spl_usb_xfer_pendingqueue);
+		DQUEUE_ADD_TAIL(&usb_xfer_pendingqueue, xfer);
+		spinlock_unlock(&spl_usb_xfer_pendingqueue);
 
-	waitqueue_signal(&usb_waitqueue);
+		waitqueue_signal(&usb_waitqueue);
+	} else {
+		waitqueue_signal(&xfer->xfer_waitqueue);
+	}
 }
 
 static void

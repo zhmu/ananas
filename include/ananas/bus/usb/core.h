@@ -14,6 +14,7 @@
 #define USB_MAX_DATALEN		1024
 
 struct USB_DEVICE;
+struct WAIT_QUEUE;
 
 /*
  * A standard USB endpoint.
@@ -101,6 +102,7 @@ struct USB_TRANSFER {
 	int				xfer_result_length;
 	usb_xfer_callback_t		xfer_callback;
 	void*				xfer_callback_data;
+	struct WAIT_QUEUE		xfer_waitqueue;
 	/* Provide queue structure */
 	DQUEUE_FIELDS(struct USB_TRANSFER);
 };
