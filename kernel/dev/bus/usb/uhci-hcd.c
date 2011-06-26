@@ -168,9 +168,11 @@ uhci_irq(device_t dev)
 
 //	kprintf("uhci_irq: stat=%x\n", stat);
 
+#if 0
 	if (stat & UHCI_USBSTS_ERR) {
 		device_printf(dev, "USB ERROR received");
 	}
+#endif
 
 	if (stat & UHCI_USBSTS_HCHALTED) {
 		device_printf(dev, "ERROR: Host Controller Halted!");
