@@ -28,13 +28,13 @@ usb_pipe_callback(struct USB_TRANSFER* xfer)
 	struct USB_PIPE* pipe = xfer->xfer_callback_data;
 
 	/* Tell the pipe */
-	pipe->p_callback(pipe);
+	usb_pipe_result_t result = pipe->p_callback(pipe);
 
 	/*
 	 * And reschedule the transfer if it was input - note that we have to
 	 * recreate the transfer as the driver is welcome to free it XXX
 	 */
-	if (pipe->p_xfer->xfer_flags & TRANSFER_FLAG_READ)
+	if (result == PIPE_OK && (pipe->p_xfer->xfer_flags & TRANSFER_FLAG_READ))
 		usb_schedule_transfer(usb_pipe_create_transfer(pipe));
 }
 

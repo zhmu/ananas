@@ -6,7 +6,12 @@ struct USB_PIPE;
 struct USB_TRANSFER;
 struct USB_ENDPOINT;
 
-typedef void (*usb_pipe_callback_t)(struct USB_PIPE*);
+typedef enum {
+	PIPE_ABORT,
+	PIPE_OK
+} usb_pipe_result_t;
+
+typedef usb_pipe_result_t (*usb_pipe_callback_t)(struct USB_PIPE*);
 
 struct USB_PIPE {
 	struct USB_DEVICE* p_dev;

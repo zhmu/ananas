@@ -27,7 +27,7 @@ usbkbd_probe(device_t dev)
 	return ANANAS_ERROR_OK;
 }
 
-static void
+static usb_pipe_result_t
 usbkbd_callback(struct USB_PIPE* pipe)
 {
 	struct USB_TRANSFER* xfer = pipe->p_xfer;
@@ -36,13 +36,15 @@ usbkbd_callback(struct USB_PIPE* pipe)
 
 	if (xfer->xfer_flags & TRANSFER_FLAG_ERROR) {
 		kprintf("error, aborting]\n");
-		return;
+		return PIPE_ABORT;
 	}
 
 	for (int i = 0; i < 8; i++) {
 		kprintf("%x ", xfer->xfer_data[i]);
 	}
 	kprintf("]\n");
+
+	return PIPE_OK;
 }
 
 static errorcode_t
