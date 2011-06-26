@@ -327,7 +327,7 @@ uhci_interrupt_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 	int isread = xfer->xfer_flags & TRANSFER_FLAG_READ;
 
 	struct UHCI_TD* last_td;
-	struct UHCI_TD* td_chain = uhci_create_data_tds(dev, xfer->xfer_data, xfer->xfer_length, 8 /* xfer->xfer_device->usb_max_packet_sz0*/, isread ? TD_PID_IN : TD_PID_OUT, ls, token_addr, (void*)TD_LINKPTR_T, &last_td);
+	struct UHCI_TD* td_chain = uhci_create_data_tds(dev, xfer->xfer_data, xfer->xfer_length, xfer->xfer_device->usb_max_packet_sz0, isread ? TD_PID_IN : TD_PID_OUT, ls, token_addr, (void*)TD_LINKPTR_T, &last_td);
 
 	last_td->td_status |= TD_STATUS_IOC;
 	td_chain->td_token &= ~TD_TOKEN_DATA; /* XXX */
