@@ -12,10 +12,10 @@ BINUTILS_PATCH=	http://avr32linux.org/twiki/pub/Main/BinutilsPatches/binutils-2.
 GCC_PATCH=	http://avr32linux.org/twiki/pub/Main/GccPatches/gcc-4.2.2.atmel.1.1.3.patch.bz2
 else
 # everything else is supported by mainline binutils/gcc
-BINUTILS_VER=	2.20.1
-GCC_VER=	4.4.3
+BINUTILS_VER=	2.21
+GCC_VER=	4.6.1
 endif
-GDB_VER=	7.1
+GDB_VER=	7.2
 
 # environment settings
 MIRROR?=	http://ftp.gnu.org/gnu
@@ -132,7 +132,7 @@ distfiles/gcc-${GCC_VER}.diff:
 		@# XXX the '--disable-libssp' is a temporary kludge since we do
 		@# not define the necessary things in stdio.h yet (it tries to
 		@# open /dev/urandom and read from it)
-		(cd build/gcc.${GCC_VER}.${ARCH} && ../../src/gcc-${GCC_VER}/configure --target=${TARGET} --prefix=${PREFIX} --disable-nls --enable-languages=c --without-headers --with-gmp=/usr/local --with-mpfr=/usr/local --disable-libssp)
+		(cd build/gcc.${GCC_VER}.${ARCH} && ../../src/gcc-${GCC_VER}/configure --target=${TARGET} --prefix=${PREFIX} --disable-nls --enable-languages=c --without-headers --with-gmp=/usr/local --with-mpfr=/usr/local --disable-libssp --disable-libquadmath)
 		@${TOUCH} .gcc.${GCC_VER}.${ARCH}.configure
 
 .gcc.${GCC_VER}.${ARCH}.build:	.gcc.${GCC_VER}.${ARCH}.configure
