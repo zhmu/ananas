@@ -22,7 +22,6 @@ size_t fwrite( const void * _PDCLIB_restrict ptr, size_t size, size_t nmemb, str
         return 0;
     }
     _PDCLIB_size_t offset = 0;
-    bool lineend = false;
     size_t nmemb_i;
     for ( nmemb_i = 0; nmemb_i < nmemb; ++nmemb_i )
     {
@@ -32,7 +31,6 @@ size_t fwrite( const void * _PDCLIB_restrict ptr, size_t size, size_t nmemb, str
             {
                 /* Remember last newline, in case we have to do a partial line-buffered flush */
                 offset = stream->bufidx;
-                lineend = true;
             }
             if ( stream->bufidx == stream->bufsize )
             {
@@ -41,7 +39,6 @@ size_t fwrite( const void * _PDCLIB_restrict ptr, size_t size, size_t nmemb, str
                     /* Returning number of objects completely buffered */
                     return nmemb_i;
                 }
-                lineend = false;
             }
         }
     }
