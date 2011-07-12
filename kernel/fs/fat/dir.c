@@ -88,7 +88,6 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	size_t written = 0;
 	size_t left = *len;
 	char cur_filename[128]; /* currently assembled filename */
-	int cur_filename_len = 0;
 	off_t full_filename_offset = file->f_offset;
 	struct BIO* bio = NULL;
 	errorcode_t err = ANANAS_ERROR_OK;
@@ -149,7 +148,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			file->f_offset = full_filename_offset;
 			break;
 		}
-		written += filled; cur_filename_len = 0;
+		written += filled;
 		/*
 		 * Store the next offset; this is where our next filename starts (which
 	 	 * does not have to fit in the destination buffer, so we'll have to

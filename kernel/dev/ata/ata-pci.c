@@ -41,7 +41,7 @@ atapci_attach(device_t dev)
 		return ANANAS_ERROR(NO_RESOURCE);
 
 	struct ATA_PRIVDATA* privdata = dev->privdata;
-	privdata->atapci.atapci_io = (uint32_t)res_io;
+	privdata->atapci.atapci_io = (uint32_t)(uintptr_t)res_io;
 
 	return ANANAS_ERROR_NONE;
 }
