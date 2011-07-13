@@ -1,5 +1,5 @@
 TC_PREFIX?=	../toolchain/prefix.${ARCH}
-GCC_VER?=	4.4.3
+GCC_VER?=	4.6.1
 DESTDIR?=	${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}/include
 
 install:
