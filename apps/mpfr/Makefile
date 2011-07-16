@@ -2,7 +2,7 @@ ARCH?=		i386
 TARGET=		${ARCH}-elf-ananas
 PREFIX?=	$(realpath build.${ARCH})
 
-VERSION?=	3.0.0
+VERSION?=	3.0.1
 MIRROR?=	http://www.mpfr.org/mpfr-current/
 
 # tools to use
