@@ -11,4 +11,8 @@ SECTIONS {
 		*(COMMON)
 	}
 	__end = . ;
+
+	/DISCARD/ : {
+		*(.eh_frame)
+	}
 }
