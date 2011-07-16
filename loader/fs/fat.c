@@ -193,9 +193,13 @@ fat_mount(int device)
 
 	/* Fill out our fsinfo; we'll use this to see if the filesystem checks out */
 	fat_fsinfo->fat_sector_size = FAT_FROM_LE16(bpb->bpb_bytespersector);
-	if (fat_fsinfo->fat_sector_size != 512)
+	if (fat_fsinfo->fat_sector_size != 512) {
 		/* Anything but 512 byte sectors is either very old or very new - reject for now */
+#ifdef DEBUG_FAT
+		printf("fatfs: sector size %u, rejecting\n", fat_fsinfo->fat_sector_size);
+#endif
 		return 0;
+	}
 	fat_fsinfo->fat_reserved_sectors = FAT_FROM_LE16(bpb->bpb_num_reserved);
 	fat_fsinfo->fat_sectors_per_cluster = bpb->bpb_sectorspercluster;
 	/*
@@ -205,12 +209,20 @@ fat_mount(int device)
   int log2_cluster_size = 0;
   for (int i = fat_fsinfo->fat_sectors_per_cluster; i > 1; i >>= 1, log2_cluster_size++)
     ;
-  if ((1 << log2_cluster_size) != fat_fsinfo->fat_sectors_per_cluster)
+  if ((1 << log2_cluster_size) != fat_fsinfo->fat_sectors_per_cluster) {
+#ifdef DEBUG_FAT
+		printf("fatfs: cluster size %u isn't a power of 2\n", fat_fsinfo->fat_sectors_per_cluster);
+#endif
 		return 0;
+	}
 	int num_fats = bpb->bpb_num_fats;
-	if (num_fats != 1 && num_fats != 2)
+	if (num_fats != 1 && num_fats != 2) {
 		/* There must be one or two FAT's; we give up otherwise */
+#ifdef DEBUG_FAT
+		printf("fatfs: bad amount of fats %u\n", num_fats);
+#endif
 		return 0;
+	}
 	uint32_t fat_size = FAT_FROM_LE16(bpb->bpb_sectors_per_fat);
 	if (fat_size == 0)
 		fat_size = FAT_FROM_LE32(bpb->epb.fat32.epb_sectors_per_fat);
@@ -220,8 +232,12 @@ fat_mount(int device)
 	uint32_t num_sectors = FAT_FROM_LE16(bpb->bpb_num_sectors);
 	if (num_sectors == 0)
 		num_sectors = FAT_FROM_LE32(bpb->bpb_large_num_sectors);
-	if (num_sectors == 0)
+	if (num_sectors == 0) {
+#ifdef DEBUG_FAT
+		printf("fat: no sectors on disk?\n");
+#endif
 		return 0;
+	}
 	int num_data_clusters = (num_sectors - fat_fsinfo->fat_first_data_sector) / fat_fsinfo->fat_sectors_per_cluster;
 	if (num_data_clusters < 65525) {
 		fat_fsinfo->fat_type = (num_data_clusters < 4085) ? 12 : 16;
