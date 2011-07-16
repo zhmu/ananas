@@ -46,32 +46,32 @@ entry:
 	 */
 #ifdef DEBUG_SERIAL
 	/* disable serial interrupts */
-	mov     $0x3f8+1,%dx
+	mov     $DEBUG_SERIAL+1,%dx
 	mov     $0x00, %al
 	outb    %al, %dx
 
 	/* enable DLAB (sets baud rate divisor) */
-	mov     $0x3f8+3,%dx
+	mov     $DEBUG_SERIAL+3,%dx
 	mov     $0x80, %al
 	outb    %al, %dx
 
 	/* set divisor low byte for 9600 baud */
-	mov     $0x3f8+0,%dx
+	mov     $DEBUG_SERIAL+0,%dx
 	mov     $0x0c, %al
 	outb    %al, %dx
 
 	/* set divisor hi byte for 9600 baud */
-	mov     $0x3f8+1,%dx
+	mov     $DEBUG_SERIAL+1,%dx
 	mov     $0x0, %al
 	outb    %al, %dx
 
 	/* 8 bits, no parity and 1 stop bit */
-	mov     $0x3f8+3,%dx
+	mov     $DEBUG_SERIAL+3,%dx
 	mov     $0x3, %al
 	outb    %al, %dx
 
 	/* enable FIFO, clear it and set it for a 14 byte threshold */
-	mov     $0x3f8+2,%dx
+	mov     $DEBUG_SERIAL+2,%dx
 	mov     $0xc7, %al
 	outb    %al, %dx
 #endif

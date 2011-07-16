@@ -131,7 +131,7 @@ platform_putch(uint8_t ch)
 		"pop %%eax\n"
 		"movw	%%cx, %%dx\n"				/* Data Register */
 		"outb %%al, %%dx\n"
-	: : "a" (ch), "c" (0x3f8) : "%edx");
+	: : "a" (ch), "c" (DEBUG_SERIAL) : "%edx");
 #endif
 }
 
