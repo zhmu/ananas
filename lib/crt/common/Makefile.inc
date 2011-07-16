@@ -2,7 +2,7 @@ TC_PREFIX?=	../../../toolchain/prefix.${ARCH}
 CC=		${TC_PREFIX}/bin/${ARCH}-elf-ananas-gcc
 LD=		${TC_PREFIX}/bin/${ARCH}-elf-ananas-ld
 OBJS=		crt1_s.o cstart.o
-GCC_VER?=	4.4.3
+include		../../../conf/Makefile.inc
 
 CFLAGS=		-Wall -Werror
 

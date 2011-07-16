@@ -3,19 +3,13 @@ ARCH?=		i386
 PREFIX?=	$(realpath prefix.${ARCH})
 TARGET=		${ARCH}-elf-ananas
 
-# determine binutils/gcc versions to use and extra patches
+# determine binutils/gcc/gdb versions to use and extra patches
+include		../conf/Makefile.inc
 ifeq '${TARGET}' 'avr32-elf-ananas'
-# AVR32 port requires an older binutils/gcc with patches
-BINUTILS_VER=	2.18
-GCC_VER=	4.2.2
+# AVR32 port needs specific patches
 BINUTILS_PATCH=	http://avr32linux.org/twiki/pub/Main/BinutilsPatches/binutils-2.18.atmel.1.0.1.patch.bz2
 GCC_PATCH=	http://avr32linux.org/twiki/pub/Main/GccPatches/gcc-4.2.2.atmel.1.1.3.patch.bz2
-else
-# everything else is supported by mainline binutils/gcc
-BINUTILS_VER=	2.21
-GCC_VER=	4.6.1
 endif
-GDB_VER=	7.2
 
 # environment settings
 MIRROR?=	http://ftp.gnu.org/gnu
