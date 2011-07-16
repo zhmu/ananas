@@ -2,7 +2,9 @@ ARCH?=		i386
 TARGET=		${ARCH}-elf-ananas
 PREFIX?=	$(realpath build.${ARCH})
 
-VERSION?=	2.20.1
+include		../../conf/Makefile.inc
+
+VERSION?=	$(BINUTILS_VER)
 MIRROR?=	http://ftp.gnu.org/gnu/binutils/
 
 # tools to use

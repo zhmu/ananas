@@ -2,7 +2,9 @@ ARCH?=		i386
 TARGET=		${ARCH}-elf-ananas
 PREFIX?=	$(realpath build.${ARCH})
 
-VERSION?=	4.4.3
+include		../../conf/Makefile.inc
+
+VERSION?=	$(GCC_VER)
 MIRROR?=	http://ftp.gnu.org/gnu/gcc/
 PATCH?=		gcc.ananas.diff
 
