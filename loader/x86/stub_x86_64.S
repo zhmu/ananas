@@ -49,15 +49,18 @@ x86_64_launch:
 .code64
 
 entry64:
+	/* Throw away upper 32 bits of %rsi and %rdi */
+	xchg	%esi, %esi
+	xchg	%edi, %edi
+
 	/* Construct entry point %ebx = (%rsi << 32) | %rdi */
-	shlq	$32, %rsi
-	andq	$0xffffffff, %rdi
-	addq	%rdi, %rsi
 	movq	%rsi, %rbx
+	shlq	$32, %rbx
+	addq	%rdi, %rbx
 
 	/* Obtain bootinfo structure; this is passed to the kernel as %rdi */
 	movq	%rbp, %rdi
-	andq	$0xffffffff, %rdi
+	xchg	%edi, %edi
 
 	/* Set up the base segment registers for the kernel */
 	movq	$0x30, %rax
