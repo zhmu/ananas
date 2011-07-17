@@ -100,8 +100,7 @@ usbhub_attach(device_t dev)
 	struct USB_DESCR_HUB hd;
 	size_t len = sizeof(hd);
 	errorcode_t err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_CLASS, USB_REQUEST_MAKE(USB_DESCR_TYPE_HUB, 0), 0, &hd, &len, 0);
-	if (err != ANANAS_ERROR_OK)
-		goto fail;
+	ANANAS_ERROR_RETURN(err);
 
 	struct HUB_PRIVDATA* hub_privdata = kmalloc(sizeof(*hub_privdata) + sizeof(struct HUB_PORT) * (hd.hd_numports - 1));
 	memset(hub_privdata, 0, sizeof(*hub_privdata) + sizeof(struct HUB_PORT) * (hd.hd_numports - 1));
