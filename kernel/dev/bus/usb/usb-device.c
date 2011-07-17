@@ -180,7 +180,16 @@ usb_device_thread(void* unused)
 			DQUEUE_POP_HEAD(&usb_device_wq);
 			spinlock_unlock(&usb_device_spl_pendingqueue);
 
-			/* Attach this device - will block until completed */
+			/*
+			 * We need to attach this device; the first step is to enable port power. We do this
+			 * here not to clutter the attach code with enabling/disabling power; it makes the
+			 * former much more readible.
+			 *
+			 * Note that this will block until completed, which is intentional as it
+			 * ensures we will never attach more than one device in the system at any
+			 * given time.
+			 */
+
 			errorcode_t err = usb_attach_device_one(usb_dev);
 			KASSERT(err == ANANAS_ERROR_OK, "cannot yet deal with failures");
 		}
