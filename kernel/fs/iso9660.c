@@ -19,9 +19,8 @@
 
 TRACE_SETUP;
 
-/* XXX These macros need to be updated for non-LE architectures */
-#define ISO9660_GET_WORD(x) (*(uint16_t*)(x))
-#define ISO9660_GET_DWORD(x) (*(uint32_t*)(x))
+#define ISO9660_GET_WORD(x) (((uint16_t)(x)[0]) | ((uint16_t)(x)[1] << 8))
+#define ISO9660_GET_DWORD(x) (((uint32_t)(x)[0]) | ((uint32_t)(x)[1] << 8) | ((uint32_t)(x)[2] << 16) | ((uint32_t)(x)[3] << 24))
 
 struct ISO9660_INODE_PRIVDATA {
 	uint32_t lba;

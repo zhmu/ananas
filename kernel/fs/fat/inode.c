@@ -120,7 +120,8 @@ fat_write_inode(struct VFS_INODE* inode)
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
-	uint64_t fsop = *(uint64_t*)inode->i_fsop;
+	void* fsop_ptr = (void*)&inode->i_fsop[0]; /* XXX kludge to avoid gcc warning */
+	uint64_t fsop = *(uint64_t*)fsop_ptr;
 	KASSERT(fsop != FAT_ROOTINODE_FSOP, "writing the root inode");
 
 	/* Grab the current inode data block */
