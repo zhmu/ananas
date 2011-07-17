@@ -103,6 +103,8 @@ atkbd_irq(device_t dev)
 		kdb_enter("keyboard sequence");
 		return;
 	}
+	if (priv->kbd_flags == ATKBD_FLAG_CONTROL && scancode == 0x29 /* tilde */)
+		panic("forced by kdb");
 #endif
 
 	uint8_t ascii = ((priv->kbd_flags & ATKBD_FLAG_SHIFT) ? atkbd_keymap_shift : atkbd_keymap)[scancode];
