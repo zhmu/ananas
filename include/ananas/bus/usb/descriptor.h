@@ -1,6 +1,8 @@
 #ifndef __UHCI_DESCRIPTOR_H__
 #define __UHCI_DESCRIPTOR_H__
 
+#define HUB_MAX_PORTS 127
+
 struct USB_CONTROL_REQUEST {
 	uint8_t	 req_type;		/* Request type */
 #define USB_CONTROL_REQ_DEV2HOST 	(1 << 7)	/* Device to host */
@@ -122,6 +124,7 @@ struct USB_HUB_PORTSTATUS {
 #define USB_DESCR_TYPE_STRING		3
 #define USB_DESCR_TYPE_INTERFACE	4
 #define USB_DESCR_TYPE_ENDPOINT		5
+#define USB_DESCR_TYPE_HUB		0x29
 
 /* Generic descriptor*/
 struct USB_DESCR_GENERIC {
@@ -225,6 +228,24 @@ struct USB_DESCR_IASSOC {
 	uint8_t  ia_subclass;		/* Subclass */
 	uint8_t  ia_protocol;		/* Protocol */
 	uint8_t  ia_functionidx;	/* Function string descriptor */
+} __attribute__((packed));
+
+/* Hub descriptor */
+struct USB_DESCR_HUB {
+	uint8_t  hd_length;		/* Length in bytes */
+	uint8_t  hd_type;		/* Descriptor type */
+	uint8_t  hd_numports;		/* Number of downstream ports */
+	uint8_t  hd_flags;		/* Characteristics */
+#define USB_HD_FLAG_PS_GANGED		(0 << 0)
+#define USB_HD_FLAG_PS_INDIVIDUAL	(1 << 0)
+#define USB_HD_FLAG_COMPOUND		(1 << 2)
+#define USB_HD_FLAG_OC_GLOBAL		(0 << 3)
+#define USB_HD_FLAG_OC_INDIVIDUAL	(1 << 3)
+#define USB_HD_FLAG_OC_NONE		(2 << 3)
+	uint8_t  hd_poweron2good;	/* Time from power-on to power-good */
+	uint8_t  hd_max_current;	/* Maximum current requirements */
+	uint8_t  hd_removable[(HUB_MAX_PORTS + 7) / 8];
+	uint8_t  hd_powerctrlmask[(HUB_MAX_PORTS + 7) / 8];
 } __attribute__((packed));
 
 #endif /* __UHCI_DESCRIPTOR_H__ */

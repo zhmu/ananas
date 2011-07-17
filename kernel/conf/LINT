@@ -15,6 +15,7 @@ option		KDB
 # usb stack
 option		USB
 device		usbkeyboard
+device		usbhub
 
 # various subsystems
 device		pci

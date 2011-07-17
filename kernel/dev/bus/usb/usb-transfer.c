@@ -14,8 +14,8 @@
 
 TRACE_SETUP;
 
-errorcode_t
-usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, int value, int index, void* buf, size_t* len, int write)
+static struct USB_TRANSFER*
+usb_make_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, int value, int index, void* buf, size_t* len, int write)
 {
 	/* Make the USB transfer itself */
 	int flags = 0;
@@ -32,6 +32,13 @@ usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, i
 	xfer->xfer_control_req.req_index = index;
 	xfer->xfer_control_req.req_length = (len != NULL) ? *len : 0;
 	xfer->xfer_length = (len != NULL) ? *len : 0;
+	return xfer;
+}
+
+errorcode_t
+usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, int value, int index, void* buf, size_t* len, int write)
+{
+	struct USB_TRANSFER* xfer = usb_make_control_xfer(usb_dev, req, recipient, type, value, index, buf, len, write);
 
 	/* Now schedule the transfer and until it's completed XXX Timeout */
 	struct WAITER* w = waitqueue_add(&xfer->xfer_waitqueue);
