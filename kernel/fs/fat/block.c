@@ -236,7 +236,7 @@ fat_claim_avail_cluster(struct VFS_MOUNTED_FS* fs, uint32_t* cluster_out)
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 
 	/* XXX We do a dumb find-first on the filesystem for now */
-	blocknr_t cur_block;
+	blocknr_t cur_block = (blocknr_t)-1;
 	struct BIO* bio = NULL;
 	for (uint32_t clusterno = fs_privdata->next_avail_cluster; clusterno < fs_privdata->total_clusters; clusterno++) {
 		/* Obtain the FAT block, if necessary */
