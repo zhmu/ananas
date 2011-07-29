@@ -6,6 +6,7 @@
 #include "type-glue.h"
 #include <fcntl.h>
 #include <unistd.h>
+#undef __nonnull /* ditch OS cdefs.h declaration */
 #include <ananas/lib.h>
 #include <ananas/error.h>
 #include <ananas/bio.h>
@@ -44,7 +45,9 @@ errorcode_t
 device_bread(device_t dev, struct BIO* bio)
 {
 	off_t off = bio->io_block * 512;
-	if (pread(dev_fd, bio->data, bio->length, off) != bio->length)
+	if (lseek(dev_fd, off, SEEK_SET) != off)
+		panic("seek error");
+	if (read(dev_fd, bio->data, bio->length) != bio->length)
 		panic("read error");
 	bio_set_available(bio);
 	return ANANAS_ERROR_OK;
@@ -61,6 +64,14 @@ device_read(device_t dev, char* buf, size_t* len, off_t offset)
 {
 	/* Used only for device filesystem, which we won't read anyway */
 	panic("device_read() is not implemented");
+	return ANANAS_ERROR(BAD_SYSCALL);
+}
+
+errorcode_t
+device_write(device_t dev, const char* buf, size_t* len, off_t offset)
+{
+	/* Used only for device filesystem, which we won't write anyway */
+	panic("device_write() is not implemented");
 	return ANANAS_ERROR(BAD_SYSCALL);
 }
 

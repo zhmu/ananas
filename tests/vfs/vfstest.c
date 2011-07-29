@@ -20,6 +20,12 @@
 #define CHECK_ERROR(x,e) \
 	check_err((x), ANANAS_ERROR_##e, STRINGIFY(x))
 
+void _PDCLIB_assert( char const * const message1, char const * const function, char const * const message2 )
+{
+	fprintf(stderr, "%s%s%s\n", message1, function, message2);
+	abort();
+}
+
 char* vfstest_fsimage = NULL;
 
 static void

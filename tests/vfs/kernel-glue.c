@@ -42,9 +42,21 @@ tracef(int fileid, const char* func, const char* fmt, ...)
 
 /* There is no need to lock anything, so just stub the locking stuff out */
 struct SPINLOCK;
-void md_spinlock_init(struct SPINLOCK* s) {}
-void md_spinlock_lock(struct SPINLOCK* s) {}
-void md_spinlock_unlock(struct SPINLOCK* s) {}
+struct MUTEX;
+void spinlock_init(struct SPINLOCK* s) {}
+void spinlock_lock(struct SPINLOCK* s) {}
+void spinlock_unlock(struct SPINLOCK* s) {}
+void mutex_init(struct MUTEX* mtx) {}
+void mutex_lock(struct MUTEX* mtx) {}
+void mutex_unlock(struct MUTEX* mtx) {}
+
+/* Waitqueues aren't necessary */
+struct WAITQUEUE;
+void waitqueue_init(struct WAITQUEUE* wq) { }
+struct WAITER* waitqueue_add(struct WAITQUEUE* wq) { return NULL; }
+void waitqueue_wait(struct WAITER* w) { }
+void waitqueue_remove(struct WAITER* w) { }
+void waitqueue_signal(struct WAITER* w) { }
 
 void
 md_reschedule()
