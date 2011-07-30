@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "../../include/ananas/dqueue.h"
+#include <ananas/dqueue.h>
 
 struct test_item {
 	int value;
@@ -10,8 +10,8 @@ struct test_item {
 
 DQUEUE_DEFINE(test_queue, struct test_item);
 
-int
-main()
+void
+dqueue_test()
 {
 	struct test_queue tq;
 	DQUEUE_INIT(&tq);
@@ -182,8 +182,6 @@ main()
 		i++;
 	}
 	assert(i == 5);
-
-	return 0;
 }
 
 /* vim:set ts=2 sw=2: */

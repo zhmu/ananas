@@ -7,12 +7,6 @@
 
 #define MM_REGION1_LEN (1 * 1024 * 1024)
 
-void _PDCLIB_assert( char const * const message1, char const * const function, char const * const message2 )
-{
-	fprintf(stderr, "%s%s%s\n", message1, function, message2);
-	abort();
-}
-
 int
 main(int argc, char* argv[])
 {

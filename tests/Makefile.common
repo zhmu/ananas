@@ -1,0 +1,21 @@
+# general cflags
+CFLAGS+=		-g
+# cflags for our wrapper code
+WCFLAGS+=	-std=c99 -I. -I../framework/include $(CFLAGS)
+# cflags for kernel stuff
+KCFLAGS+=	$(WCFLAGS) -I../../include $(CFLAGS) -DTESTFRAMEWORK
+
+ARCH?=		amd64
+K?=		../../kernel
+
+$(TARGET):	$(OBJS) $(LIBS)
+		$(CC) -o $(TARGET) $(OBJS) $(LIBS)
+
+machine:
+		ln -sf ../../include/ananas/${ARCH} machine
+
+ananas:		machine
+		ln -sf ../../include/ananas
+
+clean:
+		rm -f $(TARGET) machine ananas options.h $(OBJS) $(CLEAN_FILES)

@@ -1,33 +1,12 @@
 #include <ananas/lib.h>
 #include <ananas/trace.h>
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 void* __traceid_begin;
 void* __traceid_end;
-uint32_t trace_subsystem_mask[TRACE_SUBSYSTEM_LAST] = { 0 };
-
-void
-kprintf(const char* fmt, ...)
-{
-	va_list va;
-
-	va_start(va, fmt);
-	vprintf(fmt, va);
-	va_end(va);
-}
-
-void*
-kmalloc(size_t len)
-{
-	return malloc(len);
-}
-
-void
-kfree(void* ptr)
-{
-	free(ptr);
-}
+uint32_t trace_subsystem_mask[TRACE_SUBSYSTEM_LAST];
 
 void
 tracef(int fileid, const char* func, const char* fmt, ...)
@@ -76,6 +55,37 @@ _panic(const char* file, const char* func, int line, const char* fmt, ...)
 	va_end(ap);
 	printf("\n");
 	abort();
+}
+
+void*
+vm_map_kernel(void* ptr, size_t len, int flags)
+{
+	return ptr;
+}
+
+/* console */
+#define CONSOLE_LEN 128
+
+static int  console_pos = 0;
+static char console_buf[CONSOLE_LEN];
+
+void
+console_putchar(int c)
+{
+	assert(console_pos < CONSOLE_LEN);
+	console_buf[console_pos++] = c;
+}
+
+const char*
+console_getbuf()
+{
+	console_buf[console_pos] = '\0';
+	return console_buf;
+}
+
+void console_reset()
+{
+	console_pos = 0;
 }
 
 /* vim:set ts=2 sw=2: */

@@ -6,6 +6,18 @@
 #include <ananas/vm.h>
 #include <ananas/lib.h>
 
+#ifdef TESTFRAMEWORK
+/*
+ * XXXTEST This is a gross hack - we need to refrain from using the virtual/physical
+ * kernel memory structure when we are using the test framework because it can only
+ * use the OS malloc to obtain a piece and thus will have that P=V. By redefining
+ * the macro to a no-op, things will actually work - it's a bit shameful that we
+ * need to do it here...
+ */
+#undef KVTOP
+#define KVTOP(x) (x)
+#endif
+
 static struct MM_ZONE* zone_root = NULL;
 static spinlock_t spl_mm = SPINLOCK_DEFAULT_INIT;
 

@@ -1,16 +1,13 @@
-tests:	check
+TARGET=		structtest
+OBJS=		structtest.o queue.o dqueue.o
+LIBS=		../framework/framework.a
+include		../Makefile.common
 
-CFLAGS=	-std=c99 -Wall -Werror
+structtest.o:	ananas structtest.c
+		$(CC) $(WCFLAGS) -c -o structtest.o structtest.c
 
-queue:	queue.c
-	$(CC) $(CFLAGS) -o queue queue.c
+queue.o:	ananas queue.c
+		$(CC) $(WCFLAGS) -c -o queue.o queue.c
 
-dqueue:	dqueue.c
-	$(CC) $(CFLAGS) -o dqueue dqueue.c
-
-check:	queue dqueue
-	./queue
-	./dqueue
-
-clean:
-	rm -f queue dqueue
+dqueue.o:	ananas dqueue.c
+		$(CC) $(WCFLAGS) -c -o dqueue.o dqueue.c

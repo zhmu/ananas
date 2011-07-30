@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "../../include/ananas/queue.h"
+#include <ananas/queue.h>
 
 struct test_item {
 	int value;
@@ -10,8 +10,8 @@ struct test_item {
 
 QUEUE_DEFINE(test_queue, struct test_item);
 
-int
-main()
+void
+queue_test()
 {
 	struct test_queue tq;
 	QUEUE_INIT(&tq);
@@ -64,8 +64,6 @@ main()
 		assert(iter == &ti[i]);
 		i++;
 	}
-	
-	return 0;
 }
 
 /* vim:set ts=2 sw=2: */

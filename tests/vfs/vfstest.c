@@ -5,6 +5,7 @@
 #include <ananas/error.h>
 #include <ananas/bio.h>
 #include <ananas/vfs.h>
+#include "test-framework.h"
 
 /* Files to use for testing */
 #define FILE1 "vfstest"
@@ -19,12 +20,6 @@
 
 #define CHECK_ERROR(x,e) \
 	check_err((x), ANANAS_ERROR_##e, STRINGIFY(x))
-
-void _PDCLIB_assert( char const * const message1, char const * const function, char const * const message2 )
-{
-	fprintf(stderr, "%s%s%s\n", message1, function, message2);
-	abort();
-}
 
 char* vfstest_fsimage = NULL;
 
@@ -59,10 +54,13 @@ main(int argc, char* argv[])
 	struct DENTRY_CACHE_ITEM* di;
 
 	if (argc != 2) {
-		printf("usage: vfstest image.ext2\n");
+		fprintf(stderr, "usage: vfstest image.ext2\n");
 		return 1;
 	}
 	vfstest_fsimage = argv[1];
+
+	/* Initialize the test framework */
+	framework_init();
 
 	/* Give the subsystems a go, as we depend on them */
 	device_init();

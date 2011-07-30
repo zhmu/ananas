@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ananas/lib.h>
+#include "test-framework.h"
 
 const char* console_getbuf();
 const char* console_reset();
@@ -16,6 +17,9 @@ const char* console_reset();
 int
 main(int argc, char* argv[])
 {
+	/* Initialize the test framework */
+	framework_init();
+
 	/* Basic framework sanity check: fixed charachters, appending */
 	KPRINTF_CHECK("test", "test");
 	kprintf("a"); kprintf("b");
@@ -124,6 +128,9 @@ main(int argc, char* argv[])
 	assert(tmp[6] == 0x24);
 	assert(tmp[7] == 0x24);
 	assert(tmp[8] == 0xcd);
+
+	/* Clean up the test framework */
+	framework_done();
 
 	return 0;
 }
