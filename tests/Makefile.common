@@ -17,5 +17,8 @@ machine:
 ananas:		machine
 		ln -sf ../../include/ananas
 
+test:		$(TARGET)
+		./$(TARGET)
+
 clean:
 		rm -f $(TARGET) machine ananas options.h $(OBJS) $(CLEAN_FILES)
