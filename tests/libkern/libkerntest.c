@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ananas/lib.h>
@@ -8,7 +7,7 @@ const char* console_getbuf();
 const char* console_reset();
 
 #define KPRINTF_VERIFY(result) \
-	(strcmp(console_getbuf(), result)) ? fprintf(stderr, "failure in line %d: result '%s' != expected '%s'\n", __LINE__, console_getbuf(), result), abort() : console_reset();
+	EXPECT(strcmp(console_getbuf(), result) == 0), console_reset()
 
 #define KPRINTF_CHECK(result, expr, ...) \
 	kprintf(expr, ## __VA_ARGS__); \
@@ -73,65 +72,64 @@ main(int argc, char* argv[])
 	/* memset: 4 bytes aligned */
 	unsigned int dummy = (unsigned int)-1;
 	kmemset(&dummy, 0, sizeof(dummy));
-	assert(dummy == 0);
+	EXPECT(dummy == 0);
 
 	/* memset: 16 bytes aligned */
 	unsigned char buf[17] = { 0 };
 	kmemset(buf, 0xcd, 16);
 	for (int i = 0; i < 16; i++)
-		assert(buf[i] == 0xcd);
-	assert(buf[16] == 0);
+		EXPECT(buf[i] == 0xcd);
+	EXPECT(buf[16] == 0);
 
 	/* memset: 3 bytes aligned */
 	kmemset(&buf, 0xab, 3);
-	assert(buf[0] == 0xab);
-	assert(buf[1] == 0xab);
-	assert(buf[2] == 0xab);
-	assert(buf[3] == 0xcd);
+	EXPECT(buf[0] == 0xab);
+	EXPECT(buf[1] == 0xab);
+	EXPECT(buf[2] == 0xab);
+	EXPECT(buf[3] == 0xcd);
 
 	/* memset: 3 bytes unaligned */
 	kmemset(&buf[1], 0xaa, 3);
-	assert(buf[0] == 0xab);
-	assert(buf[1] == 0xaa);
-	assert(buf[2] == 0xaa);
-	assert(buf[3] == 0xaa);
-	assert(buf[4] == 0xcd);
+	EXPECT(buf[0] == 0xab);
+	EXPECT(buf[1] == 0xaa);
+	EXPECT(buf[2] == 0xaa);
+	EXPECT(buf[3] == 0xaa);
+	EXPECT(buf[4] == 0xcd);
 
 	/* memcpy: 4 bytes aligned */
 	unsigned int dummy2 = (unsigned int)-1;
 	kmemcpy(&dummy2, &dummy, sizeof(dummy));
-	assert(dummy2 == dummy);
+	EXPECT(dummy2 == dummy);
 
 	/* memcpy: 16 bytes aligned */
 	unsigned char tmp[17] = {0};
 	kmemcpy(tmp, buf, 16);
 	for (int i = 0; i < 16; i++)
-		assert(tmp[i] == buf[i]);
+		EXPECT(tmp[i] == buf[i]);
 
 	/* memcpy: 3 bytes aligned */
 	kmemset(buf, 0x12, 3);
 	kmemcpy(tmp, buf, 3);
-	assert(tmp[0] == 0x12);
-	assert(tmp[1] == 0x12);
-	assert(tmp[2] == 0x12);
-	assert(tmp[3] == 0xaa);
+	EXPECT(tmp[0] == 0x12);
+	EXPECT(tmp[1] == 0x12);
+	EXPECT(tmp[2] == 0x12);
+	EXPECT(tmp[3] == 0xaa);
 
 	/* memcpy: 7 bytes unaligned */
 	kmemset(buf, 0x24, 16);
 	kmemcpy(&tmp[1], &buf[2], 7);
-	assert(tmp[0] == 0x12);
-	assert(tmp[1] == 0x24);
-	assert(tmp[2] == 0x24);
-	assert(tmp[3] == 0x24);
-	assert(tmp[4] == 0x24);
-	assert(tmp[5] == 0x24);
-	assert(tmp[6] == 0x24);
-	assert(tmp[7] == 0x24);
-	assert(tmp[8] == 0xcd);
+	EXPECT(tmp[0] == 0x12);
+	EXPECT(tmp[1] == 0x24);
+	EXPECT(tmp[2] == 0x24);
+	EXPECT(tmp[3] == 0x24);
+	EXPECT(tmp[4] == 0x24);
+	EXPECT(tmp[5] == 0x24);
+	EXPECT(tmp[6] == 0x24);
+	EXPECT(tmp[7] == 0x24);
+	EXPECT(tmp[8] == 0xcd);
 
-	/* Clean up the test framework */
+	/* Clean up the test framework; this will also output test results */
 	framework_done();
-
 	return 0;
 }
 

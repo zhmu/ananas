@@ -11,6 +11,10 @@
 #define MM_REGION_LEN (1 * 1024 * 1024)
 
 const char* console_getbuf();
+static int test_passed = 0;
+static int test_failed = 0;
+static int test_todo = 0;
+static int test_total = 0;
 
 void
 framework_init()
@@ -30,8 +34,8 @@ framework_init()
 	 */
 	size_t initial_mem_avail, initial_mem_total;
 	kmem_stats(&initial_mem_avail, &initial_mem_total);
-	assert(initial_mem_avail < initial_mem_total);
-	assert(initial_mem_total <= MM_REGION_LEN);
+	EXPECT(initial_mem_avail < initial_mem_total);
+	EXPECT(initial_mem_total <= MM_REGION_LEN);
 }
 
 void
@@ -39,7 +43,28 @@ framework_done()
 {
 	/* Ensure the console is empty; if not, this is a bug */
 	const char* ptr = console_getbuf();
-	assert(*ptr == '\0');
+	EXPECT(*ptr == '\0');
+
+	printf("test summary: %u test(s), %u passed, %u failed (%u todo)\n",
+	 test_total, test_passed, test_failed, test_todo);
+}
+
+void
+framework_expect(int cond, enum FRAMEWORK_EXPECTING e, const char* file, int line, const char* expr)
+{
+	switch (e) {
+		default:
+		case SUCCESS:
+			printf("%s %s:%u %s\n", cond ? "ok" : "fail", file, line, expr);
+			(cond) ? test_passed++ : test_failed++;
+			break;
+		case FAILURE:
+			printf("%s %s:%u %s\n", cond ? "ok(unexpected)" : "fail(expected)", file, line, expr);
+			test_failed++;
+			test_todo++;
+			break;
+	}
+	test_total++;
 }
 
 /* vim:set ts=2 sw=2: */

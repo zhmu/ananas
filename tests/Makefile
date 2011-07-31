@@ -2,10 +2,17 @@ DIRS=	struct libkern vfs mm
 
 target:	test
 
-test:	framework/framework.a
+build:	framework/framework.a
 	for i in $(DIRS); do \
-		echo * Testing $$i; \
+		echo \* Building $$i; \
+		cd $$i; $(MAKE); cd ..; \
+	done
+
+test:	build
+	for i in $(DIRS); do \
+		echo \* Begin test: $$i; \
 		cd $$i; $(MAKE) test; cd ..; \
+		echo \* Done test: $$i; \
 	done
 
 clean:

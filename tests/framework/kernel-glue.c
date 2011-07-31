@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "test-framework.h"
 
 void* __traceid_begin;
 void* __traceid_end;
@@ -54,7 +55,7 @@ _panic(const char* file, const char* func, int line, const char* fmt, ...)
 	vprintf(fmt, ap);
 	va_end(ap);
 	printf("\n");
-	abort();
+	EXPECT(0);
 }
 
 void*
@@ -72,7 +73,11 @@ static char console_buf[CONSOLE_LEN];
 void
 console_putchar(int c)
 {
-	assert(console_pos < CONSOLE_LEN);
+	if (console_pos >= CONSOLE_LEN) {
+		/* Console buffer overrun! */
+		EXPECT(console_pos < CONSOLE_LEN);
+		console_pos = 0;
+	}
 	console_buf[console_pos++] = c;
 }
 
