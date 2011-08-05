@@ -75,19 +75,17 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	}
 
 	/*
-	 * Once this is called, we don't have any paging set up yet. This
-	 * means that we can't access any variables and/or data without
-	 * substracting KERNBASE.
+	 * Once this is called, we don't have any paging set up yet. This means that
+	 * we can't access any variables and/or data without substracting KERNBASE.
 	 *
 	 * First of all, we figure out where the kernel ends and thus space is
-	 * available; this will already be rounded to a page. Note that if we
-	 * have a ramdisk, it'll typically be positioned _after_ the kernel
-	 * so we'll have to increase this offset. We're still running unpaged,
-	 * so we use bootinfo_ptr.
+	 * available; this information is conveniently stored by the loader. Note
+	 * that we're still running unpaged, so we use bootinfo_ptr.
 	 */
 	addr_t availptr = (addr_t)&__end - KERNBASE;
-	if (bootinfo_ptr != NULL && bootinfo_ptr->bi_ramdisk_addr != 0) {
-		availptr = (addr_t)bootinfo_ptr->bi_ramdisk_addr + bootinfo_ptr->bi_ramdisk_size;
+	if (bootinfo_ptr != NULL) {
+		availptr = (addr_t)(bootinfo_ptr->bi_kernel_addr + bootinfo_ptr->bi_kernel_size);
+		availptr = (availptr & ~(PAGE_SIZE - 1)) + PAGE_SIZE;
 	}
 
 	/*
