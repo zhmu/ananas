@@ -155,6 +155,10 @@ cmd_load(int num_args, char** arg)
 	bootinfo.bi_size        = sizeof(struct BOOTINFO);
 	bootinfo.bi_kernel_addr = elf_info.elf_phys_start_addr;
 	bootinfo.bi_kernel_size = elf_info.elf_phys_end_addr - elf_info.elf_phys_start_addr;
+	bootinfo.bi_symtab_addr = elf_info.elf_symtab_addr;
+	bootinfo.bi_symtab_size = elf_info.elf_symtab_size;
+	bootinfo.bi_strtab_addr = elf_info.elf_strtab_addr;
+	bootinfo.bi_strtab_size = elf_info.elf_strtab_size;
 
 	printf("loaded successfully at 0x%x-0x%x (%u bit kernel)\n",
 	 bootinfo.bi_kernel_addr,

@@ -3,6 +3,7 @@
 #include <loader/lib.h>
 #include <loader/elf.h>
 #include <loader/platform.h>
+#include <machine/param.h> /* for PAGE_SIZE */
 #include <elf.h>
 
 #if defined(ELF32) || defined(ELF64)
@@ -36,6 +37,8 @@ elf32_load(void* header, struct LOADER_ELF_INFO* elf_info)
 		ELF_ABORT("not a static binary");
 	if (ehdr->e_phentsize < sizeof(Elf32_Phdr))
 		ELF_ABORT("pheader too small");
+	if (ehdr->e_shentsize < sizeof(Elf32_Shdr))
+		ELF_ABORT("sheader too small");
 
 	/*
 	 * Read all program table entries in a single go; this prevents us from having to
@@ -44,7 +47,7 @@ elf32_load(void* header, struct LOADER_ELF_INFO* elf_info)
 	 * free anything)
 	 */
 	void* phent = platform_get_memory(0);
-	if (vfs_pread(phent, ehdr->e_phnum * sizeof(Elf32_Phdr), ehdr->e_phoff) != ehdr->e_phnum * sizeof(Elf32_Phdr))
+	if (vfs_pread(phent, ehdr->e_phnum * ehdr->e_phentsize, ehdr->e_phoff) != ehdr->e_phnum * ehdr->e_phentsize)
 		ELF_ABORT("pheader read error");
 	/* XXX we should attempt to sort the phent's to ensure we can stream the input file */
 
@@ -72,6 +75,51 @@ elf32_load(void* header, struct LOADER_ELF_INFO* elf_info)
 			elf_info->elf_phys_end_addr = phdr->p_paddr + phdr->p_memsz;
 	}
 
+	/*
+	 * Walk through the ELF file's section headers; we need this in order to
+	 * obtain the string table and symbol table offsets. Together, these make up
+	 * the symbol table which is necessary for the kernel to be able to load
+	 * modules. We position these tables directly after the kernel.
+	 */
+	addr_t dest = elf_info->elf_phys_end_addr;
+	void* shent = platform_get_memory(0);
+	if (vfs_pread(shent, ehdr->e_shnum * ehdr->e_shentsize, ehdr->e_shoff) != ehdr->e_shnum * ehdr->e_shentsize)
+		ELF_ABORT("section header read error");
+	for (unsigned int i = 0; i < ehdr->e_shnum; i++) {
+		/*
+		 * Skip the section string table index; we do not need the section
+		 * table headers. Note that index zero (SHN_UNDEF) is reserved and
+		 * will always be of type SHT_NULL, so we needn't any special
+		 * handling.
+		 */
+		if (ehdr->e_shstrndx == i)
+			continue;
+		Elf32_Shdr* shdr = (Elf32_Shdr*)(shent + i * ehdr->e_shentsize);
+		switch(shdr->sh_type) {
+			case SHT_SYMTAB:
+				elf_info->elf_symtab_addr = dest;
+				elf_info->elf_symtab_size = shdr->sh_size;
+#ifdef DEBUG_ELF
+				printf("ELF: symtab @ %p, %u bytes\n", dest, shdr->sh_size);
+#endif
+				break;
+			case SHT_STRTAB:
+				elf_info->elf_strtab_addr = dest;
+				elf_info->elf_strtab_size = shdr->sh_size;
+#ifdef DEBUG_ELF
+				printf("ELF: strtab @ %p, %u bytes\n", dest, shdr->sh_size);
+#endif
+				break;
+			default:
+				continue;
+		}
+
+		if (vfs_pread((void*)dest, shdr->sh_size, shdr->sh_offset) != shdr->sh_size)
+			ELF_ABORT("unable to read section");
+		dest += shdr->sh_size;
+	}
+
+	elf_info->elf_phys_end_addr = dest; /* adjust for tables */
 	elf_info->elf_entry = (uint64_t)ehdr->e_entry;
 	elf_info->elf_bits = 32;
 	return 1;
@@ -149,7 +197,6 @@ elf64_load(void* header , struct LOADER_ELF_INFO* elf_info)
 	elf_info->elf_entry = ehdr->e_entry;
 	elf_info->elf_bits = 64;
 	return 1;
-
 }
 #endif /* ELF64 */
 
@@ -157,9 +204,9 @@ int
 elf_load(struct LOADER_ELF_INFO* elf_info)
 {
 	/* Reset loaded status */
-	elf_info->elf_bits = 0;
-	elf_info->elf_start_addr = elf_info->elf_phys_start_addr = 0xffffffffffffffff;
-	elf_info->elf_end_addr = elf_info->elf_phys_end_addr = 0;
+	memset(elf_info, 0, sizeof(struct LOADER_ELF_INFO));
+	elf_info->elf_start_addr = (uint64_t)-1;
+	elf_info->elf_phys_start_addr = (uint64_t)-1;
 
 	/*
 	 * Grab the kernel header. We just read a meager 32 bit header to ensure we

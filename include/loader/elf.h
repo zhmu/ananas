@@ -8,6 +8,10 @@ struct LOADER_ELF_INFO {
 	uint64_t	elf_end_addr;	/* last address (virtual) */
 	uint64_t	elf_phys_start_addr;	/* first address (physical) */
 	uint64_t	elf_phys_end_addr;	/* last address (physical) */
+	uint64_t	elf_symtab_addr;	/* symbol table address (physical) */
+	uint64_t	elf_symtab_size;	/* symbol table length */
+	uint64_t	elf_strtab_addr;	/* string table address (physical) */
+	uint64_t	elf_strtab_size;	/* string table length */
 };
 
 int elf_load(struct LOADER_ELF_INFO* elf_info);
