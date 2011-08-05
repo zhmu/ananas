@@ -6,6 +6,7 @@
 #include <ananas/kdb.h>
 #include <ananas/lib.h>
 #include <ananas/schedule.h>
+#include <ananas/symbols.h>
 #include <ananas/thread.h>
 #include <ananas/tty.h>
 #include <ananas/vfs.h>
@@ -28,6 +29,9 @@ void
 mi_startup()
 {
 	errorcode_t err;
+
+	/* Initialize kernel symbols; these will be required very soon once we have modules */
+	symbols_init();
 
 	/*
 	 * Cheat and initialize the console driver first; this ensures the user
