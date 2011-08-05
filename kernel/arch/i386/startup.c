@@ -377,6 +377,20 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 		size_t ramdisk_pages = (bootinfo->bi_ramdisk_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
 		kmem_mark_used((void*)bootinfo->bi_ramdisk_addr, ramdisk_pages);
 	}
+	
+	/* Protect symbol table from the allocator */
+	if (bootinfo != NULL && bootinfo->bi_symtab_addr != 0) {
+		addr_t addr = bootinfo->bi_symtab_addr & ~(PAGE_SIZE - 1);
+		size_t symtab_pages = (bootinfo->bi_symtab_size + (bootinfo->bi_symtab_addr - addr) + (PAGE_SIZE - 1)) / PAGE_SIZE;
+		kmem_mark_used((void*)addr, symtab_pages);
+	}
+
+	/* Protect string table from the allocator */
+	if (bootinfo != NULL && bootinfo->bi_strtab_addr != 0) {
+		addr_t addr = bootinfo->bi_strtab_addr & ~(PAGE_SIZE - 1);
+		size_t strtab_pages = (bootinfo->bi_strtab_size + (bootinfo->bi_strtab_addr - addr) + (PAGE_SIZE - 1)) / PAGE_SIZE;
+		kmem_mark_used((void*)addr, strtab_pages);
+	}
 
 	/* Initialize the handles; this is needed by the per-CPU code as it initialize threads */
 	handle_init();
