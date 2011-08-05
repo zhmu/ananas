@@ -190,6 +190,14 @@ typedef struct {
 #define ELF32_R_SYM(i)		((i)>>8)
 #define ELF32_R_TYPE(i)		((unsigned char)i)
 #define ELF32_R_INFO(s,t)	(((s)<<8)+(unsigned char)(t))
+#define R_386_GOT32	3			/* G + A */
+#define R_386_PL32	4			/* L + T - P */
+#define R_386_COPY	5			/* none */
+#define R_386_GLOB_DAT	6			/* S */
+#define R_386_JMP_SLOT	7			/* S */
+#define R_386_RELATIVE	8			/* B + A */
+#define R_386_GOTOFF	9			/* S + A - GOT */
+#define R_386_GOTPC	10			/* GOT + A - P */
 } Elf32_Rel;
 
 typedef struct {
@@ -239,6 +247,14 @@ typedef struct {
 	Elf64_Xword	p_memsz;		/* Size of segment in memory */
 	Elf64_Xword	p_align;		/* Alignment of segment */
 } Elf64_Phdr;
+
+typedef struct {
+	Elf32_Sword	d_tag;
+	union {
+		Elf32_Word	d_val;
+		Elf32_Addr	d_ptr;
+	} d_un;
+} Elf32_Dyn;
 
 typedef struct {
 	Elf64_Sxword	d_tag;
