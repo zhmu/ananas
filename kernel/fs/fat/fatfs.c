@@ -34,10 +34,12 @@
 #include <ananas/error.h>
 #include <ananas/vfs.h>
 #include <ananas/vfs/generic.h>
+#include <ananas/vfs/mount.h>
 #include <ananas/lib.h>
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
 #include <ananas/mm.h>
+#include <ananas/init.h>
 #include <fat.h>
 #include "block.h"
 #include "dir.h"
@@ -144,12 +146,32 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 	return ANANAS_ERROR_NONE;
 }
 
-struct VFS_FILESYSTEM_OPS fsops_fat = {
+static struct VFS_FILESYSTEM_OPS fsops_fat = {
 	.mount = fat_mount,
 	.alloc_inode = fat_alloc_inode,
 	.destroy_inode = fat_destroy_inode,
 	.read_inode = fat_read_inode,
 	.write_inode = fat_write_inode
 };
+
+static struct VFS_FILESYSTEM fs_fat = {
+	.fs_name = "fatfs",
+	.fs_fsops = &fsops_fat
+};
+
+errorcode_t
+fatfs_init()
+{
+	return vfs_register_filesystem(&fs_fat);
+}
+
+static errorcode_t
+fatfs_exit()
+{
+	return vfs_unregister_filesystem(&fs_fat);
+}
+
+INIT_FUNCTION(fatfs_init);
+EXIT_FUNCTION(fatfs_exit);
 
 /* vim:set ts=2 sw=2: */

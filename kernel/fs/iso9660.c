@@ -12,6 +12,8 @@
 #include <ananas/error.h>
 #include <ananas/vfs.h>
 #include <ananas/vfs/generic.h>
+#include <ananas/vfs/mount.h>
+#include <ananas/init.h>
 #include <ananas/lib.h>
 #include <ananas/trace.h>
 #include <ananas/mm.h>
@@ -287,11 +289,31 @@ static struct VFS_INODE_OPS iso9660_file_ops = {
 	.read = iso9660_read,
 };
 
-struct VFS_FILESYSTEM_OPS fsops_iso9660 = {
+static struct VFS_FILESYSTEM_OPS fsops_iso9660 = {
 	.mount = iso9660_mount,
 	.alloc_inode = iso9660_alloc_inode,
 	.destroy_inode = iso9660_destroy_inode,
 	.read_inode = iso9660_read_inode
 };
+
+static struct VFS_FILESYSTEM fs_iso9660 = {
+	.fs_name = "iso9660",
+	.fs_fsops = &fsops_iso9660
+};
+
+errorcode_t
+iso9660_init()
+{
+	return vfs_register_filesystem(&fs_iso9660);
+}
+
+static errorcode_t
+iso9660_exit()
+{
+	return vfs_unregister_filesystem(&fs_iso9660);
+}
+
+INIT_FUNCTION(iso9660_init);
+EXIT_FUNCTION(iso9660_exit);
 
 /* vim:set ts=2 sw=2: */

@@ -32,6 +32,8 @@
 #include <ananas/error.h>
 #include <ananas/vfs.h>
 #include <ananas/vfs/generic.h>
+#include <ananas/vfs/mount.h>
+#include <ananas/init.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/trace.h>
@@ -346,11 +348,31 @@ cramfs_destroy_inode(struct VFS_INODE* inode)
 	vfs_destroy_inode(inode);
 }
 
-struct VFS_FILESYSTEM_OPS fsops_cramfs = {
+static struct VFS_FILESYSTEM_OPS fsops_cramfs = {
 	.mount = cramfs_mount,
 	.alloc_inode = cramfs_alloc_inode,
 	.destroy_inode = cramfs_destroy_inode,
 	.read_inode = cramfs_read_inode
 };
+
+static struct VFS_FILESYSTEM fs_cramfs = {
+	.fs_name = "cramfs",
+	.fs_fsops = &fsops_cramfs
+};
+
+errorcode_t
+cramfs_init()
+{
+	return vfs_register_filesystem(&fs_cramfs);
+}
+
+static errorcode_t
+cramfs_exit()
+{
+	return vfs_unregister_filesystem(&fs_cramfs);
+}
+
+INIT_FUNCTION(cramfs_init);
+EXIT_FUNCTION(cramfs_exit);
 
 /* vim:set ts=2 sw=2: */

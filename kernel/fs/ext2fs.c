@@ -27,6 +27,8 @@
 #include <ananas/error.h>
 #include <ananas/vfs.h>
 #include <ananas/vfs/generic.h>
+#include <ananas/vfs/mount.h>
+#include <ananas/init.h>
 #include <ananas/lib.h>
 #include <ananas/trace.h>
 #include <ananas/mm.h>
@@ -371,11 +373,31 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 	return ANANAS_ERROR_OK;
 }
 
-struct VFS_FILESYSTEM_OPS fsops_ext2 = {
+static struct VFS_FILESYSTEM_OPS fsops_ext2 = {
 	.mount = ext2_mount,
 	.alloc_inode = ext2_alloc_inode,
 	.destroy_inode = ext2_destroy_inode,
 	.read_inode = ext2_read_inode
 };
+
+static struct VFS_FILESYSTEM fs_ext2 = {
+	.fs_name = "ext2",
+	.fs_fsops = &fsops_ext2
+};
+
+errorcode_t
+ext2_init()
+{
+	return vfs_register_filesystem(&fs_ext2);
+}
+
+static errorcode_t
+ext2_exit()
+{
+	return vfs_unregister_filesystem(&fs_ext2);
+}
+
+INIT_FUNCTION(ext2_init);
+EXIT_FUNCTION(ext2_exit);
 
 /* vim:set ts=2 sw=2: */

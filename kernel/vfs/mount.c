@@ -15,37 +15,14 @@ TRACE_SETUP;
 static spinlock_t spl_mountedfs = SPINLOCK_DEFAULT_INIT;
 static struct VFS_MOUNTED_FS mountedfs[VFS_MOUNTED_FS_MAX];
 
+static spinlock_t spl_fstypes = SPINLOCK_DEFAULT_INIT;
+static struct VFS_FILESYSTEMS fstypes;
+
 void
 vfs_init_mount()
 {
 	memset(mountedfs, 0, sizeof(mountedfs));
-}
-
-static struct VFS_FILESYSTEM_OPS*
-vfs_get_fstype(const char* type)
-{
-	/* XXX This isn't perfect, but it will get the job done */
-#ifdef EXT2FS
-	extern struct VFS_FILESYSTEM_OPS fsops_ext2;
-	if (!strcmp(type, "ext2")) return &fsops_ext2;
-#endif
-#ifdef ISO9660FS
-	extern struct VFS_FILESYSTEM_OPS fsops_iso9660;
-	if (!strcmp(type, "iso9660")) return &fsops_iso9660;
-#endif
-#ifdef CRAMFS
-	extern struct VFS_FILESYSTEM_OPS fsops_cramfs;
-	if (!strcmp(type, "cramfs")) return &fsops_cramfs;
-#endif
-#ifdef FATFS
-	extern struct VFS_FILESYSTEM_OPS fsops_fat;
-	if (!strcmp(type, "fatfs")) return &fsops_fat;
-#endif
-#ifdef DEVFS
-	extern struct VFS_FILESYSTEM_OPS fsops_devfs;
-	if (!strcmp(type, "devfs")) return &fsops_devfs;
-#endif
-	return NULL;
+//	DQUEUE_INIT(&fstypes);
 }
 
 static struct VFS_MOUNTED_FS*
@@ -68,7 +45,19 @@ errorcode_t
 vfs_mount(const char* from, const char* to, const char* type, void* options)
 {
 	errorcode_t err;
-	struct VFS_FILESYSTEM_OPS* fsops = vfs_get_fstype(type);
+
+	/* Attempt to locate the filesystem */
+	struct VFS_FILESYSTEM_OPS* fsops = NULL;
+	spinlock_lock(&spl_fstypes);
+	if (!DQUEUE_EMPTY(&fstypes))
+		DQUEUE_FOREACH(&fstypes, curfs, struct VFS_FILESYSTEM) {
+			if (strcmp(curfs->fs_name, type) == 0) {
+				/* Match */
+				fsops = curfs->fs_fsops;
+				break;
+			}
+		}
+	spinlock_unlock(&spl_fstypes);
 	if (fsops == NULL)
 		return ANANAS_ERROR(BAD_TYPE);
 	struct VFS_MOUNTED_FS* fs = vfs_get_availmountpoint();
@@ -180,6 +169,35 @@ vfs_get_rootfs()
 	}
 	spinlock_unlock(&spl_mountedfs);
 	return NULL;
+}
+
+errorcode_t
+vfs_register_filesystem(struct VFS_FILESYSTEM* fs)
+{
+	spinlock_lock(&spl_fstypes);
+	/* Ensure the filesystem is not already registered */
+	if (!DQUEUE_EMPTY(&fstypes))
+		DQUEUE_FOREACH(&fstypes, curfs, struct VFS_FILESYSTEM) {
+			if (strcmp(curfs->fs_name, fs->fs_name) != 0) {
+				/* Duplicate filesystem type; refuse to register */
+				spinlock_unlock(&spl_fstypes);
+				return ANANAS_ERROR(FILE_EXISTS);
+			}
+		}
+
+	/* Filesystem is clear; hook it up */
+	DQUEUE_ADD_TAIL(&fstypes, fs);
+	spinlock_unlock(&spl_fstypes);
+	return ANANAS_ERROR_OK;
+}
+
+errorcode_t
+vfs_unregister_filesystem(struct VFS_FILESYSTEM* fs)
+{
+	spinlock_lock(&spl_fstypes);
+	DQUEUE_REMOVE(&fstypes, fs);
+	spinlock_unlock(&spl_fstypes);
+	return ANANAS_ERROR_OK;
 }
 
 #ifdef KDB

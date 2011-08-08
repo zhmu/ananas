@@ -10,6 +10,8 @@
 #include <ananas/error.h>
 #include <ananas/vfs.h>
 #include <ananas/vfs/generic.h>
+#include <ananas/vfs/mount.h>
+#include <ananas/init.h>
 #include <ananas/trace.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
@@ -197,11 +199,31 @@ devfs_mount(struct VFS_MOUNTED_FS* fs)
 	return vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
 }
 
-struct VFS_FILESYSTEM_OPS fsops_devfs = {
+static struct VFS_FILESYSTEM_OPS fsops_devfs = {
 	.mount = devfs_mount,
 	.alloc_inode = devfs_alloc_inode,
 	.destroy_inode = devfs_destroy_inode,
 	.read_inode = devfs_read_inode
 };
+
+static struct VFS_FILESYSTEM fs_devfs = {
+	.fs_name = "devfs",
+	.fs_fsops = &fsops_devfs
+};
+
+errorcode_t
+devfs_init()
+{
+	return vfs_register_filesystem(&fs_devfs);
+}
+
+static errorcode_t
+devfs_exit()
+{
+	return vfs_unregister_filesystem(&fs_devfs);
+}
+
+INIT_FUNCTION(devfs_init);
+EXIT_FUNCTION(devfs_exit);
 
 /* vim:set ts=2 sw=2: */

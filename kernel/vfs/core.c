@@ -8,7 +8,6 @@
 #include <ananas/trace.h>
 #include <ananas/vfs/types.h>
 #include <ananas/vfs/mount.h>
-#include "options.h"
 
 TRACE_SETUP;
 
