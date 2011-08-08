@@ -5,6 +5,7 @@
 #include <ananas/mm.h>
 #include <ananas/kdb.h>
 #include <ananas/lib.h>
+#include <ananas/module.h>
 #include <ananas/schedule.h>
 #include <ananas/symbols.h>
 #include <ananas/thread.h>
@@ -39,6 +40,9 @@ mi_startup()
 	 */
 	tty_preinit();
 	console_init();
+
+	/* Initialize modules */
+	module_init();
 
 	/* Show a startup banner */
 	size_t mem_avail, mem_total;
