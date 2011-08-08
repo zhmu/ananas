@@ -16,6 +16,7 @@
 #include <ananas/pcpu.h>
 #include <ananas/mm.h>
 #include <ananas/vm.h>
+#include <loader/module.h>
 #include "options.h"
 
 /* __end is defined by the linker script and indicates the end of the kernel */
@@ -84,7 +85,7 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 */
 	addr_t availptr = (addr_t)&__end - KERNBASE;
 	if (bootinfo_ptr != NULL) {
-		availptr = (addr_t)(bootinfo_ptr->bi_kernel_addr + bootinfo_ptr->bi_kernel_size);
+		availptr = (addr_t)((struct LOADER_MODULE*)bootinfo_ptr->bi_modules)->mod_phys_end_addr;
 		availptr = (availptr & ~(PAGE_SIZE - 1)) + PAGE_SIZE;
 	}
 
@@ -371,26 +372,6 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 */
 	size_t kern_pages = ((addr_t)availptr - ((addr_t)&__entry - KERNBASE)) / PAGE_SIZE;
 	kmem_mark_used((void*)(addr_t)&__entry - KERNBASE, kern_pages);
-
-	/* If we have a ramdisk, protect it from the allocator */
-	if (bootinfo != NULL && bootinfo->bi_ramdisk_addr != 0) {
-		size_t ramdisk_pages = (bootinfo->bi_ramdisk_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
-		kmem_mark_used((void*)bootinfo->bi_ramdisk_addr, ramdisk_pages);
-	}
-	
-	/* Protect symbol table from the allocator */
-	if (bootinfo != NULL && bootinfo->bi_symtab_addr != 0) {
-		addr_t addr = bootinfo->bi_symtab_addr & ~(PAGE_SIZE - 1);
-		size_t symtab_pages = (bootinfo->bi_symtab_size + (bootinfo->bi_symtab_addr - addr) + (PAGE_SIZE - 1)) / PAGE_SIZE;
-		kmem_mark_used((void*)addr, symtab_pages);
-	}
-
-	/* Protect string table from the allocator */
-	if (bootinfo != NULL && bootinfo->bi_strtab_addr != 0) {
-		addr_t addr = bootinfo->bi_strtab_addr & ~(PAGE_SIZE - 1);
-		size_t strtab_pages = (bootinfo->bi_strtab_size + (bootinfo->bi_strtab_addr - addr) + (PAGE_SIZE - 1)) / PAGE_SIZE;
-		kmem_mark_used((void*)addr, strtab_pages);
-	}
 
 	/* Initialize the handles; this is needed by the per-CPU code as it initialize threads */
 	handle_init();

@@ -14,6 +14,7 @@
 #include <ananas/pcpu.h>
 #include <ananas/mm.h>
 #include <ananas/lib.h>
+#include <loader/module.h>
 
 /* Pointer to the next available page */
 void* avail;
@@ -217,7 +218,7 @@ extern void* syscall_handler;
 	 * the kernel.
 	 */
 	extern void *__entry, *__end;
-	avail = (void*)((addr_t)&__entry + bootinfo->bi_kernel_size);
+	avail = (void*)PTOKV(((struct LOADER_MODULE*)(addr_t)bootinfo_ptr->bi_modules)->mod_phys_end_addr);
 	if ((addr_t)avail % PAGE_SIZE > 0)
 		avail += (PAGE_SIZE - ((addr_t)avail % PAGE_SIZE));
 	pml4 = (uint64_t*)bootstrap_get_page();
