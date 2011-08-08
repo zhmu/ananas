@@ -31,8 +31,13 @@ typedef char*		caddr_t;
 
 typedef	uint32_t	suseconds_t;
 
+/* STRINGIFY(x) creates a string of whatever 'x' is => "x" */
 #define __STRING(x) #x
 #define STRINGIFY(x) __STRING(x)
+
+/* CONCAT(x,y) concatenates identifiers 'x' and 'y' => xy */
+#define __CONCAT(x,y) x ## y
+#define CONCAT(x,y) __CONCAT(x,y)
 
 #endif /* !ASM */
 
