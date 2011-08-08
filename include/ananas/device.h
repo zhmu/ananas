@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/dqueue.h>
 #include <ananas/lock.h>
+#include <ananas/init.h>
 #include <ananas/waitqueue.h>
 
 #ifndef __DEVICE_H__
@@ -109,11 +110,24 @@ struct PROBE {
 	/* Driver we are attaching */
 	driver_t	driver;
 
+	/* Queue fields */
+	DQUEUE_FIELDS(struct PROBE);
+
 	/* Busses this device appears on */
 	const char*	bus[];
 };
+DQUEUE_DEFINE(DEVICE_PROBE, struct PROBE);
 
 #define DRIVER_PROBE(drvr) \
+	extern struct PROBE probe_##drvr; \
+	static errorcode_t register_##drvr() { \
+		return device_register_probe(&probe_##drvr); \
+	}; \
+	static errorcode_t unregister_##drvr() { \
+		return device_unregister_probe(&probe_##drvr); \
+	}; \
+	INIT_FUNCTION(register_##drvr); \
+	EXIT_FUNCTION(unregister_##drvr); \
 	struct PROBE probe_##drvr = { \
 		.driver = &drv_##drvr, \
 		.bus = {
@@ -132,6 +146,9 @@ void device_free(device_t dev);
 errorcode_t device_attach_single(device_t dev);
 void device_attach_bus(device_t bus);
 device_t device_clone(device_t dev);
+
+errorcode_t device_register_probe(struct PROBE* p);
+errorcode_t device_unregister_probe(struct PROBE* p);
 
 int device_get_resources_byhint(device_t dev, const char* hint, const char** hints);
 int device_get_resources(device_t dev, const char** hints);

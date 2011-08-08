@@ -102,13 +102,17 @@ pcibus_attach(device_t dev)
 			if (irq != 0 && irq != 0xff)
 				device_add_resource(new_dev, RESTYPE_IRQ, irq, 0);
 
-			/* Walk through any device that attached on our bus, and see if it works */
+			/*
+			 * Walk through any device that attached on our bus, and see if it works
+			 * XXX This is a kludge; the device stuff should do this
+			 */
+			extern struct DEVICE_PROBE probe_queue;
+
 			int device_attached = 0;
-			struct PROBE** p = devprobe;
-			for (; *p != NULL; p++) {
+			DQUEUE_FOREACH(&probe_queue, p, struct PROBE) {
 				/* See if the device lives on our bus */
 				int exists = 0;
-				for (const char** curbus = (*p)->bus; *curbus != NULL; curbus++) {
+				for (const char** curbus = p->bus; *curbus != NULL; curbus++) {
 					if (strcmp(*curbus, dev->name) == 0) {
 						exists = 1;
 						break;
@@ -118,7 +122,7 @@ pcibus_attach(device_t dev)
 					continue;
 
 				/* This device may work - give it a chance to attach */
-				new_dev->driver = (*p)->driver;
+				new_dev->driver = p->driver;
 				strcpy(new_dev->name, new_dev->driver->name);
 				new_dev->unit = new_dev->driver->current_unit++;
 				errorcode_t err = device_attach_single(new_dev);
