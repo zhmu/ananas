@@ -3,7 +3,7 @@
 
 #include <ananas/types.h>
 
-struct LOADER_ELF_INFO;
+struct LOADER_MODULE;
 struct BOOTINFO;
 
 struct REALMODE_REGS {
@@ -47,7 +47,7 @@ void x86_realmode_call(struct REALMODE_REGS*);
 #define x86_realmode_call(x) \
 	realcall(x)
 #endif
-void x86_64_exec(struct LOADER_ELF_INFO* loadinfo, struct BOOTINFO* bootinfo);
+void x86_64_exec(struct LOADER_MODULE* mod, struct BOOTINFO* bootinfo);
 void x86_64_launch(uint64_t elf_start_addr, struct BOOTINFO* bootinfo);
 
 #endif /* __LOADER_X86_H__ */

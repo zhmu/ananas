@@ -1,10 +1,9 @@
 #include <ananas/types.h>
-#include <ananas/bootinfo.h>
 #include <loader/diskio.h>
 #include <loader/lib.h>
+#include <loader/module.h>
 #include <loader/platform.h>
 #include <loader/vfs.h>
-#include <loader/elf.h>
 #include <loader/ramdisk.h>
 
 #define MAX_LINE_SIZE 128
@@ -32,9 +31,9 @@ extern command_t cmd_modes;
 extern command_t cmd_setmode;
 #endif
 static command_t cmd_source;
+static command_t cmd_module;
+static command_t cmd_modules;
 
-static struct BOOTINFO bootinfo = { 0 };
-struct LOADER_ELF_INFO elf_info = { 0 };
 static int are_sourcing = 0;
 
 struct COMMAND {
@@ -61,6 +60,8 @@ struct COMMAND {
 	{ "modes",    &cmd_modes,    "Display available screen modes" },
 	{ "setmode",  &cmd_setmode,  "Set screen resolution after boot" },
 #endif
+	{ "module",   &cmd_module,   "Load a module" },
+	{ "modules",  &cmd_modules,  "Display loaded modules" },
 	{ NULL,       NULL,          NULL }
 };
 
@@ -144,47 +145,44 @@ cmd_load(int num_args, char** arg)
 		printf("cannot open '%s'\n", arg[1]);
 		return;
 	}
-	if (!elf_load(&elf_info)) {
+	if (!module_load(MOD_KERNEL)) {
 		printf("couldn't load kernel\n");
 		vfs_close();
 		return;
 	}
 	vfs_close();
 
-	memset(&bootinfo, 0, sizeof(struct BOOTINFO));
-	bootinfo.bi_size        = sizeof(struct BOOTINFO);
-	bootinfo.bi_kernel_addr = elf_info.elf_phys_start_addr;
-	bootinfo.bi_kernel_size = elf_info.elf_phys_end_addr - elf_info.elf_phys_start_addr;
-	bootinfo.bi_symtab_addr = elf_info.elf_symtab_addr;
-	bootinfo.bi_symtab_size = elf_info.elf_symtab_size;
-	bootinfo.bi_strtab_addr = elf_info.elf_strtab_addr;
-	bootinfo.bi_strtab_size = elf_info.elf_strtab_size;
-
-	printf("loaded successfully at 0x%x-0x%x (%u bit kernel)\n",
-	 bootinfo.bi_kernel_addr,
-	 bootinfo.bi_kernel_addr + bootinfo.bi_kernel_size,
-	 elf_info.elf_bits);
+	printf("loaded successfully at 0x%x-0x%x (%u bit kernel",
+	 mod_kernel.mod_phys_start_addr, mod_kernel.mod_phys_end_addr,
+	 mod_kernel.mod_bits);
+	if (mod_kernel.mod_symtab_addr != 0)
+		printf(", symbols");
+	if (mod_kernel.mod_strtab_addr != 0)
+		printf(", strings");
+	printf(")\n");
 }
 
 static void
 cmd_exec(int num_args, char** arg)
 {	
 	/* TODO: arguments */
-	if (elf_info.elf_bits == 0) {
+	if (mod_kernel.mod_bits == 0) {
 		printf("no kernel loaded\n");
 		return;
 	}
 
 	platform_cleanup();
 
-	platform_exec(&elf_info, &bootinfo);
+	struct BOOTINFO* bootinfo;
+	module_make_bootinfo(&bootinfo);
+	platform_exec(&mod_kernel, bootinfo);
 }
 
 static void
 cmd_boot(int num_args, char** arg)
 {	
 	cmd_load(num_args, arg);
-	if (elf_info.elf_bits == 0) {
+	if (mod_kernel.mod_bits == 0) {
 		/* Must have gone wrong... */
 		return;
 	}
@@ -207,7 +205,7 @@ cmd_autoboot(int num_args, char** arg)
 		printf("Trying '%s'...", *kernel);
 		const char* kernelfile[] = { NULL, *kernel };
 		cmd_load(sizeof(kernelfile) / sizeof(char*), (char**)kernelfile);
-		if (elf_info.elf_bits == 0)
+		if (mod_kernel.mod_bits == 0)
 			continue;
 		
 		cmd_exec(num_args, arg);
@@ -377,7 +375,7 @@ cmd_ramdisk(int num_args, char** arg)
 		printf("need an argument\n");
 		return;
 	}
-	if (bootinfo.bi_kernel_size == 0) {
+	if (mod_kernel.mod_bits == 0) {
 		printf("a kernel must be loaded first\n");
 		return;
 	}
@@ -386,7 +384,7 @@ cmd_ramdisk(int num_args, char** arg)
 		return;
 	}
 	struct LOADER_RAMDISK_INFO ram_info;
-	ram_info.ram_start = bootinfo.bi_kernel_addr + bootinfo.bi_kernel_size;
+	ram_info.ram_start = mod_kernel.mod_phys_end_addr;
 	/*
 	 * XXX give the kernel some slack - most implementations use some data after the
 	 *     kernel for temporary storage while initializing
@@ -398,12 +396,6 @@ cmd_ramdisk(int num_args, char** arg)
 		return;
 	}
 	vfs_close();
-	bootinfo.bi_ramdisk_addr = ram_info.ram_start;
-	bootinfo.bi_ramdisk_size = ram_info.ram_size;
-
-	printf("ramdisk loaded successfully at 0x%x-0x%x\n",
-	 bootinfo.bi_ramdisk_addr,
-	 bootinfo.bi_ramdisk_addr + bootinfo.bi_ramdisk_size);
 }
 #endif
 
@@ -463,6 +455,34 @@ cmd_source(int num_args, char** arg)
 	}
 
 	source_file();
+}
+
+static void
+cmd_module(int num_args, char** arg)
+{	
+	if (num_args != 2) {
+		printf("need an argument\n");
+		return;
+	}
+	if (!vfs_open(arg[1])) {
+		printf("cannot open '%s'\n", arg[1]);
+		return;
+	}
+	if (!module_load(MOD_MODULE)) {
+		printf("couldn't load module\n");
+		vfs_close();
+		return;
+	}
+	vfs_close();
+}
+
+static void
+cmd_modules(int num_args, char** arg)
+{
+	int i = 0;
+	for (struct LOADER_MODULE* mod_info = &mod_kernel; mod_info != NULL; mod_info = mod_info->mod_next, i++) {
+		printf("%u. %x-%x\n", i, mod_info->mod_phys_start_addr, mod_info->mod_phys_end_addr);
+	}
 }
 
 /* vim:set ts=2 sw=2: */

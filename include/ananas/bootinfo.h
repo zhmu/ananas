@@ -15,17 +15,9 @@ typedef uint32_t bi_size_t;
 
 struct BOOTINFO {
 	uint32_t	bi_size;
-	/* Kernel address and length; includes ramdisk, tables etc */
-	bi_addr_t	bi_kernel_addr;
-	bi_size_t	bi_kernel_size;
-	/* Kernel symbol/string tables and lengths */
-	bi_addr_t	bi_symtab_addr;
-	bi_size_t	bi_symtab_size;
-	bi_addr_t	bi_strtab_addr;
-	bi_size_t	bi_strtab_size;
-	/* Ramdisk address and length, if any */
-	bi_addr_t	bi_ramdisk_addr;
-	bi_size_t	bi_ramdisk_size;
+	/* Pointer and length of module chain; first module is always the kernel */
+	bi_addr_t	bi_modules;
+	bi_size_t	bi_modules_size;
 	/* MD memory map and size */
 	bi_addr_t	bi_memory_map_addr;
 	bi_size_t	bi_memory_map_size;

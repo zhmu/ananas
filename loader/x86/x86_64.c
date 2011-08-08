@@ -1,5 +1,5 @@
 #include <loader/lib.h>
-#include <loader/elf.h>
+#include <loader/module.h>
 #include <loader/x86.h>
 #include <loader/platform.h>
 #include <ananas/i386/param.h>  /* for page-size */
@@ -70,7 +70,7 @@ x86_64_map(uint64_t dest, addr_t src, int num_pages)
 }
 
 void
-x86_64_exec(struct LOADER_ELF_INFO* loadinfo, struct BOOTINFO* bootinfo)
+x86_64_exec(struct LOADER_MODULE* mod, struct BOOTINFO* bootinfo)
 {
 	/*
 	 * All pagetable entries must be page-aligned (the lower 12 bits must be
@@ -82,8 +82,8 @@ x86_64_exec(struct LOADER_ELF_INFO* loadinfo, struct BOOTINFO* bootinfo)
 	pml4 = platform_get_memory(PAGE_SIZE);
 
 	/* Map the executable we loaded */
-	int num_pages = (loadinfo->elf_end_addr - loadinfo->elf_start_addr + LARGE_PAGE_SIZE - 1) / LARGE_PAGE_SIZE;
-	if (!x86_64_map(ROUND_2MB(loadinfo->elf_start_addr), ROUND_2MB(loadinfo->elf_phys_start_addr), num_pages))
+	int num_pages = (mod->mod_end_addr - mod->mod_start_addr + LARGE_PAGE_SIZE - 1) / LARGE_PAGE_SIZE;
+	if (!x86_64_map(ROUND_2MB(mod->mod_start_addr), ROUND_2MB(mod->mod_phys_start_addr), num_pages))
 		return;
 
 	/* Map our loader code; it's in the first 1MB, so just do a simple 2MB mapping as that is certainly enough */
@@ -91,7 +91,7 @@ x86_64_exec(struct LOADER_ELF_INFO* loadinfo, struct BOOTINFO* bootinfo)
 		return;
 
 	/* All is in order - prepare for launch */
-	x86_64_launch(loadinfo->elf_start_addr, bootinfo);
+	x86_64_launch(mod->mod_start_addr, bootinfo);
 }
 #endif /* X86_64 */
 

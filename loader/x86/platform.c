@@ -8,8 +8,8 @@
 #include <ananas/i386/param.h>	/* for page-size */
 #include <ananas/bootinfo.h>
 #include <loader/diskio.h>
-#include <loader/elf.h>
 #include <loader/lib.h>
+#include <loader/module.h>
 #include <loader/platform.h>
 #include <loader/vbe.h>
 #include <loader/x86.h>
@@ -409,7 +409,7 @@ platform_cleanup()
 }
 
 void
-platform_exec(struct LOADER_ELF_INFO* loadinfo, struct BOOTINFO* bootinfo)
+platform_exec(struct LOADER_MODULE* mod, struct BOOTINFO* bootinfo)
 {
 	typedef void kentry(int, void*, int);
 
@@ -426,19 +426,19 @@ platform_exec(struct LOADER_ELF_INFO* loadinfo, struct BOOTINFO* bootinfo)
 #endif
 
 	/* And launch the kernel */
-	switch(loadinfo->elf_bits) {
+	switch(mod->mod_bits) {
 		case 32: {
-			uint32_t entry32 = (loadinfo->elf_entry & 0x0fffffff);
+			uint32_t entry32 = (mod->mod_entry & 0x0fffffff);
 			((kentry*)entry32)(BOOTINFO_MAGIC_1, bootinfo, BOOTINFO_MAGIC_2);
 			break;
 		}
 #ifdef X86_64
 		case 64:
-			x86_64_exec(loadinfo, bootinfo);
+			x86_64_exec(mod, bootinfo);
 			break;
 #endif
 		default:
-			printf("%u bit executables are not supported\n", loadinfo->elf_bits);
+			printf("%u bit executables are not supported\n", mod->mod_bits);
 			break;
 	}
 }

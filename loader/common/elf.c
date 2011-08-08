@@ -2,6 +2,7 @@
 #include <loader/vfs.h>
 #include <loader/lib.h>
 #include <loader/elf.h>
+#include <loader/module.h>
 #include <loader/platform.h>
 #include <machine/param.h> /* for PAGE_SIZE */
 #include <elf.h>
@@ -10,27 +11,17 @@
 
 #undef DEBUG_ELF
 
-#define ELF_ABORT(x...) \
+#define ELF_ABORT(x) \
 	do { \
-		printf(x); \
+		puts(x); \
 		return 0; \
 	} while (0)
 
 #ifdef ELF32
 static int
-elf32_load(void* header, struct LOADER_ELF_INFO* elf_info)
+elf32_load_kernel(void* header, struct LOADER_MODULE* mod)
 {
 	Elf32_Ehdr* ehdr = header;
-
-#ifdef __i386__
-	if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB)
-		ELF_ABORT("not i386 LSB");
-	if (ehdr->e_machine != EM_386)
-		ELF_ABORT("not i386");
-#elif defined(__PowerPC__)
-	if (ehdr->e_ident[EI_DATA] != ELFDATA2MSB)
-		ELF_ABORT("not ppc MSB");
-#endif
 
 	/* We only support static binaries for now, so reject anything without a program table */
 	if (ehdr->e_phnum == 0)
@@ -65,14 +56,14 @@ elf32_load(void* header, struct LOADER_ELF_INFO* elf_info)
 		memset(dest, 0, phdr->p_memsz);
 		if (vfs_pread(dest, phdr->p_filesz, phdr->p_offset) != phdr->p_filesz)
 			ELF_ABORT("data read error");
-		if (elf_info->elf_start_addr > phdr->p_vaddr)
-			elf_info->elf_start_addr = phdr->p_vaddr;
-		if (elf_info->elf_end_addr < phdr->p_vaddr + phdr->p_memsz)
-			elf_info->elf_end_addr = phdr->p_vaddr + phdr->p_memsz;
-		if (elf_info->elf_phys_start_addr > phdr->p_paddr)
-			elf_info->elf_phys_start_addr = phdr->p_paddr;
-		if (elf_info->elf_phys_end_addr < phdr->p_paddr + phdr->p_memsz)
-			elf_info->elf_phys_end_addr = phdr->p_paddr + phdr->p_memsz;
+		if (mod->mod_start_addr > phdr->p_vaddr)
+			mod->mod_start_addr = phdr->p_vaddr;
+		if (mod->mod_end_addr < phdr->p_vaddr + phdr->p_memsz)
+			mod->mod_end_addr = phdr->p_vaddr + phdr->p_memsz;
+		if (mod->mod_phys_start_addr > phdr->p_paddr)
+			mod->mod_phys_start_addr = phdr->p_paddr;
+		if (mod->mod_phys_end_addr < phdr->p_paddr + phdr->p_memsz)
+			mod->mod_phys_end_addr = phdr->p_paddr + phdr->p_memsz;
 	}
 
 	/*
@@ -81,7 +72,7 @@ elf32_load(void* header, struct LOADER_ELF_INFO* elf_info)
 	 * the symbol table which is necessary for the kernel to be able to load
 	 * modules. We position these tables directly after the kernel.
 	 */
-	addr_t dest = elf_info->elf_phys_end_addr;
+	addr_t dest = mod->mod_phys_end_addr;
 	void* shent = platform_get_memory(0);
 	if (vfs_pread(shent, ehdr->e_shnum * ehdr->e_shentsize, ehdr->e_shoff) != ehdr->e_shnum * ehdr->e_shentsize)
 		ELF_ABORT("section header read error");
@@ -97,15 +88,15 @@ elf32_load(void* header, struct LOADER_ELF_INFO* elf_info)
 		Elf32_Shdr* shdr = (Elf32_Shdr*)(shent + i * ehdr->e_shentsize);
 		switch(shdr->sh_type) {
 			case SHT_SYMTAB:
-				elf_info->elf_symtab_addr = dest;
-				elf_info->elf_symtab_size = shdr->sh_size;
+				mod->mod_symtab_addr = dest;
+				mod->mod_symtab_size = shdr->sh_size;
 #ifdef DEBUG_ELF
 				printf("ELF: symtab @ %p, %u bytes\n", dest, shdr->sh_size);
 #endif
 				break;
 			case SHT_STRTAB:
-				elf_info->elf_strtab_addr = dest;
-				elf_info->elf_strtab_size = shdr->sh_size;
+				mod->mod_strtab_addr = dest;
+				mod->mod_strtab_size = shdr->sh_size;
 #ifdef DEBUG_ELF
 				printf("ELF: strtab @ %p, %u bytes\n", dest, shdr->sh_size);
 #endif
@@ -119,97 +110,57 @@ elf32_load(void* header, struct LOADER_ELF_INFO* elf_info)
 		dest += shdr->sh_size;
 	}
 
-	elf_info->elf_phys_end_addr = dest; /* adjust for tables */
-	elf_info->elf_entry = (uint64_t)ehdr->e_entry;
-	elf_info->elf_bits = 32;
+	mod->mod_phys_end_addr = dest; /* adjust for tables */
+	mod->mod_entry = (uint64_t)ehdr->e_entry;
+	mod->mod_type = MOD_KERNEL;
+	mod->mod_bits = 32;
 	return 1;
 }
 #endif /* ELF32 */
 
-#ifdef ELF64
 static int
-elf64_load(void* header , struct LOADER_ELF_INFO* elf_info)
+elf_generic_load_module(void* header_data, struct LOADER_MODULE* mod)
 {
-	Elf64_Ehdr* ehdr = header;
-
-	/* First of all, read the remaining few bits */
-	if (vfs_pread((header + sizeof(Elf32_Ehdr)), sizeof(Elf64_Ehdr) - sizeof(Elf32_Ehdr), sizeof(Elf32_Ehdr)) != sizeof(Elf64_Ehdr) - sizeof(Elf32_Ehdr))
-		ELF_ABORT("cannot read full ELF64 header");
-
-	/* Perform basic ELF checks */
-	if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB)
-		return 0;
-	if (ehdr->e_machine != EM_X86_64)
-		return 0;
-
-#ifdef __i386__
-	if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB)
-		ELF_ABORT("not i386 LSB");
-	if (ehdr->e_machine != EM_X86_64)
-		ELF_ABORT("not x86_64");
-#elif defined(__PowerPC__)
-	ELF_ABORT("powerpc64 is not supported yet");
-#endif
-	/* We only support static binaries for now, so reject anything without a program table */
-	if (ehdr->e_phnum == 0)
-		ELF_ABORT("not a static binary");
-	if (ehdr->e_phentsize < sizeof(Elf64_Phdr))
-		ELF_ABORT("pheader too small");
-
 	/*
-	 * Read all program table entries in a single go; this prevents us from having to
-	 * seek back and forth (which TFTP does not support). The way we do this is a
-	 * kludge; we ask for no memory as we know it's increasing (this way we don't have to
-	 * free anything)
+	 * Loading a module is easy: we have already performed the ELF checks, so
+	 * we'll just read the module to a convient location and let the kernel deal
+	 * with the hard stuff like relocations and symbols. The reason is that the
+	 * kernel needs to do these things anyway because it should be capable of
+	 * loading modules on the fly, and thus we needn't bloat the loader with it.
+	 *
+	 * Only downside is that it's not possible to know whether loading a module
+	 * will succeed in the loader (but then again, a module can always refuse to
+	 * initialize so this isn't that much of an issue)
 	 */
-	void* phent = platform_get_memory(0);
-	if (vfs_pread(phent, ehdr->e_phnum * sizeof(Elf64_Phdr), ehdr->e_phoff) != ehdr->e_phnum * sizeof(Elf64_Phdr))
-		ELF_ABORT("pheader read error");
-	/* XXX we should attempt to sort the phent's to ensure we can stream the input file */
-
-	for (unsigned int i = 0; i < ehdr->e_phnum; i++) {
-		Elf64_Phdr* phdr = (Elf64_Phdr*)(phent + i * ehdr->e_phentsize);
-		if (phdr->p_type != PT_LOAD)
-			continue;
-
-		if (phdr->p_paddr > 0x100000000)
-			ELF_ABORT("section not present in first 4gb");
-
-		uint32_t paddr = phdr->p_paddr & 0xfffffff; /* XXX kludge */
-#ifdef DEBUG_ELF
-		printf("ELF: reading %u bytes at offset %u to 0x%x\n",
-		 (int)phdr->p_filesz, (int)phdr->p_offset, paddr);
-#endif
-		platform_map_memory((void*)paddr, phdr->p_memsz);
-		memset((void*)paddr, 0, phdr->p_memsz);
-		if (vfs_pread((void*)paddr, phdr->p_filesz, phdr->p_offset) != phdr->p_filesz)
-			ELF_ABORT("data read error");
-		if (elf_info->elf_start_addr > phdr->p_vaddr)
-			elf_info->elf_start_addr = phdr->p_vaddr;
-		if (elf_info->elf_end_addr < phdr->p_vaddr + phdr->p_memsz)
-			elf_info->elf_end_addr = phdr->p_vaddr + phdr->p_memsz;
-		if (elf_info->elf_phys_start_addr > paddr)
-			elf_info->elf_phys_start_addr = paddr;
-		if (elf_info->elf_phys_end_addr < paddr + phdr->p_memsz)
-			elf_info->elf_phys_end_addr = paddr + phdr->p_memsz;
+	addr_t dest = mod_kernel.mod_phys_end_addr;
+	uint32_t offs = sizeof(Elf32_Ehdr); /* current location in the file */
+	memcpy((void*)dest, header_data, offs);
+	dest += offs;
+	for (;;) {
+		size_t len = vfs_pread((void*)dest, 1024, offs);
+		if (len == 0)
+			break;
+		dest += len; offs += len;
 	}
 
-	elf_info->elf_entry = ehdr->e_entry;
-	elf_info->elf_bits = 64;
+	mod->mod_type = MOD_MODULE;
+	mod->mod_bits = mod_kernel.mod_bits; /* XXX */
+	mod->mod_phys_start_addr = mod_kernel.mod_phys_end_addr;
+	mod->mod_phys_end_addr = dest;
+	mod_kernel.mod_phys_end_addr = dest;
 	return 1;
 }
-#endif /* ELF64 */
 
 int
-elf_load(struct LOADER_ELF_INFO* elf_info)
+elf_load(enum MODULE_TYPE type, struct LOADER_MODULE* mod)
 {
 	/* Reset loaded status */
-	memset(elf_info, 0, sizeof(struct LOADER_ELF_INFO));
-	elf_info->elf_start_addr = (uint64_t)-1;
-	elf_info->elf_phys_start_addr = (uint64_t)-1;
+	memset(mod, 0, sizeof(struct LOADER_MODULE));
+	mod->mod_start_addr = (uint64_t)-1;
+	mod->mod_phys_start_addr = (uint64_t)-1;
 
 	/*
-	 * Grab the kernel header. We just read a meager 32 bit header to ensure we
+	 * Grab the ELF header. We just read a meager 32 bit header to ensure we
 	 * will never read too much (some VFS drivers cannot seek, so we must stream
 	 * if we can) - if this happens to be a 64-bit kernel, we'll just read the
 	 * remaining part.
@@ -225,35 +176,43 @@ elf_load(struct LOADER_ELF_INFO* elf_info)
 		ELF_ABORT("bad header magic");
 	if (ehdr->e_ident[EI_VERSION] != EV_CURRENT)
 		ELF_ABORT("bad version");
-	if (ehdr->e_type != ET_EXEC)
-		ELF_ABORT("bad type");
+	if (type == MOD_KERNEL && ehdr->e_type != ET_EXEC)
+		ELF_ABORT("bad type (not a kernel)");
+	if (type == MOD_MODULE && ehdr->e_type != ET_REL)
+		ELF_ABORT("bad type (not a module)");
+#ifdef __i386__
+	if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB)
+		ELF_ABORT("not i386 LSB");
+	if (ehdr->e_machine != EM_386)
+		ELF_ABORT("not i386");
+#elif defined(__PowerPC__)
+	if (ehdr->e_ident[EI_DATA] != ELFDATA2MSB)
+		ELF_ABORT("not ppc MSB");
+#endif
 
 	switch(ehdr->e_ident[EI_CLASS]) {
 		case ELFCLASS32:
 #ifdef ELF32
 			if (!platform_is_numbits_capable(32))
 				ELF_ABORT("platform is not 32-bit capable");
-			return elf32_load(header_data, elf_info);
+			if (type == MOD_KERNEL)
+				return elf32_load_kernel(header_data, mod);
+			if (type == MOD_MODULE)
+				return elf_generic_load_module(header_data, mod);
 #else
 			ELF_ABORT("32 bit ELF files not supported");
 #endif
 			break;
 		case ELFCLASS64:
-#ifdef ELF64
-			if (!platform_is_numbits_capable(64))
-				ELF_ABORT("platform is not 64-bit capable");
-			return elf64_load(header_data, elf_info);
-#else
 			ELF_ABORT("64 bit ELF files not supported");
-#endif
 			break;
 		default:
 			ELF_ABORT("bad class");
 	}
 
-	/* NOTREACHED */
+	/* What's this? */
+	return 0;
 }
-
 #endif /* defined(ELF32) || defined(ELF64) */
 
 /* vim:set ts=2 sw=2: */
