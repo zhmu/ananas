@@ -5,6 +5,7 @@
 #include <ananas/mm.h>
 #include <ananas/kdb.h>
 #include <ananas/lib.h>
+#include <ananas/init.h>
 #include <ananas/module.h>
 #include <ananas/schedule.h>
 #include <ananas/symbols.h>
@@ -25,6 +26,18 @@ void smp_init();
 void smp_launch();
 
 void kmem_dump();
+
+extern void* __initfuncs_begin;
+extern void* __initfuncs_end;
+
+static void
+run_init()
+{
+	/* Walk through the entire init function chain and execute everything */
+	for (struct INIT_FUNC** ifn = (struct INIT_FUNC**)&__initfuncs_begin; ifn < (struct INIT_FUNC**)&__initfuncs_end; ifn++)
+		(*ifn)->if_func();
+}
+
 
 void
 mi_startup()
@@ -77,6 +90,9 @@ mi_startup()
 	void usb_init();
 	usb_init();
 #endif
+
+	/* Run the entire init tree */
+	run_init();
 
 	/* Give the devices a spin */
 	device_init();

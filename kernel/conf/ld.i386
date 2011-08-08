@@ -7,6 +7,17 @@ SECTIONS {
 		*(.text*)
 		*(.rodata)
 		*(.rodata*)
+		/*
+		 * Init/exit definitions after the readonly data; there's no
+		 * reason why these should be writable or take up a section of
+		 * their own.
+		 */
+		__initfuncs_begin = ALIGN(4);
+		*(initfuncs)
+		__initfuncs_end = .;
+		__exitfuncs_begin = ALIGN(4);
+		*(exitfuncs)
+		__exitfuncs_end = .;
 		. = ALIGN(4096);
 	}
 	.data : {
