@@ -190,6 +190,9 @@ typedef struct {
 #define ELF32_R_SYM(i)		((i)>>8)
 #define ELF32_R_TYPE(i)		((unsigned char)i)
 #define ELF32_R_INFO(s,t)	(((s)<<8)+(unsigned char)(t))
+#define R_386_NONE	0			/* none */
+#define R_386_32	1			/* S + A */
+#define R_386_PC32	2			/* S + A - P */
 #define R_386_GOT32	3			/* G + A */
 #define R_386_PL32	4			/* L + T - P */
 #define R_386_COPY	5			/* none */
