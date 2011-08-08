@@ -1,6 +1,7 @@
 #ifndef __ANANAS_VFS_TYPES_H__
 #define __ANANAS_VFS_TYPES_H__
 
+#include <ananas/dqueue.h>
 #include <ananas/stat.h> /* for 'struct stat' */
 #include <ananas/vfs/dentry.h> /* for 'struct DENTRY_CACHE_QUEUE' */
 #include <ananas/vfs/icache.h> /* for 'struct ICACHE_QUEUE' */
@@ -178,5 +179,18 @@ struct VFS_INODE_OPS {
 	 */
 	void (*fill_file)(struct VFS_INODE* inode, struct VFS_FILE* file);
 };
+
+/* 
+ * A VFS filesystem defines the name of a filesystem and the operations to use.
+ */
+struct VFS_FILESYSTEM {
+	/* Filesystem name */
+	const char* fs_name;
+	/* Filesystem operations */
+	struct VFS_FILESYSTEM_OPS* fs_fsops;
+	DQUEUE_FIELDS(struct VFS_FILESYSTEM);
+};
+
+DQUEUE_DEFINE(VFS_FILESYSTEMS, struct VFS_FILESYSTEM);
 
 #endif /* __ANANAS_VFS_TYPES_H__ */
