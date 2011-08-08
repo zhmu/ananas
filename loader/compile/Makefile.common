@@ -24,7 +24,7 @@ ext2fs.o:	$S/fs/ext2fs.c
 vfs.o:		$S/common/vfs.c
 		$(CC) $(CFLAGS) -c -o vfs.o $S/common/vfs.c
 
-elf.o:		$S/common/elf.c
+elf.o:		$S/common/elf.c $S/common/elf_bits.c
 		$(CC) $(CFLAGS) -c -o elf.o $S/common/elf.c
 
 ramdisk.o:	$S/common/ramdisk.c

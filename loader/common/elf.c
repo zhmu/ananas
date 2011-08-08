@@ -17,106 +17,17 @@
 		return 0; \
 	} while (0)
 
+/* Generate the generic ELF32/64 loader functions */
 #ifdef ELF32
-static int
-elf32_load_kernel(void* header, struct LOADER_MODULE* mod)
-{
-	Elf32_Ehdr* ehdr = header;
-
-	/* We only support static binaries for now, so reject anything without a program table */
-	if (ehdr->e_phnum == 0)
-		ELF_ABORT("not a static binary");
-	if (ehdr->e_phentsize < sizeof(Elf32_Phdr))
-		ELF_ABORT("pheader too small");
-	if (ehdr->e_shentsize < sizeof(Elf32_Shdr))
-		ELF_ABORT("sheader too small");
-
-	/*
-	 * Read all program table entries in a single go; this prevents us from having to
-	 * seek back and forth (which TFTP does not support). The way we do this is a
-	 * kludge; we ask for no memory as we know it's increasing (this way we don't have to
-	 * free anything)
-	 */
-	void* phent = platform_get_memory(0);
-	if (vfs_pread(phent, ehdr->e_phnum * ehdr->e_phentsize, ehdr->e_phoff) != ehdr->e_phnum * ehdr->e_phentsize)
-		ELF_ABORT("pheader read error");
-	/* XXX we should attempt to sort the phent's to ensure we can stream the input file */
-
-	for (unsigned int i = 0; i < ehdr->e_phnum; i++) {
-		Elf32_Phdr* phdr = (Elf32_Phdr*)(phent + i * ehdr->e_phentsize);
-		if (phdr->p_type != PT_LOAD)
-			continue;
-
-		void* dest = (void*)phdr->p_paddr;
-#ifdef DEBUG_ELF
-		printf("ELF: reading %u bytes at offset %u to 0x%x\n",
-		 phdr->p_filesz, phdr->p_offset, dest);
+# define ELF_BITS 32
+# include "elf_bits.c"
 #endif
-		platform_map_memory(dest, phdr->p_memsz);
-		memset(dest, 0, phdr->p_memsz);
-		if (vfs_pread(dest, phdr->p_filesz, phdr->p_offset) != phdr->p_filesz)
-			ELF_ABORT("data read error");
-		if (mod->mod_start_addr > phdr->p_vaddr)
-			mod->mod_start_addr = phdr->p_vaddr;
-		if (mod->mod_end_addr < phdr->p_vaddr + phdr->p_memsz)
-			mod->mod_end_addr = phdr->p_vaddr + phdr->p_memsz;
-		if (mod->mod_phys_start_addr > phdr->p_paddr)
-			mod->mod_phys_start_addr = phdr->p_paddr;
-		if (mod->mod_phys_end_addr < phdr->p_paddr + phdr->p_memsz)
-			mod->mod_phys_end_addr = phdr->p_paddr + phdr->p_memsz;
-	}
 
-	/*
-	 * Walk through the ELF file's section headers; we need this in order to
-	 * obtain the string table and symbol table offsets. Together, these make up
-	 * the symbol table which is necessary for the kernel to be able to load
-	 * modules. We position these tables directly after the kernel.
-	 */
-	addr_t dest = mod->mod_phys_end_addr;
-	void* shent = platform_get_memory(0);
-	if (vfs_pread(shent, ehdr->e_shnum * ehdr->e_shentsize, ehdr->e_shoff) != ehdr->e_shnum * ehdr->e_shentsize)
-		ELF_ABORT("section header read error");
-	for (unsigned int i = 0; i < ehdr->e_shnum; i++) {
-		/*
-		 * Skip the section string table index; we do not need the section
-		 * table headers. Note that index zero (SHN_UNDEF) is reserved and
-		 * will always be of type SHT_NULL, so we needn't any special
-		 * handling.
-		 */
-		if (ehdr->e_shstrndx == i)
-			continue;
-		Elf32_Shdr* shdr = (Elf32_Shdr*)(shent + i * ehdr->e_shentsize);
-		switch(shdr->sh_type) {
-			case SHT_SYMTAB:
-				mod->mod_symtab_addr = dest;
-				mod->mod_symtab_size = shdr->sh_size;
-#ifdef DEBUG_ELF
-				printf("ELF: symtab @ %p, %u bytes\n", dest, shdr->sh_size);
+#ifdef ELF64
+# undef ELF_BITS
+# define ELF_BITS 64
+# include "elf_bits.c"
 #endif
-				break;
-			case SHT_STRTAB:
-				mod->mod_strtab_addr = dest;
-				mod->mod_strtab_size = shdr->sh_size;
-#ifdef DEBUG_ELF
-				printf("ELF: strtab @ %p, %u bytes\n", dest, shdr->sh_size);
-#endif
-				break;
-			default:
-				continue;
-		}
-
-		if (vfs_pread((void*)dest, shdr->sh_size, shdr->sh_offset) != shdr->sh_size)
-			ELF_ABORT("unable to read section");
-		dest += shdr->sh_size;
-	}
-
-	mod->mod_phys_end_addr = dest; /* adjust for tables */
-	mod->mod_entry = (uint64_t)ehdr->e_entry;
-	mod->mod_type = MOD_KERNEL;
-	mod->mod_bits = 32;
-	return 1;
-}
-#endif /* ELF32 */
 
 static int
 elf_generic_load_module(void* header_data, struct LOADER_MODULE* mod)
@@ -144,7 +55,7 @@ elf_generic_load_module(void* header_data, struct LOADER_MODULE* mod)
 	}
 
 	mod->mod_type = MOD_MODULE;
-	mod->mod_bits = mod_kernel.mod_bits; /* XXX */
+	mod->mod_bits = mod_kernel.mod_bits; /* XXX We should check this somehow */
 	mod->mod_phys_start_addr = mod_kernel.mod_phys_end_addr;
 	mod->mod_phys_end_addr = dest;
 	mod_kernel.mod_phys_end_addr = dest;
@@ -183,8 +94,20 @@ elf_load(enum MODULE_TYPE type, struct LOADER_MODULE* mod)
 #ifdef __i386__
 	if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB)
 		ELF_ABORT("not i386 LSB");
-	if (ehdr->e_machine != EM_386)
-		ELF_ABORT("not i386");
+	if (
+#ifdef ELF32
+	ehdr->e_machine != EM_386
+#else
+	1
+#endif
+		&&
+#ifdef ELF64
+	ehdr->e_machine != EM_X86_64
+#else
+	1
+#endif
+	)
+		ELF_ABORT("unsupported architecture");
 #elif defined(__PowerPC__)
 	if (ehdr->e_ident[EI_DATA] != ELFDATA2MSB)
 		ELF_ABORT("not ppc MSB");
@@ -204,6 +127,18 @@ elf_load(enum MODULE_TYPE type, struct LOADER_MODULE* mod)
 #endif
 			break;
 		case ELFCLASS64:
+#ifdef ELF64
+			if (!platform_is_numbits_capable(64))
+				ELF_ABORT("platform is not 64-bit capable");
+			if (type == MOD_KERNEL) {
+				/* First of all, read the remaining few bits */
+				if (vfs_pread((header_data + sizeof(Elf32_Ehdr)), sizeof(Elf64_Ehdr) - sizeof(Elf32_Ehdr), sizeof(Elf32_Ehdr)) != sizeof(Elf64_Ehdr) - sizeof(Elf32_Ehdr))
+					ELF_ABORT("cannot read full ELF64 header");
+				return elf64_load_kernel(header_data, mod);
+			}
+			if (type == MOD_MODULE)
+				return elf_generic_load_module(header_data, mod);
+#endif
 			ELF_ABORT("64 bit ELF files not supported");
 			break;
 		default:
