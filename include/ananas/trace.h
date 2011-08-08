@@ -19,15 +19,19 @@
 #ifndef __ANANAS_TRACE_H__
 #define __ANANAS_TRACE_H__
 
-#define TRACE_SETUP \
+#ifdef KERNEL
+# ifndef MODULE
+# define TRACE_SETUP \
 	static const char __trace_filename[]  __attribute__((section(".tracenames"))) = __FILE__; \
 	static addr_t __trace_id  __attribute__((section(".traceids"))) = (addr_t)&__trace_filename;
-
-#ifdef KERNEL
-#define TRACE_FILE_ID \
+#  define TRACE_FILE_ID \
 	(((addr_t)&__trace_id - (addr_t)&__traceid_begin) / sizeof(addr_t) + 1)
+# else
+#  define TRACE_FILE_ID 255
+#  define TRACE_SETUP
+# endif
 #else
-#define TRACE_FILE_ID 0
+#  define TRACE_FILE_ID 0
 #endif
 
 /* Available subsystem trace types */
