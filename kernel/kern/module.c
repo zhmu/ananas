@@ -26,7 +26,7 @@
  * Debugging is done with plain old printf's because modules are loaded so soon
  * in the boot process that tracing may not be usuable.
  */
-#define DEBUG_LOAD
+#undef DEBUG_LOAD
 
 #ifdef DEBUG_LOAD
 # define DPRINTF kprintf
@@ -214,6 +214,12 @@ module_load(struct LOADER_MODULE* mod)
 
 		switch(ELF32_ST_TYPE(sym->st_info)) {
 			case STT_NOTYPE: {
+				/* Relocate per-section values immediately; we don't need to look them up */
+				if (sym->st_shndx != SHN_UNDEF) {
+					sym->st_value += section_addr[sym->st_shndx];
+					DPRINTF("notype %u: ndx=%u -> %p\n", i, sym->st_shndx, sym->st_value);
+					continue;
+				}
 				/* Skip empty symbols */
 				const char* sym_name = (const char*)(str_ptr + sym->st_name);
 				if (*sym_name == '\0')
