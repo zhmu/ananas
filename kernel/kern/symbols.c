@@ -3,11 +3,15 @@
 #include <ananas/bootinfo.h>
 #include <ananas/lib.h>
 #include <ananas/vm.h>
-#include <machine/param.h>		/* for PAGE_SIZE */
+#include <machine/param.h>	/* for PAGE_SIZE */
+#include <machine/vm.h>			/* for PTOKV */
+#include <loader/module.h>
 #include <elf.h>
 
 static void* sym_tab = NULL;
 static void* str_tab = NULL;
+static size_t sym_tab_size = 0;
+static size_t str_tab_size = 0;
 
 typedef Elf32_Sym Elf_Sym;
 
@@ -30,7 +34,7 @@ int
 symbol_resolve_addr(addr_t addr, struct SYMBOL* s)
 {
 	Elf_Sym* sym = sym_tab;
-	for (unsigned int i = 0; i < bootinfo->bi_symtab_size; i += sizeof(Elf_Sym), sym++) {
+	for (unsigned int i = 0; i < sym_tab_size; i += sizeof(Elf_Sym), sym++) {
 		if (addr < sym->st_value ||
 		    addr >= sym->st_value + sym->st_size)
 			continue;
@@ -46,7 +50,7 @@ int
 symbol_resolve_name(const char* name, struct SYMBOL* s)
 {
 	Elf_Sym* sym = sym_tab;
-	for (unsigned int i = 0; i < bootinfo->bi_symtab_size; i += sizeof(Elf_Sym), sym++) {
+	for (unsigned int i = 0; i < sym_tab_size; i += sizeof(Elf_Sym), sym++) {
 		if (strcmp(str_tab + sym->st_name, name) != 0)
 			continue;
 		s->s_addr = sym->st_value;
@@ -63,13 +67,17 @@ symbols_init()
 	/* Reject any missing bootinfo field */
 	if (bootinfo == NULL)
 		return;
-	if (bootinfo->bi_symtab_addr == 0 || bootinfo->bi_symtab_size == 0)
+	struct LOADER_MODULE* kernel_mod = (struct LOADER_MODULE*)PTOKV(bootinfo->bi_modules);
+	kprintf("kernel_mod=%p\n", kernel_mod);
+	if (kernel_mod->mod_symtab_addr == 0 || kernel_mod->mod_symtab_size == 0)
 		return;
-	if (bootinfo->bi_strtab_addr == 0 || bootinfo->bi_strtab_size == 0)
+	if (kernel_mod->mod_strtab_addr == 0 || kernel_mod->mod_strtab_size == 0)
 		return;
 
-	sym_tab = symbols_map_addr(bootinfo->bi_symtab_addr, bootinfo->bi_symtab_size);
-	str_tab = symbols_map_addr(bootinfo->bi_strtab_addr, bootinfo->bi_strtab_size);
+	sym_tab = symbols_map_addr(kernel_mod->mod_symtab_addr, kernel_mod->mod_symtab_size);
+	sym_tab_size = kernel_mod->mod_symtab_size;
+	str_tab = symbols_map_addr(kernel_mod->mod_strtab_addr, kernel_mod->mod_strtab_size);
+	str_tab_size = kernel_mod->mod_strtab_size;
 }
 
 /* vim:set ts=2 sw=2: */

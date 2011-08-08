@@ -19,8 +19,10 @@ struct RAMDISK_PRIVDATA {
 static errorcode_t
 ramdisk_probe(device_t dev)
 {
+#if 0
 	if (bootinfo == NULL || bootinfo->bi_ramdisk_addr == 0)
 		return ANANAS_ERROR(NO_DEVICE);
+#endif
 	return ANANAS_ERROR_OK;
 }
 
@@ -28,8 +30,10 @@ static errorcode_t
 ramdisk_attach(device_t dev)
 {
 	struct RAMDISK_PRIVDATA* privdata = kmalloc(sizeof(struct RAMDISK_PRIVDATA));
+#if 0
 	privdata->ram_buffer = vm_map_kernel(bootinfo->bi_ramdisk_addr, (bootinfo->bi_ramdisk_size + (PAGE_SIZE - 1)) / PAGE_SIZE, VM_FLAG_READ);
 	privdata->ram_size = bootinfo->bi_ramdisk_size;
+#endif
 	dev->privdata = privdata;
 
 	kprintf("%s: %u KB\n", dev->name, privdata->ram_size  / 1024);
