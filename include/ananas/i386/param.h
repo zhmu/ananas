@@ -1,6 +1,9 @@
 /* i386 is little endian */
 #define LITTLE_ENDIAN
 
+/* i386 is 32 bit */
+#define ARCH_BITS		32
+
 /* Page size */
 #define PAGE_SIZE		4096
 

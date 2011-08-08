@@ -1,6 +1,9 @@
 /* PowerPC is bi-endian, but we use big endian like everyone else */
 #define BIG_ENDIAN
 
+/* PowerPC is 32 bit */
+#define ARCH_BITS		32
+
 /* Page size */
 #define PAGE_SIZE		4096
 
