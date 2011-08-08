@@ -363,12 +363,6 @@ device_init()
 {
 	DQUEUE_INIT(&device_queue);
 
-	if (!DQUEUE_EMPTY(&probe_queue)) {
-		DQUEUE_FOREACH(&probe_queue, pqi, struct PROBE) {
-			kprintf("probe=%p\n", pqi);
-		}
-	}
-
 	/*
 	 * First of all, create the core bus; this is as bare to the metal as it
 	 * gets.
