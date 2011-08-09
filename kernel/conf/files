@@ -16,6 +16,7 @@ kern/trace.c		mandatory
 kern/waitqueue.c	mandatory
 kern/symbols.c		mandatory
 kern/module.c		mandatory
+kern/exec.c		mandatory
 # XXX vfs shouldn't be mandatory
 vfs/core.c		mandatory
 vfs/dentry.c		mandatory
