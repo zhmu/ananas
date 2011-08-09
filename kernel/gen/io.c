@@ -267,8 +267,8 @@ sys_summon(thread_t* t, handle_t handle, struct SUMMON_OPTIONS* opts, handle_t* 
 	err = thread_alloc(t, &newthread);
 	ANANAS_ERROR_RETURN(err);
 
-	/* XXX should be more general */
-	err = elf_load_from_file(newthread, file->f_inode);
+	/* Ask the VFS to summon the file over our thread */
+	err = vfs_summon(file, newthread);
 	if (err != ANANAS_ERROR_NONE) {
 		/* Failure - no option but to kill the thread */
 		goto fail;

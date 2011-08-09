@@ -11,7 +11,6 @@
 #include <ananas/vfs.h>
 #include <machine/vm.h>
 #include <machine/param.h> /* for PAGE_SIZE */
-#include <elf.h>
 #include "options.h"
 
 #define SHELL_BIN "/bin/sh"
@@ -185,7 +184,7 @@ launch_shell()
 	kprintf("- Lauching %s...", SHELL_BIN);
 	err = vfs_open(SHELL_BIN, NULL, &f);
 	if (err == ANANAS_ERROR_NONE) {
-		err = elf_load_from_file(t, f.f_inode);
+		err = vfs_summon(&f, t);
 		if (err == ANANAS_ERROR_NONE) {
 			kprintf(" ok\n");
 			thread_set_args(t, "sh\0\0", PAGE_SIZE);
