@@ -26,6 +26,36 @@
 extern void* __initfuncs_begin;
 extern void* __initfuncs_end;
 
+static struct INIT_FUNC_DYNAMICS initfunc_dynamics;
+static int initfunc_dynamics_amount = 0;
+
+void
+init_register_func(struct KERNEL_MODULE* kmod, struct INIT_FUNC* ifunc)
+{
+	struct INIT_DYNAMIC_FUNC* idfunc = kmalloc(sizeof(struct INIT_DYNAMIC_FUNC));
+	idfunc->idf_kmod = kmod;
+	idfunc->idf_ifunc = ifunc;
+	/* No lock necessary as we're behind the module lock either way */
+	DQUEUE_ADD_TAIL(&initfunc_dynamics, idfunc);
+	initfunc_dynamics_amount++;
+#ifdef VERBOSE_INIT	
+	kprintf("init_register_func(): kmod=%p ifunc=%p\n", kmod, ifunc->if_func);
+#endif
+}
+
+void
+init_unregister_module(struct KERNEL_MODULE* kmod)
+{
+	/* No lock necessary as we're behind the module lock either way */
+	if (!DQUEUE_EMPTY(&initfunc_dynamics))
+		DQUEUE_FOREACH_SAFE(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
+			if (idf->idf_kmod != kmod)
+				continue;
+			DQUEUE_REMOVE(&initfunc_dynamics, idf);
+			kfree(idf);
+		}
+}
+
 static void
 run_init()
 {
@@ -33,12 +63,17 @@ run_init()
 	 * Create a shadow copy of the init function chain; this is done so that we
 	 * can sort it.
 	 */
-	size_t init_func_len = (addr_t)&__initfuncs_end - (addr_t)&__initfuncs_begin;
-	struct INIT_FUNC** ifn_chain = kmalloc(init_func_len);
-	memcpy(ifn_chain, (void*)&__initfuncs_begin, init_func_len);
-
+	size_t init_static_func_len  = (addr_t)&__initfuncs_end - (addr_t)&__initfuncs_begin;
+	struct INIT_FUNC** ifn_chain = kmalloc(init_static_func_len + initfunc_dynamics_amount * sizeof(struct INIT_FUNC*));
+	memcpy(ifn_chain, (void*)&__initfuncs_begin, init_static_func_len);
+	int n = init_static_func_len / sizeof(struct INIT_FUNC*);
+	if (n > 0)
+		DQUEUE_FOREACH(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
+			ifn_chain[n++] = idf->idf_ifunc;
+		}
+	
 	/* Sort the init functions chain; we use a simple bubble sort to do so */
-	int num_init_funcs = init_func_len / sizeof(struct INIT_FUNC*);
+	int num_init_funcs = init_static_func_len / sizeof(struct INIT_FUNC*) + initfunc_dynamics_amount;
 	for (int i = 0; i < num_init_funcs; i++)
 		for (int j = num_init_funcs - 1; j > i; j--) {
 			struct INIT_FUNC* a = ifn_chain[j];
@@ -56,20 +91,26 @@ run_init()
 #ifdef VERBOSE_INIT
 	kprintf("Init tree\n");
 	struct INIT_FUNC** c = (struct INIT_FUNC**)ifn_chain;
-	for (size_t s = 0; s < init_func_len; s += sizeof(void*), c++) {
-		kprintf("initfunc %u -> %p (subsys %x, order %x)\n", s / sizeof(void*),
+	for (int n = 0; n < num_init_funcs; n++, c++) {
+		kprintf("initfunc %u -> %p (subsys %x, order %x)\n", n,
 		 (*c)->if_func, (*c)->if_subsystem, (*c)->if_order);
 	}
 #endif
 	
-	/* Execute all init functions in order */
+	/* Execute all init functions in order except the final one */
 	struct INIT_FUNC** ifn = (struct INIT_FUNC**)ifn_chain;
-	for (size_t s = sizeof(void*); s < init_func_len; s += sizeof(void*), ifn++)
+	for (int i = 0; i < num_init_funcs - 1; i++, ifn++)
 		(*ifn)->if_func();
 
-	/* Execute the final function; we expect it will not return */
+	/* Throw away the init function chain; it served its purpose */
 	struct INIT_FUNC* ifunc = *ifn;
 	kfree(ifn_chain);
+	if (!DQUEUE_EMPTY(&initfunc_dynamics))
+		DQUEUE_FOREACH_SAFE(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
+			kfree(idf);
+		}
+
+	/* Call the final init function; it shouldn't return */
 	ifunc->if_func();
 	panic("init chain returned");
 }
@@ -166,6 +207,8 @@ INIT_FUNCTION(launch_shell, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);
 void
 mi_startup()
 {
+	DQUEUE_INIT(&initfunc_dynamics);
+
 	/* Initialize kernel symbols; these will be required very soon once we have modules */
 	symbols_init();
 

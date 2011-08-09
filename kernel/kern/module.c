@@ -14,6 +14,7 @@
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/module.h>
+#include <ananas/init.h>
 #include <ananas/symbols.h>
 #include <ananas/trace.h>
 #include <ananas/vm.h>
@@ -156,10 +157,8 @@ module_load(struct LOADER_MODULE* mod)
 	void* str_ptr    = kmalloc(elf_str_tab_size);
 
 	/* Store relative section offsets and pointers */
-	addr_t section_offset[MOD_MAX_SECTIONS];
 	addr_t section_addr[MOD_MAX_SECTIONS];
 	for (unsigned int i = 0; i < MOD_MAX_SECTIONS; i++) {
-		section_offset[i] = (addr_t)-1;
 		section_addr[i] = (addr_t)-1;
 	}
 
@@ -175,19 +174,16 @@ module_load(struct LOADER_MODULE* mod)
 					/* Code */
 					memcpy((void*)((addr_t)code_ptr + code_offs), (void*)(mod_base + shdr->sh_offset), shdr->sh_size);
 					section_addr[i] = (addr_t)code_ptr + code_offs;
-					section_offset[i] = code_offs;
 					code_offs += shdr->sh_size;
 				} else if (shdr->sh_flags & SHF_WRITE) {
 					/* RW Data */
 					memcpy((void*)((addr_t)rwdata_ptr + rwdata_offs), (void*)(mod_base + shdr->sh_offset), shdr->sh_size);
 					section_addr[i] = (addr_t)rwdata_ptr + rwdata_offs;
-					section_offset[i] = rwdata_offs;
 					rwdata_offs += shdr->sh_size;
 				} else {
 					/* RO Data */
 					memcpy((void*)((addr_t)rodata_ptr + rodata_offs), (void*)(mod_base + shdr->sh_offset), shdr->sh_size);
 					section_addr[i] = (addr_t)rodata_ptr + rodata_offs;
-					section_offset[i] = rodata_offs;
 					rodata_offs += shdr->sh_size;
 				}
 				break;
@@ -260,13 +256,13 @@ module_load(struct LOADER_MODULE* mod)
 		if (shdr->sh_type != SHT_REL)
 			continue;
 
-		if (shdr->sh_info >= MOD_MAX_SECTIONS || section_offset[shdr->sh_info] == (addr_t)-1) {
+		if (shdr->sh_info >= MOD_MAX_SECTIONS || section_addr[shdr->sh_info] == (addr_t)-1) {
 			kprintf("invalid section %u given as base for relocation %u - aborting module load\n",
 			 shdr->sh_info, i);
 			goto fail;
 		}
-		DPRINTF(">> section %u, link %u, info %u, soffs %u\n", shdr->sh_name, shdr->sh_link, shdr->sh_info,
-			section_offset[shdr->sh_info]);
+		DPRINTF(">> section %u, link %u, info %u, addr %p\n", shdr->sh_name, shdr->sh_link, shdr->sh_info,
+			section_addr[shdr->sh_info]);
 
 		/*
 		 * Walk through the relocations; these are relative to offset 0 in the
@@ -275,8 +271,7 @@ module_load(struct LOADER_MODULE* mod)
 		Elf_Rel* rel = (Elf_Rel*)(mod_base + shdr->sh_offset);
 		for (unsigned int n = 0; n < shdr->sh_size; n += sizeof(Elf_Rel), rel++) {
 			Elf_Sym* sym = (Elf_Sym*)(sym_ptr + ELF32_R_SYM(rel->r_info) * sizeof(Elf_Sym));
-			DPRINTF("offs=%u+%u, info=%u (sym %u(%s), type %u, val %x)\n",
-			 section_offset[shdr->sh_info],
+			DPRINTF("offs=%u, info=%u (sym %u(%s), type %u, val %x)\n",
 			 rel->r_offset, rel->r_info,
 			 ELF32_R_SYM(rel->r_info), (str_ptr + sym->st_name),
 		 	 ELF32_R_TYPE(rel->r_info), sym->st_value);
@@ -316,7 +311,7 @@ module_load(struct LOADER_MODULE* mod)
 	kmod->kmod_codeptr = code_ptr;
 
 	/* Everything seems to be in order... it's time to call init! */
-	errorcode_t err = mod_init();
+	errorcode_t err = mod_init(kmod);
 	if (err != ANANAS_ERROR_OK) {
 		kfree(kmod);
 		kprintf("module %p failed to initialize with error %u\n", kmod, err);
@@ -348,15 +343,19 @@ module_unload(struct KERNEL_MODULE* kmod)
 	mutex_unlock(&mtx_modules);
 
 	/* Ask it to exit */
-	errorcode_t err = kmod->kmod_exit_func();
+	errorcode_t err = kmod->kmod_exit_func(kmod);
+	mutex_lock(&mtx_modules);
 	if (err != ANANAS_ERROR_OK) {
 		kprintf("module %p failed to exit with error %u\n", kmod, err);
 		/* Hook the module back in the list - we couldn't unload it */
-		mutex_lock(&mtx_modules);
 		DQUEUE_ADD_TAIL(&kernel_modules, kmod);
 		mutex_unlock(&mtx_modules);
 		return err;
 	}
+
+	/* Throw away any pending module init functions */
+	init_unregister_module(kmod);
+	mutex_unlock(&mtx_modules);
 
 	/* Free all module data */
 	kfree(kmod->kmod_strptr);
