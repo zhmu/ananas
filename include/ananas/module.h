@@ -23,6 +23,7 @@ struct KERNEL_MODULE {
 	/* Pointers to module contents */
 	void* kmod_strptr;			/* Strings */
 	void* kmod_symptr;			/* Symbols */
+	size_t kmod_sym_size;			/* Size of symbols (bytes) */
 	void* kmod_rwdataptr;			/* RW data */
 	void* kmod_rodataptr;			/* RO data */
 	void* kmod_codeptr;			/* Code */

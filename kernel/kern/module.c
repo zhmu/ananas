@@ -57,6 +57,27 @@ typedef Elf64_Rel  Elf_Rel;
 # error Unsupported number of architecture bits
 #endif
 
+int
+module_sym_resolve_name(const char* name, struct SYMBOL* s)
+{
+	/* XXX locking? */
+	if (DQUEUE_EMPTY(&kernel_modules))
+		return 0;
+
+	DQUEUE_FOREACH(&kernel_modules, kmod, struct KERNEL_MODULE) {
+		Elf_Sym* sym = kmod->kmod_symptr;
+		for (unsigned int i = 0; i < kmod->kmod_sym_size; i += sizeof(Elf_Sym), sym++) {
+			if (strcmp(kmod->kmod_strptr + sym->st_name, name) != 0)
+				continue;
+			s->s_addr = sym->st_value;
+			s->s_name = kmod->kmod_strptr + sym->st_name;
+			s->s_flags = 0; /* TODO */
+			return 1;
+		}
+	}
+	return 0;
+}
+
 static errorcode_t
 module_load(struct LOADER_MODULE* mod)
 {
@@ -221,7 +242,7 @@ module_load(struct LOADER_MODULE* mod)
 				if (*sym_name == '\0')
 					continue;
 				struct SYMBOL s;
-				if (!symbol_resolve_name(sym_name, &s)) {
+				if (!symbol_resolve_name(sym_name, &s) && !module_sym_resolve_name(sym_name, &s)) {
 					kprintf("cannot resolve symbol '%s' - aborting module load\n", sym_name);
 					goto fail;
 				}
@@ -306,6 +327,7 @@ module_load(struct LOADER_MODULE* mod)
 	kmod->kmod_exit_func = mod_exit;
 	kmod->kmod_strptr = str_ptr;
 	kmod->kmod_symptr = sym_ptr;
+	kmod->kmod_sym_size = elf_sym_tab_size;
 	kmod->kmod_rwdataptr = rwdata_ptr;
 	kmod->kmod_rodataptr = rodata_ptr;
 	kmod->kmod_codeptr = code_ptr;
