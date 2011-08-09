@@ -4,8 +4,8 @@
 #include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/thread.h>
+#include <ananas/exec.h>
 #include <ananas/trace.h>
-#include <ananas/vfs.h>
 #include <ananas/mm.h>
 #include <elf.h>
 
@@ -28,10 +28,10 @@ struct ELF_THREADMAP_PROGHEADER {
 };
 
 struct ELF_THREADMAP_PRIVDATA {
-	elf_getfunc_t  elf_obtainfunc;
-	void*          elf_obtainpriv;
-	int            elf_num_refs;
-	int            elf_num_ph;
+	exec_obtain_fn	elf_obtainfunc;
+	void*          	elf_obtainpriv;
+	int            	elf_num_refs;
+	int            	elf_num_ph;
 	struct ELF_THREADMAP_PROGHEADER elf_ph[1];
 };
 
@@ -87,7 +87,7 @@ elf_tm_clone_func(thread_t* t, struct THREAD_MAPPING* tdest, struct THREAD_MAPPI
 
 #if defined(__i386__) || defined(__PowerPC__)
 static errorcode_t
-elf32_load(thread_t* thread, void* priv, elf_getfunc_t obtain)
+elf32_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 {
 	errorcode_t err;
 	Elf32_Ehdr ehdr;
@@ -189,11 +189,14 @@ fail:
 	kfree(privdata);
 	return err;
 }
+
+EXECUTABLE_FORMAT("elf32", elf32_load);
+
 #endif /*__i386__ */
 
 #ifdef __amd64__
 static int
-elf64_load(thread_t* thread, void* priv, elf_getfunc_t obtain)
+elf64_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 {
 	errorcode_t err;
 	Elf64_Ehdr ehdr;
@@ -288,50 +291,8 @@ fail:
 	kfree(privdata);
 	return err;
 }
+
+EXECUTABLE_FORMAT("elf64", elf64_load);
 #endif /* __amd64__ */
-
-static errorcode_t
-elf_load_inodefunc(void* priv, void* buf, off_t offset, size_t len)
-{
-	struct VFS_FILE f;
-	memset(&f, 0, sizeof(f));
-	f.f_inode = priv;
-
-	/* XXX Hack: cleanup is handeled by requesting 0 bytes at 0 to buffer NULL */
-	if (buf == NULL && offset == 0 && len == 0) {
-		vfs_deref_inode(priv);
-		return ANANAS_ERROR_OK;
-	}
-
-	errorcode_t err = vfs_seek(&f, offset);
-	ANANAS_ERROR_RETURN(err);
-
-	size_t amount = len;
-	err = vfs_read(&f, buf, &amount);
-	ANANAS_ERROR_RETURN(err);
-
-	if (amount != len)
-		return ANANAS_ERROR(SHORT_READ);
-	return ANANAS_ERROR_OK;
-}
-
-errorcode_t
-elf_load_from_file(thread_t* t, struct VFS_INODE* inode)
-{
-	/* Ensure the inode will not go away */
-	vfs_ref_inode(inode);
-	errorcode_t err = 
-#if defined(__i386__ ) || defined(__PowerPC__)
-		elf32_load(t, inode, elf_load_inodefunc)
-#elif defined(__amd64__)
-		elf64_load(t, inode, elf_load_inodefunc)
-#else
-		ANANAS_ERROR(BAD_EXEC)
-#endif
-	;
-	if(err != ANANAS_ERROR_NONE)
-		vfs_deref_inode(inode);
-	return err;
-}
 
 /* vim:set ts=2 sw=2: */
