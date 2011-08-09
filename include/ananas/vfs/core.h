@@ -74,6 +74,7 @@ errorcode_t vfs_write(struct VFS_FILE* file, const void* buf, size_t* len);
 errorcode_t vfs_seek(struct VFS_FILE* file, off_t offset);
 errorcode_t vfs_create(struct VFS_INODE* dirinode, struct VFS_FILE* destfile, const char* dentry, int mode);
 errorcode_t vfs_grow(struct VFS_FILE* file, off_t size);
+errorcode_t vfs_summon(struct VFS_FILE* file, thread_t* t);
 
 /* Filesystem specific functions */
 size_t vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, const char* name, int namelen);
