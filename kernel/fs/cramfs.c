@@ -372,7 +372,7 @@ cramfs_exit()
 	return vfs_unregister_filesystem(&fs_cramfs);
 }
 
-INIT_FUNCTION(cramfs_init);
+INIT_FUNCTION(cramfs_init, SUBSYSTEM_VFS, ORDER_MIDDLE);
 EXIT_FUNCTION(cramfs_exit);
 
 /* vim:set ts=2 sw=2: */

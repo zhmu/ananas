@@ -313,7 +313,7 @@ iso9660_exit()
 	return vfs_unregister_filesystem(&fs_iso9660);
 }
 
-INIT_FUNCTION(iso9660_init);
+INIT_FUNCTION(iso9660_init, SUBSYSTEM_VFS, ORDER_MIDDLE);
 EXIT_FUNCTION(iso9660_exit);
 
 /* vim:set ts=2 sw=2: */

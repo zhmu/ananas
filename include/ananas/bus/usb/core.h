@@ -113,7 +113,6 @@ struct USB_TRANSFER {
 
 DQUEUE_DEFINE(USB_TRANSFER_QUEUE, struct USB_TRANSFER);
 
-void usb_init();
 struct USB_DEVICE* usb_alloc_device(device_t root, device_t hub, void* hcd_privdata);
 struct USB_TRANSFER* usb_alloc_transfer(struct USB_DEVICE* dev, int type, int flags, int endpt);
 errorcode_t usb_schedule_transfer(struct USB_TRANSFER* xfer);

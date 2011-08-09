@@ -397,7 +397,7 @@ ext2_exit()
 	return vfs_unregister_filesystem(&fs_ext2);
 }
 
-INIT_FUNCTION(ext2_init);
+INIT_FUNCTION(ext2_init, SUBSYSTEM_VFS, ORDER_MIDDLE);
 EXIT_FUNCTION(ext2_exit);
 
 /* vim:set ts=2 sw=2: */

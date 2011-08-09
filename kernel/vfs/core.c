@@ -15,11 +15,14 @@ TRACE_SETUP;
 	KASSERT(((i)->i_flags & INODE_FLAG_GONE) == 0, "referencing gone inode"); \
 	KASSERT((i)->i_refcount > 0, "referencing inode with no refs");
 
-void
+static errorcode_t
 vfs_init()
 {
 	vfs_init_mount();
+	return ANANAS_ERROR_OK;
 }
+
+INIT_FUNCTION(vfs_init, SUBSYSTEM_VFS, ORDER_FIRST);
 
 struct VFS_INODE*
 vfs_make_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)

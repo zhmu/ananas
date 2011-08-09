@@ -223,7 +223,7 @@ devfs_exit()
 	return vfs_unregister_filesystem(&fs_devfs);
 }
 
-INIT_FUNCTION(devfs_init);
+INIT_FUNCTION(devfs_init, SUBSYSTEM_VFS, ORDER_MIDDLE);
 EXIT_FUNCTION(devfs_exit);
 
 /* vim:set ts=2 sw=2: */

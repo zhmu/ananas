@@ -171,7 +171,7 @@ fatfs_exit()
 	return vfs_unregister_filesystem(&fs_fat);
 }
 
-INIT_FUNCTION(fatfs_init);
+INIT_FUNCTION(fatfs_init, SUBSYSTEM_VFS, ORDER_MIDDLE);
 EXIT_FUNCTION(fatfs_exit);
 
 /* vim:set ts=2 sw=2: */

@@ -20,7 +20,7 @@ static spinlock_t spl_bucket[BIO_BUCKET_SIZE];
 static spinlock_t spl_bio_lists;
 static spinlock_t spl_bio_bitmap;
 
-void
+static errorcode_t
 bio_init()
 {
 	/*
@@ -74,7 +74,10 @@ bio_init()
 	}
 	spinlock_init(&spl_bio_lists);
 	spinlock_init(&spl_bio_bitmap);
+	return ANANAS_ERROR_OK;
 }
+
+INIT_FUNCTION(bio_init, SUBSYSTEM_BIO, ORDER_FIRST);
 
 static void
 bio_waitcomplete(struct BIO* bio, struct WAITER* w)

@@ -48,7 +48,6 @@ struct BIO {
 /* Flags of BIO_READ */
 #define BIO_READ_NODATA		0x0001	/* Caller is not interested in the data */
 
-void bio_init();
 void bio_set_error(struct BIO* bio);
 void bio_set_available(struct BIO* bio);
 void bio_set_dirty(struct BIO* bio);

@@ -1,8 +1,10 @@
 #include <ananas/types.h>
 #include <ananas/device.h>
+#include <ananas/error.h>
 #include <ananas/bus/usb/core.h>
 #include <ananas/dqueue.h>
 #include <ananas/lib.h>
+#include <ananas/init.h>
 #include <ananas/thread.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
@@ -130,7 +132,7 @@ usb_thread(void* arg)
 	}
 }
 
-void
+static errorcode_t
 usb_init()
 {
 	DQUEUE_INIT(&usb_xfer_pendingqueue);
@@ -142,6 +144,9 @@ usb_init()
 	thread_resume(&usb_workerthread);
 
 	usb_attach_init();
+	return ANANAS_ERROR_OK;
 }
+
+INIT_FUNCTION(usb_init, SUBSYSTEM_DEVICE, ORDER_FIRST);
 
 /* vim:set ts=2 sw=2: */

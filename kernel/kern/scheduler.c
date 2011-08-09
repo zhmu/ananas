@@ -1,7 +1,10 @@
 #include <machine/thread.h>
+#include <ananas/error.h>
 #include <ananas/pcpu.h>
-#include <ananas/lib.h>
+#include <ananas/pcpu.h>
 #include <ananas/lock.h>
+#include <ananas/lib.h>
+#include <ananas/init.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
 #include <ananas/thread.h>
@@ -104,6 +107,17 @@ scheduler_activate()
 	md_thread_switch(newthread, curthread);
 	/* NOTREACHED */
 }
+
+static errorcode_t
+scheduler_launch()
+{
+	scheduler_activate();
+
+	/* NOTREACHED */
+	return ANANAS_ERROR_OK;
+}
+
+INIT_FUNCTION(scheduler_launch, SUBSYSTEM_SCHEDULER, ORDER_LAST);
 
 void
 scheduler_deactivate()

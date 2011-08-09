@@ -135,12 +135,15 @@ kdb_func(void* ptr)
 	}
 }
 
-void
+static errorcode_t
 kdb_init()
 {
 	kthread_init(&kdb_thread, &kdb_func, NULL);
 	thread_set_args(&kdb_thread, "[kdb]\0\0", PAGE_SIZE);
+	return ANANAS_ERROR_OK;
 }
+
+INIT_FUNCTION(kdb_init, SUBSYSTEM_KDB, ORDER_FIRST);
 
 void
 kdb_enter(const char* why)

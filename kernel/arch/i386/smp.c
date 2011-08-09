@@ -8,6 +8,7 @@
 #include <machine/vm.h>
 #include <ananas/x86/pic.h>
 #include <ananas/x86/io.h>
+#include <ananas/error.h>
 #include <ananas/lock.h>
 #include <machine/param.h>
 #include <ananas/pcpu.h>
@@ -15,9 +16,12 @@
 #include <ananas/vm.h>
 #include <ananas/mm.h>
 #include <ananas/thread.h>
+#include <ananas/trace.h>
 #include <ananas/lib.h>
 
 #undef SMP_DEBUG
+
+TRACE_SETUP;
 
 /* Application Processor's entry point and end */
 void *__ap_entry, *__ap_entry_end;
@@ -220,12 +224,12 @@ smp_ack_int(uint32_t num)
  * Called on the Boot Strap Processor, in order to prepare the system for
  * multiprocessing.
  */
-void
+static errorcode_t
 smp_init()
 {
 	addr_t mpfps_addr = locate_mpfps();
 	if (mpfps_addr == 0)
-		return;
+		return ANANAS_ERROR(NO_DEVICE);
 
 	/*
 	 * We just copy the MPFPS structure, since it's a fixed length and it
@@ -546,16 +550,19 @@ struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS
 
 	/* Re-enable interrupts back again */
 	__asm("sti");
-	return;
+	return ANANAS_ERROR_OK;
 
 smp_abort:
 	md_remove_low_mappings();
+	return ANANAS_ERROR(NO_DEVICE);
 }
+
+INIT_FUNCTION(smp_init, SUBSYSTEM_SMP, ORDER_FIRST);
 
 /*
  * Called on the Boot Strap Processor, in order to fully launch the AP's.
  */
-void
+static errorcode_t
 smp_launch()
 {
 	can_smp_launch++;
@@ -566,7 +573,11 @@ smp_launch()
 	/* All done - we can throw away the AP code and mappings */
 	kfree(ap_code);
 	md_remove_low_mappings();
+
+	return ANANAS_ERROR_OK;
 }
+
+INIT_FUNCTION(smp_launch, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);
 
 /*
  * Called by mp_stub.S for every Application Processor. Should not return.

@@ -10,7 +10,6 @@ struct VFS_MOUNTED_FS;
 struct VFS_INODE_OPS;
 struct VFS_FILESYSTEM_OPS;
 
-void vfs_init();
 errorcode_t vfs_mount(const char* from, const char* to, const char* type, void* options);
 
 /* Low-level interface - designed for filesystem use (must not be used otherwise) */

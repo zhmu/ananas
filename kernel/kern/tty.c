@@ -300,14 +300,17 @@ tty_preinit()
 	waitqueue_init(&tty_waitqueue);
 }
 
-void
+static errorcode_t
 tty_init()
 {
 	/* Launch our kernel thread */
 	kthread_init(&tty_thread, tty_thread_func, NULL);
 	thread_set_args(&tty_thread, "[tty]\0\0", 8);
 	thread_resume(&tty_thread);
+	return ANANAS_ERROR_OK;
 }
+
+INIT_FUNCTION(tty_init, SUBSYSTEM_TTY, ORDER_ANY);
 
 static struct DRIVER drv_tty = {
 	.name					= "tty",

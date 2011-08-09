@@ -358,7 +358,7 @@ device_attach_bus(device_t bus)
 	}
 }
 
-void
+static errorcode_t
 device_init()
 {
 	DQUEUE_INIT(&device_queue);
@@ -371,7 +371,10 @@ device_init()
 	memset(corebus, 0, sizeof(struct DEVICE));
 	strcpy(corebus->name, "corebus");
 	device_attach_bus(corebus);
+	return ANANAS_ERROR_OK;
 }
+
+INIT_FUNCTION(device_init, SUBSYSTEM_DEVICE, ORDER_LAST);
 
 struct DEVICE*
 device_find(const char* name)

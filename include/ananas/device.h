@@ -126,7 +126,7 @@ DQUEUE_DEFINE(DEVICE_PROBE, struct PROBE);
 	static errorcode_t unregister_##drvr() { \
 		return device_unregister_probe(&probe_##drvr); \
 	}; \
-	INIT_FUNCTION(register_##drvr); \
+	INIT_FUNCTION(register_##drvr, SUBSYSTEM_DEVICE, ORDER_MIDDLE); \
 	EXIT_FUNCTION(unregister_##drvr); \
 	struct PROBE probe_##drvr = { \
 		.driver = &drv_##drvr, \
@@ -140,7 +140,6 @@ DQUEUE_DEFINE(DEVICE_PROBE, struct PROBE);
 		} \
 	};
 
-void device_init();
 device_t device_alloc(device_t bus, driver_t drv);
 void device_free(device_t dev);
 errorcode_t device_attach_single(device_t dev);

@@ -1,5 +1,6 @@
 #include <ananas/types.h>
 #include <ananas/waitqueue.h>
+#include <ananas/error.h>
 #include <ananas/lock.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
@@ -11,22 +12,26 @@
 static spinlock_t spl_freelist;
 static struct WAIT_QUEUE w_freelist;
 
+static errorcode_t
+waitqueue_sysinit()
+{
+	/* Create the freelist with WAITER_QUEUE_SIZE items */
+	struct WAITER* w_items = kmalloc(sizeof(struct WAITER) * WAITER_QUEUE_SIZE);
+	DQUEUE_INIT(&w_freelist);
+	for (int i = 0; i < WAITER_QUEUE_SIZE; i++) {
+		DQUEUE_ADD_TAIL(&w_freelist, w_items);
+		w_items++;
+	}
+
+	spinlock_init(&spl_freelist);
+	return ANANAS_ERROR_OK;
+}
+
+INIT_FUNCTION(waitqueue_sysinit, SUBSYSTEM_WAITQUEUE, ORDER_ANY);
+
 void
 waitqueue_init(struct WAIT_QUEUE* wq)
 {
-	if (wq == NULL) {
-		/* Create the freelist with WAITER_QUEUE_SIZE items */
-		struct WAITER* w_items = kmalloc(sizeof(struct WAITER) * WAITER_QUEUE_SIZE);
-		DQUEUE_INIT(&w_freelist);
-		for (int i = 0; i < WAITER_QUEUE_SIZE; i++) {
-			DQUEUE_ADD_TAIL(&w_freelist, w_items);
-			w_items++;
-		}
-
-		spinlock_init(&spl_freelist);
-		return;
-	}
-
 	DQUEUE_INIT(wq);
 	spinlock_init(&wq->wq_lock);
 }
