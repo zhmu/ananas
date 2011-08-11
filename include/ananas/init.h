@@ -9,7 +9,7 @@ typedef errorcode_t (*init_func_t)();
 typedef errorcode_t (*exit_func_t)();
 
 enum INIT_SUBSYSTEM {
-	SUBSYSTEM_MODULES	= 0x0100000,
+	SUBSYSTEM_HANDLE	= 0x0100000,
 	SUBSYSTEM_KDB		= 0x0110000,
 	SUBSYSTEM_CONSOLE	= 0x0120000,
 	/* After this point, there is a console */
