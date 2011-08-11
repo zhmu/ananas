@@ -163,13 +163,15 @@ module_load(struct LOADER_MODULE* mod)
 	    elf_str_tab_offs == 0 || elf_str_tab_size == 0)
 		return ANANAS_ERROR(BAD_EXEC);
 
-	/* Reject anything without code or data XXX is this too harsh? */
-	if (code_size == 0 || rodata_size == 0 || rwdata_size == 0)
+	/* Reject anything without code */
+	if (code_size == 0)
 		return ANANAS_ERROR(BAD_EXEC);
 
 	/*
 	 * OK, we know what to allocate; let's do it. Note that we use kmalloc() so
 	 * that we have a r/w mapping which is needed to copy the contents around
+	 *
+	 * Note that this expects kmalloc(NULL) to do the right thing.
 	 */
 	void* code_ptr   = kmalloc(code_size);
 	void* rodata_ptr = kmalloc(rodata_size);
