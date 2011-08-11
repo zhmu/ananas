@@ -3,6 +3,7 @@
 #include <ananas/vfs.h>
 #include <ananas/limits.h>
 #include <ananas/handle.h>
+#include <ananas/init.h>
 #include <ananas/schedule.h>
 #include <machine/thread.h>
 
@@ -123,5 +124,43 @@ void thread_resume(thread_t* t);
 void thread_exit(int exitcode);
 void thread_dump(int num_args, char** arg);
 errorcode_t thread_clone(thread_t* parent, int flags, thread_t** dest);
+
+/*
+ * Thread callback functions are provided so that modules can take action upon
+ * creating or destroying of threads.
+ */
+typedef errorcode_t (*thread_callback_t)(thread_t* thread, thread_t* parent);
+struct THREAD_CALLBACK {
+	thread_callback_t tc_func;
+	DQUEUE_FIELDS(struct THREAD_CALLBACK);
+};
+DQUEUE_DEFINE(THREAD_CALLBACKS, struct THREAD_CALLBACK);
+
+errorcode_t thread_register_init_func(struct THREAD_CALLBACK* fn);
+errorcode_t thread_register_exit_func(struct THREAD_CALLBACK* fn);
+errorcode_t thread_unregister_init_func(struct THREAD_CALLBACK* fn);
+errorcode_t thread_unregister_exit_func(struct THREAD_CALLBACK* fn);
+
+#define REGISTER_THREAD_INIT_FUNC(fn) \
+	static struct THREAD_CALLBACK cb_init_##fn = { .tc_func = fn }; \
+	static errorcode_t register_##fn() { \
+		return thread_register_init_func(&cb_init_##fn); \
+	} \
+	static errorcode_t unregister_##fn() { \
+		return thread_unregister_init_func(&cb_init_##fn); \
+	} \
+	INIT_FUNCTION(register_##fn, SUBSYSTEM_THREAD, ORDER_FIRST); \
+	EXIT_FUNCTION(unregister_##fn)
+
+#define REGISTER_THREAD_EXIT_FUNC(fn) \
+	static struct THREAD_CALLBACK cb_init_##fn = { .tc_func = fn }; \
+	static errorcode_t register_##fn() { \
+		return thread_register_exit_func(&cb_exit_##fn); \
+	} \
+	static errorcode_t unregister_##fn() { \
+		return thread_unregister_exit_func(&cb_exit_##fn); \
+	} \
+	INIT_FUNCTION(register_##fn, SUBSYSTEM_THREAD, ORDER_FIRST); \
+	EXIT_FUNCTION(unregister_##fn)
 
 #endif

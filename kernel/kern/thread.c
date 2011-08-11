@@ -18,7 +18,10 @@
 TRACE_SETUP;
 
 static spinlock_t spl_threadqueue = SPINLOCK_DEFAULT_INIT;
+static spinlock_t spl_threadfuncs = SPINLOCK_DEFAULT_INIT;
 static struct THREAD_QUEUE threadqueue;
+static struct THREAD_CALLBACKS threadcallbacks_init;
+static struct THREAD_CALLBACKS threadcallbacks_exit;
 
 errorcode_t
 thread_init(thread_t* t, thread_t* parent)
@@ -96,6 +99,12 @@ thread_init(thread_t* t, thread_t* parent)
 	/* Initialize scheduler-specific parts */
 	scheduler_init_thread(t);
 
+	/* Run all thread initialization callbacks */
+	if (!DQUEUE_EMPTY(&threadcallbacks_init))
+		DQUEUE_FOREACH(&threadcallbacks_init, tc, struct THREAD_CALLBACK) {
+			tc->tc_func(t, parent);
+		}
+
 	/* Add the thread to the thread queue */
 	spinlock_lock(&spl_threadqueue);
 	DQUEUE_ADD_TAIL(&threadqueue, t);
@@ -130,6 +139,12 @@ kthread_init(thread_t* t, kthread_func_t func, void* arg)
 
 	/* Initialize scheduler-specific parts */
 	scheduler_init_thread(t);
+
+	/* Run all thread initialization callbacks */
+	if (!DQUEUE_EMPTY(&threadcallbacks_init))
+		DQUEUE_FOREACH(&threadcallbacks_init, tc, struct THREAD_CALLBACK) {
+			tc->tc_func(t, NULL /* kthreads have no parent */);
+		}
 
 	/* Add the thread to the thread queue */
 	spinlock_lock(&spl_threadqueue);
@@ -216,6 +231,12 @@ thread_free(thread_t* t)
 	/* If the thread was on the scheduler queue, remove it */
 	if ((t->flags & THREAD_FLAG_SUSPENDED) == 0)
 		scheduler_remove_thread(t);
+
+	/* Run all thread exit callbacks */
+	if (!DQUEUE_EMPTY(&threadcallbacks_exit))
+		DQUEUE_FOREACH(&threadcallbacks_exit, tc, struct THREAD_CALLBACK) {
+			tc->tc_func(t, NULL);
+		}
 }
 
 void
@@ -508,6 +529,42 @@ thread_set_environment(thread_t* t, const char* env, size_t env_len)
 		}
 
 	return ANANAS_ERROR(BAD_LENGTH);
+}
+
+errorcode_t
+thread_register_init_func(struct THREAD_CALLBACK* fn)
+{
+	spinlock_lock(&spl_threadfuncs);
+	DQUEUE_ADD_TAIL(&threadcallbacks_init, fn);
+	spinlock_unlock(&spl_threadfuncs);	
+	return ANANAS_ERROR_OK;
+}
+
+errorcode_t
+thread_register_exit_func(struct THREAD_CALLBACK* fn)
+{
+	spinlock_lock(&spl_threadfuncs);
+	DQUEUE_ADD_TAIL(&threadcallbacks_exit, fn);
+	spinlock_unlock(&spl_threadfuncs);	
+	return ANANAS_ERROR_OK;
+}
+
+errorcode_t
+thread_unregister_init_func(struct THREAD_CALLBACK* fn)
+{
+	spinlock_lock(&spl_threadfuncs);
+	DQUEUE_REMOVE(&threadcallbacks_init, fn);
+	spinlock_unlock(&spl_threadfuncs);	
+	return ANANAS_ERROR_OK;
+}
+
+errorcode_t
+thread_unregister_exit_func(struct THREAD_CALLBACK* fn)
+{
+	spinlock_lock(&spl_threadfuncs);
+	DQUEUE_REMOVE(&threadcallbacks_exit, fn);
+	spinlock_unlock(&spl_threadfuncs);	
+	return ANANAS_ERROR_OK;
 }
 
 #ifdef KDB
