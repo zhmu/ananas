@@ -533,7 +533,7 @@ static void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offs
 	memset(&cropts, 0, sizeof(cropts));
 	cropts.cr_size = sizeof(cropts);
 	cropts.cr_flags = CREATE_MEMORY_FLAG_READ | CREATE_MEMORY_FLAG_WRITE;
-	cropts.cr_type = CREATE_TYPE_MEMORY;
+	cropts.cr_type = HANDLE_TYPE_MEMORY;
 	cropts.cr_length = len + sizeof(struct MMAP_HEADER);
 	err = sys_create(&cropts, &handle);
 	if (err != ANANAS_ERROR_NONE) {

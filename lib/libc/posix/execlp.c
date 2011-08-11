@@ -48,6 +48,7 @@ int execlp(const char *path, const char* arg0, ...)
 	struct OPEN_OPTIONS openopts;
 	memset(&openopts, 0, sizeof(openopts));
 	openopts.op_size = sizeof(openopts);
+	openopts.op_type = HANDLE_TYPE_FILE;
 	openopts.op_path = path;
 	openopts.op_mode = OPEN_MODE_READ;
 	err = sys_open(&openopts, &handle);

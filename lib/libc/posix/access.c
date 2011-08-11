@@ -10,6 +10,7 @@ int access(const char* path, int amode)
 	struct OPEN_OPTIONS openopts;
 	memset(&openopts, 0, sizeof(openopts));
 	openopts.op_size = sizeof(openopts);
+	openopts.op_type = HANDLE_TYPE_FILE;
 	openopts.op_path = path;
 	/* F_OK is handled implicely */
 	if (amode & R_OK)

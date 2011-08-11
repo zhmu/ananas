@@ -15,6 +15,7 @@ int chdir(const char* path)
 	struct OPEN_OPTIONS opts;
 	memset(&opts, 0, sizeof(opts));
 	opts.op_size = sizeof(opts);
+	opts.op_type = HANDLE_TYPE_FILE;
 	opts.op_path = path;
 	opts.op_mode = OPEN_MODE_READ | OPEN_MODE_DIRECTORY;
 	err = sys_open(&opts, &handle);
