@@ -13,7 +13,6 @@
 #include <ananas/syscall.h>
 #include <ananas/syscalls.h>
 #include <ananas/trace.h>
-#include <ananas/vfs.h>
 #include <elf.h>
 
 TRACE_SETUP;
@@ -24,9 +23,9 @@ sys_read(thread_t* t, handle_t handle, void* buf, size_t* len)
 	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, buf=%p, len=%p", t, handle, buf, len);
 	errorcode_t err;
 
-	/* Fetch the file handle */
-	struct VFS_FILE* file;
-	err = syscall_get_file(t, handle, &file);
+	/* Get the handle */
+	struct HANDLE* h;
+	err = syscall_get_handle(t, handle, &h);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Fetch the size operand */
@@ -40,8 +39,10 @@ sys_read(thread_t* t, handle_t handle, void* buf, size_t* len)
 	ANANAS_ERROR_RETURN(err);
 
 	/* And read data to it */
-	err = vfs_read(file, buffer, &size);
-	ANANAS_ERROR_RETURN(err);
+	if (h->hops->hop_read != NULL)
+		err = h->hops->hop_read(t, h, buf, &size);
+	else
+		err = ANANAS_ERROR(BAD_OPERATION);
 
 	/* Finally, inform the user of the length read - the read went OK */
 	err = syscall_set_size(t, len, size);
@@ -56,6 +57,11 @@ sys_write(thread_t* t, handle_t handle, const void* buf, size_t* len)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, buf=%p, len=%p", t, handle, buf, len);
 	errorcode_t err;
+
+	/* Get the handle */
+	struct HANDLE* h;
+	err = syscall_get_handle(t, handle, &h);
+	ANANAS_ERROR_RETURN(err);
 
 	/* Fetch the file handle */
 	struct VFS_FILE* file;
@@ -73,7 +79,10 @@ sys_write(thread_t* t, handle_t handle, const void* buf, size_t* len)
 	ANANAS_ERROR_RETURN(err);
 
 	/* And write data from to it */
-	err = vfs_write(file, buffer, &size);
+	if (h->hops->hop_write != NULL)
+		err = h->hops->hop_write(t, h, buf, &size);
+	else
+		err = ANANAS_ERROR(BAD_OPERATION);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Finally, inform the user of the length read - the read went OK */
@@ -102,48 +111,33 @@ sys_open(thread_t* t, struct OPEN_OPTIONS* opts, handle_t* result)
 	const char* userpath;
 	err = syscall_map_string(t, open_opts.op_path, &userpath);
 	ANANAS_ERROR_RETURN(err);
+	open_opts.op_path = userpath;
 
-	/* Obtain a new file handle */
+	/* Obtain a new handle */
 	struct HANDLE* handle;
-	err = handle_alloc(HANDLE_TYPE_FILE, t, &handle);
+	err = handle_alloc(open_opts.op_type, t, &handle);
 	ANANAS_ERROR_RETURN(err);
+	err = syscall_set_handle(t, result, handle);
+	if (err != ANANAS_ERROR_OK) {
+		handle_free(handle);
+		return err;
+	}
 
 	/*
-	 * If we could try to create the file, do so - if this fails, we'll attempt
-	 * the ordinary open. This should have the advantage of eliminating a race
-	 * condition.
+	 * Ask the handle to open the resource - if there isn't an open operation, we
+	 * assume this handle type cannot be opened using a syscall.
 	 */
-	if (open_opts.op_mode & OPEN_MODE_CREATE) {
-		/* Attempt to create the new file */
-		err = vfs_create(t->path_handle->data.vfs_file.f_inode, &handle->data.vfs_file, userpath, open_opts.op_createmode);
-		if (err == ANANAS_ERROR_NONE)
-			goto skip_open;
+	if (handle->hops->hop_open != NULL)
+		err = handle->hops->hop_open(t, handle, &open_opts);
+	else
+		err = ANANAS_ERROR(BAD_OPERATION);
 
-		/*
-		 * File could not be created; if we had to create the file, this is an
-		 * error whatever, otherwise we'll report anything but 'file already
-		 * exists' back to the caller.
-		 */
-		if ((open_opts.op_mode & OPEN_MODE_EXCLUSIVE) || ANANAS_ERROR_CODE(err) != ANANAS_ERROR_FILE_EXISTS)
-			goto skip_open;
-
-		/* File can't be created - try opening it instead */
-	}
-
-	/* And open the path */
-	TRACE(SYSCALL, INFO, "opening userpath '%s'", userpath);
-	err = vfs_open(userpath, t->path_handle->data.vfs_file.f_inode, &handle->data.vfs_file);
-
-skip_open:
-	/* Finally, hand the handle back if necessary and we're done */
-	if (err == ANANAS_ERROR_NONE)
-		err = syscall_set_handle(t, result, handle);
-	if (err != ANANAS_ERROR_NONE) {
-		/* Do not forget to release the handle on error! */
+	if (err != ANANAS_ERROR_OK) {
+		/* Create failed - destroy the handle */
 		handle_free(handle);
-	} else {
-		TRACE(SYSCALL, INFO, "success, handle=%p", handle);
+		return err;
 	}
+	TRACE(SYSCALL, FUNC, "t=%p, success, handle=%p", t, handle);
 	return err;
 }
 
@@ -249,11 +243,9 @@ sys_summon(thread_t* t, handle_t handle, struct SUMMON_OPTIONS* opts, handle_t* 
 	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, opts=%p, out=%p", t, handle, opts, out);
 	errorcode_t err;
 
-	/*
-	 * XXX This limits summoning to file-based handles.
-	 */
-	struct VFS_FILE* file;
-	err = syscall_get_file(t, handle, &file);
+	/* Get the handle */
+	struct HANDLE* h;
+	err = syscall_get_handle(t, handle, &h);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Obtain summoning options */
@@ -262,53 +254,17 @@ sys_summon(thread_t* t, handle_t handle, struct SUMMON_OPTIONS* opts, handle_t* 
 	ANANAS_ERROR_RETURN(err);
 	memcpy(&summon_opts, so, sizeof(summon_opts));
 
-	/* Create a new thread */
-	thread_t* newthread = NULL;
-	err = thread_alloc(t, &newthread);
-	ANANAS_ERROR_RETURN(err);
+	/*
+	 * Ask the handle to summon - if there isn't a summon operation,
+	 * we assume this handle type cannot be summoned using a syscall.
+	 */
+	if (h->hops->hop_summon != NULL)
+		err = h->hops->hop_summon(t, h, &summon_opts, (struct HANDLE**)out);
+	else
+		err = ANANAS_ERROR(BAD_OPERATION);
 
-	/* Ask the VFS to summon the file over our thread */
-	err = vfs_summon(file, newthread);
-	if (err != ANANAS_ERROR_NONE) {
-		/* Failure - no option but to kill the thread */
-		goto fail;
-	}
-
-	/* If arguments are given, handle them */
-	if (summon_opts.su_args != NULL) {
-		const char* arg;
-		err = syscall_map_buffer(t, summon_opts.su_args, summon_opts.su_args_len, THREAD_MAP_READ, (void**)&arg);
-		if (err == ANANAS_ERROR_NONE)
-			err = thread_set_args(newthread, arg, summon_opts.su_args_len);
-		if (err != ANANAS_ERROR_NONE)
-			goto fail;
-	}
-
-	/* If an environment is given, handle it */
-	if (summon_opts.su_env != NULL) {
-		const char* env;
-		err = syscall_map_buffer(t, summon_opts.su_env, summon_opts.su_env_len, THREAD_MAP_READ, (void**)&env);
-		if (err == ANANAS_ERROR_NONE)
-			err = thread_set_environment(newthread, env, summon_opts.su_env_len);
-		if (err != ANANAS_ERROR_NONE)
-			goto fail;
-	}
-
-	/* If we need to resume the thread, do so */
-	if (summon_opts.su_flags & SUMMON_FLAG_RUNNING)
-		thread_resume(newthread);
-
-	/* Finally, hand the handle back if necessary and we're done */
-	err = syscall_set_handle(t, out, newthread->thread_handle);
-	if (err == ANANAS_ERROR_NONE) {
-		TRACE(SYSCALL, INFO, "t=%p, success, thread handle=%p", t, newthread->thread_handle);
-		return ANANAS_ERROR_OK;
-	}
-
-fail:
-	if (newthread != NULL) {
-		thread_free(newthread);
-		thread_destroy(newthread);
+	if (err == ANANAS_ERROR_OK) {
+		TRACE(SYSCALL, INFO, "success, handle=%p", out);
 	}
 	return err;
 }
@@ -325,73 +281,32 @@ sys_create(thread_t* t, struct CREATE_OPTIONS* opts, handle_t* out)
 	err = syscall_map_buffer(t, opts, sizeof(cropts), THREAD_MAP_READ, &opts_ptr);
 	ANANAS_ERROR_RETURN(err);
 	memcpy(&cropts, opts_ptr, sizeof(cropts));
-
 	if (cropts.cr_size != sizeof(cropts))
 		return ANANAS_ERROR(BAD_LENGTH);
 
+	/* Create a new handle and hand it to the thread*/
 	struct HANDLE* outhandle;
-	switch(cropts.cr_type) {
-		case CREATE_TYPE_FILE: {
-			/* Fetch the new path name */
-			const char* path;
-			err = syscall_map_string(t, cropts.cr_path, &path);
-			ANANAS_ERROR_RETURN(err);
+	err = handle_alloc(cropts.cr_type, t, &outhandle);
+	ANANAS_ERROR_RETURN(err);
+	err = syscall_set_handle(t, out, outhandle);
+	ANANAS_ERROR_RETURN(err);
 
-			/* Fetch a new handle first; this will likely work */
-			err = handle_alloc(HANDLE_TYPE_FILE, t, &outhandle);
-			ANANAS_ERROR_RETURN(err);
+	/*
+	 * Ask the handle to create it - if there isn't a create operation,
+	 * we assume this handle type cannot be created using a syscall.
+	 */
+	if (outhandle->hops->hop_create != NULL)
+		err = outhandle->hops->hop_create(t, outhandle, &cropts);
+	else
+		err = ANANAS_ERROR(BAD_OPERATION);
 
-			/* Attempt to create the new file */
-			err = vfs_create(t->path_handle->data.vfs_file.f_inode, &outhandle->data.vfs_file, path, cropts.cr_mode);
-			if (err == ANANAS_ERROR_NONE) {
-				/* This worked; hand the handle to the thread */
-				err = syscall_set_handle(t, out, outhandle);
-				if (err != ANANAS_ERROR_NONE) {
-					/* Remove the handle (frees the inode as well) */
-					handle_free(outhandle);
-				} else {
-					TRACE(SYSCALL, INFO, "t=%p, success, result handle=%p", t, outhandle);
-				}
-			} else {
-				/* Failure - throw away the handle we created */
-				handle_free(outhandle);
-			}
-			return err;
-		}
-		case CREATE_TYPE_MEMORY: {
-			/* See if the flags mask works */
-			if ((cropts.cr_flags & ~(CREATE_MEMORY_FLAG_MASK)) != 0)
-				return ANANAS_ERROR(BAD_FLAG);
-
-			/* Create the memory handle */
-			err = handle_alloc(HANDLE_TYPE_MEMORY, t, &outhandle);
-			ANANAS_ERROR_RETURN(err);
-
-			/* Fetch memory as needed */
-			int map_flags = THREAD_MAP_ALLOC;
-			if (cropts.cr_flags & CREATE_MEMORY_FLAG_READ)    map_flags |= THREAD_MAP_READ;
-			if (cropts.cr_flags & CREATE_MEMORY_FLAG_WRITE)   map_flags |= THREAD_MAP_WRITE;
-			if (cropts.cr_flags & CREATE_MEMORY_FLAG_EXECUTE) map_flags |= THREAD_MAP_EXECUTE;
-			struct THREAD_MAPPING* tm;
-			err = thread_map(t, (addr_t)NULL, cropts.cr_length, map_flags, &tm);
-			if (err == ANANAS_ERROR_NONE)
-				err = syscall_set_handle(t, out, outhandle);
-			if (err != ANANAS_ERROR_NONE) {
-				/* Remove the handle to prevent a leak */
-				handle_free(outhandle);
-				return err;
-			}
-			outhandle->data.memory.mapping = tm;
-			outhandle->data.memory.addr = (void*)tm->tm_virt;
-			outhandle->data.memory.length = tm->tm_len;
-			TRACE(SYSCALL, INFO, "t=%p, success, result handle=%p", t, outhandle);
-			return ANANAS_ERROR_OK;
-		}
-		default:
-			return ANANAS_ERROR(BAD_TYPE);
+	if (err != ANANAS_ERROR_OK) {
+		/* Create failed - destroy the handle */
+		handle_free(outhandle);
+	} else {
+		TRACE(SYSCALL, INFO, "success, handle=%p", outhandle);
 	}
-
-	/* NOTREACHED */	
+	return err;
 }
 
 errorcode_t
@@ -438,243 +353,6 @@ fail:
 	return err;
 }
 
-static errorcode_t
-sys_handlectl_file(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
-{
-	errorcode_t err;
-
-	/* Grab the file handle - we'll always need it as we're doing files */
-	struct VFS_FILE* file;
-	err = syscall_get_file(t, handle, &file);
-	if (err != ANANAS_ERROR_OK)
-		goto fail;
-
-	switch(op) {
-		case HCTL_FILE_SETCWD: {
-			/* Ensure we are dealing with a directory here */
-			if (!S_ISDIR(file->f_inode->i_sb.st_mode)) {
-				err = ANANAS_ERROR(NOT_A_DIRECTORY);
-				goto fail;
-			}
-
-			/* XXX We should lock the thread? */
-
-#if 0
-			/*
-			 * The inode must be owned by the thread already, so we could just hand
-			 * it over without dealing with the reference count. However, closing the
-			 * handle (as we don't want the thread to mess with it anymore) is the
-			 * safest way to continue - so we just continue by referencing the inode
-			 * and then freeing the handle (yes, this is a kludge).
-			 *
-			 * XXX Why isn't this necessary?
-			 */
-			vfs_ref_inode(file->inode);
-#endif
-
-			/* Disown the previous handle; it is no longer of concern */
-			handle_free(t->path_handle);
-
-			/* And update the handle */
-			t->path_handle = handle;
-			TRACE(SYSCALL, INFO, "t=%p, success", t);
-			break;
-		}
-		case HCTL_FILE_SEEK: {
-			/* Ensure we understand the whence */
-			struct HCTL_SEEK_ARG* se = arg;
-			if (arg == NULL) {
-				err = ANANAS_ERROR(BAD_ADDRESS);
-				goto fail;
-			}
-			if (len != sizeof(*se)) {
-				err = ANANAS_ERROR(BAD_LENGTH);
-				goto fail;
-			}
-			if (se->se_whence != HCTL_SEEK_WHENCE_SET && se->se_whence != HCTL_SEEK_WHENCE_CUR && se->se_whence != HCTL_SEEK_WHENCE_END) {
-				err = ANANAS_ERROR(BAD_FLAG);
-				goto fail;
-			}
-			off_t offset;
-			err = syscall_fetch_offset(t, se->se_offs, &offset);
-			if (err != ANANAS_ERROR_OK)
-				return err;
-			/* Update the offset */
-			switch(se->se_whence) {
-				case HCTL_SEEK_WHENCE_SET:
-					break;
-				case HCTL_SEEK_WHENCE_CUR:
-					offset = file->f_offset + offset;
-					break;
-				case HCTL_SEEK_WHENCE_END:
-					offset = file->f_inode->i_sb.st_size - offset;
-					break;
-			}
-			if (offset < 0) {
-				err = ANANAS_ERROR(BAD_RANGE);
-				goto fail;
-			}
-			if (offset >= file->f_inode->i_sb.st_size) {
-				/* File needs to be grown to accommodate for this offset */
-				err = vfs_grow(file, offset);
-				if (err != ANANAS_ERROR_OK)
-					goto fail;
-			}
-			err = syscall_set_offset(t, se->se_offs, offset);
-			if (err != ANANAS_ERROR_OK)
-				goto fail;
-			file->f_offset = offset;
-			TRACE(SYSCALL, INFO, "t=%p, success, offset=%u", t, (int)offset);
-			break;
-		}
-		case HCTL_FILE_STAT: {
-			/* Ensure we understand the arguments */
-			struct HCTL_STAT_ARG* st = arg;
-			if (arg == NULL) {
-				err = ANANAS_ERROR(BAD_ADDRESS);
-				goto fail;
-			}
-			if (len != sizeof(*st)) {
-				err = ANANAS_ERROR(BAD_LENGTH);
-				goto fail;
-			}
-			if (st->st_stat_len != sizeof(struct stat)) {
-				err = ANANAS_ERROR(BAD_LENGTH);
-				goto fail;
-			}
-
-			void* dest;
-			err = syscall_map_buffer(t, st->st_stat, sizeof(struct stat), THREAD_MAP_WRITE, &dest);
-			if (err != ANANAS_ERROR_OK)
-				goto fail;
-
-			if (file->f_inode != NULL) {
-				/* Copy the data and we're done */
-				memcpy(dest, &file->f_inode->i_sb, sizeof(struct stat));
-			} else {
-				/* First of all, start by filling with defaults */
-				struct stat* st = dest;
-				st->st_dev     = (dev_t)(uintptr_t)file->f_device;
-				st->st_ino     = (ino_t)0;
-				st->st_mode    = 0666;
-				st->st_nlink   = 1;
-				st->st_uid     = 0;
-				st->st_gid     = 0;
-				st->st_rdev    = (dev_t)(uintptr_t)file->f_device;
-				st->st_size    = 0;
-				st->st_atime   = 0;
-				st->st_mtime   = 0;
-				st->st_ctime   = 0;
-				st->st_blksize = BIO_SECTOR_SIZE;
-				if (file->f_device->driver->drv_stat != NULL) {
-					/* Allow the device driver to update */
-					err = file->f_device->driver->drv_stat(file->f_device, st);
-				}
-			}
-			if (err == ANANAS_ERROR_NONE)
-				TRACE(SYSCALL, INFO, "t=%p, success", t);
-			break;
-		}
-		default:
-			/* What's this? */
-			err = ANANAS_ERROR(BAD_SYSCALL);
-			break;
-	}
-
-fail:
-	return err;
-}
-
-static errorcode_t
-sys_handlectl_memory(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
-{
-	/* Ensure we are dealing with a memory handle here */
-	struct HANDLE* h = handle;
-	if (h->type != HANDLE_TYPE_MEMORY)
-		return ANANAS_ERROR(BAD_HANDLE);
-
-	switch(op) {
-		case HCTL_MEMORY_GET_INFO: {
-			/* Ensure the structure length is sane */
-			struct HCTL_MEMORY_GET_INFO_ARG* in = arg;
-			if (arg == NULL)
-				return ANANAS_ERROR(BAD_ADDRESS);
-			if (len != sizeof(*in))
-				return ANANAS_ERROR(BAD_LENGTH);
-			in->in_base = h->data.memory.addr;
-			in->in_length = h->data.memory.length;
-			TRACE(SYSCALL, INFO, "t=%p, success", t);
-			return ANANAS_ERROR_OK;
-		}
-	}
-
-	/* What's this? */
-	return ANANAS_ERROR(BAD_SYSCALL);
-}
-
-static errorcode_t
-sys_handlectl_thread(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
-{
-	/* Ensure we are dealing with a thread handle here */
-	struct HANDLE* h = handle;
-	if (h->type != HANDLE_TYPE_THREAD)
-		return ANANAS_ERROR(BAD_HANDLE);
-	thread_t* handle_thread = h->data.thread;
-
-	/* XXX Determine if we can manipulate the handle */
-
-	switch(op) {
-		case HCTL_THREAD_SUSPEND: {
-			if ((handle_thread->flags & THREAD_FLAG_SUSPENDED) != 0)
-				return ANANAS_ERROR(BAD_OPERATION);
-			thread_suspend(handle_thread);
-			return ANANAS_ERROR_OK;
-		}
-		case HCTL_THREAD_RESUME: {
-			if ((handle_thread->flags & THREAD_FLAG_SUSPENDED) == 0)
-				return ANANAS_ERROR(BAD_OPERATION);
-			thread_resume(handle_thread);
-			return ANANAS_ERROR_OK;
-		}
-	}
-
-	/* What's this? */
-	return ANANAS_ERROR(BAD_SYSCALL);
-}
-
-static errorcode_t
-sys_handlectl_device(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
-{
-	errorcode_t err;
-
-	/* Grab the file handle - we'll always need it as we're doing devices */
-	struct VFS_FILE* file;
-	err = syscall_get_file(t, handle, &file);
-	if (err != ANANAS_ERROR_OK)
-		goto fail;
-
-	/* See if it's device-backed; it must be for this handlectl to work */
-	if (file->f_device == NULL) {
-		err = ANANAS_ERROR(NO_DEVICE);
-		goto fail;
-	}
-
-	/* Device driver must implement the devctl call as we're about to call it */
-	if (file->f_device->driver->drv_devctl == NULL) {
-		err = ANANAS_ERROR(BAD_OPERATION);
-		goto fail;
-	}
-
-	/*
-	 * Note that arg/len are already filled out at this point, so we can just
-	 * call the devctl
-	 */
-	err = file->f_device->driver->drv_devctl(file->f_device, t, op, arg, len);
-
-fail:
-	return err;
-}
-
 errorcode_t
 sys_handlectl(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
 {
@@ -697,18 +375,16 @@ sys_handlectl(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t l
 			goto fail;
 	}
 
-	if (op >= _HCTL_GENERIC_FIRST && op <= _HCTL_GENERIC_LAST)
+	/* Handle generics here; handles aren't allowed to override them */
+	if (op >= _HCTL_GENERIC_FIRST && op <= _HCTL_GENERIC_LAST) {
 		err = sys_handlectl_generic(t, handle, op, handlectl_arg, len);
-	else if (op >= _HCTL_FILE_FIRST && op <= _HCTL_FILE_LAST)
-		err = sys_handlectl_file(t, handle, op, handlectl_arg, len);
-	else if (op >= _HCTL_MEMORY_FIRST && op <= _HCTL_MEMORY_LAST)
-		err = sys_handlectl_memory(t, handle, op, handlectl_arg, len);
-	else if (op >= _HCTL_THREAD_FIRST && op <= _HCTL_THREAD_LAST)
-		err = sys_handlectl_thread(t, handle, op, handlectl_arg, len);
-	else if (op >= _HCTL_DEVICE_FIRST && op <= _HCTL_DEVICE_LAST)
-		err = sys_handlectl_device(t, handle, op, handlectl_arg, len);
-	else
-		err = ANANAS_ERROR(BAD_SYSCALL);
+	} else {
+		/* Let the handle deal with this request */
+		if (h->hops->hop_control != NULL)
+			err = h->hops->hop_control(t, handle, op, arg, len);
+		else
+			err = ANANAS_ERROR(BAD_SYSCALL);
+	}
 
 fail:
 	spinlock_unlock(&h->spl_handle);

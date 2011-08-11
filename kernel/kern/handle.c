@@ -15,6 +15,8 @@ TRACE_SETUP;
 
 static struct HANDLE_QUEUE handle_freelist;
 static spinlock_t spl_handlequeue;
+static struct HANDLE_TYPES handle_types;
+static spinlock_t spl_handletypes;
 static void *handle_memory_start = NULL;
 static void *handle_memory_end = NULL;
 
@@ -23,6 +25,8 @@ handle_init()
 {
 	struct HANDLE* pool = kmalloc(sizeof(struct HANDLE) * (NUM_HANDLES + 1));
 	spinlock_init(&spl_handlequeue);
+	spinlock_init(&spl_handletypes);
+	DQUEUE_INIT(&handle_types);
 
 	/*
 	 * Ensure handle pool is aligned; this makes checking for valid handles
@@ -42,6 +46,14 @@ handle_init()
 	/* Store the handle pool range; this allows us to quickly verify whether a handle is valid */
 	handle_memory_start = pool;
 	handle_memory_end   = (char*)pool + sizeof(struct HANDLE) * NUM_HANDLES;
+
+	/*
+	 * XXX Thread handles are often used during the boot process to make a handle
+	 * for the idle process; this means we cannot register them using the sysinit
+	 * framework - thus kludge and register them here.
+	 */
+	extern struct HANDLE_TYPE thread_handle_type;
+	handle_register_type(&thread_handle_type);
 }
 
 errorcode_t
@@ -49,6 +61,21 @@ handle_alloc(int type, thread_t* t, struct HANDLE** out)
 {
 	KASSERT(handle_memory_start != NULL, "handle_alloc() without pool");
 	KASSERT(t != NULL, "handle_alloc() without thread");
+
+	/* Look up the handle type XXX O(n) */
+	struct HANDLE_TYPE* htype = NULL;
+	spinlock_lock(&spl_handletypes);
+	if (!DQUEUE_EMPTY(&handle_types)) {
+		DQUEUE_FOREACH(&handle_types, ht, struct HANDLE_TYPE) {
+			if (ht->ht_id != type)
+				continue;
+			htype = ht;
+			break;
+		}
+	}
+	spinlock_unlock(&spl_handletypes);
+	if (htype == NULL)
+		return ANANAS_ERROR(BAD_TYPE);
 
 	/* Grab a handle from the pool */
 	spinlock_lock(&spl_handlequeue);
@@ -66,6 +93,7 @@ handle_alloc(int type, thread_t* t, struct HANDLE** out)
 	/* Hook the handle to the thread */
 	handle->type = type;
 	handle->thread = t;
+	handle->hops = htype->ht_hops;
 
 	/* Hook the handle to the thread queue */
 	spinlock_lock(&t->spl_thread);
@@ -92,27 +120,15 @@ handle_destroy(struct HANDLE* handle, int free_resources)
 	}
 
 	/* If we need to free our resources, do so */
+	errorcode_t err = ANANAS_ERROR_OK;
 	if (free_resources) {
-		switch(handle->type) {
-			case HANDLE_TYPE_FILE: {
-				/* If we have a backing inode, dereference it - this will free it if needed */
-				struct VFS_INODE* inode = handle->data.vfs_file.f_inode;
-				if (inode != NULL) {
-					vfs_deref_inode(inode);
-				}
-				break;
-			}
-			case HANDLE_TYPE_THREAD: {
-				thread_t* t = handle->data.thread;
-				KASSERT(t != NULL, "no backing thread");
-				thread_free(t);
-				thread_destroy(t);
-				break;
-			}
-			case HANDLE_TYPE_MEMORY: {
-				thread_free_mapping(handle->thread, handle->data.memory.mapping);
-				break;
-			}
+		/*
+		 * If the handle has a specific free function, call it - otherwise assume
+		 * no special action is needed.
+		 */
+		if (handle->hops->hop_free != NULL) {
+			err = handle->hops->hop_free(handle->thread, handle);
+			ANANAS_ERROR_RETURN(err);
 		}
 	}
 
@@ -153,57 +169,29 @@ handle_isvalid(struct HANDLE* handle, thread_t* t, int type)
 }
 
 errorcode_t
+handle_clone_generic(thread_t* t, struct HANDLE* handle, struct HANDLE** out)
+{
+	struct HANDLE* newhandle;
+	errorcode_t err = handle_alloc(handle->type, t, &newhandle);
+	ANANAS_ERROR_RETURN(err);
+	memcpy(&newhandle->data, &handle->data, sizeof(handle->data));
+	*out = newhandle;
+	return ANANAS_ERROR_OK;
+}
+
+errorcode_t
 handle_clone(thread_t* t, struct HANDLE* handle, struct HANDLE** out)
 {
 	errorcode_t err;
 
 	spinlock_lock(&handle->spl_handle);
-	switch(handle->type) {
-		case HANDLE_TYPE_THREAD: {
-			thread_t* newthread;
-			err = thread_clone(handle->thread, 0, &newthread);
-			spinlock_unlock(&handle->spl_handle);
-			ANANAS_ERROR_RETURN(err);
-			TRACE(HANDLE, INFO, "newthread handle = %x", newthread->thread_handle);
-			*out = newthread->thread_handle;
-			return ANANAS_ERROR_OK;
-		}
-		case HANDLE_TYPE_FILE: {
-			/*
-			 * If the handle has a backing inode reference, we have to increase it's
-			 * reference count as we, too, depend on it. Closing the handle
-			 * will release the inode, which will remove it if needed.
-			 */
-			struct VFS_INODE* inode = handle->data.vfs_file.f_inode;
-			if (inode != NULL) {
-				vfs_ref_inode(inode);
-			}
-
-			/* Now, just copy the handle data over */
-			struct HANDLE* newhandle;
-			err = handle_alloc(handle->type, t, &newhandle);
-			ANANAS_ERROR_RETURN(err);
-			memcpy(&newhandle->data, &handle->data, sizeof(handle->data));
-			spinlock_unlock(&handle->spl_handle);
-			*out = newhandle;
-			return ANANAS_ERROR_OK;
-		}
-#if 0
-		default: {
-			struct HANDLE* newhandle;
-			err = handle_alloc(handle->type, handle->thread, &newhandle);
-			ANANAS_ERROR_RETURN(err);
-			memcpy(&newhandle->data, &handle->data, sizeof(handle->data));
-			spinlock_unlock(&handle->spl_handle);
-			*out = newhandle;
-			return ANANAS_ERROR_OK;
-		}
-#endif
-		default:
-			panic("handle_clone(): unimplemented type %u\n", handle->type);
+	if (handle->hops->hop_clone != NULL) {
+		err = handle->hops->hop_clone(t, handle, out);
+	} else {
+		err = ANANAS_ERROR(BAD_OPERATION);
 	}
-	/* NOTREACHED */
-	return ANANAS_ERROR_OK;
+	spinlock_unlock(&handle->spl_handle);
+	return err;
 }
 
 errorcode_t
@@ -297,6 +285,54 @@ handle_set_owner(struct HANDLE* handle, struct HANDLE* owner)
 	spinlock_lock(&new_thread->spl_thread);
 	DQUEUE_ADD_TAIL(&new_thread->handles, handle);
 	spinlock_unlock(&new_thread->spl_thread);
+	return ANANAS_ERROR_OK;
+}
+
+errorcode_t
+handle_read(struct HANDLE* handle, void* buffer, size_t* size)
+{
+	errorcode_t err;
+
+	spinlock_lock(&handle->spl_handle);
+	if (handle->hops->hop_read != NULL) {
+		err = handle->hops->hop_read(handle->thread, handle, buffer, size);
+	} else {
+		err = ANANAS_ERROR(BAD_OPERATION);
+	}
+	spinlock_unlock(&handle->spl_handle);
+	return err;
+}
+
+errorcode_t
+handle_write(struct HANDLE* handle, const void* buffer, size_t* size)
+{
+	errorcode_t err;
+
+	spinlock_lock(&handle->spl_handle);
+	if (handle->hops->hop_write != NULL) {
+		err = handle->hops->hop_write(handle->thread, handle, buffer, size);
+	} else {
+		err = ANANAS_ERROR(BAD_OPERATION);
+	}
+	spinlock_unlock(&handle->spl_handle);
+	return err;
+}
+
+errorcode_t
+handle_register_type(struct HANDLE_TYPE* ht)
+{
+	spinlock_lock(&spl_handletypes);
+	DQUEUE_ADD_TAIL(&handle_types, ht);
+	spinlock_unlock(&spl_handletypes);
+	return ANANAS_ERROR_OK;
+}
+
+errorcode_t
+handle_unregister_type(struct HANDLE_TYPE* ht)
+{
+	spinlock_lock(&spl_handletypes);
+	DQUEUE_REMOVE(&handle_types, ht);
+	spinlock_unlock(&spl_handletypes);
 	return ANANAS_ERROR_OK;
 }
 

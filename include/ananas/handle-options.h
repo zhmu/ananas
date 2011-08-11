@@ -17,9 +17,7 @@ struct SUMMON_OPTIONS {
 
 struct CREATE_OPTIONS {
 	size_t		cr_size;		/* structure length, in bytes */
-	unsigned int	cr_type;		/* what to create */
-#define CREATE_TYPE_FILE	0x0001
-#define CREATE_TYPE_MEMORY	0x0002
+	unsigned int	cr_type;		/* handle type to create */
 	const char*	cr_path;		/* path to creation, if any */
 	unsigned int	cr_flags;		/* flags, if any */
 #define CREATE_MEMORY_FLAG_READ		0x0001
@@ -33,6 +31,7 @@ struct CREATE_OPTIONS {
 
 struct OPEN_OPTIONS {
 	size_t		op_size;		/* structure length, in bytes */
+	unsigned int	op_type;		/* handle type to open */
 	const char*	op_path;		/* path to open */
 	unsigned int	op_mode;		/* open mode */
 #define OPEN_MODE_NONE		0x0000
