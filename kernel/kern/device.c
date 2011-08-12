@@ -167,15 +167,49 @@ device_get_resources_byhint(device_t dev, const char* hint, const char** hints)
 	/* Clear out any current device resources */
 	memset(dev->resource, 0, sizeof(struct RESOURCE) * DEVICE_MAX_RESOURCES);
 	for (curhint = hints; *curhint != NULL; curhint++) {
-		if (strlen(*curhint) < strlen(hint))
-			continue;
-		if (memcmp(*curhint, hint, strlen(hint)))
+		/*
+		 * A hint is in the form bus.device.unit.resource, i.e. isa.vga.0.io. We
+		 * need to match it piece-for-piece so that we can handle wildcards
+		 * (i.e. *.vga.0.io must match both isa.vga.0.io and pci.vga.0.io)
+		 */
+		const char* src = hint;
+		const char* dst = *curhint;
+		while(*src != '\0' && *dst != '\0') {
+			/* If we need to match a wildcard, skip over the entire thing */
+			if (*src == '*' && *(src + 1) == '.') {
+				const char* ptr = strchr(dst, '.');
+				if (ptr == NULL) {
+					ptr = strchr(dst, '\0');
+					continue;
+				}
+				src += 2;
+				dst = ptr + 1;
+				continue;
+			}
+			/* Match both parts */
+			const char* ptr1 = strchr(src, '.');
+			const char* ptr2 = strchr(dst, '.');
+			if (ptr1 == NULL)
+				ptr1 = strchr(src, '\0');
+			if (ptr2 == NULL)
+				ptr2 = strchr(dst, '\0');
+			if (ptr1 - src != ptr2 - dst)
+				break;
+
+			if (strncmp(src, dst, ptr1 - src) != 0)
+				break;
+
+			src = ptr1; dst = ptr2;
+			if (*src == '.') src++;
+			if (*dst == '.') dst++;
+		}
+		if (*src != '\0')
 			continue;
 
 		/*
 		 * We got a resource match; need to figure out the type.
 		 */
-		char* value = (char*)(*curhint + strlen(hint));
+		char* value = (char*)dst;
 		int type = device_resolve_type(&value);
 		if (type == RESTYPE_UNUSED) {
 			kprintf("%s: ignoring unparsable resource '%s'\n", dev->name, *curhint);
