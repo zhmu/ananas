@@ -35,28 +35,7 @@ thread_init(thread_t* t, thread_t* parent)
 	ANANAS_ERROR_RETURN(err);
 	t->thread_handle->data.thread = t;
 
-	if (parent != NULL) {
-		err = handle_clone(t, parent->path_handle, &t->path_handle);
-		if (err != ANANAS_ERROR_NONE) {
-			/*
-			 * XXX Unable to clone parent's path - what now? Our VFS isn't mature enough
-			 * to deal with abandoned handles (or even abandon handles in the first
-			 * place), so this should never, ever happen.
-			 */
-			panic("thread_init(): could not clone root path");
-		}
-	} else {
-		/*
-		 * No parent; use / as current path. This will not work in very early
-		 * initialiation, but that is fine - our lookup code should know what
-		 * to do with the NULL backing inode.
-		 */
-		err = handle_alloc(HANDLE_TYPE_FILE, t, &t->path_handle);
-		if (err == ANANAS_ERROR_NONE) {
-			err = vfs_open("/", NULL, &t->path_handle->data.vfs_file);
-		}
-	}
-
+	/* ask machine-dependant bits to initialize our thread data*/
 	md_thread_init(t);
 
 	/* initialize thread information structure and map it */
@@ -64,32 +43,9 @@ thread_init(thread_t* t, thread_t* parent)
 	memset(t->threadinfo, 0, sizeof(t->threadinfo));
 	t->threadinfo->ti_size = sizeof(struct THREADINFO);
 	t->threadinfo->ti_handle = t->thread_handle;
-	err = handle_alloc(HANDLE_TYPE_FILE, t, (struct HANDLE**)&t->threadinfo->ti_handle_stdin);
-	if (err != ANANAS_ERROR_NONE)
-		goto fail;
-	err = handle_alloc(HANDLE_TYPE_FILE, t, (struct HANDLE**)&t->threadinfo->ti_handle_stdout);
-	if (err != ANANAS_ERROR_NONE)
-		goto fail;
-	err = handle_alloc(HANDLE_TYPE_FILE, t, (struct HANDLE**)&t->threadinfo->ti_handle_stderr);
-	if (err != ANANAS_ERROR_NONE)
-		goto fail;
 	if (parent != NULL)
 		thread_set_environment(t, parent->threadinfo->ti_env, PAGE_SIZE /* XXX */);
 
-	TRACE(THREAD, INFO, "t=%p, stdin=%p, stdout=%p, stderr=%p",
-	 t,
-	 t->threadinfo->ti_handle_stdin,
-	 t->threadinfo->ti_handle_stdout,
-	 t->threadinfo->ti_handle_stderr);
-
-
-	/*
-	 * XXX hook the console as our std{in,out,err} handles; this is not correct,
-	 * it should be inherited from the parent
-	 */
-	((struct HANDLE*)t->threadinfo->ti_handle_stdin)->data.vfs_file.f_device  = console_tty;
-	((struct HANDLE*)t->threadinfo->ti_handle_stdout)->data.vfs_file.f_device = console_tty;
-	((struct HANDLE*)t->threadinfo->ti_handle_stderr)->data.vfs_file.f_device = console_tty;
 	struct THREAD_MAPPING* tm;
 	err = thread_map(t, KVTOP((addr_t)t->threadinfo), sizeof(struct THREADINFO), THREAD_MAP_READ | THREAD_MAP_WRITE | THREAD_MAP_PRIVATE, &tm);
 	if (err != ANANAS_ERROR_NONE)
