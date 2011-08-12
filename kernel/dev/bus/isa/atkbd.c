@@ -115,7 +115,9 @@ atkbd_irq(device_t dev)
 	priv->kbd_buffer_writepos = (priv->kbd_buffer_writepos + 1) % ATKBD_BUFFER_SIZE;
 
 	/* XXX signal consumers - this is a hack */
-	tty_signal_data();
+	if (console_tty != NULL && tty_get_inputdev(console_tty) == dev) {
+		tty_signal_data();
+	}
 }
 
 static errorcode_t
@@ -175,5 +177,7 @@ struct DRIVER drv_atkbd = {
 DRIVER_PROBE(atkbd)
 DRIVER_PROBE_BUS(isa)
 DRIVER_PROBE_END()
+
+DEFINE_CONSOLE_DRIVER(drv_atkbd, 10, CONSOLE_FLAG_IN)
 
 /* vim:set ts=2 sw=2: */

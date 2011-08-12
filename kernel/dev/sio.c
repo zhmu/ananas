@@ -1,9 +1,11 @@
 #include <ananas/x86/io.h>
+#include <ananas/console.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
 #include <ananas/irq.h>
 #include <ananas/lib.h>
 #include <ananas/trace.h>
+#include <ananas/tty.h>
 #include <ananas/mm.h>
 #include <ananas/x86/sio.h>
 
@@ -27,6 +29,10 @@ sio_irq(device_t dev)
 	uint8_t ch = inb(privdata->io_port + SIO_REG_DATA);
 	privdata->buffer[privdata->buffer_writepos] = ch;
 	privdata->buffer_writepos = (privdata->buffer_writepos + 1) % SIO_BUFFER_SIZE;
+
+	/* XXX signal consumers - this is a hack */
+	if (console_tty != NULL && tty_get_inputdev(console_tty) == dev)
+		tty_signal_data();
 }
 
 static errorcode_t
@@ -102,5 +108,7 @@ struct DRIVER drv_sio = {
 DRIVER_PROBE(sio)
 DRIVER_PROBE_BUS(isa)
 DRIVER_PROBE_END()
+
+DEFINE_CONSOLE_DRIVER(drv_sio, 0, CONSOLE_FLAG_INOUT);
 
 /* vim:set ts=2 sw=2: */
