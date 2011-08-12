@@ -4,7 +4,6 @@
 #include <ananas/tty.h>
 #include <ananas/lib.h>
 #include <ananas/debug-console.h>
-#include "console.inc"
 #include "options.h"
 
 extern const char* config_hints[];

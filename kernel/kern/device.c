@@ -8,7 +8,6 @@
 #include <ananas/trace.h>
 #include <ananas/vm.h>
 #include "options.h"
-#include "console.inc"
 
 TRACE_SETUP;
 
