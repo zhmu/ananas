@@ -535,8 +535,7 @@ create_options()
 
 	struct ENTRY* e;
 	for (e = options; e != NULL; e = e->next) {
-		/* Remove any path information */
-		fprintf(f, "#define %s\n", e->value);
+		fprintf(f, "#define OPTION_%s\n", e->value);
 	}
 	fclose(f);
 }
