@@ -321,6 +321,13 @@ device_attach_bus(device_t bus)
 {
 	if (DQUEUE_EMPTY(&probe_queue))
 		return;
+
+	/*
+	 * Fetch TTY devices; we need them to report the device that is already
+	 * attached at this point.
+	 */
+	device_t input_dev = tty_get_inputdev(console_tty);
+	device_t output_dev = tty_get_outputdev(console_tty);
 	DQUEUE_FOREACH_SAFE(&probe_queue, p, struct PROBE) {
 		/* See if the device exists on this bus */
 		int exists = 0;
@@ -341,35 +348,19 @@ device_attach_bus(device_t bus)
 		KASSERT(driver != NULL, "matched a probe device without a driver!");
 
 		/*
-		 * If an input- or output driver was specified, we need to skip attaching
-		 * it again; we cheat and claim we attached it, yet we already did a long
-		 * time ago ;-)
-		 * 
+		 * If we found the driver for the in- or output driver, display it; we'll give
+		 * the extra units a chance to attach as well.
 		 */
-#ifdef CONSOLE_INPUT_DRIVER
-		extern struct DRIVER CONSOLE_INPUT_DRIVER;
-		if (driver == &CONSOLE_INPUT_DRIVER) {
-			device_t input_dev = tty_get_inputdev(console_tty);
-			if (input_dev != NULL) {
-				input_dev->parent = bus;
-				device_print_attachment(input_dev);
-				device_add_to_tree(input_dev);
-			}
-			continue;
+		if (input_dev != NULL && input_dev->driver == driver) {
+			input_dev->parent = bus;
+			device_print_attachment(input_dev);
+			device_add_to_tree(input_dev);
 		}
-#endif
-#ifdef CONSOLE_OUTPUT_DRIVER
-		extern struct DRIVER CONSOLE_OUTPUT_DRIVER;
-		if (driver == &CONSOLE_OUTPUT_DRIVER) {
-			device_t output_dev = tty_get_outputdev(console_tty);
-			if (output_dev != NULL) {
-				output_dev->parent = bus;
-				device_print_attachment(output_dev);
-				device_add_to_tree(output_dev);
-			}
-			continue;
+		if (output_dev != NULL && output_dev->driver == driver && input_dev != output_dev) {
+			output_dev->parent = bus;
+			device_print_attachment(output_dev);
+			device_add_to_tree(output_dev);
 		}
-#endif
 
 		/* Attach any units */
 		while (1) {
