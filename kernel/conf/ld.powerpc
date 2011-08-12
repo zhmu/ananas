@@ -36,4 +36,7 @@ SECTIONS {
 	.tracenames : {
 		*(.tracenames)
 	}
+	/DISCARD/ : {
+		*(.eh_frame)
+	}
 }

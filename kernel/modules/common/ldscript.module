@@ -23,4 +23,7 @@ SECTIONS {
 		*(.data*)
 		*(.bss)
 	}
+	/DISCARD/ : {
+		*(.eh_frame)
+	}
 }
