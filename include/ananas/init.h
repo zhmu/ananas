@@ -9,6 +9,8 @@ typedef errorcode_t (*init_func_t)();
 typedef errorcode_t (*exit_func_t)();
 
 enum INIT_SUBSYSTEM {
+	SUBSYSTEM_MODULE	= 0x0080000,
+	/* Everything above here cannot be used by modules */
 	SUBSYSTEM_HANDLE	= 0x0100000,
 	SUBSYSTEM_KDB		= 0x0110000,
 	SUBSYSTEM_CONSOLE	= 0x0120000,
@@ -20,7 +22,9 @@ enum INIT_SUBSYSTEM {
 	SUBSYSTEM_BIO		= 0x0240000,
 	SUBSYSTEM_DEVICE	= 0x0250000,
 	SUBSYSTEM_VFS		= 0x0260000,
-	SUBSYSTEM_SCHEDULER	= 0xf000000
+	SUBSYSTEM_SCHEDULER	= 0xf000000,
+	/* Do not use the last subsystem */
+	SUBSYSTEM_LAST		= 0xfffffff
 };
 
 enum INIT_ORDER {

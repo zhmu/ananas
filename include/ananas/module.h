@@ -33,6 +33,4 @@ struct KERNEL_MODULE {
 
 DQUEUE_DEFINE(KERNEL_MODULE_QUEUE, struct KERNEL_MODULE);
 
-void module_init();
-
 #endif /* __ANANAS_MODULE_H__ */

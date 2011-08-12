@@ -10,7 +10,7 @@
 extern const char* config_hints[];
 device_t console_tty = NULL;
 
-void
+static errorcode_t
 console_init()
 {
 	char tmphint[32 /* XXX */];
@@ -70,7 +70,11 @@ console_init()
 #endif /* CONSOLE_DRIVER */
 	if (input_dev != NULL || output_dev != NULL)
 		console_tty = tty_alloc(input_dev, output_dev);
+
+	return ANANAS_ERROR_OK;
 }
+
+INIT_FUNCTION(console_init, SUBSYSTEM_CONSOLE, ORDER_MIDDLE);
 
 void
 console_putchar(int c)

@@ -4,8 +4,6 @@
 #include <ananas/mm.h>
 #include <ananas/lib.h>
 #include <ananas/init.h>
-#include <ananas/module.h>
-#include <ananas/symbols.h>
 #include <ananas/thread.h>
 #include <ananas/tty.h>
 #include <ananas/vfs.h>
@@ -56,7 +54,7 @@ init_unregister_module(struct KERNEL_MODULE* kmod)
 }
 
 static void
-run_init()
+run_init(enum INIT_SUBSYSTEM first_subsystem, enum INIT_SUBSYSTEM last_subsystem)
 {
 	/*
 	 * Create a shadow copy of the init function chain; this is done so that we
@@ -91,27 +89,38 @@ run_init()
 	kprintf("Init tree\n");
 	struct INIT_FUNC** c = (struct INIT_FUNC**)ifn_chain;
 	for (int n = 0; n < num_init_funcs; n++, c++) {
-		kprintf("initfunc %u -> %p (subsys %x, order %x)\n", n,
+		kprintf("initfunc %u -> %p (subsys %x, order %x)", n,
 		 (*c)->if_func, (*c)->if_subsystem, (*c)->if_order);
+		if ((*c)->if_subsystem < first_subsystem)
+			kprintf(" [skip]");
+		else if ((*c)->if_subsystem > last_subsystem)
+			kprintf(" [ignore]");
+		kprintf("\n");
 	}
 #endif
 	
 	/* Execute all init functions in order except the final one */
 	struct INIT_FUNC** ifn = (struct INIT_FUNC**)ifn_chain;
-	for (int i = 0; i < num_init_funcs - 1; i++, ifn++)
+	for (int i = 0; i < num_init_funcs - 1; i++, ifn++) {
+		if ((*ifn)->if_subsystem < first_subsystem)
+			continue;
+		if ((*ifn)->if_subsystem > last_subsystem)
+			break;
 		(*ifn)->if_func();
+	}
 
 	/* Throw away the init function chain; it served its purpose */
 	struct INIT_FUNC* ifunc = *ifn;
 	kfree(ifn_chain);
-	if (!DQUEUE_EMPTY(&initfunc_dynamics))
+
+	/* Only throw away the dynamic chain if this is our final init run */
+	if (last_subsystem == SUBSYSTEM_LAST && !DQUEUE_EMPTY(&initfunc_dynamics))
 		DQUEUE_FOREACH_SAFE(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
 			kfree(idf);
 		}
 
 	/* Call the final init function; it shouldn't return */
 	ifunc->if_func();
-	panic("init chain returned");
 }
 
 static errorcode_t
@@ -132,6 +141,7 @@ hello_world()
 
 INIT_FUNCTION(hello_world, SUBSYSTEM_CONSOLE, ORDER_LAST);
 
+#if 0
 static errorcode_t
 mount_filesystems()
 {
@@ -202,27 +212,21 @@ launch_shell()
 
 INIT_FUNCTION(launch_shell, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);
 #endif /* SHELL_BIN  */
+#endif
 
 void
 mi_startup()
 {
 	DQUEUE_INIT(&initfunc_dynamics);
 
-	/* Initialize kernel symbols; these will be required very soon once we have modules */
-	symbols_init();
-
 	/*
-	 * Cheat and initialize the console driver first; this ensures the user
-	 * will be able to see the initialization messages ;-)
+	 * We need to run the init tree in two steps: up to the module part, and everything
+	 * after it; this is done so that modules can dynamically register functions as
+	 * well.
 	 */
-	tty_preinit();
-	console_init();
-
-	/* Initialize modules */
-	module_init();
-
-	/* Run the entire init tree - won't return */
-	run_init();
+	run_init(SUBSYSTEM_MODULE, SUBSYSTEM_MODULE + 1);
+	run_init(SUBSYSTEM_MODULE + 1, SUBSYSTEM_LAST);
+	panic("init chain returned");
 
 	/* NOTREACHED */
 }

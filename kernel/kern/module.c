@@ -391,13 +391,13 @@ module_unload(struct KERNEL_MODULE* kmod)
 	return ANANAS_ERROR_OK;
 }
 
-void
+static errorcode_t
 module_init()
 {
 	mutex_init(&mtx_modules, "mtx_modules");
 	DQUEUE_INIT(&kernel_modules);
 	if (bootinfo == NULL)
-		return;
+		return ANANAS_ERROR(NO_DEVICE);
 
 	/* Walk through all modules the loader has for us */
 	for (struct LOADER_MODULE* mod = (struct LOADER_MODULE*)PTOKV((addr_t)bootinfo->bi_modules);
@@ -412,6 +412,9 @@ module_init()
 		if (err != ANANAS_ERROR_NONE)
 			kprintf("cannot load module %p: %u\n", mod, err);
 	}
+	return ANANAS_ERROR_OK;
 }
+
+INIT_FUNCTION(module_init, SUBSYSTEM_MODULE, ORDER_LAST);
 
 /* vim:set ts=2 sw=2: */

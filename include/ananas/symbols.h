@@ -7,7 +7,6 @@ struct SYMBOL {
 	int		s_flags;
 };
 
-void symbols_init();
 int symbol_resolve_addr(addr_t addr, struct SYMBOL* s);
 int symbol_resolve_name(const char* name, struct SYMBOL* s);
 

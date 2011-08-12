@@ -291,14 +291,17 @@ tty_signal_data()
 	waitqueue_signal(&tty_waitqueue);
 }
 
-void
+static errorcode_t
 tty_preinit()
 {
 	/* Initialize the queue of all tty's */
 	QUEUE_INIT(&tty_queue);
 	spinlock_init(&tty_queue.tq_lock);
 	waitqueue_init(&tty_waitqueue);
+	return ANANAS_ERROR_OK;
 }
+
+INIT_FUNCTION(tty_preinit, SUBSYSTEM_CONSOLE, ORDER_SECOND);
 
 static errorcode_t
 tty_init()

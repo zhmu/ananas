@@ -1,12 +1,16 @@
 #include <ananas/types.h>
 #include <ananas/symbols.h>
 #include <ananas/bootinfo.h>
+#include <ananas/error.h>
 #include <ananas/lib.h>
+#include <ananas/trace.h>
 #include <ananas/vm.h>
 #include <machine/param.h>	/* for PAGE_SIZE */
 #include <machine/vm.h>			/* for PTOKV */
 #include <loader/module.h>
 #include <elf.h>
+
+TRACE_SETUP;
 
 static void* sym_tab = NULL;
 static void* str_tab = NULL;
@@ -61,23 +65,26 @@ symbol_resolve_name(const char* name, struct SYMBOL* s)
 	return 0;
 }
 
-void
+static errorcode_t
 symbols_init()
 {
 	/* Reject any missing bootinfo field */
 	if (bootinfo == NULL)
-		return;
+		return ANANAS_ERROR(NO_DEVICE);
 	struct LOADER_MODULE* kernel_mod = (struct LOADER_MODULE*)PTOKV(bootinfo->bi_modules);
 	kprintf("kernel_mod=%p\n", kernel_mod);
 	if (kernel_mod->mod_symtab_addr == 0 || kernel_mod->mod_symtab_size == 0)
-		return;
+		return ANANAS_ERROR(NO_DEVICE);
 	if (kernel_mod->mod_strtab_addr == 0 || kernel_mod->mod_strtab_size == 0)
-		return;
+		return ANANAS_ERROR(NO_DEVICE);
 
 	sym_tab = symbols_map_addr(kernel_mod->mod_symtab_addr, kernel_mod->mod_symtab_size);
 	sym_tab_size = kernel_mod->mod_symtab_size;
 	str_tab = symbols_map_addr(kernel_mod->mod_strtab_addr, kernel_mod->mod_strtab_size);
 	str_tab_size = kernel_mod->mod_strtab_size;
+	return ANANAS_ERROR_OK;
 }
+
+INIT_FUNCTION(symbols_init, SUBSYSTEM_MODULE, ORDER_FIRST);
 
 /* vim:set ts=2 sw=2: */
