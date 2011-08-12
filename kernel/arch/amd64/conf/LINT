@@ -15,8 +15,3 @@ device		pcihb
 option		DEBUG_CONSOLE
 
 device		ataisa
-
-inputdev	isa.atkbd
-outputdev	isa.vga
-#inputdev	isa.sio
-#outputdev	isa.sio

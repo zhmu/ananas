@@ -8,6 +8,3 @@ option		DEBUG_CONSOLE
 option		OFW
 device		ofwconsole
 device		fb
-
-inputdev	ofwconsole
-outputdev	ofwconsole

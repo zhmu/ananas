@@ -12,5 +12,3 @@ device		wiivideo
 
 device		wiisd
 option		FATFS
-
-outputdev	fb
