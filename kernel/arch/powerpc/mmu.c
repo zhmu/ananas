@@ -264,14 +264,14 @@ mmu_init()
 	/* Clear the VSID list; they will be allocated by mmu_map() as needed */
 	memset(&vsid_list, 0, sizeof(vsid_list));
 
-#ifdef OFW
+#ifdef OPTION_OFW
 	/*
 	 * OpenFirmware will have allocated a series of memory mappings, which we
 	 * will have to copy - if we don't do this, any OFW call will tumble over
 	 * and die. Note that this is an PowerPC-specific OFW extension.
 	 */
 	ofw_md_setup_mmu();
-#endif /* OFW */
+#endif /* OPTION_OFW */
 
 	/*
 	 * Map the kernel space; this mapping will not be used until we deactive the BAT

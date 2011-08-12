@@ -406,7 +406,7 @@ bio_set_dirty(struct BIO* bio)
 	bio_flush(bio); /* XXX debug aid so that the image can be inspected */
 }
 
-#ifdef KDB
+#ifdef OPTION_KDB
 void
 kdb_cmd_bio(int num_args, char** arg)
 {

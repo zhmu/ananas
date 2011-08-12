@@ -9,7 +9,7 @@ entry:
 	lis	%r1, stack@ha
 	addi	%r1, %r1, stack@l
 
-#ifdef DEBUG_CONSOLE
+#ifdef OPTION_DEBUG_CONSOLE
 	/* make sure we have a debugger console available immediately */
 	bl	debugcon_init
 #endif

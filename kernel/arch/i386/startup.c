@@ -290,7 +290,7 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 */
 	IDT_SET_ENTRY(SYSCALL_INT, SEG_TGATE_TYPE, SEG_DPL_USER, syscall_int);
 
-#ifdef SMP
+#ifdef OPTION_SMP
 	IDT_SET_ENTRY(0xff, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, spurious_irq);
 #endif
 

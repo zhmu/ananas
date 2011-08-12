@@ -131,7 +131,7 @@ scheduler_activated()
 	return scheduler_active;
 }
 
-#ifdef KDB
+#ifdef OPTION_KDB
 void
 kdb_cmd_scheduler(int num_args, char** arg)
 {
@@ -140,6 +140,6 @@ kdb_cmd_scheduler(int num_args, char** arg)
 			kprintf("thread %p\n", s->sp_thread);
 		}
 }
-#endif /* KDB */
+#endif /* OPTION_KDB */
 
 /* vim:set ts=2 sw=2: */

@@ -490,7 +490,7 @@ device_unregister_probe(struct PROBE* p)
 	return ANANAS_ERROR_OK;
 }
 
-#ifdef KDB
+#ifdef OPTION_KDB
 void
 kdb_cmd_devices(int num_args, char** arg)
 {

@@ -98,7 +98,7 @@ atkbd_irq(device_t dev)
 	if (scancode & 0x80) /* release event */
 		return;
 
-#ifdef KDB
+#ifdef OPTION_KDB
 	if ((priv->kbd_flags == (ATKBD_FLAG_CONTROL | ATKBD_FLAG_SHIFT)) && scancode == 1 /* escape */) {
 		kdb_enter("keyboard sequence");
 		return;

@@ -47,7 +47,7 @@ irq_handler(unsigned int no)
 	irq[no].irq_handler(irq[no].irq_dev);
 }
 
-#ifdef KDB
+#ifdef OPTION_KDB
 void
 kdb_cmd_irq(int num_args, char** arg)
 {

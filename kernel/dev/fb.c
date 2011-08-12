@@ -111,7 +111,7 @@ static void putpixel(struct FB_PRIVDATA* fb,unsigned int x, unsigned int y, int 
 static void
 fb_putchar(struct FB_PRIVDATA* fb, unsigned int x, unsigned int y, struct pixel* px)
 {
-#if defined(OFW) || defined(__i386__) || defined(__amd64__)
+#if defined(OPTION_OFW) || defined(__i386__) || defined(__amd64__)
 	/* Erase enter old char first */
 	for (int j = 0; j < fb->fb_font_height; j++)
 		for (int i = 0; i < 8; i++)
@@ -126,7 +126,7 @@ fb_putchar(struct FB_PRIVDATA* fb, unsigned int x, unsigned int y, struct pixel*
 			if (d & (1 << i))
 				putpixel(fb, x + i, y + j, teken_256to8(px->a.ta_fgcolor));
 	}
-#elif defined(WII)
+#elif defined(OPTION_WII)
 	/*
 	 * The Wii has a YUV2-encoded framebuffer; this means we'll have to write two
 	 * pixels at the same time.
@@ -321,7 +321,7 @@ fb_write(device_t dev, const void* data, size_t* len, off_t offset)
 static errorcode_t
 fb_probe(device_t dev)
 {
-#ifdef OFW
+#ifdef OPTION_OFW
 	ofw_cell_t chosen = ofw_finddevice("/chosen");
 	ofw_cell_t ihandle_stdout;
 	ofw_getprop(chosen, "stdout", &ihandle_stdout, sizeof(ihandle_stdout));
@@ -336,7 +336,7 @@ fb_probe(device_t dev)
 		/* Not a framebuffer-backed device; bail out */
 		return ANANAS_ERROR(NO_DEVICE);
 	}
-#elif defined(WII)
+#elif defined(OPTION_WII)
 	return wiivideo_init();
 #elif defined(__i386__) || defined(__amd64__)
 	if (bootinfo->bi_video_xres == 0 ||
@@ -354,7 +354,7 @@ static errorcode_t
 fb_attach(device_t dev)
 {
 	int height, width, depth, bytes_per_line;
-#ifdef OFW
+#ifdef OPTION_OFW
 	ofw_cell_t chosen = ofw_finddevice("/chosen");
 	ofw_cell_t ihandle_stdout;
 	ofw_getprop(chosen, "stdout", &ihandle_stdout, sizeof(ihandle_stdout));
@@ -374,7 +374,7 @@ fb_attach(device_t dev)
 	addr_t memory = physaddr;
 	void* phys = vm_map_kernel(physaddr, ((height * bytes_per_line) + PAGE_SIZE - 1) / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 	memset((void*)phys, 0xff, (height * bytes_per_line));
-#elif defined(WII)
+#elif defined(OPTION_WII)
 	void* phys = wiivideo_get_framebuffer();
 	addr_t memory = (addr_t)phys;
 	wiivideo_get_size(&height, &width);

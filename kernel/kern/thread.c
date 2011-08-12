@@ -523,7 +523,7 @@ thread_unregister_exit_func(struct THREAD_CALLBACK* fn)
 	return ANANAS_ERROR_OK;
 }
 
-#ifdef KDB
+#ifdef OPTION_KDB
 extern struct THREAD* kdb_curthread;
 
 void

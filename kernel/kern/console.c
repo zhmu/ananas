@@ -103,9 +103,9 @@ INIT_FUNCTION(console_init, SUBSYSTEM_CONSOLE, ORDER_MIDDLE);
 void
 console_putchar(int c)
 {
-#ifdef DEBUG_CONSOLE
+#ifdef OPTION_DEBUG_CONSOLE
 	debugcon_putch(c);
-#endif /* DEBUG_CONSOLE */
+#endif /* OPTION_DEBUG_CONSOLE */
 	if (console_tty == NULL)
 		return;
 	uint8_t ch = c; // cannot cast due to endianness!
@@ -116,11 +116,11 @@ console_putchar(int c)
 uint8_t
 console_getchar()
 {
-#ifdef DEBUG_CONSOLE
+#ifdef OPTION_DEBUG_CONSOLE
 	int ch = debugcon_getch();
 	if (ch != 0)
 		return ch;
-#endif /* DEBUG_CONSOLE */
+#endif /* OPTION_DEBUG_CONSOLE */
 	if (console_tty == NULL)
 		return 0;
 	uint8_t c;

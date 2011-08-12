@@ -23,7 +23,7 @@ int md_cpu_clock_mhz = 0;
 void
 md_startup(uint32_t r3, uint32_t r4, uint32_t r5)
 {
-#ifdef OFW
+#ifdef OPTION_OFW
 	/* Initialize OpenFirmware; this will enable us to have a working console */
 	ofw_md_init(r5);
 #endif

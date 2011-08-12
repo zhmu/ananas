@@ -61,7 +61,7 @@
 
 eoi:
 	/* interrupt to EOI is in %edx */
-#ifdef SMP
+#ifdef OPTION_SMP
 	cmpl	$0, lapic_initialized
 	jz	eoi_pic
 	movl	$0xfee000b0, %eax
@@ -352,7 +352,7 @@ clone_return:
 
 	jmp	syscall_return
 
-#ifdef SMP
+#ifdef OPTION_SMP
 spurious_irq:
 	iret
 #endif

@@ -42,7 +42,7 @@ no_bootinfo:
 	/* don't trust what the bootloader gives us, set up a stack */
 	mov	$R(KERNEL_STACK), %esp
 
-#ifdef DEBUG_CONSOLE
+#ifdef OPTION_DEBUG_CONSOLE
 	/* make sure we have a debugger console available immediately */
 	call	debugcon_init
 #endif

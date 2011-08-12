@@ -35,7 +35,7 @@ _panic(const char* file, const char* func, int line, const char* fmt, ...)
 	va_end(ap);
 	kprintf("\n");
 
-#ifdef KDB
+#ifdef OPTION_KDB
 	kdb_panic();
 #endif
 	for(;;);

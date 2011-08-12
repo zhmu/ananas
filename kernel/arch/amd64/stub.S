@@ -12,7 +12,7 @@
 __entry:
 	movq	$KERNEL_STACK, %rsp
 
-#ifdef DEBUG_CONSOLE
+#ifdef OPTION_DEBUG_CONSOLE
 	/*
 	 * Make sure we have a debugger console available immediately; note that we must
 	 * store %rdi as it contains the bootinfo parameter.

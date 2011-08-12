@@ -10,7 +10,7 @@ void usbgecko_putch(char ch);
 void
 debugcon_init()
 {
-#ifdef WII
+#ifdef OPTION_WII
 	usbgecko_init();
 #endif
 }
@@ -18,11 +18,11 @@ debugcon_init()
 void
 debugcon_putch(int ch)
 {
-#ifdef OFW
+#ifdef OPTION_OFW
 	if (console_tty == NULL)
 		ofw_putch(ch);
 #endif
-#ifdef WII
+#ifdef OPTION_WII
 	usbgecko_putch(ch);
 #endif
 }

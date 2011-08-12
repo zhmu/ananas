@@ -336,7 +336,7 @@ handle_unregister_type(struct HANDLE_TYPE* ht)
 	return ANANAS_ERROR_OK;
 }
 
-#ifdef KDB
+#ifdef OPTION_KDB
 void
 kdb_cmd_handle(int num_args, char** arg)
 {

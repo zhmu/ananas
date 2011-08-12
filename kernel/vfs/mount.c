@@ -200,7 +200,7 @@ vfs_unregister_filesystem(struct VFS_FILESYSTEM* fs)
 	return ANANAS_ERROR_OK;
 }
 
-#ifdef KDB
+#ifdef OPTION_KDB
 void
 kdb_cmd_vfs_mounts(int num_args, char** arg)
 {
