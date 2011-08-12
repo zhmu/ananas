@@ -2,6 +2,10 @@ arch		powerpc
 ident		WII
 option		WII
 
+option		BIO
+option		VFS
+option		ELF
+
 # note that the debug console requires the gecko for now...
 option		DEBUG_CONSOLE
 device		usbgecko

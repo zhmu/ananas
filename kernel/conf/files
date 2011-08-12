@@ -2,14 +2,12 @@ kern/init.c		mandatory
 kern/mm.c		mandatory
 kern/device.c		mandatory
 kern/console.c		mandatory
-kern/elf.c		mandatory
 kern/pcpu.c		mandatory
 kern/thread.c		mandatory
 kern/scheduler.c	mandatory
 kern/syscall.c		mandatory
 kern/lock.c		mandatory
 kern/irq.c		mandatory
-kern/bio.c		mandatory
 kern/handle.c		mandatory
 kern/thread-handle.c	mandatory
 kern/memory-handle.c	mandatory
@@ -18,15 +16,23 @@ kern/trace.c		mandatory
 kern/waitqueue.c	mandatory
 kern/symbols.c		mandatory
 kern/module.c		mandatory
+# block I/O
+kern/bio.c		option BIO
+kern/disk_mbr.c		option BIO
+kern/disk_slice.c	option BIO
+# executable framework and formats
 kern/exec.c		mandatory
-# XXX vfs shouldn't be mandatory
-vfs/core.c		mandatory
-vfs/dentry.c		mandatory
-vfs/generic.c		mandatory
-vfs/icache.c		mandatory
-vfs/mount.c		mandatory
-vfs/standard.c		mandatory
-vfs/vfs-handle.c	mandatory
+kern/elf.c		option ELF
+# VFS
+vfs/core.c		option VFS
+vfs/dentry.c		option VFS
+vfs/generic.c		option VFS
+vfs/icache.c		option VFS
+vfs/mount.c		option VFS
+vfs/standard.c		option VFS
+vfs/vfs-handle.c	option VFS
+vfs/vfs-thread.c	option VFS
+# XXX VFS KDB not; we can't do && on options yet
 vfs/vfs-kdb.c		option KDB
 # libkern library
 lib/kern/misc.c		mandatory
@@ -46,7 +52,7 @@ lib/zlib/inftrees.c	option ZLIB
 lib/zlib/trees.c	option ZLIB
 lib/zlib/uncompr.c	option ZLIB
 lib/zlib/zutil.c	option ZLIB
-# XXX this should be optional - depend on vga for now?
+# XXX this should be optional - depend on vga for now? we don't yet do (vga || fb) ...
 lib/teken/teken.c	mandatory
 dev/bus/isa.c		optional isa
 dev/bus/isa/atkbd.c	optional atkbd
@@ -61,9 +67,6 @@ dev/ata/atadisk.c	optional ata
 dev/ata/atacd.c		optional ata
 dev/vga.c		optional vga
 dev/sio.c		optional sio
-# XXX maybe make disk-stuff optional?
-kern/disk_mbr.c		mandatory
-kern/disk_slice.c	mandatory
 gen/std.c		mandatory
 gen/io.c		mandatory
 gen/support.c		mandatory

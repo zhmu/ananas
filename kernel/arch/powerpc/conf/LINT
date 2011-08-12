@@ -4,6 +4,10 @@ ident		LINT
 #not yet; we lack too much support for this to be possible
 #include		../../../conf/LINT
 
+option		BIO
+option		VFS
+option		ELF
+
 option		DEBUG_CONSOLE
 option		OFW
 device		ofwconsole
