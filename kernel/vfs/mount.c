@@ -178,7 +178,7 @@ vfs_register_filesystem(struct VFS_FILESYSTEM* fs)
 	/* Ensure the filesystem is not already registered */
 	if (!DQUEUE_EMPTY(&fstypes))
 		DQUEUE_FOREACH(&fstypes, curfs, struct VFS_FILESYSTEM) {
-			if (strcmp(curfs->fs_name, fs->fs_name) != 0) {
+			if (strcmp(curfs->fs_name, fs->fs_name) == 0) {
 				/* Duplicate filesystem type; refuse to register */
 				spinlock_unlock(&spl_fstypes);
 				return ANANAS_ERROR(FILE_EXISTS);
