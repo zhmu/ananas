@@ -7,7 +7,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
+#include "../../../include/ananas/queue.h"
+
+/* XXX This is a kludge, but PATH_MAX need not be defined */
+#ifndef PATH_MAX
+#define PATH_MAX 1024
+#endif
 
 enum TOKEN {
 	UNKNOWN,
@@ -36,43 +43,32 @@ struct ENTRY {
 	const char*		value;
 	const char*		source;
 	int matched;
-	struct ENTRY*	next;
+	QUEUE_FIELDS(struct ENTRY);
 };
 
-static struct ENTRY* devices = NULL;
-static struct ENTRY* options = NULL;
-static struct ENTRY* files = NULL;
+QUEUE_DEFINE(ENTRY_LIST, struct ENTRY);
+
+static struct ENTRY_LIST devices;
+static struct ENTRY_LIST options;
+static struct ENTRY_LIST files;
 static const char* architecture = NULL;
 static const char* ident = NULL;
 static const char* hints = NULL;
 
-/*
- * Adds an entry 'v' to the chained list of 'root'. This will preserve order;
- * newer entries are always added last.
- */
-static void
-entry_add(struct ENTRY** root, const char* v)
+static struct ENTRY*
+entry_make(char* value)
 {
-	struct ENTRY* new_entry = (struct ENTRY*)malloc(sizeof(struct ENTRY));
-	new_entry->value = strdup(v);
-	new_entry->matched = 0;
-
-	new_entry->next = NULL;
-	if (*root == NULL) {
-		*root = new_entry;
-	} else {
-		struct ENTRY* e = *root;
-		while (e->next != NULL)
-			e = e->next;
-		e->next = new_entry;
-	}
+	struct ENTRY* e = malloc(sizeof(struct ENTRY));
+	e->value = strdup(value);
+	e->matched = 0;
+	return e;
 }
 
 /*
  * Locate entry 'line' in the chained-list of entries
  */
 static struct ENTRY*
-find_entry(struct ENTRY* root, char* line)
+find_entry(struct ENTRY_LIST* list, char* line)
 {
 	while (line != NULL) {
 		char* ptr = strchr(line, ' ');
@@ -81,13 +77,10 @@ find_entry(struct ENTRY* root, char* line)
 		}
 
 		/* We need to match 'line' */
-		struct ENTRY* e = root;
-		while (e != NULL) {
+		QUEUE_FOREACH(list, e, struct ENTRY) {
 			if (!strcasecmp(e->value, line))
 				return e;
-			e = e->next;
 		}
-
 		line = ptr;
 	}
 
@@ -98,14 +91,11 @@ find_entry(struct ENTRY* root, char* line)
  * Checks entry list root to ensure all entries have been matched.
  */
 static void
-check_entries(struct ENTRY* root, const char* type)
+check_entries(struct ENTRY_LIST* list, const char* type)
 {
-	struct ENTRY* e = root;
-
-	while (e != NULL) {
+	QUEUE_FOREACH(list, e, struct ENTRY) {
 		if (!e->matched)
 			errx(1, "unknown %s '%s', aborting", type, e->value);
-		e = e->next;
 	}
 }
 
@@ -132,7 +122,7 @@ resolve_token(const char* token)
 }
 
 /*
- * Parses a kernel configuration file.
+ * Parses a kernel configuration file
  */
 static void
 parse_configfile(FILE* f, const char* fname)
@@ -166,9 +156,11 @@ parse_configfile(FILE* f, const char* fname)
 					errx(1, "%s:%u: architecture re-specified (was %s)", fname, lineno, architecture);
 				architecture = strdup(value);
 				break;
-			case DEVICE:
-				entry_add(&devices, value);
+			case DEVICE: {
+				struct ENTRY* e = entry_make(value);
+				QUEUE_ADD_TAIL(&devices, e);
 				break;
+			}
 			case IDENT:
 				if (ident != NULL)
 					errx(1, "%s:%u: identification re-specified (was %s)", fname, lineno, ident);
@@ -179,9 +171,11 @@ parse_configfile(FILE* f, const char* fname)
 					errx(1, "%s:%u: hints re-specified (was %s)", fname, lineno, hints);
 				hints = strdup(value);
 				break;
-			case OPTION:
-				entry_add(&options, value);
+			case OPTION: {
+				struct ENTRY* e = entry_make(value);
+				QUEUE_ADD_TAIL(&options, e);
 				break;
+			}
 			case INCLUDE: {
 				FILE* incfile = fopen(value, "rb");
 				if (incfile == NULL)
@@ -200,18 +194,18 @@ static void
 parse_devfile(const char* arch)
 {
 	char path[PATH_MAX];
-	char line[255];
-	int lineno = 0;
-	FILE* f;
 
-	if (arch != NULL)
-		snprintf(path, sizeof(path), "../../../conf/files.%s", arch);
-	else
-		snprintf(path, sizeof(path), "../../../conf/files");
-	f = fopen(path, "rt");
+	snprintf(path, sizeof(path), "../../../conf/files");
+	if (arch != NULL) {
+		strncat(path, ".", sizeof(path));
+		strncat(path, arch, sizeof(path));
+	}
+	FILE* f = fopen(path, "rt");
 	if (f == NULL)
 		err(1, "cannot open %s (is the architecture correct?)", path);
 
+	char line[255];
+	int lineno = 0;
 	while (fgets(line, sizeof(line), f) != NULL) {
 		line[strlen(line) - 1] = '\0';
 		lineno++;
@@ -242,7 +236,8 @@ parse_devfile(const char* arch)
 		enum TOKEN token = resolve_token(opts);
 		if (token == MANDATORY) {
 			/* Must include */
-			entry_add(&files, line);
+			struct ENTRY* e = entry_make(line);
+			QUEUE_ADD_TAIL(&files, e);
 			continue;
 		}
 
@@ -255,30 +250,35 @@ parse_devfile(const char* arch)
 		token = resolve_token(opts);
 		struct ENTRY* e;
 		switch(token) {
-			case OPTIONAL:
+			case OPTIONAL: {
 				/*
 				 * OK, we need to see whether a device in our kernel matches whatever
 				 * is listed for this device.
 				 */
-				e = find_entry(devices, value);
+				e = find_entry(&devices, value);
 				if (e == NULL)
 					continue;
 
 				/* We have a match */
 				e->matched = 1;
 				e->source = strdup(line);
-				entry_add(&files, line);
+
+				struct ENTRY* new_entry = entry_make(line);
+				QUEUE_ADD_TAIL(&files, new_entry);
 				break;
-			case OPTION:
-				e = find_entry(options, value);
+			}
+			case OPTION: {
+				e = find_entry(&options, value);
 				if (e == NULL)
 					continue;
 
 				/* We have a match */
 				e->matched = 1;
 				e->source = strdup(line);
-				entry_add(&files, line);
+				struct ENTRY* new_entry = entry_make(line);
+				QUEUE_ADD_TAIL(&files, new_entry);
 				break;
+			}
 			default:
 				errx(1, "%s:%u: parse error", path, lineno);
 				break;
@@ -308,13 +308,12 @@ build_object(char* str) {
 }
 
 static void
-emit_objects(FILE* f, struct ENTRY* entrylist)
+emit_objects(FILE* f, struct ENTRY_LIST* list)
 {
 	char tmp[PATH_MAX];
-	struct ENTRY* e;
 	unsigned int n = 0;
 
-	for (e = entrylist; e != NULL; e = e->next) {
+	QUEUE_FOREACH(list, e, struct ENTRY) {
 		if (n > 0 && n % 10 == 0) {
 			fprintf(f, " \\\n\t\t");
 			n = 0;
@@ -365,12 +364,11 @@ extra_deps(const char* src)
 }
 
 static void
-emit_files(FILE* f, struct ENTRY* entrylist)
+emit_files(FILE* f, struct ENTRY_LIST* list)
 {
 	char tmp[PATH_MAX];
-	struct ENTRY* e;
 
-	for (e = entrylist; e != NULL; e = e->next) {
+	QUEUE_FOREACH(list, e, struct ENTRY) {
 		strncpy(tmp, e->value, sizeof(tmp));
 
 		char* objname = build_object(tmp);
@@ -411,13 +409,13 @@ create_makefile()
 
 		if (!strcasecmp(line + 1, "OBJS")) {
 			fprintf(f_out, "OBJS=\t\t");
-			emit_objects(f_out, files);
+			emit_objects(f_out, &files);
 			fprintf(f_out, "\n\n");
 			continue;
 		}
 
 		if (!strcasecmp(line + 1, "FILES")) {
-			emit_files(f_out, files);
+			emit_files(f_out, &files);
 			continue;
 		}
 
@@ -510,8 +508,7 @@ create_options()
 
 	fprintf(f, "#define ARCHITECTURE \"%s\"\n", architecture);
 
-	struct ENTRY* e;
-	for (e = options; e != NULL; e = e->next) {
+	QUEUE_FOREACH(&options, e, struct ENTRY) {
 		fprintf(f, "#define OPTION_%s\n", e->value);
 	}
 	fclose(f);
@@ -546,6 +543,10 @@ main(int argc, char* argv[])
 	if (argc != 1)
 		usage();
 
+	QUEUE_INIT(&devices);
+	QUEUE_INIT(&options);
+	QUEUE_INIT(&files);
+
 	FILE* cfgfile = fopen(argv[0], "rb");
 	if (cfgfile == NULL)
 		err(1, "fopen");
@@ -562,8 +563,8 @@ main(int argc, char* argv[])
 	parse_devfile(architecture);
 	parse_devfile(NULL);
 
-	check_entries(devices, "device");
-	check_entries(options, "option");
+	check_entries(&devices, "device");
+	check_entries(&options, "option");
 
 	create_makefile();
 	create_hints();

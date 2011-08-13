@@ -1,5 +1,6 @@
 OBJS=		main.o
-CFLAGS=		-Wall -Werror
+R=		../../..
+CFLAGS=		-Wall -Werror -std=c99 -D_GNU_SOURCE -g
 
 config:		$(OBJS)
 		cc -o config $(OBJS)
