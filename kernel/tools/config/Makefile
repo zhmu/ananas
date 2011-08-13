@@ -1,5 +1,5 @@
 OBJS=		main.o
-CFLAGS=		-g
+CFLAGS=		-Wall -Werror
 
 config:		$(OBJS)
 		cc -o config $(OBJS)

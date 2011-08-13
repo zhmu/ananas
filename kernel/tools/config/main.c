@@ -1,4 +1,7 @@
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <ctype.h>
+#include <err.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
@@ -36,18 +39,18 @@ struct ENTRY {
 	struct ENTRY*	next;
 };
 
-struct ENTRY* devices = NULL;
-struct ENTRY* options = NULL;
-struct ENTRY* files = NULL;
-const char* architecture = NULL;
-const char* ident = NULL;
-const char* hints = NULL;
+static struct ENTRY* devices = NULL;
+static struct ENTRY* options = NULL;
+static struct ENTRY* files = NULL;
+static const char* architecture = NULL;
+static const char* ident = NULL;
+static const char* hints = NULL;
 
 /*
  * Adds an entry 'v' to the chained list of 'root'. This will preserve order;
  * newer entries are always added last.
  */
-void
+static void
 entry_add(struct ENTRY** root, const char* v)
 {
 	struct ENTRY* new_entry = (struct ENTRY*)malloc(sizeof(struct ENTRY));
@@ -68,11 +71,9 @@ entry_add(struct ENTRY** root, const char* v)
 /*
  * Locate entry 'line' in the chained-list of entries
  */
-struct ENTRY*
+static struct ENTRY*
 find_entry(struct ENTRY* root, char* line)
 {
-	char* current = line;
-
 	while (line != NULL) {
 		char* ptr = strchr(line, ' ');
 		if (ptr != NULL) {
@@ -96,7 +97,7 @@ find_entry(struct ENTRY* root, char* line)
 /*
  * Checks entry list root to ensure all entries have been matched.
  */
-void
+static void
 check_entries(struct ENTRY* root, const char* type)
 {
 	struct ENTRY* e = root;
@@ -108,7 +109,7 @@ check_entries(struct ENTRY* root, const char* type)
 	}
 }
 
-void
+static void
 usage()
 {
 	fprintf(stderr, "usage: config [-h?] name\n\n");
@@ -119,7 +120,7 @@ usage()
 /*
  * Classifies string 'token' to a token.
  */
-enum TOKEN
+static enum TOKEN
 resolve_token(const char* token)
 {
 	struct TOKENS* tk;
@@ -133,7 +134,7 @@ resolve_token(const char* token)
 /*
  * Parses a kernel configuration file.
  */
-void
+static void
 parse_configfile(FILE* f, const char* fname)
 {
 	char line[255];
@@ -195,7 +196,7 @@ parse_configfile(FILE* f, const char* fname)
 	}
 }
 
-void
+static void
 parse_devfile(const char* arch)
 {
 	char path[PATH_MAX];
@@ -287,7 +288,7 @@ parse_devfile(const char* arch)
 	fclose(f);
 }
 
-char*
+static char*
 build_object(char* str) {
 	char* ptr = strrchr(str, '/');
 	if (ptr == NULL)
@@ -306,7 +307,7 @@ build_object(char* str) {
 	return ptr;
 }
 
-void
+static void
 emit_objects(FILE* f, struct ENTRY* entrylist)
 {
 	char tmp[PATH_MAX];
@@ -326,7 +327,7 @@ emit_objects(FILE* f, struct ENTRY* entrylist)
 	}
 }
 
-void
+static void
 emit_compile(FILE* f, char* dst, const char* src) 
 {
 	char* ext = strrchr(src, '.');
@@ -346,7 +347,7 @@ emit_compile(FILE* f, char* dst, const char* src)
 	}
 }
 
-const char*
+static const char*
 extra_deps(const char* src) 
 {
 	char* ext = strrchr(src, '.');
@@ -363,7 +364,7 @@ extra_deps(const char* src)
 	err(1, "extension '%s' unsupported - help!", ext);
 }
 
-void
+static void
 emit_files(FILE* f, struct ENTRY* entrylist)
 {
 	char tmp[PATH_MAX];
@@ -379,13 +380,12 @@ emit_files(FILE* f, struct ENTRY* entrylist)
 	}
 }
 
-void
+static void
 create_makefile()
 {
 	char in_path[PATH_MAX];
 	char out_path[PATH_MAX];
 	char line[255];
-	int lineno = 0;
 	FILE *f_in, *f_out;
 
 	snprintf(in_path, sizeof(in_path), "../../../conf/Makefile.%s", architecture);
@@ -428,7 +428,7 @@ create_makefile()
 	fclose(f_in);
 }
 
-void
+static void
 check_ident()
 {
 	if (ident == NULL)
@@ -443,30 +443,7 @@ check_ident()
 	}
 }
 
-void
-dissect_device_bus(char* input, char** dev, char** bus)
-{
-	/*
-	 * If the device contains a '.' inside the name, this indicates
-	 * the bus it's attached on. This is needed for the hint.
-	 */
-	char* ptr = strrchr(input , '.');
-	if (ptr != NULL) {
-		*ptr++ = '\0';
-		*dev = ptr;
-		*bus = (char*)input;
-	} else {
-		*dev = (char*)input;
-		*bus = NULL;
-	}
-
-	if (find_entry(devices, *dev) == NULL)
-		errx(1, "console driver '%s' does not exist", *dev);
-	if (*bus != NULL && find_entry(devices, *bus) == NULL)
-		errx(1, "console bus '%s' does not exist", *bus);
-}
-
-void
+static void
 create_hints()
 {
 	char path[PATH_MAX];
@@ -518,7 +495,7 @@ create_hints()
 	fclose(out);
 }
 
-void
+static void
 create_options()
 {
 	char path[PATH_MAX];
@@ -540,7 +517,7 @@ create_options()
 	fclose(f);
 }
 
-void
+static void
 create_symlink()
 {
 	char src_path[PATH_MAX];
