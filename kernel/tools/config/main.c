@@ -21,7 +21,7 @@ enum TOKEN {
 	ARCH, DEVICE, IDENT,
 	HINTS, MANDATORY,
 	OPTIONAL, OPTION,
-	INCLUDE
+	INCLUDE, AND, OR
 };
 
 struct TOKENS {
@@ -36,6 +36,8 @@ struct TOKENS {
 	{ "optional",  OPTIONAL },
 	{ "option",    OPTION },
 	{ "include",   INCLUDE },
+	{ "&&", 		   AND },
+	{ "||", 		   OR },
 	{ NULL,        UNKNOWN }
 };
 
@@ -122,7 +124,7 @@ resolve_token(const char* token)
 }
 
 /*
- * Parses a kernel configuration file
+ * Parses a kernel configuration file.
  */
 static void
 parse_configfile(FILE* f, const char* fname)
@@ -241,48 +243,77 @@ parse_devfile(const char* arch)
 			continue;
 		}
 
-		/* split the line in clause -> device piece */
-		char* value = strchr(opts, ' ');
-		if (value == NULL)
-			errx(1, "%s:%u: parse error", path, lineno);
-		*value++ = '\0';
+		/* Handle all pieces; they can be combined using && and || */
+		char* next_token = opts;
+		int match = 0;
+		while(opts != NULL) {
+			/* split the line in clause -> device piece */
+			char* value = strchr(opts, ' ');
+			if (value == NULL)
+				errx(1, "%s:%u: parse error (%s)", path, lineno, next_token);
+			*value++ = '\0';
 
-		token = resolve_token(opts);
-		struct ENTRY* e;
-		switch(token) {
-			case OPTIONAL: {
-				/*
-				 * OK, we need to see whether a device in our kernel matches whatever
-				 * is listed for this device.
-				 */
-				e = find_entry(&devices, value);
-				if (e == NULL)
+			/*
+			 * Resolve the token here; it must be done before dissecting the input
+			 * futher so we can handle && and ||.
+			 */
+			token = resolve_token(opts);
+			switch(token) {
+				case AND:
+					/*
+					 * Both conditions must be true; so if the previous one isn't, bail.
+					 */
+					opts = (match ? value : NULL);
 					continue;
-
-				/* We have a match */
-				e->matched = 1;
-				e->source = strdup(line);
-
-				struct ENTRY* new_entry = entry_make(line);
-				QUEUE_ADD_TAIL(&files, new_entry);
-				break;
-			}
-			case OPTION: {
-				e = find_entry(&options, value);
-				if (e == NULL)
+				case OR:
+					/* Either one condition suffices, so if one is already matched, bail */
+					opts = (!match ? value : NULL);
 					continue;
+				default:
+					break;
+			}
 
-				/* We have a match */
-				e->matched = 1;
-				e->source = strdup(line);
-				struct ENTRY* new_entry = entry_make(line);
-				QUEUE_ADD_TAIL(&files, new_entry);
-				break;
+			next_token = strchr(value, ' ');
+			if (next_token != NULL)
+				*next_token++ = '\0';
+
+			struct ENTRY* e;
+			switch(token) {
+				case OPTIONAL: {
+					/*
+					 * OK, we need to see whether a device in our kernel matches whatever
+					 * is listed for this device.
+					 */
+					e = find_entry(&devices, value);
+					if (e != NULL) {
+						e->matched = 1;
+						e->source = strdup(line);
+						match = 1;
+					}
+					break;
+				}
+				case OPTION: {
+					e = find_entry(&options, value);
+					if (e != NULL) {
+						e->matched = 1;
+						e->source = strdup(line);
+						match = 1;
+					}
+					break;
+				}
+				default:
+					errx(1, "%s:%u: parse error", path, lineno);
+					break;
 			}
-			default:
-				errx(1, "%s:%u: parse error", path, lineno);
-				break;
-			}
+
+			opts = next_token;
+		}
+
+		if (match) {
+			/* We have a match */
+			struct ENTRY* new_entry = entry_make(line);
+			QUEUE_ADD_TAIL(&files, new_entry);
+		}
 	}
 
 	fclose(f);
