@@ -30,6 +30,10 @@ awk '{ print }
 	print "   avr32-*-ananas*)"
 	print "    targ_defvec=bfd_elf32_avr32_vec"
 	print "    ;;"
+	print "   arm-*-ananas*)"
+	print "    targ_defvec=bfd_elf32_littlearm_vec"
+	print "    targ_selvec=bfd_elf32_bigarm_vec"
+	print "    ;;"
 }' < $T/bfd/config.bfd > $T/bfd/config.bfd.new
 mv $T/bfd/config.bfd.new $T/bfd/config.bfd
 
@@ -40,6 +44,7 @@ awk '{ print }
 	print "  i386-*-ananas)\t\t\tfmt=elf ;;"
 	print "  ppc-*-ananas*)\t\t\tfmt=elf ;;"
 	print "  avr32-*-ananas*)\t\tfmt=elf  bfd_gas=yes ;;"
+	print "  arm-*-ananas*)\t\t\tfmt=elf ;;"
 }
 ' < $T/gas/configure.tgt > $T/gas/configure.tgt.new
 mv $T/gas/configure.tgt.new $T/gas/configure.tgt
@@ -49,6 +54,7 @@ awk '{print }
 /^case "\$\{targ\}" in$/ {
 	print "i[3-7]86-*-ananas*)\t\ttarg_emul=ananas_i386 ;;"
 	print "x86_64-*-ananas*)\t\ttarg_emul=ananas_amd64 ;;"
+	print "arm-*-ananas*)\t\ttarg_emul=armelf ;;"
 	print "powerpc-*-ananas*)\t\ttarg_emul=elf32ppc ;;"
 	print "avr32-*-ananas*)\t\ttarg_emul=avr32linux ;;"
 }' < $T/ld/configure.tgt > $T/ld/configure.tgt.new
@@ -88,7 +94,7 @@ LARGE_SECTIONS=yes
 SEPARATE_GOTPLT=24
 IREL_IN_PLT=' > $T/ld/emulparams/ananas_amd64.sh
 
-# XXX no ananas_powerpc32.sh / ananas_avr32.sh yet - will the defaults do ?
+# XXX no ananas_powerpc32.sh / ananas_avr32.sh / ananas_arm.sh yet - will the defaults do ?
 
 # patch 'ld/Makefile.in'
 awk '{print} END {
@@ -100,3 +106,19 @@ awk '{print} END {
 	print "\t${GENSCRIPTS} ananas_amd64 \"$(tdir_ananas_amd64)\""
 }' < $T/ld/Makefile.in > $T/ld/Makefile.in.new
 mv $T/ld/Makefile.in.new $T/ld/Makefile.in
+
+# for the ARM, we need to a patch because the modern gcc versions emit a warning that
+# is treated as an error
+TMP=/tmp/tmp.$$
+(cd $T; echo '--- gas/config/tc-arm.c.old	2011-09-25 12:19:56.713810852 +0200
++++ gas/config/tc-arm.c	2011-09-25 12:21:49.223810934 +0200
+@@ -1879,6 +1879,8 @@
+ #define NEON_REG_STRIDE(X)	((((X) >> 4) & 1) + 1)
+ #define NEON_REGLIST_LENGTH(X)	((((X) >> 5) & 3) + 1)
+ 
++#pragma GCC diagnostic ignored "-Wuninitialized"
++
+ static int
+ parse_neon_el_struct_list (char **str, unsigned *pbase,
+                            struct neon_type_el *eltype)
+' | patch -p0)	

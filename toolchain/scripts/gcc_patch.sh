@@ -14,6 +14,7 @@ ${SED} -r 's/(\-aros\*) \\$/\1 \| -ananas\* \\/' < $T/config.sub.tmp > $T/config
 
 # patch 'gcc/config.gcc'
 # XXX we do not override powerpc-*-elf yet (should we?)
+# XXX we do not override arm-*-elf yet (should we?)
 # XXX is using the linux tmake fiels for avr32 ok?
 awk '{ print }
 /# Common parts for widely ported systems/ { STATE = 1 }
@@ -45,6 +46,10 @@ awk '{ print }
 	print "\ttmake_file=\"t-linux avr32/t-avr32 avr32/t-elf\""
         print "\textra_modes=avr32/avr32-modes.def"
         print "\tgnu_ld=yes"
+	print "\t;;"
+	print "arm-*-ananas*)"
+	print "\ttm_file=\"dbxelf.h elfos.h arm/elf.h arm/aout.h arm/arm.h ananas.h\""
+	print "\ttmake_file=\"${tmake_file} t-linux arm/t-arm\""
 	print "\t;;"
 	STATE = 0
 }
@@ -102,6 +107,8 @@ if [ -f $T/libgcc/config.host ]; then
 		print "x86_64-*-ananas*)"
 		print "\t;;"
 		print "powerpc-*-ananas*)"
+		print "\t;;"
+		print "arm-*-ananas*)"
 		print "\t;;"
 		STATE = 0
 	}' < $T/libgcc/config.host > $T/libgcc/config.host.new
