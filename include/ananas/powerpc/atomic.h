@@ -1,7 +1,7 @@
 #include <sys/types.h>
 
-#ifndef __I386_ATOMIC_H__
-#define __I386_ATOMIC_H__
+#ifndef __POWERPC_ATOMIC_H__
+#define __POWERPC_ATOMIC_H__
 
 /* The atomic is the building block of all our locking preemtives */
 typedef struct {
@@ -43,4 +43,4 @@ static inline int atomic_read(atomic_t* a)
 	return v;
 }
 
-#endif /* __I386_ATOMIC_H__ */
+#endif /* __POWERPC_ATOMIC_H__ */
