@@ -1,7 +1,7 @@
 target:		framework.a
 
 TARGET=		dummy
-OBJS=		kernel-glue.o device-glue.o libc-glue.o mm.o print.o framework.o
+OBJS=		kernel-glue.o device-glue.o libc-glue.o mm.o print.o framework.o exec.o
 CLEAN_FILES=	framework.a
 include		../Makefile.common
 GENEXT2FS?=	genext2fs 
@@ -28,3 +28,6 @@ mm.o:		$K/kern/mm.c ananas
 
 print.o:	$K/lib/kern/print.c ananas
 		$(CC) $(KCFLAGS) -c -o print.o $K/lib/kern/print.c
+
+exec.o:		$K/kern/exec.c ananas
+		$(CC) $(KCFLAGS) -c -o exec.o $K/kern/exec.c
