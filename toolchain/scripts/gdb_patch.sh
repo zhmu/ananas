@@ -30,5 +30,9 @@ awk '{ print }
 	print "    targ_defvec=bfd_elf32_powerpc_vec"
 	print "    targ_selvecs=\"bfd_elf32_powerpcle_vec ppcboot_vec\""
 	print "    ;;"
+	print "   arm-*-ananas*)"
+	print "    targ_defvec=bfd_elf32_littlearm_vec"
+	print "    targ_selvec=bfd_elf32_bigarm_vec"
+	print "    ;;"
 }' < $T/bfd/config.bfd > $T/bfd/config.bfd.new
 mv $T/bfd/config.bfd.new $T/bfd/config.bfd
