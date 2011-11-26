@@ -11,6 +11,11 @@ BINUTILS_PATCH=	http://avr32linux.org/twiki/pub/Main/BinutilsPatches/binutils-2.
 GCC_PATCH=	http://avr32linux.org/twiki/pub/Main/GccPatches/gcc-4.2.2.atmel.1.1.3.patch.bz2
 endif
 
+# for i386, enable the EFI target as well
+ifeq '${TARGET}' 'i386-elf-ananas'
+BINUTILS_CONFIG_EXTRA=	--enable-targets=i386-efi-pe
+endif
+
 # environment settings
 MIRROR?=	http://ftp.gnu.org/gnu
 #MAKE_BUILDARG?=	-j4
@@ -66,7 +71,7 @@ endif
 .bu.${BINUTILS_VER}.${ARCH}.configure: .bu.${BINUTILS_VER}.patch
 		@${ECHO} ">> Configuring binutils (${ARCH})"
 		if [ ! -d build/binutils.${BINUTILS_VER}.${ARCH} ]; then mkdir -p build/binutils.${BINUTILS_VER}.${ARCH}; fi
-		(cd build/binutils.${BINUTILS_VER}.${ARCH} && ../../src/binutils-${BINUTILS_VER}/configure --target=${TARGET} --prefix=${PREFIX})
+		(cd build/binutils.${BINUTILS_VER}.${ARCH} && ../../src/binutils-${BINUTILS_VER}/configure --target=${TARGET} --prefix=${PREFIX} ${BINUTILS_CONFIG_EXTRA})
 		@# hack for old binutils that misdetect makeinfo >=4.11
 		${SED} -r 's#^MAKEINFO = .*missing makeinfo#MAKEINFO = /usr/bin/makeinfo#' < build/binutils.${BINUTILS_VER}.${ARCH}/Makefile > build/binutils.${BINUTILS_VER}.${ARCH}/Makefile.tmp
 		mv build/binutils.${BINUTILS_VER}.${ARCH}/Makefile.tmp build/binutils.${BINUTILS_VER}.${ARCH}/Makefile
