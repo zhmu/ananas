@@ -1,0 +1,9 @@
+# Note that the order in this file is the same order passed to the linker!
+arch/arm/stub.S			mandatory
+arch/arm/startup.c		mandatory
+arch/arm/vm.c			mandatory
+arch/arm/md_thread.c		mandatory
+arch/arm/divsi3.S		mandatory
+lib/kern/ucmpdi2.c		mandatory
+lib/kern/qdivrem.c		mandatory
+lib/kern/divdi3.c		mandatory

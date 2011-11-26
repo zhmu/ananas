@@ -1,0 +1,50 @@
+OUTPUT_ARCH(arm)
+OUTPUT_FORMAT(elf32-littlearm)
+ENTRY(__entry)
+SECTIONS {
+	/* The starting address is stolen from FreeBSD */
+	.text 0xc0900000 : AT(0x00900000) {
+		text = .;
+		*(.text)
+		*(.text*)
+		*(.rodata)
+		*(.rodata*)
+		/*
+		 * Init/exit definitions after the readonly data; there's no
+		 * reason why these should be writable or take up a section of
+		 * their own.
+		 */
+		. = ALIGN(4096);
+		__initfuncs_begin = ALIGN(4);
+		*(initfuncs)
+		__initfuncs_end = .;
+		__exitfuncs_begin = ALIGN(4);
+		*(exitfuncs)
+		__exitfuncs_end = .;
+		. = ALIGN(4096);
+
+	}
+	.data : {
+		*(.data)
+		*(.data*)
+		. = ALIGN(4096);
+	}
+	.bss : {
+		*(.bss)
+		*(.bss*)
+		*(COMMON)
+		. = ALIGN(4096);
+	}
+	__end = . ;
+	__traceid_begin = .;
+	.traceids : {
+		*(.traceids)
+	}
+	__traceid_end = .;
+	.tracenames : {
+		*(.tracenames)
+	}
+	/DISCARD/ : {
+		*(.eh_frame)
+	}
+}

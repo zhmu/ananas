@@ -1,0 +1,10 @@
+arch		arm
+ident		LINT
+
+#not yet; we lack too much support for this to be possible
+#include		../../../conf/LINT
+
+#option		BIO
+#option		VFS
+
+#option		DEBUG_CONSOLE
