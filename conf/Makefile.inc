@@ -4,7 +4,7 @@ BINUTILS_VER=	2.18
 GCC_VER=	4.2.2
 else
 # everything else is supported by mainline binutils/gcc
-BINUTILS_VER=	2.21
+BINUTILS_VER=	2.21.1
 GCC_VER=	4.6.1
 endif
-GDB_VER=	7.2
+GDB_VER=	7.3.1
