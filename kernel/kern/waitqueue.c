@@ -153,6 +153,17 @@ waitqueue_signal(struct WAIT_QUEUE* wq)
 		spinlock_unlock(&w->w_lock);
 	}
 	spinlock_unlock(&wq->wq_lock);
+
+	/*
+	 * Threads have been woken up - if we are the idle thread,
+	 * reschedule immediately; there is no reason to let our
+	 * timeslice expire when there is more useful work to be
+	 * done.
+	 */
+	thread_t* curthread = PCPU_GET(curthread);
+	if (curthread == PCPU_GET(idlethread_ptr)) {
+		curthread->flags |= THREAD_FLAG_RESCHEDULE;
+	}
 }
 
 /* vim:set ts=2 sw=2: */

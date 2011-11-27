@@ -43,8 +43,13 @@ irq_handler(unsigned int no)
 		return;
 	}
 
-/*	kprintf("irq_handler(): (CPU %u) handling irq %u\n", cpuid, no);*/
 	irq[no].irq_handler(irq[no].irq_dev);
+
+	/* If the IRQ handler resulted in a reschedule of the current thread, handle it */
+	thread_t* curthread = PCPU_GET(curthread);
+	if (curthread != NULL && curthread->flags & THREAD_FLAG_RESCHEDULE) {
+		schedule();
+	}
 }
 
 #ifdef OPTION_KDB
