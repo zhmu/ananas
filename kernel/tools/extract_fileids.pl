@@ -46,6 +46,7 @@ get_format_info {
 	return [ 0, 4 ] if $format =~ /-i386$/;
 	return [ 0, 8 ] if $format =~ /64-x86-64$/;
 	return [ 1, 4 ] if $format =~ /32-powerpc$/;
+	return [ 0, 4 ] if $format =~ /32-littlearm$/;
 	die "unknown format '$format'";
 }
 
