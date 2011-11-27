@@ -15,8 +15,7 @@ void scheduler_add(thread_t* t);
 void scheduler_remove(thread_t* t);
 
 void schedule();
-void md_reschedule();
-#define reschedule md_reschedule
+#define reschedule schedule
 void scheduler_activate();
 void scheduler_deactivate();
 int scheduler_activated();

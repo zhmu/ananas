@@ -10,6 +10,7 @@
 .globl irq10, irq11, irq12, irq13, irq14, irq15
 .globl scheduler_irq, syscall_int, spurious_irq
 .globl clone_return
+.globl userland_trampoline, md_idle_thread, kthread_trampoline
 
 #include "options.h"
 #include "machine/param.h"
@@ -90,14 +91,14 @@ do_irq:
 	movl	$GDT_SEL_KERNEL_PCPU, %eax
 	movw	%ax, %fs
 
+	/* Acknowledge the interrupt */
+	movl	SF_TRAPNO(%esp), %edx
+	call	eoi
+
 	/* Call the interrupt handler */
 	pushl	%esp
 	call	interrupt_handler
 	addl	$4, %esp
-
-	/* IRQ handler is done; it's safe to acknowledge the interrupt now */
-	movl	SF_TRAPNO(%esp), %edx
-	call	eoi
 
 	/* Restore previous state */
 	RESTORE_SEGS
@@ -118,9 +119,7 @@ do_exception:
 	movl	$GDT_SEL_KERNEL_PCPU, %eax
 	movw	%ax, %fs
 
-	/*
-	 * Call the exception handler.
-	 */
+	/* Call the exception handler */
 	pushl	%esp
 	call	exception_handler
 	addl	$4, %esp
@@ -155,52 +154,6 @@ irq ## num: \
 	subl	$SF_EIP, %esp; \
 	movl	$num, SF_TRAPNO(%esp); \
 	jmp	do_irq
-
-/*
- * The scheduler interrupt is pure magic; it forcefully stores the context of the
- * current thread, and then calls the scheduler, which restores the context of
- * whatever thread it wants.
- */
-scheduler_irq:
-	/*
-	 * If we don't have a current context pointer, we just continue. This
-	 * indicates that the scheduling isn't set up yet and thus, there's
-	 * nothing for us here.
-	 */
-	pushl	%fs
-	pushl	%eax
-	movw	$GDT_SEL_KERNEL_PCPU, %ax
-	movw	%ax, %fs
-	incl	%fs:(PCPU_TICKCOUNT)
-	cmpl	$0, %fs:(PCPU_CONTEXT)
-	popl	%eax
-	pop	%fs
-	jz	scheduler_cancel
-
-	/* Store current context, please */
-	call	md_store_ctx
-
-	/* Acknowledge IRQ! */
-	xorl	%edx, %edx
-	call	eoi
-
-	/* Restore per-cpu context in fs */
-	movw	$GDT_SEL_KERNEL_PCPU, %ax
-	movw	%ax, %fs
-
-	/* Next context */
-	jmp	schedule
-	/* UNREACHED - schedule never returns */
-
-scheduler_cancel:
-	/* Acknowledge the interrupt before exiting */
-	pushl	%eax
-	pushl	%edx
-	xorl	%edx, %edx
-	call	eoi
-	popl	%edx
-	popl	%eax
-	iret
 
 /*
  * System call interrupt; system call number should be placed in %eax, all
@@ -337,19 +290,19 @@ clone_return:
 	 * is no other way to do a clone) - we can use that
 	 * information to restore the caller.
 	 *
-	 * Note that we must not touch %eax in any way since it is
-	 * used to pass the return code to the cloned thread.
+	 * Note that the ABI dictates that %eax is used to return
+	 * a value to the new thread, so we'll have to restore it.
 	 */
 
-	/* Switch to the process' kernel stack */
-	movw	$GDT_SEL_KERNEL_PCPU, %bx
-	movw	%bx, %fs
-
 	/* Rewind the stack as created by syscall_int */
-	movl	%fs:(PCPU_CONTEXT), %ebx
-	movl	CTX_ESP0(%ebx), %esp
+	movl	%fs:(PCPU_CURTHREAD), %ebx
+	movl	T_ESP0(%ebx), %esp
 	subl	$48, %esp
 
+	/* Fetch return value */
+	movl	T_ARG1(%ebx), %eax
+
+	/* And terminate the system call */
 	jmp	syscall_return
 
 #ifdef OPTION_SMP
@@ -379,6 +332,7 @@ EXCEPTION_HANDLER(18)
 EXCEPTION_HANDLER(19)
 
 /* ...and the IRQ handlers */
+IRQ_HANDLER(0)
 IRQ_HANDLER(1)
 IRQ_HANDLER(2)
 IRQ_HANDLER(3)
@@ -394,3 +348,34 @@ IRQ_HANDLER(12)
 IRQ_HANDLER(13)
 IRQ_HANDLER(14)
 IRQ_HANDLER(15)
+
+userland_trampoline:
+	nop
+	nop
+	nop
+	xchgw	%bx,%bx
+
+	/* Fetch arguments; arg1 is the %eip and arg2 is the argument */
+	movl	%fs:(PCPU_CURTHREAD), %ebx
+	movl	T_ARG1(%ebx), %eax		/* eax = eip */
+	movl	T_ARG2(%ebx), %esi		/* esi = arg */
+
+	movl	%esp, %ecx
+
+	/* Set up %ds/%es to point to the userland segments */
+	movl	$(GDT_SEL_USER_DATA + 3), %edx
+	movl	%dx, %ds
+	movl	%dx, %es
+	
+	pushl	%edx				/* ss */
+	pushl	%ecx				/* esp */
+	pushl	$(GDT_SEL_USER_CODE + 3)	/* cs */
+	pushl	%eax				/* eip */
+	lret
+
+/*
+ * This is our idle thread; it just waits for an interrupt.
+ */
+md_idle_thread:
+	hlt
+	jmp	md_idle_thread

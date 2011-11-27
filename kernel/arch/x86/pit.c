@@ -1,14 +1,28 @@
 #include <ananas/x86/io.h>
 #include <ananas/x86/pit.h>
 #include <ananas/pcpu.h>
+#include <ananas/irq.h>
 #include <ananas/lib.h>
+#include <machine/interrupts.h>
 
+#define IRQ_PIT 0
 #define TIMER_FREQ 1193182
 
 #define HZ 100 /* XXX does not belong here */
 
 extern int md_cpu_clock_mhz;
 static uint64_t tsc_boot_time;
+
+static void
+x86_pit_irq()
+{
+	PCPU_SET(tickcount, PCPU_GET(tickcount) + 1);
+	if (!scheduler_activated())
+		return;
+	
+	/* Timeslice is up -> next thread please */
+	schedule();
+}
 
 /*
  * Obtains the number of milliseconds that have passed since boot. Because we
@@ -29,20 +43,15 @@ x86_pit_init()
 	outb(PIT_MODE_CMD, PIT_CH_CHAN0 | PIT_MODE_3 | PIT_ACCESS_BOTH);
 	outb(PIT_CH0_DATA, (count & 0xff));
 	outb(PIT_CH0_DATA, (count >> 8));
+	if (!irq_register(IRQ_PIT, NULL, x86_pit_irq))
+		panic("cannot register timer irq");
 }
 	
 uint32_t
 x86_pit_calc_cpuspeed_mhz()
 {
 	/* Ensure the interrupt flag is enabled; otherwise this code never stops */
-#ifdef __i386__
-	uint32_t flags;
-	__asm __volatile("pushfl; popl %%eax" : "=a" (flags) :);
-#elif defined(__amd64__)
-	uint64_t flags;
-	__asm __volatile("pushfq; popq %%rax" : "=a" (flags) :);
-#endif
-	KASSERT((flags & 0x200) != 0, "interrupts must be enabled");
+	KASSERT(md_interrupts_save(), "interrupts must be enabled");
 
 	/*
 	 * Interrupts are there, this means we can use the tick count to

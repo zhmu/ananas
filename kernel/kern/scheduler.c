@@ -1,4 +1,5 @@
 #include <machine/thread.h>
+#include <machine/interrupts.h>
 #include <ananas/error.h>
 #include <ananas/pcpu.h>
 #include <ananas/pcpu.h>
@@ -56,6 +57,10 @@ schedule()
 {
 	thread_t* curthread = PCPU_GET(curthread);
 
+	/* Cancel any rescheduling as we are about to schedule here */
+	if (curthread != NULL)
+		curthread->flags &= ~THREAD_FLAG_RESCHEDULE;
+
 	/* Pick the next thread to schedule and add it to the back of the queue */
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
 	struct SCHED_PRIV* next_sched = NULL;
@@ -74,50 +79,43 @@ schedule()
 	/* Sanity checks */
 	thread_t* newthread = next_sched->sp_thread;
 	KASSERT((newthread->flags & THREAD_FLAG_SUSPENDED) == 0, "activating suspended thread %p", newthread);
-
-	PCPU_SET(curthread, newthread);
-	if (newthread != curthread && 0) {
-		kprintf("schedule: CPU %u: switching %x to %x\n", PCPU_GET(cpuid), curthread, newthread);
-	}
-
-	if (curthread != NULL) /* happens if the thread exited */
-		curthread->flags &= ~THREAD_FLAG_ACTIVE;
-	newthread->flags |=  THREAD_FLAG_ACTIVE;
-	md_thread_switch(newthread, curthread);
-	/* NOTREACHED */
-}
-
-void
-scheduler_activate()
-{
-	if (scheduler_active++ > 0)
-		return;
-
-	/*
-	 * Remove the 'active' flag of our current thread; this will cause it to be
-	 * rescheduled if necessary.
-	 */
-	thread_t* curthread = PCPU_GET(curthread);
 	if (curthread != NULL)
 		curthread->flags &= ~THREAD_FLAG_ACTIVE;
 
-	/* Activate our idle thread; the timer interrupt will steal the context away */
-	thread_t* newthread = PCPU_GET(idlethread_ptr);
+	/* Schedule our new thread */
+	newthread->flags |= THREAD_FLAG_ACTIVE;
 	PCPU_SET(curthread, newthread);
 	md_thread_switch(newthread, curthread);
-	/* NOTREACHED */
 }
 
 static errorcode_t
 scheduler_launch()
 {
-	scheduler_activate();
+	thread_t* idle_thread = PCPU_GET(idlethread_ptr);
+	void (*idle_func)(void) = (void*)idle_thread->md_eip; /* XXX */
+
+	/* Enable the idle thread */
+	md_interrupts_disable();
+	PCPU_SET(curthread, idle_thread);
+	idle_thread->flags |= THREAD_FLAG_ACTIVE;
+	md_interrupts_enable();
+
+	/* Run it! */
+	scheduler_active++;
+	idle_func();
+	panic("idle thread exited");
 
 	/* NOTREACHED */
 	return ANANAS_ERROR_OK;
 }
 
 INIT_FUNCTION(scheduler_launch, SUBSYSTEM_SCHEDULER, ORDER_LAST);
+
+void
+scheduler_activate()
+{
+	scheduler_active++;
+}
 
 void
 scheduler_deactivate()

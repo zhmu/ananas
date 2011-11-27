@@ -6,6 +6,7 @@
 #include <machine/vm.h>
 #include <machine/macro.h>
 #include <machine/smp.h>
+#include <machine/interrupts.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
@@ -16,6 +17,7 @@
 
 extern struct TSS kernel_tss;
 void clone_return();
+void userland_trampoline();
 extern uint32_t* kernel_pd;
 
 static errorcode_t
@@ -29,16 +31,10 @@ md_thread_setup(thread_t* t)
 	md_map_pages(t->md_pagedir, KERNEL_STACK_ADDR,   KVTOP((addr_t)t->md_kstack), KERNEL_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
 	t->md_kstack_ptr = NULL;
 
-	/* Fill out the thread's registers - anything not here will be zero */ 
-	t->md_ctx.esp  = (addr_t)USERLAND_STACK_ADDR + THREAD_STACK_SIZE;
-	t->md_ctx.esp0 = (addr_t)KERNEL_STACK_ADDR + KERNEL_STACK_SIZE - 4;
-	t->md_ctx.cs = GDT_SEL_USER_CODE + SEG_DPL_USER;
-	t->md_ctx.ds = GDT_SEL_USER_DATA + SEG_DPL_USER;
-	t->md_ctx.es = GDT_SEL_USER_DATA + SEG_DPL_USER;
-	t->md_ctx.ss = GDT_SEL_USER_DATA + SEG_DPL_USER;
-	t->md_ctx.cr3 = KVTOP((addr_t)t->md_pagedir);
-	t->md_ctx.eflags = EFLAGS_IF;
-	t->md_ctx.dr[7] = DR7_LE | DR7_GE;
+	/* Fill our the %esp and %cr3 fields */
+	t->md_esp = (addr_t)USERLAND_STACK_ADDR + THREAD_STACK_SIZE;
+	t->md_cr3 = KVTOP((addr_t)t->md_pagedir);
+	t->md_esp0 = (addr_t)KERNEL_STACK_ADDR + KERNEL_STACK_SIZE - 4;
 
 	/* initialize FPU state similar to what finit would do */
 	t->md_fpu_ctx.cw = 0x37f;
@@ -57,22 +53,24 @@ md_thread_init(thread_t* t)
 	/* Allocate stacks: one for the thread and one for the kernel */
 	t->md_stack  = kmem_alloc(THREAD_STACK_SIZE / PAGE_SIZE);
 	t->md_kstack = kmem_alloc(KERNEL_STACK_SIZE / PAGE_SIZE);
+	t->md_eip = (addr_t)&userland_trampoline;
 
 	return md_thread_setup(t);
+}
+
+static void
+md_thread_push(thread_t* t, uint32_t value)
+{
+	*(uint32_t*)t->md_esp = value;
+	t->md_esp -= sizeof(value);
 }
 
 errorcode_t
 md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
 {
 	/* Set up the environment */
-	t->md_ctx.cs = GDT_SEL_KERNEL_CODE;
-	t->md_ctx.ds = GDT_SEL_KERNEL_DATA;
-	t->md_ctx.es = GDT_SEL_KERNEL_DATA;
-	t->md_ctx.fs = GDT_SEL_KERNEL_PCPU;
-	t->md_ctx.eip = (addr_t)kfunc;
-	t->md_ctx.cr3 = KVTOP((addr_t)kernel_pd);
-	t->md_ctx.eflags = EFLAGS_IF;
-	t->md_ctx.dr[7] = DR7_LE | DR7_GE;
+	t->md_eip = (addr_t)kfunc;
+	t->md_cr3 = KVTOP((addr_t)kernel_pd);
 
 	/*
 	 * Kernel threads share the kernel pagemap and thus need to map the kernel
@@ -80,17 +78,8 @@ md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
 	 * no kernelthread ever runs userland code.
 	 */
 	t->md_kstack_ptr = kmalloc(KERNEL_STACK_SIZE);
-	t->md_ctx.esp0 = (addr_t)t->md_kstack_ptr + KERNEL_STACK_SIZE - 4;
-	t->md_ctx.esp = t->md_ctx.esp0;
-
-	/*
-	 * Now, push 'arg' on the stack, as i386 passes arguments by the stack. Note that
-	 * we must first place the value and then update esp0 because the interrupt code
-	 * heavily utilized the stack, and the -= 4 protects our value from being
- 	 * destroyed.
-	 */
-	*(uint32_t*)t->md_ctx.esp = (uint32_t)arg;
-	t->md_ctx.esp -= 4;
+	t->md_esp = (addr_t)t->md_kstack_ptr + KERNEL_STACK_SIZE - 4;
+	md_thread_push(t, (uint32_t)arg);
 	return ANANAS_ERROR_OK;
 }
 
@@ -119,27 +108,56 @@ md_thread_free(thread_t* t)
 void
 md_thread_switch(thread_t* new, thread_t* old)
 {
-	struct CONTEXT* ctx_new = (struct CONTEXT*)&new->md_ctx;
-
-	/* Force interrupts off - we cannot have any interruptions */
-	__asm __volatile("cli");
-
-	/* Activate this context as the current CPU context */
-	PCPU_SET(context, ctx_new);
+	KASSERT((new->flags & THREAD_FLAG_ZOMBIE) == 0, "cannot switch to a zombie thread");
 
 	/* Activate the corresponding kernel stack in the TSS */
 	struct TSS* tss = (struct TSS*)PCPU_GET(tss);
-	tss->esp0 = ctx_new->esp0;
+	tss->esp0 = new->md_esp0;
 
 	/* Set debug registers */
-	DR_SET(0, ctx_new->dr[0]);
-	DR_SET(1, ctx_new->dr[1]);
-	DR_SET(2, ctx_new->dr[2]);
-	DR_SET(3, ctx_new->dr[3]);
-	DR_SET(7, ctx_new->dr[7]);
+	DR_SET(0, new->md_dr[0]);
+	DR_SET(1, new->md_dr[1]);
+	DR_SET(2, new->md_dr[2]);
+	DR_SET(3, new->md_dr[3]);
+	DR_SET(7, new->md_dr[7]);
 
-	/* Go! */
-	md_restore_ctx(ctx_new);
+#if 0
+	kprintf("old: eip=%p esp=%p; new: eip=%p esp=%p\n",
+		 old->md_eip, old->md_esp,
+		 new->md_eip, new->md_esp);
+	//__asm("xchgw %bx,%bx");
+#endif
+
+	/*
+	 * Switch to the new thread; as this will only happen in kernel -> kernel
+	 * contexts and even then, between a frame, it is enough to just
+	 * switch the stack and mark all registers are being clobbered by assigning
+	 * them to dummy outputs.
+	 *
+	 * Note that we can't force the compiler to reload %ebp this way, so we'll
+	 * just save it ourselves.
+	 */
+	register_t ebx, ecx, edx, esi, edi;
+	__asm __volatile(
+		"pushfl\n"
+		"pushl %%ebp\n"
+		"movl %%esp,%0\n" /* store old %esp */
+		"movl %1, %%esp\n" /* write new %esp */
+		"movl $1f, %2\n" /* write next %eip for old thread */
+		"movl %9, %%cr3\n"
+		"pushl %8\n" /* load next %eip for new thread */
+		"ret\n"
+	"1:\n" /* we are back */
+		"popl %%ebp\n"
+		"popfl\n"
+	: /* out */
+		"=m" (old->md_esp), "=m" (new->md_esp),
+		"=m" (old->md_eip),
+		/* clobber */
+		"=b" (ebx), "=c" (ecx), "=d" (edx), "=S" (esi), "=D" (edi)
+	: /* in */
+		"m" (new->md_eip), "r" (new->md_cr3)
+	);
 }
 
 void*
@@ -180,34 +198,23 @@ md_thread_unmap(thread_t* thread, addr_t addr, size_t length)
 void
 md_thread_set_entrypoint(thread_t* thread, addr_t entry)
 {
-	thread->md_ctx.eip = entry;
+	thread->md_arg1 = entry;
 }
 
 void
 md_thread_set_argument(thread_t* thread, addr_t arg)
 {
-	thread->md_ctx.esi = arg;
+	thread->md_arg2 = arg;
 }
 
 void
 md_thread_clone(thread_t* t, thread_t* parent, register_t retval)
 {
-	/* Copy the entire context over */
-	memcpy(&t->md_ctx, &parent->md_ctx, sizeof(t->md_ctx));
-
 	/* Restore the thread's own page directory */
-	t->md_ctx.cr3 = KVTOP((addr_t)t->md_pagedir);
-
-	/*
-	 * Temporarily disable the thread's interrupts; it's only possible to clone a
-	 * thread by using a syscall and we need to restore the part of the context
-	 * as ABI requirements dictate - thus the stack may not change and we'll
-	 * disable interrupts to ensure it will not.
-	 */
-	t->md_ctx.eflags &= ~EFLAGS_IF;
+	t->md_cr3 = KVTOP((addr_t)t->md_pagedir);
 
 	/* Do not inherit breakpoints */
-	t->md_ctx.dr[7] = DR7_LE | DR7_GE;
+	t->md_dr[7] = DR7_LE | DR7_GE;
 
 	/*
 	 * Copy stack content; we need to copy the kernel stack over because we can
@@ -228,10 +235,13 @@ md_thread_clone(thread_t* t, thread_t* parent, register_t retval)
 	vm_unmap_kernel((addr_t)kstack_dst, KERNEL_STACK_SIZE / PAGE_SIZE);
 	vm_unmap_kernel((addr_t)kstack_src, KERNEL_STACK_SIZE / PAGE_SIZE);
 
-	/* Handle return value */
-	t->md_ctx.cs = GDT_SEL_KERNEL_CODE;
-	t->md_ctx.eip = (addr_t)&clone_return;
-	t->md_ctx.eax = retval;
+	/*
+	 * Handle returning to the new thread; this just cancels the system call
+	 * and overrides the return value.
+	 */
+	t->md_esp = parent->md_esp;
+	t->md_eip = (addr_t)&clone_return;
+	t->md_arg1 = retval;
 }
 
 int
@@ -246,6 +256,5 @@ md_thread_peek_32(thread_t* thread, addr_t virt, uint32_t* val)
 	vm_unmap_kernel((addr_t)ptr, 1);
 	return 1;
 }
-
 
 /* vim:set ts=2 sw=2: */

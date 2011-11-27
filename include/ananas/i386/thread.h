@@ -92,7 +92,13 @@ struct FPUREGS {
 
 /* i386-specific thread detais */
 #define MD_THREAD_FIELDS \
-	struct CONTEXT	md_ctx; \
+	register_t	md_esp; \
+	register_t	md_esp0; \
+	register_t	md_eip; \
+	register_t	md_cr3; \
+	register_t	md_dr[8]; \
+	register_t	md_arg1; /* XXX */ \
+	register_t	md_arg2; /* XXX */ \
 	struct FPUREGS	md_fpu_ctx __attribute__ ((aligned(16))); \
 	void*		md_pagedir; \
 	void*		md_stack; \

@@ -267,7 +267,7 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	IDT_SET_ENTRY(0x11, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception17);
 	IDT_SET_ENTRY(0x12, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception18);
 	IDT_SET_ENTRY(0x13, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception19);
-	IDT_SET_ENTRY(0x20, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, scheduler_irq);
+	IDT_SET_ENTRY(0x20, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, irq0);
 	IDT_SET_ENTRY(0x21, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, irq1);
 	IDT_SET_ENTRY(0x22, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, irq2);
 	IDT_SET_ENTRY(0x23, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, irq3);
@@ -397,7 +397,7 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * Note that we explicitely block the scheduler, as this only should be
 	 * enabled once we are ready to run userland threads.
 	 */
-	__asm("sti");
+	md_interrupts_enable();
 
 	/* Find out how quick the CPU is; this requires interrupts and will be needed for delay() */
 	md_cpu_clock_mhz = x86_pit_calc_cpuspeed_mhz();
