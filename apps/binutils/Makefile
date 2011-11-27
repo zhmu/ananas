@@ -21,11 +21,11 @@ AR=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-ar
 
 binutils:	.install
 
-../distfiles/binutils-${VERSION}.tar.gz:
-		(cd ../distfiles && ${DOWNLOAD} ${MIRROR}/binutils-${VERSION}.tar.gz)
+../distfiles/binutils-${VERSION}.tar.bz2:
+		(cd ../distfiles && ${DOWNLOAD} ${MIRROR}/binutils-${VERSION}.tar.bz2)
 
-.extract:	../distfiles/binutils-${VERSION}.tar.gz
-		${TAR} xf ../distfiles/binutils-${VERSION}.tar.gz
+.extract:	../distfiles/binutils-${VERSION}.tar.bz2
+		${TAR} xf ../distfiles/binutils-${VERSION}.tar.bz2
 		@${TOUCH} .extract
 
 .patch:		.extract
