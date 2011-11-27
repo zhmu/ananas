@@ -349,12 +349,19 @@ IRQ_HANDLER(13)
 IRQ_HANDLER(14)
 IRQ_HANDLER(15)
 
-userland_trampoline:
-	nop
-	nop
-	nop
-	xchgw	%bx,%bx
+kthread_trampoline:
+	/* Fetch arguments; arg1 is the %eip and arg2 is the argument */
+	movl	%fs:(PCPU_CURTHREAD), %ebx
+	movl	T_ARG1(%ebx), %eax		/* eax = eip */
+	pushl	T_ARG2(%ebx)
 
+	/* Call the kthread code with interrupts enabled */
+	pushl	$0x200
+	pushl	$8
+	pushl	%eax
+	iret
+
+userland_trampoline:
 	/* Fetch arguments; arg1 is the %eip and arg2 is the argument */
 	movl	%fs:(PCPU_CURTHREAD), %ebx
 	movl	T_ARG1(%ebx), %eax		/* eax = eip */
@@ -369,9 +376,10 @@ userland_trampoline:
 	
 	pushl	%edx				/* ss */
 	pushl	%ecx				/* esp */
+	pushl	$0x200				/* eflags */
 	pushl	$(GDT_SEL_USER_CODE + 3)	/* cs */
 	pushl	%eax				/* eip */
-	lret
+	iret
 
 /*
  * This is our idle thread; it just waits for an interrupt.

@@ -63,13 +63,15 @@ schedule()
 
 	/* Pick the next thread to schedule and add it to the back of the queue */
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
+	KASSERT(state, "irq's must be enabled at this point");
 	struct SCHED_PRIV* next_sched = NULL;
 	if (!DQUEUE_EMPTY(&sched_queue)) {
 		next_sched = DQUEUE_HEAD(&sched_queue);
 		DQUEUE_POP_HEAD(&sched_queue);
 		DQUEUE_ADD_TAIL(&sched_queue, next_sched);
 	}
-	spinlock_unlock_unpremptible(&spl_scheduler, state);
+	/* Now unlock the scheduler lock but do _not_ enable interrupts */
+	spinlock_unlock(&spl_scheduler);
 
 	/* If there was no thread or the thread is already running, revert to idle */
 	if (next_sched == NULL || (next_sched->sp_thread->flags & THREAD_FLAG_ACTIVE)) {
@@ -82,10 +84,14 @@ schedule()
 	if (curthread != NULL)
 		curthread->flags &= ~THREAD_FLAG_ACTIVE;
 
-	/* Schedule our new thread */
+	/* Schedule our new thread - this will enable interrupts as required */
 	newthread->flags |= THREAD_FLAG_ACTIVE;
 	PCPU_SET(curthread, newthread);
-	md_thread_switch(newthread, curthread);
+	if (curthread != newthread)
+		md_thread_switch(newthread, curthread);
+
+	/* Re-enable interrupts as they were */
+	md_interrupts_enable();
 }
 
 static errorcode_t
@@ -95,10 +101,8 @@ scheduler_launch()
 	void (*idle_func)(void) = (void*)idle_thread->md_eip; /* XXX */
 
 	/* Enable the idle thread */
-	md_interrupts_disable();
 	PCPU_SET(curthread, idle_thread);
 	idle_thread->flags |= THREAD_FLAG_ACTIVE;
-	md_interrupts_enable();
 
 	/* Run it! */
 	scheduler_active++;

@@ -18,6 +18,7 @@
 extern struct TSS kernel_tss;
 void clone_return();
 void userland_trampoline();
+void kthread_trampoline();
 extern uint32_t* kernel_pd;
 
 static errorcode_t
@@ -58,18 +59,13 @@ md_thread_init(thread_t* t)
 	return md_thread_setup(t);
 }
 
-static void
-md_thread_push(thread_t* t, uint32_t value)
-{
-	*(uint32_t*)t->md_esp = value;
-	t->md_esp -= sizeof(value);
-}
-
 errorcode_t
 md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
 {
 	/* Set up the environment */
-	t->md_eip = (addr_t)kfunc;
+	t->md_eip = (addr_t)&kthread_trampoline;
+	t->md_arg1 = (addr_t)kfunc;
+	t->md_arg2 = (addr_t)arg;
 	t->md_cr3 = KVTOP((addr_t)kernel_pd);
 
 	/*
@@ -79,7 +75,6 @@ md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
 	 */
 	t->md_kstack_ptr = kmalloc(KERNEL_STACK_SIZE);
 	t->md_esp = (addr_t)t->md_kstack_ptr + KERNEL_STACK_SIZE - 4;
-	md_thread_push(t, (uint32_t)arg);
 	return ANANAS_ERROR_OK;
 }
 
@@ -108,7 +103,9 @@ md_thread_free(thread_t* t)
 void
 md_thread_switch(thread_t* new, thread_t* old)
 {
+	KASSERT(md_interrupts_save() == 0, "interrupts must be disabled");
 	KASSERT((new->flags & THREAD_FLAG_ZOMBIE) == 0, "cannot switch to a zombie thread");
+	KASSERT(new != old, "switching to self?");
 
 	/* Activate the corresponding kernel stack in the TSS */
 	struct TSS* tss = (struct TSS*)PCPU_GET(tss);
@@ -121,13 +118,6 @@ md_thread_switch(thread_t* new, thread_t* old)
 	DR_SET(3, new->md_dr[3]);
 	DR_SET(7, new->md_dr[7]);
 
-#if 0
-	kprintf("old: eip=%p esp=%p; new: eip=%p esp=%p\n",
-		 old->md_eip, old->md_esp,
-		 new->md_eip, new->md_esp);
-	//__asm("xchgw %bx,%bx");
-#endif
-
 	/*
 	 * Switch to the new thread; as this will only happen in kernel -> kernel
 	 * contexts and even then, between a frame, it is enough to just
@@ -137,26 +127,27 @@ md_thread_switch(thread_t* new, thread_t* old)
 	 * Note that we can't force the compiler to reload %ebp this way, so we'll
 	 * just save it ourselves.
 	 */
-	register_t ebx, ecx, edx, esi, edi;
+	register register_t ebx, ecx, edx, esi, edi;
 	__asm __volatile(
 		"pushfl\n"
 		"pushl %%ebp\n"
-		"movl %%esp,%0\n" /* store old %esp */
-		"movl %1, %%esp\n" /* write new %esp */
-		"movl $1f, %2\n" /* write next %eip for old thread */
-		"movl %9, %%cr3\n"
-		"pushl %8\n" /* load next %eip for new thread */
+		"movl %%esp,%[old_esp]\n" /* store old %esp */
+		"movl %[new_esp], %%esp\n" /* write new %esp */
+		"movl $1f, %[old_eip]\n" /* write next %eip for old thread */
+		"movl %[new_cr3], %%cr3\n"
+		"pushl %[new_eip]\n" /* load next %eip for new thread */
 		"ret\n"
 	"1:\n" /* we are back */
 		"popl %%ebp\n"
 		"popfl\n"
 	: /* out */
-		"=m" (old->md_esp), "=m" (new->md_esp),
-		"=m" (old->md_eip),
-		/* clobber */
+		[old_esp] "=m" (old->md_esp), [old_eip] "=m" (old->md_eip),
+		/* clobbered registers */
 		"=b" (ebx), "=c" (ecx), "=d" (edx), "=S" (esi), "=D" (edi)
 	: /* in */
-		"m" (new->md_eip), "r" (new->md_cr3)
+		[new_eip] "a" (new->md_eip), [new_esp] "b" (new->md_esp),
+		[new_cr3] "c" (new->md_cr3)
+	: /* clobber */"memory"
 	);
 }
 
