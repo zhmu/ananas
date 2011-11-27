@@ -377,9 +377,6 @@ thread_exit(int exitcode)
 	/* signal anyone waiting on us */
 	handle_signal(thread->thread_handle, THREAD_EVENT_EXIT, thread->terminate_info);
 
-	/* disown the current thread, it is no longer schedulable */
-	PCPU_SET(curthread, NULL);
-
 	/* force a context switch - won't return */
 	schedule();
 }
