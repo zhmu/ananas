@@ -5,12 +5,25 @@
 ^toolchain/build
 ^toolchain/prefix.*
 ^toolchain/.*
+# ignore everything extract in the apps directory XXX this could be done better
+^apps/binutils/binutils-*
+^apps/coreutils/coreutils-*
+^apps/distfiles
+^apps/dash/dash-*
+^apps/gcc/gcc-*
+^apps/make/make-*
+^apps/mpfr/mpfr-*
+^apps/mpc/mpc-*
+^apps/gmp/gmp-*
+^apps/jpeg/jpeg-*
+^apps/.*/build.i386/.*
+^apps/.*/\.*
 # ignore output
-$output/
+^output/
 # ignore generated files for the system call infrastructure
 ^include/syscalls.h$
 ^kernel/kern/syscalls.inc.c$
 ^lib/libc/gen/syscalls.inc.c$
 # ignore object/archive files
-.o$
-.a$
+.*\.o$
+.*\.a$
