@@ -328,7 +328,7 @@ ata_start_dma(device_t dev, struct ATA_REQUEST_ITEM* item)
 
 	/* Program the DMA parts of the PCI bus */
 	outl(dma_io + ATA_PCI_REG_PRI_PRDT, (uint32_t)KVTOP((addr_t)prdt)); /* XXX 32 bit */
-	outw(dma_io + ATA_PCI_REG_PRI_STATUS, ATA_PCI_STAT_IRQ | ATA_PCI_STAT_ERROR);
+	outb(dma_io + ATA_PCI_REG_PRI_STATUS, ATA_PCI_STAT_IRQ | ATA_PCI_STAT_ERROR);
 
 	/* Feed the request to the drive - disk */
 	outb(priv->io_port + ATA_REG_DEVICEHEAD, 0xe0 | (item->unit ? 0x10 : 0) | ((item->lba >> 24) & 0xf));
