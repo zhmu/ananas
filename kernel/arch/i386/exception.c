@@ -37,6 +37,27 @@ exception_nm(struct STACKFRAME* sf)
 }
 
 void
+exception_doublefault()
+{
+	/*
+	 * If we got here, we've stumbled upon a double fault (this is handled
+	 * via a TSS so that we have a stack we can use); we just dump all
+	 * registers and hang in the hope that some of this output will be
+	 * useful... the CPU will have stored (part of) the context in the
+	 * kernel TSS, so that is what we will use.
+	 */
+	extern struct TSS kernel_tss;
+	kprintf("*** DOUBLE FAULT at %x:%x\n", kernel_tss.cs, kernel_tss.eip);
+	kprintf("eax=%08x ebx=%08x ecx=%08x edx=%08x\n", kernel_tss.eax, kernel_tss.ebx, kernel_tss.ecx, kernel_tss.edx);
+	kprintf("esi=%08x edi=%08x ebp=%08x esp=%08x\n", kernel_tss.esi, kernel_tss.edi, kernel_tss.ebp, kernel_tss.esp);
+	kprintf("ds=%04x es=%04x fs=%04x gs=%04x ss=%04x\n", kernel_tss.ds, kernel_tss.es, kernel_tss.fs, kernel_tss.gs, kernel_tss.ss);
+	kprintf("eflags=%x\n", kernel_tss.eflags);
+	kprintf("system halted\n");
+	for(;;);
+}
+
+
+void
 exception_generic(struct STACKFRAME* sf)
 {
 	const char* descr = x86_exception_name(sf->sf_trapno);

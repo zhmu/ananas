@@ -86,8 +86,26 @@
 	p[7] = (((addr_t)addr) >> 24) & 0xff; \
 } while(0);
 
+#define IDT_SET_TASK(num, dpl, addr) do { \
+	uint8_t* p = ((uint8_t*)&idt + num * 8); \
+	/* Segment limit 15:0 */ \
+	p[0] = ((sizeof(struct TSS))     ) & 0xff; \
+	p[1] = ((sizeof(struct TSS)) >> 8) & 0xff; \
+	/* Base address 0:15 */ \
+	p[2] = (((addr_t)addr)      ) & 0xff; \
+	p[3] = (((addr_t)addr) >>  8) & 0xff; \
+	/* Base address 16:23 */ \
+	p[4] = (((addr_t)addr) >> 16) & 0xff; \
+	/* Type, DPL, Present */ \
+	p[5] = SEG_TSKGATE_TYPE | (dpl) << 5 | SEG_GATE_P; \
+	/* Limit 16:19, Granularity */ \
+	p[6] = 0; \
+	/* Base address 24:31 */ \
+	p[7] = (((addr_t)addr) >> 24) & 0xff; \
+} while(0)
+
 #define GET_EFLAGS() ({ \
-		uint32_t eflags; \
+		register uint32_t eflags; \
 		__asm __volatile("pushfl; popl %0" : "=r" (eflags)); \
 		eflags; \
 	})

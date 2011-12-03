@@ -100,6 +100,7 @@
 #define SEG_DB		(1 << 6)	/* default size flag */
 #define SEG_G		(1 << 7)	/* G (granularity) flag */
 
+#define SEG_TSKGATE_TYPE 5		/* Task gate */
 #define SEG_IGATE_TYPE 6		/* Interrupt gate type (disables interrupts) */
 #define SEG_TGATE_TYPE 7		/* Trap gate type (keeps interrupts intact) */
 #define SEG_GATE_D	(1 << 3)	/* Size of gate */
@@ -126,6 +127,8 @@
 #define GDT_SEL_USER_DATA	(GDT_IDX_USER_DATA * 8)
 #define GDT_IDX_KERNEL_TASK	6
 #define GDT_SEL_KERNEL_TASK	(GDT_IDX_KERNEL_TASK * 8)
+#define GDT_IDX_FAULT_TASK	7
+#define GDT_SEL_FAULT_TASK	(GDT_IDX_FAULT_TASK * 8)
 
 #ifndef ASM
 

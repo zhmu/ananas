@@ -34,6 +34,12 @@ extern void *idt, *gdt;
 /* Initial TSS used by the kernel */
 struct TSS kernel_tss;
 
+/* Fault TSS used when handling double faults */
+static struct TSS fault_tss;
+
+/* Bootstrap stack is provided by the stub and re-used when handling double faults */
+extern void* bootstrap_stack;
+
 /* Boot CPU pcpu structure */
 static struct PCPU bsp_pcpu;
 
@@ -149,20 +155,19 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	__asm(
 		/* Set CR3 to the physical address of the page directory */
 		"movl	%%eax, %%cr3\n"
-		"jmp	l1\n"
-"l1:\n"
+		"jmp	1f\n"
+"1:\n"
 		/* Enable paging by flipping the PG bit in CR0 */
 		"movl	%%cr0, %%eax\n"
 		"orl	$0x80000000, %%eax\n"
 		"movl	%%eax, %%cr0\n"
-		"jmp	l2\n"
-"l2:\n"
+		"jmp	2f\n"
+"2:\n"
 		/* Finally, jump to our virtual address */
-		"movl	$l3, %%eax\n"
-		"push	%%eax\n"
-		"ret\n"
-"l3:\n"
-		/* Update ESP/EBP to use the new virtual addresses */
+		"movl	$3f, %%eax\n"
+		"jmp	*%%eax\n"
+"3:\n"
+		/* Update %esp/%ebp to use the new virtual addresses */
 		"addl	%%ebx, %%esp\n"
 		"addl	%%ebx, %%ebp\n"
 	: : "a" (pd), "b" (KERNBASE));
@@ -182,14 +187,13 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * launched.
 	 */
 	md_remove_low_mappings();
-#endif
-
 	__asm(
 		/* Reload the page directory */
 		"movl	%%eax, %%cr3\n"
-		"jmp	l4\n"
-"l4:\n"
+		"jmp	1f\n"
+"1:\n"
 	: : "a" (pd));
+#endif
 
 	/*
 	 * The next step is to set up the Global Descriptor Table (GDT); this is
@@ -209,6 +213,7 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	GDT_SET_ENTRY32(&gdt, GDT_IDX_USER_CODE,     SEG_TYPE_CODE, SEG_DPL_USER,       0, 0xfffff);
 	GDT_SET_ENTRY32(&gdt, GDT_IDX_USER_DATA,     SEG_TYPE_DATA, SEG_DPL_USER,       0, 0xfffff);
 	GDT_SET_TSS(&gdt, GDT_IDX_KERNEL_TASK, 0, (addr_t)&kernel_tss, sizeof(struct TSS));
+	GDT_SET_TSS(&gdt, GDT_IDX_FAULT_TASK,  0, (addr_t)&fault_tss,  sizeof(struct TSS));
 
 	MAKE_RREGISTER(gdtr, &gdt, GDT_NUM_ENTRIES);
 
@@ -220,9 +225,9 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 		"mov %%dx, %%fs\n"
 		"mov %%bx, %%gs\n"
 		"pushl %%ecx\n"
-		"pushl $l5\n"
+		"pushl $1f\n"
 		"lret\n"		/* retf */
-"l5:\n"
+"1:\n"
 	: : "a" (&gdtr),
  	    "b" (GDT_SEL_KERNEL_DATA),
 	    "c" (GDT_SEL_KERNEL_CODE),
@@ -250,8 +255,8 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	IDT_SET_ENTRY(0x05, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception5);
 	IDT_SET_ENTRY(0x06, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception6);
 	IDT_SET_ENTRY(0x07, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception7);
-	/* Double fault must disable interrupts as well to increase odds of it running till the end */
-	IDT_SET_ENTRY(0x08, SEG_IGATE_TYPE, SEG_DPL_SUPERVISOR, exception8);
+	/* Double fault exceptions are implemented by switching to the 'fault' task */
+	IDT_SET_TASK (0x08, SEG_DPL_SUPERVISOR, GDT_SEL_FAULT_TASK);
 	IDT_SET_ENTRY(0x09, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception9);
 	IDT_SET_ENTRY(0x0a, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception10);
 	IDT_SET_ENTRY(0x0b, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, exception11);
@@ -300,6 +305,29 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	__asm(
 		"lidt (%%eax)\n"
 	: : "a" (&idtr));
+
+	/*
+	 * Set up the fault TSS: this is the 'task' that will be activated when
+	 * a double fault triggers. We need a task for this because this will
+	 * allow us to reload any register without having to rely on a stack
+ 	 * being available.
+	 */
+	void exception_doublefault();
+	memset(&fault_tss, 0, sizeof(struct TSS));
+	fault_tss.esp  = (addr_t)&bootstrap_stack;
+	fault_tss.esp0 = fault_tss.esp;
+	fault_tss.esp1 = fault_tss.esp;
+	fault_tss.esp2 = fault_tss.esp;
+	fault_tss.ss  = GDT_SEL_KERNEL_DATA;
+	fault_tss.ss0 = GDT_SEL_KERNEL_DATA;
+	fault_tss.ss1 = GDT_SEL_KERNEL_DATA + 1;
+	fault_tss.ss2 = GDT_SEL_KERNEL_DATA + 2;
+	fault_tss.cs  = GDT_SEL_KERNEL_CODE;
+	fault_tss.ds  = GDT_SEL_KERNEL_DATA;
+	fault_tss.es  = GDT_SEL_KERNEL_DATA;
+	fault_tss.fs  = GDT_SEL_KERNEL_PCPU;
+	fault_tss.eip = (addr_t)&exception_doublefault;
+	fault_tss.cr3 = (addr_t)pd;
 
 	/*
 	 * Load the kernel TSS - we need this once we are going to transition between

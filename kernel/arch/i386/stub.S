@@ -8,7 +8,7 @@
 #include <ananas/bootinfo.h>
 #include "options.h"
 
-.global __entry, idt, gdt
+.global __entry, idt, gdt, bootstrap_stack
 
 /* Macro used to reallocate a virtual address to physical */
 #define R(x) ((x) - KERNBASE)
@@ -40,7 +40,7 @@ __entry:
 no_bootinfo:
 
 	/* don't trust what the bootloader gives us, set up a stack */
-	mov	$R(KERNEL_STACK), %esp
+	mov	$R(bootstrap_stack), %esp
 
 #ifdef OPTION_DEBUG_CONSOLE
 	/* make sure we have a debugger console available immediately */
@@ -54,7 +54,7 @@ no_bootinfo:
 .align 32
 
 	.space	0x2000
-KERNEL_STACK:
+bootstrap_stack:
 
 /*
  * Reserve space for the Global Descriptor Table / Interrupt Descriptor tables.

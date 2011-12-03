@@ -14,7 +14,7 @@
 #define USERLAND_STACK_ADDR	0xa000
 
 /* Number of Global Descriptor Table entries */
-#define GDT_NUM_ENTRIES		7
+#define GDT_NUM_ENTRIES		8
 
 /* Number of Interrupt Descriptor Table entries */
 #define IDT_NUM_ENTRIES		256
