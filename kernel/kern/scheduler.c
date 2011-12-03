@@ -97,17 +97,20 @@ schedule()
 static errorcode_t
 scheduler_launch()
 {
-	thread_t* idle_thread = PCPU_GET(idlethread_ptr);
-	void (*idle_func)(void) = (void*)idle_thread->md_eip; /* XXX */
+	thread_t* idlethread = PCPU_GET(idlethread_ptr);
 
-	/* Enable the idle thread */
-	PCPU_SET(curthread, idle_thread);
-	idle_thread->flags |= THREAD_FLAG_ACTIVE;
+	/*
+	 * Activate the idle thread and bootstrap it; the bootstrap code will do the
+	 * appropriate code/stack switching bits. All we need to do is set up the
+	 * scheduler enough so that it accepts our idle thread.
+	 */
+	md_interrupts_disable();
+	PCPU_SET(curthread, idlethread);
+	idlethread->flags |= THREAD_FLAG_ACTIVE;
 
-	/* Run it! */
+	/* Run it */
 	scheduler_active++;
-	idle_func();
-	panic("idle thread exited");
+	md_thread_bootstrap(idlethread);
 
 	/* NOTREACHED */
 	return ANANAS_ERROR_OK;
