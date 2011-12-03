@@ -39,10 +39,8 @@ struct BIO {
 	void*		  data;		/* Pointer to BIO data */
 	struct WAIT_QUEUE wq;		/* Waiter queue for this BIO */
 
-	struct BIO*	chain_prev;	/* Previous BIO in chain (free/used list)*/
-	struct BIO*	chain_next;	/* Next BIO in chain (free/used list) */
-	struct BIO*	bucket_prev;	/* Previous BIO in bucket */
-	struct BIO*	bucket_next;	/* Next BIO in bucket */
+	DQUEUE_FIELDS_IT(struct BIO, chain);	/* Chain queue */
+	DQUEUE_FIELDS_IT(struct BIO, bucket);	/* Bucket queue */
 };
 
 /* Flags of BIO_READ */
