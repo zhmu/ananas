@@ -41,6 +41,8 @@ handle_init()
 		struct HANDLE* h = &pool[i];
 		DQUEUE_ADD_TAIL(&handle_freelist, h);
 		spinlock_init(&h->spl_handle);
+		for (unsigned int n = 0; n < HANDLE_MAX_WAITERS; n++)
+			waitqueue_init(&h->waiters[n].wq);
 	}
 
 	/* Store the handle pool range; this allows us to quickly verify whether a handle is valid */
@@ -131,6 +133,8 @@ handle_destroy(struct HANDLE* handle, int free_resources)
 			ANANAS_ERROR_RETURN(err);
 		}
 	}
+
+	/* XXX Should we revoke all waiters too? */
 
 	/* Clear the handle */
 	memset(&handle->data, 0, sizeof(handle->data));
@@ -228,11 +232,12 @@ handle_wait(thread_t* thread, struct HANDLE* handle, handle_event_t* event, hand
 	handle->waiters[waiter_id].thread = thread;
 	handle->waiters[waiter_id].event_mask = *event;
 	handle->waiters[waiter_id].event_reported = 0;
+	struct WAITER* w = waitqueue_add(&handle->waiters[waiter_id].wq);
 	spinlock_unlock(&handle->spl_handle);
 
 	/* Now, we wait - handle_signal will wake us when the time comes */
-	thread_suspend(thread);
-	reschedule();
+	waitqueue_wait(w);
+	waitqueue_remove(w);
 
 	/* Obtain the result */
 	spinlock_lock(&handle->spl_handle);
@@ -259,7 +264,7 @@ handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t
 
 		handle->waiters[waiter_id].event_reported = event;
 		handle->waiters[waiter_id].result = result;
-		thread_resume(handle->waiters[waiter_id].thread);
+		waitqueue_signal(&handle->waiters[waiter_id].wq);
 	}
 	spinlock_unlock(&handle->spl_handle);
 	TRACE(HANDLE, INFO, "done");

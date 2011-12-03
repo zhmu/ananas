@@ -3,6 +3,7 @@
 
 #include <ananas/lock.h>
 #include <ananas/dqueue.h>
+#include <ananas/waitqueue.h>
 #include <ananas/vfs/types.h>
 
 typedef unsigned int handle_event_t;
@@ -25,6 +26,7 @@ struct HANDLE_OPS;
 /* Waiters are threads waiting for an event on a thread */
 struct HANDLE_WAITER {
 	struct THREAD* thread;
+	struct WAIT_QUEUE wq;
 	int event;
 	handle_event_t event_mask;
 	handle_event_t event_reported;
