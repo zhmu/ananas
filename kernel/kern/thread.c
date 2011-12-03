@@ -520,6 +520,14 @@ thread_unregister_exit_func(struct THREAD_CALLBACK* fn)
 	return ANANAS_ERROR_OK;
 }
 
+void
+idle_thread()
+{
+	while(1) {
+		md_cpu_relax();
+	}
+}
+
 #ifdef OPTION_KDB
 extern struct THREAD* kdb_curthread;
 
