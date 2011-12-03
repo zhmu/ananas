@@ -13,9 +13,6 @@
 /* Virtual address of the per-thread userland stack */
 #define USERLAND_STACK_ADDR	0xa000
 
-/* Virtual address of the per-thread kernel stack */
-#define KERNEL_STACK_ADDR	0xb8000000
-
 /* Number of Global Descriptor Table entries */
 #define GDT_NUM_ENTRIES		7
 
