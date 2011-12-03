@@ -86,10 +86,8 @@ md_thread_free(thread_t* t)
 	if ((t->flags & THREAD_FLAG_KTHREAD) == 0) {
 		vm_free_pagedir(t->md_pagedir);
 		kmem_free(t->md_stack);
-		kfree(t->md_kstack);
-	} else {
-		kfree(t->md_kstack);
 	}
+	kfree(t->md_kstack);
 }
 
 void
@@ -100,6 +98,10 @@ md_thread_switch(thread_t* new, thread_t* old)
 	KASSERT(new != old, "switching to self?");
 	KASSERT((old->flags & THREAD_FLAG_ACTIVE) == 0, "old thread is running?");
 	KASSERT((new->flags & THREAD_FLAG_ACTIVE), "new thread isn't running?");
+
+	/* XXX Safety nets to ensure we won't restore a bogus stack */
+	KASSERT(new->md_esp > (addr_t)new->md_kstack, "new=%p(%s) esp %p underflow (%p)", new, new->threadinfo->ti_args, new->md_esp, new->md_kstack);
+	KASSERT(new->md_esp < ((addr_t)new->md_kstack + KERNEL_STACK_SIZE), "new=%p esp %p overflow (%p)", new, new->md_esp, new->md_kstack + KERNEL_STACK_SIZE);
 
 	/* Activate the corresponding kernel stack in the TSS */
 	struct TSS* tss = (struct TSS*)PCPU_GET(tss);
@@ -112,9 +114,8 @@ md_thread_switch(thread_t* new, thread_t* old)
 	DR_SET(3, new->md_dr[3]);
 	DR_SET(7, new->md_dr[7]);
 
-	/* XXX Safety nets to ensure we won't restore a bogus stack */
-	KASSERT(new->md_esp > (addr_t)new->md_kstack, "new=%p(%s) esp %p underflow (%p)", new, new->threadinfo->ti_args, new->md_esp, new->md_kstack);
-	KASSERT(new->md_esp < ((addr_t)new->md_kstack + KERNEL_STACK_SIZE), "new=%p esp %p overrflow (%p)", new, new->md_esp, new->md_kstack + KERNEL_STACK_SIZE);
+	/* Switch to the new page table */
+	__asm __volatile("movl %0, %%cr3" : : "r" (new->md_cr3));
 
 	/*
 	 * Switch to the new thread; as this will only happen in kernel -> kernel
@@ -132,7 +133,6 @@ md_thread_switch(thread_t* new, thread_t* old)
 		"movl %%esp,%[old_esp]\n" /* store old %esp */
 		"movl %[new_esp], %%esp\n" /* write new %esp */
 		"movl $1f, %[old_eip]\n" /* write next %eip for old thread */
-		"movl %[new_cr3], %%cr3\n"
 		"pushl %[new_eip]\n" /* load next %eip for new thread */
 		"ret\n"
 	"1:\n" /* we are back */
@@ -143,8 +143,7 @@ md_thread_switch(thread_t* new, thread_t* old)
 		/* clobbered registers */
 		"=b" (ebx), "=c" (ecx), "=d" (edx), "=S" (esi), "=D" (edi)
 	: /* in */
-		[new_eip] "a" (new->md_eip), [new_esp] "b" (new->md_esp),
-		[new_cr3] "c" (new->md_cr3)
+		[new_eip] "a" (new->md_eip), [new_esp] "b" (new->md_esp)
 	: /* clobber */"memory"
 	);
 }
@@ -217,6 +216,8 @@ md_thread_set_argument(thread_t* thread, addr_t arg)
 void
 md_thread_clone(thread_t* t, thread_t* parent, register_t retval)
 {
+	KASSERT(PCPU_GET(curthread) == parent, "must clone active thread");
+
 	/* Restore the thread's own page directory */
 	t->md_cr3 = KVTOP((addr_t)t->md_pagedir);
 
@@ -229,13 +230,11 @@ md_thread_clone(thread_t* t, thread_t* parent, register_t retval)
 	 * caller. The user stackframe is important as it will allow the new thread
 	 * to return correctly from the clone syscall.
 	 */
-	void* ustack_src = vm_map_kernel((addr_t)parent->md_stack, THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ);
-	void* ustack_dst = vm_map_kernel((addr_t)t     ->md_stack, THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
-	memcpy(ustack_dst, ustack_src, THREAD_STACK_SIZE);
-	vm_unmap_kernel((addr_t)ustack_dst, THREAD_STACK_SIZE / PAGE_SIZE);
-	vm_unmap_kernel((addr_t)ustack_src, THREAD_STACK_SIZE / PAGE_SIZE);
+	void* ustack = vm_map_kernel((addr_t)t->md_stack, THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
+	memcpy(ustack, (void*)USERLAND_STACK_ADDR, THREAD_STACK_SIZE);
+	vm_unmap_kernel((addr_t)ustack, THREAD_STACK_SIZE / PAGE_SIZE);
 
-	/* Copy kernel stack over */
+	/* Copy kernel stack over; this is easier since it is always mapped */
 	memcpy(t->md_kstack, parent->md_kstack, KERNEL_STACK_SIZE);
 
 	/*
