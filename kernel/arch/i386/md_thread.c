@@ -12,6 +12,7 @@
 #include <ananas/mm.h>
 #include <ananas/pcpu.h>
 #include <ananas/thread.h>
+#include <ananas/threadinfo.h>
 #include <ananas/vm.h>
 #include "options.h"
 
@@ -21,21 +22,26 @@ void userland_trampoline();
 void kthread_trampoline();
 extern uint32_t* kernel_pd;
 
-static errorcode_t
-md_thread_setup(thread_t* t)
+errorcode_t
+md_thread_init(thread_t* t)
 {
+	/* Create a pagedirectory and map the kernel pages in there */
+	t->md_pagedir = kmalloc(PAGE_SIZE);
 	memset(t->md_pagedir, 0, PAGE_SIZE);
 	vm_map_kernel_addr(t->md_pagedir);
 
+	/* Allocate stacks: one for the thread and one for the kernel */
+	t->md_stack  = kmem_alloc(THREAD_STACK_SIZE / PAGE_SIZE);
+	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
+	t->md_eip = (addr_t)&userland_trampoline;
+
 	/* Perform adequate mapping for the userland stack */
 	md_map_pages(t->md_pagedir, USERLAND_STACK_ADDR, KVTOP((addr_t)t->md_stack),  THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_USER);
-	md_map_pages(t->md_pagedir, KERNEL_STACK_ADDR,   KVTOP((addr_t)t->md_kstack), KERNEL_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
-	t->md_kstack_ptr = NULL;
 
-	/* Fill our the %esp and %cr3 fields */
-	t->md_esp = (addr_t)USERLAND_STACK_ADDR + THREAD_STACK_SIZE;
+	/* Fill our the %esp and %cr3 fields; we'll be started in supervisor mode, so use the appropriate stack */
 	t->md_cr3 = KVTOP((addr_t)t->md_pagedir);
-	t->md_esp0 = (addr_t)KERNEL_STACK_ADDR + KERNEL_STACK_SIZE - 4;
+	t->md_esp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE - 4;
+	t->md_esp = t->md_esp0;
 
 	/* initialize FPU state similar to what finit would do */
 	t->md_fpu_ctx.cw = 0x37f;
@@ -43,20 +49,6 @@ md_thread_setup(thread_t* t)
 
 	t->next_mapping = 1048576;
 	return ANANAS_ERROR_OK;
-}
-
-errorcode_t
-md_thread_init(thread_t* t)
-{
-	/* Create a pagedirectory and map the kernel pages in there */
-	t->md_pagedir = kmalloc(PAGE_SIZE);
-
-	/* Allocate stacks: one for the thread and one for the kernel */
-	t->md_stack  = kmem_alloc(THREAD_STACK_SIZE / PAGE_SIZE);
-	t->md_kstack = kmem_alloc(KERNEL_STACK_SIZE / PAGE_SIZE);
-	t->md_eip = (addr_t)&userland_trampoline;
-
-	return md_thread_setup(t);
 }
 
 errorcode_t
@@ -73,8 +65,8 @@ md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
 	 * stack. We do not differentiate between kernel and userland stacks as
 	 * no kernelthread ever runs userland code.
 	 */
-	t->md_kstack_ptr = kmalloc(KERNEL_STACK_SIZE);
-	t->md_esp = (addr_t)t->md_kstack_ptr + KERNEL_STACK_SIZE - 4;
+	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
+	t->md_esp = (addr_t)t->md_kstack + KERNEL_STACK_SIZE - 4;
 	return ANANAS_ERROR_OK;
 }
 
@@ -94,9 +86,9 @@ md_thread_free(thread_t* t)
 	if ((t->flags & THREAD_FLAG_KTHREAD) == 0) {
 		vm_free_pagedir(t->md_pagedir);
 		kmem_free(t->md_stack);
-		kmem_free(t->md_kstack);
+		kfree(t->md_kstack);
 	} else {
-		kfree(t->md_kstack_ptr);
+		kfree(t->md_kstack);
 	}
 }
 
@@ -106,6 +98,8 @@ md_thread_switch(thread_t* new, thread_t* old)
 	KASSERT(md_interrupts_save() == 0, "interrupts must be disabled");
 	KASSERT((new->flags & THREAD_FLAG_ZOMBIE) == 0, "cannot switch to a zombie thread");
 	KASSERT(new != old, "switching to self?");
+	KASSERT((old->flags & THREAD_FLAG_ACTIVE) == 0, "old thread is running?");
+	KASSERT((new->flags & THREAD_FLAG_ACTIVE), "new thread isn't running?");
 
 	/* Activate the corresponding kernel stack in the TSS */
 	struct TSS* tss = (struct TSS*)PCPU_GET(tss);
@@ -117,6 +111,10 @@ md_thread_switch(thread_t* new, thread_t* old)
 	DR_SET(2, new->md_dr[2]);
 	DR_SET(3, new->md_dr[3]);
 	DR_SET(7, new->md_dr[7]);
+
+	/* XXX Safety nets to ensure we won't restore a bogus stack */
+	KASSERT(new->md_esp > (addr_t)new->md_kstack, "new=%p(%s) esp %p underflow (%p)", new, new->threadinfo->ti_args, new->md_esp, new->md_kstack);
+	KASSERT(new->md_esp < ((addr_t)new->md_kstack + KERNEL_STACK_SIZE), "new=%p esp %p overrflow (%p)", new, new->md_esp, new->md_kstack + KERNEL_STACK_SIZE);
 
 	/*
 	 * Switch to the new thread; as this will only happen in kernel -> kernel
@@ -149,6 +147,24 @@ md_thread_switch(thread_t* new, thread_t* old)
 		[new_cr3] "c" (new->md_cr3)
 	: /* clobber */"memory"
 	);
+}
+
+void
+md_thread_bootstrap(thread_t* new)
+{
+	KASSERT(md_interrupts_save() == 0, "interrupts must be disabled");
+	KASSERT((new->flags & THREAD_FLAG_ACTIVE) != 0, "must switch to active thread");
+	KASSERT((new->flags & THREAD_FLAG_KTHREAD) != 0, "must switch to kernel thread");
+	KASSERT(PCPU_GET(curthread) == new, "must switch to active thread");
+
+	__asm __volatile(
+		"movl %[new_esp], %%esp\n" /* write new %esp */
+		"jmp *%[new_eip]\n"
+	: : /* in */
+		[new_eip] "r" (new->md_eip), [new_esp] "b" (new->md_esp)
+	);
+
+	/* NOTREACHED */
 }
 
 void*
@@ -220,17 +236,13 @@ md_thread_clone(thread_t* t, thread_t* parent, register_t retval)
 	vm_unmap_kernel((addr_t)ustack_src, THREAD_STACK_SIZE / PAGE_SIZE);
 
 	/* Copy kernel stack over */
-	void* kstack_src = vm_map_kernel((addr_t)parent->md_kstack, KERNEL_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ);
-	void* kstack_dst = vm_map_kernel((addr_t)t     ->md_kstack, KERNEL_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
-	memcpy(kstack_dst, kstack_src, KERNEL_STACK_SIZE);
-	vm_unmap_kernel((addr_t)kstack_dst, KERNEL_STACK_SIZE / PAGE_SIZE);
-	vm_unmap_kernel((addr_t)kstack_src, KERNEL_STACK_SIZE / PAGE_SIZE);
+	memcpy(t->md_kstack, parent->md_kstack, KERNEL_STACK_SIZE);
 
 	/*
 	 * Handle returning to the new thread; this just cancels the system call
 	 * and overrides the return value.
 	 */
-	t->md_esp = parent->md_esp;
+	t->md_esp = (addr_t)t->md_kstack + ((addr_t)parent->md_esp - (addr_t)parent->md_kstack);
 	t->md_eip = (addr_t)&clone_return;
 	t->md_arg1 = retval;
 }

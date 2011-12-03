@@ -102,9 +102,11 @@ struct FPUREGS {
 	struct FPUREGS	md_fpu_ctx __attribute__ ((aligned(16))); \
 	void*		md_pagedir; \
 	void*		md_stack; \
-	void*		md_kstack; \
-	void*		md_kstack_ptr;
+	void*		md_kstack;
 
 void md_restore_ctx(struct CONTEXT* ctx);
+
+#define md_cpu_relax() \
+	__asm __volatile("hlt")
 
 #endif /* __I386_THREAD_H__ */

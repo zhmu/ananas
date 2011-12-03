@@ -10,7 +10,7 @@
 .globl irq10, irq11, irq12, irq13, irq14, irq15
 .globl scheduler_irq, syscall_int, spurious_irq
 .globl clone_return
-.globl userland_trampoline, md_idle_thread, kthread_trampoline
+.globl userland_trampoline, kthread_trampoline
 
 #include "options.h"
 #include "machine/param.h"
@@ -357,7 +357,7 @@ kthread_trampoline:
 
 	/* Call the kthread code with interrupts enabled */
 	pushl	$0x200
-	pushl	$8
+	pushl	$GDT_SEL_KERNEL_CODE
 	pushl	%eax
 	iret
 
@@ -367,23 +367,14 @@ userland_trampoline:
 	movl	T_ARG1(%ebx), %eax		/* eax = eip */
 	movl	T_ARG2(%ebx), %esi		/* esi = arg */
 
-	movl	%esp, %ecx
-
 	/* Set up %ds/%es to point to the userland segments */
 	movl	$(GDT_SEL_USER_DATA + 3), %edx
 	movl	%dx, %ds
 	movl	%dx, %es
 	
-	pushl	%edx				/* ss */
-	pushl	%ecx				/* esp */
-	pushl	$0x200				/* eflags */
-	pushl	$(GDT_SEL_USER_CODE + 3)	/* cs */
-	pushl	%eax				/* eip */
+	pushl	$(GDT_SEL_USER_DATA + 3)			/* ss */
+	pushl	$(USERLAND_STACK_ADDR + THREAD_STACK_SIZE)	/* esp */
+	pushl	$0x200					/* eflags */
+	pushl	$(GDT_SEL_USER_CODE + 3)		/* cs */
+	pushl	%eax					/* eip */
 	iret
-
-/*
- * This is our idle thread; it just waits for an interrupt.
- */
-md_idle_thread:
-	hlt
-	jmp	md_idle_thread
