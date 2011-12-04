@@ -1,3 +1,14 @@
+/*
+ * This contains the scheduler; it has two queues: a runqueue (containing all
+ * threads that can run) and a sleepqueue (threads which cannot run). The
+ * current thread is never on either of these queues; the reason is that the
+ * administration of threads is distinct from the scheduler, and having the
+ * scheduler re-add a thread that has expired its timeslice back to the
+ * runqueue avoids nasty races (as well as being much easier to follow)
+ *
+ * Finally, the idle thread is neither in the runqueue nor in the sleepqueue;
+ * it will be chosen when nothing else is available.
+ */
 #include <machine/thread.h>
 #include <machine/interrupts.h>
 #include <ananas/error.h>
@@ -14,48 +25,62 @@
 static int scheduler_active = 0;
 
 static spinlock_t spl_scheduler = SPINLOCK_DEFAULT_INIT;
-static struct SCHEDULER_QUEUE sched_queue;
+static struct SCHEDULER_QUEUE sched_runqueue;
+static struct SCHEDULER_QUEUE sched_sleepqueue;
 
 void
 scheduler_init_thread(thread_t* t)
 {
 	t->sched_priv.sp_thread = t;
+
+	/* Hook the thread to our sleepqueue */
+	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
+	DQUEUE_ADD_TAIL(&sched_sleepqueue, &t->sched_priv);
+	spinlock_unlock_unpremptible(&spl_scheduler, state);
+}
+
+void
+scheduler_cleanup_thread(thread_t* t)
+{
+	/*
+	 * We need to remove the thread from the sleepqueue; it cannot be on the
+	 * running queue as the thread must be a zombie once this is called.
+	 */
+	KASSERT(t->flags & THREAD_FLAG_ZOMBIE, "cleaning up non-zombie thread");
+	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
+	DQUEUE_REMOVE(&sched_sleepqueue, &t->sched_priv);
+	spinlock_unlock_unpremptible(&spl_scheduler, state);
 }
 
 void
 scheduler_add_thread(thread_t* t)
 {
-	KASSERT((t->flags & THREAD_FLAG_SUSPENDED) == 0, "scheduling suspend thread %p", t);
+	KASSERT((t->flags & THREAD_FLAG_SUSPENDED) == 0, "adding suspend thread %p", t);
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
-	/* First of all, see if it's already in the list - this is a bug */
-	if (!DQUEUE_EMPTY(&sched_queue))
-		DQUEUE_FOREACH(&sched_queue, s, struct SCHED_PRIV) {
-			KASSERT(s->sp_thread != t, "thread %p already in queue", t);
-		}
-	DQUEUE_ADD_TAIL(&sched_queue, &t->sched_priv);
+	/* Remove the thread from the sleepqueue ... */
+	DQUEUE_REMOVE(&sched_sleepqueue, &t->sched_priv);
+	/* ... and add it to the runqueue */
+	DQUEUE_ADD_TAIL(&sched_runqueue, &t->sched_priv);
 	spinlock_unlock_unpremptible(&spl_scheduler, state);
 }
 
 void
 scheduler_remove_thread(thread_t* t)
 {
+	KASSERT((t->flags & THREAD_FLAG_SUSPENDED) != 0, "removing non-suspended thread %p", t);
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
-	if (!DQUEUE_EMPTY(&sched_queue))
-		DQUEUE_FOREACH(&sched_queue, s, struct SCHED_PRIV) {
-			if (s->sp_thread == t) {
-				DQUEUE_REMOVE(&sched_queue, s);
-				spinlock_unlock_unpremptible(&spl_scheduler, state);
-				return;
-			}
-		}
+	/* Remove the thread from the runqueue ... */
+	DQUEUE_REMOVE(&sched_runqueue, &t->sched_priv);
+	/* ... and add it to the sleepqueue */
+	DQUEUE_ADD_TAIL(&sched_sleepqueue, &t->sched_priv);
 	spinlock_unlock_unpremptible(&spl_scheduler, state);
-	panic("thread %p not in queue", t);
 }
 
 void
 schedule()
 {
 	thread_t* curthread = PCPU_GET(curthread);
+	thread_t* idle_thread = PCPU_GET(idlethread_ptr);
 
 	/* Cancel any rescheduling as we are about to schedule here */
 	if (curthread != NULL)
@@ -64,29 +89,41 @@ schedule()
 	/* Pick the next thread to schedule and add it to the back of the queue */
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
 	KASSERT(state, "irq's must be enabled at this point");
-	struct SCHED_PRIV* next_sched = NULL;
-	if (!DQUEUE_EMPTY(&sched_queue)) {
-		next_sched = DQUEUE_HEAD(&sched_queue);
-		DQUEUE_POP_HEAD(&sched_queue);
-		DQUEUE_ADD_TAIL(&sched_queue, next_sched);
-	}
-	/* Now unlock the scheduler lock but do _not_ enable interrupts */
-	spinlock_unlock(&spl_scheduler);
-
-	/* If there was no thread or the thread is already running, revert to idle */
-	if (next_sched == NULL || (next_sched->sp_thread->flags & THREAD_FLAG_ACTIVE)) {
-		next_sched = &((thread_t*)PCPU_GET(idlethread_ptr))->sched_priv;
+	struct SCHED_PRIV* next_sched;
+	if (!DQUEUE_EMPTY(&sched_runqueue)) {
+		next_sched = DQUEUE_HEAD(&sched_runqueue);
+		DQUEUE_POP_HEAD(&sched_runqueue);
+	} else {
+		/* If there was no thread, revert to idle */
+		next_sched = &idle_thread->sched_priv;
 	}
 
 	/* Sanity checks */
 	thread_t* newthread = next_sched->sp_thread;
 	KASSERT((newthread->flags & THREAD_FLAG_SUSPENDED) == 0, "activating suspended thread %p", newthread);
-	if (curthread != NULL)
+	if (curthread != NULL) {
+		/*
+		 * If the current thread is not suspended, this means it got interrupted
+		 * involuntary and must be placed back on the running queue; otherwise it
+		 * must have been placed on the runqueue already.
+		 *
+		 * We must also take care not to re-add zombie threads; these cannot be
+		 * run. The same goes for the idle-thread as it will be chosen if the
+		 * runqueue is empty - it makes no sense to schedule idle-time.
+		 */
+		if (((curthread->flags & (THREAD_FLAG_SUSPENDED | THREAD_FLAG_ZOMBIE)) == 0) &&
+		   curthread != idle_thread)
+			DQUEUE_ADD_TAIL(&sched_runqueue, &curthread->sched_priv);
 		curthread->flags &= ~THREAD_FLAG_ACTIVE;
+	}
 
 	/* Schedule our new thread - this will enable interrupts as required */
 	newthread->flags |= THREAD_FLAG_ACTIVE;
 	PCPU_SET(curthread, newthread);
+
+	/* Now unlock the scheduler lock but do _not_ enable interrupts */
+	spinlock_unlock(&spl_scheduler);
+
 	if (curthread != newthread)
 		md_thread_switch(newthread, curthread);
 
@@ -140,10 +177,22 @@ scheduler_activated()
 void
 kdb_cmd_scheduler(int num_args, char** arg)
 {
-	if (!DQUEUE_EMPTY(&sched_queue))
-		DQUEUE_FOREACH(&sched_queue, s, struct SCHED_PRIV) {
-			kprintf("thread %p\n", s->sp_thread);
+	kprintf("runqueue\n");
+	if (!DQUEUE_EMPTY(&sched_runqueue)) {
+		DQUEUE_FOREACH(&sched_runqueue, s, struct SCHED_PRIV) {
+			kprintf("  thread %p\n", s->sp_thread);
 		}
+	} else {
+		kprintf("(empty)\n");
+	}
+	kprintf("sleepqueue\n");
+	if (!DQUEUE_EMPTY(&sched_sleepqueue)) {
+		DQUEUE_FOREACH(&sched_sleepqueue, s, struct SCHED_PRIV) {
+			kprintf("  thread %p\n", s->sp_thread);
+		}
+	} else {
+		kprintf("(empty)\n");
+	}
 }
 #endif /* OPTION_KDB */
 

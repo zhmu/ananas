@@ -147,9 +147,7 @@ thread_free_mappings(thread_t* t)
 void
 thread_free(thread_t* t)
 {
-	/* If the thread is already freed, do not bother */
-	if (t->flags & THREAD_FLAG_ZOMBIE)
-		return;
+	KASSERT((t->flags & THREAD_FLAG_ZOMBIE) == 0, "freeing zombie thread %p", t);
 
 	/*
 	 * Free all handles in use by the thread. Note that we must not free the thread
@@ -184,10 +182,6 @@ thread_free(thread_t* t)
 	/* Thread is alive, yet lingering... */
 	t->flags |= THREAD_FLAG_ZOMBIE;
 
-	/* If the thread was on the scheduler queue, remove it */
-	if ((t->flags & THREAD_FLAG_SUSPENDED) == 0)
-		scheduler_remove_thread(t);
-
 	/* Run all thread exit callbacks */
 	if (!DQUEUE_EMPTY(&threadcallbacks_exit))
 		DQUEUE_FOREACH(&threadcallbacks_exit, tc, struct THREAD_CALLBACK) {
@@ -198,10 +192,14 @@ thread_free(thread_t* t)
 void
 thread_destroy(thread_t* t)
 {
+	KASSERT(PCPU_GET(curthread) != t, "thread_destroy() on current thread");
 	KASSERT(t->flags & THREAD_FLAG_ZOMBIE, "thread_destroy() on a non-zombie thread");
 
 	/* Free the machine-dependant bits */
 	md_thread_free(t);
+
+	/* Remove the thread from the scheduler queue */
+	scheduler_cleanup_thread(t);
 
 	/* Remove the queue from our queue */
 	spinlock_lock(&spl_threadqueue);
@@ -339,17 +337,24 @@ void
 thread_suspend(thread_t* t)
 {
 	TRACE(THREAD, FUNC, "t=%p", t);
-	if (t == NULL || (t->flags & THREAD_FLAG_SUSPENDED) != 0)
-		return;
+	KASSERT((t->flags & THREAD_FLAG_SUSPENDED) == 0, "suspending suspended thread %p", t);
+	t->flags |= THREAD_FLAG_SUSPENDED;	
 	scheduler_remove_thread(t);
-	t->flags |= THREAD_FLAG_SUSPENDED;
 }
 
 void
 thread_resume(thread_t* t)
 {
 	TRACE(THREAD, FUNC, "t=%p", t);
-	if (t == NULL || (t->flags & THREAD_FLAG_SUSPENDED) == 0)
+	if (t == NULL)
+		return; /* this happens in early boot */
+	/*
+	 * Ignore a resume request for an unsuspended thread; it may be that the
+	 * thread never slept in the first place because the event it was waiting for
+	 * immediately occured; it's possible to do this check in the caller, but that
+	 * is cumbersome and has no real benefit...
+	 */
+	if ((t->flags & THREAD_FLAG_SUSPENDED) == 0)
 		return;
 	KASSERT((t->flags & THREAD_FLAG_TERMINATING) == 0, "resuming terminating thread %p", t);
 	t->flags &= ~THREAD_FLAG_SUSPENDED;
