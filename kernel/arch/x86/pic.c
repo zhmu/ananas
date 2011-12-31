@@ -1,8 +1,27 @@
 #include <ananas/x86/io.h>
 #include <ananas/x86/pic.h>
+#include <ananas/irq.h>
+#include <ananas/lib.h>
+
+static errorcode_t pic_mask(struct IRQ_SOURCE* is, int no);
+static errorcode_t pic_unmask(struct IRQ_SOURCE* is, int no);
+static void pic_ack(struct IRQ_SOURCE* is, int no);
+
+static struct IRQ_SOURCE pic_source = {
+	.is_first = 0,
+	.is_count = 15,
+	.is_mask = pic_mask,
+	.is_unmask = pic_unmask,
+	.is_ack = pic_ack
+};
 
 void
-x86_pic_remap() {
+x86_pic_init() {
+	/*
+	 * Remap the interrupts; by default, IRQ 0-7 are mapped to interrupts 0x08 -
+	 * 0x0f and IRQ 8-15 to 0x70 - 0x77. We remap IRQ 0-15 to 0x20-0x2f (since
+	 * 0..0x1f is reserved by Intel).
+	 */
 #define IO_WAIT() do { int i = 10; while (i--) /* NOTHING */ ; } while (0);
 
 	/* Start initialization: the PIC will wait for 3 command bta ytes */
@@ -22,6 +41,29 @@ x86_pic_remap() {
 	outb(PIC2_DATA, 0);
 
 #undef IO_WAIT
+
+	/* Register the PIC as interrupt source */
+	irqsource_register(&pic_source);
+}
+
+static errorcode_t
+pic_mask(struct IRQ_SOURCE* is, int no)
+{
+	panic("TODO");
+}
+
+static errorcode_t
+pic_unmask(struct IRQ_SOURCE* is, int no)
+{
+	panic("TODO");
+}
+
+static void
+pic_ack(struct IRQ_SOURCE* is, int no)
+{
+	outb(0x20, 0x20);
+	if (no >= 8)
+		outb(0xa0, 0x20);
 }
 
 int

@@ -233,12 +233,8 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	    "c" (GDT_SEL_KERNEL_CODE),
 	    "d" (GDT_SEL_KERNEL_PCPU));
 
-	/*
-	 * Remap the interrupts; by default, IRQ 0-7 are mapped to interrupts 0x08 -
-	 * 0x0f and IRQ 8-15 to 0x70 - 0x77. We remap IRQ 0-15 to 0x20-0x2f (since
-	 * 0..0x1f is reserved by Intel).
-	 */
-	x86_pic_remap();
+	/* Initialize the PIC; this will also register it as an interrupt source */
+	x86_pic_init();
 
 	/*
 	 * Prepare the IDT entries; this means mapping the exception interrupts to
