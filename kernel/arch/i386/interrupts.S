@@ -60,24 +60,6 @@
 	movl	SF_GS(%esp), %eax; \
 	movw	%ax, %gs;
 
-eoi:
-	/* interrupt to EOI is in %edx */
-#ifdef OPTION_SMP
-	cmpl	$0, lapic_initialized
-	jz	eoi_pic
-	movl	$0xfee000b0, %eax
-	movl	$0x0, (%eax)
-	ret
-eoi_pic:
-#endif
-	movb	$0x20, %al
-	outb	%al, $0x20
-	cmp	$0x8, %dl
-	jl	skip_pic2
-	outb	%al, $0xa0
-skip_pic2:
-	ret
-
 do_irq:
 	SAVE_REGISTERS
 	SAVE_SEGS
@@ -90,10 +72,6 @@ do_irq:
 	/* Ensure per-cpu stuff works */
 	movl	$GDT_SEL_KERNEL_PCPU, %eax
 	movw	%ax, %fs
-
-	/* Acknowledge the interrupt */
-	movl	SF_TRAPNO(%esp), %edx
-	call	eoi
 
 	/* Call the interrupt handler */
 	pushl	%esp
