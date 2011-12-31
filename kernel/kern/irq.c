@@ -5,14 +5,40 @@
 #include "options.h"
 
 static struct IRQ irq[MAX_IRQS];
+static struct IRQ_SOURCES irq_sources;
+static spinlock_t spl_irq = SPINLOCK_DEFAULT_INIT;
 
 /* Number of stray IRQ's that occur before reporting stops */
 #define IRQ_MAX_STRAY_COUNT 10
 
 void
-irq_init()
+irqsource_register(struct IRQ_SOURCE* source)
 {
-	memset(irq, 0, sizeof(struct IRQ) * MAX_IRQS);
+	spinlock_lock(&spl_irq);
+	/* Ensure there will not be an overlap */
+	if(!DQUEUE_EMPTY(&irq_sources)) {
+		DQUEUE_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
+			KASSERT(!(source->is_first >= is->is_first && source->is_first + source->is_count <= is->is_first + is->is_count), "overlap in interrupt ranges (have %u-%u, attempt to add %u-%u)", is->is_first, is->is_first + is->is_count, source->is_first, source->is_first + source->is_count);
+		}
+	}
+	DQUEUE_ADD_TAIL(&irq_sources, source);
+	spinlock_unlock(&spl_irq);
+}
+
+static struct IRQ_SOURCE*
+irqsource_find(unsigned int num)
+{
+	spinlock_lock(&spl_irq);
+	if(!DQUEUE_EMPTY(&irq_sources)) {
+		DQUEUE_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
+			if (num < is->is_first || num > is->is_first + is->is_count)
+				continue;
+			spinlock_unlock(&spl_irq);
+			return is;
+		}
+	}
+	spinlock_unlock(&spl_irq);
+	return NULL;
 }
 
 int
@@ -20,12 +46,16 @@ irq_register(unsigned int no, device_t dev, irqhandler_t handler)
 {
 	KASSERT(no < MAX_IRQS, "interrupt %u out of range", no);
 
-	if (irq[no].irq_handler != NULL)
-		return 0;
+	struct IRQ_SOURCE* is = irqsource_find(no);
+	KASSERT(is != NULL, "source not found for interrupt %u", no); /* XXX for now */
 
-	irq[no].irq_dev = dev;
-	irq[no].irq_handler = handler;
-	irq[no].irq_straycount = 0;
+	spinlock_lock(&spl_irq);
+	KASSERT(irq[no].i_handler == NULL, "interrupt %u already registered", no);
+	irq[no].i_source = is;
+	irq[no].i_dev = dev;
+	irq[no].i_handler = handler;
+	irq[no].i_straycount = 0;
+	spinlock_unlock(&spl_irq);
 	return 1;
 }
 
@@ -33,17 +63,27 @@ void
 irq_handler(unsigned int no)
 {
 	int cpuid = PCPU_GET(cpuid);
+	struct IRQ* i = &irq[no];
+
 	KASSERT(no < MAX_IRQS, "irq_handler: (CPU %u) impossible irq %u fired", cpuid, no);
-	if (irq[no].irq_handler == NULL) {
-		if (irq[no].irq_straycount >= IRQ_MAX_STRAY_COUNT)
-			return;
-		kprintf("irq_handler(): (CPU %u) stray irq %u, ignored\n", cpuid, no);
-		if (++irq[no].irq_straycount == IRQ_MAX_STRAY_COUNT)
-			kprintf("irq_handler(): not reporting stray irq %u anymore\n", no);
+	if (i->i_handler == NULL) {
+		if (i->i_straycount < IRQ_MAX_STRAY_COUNT) {
+			kprintf("irq_handler(): (CPU %u) stray irq %u, ignored\n", cpuid, no);
+			if (++i->i_straycount == IRQ_MAX_STRAY_COUNT)
+				kprintf("irq_handler(): not reporting stray irq %u anymore\n", no);
+		}
+		/* XXX Should we acknowledge stray IRQ's? */
+		struct IRQ_SOURCE* is = irqsource_find(no);
+		if (is != NULL)
+			is->is_ack(is, no - is->is_first);
 		return;
 	}
 
-	irq[no].irq_handler(irq[no].irq_dev);
+	/* Call the interrupt handler */
+	i->i_handler(i->i_dev);
+
+	/* Acknowledge the interrupt once the handler is done */
+	i->i_source->is_ack(i->i_source, no - i->i_source->is_first);
 
 	/* If the IRQ handler resulted in a reschedule of the current thread, handle it */
 	thread_t* curthread = PCPU_GET(curthread);
@@ -57,16 +97,17 @@ void
 kdb_cmd_irq(int num_args, char** arg)
 {
 	kprintf("irq dump\n");
-	for (int no = 0; no < MAX_IRQS; no++) {
+	struct IRQ* i = &irq[0];
+	for (int no = 0; no < MAX_IRQS; i++, no++) {
 		kprintf("irq %u: ", no);
-		if (irq[no].irq_handler)
-			kprintf("%s (%p)", irq[no].irq_dev != NULL ? irq[no].irq_dev->name : "?", irq[no].irq_handler);
+		if (i->i_handler)
+			kprintf("%s (%p)", i->i_dev != NULL ? i->i_dev->name : "?", i->i_handler);
 		else
 			kprintf("(unassigned)");
-		if (irq[no].irq_straycount > 0)
+		if (i->i_straycount > 0)
 			kprintf(", %u stray%s",
-			 irq[no].irq_straycount,
-			 (irq[no].irq_straycount == IRQ_MAX_STRAY_COUNT) ? ", no longer reporting" : "");
+			 i->i_straycount,
+			 (i->i_straycount == IRQ_MAX_STRAY_COUNT) ? ", no longer reporting" : "");
 		kprintf("\n");
 	}
 }
