@@ -20,8 +20,12 @@ x86_pit_irq()
 	if (!scheduler_activated())
 		return;
 	
-	/* Timeslice is up -> next thread please */
-	schedule();
+	/*
+	 * Timeslice is up -> next thread please; we can implement this
+	 * by simply setting the 'want to reschedule' flag.
+	 */
+	thread_t* curthread = PCPU_GET(curthread);
+	curthread->flags |= THREAD_FLAG_RESCHEDULE;
 }
 
 /*
