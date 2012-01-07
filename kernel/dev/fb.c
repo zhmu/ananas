@@ -81,7 +81,7 @@ static uint32_t make_rgb(int color)
 #undef RGB
 }
 
-#if defined(OFW) || defined(__i386__) || defined(__amd64__)
+#if defined(OPTION_OFW) || defined(__i386__) || defined(__amd64__)
 static void putpixel(struct FB_PRIVDATA* fb,unsigned int x, unsigned int y, int color)
 {
 	uint8_t* ptr = (uint8_t*)(fb->fb_framebuffer + fb->fb_bytes_per_line * y + x * (fb->fb_depth / 8));
