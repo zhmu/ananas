@@ -84,4 +84,7 @@ struct CONTEXT {
 
 void md_restore_ctx(struct CONTEXT* ctx);
 
-#endif /* __I386_THREAD_H__ */
+#define md_cpu_relax() \
+	__asm __volatile("hlt")
+
+#endif /* __AMD64_THREAD_H__ */

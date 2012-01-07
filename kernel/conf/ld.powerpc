@@ -13,6 +13,12 @@ SECTIONS {
 		 * reason why these should be writable or take up a section of
 		 * their own.
 		 */
+		__initfuncs_begin = ALIGN(4);
+		*(initfuncs)
+		__initfuncs_end = .;
+		__exitfuncs_begin = ALIGN(4);
+		*(exitfuncs)
+		__exitfuncs_end = .;
 		. = ALIGN(4096);
 
 	}

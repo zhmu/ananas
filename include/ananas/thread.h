@@ -94,7 +94,6 @@ errorcode_t thread_set_args(thread_t* t, const char* args, size_t args_len);
 errorcode_t thread_set_environment(thread_t* t, const char* env, size_t env_len);
 
 void md_thread_switch(thread_t* new, thread_t* old);
-void md_thread_bootstrap(thread_t* new);
 void idle_thread();
 
 /* Thread memory map flags */

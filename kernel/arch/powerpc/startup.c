@@ -6,6 +6,7 @@
 #include <machine/macro.h>
 #include <machine/timer.h>
 #include <machine/mmu.h>
+#include <ananas/bootinfo.h>
 #include <ananas/handle.h>
 #include <ananas/init.h>
 #include <ananas/mm.h>
@@ -19,6 +20,9 @@ struct STACKFRAME bsp_sf;
 
 /* CPU clock speed, in MHz */
 int md_cpu_clock_mhz = 0;
+
+/* Bootinfo as supplied by the loader, or NULL */
+struct BOOTINFO* bootinfo = NULL;
 
 void
 md_startup(uint32_t r3, uint32_t r4, uint32_t r5)

@@ -56,7 +56,7 @@ md_reschedule()
 }
 
 void
-md_idle_thread()
+md_thread_bootstrap(thread_t* t)
 {
 }
 

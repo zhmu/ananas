@@ -15,5 +15,6 @@ struct CONTEXT {
 	void*		md_stack; \
 	void*		md_kstack;
 
+#define md_cpu_relax()
 
 #endif /* __POWERPC_THREAD_H__ */
