@@ -162,7 +162,7 @@ waitqueue_signal(struct WAIT_QUEUE* wq)
 	 */
 	thread_t* curthread = PCPU_GET(curthread);
 	if (curthread == PCPU_GET(idlethread_ptr)) {
-		curthread->flags |= THREAD_FLAG_RESCHEDULE;
+		curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
 	}
 }
 

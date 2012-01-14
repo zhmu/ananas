@@ -47,7 +47,7 @@ md_thread_init(thread_t* t)
 	t->md_fpu_ctx.cw = 0x37f;
 	t->md_fpu_ctx.tw = 0xffff;
 
-	t->next_mapping = 1048576;
+	t->t_next_mapping = 1048576;
 	return ANANAS_ERROR_OK;
 }
 
@@ -79,11 +79,11 @@ md_thread_free(thread_t* t)
 	 * can only be called from another thread (this means this code cannot be run until the
 	 * thread to be destroyed is a zombie)
 	 */
-	KASSERT(t->flags & THREAD_FLAG_ZOMBIE, "cannot free non-zombie thread");
+	KASSERT(THREAD_IS_ZOMBIE(t), "cannot free non-zombie thread");
 	KASSERT(PCPU_GET(curthread) != t, "cannot free current thread");
 
 	/* Throw away the pagedir and stacks; they aren't in use so this will never hurt */
-	if ((t->flags & THREAD_FLAG_KTHREAD) == 0) {
+	if (!THREAD_IS_KTHREAD(t)) {
 		vm_free_pagedir(t->md_pagedir);
 		kmem_free(t->md_stack);
 	}
@@ -94,13 +94,13 @@ void
 md_thread_switch(thread_t* new, thread_t* old)
 {
 	KASSERT(md_interrupts_save() == 0, "interrupts must be disabled");
-	KASSERT((new->flags & THREAD_FLAG_ZOMBIE) == 0, "cannot switch to a zombie thread");
+	KASSERT(!THREAD_IS_ZOMBIE(new), "cannot switch to a zombie thread");
 	KASSERT(new != old, "switching to self?");
-	KASSERT((old->flags & THREAD_FLAG_ACTIVE) == 0, "old thread is running?");
-	KASSERT((new->flags & THREAD_FLAG_ACTIVE), "new thread isn't running?");
+	KASSERT(!THREAD_IS_ACTIVE(old), "old thread is running?");
+	KASSERT(THREAD_IS_ACTIVE(new), "new thread isn't running?");
 
 	/* XXX Safety nets to ensure we won't restore a bogus stack */
-	KASSERT(new->md_esp > (addr_t)new->md_kstack, "new=%p(%s) esp %p underflow (%p)", new, new->threadinfo->ti_args, new->md_esp, new->md_kstack);
+	KASSERT(new->md_esp > (addr_t)new->md_kstack, "new=%p(%s) esp %p underflow (%p)", new, new->t_threadinfo->ti_args, new->md_esp, new->md_kstack);
 	KASSERT(new->md_esp < ((addr_t)new->md_kstack + KERNEL_STACK_SIZE), "new=%p esp %p overflow (%p)", new, new->md_esp, new->md_kstack + KERNEL_STACK_SIZE);
 
 	/* Activate the corresponding kernel stack in the TSS */
@@ -152,8 +152,8 @@ void
 md_thread_bootstrap(thread_t* new)
 {
 	KASSERT(md_interrupts_save() == 0, "interrupts must be disabled");
-	KASSERT((new->flags & THREAD_FLAG_ACTIVE) != 0, "must switch to active thread");
-	KASSERT((new->flags & THREAD_FLAG_KTHREAD) != 0, "must switch to kernel thread");
+	KASSERT(THREAD_IS_ACTIVE(new), "must switch to active thread");
+	KASSERT(THREAD_IS_KTHREAD(new), "must switch to kernel thread");
 	KASSERT(PCPU_GET(curthread) == new, "must switch to active thread");
 
 	__asm __volatile(

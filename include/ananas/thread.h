@@ -44,9 +44,9 @@ struct THREAD {
 	/* Machine-dependant data - must be first */
 	MD_THREAD_FIELDS
 
-	spinlock_t spl_thread;	/* Lock protecting the thread data */
+	spinlock_t t_lock;	/* Lock protecting the thread data */
 
-	unsigned int flags;
+	unsigned int t_flags;
 #define THREAD_FLAG_ACTIVE	0x0001	/* Thread is scheduled somewhere */
 #define THREAD_FLAG_SUSPENDED	0x0002	/* Thread is currently suspended */
 #define THREAD_FLAG_TERMINATING	0x0004	/* Thread is terminating */
@@ -54,29 +54,37 @@ struct THREAD {
 #define THREAD_FLAG_RESCHEDULE	0x0010	/* Thread desires a reschedule */
 #define THREAD_FLAG_KTHREAD	0x8000	/* Kernel thread */
 
-	unsigned int terminate_info;
+	unsigned int t_terminate_info;
 #define THREAD_MAKE_EXITCODE(a,b) (((a) << 24) | ((b) & 0x00ffffff))
 #define THREAD_TERM_SYSCALL	0x1	/* euthanasia */
 #define THREAD_TERM_FAULT	0x2	/* programming fault */
 #define THREAD_TERM_FAILURE	0x3	/* generic failure */
 
-	addr_t next_mapping;		/* address of next mapping */
-	struct THREAD_MAPPING_QUEUE mappings;
+	addr_t t_next_mapping;		/* address of next mapping */
+	struct THREAD_MAPPING_QUEUE t_mappings;
 
-	struct THREADINFO* threadinfo;	/* Thread startup information */
+	struct THREADINFO* t_threadinfo;	/* Thread startup information */
 
 	/* Thread handles */
-	struct HANDLE* thread_handle;	/* Handle identifying this thread */
-	struct HANDLE_QUEUE handles;	/* Handles owned by the thread */
-	struct HANDLE* path_handle;	/* Current path */
+	struct HANDLE* t_thread_handle;	/* Handle identifying this thread */
+	struct HANDLE_QUEUE t_handles;	/* Handles owned by the thread */
+	struct HANDLE* t_path_handle;	/* Current path */
 
 	/* Scheduler specific information */
-	struct SCHED_PRIV sched_priv;
+	struct SCHED_PRIV t_sched_priv;
 
 	DQUEUE_FIELDS(thread_t);
 };
 
 DQUEUE_DEFINE(THREAD_QUEUE, thread_t);
+
+/* Macro's to facilitate flag checking */
+#define THREAD_IS_ACTIVE(t) ((t)->t_flags & THREAD_FLAG_ACTIVE)
+#define THREAD_IS_SUSPENDED(t) ((t)->t_flags & THREAD_FLAG_SUSPENDED)
+#define THREAD_IS_TERMINATING(t) ((t)->t_flags & THREAD_FLAG_TERMINATING)
+#define THREAD_IS_ZOMBIE(t) ((t)->t_flags & THREAD_FLAG_ZOMBIE)
+#define THREAD_WANT_RESCHEDULE(t) ((t)->t_flags & THREAD_FLAG_RESCHEDULE)
+#define THREAD_IS_KTHREAD(t) ((t)->t_flags & THREAD_FLAG_KTHREAD)
 
 /* Machine-dependant callback to initialize a thread */
 errorcode_t md_thread_init(thread_t* thread);

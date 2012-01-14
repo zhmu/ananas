@@ -66,7 +66,7 @@ md_thread_init(thread_t* t)
 	t->md_ctx.sf.sf_srr1 |= MSR_FP;
 
 	/* XXX We should use a more sensible address here */
-	t->next_mapping = 0x4000000;
+	t->t_next_mapping = 0x4000000;
 	return ANANAS_ERROR_OK;
 }
 

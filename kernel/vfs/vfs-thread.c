@@ -16,12 +16,12 @@ vfs_init_thread(thread_t* thread, thread_t* parent)
 	errorcode_t err;
 
 	/* Do not bother for kernel threads; these won't use handles anyway */
-	if (thread->flags & THREAD_FLAG_KTHREAD)
+	if (THREAD_IS_KTHREAD(thread))
 		return ANANAS_ERROR_OK;
 
 	/* If there is a parent, try to clone it's parent handle */
 	if (parent != NULL) {
-		err = handle_clone(thread, parent->path_handle, &thread->path_handle);
+		err = handle_clone(thread, parent->t_path_handle, &thread->t_path_handle);
 		if (err != ANANAS_ERROR_NONE) {
 			/*
 			 * XXX Unable to clone parent's path - what now? Our VFS isn't mature enough
@@ -36,29 +36,29 @@ vfs_init_thread(thread_t* thread, thread_t* parent)
 		 * initialiation, but that is fine - our lookup code should know what
 		 * to do with the NULL backing inode.
 		 */
-		err = handle_alloc(HANDLE_TYPE_FILE, thread, &thread->path_handle);
+		err = handle_alloc(HANDLE_TYPE_FILE, thread, &thread->t_path_handle);
 		if (err == ANANAS_ERROR_NONE) {
-			err = vfs_open("/", NULL, &thread->path_handle->data.vfs_file);
+			err = vfs_open("/", NULL, &thread->t_path_handle->data.vfs_file);
 		}
 	}
 
 	/* Initialize stdin/out/error - we should actually inherit these XXX */
-	err = handle_alloc(HANDLE_TYPE_FILE, thread, (struct HANDLE**)&thread->threadinfo->ti_handle_stdin);
+	err = handle_alloc(HANDLE_TYPE_FILE, thread, (struct HANDLE**)&thread->t_threadinfo->ti_handle_stdin);
 	ANANAS_ERROR_RETURN(err);
-	err = handle_alloc(HANDLE_TYPE_FILE, thread, (struct HANDLE**)&thread->threadinfo->ti_handle_stdout);
+	err = handle_alloc(HANDLE_TYPE_FILE, thread, (struct HANDLE**)&thread->t_threadinfo->ti_handle_stdout);
 	ANANAS_ERROR_RETURN(err);
-	err = handle_alloc(HANDLE_TYPE_FILE, thread, (struct HANDLE**)&thread->threadinfo->ti_handle_stderr);
+	err = handle_alloc(HANDLE_TYPE_FILE, thread, (struct HANDLE**)&thread->t_threadinfo->ti_handle_stderr);
 	ANANAS_ERROR_RETURN(err);
 	/* Hook the new handles to the console */
-	((struct HANDLE*)thread->threadinfo->ti_handle_stdin)->data.vfs_file.f_device  = console_tty;
-	((struct HANDLE*)thread->threadinfo->ti_handle_stdout)->data.vfs_file.f_device = console_tty;
-	((struct HANDLE*)thread->threadinfo->ti_handle_stderr)->data.vfs_file.f_device = console_tty;
+	((struct HANDLE*)thread->t_threadinfo->ti_handle_stdin)->data.vfs_file.f_device  = console_tty;
+	((struct HANDLE*)thread->t_threadinfo->ti_handle_stdout)->data.vfs_file.f_device = console_tty;
+	((struct HANDLE*)thread->t_threadinfo->ti_handle_stderr)->data.vfs_file.f_device = console_tty;
 
 	TRACE(THREAD, INFO, "t=%p, stdin=%p, stdout=%p, stderr=%p",
 	 thread,
-	 thread->threadinfo->ti_handle_stdin,
-	 thread->threadinfo->ti_handle_stdout,
-	 thread->threadinfo->ti_handle_stderr);
+	 thread->t_threadinfo->ti_handle_stdin,
+	 thread->t_threadinfo->ti_handle_stdout,
+	 thread->t_threadinfo->ti_handle_stderr);
 
 	return ANANAS_ERROR_OK;
 }

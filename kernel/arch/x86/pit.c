@@ -25,7 +25,7 @@ x86_pit_irq()
 	 * by simply setting the 'want to reschedule' flag.
 	 */
 	thread_t* curthread = PCPU_GET(curthread);
-	curthread->flags |= THREAD_FLAG_RESCHEDULE;
+	curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
 }
 
 /*

@@ -98,9 +98,9 @@ handle_alloc(int type, thread_t* t, struct HANDLE** out)
 	handle->hops = htype->ht_hops;
 
 	/* Hook the handle to the thread queue */
-	spinlock_lock(&t->spl_thread);
-	DQUEUE_ADD_TAIL(&t->handles, handle);
-	spinlock_unlock(&t->spl_thread);
+	spinlock_lock(&t->t_lock);
+	DQUEUE_ADD_TAIL(&t->t_handles, handle);
+	spinlock_unlock(&t->t_lock);
 
 	KASSERT(((addr_t)handle % sizeof(struct HANDLE)) == 0, "handle address %p is not 0x%x byte aligned", (addr_t)handle, sizeof(struct HANDLE));
 	*out = handle;
@@ -116,9 +116,9 @@ handle_destroy(struct HANDLE* handle, int free_resources)
 
 	/* Remove us from the thread handle queue, if necessary */
 	if (handle->thread != NULL) {
-		spinlock_lock(&handle->thread->spl_thread);
-		DQUEUE_REMOVE(&handle->thread->handles, handle);
-		spinlock_unlock(&handle->thread->spl_thread);
+		spinlock_lock(&handle->thread->t_lock);
+		DQUEUE_REMOVE(&handle->thread->t_handles, handle);
+		spinlock_unlock(&handle->thread->t_lock);
 	}
 
 	/* If we need to free our resources, do so */
@@ -214,10 +214,10 @@ handle_wait(thread_t* thread, struct HANDLE* handle, handle_event_t* event, hand
 	 * XXX need to handle mask
 	 */
 	if ((handle->type == HANDLE_TYPE_THREAD) &&
-	    (handle->data.thread->flags & THREAD_FLAG_TERMINATING) != 0) {
+	    THREAD_IS_TERMINATING(handle->data.thread)) {
 		/* Need to replicate what thread_exit() does here... */
 		*event = THREAD_EVENT_EXIT;
-		*result = handle->data.thread->terminate_info;
+		*result = handle->data.thread->t_terminate_info;
 		spinlock_unlock(&handle->spl_handle);
 		TRACE(HANDLE, INFO, "done, thread already gone", thread);
 		return ANANAS_ERROR_OK;
@@ -282,14 +282,14 @@ handle_set_owner(struct HANDLE* handle, struct HANDLE* owner)
 
 	/* Remove the thread from the old thread's handles */
 	thread_t* old_thread = handle->thread;
-	spinlock_lock(&old_thread->spl_thread);
-	DQUEUE_REMOVE(&old_thread->handles, handle);
-	spinlock_unlock(&old_thread->spl_thread);
+	spinlock_lock(&old_thread->t_lock);
+	DQUEUE_REMOVE(&old_thread->t_handles, handle);
+	spinlock_unlock(&old_thread->t_lock);
 
 	/* And hook it up the new thread's handles */
-	spinlock_lock(&new_thread->spl_thread);
-	DQUEUE_ADD_TAIL(&new_thread->handles, handle);
-	spinlock_unlock(&new_thread->spl_thread);
+	spinlock_lock(&new_thread->t_lock);
+	DQUEUE_ADD_TAIL(&new_thread->t_handles, handle);
+	spinlock_unlock(&new_thread->t_lock);
 	return ANANAS_ERROR_OK;
 }
 

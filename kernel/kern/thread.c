@@ -29,25 +29,25 @@ thread_init(thread_t* t, thread_t* parent)
 	errorcode_t err;
 
 	memset(t, 0, sizeof(struct THREAD));
-	DQUEUE_INIT(&t->mappings);
-	t->flags = THREAD_FLAG_SUSPENDED;
-	err = handle_alloc(HANDLE_TYPE_THREAD, t /* XXX should be parent? */, &t->thread_handle);
+	DQUEUE_INIT(&t->t_mappings);
+	t->t_flags = THREAD_FLAG_SUSPENDED;
+	err = handle_alloc(HANDLE_TYPE_THREAD, t /* XXX should be parent? */, &t->t_thread_handle);
 	ANANAS_ERROR_RETURN(err);
-	t->thread_handle->data.thread = t;
+	t->t_thread_handle->data.thread = t;
 
 	/* ask machine-dependant bits to initialize our thread data*/
 	md_thread_init(t);
 
 	/* initialize thread information structure and map it */
-	t->threadinfo = kmalloc(sizeof(struct THREADINFO));
-	memset(t->threadinfo, 0, sizeof(t->threadinfo));
-	t->threadinfo->ti_size = sizeof(struct THREADINFO);
-	t->threadinfo->ti_handle = t->thread_handle;
+	t->t_threadinfo = kmalloc(sizeof(struct THREADINFO));
+	memset(t->t_threadinfo, 0, sizeof(t->t_threadinfo));
+	t->t_threadinfo->ti_size = sizeof(struct THREADINFO);
+	t->t_threadinfo->ti_handle = t->t_thread_handle;
 	if (parent != NULL)
-		thread_set_environment(t, parent->threadinfo->ti_env, PAGE_SIZE /* XXX */);
+		thread_set_environment(t, parent->t_threadinfo->ti_env, PAGE_SIZE /* XXX */);
 
 	struct THREAD_MAPPING* tm;
-	err = thread_map(t, KVTOP((addr_t)t->threadinfo), sizeof(struct THREADINFO), THREAD_MAP_READ | THREAD_MAP_WRITE | THREAD_MAP_PRIVATE, &tm);
+	err = thread_map(t, KVTOP((addr_t)t->t_threadinfo), sizeof(struct THREADINFO), THREAD_MAP_READ | THREAD_MAP_WRITE | THREAD_MAP_PRIVATE, &tm);
 	if (err != ANANAS_ERROR_NONE)
 		goto fail;
 	md_thread_set_argument(t, tm->tm_virt);
@@ -80,15 +80,15 @@ kthread_init(thread_t* t, kthread_func_t func, void* arg)
 
 	/* Create a basic thread; we'll only make a thread handle, no I/O */
 	memset(t, 0, sizeof(struct THREAD));
-	DQUEUE_INIT(&t->mappings);
-	t->flags = THREAD_FLAG_SUSPENDED | THREAD_FLAG_KTHREAD;
-	err = handle_alloc(HANDLE_TYPE_THREAD, t, &t->thread_handle);
+	DQUEUE_INIT(&t->t_mappings);
+	t->t_flags = THREAD_FLAG_SUSPENDED | THREAD_FLAG_KTHREAD;
+	err = handle_alloc(HANDLE_TYPE_THREAD, t, &t->t_thread_handle);
 	ANANAS_ERROR_RETURN(err);
-	t->thread_handle->data.thread = t;
+	t->t_thread_handle->data.thread = t;
 
 	/* Initialize dummy threadinfo; this is used to store the thread name */
-	t->threadinfo = kmalloc(sizeof(struct THREADINFO));
-	memset(t->threadinfo, 0, sizeof(t->threadinfo));
+	t->t_threadinfo = kmalloc(sizeof(struct THREADINFO));
+	memset(t->t_threadinfo, 0, sizeof(t->t_threadinfo));
 
 	/* Initialize MD-specifics */
 	md_kthread_init(t, func, arg);
@@ -123,7 +123,7 @@ void
 thread_free_mapping(thread_t* t, struct THREAD_MAPPING* tm)
 {
 	TRACE(THREAD, INFO, "thread_free_mapping(): t=%p tm=%p tm->phys=%p", t, tm, tm->tm_phys);
-	DQUEUE_REMOVE(&t->mappings, tm);
+	DQUEUE_REMOVE(&t->t_mappings, tm);
 	if (tm->tm_destroy != NULL)
 		tm->tm_destroy(t, tm);
 	if (tm->tm_flags & THREAD_MAP_ALLOC)
@@ -138,8 +138,8 @@ thread_free_mappings(thread_t* t)
 	 * Free all mapped process memory, if needed. We don't bother to unmap them
 	 * in the thread's VM as it's going away anyway XXX we should for !x86
 	 */
-	while(!DQUEUE_EMPTY(&t->mappings)) {
-		struct THREAD_MAPPING* tm = DQUEUE_HEAD(&t->mappings);
+	while(!DQUEUE_EMPTY(&t->t_mappings)) {
+		struct THREAD_MAPPING* tm = DQUEUE_HEAD(&t->t_mappings);
 		thread_free_mapping(t, tm); /* also removed the mapping */
 	}
 }
@@ -147,7 +147,7 @@ thread_free_mappings(thread_t* t)
 void
 thread_free(thread_t* t)
 {
-	KASSERT((t->flags & THREAD_FLAG_ZOMBIE) == 0, "freeing zombie thread %p", t);
+	KASSERT((t->t_flags & THREAD_FLAG_ZOMBIE) == 0, "freeing zombie thread %p", t);
 
 	/*
 	 * Free all handles in use by the thread. Note that we must not free the thread
@@ -155,13 +155,13 @@ thread_free(thread_t* t)
 	 * resources here - the thread handle itself is necessary for obtaining the
 	 * result code etc)
 	 */
-	DQUEUE_FOREACH_SAFE(&t->handles, h, struct HANDLE) {
-		if (h == t->thread_handle)
+	DQUEUE_FOREACH_SAFE(&t->t_handles, h, struct HANDLE) {
+		if (h == t->t_thread_handle)
 			continue;
-		DQUEUE_REMOVE(&t->handles, h);
+		DQUEUE_REMOVE(&t->t_handles, h);
 		handle_free(h);
 	}
-	KASSERT(!DQUEUE_EMPTY(&t->handles), "thread handle was not part of thread handle queue");
+	KASSERT(!DQUEUE_EMPTY(&t->t_handles), "thread handle was not part of thread handle queue");
 
 	/*
 	 * Free all thread mappings; this must be done afterwards because memory handles are
@@ -173,14 +173,14 @@ thread_free(thread_t* t)
 	 * Mark the thread as terminating if it isn't already; having to do so means
 	 * the thread's isn't exiting voluntary.
 	 */
-	if ((t->flags & THREAD_FLAG_TERMINATING) == 0) {
-		t->flags |= THREAD_FLAG_TERMINATING;
-		t->terminate_info = THREAD_MAKE_EXITCODE(THREAD_TERM_FAILURE, 0);
-		handle_signal(t->thread_handle, THREAD_EVENT_EXIT, t->terminate_info);
+	if ((t->t_flags & THREAD_FLAG_TERMINATING) == 0) {
+		t->t_flags |= THREAD_FLAG_TERMINATING;
+		t->t_terminate_info = THREAD_MAKE_EXITCODE(THREAD_TERM_FAILURE, 0);
+		handle_signal(t->t_thread_handle, THREAD_EVENT_EXIT, t->t_terminate_info);
 	}
 
 	/* Thread is alive, yet lingering... */
-	t->flags |= THREAD_FLAG_ZOMBIE;
+	t->t_flags |= THREAD_FLAG_ZOMBIE;
 
 	/* Run all thread exit callbacks */
 	if (!DQUEUE_EMPTY(&threadcallbacks_exit))
@@ -193,7 +193,7 @@ void
 thread_destroy(thread_t* t)
 {
 	KASSERT(PCPU_GET(curthread) != t, "thread_destroy() on current thread");
-	KASSERT(t->flags & THREAD_FLAG_ZOMBIE, "thread_destroy() on a non-zombie thread");
+	KASSERT(THREAD_IS_ZOMBIE(t), "thread_destroy() on a non-zombie thread");
 
 	/* Free the machine-dependant bits */
 	md_thread_free(t);
@@ -207,8 +207,8 @@ thread_destroy(thread_t* t)
 	spinlock_unlock(&spl_threadqueue);
 
 	/* Ensure the thread handle itself won't have a thread anymore */
-	t->thread_handle->thread = NULL;
-	handle_destroy(t->thread_handle, 0);
+	t->t_thread_handle->thread = NULL;
+	handle_destroy(t->t_thread_handle, 0);
 	kfree(t);
 }
 
@@ -237,8 +237,8 @@ errorcode_t
 thread_mapto(thread_t* t, addr_t virt, addr_t phys, size_t len, uint32_t flags, struct THREAD_MAPPING** out)
 {
 	/* Check whether a mapping already exists; if so, we must refuse */
-	if (!DQUEUE_EMPTY(&t->mappings)) {
-		DQUEUE_FOREACH(&t->mappings, tm, struct THREAD_MAPPING) {
+	if (!DQUEUE_EMPTY(&t->t_mappings)) {
+		DQUEUE_FOREACH(&t->t_mappings, tm, struct THREAD_MAPPING) {
 			if ((virt >= tm->tm_virt && (virt + len) <= (tm->tm_virt + tm->tm_len)) ||
 			    (tm->tm_virt >= virt && (tm->tm_virt + tm->tm_len) <= (virt + len))) {
 				/* We have overlap - must reject the mapping */
@@ -259,7 +259,7 @@ thread_mapto(thread_t* t, addr_t virt, addr_t phys, size_t len, uint32_t flags, 
 	tm->tm_virt = virt;
 	tm->tm_len = len;
 	tm->tm_flags = flags;
-	DQUEUE_ADD_TAIL(&t->mappings, tm);
+	DQUEUE_ADD_TAIL(&t->t_mappings, tm);
 	TRACE(THREAD, INFO, "thread_mapto(): t=%p, tm=%p, phys=%p, virt=%p, flags=0x%x", t, tm, phys, virt, flags);
 
 	md_thread_map(t, (void*)tm->tm_virt, (void*)tm->tm_phys, len, (flags & THREAD_MAP_LAZY) ? 0 : thread_make_vmflags(flags));
@@ -278,10 +278,10 @@ thread_map(thread_t* t, addr_t phys, size_t len, uint32_t flags, struct THREAD_M
 	/*
 	 * Locate a new address to map to; we currently never re-use old addresses.
 	 */
-	addr_t virt = t->next_mapping;
-	t->next_mapping += len;
-	if ((t->next_mapping & (PAGE_SIZE - 1)) > 0)
-		t->next_mapping += PAGE_SIZE - (t->next_mapping & (PAGE_SIZE - 1));
+	addr_t virt = t->t_next_mapping;
+	t->t_next_mapping += len;
+	if ((t->t_next_mapping & (PAGE_SIZE - 1)) > 0)
+		t->t_next_mapping += PAGE_SIZE - (t->t_next_mapping & (PAGE_SIZE - 1));
 	return thread_mapto(t, virt, phys, len, flags, out);
 }
 
@@ -291,8 +291,8 @@ thread_handle_fault(thread_t* t, addr_t virt, int flags)
 	TRACE(THREAD, INFO, "thread_handle_fault(): thread=%p, virt=%p, flags=0x%x", t, virt, flags);
 
 	/* Walk through the mappings one by one */
-	if (!DQUEUE_EMPTY(&t->mappings)) {
-		DQUEUE_FOREACH(&t->mappings, tm, struct THREAD_MAPPING) {
+	if (!DQUEUE_EMPTY(&t->t_mappings)) {
+		DQUEUE_FOREACH(&t->t_mappings, tm, struct THREAD_MAPPING) {
 			if (!(virt >= tm->tm_virt && (virt < (tm->tm_virt + tm->tm_len))))
 				continue;
 			if (tm->tm_fault == NULL)
@@ -312,13 +312,13 @@ thread_handle_fault(thread_t* t, addr_t virt, int flags)
 errorcode_t
 thread_unmap(thread_t* t, void* ptr, size_t len)
 {
-	struct THREAD_MAPPING* tm = t->mappings;
+	struct THREAD_MAPPING* tm = t->t_mappings;
 	struct THREAD_MAPPING* prev = NULL;
 	while (tm != NULL) {
 		if (tm->start == (addr_t)ptr && tm->len == len) {
 			/* found it */
 			if(prev == NULL)
-				t->mappings = tm->next;
+				t->t_mappings = tm->next;
 			else
 				prev->next = tm->next;
 			errorcode_t err = md_thread_unmap(t, (void*)tm->start, tm->len);
@@ -337,8 +337,8 @@ void
 thread_suspend(thread_t* t)
 {
 	TRACE(THREAD, FUNC, "t=%p", t);
-	KASSERT((t->flags & THREAD_FLAG_SUSPENDED) == 0, "suspending suspended thread %p", t);
-	t->flags |= THREAD_FLAG_SUSPENDED;	
+	KASSERT(!THREAD_IS_SUSPENDED(t), "suspending suspended thread %p", t);
+	t->t_flags |= THREAD_FLAG_SUSPENDED;	
 	scheduler_remove_thread(t);
 }
 
@@ -354,10 +354,10 @@ thread_resume(thread_t* t)
 	 * immediately occured; it's possible to do this check in the caller, but that
 	 * is cumbersome and has no real benefit...
 	 */
-	if ((t->flags & THREAD_FLAG_SUSPENDED) == 0)
+	if (!THREAD_IS_SUSPENDED(t))
 		return;
-	KASSERT((t->flags & THREAD_FLAG_TERMINATING) == 0, "resuming terminating thread %p", t);
-	t->flags &= ~THREAD_FLAG_SUSPENDED;
+	KASSERT(!THREAD_IS_TERMINATING(t), "resuming terminating thread %p", t);
+	t->t_flags &= ~THREAD_FLAG_SUSPENDED;
 	scheduler_add_thread(t);
 }
 	
@@ -367,20 +367,20 @@ thread_exit(int exitcode)
 	thread_t* thread = PCPU_GET(curthread);
 	TRACE(THREAD, FUNC, "t=%p, exitcode=%u", thread, exitcode);
 	KASSERT(thread != NULL, "thread_exit() without thread");
-	KASSERT((thread->flags & THREAD_FLAG_TERMINATING) == 0, "exiting already termating thread");
+	KASSERT(!THREAD_IS_TERMINATING(thread), "exiting already termating thread");
 
 	/*
 	 * Mark the thread as terminating; the thread will remain in the terminating
 	 * status until it is queried about its status.
 	 */
-	thread->flags |= THREAD_FLAG_TERMINATING;
-	thread->terminate_info = exitcode;
+	thread->t_flags |= THREAD_FLAG_TERMINATING;
+	thread->t_terminate_info = exitcode;
 
 	/* free as much of the thread as we can */
 	thread_free(thread);
 
 	/* signal anyone waiting on us */
-	handle_signal(thread->thread_handle, THREAD_EVENT_EXIT, thread->terminate_info);
+	handle_signal(thread->t_thread_handle, THREAD_EVENT_EXIT, thread->t_terminate_info);
 
 	/* force a context switch - won't return */
 	schedule();
@@ -404,7 +404,7 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 	 * XXX we could just re-add the mapping; but this needs refcounting etc...
 	 * and only works for readonly things XXX
 	 */
-	DQUEUE_FOREACH(&parent->mappings, tm, struct THREAD_MAPPING) {
+	DQUEUE_FOREACH(&parent->t_mappings, tm, struct THREAD_MAPPING) {
 		if (tm->tm_flags & THREAD_MAP_PRIVATE)
 			continue;
 		struct THREAD_MAPPING* ttm;
@@ -471,7 +471,7 @@ thread_set_args(thread_t* t, const char* args, size_t args_len)
 {
 	for (unsigned int i = 0; i < ((THREADINFO_ARGS_LENGTH - 1) < args_len ? (THREADINFO_ARGS_LENGTH - 1) : args_len); i++)
 		if(args[i] == '\0' && args[i + 1] == '\0') {
-			memcpy(t->threadinfo->ti_args, args, i + 2 /* terminating \0\0 */);
+			memcpy(t->t_threadinfo->ti_args, args, i + 2 /* terminating \0\0 */);
 			return ANANAS_ERROR_OK;
 		}
 	return ANANAS_ERROR(BAD_LENGTH);
@@ -482,7 +482,7 @@ thread_set_environment(thread_t* t, const char* env, size_t env_len)
 {
 	for (unsigned int i = 0; i < ((THREADINFO_ENV_LENGTH - 1) < env_len ? (THREADINFO_ENV_LENGTH - 1) : env_len); i++)
 		if(env[i] == '\0' && env[i + 1] == '\0') {
-			memcpy(t->threadinfo->ti_env, env, i + 2 /* terminating \0\0 */);
+			memcpy(t->t_threadinfo->ti_env, env, i + 2 /* terminating \0\0 */);
 			return ANANAS_ERROR_OK;
 		}
 
@@ -558,16 +558,16 @@ kdb_cmd_threads(int num_args, char** arg)
 	kprintf("thread dump\n");
 	if (!DQUEUE_EMPTY(&threadqueue))
 		DQUEUE_FOREACH(&threadqueue, t, struct THREAD) {
-			kprintf ("thread %p (handle %p): %s: flags [", t, t->thread_handle, t->threadinfo->ti_args);
-			if (t->flags & THREAD_FLAG_ACTIVE)    kprintf(" active");
-			if (t->flags & THREAD_FLAG_SUSPENDED) kprintf(" suspended");
-			if (t->flags & THREAD_FLAG_TERMINATING) kprintf(" terminating");
-			if (t->flags & THREAD_FLAG_ZOMBIE) kprintf(" zombie");
+			kprintf ("thread %p (handle %p): %s: flags [", t, t->t_thread_handle, t->t_threadinfo->ti_args);
+			if (THREAD_IS_ACTIVE(t))      kprintf(" active");
+			if (THREAD_IS_SUSPENDED(t))   kprintf(" suspended");
+			if (THREAD_IS_TERMINATING(t)) kprintf(" terminating");
+			if (THREAD_IS_ZOMBIE(t))      kprintf(" zombie");
 			kprintf(" ]%s\n", (t == cur) ? " <- current" : "");
 			if (flags & FLAG_HANDLE) {
 				kprintf("handles\n");
-				if(!DQUEUE_EMPTY(&t->handles)) {
-					DQUEUE_FOREACH_SAFE(&t->handles, handle, struct HANDLE) {
+				if(!DQUEUE_EMPTY(&t->t_handles)) {
+					DQUEUE_FOREACH_SAFE(&t->t_handles, handle, struct HANDLE) {
 						kprintf(" handle %p, type %u\n",
 						 handle, handle->type);
 					}
@@ -586,12 +586,12 @@ kdb_cmd_thread(int num_args, char** arg)
 	}
 
 	struct THREAD* thread = kdb_curthread;
-	kprintf("arg          : '%s'\n", thread->threadinfo->ti_args);
-	kprintf("flags        : 0x%x\n", thread->flags);
-	kprintf("terminateinfo: 0x%x\n", thread->terminate_info);
+	kprintf("arg          : '%s'\n", thread->t_threadinfo->ti_args);
+	kprintf("flags        : 0x%x\n", thread->t_flags);
+	kprintf("terminateinfo: 0x%x\n", thread->t_terminate_info);
 	kprintf("mappings:\n");
-	if (!DQUEUE_EMPTY(&thread->mappings)) {
-		DQUEUE_FOREACH(&thread->mappings, tm, struct THREAD_MAPPING) {
+	if (!DQUEUE_EMPTY(&thread->t_mappings)) {
+		DQUEUE_FOREACH(&thread->t_mappings, tm, struct THREAD_MAPPING) {
 			kprintf("   flags      : 0x%x\n", tm->tm_flags);
 			kprintf("   virtual    : 0x%x - 0x%x\n", tm->tm_virt, tm->tm_virt + tm->tm_len);
 			kprintf("   physical   : 0x%x - 0x%x\n", tm->tm_phys, tm->tm_phys + tm->tm_len);

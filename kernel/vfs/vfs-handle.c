@@ -56,7 +56,7 @@ vfshandle_open(thread_t* thread, struct HANDLE* handle, struct OPEN_OPTIONS* opt
 	 */
 	if (opts->op_mode & OPEN_MODE_CREATE) {
 		/* Attempt to create the new file - if this works, we're all set */
-		errorcode_t err = vfs_create(thread->path_handle->data.vfs_file.f_inode, &handle->data.vfs_file, userpath, opts->op_createmode);
+		errorcode_t err = vfs_create(thread->t_path_handle->data.vfs_file.f_inode, &handle->data.vfs_file, userpath, opts->op_createmode);
 		if (err == ANANAS_ERROR_NONE)
 			return err;
 
@@ -73,7 +73,7 @@ vfshandle_open(thread_t* thread, struct HANDLE* handle, struct OPEN_OPTIONS* opt
 
 	/* And open the path */
 	TRACE(SYSCALL, INFO, "opening userpath '%s'", userpath);
-	return vfs_open(userpath, thread->path_handle->data.vfs_file.f_inode, &handle->data.vfs_file);
+	return vfs_open(userpath, thread->t_path_handle->data.vfs_file.f_inode, &handle->data.vfs_file);
 }
 
 static errorcode_t
@@ -101,7 +101,7 @@ vfshandle_create(thread_t* thread, struct HANDLE* handle, struct CREATE_OPTIONS*
 	ANANAS_ERROR_RETURN(err);
 
 	/* Attempt to create the new file */
-	return vfs_create(thread->path_handle->data.vfs_file.f_inode, &handle->data.vfs_file, path, opts->cr_mode);
+	return vfs_create(thread->t_path_handle->data.vfs_file.f_inode, &handle->data.vfs_file, path, opts->cr_mode);
 }
 
 static errorcode_t
@@ -153,10 +153,10 @@ vfshandle_control(thread_t* thread, struct HANDLE* handle, unsigned int op, void
 #endif
 
 			/* Disown the previous handle; it is no longer of concern */
-			handle_free(thread->path_handle);
+			handle_free(thread->t_path_handle);
 
 			/* And update the handle */
-			thread->path_handle = handle;
+			thread->t_path_handle = handle;
 			return ANANAS_ERROR_OK;
 		}
 		case HCTL_FILE_SEEK: {
@@ -271,7 +271,7 @@ vfshandle_summon(thread_t* thread, struct HANDLE* handle, struct SUMMON_OPTIONS*
 	thread_t* newthread = NULL;
 	err = thread_alloc(thread, &newthread);
 	ANANAS_ERROR_RETURN(err);
-	err = syscall_set_handle(thread, (void**)out, newthread->thread_handle);
+	err = syscall_set_handle(thread, (void**)out, newthread->t_thread_handle);
 	if (err != ANANAS_ERROR_NONE)
 		goto fail;
 

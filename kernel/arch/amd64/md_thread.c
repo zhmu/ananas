@@ -45,7 +45,7 @@ md_thread_init(thread_t* t)
 	t->md_ctx.fpu.fcw = 0x37f;
 	t->md_ctx.fpu.ftw = 0xffff;
 
-	t->next_mapping = 1048576;
+	t->t_next_mapping = 1048576;
 	return ANANAS_ERROR_OK;
 }
 

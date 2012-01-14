@@ -29,13 +29,13 @@ threadhandle_control(thread_t* thread, struct HANDLE* handle, unsigned int op, v
 
 	switch(op) {
 		case HCTL_THREAD_SUSPEND: {
-			if ((handle_thread->flags & THREAD_FLAG_SUSPENDED) != 0)
+			if (THREAD_IS_SUSPENDED(handle_thread))
 				return ANANAS_ERROR(BAD_OPERATION);
 			thread_suspend(handle_thread);
 			return ANANAS_ERROR_OK;
 		}
 		case HCTL_THREAD_RESUME: {
-			if ((handle_thread->flags & THREAD_FLAG_SUSPENDED) == 0)
+			if (!THREAD_IS_SUSPENDED(handle_thread))
 				return ANANAS_ERROR(BAD_OPERATION);
 			thread_resume(handle_thread);
 			return ANANAS_ERROR_OK;
@@ -53,8 +53,8 @@ threadhandle_clone(thread_t* thread, struct HANDLE* handle, struct HANDLE** resu
 	errorcode_t err = thread_clone(handle->thread, 0, &newthread);
 	ANANAS_ERROR_RETURN(err);
 
-	TRACE(HANDLE, INFO, "newthread handle = %x", newthread->thread_handle);
-	*result = newthread->thread_handle;
+	TRACE(HANDLE, INFO, "newthread handle = %x", newthread->t_thread_handle);
+	*result = newthread->t_thread_handle;
 	return ANANAS_ERROR_OK;
 }
 
