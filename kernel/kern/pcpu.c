@@ -20,10 +20,12 @@ pcpu_init(struct PCPU* pcpu)
 	pcpu->idlethread_ptr = &pcpu->idlethread;
 
 	/*
-	 * Mark the idle thread as running; it will never be in a runqueue but this should keep our
-	 * invariants safe.
+	 * Mark the idle thread as running, hook it to the CPU and set the
+	 * appropriate priority; it must only be run as a last-resort.
 	 */
-	pcpu->idlethread.flags &= ~THREAD_FLAG_SUSPENDED;
+	pcpu->idlethread.t_flags &= ~THREAD_FLAG_SUSPENDED;
+	pcpu->idlethread.t_affinity = pcpu->cpuid;
+	pcpu->idlethread.t_priority = THREAD_PRIORITY_IDLE;
 }
 
 /* vim:set ts=2 sw=2: */

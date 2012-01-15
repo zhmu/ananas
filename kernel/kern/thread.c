@@ -35,6 +35,10 @@ thread_init(thread_t* t, thread_t* parent)
 	ANANAS_ERROR_RETURN(err);
 	t->t_thread_handle->data.thread = t;
 
+	/* Set up CPU affinity and priority */
+	t->t_priority = THREAD_PRIORITY_DEFAULT;
+	t->t_affinity = THREAD_AFFINITY_ANY;
+
 	/* ask machine-dependant bits to initialize our thread data*/
 	md_thread_init(t);
 

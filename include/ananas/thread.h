@@ -63,6 +63,12 @@ struct THREAD {
 	addr_t t_next_mapping;		/* address of next mapping */
 	struct THREAD_MAPPING_QUEUE t_mappings;
 
+	int t_priority;			/* priority (0 highest) */
+#define THREAD_PRIORITY_DEFAULT	200
+#define THREAD_PRIORITY_IDLE	255
+	int t_affinity;			/* thread CPU */
+#define THREAD_AFFINITY_ANY -1
+
 	struct THREADINFO* t_threadinfo;	/* Thread startup information */
 
 	/* Thread handles */

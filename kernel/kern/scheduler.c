@@ -5,9 +5,6 @@
  * administration of threads is distinct from the scheduler, and having the
  * scheduler re-add a thread that has expired its timeslice back to the
  * runqueue avoids nasty races (as well as being much easier to follow)
- *
- * Finally, the idle thread is neither in the runqueue nor in the sleepqueue;
- * it will be chosen when nothing else is available.
  */
 #include <machine/thread.h>
 #include <machine/interrupts.h>
@@ -52,15 +49,40 @@ scheduler_cleanup_thread(thread_t* t)
 	spinlock_unlock_unpremptible(&spl_scheduler, state);
 }
 
+static void
+scheduler_add_thread_locked(thread_t* t)
+{
+	/*
+	 * Add it to the runqueue - note that we must preset order here
+	 * because the threads must be sorted in order of priority
+	 * XXX Note that this is O(n) - we can do better
+	 */
+	int inserted = 0;
+	if (!DQUEUE_EMPTY(&sched_runqueue)) {
+		DQUEUE_FOREACH(&sched_runqueue, s, struct SCHED_PRIV) {
+			KASSERT(s->sp_thread != t, "thread %p already in queue", t);
+			if (s->sp_thread->t_priority <= t->t_priority)
+				continue;
+
+			/* Found a thread with a lower priority; we can insert it here */
+			DQUEUE_INSERT_BEFORE(&sched_runqueue, s, &t->t_sched_priv);
+			inserted++;
+			break;
+		}
+	}
+	if (!inserted)
+		DQUEUE_ADD_TAIL(&sched_runqueue, &t->t_sched_priv);
+}
+
 void
 scheduler_add_thread(thread_t* t)
 {
-	KASSERT(!THREAD_IS_SUSPENDED(t) == 0, "adding suspend thread %p", t);
+	KASSERT(!THREAD_IS_SUSPENDED(t), "adding suspend thread %p", t);
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
 	/* Remove the thread from the sleepqueue ... */
 	DQUEUE_REMOVE(&sched_sleepqueue, &t->t_sched_priv);
 	/* ... and add it to the runqueue */
-	DQUEUE_ADD_TAIL(&sched_runqueue, &t->t_sched_priv);
+	scheduler_add_thread_locked(t);
 	spinlock_unlock_unpremptible(&spl_scheduler, state);
 }
 
@@ -80,42 +102,45 @@ void
 schedule()
 {
 	thread_t* curthread = PCPU_GET(curthread);
-	thread_t* idle_thread = PCPU_GET(idlethread_ptr);
+	int cpuid = PCPU_GET(cpuid);
+	KASSERT(curthread != NULL, "no current thread active");
 
 	/* Cancel any rescheduling as we are about to schedule here */
-	if (curthread != NULL)
-		curthread->t_flags &= ~THREAD_FLAG_RESCHEDULE;
+	curthread->t_flags &= ~THREAD_FLAG_RESCHEDULE;
 
 	/* Pick the next thread to schedule and add it to the back of the queue */
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
 	KASSERT(state, "irq's must be enabled at this point");
-	struct SCHED_PRIV* next_sched;
-	if (!DQUEUE_EMPTY(&sched_runqueue)) {
-		next_sched = DQUEUE_HEAD(&sched_runqueue);
-		DQUEUE_POP_HEAD(&sched_runqueue);
-	} else {
-		/* If there was no thread, revert to idle */
-		next_sched = &idle_thread->t_sched_priv;
+	KASSERT(!DQUEUE_EMPTY(&sched_runqueue), "runqueue cannot be empty");
+	struct SCHED_PRIV* next_sched = NULL;
+	DQUEUE_FOREACH(&sched_runqueue, sp, struct SCHED_PRIV) {
+		/* Skip the thread if we can't schedule it here */
+		if (sp->sp_thread->t_affinity != THREAD_AFFINITY_ANY &&
+			  sp->sp_thread->t_affinity != cpuid)
+			continue;
+		next_sched = sp;
+		break;
 	}
+	KASSERT(next_sched != NULL, "nothing on the runqueue for cpu %u", cpuid);
 
 	/* Sanity checks */
 	thread_t* newthread = next_sched->sp_thread;
 	KASSERT(!THREAD_IS_SUSPENDED(newthread), "activating suspended thread %p", newthread);
-	if (curthread != NULL) {
-		/*
-		 * If the current thread is not suspended, this means it got interrupted
-		 * involuntary and must be placed back on the running queue; otherwise it
-		 * must have been placed on the runqueue already.
-		 *
-		 * We must also take care not to re-add zombie threads; these cannot be
-		 * run. The same goes for the idle-thread as it will be chosen if the
-		 * runqueue is empty - it makes no sense to schedule idle-time.
-		 */
-		if (!THREAD_IS_SUSPENDED(curthread) && !THREAD_IS_ZOMBIE(curthread) &&
-		   curthread != idle_thread)
-			DQUEUE_ADD_TAIL(&sched_runqueue, &curthread->t_sched_priv);
-		curthread->t_flags &= ~THREAD_FLAG_ACTIVE;
+
+	/*
+	 * If the current thread is not suspended, this means it got interrupted
+	 * involuntary and must be placed back on the running queue; otherwise it
+	 * must have been placed on the runqueue already.
+	 *
+	 * We must also take care not to re-add zombie threads; these cannot be
+	 * run. The same goes for the idle-thread as it will be chosen if the
+	 * runqueue is empty - it makes no sense to schedule idle-time.
+	 */
+	if (!THREAD_IS_SUSPENDED(curthread) && !THREAD_IS_ZOMBIE(curthread)) {
+		DQUEUE_REMOVE(&sched_runqueue, &curthread->t_sched_priv);
+		scheduler_add_thread_locked(curthread);
 	}
+	curthread->t_flags &= ~THREAD_FLAG_ACTIVE;
 
 	/* Schedule our new thread - this will enable interrupts as required */
 	newthread->t_flags |= THREAD_FLAG_ACTIVE;
