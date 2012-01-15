@@ -182,6 +182,34 @@ dqueue_test()
 		i++;
 	}
 	EXPECT(i == 5);
+
+	/* OK; now see whether inserting at the beginning works */
+	DQUEUE_INIT(&tq);
+	DQUEUE_ADD_HEAD(&tq, &ti[3]);
+	DQUEUE_INSERT_BEFORE(&tq, &ti[3], &ti[1]);
+	i = 0;
+	DQUEUE_FOREACH(&tq, iter, struct test_item) {
+		EXPECT(iter == &ti[(2 * i) + 1]);
+		i++;
+	}
+	EXPECT(i == 2);
+	DQUEUE_FOREACH_REVERSE(&tq, iter, struct test_item) {
+		EXPECT(iter == &ti[(i - 1) * 2 + 1]);
+		i--;
+	}
+	EXPECT(i == 0);
+	/* Insert at the center */
+	DQUEUE_INSERT_BEFORE(&tq, &ti[3], &ti[2]);
+	DQUEUE_FOREACH(&tq, iter, struct test_item) {
+		EXPECT(iter == &ti[i + 1]);
+		i++;
+	}
+	EXPECT(i == 3);
+	DQUEUE_FOREACH_REVERSE(&tq, iter, struct test_item) {
+		EXPECT(iter == &ti[i]);
+		i--;
+	}
+	EXPECT(i == 0);
 }
 
 /* vim:set ts=2 sw=2: */

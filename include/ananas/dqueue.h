@@ -97,6 +97,15 @@ do {								\
 #define DQUEUE_PREV_IP(it, ip)					\
 	(it)->ip ## _prev
 
+#define DQUEUE_INSERT_BEFORE_IP(q, ip, pos, item)		\
+	if ((pos)->ip ## _prev != NULL)				\
+		(pos)->ip ## _prev->ip ## _next = (item);	\
+	(item)->ip ## _next = (pos);				\
+	(item)->ip ## _prev = (pos)->ip ## _prev;		\
+	(pos)->ip ## _prev = (item);				\
+	if ((q)->dq_head == (pos))				\
+		(q)->dq_head = (item);
+
 #define DQUEUE_FOREACH_IP(q, ip, it, TYPE)			\
 	for (TYPE* (it) = DQUEUE_HEAD(q);			\
 	     (it) != NULL;					\
@@ -153,6 +162,9 @@ do {									\
 
 #define DQUEUE_PREV(it)						\
 	DQUEUE_PREV_IP(it, qi)
+
+#define DQUEUE_INSERT_BEFORE(q, pos, item)			\
+	DQUEUE_INSERT_BEFORE_IP(q, qi, pos, item)
 
 #define DQUEUE_FOREACH(q, it, TYPE)				\
 	DQUEUE_FOREACH_IP(q, qi, it, TYPE)
