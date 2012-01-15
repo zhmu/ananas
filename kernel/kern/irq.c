@@ -82,14 +82,21 @@ irq_handler(unsigned int no)
 	/* Call the interrupt handler */
 	i->i_handler(i->i_dev);
 
+	/*
+	 * Disable interrupts; as we were handling an interrupt, this means we've
+	 * been interrupted. We'll want to clean up, because if another interrupt
+	 * occurs, it'll just expand the current context - and if interrupts come
+	 * quickly enough, we'll run out of stack and crash 'n burn.
+	 */
+	md_interrupts_disable();
+
 	/* Acknowledge the interrupt once the handler is done */
 	i->i_source->is_ack(i->i_source, no - i->i_source->is_first);
 
 	/* If the IRQ handler resulted in a reschedule of the current thread, handle it */
 	thread_t* curthread = PCPU_GET(curthread);
-	if (curthread != NULL && curthread->flags & THREAD_FLAG_RESCHEDULE) {
+	if (THREAD_WANT_RESCHEDULE(curthread))
 		schedule();
-	}
 }
 
 #ifdef OPTION_KDB

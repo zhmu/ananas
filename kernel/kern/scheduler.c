@@ -108,9 +108,14 @@ schedule()
 	/* Cancel any rescheduling as we are about to schedule here */
 	curthread->t_flags &= ~THREAD_FLAG_RESCHEDULE;
 
-	/* Pick the next thread to schedule and add it to the back of the queue */
+	/*
+	 * Grab the scheduler lock and disable interrupts; note that they need not be
+	 * enabled - this happens in interrupt context, which needs to clean up
+	 * before another interrupt can be handled.
+	 */
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
-	KASSERT(state, "irq's must be enabled at this point");
+
+	/* Pick the next thread to schedule and add it to the back of the queue */
 	KASSERT(!DQUEUE_EMPTY(&sched_runqueue), "runqueue cannot be empty");
 	struct SCHED_PRIV* next_sched = NULL;
 	DQUEUE_FOREACH(&sched_runqueue, sp, struct SCHED_PRIV) {
@@ -153,8 +158,8 @@ schedule()
 		md_thread_switch(newthread, curthread);
 	}
 
-	/* Re-enable interrupts as they were */
-	md_interrupts_enable();
+	/* Re-enable interrupts if they were */
+	md_interrupts_restore(state);
 }
 
 static errorcode_t
