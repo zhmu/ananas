@@ -99,6 +99,26 @@ scheduler_remove_thread(thread_t* t)
 }
 
 void
+scheduler_exit_thread(thread_t* t)
+{
+	KASSERT(HREAD_IS_TERMINATING(t), "exiting thread which isn't terminating");
+	KASSERT(THREAD_IS_ACTIVE(t), "exiting thread which isn't running");
+
+	/*
+	 * Note that interrupts must be disabled - this is important because we are about to
+	 * remove the thread from the schedulers runqueue, and it will not be re-added again.
+	 * Thus, if a context switch would occur, the final exiting code will not be run.
+	 */
+	spinlock_lock_unpremptible(&spl_scheduler);
+	DQUEUE_REMOVE(&sched_runqueue, &t->t_sched_priv);
+	/* Let go of the scheduler lock but leave interrupts disabled */
+	spinlock_unlock(&spl_scheduler);
+
+	/* Force a reschedule - won't return */
+	schedule();
+}
+
+void
 schedule()
 {
 	thread_t* curthread = PCPU_GET(curthread);

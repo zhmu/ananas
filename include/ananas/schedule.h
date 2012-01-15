@@ -32,4 +32,7 @@ void scheduler_add_thread(thread_t* t);
 /* Unregister a thread for scheduling */
 void scheduler_remove_thread(thread_t* t);
 
+/* Exits a thread - removes it from the runqueue in a safe manner */
+void scheduler_exit_thread(thread_t* t);
+
 #endif /* __SCHEDULE_H__ */

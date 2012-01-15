@@ -371,7 +371,7 @@ thread_exit(int exitcode)
 	thread_t* thread = PCPU_GET(curthread);
 	TRACE(THREAD, FUNC, "t=%p, exitcode=%u", thread, exitcode);
 	KASSERT(thread != NULL, "thread_exit() without thread");
-	KASSERT(!THREAD_IS_TERMINATING(thread), "exiting already termating thread");
+	KASSERT(!THREAD_IS_TERMINATING(thread), "exiting already terminating thread");
 
 	/*
 	 * Mark the thread as terminating; the thread will remain in the terminating
@@ -386,8 +386,9 @@ thread_exit(int exitcode)
 	/* signal anyone waiting on us */
 	handle_signal(thread->t_thread_handle, THREAD_EVENT_EXIT, thread->t_terminate_info);
 
-	/* force a context switch - won't return */
-	schedule();
+	/* Ask the scheduler to exit the thread */
+	scheduler_exit_thread(thread);
+	/* NOTREACHED */
 }
 
 errorcode_t
