@@ -78,6 +78,28 @@ module_sym_resolve_name(const char* name, struct SYMBOL* s)
 	return 0;
 }
 
+int
+module_sym_resolve_addr(addr_t addr, struct SYMBOL* s)
+{
+	/* XXX locking? */
+	if (DQUEUE_EMPTY(&kernel_modules))
+		return 0;
+
+	DQUEUE_FOREACH(&kernel_modules, kmod, struct KERNEL_MODULE) {
+		Elf_Sym* sym = kmod->kmod_symptr;
+		for (unsigned int i = 0; i < kmod->kmod_sym_size; i += sizeof(Elf_Sym), sym++) {
+			if (addr < sym->st_value ||
+					addr >= sym->st_value + sym->st_size)
+				continue;
+			s->s_addr = sym->st_value;
+			s->s_name = kmod->kmod_strptr + sym->st_name;
+			s->s_flags = 0; /* TODO */
+			return 1;
+		}
+	}
+	return 0;
+}
+
 static errorcode_t
 module_load(struct LOADER_MODULE* mod)
 {
