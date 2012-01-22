@@ -19,6 +19,14 @@
 #include <ananas/thread.h>
 #include "options.h"
 
+/*
+ * The next define adds specific debugger assertions that may incur a
+ * significant performance penalty - these assertions are named
+ * SCHED_ASSERT.
+ */
+#define DEBUG_SCHEDULER
+#define SCHED_KPRINTF(...)
+
 static int scheduler_active = 0;
 
 static spinlock_t spl_scheduler = SPINLOCK_DEFAULT_INIT;
@@ -28,6 +36,7 @@ static struct SCHEDULER_QUEUE sched_sleepqueue;
 void
 scheduler_init_thread(thread_t* t)
 {
+	KASSERT(THREAD_IS_SUSPENDED(t), "initializing non-suspended thread %p", t);
 	t->t_sched_priv.sp_thread = t;
 
 	/* Hook the thread to our sleepqueue */
@@ -35,6 +44,22 @@ scheduler_init_thread(thread_t* t)
 	DQUEUE_ADD_TAIL(&sched_sleepqueue, &t->t_sched_priv);
 	spinlock_unlock_unpremptible(&spl_scheduler, state);
 }
+
+#ifdef DEBUG_SCHEDULER
+static int
+scheduler_is_on_queue(struct SCHEDULER_QUEUE* q, thread_t* t)
+{
+	int n = 0;
+	DQUEUE_FOREACH(q, s, struct SCHED_PRIV) {
+		if (s->sp_thread == t)
+			n++;
+	}
+	return n;
+}
+#define SCHED_ASSERT(x,...) KASSERT((x), __VA_ARGS__)
+#else
+#define SCHED_ASSERT(x,...)
+#endif
 
 void
 scheduler_cleanup_thread(thread_t* t)
@@ -45,6 +70,8 @@ scheduler_cleanup_thread(thread_t* t)
 	 */
 	KASSERT(THREAD_IS_ZOMBIE(t), "cleaning up non-zombie thread");
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
+	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 1, "cleaning up thread not on sleepqueue");
+	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 0, "cleaning up thread on runqueue");
 	DQUEUE_REMOVE(&sched_sleepqueue, &t->t_sched_priv);
 	spinlock_unlock_unpremptible(&spl_scheduler, state);
 }
@@ -60,7 +87,7 @@ scheduler_add_thread_locked(thread_t* t)
 	int inserted = 0;
 	if (!DQUEUE_EMPTY(&sched_runqueue)) {
 		DQUEUE_FOREACH(&sched_runqueue, s, struct SCHED_PRIV) {
-			KASSERT(s->sp_thread != t, "thread %p already in queue", t);
+			KASSERT(s->sp_thread != t, "thread %p already in runqueue", t);
 			if (s->sp_thread->t_priority <= t->t_priority)
 				continue;
 
@@ -77,8 +104,11 @@ scheduler_add_thread_locked(thread_t* t)
 void
 scheduler_add_thread(thread_t* t)
 {
+	SCHED_KPRINTF("%s: t=%p\n", __func__, t);
 	KASSERT(!THREAD_IS_SUSPENDED(t), "adding suspend thread %p", t);
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
+	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 0, "adding thread %p already on runqueue", t);
+	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 1, "adding thread %p not on sleepqueue", t);
 	/* Remove the thread from the sleepqueue ... */
 	DQUEUE_REMOVE(&sched_sleepqueue, &t->t_sched_priv);
 	/* ... and add it to the runqueue */
@@ -89,8 +119,11 @@ scheduler_add_thread(thread_t* t)
 void
 scheduler_remove_thread(thread_t* t)
 {
+	SCHED_KPRINTF("%s: t=%p\n", __func__, t);
 	KASSERT(THREAD_IS_SUSPENDED(t), "removing non-suspended thread %p", t);
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
+	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 0, "removing thread already on sleepqueue");
+	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 1, "removing thread not on runqueue");
 	/* Remove the thread from the runqueue ... */
 	DQUEUE_REMOVE(&sched_runqueue, &t->t_sched_priv);
 	/* ... and add it to the sleepqueue */
@@ -101,7 +134,7 @@ scheduler_remove_thread(thread_t* t)
 void
 scheduler_exit_thread(thread_t* t)
 {
-	KASSERT(HREAD_IS_TERMINATING(t), "exiting thread which isn't terminating");
+	KASSERT(THREAD_IS_TERMINATING(t), "exiting thread which isn't terminating");
 	KASSERT(THREAD_IS_ACTIVE(t), "exiting thread which isn't running");
 
 	/*
@@ -110,6 +143,8 @@ scheduler_exit_thread(thread_t* t)
 	 * Thus, if a context switch would occur, the final exiting code will not be run.
 	 */
 	spinlock_lock_unpremptible(&spl_scheduler);
+	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 1, "exiting thread already not on sleepqueue");
+	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 0, "exiting thread on runqueue");
 	DQUEUE_REMOVE(&sched_runqueue, &t->t_sched_priv);
 	/* Let go of the scheduler lock but leave interrupts disabled */
 	spinlock_unlock(&spl_scheduler);
@@ -151,6 +186,8 @@ schedule()
 	/* Sanity checks */
 	thread_t* newthread = next_sched->sp_thread;
 	KASSERT(!THREAD_IS_SUSPENDED(newthread), "activating suspended thread %p", newthread);
+	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, newthread) == 1, "scheduling thread not on runqueue (?)");
+	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, newthread) == 0, "scheduling thread on sleepqueue");
 
 	/*
 	 * If the current thread is not suspended, this means it got interrupted
@@ -162,7 +199,9 @@ schedule()
 	 * runqueue is empty - it makes no sense to schedule idle-time.
 	 */
 	if (!THREAD_IS_SUSPENDED(curthread) && !THREAD_IS_ZOMBIE(curthread)) {
+		SCHED_KPRINTF("%s: removing t=%p from runqueue\n", __func__, curthread);
 		DQUEUE_REMOVE(&sched_runqueue, &curthread->t_sched_priv);
+		SCHED_KPRINTF("%s: re-adding t=%p\n", __func__, curthread);
 		scheduler_add_thread_locked(curthread);
 	}
 	curthread->t_flags &= ~THREAD_FLAG_ACTIVE;
