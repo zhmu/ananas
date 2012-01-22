@@ -73,7 +73,17 @@ do_irq:
 	movl	$GDT_SEL_KERNEL_PCPU, %eax
 	movw	%ax, %fs
 
-	/* Call the interrupt handler */
+	/* Increment the nested IRQ count */
+	incl	%fs:(PCPU_NESTEDIRQ)
+
+	/* Restore the interrupt flag */
+	movl	SF_EFLAGS(%esp), %eax
+	testl	$0x200, %eax
+	jz	1f
+
+	sti
+
+1:	/* Call the interrupt handler */
 	pushl	%esp
 	call	interrupt_handler
 	addl	$4, %esp
