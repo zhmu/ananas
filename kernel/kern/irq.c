@@ -93,9 +93,19 @@ irq_handler(unsigned int no)
 	/* Acknowledge the interrupt once the handler is done */
 	i->i_source->is_ack(i->i_source, no - i->i_source->is_first);
 
+	/*
+	 * Decrement the IRQ nesting counter; interrupts are disabled, so it's safe
+	 * to do this - if the nesting counter reaches zero, we can do a reschedule
+	 * if necessary.
+	 */
+	int irq_nestcount = PCPU_GET(nested_irq);
+	KASSERT(irq_nestcount > 0, "IRQ nesting too low while in irq!");
+	irq_nestcount--;
+	PCPU_SET(nested_irq, irq_nestcount);
+
 	/* If the IRQ handler resulted in a reschedule of the current thread, handle it */
 	thread_t* curthread = PCPU_GET(curthread);
-	if (THREAD_WANT_RESCHEDULE(curthread))
+	if (irq_nestcount == 0 && THREAD_WANT_RESCHEDULE(curthread))
 		schedule();
 }
 

@@ -18,6 +18,7 @@ pcpu_init(struct PCPU* pcpu)
 	tmp[strlen(tmp) + 1] = '\0'; /* ensure doubly \0 terminated */
 	thread_set_args(&pcpu->idlethread, tmp, PAGE_SIZE);
 	pcpu->idlethread_ptr = &pcpu->idlethread;
+	pcpu->nested_irq = 0;
 
 	/*
 	 * Mark the idle thread as running, hook it to the CPU and set the

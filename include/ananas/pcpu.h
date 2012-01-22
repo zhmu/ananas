@@ -12,6 +12,7 @@ struct PCPU {
 	void* curthread;			/* current thread */
 	void* idlethread_ptr;			/* pointer to idle thread */
 	struct THREAD idlethread;		/* idle thread */
+	int nested_irq;				/* number of nested IRQ functions */
 };
 
 /* Retrieve the size of the machine-dependant structure */
