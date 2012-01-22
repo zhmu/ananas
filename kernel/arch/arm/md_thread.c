@@ -55,9 +55,4 @@ md_reschedule()
 {
 }
 
-void
-md_thread_bootstrap(thread_t* t)
-{
-}
-
 /* vim:set ts=2 sw=2: */

@@ -148,24 +148,6 @@ md_thread_switch(thread_t* new, thread_t* old)
 	);
 }
 
-void
-md_thread_bootstrap(thread_t* new)
-{
-	KASSERT(md_interrupts_save() == 0, "interrupts must be disabled");
-	KASSERT(THREAD_IS_ACTIVE(new), "must switch to active thread");
-	KASSERT(THREAD_IS_KTHREAD(new), "must switch to kernel thread");
-	KASSERT(PCPU_GET(curthread) == new, "must switch to active thread");
-
-	__asm __volatile(
-		"movl %[new_esp], %%esp\n" /* write new %esp */
-		"jmp *%[new_eip]\n"
-	: : /* in */
-		[new_eip] "r" (new->md_eip), [new_esp] "b" (new->md_esp)
-	);
-
-	/* NOTREACHED */
-}
-
 void*
 md_map_thread_memory(thread_t* thread, void* ptr, size_t length, int write)
 {
