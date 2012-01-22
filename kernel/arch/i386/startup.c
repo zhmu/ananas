@@ -408,6 +408,17 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	pcpu_init(&bsp_pcpu);
 	bsp_pcpu.tss = (addr_t)&kernel_tss;
 
+	/*
+	 * Switch to the idle thread - the reason we do it here is because it removes the
+	 * curthread==NULL case and it will has a larger stack than our bootstrap stack. The
+	 * bootstrap stack is re-used as double fault stack.
+	 */
+	__asm __volatile(
+		"movl %0, %%esp\n"
+	: : "r" (bsp_pcpu.idlethread.md_esp));
+	PCPU_SET(curthread, &bsp_pcpu.idlethread);
+	scheduler_add_thread(&bsp_pcpu.idlethread);
+
 	/* Initialize the PIT */
 	x86_pit_init();
 
