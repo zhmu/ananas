@@ -350,16 +350,17 @@ void
 thread_resume(thread_t* t)
 {
 	TRACE(THREAD, FUNC, "t=%p", t);
-	if (t == NULL)
-		return; /* this happens in early boot */
+
 	/*
-	 * Ignore a resume request for an unsuspended thread; it may be that the
-	 * thread never slept in the first place because the event it was waiting for
-	 * immediately occured; it's possible to do this check in the caller, but that
-	 * is cumbersome and has no real benefit...
+	 * In early startup (when we're not actually scheduling things), the idle
+	 * thread is running which takes care of actually getting things initialized
+	 * and ready - however, it will silently ignore all suspend actions which
+	 * we need to catch here.
 	 */
-	if (!THREAD_IS_SUSPENDED(t))
+	if (!THREAD_IS_SUSPENDED(t)) {
+		KASSERT(!scheduler_activated(), "resuming nonsuspended thread %p", t);
 		return;
+	}
 	KASSERT(!THREAD_IS_TERMINATING(t), "resuming terminating thread %p", t);
 	t->t_flags &= ~THREAD_FLAG_SUSPENDED;
 	scheduler_add_thread(t);
