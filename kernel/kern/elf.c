@@ -195,7 +195,7 @@ EXECUTABLE_FORMAT("elf32", elf32_load);
 #endif /*__i386__ */
 
 #ifdef __amd64__
-static int
+static errorcode_t
 elf64_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 {
 	errorcode_t err;
