@@ -44,6 +44,7 @@ waitqueue_reset_waiter(struct WAITER* w)
 
 	spinlock_lock(&w->w_lock);
 	w->w_signalled = 0;
+	w->w_waiting = 0;
 	spinlock_unlock(&w->w_lock);
 }
 
@@ -61,6 +62,7 @@ waitqueue_add(struct WAIT_QUEUE* wq)
 	w->w_thread = PCPU_GET(curthread);
 	w->w_wq = wq;
 	w->w_signalled = 0;
+	w->w_waiting = 0;
 	spinlock_init(&w->w_lock);
 
 	/* Append our waiter to the queue */
@@ -95,7 +97,7 @@ waitqueue_wait(struct WAITER* w)
 	thread_t* t = PCPU_GET(curthread);
 	KASSERT(w->w_thread == t, "waiter does not belong to our thread");
 
-	if (t == NULL)
+	if (t == PCPU_GET(idlethread_ptr))
 		return;
 
 	/* Wait until we are adequately scheduled */
@@ -124,9 +126,12 @@ waitqueue_wait(struct WAITER* w)
 		 */
 		int state = spinlock_lock_unpremptible(&w->w_lock);
 		if (w->w_signalled > 0) {
+			w->w_waiting = 0; /* no longer waiting */
 			spinlock_unlock_unpremptible(&w->w_lock, state);
 			break;
 		}
+		/* Not signalled; we must wait */
+		w->w_waiting = 1;
 		thread_suspend(t);
 		spinlock_unlock_unpremptible(&w->w_lock, state);
 		reschedule();
@@ -147,8 +152,9 @@ waitqueue_signal(struct WAIT_QUEUE* wq)
 		/* Signal the waiter */
 		w->w_signalled++;
 
-		/* Wake up the corresponding thread */
-		thread_resume(w->w_thread);
+		/* Wake up the corresponding thread, if there is one */
+		if (w->w_waiting)
+			thread_resume(w->w_thread);
 
 		spinlock_unlock(&w->w_lock);
 	}

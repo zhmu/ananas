@@ -14,6 +14,7 @@ struct WAITER {
 	spinlock_t	w_lock;			/* spinlock protecting the waiter */
 	struct THREAD*	w_thread;		/* waiting thread */
 	int		w_signalled;		/* number of times signalled */
+	int		w_waiting;		/* thread is waiting */
 	struct WAIT_QUEUE* w_wq;		/* owner queue */
 	DQUEUE_FIELDS(struct WAITER);
 };
