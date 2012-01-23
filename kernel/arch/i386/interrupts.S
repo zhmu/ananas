@@ -8,7 +8,7 @@
 .globl exception18, exception19
 .globl irq0, irq1, irq2, irq3, irq4, irq5, irq6, irq7, irq8, irq9
 .globl irq10, irq11, irq12, irq13, irq14, irq15
-.globl scheduler_irq, syscall_int, spurious_irq
+.globl syscall_int
 .globl clone_return
 .globl userland_trampoline, kthread_trampoline
 
