@@ -64,6 +64,7 @@ irq_handler(unsigned int no)
 {
 	int cpuid = PCPU_GET(cpuid);
 	struct IRQ* i = &irq[no];
+	struct IRQ_SOURCE* is = i->i_source;
 
 	KASSERT(no < MAX_IRQS, "irq_handler: (CPU %u) impossible irq %u fired", cpuid, no);
 	if (i->i_handler == NULL) {
@@ -72,15 +73,13 @@ irq_handler(unsigned int no)
 			if (++i->i_straycount == IRQ_MAX_STRAY_COUNT)
 				kprintf("irq_handler(): not reporting stray irq %u anymore\n", no);
 		}
-		/* XXX Should we acknowledge stray IRQ's? */
-		struct IRQ_SOURCE* is = irqsource_find(no);
-		if (is != NULL)
-			is->is_ack(is, no - is->is_first);
-		return;
+		/* Find the IRQ source; this is necessary to acknowledge the stray IRQ */
+		is = irqsource_find(no);
+		KASSERT(is != NULL, "stray interrupt %u without source", no);
+	} else {
+		/* Call the interrupt handler */
+		i->i_handler(i->i_dev);
 	}
-
-	/* Call the interrupt handler */
-	i->i_handler(i->i_dev);
 
 	/*
 	 * Disable interrupts; as we were handling an interrupt, this means we've
@@ -91,7 +90,7 @@ irq_handler(unsigned int no)
 	md_interrupts_disable();
 
 	/* Acknowledge the interrupt once the handler is done */
-	i->i_source->is_ack(i->i_source, no - i->i_source->is_first);
+	is->is_ack(i->i_source, no - is->is_first);
 
 	/*
 	 * Decrement the IRQ nesting counter; interrupts are disabled, so it's safe
