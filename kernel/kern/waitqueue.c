@@ -1,4 +1,5 @@
 #include <ananas/types.h>
+#include <machine/interrupts.h>
 #include <ananas/waitqueue.h>
 #include <ananas/error.h>
 #include <ananas/lock.h>
@@ -101,6 +102,7 @@ waitqueue_wait(struct WAITER* w)
 		return;
 
 	/* Wait until we are adequately scheduled */
+	int state = md_interrupts_save();
 	for (;;) {
 		/*
 		 * Note that we must be cautious here: once a thread has called
@@ -123,8 +125,12 @@ waitqueue_wait(struct WAITER* w)
 	 	 * our thread is being suspended  - note that this spinlock must be
 		 * unpremptible because the scheduler irq can otherwise kick in while
 		 * we still need to unlock the spinlock, causing a deadlock.
+		 *
+		 * Note that we also need to have interrupts disabled upon entering the
+		 * reschedule() call for exactly the same reason; it will redisable them
+		 * all by itself later which does no harm.
 		 */
-		int state = spinlock_lock_unpremptible(&w->w_lock);
+		spinlock_lock_unpremptible(&w->w_lock);
 		if (w->w_signalled > 0) {
 			w->w_waiting = 0; /* no longer waiting */
 			spinlock_unlock_unpremptible(&w->w_lock, state);
@@ -133,7 +139,7 @@ waitqueue_wait(struct WAITER* w)
 		/* Not signalled; we must wait */
 		w->w_waiting = 1;
 		thread_suspend(t);
-		spinlock_unlock_unpremptible(&w->w_lock, state);
+		spinlock_unlock(&w->w_lock);
 		reschedule();
 	}
 }
