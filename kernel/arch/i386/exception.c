@@ -98,22 +98,15 @@ exception_pf(struct STACKFRAME* sf)
 	if (sf->sf_eflags & EFLAGS_IF)
 		__asm __volatile("sti");
 
-	int userland = (sf->sf_cs & 3) == SEG_DPL_USER;
-	if (userland) {
-		/*
-		 * Userland pagefault - we should see if there is an adequate mapping for this
-		 * thread
-		 */
-		int flags = 0;
-		if (sf->sf_errnum & EXC_PF_FLAG_RW)
-			flags |= VM_FLAG_WRITE;
-		else
-			flags |= VM_FLAG_READ;
-		if ((sf->sf_errnum & EXC_PF_FLAG_P) == 0) { /* page not present */
-			errorcode_t err = thread_handle_fault(PCPU_GET(curthread), fault_addr & ~(PAGE_SIZE - 1), flags);
-			if (err == ANANAS_ERROR_NONE) {
-				return; /* fault handeled */
-			}
+	int flags = 0;
+	if (sf->sf_errnum & EXC_PF_FLAG_RW)
+		flags |= VM_FLAG_WRITE;
+	else
+		flags |= VM_FLAG_READ;
+	if ((sf->sf_errnum & EXC_PF_FLAG_P) == 0) { /* page not present */
+		errorcode_t err = thread_handle_fault(PCPU_GET(curthread), fault_addr & ~(PAGE_SIZE - 1), flags);
+		if (err == ANANAS_ERROR_NONE) {
+			return; /* fault handeled */
 		}
 	}
 
