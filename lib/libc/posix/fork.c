@@ -23,11 +23,14 @@ pid_t fork()
 	 * standard handle (the kernel will handle these as they are part of
 	 * the threadinfo structure). If the clone fails, we'll just throw them
 	 * away.
+	 *
+	 * Note that we must only handle files here; if we handle anything here,
+	 * we'll attempt to clone processes which we have the PID stored for!
 	 */
 	void* cloned_handles[HANDLEMAP_SIZE];
 	memset(cloned_handles, 0, sizeof(void*) * HANDLEMAP_SIZE);
 	for (int i = NUM_RESERVED_HANDLES; i < HANDLEMAP_SIZE; i++) {
-		void* handle = handlemap_deref(i, HANDLEMAP_TYPE_ANY);
+		void* handle = handlemap_deref(i, HANDLEMAP_TYPE_FD);
 		if (handle == NULL)
 			continue;
 		void* newhandle;
@@ -48,8 +51,6 @@ pid_t fork()
 	void* newthread;
 	errorcode_t err = sys_clone(libc_threadinfo->ti_handle, &clopts, &newthread);
 	if (err != ANANAS_ERROR_NONE) {
-		/* Throw away the pid entry; the cloned thread doesn't need it */
-		handlemap_free_entry(pid);
 		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_CLONED) {
 			/*
 			 * We are the cloned thread - reinitialize our standard
@@ -57,6 +58,9 @@ pid_t fork()
 			 * parents.
 			 */
 			handlemap_reinit(libc_threadinfo);
+
+			/* Throw away the pid entry; the cloned thread doesn't need it */
+			handlemap_free_entry(pid);
 
 			/*
 			 * Restore our cloned handles - they will already be
