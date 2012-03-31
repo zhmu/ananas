@@ -67,6 +67,41 @@ typedef struct s_PXENV_TFTP_READ {
 	uint16_t	BufferSegment;
 } __attribute__((packed)) t_PXENV_TFTP_READ;
 
+#define PXENV_UDP_OPEN 0x0030
+typedef struct s_PXENV_UDP_OPEN {
+	uint16_t	status;
+	uint32_t	src_ip;
+} __attribute__((packed)) t_PXENV_UDP_OPEN;
+
+#define PXENV_UDP_CLOSE 0x0031
+typedef struct s_PXENV_UDP_CLOSE {
+	uint16_t	status;
+} __attribute__((packed)) t_PXENV_UDP_CLOSE;
+
+#define PXENV_UDP_READ 0x0032
+typedef struct s_PXENV_UDP_READ {
+	uint16_t	status;
+	uint32_t	src_ip;
+	uint32_t	dst_ip;
+	uint16_t	s_port;
+	uint16_t	d_port;
+	uint16_t	buffer_size;
+	uint16_t	buffer_offset;
+	uint16_t	buffer_segment;
+} __attribute__((packed)) t_PXENV_UDP_READ;
+
+#define PXENV_UDP_WRITE 0x0033
+typedef struct s_PXENV_UDP_WRITE {
+	uint16_t	status;
+	uint32_t	ip;
+	uint32_t	gw;
+	uint16_t	src_port;
+	uint16_t	dst_port;
+	uint16_t	buffer_size;
+	uint16_t	buffer_offset;
+	uint16_t	buffer_segment;
+} __attribute__((packed)) t_PXENV_UDP_WRITE;
+
 #define PXENV_UNLOAD_STACK 0x0070
 typedef struct s_PXENV_UNLOAD_STACK {
 	uint16_t	Status;

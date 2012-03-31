@@ -181,9 +181,9 @@ platform_is_numbits_capable(int bits)
 void
 platform_map_memory(void* ptr, size_t len)
 {
-	/* Note that we'll assume 4 byte alignment for now */
-	if (len > 0)
-		ofw_claim((ofw_cell_t)ptr, len, sizeof(int));
+	addr_t result = ofw_claim((ofw_cell_t)ptr, len, 0);
+	if (result != (addr_t)ptr)
+		printf("platform_map_memory(): CLAIM failed (wanted %p, got %p)\n", ptr, result);
 }
 
 void

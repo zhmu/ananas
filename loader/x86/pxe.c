@@ -7,23 +7,18 @@
 
 #ifdef PXE
 
-#define TFTP_PORT 69
-#define TFTP_PACKET_SIZE 512
-
 extern void* pxe_trampoline;
 static struct PXE_BANGPXE* bangpxe = NULL;
 static void* pxe_scratchpad;
-static uint32_t pxe_server_ip;
+/*static*/ uint32_t pxe_server_ip;
 static uint32_t pxe_gateway_ip;
 static uint32_t pxe_my_ip;
 
-/*
- * PXE only allows to read PACKET_SIZE chunks at a time, so we
- * use this value to determine how much we have left in our
- * input buffer.
- */
-static uint32_t pxe_readbuf_offset;
-static uint32_t pxe_readbuf_left;
+static uint32_t udp_dest_ip;
+static uint16_t udp_dest_port;
+static uint16_t udp_source_port;
+
+#define UDP_PORT 1042
 
 static uint32_t htonl(uint32_t n)
 {
@@ -51,63 +46,69 @@ pxe_call(uint16_t func)
 	return regs.eax & 0xffff;
 }
 
-static int
-pxe_tftp_open(const char* name)
+int
+udp_open(uint32_t ip, uint16_t port)
 {
-	t_PXENV_TFTP_OPEN* to = (t_PXENV_TFTP_OPEN*)realmode_buffer;
-	to->ServerIPAddress = pxe_server_ip;
-	to->GatewayIPAddress = pxe_gateway_ip;
-	strcpy(to->FileName, name);
-	to->TFTPPort = htons(TFTP_PORT);
-	to->PacketSize = TFTP_PACKET_SIZE;
-	if (pxe_call(PXENV_TFTP_OPEN) != PXENV_EXIT_SUCCESS || (to->Status != PXENV_STATUS_SUCCESS)) {
-		return PXENV_STATUS_FAILURE;
-	}
-	pxe_readbuf_offset = 0;
-	pxe_readbuf_left = 0;
-	vfs_curfile_offset = 0;
+	t_PXENV_UDP_OPEN* uo = (t_PXENV_UDP_OPEN*)realmode_buffer;
+	uo->src_ip = pxe_my_ip;
+	if (pxe_call(PXENV_UDP_OPEN) != PXENV_EXIT_SUCCESS || (uo->status != PXENV_STATUS_SUCCESS))
+		return 0;
+
+	udp_dest_ip = ip;
+	udp_dest_port = port;
+	udp_source_port = UDP_PORT;
 	return 1;
 }
 
-static void
-pxe_tftp_close()
+void
+udp_close()
 {
-	t_PXENV_TFTP_CLOSE* tc = (t_PXENV_TFTP_CLOSE*)realmode_buffer;
-	pxe_call(PXENV_TFTP_CLOSE);
+	pxe_call(PXENV_UDP_CLOSE);
 }
 
-static size_t
-pxe_tftp_read(void* ptr, size_t length)
+int
+udp_write(const void* buffer, size_t length)
 {
-	size_t numread = 0;
-	while (length > 0) {
-		/* If we have some left in our read buffer, use it */
-		if (pxe_readbuf_left > 0) {
-			int chunklen = (pxe_readbuf_left < length) ? pxe_readbuf_left : length;
-			if (ptr != NULL)
-				memcpy((ptr + numread), (pxe_scratchpad + pxe_readbuf_offset), chunklen);
-			numread += chunklen; length -= chunklen;
-			pxe_readbuf_offset += chunklen;
-			pxe_readbuf_left -= chunklen;
-			continue;
+	/* Copy our buffer; it must reside in base memory XXX length check? */
+	memcpy(pxe_scratchpad, buffer, length);
+
+	/* Write the packet */
+	t_PXENV_UDP_WRITE* uw = (t_PXENV_UDP_WRITE*)realmode_buffer;
+	uw->ip = udp_dest_ip;
+	uw->gw = pxe_gateway_ip;
+	uw->src_port = htons(udp_source_port);
+	uw->dst_port = htons(udp_dest_port);
+	uw->buffer_size = length;
+	uw->buffer_offset = ((uint32_t)pxe_scratchpad & 0xf);
+	uw->buffer_segment = ((uint32_t)pxe_scratchpad >> 4);
+	return pxe_call(PXENV_UDP_WRITE) == PXENV_EXIT_SUCCESS && uw->status == PXENV_STATUS_SUCCESS;
+}
+
+size_t
+udp_read(void* buffer, size_t length)
+{
+	/*
+	 * Note that there does not seem to be a blocking read operation, so we'll
+	 * have to retry a fair number of times before giving up.
+	 */
+	for (int i = 0; i < 1000 /* times 1 ms = 1 second */; i++) {
+		t_PXENV_UDP_READ* ur = (t_PXENV_UDP_READ*)realmode_buffer;
+		memset(ur, 0, sizeof(*ur));
+		ur->dst_ip = pxe_my_ip;
+		ur->d_port = htons(udp_source_port);
+		ur->buffer_size = length;
+		ur->buffer_offset = ((uint32_t)pxe_scratchpad & 0xf);
+		ur->buffer_segment = ((uint32_t)pxe_scratchpad >> 4);
+		if (pxe_call(PXENV_UDP_READ) == PXENV_EXIT_SUCCESS && ur->status == PXENV_STATUS_SUCCESS) {
+			/* Read worked XXX check buffer_size */
+			memcpy(buffer, pxe_scratchpad, ur->buffer_size);
+			return ur->buffer_size;
 		}
 
-		/* Nothing left; prepare for reading more */
-		pxe_readbuf_offset = 0;
-
-		/* Have to read a new chunk */
-		t_PXENV_TFTP_READ* tr = (t_PXENV_TFTP_READ*)realmode_buffer;
-		tr->BufferOffset = ((uint32_t)pxe_scratchpad & 0xf);
-		tr->BufferSegment = ((uint32_t)pxe_scratchpad >> 4);
-		if ((pxe_call(PXENV_TFTP_READ) != PXENV_EXIT_SUCCESS) || tr->Status != PXENV_STATUS_SUCCESS)
-			break;
-
-		pxe_readbuf_left = tr->BufferSize;
-		vfs_curfile_offset += tr->BufferSize;
-		if (pxe_readbuf_left == 0)
-			break;
+		/* Wait for a bit before trying again */
+		platform_delay(1);
 	}
-	return numread;
+	return 0;
 }
 
 int
@@ -194,39 +195,6 @@ platform_cleanup_netboot()
 	pxe_call(PXENV_STOP_BASE);
 	pxe_call(PXENV_UNLOAD_STACK);
 }
-
-static int
-pxe_tftp_mount(int iodevice)
-{
-	/* Always succeeds if asked to mount the network disk */
-	return (iodevice == -1);
-}
-
-static int
-pxe_tftp_seek(uint32_t offset)
-{
-	/*
-	 * TFTP is streaming, so we can only seek forwards. Note that we can only
-	 * read in chunks of TFTP_PACKET_SIZE, and vfs_curfile_offset thus is
-	 * always a multiple of this.
-	 */
-	unsigned int real_offset = vfs_curfile_offset - pxe_readbuf_left;
-	if (real_offset >= offset)
-		return real_offset == offset;
-
-	/*
-	 * Now, we just have to throw away as much as needed.
-	 */
-	return pxe_tftp_read(NULL, offset - real_offset) == (offset - real_offset);
-}
-
-struct LOADER_FS_DRIVER loaderfs_pxe_tftp = {
-	.mount = pxe_tftp_mount,
-	.open  = pxe_tftp_open,
-	.close = pxe_tftp_close,
-	.read  = pxe_tftp_read,
-	.seek  = pxe_tftp_seek
-};
 
 #else /* !PXE */
 int

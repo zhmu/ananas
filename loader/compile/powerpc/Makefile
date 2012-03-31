@@ -19,9 +19,11 @@ ananasppc.iso:	loader boot.tbxi hfs.map ../../../kernel/arch/powerpc/compile/LIN
 		mkdir -p tmp
 		mkdir -p tmp/boot
 		cp ../../../kernel/arch/powerpc/compile/LINT/kernel tmp
+		echo 'load kernel' > tmp/loader.cfg
+		echo 'boot' >> tmp/loader.cfg
 		cp loader tmp/boot
 		cp boot.tbxi tmp/boot
-		mkisofs -hfs -o ananasppc.iso -no-desktop -r -hfs-volid "ANA" -part -hfs-bless tmp/boot -l -J -L -map hfs.map tmp
+		genisoimage -hfs -o ananasppc.iso -no-desktop -r -hfs-volid "ANA" -part -hfs-bless tmp/boot -l -J -L -map hfs.map tmp
 		rm -rf tmp
 
 machine:

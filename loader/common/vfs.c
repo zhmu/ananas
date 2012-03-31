@@ -5,7 +5,7 @@
 #define VFS_SCRATCHPAD_SIZE 1024
 
 extern struct LOADER_FS_DRIVER loaderfs_ext2;
-extern struct LOADER_FS_DRIVER loaderfs_pxe_tftp;
+extern struct LOADER_FS_DRIVER loaderfs_tftp;
 extern struct LOADER_FS_DRIVER loaderfs_iso9660;
 extern struct LOADER_FS_DRIVER loaderfs_fat;
 
@@ -19,8 +19,8 @@ static struct VFS_FILESYSTEMS {
 #ifdef FAT
 	{ "fat", &loaderfs_fat },
 #endif
-#ifdef PXE
-	{ "pxe-tftp", &loaderfs_pxe_tftp },
+#ifdef TFTP
+	{ "tftp", &loaderfs_tftp },
 #endif
 #ifdef ISO9660
 	{ "iso9660", &loaderfs_iso9660 },
