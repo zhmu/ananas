@@ -8,6 +8,8 @@
 #ifdef PXE
 
 extern void* pxe_trampoline;
+extern void* pxenv_trampoline;
+static struct PXE_ENVPLUS* pxeplus = NULL;
 static struct PXE_BANGPXE* bangpxe = NULL;
 static void* pxe_scratchpad;
 /*static*/ uint32_t pxe_server_ip;
@@ -33,15 +35,18 @@ static uint32_t htons(uint32_t n)
 static int
 pxe_call(uint16_t func)
 {
-	if (bangpxe == NULL)
-		return PXENV_EXIT_FAILURE;
-
 	struct REALMODE_REGS regs;
+
 	x86_realmode_init(&regs);
-	regs.ip = (register_t)&pxe_trampoline;
-	regs.eax = func;
-	regs.ebx = (register_t)realmode_buffer;
-	regs.ecx = bangpxe->EntryPointSP;
+	regs.ebx = func;
+	regs.esi = (register_t)realmode_buffer;
+	if (bangpxe != NULL) {
+		regs.ip = (register_t)&pxe_trampoline;
+		regs.ecx = bangpxe->EntryPointSP;
+	} else {
+		regs.ip = (register_t)&pxenv_trampoline;
+		regs.ecx = pxeplus->RMEntry;
+	}
 	x86_realmode_call(&regs);
 	return regs.eax & 0xffff;
 }
@@ -124,8 +129,7 @@ platform_init_netboot()
 		return 0;
 	if ((regs.eflags & EFLAGS_CF) != 0)
 		return 0;
-
-	struct PXE_ENVPLUS* pxeplus = (struct PXE_ENVPLUS*)((uint32_t)(regs.es << 4) + regs.ebx);
+	pxeplus = (struct PXE_ENVPLUS*)((uint32_t)(regs.es << 4) + regs.ebx);
 
 	/* We only verify the checksum; this should be enough */
 	uint8_t sum = 0;
@@ -137,21 +141,19 @@ platform_init_netboot()
 
 	printf(">> Netboot: PXE %u.%u - ",
 	 pxeplus->Version >> 8, pxeplus->Version & 0xff);
-	if (pxeplus->Version < 0x201) {
-		printf("unsupported version - ignoring\n");
-		return 0;
-	}
-	bangpxe = (struct PXE_BANGPXE*)((pxeplus->UNDICodeSeg << 4) + pxeplus->PXEPtr);
+	if (pxeplus->Version >= 0x201) {
+		/* !PXE is available; we should prefer it */
+		bangpxe = (struct PXE_BANGPXE*)((pxeplus->UNDICodeSeg << 4) + pxeplus->PXEPtr);
 
-	/* Verify the checksum once more; should be enough once again :-) */
-	sum = 0;
-	for (unsigned int i = 0; i < bangpxe->StructLength; i++) {
-		sum += *(uint8_t*)((void*)bangpxe + i);
-	}
-	if (sum != 0) {
-		printf("!PXE unavailable - ignoring\n");
-		bangpxe = NULL;
-		return 0;
+		/* Verify the checksum once more; should be enough once again :-) */
+		sum = 0;
+		for (unsigned int i = 0; i < bangpxe->StructLength; i++) {
+			sum += *(uint8_t*)((void*)bangpxe + i);
+		}
+		if (sum != 0) {
+			printf("!PXE unavailable, ");
+			bangpxe = NULL;
+		}
 	}
 
 	/*

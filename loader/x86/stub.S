@@ -6,7 +6,7 @@
 .globl	cpu_64bit_capable
 #endif
 #ifdef PXE
-.globl	pxe_trampoline
+.globl	pxe_trampoline, pxenv_trampoline
 #endif
 #ifdef DEBUG_CALLS
 .globl	debug_calls
@@ -379,19 +379,36 @@ skip_call:
 
 #ifdef PXE
 pxe_trampoline:
-	/* PXE wants stuff to be passed using the stack */
-	pushl	%ebx		/* Buffer address */
-	pushw	%ax		/* Function number */
+	/* !PXE wants stuff to be passed using the stack */
+	pushl	%esi		/* Buffer address */
+	pushw	%bx		/* Function number */
 
 	/* Fake an lcall */
 	pushw	%cs		/* Return segment */
 	pushw	$pxe_return	/* Return offset */
-	pushl	%ecx
+	pushl	%ecx		/* !PXE entry point */
 	lret
 
 pxe_return:
 	/* Throw away the stuff we put on the stack */
 	addw	$6, %sp
+	lret
+
+pxenv_trampoline:
+	/* PXENV+ uses registers to pass arguments; on entry, %esi
+	 * is the 32-bit address of the buffer we need to pass, we'll
+	 * have to place it in %es:di. %bx must already be the function
+	 * to execute on entry.
+	 */
+	movw	%si, %di
+	shr	$16, %esi
+	movw	%si, %es 	/* %es:%di = previous %esi now */
+
+	pushw	%cs		/* Return segment */
+	pushw	$pxenv_return	/* Return offset */
+	pushl	%ecx		/* pxenv entry point */
+
+pxenv_return:
 	lret
 #endif
 
