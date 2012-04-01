@@ -16,11 +16,7 @@ static void* pxe_scratchpad;
 static uint32_t pxe_gateway_ip;
 static uint32_t pxe_my_ip;
 
-static uint32_t udp_dest_ip;
-static uint16_t udp_dest_port;
-static uint16_t udp_source_port;
-
-#define UDP_PORT 1042
+static uint16_t udp_source_port = 1025;
 
 static uint32_t htonl(uint32_t n)
 {
@@ -31,6 +27,8 @@ static uint32_t htons(uint32_t n)
 {
 	return ((n >> 8) & 0xff) | (n & 0xff) << 8;
 }
+
+#define ntohs htons
 
 static int
 pxe_call(uint16_t func)
@@ -52,17 +50,11 @@ pxe_call(uint16_t func)
 }
 
 int
-udp_open(uint32_t ip, uint16_t port)
+udp_open()
 {
 	t_PXENV_UDP_OPEN* uo = (t_PXENV_UDP_OPEN*)realmode_buffer;
 	uo->src_ip = pxe_my_ip;
-	if (pxe_call(PXENV_UDP_OPEN) != PXENV_EXIT_SUCCESS || (uo->status != PXENV_STATUS_SUCCESS))
-		return 0;
-
-	udp_dest_ip = ip;
-	udp_dest_port = port;
-	udp_source_port = UDP_PORT;
-	return 1;
+	return pxe_call(PXENV_UDP_OPEN) == PXENV_EXIT_SUCCESS && uo->status == PXENV_STATUS_SUCCESS;
 }
 
 void
@@ -72,17 +64,17 @@ udp_close()
 }
 
 int
-udp_write(const void* buffer, size_t length)
+udp_sendto(const void* buffer, size_t length, uint32_t ip, int16_t port)
 {
 	/* Copy our buffer; it must reside in base memory XXX length check? */
 	memcpy(pxe_scratchpad, buffer, length);
 
 	/* Write the packet */
 	t_PXENV_UDP_WRITE* uw = (t_PXENV_UDP_WRITE*)realmode_buffer;
-	uw->ip = udp_dest_ip;
+	uw->ip = ip;
 	uw->gw = pxe_gateway_ip;
 	uw->src_port = htons(udp_source_port);
-	uw->dst_port = htons(udp_dest_port);
+	uw->dst_port = htons(port);
 	uw->buffer_size = length;
 	uw->buffer_offset = ((uint32_t)pxe_scratchpad & 0xf);
 	uw->buffer_segment = ((uint32_t)pxe_scratchpad >> 4);
@@ -90,7 +82,7 @@ udp_write(const void* buffer, size_t length)
 }
 
 size_t
-udp_read(void* buffer, size_t length)
+udp_recvfrom(void* buffer, size_t length, uint32_t* ip, uint16_t* port)
 {
 	/*
 	 * Note that there does not seem to be a blocking read operation, so we'll
@@ -107,6 +99,10 @@ udp_read(void* buffer, size_t length)
 		if (pxe_call(PXENV_UDP_READ) == PXENV_EXIT_SUCCESS && ur->status == PXENV_STATUS_SUCCESS) {
 			/* Read worked XXX check buffer_size */
 			memcpy(buffer, pxe_scratchpad, ur->buffer_size);
+			if (ip != NULL)
+				*ip = ur->src_ip;
+			if (port != NULL)
+				*port = ntohs(ur->s_port);
 			return ur->buffer_size;
 		}
 

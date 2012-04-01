@@ -23,8 +23,11 @@ static uint32_t tftp_readbuf_left;
 static size_t
 tftp_read_next_block()
 {
+	uint32_t ip;
+	uint16_t port;
+
 	/* Wait for the next block */
-	size_t s = udp_read(tftp_packet, sizeof(tftp_packet));
+	size_t s = udp_recvfrom(tftp_packet, sizeof(tftp_packet), &ip, &port);
 	if (s == 0)
 		return 0; /* timeout */
 
@@ -47,7 +50,7 @@ tftp_read_next_block()
 	ack_packet[n++] = TFTP_OPCODE_ACK;
 	ack_packet[n++] = tftp_packet[2]; /* block number hi */
 	ack_packet[n++] = tftp_packet[3]; /* block number lo */
-	if (!udp_write(ack_packet, n))
+	if (!udp_sendto(ack_packet, n, ip, port))
 		return 0;
 
 	/* all went ok; now skip the first 4 bytes (opcode + block#) */
@@ -64,7 +67,7 @@ static int
 tftp_open(const char* name)
 {
 	extern uint32_t pxe_server_ip; /* XXX */
-	if (!udp_open(pxe_server_ip, TFTP_PORT))
+	if (!udp_open())
 		return 0;
 
 	/* Create and transmit the read request */
@@ -73,7 +76,7 @@ tftp_open(const char* name)
 	tftp_packet[n++] = TFTP_OPCODE_RRQ;
 	strcpy(&tftp_packet[n], name); n += strlen(name) + 1 /* terminating \0 */ ;
 	strcpy(&tftp_packet[n], "octet"); n += 5 + 1 /* terminating \0 */ ;
-	if (!udp_write(tftp_packet, n))
+	if (!udp_sendto(tftp_packet, n, pxe_server_ip, TFTP_PORT))
 		return 0;
 
 	/* Fetch the first block; this will also tell us whether the request worked */
