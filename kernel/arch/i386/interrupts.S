@@ -172,20 +172,19 @@ syscall_int:
 	 */
 	movw	%ds, %bx
 	cmpw	$(GDT_SEL_USER_DATA + 3), %bx
-	je	syscall_start_dsok
+	je	1f
 
 	int 	$3
 
-syscall_start_dsok:
+1:
 	/* Sanity check: interrupts must be enabled when entering */
 	movl	36(%esp), %ebx
-	andl	$0x200, %ebx
-	orl	%ebx, %ebx
-	jne	syscall_start_ifok
+	testl	$0x200, %ebx
+	jne	1f
 
 	int	$3
 
-syscall_start_ifok:
+1:
 #endif
 
 	/*
@@ -244,20 +243,19 @@ syscall_return:
 	 */
 	movw	%ds, %bx
 	cmpw	$(GDT_SEL_USER_DATA + 3), %bx
-	je	syscall_end_dsok
+	je	1f
 
 	int	$3
 
-syscall_end_dsok:
+1:
 	/* Sanity check: interrupts must be enabled when a syscall is done */
 	movl	24(%esp), %ebx
-	andl	$0x200, %ebx
-	orl	%ebx, %ebx
-	jne	syscall_end_ifok
+	testl	$0x200, %ebx
+	jne	1f
 
 	int	$3
 
-syscall_end_ifok:
+1:
 #endif
 
 	popl	%edi
