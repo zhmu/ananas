@@ -40,7 +40,7 @@ md_thread_init(thread_t* t)
 
 	/* Fill our the %esp and %cr3 fields; we'll be started in supervisor mode, so use the appropriate stack */
 	t->md_cr3 = KVTOP((addr_t)t->md_pagedir);
-	t->md_esp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE - 4;
+	t->md_esp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE;
 	t->md_esp = t->md_esp0;
 
 	/* initialize FPU state similar to what finit would do */
@@ -101,7 +101,7 @@ md_thread_switch(thread_t* new, thread_t* old)
 
 	/* XXX Safety nets to ensure we won't restore a bogus stack */
 	KASSERT(new->md_esp > (addr_t)new->md_kstack, "new=%p(%s) esp %p underflow (%p)", new, new->t_threadinfo->ti_args, new->md_esp, new->md_kstack);
-	KASSERT(new->md_esp < ((addr_t)new->md_kstack + KERNEL_STACK_SIZE), "new=%p esp %p overflow (%p)", new, new->md_esp, new->md_kstack + KERNEL_STACK_SIZE);
+	KASSERT(new->md_esp <= ((addr_t)new->md_kstack + KERNEL_STACK_SIZE), "new=%p esp %p overflow (%p)", new, new->md_esp, new->md_kstack + KERNEL_STACK_SIZE);
 
 	/* Activate the corresponding kernel stack in the TSS */
 	struct TSS* tss = (struct TSS*)PCPU_GET(tss);
@@ -216,14 +216,34 @@ md_thread_clone(thread_t* t, thread_t* parent, register_t retval)
 	memcpy(ustack, (void*)USERLAND_STACK_ADDR, THREAD_STACK_SIZE);
 	vm_unmap_kernel((addr_t)ustack, THREAD_STACK_SIZE / PAGE_SIZE);
 
-	/* Copy kernel stack over; this is easier since it is always mapped */
-	memcpy(t->md_kstack, parent->md_kstack, KERNEL_STACK_SIZE);
+	/*
+	 * Size of the syscall call frame; this is the following:
+	 * hardware saved [*]: ss, esp, eflags, cs, eip
+	 * software saved (syscall_int): ebp, ebx, esi, edi, ds, es, fs
+	 * This makes 12 registers total, and 12 * 4 = 48.
+	 *
+	 * [*] A system call is always a ring3->0 transition, so the extra ss/esp
+	 *     registers will be there.
+	 */
+#define SYSCALL_FRAME_SIZE 48
 
 	/*
-	 * Handle returning to the new thread; this just cancels the system call
-	 * and overrides the return value.
+	 * Copy kernel stack over; this is easier since it is always mapped. Note
+	 * that we do not need the entire thing; we just need the part above as it is
+	 * enough to return from the syscall. This is always the very first values on
+	 * the stack because there is no other way to enter the system call handler;
+	 * we cannot rely on the context's %esp because we may be preempted in
+	 * between (and we must only restore the userland context)
 	 */
-	t->md_esp = (addr_t)t->md_kstack + ((addr_t)parent->md_esp - (addr_t)parent->md_kstack);
+	memcpy(t->md_kstack + KERNEL_STACK_SIZE - SYSCALL_FRAME_SIZE, parent->md_kstack + KERNEL_STACK_SIZE - SYSCALL_FRAME_SIZE, SYSCALL_FRAME_SIZE);
+
+	/*
+	 * Handle returning to the new thread; we don't want to call all code leading
+	 * up to here, so we only need to travel down the syscall frame; clone_return()
+	 * does nothing more than setting the syscall return code and returning to
+	 * userland.
+	 */
+	t->md_esp -= SYSCALL_FRAME_SIZE;
 	t->md_eip = (addr_t)&clone_return;
 	t->md_arg1 = retval;
 }

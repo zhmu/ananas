@@ -273,21 +273,19 @@ clone_return:
 	 * need to restore the context exactly as it were when
 	 * the thread did the syscall.
 	 *
-	 * However, the top of the kernel stack will still have
-	 * the stackframe set up by our syscall routine (as there
-	 * is no other way to do a clone) - we can use that
-	 * information to restore the caller.
+	 * md_thread_clone() will have copied the stackframe as
+	 * created by syscall_int to our stack; any extra
+	 * stack content is irrelevant since we only need to
+	 * return to the thread. Since our stack pointer is
+	 * adjusted as if we just made a syscall ourselves, we
+	 * can use the generic syscall_return function.
 	 *
 	 * Note that the ABI dictates that %eax is used to return
-	 * a value to the new thread, so we'll have to restore it.
+	 * a value to the new thread, so we'll have to set it here.
 	 */
 
-	/* Rewind the stack as created by syscall_int */
-	movl	%fs:(PCPU_CURTHREAD), %ebx
-	movl	T_ESP0(%ebx), %esp
-	subl	$48, %esp
-
 	/* Fetch return value */
+	movl	%fs:(PCPU_CURTHREAD), %ebx
 	movl	T_ARG1(%ebx), %eax
 
 	/* And terminate the system call */
