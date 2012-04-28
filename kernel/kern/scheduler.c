@@ -114,6 +114,7 @@ scheduler_add_thread(thread_t* t)
 	/* ... and add it to the runqueue */
 	scheduler_add_thread_locked(t);
 	spinlock_unlock_unpremptible(&spl_scheduler, state);
+	KASSERT(!THREAD_IS_SUSPENDED(t), "adding suspend thread %p", t);
 }
 
 void
