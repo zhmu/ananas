@@ -53,6 +53,9 @@ struct MM_CHUNK {
 	/* Magic number, to check whether the chunk wasn't corrupted */
 	uint32_t magic;
 
+	const char* file;
+	int line;
+
 	/* Chunk flags */
 	int	flags;
 
@@ -67,10 +70,14 @@ struct MM_CHUNK {
 void mm_init();
 void mm_zone_add(addr_t addr, size_t length);
 void kmem_stats(size_t* avail, size_t* total);
-void* kmem_alloc(size_t len);
+void* kmem_alloc2(size_t len, const char* fname, int line);
 void kmem_free(void* ptr);
-void* kmalloc(size_t len) __malloc;
+void kmem_list();
+void* kmalloc2(size_t len, const char* fname, int line) __malloc;
 void  kfree(void* ptr);
+
+#define kmem_alloc(len) kmem_alloc2((len), __FILE__, __LINE__)
+#define kmalloc(len) kmalloc2((len), __FILE__, __LINE__)
 
 void kmem_mark_used(void* addr, size_t num_pages);
 

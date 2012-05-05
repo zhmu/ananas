@@ -127,6 +127,7 @@ kmem_stats(size_t* avail, size_t* total)
 	spinlock_unlock(&spl_mm);
 }
 
+#if 0
 void
 kmem_dump()
 {
@@ -138,19 +139,48 @@ kmem_dump()
 		 curzone->next_zone);
 
 		struct MM_CHUNK* curchunk = curzone->chunks;
-		for (unsigned int n = 0; n < curzone->num_chunks; n++) {
-			kprintf("   %u: @ %x, flags %x, chain %u\n", n,
-			 curchunk->address, curchunk->flags, curchunk->chain_length);
-			curchunk++;
+		for (unsigned int n = 0; n < curzone->num_chunks; n++, curchunk++) {
+			if ((curchunk->flags & MM_CHUNK_FLAG_USED) == 0)
+				continue;
+			kprintf("   %u: @ %x, %s:%u, flags %x, chain %u\n", n,
+			 curchunk->address,
+			 curchunk->file, curchunk->line,
+	 		 curchunk->flags, curchunk->chain_length);
 		}
 	}
 }
+#endif
+
+void
+kmem_list()
+{
+	kprintf("memory list\n");
+	for (struct MM_ZONE* curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
+		kprintf("zone 0x%p: addr 0x%x, length 0x%x, #chunks %u, num_free %u, num_cont_free %u, flags %u, chunks %p, next %p\n",
+		 curzone, curzone->address, curzone->length, curzone->num_chunks,
+		 curzone->num_free, curzone->num_cont_free, curzone->flags, curzone->chunks,
+		 curzone->next_zone);
+
+		struct MM_CHUNK* curchunk = curzone->chunks;
+		for (unsigned int n = 0; n < curzone->num_chunks; /* nothing */) {
+			if ((curchunk->flags & MM_CHUNK_FLAG_USED) == 0)
+				continue;
+			kprintf("   %u: @ %x, %s:%u, %u KB\n", n,
+			 curchunk->address,
+			 curchunk->file, curchunk->line,
+	 		 curchunk->chain_length * PAGE_SIZE / 1024);
+			n += curchunk->chain_length;
+			curchunk += curchunk->chain_length;
+		}
+	}
+}
+
 
 /*
  * Allocates a chunk of memory, but does not map it. Note that len is in PAGES !
  */
 void*
-kmem_alloc(size_t len)
+kmem_alloc2(size_t len, const char* file, int line)
 {
 	spinlock_lock(&spl_mm);
 	for (struct MM_ZONE* curzone = zone_root; curzone != NULL; curzone = curzone->next_zone) {
@@ -179,6 +209,8 @@ kmem_alloc(size_t len)
 				KASSERT(!(chunk->flags & MM_CHUNK_FLAG_USED), "chunk %p in free chain is used", chunk);
 				chunk->flags |= MM_CHUNK_FLAG_USED;
 				chunk->chain_length = len;
+				chunk->file = file;
+				chunk->line = line;
 				chunk++; len--;
 			}
 
@@ -239,16 +271,15 @@ kmem_free(void* addr)
 }
 
 void*
-kmalloc(size_t len)
+kmalloc2(size_t len, const char* file, int line)
 {
 	/* Calculate len in pages - always round up */
 	if (len & (PAGE_SIZE - 1))
 		len += PAGE_SIZE;
 	len /= PAGE_SIZE;
 
-	void* ptr = kmem_alloc(len);
+	void* ptr = kmem_alloc2(len, file, line);
 	if (ptr == NULL) {
-		kmem_dump();
 		panic("kmalloc: out of memory");
 	}
 	return vm_map_kernel((addr_t)ptr, len, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
