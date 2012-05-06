@@ -256,7 +256,10 @@ thread_mapto(thread_t* t, addr_t virt, addr_t phys, size_t len, uint32_t flags, 
 
 	if (flags & THREAD_MAP_ALLOC) {
 		phys = (addr_t)kmem_alloc((len + PAGE_SIZE - 1) / PAGE_SIZE);
-		KASSERT(phys != (addr_t)NULL, "out of memory while allocating %u bytes", len);
+		if (phys == (addr_t)NULL) {
+			kfree(tm);
+			return ANANAS_ERROR(OUT_OF_MEMORY);
+		}
 		/* XXX so how do we zero it out? */
 	}
 

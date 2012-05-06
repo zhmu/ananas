@@ -13,8 +13,11 @@
 #include <ananas/pcpu.h>
 #include <ananas/thread.h>
 #include <ananas/threadinfo.h>
+#include <ananas/trace.h>
 #include <ananas/vm.h>
 #include "options.h"
+
+TRACE_SETUP;
 
 extern struct TSS kernel_tss;
 void clone_return();
@@ -32,6 +35,10 @@ md_thread_init(thread_t* t)
 
 	/* Allocate stacks: one for the thread and one for the kernel */
 	t->md_stack  = kmem_alloc(THREAD_STACK_SIZE / PAGE_SIZE);
+	if (t->md_stack == NULL) {
+		kfree(t->md_pagedir);
+		return ANANAS_ERROR(OUT_OF_MEMORY);
+	}
 	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
 	t->md_eip = (addr_t)&userland_trampoline;
 
