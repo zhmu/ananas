@@ -163,12 +163,12 @@ kmem_list()
 
 		struct MM_CHUNK* curchunk = curzone->chunks;
 		for (unsigned int n = 0; n < curzone->num_chunks; /* nothing */) {
-			if ((curchunk->flags & MM_CHUNK_FLAG_USED) == 0)
-				continue;
-			kprintf("   %u: @ %x, %s:%u, %u KB\n", n,
-			 curchunk->address,
-			 curchunk->file, curchunk->line,
-	 		 curchunk->chain_length * PAGE_SIZE / 1024);
+			if (curchunk->flags & MM_CHUNK_FLAG_USED) {
+				kprintf("   %u: @ %x, %s:%u, %u KB\n", n,
+				 curchunk->address,
+				 curchunk->file, curchunk->line,
+				 curchunk->chain_length * PAGE_SIZE / 1024);
+			}
 			n += curchunk->chain_length;
 			curchunk += curchunk->chain_length;
 		}
