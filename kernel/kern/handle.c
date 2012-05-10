@@ -40,7 +40,7 @@ handle_init()
 	for (unsigned int i = 0; i < NUM_HANDLES; i++) {
 		struct HANDLE* h = &pool[i];
 		DQUEUE_ADD_TAIL(&handle_freelist, h);
-		spinlock_init(&h->spl_handle);
+		mutex_init(&h->mtx_handle, "handle");
 		for (unsigned int n = 0; n < HANDLE_MAX_WAITERS; n++)
 			waitqueue_init(&h->waiters[n].wq);
 	}
@@ -188,13 +188,13 @@ handle_clone(thread_t* t, struct HANDLE* handle, struct HANDLE** out)
 {
 	errorcode_t err;
 
-	spinlock_lock(&handle->spl_handle);
+	mutex_lock(&handle->mtx_handle);
 	if (handle->hops->hop_clone != NULL) {
 		err = handle->hops->hop_clone(t, handle, out);
 	} else {
 		err = ANANAS_ERROR(BAD_OPERATION);
 	}
-	spinlock_unlock(&handle->spl_handle);
+	mutex_unlock(&handle->mtx_handle);
 	return err;
 }
 
@@ -203,7 +203,7 @@ handle_wait(thread_t* thread, struct HANDLE* handle, handle_event_t* event, hand
 {
 	TRACE(HANDLE, FUNC, "handle=%p, event=%p, thread=%p", handle, event, thread);
 
-	spinlock_lock(&handle->spl_handle);
+	mutex_lock(&handle->mtx_handle);
 
 	/*
 	 * OK; first of all, see if the handle points to a terminating thread; if so, we
@@ -218,7 +218,7 @@ handle_wait(thread_t* thread, struct HANDLE* handle, handle_event_t* event, hand
 		/* Need to replicate what thread_exit() does here... */
 		*event = THREAD_EVENT_EXIT;
 		*result = handle->data.thread->t_terminate_info;
-		spinlock_unlock(&handle->spl_handle);
+		mutex_unlock(&handle->mtx_handle);
 		TRACE(HANDLE, INFO, "done, thread already gone", thread);
 		return ANANAS_ERROR_OK;
 	}
@@ -233,19 +233,19 @@ handle_wait(thread_t* thread, struct HANDLE* handle, handle_event_t* event, hand
 	handle->waiters[waiter_id].event_mask = *event;
 	handle->waiters[waiter_id].event_reported = 0;
 	struct WAITER* w = waitqueue_add(&handle->waiters[waiter_id].wq);
-	spinlock_unlock(&handle->spl_handle);
+	mutex_unlock(&handle->mtx_handle);
 
 	/* Now, we wait - handle_signal will wake us when the time comes */
 	waitqueue_wait(w);
 	waitqueue_remove(w);
 
 	/* Obtain the result */
-	spinlock_lock(&handle->spl_handle);
+	mutex_lock(&handle->mtx_handle);
 	*result = handle->waiters[waiter_id].result;
 	*event = handle->waiters[waiter_id].event_reported;
 	/* And free the waiter slot */
 	handle->waiters[waiter_id].thread = NULL;
-	spinlock_unlock(&handle->spl_handle);
+	mutex_unlock(&handle->mtx_handle);
 
 	TRACE(HANDLE, INFO, "t=%p, done", thread);
 	return ANANAS_ERROR_OK;
@@ -255,7 +255,7 @@ void
 handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t result)
 {
 	TRACE(HANDLE, FUNC, "handle=%p, event=%p, result=0x%x", handle, event, result);
-	spinlock_lock(&handle->spl_handle);
+	mutex_lock(&handle->mtx_handle);
 	for (int waiter_id = 0; waiter_id <  HANDLE_MAX_WAITERS; waiter_id++) {
 		if (handle->waiters[waiter_id].thread == NULL)
 			continue;
@@ -266,7 +266,7 @@ handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t
 		handle->waiters[waiter_id].result = result;
 		waitqueue_signal(&handle->waiters[waiter_id].wq);
 	}
-	spinlock_unlock(&handle->spl_handle);
+	mutex_unlock(&handle->mtx_handle);
 	TRACE(HANDLE, INFO, "done");
 }
 
@@ -298,13 +298,13 @@ handle_read(struct HANDLE* handle, void* buffer, size_t* size)
 {
 	errorcode_t err;
 
-	spinlock_lock(&handle->spl_handle);
+	mutex_lock(&handle->mtx_handle);
 	if (handle->hops->hop_read != NULL) {
 		err = handle->hops->hop_read(handle->thread, handle, buffer, size);
 	} else {
 		err = ANANAS_ERROR(BAD_OPERATION);
 	}
-	spinlock_unlock(&handle->spl_handle);
+	mutex_unlock(&handle->mtx_handle);
 	return err;
 }
 
@@ -313,13 +313,13 @@ handle_write(struct HANDLE* handle, const void* buffer, size_t* size)
 {
 	errorcode_t err;
 
-	spinlock_lock(&handle->spl_handle);
+	mutex_lock(&handle->mtx_handle);
 	if (handle->hops->hop_write != NULL) {
 		err = handle->hops->hop_write(handle->thread, handle, buffer, size);
 	} else {
 		err = ANANAS_ERROR(BAD_OPERATION);
 	}
-	spinlock_unlock(&handle->spl_handle);
+	mutex_unlock(&handle->mtx_handle);
 	return err;
 }
 

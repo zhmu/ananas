@@ -365,7 +365,7 @@ sys_handlectl(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t l
 	ANANAS_ERROR_RETURN(err);
 
 	/* Lock the handle; we don't want it leaving our sight */
-	spinlock_lock(&h->spl_handle);
+	mutex_lock(&h->mtx_handle);
 
 	/* Obtain arguments (note that some calls do not have an argument) */
 	void* handlectl_arg = NULL;
@@ -387,7 +387,7 @@ sys_handlectl(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t l
 	}
 
 fail:
-	spinlock_unlock(&h->spl_handle);
+	mutex_unlock(&h->mtx_handle);
 	return err;
 }
 

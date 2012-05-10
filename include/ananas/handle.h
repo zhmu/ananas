@@ -42,7 +42,7 @@ struct HANDLE_MEMORY_INFO {
 struct HANDLE {
 	int type;
 	struct THREAD* thread;			/* owning thread */
-	spinlock_t spl_handle;			/* spinlock guarding the handle */
+	mutex_t mtx_handle;			/* mutex guarding the handle */
 	struct HANDLE_OPS* hops;		/* handle operations */
 	DQUEUE_FIELDS(struct HANDLE);		/* used for the queue structure */
 
