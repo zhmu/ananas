@@ -24,7 +24,7 @@ syscall_get_file(thread_t* t, handle_t handle, struct VFS_FILE** out)
 	errorcode_t err = handle_isvalid(handle, t, HANDLE_TYPE_FILE);
 	ANANAS_ERROR_RETURN(err);
 
-	struct VFS_FILE* file = &((struct HANDLE*)handle)->data.vfs_file;
+	struct VFS_FILE* file = &((struct HANDLE*)handle)->h_data.d_vfs_file;
 	if (file->f_inode == NULL && file->f_device == NULL)
 		return ANANAS_ERROR(BAD_HANDLE);
 

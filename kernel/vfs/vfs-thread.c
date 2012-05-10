@@ -38,7 +38,7 @@ vfs_init_thread(thread_t* thread, thread_t* parent)
 		 */
 		err = handle_alloc(HANDLE_TYPE_FILE, thread, &thread->t_path_handle);
 		if (err == ANANAS_ERROR_NONE) {
-			err = vfs_open("/", NULL, &thread->t_path_handle->data.vfs_file);
+			err = vfs_open("/", NULL, &thread->t_path_handle->h_data.d_vfs_file);
 		}
 	}
 
@@ -50,9 +50,9 @@ vfs_init_thread(thread_t* thread, thread_t* parent)
 	err = handle_alloc(HANDLE_TYPE_FILE, thread, (struct HANDLE**)&thread->t_threadinfo->ti_handle_stderr);
 	ANANAS_ERROR_RETURN(err);
 	/* Hook the new handles to the console */
-	((struct HANDLE*)thread->t_threadinfo->ti_handle_stdin)->data.vfs_file.f_device  = console_tty;
-	((struct HANDLE*)thread->t_threadinfo->ti_handle_stdout)->data.vfs_file.f_device = console_tty;
-	((struct HANDLE*)thread->t_threadinfo->ti_handle_stderr)->data.vfs_file.f_device = console_tty;
+	((struct HANDLE*)thread->t_threadinfo->ti_handle_stdin)->h_data.d_vfs_file.f_device  = console_tty;
+	((struct HANDLE*)thread->t_threadinfo->ti_handle_stdout)->h_data.d_vfs_file.f_device = console_tty;
+	((struct HANDLE*)thread->t_threadinfo->ti_handle_stderr)->h_data.d_vfs_file.f_device = console_tty;
 
 	TRACE(THREAD, INFO, "t=%p, stdin=%p, stdout=%p, stderr=%p",
 	 thread,

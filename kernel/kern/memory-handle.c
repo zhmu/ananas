@@ -24,16 +24,16 @@ memoryhandle_create(thread_t* thread, struct HANDLE* handle, struct CREATE_OPTIO
 	errorcode_t err = thread_map(thread, (addr_t)NULL, opts->cr_length, map_flags, &tm);
 	ANANAS_ERROR_RETURN(err);
 
-	handle->data.memory.mapping = tm;
-	handle->data.memory.addr = (void*)tm->tm_virt;
-	handle->data.memory.length = tm->tm_len;
+	handle->h_data.d_memory.hmi_mapping = tm;
+	handle->h_data.d_memory.hmi_addr = (void*)tm->tm_virt;
+	handle->h_data.d_memory.hmi_length = tm->tm_len;
 	return ANANAS_ERROR_OK;
 }
 
 static errorcode_t
 memoryhandle_free(thread_t* thread, struct HANDLE* handle)
 {
-	thread_free_mapping(handle->thread, handle->data.memory.mapping);
+	thread_free_mapping(handle->h_thread, handle->h_data.d_memory.hmi_mapping);
 	return ANANAS_ERROR_OK;
 }
 
@@ -48,8 +48,8 @@ memoryhandle_control(thread_t* thread, struct HANDLE* handle, unsigned int op, v
 				return ANANAS_ERROR(BAD_ADDRESS);
 			if (len != sizeof(*in))
 				return ANANAS_ERROR(BAD_LENGTH);
-			in->in_base = handle->data.memory.addr;
-			in->in_length = handle->data.memory.length;
+			in->in_base = handle->h_data.d_memory.hmi_addr;
+			in->in_length = handle->h_data.d_memory.hmi_length;
 			return ANANAS_ERROR_OK;
 		}
 	}

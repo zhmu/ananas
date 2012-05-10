@@ -33,7 +33,7 @@ thread_init(thread_t* t, thread_t* parent)
 	t->t_flags = THREAD_FLAG_SUSPENDED;
 	err = handle_alloc(HANDLE_TYPE_THREAD, t /* XXX should be parent? */, &t->t_thread_handle);
 	ANANAS_ERROR_RETURN(err);
-	t->t_thread_handle->data.thread = t;
+	t->t_thread_handle->h_data.d_thread = t;
 
 	/* Set up CPU affinity and priority */
 	t->t_priority = THREAD_PRIORITY_DEFAULT;
@@ -88,7 +88,7 @@ kthread_init(thread_t* t, kthread_func_t func, void* arg)
 	t->t_flags = THREAD_FLAG_SUSPENDED | THREAD_FLAG_KTHREAD;
 	err = handle_alloc(HANDLE_TYPE_THREAD, t, &t->t_thread_handle);
 	ANANAS_ERROR_RETURN(err);
-	t->t_thread_handle->data.thread = t;
+	t->t_thread_handle->h_data.d_thread = t;
 
 	/* Initialize dummy threadinfo; this is used to store the thread name */
 	t->t_threadinfo = kmalloc(sizeof(struct THREADINFO));
@@ -211,7 +211,7 @@ thread_destroy(thread_t* t)
 	spinlock_unlock(&spl_threadqueue);
 
 	/* Ensure the thread handle itself won't have a thread anymore */
-	t->t_thread_handle->thread = NULL;
+	t->t_thread_handle->h_thread = NULL;
 	handle_destroy(t->t_thread_handle, 0);
 	kfree(t);
 }
@@ -579,7 +579,7 @@ kdb_cmd_threads(int num_args, char** arg)
 				if(!DQUEUE_EMPTY(&t->t_handles)) {
 					DQUEUE_FOREACH_SAFE(&t->t_handles, handle, struct HANDLE) {
 						kprintf(" handle %p, type %u\n",
-						 handle, handle->type);
+						 handle, handle->h_type);
 					}
 				}
 			}

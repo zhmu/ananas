@@ -40,9 +40,9 @@ handle_init()
 	for (unsigned int i = 0; i < NUM_HANDLES; i++) {
 		struct HANDLE* h = &pool[i];
 		DQUEUE_ADD_TAIL(&handle_freelist, h);
-		mutex_init(&h->mtx_handle, "handle");
+		mutex_init(&h->h_mutex, "handle");
 		for (unsigned int n = 0; n < HANDLE_MAX_WAITERS; n++)
-			waitqueue_init(&h->waiters[n].wq);
+			waitqueue_init(&h->h_waiters[n].hw_wq);
 	}
 
 	/* Store the handle pool range; this allows us to quickly verify whether a handle is valid */
@@ -90,12 +90,12 @@ handle_alloc(int type, thread_t* t, struct HANDLE** out)
 	spinlock_unlock(&spl_handlequeue);
 
 	/* Sanity checks */
-	KASSERT(handle->type == HANDLE_TYPE_UNUSED, "handle from pool must be unused");
+	KASSERT(handle->h_type == HANDLE_TYPE_UNUSED, "handle from pool must be unused");
 
 	/* Hook the handle to the thread */
-	handle->type = type;
-	handle->thread = t;
-	handle->hops = htype->ht_hops;
+	handle->h_type = type;
+	handle->h_thread = t;
+	handle->h_hops = htype->ht_hops;
 
 	/* Hook the handle to the thread queue */
 	spinlock_lock(&t->t_lock);
@@ -111,14 +111,14 @@ handle_alloc(int type, thread_t* t, struct HANDLE** out)
 errorcode_t
 handle_destroy(struct HANDLE* handle, int free_resources)
 {
-	KASSERT(handle->type != HANDLE_TYPE_UNUSED, "freeing free handle");
+	KASSERT(handle->h_type != HANDLE_TYPE_UNUSED, "freeing free handle");
 	TRACE(HANDLE, FUNC, "handle=%p, free_resource=%u", handle, free_resources);
 
 	/* Remove us from the thread handle queue, if necessary */
-	if (handle->thread != NULL) {
-		spinlock_lock(&handle->thread->t_lock);
-		DQUEUE_REMOVE(&handle->thread->t_handles, handle);
-		spinlock_unlock(&handle->thread->t_lock);
+	if (handle->h_thread != NULL) {
+		spinlock_lock(&handle->h_thread->t_lock);
+		DQUEUE_REMOVE(&handle->h_thread->t_handles, handle);
+		spinlock_unlock(&handle->h_thread->t_lock);
 	}
 
 	/* If we need to free our resources, do so */
@@ -128,8 +128,8 @@ handle_destroy(struct HANDLE* handle, int free_resources)
 		 * If the handle has a specific free function, call it - otherwise assume
 		 * no special action is needed.
 		 */
-		if (handle->hops->hop_free != NULL) {
-			err = handle->hops->hop_free(handle->thread, handle);
+		if (handle->h_hops->hop_free != NULL) {
+			err = handle->h_hops->hop_free(handle->h_thread, handle);
 			ANANAS_ERROR_RETURN(err);
 		}
 	}
@@ -137,9 +137,9 @@ handle_destroy(struct HANDLE* handle, int free_resources)
 	/* XXX Should we revoke all waiters too? */
 
 	/* Clear the handle */
-	memset(&handle->data, 0, sizeof(handle->data));
-	handle->type = HANDLE_TYPE_UNUSED; /* just to ensure the value matches */
-	handle->thread = NULL;
+	memset(&handle->h_data, 0, sizeof(handle->h_data));
+	handle->h_type = HANDLE_TYPE_UNUSED; /* just to ensure the value matches */
+	handle->h_thread = NULL;
 
 	/* Hand it back to the the pool */
 	spinlock_lock(&spl_handlequeue);
@@ -164,10 +164,10 @@ handle_isvalid(struct HANDLE* handle, thread_t* t, int type)
 		return ANANAS_ERROR(BAD_HANDLE);
 #endif
 	/* ensure handle type is correct */
-	if (type != HANDLE_TYPE_ANY && handle->type != type)
+	if (type != HANDLE_TYPE_ANY && handle->h_type != type)
 		return ANANAS_ERROR(BAD_HANDLE);
 	/* ... yet unused handles are never valid */
-	if (handle->type == HANDLE_TYPE_UNUSED)
+	if (handle->h_type == HANDLE_TYPE_UNUSED)
 		return ANANAS_ERROR(BAD_HANDLE);
 	return ANANAS_ERROR_OK;
 }
@@ -176,9 +176,9 @@ errorcode_t
 handle_clone_generic(thread_t* t, struct HANDLE* handle, struct HANDLE** out)
 {
 	struct HANDLE* newhandle;
-	errorcode_t err = handle_alloc(handle->type, t, &newhandle);
+	errorcode_t err = handle_alloc(handle->h_type, t, &newhandle);
 	ANANAS_ERROR_RETURN(err);
-	memcpy(&newhandle->data, &handle->data, sizeof(handle->data));
+	memcpy(&newhandle->h_data, &handle->h_data, sizeof(handle->h_data));
 	*out = newhandle;
 	return ANANAS_ERROR_OK;
 }
@@ -188,13 +188,13 @@ handle_clone(thread_t* t, struct HANDLE* handle, struct HANDLE** out)
 {
 	errorcode_t err;
 
-	mutex_lock(&handle->mtx_handle);
-	if (handle->hops->hop_clone != NULL) {
-		err = handle->hops->hop_clone(t, handle, out);
+	mutex_lock(&handle->h_mutex);
+	if (handle->h_hops->hop_clone != NULL) {
+		err = handle->h_hops->hop_clone(t, handle, out);
 	} else {
 		err = ANANAS_ERROR(BAD_OPERATION);
 	}
-	mutex_unlock(&handle->mtx_handle);
+	mutex_unlock(&handle->h_mutex);
 	return err;
 }
 
@@ -203,7 +203,7 @@ handle_wait(thread_t* thread, struct HANDLE* handle, handle_event_t* event, hand
 {
 	TRACE(HANDLE, FUNC, "handle=%p, event=%p, thread=%p", handle, event, thread);
 
-	mutex_lock(&handle->mtx_handle);
+	mutex_lock(&handle->h_mutex);
 
 	/*
 	 * OK; first of all, see if the handle points to a terminating thread; if so, we
@@ -213,12 +213,12 @@ handle_wait(thread_t* thread, struct HANDLE* handle, handle_event_t* event, hand
 	 *
 	 * XXX need to handle mask
 	 */
-	if ((handle->type == HANDLE_TYPE_THREAD) &&
-	    THREAD_IS_TERMINATING(handle->data.thread)) {
+	if ((handle->h_type == HANDLE_TYPE_THREAD) &&
+	    THREAD_IS_TERMINATING(handle->h_data.d_thread)) {
 		/* Need to replicate what thread_exit() does here... */
 		*event = THREAD_EVENT_EXIT;
-		*result = handle->data.thread->t_terminate_info;
-		mutex_unlock(&handle->mtx_handle);
+		*result = handle->h_data.d_thread->t_terminate_info;
+		mutex_unlock(&handle->h_mutex);
 		TRACE(HANDLE, INFO, "done, thread already gone", thread);
 		return ANANAS_ERROR_OK;
 	}
@@ -226,26 +226,26 @@ handle_wait(thread_t* thread, struct HANDLE* handle, handle_event_t* event, hand
 	/* schedule the wait as usual */
 	int waiter_id = 0;
 	for (; waiter_id <  HANDLE_MAX_WAITERS; waiter_id++)
-		if (handle->waiters[waiter_id].thread == NULL)
+		if (handle->h_waiters[waiter_id].hw_thread == NULL)
 			break;
 	KASSERT(waiter_id < HANDLE_MAX_WAITERS, "FIXME: no waiter handles available");
-	handle->waiters[waiter_id].thread = thread;
-	handle->waiters[waiter_id].event_mask = *event;
-	handle->waiters[waiter_id].event_reported = 0;
-	struct WAITER* w = waitqueue_add(&handle->waiters[waiter_id].wq);
-	mutex_unlock(&handle->mtx_handle);
+	handle->h_waiters[waiter_id].hw_thread = thread;
+	handle->h_waiters[waiter_id].hw_event_mask = *event;
+	handle->h_waiters[waiter_id].hw_event_reported = 0;
+	struct WAITER* w = waitqueue_add(&handle->h_waiters[waiter_id].hw_wq);
+	mutex_unlock(&handle->h_mutex);
 
 	/* Now, we wait - handle_signal will wake us when the time comes */
 	waitqueue_wait(w);
 	waitqueue_remove(w);
 
 	/* Obtain the result */
-	mutex_lock(&handle->mtx_handle);
-	*result = handle->waiters[waiter_id].result;
-	*event = handle->waiters[waiter_id].event_reported;
+	mutex_lock(&handle->h_mutex);
+	*result = handle->h_waiters[waiter_id].hw_result;
+	*event = handle->h_waiters[waiter_id].hw_event_reported;
 	/* And free the waiter slot */
-	handle->waiters[waiter_id].thread = NULL;
-	mutex_unlock(&handle->mtx_handle);
+	handle->h_waiters[waiter_id].hw_thread = NULL;
+	mutex_unlock(&handle->h_mutex);
 
 	TRACE(HANDLE, INFO, "t=%p, done", thread);
 	return ANANAS_ERROR_OK;
@@ -255,18 +255,18 @@ void
 handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t result)
 {
 	TRACE(HANDLE, FUNC, "handle=%p, event=%p, result=0x%x", handle, event, result);
-	mutex_lock(&handle->mtx_handle);
+	mutex_lock(&handle->h_mutex);
 	for (int waiter_id = 0; waiter_id <  HANDLE_MAX_WAITERS; waiter_id++) {
-		if (handle->waiters[waiter_id].thread == NULL)
+		if (handle->h_waiters[waiter_id].hw_thread == NULL)
 			continue;
-		if ((event != 0) && ((handle->waiters[waiter_id].event_mask != HANDLE_EVENT_ANY) && (handle->waiters[waiter_id].event_mask & event) == 0))
+		if ((event != 0) && ((handle->h_waiters[waiter_id].hw_event_mask != HANDLE_EVENT_ANY) && (handle->h_waiters[waiter_id].hw_event_mask & event) == 0))
 			continue;
 
-		handle->waiters[waiter_id].event_reported = event;
-		handle->waiters[waiter_id].result = result;
-		waitqueue_signal(&handle->waiters[waiter_id].wq);
+		handle->h_waiters[waiter_id].hw_event_reported = event;
+		handle->h_waiters[waiter_id].hw_result = result;
+		waitqueue_signal(&handle->h_waiters[waiter_id].hw_wq);
 	}
-	mutex_unlock(&handle->mtx_handle);
+	mutex_unlock(&handle->h_mutex);
 	TRACE(HANDLE, INFO, "done");
 }
 
@@ -276,12 +276,12 @@ handle_set_owner(struct HANDLE* handle, struct HANDLE* owner)
 	/* Fetch the thread */
 	errorcode_t err = handle_isvalid(owner, NULL, HANDLE_TYPE_THREAD);
 	ANANAS_ERROR_RETURN(err);
-	thread_t* new_thread = owner->data.thread;
+	thread_t* new_thread = owner->h_data.d_thread;
 
 	/* XXX We should check the relationship between the current and new thread */
 
 	/* Remove the thread from the old thread's handles */
-	thread_t* old_thread = handle->thread;
+	thread_t* old_thread = handle->h_thread;
 	spinlock_lock(&old_thread->t_lock);
 	DQUEUE_REMOVE(&old_thread->t_handles, handle);
 	spinlock_unlock(&old_thread->t_lock);
@@ -298,13 +298,13 @@ handle_read(struct HANDLE* handle, void* buffer, size_t* size)
 {
 	errorcode_t err;
 
-	mutex_lock(&handle->mtx_handle);
-	if (handle->hops->hop_read != NULL) {
-		err = handle->hops->hop_read(handle->thread, handle, buffer, size);
+	mutex_lock(&handle->h_mutex);
+	if (handle->h_hops->hop_read != NULL) {
+		err = handle->h_hops->hop_read(handle->h_thread, handle, buffer, size);
 	} else {
 		err = ANANAS_ERROR(BAD_OPERATION);
 	}
-	mutex_unlock(&handle->mtx_handle);
+	mutex_unlock(&handle->h_mutex);
 	return err;
 }
 
@@ -313,13 +313,13 @@ handle_write(struct HANDLE* handle, const void* buffer, size_t* size)
 {
 	errorcode_t err;
 
-	mutex_lock(&handle->mtx_handle);
-	if (handle->hops->hop_write != NULL) {
-		err = handle->hops->hop_write(handle->thread, handle, buffer, size);
+	mutex_lock(&handle->h_mutex);
+	if (handle->h_hops->hop_write != NULL) {
+		err = handle->h_hops->hop_write(handle->h_thread, handle, buffer, size);
 	} else {
 		err = ANANAS_ERROR(BAD_OPERATION);
 	}
-	mutex_unlock(&handle->mtx_handle);
+	mutex_unlock(&handle->h_mutex);
 	return err;
 }
 
@@ -358,36 +358,36 @@ kdb_cmd_handle(int num_args, char** arg)
 	}
 
 	struct HANDLE* handle = (void*)addr;
-	kprintf("type          : %u\n", handle->type);
-	kprintf("owner thread  : 0x%x\n", handle->thread);
+	kprintf("type          : %u\n", handle->h_type);
+	kprintf("owner thread  : 0x%x\n", handle->h_thread);
 	kprintf("waiters:\n");
 	for (unsigned int i = 0; i < HANDLE_MAX_WAITERS; i++) {
-		if (handle->waiters[i].thread == NULL)
+		if (handle->h_waiters[i].hw_thread == NULL)
 			continue;
-		kprintf("   wait thread    : 0x%x\n", handle->waiters[i].thread);
-		kprintf("   wait event     : %u\n", handle->waiters[i].event);
-		kprintf("   event mask     : %u\n", handle->waiters[i].event_mask);
-		kprintf("   event reported : %u\n", handle->waiters[i].event_reported);
-		kprintf("   result         : %u\n", handle->waiters[i].result);
+		kprintf("   wait thread    : 0x%x\n", handle->h_waiters[i].hw_thread);
+		kprintf("   wait event     : %u\n", handle->h_waiters[i].hw_event);
+		kprintf("   event mask     : %u\n", handle->h_waiters[i].hw_event_mask);
+		kprintf("   event reported : %u\n", handle->h_waiters[i].hw_event_reported);
+		kprintf("   result         : %u\n", handle->h_waiters[i].hw_result);
 	}
 
-	switch(handle->type) {
+	switch(handle->h_type) {
 		case HANDLE_TYPE_FILE: {
 			kprintf("file handle specifics:\n");
-			kprintf("   offset         : %u\n", handle->data.vfs_file.f_offset); /* XXXSIZE */
-			kprintf("   inode          : 0x%x\n", handle->data.vfs_file.f_inode);
-			kprintf("   device         : 0x%x\n", handle->data.vfs_file.f_device);
+			kprintf("   offset         : %u\n", handle->h_data.d_vfs_file.f_offset); /* XXXSIZE */
+			kprintf("   inode          : 0x%x\n", handle->h_data.d_vfs_file.f_inode);
+			kprintf("   device         : 0x%x\n", handle->h_data.d_vfs_file.f_device);
 			break;
 		}
 		case HANDLE_TYPE_THREAD: {
 			kprintf("thread handle specifics:\n");
-			kprintf("   thread         : 0x%x\n", handle->data.thread);
+			kprintf("   thread         : 0x%x\n", handle->h_data.d_thread);
 			break;
 		}
 		case HANDLE_TYPE_MEMORY: {
 			kprintf("memory handle specifics:\n");
-			kprintf("   address        : 0x%x\n", handle->data.memory.addr);
-			kprintf("   size           : %u\n", handle->data.memory.length);
+			kprintf("   address        : 0x%x\n", handle->h_data.d_memory.hmi_addr);
+			kprintf("   size           : %u\n", handle->h_data.d_memory.hmi_length);
 			break;
 		}
 	}

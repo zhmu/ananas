@@ -39,8 +39,8 @@ sys_read(thread_t* t, handle_t handle, void* buf, size_t* len)
 	ANANAS_ERROR_RETURN(err);
 
 	/* And read data to it */
-	if (h->hops->hop_read != NULL)
-		err = h->hops->hop_read(t, h, buf, &size);
+	if (h->h_hops->hop_read != NULL)
+		err = h->h_hops->hop_read(t, h, buf, &size);
 	else
 		err = ANANAS_ERROR(BAD_OPERATION);
 
@@ -79,8 +79,8 @@ sys_write(thread_t* t, handle_t handle, const void* buf, size_t* len)
 	ANANAS_ERROR_RETURN(err);
 
 	/* And write data from to it */
-	if (h->hops->hop_write != NULL)
-		err = h->hops->hop_write(t, h, buf, &size);
+	if (h->h_hops->hop_write != NULL)
+		err = h->h_hops->hop_write(t, h, buf, &size);
 	else
 		err = ANANAS_ERROR(BAD_OPERATION);
 	ANANAS_ERROR_RETURN(err);
@@ -127,8 +127,8 @@ sys_open(thread_t* t, struct OPEN_OPTIONS* opts, handle_t* result)
 	 * Ask the handle to open the resource - if there isn't an open operation, we
 	 * assume this handle type cannot be opened using a syscall.
 	 */
-	if (handle->hops->hop_open != NULL)
-		err = handle->hops->hop_open(t, handle, &open_opts);
+	if (handle->h_hops->hop_open != NULL)
+		err = handle->h_hops->hop_open(t, handle, &open_opts);
 	else
 		err = ANANAS_ERROR(BAD_OPERATION);
 
@@ -258,8 +258,8 @@ sys_summon(thread_t* t, handle_t handle, struct SUMMON_OPTIONS* opts, handle_t* 
 	 * Ask the handle to summon - if there isn't a summon operation,
 	 * we assume this handle type cannot be summoned using a syscall.
 	 */
-	if (h->hops->hop_summon != NULL)
-		err = h->hops->hop_summon(t, h, &summon_opts, (struct HANDLE**)out);
+	if (h->h_hops->hop_summon != NULL)
+		err = h->h_hops->hop_summon(t, h, &summon_opts, (struct HANDLE**)out);
 	else
 		err = ANANAS_ERROR(BAD_OPERATION);
 
@@ -295,8 +295,8 @@ sys_create(thread_t* t, struct CREATE_OPTIONS* opts, handle_t* out)
 	 * Ask the handle to create it - if there isn't a create operation,
 	 * we assume this handle type cannot be created using a syscall.
 	 */
-	if (outhandle->hops->hop_create != NULL)
-		err = outhandle->hops->hop_create(t, outhandle, &cropts);
+	if (outhandle->h_hops->hop_create != NULL)
+		err = outhandle->h_hops->hop_create(t, outhandle, &cropts);
 	else
 		err = ANANAS_ERROR(BAD_OPERATION);
 
@@ -365,7 +365,7 @@ sys_handlectl(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t l
 	ANANAS_ERROR_RETURN(err);
 
 	/* Lock the handle; we don't want it leaving our sight */
-	mutex_lock(&h->mtx_handle);
+	mutex_lock(&h->h_mutex);
 
 	/* Obtain arguments (note that some calls do not have an argument) */
 	void* handlectl_arg = NULL;
@@ -380,14 +380,14 @@ sys_handlectl(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t l
 		err = sys_handlectl_generic(t, handle, op, handlectl_arg, len);
 	} else {
 		/* Let the handle deal with this request */
-		if (h->hops->hop_control != NULL)
-			err = h->hops->hop_control(t, handle, op, arg, len);
+		if (h->h_hops->hop_control != NULL)
+			err = h->h_hops->hop_control(t, handle, op, arg, len);
 		else
 			err = ANANAS_ERROR(BAD_SYSCALL);
 	}
 
 fail:
-	mutex_unlock(&h->mtx_handle);
+	mutex_unlock(&h->h_mutex);
 	return err;
 }
 

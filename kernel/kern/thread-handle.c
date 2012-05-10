@@ -10,7 +10,7 @@ TRACE_SETUP;
 static errorcode_t
 threadhandle_get_thread(struct HANDLE* handle, thread_t** out)
 {
-	struct THREAD* t = handle->data.thread;
+	struct THREAD* t = handle->h_data.d_thread;
 	if (t == NULL)
 		return ANANAS_ERROR(BAD_HANDLE);
 
@@ -50,7 +50,7 @@ static errorcode_t
 threadhandle_clone(thread_t* thread, struct HANDLE* handle, struct HANDLE** result)
 {
 	thread_t* newthread;
-	errorcode_t err = thread_clone(handle->thread, 0, &newthread);
+	errorcode_t err = thread_clone(handle->h_thread, 0, &newthread);
 	ANANAS_ERROR_RETURN(err);
 
 	TRACE(HANDLE, INFO, "newthread handle = %x", newthread->t_thread_handle);

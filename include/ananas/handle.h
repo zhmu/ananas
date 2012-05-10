@@ -25,34 +25,34 @@ struct HANDLE_OPS;
 
 /* Waiters are threads waiting for an event on a thread */
 struct HANDLE_WAITER {
-	struct THREAD* thread;
-	struct WAIT_QUEUE wq;
-	int event;
-	handle_event_t event_mask;
-	handle_event_t event_reported;
-	handle_event_result_t result;
+	struct THREAD* hw_thread;
+	struct WAIT_QUEUE hw_wq;
+	int hw_event;
+	handle_event_t hw_event_mask;
+	handle_event_t hw_event_reported;
+	handle_event_result_t hw_result;
 };
 
 struct HANDLE_MEMORY_INFO {
-	struct THREAD_MAPPING* mapping;
-	void* addr;
-	size_t length;
+	struct THREAD_MAPPING* hmi_mapping;
+	void* hmi_addr;
+	size_t hmi_length;
 };
 
 struct HANDLE {
-	int type;
-	struct THREAD* thread;			/* owning thread */
-	mutex_t mtx_handle;			/* mutex guarding the handle */
-	struct HANDLE_OPS* hops;		/* handle operations */
+	int h_type;				/* one of HANDLE_TYPE_... */
+	struct THREAD* h_thread;		/* owning thread */
+	mutex_t h_mutex;			/* mutex guarding the handle */
+	struct HANDLE_OPS* h_hops;		/* handle operations */
 	DQUEUE_FIELDS(struct HANDLE);		/* used for the queue structure */
 
 	/* Waiters are those who are waiting on this handle */
-	struct HANDLE_WAITER waiters[HANDLE_MAX_WAITERS];
+	struct HANDLE_WAITER h_waiters[HANDLE_MAX_WAITERS];
 	union {
-		struct VFS_FILE vfs_file;
-		struct THREAD*  thread;
-		struct HANDLE_MEMORY_INFO memory;
-	} data;
+		struct VFS_FILE d_vfs_file;
+		struct THREAD*  d_thread;
+		struct HANDLE_MEMORY_INFO d_memory;
+	} h_data;
 };
 
 DQUEUE_DEFINE(HANDLE_QUEUE, struct HANDLE);

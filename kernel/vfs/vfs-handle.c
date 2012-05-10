@@ -13,10 +13,10 @@ TRACE_SETUP;
 static errorcode_t
 vfshandle_get_file(struct HANDLE* handle, struct VFS_FILE** out)
 {
-	if (handle->type != HANDLE_TYPE_FILE)
+	if (handle->h_type != HANDLE_TYPE_FILE)
 		return ANANAS_ERROR(BAD_HANDLE);
 
-	struct VFS_FILE* file = &((struct HANDLE*)handle)->data.vfs_file;
+	struct VFS_FILE* file = &((struct HANDLE*)handle)->h_data.d_vfs_file;
 	if (file->f_inode == NULL && file->f_device == NULL)
 		return ANANAS_ERROR(BAD_HANDLE);
 
@@ -56,7 +56,7 @@ vfshandle_open(thread_t* thread, struct HANDLE* handle, struct OPEN_OPTIONS* opt
 	 */
 	if (opts->op_mode & OPEN_MODE_CREATE) {
 		/* Attempt to create the new file - if this works, we're all set */
-		errorcode_t err = vfs_create(thread->t_path_handle->data.vfs_file.f_inode, &handle->data.vfs_file, userpath, opts->op_createmode);
+		errorcode_t err = vfs_create(thread->t_path_handle->h_data.d_vfs_file.f_inode, &handle->h_data.d_vfs_file, userpath, opts->op_createmode);
 		if (err == ANANAS_ERROR_NONE)
 			return err;
 
@@ -73,14 +73,14 @@ vfshandle_open(thread_t* thread, struct HANDLE* handle, struct OPEN_OPTIONS* opt
 
 	/* And open the path */
 	TRACE(SYSCALL, INFO, "opening userpath '%s'", userpath);
-	return vfs_open(userpath, thread->t_path_handle->data.vfs_file.f_inode, &handle->data.vfs_file);
+	return vfs_open(userpath, thread->t_path_handle->h_data.d_vfs_file.f_inode, &handle->h_data.d_vfs_file);
 }
 
 static errorcode_t
 vfshandle_free(thread_t* thread, struct HANDLE* handle)
 {
 	/* If we have a backing inode, dereference it - this will free it if needed */
-	struct VFS_INODE* inode = handle->data.vfs_file.f_inode;
+	struct VFS_INODE* inode = handle->h_data.d_vfs_file.f_inode;
 	if (inode != NULL)
 		vfs_deref_inode(inode);
 	return ANANAS_ERROR_OK;
@@ -101,7 +101,7 @@ vfshandle_create(thread_t* thread, struct HANDLE* handle, struct CREATE_OPTIONS*
 	ANANAS_ERROR_RETURN(err);
 
 	/* Attempt to create the new file */
-	return vfs_create(thread->t_path_handle->data.vfs_file.f_inode, &handle->data.vfs_file, path, opts->cr_mode);
+	return vfs_create(thread->t_path_handle->h_data.d_vfs_file.f_inode, &handle->h_data.d_vfs_file, path, opts->cr_mode);
 }
 
 static errorcode_t
