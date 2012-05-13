@@ -11,6 +11,7 @@ kern/irq.c		mandatory
 kern/handle.c		mandatory
 kern/thread-handle.c	mandatory
 kern/memory-handle.c	mandatory
+kern/ref-handle.c	mandatory
 kern/tty.c		mandatory
 kern/trace.c		mandatory
 kern/waitqueue.c	mandatory

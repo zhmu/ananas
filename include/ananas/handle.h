@@ -14,11 +14,14 @@ typedef unsigned int handle_event_result_t;
 #define HANDLE_TYPE_FILE	1
 #define HANDLE_TYPE_THREAD	2
 #define HANDLE_TYPE_MEMORY	3
+#define HANDLE_TYPE_REFERENCE	4
 
 #define HANDLE_EVENT_ANY	0
 
 #define HANDLE_VALUE_INVALID	0
 #define HANDLE_MAX_WAITERS	10	/* XXX should be any limit */
+
+#define HANDLE_FLAG_TEARDOWN	1	/* if set, handle is going away and can't be reffed anymore */
 
 struct THREAD;
 struct HANDLE_OPS;
@@ -41,8 +44,10 @@ struct HANDLE_MEMORY_INFO {
 
 struct HANDLE {
 	int h_type;				/* one of HANDLE_TYPE_... */
+	int h_flags;				/* flags */
 	struct THREAD* h_thread;		/* owning thread */
 	mutex_t h_mutex;			/* mutex guarding the handle */
+	refcount_t h_refcount;			/* reference count */
 	struct HANDLE_OPS* h_hops;		/* handle operations */
 	DQUEUE_FIELDS(struct HANDLE);		/* used for the queue structure */
 
@@ -52,6 +57,7 @@ struct HANDLE {
 		struct VFS_FILE d_vfs_file;
 		struct THREAD*  d_thread;
 		struct HANDLE_MEMORY_INFO d_memory;
+		struct HANDLE* d_handle;
 	} h_data;
 };
 
@@ -100,6 +106,7 @@ errorcode_t handle_destroy(struct HANDLE* handle, int free_resources);
 errorcode_t handle_isvalid(struct HANDLE* handle, struct THREAD* t, int type);
 errorcode_t handle_clone(struct THREAD* t, struct HANDLE* in, struct HANDLE** out);
 errorcode_t handle_set_owner(struct HANDLE* handle, struct HANDLE* owner);
+errorcode_t handle_create_ref(thread_t* t, struct HANDLE* h, struct HANDLE** out);
 
 errorcode_t handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event, handle_event_result_t* h);
 void handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t result);

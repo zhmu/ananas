@@ -40,7 +40,6 @@ handle_init()
 	for (unsigned int i = 0; i < NUM_HANDLES; i++) {
 		struct HANDLE* h = &pool[i];
 		DQUEUE_ADD_TAIL(&handle_freelist, h);
-		mutex_init(&h->h_mutex, "handle");
 		for (unsigned int n = 0; n < HANDLE_MAX_WAITERS; n++)
 			waitqueue_init(&h->h_waiters[n].hw_wq);
 	}
@@ -92,10 +91,13 @@ handle_alloc(int type, thread_t* t, struct HANDLE** out)
 	/* Sanity checks */
 	KASSERT(handle->h_type == HANDLE_TYPE_UNUSED, "handle from pool must be unused");
 
-	/* Hook the handle to the thread */
+	/* Initialize the handle */
+	mutex_init(&handle->h_mutex, "handle");
 	handle->h_type = type;
 	handle->h_thread = t;
 	handle->h_hops = htype->ht_hops;
+	handle->h_flags = 0;
+	handle->h_refcount = 1;
 
 	/* Hook the handle to the thread queue */
 	spinlock_lock(&t->t_lock);
@@ -109,10 +111,47 @@ handle_alloc(int type, thread_t* t, struct HANDLE** out)
 }
 
 errorcode_t
+handle_create_ref(thread_t* t, struct HANDLE* h, struct HANDLE** out)
+{
+	/*
+	 * First of all, increment the reference count of the source handle
+	 * so that we can be certain that it won't go away
+	 */
+	mutex_lock(&h->h_mutex);
+	KASSERT(h->h_refcount > 0, "source handle has invalid refcount");
+	if (h->h_flags & HANDLE_FLAG_TEARDOWN) {
+		/* Handle is in the process of being removed; disallow to create a reference */
+		mutex_unlock(&h->h_mutex);
+		return ANANAS_ERROR(BAD_HANDLE);
+	}
+	h->h_refcount++;
+	mutex_unlock(&h->h_mutex);
+
+	/* Now hook us up */
+	errorcode_t err = handle_alloc(HANDLE_TYPE_REFERENCE, t, out);
+	ANANAS_ERROR_RETURN(err);
+	(*out)->h_data.d_handle = h;
+	return ANANAS_ERROR_OK;
+}
+
+errorcode_t
 handle_destroy(struct HANDLE* handle, int free_resources)
 {
 	KASSERT(handle->h_type != HANDLE_TYPE_UNUSED, "freeing free handle");
 	TRACE(HANDLE, FUNC, "handle=%p, free_resource=%u", handle, free_resources);
+
+	/*
+	 * Lock the handle so that no-one else can touch it, mark the handle as
+	 * being torn-down and see if actually have to destroy it at this point.
+	 */
+	mutex_lock(&handle->h_mutex);
+	handle->h_flags |= HANDLE_FLAG_TEARDOWN;
+	handle->h_refcount--;
+	KASSERT(handle->h_refcount >= 0, "handle has invalid refcount");
+	if (handle->h_refcount > 0) {
+		mutex_unlock(&handle->h_mutex);
+		return ANANAS_ERROR_OK;
+	}
 
 	/* Remove us from the thread handle queue, if necessary */
 	if (handle->h_thread != NULL) {
@@ -169,6 +208,7 @@ handle_isvalid(struct HANDLE* handle, thread_t* t, int type)
 	/* ... yet unused handles are never valid */
 	if (handle->h_type == HANDLE_TYPE_UNUSED)
 		return ANANAS_ERROR(BAD_HANDLE);
+	KASSERT(handle->h_refcount > 0, "invalid refcount %d", handle->h_refcount);
 	return ANANAS_ERROR_OK;
 }
 
@@ -280,6 +320,14 @@ handle_set_owner(struct HANDLE* handle, struct HANDLE* owner)
 
 	/* XXX We should check the relationship between the current and new thread */
 
+	/*
+	 * Setting the owner is only allowed if the refcount is exactly one; this
+	 * avoids having to walk through all references to this handle to see if
+	 * we should be allowed to change the owner.
+	 */
+	if (handle->h_refcount != 1)
+		return ANANAS_ERROR(BAD_OPERATION);
+
 	/* Remove the thread from the old thread's handles */
 	thread_t* old_thread = handle->h_thread;
 	spinlock_lock(&old_thread->t_lock);
@@ -359,6 +407,8 @@ kdb_cmd_handle(int num_args, char** arg)
 
 	struct HANDLE* handle = (void*)addr;
 	kprintf("type          : %u\n", handle->h_type);
+	kprintf("flags         : %u\n", handle->h_flags);
+	kprintf("refcount      : %d\n", handle->h_refcount);
 	kprintf("owner thread  : 0x%x\n", handle->h_thread);
 	kprintf("waiters:\n");
 	for (unsigned int i = 0; i < HANDLE_MAX_WAITERS; i++) {
