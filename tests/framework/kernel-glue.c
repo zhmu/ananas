@@ -38,10 +38,9 @@ void waitqueue_wait(struct WAITER* w) { }
 void waitqueue_remove(struct WAITER* w) { }
 void waitqueue_signal(struct WAITER* w) { }
 
-void
-md_reschedule()
+void schedule()
 {
-	panic("md_reschedule() must not be called");
+	panic("schedule() must not be called");
 }
 
 void
