@@ -82,8 +82,8 @@ vfs_deref_inode_locked(struct VFS_INODE* inode)
 	 * the GONE flag so people can assert on it.
 	 */
 	inode->i_flags |= INODE_FLAG_GONE;
-icache_ensure_inode_gone(inode);
-	if (inode->i_fs->fs_fsops->alloc_inode != NULL) {
+	icache_ensure_inode_gone(inode);
+	if (inode->i_fs->fs_fsops->destroy_inode != NULL) {
 		inode->i_fs->fs_fsops->destroy_inode(inode);
 	} else {
 		vfs_destroy_inode(inode);
