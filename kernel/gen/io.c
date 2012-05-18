@@ -336,7 +336,7 @@ sys_handlectl_generic(thread_t* t, handle_t handle, unsigned int op, void* arg, 
 				err = ANANAS_ERROR(BAD_LENGTH);
 				goto fail;
 			}
-			err = handle_set_owner(handle, owner);
+			err = handle_set_owner(t, handle, owner);
 			if (err == ANANAS_ERROR_OK) {
 				TRACE(SYSCALL, INFO, "t=%p, handle=%p, new owner=%p, success", t, handle, owner);
 			} else {

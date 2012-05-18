@@ -102,17 +102,14 @@ DQUEUE_DEFINE(HANDLE_TYPES, struct HANDLE_TYPE);
 
 void handle_init();
 errorcode_t handle_alloc(int type, struct THREAD* t, struct HANDLE** out);
-errorcode_t handle_destroy(struct HANDLE* handle, int free_resources);
+errorcode_t handle_free(struct HANDLE* handle);
 errorcode_t handle_isvalid(struct HANDLE* handle, struct THREAD* t, int type);
 errorcode_t handle_clone(struct THREAD* t, struct HANDLE* in, struct HANDLE** out);
-errorcode_t handle_set_owner(struct HANDLE* handle, struct HANDLE* owner);
+errorcode_t handle_set_owner(struct THREAD* t, struct HANDLE* handle, struct HANDLE* owner);
 errorcode_t handle_create_ref(thread_t* t, struct HANDLE* h, struct HANDLE** out);
 
 errorcode_t handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event, handle_event_result_t* h);
 void handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t result);
-
-#define handle_free(handle) \
-	handle_destroy((handle), 1)
 
 /* Only to be used from handle implementation code */
 errorcode_t handle_clone_generic(thread_t* t, struct HANDLE* handle, struct HANDLE** out);

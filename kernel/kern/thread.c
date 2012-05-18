@@ -191,6 +191,13 @@ thread_free(thread_t* t)
 		DQUEUE_FOREACH(&threadcallbacks_exit, tc, struct THREAD_CALLBACK) {
 			tc->tc_func(t, NULL);
 		}
+
+	/*
+	 * Throw away the thread handle itself; it will be removed once it runs out of
+	 * references (which will be the case once everyone is done waiting for it
+	 * and cleans up its own handle)
+	 */
+	handle_free(t->t_thread_handle);
 }
 
 void
@@ -202,17 +209,11 @@ thread_destroy(thread_t* t)
 	/* Free the machine-dependant bits */
 	md_thread_free(t);
 
-	/* Remove the thread from the scheduler queue */
-	scheduler_cleanup_thread(t);
-
 	/* Remove the queue from our queue */
 	spinlock_lock(&spl_threadqueue);
 	DQUEUE_REMOVE(&threadqueue, t);
 	spinlock_unlock(&spl_threadqueue);
 
-	/* Ensure the thread handle itself won't have a thread anymore */
-	t->t_thread_handle->h_thread = NULL;
-	handle_destroy(t->t_thread_handle, 0);
 	kfree(t);
 }
 

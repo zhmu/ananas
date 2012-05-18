@@ -271,7 +271,16 @@ vfshandle_summon(thread_t* thread, struct HANDLE* handle, struct SUMMON_OPTIONS*
 	thread_t* newthread = NULL;
 	err = thread_alloc(thread, &newthread);
 	ANANAS_ERROR_RETURN(err);
-	err = syscall_set_handle(thread, (void**)out, newthread->t_thread_handle);
+
+	/*
+	 * Create a reference to the new thread's handle to give to our parent; we are not
+	 * the owner of the thread handle, so we can't directly return it.
+	 */
+	struct HANDLE* ref_handle = NULL;
+	err = handle_create_ref(thread, newthread->t_thread_handle, &ref_handle);
+	if (err != ANANAS_ERROR_NONE)
+		goto fail;
+	err = syscall_set_handle(thread, (void**)out, ref_handle);
 	if (err != ANANAS_ERROR_NONE)
 		goto fail;
 
@@ -309,6 +318,8 @@ vfshandle_summon(thread_t* thread, struct HANDLE* handle, struct SUMMON_OPTIONS*
 	return ANANAS_ERROR_OK;
 
 fail:
+	if (ref_handle != NULL)
+		handle_free(ref_handle);
 	if (newthread != NULL) {
 		thread_free(newthread);
 		thread_destroy(newthread);

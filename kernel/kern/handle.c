@@ -135,10 +135,10 @@ handle_create_ref(thread_t* t, struct HANDLE* h, struct HANDLE** out)
 }
 
 errorcode_t
-handle_destroy(struct HANDLE* handle, int free_resources)
+handle_free(struct HANDLE* handle)
 {
 	KASSERT(handle->h_type != HANDLE_TYPE_UNUSED, "freeing free handle");
-	TRACE(HANDLE, FUNC, "handle=%p, free_resource=%u", handle, free_resources);
+	TRACE(HANDLE, FUNC, "handle=%p", handle);
 
 	/*
 	 * Lock the handle so that no-one else can touch it, mark the handle as
@@ -149,6 +149,7 @@ handle_destroy(struct HANDLE* handle, int free_resources)
 	handle->h_refcount--;
 	KASSERT(handle->h_refcount >= 0, "handle has invalid refcount");
 	if (handle->h_refcount > 0) {
+		TRACE(HANDLE, INFO, "handle=%p, not freeing (refcount %d)", handle, handle->h_refcount);
 		mutex_unlock(&handle->h_mutex);
 		return ANANAS_ERROR_OK;
 	}
@@ -160,17 +161,13 @@ handle_destroy(struct HANDLE* handle, int free_resources)
 		spinlock_unlock(&handle->h_thread->t_lock);
 	}
 
-	/* If we need to free our resources, do so */
-	errorcode_t err = ANANAS_ERROR_OK;
-	if (free_resources) {
-		/*
-		 * If the handle has a specific free function, call it - otherwise assume
-		 * no special action is needed.
-		 */
-		if (handle->h_hops->hop_free != NULL) {
-			err = handle->h_hops->hop_free(handle->h_thread, handle);
-			ANANAS_ERROR_RETURN(err);
-		}
+	/*
+	 * If the handle has a specific free function, call it - otherwise assume
+	 * no special action is needed.
+	 */
+	if (handle->h_hops->hop_free != NULL) {
+		errorcode_t err = handle->h_hops->hop_free(handle->h_thread, handle);
+		ANANAS_ERROR_RETURN(err);
 	}
 
 	/* XXX Should we revoke all waiters too? */
@@ -197,18 +194,18 @@ handle_isvalid(struct HANDLE* handle, thread_t* t, int type)
 	if (((addr_t)handle % sizeof(struct HANDLE)) != 0)
 		return ANANAS_ERROR(BAD_HANDLE);
 	/* ensure handle is properly owned by the thread */
-	/* XXX does not work with inherited handles yet XXX */
-#if 0
-	if (handle->thread != t)
+	if (handle->h_thread != t)
 		return ANANAS_ERROR(BAD_HANDLE);
-#endif
-	/* ensure handle type is correct */
-	if (type != HANDLE_TYPE_ANY && handle->h_type != type)
+	/* if this is a handle reference, check the type of the handle we are refering to */
+	struct HANDLE* desthandle = handle;
+	if (handle->h_type == HANDLE_TYPE_REFERENCE)
+		desthandle = handle->h_data.d_handle;
+	if (type != HANDLE_TYPE_ANY && desthandle->h_type != type)
 		return ANANAS_ERROR(BAD_HANDLE);
 	/* ... yet unused handles are never valid */
-	if (handle->h_type == HANDLE_TYPE_UNUSED)
+	if (desthandle->h_type == HANDLE_TYPE_UNUSED)
 		return ANANAS_ERROR(BAD_HANDLE);
-	KASSERT(handle->h_refcount > 0, "invalid refcount %d", handle->h_refcount);
+	KASSERT(desthandle->h_refcount > 0, "invalid refcount %d", desthandle->h_refcount);
 	return ANANAS_ERROR_OK;
 }
 
@@ -244,6 +241,15 @@ handle_wait(thread_t* thread, struct HANDLE* handle, handle_event_t* event, hand
 	TRACE(HANDLE, FUNC, "handle=%p, event=%p, thread=%p", handle, event, thread);
 
 	mutex_lock(&handle->h_mutex);
+
+	/* If this is a reference handle, deference it - waits must always be done using the real handle */
+	if (handle->h_type == HANDLE_TYPE_REFERENCE) {
+		struct HANDLE* h = handle->h_data.d_handle;
+		mutex_unlock(&handle->h_mutex);
+		mutex_lock(&h->h_mutex);
+		handle = h;
+		KASSERT(handle->h_type != HANDLE_TYPE_REFERENCE, "reference handle to reference?");
+	}
 
 	/*
 	 * OK; first of all, see if the handle points to a terminating thread; if so, we
@@ -296,6 +302,7 @@ handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t
 {
 	TRACE(HANDLE, FUNC, "handle=%p, event=%p, result=0x%x", handle, event, result);
 	mutex_lock(&handle->h_mutex);
+	KASSERT(handle->h_type != HANDLE_TYPE_REFERENCE, "cannot signal reference handle %p", handle);
 	for (int waiter_id = 0; waiter_id <  HANDLE_MAX_WAITERS; waiter_id++) {
 		if (handle->h_waiters[waiter_id].hw_thread == NULL)
 			continue;
@@ -311,12 +318,16 @@ handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t
 }
 
 errorcode_t
-handle_set_owner(struct HANDLE* handle, struct HANDLE* owner)
+handle_set_owner(struct THREAD* t, struct HANDLE* handle, struct HANDLE* owner)
 {
 	/* Fetch the thread */
-	errorcode_t err = handle_isvalid(owner, NULL, HANDLE_TYPE_THREAD);
+	errorcode_t err = handle_isvalid(owner, t, HANDLE_TYPE_THREAD);
 	ANANAS_ERROR_RETURN(err);
-	thread_t* new_thread = owner->h_data.d_thread;
+	thread_t* new_thread;
+	if (owner->h_type == HANDLE_TYPE_REFERENCE)
+		new_thread = owner->h_data.d_handle->h_data.d_thread;
+	else
+		new_thread = owner->h_data.d_thread;
 
 	/* XXX We should check the relationship between the current and new thread */
 
@@ -337,6 +348,7 @@ handle_set_owner(struct HANDLE* handle, struct HANDLE* owner)
 	/* And hook it up the new thread's handles */
 	spinlock_lock(&new_thread->t_lock);
 	DQUEUE_ADD_TAIL(&new_thread->t_handles, handle);
+	handle->h_thread = new_thread;
 	spinlock_unlock(&new_thread->t_lock);
 	return ANANAS_ERROR_OK;
 }
