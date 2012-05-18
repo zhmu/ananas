@@ -44,9 +44,8 @@ refhandle_free(thread_t* thread, struct HANDLE* handle)
 	struct HANDLE* h;
 	errorcode_t err = refhandle_get_handle(handle, &h);
 	ANANAS_ERROR_RETURN(err);
-	if (h->h_hops->hop_free == NULL)
-		return ANANAS_ERROR(BAD_OPERATION);
-	return h->h_hops->hop_free(thread, h);
+
+	return handle_free(h);
 }
 
 static errorcode_t
@@ -104,10 +103,6 @@ static struct HANDLE_OPS ref_hops = {
 	.hop_summon = refhandle_summon
 };
 
-struct HANDLE_TYPE ref_handle_type = {
-	.ht_name = "reference",
-	.ht_id = HANDLE_TYPE_REFERENCE,
-	.ht_hops = &ref_hops
-};
+HANDLE_TYPE(HANDLE_TYPE_REFERENCE, "reference", ref_hops);
 
 /* vim:set ts=2 sw=2: */
