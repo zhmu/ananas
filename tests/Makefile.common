@@ -8,8 +8,8 @@ KCFLAGS+=	$(WCFLAGS) -I../../include $(CFLAGS) -DTESTFRAMEWORK
 ARCH?=		amd64
 K?=		../../kernel
 
-$(TARGET):	$(OBJS) $(LIBS)
-		$(CC) -o $(TARGET) $(OBJS) $(LIBS)
+$(TARGET):	$(OBJS) $(LIBS) ld.script
+		$(CC) -o $(TARGET) -T ld.script $(OBJS) $(LIBS)
 
 machine:
 		ln -sf ../../include/ananas/${ARCH} machine
@@ -20,5 +20,8 @@ ananas:		machine
 test:		$(TARGET)
 		./$(TARGET)
 
+ld.script:
+		$(LD) --verbose|../framework/make-ldscript.pl > ld.script
+
 clean:
-		rm -f $(TARGET) machine ananas options.h $(OBJS) $(CLEAN_FILES)
+		rm -f $(TARGET) machine ananas options.h ld.script $(OBJS) $(CLEAN_FILES)
