@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <ananas/lib.h>
 #include "test-framework.h"
 

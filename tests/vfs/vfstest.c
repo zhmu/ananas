@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <ananas/error.h>
 #include <ananas/bio.h>
@@ -64,8 +63,6 @@ main(int argc, char* argv[])
 
 	/* Give the subsystems a go, as we depend on them */
 	device_init();
-	bio_init();
-	vfs_init();
 
 	/*
 	 * For now, we assume we can store at least a many entries in the dentry
