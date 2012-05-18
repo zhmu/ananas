@@ -223,7 +223,7 @@ bio_restart:
 		return bio;
 	}
 	
-	/* Grab a bio from the head of the queue */
+	/* Grab a bio from the head of the freelist */
 	spinlock_lock(&spl_bio_lists);
 	struct BIO* bio = NULL;
 	if (!DQUEUE_EMPTY(&bio_freelist)) {
@@ -249,7 +249,7 @@ bio_restartdata:
 	unsigned int chain_length = 0, cur_data_block = 0;
 	unsigned int num_blocks = len / BIO_SECTOR_SIZE;
 	for (; cur_data_block < bio_bitmap_size * 8; cur_data_block++) {
-		if((bio_bitmap[cur_data_block / 8] & (1 << (cur_data_block % 8))) != 0) {
+		if(bio_bitmap[cur_data_block / 8] & (1 << (cur_data_block % 8))) {
 			/* Data block isn't available - try again */
 			chain_length = 0;
 			continue;
@@ -271,7 +271,7 @@ bio_restartdata:
 	cur_data_block -= chain_length;
 
 	/* Mark the blocks as in use */
-	for (unsigned int n = cur_data_block; n < cur_data_block + (len / BIO_SECTOR_SIZE); n++) {
+	for (unsigned int n = cur_data_block; n <  cur_data_block + num_blocks; n++) {
 		bio_bitmap[n / 8] |= (1 << (n % 8));
 	}
 	spinlock_unlock(&spl_bio_bitmap);
