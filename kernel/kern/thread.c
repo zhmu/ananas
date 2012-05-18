@@ -174,6 +174,13 @@ thread_free(thread_t* t)
 	thread_free_mappings(t);
 
 	/*
+	 * Clear the thread information; no one can query it at this point as the
+ 	 * thread itself will not run anymore.
+	 */
+	kfree(t->t_threadinfo);
+	t->t_threadinfo = NULL;
+
+	/*
 	 * Mark the thread as terminating if it isn't already; having to do so means
 	 * the thread's isn't exiting voluntary.
 	 */
