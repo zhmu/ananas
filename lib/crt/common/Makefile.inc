@@ -15,10 +15,13 @@ crt1_s.o:	crt1.S
 cstart.o:	../common/cstart.c
 		$(CC) $(CFLAGS) -c -o cstart.o ../common/cstart.c
 
-install:	${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}/crt1.o
+install:	${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}/crt1.o ${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}/crtn.o
 
 ${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}/crt1.o:	crt1.o
 		cp crt1.o ${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}
+
+${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}/crtn.o:	crtn.o
+		cp crtn.o ${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}
 
 clean:
 		rm -f crt1.o $(OBJS)
