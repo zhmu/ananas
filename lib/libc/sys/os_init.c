@@ -11,6 +11,9 @@ int    libc_argc = 0;
 char** libc_argv = NULL;
 char** environ = NULL;
 
+extern void _init();
+extern void _fini();
+
 static void
 libc_initialize_arg(const char* arg, char*** dest, int* count)
 {
@@ -60,6 +63,12 @@ libc_init(struct THREADINFO* ti)
 	/* Initialize argument and environment variables */
 	libc_initialize_arg(ti->ti_args, &libc_argv, &libc_argc);
 	libc_reinit_environ();
+
+	/* Run .init functions as emitted by the compiler */
+	_init();
+
+	/* And schedule the destructor stuff at the end */
+	atexit(_fini);
 }
 
 /* vim:set ts=2 sw=2: */
