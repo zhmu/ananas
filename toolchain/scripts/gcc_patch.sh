@@ -81,7 +81,7 @@ crtbegin.o%s				\
 
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC "			\
-crtend.o%s				\
+crtend.o%s crtn.o%s			\
 "
 ' > $T/gcc/config/ananas.h
 
