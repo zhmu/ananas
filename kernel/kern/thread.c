@@ -473,6 +473,12 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 	}
 
 	/*
+	 * Copy the thread's arguments over; the environment will already been
+	 * inherited if necessary.
+	 */
+	memcpy(t->t_threadinfo->ti_args, parent->t_threadinfo->ti_args, THREADINFO_ARGS_LENGTH);
+
+	/*
 	 * Must copy the thread state over; note that this is the
 	 * result of a system call, so we want to influence the
 	 * return value.
