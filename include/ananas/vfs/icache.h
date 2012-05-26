@@ -7,7 +7,7 @@
 
 struct VFS_MOUNTED_FS;
 
-#define ICACHE_ITEMS_PER_FS	20
+#define ICACHE_ITEMS_PER_FS	32
 
 struct ICACHE_ITEM {
 	struct VFS_INODE* inode;		/* Backing inode, or NULL */
