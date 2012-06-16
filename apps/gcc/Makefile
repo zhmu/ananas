@@ -1,6 +1,7 @@
 ARCH?=		i386
 TARGET=		${ARCH}-elf-ananas
-PREFIX?=	$(realpath build.${ARCH})
+PREFIX?=	/usr
+DESTDIR?=	$(realpath ../output.${ARCH})
 
 include		../../conf/Makefile.inc
 
@@ -14,10 +15,6 @@ TAR?=		tar
 TOUCH?=		touch
 SED?=		sed
 
-R=		${CURDIR}
-CC=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-gcc
-LD=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-ld
-AR=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-ar
 # XXX this is unfortunate, but required for now
 CPPFLAGS=	${CFLAGS}
 
@@ -35,15 +32,15 @@ gcc:		.install
 		@${TOUCH} .patch
 
 .configure:	.patch
-		(cd gcc-${VERSION} && ./configure CFLAGS="${CFLAGS}" CPPFLAGS="${CPPFLAGS}" CC=${CC} LD=${LD} AR=${AR} --host=${TARGET} --prefix=${PREFIX} --disable-nls --without-headers --enable-languages=c --disable-multilib --disable-libssp)
+		(cd gcc-${VERSION} && ./configure --host=${TARGET} --prefix=${PREFIX} --disable-nls --without-headers --enable-languages=c --disable-multilib --disable-libssp)
 		@${TOUCH} .configure
 
 .build:		.configure
-		(cd gcc-${VERSION} && make)
+		(cd gcc-${VERSION} && ${MAKE})
 		@${TOUCH} .build
 
 .install:	.build
-		(cd gcc-${VERSION} && make install)
+		(cd gcc-${VERSION} && make install DESTDIR=${DESTDIR})
 
 clean:
 		rm -rf gcc-${VERSION}

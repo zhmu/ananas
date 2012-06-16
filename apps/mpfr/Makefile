@@ -1,6 +1,7 @@
 ARCH?=		i386
 TARGET=		${ARCH}-elf-ananas
-PREFIX?=	$(realpath build.${ARCH})
+PREFIX?=	/usr
+DESTDIR?=	$(realpath ../output.${ARCH})
 
 VERSION?=	3.0.1
 MIRROR?=	http://www.mpfr.org/mpfr-current/
@@ -15,7 +16,7 @@ CC=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-gcc
 CPP=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-cpp
 AR=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-ar
 
-binutils:	.install
+mpfr:		.install
 
 ../distfiles/mpfr-${VERSION}.tar.gz:
 		(cd ../distfiles && ${DOWNLOAD} ${MIRROR}/mpfr-${VERSION}.tar.gz)
@@ -29,7 +30,7 @@ binutils:	.install
 		@${TOUCH} .patch
 
 .configure:	.patch
-		(cd mpfr-${VERSION} && ./configure CFLAGS="${CFLAGS}" CPP=${CPP} CPPFLAGS="${CPPFLAGS}" CC=${CC} LD=${LD} AR=${AR} --host=${TARGET} --prefix=${PREFIX})
+		(cd mpfr-${VERSION} && ./configure --host=${TARGET} --prefix=${DESTDIR}${PREFIX} --with-gmp=${DESTDIR}${PREFIX})
 		@${TOUCH} .configure
 
 .build:		.configure
@@ -40,8 +41,8 @@ binutils:	.install
 		(cd mpfr-${VERSION} && make install)
 		mkdir -p ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/include
 		mkdir -p ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/lib
-		cp -R ${PREFIX}/include/* ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/include
-		cp -R ${PREFIX}/lib/* ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/lib
+		cp -R ${DESTDIR}${PREFIX}/include/* ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/include
+		cp -R ${DESTDIR}${PREFIX}/lib/* ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/lib
 		${TOUCH} .install
 
 clean:

@@ -1,6 +1,7 @@
 ARCH?=		i386
 TARGET=		${ARCH}-elf-ananas
-PREFIX?=	$(realpath build.${ARCH})
+PREFIX?=	/usr
+DESTDIR?=	$(realpath ../output.${ARCH})
 
 VERSION?=	3.82
 MIRROR?=	http://ftp.gnu.org/gnu/make/
@@ -14,7 +15,6 @@ TOUCH?=		touch
 R=		${CURDIR}
 CC=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-gcc
 LD=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-ld
-CPPFLAGS=	${CFLAGS}
 
 make:		.install
 
@@ -30,7 +30,7 @@ make:		.install
 		@${TOUCH} .patch
 
 .configure:	.patch
-		(cd make-${VERSION} && ./configure CFLAGS="${CFLAGS}" CPPFLAGS="${CPPFLAGS}" CC=${CC} LD=${LD} --host=${TARGET} --prefix=${PREFIX})
+		(cd make-${VERSION} && ./configure --host=${TARGET} --prefix=${PREFIX})
 		@${TOUCH} .configure
 
 .build:		.configure
@@ -38,7 +38,7 @@ make:		.install
 		@${TOUCH} .build
 
 .install:	.build
-		(cd make-${VERSION} && make install)
+		(cd make-${VERSION} && make install DESTDIR=${DESTDIR})
 
 clean:
 		rm -rf make-${VERSION}

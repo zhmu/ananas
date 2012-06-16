@@ -1,6 +1,7 @@
 ARCH?=		i386
 TARGET=		${ARCH}-elf-ananas
-PREFIX?=	$(realpath build.${ARCH})
+PREFIX?=	/usr
+DESTDIR?=	$(realpath ../output.${ARCH})
 
 VERSION?=	5.0.1
 MIRROR?=	ftp://ftp.gmplib.org/pub/gmp-5.0.1/
@@ -11,13 +12,8 @@ TAR?=		tar
 TOUCH?=		touch
 
 R=		${CURDIR}
-CC=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-gcc
-CPP=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-cpp
-AR=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-ar
-LD=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-ld
-NM=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-nm
 
-binutils:	.install
+gmp:		.install
 
 ../distfiles/gmp-${VERSION}.tar.bz2:
 		(cd ../distfiles && ${DOWNLOAD} ${MIRROR}/gmp-${VERSION}.tar.bz2)
@@ -31,7 +27,7 @@ binutils:	.install
 		@${TOUCH} .patch
 
 .configure:	.patch
-		(cd gmp-${VERSION} && ./configure CFLAGS="${CFLAGS}" CPP=${CPP} CPPFLAGS="${CPPFLAGS}" CC=${CC} LD=${LD} NM=${NM} AR=${AR} --host=${TARGET} --prefix=${PREFIX})
+		(cd gmp-${VERSION} && ./configure --host=${TARGET} --prefix=${DESTDIR}/${PREFIX})
 		@${TOUCH} .configure
 
 .build:		.configure
@@ -42,8 +38,8 @@ binutils:	.install
 		(cd gmp-${VERSION} && make install)
 		mkdir -p ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/include
 		mkdir -p ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/lib
-		cp -R ${PREFIX}/include/* ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/include
-		cp -R ${PREFIX}/lib/* ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/lib
+		cp -R ${DESTDIR}${PREFIX}/include/* ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/include
+		cp -R ${DESTDIR}${PREFIX}/lib/* ${R}/../../toolchain/prefix.${ARCH}/${ARCH}-elf-ananas/lib
 		${TOUCH} .install
 
 clean:

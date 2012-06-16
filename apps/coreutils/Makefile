@@ -1,6 +1,7 @@
 ARCH?=		i386
 TARGET=		${ARCH}-elf-ananas
-PREFIX?=	$(realpath build.${ARCH})
+PREFIX?=	/
+DESTDIR?=	$(realpath ../output.${ARCH})
 
 VERSION?=	8.7
 MIRROR?=	http://ftp.gnu.org/gnu/coreutils/
@@ -32,7 +33,7 @@ coreutils:	.install
 		@${TOUCH} .patch
 
 .configure:	.patch
-		(cd coreutils-${VERSION} && ./configure CFLAGS="${CFLAGS}" CPPFLAGS="${CPPFLAGS}" CC=${CC} LD=${LD} --host=${TARGET} --prefix=${PREFIX})
+		(cd coreutils-${VERSION} && ./configure CFLAGS="${CFLAGS}" --host=${TARGET} --prefix=${PREFIX} --disable-nls)
 		@${TOUCH} .configure
 
 .build:		.configure
@@ -40,7 +41,7 @@ coreutils:	.install
 		@${TOUCH} .build
 
 .install:	.build
-		(cd coreutils-${VERSION} && make install)
+		(cd coreutils-${VERSION} && make install DESTDIR=${DESTDIR})
 
 clean:
 		rm -rf coreutils-${VERSION}

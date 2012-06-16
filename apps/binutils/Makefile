@@ -1,6 +1,7 @@
 ARCH?=		i386
 TARGET=		${ARCH}-elf-ananas
-PREFIX?=	$(realpath build.${ARCH})
+PREFIX?=	/usr
+DESTDIR?=	$(realpath ../output.${ARCH})
 
 include		../../conf/Makefile.inc
 
@@ -12,12 +13,6 @@ DOWNLOAD?=	wget
 TAR?=		tar
 TOUCH?=		touch
 SED?=		sed
-
-R=		${CURDIR}
-CC=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-gcc
-CPP=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-cpp
-AR=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-ar
-#CFLAGS=		-I${R}/../../include -I${R}/include-${ARCH}
 
 binutils:	.install
 
@@ -33,7 +28,7 @@ binutils:	.install
 		@${TOUCH} .patch
 
 .configure:	.patch
-		(cd binutils-${VERSION} && ./configure CFLAGS="${CFLAGS}" CPP=${CPP} CPPFLAGS="${CPPFLAGS}" CC=${CC} LD=${LD} AR=${AR} --host=${TARGET} --prefix=${PREFIX} --disable-nls)
+		(cd binutils-${VERSION} && ./configure --host=${TARGET} --prefix=${PREFIX} --disable-nls)
 		@${TOUCH} .configure
 
 .build:		.configure
@@ -41,7 +36,7 @@ binutils:	.install
 		@${TOUCH} .build
 
 .install:	.build
-		(cd binutils-${VERSION} && make install)
+		(cd binutils-${VERSION} && make install DESTDIR=${DESTDIR})
 
 clean:
 		rm -rf binutils-${VERSION}
