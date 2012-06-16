@@ -31,17 +31,20 @@ gcc:		.install
 		SED=${SED} ../../toolchain/scripts/gcc_patch.sh gcc-${VERSION}
 		@${TOUCH} .patch
 
-.configure:	.patch
-		(cd gcc-${VERSION} && ./configure --host=${TARGET} --prefix=${PREFIX} --disable-nls --without-headers --enable-languages=c --disable-multilib --disable-libssp)
+build.${ARCH}:
+		mkdir -p build.${ARCH}
+
+.configure:	.patch build.${ARCH}
+		(cd build.${ARCH} && ../gcc-${VERSION}/configure --host=${TARGET} --prefix=${PREFIX} --disable-nls --without-headers --enable-languages=c --disable-multilib --disable-libssp)
 		@${TOUCH} .configure
 
 .build:		.configure
-		(cd gcc-${VERSION} && ${MAKE})
+		(cd build.${ARCH} && ${MAKE})
 		@${TOUCH} .build
 
 .install:	.build
-		(cd gcc-${VERSION} && make install DESTDIR=${DESTDIR})
+		(cd build.${ARCH} && make install DESTDIR=${DESTDIR})
 
 clean:
-		rm -rf gcc-${VERSION}
+		rm -rf gcc-${VERSION} build.${ARCH}
 		rm -f .extract .patch .configure .build
