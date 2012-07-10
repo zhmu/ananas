@@ -13,10 +13,13 @@ MDOBJS		+= setjmp.o
 
 include		../../conf/Makefile.std
 
-install:	${TC_PREFIX}/i386-elf-ananas/lib/libc.a
+install:	${TC_PREFIX}/i386-elf-ananas/lib/libc.a ${TC_PREFIX}/i386-elf-ananas/lib/libg.a
 
 ${TC_PREFIX}/i386-elf-ananas/lib/libc.a:	libc.a
 		cp libc.a ${TC_PREFIX}/i386-elf-ananas/lib
+
+${TC_PREFIX}/i386-elf-ananas/lib/libg.a:	${TC_PREFIX}/i386-elf-ananas/lib
+		ln -sf ${TC_PREFIX}/i386-elf-ananas/lib/libc.a ${TC_PREFIX}/i386-elf-ananas/lib/libg.a
 
 md_syscall.o:	$S/arch/i386/md_syscall.S
 		$(CC) $(ASMFLAGS) -c -o md_syscall.o $S/arch/i386/md_syscall.S
