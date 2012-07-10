@@ -1,7 +1,7 @@
 ARCH?=		i386
 TARGET=		${ARCH}-elf-ananas
 PREFIX?=	/usr
-DESTDIR?=	$(realpath build.${ARCH})
+DESTDIR?=	$(realpath ../output.${ARCH})
 
 VERSION?=	0.9
 MIRROR?=	http://www.multiprecision.org/mpc/download/
