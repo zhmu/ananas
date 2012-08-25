@@ -1,10 +1,12 @@
 #!/bin/sh -e
 
+#MAKE_ARGS=-j8
+
 do_libc()
 {
 	cd $R/lib/libc/compile/${ARCH}
 	make clean
-	make
+	make ${MAKE_ARGS}
 	make install
 }
 
@@ -12,7 +14,7 @@ do_crt()
 {
 	cd $R/lib/crt/${ARCH}
 	make clean
-	make
+	make ${MAKE_ARGS}
 	make install
 }
 
@@ -28,7 +30,7 @@ do_dash()
 	rm -rf build.${ARCH}
 	rm -f dash-${ARCH}
 	make clean
-	make
+	make ${MAKE_ARGS}
 }
 
 do_coreutils()
@@ -36,66 +38,58 @@ do_coreutils()
 	cd $R/apps/coreutils
 	rm -rf build.${ARCH}
 	mkdir -p build.${ARCH}
-	#
-	# XXX coreutils doesn't build correctly because it cannot create man
-	# files (which we don't care about) - use this hackery to see if it
-	# installs what we do care about, that's good enough for now
-	#
-	make clean
-	make .install || true
-	if [ ! -f $R/apps/output.${ARCH}/bin/yes ]; then
-		echo  "*** coreutils build failure"
-		exit 1
-	fi
+	make ${MAKE_ARGS}
 }
 
 do_gmp()
 {
 	cd $R/apps/gmp
 	make clean
-	make
+	make ${MAKE_ARGS}
 }
 
 do_mpfr()
 {
 	cd $R/apps/mpfr
 	make clean
-	make
+	make ${MAKE_ARGS}
 }
 
 do_mpc()
 {
 	cd $R/apps/mpc
 	make clean
-	make
+	make ${MAKE_ARGS}
 }
 
 do_binutils()
 {
 	cd $R/apps/binutils
 	make clean
-	make
+	make ${MAKE_ARGS}
 }
 
 do_gcc()
 {
 	cd $R/apps/gcc
 	make clean
-	make
+	make ${MAKE_ARGS}
 }
 
 do_make()
 {
 	cd $R/apps/make
 	make clean
-	make
+	make ${MAKE_ARGS}
 }
 
 do_jpeg()
 {
 	cd $R/apps/jpeg
+	rm -rf build.${ARCH}
+	mkdir -p build.${ARCH}
 	make clean
-	make
+	make ${MAKE_ARGS}
 }
 
 install_includes()
@@ -119,7 +113,18 @@ install_build()
 ARCH=i386
 TARGET=/mnt
 R=`cd .. && pwd`
-cd $R
+
+# ensure the immediate output directory exists, or configure
+# will try to place things in /
+mkdir -p $R/apps/output.${ARCH}
+
+# make sure we have our compiler in our path; configure will not raise red
+# flags if it can't find it
+CROSS_CC=`which i386-elf-ananas-gcc || true`
+if [ ! -x "$CROSS_CC" ]; then
+	echo "*** gcc not found; is the correct cross-path set?"
+	exit 1
+fi
 
 # prepare target
 rm -rf ${TARGET}/*
