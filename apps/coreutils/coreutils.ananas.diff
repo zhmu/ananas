@@ -115,6 +115,30 @@ diff -rubB coreutils-8.7/lib/xstrtol.c coreutils-8.7.patched/lib/xstrtol.c
      {
        *x = STRTOL_T_MINIMUM;
        return LONGINT_OVERFLOW;
+diff -rubB coreutils-8.7.org/Makefile.am coreutils-8.7/Makefile.am
+--- coreutils-8.7/Makefile.am	2010-11-13 11:41:02.000000000 +0100
++++ coreutils-8.7.patched/Makefile.am	2012-08-25 10:57:52.222257235 +0200
+@@ -17,7 +17,7 @@
+ 
+ ALL_RECURSIVE_TARGETS =
+ 
+-SUBDIRS = lib src doc man po tests gnulib-tests
++SUBDIRS = lib src po tests gnulib-tests
+ 
+ changelog_etc =				\
+   ChangeLog-2005			\
+diff -rubB coreutils-8.7/src/Makefile.am coreutils-8.7.patched/src/Makefile.am
+--- coreutils-8.7/src/Makefile.am	2010-10-16 13:31:38.000000000 +0200
++++ coreutils-8.7.patched/src/Makefile.am	2012-08-25 11:00:51.690259335 +0200
+@@ -138,8 +138,6 @@
+ 
+ noinst_PROGRAMS = setuidgid getlimits
+ 
+-pkglib_PROGRAMS = $(OPTIONAL_PKGLIB_PROGS)
+-
+ noinst_HEADERS =	\
+   chown-core.h		\
+   copy.h		\
 diff -rubB coreutils-8.7/src/system.h coreutils-8.7.patched/src/system.h
 --- coreutils-8.7/src/system.h	2010-10-25 12:07:57.000000000 +0200
 +++ coreutils-8.7.patched/src/system.h	2011-03-15 20:59:04.314524002 +0100

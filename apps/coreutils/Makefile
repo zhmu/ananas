@@ -32,7 +32,15 @@ coreutils:	.install
 		(cd coreutils-${VERSION} && patch -p1 < ${R}/coreutils.ananas.diff)
 		@${TOUCH} .patch
 
-.configure:	.patch
+#
+# We must invoke autoreconf as we patch the Makefile.am files, which means the
+# corresponding Makefile.in's need to be recreated.
+#
+.autoreconf:	.patch
+		(cd coreutils-${VERSION} && autoreconf)
+		@${TOUCH} .autoreconf
+
+.configure:	.autoreconf
 		(cd coreutils-${VERSION} && ./configure CFLAGS="${CFLAGS}" --host=${TARGET} --prefix=${PREFIX} --disable-nls)
 		@${TOUCH} .configure
 
@@ -45,4 +53,4 @@ coreutils:	.install
 
 clean:
 		rm -rf coreutils-${VERSION}
-		rm -f .extract .patch .configure .build
+		rm -f .extract .patch .configure .build .autoreconf
