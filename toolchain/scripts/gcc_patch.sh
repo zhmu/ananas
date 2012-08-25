@@ -30,7 +30,7 @@ awk '{ print }
 /# Support site-specific machine types./ && STATE == 2 {
 	print "i[3-7]86-*-ananas*)"
         print "\ttm_file=\"${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/i386elf.h ananas.h\""
-        print "\ttmake_file=\"i386/t-i386elf\""
+        print "\ttmake_file=\"i386/t-i386elf i386/t-crtstuff\""
         print "\t;;"
 	print "x86_64-*-ananas*)"
         print "\ttm_file=\"${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h ananas.h\""
