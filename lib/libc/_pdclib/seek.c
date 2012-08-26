@@ -19,11 +19,23 @@ _PDCLIB_int64_t _PDCLIB_seek( struct _PDCLIB_file_t * stream, _PDCLIB_int64_t of
 {
     switch ( whence )
     {
-        case SEEK_SET:
         case SEEK_CUR:
+	    /*
+	     * Since streams are buffered, we must not blindly hand our offset
+	     * to the kernel - we have to take our own position into account
+	     * because the kernel will not know how much of the file we have
+	     * read within our application.
+ 	     */
+	    whence = SEEK_SET;
+	    offset += ftell(stream);
+	    break;
+        case SEEK_SET:
         case SEEK_END:
-            /* EMPTY - OK */
-            break;
+	    /*
+	     * Our position does not matter since the file end and start are
+	     * not influenced by it
+	     */
+	    break;
         default:
             _PDCLIB_errno = EINVAL;
             return EOF;
