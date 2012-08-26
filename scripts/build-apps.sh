@@ -101,7 +101,7 @@ install_includes()
 install_lib()
 {
 	cp $R/lib/libc/compile/${ARCH}/libc.a ${TARGET}/usr/lib
-	cp $R/lib/crt/${ARCH}/crt1*.o ${TARGET}/usr/lib
+	cp $R/lib/crt/${ARCH}/crt*.o ${TARGET}/usr/lib
 }
 
 install_build()
