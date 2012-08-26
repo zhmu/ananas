@@ -185,7 +185,7 @@ vfshandle_control(thread_t* thread, struct HANDLE* handle, unsigned int op, void
 			}
 			if (offset < 0)
 				return ANANAS_ERROR(BAD_RANGE);
-			if (offset >= file->f_inode->i_sb.st_size) {
+			if (offset > file->f_inode->i_sb.st_size) {
 				/* File needs to be grown to accommodate for this offset */
 				err = vfs_grow(file, offset);
 				ANANAS_ERROR_RETURN(err);
