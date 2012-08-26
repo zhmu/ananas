@@ -35,7 +35,7 @@ build.${ARCH}:
 		mkdir -p build.${ARCH}
 
 .configure:	.patch build.${ARCH}
-		(cd build.${ARCH} && ../gcc-${VERSION}/configure --host=${TARGET} --prefix=${PREFIX} --disable-nls --without-headers --enable-languages=c --disable-multilib --disable-libssp)
+		(cd build.${ARCH} && ../gcc-${VERSION}/configure --build=`../gcc-${VERSION}/config.guess` --host=${TARGET} --target=${TARGET} --prefix=${PREFIX} --disable-nls --without-headers --enable-languages=c --disable-multilib --disable-libssp)
 		@${TOUCH} .configure
 
 .build:		.configure
