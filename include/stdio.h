@@ -779,6 +779,7 @@ int fsetpos( FILE * stream, const fpos_t * pos );
    TODO: Implementation-defined errno setting for ftell().
 */
 long int ftell( FILE * stream );
+off_t ftello( FILE * stream );
 
 /* Equivalent to (void)fseek( stream, 0L, SEEK_SET ), except that the error
    indicator for the stream is also cleared.
