@@ -6,8 +6,8 @@ include		../../../conf/Makefile.inc
 
 CFLAGS=		-Wall -Werror
 
-crt1.o:		$(OBJS)
-		$(LD) -r -o crt1.o $(OBJS)
+crt1.o:		crt1_s.o cstart.o
+		$(LD) -r -o crt1.o crt1_s.o cstart.o
 
 crt1_s.o:	crt1.S
 		$(CC) $(CFLAGS) -c -o crt1_s.o crt1.S
