@@ -25,7 +25,9 @@ struct CREATE_OPTIONS {
 #define CREATE_MEMORY_FLAG_EXECUTE	0x0004
 #define CREATE_MEMORY_FLAG_MASK \
 	(CREATE_MEMORY_FLAG_READ | CREATE_MEMORY_FLAG_WRITE | CREATE_MEMORY_FLAG_EXECUTE)
+#define CREATE_PIPE_FLAG_MASK 0
 	size_t		cr_length;		/* length of creation, if any */
+#define CREATE_PIPE_MAX_LENGTH (64 * 1024)	/* arbitrary limit; but note that pipes consume kernel VA */
 	unsigned int	cr_mode;		/* mode, if any */
 };
 

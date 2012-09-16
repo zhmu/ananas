@@ -17,6 +17,7 @@ kern/trace.c		mandatory
 kern/waitqueue.c	mandatory
 kern/symbols.c		mandatory
 kern/module.c		mandatory
+kern/pipe-handle.c	option PIPE
 # block I/O
 kern/bio.c		option BIO
 kern/disk_mbr.c		option BIO

@@ -5,6 +5,9 @@ option		VFS
 # executable file support
 option		ELF
 
+# pipe support
+option		PIPE
+
 # filesystems
 option		EXT2FS
 option		FATFS

@@ -2,6 +2,7 @@
 #define __SYS_HANDLE_H__
 
 #include <ananas/lock.h>
+#include <ananas/cbuffer.h>
 #include <ananas/dqueue.h>
 #include <ananas/waitqueue.h>
 #include <ananas/vfs/types.h>
@@ -15,8 +16,11 @@ typedef unsigned int handle_event_result_t;
 #define HANDLE_TYPE_THREAD	2
 #define HANDLE_TYPE_MEMORY	3
 #define HANDLE_TYPE_REFERENCE	4
+#define HANDLE_TYPE_PIPE	5
 
 #define HANDLE_EVENT_ANY	0
+#define HANDLE_EVENT_READ	1
+#define HANDLE_EVENT_WRITE	2
 
 #define HANDLE_VALUE_INVALID	0
 #define HANDLE_MAX_WAITERS	10	/* XXX should be any limit */
@@ -42,6 +46,11 @@ struct HANDLE_MEMORY_INFO {
 	size_t hmi_length;
 };
 
+struct HANDLE_PIPE_INFO {
+	void* hpi_buffer;
+	CBUFFER_FIELDS;
+};
+
 struct HANDLE {
 	int h_type;				/* one of HANDLE_TYPE_... */
 	int h_flags;				/* flags */
@@ -57,6 +66,7 @@ struct HANDLE {
 		struct VFS_FILE d_vfs_file;
 		struct THREAD*  d_thread;
 		struct HANDLE_MEMORY_INFO d_memory;
+		struct HANDLE_PIPE_INFO d_pipe;
 		struct HANDLE* d_handle;
 	} h_data;
 };
@@ -107,6 +117,7 @@ errorcode_t handle_isvalid(struct HANDLE* handle, struct THREAD* t, int type);
 errorcode_t handle_clone(struct THREAD* t, struct HANDLE* in, struct HANDLE** out);
 errorcode_t handle_set_owner(struct THREAD* t, struct HANDLE* handle, struct HANDLE* owner);
 errorcode_t handle_create_ref(thread_t* t, struct HANDLE* h, struct HANDLE** out);
+errorcode_t handle_create_ref_locked(thread_t* t, struct HANDLE* h, struct HANDLE** out);
 
 errorcode_t handle_wait(struct THREAD* thread, struct HANDLE* handle, handle_event_t* event, handle_event_result_t* h);
 void handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t result);
