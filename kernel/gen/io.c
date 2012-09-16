@@ -63,11 +63,6 @@ sys_write(thread_t* t, handle_t handle, const void* buf, size_t* len)
 	err = syscall_get_handle(t, handle, &h);
 	ANANAS_ERROR_RETURN(err);
 
-	/* Fetch the file handle */
-	struct VFS_FILE* file;
-	err = syscall_get_file(t, handle, &file);
-	ANANAS_ERROR_RETURN(err);
-
 	/* Fetch the size operand */
 	size_t size;
 	err = syscall_fetch_size(t, len, &size);
