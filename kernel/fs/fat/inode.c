@@ -79,6 +79,8 @@ fat_fill_inode(struct VFS_INODE* inode, void* fsop, struct FAT_ENTRY* fentry)
 			privdata->first_cluster = fs_privdata->first_rootdir_sector;
 	}
 	inode->i_sb.st_blocks = inode->i_sb.st_size / fs_privdata->sector_size;
+	if (inode->i_sb.st_size % fs_privdata->sector_size)
+		inode->i_sb.st_blocks++;
 }
 
 errorcode_t
