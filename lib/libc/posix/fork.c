@@ -24,8 +24,9 @@ pid_t fork()
 	 * the threadinfo structure). If the clone fails, we'll just throw them
 	 * away.
 	 *
-	 * Note that we must only handle files here; if we handle anything here,
-	 * we'll attempt to clone processes which we have the PID stored for!
+	 * Note that we must only handle files and pipes here; if we handle
+	 * anything here, we'll attempt to clone processes which we have the
+	 * PID stored for!
 	 */
 	void* cloned_handles[HANDLEMAP_SIZE];
 	memset(cloned_handles, 0, sizeof(void*) * HANDLEMAP_SIZE);

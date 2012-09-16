@@ -12,7 +12,7 @@ dup(int fildes)
 {
 	errorcode_t err;
 
-	void* handle = handlemap_deref(fildes, HANDLEMAP_TYPE_FD);
+	void* handle = handlemap_deref(fildes, HANDLEMAP_TYPE_ANY);
 	if (handle == NULL)  {
 		errno = EBADF;
 		return -1;
@@ -28,7 +28,7 @@ dup(int fildes)
 		return -1;
 	}
 
-	int fd = handlemap_alloc_entry(HANDLEMAP_TYPE_FD, newhandle);
+	int fd = handlemap_alloc_entry(handlemap_get_type(fildes), newhandle);
 	if (fd < 0) {
 		errno = EMFILE;
 		sys_destroy(newhandle);

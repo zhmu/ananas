@@ -4,6 +4,7 @@
 #include <string.h>
 
 static struct HANDLEMAP_ENTRY handle_map[HANDLEMAP_SIZE];
+extern struct HANDLEMAP_OPS* handlemap_ops[];
 
 void
 handlemap_reinit(struct THREADINFO* ti)
@@ -62,6 +63,24 @@ handlemap_deref(int idx, int type)
 	if (handle_map[idx].hm_type == HANDLEMAP_TYPE_UNUSED)
 		return NULL;
 	return handle_map[idx].hm_handle;
+}
+
+int
+handlemap_get_type(int idx)
+{
+	if (idx < 0 || idx >= HANDLEMAP_SIZE)
+		return HANDLEMAP_TYPE_UNUSED;
+	return handle_map[idx].hm_type;
+}
+
+struct HANDLEMAP_OPS*
+handlemap_get_ops(int idx)
+{
+	if (idx < 0 || idx >= HANDLEMAP_SIZE)
+		return NULL;
+	if (handle_map[idx].hm_type == HANDLEMAP_TYPE_UNUSED)
+		return NULL;
+	return handlemap_ops[handle_map[idx].hm_type];
 }
 
 /* vim:set ts=2 sw=2: */

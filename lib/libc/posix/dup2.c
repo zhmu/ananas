@@ -12,7 +12,7 @@ dup2(int fildes, int fildes2)
 {
 	errorcode_t err;
 
-	void* handle = handlemap_deref(fildes, HANDLEMAP_TYPE_FD);
+	void* handle = handlemap_deref(fildes, HANDLEMAP_TYPE_ANY);
 	if (handle == NULL) {
 		errno = EBADF;
 		return -1;
@@ -22,7 +22,7 @@ dup2(int fildes, int fildes2)
 		return -1;
 	}
 
-	if (handlemap_deref(fildes2, HANDLEMAP_TYPE_FD) != NULL)
+	if (handlemap_deref(fildes2, HANDLEMAP_TYPE_ANY) != NULL)
 		close(fildes2);
 
 	void* newhandle;
@@ -36,7 +36,7 @@ dup2(int fildes, int fildes2)
 	}
 
 	/* We've eliminated the previous descriptor, so we'll need to make a new one */
-	handlemap_set_entry(fildes2, HANDLEMAP_TYPE_FD, newhandle);
+	handlemap_set_entry(fildes2, handlemap_get_type(fildes), newhandle);
 	return fildes2;
 }
 
