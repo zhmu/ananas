@@ -111,27 +111,33 @@ handle_alloc(int type, thread_t* t, struct HANDLE** out)
 }
 
 errorcode_t
-handle_create_ref(thread_t* t, struct HANDLE* h, struct HANDLE** out)
+handle_create_ref_locked(thread_t* t, struct HANDLE* h, struct HANDLE** out)
 {
 	/*
 	 * First of all, increment the reference count of the source handle
 	 * so that we can be certain that it won't go away
 	 */
-	mutex_lock(&h->h_mutex);
 	KASSERT(h->h_refcount > 0, "source handle has invalid refcount");
 	if (h->h_flags & HANDLE_FLAG_TEARDOWN) {
 		/* Handle is in the process of being removed; disallow to create a reference */
-		mutex_unlock(&h->h_mutex);
 		return ANANAS_ERROR(BAD_HANDLE);
 	}
 	h->h_refcount++;
-	mutex_unlock(&h->h_mutex);
 
 	/* Now hook us up */
 	errorcode_t err = handle_alloc(HANDLE_TYPE_REFERENCE, t, out);
 	ANANAS_ERROR_RETURN(err);
 	(*out)->h_data.d_handle = h;
 	return ANANAS_ERROR_OK;
+}
+
+errorcode_t
+handle_create_ref(thread_t* t, struct HANDLE* h, struct HANDLE** out)
+{
+	mutex_lock(&h->h_mutex);
+	errorcode_t err = handle_create_ref_locked(t, h, out);
+	mutex_unlock(&h->h_mutex);
+	return err;
 }
 
 errorcode_t
