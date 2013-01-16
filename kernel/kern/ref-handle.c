@@ -71,7 +71,7 @@ refhandle_control(thread_t* thread, struct HANDLE* handle, unsigned int op, void
 }
 
 static errorcode_t
-refhandle_clone(thread_t* thread, struct HANDLE* handle, struct HANDLE** out)
+refhandle_clone(thread_t* thread, struct HANDLE* handle, struct CLONE_OPTIONS* opts, struct HANDLE** out)
 {
 	struct HANDLE* h;
 	errorcode_t err = refhandle_get_handle(handle, &h);

@@ -241,7 +241,7 @@ vfshandle_control(thread_t* thread, struct HANDLE* handle, unsigned int op, void
 }
 
 static errorcode_t
-vfshandle_clone(thread_t* thread, struct HANDLE* handle, struct HANDLE** result)
+vfshandle_clone(thread_t* thread, struct HANDLE* handle, struct CLONE_OPTIONS* opts, struct HANDLE** result)
 {
 	struct VFS_FILE* file;
 	errorcode_t err = vfshandle_get_file(handle, &file);

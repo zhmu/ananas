@@ -59,7 +59,7 @@ pipehandle_write(thread_t* thread, struct HANDLE* handle, const void* buf, size_
 }
 
 static errorcode_t
-pipehandle_clone(thread_t* thread, struct HANDLE* handle, struct HANDLE** result)
+pipehandle_clone(thread_t* thread, struct HANDLE* handle, struct CLONE_OPTIONS* opts, struct HANDLE** result)
 {
 	/* We just create a new reference to the pipe handle */
 	return handle_create_ref_locked(thread, handle, result);

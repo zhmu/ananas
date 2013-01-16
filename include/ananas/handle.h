@@ -79,6 +79,7 @@ DQUEUE_DEFINE(HANDLE_QUEUE, struct HANDLE);
 struct OPEN_OPTIONS;
 struct CREATE_OPTIONS;
 struct SUMMON_OPTIONS;
+struct CLONE_OPTIONS;
 typedef errorcode_t (*handle_read_fn)(thread_t* thread, struct HANDLE* handle, void* buf, size_t* len);
 typedef errorcode_t (*handle_write_fn)(thread_t* thread, struct HANDLE* handle, const void* buf, size_t* len);
 typedef errorcode_t (*handle_open_fn)(thread_t* thread, struct HANDLE* result, struct OPEN_OPTIONS* opts);
@@ -86,7 +87,7 @@ typedef errorcode_t (*handle_free_fn)(thread_t* thread, struct HANDLE* handle);
 typedef errorcode_t (*handle_unlink_fn)(thread_t* thread, struct HANDLE* handle);
 typedef errorcode_t (*handle_create_fn)(thread_t* thread, struct HANDLE* handle, struct CREATE_OPTIONS* opts);
 typedef errorcode_t (*handle_control_fn)(thread_t* thread, struct HANDLE* handle, unsigned int op, void* arg, size_t len);
-typedef errorcode_t (*handle_clone_fn)(thread_t* thread, struct HANDLE* handle, struct HANDLE** out);
+typedef errorcode_t (*handle_clone_fn)(thread_t* thread, struct HANDLE* handle, struct CLONE_OPTIONS* opts, struct HANDLE** out);
 typedef errorcode_t (*handle_summon_fn)(thread_t* thread, struct HANDLE* handle, struct SUMMON_OPTIONS* opts, struct HANDLE** out);
 
 struct HANDLE_OPS {
@@ -114,7 +115,7 @@ void handle_init();
 errorcode_t handle_alloc(int type, struct THREAD* t, struct HANDLE** out);
 errorcode_t handle_free(struct HANDLE* handle);
 errorcode_t handle_isvalid(struct HANDLE* handle, struct THREAD* t, int type);
-errorcode_t handle_clone(struct THREAD* t, struct HANDLE* in, struct HANDLE** out);
+errorcode_t handle_clone(struct THREAD* t, struct HANDLE* in, struct CLONE_OPTIONS* opts, struct HANDLE** out);
 errorcode_t handle_set_owner(struct THREAD* t, struct HANDLE* handle, struct HANDLE* owner);
 errorcode_t handle_create_ref(thread_t* t, struct HANDLE* h, struct HANDLE** out);
 errorcode_t handle_create_ref_locked(thread_t* t, struct HANDLE* h, struct HANDLE** out);

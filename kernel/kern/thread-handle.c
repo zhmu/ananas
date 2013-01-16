@@ -48,7 +48,7 @@ threadhandle_control(thread_t* thread, struct HANDLE* handle, unsigned int op, v
 }
 
 static errorcode_t
-threadhandle_clone(thread_t* thread, struct HANDLE* handle, struct HANDLE** result)
+threadhandle_clone(thread_t* thread, struct HANDLE* handle, struct CLONE_OPTIONS* opts, struct HANDLE** result)
 {
 	thread_t* newthread;
 	errorcode_t err = thread_clone(handle->h_thread, 0, &newthread);

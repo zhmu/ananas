@@ -147,8 +147,8 @@ handle_free(struct HANDLE* handle)
 	TRACE(HANDLE, FUNC, "handle=%p", handle);
 
 	/*
-	 * Lock the handle so that no-one else can touch it, mark the handle as
-	 * being torn-down and see if actually have to destroy it at this point.
+	 * Lock the handle so that no-one else can touch it, mark the handle as being
+	 * torn-down and see if we actually have to destroy it at this point.
 	 */
 	mutex_lock(&handle->h_mutex);
 	handle->h_flags |= HANDLE_FLAG_TEARDOWN;
@@ -227,13 +227,13 @@ handle_clone_generic(thread_t* t, struct HANDLE* handle, struct HANDLE** out)
 }
 
 errorcode_t
-handle_clone(thread_t* t, struct HANDLE* handle, struct HANDLE** out)
+handle_clone(thread_t* t, struct HANDLE* handle, struct CLONE_OPTIONS* opts, struct HANDLE** out)
 {
 	errorcode_t err;
 
 	mutex_lock(&handle->h_mutex);
 	if (handle->h_hops->hop_clone != NULL) {
-		err = handle->h_hops->hop_clone(t, handle, out);
+		err = handle->h_hops->hop_clone(t, handle, opts, out);
 	} else {
 		err = ANANAS_ERROR(BAD_OPERATION);
 	}

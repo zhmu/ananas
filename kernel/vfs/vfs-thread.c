@@ -21,7 +21,7 @@ vfs_init_thread(thread_t* thread, thread_t* parent)
 
 	/* If there is a parent, try to clone it's parent handle */
 	if (parent != NULL) {
-		err = handle_clone(thread, parent->t_path_handle, &thread->t_path_handle);
+		err = handle_clone(thread, parent->t_path_handle, NULL, &thread->t_path_handle);
 		if (err != ANANAS_ERROR_NONE) {
 			/*
 			 * XXX Unable to clone parent's path - what now? Our VFS isn't mature enough
