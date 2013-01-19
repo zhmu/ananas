@@ -24,7 +24,11 @@ define t_print
 	else
 		set $t = ((thread_t*)$arg0)
 		printf "thread %p: ", $t
-		output $t->t_threadinfo->ti_args
+		if $t->t_threadinfo != 0
+			output $t->t_threadinfo->ti_args
+		else
+			echo <unknown>
+		end
 		echo \n
 		printf "status:"
 		if ($t->t_flags == 0)
@@ -69,7 +73,12 @@ define _ps_q
 	set $n = 0
 	while $list != 0
 		set $t = $list->sp_thread 
-		printf "(%u) %p: %s", $n, $t, $t->t_threadinfo->ti_args
+		printf "(%u) %p: ", $n, $t
+		if $t->t_threadinfo != 0
+			output $t->t_threadinfo->ti_args
+		else
+			echo <unknown>
+		end
 		echo \n
 		set $n = $n + 1
 		set $list = $list->qi_next
