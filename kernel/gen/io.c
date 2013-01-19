@@ -172,12 +172,12 @@ sys_clone(thread_t* t, handle_t in, struct CLONE_OPTIONS* opts, handle_t* out)
 
 	/* Try to clone it */
 	struct HANDLE* dest;
-	err = handle_clone(t, handle, &dest);
+	err = handle_clone(t, handle, &clone_opts, &dest);
 	ANANAS_ERROR_RETURN(err);
 
 	/*
 	 * And hand the cloned handle back - note that the return code will be
-	 * overriden for the new child.
+	 * overriden for the new child, if we are cloning a thread handle.
 	 */
 	err = syscall_set_handle(t, out, dest);
 	ANANAS_ERROR_RETURN(err);
