@@ -183,6 +183,9 @@ platform_init_netboot()
 void
 platform_cleanup_netboot()
 {
+	if (pxeplus == NULL)
+		return; /* don't do anything if there is no PXE available at all */
+
 	/*
 	 * XXX The order here does not seem to confirm with the PXE spec, but
 	 * at least on gPXE you cannot shutdown UNDI after unloading the stack;
