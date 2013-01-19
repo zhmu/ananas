@@ -10,7 +10,11 @@ struct HANDLEMAP_ENTRY {
 #define HANDLEMAP_TYPE_UNUSED	0
 #define HANDLEMAP_TYPE_FD	1	/* file descriptor */
 #define HANDLEMAP_TYPE_PID	2	/* process id */
+#define HANDLEMAP_TYPE_PIPE	3	/* pipe */
 	int	hm_type;
+#define HANDLEMAP_FLAG_PIPE_OUT	1	/* pipe flag: output */
+#define HANDLEMAP_FLAG_PIPE_IN  2	/* pipe flag: input */
+	int	hm_flags;
 	void*	hm_handle;
 };
 
@@ -41,5 +45,6 @@ struct HANDLEMAP_OPS* handlemap_get_ops(int idx);
 void* handlemap_deref(int idx, int type);
 void handlemap_set_handle(int idx, void* handle);
 void handlemap_set_entry(int idx, int type, void* handle);
+struct HANDLEMAP_ENTRY* handlemap_get_entry(int idx);
 
 #endif /* __POSIX_HANDLEMAP_H__ */

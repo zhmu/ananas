@@ -83,4 +83,14 @@ handlemap_get_ops(int idx)
 	return handlemap_ops[handle_map[idx].hm_type];
 }
 
+struct HANDLEMAP_ENTRY*
+handlemap_get_entry(int idx)
+{
+	if (idx < 0 || idx >= HANDLEMAP_SIZE)
+		return NULL;
+	if (handle_map[idx].hm_type == HANDLEMAP_TYPE_UNUSED)
+		return NULL;
+	return &handle_map[idx];
+}
+
 /* vim:set ts=2 sw=2: */

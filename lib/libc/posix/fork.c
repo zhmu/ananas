@@ -4,6 +4,7 @@
 #include <ananas/threadinfo.h>
 #include <_posix/error.h>
 #include <_posix/handlemap.h>
+#include <assert.h>
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
@@ -32,6 +33,8 @@ pid_t fork()
 	memset(cloned_handles, 0, sizeof(void*) * HANDLEMAP_SIZE);
 	for (int i = NUM_RESERVED_HANDLES; i < HANDLEMAP_SIZE; i++) {
 		void* handle = handlemap_deref(i, HANDLEMAP_TYPE_FD);
+		if (handle == NULL)
+			handle = handlemap_deref(i, HANDLEMAP_TYPE_PIPE);
 		if (handle == NULL)
 			continue;
 		void* newhandle;
@@ -68,8 +71,9 @@ pid_t fork()
  			 * given to us by our parent
 			 */
 			for (int i = NUM_RESERVED_HANDLES; i < HANDLEMAP_SIZE; i++) {
-				if (cloned_handles[i] != NULL)
-					handlemap_set_handle(i, cloned_handles[i]);
+				if (cloned_handles[i] == NULL)
+					continue;
+				handlemap_set_handle(i, cloned_handles[i]);
 			}
 			return 0;
 		}

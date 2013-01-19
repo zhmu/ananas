@@ -62,7 +62,6 @@ fd_stat(int idx, void* handle, struct stat* buf)
 	return 0;
 }
 
-
 static struct HANDLEMAP_OPS fd_ops = {
 	.hop_read = fd_read,
 	.hop_write = fd_write,
@@ -70,10 +69,80 @@ static struct HANDLEMAP_OPS fd_ops = {
 	.hop_stat = fd_stat
 };
 
+static int
+pipe_read(int idx, void* handle, void* buf, size_t len)
+{
+	/* XXX handle NODELAY */
+	size_t amount = 0;
+	char* ptr = buf;
+	while (1) {
+		/* Try to read everything we can */
+		size_t chunk = len;
+		errorcode_t err = sys_read(handle, ptr, &chunk);
+		if (err != ANANAS_ERROR_NONE) {
+			_posix_map_error(err);
+			return -1;
+		}
+		len -= chunk; ptr += chunk; amount += chunk;
+
+		/* If we read something, return */
+		if (chunk > 0)
+			break;
+
+		/* Pipe must not have been filled; wait for it to be filled */
+		handle_event_t event = HANDLE_EVENT_WRITE;
+		handle_event_result_t result;
+		err = sys_wait(handle, &event, &result);
+		if (err != ANANAS_ERROR_NONE) {
+			_posix_map_error(err);
+			return -1;
+		}
+	}
+ 
+	return amount;
+}
+
+static int
+pipe_write(int idx, void* handle, const void* buf, size_t len)
+{
+	/* XXX handle NODELAY */
+	size_t amount = 0;
+	const char* ptr = buf;
+	while (1) {
+		/* Try to write everything we can */
+		size_t chunk = len;
+		errorcode_t err = sys_write(handle, ptr, &chunk);
+		if (err != ANANAS_ERROR_NONE) {
+			_posix_map_error(err);
+			return -1;
+		}
+		len -= chunk; ptr += chunk; amount += chunk;
+		if (len == 0)
+			break;
+
+		/* Pipe must not have been emptied; wait for it to be emptied */
+		handle_event_t event = HANDLE_EVENT_READ;
+		handle_event_result_t result;
+		err = sys_wait(handle, &event, &result);
+		if (err != ANANAS_ERROR_NONE) {
+			_posix_map_error(err);
+			return -1;
+		}
+	} 
+
+	return amount;
+}
+
+static struct HANDLEMAP_OPS pipe_ops = {
+	.hop_read = pipe_read,
+	.hop_write = pipe_write
+};
+
 struct HANDLEMAP_OPS* handlemap_ops[] = {
 	NULL,
 	&fd_ops,
 	NULL,
+	&pipe_ops
 };
 
 /* vim:set ts=2 sw=2: */
