@@ -3,6 +3,9 @@
 
 struct CLONE_OPTIONS {
 	size_t		cl_size;
+	unsigned int	cl_flags;
+#define CLONE_FLAG_READONLY	0x0001		/* clone as readonly */
+#define CLONE_FLAG_WRITEONLY	0x0002		/* clone as writeonly */
 };
 
 struct SUMMON_OPTIONS {

@@ -46,9 +46,27 @@ struct HANDLE_MEMORY_INFO {
 	size_t hmi_length;
 };
 
-struct HANDLE_PIPE_INFO {
-	void* hpi_buffer;
+struct HANDLE_PIPE_BUFFER {
+	mutex_t hpb_mutex;
+	refcount_t hpb_read_count;
+	refcount_t hpb_write_count;
 	CBUFFER_FIELDS;
+	char hpb_buffer[1];
+};
+
+struct HANDLE_PIPE_INFO {
+	int hpi_flags;
+#define HPI_FLAG_READ	0x0001
+#define HPI_FLAG_WRITE	0x0002
+	struct HANDLE_PIPE_BUFFER* hpi_buffer;
+	/*
+	 * All HANDLE_PIPE_INFO structs that belong to the same buffer are
+	 * in a circular linked list - this is done so that they can be
+	 * woken up once any of them is written/read/closed. This also
+	 * means we need the handle itself. XXX KLUDGE
+	 */
+	struct HANDLE_PIPE_INFO* hpi_next;
+	struct HANDLE* hpi_handle;
 };
 
 struct HANDLE {
