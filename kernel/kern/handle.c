@@ -232,7 +232,10 @@ handle_clone(thread_t* t, struct HANDLE* handle, struct CLONE_OPTIONS* opts, str
 	errorcode_t err;
 
 	mutex_lock(&handle->h_mutex);
-	if (handle->h_hops->hop_clone != NULL) {
+	if (handle->h_flags & HANDLE_FLAG_TEARDOWN) {
+		/* Handle is in the process of being removed; disallow the clone attempt */
+		err = ANANAS_ERROR(BAD_HANDLE);
+	} else if (handle->h_hops->hop_clone != NULL) {
 		err = handle->h_hops->hop_clone(t, handle, opts, out);
 	} else {
 		err = ANANAS_ERROR(BAD_OPERATION);
