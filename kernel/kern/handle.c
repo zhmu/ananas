@@ -183,6 +183,13 @@ handle_free(struct HANDLE* handle)
 	handle->h_type = HANDLE_TYPE_UNUSED; /* just to ensure the value matches */
 	handle->h_thread = NULL;
 
+	/*	
+	 * Let go of the handle lock - if someone tries to use it, they'll lock it
+	 * before looking at the flags field and this will cause a deadlock.  Better
+	 * safe than sorry.
+	 */
+	mutex_unlock(&handle->h_mutex);
+
 	/* Hand it back to the the pool */
 	spinlock_lock(&spl_handlequeue);
 	DQUEUE_ADD_TAIL(&handle_freelist, handle);
