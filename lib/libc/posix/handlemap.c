@@ -6,9 +6,17 @@
 static struct HANDLEMAP_ENTRY handle_map[HANDLEMAP_SIZE];
 extern struct HANDLEMAP_OPS* handlemap_ops[];
 
+static struct THREADINFO* threadinfo = NULL;
+
 void
 handlemap_reinit(struct THREADINFO* ti)
 {
+	/*	
+	 * Store the threadinfo pointer; we need it to inform the kernel of our new
+	 * stdin/stdout/stderr handles.
+	 */
+	threadinfo = ti;
+
 	/* Hook up POSIX standard file handles */
 	handlemap_set_entry(STDIN_FILENO,  HANDLEMAP_TYPE_FD, ti->ti_handle_stdin);
 	handlemap_set_entry(STDOUT_FILENO, HANDLEMAP_TYPE_FD, ti->ti_handle_stdout);
@@ -38,13 +46,22 @@ void
 handlemap_set_handle(int idx, void* handle)
 {
 	handle_map[idx].hm_handle = handle;
+	/*
+	 * Update the handles in our threadinfo structure as well, so that fork()-ing
+	 * goes well.
+	 */
+	if (idx == STDIN_FILENO)
+		threadinfo->ti_handle_stdin = handle;
+	if (idx == STDOUT_FILENO)
+		threadinfo->ti_handle_stdout = handle;
+	if (idx == STDERR_FILENO)
+		threadinfo->ti_handle_stderr = handle;
 }
 
-void
-handlemap_set_entry(int idx, int type, void* handle)
+void handlemap_set_entry(int idx, int type, void* handle)
 {
 	handle_map[idx].hm_type = type;
-	handle_map[idx].hm_handle = handle;
+	handlemap_set_handle(idx, handle);
 }
 
 void
