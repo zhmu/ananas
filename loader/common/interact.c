@@ -153,7 +153,8 @@ cmd_load(int num_args, char** arg)
 	vfs_close();
 
 	printf("loaded successfully at 0x%x-0x%x (%u bit kernel",
-	 mod_kernel.mod_phys_start_addr, mod_kernel.mod_phys_end_addr,
+	 (unsigned int)mod_kernel.mod_phys_start_addr,
+	 (unsigned int)mod_kernel.mod_phys_end_addr,
 	 mod_kernel.mod_bits);
 	if (mod_kernel.mod_symtab_addr != 0)
 		printf(", symbols");
