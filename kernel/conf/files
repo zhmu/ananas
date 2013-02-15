@@ -81,6 +81,10 @@ fs/fat/fatfs.c		option FATFS
 fs/fat/block.c		option FATFS
 fs/fat/dir.c		option FATFS
 fs/fat/inode.c		option FATFS
+# sysfs
+fs/sysfs/sysfs.c	option SYSFS
+fs/sysfs/entry.c	option SYSFS
+fs/sysfs/helper.c	option SYSFS
 kdb/kdb.c		option KDB
 kdb/kdb_commands.c	option KDB
 # USB
