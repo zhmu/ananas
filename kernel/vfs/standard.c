@@ -318,6 +318,10 @@ vfs_create(struct VFS_INODE* dirinode, struct VFS_FILE* file, const char* dentry
 	KASSERT(parentinode != NULL, "attempt to create entry without a parent inode");
 	KASSERT(S_ISDIR(parentinode->i_sb.st_mode), "final entry isn't an inode");
 
+	/* If the filesystem can't create inodes, assume the operation is faulty */
+	if (parentinode->i_iops->create == NULL)
+		return ANANAS_ERROR(BAD_OPERATION);
+
 	/* Dear filesystem, create a new inode for us */
 	err = parentinode->i_iops->create(parentinode, de, mode);
 	if (err != ANANAS_ERROR_OK) {
