@@ -18,7 +18,7 @@ endif
 
 # environment settings
 MIRROR?=	http://ftp.gnu.org/gnu
-#MAKE_BUILDARG?=	-j4
+MAKE_BUILDARG?=	-j8
 
 # tools to use
 DOWNLOAD?=	wget
