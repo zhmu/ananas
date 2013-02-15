@@ -67,7 +67,7 @@ mutex_init(mutex_t* mtx, const char* name)
 }
 
 void
-mutex_lock(mutex_t* mtx)
+mutex_lock_(mutex_t* mtx, const char* fname, int line)
 {
 	for(;;) {
 		while(atomic_read(&mtx->mtx_var) != 0) {
@@ -82,6 +82,10 @@ mutex_lock(mutex_t* mtx)
 
 	/* We got the mutex */
 	mtx->mtx_owner = PCPU_GET(curthread);
+#ifdef MUTEX_DEBUG
+	mtx->mtx_fname = fname;
+	mtx->mtx_line = line;
+#endif
 }
 
 void
@@ -91,6 +95,10 @@ mutex_unlock(mutex_t* mtx)
 	if (atomic_xchg(&mtx->mtx_var, 0) == 0)
 		panic("mutex %p was not locked", mtx); /* should be very unlikely */
 	mtx->mtx_owner = NULL;
+#ifdef MUTEX_DEBUG
+	mtx->mtx_fname = NULL;
+	mtx->mtx_line = 0;
+#endif
 	waitqueue_signal(&mtx->mtx_wq);
 }
 

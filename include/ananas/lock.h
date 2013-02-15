@@ -15,6 +15,9 @@
  * waitqueues, so they can't be declared in this file...
  */
 
+/* If set, keep trace of where mutexes were locked to diagnose deadlocks */
+#undef MUTEX_DEBUG
+
 /*
  * Mutexes are sleepable locks that will suspend the current thread when the
  * lock is already being held. They cannot be used from interrupt context.
@@ -24,6 +27,10 @@ typedef struct {
 	thread_t*		mtx_owner;
 	atomic_t		mtx_var;
 	struct WAIT_QUEUE	mtx_wq;
+#ifdef MUTEX_DEBUG
+	const char*		mtx_fname;
+	int			mtx_line;
+#endif
 } mutex_t;
 
 #define SPINLOCK_DEFAULT_INIT { { 0 } }
@@ -39,7 +46,9 @@ void spinlock_unlock_unpremptible(spinlock_t* l, register_t state);
 
 /* Mutexes */
 void mutex_init(mutex_t* mtx, const char* name);
-void mutex_lock(mutex_t* mtx);
+void mutex_lock_(mutex_t* mtx, const char* file, int line);
 void mutex_unlock(mutex_t* mtx);
+
+#define mutex_lock(mtx) mutex_lock_(mtx, __FILE__, __LINE__)
 
 #endif /* __LOCK_H__ */
