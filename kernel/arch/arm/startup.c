@@ -1,6 +1,7 @@
 #include <ananas/types.h>
-//#include <ananas/arm/mv-regs.h>
+#include <ananas/arm/mv-regs.h>
 #include <ananas/arm/param.h>
+#include <ananas/arm/system.h>
 #include <ananas/arm/vm.h>
 #include <ananas/pcpu.h>
 #include <ananas/lib.h>
@@ -16,11 +17,23 @@ extern void *__entry, *__end;
  * UART is mapped to this address; must be above KERNBASE because we assume it
  * can be mapped without having to assign a new L2 entry.
  */
-#define KERNEL_UART0 0xf0001000
+#define KERNEL_UART0 0xfffe1000
 
+#if 1
 /* XXX For VersatilePB board */
 #define UART0_BASE 0x101f1000
+#else
+#define UART0_BASE UART_BASE
+#endif
 #define UART0_DR (UART0_BASE)
+
+static void
+putcr(int c)
+{
+	//while ((*(uint32_t*)UART0_LSR & UART0_LSR_THRE) == 0);
+	//*(uint32_t*)UART0_RBR = c;
+	*(volatile uint32_t*)KERNEL_UART0 = c;
+}
 
 void
 v_reset()
@@ -37,39 +50,44 @@ v_undef()
 void
 v_swi()
 {
+	putcr('S');
+	putcr('W');
+	putcr('I');
 	while(1);
 }
 
 void
 v_pre_abort()
 {
+	putcr('p');
+	putcr('A');
 	while(1);
 }
 
 void
 v_data_abort()
 {
+	putcr('d');
+	putcr('A');
 	while(1);
 }
 
 void
 v_irq()
 {
+	putcr('I');
+	putcr('R');
+	putcr('Q');
 	while(1);
 }
 
 void
 v_fiq()
 {
+	putcr('F');
+	putcr('I');
+	putcr('Q');
 	while(1);
-}
-
-static void
-putcr(int c)
-{
-	//while ((*(uint32_t*)UART0_LSR & UART0_LSR_THRE) == 0);
-	//*(uint32_t*)UART0_RBR = c;
-	*(volatile uint32_t*)KERNEL_UART0 = c;
 }
 
 static void putn(int n)
@@ -125,18 +143,12 @@ resolve(uint32_t* tt, uint32_t va)
 static void
 foo()
 {	
-	for (int i = 0; i < 100; i++) ;
+	*(int*)0 = 1;
 }
 
 void
 md_startup()
 {
-	/* XXX Kick vectors in place */
-	extern void* _vectors_begin;
-	extern void* _vectors_end;
-	void* dest = 0;
-	memcpy(dest, (void*)((addr_t)&_vectors_begin - KERNBASE), (addr_t)&_vectors_end - (addr_t)&_vectors_begin);
-
 	/*
 	 * These are our first few steps in the world of boot - first of all, we
 	 * need to get the memory mappings right - this code is running from
@@ -166,10 +178,19 @@ md_startup()
 	}
 
 	/*
+	 * Number of extra pages we need - currently, we use:
+	 * - 1 for the vector page
+	 * - 2 per CPU mode stack (svc/abt/und/irq/fiq)
+	 */
+#define NUM_CPU_MODES 5
+#define CPU_MODE_STACK_SIZE 2
+#define EXTRA_PAGES ((1 + (NUM_CPU_MODES * CPU_MODE_STACK_SIZE)) * PAGE_SIZE)
+
+	/*
 	 * Create the kernel table entry mappings - we map the page tables themselves too
 	 * so that we can always create kernel memory mappings.
 	 */
-	for (addr_t n = (addr_t)&__entry; n < (addr_t)(address + KERNBASE); n += PAGE_SIZE) {
+	for (addr_t n = (addr_t)&__entry; n < (addr_t)(address + EXTRA_PAGES + KERNBASE); n += PAGE_SIZE) {
 		uint32_t* l1 = (uint32_t*)&tt[n >> 20]; /* note that typeof(tt) is uint32_t, so no << 2 is needed */
 		uint32_t* l2 = (uint32_t*)((*l1 & 0xfffffc00) + (((n & 0xff000) >> 12) << 2));
 		*l2 = ((n - KERNBASE) & 0xfffff000) | VM_COARSE_SMALL_AP(VM_AP_KRW_URO) | VM_COARSE_TYPE_SMALL;
@@ -217,9 +238,70 @@ md_startup()
 		uint32_t va = KERNEL_UART0;
 		uint32_t pa = UART0_BASE;
 		uint32_t* l1 = (uint32_t*)&tt[va >> 20]; /* note that typeof(tt) is uint32_t, so the 00 bits are added */
-		uint32_t* l2 = (uint32_t*)((*l1 & 0xfffffc00) + (((va & 0xff000) >> 12) << 2));
+		uint32_t* l2 = (uint32_t*)(KERNBASE + (*l1 & 0xfffffc00) + (((va & 0xff000) >> 12) << 2));
 		*l2 = (pa & 0xfffff000) | VM_COARSE_SMALL_AP(VM_AP_KRW_URO) | VM_COARSE_DEVICE | VM_COARSE_TYPE_SMALL;
 	} while(0);
+
+	/*
+	 * Initialize a page for our vectors; we'll relocate this to 0xffff0000 so
+	 * that we can still trap NULL pointers.
+	 */
+	do {
+		/* Map the page */
+		uint32_t va = 0xffff0000;
+		uint32_t pa = address; /* usable due to EXTRA_PAGES */
+		address += PAGE_SIZE;
+		uint32_t* l1 = (uint32_t*)&tt[va >> 20]; /* note that typeof(tt) is uint32_t, so the 00 bits are added */
+		uint32_t* l2 = (uint32_t*)(KERNBASE + (*l1 & 0xfffffc00) + (((va & 0xff000) >> 12) << 2));
+		*l2 = (pa & 0xfffff000) | VM_COARSE_SMALL_AP(VM_AP_KRW_URO) | VM_COARSE_TYPE_SMALL;
+
+		/* Copy the vectors to it */
+		extern void* _vectors_page;
+		memcpy((void*)va, (void*)&_vectors_page, PAGE_SIZE);
+	} while(0);
+
+	/* Move the exception vectors to 0xFFFFxxxx */
+	__asm(
+		"mrc p15, 0, r1, c1, c0, 0\n"
+		"orr r1, r1, #0x2000\n"							/* V (bit 13): vector base */
+		"mcr p15, 0, r1, c1, c0, 0\n"
+	);
+
+	/*
+	 * Assign stacks for all CPU modes; the ARM will do an implicit stack switch
+	 * when the mode is switched around, so we need to switch to each mode and
+	 * set up the stack.
+	 */
+	__asm(
+		/* Switch to abort mode */
+		"mrs r1, cpsr\n"					/* r1 = current cpsr */
+		"bic r4, r1, #0x1f\n"			/* clear current mode */
+		"orr r2, r4, #0x17\n"			/* -> abort mode */
+		"msr CPSR_c, r2\n"				/* activate new mode */
+		/* Activate our stack and update it */
+		"mov	sp, %0\n"
+		"add	%0, %0, %1\n"
+		/* Switch to undefined mode */
+		"orr r2, r4, #0x1b\n"			/* -> abort mode */
+		"msr CPSR_c, r2\n"				/* activate new mode */
+		/* Activate our stack and update it */
+		"mov	sp, %0\n"
+		"add	%0, %0, %1\n"
+		/* Switch to IRQ mode */
+		"orr r2, r4, #0x12\n"			/* -> irq mode */
+		"msr CPSR_c, r2\n"				/* activate new mode */
+		/* Activate our stack and update it */
+		"mov	sp, %0\n"
+		"add	%0, %0, %1\n"
+		/* Switch to FIQ mode */
+		"orr r2, r4, #0x11\n"			/* -> irq mode */
+		"msr CPSR_c, r2\n"				/* activate new mode */
+		/* Activate our stack and update it */
+		"mov	sp, %0\n"
+		"add	%0, %0, %1\n"
+		/* Switch back to supervisor mode */
+		"msr CPSR_c, r1\n"				/* activate new mode */
+	: : "r" (address + KERNBASE), "r" (CPU_MODE_STACK_SIZE * PAGE_SIZE) : "1", "2", "4");
 
 	/* Throw away the identity mappings; these are not needed anymore */
 	for (addr_t n = (addr_t)&__entry - KERNBASE; n < (addr_t)&__end - KERNBASE; n += PAGE_SIZE) {
@@ -237,6 +319,12 @@ md_startup()
 	putcr('l');
 	putcr('l');
 	putcr('o');
+
+	foo();
+
+	putcr('?');
+	putcr('?');
+	putcr('?');
 	for(;;) {
 		foo();
 	}
