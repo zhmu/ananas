@@ -48,7 +48,7 @@
 #define VM_TT_SIZE		(16 * 1024)
 
 /* Size of a L2-translation table, in bytes */
-#define VM_L2_TABLE_SIZE	1024
+#define VM_L2_TABLE_SIZE	4096
 
 /* Size of the second-level descriptors, in bytes */
 #define VM_L2_TOTAL_SIZE	(VM_TT_KERNEL_NUM * VM_L2_TABLE_SIZE)
