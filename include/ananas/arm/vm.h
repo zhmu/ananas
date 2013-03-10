@@ -42,7 +42,7 @@
 #define VM_TT_KERNEL_START	(KERNBASE >> 20)
 
 /* Number of kernel-specific entries in the TT; this is (0xFFFFFFFF - KERNBASE) >> 20 */
-#define VM_TT_KERNEL_NUM	(4095 - VM_TT_KERNEL_START)
+#define VM_TT_KERNEL_NUM	(4096 - VM_TT_KERNEL_START)
 
 /* Size of the translation table, in bytes */
 #define VM_TT_SIZE		16384
