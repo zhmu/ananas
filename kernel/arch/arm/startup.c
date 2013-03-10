@@ -12,6 +12,12 @@ struct BOOTINFO* bootinfo = NULL;
 //static struct BOOTINFO _bootinfo;
 extern void *__entry, *__end;
 
+/*
+ * UART is mapped to this address; must be above KERNBASE because we assume it
+ * can be mapped without having to assign a new L2 entry.
+ */
+#define KERNEL_UART0 0xf0001000
+
 /* XXX For VersatilePB board */
 #define UART0_BASE 0x101f1000
 #define UART0_DR (UART0_BASE)
@@ -63,7 +69,7 @@ putcr(int c)
 {
 	//while ((*(uint32_t*)UART0_LSR & UART0_LSR_THRE) == 0);
 	//*(uint32_t*)UART0_RBR = c;
-	*(volatile uint32_t*)UART0_DR = c;
+	*(volatile uint32_t*)KERNEL_UART0 = c;
 }
 
 static void putn(int n)
@@ -138,99 +144,36 @@ md_startup()
 	 *
 	 * Prepare pagetables; we need to map the lower kernel addresses (where
 	 * we are now) and the upper kernel addresses (where we want to execute
-	 * from) - note that we must map the initial table to TT_SIZE-sized boundary
+	 * from) - note that we must map the initial table to TT_ALIGN-sized boundary
 	 * to avoid problems.
+	 *
+	 * We reserve memory so that kernel memory can always be mapped without
+	 * needing to allocate the coarse entry.
 	 */
 	addr_t address = (addr_t)&__end - KERNBASE;
-
-	/* XXX alignment */
-	address |= 0x7ffff;
-	address++;
+	address = (address | (VM_TT_ALIGN - 1)) + 1;
 
 	/* Create the translation table; i.e. the page directory */
 	uint32_t* tt = (uint32_t*)address;
 	memset(tt, 0, VM_TT_SIZE);
 	address += VM_TT_SIZE;
 
-	putcr('t'); putcr('t'); putcr('=');
-	puthex((uint32_t)tt);
-	putcr('\r'); putcr('\n');
-	KASSERT(((addr_t)tt & 0x7ffff) == 0, "tt unaligned");
-
-	/* Create a pointer to the second-level structures; these are 1kB a piece */
-	addr_t l2_ptr = address;
-	memset((void*)l2_ptr, 0, VM_L2_TOTAL_SIZE);
-	address += VM_L2_TOTAL_SIZE;
-
-	/* Hook up the first 4KB so that we can handle exceptions */
-	tt[0] = l2_ptr | 1 /* XXX type, domain=0 */;
-	l2_ptr += VM_L2_TABLE_SIZE;
-
 	/* Hook up the initial kernel second-level structure mappings */
 	for (int i = 0; i < VM_TT_KERNEL_NUM; i++) {
-		KASSERT((l2_ptr & ((1 << 10) - 1)) == 0, "l2 %p not aligned", l2_ptr);
-		tt[VM_TT_KERNEL_START + i] = l2_ptr | 1 /* XXX type, domain=0, coarse page table */;
-		l2_ptr += VM_L2_TABLE_SIZE;
+		tt[VM_TT_KERNEL_START + i] = address | VM_TT_TYPE_COARSE; /* XXX domain=0 */
+		memset((void*)address, 0, VM_L2_TABLE_SIZE);
+		address += VM_L2_TABLE_SIZE;
 	}
 
-#if 0
-	do {
-		addr_t n = 0;
-		uint32_t* l1 = (uint32_t*)&tt[n >> 20]; /* note that typeof(tt) is uint32_t, so the 00 bits are added */
+	/*
+	 * Create the kernel table entry mappings - we map the page tables themselves too
+	 * so that we can always create kernel memory mappings.
+	 */
+	for (addr_t n = (addr_t)&__entry; n < (addr_t)(address + KERNBASE); n += PAGE_SIZE) {
+		uint32_t* l1 = (uint32_t*)&tt[n >> 20]; /* note that typeof(tt) is uint32_t, so no << 2 is needed */
 		uint32_t* l2 = (uint32_t*)((*l1 & 0xfffffc00) + (((n & 0xff000) >> 12) << 2));
-		*l2 = (n & 0xfffff000) | (2 << 4) /* XXX super r/w user ro */ | 2 /* XXX type */ ;
-	} while(0);
-#endif
-
-	/* Create the kernel table entry mappings */
-	for (addr_t n = (addr_t)&__entry; n < (addr_t)&__end; n += PAGE_SIZE) {
-	//for (addr_t n = (addr_t)&__entry; n <= (addr_t)&__entry; n += PAGE_SIZE) {
-		uint32_t* l1 = (uint32_t*)&tt[n >> 20]; /* note that typeof(tt) is uint32_t, so the 00 bits are added */
-		uint32_t* l2 = (uint32_t*)((*l1 & 0xfffffc00) + (((n & 0xff000) >> 12) << 2));
-		*l2 = ((n - KERNBASE) & 0xfffff000) | (2 << 4) /* XXX super r/w user ro */ | 2 /* XXX type */ ;
-
-#if 0
-		putcr('&'); putcr('l'); putcr('1'); putcr('='); /* &l1= */
-		puthex((uint32_t)l1);
-		putcr(' '); putcr('*'); putcr('l'); putcr('1'); putcr('='); /* *l1= */
-		puthex(*(uint32_t*)l1);
-
-		putcr(' '); putcr('&'); putcr('l'); putcr('2'); putcr('='); /* &l2= */
-		puthex((uint32_t)l2);
-
-		putcr(' '); putcr('-'); putcr('>'); putcr(' '); /* -> */
-		putcr('*'); putcr('l'); putcr('2'); putcr('='); /* *l2= */
-		puthex(*(uint32_t*)l2);
-		putcr('\r'); putcr('\n');
-#endif
+		*l2 = ((n - KERNBASE) & 0xfffff000) | VM_COARSE_SMALL_AP(VM_AP_KRW_URO) | VM_COARSE_TYPE_SMALL;
 	}
-
-#if 1
-	/* map UART */
-	putcr('u'); putcr('a'); putcr('r');
-	putcr('t'); putcr(',');
-	do {
-		uint32_t n = UART0_BASE;
-		uint32_t* l1 = (uint32_t*)&tt[n >> 20]; /* note that typeof(tt) is uint32_t, so the 00 bits are added */
-
-		/* XXX alloc page */
-		if (*l1 == 0) {
-			*l1 = l2_ptr | 1 /* XXX type, domain=0 */;
-			l2_ptr += VM_L2_TABLE_SIZE;
-		}
-
-		putcr('&'); putcr('l'); putcr('1'); putcr('='); puthex((uint32_t)l1); putcr('\n');
-		putcr('*'); putcr('l'); putcr('1'); putcr('='); puthex((uint32_t)*l1); putcr('\n');
-
-		uint32_t* l2 = (uint32_t*)((*l1 & 0xfffffc00) + (((n & 0xff000) >> 12) << 2));
-
-		putcr('&'); putcr('l'); putcr('2'); putcr('='); puthex((uint32_t)l2); putcr('\n');
-		putcr('*'); putcr('l'); putcr('2'); putcr('='); puthex((uint32_t)*l2); putcr('\n');
-
-		//*l2 = (n & 0xfffff000) | (2 << 6) /* XXX non-share device */ | (2 << 4) /* XXX super r/w user ro */ | 4 /* device */ | 3 /* XXX type */ ;
-		*l2 = (n & 0xfffff000) | (3 << 4) /* XXX super r/w user ro */ | 4 /* device */ | 2 /* XXX type */ ;
-	} while(0);
-#endif
 
 	/*
 	 * Establish an identity mapping for the current kernel addresses; this is necessary
@@ -239,13 +182,6 @@ md_startup()
 	for (addr_t n = (addr_t)&__entry - KERNBASE; n < (addr_t)&__end - KERNBASE; n += PAGE_SIZE) {
 		tt[n >> 20] = tt[(n | KERNBASE) >> 20];
 	}
-
-	resolve(tt, 0x0);
-	resolve(tt, (uint32_t)&__entry);
-	resolve(tt, 0x900000 + PAGE_SIZE);
-	resolve(tt, (uint32_t)&__entry + PAGE_SIZE);
-	resolve(tt, 0xf1012014);
-	resolve(tt, UART0_BASE);
 
 	/* Time to throw... the switch: the pagetables need to be set */
 	__asm __volatile(
@@ -273,11 +209,27 @@ md_startup()
 		"nop\n"
 	: : "r" (tt), "r" (0), "r" (KERNBASE) : "r1");
 
-#if 0
-	/* Throw away the identity mappings */
+	/*
+	 * Map our UART to a kernel-space address; we know the pages there are
+	 * backed so we do not need to allocate extra mappings.
+	 */
+	do {
+		uint32_t va = KERNEL_UART0;
+		uint32_t pa = UART0_BASE;
+		uint32_t* l1 = (uint32_t*)&tt[va >> 20]; /* note that typeof(tt) is uint32_t, so the 00 bits are added */
+		uint32_t* l2 = (uint32_t*)((*l1 & 0xfffffc00) + (((va & 0xff000) >> 12) << 2));
+		*l2 = (pa & 0xfffff000) | VM_COARSE_SMALL_AP(VM_AP_KRW_URO) | VM_COARSE_DEVICE | VM_COARSE_TYPE_SMALL;
+	} while(0);
+
+	/* Throw away the identity mappings; these are not needed anymore */
 	for (addr_t n = (addr_t)&__entry - KERNBASE; n < (addr_t)&__end - KERNBASE; n += PAGE_SIZE) {
 		tt[n >> 20] = 0;
 	}
+
+#if 0
+	/* Hook up the first 4KB so that we can handle exceptions */
+	tt[0] = l2_ptr | 1 /* XXX type, domain=0 */;
+	l2_ptr += VM_L2_TABLE_SIZE;
 #endif
 	
 	putcr('H');
@@ -288,6 +240,8 @@ md_startup()
 	for(;;) {
 		foo();
 	}
+
+	resolve(tt, 0);
 }
 
 /* vim:set ts=2 sw=2: */

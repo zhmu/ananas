@@ -21,13 +21,13 @@
  * the translation table base register (TTBR) and VA bits 20:31, an entry is
  * looked up, which is called the first-level descriptor (B4.7.4)
  *
- * This second-level descriptor is indexed using VA bits 12:19 (these are 8
- * bits, so this means there are 2**8 = 256 entries). Again, every entry is
- * 32 bits, so the second level table consumes 256 * 4 = 1kB of memory. Using
- * the page table base address contained first-level-descriptor's and VA
- * bits 12:19, we end up with the final piece, the second-level descriptor,
- * which contains bits 12:31 of the PA (bits 0:11 of the VA are copied as-is,
- * resulting in a 4kB granulatity)
+ * This second-level descriptor is a so-called 'coarse page table', and is
+ * indexed using VA bits 12:19 (these are 8 bits, so this means there are 2**8
+ * = 256 entries). Again, every entry is 32 bits, so the second level table
+ * consumes 256 * 4 = 1kB of memory. Using the page table base address
+ * contained first-level-descriptor's and VA bits 12:19, we end up with the
+ * final piece, the second-level descriptor, which contains bits 12:31 of the
+ * PA (bits 0:11 of the VA are copied as-is, resulting in a 4kB granulatity)
  *
  * Ananas/arm uses generally the same virtual memory mapping as Ananas/i386:
  * everything from KERNBASE to 0xffffffff is considered kernel memory - we shall
@@ -38,20 +38,44 @@
  * so we need a total of 1024 * 1024 = 1MB of memory for the kernel mappings.
  */
 
-/* First kernel-memory TT mapping; this is KERNBASE >> 20 */
-#define VM_TT_KERNEL_START	3072
+/* First kernel-memory TT mapping; it's in the TT so we need bits 20:31 */
+#define VM_TT_KERNEL_START	(KERNBASE >> 20)
 
 /* Number of kernel-specific entries in the TT; this is (0xFFFFFFFF - KERNBASE) >> 20 */
-#define VM_TT_KERNEL_NUM	1023
+#define VM_TT_KERNEL_NUM	(4095 - VM_TT_KERNEL_START)
 
 /* Size of the translation table, in bytes */
-#define VM_TT_SIZE		(16 * 1024)
+#define VM_TT_SIZE		16384
 
-/* Size of a L2-translation table, in bytes */
-#define VM_L2_TABLE_SIZE	4096
+/* Translation table alignment - we need to keep bits 0:13 clear as outlined in B4-3 */
+#define VM_TT_ALIGN		(1 << 14)
 
-/* Size of the second-level descriptors, in bytes */
-#define VM_L2_TOTAL_SIZE	(VM_TT_KERNEL_NUM * VM_L2_TABLE_SIZE)
+/* Size of a coarse translation table, in bytes */
+#define VM_L2_TABLE_SIZE	1024
+
+/* Access permission bits */
+#define VM_AP_NONE		0				/* Kernel none User none */
+#define VM_AP_KRW_UNONE		1				/* Kernel R/W  User none */
+#define VM_AP_KRW_URO		2				/* Kernel R/W  User R/O  */
+#define VM_AP_KRW_URW		3				/* Kernel R/W  User R/W  */
+
+/* Translation table entry types */
+#define VM_TT_TYPE_FAULT	0
+#define VM_TT_TYPE_COARSE	1
+#define VM_TT_TYPE_SECTION	2
+#define VM_TT_TYPE_FINE		3
+
+/* Coarse table entry types */
+#define VM_COARSE_TYPE_FAULT	0
+#define VM_COARSE_TYPE_LARGE	1
+#define VM_COARSE_TYPE_SMALL	2
+#define VM_COARSE_TYPE_SMALLEX	3
+
+/* Coarse memory flags */
+#define VM_COARSE_DEVICE	(1 << 2)			/* Shared device: uncachable, bufferable */
+
+/* Macro used to replicate AP bits to entries 0..3 for small entries */
+#define VM_COARSE_SMALL_AP(x)	(((x) << 4) | ((x) << 6) | ((x) << 8) | ((x) << 10))
 
 /* CP15 register 1: Control Register (B4.9.2) */
 #define CP15_CTRL_MMU		(1 << 0)			/* MMU enabled */
