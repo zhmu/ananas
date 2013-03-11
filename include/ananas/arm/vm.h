@@ -95,6 +95,9 @@
 void vm_map(addr_t addr, size_t num_pages);
 void vm_mapto(addr_t virt, addr_t phys, size_t num_pages);
 void vm_unmap(addr_t addr, size_t num_pages);
+void md_mapto(uint32_t* tt, addr_t va, addr_t pa, size_t num_pages, int flags);
+
+extern uint32_t* vm_kernel_tt;
 #endif
 
 #endif /* __ARM_VM_H__ */
