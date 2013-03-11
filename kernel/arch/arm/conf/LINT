@@ -7,4 +7,4 @@ ident		LINT
 #option		BIO
 #option		VFS
 
-#option		DEBUG_CONSOLE
+option		DEBUG_CONSOLE

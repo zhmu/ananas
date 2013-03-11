@@ -2,8 +2,11 @@
 #include <ananas/arm/mv-regs.h>
 #include <ananas/arm/param.h>
 #include <ananas/arm/vm.h>
+#include <ananas/debug-console.h>
+#include <ananas/vm.h>
 #include <ananas/pcpu.h>
 #include <ananas/lib.h>
+#include "options.h"
 
 struct PCPU cpu_pcpu;
 
@@ -12,26 +15,12 @@ struct BOOTINFO* bootinfo = NULL;
 //static struct BOOTINFO _bootinfo;
 extern void *__entry, *__end;
 
-/*
- * UART is mapped to this address; must be above KERNBASE because we assume it
- * can be mapped without having to assign a new L2 entry.
- */
-#define KERNEL_UART0 0xfffe1000
-
-#if 1
-/* XXX For VersatilePB board */
-#define UART0_BASE 0x101f1000
-#else
-#define UART0_BASE UART_BASE
-#endif
-#define UART0_DR (UART0_BASE)
-
 static void
 putcr(int c)
 {
 	//while ((*(uint32_t*)UART0_LSR & UART0_LSR_THRE) == 0);
 	//*(uint32_t*)UART0_RBR = c;
-	*(volatile uint32_t*)KERNEL_UART0 = c;
+//	*(volatile uint32_t*)KERNEL_UART0 = c;
 }
 
 void
@@ -230,34 +219,24 @@ md_startup()
 	: : "r" (tt), "r" (0), "r" (KERNBASE) : "r1");
 
 	/*
-	 * Map our UART to a kernel-space address; we know the pages there are
-	 * backed so we do not need to allocate extra mappings.
+	 * Hand the TT we created to the VM - it is safe to do so now as we have the
+	 * mappings to do so.
 	 */
-	do {
-		uint32_t va = KERNEL_UART0;
-		uint32_t pa = UART0_BASE;
-		uint32_t* l1 = (uint32_t*)&tt[va >> 20]; /* note that typeof(tt) is uint32_t, so the 00 bits are added */
-		uint32_t* l2 = (uint32_t*)(KERNBASE + (*l1 & 0xfffffc00) + (((va & 0xff000) >> 12) << 2));
-		*l2 = (pa & 0xfffff000) | VM_COARSE_SMALL_AP(VM_AP_KRW_URO) | VM_COARSE_DEVICE | VM_COARSE_TYPE_SMALL;
-	} while(0);
+	vm_kernel_tt = tt;
+
+#ifdef OPTION_DEBUG_CONSOLE
+	debugcon_init();
+#endif
 
 	/*
 	 * Initialize a page for our vectors; we'll relocate this to 0xffff0000 so
 	 * that we can still trap NULL pointers.
 	 */
-	do {
-		/* Map the page */
-		uint32_t va = 0xffff0000;
-		uint32_t pa = address; /* usable due to EXTRA_PAGES */
-		address += PAGE_SIZE;
-		uint32_t* l1 = (uint32_t*)&tt[va >> 20]; /* note that typeof(tt) is uint32_t, so the 00 bits are added */
-		uint32_t* l2 = (uint32_t*)(KERNBASE + (*l1 & 0xfffffc00) + (((va & 0xff000) >> 12) << 2));
-		*l2 = (pa & 0xfffff000) | VM_COARSE_SMALL_AP(VM_AP_KRW_URO) | VM_COARSE_TYPE_SMALL;
+	md_mapto(vm_kernel_tt, 0xFFFF0000, address, 1, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_EXECUTE);
 
-		/* Copy the vectors to it */
-		extern void* _vectors_page;
-		memcpy((void*)va, (void*)&_vectors_page, PAGE_SIZE);
-	} while(0);
+	/* Copy the vectors to it */
+	extern void* _vectors_page;
+	memcpy((void*)0xFFFF0000, (void*)&_vectors_page, PAGE_SIZE);
 
 	/* Move the exception vectors to 0xFFFFxxxx */
 	__asm(
@@ -307,23 +286,10 @@ md_startup()
 		tt[n >> 20] = 0;
 	}
 
-#if 0
-	/* Hook up the first 4KB so that we can handle exceptions */
-	tt[0] = l2_ptr | 1 /* XXX type, domain=0 */;
-	l2_ptr += VM_L2_TABLE_SIZE;
-#endif
-	
-	putcr('H');
-	putcr('e');
-	putcr('l');
-	putcr('l');
-	putcr('o');
+	kprintf("Hello world");
 
 	foo();
 
-	putcr('?');
-	putcr('?');
-	putcr('?');
 	for(;;) {
 		foo();
 	}
