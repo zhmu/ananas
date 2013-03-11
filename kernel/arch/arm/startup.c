@@ -12,121 +12,7 @@ struct PCPU cpu_pcpu;
 
 /* Bootinfo as supplied by the loader, or NULL */
 struct BOOTINFO* bootinfo = NULL;
-//static struct BOOTINFO _bootinfo;
 extern void *__entry, *__end;
-
-static void
-putcr(int c)
-{
-	//while ((*(uint32_t*)UART0_LSR & UART0_LSR_THRE) == 0);
-	//*(uint32_t*)UART0_RBR = c;
-//	*(volatile uint32_t*)KERNEL_UART0 = c;
-}
-
-void
-v_reset()
-{
-	while(1);
-}
-
-void
-v_undef()
-{
-	while(1);
-}
-
-void
-v_swi()
-{
-	putcr('S');
-	putcr('W');
-	putcr('I');
-	while(1);
-}
-
-void
-v_pre_abort()
-{
-	putcr('p');
-	putcr('A');
-	while(1);
-}
-
-void
-v_data_abort()
-{
-	putcr('d');
-	putcr('A');
-	while(1);
-}
-
-void
-v_irq()
-{
-	putcr('I');
-	putcr('R');
-	putcr('Q');
-	while(1);
-}
-
-void
-v_fiq()
-{
-	putcr('F');
-	putcr('I');
-	putcr('Q');
-	while(1);
-}
-
-static void putn(int n)
-{
-	if (n >= 10 && n <= 16)
-		putcr('a' + (n - 10));
-	else if (n >= 0 && n < 10)
-		putcr('0' + n);
-	else
-		putcr('?');
-}
-
-static void putbyte(int x)
-{
-	putn(x >> 4); putn(x & 15);
-}
-
-static void puthex(uint32_t x)
-{
-	putbyte(x >> 24); putbyte((x >> 16) & 0xff);
-	putbyte((x >> 8 ) & 0xff);
-	putbyte(x & 0xff);
-}
-
-static void
-resolve(uint32_t* tt, uint32_t va)
-{
-	uint32_t* l1 = (uint32_t*)&tt[va >> 20];
-	uint32_t  l1val = *(uint32_t*)l1;
-	uint32_t* l2 = (uint32_t*)((l1val & 0xfffffc00) + (((va >> 12) & 0xff) << 2));
-	uint32_t  l2val = *(uint32_t*)l2;
-
-	putcr('v'); putcr('a'); putcr('='); /* va= */
-	puthex(va);
-	putcr(' '); putcr('&'); putcr('l'); putcr('1'); putcr('='); /* &l1= */
-	puthex((uint32_t)l1);
-	putcr(' '); putcr('*'); putcr('l'); putcr('1'); putcr('='); /* *l1= */
-	puthex(l1val);
-	if ((l1val & 3) != 1) {
-		putcr('!'); putcr('P'); putcr('\n');
-		return;
-	}
-	putcr(' '); putcr('&'); putcr('l'); putcr('2'); putcr('='); /* &l2= */
-	puthex((uint32_t)l2);
-	putcr(' '); putcr('*'); putcr('l'); putcr('2'); putcr('='); /* *l2= */
-	puthex(l2val);
-	if ((l2val & 3) != 3) {
-		putcr('!'); putcr('P');
-	}
-	putcr('\r'); putcr('\n');
-}
 
 static void
 foo()
@@ -188,8 +74,8 @@ md_startup()
 	 * Establish an identity mapping for the current kernel addresses; this is necessary
 	 * so that we can make the switch to MMU-world without losing our current code.
 	 */
-	for (addr_t n = (addr_t)&__entry - KERNBASE; n < (addr_t)&__end - KERNBASE; n += PAGE_SIZE) {
-		tt[n >> 20] = tt[(n | KERNBASE) >> 20];
+	for (addr_t n = (addr_t)&__entry; n < (addr_t)&__end; n += PAGE_SIZE) {
+		tt[KVTOP(n) >> 20] = tt[n >> 20];
 	}
 
 	/* Time to throw... the switch: the pagetables need to be set */
@@ -212,8 +98,9 @@ md_startup()
 		/* perform a dummy r16 read */
 		"mrc p15, 0, r1, c2, c0, 0\n"
 		"mov r1, r1\n"
-		/* alter our instruction and stack pointer */
+		/* alter our instruction, frame and stack pointer */
 		"add	sp, sp, %2\n"
+		"add	fp, fp, %2\n"
 		"add	pc, pc, %2\n"
 		"nop\n"
 	: : "r" (tt), "r" (0), "r" (KERNBASE) : "r1");
@@ -222,7 +109,7 @@ md_startup()
 	 * Hand the TT we created to the VM - it is safe to do so now as we have the
 	 * mappings to do so.
 	 */
-	vm_kernel_tt = tt;
+	vm_kernel_tt = (uint32_t*)PTOKV((addr_t)tt);
 
 #ifdef OPTION_DEBUG_CONSOLE
 	debugcon_init();
@@ -233,6 +120,7 @@ md_startup()
 	 * that we can still trap NULL pointers.
 	 */
 	md_mapto(vm_kernel_tt, 0xFFFF0000, address, 1, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_EXECUTE);
+	address += PAGE_SIZE;
 
 	/* Copy the vectors to it */
 	extern void* _vectors_page;
@@ -282,8 +170,8 @@ md_startup()
 	: : "r" (address + KERNBASE), "r" (CPU_MODE_STACK_SIZE * PAGE_SIZE) : "1", "2", "4");
 
 	/* Throw away the identity mappings; these are not needed anymore */
-	for (addr_t n = (addr_t)&__entry - KERNBASE; n < (addr_t)&__end - KERNBASE; n += PAGE_SIZE) {
-		tt[n >> 20] = 0;
+	for (addr_t n = (addr_t)&__entry; n < (addr_t)&__end; n += PAGE_SIZE) {
+		tt[KVTOP(n) >> 20] = 0;
 	}
 
 	kprintf("Hello world");
@@ -293,8 +181,6 @@ md_startup()
 	for(;;) {
 		foo();
 	}
-
-	resolve(tt, 0);
 }
 
 /* vim:set ts=2 sw=2: */

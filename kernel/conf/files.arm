@@ -2,6 +2,8 @@
 arch/arm/stub.S			mandatory
 arch/arm/startup.c		mandatory
 arch/arm/vm.c			mandatory
+arch/arm/exception.c		mandatory
+arch/arm/trap.S			mandatory
 arch/arm/md_thread.c		mandatory
 arch/arm/divsi3.S		mandatory
 arch/arm/debug-console.c	option DEBUG_CONSOLE
