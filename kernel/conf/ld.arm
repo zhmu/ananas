@@ -30,9 +30,11 @@ SECTIONS {
 		. = ALIGN(4096);
 	}
 	.bss : {
+		__bss_begin = .;
 		*(.bss)
 		*(.bss*)
 		*(COMMON)
+		__bss_end = .;
 		. = ALIGN(4096);
 	}
 	__end = . ;

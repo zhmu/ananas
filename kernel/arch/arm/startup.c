@@ -106,6 +106,15 @@ md_startup()
 	: : "r" (tt), "r" (0), "r" (KERNBASE) : "r1");
 
 	/*
+	 * Initialize kernel bss to zero; this won't be done by any loader because the
+	 * entries aren't part of the kernel image. We do it here because now the
+	 * mappings are valid.
+	 */
+	extern void* __bss_begin;
+	extern void* __bss_end;
+	memset((void*)&__bss_begin, 0, &__bss_end - &__bss_begin);
+
+	/*
 	 * Hand the TT we created to the VM - it is safe to do so now as we have the
 	 * mappings to do so.
 	 */
