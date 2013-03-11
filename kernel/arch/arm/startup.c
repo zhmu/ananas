@@ -1,7 +1,6 @@
 #include <ananas/types.h>
 #include <ananas/arm/mv-regs.h>
 #include <ananas/arm/param.h>
-#include <ananas/arm/system.h>
 #include <ananas/arm/vm.h>
 #include <ananas/pcpu.h>
 #include <ananas/lib.h>
@@ -279,26 +278,26 @@ md_startup()
 		"orr r2, r4, #0x17\n"			/* -> abort mode */
 		"msr CPSR_c, r2\n"				/* activate new mode */
 		/* Activate our stack and update it */
-		"mov	sp, %0\n"
 		"add	%0, %0, %1\n"
+		"mov	sp, %0\n"
 		/* Switch to undefined mode */
 		"orr r2, r4, #0x1b\n"			/* -> abort mode */
 		"msr CPSR_c, r2\n"				/* activate new mode */
 		/* Activate our stack and update it */
-		"mov	sp, %0\n"
 		"add	%0, %0, %1\n"
+		"mov	sp, %0\n"
 		/* Switch to IRQ mode */
 		"orr r2, r4, #0x12\n"			/* -> irq mode */
 		"msr CPSR_c, r2\n"				/* activate new mode */
 		/* Activate our stack and update it */
-		"mov	sp, %0\n"
 		"add	%0, %0, %1\n"
+		"mov	sp, %0\n"
 		/* Switch to FIQ mode */
 		"orr r2, r4, #0x11\n"			/* -> irq mode */
 		"msr CPSR_c, r2\n"				/* activate new mode */
 		/* Activate our stack and update it */
-		"mov	sp, %0\n"
 		"add	%0, %0, %1\n"
+		"mov	sp, %0\n"
 		/* Switch back to supervisor mode */
 		"msr CPSR_c, r1\n"				/* activate new mode */
 	: : "r" (address + KERNBASE), "r" (CPU_MODE_STACK_SIZE * PAGE_SIZE) : "1", "2", "4");
