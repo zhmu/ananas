@@ -11,13 +11,16 @@
  */
 #define KERNEL_UART0 0xfffe1000
 
-#if 1
-/* XXX For VersatilePB board */
-#define UART0_BASE 0x101f1000
+#define BOARD_VERSATILEPB
+//#define BOARD_SHEEVAPLUG
+
+#ifdef BOARD_VERSATILEPB
+# define UART0_BASE 0x101f1000
+#elif defined(BOARD_SHEEVAPLUG)
+# define UART0_BASE MV_UART_BASE
 #else
-#define UART0_BASE UART_BASE
+# error Unknown platform
 #endif
-#define UART0_DR (UART0_BASE)
 
 void
 debugcon_init()
@@ -32,6 +35,9 @@ debugcon_init()
 void
 debugcon_putch(int ch)
 {
+#ifdef BOARD_SHEEVAPLUG
+	while ((*(volatile uint32_t*)MV_UART_LSR(KERNEL_UART0) & MV_UART_LSR_THRE) == 0);
+#endif
 	*(volatile uint32_t*)KERNEL_UART0 = ch;
 }
 
