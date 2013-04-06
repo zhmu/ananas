@@ -177,7 +177,7 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 */
 	kernel_pd = (uint32_t*)((addr_t)pd | KERNBASE);
 
-#ifndef SMP
+#ifndef OPTION_SMP
 	/*
 	 * We can throw the duplicate mappings away now, since we are now using our
 	 * virtual mappings...

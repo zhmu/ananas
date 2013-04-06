@@ -290,6 +290,7 @@ clone_return:
 	jmp	syscall_return
 
 #ifdef OPTION_SMP
+.globl	spurious_irq
 spurious_irq:
 	iret
 #endif
