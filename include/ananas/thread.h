@@ -168,7 +168,7 @@ errorcode_t thread_unregister_exit_func(struct THREAD_CALLBACK* fn);
 	EXIT_FUNCTION(unregister_##fn)
 
 #define REGISTER_THREAD_EXIT_FUNC(fn) \
-	static struct THREAD_CALLBACK cb_init_##fn = { .tc_func = fn }; \
+	static struct THREAD_CALLBACK cb_exit_##fn = { .tc_func = fn }; \
 	static errorcode_t register_##fn() { \
 		return thread_register_exit_func(&cb_exit_##fn); \
 	} \
