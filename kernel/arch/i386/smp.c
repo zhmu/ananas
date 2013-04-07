@@ -383,6 +383,8 @@ extern void* gdt;
 
 		/*
 		 * Allocate one buffer and place all necessary administration in there.
+		 * Each AP needs an own GDT because it contains the pointer to the per-CPU
+		 * data and the TSS must be distinct too.
 		 */
 		char* buf = kmalloc(GDT_NUM_ENTRIES * 8 + sizeof(struct TSS) + sizeof(struct PCPU));
 		cpus[i]->gdt = buf;
@@ -393,11 +395,13 @@ struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
 		tss->ss0 = GDT_SEL_KERNEL_DATA;
 		GDT_SET_TSS(cpus[i]->gdt, GDT_IDX_KERNEL_TASK, 0, (addr_t)tss, sizeof(struct TSS));
 		cpus[i]->tss = (char*)tss;
-struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS));
+
+		/* Initialize per-CPU data */
+		struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS));
 		memset(pcpu, 0, sizeof(struct PCPU));
-		pcpu_init(pcpu);
 		pcpu->cpuid = i;
 		pcpu->tss = (addr_t)cpus[i]->tss;
+		pcpu_init(pcpu);
 		GDT_SET_ENTRY32(cpus[i]->gdt, GDT_IDX_KERNEL_PCPU, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, (addr_t)pcpu, sizeof(struct PCPU));
 	}
 
@@ -593,14 +597,20 @@ INIT_FUNCTION(smp_launch, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);
 void
 mp_ap_startup(uint32_t lapic_id)
 {
+	/* Switch to our idle thread */
+	thread_t* idlethread = PCPU_GET(idlethread_ptr);
+  PCPU_SET(curthread, idlethread);
+  scheduler_add_thread(idlethread);
+
+	/* Wait for it ... */
 	while (!can_smp_launch)
 		/* nothing */ ;
 
-	/*
-	 * We're up and running! Increment the launched count and start scheduling.
-	 */
+	/* We're up and running! Increment the launched count */
 	__asm("lock incl (num_smp_launched)");
-	schedule();
+
+	/* And become the idle thread, now ... doesn't return */
+	idle_thread();
 }
 
 /* vim:set ts=2 sw=2: */
