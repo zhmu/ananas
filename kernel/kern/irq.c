@@ -110,7 +110,7 @@ irq_handler(unsigned int no)
 				kprintf("irq_handler(): not reporting stray irq %u anymore\n", no);
 		}
 		/* Find the IRQ source; this is necessary to acknowledge the stray IRQ */
-		struct IRQ_SOURCE* is = irqsource_find(no); /* XXX no lock */
+		is = irqsource_find(no); /* XXX no lock */
 		KASSERT(is != NULL, "stray interrupt %u without source", no);
 	} else {
 		/* Call the interrupt handler */
