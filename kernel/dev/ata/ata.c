@@ -395,8 +395,8 @@ ata_attach(device_t dev, uint32_t io, uint32_t irq)
 	/* Ensure there's something living at the I/O addresses */
 	if (inb(priv->io_port + ATA_REG_STATUS) == 0xff) return 1;
 
-	if (!irq_register(irq, dev, ata_irq))
-		return ANANAS_ERROR(NO_RESOURCE);
+	errorcode_t err = irq_register(irq, dev, ata_irq);
+	ANANAS_ERROR_RETURN(err);
 
 	/* Initialize a freelist of request items */
 	QUEUE_INIT(&priv->freelist);

@@ -479,8 +479,8 @@ uhci_attach(device_t dev)
 	}
 
 	/* Hook up our interrupt handler and get it going */
-	if (!irq_register((int)res_irq, dev, uhci_irq))
-		return ANANAS_ERROR(NO_RESOURCE);
+	errorcode_t err = irq_register((int)res_irq, dev, uhci_irq);
+	ANANAS_ERROR_RETURN(err);
 	outw(privdata->uhci_io + UHCI_REG_USBINTR, UHCI_USBINTR_SPI | UHCI_USBINTR_IOC | UHCI_USBINTR_RI | UHCI_USBINTR_TOCRC);
 	delay(10);
 

@@ -136,9 +136,10 @@ atkbd_attach(device_t dev)
 	kbd_priv->kbd_flags = 0;
 	dev->privdata = kbd_priv;
 
-	if (!irq_register((uintptr_t)res_irq, dev, atkbd_irq)) {
+	errorcode_t err = irq_register((uintptr_t)res_irq, dev, atkbd_irq);
+	if (err != ANANAS_ERROR_OK) {
 		kfree(kbd_priv);
-		return ANANAS_ERROR(NO_RESOURCE);
+		return err;
 	}
 	
 	/*

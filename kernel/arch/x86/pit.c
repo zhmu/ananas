@@ -1,5 +1,6 @@
 #include <ananas/x86/io.h>
 #include <ananas/x86/pit.h>
+#include <ananas/error.h>
 #include <ananas/pcpu.h>
 #include <ananas/irq.h>
 #include <ananas/lib.h>
@@ -47,10 +48,10 @@ x86_pit_init()
 	outb(PIT_MODE_CMD, PIT_CH_CHAN0 | PIT_MODE_3 | PIT_ACCESS_BOTH);
 	outb(PIT_CH0_DATA, (count & 0xff));
 	outb(PIT_CH0_DATA, (count >> 8));
-	if (!irq_register(IRQ_PIT, NULL, x86_pit_irq))
+	if (irq_register(IRQ_PIT, NULL, x86_pit_irq) != ANANAS_ERROR_OK)
 		panic("cannot register timer irq");
 }
-	
+
 uint32_t
 x86_pit_calc_cpuspeed_mhz()
 {

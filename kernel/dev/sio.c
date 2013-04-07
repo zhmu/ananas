@@ -48,9 +48,10 @@ sio_attach(device_t dev)
 
 	dev->privdata = privdata;
 
-	if (!irq_register((uintptr_t)res_irq, dev, sio_irq)) {
+	errorcode_t err = irq_register((uintptr_t)res_irq, dev, sio_irq);
+	if (err != ANANAS_ERROR_OK) {
 		kfree(privdata);
-		return ANANAS_ERROR(NO_RESOURCE);
+		return err;
 	}
 
 	/*
