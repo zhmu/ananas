@@ -15,8 +15,8 @@ static struct IRQ_SOURCE pic_source = {
 	.is_ack = pic_ack
 };
 
-void
-x86_pic_init()
+static void
+x86_pic_wire()
 {
 	/*
 	 * Remap the interrupts; by default, IRQ 0-7 are mapped to interrupts 0x08 -
@@ -25,7 +25,7 @@ x86_pic_init()
 	 */
 #define IO_WAIT() do { int i = 10; while (i--) /* NOTHING */ ; } while (0);
 
-	/* Start initialization: the PIC will wait for 3 command bta ytes */
+	/* Start initialization: the PIC will wait for 3 command bytes */
 	outb(PIC1_CMD, ICW1_INIT | ICW1_ICW4); IO_WAIT();
 	outb(PIC2_CMD, ICW1_INIT | ICW1_ICW4); IO_WAIT();
 	/* Data byte 1 is the interrupt vector offset - program for interrupt 0x20-0x2f */
@@ -42,6 +42,13 @@ x86_pic_init()
 	outb(PIC2_DATA, 0);
 
 #undef IO_WAIT
+}
+
+void
+x86_pic_init()
+{
+	/* Wire the PIC */
+	x86_pic_wire();
 
 	/* Register the PIC as interrupt source */
 	irqsource_register(&pic_source);
@@ -50,6 +57,14 @@ x86_pic_init()
 void
 x86_pic_mask_all()
 {
+	/*
+	 * Reset the PIC by re-initalizating it; this is needed because we want to reset
+	 * the IRR register, but there is no way to directly do that.
+	 *
+	 * XXX This is only needed in Bochs, not qemu - what does real hardware do?
+	 */
+	x86_pic_wire();
+
 	/*
 	 * Mask all PIC interrupts; mainly used so that we get the PIC to a known
 	 * state before we decide whether to use the PIC or APIC.
