@@ -5,11 +5,13 @@
 #include <machine/macro.h>
 #include <machine/thread.h>
 #include <machine/pcpu.h>
+#include <machine/smp.h>
 #include <ananas/x86/io.h>
 #include <ananas/x86/pic.h>
 #include <ananas/x86/pit.h>
 #include <ananas/x86/smap.h>
 #include <ananas/bootinfo.h>
+#include <ananas/error.h>
 #include <ananas/handle.h>
 #include <ananas/init.h>
 #include <ananas/lib.h>
@@ -233,8 +235,8 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	    "c" (GDT_SEL_KERNEL_CODE),
 	    "d" (GDT_SEL_KERNEL_PCPU));
 
-	/* Initialize the PIC; this will also register it as an interrupt source */
-	x86_pic_init();
+	/* Ask the PIC to mask everything; we'll initialize when we are ready */
+	x86_pic_mask_all();
 
 	/*
 	 * Prepare the IDT entries; this means mapping the exception interrupts to
@@ -422,6 +424,22 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	: : "r" (bsp_pcpu.idlethread.md_esp));
 	PCPU_SET(curthread, &bsp_pcpu.idlethread);
 	scheduler_add_thread(&bsp_pcpu.idlethread);
+
+#ifdef OPTION_SMP
+	/*
+	 * Initialize the SMP parts - as x86 SMP relies on an APIC, we do this here
+	 * to prevent problems due to devices registering interrupts.
+	 */
+	if (smp_init() != ANANAS_ERROR_NONE)
+#endif
+	{
+		/*
+		 * In the uniprocessor case, or when SMP initialization fails, we'll only
+		 * have a single PIC. Initialize it here, this will also register it as an
+		 * interrupt source.
+		 */
+		x86_pic_init();
+	}
 
 	/* Initialize the PIT */
 	x86_pit_init();

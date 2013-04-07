@@ -110,8 +110,8 @@ struct IA32_INTERRUPT {
 	struct IA32_BUS*    bus;
 };
 
+errorcode_t smp_init();
 uint32_t get_num_cpus();
 struct IA32_CPU* get_cpu_struct(int i);
-
 
 #endif /* __I386_SMP_H__ */

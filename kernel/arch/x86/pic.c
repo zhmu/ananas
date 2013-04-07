@@ -9,14 +9,15 @@ static void pic_ack(struct IRQ_SOURCE* is, int no);
 
 static struct IRQ_SOURCE pic_source = {
 	.is_first = 0,
-	.is_count = 15,
+	.is_count = 16,
 	.is_mask = pic_mask,
 	.is_unmask = pic_unmask,
 	.is_ack = pic_ack
 };
 
 void
-x86_pic_init() {
+x86_pic_init()
+{
 	/*
 	 * Remap the interrupts; by default, IRQ 0-7 are mapped to interrupts 0x08 -
 	 * 0x0f and IRQ 8-15 to 0x70 - 0x77. We remap IRQ 0-15 to 0x20-0x2f (since
@@ -44,6 +45,17 @@ x86_pic_init() {
 
 	/* Register the PIC as interrupt source */
 	irqsource_register(&pic_source);
+}
+
+void
+x86_pic_mask_all()
+{
+	/*
+	 * Mask all PIC interrupts; mainly used so that we get the PIC to a known
+	 * state before we decide whether to use the PIC or APIC.
+	 */
+	outb(PIC1_DATA, 0xff);
+	outb(PIC2_DATA, 0xff);
 }
 
 static errorcode_t

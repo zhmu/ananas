@@ -22,5 +22,6 @@
 #define ICW4_SNFM		0x10	/* Not Special Fully Nested */
 
 void x86_pic_init();
+void x86_pic_mask_all();
 
 #endif /* __X86_PIC_H__ */

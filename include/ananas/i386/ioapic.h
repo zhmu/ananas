@@ -1,6 +1,8 @@
 #ifndef __I386_IOAPIC_H__
 #define __I386_IOAPIC_H__
 
+#include <ananas/irq.h>
+
 #define IOREGSEL		0x00000000	/* I/O Register Select */
 #define IOWIN			0x00000010	/* I/O Window */
 
@@ -31,8 +33,9 @@
 
 
 struct IA32_IOAPIC {
-	uint8_t		ioapic_id;
-	addr_t		addr;
+	uint8_t		ioa_id;
+	addr_t		ioa_addr;
+	struct IRQ_SOURCE ioa_source;
 };
 
 #endif /* __I386_IOAPIC_H__ */
