@@ -1,10 +1,12 @@
 #include <ananas/x86/io.h>
 #include <ananas/x86/pit.h>
+#include <ananas/i386/smp.h> /* XXX */
 #include <ananas/error.h>
 #include <ananas/pcpu.h>
 #include <ananas/irq.h>
 #include <ananas/lib.h>
 #include <machine/interrupts.h>
+#include "options.h"
 
 #define IRQ_PIT 0
 #define TIMER_FREQ 1193182
@@ -21,12 +23,16 @@ x86_pit_irq()
 	if (!scheduler_activated())
 		return;
 	
+#ifdef OPTION_SMP
+	smp_broadcast_schedule();
+#else
 	/*
 	 * Timeslice is up -> next thread please; we can implement this
 	 * by simply setting the 'want to reschedule' flag.
 	 */
 	thread_t* curthread = PCPU_GET(curthread);
 	curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
+#endif
 }
 
 /*

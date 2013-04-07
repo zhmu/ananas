@@ -19,6 +19,22 @@
 #define LAPIC_IRR	0xfee00200		/* Interrupt Request Register */
 #define LAPIC_ESR	0xfee00280		/* Error Status Register */
 #define LAPIC_ICR_LO	0xfee00300		/* Interrupt Control Register */
+#define  LAPIC_ICR_DELIVERY_FIXED	(0 << 8)	/* Fixed vector */
+#define  LAPIC_ICR_DELIVERY_LOWEST	(1 << 8)	/* Fixed vector to lowest priority CPU */
+#define  LAPIC_ICR_DELIVERY_SMI		(2 << 8)	/* SMI */
+#define  LAPIC_ICR_DELIVERY_NMI		(4 << 8)	/* NMI */
+#define  LAPIC_ICR_DELIVERY_INIT	(5 << 8)	/* INIT request */
+#define  LAPIC_ICR_DELIVERY_SIPI	(6 << 8)	/* Startup request */
+#define  LAPIC_ICR_STATUS_IDLE		(0 << 12)
+#define  LAPIC_ICR_STATUS_PENDING	(1 << 12)
+#define  LAPIC_ICR_LEVEL_DEASSERT	(0 << 14)
+#define  LAPIC_ICR_LEVEL_ASSERT		(1 << 14)
+#define  LAPIC_ICR_TRIGGER_EDGE		(0 << 15)
+#define  LAPIC_ICR_TRIGGER_LEVEL	(1 << 15)
+#define  LAPIC_ICR_DEST_FIELD		(0 << 18)	/* No destination shorthand */
+#define  LAPIC_ICR_DEST_SELF		(1 << 18)	/* Talking to myself */
+#define  LAPIC_ICR_DEST_ALL_INC_SELF	(2 << 18)	/* All including self */
+#define  LAPIC_ICR_DEST_ALL_EXC_SELF	(3 << 18)	/* All excluding self */
 #define LAPIC_ICR_HI	0xfee00310
 #define LAPIC_LVT_TR	0xfee00320		/* LVT Timer Register */
 #define LAPIC_LVT_TSR	0xfee00330		/* LVT Thermal Sensor Register */

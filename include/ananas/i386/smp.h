@@ -7,6 +7,12 @@
 #define IMCR_ADDR_IMCR	0x70		/* IMCR address value */
 #define IMCR_DATA_MP	0x01		/* Symmetric I/O mode */
 
+#define SMP_IPI_FIRST		0xf0
+#define SMP_IPI_COUNT		4
+#define SMP_IPI_PANIC		0xf0	/* IPI used to trigger panic situation on other CPU's */
+#define SMP_IPI_SCHEDULE	0xf2	/* IPI used to trigger re-schedule */
+
+#ifndef ASM
 struct MP_FLOATING_POINTER {
 	uint32_t	signature;
 #define MP_FPS_SIGNATURE	0x5f504d5f	/* _MP_ */
@@ -100,7 +106,6 @@ struct IA32_BUS {
 	int		type;
 #define BUS_TYPE_UNKNOWN	0
 #define BUS_TYPE_ISA		1
-
 };
 
 struct IA32_INTERRUPT {
@@ -113,5 +118,9 @@ struct IA32_INTERRUPT {
 errorcode_t smp_init();
 uint32_t get_num_cpus();
 struct IA32_CPU* get_cpu_struct(int i);
+
+void smp_panic_others();
+void smp_broadcast_schedule();
+#endif
 
 #endif /* __I386_SMP_H__ */

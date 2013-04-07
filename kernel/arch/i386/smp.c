@@ -3,6 +3,7 @@
 #include <machine/pcpu.h>
 #include <machine/apic.h>
 #include <machine/ioapic.h>
+#include <machine/interrupts.h>
 #include <machine/macro.h>
 #include <machine/thread.h>
 #include <machine/vm.h>
@@ -45,6 +46,16 @@ static uint32_t num_ints;
 static char* ap_code;
 static int can_smp_launch = 0;
 static int num_smp_launched = 1; /* BSP is always launched */
+
+static void ioapic_ack(struct IRQ_SOURCE* source, int no);
+
+static struct IRQ_SOURCE ipi_source = {
+	.is_first = SMP_IPI_FIRST,
+	.is_count = SMP_IPI_COUNT,
+	.is_mask = NULL,
+	.is_unmask = NULL,
+	.is_ack = ioapic_ack
+};
 
 static void
 delay(int n) {
@@ -231,6 +242,22 @@ find_ioapic(int id)
 	return NULL;
 }
 
+static void
+smp_ipi_schedule(device_t dev)
+{
+	/* Flip the reschedule flag of the current thread; this makes the IRQ reschedule us as needed */
+	thread_t* curthread = PCPU_GET(curthread);
+	curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
+}
+
+static void
+smp_ipi_panic(device_t dev)
+{
+	while (1) {
+		__asm("hlt");
+	}
+}
+
 /*
  * Called on the Boot Strap Processor, in order to prepare the system for
  * multiprocessing.
@@ -378,9 +405,6 @@ extern void* gdt;
 			continue;
 		}
 
-		cpus[i]->stack = kmalloc(KERNEL_STACK_SIZE);
-		KASSERT(cpus[i]->stack != NULL, "out of memory?");
-
 		/*
 		 * Allocate one buffer and place all necessary administration in there.
 		 * Each AP needs an own GDT because it contains the pointer to the per-CPU
@@ -403,6 +427,9 @@ struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
 		pcpu->tss = (addr_t)cpus[i]->tss;
 		pcpu_init(pcpu);
 		GDT_SET_ENTRY32(cpus[i]->gdt, GDT_IDX_KERNEL_PCPU, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, (addr_t)pcpu, sizeof(struct PCPU));
+
+		/* Use the idle thread stack to execute from; we're becoming the idle thread anyway */
+		cpus[i]->stack = (void*)pcpu->idlethread.md_esp;
 	}
 
 	/* Prepare the IOAPIC structure */
@@ -518,11 +545,7 @@ struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
 		outb(IMCR_DATA, IMCR_DATA_MP);
 	}
 
-	/*
-	 * Program the I/O APIC - we currently just wire all ISA interrupts
-	 * to the first CPU, except the timer IRQ which ends up everywhere
-	 * XXX This is a hack; we should use an IPI to get it to all CPU's.
-	 */
+	/* Program the I/O APIC - we currently just wire all ISA interrupts */
 	for (int i = 0; i < num_ints; i++) {
 #ifdef SMP_DEBUG
 		kprintf("int %u: source=%u, dest=%u, bus=%x, apic=%x\n",
@@ -534,16 +557,21 @@ struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
 		if (ints[i]->ioapic == NULL)
 			continue;
 
+		/* XXX For now, route all interrupts to the BSP */
 		uint32_t reg = IOREDTBL + (ints[i]->dest_no * 2);
-		if (ints[i]->source_no == 0) {
-			/* XXX this is a hack, but we want the timer interrupt to be delivered to all cpus */
-			ioapic_write(ints[i]->ioapic, reg, TRIGGER_EDGE | DESTMOD_PHYSICAL | DELMOD_FIXED | (ints[i]->source_no + 0x20));
-			ioapic_write(ints[i]->ioapic, reg + 1, 0xff000000);
-		} else {
-			ioapic_write(ints[i]->ioapic, reg, TRIGGER_EDGE | DESTMOD_PHYSICAL | DELMOD_FIXED | (ints[i]->source_no + 0x20));
-			ioapic_write(ints[i]->ioapic, reg + 1, bsp_apic_id << 24);
-		}
+		ioapic_write(ints[i]->ioapic, reg, TRIGGER_EDGE | DESTMOD_PHYSICAL | DELMOD_FIXED | (ints[i]->source_no + 0x20));
+		ioapic_write(ints[i]->ioapic, reg + 1, bsp_apic_id << 24);
 	}
+
+	/*
+	 * Register an interrupt source for the IPI's; they appear as normal
+ 	 * interrupts and this lets us process them as such.
+	 */
+	irqsource_register(&ipi_source);
+	if (irq_register(SMP_IPI_PANIC, NULL, smp_ipi_panic) != ANANAS_ERROR_OK)
+		panic("can't register ipi");
+	if (irq_register(SMP_IPI_SCHEDULE, NULL, smp_ipi_schedule) != ANANAS_ERROR_OK)
+		panic("can't register ipi");
 
 	/*
 	 * Initialize the SMP launch variable; every AP will just spin and check this value. We don't
@@ -571,13 +599,12 @@ smp_launch()
 	 * Broadcast INIT-SIPI-SIPI-IPI to all AP's; this will wake them up and cause
 	 * them to run the AP entry code.
 	 */
-	*((uint32_t*)LAPIC_ICR_LO) = 0xc4500;	/* INIT */
+	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_INIT;
 	delay(10);
-	*((uint32_t*)LAPIC_ICR_LO) = 0xc4600 | (addr_t)KVTOP((addr_t)ap_code) >> 12;	/* SIPI */
+	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | (addr_t)KVTOP((addr_t)ap_code) >> 12;
 	delay(200);
-	*((uint32_t*)LAPIC_ICR_LO) = 0xc4600 | (addr_t)KVTOP((addr_t)ap_code) >> 12;	/* SIPI */
+	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | (addr_t)KVTOP((addr_t)ap_code) >> 12;
 	delay(200);
-
 
 	while(num_smp_launched < num_cpu)
 		/* wait for it ... */ ;
@@ -591,6 +618,18 @@ smp_launch()
 
 INIT_FUNCTION(smp_launch, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);
 
+void
+smp_panic_others()
+{
+	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_FIXED | SMP_IPI_PANIC;
+}
+
+void
+smp_broadcast_schedule()
+{
+	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_INC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_FIXED | SMP_IPI_SCHEDULE;
+}
+
 /*
  * Called by mp_stub.S for every Application Processor. Should not return.
  */
@@ -602,14 +641,18 @@ mp_ap_startup(uint32_t lapic_id)
   PCPU_SET(curthread, idlethread);
   scheduler_add_thread(idlethread);
 
+	/* Enable the LAPIC for this AP so we can handle interrupts */
+	*((uint32_t*)LAPIC_SVR) |= LAPIC_SVR_APIC_EN;
+
 	/* Wait for it ... */
 	while (!can_smp_launch)
 		/* nothing */ ;
 
 	/* We're up and running! Increment the launched count */
 	__asm("lock incl (num_smp_launched)");
-
-	/* And become the idle thread, now ... doesn't return */
+	
+	/* Enable interrupts and become the idle thread; this doesn't return */
+	md_interrupts_enable();
 	idle_thread();
 }
 

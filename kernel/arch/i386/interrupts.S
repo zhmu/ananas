@@ -14,6 +14,7 @@
 
 #include "options.h"
 #include "machine/param.h"
+#include "machine/smp.h"
 #include "machine/vm.h"
 #include "asmsyms.h"
 
@@ -290,9 +291,15 @@ clone_return:
 	jmp	syscall_return
 
 #ifdef OPTION_SMP
-.globl	spurious_irq
-spurious_irq:
+.globl	irq_spurious, ipi_schedule, ipi_panic
+irq_spurious:
 	iret
+
+ipi_schedule:
+	IRQ_HANDLER(SMP_IPI_SCHEDULE)
+
+ipi_panic:
+	IRQ_HANDLER(SMP_IPI_PANIC)
 #endif
 
 /* Now we just need to list the exception handlers */
