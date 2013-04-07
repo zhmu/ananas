@@ -16,6 +16,8 @@ struct IRQ_SOURCE {
 	unsigned int	is_first;
 	/* Number of interrupts handled */
 	unsigned int	is_count;
+	/* Private data */
+	void*           is_privdata;
 	/* Queue fields */
 	DQUEUE_FIELDS(struct IRQ_SOURCE);
 	/* Mask a given interrupt */
@@ -38,12 +40,14 @@ struct IRQ {
 };
 
 /*
- * Note: on registering an IRQ source, all interrupts are expected to be
- * masked.
+ * Note: on registering or removing an IRQ source, all interrupts are expected
+ * to be masked.
  */
 void irqsource_register(struct IRQ_SOURCE* source);
+void irqsource_unregister(struct IRQ_SOURCE* source);
 
-int irq_register(unsigned int no, device_t dev, irqhandler_t handler);
+errorcode_t irq_register(unsigned int no, device_t dev, irqhandler_t handler);
+void irq_unregister(unsigned int no, device_t dev);
 void irq_handler(unsigned int no);
 void irq_dump();
 
