@@ -16,9 +16,9 @@ TRACE_SETUP;
 
 extern struct DRIVER drv_atadisk;
 extern struct DRIVER drv_atacd;
-		
-void
-ata_irq(device_t dev)
+
+static irqresult_t
+ata_irq(device_t dev, void* context)
 {
 	struct ATA_PRIVDATA* priv = (struct ATA_PRIVDATA*)dev->privdata;
 
@@ -39,7 +39,7 @@ ata_irq(device_t dev)
 	 * which we should happily ignore as the queue is empty when they arrive.
 	 */
 	if (item == NULL)
-		return;
+		return IRQ_RESULT_PROCESSED;
 
 	/* If this is an ATAPI command, we may need to send the command bytes at this point */
 	if (item->flags & ATA_ITEM_FLAG_ATAPI) {
@@ -75,7 +75,7 @@ ata_irq(device_t dev)
 			spinlock_lock(&priv->spl_freelist);
 			QUEUE_ADD_TAIL(&priv->freelist, item);
 			spinlock_unlock(&priv->spl_freelist);
-			return;
+			return IRQ_RESULT_PROCESSED;
 		}
 
 		/*
@@ -102,6 +102,7 @@ ata_irq(device_t dev)
 	spinlock_lock(&priv->spl_freelist);
 	QUEUE_ADD_TAIL(&priv->freelist, item);
 	spinlock_unlock(&priv->spl_freelist);
+	return IRQ_RESULT_PROCESSED;
 }
 
 static uint8_t
@@ -395,7 +396,7 @@ ata_attach(device_t dev, uint32_t io, uint32_t irq)
 	/* Ensure there's something living at the I/O addresses */
 	if (inb(priv->io_port + ATA_REG_STATUS) == 0xff) return 1;
 
-	errorcode_t err = irq_register(irq, dev, ata_irq);
+	errorcode_t err = irq_register(irq, dev, ata_irq, NULL);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Initialize a freelist of request items */

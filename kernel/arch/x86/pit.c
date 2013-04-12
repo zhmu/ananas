@@ -16,13 +16,13 @@
 extern int md_cpu_clock_mhz;
 static uint64_t tsc_boot_time;
 
-static void
+static irqresult_t
 x86_pit_irq()
 {
 	PCPU_SET(tickcount, PCPU_GET(tickcount) + 1);
 	if (!scheduler_activated())
-		return;
-	
+		return IRQ_RESULT_PROCESSED;
+
 #ifdef OPTION_SMP
 	smp_broadcast_schedule();
 #else
@@ -33,6 +33,8 @@ x86_pit_irq()
 	thread_t* curthread = PCPU_GET(curthread);
 	curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
 #endif
+
+	return IRQ_RESULT_PROCESSED;
 }
 
 /*
@@ -54,7 +56,7 @@ x86_pit_init()
 	outb(PIT_MODE_CMD, PIT_CH_CHAN0 | PIT_MODE_3 | PIT_ACCESS_BOTH);
 	outb(PIT_CH0_DATA, (count & 0xff));
 	outb(PIT_CH0_DATA, (count >> 8));
-	if (irq_register(IRQ_PIT, NULL, x86_pit_irq) != ANANAS_ERROR_OK)
+	if (irq_register(IRQ_PIT, NULL, x86_pit_irq, NULL) != ANANAS_ERROR_OK)
 		panic("cannot register timer irq");
 }
 

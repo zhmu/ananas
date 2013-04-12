@@ -1,9 +1,16 @@
-#include <ananas/device.h>
-
 #ifndef __IRQ_H__
 #define __IRQ_H__
 
-typedef void (*irqhandler_t)(device_t);
+#include <ananas/device.h>
+
+/* Return values for the IRQ handler */
+typedef enum {
+	IRQ_RESULT_IGNORED,
+	IRQ_RESULT_PROCESSED
+} irqresult_t;
+
+/* Prototype of an IRQ handler function */
+typedef irqresult_t (*irqfunc_t)(device_t, void*);
 
 /*
  * Describes an IRQ source; this is generally an interrupt controller - every
@@ -29,13 +36,21 @@ struct IRQ_SOURCE {
 };
 DQUEUE_DEFINE(IRQ_SOURCES, struct IRQ_SOURCE);
 
+#define IRQ_MAX_HANDLERS 4
+
+/* Single IRQ handler */
+struct IRQ_HANDLER {
+	device_t		h_device;
+	void*			h_context;
+	irqfunc_t		h_func;
+};
+
 /*
  * Describes an IRQ in machine-independant context.
  */
 struct IRQ {
 	struct IRQ_SOURCE*	i_source;
-	device_t		i_dev;
-	irqhandler_t		i_handler;
+	struct IRQ_HANDLER	i_handler[IRQ_MAX_HANDLERS];
 	int			i_straycount;
 };
 
@@ -46,8 +61,8 @@ struct IRQ {
 void irqsource_register(struct IRQ_SOURCE* source);
 void irqsource_unregister(struct IRQ_SOURCE* source);
 
-errorcode_t irq_register(unsigned int no, device_t dev, irqhandler_t handler);
-void irq_unregister(unsigned int no, device_t dev);
+errorcode_t irq_register(unsigned int no, device_t dev, irqfunc_t func, void* context);
+void irq_unregister(unsigned int no, device_t dev, irqfunc_t func, void* context);
 void irq_handler(unsigned int no);
 void irq_dump();
 

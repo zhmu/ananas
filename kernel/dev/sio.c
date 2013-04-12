@@ -21,8 +21,8 @@ struct SIO_PRIVDATA {
 	uint8_t buffer_writepos;
 };
 
-static void
-sio_irq(device_t dev)
+static irqresult_t
+sio_irq(device_t dev, void* context)
 {
 	struct SIO_PRIVDATA* privdata = (struct SIO_PRIVDATA*)dev->privdata;
 
@@ -33,6 +33,8 @@ sio_irq(device_t dev)
 	/* XXX signal consumers - this is a hack */
 	if (console_tty != NULL && tty_get_inputdev(console_tty) == dev)
 		tty_signal_data();
+
+	return IRQ_RESULT_PROCESSED;
 }
 
 static errorcode_t
@@ -48,7 +50,7 @@ sio_attach(device_t dev)
 
 	dev->privdata = privdata;
 
-	errorcode_t err = irq_register((uintptr_t)res_irq, dev, sio_irq);
+	errorcode_t err = irq_register((uintptr_t)res_irq, dev, sio_irq, NULL);
 	if (err != ANANAS_ERROR_OK) {
 		kfree(privdata);
 		return err;

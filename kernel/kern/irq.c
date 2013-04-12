@@ -2,9 +2,12 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
 #include <ananas/pcpu.h>
+#include <ananas/trace.h>
 #include <ananas/irq.h>
 #include <ananas/lib.h>
 #include "options.h"
+
+TRACE_SETUP;
 
 static struct IRQ irq[MAX_IRQS];
 static struct IRQ_SOURCES irq_sources;
@@ -16,7 +19,12 @@ static spinlock_t spl_irq = SPINLOCK_DEFAULT_INIT;
 void
 irqsource_register(struct IRQ_SOURCE* source)
 {
-	spinlock_lock(&spl_irq);
+	register_t state = spinlock_lock_unpremptible(&spl_irq);
+
+	/* Ensure no bogus ranges are being registered */
+	KASSERT(source->is_count >= 1, "must register at least one irq");
+	KASSERT(source->is_first + source->is_count < MAX_IRQS, "can't register beyond MAX_IRQS range");
+
 	/* Ensure there will not be an overlap */
 	if(!DQUEUE_EMPTY(&irq_sources)) {
 		DQUEUE_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
@@ -24,27 +32,40 @@ irqsource_register(struct IRQ_SOURCE* source)
 		}
 	}
 	DQUEUE_ADD_TAIL(&irq_sources, source);
-	spinlock_unlock(&spl_irq);
+
+	/* Hook all IRQ's to this source - this saves having to look things up later */
+	for(unsigned int n = 0; n < source->is_count; n++)
+		irq[source->is_first + n].i_source = source;
+
+	spinlock_unlock_unpremptible(&spl_irq, state);
 }
 
 void
 irqsource_unregister(struct IRQ_SOURCE* source)
 {
-	spinlock_lock(&spl_irq);
+	register_t state = spinlock_lock_unpremptible(&spl_irq);
+
 	KASSERT(!DQUEUE_EMPTY(&irq_sources), "no irq sources registered");
-	/* Ensure the source is actually registered */	
-	int found = 0;
+	/* Ensure our source is registered */
+	int matches = 0;
 	DQUEUE_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
 		if (is != source)
 			continue;
-		/* Source found; we must ensure that no interrupts are mapped on this source */
-		for (int n = 0; n < MAX_IRQS; n++)
-			KASSERT(irq[n].i_source != source, "irq %u still registered to source", n);
-		found++;
+		matches++;
 	}
-	KASSERT(found, "irq source not registered");
+	KASSERT(matches == 1, "irq source not registered");
+
+	/* Walk through the IRQ's and ensure they do not use this source anymore */
+	for (int i = 0; i < MAX_IRQS; i++) {
+		if (irq[i].i_source != source)
+			continue;
+		irq[i].i_source = NULL;
+		for (int n = 0; n < IRQ_MAX_HANDLERS; n++)
+			KASSERT(irq[i].i_handler[n].h_func == NULL, "irq %u still registered to this source", i);
+	}
+
 	DQUEUE_REMOVE(&irq_sources, source);
-	spinlock_unlock(&spl_irq);
+	spinlock_unlock_unpremptible(&spl_irq, state);
 }
 
 /* Must be called with spl_irq held */
@@ -62,37 +83,68 @@ irqsource_find(unsigned int num)
 }
 
 errorcode_t
-irq_register(unsigned int no, device_t dev, irqhandler_t handler)
+irq_register(unsigned int no, device_t dev, irqfunc_t func, void* context)
 {
-	KASSERT(no < MAX_IRQS, "interrupt %u out of range", no);
+	if (no >= MAX_IRQS)
+		return ANANAS_ERROR(BAD_RANGE);
 
-	spinlock_lock(&spl_irq);
+	register_t state = spinlock_lock_unpremptible(&spl_irq);
 
+	/*
+	 * Look up the interrupt source; if we can't find it, it means this interrupt will
+	 * never fire so we should refuse to register it.
+	 */
 	struct IRQ_SOURCE* is = irqsource_find(no);
-	KASSERT(is != NULL, "source not found for interrupt %u", no); /* XXX for now */
+	if (is == NULL) {
+		spinlock_unlock_unpremptible(&spl_irq, state);
+		return ANANAS_ERROR(NO_RESOURCE);
+	}
 
-	KASSERT(irq[no].i_handler == NULL, "interrupt %u already registered", no);
-	irq[no].i_source = is;
-	irq[no].i_dev = dev;
-	irq[no].i_handler = handler;
-	irq[no].i_straycount = 0;
-	spinlock_unlock(&spl_irq);
+	struct IRQ* i = &irq[no];
+	i->i_source = is;
 
+	/* Locate a free slot for the handler */
+	int slot = 0;
+	for (/* nothing */; i->i_handler[slot].h_func != NULL && slot < IRQ_MAX_HANDLERS; slot++)
+		/* nothing */;
+	if (slot == IRQ_MAX_HANDLERS) {
+		spinlock_unlock_unpremptible(&spl_irq, state);
+		return ANANAS_ERROR(FILE_EXISTS); /* XXX maybe make the error more generic? */
+	}
+
+	/* Found one, hook it up */
+	struct IRQ_HANDLER* handler = &i->i_handler[slot];
+	handler->h_device = dev;
+	handler->h_func = func;
+	handler->h_context = context;
+	spinlock_unlock_unpremptible(&spl_irq, state);
 	return ANANAS_ERROR_OK;
 }
 
 void
-irq_unregister(unsigned int no, device_t dev)
+irq_unregister(unsigned int no, device_t dev, irqfunc_t func, void* context)
 {
 	KASSERT(no < MAX_IRQS, "interrupt %u out of range", no);
 
-	spinlock_lock(&spl_irq);
-	KASSERT(irq[no].i_source != NULL, "interrupt %u not registered", no);
-	KASSERT(irq[no].i_dev == dev, "interrupt %u not registered to this device", no);
-	irq[no].i_source = NULL;
-	irq[no].i_dev = NULL;
-	irq[no].i_handler = NULL;
-	spinlock_unlock(&spl_irq);
+	register_t state = spinlock_lock_unpremptible(&spl_irq);
+	struct IRQ* i = &irq[no];
+	KASSERT(i->i_source != NULL, "interrupt %u has no source", no);
+
+	int matches = 0;
+	for (int slot = 0; slot < IRQ_MAX_HANDLERS; slot++) {
+		struct IRQ_HANDLER* handler = &i->i_handler[slot];
+		if (handler->h_device != dev || handler->h_func != func || handler->h_context != context)
+			continue;
+
+		/* Found a match; unregister it */
+		handler->h_device = NULL;
+		handler->h_func = NULL;
+		handler->h_context = NULL;
+		matches++;
+	}
+	spinlock_unlock_unpremptible(&spl_irq, state);
+
+	KASSERT(matches > 0, "interrupt %u not registered", no);
 }
 
 void
@@ -100,21 +152,25 @@ irq_handler(unsigned int no)
 {
 	int cpuid = PCPU_GET(cpuid);
 	struct IRQ* i = &irq[no];
-	struct IRQ_SOURCE* is = i->i_source;
 
 	KASSERT(no < MAX_IRQS, "irq_handler: (CPU %u) impossible irq %u fired", cpuid, no);
-	if (i->i_handler == NULL) {
-		if (i->i_straycount < IRQ_MAX_STRAY_COUNT) {
-			kprintf("irq_handler(): (CPU %u) stray irq %u, ignored\n", cpuid, no);
-			if (++i->i_straycount == IRQ_MAX_STRAY_COUNT)
-				kprintf("irq_handler(): not reporting stray irq %u anymore\n", no);
-		}
-		/* Find the IRQ source; this is necessary to acknowledge the stray IRQ */
-		is = irqsource_find(no); /* XXX no lock */
-		KASSERT(is != NULL, "stray interrupt %u without source", no);
-	} else {
-		/* Call the interrupt handler */
-		i->i_handler(i->i_dev);
+	struct IRQ_SOURCE* is = i->i_source;
+	KASSERT(is != NULL, "irq_handler(): irq %u without source fired", no);
+
+	/* Try all handlers one by one until we have one that works */
+	irqresult_t result = IRQ_RESULT_IGNORED;
+	struct IRQ_HANDLER* handler = &i->i_handler[0];
+	for (unsigned int slot = 0; result == IRQ_RESULT_IGNORED && slot < IRQ_MAX_HANDLERS; slot++, handler++) {
+		if (handler->h_func == NULL)
+			continue;
+		result = handler->h_func(handler->h_device, handler->h_context);
+	}
+
+	/* If they IRQ wasn't handled, it is stray */
+	if (result == IRQ_RESULT_IGNORED && i->i_straycount < IRQ_MAX_STRAY_COUNT) {
+		kprintf("irq_handler(): (CPU %u) stray irq %u, ignored\n", cpuid, no);
+		if (++i->i_straycount == IRQ_MAX_STRAY_COUNT)
+			kprintf("irq_handler(): not reporting stray irq %u anymore\n", no);
 	}
 
 	/*
@@ -148,20 +204,6 @@ irq_handler(unsigned int no)
 void
 kdb_cmd_irq(int num_args, char** arg)
 {
-	kprintf("irq dump\n");
-	struct IRQ* i = &irq[0];
-	for (int no = 0; no < MAX_IRQS; i++, no++) {
-		kprintf("irq %u: ", no);
-		if (i->i_handler)
-			kprintf("%s (%p)", i->i_dev != NULL ? i->i_dev->name : "?", i->i_handler);
-		else
-			kprintf("(unassigned)");
-		if (i->i_straycount > 0)
-			kprintf(", %u stray%s",
-			 i->i_straycount,
-			 (i->i_straycount == IRQ_MAX_STRAY_COUNT) ? ", no longer reporting" : "");
-		kprintf("\n");
-	}
 }
 #endif /* KDB */
 

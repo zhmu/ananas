@@ -65,8 +65,8 @@ struct ATKBD_PRIVDATA {
 	char kbd_flags;
 };
 
-void
-atkbd_irq(device_t dev)
+static irqresult_t
+atkbd_irq(device_t dev, void* context)
 {
 	struct ATKBD_PRIVDATA* priv = dev->privdata;
 
@@ -77,7 +77,7 @@ atkbd_irq(device_t dev)
 			priv->kbd_flags &= ~ATKBD_FLAG_SHIFT;
 		else
 			priv->kbd_flags |=  ATKBD_FLAG_SHIFT;
-		return;
+		return IRQ_RESULT_PROCESSED;
 	}
 	/* right-alt is 0xe0 0x38 but that does not matter */
 	if ((scancode & 0x7f) == 0x38 /* ALT */) {
@@ -85,7 +85,7 @@ atkbd_irq(device_t dev)
 			priv->kbd_flags &= ~ATKBD_FLAG_ALT;
 		else
 			priv->kbd_flags |=  ATKBD_FLAG_ALT;
-		return;
+		return IRQ_RESULT_PROCESSED;
 	}
 	/* right-control is 0xe0 0x1d but that does not matter */
 	if ((scancode & 0x7f) == 0x1d /* CONTROL */) {
@@ -93,15 +93,15 @@ atkbd_irq(device_t dev)
 			priv->kbd_flags &= ~ATKBD_FLAG_CONTROL;
 		else
 			priv->kbd_flags |=  ATKBD_FLAG_CONTROL;
-		return;
+		return IRQ_RESULT_PROCESSED;
 	}
 	if (scancode & 0x80) /* release event */
-		return;
+		return IRQ_RESULT_PROCESSED;
 
 #ifdef OPTION_KDB
 	if ((priv->kbd_flags == (ATKBD_FLAG_CONTROL | ATKBD_FLAG_SHIFT)) && scancode == 1 /* escape */) {
 		kdb_enter("keyboard sequence");
-		return;
+		return IRQ_RESULT_PROCESSED;
 	}
 	if (priv->kbd_flags == ATKBD_FLAG_CONTROL && scancode == 0x29 /* tilde */)
 		panic("forced by kdb");
@@ -109,7 +109,7 @@ atkbd_irq(device_t dev)
 
 	uint8_t ascii = ((priv->kbd_flags & ATKBD_FLAG_SHIFT) ? atkbd_keymap_shift : atkbd_keymap)[scancode];
 	if (ascii == 0)
-		return;
+		return IRQ_RESULT_PROCESSED;
 
 	priv->kbd_buffer[(int)priv->kbd_buffer_writepos] = ascii;
 	priv->kbd_buffer_writepos = (priv->kbd_buffer_writepos + 1) % ATKBD_BUFFER_SIZE;
@@ -118,6 +118,8 @@ atkbd_irq(device_t dev)
 	if (console_tty != NULL && tty_get_inputdev(console_tty) == dev) {
 		tty_signal_data();
 	}
+
+	return IRQ_RESULT_PROCESSED;
 }
 
 static errorcode_t
@@ -136,7 +138,7 @@ atkbd_attach(device_t dev)
 	kbd_priv->kbd_flags = 0;
 	dev->privdata = kbd_priv;
 
-	errorcode_t err = irq_register((uintptr_t)res_irq, dev, atkbd_irq);
+	errorcode_t err = irq_register((uintptr_t)res_irq, dev, atkbd_irq, NULL);
 	if (err != ANANAS_ERROR_OK) {
 		kfree(kbd_priv);
 		return err;
