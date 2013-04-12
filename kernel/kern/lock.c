@@ -3,6 +3,7 @@
 #include <ananas/lib.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
+#include <ananas/waitqueue.h>
 #include <machine/atomic.h>
 #include <machine/interrupts.h>
 
@@ -100,6 +101,51 @@ mutex_unlock(mutex_t* mtx)
 	mtx->mtx_line = 0;
 #endif
 	waitqueue_signal(&mtx->mtx_wq);
+}
+
+void
+sem_init(semaphore_t* sem, int count)
+{
+	spinlock_init(&sem->sem_lock);
+	waitqueue_init(&sem->sem_wq);
+	sem->sem_count = count;
+}
+
+void
+sem_signal(semaphore_t* sem)
+{
+	/* Increment the number of units left */
+	register_t state = spinlock_lock_unpremptible(&sem->sem_lock);
+	sem->sem_count++;
+	spinlock_unlock_unpremptible(&sem->sem_lock, state);
+
+	/* Wake up anyone who is waiting on this semaphore */
+	waitqueue_signal(&sem->sem_wq);
+}	
+
+void
+sem_wait(semaphore_t* sem)
+{
+	while (1) {
+		/*
+		 * Try the happy flow first: if there are units left, we are done.
+		 */
+		register_t state = spinlock_lock_unpremptible(&sem->sem_lock);
+		if (sem->sem_count > 0) {
+			sem->sem_count--;
+			spinlock_unlock_unpremptible(&sem->sem_lock, state);
+			return;
+		}
+
+		/*
+		 * No more units available - as the waitqueue locks itself, we can create a
+		 * waiter.
+		 */
+		spinlock_unlock_unpremptible(&sem->sem_lock, state);
+		struct WAITER* w = waitqueue_add(&sem->sem_wq);
+		waitqueue_wait(w);
+		waitqueue_remove(w);
+	}
 }
 
 /* vim:set ts=2 sw=2: */

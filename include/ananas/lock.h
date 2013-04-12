@@ -4,6 +4,7 @@
 #include <machine/atomic.h>
 #include <ananas/_types/spinlock.h>
 #include <ananas/waitqueue.h>
+
 /*
  * Spinlocks are simply locks that just keep the CPU busy waiting if they can't
  * be acquired. They can be used in any context and are designed to be light-
@@ -21,6 +22,8 @@
 /*
  * Mutexes are sleepable locks that will suspend the current thread when the
  * lock is already being held. They cannot be used from interrupt context.
+ *
+ * XXX These could be re-implemented using binary semaphores
  */
 typedef struct {
 	const char*		mtx_name;
@@ -32,6 +35,16 @@ typedef struct {
 	int			mtx_line;
 #endif
 } mutex_t;
+
+/*
+ * Semaphores are sleepable locks which guard an amount of units of a
+ * particular resource.
+ */
+typedef struct {
+	spinlock_t		sem_lock;
+	unsigned int		sem_count;
+	struct WAIT_QUEUE	sem_wq;
+} semaphore_t;
 
 #define SPINLOCK_DEFAULT_INIT { { 0 } }
 
@@ -48,6 +61,11 @@ void spinlock_unlock_unpremptible(spinlock_t* l, register_t state);
 void mutex_init(mutex_t* mtx, const char* name);
 void mutex_lock_(mutex_t* mtx, const char* file, int line);
 void mutex_unlock(mutex_t* mtx);
+
+/* Semaphores */
+void sem_init(semaphore_t* sem, int count);
+void sem_signal(semaphore_t* sem);
+void sem_wait(semaphore_t* sem);
 
 #define mutex_lock(mtx) mutex_lock_(mtx, __FILE__, __LINE__)
 
