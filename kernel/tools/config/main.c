@@ -231,6 +231,12 @@ parse_devfile(const char* arch)
 		while (isspace(*opts))
 			opts++;
 
+		/* Special-case 'include' here as it has nothing to do with the stuff below */
+		if (strcmp(line, "include") == 0) {
+			parse_devfile(opts);
+			continue;
+		}
+
 		/*
 		 * OK, there are two options: either it's optional, or it's not;
 		 * corner-case the first case to keep the flow understandable.
