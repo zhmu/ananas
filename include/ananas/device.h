@@ -30,6 +30,8 @@ enum RESOURCE_TYPE {
 	RESTYPE_PCI_DEVICE,
 	RESTYPE_PCI_FUNCTION,
 	RESTYPE_PCI_CLASSREV,
+	/* PnP ID - used by ACPI */
+	RESTYPE_PNP_ID,
 };
 
 typedef enum RESOURCE_TYPE resource_type_t;

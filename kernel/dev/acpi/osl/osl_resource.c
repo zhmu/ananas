@@ -1,5 +1,6 @@
 #include <ananas/vm.h>
 #include <ananas/device.h>
+#include <ananas/bus/pcihb.h>
 #include <ananas/error.h>
 #include <ananas/irq.h>
 #include <ananas/mm.h>
@@ -108,13 +109,15 @@ AcpiOsWritePort(ACPI_IO_ADDRESS Address, UINT32 Value, UINT32 Width)
 ACPI_STATUS
 AcpiOsReadPciConfiguration(ACPI_PCI_ID* PciId, UINT32 Register, UINT64* Value, UINT32 Width)
 {
-	panic("AcpiOsReadPciConfiguration");
+	*Value = pci_read_config(PciId->Bus, PciId->Device, PciId->Function, Register, Width);
+	return AE_OK;
 }
 
 ACPI_STATUS
 AcpiOsWritePciConfiguration(ACPI_PCI_ID* PciId, UINT32 Register, UINT64 Value, UINT32 Width)
 {
-	panic("AcpiOsWritePciConfiguration");
+	pci_write_config(PciId->Bus, PciId->Device, PciId->Function, Register, Value, Width);
+	return AE_OK;
 }
 
 /* vim:set ts=2 sw=2: */

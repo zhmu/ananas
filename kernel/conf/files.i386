@@ -18,6 +18,9 @@ lib/kern/divdi3.c		mandatory
 dev/fb.c			optional fb
 # ACPI
 dev/acpi/acpi.c			option ACPI
+dev/acpi/acpi_resource.c	option ACPI
+# XXX this makes us rely on pci (?)
+dev/acpi/acpi_pcihb.c		option ACPI
 dev/acpi/osl/osl_env.c		option ACPI
 dev/acpi/osl/osl_memory.c	option ACPI
 dev/acpi/osl/osl_thread.c	option ACPI
