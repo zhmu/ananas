@@ -40,6 +40,14 @@ printf("phdr %u, type %u\n", i, phdr->p_type);
 		printf("ELF: reading %u bytes at offset %u to 0x%x\n",
 		 (uint32_t)phdr->p_filesz, (uint32_t)phdr->p_offset, (uint32_t)dest);
 #endif
+		/*
+		 * If this section won't take up any memory, short-circuit the loading -
+		 * this is necessary to avoid messing up the memory start/end ranges (we
+		 * might end up with 0 offsets otherwise)
+		 */
+		if (phdr->p_memsz == 0)
+			continue;
+
 		platform_map_memory(dest, phdr->p_memsz);
 		memset(dest, 0, phdr->p_memsz);
 		if (vfs_pread(dest, phdr->p_filesz, phdr->p_offset) != phdr->p_filesz)
