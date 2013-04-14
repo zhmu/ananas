@@ -1,5 +1,7 @@
 #include <machine/vm.h>
 #include <ananas/x86/io.h>
+#include <ananas/x86/pcihb.h>
+#include <ananas/bus/pcihb.h>
 #include <ananas/console.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
@@ -10,47 +12,36 @@
 TRACE_SETUP;
 
 /*
- * This file implements a PCI Host Bridge driver; such a driver is responsible
- * for hooking up the host CPU to the PCI bridge logic.
+ * This file implements an x86 PCI Host Bridge driver; such a driver is
+ * responsible for hooking up the host CPU to the PCI bridge logic. It
+ * will be probed by ACPI or using the plain old ISA bus.
  *
  * It must export pci_read_config() and pci_write_config() functions which
  * will be used by the architecture-independant PCI stack in dev/pci/
- *
- * Also, if a PCI bus exists, this file must instantiate it.
- *
  */
-static uint32_t pcihb_io = 0;
 
 uint32_t
-pci_read_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg)
+pci_read_config(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, int width)
 {
-	uint32_t addr = 0x80000000L | (bus << 16) | (dev << 11) | (func << 8) | reg;
-	outl(pcihb_io, addr);
-	return inl(pcihb_io + 4);
-}
-
-uint16_t
-pci_read_config_w(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg)
-{
-	uint32_t addr = 0x80000000L | (bus << 16) | (dev << 11) | (func << 8) | reg;
-	outl(pcihb_io, addr);
-	return inw(pcihb_io + 4);
+	outl(PCI_CFG1_ADDR, PCI_MAKE_ADDR(bus, dev, func, reg));
+	switch(width) {
+		case 32: return inl(PCI_CFG1_DATA);
+		case 16: return inw(PCI_CFG1_DATA);
+		case  8: return inb(PCI_CFG1_DATA);
+		default: panic("unsupported width %u", width);
+	}
 }
 
 void
-pci_write_config_w(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, uint16_t value)
+pci_write_config(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, uint32_t value, int width)
 {
-	uint32_t addr = 0x80000000L | (bus << 16) | (dev << 11) | (func << 8) | reg;
-	outl(pcihb_io, addr);
-	outw(pcihb_io + 4, value);
-}
-
-void
-pci_write_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, uint32_t value)
-{
-	uint32_t addr = 0x80000000L | (bus << 16) | (dev << 11) | (func << 8) | reg;
-	outl(pcihb_io, addr);
-	outl(pcihb_io + 4, value);
+	outl(PCI_CFG1_ADDR, PCI_MAKE_ADDR(bus, dev, func, reg));
+	switch(width) {
+		case 32: outb(PCI_CFG1_DATA, value); break;
+		case 16: outw(PCI_CFG1_DATA, value); break;
+		case  8: outl(PCI_CFG1_DATA, value); break;
+		default: panic("unsupported width %u", width);
+	}
 }
 
 static errorcode_t
@@ -59,8 +50,6 @@ pcihb_attach(device_t dev)
 	void* res = device_alloc_resource(dev, RESTYPE_IO, 7);
 	if (res == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
-	pcihb_io = (uintptr_t)res;
-
 	return ANANAS_ERROR_OK;
 }
 

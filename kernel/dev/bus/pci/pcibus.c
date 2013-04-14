@@ -1,13 +1,10 @@
 #include <ananas/bus/pci.h>
-#include <ananas/x86/io.h>
+#include <ananas/bus/pcihb.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
 
 extern struct PROBE* devprobe[];
-
-uint32_t pci_read_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg);
-uint32_t pci_write_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, uint32_t value);
 
 static errorcode_t
 pcibus_attach(device_t dev)
@@ -22,7 +19,7 @@ pcibus_attach(device_t dev)
 		 * Grab the device/vendor pair; if the vendor is PCI_NOVENDOR, there's no
 		 * device here and we skip the device alltogether.
 		 */
-		uint32_t dev_vendor = pci_read_config_l(busno, devno, 0, PCI_REG_DEVICEVENDOR);
+		uint32_t dev_vendor = pci_read_config(busno, devno, 0, PCI_REG_DEVICEVENDOR, 32);
 		if ((uint32_t)(dev_vendor & 0xffff) == PCI_NOVENDOR) {
 			continue;
 		}
@@ -32,11 +29,11 @@ pcibus_attach(device_t dev)
  		 * ordinary PCI device or not
 		 */
 		unsigned int max_func = 0;
-		if (pci_read_config_l(busno, devno, 0, PCI_REG_HEADERTIMER) & PCI_HEADER_MULTI)
+		if (pci_read_config(busno, devno, 0, PCI_REG_HEADERTIMER, 32) & PCI_HEADER_MULTI)
 			max_func = PCI_MAX_FUNCS;
 
 		for (unsigned int funcno = 0; funcno <= max_func; funcno++) {
-			dev_vendor = pci_read_config_l(busno, devno, funcno, PCI_REG_DEVICEVENDOR);
+			dev_vendor = pci_read_config(busno, devno, funcno, PCI_REG_DEVICEVENDOR, 32);
 			if ((uint32_t)(dev_vendor & 0xffff) == PCI_NOVENDOR)
 				continue;
 
@@ -44,7 +41,7 @@ pcibus_attach(device_t dev)
 			 * Retrieve the PCI device class; drivers may use this to determine whether
 			 * they need to attach.
 			 */
-			uint32_t class_revision = pci_read_config_l(busno, devno, funcno, PCI_REG_CLASSREVISION);
+			uint32_t class_revision = pci_read_config(busno, devno, funcno, PCI_REG_CLASSREVISION, 32);
 
 			/* Create a new device and pollute it with PCI resources */
 			device_t new_dev = device_alloc(dev, NULL);
@@ -57,7 +54,7 @@ pcibus_attach(device_t dev)
 
 			/* Walk through the BAR registers */
 			for (unsigned int bar = PCI_REG_BAR0; bar <= PCI_REG_BAR5; bar += 4) {
-				uint32_t res = pci_read_config_l(busno, devno, funcno, bar);
+				uint32_t res = pci_read_config(busno, devno, funcno, bar, 32);
 				if (res == 0)
 					continue;
 
@@ -71,9 +68,9 @@ pcibus_attach(device_t dev)
 				 *
 				 * Note that we must restore the value once done with it.
 				 */
-				pci_write_config_l(busno, devno, funcno, bar, 0xffffffff);
-				uint32_t len = pci_read_config_l(busno, devno, funcno, bar);
-				pci_write_config_l(busno, devno, funcno, bar, res);
+				pci_write_config(busno, devno, funcno, bar, 0xffffffff, 32);
+				uint32_t len = pci_read_config(busno, devno, funcno, bar, 32);
+				pci_write_config(busno, devno, funcno, bar, res, 32);
 				if (len == 0 || len == 0xffffffff)
 					continue;
 
@@ -98,7 +95,7 @@ pcibus_attach(device_t dev)
 			}
 
 			/* Fetch the IRQ line, if any */
-			uint32_t irq = pci_read_config_l(busno, devno, funcno, PCI_REG_INTERRUPT) & 0xff;
+			uint32_t irq = pci_read_config(busno, devno, funcno, PCI_REG_INTERRUPT, 32) & 0xff;
 			if (irq != 0 && irq != 0xff)
 				device_add_resource(new_dev, RESTYPE_IRQ, irq, 0);
 

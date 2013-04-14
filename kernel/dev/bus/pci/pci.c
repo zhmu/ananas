@@ -1,16 +1,11 @@
 #include <ananas/x86/io.h>
 #include <ananas/bus/pci.h>
+#include <ananas/bus/pcihb.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
 
-extern uint32_t pci_read_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg);
 extern struct DRIVER drv_pcibus;
-
-uint32_t pci_read_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg);
-uint16_t pci_read_config_w(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg);
-uint32_t pci_write_config_l(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, uint32_t value);
-uint32_t pci_write_config_w(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, uint16_t value);
 
 static errorcode_t
 pci_attach(device_t dev)
@@ -20,7 +15,7 @@ pci_attach(device_t dev)
 	 	 * Attempt to obtain the vendor/device ID of device 0 on this bus. If it
 	 	 * does not exist, we assume the bus doesn't exist.
 		 */
-		uint32_t dev_vendor = pci_read_config_l(bus, 0, 0, PCI_REG_DEVICEVENDOR);
+		uint32_t dev_vendor = pci_read_config(bus, 0, 0, PCI_REG_DEVICEVENDOR, 32);
 		if ((dev_vendor & 0xffff) == PCI_NOVENDOR)
 			continue;
 
@@ -42,11 +37,7 @@ pci_write_cfg(device_t dev, uint32_t reg, uint32_t val, int size)
 	struct RESOURCE* func_res = device_get_resource(dev, RESTYPE_PCI_FUNCTION, 0);
 	KASSERT(bus_res != NULL && dev_res != NULL && func_res != NULL, "missing pci resources");
 
-	switch(size) {
-		case 2: pci_write_config_w(bus_res->base, dev_res->base, func_res->base, reg, val); return;
-		case 4: pci_write_config_l(bus_res->base, dev_res->base, func_res->base, reg, val); return;
-	}
-	panic("unsupported size");
+	pci_write_config(bus_res->base, dev_res->base, func_res->base, reg, val, size);
 }
 
 uint32_t
@@ -57,11 +48,7 @@ pci_read_cfg(device_t dev, uint32_t reg, int size)
 	struct RESOURCE* func_res = device_get_resource(dev, RESTYPE_PCI_FUNCTION, 0);
 	KASSERT(bus_res != NULL && dev_res != NULL && func_res != NULL, "missing pci resources");
 
-	switch(size) {
-		case 2: return pci_read_config_w(bus_res->base, dev_res->base, func_res->base, reg);
-		case 4: return pci_read_config_l(bus_res->base, dev_res->base, func_res->base, reg);
-	}
-	panic("unsupported size");
+	return pci_read_config(bus_res->base, dev_res->base, func_res->base, reg, size);
 }
 
 struct DRIVER drv_pci = {
@@ -72,6 +59,7 @@ struct DRIVER drv_pci = {
 
 DRIVER_PROBE(pci)
 DRIVER_PROBE_BUS(pcihb)
+DRIVER_PROBE_BUS(acpi-pcihb)
 DRIVER_PROBE_END()
 
 /* vim:set ts=2 sw=2: */
