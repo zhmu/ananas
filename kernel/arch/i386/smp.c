@@ -31,18 +31,7 @@ void md_remove_low_mappings();
 void md_map_kernel_lowaddr(uint32_t* pd);
 extern uint32_t* pagedir;
 
-struct IA32_CPU** cpus;
-uint8_t* lapic2cpuid;
-static uint32_t num_cpu;
-
-struct IA32_IOAPIC** ioapics;
-static uint32_t num_ioapic;
-
-struct IA32_BUS** busses;
-static uint32_t num_bus;
-
-struct IA32_INTERRUPT** ints;
-static uint32_t num_ints;
+struct IA32_SMP_CONFIG smp_config;
 
 static char* ap_code;
 static int can_smp_launch = 0;
@@ -97,13 +86,7 @@ validate_checksum(addr_t base, size_t length)
 uint32_t
 get_num_cpus()
 {
-	return num_cpu;
-}
-
-struct IA32_CPU*
-get_cpu_struct(int i)
-{
-	return (struct IA32_CPU*)(cpus + (sizeof(struct IA32_CPU*) * num_cpu) + i * sizeof(struct IA32_CPU));
+	return smp_config.cfg_num_cpus;
 }
 
 static addr_t
@@ -221,12 +204,12 @@ resolve_bus_type(struct MP_ENTRY_BUS* bus)
 static struct IA32_BUS*
 find_bus(int id)
 {
-	struct IA32_BUS** bus = busses;
+	struct IA32_BUS* bus = smp_config.cfg_bus;
 	int i;
 
-	for (i = 0; i < num_bus; i++, bus++) {
-		if ((*bus)->id == id)
-			return *bus;
+	for (i = 0; i < smp_config.cfg_num_busses; i++, bus++) {
+		if (bus->id == id)
+			return bus;
 	}
 	return NULL;
 }
@@ -234,11 +217,11 @@ find_bus(int id)
 static struct IA32_IOAPIC*
 find_ioapic(int id)
 {
-	struct IA32_IOAPIC** ioapic = ioapics;
+	struct IA32_IOAPIC* ioapic = smp_config.cfg_ioapic;
 
-	for (int i = 0; i < num_ioapic; i++, ioapic++) {
-		if ((*ioapic)->ioa_id == id)
-			return *ioapic;
+	for (int i = 0; i < smp_config.cfg_num_ioapics; i++, ioapic++) {
+		if (ioapic->ioa_id == id)
+			return ioapic;
 	}
 	return NULL;
 }
@@ -246,6 +229,8 @@ find_ioapic(int id)
 static irqresult_t
 smp_ipi_schedule(device_t dev, void* context)
 {
+	kprintf("[%u]", PCPU_GET(cpuid));
+
 	/* Flip the reschedule flag of the current thread; this makes the IRQ reschedule us as needed */
 	thread_t* curthread = PCPU_GET(curthread);
 	curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
@@ -262,22 +247,22 @@ smp_ipi_panic(device_t dev, void* context)
 }
 
 void
-smp_prepare_tables(int num_cpu, int num_ioapic, int num_bus, int num_ints)
+smp_prepare_config(struct IA32_SMP_CONFIG* cfg)
 {
 	extern void* gdt; /* XXX */
 
 	/* Prepare the CPU structure. CPU #0 is always the BSP */
-	cpus = (struct IA32_CPU**)kmalloc((sizeof(struct IA32_CPU*) + sizeof(struct IA32_CPU)) * num_cpu);
-	memset(cpus, 0, (sizeof(struct IA32_CPU*) + sizeof(struct IA32_CPU)) * num_cpu);
-	for (int i = 0; i < num_cpu; i++) {
-		cpus[i] = (struct IA32_CPU*)(cpus + (sizeof(struct IA32_CPU*) * num_cpu) + i * sizeof(struct IA32_CPU));
+	cfg->cfg_cpu = kmalloc(sizeof(struct IA32_CPU) * cfg->cfg_num_cpus);
+	memset(cfg->cfg_cpu, 0, sizeof(struct IA32_CPU) * cfg->cfg_num_cpus);
+	for (int i = 0; i < cfg->cfg_num_cpus; i++) {
+		struct IA32_CPU* cpu = &cfg->cfg_cpu[i];
 
 		/*
 	 	 * Note that we don't need to allocate anything extra for the BSP, but
 		 * we have to setup the pointers.
 		 */
 		if (i == 0) {
-			cpus[i]->gdt = gdt;
+			cpu->gdt = gdt;
 			continue;
 		}
 
@@ -287,46 +272,37 @@ smp_prepare_tables(int num_cpu, int num_ioapic, int num_bus, int num_ints)
 		 * data and the TSS must be distinct too.
 		 */
 		char* buf = kmalloc(GDT_NUM_ENTRIES * 8 + sizeof(struct TSS) + sizeof(struct PCPU));
-		cpus[i]->gdt = buf;
-		memcpy(cpus[i]->gdt, &gdt, GDT_NUM_ENTRIES * 8);
+		cpu->gdt = buf;
+		memcpy(cpu->gdt, &gdt, GDT_NUM_ENTRIES * 8);
 		struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
 		memset(tss, 0, sizeof(struct TSS));
 		tss->ss0 = GDT_SEL_KERNEL_DATA;
-		GDT_SET_TSS(cpus[i]->gdt, GDT_IDX_KERNEL_TASK, 0, (addr_t)tss, sizeof(struct TSS));
-		cpus[i]->tss = (char*)tss;
+		GDT_SET_TSS(cpu->gdt, GDT_IDX_KERNEL_TASK, 0, (addr_t)tss, sizeof(struct TSS));
+		cpu->tss = (char*)tss;
 
 		/* Initialize per-CPU data */
 		struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS));
 		memset(pcpu, 0, sizeof(struct PCPU));
 		pcpu->cpuid = i;
-		pcpu->tss = (addr_t)cpus[i]->tss;
+		pcpu->tss = (addr_t)cpu->tss;
 		pcpu_init(pcpu);
-		GDT_SET_ENTRY32(cpus[i]->gdt, GDT_IDX_KERNEL_PCPU, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, (addr_t)pcpu, sizeof(struct PCPU));
+		GDT_SET_ENTRY32(cpu->gdt, GDT_IDX_KERNEL_PCPU, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, (addr_t)pcpu, sizeof(struct PCPU));
 
 		/* Use the idle thread stack to execute from; we're becoming the idle thread anyway */
-		cpus[i]->stack = (void*)pcpu->idlethread.md_esp;
+		cpu->stack = (void*)pcpu->idlethread.md_esp;
 	}
 
 	/* Prepare the IOAPIC structure */
-	ioapics = (struct IA32_IOAPIC**)kmalloc((sizeof(struct IA32_IOAPIC*) + sizeof(struct IA32_IOAPIC)) * num_ioapic);
-	memset(ioapics, 0, ((sizeof(struct IA32_IOAPIC*) + sizeof(struct IA32_IOAPIC)) * num_ioapic));
-	for (int i = 0; i < num_ioapic ; i++) {
-		ioapics[i] = (struct IA32_IOAPIC*)(ioapics + (sizeof(struct IA32_IOAPIC*) * num_ioapic) + i * sizeof(struct IA32_IOAPIC));
-	}
+	cfg->cfg_ioapic = kmalloc(sizeof(struct IA32_IOAPIC) * cfg->cfg_num_ioapics);
+	memset(cfg->cfg_ioapic, 0, sizeof(struct IA32_IOAPIC) * cfg->cfg_num_ioapics);
 
 	/* Prepare the BUS structure */
-	busses = (struct IA32_BUS**)kmalloc((sizeof(struct IA32_BUS*) + sizeof(struct IA32_BUS)) * num_bus);
-	memset(busses, 0, (sizeof(struct IA32_BUS*) + sizeof(struct IA32_BUS)) * num_bus);
-	for (int i = 0; i < num_bus ; i++) {
-		busses[i] = (struct IA32_BUS*)(busses + (sizeof(struct IA32_BUS*) * num_bus) + i * sizeof(struct IA32_BUS));
-	}
+	cfg->cfg_bus = kmalloc(sizeof(struct IA32_BUS) * cfg->cfg_num_busses);
+	memset(cfg->cfg_bus, 0, sizeof(struct IA32_BUS) * cfg->cfg_num_busses);
 
 	/* Prepare the INTERRUPTS structure */
-	ints = (struct IA32_INTERRUPT**)kmalloc((sizeof(struct IA32_INTERRUPT*) + sizeof(struct IA32_INTERRUPT)) * num_ints);
-	memset(ints, 0, (sizeof(struct IA32_INTERRUPT*) + sizeof(struct IA32_INTERRUPT)) * num_ints);
-	for (int i = 0; i < num_ints; i++) {
-		ints[i] = (struct IA32_INTERRUPT*)(ints + (sizeof(struct IA32_INTERRUPT*) * num_ints) + i * sizeof(struct IA32_INTERRUPT));
-	}
+	cfg->cfg_int = kmalloc(sizeof(struct IA32_INTERRUPT) * cfg->cfg_num_ints);
+	memset(cfg->cfg_int, 0, sizeof(struct IA32_INTERRUPT) * cfg->cfg_num_ints);
 }
 
 /* Initialize SMP based on the legacy MPS tables */
@@ -393,9 +369,8 @@ smp_init_mps(int* bsp_apic_id)
 	 * Count the number of entries; this is needed because we allocate memory for
 	 * each item as needed.
 	 */
-	num_cpu = 0; num_ioapic = 0; num_bus = 0; num_ints = 0;
+	//num_cpu = 0; num_ioapic = 0; num_bus = 0; num_ints = 0;
 	*bsp_apic_id = -1;
-	int max_apic_id = -1, max_ioapic_id = -1;
 	uint16_t num_entries = mpct->entry_count;
 	addr_t entry_addr = (addr_t)mpct + sizeof(struct MP_CONFIGURATION_TABLE);
 	for (int i = 0; i < num_entries; i++) {
@@ -404,26 +379,22 @@ smp_init_mps(int* bsp_apic_id)
 			case MP_ENTRY_TYPE_PROCESSOR:
 				/* Only count enabled CPU's */
 				if (entry->u.proc.flags & MP_PROC_FLAG_EN)
-					num_cpu++;
+					smp_config.cfg_num_cpus++;
 				if (entry->u.proc.flags & MP_PROC_FLAG_BP)
 					*bsp_apic_id = entry->u.proc.lapic_id;
-				if (entry->u.proc.lapic_id > max_apic_id)
-					max_apic_id = entry->u.proc.lapic_id;
 				entry_addr += 20;
 				break;
 			case MP_ENTRY_TYPE_IOAPIC:
 				if (entry->u.ioapic.flags & MP_IOAPIC_FLAG_EN)
-					num_ioapic++;
-				if (entry->u.ioapic.ioapic_id > max_ioapic_id)
-					max_ioapic_id = entry->u.ioapic.ioapic_id;
+					smp_config.cfg_num_ioapics++;
 				entry_addr += 8;
 				break;
 			case MP_ENTRY_TYPE_BUS:
-				num_bus++;
+				smp_config.cfg_num_busses++;
 				entry_addr += 8;
 				break;
 			case MP_ENTRY_TYPE_IOINT:
-				num_ints++;
+				smp_config.cfg_num_ints++;
 				entry_addr += 8;
 				break;
 			default:
@@ -434,16 +405,10 @@ smp_init_mps(int* bsp_apic_id)
 	if (*bsp_apic_id < 0)
 		panic("smp: no BSP processor defined!");
 
-	kprintf("SMP: %u CPU(s) detected, %u IOAPIC(s)\n", num_cpu, num_ioapic);
+	kprintf("SMP: %u CPU(s) detected, %u IOAPIC(s)\n", smp_config.cfg_num_cpus, smp_config.cfg_num_ioapics);
 
 	/* Allocate tables for the resources we found */
-	smp_prepare_tables(num_cpu, num_ioapic, num_bus, num_ints);
-
-	/*
-	 * Prepare the LAPIC ID -> CPU ID array, we use this to quickly look up
-	 * the corresponding CPU structures.
-	 */
-	lapic2cpuid = kmalloc(max_apic_id + 1);
+	smp_prepare_config(&smp_config);
 
 	/* Wade through the table */
 	int cur_cpu = 0, cur_ioapic = 0, cur_bus = 0, cur_int = 0;
@@ -458,7 +423,8 @@ smp_init_mps(int* bsp_apic_id)
 				kprintf("cpu%u: %s, id #%u\n",
 				 cur_cpu, *bsp_apic_id == entry->u.proc.lapic_id ? "BSP" : "AP",
 				 entry->u.proc.lapic_id);
-				lapic2cpuid[entry->u.proc.lapic_id] = cur_cpu;
+				struct IA32_CPU* cpu = &smp_config.cfg_cpu[cur_cpu];
+				cpu->lapic_id = entry->u.proc.lapic_id;
 				cur_cpu++;
 				break;
 			case MP_ENTRY_TYPE_IOAPIC:
@@ -469,29 +435,23 @@ smp_init_mps(int* bsp_apic_id)
 				 cur_ioapic, entry->u.ioapic.ioapic_id,
 				 entry->u.ioapic.addr);
 #endif
-				ioapics[cur_ioapic]->ioa_id = entry->u.ioapic.ioapic_id;
-				ioapics[cur_ioapic]->ioa_addr = entry->u.ioapic.addr;
+				struct IA32_IOAPIC* ioapic = &smp_config.cfg_ioapic[cur_ioapic];
+				ioapic->ioa_id = entry->u.ioapic.ioapic_id;
+				ioapic->ioa_addr = entry->u.ioapic.addr;
 				/* XXX Assumes the address is in kernel space (it should be) */
-				vm_map_kernel(entry->u.ioapic.addr, 1, VM_FLAG_READ | VM_FLAG_WRITE);
-#ifdef notyet
-				/*
-				 * Is this really necessary or just over-paranoid? It fails with a 1-CPU Bochs...
-				 */
-				if ((ioapic_read(ioapics[cur_ioapic], IOAPICID) >> 24) & 7 != entry->u.ioapic.ioapic_id)
-					panic("smp: ioapic doesn't agree with its own id");
-#endif
+				vm_map_kernel(ioapic->ioa_addr, 1, VM_FLAG_READ | VM_FLAG_WRITE);
 
 				/* Fetch IOAPIC version register; this contains the number of interrupts supported */
-				uint32_t num_ints = ((ioapic_read(ioapics[cur_ioapic], IOAPICVER) >> 16) & 0xff) + 1;
+				uint32_t num_ints = ((ioapic_read(ioapic, IOAPICVER) >> 16) & 0xff) + 1;
 
-				/* Set up the IRQ source; each IOAPIC covers 24 interrupt sources */
-				ioapics[cur_ioapic]->ioa_source.is_privdata = &ioapics[cur_ioapic];
-				ioapics[cur_ioapic]->ioa_source.is_first = cur_ioapic_first;
-				ioapics[cur_ioapic]->ioa_source.is_count = num_ints;
-				ioapics[cur_ioapic]->ioa_source.is_mask = ioapic_mask;
-				ioapics[cur_ioapic]->ioa_source.is_unmask = ioapic_unmask;
-				ioapics[cur_ioapic]->ioa_source.is_ack = ioapic_ack;
-				irqsource_register(&ioapics[cur_ioapic]->ioa_source);
+				/* Set up the IRQ source */
+				ioapic->ioa_source.is_privdata = ioapic;
+				ioapic->ioa_source.is_first = cur_ioapic_first;
+				ioapic->ioa_source.is_count = num_ints;
+				ioapic->ioa_source.is_mask = ioapic_mask;
+				ioapic->ioa_source.is_unmask = ioapic_unmask;
+				ioapic->ioa_source.is_ack = ioapic_ack;
+				irqsource_register(&ioapic->ioa_source);
 				cur_ioapic++; cur_ioapic_first += num_ints;
 				break;
 			case MP_ENTRY_TYPE_IOINT:
@@ -504,10 +464,11 @@ smp_init_mps(int* bsp_apic_id)
 				 entry->u.interrupt.dest_ioapicid,
 				 entry->u.interrupt.dest_ioapicint);
 #endif
-				ints[cur_int]->source_no = entry->u.interrupt.source_irq;
-				ints[cur_int]->dest_no = entry->u.interrupt.dest_ioapicint;
-				ints[cur_int]->bus = find_bus(entry->u.interrupt.source_busid);
-				ints[cur_int]->ioapic = find_ioapic(entry->u.interrupt.dest_ioapicid);
+				struct IA32_INTERRUPT* interrupt = &smp_config.cfg_int[cur_int];
+				interrupt->source_no = entry->u.interrupt.source_irq;
+				interrupt->dest_no = entry->u.interrupt.dest_ioapicint;
+				interrupt->bus = find_bus(entry->u.interrupt.source_busid);
+				interrupt->ioapic = find_ioapic(entry->u.interrupt.dest_ioapicid);
 				cur_int++;
 				break;
 			case MP_ENTRY_TYPE_BUS:
@@ -517,8 +478,9 @@ smp_init_mps(int* bsp_apic_id)
 				 entry->u.bus.type[0], entry->u.bus.type[1], entry->u.bus.type[2],
 				 entry->u.bus.type[3], entry->u.bus.type[4], entry->u.bus.type[5]);
 #endif
-				busses[cur_bus]->id = entry->u.bus.bus_id;
-				busses[cur_bus]->type = resolve_bus_type(&entry->u.bus);
+				struct IA32_BUS* bus = &smp_config.cfg_bus[cur_bus];
+				bus->id = entry->u.bus.bus_id;
+				bus->type = resolve_bus_type(&entry->u.bus);
 				cur_bus++;
 				break;
 		}
@@ -572,23 +534,24 @@ smp_init()
 	}
 
 	/* Program the I/O APIC - we currently just wire all ISA interrupts */
-	for (int i = 0; i < num_ints; i++) {
+	for (int i = 0; i < smp_config.cfg_num_ints; i++) {
+		struct IA32_INTERRUPT* interrupt = &smp_config.cfg_int[i];
 #ifdef SMP_DEBUG
 		kprintf("int %u: source=%u, dest=%u, bus=%x, apic=%x\n",
-		 i, ints[i]->source_no, ints[i]->dest_no, ints[i]->bus, ints[i]->ioapic);
+		 i, interrupt->source_no, interrupt->dest_no, interrupt->bus, interrupt->ioapic);
 #endif
 
-		if (ints[i]->bus == NULL || ints[i]->bus->type != BUS_TYPE_ISA)
+		if (interrupt->bus == NULL || interrupt->bus->type != BUS_TYPE_ISA)
 			continue;
-		if (ints[i]->ioapic == NULL)
+		if (interrupt->ioapic == NULL)
 			continue;
-		if (ints[i]->dest_no < 0)
+		if (interrupt->dest_no < 0)
 			continue;
 
 		/* XXX For now, route all interrupts to the BSP */
-		uint32_t reg = IOREDTBL + (ints[i]->dest_no * 2);
-		ioapic_write(ints[i]->ioapic, reg, TRIGGER_EDGE | DESTMOD_PHYSICAL | DELMOD_FIXED | (ints[i]->source_no + 0x20));
-		ioapic_write(ints[i]->ioapic, reg + 1, bsp_apic_id << 24);
+		uint32_t reg = IOREDTBL + (interrupt->dest_no * 2);
+		ioapic_write(interrupt->ioapic, reg, TRIGGER_EDGE | DESTMOD_PHYSICAL | DELMOD_FIXED | (interrupt->source_no + 0x20));
+		ioapic_write(interrupt->ioapic, reg + 1, bsp_apic_id << 24);
 	}
 
 	/*
@@ -630,7 +593,7 @@ smp_launch()
 	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | (addr_t)KVTOP((addr_t)ap_code) >> 12;
 	delay(200);
 
-	while(num_smp_launched < num_cpu)
+	while(num_smp_launched < smp_config.cfg_num_cpus)
 		/* wait for it ... */ ;
 
 	/* All done - we can throw away the AP code and mappings */

@@ -95,7 +95,7 @@ struct MP_ENTRY {
 
 struct IA32_CPU {
 	/* NOTE: order is important - refer to mp_stub.S */
-	uint8_t		lapic_id;	/* Local APIC ID */
+	int		lapic_id;	/* Local APIC ID */
 	char*		stack;		/* CPU stack */
 	char*		gdt;		/* Global Descriptor Table */
 	char*		tss;		/* Task State Segment */
@@ -113,6 +113,17 @@ struct IA32_INTERRUPT {
 	int                 dest_no;
 	struct IA32_IOAPIC* ioapic;
 	struct IA32_BUS*    bus;
+};
+
+struct IA32_SMP_CONFIG {
+	int cfg_num_ioapics;
+	int cfg_num_cpus;
+	int cfg_num_ints;
+	int cfg_num_busses;
+	struct IA32_CPU* cfg_cpu;
+	struct IA32_IOAPIC* cfg_ioapic;
+	struct IA32_INTERRUPT* cfg_int;
+	struct IA32_BUS* cfg_bus;
 };
 
 errorcode_t smp_init();

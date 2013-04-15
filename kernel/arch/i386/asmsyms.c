@@ -1,5 +1,6 @@
 #include <machine/frame.h>
 #include <machine/pcpu.h>
+#include <machine/smp.h>
 #include <ananas/asmsymbols.h>
 #include <ananas/pcpu.h>
 
@@ -29,3 +30,10 @@ ASM_SYMBOL(PCPU_CURTHREAD, offsetof(struct PCPU, curthread));
 ASM_SYMBOL(PCPU_FPUCTX, offsetof(struct PCPU, fpu_context));
 ASM_SYMBOL(PCPU_TICKCOUNT, offsetof(struct PCPU, tickcount));
 ASM_SYMBOL(PCPU_NESTEDIRQ, offsetof(struct PCPU, nested_irq));
+
+ASM_SYMBOL(SMP_CPU_OFFSET,	offsetof(struct IA32_SMP_CONFIG, cfg_cpu));
+ASM_SYMBOL(SMP_NUM_CPUS,	offsetof(struct IA32_SMP_CONFIG, cfg_num_cpus));
+ASM_SYMBOL(SMP_CPU_SIZE,	sizeof(struct IA32_CPU));
+ASM_SYMBOL(SMP_CPU_LAPICID,	offsetof(struct IA32_CPU, lapic_id));
+ASM_SYMBOL(SMP_CPU_STACK,	offsetof(struct IA32_CPU, stack));
+ASM_SYMBOL(SMP_CPU_GDT,		offsetof(struct IA32_CPU, gdt));

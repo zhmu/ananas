@@ -3,9 +3,9 @@
 #include <machine/vm.h>
 #include <machine/macro.h>
 #include <machine/param.h>
+#include "asmsyms.h"
 
-.globl __ap_entry, __ap_entry_end, mp_ap_startup, panic
-.globl	lapic2cpuid, cpus
+.globl __ap_entry, __ap_entry_end, mp_ap_startup
 
 .code16
 .align 16
@@ -14,16 +14,19 @@ __ap_entry:
 	nop
 	nop
 
-	mov	%cs, %ax
-	mov	%ax, %ds
-	mov	%ax, %es
+	/*
+	 * Create a stack; we use first page in memory for this since we never map it to
+	 * something useful. Note that it does not matter if multiple AP's use
+	 * the same stack because they will all use the same value.
+	 */
+	xor	%ax, %ax
+	mov	%ax, %ss
+	mov	$0xffc, %esp
 
-	/* Load the GDT */
-	call	m
-gdtr:	.word	(GDT_NUM_ENTRIES * 8) - 1
-	.long	gdt - KERNBASE
-m:	pop	%si
-	lgdt	(%si)
+	/* Load the BSP GDT, this allows us to jump to protected mode */
+	pushl	$(gdt - KERNBASE)
+	pushw	$((GDT_NUM_ENTRIES * 8) - 1)
+	lgdt	(%esp)
 
 	/* Jump to protected mode */
 	mov	%cr0, %eax
@@ -74,33 +77,43 @@ mp_stub32:
 	 * OK, we have paging now; this means we can use our real
 	 * address space, which will make things like 'call' work.
 	 */
-	movl	$mp_stub32_paging, %eax
+	movl	$1f, %eax
 	jmp	*%eax
 
-mp_stub32_paging:
-	/* Time to switch to a stack */
-	movl	lapic2cpuid, %edx
-	addl	%ebx, %edx
-	xor	%eax, %eax
-	mov	(%edx), %al		/* eax = lapic2cpuid[lapicid] */
-	shl	$2, %eax
-	addl	cpus, %eax
-	movl	(%eax), %eax		/* eax = cpus[lapic2cpuid[lapicid]] */
-	movl	4(%eax), %esp
-	movl	8(%eax), %edx		/* edx = private gdt */
+1:
+	/*
+	 * Scan for our current IA32_CPU structure; this contains the stack we
+	 * have to use. Our local APIC ID is still in %ebx, we'll use that as
+	 * key within the table
+	 */
+	movl	$smp_config, %esi
+	mov	SMP_NUM_CPUS(%esi), %ecx
+	movl	SMP_CPU_OFFSET(%esi), %esi
 
-	call	pm
-	.word	(GDT_NUM_ENTRIES * 8) - 1
-	.long	0
-pm:	pop	%esi
-	movl	%edx, 2(%esi)		/* overwrite gdt address above */
-	lgdt	(%esi)
+1:	cmpl	SMP_CPU_LAPICID(%esi), %ebx
+	jz	2f
+	add	$SMP_CPU_SIZE, %esi
+	loop	1b
 
-	call	pn
-	.word	(IDT_NUM_ENTRIES * 8) - 1
-	.long	idt
-pn: 	pop	%esi
-	lidt	(%esi)
+	/* CPU not found; now what XXX */
+1:	hlt
+	jmp	1b
+
+2:	/* We found the current AP - activate our stack */
+	movl	SMP_CPU_STACK(%esi), %esp
+
+	/* Use the CPU-specific GDT */
+	pushl	SMP_CPU_GDT(%esi)
+	pushw	$((GDT_NUM_ENTRIES * 8) - 1)
+	lgdt	(%esp)
+
+	/* BSP's IDT is fine, so use that */
+	pushl	$idt
+	pushw	$((IDT_NUM_ENTRIES * 8) - 1)
+	lidt	(%esp)
+
+	/* Throw away the [gi]dtr from the stack, they are no longer needed */
+	addl	$12, %esp
 
 	/* Force a reload of the per-CPU descriptor; it has changed */
 	mov	$GDT_SEL_KERNEL_PCPU, %ax
