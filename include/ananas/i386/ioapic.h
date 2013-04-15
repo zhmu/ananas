@@ -38,4 +38,10 @@ struct IA32_IOAPIC {
 	struct IRQ_SOURCE ioa_source;
 };
 
+void ioapic_write(struct IA32_IOAPIC* apic, uint32_t reg, uint32_t val);
+uint32_t ioapic_read(struct IA32_IOAPIC* apic, uint32_t reg);
+void ioapic_register(struct IA32_IOAPIC* ioapic, int base);
+
+void ioapic_ack(struct IRQ_SOURCE* source, int no);
+
 #endif /* __I386_IOAPIC_H__ */

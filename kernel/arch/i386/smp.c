@@ -37,8 +37,6 @@ static char* ap_code;
 static int can_smp_launch = 0;
 static int num_smp_launched = 1; /* BSP is always launched */
 
-static void ioapic_ack(struct IRQ_SOURCE* source, int no);
-
 static struct IRQ_SOURCE ipi_source = {
 	.is_first = SMP_IPI_FIRST,
 	.is_count = SMP_IPI_COUNT,
@@ -141,41 +139,6 @@ locate_mpfps()
 		return KVTOP(mpfps);
 
 	return 0;
-}
-
-/* XXX all ioapic_... functionality doesn't belong here... */
-void
-ioapic_write(struct IA32_IOAPIC* apic, uint32_t reg, uint32_t val)
-{
-	*(volatile uint32_t*)(apic->ioa_addr + IOREGSEL) = reg & 0xff;
-	*(volatile uint32_t*)(apic->ioa_addr + IOWIN) = val;
-}
-
-uint32_t
-ioapic_read(struct IA32_IOAPIC* apic, uint32_t reg)
-{
-	*(volatile uint32_t*)(apic->ioa_addr + IOREGSEL) = reg & 0xff;
-	return *(volatile uint32_t*)(apic->ioa_addr + IOWIN);
-}
-
-static errorcode_t
-ioapic_mask(struct IRQ_SOURCE* source, int no)
-{
-	panic("not implemented");
-}
-
-static errorcode_t
-ioapic_unmask(struct IRQ_SOURCE* source, int no)
-{
-	panic("not implemented");
-}
-
-static void
-ioapic_ack(struct IRQ_SOURCE* source, int no)
-{
-	struct IA32_IOAPIC* ioapic = source->is_privdata;
-	(void)ioapic;
-	*((uint32_t*)LAPIC_EOI) = 0;
 }
 
 static int
@@ -369,7 +332,6 @@ smp_init_mps(int* bsp_apic_id)
 	 * Count the number of entries; this is needed because we allocate memory for
 	 * each item as needed.
 	 */
-	//num_cpu = 0; num_ioapic = 0; num_bus = 0; num_ints = 0;
 	*bsp_apic_id = -1;
 	uint16_t num_entries = mpct->entry_count;
 	addr_t entry_addr = (addr_t)mpct + sizeof(struct MP_CONFIGURATION_TABLE);
@@ -441,18 +403,9 @@ smp_init_mps(int* bsp_apic_id)
 				/* XXX Assumes the address is in kernel space (it should be) */
 				vm_map_kernel(ioapic->ioa_addr, 1, VM_FLAG_READ | VM_FLAG_WRITE);
 
-				/* Fetch IOAPIC version register; this contains the number of interrupts supported */
-				uint32_t num_ints = ((ioapic_read(ioapic, IOAPICVER) >> 16) & 0xff) + 1;
-
 				/* Set up the IRQ source */
-				ioapic->ioa_source.is_privdata = ioapic;
-				ioapic->ioa_source.is_first = cur_ioapic_first;
-				ioapic->ioa_source.is_count = num_ints;
-				ioapic->ioa_source.is_mask = ioapic_mask;
-				ioapic->ioa_source.is_unmask = ioapic_unmask;
-				ioapic->ioa_source.is_ack = ioapic_ack;
-				irqsource_register(&ioapic->ioa_source);
-				cur_ioapic++; cur_ioapic_first += num_ints;
+				ioapic_register(ioapic, cur_ioapic_first);
+				cur_ioapic++; cur_ioapic_first += ioapic->ioa_source.is_count;
 				break;
 			case MP_ENTRY_TYPE_IOINT:
 #ifdef SMP_DEBUG

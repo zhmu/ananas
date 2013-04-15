@@ -128,8 +128,8 @@ struct IA32_SMP_CONFIG {
 
 errorcode_t smp_init();
 uint32_t get_num_cpus();
-struct IA32_CPU* get_cpu_struct(int i);
 
+void smp_prepare_config(struct IA32_SMP_CONFIG* cfg);
 void smp_panic_others();
 void smp_broadcast_schedule();
 #endif
