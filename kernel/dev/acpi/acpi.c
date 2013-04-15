@@ -1,6 +1,7 @@
 #include <ananas/device.h>
 #include <ananas/error.h>
 #include <ananas/trace.h>
+#include <ananas/x86/acpi.h>
 #include "acpica/acpi.h"
 #include "acpi.h"
 #include "acpi_resource.h"
@@ -128,6 +129,16 @@ acpi_attach(device_t dev)
 	AcpiWalkNamespace(ACPI_TYPE_ANY, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX, acpi_probe_device, NULL, dev, NULL);
 
 	return ANANAS_ERROR_OK;
+}
+
+void
+acpi_init()
+{
+	/*
+	 * Preform early initialization; this is used by the SMP code because it
+	 * needs the MADT table before the ACPI is fully initialized.
+	 */
+	AcpiInitializeTables(NULL, 2, TRUE);
 }
 
 struct DRIVER drv_acpi = {

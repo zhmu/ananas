@@ -6,6 +6,7 @@
 #include <machine/thread.h>
 #include <machine/pcpu.h>
 #include <machine/smp.h>
+#include <ananas/x86/acpi.h>
 #include <ananas/x86/io.h>
 #include <ananas/x86/pic.h>
 #include <ananas/x86/pit.h>
@@ -426,6 +427,14 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	: : "r" (bsp_pcpu.idlethread.md_esp));
 	PCPU_SET(curthread, &bsp_pcpu.idlethread);
 	scheduler_add_thread(&bsp_pcpu.idlethread);
+
+	/*
+	 * If we have ACPI, do a pre-initialization; we need this mostly in the SMP
+	 * case because we're going to parse tables if we can.
+	 */
+#ifdef OPTION_ACPI
+	acpi_init();
+#endif
 
 #ifdef OPTION_SMP
 	/*
