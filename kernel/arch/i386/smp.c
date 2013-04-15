@@ -8,6 +8,7 @@
 #include <machine/thread.h>
 #include <machine/vm.h>
 #include <ananas/x86/io.h>
+#include <ananas/x86/acpi.h>
 #include <ananas/error.h>
 #include <ananas/lock.h>
 #include <machine/param.h>
@@ -479,6 +480,9 @@ smp_init()
 	memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
 
 	int bsp_apic_id;
+#ifdef OPTION_ACPI
+	if (acpi_smp_init(&bsp_apic_id) != ANANAS_ERROR_OK)
+#endif
 	if (smp_init_mps(&bsp_apic_id) != ANANAS_ERROR_OK) {
 		/* SMP not present or not usable */
 		kfree(ap_code);
