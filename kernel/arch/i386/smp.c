@@ -18,6 +18,7 @@
 #include <ananas/thread.h>
 #include <ananas/trace.h>
 #include <ananas/lib.h>
+#include "options.h"
 
 #undef SMP_DEBUG
 
@@ -242,152 +243,28 @@ find_ioapic(int id)
 	return NULL;
 }
 
-static void
-smp_ipi_schedule(device_t dev)
+static irqresult_t
+smp_ipi_schedule(device_t dev, void* context)
 {
 	/* Flip the reschedule flag of the current thread; this makes the IRQ reschedule us as needed */
 	thread_t* curthread = PCPU_GET(curthread);
 	curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
+	return IRQ_RESULT_PROCESSED;
 }
 
-static void
-smp_ipi_panic(device_t dev)
+static irqresult_t
+smp_ipi_panic(device_t dev, void* context)
 {
 	while (1) {
 		__asm("hlt");
 	}
+	return IRQ_RESULT_PROCESSED;
 }
 
-/*
- * Called on the Boot Strap Processor, in order to prepare the system for
- * multiprocessing.
- */
-errorcode_t
-smp_init()
+void
+smp_prepare_tables(int num_cpu, int num_ioapic, int num_bus, int num_ints)
 {
-	addr_t mpfps_addr = locate_mpfps();
-	if (mpfps_addr == 0)
-		return ANANAS_ERROR(NO_DEVICE);
-
-	/*
-	 * We just copy the MPFPS structure, since it's a fixed length and it
-	 * makes it much easier to check requirements.
-	 */
-	void* mpfps_ptr = vm_map_kernel(mpfps_addr & ~(PAGE_SIZE - 1), 1, VM_FLAG_READ);
-	struct MP_FLOATING_POINTER mpfps;
-	memcpy(&mpfps, (void*)((addr_t)mpfps_ptr + (mpfps_addr % PAGE_SIZE)), sizeof(struct MP_FLOATING_POINTER));
-	vm_unmap_kernel((addr_t)mpfps_ptr, 1);
-
-	/* Verify checksum before we do anything else */
-	if (!validate_checksum((addr_t)&mpfps, sizeof(struct MP_FLOATING_POINTER))) {
-		kprintf("SMP: mpfps structure corrupted, ignoring\n");
-		goto smp_abort;
-	}
-	if ((mpfps.feature1 & 0x7f) != 0) {
-		kprintf("SMP: predefined configuration %u not implemented\n", mpfps.feature1 & 0x7f);
-		goto smp_abort;
-	}
-	if (mpfps.phys_ptr == 0) {
-		kprintf("SMP: no MP configuration table specified\n");
-		goto smp_abort;
-	}
-
-	/*
-	 * Map the first page of the configuration table; this is needed to calculate
-	 * the length of the configuration, so we can map the whole thing.
-	 */
-	void* mpfps_phys_ptr = vm_map_kernel(mpfps.phys_ptr & ~(PAGE_SIZE - 1), 1, VM_FLAG_READ);
-	struct MP_CONFIGURATION_TABLE* mpct = (struct MP_CONFIGURATION_TABLE*)(mpfps_phys_ptr + (mpfps.phys_ptr % PAGE_SIZE));
-	uint32_t mpct_signature = mpct->signature;
-	uint32_t mpct_numpages = (sizeof(struct MP_CONFIGURATION_TABLE) + mpct->entry_count * 20 + PAGE_SIZE - 1) / PAGE_SIZE;
-	vm_unmap_kernel((addr_t)mpfps_phys_ptr, 1);
-	if (mpct_signature != MP_CT_SIGNATURE)
-		goto smp_abort;
-
-	mpfps_phys_ptr = vm_map_kernel(mpfps.phys_ptr & ~(PAGE_SIZE - 1), mpct_numpages, VM_FLAG_READ);
-	mpct = (struct MP_CONFIGURATION_TABLE*)(mpfps_phys_ptr + (mpfps.phys_ptr % PAGE_SIZE));
-	if (!validate_checksum((addr_t)mpct, mpct->base_len)) {
-		vm_unmap_kernel((addr_t)mpfps_phys_ptr, mpct_numpages);
-		kprintf("SMP: mpct structure corrupted, ignoring\n");
-		goto smp_abort;
-	}
-
-	kprintf("SMP: <%c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c%c%c%c%c> version 1.%u\n",
-	 mpct->oem_id[0], mpct->oem_id[1], mpct->oem_id[2], mpct->oem_id[3],
-	 mpct->oem_id[4], mpct->oem_id[5], mpct->oem_id[6], mpct->oem_id[7],
-	 mpct->product_id[0], mpct->product_id[1], mpct->product_id[2],
-	 mpct->product_id[3], mpct->product_id[4], mpct->product_id[5],
-	 mpct->product_id[6], mpct->product_id[7], mpct->product_id[8],
-	 mpct->product_id[9], mpct->product_id[10], mpct->product_id[11],
-	 mpct->spec_rev);
-
-	/*
-	 * OK, the AP's start in real mode, so we need to provide them with a
-	 * stub so they can run in protected mode. This stub must be located
-	 * in the lower 1MB.
-	 *
-	 * Note that the low memory mappings will not be removed in the SMP case, so
-	 * that the AP's can correctly switch to protected mode and enable paging.
-	 * Once this is all done, the mapping can safely be removed.
-	 *
-	 * XXX We do this before allocating kernel structures to increase the odds of
-	 * the AP code remaining in the lower 1MB. This needs a better solution.
-	 */
-	ap_code = kmalloc(PAGE_SIZE);
-	KASSERT (KVTOP((addr_t)ap_code) < 0x100000, "ap code %p must be below 1MB"); /* XXX crude */
-	memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
-
-	/*
-	 * First of all, count the number of entries; this is needed because we
-	 * allocate memory for each item as needed.
-	 */
-	num_cpu = 0; num_ioapic = 0; num_bus = 0; num_ints = 0;
-	int bsp_apic_id = -1, max_apic_id = -1, max_ioapic_id = -1;
-	uint16_t num_entries = mpct->entry_count;
-	addr_t entry_addr = (addr_t)mpct + sizeof(struct MP_CONFIGURATION_TABLE);
-	for (int i = 0; i < num_entries; i++) {
-		struct MP_ENTRY* entry = (struct MP_ENTRY*)entry_addr;
-		switch(entry->type) {
-			case MP_ENTRY_TYPE_PROCESSOR:
-				/* Only count enabled CPU's */
-				if (entry->u.proc.flags & MP_PROC_FLAG_EN)
-					num_cpu++;
-				if (entry->u.proc.flags & MP_PROC_FLAG_BP)
-					bsp_apic_id = entry->u.proc.lapic_id;
-				if (entry->u.proc.lapic_id > max_apic_id)
-					max_apic_id = entry->u.proc.lapic_id;
-				entry_addr += 20;
-				break;
-			case MP_ENTRY_TYPE_IOAPIC:
-				if (entry->u.ioapic.flags & MP_IOAPIC_FLAG_EN)
-					num_ioapic++;
-				if (entry->u.ioapic.ioapic_id > max_ioapic_id)
-					max_ioapic_id = entry->u.ioapic.ioapic_id;
-				entry_addr += 8;
-				break;
-			case MP_ENTRY_TYPE_BUS:
-				num_bus++;
-				entry_addr += 8;
-				break;
-			case MP_ENTRY_TYPE_IOINT:
-				num_ints++;
-				entry_addr += 8;
-				break;
-			default:
-				entry_addr += 8;
-				break;
-		}
-	}
-	if (bsp_apic_id == -1)
-		panic("smp: no BSP processor defined!");
-
-	kprintf("SMP: %u CPU(s) detected, %u IOAPIC(s)\n", num_cpu, num_ioapic);
-
-	/*
-	 * Prepare the LAPIC ID -> CPU ID array, we use this to quickly look up
-	 * the corresponding CPU structures.
-	 */
-	lapic2cpuid = kmalloc(max_apic_id);
+	extern void* gdt; /* XXX */
 
 	/* Prepare the CPU structure. CPU #0 is always the BSP */
 	cpus = (struct IA32_CPU**)kmalloc((sizeof(struct IA32_CPU*) + sizeof(struct IA32_CPU)) * num_cpu);
@@ -400,7 +277,6 @@ smp_init()
 		 * we have to setup the pointers.
 		 */
 		if (i == 0) {
-extern void* gdt;
 			cpus[i]->gdt = gdt;
 			continue;
 		}
@@ -412,9 +288,8 @@ extern void* gdt;
 		 */
 		char* buf = kmalloc(GDT_NUM_ENTRIES * 8 + sizeof(struct TSS) + sizeof(struct PCPU));
 		cpus[i]->gdt = buf;
-extern void* gdt;
 		memcpy(cpus[i]->gdt, &gdt, GDT_NUM_ENTRIES * 8);
-struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
+		struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
 		memset(tss, 0, sizeof(struct TSS));
 		tss->ss0 = GDT_SEL_KERNEL_DATA;
 		GDT_SET_TSS(cpus[i]->gdt, GDT_IDX_KERNEL_TASK, 0, (addr_t)tss, sizeof(struct TSS));
@@ -452,6 +327,123 @@ struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
 	for (int i = 0; i < num_ints; i++) {
 		ints[i] = (struct IA32_INTERRUPT*)(ints + (sizeof(struct IA32_INTERRUPT*) * num_ints) + i * sizeof(struct IA32_INTERRUPT));
 	}
+}
+
+/* Initialize SMP based on the legacy MPS tables */
+static errorcode_t
+smp_init_mps(int* bsp_apic_id)
+{
+	addr_t mpfps_addr = locate_mpfps();
+	if (mpfps_addr == 0)
+		return ANANAS_ERROR(NO_DEVICE);
+
+	/*
+	 * We just copy the MPFPS structure, since it's a fixed length and it
+	 * makes it much easier to check requirements.
+	 */
+	void* mpfps_ptr = vm_map_kernel(mpfps_addr & ~(PAGE_SIZE - 1), 1, VM_FLAG_READ);
+	struct MP_FLOATING_POINTER mpfps;
+	memcpy(&mpfps, (void*)((addr_t)mpfps_ptr + (mpfps_addr % PAGE_SIZE)), sizeof(struct MP_FLOATING_POINTER));
+	vm_unmap_kernel((addr_t)mpfps_ptr, 1);
+
+	/* Verify checksum before we do anything else */
+	if (!validate_checksum((addr_t)&mpfps, sizeof(struct MP_FLOATING_POINTER))) {
+		kprintf("SMP: mpfps structure corrupted, ignoring\n");
+		return ANANAS_ERROR(NO_DEVICE);
+	}
+	if ((mpfps.feature1 & 0x7f) != 0) {
+		kprintf("SMP: predefined configuration %u not implemented\n", mpfps.feature1 & 0x7f);
+		return ANANAS_ERROR(NO_DEVICE);
+	}
+	if (mpfps.phys_ptr == 0) {
+		kprintf("SMP: no MP configuration table specified\n");
+		return ANANAS_ERROR(NO_DEVICE);
+	}
+
+	/*
+	 * Map the first page of the configuration table; this is needed to calculate
+	 * the length of the configuration, so we can map the whole thing.
+	 */
+	void* mpfps_phys_ptr = vm_map_kernel(mpfps.phys_ptr & ~(PAGE_SIZE - 1), 1, VM_FLAG_READ);
+	struct MP_CONFIGURATION_TABLE* mpct = (struct MP_CONFIGURATION_TABLE*)(mpfps_phys_ptr + (mpfps.phys_ptr % PAGE_SIZE));
+	uint32_t mpct_signature = mpct->signature;
+	uint32_t mpct_numpages = (sizeof(struct MP_CONFIGURATION_TABLE) + mpct->entry_count * 20 + PAGE_SIZE - 1) / PAGE_SIZE;
+	vm_unmap_kernel((addr_t)mpfps_phys_ptr, 1);
+	if (mpct_signature != MP_CT_SIGNATURE)
+		return ANANAS_ERROR(NO_DEVICE);
+
+	mpfps_phys_ptr = vm_map_kernel(mpfps.phys_ptr & ~(PAGE_SIZE - 1), mpct_numpages, VM_FLAG_READ);
+	mpct = (struct MP_CONFIGURATION_TABLE*)(mpfps_phys_ptr + (mpfps.phys_ptr % PAGE_SIZE));
+	if (!validate_checksum((addr_t)mpct, mpct->base_len)) {
+		vm_unmap_kernel((addr_t)mpfps_phys_ptr, mpct_numpages);
+		kprintf("SMP: mpct structure corrupted, ignoring\n");
+		return ANANAS_ERROR(NO_DEVICE);
+	}
+
+	kprintf("SMP: <%c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c%c%c%c%c> version 1.%u\n",
+	 mpct->oem_id[0], mpct->oem_id[1], mpct->oem_id[2], mpct->oem_id[3],
+	 mpct->oem_id[4], mpct->oem_id[5], mpct->oem_id[6], mpct->oem_id[7],
+	 mpct->product_id[0], mpct->product_id[1], mpct->product_id[2],
+	 mpct->product_id[3], mpct->product_id[4], mpct->product_id[5],
+	 mpct->product_id[6], mpct->product_id[7], mpct->product_id[8],
+	 mpct->product_id[9], mpct->product_id[10], mpct->product_id[11],
+	 mpct->spec_rev);
+
+	/*
+	 * Count the number of entries; this is needed because we allocate memory for
+	 * each item as needed.
+	 */
+	num_cpu = 0; num_ioapic = 0; num_bus = 0; num_ints = 0;
+	*bsp_apic_id = -1;
+	int max_apic_id = -1, max_ioapic_id = -1;
+	uint16_t num_entries = mpct->entry_count;
+	addr_t entry_addr = (addr_t)mpct + sizeof(struct MP_CONFIGURATION_TABLE);
+	for (int i = 0; i < num_entries; i++) {
+		struct MP_ENTRY* entry = (struct MP_ENTRY*)entry_addr;
+		switch(entry->type) {
+			case MP_ENTRY_TYPE_PROCESSOR:
+				/* Only count enabled CPU's */
+				if (entry->u.proc.flags & MP_PROC_FLAG_EN)
+					num_cpu++;
+				if (entry->u.proc.flags & MP_PROC_FLAG_BP)
+					*bsp_apic_id = entry->u.proc.lapic_id;
+				if (entry->u.proc.lapic_id > max_apic_id)
+					max_apic_id = entry->u.proc.lapic_id;
+				entry_addr += 20;
+				break;
+			case MP_ENTRY_TYPE_IOAPIC:
+				if (entry->u.ioapic.flags & MP_IOAPIC_FLAG_EN)
+					num_ioapic++;
+				if (entry->u.ioapic.ioapic_id > max_ioapic_id)
+					max_ioapic_id = entry->u.ioapic.ioapic_id;
+				entry_addr += 8;
+				break;
+			case MP_ENTRY_TYPE_BUS:
+				num_bus++;
+				entry_addr += 8;
+				break;
+			case MP_ENTRY_TYPE_IOINT:
+				num_ints++;
+				entry_addr += 8;
+				break;
+			default:
+				entry_addr += 8;
+				break;
+		}
+	}
+	if (*bsp_apic_id < 0)
+		panic("smp: no BSP processor defined!");
+
+	kprintf("SMP: %u CPU(s) detected, %u IOAPIC(s)\n", num_cpu, num_ioapic);
+
+	/* Allocate tables for the resources we found */
+	smp_prepare_tables(num_cpu, num_ioapic, num_bus, num_ints);
+
+	/*
+	 * Prepare the LAPIC ID -> CPU ID array, we use this to quickly look up
+	 * the corresponding CPU structures.
+	 */
+	lapic2cpuid = kmalloc(max_apic_id + 1);
 
 	/* Wade through the table */
 	int cur_cpu = 0, cur_ioapic = 0, cur_bus = 0, cur_int = 0;
@@ -464,7 +456,7 @@ struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
 				if ((entry->u.proc.flags & MP_PROC_FLAG_EN) == 0)
 					break;
 				kprintf("cpu%u: %s, id #%u\n",
-				 cur_cpu, bsp_apic_id == entry->u.proc.lapic_id ? "BSP" : "AP",
+				 cur_cpu, *bsp_apic_id == entry->u.proc.lapic_id ? "BSP" : "AP",
 				 entry->u.proc.lapic_id);
 				lapic2cpuid[entry->u.proc.lapic_id] = cur_cpu;
 				cur_cpu++;
@@ -545,6 +537,40 @@ struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
 		outb(IMCR_DATA, IMCR_DATA_MP);
 	}
 
+	return ANANAS_ERROR_OK;
+}
+
+/*
+ * Called on the Boot Strap Processor, in order to prepare the system for
+ * multiprocessing.
+ */
+errorcode_t
+smp_init()
+{
+	/*
+	 * The AP's start in real mode, so we need to provide them with a stub so
+	 * they can run in protected mode. This stub must be located in the lower
+	 * 1MB.
+	 *
+	 * Note that the low memory mappings will not be removed in the SMP case, so
+	 * that the AP's can correctly switch to protected mode and enable paging.
+	 * Once this is all done, the mapping can safely be removed.
+	 *
+	 * XXX We do this before allocating anything else to increase the odds of the
+	 *     AP code remaining in the lower 1MB. This needs a better solution.
+	 */
+	ap_code = kmalloc(PAGE_SIZE);
+	KASSERT (KVTOP((addr_t)ap_code) < 0x100000, "ap code %p must be below 1MB"); /* XXX crude */
+	memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
+
+	int bsp_apic_id;
+	if (smp_init_mps(&bsp_apic_id) != ANANAS_ERROR_OK) {
+		/* SMP not present or not usable */
+		kfree(ap_code);
+		md_remove_low_mappings();
+		return ANANAS_ERROR(NO_DEVICE);
+	}
+
 	/* Program the I/O APIC - we currently just wire all ISA interrupts */
 	for (int i = 0; i < num_ints; i++) {
 #ifdef SMP_DEBUG
@@ -555,6 +581,8 @@ struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
 		if (ints[i]->bus == NULL || ints[i]->bus->type != BUS_TYPE_ISA)
 			continue;
 		if (ints[i]->ioapic == NULL)
+			continue;
+		if (ints[i]->dest_no < 0)
 			continue;
 
 		/* XXX For now, route all interrupts to the BSP */
@@ -568,9 +596,9 @@ struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
  	 * interrupts and this lets us process them as such.
 	 */
 	irqsource_register(&ipi_source);
-	if (irq_register(SMP_IPI_PANIC, NULL, smp_ipi_panic) != ANANAS_ERROR_OK)
+	if (irq_register(SMP_IPI_PANIC, NULL, smp_ipi_panic, NULL) != ANANAS_ERROR_OK)
 		panic("can't register ipi");
-	if (irq_register(SMP_IPI_SCHEDULE, NULL, smp_ipi_schedule) != ANANAS_ERROR_OK)
+	if (irq_register(SMP_IPI_SCHEDULE, NULL, smp_ipi_schedule, NULL) != ANANAS_ERROR_OK)
 		panic("can't register ipi");
 
 	/*
@@ -581,10 +609,6 @@ struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
 	can_smp_launch = 0;
 
 	return ANANAS_ERROR_OK;
-
-smp_abort:
-	md_remove_low_mappings();
-	return ANANAS_ERROR(NO_DEVICE);
 }
 
 /*
