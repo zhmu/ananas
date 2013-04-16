@@ -21,10 +21,9 @@ pcpu_init(struct PCPU* pcpu)
 	pcpu->nested_irq = 0;
 
 	/*
-	 * Mark the idle thread as running, hook it to the CPU and set the
-	 * appropriate priority; it must only be run as a last-resort.
+	 * Hook the idle thread to its specific CPU and set the appropriate priority;
+	 * it must only be run as a last-resort.
 	 */
-	pcpu->idlethread.t_flags &= ~THREAD_FLAG_SUSPENDED;
 	pcpu->idlethread.t_affinity = pcpu->cpuid;
 	pcpu->idlethread.t_priority = THREAD_PRIORITY_IDLE;
 }

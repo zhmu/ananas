@@ -36,8 +36,11 @@ static struct SCHEDULER_QUEUE sched_sleepqueue;
 void
 scheduler_init_thread(thread_t* t)
 {
-	KASSERT(THREAD_IS_SUSPENDED(t), "initializing non-suspended thread %p", t);
+	/* Hook up our private scheduling entity */
 	t->t_sched_priv.sp_thread = t;
+
+	/* Mark the thread as suspened - the scheduler is responsible for this */
+	t->t_flags |= THREAD_FLAG_SUSPENDED;
 
 	/* Hook the thread to our sleepqueue */
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
@@ -105,30 +108,39 @@ void
 scheduler_add_thread(thread_t* t)
 {
 	SCHED_KPRINTF("%s: t=%p\n", __func__, t);
-	KASSERT(!THREAD_IS_SUSPENDED(t), "adding suspend thread %p", t);
+	KASSERT(THREAD_IS_SUSPENDED(t), "adding non-suspended thread %p", t);
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 0, "adding thread %p already on runqueue", t);
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 1, "adding thread %p not on sleepqueue", t);
 	/* Remove the thread from the sleepqueue ... */
 	DQUEUE_REMOVE(&sched_sleepqueue, &t->t_sched_priv);
-	/* ... and add it to the runqueue */
+	/* ... and add it to the runqueue ... */
 	scheduler_add_thread_locked(t);
+	/*
+	 * ... and finally, update the flags: we must do this in the scheduler lock because
+	 *     no one else is allowed to touch the thread while we're moving it
+	 */
+	t->t_flags &= ~THREAD_FLAG_SUSPENDED;
 	spinlock_unlock_unpremptible(&spl_scheduler, state);
-	KASSERT(!THREAD_IS_SUSPENDED(t), "adding suspend thread %p", t);
 }
 
 void
 scheduler_remove_thread(thread_t* t)
 {
 	SCHED_KPRINTF("%s: t=%p\n", __func__, t);
-	KASSERT(THREAD_IS_SUSPENDED(t), "removing non-suspended thread %p", t);
+	KASSERT(!THREAD_IS_SUSPENDED(t), "removing suspended thread %p", t);
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 0, "removing thread already on sleepqueue");
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 1, "removing thread not on runqueue");
 	/* Remove the thread from the runqueue ... */
 	DQUEUE_REMOVE(&sched_runqueue, &t->t_sched_priv);
-	/* ... and add it to the sleepqueue */
+	/* ... add it to the sleepqueue ... */
 	DQUEUE_ADD_TAIL(&sched_sleepqueue, &t->t_sched_priv);
+	/*
+	 * ... and finally, update the flags: we must do this in the scheduler lock because
+	 *     no one else is allowed to touch the thread while we're moving it
+	 */
+	t->t_flags |= THREAD_FLAG_SUSPENDED;
 	spinlock_unlock_unpremptible(&spl_scheduler, state);
 }
 
@@ -200,9 +212,9 @@ schedule()
 	 * runqueue is empty - it makes no sense to schedule idle-time.
 	 */
 	if (!THREAD_IS_SUSPENDED(curthread) && !THREAD_IS_ZOMBIE(curthread)) {
-		SCHED_KPRINTF("%s: removing t=%p from runqueue\n", __func__, curthread);
+		SCHED_KPRINTF("%s[%d]: removing t=%p from runqueue\n", __func__, cpuid, curthread);
 		DQUEUE_REMOVE(&sched_runqueue, &curthread->t_sched_priv);
-		SCHED_KPRINTF("%s: re-adding t=%p\n", __func__, curthread);
+		SCHED_KPRINTF("%s[%d]: re-adding t=%p\n", __func__, cpuid, curthread);
 		scheduler_add_thread_locked(curthread);
 	}
 	curthread->t_flags &= ~THREAD_FLAG_ACTIVE;

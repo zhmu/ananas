@@ -30,7 +30,6 @@ thread_init(thread_t* t, thread_t* parent)
 
 	memset(t, 0, sizeof(struct THREAD));
 	DQUEUE_INIT(&t->t_mappings);
-	t->t_flags = THREAD_FLAG_SUSPENDED;
 	err = handle_alloc(HANDLE_TYPE_THREAD, t /* XXX should be parent? */, &t->t_thread_handle);
 	ANANAS_ERROR_RETURN(err);
 	t->t_thread_handle->h_data.d_thread = t;
@@ -85,7 +84,7 @@ kthread_init(thread_t* t, kthread_func_t func, void* arg)
 	/* Create a basic thread; we'll only make a thread handle, no I/O */
 	memset(t, 0, sizeof(struct THREAD));
 	DQUEUE_INIT(&t->t_mappings);
-	t->t_flags = THREAD_FLAG_SUSPENDED | THREAD_FLAG_KTHREAD;
+	t->t_flags = THREAD_FLAG_KTHREAD;
 	err = handle_alloc(HANDLE_TYPE_THREAD, t, &t->t_thread_handle);
 	ANANAS_ERROR_RETURN(err);
 	t->t_thread_handle->h_data.d_thread = t;
@@ -354,7 +353,6 @@ thread_suspend(thread_t* t)
 {
 	TRACE(THREAD, FUNC, "t=%p", t);
 	KASSERT(!THREAD_IS_SUSPENDED(t), "suspending suspended thread %p", t);
-	t->t_flags |= THREAD_FLAG_SUSPENDED;	
 	scheduler_remove_thread(t);
 }
 
@@ -374,7 +372,6 @@ thread_resume(thread_t* t)
 		return;
 	}
 	KASSERT(!THREAD_IS_TERMINATING(t), "resuming terminating thread %p", t);
-	t->t_flags &= ~THREAD_FLAG_SUSPENDED;
 	scheduler_add_thread(t);
 }
 	
