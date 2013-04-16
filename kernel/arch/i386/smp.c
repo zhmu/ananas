@@ -408,7 +408,7 @@ smp_init_mps(int* bsp_apic_id)
 				ioapic_register(ioapic, cur_ioapic_first);
 				cur_ioapic++; cur_ioapic_first += ioapic->ioa_source.is_count;
 				break;
-			case MP_ENTRY_TYPE_IOINT:
+			case MP_ENTRY_TYPE_IOINT: {
 #ifdef SMP_DEBUG
 				kprintf("Interrupt: type %u flags %u bus %u irq %u, ioapic %u int %u \n",
 				 entry->u.interrupt.type,
@@ -425,7 +425,8 @@ smp_init_mps(int* bsp_apic_id)
 				interrupt->ioapic = find_ioapic(entry->u.interrupt.dest_ioapicid);
 				cur_int++;
 				break;
-			case MP_ENTRY_TYPE_BUS:
+			}
+			case MP_ENTRY_TYPE_BUS: {
 #ifdef SMP_DEBUG
 				kprintf("Bus: id %u type [%c][%c][%c][%c][%c][%c]\n",
 				 entry->u.bus.bus_id,
@@ -437,6 +438,7 @@ smp_init_mps(int* bsp_apic_id)
 				bus->type = resolve_bus_type(&entry->u.bus);
 				cur_bus++;
 				break;
+			}
 		}
 		entry_addr += (entry->type == MP_ENTRY_TYPE_PROCESSOR) ? 20 : 8;
 	}
