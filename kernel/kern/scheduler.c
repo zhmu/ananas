@@ -183,6 +183,12 @@ schedule()
 	 */
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
 
+	/*
+	 * Current thread is no longer active - we must do this in the
+	 * scheduler lock.
+	 */
+	curthread->t_flags &= ~THREAD_FLAG_ACTIVE;
+
 	/* Pick the next thread to schedule and add it to the back of the queue */
 	KASSERT(!DQUEUE_EMPTY(&sched_runqueue), "runqueue cannot be empty");
 	struct SCHED_PRIV* next_sched = NULL;
@@ -190,6 +196,8 @@ schedule()
 		/* Skip the thread if we can't schedule it here */
 		if (sp->sp_thread->t_affinity != THREAD_AFFINITY_ANY &&
 			  sp->sp_thread->t_affinity != cpuid)
+			continue;
+		if (THREAD_IS_ACTIVE(sp->sp_thread))
 			continue;
 		next_sched = sp;
 		break;
@@ -217,7 +225,6 @@ schedule()
 		SCHED_KPRINTF("%s[%d]: re-adding t=%p\n", __func__, cpuid, curthread);
 		scheduler_add_thread_locked(curthread);
 	}
-	curthread->t_flags &= ~THREAD_FLAG_ACTIVE;
 
 	/* Schedule our new thread - this will enable interrupts as required */
 	newthread->t_flags |= THREAD_FLAG_ACTIVE;
@@ -246,7 +253,6 @@ scheduler_launch()
 	 */
 	md_interrupts_disable();
 	PCPU_SET(curthread, idlethread);
-	idlethread->t_flags |= THREAD_FLAG_ACTIVE;
 
 	/* Run it */
 	scheduler_active++;
