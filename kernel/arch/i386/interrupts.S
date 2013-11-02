@@ -345,13 +345,27 @@ kthread_trampoline:
 	/* Fetch arguments; arg1 is the %eip and arg2 is the argument */
 	movl	%fs:(PCPU_CURTHREAD), %ebx
 	movl	T_ARG1(%ebx), %eax		/* eax = eip */
-	pushl	T_ARG2(%ebx)
+	pushl	T_ARG2(%ebx)			/* argument */
 
 	/* Call the kthread code with interrupts enabled */
+	pushl	$1f
 	pushl	$0x200
 	pushl	$GDT_SEL_KERNEL_CODE
 	pushl	%eax
 	iret
+
+1:
+	/* kthread returned; fake just enough so that the message will be readable */
+	pushl	$0
+	pushl	$0
+	pushl	$0
+	pushl	$kthread_panicmsg
+	call	_panic
+
+kthread_panicmsg:
+	.ascii	"kthread returned"
+	.byte	0
+
 
 userland_trampoline:
 	/* Fetch arguments; arg1 is the %eip and arg2 is the argument */
