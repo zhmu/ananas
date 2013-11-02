@@ -5,10 +5,10 @@
 #include <ananas/console.h>
 #include <ananas/x86/io.h>
 #include <ananas/device.h>
+#include <ananas/lock.h>
 #include <ananas/lib.h>
 #include <ananas/trace.h>
 #include <ananas/thread.h>
-#include <ananas/waitqueue.h>
 #include <ananas/mm.h>
 
 #include <teken.h>
@@ -36,7 +36,7 @@ struct VGA_PRIVDATA {
 	uint8_t  vga_attr;
 	int      vga_dirty;
 	teken_t  vga_teken;
-	spinlock_t vga_spl_teken;
+	mutex_t	 vga_mtx_teken;
 #ifdef VGA_KERNEL_THREAD
 	int      vga_cursor_x;
 	int      vga_cursor_y;
@@ -280,7 +280,7 @@ vga_attach(device_t dev)
 	tp.tp_row = VGA_HEIGHT; tp.tp_col = VGA_WIDTH;
 	teken_init(&vga_privdata->vga_teken, &tf, vga_privdata);
 	teken_set_winsize(&vga_privdata->vga_teken, &tp);
-	spinlock_init(&vga_privdata->vga_spl_teken);
+	mutex_init(&vga_privdata->vga_mtx_teken, "vga_mtx_teken");
 
 #ifdef VGA_KERNEL_THREAD
 	/*
@@ -303,7 +303,7 @@ vga_write(device_t dev, const void* data, size_t* len, off_t off)
 	struct VGA_PRIVDATA* priv = dev->privdata;
 	const uint8_t* ptr = data;
 	size_t left = *len;
-	spinlock_lock(&priv->vga_spl_teken);
+	mutex_lock(&priv->vga_mtx_teken);
 	while(left--) {
 		/* XXX this is a hack which should be performed in a TTY layer, once we have one */
 		if(*ptr == '\n')
@@ -311,7 +311,7 @@ vga_write(device_t dev, const void* data, size_t* len, off_t off)
 		teken_input(&priv->vga_teken, ptr, 1);
 		ptr++;
 	}
-	spinlock_unlock(&priv->vga_spl_teken);
+	mutex_unlock(&priv->vga_mtx_teken);
 	return ANANAS_ERROR_OK;
 }
 
