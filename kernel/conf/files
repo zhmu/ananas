@@ -14,7 +14,6 @@ kern/memory-handle.c	mandatory
 kern/ref-handle.c	mandatory
 kern/tty.c		mandatory
 kern/trace.c		mandatory
-kern/waitqueue.c	mandatory
 kern/symbols.c		mandatory
 kern/module.c		mandatory
 kern/pipe-handle.c	option PIPE
