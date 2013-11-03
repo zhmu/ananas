@@ -217,7 +217,8 @@ snprintf_add(void* v, int c)
 		return;
 
 	*ctx->buf = c;
-	ctx->buf++;
+	ctx->buf++;	
+	ctx->cur_len++;
 	ctx->left--;
 }
 
