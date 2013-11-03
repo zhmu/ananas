@@ -89,6 +89,10 @@ kthread_init(thread_t* t, kthread_func_t func, void* arg)
 	ANANAS_ERROR_RETURN(err);
 	t->t_thread_handle->h_data.d_thread = t;
 
+	/* Set up CPU affinity and priority */
+	t->t_priority = THREAD_PRIORITY_DEFAULT;
+	t->t_affinity = THREAD_AFFINITY_ANY;
+
 	/* Initialize dummy threadinfo; this is used to store the thread name */
 	t->t_threadinfo = kmalloc(sizeof(struct THREADINFO));
 	memset(t->t_threadinfo, 0, sizeof(t->t_threadinfo));
@@ -353,6 +357,7 @@ thread_suspend(thread_t* t)
 {
 	TRACE(THREAD, FUNC, "t=%p", t);
 	KASSERT(!THREAD_IS_SUSPENDED(t), "suspending suspended thread %p", t);
+	KASSERT(t != PCPU_GET(idlethread_ptr), "suspending idle thread");
 	scheduler_remove_thread(t);
 }
 

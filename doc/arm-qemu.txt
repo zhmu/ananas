@@ -16,6 +16,7 @@ Note: we need to patch it before it will work [3]:
 $ vi include/configs/versatile.h
 
 Add '#define CONFIG_ARCH_VERSATILE_QEMU' after '#define __CONFIG_H'
+Also add' #define CONFIG_OF_LIBFDT 1' after '#define CONFIG_CMDLINE_TAG'
 
 $ git clone git://git.denx.de/u-boot.git
 $ make ARCH=arm CROSS_COMPILE=arm-none-eabi- versatilepb_config    

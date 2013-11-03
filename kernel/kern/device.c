@@ -30,7 +30,7 @@ device_alloc(device_t bus, driver_t drv)
 	memset(dev, 0, sizeof(struct DEVICE));
 	dev->driver = drv;
 	dev->parent = bus;
-	waitqueue_init(&dev->waiters);
+	sem_init(&dev->waiters, 1);
 
 	if (drv != NULL) {
 		strcpy(dev->name, drv->name);

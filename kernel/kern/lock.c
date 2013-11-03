@@ -3,8 +3,6 @@
 #include <ananas/lib.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
-#include <ananas/waitqueue.h>
-#include <machine/atomic.h>
 #include <machine/interrupts.h>
 
 void
@@ -63,89 +61,88 @@ mutex_init(mutex_t* mtx, const char* name)
 {
 	mtx->mtx_name = name;
 	mtx->mtx_owner = NULL;
-	atomic_set(&mtx->mtx_var, 0);
-	waitqueue_init(&mtx->mtx_wq);
+	mtx->mtx_fname = NULL;
+	mtx->mtx_line = 0;
+	sem_init(&mtx->mtx_sem, 1);
 }
 
 void
 mutex_lock_(mutex_t* mtx, const char* fname, int line)
 {
-	for(;;) {
-		while(atomic_read(&mtx->mtx_var) != 0) {
-			/* Not owned; wait for it */
-			struct WAITER* w = waitqueue_add(&mtx->mtx_wq);
-			waitqueue_wait(w);
-			waitqueue_remove(w);
-		}
-		if (atomic_xchg(&mtx->mtx_var, 1) == 0)
-			break;
-	}
+	sem_wait(&mtx->mtx_sem);
 
 	/* We got the mutex */
 	mtx->mtx_owner = PCPU_GET(curthread);
-#ifdef MUTEX_DEBUG
 	mtx->mtx_fname = fname;
 	mtx->mtx_line = line;
-#endif
 }
 
 void
 mutex_unlock(mutex_t* mtx)
 {
 	KASSERT(mtx->mtx_owner == PCPU_GET(curthread), "unlocking mutex %p which isn't owned", mtx);
-	if (atomic_xchg(&mtx->mtx_var, 0) == 0)
-		panic("mutex %p was not locked", mtx); /* should be very unlikely */
+	sem_signal(&mtx->mtx_sem);
 	mtx->mtx_owner = NULL;
-#ifdef MUTEX_DEBUG
 	mtx->mtx_fname = NULL;
 	mtx->mtx_line = 0;
-#endif
-	waitqueue_signal(&mtx->mtx_wq);
 }
 
 void
 sem_init(semaphore_t* sem, int count)
 {
+	KASSERT(count >= 0, "creating semaphore with negative count %d", count);
+
 	spinlock_init(&sem->sem_lock);
-	waitqueue_init(&sem->sem_wq);
 	sem->sem_count = count;
+	DQUEUE_INIT(&sem->sem_wq);
 }
 
 void
 sem_signal(semaphore_t* sem)
 {
-	/* Increment the number of units left */
 	register_t state = spinlock_lock_unpremptible(&sem->sem_lock);
-	sem->sem_count++;
-	spinlock_unlock_unpremptible(&sem->sem_lock, state);
 
-	/* Wake up anyone who is waiting on this semaphore */
-	waitqueue_signal(&sem->sem_wq);
+	if (!DQUEUE_EMPTY(&sem->sem_wq)) {
+		/* We have waiters; wake up the first one */
+		struct SEMAPHORE_WAITER* sw = DQUEUE_HEAD(&sem->sem_wq);
+		DQUEUE_POP_HEAD(&sem->sem_wq);
+		sw->sw_signalled = 1;
+		thread_resume(sw->sw_thread);
+		/* No need to adjust sem_count since the unblocked waiter won't touch it */
+	} else {
+		/* No waiters; increment the number of units left */
+		sem->sem_count++;
+	}
+	spinlock_unlock_unpremptible(&sem->sem_lock, state);
 }	
 
 void
 sem_wait(semaphore_t* sem)
 {
-	while (1) {
-		/*
-		 * Try the happy flow first: if there are units left, we are done.
-		 */
-		register_t state = spinlock_lock_unpremptible(&sem->sem_lock);
-		if (sem->sem_count > 0) {
-			sem->sem_count--;
-			spinlock_unlock_unpremptible(&sem->sem_lock, state);
-			return;
-		}
-
-		/*
-		 * No more units available - as the waitqueue locks itself, we can create a
-		 * waiter.
-		 */
+	/* Happy flow first: if there are units left, we are done */
+	register_t state = spinlock_lock_unpremptible(&sem->sem_lock);
+	if (sem->sem_count > 0) {
+		sem->sem_count--;
 		spinlock_unlock_unpremptible(&sem->sem_lock, state);
-		struct WAITER* w = waitqueue_add(&sem->sem_wq);
-		waitqueue_wait(w);
-		waitqueue_remove(w);
+		return;
 	}
+
+	/* No more units; we have to wait */
+	thread_t* curthread = PCPU_GET(curthread);
+
+	struct SEMAPHORE_WAITER sw;
+	sw.sw_thread = curthread;
+	sw.sw_signalled = 0;
+	DQUEUE_ADD_TAIL(&sem->sem_wq, &sw);
+	do {
+		thread_suspend(curthread);
+		/* Let go of the lock, but keep interrupts disabled */
+		spinlock_unlock(&sem->sem_lock);
+		schedule();
+		spinlock_lock_unpremptible(&sem->sem_lock);
+	} while (sw.sw_signalled == 0);
+
+	spinlock_unlock_unpremptible(&sem->sem_lock, state);
 }
 
 /* vim:set ts=2 sw=2: */

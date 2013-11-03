@@ -14,7 +14,6 @@ kern/memory-handle.c	mandatory
 kern/ref-handle.c	mandatory
 kern/tty.c		mandatory
 kern/trace.c		mandatory
-kern/waitqueue.c	mandatory
 kern/symbols.c		mandatory
 kern/module.c		mandatory
 kern/pipe-handle.c	option PIPE
@@ -85,6 +84,7 @@ fs/fat/inode.c		option FATFS
 fs/sysfs/sysfs.c	option SYSFS
 fs/sysfs/entry.c	option SYSFS
 fs/sysfs/helper.c	option SYSFS
+fs/sysfs/thread-sysfs.c	option SYSFS
 kdb/kdb.c		option KDB
 kdb/kdb_commands.c	option KDB
 # USB

@@ -3,6 +3,7 @@
 #include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/lock.h>
+#include <ananas/pcpu.h>
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
 #include "options.h"
@@ -50,7 +51,7 @@ bio_init()
 	struct BIO* bios = kmalloc(sizeof(struct BIO) * BIO_NUM_BUFFERS);
 	DQUEUE_INIT(&bio_freelist);
 	for (unsigned int i = 0; i < BIO_NUM_BUFFERS; i++, bios++) {
-		waitqueue_init(&bios->wq);
+		sem_init(&bios->sem, 1);
 		DQUEUE_ADD_TAIL_IP(&bio_freelist, chain, bios);
 	}
 
@@ -76,20 +77,24 @@ bio_init()
 INIT_FUNCTION(bio_init, SUBSYSTEM_BIO, ORDER_FIRST);
 
 static void
-bio_waitcomplete(struct BIO* bio, struct WAITER* w)
+bio_waitcomplete(struct BIO* bio)
 {	
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	while((bio->flags & BIO_FLAG_PENDING) != 0) {
-		waitqueue_wait(w);
+		/* Don't sleep during early bootup; just block there */
+		if (PCPU_GET(curthread) != PCPU_GET(idlethread_ptr))
+			sem_wait(&bio->sem);
 	}
 }
 
 static void
-bio_waitdirty(struct BIO* bio, struct WAITER* w)
+bio_waitdirty(struct BIO* bio)
 {	
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	while((bio->flags & BIO_FLAG_DIRTY) != 0) {
-		waitqueue_wait(w);
+		/* Don't sleep during early bootup; just block there */
+		if (PCPU_GET(curthread) != PCPU_GET(idlethread_ptr))
+			sem_wait(&bio->sem);
 	}
 }
 
@@ -105,9 +110,6 @@ bio_flush(struct BIO* bio)
 	if ((bio->flags & BIO_FLAG_DIRTY) == 0)
 		return;
 
-	/* Register ourself as a waiter; we need this to check for the 'written' event */
-	struct WAITER* w = waitqueue_add(&bio->wq);
-
 	TRACE(BIO, INFO, "bio %p (lba %u) is dirty, flushing", bio, (uint32_t)bio->io_block);
 
 	errorcode_t err = device_bwrite(bio->device, bio);
@@ -115,14 +117,13 @@ bio_flush(struct BIO* bio)
 		kprintf("bio_flush(): device_write() failed, %i\n", err);
 		bio_set_error(bio);
 	} else {
-		/* ... and wait until we have something to report... */
-		bio_waitdirty(bio, w);
+		/* Wait until we have something to report... */
+		bio_waitdirty(bio);
 		/*
 		 * We're all set - the block I/O driver is responsible for clearing the dirty flag if
 		 * necessary
 		 */
 	}
-	waitqueue_remove(w);
 }
 
 static void
@@ -216,9 +217,7 @@ bio_restart:
 		 *
 		 * XXX What about the NODATA flag?
 		 */
-		struct WAITER* w = waitqueue_add(&bio->wq);
-		bio_waitcomplete(bio, w);
-		waitqueue_remove(w);
+		bio_waitcomplete(bio);
 		TRACE(BIO, INFO, "returning cached bio=%p", bio);
 		return bio;
 	}
@@ -329,21 +328,16 @@ bio_get(device_t dev, blocknr_t block, size_t len, int flags)
 		return bio;
 	}
 
-	/* register ourselves as a waiter on the given bio */
-	struct WAITER* w = waitqueue_add(&bio->wq);
-
 	/* kick the device; we want it to read */
 	errorcode_t err = device_bread(dev, bio);
 	if (err != ANANAS_ERROR_NONE) {
 		kprintf("bio_read(): device_read() failed, %i\n", err);
 		bio_set_error(bio);
-		waitqueue_remove(w);
 		return bio;
 	}
 
 	/* ... and wait until we have something to report... */
-	bio_waitcomplete(bio, w);
-	waitqueue_remove(w);
+	bio_waitcomplete(bio);
 	TRACE(BIO, INFO, "dev=%p, block=%u, len=%u ==> new block %p", dev, (int)block, len, bio);
 	return bio;
 }
@@ -353,7 +347,7 @@ bio_set_error(struct BIO* bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	bio->flags = (bio->flags & ~BIO_FLAG_PENDING) | BIO_FLAG_ERROR;
-	waitqueue_signal(&bio->wq);
+	sem_signal(&bio->sem);
 }
 
 void
@@ -361,7 +355,7 @@ bio_set_available(struct BIO* bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	bio->flags &= ~BIO_FLAG_PENDING;
-	waitqueue_signal(&bio->wq);
+	sem_signal(&bio->sem);
 }
 
 void

@@ -2,7 +2,6 @@
 #include <ananas/dqueue.h>
 #include <ananas/lock.h>
 #include <ananas/init.h>
-#include <ananas/waitqueue.h>
 
 #ifndef __DEVICE_H__
 #define __DEVICE_H__
@@ -95,7 +94,7 @@ struct DEVICE {
 	void*		privdata;
 
 	/* Waiters */
-	struct WAIT_QUEUE waiters;
+	semaphore_t	waiters;
 
 	/* Queue fields */
 	DQUEUE_FIELDS(struct DEVICE);

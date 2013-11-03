@@ -40,7 +40,7 @@ struct VGA_PRIVDATA {
 #ifdef VGA_KERNEL_THREAD
 	int      vga_cursor_x;
 	int      vga_cursor_y;
-	struct WAIT_QUEUE vga_wq;
+	semaphore_t vga_sem;
 	thread_t vga_workerthread;
 #endif
 };
@@ -90,11 +90,11 @@ static void
 vga_syncthread(void* ptr)
 {
 	struct VGA_PRIVDATA* priv = ptr;
-	struct WAITER* w = waitqueue_add(&priv->vga_wq);
 	while (1) {
-		waitqueue_reset_waiter(w);
-		waitqueue_wait(w);
+		/* Wait until there is something to do... */
+		sem_wait(&priv->vga_sem);
 
+		/* And just place the entire buffer on the screen */
 		struct pixel* px = priv->vga_buffer;
 		for (unsigned int y = 0; y < VGA_HEIGHT; y++)
 			for (unsigned int x = 0; x < VGA_WIDTH; x++, px++)
@@ -103,7 +103,6 @@ vga_syncthread(void* ptr)
 		/* reposition the cursor */
 		vga_place_cursor(priv, priv->vga_cursor_x, priv->vga_cursor_y);
 	}
-	waitqueue_remove(w);
 }
 #endif
 
@@ -120,7 +119,7 @@ term_cursor(void* s, const teken_pos_t* p)
 #ifdef VGA_KERNEL_THREAD
 	priv->vga_cursor_x = p->tp_col;
 	priv->vga_cursor_y = p->tp_row;
-	waitqueue_signal(&priv->vga_wq);
+	sem_signal(&priv->vga_sem);
 #else
 	vga_place_cursor(priv, p->tp_col, p->tp_row);
 #endif
@@ -133,7 +132,7 @@ term_putchar(void *s, const teken_pos_t* p, teken_char_t c, const teken_attr_t* 
 	VGA_PIXEL(priv, p->tp_col, p->tp_row).c = c;
 	VGA_PIXEL(priv, p->tp_col, p->tp_row).a = *a;
 #ifdef VGA_KERNEL_THREAD
-	waitqueue_signal(&priv->vga_wq);
+	sem_signal(&priv->vga_sem);
 #else
 	vga_printchar(priv, p->tp_col, p->tp_row, &VGA_PIXEL(priv, p->tp_col, p->tp_row));
 #endif
@@ -225,7 +224,7 @@ term_copy(void* s, const teken_rect_t* r, const teken_pos_t* p)
 		}
 	}
 #ifdef VGA_KERNEL_THREAD
-	waitqueue_signal(&priv->vga_wq);
+	sem_signal(&priv->vga_sem);
 #endif
 }
 
@@ -291,7 +290,7 @@ vga_attach(device_t dev)
   kthread_init(&vga_privdata->vga_workerthread, &vga_syncthread, vga_privdata);
   thread_set_args(&vga_privdata->vga_workerthread, "[vga]\0\0", PAGE_SIZE);
 
-	waitqueue_init(&vga_privdata->vga_wq);
+	sem_init(&vga_privdata->vga_sem, 0);
 	thread_resume(&vga_privdata->vga_workerthread);
 #endif
 	return ANANAS_ERROR_OK;

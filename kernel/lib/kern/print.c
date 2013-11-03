@@ -217,7 +217,7 @@ snprintf_add(void* v, int c)
 		return;
 
 	*ctx->buf = c;
-	ctx->buf++;	
+	ctx->buf++;
 	ctx->cur_len++;
 	ctx->left--;
 }
@@ -237,7 +237,7 @@ snprintf(char* str, size_t len, const char* fmt, ...)
 	va_end(ap);
 	snprintf_add(&ctx, 0);
 
-	return ctx.cur_len;
+	return ctx.cur_len - 1 /* minus \0 byte */;
 }
 
 /* vim:set ts=2 sw=2: */

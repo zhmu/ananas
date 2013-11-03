@@ -173,10 +173,20 @@ static struct VFS_FILESYSTEM fs_sysfs = {
 	.fs_fsops = &fsops_sysfs
 };
 
+/*
+ * Initialization is in two steps; we can immediately make our administration
+ * work. Once the VFS is ready enough, we'll hook ourselves to it as well.
+ */
+static errorcode_t
+sysfs_preinit()
+{
+	sysfs_init_structs();
+	return ANANAS_ERROR_OK;
+}
+
 errorcode_t
 sysfs_init()
 {
-	sysfs_init_structs();
 	return vfs_register_filesystem(&fs_sysfs);
 }
 
@@ -186,6 +196,7 @@ sysfs_exit()
 	return vfs_unregister_filesystem(&fs_sysfs);
 }
 
+INIT_FUNCTION(sysfs_preinit, SUBSYSTEM_HANDLE, ORDER_LAST);
 INIT_FUNCTION(sysfs_init, SUBSYSTEM_VFS, ORDER_MIDDLE);
 EXIT_FUNCTION(sysfs_exit);
 

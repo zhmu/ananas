@@ -193,8 +193,6 @@ find_ioapic(int id)
 static irqresult_t
 smp_ipi_schedule(device_t dev, void* context)
 {
-	kprintf("[%u]", PCPU_GET(cpuid));
-
 	/* Flip the reschedule flag of the current thread; this makes the IRQ reschedule us as needed */
 	thread_t* curthread = PCPU_GET(curthread);
 	curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
