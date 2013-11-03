@@ -49,7 +49,7 @@ QUEUE_DEFINE_END
 static struct DRIVER drv_tty;
 static thread_t tty_thread;
 static struct TTY_QUEUE tty_queue;
-static struct WAIT_QUEUE tty_waitqueue;
+static semaphore_t tty_sem;
 
 device_t
 tty_alloc(device_t input_dev, device_t output_dev)
@@ -127,9 +127,7 @@ tty_read(device_t dev, void* buf, size_t* len, off_t offset)
 			/*
 			 * Buffer is empty - schedule the thread for a wakeup once we have data.
 			  */
-			struct WAITER* w = waitqueue_add(&dev->waiters);
-			waitqueue_wait(w);
-			waitqueue_remove(w);
+			sem_wait(&dev->waiters);
 			continue;
 		}
 
@@ -159,9 +157,7 @@ tty_read(device_t dev, void* buf, size_t* len, off_t offset)
 #undef CHAR_AT
 		if (n == in_len) {
 			/* Line is not complete - try again later */
-			struct WAITER* w = waitqueue_add(&dev->waiters);
-			waitqueue_wait(w);
-			waitqueue_remove(w);
+			sem_wait(&dev->waiters);
 			continue;
 		}
 
@@ -264,20 +260,17 @@ tty_handle_input(device_t dev)
 	}
 
 	/* If we have waiters, awaken them */
-	waitqueue_signal(&dev->waiters);
+	sem_signal(&dev->waiters);
 }
 
 static void
 tty_thread_func(void* ptr)
 {
-	struct WAITER* w = waitqueue_add(&tty_waitqueue);
 	while(1) {
-		waitqueue_reset_waiter(w);
-		waitqueue_wait(w);
-
-		KASSERT(!QUEUE_EMPTY(&tty_queue), "woken up without tty's?");
+		sem_wait(&tty_sem);
 
 		spinlock_lock(&tty_queue.tq_lock);
+		KASSERT(!QUEUE_EMPTY(&tty_queue), "woken up without tty's?");
 		QUEUE_FOREACH(&tty_queue, priv, struct TTY_PRIVDATA) {
 			tty_handle_input(priv->device);
 		}
@@ -288,7 +281,7 @@ tty_thread_func(void* ptr)
 void
 tty_signal_data()
 {
-	waitqueue_signal(&tty_waitqueue);
+	sem_signal(&tty_sem);
 }
 
 static errorcode_t
@@ -297,7 +290,7 @@ tty_preinit()
 	/* Initialize the queue of all tty's */
 	QUEUE_INIT(&tty_queue);
 	spinlock_init(&tty_queue.tq_lock);
-	waitqueue_init(&tty_waitqueue);
+	sem_init(&tty_sem, 1);
 	return ANANAS_ERROR_OK;
 }
 

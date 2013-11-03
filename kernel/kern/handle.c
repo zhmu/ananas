@@ -41,7 +41,7 @@ handle_init()
 		struct HANDLE* h = &pool[i];
 		DQUEUE_ADD_TAIL(&handle_freelist, h);
 		for (unsigned int n = 0; n < HANDLE_MAX_WAITERS; n++)
-			waitqueue_init(&h->h_waiters[n].hw_wq);
+			sem_init(&h->h_waiters[n].hw_sem, 0);
 	}
 
 	/* Store the handle pool range; this allows us to quickly verify whether a handle is valid */
@@ -294,12 +294,10 @@ handle_wait(thread_t* thread, struct HANDLE* handle, handle_event_t* event, hand
 	handle->h_waiters[waiter_id].hw_thread = thread;
 	handle->h_waiters[waiter_id].hw_event_mask = *event;
 	handle->h_waiters[waiter_id].hw_event_reported = 0;
-	struct WAITER* w = waitqueue_add(&handle->h_waiters[waiter_id].hw_wq);
 	mutex_unlock(&handle->h_mutex);
 
 	/* Now, we wait - handle_signal will wake us when the time comes */
-	waitqueue_wait(w);
-	waitqueue_remove(w);
+	sem_wait(&handle->h_waiters[waiter_id].hw_sem);
 
 	/* Obtain the result */
 	mutex_lock(&handle->h_mutex);
@@ -327,7 +325,7 @@ handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t
 
 		handle->h_waiters[waiter_id].hw_event_reported = event;
 		handle->h_waiters[waiter_id].hw_result = result;
-		waitqueue_signal(&handle->h_waiters[waiter_id].hw_wq);
+		sem_signal(&handle->h_waiters[waiter_id].hw_sem);
 	}
 	mutex_unlock(&handle->h_mutex);
 	TRACE(HANDLE, INFO, "done");

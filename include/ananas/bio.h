@@ -1,6 +1,5 @@
 #include <ananas/types.h>
 #include <ananas/device.h>
-#include <ananas/waitqueue.h>
 #include <machine/param.h>	/* for PAGE_SIZE */
 
 #ifndef __ANANAS_BIO_H__
@@ -37,7 +36,7 @@ struct BIO {
 	blocknr_t	  io_block;	/* Translated block number to I/O */
 	unsigned int	  length;	/* Length in bytes (<= PAGE_SIZE, so int will do) */
 	void*		  data;		/* Pointer to BIO data */
-	struct WAIT_QUEUE wq;		/* Waiter queue for this BIO */
+	semaphore_t       sem;          /* Semaphore for this BIO */
 
 	DQUEUE_FIELDS_IT(struct BIO, chain);	/* Chain queue */
 	DQUEUE_FIELDS_IT(struct BIO, bucket);	/* Bucket queue */

@@ -9,7 +9,11 @@ AcpiOsCreateSemaphore(UINT32 MaxUnits, UINT32 InitialUnits, ACPI_SEMAPHORE* OutH
 	if (sem == NULL)
 		return AE_NO_MEMORY;
 
-	sem_init(sem, InitialUnits);
+	sem_init(sem, MaxUnits);
+	while (InitialUnits > MaxUnits) {
+		sem_wait(sem);
+		InitialUnits--;
+	}
 	*OutHandle = sem;
 	return AE_OK;
 }
