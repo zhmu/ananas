@@ -4,6 +4,7 @@
 #include <ananas/pcpu.h>
 #include <machine/atomic.h>
 #include <machine/pcpu.h>
+#include <machine/smp.h>
 #include <machine/interrupts.h>
 #include "options.h"
 
@@ -13,6 +14,15 @@ void
 _panic(const char* file, const char* func, int line, const char* fmt, ...)
 {
 	va_list ap;
+	md_interrupts_disable();
+
+#ifdef OPTION_SMP
+	/*
+	 * Ensure our other CPU's do not continue - we do not want to make things
+	 * worse.
+	 */
+	smp_panic_others();
+#endif
 
 	/*
 	 * Do our best to detect double panics; this will at least give more of a
