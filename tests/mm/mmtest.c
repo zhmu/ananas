@@ -4,32 +4,15 @@
 #include <machine/param.h> /* for PAGE_SIZE */
 #include "test-framework.h"
 
-#define MM_REGION1_LEN (1 * 1024 * 1024)
-
 int
 main(int argc, char* argv[])
 {
 	size_t initial_mem_avail, initial_mem_total;
 	addr_t tmp;
 
-	mm_init();
-
-	/*
-	 * Part 1: A single regions. Note that regions must be page-aligned.
-	 */
-	void* region1ptr = malloc(MM_REGION1_LEN + PAGE_SIZE - 1);
-	addr_t region1addr = (addr_t)region1ptr;
-	if (region1addr % PAGE_SIZE > 0)
-		region1addr += PAGE_SIZE - (region1addr % PAGE_SIZE);
-	mm_zone_add(region1addr, MM_REGION1_LEN);
-
-	/*
-	 * We should have memory available now, and never more than our initial
-	 * region.
-	 */
+	/* Initialize the framework; it will initialize the memory code for us */
+	framework_init();
 	kmem_stats(&initial_mem_avail, &initial_mem_total);
-	EXPECT(initial_mem_avail < initial_mem_total);
-	EXPECT(initial_mem_total <= MM_REGION1_LEN);
 
 	/* Allocate 2 pages; we expect them to be contiguous */
 	addr_t ptr1 = (addr_t)kmalloc(PAGE_SIZE);

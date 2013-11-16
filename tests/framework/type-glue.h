@@ -11,4 +11,6 @@ typedef uint32_t errorcode_t;
 typedef uint64_t blocknr_t;
 typedef void* thread_t;
 
+#include <ananas/_types/spinlock.h>
+
 #undef LITTLE_ENDIAN
