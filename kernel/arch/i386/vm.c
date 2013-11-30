@@ -69,8 +69,8 @@ md_unmap_pages(uint32_t* pagedir, addr_t virt, size_t num_pages)
 	}
 }
 
-addr_t
-md_get_mapping(uint32_t* pagedir, addr_t virt, int flags)
+int
+md_get_mapping(uint32_t* pagedir, addr_t virt, int flags, addr_t* phys)
 {
 	uint32_t pd_entrynum = virt >> 22;
 	if ((pagedir[pd_entrynum] & PDE_P) == 0)
@@ -82,7 +82,9 @@ md_get_mapping(uint32_t* pagedir, addr_t virt, int flags)
 		return 0;
 	if ((flags & VM_FLAG_WRITE) && ((pte & PTE_RW) == 0)) /* check writable */
 		return 0;
-	return pte & ~(PAGE_SIZE - 1);
+	if (phys != NULL)
+		*phys = pte & ~(PAGE_SIZE - 1);
+	return 1;
 }
 
 /* Maps physical pages to kernel memory */

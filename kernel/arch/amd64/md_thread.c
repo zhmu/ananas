@@ -100,10 +100,10 @@ md_map_thread_memory(thread_t* thread, void* ptr, size_t length, int write)
 	return ptr;
 }
 
-addr_t
-md_thread_is_mapped(thread_t* thread, addr_t virt, int flags)
+int
+md_thread_is_mapped(thread_t* thread, addr_t virt, int flags, addr_t* va)
 {
-	return vm_get_phys(thread->md_pml4, virt, flags);
+	return vm_get_phys(thread->md_pml4, virt, flags, va);
 }
 
 void*

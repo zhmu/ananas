@@ -67,8 +67,8 @@ vm_mapto_pagedir(uint64_t* pml4, addr_t virt, addr_t phys, size_t num_pages, uin
 	}
 }
 
-addr_t
-vm_get_phys(uint64_t* pagedir, addr_t addr, int write)
+int
+vm_get_phys(uint64_t* pagedir, addr_t addr, int write, addr_t* va)
 {
 	if (!(pagedir[(addr >> 39) & 0x1ff] & PE_P))
 		return 0;
@@ -84,7 +84,9 @@ vm_get_phys(uint64_t* pagedir, addr_t addr, int write)
 		return 0;
 	if (write && !(val & PE_RW))
 		return 0;
-	return val & ~(PAGE_SIZE - 1);
+	if (va != NULL)
+		*va = val & ~(PAGE_SIZE - 1);
+	return 1;
 }
 
 void

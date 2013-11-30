@@ -158,10 +158,10 @@ md_thread_set_argument(thread_t* thread, addr_t arg)
 	thread->md_ctx.sf.sf_reg[3] = arg;
 }
 
-addr_t
-md_thread_is_mapped(thread_t* thread, addr_t virt, int flags)
+int
+md_thread_is_mapped(thread_t* thread, addr_t virt, int flags, addr_t* va)
 {
-	return mmu_resolve_mapping(&thread->md_ctx.sf, virt, flags);
+	return mmu_resolve_mapping(&thread->md_ctx.sf, virt, flags, va);
 }
 
 void

@@ -63,7 +63,7 @@
 #ifndef ASM
 
 void vm_mapto_pagedir(uint64_t* pml4, addr_t virt, addr_t phys, size_t num_pages, uint32_t user);
-addr_t vm_get_phys(uint64_t* pagedir, addr_t addr, int write);
+int vm_get_phys(uint64_t* pagedir, addr_t addr, int write, addr_t* va);
 void vm_map_pagedir(uint64_t* pml4, addr_t addr, size_t num_pages, uint32_t user);
 void vm_map(addr_t addr, size_t num_pages);
 void vm_mapto(addr_t virt, addr_t phys, size_t num_pages);

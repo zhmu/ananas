@@ -109,8 +109,8 @@ mmu_unmap(struct STACKFRAME* sf, uint32_t va)
 	return 0;
 }
 
-addr_t
-mmu_resolve_mapping(struct STACKFRAME* sf, uint32_t va, int flags)
+int
+mmu_resolve_mapping(struct STACKFRAME* sf, uint32_t va, int flags, addr_t* va)
 {
 	if (sf->sf_sr[va >> 28] == INVALID_VSID)
 		return 0;
@@ -132,7 +132,9 @@ mmu_resolve_mapping(struct STACKFRAME* sf, uint32_t va, int flags)
 			if (ptegs->pte[i].pt_hi != (PT_HI_V | (vsid << 7) | (page >> 10) | ((hashnum) ? PT_HI_H : 0)))
 				continue;
 			/* XXX check flags */
-			return ptegs->pte[i].pt_lo & ~(PAGE_SIZE - 1);
+			if (va != NULL)
+				va = ptegs->pte[i].pt_lo & ~(PAGE_SIZE - 1);
+			return 1;
 		}
 	}
 	return 0;

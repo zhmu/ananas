@@ -445,8 +445,8 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 		 */
 		for (size_t n = 0; n < ROUND_UP(tm->tm_len, PAGE_SIZE); n += PAGE_SIZE) {
 			/* If the page isn't mapped in the parent thread; skip it */
-			addr_t va = md_thread_is_mapped(parent, tm->tm_virt + n, VM_FLAG_READ);
-			if (va == 0)
+			addr_t va;
+			if (!md_thread_is_mapped(parent, tm->tm_virt + n, VM_FLAG_READ, &va))
 				continue;
 
 			/* XXX make a temporary mapping to copy the data. We should do a copy-on-write */

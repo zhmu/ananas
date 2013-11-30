@@ -174,10 +174,10 @@ md_thread_map(thread_t* thread, void* to, void* from, size_t length, int flags)
 	return to;
 }
 
-addr_t
-md_thread_is_mapped(thread_t* thread, addr_t virt, int flags)
+int
+md_thread_is_mapped(thread_t* thread, addr_t virt, int flags, addr_t* va)
 {
-	return md_get_mapping(thread->md_pagedir, virt, flags);
+	return md_get_mapping(thread->md_pagedir, virt, flags, va);
 }
 
 errorcode_t
@@ -258,8 +258,8 @@ md_thread_clone(thread_t* t, thread_t* parent, register_t retval)
 int
 md_thread_peek_32(thread_t* thread, addr_t virt, uint32_t* val)
 {
-	addr_t phys = md_get_mapping(thread->md_pagedir, virt, VM_FLAG_READ);
-	if (phys == 0)
+	addr_t phys;
+	if (!md_get_mapping(thread->md_pagedir, virt, VM_FLAG_READ, &phys))
 		return 0;
 
 	void* ptr = vm_map_kernel(phys, 1, VM_FLAG_READ);

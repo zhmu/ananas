@@ -34,8 +34,8 @@ md_thread_map(thread_t* thread, void* to, void* from, size_t length, int flags)
 	return NULL;
 }
 
-addr_t
-md_thread_is_mapped(thread_t* thread, addr_t virt, int flags)
+int
+md_thread_is_mapped(thread_t* thread, addr_t virt, int flags, addr_t* va)
 {
 	return 0;
 }

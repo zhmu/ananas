@@ -146,7 +146,7 @@ void md_map_pages(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages,
 void vm_mapto_pagedir(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, uint32_t user);
 void md_unmap_pages(uint32_t* pagedir, addr_t virt, size_t num_pages);
 void vm_free_pagedir(uint32_t* pagedir);
-addr_t md_get_mapping(uint32_t* pagedir, addr_t virt, int flags);
+int md_get_mapping(uint32_t* pagedir, addr_t virt, int flags, addr_t* phys_addr);
 
 #endif
 
