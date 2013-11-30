@@ -37,15 +37,28 @@ mm_zone_add(addr_t addr, size_t length)
 	if (length < PAGE_SIZE * 2)
 		return;
 
+#define ROUND_UP_PAGE(x) \
+	(((x) | (PAGE_SIZE - 1)) + 1)
+
 	/*
 	 * First of all, we need to calculate the number of pages needed to store the
 	 * administration involved in this zone.
 	 *
-	 * Note that we actually allocate these structures from the end of
-	 * the kernel memory, because this ensures we do not overwrite
-	 * important structures etc.
+	 * We now allocate these structures directly at the beginning of the memory
+	 * zone, as doing this should hide the memory from others as much as possible.
+	 *
+	 *        ^  +--------------+ <--- addr
+	 *        .  | MM_ZONE      |
+	 *        .  | MM_CHUNK[0]  |
+	 * length .  | ...          |
+	 *        .  | MM_CHUNK[n]  | n = num_chunks
+	 *        .  |              |
+	 *        .  +..............+ <-- data_addr
+	 *        .  | ... data ... |
+	 *        v  +--------------+
+	 *
 	 */
-	size_t num_chunks = (length - PAGE_SIZE) / (PAGE_SIZE + sizeof(struct MM_CHUNK));
+	size_t num_chunks = (length - sizeof(struct MM_ZONE)) / (PAGE_SIZE + sizeof(struct MM_CHUNK));
 	size_t num_pages =
 		(
 			/* MM_ZONE struct describing the zone itself */
@@ -55,13 +68,9 @@ mm_zone_add(addr_t addr, size_t length)
 			/* Round up */
 			PAGE_SIZE - 1
 		) / PAGE_SIZE;
-	addr_t admin_addr = addr + length - (num_pages * PAGE_SIZE);
-	KASSERT(admin_addr + (num_pages * PAGE_SIZE) == (addr + length), "adminstration does not fill up zone");
-	struct MM_ZONE* zone = vm_map_kernel(admin_addr, num_pages, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
+	struct MM_ZONE* zone = vm_map_kernel(addr, num_pages, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
 
-	/*
-	 * Initialize the zone.
-	 */
+	/* Now initialize the zone structure */
 	zone->address = addr;
 	zone->magic = MM_ZONE_MAGIC;
 	zone->length = num_chunks;
@@ -72,15 +81,15 @@ mm_zone_add(addr_t addr, size_t length)
 	zone->chunks = (struct MM_CHUNK*)((addr_t)zone + sizeof(struct MM_ZONE));
 	zone->next_zone = NULL;
 #if 0
-kprintf("zone_add: memaddr=%p. length=%x => #chunks=%u, #free=%u\n", addr, length, zone->num_chunks, zone->num_free);
-kprintf("zone_add: chunkaddr=%x, chunks=%x\n", zone->address, zone->chunks);
+	kprintf("zone_add: zone=%p, memaddr=%p. length=%x => #chunks=%u, #pages=%u, #free=%u\n", zone, addr, length, zone->num_chunks, num_pages, zone->num_free);
+	kprintf("zone_add: chunkaddr=%p, chunks=%p\n", zone->address, zone->chunks);
 #endif
 
 	/*
 	 * Figure out the location of the first chunk's data - this is directly after
 	 * the zone and chunk structures, rounded to a page.
 	 */
-	addr_t data_addr = addr;
+	addr_t data_addr = addr + (num_pages * PAGE_SIZE);
 
 	/*
 	 * Initialize the chunks, one at a time.
@@ -88,7 +97,6 @@ kprintf("zone_add: chunkaddr=%x, chunks=%x\n", zone->address, zone->chunks);
 	unsigned int n;
 	for (n = 0; n < zone->num_chunks; n++, data_addr += PAGE_SIZE) {
 		struct MM_CHUNK* chunk = (struct MM_CHUNK*)((addr_t)zone->chunks + n * sizeof(struct MM_CHUNK));
-		KASSERT(data_addr < admin_addr, "chunk %u@%p would overwrite administrativa", n, chunk);
 		chunk->address = data_addr;
 		chunk->magic = MM_CHUNK_MAGIC;
 		chunk->flags = 0;
@@ -99,19 +107,14 @@ kprintf("zone_add: chunkaddr=%x, chunks=%x\n", zone->address, zone->chunks);
 	spinlock_lock(&spl_mm);
 	if (zone_root != NULL) {
 		struct MM_ZONE* curzone;
-		for (curzone = zone_root; curzone->next_zone != NULL; curzone = curzone->next_zone);
+		for (curzone = zone_root; curzone->next_zone != NULL; curzone = curzone->next_zone)
+			/* nothing */;
 		curzone->next_zone = zone;
 	} else {
 		zone_root = zone;
 	}
 
 	spinlock_unlock(&spl_mm);
-
-	/*
-	 * If we just added a zone that began at 0x0, reserve the first page.
-	 */
-	if (addr == 0) 
-		kmem_mark_used(0, 1);
 }
 
 void
