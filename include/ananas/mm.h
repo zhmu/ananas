@@ -80,5 +80,6 @@ void  kfree(void* ptr);
 #define kmalloc(len) kmalloc2((len), __FILE__, __LINE__)
 
 void kmem_mark_used(void* addr, size_t num_pages);
+void kmem_chunk_reserve(addr_t chunk_start, addr_t chunk_end, addr_t reserved_start, addr_t reserved_end, addr_t* out_start, addr_t* out_end);
 
 #endif /* __MM_H__ */
