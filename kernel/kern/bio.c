@@ -81,9 +81,7 @@ bio_waitcomplete(struct BIO* bio)
 {	
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	while((bio->flags & BIO_FLAG_PENDING) != 0) {
-		/* Don't sleep during early bootup; just block there */
-		if (PCPU_GET(curthread) != PCPU_GET(idlethread))
-			sem_wait(&bio->sem);
+		sem_wait(&bio->sem);
 	}
 }
 
@@ -92,9 +90,7 @@ bio_waitdirty(struct BIO* bio)
 {	
 	TRACE(BIO, FUNC, "bio=%p", bio);
 	while((bio->flags & BIO_FLAG_DIRTY) != 0) {
-		/* Don't sleep during early bootup; just block there */
-		if (PCPU_GET(curthread) != PCPU_GET(idlethread))
-			sem_wait(&bio->sem);
+		sem_wait(&bio->sem);
 	}
 }
 

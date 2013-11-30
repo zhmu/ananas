@@ -140,7 +140,28 @@ sem_wait(semaphore_t* sem)
 
 	/* No more units; we have to wait */
 	thread_t* curthread = PCPU_GET(curthread);
+	if (curthread == PCPU_GET(idlethread)) {
+		/*
+		 * If we are the idle thread, this means we aren't far enough to actually
+		 * have other things to schedule - we should just busy-wait instead.
+		 *
+		 * Note that we need to restore interrupt status as it were; it's likely
+		 * an IRQ will actually trigger the wait condition.
+		 */
+		for (;;) {
+			spinlock_unlock_unpremptible(&sem->sem_lock, state);
+			while (sem->sem_count == 0)
+				/* wait */;
+			spinlock_lock_unpremptible(&sem->sem_lock);
+			if (sem->sem_count > 0)
+				break;
+		}
+		sem->sem_count--;
+		spinlock_unlock_unpremptible(&sem->sem_lock, state);
+		return;
+	}
 
+	/* Non-idle thread: just create a waiter and wait until we get signalled */
 	struct SEMAPHORE_WAITER sw;
 	sw.sw_thread = curthread;
 	sw.sw_signalled = 0;
