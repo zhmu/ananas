@@ -377,6 +377,17 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 		panic("No memory map!");
 	}
 
+	/*
+	 * Determined parts by the kernel; we need to prevent those from being used by
+	 * the memory subsystem.
+	 *
+	 * Note that we always use the first few pages directly after the kernel for
+	 * our page directory (these will not be relocated by vm_init()) so be sure
+	 * to include them (this is why we use availptr and not __end !)
+	 */
+	addr_t kernel_start = (addr_t)&__entry - KERNBASE;
+	addr_t kernel_end = (addr_t)availptr;
+
 	/* Present the chunks of memory to the memory manager */
 	int mem_map_pages = (bootinfo->bi_memory_map_size + PAGE_SIZE - 1) / PAGE_SIZE;
 	void* memory_map = vm_map_kernel((addr_t)bootinfo->bi_memory_map_addr, mem_map_pages, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
@@ -385,26 +396,35 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 		if (smap_entry->type != SMAP_TYPE_MEMORY)
 			continue;
 
+		/*
+		 * Ignore memory above 4GB; we can't do anything with it on i386 (no PAE
+		 * here - try the amd64 port if you have that much memory!)
+		 */
+		if (smap_entry->base_hi != 0)
+			continue;
+
 		/* This piece of memory is available; add it */
 		addr_t base = /* smap_entry->base_hi << 32 | */ smap_entry->base_lo;
 		size_t len = /* smap_entry->len_hi << 32 | */ smap_entry->len_lo;
+		if ((uint64_t)base + len > 0xffffffff)
+			len = 0xffffffff - base; /* prevent adding memory >4GB as above */
 		/* Round base up to a page, and length down a page if needed */
 		base  = (base + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
 		len  &= ~(PAGE_SIZE - 1);
-		mm_zone_add(base, len);
+
+		/* See if this chunk collides with our kernel; if it does, add it in 0 .. 2 slices */
+#define MAX_SLICES 2
+		addr_t start[MAX_SLICES], end[MAX_SLICES];
+		kmem_chunk_reserve(base, base + len, kernel_start, kernel_end, &start[0], &end[0]);
+		for (unsigned int n = 0; n < MAX_SLICES; n++) {
+			KASSERT(start[n] <= end[n] && end[n] >= start[n], "invalid start/end pair %x/%x", start[n], end[n]);
+			if (start[n] == end[n])
+				continue;
+			mm_zone_add(start[n], end[n] - start[n]);
+		}
+#undef MAX_SLICES
 	}
 	vm_unmap_kernel((addr_t)memory_map, mem_map_pages);
-
-	/*
-	 * Mark the pages occupied by the kernel as used; this prevents the memory
-	 * allocator from handing out memory where the kernel lives.
-	 *
-	 * Note that we always use the first few pages directly after the kernel for
-	 * our page directory (these will not be relocated by vm_init()) so be sure
-	 * to include them (this is why we use avail and not __end !)
-	 */
-	size_t kern_pages = ((addr_t)availptr - ((addr_t)&__entry - KERNBASE)) / PAGE_SIZE;
-	kmem_mark_used((void*)(addr_t)&__entry - KERNBASE, kern_pages);
 
 	/* Initialize the handles; this is needed by the per-CPU code as it initialize threads */
 	handle_init();
