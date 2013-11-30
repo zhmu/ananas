@@ -357,7 +357,7 @@ thread_suspend(thread_t* t)
 {
 	TRACE(THREAD, FUNC, "t=%p", t);
 	KASSERT(!THREAD_IS_SUSPENDED(t), "suspending suspended thread %p", t);
-	KASSERT(t != PCPU_GET(idlethread_ptr), "suspending idle thread");
+	KASSERT(t != PCPU_GET(idlethread), "suspending idle thread");
 	scheduler_remove_thread(t);
 }
 

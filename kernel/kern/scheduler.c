@@ -108,8 +108,8 @@ void
 scheduler_add_thread(thread_t* t)
 {
 	SCHED_KPRINTF("%s: t=%p\n", __func__, t);
-	KASSERT(THREAD_IS_SUSPENDED(t), "adding non-suspended thread %p", t);
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
+	KASSERT(THREAD_IS_SUSPENDED(t), "adding non-suspended thread %p", t);
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 0, "adding thread %p already on runqueue", t);
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 1, "adding thread %p not on sleepqueue", t);
 	/* Remove the thread from the sleepqueue ... */
@@ -128,8 +128,8 @@ void
 scheduler_remove_thread(thread_t* t)
 {
 	SCHED_KPRINTF("%s: t=%p\n", __func__, t);
-	KASSERT(!THREAD_IS_SUSPENDED(t), "removing suspended thread %p", t);
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
+	KASSERT(!THREAD_IS_SUSPENDED(t), "removing suspended thread %p", t);
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 0, "removing thread already on sleepqueue");
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 1, "removing thread not on runqueue");
 	/* Remove the thread from the runqueue ... */
@@ -147,17 +147,17 @@ scheduler_remove_thread(thread_t* t)
 void
 scheduler_exit_thread(thread_t* t)
 {
-	KASSERT(THREAD_IS_TERMINATING(t), "exiting thread which isn't terminating");
-	KASSERT(THREAD_IS_ACTIVE(t), "exiting thread which isn't running");
-
 	/*
 	 * Note that interrupts must be disabled - this is important because we are about to
 	 * remove the thread from the schedulers runqueue, and it will not be re-added again.
 	 * Thus, if a context switch would occur, the final exiting code will not be run.
 	 */
 	spinlock_lock_unpremptible(&spl_scheduler);
+	KASSERT(THREAD_IS_TERMINATING(t), "exiting thread which isn't terminating");
+	KASSERT(THREAD_IS_ACTIVE(t), "exiting thread which isn't running");
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 1, "exiting thread already not on sleepqueue");
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 0, "exiting thread on runqueue");
+	/* Thread seems sane; remove it from the runqueue */
 	DQUEUE_REMOVE(&sched_runqueue, &t->t_sched_priv);
 	/* Let go of the scheduler lock but leave interrupts disabled */
 	spinlock_unlock(&spl_scheduler);
@@ -244,7 +244,7 @@ schedule()
 static errorcode_t
 scheduler_launch()
 {
-	thread_t* idlethread = PCPU_GET(idlethread_ptr);
+	thread_t* idlethread = PCPU_GET(idlethread);
 
 	/*
 	 * Activate the idle threadit; the MD startup code should have done the

@@ -101,6 +101,8 @@ void
 sem_signal(semaphore_t* sem)
 {
 	register_t state = spinlock_lock_unpremptible(&sem->sem_lock);
+	thread_t* curthread = PCPU_GET(curthread);
+	int wokeup_priority = curthread->t_priority;
 
 	if (!DQUEUE_EMPTY(&sem->sem_wq)) {
 		/* We have waiters; wake up the first one */
@@ -108,11 +110,20 @@ sem_signal(semaphore_t* sem)
 		DQUEUE_POP_HEAD(&sem->sem_wq);
 		sw->sw_signalled = 1;
 		thread_resume(sw->sw_thread);
+		wokeup_priority = sw->sw_thread->t_priority;
 		/* No need to adjust sem_count since the unblocked waiter won't touch it */
 	} else {
 		/* No waiters; increment the number of units left */
 		sem->sem_count++;
 	}
+
+	/*
+	 * If we woke up something more important than us, mark us as
+	 * reschedule.
+	 */
+	if (wokeup_priority < curthread->t_priority && 0)
+		curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
+
 	spinlock_unlock_unpremptible(&sem->sem_lock, state);
 }	
 

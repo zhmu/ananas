@@ -251,7 +251,7 @@ smp_prepare_config(struct IA32_SMP_CONFIG* cfg)
 		GDT_SET_ENTRY32(cpu->gdt, GDT_IDX_KERNEL_PCPU, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, (addr_t)pcpu, sizeof(struct PCPU));
 
 		/* Use the idle thread stack to execute from; we're becoming the idle thread anyway */
-		cpu->stack = (void*)pcpu->idlethread.md_esp;
+		cpu->stack = (void*)pcpu->idlethread->md_esp;
 	}
 
 	/* Prepare the IOAPIC structure */
@@ -581,7 +581,7 @@ void
 mp_ap_startup(uint32_t lapic_id)
 {
 	/* Switch to our idle thread */
-	thread_t* idlethread = PCPU_GET(idlethread_ptr);
+	thread_t* idlethread = PCPU_GET(idlethread);
   PCPU_SET(curthread, idlethread);
   scheduler_add_thread(idlethread);
 
@@ -594,7 +594,7 @@ mp_ap_startup(uint32_t lapic_id)
 
 	/* We're up and running! Increment the launched count */
 	__asm("lock incl (num_smp_launched)");
-	
+
 	/* Enable interrupts and become the idle thread; this doesn't return */
 	md_interrupts_enable();
 	idle_thread();

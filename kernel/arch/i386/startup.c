@@ -424,9 +424,9 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 */
 	__asm __volatile(
 		"movl %0, %%esp\n"
-	: : "r" (bsp_pcpu.idlethread.md_esp));
-	PCPU_SET(curthread, &bsp_pcpu.idlethread);
-	scheduler_add_thread(&bsp_pcpu.idlethread);
+	: : "r" (bsp_pcpu.idlethread->md_esp));
+	PCPU_SET(curthread, bsp_pcpu.idlethread);
+	scheduler_add_thread(bsp_pcpu.idlethread);
 
 	/*
 	 * If we have ACPI, do a pre-initialization; we need this mostly in the SMP

@@ -10,8 +10,7 @@ struct PCPU {
 	MD_PCPU_FIELDS				/* Machine-dependant data */
 	uint32_t cpuid;				/* CPU ID */
 	void* curthread;			/* current thread */
-	void* idlethread_ptr;			/* pointer to idle thread */
-	struct THREAD idlethread;		/* idle thread */
+	thread_t* idlethread;			/* idle thread */
 	int nested_irq;				/* number of nested IRQ functions */
 };
 
