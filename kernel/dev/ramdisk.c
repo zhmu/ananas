@@ -9,8 +9,6 @@
 #include <ananas/mm.h>
 #include <ananas/vm.h>
 
-TRACE_SETUP;
-
 struct RAMDISK_PRIVDATA {
 	void*		ram_buffer;
 	size_t	ram_size;
