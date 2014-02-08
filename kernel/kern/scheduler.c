@@ -64,26 +64,11 @@ scheduler_is_on_queue(struct SCHEDULER_QUEUE* q, thread_t* t)
 #define SCHED_ASSERT(x,...)
 #endif
 
-void
-scheduler_cleanup_thread(thread_t* t)
-{
-	/*
-	 * We need to remove the thread from the sleepqueue; it cannot be on the
-	 * running queue as the thread must be a zombie once this is called.
-	 */
-	KASSERT(THREAD_IS_ZOMBIE(t), "cleaning up non-zombie thread");
-	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
-	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 1, "cleaning up thread not on sleepqueue");
-	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 0, "cleaning up thread on runqueue");
-	DQUEUE_REMOVE(&sched_sleepqueue, &t->t_sched_priv);
-	spinlock_unlock_unpremptible(&spl_scheduler, state);
-}
-
 static void
 scheduler_add_thread_locked(thread_t* t)
 {
 	/*
-	 * Add it to the runqueue - note that we must preset order here
+	 * Add it to the runqueue - note that we must preserve order here
 	 * because the threads must be sorted in order of priority
 	 * XXX Note that this is O(n) - we can do better
 	 */
@@ -167,14 +152,20 @@ scheduler_exit_thread(thread_t* t)
 }
 
 void
+scheduler_release(thread_t* old)
+{
+	/* Release the old thread; it is now safe to schedule it elsewhere */
+	SCHED_KPRINTF("old[%p] -active\n", old);
+	old->t_flags &= ~THREAD_FLAG_ACTIVE;
+}
+
+void
 schedule()
 {
 	thread_t* curthread = PCPU_GET(curthread);
 	int cpuid = PCPU_GET(cpuid);
 	KASSERT(curthread != NULL, "no current thread active");
-
-	/* Cancel any rescheduling as we are about to schedule here */
-	curthread->t_flags &= ~THREAD_FLAG_RESCHEDULE;
+	SCHED_KPRINTF("schedule(): cpu=%u curthread=%p\n", cpuid, curthread);
 
 	/*
 	 * Grab the scheduler lock and disable interrupts; note that they need not be
@@ -183,13 +174,10 @@ schedule()
 	 */
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
 
-	/*
-	 * Current thread is no longer active - we must do this in the
-	 * scheduler lock.
-	 */
-	curthread->t_flags &= ~THREAD_FLAG_ACTIVE;
+	/* Cancel any rescheduling as we are about to schedule here */
+	curthread->t_flags &= ~THREAD_FLAG_RESCHEDULE;
 
-	/* Pick the next thread to schedule and add it to the back of the queue */
+	/* Pick the next thread to schedule */
 	KASSERT(!DQUEUE_EMPTY(&sched_runqueue), "runqueue cannot be empty");
 	struct SCHED_PRIV* next_sched = NULL;
 	DQUEUE_FOREACH(&sched_runqueue, sp, struct SCHED_PRIV) {
@@ -197,7 +185,7 @@ schedule()
 		if (sp->sp_thread->t_affinity != THREAD_AFFINITY_ANY &&
 			  sp->sp_thread->t_affinity != cpuid)
 			continue;
-		if (THREAD_IS_ACTIVE(sp->sp_thread))
+		if (THREAD_IS_ACTIVE(sp->sp_thread) && sp->sp_thread != curthread)
 			continue;
 		next_sched = sp;
 		break;
@@ -207,17 +195,20 @@ schedule()
 	/* Sanity checks */
 	thread_t* newthread = next_sched->sp_thread;
 	KASSERT(!THREAD_IS_SUSPENDED(newthread), "activating suspended thread %p", newthread);
+	KASSERT(newthread == curthread || !THREAD_IS_ACTIVE(newthread), "activating active thread %p", newthread);
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, newthread) == 1, "scheduling thread not on runqueue (?)");
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, newthread) == 0, "scheduling thread on sleepqueue");
+
+	SCHED_KPRINTF("%s[%d]: newthread=%p curthread=%p\n", __func__, cpuid, newthread, curthread);
 
 	/*
 	 * If the current thread is not suspended, this means it got interrupted
 	 * involuntary and must be placed back on the running queue; otherwise it
-	 * must have been placed on the runqueue already.
+	 * must have been placed on the runqueue already. We'll add it to the back,
+	 * in order to obtain round-robin scheduling within each priority level.
 	 *
 	 * We must also take care not to re-add zombie threads; these cannot be
-	 * run. The same goes for the idle-thread as it will be chosen if the
-	 * runqueue is empty - it makes no sense to schedule idle-time.
+	 * run.
 	 */
 	if (!THREAD_IS_SUSPENDED(curthread) && !THREAD_IS_ZOMBIE(curthread)) {
 		SCHED_KPRINTF("%s[%d]: removing t=%p from runqueue\n", __func__, cpuid, curthread);
@@ -226,7 +217,10 @@ schedule()
 		scheduler_add_thread_locked(curthread);
 	}
 
-	/* Schedule our new thread - this will enable interrupts as required */
+	/*
+	 * Schedule our new thread; by marking it as active, it will not be picked up by another
+	 * CPU.
+	 */
 	newthread->t_flags |= THREAD_FLAG_ACTIVE;
 	PCPU_SET(curthread, newthread);
 
@@ -234,7 +228,8 @@ schedule()
 	spinlock_unlock(&spl_scheduler);
 
 	if (curthread != newthread) {
-		md_thread_switch(newthread, curthread);
+		thread_t* prev = md_thread_switch(newthread, curthread);
+		scheduler_release(prev);
 	}
 
 	/* Re-enable interrupts if they were */
@@ -247,7 +242,7 @@ scheduler_launch()
 	thread_t* idlethread = PCPU_GET(idlethread);
 
 	/*
-	 * Activate the idle threadit; the MD startup code should have done the
+	 * Activate the idle thread; the MD startup code should have done the
 	 * appropriate code/stack switching bits. All we need to do is set up the
 	 * scheduler enough so that it accepts our idle thread.
 	 */

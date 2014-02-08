@@ -23,9 +23,6 @@ int scheduler_activated();
 /* Initializes the scheduler-specific part for a given thread */
 void scheduler_init_thread(thread_t* t);
 
-/* Cleans the scheduler-specific parts for a given thread */
-void scheduler_cleanup_thread(thread_t* t);
-
 /* Register a thread for scheduling */
 void scheduler_add_thread(thread_t* t);
 
