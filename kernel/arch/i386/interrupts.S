@@ -283,6 +283,11 @@ clone_return:
 	 * a value to the new thread, so we'll have to set it here.
 	 */
 
+	/* release previous thread (was in %ebx, see md_thread_switch) */
+	pushl	%ebx
+	call	scheduler_release
+	addl	$4, %esp
+
 	/* Fetch return value */
 	movl	%fs:(PCPU_CURTHREAD), %ebx
 	movl	T_ARG1(%ebx), %eax
@@ -342,6 +347,11 @@ IRQ_HANDLER(14)
 IRQ_HANDLER(15)
 
 kthread_trampoline:
+	/* release previous thread (was in %ebx, see md_thread_switch) */
+	pushl	%ebx
+	call	scheduler_release
+	addl	$4, %esp
+
 	/* Fetch arguments; arg1 is the %eip and arg2 is the argument */
 	movl	%fs:(PCPU_CURTHREAD), %ebx
 	movl	T_ARG1(%ebx), %eax		/* eax = eip */
@@ -368,6 +378,11 @@ kthread_panicmsg:
 
 
 userland_trampoline:
+	/* release previous thread (was in %ebx, see md_thread_switch) */
+	pushl	%ebx
+	call	scheduler_release
+	addl	$4, %esp
+
 	/* Fetch arguments; arg1 is the %eip and arg2 is the argument */
 	movl	%fs:(PCPU_CURTHREAD), %ebx
 	movl	T_ARG1(%ebx), %eax		/* eax = eip */

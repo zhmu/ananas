@@ -97,13 +97,12 @@ md_thread_free(thread_t* t)
 	kfree(t->md_kstack);
 }
 
-void
+thread_t*
 md_thread_switch(thread_t* new, thread_t* old)
 {
 	KASSERT(md_interrupts_save() == 0, "interrupts must be disabled");
 	KASSERT(!THREAD_IS_ZOMBIE(new), "cannot switch to a zombie thread");
 	KASSERT(new != old, "switching to self?");
-	KASSERT(!THREAD_IS_ACTIVE(old), "old thread is running?");
 	KASSERT(THREAD_IS_ACTIVE(new), "new thread isn't running?");
 
 	/* XXX Safety nets to ensure we won't restore a bogus stack */
@@ -132,8 +131,14 @@ md_thread_switch(thread_t* new, thread_t* old)
 	 *
 	 * Note that we can't force the compiler to reload %ebp this way, so we'll
 	 * just save it ourselves.
+	 *
+	 * %ebx is hardcoded to be the old thread upon entry and return (it won't be
+	 * destroyed across function calls, so it's a good choice). This value is used
+	 * by the caller to call scheduler_release() - ..._trampoline depends on the
+	 * register allocation!
 	 */
-	register register_t ebx, ecx, edx, esi, edi;
+	register register_t ecx, edx, esi, edi;
+	thread_t* prev;
 	__asm __volatile(
 		"pushfl\n"
 		"pushl %%ebp\n"
@@ -146,13 +151,14 @@ md_thread_switch(thread_t* new, thread_t* old)
 		"popl %%ebp\n"
 		"popfl\n"
 	: /* out */
-		[old_esp] "=m" (old->md_esp), [old_eip] "=m" (old->md_eip),
+		[old_esp] "=m" (old->md_esp), [old_eip] "=m" (old->md_eip), "=b" (prev),
 		/* clobbered registers */
-		"=b" (ebx), "=c" (ecx), "=d" (edx), "=S" (esi), "=D" (edi)
+		"=c" (ecx), "=d" (edx), "=S" (esi), "=D" (edi)
 	: /* in */
-		[new_eip] "a" (new->md_eip), [new_esp] "b" (new->md_esp)
+		[new_eip] "a" (new->md_eip), "b" (old), [new_esp] "c" (new->md_esp)
 	: /* clobber */"memory"
 	);
+	return prev;
 }
 
 void*
