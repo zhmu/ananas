@@ -202,9 +202,12 @@ smp_ipi_schedule(device_t dev, void* context)
 static irqresult_t
 smp_ipi_panic(device_t dev, void* context)
 {
+	md_interrupts_disable();
 	while (1) {
 		__asm("hlt");
 	}
+
+	/* NOTREACHED */
 	return IRQ_RESULT_PROCESSED;
 }
 
@@ -564,8 +567,9 @@ INIT_FUNCTION(smp_launch, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);
 
 void
 smp_panic_others()
-{
-	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_FIXED | SMP_IPI_PANIC;
+{	
+	if (num_smp_launched > 1)
+		*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_FIXED | SMP_IPI_PANIC;
 }
 
 void
@@ -595,6 +599,8 @@ mp_ap_startup(uint32_t lapic_id)
 	/* We're up and running! Increment the launched count */
 	__asm("lock incl (num_smp_launched)");
 
+	kprintf("CPU %d launched\n", PCPU_GET(cpuid));
+	
 	/* Enable interrupts and become the idle thread; this doesn't return */
 	md_interrupts_enable();
 	idle_thread();
