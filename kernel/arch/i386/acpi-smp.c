@@ -44,9 +44,12 @@ acpi_smp_init(int* bsp_apic_id)
 	     sub < (ACPI_SUBTABLE_HEADER*)((char*)madt + madt->Header.Length);
 	    sub = (ACPI_SUBTABLE_HEADER*)((char*)sub + sub->Length)) {
 		switch(sub->Type) {
-			case ACPI_MADT_TYPE_LOCAL_APIC:
-				smp_config.cfg_num_cpus++;
+			case ACPI_MADT_TYPE_LOCAL_APIC: {
+				ACPI_MADT_LOCAL_APIC* lapic = (ACPI_MADT_LOCAL_APIC*)sub;
+				if (lapic->LapicFlags & ACPI_MADT_ENABLED)
+					smp_config.cfg_num_cpus++;
 				break;
+			}
 			case ACPI_MADT_TYPE_IO_APIC:
 				smp_config.cfg_num_ioapics++;
 				break;
@@ -88,6 +91,8 @@ acpi_smp_init(int* bsp_apic_id)
 			case ACPI_MADT_TYPE_LOCAL_APIC: {
 				ACPI_MADT_LOCAL_APIC* lapic = (ACPI_MADT_LOCAL_APIC*)sub;
 				kprintf("lapic, acpi id=%u apicid=%u\n", lapic->ProcessorId, lapic->Id);
+				if ((lapic->LapicFlags & ACPI_MADT_ENABLED) == 0)
+					continue; /* skip disabled CPU's */
 
 				struct IA32_CPU* cpu = &smp_config.cfg_cpu[cur_cpu];
 				cpu->lapic_id = lapic->Id;
