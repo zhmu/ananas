@@ -589,8 +589,15 @@ mp_ap_startup(uint32_t lapic_id)
   PCPU_SET(curthread, idlethread);
   scheduler_add_thread(idlethread);
 
-	/* Enable the LAPIC for this AP so we can handle interrupts */
-	*((uint32_t*)LAPIC_SVR) |= LAPIC_SVR_APIC_EN;
+	/* Reset destination format to flat mode */
+	*(volatile uint32_t*)LAPIC_DF = 0xffffffff;
+	/* Ensure we are the logical destination of our local APIC */
+	volatile uint32_t* v = (volatile uint32_t*)LAPIC_LD;
+	*v = (*v & 0x00ffffff) | 1 << (lapic_id + 24);
+	/* Clear Task Priority register; this enables all LAPIC interrupts */
+	*(volatile uint32_t*)LAPIC_TPR &= ~0xff;
+	/* Finally, enable the APIC */
+	*(volatile uint32_t*)LAPIC_SVR |= LAPIC_SVR_APIC_EN;
 
 	/* Wait for it ... */
 	while (!can_smp_launch)
