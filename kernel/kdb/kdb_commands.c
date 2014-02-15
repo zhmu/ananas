@@ -26,11 +26,13 @@ kdb_cmd_bootinfo(int num_args, char** arg)
 void
 kdb_cmd_memory(int num_args, char** arg)
 {
+#if 0
 	size_t avail, total;
 	kmem_stats(&avail, &total);
 
 	kprintf("memory: %u KB available of %u KB total\n",
 	 avail / 1024, total / 1024);
+#endif
 }
 
 /* vim:set ts=2 sw=2: */
