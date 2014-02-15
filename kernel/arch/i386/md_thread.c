@@ -96,7 +96,7 @@ md_thread_free(thread_t* t)
 
 	/* Throw away the pagedir and stacks; they aren't in use so this will never hurt */
 	if (!THREAD_IS_KTHREAD(t)) {
-		vm_free_pagedir(t->md_pagedir);
+		page_free(t->md_pagedir_page);
 		page_free(t->md_stack);
 	}
 	kfree(t->md_kstack);
