@@ -2,6 +2,7 @@
 #include <machine/param.h>
 #include <machine/vm.h>
 #include <ananas/lib.h>
+#include <ananas/page.h>
 #include <ananas/mm.h>
 #include <ananas/vm.h>
 
@@ -33,8 +34,9 @@ md_map_pages(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, int 
 			 * This page isn't yet mapped, so we need to allocate a new page entry
 			 * where we can map the pointer.
 			 */
-			addr_t new_pt = (addr_t)kmalloc(PAGE_SIZE);
-			KASSERT((new_pt & (PAGE_SIZE - 1)) == 0, "pagedir entry not page-aligned");
+			struct PAGE* p = page_alloc_single();
+			KASSERT(p != NULL, "out of pages");
+			addr_t new_pt = (addr_t)vm_map_kernel(page_get_paddr(p), 1, VM_FLAG_READ | VM_FLAG_WRITE);
 			memset((void*)new_pt, 0, PAGE_SIZE);
 			pagedir[pd_entrynum] = KVTOP(new_pt) | PDE_P | PDE_RW | pt_flags;
 		}

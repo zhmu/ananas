@@ -10,6 +10,7 @@
 #include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
+#include <ananas/page.h>
 #include <ananas/pcpu.h>
 #include <ananas/thread.h>
 #include <ananas/threadinfo.h>
@@ -34,7 +35,7 @@ md_thread_init(thread_t* t)
 	vm_map_kernel_addr(t->md_pagedir);
 
 	/* Allocate stacks: one for the thread and one for the kernel */
-	t->md_stack  = kmem_alloc(THREAD_STACK_SIZE / PAGE_SIZE);
+	t->md_stack = page_alloc_order(THREAD_STACK_SIZE / PAGE_SIZE); /* XXX wrong size, too large */
 	if (t->md_stack == NULL) {
 		kfree(t->md_pagedir);
 		return ANANAS_ERROR(OUT_OF_MEMORY);
@@ -43,7 +44,7 @@ md_thread_init(thread_t* t)
 	t->md_eip = (addr_t)&userland_trampoline;
 
 	/* Perform adequate mapping for the userland stack */
-	md_map_pages(t->md_pagedir, USERLAND_STACK_ADDR, KVTOP((addr_t)t->md_stack),  THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_USER);
+	md_map_pages(t->md_pagedir, USERLAND_STACK_ADDR, page_get_paddr(t->md_stack),  THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_USER);
 
 	/* Fill our the %esp and %cr3 fields; we'll be started in supervisor mode, so use the appropriate stack */
 	t->md_cr3 = KVTOP((addr_t)t->md_pagedir);
@@ -92,7 +93,7 @@ md_thread_free(thread_t* t)
 	/* Throw away the pagedir and stacks; they aren't in use so this will never hurt */
 	if (!THREAD_IS_KTHREAD(t)) {
 		vm_free_pagedir(t->md_pagedir);
-		kmem_free(t->md_stack);
+		page_free(t->md_stack);
 	}
 	kfree(t->md_kstack);
 }

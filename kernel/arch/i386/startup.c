@@ -16,8 +16,9 @@
 #include <ananas/handle.h>
 #include <ananas/init.h>
 #include <ananas/lib.h>
-#include <ananas/pcpu.h>
 #include <ananas/mm.h>
+#include <ananas/page.h>
+#include <ananas/pcpu.h>
 #include <ananas/vm.h>
 #include <loader/module.h>
 #include "options.h"
@@ -361,9 +362,6 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 		"movl	%%eax, %%cr0\n"
 	: : "b" (CR0_NE));
 
-	/* Ensure the memory manager is available for action */
-	mm_init();
-
 	/*
 	 * We are good to go; we now need to add the chunks of memory that are
 	 * present in the system. However, we cannot obtain them as this is only
@@ -420,7 +418,7 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 			KASSERT(start[n] <= end[n] && end[n] >= start[n], "invalid start/end pair %x/%x", start[n], end[n]);
 			if (start[n] == end[n])
 				continue;
-			mm_zone_add(start[n], end[n] - start[n]);
+			page_zone_add(start[n], end[n] - start[n]);
 		}
 #undef MAX_SLICES
 	}
