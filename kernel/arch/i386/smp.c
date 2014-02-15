@@ -34,7 +34,7 @@ extern uint32_t* pagedir;
 
 struct IA32_SMP_CONFIG smp_config;
 
-static char* ap_code;
+static struct PAGE* ap_page;
 static int can_smp_launch = 0;
 static int num_smp_launched = 1; /* BSP is always launched */
 
@@ -478,9 +478,11 @@ smp_init()
 	 * XXX We do this before allocating anything else to increase the odds of the
 	 *     AP code remaining in the lower 1MB. This needs a better solution.
 	 */
-	ap_code = kmalloc(PAGE_SIZE);
-	KASSERT (KVTOP((addr_t)ap_code) < 0x100000, "ap code %p must be below 1MB"); /* XXX crude */
+	ap_page = page_alloc_single();
+	KASSERT (page_get_paddr(ap_page) < 0x100000, "ap code must be below 1MB"); /* XXX crude */
+	void* ap_code = vm_map_kernel(page_get_paddr(ap_page), 1, VM_FLAG_READ | VM_FLAG_WRITE);
 	memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
+	vm_unmap_kernel((addr_t)ap_code, 1);
 
 	int bsp_apic_id;
 #ifdef OPTION_ACPI
@@ -488,7 +490,7 @@ smp_init()
 #endif
 	if (smp_init_mps(&bsp_apic_id) != ANANAS_ERROR_OK) {
 		/* SMP not present or not usable */
-		kfree(ap_code);
+		page_free(ap_page);
 		md_remove_low_mappings();
 		return ANANAS_ERROR(NO_DEVICE);
 	}
@@ -548,16 +550,16 @@ smp_launch()
 	 */
 	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_INIT;
 	delay(10);
-	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | (addr_t)KVTOP((addr_t)ap_code) >> 12;
+	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | page_get_paddr(ap_page) >> 12;
 	delay(200);
-	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | (addr_t)KVTOP((addr_t)ap_code) >> 12;
+	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | page_get_paddr(ap_page) >> 12;
 	delay(200);
 
 	while(num_smp_launched < smp_config.cfg_num_cpus)
 		/* wait for it ... */ ;
 
 	/* All done - we can throw away the AP code and mappings */
-	kfree(ap_code);
+	page_free(ap_page);
 	md_remove_low_mappings();
 
 	return ANANAS_ERROR_OK;
