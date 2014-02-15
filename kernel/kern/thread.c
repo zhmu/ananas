@@ -133,8 +133,10 @@ thread_free_mapping(thread_t* t, struct THREAD_MAPPING* tm)
 	DQUEUE_REMOVE(&t->t_mappings, tm);
 	if (tm->tm_destroy != NULL)
 		tm->tm_destroy(t, tm);
+/* TODO
 	if (tm->tm_flags & THREAD_MAP_ALLOC)
 		kmem_free((void*)tm->tm_phys);
+*/
 	kfree(tm);
 }
 
@@ -266,11 +268,14 @@ thread_mapto(thread_t* t, addr_t virt, addr_t phys, size_t len, uint32_t flags, 
 	memset(tm, 0, sizeof(*tm));
 
 	if (flags & THREAD_MAP_ALLOC) {
+/*
 		phys = (addr_t)kmem_alloc((len + PAGE_SIZE - 1) / PAGE_SIZE);
 		if (phys == (addr_t)NULL) {
 			kfree(tm);
 			return ANANAS_ERROR(OUT_OF_MEMORY);
 		}
+*/
+		phys = 0;
 		/* XXX so how do we zero it out? */
 	}
 
