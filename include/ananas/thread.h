@@ -4,6 +4,7 @@
 #include <ananas/limits.h>
 #include <ananas/handle.h>
 #include <ananas/init.h>
+#include <ananas/page.h>
 #include <ananas/schedule.h>
 #include <machine/thread.h>
 
@@ -29,7 +30,7 @@ struct THREAD_MAPPING {
 	unsigned int		tm_flags;		/* flags */
 	addr_t			tm_virt;		/* userland address */
 	size_t			tm_len;			/* length */
-	addr_t			tm_phys;		/* physical address */
+	struct page_list	tm_pages;		/* backing pages */
 	void*			tm_privdata;		/* private data */
 	threadmap_fault_t	tm_fault;		/* fault function */
 	threadmap_clone_t	tm_clone;		/* clone function */
@@ -70,6 +71,7 @@ struct THREAD {
 #define THREAD_AFFINITY_ANY -1
 
 	struct THREADINFO* t_threadinfo;	/* Thread startup information */
+	struct PAGE* t_threadinfo_page;	/* Page containing the above */
 
 	/* Thread handles */
 	struct HANDLE* t_thread_handle;	/* Handle identifying this thread */

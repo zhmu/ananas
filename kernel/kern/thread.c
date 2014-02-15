@@ -42,7 +42,11 @@ thread_init(thread_t* t, thread_t* parent)
 	md_thread_init(t);
 
 	/* initialize thread information structure and map it */
-	t->t_threadinfo = kmalloc(sizeof(struct THREADINFO));
+	t->t_threadinfo_page = page_alloc_single();
+	if (t->t_threadinfo_page == NULL)
+		return ANANAS_ERROR(OUT_OF_MEMORY);
+
+	t->t_threadinfo = vm_map_kernel(page_get_paddr(t->t_threadinfo_page), 1, VM_FLAG_READ | VM_FLAG_WRITE);
 	memset(t->t_threadinfo, 0, sizeof(t->t_threadinfo));
 	t->t_threadinfo->ti_size = sizeof(struct THREADINFO);
 	t->t_threadinfo->ti_handle = t->t_thread_handle;
@@ -50,7 +54,7 @@ thread_init(thread_t* t, thread_t* parent)
 		thread_set_environment(t, parent->t_threadinfo->ti_env, PAGE_SIZE /* XXX */);
 
 	struct THREAD_MAPPING* tm;
-	err = thread_map(t, KVTOP((addr_t)t->t_threadinfo), sizeof(struct THREADINFO), THREAD_MAP_READ | THREAD_MAP_WRITE | THREAD_MAP_PRIVATE, &tm);
+	err = thread_map(t, page_get_paddr(t->t_threadinfo_page), sizeof(struct THREADINFO), THREAD_MAP_READ | THREAD_MAP_WRITE | THREAD_MAP_PRIVATE, &tm);
 	if (err != ANANAS_ERROR_NONE)
 		goto fail;
 	md_thread_set_argument(t, tm->tm_virt);
@@ -94,6 +98,7 @@ kthread_init(thread_t* t, kthread_func_t func, void* arg)
 	t->t_affinity = THREAD_AFFINITY_ANY;
 
 	/* Initialize dummy threadinfo; this is used to store the thread name */
+	t->t_threadinfo_page = NULL;
 	t->t_threadinfo = kmalloc(sizeof(struct THREADINFO));
 	memset(t->t_threadinfo, 0, sizeof(t->t_threadinfo));
 
@@ -129,14 +134,16 @@ thread_alloc(thread_t* parent, thread_t** dest)
 void
 thread_free_mapping(thread_t* t, struct THREAD_MAPPING* tm)
 {
-	TRACE(THREAD, INFO, "thread_free_mapping(): t=%p tm=%p tm->phys=%p", t, tm, tm->tm_phys);
+	TRACE(THREAD, INFO, "thread_free_mapping(): t=%p tm=%p", t, tm);
 	DQUEUE_REMOVE(&t->t_mappings, tm);
 	if (tm->tm_destroy != NULL)
 		tm->tm_destroy(t, tm);
-/* TODO
-	if (tm->tm_flags & THREAD_MAP_ALLOC)
-		kmem_free((void*)tm->tm_phys);
-*/
+
+	/* If the pages were allocated, we need to free them one by one */
+	if (!DQUEUE_EMPTY(&tm->tm_pages))
+		DQUEUE_FOREACH_SAFE(&tm->tm_pages, p, struct PAGE) {
+			page_free(p);
+		}
 	kfree(tm);
 }
 
@@ -182,7 +189,10 @@ thread_free(thread_t* t)
 	 * Clear the thread information; no one can query it at this point as the
  	 * thread itself will not run anymore.
 	 */
-	kfree(t->t_threadinfo);
+	if (t->t_threadinfo_page == NULL)
+		kfree(t->t_threadinfo);
+	else
+		page_free(t->t_threadinfo_page);
 	t->t_threadinfo = NULL;
 
 	/*
@@ -267,26 +277,20 @@ thread_mapto(thread_t* t, addr_t virt, addr_t phys, size_t len, uint32_t flags, 
 	struct THREAD_MAPPING* tm = kmalloc(sizeof(*tm));
 	memset(tm, 0, sizeof(*tm));
 
-	if (flags & THREAD_MAP_ALLOC) {
-/*
-		phys = (addr_t)kmem_alloc((len + PAGE_SIZE - 1) / PAGE_SIZE);
-		if (phys == (addr_t)NULL) {
-			kfree(tm);
-			return ANANAS_ERROR(OUT_OF_MEMORY);
-		}
-*/
-		phys = 0;
-		/* XXX so how do we zero it out? */
-	}
+	/*
+	 * XXX We should ask the VM for some kind of reservation of the
+	 * THREAD_MAP_ALLOC flag is set; now we'll just assume that the
+	 * memory is there...
+	 */
 
-	tm->tm_phys = phys;
+	DQUEUE_INIT(&tm->tm_pages);
 	tm->tm_virt = virt;
 	tm->tm_len = len;
 	tm->tm_flags = flags;
 	DQUEUE_ADD_TAIL(&t->t_mappings, tm);
 	TRACE(THREAD, INFO, "thread_mapto(): t=%p, tm=%p, phys=%p, virt=%p, flags=0x%x", t, tm, phys, virt, flags);
 
-	md_thread_map(t, (void*)tm->tm_virt, (void*)tm->tm_phys, len, (flags & THREAD_MAP_LAZY) ? 0 : thread_make_vmflags(flags));
+	md_thread_map(t, (void*)tm->tm_virt, (void*)phys, len, (flags & (THREAD_MAP_LAZY | THREAD_MAP_ALLOC)) ? 0 : thread_make_vmflags(flags));
 	*out = tm;
 	return ANANAS_ERROR_OK;
 }
@@ -319,14 +323,27 @@ thread_handle_fault(thread_t* t, addr_t virt, int flags)
 		DQUEUE_FOREACH(&t->t_mappings, tm, struct THREAD_MAPPING) {
 			if (!(virt >= tm->tm_virt && (virt < (tm->tm_virt + tm->tm_len))))
 				continue;
-			if (tm->tm_fault == NULL)
-				continue;
+
+			/* Fetch a page */
+			struct PAGE* p = page_alloc_single();
+			if (p == NULL)
+				return ANANAS_ERROR(OUT_OF_MEMORY);
+			DQUEUE_ADD_TAIL(&tm->tm_pages, p);
 
 			/* Map the page */
-			md_thread_map(t, (void*)virt, (void*)(tm->tm_phys + (virt - tm->tm_virt)), 1, thread_make_vmflags(tm->tm_flags));
-
-			/* Mapping found; request it to map the page */
-			return tm->tm_fault(t, tm, virt);
+			md_thread_map(t, (void*)virt, (void*)page_get_paddr(p), 1, thread_make_vmflags(tm->tm_flags));
+			errorcode_t err = ANANAS_ERROR_OK;
+			if (tm->tm_fault != NULL) {
+				/* Invoke the mapping-specific fault handler */
+				err = tm->tm_fault(t, tm, virt);
+				if (err != ANANAS_ERROR_NONE) {
+					/* Mapping failed; throw the thread mapping away and nuke the page */
+					md_thread_unmap(t, virt, 1);
+					DQUEUE_REMOVE(&tm->tm_pages, p);
+					page_free(p);
+				}
+			}
+			return err;
 		}
 	}
 	return ANANAS_ERROR(BAD_ADDRESS);
@@ -454,13 +471,16 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 			if (!md_thread_is_mapped(parent, tm->tm_virt + n, VM_FLAG_READ, &va))
 				continue;
 
+			panic("TODO copy pages");
+#if 0
 			/* XXX make a temporary mapping to copy the data. We should do a copy-on-write */
 			void* ktmp = vm_map_kernel(ttm->tm_phys + n, 1, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
 			memcpy(ktmp, (void*)(tm->tm_virt + n), PAGE_SIZE);
 			vm_unmap_kernel((addr_t)ktmp, 1);
+#endif
 
 			/* Mark the page as present in the cloned process */
-			md_thread_map(t, (void*)(ttm->tm_virt + n), (void*)(ttm->tm_phys + n), 1, thread_make_vmflags(tm->tm_flags));
+			//md_thread_map(t, (void*)(ttm->tm_virt + n), (void*)(ttm->tm_phys + n), 1, thread_make_vmflags(tm->tm_flags));
 
 			/* Copy the mapping-specific parts */
 			ttm->tm_privdata = NULL; /* to be filled out by clone */
@@ -625,7 +645,6 @@ kdb_cmd_thread(int num_args, char** arg)
 		DQUEUE_FOREACH(&thread->t_mappings, tm, struct THREAD_MAPPING) {
 			kprintf("   flags      : 0x%x\n", tm->tm_flags);
 			kprintf("   virtual    : 0x%x - 0x%x\n", tm->tm_virt, tm->tm_virt + tm->tm_len);
-			kprintf("   physical   : 0x%x - 0x%x\n", tm->tm_phys, tm->tm_phys + tm->tm_len);
 			kprintf("   length     : %u\n", tm->tm_len);
 			kprintf("\n");
 		}
