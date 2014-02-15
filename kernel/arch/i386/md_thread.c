@@ -30,14 +30,18 @@ errorcode_t
 md_thread_init(thread_t* t)
 {
 	/* Create a pagedirectory and map the kernel pages in there */
-	t->md_pagedir = kmalloc(PAGE_SIZE);
+	t->md_pagedir_page = page_alloc_single();
+	if (t->md_pagedir_page == NULL)
+		return ANANAS_ERROR(OUT_OF_MEMORY);
+	t->md_pagedir = vm_map_kernel(page_get_paddr(t->md_pagedir_page), 1, VM_FLAG_READ | VM_FLAG_WRITE);
+
 	memset(t->md_pagedir, 0, PAGE_SIZE);
 	vm_map_kernel_addr(t->md_pagedir);
 
 	/* Allocate stacks: one for the thread and one for the kernel */
 	t->md_stack = page_alloc_order(THREAD_STACK_SIZE / PAGE_SIZE); /* XXX wrong size, too large */
 	if (t->md_stack == NULL) {
-		kfree(t->md_pagedir);
+		page_free(t->md_pagedir_page);
 		return ANANAS_ERROR(OUT_OF_MEMORY);
 	}
 	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
@@ -226,7 +230,7 @@ md_thread_clone(thread_t* t, thread_t* parent, register_t retval)
 	 * caller. The user stackframe is important as it will allow the new thread
 	 * to return correctly from the clone syscall.
 	 */
-	void* ustack = vm_map_kernel((addr_t)t->md_stack, THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
+	void* ustack = vm_map_kernel(page_get_paddr(t->md_stack), THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 	memcpy(ustack, (void*)USERLAND_STACK_ADDR, THREAD_STACK_SIZE);
 	vm_unmap_kernel((addr_t)ustack, THREAD_STACK_SIZE / PAGE_SIZE);
 
