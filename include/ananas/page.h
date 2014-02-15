@@ -9,8 +9,8 @@
 struct PAGE {
 	DQUEUE_FIELDS(struct PAGE);
 
-	/* Index within the zone */
-	unsigned int p_index;
+	/* Mapped address, if any */
+	addr_t p_addr;
 
 	/* Page order */
 	unsigned int p_order;

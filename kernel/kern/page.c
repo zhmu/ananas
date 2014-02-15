@@ -202,7 +202,6 @@ page_zone_add(addr_t base, size_t length)
 	/* Create the page structures; we mark everything as a order 0 page */
 	struct PAGE* p = z->z_base;
 	for (unsigned int n = 0; n < z->z_num_pages; n++, p++) {
-		p->p_index = n;
 		p->p_zone = z;
 		p->p_order = 0;
 	}

@@ -329,6 +329,7 @@ thread_handle_fault(thread_t* t, addr_t virt, int flags)
 			if (p == NULL)
 				return ANANAS_ERROR(OUT_OF_MEMORY);
 			DQUEUE_ADD_TAIL(&tm->tm_pages, p);
+			p->p_addr = virt;
 
 			/* Map the page */
 			md_thread_map(t, (void*)virt, (void*)page_get_paddr(p), 1, thread_make_vmflags(tm->tm_flags));
@@ -457,44 +458,45 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 			return err;
 		}
 
+		/* Copy the mapping-specific parts */
+		ttm->tm_privdata = NULL; /* to be filled out by clone */
+		ttm->tm_fault = tm->tm_fault;
+		ttm->tm_destroy = tm->tm_destroy;
+		ttm->tm_clone = tm->tm_clone;
+		if (tm->tm_clone != NULL) {
+			err = tm->tm_clone(t, ttm, tm);
+			if (err != ANANAS_ERROR_OK) {
+				thread_free(t);
+				thread_destroy(t);
+				return err;
+			}
+		}
+
 		/*
 		 * Copy the page one by one; skip pages that cannot be copied XXX This is
-		 * horribly slow, we should use a copy-on-write mechanism (but that needs
-		 * a much more complex VM than we currently have)
+		 * horribly slow, we should use a copy-on-write mechanism.
 		 *
 		 * This loop assumes that our current process is the parent; thread_clone()
 		 * asserts on this.
 		 */
-		for (size_t n = 0; n < ROUND_UP(tm->tm_len, PAGE_SIZE); n += PAGE_SIZE) {
-			/* If the page isn't mapped in the parent thread; skip it */
-			addr_t va;
-			if (!md_thread_is_mapped(parent, tm->tm_virt + n, VM_FLAG_READ, &va))
-				continue;
-
-			panic("TODO copy pages");
-#if 0
-			/* XXX make a temporary mapping to copy the data. We should do a copy-on-write */
-			void* ktmp = vm_map_kernel(ttm->tm_phys + n, 1, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
-			memcpy(ktmp, (void*)(tm->tm_virt + n), PAGE_SIZE);
-			vm_unmap_kernel((addr_t)ktmp, 1);
-#endif
-
-			/* Mark the page as present in the cloned process */
-			//md_thread_map(t, (void*)(ttm->tm_virt + n), (void*)(ttm->tm_phys + n), 1, thread_make_vmflags(tm->tm_flags));
-
-			/* Copy the mapping-specific parts */
-			ttm->tm_privdata = NULL; /* to be filled out by clone */
-			ttm->tm_fault = tm->tm_fault;
-			ttm->tm_destroy = tm->tm_destroy;
-			ttm->tm_clone = tm->tm_clone;
-
-			if (tm->tm_clone != NULL) {
-				err = tm->tm_clone(t, ttm, tm);
-				if (err != ANANAS_ERROR_OK) {
+		if (!DQUEUE_EMPTY(&tm->tm_pages)) {
+			DQUEUE_FOREACH(&tm->tm_pages, p, struct PAGE) {
+				struct PAGE* new_page = page_alloc_order(p->p_order);
+				if (new_page == NULL) {
 					thread_free(t);
 					thread_destroy(t);
-					return err;
+					return ANANAS_ERROR(OUT_OF_MEMORY);
 				}
+				new_page->p_addr = p->p_addr;
+				int num_pages = 1 << p->p_order;
+
+				/* XXX make a temporary mapping to copy the data. We should do a copy-on-write */
+				void* ktmp = vm_map_kernel(page_get_paddr(new_page), num_pages, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
+				memcpy(ktmp, (void*)p->p_addr, num_pages * PAGE_SIZE);
+				vm_unmap_kernel((addr_t)ktmp, num_pages);
+				
+				/* Mark the page as present in the cloned process */
+				md_thread_map(t, (void*)p->p_addr, (void*)page_get_paddr(new_page), num_pages, thread_make_vmflags(tm->tm_flags));
 			}
 		}
 	}
