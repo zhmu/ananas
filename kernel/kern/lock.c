@@ -121,7 +121,7 @@ sem_signal(semaphore_t* sem)
 	 * If we woke up something more important than us, mark us as
 	 * reschedule.
 	 */
-	if (wokeup_priority < curthread->t_priority && 0)
+	if (wokeup_priority < curthread->t_priority)
 		curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
 
 	spinlock_unlock_unpremptible(&sem->sem_lock, state);
