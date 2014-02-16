@@ -1674,28 +1674,17 @@ unsigned char _BitScanReverse(unsigned long *index, unsigned long mask);
 static void*
 ananas_get_memory(size_t len)
 {
-	kprintf("ananas_get_memory(): len=%u\n", len);
-
-	/* Conver the length from bytes -> pages, rounding up */
-	unsigned int pages = (len + PAGE_SIZE - 1) / PAGE_SIZE;
-
-	/* Now find the 2_log of this; this is the order we'll be allocating in */
-	int order = 0;
-	for (unsigned int n = pages; n > 1; n >>= 1)
-		order++;
-
-	/* First, obtain the block of memory */
-	struct PAGE* p = page_alloc_order(order);
-	if (p == NULL)
-		panic("ananas_get_memory() failure");
-
-	/* Map the memory */
-	return vm_map_kernel(page_get_paddr(p), pages, VM_FLAG_READ | VM_FLAG_WRITE);
+	struct PAGE* p;
+	void* v = page_alloc_length_mapped(len, &p);
+	KASSERT(v != NULL, "out of memory allocating %u bytes", len);
+	/* XXX We should store 'p' in a list so we can find it when freeing stuff */
+	return v;
 }
 
 static int
 ananas_free_memory(void* ptr, size_t len)
 {
+	panic("ananas_free_memory");
 	return -1; /* failure */
 }
 
