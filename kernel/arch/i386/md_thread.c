@@ -29,31 +29,34 @@ extern uint32_t* kernel_pd;
 errorcode_t
 md_thread_init(thread_t* t)
 {
-	/* Create a pagedirectory and map the kernel pages in there */
-	t->md_pagedir_page = page_alloc_single();
-	if (t->md_pagedir_page == NULL)
+	/* Create a pagedirectory */
+	struct PAGE* pagedir_page;
+	t->md_pagedir = page_alloc_single_mapped(&pagedir_page);
+	if (t->md_pagedir == NULL)
 		return ANANAS_ERROR(OUT_OF_MEMORY);
-	t->md_pagedir = vm_map_kernel(page_get_paddr(t->md_pagedir_page), 1, VM_FLAG_READ | VM_FLAG_WRITE);
+	DQUEUE_ADD_TAIL(&t->t_pages, pagedir_page);
 
+	/* Map the kernel pages in there */
 	memset(t->md_pagedir, 0, PAGE_SIZE);
 	vm_map_kernel_addr(t->md_pagedir);
 
-	/* Allocate stacks: one for the thread and one for the kernel */
-	t->md_stack = page_alloc_order(THREAD_STACK_SIZE / PAGE_SIZE); /* XXX wrong size, too large */
-	if (t->md_stack == NULL) {
-		page_free(t->md_pagedir_page);
+	/* Create the user stack page */
+	t->md_ustack_page = page_alloc_order(THREAD_STACK_SIZE / PAGE_SIZE); /* XXX wrong size, too large */
+	if (t->md_ustack_page == NULL)
 		return ANANAS_ERROR(OUT_OF_MEMORY);
-	}
+	DQUEUE_ADD_TAIL(&t->t_pages, t->md_ustack_page);
+
+	/* Create the kernel stack; this is fixed-length */
 	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
-	t->md_eip = (addr_t)&userland_trampoline;
 
 	/* Perform adequate mapping for the userland stack */
-	md_map_pages(t->md_pagedir, USERLAND_STACK_ADDR, page_get_paddr(t->md_stack),  THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_USER);
+	md_map_pages(t->md_pagedir, USERLAND_STACK_ADDR, page_get_paddr(t->md_ustack_page), THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_USER);
 
 	/* Fill our the %esp and %cr3 fields; we'll be started in supervisor mode, so use the appropriate stack */
 	t->md_cr3 = KVTOP((addr_t)t->md_pagedir);
 	t->md_esp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE;
 	t->md_esp = t->md_esp0;
+	t->md_eip = (addr_t)&userland_trampoline;
 
 	/* initialize FPU state similar to what finit would do */
 	t->md_fpu_ctx.cw = 0x37f;
@@ -94,11 +97,7 @@ md_thread_free(thread_t* t)
 	KASSERT(THREAD_IS_ZOMBIE(t), "cannot free non-zombie thread");
 	KASSERT(PCPU_GET(curthread) != t, "cannot free current thread");
 
-	/* Throw away the pagedir and stacks; they aren't in use so this will never hurt */
-	if (!THREAD_IS_KTHREAD(t)) {
-		page_free(t->md_pagedir_page);
-		page_free(t->md_stack);
-	}
+	/* Throw away the kernel stack; it is no longer in use so it can go */
 	kfree(t->md_kstack);
 }
 
@@ -230,7 +229,7 @@ md_thread_clone(thread_t* t, thread_t* parent, register_t retval)
 	 * caller. The user stackframe is important as it will allow the new thread
 	 * to return correctly from the clone syscall.
 	 */
-	void* ustack = vm_map_kernel(page_get_paddr(t->md_stack), THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
+	void* ustack = vm_map_kernel(page_get_paddr(t->md_ustack_page), THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 	memcpy(ustack, (void*)USERLAND_STACK_ADDR, THREAD_STACK_SIZE);
 	vm_unmap_kernel((addr_t)ustack, THREAD_STACK_SIZE / PAGE_SIZE);
 

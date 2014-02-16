@@ -100,9 +100,8 @@ struct FPUREGS {
 	register_t	md_arg1; /* XXX */ \
 	register_t	md_arg2; /* XXX */ \
 	struct FPUREGS	md_fpu_ctx __attribute__ ((aligned(16))); \
-	struct PAGE*	md_pagedir_page; \
 	void*		md_pagedir; \
-	struct PAGE*	md_stack; \
+	struct PAGE*	md_ustack_page; \
 	void*		md_kstack;
 
 void md_restore_ctx(struct CONTEXT* ctx);
