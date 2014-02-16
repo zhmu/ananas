@@ -71,7 +71,8 @@ struct THREAD {
 #define THREAD_AFFINITY_ANY -1
 
 	struct THREADINFO* t_threadinfo;	/* Thread startup information */
-	struct PAGE* t_threadinfo_page;	/* Page containing the above */
+
+	struct page_list t_pages;	/* Pages allocated to the thread (except mappings) */
 
 	/* Thread handles */
 	struct HANDLE* t_thread_handle;	/* Handle identifying this thread */

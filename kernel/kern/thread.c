@@ -33,6 +33,7 @@ thread_init(thread_t* t, thread_t* parent)
 	err = handle_alloc(HANDLE_TYPE_THREAD, t /* XXX should be parent? */, &t->t_thread_handle);
 	ANANAS_ERROR_RETURN(err);
 	t->t_thread_handle->h_data.d_thread = t;
+	DQUEUE_INIT(&t->t_pages);
 
 	/* Set up CPU affinity and priority */
 	t->t_priority = THREAD_PRIORITY_DEFAULT;
@@ -41,20 +42,23 @@ thread_init(thread_t* t, thread_t* parent)
 	/* ask machine-dependant bits to initialize our thread data*/
 	md_thread_init(t);
 
-	/* initialize thread information structure and map it */
-	t->t_threadinfo_page = page_alloc_single();
-	if (t->t_threadinfo_page == NULL)
+	/* Create thread information structure */
+	struct PAGE* threadinfo_page;
+	t->t_threadinfo = page_alloc_length_mapped(sizeof(struct THREADINFO), &threadinfo_page);
+	if (t->t_threadinfo == NULL)
 		return ANANAS_ERROR(OUT_OF_MEMORY);
+	DQUEUE_ADD_TAIL(&t->t_pages, threadinfo_page);
 
-	t->t_threadinfo = vm_map_kernel(page_get_paddr(t->t_threadinfo_page), 1, VM_FLAG_READ | VM_FLAG_WRITE);
+	/* Initialize thread information structure */
 	memset(t->t_threadinfo, 0, sizeof(t->t_threadinfo));
 	t->t_threadinfo->ti_size = sizeof(struct THREADINFO);
 	t->t_threadinfo->ti_handle = t->t_thread_handle;
 	if (parent != NULL)
 		thread_set_environment(t, parent->t_threadinfo->ti_env, PAGE_SIZE /* XXX */);
 
+	/* Map the thread information structure in thread-space */
 	struct THREAD_MAPPING* tm;
-	err = thread_map(t, page_get_paddr(t->t_threadinfo_page), sizeof(struct THREADINFO), THREAD_MAP_READ | THREAD_MAP_WRITE | THREAD_MAP_PRIVATE, &tm);
+	err = thread_map(t, page_get_paddr(threadinfo_page), sizeof(struct THREADINFO), THREAD_MAP_READ | THREAD_MAP_WRITE | THREAD_MAP_PRIVATE, &tm);
 	if (err != ANANAS_ERROR_NONE)
 		goto fail;
 	md_thread_set_argument(t, tm->tm_virt);
@@ -98,9 +102,11 @@ kthread_init(thread_t* t, kthread_func_t func, void* arg)
 	t->t_affinity = THREAD_AFFINITY_ANY;
 
 	/* Initialize dummy threadinfo; this is used to store the thread name */
-	t->t_threadinfo_page = NULL;
-	t->t_threadinfo = kmalloc(sizeof(struct THREADINFO));
-	memset(t->t_threadinfo, 0, sizeof(t->t_threadinfo));
+	struct PAGE* threadinfo_page;
+	t->t_threadinfo = page_alloc_length_mapped(sizeof(struct THREADINFO), &threadinfo_page);
+	if (t->t_threadinfo == NULL)
+		return ANANAS_ERROR(OUT_OF_MEMORY);
+	DQUEUE_ADD_TAIL(&t->t_pages, threadinfo_page);
 
 	/* Initialize MD-specifics */
 	md_kthread_init(t, func, arg);
@@ -187,12 +193,9 @@ thread_free(thread_t* t)
 
 	/*
 	 * Clear the thread information; no one can query it at this point as the
- 	 * thread itself will not run anymore.
+ 	 * thread itself will not run anymore. The backing page will be removed
+	 * in thread_destroy().
 	 */
-	if (t->t_threadinfo_page == NULL)
-		kfree(t->t_threadinfo);
-	else
-		page_free(t->t_threadinfo_page);
 	t->t_threadinfo = NULL;
 
 	/*
@@ -231,7 +234,18 @@ thread_destroy(thread_t* t)
 	/* Free the machine-dependant bits */
 	md_thread_free(t);
 
-	/* Remove the queue from our queue */
+	/*
+	 * Throw away all final mappings the thread may have; we do this here
+	 * to allow things like a stack and pagetables to reside there, as only
+	 * now it is safe to release them.
+	 */
+	if (!DQUEUE_EMPTY(&t->t_pages)) {
+		DQUEUE_FOREACH_SAFE(&t->t_pages, p, struct PAGE) {
+			page_free(p);
+		}
+	}
+
+	/* Remove the thread from our sleep queue */
 	spinlock_lock(&spl_threadqueue);
 	DQUEUE_REMOVE(&threadqueue, t);
 	spinlock_unlock(&spl_threadqueue);
