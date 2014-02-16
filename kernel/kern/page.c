@@ -32,6 +32,16 @@ clear_bit(char* map, int bit)
 	map[bit / 8] &= ~(1 << (bit & 7));
 }
 
+/* This just returns 2^order */
+static inline unsigned int
+order2pages(int order)
+{
+	unsigned int result = 1;
+	for (int n = 0; n < order; n++)
+		result <<= 1;
+	return result;
+}
+
 void
 page_dump(struct PAGE_ZONE* z)
 {
@@ -114,7 +124,7 @@ struct PAGE*
 page_alloc_zone(struct PAGE_ZONE* z, unsigned int order)
 {
 	DPRINTF("page_alloc_zone(): z=%p, order=%u\n", z, order);
-	
+
 	spinlock_lock(&z->z_lock);
 
 	/* First step is to figure out the initial order we need to use */
@@ -240,6 +250,31 @@ page_alloc_order(int order)
 	}
 
 	panic("page_alloc(): failed for order %d", order);
+}
+
+void*
+page_alloc_order_mapped(int order, struct PAGE** p)
+{
+	*p = page_alloc_order(order);
+	if (*p == NULL)
+		return NULL;
+	return vm_map_kernel(page_get_paddr(*p), order2pages(order), VM_FLAG_READ | VM_FLAG_WRITE);
+}
+
+void*
+page_alloc_length_mapped(size_t length, struct PAGE** p)
+{
+	/* Convert length from bytes to pages */
+	unsigned int pages = length / PAGE_SIZE;
+
+	/* Now find the 2_log of this; this is the order we'll be allocating in */
+	int order = 0;
+	for (unsigned int n = pages; n > 1; n >>= 1)
+		order++;
+	if (PAGE_SIZE << order != length)
+		order++;
+
+	return page_alloc_order_mapped(order, p);
 }
 
 /* vim:set ts=2 sw=2: */

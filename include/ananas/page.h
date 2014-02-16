@@ -64,4 +64,15 @@ void page_free(struct PAGE* p);
 /* Retrieves the physical address of page p */
 addr_t page_get_paddr(struct PAGE* p);
 
+/* Allocates 2^order pages and maps it to kernel memory */
+void* page_alloc_order_mapped(int order, struct PAGE** p);
+
+/* Allocates a single mapped page */
+inline static void* page_alloc_single_mapped(struct PAGE** p) {
+	return page_alloc_order_mapped(0, p);
+}
+
+/* Allocates enough pages to hold length bytes and maps it to kernel memory */
+void* page_alloc_length_mapped(size_t length, struct PAGE** p);
+
 #endif /* __ANANAS_PAGE_H__ */
