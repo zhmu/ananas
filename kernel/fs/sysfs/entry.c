@@ -12,7 +12,7 @@ static uint32_t sysfs_cur_inum = SYSFS_ROOTINODE_NUM;
 static struct SYSFS_ENTRY*
 sysfs_create_entry(const char* name, int mode)
 {
-	struct SYSFS_ENTRY* entry = kmalloc(strlen(name));
+	struct SYSFS_ENTRY* entry = kmalloc(sizeof(*entry) + strlen(name));
 	memset(entry, 0, sizeof(*entry));
 	entry->e_inum = sysfs_cur_inum++;
 	entry->e_mode = mode;
