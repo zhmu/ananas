@@ -544,6 +544,12 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 # define ABORT panic("abort")
 # define USE_DL_PREFIX
 
+# define CORRUPTION_ERROR_ACTION(m) panic("corruption detected, m=%p", m)
+# define USAGE_ERROR_ACTION(m,p) panic("bad usage detect, m=%p, p=%p", m, p)
+
+/* Extra sanity checks; these help catching memory overwrite bugs */
+#define DEBUG 1
+
 #define fprintf(f, fmt, ...) kprintf(fmt, ## __VA_ARGS__)
 # define malloc_getpagesize PAGE_SIZE
 #endif
@@ -1507,6 +1513,10 @@ DLMALLOC_EXPORT int mspace_mallopt(int, int);
 extern void*     sbrk(ptrdiff_t);
 #endif /* FreeBSD etc */
 #endif /* LACKS_UNISTD_H */
+
+/* Ananas assert */
+#undef assert
+#define assert(x) KASSERT(x, STRINGIFY(x))
 
 /* Declarations for locking */
 #if USE_LOCKS
