@@ -6,7 +6,7 @@
 #include <ananas/vm.h>
 #include <ananas/lib.h>
 
-static spinlock_t spl_mm = SPINLOCK_DEFAULT_INIT;
+static mutex_t mtx_mm;
 
 void* dlmalloc(size_t);
 void dlfree(void*);
@@ -14,25 +14,25 @@ void dlfree(void*);
 void
 mm_init()
 {
-	spinlock_init(&spl_mm);
+	mutex_init(&mtx_mm, "mm");
 }
 
 
 void*
 kmalloc(size_t len)
 {
-	spinlock_lock(&spl_mm);
+	mutex_lock(&mtx_mm);
 	void* ptr = dlmalloc(len);
-	spinlock_unlock(&spl_mm);
+	mutex_unlock(&mtx_mm);
 	return ptr;
 }
 
 void
 kfree(void* addr)
 {
-	spinlock_lock(&spl_mm);
+	mutex_lock(&mtx_mm);
 	dlfree(addr);
-	spinlock_unlock(&spl_mm);
+	mutex_unlock(&mtx_mm);
 }
 
 void
