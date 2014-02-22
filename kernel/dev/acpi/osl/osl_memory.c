@@ -7,8 +7,6 @@
 /* XXX Kludge for the terrible hacks up ahead */
 #ifdef __i386__
 #define TEMP_MAPPING_RANGE 0xeff00000
-
-extern uint32_t* kernel_pd;
 #else
 #error Fix me!
 #endif
@@ -28,16 +26,16 @@ AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 	 *     mapping to some other range instead. We should tell the kernel about
 	 *     this so it will never use those pages at all :-/
 	 */
-	if (md_get_mapping(kernel_pd, PTOKV(phys_addr), 0, NULL)) {
+	if (md_get_mapping(NULL, PTOKV(phys_addr), 0, NULL)) {
 		virt_addr = TEMP_MAPPING_RANGE;
 		addr_t cur_mapping;
-		while (md_get_mapping(kernel_pd, virt_addr, VM_FLAG_READ, &cur_mapping)) {
+		while (md_get_mapping(NULL, virt_addr, VM_FLAG_READ, &cur_mapping)) {
 			if (cur_mapping == phys_addr) {
 				return (void*)(virt_addr + delta);
 			}
 			virt_addr += PAGE_SIZE;
 		}
-		md_map_pages(kernel_pd, virt_addr, phys_addr, num_pages, flags);
+		md_map_pages(NULL, virt_addr, phys_addr, num_pages, flags);
 	} else {
 		virt_addr = (addr_t)vm_map_kernel(phys_addr, num_pages, VM_FLAG_KERNEL | flags);
 	}
