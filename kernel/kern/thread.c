@@ -501,6 +501,7 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 					thread_destroy(t);
 					return ANANAS_ERROR(OUT_OF_MEMORY);
 				}
+				DQUEUE_ADD_TAIL(&t->t_pages, new_page);
 				new_page->p_addr = p->p_addr;
 				int num_pages = 1 << p->p_order;
 
