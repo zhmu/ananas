@@ -38,7 +38,7 @@ md_thread_init(thread_t* t)
 
 	/* Map the kernel pages in there */
 	memset(t->md_pagedir, 0, PAGE_SIZE);
-	vm_map_kernel_addr(t->md_pagedir);
+	md_map_kernel(t);
 
 	/* Create the user stack page */
 	t->md_ustack_page = page_alloc_order(THREAD_STACK_SIZE / PAGE_SIZE); /* XXX wrong size, too large */
@@ -50,7 +50,7 @@ md_thread_init(thread_t* t)
 	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
 
 	/* Perform adequate mapping for the userland stack */
-	md_map_pages(t->md_pagedir, USERLAND_STACK_ADDR, page_get_paddr(t->md_ustack_page), THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_USER);
+	md_map_pages(t, USERLAND_STACK_ADDR, page_get_paddr(t->md_ustack_page), THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_USER);
 
 	/* Fill our the %esp and %cr3 fields; we'll be started in supervisor mode, so use the appropriate stack */
 	t->md_cr3 = KVTOP((addr_t)t->md_pagedir);
@@ -180,14 +180,14 @@ md_thread_map(thread_t* thread, void* to, void* from, size_t length, int flags)
 		num_pages++;
 	if ((flags & VM_FLAG_DEVICE) == 0)
 		from = (void*)KVTOP((addr_t)from);
-	md_map_pages(thread->md_pagedir, (addr_t)to, (addr_t)from, num_pages, VM_FLAG_USER | flags);
+	md_map_pages(thread, (addr_t)to, (addr_t)from, num_pages, VM_FLAG_USER | flags);
 	return to;
 }
 
 int
 md_thread_is_mapped(thread_t* thread, addr_t virt, int flags, addr_t* va)
 {
-	return md_get_mapping(thread->md_pagedir, virt, flags, va);
+	return md_get_mapping(thread, virt, flags, va);
 }
 
 errorcode_t
@@ -196,7 +196,7 @@ md_thread_unmap(thread_t* thread, addr_t addr, size_t length)
 	int num_pages = length / PAGE_SIZE;
 	if (length % PAGE_SIZE > 0)
 		num_pages++;
-	md_unmap_pages(thread->md_pagedir, addr, num_pages);
+	md_unmap_pages(thread, addr, num_pages);
 	return ANANAS_ERROR_OK;
 }
 
@@ -269,7 +269,7 @@ int
 md_thread_peek_32(thread_t* thread, addr_t virt, uint32_t* val)
 {
 	addr_t phys;
-	if (!md_get_mapping(thread->md_pagedir, virt, VM_FLAG_READ, &phys))
+	if (!md_get_mapping(thread, virt, VM_FLAG_READ, &phys))
 		return 0;
 
 	void* ptr = vm_map_kernel(phys, 1, VM_FLAG_READ);

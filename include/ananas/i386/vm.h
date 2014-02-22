@@ -132,21 +132,20 @@
 
 #ifndef ASM
 
-/*
- * Pointer to our page directory; set by i386/startup.c:md_start
- */
-extern uint32_t* kernel_pagedir;
+/* Maps relevant kernel addresses for a given thread */
+void md_map_kernel(thread_t* t);
 
-/* Used to create mappings for the kernel; used for a new thread */
-void vm_map_kernel_addr(uint32_t* pd);
+/* Maps num_pages at physical address phys to virtual address virt for thread t with flags flags */
+void md_map_pages(thread_t* t, addr_t virt, addr_t phys, size_t num_pages, int flags);
 
-addr_t vm_get_phys(uint32_t* pagedir, addr_t addr, int write);
+/* Unmaps num_pages at virtual address virt for thread t */
+void md_unmap_pages(thread_t* t, addr_t virt, size_t num_pages);
 
-void md_map_pages(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, int flags);
-void vm_mapto_pagedir(uint32_t* pagedir, addr_t virt, addr_t phys, size_t num_pages, uint32_t user);
-void md_unmap_pages(uint32_t* pagedir, addr_t virt, size_t num_pages);
-void vm_free_pagedir(uint32_t* pagedir);
-int md_get_mapping(uint32_t* pagedir, addr_t virt, int flags, addr_t* phys_addr);
+/* Frees the machine-dependant mapping structures for thread t */
+void md_free_mappings(thread_t* t);
+
+/* XXX removeme */
+int md_get_mapping(thread_t* t, addr_t virt, int flags, addr_t* phys_addr);
 
 #endif
 
