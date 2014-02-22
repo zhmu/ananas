@@ -100,9 +100,13 @@ sem_init(semaphore_t* sem, int count)
 void
 sem_signal(semaphore_t* sem)
 {
+	/*
+	 * It is possible that we are run when curthread == NULL; we have to skip the entire
+	 * wake-up thing in such a case
+	 */
 	register_t state = spinlock_lock_unpremptible(&sem->sem_lock);
 	thread_t* curthread = PCPU_GET(curthread);
-	int wokeup_priority = curthread->t_priority;
+	int wokeup_priority = (curthread != NULL) ? curthread->t_priority : 0;
 
 	if (!DQUEUE_EMPTY(&sem->sem_wq)) {
 		/* We have waiters; wake up the first one */
@@ -121,7 +125,7 @@ sem_signal(semaphore_t* sem)
 	 * If we woke up something more important than us, mark us as
 	 * reschedule.
 	 */
-	if (wokeup_priority < curthread->t_priority)
+	if (curthread != NULL && wokeup_priority < curthread->t_priority)
 		curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
 
 	spinlock_unlock_unpremptible(&sem->sem_lock, state);
