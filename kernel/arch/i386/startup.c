@@ -424,6 +424,9 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	}
 	vm_unmap_kernel((addr_t)memory_map, mem_map_pages);
 
+	/* Initialize the memory allocator; next code will attempt to allocate memory */
+	mm_init();
+
 	/* Initialize the handles; this is needed by the per-CPU code as it initialize threads */
 	handle_init();
 
