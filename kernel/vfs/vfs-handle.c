@@ -269,7 +269,7 @@ vfshandle_summon(thread_t* thread, struct HANDLE* handle, struct SUMMON_OPTIONS*
 
 	/* Create a new thread */
 	thread_t* newthread = NULL;
-	err = thread_alloc(thread, &newthread);
+	err = thread_alloc(thread, &newthread, THREAD_ALLOC_DEFAULT);
 	ANANAS_ERROR_RETURN(err);
 
 	/*

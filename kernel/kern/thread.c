@@ -24,7 +24,7 @@ static struct THREAD_CALLBACKS threadcallbacks_init;
 static struct THREAD_CALLBACKS threadcallbacks_exit;
 
 errorcode_t
-thread_init(thread_t* t, thread_t* parent)
+thread_init(thread_t* t, thread_t* parent, int flags)
 {
 	errorcode_t err;
 
@@ -39,8 +39,8 @@ thread_init(thread_t* t, thread_t* parent)
 	t->t_priority = THREAD_PRIORITY_DEFAULT;
 	t->t_affinity = THREAD_AFFINITY_ANY;
 
-	/* ask machine-dependant bits to initialize our thread data*/
-	md_thread_init(t);
+	/* ask machine-dependant bits to initialize our thread data */
+	md_thread_init(t, flags);
 
 	/* Create thread information structure */
 	struct PAGE* threadinfo_page;
@@ -128,10 +128,10 @@ kthread_init(thread_t* t, kthread_func_t func, void* arg)
 }
 
 errorcode_t
-thread_alloc(thread_t* parent, thread_t** dest)
+thread_alloc(thread_t* parent, thread_t** dest, int flags)
 {
 	thread_t* t = kmalloc(sizeof(struct THREAD));
-	errorcode_t err = thread_init(t, parent);
+	errorcode_t err = thread_init(t, parent, flags);
 	if (err == ANANAS_ERROR_NONE)
 		*dest = t;
 	return err;
@@ -452,7 +452,7 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 	KASSERT(PCPU_GET(curthread) == parent, "thread_clone(): unsupported from non-current thread (curthread %p != parent %p)", PCPU_GET(curthread), parent);
 
 	struct THREAD* t;
-	err = thread_alloc(parent, &t);
+	err = thread_alloc(parent, &t, THREAD_ALLOC_CLONE);
 	ANANAS_ERROR_RETURN(err);
 
 	/*

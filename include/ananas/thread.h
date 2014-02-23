@@ -96,15 +96,18 @@ DQUEUE_DEFINE(THREAD_QUEUE, thread_t);
 #define THREAD_IS_KTHREAD(t) ((t)->t_flags & THREAD_FLAG_KTHREAD)
 
 /* Machine-dependant callback to initialize a thread */
-errorcode_t md_thread_init(thread_t* thread);
+errorcode_t md_thread_init(thread_t* thread, int flags);
 errorcode_t md_kthread_init(thread_t* thread, kthread_func_t func, void* arg);
 
 /* Machine-dependant callback to free thread data */
 void md_thread_free(thread_t* thread);
 
-errorcode_t thread_init(thread_t* t, thread_t* parent);
 errorcode_t kthread_init(thread_t* t, kthread_func_t func, void* arg);
-errorcode_t thread_alloc(thread_t* parent, thread_t** dest);
+
+#define THREAD_ALLOC_DEFAULT	0	/* Nothing special */
+#define THREAD_ALLOC_CLONE	1	/* Thread is created for cloning */
+
+errorcode_t thread_alloc(thread_t* parent, thread_t** dest, int flags);
 void thread_free(thread_t* t);
 void thread_destroy(thread_t* t);
 errorcode_t thread_set_args(thread_t* t, const char* args, size_t args_len);
