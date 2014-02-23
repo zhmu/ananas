@@ -27,7 +27,7 @@ void kthread_trampoline();
 extern uint32_t* kernel_pd;
 
 errorcode_t
-md_thread_init(thread_t* t)
+md_thread_init(thread_t* t, int flags)
 {
 	/* Create a pagedirectory */
 	struct PAGE* pagedir_page;
@@ -40,17 +40,18 @@ md_thread_init(thread_t* t)
 	memset(t->md_pagedir, 0, PAGE_SIZE);
 	md_map_kernel(t);
 
-	/* Create the user stack page */
-	t->md_ustack_page = page_alloc_order(THREAD_STACK_SIZE / PAGE_SIZE); /* XXX wrong size, too large */
-	if (t->md_ustack_page == NULL)
-		return ANANAS_ERROR(OUT_OF_MEMORY);
-	DQUEUE_ADD_TAIL(&t->t_pages, t->md_ustack_page);
+	/*
+	 * Create the user stack page piece, if we are not cloning - otherwise, we'll
+	 * copy the parent's stack instead.
+	 */
+	if ((flags & THREAD_ALLOC_CLONE) == 0) {
+		struct THREAD_MAPPING* ustack_tm;
+		errorcode_t err = thread_mapto(t, USERLAND_STACK_ADDR, 0, THREAD_STACK_SIZE, THREAD_MAP_READ | THREAD_MAP_WRITE | THREAD_MAP_ALLOC, &ustack_tm);
+		ANANAS_ERROR_RETURN(err);
+	}
 
-	/* Create the kernel stack; this is fixed-length */
+	/* Create the kernel stack for this thread; this is fixed-length and always mapped */
 	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
-
-	/* Perform adequate mapping for the userland stack */
-	md_map_pages(t, USERLAND_STACK_ADDR, page_get_paddr(t->md_ustack_page), THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_USER);
 
 	/* Fill our the %esp and %cr3 fields; we'll be started in supervisor mode, so use the appropriate stack */
 	t->md_cr3 = KVTOP((addr_t)t->md_pagedir);
@@ -224,16 +225,6 @@ md_thread_clone(thread_t* t, thread_t* parent, register_t retval)
 	t->md_dr[7] = DR7_LE | DR7_GE;
 
 	/*
-	 * Copy stack content; we need to copy the kernel stack over because we can
-	 * obtain the stackframe from it, which allows us to return to the intended
-	 * caller. The user stackframe is important as it will allow the new thread
-	 * to return correctly from the clone syscall.
-	 */
-	void* ustack = vm_map_kernel(page_get_paddr(t->md_ustack_page), THREAD_STACK_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
-	memcpy(ustack, (void*)USERLAND_STACK_ADDR, THREAD_STACK_SIZE);
-	vm_unmap_kernel((addr_t)ustack, THREAD_STACK_SIZE / PAGE_SIZE);
-
-	/*
 	 * Size of the syscall call frame; this is the following:
 	 * hardware saved [*]: ss, esp, eflags, cs, eip
 	 * software saved (syscall_int): ebp, ebx, esi, edi, ds, es, fs
@@ -245,12 +236,12 @@ md_thread_clone(thread_t* t, thread_t* parent, register_t retval)
 #define SYSCALL_FRAME_SIZE 48
 
 	/*
-	 * Copy kernel stack over; this is easier since it is always mapped. Note
-	 * that we do not need the entire thing; we just need the part above as it is
-	 * enough to return from the syscall. This is always the very first values on
-	 * the stack because there is no other way to enter the system call handler;
-	 * we cannot rely on the context's %esp because we may be preempted in
-	 * between (and we must only restore the userland context)
+	 * Copy kernel stack over; it is always mapped. Note that we do not need the
+	 * entire thing; we just need the part above as it is enough to return from
+	 * the syscall. This is always the very first values on the stack because
+	 * there is no other way to enter the system call handler; we cannot rely on
+	 * the context's %esp because we may be preempted in between (and we must
+	 * only restore the userland context)
 	 */
 	memcpy(t->md_kstack + KERNEL_STACK_SIZE - SYSCALL_FRAME_SIZE, parent->md_kstack + KERNEL_STACK_SIZE - SYSCALL_FRAME_SIZE, SYSCALL_FRAME_SIZE);
 
