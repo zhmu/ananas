@@ -292,14 +292,12 @@ platform_read_disk_edd(int disk, uint32_t lba, void* buffer, int num_bytes)
 	struct REALMODE_DISKINFO* dskinfo = &realmode_diskinfo[disk];
 
 	/*
-	 * Because we only have 1KB of realmode storage, the EDD packet buffer is
-	 * positioned right after the sector we want to read. This limits us to
-	 * single-sector transfers, which should be OK for now.
+	 * Since we've positioned the buffer after our loader in real-mode memory,
+	 * we should be okay to read as many sectors as we can (we'll assume that
+	 * the caller is asking for something sensible here)
 	 *
 	 * Note that we do not bother to use EDD 3.0 (which can write to any buffer
-	 * address) because it doesn't seem supported in Bochs and any benefits are
-	 * minimal for our application as we practically only do single-sector
-	 * reads anyway.
+	 * address) because no one seems to support it.
 	 */
 	struct EDD_PACKET* edd = (struct EDD_PACKET*)realmode_buffer;
 	edd->edd_size = sizeof(*edd);
@@ -309,34 +307,28 @@ platform_read_disk_edd(int disk, uint32_t lba, void* buffer, int num_bytes)
 	edd->edd_segment = MAKE_SEGMENT(realmode_buffer);
 	edd->edd_lba = lba;
  
-	int num_read = 0;
-	while (num_bytes > 0) {
-		edd->edd_num_blocks = 1;
+	int num_blocks = (num_bytes + SECTOR_SIZE - 1) / SECTOR_SIZE;
+	edd->edd_num_blocks = num_blocks;
 
 #ifdef DEBUG_DISK
-		printf("disk %u, lba %u\n", dskinfo->drive, lba);
+	printf("disk %u, lba %u, count %u\n", dskinfo->drive, lba, num_blocks);
 #endif
 
-		struct REALMODE_REGS regs;
-		x86_realmode_init(&regs);
-		regs.eax = 0x4200;		/* int 13 extensions: extended read */
-		regs.edx = dskinfo->drive;
-		regs.ds  = MAKE_SEGMENT(realmode_buffer);
-		regs.esi = MAKE_OFFSET(realmode_buffer);
-		regs.interrupt = 0x13;
-		x86_realmode_call(&regs);
-		if (regs.eflags & EFLAGS_CF)
-			break;
-		if (edd->edd_num_blocks != 1)
-			break;
+	struct REALMODE_REGS regs;
+	x86_realmode_init(&regs);
+	regs.eax = 0x4200;		/* int 13 extensions: extended read */
+	regs.edx = dskinfo->drive;
+	regs.ds  = MAKE_SEGMENT(realmode_buffer);
+	regs.esi = MAKE_OFFSET(realmode_buffer);
+	regs.interrupt = 0x13;
+	x86_realmode_call(&regs);
+	if (regs.eflags & EFLAGS_CF)
+		return 0;
+	if (edd->edd_num_blocks != num_blocks)
+		return 0;
 
-		int chunk_len = (num_bytes > SECTOR_SIZE ? SECTOR_SIZE : num_bytes);
-		memcpy(buffer, realmode_buffer + sizeof(*edd), chunk_len);
-		buffer += chunk_len; num_read += chunk_len; num_bytes -= chunk_len;
-
-		edd->edd_lba++;
-	}
-	return num_read;
+	memcpy(buffer, realmode_buffer + sizeof(*edd), num_bytes);
+	return num_bytes;
 }
 
 static int
