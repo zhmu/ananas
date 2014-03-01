@@ -157,15 +157,19 @@ fat_read(void* buf, size_t len)
 #endif 
 		}
 
-		/* Fetch the block; the disk I/O layer will deal with freeing old ones etc */ 
-		centry = diskio_read(fat_fsinfo->fat_device, want_block);
-		if (centry == NULL)
-			return 0;
-
 		int chunklen = SECTOR_SIZE - (vfs_curfile_offset % SECTOR_SIZE);
 		if (chunklen > len)
 			chunklen = len;
-		memcpy(buf, (void*)(centry->data + (vfs_curfile_offset % SECTOR_SIZE)), chunklen);
+		if (chunklen == SECTOR_SIZE) {
+			if (!diskio_read_bulk(fat_fsinfo->fat_device, want_block, buf))
+				return 0;
+		} else {
+			centry = diskio_read(fat_fsinfo->fat_device, want_block);
+			if (centry == NULL)
+				return 0;
+
+			memcpy(buf, (void*)(centry->data + (vfs_curfile_offset % SECTOR_SIZE)), chunklen);
+		}
 		len -= chunklen; buf += chunklen;
 		num_read += chunklen; vfs_curfile_offset += chunklen;
 	}

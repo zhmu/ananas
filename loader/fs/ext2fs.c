@@ -109,10 +109,16 @@ ext2_read(void* buf, size_t len)
 		if (chunklen > len)
 			chunklen = len;
 		block *= (ext2_fsinfo->block_size / SECTOR_SIZE);
-		struct CACHE_ENTRY* centry = diskio_read(
-		 ext2_fsinfo->device,
-		 block + (offset / SECTOR_SIZE));
-		memcpy(buf, (void*)(centry->data + (offset % SECTOR_SIZE)), chunklen);
+
+		if (chunklen == SECTOR_SIZE) {
+			if (!diskio_read_bulk(ext2_fsinfo->device, block + (offset / SECTOR_SIZE), buf))
+				return 0;
+		} else {
+			struct CACHE_ENTRY* centry = diskio_read(
+			 ext2_fsinfo->device,
+			 block + (offset / SECTOR_SIZE));
+			memcpy(buf, (void*)(centry->data + (offset % SECTOR_SIZE)), chunklen);
+		}
 		len -= chunklen; buf += chunklen;	
 
 		/*
