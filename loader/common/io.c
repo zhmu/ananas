@@ -6,6 +6,13 @@
 static const uint8_t hextab[16] = "0123456789abcdef";
 
 int
+putchar(int c)
+{
+	platform_putch(c);
+	return c;
+}
+
+int
 puts(const char* s)
 {
 	int n = 0;
