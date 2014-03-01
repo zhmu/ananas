@@ -77,10 +77,10 @@ vfs_open(const char* fname)
 void
 vfs_close()
 {
+	diskio_flush_bulk();
 	if (vfs_current == NULL || vfs_current->close == NULL)
 		return;
 	vfs_current->close();
-	diskio_flush_bulk();
 }
 
 size_t
