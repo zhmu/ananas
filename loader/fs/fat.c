@@ -40,6 +40,12 @@ struct FAT_MOUNTED_FILESYSTEM {
 	uint32_t fat_next_size;
 	/* next file cluster (filled by readdir, used by open) */
 	uint32_t fat_next_cluster;
+	/* fat_get_cluster: cached previous first cluster */
+	uint32_t fat_cached_first_cluster;
+	/* fat_get_cluster: cached cluster number asked */
+	uint32_t fat_cached_cluster_num;
+	/* fat_get_cluster: cached cluster result */
+	uint32_t fat_cached_cluster_result;
 };
 
 struct FAT_ACTIVE_FILE {
@@ -59,8 +65,18 @@ static inline uint32_t
 fat_get_cluster(uint32_t first_cluster, uint32_t cluster_num)
 {
 	uint32_t cur_cluster = first_cluster;
+	uint32_t cluster_num_asked = cluster_num;
 
-	/* XXX This is a mess; we should just cache the cluster numbers */
+	/* If this is the request for a next cluster number, see if we can help */
+	if (fat_fsinfo->fat_cached_first_cluster == first_cluster &&
+	    fat_fsinfo->fat_cached_cluster_num <= cluster_num &&
+	    fat_fsinfo->fat_cached_cluster_result != 0 /* didn't fail */) {
+		/* Hooray, we can use the previous cluster result and walk less clusters */
+		cur_cluster = fat_fsinfo->fat_cached_cluster_result;
+		cluster_num -= fat_fsinfo->fat_cached_cluster_num;
+	}
+
+	/* Walk the cluster chain and see where this one ends up... */
 	while (cur_cluster != 0 && cluster_num-- > 0) {
 		uint32_t offset = cur_cluster;
 		switch(fat_fsinfo->fat_type) {
@@ -118,6 +134,9 @@ fat_get_cluster(uint32_t first_cluster, uint32_t cluster_num)
 		}
 	}
 
+	fat_fsinfo->fat_cached_first_cluster = first_cluster;
+	fat_fsinfo->fat_cached_cluster_num = cluster_num_asked;
+	fat_fsinfo->fat_cached_cluster_result = cur_cluster;
 	return cur_cluster;
 }
 
