@@ -12,11 +12,15 @@
 # define RAMDISK_ABORT(x) \
 	do { \
 		puts(x); \
+		diskio_discard_bulk(); \
 		return 0; \
 	} while (0)
 #else
 # define RAMDISK_ABORT(x) \
-	return 0;
+	do { \
+		diskio_discard_bulk(); \
+		return 0; \
+	} while (0)
 #endif
 
 static int
@@ -30,7 +34,9 @@ cramfs_load(struct LOADER_RAMDISK_INFO* ram_info)
 			break;
 
 		if (ram_info->ram_size == 0) {
-			/* We have the first block - see if it's a cramfs disk */
+			/* We just read the first block; flush it and see if it's a cramfs disk */
+			if (!diskio_flush_bulk())
+				return 0;
 			struct CRAMFS_SUPERBLOCK* cramfs_sb = (struct CRAMFS_SUPERBLOCK*)ptr;
 			if (cramfs_sb->c_magic != CRAMFS_MAGIC)
 				RAMDISK_ABORT("not a cramfs disk");
@@ -42,7 +48,8 @@ cramfs_load(struct LOADER_RAMDISK_INFO* ram_info)
 		ram_info->ram_size += len;
 		ptr += len;
 	}
-	return ram_info->ram_size > 0;
+
+	return diskio_flush_bulk() && ram_info->ram_size > 0;
 }
 
 int

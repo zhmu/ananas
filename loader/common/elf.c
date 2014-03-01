@@ -1,4 +1,5 @@
 #include <ananas/types.h>
+#include <loader/diskio.h>
 #include <loader/vfs.h>
 #include <loader/lib.h>
 #include <loader/elf.h>
@@ -59,7 +60,7 @@ elf_generic_load_module(void* header_data, struct LOADER_MODULE* mod)
 	mod->mod_phys_start_addr = mod_kernel.mod_phys_end_addr;
 	mod->mod_phys_end_addr = dest;
 	mod_kernel.mod_phys_end_addr = dest;
-	return 1;
+	return diskio_flush_bulk();
 }
 
 int

@@ -1,4 +1,5 @@
 #include <loader/platform.h>
+#include <loader/diskio.h>
 #include <loader/lib.h>
 #include <loader/vfs.h>
 
@@ -67,6 +68,7 @@ vfs_mount(int iodevice, const char** type)
 int
 vfs_open(const char* fname)
 {
+	diskio_discard_bulk();
 	if (vfs_current == NULL)
 		return 0;
 	return vfs_current->open(fname);
@@ -78,10 +80,12 @@ vfs_close()
 	if (vfs_current == NULL || vfs_current->close == NULL)
 		return;
 	vfs_current->close();
+	diskio_flush_bulk();
 }
 
 size_t
-vfs_read(void* buffer, size_t len) {
+vfs_read(void* buffer, size_t len)
+{
 	if (vfs_current == NULL)
 		return 0;
 	return vfs_current->read(buffer, len);

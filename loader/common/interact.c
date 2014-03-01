@@ -126,7 +126,7 @@ cmd_cat(int num_args, char** arg)
 	}
 	while(1) {
 		size_t len = vfs_read(buf, sizeof(buf));
-		if (len == 0)
+		if (len == 0 || !diskio_flush_bulk())
 			break;
 		buf[len] = '\0';
 		printf("%s", buf);

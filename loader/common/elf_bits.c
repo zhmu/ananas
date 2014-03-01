@@ -25,7 +25,8 @@ ELF_MAKE_IDENTIFIER(load_kernel)(void* header, struct LOADER_MODULE* mod)
 	 */
 	void* phent = platform_get_memory(0);
 printf("phnum=%u entsz=%u off=%u\n", ehdr->e_phnum, ehdr->e_phentsize, ehdr->e_phoff);
-	if (vfs_pread(phent, ehdr->e_phnum * ehdr->e_phentsize, ehdr->e_phoff) != ehdr->e_phnum * ehdr->e_phentsize)
+	if (vfs_pread(phent, ehdr->e_phnum * ehdr->e_phentsize, ehdr->e_phoff) != ehdr->e_phnum * ehdr->e_phentsize ||
+			!diskio_flush_bulk())
 		ELF_ABORT("pheader read error");
 	/* XXX we should attempt to sort the phent's to ensure we can stream the input file */
 
@@ -70,7 +71,8 @@ printf("phdr %u, type %u\n", i, phdr->p_type);
 	 */
 	addr_t dest = mod->mod_phys_end_addr;
 	void* shent = platform_get_memory(0);
-	if (vfs_pread(shent, ehdr->e_shnum * ehdr->e_shentsize, ehdr->e_shoff) != ehdr->e_shnum * ehdr->e_shentsize)
+	if (vfs_pread(shent, ehdr->e_shnum * ehdr->e_shentsize, ehdr->e_shoff) != ehdr->e_shnum * ehdr->e_shentsize ||
+			!diskio_flush_bulk())
 		ELF_ABORT("section header read error");
 	for (unsigned int i = 0; i < ehdr->e_shnum; i++) {
 		/*
@@ -101,6 +103,10 @@ printf("phdr %u, type %u\n", i, phdr->p_type);
 				continue;
 		}
 
+#ifdef DEBUG_ELF
+		printf("ELF: reading %u bytes at offset %u to 0x%x\n",
+		 (uint32_t)shdr->sh_size, (uint32_t)shdr->sh_offset, (uint32_t)dest);
+#endif
 		if (vfs_pread((void*)dest, shdr->sh_size, shdr->sh_offset) != shdr->sh_size)
 			ELF_ABORT("unable to read section");
 		dest += shdr->sh_size;
@@ -110,7 +116,7 @@ printf("phdr %u, type %u\n", i, phdr->p_type);
 	mod->mod_entry = (uint64_t)ehdr->e_entry;
 	mod->mod_type = MOD_KERNEL;
 	mod->mod_bits = ELF_BITS;
-	return 1;
+	return diskio_flush_bulk();
 }
 
 /* vim:set ts=2 sw=2: */

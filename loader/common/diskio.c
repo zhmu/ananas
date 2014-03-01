@@ -40,6 +40,15 @@ static int diskio_hits      = 0;
 static int diskio_misses    = 0;
 static int diskio_used      = 0;
 
+struct BULK_STATE {
+	int			device;
+	char*		buffer;
+	uint32_t start_lba;
+	uint32_t length;
+};
+
+static struct BULK_STATE bulk_state;
+
 static void
 diskio_place_head(struct CACHE_ENTRY* entry)
 {
@@ -124,10 +133,64 @@ diskio_read(int disknum, uint32_t lba)
 		}
 		tries--;
 	}
-	if (!tries) {
-		printf("diskio: read error\n");
-		return NULL;
+	printf("diskio: read error\n");
+	return NULL;
+}
+
+void
+diskio_discard_bulk()
+{
+	bulk_state.buffer = NULL;
+}
+
+int
+diskio_read_bulk(int disknum, uint32_t lba, void* buffer)
+{
+	if (disknum < 0 || disknum >= MAX_DISK_DEVICES)
+		return 0;
+
+	struct DISK_DEVICE* disk = &disk_device[disknum];
+	lba += disk->start_lba;
+
+	/*
+	 * See if we can merge this request with what we already have; we'll only
+	 * merge consecutive requests (i.e. the next sector will be read) as this
+	 * is the common case.
+	 */
+	if (bulk_state.device == disk->device && bulk_state.start_lba + bulk_state.length == lba &&
+	    buffer == (void*)(bulk_state.buffer + SECTOR_SIZE * bulk_state.length)) {
+		bulk_state.length++;
+		return 1;
 	}
+
+	/* Otherwise, flush the list first */
+	if (!diskio_flush_bulk())
+		return 0;
+
+	/* And queue the new request */
+	bulk_state.device = disk->device;
+	bulk_state.buffer = buffer;
+	bulk_state.start_lba = lba;
+	bulk_state.length = 1;
+	return 1;
+}
+
+int
+diskio_flush_bulk()
+{
+	if (bulk_state.buffer == NULL)
+		return 1; /* nothing to do */
+
+	int tries = 5;
+	while(tries > 0) {
+		if (platform_read_disk(bulk_state.device, bulk_state.start_lba, bulk_state.buffer, bulk_state.length * SECTOR_SIZE) == bulk_state.length * SECTOR_SIZE) {
+			diskio_discard_bulk();
+			return 1;
+		}
+		tries--;
+	}
+	printf("diskio: flush_bulk: read error\n");
+	return 0;
 }
 
 unsigned int
