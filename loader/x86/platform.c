@@ -307,27 +307,43 @@ platform_read_disk_edd(int disk, uint32_t lba, void* buffer, int num_bytes)
 	edd->edd_segment = MAKE_SEGMENT(realmode_buffer);
 	edd->edd_lba = lba;
  
-	int num_blocks = (num_bytes + SECTOR_SIZE - 1) / SECTOR_SIZE;
-	edd->edd_num_blocks = num_blocks;
+	int blocks_left = (num_bytes + SECTOR_SIZE - 1) / SECTOR_SIZE;
 
 #ifdef DEBUG_DISK
-	printf("disk %u, lba %u, count %u\n", dskinfo->drive, lba, num_blocks);
+	printf("disk %u, lba %u, count %u\n", dskinfo->drive, lba, blocks_left);
 #endif
 
-	struct REALMODE_REGS regs;
-	x86_realmode_init(&regs);
-	regs.eax = 0x4200;		/* int 13 extensions: extended read */
-	regs.edx = dskinfo->drive;
-	regs.ds  = MAKE_SEGMENT(realmode_buffer);
-	regs.esi = MAKE_OFFSET(realmode_buffer);
-	regs.interrupt = 0x13;
-	x86_realmode_call(&regs);
-	if (regs.eflags & EFLAGS_CF)
-		return 0;
-	if (edd->edd_num_blocks != num_blocks)
-		return 0;
+	/*
+	 * Do not reads more than EDD_CHUNK_LENGTH in a single run; the idea is that
+	 * we can ensure we'll only touch conventional memory this way and it avoids
+	 * BIOS'es that can't read too many sectors at one time.
+	 */
+#define EDD_CHUNK_LENGTH 127
 
-	memcpy(buffer, realmode_buffer + sizeof(*edd), num_bytes);
+	while (blocks_left > 0) {
+		int chunk_len = (blocks_left > EDD_CHUNK_LENGTH) ? EDD_CHUNK_LENGTH : blocks_left;
+		edd->edd_num_blocks = chunk_len;
+
+		struct REALMODE_REGS regs;
+		x86_realmode_init(&regs);
+		regs.eax = 0x4200;		/* int 13 extensions: extended read */
+		regs.edx = dskinfo->drive;
+		regs.ds  = MAKE_SEGMENT(realmode_buffer);
+		regs.esi = MAKE_OFFSET(realmode_buffer);
+		regs.interrupt = 0x13;
+		x86_realmode_call(&regs);
+		if (regs.eflags & EFLAGS_CF)
+			return 0;
+		if (edd->edd_num_blocks == 0)
+			return 0;
+
+		memcpy(buffer, realmode_buffer + sizeof(*edd), edd->edd_num_blocks * SECTOR_SIZE);
+		edd->edd_lba += edd->edd_num_blocks;
+		blocks_left -= edd->edd_num_blocks;
+		buffer += edd->edd_num_blocks * SECTOR_SIZE;
+	}
+
+#undef EDD_CHUNK_LENGTH
 	return num_bytes;
 }
 
