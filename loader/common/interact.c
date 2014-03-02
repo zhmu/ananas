@@ -384,14 +384,7 @@ cmd_ramdisk(int num_args, char** arg)
 		printf("cannot open '%s'\n", arg[1]);
 		return;
 	}
-	struct LOADER_RAMDISK_INFO ram_info;
-	ram_info.ram_start = mod_kernel.mod_phys_end_addr;
-	/*
-	 * XXX give the kernel some slack - most implementations use some data after the
-	 *     kernel for temporary storage while initializing
-	 */
-	ram_info.ram_start += 64 * 1024;
-	if (!ramdisk_load(&ram_info)) {
+	if (!ramdisk_load()) {
 		printf("couldn't load ramdisk\n");
 		vfs_close();
 		return;
@@ -482,7 +475,7 @@ cmd_modules(int num_args, char** arg)
 {
 	int i = 0;
 	for (struct LOADER_MODULE* mod_info = &mod_kernel; mod_info != NULL; mod_info = mod_info->mod_next, i++) {
-		printf("%u. %x-%x\n", i, mod_info->mod_phys_start_addr, mod_info->mod_phys_end_addr);
+		printf("%u. %x-%x\n", i, (unsigned int)mod_info->mod_phys_start_addr, (unsigned int)mod_info->mod_phys_end_addr);
 	}
 }
 
