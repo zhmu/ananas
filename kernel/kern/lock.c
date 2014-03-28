@@ -81,10 +81,10 @@ void
 mutex_unlock(mutex_t* mtx)
 {
 	KASSERT(mtx->mtx_owner == PCPU_GET(curthread), "unlocking mutex %p which isn't owned", mtx);
-	sem_signal(&mtx->mtx_sem);
 	mtx->mtx_owner = NULL;
 	mtx->mtx_fname = NULL;
 	mtx->mtx_line = 0;
+	sem_signal(&mtx->mtx_sem);
 }
 
 void
