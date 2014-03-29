@@ -268,20 +268,23 @@ handle_wait(thread_t* thread, struct HANDLE* handle, handle_event_t* event, hand
 	}
 
 	/*
-	 * OK; first of all, see if the handle points to a terminating thread; if so, we
-	 * should return immediately with the appropriate exit code. The reason is that
-	 * there's no control, should a child die, that it dies before the parent got
-	 * a chance to do this wait...
+	 * OK; first of all, see if the handle points to a zombie thread _which is no
+	 * longer active_ (the latter is important, because it is impossible to call
+	 * handle_signal() on the exact right moment - the thread still needs to be
+	 * deactived by the scheduler!); if so, we should return immediately with the
+	 * appropriate exit code - we can't guarantee that we'll enter the wait
+	 * before the child dies...
 	 *
 	 * XXX need to handle mask
 	 */
-	if ((handle->h_type == HANDLE_TYPE_THREAD) &&
-	    THREAD_IS_TERMINATING(handle->h_data.d_thread)) {
+	if (handle->h_type == HANDLE_TYPE_THREAD &&
+		  THREAD_IS_ZOMBIE(handle->h_data.d_thread) /* it's a zombie... */ &&
+	    !THREAD_IS_ACTIVE(handle->h_data.d_thread) /* ...and done being scheduled */) {
 		/* Need to replicate what thread_exit() does here... */
 		*event = THREAD_EVENT_EXIT;
 		*result = handle->h_data.d_thread->t_terminate_info;
 		mutex_unlock(&handle->h_mutex);
-		TRACE(HANDLE, INFO, "done, thread already gone", thread);
+		TRACE(HANDLE, INFO, "done, thread already gone");
 		return ANANAS_ERROR_OK;
 	}
 
@@ -307,6 +310,16 @@ handle_wait(thread_t* thread, struct HANDLE* handle, handle_event_t* event, hand
 	handle->h_waiters[waiter_id].hw_thread = NULL;
 	mutex_unlock(&handle->h_mutex);
 
+	/*
+	 * If we are being woken up for a thread, we must wait until it is in the
+	 * 'inactive zombie' state. The reason is that handle_signal() must be called
+	 * from the terminating thread, which will still need to schedule something
+	 * else - we must wait for this to be the case.
+	 */
+	if (handle->h_type == HANDLE_TYPE_THREAD /* XXX check event type for exiting */) {
+		while (THREAD_IS_ACTIVE(handle->h_data.d_thread) || !THREAD_IS_ZOMBIE(handle->h_data.d_thread))
+			schedule();
+	}
 	TRACE(HANDLE, INFO, "t=%p, done", thread);
 	return ANANAS_ERROR_OK;
 }
@@ -316,6 +329,7 @@ handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t
 {
 	TRACE(HANDLE, FUNC, "handle=%p, event=%p, result=0x%x", handle, event, result);
 	mutex_lock(&handle->h_mutex);
+	KASSERT(handle->h_type != HANDLE_TYPE_UNUSED, "cannot signal unused handle %p", handle);
 	KASSERT(handle->h_type != HANDLE_TYPE_REFERENCE, "cannot signal reference handle %p", handle);
 	for (int waiter_id = 0; waiter_id <  HANDLE_MAX_WAITERS; waiter_id++) {
 		if (handle->h_waiters[waiter_id].hw_thread == NULL)

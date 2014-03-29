@@ -170,6 +170,7 @@ void
 thread_free(thread_t* t)
 {
 	KASSERT((t->t_flags & THREAD_FLAG_ZOMBIE) == 0, "freeing zombie thread %p", t);
+	KASSERT(PCPU_GET(curthread) != t || t->t_thread_handle->h_refcount > 1, "freeing current thread with invalid refcount");
 
 	/*
 	 * Free all handles in use by the thread. Note that we must not free the thread
@@ -198,24 +199,18 @@ thread_free(thread_t* t)
 	 */
 	t->t_threadinfo = NULL;
 
-	/*
-	 * Mark the thread as terminating if it isn't already; having to do so means
-	 * the thread's isn't exiting voluntary.
-	 */
-	if ((t->t_flags & THREAD_FLAG_TERMINATING) == 0) {
-		t->t_flags |= THREAD_FLAG_TERMINATING;
-		t->t_terminate_info = THREAD_MAKE_EXITCODE(THREAD_TERM_FAILURE, 0);
-		handle_signal(t->t_thread_handle, THREAD_EVENT_EXIT, t->t_terminate_info);
-	}
-
-	/* Thread is alive, yet lingering... */
-	t->t_flags |= THREAD_FLAG_ZOMBIE;
-
 	/* Run all thread exit callbacks */
 	if (!DQUEUE_EMPTY(&threadcallbacks_exit))
 		DQUEUE_FOREACH(&threadcallbacks_exit, tc, struct THREAD_CALLBACK) {
 			tc->tc_func(t, NULL);
 		}
+
+	/*
+	 * Signal anyone waiting on the thread; the terminate information should
+	 * already be set at this point - note that handle_wait() will do additional
+	 * checks to ensure the thread is truly gone.
+	 */
+	handle_signal(t->t_thread_handle, THREAD_EVENT_EXIT, t->t_terminate_info);
 
 	/*
 	 * Throw away the thread handle itself; it will be removed once it runs out of
@@ -245,7 +240,7 @@ thread_destroy(thread_t* t)
 		}
 	}
 
-	/* Remove the thread from our sleep queue */
+	/* Remove the thread from our thread queue; it'll be gone soon */
 	spinlock_lock(&spl_threadqueue);
 	DQUEUE_REMOVE(&threadqueue, t);
 	spinlock_unlock(&spl_threadqueue);
@@ -413,7 +408,6 @@ thread_resume(thread_t* t)
 		KASSERT(!scheduler_activated(), "resuming nonsuspended thread %p", t);
 		return;
 	}
-	KASSERT(!THREAD_IS_TERMINATING(t), "resuming terminating thread %p", t);
 	scheduler_add_thread(t);
 }
 	
@@ -423,20 +417,13 @@ thread_exit(int exitcode)
 	thread_t* thread = PCPU_GET(curthread);
 	TRACE(THREAD, FUNC, "t=%p, exitcode=%u", thread, exitcode);
 	KASSERT(thread != NULL, "thread_exit() without thread");
-	KASSERT(!THREAD_IS_TERMINATING(thread), "exiting already terminating thread");
+	KASSERT(!THREAD_IS_ZOMBIE(thread), "exiting zombie thread");
 
-	/*
-	 * Mark the thread as terminating; the thread will remain in the terminating
-	 * status until it is queried about its status.
-	 */
-	thread->t_flags |= THREAD_FLAG_TERMINATING;
+	/* Store the result code; thread_free() will mark the thread as terminating */
 	thread->t_terminate_info = exitcode;
 
-	/* free as much of the thread as we can */
+	/* Free as much of the thread as we can */
 	thread_free(thread);
-
-	/* signal anyone waiting on us */
-	handle_signal(thread->t_thread_handle, THREAD_EVENT_EXIT, thread->t_terminate_info);
 
 	/* Ask the scheduler to exit the thread */
 	scheduler_exit_thread(thread);
@@ -629,7 +616,6 @@ kdb_cmd_threads(int num_args, char** arg)
 			kprintf ("thread %p (handle %p): %s: flags [", t, t->t_thread_handle, t->t_threadinfo->ti_args);
 			if (THREAD_IS_ACTIVE(t))      kprintf(" active");
 			if (THREAD_IS_SUSPENDED(t))   kprintf(" suspended");
-			if (THREAD_IS_TERMINATING(t)) kprintf(" terminating");
 			if (THREAD_IS_ZOMBIE(t))      kprintf(" zombie");
 			kprintf(" ]%s\n", (t == cur) ? " <- current" : "");
 			if (flags & FLAG_HANDLE) {

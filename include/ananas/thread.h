@@ -50,9 +50,8 @@ struct THREAD {
 	unsigned int t_flags;
 #define THREAD_FLAG_ACTIVE	0x0001	/* Thread is scheduled somewhere */
 #define THREAD_FLAG_SUSPENDED	0x0002	/* Thread is currently suspended */
-#define THREAD_FLAG_TERMINATING	0x0004	/* Thread is terminating */
-#define THREAD_FLAG_ZOMBIE	0x0008	/* Thread has no more resources */
-#define THREAD_FLAG_RESCHEDULE	0x0010	/* Thread desires a reschedule */
+#define THREAD_FLAG_ZOMBIE	0x0004	/* Thread has no more resources */
+#define THREAD_FLAG_RESCHEDULE	0x0008	/* Thread desires a reschedule */
 #define THREAD_FLAG_KTHREAD	0x8000	/* Kernel thread */
 
 	unsigned int t_terminate_info;
@@ -90,7 +89,6 @@ DQUEUE_DEFINE(THREAD_QUEUE, thread_t);
 /* Macro's to facilitate flag checking */
 #define THREAD_IS_ACTIVE(t) ((t)->t_flags & THREAD_FLAG_ACTIVE)
 #define THREAD_IS_SUSPENDED(t) ((t)->t_flags & THREAD_FLAG_SUSPENDED)
-#define THREAD_IS_TERMINATING(t) ((t)->t_flags & THREAD_FLAG_TERMINATING)
 #define THREAD_IS_ZOMBIE(t) ((t)->t_flags & THREAD_FLAG_ZOMBIE)
 #define THREAD_WANT_RESCHEDULE(t) ((t)->t_flags & THREAD_FLAG_RESCHEDULE)
 #define THREAD_IS_KTHREAD(t) ((t)->t_flags & THREAD_FLAG_KTHREAD)
