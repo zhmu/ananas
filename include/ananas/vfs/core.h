@@ -64,15 +64,15 @@ static inline errorcode_t vfs_bread(struct VFS_MOUNTED_FS* fs, blocknr_t block, 
 	return vfs_bget(fs, block, bio, 0);
 }
 
-errorcode_t vfs_lookup(struct VFS_INODE* cwd, struct VFS_INODE** destinode, const char* dentry);
+errorcode_t vfs_lookup(struct DENTRY* parent, struct DENTRY** destentry, const char* dentry);
 
 /* Higher-level interface */
-errorcode_t vfs_open(const char* fname, struct VFS_INODE* cwd, struct VFS_FILE* file);
+errorcode_t vfs_open(const char* fname, struct VFS_FILE* dir, struct VFS_FILE* file);
 errorcode_t vfs_close(struct VFS_FILE* file);
 errorcode_t vfs_read(struct VFS_FILE* file, void* buf, size_t* len);
 errorcode_t vfs_write(struct VFS_FILE* file, const void* buf, size_t* len);
 errorcode_t vfs_seek(struct VFS_FILE* file, off_t offset);
-errorcode_t vfs_create(struct VFS_INODE* dirinode, struct VFS_FILE* destfile, const char* dentry, int mode);
+errorcode_t vfs_create(struct DENTRY* parent, struct VFS_FILE* destfile, const char* dentry, int mode);
 errorcode_t vfs_grow(struct VFS_FILE* file, off_t size);
 errorcode_t vfs_summon(struct VFS_FILE* file, thread_t* t);
 

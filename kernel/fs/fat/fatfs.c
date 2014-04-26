@@ -51,7 +51,7 @@
 TRACE_SETUP;
 
 static errorcode_t
-fat_mount(struct VFS_MOUNTED_FS* fs)
+fat_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 {
 	/* XXX this should be made a compile-time check */
 	KASSERT(sizeof(struct FAT_ENTRY) == 32, "compiler error: fat entry is not 32 bytes!");
@@ -137,8 +137,8 @@ fat_mount(struct VFS_MOUNTED_FS* fs)
 
 	/* Grab the root directory inode */
 	uint64_t root_fsop = FAT_ROOTINODE_FSOP;
-	fs->fs_root_inode = fat_alloc_inode(fs, (const void*)&root_fsop);
-	err = vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
+	//*root_inode = fat_alloc_inode(fs, (const void*)&root_fsop);
+	err = vfs_get_inode(fs, &root_fsop, root_inode);
 	if (err != ANANAS_ERROR_NONE) {
 		kfree(privdata);
 		return err;

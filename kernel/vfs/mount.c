@@ -46,7 +46,10 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 {
 	errorcode_t err;
 
-	/* Attempt to locate the filesystem */
+	/*
+	 * Attempt to locate the filesystem type; so we know what to call to mount
+	 * it.
+	 */
 	struct VFS_FILESYSTEM_OPS* fsops = NULL;
 	spinlock_lock(&spl_fstypes);
 	if (!DQUEUE_EMPTY(&fstypes))
@@ -60,42 +63,8 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	spinlock_unlock(&spl_fstypes);
 	if (fsops == NULL)
 		return ANANAS_ERROR(BAD_TYPE);
-	struct VFS_MOUNTED_FS* fs = vfs_get_availmountpoint();
-	if (fs == NULL)
-		return ANANAS_ERROR(OUT_OF_HANDLES);
 
-	/*
-	 * First of all, do an explicit lookup for the mountpoint; this will result
-	 * in the inode on the parent filesystem. Once the filesystem is mounted, we
-	 * update the cache so that looking it up will work and thus, the inode can
-	 * be used.
-	 *
-	 * XXX Note that we hack around to prevent doing this in the root case.
-	 */
-	struct DENTRY_CACHE_ITEM* d = NULL;
-	if (strcmp(to, "/") != 0) {
-		/* First of all, grab the 'to' path and chop the final part of */
-		char tmp[VFS_MAX_NAME_LEN + 1];
-		strcpy(tmp, to);
-		char* ptr = strrchr(tmp, '/');
-		KASSERT(ptr != NULL, "invalid path '%s'", to);
-		*ptr = '\0';
-
-		/* Look up the inode to the containing path */
-		struct VFS_INODE* inode;
-		err = vfs_lookup(NULL, &inode, tmp);
-		if (err != ANANAS_ERROR_NONE) {
-			memset(fs, 0, sizeof(*fs));
-			return err;
-		}
-		/*
-		 * XXX There is a race here; we must lock the cache item (but not the inode as
-		 * we no longer need it)
-		 */
-		d = dcache_find_item_or_add_pending(inode, ptr + 1);
-		vfs_deref_inode(inode);
-	}
-
+	/* Locate the device to mount from */
 	struct DEVICE* dev = NULL;
 	if (from != NULL) {
 		dev = device_find(from);
@@ -103,35 +72,55 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 			return ANANAS_ERROR(NO_FILE);
 	}
 
+	/* Locate an available mountpoint and hook it up */
+	struct VFS_MOUNTED_FS* fs = vfs_get_availmountpoint();
+	if (fs == NULL)
+		return ANANAS_ERROR(OUT_OF_HANDLES);
 	fs->fs_device = dev;
 	fs->fs_fsops = fsops;
 	dcache_init(fs);
 
-	err = fs->fs_fsops->mount(fs);
+	struct VFS_INODE* root_inode = NULL;
+	err = fs->fs_fsops->mount(fs, &root_inode);
 	if (err != ANANAS_ERROR_NONE) {
 		dcache_destroy(fs);
 		icache_destroy(fs);
 		memset(fs, 0, sizeof(*fs));
 		return err;
 	}
-	TRACE(VFS, INFO, "to='%s',fs=%p,rootinode=%p", to, fs, fs->fs_root_inode);
+	TRACE(VFS, INFO, "to='%s',fs=%p,rootinode=%p", to, fs, root_inode);
 
-	KASSERT(fs->fs_root_inode != NULL, "successful mount without a root inode");
-	KASSERT(S_ISDIR(fs->fs_root_inode->i_sb.st_mode), "root inode isn't a directory");
-	/* The refcount must be two: one for the fs->root_inode reference and one for the cache */
-	KASSERT(fs->fs_root_inode->i_refcount == 2, "bad refcount of root inode (must be 2, is %u)", fs->fs_root_inode->i_refcount);
+	KASSERT(root_inode != NULL, "successful mount without a root inode");
+	KASSERT(S_ISDIR(root_inode->i_sb.st_mode), "root inode isn't a directory");
+	/* The refcount must be two: one for the root_inode reference and one for the cache */
+	KASSERT(root_inode->i_refcount == 2, "bad refcount of root inode (must be 2, is %u)", root_inode->i_refcount);
 	fs->fs_mountpoint = strdup(to);
+	fs->fs_root_dentry->d_inode = root_inode; /* don't deref - we're giving the ref to the root dentry */
+
+	/*	
+	 * Now perform a root entry lookup; if this fails, we'll have to abort everything we have done before
+	 * XXX Maybe special-case once we have a root filesystem?
+	 */
+	if (err != ANANAS_ERROR_NONE) {
+		dcache_destroy(fs);
+		memset(fs, 0, sizeof(*fs));
+		return err;
+	}
 
 	/*
-	 * Override the previous inode with our root inode; this effectively hooks
-	 * our filesystem to the parent.
+	 * Override the root path dentry with our root inode; this effectively hooks
+	 * our filesystem to the parent. XXX I wonder if this is correct; we should
+	 * always just hook our path to the fs root dentry... need to think about it
 	 */
-	if (d != NULL) {
-		if (d->d_entry_inode != NULL)
-			vfs_deref_inode(d->d_entry_inode);
-		d->d_entry_inode = fs->fs_root_inode;
+	struct DENTRY* dentry_root;
+	if (vfs_lookup(NULL, &dentry_root, to) == ANANAS_ERROR_OK &&
+	    dentry_root != fs->fs_root_dentry) {
+		if (dentry_root->d_inode != NULL)
+			vfs_deref_inode(dentry_root->d_inode);
+		vfs_ref_inode(root_inode);
+		dentry_root->d_inode = root_inode;
 		/* Ensure our entry will never be purged from the cache */
-		d->d_flags |= DENTRY_FLAG_PERMANENT;
+		dentry_root->d_flags |= DENTRY_FLAG_PERMANENT;
 	}
 	
 	return ANANAS_ERROR_OK;
@@ -140,6 +129,8 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 errorcode_t
 vfs_unmount(const char* path)
 {
+	panic("fix me");
+
 	spinlock_lock(&spl_mountedfs);
 	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {
 		struct VFS_MOUNTED_FS* fs = &mountedfs[n];
@@ -159,6 +150,7 @@ vfs_unmount(const char* path)
 struct VFS_MOUNTED_FS*
 vfs_get_rootfs()
 {
+	/* XXX the root fs should have a flag marking it as such */
 	spinlock_lock(&spl_mountedfs);
 	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {
 		struct VFS_MOUNTED_FS* fs = &mountedfs[n];

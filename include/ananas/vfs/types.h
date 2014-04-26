@@ -3,9 +3,10 @@
 
 #include <ananas/dqueue.h>
 #include <ananas/stat.h> /* for 'struct stat' */
-#include <ananas/vfs/dentry.h> /* for 'struct DENTRY_CACHE_QUEUE' */
+#include <ananas/vfs/dentry.h> /* for 'struct DENTRY_QUEUE' */
 #include <ananas/vfs/icache.h> /* for 'struct ICACHE_QUEUE' */
 
+struct DENTRY;
 struct DEVICE;
 struct VFS_MOUNTED_FS;
 struct VFS_INODE_OPS;
@@ -27,6 +28,7 @@ struct VFS_INODE {
 	unsigned int	i_flags;		/* Inode flags */
 #define INODE_FLAG_GONE		(1 << 0)	/* Inode is gone */
 #define INODE_FLAG_DIRTY	(1 << 1)	/* Needs to be written */
+#define INODE_FLAG_PENDING_DELETE	(1 << 2) /* Needs to be deleted */
 	struct stat 	i_sb;			/* Inode information */
 	struct VFS_INODE_OPS* i_iops;		/* Inode operations */
 
@@ -42,9 +44,12 @@ struct VFS_INODE {
 struct VFS_FILE {
 	off_t			f_offset;
 	/*
-	 * An opened file can have an inode or device as backend.
+	 * An opened file can have an inode or device as backend; we'll use the
+	 * dentry instead of the inode because we need its name when
+	 * unlink()-ing it; plus the dentry also contains the parent (which is
+	 * useful when resolving the item back to a path)
 	 */
-	struct VFS_INODE*	f_inode;
+	struct DENTRY*		f_dentry;
 	struct DEVICE*		f_device;
 };
 
@@ -84,20 +89,19 @@ struct VFS_MOUNTED_FS {
 	void*		fs_privdata;		/* (R) Private filesystem data */
 
 	/* Inode cache */
-	spinlock_t		fs_icache_lock;		/* Protects fields marked with (I) */
+	mutex_t			fs_icache_lock;		/* Protects fields marked with (I) */
 	struct ICACHE_QUEUE	fs_icache_inuse;	/* (I) Currently used inodes */
 	struct ICACHE_QUEUE	fs_icache_free;		/* (I) Available inode list */
 	void*			fs_icache_buffer;	/* (I) Inode cache buffer, for cleanup */
 
 	/* Dentry cache */
-	spinlock_t			fs_dcache_lock;		/* Protects fields marked with (D) */
-	struct DENTRY_CACHE_QUEUE	fs_dcache_inuse;	/* (D) Currently used items */
-	struct DENTRY_CACHE_QUEUE	fs_dcache_free;		/* (D) Currently used items */
-	void*				fs_dcache_buffer;	/* (D) Dentry cache buffer, for cleanup */
-
+	mutex_t			fs_dcache_lock;		/* Protects fields marked with (D) */
+	struct DENTRY_QUEUE	fs_dcache_inuse;	/* (D) Currently used items */
+	struct DENTRY_QUEUE	fs_dcache_free;		/* (D) Currently used items */
+	void*			fs_dcache_buffer;	/* (D) Dentry cache buffer, for cleanup */
 
 	struct VFS_FILESYSTEM_OPS* fs_fsops;		/* (R) Filesystem operations */
-	struct VFS_INODE* fs_root_inode;		/* (R) Filesystem's root inode */
+	struct DENTRY* fs_root_dentry;			/* (R) Filesystem's root dentry */
 };
 
 /*
@@ -107,9 +111,9 @@ struct VFS_MOUNTED_FS {
 struct VFS_FILESYSTEM_OPS {
 	/*
 	 * Mount a filesystem. device, mountpoint and fsops in 'fs' are
-	 * guaranteed to be filled out.
+	 * guaranteed to be filled out. Must fill out the root inode on success.
 	 */
-	errorcode_t (*mount)(struct VFS_MOUNTED_FS* fs);
+	errorcode_t (*mount)(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode);
 
 	/*
 	 * Allocate an inode. The purpose for this function is to initialize
@@ -148,7 +152,7 @@ struct VFS_INODE_OPS {
 	/*
 	 * Looks up an entry within a directory, updates 'destinode' on success.
 	 */
-	errorcode_t (*lookup)(struct VFS_INODE* dirinode, struct VFS_INODE** destinode, const char* dentry);
+	errorcode_t (*lookup)(struct DENTRY* parent, struct VFS_INODE** destinode, const char* dentry);
 
 	/*
 	 * Maps the inode's given block number to a block device's block
@@ -172,7 +176,7 @@ struct VFS_INODE_OPS {
 	 * Creates a new entry in the directory. On success, calls
 	 * dentry_set_inode() to fill out the entry's inode.
 	 */
-	errorcode_t (*create)(struct VFS_INODE* dir, struct DENTRY_CACHE_ITEM* de, int mode);
+	errorcode_t (*create)(struct VFS_INODE* dir, struct DENTRY* de, int mode);
 
 	/*
 	 * Fills out the file structure.

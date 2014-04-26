@@ -83,6 +83,13 @@ vfs_deref_inode_locked(struct VFS_INODE* inode)
 	 */
 	inode->i_flags |= INODE_FLAG_GONE;
 	icache_ensure_inode_gone(inode);
+
+	/* If the inode was marked as to be deleted, do so */
+	if (inode->i_flags & INODE_FLAG_PENDING_DELETE) {
+		panic("TODO");
+	}
+
+	/* Throw away the filesystem-specific inode parts, if any */
 	if (inode->i_fs->fs_fsops->destroy_inode != NULL) {
 		inode->i_fs->fs_fsops->destroy_inode(inode);
 	} else {
@@ -96,7 +103,7 @@ vfs_deref_inode(struct VFS_INODE* inode)
 	INODE_ASSERT_SANE(inode);
 	INODE_LOCK(inode);
 	vfs_deref_inode_locked(inode);
-	/* INODE_UNLOCK(inode); - no need, inode must be dead by now */
+	/* INODE_UNLOCK(inode); - no need, vfs_deref_inode_locked() handles this if needed */
 }
 
 errorcode_t

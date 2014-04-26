@@ -84,7 +84,8 @@ fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename)
 errorcode_t
 fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
-	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
+	struct VFS_INODE* inode = file->f_dentry->d_inode;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	size_t written = 0;
 	size_t left = *len;
 	char cur_filename[128]; /* currently assembled filename */
@@ -98,7 +99,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	while(left > 0) {
 		/* Obtain the current directory block data */
 		blocknr_t want_block;
-		errorcode_t err = fat_block_map(file->f_inode, (file->f_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
+		errorcode_t err = fat_block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
 		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE)
 			break;
 		ANANAS_ERROR_RETURN(err);
@@ -355,7 +356,7 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 }
 
 static errorcode_t
-fat_create(struct VFS_INODE* dir, struct DENTRY_CACHE_ITEM* de, int mode)
+fat_create(struct VFS_INODE* dir, struct DENTRY* de, int mode)
 {
 	struct FAT_ENTRY fentry;
 	memset(&fentry, 0, sizeof(fentry));
@@ -379,7 +380,7 @@ fat_create(struct VFS_INODE* dir, struct DENTRY_CACHE_ITEM* de, int mode)
 struct VFS_INODE_OPS fat_dir_ops = {
 	.readdir = fat_readdir,
 	.lookup = vfs_generic_lookup,
-	.create = fat_create
+	.create = fat_create,
 };
 
 /* vim:set ts=2 sw=2: */

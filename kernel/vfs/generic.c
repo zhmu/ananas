@@ -5,31 +5,37 @@
 #include <ananas/lib.h>
 #include <ananas/trace.h>
 #include <ananas/vfs.h>
+#include <ananas/vfs/generic.h>
 
 TRACE_SETUP;
 
-#undef DEBUG_VFS_LOOKUP
+#define VFS_DEBUG_LOOKUP 0
 
 errorcode_t
-vfs_generic_lookup(struct VFS_INODE* dirinode, struct VFS_INODE** destinode, const char* dentry)
+vfs_generic_lookup(struct DENTRY* parent, struct VFS_INODE** destinode, const char* dentry)
 {
-	struct VFS_FILE dir;
+	KASSERT(parent != NULL, "lookup with no parent?");
 	char buf[1024]; /* XXX */
 
-#ifdef DEBUG_VFS_LOOKUP
-	kprintf("vfs_generic_lookup: target='%s'\n", dentry);
+#if VFS_DEBUG_LOOKUP
+	kprintf("vfs_generic_lookup(); parent=%p dentry='%s'\n", parent, dentry);
 #endif
 
 	/*
 	 * XXX This is a very naive implementation which does not use the
 	 * possible directory index.
 	 */
-	KASSERT(S_ISDIR(dirinode->i_sb.st_mode), "supplied inode is not a directory");
-	memset(&dir, 0, sizeof(dir));
-	dir.f_inode = dirinode;
+	struct VFS_INODE* parent_inode = parent->d_inode;
+	KASSERT(S_ISDIR(parent_inode->i_sb.st_mode), "supplied inode is not a directory");
+
+	/* Rewind the directory back; we'll be traversing it from front to back */
+	struct VFS_FILE dirf;
+	memset(&dirf, 0, sizeof(dirf));
+	dirf.f_offset = 0;
+	dirf.f_dentry = parent;
 	while (1) {
 		size_t buf_len = sizeof(buf);
-		int result = vfs_read(&dir, buf, &buf_len);
+		int result = vfs_read(&dirf, buf, &buf_len);
 		if (result != ANANAS_ERROR_NONE)
 			return result;
 		if (buf_len == 0)
@@ -48,7 +54,7 @@ vfs_generic_lookup(struct VFS_INODE* dirinode, struct VFS_INODE** destinode, con
 				continue;
 
 			/* Found it! */
-			return vfs_get_inode(dirinode->i_fs, de->de_fsop, destinode);
+			return vfs_get_inode(parent_inode->i_fs, de->de_fsop, destinode);
 		}
 	}
 }
@@ -56,7 +62,7 @@ vfs_generic_lookup(struct VFS_INODE* dirinode, struct VFS_INODE** destinode, con
 errorcode_t
 vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
-	struct VFS_INODE* inode = file->f_inode;
+	struct VFS_INODE* inode = file->f_dentry->d_inode;
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	size_t read = 0;
 	size_t left = *len;
@@ -65,8 +71,8 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 	KASSERT(inode->i_iops->block_map != NULL, "called without block_map implementation");
 
 	/* Adjust left so that we don't attempt to read beyond the end of the file */
-	if ((file->f_inode->i_sb.st_size - file->f_offset) < left) {
-		left = file->f_inode->i_sb.st_size - file->f_offset;
+	if ((inode->i_sb.st_size - file->f_offset) < left) {
+		left = inode->i_sb.st_size - file->f_offset;
 	}
 
 	blocknr_t cur_block = 0;
@@ -103,9 +109,9 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 }
 
 errorcode_t
-vfs_generic_write(struct VFS_FILE* file, void* buf, size_t* len)
+vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 {
-	struct VFS_INODE* inode = file->f_inode;
+	struct VFS_INODE* inode = file->f_dentry->d_inode;
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	size_t written = 0;
 	size_t left = *len;

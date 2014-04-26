@@ -29,17 +29,17 @@ kdb_cmd_inodes(int num_args, char** arg)
 			kprintf(", nil\n");
 			continue;
 		}
-		if (ii->inode == fs->fs_root_inode) expected_refs++; /* root inode */
+	//	if (ii->inode == fs->fs_root_inode) expected_refs++; /* root inode */
 		kprintf(", refcount=%u", ii->inode->i_refcount);
 		const char* dentry_name = "?";
-		DQUEUE_FOREACH(&fs->fs_dcache_inuse, d, struct DENTRY_CACHE_ITEM) {
-			if (d->d_entry_inode != ii->inode && d->d_dir_inode != ii->inode)
+		DQUEUE_FOREACH(&fs->fs_dcache_inuse, d, struct DENTRY) {
+			if (d->d_inode != ii->inode && d->d_parent->d_inode != ii->inode)
 				continue;
-			if (d->d_entry_inode == ii->inode) {
+			if (d->d_inode == ii->inode) {
 				dentry_name = d->d_entry;
 				expected_refs++; /* dentry entry ref */
 			}
-			if (d->d_dir_inode == ii->inode) {
+			if (d->d_parent->d_inode == ii->inode) {
 				expected_refs++; /* dentry dir ref */
 			}
 		}

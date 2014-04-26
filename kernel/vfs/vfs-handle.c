@@ -17,7 +17,7 @@ vfshandle_get_file(struct HANDLE* handle, struct VFS_FILE** out)
 		return ANANAS_ERROR(BAD_HANDLE);
 
 	struct VFS_FILE* file = &((struct HANDLE*)handle)->h_data.d_vfs_file;
-	if (file->f_inode == NULL && file->f_device == NULL)
+	if (file->f_dentry == NULL && file->f_device == NULL)
 		return ANANAS_ERROR(BAD_HANDLE);
 
 	*out = file;
@@ -56,7 +56,7 @@ vfshandle_open(thread_t* thread, struct HANDLE* handle, struct OPEN_OPTIONS* opt
 	 */
 	if (opts->op_mode & OPEN_MODE_CREATE) {
 		/* Attempt to create the new file - if this works, we're all set */
-		errorcode_t err = vfs_create(thread->t_path_handle->h_data.d_vfs_file.f_inode, &handle->h_data.d_vfs_file, userpath, opts->op_createmode);
+		errorcode_t err = vfs_create(thread->t_path_handle->h_data.d_vfs_file.f_dentry, &handle->h_data.d_vfs_file, userpath, opts->op_createmode);
 		if (err == ANANAS_ERROR_NONE)
 			return err;
 
@@ -73,22 +73,23 @@ vfshandle_open(thread_t* thread, struct HANDLE* handle, struct OPEN_OPTIONS* opt
 
 	/* And open the path */
 	TRACE(SYSCALL, INFO, "opening userpath '%s'", userpath);
-	return vfs_open(userpath, thread->t_path_handle->h_data.d_vfs_file.f_inode, &handle->h_data.d_vfs_file);
+	return vfs_open(userpath, &thread->t_path_handle->h_data.d_vfs_file, &handle->h_data.d_vfs_file);
 }
 
 static errorcode_t
 vfshandle_free(thread_t* thread, struct HANDLE* handle)
 {
-	/* If we have a backing inode, dereference it - this will free it if needed */
-	struct VFS_INODE* inode = handle->h_data.d_vfs_file.f_inode;
-	if (inode != NULL)
-		vfs_deref_inode(inode);
+	/* If we have a backing dentry, dereference it - this will free it if needed */
+	struct DENTRY* dentry = handle->h_data.d_vfs_file.f_dentry;
+	if (dentry != NULL)
+		dentry_deref(dentry);
 	return ANANAS_ERROR_OK;
 }
 
 static errorcode_t
 vfshandle_unlink(thread_t* thread, struct HANDLE* handle)
 {
+	kprintf("vfshandle_unlink(): !!\n");
 	return ANANAS_ERROR(BAD_OPERATION);
 }
 
@@ -101,7 +102,7 @@ vfshandle_create(thread_t* thread, struct HANDLE* handle, struct CREATE_OPTIONS*
 	ANANAS_ERROR_RETURN(err);
 
 	/* Attempt to create the new file */
-	return vfs_create(thread->t_path_handle->h_data.d_vfs_file.f_inode, &handle->h_data.d_vfs_file, path, opts->cr_mode);
+	return vfs_create(thread->t_path_handle->h_data.d_vfs_file.f_dentry, &handle->h_data.d_vfs_file, path, opts->cr_mode);
 }
 
 static errorcode_t
@@ -134,7 +135,7 @@ vfshandle_control(thread_t* thread, struct HANDLE* handle, unsigned int op, void
 	switch(op) {
 		case HCTL_FILE_SETCWD: {
 			/* Ensure we are dealing with a directory here */
-			if (!S_ISDIR(file->f_inode->i_sb.st_mode))
+			if (!S_ISDIR(file->f_dentry->d_inode->i_sb.st_mode))
 				return ANANAS_ERROR(NOT_A_DIRECTORY);
 
 			/* XXX We should lock the thread? */
@@ -180,12 +181,12 @@ vfshandle_control(thread_t* thread, struct HANDLE* handle, unsigned int op, void
 					offset = file->f_offset + offset;
 					break;
 				case HCTL_SEEK_WHENCE_END:
-					offset = file->f_inode->i_sb.st_size - offset;
+					offset = file->f_dentry->d_inode->i_sb.st_size - offset;
 					break;
 			}
 			if (offset < 0)
 				return ANANAS_ERROR(BAD_RANGE);
-			if (offset > file->f_inode->i_sb.st_size) {
+			if (offset > file->f_dentry->d_inode->i_sb.st_size) {
 				/* File needs to be grown to accommodate for this offset */
 				err = vfs_grow(file, offset);
 				ANANAS_ERROR_RETURN(err);
@@ -207,9 +208,9 @@ vfshandle_control(thread_t* thread, struct HANDLE* handle, unsigned int op, void
 			err = syscall_map_buffer(thread, st->st_stat, sizeof(struct stat), THREAD_MAP_WRITE, &dest);
 			ANANAS_ERROR_RETURN(err);
 
-			if (file->f_inode != NULL) {
+			if (file->f_dentry != NULL) {
 				/* Copy the data and we're done */
-				memcpy(dest, &file->f_inode->i_sb, sizeof(struct stat));
+				memcpy(dest, &file->f_dentry->d_inode->i_sb, sizeof(struct stat));
 			} else {
 				/* First of all, start by filling with defaults */
 				struct stat* st = dest;
@@ -248,13 +249,13 @@ vfshandle_clone(thread_t* thread, struct HANDLE* handle, struct CLONE_OPTIONS* o
 	ANANAS_ERROR_RETURN(err);
 
 	/*
-	 * If the handle has a backing inode reference, we have to increase it's
+	 * If the handle has a backing dentry reference, we have to increase it's
 	 * reference count as we, too, depend on it. Closing the handle
-	 * will release the inode, which will remove it if needed.
+	 * will release the dentry, which will remove it if needed.
 	 */
-	struct VFS_INODE* inode = file->f_inode;
-	if (inode != NULL)
-		vfs_ref_inode(inode);
+	struct DENTRY* dentry = file->f_dentry;
+	if (dentry != NULL)
+		dentry_ref(dentry);
 
 	/* Now, just ordinarely clone the handle */
 	return handle_clone_generic(thread, handle, result);

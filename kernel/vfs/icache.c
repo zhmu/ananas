@@ -19,9 +19,9 @@
 TRACE_SETUP;
 
 #define ICACHE_LOCK(fs) \
-	spinlock_lock(&(fs)->fs_icache_lock);
+	mutex_lock(&(fs)->fs_icache_lock)
 #define ICACHE_UNLOCK(fs) \
-	spinlock_unlock(&(fs)->fs_icache_lock);
+	mutex_unlock(&(fs)->fs_icache_lock)
 
 #undef ICACHE_DEBUG
 
@@ -41,10 +41,10 @@ fsop_to_string(struct VFS_MOUNTED_FS* fs, void* fsop)
 }
 
 static int
-fsop_compare(struct VFS_MOUNTED_FS* fs, void* fsop1, void* fsop2)
+fsop_compare(struct VFS_MOUNTED_FS* fs, const void* fsop1, const void* fsop2)
 {
-	uint8_t* f1 = fsop1;
-	uint8_t* f2 = fsop2;
+	const uint8_t* f1 = fsop1;
+	const uint8_t* f2 = fsop2;
 
 	/* XXX this is just a dumb big-endian compare for now */
 	for (int i = fs->fs_fsop_size - 1; i >= 0; i--) {
@@ -86,7 +86,7 @@ void
 icache_init(struct VFS_MOUNTED_FS* fs)
 {
 	KASSERT(fs->fs_fsop_size > 0, "fsop size not initialized");
-	spinlock_init(&fs->fs_icache_lock);
+	mutex_init(&fs->fs_icache_lock, "icache");
 	DQUEUE_INIT(&fs->fs_icache_inuse);
 	DQUEUE_INIT(&fs->fs_icache_free);
 
@@ -143,7 +143,7 @@ icache_destroy(struct VFS_MOUNTED_FS* fs)
  * 
  */
 static struct ICACHE_ITEM*
-icache_find_item_or_add_pending(struct VFS_MOUNTED_FS* fs, void* fsop)
+icache_lookup(struct VFS_MOUNTED_FS* fs, void* fsop)
 {
 	KASSERT(fs->fs_icache_buffer != NULL, "icache pool not initialized");
 
@@ -166,7 +166,7 @@ retry:
 			 */
 			if (ii->inode == NULL) {
 				ICACHE_UNLOCK(fs);
-				kprintf("icache_find_item_or_add_pending(): pending item, waiting\n");
+				kprintf("icache_lookup(): pending item, waiting\n");
 				panic("musn't happen");
 				return NULL;
 			}
@@ -202,7 +202,7 @@ retry:
 		ii = DQUEUE_HEAD(&fs->fs_icache_free);
 		DQUEUE_POP_HEAD(&fs->fs_icache_free);
 	} else {
-		/* Freelist is empty; we need to sarifice an item from the cache */
+		/* Freelist is empty; we need to sacrifice an item from the cache */
 		DQUEUE_FOREACH_REVERSE_SAFE(&fs->fs_icache_inuse, jj, struct ICACHE_ITEM) {
 			/*
 			 * Skip any pending items - we are not responsible for their cleanup (and
@@ -249,7 +249,7 @@ retry:
 	 */
 	if (ii == NULL) {
 		ICACHE_UNLOCK(fs);
-		kprintf("icache_find_item_or_add_pending(): cache full and no empty entries, retrying!\n");
+		kprintf("icache_lookup(): cache full and no empty entries, retrying!\n");
 		reschedule();
 		goto retry;
 	}
@@ -305,7 +305,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinod
 	 * exist a single time.
 	 */
 	while(1) {
-		ii = icache_find_item_or_add_pending(fs, fsop);
+		ii = icache_lookup(fs, fsop);
 		if (ii != NULL)
 			break;
 		TRACE(VFS, WARN, "fsop is already pending, waiting...");
