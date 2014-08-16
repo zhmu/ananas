@@ -26,6 +26,8 @@ TRACE_SETUP;
 #define DCACHE_UNLOCK(fs) \
 	mutex_unlock(&(fs)->fs_dcache_lock)
 
+static void dentry_deref2(struct DENTRY* de, struct VFS_MOUNTED_FS* fs_locked);
+
 void
 dcache_init(struct VFS_MOUNTED_FS* fs)
 {
@@ -54,7 +56,7 @@ dcache_init(struct VFS_MOUNTED_FS* fs)
 	DQUEUE_POP_HEAD(&fs->fs_dcache_free);
 	fs->fs_root_dentry->d_refcount = 1; /* filesystem itself */
 	fs->fs_root_dentry->d_inode = NULL; /* supplied by the file system */
-	fs->fs_root_dentry->d_flags = DENTRY_FLAG_PERMANENT;
+	fs->fs_root_dentry->d_flags = DENTRY_FLAG_PERMANENT | DENTRY_FLAG_CACHED;
 	DQUEUE_ADD_HEAD(&fs->fs_dcache_inuse, fs->fs_root_dentry);
 }
 
@@ -90,6 +92,59 @@ dcache_destroy(struct VFS_MOUNTED_FS* fs)
 	fs->fs_dcache_buffer = NULL;
 	DCACHE_UNLOCK(fs);
 #endif
+}
+
+/* This purges an entry from the cache but *does not* alter the refcount */
+static void
+dcache_purge_entry2(struct DENTRY* d, struct VFS_MOUNTED_FS* fs_locked)
+{
+	TRACE(VFS, FUNC, "purging d=%p [%s] flags=%d refs=%d", d, d->d_entry, d->d_flags, d->d_refcount);
+	KASSERT(d->d_flags & DENTRY_FLAG_CACHED, "dentry not cached");
+
+	struct VFS_MOUNTED_FS* fs = NULL;
+	if (d->d_inode != NULL)
+		fs = d->d_inode->i_fs;
+	else if (d->d_parent != NULL && d->d_parent->d_inode != NULL)
+		fs = d->d_parent->d_inode->i_fs;
+	KASSERT(fs != NULL, "purging entry without backing inode?");
+
+	if (fs != fs_locked) DCACHE_LOCK(fs);
+	d->d_flags &= ~DENTRY_FLAG_CACHED;
+
+	/* Free our dentry itself - if it is no longer cached */
+	DQUEUE_REMOVE(&fs->fs_dcache_inuse, d);
+	DQUEUE_ADD_TAIL(&fs->fs_dcache_free, d);
+
+	if (fs != fs_locked) DCACHE_UNLOCK(fs);
+}
+
+/*
+ * Purges old dcache entries from fs; dcache lock must be held!
+ */
+static void
+dcache_purge_old_entries(struct VFS_MOUNTED_FS* fs)
+{
+	/*
+	 * Our dcache is ordered from old-to-new, so we'll start at the back and
+	 * starting purging things - we'll only purge things that are in the cache.
+	 */
+	int num_removed = 0;
+	if (!DQUEUE_EMPTY(&fs->fs_dcache_inuse))
+		DQUEUE_FOREACH_REVERSE_SAFE(&fs->fs_dcache_inuse, d, struct DENTRY) {
+			if ((d->d_flags & DENTRY_FLAG_CACHED) == 0) 
+				continue;
+			if (d->d_refcount > 1)
+				continue;
+
+			/*
+		 	 * This entry has a single ref, and the holder is the cache - it is safe to
+			 * dereference it.
+			 */
+			dentry_deref2(d, fs);
+			num_removed++;
+		}
+
+	KASSERT(num_removed > 0, "no entries removed");
 }
 
 /*
@@ -150,13 +205,17 @@ dcache_lookup(struct DENTRY* parent, const char* entry)
 
 	/* Item was not found; try to get one from the freelist */
 	struct DENTRY* d = NULL;
-	if (!DQUEUE_EMPTY(&fs->fs_dcache_free)) {
-		/* Got one! */
-		d = DQUEUE_HEAD(&fs->fs_dcache_free);
-		DQUEUE_POP_HEAD(&fs->fs_dcache_free);
-	} else {
-		dcache_dump(fs);
-		panic("out of dcache entries"); /* XXX FIXME */
+	while(d == NULL) {
+		if (!DQUEUE_EMPTY(&fs->fs_dcache_free)) {
+			/* Got one! */
+			d = DQUEUE_HEAD(&fs->fs_dcache_free);
+			DQUEUE_POP_HEAD(&fs->fs_dcache_free);
+		} else {
+			/* We are out of dcache entries; we should remove some of the older entries */
+			dcache_purge_old_entries(fs);
+			/* XXX we should be able to cope with the next condition, somehow */
+			KASSERT(!DQUEUE_EMPTY(&fs->fs_dcache_free), "dcache still full after purge!");
+		}
 	}
 
 	/* Add an explicit ref to the parent dentry; it will be referenced by our new dentry */
@@ -164,10 +223,10 @@ dcache_lookup(struct DENTRY* parent, const char* entry)
 
 	/* Initialize the item */
 	memset(d, 0, sizeof *d);
-	d->d_refcount = 1; /* the caller */
+	d->d_refcount = 2; /* the caller + the cache */
 	d->d_parent = parent;
 	d->d_inode = NULL;
-	d->d_flags = 0;
+	d->d_flags = DENTRY_FLAG_CACHED;
 	strcpy(d->d_entry, entry);
 	DQUEUE_ADD_HEAD(&fs->fs_dcache_inuse, d);
 	DCACHE_UNLOCK(fs);
@@ -219,47 +278,48 @@ dcache_set_inode(struct DENTRY* de, struct VFS_INODE* inode)
 }
 
 void
-dentry_ref(struct DENTRY* de)
+dentry_ref(struct DENTRY* d)
 {
-	KASSERT(de->d_refcount > 0, "invalid refcount %d", de->d_refcount);
-	de->d_refcount++;
+	KASSERT(d->d_refcount > 0, "invalid refcount %d", d->d_refcount);
+	d->d_refcount++;
+}
+
+static void
+dentry_deref2(struct DENTRY* d, struct VFS_MOUNTED_FS* fs_locked)
+{
+	KASSERT(d->d_refcount > 0, "invalid refcount %d", d->d_refcount);
+	--d->d_refcount;
+
+	/* If we still have references left, we are done */
+	if (d->d_refcount > 0)
+		return;
+
+	/* We are about to destroy the item; if it's still in the cache, get rid of it */
+	if (d->d_flags & DENTRY_FLAG_CACHED)
+		dcache_purge_entry2(d, fs_locked);
+
+	/* If we have a backing inode, release it */
+	if (d->d_inode != NULL)
+		vfs_deref_inode(d->d_inode);
+
+	/* Free our reference to the parent */
+	if (d->d_parent != NULL)
+		dentry_deref2(d->d_parent, fs_locked);
 }
 
 void
 dentry_deref(struct DENTRY* de)
 {
-	KASSERT(de->d_refcount > 0, "invalid refcount %d", de->d_refcount);
-	if (--de->d_refcount > 0)
-		return;
+	dentry_deref2(de, NULL);
+}
 
-	/*
-	 * Out of refs; we need to clean ourselves up XXX This may be premature, even
-	 * though no one cares about this entry anymore, we could keep it in a cache
-	 * because it is not invalid...
-	 */
-	struct VFS_MOUNTED_FS* fs = NULL;
-	if (de->d_inode != NULL)
-		fs = de->d_inode->i_fs;
-	else if (de->d_parent != NULL && de->d_parent->d_inode != NULL)
-		fs = de->d_parent->d_inode->i_fs;
-	KASSERT(fs != NULL, "removing dentry which isn't backed?");
+void
+dcache_purge_entry(struct DENTRY* d)
+{
+	dcache_purge_entry2(d, NULL);
 
-	/* If we have a backing inode, release it */
-	if (de->d_inode != NULL)
-		vfs_deref_inode(de->d_inode);
-
-	/* Store the parent; our dentry is about to go, so we can't rely on this being available */
-	struct DENTRY* parent = de->d_parent;
-
-	/* Free our dentry itself */
-	DCACHE_LOCK(fs);
-	DQUEUE_REMOVE(&fs->fs_dcache_inuse, de);
-	DQUEUE_ADD_TAIL(&fs->fs_dcache_free, de);
-	DCACHE_UNLOCK(fs);
-
-	/* Derefence our parent; we're gone and the parent ref will follow */
-	if (de->d_parent != NULL)
-		dentry_deref(de->d_parent);
+	/* And throw away the cache's reference */
+	dentry_deref(d);
 }
 
 /* vim:set ts=2 sw=2: */

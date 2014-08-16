@@ -17,6 +17,7 @@ struct DENTRY {
 	uint32_t d_flags;			/* Item flags */
 #define DENTRY_FLAG_NEGATIVE	0x0001		/* Negative entry; does not exist */
 #define DENTRY_FLAG_PERMANENT	0x0002		/* Entry must not be removed */
+#define DENTRY_FLAG_CACHED	0x0004		/* Entry is in the cache */
 	char	d_entry[DCACHE_MAX_NAME_LEN];	/* Entry name */
 	DQUEUE_FIELDS(struct DENTRY);
 };
@@ -35,5 +36,8 @@ void dentry_ref(struct DENTRY* d);
 
 /* Removes a reference from d; cleans up the item when out of references */
 void dentry_deref(struct DENTRY* d);
+
+/* Purges an entry from the cache; this may clean up the item when out of references */
+void dcache_purge_entry(struct DENTRY* d);
 
 #endif /*  __ANANAS_DENTRY_H__ */

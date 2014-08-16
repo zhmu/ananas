@@ -26,9 +26,7 @@ struct VFS_INODE {
 	mutex_t		i_mutex;		/* Mutex protecting inode */
 	refcount_t	i_refcount;		/* Refcount, must be >=1 */
 	unsigned int	i_flags;		/* Inode flags */
-#define INODE_FLAG_GONE		(1 << 0)	/* Inode is gone */
-#define INODE_FLAG_DIRTY	(1 << 1)	/* Needs to be written */
-#define INODE_FLAG_PENDING_DELETE	(1 << 2) /* Needs to be deleted */
+#define INODE_FLAG_DIRTY	(1 << 0)	/* Needs to be written */
 	struct stat 	i_sb;			/* Inode information */
 	struct VFS_INODE_OPS* i_iops;		/* Inode operations */
 
