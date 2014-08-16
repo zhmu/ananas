@@ -16,6 +16,8 @@ static void* pxe_scratchpad;
 static uint32_t pxe_gateway_ip;
 static uint32_t pxe_my_ip;
 
+#define PXE_DEBUG 0
+
 static uint16_t udp_source_port = 1025;
 
 static uint32_t htonl(uint32_t n)
@@ -103,6 +105,22 @@ udp_recvfrom(void* buffer, size_t length, uint32_t* ip, uint16_t* port)
 				*ip = ur->src_ip;
 			if (port != NULL)
 				*port = ntohs(ur->s_port);
+
+#if PXE_DEBUG
+				printf("udp_recfrom(): received %u bytes", ur->buffer_size);
+				if (ip != NULL || port != NULL) {
+					printf(" from ");
+					if (ip != NULL)
+						printf("%$", *ip);
+					if (port != NULL)
+						printf(":%u", *port);
+				}
+				printf("\n");
+
+				for (unsigned int n = 0; n < ur->buffer_size; n++) {
+					printf("%x ", *((uint8_t*)buffer + n));
+				}
+#endif
 			return ur->buffer_size;
 		}
 

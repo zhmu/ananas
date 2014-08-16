@@ -6,6 +6,8 @@
 
 #ifdef TFTP
 
+#define TFTP_PRINTF printf
+
 #define TFTP_PORT 69
 #define TFTP_CLIENT_PORT 2069
 #define TFTP_BLOCK_SIZE 512
@@ -28,17 +30,23 @@ tftp_read_next_block()
 
 	/* Wait for the next block */
 	size_t s = udp_recvfrom(tftp_packet, sizeof(tftp_packet), &ip, &port);
-	if (s == 0)
+	if (s == 0) {
+		TFTP_PRINTF("tftp_read_next_block(): timeout\n");
 		return 0; /* timeout */
+	}
 
 	/*
 	 * The reply must be DATA; if it's anything else, error out - note that
 	 * both DATA and ERROR are at least 4 bytes.
 	 */
-	if (s < 4 || tftp_packet[0] != 0)
+	if (s < 4 || tftp_packet[0] != 0) {
+		TFTP_PRINTF("tftp_read_next_block(): read %u bytes, rejecting\n", s);
 		return 0;
- 	if (tftp_packet[1] != TFTP_OPCODE_DATA)
+	}
+ 	if (tftp_packet[1] != TFTP_OPCODE_DATA) {
+		TFTP_PRINTF("tftp_read_next_block(): not a data type\n");
 		return 0;
+	}
 
 	/*
 	 * ACK the reply - the data to do this is on the stack because it's only a little and
@@ -50,8 +58,10 @@ tftp_read_next_block()
 	ack_packet[n++] = TFTP_OPCODE_ACK;
 	ack_packet[n++] = tftp_packet[2]; /* block number hi */
 	ack_packet[n++] = tftp_packet[3]; /* block number lo */
-	if (!udp_sendto(ack_packet, n, ip, port))
+	if (!udp_sendto(ack_packet, n, ip, port)) {
+		TFTP_PRINTF("tftp_read_next_block(): could not send ack\n");
 		return 0;
+	}
 
 	/* all went ok; now skip the first 4 bytes (opcode + block#) */
 	s -= 4;
@@ -76,8 +86,10 @@ tftp_open(const char* name)
 	tftp_packet[n++] = TFTP_OPCODE_RRQ;
 	strcpy(&tftp_packet[n], name); n += strlen(name) + 1 /* terminating \0 */ ;
 	strcpy(&tftp_packet[n], "octet"); n += 5 + 1 /* terminating \0 */ ;
-	if (!udp_sendto(tftp_packet, n, pxe_server_ip, TFTP_PORT))
+	if (!udp_sendto(tftp_packet, n, pxe_server_ip, TFTP_PORT)) {
+		TFTP_PRINTF("tftp_open(): unable to send open packet\n");
 		return 0;
+	}
 
 	/* Fetch the first block; this will also tell us whether the request worked */
 	vfs_curfile_offset = 0;
@@ -93,6 +105,7 @@ tftp_close()
 static size_t
 tftp_read(void* ptr, size_t length)
 {
+	TFTP_PRINTF("tftp_read(): offset %u, requested length %u\n", vfs_curfile_offset, length);
 	size_t numread = 0;
 	while (length > 0) {
 		/* If we have some left in our read buffer, use it */
@@ -110,6 +123,7 @@ tftp_read(void* ptr, size_t length)
 		if (!tftp_read_next_block())
 			break;
 	}
+	TFTP_PRINTF("tftp_read(): read %u\n", numread);
 	return numread;
 }
 
