@@ -145,9 +145,18 @@ inode_deref_locked(struct VFS_INODE* inode)
 {
 	TRACE(VFS, FUNC, "inode=%p,cur refcount=%u", inode, inode->i_refcount);
 	if (--inode->i_refcount > 0) {
-		/* Refcount isn't zero; don't throw the inode away */
-		INODE_UNLOCK(inode);
-		return;
+		/*
+		 * Refcount isn't zero - this means we shouldn't throw the item away. However,
+		 * if the inode has no more references _and_ only the cache owns it at this
+		 * point, we should remove it from the cache.
+		 */
+		if (inode->i_sb.st_nlink != 0 || inode->i_refcount != 1) {
+			INODE_UNLOCK(inode);
+			return;
+		}
+
+		/* Inode should be removed and has only a single reference (the cache) - force it */
+		inode->i_refcount--;
 	}
 
 	/*

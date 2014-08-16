@@ -89,8 +89,11 @@ vfshandle_free(thread_t* thread, struct HANDLE* handle)
 static errorcode_t
 vfshandle_unlink(thread_t* thread, struct HANDLE* handle)
 {
-	kprintf("vfshandle_unlink(): !!\n");
-	return ANANAS_ERROR(BAD_OPERATION);
+	struct VFS_FILE* file;
+	errorcode_t err = vfshandle_get_file(handle, &file);
+	ANANAS_ERROR_RETURN(err);
+
+	return vfs_unlink(file);
 }
 
 static errorcode_t

@@ -177,6 +177,11 @@ struct VFS_INODE_OPS {
 	errorcode_t (*create)(struct VFS_INODE* dir, struct DENTRY* de, int mode);
 
 	/*
+	 * Removes an entry from a directory.
+	 */
+	errorcode_t (*unlink)(struct VFS_INODE* dir, struct DENTRY* de);
+
+	/*
 	 * Fills out the file structure.
 	 */
 	void (*fill_file)(struct VFS_INODE* inode, struct VFS_FILE* file);

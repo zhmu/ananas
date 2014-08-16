@@ -416,4 +416,28 @@ vfs_summon(struct VFS_FILE* file, thread_t* t)
 	return err;
 }
 
+errorcode_t
+vfs_unlink(struct VFS_FILE* file)
+{
+	KASSERT(file->f_dentry != NULL, "unlink without dentry?");
+
+	/* Unlink is relative to the parent; so we'll need to obtain it */
+	struct DENTRY* parent = file->f_dentry->d_parent;
+	if (parent == NULL || parent->d_inode == NULL)
+		return ANANAS_ERROR(BAD_OPERATION);
+
+	struct VFS_INODE* inode = parent->d_inode;
+	if (inode->i_iops->unlink == NULL)
+		return ANANAS_ERROR(BAD_OPERATION);
+	errorcode_t err = inode->i_iops->unlink(inode, file->f_dentry);
+	ANANAS_ERROR_RETURN(err);
+
+	/*
+	 * Purge the dentry from the cache; the unlink operation should have removed
+	 * it from storage, but we need to make sure it cannot be found anymore.
+	 */
+	dcache_purge_entry(file->f_dentry);
+	return err;
+}
+
 /* vim:set ts=2 sw=2: */
