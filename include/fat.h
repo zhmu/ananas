@@ -22,8 +22,8 @@ struct FAT32_EPB {
 	uint8_t		epb_flags[2];			/* flags */
 	uint8_t		epb_fat_version[2];		/* FAT version */
 	uint8_t		epb_root_cluster[4];		/* root directory cluster */
-	uint8_t		epb_fsinfo_cluster[2];		/* fsinfo cluster number */
-	uint8_t		epb_backup_boot_cluster[2];	/* backup boot sector cluster */
+	uint8_t		epb_fsinfo_sector[2];		/* fsinfo sector number */
+	uint8_t		epb_backup_boot_sector[2];	/* backup boot sector */
 	uint8_t		epb_reserved[12];		/* reserved */
 	uint8_t		epb_drivenum;			/* drive number */
 	uint8_t		epb_nt_flags;			/* flags (NT only) */

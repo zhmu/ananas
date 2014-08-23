@@ -132,6 +132,34 @@ fat_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 	fs->fs_block_size = privdata->sector_size;
 	fs->fs_fsop_size = sizeof(uint64_t);
 
+	/* If we are using FAT32, there should be an 'info sector' with some (cached) information */
+	privdata->num_avail_clusters = (uint32_t)-1;
+	if (privdata->fat_type == 32) {
+		uint16_t fsinfo_sector = FAT_FROM_LE16(bpb->epb.fat32.epb_fsinfo_sector);
+		if (fsinfo_sector >= 1 && fsinfo_sector < num_sectors) {
+			/* Looks sane; read it */
+			struct BIO* bio;
+			errorcode_t err = vfs_bread(fs, fsinfo_sector, &bio);
+			if (err == ANANAS_ERROR_NONE) {
+				struct FAT_FAT32_FSINFO* fsi = (struct FAT_FAT32_FSINFO*)BIO_DATA(bio);
+				if (FAT_FROM_LE32(fsi->fsi_signature1) == FAT_FSINFO_SIGNATURE1 &&
+				    FAT_FROM_LE32(fsi->fsi_signature2) == FAT_FSINFO_SIGNATURE2) {
+					/* File system information seems valid; use it, if sane */
+					uint32_t next_free = FAT_FROM_LE32(fsi->fsi_next_free);
+					if (next_free >= 2 && next_free < privdata->total_clusters)
+						privdata->next_avail_cluster = next_free;
+					uint32_t num_free = FAT_FROM_LE32(fsi->fsi_free_count);
+					if (num_free >= 0 && num_free < privdata->total_clusters)
+						privdata->num_avail_clusters = num_free;
+
+					/* We have an info sector we should update */
+					privdata->infosector_num = fsinfo_sector;
+				}
+				bio_free(bio);
+			}
+		}
+	}
+
 	/* Initialize the inode cache right before reading the root directory inode */
 	icache_init(fs);
 

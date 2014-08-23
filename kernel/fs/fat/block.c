@@ -5,6 +5,7 @@
 #include <ananas/bio.h>
 #include <ananas/lock.h>
 #include <ananas/error.h>
+#include <fat.h>
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
 #include <ananas/lib.h>
@@ -486,6 +487,36 @@ fat_dump_cache(struct VFS_MOUNTED_FS* fs)
 		kprintf("ci[%i]: clusterno=%i, index=%i, nextcl=%u\n",
 		 n, ci->f_clusterno, ci->f_index, ci->f_nextcluster);
 	}
+}
+
+errorcode_t
+fat_update_infosector(struct VFS_MOUNTED_FS* fs)
+{
+	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
+	if (fs_privdata->infosector_num == 0)
+		return ANANAS_ERROR_OK; /* no info sector; nothing to do */
+
+	/* If we have nothing sensible to store, don't bother */
+	if (fs_privdata->next_avail_cluster < 2 ||
+	    fs_privdata->num_avail_clusters == (uint32_t)-1)
+		return ANANAS_ERROR_OK;
+
+	struct BIO* bio;
+	errorcode_t err = vfs_bread(fs, fs_privdata->infosector_num, &bio);
+	ANANAS_ERROR_RETURN(err);
+
+	/*
+	 * We don't do any verification (this should have been done upon mount time)
+	 * and just put whatever values we currently have in there, if they are
+	 * valid.
+	 */
+	struct FAT_FAT32_FSINFO* fsi = (struct FAT_FAT32_FSINFO*)BIO_DATA(bio);
+	FAT_TO_LE32(fsi->fsi_next_free, fs_privdata->next_avail_cluster);
+	FAT_TO_LE32(fsi->fsi_free_count, fs_privdata->num_avail_clusters);
+	bio_set_dirty(bio); /* XXX even if we updated nothing? */
+	bio_free(bio);
+
+	return ANANAS_ERROR_OK;
 }
 
 /* vim:set ts=2 sw=2: */
