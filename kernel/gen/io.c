@@ -315,8 +315,18 @@ sys_unlink(thread_t* t, handle_t handle)
 	err = syscall_get_handle(t, handle, &h);
 	ANANAS_ERROR_RETURN(err);
 
-	kprintf("sys_unlink(): todo\n");
-	return ANANAS_ERROR(BAD_SYSCALL);
+	/*
+	 * And just invoke unlink on it, if we have any - otherwise, assume the
+	 * handle can't be unlinked.
+	 */
+	if (h->h_hops->hop_unlink != NULL)
+		err = h->h_hops->hop_unlink (t, h);
+	else
+		err = ANANAS_ERROR(BAD_OPERATION);
+	ANANAS_ERROR_RETURN(err);
+
+	TRACE(SYSCALL, INFO, "success");
+	return err;
 }
 
 static errorcode_t
