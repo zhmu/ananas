@@ -347,6 +347,46 @@ fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
 	return ANANAS_ERROR_OK;
 }
 
+errorcode_t
+fat_truncate_clusterchain(struct VFS_INODE* inode)
+{
+	struct FAT_INODE_PRIVDATA* privdata = inode->i_privdata;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
+
+	/*
+	 * We need to free the clusters in reverse order: if we do it sequentially,
+	 * we won't be able to find the next one as we broke the chain...
+	 */
+	unsigned int bytes_per_cluster = fs_privdata->sector_size * fs_privdata->sectors_per_cluster;
+	int num_clusters = (inode->i_sb.st_size + bytes_per_cluster - 1) / bytes_per_cluster;
+
+	errorcode_t err = ANANAS_ERROR_OK;
+	uint32_t cluster = 0;
+	for (int num = num_clusters - 1; num >= 0; num--) {
+		errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, num, &cluster);
+		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE)
+			break; /* end of the run */
+		ANANAS_ERROR_RETURN(err); /* anything else is bad */
+
+		/*
+		 * Throw away this cluster; note that fat_set_cluster() will not update the
+		 * cluster map, which is fine as we'll just flush the cache soon.
+		 */
+		err = fat_set_cluster(fs, cluster, 0);
+		if (err != ANANAS_ERROR_OK)
+			break;
+	}
+
+	/*
+	 * Throw away the cluster map of this inode - we clean up everything even in
+	 * case of an error as it won't hurt to do so (and we expect little failure)
+	 */
+	if (privdata->first_cluster > 0)
+		fat_clear_cache(fs, privdata->first_cluster);
+	return err;
+}
+
 /*
  * Maps the given block of an inode to the block device's block to use; note
  * that in our FAT implementation, a block size is identical to a sector size

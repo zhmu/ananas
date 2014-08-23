@@ -2,6 +2,7 @@
 #include <ananas/bio.h>
 #include <ananas/error.h>
 #include <ananas/lock.h>
+#include <ananas/trace.h>
 #include <ananas/lib.h>
 #include <ananas/vfs/types.h>
 #include <ananas/vfs/core.h>
@@ -11,19 +12,33 @@
 #include "dir.h"
 #include "fatfs.h"
 
+TRACE_SETUP;
+
 #if 0
 static void
 fat_dump_entry(struct FAT_ENTRY* fentry)
 {
-	kprintf("filename   '");
-	for(int i = 0; i < 11; i++)
-		kprintf("%c", fentry->fe_filename[i]);
-	kprintf("'\n");
-	kprintf("attributes 0x%x\n", fentry->fe_attributes);
-	uint32_t cluster = FAT_FROM_LE16(fentry->fe_cluster_lo);
-	cluster |= FAT_FROM_LE16(fentry->fe_cluster_hi) << 16; /* XXX FAT32 only */
-	kprintf("cluster    %u\n", cluster);
-	kprintf("size       %u\n", FAT_FROM_LE32(fentry->fe_size));
+	if (fentry->fe_attributes == FAT_ATTRIBUTE_LFN) {
+		struct FAT_ENTRY_LFN* lfnentry = (struct FAT_ENTRY_LFN*)fentry;
+		kprintf("lfilename  '");
+		for (int i = 0; i < 5; i++)
+			kprintf("%c", lfnentry->lfn_name_1[i * 2]);
+		for (int i = 0; i < 6; i++)
+			kprintf("%c", lfnentry->lfn_name_2[i * 2]);
+		for (int i = 0; i < 2; i++)
+			kprintf("%c", lfnentry->lfn_name_3[i * 2]);
+		kprintf("' order %u\n", lfnentry->lfn_order);
+	} else {
+		kprintf("filename   '");
+		for(int i = 0; i < 11; i++)
+			kprintf("%c", fentry->fe_filename[i]);
+		kprintf("'\n");
+		kprintf("attributes 0x%x\n", fentry->fe_attributes);
+		uint32_t cluster = FAT_FROM_LE16(fentry->fe_cluster_lo);
+		cluster |= FAT_FROM_LE16(fentry->fe_cluster_hi) << 16; /* XXX FAT32 only */
+		kprintf("cluster    %u\n", cluster);
+		kprintf("size       %u\n", FAT_FROM_LE32(fentry->fe_size));
+	}
 }
 #endif
 
@@ -356,6 +371,105 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 }
 
 static errorcode_t
+fat_remove_directory_entry(struct VFS_INODE* dir, const char* dentry)
+{
+	struct VFS_MOUNTED_FS* fs = dir->i_fs;
+	struct BIO* bio = NULL;
+
+	char cur_filename[128]; /* currently assembled filename */
+	memset(cur_filename, 0, sizeof(cur_filename));
+
+	errorcode_t errorcode = ANANAS_ERROR(NO_FILE);
+	blocknr_t cur_block = (blocknr_t)-1;
+	uint32_t cur_dir_offset = 0;
+	int chain_length = 0;
+	while(1) {
+		/* Obtain the current directory block data */
+		blocknr_t want_block;
+		errorcode_t err = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
+		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE) {
+			/* We've hit an end-of-file */
+			break;
+		}
+		ANANAS_ERROR_RETURN(err);
+		if (want_block != cur_block || bio == NULL) {
+			if (bio != NULL) bio_free(bio);
+			err = vfs_bread(fs, want_block, &bio);
+			ANANAS_ERROR_RETURN(err);
+			cur_block = want_block;
+		}
+
+		/* See what this block's entry is all about */
+		uint32_t cur_offs = cur_dir_offset % fs->fs_block_size;
+		cur_dir_offset += sizeof(struct FAT_ENTRY);
+		struct FAT_ENTRY* fentry = BIO_DATA(bio) + cur_offs;
+		if (fentry->fe_filename[0] == '\0')
+			break; /* final entry; bail out */
+		if (fentry->fe_filename[0] == 0xe5) {
+			chain_length = 0;
+			continue; /* no entry or unused entry; skip it */
+		}
+
+		/* Convert the filename bits */
+		chain_length++;
+		if (!fat_construct_filename(fentry, cur_filename)) {
+			/* This is part of a long file entry name - get more */
+			continue;
+		}
+
+		/* XXX skip a volume label; we'll assume it cannot be removed */
+		if (fentry->fe_attributes & FAT_ATTRIBUTE_VOLUMEID)
+			continue;
+
+		/* Okay, if the file matches what we intended to remove, we have a winner */
+		if (strcmp(cur_filename, dentry) != 0) {
+			/* Not a match; skip it */
+			memset(cur_filename, 0, sizeof(cur_filename));
+			chain_length = 0;
+			continue;
+		}
+
+		/*
+		 * Entry is found; we need to remove it. As we know the chain length of LFN pieces, we have to
+		 * rewind to the first one and throw them all away.
+		 */
+		KASSERT(chain_length > 0, "found '%s' without sensible chain length (got %d)", cur_filename, chain_length);
+		cur_dir_offset -= sizeof(struct FAT_ENTRY) * chain_length;
+
+		for(/* nothing */; chain_length > 0; chain_length--) {
+			/* Obtain the current directory block data */
+			blocknr_t want_block;
+			errorcode_t err = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
+			if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE) {
+				/* We've hit an end-of-file */
+				break;
+			}
+			ANANAS_ERROR_RETURN(err);
+			if (want_block != cur_block || bio == NULL) {
+				if (bio != NULL) bio_free(bio);
+				err = vfs_bread(fs, want_block, &bio);
+				ANANAS_ERROR_RETURN(err);
+				cur_block = want_block;
+			}
+
+			/* Update the FAT entry here; the file name is removed */
+			uint32_t cur_offs = cur_dir_offset % fs->fs_block_size;
+			cur_dir_offset += sizeof(struct FAT_ENTRY);
+			struct FAT_ENTRY* fentry = BIO_DATA(bio) + cur_offs;
+			fentry->fe_filename[0] = 0xe5; /* deleted */
+
+			bio_set_dirty(bio);
+		}
+		errorcode = ANANAS_ERROR_OK;
+		break;
+	}
+
+	if (bio != NULL)
+		bio_free(bio);
+	return errorcode;
+}
+
+static errorcode_t
 fat_create(struct VFS_INODE* dir, struct DENTRY* de, int mode)
 {
 	struct FAT_ENTRY fentry;
@@ -377,10 +491,35 @@ fat_create(struct VFS_INODE* dir, struct DENTRY* de, int mode)
 	return err;
 }
 
+static errorcode_t
+fat_unlink(struct VFS_INODE* dir, struct DENTRY* de)
+{
+	/* Sanity checks first: we must have a backing inode */
+	if (de->d_inode == NULL || de->d_flags & DENTRY_FLAG_NEGATIVE)
+		return ANANAS_ERROR(BAD_OPERATION);
+
+	/*
+	 * We must remove this item from the directory it is in - the nlink field determines when the file data
+	 * itself will go.
+	 */
+	KASSERT(de->d_inode->i_sb.st_nlink > 0, "removing entry '%s' with invalid link %d", de->d_entry, de->d_inode->i_sb.st_nlink);
+	errorcode_t err = fat_remove_directory_entry(dir, de->d_entry);
+	ANANAS_ERROR_RETURN(err);
+
+	/*
+	 * All is well; decrement the nlink field - if it reaches zero, the file
+	 * content will be removed once the inode is destroyed
+	 */
+	de->d_inode->i_sb.st_nlink--;
+	vfs_set_inode_dirty(de->d_inode);
+	return ANANAS_ERROR_OK;
+}
+
 struct VFS_INODE_OPS fat_dir_ops = {
 	.readdir = fat_readdir,
 	.lookup = vfs_generic_lookup,
 	.create = fat_create,
+	.unlink = fat_unlink,
 };
 
 /* vim:set ts=2 sw=2: */

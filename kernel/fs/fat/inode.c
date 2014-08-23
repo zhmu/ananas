@@ -141,6 +141,12 @@ fat_write_inode(struct VFS_INODE* inode)
 	if (fs_privdata->fat_type == 32)
 		FAT_TO_LE16(fentry->fe_cluster_hi, privdata->first_cluster >> 16);
 
+	/* If the inode has run out of references, we must free the clusters it occupied */
+	if (inode->i_sb.st_nlink == 0) {
+		err = fat_truncate_clusterchain(inode);
+		ANANAS_ERROR_RETURN(err); /* XXX Should this be fatal? */
+	}
+
 	/* And off it goes */
 	bio_set_dirty(bio);
 	bio_free(bio);
