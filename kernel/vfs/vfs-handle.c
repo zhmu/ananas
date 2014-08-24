@@ -247,7 +247,7 @@ vfshandle_control(thread_t* thread, struct HANDLE* handle, unsigned int op, void
 			err = syscall_map_string(thread, re->re_dest, &dest);
 			ANANAS_ERROR_RETURN(err);
 
-			return vfs_rename(file, dest);
+			return vfs_rename(file, thread->t_path_handle->h_data.d_vfs_file.f_dentry, dest);
 		}
 		default:
 			/* What's this? */

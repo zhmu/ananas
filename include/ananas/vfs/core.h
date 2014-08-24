@@ -44,7 +44,7 @@ errorcode_t vfs_create(struct DENTRY* parent, struct VFS_FILE* destfile, const c
 errorcode_t vfs_grow(struct VFS_FILE* file, off_t size);
 errorcode_t vfs_summon(struct VFS_FILE* file, thread_t* t);
 errorcode_t vfs_unlink(struct VFS_FILE* file);
-errorcode_t vfs_rename(struct VFS_FILE* file, const char* dest);
+errorcode_t vfs_rename(struct VFS_FILE* file, struct DENTRY* parent, const char* dest);
 
 /* Filesystem specific functions */
 size_t vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, const char* name, int namelen);

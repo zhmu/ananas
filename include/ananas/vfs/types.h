@@ -182,6 +182,11 @@ struct VFS_INODE_OPS {
 	errorcode_t (*unlink)(struct VFS_INODE* dir, struct DENTRY* de);
 
 	/*
+	 * Renames an entry.
+	 */
+	errorcode_t (*rename)(struct VFS_INODE* old_dir, struct DENTRY* old_dentry, struct VFS_INODE* new_dir, struct DENTRY* new_dentry);
+
+	/*
 	 * Fills out the file structure.
 	 */
 	void (*fill_file)(struct VFS_INODE* inode, struct VFS_FILE* file);

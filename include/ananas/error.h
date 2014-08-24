@@ -25,6 +25,7 @@
 #define ANANAS_ERROR_FILE_EXISTS	19		/* File already exists */
 #define ANANAS_ERROR_NO_SPACE		20		/* Out of space */
 #define ANANAS_ERROR_OUT_OF_MEMORY	21		/* Out of memory */
+#define ANANAS_ERROR_CROSS_DEVICE	22		/* Cross device operation */
 
 #define ANANAS_ERROR_RETURN(x) \
 	if((x) != ANANAS_ERROR_NONE) \

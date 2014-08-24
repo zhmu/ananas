@@ -441,12 +441,80 @@ vfs_unlink(struct VFS_FILE* file)
 }
 
 errorcode_t
-vfs_rename(struct VFS_FILE* file, const char* dest)
+vfs_rename(struct VFS_FILE* file, struct DENTRY* parent, const char* dest)
 {
 	KASSERT(file->f_dentry != NULL, "rename without dentry?");
 
-	kprintf("vfs_rename(): todo (%s) -> (%s)\n", file->f_dentry->d_entry, dest);
-	return ANANAS_ERROR(BAD_OPERATION);
+	/*
+	 * Renames are performed using the parent directory's inode - if our parent
+	 * does not have a rename function, we can avoid looking up things.
+	 */
+	struct DENTRY* parent_dentry = file->f_dentry->d_parent;
+	if (parent_dentry == NULL || parent_dentry->d_inode == NULL ||
+	    parent_dentry->d_inode->i_iops->rename == NULL)
+		return ANANAS_ERROR(BAD_OPERATION);
+
+	/*
+	 * Look up the new location; we need a dentry to the new location for this to
+	 * work.
+	 */
+	struct DENTRY* de;
+	int final;
+	errorcode_t err = vfs_lookup_internal(parent, dest, &de, &final);
+	if (ANANAS_ERROR_CODE(err) != ANANAS_ERROR_NO_FILE) {
+		/*
+		 * A 'no file found' error is expected as we are creating a new name here;
+		 * we are using the lookup code in order to obtain the cache item entry.
+	 	 */
+		if (err == ANANAS_ERROR_OK) {
+			/* The lookup worked?! The file already exists; cancel the ref */
+			KASSERT(de->d_inode != NULL, "successful lookup without inode");
+			dentry_deref(de);
+			/* Update the error code */
+			err = ANANAS_ERROR(FILE_EXISTS);
+		}
+		return err;
+	}
+
+	/* Request failed; if this wasn't the final entry, bail: parent path is not present */
+	if (!final) {
+		dentry_deref(de);
+		return err;
+	}
+
+	/* Sanity checks */
+	KASSERT(de->d_parent != NULL, "found dest dentry without parent");
+	KASSERT(de->d_parent->d_inode != NULL, "found dest dentry without inode");
+
+	/*
+	 * Okay, we need to rename file->f_dentry in parent_inode to de. First of all, ensure we
+	 * don't cross any filesystem boundaries. We can most easily do this by checking whether
+	 * the parent directories reside on the same backing filesystem.
+	 */
+	struct VFS_INODE* parent_inode = parent_dentry->d_inode;
+	struct VFS_INODE* dest_inode = de->d_parent->d_inode;
+	if (parent_inode->i_fs != dest_inode->i_fs) {
+		dentry_deref(de);
+		return ANANAS_ERROR(CROSS_DEVICE);
+	}
+
+	/* All seems to be in order; ask the filesystem to deal with the change */
+	err = parent_inode->i_iops->rename(parent_inode, file->f_dentry, dest_inode, de);
+	if (err != ANANAS_ERROR_NONE) {
+		/* If something went wrong, ensure to free the new dentry */
+		dentry_deref(de);
+		return err;
+	}
+
+	/*
+	 * This worked; we should hook the new dentry up and throw away the old one.
+	 * No need to touch the refcount of the new dentry as we're giving our ref to
+	 * the file.
+	 */
+	struct DENTRY* old_dentry = file->f_dentry;
+	file->f_dentry = de;
+	dentry_deref(old_dentry);
+	return ANANAS_ERROR_NONE;
 }
 
 /* vim:set ts=2 sw=2: */
