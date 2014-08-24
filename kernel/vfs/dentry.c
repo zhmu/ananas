@@ -271,6 +271,10 @@ dcache_set_inode(struct DENTRY* de, struct VFS_INODE* inode)
 #endif
 	KASSERT(inode != NULL, "no inode given");
 
+	/* If we already have an inode, deref it; we don't care about it anymore */
+	if (de->d_inode != NULL)
+		vfs_deref_inode(de->d_inode);
+
 	/* Increase the refcount - the cache will have a ref to the inode now */
 	vfs_ref_inode(inode);
 	de->d_inode = inode;

@@ -515,11 +515,66 @@ fat_unlink(struct VFS_INODE* dir, struct DENTRY* de)
 	return ANANAS_ERROR_OK;
 }
 
+static errorcode_t
+fat_rename(struct VFS_INODE* old_dir, struct DENTRY* old_dentry, struct VFS_INODE* new_dir, struct DENTRY* new_dentry)
+{
+	KASSERT(!S_ISDIR(old_dentry->d_inode->i_sb.st_mode), "FIXME directory");
+
+	/*
+	 * Due to the way we use FSOP's (it is the location within the directory), we
+	 * need to alter the inode itself to refer to the new location - to do this,
+	 * we'll create a blank item in the new directory and copy the relevant
+	 * inode fields over .
+	 */
+
+	/* First step: create the new name in the new directory */
+	struct FAT_ENTRY fentry;
+	memset(&fentry, 0, sizeof(fentry));
+	fentry.fe_attributes = FAT_ATTRIBUTE_ARCHIVE; /* XXX we should copy the old entry */
+
+	uint64_t new_fsop;
+	errorcode_t err = fat_add_directory_entry(new_dir, new_dentry->d_entry, &fentry, (void*)&new_fsop);
+	ANANAS_ERROR_RETURN(err);
+
+	/* And fetch the new inode */
+	struct VFS_INODE* inode;
+	err = vfs_get_inode(new_dir->i_fs, &new_fsop, &inode);
+	if (err != ANANAS_ERROR_OK) {
+		fat_remove_directory_entry(new_dir, new_dentry->d_entry); /* XXX hope this works! */
+		return err;
+	}
+
+	/* Get rid of the previous directory entry */
+	err = fat_remove_directory_entry(old_dir, old_dentry->d_entry);
+	if (err != ANANAS_ERROR_OK) {
+		vfs_deref_inode(inode); /* remove the previous inode */
+		fat_remove_directory_entry(new_dir, new_dentry->d_entry); /* XXX hope this works! */
+		return err;
+	}
+
+	/*
+	 * Copy the inode information over; the old inode will soon go XXX we should copy more
+	 */
+	struct VFS_INODE* old_inode = old_dentry->d_inode;
+	inode->i_sb.st_size = old_inode->i_sb.st_size;
+	memcpy(inode->i_privdata, old_inode->i_privdata, sizeof(struct FAT_INODE_PRIVDATA));
+	vfs_set_inode_dirty(inode);
+
+	/*
+	 * Okay, the on-disk structure is okay; update the dentries. This should
+	 * abandon the previous inode (as the old ref will be freed)
+	 */
+	dcache_set_inode(old_dentry, inode);
+	dcache_set_inode(new_dentry, inode);
+	return ANANAS_ERROR_NONE;
+}
+
 struct VFS_INODE_OPS fat_dir_ops = {
 	.readdir = fat_readdir,
 	.lookup = vfs_generic_lookup,
 	.create = fat_create,
 	.unlink = fat_unlink,
+	.rename = fat_rename,
 };
 
 /* vim:set ts=2 sw=2: */
