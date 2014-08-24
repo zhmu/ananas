@@ -440,4 +440,13 @@ vfs_unlink(struct VFS_FILE* file)
 	return err;
 }
 
+errorcode_t
+vfs_rename(struct VFS_FILE* file, const char* dest)
+{
+	KASSERT(file->f_dentry != NULL, "rename without dentry?");
+
+	kprintf("vfs_rename(): todo (%s) -> (%s)\n", file->f_dentry->d_entry, dest);
+	return ANANAS_ERROR(BAD_OPERATION);
+}
+
 /* vim:set ts=2 sw=2: */

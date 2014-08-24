@@ -236,6 +236,19 @@ vfshandle_control(thread_t* thread, struct HANDLE* handle, unsigned int op, void
 			}
 			return err;
 		}
+		case HCTL_FILE_RENAME: {
+			struct HCTL_RENAME_ARG* re = arg;
+			if (arg == NULL)
+				return ANANAS_ERROR(BAD_ADDRESS);
+			if (len != sizeof(*re))
+				return ANANAS_ERROR(BAD_LENGTH);
+
+			const char* dest;
+			err = syscall_map_string(thread, re->re_dest, &dest);
+			ANANAS_ERROR_RETURN(err);
+
+			return vfs_rename(file, dest);
+		}
 		default:
 			/* What's this? */
 			return ANANAS_ERROR(BAD_SYSCALL);

@@ -70,6 +70,10 @@ struct HCTL_STAT_ARG {
 	size_t		st_stat_len;
 	struct stat*	st_stat;
 };
+#define HCTL_FILE_RENAME	(_HCTL_FILE_FIRST+3)	/* Rename the handle's file */
+struct HCTL_RENAME_ARG {
+	const char*	re_dest;			/* Destination file name */
+};
 #define _HCTL_FILE_LAST		199
 
 /* Handle options - memory */
