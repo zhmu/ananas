@@ -29,12 +29,16 @@ AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 	if (md_get_mapping(NULL, PTOKV(phys_addr), 0, NULL)) {
 		virt_addr = TEMP_MAPPING_RANGE;
 		addr_t cur_mapping;
+		int mapped_ok = 0;
 		while (md_get_mapping(NULL, virt_addr, VM_FLAG_READ, &cur_mapping)) {
-			if (cur_mapping == phys_addr) {
-				return (void*)(virt_addr + delta);
-			}
+			if (cur_mapping == phys_addr)
+				mapped_ok++;
+			else
+				mapped_ok = 0;
 			virt_addr += PAGE_SIZE;
 		}
+		if (mapped_ok == num_pages)
+			return (void*)(virt_addr - PAGE_SIZE * mapped_ok);
 		md_map_pages(NULL, virt_addr, phys_addr, num_pages, flags);
 	} else {
 		virt_addr = (addr_t)vm_map_kernel(phys_addr, num_pages, VM_FLAG_KERNEL | flags);
