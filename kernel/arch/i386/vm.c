@@ -23,6 +23,8 @@ md_map_pages(thread_t* t, addr_t virt, addr_t phys, size_t num_pages, int flags)
 		pt_flags |= PTE_US;
 	if (flags & VM_FLAG_WRITE)
 		pt_flags |= PTE_RW;
+	if (flags & VM_FLAG_DEVICE)
+		pt_flags |= PTE_PCD | PDE_PWT;
 
 	uint32_t* pagedir = (t != NULL) ? t->md_pagedir : kernel_pd;
 	while (num_pages > 0) {
@@ -40,7 +42,7 @@ md_map_pages(thread_t* t, addr_t virt, addr_t phys, size_t num_pages, int flags)
 			/* Map the new page into kernelspace XXX This shouldn't be needed at all; threadspace would work too */
 			addr_t new_pt = (addr_t)vm_map_kernel(page_get_paddr(p), 1, VM_FLAG_READ | VM_FLAG_WRITE);
 			memset((void*)new_pt, 0, PAGE_SIZE);
-			pagedir[pd_entrynum] = KVTOP(new_pt) | PDE_P | PDE_RW | pt_flags;
+			pagedir[pd_entrynum] = KVTOP(new_pt) | PDE_P | PDE_RW | pt_flags; /* XXX using pt_flags here is wrong */
 		}
 
 		uint32_t* pt = (uint32_t*)(PTOKV(pagedir[pd_entrynum] & ~(PAGE_SIZE - 1)));
