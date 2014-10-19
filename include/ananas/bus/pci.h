@@ -109,5 +109,6 @@
 
 void pci_write_cfg(device_t dev, uint32_t reg, uint32_t val, int size);
 uint32_t pci_read_cfg(device_t dev, uint32_t reg, int size);
+void pci_enable_busmaster(device_t dev, int on);
 
 #endif /* __BUS_PCI_H__ */

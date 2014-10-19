@@ -27,6 +27,9 @@ atapci_probe(device_t dev)
 static errorcode_t
 atapci_attach(device_t dev)
 {
+	/* Enable busmastering; we need this to be able to do DMA */
+	pci_enable_busmaster(dev, 1);
+
 	/* XXX This is crude - but PCI doesn't seem to advertise these addresses? */
 	errorcode_t err = ANANAS_ERROR(NO_RESOURCE);
 	switch(dev->unit) {

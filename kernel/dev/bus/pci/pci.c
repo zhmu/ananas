@@ -51,6 +51,17 @@ pci_read_cfg(device_t dev, uint32_t reg, int size)
 	return pci_read_config(bus_res->base, dev_res->base, func_res->base, reg, size);
 }
 
+void
+pci_enable_busmaster(device_t dev, int on)
+{
+	uint32_t cmd = pci_read_cfg(dev, PCI_REG_STATUSCOMMAND, 32);
+	if (on)
+		cmd |= PCI_CMD_BM;
+	else
+		cmd &= ~PCI_CMD_BM;
+	pci_write_cfg(dev, PCI_REG_STATUSCOMMAND, cmd, 32);
+}
+
 struct DRIVER drv_pci = {
 	.name					= "pci",
 	.drv_probe		= NULL,
