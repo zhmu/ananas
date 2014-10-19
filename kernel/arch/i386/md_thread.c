@@ -31,7 +31,7 @@ md_thread_init(thread_t* t, int flags)
 {
 	/* Create a pagedirectory */
 	struct PAGE* pagedir_page;
-	t->md_pagedir = page_alloc_single_mapped(&pagedir_page);
+	t->md_pagedir = page_alloc_single_mapped(&pagedir_page, VM_FLAG_READ | VM_FLAG_WRITE);
 	if (t->md_pagedir == NULL)
 		return ANANAS_ERROR(OUT_OF_MEMORY);
 	DQUEUE_ADD_TAIL(&t->t_pages, pagedir_page);

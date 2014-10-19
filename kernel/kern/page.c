@@ -45,7 +45,6 @@ order2pages(int order)
 void
 page_dump(struct PAGE_ZONE* z)
 {
-#ifdef PAGE_DEBUG
 	kprintf("page_dump: zone=%p total=%u avail=%u\n", z, z->z_num_pages, z->z_avail_pages);
 	for (unsigned int order = 0; order < PAGE_NUM_ORDERS; order++) {
 		kprintf(" order %u:", order);
@@ -65,7 +64,6 @@ page_dump(struct PAGE_ZONE* z)
 		if (!get_bit(z->z_bitmap, n))
 			kprintf(" %u", n);
 	kprintf("\n");
-#endif
 #endif
 }
 
@@ -253,16 +251,16 @@ page_alloc_order(int order)
 }
 
 void*
-page_alloc_order_mapped(int order, struct PAGE** p)
+page_alloc_order_mapped(int order, struct PAGE** p, int vm_flags)
 {
 	*p = page_alloc_order(order);
 	if (*p == NULL)
 		return NULL;
-	return vm_map_kernel(page_get_paddr(*p), order2pages(order), VM_FLAG_READ | VM_FLAG_WRITE);
+	return vm_map_kernel(page_get_paddr(*p), order2pages(order), vm_flags);
 }
 
 void*
-page_alloc_length_mapped(size_t length, struct PAGE** p)
+page_alloc_length_mapped(size_t length, struct PAGE** p, int vm_flags)
 {
 	/* Convert length from bytes to pages */
 	unsigned int pages = length / PAGE_SIZE;
@@ -274,7 +272,15 @@ page_alloc_length_mapped(size_t length, struct PAGE** p)
 	if (PAGE_SIZE << order != length)
 		order++;
 
-	return page_alloc_order_mapped(order, p);
+	return page_alloc_order_mapped(order, p, vm_flags);
+}
+
+void
+page_debug()
+{
+	DQUEUE_FOREACH(&zones, z, struct PAGE_ZONE) {
+		page_dump(z);
+	}
 }
 
 /* vim:set ts=2 sw=2: */

@@ -44,7 +44,7 @@ thread_init(thread_t* t, thread_t* parent, int flags)
 
 	/* Create thread information structure */
 	struct PAGE* threadinfo_page;
-	t->t_threadinfo = page_alloc_length_mapped(sizeof(struct THREADINFO), &threadinfo_page);
+	t->t_threadinfo = page_alloc_length_mapped(sizeof(struct THREADINFO), &threadinfo_page, VM_FLAG_READ | VM_FLAG_WRITE);
 	if (t->t_threadinfo == NULL)
 		return ANANAS_ERROR(OUT_OF_MEMORY);
 	DQUEUE_ADD_TAIL(&t->t_pages, threadinfo_page);
@@ -103,7 +103,7 @@ kthread_init(thread_t* t, kthread_func_t func, void* arg)
 
 	/* Initialize dummy threadinfo; this is used to store the thread name */
 	struct PAGE* threadinfo_page;
-	t->t_threadinfo = page_alloc_length_mapped(sizeof(struct THREADINFO), &threadinfo_page);
+	t->t_threadinfo = page_alloc_length_mapped(sizeof(struct THREADINFO), &threadinfo_page, VM_FLAG_READ | VM_FLAG_WRITE);
 	if (t->t_threadinfo == NULL)
 		return ANANAS_ERROR(OUT_OF_MEMORY);
 	DQUEUE_ADD_TAIL(&t->t_pages, threadinfo_page);
