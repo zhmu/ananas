@@ -100,3 +100,8 @@ dev/bus/usb/uhci-hcd.c		optional uhci
 dev/bus/usb/uhci-roothub.c	optional uhci
 # USB peripherals
 dev/bus/usb/usb-keyboard.c	optional usbkeyboard
+# audio
+dev/audio/hda.c			optional hda
+dev/audio/hda-codec.c		optional hda
+dev/audio/hda-routing.c		optional hda
+dev/audio/hda-pci.c		optional hda

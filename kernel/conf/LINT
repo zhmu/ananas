@@ -30,3 +30,4 @@ device		usbhub
 # various subsystems
 device		pci
 device		ata
+device		hda
