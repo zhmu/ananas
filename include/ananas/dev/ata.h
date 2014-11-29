@@ -27,12 +27,16 @@
 #define ATA_REG_DEVADDR		3		/* Device Address Register (R) */
 
 #define ATA_CMD_READ_SECTORS		0x20	/* 28 bit PIO */
-#define ATA_CMD_DMA_READ_SECTORS	0xc8	/* 28 bit DMA */
+#define ATA_CMD_DMA_READ_EXT		0x25	/* 48 bit DMA */
 #define ATA_CMD_WRITE_SECTORS		0x30	/* 28 bit PIO */
-#define ATA_CMD_DMA_WRITE_SECTORS	0xca	/* 28 bit DMA */
-#define ATA_CMD_IDENTIFY		0xec
+#define ATA_CMD_DMA_WRITE_EXT		0x35	/* 48 bit DMA */
 #define ATA_CMD_PACKET			0xa0
 #define ATA_CMD_IDENTIFY_PACKET		0xa1
+#define ATA_CMD_READ_MULTIPLE		0xc4	/* 28 bit DMA */
+#define ATA_CMD_WRITE_MULTIPLE		0xc5	/* 28 bit PIO */
+#define ATA_CMD_DMA_READ_SECTORS	0xc8	/* 28 bit DMA */
+#define ATA_CMD_DMA_WRITE_SECTORS	0xca	/* 28 bit DMA */
+#define ATA_CMD_IDENTIFY		0xec
 
 #define ATAPI_CMD_READ_CAPACITY		0x25
 #define ATAPI_CMD_READ_SECTORS		0x28

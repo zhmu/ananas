@@ -42,6 +42,7 @@
 #define   PCI_SUBCLASS_FLOPPY	0x02
 #define   PCI_SUBCLASS_IPI	0x03
 #define   PCI_SUBCLASS_RAID	0x04
+#define   PCI_SUBCLASS_SATA	0x06
 #define  PCI_CLASS_NETWORK	0x02       /* Network controller */
 #define   PCI_SUBCLASS_ETHERNET	0x00
 #define   PCI_SUBCLASS_TOKEN	0x01
