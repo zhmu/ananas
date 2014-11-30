@@ -3,6 +3,7 @@
 #include <ananas/dev/ahci-pci.h>
 #include <ananas/dev/sata.h>
 #include <ananas/bio.h>
+#include <ananas/kmem.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
 #include <ananas/trace.h>
@@ -166,9 +167,9 @@ ahciport_start(device_t dev)
 
 		uint64_t data_ptr, v; 
 		if (sr->sr_buffer != NULL)
-			data_ptr = KVTOP((addr_t)sr->sr_buffer), v = (addr_t)sr->sr_buffer;
+			data_ptr = kmem_get_phys(sr->sr_buffer), v = (addr_t)sr->sr_buffer;
 		else
-			data_ptr = KVTOP((addr_t)BIO_DATA(sr->sr_bio)), v = (addr_t)BIO_DATA(sr->sr_bio);
+			data_ptr = kmem_get_phys(BIO_DATA(sr->sr_bio)), v = (addr_t)BIO_DATA(sr->sr_bio);
 
 		addr_t ph;
 		if (md_get_mapping(NULL, v, 0, &ph)) {
