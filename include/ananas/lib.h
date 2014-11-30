@@ -43,4 +43,7 @@ int memcmp(const void* s1, const void* s2, size_t len) __nonnull;
 
 unsigned long strtoul(const char* ptr, char** endptr, int base);
 
+/* Crude, but our memcpy() should be able to handle overlapping regions */
+#define memmove memcpy
+
 #endif /* __LIBKERN_H__ */
