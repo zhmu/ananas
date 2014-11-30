@@ -2,6 +2,7 @@ kern/init.c		mandatory
 kern/mm.c		mandatory
 kern/dlmalloc.c		mandatory
 kern/page.c		mandatory
+kern/kmem.c		mandatory
 kern/device.c		mandatory
 kern/console.c		mandatory
 kern/pcpu.c		mandatory
