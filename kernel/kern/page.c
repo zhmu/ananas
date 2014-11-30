@@ -2,12 +2,13 @@
 #include <machine/param.h>
 #include <ananas/lib.h>
 #include <ananas/vm.h>
+#include <ananas/kmem.h>
 #include <ananas/dqueue.h>
 
 #undef PAGE_DEBUG
 
 #ifdef PAGE_DEBUG
-# define DPRINTF kprintf
+# define DPRINTF(fmt,...) kprintf(fmt, __VA_ARGS__)
 #else
 # define DPRINTF(...)
 #endif
@@ -193,7 +194,7 @@ page_zone_add(addr_t base, size_t length)
 	unsigned int num_admin_pages = (sizeof(struct PAGE_ZONE) + bitmap_size + (num_pages * sizeof(struct PAGE)) + PAGE_SIZE - 1) / PAGE_SIZE;
 	DPRINTF("%s: base=%p length=%u -> num_pages=%u, num_admin_pages=%u\n", __func__, base, length, num_pages, num_admin_pages);
 
-	char* mem = vm_map_kernel(base, num_admin_pages, VM_FLAG_READ | VM_FLAG_WRITE);
+	char* mem = kmem_map(base, num_admin_pages * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 
 	/* Initialize the page zone; initially, we'll just mark everything as allocated */	
 	struct PAGE_ZONE* z = (struct PAGE_ZONE*)mem;
@@ -256,7 +257,7 @@ page_alloc_order_mapped(int order, struct PAGE** p, int vm_flags)
 	*p = page_alloc_order(order);
 	if (*p == NULL)
 		return NULL;
-	return vm_map_kernel(page_get_paddr(*p), order2pages(order), vm_flags);
+	return kmem_map(page_get_paddr(*p), PAGE_SIZE << order, vm_flags);
 }
 
 void*

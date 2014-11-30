@@ -12,6 +12,7 @@
 #include <ananas/bootinfo.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
+#include <ananas/kmem.h>
 #include <ananas/mm.h>
 #include <ananas/module.h>
 #include <ananas/init.h>
@@ -340,10 +341,8 @@ module_load(struct LOADER_MODULE* mod)
 	 * We are done with the relocation bits. Now we should make the rodata
 	 * actually readonly, and the code readonly and executable.
 	 */
-	vm_map_kernel(KVTOP((addr_t)code_ptr),   (code_size   + (PAGE_SIZE - 1)) / PAGE_SIZE,
-	 VM_FLAG_READ | VM_FLAG_KERNEL);
-	vm_map_kernel(KVTOP((addr_t)rodata_ptr), (rodata_size + (PAGE_SIZE - 1)) / PAGE_SIZE,
-	 VM_FLAG_READ | VM_FLAG_EXECUTE | VM_FLAG_KERNEL);
+	kmem_map(KVTOP((addr_t)code_ptr), code_size, VM_FLAG_READ | VM_FLAG_EXECUTE | VM_FLAG_KERNEL);
+	kmem_map(KVTOP((addr_t)rodata_ptr), rodata_size, VM_FLAG_READ | VM_FLAG_KERNEL);
 
 	/* Set up the module structure */
 	struct KERNEL_MODULE* kmod = kmalloc(sizeof(struct KERNEL_MODULE));

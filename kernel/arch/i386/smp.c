@@ -14,11 +14,12 @@
 #include <machine/param.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
-#include <ananas/vm.h>
+#include <ananas/kmem.h>
+#include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/thread.h>
 #include <ananas/trace.h>
-#include <ananas/lib.h>
+#include <ananas/vm.h>
 #include "options.h"
 
 #undef SMP_DEBUG
@@ -109,33 +110,33 @@ locate_mpfps()
 	 * While here, figure out the last KB of the base memory too, just in case
 	 * we need it later on.
 	 */
-	void* biosinfo_ptr = vm_map_kernel(0, 1, VM_FLAG_READ);
+	void* biosinfo_ptr = kmem_map(0, PAGE_SIZE, VM_FLAG_READ | VM_FLAG_FORCEMAP);
 	uint32_t ebda_addr = (*(uint16_t*)((addr_t)biosinfo_ptr + 0x40e)) << 4;
 	uint32_t basemem_last = (*(uint16_t*)((addr_t)biosinfo_ptr + 0x413) * 1024);
-	vm_unmap_kernel((addr_t)biosinfo_ptr, 1);
+	kmem_unmap(biosinfo_ptr, PAGE_SIZE);
 
 	/*
 	 * Attempt to locate the MPFP structure in the EBDA memory space. Note that
 	 * we map 2 pages to ensure things won't go badly if we cross a paging
 	 * boundary.
 	 */
-	void* ebda_ptr = vm_map_kernel(ebda_addr & ~(PAGE_SIZE - 1), 2, VM_FLAG_READ);
+	void* ebda_ptr = kmem_map(ebda_addr, 2 * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_FORCEMAP);
 	mpfps = locate_mpfps_region((void*)((addr_t)ebda_ptr + (ebda_addr % PAGE_SIZE)), 1024);
-	vm_unmap_kernel((addr_t)ebda_ptr, 2);
+	kmem_unmap(ebda_ptr, 2 * PAGE_SIZE);
 	if (mpfps != 0)
 		return KVTOP(mpfps);
 
 	/* Attempt to locate the MPFP structure in the last 1KB of base memory */
-	void* basemem_ptr = vm_map_kernel(basemem_last & ~(PAGE_SIZE - 1), 2, VM_FLAG_READ);
+	void* basemem_ptr = kmem_map(basemem_last, 2 * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_FORCEMAP);
 	mpfps = locate_mpfps_region(basemem_ptr, 1024);
-	vm_unmap_kernel((addr_t)basemem_ptr, 2);
+	kmem_unmap(basemem_ptr, 2 * PAGE_SIZE);
 	if (mpfps != 0)
 		return KVTOP(mpfps);
 
 	/* Finally, attempt to locate the MPFP structure in the BIOS address space */
-	void* bios_addr = vm_map_kernel(0xf0000, 16, VM_FLAG_READ);
+	void* bios_addr = kmem_map(0xf0000, 16 * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_FORCEMAP);
 	mpfps = locate_mpfps_region(bios_addr, 65536);
-	vm_unmap_kernel((addr_t)bios_addr, 16);
+	kmem_unmap(bios_addr, 16 * PAGE_SIZE);
 	if (mpfps != 0)
 		return KVTOP(mpfps);
 
@@ -282,10 +283,10 @@ smp_init_mps(int* bsp_apic_id)
 	 * We just copy the MPFPS structure, since it's a fixed length and it
 	 * makes it much easier to check requirements.
 	 */
-	void* mpfps_ptr = vm_map_kernel(mpfps_addr & ~(PAGE_SIZE - 1), 1, VM_FLAG_READ);
+	void* mpfps_ptr = kmem_map(mpfps_addr, sizeof(struct MP_FLOATING_POINTER), VM_FLAG_READ | VM_FLAG_FORCEMAP);
 	struct MP_FLOATING_POINTER mpfps;
-	memcpy(&mpfps, (void*)((addr_t)mpfps_ptr + (mpfps_addr % PAGE_SIZE)), sizeof(struct MP_FLOATING_POINTER));
-	vm_unmap_kernel((addr_t)mpfps_ptr, 1);
+	memcpy(&mpfps, mpfps_ptr, sizeof(struct MP_FLOATING_POINTER));
+	kmem_unmap(mpfps_ptr, sizeof(struct MP_FLOATING_POINTER));
 
 	/* Verify checksum before we do anything else */
 	if (!validate_checksum((addr_t)&mpfps, sizeof(struct MP_FLOATING_POINTER))) {
@@ -302,21 +303,21 @@ smp_init_mps(int* bsp_apic_id)
 	}
 
 	/*
-	 * Map the first page of the configuration table; this is needed to calculate
-	 * the length of the configuration, so we can map the whole thing.
+	 * Map the first piece of the configuration table; this is needed to
+	 * calculate the length of the configuration, so we can map the whole thing.
 	 */
-	void* mpfps_phys_ptr = vm_map_kernel(mpfps.phys_ptr & ~(PAGE_SIZE - 1), 1, VM_FLAG_READ);
-	struct MP_CONFIGURATION_TABLE* mpct = (struct MP_CONFIGURATION_TABLE*)(mpfps_phys_ptr + (mpfps.phys_ptr % PAGE_SIZE));
+	void* mpfps_phys_ptr = kmem_map(mpfps.phys_ptr, sizeof(struct MP_CONFIGURATION_TABLE), VM_FLAG_READ | VM_FLAG_FORCEMAP);
+	struct MP_CONFIGURATION_TABLE* mpct = mpfps_phys_ptr;
 	uint32_t mpct_signature = mpct->signature;
-	uint32_t mpct_numpages = (sizeof(struct MP_CONFIGURATION_TABLE) + mpct->entry_count * 20 + PAGE_SIZE - 1) / PAGE_SIZE;
-	vm_unmap_kernel((addr_t)mpfps_phys_ptr, 1);
+	uint32_t mpct_size = sizeof(struct MP_CONFIGURATION_TABLE) + mpct->entry_count * 20;
+	kmem_unmap(mpfps_phys_ptr, sizeof(struct MP_CONFIGURATION_TABLE));
 	if (mpct_signature != MP_CT_SIGNATURE)
 		return ANANAS_ERROR(NO_DEVICE);
 
-	mpfps_phys_ptr = vm_map_kernel(mpfps.phys_ptr & ~(PAGE_SIZE - 1), mpct_numpages, VM_FLAG_READ);
+	mpfps_phys_ptr = kmem_map(mpfps.phys_ptr, mpct_size, VM_FLAG_READ | VM_FLAG_FORCEMAP);
 	mpct = (struct MP_CONFIGURATION_TABLE*)(mpfps_phys_ptr + (mpfps.phys_ptr % PAGE_SIZE));
 	if (!validate_checksum((addr_t)mpct, mpct->base_len)) {
-		vm_unmap_kernel((addr_t)mpfps_phys_ptr, mpct_numpages);
+		kmem_unmap(mpfps_phys_ptr, mpct_size);
 		kprintf("SMP: mpct structure corrupted, ignoring\n");
 		return ANANAS_ERROR(NO_DEVICE);
 	}
@@ -403,7 +404,7 @@ smp_init_mps(int* bsp_apic_id)
 				ioapic->ioa_id = entry->u.ioapic.ioapic_id;
 				ioapic->ioa_addr = entry->u.ioapic.addr;
 				/* XXX Assumes the address is in kernel space (it should be) */
-				vm_map_kernel(ioapic->ioa_addr, 1, VM_FLAG_READ | VM_FLAG_WRITE);
+				md_kmap(ioapic->ioa_addr, ioapic->ioa_addr, 1, VM_FLAG_READ | VM_FLAG_WRITE);
 
 				/* Set up the IRQ source */
 				ioapic_register(ioapic, cur_ioapic_first);
@@ -444,10 +445,10 @@ smp_init_mps(int* bsp_apic_id)
 		entry_addr += (entry->type == MP_ENTRY_TYPE_PROCESSOR) ? 20 : 8;
 	}
 
-	vm_unmap_kernel((addr_t)mpfps_phys_ptr, mpct_numpages);
+	kmem_unmap(mpfps_phys_ptr, mpct_size);
 
 	/* Map the local APIC memory and enable it */
-	vm_map_device(LAPIC_BASE, LAPIC_SIZE);
+	md_kmap(LAPIC_BASE, LAPIC_BASE, LAPIC_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 	*((uint32_t*)LAPIC_SVR) |= LAPIC_SVR_APIC_EN;
 
 	/* Wire the APIC for Symmetric Mode */
@@ -480,9 +481,9 @@ smp_init()
 	 */
 	ap_page = page_alloc_single();
 	KASSERT (page_get_paddr(ap_page) < 0x100000, "ap code must be below 1MB"); /* XXX crude */
-	void* ap_code = vm_map_kernel(page_get_paddr(ap_page), 1, VM_FLAG_READ | VM_FLAG_WRITE);
+	void* ap_code = kmem_map(page_get_paddr(ap_page), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 	memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
-	vm_unmap_kernel((addr_t)ap_code, 1);
+	kmem_unmap(ap_code, PAGE_SIZE);
 
 	int bsp_apic_id;
 #ifdef OPTION_ACPI

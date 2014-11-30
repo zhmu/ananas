@@ -16,6 +16,7 @@
 #include <ananas/handle.h>
 #include <ananas/init.h>
 #include <ananas/lib.h>
+#include <ananas/kmem.h>
 #include <ananas/mm.h>
 #include <ananas/page.h>
 #include <ananas/pcpu.h>
@@ -339,7 +340,7 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * Load the kernel TSS - we need this once we are going to transition between
 	 * ring 0 and 3 code, as it tells the CPU where the necessary stacks are
 	 * located. Note that we don't fill out the esp0 part, because this is
-	 * different per-thread - md_thread_witch() will deal with it.
+	 * different per-thread - md_thread_switch() will deal with it.
 	 */
 	memset(&kernel_tss, 0, sizeof(struct TSS));
 	kernel_tss.ss0 = GDT_SEL_KERNEL_DATA;
@@ -386,9 +387,11 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	addr_t kernel_start = (addr_t)&__entry - KERNBASE;
 	addr_t kernel_end = (addr_t)availptr;
 
-	/* Present the chunks of memory to the memory manager */
-	int mem_map_pages = (bootinfo->bi_memory_map_size + PAGE_SIZE - 1) / PAGE_SIZE;
-	void* memory_map = vm_map_kernel((addr_t)bootinfo->bi_memory_map_addr, mem_map_pages, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
+	/*
+	 * Present the chunks of memory to the memory manager XXX We assume the loader to behave and place the
+	 * memory map where it can directly be mapped
+	 */
+	void* memory_map = kmem_map(bootinfo->bi_memory_map_addr, bootinfo->bi_memory_map_size, VM_FLAG_READ | VM_FLAG_WRITE);
 	struct SMAP_ENTRY* smap_entry = memory_map;
 	for (int i = 0; i < bootinfo->bi_memory_map_size / sizeof(struct SMAP_ENTRY); i++, smap_entry++) {
 		if (smap_entry->type != SMAP_TYPE_MEMORY)
@@ -422,7 +425,7 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 		}
 #undef MAX_SLICES
 	}
-	vm_unmap_kernel((addr_t)memory_map, mem_map_pages);
+	kmem_unmap(memory_map, bootinfo->bi_memory_map_size);
 
 	/* Initialize the memory allocator; next code will attempt to allocate memory */
 	mm_init();

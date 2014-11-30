@@ -3,6 +3,7 @@
 #include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
+#include <ananas/kmem.h>
 #include <ananas/tty.h>
 #include <ananas/thread.h>
 #include <ananas/trace.h>
@@ -299,7 +300,7 @@ device_alloc_resource(device_t dev, resource_type_t type, size_t len)
 
 	switch(type) {
 		case RESTYPE_MEMORY:
-			return (void*)vm_map_device(res->base, len);
+			return (void*)kmem_map(res->base, len, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
 		case RESTYPE_IO:
 		case RESTYPE_CHILDNUM:
 		case RESTYPE_IRQ: /* XXX should allocate, not just return */

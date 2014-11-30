@@ -3,6 +3,7 @@
 #include <ananas/bootinfo.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
+#include <ananas/kmem.h>
 #include <ananas/trace.h>
 #include <ananas/vm.h>
 #include <machine/param.h>	/* for PAGE_SIZE */
@@ -18,21 +19,6 @@ static size_t sym_tab_size = 0;
 static size_t str_tab_size = 0;
 
 typedef Elf32_Sym Elf_Sym;
-
-static inline void*
-symbols_map_addr(addr_t addr, size_t len)
-{
-	int offset = addr & (PAGE_SIZE - 1);
-	/* Round addr down to a page */
-	if (offset) {
-		len += offset;
-		addr &= ~(PAGE_SIZE - 1);
-	}
-	/* Round len up to a page */
-	if (len & (PAGE_SIZE - 1))
-		len = (len | (PAGE_SIZE - 1)) + 1;
-	return vm_map_kernel(addr, len, VM_FLAG_READ) + offset;
-}
 
 int
 symbol_resolve_addr(addr_t addr, struct SYMBOL* s)
@@ -78,9 +64,9 @@ symbols_init()
 	if (kernel_mod->mod_strtab_addr == 0 || kernel_mod->mod_strtab_size == 0)
 		return ANANAS_ERROR(NO_DEVICE);
 
-	sym_tab = symbols_map_addr(kernel_mod->mod_symtab_addr, kernel_mod->mod_symtab_size);
+	sym_tab = kmem_map(kernel_mod->mod_symtab_addr, kernel_mod->mod_symtab_size, VM_FLAG_READ);
 	sym_tab_size = kernel_mod->mod_symtab_size;
-	str_tab = symbols_map_addr(kernel_mod->mod_strtab_addr, kernel_mod->mod_strtab_size);
+	str_tab = kmem_map(kernel_mod->mod_strtab_addr, kernel_mod->mod_strtab_size, VM_FLAG_READ);
 	str_tab_size = kernel_mod->mod_strtab_size;
 	return ANANAS_ERROR_OK;
 }

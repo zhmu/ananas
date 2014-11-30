@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
+#include <ananas/kmem.h>
 #include <ananas/trace.h>
 #include <ananas/vm.h>
 #include <machine/smp.h>
@@ -26,7 +27,7 @@ acpi_smp_init(int* bsp_apic_id)
 	 * current CPU, so just asking would be enough.
 	 */
 	KASSERT(madt->Address == LAPIC_BASE, "lapic base unsupported");
-	vm_map_device(madt->Address, LAPIC_SIZE);
+	md_kmap(madt->Address, madt->Address, LAPIC_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
 	/* Fetch our local APIC ID, we need to program it shortly */
 	*bsp_apic_id = (*(volatile uint32_t*)LAPIC_ID) >> 24;
 	/* Reset destination format to flat mode */
@@ -108,7 +109,7 @@ acpi_smp_init(int* bsp_apic_id)
 				ioapic->ioa_addr = apic->Address;
 
 				/* XXX Assumes the address is in kernel space (it should be) */
-				vm_map_kernel(ioapic->ioa_addr, 1, VM_FLAG_READ | VM_FLAG_WRITE);
+				md_kmap(ioapic->ioa_addr, ioapic->ioa_addr, 1, VM_FLAG_READ | VM_FLAG_WRITE);
 
 				/* Set up the IRQ source */
 				ioapic_register(ioapic, apic->GlobalIrqBase);

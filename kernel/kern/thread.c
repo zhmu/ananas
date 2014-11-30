@@ -3,6 +3,7 @@
 #include <ananas/console.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
+#include <ananas/kmem.h>
 #include <ananas/handle.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
@@ -493,9 +494,9 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 				int num_pages = 1 << p->p_order;
 
 				/* XXX make a temporary mapping to copy the data. We should do a copy-on-write */
-				void* ktmp = vm_map_kernel(page_get_paddr(new_page), num_pages, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
+				void* ktmp = kmem_map(page_get_paddr(new_page), num_pages * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
 				memcpy(ktmp, (void*)p->p_addr, num_pages * PAGE_SIZE);
-				vm_unmap_kernel((addr_t)ktmp, num_pages);
+				kmem_unmap(ktmp, num_pages * PAGE_SIZE);
 				
 				/* Mark the page as present in the cloned process */
 				md_thread_map(t, (void*)p->p_addr, (void*)page_get_paddr(new_page), num_pages, thread_make_vmflags(tm->tm_flags));
