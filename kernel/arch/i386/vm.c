@@ -3,6 +3,7 @@
 #include <machine/thread.h>
 #include <machine/vm.h>
 #include <ananas/lib.h>
+#include <ananas/kmem.h>
 #include <ananas/page.h>
 #include <ananas/thread.h>
 #include <ananas/mm.h>
@@ -40,7 +41,7 @@ md_map_pages(thread_t* t, addr_t virt, addr_t phys, size_t num_pages, int flags)
 			DQUEUE_ADD_TAIL(&t->t_pages, p);
 
 			/* Map the new page into kernelspace XXX This shouldn't be needed at all; threadspace would work too */
-			addr_t new_pt = (addr_t)vm_map_kernel(page_get_paddr(p), 1, VM_FLAG_READ | VM_FLAG_WRITE);
+			addr_t new_pt = (addr_t)kmem_map(page_get_paddr(p), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 			memset((void*)new_pt, 0, PAGE_SIZE);
 			pagedir[pd_entrynum] = KVTOP(new_pt) | PDE_P | PDE_RW | pt_flags; /* XXX using pt_flags here is wrong */
 		}
@@ -92,29 +93,20 @@ md_get_mapping(thread_t* t, addr_t virt, int flags, addr_t* phys)
 		return 0;
 	if (phys != NULL)
 		*phys = pte & ~(PAGE_SIZE - 1);
+	kprintf("md_get_mapping(): pd=%p virt=%p phys=%p\n",
+	 pagedir, virt, *phys);
 	return 1;
 }
 
-/* Maps physical pages to kernel memory */
-void*
-vm_map_kernel(addr_t phys, size_t num_pages, int flags)
+void
+md_kmap(addr_t phys, addr_t virt, size_t num_pages, int flags)
 {
-	md_map_pages(NULL, PTOKV(phys), phys, num_pages, flags);
-	return (void*)PTOKV(phys);
-}
-
-void*
-vm_map_device(addr_t phys, size_t len)
-{
-	len += (PAGE_SIZE - 1);
-	len /= PAGE_SIZE;
-	return vm_map_kernel(phys, len, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
+	md_map_pages(NULL, virt, phys, num_pages, flags);
 }
 
 void
-vm_unmap_kernel(addr_t virt, size_t num_pages)
+md_kunmap(addr_t virt, size_t num_pages)
 {
-	KASSERT(virt >= KERNBASE, "address %x not in kernel range", virt);
 	md_unmap_pages(NULL, virt, num_pages);
 }
 

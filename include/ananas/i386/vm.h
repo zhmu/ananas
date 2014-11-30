@@ -4,6 +4,9 @@
 #include <sys/types.h>
 
 /*
+ * Overview
+ * --------
+ *
  * For Ananas/i386, we use the following virtual memory map; the physical
  * memory entries are irrelevant.
  *
@@ -38,6 +41,27 @@
  * 4MB of memory. This means we need a total of 1GB / 4MB = 256 PT's for the
  * kernel. User PT's will be allocated on the fly as necessary, there's no
  * need to statically place them somewhere.
+ *
+ * Kernel mappings 
+ * ---------------
+ *
+ * As outlined above, there is an upper bound on the amount of kernel memory,
+ * so we can allocate the kernel page tables statically during startup. We
+ * will generally attempt to honor KVTOP(PTOKV(x)) = x; that is, we'll try
+ * to map physical addresses directly to the kernel-space - this is
+ * convenient for most purposes because the kernel doesn't really need much
+ * more than ~1GB memory and it makes bookkeeping easy.
+ *
+ * However, there are times when we must map physical addresses above 1GB;
+ * for example, due to data structures there and the like. This needs
+ * special care, because simply OR-ing KERNBASE to them isn't enough as
+ * they have such bits already set. This means we have to reserve some
+ * specific virtual addresses to where we can map such physical addresses.
+ * 
+ * Addresses from KMAP_KVA_START to KMAP_KVA_END are used for this purpose;
+ * this gives a hard limit to the amount of things we can map, but then again,
+ * total kernel memory usage can never exceed 1GB anyway so this should be
+ * sufficient.
  */
 
 /* First kernel PT; this is 3GB / 4MB = 768 */
@@ -57,6 +81,16 @@
 
 /* Convert a kernel virtual address to a physical address */
 #define KVTOP(x)		((x) & ~KERNBASE)
+
+/* Base kernel virtual address from which we'll make mappings */
+#define KMAP_KVA_START		0xffd00000
+
+/* Base kernel virtual address up to which mappings are made */
+#define KMAP_KVA_END		0xfff00000
+
+/* Direct mapped KVA start; we can use use KVTOP()/PTOKV() for it */
+#define KMEM_DIRECT_START	0
+#define KMEM_DIRECT_END		(KMAP_KVA_START - KERNBASE)
 
 /* CR0 register bits */
 #define CR0_PE		(1 << 0)	/* Protection Enable */
