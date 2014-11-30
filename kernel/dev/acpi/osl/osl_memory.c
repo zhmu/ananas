@@ -1,59 +1,111 @@
+#include <ananas/dqueue.h>
 #include <ananas/vm.h>
 #include <ananas/mm.h>
+#include <ananas/kmem.h>
 #include <machine/param.h>
 #include <machine/vm.h>
 #include "../acpica/acpi.h"
 
-/* XXX Kludge for the terrible hacks up ahead */
-#ifdef __i386__
-#define TEMP_MAPPING_RANGE 0xeff00000
-#else
-#error Fix me!
-#endif
+#define ACPI_DEBUG(...)
+
+/*
+ * ACPI likes to (re)map things over and over again; cope with this by
+ * refcounting such attempts.
+ */
+struct ACPI_MEMORY_MAPPING {
+	addr_t amm_phys;
+	void* amm_virt;
+	size_t amm_length;
+	refcount_t amm_refcount;
+	DQUEUE_FIELDS(struct ACPI_MEMORY_MAPPING);
+};
+
+DQUEUE_DEFINE(ACPI_MEMORY_MAPPINGS, struct ACPI_MEMORY_MAPPING);
+
+static struct ACPI_MEMORY_MAPPINGS acpi_mappings;
 
 void*
 AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 {
-	addr_t delta = PhysicalAddress & (PAGE_SIZE - 1);
-	addr_t phys_addr = PhysicalAddress - delta;
-	int num_pages = (Length + delta + (PAGE_SIZE - 1)) / PAGE_SIZE;
-	int flags = VM_FLAG_READ | VM_FLAG_WRITE;
-	addr_t virt_addr;
+	ACPI_DEBUG("AcpiOsMapMemory(): pa=%p length=%d -> ", PhysicalAddress, Length);
 
 	/*
-	 * XXX Kludge: if we have already mapped this page, it'll likely be in use
-	 *     by the kernel itself - prevent frees from memory we care about by
-	 *     mapping to some other range instead. We should tell the kernel about
-	 *     this so it will never use those pages at all :-/
+	 * See if this thing is already mapped; if so, we just increase the refcount.
 	 */
-	if (md_get_mapping(NULL, PTOKV(phys_addr), 0, NULL)) {
-		virt_addr = TEMP_MAPPING_RANGE;
-		addr_t cur_mapping;
-		int mapped_ok = 0;
-		while (md_get_mapping(NULL, virt_addr, VM_FLAG_READ, &cur_mapping)) {
-			if (cur_mapping == phys_addr)
-				mapped_ok++;
-			else
-				mapped_ok = 0;
-			virt_addr += PAGE_SIZE;
-		}
-		if (mapped_ok == num_pages)
-			return (void*)(virt_addr - PAGE_SIZE * mapped_ok);
-		md_map_pages(NULL, virt_addr, phys_addr, num_pages, flags);
-	} else {
-		virt_addr = (addr_t)vm_map_kernel(phys_addr, num_pages, VM_FLAG_KERNEL | flags);
+	int offset = PhysicalAddress & (PAGE_SIZE - 1);
+	addr_t pa = PhysicalAddress - offset;
+	size_t size = (Length + offset + PAGE_SIZE - 1) / PAGE_SIZE;
+	DQUEUE_FOREACH(&acpi_mappings, amm, struct ACPI_MEMORY_MAPPING) {
+		if (amm->amm_phys < pa)
+			continue;
+		if (amm->amm_phys + amm->amm_length > pa + size)
+			continue;
+		if (pa + size > amm->amm_phys + amm->amm_length)
+			continue;
+
+		void* va = (void*)((addr_t)amm->amm_virt + offset);
+		ACPI_DEBUG("FOUND va %p, pa %p..%p matches %p..%p, reffing (to %d), returning %p\n",
+		 amm->amm_virt,
+		 pa, pa + size * PAGE_SIZE,
+		 amm->amm_phys, amm->amm_phys + map_len,
+		 amm->amm_refcount + 1,
+		 va);
+
+		amm->amm_refcount++;
+		return va;
 	}
-	if (virt_addr == 0)
+
+	ACPI_DEBUG("NEW pa=%p size=%d for phys=%p len=%p", pa, size, PhysicalAddress, Length);
+
+	/* No luck; need to make a new mapping */
+	struct ACPI_MEMORY_MAPPING* amm = kmalloc(sizeof *amm);
+	amm->amm_phys = pa;
+	amm->amm_virt = kmem_map(pa, size * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_FORCEMAP);
+	amm->amm_length = size;
+	amm->amm_refcount = 1;
+	if (amm->amm_virt == NULL) {
+		ACPI_DEBUG(": FAILURE\n");
+		kfree(amm);
 		return NULL;
-	return (void*)(virt_addr + delta);
+	}
+	DQUEUE_ADD_TAIL(&acpi_mappings, amm);
+
+	void* va = (void*)((addr_t)amm->amm_virt + offset);
+	ACPI_DEBUG(": %p\n", va);
+	return va;
 }
 
 void
 AcpiOsUnmapMemory(void* LogicalAddress, ACPI_SIZE Length)
 {
-	addr_t addr = (addr_t)LogicalAddress;
-	addr_t delta = addr & (PAGE_SIZE - 1);
-	vm_unmap_kernel(addr - delta, (Length + delta + (PAGE_SIZE - 1)) / PAGE_SIZE);
+	ACPI_DEBUG("AcpiOsUnmapMemory(): unmapping %p -> ", LogicalAddress);
+
+	/* Locate the mapping; they are refcounted, so we may not need to remove it after all */
+	int offset = (addr_t)LogicalAddress & (PAGE_SIZE - 1);
+	addr_t la = (addr_t)LogicalAddress - offset;
+	size_t size = (Length + offset + PAGE_SIZE - 1) / PAGE_SIZE;
+	DQUEUE_FOREACH(&acpi_mappings, amm, struct ACPI_MEMORY_MAPPING) {
+		if ((addr_t)amm->amm_virt < la)
+			continue;
+		if (la + size > (addr_t)amm->amm_virt + amm->amm_length)
+			continue;
+
+		ACPI_DEBUG(" pa %p..%p matches %p..%p, dereffing",
+		 LogicalAddress, (addr_t)LogicalAddress + Length, amm->amm_virt, amm->amm_virt + amm->amm_length * PAGE_SIZE);
+
+		if (--amm->amm_refcount > 0) {
+			ACPI_DEBUG("\n");
+			return;
+		}
+
+		ACPI_DEBUG(" - throwing it away!\n");
+		kmem_unmap(amm->amm_virt, amm->amm_length * PAGE_SIZE);
+
+		DQUEUE_REMOVE(&acpi_mappings, amm);
+		kfree(amm);
+		return;
+	}
+	panic("AcpiOsUnmapMemory(): mapping %p..%p not found", LogicalAddress, (addr_t)LogicalAddress + Length);
 }
 
 void*

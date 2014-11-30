@@ -4,6 +4,7 @@
 #include <ananas/error.h>
 #include <ananas/irq.h>
 #include <ananas/mm.h>
+#include <ananas/kmem.h>
 #include <ananas/x86/io.h>
 #include <machine/param.h>
 #include "../acpica/acpi.h"
@@ -48,37 +49,33 @@ AcpiOsRemoveInterruptHandler(UINT32 InterruptNumber, ACPI_OSD_HANDLER Handler)
 ACPI_STATUS
 AcpiOsReadMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64* Value, UINT32 Width)
 {
-	addr_t delta = Address & (PAGE_SIZE - 1);
-	void* ptr = vm_map_kernel(Address - delta, 1, VM_FLAG_READ | VM_FLAG_KERNEL);
+	void* ptr = kmem_map(Address, Width, VM_FLAG_READ);
 	if (ptr == NULL)
 		return AE_BAD_ADDRESS;
-	addr_t addr = (addr_t)ptr + delta;
 	switch(Width) {
-		case  8: *( UINT8*)Value = *( UINT8*)addr; break;
-		case 16: *(UINT16*)Value = *(UINT16*)addr; break;
-		case 32: *(UINT32*)Value = *(UINT32*)addr; break;
-		case 64: *(UINT64*)Value = *(UINT64*)addr; break;
+		case  8: *( UINT8*)Value = *( UINT8*)ptr; break;
+		case 16: *(UINT16*)Value = *(UINT16*)ptr; break;
+		case 32: *(UINT32*)Value = *(UINT32*)ptr; break;
+		case 64: *(UINT64*)Value = *(UINT64*)ptr; break;
 		default: panic("Unsupported width %u", Width);
 	}
-	vm_unmap_kernel((addr_t)ptr, 1);
+	kmem_unmap(ptr, Width);
 	return AE_OK;
 }
 
 ACPI_STATUS
 AcpiOsWriteMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 Value, UINT32 Width)
 {
-	addr_t delta = Address & (PAGE_SIZE - 1);
-	void* ptr = vm_map_kernel(Address - delta, 1, VM_FLAG_WRITE | VM_FLAG_KERNEL);
+	void* ptr = kmem_map(Address, Width, VM_FLAG_WRITE);
 	if (ptr == NULL)
 		return AE_BAD_ADDRESS;
-	addr_t addr = (addr_t)ptr + delta;
 	switch(Width) {
-		case  8: *( UINT8*)addr = ( UINT8)Value; break;
-		case 16: *(UINT16*)addr = (UINT16)Value; break;
-		case 32: *(UINT32*)addr = (UINT32)Value; break;
+		case  8: *( UINT8*)ptr = ( UINT8)Value; break;
+		case 16: *(UINT16*)ptr = (UINT16)Value; break;
+		case 32: *(UINT32*)ptr = (UINT32)Value; break;
 		default: panic("Unsupported width %u", Width);
 	}
-	vm_unmap_kernel((addr_t)ptr, 1);
+	kmem_unmap(ptr, Width);
 	return AE_OK;
 }
 
