@@ -270,7 +270,7 @@ page_alloc_length_mapped(size_t length, struct PAGE** p, int vm_flags)
 	int order = 0;
 	for (unsigned int n = pages; n > 1; n >>= 1)
 		order++;
-	if (PAGE_SIZE << order != length)
+	if (PAGE_SIZE << order < length)
 		order++;
 
 	return page_alloc_order_mapped(order, p, vm_flags);
