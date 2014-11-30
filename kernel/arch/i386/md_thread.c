@@ -256,17 +256,4 @@ md_thread_clone(thread_t* t, thread_t* parent, register_t retval)
 	t->md_arg1 = retval;
 }
 
-int
-md_thread_peek_32(thread_t* thread, addr_t virt, uint32_t* val)
-{
-	addr_t phys;
-	if (!md_get_mapping(thread, virt, VM_FLAG_READ, &phys))
-		return 0;
-
-	void* ptr = vm_map_kernel(phys, 1, VM_FLAG_READ);
-	*val = *(uint32_t*)(ptr + (virt % PAGE_SIZE));
-	vm_unmap_kernel((addr_t)ptr, 1);
-	return 1;
-}
-
 /* vim:set ts=2 sw=2: */
