@@ -22,6 +22,10 @@
 #include <ananas/vm.h>
 #include "options.h"
 
+#ifndef OPTION_ACPI
+# error ACPI is mandatory for SMP
+#endif
+
 #undef SMP_DEBUG
 
 TRACE_SETUP;
@@ -55,140 +59,10 @@ delay(int n) {
 	}
 }
 
-static addr_t
-locate_mpfps_region(void* base, size_t length)
-{
-	uint32_t* ptr = (uint32_t*)base;
-
-	/*
-	 * Every table must reside on a 16-byte boundery, so doing
-	 * increments of 4 should work fine.
-	 */
-	for (; length > 0; length -= 4, ptr++) {
-		if (*ptr == MP_FPS_SIGNATURE)
-			return (addr_t)ptr;
-	}
-	return 0;
-}
-
-static int
-validate_checksum(addr_t base, size_t length)
-{
-	uint8_t cksum = 0;
-
-	while (length > 0) {
-		cksum += *(uint8_t*)base;
-		base++; length--;
-	}
-	return cksum == 0;
-}
-
 uint32_t
 get_num_cpus()
 {
 	return smp_config.cfg_num_cpus;
-}
-
-static addr_t
-locate_mpfps()
-{
-	addr_t mpfps = 0;
-
-	/*
-	 * According to Intel's MultiProcessor specification, the MP Floating Pointer
-	 * Structure can be located at:
-	 *
-	 * 1) The first 1KB of the EBDA
-	 * 2) Within the last 1KB of system base memory (639-640KB)
-	 * 3) BIOS ROM space 0xF0000 - 0xFFFFF.
-	 *
-	 * If we don't find it here, this system isn't SMP capable and we give up.
-	 */
-
-	/*
-	 * The EBDA address can be read from absolute address 0x40e, so fetch it.
-	 * While here, figure out the last KB of the base memory too, just in case
-	 * we need it later on.
-	 */
-	void* biosinfo_ptr = kmem_map(0, PAGE_SIZE, VM_FLAG_READ | VM_FLAG_FORCEMAP);
-	uint32_t ebda_addr = (*(uint16_t*)((addr_t)biosinfo_ptr + 0x40e)) << 4;
-	uint32_t basemem_last = (*(uint16_t*)((addr_t)biosinfo_ptr + 0x413) * 1024);
-	kmem_unmap(biosinfo_ptr, PAGE_SIZE);
-
-	/*
-	 * Attempt to locate the MPFP structure in the EBDA memory space. Note that
-	 * we map 2 pages to ensure things won't go badly if we cross a paging
-	 * boundary.
-	 */
-	void* ebda_ptr = kmem_map(ebda_addr, 2 * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_FORCEMAP);
-	mpfps = locate_mpfps_region((void*)((addr_t)ebda_ptr + (ebda_addr % PAGE_SIZE)), 1024);
-	kmem_unmap(ebda_ptr, 2 * PAGE_SIZE);
-	if (mpfps != 0)
-		return KVTOP(mpfps);
-
-	/* Attempt to locate the MPFP structure in the last 1KB of base memory */
-	void* basemem_ptr = kmem_map(basemem_last, 2 * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_FORCEMAP);
-	mpfps = locate_mpfps_region(basemem_ptr, 1024);
-	kmem_unmap(basemem_ptr, 2 * PAGE_SIZE);
-	if (mpfps != 0)
-		return KVTOP(mpfps);
-
-	/* Finally, attempt to locate the MPFP structure in the BIOS address space */
-	void* bios_addr = kmem_map(0xf0000, 16 * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_FORCEMAP);
-	mpfps = locate_mpfps_region(bios_addr, 65536);
-	kmem_unmap(bios_addr, 16 * PAGE_SIZE);
-	if (mpfps != 0)
-		return KVTOP(mpfps);
-
-	return 0;
-}
-
-static int
-resolve_bus_type(struct MP_ENTRY_BUS* bus)
-{
-	struct BUSTYPE {
-		char* name;
-		int type;
-	} bustypes[] = {
-		{ "ISA   ", BUS_TYPE_ISA },
-		{ NULL, 0 }
-	};
-
-	for (struct BUSTYPE* bt = bustypes; bt->name != NULL; bt++) {
-		int i;
-		for (i = 0; i < sizeof(bus->type) && bus->type[i] == bt->name[i]; i++)
-			/* nothing */;
-		if (i != sizeof(bus->type))
-			continue;
-
-		return bt->type;
-	}
-	return BUS_TYPE_UNKNOWN;
-}
-
-static struct IA32_BUS*
-find_bus(int id)
-{
-	struct IA32_BUS* bus = smp_config.cfg_bus;
-	int i;
-
-	for (i = 0; i < smp_config.cfg_num_busses; i++, bus++) {
-		if (bus->id == id)
-			return bus;
-	}
-	return NULL;
-}
-
-static struct IA32_IOAPIC*
-find_ioapic(int id)
-{
-	struct IA32_IOAPIC* ioapic = smp_config.cfg_ioapic;
-
-	for (int i = 0; i < smp_config.cfg_num_ioapics; i++, ioapic++) {
-		if (ioapic->ioa_id == id)
-			return ioapic;
-	}
-	return NULL;
 }
 
 static irqresult_t
@@ -271,195 +145,6 @@ smp_prepare_config(struct IA32_SMP_CONFIG* cfg)
 	memset(cfg->cfg_int, 0, sizeof(struct IA32_INTERRUPT) * cfg->cfg_num_ints);
 }
 
-/* Initialize SMP based on the legacy MPS tables */
-static errorcode_t
-smp_init_mps(int* bsp_apic_id)
-{
-	addr_t mpfps_addr = locate_mpfps();
-	if (mpfps_addr == 0)
-		return ANANAS_ERROR(NO_DEVICE);
-
-	/*
-	 * We just copy the MPFPS structure, since it's a fixed length and it
-	 * makes it much easier to check requirements.
-	 */
-	void* mpfps_ptr = kmem_map(mpfps_addr, sizeof(struct MP_FLOATING_POINTER), VM_FLAG_READ | VM_FLAG_FORCEMAP);
-	struct MP_FLOATING_POINTER mpfps;
-	memcpy(&mpfps, mpfps_ptr, sizeof(struct MP_FLOATING_POINTER));
-	kmem_unmap(mpfps_ptr, sizeof(struct MP_FLOATING_POINTER));
-
-	/* Verify checksum before we do anything else */
-	if (!validate_checksum((addr_t)&mpfps, sizeof(struct MP_FLOATING_POINTER))) {
-		kprintf("SMP: mpfps structure corrupted, ignoring\n");
-		return ANANAS_ERROR(NO_DEVICE);
-	}
-	if ((mpfps.feature1 & 0x7f) != 0) {
-		kprintf("SMP: predefined configuration %u not implemented\n", mpfps.feature1 & 0x7f);
-		return ANANAS_ERROR(NO_DEVICE);
-	}
-	if (mpfps.phys_ptr == 0) {
-		kprintf("SMP: no MP configuration table specified\n");
-		return ANANAS_ERROR(NO_DEVICE);
-	}
-
-	/*
-	 * Map the first piece of the configuration table; this is needed to
-	 * calculate the length of the configuration, so we can map the whole thing.
-	 */
-	void* mpfps_phys_ptr = kmem_map(mpfps.phys_ptr, sizeof(struct MP_CONFIGURATION_TABLE), VM_FLAG_READ | VM_FLAG_FORCEMAP);
-	struct MP_CONFIGURATION_TABLE* mpct = mpfps_phys_ptr;
-	uint32_t mpct_signature = mpct->signature;
-	uint32_t mpct_size = sizeof(struct MP_CONFIGURATION_TABLE) + mpct->entry_count * 20;
-	kmem_unmap(mpfps_phys_ptr, sizeof(struct MP_CONFIGURATION_TABLE));
-	if (mpct_signature != MP_CT_SIGNATURE)
-		return ANANAS_ERROR(NO_DEVICE);
-
-	mpfps_phys_ptr = kmem_map(mpfps.phys_ptr, mpct_size, VM_FLAG_READ | VM_FLAG_FORCEMAP);
-	mpct = (struct MP_CONFIGURATION_TABLE*)(mpfps_phys_ptr + (mpfps.phys_ptr % PAGE_SIZE));
-	if (!validate_checksum((addr_t)mpct, mpct->base_len)) {
-		kmem_unmap(mpfps_phys_ptr, mpct_size);
-		kprintf("SMP: mpct structure corrupted, ignoring\n");
-		return ANANAS_ERROR(NO_DEVICE);
-	}
-
-	kprintf("SMP: <%c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c%c%c%c%c> version 1.%u\n",
-	 mpct->oem_id[0], mpct->oem_id[1], mpct->oem_id[2], mpct->oem_id[3],
-	 mpct->oem_id[4], mpct->oem_id[5], mpct->oem_id[6], mpct->oem_id[7],
-	 mpct->product_id[0], mpct->product_id[1], mpct->product_id[2],
-	 mpct->product_id[3], mpct->product_id[4], mpct->product_id[5],
-	 mpct->product_id[6], mpct->product_id[7], mpct->product_id[8],
-	 mpct->product_id[9], mpct->product_id[10], mpct->product_id[11],
-	 mpct->spec_rev);
-
-	/*
-	 * Count the number of entries; this is needed because we allocate memory for
-	 * each item as needed.
-	 */
-	*bsp_apic_id = -1;
-	uint16_t num_entries = mpct->entry_count;
-	addr_t entry_addr = (addr_t)mpct + sizeof(struct MP_CONFIGURATION_TABLE);
-	for (int i = 0; i < num_entries; i++) {
-		struct MP_ENTRY* entry = (struct MP_ENTRY*)entry_addr;
-		switch(entry->type) {
-			case MP_ENTRY_TYPE_PROCESSOR:
-				/* Only count enabled CPU's */
-				if (entry->u.proc.flags & MP_PROC_FLAG_EN)
-					smp_config.cfg_num_cpus++;
-				if (entry->u.proc.flags & MP_PROC_FLAG_BP)
-					*bsp_apic_id = entry->u.proc.lapic_id;
-				entry_addr += 20;
-				break;
-			case MP_ENTRY_TYPE_IOAPIC:
-				if (entry->u.ioapic.flags & MP_IOAPIC_FLAG_EN)
-					smp_config.cfg_num_ioapics++;
-				entry_addr += 8;
-				break;
-			case MP_ENTRY_TYPE_BUS:
-				smp_config.cfg_num_busses++;
-				entry_addr += 8;
-				break;
-			case MP_ENTRY_TYPE_IOINT:
-				smp_config.cfg_num_ints++;
-				entry_addr += 8;
-				break;
-			default:
-				entry_addr += 8;
-				break;
-		}
-	}
-	if (*bsp_apic_id < 0)
-		panic("smp: no BSP processor defined!");
-
-	kprintf("SMP: %u CPU(s) detected, %u IOAPIC(s)\n", smp_config.cfg_num_cpus, smp_config.cfg_num_ioapics);
-
-	/* Allocate tables for the resources we found */
-	smp_prepare_config(&smp_config);
-
-	/* Wade through the table */
-	int cur_cpu = 0, cur_ioapic = 0, cur_bus = 0, cur_int = 0;
-	int cur_ioapic_first = 0;
-	entry_addr = (addr_t)mpct + sizeof(struct MP_CONFIGURATION_TABLE);
-	for (int i = 0; i < num_entries; i++) {
-		struct MP_ENTRY* entry = (struct MP_ENTRY*)entry_addr;
-		switch(entry->type) {
-			case MP_ENTRY_TYPE_PROCESSOR:
-				if ((entry->u.proc.flags & MP_PROC_FLAG_EN) == 0)
-					break;
-				kprintf("cpu%u: %s, id #%u\n",
-				 cur_cpu, *bsp_apic_id == entry->u.proc.lapic_id ? "BSP" : "AP",
-				 entry->u.proc.lapic_id);
-				struct IA32_CPU* cpu = &smp_config.cfg_cpu[cur_cpu];
-				cpu->lapic_id = entry->u.proc.lapic_id;
-				cur_cpu++;
-				break;
-			case MP_ENTRY_TYPE_IOAPIC:
-				if ((entry->u.ioapic.flags & MP_IOAPIC_FLAG_EN) == 0)
-					break;
-#ifdef SMP_DEBUG
-				kprintf("ioapic%u: id #%u, mem %x\n",
-				 cur_ioapic, entry->u.ioapic.ioapic_id,
-				 entry->u.ioapic.addr);
-#endif
-				struct IA32_IOAPIC* ioapic = &smp_config.cfg_ioapic[cur_ioapic];
-				ioapic->ioa_id = entry->u.ioapic.ioapic_id;
-				ioapic->ioa_addr = entry->u.ioapic.addr;
-				/* XXX Assumes the address is in kernel space (it should be) */
-				md_kmap(ioapic->ioa_addr, ioapic->ioa_addr, 1, VM_FLAG_READ | VM_FLAG_WRITE);
-
-				/* Set up the IRQ source */
-				ioapic_register(ioapic, cur_ioapic_first);
-				cur_ioapic++; cur_ioapic_first += ioapic->ioa_source.is_count;
-				break;
-			case MP_ENTRY_TYPE_IOINT: {
-#ifdef SMP_DEBUG
-				kprintf("Interrupt: type %u flags %u bus %u irq %u, ioapic %u int %u \n",
-				 entry->u.interrupt.type,
-				 entry->u.interrupt.flags,
-				 entry->u.interrupt.source_busid,
-				 entry->u.interrupt.source_irq,
-				 entry->u.interrupt.dest_ioapicid,
-				 entry->u.interrupt.dest_ioapicint);
-#endif
-				struct IA32_INTERRUPT* interrupt = &smp_config.cfg_int[cur_int];
-				interrupt->source_no = entry->u.interrupt.source_irq;
-				interrupt->dest_no = entry->u.interrupt.dest_ioapicint;
-				interrupt->bus = find_bus(entry->u.interrupt.source_busid);
-				interrupt->ioapic = find_ioapic(entry->u.interrupt.dest_ioapicid);
-				cur_int++;
-				break;
-			}
-			case MP_ENTRY_TYPE_BUS: {
-#ifdef SMP_DEBUG
-				kprintf("Bus: id %u type [%c][%c][%c][%c][%c][%c]\n",
-				 entry->u.bus.bus_id,
-				 entry->u.bus.type[0], entry->u.bus.type[1], entry->u.bus.type[2],
-				 entry->u.bus.type[3], entry->u.bus.type[4], entry->u.bus.type[5]);
-#endif
-				struct IA32_BUS* bus = &smp_config.cfg_bus[cur_bus];
-				bus->id = entry->u.bus.bus_id;
-				bus->type = resolve_bus_type(&entry->u.bus);
-				cur_bus++;
-				break;
-			}
-		}
-		entry_addr += (entry->type == MP_ENTRY_TYPE_PROCESSOR) ? 20 : 8;
-	}
-
-	kmem_unmap(mpfps_phys_ptr, mpct_size);
-
-	/* Map the local APIC memory and enable it */
-	md_kmap(LAPIC_BASE, LAPIC_BASE, LAPIC_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
-	*((uint32_t*)LAPIC_SVR) |= LAPIC_SVR_APIC_EN;
-
-	/* Wire the APIC for Symmetric Mode */
-	if (mpfps.feature2 & MP_FPS_FEAT2_IMCRP) {
-		outb(IMCR_ADDRESS, IMCR_ADDR_IMCR);
-		outb(IMCR_DATA, IMCR_DATA_MP);
-	}
-
-	return ANANAS_ERROR_OK;
-}
-
 /*
  * Called on the Boot Strap Processor, in order to prepare the system for
  * multiprocessing.
@@ -486,10 +171,7 @@ smp_init()
 	kmem_unmap(ap_code, PAGE_SIZE);
 
 	int bsp_apic_id;
-#ifdef OPTION_ACPI
-	if (acpi_smp_init(&bsp_apic_id) != ANANAS_ERROR_OK)
-#endif
-	if (smp_init_mps(&bsp_apic_id) != ANANAS_ERROR_OK) {
+	if (acpi_smp_init(&bsp_apic_id) != ANANAS_ERROR_OK) {
 		/* SMP not present or not usable */
 		page_free(ap_page);
 		md_remove_low_mappings();
