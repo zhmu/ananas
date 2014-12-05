@@ -9,6 +9,7 @@
 typedef struct DEVICE* device_t;
 typedef struct DRIVER* driver_t;
 typedef struct PROBE* probe_t;
+typedef struct DMA_TAG* dma_tag_t;
 
 /* Maximum number of resources a given device can have */
 #define DEVICE_MAX_RESOURCES 16
@@ -80,6 +81,9 @@ struct DEVICE {
 
 	/* Parent device */
 	device_t	parent;
+
+	/* DMA tag assigned to the device */
+	dma_tag_t	dma_tag;
 
 	/* Unit number */
 	unsigned int	unit;
