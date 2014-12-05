@@ -42,7 +42,8 @@ ahcipci_port_irq(device_t dev, struct AHCI_PCI_PORT* p, uint32_t pis)
 		 * We got a transition from active -> inactive in the CI; this means
 		 * the transfer is completed without errors.
 		 */
-		struct SATA_REQUEST* sr = &p->p_request[i];
+		struct AHCI_PCI_REQUEST* pr = &p->p_request[i];
+		struct SATA_REQUEST* sr = &pr->pr_request;
 		if (sr->sr_semaphore != NULL)
 			sem_signal(sr->sr_semaphore);
 		if (sr->sr_bio != NULL)
@@ -77,6 +78,14 @@ ahciport_attach(device_t dev)
 	if (AHCI_PxSSTS_DETD(sts) != AHCI_DETD_DEV_PHY) {
 		AHCI_DEBUG("skipping port #%d; no device/phy (%x)", n, tfd);
 		return ANANAS_ERROR(NO_DEVICE);
+	}
+
+	/* Initialize the DMA buffers for requests */
+	for(unsigned int n = 0; n < 32; n++) {
+		struct AHCI_PCI_REQUEST* pr = &p->p_request[n];
+		errorcode_t err = dma_buf_alloc(dev->parent->dma_tag, sizeof(struct AHCI_PCI_CT), &pr->pr_dmabuf_ct);
+		ANANAS_ERROR_RETURN(err);
+		pr->pr_ct = dma_buf_get_segment(pr->pr_dmabuf_ct, 0)->s_virt;
 	}
 
 	struct DRIVER* drv = NULL;
@@ -163,23 +172,19 @@ ahciport_start(device_t dev)
 			continue;
 
 		/* Request is valid but not yet active; program it */
-		struct SATA_REQUEST* sr = &p->p_request[i];
+		struct AHCI_PCI_REQUEST* pr = &p->p_request[i];
+		struct SATA_REQUEST* sr = &pr->pr_request;
 
-		uint64_t data_ptr, v; 
+		/* XXX use dma for data_ptr */
+		uint64_t data_ptr;
 		if (sr->sr_buffer != NULL)
-			data_ptr = kmem_get_phys(sr->sr_buffer), v = (addr_t)sr->sr_buffer;
+			data_ptr = kmem_get_phys(sr->sr_buffer);
 		else
-			data_ptr = kmem_get_phys(BIO_DATA(sr->sr_bio)), v = (addr_t)BIO_DATA(sr->sr_bio);
-
-		addr_t ph;
-		if (md_get_mapping(NULL, v, 0, &ph)) {
-			kprintf("virt %x phys %x\n", v, ph);
-		}
-
+			data_ptr = kmem_get_phys(BIO_DATA(sr->sr_bio));
 
 	kprintf("data ptr %x\n", data_ptr & 0xffffffff);
 		/* Construct the command table; it will always have 1 PRD entry */
-		struct AHCI_PCI_CT* ct = &p->p_ct[i];
+		struct AHCI_PCI_CT* ct = pr->pr_ct;
 		memset(ct, 0, sizeof(struct AHCI_PCI_CT));
 		ct->ct_prd[0].prde_dw0 = AHCI_PRDE_DW0_DBA(data_ptr & 0xffffffff);
 		ct->ct_prd[0].prde_dw1 = AHCI_PRDE_DW1_DBAU(data_ptr >> 32);
@@ -187,23 +192,26 @@ ahciport_start(device_t dev)
 		ct->ct_prd[0].prde_dw2 = 0;
 		ct->ct_prd[0].prde_dw3 = AHCI_PRDE_DW3_I | AHCI_PRDE_DW3_DBC(sr->sr_count - 1);
 		/* XXX handle atapi */
-		memcpy(&ct->ct_cfis[0], &p->p_request[i].sr_fis.fis_h2d, sizeof(struct SATA_FIS_H2D));
+		memcpy(&ct->ct_cfis[0], &sr->sr_fis.fis_h2d, sizeof(struct SATA_FIS_H2D));
+		dma_buf_sync(pr->pr_dmabuf_ct, DMA_SYNC_OUT);
 
 		/* Set up the command list entry and hook it to this table */
 		struct AHCI_PCI_CLE* cle = &p->p_cle[i];
 		kprintf("cle %p ct %p ct_fis %p\n", cle, ct, &ct->ct_cfis[0]);
 
+		uint64_t addr_ct = dma_buf_get_segment(pr->pr_dmabuf_ct, 0)->s_phys;
 		memset(cle, 0, sizeof(struct AHCI_PCI_CLE));
 		cle->cle_dw0 =
 		 AHCI_CLE_DW0_PRDTL(1) |
 		 AHCI_CLE_DW0_PMP(0) |
 		 AHCI_CLE_DW0_CFL(sr->sr_fis_length / 4);
 		cle->cle_dw1 = 0;
-		cle->cle_dw2 = AHCI_CLE_DW2_CTBA(KVTOP((addr_t)ct));
-		cle->cle_dw3 = AHCI_CLE_DW3_CTBAU(0); /* XXX */
+		cle->cle_dw2 = AHCI_CLE_DW2_CTBA(addr_ct & 0xffffffff);
+		cle->cle_dw3 = AHCI_CLE_DW3_CTBAU(addr_ct >> 32);
 		AHCI_DEBUG("port %d cle %04x %04x %04x %04x",
 		 p->p_num, cle->cle_dw0, cle->cle_dw1, 
 		 cle->cle_dw2, cle->cle_dw3);
+		dma_buf_sync(p->p_dmabuf_cl, DMA_SYNC_OUT);
 	
 		/* Command is ready to be transmitted */
 		ci |= 1 << i;

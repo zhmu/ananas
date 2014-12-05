@@ -5,6 +5,7 @@
 #include <ananas/dev/ata.h>
 #include <ananas/dev/sata.h>
 #include <ananas/device.h>
+#include <ananas/dma.h>
 #include <ananas/error.h>
 #include <ananas/irq.h>
 #include <ananas/lib.h>
@@ -14,6 +15,7 @@
 #include <ananas/time.h>
 #include <ananas/trace.h>
 #include <machine/param.h>
+#include <machine/dma.h>
 #include <machine/vm.h>
 
 TRACE_SETUP;
@@ -94,45 +96,6 @@ ahcipci_probe(device_t dev)
 }
 
 static errorcode_t
-ahcipci_issue_command(device_t dev, struct AHCI_PCI_PORT* port, struct AHCI_PCI_CT* ct, int num_prd, int cfl_len)
-{
-	struct AHCI_PRIVDATA* pd = dev->privdata;
-	struct AHCI_PCI_PRIVDATA* privdata = pd->ahci_dev_privdata;
-
-	int slot = 0;
-
-	struct AHCI_PCI_CLE* cle = &port->p_cle[slot];
-	kprintf("port %p cle %p\n", port, cle);
-	memset(cle, 0, sizeof(struct AHCI_PCI_CLE));
-	cle->cle_dw0 =
-	 AHCI_CLE_DW0_PRDTL(num_prd) |
-	 AHCI_CLE_DW0_PMP(0) |
-	 AHCI_CLE_DW0_CFL(cfl_len);
-	cle->cle_dw1 = 0;
-	cle->cle_dw2 = AHCI_CLE_DW2_CTBA(KVTOP((addr_t)ct));
-	cle->cle_dw3 = AHCI_CLE_DW3_CTBAU(0); /* XXX */
-
-	AHCI_DEBUG("port %d cle %04x %04x %04x %04x",
-	 port->p_num, cle->cle_dw0, cle->cle_dw1, 
-	 cle->cle_dw2, cle->cle_dw3);
-	
-	kprintf(">> #%d issuing command\n", port->p_num);
-	DUMP_PORT_STATE(port->p_num);
-	AHCI_WRITE_4(AHCI_REG_PxCI(port->p_num), AHCI_PxCIT_CI(slot));
-
-	delay(1000);
-
-	AHCI_DEBUG("port %d cmd %x tfd %x serr %x is %x", port->p_num,
-	 AHCI_READ_4(AHCI_REG_PxCMD(port->p_num)),
-	 AHCI_READ_4(AHCI_REG_PxTFD(port->p_num)),
-	 AHCI_READ_4(AHCI_REG_PxSERR(port->p_num)),
-	 AHCI_READ_4(AHCI_REG_PxIS(port->p_num))
-	);
-	DUMP_PORT_STATE(port->p_num);
-	return ANANAS_ERROR(NO_RESOURCE);
-}
-
-static errorcode_t
 ahcipci_reset_port(device_t dev, struct AHCI_PCI_PORT* p)
 {
 	struct AHCI_PRIVDATA* pd = dev->privdata;
@@ -203,35 +166,6 @@ ahcipci_reset_port(device_t dev, struct AHCI_PCI_PORT* p)
 }
 
 static errorcode_t
-ahcipci_submit_fis(device_t dev, struct AHCI_PCI_PORT* p, void* fis, size_t fis_len, void* data, size_t data_len)
-{
-	KASSERT((fis_len % 4) == 0, "fis length %d not a multiple of 4", fis_len);
-	KASSERT((data_len % 2) == 0, "data length %d not a multiple of 2", data_len);
-
-	struct AHCI_PCI_CT ct;
-	memset(&ct, 0, sizeof(struct AHCI_PCI_CT));
-	ct.ct_prd[0].prde_dw0 = AHCI_PRDE_DW0_DBA(KVTOP((addr_t)data));
-	ct.ct_prd[0].prde_dw1 = AHCI_PRDE_DW1_DBAU(0); /* XXX64 */
-	ct.ct_prd[0].prde_dw2 = 0;
-	ct.ct_prd[0].prde_dw3 = AHCI_PRDE_DW3_I | AHCI_PRDE_DW3_DBC(data_len - 1);
-
-	// XXX We need to fill the AFIS in the ATAPI-case
-	memcpy(&ct.ct_cfis[0], fis, fis_len);
-#if 0
-	uint64_t lba = 0;
-	uint16_t count = 1;
-
-	struct SATA_FIS_H2D* h2d = (struct SATA_FIS_H2D*)&ct->ct_cfis[0];
-	sata_fis_h2d_make_cmd_lba48(h2d, ATA_CMD_DMA_READ_EXT, lba, count);
-//#else
-	sata_fis_h2d_make_cmd(h2d, ATA_CMD_IDENTIFY);
-	(void)count; (void)lba;
-#endif
-
-	return ahcipci_issue_command(dev, p, &ct, 1, fis_len / 4);
-}
-
-static errorcode_t
 ahcipci_attach(device_t dev)
 {
 	void* res_mem = device_alloc_resource(dev, RESTYPE_MEMORY, 4096);
@@ -285,6 +219,10 @@ ahcipci_attach(device_t dev)
 	privdata->ap_pi = pi;
 	privdata->ap_num_ports = num_ports;
 
+	/* Create DMA tags; we need those to do DMA */
+	errorcode_t err = dma_tag_create(dev->parent->dma_tag, dev, &dev->dma_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE);
+	ANANAS_ERROR_RETURN(err);
+
 	uint32_t cap = AHCI_READ_4(AHCI_REG_CAP);
 	privdata->ap_ncs = AHCI_CAP_NCS(cap) + 1;
 
@@ -294,7 +232,7 @@ ahcipci_attach(device_t dev)
 	pd->ahci_dev_privdata = privdata;
 	dev->privdata = pd;
 
-	errorcode_t err = irq_register((int)res_irq, dev, ahcipci_irq, privdata);
+	err = irq_register((int)res_irq, dev, ahcipci_irq, privdata);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Force all ports into idle mode */
@@ -340,20 +278,25 @@ ahcipci_attach(device_t dev)
 		struct AHCI_PCI_PORT* p = &privdata->ap_port[idx];
 		idx++;
 
-		/* A single page suffices for both the command list (1KB) and RFIS (256 bytes) */
-		addr_t ptr = (addr_t)page_alloc_single_mapped(&p->p_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
-		memset((void*)ptr, 0, PAGE_SIZE);
+		/* Create DMA-able memory buffers for the command list and RFIS */
+		err = dma_buf_alloc(dev->dma_tag, 1024, &p->p_dmabuf_cl);
+		ANANAS_ERROR_RETURN(err);
+		err = dma_buf_alloc(dev->dma_tag, 256, &p->p_dmabuf_rfis);
+		ANANAS_ERROR_RETURN(err);
+
 		spinlock_init(&p->p_lock);
 		p->p_pd = privdata;
-		p->p_cle = (void*)ptr;
-		p->p_rfis = (void*)(ptr + 1024);
+		p->p_cle = dma_buf_get_segment(p->p_dmabuf_cl, 0)->s_virt;
+		p->p_rfis = dma_buf_get_segment(p->p_dmabuf_rfis, 0)->s_virt;
 		p->p_num = n;
 
 		/* Program our command list and FIS buffer addresses */
-		AHCI_WRITE_4(AHCI_REG_PxCLB(n), page_get_paddr(p->p_page));
-		AHCI_WRITE_4(AHCI_REG_PxCLBU(n), 0); /* XXX64 */
-		AHCI_WRITE_4(AHCI_REG_PxFB(n), page_get_paddr(p->p_page) + 1024);
-		AHCI_WRITE_4(AHCI_REG_PxFBU(n), 0); /* XXX64 */
+		uint64_t addr_cl = dma_buf_get_segment(p->p_dmabuf_cl, 0)->s_phys;
+		AHCI_WRITE_4(AHCI_REG_PxCLB(n), addr_cl & 0xffffffff);
+		AHCI_WRITE_4(AHCI_REG_PxCLBU(n), addr_cl >> 32);
+		uint64_t addr_rfis = dma_buf_get_segment(p->p_dmabuf_rfis, 0)->s_phys;
+		AHCI_WRITE_4(AHCI_REG_PxFB(n), addr_rfis & 0xffffffff);
+		AHCI_WRITE_4(AHCI_REG_PxFBU(n), addr_rfis >> 32);
 
 		/* Activate the channel */
 		AHCI_WRITE_4(AHCI_REG_PxCMD(n),
@@ -383,8 +326,6 @@ ahcipci_attach(device_t dev)
 	/* Enable global AHCI interrupts */
 	AHCI_WRITE_4(AHCI_REG_IS, 0xffffffff);
 	AHCI_WRITE_4(AHCI_REG_GHC, AHCI_READ_4(AHCI_REG_GHC) | AHCI_GHC_IE);
-	if (0)
-		ahcipci_submit_fis(dev, NULL, NULL, 0, NULL, 0);
 
 	/*
 	 * Interrupts are enabled; ports should be happy - now, attach all devices on
