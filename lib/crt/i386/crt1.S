@@ -20,7 +20,7 @@ _fini:
 .text
 
 .globl _start
-.extern cstart, sys_exit
+.extern cstart
 
 _start:
 	push	%esi		/* threadinfo */
