@@ -69,7 +69,7 @@ static struct HANDLEMAP_OPS fd_ops = {
 	.hop_stat = fd_stat
 };
 
-static int
+static ssize_t
 pipe_read(int idx, void* handle, void* buf, size_t len)
 {
 	/* XXX handle NODELAY */
@@ -102,7 +102,7 @@ pipe_read(int idx, void* handle, void* buf, size_t len)
 	return amount;
 }
 
-static int
+static ssize_t
 pipe_write(int idx, void* handle, const void* buf, size_t len)
 {
 	/* XXX handle NODELAY */
