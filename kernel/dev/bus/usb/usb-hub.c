@@ -10,7 +10,6 @@
 #include <ananas/thread.h>
 #include <ananas/trace.h>
 #include <ananas/time.h>
-#include <ananas/waitqueue.h>
 #include <machine/param.h>
 #include "usb-hub.h"
 
@@ -42,7 +41,7 @@ usbhub_int_callback(struct USB_PIPE* pipe)
 	}
 
 	kprintf("%s:%u: waking up thread\n", __func__, __LINE__);
-	waitqueue_signal(&hub_privdata->hub_wq);
+	sem_signal(&hub_privdata->hub_semaphore);
 	return PIPE_OK;
 }
 
@@ -64,10 +63,8 @@ usbhub_workerthread(void* ptr)
 	struct USB_DEVICE* usb_dev = ptr;
 	struct HUB_PRIVDATA* hub_privdata = usb_dev->usb_privdata;
 
-	struct WAITER* w = waitqueue_add(&hub_privdata->hub_wq);
 	while(1) {
-		waitqueue_reset_waiter(w);
-		waitqueue_wait(w);
+		sem_wait(&hub_privdata->hub_semaphore);
 
 		kprintf("%s:%u: woke up\n", __func__, __LINE__);
 
@@ -88,7 +85,6 @@ usbhub_workerthread(void* ptr)
 			kprintf("port %u [%x,%x]\n", n, ps.ps_portstatus, ps.ps_portchange);
 		}
 	}
-	waitqueue_remove(w);
 }
 
 static errorcode_t
@@ -104,7 +100,7 @@ usbhub_attach(device_t dev)
 
 	struct HUB_PRIVDATA* hub_privdata = kmalloc(sizeof(*hub_privdata) + sizeof(struct HUB_PORT) * (hd.hd_numports - 1));
 	memset(hub_privdata, 0, sizeof(*hub_privdata) + sizeof(struct HUB_PORT) * (hd.hd_numports - 1));
-	waitqueue_init(&hub_privdata->hub_wq);
+	sem_init(&hub_privdata->hub_semaphore, 0);
 	usb_dev->usb_privdata = hub_privdata;
 	hub_privdata->hub_numports = hd.hd_numports;
 	device_printf(dev, "%u port(s)", hub_privdata->hub_numports);

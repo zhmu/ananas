@@ -16,7 +16,7 @@
 TRACE_SETUP;
 
 static thread_t usb_devicethread;
-static struct WAIT_QUEUE usb_device_wq;
+static semaphore_t usb_device_semaphore;
 static struct USB_DEVICE_QUEUE usb_device_pendingqueue;
 static spinlock_t usb_device_spl_pendingqueue = SPINLOCK_DEFAULT_INIT;
 
@@ -163,21 +163,19 @@ usb_attach_device_one(struct USB_DEVICE* usb_dev)
 void
 usb_device_thread(void* unused)
 {
-	struct WAITER* w = waitqueue_add(&usb_device_wq);
 	while(1) {
 		/* Wait until we have to wake up... */
-		waitqueue_reset_waiter(w);
-		waitqueue_wait(w);
+		sem_wait(&usb_device_semaphore);
 
 		/* Keep attaching devices */
 		while(1) {
 			spinlock_lock(&usb_device_spl_pendingqueue);
-			if (DQUEUE_EMPTY(&usb_device_wq)) {
+			if (DQUEUE_EMPTY(&usb_device_pendingqueue)) {
 				spinlock_unlock(&usb_device_spl_pendingqueue);
 				break;
 			}
 			struct USB_DEVICE* usb_dev = DQUEUE_HEAD(&usb_device_pendingqueue);
-			DQUEUE_POP_HEAD(&usb_device_wq);
+			DQUEUE_POP_HEAD(&usb_device_pendingqueue);
 			spinlock_unlock(&usb_device_spl_pendingqueue);
 
 			/*
@@ -207,13 +205,13 @@ usb_attach_device(device_t parent, device_t hub, void* hcd_privdata)
 	spinlock_unlock(&usb_device_spl_pendingqueue);
 
 	/* Wake up our thread */
-	waitqueue_signal(&usb_device_wq);
+	sem_signal(&usb_device_semaphore);
 }
 
 void
 usb_attach_init()
 {
-	waitqueue_init(&usb_device_wq);
+	sem_init(&usb_device_semaphore, 0);
 	DQUEUE_INIT(&usb_device_pendingqueue);
 
 	/*

@@ -3,6 +3,7 @@
 
 #include <ananas/device.h>
 #include <ananas/dqueue.h>
+#include <ananas/lock.h>
 #include <ananas/bus/usb/descriptor.h>
 #include <ananas/bus/usb/pipe.h>
 
@@ -14,7 +15,6 @@
 #define USB_MAX_DATALEN		1024
 
 struct USB_DEVICE;
-struct WAIT_QUEUE;
 
 /*
  * A standard USB endpoint.
@@ -106,7 +106,7 @@ struct USB_TRANSFER {
 	int				xfer_result_length;
 	usb_xfer_callback_t		xfer_callback;
 	void*				xfer_callback_data;
-	struct WAIT_QUEUE		xfer_waitqueue;
+	semaphore_t			xfer_semaphore;
 	/* Provide queue structure */
 	DQUEUE_FIELDS(struct USB_TRANSFER);
 };

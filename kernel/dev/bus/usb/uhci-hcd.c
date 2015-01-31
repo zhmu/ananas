@@ -159,8 +159,8 @@ uhci_free_tdchain(device_t dev, addr_t addr, int* length, int* error)
 	}
 }
 
-static void
-uhci_irq(device_t dev)
+static irqresult_t
+uhci_irq(device_t dev, void* context)
 {
 	struct UHCI_HCD_PRIVDATA* privdata = dev->privdata;
 	int stat = inw(privdata->uhci_io + UHCI_REG_USBSTS);
@@ -219,6 +219,8 @@ uhci_irq(device_t dev)
 			}
 		}
 	}
+
+	return IRQ_RESULT_PROCESSED;
 }
 
 static struct UHCI_TD*
@@ -479,7 +481,7 @@ uhci_attach(device_t dev)
 	}
 
 	/* Hook up our interrupt handler and get it going */
-	errorcode_t err = irq_register((int)res_irq, dev, uhci_irq);
+	errorcode_t err = irq_register((int)res_irq, dev, uhci_irq, NULL);
 	ANANAS_ERROR_RETURN(err);
 	outw(privdata->uhci_io + UHCI_REG_USBINTR, UHCI_USBINTR_SPI | UHCI_USBINTR_IOC | UHCI_USBINTR_RI | UHCI_USBINTR_TOCRC);
 	delay(10);

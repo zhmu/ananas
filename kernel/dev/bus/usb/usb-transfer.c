@@ -9,7 +9,6 @@
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
-#include <ananas/waitqueue.h>
 #include <ananas/mm.h>
 
 TRACE_SETUP;
@@ -41,9 +40,8 @@ usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, i
 	struct USB_TRANSFER* xfer = usb_make_control_xfer(usb_dev, req, recipient, type, value, index, buf, len, write);
 
 	/* Now schedule the transfer and until it's completed XXX Timeout */
-	struct WAITER* w = waitqueue_add(&xfer->xfer_waitqueue);
 	usb_schedule_transfer(xfer);
-	waitqueue_wait(w);
+	sem_wait(&xfer->xfer_semaphore);
 	if (xfer->xfer_flags & TRANSFER_FLAG_ERROR)
 		return ANANAS_ERROR(IO); /* XXX free xfer */
 

@@ -9,12 +9,12 @@
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
-#include <ananas/waitqueue.h>
+#include <ananas/lock.h>
 #include <ananas/mm.h>
 #include <machine/param.h> /* for PAGE_SIZE */
 
 static thread_t usb_workerthread;
-static struct WAIT_QUEUE usb_waitqueue;
+static semaphore_t usb_sem;
 static struct USB_TRANSFER_QUEUE usb_xfer_pendingqueue;
 static spinlock_t spl_usb_xfer_pendingqueue = SPINLOCK_DEFAULT_INIT;
 
@@ -58,7 +58,7 @@ usb_alloc_transfer(struct USB_DEVICE* dev, int type, int flags, int endpt)
 	usb_xfer->xfer_flags = flags;
 	usb_xfer->xfer_address = dev->usb_address;
 	usb_xfer->xfer_endpoint = endpt;
-	waitqueue_init(&usb_xfer->xfer_waitqueue);
+	sem_init(&usb_xfer->xfer_semaphore, 0);
 	return usb_xfer;
 }
 
@@ -91,27 +91,25 @@ usb_completed_transfer(struct USB_TRANSFER* xfer)
 	/*
 	 * This is generally called from interrupt context, so schedule a worker to
 	 * process the transfer; if the transfer doesn't have a callback function,
-	 * assume we'll just have to signal its waitqueue.
+	 * assume we'll just have to signal its semaphore.
 	 */
 	if (xfer->xfer_callback != NULL) {
 		spinlock_lock(&spl_usb_xfer_pendingqueue);
 		DQUEUE_ADD_TAIL(&usb_xfer_pendingqueue, xfer);
 		spinlock_unlock(&spl_usb_xfer_pendingqueue);
 
-		waitqueue_signal(&usb_waitqueue);
+		sem_signal(&usb_sem);
 	} else {
-		waitqueue_signal(&xfer->xfer_waitqueue);
+		sem_signal(&xfer->xfer_semaphore);
 	}
 }
 
 static void
 usb_thread(void* arg)
 {
-	struct WAITER* w = waitqueue_add(&usb_waitqueue);
 	while(1) {
 		/* Wait until there's something to report */
-		waitqueue_reset_waiter(w);
-		waitqueue_wait(w);
+		sem_wait(&usb_sem);
 
 		/* Fetch an entry from the queue */
 		while (1) {
@@ -136,7 +134,7 @@ static errorcode_t
 usb_init()
 {
 	DQUEUE_INIT(&usb_xfer_pendingqueue);
-	waitqueue_init(&usb_waitqueue);
+	sem_init(&usb_sem, 0);
 
 	/* Create a kernel thread to handle USB completed messages */
 	kthread_init(&usb_workerthread, &usb_thread, NULL);

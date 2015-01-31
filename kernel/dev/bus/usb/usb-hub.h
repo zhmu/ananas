@@ -12,7 +12,7 @@ struct HUB_PRIVDATA {
 #define HUB_FLAG_SELFPOWERED		(1 << 0)		/* Hub is self powered */
 #define HUB_FLAG_UPDATED		(1 << 1)		/* Hub status needs updating */
 	thread_t	hub_workerthread;
-	struct WAIT_QUEUE hub_wq;
+	semaphore_t	hub_semaphore;
 	int		hub_numports;
 	struct HUB_PORT	hub_port[1];
 };
