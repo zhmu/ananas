@@ -148,7 +148,8 @@ ext2_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out
 static errorcode_t
 ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
-	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
+	struct VFS_INODE* inode = file->f_dentry->d_inode;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	blocknr_t blocknum = (blocknr_t)file->f_offset / (blocknr_t)fs->fs_block_size;
 	uint32_t offset = file->f_offset % fs->fs_block_size;
 	size_t written = 0, left = *len;
@@ -157,7 +158,7 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	blocknr_t curblock = 0;
 	while(left > 0) {
 		blocknr_t block;
-		errorcode_t err = ext2_block_map(file->f_inode, blocknum, &block, 0);
+		errorcode_t err = ext2_block_map(inode, blocknum, &block, 0);
 		ANANAS_ERROR_RETURN(err);
 		if (block == 0) {
 			/*
@@ -187,7 +188,7 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			 * Inode number values of zero indicate the entry is not used; this entry
 			 * works and we mustreturn it.
 			 */
-			int filled = vfs_filldirent(&dirents, &left, (const void*)&inum, file->f_inode->i_fs->fs_fsop_size, (const char*)ext2de->name, ext2de->name_len);
+			int filled = vfs_filldirent(&dirents, &left, (const void*)&inum, inode->i_fs->fs_fsop_size, (const char*)ext2de->name, ext2de->name_len);
 			if (!filled) {
 				/* out of space! */
 				break;
@@ -291,7 +292,7 @@ ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 }
 
 static errorcode_t
-ext2_mount(struct VFS_MOUNTED_FS* fs)
+ext2_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 {
 	/* Default to 1KB blocksize and fetch the superblock */
 	struct BIO* bio;
@@ -365,7 +366,7 @@ ext2_mount(struct VFS_MOUNTED_FS* fs)
 
 	/* Read the root inode */
 	uint32_t root_fsop = EXT2_ROOT_INO;
-	err = vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
+	err = vfs_get_inode(fs, &root_fsop, root_inode);
 	if (err != ANANAS_ERROR_NONE) {
 		kfree(privdata);
 		return err;

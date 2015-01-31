@@ -53,7 +53,7 @@ iso9660_dump_dirent(struct ISO9660_DIRECTORY_ENTRY* e)
 #endif
 
 static errorcode_t
-iso9660_mount(struct VFS_MOUNTED_FS* fs)
+iso9660_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 {
 	/* Obtain the primary volume descriptor; it contains vital information */
 	fs->fs_block_size = 2048;
@@ -89,15 +89,19 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs)
 	}
 	fs->fs_block_size = ISO9660_GET_WORD(pvd->pv_blocksize);
 	fs->fs_fsop_size = sizeof(uint64_t);
-	uint64_t root_fsop = 0;
-  fs->fs_root_inode = iso9660_alloc_inode(fs, (const void*)&root_fsop);
 
 	/* Initialize the inode cache right before reading the root directory inode */
 	icache_init(fs);
 
-	struct ISO9660_INODE_PRIVDATA* privdata = (struct ISO9660_INODE_PRIVDATA*)fs->fs_root_inode->i_privdata;
-	fs->fs_root_inode->i_sb.st_size = ISO9660_GET_DWORD(rootentry->de_data_length);
-	fs->fs_root_inode->i_iops = &iso9660_dir_ops;
+	/* Read the root inode */
+	uint64_t root_fsop = 0;
+	err = vfs_get_inode(fs, &root_fsop, root_inode);
+	if (err != ANANAS_ERROR_NONE)
+		goto fail;
+
+	struct ISO9660_INODE_PRIVDATA* privdata = (struct ISO9660_INODE_PRIVDATA*)(*root_inode)->i_privdata;
+	(*root_inode)->i_sb.st_size = ISO9660_GET_DWORD(rootentry->de_data_length);
+	(*root_inode)->i_iops = &iso9660_dir_ops;
 	privdata->lba = ISO9660_GET_DWORD(rootentry->de_extent_lba);
 
 	err = ANANAS_ERROR_OK;
@@ -168,8 +172,9 @@ iso9660_destroy_inode(struct VFS_INODE* inode)
 static errorcode_t
 iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
-	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
-	struct ISO9660_INODE_PRIVDATA* privdata = (struct ISO9660_INODE_PRIVDATA*)file->f_inode->i_privdata;
+	struct VFS_INODE* inode = file->f_dentry->d_inode;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	struct ISO9660_INODE_PRIVDATA* privdata = (struct ISO9660_INODE_PRIVDATA*)inode->i_privdata;
 	blocknr_t block = privdata->lba + file->f_offset / fs->fs_block_size;
 	uint32_t offset = file->f_offset % fs->fs_block_size;
 	size_t written = 0, left = *len;
@@ -177,7 +182,7 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	struct BIO* bio = NULL;
 	blocknr_t curblock = 0;
 	while(left > 0) {
-		if (block > privdata->lba + file->f_inode->i_sb.st_size / fs->fs_block_size) {
+		if (block > privdata->lba + inode->i_sb.st_size / fs->fs_block_size) {
 			/*
 			 * We've run out of blocks. Need to stop here.
 			 */
@@ -219,7 +224,7 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			}
 
 			uint64_t fsop = (uint64_t)curblock << 16 | offset;
-			int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, file->f_inode->i_fs->fs_fsop_size, (const char*)iso9660de->de_filename, iso9660de->de_filename_len);
+			int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, inode->i_fs->fs_fsop_size, (const char*)iso9660de->de_filename, iso9660de->de_filename_len);
 			if (!filled) {
 				/* out of space! */
 				break;
@@ -246,15 +251,16 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 static errorcode_t
 iso9660_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
-	struct VFS_MOUNTED_FS* fs = file->f_inode->i_fs;
-	struct ISO9660_INODE_PRIVDATA* privdata = (struct ISO9660_INODE_PRIVDATA*)file->f_inode->i_privdata;
+	struct VFS_INODE* inode = file->f_dentry->d_inode;
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	struct ISO9660_INODE_PRIVDATA* privdata = (struct ISO9660_INODE_PRIVDATA*)inode->i_privdata;
 	blocknr_t blocknum = (blocknr_t)file->f_offset / fs->fs_block_size;
 	uint32_t offset = file->f_offset % fs->fs_block_size;
 	size_t numread = 0, left = *len;
 
 	/* Normalize len so that it cannot expand beyond the file size */
-	if (file->f_offset + left > file->f_inode->i_sb.st_size)
-		left = file->f_inode->i_sb.st_size - file->f_offset;
+	if (file->f_offset + left > inode->i_sb.st_size)
+		left = inode->i_sb.st_size - file->f_offset;
 
 	while(left > 0) {
 		/* Fetch the block */

@@ -46,6 +46,8 @@ devfs_destroy_inode(struct VFS_INODE* inode)
 static errorcode_t
 devfs_readdir_root(struct VFS_FILE* file, void* dirents, size_t* len)
 {
+	struct VFS_INODE* inode = file->f_dentry->d_inode;
+
 	size_t left = *len, written = 0;
 	uint32_t inum = DEVFS_ROOTINODE_FSOP + 1;
 
@@ -57,7 +59,7 @@ devfs_readdir_root(struct VFS_FILE* file, void* dirents, size_t* len)
 	while (left > 0 && dev != NULL) {
 		char devname[128 /* XXX */];
 		sprintf(devname, "%s%u", dev->name, dev->unit);
-		int filled = vfs_filldirent(&dirents, &left, (const void*)&inum, file->f_inode->i_fs->fs_fsop_size, devname, strlen(devname));
+		int filled = vfs_filldirent(&dirents, &left, (const void*)&inum, inode->i_fs->fs_fsop_size, devname, strlen(devname));
 		if (!filled) {
 			/* out of space! */
 			break;
@@ -78,7 +80,8 @@ static struct VFS_INODE_OPS devfs_rootdir_ops = {
 static errorcode_t
 devfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
-	struct DEVFS_INODE_PRIVDATA* privdata = file->f_inode->i_privdata;
+	struct VFS_INODE* inode = file->f_dentry->d_inode;
+	struct DEVFS_INODE_PRIVDATA* privdata = inode->i_privdata;
 	errorcode_t err = ANANAS_ERROR_OK;
 
 	if (privdata->device->driver->drv_read != NULL) {
@@ -112,7 +115,8 @@ devfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 static errorcode_t
 devfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
 {
-	struct DEVFS_INODE_PRIVDATA* privdata = file->f_inode->i_privdata;
+	struct VFS_INODE* inode = file->f_dentry->d_inode;
+	struct DEVFS_INODE_PRIVDATA* privdata = inode->i_privdata;
 	errorcode_t err = ANANAS_ERROR_OK;
 
 	if (privdata->device->driver->drv_write != NULL) {
@@ -136,7 +140,7 @@ devfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
 static void
 devfs_fill_file(struct VFS_INODE* inode, struct VFS_FILE* file)
 {
-	struct DEVFS_INODE_PRIVDATA* privdata = file->f_inode->i_privdata;
+	struct DEVFS_INODE_PRIVDATA* privdata = inode->i_privdata;
 	file->f_device = privdata->device;
 }
 
@@ -189,14 +193,15 @@ devfs_read_inode(struct VFS_INODE* inode, void* fsop)
 }
 
 static errorcode_t
-devfs_mount(struct VFS_MOUNTED_FS* fs)
+devfs_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 {
 	fs->fs_block_size = DEVFS_BLOCK_SIZE;
 	fs->fs_fsop_size = sizeof(uint32_t);
 	icache_init(fs);
+
+	/* Read the root inode */
 	uint32_t root_fsop = DEVFS_ROOTINODE_FSOP;
-	fs->fs_root_inode = devfs_alloc_inode(fs, (const void*)&root_fsop);
-	return vfs_get_inode(fs, &root_fsop, &fs->fs_root_inode);
+	return vfs_get_inode(fs, &root_fsop, root_inode);
 }
 
 static struct VFS_FILESYSTEM_OPS fsops_devfs = {
