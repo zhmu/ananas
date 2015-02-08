@@ -68,21 +68,18 @@ struct FPUREGS {
 	uint8_t		_res7[16];
 } __attribute__((packed));
 
-/* amd64 thread context */
-struct CONTEXT {
-	struct		STACKFRAME sf;
-	struct		FPUREGS fpu __attribute__ ((aligned(16)));
-	uint64_t	pml4;
-};
-
-/* amd64-specific thread detais */
+/* amd64-specific thread details */
 #define MD_THREAD_FIELDS \
-	struct CONTEXT	md_ctx; \
-	void*		md_pml4; \
+	register_t	md_rsp; \
+	register_t	md_rsp0; \
+	register_t	md_rip; \
+	register_t	md_cr3; \
+	register_t	md_arg1 /* XXX */; \
+	register_t	md_arg2 /* XXX */; \
+	struct FPUREGS	md_fpu_ctx __attribute__ ((aligned(16))); \
+	void*		md_pagedir; \
 	void*		md_stack; \
 	void*		md_kstack;
-
-void md_restore_ctx(struct CONTEXT* ctx);
 
 #define md_cpu_relax() \
 	__asm __volatile("hlt")

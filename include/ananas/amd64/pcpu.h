@@ -4,11 +4,13 @@
 /* amd64-specific per-cpu structure */
 #define MD_PCPU_FIELDS								\
 	void		*context;						\
-	/*									\
-	 * kernel_rsp is the place we use to store the kernel stack pointer for	\
-	 * the given thread; it's restored during a system call.		\
+	/* syscall_rsp and rsp0 are used to save/restore the userland's %rsp	\
+	 * during a SYSCALL instruction - %rsp0 will be the kernel %rsp to set	\
+	 * for the syscall.							\
 	 */									\
-	uint64_t	kernel_rsp;						\
+	addr_t		syscall_rsp;						\
+	addr_t		rsp0;							\
+	addr_t		tss;							\
 	/*									\
 	 * fpu_context is used to refer to the struct that holds the current	\
 	 * FPU context, or NULL if there is none. Being non-NULL means the	\

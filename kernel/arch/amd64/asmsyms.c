@@ -30,12 +30,13 @@ ASM_SYMBOL(SF_CS,     offsetof(struct STACKFRAME, sf_cs));
 ASM_SYMBOL(SF_SS,     offsetof(struct STACKFRAME, sf_ss));
 ASM_SYMBOL(SF_SIZE,   sizeof(struct STACKFRAME));
 
-ASM_SYMBOL(PCPU_CTX,	 offsetof(struct PCPU, context));
-ASM_SYMBOL(PCPU_KERNELRSP, offsetof(struct PCPU, kernel_rsp));
-ASM_SYMBOL(PCPU_FPUCTX,	 offsetof(struct PCPU, fpu_context));
-ASM_SYMBOL(PCPU_TICKCOUNT, offsetof(struct PCPU, tickcount));
+ASM_SYMBOL(T_ARG1,    offsetof(struct THREAD, md_arg1));
+ASM_SYMBOL(T_ARG2,    offsetof(struct THREAD, md_arg2));
 
-ASM_SYMBOL(CTX_PML4,	offsetof(struct CONTEXT, pml4));
+ASM_SYMBOL(PCPU_CURTHREAD, offsetof(struct PCPU, curthread));
+ASM_SYMBOL(PCPU_NESTEDIRQ, offsetof(struct PCPU, nested_irq));
+ASM_SYMBOL(PCPU_SYSCALLRSP, offsetof(struct PCPU, syscall_rsp));
+ASM_SYMBOL(PCPU_RSP0, offsetof(struct PCPU, rsp0));
 
 ASM_SYMBOL(SYSARG_NUM,	offsetof(struct SYSCALL_ARGS, number));
 ASM_SYMBOL(SYSARG_ARG1,	offsetof(struct SYSCALL_ARGS, arg1));

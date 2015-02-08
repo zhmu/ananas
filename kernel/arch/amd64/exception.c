@@ -22,7 +22,7 @@ exception_nm(struct STACKFRAME* sf)
 	 */
 	thread_t* thread = PCPU_GET(curthread);
 	KASSERT(thread != NULL, "curthread is NULL");
-	PCPU_SET(fpu_context, &thread->md_ctx.fpu);
+	PCPU_SET(fpu_context, &thread->md_fpu_ctx);
 
 	/*
 	 * Clear the task-switched-flag; this is what triggered this exception in
@@ -33,7 +33,7 @@ exception_nm(struct STACKFRAME* sf)
 	__asm(
 			"clts\n"
 			"frstor (%%rax)\n"
-		: : "a" (&thread->md_ctx.fpu));
+		: : "a" (&thread->md_fpu_ctx));
 }
 
 static void
@@ -42,7 +42,7 @@ exception_generic(struct STACKFRAME* sf)
 	const char* descr = x86_exception_name(sf->sf_trapno);
 	int userland = (sf->sf_cs & 3) == SEG_DPL_USER;
 
-	kprintf("(CPU %u) %s exception: %s (%u) at cs:rip = %x:%x\n",
+	kprintf("(CPU %u) %s exception: %s (%u) at cs:rip = %x:%p\n",
 		PCPU_GET(cpuid), userland ? "user land" : "kernel", descr,
 		sf->sf_trapno, sf->sf_cs, sf->sf_rip);
 
@@ -107,7 +107,7 @@ exception(struct STACKFRAME* sf)
 }
 
 void
-interrupt(struct STACKFRAME* sf)
+interrupt_handler(struct STACKFRAME* sf)
 {
 	irq_handler(sf->sf_trapno);
 }
