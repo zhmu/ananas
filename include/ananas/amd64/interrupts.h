@@ -1,7 +1,7 @@
 #ifndef __AMD64_INTERRUPTS_H__
 #define __AMD64_INTERRUPTS_H__
 
-#define MAX_IRQS 16
+#define MAX_IRQS 256
 
 static inline void md_interrupts_enable()
 {
