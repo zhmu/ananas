@@ -208,8 +208,9 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 	kprintf("kernel_num_pml4e = %d, kernel_num_pdpe = %d, kernel_num_pde = %d, kernel_num_pte = %d\n",
 	 kernel_num_pml4e, kernel_num_pdpe, kernel_num_pde, kernel_num_pte);
 
-	extern void* __entry;
+	extern void *__entry, *__rodata_end;
 	addr_t kernel_addr = (addr_t)&__entry & ~(PAGE_SIZE - 1);
+	addr_t kernel_text_end  = (addr_t)&__rodata_end & ~(PAGE_SIZE - 1);
 
 	addr_t phys_addr = kernel_addr & 0x00ffffff;
 	for (unsigned int n = 0; n < kernel_num_pte; n++) {
@@ -226,7 +227,11 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 		if (*pde == 0)
 			*pde = (addr_t)r | PE_RW | PE_P;
 
-		r[(kernel_addr >> 12) & 0x1ff] = phys_addr | PE_RW | PE_P;
+		/* Map kernel page; but code is always RO */
+		unsigned int flags = PE_P;
+		if (kernel_addr > kernel_text_end)
+			flags |= PE_RW;
+		r[(kernel_addr >> 12) & 0x1ff] = phys_addr | flags;
 
 		kernel_addr += PAGE_SIZE;
 		phys_addr += PAGE_SIZE;
