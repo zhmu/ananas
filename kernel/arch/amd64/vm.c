@@ -48,7 +48,7 @@ md_map_pages(thread_t* t, addr_t virt, addr_t phys, size_t num_pages, int flags)
 #endif
 
 	/* Flags for the page-directory leading up to the mapped page */
-	uint64_t pd_flags = PE_P | PE_RW; // | PE_NX;
+	uint64_t pd_flags = PE_US | PE_P | PE_RW;
 
 	/* XXX we don't yet strip off bits 52-63 yet */
 	uint64_t* pagedir = (t != NULL) ? t->md_pagedir : kernel_pagedir;
