@@ -46,7 +46,15 @@ static inline uint64_t
 rdtsc()
 {
 	register uint64_t v;
+#ifdef __i386__
 	__asm __volatile("rdtsc" : "=A" (v));
+#elif defined(__amd64__)
+	__asm __volatile(
+		"rdtsc\n"
+		"shlq $32, %%rdx\n"
+		"orq %%rdx, %0\n"
+	: "=a" (v) : : "rdx");
+#endif
 	return v;
 }
 
