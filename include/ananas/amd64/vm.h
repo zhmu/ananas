@@ -62,6 +62,8 @@
 /* Segment Register privilege levels */
 #define SEG_DPL_SUPERVISOR	0	/* Descriptor Privilege Level (kernel) */
 #define SEG_DPL_USER		3	/* Descriptor Privilege Level (user) */
+#define SEG_IGATE_TYPE		0xe	/* Interrupt gate type (disables interrupts) */
+#define SEG_TGATE_TYPE 		0xf	/* Trap gate type (keeps interrupts intact) */
 
 /* Machine Specific Registers */
 #define MSR_EFER		0xc0000080

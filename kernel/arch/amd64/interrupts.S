@@ -114,9 +114,14 @@ do_irq:
 1:	/* Increment the nested IRQ count */
 	incq	%gs:(PCPU_NESTEDIRQ)
 
-	/* XXX Restore interrupt flag */
+	/* Restore the interrupt flag */
+	movq	SF_RFLAGS(%rsp), %rax
+	testq	$0x200, %rax
+	jz	1f
 
-	/* Call the interrupt handler! */
+	sti
+
+1:	/* Call the interrupt handler! */
 	movq	%rsp, %rdi
 	call	interrupt_handler
 

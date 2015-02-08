@@ -73,18 +73,18 @@
 		name[9] = ((addr_t)(x) >> 56) & 0xff; \
 	} while (0);
 
-#define IDT_SET_ENTRY(ptr, num, dpl, sel, handler) do { \
+#define IDT_SET_ENTRY(num, type, handler) do { \
 	extern void* handler; \
-	uint8_t* p = ((uint8_t*)ptr + num * 16); \
+	uint8_t* p = ((uint8_t*)&idt + num * 16); \
 	/* Target Offset 0:15 */ \
 	p[ 0] = (((addr_t)&handler)     ) & 0xff; \
 	p[ 1] = (((addr_t)&handler) >> 8) & 0xff; \
 	/* Target selector */ \
-	p[ 2] = (sel) & 0xff; p[3] = ((sel) >> 8) & 0xff; \
+	p[ 2] = GDT_SEL_KERNEL_CODE & 0xff; p[3] = (GDT_SEL_KERNEL_CODE >> 8) & 0xff; \
 	/* IST 0:2 */ \
 	p[ 4] = 0; \
 	/* Type 8:11, DPL 13:14, Present 15 */ \
-	p[5] = 0xe | ((dpl) << 5) | (1 << 7); \
+	p[5] = type | (SEG_DPL_SUPERVISOR << 5) | (1 << 7); \
 	/* Target offset 16:31 */ \
 	p[ 6] = (((addr_t)&handler) >> 16) & 0xff; \
 	p[ 7] = (((addr_t)&handler) >> 24) & 0xff; \

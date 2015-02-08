@@ -66,6 +66,10 @@ exception_pf(struct STACKFRAME* sf)
 	addr_t fault_addr;
 	__asm __volatile("mov %%cr2, %%rax" : "=a" (fault_addr));
 
+	/* If interrupts were on, re-enable them - the fault addres is safe now */
+	if (sf->sf_rflags & 0x200)
+		md_interrupts_enable();
+
 	int userland = (sf->sf_cs & 3) == SEG_DPL_USER;
 	if (userland) {
 		/*
