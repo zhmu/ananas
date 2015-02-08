@@ -2,138 +2,131 @@
 #include <machine/vm.h>
 #include <machine/param.h>
 #include <ananas/mm.h>
+#include <ananas/kmem.h>
 #include <ananas/lib.h>
+#include <ananas/thread.h>
+#include <ananas/vm.h>
 
-#define MEMMASK 0x0fffffff /* HACK */
+extern uint64_t* kernel_pagedir;
 
-static int vm_initialized = 0;
-extern uint64_t* pml4;
-void* bootstrap_get_page();
-
-static void*
-vm_get_nextpage()
+static addr_t
+vm_get_nextpage(thread_t* t)
 {
-	if (!vm_initialized) {
-		return bootstrap_get_page();
-	}
+	KASSERT(t != NULL, "unmapped page while mapping kernel pages?");
+	struct PAGE* p = page_alloc_single();
+	KASSERT(p != NULL, "out of pages");
+	DQUEUE_ADD_TAIL(&t->t_pages, p);
 
-	void* ptr = kmalloc(PAGE_SIZE);
-	memset(ptr, 0, PAGE_SIZE);
-	kprintf("vm_get_nextpage(): malloc said %p\n", ptr);
-	return ptr;
+	/* Map this page in kernel-space XXX How do we clean it up? */
+	kmem_map(page_get_paddr(p), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
+	return page_get_paddr(p);
 }
 
-uint64_t*
-vm_get_ptr(addr_t ptr)
+static inline uint64_t*
+pt_resolve_addr(uint64_t entry)
 {
-//	extern void *__entry, *avail;
-	return (uint64_t*)(ptr | KERNBASE);
-/*
-	if(ptr >= (addr_t)&__entry && ptr <= (addr_t)&avail)
-		return (uint64_t*)(ptr | KERNBASE);
-	return (uint64_t*)ptr;
-*/
+#define ADDR_MASK 0xffffffffff000 /* bits 12 .. 51 */
+	return (uint64_t*)(KMAP_KVA_START + (entry & ADDR_MASK));
 }
 
 void
-vm_mapto_pagedir(uint64_t* pml4, addr_t virt, addr_t phys, size_t num_pages, uint32_t user)
+md_map_pages(thread_t* t, addr_t virt, addr_t phys, size_t num_pages, int flags)
 {
+	/* Flags for the mapped pages themselves */
+	uint64_t pt_flags = 0;
+	if (flags & VM_FLAG_READ)
+		pt_flags |= PE_P;	/* XXX */
+	if (flags & VM_FLAG_USER)
+		pt_flags |= PE_US;
+	if (flags & VM_FLAG_WRITE)
+		pt_flags |= PE_RW;
+	if (flags & VM_FLAG_DEVICE)
+		pt_flags |= PE_PCD | PE_PWT;
+#if 0
+	if ((flags & VM_FLAG_EXECUTE) == 0)
+		pt_flags |= PE_NX;
+#endif
+
+	/* Flags for the page-directory leading up to the mapped page */
+	uint64_t pd_flags = PE_P | PE_RW; // | PE_NX;
+
 	/* XXX we don't yet strip off bits 52-63 yet */
+	uint64_t* pagedir = (t != NULL) ? t->md_pagedir : kernel_pagedir;
 	while(num_pages--) {
-		if (pml4[(virt >> 39) & 0x1ff] == 0) {
-			pml4[(virt >> 39) & 0x1ff] = (uint64_t)((addr_t)vm_get_nextpage() & MEMMASK) | (user ? PE_US : 0) | PE_RW | PE_P;
+		if (pagedir[(virt >> 39) & 0x1ff] == 0) {
+			pagedir[(virt >> 39) & 0x1ff] = vm_get_nextpage(t) | pd_flags;
 		}
-		uint64_t* pdpe = (uint64_t*)(vm_get_ptr((addr_t)pml4[(virt >> 39) & 0x1ff] & ~0xfff));
 
+		uint64_t* pdpe = pt_resolve_addr(pagedir[(virt >> 39) & 0x1ff]);
 		if (pdpe[(virt >> 30) & 0x1ff] == 0) {
-			pdpe[(virt >> 30) & 0x1ff] = (uint64_t)((addr_t)vm_get_nextpage() & MEMMASK) | (user ? PE_US : 0) | PE_RW | PE_P;
+			pdpe[(virt >> 30) & 0x1ff] = vm_get_nextpage(t) | pd_flags;
 		}
-		uint64_t* pde = (uint64_t*)vm_get_ptr((addr_t)pdpe[(virt >> 30) & 0x1ff] & ~0xfff);
 
+		uint64_t* pde = pt_resolve_addr(pdpe[(virt >> 30) & 0x1ff]);
 		if (pde[(virt >> 21) & 0x1ff] == 0) {
-			pde[(virt >> 21) & 0x1ff] = (uint64_t)((addr_t)vm_get_nextpage() & MEMMASK) | (user ? PE_US : 0) | PE_RW | PE_P;
+			pde[(virt >> 21) & 0x1ff] = vm_get_nextpage(t) | pd_flags;
 		}
-		uint64_t* pte = (uint64_t*)vm_get_ptr((addr_t)pde[(virt >> 21) & 0x1ff] & ~0xfff);
 
-		pte[(virt >> 12) & 0x1ff] = (uint64_t)phys | (user ? PE_US : 0) | PE_RW | PE_P;
-
-		/*
-		 * Invalidate the address we just added to ensure it'll become active
-		 * without delay.
-		 */
-		__asm __volatile("invlpg %0" : : "m" (*(char*)virt) : "memory");
+		uint64_t* pte = pt_resolve_addr(pde[(virt >> 21) & 0x1ff]);
+		pte[(virt >> 12) & 0x1ff] = (uint64_t)phys | pt_flags;
 
 		virt += PAGE_SIZE; phys += PAGE_SIZE;
 	}
 }
 
 int
-vm_get_phys(uint64_t* pagedir, addr_t addr, int write, addr_t* va)
+md_get_mapping(thread_t* t, addr_t virt, int flags, addr_t* phys)
 {
-	if (!(pagedir[(addr >> 39) & 0x1ff] & PE_P))
+	uint64_t* pagedir = (t != NULL) ? t->md_pagedir : kernel_pagedir;
+	if (!(pagedir[(virt >> 39) & 0x1ff] & PE_P))
 		return 0;
-	uint64_t* pdpe = (uint64_t*)(vm_get_ptr((addr_t)pagedir[(addr >> 39) & 0x1ff] & ~0xfff));
-	if (!(pdpe[(addr >> 30) & 0x1ff] & PE_P))
+	uint64_t* pdpe = pt_resolve_addr(pagedir[(virt >> 39) & 0x1ff]);
+	if (!(pdpe[(virt >> 30) & 0x1ff] & PE_P))
 		return 0;
-	uint64_t* pde = (uint64_t*)vm_get_ptr((addr_t)pdpe[(addr >> 30) & 0x1ff] & ~0xfff);
-	if (!(pde[(addr >> 21) & 0x1ff] & PE_P))
+	uint64_t* pde = pt_resolve_addr(pdpe[(virt >> 30) & 0x1ff]);
+	if (!(pde[(virt >> 21) & 0x1ff] & PE_P))
 		return 0;
-	uint64_t* pte = (uint64_t*)vm_get_ptr((addr_t)pde[(addr >> 21) & 0x1ff] & ~0xfff);
-	uint64_t val = pte[(addr >> 12) & 0x1ff];
+	uint64_t* pte = pt_resolve_addr(pde[(virt >> 21) & 0x1ff]);
+	uint64_t val = pte[(virt >> 12) & 0x1ff];
 	if (!(val & PE_P))
 		return 0;
-	if (write && !(val & PE_RW))
+	if ((flags & VM_FLAG_WRITE) && !(val & PE_RW))
 		return 0;
-	if (va != NULL)
-		*va = val & ~(PAGE_SIZE - 1);
+	if (phys != NULL)
+		*phys = val & ~(PAGE_SIZE - 1);
 	return 1;
 }
 
 void
-vm_map_pagedir(uint64_t* pml4, addr_t addr, size_t num_pages, uint32_t user)
+md_unmap_pages(thread_t* t, addr_t virt, size_t num_pages)
 {
-	vm_mapto_pagedir(pml4, addr, addr, num_pages, user);
-}
-
-void*
-vm_map_kernel(addr_t addr, size_t num_pages, int flags)
-{
-	vm_mapto_pagedir(pml4, addr, addr, num_pages, 0);
-	return (void*)addr;
+	panic("vm_unmap_pages");
 }
 
 void
-vm_unmap(addr_t addr, size_t num_pages)
+md_kmap(addr_t phys, addr_t virt, size_t num_pages, int flags)
 {
-	/* XXX write me */
+	md_map_pages(NULL, virt, phys, num_pages, flags);
 }
 
 void
-vm_unmap_kernel(addr_t addr, size_t num_pages)
+md_kunmap(addr_t virt, size_t num_pages)
 {
-	/* XXX TODO */
-}
-
-void
-vm_mapto(addr_t virt, addr_t phys, size_t num_pages)
-{
-	vm_mapto_pagedir(pml4, virt, phys, num_pages, 0);
-}
-
-void*
-vm_map_device(addr_t addr, size_t len)
-{
-	len = (len + PAGE_SIZE - 1) / PAGE_SIZE;
-	return vm_map_kernel(addr, len, 0);
+	md_unmap_pages(NULL, virt, num_pages);
 }
 
 void
 vm_init()
 {
-#ifdef NOTYET
-	/* TODO - copy all current pages to new malloc'ed pages */
-	vm_initialized = 1;
-#endif
+}
+
+void
+md_map_kernel(thread_t* t)
+{
+	/*
+	 * We can just copy the entire kernel pagemap over; it's shared with everything else.
+	 */
+	memcpy(t->md_pagedir, kernel_pagedir, PAGE_SIZE);
 }
 
 /* vim:set ts=2 sw=2: */
