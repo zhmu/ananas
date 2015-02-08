@@ -258,10 +258,20 @@ kthread_trampoline:
 	movq	T_ARG1(%rbx), %rax		/* %rip */
 	movq	T_ARG2(%rbx), %rdi		/* argument */
 
+	/*
+	 * Note that iretq restores %ss:%rsp as well; we use %rbp to
+	 * store our initial %rsp so that it will end up with our return
+	 * address on the stack. Later we clear %rbp to aid a debugger.
+	 */
 	pushq	$1f
+	movq	%rsp, %rbp
+
+	pushq	$GDT_SEL_KERNEL_DATA		/* %ss */
+	pushq	%rbp				/* %rsp */
 	pushq	$0x200				/* Interrupt Flag */
-	pushq	$GDT_SEL_KERNEL_CODE
-	pushq	%rax
+	pushq	$GDT_SEL_KERNEL_CODE		/* %cs */
+	pushq	%rax				/* %rip */
+	xorq	%rbp, %rbp
 	iretq
 
 1:
