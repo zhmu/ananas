@@ -48,9 +48,16 @@ exception_generic(struct STACKFRAME* sf)
 
 	kprintf("rax=%p rbx=%p rcx=%p rdx=%p\n", sf->sf_rax, sf->sf_rbx, sf->sf_rcx, sf->sf_rdx);
 	kprintf("rbp=%p rsi=%p rdi=%p rsp=%p\n", sf->sf_rbp, sf->sf_rsi, sf->sf_rdi, sf->sf_rsp);
-	kprintf("r 8=%p r 9=%p r10=%p r11=%p\n", sf->sf_r8, sf->sf_r9, sf->sf_r10, sf->sf_r11);
+	kprintf("r8=%p r9=%p r10=%p r11=%p\n", sf->sf_r8, sf->sf_r9, sf->sf_r10, sf->sf_r11);
 	kprintf("r12=%p r13=%p r14=%p r15=%p\n", sf->sf_r12, sf->sf_r13, sf->sf_r14, sf->sf_r15);
 	kprintf("errnum=%p, ss:esp = %x:%p\n", sf->sf_errnum, sf->sf_ss, sf->sf_sp);
+	if (sf->sf_trapno == EXC_PF) {
+		/* Page fault; show offending address */
+		addr_t fault_addr;
+		__asm __volatile("mov %%cr2, %%rax" : "=a" (fault_addr));
+		kprintf("fault address=%p (flags %x)\n", fault_addr, sf->sf_errnum);
+	}
+
 	if (userland) {
 		/* A thread was naughty. Kill it */
 		thread_exit(THREAD_MAKE_EXITCODE(THREAD_TERM_FAULT, sf->sf_trapno));
@@ -70,22 +77,15 @@ exception_pf(struct STACKFRAME* sf)
 	if (sf->sf_rflags & 0x200)
 		md_interrupts_enable();
 
-	int userland = (sf->sf_cs & 3) == SEG_DPL_USER;
-	if (userland) {
-		/*
-		 * Userland pagefault - we should see if there is an adequate mapping for this
-		 * thread
-		 */
-		int flags = 0;
-		if (sf->sf_errnum & EXC_PF_FLAG_RW)
-			flags |= VM_FLAG_WRITE;
-		else
-			flags |= VM_FLAG_READ;
-		if ((sf->sf_errnum & EXC_PF_FLAG_P) == 0) { /* page not present */
-			errorcode_t err = thread_handle_fault(PCPU_GET(curthread), fault_addr & ~(PAGE_SIZE - 1), flags);
-			if (err == ANANAS_ERROR_NONE) {
-				return; /* fault handeled */
-			}
+	int flags = 0;
+	if (sf->sf_errnum & EXC_PF_FLAG_RW)
+		flags |= VM_FLAG_WRITE;
+	else
+		flags |= VM_FLAG_READ;
+	if ((sf->sf_errnum & EXC_PF_FLAG_P) == 0) { /* page not present */
+		errorcode_t err = thread_handle_fault(PCPU_GET(curthread), fault_addr, flags);
+		if (err == ANANAS_ERROR_NONE) {
+			return; /* fault handeled */
 		}
 	}
 
