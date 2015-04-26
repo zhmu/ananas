@@ -308,6 +308,9 @@ userland_trampoline:
 	movw	%dx, %ds
 	movw	%dx, %es
 
+	/* Switch to userland %gs; we are about to make the transition here */
+	swapgs
+
 	pushq	$(GDT_SEL_USER_DATA + 3)			/* ss */
 	pushq	$(USERLAND_STACK_ADDR + THREAD_STACK_SIZE)	/* rsp */
 	pushq	$0x200					/* eflags */
