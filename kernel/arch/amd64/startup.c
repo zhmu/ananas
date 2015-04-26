@@ -70,49 +70,10 @@ wrmsr(uint32_t msr, uint64_t val)
 static void*
 bootstrap_get_pages(addr_t* avail, size_t num)
 {
-	kprintf("bootstrap_get_pages: avail=%p num=%d\n", *avail, num);
 	void* ptr = (void*)*avail;
 	memset(ptr, 0, num * PAGE_SIZE);
 	*avail += num * PAGE_SIZE;
 	return ptr;
-}
-
-static void
-dump_ptab(uint64_t* pagedir)
-{
-#define ADDR_MASK 0xffffffffff000 /* bits 12 .. 51 */
-
-	for (uint64_t n4 = 0; n4 < 512; n4++) {
-		uint64_t pml4 = pagedir[n4];
-		if ((pml4 & PE_P) == 0)
-			continue;
-
-		uint64_t* pdpt = (uint64_t*)(pml4 & ADDR_MASK);
-		for (uint64_t n3 = 0; n3 < 512; n3++) {
-			uint64_t pdpe = pdpt[n3];
-			if ((pdpe & PE_P) == 0)
-				continue;
-
-			uint64_t* pdt = (uint64_t*)(pdpe & ADDR_MASK);
-			for (uint64_t n2 = 0; n2 < 512; n2++) {
-				uint64_t pde = pdt[n2];
-				if ((pde & PE_P) == 0)
-					continue;
-
-				uint64_t* pt = (uint64_t*)(pde & ADDR_MASK);
-				for (uint64_t n1 = 0; n1 < 512; n1++) {
-					uint64_t pte = pt[n1];
-					if ((pte & PE_P) == 0)
-						continue;
-
-					kprintf("%p (pml4=%p pdpe=%p pde=%p pte=%p)-> %p\n",
-					 n4 << 39 | n3 << 30 | n2 << 21 | n1 << 12,
-					 pml4, pdpe, pde, pte,
-					 pte);
-				}
-			}
-		}
-	}
 }
 
 static void
@@ -164,6 +125,23 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 	avail_start = (avail_start | (PAGE_SIZE - 1)) + 1;
 
 	/*
+	 * Calculate the number of entries we need for the kernel itself; we just
+	 * need to grab the bare necessities as we'll map all other memory using the
+	 * KVA instead. We do this here to update the 'avail' pointer to ensure
+	 * we'll map these tables in KVA as well, should we ever need to change them.
+	 *
+	 * XXX We could consider mapping the kernel using 2MB pages if the NX bits align...
+ 	 */
+	unsigned int kernel_num_pml4e = (kernel_size + (1ULL << 39) - 1) >> 39;
+	unsigned int kernel_num_pdpe = (kernel_size + (1ULL << 30) - 1) >> 30;
+	unsigned int kernel_num_pde = (kernel_size + (1ULL << 21) - 1) >> 21;
+	unsigned int kernel_num_pte = (kernel_size + (1ULL << 12) - 1) >> 12;
+
+	uint64_t* kernel_pml4e = (uint64_t*)bootstrap_get_pages(avail, kernel_num_pml4e);
+	uint64_t* kernel_pdpe = (uint64_t*)bootstrap_get_pages(avail, kernel_num_pdpe);
+	uint64_t* kernel_pde = (uint64_t*)bootstrap_get_pages(avail, kernel_num_pde);
+
+	/*
 	 * Map the KVA - we will only map what we have used for our page tables, to
 	 * ensure we can change them later as necessary. We explicitly won't map the
 	 * kernel page tables here because we never need to change them.
@@ -190,21 +168,7 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 		phys += PAGE_SIZE;
 	}
 
-	/*
-	 * Map the kernel itself; we just need to grab the bare necessities as we'll
-	 * map all other memory using the KVA instead.
-	 *
-	 * XXX We could consider mapping the kernel using 2MB pages if the NX bits align...
- 	 */
-	unsigned int kernel_num_pml4e = (kernel_size + (1ULL << 39) - 1) >> 39;
-	unsigned int kernel_num_pdpe = (kernel_size + (1ULL << 30) - 1) >> 30;
-	unsigned int kernel_num_pde = (kernel_size + (1ULL << 21) - 1) >> 21;
-	unsigned int kernel_num_pte = (kernel_size + (1ULL << 12) - 1) >> 12;
-
-	uint64_t* kernel_pml4e = (uint64_t*)bootstrap_get_pages(avail, kernel_num_pml4e);
-	uint64_t* kernel_pdpe = (uint64_t*)bootstrap_get_pages(avail, kernel_num_pdpe);
-	uint64_t* kernel_pde = (uint64_t*)bootstrap_get_pages(avail, kernel_num_pde);
-
+	/* Now map the kernel itself */
 	kprintf("kernel_num_pml4e = %d, kernel_num_pdpe = %d, kernel_num_pde = %d, kernel_num_pte = %d\n",
 	 kernel_num_pml4e, kernel_num_pdpe, kernel_num_pde, kernel_num_pte);
 
@@ -236,8 +200,6 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 		kernel_addr += PAGE_SIZE;
 		phys_addr += PAGE_SIZE;
 	}
-
-	dump_ptab(kernel_pagedir);
 
 	/* Activate our new page tables */
 	kprintf(">>> activating kernel_pagedir = %p\n", kernel_pagedir);
