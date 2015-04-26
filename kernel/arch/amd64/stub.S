@@ -7,10 +7,10 @@
 #include <sys/types.h>
 #include "options.h"
 
-.global __entry
+.global __entry, bootstrap_stack
 
 __entry:
-	movq	$KERNEL_STACK, %rsp
+	movq	$bootstrap_stack, %rsp
 
 #ifdef OPTION_DEBUG_CONSOLE
 	/*
@@ -29,5 +29,7 @@ __entry:
 
 .align 32
 
+.data
+
 	.space	0x2000
-KERNEL_STACK:
+bootstrap_stack:
