@@ -152,18 +152,18 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 		uint64_t* pml4e = &kernel_pagedir[(kva_addr >> 39) & 0x1ff];
 		uint64_t* p = l4p + (n >> 27) * PAGE_SIZE;
 		if (*pml4e == 0)
-			*pml4e = (addr_t)p | PE_RW | PE_P;
+			*pml4e = (addr_t)p | PE_RW | PE_P | PE_C_G;
 		uint64_t* pdpe = &p[(kva_addr >> 30) & 0x1ff];
 		uint64_t* q = l3p + (n >> 18) * PAGE_SIZE;
 		if (*pdpe == 0)
-			*pdpe = (addr_t)q | PE_RW | PE_P;
+			*pdpe = (addr_t)q | PE_RW | PE_P | PE_C_G;
 		uint64_t* pde = &q[(kva_addr >> 21) & 0x1ff];
 		uint64_t* r = l2p + (n >> 9) * PAGE_SIZE;
 		if (*pde == 0)
-			*pde = (addr_t)r | PE_RW | PE_P;
+			*pde = (addr_t)r | PE_RW | PE_P | PE_C_G;
 
 		if (phys >= avail_start && phys <= (addr_t)*avail)
-			r[n & 0x1ff] = phys | PE_RW | PE_P;
+			r[n & 0x1ff] = phys | PE_G | PE_RW | PE_P;
 		kva_addr += PAGE_SIZE;
 		phys += PAGE_SIZE;
 	}
@@ -181,18 +181,18 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 		uint64_t* pml4e = &kernel_pagedir[(kernel_addr >> 39) & 0x1ff];
 		uint64_t* p = &kernel_pml4e[n >> 27];
 		if (*pml4e == 0)
-			*pml4e = (addr_t)p | PE_RW | PE_P;
+			*pml4e = (addr_t)p | PE_C_G | PE_RW | PE_P;
 		uint64_t* pdpe = &p[(kernel_addr >> 30) & 0x1ff];
 		uint64_t* q = &kernel_pdpe[(n >> 18) & 0x1ff];
 		if (*pdpe == 0)
-			*pdpe = (addr_t)q | PE_RW | PE_P;
+			*pdpe = (addr_t)q | PE_C_G | PE_RW | PE_P;
 		uint64_t* pde = &q[(kernel_addr >> 21) & 0x1ff];
 		uint64_t* r = &kernel_pde[(n >> 9) & 0x1ff];
 		if (*pde == 0)
-			*pde = (addr_t)r | PE_RW | PE_P;
+			*pde = (addr_t)r | PE_C_G | PE_RW | PE_P;
 
 		/* Map kernel page; but code is always RO */
-		unsigned int flags = PE_P;
+		unsigned int flags = PE_P | PE_G;
 		if (kernel_addr > kernel_text_end)
 			flags |= PE_RW;
 		r[(kernel_addr >> 12) & 0x1ff] = phys_addr | flags;
@@ -200,6 +200,13 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 		kernel_addr += PAGE_SIZE;
 		phys_addr += PAGE_SIZE;
 	}
+
+	/* Enable global pages */
+	__asm(
+		"movq	%cr4, %rax\n"
+		"orq	$0x80, %rax\n"		/* PGE */
+		"movq	%rax, %cr4\n"
+	);
 
 	/* Activate our new page tables */
 	kprintf(">>> activating kernel_pagedir = %p\n", kernel_pagedir);

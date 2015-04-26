@@ -59,6 +59,9 @@
 #define PE_PAT		(1ULL << 12)
 #define PE_NX		(1ULL << 63)
 
+/* Custom page entry flags */
+#define PE_C_G (1ULL << 9)	/* avl bit 9: page has global mappings */
+
 /* Segment Register privilege levels */
 #define SEG_DPL_SUPERVISOR	0	/* Descriptor Privilege Level (kernel) */
 #define SEG_DPL_USER		3	/* Descriptor Privilege Level (user) */

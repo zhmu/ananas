@@ -10,16 +10,24 @@
 extern uint64_t* kernel_pagedir;
 
 static addr_t
-vm_get_nextpage(thread_t* t)
+vm_get_nextpage(thread_t* t, uint64_t page_flags)
 {
 	KASSERT(t != NULL, "unmapped page while mapping kernel pages?");
 	struct PAGE* p = page_alloc_single();
 	KASSERT(p != NULL, "out of pages");
-	DQUEUE_ADD_TAIL(&t->t_pages, p);
+
+	/*
+	 * If the page isn't mapped globally, it belongs to a thread and we should
+	 * administer it there so we can free it once the thread is freed.
+	 */
+	if ((page_flags & PE_C_G) == 0)
+		DQUEUE_ADD_TAIL(&t->t_pages, p);
 
 	/* Map this page in kernel-space XXX How do we clean it up? */
-	kmem_map(page_get_paddr(p), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
-	return page_get_paddr(p);
+	addr_t phys = page_get_paddr(p);
+	void* va = kmem_map(phys, PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
+	memset(va, 0, PAGE_SIZE);
+	return phys | page_flags;
 }
 
 static inline uint64_t*
@@ -54,17 +62,28 @@ md_map_pages(thread_t* t, addr_t virt, addr_t phys, size_t num_pages, int flags)
 	uint64_t* pagedir = (t != NULL) ? t->md_pagedir : kernel_pagedir;
 	while(num_pages--) {
 		if (pagedir[(virt >> 39) & 0x1ff] == 0) {
-			pagedir[(virt >> 39) & 0x1ff] = vm_get_nextpage(t) | pd_flags;
+			pagedir[(virt >> 39) & 0x1ff] = vm_get_nextpage(t, pd_flags);
+		}
+
+		/*
+		 * XXX We only look at the top level pagetable flags to determine whether
+		 *     the page should be mapped globally - the idea is that all ranges
+		 *     (KVA, kernel) where this should happen are pre-allocated in startup.c
+		 *     and thus thee is no need to look further...
+		 */
+		if (pagedir[(virt >> 39) & 0x1ff] & PE_C_G) {
+			pd_flags |= PE_C_G;
+			pt_flags |= PE_G;
 		}
 
 		uint64_t* pdpe = pt_resolve_addr(pagedir[(virt >> 39) & 0x1ff]);
 		if (pdpe[(virt >> 30) & 0x1ff] == 0) {
-			pdpe[(virt >> 30) & 0x1ff] = vm_get_nextpage(t) | pd_flags;
+			pdpe[(virt >> 30) & 0x1ff] = vm_get_nextpage(t, pd_flags);
 		}
 
 		uint64_t* pde = pt_resolve_addr(pdpe[(virt >> 30) & 0x1ff]);
 		if (pde[(virt >> 21) & 0x1ff] == 0) {
-			pde[(virt >> 21) & 0x1ff] = vm_get_nextpage(t) | pd_flags;
+			pde[(virt >> 21) & 0x1ff] = vm_get_nextpage(t, pd_flags);
 		}
 
 		uint64_t* pte = pt_resolve_addr(pde[(virt >> 21) & 0x1ff]);
@@ -100,7 +119,31 @@ md_get_mapping(thread_t* t, addr_t virt, int flags, addr_t* phys)
 void
 md_unmap_pages(thread_t* t, addr_t virt, size_t num_pages)
 {
-	panic("vm_unmap_pages");
+	/* XXX we don't yet strip off bits 52-63 yet */
+	uint64_t* pagedir = (t != NULL) ? t->md_pagedir : kernel_pagedir;
+	while(num_pages--) {
+		if (pagedir[(virt >> 39) & 0x1ff] == 0) {
+			panic("t=%p, virt=%p -> l1 not mapped (%p)", t, virt, pagedir[(virt >> 39) & 0x1ff]);
+		}
+
+		/* XXX Should we check if we're unmapping a global entry? Is that even a problem? */
+
+		uint64_t* pdpe = pt_resolve_addr(pagedir[(virt >> 39) & 0x1ff]);
+		if (pdpe[(virt >> 30) & 0x1ff] == 0) {
+			panic("t=%p, virt=%p -> l2 not mapped (%p)", t, virt, pagedir[(virt >> 30) & 0x1ff]);
+		}
+
+		uint64_t* pde = pt_resolve_addr(pdpe[(virt >> 30) & 0x1ff]);
+		if (pde[(virt >> 21) & 0x1ff] == 0) {
+			panic("t=%p, virt=%p -> l3 not mapped (%p)", t, virt, pagedir[(virt >> 21) & 0x1ff]);
+		}
+
+		/* XXX perhaps we should check if this is actually mapped */
+		uint64_t* pte = pt_resolve_addr(pde[(virt >> 21) & 0x1ff]);
+		pte[(virt >> 12) & 0x1ff] = 0;
+
+		virt += PAGE_SIZE;
+	}
 }
 
 void
