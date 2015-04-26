@@ -74,7 +74,8 @@ md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
 	 * no kernelthread ever runs userland code.
 	 */
   t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
-  t->md_rsp = (addr_t)t->md_kstack + KERNEL_STACK_SIZE - 4;
+  t->md_rsp = (addr_t)t->md_kstack + KERNEL_STACK_SIZE - 16;
+
 	return ANANAS_ERROR_OK;
 }
 
@@ -205,11 +206,19 @@ md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
 	 *
 	 * - A thread's kernel stack is always mapped, so we can always access it.
 	 * - We can start at the top of the kernel stack; the reason is that this is the
-	 *   only way to enter the syscall (t->md_esp can change if we are are pre-empted
+	 *   only way to enter the syscall (t->md_rsp can change if we are are pre-empted
 	 *   by interrupts and such, but that is fine as they do not influence the result)
+	 *
+	 * We use the amd64-specific SYSCALL functionality; this won't push anything
+	 * on the stack by itself so all we have to do is count what
+	 * syscall_handler() places on the stack:
+	 *  sizeof(struct SYSCALL_ARGS) +  userland_rsp + rcx + r11 + rbx + rbp + r12..15
+	 *
 	 */
-#define SYSCALL_FRAME_SIZE 0
-	panic("TODO");
+#define SYSCALL_FRAME_SIZE (sizeof(struct SYSCALL_ARGS) + 9 * 8)
+
+	/* Copy the part of the parent kernel stack over; it'll always be mapped */
+	memcpy(t->md_kstack + KERNEL_STACK_SIZE - SYSCALL_FRAME_SIZE, parent->md_kstack + KERNEL_STACK_SIZE - SYSCALL_FRAME_SIZE, SYSCALL_FRAME_SIZE);
 
 	/* Handle return value */
 	t->md_rsp -= SYSCALL_FRAME_SIZE;

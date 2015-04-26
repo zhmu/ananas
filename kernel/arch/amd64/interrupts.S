@@ -176,7 +176,7 @@ IRQ_HANDLER(15)
 syscall_handler:
 	swapgs
 
-	/* Store the userland's %rsp in PCPU register and load our intended %rsp */
+	/* Store the userland's %rsp in PCPU register and switch to the kernel %rsp */
 	movq	%rsp, %gs:PCPU_SYSCALLRSP
 	movq	%gs:PCPU_RSP0, %rsp
 
@@ -197,7 +197,7 @@ syscall_handler:
 	pushq	%gs:PCPU_SYSCALLRSP	/* userland %rsp */
 	pushq	%rcx		/* return %rip */
 	pushq	%r11		/* return %rflags */
-	/* Store the registers required by the ABI spec */
+	/* Store the registers required by the ABI spec, 3.2.1 */
 	pushq	%rbx
 	pushq	%rbp
 	pushq	%r12
@@ -205,9 +205,13 @@ syscall_handler:
 	pushq	%r14
 	pushq	%r15
 
-	/* XXX We should re-enable interrupts here */
+	/* Re-enable interrupts as they were before the call */
+	testq	$0x200, %r11
+	jz	1f
 
-	/* Invoke syscall - note that this uses %rdi set above */
+	sti
+
+1:	/* Invoke syscall - note that this uses %rdi set above */
 	call	syscall
 
 	/*
@@ -216,6 +220,7 @@ syscall_handler:
 	 */
 	cli
 
+syscall_return:
 	/* Restore the required registers */
 	popq	%r15
 	popq	%r14
@@ -232,6 +237,10 @@ syscall_handler:
 	sysretq
 
 clone_return:
+	/* release previous thread (was in %rbx, see md_thread_switch) */
+	movq	%rbx, %rdi
+	call	scheduler_release
+
 	/*
 	 * This function will be called in the cloned thread;
 	 * the purpose is to dissect the kernel stack and
@@ -239,14 +248,13 @@ clone_return:
 	 *
 	 * Note that the md_thread_clone() function will already
 	 * have updated the stackpointer to protect our saved
-	 * registers; we must take the offsets into account.
-	 *
-	 * %rax must not be touched here; it's the return value
-	 * of clone and thus must be left unharmed.
+	 * registers; all we need to do is to override the return
+	 * value in %rax and return as if this is an ordinary
+	 * syscall return.
 	 */
-	hlt
-
-	sysretq
+	movq	%gs:(PCPU_CURTHREAD), %rbx
+	movq	T_ARG1(%rbx), %rax		/* return value */
+	jmp	syscall_return
 
 kthread_trampoline:
 	/* release our previous thread (will be in %rbx, see md_thread_switch) */
@@ -276,11 +284,10 @@ kthread_trampoline:
 
 1:
 	/* kthread returned; this isn't supposed to happen */
-	pushq	$0
-	pushq	$0
-	pushq	$0
-	pushq	$kthread_panicmsg
+	xorq	%rsi, %rsi
+	movq	$kthread_panicmsg, %rdi
 	call	_panic
+	/* NOTRACHED */
 
 kthread_panicmsg:
 	.ascii	"kthread returned"
