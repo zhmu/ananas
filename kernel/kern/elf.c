@@ -18,12 +18,19 @@ TRACE_SETUP;
 
 struct ELF_THREADMAP_PROGHEADER;
 
+/*
+ * Describes a mapping from a portion of a file to a chunk of memory;
+ * [ ph_virt_begin .. ph_virt_end ] is the range of memory mapped,
+ * ph_inode_offset is the offset to read, up to ph_inode_len bytes
+ *
+ * Note that ph_inode_len can be < (ph_virt_end - ph_virt_begin); in
+ * such a case, the remaining memory should be filled with 0-bytes.
+ */
 struct ELF_THREADMAP_PROGHEADER {
 	struct ELF_THREADMAP_PRIVDATA* ph_header;
 	addr_t         ph_virt_begin;
 	addr_t         ph_virt_end;
 	size_t         ph_inode_len;
-	off_t          ph_inode_delta;
 	off_t          ph_inode_offset;
 };
 
@@ -55,24 +62,36 @@ elf_tm_fault_func(thread_t* t, struct THREAD_MAPPING* tm, addr_t virt)
 	struct ELF_THREADMAP_PROGHEADER* ph = tm->tm_privdata;
 	struct ELF_THREADMAP_PRIVDATA* privdata = ph->ph_header;
 
-	KASSERT((virt >= ph->ph_virt_begin && (virt + PAGE_SIZE) <= ph->ph_virt_end), "wrong ph supplied");
-	
+	KASSERT((virt >= ph->ph_virt_begin && virt < ph->ph_virt_end), "wrong ph supplied (%p not in %p-%p)", virt, ph->ph_virt_begin, ph->ph_virt_end);
+
 	/*
-	 * Find the length and offset we have to transfer; the section doesn't have
-	 * to be completely in the inode (parts that are zero aren't)
+	 * Calculate what to read from where; we must fault per page, so we need to
+	 * make sure the entire page is sane upon return.
 	 */
-	off_t read_off = (virt - ph->ph_virt_begin) - ph->ph_inode_delta;
+	addr_t v_page = virt & ~(PAGE_SIZE - 1);
+	addr_t read_addr = v_page;
+	off_t read_off = ph->ph_inode_offset;
+	if (read_addr >= ph->ph_virt_begin) {
+		read_off += read_addr - ph->ph_virt_begin;
+	} else /* read_addr < ph->ph_virt_begin */ {
+		/* Page starts at an offset which isn't backed */
+		read_addr = ph->ph_virt_begin;
+	}
+
+	/* And determine how much to read */
 	size_t read_len = PAGE_SIZE;
-	if (read_off > ph->ph_inode_len)
-		read_off = ph->ph_inode_len;
-	if (read_off + read_len > ph->ph_inode_len)
-		read_len = ph->ph_inode_len - read_off;
-	read_off += ph->ph_inode_offset;
-	TRACE(EXEC, INFO, "ph: t=%p, loading page to 0x%p, file offset is %u, length is %u",
-	 t, virt, (uint32_t)read_off, read_len);
-	memset((void*)virt, 0, PAGE_SIZE);
+	if (read_off > ph->ph_inode_offset + ph->ph_inode_len)
+		read_len = 0; /* already past inode length; don't try to read anything */
+	else if (read_off + read_len > ph->ph_inode_offset + ph->ph_inode_len) {
+		/* We'd read beyond the length of the file - don't do that */
+		read_len = (ph->ph_inode_offset + ph->ph_inode_len) - read_off;
+	}
+	TRACE(EXEC, INFO, "ph: t=%p, v=%p, reading %d bytes @ %d to %p (zeroing %p-%p)\n",
+	 t, virt, read_len, (uint32_t)read_off, read_addr, v_page, v_page + PAGE_SIZE - 1);
+	if (read_addr != v_page || read_len != PAGE_SIZE)
+		memset((void*)v_page, 0, PAGE_SIZE);
 	if (read_len > 0)
-		return privdata->elf_obtainfunc(privdata->elf_obtainpriv, (void*)virt, read_off, read_len);
+		return privdata->elf_obtainfunc(privdata->elf_obtainpriv, (void*)read_addr, read_off, read_len);
 	return ANANAS_ERROR_NONE;
 }
 
@@ -166,9 +185,8 @@ elf32_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 		/* Hook up the program header */
 		struct ELF_THREADMAP_PROGHEADER* ph = &privdata->elf_ph[privdata->elf_num_ph];
 		ph->ph_header = privdata;
-		ph->ph_virt_begin = virt_begin;
-		ph->ph_virt_end = virt_end;
-		ph->ph_inode_delta = phdr.p_offset % PAGE_SIZE;
+		ph->ph_virt_begin = phdr.p_vaddr;
+		ph->ph_virt_end = phdr.p_vaddr + phdr.p_memsize;
 		ph->ph_inode_offset = phdr.p_offset;
 		ph->ph_inode_len = phdr.p_filesz;
 		privdata->elf_num_ph++;
@@ -269,11 +287,11 @@ elf64_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 		/* Hook up the program header */
 		struct ELF_THREADMAP_PROGHEADER* ph = &privdata->elf_ph[privdata->elf_num_ph];
 		ph->ph_header = privdata;
-		ph->ph_virt_begin = virt_begin;
-		ph->ph_virt_end = virt_end;
-		ph->ph_inode_delta = phdr.p_offset % PAGE_SIZE;
+		ph->ph_virt_begin = phdr.p_vaddr;
+		ph->ph_virt_end = phdr.p_vaddr + phdr.p_memsz;
 		ph->ph_inode_offset = phdr.p_offset;
 		ph->ph_inode_len = phdr.p_filesz;
+
 		privdata->elf_num_ph++;
 
 		/* Hook the program header to the mapping */

@@ -171,7 +171,7 @@ void
 thread_free(thread_t* t)
 {
 	KASSERT((t->t_flags & THREAD_FLAG_ZOMBIE) == 0, "freeing zombie thread %p", t);
-	KASSERT(PCPU_GET(curthread) != t || t->t_thread_handle->h_refcount > 1, "freeing current thread with invalid refcount");
+	KASSERT(PCPU_GET(curthread) != t || t->t_thread_handle->h_refcount > 1, "freeing current thread with invalid refcount %d", t->t_thread_handle->h_refcount);
 
 	/*
 	 * Free all handles in use by the thread. Note that we must not free the thread
@@ -339,17 +339,17 @@ thread_handle_fault(thread_t* t, addr_t virt, int flags)
 			if (p == NULL)
 				return ANANAS_ERROR(OUT_OF_MEMORY);
 			DQUEUE_ADD_TAIL(&tm->tm_pages, p);
-			p->p_addr = virt;
+			p->p_addr = virt & ~(PAGE_SIZE - 1);
 
 			/* Map the page */
-			md_thread_map(t, (void*)virt, (void*)page_get_paddr(p), 1, thread_make_vmflags(tm->tm_flags));
+			md_thread_map(t, (void*)p->p_addr, (void*)page_get_paddr(p), 1, thread_make_vmflags(tm->tm_flags));
 			errorcode_t err = ANANAS_ERROR_OK;
 			if (tm->tm_fault != NULL) {
 				/* Invoke the mapping-specific fault handler */
 				err = tm->tm_fault(t, tm, virt);
 				if (err != ANANAS_ERROR_NONE) {
 					/* Mapping failed; throw the thread mapping away and nuke the page */
-					md_thread_unmap(t, virt, 1);
+					md_thread_unmap(t, p->p_addr, 1);
 					DQUEUE_REMOVE(&tm->tm_pages, p);
 					page_free(p);
 				}
@@ -357,6 +357,7 @@ thread_handle_fault(thread_t* t, addr_t virt, int flags)
 			return err;
 		}
 	}
+
 	return ANANAS_ERROR(BAD_ADDRESS);
 }
 
