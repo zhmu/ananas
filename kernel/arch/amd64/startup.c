@@ -286,47 +286,47 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * and we'll want to have as soon as possible.
 	 */
 	memset(idt, 0, sizeof(idt));
-	IDT_SET_ENTRY( 0, SEG_TGATE_TYPE, exception0);
-	IDT_SET_ENTRY( 1, SEG_TGATE_TYPE, exception1);
-	IDT_SET_ENTRY( 2, SEG_TGATE_TYPE, exception2);
-	IDT_SET_ENTRY( 3, SEG_TGATE_TYPE, exception3);
-	IDT_SET_ENTRY( 4, SEG_TGATE_TYPE, exception4);
-	IDT_SET_ENTRY( 5, SEG_TGATE_TYPE, exception5);
-	IDT_SET_ENTRY( 6, SEG_TGATE_TYPE, exception6);
-	IDT_SET_ENTRY( 7, SEG_TGATE_TYPE, exception7);
-	IDT_SET_ENTRY( 8, SEG_TGATE_TYPE, exception8);
-	IDT_SET_ENTRY( 9, SEG_TGATE_TYPE, exception9);
-	IDT_SET_ENTRY(10, SEG_TGATE_TYPE, exception10);
-	IDT_SET_ENTRY(11, SEG_TGATE_TYPE, exception11);
-	IDT_SET_ENTRY(12, SEG_TGATE_TYPE, exception12);
-	IDT_SET_ENTRY(13, SEG_TGATE_TYPE, exception13);
+	IDT_SET_ENTRY( 0, SEG_TGATE_TYPE, 0, exception0);
+	IDT_SET_ENTRY( 1, SEG_TGATE_TYPE, 0, exception1);
+	IDT_SET_ENTRY( 2, SEG_TGATE_TYPE, 0, exception2);
+	IDT_SET_ENTRY( 3, SEG_TGATE_TYPE, 0, exception3);
+	IDT_SET_ENTRY( 4, SEG_TGATE_TYPE, 0, exception4);
+	IDT_SET_ENTRY( 5, SEG_TGATE_TYPE, 0, exception5);
+	IDT_SET_ENTRY( 6, SEG_TGATE_TYPE, 0, exception6);
+	IDT_SET_ENTRY( 7, SEG_TGATE_TYPE, 0, exception7);
+	IDT_SET_ENTRY( 8, SEG_TGATE_TYPE, 0 /* 1 */, exception8); /* use IST1 for double fault */
+	IDT_SET_ENTRY( 9, SEG_TGATE_TYPE, 0, exception9);
+	IDT_SET_ENTRY(10, SEG_TGATE_TYPE, 0, exception10);
+	IDT_SET_ENTRY(11, SEG_TGATE_TYPE, 0, exception11);
+	IDT_SET_ENTRY(12, SEG_TGATE_TYPE, 0, exception12);
+	IDT_SET_ENTRY(13, SEG_TGATE_TYPE, 0, exception13);
 	/*
 	 * Page fault must disable interrupts to ensure %cr2 (fault address) will not
 	 * be overwritten; it will re-enable the interrupt flag when it's safe to do
 	 * so.
 	 */
-	IDT_SET_ENTRY(14, SEG_IGATE_TYPE, exception14);
-	IDT_SET_ENTRY(16, SEG_TGATE_TYPE, exception16);
-	IDT_SET_ENTRY(17, SEG_TGATE_TYPE, exception17);
-	IDT_SET_ENTRY(18, SEG_TGATE_TYPE, exception18);
-	IDT_SET_ENTRY(19, SEG_TGATE_TYPE, exception19);
+	IDT_SET_ENTRY(14, SEG_IGATE_TYPE, 0, exception14);
+	IDT_SET_ENTRY(16, SEG_TGATE_TYPE, 0, exception16);
+	IDT_SET_ENTRY(17, SEG_TGATE_TYPE, 0, exception17);
+	IDT_SET_ENTRY(18, SEG_TGATE_TYPE, 0, exception18);
+	IDT_SET_ENTRY(19, SEG_TGATE_TYPE, 0, exception19);
 	/* Use interrupt gates for IRQ's so that we can keep track of the nesting */
-	IDT_SET_ENTRY(32, SEG_IGATE_TYPE, irq0);
-	IDT_SET_ENTRY(33, SEG_IGATE_TYPE, irq1);
-	IDT_SET_ENTRY(34, SEG_IGATE_TYPE, irq2);
-	IDT_SET_ENTRY(35, SEG_IGATE_TYPE, irq3);
-	IDT_SET_ENTRY(36, SEG_IGATE_TYPE, irq4);
-	IDT_SET_ENTRY(37, SEG_IGATE_TYPE, irq5);
-	IDT_SET_ENTRY(38, SEG_IGATE_TYPE, irq6);
-	IDT_SET_ENTRY(39, SEG_IGATE_TYPE, irq7);
-	IDT_SET_ENTRY(40, SEG_IGATE_TYPE, irq8);
-	IDT_SET_ENTRY(41, SEG_IGATE_TYPE, irq9);
-	IDT_SET_ENTRY(42, SEG_IGATE_TYPE, irq10);
-	IDT_SET_ENTRY(43, SEG_IGATE_TYPE, irq11);
-	IDT_SET_ENTRY(44, SEG_IGATE_TYPE, irq12);
-	IDT_SET_ENTRY(45, SEG_IGATE_TYPE, irq13);
-	IDT_SET_ENTRY(46, SEG_IGATE_TYPE, irq14);
-	IDT_SET_ENTRY(47, SEG_IGATE_TYPE, irq15);
+	IDT_SET_ENTRY(32, SEG_IGATE_TYPE, 0, irq0);
+	IDT_SET_ENTRY(33, SEG_IGATE_TYPE, 0, irq1);
+	IDT_SET_ENTRY(34, SEG_IGATE_TYPE, 0, irq2);
+	IDT_SET_ENTRY(35, SEG_IGATE_TYPE, 0, irq3);
+	IDT_SET_ENTRY(36, SEG_IGATE_TYPE, 0, irq4);
+	IDT_SET_ENTRY(37, SEG_IGATE_TYPE, 0, irq5);
+	IDT_SET_ENTRY(38, SEG_IGATE_TYPE, 0, irq6);
+	IDT_SET_ENTRY(39, SEG_IGATE_TYPE, 0, irq7);
+	IDT_SET_ENTRY(40, SEG_IGATE_TYPE, 0, irq8);
+	IDT_SET_ENTRY(41, SEG_IGATE_TYPE, 0, irq9);
+	IDT_SET_ENTRY(42, SEG_IGATE_TYPE, 0, irq10);
+	IDT_SET_ENTRY(43, SEG_IGATE_TYPE, 0, irq11);
+	IDT_SET_ENTRY(44, SEG_IGATE_TYPE, 0, irq12);
+	IDT_SET_ENTRY(45, SEG_IGATE_TYPE, 0, irq13);
+	IDT_SET_ENTRY(46, SEG_IGATE_TYPE, 0, irq14);
+	IDT_SET_ENTRY(47, SEG_IGATE_TYPE, 0, irq15);
 
 	/* Load the IDT */
 	MAKE_RREGISTER(idtr, idt, (IDT_NUM_ENTRIES * 16) - 1);
@@ -351,6 +351,8 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * ring 0 and 3 code.
 	 */
 	memset(&kernel_tss, 0, sizeof(struct TSS));
+extern void* bootstrap_stack;
+	kernel_tss.ist1 = (addr_t)&bootstrap_stack;
 	__asm("ltr %%ax\n" : : "a" (GDT_SEL_TASK));
 
 	/*
