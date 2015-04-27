@@ -3,7 +3,7 @@ TARGET=		${ARCH}-elf-ananas
 PREFIX?=	/usr
 DESTDIR?=	$(realpath ../output.${ARCH})
 
-VERSION?=	3.0.1
+VERSION?=	3.1.2
 MIRROR?=	http://www.mpfr.org/mpfr-current/
 
 # tools to use
