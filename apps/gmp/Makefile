@@ -4,7 +4,7 @@ PREFIX?=	/usr
 DESTDIR?=	$(realpath ../output.${ARCH})
 
 VERSION?=	5.0.1
-MIRROR?=	ftp://ftp.gmplib.org/pub/gmp-5.0.1/
+MIRROR?=	https://gmplib.org/download/gmp/
 
 # tools to use
 DOWNLOAD?=	wget
