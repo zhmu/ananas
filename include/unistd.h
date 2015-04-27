@@ -73,4 +73,6 @@ long	sysconf(int name);
 /* legacy interfaces - should be nuked sometime */
 int getdtablesize();
 
+int pipe(int fildes[2]);
+
 #endif /* __UNISTD_H__ */
