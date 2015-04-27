@@ -131,7 +131,7 @@ distfiles/gcc-${GCC_VER}.diff:
 		@# XXX the '--disable-libssp' is a temporary kludge since we do
 		@# not define the necessary things in stdio.h yet (it tries to
 		@# open /dev/urandom and read from it)
-		(cd build/gcc.${GCC_VER}.${ARCH} && ../../src/gcc-${GCC_VER}/configure --target=${TARGET} --prefix=${PREFIX} --disable-nls --enable-languages=c --without-headers --with-gmp=/usr/local --with-mpfr=/usr/local --with-mpc=/usr/local --disable-libssp --disable-libquadmath MAKEINFO=missing)
+		(cd build/gcc.${GCC_VER}.${ARCH} && ../../src/gcc-${GCC_VER}/configure --target=${TARGET} --prefix=${PREFIX} --disable-nls --enable-languages=c,c++ --without-headers --with-gmp=/usr/local --with-mpfr=/usr/local --with-mpc=/usr/local --disable-libssp --disable-libquadmath --disable-libstdc++-v3 MAKEINFO=missing)
 		@${TOUCH} .gcc.${GCC_VER}.${ARCH}.configure
 
 .gcc.${GCC_VER}.${ARCH}.build:	.gcc.${GCC_VER}.${ARCH}.configure
