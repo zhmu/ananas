@@ -83,6 +83,15 @@ crtbegin.o%s				\
 #define ENDFILE_SPEC "			\
 crtend.o%s crtn.o%s			\
 "
+
+#undef LINK_SPEC
+#define LINK_SPEC " \
+"
+
+#undef LIB_SPEC
+#define LIB_SPEC " \
+%{!shared:-lc} \
+"
 ' > $T/gcc/config/ananas.h
 
 # generate 'gcc/config/ananas-avr32.h'
