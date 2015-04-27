@@ -9,8 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* XXX This is just a copy of execl() for now ... */
-int execlp(const char *path, const char* arg0, ...)
+int execl(const char *path, const char* arg0, ...)
 {
 	errorcode_t err;
 	va_list va;
