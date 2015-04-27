@@ -28,7 +28,7 @@ binutils:	.install
 		@${TOUCH} .patch
 
 .configure:	.patch
-		(cd binutils-${VERSION} && ./configure --host=${TARGET} --prefix=${PREFIX} --disable-nls)
+		(cd binutils-${VERSION} && ./configure --host=${TARGET} --prefix=${PREFIX} --disable-nls --without-cloog --disable-libstdcxx)
 		@${TOUCH} .configure
 
 .build:		.configure
