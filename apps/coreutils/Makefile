@@ -3,7 +3,7 @@ TARGET=		${ARCH}-elf-ananas
 PREFIX?=	/
 DESTDIR?=	$(realpath ../output.${ARCH})
 
-VERSION?=	8.7
+VERSION?=	8.23
 MIRROR?=	http://ftp.gnu.org/gnu/coreutils/
 PATCH?=		coreutils.ananas.diff
 
@@ -13,19 +13,17 @@ TAR?=		tar
 TOUCH?=		touch
 
 R=		${CURDIR}
-CC=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-gcc
-LD=		${R}/../../toolchain/prefix.${ARCH}/bin/${TARGET}-ld
 # XXX this is unfortunate, but required for now
 CFLAGS+=	-DOK_TO_USE_1S_CLOCK
 CPPFLAGS=	${CFLAGS}
 
 coreutils:	.install
 
-../distfiles/coreutils-${VERSION}.tar.gz:
-		(cd ../distfiles && ${DOWNLOAD} ${MIRROR}/coreutils-${VERSION}.tar.gz)
+../distfiles/coreutils-${VERSION}.tar.xz:
+		(cd ../distfiles && ${DOWNLOAD} ${MIRROR}/coreutils-${VERSION}.tar.xz)
 
-.extract:	../distfiles/coreutils-${VERSION}.tar.gz
-		${TAR} xf ../distfiles/coreutils-${VERSION}.tar.gz
+.extract:	../distfiles/coreutils-${VERSION}.tar.xz
+		${TAR} xf ../distfiles/coreutils-${VERSION}.tar.xz
 		@${TOUCH} .extract
 
 .patch:		.extract coreutils.ananas.diff
