@@ -2,6 +2,27 @@
  * This code will handle kernel memory mappings. As the kernel has a limited
  * amount of virtual addresses (KVA), this code will handle the mapping of
  * physical addresses to KVA.
+ *
+ * We have several ranges at our disposal, each declared in machine/vm.h:
+ *
+ * - KERNBASE .. ???: Kernel image, individual pieces may be mapped read-only,
+ *   read-write, no-execute. The actual range is up to startup.c, which
+ *   generally uses some linker-supplied variable to determine the length
+ *   of the kernel.
+ * - KMEM_DIRECT_PA_START .. KMEM_DIRECT_PA_END: This covers the physical
+ *   addresses which can be mapped directly to a virtual address
+ * - KMAP_DYNAMIC_VA_START .. KMAP_DYNAMIC_VA_END: The virtual addresses used
+ *   for mappings which cannot be mapped directly because their physical
+ *   adresses aren't in the KMEM_DIRECT_PA_START ... KMEM_DIRECT_PA_END range.
+ *
+ * The overal idea of this code is, when mapping physical address 'pa':
+ *
+ * - (1) KMEM_DIRECT_PA_START <= pa <= KMEM_DIRECT_PA_END can be mapped 1:1 to kernel
+ *       virtual address 'va' where 'va = PA_TO_DIRECT_VA(pa)'
+ * - (2) Addresses outside (1) are dynamically mapped using by finding an
+ *       appropriate va which satisfies KMEM_DYNAMIC_VA_START <= va <=
+ *       KMEM_DYNAMIC_VA_END
+ * 
  */
 #include <ananas/kmem.h>
 #include <ananas/lock.h>
@@ -12,7 +33,6 @@
 #include <machine/param.h>
 #include <machine/vm.h>
 
-//#define KMEM_DEBUG kprintf
 #define KMEM_DEBUG(...) (void)0
 
 static spinlock_t kmem_lock = SPINLOCK_DEFAULT_INIT;
@@ -48,7 +68,7 @@ kmem_map(addr_t phys, size_t length, int flags)
 	 * First step is to see if we can directly map this; if this is the case,
 	 * there is no need to allocate a specific mapping.
 	 */
-	if (pa >= KMEM_DIRECT_START && pa < KMEM_DIRECT_END &&
+	if (pa >= KMEM_DIRECT_PA_START && pa < KMEM_DIRECT_PA_END &&
 	   (flags & VM_FLAG_FORCEMAP) == 0) {
 		addr_t va = PTOKV(pa);
 		KMEM_DEBUG("kmem_map(): doing direct map: pa=%p va=%p size=%d\n", pa, va, size);
@@ -67,13 +87,12 @@ kmem_map(addr_t phys, size_t length, int flags)
 		memset(kmem_mappings, 0, PAGE_SIZE);
 	}
 
-
 	/*
 	 * Try to locate a sensible location for this mapping; we keep kmem_mappings sorted so we can
 	 * easily reclaim virtual space in between.
 	 */
 	spinlock_lock(&kmem_lock);
-	addr_t virt = KMAP_KVA_START;
+	addr_t virt = KMEM_DYNAMIC_VA_START;
 	struct KMEM_MAPPING* kmm = kmem_mappings;
 	unsigned int n = 0;
 	for (/* nothing */; n < KMEM_NUM_MAPPINGS; n++, kmm++) {
@@ -103,10 +122,10 @@ kmem_map(addr_t phys, size_t length, int flags)
 		virt = kmm->kmm_virt + kmm->kmm_size * PAGE_SIZE;
 	}
 
-	if (virt + size >= KMAP_KVA_END) {
+	if (virt + size >= KMEM_DYNAMIC_VA_END) {
 		/* Out of KVA! XXX This shouldn't panic, but it's weird all-right */
 		spinlock_unlock(&kmem_lock);
-		panic("out of kva (%p + %x >= %p)", virt, size, KMAP_KVA_END);
+		panic("out of kva (%p + %x >= %p)", virt, size, KMEM_DYNAMIC_VA_END);
 		kmem_dump();
 		return NULL;
 	}
@@ -149,9 +168,9 @@ kmem_unmap(void* virt, size_t length)
 	KMEM_DEBUG("kmem_unmap(): virt=%p len=%d\n", virt, length);
 
 	/* If this is a direct mapping, we can just as easily undo it */
-	if (va >= (KERNBASE | KMEM_DIRECT_START) && va < (KERNBASE | KMEM_DIRECT_END)) {
+	if (va >= PA_TO_DIRECT_VA(KMEM_DIRECT_PA_START) && va < PA_TO_DIRECT_VA(KMEM_DIRECT_PA_END)) {
 		KMEM_DEBUG("kmem_unmap(): direct removed: virt=%p len=%d (range %p-%p)\n", virt, length,
-		 KERNBASE | KMEM_DIRECT_START, KERNBASE | KMEM_DIRECT_END);
+		 PA_TO_DIRECT_VA(KMEM_DIRECT_PA_START), PA_TO_DIRECT_VA(KMEM_DIRECT_PA_END));
 
 		md_kunmap(va, size);
 		return;
@@ -197,8 +216,8 @@ kmem_get_phys(void* virt)
 	addr_t offset = (addr_t)virt & (PAGE_SIZE - 1);
 
 	/* If this is a direct mapping, we needn't look it up at all */
-	if (va >= (KERNBASE | KMEM_DIRECT_START) && va < (KERNBASE | KMEM_DIRECT_END))
-		return KVTOP(va) + offset;
+	if (va >= PA_TO_DIRECT_VA(KMEM_DIRECT_PA_START) && va < PA_TO_DIRECT_VA(KMEM_DIRECT_PA_END))
+		return (va - PA_TO_DIRECT_VA(KMEM_DIRECT_PA_START)) + offset;
 
 	/* Walk through the mappings */
 	spinlock_lock(&kmem_lock);

@@ -79,6 +79,8 @@ bootstrap_get_pages(addr_t* avail, size_t num)
 static void
 setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 {
+#define KMAP_KVA_START KMEM_DIRECT_VA_START
+#define KMAP_KVA_END KMEM_DYNAMIC_VA_END
 	/*
 	 * Taking the overview in machine/vm.h into account, we want to map the
 	 * following regions:

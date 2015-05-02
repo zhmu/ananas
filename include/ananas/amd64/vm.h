@@ -31,20 +31,25 @@
  */
 
 /* Convert a physical to a kernel virtual address */
-#define PTOKV(x)		((x) | KMAP_KVA_START)
+#define PTOKV(x)		((x) | KMEM_DIRECT_VA_START)
 
 /* Convert a kernel virtual address to a physical address */
-#define KVTOP(x)		((x) & ~KMAP_KVA_START)
+#define KVTOP(x)		((x) & ~KMEM_DIRECT_VA_START)
 
-/* Base kernel virtual address from which we'll make mappings */
-#define KMAP_KVA_START		0xffff880000000000
+/* Convert a physical address to the direct-mapped virtual address */
+#define PA_TO_DIRECT_VA(x)		((x) | KMEM_DIRECT_VA_START)
 
-/* Base kernel virtual address up to which mappings are made */
-#define KMAP_KVA_END		0xffffc7ffffffffff
+/* Virtual address range where directly-mapped memory resides */
+#define KMEM_DIRECT_VA_START  0xffff880000000000
+#define KMEM_DIRECT_VA_END    0xffffc6ffffffffff
 
-/* Direct mapped KVA start; we can use use KVTOP()/PTOKV() for it */
-#define KMEM_DIRECT_START	0
-#define KMEM_DIRECT_END		KERNBASE
+/* Virtual address range where dynamically-mapped memory resides */
+#define KMEM_DYNAMIC_VA_START 0xffffc70000000000
+#define KMEM_DYNAMIC_VA_END   0xffffc7ffffffffff
+
+/* Physical addresses that can be directly mapped */
+#define KMEM_DIRECT_PA_START	0
+#define KMEM_DIRECT_PA_END		KERNBASE
 
 /* Page entry flags */
 #define PE_P		(1ULL <<  0)

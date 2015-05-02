@@ -58,10 +58,10 @@
  * they have such bits already set. This means we have to reserve some
  * specific virtual addresses to where we can map such physical addresses.
  * 
- * Addresses from KMAP_KVA_START to KMAP_KVA_END are used for this purpose;
- * this gives a hard limit to the amount of things we can map, but then again,
- * total kernel memory usage can never exceed 1GB anyway so this should be
- * sufficient.
+ * Addresses from KMEM_DYNAMIC_VA_START to KMEM_DYNAMIC_VA_END are used for
+ * this purpose; this gives a hard limit to the amount of things we can map,
+ * but then again, total kernel memory usage can never exceed 1GB anyway so
+ * this should be sufficient.
  */
 
 /* First kernel PT; this is 3GB / 4MB = 768 */
@@ -82,15 +82,18 @@
 /* Convert a kernel virtual address to a physical address */
 #define KVTOP(x)		((x) & ~KERNBASE)
 
+/* Convert a physical address to the direct-mapped virtual address */
+#define PA_TO_DIRECT_VA(x)		((x) | KERNBASE)
+
 /* Base kernel virtual address from which we'll make mappings */
-#define KMAP_KVA_START		0xffd00000
+#define KMEM_DYNAMIC_VA_START 0xffd00000
 
 /* Base kernel virtual address up to which mappings are made */
-#define KMAP_KVA_END		0xfff00000
+#define KMEM_DYNAMIC_VA_END 0xfff00000
 
 /* Direct mapped KVA start; we can use use KVTOP()/PTOKV() for it */
 #define KMEM_DIRECT_START	0
-#define KMEM_DIRECT_END		(KMAP_KVA_START - KERNBASE)
+#define KMEM_DIRECT_END		(KMEM_DYNAMIC_VA_START - KERNBASE)
 
 /* CR0 register bits */
 #define CR0_PE		(1 << 0)	/* Protection Enable */
