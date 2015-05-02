@@ -76,6 +76,71 @@ bootstrap_get_pages(addr_t* avail, size_t num)
 	return ptr;
 }
 
+typedef uint64_t (phys_flags_t)(void* ctx, addr_t phys, addr_t virt);
+
+/*
+ * Maps num_pages of phys -> virt; when pages are needed, *avail is used and incremented.
+ *
+ * get_flags(flags_ctx, phys, virt) will be called for every actual mapping to determine the
+ * mapping-specific flags that are to be used.
+ */
+static void
+map_kernel_pages(addr_t phys, addr_t virt, unsigned int num_pages, addr_t* avail, phys_flags_t* get_flags, void* flags_ctx)
+{
+#define ADDR_MASK 0xffffffffff000 /* bits 12 .. 51 */
+
+	for (unsigned int n = 0; n < num_pages; n++) {
+		uint64_t* pml4e = &kernel_pagedir[(virt >> 39) & 0x1ff];
+		if (*pml4e == 0) {
+			*pml4e = *avail | PE_RW | PE_P | PE_C_G;
+			*avail += PAGE_SIZE;
+		}
+		uint64_t* p = (uint64_t*)(*pml4e & ADDR_MASK);
+		uint64_t* pdpe = &p[(virt >> 30) & 0x1ff];
+		if (*pdpe == 0) {
+			*pdpe = *avail | PE_RW | PE_P | PE_C_G;
+			*avail += PAGE_SIZE;
+		}
+		uint64_t* q = (uint64_t*)(*pdpe & ADDR_MASK);
+		uint64_t* pde = &q[(virt >> 21) & 0x1ff];
+		if (*pde == 0) {
+			*pde = *avail | PE_RW | PE_P | PE_C_G;
+			*avail += PAGE_SIZE;
+		}
+
+		uint64_t* r = (uint64_t*)(*pde & ADDR_MASK);
+		r[(virt >> 12) & 0x1ff] = phys | get_flags(flags_ctx, phys, virt);
+		virt += PAGE_SIZE;
+		phys += PAGE_SIZE;
+	}
+
+#undef ADDR_MASK
+}
+
+struct AVAIL_CTX {
+	addr_t avail_start;
+	addr_t* avail_end;
+};
+
+static uint64_t
+kva_get_flags(void* ctx, addr_t phys, addr_t virt)
+{
+	struct AVAIL_CTX* actx = ctx;
+	if (phys >= actx->avail_start && phys <= *actx->avail_end)
+		return PE_G | PE_RW | PE_P;
+	return 0;
+}
+
+static uint64_t
+kmem_get_flags(void* ctx, addr_t phys, addr_t virt)
+{
+	addr_t kernel_text_end = *(addr_t*)ctx;
+	uint64_t flags = PE_G | PE_P;
+	if (virt > kernel_text_end)
+		flags |= PE_RW;
+	return flags;
+}
+
 static void
 setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 {
@@ -115,9 +180,8 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 	kprintf("kva_size=%p => kva_num_pml4e=%d kva_num_pdpe=%d kva_num_pde=%d kva_num_pte=%d\n", kva_size, kva_num_pml4e, kva_num_pdpe, kva_num_pde, kva_num_pte);
 
 	/* Grab memory for all kernel KVA */
-	void* l4p = bootstrap_get_pages(avail, kva_num_pml4e);
-	void* l3p = bootstrap_get_pages(avail, kva_num_pdpe);
-	void* l2p = bootstrap_get_pages(avail, kva_num_pde);
+	unsigned int kva_total_pages = kva_num_pml4e + kva_num_pdpe + kva_num_pde;
+	addr_t kva_pages = (addr_t)bootstrap_get_pages(avail, kva_total_pages);
 
 	/* Finally, allocate the kernel pagedir itself */
 	kernel_pagedir = (uint64_t*)bootstrap_get_pages(avail, 1);
@@ -138,37 +202,18 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 	unsigned int kernel_num_pdpe = (kernel_size + (1ULL << 30) - 1) >> 30;
 	unsigned int kernel_num_pde = (kernel_size + (1ULL << 21) - 1) >> 21;
 	unsigned int kernel_num_pte = (kernel_size + (1ULL << 12) - 1) >> 12;
-
-	uint64_t* kernel_pml4e = (uint64_t*)bootstrap_get_pages(avail, kernel_num_pml4e);
-	uint64_t* kernel_pdpe = (uint64_t*)bootstrap_get_pages(avail, kernel_num_pdpe);
-	uint64_t* kernel_pde = (uint64_t*)bootstrap_get_pages(avail, kernel_num_pde);
+	unsigned int kernel_total_pages = kernel_num_pml4e + kernel_num_pdpe + kernel_num_pde;
+	addr_t kernel_pages = (addr_t)bootstrap_get_pages(avail, kernel_total_pages);
 
 	/*
 	 * Map the KVA - we will only map what we have used for our page tables, to
 	 * ensure we can change them later as necessary. We explicitly won't map the
 	 * kernel page tables here because we never need to change them.
 	 */
-	addr_t kva_addr = KMAP_KVA_START;
-	addr_t phys = 0;
-	for (unsigned int n = 0; n < kva_num_pte; n++) {
-		uint64_t* pml4e = &kernel_pagedir[(kva_addr >> 39) & 0x1ff];
-		uint64_t* p = l4p + (n >> 27) * PAGE_SIZE;
-		if (*pml4e == 0)
-			*pml4e = (addr_t)p | PE_RW | PE_P | PE_C_G;
-		uint64_t* pdpe = &p[(kva_addr >> 30) & 0x1ff];
-		uint64_t* q = l3p + (n >> 18) * PAGE_SIZE;
-		if (*pdpe == 0)
-			*pdpe = (addr_t)q | PE_RW | PE_P | PE_C_G;
-		uint64_t* pde = &q[(kva_addr >> 21) & 0x1ff];
-		uint64_t* r = l2p + (n >> 9) * PAGE_SIZE;
-		if (*pde == 0)
-			*pde = (addr_t)r | PE_RW | PE_P | PE_C_G;
-
-		if (phys >= avail_start && phys <= (addr_t)*avail)
-			r[n & 0x1ff] = phys | PE_G | PE_RW | PE_P;
-		kva_addr += PAGE_SIZE;
-		phys += PAGE_SIZE;
-	}
+	struct AVAIL_CTX actx = { avail_start, avail };
+	addr_t kva_avail_ptr = (addr_t)kva_pages;
+	map_kernel_pages(0, KMAP_KVA_START, kva_num_pte, &kva_avail_ptr, kva_get_flags, &actx);
+	KASSERT(kva_avail_ptr == (addr_t)kva_pages + kva_total_pages * PAGE_SIZE, "not all KVA pages used (used %d, expected %d)", (kva_avail_ptr - kva_pages) / PAGE_SIZE, kva_total_pages);
 
 	/* Now map the kernel itself */
 	kprintf("kernel_num_pml4e = %d, kernel_num_pdpe = %d, kernel_num_pde = %d, kernel_num_pte = %d\n",
@@ -178,30 +223,9 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 	addr_t kernel_addr = (addr_t)&__entry & ~(PAGE_SIZE - 1);
 	addr_t kernel_text_end  = (addr_t)&__rodata_end & ~(PAGE_SIZE - 1);
 
-	addr_t phys_addr = kernel_addr & 0x00ffffff;
-	for (unsigned int n = 0; n < kernel_num_pte; n++) {
-		uint64_t* pml4e = &kernel_pagedir[(kernel_addr >> 39) & 0x1ff];
-		uint64_t* p = &kernel_pml4e[n >> 27];
-		if (*pml4e == 0)
-			*pml4e = (addr_t)p | PE_C_G | PE_RW | PE_P;
-		uint64_t* pdpe = &p[(kernel_addr >> 30) & 0x1ff];
-		uint64_t* q = &kernel_pdpe[(n >> 18) & 0x1ff];
-		if (*pdpe == 0)
-			*pdpe = (addr_t)q | PE_C_G | PE_RW | PE_P;
-		uint64_t* pde = &q[(kernel_addr >> 21) & 0x1ff];
-		uint64_t* r = &kernel_pde[(n >> 9) & 0x1ff];
-		if (*pde == 0)
-			*pde = (addr_t)r | PE_C_G | PE_RW | PE_P;
-
-		/* Map kernel page; but code is always RO */
-		unsigned int flags = PE_P | PE_G;
-		if (kernel_addr > kernel_text_end)
-			flags |= PE_RW;
-		r[(kernel_addr >> 12) & 0x1ff] = phys_addr | flags;
-
-		kernel_addr += PAGE_SIZE;
-		phys_addr += PAGE_SIZE;
-	}
+	addr_t kernel_avail_ptr = (addr_t)kernel_pages;
+	map_kernel_pages(kernel_addr & 0x00ffffff, kernel_addr, kernel_num_pte, &kernel_avail_ptr, kmem_get_flags, &kernel_text_end);
+	KASSERT(kernel_avail_ptr == (addr_t)kernel_pages + kernel_total_pages * PAGE_SIZE, "not all kernel pages used (used %d, expected %d)", (kernel_avail_ptr - kernel_pages) / PAGE_SIZE, kernel_total_pages);
 
 	/* Enable global pages */
 	__asm(
