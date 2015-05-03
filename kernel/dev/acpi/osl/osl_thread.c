@@ -5,7 +5,7 @@
 ACPI_THREAD_ID
 AcpiOsGetThreadId()
 {
-	return (ACPI_THREAD_ID)(uint32_t)PCPU_GET(curthread);
+	return (ACPI_THREAD_ID)(uintptr_t)PCPU_GET(curthread);
 }
 
 ACPI_STATUS

@@ -47,7 +47,7 @@ AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 		ACPI_DEBUG("FOUND va %p, pa %p..%p matches %p..%p, reffing (to %d), returning %p\n",
 		 amm->amm_virt,
 		 pa, pa + size * PAGE_SIZE,
-		 amm->amm_phys, amm->amm_phys + map_len,
+		 amm->amm_phys, amm->amm_phys + amm->amm_length,
 		 amm->amm_refcount + 1,
 		 va);
 
