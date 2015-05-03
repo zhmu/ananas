@@ -41,15 +41,16 @@
 
 /* Virtual address range where directly-mapped memory resides */
 #define KMEM_DIRECT_VA_START  0xffff880000000000
-#define KMEM_DIRECT_VA_END    0xffffc6ffffffffff
+#define KMEM_DIRECT_VA_END    0xffffc7ffffffffff
 
 /* Virtual address range where dynamically-mapped memory resides */
-#define KMEM_DYNAMIC_VA_START 0xffffc70000000000
-#define KMEM_DYNAMIC_VA_END   0xffffc7ffffffffff
+/* Note that we keep this small (256MB-ish) to avoid wasting pages... */
+#define KMEM_DYNAMIC_VA_START 0xffffc80000000000
+#define KMEM_DYNAMIC_VA_END   0xffffc8000fffffff
 
 /* Physical addresses that can be directly mapped */
 #define KMEM_DIRECT_PA_START	0
-#define KMEM_DIRECT_PA_END		KERNBASE
+#define KMEM_DIRECT_PA_END		(KMEM_DIRECT_VA_END - KMEM_DIRECT_VA_START)
 
 /* Page entry flags */
 #define PE_P		(1ULL <<  0)

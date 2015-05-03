@@ -141,6 +141,13 @@ kmem_get_flags(void* ctx, addr_t phys, addr_t virt)
 	return flags;
 }
 
+static uint64_t
+dynkva_get_flags(void* ctx, addr_t phys, addr_t virt)
+{
+	/* We just setup space for mappings; not the actual mappings themselves */
+	return 0;
+}
+
 /*
  * Calculated how many PAGE_SIZE-sized pieces we need to map mem_size bytes.
  */
@@ -188,7 +195,7 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 
 	uint64_t kva_size = kmap_kva_end - KMAP_KVA_START;
 	unsigned int kva_pages_needed, kva_size_in_pages;
-	calculate_num_pages_required(, &kva_pages_needed, &kva_size_in_pages);
+	calculate_num_pages_required(kva_size, &kva_pages_needed, &kva_size_in_pages);
 	addr_t kva_pages = (addr_t)bootstrap_get_pages(avail, kva_pages_needed);
 
 	/* Finally, allocate the kernel pagedir itself */
@@ -211,6 +218,15 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 	addr_t kernel_pages = (addr_t)bootstrap_get_pages(avail, kernel_pages_needed);
 
 	/*
+	 * Calculate the amount we need for dynamic KVA mappings; this is likely a
+	 * gross overstatement because we can typically map everything 1:1 since we
+	 * have address space plenty...
+	 */
+	unsigned int dyn_kva_pages_needed, dyn_kva_size_in_pages;
+	calculate_num_pages_required(KMEM_DYNAMIC_VA_END - KMEM_DYNAMIC_VA_START, &dyn_kva_pages_needed, &dyn_kva_size_in_pages);
+	addr_t dyn_kva_pages = (addr_t)bootstrap_get_pages(avail, dyn_kva_pages_needed);
+
+	/*
 	 * Map the KVA - we will only map what we have used for our page tables, to
 	 * ensure we can change them later as necessary. We explicitly won't map the
 	 * kernel page tables here because we never need to change them.
@@ -228,6 +244,11 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 	addr_t kernel_avail_ptr = (addr_t)kernel_pages;
 	map_kernel_pages(kernel_addr & 0x00ffffff, kernel_addr, kernel_size_in_pages, &kernel_avail_ptr, kmem_get_flags, &kernel_text_end);
 	KASSERT(kernel_avail_ptr == (addr_t)kernel_pages + kernel_pages_needed * PAGE_SIZE, "not all kernel pages used (used %d, expected %d)", (kernel_avail_ptr - kernel_pages) / PAGE_SIZE, kernel_pages_needed);
+
+	/* And map the dynamic KVA pages */
+	addr_t dyn_kva_avail_ptr = dyn_kva_pages;
+	map_kernel_pages(0, KMEM_DYNAMIC_VA_START, dyn_kva_size_in_pages, &dyn_kva_avail_ptr, dynkva_get_flags, NULL);
+	KASSERT(dyn_kva_avail_ptr == (addr_t)dyn_kva_pages + dyn_kva_pages_needed * PAGE_SIZE, "not all dynamic KVA pages used (used %d, expected %d)", (dyn_kva_avail_ptr - dyn_kva_pages) / PAGE_SIZE, dyn_kva_pages_needed);
 
 	/* Enable global pages */
 	__asm(
