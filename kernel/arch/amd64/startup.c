@@ -5,6 +5,7 @@
 #include <machine/vm.h>
 #include <machine/pcpu.h>
 #include <machine/thread.h>
+#include <ananas/x86/acpi.h>
 #include <ananas/x86/pic.h>
 #include <ananas/x86/pit.h>
 #include <ananas/x86/smap.h>
@@ -535,6 +536,14 @@ extern void* syscall_handler;
 	: : "r" (bsp_pcpu.idlethread->md_rsp));
 	PCPU_SET(curthread, bsp_pcpu.idlethread);
 	scheduler_add_thread(bsp_pcpu.idlethread);
+
+  /*
+   * If we have ACPI, do a pre-initialization; we need this mostly in the SMP
+   * case because we're going to parse tables if we can.
+   */
+#ifdef OPTION_ACPI
+	acpi_init();
+#endif
 
 	/*
 	 * XXX No SMP here yet, so use the PIC for now.
