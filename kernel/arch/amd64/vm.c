@@ -126,8 +126,6 @@ md_unmap_pages(thread_t* t, addr_t virt, size_t num_pages)
 			panic("t=%p, virt=%p -> l1 not mapped (%p)", t, virt, pagedir[(virt >> 39) & 0x1ff]);
 		}
 
-		/* XXX Should we check if we're unmapping a global entry? Is that even a problem? */
-
 		uint64_t* pdpe = pt_resolve_addr(pagedir[(virt >> 39) & 0x1ff]);
 		if (pdpe[(virt >> 30) & 0x1ff] == 0) {
 			panic("t=%p, virt=%p -> l2 not mapped (%p)", t, virt, pagedir[(virt >> 30) & 0x1ff]);
@@ -140,8 +138,15 @@ md_unmap_pages(thread_t* t, addr_t virt, size_t num_pages)
 
 		/* XXX perhaps we should check if this is actually mapped */
 		uint64_t* pte = pt_resolve_addr(pde[(virt >> 21) & 0x1ff]);
+		int global = (pte[(virt >> 12) & 0x1ff] & PE_G);
 		pte[(virt >> 12) & 0x1ff] = 0;
-
+		if (global) {
+			/*
+			 * We just unmapped a global virtual address; this means we'll have to
+			 * explicitely invalidate it.
+			 */
+			__asm __volatile("invlpg %0" : : "m" (virt) : "memory");
+		}
 		virt += PAGE_SIZE;
 	}
 }
