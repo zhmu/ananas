@@ -92,8 +92,8 @@
 #define KMEM_DYNAMIC_VA_END 0xfff00000
 
 /* Direct mapped KVA start; we can use use KVTOP()/PTOKV() for it */
-#define KMEM_DIRECT_START	0
-#define KMEM_DIRECT_END		(KMEM_DYNAMIC_VA_START - KERNBASE)
+#define KMEM_DIRECT_PA_START	0
+#define KMEM_DIRECT_PA_END		(KMEM_DYNAMIC_VA_START - KERNBASE)
 
 /* CR0 register bits */
 #define CR0_PE		(1 << 0)	/* Protection Enable */

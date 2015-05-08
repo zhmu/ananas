@@ -418,7 +418,7 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 		addr_t start[MAX_SLICES], end[MAX_SLICES];
 		kmem_chunk_reserve(base, base + len, kernel_start, kernel_end, &start[0], &end[0]);
 		for (unsigned int n = 0; n < MAX_SLICES; n++) {
-			KASSERT(start[n] <= end[n] && end[n] >= start[n], "invalid start/end pair %x/%x", start[n], end[n]);
+			KASSERT(start[n] <= end[n] && end[n] >= start[n], "invalid start/end pair %p/%p", start[n], end[n]);
 			if (start[n] == end[n])
 				continue;
 			page_zone_add(start[n], end[n] - start[n]);

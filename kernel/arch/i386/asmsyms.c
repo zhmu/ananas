@@ -28,7 +28,6 @@ ASM_SYMBOL(T_ESP0,    offsetof(struct THREAD, md_esp0));
 
 ASM_SYMBOL(PCPU_CURTHREAD, offsetof(struct PCPU, curthread));
 ASM_SYMBOL(PCPU_FPUCTX, offsetof(struct PCPU, fpu_context));
-ASM_SYMBOL(PCPU_TICKCOUNT, offsetof(struct PCPU, tickcount));
 ASM_SYMBOL(PCPU_NESTEDIRQ, offsetof(struct PCPU, nested_irq));
 
 ASM_SYMBOL(SMP_CPU_OFFSET,	offsetof(struct IA32_SMP_CONFIG, cfg_cpu));
