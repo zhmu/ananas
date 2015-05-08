@@ -88,7 +88,6 @@ md_map_pages(thread_t* t, addr_t virt, addr_t phys, size_t num_pages, int flags)
 
 		uint64_t* pte = pt_resolve_addr(pde[(virt >> 21) & 0x1ff]);
 		pte[(virt >> 12) & 0x1ff] = (uint64_t)phys | pt_flags;
-
 		virt += PAGE_SIZE; phys += PAGE_SIZE;
 	}
 }
@@ -145,7 +144,7 @@ md_unmap_pages(thread_t* t, addr_t virt, size_t num_pages)
 			 * We just unmapped a global virtual address; this means we'll have to
 			 * explicitely invalidate it.
 			 */
-			__asm __volatile("invlpg %0" : : "m" (virt) : "memory");
+			__asm __volatile("invlpg %0" : : "m" (*(char*)virt) : "memory");
 		}
 		virt += PAGE_SIZE;
 	}
