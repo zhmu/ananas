@@ -420,6 +420,7 @@ module_init()
 	if (bootinfo == NULL)
 		return ANANAS_ERROR(NO_DEVICE);
 
+#ifndef __amd64__
 	/* Walk through all modules the loader has for us */
 	for (struct LOADER_MODULE* mod = (struct LOADER_MODULE*)PTOKV((addr_t)bootinfo->bi_modules);
 	     (addr_t)mod != PTOKV((addr_t)NULL); mod = (struct LOADER_MODULE*)PTOKV((addr_t)mod->mod_next)) {
@@ -433,6 +434,9 @@ module_init()
 		if (err != ANANAS_ERROR_NONE)
 			kprintf("cannot load module %p: %u\n", mod, err);
 	}
+#else
+	(void)module_load;
+#endif
 	return ANANAS_ERROR_OK;
 }
 

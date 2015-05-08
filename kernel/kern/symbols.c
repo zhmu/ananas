@@ -55,20 +55,23 @@ static errorcode_t
 symbols_init()
 {
 	/* Reject any missing bootinfo field */
-	if (bootinfo == NULL)
+	if (bootinfo == NULL || bootinfo->bi_modules == 0 || bootinfo->bi_modules_size == 0)
 		return ANANAS_ERROR(NO_DEVICE);
-	struct LOADER_MODULE* kernel_mod = (struct LOADER_MODULE*)PTOKV(bootinfo->bi_modules);
+	struct LOADER_MODULE* kernel_mod = kmem_map(bootinfo->bi_modules, bootinfo->bi_modules_size, VM_FLAG_READ);
 	kprintf("kernel_mod=%p\n", kernel_mod);
-	if (kernel_mod->mod_symtab_addr == 0 || kernel_mod->mod_symtab_size == 0)
-		return ANANAS_ERROR(NO_DEVICE);
-	if (kernel_mod->mod_strtab_addr == 0 || kernel_mod->mod_strtab_size == 0)
-		return ANANAS_ERROR(NO_DEVICE);
 
-	sym_tab = kmem_map(kernel_mod->mod_symtab_addr, kernel_mod->mod_symtab_size, VM_FLAG_READ);
-	sym_tab_size = kernel_mod->mod_symtab_size;
-	str_tab = kmem_map(kernel_mod->mod_strtab_addr, kernel_mod->mod_strtab_size, VM_FLAG_READ);
-	str_tab_size = kernel_mod->mod_strtab_size;
-	return ANANAS_ERROR_OK;
+	errorcode_t result = ANANAS_ERROR(NO_DEVICE);
+	if (kernel_mod->mod_symtab_addr > 0 && kernel_mod->mod_symtab_size > 0 &&
+	    kernel_mod->mod_strtab_addr > 0 && kernel_mod->mod_strtab_size > 0) {
+		sym_tab = kmem_map(kernel_mod->mod_symtab_addr, kernel_mod->mod_symtab_size, VM_FLAG_READ);
+		sym_tab_size = kernel_mod->mod_symtab_size;
+		str_tab = kmem_map(kernel_mod->mod_strtab_addr, kernel_mod->mod_strtab_size, VM_FLAG_READ);
+		str_tab_size = kernel_mod->mod_strtab_size;
+		result = ANANAS_ERROR_OK;
+	}
+
+	kmem_unmap(kernel_mod, bootinfo->bi_modules_size);
+	return result;
 }
 
 INIT_FUNCTION(symbols_init, SUBSYSTEM_MODULE, ORDER_FIRST);
