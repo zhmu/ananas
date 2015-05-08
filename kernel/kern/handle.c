@@ -465,7 +465,7 @@ kdb_cmd_handle(int num_args, char** arg)
 		case HANDLE_TYPE_FILE: {
 			kprintf("file handle specifics:\n");
 			kprintf("   offset         : %u\n", handle->h_data.d_vfs_file.f_offset); /* XXXSIZE */
-			kprintf("   inode          : 0x%x\n", handle->h_data.d_vfs_file.f_inode);
+			kprintf("   dentry         : 0x%x\n", handle->h_data.d_vfs_file.f_dentry);
 			kprintf("   device         : 0x%x\n", handle->h_data.d_vfs_file.f_device);
 			break;
 		}
