@@ -75,4 +75,7 @@ inline static void* page_alloc_single_mapped(struct PAGE** p, int vm_flags) {
 /* Allocates enough pages to hold length bytes and maps it to kernel memory */
 void* page_alloc_length_mapped(size_t length, struct PAGE** p, int vm_flags);
 
+/* Retrieve the page statistics */
+void page_get_stats(unsigned int* total_pages, unsigned int* avail_pages);
+
 #endif /* __ANANAS_PAGE_H__ */

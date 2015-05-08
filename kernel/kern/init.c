@@ -9,6 +9,7 @@
 #include <ananas/vfs.h>
 #include <machine/vm.h>
 #include <machine/param.h> /* for PAGE_SIZE */
+
 #include "options.h"
 
 #define SHELL_BIN "/bin/sh"
@@ -127,10 +128,10 @@ static errorcode_t
 hello_world()
 {
 	/* Show a startup banner */
-	size_t mem_avail, mem_total;
-	kmem_stats(&mem_avail, &mem_total);
 	kprintf("Ananas/%s - %s %s\n", ARCHITECTURE, __DATE__, __TIME__);
-	kprintf("Memory: %uKB available / %uKB total\n", mem_avail / 1024, mem_total / 1024);
+	unsigned int total_pages, avail_pages;
+	page_get_stats(&total_pages, &avail_pages);
+	kprintf("Memory: %uKB available / %uKB total\n", avail_pages * (PAGE_SIZE / 1024), total_pages * (PAGE_SIZE / 1024));
 #if defined(__i386__) || defined(__amd64__)
 	extern int md_cpu_clock_mhz;
 	kprintf("CPU: %u MHz\n", md_cpu_clock_mhz);
@@ -184,7 +185,7 @@ static errorcode_t
 launch_shell()
 {
 	thread_t* t;
-	errorcode_t err = thread_alloc(NULL, &t);
+	errorcode_t err = thread_alloc(NULL, &t, THREAD_ALLOC_DEFAULT);
 	if (err != ANANAS_ERROR_NONE) {
 		kprintf(" couldn't create process, %i\n", err);
 		return err;
@@ -197,7 +198,7 @@ launch_shell()
 		err = vfs_summon(&f, t);
 		if (err == ANANAS_ERROR_NONE) {
 			kprintf(" ok\n");
-			thread_set_args(t, "sh\0\0", PAGE_SIZE);
+			thread_set_args(t, "sh\0-l\0", PAGE_SIZE);
 			thread_set_environment(t, "OS=Ananas\0USER=root\0\0", PAGE_SIZE);
 			thread_resume(t);
 		} else {

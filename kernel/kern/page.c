@@ -277,6 +277,22 @@ page_alloc_length_mapped(size_t length, struct PAGE** p, int vm_flags)
 }
 
 void
+page_get_stats(unsigned int* total_pages, unsigned int* avail_pages)
+{
+	/* XXX we need some lock on zones */
+	KASSERT(!DQUEUE_EMPTY(&zones), "no zones");
+
+	*total_pages = 0; *avail_pages = 0;
+	DQUEUE_FOREACH(&zones, z, struct PAGE_ZONE) {
+		spinlock_lock(&z->z_lock);
+		*total_pages += z->z_num_pages;
+		*avail_pages += z->z_avail_pages;
+		spinlock_unlock(&z->z_lock);
+	}
+}
+
+
+void
 page_debug()
 {
 	DQUEUE_FOREACH(&zones, z, struct PAGE_ZONE) {
