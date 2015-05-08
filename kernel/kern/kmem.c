@@ -110,7 +110,7 @@ kmem_map(addr_t phys, size_t length, int flags)
 			kmem_dump();
 			spinlock_unlock(&kmem_lock);
 
-			panic("%s(): XXX range %p-%p already mapped (%p-%p) -> %p", __func__,
+			panic("XXX range %p-%p already mapped (%p-%p) -> %p",
 			 pa, pa + size, kmm->kmm_phys, kmm->kmm_phys + size, kmm->kmm_virt);
 			return NULL;
 		}
@@ -153,7 +153,6 @@ kmem_map(addr_t phys, size_t length, int flags)
 
 	/* Now perform the actual mapping and we're set */
 	KMEM_DEBUG(">>> DID outside kmem map: pa=%p virt=%p size=%d\n", pa, virt, size);
-	kmem_dump();
 
 	md_kmap(pa, virt, size, flags);
 	return (void*)(virt + offset);
@@ -199,9 +198,6 @@ kmem_unmap(void* virt, size_t length)
 		spinlock_unlock(&kmem_lock);
 
 		md_kunmap(va, size);
-
-		kmem_dump();
-
 		return;
 	}
 	spinlock_unlock(&kmem_lock);
