@@ -251,6 +251,44 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 	kprintf(">>> *kernel_pagedir = %p\n", *kernel_pagedir);
 }
 
+#ifdef OPTION_SMP
+static struct PAGE* smp_ap_pages;
+addr_t smp_ap_pagedir;
+
+static void
+smp_init_ap_pagetable()
+{
+	/*
+	 * When booting the AP's, we need to have identity-mapped memory - and this
+	 * does not exist in our normal pages. It's actually easier just to construct
+	 * pagetables similar to what the loader uses (refer to loader/x86/x86_64.c)
+	 * to get us to long mode.
+	 */
+	void* ptr = page_alloc_length_mapped(3 * PAGE_SIZE, &smp_ap_pages, VM_FLAG_READ | VM_FLAG_WRITE);
+
+	addr_t pa = page_get_paddr(smp_ap_pages);
+	uint64_t* pml4 = ptr;
+	uint64_t* pdpe = ptr + PAGE_SIZE;
+	uint64_t* pde = ptr + PAGE_SIZE * 2;
+	for (unsigned int n = 0; n < 512; n++) {
+		pde[n] = (uint64_t)((addr_t)(n << 21) | PE_PS | PE_RW | PE_P);
+		pdpe[n] = (uint64_t)((addr_t)(pa + PAGE_SIZE * 2) | PE_RW | PE_P);
+		pml4[n] = (uint64_t)((addr_t)(pa + PAGE_SIZE) | PE_RW | PE_P);
+  }
+
+	smp_ap_pagedir = pa;
+}
+
+void
+smp_destroy_ap_pagetable()
+{
+	if (smp_ap_pages != NULL)
+		page_free(smp_ap_pages);
+	smp_ap_pages = NULL;
+	smp_ap_pagedir = 0;
+}
+#endif
+
 void
 md_startup(struct BOOTINFO* bootinfo_ptr)
 {
@@ -530,7 +568,9 @@ extern void* syscall_handler;
 	 * Initialize the SMP parts - as x86 SMP relies on an APIC, we do this here
 	 * to prevent problems due to devices registering interrupts.
 	 */
-	if (smp_init() != ANANAS_ERROR_NONE)
+	if (smp_init() == ANANAS_ERROR_NONE) {
+		smp_init_ap_pagetable();
+	} else
 #endif
 	{
 		/*

@@ -34,6 +34,7 @@ TRACE_SETUP;
 void *__ap_entry, *__ap_entry_end;
 
 void md_remove_low_mappings();
+void smp_destroy_ap_pagetable();
 
 struct X86_SMP_CONFIG smp_config;
 
@@ -248,6 +249,8 @@ smp_launch()
 	page_free(ap_page);
 #ifdef __i386_
 	md_remove_low_mappings();
+#elif defined(__amd64__)
+	smp_destroy_ap_pagetable();
 #endif
 
 	return ANANAS_ERROR_OK;
