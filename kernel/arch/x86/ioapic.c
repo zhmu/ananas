@@ -1,6 +1,8 @@
 #include <ananas/x86/apic.h>
 #include <ananas/x86/ioapic.h>
 #include <ananas/lib.h>
+#include <machine/param.h>
+#include <machine/vm.h>
 
 void
 ioapic_write(struct X86_IOAPIC* apic, uint32_t reg, uint32_t val)
@@ -33,7 +35,7 @@ ioapic_ack(struct IRQ_SOURCE* source, int no)
 {
 	struct X86_IOAPIC* ioapic = source->is_privdata;
 	(void)ioapic;
-	*((uint32_t*)LAPIC_EOI) = 0;
+	*(volatile uint32_t*)(PTOKV(LAPIC_BASE) + LAPIC_EOI) = 0;
 }
 
 void

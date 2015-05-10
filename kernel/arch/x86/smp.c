@@ -104,6 +104,7 @@ smp_prepare_config(struct X86_SMP_CONFIG* cfg)
 			continue;
 		}
 
+#ifdef __i386__
 		/*
 		 * Allocate one buffer and place all necessary administration in there.
 		 * Each AP needs an own GDT because it contains the pointer to the per-CPU
@@ -128,6 +129,7 @@ smp_prepare_config(struct X86_SMP_CONFIG* cfg)
 
 		/* Use the idle thread stack to execute from; we're becoming the idle thread anyway */
 		cpu->stack = (void*)pcpu->idlethread->md_esp;
+#endif
 	}
 
 	/* Prepare the IOAPIC structure */
@@ -172,7 +174,9 @@ smp_init()
 	if (acpi_smp_init(&bsp_apic_id) != ANANAS_ERROR_OK) {
 		/* SMP not present or not usable */
 		page_free(ap_page);
+#ifdef __i386__
 		md_remove_low_mappings();
+#endif
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 
@@ -229,11 +233,12 @@ smp_launch()
 	 * Broadcast INIT-SIPI-SIPI-IPI to all AP's; this will wake them up and cause
 	 * them to run the AP entry code.
 	 */
-	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_INIT;
+	addr_t lapic_base = PTOKV(LAPIC_BASE);
+	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_INIT;
 	delay(10);
-	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | page_get_paddr(ap_page) >> 12;
+	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | page_get_paddr(ap_page) >> 12;
 	delay(200);
-	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | page_get_paddr(ap_page) >> 12;
+	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | page_get_paddr(ap_page) >> 12;
 	delay(200);
 
 	while(num_smp_launched < smp_config.cfg_num_cpus)
@@ -241,7 +246,9 @@ smp_launch()
 
 	/* All done - we can throw away the AP code and mappings */
 	page_free(ap_page);
+#ifdef __i386_
 	md_remove_low_mappings();
+#endif
 
 	return ANANAS_ERROR_OK;
 }
@@ -252,13 +259,13 @@ void
 smp_panic_others()
 {	
 	if (num_smp_launched > 1)
-		*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_FIXED | SMP_IPI_PANIC;
+		*((volatile uint32_t*)(PTOKV(LAPIC_BASE) + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_FIXED | SMP_IPI_PANIC;
 }
 
 void
 smp_broadcast_schedule()
 {
-	*((uint32_t*)LAPIC_ICR_LO) = LAPIC_ICR_DEST_ALL_INC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_FIXED | SMP_IPI_SCHEDULE;
+	*((volatile uint32_t*)(PTOKV(LAPIC_BASE) + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_INC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_FIXED | SMP_IPI_SCHEDULE;
 }
 
 /*
@@ -273,14 +280,15 @@ mp_ap_startup(uint32_t lapic_id)
   scheduler_add_thread(idlethread);
 
 	/* Reset destination format to flat mode */
-	*(volatile uint32_t*)LAPIC_DF = 0xffffffff;
+	addr_t lapic_base = PTOKV(LAPIC_BASE);
+	*(volatile uint32_t*)(lapic_base + LAPIC_DF) = 0xffffffff;
 	/* Ensure we are the logical destination of our local APIC */
-	volatile uint32_t* v = (volatile uint32_t*)LAPIC_LD;
+	volatile uint32_t* v = (volatile uint32_t*)(lapic_base + LAPIC_LD);
 	*v = (*v & 0x00ffffff) | 1 << (lapic_id + 24);
 	/* Clear Task Priority register; this enables all LAPIC interrupts */
-	*(volatile uint32_t*)LAPIC_TPR &= ~0xff;
+	*(volatile uint32_t*)(lapic_base + LAPIC_TPR) &= ~0xff;
 	/* Finally, enable the APIC */
-	*(volatile uint32_t*)LAPIC_SVR |= LAPIC_SVR_APIC_EN;
+	*(volatile uint32_t*)(lapic_base + LAPIC_SVR) |= LAPIC_SVR_APIC_EN;
 
 	/* Wait for it ... */
 	while (!can_smp_launch)

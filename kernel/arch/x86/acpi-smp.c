@@ -8,12 +8,33 @@
 #include <ananas/x86/ioapic.h>
 #include <ananas/x86/smp.h>
 #include <machine/param.h>
+#include <machine/vm.h>
 #include "../../dev/acpi/acpi.h"
 #include "../../dev/acpi/acpica/acpi.h"
 
 TRACE_SETUP;
 
 extern struct X86_SMP_CONFIG smp_config;
+
+/*
+ * Maps one page of memory from physical address phys and returns the
+ * destination address va, guaranteeing that 'va = PTOKV(phys)'.
+ *
+ * Note that on i386, this implies that phys must be >=KERNBASE.
+ */
+static void*
+map_device(addr_t phys)
+{
+	void* va;
+	unsigned int vm_flags = VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE;
+#ifdef __amd64__
+	va = kmem_map(phys, 1, vm_flags);
+#else
+	va = (void*)phys;
+	md_kmap(phys, (addr_t)va, 1, vm_flags);
+#endif
+	return va;
+}
 
 errorcode_t
 acpi_smp_init(int* bsp_apic_id)
@@ -27,18 +48,19 @@ acpi_smp_init(int* bsp_apic_id)
 	 * current CPU, so just asking would be enough.
 	 */
 	KASSERT(madt->Address == LAPIC_BASE, "lapic base unsupported");
-	md_kmap(madt->Address, madt->Address, LAPIC_SIZE / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
+	char* lapic_base = map_device(madt->Address);
+	KASSERT((addr_t)lapic_base == PTOKV(madt->Address), "mis-mapped lapic (%p != %p)", lapic_base, PTOKV(madt->Address));
 	/* Fetch our local APIC ID, we need to program it shortly */
-	*bsp_apic_id = (*(volatile uint32_t*)LAPIC_ID) >> 24;
+	*bsp_apic_id = (*(volatile uint32_t*)(lapic_base + LAPIC_ID)) >> 24;
 	/* Reset destination format to flat mode */
-	*(volatile uint32_t*)LAPIC_DF = 0xffffffff;
+	*(volatile uint32_t*)(lapic_base + LAPIC_DF) = 0xffffffff;
 	/* Ensure we are the logical destination of our local APIC */
-	volatile uint32_t* v = (volatile uint32_t*)LAPIC_LD;
+	volatile uint32_t* v = (volatile uint32_t*)(lapic_base + LAPIC_LD);
 	*v = (*v & 0x00ffffff) | 1 << (*bsp_apic_id + 24);
 	/* Clear Task Priority register; this enables all LAPIC interrupts */
-	*(volatile uint32_t*)LAPIC_TPR &= ~0xff;
+	*(volatile uint32_t*)(lapic_base + LAPIC_TPR) &= ~0xff;
 	/* Finally, enable the APIC */
-	*(volatile uint32_t*)LAPIC_SVR |= LAPIC_SVR_APIC_EN;
+	*(volatile uint32_t*)(lapic_base + LAPIC_SVR) |= LAPIC_SVR_APIC_EN;
 	
 	/* First of all, walk through the MADT and just count everything */
 	for (ACPI_SUBTABLE_HEADER* sub = (void*)(madt + 1);
@@ -104,14 +126,13 @@ acpi_smp_init(int* bsp_apic_id)
 				ACPI_MADT_IO_APIC* apic = (ACPI_MADT_IO_APIC*)sub;
 				kprintf("ioapic, Id=%x addr=%x base=%u\n", apic->Id, apic->Address, apic->GlobalIrqBase);
 
+				/* Map the IOAPIC memory; the hairy details are in map_device() */
+				void* ioapic_base = map_device(apic->Address);
+
+				/* Create the associated I/O APIC and hook it up */
 				struct X86_IOAPIC* ioapic = &smp_config.cfg_ioapic[cur_ioapic];
 				ioapic->ioa_id = apic->Id;
-				ioapic->ioa_addr = apic->Address;
-
-				/* XXX Assumes the address is in kernel space (it should be) */
-				md_kmap(ioapic->ioa_addr, ioapic->ioa_addr, 1, VM_FLAG_READ | VM_FLAG_WRITE);
-
-				/* Set up the IRQ source */
+				ioapic->ioa_addr = (addr_t)ioapic_base;
 				ioapic_register(ioapic, apic->GlobalIrqBase);
 				cur_ioapic++;
 				break;
