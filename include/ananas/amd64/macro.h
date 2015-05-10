@@ -97,4 +97,45 @@
 	p[12] = 0; p[13] = 0; p[14] = 0; p[15] = 0; \
 } while (0)
 
+#ifndef ASM
+static inline uint64_t
+rdmsr(uint32_t msr)
+{
+	uint32_t hi, lo;
+
+	__asm __volatile(
+		"rdmsr\n"
+	: "=a" (lo), "=d" (hi) : "c" (msr));
+	return ((uint64_t)hi << 32) | (uint64_t)lo;
+}
+
+static inline void
+wrmsr(uint32_t msr, uint64_t val)
+{
+	__asm __volatile(
+		"wrmsr\n"
+	: : "a" (val & 0xffffffff),
+	    "d" (val >> 32),
+      "c" (msr));
+}
+
+static inline uint64_t
+read_cr4()
+{
+	uint64_t r;
+	__asm __volatile(
+		"movq %%cr4, %0\n"
+	: "=a" (r));
+	return r;
+}
+
+static inline void
+write_cr4(uint64_t val)
+{
+	__asm __volatile(
+		"movq %0, %%cr4\n"
+	: : "a" (val));
+}
+#endif /* ASM */
+
 #endif /* __AMD64_MACRO_H__ */

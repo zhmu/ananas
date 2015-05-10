@@ -18,6 +18,7 @@
 #include <ananas/mm.h>
 #include <ananas/lib.h>
 #include <loader/module.h>
+#include "options.h"
 
 /* Pointer to the page directory level 4 */
 uint64_t* kernel_pagedir;
@@ -46,27 +47,6 @@ static struct PHYSMEM_CHUNK phys[PHYSMEM_NUM_CHUNKS];
 
 /* CPU clock speed, in MHz */
 int md_cpu_clock_mhz = 0;
-
-static inline uint64_t
-rdmsr(uint32_t msr)
-{
-	uint32_t hi, lo;
-
-	__asm(
-		"rdmsr\n"
-	: "=a" (lo), "=d" (hi) : "c" (msr));
-	return ((uint64_t)hi << 32) | (uint64_t)lo;
-}
-
-static inline void
-wrmsr(uint32_t msr, uint64_t val)
-{
-	__asm(
-		"wrmsr\n"
-	: : "a" (val & 0xffffffff),
-	    "d" (val >> 32),
-      "c" (msr));
-}
 
 static void*
 bootstrap_get_pages(addr_t* avail, size_t num)
@@ -252,11 +232,7 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 	KASSERT(dyn_kva_avail_ptr == (addr_t)dyn_kva_pages + dyn_kva_pages_needed * PAGE_SIZE, "not all dynamic KVA pages used (used %d, expected %d)", (dyn_kva_avail_ptr - dyn_kva_pages) / PAGE_SIZE, dyn_kva_pages_needed);
 
 	/* Enable global pages */
-	__asm(
-		"movq	%cr4, %rax\n"
-		"orq	$0x80, %rax\n"		/* PGE */
-		"movq	%rax, %cr4\n"
-	);
+	write_cr4(read_cr4() | 0x80); /* PGE */
 
 	/* Activate our new page tables */
 	kprintf(">>> activating kernel_pagedir = %p\n", kernel_pagedir);
@@ -415,6 +391,15 @@ extern void* syscall_handler;
 	wrmsr(MSR_LSTAR, (addr_t)&syscall_handler);
 	wrmsr(MSR_SFMASK, 0x200 /* IF */);
 
+#if 0
+	/* Enable the write-protect bit; this ensures kernel-code can't write to readonly pages */
+	__asm(
+		"movq	%cr0, %rax\n"
+		"orq	$(1 << 16), %rax\n"	/* WP */
+		"movq	%rax, %cr0\n"
+	);
+#endif
+
 	/*
 	 * Determine how much memory we have; we need this in order to pre-allocate
 	 * our page tables.
@@ -493,24 +478,17 @@ extern void* syscall_handler;
 	for (int n = 0; n < phys_idx; n++) {
 		struct PHYSMEM_CHUNK* p = &phys[n];
 		if (p->addr == prev_avail) {
-			kprintf("altering prev chunk\n");
 			p->addr = avail;
 			p->len -= avail - prev_avail;
 		}
-		kprintf("+adding memory chunk %p (%p)\n", p->addr, p->len);
 		page_zone_add(p->addr, p->len);
-		kprintf("-adding memory chunk %p (%p)\n", p->addr, p->len);
 	}
 
 	/* We have memory - initialize our VM */
 	vm_init();
 
 	/* Enable fast system calls */
-	__asm(
-		"movq	%cr4, %rax\n"
-		"orq	$0x600, %rax\n"		/* OSFXSR | OSXMMEXCPT */
-		"movq	%rax, %cr4\n"
-	);
+	write_cr4(read_cr4() | 0x600); /* OSFXSR | OSXMMEXCPT */
 
 	/* Enable the memory code - handle_init() calls kmalloc() */
 	mm_init();
