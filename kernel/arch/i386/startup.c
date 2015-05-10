@@ -5,12 +5,12 @@
 #include <machine/macro.h>
 #include <machine/thread.h>
 #include <machine/pcpu.h>
-#include <machine/smp.h>
 #include <ananas/x86/acpi.h>
 #include <ananas/x86/io.h>
 #include <ananas/x86/pic.h>
 #include <ananas/x86/pit.h>
 #include <ananas/x86/smap.h>
+#include <ananas/x86/smp.h>
 #include <ananas/bootinfo.h>
 #include <ananas/error.h>
 #include <ananas/handle.h>

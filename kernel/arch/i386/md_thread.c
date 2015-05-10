@@ -5,7 +5,6 @@
 #include <machine/thread.h>
 #include <machine/vm.h>
 #include <machine/macro.h>
-#include <machine/smp.h>
 #include <machine/interrupts.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>

@@ -14,8 +14,8 @@
 
 #include "options.h"
 #include "machine/param.h"
-#include "machine/smp.h"
 #include "machine/vm.h"
+#include "ananas/x86/smp.h"
 #include "asmsyms.h"
 
 #define SANITY_CHECKS

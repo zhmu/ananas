@@ -3,6 +3,10 @@ arch/x86/pic.c			mandatory
 arch/x86/pit.c			mandatory
 arch/x86/exceptions.c		mandatory
 arch/x86/debug-console.c	option DEBUG_CONSOLE
+# SMP
+arch/x86/ioapic.c		option SMP
+arch/x86/smp.c			option SMP
+arch/x86/acpi-smp.c		option SMP
 # ACPI
 dev/acpi/acpi.c			option ACPI
 dev/acpi/acpi_resource.c	option ACPI
