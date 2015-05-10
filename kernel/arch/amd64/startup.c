@@ -9,8 +9,10 @@
 #include <ananas/x86/pic.h>
 #include <ananas/x86/pit.h>
 #include <ananas/x86/smap.h>
+#include <ananas/x86/smp.h>
 #include <ananas/handle.h>
 #include <ananas/bootinfo.h>
+#include <ananas/error.h>
 #include <ananas/kmem.h>
 #include <ananas/init.h>
 #include <ananas/vm.h>
@@ -523,10 +525,21 @@ extern void* syscall_handler;
 	acpi_init();
 #endif
 
+#ifdef OPTION_SMP
 	/*
-	 * XXX No SMP here yet, so use the PIC for now.
+	 * Initialize the SMP parts - as x86 SMP relies on an APIC, we do this here
+	 * to prevent problems due to devices registering interrupts.
 	 */
-	x86_pic_init();
+	if (smp_init() != ANANAS_ERROR_NONE)
+#endif
+	{
+		/*
+		 * In the uniprocessor case, or when SMP initialization fails, we'll only
+		 * have a single PIC. Initialize it here, this will also register it as an
+		 * interrupt source.
+		 */
+		x86_pic_init();
+	}
 
 	/* Initialize the PIT */
 	x86_pit_init();

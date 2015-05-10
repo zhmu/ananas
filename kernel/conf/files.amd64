@@ -5,5 +5,6 @@ arch/amd64/md_thread.c		mandatory
 arch/amd64/startup.c		mandatory
 arch/amd64/interrupts.S		mandatory
 arch/amd64/exception.c		mandatory
+arch/amd64/mp_stub.S		option SMP
 # Pull in generic x86 stuff
 include x86
