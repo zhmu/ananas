@@ -1,6 +1,6 @@
 #include <ananas/x86/io.h>
 #include <ananas/x86/pit.h>
-#include <ananas/i386/smp.h> /* XXX */
+#include <ananas/x86/smp.h> /* XXX */
 #include <ananas/error.h>
 #include <ananas/pcpu.h>
 #include <ananas/irq.h>
