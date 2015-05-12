@@ -14,6 +14,7 @@
 #include <machine/vm.h>
 #include <machine/param.h>
 #include <machine/macro.h>
+#include <ananas/x86/smp.h>
 #include "options.h"
 #include "asmsyms.h"
 
@@ -165,6 +166,18 @@ IRQ_HANDLER(12)
 IRQ_HANDLER(13)
 IRQ_HANDLER(14)
 IRQ_HANDLER(15)
+
+#ifdef OPTION_SMP
+.globl	irq_spurious, ipi_schedule, ipi_panic
+irq_spurious:
+	iret
+
+ipi_schedule:
+	IRQ_HANDLER(SMP_IPI_SCHEDULE)
+
+ipi_panic:
+	IRQ_HANDLER(SMP_IPI_PANIC)
+#endif
 
 /*
  * System call handler - will be called using SYSCALL; only %cs/%ss will be set

@@ -88,8 +88,6 @@ smp_ipi_panic(device_t dev, void* context)
 void
 smp_prepare_config(struct X86_SMP_CONFIG* cfg)
 {
-	extern void* gdt; /* XXX */
-
 	/* Prepare the CPU structure. CPU #0 is always the BSP */
 	cfg->cfg_cpu = kmalloc(sizeof(struct X86_CPU) * cfg->cfg_num_cpus);
 	memset(cfg->cfg_cpu, 0, sizeof(struct X86_CPU) * cfg->cfg_num_cpus);
@@ -97,39 +95,53 @@ smp_prepare_config(struct X86_SMP_CONFIG* cfg)
 		struct X86_CPU* cpu = &cfg->cfg_cpu[i];
 
 		/*
-	 	 * Note that we don't need to allocate anything extra for the BSP, but
-		 * we have to setup the pointers.
+		 * Note that we don't need to allocate anything extra for the BSP.
 		 */
-		if (i == 0) {
-			cpu->gdt = gdt;
+		if (i == 0)
 			continue;
-		}
 
 #ifdef __i386__
+# define GDT_SIZE (GDT_NUM_ENTRIES * 8)
+#elif defined(__amd64__)
+# define GDT_SIZE (GDT_NUM_ENTRIES * 16)
+#endif
+
 		/*
 		 * Allocate one buffer and place all necessary administration in there.
 		 * Each AP needs an own GDT because it contains the pointer to the per-CPU
 		 * data and the TSS must be distinct too.
 		 */
-		char* buf = kmalloc(GDT_NUM_ENTRIES * 8 + sizeof(struct TSS) + sizeof(struct PCPU));
+		char* buf = kmalloc(GDT_SIZE + sizeof(struct TSS) + sizeof(struct PCPU));
 		cpu->gdt = buf;
-		memcpy(cpu->gdt, &gdt, GDT_NUM_ENTRIES * 8);
-		struct TSS* tss = (struct TSS*)(buf + GDT_NUM_ENTRIES * 8);
+extern void* gdt; /* XXX */
+		memcpy(cpu->gdt, &gdt, GDT_SIZE);
+		struct TSS* tss = (struct TSS*)(buf + GDT_SIZE);
 		memset(tss, 0, sizeof(struct TSS));
+#ifdef __i386__
 		tss->ss0 = GDT_SEL_KERNEL_DATA;
 		GDT_SET_TSS(cpu->gdt, GDT_IDX_KERNEL_TASK, 0, (addr_t)tss, sizeof(struct TSS));
+#elif defined(__amd64__)
+		GDT_SET_TSS64(cpu->gdt, GDT_SEL_TASK, 0, (addr_t)tss, sizeof(struct TSS));
+#endif
 		cpu->tss = (char*)tss;
 
 		/* Initialize per-CPU data */
-		struct PCPU* pcpu = (struct PCPU*)(buf + GDT_NUM_ENTRIES * 8 + sizeof(struct TSS));
+		struct PCPU* pcpu = (struct PCPU*)(buf + GDT_SIZE + sizeof(struct TSS));
 		memset(pcpu, 0, sizeof(struct PCPU));
 		pcpu->cpuid = i;
 		pcpu->tss = (addr_t)cpu->tss;
 		pcpu_init(pcpu);
+#ifdef __i386__
 		GDT_SET_ENTRY32(cpu->gdt, GDT_IDX_KERNEL_PCPU, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, (addr_t)pcpu, sizeof(struct PCPU));
+#elif defined(__amd64__)
+		cpu->pcpu = pcpu;
+#endif
 
 		/* Use the idle thread stack to execute from; we're becoming the idle thread anyway */
+#ifdef __i386__
 		cpu->stack = (void*)pcpu->idlethread->md_esp;
+#elif defined(__amd64__)
+		cpu->stack = (void*)pcpu->idlethread->md_rsp;
 #endif
 	}
 
@@ -242,6 +254,7 @@ smp_launch()
 	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | page_get_paddr(ap_page) >> 12;
 	delay(200);
 
+	kprintf("SMP: waiting for %d CPU(s)\n", smp_config.cfg_num_cpus - num_smp_launched);
 	while(num_smp_launched < smp_config.cfg_num_cpus)
 		/* wait for it ... */ ;
 

@@ -4,6 +4,7 @@
 #include <machine/macro.h>
 #include <machine/param.h>
 #include <ananas/x86/apic.h>
+#include "asmsyms.h"
 
 .globl __ap_entry, __ap_entry_end
 
@@ -16,6 +17,10 @@
 #define	MSR_EFER	 0xc0000080
 #define	EFER_SCE	(1 << 0)
 #define	EFER_LME	(1 << 8)
+
+#define MSR_FS_BASE		0xc0000100
+#define MSR_GS_BASE		0xc0000101
+#define MSR_KERNEL_GS_BASE	0xc0000102
 
 .code16
 .align 16
@@ -61,8 +66,8 @@ mp_stub32:
 	 * which BSP we are and thus which GDT, stack etc we have to activate - we
 	 * do this here.
 	 */
-	movl	(LAPIC_BASE + LAPIC_ID), %esi
-	shrl	$24, %esi
+	movl	(LAPIC_BASE + LAPIC_ID), %edi
+	shrl	$24, %edi
 
 	/* Enable PAE to prepare for long mode */
 	movl	%cr4, %eax
@@ -101,7 +106,7 @@ mp_stub64:
 	 * first.
 	 */
 	movq	$1f, %rax
-	jmp	%rax
+	jmp	*%rax
 
 1:
 	/* Enable global pages */
@@ -117,7 +122,34 @@ mp_stub64:
 	movl	%eax, %eax
 	movq	%rax, %cr3
 
+	/*
+	 * Now look up our CPU in the smp_config list; we need to do this here
+	 * because the PCPU field tells us the idle thread's stack pointer,
+	 * which we need to set before we can actually call C code.
+	 */
+	movq	$smp_config, %rbp
+	movl	SMP_NUM_CPUS(%rbp), %ecx
+	movq	SMP_CPU_OFFSET(%rbp), %rbp
+
+1:	cmpl	SMP_CPU_LAPICID(%rbp), %edi
+	je	2f
+	addq	$SMP_CPU_SIZE, %rbp
+	loop	1b
+
+	/* Our CPU wasn't found... now what? We ought to panic... */
 	hlt
+
+2:	/* Got it; activate the CPU-specific idlethread stack */
+	movq	SMP_CPU_STACK(%rbp), %rsp
+
+	/* Hand the rest of the initialisation over to C */
+	pushq	%rdi
+	movq	%rbp, %rdi
+	call	smp_ap_startup
+	popq	%rdi
+
+	/* %rdi is still the lapic ID here */
+	call	mp_ap_startup
 
 .align 32
 

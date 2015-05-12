@@ -251,6 +251,49 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 	kprintf(">>> *kernel_pagedir = %p\n", *kernel_pagedir);
 }
 
+static void
+setup_cpu(addr_t gdt, addr_t pcpu)
+{
+	MAKE_RREGISTER(idtr, idt, (IDT_NUM_ENTRIES * 16) - 1);
+	__asm __volatile(
+		"lidt (%%rax)\n"
+	: : "a" (&idtr));
+
+	MAKE_RREGISTER(gdtr, gdt, GDT_LENGTH - 1);
+	/* Load the GDT, and reload our registers */
+	__asm(
+		"lgdt (%%rax)\n"
+		"mov %%bx, %%ds\n"
+		"mov %%bx, %%es\n"
+		"mov %%bx, %%fs\n"
+		"mov %%bx, %%gs\n"
+		"mov %%bx, %%ss\n"
+		/* Jump to our new %cs */
+		"pushq	%%rcx\n"
+		"pushq	$1f\n"
+		"lretq\n"
+"1:\n"
+	: : "a" (&gdtr),
+	    "b" (GDT_SEL_KERNEL_DATA),
+	    "c" (GDT_SEL_KERNEL_CODE));
+
+	__asm("ltr %%ax\n" : : "a" (GDT_SEL_TASK));
+
+	wrmsr(MSR_FS_BASE, 0);
+	wrmsr(MSR_GS_BASE, 0);
+	wrmsr(MSR_GS_BASE, pcpu);
+	wrmsr(MSR_KERNEL_GS_BASE, pcpu);
+
+	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | MSR_EFER_SCE);
+	wrmsr(MSR_STAR, ((uint64_t)(GDT_SEL_USER_CODE - 0x10) | SEG_DPL_USER) << 48L |
+                  ((uint64_t)GDT_SEL_KERNEL_CODE << 32L));
+extern void* syscall_handler;
+	wrmsr(MSR_LSTAR, (addr_t)&syscall_handler);
+	wrmsr(MSR_SFMASK, 0x200 /* IF */);
+
+	write_cr4(read_cr4() | 0x600); /* OSFXSR | OSXMMEXCPT */
+}
+
 #ifdef OPTION_SMP
 static struct PAGE* smp_ap_pages;
 addr_t smp_ap_pagedir;
@@ -286,6 +329,12 @@ smp_destroy_ap_pagetable()
 		page_free(smp_ap_pages);
 	smp_ap_pages = NULL;
 	smp_ap_pagedir = 0;
+}
+
+void
+smp_ap_startup(struct X86_CPU* cpu)
+{
+	setup_cpu((addr_t)cpu->gdt, (addr_t)cpu->pcpu);
 }
 #endif
 
@@ -393,6 +442,12 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	IDT_SET_ENTRY(45, SEG_IGATE_TYPE, 0, irq13);
 	IDT_SET_ENTRY(46, SEG_IGATE_TYPE, 0, irq14);
 	IDT_SET_ENTRY(47, SEG_IGATE_TYPE, 0, irq15);
+
+#ifdef OPTION_SMP
+	IDT_SET_ENTRY(SMP_IPI_SCHEDULE, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, ipi_schedule);
+	IDT_SET_ENTRY(SMP_IPI_PANIC,    SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, ipi_panic);
+	IDT_SET_ENTRY(0xff,             SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, irq_spurious);
+#endif
 
 	/* Load the IDT */
 	MAKE_RREGISTER(idtr, idt, (IDT_NUM_ENTRIES * 16) - 1);

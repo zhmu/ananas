@@ -11,6 +11,9 @@ struct X86_CPU {
 	/* NOTE: order is important - refer to mp_stub.S */
 	int		lapic_id;	/* Local APIC ID */
 	char*		stack;		/* CPU stack */
+#ifdef __amd64__
+	void*		pcpu;		/* PCPU pointer */
+#endif
 	char*		gdt;		/* Global Descriptor Table */
 	char*		tss;		/* Task State Segment */
 };
