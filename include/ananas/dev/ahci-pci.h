@@ -4,6 +4,7 @@
 #include <ananas/types.h>
 #include <ananas/dma.h>
 #include <ananas/dev/sata.h>
+#include <ananas/dev/ahci.h>
 
 #define AHCI_REG_CAP	0x00			/* HBA capabilities */
 #define  AHCI_CAP_S64A		(1 << 31)
@@ -310,8 +311,12 @@ struct AHCI_PCI_PRIVDATA {
 #define AHCI_READ_4(reg) \
 	(*(volatile uint32_t*)(privdata->ap_addr + (reg)))
 
+#if AHCI_DEBUG
 #define DUMP_PORT_STATE(n) \
 		kprintf("[%d] port #%d -> tfd %x ssts %x serr %x\n", __LINE__, n, AHCI_READ_4(AHCI_REG_PxTFD(n)), AHCI_READ_4(AHCI_REG_PxSSTS(n)), \
 		 AHCI_READ_4(AHCI_REG_PxSERR(n)))
+#else
+#define DUMP_PORT_STATE(n)
+#endif
 
 #endif /* __ANANAS_AHCIPCI_H__ */

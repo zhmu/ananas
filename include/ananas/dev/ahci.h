@@ -4,11 +4,13 @@
 #include <ananas/types.h>
 #include <ananas/device.h>
 
-#if 0
-#define AHCI_DEBUG(fmt, ...) \
+#define AHCI_DEBUG 0
+
+#if AHCI_DEBUG
+#define AHCI_DPRINTF(fmt, ...) \
 	device_printf(dev, fmt, __VA_ARGS__)
 #else
-#define AHCI_DEBUG(...) (void)0
+#define AHCI_DPRINTF(...) (void)0
 #endif
 
 struct AHCI_PRIVDATA {

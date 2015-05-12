@@ -25,10 +25,6 @@ TRACE_SETUP;
 #define AHCI_READ_4(reg) \
 	(*(volatile uint32_t*)(privdata->ap_addr + (reg)))
 
-#define DUMP_PORT_STATE(n) \
-		kprintf("[%d] port #%d -> tfd %x ssts %x serr %x\n", __LINE__, n, AHCI_READ_4(AHCI_REG_PxTFD(n)), AHCI_READ_4(AHCI_REG_PxSSTS(n)), \
-		 AHCI_READ_4(AHCI_REG_PxSERR(n)))
-
 extern struct DRIVER drv_ahcipci_port;
 
 extern void ahcipci_port_irq(device_t dev, struct AHCI_PCI_PORT* p, uint32_t pis);
@@ -40,7 +36,7 @@ ahcipci_irq(device_t dev, void* context)
 	struct AHCI_PCI_PRIVDATA* privdata = pd->ahci_dev_privdata;
 
 	uint32_t is = AHCI_READ_4(AHCI_REG_IS);
-	device_printf(dev, "irq: is=%x", is);
+	AHCI_DPRINTF("irq: is=%x", is);
 
 	for (unsigned int n = 0; n < 32; n++) {
 		if ((is & AHCI_IS_IPS(n)) == 0)
@@ -55,10 +51,10 @@ ahcipci_irq(device_t dev, void* context)
 			}
 
 		uint32_t pis = AHCI_READ_4(AHCI_REG_PxIS(n));
-		if (p != NULL) {
+		if (p != NULL && p->p_dev != NULL) {
 			ahcipci_port_irq(p->p_dev, p, pis);
 		} else {
-			device_printf(dev, "got IRQ for unsupported port %d", n);
+			AHCI_DPRINTF("got IRQ for unsupported port %d", n);
 		}
 
 		/* Acknowledge everything on this port */
@@ -73,6 +69,8 @@ static errorcode_t
 ahcipci_probe(device_t dev)
 {
 	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PCI_CLASSREV, 0);
+	if (res == NULL)
+		return ANANAS_ERROR(NO_DEVICE);
 	uint32_t classrev = res->base;
 
 	/* Anything AHCI will do */
@@ -109,7 +107,7 @@ ahcipci_reset_port(device_t dev, struct AHCI_PCI_PORT* p)
 	delay(100);
 
 	/* Wait until the port shows some life */
-	int port_delay = 1000;
+	int port_delay = 100;
 	while(port_delay > 0) {
 		int detd = AHCI_PxSSTS_DETD(AHCI_READ_4(AHCI_REG_PxSSTS(n)));
 		if (detd == AHCI_DETD_DEV_NO_PHY || detd == AHCI_DETD_DEV_PHY)
@@ -210,7 +208,7 @@ ahcipci_attach(device_t dev)
 	for (unsigned int n = 0; n < 32; n++)
 		if ((pi & AHCI_PI_PI(n)) != 0)
 			num_ports++;
-	AHCI_DEBUG("pi=%x -> #ports=%d", pi, num_ports);
+	AHCI_DPRINTF("pi=%x -> #ports=%d", pi, num_ports);
 
 	/* We can grab memory now */
 	struct AHCI_PCI_PRIVDATA* privdata = kmalloc(sizeof(struct AHCI_PCI_PRIVDATA) + sizeof(struct AHCI_PCI_PORT) * num_ports);
@@ -232,7 +230,7 @@ ahcipci_attach(device_t dev)
 	pd->ahci_dev_privdata = privdata;
 	dev->privdata = pd;
 
-	err = irq_register((int)res_irq, dev, ahcipci_irq, privdata);
+	err = irq_register((int)(uintptr_t)res_irq, dev, ahcipci_irq, privdata);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Force all ports into idle mode */
@@ -297,6 +295,7 @@ ahcipci_attach(device_t dev)
 		uint64_t addr_rfis = dma_buf_get_segment(p->p_dmabuf_rfis, 0)->s_phys;
 		AHCI_WRITE_4(AHCI_REG_PxFB(n), addr_rfis & 0xffffffff);
 		AHCI_WRITE_4(AHCI_REG_PxFBU(n), addr_rfis >> 32);
+		AHCI_DPRINTF("## port %d command list at %p rfis at %p",  n, addr_cl, addr_rfis);
 
 		/* Activate the channel */
 		AHCI_WRITE_4(AHCI_REG_PxCMD(n),
@@ -345,9 +344,9 @@ ahcipci_attach(device_t dev)
 		 */
 		device_t port_dev = device_alloc(dev, &drv_ahcipci_port);
 		port_dev->privdata = p;
+		p->p_dev = port_dev;
 		device_add_resource(port_dev, RESTYPE_CHILDNUM, n, 0);
 		device_attach_single(port_dev); /* XXX check error */
-		p->p_dev = port_dev;
 	}
 
 	return ANANAS_ERROR_NONE;
