@@ -150,7 +150,7 @@ calculate_num_pages_required(size_t mem_size, unsigned int* num_pages_needed, un
 }
 
 static void
-setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
+setup_paging(addr_t* avail, addr_t mem_end, size_t kernel_size)
 {
 #define KMAP_KVA_START KMEM_DIRECT_VA_START
 #define KMAP_KVA_END KMEM_DYNAMIC_VA_END
@@ -166,14 +166,14 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 	 *   from NX.
 	 */
 	uint64_t kmap_kva_end = KMAP_KVA_END;
-	if (kmap_kva_end - KMAP_KVA_START >= mem_size) {
+	if (kmap_kva_end - KMAP_KVA_START >= mem_end) {
 		/* Tone down KVA as we have less memory */
-		kmap_kva_end = KMAP_KVA_START + mem_size;
+		kmap_kva_end = KMAP_KVA_START + mem_end;
 	}
 
 	// XXX Ensure we'll have at least 4GB KVA; this is needed in order to map PCI
 	// devices (we should actually just add specific mappings for this place instead)
-	if (mem_size < 4UL * 1024 * 1024 * 1024)
+	if (mem_end < 4UL * 1024 * 1024 * 1024)
 		kmap_kva_end = KMAP_KVA_START + 4UL * 1024 * 1024 * 1024;
 
 	uint64_t kva_size = kmap_kva_end - KMAP_KVA_START;
@@ -494,7 +494,7 @@ extern void* bootstrap_stack;
 	/* Now build the memory chunk list */
 	int phys_idx = 0;
 
-	size_t mem_size = 0;
+	addr_t mem_end = 0;
 	struct SMAP_ENTRY* smap_entry = (void*)(uintptr_t)bootinfo->bi_memory_map_addr;
 	for (int i = 0; i < bootinfo->bi_memory_map_size / sizeof(struct SMAP_ENTRY); i++, smap_entry++) {
 		if (smap_entry->type != SMAP_TYPE_MEMORY)
@@ -517,7 +517,8 @@ extern void* bootstrap_stack;
 			// XXX We should check to make sure we don't go beyond phys_... here
 			phys[phys_idx].addr = start[n];
 			phys[phys_idx].len = end[n] - start[n];
-			mem_size += phys[phys_idx].len;
+			if (mem_end < end[n])
+				mem_end = end[n];
 			phys_idx++;
 		}
 #undef MAX_SLICES
@@ -525,15 +526,19 @@ extern void* bootstrap_stack;
 	KASSERT(phys_idx > 0, "no physical memory chunks");
 
 	/* Dump the physical memory layout as far as we know it */
-	kprintf("physical memory dump: %d chunk(s), %d MB\n", phys_idx, mem_size / (1024 * 1024));
+	unsigned int mem_size = 0;
+	kprintf("physical memory dump: %d chunk(s)\n", phys_idx);
 	for (int n = 0; n < phys_idx; n++) {
 		struct PHYSMEM_CHUNK* p = &phys[n];
 		kprintf("  chunk %d: %016p-%016p (%u KB)\n",
 		 n, p->addr, p->addr + p->len - 1,
 		 p->len / 1024);
+		mem_size += p->len / 1024;
 	}
+	kprintf("total physical memory present: %d MB\n", mem_size / 1024);
+
 	uint64_t prev_avail = avail;
-	setup_paging(&avail, mem_size, kernel_to - kernel_from);
+	setup_paging(&avail, mem_end, kernel_to - kernel_from);
 
 	/*
 	 * Now add the physical chunks of memory. Note that phys[] isn't up-to-date
