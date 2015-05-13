@@ -251,6 +251,7 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 	kprintf(">>> *kernel_pagedir = %p\n", *kernel_pagedir);
 }
 
+#ifdef OPTION_SMP
 static void
 setup_cpu(addr_t gdt, addr_t pcpu)
 {
@@ -294,7 +295,6 @@ extern void* syscall_handler;
 	write_cr4(read_cr4() | 0x600); /* OSFXSR | OSXMMEXCPT */
 }
 
-#ifdef OPTION_SMP
 static struct PAGE* smp_ap_pages;
 addr_t smp_ap_pagedir;
 
