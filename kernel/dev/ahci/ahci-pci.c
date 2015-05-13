@@ -51,14 +51,12 @@ ahcipci_irq(device_t dev, void* context)
 			}
 
 		uint32_t pis = AHCI_READ_4(AHCI_REG_PxIS(n));
+		AHCI_WRITE_4(AHCI_REG_PxIS(n), pis);
 		if (p != NULL && p->p_dev != NULL) {
 			ahcipci_port_irq(p->p_dev, p, pis);
 		} else {
 			AHCI_DPRINTF("got IRQ for unsupported port %d", n);
 		}
-
-		/* Acknowledge everything on this port */
-		AHCI_WRITE_4(AHCI_REG_PxIS(n), pis);
 	}
 	AHCI_WRITE_4(AHCI_REG_IS, is);
 
