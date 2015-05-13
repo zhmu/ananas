@@ -42,7 +42,7 @@ void
 ioapic_register(struct X86_IOAPIC* ioapic, int base)
 {
 	/* Fetch IOAPIC version register; this contains the number of interrupts supported */
-	uint32_t num_ints = ((ioapic_read(ioapic, IOAPICVER) >> 16) & 0xff) + 1;
+	uint32_t num_ints = ((ioapic_read(ioapic, IOAPICVER) >> 16) & 0xff)
 
 	/* Fill out the remaining structure members */
 	ioapic->ioa_source.is_first = base;
