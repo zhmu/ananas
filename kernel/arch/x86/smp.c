@@ -159,6 +159,17 @@ extern void* gdt; /* XXX */
 }
 
 /*
+ * Prepares SMP-specific memory allocations; this is separate to ensure we'll
+ * have enough lower memory.
+ */
+void
+smp_prepare()
+{
+	ap_page = page_alloc_single();
+	KASSERT(page_get_paddr(ap_page) < 0x100000, "ap code must be below 1MB"); /* XXX crude */
+}
+
+/*
  * Called on the Boot Strap Processor, in order to prepare the system for
  * multiprocessing.
  */
@@ -168,17 +179,13 @@ smp_init()
 	/*
 	 * The AP's start in real mode, so we need to provide them with a stub so
 	 * they can run in protected mode. This stub must be located in the lower
-	 * 1MB.
+	 * 1MB (which is why it is allocated as soon as possible in smp_prepare())
 	 *
-	 * Note that the low memory mappings will not be removed in the SMP case, so
-	 * that the AP's can correctly switch to protected mode and enable paging.
-	 * Once this is all done, the mapping can safely be removed.
-	 *
-	 * XXX We do this before allocating anything else to increase the odds of the
-	 *     AP code remaining in the lower 1MB. This needs a better solution.
+	 * i386: Note that the low memory mappings will not be removed in the SMP
+	 *       case, so that the AP's can correctly switch to protected mode and
+	 *       enable paging.  Once this is all done, the mapping can safely be removed.
 	 */
-	ap_page = page_alloc_single();
-	KASSERT(page_get_paddr(ap_page) < 0x100000, "ap code must be below 1MB"); /* XXX crude */
+	KASSERT(ap_page != NULL, "smp_prepare() not called");
 	void* ap_code = kmem_map(page_get_paddr(ap_page), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 	memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
 	kmem_unmap(ap_code, PAGE_SIZE);

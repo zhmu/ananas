@@ -422,6 +422,16 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 			if (start[n] == end[n])
 				continue;
 			page_zone_add(start[n], end[n] - start[n]);
+
+#ifdef OPTION_SMP
+		/*
+		 * In the SMP case, ensure we'll prepare allocating memory for the SMP structures
+		 * right after we have memory to do so - we can't bootstrap from memory >1MB
+		 * and this is a handy, though crude way to avoid it.
+		 */
+		if (n == 0)
+			smp_prepare();
+#endif
 		}
 #undef MAX_SLICES
 	}

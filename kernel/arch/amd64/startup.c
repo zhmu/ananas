@@ -553,6 +553,16 @@ extern void* bootstrap_stack;
 			p->len -= avail - prev_avail;
 		}
 		page_zone_add(p->addr, p->len);
+
+#ifdef OPTION_SMP
+		/*
+		 * In the SMP case, ensure we'll prepare allocating memory for the SMP structures
+		 * right after we have memory to do so - we can't bootstrap from memory >1MB
+		 * and this is a handy, though crude way to avoid it.
+		 */
+		if (n == 0)
+			smp_prepare();
+#endif
 	}
 
 	/* We have memory - initialize our VM */

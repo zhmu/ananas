@@ -46,6 +46,7 @@ struct X86_SMP_CONFIG {
 errorcode_t smp_init();
 uint32_t get_num_cpus();
 
+void smp_prepare();
 void smp_prepare_config(struct X86_SMP_CONFIG* cfg);
 void smp_panic_others();
 void smp_broadcast_schedule();
