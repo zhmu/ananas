@@ -189,6 +189,8 @@ smp_init()
 		page_free(ap_page);
 #ifdef __i386__
 		md_remove_low_mappings();
+#elif defined(__amd64__)
+		smp_destroy_ap_pagetable();
 #endif
 		return ANANAS_ERROR(NO_DEVICE);
 	}
