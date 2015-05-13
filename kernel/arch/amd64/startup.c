@@ -233,9 +233,6 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 	map_kernel_pages(0, KMEM_DYNAMIC_VA_START, dyn_kva_size_in_pages, &dyn_kva_avail_ptr, dynkva_get_flags, NULL);
 	KASSERT(dyn_kva_avail_ptr == (addr_t)dyn_kva_pages + dyn_kva_pages_needed * PAGE_SIZE, "not all dynamic KVA pages used (used %d, expected %d)", (dyn_kva_avail_ptr - dyn_kva_pages) / PAGE_SIZE, dyn_kva_pages_needed);
 
-	/* Enable global pages */
-	write_cr4(read_cr4() | 0x80); /* PGE */
-
 	/* Activate our new page tables */
 	kprintf(">>> activating kernel_pagedir = %p\n", kernel_pagedir);
 	__asm(
@@ -303,6 +300,9 @@ setup_cpu(addr_t gdt, addr_t pcpu)
 extern void* syscall_handler;
 	wrmsr(MSR_LSTAR, (addr_t)&syscall_handler);
 	wrmsr(MSR_SFMASK, 0x200 /* IF */);
+
+	/* Enable global pages */
+	write_cr4(read_cr4() | 0x80); /* PGE */
 
 	/* Enable FPU use; the kernel will save/restore it as needed */
 	write_cr4(read_cr4() | 0x600); /* OSFXSR | OSXMMEXCPT */

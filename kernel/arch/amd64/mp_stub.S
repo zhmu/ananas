@@ -11,16 +11,11 @@
 /* Control Register flags */
 #define CR0_PGE	(1 << 31)
 #define	CR4_PAE	(1 << 5)
-#define	CR4_PGE	(1 << 7)
 
 /* Extended Feature Register and flags */
 #define	MSR_EFER	 0xc0000080
 #define	EFER_SCE	(1 << 0)
 #define	EFER_LME	(1 << 8)
-
-#define MSR_FS_BASE		0xc0000100
-#define MSR_GS_BASE		0xc0000101
-#define MSR_KERNEL_GS_BASE	0xc0000102
 
 .code16
 .align 16
@@ -109,11 +104,6 @@ mp_stub64:
 	jmp	*%rax
 
 1:
-	/* Enable global pages */
-	movq	%cr4, %rax
-	orq	$CR4_PAE, %rax
-	movq	%rax, %cr4
-
 	/*
 	 * Activate the real kernel pagetables - we need to throw the top 32
 	 * bits away as they are relocated as well.
