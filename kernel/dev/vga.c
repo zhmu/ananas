@@ -262,6 +262,7 @@ vga_attach(device_t dev)
 	vga_privdata->vga_buffer    = kmalloc(VGA_HEIGHT * VGA_WIDTH * sizeof(struct pixel));
 	vga_privdata->vga_attr      = 0xf;
 	dev->privdata = vga_privdata;
+	memset(vga_privdata->vga_buffer, 0, VGA_HEIGHT * VGA_WIDTH * sizeof(struct pixel));
 
 	/* Clear the display; we must set the attribute everywhere for the cursor XXX little endian */
 	uint16_t* ptr = vga_privdata->vga_video_mem;
