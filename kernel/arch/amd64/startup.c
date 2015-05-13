@@ -251,40 +251,52 @@ setup_paging(addr_t* avail, size_t mem_size, size_t kernel_size)
 	kprintf(">>> *kernel_pagedir = %p\n", *kernel_pagedir);
 }
 
-#ifdef OPTION_SMP
 static void
 setup_cpu(addr_t gdt, addr_t pcpu)
 {
+	/* Load IDT */
 	MAKE_RREGISTER(idtr, idt, (IDT_NUM_ENTRIES * 16) - 1);
 	__asm __volatile(
 		"lidt (%%rax)\n"
 	: : "a" (&idtr));
 
+	/* Load GDT and re-load all segment register */
 	MAKE_RREGISTER(gdtr, gdt, GDT_LENGTH - 1);
-	/* Load the GDT, and reload our registers */
 	__asm(
 		"lgdt (%%rax)\n"
-		"mov %%bx, %%ds\n"
-		"mov %%bx, %%es\n"
-		"mov %%bx, %%fs\n"
-		"mov %%bx, %%gs\n"
-		"mov %%bx, %%ss\n"
+		"mov %%cx, %%ds\n"
+		"mov %%cx, %%es\n"
+		"mov %%cx, %%fs\n"
+		"mov %%cx, %%gs\n"
+		"mov %%cx, %%ss\n"
 		/* Jump to our new %cs */
-		"pushq	%%rcx\n"
+		"pushq	%%rbx\n"
 		"pushq	$1f\n"
 		"lretq\n"
 "1:\n"
+		/* Load our task register */
+		"ltr	%%dx\n"
 	: : "a" (&gdtr),
-	    "b" (GDT_SEL_KERNEL_DATA),
-	    "c" (GDT_SEL_KERNEL_CODE));
+	    "b" (GDT_SEL_KERNEL_CODE),
+	    "c" (GDT_SEL_KERNEL_DATA),
+	    "d" (GDT_SEL_TASK));
 
-	__asm("ltr %%ax\n" : : "a" (GDT_SEL_TASK));
-
+	/* Set up the userland %fs/%gs base adress to zero (it should be, but don't take chances) */
 	wrmsr(MSR_FS_BASE, 0);
 	wrmsr(MSR_GS_BASE, 0);
-	wrmsr(MSR_GS_BASE, pcpu);
+
+	/*
+	 * Set up the kernel / current %gs base; this points to our per-cpu data; the
+	 * current %gs base must be set because the interrupt code will not swap it
+	 * if we came from kernel context.
+	 */
+	wrmsr(MSR_GS_BASE, pcpu); /* XXX why do we need this? */
 	wrmsr(MSR_KERNEL_GS_BASE, pcpu);
 
+	/*
+	 * Set up the fast system call (SYSCALL/SYSEXIT) mechanism; this is our way
+	 * of doing system calls.
+	 */
 	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | MSR_EFER_SCE);
 	wrmsr(MSR_STAR, ((uint64_t)(GDT_SEL_USER_CODE - 0x10) | SEG_DPL_USER) << 48L |
                   ((uint64_t)GDT_SEL_KERNEL_CODE << 32L));
@@ -292,9 +304,20 @@ extern void* syscall_handler;
 	wrmsr(MSR_LSTAR, (addr_t)&syscall_handler);
 	wrmsr(MSR_SFMASK, 0x200 /* IF */);
 
+	/* Enable FPU use; the kernel will save/restore it as needed */
 	write_cr4(read_cr4() | 0x600); /* OSFXSR | OSXMMEXCPT */
+
+#if 0
+	/* Enable the write-protect bit; this ensures kernel-code can't write to readonly pages */
+	__asm(
+		"movq	%cr0, %rax\n"
+		"orq	$(1 << 16), %rax\n"	/* WP */
+		"movq	%rax, %cr0\n"
+	);
+#endif
 }
 
+#ifdef OPTION_SMP
 static struct PAGE* smp_ap_pages;
 addr_t smp_ap_pagedir;
 
@@ -364,9 +387,8 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 		panic("going nowhere without my bootinfo");
 
 	/*
-	 * Initialize a new Global Descriptor Table; the trampoline adds a lot of
-	 * now-useless fields which we can do without, and we'll need things like a
-	 * TSS.
+	 * Initialize a new Global Descriptor Table; we shouldn't trust what the
+	 * loader gives us and we'll need things like a TSS.
 	 */
 	memset(gdt, 0, sizeof(gdt));
 	GDT_SET_CODE64(gdt, GDT_SEL_KERNEL_CODE, SEG_DPL_SUPERVISOR);
@@ -374,27 +396,6 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	GDT_SET_CODE64(gdt, GDT_SEL_USER_CODE, SEG_DPL_USER);
 	GDT_SET_DATA64(gdt, GDT_SEL_USER_DATA, SEG_DPL_USER);
 	GDT_SET_TSS64 (gdt, GDT_SEL_TASK, 0, (addr_t)&kernel_tss, sizeof(struct TSS));
-	MAKE_RREGISTER(gdtr, gdt, GDT_LENGTH - 1);
-
-	/* Load the GDT, and reload our registers */
-	__asm(
-		"lgdt (%%rax)\n"
-		"mov %%bx, %%ds\n"
-		"mov %%bx, %%es\n"
-		"mov %%bx, %%fs\n"
-		"mov %%bx, %%gs\n"
-		"mov %%bx, %%ss\n"
-		/* Jump to our new %cs */
-		"pushq	%%rcx\n"
-		"pushq	$1f\n"
-		"lretq\n"
-"1:\n"
-	: : "a" (&gdtr),
- 	    "b" (GDT_SEL_KERNEL_DATA),
-	    "c" (GDT_SEL_KERNEL_CODE));
-
-	/* Ask the PIC to mask everything; we'll initialize when we are ready */
-	x86_pic_mask_all();
 
 	/*
 	 * Construct the IDT; this ensures we can handle exceptions, which is useful
@@ -449,51 +450,21 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	IDT_SET_ENTRY(0xff,             SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, irq_spurious);
 #endif
 
-	/* Load the IDT */
-	MAKE_RREGISTER(idtr, idt, (IDT_NUM_ENTRIES * 16) - 1);
-	__asm(
-		"lidt (%%rax)\n"
-	: : "a" (&idtr));
-
-	/* Set up the userland %fs/%gs base adress to zero (it should be, but don't take chances) */
-	wrmsr(MSR_FS_BASE, 0);
-	wrmsr(MSR_GS_BASE, 0);
+	/* Ask the PIC to mask everything; we'll initialize when we are ready */
+	x86_pic_mask_all();
 
 	/*
-	 * Set up the kernel / current %gs base; this points to our per-cpu data; the
-	 * current %gs base must be set because the interrupt code will not swap it
-	 * if we came from kernel context.
-	 */
-	wrmsr(MSR_GS_BASE, (addr_t)&bsp_pcpu); // XXX Fixen crasht zonder dit
-	wrmsr(MSR_KERNEL_GS_BASE, (addr_t)&bsp_pcpu);
-	
-	/*
-	 * Load the kernel TSS; this is still needed to switch stacks between
-	 * ring 0 and 3 code.
+	 * Initialize the kernel TSS; we just need so set up separate stacks here.
 	 */
 	memset(&kernel_tss, 0, sizeof(struct TSS));
 extern void* bootstrap_stack;
 	kernel_tss.ist1 = (addr_t)&bootstrap_stack;
-	__asm("ltr %%ax\n" : : "a" (GDT_SEL_TASK));
 
 	/*
-	 * Set up the fast system call (SYSCALL/SYSEXIT) mechanism.
+	 * Wire the CPU for operation; this actually sets up more things than we can
+	 * handle at the moment, but we'll cope with this soon.
 	 */
-	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | MSR_EFER_SCE);
-	wrmsr(MSR_STAR, ((uint64_t)(GDT_SEL_USER_CODE - 0x10) | SEG_DPL_USER) << 48L |
-                  ((uint64_t)GDT_SEL_KERNEL_CODE << 32L));
-extern void* syscall_handler;
-	wrmsr(MSR_LSTAR, (addr_t)&syscall_handler);
-	wrmsr(MSR_SFMASK, 0x200 /* IF */);
-
-#if 0
-	/* Enable the write-protect bit; this ensures kernel-code can't write to readonly pages */
-	__asm(
-		"movq	%cr0, %rax\n"
-		"orq	$(1 << 16), %rax\n"	/* WP */
-		"movq	%rax, %cr0\n"
-	);
-#endif
+	setup_cpu((addr_t)&gdt, (addr_t)&bsp_pcpu);
 
 	/*
 	 * Determine how much memory we have; we need this in order to pre-allocate
@@ -581,9 +552,6 @@ extern void* syscall_handler;
 
 	/* We have memory - initialize our VM */
 	vm_init();
-
-	/* Enable fast system calls */
-	write_cr4(read_cr4() | 0x600); /* OSFXSR | OSXMMEXCPT */
 
 	/* Enable the memory code - handle_init() calls kmalloc() */
 	mm_init();
