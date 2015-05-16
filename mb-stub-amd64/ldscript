@@ -1,0 +1,22 @@
+OUTPUT_ARCH(i386)
+OUTPUT_FORMAT("binary")
+ENTRY(__start)
+SECTIONS {
+	/*
+	 * We place ourselves at the 16MB mark so that we can
+	 * move the kernel without relocating ourselves.
+	 */
+	.text 0x1000000 : { 
+		text = .;
+		*(.text)
+		*(.rodata)
+		*(.data)
+		*(.bss)
+		*(COMMON)
+	}
+	__end = . ;
+
+	/DISCARD/ : {
+		*(.eh_frame)
+	}
+}
