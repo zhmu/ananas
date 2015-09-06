@@ -42,8 +42,10 @@ usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, i
 	/* Now schedule the transfer and until it's completed XXX Timeout */
 	usb_schedule_transfer(xfer);
 	sem_wait(&xfer->xfer_semaphore);
-	if (xfer->xfer_flags & TRANSFER_FLAG_ERROR)
-		return ANANAS_ERROR(IO); /* XXX free xfer */
+	if (xfer->xfer_flags & TRANSFER_FLAG_ERROR) {
+		usb_free_transfer(xfer);
+		return ANANAS_ERROR(IO);
+	}
 
 	if (buf != NULL && len != NULL) {
 		/* XXX Ensure we don't return more than the user wants to know */
@@ -51,7 +53,8 @@ usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, i
 			*len = xfer->xfer_result_length;
 		memcpy(buf, xfer->xfer_data, *len);
 	}
-	/* XXX free xfer */
+
+	usb_free_transfer(xfer);
 	return ANANAS_ERROR_OK;
 }
 
