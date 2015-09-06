@@ -125,7 +125,17 @@ usb_thread(void* arg)
 			/* And handle it */
 			if (xfer->xfer_callback)
 				xfer->xfer_callback(xfer);
-			usb_free_transfer(xfer);
+
+			/* We needn't free interrupt transfers - they are cancelled by the requestor as needed */
+			if (xfer->xfer_type == TRANSFER_TYPE_INTERRUPT) {
+				/* Re-schedule the interrupt transfer */
+				if (usb_schedule_transfer(xfer) != ANANAS_ERROR_OK) {
+					device_printf(xfer->xfer_device->usb_hub, "XXX unable to reschedule, cancelling interrupt transfer!");
+					usb_free_transfer(xfer);
+				}
+			} else {
+				usb_free_transfer(xfer);
+			}
 		}
 	}
 }
