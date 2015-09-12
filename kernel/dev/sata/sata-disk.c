@@ -47,21 +47,16 @@ satadisk_attach(device_t dev)
 	/* Wait until the request has been completed */
 	sem_wait(&sem);
 
-	/* Allocate our private data */
-	struct SATADISK_PRIVDATA* priv = kmalloc(sizeof(struct SATADISK_PRIVDATA));
-	dev->privdata = priv;
-	priv->unit = unit;
-
 	/* Calculate the length of the disk */
-	priv->size = ATA_GET_DWORD(identify->lba_sectors);
-	if (ATA_GET_WORD(identify->features2) & ATA_FEAT2_LBA48) {
-		priv->size  = ATA_GET_QWORD(identify->lba48_sectors);
-		priv->flags |= SATADISK_FLAGS_LBA48;
+	priv->sd_size = ATA_GET_DWORD(priv->sd_identify.lba_sectors);
+	if (ATA_GET_WORD(priv->sd_identify.features2) & ATA_FEAT2_LBA48) {
+		priv->sd_size  = ATA_GET_QWORD(priv->sd_identify.lba48_sectors);
+		priv->sd_flags |= SATADISK_FLAGS_LBA48;
 	}
 
 	device_printf(dev, "<%s> - %u MB",
-	 identify->model,
- 	 priv->size / ((1024UL * 1024UL) / 512UL));
+	 priv->sd_identify.model,
+ 	 priv->sd_size / ((1024UL * 1024UL) / 512UL));
 
 	/*
 	 * Read the first sector and pass it to the MBR code; this is crude
@@ -88,7 +83,6 @@ satadisk_bread(device_t dev, struct BIO* bio)
 	struct SATA_REQUEST sr;
 	memset(&sr, 0, sizeof(sr));
 	/* XXX  we shouldn't always use lba-48 */
-	kprintf("satadisk_bread(): lba=%d len=%d, biodata %p or %p\n", (uint32_t)bio->io_block, (uint32_t)bio->length, BIO_DATA(bio), bio->data);
 	sata_fis_h2d_make_cmd_lba48(&sr.sr_fis.fis_h2d, ATA_CMD_DMA_READ_EXT, bio->io_block, bio->length / BIO_SECTOR_SIZE);
 	sr.sr_fis_length = 20;
 	sr.sr_count = bio->length;
