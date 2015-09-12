@@ -31,9 +31,12 @@ usb_attach_driver(struct USB_DEVICE* usb_dev)
 static void
 usb_hub_attach_done(device_t usb_hub)
 {
+	/* XXX This no longer works; need to clean up the hub <-> hcd <-> device mess */
+#if 0
 	struct USB_TRANSFER xfer_hub_ack;
 	xfer_hub_ack.xfer_type = TRANSFER_TYPE_HUB_ATTACH_DONE;
-	usb_hub->driver->drv_roothub_xfer(usb_hub, &xfer_hub_ack);
+	usb_hub->parent->driver->drv_usb_xfer(usb_hub, &xfer_hub_ack);
+#endif
 }
 
 static errorcode_t

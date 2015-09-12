@@ -38,6 +38,25 @@ struct USB_CONTROL_REQUEST {
 #define USB_REQUEST_MAKE(type, req) \
 	(((type) << 8) | (req))
 
+/* Standard requests */
+#define USB_REQUEST_STANDARD_GET_DESCRIPTOR \
+	USB_REQUEST_MAKE( \
+		USB_CONTROL_REQ_DEV2HOST | USB_CONTROL_REQ_TYPE(USB_CONTROL_TYPE_STANDARD) | USB_CONTROL_REQ_RECIPIENT(USB_CONTROL_RECIPIENT_DEVICE), \
+		USB_CONTROL_REQUEST_GET_DESC \
+	)
+
+#define USB_REQUEST_STANDARD_SET_ADDRESS \
+	USB_REQUEST_MAKE( \
+		USB_CONTROL_REQ_TYPE(USB_CONTROL_TYPE_STANDARD) | USB_CONTROL_REQ_RECIPIENT(USB_CONTROL_RECIPIENT_DEVICE), \
+		USB_CONTROL_REQUEST_SET_ADDRESS \
+	)
+
+#define USB_REQUEST_STANDARD_SET_CONFIGURATION \
+	USB_REQUEST_MAKE( \
+		USB_CONTROL_REQ_TYPE(USB_CONTROL_TYPE_STANDARD) | USB_CONTROL_REQ_RECIPIENT(USB_CONTROL_RECIPIENT_DEVICE), \
+		USB_CONTROL_REQUEST_SET_CONFIGURATION \
+	)
+
 /* Hub requests */
 #define USB_REQUEST_CLEAR_HUB_FEATURE \
 	USB_REQUEST_MAKE( \
@@ -244,8 +263,8 @@ struct USB_DESCR_HUB {
 #define USB_HD_FLAG_OC_NONE		(2 << 3)
 	uint8_t  hd_poweron2good;	/* Time from power-on to power-good */
 	uint8_t  hd_max_current;	/* Maximum current requirements */
-	uint8_t  hd_removable[(HUB_MAX_PORTS + 7) / 8];
-	uint8_t  hd_powerctrlmask[(HUB_MAX_PORTS + 7) / 8];
+	/* Removable mask, depending on number of ports */
+	uint8_t  hd_removable[((HUB_MAX_PORTS * 2) + 7) / 8];
 } __attribute__((packed));
 
 #endif /* __UHCI_DESCRIPTOR_H__ */

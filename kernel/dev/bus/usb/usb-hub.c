@@ -13,6 +13,8 @@
 #include <machine/param.h>
 #include "usb-hub.h"
 
+void* ohci_device_init_privdata(int flags); // XXX
+
 TRACE_SETUP;
 
 static usb_pipe_result_t
@@ -37,10 +39,8 @@ usbhub_int_callback(struct USB_PIPE* pipe)
 
 		/* This port was updated - fetch the port status */
 		hub_privdata->hub_port[n - 1].p_flags |= HUB_PORT_FLAG_UPDATED;
-		kprintf("woke up hub port %u\n", n - 1);
 	}
 
-	kprintf("%s:%u: waking up thread\n", __func__, __LINE__);
 	sem_signal(&hub_privdata->hub_semaphore);
 	return PIPE_OK;
 }
@@ -62,11 +62,15 @@ usbhub_workerthread(void* ptr)
 {
 	struct USB_DEVICE* usb_dev = ptr;
 	struct HUB_PRIVDATA* hub_privdata = usb_dev->usb_privdata;
+	device_t dev = usb_dev->usb_device;
 
 	while(1) {
 		sem_wait(&hub_privdata->hub_semaphore);
 
-		kprintf("%s:%u: woke up\n", __func__, __LINE__);
+		if (hub_privdata->hub_flags & HUB_FLAG_UPDATED) {
+			device_printf(dev, "hub updated, todo");
+			hub_privdata->hub_flags &= ~HUB_FLAG_UPDATED;
+		}
 
 		/* Handle all ports that need handling */
 		for (int n = 1; n <= hub_privdata->hub_numports; n++) {
@@ -74,15 +78,37 @@ usbhub_workerthread(void* ptr)
 			if ((port->p_flags & HUB_PORT_FLAG_UPDATED) == 0)
 				continue;
 
-		kprintf("%s:%u: port %u needs attention\n", __func__, __LINE__, n);
-
 			struct HUB_PORT_STATUS ps;
 			size_t len = sizeof(ps);
-			errorcode_t err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_PORT_POWER, n, &ps, &len, 0);
+			errorcode_t err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, 0);
 			if (err != ANANAS_ERROR_OK) {
-				kprintf("hub returned error\n");
+				device_printf(dev, "get_status error %d, ignoring port", err);
+				continue;
 			}
-			kprintf("port %u [%x,%x]\n", n, ps.ps_portstatus, ps.ps_portchange);
+
+			/* If the port wasn't connected yet now is, we have to attach a new device */
+			if ((port->p_flags & HUB_PORT_FLAG_CONNECTED) == 0 && (ps.ps_portstatus & USB_HUB_PS_PORT_CONNECTION)) {
+				/* Need to enable the port */
+				err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_SET_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_PORT_RESET, n, NULL, NULL, 1);
+				if (err != ANANAS_ERROR_OK) {
+					device_printf(dev, "get_status error %d, ignoring port", err);
+					continue;
+				}
+
+				/* Mark the port as attached */
+				port->p_flags |= HUB_PORT_FLAG_CONNECTED;
+
+				/* Hand it off to the USB framework */
+				int low_speed = (ps.ps_portstatus & USB_HUB_PS_PORT_LOW_SPEED) != 0;
+				void* dev_privdata = ohci_device_init_privdata(low_speed);
+				//hub_privdata->hub_flags |= HUB_FLAG_ATTACHING;
+				usb_attach_device(dev->parent, dev, dev_privdata);
+			}
+
+			/* If the port was connected but no longer is, we have to detach the old device */
+			if ((port->p_flags & HUB_PORT_FLAG_CONNECTED) && (ps.ps_portstatus & USB_HUB_PS_PORT_CONNECTION) == 0) {
+				device_printf(dev, "TODO detach port #%d", n);
+			}
 		}
 	}
 }
