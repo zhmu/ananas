@@ -1,13 +1,14 @@
-#include <sys/types.h>
-
 #ifndef __X86_SMAP_H__
 #define __X86_SMAP_H__
+
+#ifndef LOADER
+#include <sys/types.h>
+#endif
 
 #define SMAP_TYPE_MEMORY   0x01
 #define SMAP_TYPE_RESERVED 0x02
 #define SMAP_TYPE_RECLAIM  0x03
 #define SMAP_TYPE_NVS      0x04
-#define SMAP_TYPE_FINAL    0xFFFFFFFF /* added by the bootloader */
 
 struct SMAP_ENTRY {
 	uint32_t base_lo, base_hi;

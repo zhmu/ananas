@@ -186,7 +186,7 @@ elf32_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 		struct ELF_THREADMAP_PROGHEADER* ph = &privdata->elf_ph[privdata->elf_num_ph];
 		ph->ph_header = privdata;
 		ph->ph_virt_begin = phdr.p_vaddr;
-		ph->ph_virt_end = phdr.p_vaddr + phdr.p_memsize;
+		ph->ph_virt_end = phdr.p_vaddr + phdr.p_memsz;
 		ph->ph_inode_offset = phdr.p_offset;
 		ph->ph_inode_len = phdr.p_filesz;
 		privdata->elf_num_ph++;

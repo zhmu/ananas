@@ -1,7 +1,9 @@
 #ifndef __ANANAS_BOOTINFO_H__
 #define __ANANAS_BOOTINFO_H__
 
+#ifndef LOADER
 #include <ananas/types.h>
+#endif
 
 #ifndef ASM
 /*
