@@ -5,8 +5,22 @@ toolchain/build/
 toolchain/src/
 toolchain/distfiles/
 toolchain/prefix.*/
+toolchain/.*.build
+toolchain/.*.configure
+toolchain/.*.includes
+toolchain/.*.install
+toolchain/.*.extract
+toolchain/.*.prepatch
+toolchain/.*.patch
 # ignore everything extract in the apps directory XXX this could be done better
 apps/distfiles/
+apps/*/.build
+apps/*/.configure
+apps/*/.includes
+apps/*/.install
+apps/*/.extract
+apps/*/.prepatch
+apps/*/.patch
 # ignore output
 output.i386/
 # ignore generated files for the system call infrastructure
