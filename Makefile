@@ -5,11 +5,8 @@ endif
 ifeq (${ARCH},amd64)
 TARGET=		amd64-elf-ananas
 endif
-ifeq (${ARCH},powerpc)
-TARGET=		powerpc-elf-ananas
-endif
 ifeq ("${TARGET}", "")
-$(error Architecture undefined or unknown - try ARCH='i386', 'amd64' or 'powerpc')
+$(error Architecture undefined or unknown - try ARCH='i386' or 'amd64')
 endif
 KERNEL?=	LINT
 

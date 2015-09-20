@@ -11,11 +11,6 @@
 
 TRACE_SETUP;
 
-/* XXX */
-#ifdef _ARCH_PPC
-#define __PowerPC__
-#endif
-
 struct ELF_THREADMAP_PROGHEADER;
 
 /*
@@ -104,7 +99,7 @@ elf_tm_clone_func(thread_t* t, struct THREAD_MAPPING* tdest, struct THREAD_MAPPI
 	return ANANAS_ERROR_NONE;
 }
 
-#if defined(__i386__) || defined(__PowerPC__)
+#if defined(__i386__)
 static errorcode_t
 elf32_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 {
