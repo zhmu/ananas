@@ -26,12 +26,15 @@
  */
 #include <ananas/kmem.h>
 #include <ananas/lock.h>
+#include <ananas/init.h>
 #include <ananas/page.h>
 #include <ananas/vm.h>
 #include <ananas/mm.h>
+#include <ananas/kdb.h>
 #include <ananas/lib.h>
 #include <machine/param.h>
 #include <machine/vm.h>
+#include "options.h"
 
 #define KMEM_DEBUG(...) (void)0
 
@@ -40,20 +43,6 @@ static struct PAGE* kmem_page;
 static struct KMEM_MAPPING* kmem_mappings = NULL;
 
 #define KMEM_NUM_MAPPINGS (PAGE_SIZE / sizeof(struct KMEM_MAPPING))
-
-static void
-kmem_dump()
-{
-	kprintf("kmem_dump()\n");
-	struct KMEM_MAPPING* kmm = kmem_mappings;
-	for (unsigned int n = 0; n < KMEM_NUM_MAPPINGS; n++, kmm++) {
-		if (kmm->kmm_size == 0)
-			break;
-		size_t len = kmm->kmm_size * PAGE_SIZE;
-		kprintf("mapping: va %p-%p pa %p-%p\n",
-		 kmm->kmm_virt, kmm->kmm_virt + len, kmm->kmm_phys, kmm->kmm_phys + len);
-	}
-}
 
 void*
 kmem_map(addr_t phys, size_t length, int flags)
@@ -107,7 +96,6 @@ kmem_map(addr_t phys, size_t length, int flags)
 		 */
 		if (pa == kmm->kmm_phys && size == kmm->kmm_size) {
 			/* Already mapped */
-			kmem_dump();
 			spinlock_unlock(&kmem_lock);
 
 			panic("XXX range %p-%p already mapped (%p-%p) -> %p",
@@ -126,7 +114,6 @@ kmem_map(addr_t phys, size_t length, int flags)
 		/* Out of KVA! XXX This shouldn't panic, but it's weird all-right */
 		spinlock_unlock(&kmem_lock);
 		panic("out of kva (%p + %x >= %p)", virt, size, KMEM_DYNAMIC_VA_END);
-		kmem_dump();
 		return NULL;
 	}
 
@@ -234,8 +221,24 @@ kmem_get_phys(void* virt)
 
 	spinlock_unlock(&kmem_lock);
 
-	kmem_dump();
 	panic("kmem_get_phys(): va=%p not mapped", va);
 }
+
+#ifdef OPTION_KDB
+KDB_COMMAND(kmappings, NULL, "Display kernel memory mappings")
+{
+	if (kmem_mappings == NULL)
+		return;
+
+	struct KMEM_MAPPING* kmm = kmem_mappings;
+	for (unsigned int n = 0; n < KMEM_NUM_MAPPINGS; n++, kmm++) {
+		if (kmm->kmm_size == 0)
+			break;
+		size_t len = kmm->kmm_size * PAGE_SIZE;
+		kprintf("mapping: va %p-%p pa %p-%p\n",
+		 kmm->kmm_virt, kmm->kmm_virt + len - 1, kmm->kmm_phys, kmm->kmm_phys + len - 1);
+	}
+}
+#endif
 
 /* vim:set ts=2 sw=2: */
