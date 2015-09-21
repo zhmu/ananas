@@ -5,6 +5,7 @@
 #include <ananas/trace.h>
 #include <ananas/irq.h>
 #include <ananas/lib.h>
+#include <ananas/kdb.h>
 #include "options.h"
 
 TRACE_SETUP;
@@ -201,10 +202,29 @@ irq_handler(unsigned int no)
 }
 
 #ifdef OPTION_KDB
-void
-kdb_cmd_irq(int num_args, char** arg)
+KDB_COMMAND(irq, NULL, "Display IRQ status")
 {
+	/* Note: no need to grab locks as the debugger runs with interrupts disabled */
+	kprintf("Registered IRQ sources:\n");
+	if(!DQUEUE_EMPTY(&irq_sources)) {
+		DQUEUE_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
+			kprintf(" IRQ %d..%d\n", is->is_first, is->is_first + is->is_count);
+		}
+	}
+
+	kprintf("Registered handlers:\n");
+	for (unsigned int no = 0; no < MAX_IRQS; no++) {
+		struct IRQ* i = &irq[no];
+		for (int slot = 0; slot < IRQ_MAX_HANDLERS; slot++) {
+			struct IRQ_HANDLER* handler = &i->i_handler[slot];
+			if (handler->h_func == NULL)
+				continue;
+			kprintf(" IRQ %d: device '%s' handler %p\n", no, (handler->h_device != NULL) ? handler->h_device->name : "<none>", handler->h_func);
+		}
+		if (i->i_straycount > 0)
+			kprintf(" IRQ %d: stray count %d\n", no, i->i_straycount);
+	}
 }
-#endif /* KDB */
+#endif
 
 /* vim:set ts=2 sw=2: */
