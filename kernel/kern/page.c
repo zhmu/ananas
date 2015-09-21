@@ -1,9 +1,12 @@
 #include <ananas/page.h>
 #include <machine/param.h>
+#include <ananas/init.h>
+#include <ananas/kdb.h>
 #include <ananas/lib.h>
 #include <ananas/vm.h>
 #include <ananas/kmem.h>
 #include <ananas/dqueue.h>
+#include "options.h"
 
 #undef PAGE_DEBUG
 
@@ -41,31 +44,6 @@ order2pages(int order)
 	for (int n = 0; n < order; n++)
 		result <<= 1;
 	return result;
-}
-
-void
-page_dump(struct PAGE_ZONE* z)
-{
-	kprintf("page_dump: zone=%p total=%u avail=%u\n", z, z->z_num_pages, z->z_avail_pages);
-	for (unsigned int order = 0; order < PAGE_NUM_ORDERS; order++) {
-		kprintf(" order %u:", order);
-		if (DQUEUE_EMPTY(&z->z_free[order])) {
-			kprintf(" <empty>");
-		} else {
-			DQUEUE_FOREACH(&z->z_free[order], f, struct PAGE) {
-				kprintf(" %p", f);
-			}
-		}
-		kprintf("\n");
-	}
-
-#if 0
-	kprintf("free pages in bitmap:");
-	for (int n = 0; n < z->z_num_pages; n++)
-		if (!get_bit(z->z_bitmap, n))
-			kprintf(" %u", n);
-	kprintf("\n");
-#endif
 }
 
 void
@@ -291,13 +269,40 @@ page_get_stats(unsigned int* total_pages, unsigned int* avail_pages)
 	}
 }
 
+#ifdef OPTION_KDB
+static void
+page_dump(struct PAGE_ZONE* z)
+{
+	kprintf("page_dump: zone=%p total=%u avail=%u (%u KB of %u KB in use)\n",
+	 z, z->z_num_pages, z->z_avail_pages,
+	 (z->z_num_pages - z->z_avail_pages) * (PAGE_SIZE / 1024),
+	 z->z_num_pages * (PAGE_SIZE / 1024));
+	for (unsigned int order = 0; order < PAGE_NUM_ORDERS; order++) {
+		kprintf(" order %u: ", order);
+		int n = 0;
+		if (!DQUEUE_EMPTY(&z->z_free[order])) {
+			DQUEUE_FOREACH(&z->z_free[order], f, struct PAGE) {
+				n++;
+			}
+		}
+		kprintf("%d\n", n);
+	}
 
-void
-page_debug()
+#if 0
+	kprintf("free pages in bitmap:");
+	for (int n = 0; n < z->z_num_pages; n++)
+		if (!get_bit(z->z_bitmap, n))
+			kprintf(" %u", n);
+	kprintf("\n");
+#endif
+}
+
+KDB_COMMAND(pages, NULL, "Display page zones")
 {
 	DQUEUE_FOREACH(&zones, z, struct PAGE_ZONE) {
 		page_dump(z);
 	}
 }
+#endif
 
 /* vim:set ts=2 sw=2: */
