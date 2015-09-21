@@ -1,6 +1,0 @@
-Kernel
-------
-
-- All architectures abuse that kmalloc() always creates a kernel mapping; this
-  is generally implicitely used ensure that the per-thread kernel stack is
-  mapped. Is this clever?
