@@ -2,6 +2,7 @@
 #include <ananas/bio.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
+#include <ananas/kdb.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/schedule.h>
@@ -193,8 +194,7 @@ vfs_unregister_filesystem(struct VFS_FILESYSTEM* fs)
 }
 
 #ifdef OPTION_KDB
-void
-kdb_cmd_vfs_mounts(int num_args, char** arg)
+KDB_COMMAND(mounts, NULL, "Shows current mounts")
 {
 	spinlock_lock(&spl_mountedfs);
 	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {

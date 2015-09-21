@@ -3,6 +3,7 @@
 #include <ananas/vfs/dentry.h>
 #include <ananas/vfs/mount.h>
 #include <ananas/vfs/icache.h>
+#include <ananas/error.h>
 #include <ananas/kdb.h>
 #include <ananas/thread.h>
 #include <ananas/lib.h>
@@ -13,8 +14,7 @@ extern struct THREAD* threads;
  * This function is more of a sanity check; it does not lock anything to
  * prevent deadlocks.
  */
-void
-kdb_cmd_inodes(int num_args, char** arg)
+KDB_COMMAND(inodes, NULL, "Inode status")
 {
 	struct VFS_MOUNTED_FS* fs = vfs_get_rootfs(); /* XXX only root for now */
 

@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
 #include <ananas/handle.h>
+#include <ananas/kdb.h>
 #include <ananas/lib.h>
 #include <ananas/lock.h>
 #include <ananas/mm.h>
@@ -430,22 +431,9 @@ handle_unregister_type(struct HANDLE_TYPE* ht)
 }
 
 #ifdef OPTION_KDB
-void
-kdb_cmd_handle(int num_args, char** arg)
+KDB_COMMAND(handle, "i:handle", "Display handle information")
 {
-	if (num_args != 2) {
-		kprintf("need an argument\n");
-		return;
-	}
-
-	char* ptr;
-	addr_t addr = (addr_t)strtoul(arg[1], &ptr, 16);
-	if (*ptr != '\0') {
-		kprintf("parse error at '%s'\n", ptr);
-		return;
-	}
-
-	struct HANDLE* handle = (void*)addr;
+	struct HANDLE* handle = (void*)arg[1].a_u.u_value;
 	kprintf("type          : %u\n", handle->h_type);
 	kprintf("flags         : %u\n", handle->h_flags);
 	kprintf("refcount      : %d\n", handle->h_refcount);

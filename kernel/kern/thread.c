@@ -3,6 +3,7 @@
 #include <ananas/console.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
+#include <ananas/kdb.h>
 #include <ananas/kmem.h>
 #include <ananas/handle.h>
 #include <ananas/pcpu.h>
@@ -593,15 +594,14 @@ idle_thread()
 #ifdef OPTION_KDB
 extern struct THREAD* kdb_curthread;
 
-void
-kdb_cmd_threads(int num_args, char** arg)
+KDB_COMMAND(threads, "[s:flags]", "Displays current threads")
 {
 	int flags = 0;
 #define FLAG_HANDLE 1
 
 	/* we use arguments as a mask to determine which information is to be dumped */
 	for (int i = 1; i < num_args; i++) {
-		for (char* ptr = arg[i]; *ptr != '\0'; ptr++)
+		for (const char* ptr = arg[i].a_u.u_string; *ptr != '\0'; ptr++)
 			switch(*ptr) {
 				case 'h': flags |= FLAG_HANDLE; break;
 				default:
@@ -633,8 +633,7 @@ kdb_cmd_threads(int num_args, char** arg)
 	spinlock_unlock(&spl_threadqueue);
 }
 
-void
-kdb_cmd_thread(int num_args, char** arg)
+KDB_COMMAND(thread, NULL, "Shows current thread information")
 {
 	if (kdb_curthread == NULL) {
 		kprintf("no current thread set\n");
@@ -656,22 +655,9 @@ kdb_cmd_thread(int num_args, char** arg)
 	}
 }
 
-void
-kdb_cmd_curthread(int num_args, char** arg)
+KDB_COMMAND(curthread, "i:thread", "Sets current thread")
 {
-	if (num_args != 2) {
-		kprintf("need an argument\n");
-		return;
-	}
-
-	char* ptr;
-	addr_t addr = (addr_t)strtoul(arg[1], &ptr, 16);
-	if (*ptr != '\0') {
-		kprintf("parse error at '%s'\n", ptr);
-		return;
-	}
-
-	kdb_curthread = (struct THREAD*)addr;
+	kdb_curthread = (struct THREAD*)arg[1].a_u.u_value;
 }
 #endif /* KDB */
 

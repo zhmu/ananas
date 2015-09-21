@@ -1,6 +1,7 @@
 #include <ananas/mm.h>
 #include <ananas/bio.h>
 #include <ananas/error.h>
+#include <ananas/kdb.h>
 #include <ananas/lib.h>
 #include <ananas/lock.h>
 #include <ananas/pcpu.h>
@@ -363,8 +364,7 @@ bio_set_dirty(struct BIO* bio)
 }
 
 #ifdef OPTION_KDB
-void
-kdb_cmd_bio(int num_args, char** arg)
+KDB_COMMAND(bio, NULL, "Display I/O buffers")
 {
 	kprintf("bio dump\n");
 

@@ -9,6 +9,7 @@
 #include <machine/thread.h>
 #include <machine/interrupts.h>
 #include <ananas/error.h>
+#include <ananas/kdb.h>
 #include <ananas/pcpu.h>
 #include <ananas/pcpu.h>
 #include <ananas/lock.h>
@@ -18,6 +19,11 @@
 #include <ananas/schedule.h>
 #include <ananas/thread.h>
 #include "options.h"
+
+#include <machine/vm.h>
+#include <machine/param.h>
+
+#include <ananas/threadinfo.h>
 
 /*
  * The next define adds specific debugger assertions that may incur a
@@ -294,8 +300,7 @@ scheduler_activated()
 }
 
 #ifdef OPTION_KDB
-void
-kdb_cmd_scheduler(int num_args, char** arg)
+KDB_COMMAND(scheduler, NULL, "Display scheduler status")
 {
 	kprintf("runqueue\n");
 	if (!DQUEUE_EMPTY(&sched_runqueue)) {

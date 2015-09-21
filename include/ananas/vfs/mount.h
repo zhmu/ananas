@@ -10,6 +10,4 @@ errorcode_t vfs_unmount(const char* path);
 
 struct VFS_MOUNTED_FS* vfs_get_rootfs();
 
-void kdb_cmd_vfs_mounts(int num_args, char** arg);
-
 #endif /* __ANANAS_VFS_MOUNT_H__ */

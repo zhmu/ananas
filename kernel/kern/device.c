@@ -1,6 +1,7 @@
 #include <ananas/console.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
+#include <ananas/kdb.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/kmem.h>
@@ -492,8 +493,7 @@ device_unregister_probe(struct PROBE* p)
 }
 
 #ifdef OPTION_KDB
-void
-kdb_cmd_devices(int num_args, char** arg)
+KDB_COMMAND(devices, NULL, "Displays a list of all devices")
 {
 	DQUEUE_FOREACH(&device_queue, dev, struct DEVICE) {
 		kprintf("device %p: '%s' unit %u\n",
