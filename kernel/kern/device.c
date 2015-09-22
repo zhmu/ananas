@@ -397,6 +397,7 @@ device_init()
 	memset(corebus, 0, sizeof(struct DEVICE));
 	strcpy(corebus->name, "corebus");
 	device_attach_bus(corebus);
+	device_add_to_tree(corebus);
 	return ANANAS_ERROR_OK;
 }
 
@@ -493,12 +494,33 @@ device_unregister_probe(struct PROBE* p)
 }
 
 #ifdef OPTION_KDB
-KDB_COMMAND(devices, NULL, "Displays a list of all devices")
+static int
+print_devices(device_t parent, int indent)
 {
+	int count = 0;
 	DQUEUE_FOREACH(&device_queue, dev, struct DEVICE) {
+		if (dev->parent != parent)
+			continue;
+		for (int n = 0; n < indent; n++)
+			kprintf(" ");
 		kprintf("device %p: '%s' unit %u\n",
 	 	 dev, dev->name, dev->unit);
+		count += print_devices(dev, indent + 1) + 1;
 	}
+	return count;
+}
+
+KDB_COMMAND(devices, NULL, "Displays a list of all devices")
+{
+	int count = print_devices(NULL, 0);
+
+	/* See if we have printed everything; if not, our structure is wrong and we should fix this */
+	int n = 0;
+	DQUEUE_FOREACH(&device_queue, dev, struct DEVICE) {
+		n++;
+	}
+	if (n != count)
+		kprintf("Warning: %d extra device(s) unreachable by walking the device chain!\n", n - count);
 }
 #endif
 
