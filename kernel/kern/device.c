@@ -140,11 +140,9 @@ device_resolve_type(char** value)
 }
 
 int
-device_add_resource(device_t dev, resource_type_t type, unsigned int base, unsigned int len)
+device_add_resource(device_t dev, resource_type_t type, resource_base_t base, resource_length_t len)
 {
-	unsigned int curhint;
-
-	for (curhint = 0; curhint < DEVICE_MAX_RESOURCES; curhint++) {
+	for (unsigned int curhint = 0; curhint < DEVICE_MAX_RESOURCES; curhint++) {
 		if (dev->resource[curhint].type != RESTYPE_UNUSED)
 			continue;
 		dev->resource[curhint].type = type;
@@ -162,12 +160,11 @@ device_add_resource(device_t dev, resource_type_t type, unsigned int base, unsig
 int
 device_get_resources_byhint(device_t dev, const char* hint, const char** hints)
 {
-	const char** curhint;
 	int num_hints = 0;
 
 	/* Clear out any current device resources */
 	memset(dev->resource, 0, sizeof(struct RESOURCE) * DEVICE_MAX_RESOURCES);
-	for (curhint = hints; *curhint != NULL; curhint++) {
+	for (const char** curhint = hints; *curhint != NULL; curhint++) {
 		/*
 		 * A hint is in the form bus.device.unit.resource, i.e. isa.vga.0.io. We
 		 * need to match it piece-for-piece so that we can handle wildcards
@@ -305,7 +302,7 @@ device_alloc_resource(device_t dev, resource_type_t type, size_t len)
 		case RESTYPE_IO:
 		case RESTYPE_CHILDNUM:
 		case RESTYPE_IRQ: /* XXX should allocate, not just return */
-			return (void*)(uintptr_t)res->base;
+			return (void*)res->base;
 		default:
 			panic("%s: resource type %u exists, but can't allocate", dev->name, type);
 	}

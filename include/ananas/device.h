@@ -35,12 +35,14 @@ enum RESOURCE_TYPE {
 };
 
 typedef enum RESOURCE_TYPE resource_type_t;
+typedef uintptr_t resource_base_t;
+typedef size_t resource_length_t;
 
 /* A resource is just a type with an <base,length> tuple */
 struct RESOURCE {
-	resource_type_t	type;
-	unsigned int	base;
-	unsigned int	length;
+	resource_type_t type;
+	resource_base_t base;
+	resource_length_t length;
 };
 
 struct BIO;
@@ -163,7 +165,7 @@ errorcode_t device_bread(device_t dev, struct BIO* bio);
 
 void* device_alloc_resource(device_t dev, resource_type_t type, size_t len);
 
-int device_add_resource(device_t dev, resource_type_t type, unsigned int base, unsigned int len);
+int device_add_resource(device_t dev, resource_type_t type, resource_base_t base, resource_length_t len);
 struct RESOURCE* device_get_resource(device_t dev, resource_type_t type, int index);
 
 struct DEVICE* device_find(const char* name);
