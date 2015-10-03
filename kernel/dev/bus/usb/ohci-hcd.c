@@ -160,10 +160,8 @@ ohci_irq(device_t dev, void* context)
 		if (!DQUEUE_EMPTY(&p->ohci_scheduled_items)) {
 			DQUEUE_FOREACH_SAFE(&p->ohci_scheduled_items, si, struct OHCI_HCD_SCHEDULED_ITEM) {
 				struct OHCI_HCD_TD* first_td = si->si_ed->ed_firsttd;
-				if (first_td->td_td.td_cbp != 0) {
-					ohci_dump_ed(si->si_ed);
+				if (first_td->td_td.td_cbp != 0)
 					continue; /* not finished */
-				}
 				DQUEUE_REMOVE(&p->ohci_scheduled_items, si);
 
 				si->si_xfer->xfer_result_length = si->si_xfer->xfer_length;
@@ -188,7 +186,6 @@ ohci_irq(device_t dev, void* context)
 	}
 
 	if (is & OHCI_IS_RHSC) { 
-		device_printf(dev, "rhsc");
 		ohci_roothub_irq(dev);
 
 		/*
@@ -244,6 +241,14 @@ ohci_set_td_next(struct OHCI_HCD_TD* td, struct OHCI_HCD_TD* next)
 	td->qi_next = next;
 }
 
+/* Inserts 'ed' at 'list', keeping the chain intact */
+static inline void
+ohci_insert_ed(struct OHCI_HCD_ED* list, struct OHCI_HCD_ED* ed)
+{
+	ed->ed_ed.ed_nexted = list->ed_ed.ed_nexted;
+	list->ed_ed.ed_nexted = ohci_ed_get_phys(ed);
+}
+
 static errorcode_t
 ohci_schedule_control_transfer(device_t dev, struct USB_TRANSFER* xfer)
 {
@@ -274,7 +279,7 @@ ohci_schedule_control_transfer(device_t dev, struct USB_TRANSFER* xfer)
 		td_data->td_td.td_be = td_data->td_td.td_cbp + xfer->xfer_length - 1;
 	}
 
-	/* Construc the HANDSHAKE descriptor */
+	/* Construct the HANDSHAKE descriptor */
 	struct OHCI_HCD_TD* td_handshake = ohci_alloc_td(dev);
 	td_handshake->td_td.td_flags =
 	 OHCI_TD_DI(OHCI_TD_DI_IMMEDIATE) |
@@ -312,17 +317,8 @@ ohci_schedule_control_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	DQUEUE_ADD_TAIL(&p->ohci_scheduled_items, si);
 
 	/* ... and off it goes! */
-	p->ohci_control_ed->ed_ed.ed_nexted = ohci_ed_get_phys(ed);
+	ohci_insert_ed(p->ohci_control_ed, ed);
 	ohci_write4(dev, OHCI_HCCOMMANDSTATUS, OHCI_CS_CLF);
-
-	if (0) {
-		ohci_dump(dev);
-		ohci_dump_ed(ed);
-		ohci_dump_td(td_setup);
-		ohci_dump_td(td_data);
-		ohci_dump_td(td_handshake);
-	}
-
 	return ANANAS_ERROR_NONE;
 }
 
@@ -373,7 +369,7 @@ ohci_schedule_interrupt_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	/* ... and off it goes - XXX LOCK */
 	int ed_list = 0; /* XXX */
 	struct OHCI_HCD_ED* queue_ed = p->ohci_interrupt_ed[ed_list];
-	queue_ed->ed_ed.ed_nexted = ohci_ed_get_phys(ed);
+	ohci_insert_ed(queue_ed, ed);
 
 	return ANANAS_ERROR_NONE;
 }
@@ -397,8 +393,6 @@ ohci_schedule_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	if (dev_p->dev_flags & USB_DEVICE_FLAG_ROOT_HUB) {
 		return oroothub_handle_transfer(dev, xfer);
 	}
-
-	//kprintf("%s: scheduling xfer %p\n", __func__, xfer);
 
 	errorcode_t err;
 	switch(xfer->xfer_type) {
