@@ -17,6 +17,9 @@
 #include "ohci-reg.h"
 #include "ohci-hcd.h"
 #include "ohci-roothub.h"
+#include "usb-bus.h"
+#include "usb-device.h"
+#include "usb-transfer.h"
 
 TRACE_SETUP;
 
@@ -25,17 +28,6 @@ TRACE_SETUP;
 #else
 # define DPRINTF(...)
 #endif
-
-struct OHCI_ROOTHUB_PRIVDATA {
-	device_t rh_ohcidev;          /* OHCI device we belong to */
-	int rh_numports;         /* Number of OHCI ports managed */
-	device_t rh_dev;              /* Our own device */
-	int rh_flags;            /* How are we doing? */
-#define HUB_FLAG_ATTACHING	(1 << 0)     /* Device attachment in progress */
-	mutex_t rh_mutex;
-	struct OHCI_SCHEDULED_ITEM_QUEUE rh_interrupt_queue;
-	thread_t rh_pollthread;
-};
 
 static const struct USB_DESCR_DEVICE ohci_rh_device = {
 	.dev_length = sizeof(struct USB_DESCR_DEVICE),
@@ -129,7 +121,7 @@ static errorcode_t
 oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 {
 	struct USB_CONTROL_REQUEST* req = &xfer->xfer_control_req;
-	struct OHCI_ROOTHUB_PRIVDATA* p = xfer->xfer_device->usb_hub->privdata;
+	struct OHCI_PRIVDATA* p = dev->privdata;
 	errorcode_t err = ANANAS_ERROR(BAD_OPERATION);
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -179,15 +171,15 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 			break;
 		case USB_REQUEST_GET_HUB_DESCRIPTOR: {
 			/* First step is to construct our hub descriptor */
-			int port_len = (p->rh_numports + 7) / 8;
+			int port_len = (p->ohci_rh_numports + 7) / 8;
 			struct USB_DESCR_HUB hd;
 			memset(&hd, 0, sizeof(hd));
 			hd.hd_length = sizeof(hd) - (HUB_MAX_PORTS + 7) / 8 + port_len;
 			hd.hd_type = USB_DESCR_TYPE_HUB;
-			hd.hd_numports = p->rh_numports;
+			hd.hd_numports = p->ohci_rh_numports;
 			hd.hd_max_current = 0;
 
-			uint32_t rhda = ohci_read4(p->rh_ohcidev, OHCI_HCRHDESCRIPTORA);
+			uint32_t rhda = ohci_read4(dev, OHCI_HCRHDESCRIPTORA);
 			hd.hd_flags = 0;
 			if ((rhda & (OHCI_RHDA_NPS | OHCI_RHDA_PSM)) == OHCI_RHDA_PSM)
 				hd.hd_flags |= USB_HD_FLAG_PS_INDIVIDUAL;
@@ -200,8 +192,8 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 			hd.hd_poweron2good = OHCI_RHDA_POTPGT(rhda);
 
 			/* Fill out all removable bits */
-			uint32_t rhdb = ohci_read4(p->rh_ohcidev, OHCI_HCRHDESCRIPTORB);
-			for (unsigned int n = 1; n < p->rh_numports; n++) {
+			uint32_t rhdb = ohci_read4(dev, OHCI_HCRHDESCRIPTORB);
+			for (unsigned int n = 1; n < p->ohci_rh_numports; n++) {
 				if (rhdb & (1 << n))
 					hd.hd_removable[n / 8] |= 1 << (n  & 7);
 			}
@@ -224,8 +216,8 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 			break;
 		}
 		case USB_REQUEST_GET_PORT_STATUS: {
-			if (req->req_value == 0 && req->req_index >= 1 && req->req_index <= p->rh_numports && req->req_length == 4) {
-				uint32_t st = ohci_read4(p->rh_ohcidev, OHCI_HCRHPORTSTATUSx + (req->req_index - 1) * 4);
+			if (req->req_value == 0 && req->req_index >= 1 && req->req_index <= p->ohci_rh_numports && req->req_length == 4) {
+				uint32_t st = ohci_read4(dev, OHCI_HCRHPORTSTATUSx + (req->req_index - 1) * 4);
 
 				struct USB_HUB_PORTSTATUS ps;
 				memset(&ps, 0, sizeof(ps));
@@ -239,33 +231,37 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 		}
 		case USB_REQUEST_SET_PORT_FEATURE: {
 			unsigned int port = req->req_index;
-			if (port >= 1 && port <= p->rh_numports) {
+			if (port >= 1 && port <= p->ohci_rh_numports) {
 				port = OHCI_HCRHPORTSTATUSx + (req->req_index - 1) * 4;
 				err = ANANAS_ERROR_OK;
 				switch(req->req_value) {
 					case HUB_FEATURE_PORT_RESET: {
+						/*
+						 * To reset a port, we'll enable the PRS bit. Once it's unset, the
+						 * hub will be resetting the device and trigger PRSC (which the hub
+						 * checks for)
+						 */
 						DPRINTF(dev, "set port reset, port %d", req->req_index);
-						ohci_write4(p->rh_ohcidev, port, OHCI_RHPS_PRS);
-						int n = 100;
-						while (n > 0 && (ohci_read4(p->rh_ohcidev, port) & OHCI_RHPS_PRSC) == 0) {
-							delay(10);
+						ohci_write4(dev, port, OHCI_RHPS_PRS);
+						int n = 10;
+						while (n > 0 && (ohci_read4(dev, port) & OHCI_RHPS_PRS) != 0) {
+							delay(100);
 							n--;
 						}
 						if (n == 0) {
 							device_printf(dev, "port %u not responding to reset", n);
 							err = ANANAS_ERROR(NO_DEVICE);
 						}
-						ohci_write4(p->rh_ohcidev, port, OHCI_RHPS_PRSC);
 						break;
 					}
 					case HUB_FEATURE_PORT_SUSPEND:
 						DPRINTF(dev, "set port suspend, port %d", req->req_index);
-						ohci_write4(p->rh_ohcidev, port, OHCI_RHPS_PSS);
+						ohci_write4(dev, port, OHCI_RHPS_PSS);
 						err = ANANAS_ERROR_OK;
 						break;
 					case HUB_FEATURE_PORT_POWER:
 						DPRINTF(dev, "set port power, port %d", req->req_index);
-						ohci_write4(p->rh_ohcidev, port, OHCI_RHPS_PPS);
+						ohci_write4(dev, port, OHCI_RHPS_PPS);
 						break;
 					default:
 						err = ANANAS_ERROR(BAD_OPERATION);
@@ -276,41 +272,45 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 		}
 		case USB_REQUEST_CLEAR_PORT_FEATURE: {
 			unsigned int port = req->req_index;
-			if (port >= 1 && port <= p->rh_numports) {
+			if (port >= 1 && port <= p->ohci_rh_numports) {
 				port = OHCI_HCRHPORTSTATUSx + (req->req_index - 1) * 4;
 				err = ANANAS_ERROR_OK;
 				switch(req->req_value) {
 					case HUB_FEATURE_PORT_ENABLE:
 						DPRINTF(dev, "HUB_FEATURE_PORT_ENABLE: port %d", req->req_index);
-						ohci_write4(p->rh_ohcidev, port, OHCI_RHPS_CCS);
+						ohci_write4(dev, port, OHCI_RHPS_CCS);
 						break;
 					case HUB_FEATURE_PORT_SUSPEND:
 						DPRINTF(dev, "HUB_FEATURE_PORT_SUSPEND: port %d", req->req_index);
-						ohci_write4(p->rh_ohcidev, port, OHCI_RHPS_POCI);
+						ohci_write4(dev, port, OHCI_RHPS_POCI);
 						break;
 					case HUB_FEATURE_PORT_POWER:
 						DPRINTF(dev, "HUB_FEATURE_PORT_POWER: port %d", req->req_index);
-						ohci_write4(p->rh_ohcidev, port, OHCI_RHPS_LSDA);
+						ohci_write4(dev, port, OHCI_RHPS_LSDA);
 						break;
 					case HUB_FEATURE_C_PORT_CONNECTION:
 						DPRINTF(dev, "HUB_FEATURE_C_PORT_CONNECTION: port %d", req->req_index);
-						ohci_write4(p->rh_ohcidev, port, OHCI_RHPS_CSC);
+						ohci_write4(dev, port, OHCI_RHPS_CSC);
+						/* Re-enable RHSC after clear is complete */
+						ohci_write4(dev, OHCI_HCINTERRUPTENABLE, OHCI_IE_RHSC);
 						break;
 					case HUB_FEATURE_C_PORT_RESET:
 						DPRINTF(dev, "HUB_FEATURE_C_PORT_RESET: port %d", req->req_index);
-						ohci_write4(p->rh_ohcidev, port, OHCI_RHPS_PRSC);
+						ohci_write4(dev, port, OHCI_RHPS_PRSC);
+						/* Re-enable RHSC after reset is complete; otherwise it keeps spamming */
+						ohci_write4(dev, OHCI_HCINTERRUPTENABLE, OHCI_IE_RHSC);
 						break;
 					case HUB_FEATURE_C_PORT_ENABLE:
 						DPRINTF(dev, "HUB_FEATURE_C_PORT_ENABLE: port %d", req->req_index);
-						ohci_write4(p->rh_ohcidev, port, OHCI_RHPS_PESC);
+						ohci_write4(dev, port, OHCI_RHPS_PESC);
 						break;
 					case HUB_FEATURE_C_PORT_SUSPEND:
 						DPRINTF(dev, "HUB_FEATURE_C_PORT_SUSPEND: port %d", req->req_index);
-						ohci_write4(p->rh_ohcidev, port, OHCI_RHPS_PSSC);
+						ohci_write4(dev, port, OHCI_RHPS_PSSC);
 						break;
 					case HUB_FEATURE_C_PORT_OVER_CURRENT:
 						DPRINTF(dev, "HUB_FEATURE_C_PORT_OVER_CURRENT: port %d", req->req_index);
-						ohci_write4(p->rh_ohcidev, port, OHCI_RHPS_OCIC);
+						ohci_write4(dev, port, OHCI_RHPS_OCIC);
 						break;
 					default:
 						err = ANANAS_ERROR(BAD_OPERATION);
@@ -326,146 +326,120 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 
 #undef MIN
 
-	if (err != ANANAS_ERROR_OK)
+	if (err != ANANAS_ERROR_OK) {
+		kprintf("oroothub: error %d\n", err);
 		xfer->xfer_flags |= TRANSFER_FLAG_ERROR;
+	}
 
 	/* Immediately mark the transfer as completed */
-	usb_completed_transfer(xfer);
+	usbtransfer_complete(xfer);
 	return err;
 }
 
-static errorcode_t
-oroothub_xfer(device_t dev, struct USB_TRANSFER* xfer)
+errorcode_t
+oroothub_handle_transfer(device_t dev, struct USB_TRANSFER* xfer)
 {
-	struct OHCI_ROOTHUB_PRIVDATA* p = dev->privdata;
-
 	switch(xfer->xfer_type) {
 		case TRANSFER_TYPE_CONTROL:
 			return oroothub_ctrl_xfer(dev, xfer);
-		case TRANSFER_TYPE_INTERRUPT: {
-			struct OHCI_HCD_SCHEDULED_ITEM* si = kmalloc(sizeof *si);
-			memset(si, 0, sizeof *si);
-			si->si_xfer = xfer;
-			mutex_lock(&p->rh_mutex);
-			DQUEUE_ADD_TAIL(&p->rh_interrupt_queue, si);
-			mutex_unlock(&p->rh_mutex);
-			return ANANAS_ERROR_OK;
-		}
-		case TRANSFER_TYPE_HUB_ATTACH_DONE:
-			p->rh_flags &= ~HUB_FLAG_ATTACHING;
-			kprintf("attach done!\n");
+		case TRANSFER_TYPE_INTERRUPT:
+			/* Transfer has been added to the queue; no need to do anything else here */
 			return ANANAS_ERROR_OK;
 	}
 	panic("unsupported transfer type %d", xfer->xfer_type);
 }
 
-void ohci_roothub_irq(device_t dev)
+void
+oroothub_process_interrupt_transfers(struct USB_DEVICE* usb_dev)
 {
-	//struct OHCI_ROOTHUB_PRIVDATA* p = dev->privdata;
-	//device_printf(dev, "irq");
+	device_t dev = usb_dev->usb_bus->bus_hcd;
+	struct OHCI_PRIVDATA* p = dev->privdata;
+
+	/* Walk through every port, hungry for updates... */
+	uint8_t hub_update[2] = { 0, 0 }; /* max 15 ports + hub status itself = 16 bits */
+	int num_updates = 0;
+	for (unsigned int n = 1; n <= p->ohci_rh_numports; n++) {
+		int index = OHCI_HCRHPORTSTATUSx + (n - 1) * 4;
+		uint32_t st = ohci_read4(dev, index);
+		if ((st >> 16) != 0) {
+			/* A changed event was triggered - need to report this */
+			hub_update[n / 8] |= 1 << (n % 8);
+			num_updates++;
+		}
+	}
+
+	if (num_updates > 0) {
+		int update_len = (p->ohci_rh_numports + 1 /* hub */ + 7 /* round up */) / 8;
+
+		/* Alter all entries in the interrupt queue */
+		mutex_lock(&p->ohci_mtx);
+		DQUEUE_FOREACH_IP(&usb_dev->usb_transfers, pending, xfer, struct USB_TRANSFER) {
+			memcpy(&xfer->xfer_data, hub_update, update_len);
+			xfer->xfer_result_length = update_len;
+			usbtransfer_complete(xfer);
+		}
+		mutex_unlock(&p->ohci_mtx);
+	}
+}
+
+void
+ohci_roothub_irq(device_t dev)
+{
+	struct OHCI_PRIVDATA* p = dev->privdata;
+	sem_signal(&p->ohci_rh_semaphore);
 }
 
 static void
 oroothub_thread(void* ptr)
 {
 	device_t dev = ptr;
-	struct OHCI_ROOTHUB_PRIVDATA* p = dev->privdata;
+	struct OHCI_PRIVDATA* p = dev->privdata;
+	struct USB_BUS* bus = p->ohci_bus;
+
+	/* XXX do we need locking here? */
+	struct USB_DEVICE* usb_dev = DQUEUE_HEAD(&bus->bus_devices);
+	KASSERT(usb_dev != NULL, "no usbdevices?");
 
 	while(1) {
+		/* Wait until we get a roothub interrupt; that should signal something happened */
+		sem_wait_and_drain(&p->ohci_rh_semaphore);
+
 		/*
 		 * If we do not have anything in the interrupt queue, there is no need to
 		 * bother checking as no one can handle yet - best to wait...
-		 *
-		 * XXX LOCKING !!!
 		 */
-		mutex_lock(&p->rh_mutex);
-		if (!DQUEUE_EMPTY(&p->rh_interrupt_queue)) {
-			/* Walk through every port, hungry for updates... */
-			uint8_t hub_update[2] = { 0, 0 }; /* max 15 ports + hub status itself = 16 bits */
-			int num_updates = 0;
-			for (unsigned int n = 1; n <= p->rh_numports; n++) {
-				int index = OHCI_HCRHPORTSTATUSx + (n - 1) * 4;
-				uint32_t st = ohci_read4(p->rh_ohcidev, index);
-				if (st & OHCI_RHPS_CSC) {
-					device_printf(dev, "port %d changed state", n);
-					hub_update[n / 8] |= 1 << (n % 8);
-					ohci_write4(p->rh_ohcidev, index, OHCI_RHPS_CSC);
-					num_updates++;
-				}
-			}
-
-			if (num_updates > 0) {
-				int update_len = (p->rh_numports + 1 /* hub */ + 7 /* round up */) / 8;
-
-				/* Alter all entries in the interrupt queue */
-				DQUEUE_FOREACH(&p->rh_interrupt_queue, si, struct OHCI_HCD_SCHEDULED_ITEM) {
-					struct USB_TRANSFER* xfer = si->si_xfer;
-					memcpy(&xfer->xfer_data, hub_update, update_len);
-					xfer->xfer_result_length = update_len;
-					usb_completed_transfer(xfer);
-				}
-			}
-		}
-		mutex_unlock(&p->rh_mutex);
-
-		/* XXX We should have a timeout mechanism or maybe just wait for an irq? */
-		reschedule();
+		oroothub_process_interrupt_transfers(usb_dev);
 	}	
 }
 
-static errorcode_t
-oroothub_attach(device_t dev)
+errorcode_t
+oroothub_init(device_t dev)
 {
-	struct OHCI_ROOTHUB_PRIVDATA* p = dev->privdata;
-	device_printf(dev, "%u port(s)", p->rh_numports);
+	struct OHCI_PRIVDATA* p = dev->privdata;
 
-	void* dev_privdata = ohci_device_init_privdata(OHCI_DEV_FLAG_ROOTHUB);
-	usb_attach_device(dev->parent, dev, dev_privdata);
+	sem_init(&p->ohci_rh_semaphore, 0);
+
+	uint32_t rhda = ohci_read4(dev, OHCI_HCRHDESCRIPTORA);
+	int numports = OHCI_RHDA_NDP(rhda);
+	if (numports < 1 || numports > 15) {
+		device_printf(dev, "invalid number of %d port(s) present", numports);
+		return ANANAS_ERROR(NO_DEVICE);
+	}
+	p->ohci_rh_numports = numports;
 
 	/*
 	 * This went well - finally, summon the hub poll thread to handle the
 	 * interrupt pipe requests.
 	 */
-	kthread_init(&p->rh_pollthread, &oroothub_thread, dev);
-	thread_set_args(&p->rh_pollthread, "[oroothub]\0\0", PAGE_SIZE);
-	thread_resume(&p->rh_pollthread);
+	kthread_init(&p->ohci_rh_pollthread, &oroothub_thread, dev);
+	thread_set_args(&p->ohci_rh_pollthread, "[oroothub]\0\0", PAGE_SIZE);
+	thread_resume(&p->ohci_rh_pollthread);
 
-	return ANANAS_ERROR_OK;
-}
-
-static struct DRIVER drv_oroothub = {
-	.name             = "oroothub",
-	.drv_attach       = oroothub_attach,
-	.drv_usb_xfer = oroothub_xfer
-};
-
-errorcode_t
-ohci_roothub_create(device_t ohci_dev)
-{
-	uint32_t rhda = ohci_read4(ohci_dev, OHCI_HCRHDESCRIPTORA);
-	int numports = OHCI_RHDA_NDP(rhda);
-	if (numports < 1 || numports > 15) {
-		device_printf(ohci_dev, "invalid number of %d port(s) present", numports);
-		return ANANAS_ERROR(NO_DEVICE);
-	}
-
-	/* Initialize the root hub's private data */
-	struct OHCI_ROOTHUB_PRIVDATA* rh_p = kmalloc(sizeof *rh_p);
-	rh_p->rh_ohcidev = ohci_dev;
-	rh_p->rh_numports = numports;
-	rh_p->rh_flags = 0;
-	DQUEUE_INIT(&rh_p->rh_interrupt_queue);
-	mutex_init(&rh_p->rh_mutex, "oroothub");
-
-	rh_p->rh_dev = device_alloc(ohci_dev, &drv_oroothub);
-	rh_p->rh_dev->privdata = rh_p;
-
-	/* Hook the root hub to the OHCI device */
-	struct OHCI_PRIVDATA* p = ohci_dev->privdata;
-	p->ohci_roothub = rh_p->rh_dev;
-
-	/* And attach it */
-  return device_attach_single(p->ohci_roothub);
+	/*
+	 * Note that there is no need to attach the root hub; usb-bus does this upon attaching
+	 * to the HCD driver.
+	 */
+	return ANANAS_ERROR_NONE;
 }
 
 /* vim:set ts=2 sw=2: */

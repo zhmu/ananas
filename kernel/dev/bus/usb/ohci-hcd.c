@@ -34,8 +34,10 @@
 #include "ohci-reg.h"
 #include "ohci-roothub.h"
 #include "ohci-hcd.h"
+#include "usb-device.h"
+#include "usb-transfer.h"
 
-#include <machine/vm.h>
+#include <machine/vm.h> /* for KVTOP, which must go */
 
 TRACE_SETUP;
 
@@ -75,11 +77,23 @@ ohci_dump_ed(struct OHCI_HCD_ED* ed)
 	 ed->ed_ed.ed_tailp,
 	 ed->ed_ed.ed_headp,
 	 ed->ed_ed.ed_nexted);
+
+	for (struct OHCI_HCD_TD* td = ed->ed_firsttd; td != NULL; td = td->qi_next) {
+		kprintf(" ");
+		ohci_dump_td(td);
+	}
 }
 
 static void
 ohci_dump(device_t dev)
 {
+	struct OHCI_PRIVDATA* p = dev->privdata;
+
+	device_printf(dev, "hcca %x -> fnum %d dh %x",
+	 ohci_read4(dev, OHCI_HCHCCA),
+	 p->ohci_hcca->hcca_framenumber,
+	 p->ohci_hcca->hcca_donehead
+	);
 	device_printf(dev, "control %x cmdstat %x intstat %x intena %x intdis %x",
 	 ohci_read4(dev, OHCI_HCCONTROL),
 	 ohci_read4(dev, OHCI_HCCOMMANDSTATUS),
@@ -99,15 +113,20 @@ ohci_dump(device_t dev)
 		ohci_read4(dev, OHCI_HCRHPORTSTATUSx),
 		ohci_read4(dev, OHCI_HCRHPORTSTATUSx + 4),
 		ohci_read4(dev, OHCI_HCRHPORTSTATUSx + 8));
+	ohci_dump_ed(p->ohci_control_ed);
 
-#if 0
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	if (!DQUEUE_EMPTY(&p->ohci_scheduled_items)) {
+		kprintf("** dumping scheduled items\n");
+		DQUEUE_FOREACH_SAFE(&p->ohci_scheduled_items, si, struct OHCI_HCD_SCHEDULED_ITEM) {
+			ohci_dump_ed(si->si_ed);
+		}
+	}
+
 	for (unsigned int n = 0; n < 32; n++) {
 		kprintf("hcca_inttab[%d] = %x -> ", n,  p->ohci_hcca->hcca_inttable[n]);
 		struct OHCI_HCD_ED* ed = (void*)PTOKV(p->ohci_hcca->hcca_inttable[n]);
 		ohci_dump_ed(ed);
 	}
-#endif
 }
 
 static irqresult_t
@@ -115,47 +134,79 @@ ohci_irq(device_t dev, void* context)
 {
 	struct OHCI_PRIVDATA* p = dev->privdata;
 
-	uint32_t is = ohci_read4(dev, OHCI_HCINTERRUPTSTATUS);
+	/*
+	 * Obtain the interrupt status. Note that donehead is funky; bit 0 indicates
+	 * whethere standard processing is required (if not, this interrupt only
+	 * indicates hcca_donehead was updated)
+	 */
+	uint32_t is = 0;
 	uint32_t dh = p->ohci_hcca->hcca_donehead;
 	if (dh != 0) {
+		is = OHCI_IS_WDH;
+		if (dh & 1)
+			is |= ohci_read4(dev, OHCI_HCINTERRUPTSTATUS) & ohci_read4(dev, OHCI_HCINTERRUPTENABLE);
+	} else {
+		is = ohci_read4(dev, OHCI_HCINTERRUPTSTATUS) & ohci_read4(dev, OHCI_HCINTERRUPTENABLE);
+	}
+	if (is == 0) {
+		/* Not my interrupt; ignore */
+		return IRQ_RESULT_PROCESSED; // IRQ_RESULT_IGNORED;
+	}
+
+	if (is & OHCI_IS_WDH) {
 		/*
 		 * Done queue has been updated; need to walk through all our scheduled items.
 		 */
-		if (!DQUEUE_EMPTY(&p->ohci_scheduled_items))
+		if (!DQUEUE_EMPTY(&p->ohci_scheduled_items)) {
 			DQUEUE_FOREACH_SAFE(&p->ohci_scheduled_items, si, struct OHCI_HCD_SCHEDULED_ITEM) {
-				if (si->si_firsttd->td_td.td_cbp != 0)
+				struct OHCI_HCD_TD* first_td = si->si_ed->ed_firsttd;
+				if (first_td->td_td.td_cbp != 0) {
+					ohci_dump_ed(si->si_ed);
 					continue; /* not finished */
-
+				}
 				DQUEUE_REMOVE(&p->ohci_scheduled_items, si);
 
-				// XXX free chain of tds
-/*
-				if (si->si_firsttd->td_td.td_flags
-				si->si_xfer->xfer_flags |= TRANSFER_FLAG_ERROR;
-*/
-
 				si->si_xfer->xfer_result_length = si->si_xfer->xfer_length;
-				usb_completed_transfer(si->si_xfer);
+				usbtransfer_complete(si->si_xfer);
 			}
+		}
+		p->ohci_hcca->hcca_donehead = 0; /* acknowledge donehead */
+		ohci_write4(dev, OHCI_HCINTERRUPTSTATUS, OHCI_IS_WDH);
 	}
 	if (is & OHCI_IS_SO) {
 		device_printf(dev, "scheduling overrun!");
 		ohci_dump(dev);
 		for(;;);
+		ohci_write4(dev, OHCI_HCINTERRUPTSTATUS, OHCI_IS_SO);
 	}
 
 	if (is & OHCI_IS_FNO) {
 		device_printf(dev, "frame num overflow!");
 		ohci_dump(dev);
+
+		ohci_write4(dev, OHCI_HCINTERRUPTSTATUS, OHCI_IS_FNO);
 	}
 
 	if (is & OHCI_IS_RHSC) { 
-		ohci_roothub_irq(p->ohci_roothub);
+		device_printf(dev, "rhsc");
+		ohci_roothub_irq(dev);
+
+		/*
+		 * Disable the roothub irq, we'll re-enable it when the port has been reset
+		 * to avoid excessive interrupts.
+		 */
+		ohci_write4(dev, OHCI_HCINTERRUPTDISABLE, OHCI_ID_RHSC);
+		ohci_write4(dev, OHCI_HCINTERRUPTSTATUS, OHCI_IS_RHSC);
 	}
 
-	ohci_write4(dev, OHCI_HCINTERRUPTSTATUS, is);
+	/* If we got anything unexpected, warn and disable them */
+	is &= ~(OHCI_IS_WDH | OHCI_IS_SO | OHCI_IS_FNO | OHCI_IS_RHSC);
+	if (is != 0) {
+		device_printf(dev, "disabling excessive interrupts %x", is);
+		ohci_write4(dev, OHCI_HCINTERRUPTDISABLE, is);
+	}
 
-	return is != 0 || dh != 0 ? IRQ_RESULT_PROCESSED : IRQ_RESULT_IGNORED;
+	return IRQ_RESULT_PROCESSED;
 }
 
 static struct OHCI_HCD_TD*
@@ -167,7 +218,7 @@ ohci_alloc_td(device_t dev)
 		return NULL;
 
 	struct OHCI_HCD_TD* td = dma_buf_get_segment(buf, 0)->s_virt;
-	memset(&td->td_td, 0, sizeof(struct OHCI_TD));
+	memset(td, 0, sizeof(struct OHCI_HCD_TD));
 	td->td_buf = buf;
 	return td;
 }
@@ -181,9 +232,16 @@ ohci_alloc_ed(device_t dev)
 		return NULL;
 
 	struct OHCI_HCD_ED* ed = dma_buf_get_segment(buf, 0)->s_virt;
-	memset(&ed->ed_ed, 0, sizeof(struct OHCI_ED));
+	memset(ed, 0, sizeof(struct OHCI_HCD_ED));
 	ed->ed_buf = buf;
 	return ed;
+}
+
+static void
+ohci_set_td_next(struct OHCI_HCD_TD* td, struct OHCI_HCD_TD* next)
+{
+	td->td_td.td_nexttd = ohci_td_get_phys(next);
+	td->qi_next = next;
 }
 
 static errorcode_t
@@ -192,7 +250,7 @@ ohci_schedule_control_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	struct OHCI_PRIVDATA* p = dev->privdata;
 	struct OHCI_DEV_PRIVDATA* devp = xfer->xfer_device->usb_hcd_privdata;
 	int is_read = xfer->xfer_flags & TRANSFER_FLAG_READ;
-	int is_ls = devp->dev_flags & OHCI_DEV_FLAG_LOWSPEED;
+	int is_ls = devp->dev_flags & USB_DEVICE_FLAG_LOW_SPEED;
 
 	/* Construct the SETUP transfer descriptor for this control transfer */
 	struct OHCI_HCD_TD* td_setup = ohci_alloc_td(dev);
@@ -235,40 +293,23 @@ ohci_schedule_control_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	 OHCI_ED_MPS(xfer->xfer_device->usb_max_packet_sz0) |
 	 (is_ls ? OHCI_ED_S : 0);
 
-	/* Hook all transfers together */
-	td_handshake->td_td.td_nexttd = ohci_td_get_phys(td_tail);
+	/* Hook all transfers together: setup -> (data) -> handshake -> tail */
+	ohci_set_td_next(td_handshake, td_tail);
 	if (xfer->xfer_flags & TRANSFER_FLAG_DATA) {
-		td_data->td_td.td_nexttd = ohci_td_get_phys(td_handshake);
-		td_setup->td_td.td_nexttd = ohci_td_get_phys(td_data);
+		ohci_set_td_next(td_data, td_handshake);
+		ohci_set_td_next(td_setup, td_data);
 	} else {
-		td_setup->td_td.td_nexttd = ohci_td_get_phys(td_handshake);
+		ohci_set_td_next(td_setup, td_handshake);
 	}
 	ed->ed_ed.ed_headp = ohci_td_get_phys(td_setup);
 	ed->ed_ed.ed_tailp = ohci_td_get_phys(td_tail);
+	ed->ed_firsttd = td_setup;
 
 	/* Add an entry to the scheduled item queue */
 	struct OHCI_HCD_SCHEDULED_ITEM* si = kmalloc(sizeof *si);
-	si->si_firsttd = td_setup;
+	si->si_ed = ed;
 	si->si_xfer = xfer;
 	DQUEUE_ADD_TAIL(&p->ohci_scheduled_items, si);
-
-#if 0
-	if ((xfer->xfer_flags & TRANSFER_FLAG_DATA) == 0) {
-	kprintf("%s: ed %x td_setup %x td_data %x td_handshake %x td_tail %x\n",
-	 __func__,
-	 ohci_ed_get_phys(ed),
-	 ohci_td_get_phys(td_setup),
-	 td_data != NULL ? ohci_td_get_phys(td_data) : 0,
-	 ohci_td_get_phys(td_handshake),
-	 ohci_td_get_phys(td_tail));
-
-	ohci_dump_ed(ed);
-	ohci_dump_td(td_setup);
-	if (td_data != NULL)
-		ohci_dump_td(td_data);
-	ohci_dump_td(td_handshake);
-	}
-#endif
 
 	/* ... and off it goes! */
 	p->ohci_control_ed->ed_ed.ed_nexted = ohci_ed_get_phys(ed);
@@ -286,27 +327,118 @@ ohci_schedule_control_transfer(device_t dev, struct USB_TRANSFER* xfer)
 }
 
 static errorcode_t
+ohci_schedule_interrupt_transfer(device_t dev, struct USB_TRANSFER* xfer)
+{
+	struct OHCI_PRIVDATA* p = dev->privdata;
+	struct OHCI_DEV_PRIVDATA* devp = xfer->xfer_device->usb_hcd_privdata;
+	int is_read = xfer->xfer_flags & TRANSFER_FLAG_READ;
+	int is_ls = devp->dev_flags & USB_DEVICE_FLAG_LOW_SPEED;
+
+	/* Construct the DATA transfer descriptor */
+	struct OHCI_HCD_TD* td_data = NULL;
+	td_data = ohci_alloc_td(dev);
+	td_data->td_td.td_flags =
+	 OHCI_TD_R |
+	 OHCI_TD_T(3) |
+	 //OHCI_TD_DI(OHCI_TD_DI_NONE) |
+	 OHCI_TD_DI(OHCI_TD_DI_IMMEDIATE) |
+	 OHCI_TD_DP(is_read ? OHCI_TD_DP_IN : OHCI_TD_DP_OUT);
+	td_data->td_td.td_cbp = KVTOP((addr_t)&xfer->xfer_data[0]); /* XXX64 */
+	td_data->td_td.td_be = td_data->td_td.td_cbp + xfer->xfer_length - 1;
+
+	/* Construct a dummy tail descriptor */
+	struct OHCI_HCD_TD* td_tail = ohci_alloc_td(dev);
+
+	/* Construct an endpoint descriptor for this device */
+	struct OHCI_HCD_ED* ed = ohci_alloc_ed(dev);
+	ed->ed_ed.ed_flags =
+	 OHCI_ED_FA(xfer->xfer_address) |
+	 OHCI_ED_EN(xfer->xfer_endpoint) |
+	 OHCI_ED_D(OHCI_ED_D_TD) |
+	 OHCI_ED_MPS(xfer->xfer_device->usb_max_packet_sz0) | /* XXX Wrong should be pipe's */
+	 (is_ls ? OHCI_ED_S : 0);
+
+	/* Hook all transfers together: setup -> (data) -> handshake -> tail */
+	ohci_set_td_next(td_data, td_tail);
+	ed->ed_ed.ed_headp = ohci_td_get_phys(td_data);
+	ed->ed_ed.ed_tailp = ohci_td_get_phys(td_tail);
+	ed->ed_firsttd = td_data;
+
+	/* Add an entry to the scheduled item queue */
+	struct OHCI_HCD_SCHEDULED_ITEM* si = kmalloc(sizeof *si);
+	si->si_ed = ed;
+	si->si_xfer = xfer;
+	DQUEUE_ADD_TAIL(&p->ohci_scheduled_items, si);
+
+	/* ... and off it goes - XXX LOCK */
+	int ed_list = 0; /* XXX */
+	struct OHCI_HCD_ED* queue_ed = p->ohci_interrupt_ed[ed_list];
+	queue_ed->ed_ed.ed_nexted = ohci_ed_get_phys(ed);
+
+	return ANANAS_ERROR_NONE;
+}
+
+static errorcode_t
 ohci_schedule_transfer(device_t dev, struct USB_TRANSFER* xfer)
 {
+	struct OHCI_PRIVDATA* p = dev->privdata;
+
+	/*
+	 * Add the transfer to our pending list; this is done so we can cancel any
+	 * pending transfers when a device is removed, for example.
+	 */
+	xfer->xfer_flags |= TRANSFER_FLAG_PENDING;
+	mutex_lock(&p->ohci_mtx);
+	DQUEUE_ADD_TAIL_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
+	mutex_unlock(&p->ohci_mtx);
+
 	/* If this is the root hub, immediately transfer the request to it */
 	struct OHCI_DEV_PRIVDATA* dev_p = xfer->xfer_device->usb_hcd_privdata;
-	if (dev_p->dev_flags & OHCI_DEV_FLAG_ROOTHUB) {
-		struct OHCI_PRIVDATA* p = dev->privdata;
-		return p->ohci_roothub->driver->drv_usb_xfer(p->ohci_roothub, xfer);
+	if (dev_p->dev_flags & USB_DEVICE_FLAG_ROOT_HUB) {
+		return oroothub_handle_transfer(dev, xfer);
 	}
+
+	//kprintf("%s: scheduling xfer %p\n", __func__, xfer);
 
 	errorcode_t err;
 	switch(xfer->xfer_type) {
 		case TRANSFER_TYPE_CONTROL:
 			err = ohci_schedule_control_transfer(dev, xfer);
 			break;
+		case TRANSFER_TYPE_INTERRUPT:
+			err = ohci_schedule_interrupt_transfer(dev, xfer);
+			break;
 		default:
 			panic("implement type %d", xfer->xfer_type);
 	}
+
+	if (err != ANANAS_ERROR_NONE) {
+		xfer->xfer_flags &= ~TRANSFER_FLAG_PENDING;
+		mutex_lock(&p->ohci_mtx);
+		DQUEUE_REMOVE_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
+		mutex_unlock(&p->ohci_mtx);
+	}
+
 	return err;
 }
 
-void*
+static errorcode_t
+ohci_cancel_transfer(device_t dev, struct USB_TRANSFER* xfer)
+{
+	struct OHCI_PRIVDATA* p = dev->privdata;
+
+	if (xfer->xfer_flags & TRANSFER_FLAG_PENDING) {
+		xfer->xfer_flags &= ~TRANSFER_FLAG_PENDING;
+		mutex_lock(&p->ohci_mtx);
+		DQUEUE_REMOVE_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
+		mutex_unlock(&p->ohci_mtx);
+	}
+
+	/* XXX we should see if we're still running it */
+	return ANANAS_ERROR_NONE;
+}
+
+static void*
 ohci_device_init_privdata(int flags)
 {
 	struct OHCI_DEV_PRIVDATA* p = kmalloc(sizeof *p);
@@ -319,6 +451,12 @@ static errorcode_t
 ohci_setup(device_t dev)
 {
 	struct OHCI_PRIVDATA* p = dev->privdata;
+
+	/* Allocate and initialize the HCCA structure */
+	errorcode_t err = dma_buf_alloc(dev->dma_tag, sizeof(struct OHCI_HCCA), &p->ohci_hcca_buf);
+	ANANAS_ERROR_RETURN(err);
+	p->ohci_hcca = dma_buf_get_segment(p->ohci_hcca_buf, 0)->s_virt;
+	memset(p->ohci_hcca, 0, sizeof(struct OHCI_HCCA));
 
 	/*
 	 * Create our lists; every new list should contain a back pointer to the
@@ -344,10 +482,7 @@ ohci_setup(device_t dev)
 	};
 	(void)tables;
 	for (unsigned int n = 0; n < 32; n++) {
-		p->ohci_hcca->hcca_inttable[n] = dma_buf_get_segment(p->ohci_interrupt_ed[
-	//		tables[n]
-0
-		]->ed_buf, 0)->s_phys;
+		p->ohci_hcca->hcca_inttable[n] = dma_buf_get_segment(p->ohci_interrupt_ed[tables[n]]->ed_buf, 0)->s_phys;
 	}
 
 	/* Allocate a control/bulk transfer ED */
@@ -387,24 +522,15 @@ ohci_attach(device_t dev)
 	struct OHCI_PRIVDATA* p = kmalloc(sizeof *p);
 	memset(p, 0, sizeof *p);
 	p->ohci_membase = res_mem;
+	mutex_init(&p->ohci_mtx, "ohci");
 	dev->privdata = p;
 
 	/* Set up the interrupt handler */
 	err = irq_register((int)(uintptr_t)res_irq, dev, ohci_irq, p);
 	ANANAS_ERROR_RETURN(err);
 
-	/* Allocate and initialize the HCCA structure */
-	err = dma_buf_alloc(dev->dma_tag, sizeof(struct OHCI_HCCA), &p->ohci_hcca_buf);
-	ANANAS_ERROR_RETURN(err);
-  p->ohci_hcca = dma_buf_get_segment(p->ohci_hcca_buf, 0)->s_virt;
-	memset(p->ohci_hcca, 0, sizeof(struct OHCI_HCCA));
-
 	/* Initialize the structures */
 	err = ohci_setup(dev);
-	ANANAS_ERROR_RETURN(err);
-
-	/* Create our root hub device */
-	err = ohci_roothub_create(dev);
 	ANANAS_ERROR_RETURN(err);
 
 	if (ohci_read4(dev, OHCI_HCCONTROL) & OHCI_CONTROL_IR) {
@@ -419,16 +545,23 @@ ohci_attach(device_t dev)
 		}
 	}
 
+	/* Initialize our root hub; actual attaching/probing is handled by usbbus */
+	err = oroothub_init(dev);
+	ANANAS_ERROR_RETURN(err);
 
 	/* Kludge: force reset state */
 	ohci_write4(dev, OHCI_HCCONTROL, OHCI_CONTROL_HCFS(OHCI_HCFS_USBRESET));
 	
 	/* Save contents of 'frame interval' and reset the HC */
-	uint32_t fi = ohci_read4(dev, OHCI_HCFMINTERVAL);
+	uint32_t fi = OHCI_FM_FI(ohci_read4(dev, OHCI_HCFMINTERVAL));
 	ohci_write4(dev, OHCI_HCCOMMANDSTATUS, OHCI_CS_HCR);
 	int n = 5000;
-	while (n > 0 && ohci_read4(dev, OHCI_HCCOMMANDSTATUS) & OHCI_CS_HCR)
+	while (n > 0) {
+		delay(1);
+		if ((ohci_read4(dev, OHCI_HCCOMMANDSTATUS) & OHCI_CS_HCR) == 0)
+			break;
 		n--; /* XXX kludge; should use a real timeout mechanism */
+	}
 	if (n == 0) {
 		device_printf(dev, "stuck in reset, giving up");
 		return ANANAS_ERROR(NO_DEVICE);
@@ -444,22 +577,24 @@ ohci_attach(device_t dev)
 	ohci_write4(dev, OHCI_HCINTERRUPTDISABLE, 
 	 (OHCI_ID_SO | OHCI_ID_WDH | OHCI_ID_SF | OHCI_ID_RD | OHCI_ID_UE | OHCI_ID_FNO | OHCI_ID_RHSC | OHCI_ID_OC)
 	);
-	ohci_write4(dev, OHCI_HCINTERRUPTENABLE,
-	 (OHCI_IE_SO | OHCI_IE_WDH | OHCI_IE_RD | OHCI_IE_UE | OHCI_IE_FNO | OHCI_IE_RHSC | OHCI_IE_OC | OHCI_IE_MIE)
+	int ints_enabled = (
+		OHCI_IE_SO | OHCI_IE_WDH | OHCI_IE_RD | OHCI_IE_UE | OHCI_IE_FNO | OHCI_IE_RHSC | OHCI_IE_OC
 	);
+	ohci_write4(dev, OHCI_HCINTERRUPTENABLE, ints_enabled | OHCI_IE_MIE);
 
 	/* Start sending USB frames */
 	uint32_t c = ohci_read4(dev, OHCI_HCCONTROL);
 	c &= ~(OHCI_CONTROL_CBSR(OHCI_CBSR_MASK) | OHCI_CONTROL_HCFS(OHCI_HCFS_MASK) | OHCI_CONTROL_PLE | OHCI_CONTROL_IE | OHCI_CONTROL_CLE | OHCI_CONTROL_BLE | OHCI_CONTROL_IR);
-	kprintf("hccontrol unmasked -> %x\n", c);
-	c |= /* OHCI_CONTROL_PLE | */ OHCI_CONTROL_IE | OHCI_CONTROL_CLE | OHCI_CONTROL_BLE;
+	c |= OHCI_CONTROL_PLE | OHCI_CONTROL_IE | OHCI_CONTROL_CLE | OHCI_CONTROL_BLE;
 	c |= OHCI_CONTROL_CBSR(OHCI_CBSR_4_1) | OHCI_CONTROL_HCFS(OHCI_HCFS_USBOPERATIONAL);
-	kprintf("hccontrol -> %x\n", c);
 	ohci_write4(dev, OHCI_HCCONTROL, c);
 
 	/* State is now OPERATIONAL -> we can write interval/periodic start now */
-	ohci_write4(dev, OHCI_HCFMINTERVAL, fi ^ OHCI_FM_FIT);
-	uint32_t ps = (OHCI_FM_FI(fi) * 10) / 9;
+	uint32_t fm = (ohci_read4(dev, OHCI_HCFMINTERVAL) ^ OHCI_FM_FIT); /* invert FIT bit */
+	fm |= OHCI_FM_FSMPS(((fi - OHCI_FM_MAX_OVERHEAD) * 6) / 7); /* calculate FSLargestDataPacket */
+	fm |= fi; /* restore frame interval */
+	ohci_write4(dev, OHCI_HCFMINTERVAL, fm);
+	uint32_t ps = (OHCI_FM_FI(fi) * 9) / 10;
 	ohci_write4(dev, OHCI_HCPERIODICSTART, ps);
 
 	/* 'Fiddle' with roothub registers to awaken it */
@@ -469,9 +604,6 @@ ohci_attach(device_t dev)
 	delay(10);
 	ohci_write4(dev, OHCI_HCRHDESCRIPTORA, a);
 
-//	ohci_write4(dev, OHCI_HCRHSTATUS, OHCI_RHS_DRWE);
-
-	ohci_dump(dev);
 	return ANANAS_ERROR_NONE;
 }
 
@@ -497,11 +629,21 @@ ohci_probe(device_t dev)
 	return ohci_match_dev(dev);
 }
 
+static void
+ohci_set_bus(device_t dev, struct USB_BUS* bus)
+{
+	struct OHCI_PRIVDATA* p = dev->privdata;
+	p->ohci_bus = bus;
+}
+
 struct DRIVER drv_ohci = {
 	.name					= "ohci",
 	.drv_probe		= ohci_probe,
 	.drv_attach		= ohci_attach,
-	.drv_usb_xfer = ohci_schedule_transfer
+	.drv_usb_schedule_xfer = ohci_schedule_transfer,
+	.drv_usb_cancel_xfer = ohci_cancel_transfer,
+	.drv_usb_hcd_initprivdata = ohci_device_init_privdata,
+	.drv_usb_set_bus = ohci_set_bus,
 };
 
 DRIVER_PROBE(ohci)

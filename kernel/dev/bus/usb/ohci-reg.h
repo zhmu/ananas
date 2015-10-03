@@ -69,6 +69,8 @@
 #define OHCI_HCFMINTERVAL	0x34
 # define OHCI_FM_FI(x)		((x) & 0x3fff)
 # define OHCI_FM_FIT		(1 << 31)
+# define OHCI_FM_MAX_OVERHEAD	210
+# define OHCI_FM_FSMPS(x)	((x) << 16)
 #define OHCI_HCFMREMAINING	0x38
 #define OHCI_HCFMNUMBER		0x3c
 #define OHCI_HCPERIODICSTART	0x40
