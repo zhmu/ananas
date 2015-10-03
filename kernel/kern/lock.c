@@ -131,14 +131,14 @@ sem_signal(semaphore_t* sem)
 	spinlock_unlock_unpremptible(&sem->sem_lock, state);
 }	
 
-void
-sem_wait(semaphore_t* sem)
+/* Waits for a semaphore to be signalled, but holds it locked */
+static void
+sem_wait_and_lock(semaphore_t* sem, register_t* state)
 {
 	/* Happy flow first: if there are units left, we are done */
-	register_t state = spinlock_lock_unpremptible(&sem->sem_lock);
+	*state = spinlock_lock_unpremptible(&sem->sem_lock);
 	if (sem->sem_count > 0) {
 		sem->sem_count--;
-		spinlock_unlock_unpremptible(&sem->sem_lock, state);
 		return;
 	}
 
@@ -153,7 +153,7 @@ sem_wait(semaphore_t* sem)
 		 * an IRQ will actually trigger the wait condition.
 		 */
 		for (;;) {
-			spinlock_unlock_unpremptible(&sem->sem_lock, state);
+			spinlock_unlock_unpremptible(&sem->sem_lock, *state);
 			while (sem->sem_count == 0)
 				/* wait */;
 			spinlock_lock_unpremptible(&sem->sem_lock);
@@ -161,7 +161,6 @@ sem_wait(semaphore_t* sem)
 				break;
 		}
 		sem->sem_count--;
-		spinlock_unlock_unpremptible(&sem->sem_lock, state);
 		return;
 	}
 
@@ -177,7 +176,22 @@ sem_wait(semaphore_t* sem)
 		schedule();
 		spinlock_lock_unpremptible(&sem->sem_lock);
 	} while (sw.sw_signalled == 0);
+}
 
+void
+sem_wait(semaphore_t* sem)
+{
+	register_t state;
+	sem_wait_and_lock(sem, &state);
+	spinlock_unlock_unpremptible(&sem->sem_lock, state);
+}
+
+void
+sem_wait_and_drain(semaphore_t* sem)
+{
+	register_t state;
+	sem_wait_and_lock(sem, &state);
+	sem->sem_count = 0; /* drain all remaining units */
 	spinlock_unlock_unpremptible(&sem->sem_lock, state);
 }
 

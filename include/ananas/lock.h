@@ -67,5 +67,6 @@ void mutex_unlock(mutex_t* mtx);
 void sem_init(semaphore_t* sem, int count);
 void sem_signal(semaphore_t* sem);
 void sem_wait(semaphore_t* sem);
+void sem_wait_and_drain(semaphore_t* sem);
 
 #endif /* __LOCK_H__ */
