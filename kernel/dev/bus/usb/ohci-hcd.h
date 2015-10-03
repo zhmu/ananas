@@ -40,7 +40,7 @@ struct OHCI_PRIVDATA {
 	mutex_t ohci_mtx;
 	semaphore_t ohci_rh_semaphore;
 	thread_t ohci_rh_pollthread;
-	struct USB_BUS* ohci_bus; /* XXX this is a kludge for roothub */
+	struct USB_DEVICE* ohci_roothub;
 };
 
 static inline void

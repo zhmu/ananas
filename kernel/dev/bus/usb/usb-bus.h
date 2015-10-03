@@ -19,7 +19,10 @@ struct USB_BUS {
 	/* List of all USB devices on this bus */
 	struct USB_DEVICES bus_devices;
 
-	/* Link fields for bus list */
+	/* Mutex protecting the bus */
+	mutex_t bus_mutex;
+
+	/* Link fields for attach or bus list */
 	DQUEUE_FIELDS(struct USB_BUS);
 };
 

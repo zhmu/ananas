@@ -54,22 +54,25 @@ usbbus_probe(device_t dev)
 static errorcode_t
 usbbus_attach(device_t dev)
 {
+	device_t hcd_dev = dev->parent; /* usbbus is attached to the HCD */
+
 	/* Create our bus itself */
 	struct USB_BUS* bus = kmalloc(sizeof *bus);
 	memset(bus, 0, sizeof *bus);
 	bus->bus_dev = dev;
-	bus->bus_hcd = dev->parent;
+	bus->bus_hcd = hcd_dev;
+	mutex_init(&bus->bus_mutex, "usbbus");
 	DQUEUE_INIT(&bus->bus_devices);
 	bus->bus_flags = USB_BUS_FLAG_NEEDS_EXPLORE;
 	dev->privdata = bus;
 
-	/* Inform our parent of our bus */
-	KASSERT(bus->bus_hcd->driver->drv_usb_set_bus != NULL, "parent without usb set bus?");
-	bus->bus_hcd->driver->drv_usb_set_bus(bus->bus_hcd, bus);
-
-	/* Create the root hub device; it will handle all our children */
+	/*
+	 * Create the root hub device; it will handle all our children - the HCD may
+	 * need to know about this as the root hub may be polling...
+	  */
 	struct USB_DEVICE* roothub_dev = usb_alloc_device(bus, NULL, USB_DEVICE_FLAG_ROOT_HUB);
-	DQUEUE_ADD_TAIL(&bus->bus_devices, roothub_dev);
+	if (hcd_dev->driver->drv_usb_set_roothub != NULL)
+		hcd_dev->driver->drv_usb_set_roothub(bus->bus_hcd, roothub_dev);
 	usbbus_schedule_attach(roothub_dev);
 
 	/* Register ourselves within the big bus list */
@@ -95,10 +98,13 @@ usbbus_schedule_explore(struct USB_BUS* bus)
 	sem_signal(&usbbus_semaphore);
 }
 
+/* Must be called with lock held! */
 static void
 usb_bus_explore(struct USB_BUS* bus)
 {
-	/* XXX lock? */
+	if(DQUEUE_EMPTY(&bus->bus_devices))
+		return;
+
 	DQUEUE_FOREACH(&bus->bus_devices, usb_dev, struct USB_DEVICE) {
 		device_t dev = usb_dev->usb_device;
 		if (dev->driver != NULL && dev->driver->drv_usb_explore != NULL) {
@@ -122,10 +128,10 @@ usb_bus_thread(void* unused)
 			 */
 			mutex_lock(&usbbus_mutex);
 			DQUEUE_FOREACH(&usbbus_busses, bus, struct USB_BUS) {
-				if ((bus->bus_flags & USB_BUS_FLAG_NEEDS_EXPLORE) == 0)
-					continue;
-
-				usb_bus_explore(bus);
+				mutex_lock(&bus->bus_mutex);
+				if (bus->bus_flags & USB_BUS_FLAG_NEEDS_EXPLORE)
+					usb_bus_explore(bus);
+				mutex_unlock(&bus->bus_mutex);
 			}
 			mutex_unlock(&usbbus_mutex);
 
@@ -146,6 +152,12 @@ usb_bus_thread(void* unused)
 			 */
 			errorcode_t err = usbdev_attach(usb_dev);
 			KASSERT(err == ANANAS_ERROR_OK, "cannot yet deal with failures %d", err);
+
+			/* This worked; hook the device to the bus' device list */
+			struct USB_BUS* bus = usb_dev->usb_bus;
+			mutex_lock(&bus->bus_mutex);
+			DQUEUE_ADD_TAIL(&bus->bus_devices, usb_dev);
+			mutex_unlock(&bus->bus_mutex);
 		}
 	}
 }

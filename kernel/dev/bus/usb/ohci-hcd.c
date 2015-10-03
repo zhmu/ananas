@@ -630,10 +630,13 @@ ohci_probe(device_t dev)
 }
 
 static void
-ohci_set_bus(device_t dev, struct USB_BUS* bus)
+ohci_set_roothub(device_t dev, struct USB_DEVICE* usb_dev)
 {
 	struct OHCI_PRIVDATA* p = dev->privdata;
-	p->ohci_bus = bus;
+	p->ohci_roothub = usb_dev;
+
+	/* Now we can start the roothub thread to service updates */
+	oroothub_start(dev);
 }
 
 struct DRIVER drv_ohci = {
@@ -643,7 +646,7 @@ struct DRIVER drv_ohci = {
 	.drv_usb_schedule_xfer = ohci_schedule_transfer,
 	.drv_usb_cancel_xfer = ohci_cancel_transfer,
 	.drv_usb_hcd_initprivdata = ohci_device_init_privdata,
-	.drv_usb_set_bus = ohci_set_bus,
+	.drv_usb_set_roothub = ohci_set_roothub,
 };
 
 DRIVER_PROBE(ohci)

@@ -394,11 +394,7 @@ oroothub_thread(void* ptr)
 {
 	device_t dev = ptr;
 	struct OHCI_PRIVDATA* p = dev->privdata;
-	struct USB_BUS* bus = p->ohci_bus;
-
-	/* XXX do we need locking here? */
-	struct USB_DEVICE* usb_dev = DQUEUE_HEAD(&bus->bus_devices);
-	KASSERT(usb_dev != NULL, "no usbdevices?");
+	KASSERT(p->ohci_roothub != NULL, "no root hub?");
 
 	while(1) {
 		/* Wait until we get a roothub interrupt; that should signal something happened */
@@ -408,7 +404,7 @@ oroothub_thread(void* ptr)
 		 * If we do not have anything in the interrupt queue, there is no need to
 		 * bother checking as no one can handle yet - best to wait...
 		 */
-		oroothub_process_interrupt_transfers(usb_dev);
+		oroothub_process_interrupt_transfers(p->ohci_roothub);
 	}	
 }
 
@@ -428,18 +424,24 @@ oroothub_init(device_t dev)
 	p->ohci_rh_numports = numports;
 
 	/*
-	 * This went well - finally, summon the hub poll thread to handle the
-	 * interrupt pipe requests.
-	 */
-	kthread_init(&p->ohci_rh_pollthread, &oroothub_thread, dev);
-	thread_set_args(&p->ohci_rh_pollthread, "[oroothub]\0\0", PAGE_SIZE);
-	thread_resume(&p->ohci_rh_pollthread);
-
-	/*
 	 * Note that there is no need to attach the root hub; usb-bus does this upon attaching
 	 * to the HCD driver.
 	 */
 	return ANANAS_ERROR_NONE;
+}
+
+void
+oroothub_start(device_t dev)
+{
+	/*
+	 * Launch the poll thread to handle the interrupt pipe requests; we can't do
+	 * that from oroothub_init() because the usbbus doesn't exist at that point
+	 * and we don't know the USB device either.
+	 */
+	struct OHCI_PRIVDATA* p = dev->privdata;
+	kthread_init(&p->ohci_rh_pollthread, &oroothub_thread, dev);
+	thread_set_args(&p->ohci_rh_pollthread, "[oroothub]\0\0", PAGE_SIZE);
+	thread_resume(&p->ohci_rh_pollthread);
 }
 
 /* vim:set ts=2 sw=2: */
