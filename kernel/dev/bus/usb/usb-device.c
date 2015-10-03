@@ -12,35 +12,48 @@
 #include <ananas/trace.h>
 #include <ananas/mm.h>
 #include <machine/param.h> /* for PAGE_SIZE XXX */
+#include "usb-bus.h"
+#include "usb-device.h"
 
 TRACE_SETUP;
 
-static thread_t usb_devicethread;
-static semaphore_t usb_device_semaphore;
-static struct USB_DEVICE_QUEUE usb_device_pendingqueue;
-static spinlock_t usb_device_spl_pendingqueue = SPINLOCK_DEFAULT_INIT;
+extern struct DEVICE_PROBE probe_queue; /* XXX gross */
 
-static void	
-usb_attach_driver(struct USB_DEVICE* usb_dev)
+struct USB_DEVICE*
+usb_alloc_device(struct USB_BUS* bus, struct USB_HUB* hub, int flags)
 {
-	KASSERT(usb_dev->usb_cur_interface >= 0, "attach on a device without an interface?");
+	void* hcd_privdata = bus->bus_hcd->driver->drv_usb_hcd_initprivdata(flags);
 
-	device_attach_bus(usb_dev->usb_device);
+	struct USB_DEVICE* usb_dev = kmalloc(sizeof *usb_dev);
+	memset(usb_dev, 0, sizeof *usb_dev);
+	usb_dev->usb_bus = bus;
+	usb_dev->usb_hub = hub;
+	usb_dev->usb_device = device_alloc(bus->bus_dev, NULL);
+	usb_dev->usb_hcd_privdata = hcd_privdata;
+	usb_dev->usb_address = 0;
+	usb_dev->usb_max_packet_sz0 = USB_DEVICE_DEFAULT_MAX_PACKET_SZ0;
+	usb_dev->usb_num_interfaces = 0;
+	usb_dev->usb_cur_interface = -1;
+	device_add_resource(usb_dev->usb_device, RESTYPE_USB_DEVICE, (resource_base_t)usb_dev, 0);
+
+	DQUEUE_INIT(&usb_dev->usb_pipes);
+	return usb_dev;
 }
 
-static void
-usb_hub_attach_done(device_t usb_hub)
+void
+usb_free_device(struct USB_DEVICE* usb_dev)
 {
-	/* XXX This no longer works; need to clean up the hub <-> hcd <-> device mess */
-#if 0
-	struct USB_TRANSFER xfer_hub_ack;
-	xfer_hub_ack.xfer_type = TRANSFER_TYPE_HUB_ATTACH_DONE;
-	usb_hub->parent->driver->drv_usb_xfer(usb_hub, &xfer_hub_ack);
-#endif
+	device_free(usb_dev->usb_device);
+	kfree(usb_dev);
 }
 
-static errorcode_t
-usb_attach_device_one(struct USB_DEVICE* usb_dev)
+/*
+ * Attaches a single USB device (which hasn't got an address or anything yet)
+ *
+ * Should _only_ be called by the usb-bus thread!
+ */
+errorcode_t
+usbdev_attach(struct USB_DEVICE* usb_dev)
 {
 	struct DEVICE* dev = usb_dev->usb_device;
 	char tmp[1024]; /* XXX */
@@ -65,18 +78,22 @@ usb_attach_device_one(struct USB_DEVICE* usb_dev)
 	usb_dev->usb_max_packet_sz0 = d->dev_maxsize0;
 
 	/* Construct a device address */
-	int dev_address = usb_get_next_address(usb_dev);
+	int dev_address = usbbus_alloc_address(usb_dev->usb_bus);
+	if (dev_address <= 0) {
+		device_printf(dev, "out of addresses on bus %s, aborting attachment!", usb_dev->usb_bus->bus_dev->name);
+		return ANANAS_ERROR(NO_RESOURCE);
+	}
 
 	/* Assign the device a logical address */
 	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_SET_ADDRESS, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, dev_address, 0, NULL, NULL, 1);
 	ANANAS_ERROR_RETURN(err);
 
-	/* Address configured */
+	/*
+	 * Address configured - we could attach more things in parallel from now on,
+	 * but this only complicates things to no benefit...
+	 */
 	usb_dev->usb_address = dev_address;
 	TRACE_DEV(USB, INFO, usb_dev->usb_device, "logical address is %u", usb_dev->usb_address);
-
-	/* We can now let the hub know that it can continue resetting new devices */
-	usb_hub_attach_done(usb_dev->usb_hub);
 
 	/* Now, obtain the entire device descriptor */
 	len = sizeof(usb_dev->usb_descr_device);
@@ -158,72 +175,47 @@ usb_attach_device_one(struct USB_DEVICE* usb_dev)
 	TRACE_DEV(USB, INFO, dev, "configuration activated");
 	usb_dev->usb_cur_interface = 0;
 
-	/* Now, we'll have to hook up some driver... */
-	usb_attach_driver(usb_dev);
-	return ANANAS_ERROR_OK;
-}
-
-void
-usb_device_thread(void* unused)
-{
-	while(1) {
-		/* Wait until we have to wake up... */
-		sem_wait(&usb_device_semaphore);
-
-		/* Keep attaching devices */
-		while(1) {
-			spinlock_lock(&usb_device_spl_pendingqueue);
-			if (DQUEUE_EMPTY(&usb_device_pendingqueue)) {
-				spinlock_unlock(&usb_device_spl_pendingqueue);
+	/* Now, we'll have to hook up some driver... XXX this is duplicated from device.c/pcibus.c */
+	int device_attached = 0;
+	DQUEUE_FOREACH(&probe_queue, p, struct PROBE) {
+		/* See if the device lives on our bus */
+		int exists = 0;
+		for (const char** curbus = p->bus; *curbus != NULL; curbus++) {
+			/*
+			 * Note that we need to check the _parent_ as that is the bus; 'dev' will
+			 * be turned into a fully-flegded device once we find a driver which
+			 * likes it.
+			 */
+			if (strcmp(*curbus, dev->parent->name) == 0) {
+				exists = 1;
 				break;
 			}
-			struct USB_DEVICE* usb_dev = DQUEUE_HEAD(&usb_device_pendingqueue);
-			DQUEUE_POP_HEAD(&usb_device_pendingqueue);
-			spinlock_unlock(&usb_device_spl_pendingqueue);
+		}
+		if (!exists)
+			continue;
 
-			/*
-			 * We need to attach this device; the first step is to enable port power. We do this
-			 * here not to clutter the attach code with enabling/disabling power; it makes the
-			 * former much more readible.
-			 *
-			 * Note that this will block until completed, which is intentional as it
-			 * ensures we will never attach more than one device in the system at any
-			 * given time.
-			 */
-
-			errorcode_t err = usb_attach_device_one(usb_dev);
-			KASSERT(err == ANANAS_ERROR_OK, "cannot yet deal with failures");
+		/* This device may work - give it a chance to attach */
+		dev->driver = p->driver;
+		strcpy(dev->name, dev->driver->name);
+		dev->unit = dev->driver->current_unit++;
+		errorcode_t err = device_attach_single(dev);
+		if (err == ANANAS_ERROR_NONE) {
+			/* This worked; use the next unit for the new device */
+			device_attached++;
+			break;
+		} else {
+			/* No luck, revert the unit number */
+			dev->driver->current_unit--;
 		}
 	}
-}
 
-void
-usb_attach_device(device_t parent, device_t hub, void* hcd_privdata)
-{
-	struct USB_DEVICE* usb_dev = usb_alloc_device(parent, hub, hcd_privdata);
-
-	/* Add the device to our queue */
-	spinlock_lock(&usb_device_spl_pendingqueue);
-	DQUEUE_ADD_TAIL(&usb_device_pendingqueue, usb_dev);
-	spinlock_unlock(&usb_device_spl_pendingqueue);
-
-	/* Wake up our thread */
-	sem_signal(&usb_device_semaphore);
-}
-
-void
-usb_attach_init()
-{
-	sem_init(&usb_device_semaphore, 0);
-	DQUEUE_INIT(&usb_device_pendingqueue);
-
-	/*
-	 * Create a kernel thread to handle USB device attachments. We use a thread for this
-	 * since we can only attach one at the same time.
-	 */
-	kthread_init(&usb_devicethread, &usb_device_thread, NULL);
-	thread_set_args(&usb_devicethread, "[usbdevice]\0\0", PAGE_SIZE);
-	thread_resume(&usb_devicethread);
+	if (!device_attached) {
+		/* XXX we should revert to some 'generic USB' device here... */
+		kprintf("XXX no device found, removing !!!\n");
+		dev->driver = NULL;
+		usb_free_device(usb_dev);
+	}
+	return ANANAS_ERROR_OK;
 }
 
 /* vim:set ts=2 sw=2: */

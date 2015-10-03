@@ -32,6 +32,8 @@ enum RESOURCE_TYPE {
 	RESTYPE_PCI_CLASSREV,
 	/* PnP ID - used by ACPI */
 	RESTYPE_PNP_ID,
+	/* USB-specific */
+	RESTYPE_USB_DEVICE,
 };
 
 typedef enum RESOURCE_TYPE resource_type_t;
@@ -46,6 +48,8 @@ struct RESOURCE {
 };
 
 struct BIO;
+struct USB_BUS;
+struct USB_DEVICE;
 struct USB_TRANSFER;
 
 /*
@@ -69,8 +73,12 @@ struct DRIVER {
 	/* for block devices: start request queue */
 	void		(*drv_start)(device_t);
 	/* USB */
-	errorcode_t	(*drv_usb_xfer)(device_t, struct USB_TRANSFER*);
+	errorcode_t	(*drv_usb_schedule_xfer)(device_t, struct USB_TRANSFER*);
+	errorcode_t	(*drv_usb_cancel_xfer)(device_t, struct USB_TRANSFER*);
+	void*		(*drv_usb_hcd_initprivdata)(int);
+	void		(*drv_usb_set_bus)(device_t, struct USB_BUS*);
 	errorcode_t	(*drv_roothub_xfer)(device_t, struct USB_TRANSFER*);
+	void		(*drv_usb_explore)(struct USB_DEVICE*);
 };
 
 /*

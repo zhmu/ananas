@@ -20,7 +20,6 @@ struct USB_DEVICE;
  * A standard USB endpoint.
  */
 struct USB_ENDPOINT {
-	struct USB_DEVICE*	ep_device;
 	int			ep_type;
 	int			ep_address;
 	int			ep_dir;
@@ -51,33 +50,6 @@ enum usb_devstat_t {
 	STATUS_SUSPENDED
 };
 
-/*
- * An USB device consists of a name, an address, pipes and a driver. We
- * augment the existing device for this and consider the USB_DEVICE as the
- * private data for the device in question.
- */
-struct USB_DEVICE {
-	device_t	usb_device;			/* Device reference */
-	device_t	usb_hub;			/* Hub reference */
-	void*		usb_hcd_privdata;		/* HCD data for the given device */
-	void*		usb_privdata;			/* Private data */
-	int		usb_address;		   	/* Assigned USB address */
-	int		usb_max_packet_sz0;		/* Maximum packet size for endpoint 0 */
-#define USB_DEVICE_DEFAULT_MAX_PACKET_SZ0	8
-	enum usb_devstat_t	usb_devstatus;		/* Device status */
-	int		usb_attachstep;			/* Current attachment step */
-	struct USB_INTERFACE usb_interface[USB_MAX_INTERFACES];
-	int		usb_num_interfaces;
-	int		usb_cur_interface;
-	struct USB_DESCR_DEVICE usb_descr_device;
-	struct USB_PIPES usb_pipes;
-
-	/* Provide queue structure for device attachment */
-	DQUEUE_FIELDS(struct USB_DEVICE);
-};
-
-DQUEUE_DEFINE(USB_DEVICE_QUEUE, struct USB_DEVICE);
-
 typedef void (*usb_xfer_callback_t)(struct USB_TRANSFER*);
 
 /*
@@ -97,6 +69,7 @@ struct USB_TRANSFER {
 #define TRANSFER_FLAG_WRITE		0x0002
 #define TRANSFER_FLAG_DATA		0x0004
 #define TRANSFER_FLAG_ERROR		0x0008
+#define TRANSFER_FLAG_PENDING		0x0010
 	int				xfer_address;
 	int				xfer_endpoint;
 	/* XXX This may be a bit too much */
@@ -107,20 +80,14 @@ struct USB_TRANSFER {
 	usb_xfer_callback_t		xfer_callback;
 	void*				xfer_callback_data;
 	semaphore_t			xfer_semaphore;
-	/* Provide queue structure */
-	DQUEUE_FIELDS(struct USB_TRANSFER);
+
+	/* List of pending transfers */
+	DQUEUE_FIELDS_IT(struct USB_TRANSFER, pending);
+
+	/* List of completed transfers */
+	DQUEUE_FIELDS_IT(struct USB_TRANSFER, completed);
 };
 
 DQUEUE_DEFINE(USB_TRANSFER_QUEUE, struct USB_TRANSFER);
-
-struct USB_DEVICE* usb_alloc_device(device_t root, device_t hub, void* hcd_privdata);
-struct USB_TRANSFER* usb_alloc_transfer(struct USB_DEVICE* dev, int type, int flags, int endpt);
-errorcode_t usb_schedule_transfer(struct USB_TRANSFER* xfer);
-void usb_free_transfer(struct USB_TRANSFER* xfer);
-void usb_completed_transfer(struct USB_TRANSFER* xfer);
-int usb_get_next_address(struct USB_DEVICE* usb_dev);
-
-void usb_attach_device(device_t parent, device_t hub, void* hcd_privdata);
-void usb_attach_init();
 
 #endif /* __ANANAS_USB_CORE_H__ */

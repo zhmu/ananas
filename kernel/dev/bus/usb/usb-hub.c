@@ -11,44 +11,77 @@
 #include <ananas/trace.h>
 #include <ananas/time.h>
 #include <machine/param.h>
+#include "usb-bus.h"
+#include "usb-device.h"
 #include "usb-hub.h"
 
-void* ohci_device_init_privdata(int flags); // XXX
+struct HUB_PORT {
+	int	p_flags;
+#define HUB_PORT_FLAG_CONNECTED		(1 << 0)		/* Device is connected */
+#define HUB_PORT_FLAG_UPDATED		(1 << 1)		/* Port status is updated */
+};
+
+struct USB_HUB {
+	int		hub_flags;
+#define HUB_FLAG_SELFPOWERED		(1 << 0)		/* Hub is self powered */
+#define HUB_FLAG_UPDATED		(1 << 1)		/* Hub status needs updating */
+	int		hub_numports;
+	struct HUB_PORT	hub_port[0];
+};
 
 TRACE_SETUP;
 
-static usb_pipe_result_t
+static void
 usbhub_int_callback(struct USB_PIPE* pipe)
 {
 	struct USB_TRANSFER* xfer = pipe->p_xfer;
 	struct USB_DEVICE* usb_dev = pipe->p_dev;
-	struct HUB_PRIVDATA* hub_privdata = usb_dev->usb_privdata;
+	struct USB_HUB* usb_hub = usb_dev->usb_device->privdata;
+
+	device_printf(usb_dev->usb_device, "in callback flags %d data %x", xfer->xfer_flags, xfer->xfer_data[0]);
+
+	device_t dev = usb_dev->usb_device;
+	kprintf("CALLBACK: dev %p privdata %p\n", dev, dev->privdata);
 
 	/* Error means nothing happened, so request a new transfer */
-	if (xfer->xfer_flags & TRANSFER_FLAG_ERROR)
-		return PIPE_OK;
+	if (xfer->xfer_flags & TRANSFER_FLAG_ERROR) {
+		kprintf("usbhub_int_callback: error!\n");
+		return;
+	}
 
 	if (xfer->xfer_data[0] & 1) {
 		/* Hub status changed - need to fetch the new status */
-		hub_privdata->hub_flags |= HUB_FLAG_UPDATED;
+		usb_hub->hub_flags |= HUB_FLAG_UPDATED;
 	}
 
-	for (int n = 1; n <= hub_privdata->hub_numports; n++) {
+	int num_changed = 0;
+	for (int n = 1; n <= usb_hub->hub_numports; n++) {
 		if ((xfer->xfer_data[n / 8] & (1 << (n & 7))) == 0)
 			continue;
 
+		device_printf(usb_dev->usb_device, "port %d changed", n);
+
 		/* This port was updated - fetch the port status */
-		hub_privdata->hub_port[n - 1].p_flags |= HUB_PORT_FLAG_UPDATED;
+		usb_hub->hub_port[n - 1].p_flags |= HUB_PORT_FLAG_UPDATED;
+		num_changed++;
 	}
 
-	sem_signal(&hub_privdata->hub_semaphore);
-	return PIPE_OK;
+	device_printf(usb_dev->usb_device, "%d change(s)", num_changed);
+
+	/* If anything was changed, we need to schedule a bus explore */
+	if (num_changed > 0)
+		usbbus_schedule_explore(usb_dev->usb_bus);
+
+	/* Reschedule the pipe for future updates */
+	usbpipe_schedule(pipe);
 }
 
 static errorcode_t
 usbhub_probe(device_t dev)
 {
-	struct USB_DEVICE* usb_dev = dev->parent->privdata;
+	struct USB_DEVICE* usb_dev = device_alloc_resource(dev, RESTYPE_USB_DEVICE, 0);
+	if (usb_dev == NULL)
+		return ANANAS_ERROR(NO_DEVICE);
 
 	struct USB_INTERFACE* iface = &usb_dev->usb_interface[usb_dev->usb_cur_interface];
 	if (iface->if_class != USB_IF_CLASS_HUB)
@@ -58,55 +91,106 @@ usbhub_probe(device_t dev)
 }
 
 static void
-usbhub_workerthread(void* ptr)
+usbhub_handle_explore_new_device(struct USB_DEVICE* usb_dev, struct HUB_PORT* port, int n)
 {
-	struct USB_DEVICE* usb_dev = ptr;
-	struct HUB_PRIVDATA* hub_privdata = usb_dev->usb_privdata;
-	device_t dev = usb_dev->usb_device;
+	struct HUB_PORT_STATUS ps;
 
-	while(1) {
-		sem_wait(&hub_privdata->hub_semaphore);
+	/* Reset the reset state of the port in case it lingers */
+	errorcode_t err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_RESET, n, NULL, NULL, 1);
+	if (err != ANANAS_ERROR_NONE) {
+		device_printf(usb_dev->usb_device, "port_clear error %d, continuing anyway", err);
+	}
 
-		if (hub_privdata->hub_flags & HUB_FLAG_UPDATED) {
-			device_printf(dev, "hub updated, todo");
-			hub_privdata->hub_flags &= ~HUB_FLAG_UPDATED;
+	/* Need to reset the port */
+	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_SET_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_PORT_RESET, n, NULL, NULL, 1);
+	if (err != ANANAS_ERROR_OK) {
+		device_printf(usb_dev->usb_device, "port_reset error %d, ignoring port", err);
+		return;
+	}
+
+	int timeout = 10; /* XXX */
+	while(timeout > 0) {
+		delay(100);
+
+		/* See if the device is correctly reset */
+		size_t len = sizeof(ps);
+		memset(&ps, 0, len);
+		err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, 0);
+		if (err != ANANAS_ERROR_OK) {
+			device_printf(usb_dev->usb_device, "get_status error %d, ignoring port", err);
+			return;
+		}
+	
+		if ((ps.ps_portstatus & USB_HUB_PS_PORT_CONNECTION) == 0) {
+			/* Port is no longer attached; give up */
+			device_printf(usb_dev->usb_device, "port %d no longer connected, ignoring port", n);
+			return;
 		}
 
-		/* Handle all ports that need handling */
-		for (int n = 1; n <= hub_privdata->hub_numports; n++) {
-			struct HUB_PORT* port = &hub_privdata->hub_port[n - 1];
-			if ((port->p_flags & HUB_PORT_FLAG_UPDATED) == 0)
-				continue;
+		if (ps.ps_portchange & HUB_PORTCHANGE_RESET)
+			break;
 
-			struct HUB_PORT_STATUS ps;
-			size_t len = sizeof(ps);
-			errorcode_t err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, 0);
-			if (err != ANANAS_ERROR_OK) {
-				device_printf(dev, "get_status error %d, ignoring port", err);
-				continue;
-			}
+		timeout--;
+		delay(100); /* XXX */
+	}
+	if (timeout == 0) {
+		device_printf(usb_dev->usb_device, "timeout resetting port %d", n);
+		return;
+	}
 
-			/* If the port wasn't connected yet now is, we have to attach a new device */
-			if ((port->p_flags & HUB_PORT_FLAG_CONNECTED) == 0 && (ps.ps_portstatus & USB_HUB_PS_PORT_CONNECTION)) {
-				/* Need to enable the port */
-				err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_SET_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_PORT_RESET, n, NULL, NULL, 1);
-				if (err != ANANAS_ERROR_OK) {
-					device_printf(dev, "get_status error %d, ignoring port", err);
-					continue;
-				}
+	err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_RESET, n, NULL, NULL, 1);
+	if (err != ANANAS_ERROR_OK) {
+		device_printf(usb_dev->usb_device, "unable to clear reset of port %d", n);
+	}
 
-				/* Mark the port as attached */
-				port->p_flags |= HUB_PORT_FLAG_CONNECTED;
+	/* Mark the port as attached */
+	port->p_flags |= HUB_PORT_FLAG_CONNECTED;
 
-				/* Hand it off to the USB framework */
-				int low_speed = (ps.ps_portstatus & USB_HUB_PS_PORT_LOW_SPEED) != 0;
-				void* dev_privdata = ohci_device_init_privdata(low_speed);
-				//hub_privdata->hub_flags |= HUB_FLAG_ATTACHING;
-				usb_attach_device(dev->parent, dev, dev_privdata);
-			}
+	/* Hand it off to the USB framework */
+	struct USB_HUB* hub_hub = usb_dev->usb_device->privdata;
+	int flags = (ps.ps_portstatus & USB_HUB_PS_PORT_LOW_SPEED) != 0;
+	struct USB_DEVICE* new_dev = usb_alloc_device(usb_dev->usb_bus, hub_hub, flags);
+	usbbus_schedule_attach(new_dev);
+}
 
-			/* If the port was connected but no longer is, we have to detach the old device */
-			if ((port->p_flags & HUB_PORT_FLAG_CONNECTED) && (ps.ps_portstatus & USB_HUB_PS_PORT_CONNECTION) == 0) {
+void
+usbhub_handle_explore(struct USB_DEVICE* usb_dev)
+{
+	device_t dev = usb_dev->usb_device;
+	struct USB_HUB* hub = dev->privdata;
+
+	if (hub->hub_flags & HUB_FLAG_UPDATED) {
+		device_printf(dev, "hub updated, todo");
+		hub->hub_flags &= ~HUB_FLAG_UPDATED;
+	}
+
+	/* Handle all ports that need handling */
+	for (int n = 1; n <= hub->hub_numports; n++) {
+		struct HUB_PORT* port = &hub->hub_port[n - 1];
+		if ((port->p_flags & HUB_PORT_FLAG_UPDATED) == 0)
+			continue;
+
+		struct HUB_PORT_STATUS ps;
+		size_t len = sizeof(ps);
+		errorcode_t err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, 0);
+		if (err != ANANAS_ERROR_OK) {
+			device_printf(dev, "get_status error %d, ignoring port", err);
+			continue;
+		}
+
+		if (ps.ps_portchange & HUB_PORTCHANGE_ENABLE) {
+			device_printf(dev, "port %d enabled changed, clearing", n);
+			usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_ENABLE, n, NULL, NULL, 1);
+		}
+
+		if (ps.ps_portchange & HUB_PORTCHANGE_CONNECT) {
+			/* Port connection changed - acknowledge this */
+			usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_CONNECTION, n, NULL, NULL, 1);
+
+			if ((port->p_flags & HUB_PORT_FLAG_CONNECTED) == 0) {
+				/* Nothing was connected to there; need to hook something up */
+				usbhub_handle_explore_new_device(usb_dev, port, n);
+			} else {
 				device_printf(dev, "TODO detach port #%d", n);
 			}
 		}
@@ -116,7 +200,7 @@ usbhub_workerthread(void* ptr)
 static errorcode_t
 usbhub_attach(device_t dev)
 {
-	struct USB_DEVICE* usb_dev = dev->parent->privdata;
+	struct USB_DEVICE* usb_dev = device_alloc_resource(dev, RESTYPE_USB_DEVICE, 0);
 
 	/* Obtain the hub descriptor */
 	struct USB_DESCR_HUB hd;
@@ -124,53 +208,54 @@ usbhub_attach(device_t dev)
 	errorcode_t err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_CLASS, USB_REQUEST_MAKE(USB_DESCR_TYPE_HUB, 0), 0, &hd, &len, 0);
 	ANANAS_ERROR_RETURN(err);
 
-	struct HUB_PRIVDATA* hub_privdata = kmalloc(sizeof(*hub_privdata) + sizeof(struct HUB_PORT) * (hd.hd_numports - 1));
-	memset(hub_privdata, 0, sizeof(*hub_privdata) + sizeof(struct HUB_PORT) * (hd.hd_numports - 1));
-	sem_init(&hub_privdata->hub_semaphore, 0);
-	usb_dev->usb_privdata = hub_privdata;
-	hub_privdata->hub_numports = hd.hd_numports;
-	device_printf(dev, "%u port(s)", hub_privdata->hub_numports);
+	struct USB_HUB* hub = kmalloc(sizeof(*hub) + sizeof(struct HUB_PORT) * hd.hd_numports);
+	memset(hub, 0, sizeof(*hub) + sizeof(struct HUB_PORT) * hd.hd_numports);
+	dev->privdata = hub;
+	hub->hub_numports = hd.hd_numports;
+	device_printf(dev, "%u port(s)", hub->hub_numports);
+
+	void enable_virt_write_breakpoint(addr_t virt);
+	enable_virt_write_breakpoint((addr_t)&hub->hub_numports);
 
 	/* Enable power to all ports */
-	for (int n = 0; n < hub_privdata->hub_numports; n++) {
+	for (int n = 0; n < hub->hub_numports; n++) {
 		err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_SET_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_PORT_POWER, n + 1, NULL, NULL, 1);
 		if (err != ANANAS_ERROR_OK)
 			goto fail;
+
+		/* Force the port as 'updated' - we need to check it initially */
+		hub->hub_port[n].p_flags = HUB_PORT_FLAG_UPDATED;
 
 		/* Wait until the power is good */
 		delay(hd.hd_poweron2good * 2 + 10 /* slack */);
 	}
 
-	/* Hook up the hub thread; this is responsible for handling hub requests */
-	kthread_init(&hub_privdata->hub_workerthread, &usbhub_workerthread, usb_dev);
-	thread_set_args(&hub_privdata->hub_workerthread, "[usbhub]\0\0", PAGE_SIZE);
-	thread_resume(&hub_privdata->hub_workerthread);
-
 	/* Initialization went well; hook up the interrupt pipe so that we may receive updates */
 	struct USB_PIPE* pipe;
-	err = usb_pipe_alloc(usb_dev, 0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, usbhub_int_callback, &pipe);
+	err = usbpipe_alloc(usb_dev, 0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, usbhub_int_callback, &pipe);
 	if (err != ANANAS_ERROR_OK) {
 		device_printf(dev, "endpoint 0 not interrupt/in");
 		goto fail;
 	}
-	err = usb_pipe_start(pipe);
+	err = usbpipe_schedule(pipe);
 	if (err != ANANAS_ERROR_OK)
 		goto fail;
 	return err;
 
 fail:
-	kfree(hub_privdata);
+	kfree(hub);
 	return err;
 }
 
 struct DRIVER drv_usbhub = {
 	.name = "usbhub",
 	.drv_probe = usbhub_probe,
-	.drv_attach = usbhub_attach
+	.drv_attach = usbhub_attach,
+	.drv_usb_explore = usbhub_handle_explore,
 };
 
 DRIVER_PROBE(usbhub)
-DRIVER_PROBE_BUS(usbdev)
+DRIVER_PROBE_BUS(usbbus)
 DRIVER_PROBE_END()
 
 /* vim:set ts=2 sw=2: */

@@ -1,22 +1,6 @@
 #ifndef __ANANAS_USB_HUB_H__
 #define __ANANAS_USB_HUB_H__
 
-struct HUB_PORT {
-	int	p_flags;
-#define HUB_PORT_FLAG_CONNECTED		(1 << 0)		/* Device is connected */
-#define HUB_PORT_FLAG_UPDATED		(1 << 1)		/* Port status is updated */
-};
-
-struct HUB_PRIVDATA {
-	int		hub_flags;
-#define HUB_FLAG_SELFPOWERED		(1 << 0)		/* Hub is self powered */
-#define HUB_FLAG_UPDATED		(1 << 1)		/* Hub status needs updating */
-	thread_t	hub_workerthread;
-	semaphore_t	hub_semaphore;
-	int		hub_numports;
-	struct HUB_PORT	hub_port[1];
-};
-
 struct HUB_STATUS {
 	uint16_t	hs_hubstatus;
 #define HUB_STATUS_POWERLOST		(1 << 0)		/* Local power supply lost */

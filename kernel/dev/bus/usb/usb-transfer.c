@@ -10,8 +10,17 @@
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
 #include <ananas/mm.h>
+#include <machine/param.h> /* XXX for PAGE_SIZE */
+#include "usb-bus.h"
+#include "usb-device.h"
+#include "usb-transfer.h"
 
 TRACE_SETUP;
+
+static thread_t usbtransfer_thread;
+static semaphore_t usbtransfer_sem;
+static struct USB_TRANSFER_QUEUE usbtransfer_completedqueue;
+static spinlock_t usbtransfer_lock = SPINLOCK_DEFAULT_INIT;
 
 static struct USB_TRANSFER*
 usb_make_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, int value, int index, void* buf, size_t* len, int write)
@@ -24,7 +33,7 @@ usb_make_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int ty
 		flags |= TRANSFER_FLAG_WRITE;
 	else
 		flags |= TRANSFER_FLAG_READ;
-	struct USB_TRANSFER* xfer = usb_alloc_transfer(usb_dev, TRANSFER_TYPE_CONTROL, flags, 0);
+	struct USB_TRANSFER* xfer = usbtransfer_alloc(usb_dev, TRANSFER_TYPE_CONTROL, flags, 0);
 	xfer->xfer_control_req.req_type = TO_REG32((write ? 0 : USB_CONTROL_REQ_DEV2HOST) | USB_CONTROL_REQ_RECIPIENT(recipient) | USB_CONTROL_REQ_TYPE(type));
 	xfer->xfer_control_req.req_request = TO_REG32(req);
 	xfer->xfer_control_req.req_value = TO_REG32(value);
@@ -40,10 +49,10 @@ usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, i
 	struct USB_TRANSFER* xfer = usb_make_control_xfer(usb_dev, req, recipient, type, value, index, buf, len, write);
 
 	/* Now schedule the transfer and until it's completed XXX Timeout */
-	usb_schedule_transfer(xfer);
-	sem_wait(&xfer->xfer_semaphore);
+	usbtransfer_schedule(xfer);
+	sem_wait_and_drain(&xfer->xfer_semaphore);
 	if (xfer->xfer_flags & TRANSFER_FLAG_ERROR) {
-		usb_free_transfer(xfer);
+		usbtransfer_free(xfer);
 		return ANANAS_ERROR(IO);
 	}
 
@@ -54,8 +63,120 @@ usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, i
 		memcpy(buf, xfer->xfer_data, *len);
 	}
 
-	usb_free_transfer(xfer);
+	usbtransfer_free(xfer);
 	return ANANAS_ERROR_OK;
+}
+
+struct USB_TRANSFER*
+usbtransfer_alloc(struct USB_DEVICE* dev, int type, int flags, int endpt)
+{
+	struct USB_TRANSFER* usb_xfer = kmalloc(sizeof *usb_xfer);
+	//kprintf("usbtransfer_alloc: xfer=%x type %d\n", usb_xfer, type);
+	memset(usb_xfer, 0, sizeof *usb_xfer);
+	usb_xfer->xfer_device = dev;
+	usb_xfer->xfer_type = type;
+	usb_xfer->xfer_flags = flags;
+	usb_xfer->xfer_address = dev->usb_address;
+	usb_xfer->xfer_endpoint = endpt;
+	sem_init(&usb_xfer->xfer_semaphore, 0);
+	return usb_xfer;
+}
+
+static inline device_t
+usbtransfer_get_hcd_device(struct USB_TRANSFER* xfer)
+{
+	/* All USB_DEVICE's are on usbbusX; the bus' parent is the HCD to use */
+	KASSERT(xfer->xfer_device != NULL, "need a device");
+	KASSERT(xfer->xfer_device->usb_bus != NULL, "need a bus");
+	KASSERT(xfer->xfer_device->usb_bus->bus_dev != NULL, "need a bus device");
+	return xfer->xfer_device->usb_bus->bus_dev->parent;
+}
+
+errorcode_t
+usbtransfer_schedule(struct USB_TRANSFER* xfer)
+{
+	/* All USB_DEVICE's are on usbbusX; the bus' parent is the HCD to use */
+	device_t hcd_dev = usbtransfer_get_hcd_device(xfer);
+	KASSERT(hcd_dev->driver->drv_usb_schedule_xfer != NULL, "transferring without usb transfer");
+	return hcd_dev->driver->drv_usb_schedule_xfer(hcd_dev, xfer);
+}
+
+void
+usbtransfer_free(struct USB_TRANSFER* xfer)
+{
+	//kprintf("usbtransfer_free: xfer=%x type %d\n", xfer, xfer->xfer_type);
+
+	/* Ensure the HCD knows this transfer is going to go */
+	device_t hcd_dev = usbtransfer_get_hcd_device(xfer);
+	if(hcd_dev->driver->drv_usb_cancel_xfer != NULL)
+		hcd_dev->driver->drv_usb_cancel_xfer(hcd_dev, xfer);
+
+	//kfree(xfer);
+}
+
+void
+usbtransfer_complete(struct USB_TRANSFER* xfer)
+{
+	kprintf("usbtransfer_complete: xfer=%x type %d\n", xfer, xfer->xfer_type);
+
+	/*
+	 * This is generally called from interrupt context, so schedule a worker to
+	 * process the transfer; if the transfer doesn't have a callback function,
+	 * assume we'll just have to signal its semaphore.
+	 */
+	if (xfer->xfer_callback != NULL) {
+		spinlock_lock(&usbtransfer_lock);
+		DQUEUE_ADD_TAIL_IP(&usbtransfer_completedqueue, completed, xfer);
+		spinlock_unlock(&usbtransfer_lock);
+
+		sem_signal(&usbtransfer_sem);
+	} else {
+		sem_signal(&xfer->xfer_semaphore);
+	}
+}
+
+static void
+transfer_thread(void* arg)
+{
+	while(1) {
+		/* Wait until there's something to report */
+		sem_wait(&usbtransfer_sem);
+
+		/* Fetch an entry from the queue */
+		while (1) {
+			spinlock_lock(&usbtransfer_lock);
+			if(DQUEUE_EMPTY(&usbtransfer_completedqueue)) {
+				spinlock_unlock(&usbtransfer_lock);
+				break;
+			}
+			struct USB_TRANSFER* xfer = DQUEUE_HEAD(&usbtransfer_completedqueue);
+			DQUEUE_POP_HEAD_IP(&usbtransfer_completedqueue, completed);
+			spinlock_unlock(&usbtransfer_lock);
+
+			kprintf("xfer %p done\n", xfer);
+		
+			/* And handle it */
+			if (xfer->xfer_callback)
+				xfer->xfer_callback(xfer);
+
+			/*
+			 * At this point, xfer may be freed, resubmitted or simply left lingering for
+			 * the caller - we can't touch it at this point.
+			 */
+		}
+	}
+}
+
+void
+usbtransfer_init()
+{
+	DQUEUE_INIT(&usbtransfer_completedqueue);
+	sem_init(&usbtransfer_sem, 0);
+
+	/* Create a kernel thread to handle USB completed messages */
+	kthread_init(&usbtransfer_thread, &transfer_thread, NULL);
+	thread_set_args(&usbtransfer_thread, "[usb-transfer]\0\0", PAGE_SIZE);
+	thread_resume(&usbtransfer_thread);
 }
 
 /* vim:set ts=2 sw=2: */

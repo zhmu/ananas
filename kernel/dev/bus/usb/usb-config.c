@@ -9,6 +9,7 @@
 #include <ananas/thread.h>
 #include <ananas/trace.h>
 #include <ananas/mm.h>
+#include "usb-device.h"
 
 TRACE_SETUP;
 
@@ -89,7 +90,6 @@ usb_parse_configuration(struct USB_DEVICE* usb_dev, void* data, int datalen)
 			}
 
 			/* Register the endpoint */
-			usb_iface->if_endpoint[usb_iface->if_num_endpoints].ep_device = usb_dev;
 			usb_iface->if_endpoint[usb_iface->if_num_endpoints].ep_address = USB_EP_ADDR(ep->ep_addr);
 			usb_iface->if_endpoint[usb_iface->if_num_endpoints].ep_type = type;
 			usb_iface->if_endpoint[usb_iface->if_num_endpoints].ep_dir = (ep->ep_addr & USB_EP_ADDR_IN) ? EP_DIR_IN : EP_DIR_OUT;
