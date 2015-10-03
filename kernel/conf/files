@@ -97,6 +97,7 @@ dev/bus/usb/usb-device.c	option USB
 dev/bus/usb/usb-config.c	option USB
 dev/bus/usb/usb-pipe.c		option USB
 dev/bus/usb/usb-transfer.c	option USB
+dev/bus/usb/usb-bus.c		option USB
 dev/bus/usb/usb-hub.c		optional usbhub
 dev/bus/usb/uhci-hcd.c		optional uhci
 dev/bus/usb/uhci-roothub.c	optional uhci
