@@ -234,7 +234,7 @@ ohci_alloc_ed(device_t dev)
 	return ed;
 }
 
-static void
+static inline void
 ohci_set_td_next(struct OHCI_HCD_TD* td, struct OHCI_HCD_TD* next)
 {
 	td->td_td.td_nexttd = ohci_td_get_phys(next);
@@ -572,7 +572,7 @@ ohci_attach(device_t dev)
 	 (OHCI_ID_SO | OHCI_ID_WDH | OHCI_ID_SF | OHCI_ID_RD | OHCI_ID_UE | OHCI_ID_FNO | OHCI_ID_RHSC | OHCI_ID_OC)
 	);
 	int ints_enabled = (
-		OHCI_IE_SO | OHCI_IE_WDH | OHCI_IE_RD | OHCI_IE_UE | OHCI_IE_FNO | OHCI_IE_RHSC | OHCI_IE_OC
+		OHCI_IE_SO | OHCI_IE_WDH | OHCI_IE_RD | OHCI_IE_UE | OHCI_IE_RHSC | OHCI_IE_OC
 	);
 	ohci_write4(dev, OHCI_HCINTERRUPTENABLE, ints_enabled | OHCI_IE_MIE);
 
