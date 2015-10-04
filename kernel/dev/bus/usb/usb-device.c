@@ -230,6 +230,7 @@ usbdev_detach(struct USB_DEVICE* usb_dev)
 {
 	kprintf("usbdev_detach: removing '%s'\n", usb_dev->usb_device->name);
 
+	mutex_assert(&usb_dev->usb_bus->bus_mutex, MTX_LOCKED);
 	mutex_lock(&usb_dev->usb_mutex);
 
 	/* Remove any pipes the device has; this should get rid of all transfers  */

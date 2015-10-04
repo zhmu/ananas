@@ -104,6 +104,8 @@ usbbus_schedule_explore(struct USB_BUS* bus)
 static void
 usb_bus_explore(struct USB_BUS* bus)
 {
+	mutex_assert(&bus->bus_mutex, MTX_LOCKED);
+
 	DQUEUE_FOREACH(&bus->bus_devices, usb_dev, struct USB_DEVICE) {
 		device_t dev = usb_dev->usb_device;
 		if (dev->driver != NULL && dev->driver->drv_usb_explore != NULL) {
@@ -116,6 +118,8 @@ usb_bus_explore(struct USB_BUS* bus)
 errorcode_t
 usb_bus_detach_hub(struct USB_BUS* bus, struct USB_HUB* hub)
 {
+	mutex_assert(&bus->bus_mutex, MTX_LOCKED);
+
 	DQUEUE_FOREACH_SAFE(&bus->bus_devices, usb_dev, struct USB_DEVICE) {
 		if (usb_dev->usb_hub != hub)
 			continue;

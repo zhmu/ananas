@@ -77,12 +77,15 @@ usbpipe_free(struct USB_PIPE* pipe)
 void
 usbpipe_free_locked(struct USB_PIPE* pipe)
 {
+	struct USB_DEVICE* usb_dev = pipe->p_dev;
+	mutex_assert(&usb_dev->usb_mutex, MTX_LOCKED);
+
 	/* Free the transfer, if we one exists (this cancels it as well) */
 	if (pipe->p_xfer != NULL)
 		usbtransfer_free_locked(pipe->p_xfer);
 
 	/* Unregister the pipe - this is where we need the lock for */
-	DQUEUE_REMOVE(&pipe->p_dev->usb_pipes, pipe);
+	DQUEUE_REMOVE(&usb_dev->usb_pipes, pipe);
 	kfree(pipe);
 }
 

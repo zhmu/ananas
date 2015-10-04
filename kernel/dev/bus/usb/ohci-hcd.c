@@ -378,6 +378,8 @@ ohci_schedule_interrupt_transfer(device_t dev, struct USB_TRANSFER* xfer)
 static errorcode_t
 ohci_schedule_transfer(device_t dev, struct USB_TRANSFER* xfer)
 {
+	mutex_assert(&xfer->xfer_device->usb_mutex, MTX_LOCKED);
+
 	/*
 	 * Add the transfer to our pending list; this is done so we can cancel any
 	 * pending transfers when a device is removed, for example.
@@ -416,6 +418,7 @@ static errorcode_t
 ohci_cancel_transfer(device_t dev, struct USB_TRANSFER* xfer)
 {
 	struct OHCI_PRIVDATA* p = dev->privdata;
+	mutex_assert(&xfer->xfer_device->usb_mutex, MTX_LOCKED);
 
 	if (xfer->xfer_flags & TRANSFER_FLAG_PENDING) {
 		xfer->xfer_flags &= ~TRANSFER_FLAG_PENDING;

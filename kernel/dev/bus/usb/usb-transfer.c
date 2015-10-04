@@ -109,6 +109,8 @@ usbtransfer_schedule(struct USB_TRANSFER* xfer)
 void
 usbtransfer_cancel_locked(struct USB_TRANSFER* xfer)
 {
+	mutex_assert(&xfer->xfer_device->usb_mutex, MTX_LOCKED);
+
 	device_t hcd_dev = usbtransfer_get_hcd_device(xfer);
 	if(hcd_dev->driver->drv_usb_cancel_xfer != NULL)
 		hcd_dev->driver->drv_usb_cancel_xfer(hcd_dev, xfer);
@@ -117,6 +119,8 @@ usbtransfer_cancel_locked(struct USB_TRANSFER* xfer)
 void
 usbtransfer_free_locked(struct USB_TRANSFER* xfer)
 {
+	mutex_assert(&xfer->xfer_device->usb_mutex, MTX_LOCKED);
+
 	usbtransfer_cancel_locked(xfer);
 	kfree(xfer);
 }
