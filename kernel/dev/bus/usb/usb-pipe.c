@@ -54,23 +54,36 @@ usbpipe_alloc(struct USB_DEVICE* usb_dev, int num, int type, int dir, usbpipe_ca
 	p->p_ep = ep;
 	p->p_xfer = usbpipe_create_transfer(p);
 
-	/* Hook up the pipe to the device XXX lock? */
+	/* Hook up the pipe to the device */
+	mutex_lock(&usb_dev->usb_mutex);
 	DQUEUE_ADD_TAIL(&usb_dev->usb_pipes, p);
+	mutex_unlock(&usb_dev->usb_mutex);
 	*pipe = p;
 	return ANANAS_ERROR_OK;
 }
 
 void
-usbpipe_free(struct USB_PIPE** pipe)
+usbpipe_free(struct USB_PIPE* pipe)
 {
-	struct USB_PIPE* p = *pipe;
-	struct USB_DEVICE* usb_dev = p->p_dev;
+	struct USB_DEVICE* usb_dev = pipe->p_dev;
 
-	kprintf("usbpipe_free(): pipe=%p xfer=%p\n", p, p->p_xfer);
+	kprintf("usbpipe_free(): pipe=%p xfer=%p\n", pipe, pipe->p_xfer);
 
-	/* XXX lock? */
-	DQUEUE_REMOVE(&usb_dev->usb_pipes, p);
-	kfree(p);
+	mutex_lock(&usb_dev->usb_mutex);
+	usbpipe_free_locked(pipe);
+	mutex_unlock(&usb_dev->usb_mutex);
+}
+
+void
+usbpipe_free_locked(struct USB_PIPE* pipe)
+{
+	/* Free the transfer, if we one exists (this cancels it as well) */
+	if (pipe->p_xfer != NULL)
+		usbtransfer_free_locked(pipe->p_xfer);
+
+	/* Unregister the pipe - this is where we need the lock for */
+	DQUEUE_REMOVE(&pipe->p_dev->usb_pipes, pipe);
+	kfree(pipe);
 }
 
 errorcode_t

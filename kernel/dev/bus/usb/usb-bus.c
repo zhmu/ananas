@@ -93,8 +93,10 @@ usbbus_alloc_address(struct USB_BUS* bus)
 void
 usbbus_schedule_explore(struct USB_BUS* bus)
 {
-	/* XXX lock */
+	mutex_lock(&bus->bus_mutex);
 	bus->bus_flags |= USB_BUS_FLAG_NEEDS_EXPLORE;
+	mutex_unlock(&bus->bus_mutex);
+
 	sem_signal(&usbbus_semaphore);
 }
 
@@ -102,15 +104,27 @@ usbbus_schedule_explore(struct USB_BUS* bus)
 static void
 usb_bus_explore(struct USB_BUS* bus)
 {
-	if(DQUEUE_EMPTY(&bus->bus_devices))
-		return;
-
 	DQUEUE_FOREACH(&bus->bus_devices, usb_dev, struct USB_DEVICE) {
 		device_t dev = usb_dev->usb_device;
 		if (dev->driver != NULL && dev->driver->drv_usb_explore != NULL) {
 			dev->driver->drv_usb_explore(usb_dev);
 		}
 	}
+}
+
+/* Must be called with lock held! */
+errorcode_t
+usb_bus_detach_hub(struct USB_BUS* bus, struct USB_HUB* hub)
+{
+	DQUEUE_FOREACH_SAFE(&bus->bus_devices, usb_dev, struct USB_DEVICE) {
+		if (usb_dev->usb_hub != hub)
+			continue;
+
+		errorcode_t err = usbdev_detach(usb_dev);
+		ANANAS_ERROR_RETURN(err);
+	}
+
+	return ANANAS_ERROR_NONE;
 }
 
 static void

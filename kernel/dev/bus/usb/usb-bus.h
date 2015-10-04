@@ -4,6 +4,7 @@
 #include <ananas/dqueue.h>
 
 struct USB_DEVICE;
+struct USB_HUB;
 DQUEUE_DEFINE(USB_DEVICES, struct USB_DEVICE);
 
 /*
@@ -40,5 +41,8 @@ void usbbus_schedule_explore(struct USB_BUS* bus);
 
 /* Schedules a device for attachment */
 void usbbus_schedule_attach(struct USB_DEVICE* dev);
+
+/* To be called when a hub itself it going away - must be called with bus lock held */
+errorcode_t usb_bus_detach_hub(struct USB_BUS* bus, struct USB_HUB* hub);
 
 #endif /* __ANANAS_USB_BUS_H__ */

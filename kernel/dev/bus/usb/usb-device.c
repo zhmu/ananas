@@ -4,6 +4,7 @@
 #include <ananas/bus/usb/config.h>
 #include <ananas/bus/usb/core.h>
 #include <ananas/bus/usb/transfer.h>
+#include <ananas/device.h>
 #include <ananas/dqueue.h>
 #include <ananas/lib.h>
 #include <ananas/thread.h>
@@ -14,6 +15,7 @@
 #include <machine/param.h> /* for PAGE_SIZE XXX */
 #include "usb-bus.h"
 #include "usb-device.h"
+#include "usb-transfer.h"
 
 TRACE_SETUP;
 
@@ -27,6 +29,7 @@ usb_alloc_device(struct USB_BUS* bus, struct USB_HUB* hub, int flags)
 
 	struct USB_DEVICE* usb_dev = kmalloc(sizeof *usb_dev);
 	memset(usb_dev, 0, sizeof *usb_dev);
+	mutex_init(&usb_dev->usb_mutex, "usbdev");
 	usb_dev->usb_bus = bus;
 	usb_dev->usb_hub = hub;
 	usb_dev->usb_device = device_alloc(bus->bus_dev, NULL);
@@ -41,8 +44,8 @@ usb_alloc_device(struct USB_BUS* bus, struct USB_HUB* hub, int flags)
 	return usb_dev;
 }
 
-void
-usb_free_device(struct USB_DEVICE* usb_dev)
+static void
+usbdev_free(struct USB_DEVICE* usb_dev)
 {
 	device_free(usb_dev->usb_device);
 	kfree(usb_dev);
@@ -218,6 +221,41 @@ usbdev_attach(struct USB_DEVICE* usb_dev)
 		errorcode_t err = device_attach_single(dev);
 		KASSERT(err == ANANAS_ERROR_NONE, "usb generic device failed %d", err);
 	}
+	return ANANAS_ERROR_OK;
+}
+
+/* Called with bus lock held */
+errorcode_t
+usbdev_detach(struct USB_DEVICE* usb_dev)
+{
+	kprintf("usbdev_detach: removing '%s'\n", usb_dev->usb_device->name);
+
+	mutex_lock(&usb_dev->usb_mutex);
+
+	/* Remove any pipes the device has; this should get rid of all transfers  */
+	while(!DQUEUE_EMPTY(&usb_dev->usb_pipes)) {
+		struct USB_PIPE* p = DQUEUE_HEAD(&usb_dev->usb_pipes);
+		usbpipe_free_locked(p);
+	}
+
+	/* Get rid of all pending transfers; a control transfer may sneak in between */
+	while (!DQUEUE_EMPTY(&usb_dev->usb_transfers)) {
+		struct USB_TRANSFER* xfer = DQUEUE_HEAD(&usb_dev->usb_transfers);
+		/* Freeing the transfer will cancel them as needed */
+		usbtransfer_free_locked(xfer);
+	}
+
+	/* Give the driver a chance to clean up */
+	device_detach(usb_dev->usb_device);
+
+	/* Remove the device from the bus - note that we hold the bus lock */
+	struct USB_BUS* bus = usb_dev->usb_bus;
+	DQUEUE_REMOVE(&bus->bus_devices, usb_dev);
+
+	/* Finally, get rid of the device itself */
+	mutex_unlock(&usb_dev->usb_mutex);
+	usbdev_free(usb_dev);
+
 	return ANANAS_ERROR_OK;
 }
 

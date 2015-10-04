@@ -21,7 +21,8 @@ struct USB_PIPE {
 DQUEUE_DEFINE(USB_PIPES, struct USB_PIPE);
 
 errorcode_t usbpipe_alloc(struct USB_DEVICE* usb_dev, int num, int type, int dir, usbpipe_callback_t callback, struct USB_PIPE** pipe);
-void usbpipe_free(struct USB_PIPE** pipe);
+void usbpipe_free(struct USB_PIPE* pipe);
+void usbpipe_free_locked(struct USB_PIPE* pipe);
 errorcode_t usbpipe_schedule(struct USB_PIPE* pipe);
 
 #endif /* __ANANAS_USB_PIPE_H__ */

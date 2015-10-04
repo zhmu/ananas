@@ -374,19 +374,16 @@ ohci_schedule_interrupt_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	return ANANAS_ERROR_NONE;
 }
 
+/* We assume the USB device and transfer are locked here */
 static errorcode_t
 ohci_schedule_transfer(device_t dev, struct USB_TRANSFER* xfer)
 {
-	struct OHCI_PRIVDATA* p = dev->privdata;
-
 	/*
 	 * Add the transfer to our pending list; this is done so we can cancel any
 	 * pending transfers when a device is removed, for example.
 	 */
 	xfer->xfer_flags |= TRANSFER_FLAG_PENDING;
-	mutex_lock(&p->ohci_mtx);
 	DQUEUE_ADD_TAIL_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
-	mutex_unlock(&p->ohci_mtx);
 
 	/* If this is the root hub, immediately transfer the request to it */
 	struct OHCI_DEV_PRIVDATA* dev_p = xfer->xfer_device->usb_hcd_privdata;
@@ -408,14 +405,13 @@ ohci_schedule_transfer(device_t dev, struct USB_TRANSFER* xfer)
 
 	if (err != ANANAS_ERROR_NONE) {
 		xfer->xfer_flags &= ~TRANSFER_FLAG_PENDING;
-		mutex_lock(&p->ohci_mtx);
 		DQUEUE_REMOVE_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
-		mutex_unlock(&p->ohci_mtx);
 	}
 
 	return err;
 }
 
+/* We assume the USB device and transfer are locked here */
 static errorcode_t
 ohci_cancel_transfer(device_t dev, struct USB_TRANSFER* xfer)
 {
@@ -423,10 +419,10 @@ ohci_cancel_transfer(device_t dev, struct USB_TRANSFER* xfer)
 
 	if (xfer->xfer_flags & TRANSFER_FLAG_PENDING) {
 		xfer->xfer_flags &= ~TRANSFER_FLAG_PENDING;
-		mutex_lock(&p->ohci_mtx);
 		DQUEUE_REMOVE_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
-		mutex_unlock(&p->ohci_mtx);
 	}
+
+	(void)p;
 
 	/* XXX we should see if we're still running it */
 	return ANANAS_ERROR_NONE;

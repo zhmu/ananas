@@ -371,14 +371,16 @@ oroothub_process_interrupt_transfers(struct USB_DEVICE* usb_dev)
 	if (num_updates > 0) {
 		int update_len = (p->ohci_rh_numports + 1 /* hub */ + 7 /* round up */) / 8;
 
-		/* Alter all entries in the interrupt queue */
-		mutex_lock(&p->ohci_mtx);
+		/* Alter all entries in the transfer queue */
+		mutex_lock(&usb_dev->usb_mutex);
 		DQUEUE_FOREACH_IP(&usb_dev->usb_transfers, pending, xfer, struct USB_TRANSFER) {
+			if (xfer->xfer_type != TRANSFER_TYPE_INTERRUPT)
+				continue;
 			memcpy(&xfer->xfer_data, hub_update, update_len);
 			xfer->xfer_result_length = update_len;
 			usbtransfer_complete(xfer);
 		}
-		mutex_unlock(&p->ohci_mtx);
+		mutex_unlock(&usb_dev->usb_mutex);
 	}
 }
 

@@ -98,27 +98,43 @@ usbtransfer_schedule(struct USB_TRANSFER* xfer)
 	/* All USB_DEVICE's are on usbbusX; the bus' parent is the HCD to use */
 	device_t hcd_dev = usbtransfer_get_hcd_device(xfer);
 	KASSERT(hcd_dev->driver->drv_usb_schedule_xfer != NULL, "transferring without usb transfer");
-	return hcd_dev->driver->drv_usb_schedule_xfer(hcd_dev, xfer);
+
+	/* Schedule the transfer; we are responsible for locking here */
+	mutex_lock(&xfer->xfer_device->usb_mutex);
+	errorcode_t err = hcd_dev->driver->drv_usb_schedule_xfer(hcd_dev, xfer);
+	mutex_unlock(&xfer->xfer_device->usb_mutex);
+	return err;
+}
+
+void
+usbtransfer_cancel_locked(struct USB_TRANSFER* xfer)
+{
+	device_t hcd_dev = usbtransfer_get_hcd_device(xfer);
+	if(hcd_dev->driver->drv_usb_cancel_xfer != NULL)
+		hcd_dev->driver->drv_usb_cancel_xfer(hcd_dev, xfer);
+}
+
+void
+usbtransfer_free_locked(struct USB_TRANSFER* xfer)
+{
+	usbtransfer_cancel_locked(xfer);
+	kfree(xfer);
 }
 
 void
 usbtransfer_free(struct USB_TRANSFER* xfer)
 {
+	struct USB_DEVICE* usb_dev =xfer->xfer_device;
+
 	//kprintf("usbtransfer_free: xfer=%x type %d\n", xfer, xfer->xfer_type);
-
-	/* Ensure the HCD knows this transfer is going to go */
-	device_t hcd_dev = usbtransfer_get_hcd_device(xfer);
-	if(hcd_dev->driver->drv_usb_cancel_xfer != NULL)
-		hcd_dev->driver->drv_usb_cancel_xfer(hcd_dev, xfer);
-
-	//kfree(xfer);
+	mutex_lock(&usb_dev->usb_mutex);
+	usbtransfer_free_locked(xfer);
+	mutex_unlock(&usb_dev->usb_mutex);
 }
 
 void
 usbtransfer_complete(struct USB_TRANSFER* xfer)
 {
-	kprintf("usbtransfer_complete: xfer=%x type %d\n", xfer, xfer->xfer_type);
-
 	/*
 	 * This is generally called from interrupt context, so schedule a worker to
 	 * process the transfer; if the transfer doesn't have a callback function,
@@ -153,8 +169,6 @@ transfer_thread(void* arg)
 			DQUEUE_POP_HEAD_IP(&usbtransfer_completedqueue, completed);
 			spinlock_unlock(&usbtransfer_lock);
 
-			kprintf("xfer %p done\n", xfer);
-		
 			/* And handle it */
 			if (xfer->xfer_callback)
 				xfer->xfer_callback(xfer);

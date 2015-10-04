@@ -13,6 +13,7 @@ void usbtransfer_init();
 struct USB_TRANSFER* usbtransfer_alloc(struct USB_DEVICE* dev, int type, int flags, int endpt);
 errorcode_t usbtransfer_schedule(struct USB_TRANSFER* xfer);
 void usbtransfer_free(struct USB_TRANSFER* xfer);
+void usbtransfer_free_locked(struct USB_TRANSFER* xfer);
 void usbtransfer_complete(struct USB_TRANSFER* xfer);
 
 #endif /* __ANANAS_USB_TRANSFER_H__ */
