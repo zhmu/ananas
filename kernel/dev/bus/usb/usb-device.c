@@ -17,6 +17,7 @@
 
 TRACE_SETUP;
 
+extern struct DRIVER drv_usbgeneric;
 extern struct DEVICE_PROBE probe_queue; /* XXX gross */
 
 struct USB_DEVICE*
@@ -210,10 +211,12 @@ usbdev_attach(struct USB_DEVICE* usb_dev)
 	}
 
 	if (!device_attached) {
-		/* XXX we should revert to some 'generic USB' device here... */
-		kprintf("XXX no device found, removing !!!\n");
-		dev->driver = NULL;
-		usb_free_device(usb_dev);
+		/* Nothing found; revert to the generic USB device here */
+		dev->driver = &drv_usbgeneric;
+		strcpy(dev->name, dev->driver->name);
+		dev->unit = dev->driver->current_unit++;
+		errorcode_t err = device_attach_single(dev);
+		KASSERT(err == ANANAS_ERROR_NONE, "usb generic device failed %d", err);
 	}
 	return ANANAS_ERROR_OK;
 }
