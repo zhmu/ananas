@@ -57,6 +57,18 @@ device_clone(device_t dev)
 	return new_dev;
 }
 
+errorcode_t
+device_detach(device_t dev)
+{
+	driver_t driver = dev->driver;
+	if (driver != NULL && driver->drv_detach != NULL) {
+		errorcode_t err = driver->drv_detach(dev);
+		ANANAS_ERROR_RETURN(err);
+	}
+
+	return ANANAS_ERROR_OK;
+}
+
 void
 device_free(device_t dev)
 {
