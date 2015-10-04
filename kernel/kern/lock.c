@@ -88,6 +88,31 @@ mutex_unlock(mutex_t* mtx)
 }
 
 void
+mutex_assert(mutex_t* mtx, int what)
+{
+	/*
+	 * We don't lock the mtx_ fields because the semaphore protects them -
+	 * unfortunately, this means this function won't be 100% accurate.
+	 */
+	switch(what) {
+		case MTX_LOCKED:
+			if (mtx->mtx_owner != PCPU_GET(curthread) /* not owner */ ||
+					mtx->mtx_fname == NULL /* filename not filled out */ ||
+					mtx->mtx_line == 0L /* line not filled out */)
+				panic("mutex '%s' not held by current thread", mtx->mtx_name);
+			break;
+		case MTX_UNLOCKED:
+			if (mtx->mtx_owner != NULL /* owned by someone */ ||
+					mtx->mtx_fname != NULL /* filename filled out */ ||
+					mtx->mtx_line != 0L /* line filled out */)
+				panic("mutex '%s' held", mtx->mtx_name);
+			break;
+		default:
+			panic("unknown condition %d", what);
+	}
+}
+
+void
 sem_init(semaphore_t* sem, int count)
 {
 	KASSERT(count >= 0, "creating semaphore with negative count %d", count);

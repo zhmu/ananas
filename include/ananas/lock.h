@@ -62,6 +62,9 @@ void mutex_init(mutex_t* mtx, const char* name);
 void mutex_lock_(mutex_t* mtx, const char* file, int line);
 void mutex_unlock(mutex_t* mtx);
 #define mutex_lock(mtx) mutex_lock_(mtx, __FILE__, __LINE__)
+#define MTX_LOCKED 1
+#define MTX_UNLOCKED 2
+void mutex_assert(mutex_t* mtx, int what);
 
 /* Semaphores */
 void sem_init(semaphore_t* sem, int count);
