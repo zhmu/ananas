@@ -19,6 +19,7 @@ struct USB_DEVICE {
 	mutex_t usb_mutex;
 	struct USB_BUS*	usb_bus;			/* [S] Bus the device resides on */
 	struct USB_HUB*	usb_hub;			/* [S] Hub the device is attached to */
+	int		usb_port;			/* [S] Port of the hub the device is attached to */
 	device_t	usb_device;			/* [S] Device reference */
 	void*		usb_hcd_privdata;		/* [S] HCD data for the given device */
 	int		usb_address;		   	/* Assigned USB address */
@@ -40,7 +41,7 @@ struct USB_DEVICE {
 #define USB_DEVICE_FLAG_LOW_SPEED (1 << 0)
 #define USB_DEVICE_FLAG_ROOT_HUB (1 << 31)
 
-struct USB_DEVICE* usb_alloc_device(struct USB_BUS* bus, struct USB_HUB* hub, int flags);
+struct USB_DEVICE* usb_alloc_device(struct USB_BUS* bus, struct USB_HUB* hub, int hub_port, int flags);
 
 /* Attaches a single device (which doesn't have an address yet) */
 errorcode_t usbdev_attach(struct USB_DEVICE* usb_dev);

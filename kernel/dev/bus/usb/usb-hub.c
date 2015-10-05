@@ -15,6 +15,12 @@
 #include "usb-device.h"
 #include "usb-hub.h"
 
+#if 0
+# define DPRINTF device_printf
+#else
+# define DPRINTF(...)
+#endif
+
 struct HUB_PORT {
 	int	p_flags;
 #define HUB_PORT_FLAG_CONNECTED		(1 << 0)		/* Device is connected */
@@ -42,7 +48,7 @@ usbhub_int_callback(struct USB_PIPE* pipe)
 
 	/* Error means nothing happened, so request a new transfer */
 	if (xfer->xfer_flags & TRANSFER_FLAG_ERROR) {
-		kprintf("usbhub_int_callback: error!\n");
+		device_printf(usb_dev->usb_device, "usbhub_int_callback: error!");
 		return;
 	}
 
@@ -51,7 +57,7 @@ usbhub_int_callback(struct USB_PIPE* pipe)
 		usb_hub->hub_flags |= HUB_FLAG_UPDATED;
 	}
 
-	kprintf("*** usbhub_int_callback(): changed %x\n", xfer->xfer_data[0]);
+	DPRINTF(usb_dev->usb_device, "*** usbhub_int_callback(): changed %x", xfer->xfer_data[0]);
 
 	int num_changed = 0;
 	for (int n = 1; n <= usb_hub->hub_numports; n++) {
@@ -87,26 +93,28 @@ usbhub_probe(device_t dev)
 	return ANANAS_ERROR_OK;
 }
 
-static void
-usbhub_handle_explore_new_device(struct USB_DEVICE* hub_dev, struct HUB_PORT* port, int n)
+errorcode_t
+ushub_reset_port(struct USB_HUB* hub, int n)
 {
-	KASSERT(port->p_device == NULL, "exploring new device over current?");
-
-	struct HUB_PORT_STATUS ps;
+	struct USB_DEVICE* hub_dev = hub->hub_device;
+	KASSERT(n >= 1 && n <= hub->hub_numports, "port %d out of range", n);
 
 	/* Reset the reset state of the port in case it lingers */
+	DPRINTF(hub_dev->usb_device, "%s: port %d: clearing c_port_reset", __func__, n);
 	errorcode_t err = usb_control_xfer(hub_dev, USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_RESET, n, NULL, NULL, 1);
 	if (err != ANANAS_ERROR_NONE) {
 		device_printf(hub_dev->usb_device, "port_clear error %d, continuing anyway", err);
 	}
 
 	/* Need to reset the port */
+	DPRINTF(hub_dev->usb_device, "%s: port %d: resetting", __func__, n);
 	err = usb_control_xfer(hub_dev, USB_CONTROL_REQUEST_SET_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_PORT_RESET, n, NULL, NULL, 1);
 	if (err != ANANAS_ERROR_OK) {
 		device_printf(hub_dev->usb_device, "port_reset error %d, ignoring port", err);
-		return;
+		return err;
 	}
 
+	struct HUB_PORT_STATUS ps;
 	int timeout = 10; /* XXX */
 	while(timeout > 0) {
 		delay(100);
@@ -117,29 +125,54 @@ usbhub_handle_explore_new_device(struct USB_DEVICE* hub_dev, struct HUB_PORT* po
 		err = usb_control_xfer(hub_dev, USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, 0);
 		if (err != ANANAS_ERROR_OK) {
 			device_printf(hub_dev->usb_device, "get_status error %d, ignoring port", err);
-			return;
+			return err;
 		}
 	
 		if ((ps.ps_portstatus & USB_HUB_PS_PORT_CONNECTION) == 0) {
 			/* Port is no longer attached; give up */
 			device_printf(hub_dev->usb_device, "port %d no longer connected, ignoring port", n);
-			return;
+			return err;
 		}
 
 		if (ps.ps_portchange & HUB_PORTCHANGE_RESET)
 			break;
 
 		timeout--;
-		delay(100); /* XXX */
 	}
 	if (timeout == 0) {
 		device_printf(hub_dev->usb_device, "timeout resetting port %d", n);
-		return;
+		return ANANAS_ERROR(NO_DEVICE);
 	}
 
+	DPRINTF(hub_dev->usb_device, "%s: port %d: reset completed; clearing c_reset", __func__, n);
 	err = usb_control_xfer(hub_dev, USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_RESET, n, NULL, NULL, 1);
 	if (err != ANANAS_ERROR_OK) {
 		device_printf(hub_dev->usb_device, "unable to clear reset of port %d", n);
+		return err;
+	}
+
+	return ANANAS_ERROR_NONE;
+}
+
+static void
+usbhub_handle_explore_new_device(struct USB_DEVICE* hub_dev, struct HUB_PORT* port, int n)
+{
+	KASSERT(port->p_device == NULL, "exploring new device over current?");
+
+	/* Fetch the port status; we need to know if it's lo- or high speed */
+	struct HUB_PORT_STATUS ps;
+	size_t len = sizeof(ps);
+	memset(&ps, 0, len);
+	errorcode_t err = usb_control_xfer(hub_dev, USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, 0);
+	if (err != ANANAS_ERROR_OK) {
+		device_printf(hub_dev->usb_device, "get_status(%d) error %d, ignoring port", n, err);
+		return;
+	}
+
+	/* If the port is no longer connected, we needn't do anything */
+	if ((ps.ps_portstatus & USB_HUB_PS_PORT_CONNECTION) == 0) {
+		device_printf(hub_dev->usb_device, "port %d no longer connected, giving up", n);
+		return;
 	}
 
 	/* Mark the port as attached */
@@ -148,7 +181,7 @@ usbhub_handle_explore_new_device(struct USB_DEVICE* hub_dev, struct HUB_PORT* po
 	/* Hand it off to the USB framework */
 	struct USB_HUB* hub_hub = hub_dev->usb_device->privdata;
 	int flags = (ps.ps_portstatus & USB_HUB_PS_PORT_LOW_SPEED) != 0;
-	port->p_device = usb_alloc_device(hub_dev->usb_bus, hub_hub, flags);
+	port->p_device = usb_alloc_device(hub_dev->usb_bus, hub_hub, n, flags);
 	usbbus_schedule_attach(port->p_device);
 }
 
@@ -195,12 +228,13 @@ usbhub_handle_explore(struct USB_DEVICE* usb_dev)
 		}
 
 		if (ps.ps_portchange & HUB_PORTCHANGE_ENABLE) {
-			device_printf(dev, "port %d enabled changed, clearing", n);
+			DPRINTF(usb_dev->usb_device, "%s: port %d: enabled changed, clearing c_port_enable", __func__, n);
 			usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_ENABLE, n, NULL, NULL, 1);
 		}
 
 		if (ps.ps_portchange & HUB_PORTCHANGE_CONNECT) {
 			/* Port connection changed - acknowledge this */
+			DPRINTF(usb_dev->usb_device, "%s: port %d: connect changed, clearing c_port_connnection", __func__, n);
 			usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_CONNECTION, n, NULL, NULL, 1);
 
 			if ((port->p_flags & HUB_PORT_FLAG_CONNECTED) == 0) {

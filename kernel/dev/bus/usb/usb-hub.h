@@ -27,4 +27,8 @@ struct HUB_PORT_STATUS {
 #define HUB_PORTCHANGE_RESET		(1 << 4)		/* Reset complete */
 };
 
+struct USB_BUS;
+
+errorcode_t ushub_reset_port(struct USB_HUB* hub, int n);
+
 #endif /* __ANANAS_USB_HUB_H__ */

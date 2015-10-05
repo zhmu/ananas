@@ -14,6 +14,7 @@
 #include <ananas/mm.h>
 #include <machine/param.h> /* for PAGE_SIZE XXX */
 #include "usb-bus.h"
+#include "usb-hub.h"
 #include "usb-device.h"
 #include "usb-transfer.h"
 
@@ -23,7 +24,7 @@ extern struct DRIVER drv_usbgeneric;
 extern struct DEVICE_PROBE probe_queue; /* XXX gross */
 
 struct USB_DEVICE*
-usb_alloc_device(struct USB_BUS* bus, struct USB_HUB* hub, int flags)
+usb_alloc_device(struct USB_BUS* bus, struct USB_HUB* hub, int hub_port, int flags)
 {
 	void* hcd_privdata = bus->bus_hcd->driver->drv_usb_hcd_initprivdata(flags);
 
@@ -32,6 +33,7 @@ usb_alloc_device(struct USB_BUS* bus, struct USB_HUB* hub, int flags)
 	mutex_init(&usb_dev->usb_mutex, "usbdev");
 	usb_dev->usb_bus = bus;
 	usb_dev->usb_hub = hub;
+	usb_dev->usb_port = hub_port;
 	usb_dev->usb_device = device_alloc(bus->bus_dev, NULL);
 	usb_dev->usb_hcd_privdata = hcd_privdata;
 	usb_dev->usb_address = 0;
@@ -65,8 +67,19 @@ usbdev_attach(struct USB_DEVICE* usb_dev)
 	errorcode_t err;
 
 	/*
-	 * First of all, obtain the first 8 bytes of the device descriptor; this
-	 * tells us how how large the control endpoint requests can be.
+	 * First step is to reset the port - we do this here to prevent multiple ports from being
+	 * reset.
+	 *
+	 * Note that usb_hub can be NULL if we're attaching the root hub itself.
+	 */
+	if (usb_dev->usb_hub != NULL) {
+		err = ushub_reset_port(usb_dev->usb_hub, usb_dev->usb_port);
+		ANANAS_ERROR_RETURN(err);
+	}
+
+	/*
+	 * Obtain the first 8 bytes of the device descriptor; this tells us how how
+	 * large the control endpoint requests can be.
 	 */
 	struct USB_DESCR_DEVICE* d = &usb_dev->usb_descr_device;
 	len = 8;

@@ -70,7 +70,7 @@ usbbus_attach(device_t dev)
 	 * Create the root hub device; it will handle all our children - the HCD may
 	 * need to know about this as the root hub may be polling...
 	  */
-	struct USB_DEVICE* roothub_dev = usb_alloc_device(bus, NULL, USB_DEVICE_FLAG_ROOT_HUB);
+	struct USB_DEVICE* roothub_dev = usb_alloc_device(bus, NULL, 0, USB_DEVICE_FLAG_ROOT_HUB);
 	if (hcd_dev->driver->drv_usb_set_roothub != NULL)
 		hcd_dev->driver->drv_usb_set_roothub(bus->bus_hcd, roothub_dev);
 	usbbus_schedule_attach(roothub_dev);
