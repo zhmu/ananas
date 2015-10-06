@@ -249,22 +249,38 @@ ohci_insert_ed(struct OHCI_HCD_ED* list, struct OHCI_HCD_ED* ed)
 	list->ed_ed.ed_nexted = ohci_ed_get_phys(ed);
 }
 
-static errorcode_t
-ohci_schedule_control_transfer(device_t dev, struct USB_TRANSFER* xfer)
+struct OHCI_HCD_ED*
+ohci_create_ed(device_t dev, struct USB_TRANSFER* xfer)
 {
-	struct OHCI_PRIVDATA* p = dev->privdata;
 	struct OHCI_DEV_PRIVDATA* devp = xfer->xfer_device->usb_hcd_privdata;
 	int is_read = xfer->xfer_flags & TRANSFER_FLAG_READ;
 	int is_ls = devp->dev_flags & USB_DEVICE_FLAG_LOW_SPEED;
+	int max_packet_sz = xfer->xfer_device->usb_max_packet_sz0; /* XXX this is wrong for non-control */
 
-	/* Construct the SETUP transfer descriptor for this control transfer */
-	struct OHCI_HCD_TD* td_setup = ohci_alloc_td(dev);
-	td_setup->td_td.td_flags =
-	 OHCI_TD_DP(OHCI_TD_DP_SETUP) |
-	 OHCI_TD_DI(OHCI_TD_DI_NONE) |
-	 OHCI_TD_T(2);
-	td_setup->td_td.td_cbp = KVTOP((addr_t)&xfer->xfer_control_req); /* XXX64 TODO */
-	td_setup->td_td.td_be = td_setup->td_td.td_cbp + sizeof(struct USB_CONTROL_REQUEST) - 1;
+	KASSERT(xfer->xfer_type != TRANSFER_TYPE_INTERRUPT || (xfer->xfer_flags & TRANSFER_FLAG_DATA), "interrupt transfer without data?");
+
+	/* If this is a root hub device transfer, we don't actually have to create any TD/ED's as we handle it internally */
+	if (devp->dev_flags & USB_DEVICE_FLAG_ROOT_HUB)
+		return NULL;
+
+	/* Construct the SETUP/HANDSHAKE transfer descriptors, if it's a control transfer */
+	struct OHCI_HCD_TD* td_setup = NULL;
+	struct OHCI_HCD_TD* td_handshake = NULL;
+	if (xfer->xfer_type == TRANSFER_TYPE_CONTROL) {
+		td_setup = ohci_alloc_td(dev);
+		td_setup->td_td.td_flags =
+		 OHCI_TD_DP(OHCI_TD_DP_SETUP) |
+		 OHCI_TD_DI(OHCI_TD_DI_NONE) |
+		 OHCI_TD_T(2);
+		td_setup->td_td.td_cbp = KVTOP((addr_t)&xfer->xfer_control_req); /* XXX64 TODO */
+		td_setup->td_td.td_be = td_setup->td_td.td_cbp + sizeof(struct USB_CONTROL_REQUEST) - 1;
+
+		td_handshake = ohci_alloc_td(dev);
+		td_handshake->td_td.td_flags =
+		 OHCI_TD_DI(OHCI_TD_DI_IMMEDIATE) |
+		 OHCI_TD_T(3) |
+		 OHCI_TD_DP(is_read ? OHCI_TD_DP_OUT : OHCI_TD_DP_IN);
+	}
 
 	/* Construct the DATA transfer descriptor */
 	struct OHCI_HCD_TD* td_data = NULL;
@@ -279,71 +295,33 @@ ohci_schedule_control_transfer(device_t dev, struct USB_TRANSFER* xfer)
 		td_data->td_td.td_be = td_data->td_td.td_cbp + xfer->xfer_length - 1;
 	}
 
-	/* Construct the HANDSHAKE descriptor */
-	struct OHCI_HCD_TD* td_handshake = ohci_alloc_td(dev);
-	td_handshake->td_td.td_flags =
-	 OHCI_TD_DI(OHCI_TD_DI_IMMEDIATE) |
-	 OHCI_TD_T(3) |
-	 OHCI_TD_DP(is_read ? OHCI_TD_DP_OUT : OHCI_TD_DP_IN);
-
 	/* Construct a dummy tail descriptor */
 	struct OHCI_HCD_TD* td_tail = ohci_alloc_td(dev);
 
-	/* Construct an endpoint descriptor for this device */
-	struct OHCI_HCD_ED* ed = ohci_alloc_ed(dev);
-	ed->ed_ed.ed_flags =
-	 OHCI_ED_FA(xfer->xfer_address) |
-	 OHCI_ED_EN(xfer->xfer_endpoint) |
-	 OHCI_ED_D(OHCI_ED_D_TD) |
-	 OHCI_ED_MPS(xfer->xfer_device->usb_max_packet_sz0) |
-	 (is_ls ? OHCI_ED_S : 0);
+	/* Build the chain of TD's */
+	struct OHCI_HCD_TD* td_head = NULL;
+	if (xfer->xfer_type == TRANSFER_TYPE_CONTROL) {
+		/* Control transfer: setup -> (data) -> handshake -> tail */
+		ohci_set_td_next(td_handshake, td_tail);
+		if (td_data != NULL) {
+			ohci_set_td_next(td_data, td_handshake);
+			ohci_set_td_next(td_setup, td_data);
+		} else {
+			ohci_set_td_next(td_setup, td_handshake);
+		}
 
-	/* Hook all transfers together: setup -> (data) -> handshake -> tail */
-	ohci_set_td_next(td_handshake, td_tail);
-	if (xfer->xfer_flags & TRANSFER_FLAG_DATA) {
-		ohci_set_td_next(td_data, td_handshake);
-		ohci_set_td_next(td_setup, td_data);
+		td_head = td_setup;
+	} else if (xfer->xfer_type == TRANSFER_TYPE_INTERRUPT) {
+		/* Interrupt transfer: data -> tail */
+		ohci_set_td_next(td_data, td_tail);
+		td_head = td_data;
+
+		/* XXX kludge: ensure we'll get an interrupt if the transfer succeeds */
+		td_data->td_td.td_flags &= ~OHCI_TD_DI(OHCI_TD_DI_MASK);
+		td_data->td_td.td_flags |= OHCI_TD_DI(OHCI_TD_DI_IMMEDIATE);
 	} else {
-		ohci_set_td_next(td_setup, td_handshake);
+		panic("unsupported transfer type %d", xfer->xfer_type);
 	}
-	ed->ed_ed.ed_headp = ohci_td_get_phys(td_setup);
-	ed->ed_ed.ed_tailp = ohci_td_get_phys(td_tail);
-	ed->ed_firsttd = td_setup;
-
-	/* Add an entry to the scheduled item queue */
-	struct OHCI_HCD_SCHEDULED_ITEM* si = kmalloc(sizeof *si);
-	si->si_ed = ed;
-	si->si_xfer = xfer;
-	DQUEUE_ADD_TAIL(&p->ohci_scheduled_items, si);
-
-	/* ... and off it goes! */
-	ohci_insert_ed(p->ohci_control_ed, ed);
-	ohci_write4(dev, OHCI_HCCOMMANDSTATUS, OHCI_CS_CLF);
-	return ANANAS_ERROR_NONE;
-}
-
-static errorcode_t
-ohci_schedule_interrupt_transfer(device_t dev, struct USB_TRANSFER* xfer)
-{
-	struct OHCI_PRIVDATA* p = dev->privdata;
-	struct OHCI_DEV_PRIVDATA* devp = xfer->xfer_device->usb_hcd_privdata;
-	int is_read = xfer->xfer_flags & TRANSFER_FLAG_READ;
-	int is_ls = devp->dev_flags & USB_DEVICE_FLAG_LOW_SPEED;
-
-	/* Construct the DATA transfer descriptor */
-	struct OHCI_HCD_TD* td_data = NULL;
-	td_data = ohci_alloc_td(dev);
-	td_data->td_td.td_flags =
-	 OHCI_TD_R |
-	 OHCI_TD_T(3) |
-	 //OHCI_TD_DI(OHCI_TD_DI_NONE) |
-	 OHCI_TD_DI(OHCI_TD_DI_IMMEDIATE) |
-	 OHCI_TD_DP(is_read ? OHCI_TD_DP_IN : OHCI_TD_DP_OUT);
-	td_data->td_td.td_cbp = KVTOP((addr_t)&xfer->xfer_data[0]); /* XXX64 */
-	td_data->td_td.td_be = td_data->td_td.td_cbp + xfer->xfer_length - 1;
-
-	/* Construct a dummy tail descriptor */
-	struct OHCI_HCD_TD* td_tail = ohci_alloc_td(dev);
 
 	/* Construct an endpoint descriptor for this device */
 	struct OHCI_HCD_ED* ed = ohci_alloc_ed(dev);
@@ -351,66 +329,60 @@ ohci_schedule_interrupt_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	 OHCI_ED_FA(xfer->xfer_address) |
 	 OHCI_ED_EN(xfer->xfer_endpoint) |
 	 OHCI_ED_D(OHCI_ED_D_TD) |
-	 OHCI_ED_MPS(xfer->xfer_device->usb_max_packet_sz0) | /* XXX Wrong should be pipe's */
+	 OHCI_ED_MPS(max_packet_sz) |
 	 (is_ls ? OHCI_ED_S : 0);
 
-	/* Hook all transfers together: setup -> (data) -> handshake -> tail */
-	ohci_set_td_next(td_data, td_tail);
-	ed->ed_ed.ed_headp = ohci_td_get_phys(td_data);
+	/* And place the head/tail into the ED */
+	ed->ed_ed.ed_headp = ohci_td_get_phys(td_head);
 	ed->ed_ed.ed_tailp = ohci_td_get_phys(td_tail);
-	ed->ed_firsttd = td_data;
-
-	/* Add an entry to the scheduled item queue */
-	struct OHCI_HCD_SCHEDULED_ITEM* si = kmalloc(sizeof *si);
-	si->si_ed = ed;
-	si->si_xfer = xfer;
-	DQUEUE_ADD_TAIL(&p->ohci_scheduled_items, si);
-
-	/* ... and off it goes - XXX LOCK */
-	int ed_list = 0; /* XXX */
-	struct OHCI_HCD_ED* queue_ed = p->ohci_interrupt_ed[ed_list];
-	ohci_insert_ed(queue_ed, ed);
-
-	return ANANAS_ERROR_NONE;
+	ed->ed_firsttd = td_head;
+	return ed;
 }
 
 /* We assume the USB device and transfer are locked here */
 static errorcode_t
 ohci_schedule_transfer(device_t dev, struct USB_TRANSFER* xfer)
 {
+	struct OHCI_PRIVDATA* p = dev->privdata;
 	mutex_assert(&xfer->xfer_device->usb_mutex, MTX_LOCKED);
 
 	/*
 	 * Add the transfer to our pending list; this is done so we can cancel any
 	 * pending transfers when a device is removed, for example.
 	 */
+	KASSERT((xfer->xfer_flags & TRANSFER_FLAG_PENDING) == 0, "scheduling transfer that is already pending (%x)", xfer->xfer_flags);
 	xfer->xfer_flags |= TRANSFER_FLAG_PENDING;
 	DQUEUE_ADD_TAIL_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
 
 	/* If this is the root hub, immediately transfer the request to it */
 	struct OHCI_DEV_PRIVDATA* dev_p = xfer->xfer_device->usb_hcd_privdata;
-	if (dev_p->dev_flags & USB_DEVICE_FLAG_ROOT_HUB) {
+	if (dev_p->dev_flags & USB_DEVICE_FLAG_ROOT_HUB)
 		return oroothub_handle_transfer(dev, xfer);
-	}
 
-	errorcode_t err;
+	/* Add an entry to the scheduled items queue */
+	struct OHCI_HCD_SCHEDULED_ITEM* si = kmalloc(sizeof *si);
+	si->si_ed = ohci_create_ed(dev, xfer);
+	si->si_xfer = xfer;
+	DQUEUE_ADD_TAIL(&p->ohci_scheduled_items, si); /* XXX LOCK THIS */
+
 	switch(xfer->xfer_type) {
-		case TRANSFER_TYPE_CONTROL:
-			err = ohci_schedule_control_transfer(dev, xfer);
+		case TRANSFER_TYPE_CONTROL: {
+			ohci_insert_ed(p->ohci_control_ed, si->si_ed);
+			ohci_write4(dev, OHCI_HCCOMMANDSTATUS, OHCI_CS_CLF);
 			break;
-		case TRANSFER_TYPE_INTERRUPT:
-			err = ohci_schedule_interrupt_transfer(dev, xfer);
+		}
+		case TRANSFER_TYPE_INTERRUPT: {
+			/* XXX We should have some sort of locking here.... */
+			int ed_list = 0; /* XXX */
+			struct OHCI_HCD_ED* queue_ed = p->ohci_interrupt_ed[ed_list];
+			ohci_insert_ed(queue_ed, si->si_ed);
 			break;
+		}
 		default:
 			panic("implement type %d", xfer->xfer_type);
 	}
 
-	if (err != ANANAS_ERROR_NONE) {
-		xfer->xfer_flags &= ~TRANSFER_FLAG_PENDING;
-		DQUEUE_REMOVE_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
-	}
-
-	return err;
+	return ANANAS_ERROR_NONE;
 }
 
 /* We assume the USB device and transfer are locked here */
@@ -421,6 +393,7 @@ ohci_cancel_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	mutex_assert(&xfer->xfer_device->usb_mutex, MTX_LOCKED);
 
 	if (xfer->xfer_flags & TRANSFER_FLAG_PENDING) {
+		kprintf("ohci_cancel_transfer(): removing from pending %p\n", xfer);
 		xfer->xfer_flags &= ~TRANSFER_FLAG_PENDING;
 		DQUEUE_REMOVE_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
 	}

@@ -134,6 +134,7 @@ struct OHCI_TD {
 #define OHCI_TD_DI(x)		((x) << 21)
 # define OHCI_TD_DI_IMMEDIATE	0
 # define OHCI_TD_DI_NONE	7
+# define OHCI_TD_DI_MASK	7
 #define OHCI_TD_DP(x)		((x) << 19)
 # define OHCI_TD_DP_SETUP 0
 # define OHCI_TD_DP_OUT 1
