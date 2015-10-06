@@ -332,7 +332,7 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 	}
 
 	/* Immediately mark the transfer as completed */
-	usbtransfer_complete(xfer);
+	usbtransfer_complete_locked(xfer);
 	return err;
 }
 
@@ -378,7 +378,7 @@ oroothub_process_interrupt_transfers(struct USB_DEVICE* usb_dev)
 				continue;
 			memcpy(&xfer->xfer_data, hub_update, update_len);
 			xfer->xfer_result_length = update_len;
-			usbtransfer_complete(xfer);
+			usbtransfer_complete_locked(xfer);
 		}
 		mutex_unlock(&usb_dev->usb_mutex);
 	}

@@ -14,10 +14,10 @@ TRACE_SETUP;
 static void usbpipe_callback(struct USB_TRANSFER* xfer);
 
 static struct USB_TRANSFER*
-usbpipe_create_transfer(struct USB_PIPE* pipe)
+usbpipe_create_transfer(struct USB_PIPE* pipe, size_t maxlen)
 {
 	struct USB_ENDPOINT* ep = pipe->p_ep;
-	struct USB_TRANSFER* xfer = usbtransfer_alloc(pipe->p_dev, ep->ep_type, (ep->ep_dir == EP_DIR_IN) ? TRANSFER_FLAG_READ : TRANSFER_FLAG_WRITE, ep->ep_address);
+	struct USB_TRANSFER* xfer = usbtransfer_alloc(pipe->p_dev, ep->ep_type, ((ep->ep_dir == EP_DIR_IN) ? TRANSFER_FLAG_READ : TRANSFER_FLAG_WRITE) | TRANSFER_FLAG_DATA, ep->ep_address, maxlen);
 	xfer->xfer_length = ep->ep_maxpacketsize;
 	xfer->xfer_callback = usbpipe_callback;
 	xfer->xfer_callback_data = pipe;
@@ -33,7 +33,7 @@ usbpipe_callback(struct USB_TRANSFER* xfer)
 }
 
 errorcode_t
-usbpipe_alloc(struct USB_DEVICE* usb_dev, int num, int type, int dir, usbpipe_callback_t callback, struct USB_PIPE** pipe)
+usbpipe_alloc(struct USB_DEVICE* usb_dev, int num, int type, int dir, size_t maxlen, usbpipe_callback_t callback, struct USB_PIPE** pipe)
 {
 	KASSERT(dir == EP_DIR_IN || dir == EP_DIR_OUT, "invalid direction %u", dir);
 	KASSERT(type == TRANSFER_TYPE_CONTROL || type == TRANSFER_TYPE_INTERRUPT || type == TRANSFER_TYPE_BULK || type == TRANSFER_TYPE_ISOCHRONOUS, "invalid type %u", type);
@@ -48,11 +48,14 @@ usbpipe_alloc(struct USB_DEVICE* usb_dev, int num, int type, int dir, usbpipe_ca
 	if (ep->ep_type != type || ep->ep_dir != dir)
 		return ANANAS_ERROR(BAD_TYPE);
 
+	if (maxlen == 0)
+		maxlen = ep->ep_maxpacketsize;
+
 	struct USB_PIPE* p = kmalloc(sizeof *p);
 	p->p_dev = usb_dev;
 	p->p_callback = callback;
 	p->p_ep = ep;
-	p->p_xfer = usbpipe_create_transfer(p);
+	p->p_xfer = usbpipe_create_transfer(p, maxlen);
 
 	/* Hook up the pipe to the device */
 	mutex_lock(&usb_dev->usb_mutex);

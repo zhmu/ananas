@@ -61,7 +61,7 @@ usbkbd_attach(device_t dev)
 	 * interrupt IN endpoint; this is where we get our data from.
 	 */
 	struct USB_PIPE* pipe;
-	errorcode_t err = usbpipe_alloc(usb_dev, 0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, usbkbd_callback, &pipe);
+	errorcode_t err = usbpipe_alloc(usb_dev, 0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, 0, usbkbd_callback, &pipe);
 	if (err != ANANAS_ERROR_OK) {
 		device_printf(dev, "endpoint 0 not interrupt/in");
 		return ANANAS_ERROR(NO_RESOURCE);

@@ -33,7 +33,7 @@ usb_make_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int ty
 		flags |= TRANSFER_FLAG_WRITE;
 	else
 		flags |= TRANSFER_FLAG_READ;
-	struct USB_TRANSFER* xfer = usbtransfer_alloc(usb_dev, TRANSFER_TYPE_CONTROL, flags, 0);
+	struct USB_TRANSFER* xfer = usbtransfer_alloc(usb_dev, TRANSFER_TYPE_CONTROL, flags, 0, (len != NULL) ? *len : 0);
 	xfer->xfer_control_req.req_type = TO_REG32((write ? 0 : USB_CONTROL_REQ_DEV2HOST) | USB_CONTROL_REQ_RECIPIENT(recipient) | USB_CONTROL_REQ_TYPE(type));
 	xfer->xfer_control_req.req_request = TO_REG32(req);
 	xfer->xfer_control_req.req_value = TO_REG32(value);
@@ -67,21 +67,6 @@ usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, i
 	return ANANAS_ERROR_OK;
 }
 
-struct USB_TRANSFER*
-usbtransfer_alloc(struct USB_DEVICE* dev, int type, int flags, int endpt)
-{
-	struct USB_TRANSFER* usb_xfer = kmalloc(sizeof *usb_xfer);
-	//kprintf("usbtransfer_alloc: xfer=%x type %d\n", usb_xfer, type);
-	memset(usb_xfer, 0, sizeof *usb_xfer);
-	usb_xfer->xfer_device = dev;
-	usb_xfer->xfer_type = type;
-	usb_xfer->xfer_flags = flags;
-	usb_xfer->xfer_address = dev->usb_address;
-	usb_xfer->xfer_endpoint = endpt;
-	sem_init(&usb_xfer->xfer_semaphore, 0);
-	return usb_xfer;
-}
-
 static inline device_t
 usbtransfer_get_hcd_device(struct USB_TRANSFER* xfer)
 {
@@ -90,6 +75,22 @@ usbtransfer_get_hcd_device(struct USB_TRANSFER* xfer)
 	KASSERT(xfer->xfer_device->usb_bus != NULL, "need a bus");
 	KASSERT(xfer->xfer_device->usb_bus->bus_dev != NULL, "need a bus device");
 	return xfer->xfer_device->usb_bus->bus_dev->parent;
+}
+
+struct USB_TRANSFER*
+usbtransfer_alloc(struct USB_DEVICE* dev, int type, int flags, int endpt, size_t maxlen)
+{
+	struct USB_TRANSFER* usb_xfer = kmalloc(sizeof *usb_xfer);
+	kprintf("usbtransfer_alloc: xfer=%x type %d\n", usb_xfer, type);
+	memset(usb_xfer, 0, sizeof *usb_xfer);
+	usb_xfer->xfer_device = dev;
+	usb_xfer->xfer_type = type;
+	usb_xfer->xfer_flags = flags;
+	usb_xfer->xfer_length = maxlen; /* transfer buffer length */
+	usb_xfer->xfer_address = dev->usb_address;
+	usb_xfer->xfer_endpoint = endpt;
+	sem_init(&usb_xfer->xfer_semaphore, 0);
+	return usb_xfer;
 }
 
 errorcode_t
@@ -130,15 +131,22 @@ usbtransfer_free(struct USB_TRANSFER* xfer)
 {
 	struct USB_DEVICE* usb_dev =xfer->xfer_device;
 
-	//kprintf("usbtransfer_free: xfer=%x type %d\n", xfer, xfer->xfer_type);
+	kprintf("usbtransfer_free: xfer=%x type %d\n", xfer, xfer->xfer_type);
 	mutex_lock(&usb_dev->usb_mutex);
 	usbtransfer_free_locked(xfer);
 	mutex_unlock(&usb_dev->usb_mutex);
 }
 
 void
-usbtransfer_complete(struct USB_TRANSFER* xfer)
+usbtransfer_complete_locked(struct USB_TRANSFER* xfer)
 {
+	mutex_assert(&xfer->xfer_device->usb_mutex, MTX_LOCKED);
+	KASSERT(xfer->xfer_flags & TRANSFER_FLAG_PENDING, "completing transfer that isn't pending");
+
+	/* Transfer is complete, so we can remove the pending flag */
+	xfer->xfer_flags &= ~TRANSFER_FLAG_PENDING;
+	DQUEUE_REMOVE_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
+
 	/*
 	 * This is generally called from interrupt context, so schedule a worker to
 	 * process the transfer; if the transfer doesn't have a callback function,
@@ -153,6 +161,14 @@ usbtransfer_complete(struct USB_TRANSFER* xfer)
 	} else {
 		sem_signal(&xfer->xfer_semaphore);
 	}
+}
+
+void
+usbtransfer_complete(struct USB_TRANSFER* xfer)
+{
+	mutex_lock(&xfer->xfer_device->usb_mutex);
+	usbtransfer_complete_locked(xfer);
+	mutex_unlock(&xfer->xfer_device->usb_mutex);
 }
 
 static void

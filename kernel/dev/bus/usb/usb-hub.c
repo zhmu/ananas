@@ -280,7 +280,7 @@ usbhub_attach(device_t dev)
 
 	/* Initialization went well; hook up the interrupt pipe so that we may receive updates */
 	struct USB_PIPE* pipe;
-	err = usbpipe_alloc(usb_dev, 0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, usbhub_int_callback, &pipe);
+	err = usbpipe_alloc(usb_dev, 0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, 0, usbhub_int_callback, &pipe);
 	if (err != ANANAS_ERROR_OK) {
 		device_printf(dev, "endpoint 0 not interrupt/in");
 		goto fail;
