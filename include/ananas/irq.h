@@ -2,6 +2,7 @@
 #define __IRQ_H__
 
 #include <ananas/device.h>
+#include <ananas/thread.h>
 
 /* Return values for the IRQ handler */
 typedef enum {
@@ -43,6 +44,9 @@ struct IRQ_HANDLER {
 	device_t		h_device;
 	void*			h_context;
 	irqfunc_t		h_func;
+	unsigned int		h_flags;
+#define IRQ_HANDLER_FLAG_THREAD	(1 << 0)	/* invoke the handler from the IST */
+#define IRQ_HANDLER_FLAG_SKIP	(1 << 1)	/* (internal use only) do not invoke the handler */
 };
 
 /*
@@ -51,7 +55,12 @@ struct IRQ_HANDLER {
 struct IRQ {
 	struct IRQ_SOURCE*	i_source;
 	struct IRQ_HANDLER	i_handler[IRQ_MAX_HANDLERS];
-	int			i_straycount;
+	unsigned int		i_count;
+	unsigned int		i_straycount;
+	unsigned int		i_flags;
+#define IRQ_FLAG_THREAD	(1 << 0)	/* execute this handler from a thread */
+	thread_t		i_thread;
+	semaphore_t		i_semaphore;
 };
 
 /*
@@ -61,7 +70,12 @@ struct IRQ {
 void irqsource_register(struct IRQ_SOURCE* source);
 void irqsource_unregister(struct IRQ_SOURCE* source);
 
-errorcode_t irq_register(unsigned int no, device_t dev, irqfunc_t func, void* context);
+#define IRQ_TYPE_DEFAULT	IRQ_TYPE_IST
+#define IRQ_TYPE_IST		0 /* use an IST to launch the handler */
+#define IRQ_TYPE_ISR		1 /* do not launch the handler from a thread */
+#define IRQ_TYPE_IPI		IRQ_TYPE_ISR
+#define IRQ_TYPE_TIMER		IRQ_TYPE_ISR
+errorcode_t irq_register(unsigned int no, device_t dev, irqfunc_t func, int type, void* context);
 void irq_unregister(unsigned int no, device_t dev, irqfunc_t func, void* context);
 void irq_handler(unsigned int no);
 void irq_dump();
