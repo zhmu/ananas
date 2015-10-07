@@ -1,5 +1,6 @@
 #include <ananas/x86/io.h>
 #include <ananas/x86/pic.h>
+#include <ananas/error.h>
 #include <ananas/irq.h>
 #include <ananas/lib.h>
 
@@ -76,13 +77,27 @@ x86_pic_mask_all()
 static errorcode_t
 pic_mask(struct IRQ_SOURCE* is, int no)
 {
-	panic("TODO");
+	int port = PIC1_DATA;
+	if (no >= 8) {
+		port = PIC2_DATA;
+		no -= 8;
+	}
+
+	outb(port, inb(port) | (1 << no));
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
 pic_unmask(struct IRQ_SOURCE* is, int no)
 {
-	panic("TODO");
+	int port = PIC1_DATA;
+	if (no >= 8) {
+		port = PIC2_DATA;
+		no -= 8;
+	}
+
+	outb(port, inb(port) & ~(1 << no));
+	return ANANAS_ERROR_NONE;
 }
 
 static void

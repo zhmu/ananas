@@ -1,40 +1,47 @@
 #include <ananas/x86/apic.h>
 #include <ananas/x86/ioapic.h>
 #include <ananas/lib.h>
+#include <ananas/error.h>
 #include <machine/param.h>
 #include <machine/vm.h>
 
 void
-ioapic_write(struct X86_IOAPIC* apic, uint32_t reg, uint32_t val)
+ioapic_write(struct X86_IOAPIC* ioapic, uint32_t reg, uint32_t val)
 {
-	*(volatile uint32_t*)(apic->ioa_addr + IOREGSEL) = reg & 0xff;
-	*(volatile uint32_t*)(apic->ioa_addr + IOWIN) = val;
+	*(volatile uint32_t*)(ioapic->ioa_addr + IOREGSEL) = reg & 0xff;
+	*(volatile uint32_t*)(ioapic->ioa_addr + IOWIN) = val;
 }
 
 uint32_t
-ioapic_read(struct X86_IOAPIC* apic, uint32_t reg)
+ioapic_read(struct X86_IOAPIC* ioapic, uint32_t reg)
 {
-	*(volatile uint32_t*)(apic->ioa_addr + IOREGSEL) = reg & 0xff;
-	return *(volatile uint32_t*)(apic->ioa_addr + IOWIN);
+	*(volatile uint32_t*)(ioapic->ioa_addr + IOREGSEL) = reg & 0xff;
+	return *(volatile uint32_t*)(ioapic->ioa_addr + IOWIN);
 }
 
 static errorcode_t
 ioapic_mask(struct IRQ_SOURCE* source, int no)
 {
-	panic("not implemented");
+	struct X86_IOAPIC* ioapic = source->is_privdata;
+	uint32_t reg = IOREDTBL + no * 2;
+	*(volatile uint32_t*)(ioapic->ioa_addr + IOREGSEL) = reg & 0xff;
+	*(volatile uint32_t*)(ioapic->ioa_addr + IOWIN) |= MASKED;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
 ioapic_unmask(struct IRQ_SOURCE* source, int no)
 {
-	panic("not implemented");
+	struct X86_IOAPIC* ioapic = source->is_privdata;
+	uint32_t reg = IOREDTBL + no * 2;
+	*(volatile uint32_t*)(ioapic->ioa_addr + IOREGSEL) = reg & 0xff;
+	*(volatile uint32_t*)(ioapic->ioa_addr + IOWIN) &= ~MASKED;
+	return ANANAS_ERROR_NONE;
 }
 
 void
 ioapic_ack(struct IRQ_SOURCE* source, int no)
 {
-	struct X86_IOAPIC* ioapic = source->is_privdata;
-	(void)ioapic;
 	*(volatile uint32_t*)(PTOKV(LAPIC_BASE) + LAPIC_EOI) = 0;
 }
 
