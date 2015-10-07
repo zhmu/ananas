@@ -396,7 +396,7 @@ ata_attach(device_t dev, uint32_t io, uint32_t irq)
 	/* Ensure there's something living at the I/O addresses */
 	if (inb(priv->io_port + ATA_REG_STATUS) == 0xff) return 1;
 
-	errorcode_t err = irq_register(irq, dev, ata_irq, NULL);
+	errorcode_t err = irq_register(irq, dev, ata_irq, IRQ_TYPE_DEFAULT, NULL);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Initialize a freelist of request items */

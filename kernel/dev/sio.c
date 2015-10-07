@@ -50,7 +50,8 @@ sio_attach(device_t dev)
 
 	dev->privdata = privdata;
 
-	errorcode_t err = irq_register((uintptr_t)res_irq, dev, sio_irq, NULL);
+	/* SIO is so simple that a plain ISR will do */
+	errorcode_t err = irq_register((uintptr_t)res_irq, dev, sio_irq, IRQ_TYPE_ISR, NULL);
 	if (err != ANANAS_ERROR_OK) {
 		kfree(privdata);
 		return err;

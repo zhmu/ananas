@@ -492,7 +492,7 @@ ohci_attach(device_t dev)
 	dev->privdata = p;
 
 	/* Set up the interrupt handler */
-	err = irq_register((int)(uintptr_t)res_irq, dev, ohci_irq, p);
+	err = irq_register((int)(uintptr_t)res_irq, dev, ohci_irq, IRQ_TYPE_DEFAULT, p);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Initialize the structures */

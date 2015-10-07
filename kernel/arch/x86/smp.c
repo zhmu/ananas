@@ -228,9 +228,9 @@ smp_init()
  	 * interrupts and this lets us process them as such.
 	 */
 	irqsource_register(&ipi_source);
-	if (irq_register(SMP_IPI_PANIC, NULL, smp_ipi_panic, NULL) != ANANAS_ERROR_OK)
+	if (irq_register(SMP_IPI_PANIC, NULL, smp_ipi_panic, IRQ_TYPE_IPI, NULL) != ANANAS_ERROR_OK)
 		panic("can't register ipi");
-	if (irq_register(SMP_IPI_SCHEDULE, NULL, smp_ipi_schedule, NULL) != ANANAS_ERROR_OK)
+	if (irq_register(SMP_IPI_SCHEDULE, NULL, smp_ipi_schedule, IRQ_TYPE_IPI, NULL) != ANANAS_ERROR_OK)
 		panic("can't register ipi");
 
 	/*

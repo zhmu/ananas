@@ -228,7 +228,7 @@ ahcipci_attach(device_t dev)
 	pd->ahci_dev_privdata = privdata;
 	dev->privdata = pd;
 
-	err = irq_register((int)(uintptr_t)res_irq, dev, ahcipci_irq, privdata);
+	err = irq_register((int)(uintptr_t)res_irq, dev, ahcipci_irq, IRQ_TYPE_DEFAULT, privdata);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Force all ports into idle mode */

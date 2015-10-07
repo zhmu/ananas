@@ -338,8 +338,8 @@ hdapci_attach(device_t dev)
 	memset(privdata, 0, sizeof(*privdata));
 	privdata->hda_addr = (addr_t)res_io;
 
-  errorcode_t err = irq_register((int)res_irq, dev, hdapci_irq, privdata);
-  ANANAS_ERROR_RETURN(err);
+	errorcode_t err = irq_register((int)res_irq, dev, hdapci_irq, IRQ_TYPE_DEFAULT, privdata);
+	ANANAS_ERROR_RETURN(err);
 
 	/* Enable busmastering; all communication is done by DMA */
 	pci_enable_busmaster(dev, 1);
@@ -436,7 +436,6 @@ hdapci_attach(device_t dev)
 		return err;
 
 	/* XXX we should clean up the tree thus far */
-	vm_unmap_kernel((addr_t)privdata->hda_corb, 1);
 	page_free(privdata->hda_page);
 	kfree(privdata);
 	return err;
