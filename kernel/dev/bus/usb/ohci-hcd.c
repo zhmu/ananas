@@ -173,13 +173,33 @@ ohci_irq(device_t dev, void* context)
 			DQUEUE_FOREACH_IP(&p->ohci_active_eds, active, ed, struct OHCI_HCD_ED) {
 				if (ed->ed_ed.ed_flags & OHCI_ED_K)
 					continue;
-				struct OHCI_HCD_TD* first_td = ed->ed_headtd;
-				if (first_td->td_td.td_cbp != 0) {
-					continue; /* not finished */
+				/*
+				 * Transfer is done if the ED's head and tail pointer match (minus the
+				 * extra flag fields which only appear in the head field) or if the TD
+				 * was halted (which the HC should do in case of error)
+				 */
+				if ((ed->ed_ed.ed_tailp != (ed->ed_ed.ed_headp & ~0xf)) /* headp != tailp */ &&
+				    (ed->ed_ed.ed_headp & OHCI_ED_HEADP_H) == 0) /* not halted */ {
+					continue;
+				}
+
+				/* Walk through all TD's and determine the length plus the status */
+				size_t transferred = 0;
+				int status = OHCI_TD_CC_NOERROR;
+				for (struct OHCI_HCD_TD* td = ed->ed_headtd; td != NULL; td = td->qi_next) {
+					if (td->td_td.td_cbp == 0)
+						transferred += td->td_length; /* full TD */
+					else
+						transferred += td->td_length - (td->td_td.td_be - td->td_td.td_cbp + 1); /* partial TD */
+					if (status != OHCI_TD_CC_NOERROR)
+						status = OHCI_TD_CC(td->td_td.td_flags);
 				}
 
 				struct USB_TRANSFER* xfer = ed->ed_xfer;
-				xfer->xfer_result_length = xfer->xfer_length;
+				xfer->xfer_data_toggle = (ed->ed_ed.ed_headp & OHCI_ED_HEADP_C) != 0;
+				xfer->xfer_result_length = transferred;
+				if (status != OHCI_TD_CC_NOERROR)
+					xfer->xfer_flags |= TRANSFER_FLAG_ERROR;
 				usbtransfer_complete(xfer);
 
 				/* Skip ED now, it's processed */
@@ -358,6 +378,10 @@ ohci_setup_ed(device_t dev, struct USB_TRANSFER* xfer)
 			ohci_enqueue_ed(p->ohci_control_ed, ed);
 			break;
 		}
+		case TRANSFER_TYPE_BULK: {
+			ohci_enqueue_ed(p->ohci_bulk_ed, ed);
+			break;
+		}
 		case TRANSFER_TYPE_INTERRUPT: {
 			int ed_list = 0; /* XXX */
 			ohci_enqueue_ed(p->ohci_interrupt_ed[ed_list], ed);
@@ -372,8 +396,6 @@ ohci_setup_ed(device_t dev, struct USB_TRANSFER* xfer)
 static errorcode_t
 ohci_setup_transfer(device_t dev, struct USB_TRANSFER* xfer)
 {
-	mutex_assert(&xfer->xfer_device->usb_mutex, MTX_LOCKED);
-
 	/* If this is the root hub, there's nothing to set up */
 	struct OHCI_DEV_PRIVDATA* dev_p = xfer->xfer_device->usb_hcd_privdata;
 	if (dev_p->dev_flags & USB_DEVICE_FLAG_ROOT_HUB)
@@ -439,18 +461,19 @@ ohci_create_tds(device_t dev, struct USB_TRANSFER* xfer)
 	struct OHCI_HCD_TD* td_setup = NULL;
 	struct OHCI_HCD_TD* td_handshake = NULL;
 	if (xfer->xfer_type == TRANSFER_TYPE_CONTROL) {
+		/* Control messages have fixed DATA0/1 types */
 		td_setup = ohci_alloc_td(dev);
 		td_setup->td_td.td_flags =
 		 OHCI_TD_DP(OHCI_TD_DP_SETUP) |
 		 OHCI_TD_DI(OHCI_TD_DI_NONE) |
-		 OHCI_TD_T(2);
+		 OHCI_TD_T(2) /* DATA0 */;
 		td_setup->td_td.td_cbp = KVTOP((addr_t)&xfer->xfer_control_req); /* XXX64 TODO */
 		td_setup->td_td.td_be = td_setup->td_td.td_cbp + sizeof(struct USB_CONTROL_REQUEST) - 1;
 
 		td_handshake = ohci_alloc_td(dev);
 		td_handshake->td_td.td_flags =
 		 OHCI_TD_DI(OHCI_TD_DI_IMMEDIATE) |
-		 OHCI_TD_T(3) |
+		 OHCI_TD_T(3) /* DATA1 */ |
 		 OHCI_TD_DP(is_read ? OHCI_TD_DP_OUT : OHCI_TD_DP_IN);
 	}
 
@@ -458,13 +481,18 @@ ohci_create_tds(device_t dev, struct USB_TRANSFER* xfer)
 	struct OHCI_HCD_TD* td_data = NULL;
 	if (xfer->xfer_flags & TRANSFER_FLAG_DATA) {
 		td_data = ohci_alloc_td(dev);
+		/*
+		 * Note that we don't use OHCI_TD_T() here; default is to invert the parent
+		 * and for non-control transfers this will be td_head which we override
+		 * anyway.
+		 */
 		td_data->td_td.td_flags =
 		 OHCI_TD_R |
-		 OHCI_TD_T(3) |
 		 OHCI_TD_DI(OHCI_TD_DI_NONE) |
 		 OHCI_TD_DP(is_read ? OHCI_TD_DP_IN : OHCI_TD_DP_OUT);
 		td_data->td_td.td_cbp = KVTOP((addr_t)&xfer->xfer_data[0]); /* XXX64 */
-		td_data->td_td.td_be = td_data->td_td.td_cbp + xfer->xfer_length - 1;
+		td_data->td_length = xfer->xfer_length;
+		td_data->td_td.td_be = td_data->td_td.td_cbp + td_data->td_length - 1;
 	}
 
 	/* Build the chain of TD's */
@@ -488,8 +516,28 @@ ohci_create_tds(device_t dev, struct USB_TRANSFER* xfer)
 		/* XXX kludge: ensure we'll get an interrupt if the transfer succeeds */
 		td_data->td_td.td_flags &= ~OHCI_TD_DI(OHCI_TD_DI_MASK);
 		td_data->td_td.td_flags |= OHCI_TD_DI(OHCI_TD_DI_IMMEDIATE);
+	} else if (xfer->xfer_type == TRANSFER_TYPE_BULK) {
+		/* Bulk transfer: data -> tail */
+		ohci_set_td_next(td_data, ed->ed_tailtd);
+		td_head = td_data;
+
+		/* XXX kludge: ensure we'll get an interrupt if the transfer succeeds */
+		td_data->td_td.td_flags &= ~OHCI_TD_DI(OHCI_TD_DI_MASK);
+		td_data->td_td.td_flags |= OHCI_TD_DI(OHCI_TD_DI_IMMEDIATE);
 	} else {
 		panic("unsupported transfer type %d", xfer->xfer_type);
+	}
+
+	/*
+	 * Alter the data toggle bit of the first TD; everything else will just
+	 * toggle it (or plainly override it as needed)
+	 */
+	if (xfer->xfer_type != TRANSFER_TYPE_CONTROL) {
+		td_head->td_td.td_flags &= ~OHCI_TD_T(3);
+		if (xfer->xfer_data_toggle)
+			td_head->td_td.td_flags |= OHCI_TD_T(3);
+		else
+			td_head->td_td.td_flags |= OHCI_TD_T(2);
 	}
 
 	/* Now hook our transfer to the ED... */
@@ -499,7 +547,6 @@ ohci_create_tds(device_t dev, struct USB_TRANSFER* xfer)
 	/* ...and mark it as active as it's good to go now */
 	ed->ed_ed.ed_flags &= ~OHCI_ED_K;
 }
-
 
 /* We assume the USB device and transfer are locked here */
 static errorcode_t
@@ -533,6 +580,9 @@ ohci_schedule_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	switch(xfer->xfer_type) {
 		case TRANSFER_TYPE_CONTROL:
 			ohci_write4(dev, OHCI_HCCOMMANDSTATUS, OHCI_CS_CLF);
+			break;
+		case TRANSFER_TYPE_BULK:
+			ohci_write4(dev, OHCI_HCCOMMANDSTATUS, OHCI_CS_BLF);
 			break;
 		case TRANSFER_TYPE_INTERRUPT:
 			break;

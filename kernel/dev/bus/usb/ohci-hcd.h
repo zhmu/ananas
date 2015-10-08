@@ -10,6 +10,7 @@
 struct OHCI_HCD_TD {
 	struct OHCI_TD td_td;
 	dma_buf_t td_buf;
+	uint32_t td_length;
 	DQUEUE_FIELDS(struct OHCI_HCD_TD);
 };
 
