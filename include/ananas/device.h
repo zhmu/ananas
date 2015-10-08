@@ -74,8 +74,10 @@ struct DRIVER {
 	/* for block devices: start request queue */
 	void		(*drv_start)(device_t);
 	/* USB */
+	errorcode_t	(*drv_usb_setup_xfer)(device_t, struct USB_TRANSFER*);
 	errorcode_t	(*drv_usb_schedule_xfer)(device_t, struct USB_TRANSFER*);
 	errorcode_t	(*drv_usb_cancel_xfer)(device_t, struct USB_TRANSFER*);
+	errorcode_t	(*drv_usb_teardown_xfer)(device_t, struct USB_TRANSFER*);
 	void*		(*drv_usb_hcd_initprivdata)(int);
 	void		(*drv_usb_set_roothub)(device_t, struct USB_DEVICE*);
 	errorcode_t	(*drv_roothub_xfer)(device_t, struct USB_TRANSFER*);

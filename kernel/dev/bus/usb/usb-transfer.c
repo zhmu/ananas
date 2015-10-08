@@ -15,6 +15,12 @@
 #include "usb-device.h"
 #include "usb-transfer.h"
 
+#if 0
+# define DPRINTF kprintf
+#else
+# define DPRINTF(...)
+#endif
+
 TRACE_SETUP;
 
 static thread_t usbtransfer_thread;
@@ -48,10 +54,13 @@ usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, i
 {
 	struct USB_TRANSFER* xfer = usb_make_control_xfer(usb_dev, req, recipient, type, value, index, buf, len, write);
 
+	DPRINTF("usb_control_xfer(): req %d value %x -> xfer=%p\n", req, value, xfer);
+
 	/* Now schedule the transfer and until it's completed XXX Timeout */
 	usbtransfer_schedule(xfer);
 	sem_wait_and_drain(&xfer->xfer_semaphore);
 	if (xfer->xfer_flags & TRANSFER_FLAG_ERROR) {
+		DPRINTF("usb_control_xfer(): xfer %p ERROR\n", xfer);
 		usbtransfer_free(xfer);
 		return ANANAS_ERROR(IO);
 	}
@@ -64,6 +73,7 @@ usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, i
 	}
 
 	usbtransfer_free(xfer);
+	DPRINTF("usb_control_xfer(): xfer %p done\n", xfer);
 	return ANANAS_ERROR_OK;
 }
 
@@ -77,11 +87,24 @@ usbtransfer_get_hcd_device(struct USB_TRANSFER* xfer)
 	return xfer->xfer_device->usb_bus->bus_dev->parent;
 }
 
+static errorcode_t
+usbtransfer_setup(struct USB_TRANSFER* xfer)
+{
+	device_t hcd_dev = usbtransfer_get_hcd_device(xfer);
+	KASSERT(hcd_dev->driver->drv_usb_setup_xfer != NULL, "transferring without usb transfer");
+
+	/* Schedule the transfer; we are responsible for locking here */
+	mutex_lock(&xfer->xfer_device->usb_mutex);
+	errorcode_t err = hcd_dev->driver->drv_usb_setup_xfer(hcd_dev, xfer);
+	mutex_unlock(&xfer->xfer_device->usb_mutex);
+	return err;
+}
+
 struct USB_TRANSFER*
 usbtransfer_alloc(struct USB_DEVICE* dev, int type, int flags, int endpt, size_t maxlen)
 {
 	struct USB_TRANSFER* usb_xfer = kmalloc(sizeof *usb_xfer);
-	kprintf("usbtransfer_alloc: xfer=%x type %d\n", usb_xfer, type);
+	DPRINTF("usbtransfer_alloc: xfer=%x type %d\n", usb_xfer, type);
 	memset(usb_xfer, 0, sizeof *usb_xfer);
 	usb_xfer->xfer_device = dev;
 	usb_xfer->xfer_type = type;
@@ -90,6 +113,12 @@ usbtransfer_alloc(struct USB_DEVICE* dev, int type, int flags, int endpt, size_t
 	usb_xfer->xfer_address = dev->usb_address;
 	usb_xfer->xfer_endpoint = endpt;
 	sem_init(&usb_xfer->xfer_semaphore, 0);
+
+	errorcode_t err = usbtransfer_setup(usb_xfer);
+	if (err != ANANAS_ERROR_NONE) {
+		kfree(usb_xfer);
+		return NULL;
+	}
 	return usb_xfer;
 }
 
@@ -118,11 +147,22 @@ usbtransfer_cancel_locked(struct USB_TRANSFER* xfer)
 }
 
 void
+usbtransfer_teardown_locked(struct USB_TRANSFER* xfer)
+{
+	mutex_assert(&xfer->xfer_device->usb_mutex, MTX_LOCKED);
+
+	device_t hcd_dev = usbtransfer_get_hcd_device(xfer);
+	if(hcd_dev->driver->drv_usb_teardown_xfer != NULL)
+		hcd_dev->driver->drv_usb_teardown_xfer(hcd_dev, xfer);
+}
+
+void
 usbtransfer_free_locked(struct USB_TRANSFER* xfer)
 {
 	mutex_assert(&xfer->xfer_device->usb_mutex, MTX_LOCKED);
 
 	usbtransfer_cancel_locked(xfer);
+	usbtransfer_teardown_locked(xfer);
 	kfree(xfer);
 }
 
@@ -131,7 +171,7 @@ usbtransfer_free(struct USB_TRANSFER* xfer)
 {
 	struct USB_DEVICE* usb_dev =xfer->xfer_device;
 
-	kprintf("usbtransfer_free: xfer=%x type %d\n", xfer, xfer->xfer_type);
+	DPRINTF("usbtransfer_free: xfer=%x type %d\n", xfer, xfer->xfer_type);
 	mutex_lock(&usb_dev->usb_mutex);
 	usbtransfer_free_locked(xfer);
 	mutex_unlock(&usb_dev->usb_mutex);
@@ -141,7 +181,7 @@ void
 usbtransfer_complete_locked(struct USB_TRANSFER* xfer)
 {
 	mutex_assert(&xfer->xfer_device->usb_mutex, MTX_LOCKED);
-	KASSERT(xfer->xfer_flags & TRANSFER_FLAG_PENDING, "completing transfer that isn't pending");
+	KASSERT(xfer->xfer_flags & TRANSFER_FLAG_PENDING, "completing transfer that isn't pending %p", xfer->xfer_hcd);
 
 	/* Transfer is complete, so we can remove the pending flag */
 	xfer->xfer_flags &= ~TRANSFER_FLAG_PENDING;
