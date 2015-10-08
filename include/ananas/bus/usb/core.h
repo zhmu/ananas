@@ -80,6 +80,8 @@ struct USB_TRANSFER {
 	usb_xfer_callback_t		xfer_callback;
 	void*				xfer_callback_data;
 	semaphore_t			xfer_semaphore;
+	/* HCD-specific */
+	void*				xfer_hcd;
 
 	/* List of pending transfers */
 	DQUEUE_FIELDS_IT(struct USB_TRANSFER, pending);

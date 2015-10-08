@@ -15,18 +15,19 @@ struct OHCI_HCD_TD {
 
 struct OHCI_HCD_ED {
 	struct OHCI_ED ed_ed;
-	struct OHCI_HCD_TD* ed_firsttd;
+	/* Virtual addresses of the TD chain */
+	struct OHCI_HCD_TD* ed_headtd;
+	struct OHCI_HCD_TD* ed_tailtd;
+	/* Virtual addresses of the ED chain */
+	struct OHCI_HCD_ED* ed_preved;
+	struct OHCI_HCD_ED* ed_nexted;
 	dma_buf_t ed_buf;
-	DQUEUE_FIELDS(struct OHCI_HCD_ED);
+	struct USB_TRANSFER* ed_xfer;
+	/* Active queue fields; used by ohci_irq() to check all active transfers */
+	DQUEUE_FIELDS_IT(struct OHCI_HCD_ED, active);
 };
 
-struct OHCI_HCD_SCHEDULED_ITEM {
-	struct OHCI_HCD_ED* si_ed;
-	struct USB_TRANSFER* si_xfer;
-	DQUEUE_FIELDS(struct OHCI_HCD_SCHEDULED_ITEM);
-};
-
-DQUEUE_DEFINE(OHCI_SCHEDULED_ITEM_QUEUE, struct OHCI_HCD_SCHEDULED_ITEM);
+DQUEUE_DEFINE(OHCI_HCD_ED_QUEUE, struct OHCI_HCD_ED);
 
 struct OHCI_PRIVDATA {
 	volatile uint8_t* ohci_membase;
@@ -35,7 +36,7 @@ struct OHCI_PRIVDATA {
 	struct OHCI_HCD_ED* ohci_interrupt_ed[OHCI_NUM_ED_LISTS];
 	struct OHCI_HCD_ED* ohci_control_ed;
 	struct OHCI_HCD_ED* ohci_bulk_ed;
-	struct OHCI_SCHEDULED_ITEM_QUEUE ohci_scheduled_items;
+	struct OHCI_HCD_ED_QUEUE ohci_active_eds;
 	int ohci_rh_numports;
 	mutex_t ohci_mtx;
 	semaphore_t ohci_rh_semaphore;
