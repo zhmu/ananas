@@ -92,12 +92,7 @@ usbtransfer_setup(struct USB_TRANSFER* xfer)
 {
 	device_t hcd_dev = usbtransfer_get_hcd_device(xfer);
 	KASSERT(hcd_dev->driver->drv_usb_setup_xfer != NULL, "transferring without usb transfer");
-
-	/* Schedule the transfer; we are responsible for locking here */
-	mutex_lock(&xfer->xfer_device->usb_mutex);
-	errorcode_t err = hcd_dev->driver->drv_usb_setup_xfer(hcd_dev, xfer);
-	mutex_unlock(&xfer->xfer_device->usb_mutex);
-	return err;
+	return hcd_dev->driver->drv_usb_setup_xfer(hcd_dev, xfer);
 }
 
 struct USB_TRANSFER*
