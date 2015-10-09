@@ -62,6 +62,7 @@ struct DRIVER {
 	errorcode_t	(*drv_probe)(device_t);
 	errorcode_t	(*drv_attach)(device_t);
 	errorcode_t	(*drv_detach)(device_t);
+	void		(*drv_dump)(device_t); /* debug dump */
 	void		(*drv_attach_children)(device_t);
 	errorcode_t	(*drv_write)(device_t, const void*, size_t*, off_t);
 	errorcode_t	(*drv_bwrite)(device_t, struct BIO*);

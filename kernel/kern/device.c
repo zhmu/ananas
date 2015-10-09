@@ -532,6 +532,22 @@ KDB_COMMAND(devices, NULL, "Displays a list of all devices")
 	if (n != count)
 		kprintf("Warning: %d extra device(s) unreachable by walking the device chain!\n", n - count);
 }
+
+KDB_COMMAND(devdump, "s:devname", "Displays debugging dump of a device")
+{
+	struct DEVICE* dev = device_find(arg[1].a_u.u_string);
+	if (dev == NULL) {
+		kprintf("device not found\n");
+		return;
+	}
+
+	if (dev->driver == NULL || dev->driver->drv_dump == NULL) {
+		kprintf("dump not supported\n");
+		return;
+	}
+
+	dev->driver->drv_dump(dev);
+}
 #endif
 
 /* vim:set ts=2 sw=2: */
