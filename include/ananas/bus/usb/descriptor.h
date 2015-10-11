@@ -30,6 +30,7 @@ struct USB_CONTROL_REQUEST {
 #define USB_CONTROL_REQUEST_SYNC_FRAME		0x0c
 #define USB_CONTROL_REQUEST_SET_SEL		0x30
 #define USB_CONTROL_REQUEST_SET_ISO_DELAY	0x31
+#define USB_CONTROL_REQUEST_GET_MAX_LUN		0xfe
 	uint16_t req_value;		/* Value */
 	uint16_t req_index;		/* Index value */
 	uint16_t req_length;		/* Request Length */
@@ -209,6 +210,7 @@ struct USB_DESCR_INTERFACE {
 #define USB_IF_CLASS_IMAGE		6
 #define USB_IF_CLASS_PRINTER		7
 #define USB_IF_CLASS_STORAGE		8
+# define USB_IF_PROTOCOL_BULKONLY	0x50
 #define USB_IF_CLASS_HUB		9
 #define USB_IF_CLASS_COMM_DATAINT	10
 #define USB_IF_CLASS_SMARTCARD		11
