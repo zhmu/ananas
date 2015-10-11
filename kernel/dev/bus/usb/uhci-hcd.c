@@ -34,6 +34,8 @@
 #include "uhci-hcd.h"
 #include "uhci-roothub.h"
 #include "uhci-reg.h"
+#include "usb-device.h"
+#include "usb-transfer.h"
 
 TRACE_SETUP;
 
@@ -60,21 +62,6 @@ struct UHCI_SCHEDULED_ITEM {
 static struct UHCI_HCD_TD*
 uhci_alloc_td(device_t dev)
 {
-	struct UHCI_HCD_PRIVDATA* p = dev->privdata;
-
-	/* See if we have anything left in the freelist */
-	mutex_lock(&p->uhci_mtx);
-	if (!DQUEUE_EMPTY(&p->uhci_td_freelist)) {
-		struct UHCI_HCD_TD* td = DQUEUE_HEAD(&p->uhci_td_freelist);
-		DQUEUE_POP_HEAD(&p->uhci_td_freelist);
-		mutex_unlock(&p->uhci_mtx);
-		DQUEUE_NEXT(td) = NULL;
-		memset(&td->td_td, 0, sizeof(struct UHCI_TD));
-		return td;
-	}
-	mutex_unlock(&p->uhci_mtx);
-
-	/* Nothing available; allocate a fresh new one */
 	dma_buf_t buf;
 	errorcode_t err = dma_buf_alloc(dev->dma_tag, sizeof(struct UHCI_HCD_TD), &buf);
 	if (err != ANANAS_ERROR_NONE)
@@ -90,10 +77,6 @@ uhci_alloc_td(device_t dev)
 static struct UHCI_HCD_QH*
 uhci_alloc_qh(device_t dev)
 {
-#if 0
-	struct UHCI_HCD_PRIVDATA* p = dev->privdata;
-	/* XXX We should cache obsoleted QH's and return them here */
-#endif
 	dma_buf_t buf;
 	errorcode_t err = dma_buf_alloc(dev->dma_tag, sizeof(struct UHCI_HCD_QH), &buf);
 	if (err != ANANAS_ERROR_NONE)
@@ -114,6 +97,8 @@ uhci_alloc_qh(device_t dev)
 static inline addr_t
 uhci_td_get_phys(struct UHCI_HCD_TD* td)
 {
+	if (td == NULL)
+		return TD_LINKPTR_T;
 	return dma_buf_get_segment(td->td_buf, 0)->s_phys;
 }
 
@@ -123,9 +108,6 @@ uhci_qh_get_phys(struct UHCI_HCD_QH* qh)
 	return dma_buf_get_segment(qh->qh_buf, 0)->s_phys;
 }
 
-#define UHCI_GET_PTR(x) \
-	(((addr_t)x) & 0xfffffff0)
-
 static void
 uhci_dump_td(struct UHCI_HCD_TD* tdd)
 {
@@ -133,23 +115,23 @@ uhci_dump_td(struct UHCI_HCD_TD* tdd)
 		return;
 
 	struct UHCI_TD* td = &tdd->td_td;
-	kprintf("td [hcd %p td %p] => linkptr [hcd %p td %x] status 0x%x {",
-		td, &tdd->td_td,
-		DQUEUE_NEXT(tdd), td->td_linkptr,
-	  td->td_status);
 	uint32_t td_status = td->td_status;
-	if (td_status & TD_STATUS_SPD)        kprintf("spd ");
-	if (td_status & TD_STATUS_LS)         kprintf("ls ");
-	if (td_status & TD_STATUS_IOS)        kprintf("ios ");
-	if (td_status & TD_STATUS_IOC)        kprintf("ioc ");
-	if (td_status & TD_STATUS_ACTIVE)     kprintf("act ");
-	if (td_status & TD_STATUS_STALLED)    kprintf("stl ");
-	if (td_status & TD_STATUS_DATABUFERR) kprintf("dbe ");
-	if (td_status & TD_STATUS_BABBLE)     kprintf("bab ");
-	if (td_status & TD_STATUS_NAK)        kprintf("nak ");
-	if (td_status & TD_STATUS_CRCTOERR)   kprintf("crc ");
-	if (td_status & TD_STATUS_BITSTUFF)   kprintf("bst ");
-	kprintf("} token 0x%x (data%u,maxlen=%u,endpt=%u,addr=%u)) buffer 0x%x\n",
+	kprintf("td [hcd %p td %p] => linkptr [hcd %p td %x] status 0x%x [%c%c%c%c%c%c%c%c%c%c%c]",
+	 td, &tdd->td_td,
+	 DQUEUE_NEXT(tdd), td->td_linkptr,
+	 td->td_status,
+	 (td_status & TD_STATUS_SPD) ? 'S' : '.',
+	 (td_status & TD_STATUS_LS) ? 'L' : '.',
+	 (td_status & TD_STATUS_IOS) ? 'I' : '.',
+	 (td_status & TD_STATUS_IOC) ? 'O' : '.',
+	 (td_status & TD_STATUS_ACTIVE) ? 'A' : '.',
+	 (td_status & TD_STATUS_STALLED) ? 'T' : '.',
+	 (td_status & TD_STATUS_DATABUFERR) ? 'D' : '.',
+	 (td_status & TD_STATUS_BABBLE) ? 'B' : '.',
+	 (td_status & TD_STATUS_NAK) ? 'N' : '.',
+	 (td_status & TD_STATUS_CRCTOERR) ? 'C' : '.',
+	 (td_status & TD_STATUS_BITSTUFF) ? 'Z' : '.');
+	kprintf(" token 0x%x (data%u,maxlen=%u,endpt=%u,addr=%u)) buffer 0x%x\n",
 	 td->td_token, (td->td_token & TD_TOKEN_DATA) ? 1 : 0, (td->td_token >> 21) + 1,
 	 (td->td_token >> 15) & 0xf, (td->td_token >> 8) & 0x7f,
 	 td->td_buffer);
@@ -184,7 +166,7 @@ uhci_dump_qh(struct UHCI_HCD_QH* qhh)
 static void
 uhci_dump(device_t dev)
 {
-	struct UHCI_HCD_PRIVDATA* privdata = dev->privdata;
+	struct UHCI_PRIVDATA* privdata = dev->privdata;
 
 	int frnum     = inw(privdata->uhci_io + UHCI_REG_FRNUM) & 0x3ff;
 	addr_t flbase = inl(privdata->uhci_io + UHCI_REG_FLBASEADD) & 0xfffff000;
@@ -202,56 +184,50 @@ uhci_dump(device_t dev)
 	kprintf(" flptr 0x%x\n", fl_ptr);
 	KASSERT(((addr_t)fl_ptr & QH_PTR_QH) != 0, "fl_ptr %p: not a qh at the root?", fl_ptr);
 	// XXX we should look up the UHCI_HCD_QH to use
-	uhci_dump_qh(privdata->uhci_qh_interrupt);
-}
-
-static void	
-uhci_free_td(device_t dev, struct UHCI_HCD_TD* td)
-{
-	struct UHCI_HCD_PRIVDATA* p = dev->privdata;
-
-	/* XXX Perhaps free when the freelist is getting too large? */
-	mutex_lock(&p->uhci_mtx);
-	DQUEUE_ADD_TAIL(&p->uhci_td_freelist, td);
-	mutex_unlock(&p->uhci_mtx);
-}
-
-#define TD_STATUS_ISERROR(x) \
-	((x) & (TD_STATUS_STALLED | TD_STATUS_DATABUFERR | TD_STATUS_BABBLE | TD_STATUS_NAK | TD_STATUS_CRCTOERR | TD_STATUS_BITSTUFF))
-
-static void	
-uhci_free_tdchain(device_t dev, struct UHCI_HCD_TD* td, int* length, int* error)
-{
-	*length = 0; *error = 0;
-	while (td != NULL) {
-		struct UHCI_HCD_TD* next_td = DQUEUE_NEXT(td);
-		int l = TD_STATUS_ACTUALLEN(td->td_td.td_status);
-		if (l != TD_ACTUALLEN_NONE)
-			*length += l;
-		if (TD_STATUS_ISERROR(td->td_td.td_status))
-			(*error)++;
-		uhci_free_td(dev, td);
-
-		td = next_td;
+	for (int n = 0; n < UHCI_NUM_INTERRUPT_QH; n++) {
+		kprintf("> %d ms\n", 1 << n);
+		uhci_dump_qh(privdata->uhci_qh_interrupt[n]);
 	}
 }
 
-#undef TD_STATUS_ISERROR
+#if 0
+static void	
+uhci_free_td(device_t dev, struct UHCI_HCD_TD* td)
+{
+	dma_buf_free(td->td_buf);
+}
+#endif
+
+static void	
+uhci_free_qh(device_t dev, struct UHCI_HCD_QH* qh)
+{
+	dma_buf_free(qh->qh_buf);
+}
+
+/* Calculates total number of bytes transferred and checks errors */
+static int
+uhci_inspect_chain(struct UHCI_HCD_TD* td, int* length)
+{
+	int errors = 0;
+	*length = 0;
+	for (/* nothing */; td != NULL; td = DQUEUE_NEXT(td)) {
+		int len = TD_STATUS_ACTUALLEN(td->td_td.td_status);
+		if (len != TD_ACTUALLEN_NONE)
+			*length += len;
+		if (td->td_td.td_status & (TD_STATUS_STALLED | TD_STATUS_DATABUFERR | TD_STATUS_BABBLE | TD_STATUS_NAK | TD_STATUS_CRCTOERR | TD_STATUS_BITSTUFF))
+			errors++;
+	}
+	return errors;
+}
 
 static irqresult_t
 uhci_irq(device_t dev, void* context)
 {
-	struct UHCI_HCD_PRIVDATA* privdata = dev->privdata;
+	struct UHCI_PRIVDATA* privdata = dev->privdata;
 	int stat = inw(privdata->uhci_io + UHCI_REG_USBSTS);
 	outw(privdata->uhci_io + UHCI_REG_USBSTS, stat);
 
 //	kprintf("uhci_irq: stat=%x\n", stat);
-
-#if 0
-	if (stat & UHCI_USBSTS_ERR) {
-		device_printf(dev, "USB ERROR received");
-	}
-#endif
 
 	if (stat & UHCI_USBSTS_HCHALTED) {
 		device_printf(dev, "ERROR: Host Controller Halted!");
@@ -285,16 +261,12 @@ uhci_irq(device_t dev, void* context)
 				/* First of all, remove the scheduled item - this orphanages the TD's */
 				DQUEUE_REMOVE(&privdata->uhci_scheduled_items, si);
 
-				/* Throw away the TDs; they served their purpose. This also inspects them */
-				int error;
-				uhci_free_tdchain(dev, si->si_td, &si->si_xfer->xfer_result_length, &error);
-
-				/* If something failed, mark the transfer as such */
-				if (error)
+				/* Walk through the chain to calculate the length and see if something gave an error */
+				if (uhci_inspect_chain(si->si_td, &si->si_xfer->xfer_result_length))
 					si->si_xfer->xfer_flags |= TRANSFER_FLAG_ERROR;
 
 				/* Finally, give hand the transfer back to the USB stack */
-				usb_completed_transfer(si->si_xfer);
+				usbtransfer_complete(si->si_xfer);
 			}
 		}
 	}
@@ -302,11 +274,13 @@ uhci_irq(device_t dev, void* context)
 	return IRQ_RESULT_PROCESSED;
 }
 
+/* Creates a TD-chain for [size] bytes of [data] and links it to [link_td] */
 static struct UHCI_HCD_TD*
-uhci_create_data_tds(device_t dev, addr_t data, int size, int max_packet_size, int token, int ls, int token_addr, struct UHCI_HCD_TD* link_td, struct UHCI_HCD_TD** last_td)
+uhci_create_data_tds(device_t dev, addr_t data, size_t size, int max_packet_size, int token, int ls, int token_addr, struct UHCI_HCD_TD* link_td, struct UHCI_HCD_TD** last_td)
 {
 	int num_datapkts = (size + max_packet_size - 1) / max_packet_size;
 	addr_t cur_data_ptr = data + size;
+
 	/*
 	 * Data packets are alternating, in DATA1/0/1/0/... fashion; note that we build them in
 	 * reverse.
@@ -336,9 +310,48 @@ uhci_create_data_tds(device_t dev, addr_t data, int size, int max_packet_size, i
 }
 
 static errorcode_t
+uhci_setup_transfer(device_t dev, struct USB_TRANSFER* xfer)
+{
+	/*
+	 * Create a Queue Head for the transfer; we'll hook all TD's to this QH, but we'll
+	 * only create the TD's in uhci_schedule_transfer() as we won't know the length
+	 * beforehand.
+	 */
+	struct UHCI_HCD_QH* qh = uhci_alloc_qh(dev);
+	xfer->xfer_hcd = qh;
+	return ANANAS_ERROR_OK;
+}
+
+static errorcode_t
+uhci_teardown_transfer(device_t dev, struct USB_TRANSFER* xfer)
+{
+	if (xfer->xfer_hcd != NULL) {
+		/* XXX We should ensure it's no longer in use */
+		uhci_free_qh(dev, xfer->xfer_hcd);
+	}
+
+	xfer->xfer_hcd = NULL;
+	return ANANAS_ERROR_OK;
+}
+
+static errorcode_t
+uhci_cancel_transfer(device_t dev, struct USB_TRANSFER* xfer)
+{
+	mutex_assert(&xfer->xfer_device->usb_mutex, MTX_LOCKED);
+
+	if (xfer->xfer_flags & TRANSFER_FLAG_PENDING) {
+		xfer->xfer_flags &= ~TRANSFER_FLAG_PENDING;
+		DQUEUE_REMOVE_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
+	}
+
+	kprintf("uhci_cancel_transfer(): TODO\n");
+	return ANANAS_ERROR_OK;
+}
+
+static errorcode_t
 uhci_ctrl_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 {
-	struct UHCI_HCD_PRIVDATA* p = dev->privdata;
+	struct UHCI_PRIVDATA* p = dev->privdata;
 	struct UHCI_DEV_PRIVDATA* hcd_privdata = xfer->xfer_device->usb_hcd_privdata;
 	int ls = (hcd_privdata->dev_flags & UHCI_DEV_FLAG_LOWSPEED) ? TD_STATUS_LS : 0;
 	uint32_t token_addr = TD_TOKEN_ENDPOINT(xfer->xfer_endpoint) | TD_TOKEN_ADDRESS(xfer->xfer_address);
@@ -394,8 +407,8 @@ uhci_ctrl_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 
 	/* Finally, hand the chain to the HD; it's ready to be transmitted */
 	/* XXX we should add to the chain not overwrite !!! */
-	p->uhci_qh_control->qh_first_td = td_setup;
-	p->uhci_qh_control->qh_qh.qh_elementptr = TO_REG32(uhci_td_get_phys(td_setup));
+	p->uhci_qh_ls_control->qh_first_td = td_setup;
+	p->uhci_qh_ls_control->qh_qh.qh_elementptr = TO_REG32(uhci_td_get_phys(td_setup));
 
 	//uhci_dump(dev);
 	return ANANAS_ERROR_OK;
@@ -404,16 +417,14 @@ uhci_ctrl_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 static errorcode_t
 uhci_interrupt_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 {
-	struct UHCI_HCD_PRIVDATA* p = dev->privdata;
+	struct UHCI_PRIVDATA* p = dev->privdata;
 	struct UHCI_DEV_PRIVDATA* hcd_privdata = xfer->xfer_device->usb_hcd_privdata;
 	int ls = (hcd_privdata->dev_flags & UHCI_DEV_FLAG_LOWSPEED) ? TD_STATUS_LS : 0;
 	uint32_t token_addr = TD_TOKEN_ENDPOINT(xfer->xfer_endpoint) | TD_TOKEN_ADDRESS(xfer->xfer_address);
 	int isread = xfer->xfer_flags & TRANSFER_FLAG_READ;
 
-	panic("FOO");
-
 	struct UHCI_HCD_TD* last_td;
-	struct UHCI_HCD_TD* td_chain = uhci_create_data_tds(dev, KVTOP((addr_t)&xfer->xfer_data[0]) /* XXX64 */, xfer->xfer_length, xfer->xfer_device->usb_max_packet_sz0, isread ? TD_PID_IN : TD_PID_OUT, ls, token_addr, (void*)TD_LINKPTR_T, &last_td);
+	struct UHCI_HCD_TD* td_chain = uhci_create_data_tds(dev, KVTOP((addr_t)&xfer->xfer_data[0]) /* XXX64 */, xfer->xfer_length, xfer->xfer_device->usb_max_packet_sz0, isread ? TD_PID_IN : TD_PID_OUT, ls, token_addr, NULL, &last_td);
 
 	last_td->td_td.td_status |= TD_STATUS_IOC;
 	td_chain->td_td.td_token &= ~TD_TOKEN_DATA; /* XXX */
@@ -426,8 +437,9 @@ uhci_interrupt_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 
 	/* Finally, hand the chain to the HD; it's ready to be transmitted */
 	/* XXX we should add to the chain not overwrite !!! */
-	p->uhci_qh_interrupt->qh_first_td = td_chain;
-	p->uhci_qh_interrupt->qh_qh.qh_elementptr = TO_REG32(uhci_td_get_phys(td_chain));
+	int index = 0;
+	p->uhci_qh_interrupt[index]->qh_first_td = td_chain;
+	p->uhci_qh_interrupt[index]->qh_qh.qh_elementptr = TO_REG32(uhci_td_get_phys(td_chain));
 
 	return ANANAS_ERROR_OK;
 }
@@ -435,7 +447,21 @@ uhci_interrupt_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 static errorcode_t
 uhci_schedule_transfer(device_t dev, struct USB_TRANSFER* xfer)
 {
+	mutex_assert(&xfer->xfer_device->usb_mutex, MTX_LOCKED);
+
+	/*
+	 * Add the transfer to our pending list; this is done so we can cancel any
+	 * pending transfers when a device is removed, for example.
+	 */
+	KASSERT((xfer->xfer_flags & TRANSFER_FLAG_PENDING) == 0, "scheduling transfer that is already pending (%x)", xfer->xfer_flags);
+	xfer->xfer_flags |= TRANSFER_FLAG_PENDING;
+	DQUEUE_ADD_TAIL_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
 	errorcode_t err = ANANAS_ERROR_OK;
+
+	/* If this is the root hub, short-circuit the request */
+	struct UHCI_DEV_PRIVDATA* dev_p = xfer->xfer_device->usb_hcd_privdata;
+	if (dev_p->dev_flags & USB_DEVICE_FLAG_ROOT_HUB)
+		return uroothub_handle_transfer(dev, xfer);
 
 	switch(xfer->xfer_type) {
 		case TRANSFER_TYPE_CONTROL:
@@ -469,14 +495,12 @@ uhci_attach(device_t dev)
 	errorcode_t err = dma_tag_create(dev->parent->dma_tag, dev, &dev->dma_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE);
 	ANANAS_ERROR_RETURN(err);
 
-	struct UHCI_HCD_PRIVDATA* p = kmalloc(sizeof *p);
+	struct UHCI_PRIVDATA* p = kmalloc(sizeof *p);
 	memset(p, 0, sizeof *p);
 	dev->privdata = p;
 	p->uhci_io = (uint32_t)(uintptr_t)res_io;
 	mutex_init(&p->uhci_mtx, "uhci");
 	DQUEUE_INIT(&p->uhci_scheduled_items);
-	DQUEUE_INIT(&p->uhci_td_freelist);
-	DQUEUE_INIT(&p->uhci_qh_freelist);
 
 	/* Allocate the frame list; this will be programmed right into the controller */
 	err = dma_buf_alloc(dev->dma_tag, 4096, &p->uhci_framelist_buf);
@@ -494,25 +518,40 @@ uhci_attach(device_t dev)
 	 *
 	 * (framelist) -> (isochronous td) -> interrupt -> control -> bulk -> (end)
 	 */
-	p->uhci_qh_interrupt = uhci_alloc_qh(dev);
-	p->uhci_qh_control = uhci_alloc_qh(dev);
+	for (unsigned int n = 0; n < UHCI_NUM_INTERRUPT_QH; n++)
+		p->uhci_qh_interrupt[n] = uhci_alloc_qh(dev);
+	p->uhci_qh_ls_control = uhci_alloc_qh(dev);
+	p->uhci_qh_fs_control = uhci_alloc_qh(dev);
 	p->uhci_qh_bulk = uhci_alloc_qh(dev);
 
-#define UHCI_HOOK_QH(qh, next_qh) \
+#define UHCI_LINK_QH(qh, next_qh) \
 	(qh)->qh_qh.qh_headptr = TO_REG32(QH_PTR_QH | uhci_qh_get_phys((next_qh))); \
 	(qh)->qh_next_qh = (next_qh)
 
-	UHCI_HOOK_QH(p->uhci_qh_interrupt, p->uhci_qh_control);
-	UHCI_HOOK_QH(p->uhci_qh_control, p->uhci_qh_bulk);
+	for (unsigned int n = UHCI_NUM_INTERRUPT_QH - 1; n > 0; n--) {
+		UHCI_LINK_QH(p->uhci_qh_interrupt[n], p->uhci_qh_interrupt[n - 1]);
+	}
+
+	UHCI_LINK_QH(p->uhci_qh_interrupt[0], p->uhci_qh_ls_control);
+	UHCI_LINK_QH(p->uhci_qh_ls_control, p->uhci_qh_fs_control);
+	UHCI_LINK_QH(p->uhci_qh_fs_control, p->uhci_qh_bulk);
 
 #undef UHCI_HOOK_QH
 
 	/*
 	 * Set up the frame list; we add a dummy TD for isochronous data and then the
-	 * QH's set up above
+	 * QH's set up above. Interrupt[0] is every 1ms, [1] is every 2ms etc.
 	 */
 	for (int i = 0; i < UHCI_FRAMELIST_LEN; i++) {
-		p->uhci_framelist[i] = TO_REG32(TD_LINKPTR_QH | uhci_qh_get_phys(p->uhci_qh_interrupt));
+		int index = 0; /* 1 ms */
+		switch(i & 31) {
+			case 1: index = 1; break; /* 2ms */
+			case 2: index = 2; break; /* 4ms */
+			case 4: index = 3; break; /* 8ms */
+			case 8: index = 4; break; /* 16ms */
+			case 16: index = 5; break; /* 32ms */
+		}
+		p->uhci_framelist[i] = TO_REG32(TD_LINKPTR_QH | uhci_qh_get_phys(p->uhci_qh_interrupt[index]));
 	}
 
 	/*
@@ -555,7 +594,7 @@ uhci_attach(device_t dev)
 	}
 
 	/* Hook up our interrupt handler and get it going */
-	err = irq_register((int)(uintptr_t)res_irq, dev, uhci_irq, NULL);
+	err = irq_register((int)(uintptr_t)res_irq, dev, uhci_irq, IRQ_TYPE_DEFAULT, NULL);
 	if (err != ANANAS_ERROR_NONE)
 		goto fail;
 	outw(p->uhci_io + UHCI_REG_USBINTR, UHCI_USBINTR_SPI | UHCI_USBINTR_IOC | UHCI_USBINTR_RI | UHCI_USBINTR_TOCRC);
@@ -570,14 +609,17 @@ uhci_attach(device_t dev)
 	 * this is true and not all other bits are set as well, we assume there's a
 	 * port there...
 	 */
-	int num_ports = 0;
+	p->uhci_rh_numports = 0;
 	while (1) {
-		int stat = inw(p->uhci_io + UHCI_REG_PORTSC1 + num_ports * 2);
+		int stat = inw(p->uhci_io + UHCI_REG_PORTSC1 + p->uhci_rh_numports * 2);
 		if ((stat & UHCI_PORTSC_ALWAYS1) == 0 || (stat == 0xffff))
 			break;
-		num_ports++;
+		p->uhci_rh_numports++;
 	}
-	uhci_hub_create(dev, num_ports);
+	if (p->uhci_rh_numports > 7) {
+		device_printf(dev, "detected excessive %d usb ports; aborting");
+		return ANANAS_ERROR(NO_DEVICE);
+	}
 
 	return ANANAS_ERROR_NONE;
 
@@ -586,12 +628,12 @@ fail:
 	return err;
 }
 
-void*
-uhci_device_init_privdata(int ls)
+static void*
+uhci_device_init_privdata(int flags)
 {
 	struct UHCI_DEV_PRIVDATA* privdata = kmalloc(sizeof *privdata);
 	memset(privdata, 0, sizeof *privdata);
-	privdata->dev_flags = ls;
+	privdata->dev_flags = flags;
 	return privdata;
 }
 
@@ -617,11 +659,26 @@ uhci_probe(device_t dev)
 	return uhci_match_dev(dev);
 }
 
+static void
+uhci_set_roothub(device_t dev, struct USB_DEVICE* usb_dev)
+{
+	struct UHCI_PRIVDATA* p = dev->privdata;
+	p->uhci_roothub = usb_dev;
+
+	/* Now we can start the roothub thread to service updates */
+	uroothub_start(dev);
+}
+
 struct DRIVER drv_uhci = {
 	.name					= "uhci",
 	.drv_probe		= uhci_probe,
 	.drv_attach		= uhci_attach,
-	.drv_usb_xfer = uhci_schedule_transfer
+	.drv_usb_set_roothub = uhci_set_roothub,
+	.drv_usb_setup_xfer = uhci_setup_transfer,
+	.drv_usb_teardown_xfer = uhci_teardown_transfer,
+	.drv_usb_schedule_xfer = uhci_schedule_transfer,
+	.drv_usb_cancel_xfer = uhci_cancel_transfer,
+	.drv_usb_hcd_initprivdata = uhci_device_init_privdata,
 };
 
 DRIVER_PROBE(uhci)
