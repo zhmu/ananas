@@ -121,14 +121,28 @@ struct OHCI_ED {
 #define OHCI_ED_FA(x)	(x)
 	uint32_t	ed_tailp;
 	uint32_t	ed_headp;
-#define OCHI_ED_HEADP_C		(1 << 1)
-#define OCHI_ED_HEADP_H		(1 << 0)
+#define OHCI_ED_HEADP_C		(1 << 1)
+#define OHCI_ED_HEADP_H		(1 << 0)
 	uint32_t	ed_nexted;
 } __attribute__((packed));
 
 struct OHCI_TD {
 	uint32_t	td_flags;
 #define OHCI_TD_CC(x)		((x) << 28)
+# define OHCI_TD_CC_NOERROR		0
+# define OHCI_TD_CC_CRC			1
+# define OHCI_TD_CC_BITSTUFFING		2
+# define OHCI_TD_CC_DATATOGGLEMISMATCH	3
+# define OHCI_TD_CC_STALL		4
+# define OHCI_TD_CC_DEVICENOTRESPONDING	5
+# define OHCI_TD_CC_PIDCHECKFAILURE	6
+# define OHCI_TD_CC_UNEXPECTEDPID	7
+# define OHCI_TD_CC_DATAOVERRUN		8
+# define OHCI_TD_CC_DATAUNDERRUN	9
+# define OHCI_TD_CC_BUFEROVERRUN	12
+# define OHCI_TD_CC_BUFERUNDERRUN	13
+# define OHCI_TD_CC_NOTACCESSED1	14
+# define OHCI_TD_CC_NOTACCESSED2	15
 #define OHCI_TD_EC(x)		((x) << 26)
 #define OHCI_TD_T(x)		((x) << 24)
 #define OHCI_TD_DI(x)		((x) << 21)
@@ -144,6 +158,7 @@ struct OHCI_TD {
 	uint32_t	td_nexttd;
 	uint32_t	td_be;
 } __attribute__((packed));
+
 
 struct OHCI_IT {
 	uint32_t	it_flags;

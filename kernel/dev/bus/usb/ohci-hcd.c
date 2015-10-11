@@ -60,9 +60,10 @@ ohci_ed_get_phys(struct OHCI_HCD_ED* ed)
 static void
 ohci_dump_td(struct OHCI_HCD_TD* td)
 {
-	kprintf("td %x -> flags %p cbp %x nexttd %x be %x\n",
+	kprintf("td %x -> flags %p (cc %d) cbp %x nexttd %x be %x\n",
 	 ohci_td_get_phys(td),
 	 td->td_td.td_flags,
+	 OHCI_TD_CC(td->td_td.td_flags),
 	 td->td_td.td_cbp,
 	 td->td_td.td_nexttd,
 	 td->td_td.td_be);
@@ -71,16 +72,35 @@ ohci_dump_td(struct OHCI_HCD_TD* td)
 static void
 ohci_dump_ed(struct OHCI_HCD_ED* ed)
 {
-	kprintf(" ed %x -> flags %x tailp %x headp %x nexted %x\n",
+	kprintf(" ed %x -> flags %x (mps %d %c%c%c) tailp %x headp %x (%c%c) nexted %x\n",
 	 ohci_ed_get_phys(ed),
 	 ed->ed_ed.ed_flags,
+	 (ed->ed_ed.ed_flags >> 16) & 0x3ff,
+	 (ed->ed_ed.ed_flags & OHCI_ED_F) ? 'F' : '.',
+	 (ed->ed_ed.ed_flags & OHCI_ED_K) ? 'K' : '.',
+	 (ed->ed_ed.ed_flags & OHCI_ED_S) ? 'S' : '.',
 	 ed->ed_ed.ed_tailp,
 	 ed->ed_ed.ed_headp,
+	 (ed->ed_ed.ed_headp & OHCI_ED_HEADP_C) ? 'C' : '.',
+	 (ed->ed_ed.ed_headp & OHCI_ED_HEADP_H) ? 'H' : '.',
 	 ed->ed_ed.ed_nexted);
 
 	for (struct OHCI_HCD_TD* td = ed->ed_headtd; td != NULL; td = td->qi_next) {
 		kprintf("  ");
 		ohci_dump_td(td);
+	}
+}
+
+static void
+ohci_dump_edchain(struct OHCI_HCD_ED* ed)
+{
+	struct OHCI_HCD_ED* prev_ed = NULL;
+	while (ed != NULL) {
+		if (ed->ed_preved != prev_ed)
+			kprintf(">>> previous chain corrupt (%p, %p)\n", ed->ed_preved, prev_ed);
+		ohci_dump_ed(ed);
+		prev_ed = ed;
+		ed = ed->ed_nexted;
 	}
 }
 
@@ -114,16 +134,11 @@ ohci_dump(device_t dev)
 		ohci_read4(dev, OHCI_HCRHPORTSTATUSx + 4),
 		ohci_read4(dev, OHCI_HCRHPORTSTATUSx + 8));
 
-	struct OHCI_HCD_ED* c_ed = p->ohci_control_ed;
-	struct OHCI_HCD_ED* c_prev = NULL;
-	while(c_ed != NULL) {
-		if (c_ed->ed_preved != c_prev)
-			kprintf(">>> previous chain corrupt (%p, %p)\n", c_ed->ed_preved, c_prev);
-		ohci_dump_ed(c_ed);
+	kprintf("** dumping control chain\n");
+	ohci_dump_edchain(p->ohci_control_ed);
 
-		c_prev = c_ed;
-		c_ed = c_ed->ed_nexted;
-	}
+	kprintf("** dumping bulk chain\n");
+	ohci_dump_edchain(p->ohci_bulk_ed);
 
 	if (!DQUEUE_EMPTY(&p->ohci_active_eds)) {
 		kprintf("** dumping active EDs\n");
@@ -133,10 +148,10 @@ ohci_dump(device_t dev)
 		}
 	}
 
-	for (unsigned int n = 0; n < 32; n++) {
-		kprintf("hcca_inttab[%d] = %x -> ", n,  p->ohci_hcca->hcca_inttable[n]);
-		struct OHCI_HCD_ED* ed = (void*)PTOKV(p->ohci_hcca->hcca_inttable[n]);
-		ohci_dump_ed(ed);
+	kprintf("** periodic list\n");
+	for (unsigned int n = 0; n < OHCI_NUM_ED_LISTS; n++) {
+		kprintf("> %d ms list\n", 1 << n);
+		ohci_dump_edchain(p->ohci_interrupt_ed[n]);
 	}
 }
 
@@ -815,6 +830,7 @@ struct DRIVER drv_ohci = {
 	.name					= "ohci",
 	.drv_probe		= ohci_probe,
 	.drv_attach		= ohci_attach,
+	.drv_dump			= ohci_dump,
 	.drv_usb_setup_xfer = ohci_setup_transfer,
 	.drv_usb_teardown_xfer = ohci_teardown_transfer,
 	.drv_usb_schedule_xfer = ohci_schedule_transfer,
