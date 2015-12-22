@@ -1,14 +1,10 @@
-# ARCH can be any of {i386,amd64,powerpc,avr32}
-ARCH?=		i386
 PREFIX?=	$(realpath prefix.${ARCH})
 TARGET=		${ARCH}-elf-ananas
 
-# determine binutils/gcc/gdb versions to use and extra patches
-include		../conf/Makefile.inc
-ifeq '${TARGET}' 'avr32-elf-ananas'
-# AVR32 port needs specific patches
-BINUTILS_PATCH=	http://avr32linux.org/twiki/pub/Main/BinutilsPatches/binutils-2.18.atmel.1.0.1.patch.bz2
-GCC_PATCH=	http://avr32linux.org/twiki/pub/Main/GccPatches/gcc-4.2.2.atmel.1.1.3.patch.bz2
+include	../conf/Makefile.inc
+
+ifeq '${ARCH}' ''
+$(error ARCH must be set, i.e. to 'i386' or 'amd64')
 endif
 
 # for i386, enable the EFI target as well
@@ -48,20 +44,8 @@ pre-everything:
 		${TAR} xf distfiles/binutils-${BINUTILS_VER}.tar.bz2 -C src
 		@${TOUCH} .bu.${BINUTILS_VER}.extract
 
-ifdef BINUTILS_PATCH
-distfiles/binutils-${BINUTILS_VER}.diff.bz2:
-		@${ECHO} ">> Downloading binutils-${BINUTILS_VER}.diff.bz2"
-		if [ ! -d distfiles ]; then mkdir distfiles; fi
-		(cd distfiles && ${DOWNLOAD} -O binutils-${BINUTILS_VER}.diff.bz2 ${BINUTILS_PATCH})
-
-.bu.${BINUTILS_VER}.prepatch:	distfiles/binutils-${BINUTILS_VER}.diff.bz2 .bu.${BINUTILS_VER}.extract
-		@${ECHO} ">> Applying additional patches to binutils"
-		(cd src/binutils-${BINUTILS_VER} && bzcat ../../distfiles/binutils-${BINUTILS_VER}.diff.bz2|patch -p1)
-		@${TOUCH} .bu.${BINUTILS_VER} prepatch
-else
 .bu.${BINUTILS_VER}.prepatch:	.bu.${BINUTILS_VER}.extract
 		@${TOUCH} .bu.${BINUTILS_VER}.prepatch
-endif
 
 .bu.${BINUTILS_VER}.patch:	.bu.${BINUTILS_VER}.prepatch scripts/binutils_patch.sh
 		@${ECHO} ">> Applying local patches to binutils"
@@ -100,25 +84,8 @@ endif
 		${TAR} xf distfiles/gcc-${GCC_VER}.tar.bz2 -C src
 		@${TOUCH} .gcc.${GCC_VER}.extract
 
-ifdef GCC_PATCH
-distfiles/gcc-${GCC_VER}.diff.bz2:
-		@${ECHO} ">> Downloading gcc-${GCC_VER}.diff.bz2"
-		if [ ! -d distfiles ]; then mkdir distfiles; fi
-		(cd distfiles && ${DOWNLOAD} -O gcc-${GCC_VER}.diff.bz2 ${GCC_PATCH})
-
-.gcc.${GCC_VER}.prepatch:	distfiles/gcc-${GCC_VER}.diff.bz2 .gcc.${GCC_VER}.extract
-		@${ECHO} ">> Applying additional patches to gcc"
-		(cd src/gcc-${GCC_VER} && bzcat ../../distfiles/gcc-${GCC_VER}.diff.bz2|patch -p1)
-		@${TOUCH} .gcc.${GCC_VER}.prepatch
-else
 .gcc.${GCC_VER}.prepatch:	.gcc.${GCC_VER}.extract
 		@${TOUCH} .gcc.${GCC_VER}.prepatch
-endif
-
-distfiles/gcc-${GCC_VER}.diff:
-		@${ECHO} ">> Downloading additional gcc patch"
-		if [ ! -d distfiles ]; then mkdir distfiles; fi
-		(cd distfiles && ${DOWNLOAD} -O gcc-${GCC_VER}.diff ${GCC_PATCH})
 
 .gcc.${GCC_VER}.patch:	.gcc.${GCC_VER}.prepatch
 		@${ECHO} ">> Applying local patches to gcc"
