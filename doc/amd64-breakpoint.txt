@@ -1,0 +1,6 @@
+	// XXX BOT
+	extern void* irq10;
+	__asm __volatile(
+		"movq %%rbx, %%dr0\n"
+		"movq %%rax, %%dr7\n"
+	: : "a" (2 /* g0 */ | 1 << 16 /* r/w0 */ | 3 << 18 /* len0 */), "b" ((addr_t)&irq10 & ~3));

@@ -1,0 +1,37 @@
+QEMU is an emulator which is quite fast, versatile and provides excellent debugging support.
+
+0) Dependencies
+
+$ sudo apt-get install libpixman-1-dev libusb-1.0-0-dev
+
+Maybe more.
+
+1) Build
+
+$ git clone git://git.qemu-project.org/qemu.git
+$ './configure' '--prefix=~/build' '--target-list=x86_64-softmmu' '--enable-libusb' '--enable-debug'
+$ make -j8
+$ make install
+
+2) Set up some scripts to run images
+
+$ cd ../bin
+$ $EDITOR r.sh
+
+And add this:
+
+./qemu-system-x86_64 -serial stdio -soundhw hda -drive id=disk,file=/tmp/disk.img,if=none -device ahci,id=ahci -device ide-drive,drive=disk,bus=ahci.0 $@
+
+This will give you an AHCI controller with the disk image created by the scripts - you can add USB support by adding the following arguments:
+
+UHCI
+
+  -usb -usbdevice host:1c4f:0002
+
+OHCI
+
+  -device pci-ohci,id=usb -device usb-host,bus=usb.0,vendorid=0x1c4f,productid=0x0002
+
+Note that '1c4f' is the USB vendor ID, and 0002 is the USB device ID that you want to hook up to your QEMU instance.
+
+Also, you may need to 'sudo chown -R `whoami` /dev/bus/usb' to ensure you have the appropriate permissions.
