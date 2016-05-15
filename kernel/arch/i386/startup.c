@@ -495,9 +495,6 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	/*
 	 * Enable interrupts. We do this right before the machine-independant code
 	 * because it will allow us to rely on interrupts when probing devices etc.
-	 *
-	 * Note that we explicitely block the scheduler, as this only should be
-	 * enabled once we are ready to run userland threads.
 	 */
 	md_interrupts_enable();
 

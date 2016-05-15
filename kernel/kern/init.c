@@ -5,6 +5,7 @@
 #include <ananas/lib.h>
 #include <ananas/init.h>
 #include <ananas/thread.h>
+#include <ananas/pcpu.h>
 #include <ananas/tty.h>
 #include <ananas/vfs.h>
 #include <machine/vm.h>
@@ -215,11 +216,9 @@ INIT_FUNCTION(launch_shell, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);
 #endif /* SHELL_BIN  */
 #endif
 
-void
-mi_startup()
+static void
+init_thread_func(void* done)
 {
-	DQUEUE_INIT(&initfunc_dynamics);
-
 	/*
 	 * We need to run the init tree in two steps: up to the module part, and everything
 	 * after it; this is done so that modules can dynamically register functions as
@@ -227,9 +226,58 @@ mi_startup()
 	 */
 	run_init(SUBSYSTEM_MODULE, SUBSYSTEM_MODULE + 1);
 	run_init(SUBSYSTEM_MODULE + 1, SUBSYSTEM_LAST);
-	panic("init chain returned");
+
+	/* All done! */
+	*(volatile int*)done = 1;
+
+	/* XXX We can't yet exit kernel threads, so just suspend for now */
+	thread_suspend(PCPU_GET(curthread));
+	schedule();
 
 	/* NOTREACHED */
 }
+
+void
+mi_startup()
+{
+	DQUEUE_INIT(&initfunc_dynamics);
+
+	/*
+	 * Create a thread to handle the init functions; this will allow us to
+	 * sleep whenever we want, as there is always the idle thread to pick up the
+	 * cycles for us (note that this code is run as the init thread and such it
+	 * must never sleep)
+	 */
+	volatile int done = 0;
+	thread_t init_thread;
+	kthread_init(&init_thread, init_thread_func, (void*)&done);
+	thread_set_args(&init_thread, "[init]\0\0", 8);
+	thread_resume(&init_thread);
+
+	/* Activate the scheduler - it is time */
+	scheduler_launch();
+
+	/*
+	 *  Okay, for time being this will be the idle thread - we must not sleep, as
+	 * we are the idle thread
+	 */
+	while(!done) {
+		md_cpu_relax();
+	}
+
+#if 0 // NOTYET, can't destroy kernel threads
+	/* Guess we are all done; kill the init thread */
+	thread_free(&init_thread);
+	thread_destroy(&init_thread);
+#endif
+
+	/* And now, we become the idle thread */
+	idle_thread();
+
+	/* NOTREACHED */
+}
+
+#define TEST_THREADS 0
+#include "init-debug.c"
 
 /* vim:set ts=2 sw=2: */

@@ -19,6 +19,7 @@ void schedule();
 void scheduler_activate();
 void scheduler_deactivate();
 int scheduler_activated();
+void scheduler_launch();
 
 /* Initializes the scheduler-specific part for a given thread */
 void scheduler_init_thread(thread_t* t);

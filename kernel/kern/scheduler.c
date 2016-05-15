@@ -253,10 +253,11 @@ schedule()
 	md_interrupts_restore(state);
 }
 
-static errorcode_t
+void
 scheduler_launch()
 {
 	thread_t* idlethread = PCPU_GET(idlethread);
+	KASSERT(PCPU_GET(curthread) == idlethread, "idle thread not correct");
 
 	/*
 	 * Activate the idle thread; the MD startup code should have done the
@@ -269,17 +270,8 @@ scheduler_launch()
 	/* Run it */
 	scheduler_active++;
 
-	/*
-	 * Enable the interrupt flag and become the idle thread (which we already are
-	 * at this point, just not idling)
-	 */
 	md_interrupts_enable();
-	idle_thread();
-
-	return ANANAS_ERROR_OK;
 }
-
-INIT_FUNCTION(scheduler_launch, SUBSYSTEM_SCHEDULER, ORDER_LAST);
 
 void
 scheduler_activate()
