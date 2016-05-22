@@ -100,6 +100,25 @@ map_kernel_pages(addr_t phys, addr_t virt, unsigned int num_pages, addr_t* avail
 #undef ADDR_MASK
 }
 
+/*
+ * Calculated how many PAGE_SIZE-sized pieces we need to map mem_size bytes - note that this is only
+ * accurate if the memory is mapped at address zero (it doesn't consider crossing boundaries)
+ */
+static inline void
+calculate_num_pages_required(size_t mem_size, unsigned int* num_pages_needed, unsigned int* length_in_pages) 
+{
+	/* Number of level-4 page-table entries required; these map bits 63..39 */
+	unsigned int num_pml4e = (mem_size + (1ULL << 39) - 1) >> 39;
+	/* Number of level-3 page-table entries required; these map bits 38..30 */
+	unsigned int num_pdpe = (mem_size + (1ULL << 30) - 1) >> 30;
+	/* Number of level-2 page-table entries required; these map bits 29..21 */
+	unsigned int num_pde = (mem_size + (1ULL << 21) - 1) >> 21;
+	/* Number of level-1 page-table entries required; these map bits 20..12 */
+	unsigned int num_pte = (mem_size + (1ULL << 12) - 1) >> 12;
+	*num_pages_needed = num_pml4e + num_pdpe + num_pde;
+	*length_in_pages = num_pte;
+}
+
 struct AVAIL_CTX {
 	addr_t avail_start;
 	addr_t* avail_end;
@@ -131,29 +150,13 @@ dynkva_get_flags(void* ctx, addr_t phys, addr_t virt)
 	return 0;
 }
 
-/*
- * Calculated how many PAGE_SIZE-sized pieces we need to map mem_size bytes.
- */
-static inline void
-calculate_num_pages_required(size_t mem_size, unsigned int* num_pages_needed, unsigned int* length_in_pages)
-{
-	/* Number of level-4 page-table entries required; these map bits 63..39 */
-	unsigned int num_pml4e = (mem_size + (1ULL << 39) - 1) >> 39;
-	/* Number of level-3 page-table entries required; these map bits 38..30 */
-	unsigned int num_pdpe = (mem_size + (1ULL << 30) - 1) >> 30;
-	/* Number of level-2 page-table entries required; these map bits 29..21 */
-	unsigned int num_pde = (mem_size + (1ULL << 21) - 1) >> 21;
-	/* Number of level-1 page-table entries required; these map bits 20..12 */
-	unsigned int num_pte = (mem_size + (1ULL << 12) - 1) >> 12;
-	*num_pages_needed = num_pml4e + num_pdpe + num_pde;
-	*length_in_pages = num_pte;
-}
-
 static void
 setup_paging(addr_t* avail, addr_t mem_end, size_t kernel_size)
 {
 #define KMAP_KVA_START KMEM_DIRECT_VA_START
 #define KMAP_KVA_END KMEM_DYNAMIC_VA_END
+	addr_t avail_start = *avail;
+
 	/*
 	 * Taking the overview in machine/vm.h into account, we want to map the
 	 * following regions:
@@ -185,9 +188,6 @@ setup_paging(addr_t* avail, addr_t mem_end, size_t kernel_size)
 	kernel_pagedir = (uint64_t*)bootstrap_get_pages(avail, 1);
 	kprintf(">>> kernel_pagedir = %p\n", kernel_pagedir);
 
-	addr_t avail_start = (((struct LOADER_MODULE*)(addr_t)bootinfo->bi_modules)->mod_phys_end_addr);
-	avail_start = (avail_start | (PAGE_SIZE - 1)) + 1;
-
 	/*
 	 * Calculate the number of entries we need for the kernel itself; we just
 	 * need to grab the bare necessities as we'll map all other memory using the
@@ -198,6 +198,14 @@ setup_paging(addr_t* avail, addr_t mem_end, size_t kernel_size)
  	 */
 	unsigned int kernel_pages_needed, kernel_size_in_pages;
 	calculate_num_pages_required(kernel_size, &kernel_pages_needed, &kernel_size_in_pages);
+	/*
+	 * XXX calculate_num_pages_required() doesn't consider page boundaries -
+	 * however, the kernel is generally mapped to address 1MB, which means we may
+	 * do a cross-over from address 1MB -> 2MB, which needs an extra PDE, which
+	 * we'll bluntly add here (maybe calculate_num_pages_required() needs to be more
+	 * intelligent... ?)
+	 */
+	kernel_pages_needed++;
 	addr_t kernel_pages = (addr_t)bootstrap_get_pages(avail, kernel_pages_needed);
 
 	/*
