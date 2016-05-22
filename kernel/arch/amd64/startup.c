@@ -234,7 +234,7 @@ setup_paging(addr_t* avail, addr_t mem_end, size_t kernel_size)
 
 	addr_t kernel_avail_ptr = (addr_t)kernel_pages;
 	map_kernel_pages(kernel_addr & 0x00ffffff, kernel_addr, kernel_size_in_pages, &kernel_avail_ptr, kmem_get_flags, &kernel_text_end);
-	KASSERT(kernel_avail_ptr == (addr_t)kernel_pages + kernel_pages_needed * PAGE_SIZE, "not all kernel pages used (used %d, expected %d)", (kernel_avail_ptr - kernel_pages) / PAGE_SIZE, kernel_pages_needed);
+	KASSERT(kernel_avail_ptr <= (addr_t)kernel_pages + kernel_pages_needed * PAGE_SIZE, "not all kernel pages used (used %d, expected %d)", (kernel_avail_ptr - kernel_pages) / PAGE_SIZE, kernel_pages_needed);
 
 	/* And map the dynamic KVA pages */
 	addr_t dyn_kva_avail_ptr = dyn_kva_pages;
