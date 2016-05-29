@@ -57,6 +57,9 @@ static uint8_t atkbd_keymap_shift[128] = {
 #define ATKBD_FLAG_CONTROL 2
 #define ATKBD_FLAG_ALT 4
 
+#define ATKBD_PORT_STATUS 4
+#define ATKBD_STATUS_OUTPUT_FULL 1
+
 struct ATKBD_PRIVDATA {
 	int	 kbd_ioport;
 	char kbd_buffer[ATKBD_BUFFER_SIZE];
@@ -70,53 +73,55 @@ atkbd_irq(device_t dev, void* context)
 {
 	struct ATKBD_PRIVDATA* priv = dev->privdata;
 
-	uint8_t scancode = inb(priv->kbd_ioport);
-	if ((scancode & 0x7f) == 0x2a /* LSHIFT */ ||
-	    (scancode & 0x7f) == 0x36 /* RSHIFT */) {
-		if (scancode & 0x80)
-			priv->kbd_flags &= ~ATKBD_FLAG_SHIFT;
-		else
-			priv->kbd_flags |=  ATKBD_FLAG_SHIFT;
-		return IRQ_RESULT_PROCESSED;
-	}
-	/* right-alt is 0xe0 0x38 but that does not matter */
-	if ((scancode & 0x7f) == 0x38 /* ALT */) {
-		if (scancode & 0x80)
-			priv->kbd_flags &= ~ATKBD_FLAG_ALT;
-		else
-			priv->kbd_flags |=  ATKBD_FLAG_ALT;
-		return IRQ_RESULT_PROCESSED;
-	}
-	/* right-control is 0xe0 0x1d but that does not matter */
-	if ((scancode & 0x7f) == 0x1d /* CONTROL */) {
-		if (scancode & 0x80)
-			priv->kbd_flags &= ~ATKBD_FLAG_CONTROL;
-		else
-			priv->kbd_flags |=  ATKBD_FLAG_CONTROL;
-		return IRQ_RESULT_PROCESSED;
-	}
-	if (scancode & 0x80) /* release event */
-		return IRQ_RESULT_PROCESSED;
+	while(inb(priv->kbd_ioport + ATKBD_PORT_STATUS) & ATKBD_STATUS_OUTPUT_FULL) {
+		uint8_t scancode = inb(priv->kbd_ioport);
+		if ((scancode & 0x7f) == 0x2a /* LSHIFT */ ||
+				(scancode & 0x7f) == 0x36 /* RSHIFT */) {
+			if (scancode & 0x80)
+				priv->kbd_flags &= ~ATKBD_FLAG_SHIFT;
+			else
+				priv->kbd_flags |=  ATKBD_FLAG_SHIFT;
+			continue;
+		}
+		/* right-alt is 0xe0 0x38 but that does not matter */
+		if ((scancode & 0x7f) == 0x38 /* ALT */) {
+			if (scancode & 0x80)
+				priv->kbd_flags &= ~ATKBD_FLAG_ALT;
+			else
+				priv->kbd_flags |=  ATKBD_FLAG_ALT;
+			continue;
+		}
+		/* right-control is 0xe0 0x1d but that does not matter */
+		if ((scancode & 0x7f) == 0x1d /* CONTROL */) {
+			if (scancode & 0x80)
+				priv->kbd_flags &= ~ATKBD_FLAG_CONTROL;
+			else
+				priv->kbd_flags |=  ATKBD_FLAG_CONTROL;
+			continue;
+		}
+		if (scancode & 0x80) /* release event */
+			continue;
 
-#ifdef OPTION_KDB
-	if ((priv->kbd_flags == (ATKBD_FLAG_CONTROL | ATKBD_FLAG_SHIFT)) && scancode == 1 /* escape */) {
-		kdb_enter("keyboard sequence");
-		return IRQ_RESULT_PROCESSED;
-	}
-	if (priv->kbd_flags == ATKBD_FLAG_CONTROL && scancode == 0x29 /* tilde */)
-		panic("forced by kdb");
-#endif
+	#ifdef OPTION_KDB
+		if ((priv->kbd_flags == (ATKBD_FLAG_CONTROL | ATKBD_FLAG_SHIFT)) && scancode == 1 /* escape */) {
+			kdb_enter("keyboard sequence");
+			continue;
+		}
+		if (priv->kbd_flags == ATKBD_FLAG_CONTROL && scancode == 0x29 /* tilde */)
+			panic("forced by kdb");
+	#endif
 
-	uint8_t ascii = ((priv->kbd_flags & ATKBD_FLAG_SHIFT) ? atkbd_keymap_shift : atkbd_keymap)[scancode];
-	if (ascii == 0)
-		return IRQ_RESULT_PROCESSED;
+		uint8_t ascii = ((priv->kbd_flags & ATKBD_FLAG_SHIFT) ? atkbd_keymap_shift : atkbd_keymap)[scancode];
+		if (ascii == 0)
+			continue; /* not ascii, not important */
 
-	priv->kbd_buffer[(int)priv->kbd_buffer_writepos] = ascii;
-	priv->kbd_buffer_writepos = (priv->kbd_buffer_writepos + 1) % ATKBD_BUFFER_SIZE;
+		priv->kbd_buffer[(int)priv->kbd_buffer_writepos] = ascii;
+		priv->kbd_buffer_writepos = (priv->kbd_buffer_writepos + 1) % ATKBD_BUFFER_SIZE;
 
-	/* XXX signal consumers - this is a hack */
-	if (console_tty != NULL && tty_get_inputdev(console_tty) == dev) {
-		tty_signal_data();
+		/* XXX signal consumers - this is a hack */
+		if (console_tty != NULL && tty_get_inputdev(console_tty) == dev) {
+			tty_signal_data();
+		}
 	}
 
 	return IRQ_RESULT_PROCESSED;
