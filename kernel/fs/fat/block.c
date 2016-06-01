@@ -102,7 +102,7 @@ try_cache: ; /* dummy ; to keep gcc happy */
 		 * If we need to do a lookup, use the closest item as base; we do this
 		 * while holding the lock to ensure the item won't vanish.
 		 */
-		if (!found && ci_closest != NULL) {
+		if (create && !found && ci_closest != NULL) {
 			cur_cluster = ci_closest->f_nextcluster;
 			clusternum -= ci_closest->f_index;
 		}
