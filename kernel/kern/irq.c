@@ -89,12 +89,11 @@ ithread(void* context)
 
 		/* XXX We do need a lock here */
 		struct IRQ_HANDLER* handler = &i->i_handler[0];
-		irqresult_t result = IRQ_RESULT_IGNORED;
-		for (unsigned int slot = 0; result == IRQ_RESULT_IGNORED && slot < IRQ_MAX_HANDLERS; slot++, handler++) {
+		for (unsigned int slot = 0; slot < IRQ_MAX_HANDLERS; slot++, handler++) {
 			if (handler->h_func == NULL || (handler->h_flags & IRQ_HANDLER_FLAG_SKIP))
 				continue;
 			if (handler->h_flags & IRQ_HANDLER_FLAG_THREAD)
-				result = handler->h_func(handler->h_device, handler->h_context);
+				handler->h_func(handler->h_device, handler->h_context);
 		}
 
 		/* Unmask the IRQ, we can handle it again now that the IST is done */
@@ -236,17 +235,17 @@ irq_handler(unsigned int no)
 	 * Try all handlers one by one until we have one that works - if we find a handler that is to be
 	 * call from the IST, flag so we don't do that multiple times.
 	 */
-	irqresult_t result = IRQ_RESULT_IGNORED;
-	int awake_thread = 0;
+	int awake_thread = 0, handled = 0;
 	struct IRQ_HANDLER* handler = &i->i_handler[0];
-	for (unsigned int slot = 0; result == IRQ_RESULT_IGNORED && slot < IRQ_MAX_HANDLERS; slot++, handler++) {
+	for (unsigned int slot = 0; slot < IRQ_MAX_HANDLERS; slot++, handler++) {
 		if (handler->h_func == NULL || (handler->h_flags & IRQ_HANDLER_FLAG_SKIP))
 			continue;
-		if ((handler->h_flags & IRQ_HANDLER_FLAG_THREAD) == 0)
-			result = handler->h_func(handler->h_device, handler->h_context); /* plain old ISR */
-		else {
+		if ((handler->h_flags & IRQ_HANDLER_FLAG_THREAD) == 0) {
+			/* plain old ISR */
+			if (handler->h_func(handler->h_device, handler->h_context) == IRQ_RESULT_PROCESSED)
+				handled++;
+		} else {
 			awake_thread = 1; /* need to invoke the IST */
-
 		}
 	}
 
@@ -256,7 +255,7 @@ irq_handler(unsigned int no)
 
 		/* Awake the interrupt thread */
 		sem_signal(&i->i_semaphore);
-	} else if (result == IRQ_RESULT_IGNORED && i->i_straycount < IRQ_MAX_STRAY_COUNT) {
+	} else if (!handled && i->i_straycount < IRQ_MAX_STRAY_COUNT) {
 		/* If they IRQ wasn't handled, it is stray */
 		kprintf("irq_handler(): (CPU %u) stray irq %u, ignored\n", cpuid, no);
 		if (++i->i_straycount == IRQ_MAX_STRAY_COUNT)
