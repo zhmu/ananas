@@ -360,6 +360,17 @@ sys_handlectl_generic(thread_t* t, handleindex_t hindex, struct HANDLE* h, unsig
 			}
 			break;
 		}
+		case HCTL_GENERIC_STATUS: {
+			/* Ensure we understand the arguments */
+			struct HCTL_STATUS_ARG* sa = arg;
+			if (arg == NULL)
+				return ANANAS_ERROR(BAD_ADDRESS);
+			if (len != sizeof(*sa))
+				return ANANAS_ERROR(BAD_LENGTH);
+			sa->sa_flags = 0;
+			err = ANANAS_ERROR_NONE;
+			break;
+		}
 		default:
 			/* What's this? */
 			err = ANANAS_ERROR(BAD_SYSCALL);

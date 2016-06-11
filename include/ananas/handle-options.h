@@ -54,6 +54,10 @@ struct OPEN_OPTIONS {
 /* Handle options - generic */
 #define _HCTL_GENERIC_FIRST	1
 #define HCTL_GENERIC_SETOWNER	(_HCTL_GENERIC_FIRST+0)	/* Change handle ownership */
+#define HCTL_GENERIC_STATUS	(_HCTL_GENERIC_FIRST+1)	/* Retrieve handle flags */
+struct HCTL_STATUS_ARG {
+	unsigned int		sa_flags;
+};
 #define _HCTL_GENERIC_LAST	99
 
 /* Handle options - files */
