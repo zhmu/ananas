@@ -3,6 +3,7 @@
 #include <ananas/dev/sata.h>
 #include <ananas/bio.h>
 #include <ananas/device.h>
+#include <ananas/endian.h>
 #include <ananas/error.h>
 #include <ananas/trace.h>
 #include <ananas/lib.h>
@@ -47,12 +48,21 @@ satadisk_attach(device_t dev)
 	/* Wait until the request has been completed */
 	sem_wait(&sem);
 
+	/* Fix endianness */
+	uint16_t* p = (void*)&priv->sd_identify;
+	for (unsigned int n = 0; n < sizeof(priv->sd_identify) / 2; n++, p++)
+		*p = betoh16(*p);
+
 	/* Calculate the length of the disk */
 	priv->sd_size = ATA_GET_DWORD(priv->sd_identify.lba_sectors);
 	if (ATA_GET_WORD(priv->sd_identify.features2) & ATA_FEAT2_LBA48) {
 		priv->sd_size  = ATA_GET_QWORD(priv->sd_identify.lba48_sectors);
 		priv->sd_flags |= SATADISK_FLAGS_LBA48;
 	}
+
+	/* Terminate the model name */
+	for(int n = sizeof(priv->sd_identify.model) - 1; n > 0 && priv->sd_identify.model[n] == ' '; n--)
+		priv->sd_identify.model[n] = '\0';
 
 	device_printf(dev, "<%s> - %u MB",
 	 priv->sd_identify.model,
@@ -108,7 +118,6 @@ satadisk_bwrite(device_t dev, struct BIO* bio)
 	dev->parent->driver->drv_enqueue(dev->parent, &sr);
 	dev->parent->driver->drv_start(dev->parent);
 #endif
-
 	kprintf("satadisk write todo\n");
 	return ANANAS_ERROR(IO);
 }
