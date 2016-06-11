@@ -9,7 +9,7 @@
 TRACE_SETUP;
 
 static errorcode_t
-memoryhandle_create(thread_t* thread, struct HANDLE* handle, struct CREATE_OPTIONS* opts)
+memoryhandle_create(thread_t* thread, handleindex_t index, struct HANDLE* handle, struct CREATE_OPTIONS* opts)
 {
 	/* See if the flags mask works */
 	if ((opts->cr_flags & ~(CREATE_MEMORY_FLAG_MASK)) != 0)
@@ -38,7 +38,7 @@ memoryhandle_free(thread_t* thread, struct HANDLE* handle)
 }
 
 static errorcode_t
-memoryhandle_control(thread_t* thread, struct HANDLE* handle, unsigned int op, void* arg, size_t len)
+memoryhandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handle, unsigned int op, void* arg, size_t len)
 {
 	switch(op) {
 		case HCTL_MEMORY_GET_INFO: {

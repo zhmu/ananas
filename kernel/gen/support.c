@@ -9,19 +9,16 @@
 TRACE_SETUP;
 
 errorcode_t
-syscall_get_handle(thread_t* t, handle_t handle, struct HANDLE** out)
+syscall_get_handle(thread_t* t, handleindex_t hindex, struct HANDLE** out)
 {
-	errorcode_t err = handle_isvalid(handle, t, HANDLE_TYPE_ANY);
-	ANANAS_ERROR_RETURN(err);
-
-	*out = handle;
-	return ANANAS_ERROR_OK;
+	return handle_lookup(t, hindex, HANDLE_TYPE_ANY, out);
 }
 
 errorcode_t
-syscall_get_file(thread_t* t, handle_t handle, struct VFS_FILE** out)
+syscall_get_file(thread_t* t, handleindex_t hindex, struct VFS_FILE** out)
 {
-	errorcode_t err = handle_isvalid(handle, t, HANDLE_TYPE_FILE);
+	struct HANDLE* handle;
+	errorcode_t err = handle_lookup(t, hindex, HANDLE_TYPE_ANY, &handle);
 	ANANAS_ERROR_RETURN(err);
 
 	struct VFS_FILE* file = &((struct HANDLE*)handle)->h_data.d_vfs_file;
@@ -83,13 +80,13 @@ syscall_set_size(thread_t* t, void* ptr, size_t len)
 }
 
 errorcode_t
-syscall_set_handle(thread_t* t, handle_t* ptr, handle_t handle)
+syscall_set_handleindex(thread_t* t, handleindex_t* ptr, handleindex_t index)
 {
-	handle_t* p = md_map_thread_memory(t, (void*)ptr, sizeof(handle_t), THREAD_MAP_WRITE);
+	handleindex_t* p = md_map_thread_memory(t, (void*)ptr, sizeof(handleindex_t), THREAD_MAP_WRITE);
 	if (p == NULL)
 		return ANANAS_ERROR(BAD_ADDRESS);
 
-	*p = handle;
+	*p = index;
 	return ANANAS_ERROR_OK;
 }
 

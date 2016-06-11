@@ -6,6 +6,8 @@ struct CLONE_OPTIONS {
 	unsigned int	cl_flags;
 #define CLONE_FLAG_READONLY	0x0001		/* clone as readonly */
 #define CLONE_FLAG_WRITEONLY	0x0002		/* clone as writeonly */
+#define CLONE_FLAG_HANDLEINDEX	0x0004		/* clone to specified handle index */
+	handleindex_t	cl_hindex;
 };
 
 struct SUMMON_OPTIONS {

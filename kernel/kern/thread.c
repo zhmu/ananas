@@ -30,11 +30,13 @@ thread_init(thread_t* t, thread_t* parent, int flags)
 {
 	errorcode_t err;
 
+	struct HANDLE* thread_handle;
+
 	memset(t, 0, sizeof(struct THREAD));
 	DQUEUE_INIT(&t->t_mappings);
-	err = handle_alloc(HANDLE_TYPE_THREAD, t /* XXX should be parent? */, &t->t_thread_handle);
+	err = handle_alloc(HANDLE_TYPE_THREAD, t /* XXX should be parent? */, THREAD_MAX_HANDLES - 1, &thread_handle, &t->t_hidx_thread);
 	ANANAS_ERROR_RETURN(err);
-	t->t_thread_handle->h_data.d_thread = t;
+	thread_handle->h_data.d_thread = t;
 	DQUEUE_INIT(&t->t_pages);
 
 	/* Set up CPU affinity and priority */
@@ -54,7 +56,7 @@ thread_init(thread_t* t, thread_t* parent, int flags)
 	/* Initialize thread information structure */
 	memset(t->t_threadinfo, 0, sizeof(t->t_threadinfo));
 	t->t_threadinfo->ti_size = sizeof(struct THREADINFO);
-	t->t_threadinfo->ti_handle = t->t_thread_handle;
+	t->t_threadinfo->ti_handle = t->t_hidx_thread;
 	if (parent != NULL)
 		thread_set_environment(t, parent->t_threadinfo->ti_env, PAGE_SIZE /* XXX */);
 
@@ -92,12 +94,13 @@ kthread_init(thread_t* t, kthread_func_t func, void* arg)
 	errorcode_t err;
 
 	/* Create a basic thread; we'll only make a thread handle, no I/O */
+	struct HANDLE* thread_handle;
 	memset(t, 0, sizeof(struct THREAD));
 	DQUEUE_INIT(&t->t_mappings);
 	t->t_flags = THREAD_FLAG_KTHREAD;
-	err = handle_alloc(HANDLE_TYPE_THREAD, t, &t->t_thread_handle);
+	err = handle_alloc(HANDLE_TYPE_THREAD, t, 0, &thread_handle, &t->t_hidx_thread);
 	ANANAS_ERROR_RETURN(err);
-	t->t_thread_handle->h_data.d_thread = t;
+	thread_handle->h_data.d_thread = t;
 
 	/* Set up CPU affinity and priority */
 	t->t_priority = THREAD_PRIORITY_DEFAULT;
@@ -172,21 +175,26 @@ void
 thread_free(thread_t* t)
 {
 	KASSERT((t->t_flags & THREAD_FLAG_ZOMBIE) == 0, "freeing zombie thread %p", t);
-	KASSERT(PCPU_GET(curthread) != t || t->t_thread_handle->h_refcount > 1, "freeing current thread with invalid refcount %d", t->t_thread_handle->h_refcount);
+
+	errorcode_t err;
+	struct HANDLE* thread_handle;
+	err = handle_lookup(t, t->t_hidx_thread, HANDLE_TYPE_THREAD, &thread_handle);
+	KASSERT(err == ANANAS_ERROR_NONE, "cannot look up thread handle for %p: %d", t, err);
+
+	KASSERT(PCPU_GET(curthread) != t || thread_handle->h_refcount > 1, "freeing current thread with invalid refcount %d", thread_handle->h_refcount);
 
 	/*
 	 * Free all handles in use by the thread. Note that we must not free the thread
 	 * handle itself, as the thread isn't destroyed yet (we are just freeing all
 	 * resources here - the thread handle itself is necessary for obtaining the
 	 * result code etc)
+	 *
+	 * XXX LOCK
 	 */
-	DQUEUE_FOREACH_SAFE(&t->t_handles, h, struct HANDLE) {
-		if (h == t->t_thread_handle)
-			continue;
-		DQUEUE_REMOVE(&t->t_handles, h);
-		handle_free(h);
+	for(unsigned int n = 0; n < THREAD_MAX_HANDLES; n++) {
+		if (n != t->t_hidx_thread)
+			handle_free_byindex(t, n);
 	}
-	KASSERT(!DQUEUE_EMPTY(&t->t_handles), "thread handle was not part of thread handle queue");
 
 	/*
 	 * Free all thread mappings; this must be done afterwards because memory handles are
@@ -212,14 +220,14 @@ thread_free(thread_t* t)
 	 * already be set at this point - note that handle_wait() will do additional
 	 * checks to ensure the thread is truly gone.
 	 */
-	handle_signal(t->t_thread_handle, THREAD_EVENT_EXIT, t->t_terminate_info);
+	handle_signal(thread_handle, THREAD_EVENT_EXIT, t->t_terminate_info);
 
 	/*
 	 * Throw away the thread handle itself; it will be removed once it runs out of
 	 * references (which will be the case once everyone is done waiting for it
 	 * and cleans up its own handle)
 	 */
-	handle_free(t->t_thread_handle);
+	handle_free_byindex(t, t->t_hidx_thread);
 }
 
 void
@@ -594,10 +602,34 @@ idle_thread()
 #ifdef OPTION_KDB
 extern struct THREAD* kdb_curthread;
 
+void blaat(int flags)
+{
+#define FLAG_HANDLE 1
+	struct THREAD* cur = PCPU_CURTHREAD();
+	spinlock_lock(&spl_threadqueue);
+	kprintf("thread dump\n");
+	if (!DQUEUE_EMPTY(&threadqueue))
+		DQUEUE_FOREACH(&threadqueue, t, struct THREAD) {
+			kprintf ("thread %p (hindex %d): %s: flags [", t, t->t_hidx_thread, t->t_threadinfo->ti_args);
+			if (THREAD_IS_ACTIVE(t))      kprintf(" active");
+			if (THREAD_IS_SUSPENDED(t))   kprintf(" suspended");
+			if (THREAD_IS_ZOMBIE(t))      kprintf(" zombie");
+			kprintf(" ]%s\n", (t == cur) ? " <- current" : "");
+			if (flags & FLAG_HANDLE) {
+				kprintf("handles\n");
+				for (unsigned int n = 0; n < THREAD_MAX_HANDLES; n++) {
+					if (t->t_handle[n] == NULL)
+						continue;
+					kprintf(" %d: handle %p, type %u\n", n, t->t_handle[n], t->t_handle[n]->h_type);
+				}
+			}
+		}
+	spinlock_unlock(&spl_threadqueue);
+}
+
 KDB_COMMAND(threads, "[s:flags]", "Displays current threads")
 {
 	int flags = 0;
-#define FLAG_HANDLE 1
 
 	/* we use arguments as a mask to determine which information is to be dumped */
 	for (int i = 1; i < num_args; i++) {
@@ -610,27 +642,7 @@ KDB_COMMAND(threads, "[s:flags]", "Displays current threads")
 			}
 	}
 
-	struct THREAD* cur = PCPU_CURTHREAD();
-	spinlock_lock(&spl_threadqueue);
-	kprintf("thread dump\n");
-	if (!DQUEUE_EMPTY(&threadqueue))
-		DQUEUE_FOREACH(&threadqueue, t, struct THREAD) {
-			kprintf ("thread %p (handle %p): %s: flags [", t, t->t_thread_handle, t->t_threadinfo->ti_args);
-			if (THREAD_IS_ACTIVE(t))      kprintf(" active");
-			if (THREAD_IS_SUSPENDED(t))   kprintf(" suspended");
-			if (THREAD_IS_ZOMBIE(t))      kprintf(" zombie");
-			kprintf(" ]%s\n", (t == cur) ? " <- current" : "");
-			if (flags & FLAG_HANDLE) {
-				kprintf("handles\n");
-				if(!DQUEUE_EMPTY(&t->t_handles)) {
-					DQUEUE_FOREACH_SAFE(&t->t_handles, handle, struct HANDLE) {
-						kprintf(" handle %p, type %u\n",
-						 handle, handle->h_type);
-					}
-				}
-			}
-		}
-	spinlock_unlock(&spl_threadqueue);
+	blaat(flags);
 }
 
 KDB_COMMAND(thread, NULL, "Shows current thread information")
@@ -653,6 +665,26 @@ KDB_COMMAND(thread, NULL, "Shows current thread information")
 			kprintf("\n");
 		}
 	}
+}
+
+KDB_COMMAND(bt, NULL, "Current thread backtrace")
+{
+	if (kdb_curthread == NULL) {
+		kprintf("no current thread set\n");
+		return;
+	}
+
+	struct THREAD* thread = kdb_curthread;
+	for (int x = 0; x <= 32; x += 8)
+		kprintf("rbp %d -> %p\n", x, *(register_t*)(thread->md_rsp + x));
+
+	register_t rbp = *(register_t*)(thread->md_rsp + 24);
+	kprintf("rbp %p rsp %p\n", rbp, thread->md_rsp);
+  while(rbp >= 0xffff880000000000) {
+    kprintf("[%p] ", *(uint64_t*)(rbp + 8));
+    rbp = *(uint64_t*)rbp;
+  }
+
 }
 
 KDB_COMMAND(curthread, "i:thread", "Sets current thread")

@@ -11,6 +11,9 @@
 #ifndef __THREAD_H__
 #define __THREAD_H__
 
+/* Maximum number of handles per thread */
+#define THREAD_MAX_HANDLES 64
+
 typedef void (*kthread_func_t)(void*);
 struct THREADINFO;
 struct VFS_INODE;
@@ -74,9 +77,11 @@ struct THREAD {
 	struct page_list t_pages;	/* Pages allocated to the thread (except mappings) */
 
 	/* Thread handles */
-	struct HANDLE* t_thread_handle;	/* Handle identifying this thread */
-	struct HANDLE_QUEUE t_handles;	/* Handles owned by the thread */
-	struct HANDLE* t_path_handle;	/* Current path */
+	handleindex_t	t_hidx_thread;	/* Handle identifying this thread */
+	handleindex_t	t_hidx_path;	/* Current path */
+
+	/* Handles */
+	struct HANDLE* t_handle[THREAD_MAX_HANDLES];
 
 	/* Scheduler specific information */
 	struct SCHED_PRIV t_sched_priv;

@@ -3,13 +3,13 @@
 # <number> { prototype }
 #
 0	{ void exit(int exitcode); }
-1	{ errorcode_t read(handle_t handle, void* buf, size_t* len); }
-2	{ errorcode_t write(handle_t handle, const void* buf, size_t* len); }
-3	{ errorcode_t open(struct OPEN_OPTIONS* opts, handle_t* result); }
-4	{ errorcode_t destroy(handle_t handle); }
-5	{ errorcode_t unlink(handle_t handle); }
-6	{ errorcode_t create(struct CREATE_OPTIONS* opts, handle_t* out); }
-7	{ errorcode_t handlectl(handle_t handle, unsigned int op, void* arg, size_t len); }
-8	{ errorcode_t clone(handle_t handle, struct CLONE_OPTIONS* opts, handle_t* out); }
-9	{ errorcode_t wait(handle_t handle, handle_event_t* event, handle_event_result_t* result); }
-10	{ errorcode_t summon(handle_t handle, struct SUMMON_OPTIONS* opts, handle_t* out); }
+1	{ errorcode_t read(handleindex_t index, void* buf, size_t* len); }
+2	{ errorcode_t write(handleindex_t index, const void* buf, size_t* len); }
+3	{ errorcode_t open(struct OPEN_OPTIONS* opts, handleindex_t* result); }
+4	{ errorcode_t destroy(handleindex_t handle); }
+5	{ errorcode_t unlink(handleindex_t handle); }
+6	{ errorcode_t create(struct CREATE_OPTIONS* opts, handleindex_t* out); }
+7	{ errorcode_t handlectl(handleindex_t handle, unsigned int op, void* arg, size_t len); }
+8	{ errorcode_t clone(handleindex_t handle, struct CLONE_OPTIONS* opts, handleindex_t* out); }
+9	{ errorcode_t wait(handleindex_t handle, handle_event_t* event, handle_event_result_t* result); }
+10	{ errorcode_t summon(handleindex_t handle, struct SUMMON_OPTIONS* opts, handleindex_t* out); }

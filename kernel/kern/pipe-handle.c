@@ -20,7 +20,7 @@ pipehandle_signal(struct HANDLE_PIPE_INFO* hpi, handle_event_t event, handle_eve
 }
 
 static errorcode_t
-pipehandle_create(thread_t* thread, struct HANDLE* handle, struct CREATE_OPTIONS* opts)
+pipehandle_create(thread_t* thread, handleindex_t index, struct HANDLE* handle, struct CREATE_OPTIONS* opts)
 {
 	if (opts->cr_flags != CREATE_PIPE_FLAG_MASK )
 		return ANANAS_ERROR(BAD_FLAG);
@@ -90,7 +90,7 @@ pipehandle_free(thread_t* thread, struct HANDLE* handle)
 }
 
 static errorcode_t
-pipehandle_read(thread_t* thread, struct HANDLE* handle, void* buf, size_t* len)
+pipehandle_read(thread_t* thread, handleindex_t index, struct HANDLE* handle, void* buf, size_t* len)
 {
 	struct HANDLE_PIPE_INFO* hpi = &handle->h_data.d_pipe;
 	if ((hpi->hpi_flags & HPI_FLAG_READ) == 0)
@@ -109,7 +109,7 @@ pipehandle_read(thread_t* thread, struct HANDLE* handle, void* buf, size_t* len)
 }
 
 static errorcode_t
-pipehandle_write(thread_t* thread, struct HANDLE* handle, const void* buf, size_t* len)
+pipehandle_write(thread_t* thread, handleindex_t index, struct HANDLE* handle, const void* buf, size_t* len)
 {
 	struct HANDLE_PIPE_INFO* hpi = &handle->h_data.d_pipe;
 	if ((hpi->hpi_flags & HPI_FLAG_WRITE) == 0)
@@ -128,7 +128,7 @@ pipehandle_write(thread_t* thread, struct HANDLE* handle, const void* buf, size_
 }
 
 static errorcode_t
-pipehandle_clone(thread_t* thread, struct HANDLE* handle, struct CLONE_OPTIONS* opts, struct HANDLE** result)
+pipehandle_clone(thread_t* thread_in, handleindex_t index, struct HANDLE* handle, struct CLONE_OPTIONS* opts, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t* index_out)
 {
 	/*
  	 * Inspect the flags; if the verdict is an unusable handle, refuse to create
@@ -153,7 +153,7 @@ pipehandle_clone(thread_t* thread, struct HANDLE* handle, struct CLONE_OPTIONS* 
 	}
 
 	/* Allocate a brand new handle for the thread */
-	errorcode_t err = handle_alloc(HANDLE_TYPE_PIPE, thread, result);
+	errorcode_t err = handle_alloc(HANDLE_TYPE_PIPE, thread_out, 0, handle_out, index_out);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Lock the pipe; we don't want anyone throwing it away while we hook it */
@@ -161,10 +161,10 @@ pipehandle_clone(thread_t* thread, struct HANDLE* handle, struct CLONE_OPTIONS* 
 	mutex_lock(&hpb->hpb_mutex);
 
 	/* Hook the pipe to the new handle */
-	struct HANDLE_PIPE_INFO* hpi = &(*result)->h_data.d_pipe;
+	struct HANDLE_PIPE_INFO* hpi = &(*handle_out)->h_data.d_pipe;
 	hpi->hpi_flags = flags;
 	hpi->hpi_buffer = hpb;
-	hpi->hpi_handle = *result;
+	hpi->hpi_handle = *handle_out;
 	if (flags & HPI_FLAG_READ)
 		hpb->hpb_read_count++;
 	if (flags & HPI_FLAG_WRITE)

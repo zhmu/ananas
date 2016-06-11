@@ -18,14 +18,14 @@
 TRACE_SETUP;
 
 errorcode_t
-sys_read(thread_t* t, handle_t handle, void* buf, size_t* len)
+sys_read(thread_t* t, handleindex_t hindex, void* buf, size_t* len)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, buf=%p, len=%p", t, handle, buf, len);
+	TRACE(SYSCALL, FUNC, "t=%p, hindex=%u, buf=%p, len=%p", t, hindex, buf, len);
 	errorcode_t err;
 
 	/* Get the handle */
 	struct HANDLE* h;
-	err = syscall_get_handle(t, handle, &h);
+	err = syscall_get_handle(t, hindex, &h);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Fetch the size operand */
@@ -40,7 +40,7 @@ sys_read(thread_t* t, handle_t handle, void* buf, size_t* len)
 
 	/* And read data to it */
 	if (h->h_hops->hop_read != NULL)
-		err = h->h_hops->hop_read(t, h, buf, &size);
+		err = h->h_hops->hop_read(t, hindex, h, buf, &size);
 	else
 		err = ANANAS_ERROR(BAD_OPERATION);
 
@@ -53,14 +53,14 @@ sys_read(thread_t* t, handle_t handle, void* buf, size_t* len)
 }
 
 errorcode_t
-sys_write(thread_t* t, handle_t handle, const void* buf, size_t* len)
+sys_write(thread_t* t, handleindex_t hindex, const void* buf, size_t* len)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, buf=%p, len=%p", t, handle, buf, len);
+	TRACE(SYSCALL, FUNC, "t=%p, hindex=%u, buf=%p, len=%p", t, hindex, buf, len);
 	errorcode_t err;
 
 	/* Get the handle */
 	struct HANDLE* h;
-	err = syscall_get_handle(t, handle, &h);
+	err = syscall_get_handle(t, hindex, &h);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Fetch the size operand */
@@ -75,7 +75,7 @@ sys_write(thread_t* t, handle_t handle, const void* buf, size_t* len)
 
 	/* And write data from to it */
 	if (h->h_hops->hop_write != NULL)
-		err = h->h_hops->hop_write(t, h, buf, &size);
+		err = h->h_hops->hop_write(t, hindex, h, buf, &size);
 	else
 		err = ANANAS_ERROR(BAD_OPERATION);
 	ANANAS_ERROR_RETURN(err);
@@ -89,7 +89,7 @@ sys_write(thread_t* t, handle_t handle, const void* buf, size_t* len)
 }
 
 errorcode_t
-sys_open(thread_t* t, struct OPEN_OPTIONS* opts, handle_t* result)
+sys_open(thread_t* t, struct OPEN_OPTIONS* opts, handleindex_t* result)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, opts=%p, result=%p", t, opts, result);
 	errorcode_t err;
@@ -109,40 +109,39 @@ sys_open(thread_t* t, struct OPEN_OPTIONS* opts, handle_t* result)
 	open_opts.op_path = userpath;
 
 	/* Obtain a new handle */
-	struct HANDLE* handle;
-	err = handle_alloc(open_opts.op_type, t, &handle);
+	struct HANDLE* handle_out;
+	handleindex_t index_out;
+	err = handle_alloc(open_opts.op_type, t, 0, &handle_out, &index_out);
 	ANANAS_ERROR_RETURN(err);
-	err = syscall_set_handle(t, result, handle);
-	if (err != ANANAS_ERROR_OK) {
-		handle_free(handle);
-		return err;
-	}
+	err = syscall_set_handleindex(t, result, index_out);
 
 	/*
 	 * Ask the handle to open the resource - if there isn't an open operation, we
 	 * assume this handle type cannot be opened using a syscall.
 	 */
-	if (handle->h_hops->hop_open != NULL)
-		err = handle->h_hops->hop_open(t, handle, &open_opts);
-	else
-		err = ANANAS_ERROR(BAD_OPERATION);
+	if (err == ANANAS_ERROR_OK) {
+		if (handle_out->h_hops->hop_open != NULL)
+			err = handle_out->h_hops->hop_open(t, index_out, handle_out, &open_opts);
+		else
+			err = ANANAS_ERROR(BAD_OPERATION);
+	}
 
 	if (err != ANANAS_ERROR_OK) {
 		/* Create failed - destroy the handle */
-		handle_free(handle);
+		handle_free_byindex(t, index_out);
 		return err;
 	}
-	TRACE(SYSCALL, FUNC, "t=%p, success, handle=%p", t, handle);
+	TRACE(SYSCALL, FUNC, "t=%p, success, hindex=%u", t, index_out);
 	return err;
 }
 
 errorcode_t
-sys_destroy(thread_t* t, handle_t handle)
+sys_destroy(thread_t* t, handleindex_t hindex)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, handle=%p", t, handle);
+	TRACE(SYSCALL, FUNC, "t=%p, hindex=%p", t, hindex);
 
 	struct HANDLE* h;
-	errorcode_t err = syscall_get_handle(t, handle, &h);
+	errorcode_t err = syscall_get_handle(t, hindex, &h);
 	ANANAS_ERROR_RETURN(err);
 	err = handle_free(h);
 	ANANAS_ERROR_RETURN(err);
@@ -152,7 +151,7 @@ sys_destroy(thread_t* t, handle_t handle)
 }
 
 errorcode_t
-sys_clone(thread_t* t, handle_t in, struct CLONE_OPTIONS* opts, handle_t* out)
+sys_clone(thread_t* t, handleindex_t in, struct CLONE_OPTIONS* opts, handleindex_t* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, in=%p, opts=%p, out=%p", t, in, opts, out);
 	errorcode_t err;
@@ -171,30 +170,31 @@ sys_clone(thread_t* t, handle_t in, struct CLONE_OPTIONS* opts, handle_t* out)
 	ANANAS_ERROR_RETURN(err);
 
 	/* Try to clone it */
-	struct HANDLE* dest;
-	err = handle_clone(t, handle, &clone_opts, &dest);
+	struct HANDLE* dest_handle;
+	handleindex_t dest_index;
+	err = handle_clone(t, in, &clone_opts, t, &dest_handle, &dest_index);
 	ANANAS_ERROR_RETURN(err);
 
 	/*
 	 * And hand the cloned handle back - note that the return code will be
 	 * overriden for the new child, if we are cloning a thread handle.
 	 */
-	err = syscall_set_handle(t, out, dest);
+	err = syscall_set_handleindex(t, out, dest_index);
 	ANANAS_ERROR_RETURN(err);
 
-	TRACE(SYSCALL, FUNC, "t=%p, success, new handle=%p", t, dest);
+	TRACE(SYSCALL, FUNC, "t=%p, success, new hindex=%u", t, dest_index);
 	return err;
 }
 
 errorcode_t
-sys_wait(thread_t* t, handle_t handle, handle_event_t* event, handle_event_result_t* result)
+sys_wait(thread_t* t, handleindex_t hindex, handle_event_t* event, handle_event_result_t* result)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, event=%p, result=%p", t, handle, event, result);
+	TRACE(SYSCALL, FUNC, "t=%p, hindex=%u, event=%p, result=%p", t, hindex, event, result);
 	errorcode_t err;
 
 	/* Fetch the handle */
 	struct HANDLE* h;
-	err = syscall_get_handle(t, handle, &h);
+	err = syscall_get_handle(t, hindex, &h);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Obtain the event for which to wait */
@@ -208,7 +208,7 @@ sys_wait(thread_t* t, handle_t handle, handle_event_t* event, handle_event_resul
 
 	/* Wait for the handle */
 	handle_event_result_t wait_result;
-	err = handle_wait(t, h, &wait_event, &wait_result);
+	err = handle_wait(t, hindex, &wait_event, &wait_result);
 	ANANAS_ERROR_RETURN(err);
 
 	/* If the event type was requested, set it up */
@@ -233,14 +233,14 @@ sys_wait(thread_t* t, handle_t handle, handle_event_t* event, handle_event_resul
 }
 
 errorcode_t
-sys_summon(thread_t* t, handle_t handle, struct SUMMON_OPTIONS* opts, handle_t* out)
+sys_summon(thread_t* t, handleindex_t hindex, struct SUMMON_OPTIONS* opts, handleindex_t* out)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, opts=%p, out=%p", t, handle, opts, out);
+	TRACE(SYSCALL, FUNC, "t=%p, hindex=%u, opts=%p, out=%p", t, hindex, opts, out);
 	errorcode_t err;
 
 	/* Get the handle */
 	struct HANDLE* h;
-	err = syscall_get_handle(t, handle, &h);
+	err = syscall_get_handle(t, hindex, &h);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Obtain summoning options */
@@ -253,19 +253,23 @@ sys_summon(thread_t* t, handle_t handle, struct SUMMON_OPTIONS* opts, handle_t* 
 	 * Ask the handle to summon - if there isn't a summon operation,
 	 * we assume this handle type cannot be summoned using a syscall.
 	 */
+	struct HANDLE* out_handle;
+	handleindex_t out_index;
 	if (h->h_hops->hop_summon != NULL)
-		err = h->h_hops->hop_summon(t, h, &summon_opts, (struct HANDLE**)out);
+		err = h->h_hops->hop_summon(t, h, &summon_opts, &out_handle, &out_index);
 	else
 		err = ANANAS_ERROR(BAD_OPERATION);
 
 	if (err == ANANAS_ERROR_OK) {
+		err = syscall_set_handleindex(t, out, out_index);
+		ANANAS_ERROR_RETURN(err);
 		TRACE(SYSCALL, INFO, "success, handle=%p", out);
 	}
 	return err;
 }
 
 errorcode_t
-sys_create(thread_t* t, struct CREATE_OPTIONS* opts, handle_t* out)
+sys_create(thread_t* t, struct CREATE_OPTIONS* opts, handleindex_t* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, opts=%p, out=%p", t, opts, out);
 	errorcode_t err;
@@ -280,39 +284,40 @@ sys_create(thread_t* t, struct CREATE_OPTIONS* opts, handle_t* out)
 		return ANANAS_ERROR(BAD_LENGTH);
 
 	/* Create a new handle and hand it to the thread*/
-	struct HANDLE* outhandle;
-	err = handle_alloc(cropts.cr_type, t, &outhandle);
+	struct HANDLE* out_handle;
+	handleindex_t out_index;
+	err = handle_alloc(cropts.cr_type, t, 0, &out_handle, &out_index);
 	ANANAS_ERROR_RETURN(err);
-	err = syscall_set_handle(t, out, outhandle);
+	err = syscall_set_handleindex(t, out, out_index);
 	ANANAS_ERROR_RETURN(err);
 
 	/*
 	 * Ask the handle to create it - if there isn't a create operation,
 	 * we assume this handle type cannot be created using a syscall.
 	 */
-	if (outhandle->h_hops->hop_create != NULL)
-		err = outhandle->h_hops->hop_create(t, outhandle, &cropts);
+	if (out_handle->h_hops->hop_create != NULL)
+		err = out_handle->h_hops->hop_create(t, out_index, out_handle, &cropts);
 	else
 		err = ANANAS_ERROR(BAD_OPERATION);
 
 	if (err != ANANAS_ERROR_OK) {
 		/* Create failed - destroy the handle */
-		handle_free(outhandle);
+		handle_free_byindex(t, out_index);
 	} else {
-		TRACE(SYSCALL, INFO, "success, handle=%p", outhandle);
+		TRACE(SYSCALL, INFO, "success, hindex=%u", out_index);
 	}
 	return err;
 }
 
 errorcode_t
-sys_unlink(thread_t* t, handle_t handle)
+sys_unlink(thread_t* t, handleindex_t hindex)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, handle=%p", t, handle);
+	TRACE(SYSCALL, FUNC, "t=%p, hindex==%d", t, hindex);
 	errorcode_t err;
 
 	/* Fetch the handle */
 	struct HANDLE* h;
-	err = syscall_get_handle(t, handle, &h);
+	err = syscall_get_handle(t, hindex, &h);
 	ANANAS_ERROR_RETURN(err);
 
 	/*
@@ -320,32 +325,38 @@ sys_unlink(thread_t* t, handle_t handle)
 	 * handle can't be unlinked.
 	 */
 	if (h->h_hops->hop_unlink != NULL)
-		err = h->h_hops->hop_unlink (t, h);
+		err = h->h_hops->hop_unlink(t, hindex, h);
 	else
 		err = ANANAS_ERROR(BAD_OPERATION);
 	ANANAS_ERROR_RETURN(err);
 
-	TRACE(SYSCALL, INFO, "success");
+	if (err == ANANAS_ERROR_OK) {
+		TRACE(SYSCALL, INFO, "success");
+	} else {
+		TRACE(SYSCALL, ERROR, "failure, %d", err);
+	}
 	return err;
 }
 
 static errorcode_t
-sys_handlectl_generic(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
+sys_handlectl_generic(thread_t* t, handleindex_t hindex, struct HANDLE* h, unsigned int op, void* arg, size_t len)
 {
 	errorcode_t err;
 
 	switch(op) {
 		case HCTL_GENERIC_SETOWNER: {
-			void* owner = arg;
-			if (len != sizeof(void*)) {
+			handleindex_t* owner = arg;
+			if (len != sizeof(handleindex_t*)) {
 				err = ANANAS_ERROR(BAD_LENGTH);
 				goto fail;
 			}
-			err = handle_set_owner(t, handle, owner);
+
+			handleindex_t new_owner_index;
+			err = handle_set_owner(t, hindex, *owner, &new_owner_index);
 			if (err == ANANAS_ERROR_OK) {
-				TRACE(SYSCALL, INFO, "t=%p, handle=%p, new owner=%p, success", t, handle, owner);
+				TRACE(SYSCALL, INFO, "t=%p, hindex=%u, new owner=%u, success", t, hindex, owner);
 			} else {
-				TRACE(SYSCALL, ERROR, "t=%p, handle=%p, new owner=%p, failure, code %u", t, handle, owner, err);
+				TRACE(SYSCALL, ERROR, "t=%p, hindex=%u, new owner=%u, failure, code %u", t, hindex, owner, err);
 			}
 			break;
 		}
@@ -359,14 +370,14 @@ fail:
 }
 
 errorcode_t
-sys_handlectl(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t len)
+sys_handlectl(thread_t* t, handleindex_t hindex, unsigned int op, void* arg, size_t len)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, handle=%p, op=%u, arg=%p, len=0x%x", t, handle, op, arg, len);
+	TRACE(SYSCALL, FUNC, "t=%p, hindex=%u, op=%u, arg=%p, len=0x%x", t, hindex, op, arg, len);
 	errorcode_t err;
 
 	/* Fetch the handle */
 	struct HANDLE* h;
-	err = syscall_get_handle(t, handle, &h);
+	err = syscall_get_handle(t, hindex, &h);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Lock the handle; we don't want it leaving our sight */
@@ -382,11 +393,11 @@ sys_handlectl(thread_t* t, handle_t handle, unsigned int op, void* arg, size_t l
 
 	/* Handle generics here; handles aren't allowed to override them */
 	if (op >= _HCTL_GENERIC_FIRST && op <= _HCTL_GENERIC_LAST) {
-		err = sys_handlectl_generic(t, handle, op, handlectl_arg, len);
+		err = sys_handlectl_generic(t, hindex, h, op, handlectl_arg, len);
 	} else {
 		/* Let the handle deal with this request */
 		if (h->h_hops->hop_control != NULL)
-			err = h->h_hops->hop_control(t, handle, op, arg, len);
+			err = h->h_hops->hop_control(t, hindex, h, op, arg, len);
 		else
 			err = ANANAS_ERROR(BAD_SYSCALL);
 	}

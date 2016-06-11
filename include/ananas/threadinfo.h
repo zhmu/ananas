@@ -9,10 +9,10 @@
 
 struct THREADINFO {
 	int		ti_size;				/* structure length */
-	handle_t	ti_handle;				/* thread handle */
-	handle_t	ti_handle_stdin;			/* stdin handle */
-	handle_t	ti_handle_stdout;			/* stdout handle */
-	handle_t	ti_handle_stderr;			/* stderr handle */
+	handleindex_t	ti_handle;				/* thread handle */
+	handleindex_t	ti_handle_stdin;			/* stdin handle */
+	handleindex_t	ti_handle_stdout;			/* stdout handle */
+	handleindex_t	ti_handle_stderr;			/* stderr handle */
 	char		ti_args[THREADINFO_ARGS_LENGTH];	/* commandline arguments */
 	char		ti_env[THREADINFO_ENV_LENGTH];		/* environment */
 };
