@@ -8,7 +8,7 @@
 int rmdir(const char* path)
 {
 	errorcode_t err;
-	void* handle;
+	handleindex_t index;
 
 	struct OPEN_OPTIONS openopts;
 	memset(&openopts, 0, sizeof(openopts));
@@ -16,12 +16,12 @@ int rmdir(const char* path)
 	openopts.op_type = HANDLE_TYPE_FILE;
 	openopts.op_path = path;
 	openopts.op_mode = OPEN_MODE_DIRECTORY;
-	err = sys_open(&openopts, &handle);
+	err = sys_open(&openopts, &index);
 	if (err != ANANAS_ERROR_NONE)
 		goto fail;
 
-	err = sys_unlink(handle);
-	sys_destroy(handle); /* don't really care if this works */
+	err = sys_unlink(index);
+	sys_destroy(index); /* don't really care if this works */
 	if (err == ANANAS_ERROR_NONE)
 		return 0;
 

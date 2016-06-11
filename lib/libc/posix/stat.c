@@ -10,7 +10,7 @@
 int stat(const char* path, struct stat* buf)
 {
 	errorcode_t err;
-	void* handle;
+	handleindex_t index;
 
 	struct OPEN_OPTIONS openopts;
 	memset(&openopts, 0, sizeof(openopts));
@@ -18,15 +18,15 @@ int stat(const char* path, struct stat* buf)
 	openopts.op_type = HANDLE_TYPE_FILE;
 	openopts.op_path = path;
 	openopts.op_mode = OPEN_MODE_NONE;
-	err = sys_open(&openopts, &handle);
+	err = sys_open(&openopts, &index);
 	if (err != ANANAS_ERROR_NONE)
 		goto fail;
 
 	struct HCTL_STAT_ARG statarg;
 	statarg.st_stat_len = sizeof(struct stat);
 	statarg.st_stat = buf;
-	err = sys_handlectl(handle, HCTL_FILE_STAT, &statarg, sizeof(statarg));
-	sys_destroy(handle);
+	err = sys_handlectl(index, HCTL_FILE_STAT, &statarg, sizeof(statarg));
+	sys_destroy(index);
 	if (err != ANANAS_ERROR_NONE)
 		goto fail;
 

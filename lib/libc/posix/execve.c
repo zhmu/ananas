@@ -61,21 +61,21 @@ int execve(const char *path, char *const argv[], char *const envp[])
 	}
 
 	/* Now, open the executable */
-	void* handle;
+	handleindex_t index;
 	struct OPEN_OPTIONS openopts;
 	memset(&openopts, 0, sizeof(openopts));
 	openopts.op_size = sizeof(openopts);
 	openopts.op_type = HANDLE_TYPE_FILE;
 	openopts.op_path = path;
 	openopts.op_mode = OPEN_MODE_READ;
-	err = sys_open(&openopts, &handle);
+	err = sys_open(&openopts, &index);
 	if (err != ANANAS_ERROR_NONE) {
 		free(args);
 		goto fail;
 	}
 
 	/* Attempt to invoke the executable just opened */
-	void* child;
+	handleindex_t child_index;
 	struct SUMMON_OPTIONS summonopts;
 	memset(&summonopts, 0, sizeof(summonopts));
 	summonopts.su_size = sizeof(summonopts);
@@ -86,16 +86,16 @@ int execve(const char *path, char *const argv[], char *const envp[])
 		summonopts.su_env_len = env_len;
 		summonopts.su_env = env;
 	}
-	err = sys_summon(handle, &summonopts, &child);
+	err = sys_summon(index, &summonopts, &child_index);
 	if (env != NULL) free(env);
 	free(args);
-	sys_destroy(handle);
+	sys_destroy(index);
 	if (err == ANANAS_ERROR_NONE) {
 		/* thread worked; wait for it to die */
 		handle_event_t event = HANDLE_EVENT_ANY;
 		handle_event_result_t result;
-		err = sys_wait(child, &event, &result);
-		sys_destroy(child);
+		err = sys_wait(child_index, &event, &result);
+		sys_destroy(child_index);
 		if (err != ANANAS_ERROR_NONE)
 			goto fail;
 

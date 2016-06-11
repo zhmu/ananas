@@ -8,11 +8,10 @@
 
 ssize_t write(int fd, const void* buf, size_t len)
 {
-	void* handle = handlemap_deref(fd, HANDLEMAP_TYPE_ANY);
-	struct HANDLEMAP_OPS* hops = handlemap_get_ops(fd);
-	if (handle == NULL || hops == NULL || hops->hop_write == NULL) {
-		errno = EBADF; /* XXX is this correct? */
+	errorcode_t err = sys_write(fd, buf, &len);
+	if (err != ANANAS_ERROR_NONE) {
+		_posix_map_error(err);
 		return -1;
 	}
-	return hops->hop_write(fd, handle, buf, len);
+	return len;
 }

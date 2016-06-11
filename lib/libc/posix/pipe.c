@@ -2,13 +2,10 @@
 #include <ananas/error.h>
 #include <ananas/syscalls.h>
 #include <_posix/error.h>
-#include <_posix/handlemap.h>
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-
-#include <stdio.h>
 
 int pipe(int fildes[2])
 {
@@ -18,8 +15,8 @@ int pipe(int fildes[2])
 	cropts.cr_type = HANDLE_TYPE_PIPE;
 	cropts.cr_length = 1024; /* XXX arbitary limit */
 
-	void* handle;
-	errorcode_t err = sys_create(&cropts, &handle);
+	handleindex_t hindex;
+	errorcode_t err = sys_create(&cropts, &hindex);
 	if (err != ANANAS_ERROR_NONE) {
 		_posix_map_error(err);
 		return -1;
@@ -43,37 +40,30 @@ int pipe(int fildes[2])
 	clopts.cl_flags = CLONE_FLAG_READONLY;
 
 	/* Create read-only handle */
-	void* rohandle;
-	printf(">>> %x\n", clopts.cl_flags);
-	err = sys_clone(handle, &clopts, &rohandle);
+	handleindex_t ro_hindex;
+	err = sys_clone(hindex, &clopts, &ro_hindex);
 	if (err != ANANAS_ERROR_NONE) {
-		sys_destroy(handle);
+		sys_destroy(hindex);
 		_posix_map_error(err);
 		return -1;
 	}
 
 	/* Create write-only handle */
-	void* wohandle;
+	handleindex_t wo_hindex;
 	clopts.cl_flags = CLONE_FLAG_WRITEONLY;
-	err = sys_clone(handle, &clopts, &wohandle);
+	err = sys_clone(hindex, &clopts, &wo_hindex);
 	if (err != ANANAS_ERROR_NONE) {
-		sys_destroy(rohandle);
-		sys_destroy(handle);
+		sys_destroy(ro_hindex);
+		sys_destroy(hindex);
 		_posix_map_error(err);
 		return -1;
 	}
 
 	/* Throw the original handle away; it has served its purpose */
-	sys_destroy(handle);
+	sys_destroy(hindex);
 
 	/* Hook them to file descriptors */
-	fildes[0] = handlemap_alloc_entry(HANDLEMAP_TYPE_PIPE, rohandle);
-	fildes[1] = handlemap_alloc_entry(HANDLEMAP_TYPE_PIPE, wohandle);
-	if (fildes[0] < 0 || fildes[1] < 0) {
-		sys_destroy(rohandle);
-		sys_destroy(wohandle);
-		_posix_map_error(err);
-		return -1;
-	}
+	fildes[0] = ro_hindex;
+	fildes[1] = wo_hindex;
 	return 0;
 }

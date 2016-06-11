@@ -31,8 +31,8 @@ int _PDCLIB_rename( const char * old, const char * new )
     openopts.op_path = old;
     openopts.op_mode = OPEN_MODE_NONE;
 
-    void* handle;
-    errorcode_t err = sys_open(&openopts, &handle);
+    handleindex_t hindex;
+    errorcode_t err = sys_open(&openopts, &hindex);
     if (err != ANANAS_ERROR_NONE) {
 	_posix_map_error(err);
 	return EOF;
@@ -41,8 +41,8 @@ int _PDCLIB_rename( const char * old, const char * new )
     /* Now go for the actual rename */
     struct HCTL_RENAME_ARG renamearg;
     renamearg.re_dest = new;
-    err = sys_handlectl(handle, HCTL_FILE_RENAME, &renamearg, sizeof(renamearg));
-    sys_destroy(handle);
+    err = sys_handlectl(hindex, HCTL_FILE_RENAME, &renamearg, sizeof(renamearg));
+    sys_destroy(hindex);
 
     if (err == ANANAS_ERROR_NONE)
 	return 0;

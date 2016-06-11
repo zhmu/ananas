@@ -1,7 +1,6 @@
-#include <unistd.h>
-#include <_posix/handlemap.h>
+#include <ananas/thread.h>
 
 int getdtablesize()
 {
-	return HANDLEMAP_SIZE;
+	return THREAD_MAX_HANDLES;
 }

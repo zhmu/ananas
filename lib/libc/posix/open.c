@@ -2,16 +2,13 @@
 #include <ananas/error.h>
 #include <ananas/syscalls.h>
 #include <_posix/error.h>
-#include <_posix/handlemap.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
 #include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
-int open( const char* filename, int mode, ... )
+int open(const char* filename, int mode, ...)
 {
 	struct OPEN_OPTIONS openopts;
 	memset(&openopts, 0, sizeof(openopts));
@@ -38,18 +35,11 @@ int open( const char* filename, int mode, ... )
 		openopts.op_createmode = va_arg(va, unsigned int);
 		va_end(va);
 	}
-	void* handle;
-	errorcode_t err = sys_open(&openopts, &handle);
+	handleindex_t index;
+	errorcode_t err = sys_open(&openopts, &index);
 	if (err != ANANAS_ERROR_NONE) {
 		_posix_map_error(err);
 		return -1;
 	}
-
-	int fd = handlemap_alloc_entry(HANDLEMAP_TYPE_FD, handle);
-	if (fd < 0) {
-		sys_destroy(handle);
-		errno = EMFILE;
-		return -1;
-	}
-	return fd;
+	return index;
 }

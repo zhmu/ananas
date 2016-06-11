@@ -512,7 +512,7 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 struct MMAP_HEADER {
 	uint32_t	mh_magic;
 #define MMAP_HEADER_MAGIC 0x4d654d7e
-	void*		mh_handle;
+	handleindex_t	mh_index;
 	size_t		mh_length;
 };
 
@@ -529,13 +529,13 @@ static void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offs
 	 */
 	errorcode_t err;
 	struct CREATE_OPTIONS cropts;
-	void* handle;
+	handleindex_t index;
 	memset(&cropts, 0, sizeof(cropts));
 	cropts.cr_size = sizeof(cropts);
 	cropts.cr_flags = CREATE_MEMORY_FLAG_READ | CREATE_MEMORY_FLAG_WRITE;
 	cropts.cr_type = HANDLE_TYPE_MEMORY;
 	cropts.cr_length = len + sizeof(struct MMAP_HEADER);
-	err = sys_create(&cropts, &handle);
+	err = sys_create(&cropts, &index);
 	if (err != ANANAS_ERROR_NONE) {
 		_posix_map_error(err);
 		return MMAP_FAIL;
@@ -543,15 +543,15 @@ static void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offs
 
 	/* OK, allocation worked. Now fetch the memory base */
 	struct HCTL_MEMORY_GET_INFO_ARG meminfo;
-	err = sys_handlectl(handle, HCTL_MEMORY_GET_INFO, &meminfo, sizeof(meminfo));
+	err = sys_handlectl(index, HCTL_MEMORY_GET_INFO, &meminfo, sizeof(meminfo));
 	if (err != ANANAS_ERROR_NONE) {
-		sys_destroy(handle); /* don't care if this fails or not */
+		sys_destroy(index); /* don't care if this fails or not */
 		_posix_map_error(err);
 		return MMAP_FAIL;
 	}
 	struct MMAP_HEADER* mh = meminfo.in_base;
 	mh->mh_magic = MMAP_HEADER_MAGIC;
-	mh->mh_handle = handle;
+	mh->mh_index = index;
 	mh->mh_length = meminfo.in_length;
 	return (void*)((addr_t)meminfo.in_base + sizeof(struct MMAP_HEADER));
 }
@@ -562,7 +562,7 @@ static int munmap(void* addr, size_t len) {
 	struct MMAP_HEADER* mh = (struct MMAP_HEADER*)((addr_t)addr - sizeof(struct MMAP_HEADER));
 	assert((addr_t)addr > sizeof(struct MMAP_HEADER));
 	assert(mh->mh_magic == MMAP_HEADER_MAGIC);
-	sys_destroy(mh->mh_handle);
+	sys_destroy(mh->mh_index);
 	return 0;
 }
 

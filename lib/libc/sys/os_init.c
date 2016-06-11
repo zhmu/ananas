@@ -1,5 +1,4 @@
 #include <ananas/threadinfo.h>
-#include <_posix/handlemap.h>
 #include <_posix/init.h>
 #include <assert.h>
 #include <stdio.h>
@@ -58,7 +57,6 @@ void
 libc_init(struct THREADINFO* ti)
 {
 	libc_threadinfo = ti;
-	handlemap_init(ti);
 
 	/* Initialize argument and environment variables */
 	libc_initialize_arg(ti->ti_args, &libc_argv, &libc_argc);

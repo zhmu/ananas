@@ -45,36 +45,36 @@ int execlp(const char *path, const char* arg0, ...)
 	args[pos] = '\0'; /* double \0 termination */
 
 	/* Now, open the executable */
-	void* handle;
+	handleindex_t hindex;
 	struct OPEN_OPTIONS openopts;
 	memset(&openopts, 0, sizeof(openopts));
 	openopts.op_size = sizeof(openopts);
 	openopts.op_type = HANDLE_TYPE_FILE;
 	openopts.op_path = path;
 	openopts.op_mode = OPEN_MODE_READ;
-	err = sys_open(&openopts, &handle);
+	err = sys_open(&openopts, &hindex);
 	if (err != ANANAS_ERROR_NONE) {
 		free(args);
 		goto fail;
 	}
 
 	/* Attempt to invoke the executable just opened */
-	void* child;
+	handleindex_t child_index;
 	struct SUMMON_OPTIONS summonopts;
 	memset(&summonopts, 0, sizeof(summonopts));
 	summonopts.su_size = sizeof(summonopts);
 	summonopts.su_flags = SUMMON_FLAG_RUNNING;
 	summonopts.su_args_len = args_len;
 	summonopts.su_args = args;
-	err = sys_summon(handle, &summonopts, &child);
+	err = sys_summon(hindex, &summonopts, &child_index);
 	free(args);
-	sys_destroy(handle);
+	sys_destroy(hindex);
 	if (err == ANANAS_ERROR_NONE) {
 		/* thread worked; wait for it to die */
 		handle_event_t event = HANDLE_EVENT_ANY;
 		handle_event_result_t result;
-		err = sys_wait(child, &event, &result);
-		sys_destroy(child);
+		err = sys_wait(child_index, &event, &result);
+		sys_destroy(child_index);
 		if (err != ANANAS_ERROR_NONE)
 			goto fail;
 

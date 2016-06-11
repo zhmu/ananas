@@ -18,10 +18,10 @@ int access(const char* path, int amode)
 	if (amode & W_OK)
 		openopts.op_mode |= OPEN_MODE_WRITE;
 	/* XXX deal with X_OK */
-	void* handle;
-	errorcode_t err = sys_open(&openopts, &handle);
+	handleindex_t index;
+	errorcode_t err = sys_open(&openopts, &index);
 	if (err == ANANAS_ERROR_OK) {
-		sys_destroy(handle);
+		sys_destroy(index);
 		return 0;
 	}
 	_posix_map_error(err);

@@ -1,15 +1,10 @@
 #include <unistd.h>
 #include <ananas/threadinfo.h>
-#include <_posix/handlemap.h>
+#include <_posix/todo.h>
 
 pid_t
 getpid()
 {
-	/* XXX This can be much more efficient */
-	for (int idx = 0; idx < HANDLEMAP_SIZE; idx++) {
-		if (libc_threadinfo->ti_handle == handlemap_deref(idx, HANDLEMAP_TYPE_PID))
-			return idx;
-	}
-	/* ??? */
+	TODO;
 	return (pid_t)-1;
 }
