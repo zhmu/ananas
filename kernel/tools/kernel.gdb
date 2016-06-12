@@ -59,6 +59,14 @@ define t_print
 			printf "cpu %u", $t->t_affinity
 		end
 		echo \n
+		set $hindex = 0
+		while $hindex < 64
+			if $t->t_handle[$hindex] != 0
+				printf "handle %d, ", $hindex
+				h_print $t->t_handle[$hindex]
+			end
+			set $hindex = $hindex + 1
+		end
 		output/x *$t
 		echo \n
 	end
@@ -66,6 +74,47 @@ end
 
 document t_print
 	Prints thread members
+end
+
+def h_print
+	if $argc == 0
+		help h_print
+	else
+		set $h = ((struct HANDLE*)$arg0)
+		printf "handle %p: ", $h
+		printf "%d", $h->h_type
+		if ($h->h_type == 0)
+			echo "<unused>"
+		end
+		if ($h->h_type == 1)
+			set $p = (struct VFS_FILE)($h->h_data.d_vfs_file)
+			printf "<file>, "
+			if ($p.f_dentry != 0)
+				printf "entry='%s'", $p.f_dentry->d_entry
+			else
+				echo (empty dentry)
+			end
+		end
+		if ($h->h_type == 2)
+			printf "<thread>, thread=%p", $h->h_data.d_thread
+		end
+		if ($h->h_type == 3)
+			set $p = (struct HANDLE_MEMORY_INFO)($h->h_data.d_memory)
+			printf "<memory>, addr=%p length=%d", $p.hmi_addr, $p.hmi_length
+		end
+		if ($h->h_type == 4)
+			set $p = (struct HANDLE_MEMORY_INFO)($h->h_data.d_ref)
+			printf "<ref>, handle=%p ref_thread=%p ref_index=%d", $p.ref_handle, $p.ref_thread, $p.ref_index
+		end
+		if ($h->h_type == 5)
+			printf "<pipe>"
+		end
+		echo \n
+	end
+end
+
+document h_print
+	Prints handle information
 end
 
 define _ps_q
