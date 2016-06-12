@@ -106,20 +106,17 @@ satadisk_bread(device_t dev, struct BIO* bio)
 static errorcode_t
 satadisk_bwrite(device_t dev, struct BIO* bio)
 {
-#if 0
 	struct SATA_REQUEST sr;
 	memset(&sr, 0, sizeof(sr));
-	/* XXX  we shouldn't always use lba-47 */
-	sata_fis_h2d_make_cmd_lba48(&sr.sr_fis.fis_h2d, ATA_CMD_DMA_READ_EXT, bio->io_block, bio->length);
+	/* XXX  we shouldn't always use lba-48 */
+	sata_fis_h2d_make_cmd_lba48(&sr.sr_fis.fis_h2d, ATA_CMD_DMA_WRITE_EXT, bio->io_block, bio->length / BIO_SECTOR_SIZE);
 	sr.sr_fis_length = 20;
 	sr.sr_count = bio->length;
 	sr.sr_bio = bio;
-	sr.sr_flags = SATA_REQUEST_FLAG_READ;
+	sr.sr_flags = SATA_REQUEST_FLAG_WRITE;
 	dev->parent->driver->drv_enqueue(dev->parent, &sr);
 	dev->parent->driver->drv_start(dev->parent);
-#endif
-	kprintf("satadisk write todo\n");
-	return ANANAS_ERROR(IO);
+	return ANANAS_ERROR_OK;
 }
 
 struct DRIVER drv_sata_disk = {

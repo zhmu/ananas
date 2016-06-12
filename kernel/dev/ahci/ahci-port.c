@@ -46,8 +46,11 @@ ahcipci_port_irq(device_t dev, struct AHCI_PCI_PORT* p, uint32_t pis)
 		struct SATA_REQUEST* sr = &pr->pr_request;
 		if (sr->sr_semaphore != NULL)
 			sem_signal(sr->sr_semaphore);
-		if (sr->sr_bio != NULL)
+		if (sr->sr_bio != NULL) {
+			if (sr->sr_flags & SATA_REQUEST_FLAG_WRITE)
+				sr->sr_bio->flags &= ~BIO_FLAG_DIRTY;
 			bio_set_available(sr->sr_bio);
+		}
 
 		/* This request is no longer active nor valid */
 		p->p_request_active &= ~(1 << i);
@@ -201,6 +204,8 @@ ahciport_start(device_t dev)
 		 AHCI_CLE_DW0_PRDTL(1) |
 		 AHCI_CLE_DW0_PMP(0) |
 		 AHCI_CLE_DW0_CFL(sr->sr_fis_length / 4);
+		if (sr->sr_flags & SATA_REQUEST_FLAG_WRITE)
+			cle->cle_dw0 |= AHCI_CLE_DW0_W;
 		cle->cle_dw1 = 0;
 		cle->cle_dw2 = AHCI_CLE_DW2_CTBA(addr_ct & 0xffffffff);
 		cle->cle_dw3 = AHCI_CLE_DW3_CTBAU(addr_ct >> 32);
@@ -220,6 +225,7 @@ ahciport_start(device_t dev)
 
 	AHCI_DPRINTF(">> #%d issuing command\n", p->p_num);
 	DUMP_PORT_STATE(p->p_num);
+
 	AHCI_WRITE_4(AHCI_REG_PxCI(p->p_num), ci);
 }
 
