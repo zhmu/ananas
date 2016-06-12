@@ -263,7 +263,7 @@ smp_launch()
 	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | page_get_paddr(ap_page) >> 12;
 	delay(200);
 
-	kprintf("SMP: waiting for %d CPU(s)\n", smp_config.cfg_num_cpus - num_smp_launched);
+	kprintf("SMP: %d CPU(s) found, waiting for %d CPU(s)\n", smp_config.cfg_num_cpus, smp_config.cfg_num_cpus - num_smp_launched);
 	while(num_smp_launched < smp_config.cfg_num_cpus)
 		/* wait for it ... */ ;
 
@@ -321,8 +321,6 @@ mp_ap_startup(uint32_t lapic_id)
 
 	/* We're up and running! Increment the launched count */
 	__asm("lock incl (num_smp_launched)");
-
-	kprintf("CPU %d launched\n", PCPU_GET(cpuid));
 	
 	/* Enable interrupts and become the idle thread; this doesn't return */
 	md_interrupts_enable();
