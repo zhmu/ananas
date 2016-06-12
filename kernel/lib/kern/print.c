@@ -1,5 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/console.h>
+#include <ananas/init.h>
+#include <ananas/error.h>
 #include <ananas/device.h>
 #include <ananas/lock.h>
 #include <ananas/lib.h>
@@ -7,6 +9,9 @@
 
 static const char hextab_hi[16] = "0123456789ABCDEF";
 static const char hextab_lo[16] = "0123456789abcdef";
+
+/* Define this to a buffer size to keep kprintf()'s from getting interleaved */
+#define PRINTF_BUFFER_SIZE 256
 
 int
 puts(const char* s)
@@ -171,16 +176,6 @@ vaprintf(const char* fmt, va_list ap)
 	vapprintf(fmt, kprintf_putch, NULL, ap);
 }
 
-void
-kprintf(const char* fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	vaprintf(fmt, ap);
-	va_end(ap);
-}
-
 static void
 sprintf_add(void* v, int c)
 {
@@ -223,21 +218,47 @@ snprintf_add(void* v, int c)
 }
 
 int
-snprintf(char* str, size_t len, const char* fmt, ...)
+vsnprintf(char* str, size_t len, const char* fmt, va_list ap)
 {
 	struct SNPRINTF_CTX ctx;
 
 	ctx.buf = str;
 	ctx.cur_len = 0;
 	ctx.left = len;
-	
-	va_list ap;
-	va_start(ap, fmt);
+
 	vapprintf(fmt, snprintf_add, &ctx, ap);
-	va_end(ap);
-	snprintf_add(&ctx, 0);
+	snprintf_add(&ctx, 0); /* terminating \0 */
 
 	return ctx.cur_len - 1 /* minus \0 byte */;
+}
+
+int
+snprintf(char* str, size_t len, const char* fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	int n = vsnprintf(str, len, fmt, ap);
+	va_end(ap);
+
+	return n;
+}
+
+void
+kprintf(const char* fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+#ifdef PRINTF_BUFFER_SIZE
+	char buf[PRINTF_BUFFER_SIZE];
+
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	buf[sizeof(buf) - 1] = '\0';
+	console_putstring(buf);
+#else
+	vaprintf(fmt, ap);
+#endif
+	va_end(ap);
 }
 
 /* vim:set ts=2 sw=2: */

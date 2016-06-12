@@ -3,6 +3,7 @@
 #include <ananas/error.h>
 #include <ananas/tty.h>
 #include <ananas/lib.h>
+#include <ananas/lock.h>
 #include <ananas/debug-console.h>
 #include "options.h"
 
@@ -10,6 +11,9 @@ extern const char* config_hints[];
 static spinlock_t spl_consoledrivers = SPINLOCK_DEFAULT_INIT;
 static struct CONSOLE_DRIVERS console_drivers;
 device_t console_tty = NULL;
+
+static int console_mutex_inuse = 0;
+static mutex_t mtx_console;
 
 /* If set, display the driver list before attaching */
 #undef VERBOSE_LIST
@@ -75,7 +79,6 @@ console_init()
 			sprintf(tmphint, "*.%s.%u.", dev->name, dev->unit);
 			device_get_resources_byhint(dev, tmphint, config_hints);
 			errorcode_t err = device_attach_single(dev);
-			kprintf("trying %s '%s' -> %u\n", condrv->con_driver->name, tmphint, err);
 			if (err != ANANAS_ERROR_OK) {
 				/* Too bad; this driver won't work */
 				device_free(dev);
@@ -87,13 +90,15 @@ console_init()
 				input_dev = dev;
 			if ((condrv->con_flags & CONSOLE_FLAG_OUT) && output_dev == NULL)
 				output_dev = dev;
-
-			kprintf("device %p(%s) probed %p %p\n", dev, dev->name, input_dev, output_dev);
 		}
 	}
 
 	if (input_dev != NULL || output_dev != NULL)
 		console_tty = tty_alloc(input_dev, output_dev);
+
+	/* Initialize the console print mutex and start using it */
+	mutex_init(&mtx_console, "console");
+	console_mutex_inuse++;
 
 	return ANANAS_ERROR_OK;
 }
@@ -111,6 +116,19 @@ console_putchar(int c)
 	uint8_t ch = c; // cannot cast due to endianness!
 	size_t len = sizeof(ch);
 	device_write(console_tty, (const char*)&ch, &len, 0);
+}
+
+void
+console_putstring(const char* s)
+{
+	if (console_mutex_inuse)
+		mutex_lock(&mtx_console);
+
+	for (int c = *s++; c != 0; c = *s++)
+		console_putchar(c);
+
+	if (console_mutex_inuse)
+		mutex_unlock(&mtx_console);
 }
 
 uint8_t

@@ -4,6 +4,7 @@
 #define __CONSOLE_H__
 
 void console_putchar(int c);
+void console_putstring(const char* s);
 uint8_t console_getchar();
 
 extern device_t console_tty;

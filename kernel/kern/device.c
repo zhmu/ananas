@@ -466,14 +466,20 @@ device_bread(device_t dev, struct BIO* bio)
 void
 device_printf(device_t dev, const char* fmt, ...)
 {
-	va_list va;
+#define DEVICE_PRINTF_BUFSIZE 256
 
-	/* XXX will interleave printf's in SMP */
-	kprintf("%s%u: ", dev->name, dev->unit);
+	char buf[DEVICE_PRINTF_BUFSIZE];
+
+	snprintf(buf, sizeof(buf), "%s%u: ", dev->name, dev->unit);
+
+	va_list va;
 	va_start(va, fmt);
-	vaprintf(fmt, va);
+	vsnprintf(buf + strlen(buf), sizeof(buf) - strlen(buf) - 2, fmt, va);
+	buf[sizeof(buf) - 2] = '\0';
+	strcat(buf, "\n");
 	va_end(va);
-	kprintf("\n");
+
+	console_putstring(buf);
 }
 
 struct DEVICE_QUEUE*

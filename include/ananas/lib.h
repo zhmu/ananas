@@ -23,6 +23,7 @@
 void* memcpy(void* dst, const void* src, size_t len) __nonnull;
 void* memset(void* b, int c, size_t len) __nonnull;
 void vaprintf(const char* fmt, va_list ap);
+int vsnprintf(char* str, size_t len, const char* fmt, va_list ap);
 void kprintf(const char* fmt, ...);
 void _panic(const char* file, const char* func, int line, const char* fmt, ...) __noreturn;
 int sprintf(char* str, const char* fmt, ...);
