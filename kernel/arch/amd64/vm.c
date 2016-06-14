@@ -4,6 +4,7 @@
 #include <ananas/mm.h>
 #include <ananas/kmem.h>
 #include <ananas/lib.h>
+#include <ananas/pcpu.h>
 #include <ananas/thread.h>
 #include <ananas/vm.h>
 
@@ -118,6 +119,8 @@ md_get_mapping(thread_t* t, addr_t virt, int flags, addr_t* phys)
 void
 md_unmap_pages(thread_t* t, addr_t virt, size_t num_pages)
 {
+	int is_curthread = PCPU_GET(curthread) == t;
+
 	/* XXX we don't yet strip off bits 52-63 yet */
 	uint64_t* pagedir = (t != NULL) ? t->md_pagedir : kernel_pagedir;
 	while(num_pages--) {
@@ -139,10 +142,10 @@ md_unmap_pages(thread_t* t, addr_t virt, size_t num_pages)
 		uint64_t* pte = pt_resolve_addr(pde[(virt >> 21) & 0x1ff]);
 		int global = (pte[(virt >> 12) & 0x1ff] & PE_G);
 		pte[(virt >> 12) & 0x1ff] = 0;
-		if (global) {
+		if (global || is_curthread) {
 			/*
-			 * We just unmapped a global virtual address; this means we'll have to
-			 * explicitely invalidate it.
+			 * We just unmapped a global virtual address or something that belongs to
+			 * the current thread; this means we'll have to * explicitely invalidate it.
 			 */
 			__asm __volatile("invlpg %0" : : "m" (*(char*)virt) : "memory");
 		}
