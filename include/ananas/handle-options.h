@@ -89,6 +89,7 @@ struct HCTL_MEMORY_GET_INFO_ARG {
 	void*		in_base;
 	size_t		in_length;
 };
+#define HCTL_MEMORY_RESIZE	(_HCTL_MEMORY_FIRST+1) /* Resize memory handle */
 #define _HCTL_MEMORY_LAST	299
 
 /* Handle options - thread */

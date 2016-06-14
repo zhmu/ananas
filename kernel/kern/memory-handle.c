@@ -25,8 +25,6 @@ memoryhandle_create(thread_t* thread, handleindex_t index, struct HANDLE* handle
 	ANANAS_ERROR_RETURN(err);
 
 	handle->h_data.d_memory.hmi_mapping = tm;
-	handle->h_data.d_memory.hmi_addr = (void*)tm->tm_virt;
-	handle->h_data.d_memory.hmi_length = tm->tm_len;
 	return ANANAS_ERROR_OK;
 }
 
@@ -40,6 +38,8 @@ memoryhandle_free(thread_t* thread, struct HANDLE* handle)
 static errorcode_t
 memoryhandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handle, unsigned int op, void* arg, size_t len)
 {
+	struct THREAD_MAPPING* tm = handle->h_data.d_memory.hmi_mapping;
+
 	switch(op) {
 		case HCTL_MEMORY_GET_INFO: {
 			/* Ensure the structure length is sane */
@@ -48,9 +48,15 @@ memoryhandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handl
 				return ANANAS_ERROR(BAD_ADDRESS);
 			if (len != sizeof(*in))
 				return ANANAS_ERROR(BAD_LENGTH);
-			in->in_base = handle->h_data.d_memory.hmi_addr;
-			in->in_length = handle->h_data.d_memory.hmi_length;
+			in->in_base = (void*)tm->tm_virt;
+			in->in_length = tm->tm_len;
 			return ANANAS_ERROR_OK;
+		}
+		case HCTL_MEMORY_RESIZE: {
+			/* arg is to be NULL, len is the new size in pages */
+			if (arg != NULL)
+				return ANANAS_ERROR(BAD_ADDRESS);
+			return thread_map_resize(thread, handle->h_data.d_memory.hmi_mapping, len);
 		}
 	}
 

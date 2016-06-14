@@ -273,6 +273,21 @@ thread_make_vmflags(unsigned int flags)
 	return vm_flags;
 }
 
+static int
+thread_is_region_mapped(thread_t* t, addr_t virt, size_t len)
+{
+	/* Check whether a mapping already exists; if so, we must refuse */
+	if (!DQUEUE_EMPTY(&t->t_mappings)) {
+		DQUEUE_FOREACH(&t->t_mappings, tm, struct THREAD_MAPPING) {
+			if ((virt >= tm->tm_virt && (virt + len) <= (tm->tm_virt + tm->tm_len)) ||
+			    (tm->tm_virt >= virt && (tm->tm_virt + tm->tm_len) <= (virt + len)))
+				return 1;
+		}
+	}
+
+	return 0;
+}
+
 /*
  * Maps a piece of kernel memory 'from' to 'to' for thread 't'.
  * 'len' is the length in bytes; 'flags' contains mapping flags:
@@ -282,16 +297,11 @@ thread_make_vmflags(unsigned int flags)
 errorcode_t
 thread_mapto(thread_t* t, addr_t virt, addr_t phys, size_t len, uint32_t flags, struct THREAD_MAPPING** out)
 {
-	/* Check whether a mapping already exists; if so, we must refuse */
-	if (!DQUEUE_EMPTY(&t->t_mappings)) {
-		DQUEUE_FOREACH(&t->t_mappings, tm, struct THREAD_MAPPING) {
-			if ((virt >= tm->tm_virt && (virt + len) <= (tm->tm_virt + tm->tm_len)) ||
-			    (tm->tm_virt >= virt && (tm->tm_virt + tm->tm_len) <= (virt + len))) {
-				/* We have overlap - must reject the mapping */
-				return ANANAS_ERROR(BAD_ADDRESS);
-			}
-		}
-	}
+	/* First, ensure the range isn't used and the length is sane */
+	if(thread_is_region_mapped(t, virt, len))
+		return ANANAS_ERROR(NO_SPACE);
+	if (len == 0)
+		return ANANAS_ERROR(BAD_LENGTH);
 
 	struct THREAD_MAPPING* tm = kmalloc(sizeof(*tm));
 	memset(tm, 0, sizeof(*tm));
@@ -330,6 +340,47 @@ thread_map(thread_t* t, addr_t phys, size_t len, uint32_t flags, struct THREAD_M
 	if ((t->t_next_mapping & (PAGE_SIZE - 1)) > 0)
 		t->t_next_mapping += PAGE_SIZE - (t->t_next_mapping & (PAGE_SIZE - 1));
 	return thread_mapto(t, virt, phys, len, flags, out);
+}
+
+errorcode_t
+thread_map_resize(thread_t* t, struct THREAD_MAPPING* tm, size_t new_length /* in bytes */)
+{
+	/* XXX we should lock the mapping here! */
+	if (new_length == 0)
+		return ANANAS_ERROR(BAD_LENGTH);
+
+	/* If we're mapping a large piece, the new virtual space must not be in use */
+	if(new_length > tm->tm_len) {
+		addr_t new_virt = tm->tm_virt + new_length - tm->tm_len;
+		size_t grow_length = new_length - tm->tm_len;
+		if(thread_is_region_mapped(t, new_virt, grow_length))
+			return ANANAS_ERROR(NO_SPACE);
+
+		/* XXX If this isn't a ALLOC mapping, reject - we don't know the physical address anymore */
+		if ((tm->tm_flags & THREAD_MAP_ALLOC) == 0)
+			return ANANAS_ERROR(BAD_FLAG);
+
+		/* Extend the mapping */
+		md_thread_map(t, (void*)new_virt, (void*)NULL, grow_length, (tm->tm_flags & (THREAD_MAP_LAZY | THREAD_MAP_ALLOC)) ? 0 : thread_make_vmflags(tm->tm_flags));
+	}
+
+	/* If we're shrinking the mapping, free all pages that are no longer in use */
+	if (new_length < tm->tm_len) {
+		addr_t free_virt_begin = tm->tm_virt + new_length;
+		addr_t free_virt_end = tm->tm_virt + tm->tm_len;
+		DQUEUE_FOREACH_SAFE(&tm->tm_pages, p, struct PAGE) {
+			if (p->p_addr < free_virt_begin || p->p_addr >= free_virt_end)
+				continue;
+			DQUEUE_REMOVE(&tm->tm_pages, p);
+			page_free(p);
+		}
+
+		/* Shrink the mapping */
+		md_thread_unmap(t, free_virt_begin, free_virt_end - free_virt_begin);
+	}
+
+	tm->tm_len = new_length;
+	return ANANAS_ERROR_OK;
 }
 
 errorcode_t

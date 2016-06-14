@@ -42,8 +42,6 @@ struct HANDLE_WAITER {
 
 struct HANDLE_MEMORY_INFO {
 	struct THREAD_MAPPING* hmi_mapping;
-	void* hmi_addr;
-	size_t hmi_length;
 };
 
 struct HANDLE_PIPE_BUFFER {
