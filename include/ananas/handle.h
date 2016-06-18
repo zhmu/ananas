@@ -41,7 +41,7 @@ struct HANDLE_WAITER {
 };
 
 struct HANDLE_MEMORY_INFO {
-	struct THREAD_MAPPING* hmi_mapping;
+	struct VM_AREA* hmi_vmarea;
 };
 
 struct HANDLE_PIPE_BUFFER {

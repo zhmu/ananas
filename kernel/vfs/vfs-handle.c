@@ -6,6 +6,7 @@
 #include <ananas/syscall.h>
 #include <ananas/trace.h>
 #include <ananas/vfs.h>
+#include <ananas/vm.h>
 #include <ananas/lib.h>
 
 TRACE_SETUP;
@@ -218,7 +219,7 @@ vfshandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handle, 
 				return ANANAS_ERROR(BAD_LENGTH);
 
 			void* dest;
-			err = syscall_map_buffer(thread, st->st_stat, sizeof(struct stat), THREAD_MAP_WRITE, &dest);
+			err = syscall_map_buffer(thread, st->st_stat, sizeof(struct stat), VM_FLAG_WRITE, &dest);
 			ANANAS_ERROR_RETURN(err);
 
 			if (file->f_dentry != NULL) {
@@ -323,7 +324,7 @@ vfshandle_summon(thread_t* thread, struct HANDLE* handle, struct SUMMON_OPTIONS*
 	/* If arguments are given, handle them */
 	if (opts->su_args != NULL) {
 		const char* arg;
-		err = syscall_map_buffer(thread, opts->su_args, opts->su_args_len, THREAD_MAP_READ, (void**)&arg);
+		err = syscall_map_buffer(thread, opts->su_args, opts->su_args_len, VM_FLAG_READ, (void**)&arg);
 		if (err == ANANAS_ERROR_NONE)
 			err = thread_set_args(newthread, arg, opts->su_args_len);
 		if (err != ANANAS_ERROR_NONE)
@@ -333,7 +334,7 @@ vfshandle_summon(thread_t* thread, struct HANDLE* handle, struct SUMMON_OPTIONS*
 	/* If an environment is given, handle it */
 	if (opts->su_env != NULL) {
 		const char* env;
-		err = syscall_map_buffer(thread, opts->su_env, opts->su_env_len, THREAD_MAP_READ, (void**)&env);
+		err = syscall_map_buffer(thread, opts->su_env, opts->su_env_len, VM_FLAG_READ, (void**)&env);
 		if (err == ANANAS_ERROR_NONE)
 			err = thread_set_environment(newthread, env, opts->su_env_len);
 		if (err != ANANAS_ERROR_NONE)

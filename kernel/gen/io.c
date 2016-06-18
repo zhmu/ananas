@@ -13,6 +13,7 @@
 #include <ananas/syscall.h>
 #include <ananas/syscalls.h>
 #include <ananas/trace.h>
+#include <ananas/vm.h>
 #include <elf.h>
 
 TRACE_SETUP;
@@ -35,7 +36,7 @@ sys_read(thread_t* t, handleindex_t hindex, void* buf, size_t* len)
 
 	/* Attempt to map the buffer write-only */
 	void* buffer;
-	err = syscall_map_buffer(t, buf, size, THREAD_MAP_WRITE, &buffer);
+	err = syscall_map_buffer(t, buf, size, VM_FLAG_WRITE, &buffer);
 	ANANAS_ERROR_RETURN(err);
 
 	/* And read data to it */
@@ -70,7 +71,7 @@ sys_write(thread_t* t, handleindex_t hindex, const void* buf, size_t* len)
 
 	/* Attempt to map the buffer readonly */
 	void* buffer;
-	err = syscall_map_buffer(t, buf, size, THREAD_MAP_READ, &buffer);
+	err = syscall_map_buffer(t, buf, size, VM_FLAG_READ, &buffer);
 	ANANAS_ERROR_RETURN(err);
 
 	/* And write data from to it */
@@ -96,7 +97,7 @@ sys_open(thread_t* t, struct OPEN_OPTIONS* opts, handleindex_t* result)
 
 	/* Obtain open options */
 	struct OPEN_OPTIONS open_opts; void* optr;
-	err = syscall_map_buffer(t, opts, sizeof(open_opts), THREAD_MAP_READ, &optr);
+	err = syscall_map_buffer(t, opts, sizeof(open_opts), VM_FLAG_READ, &optr);
 	ANANAS_ERROR_RETURN(err);
 	memcpy(&open_opts, optr, sizeof(open_opts));
 	if (open_opts.op_size != sizeof(open_opts))
@@ -158,7 +159,7 @@ sys_clone(thread_t* t, handleindex_t in, struct CLONE_OPTIONS* opts, handleindex
 
 	/* Obtain clone options */
 	struct CLONE_OPTIONS clone_opts; void* optr;
-	err = syscall_map_buffer(t, opts, sizeof(clone_opts), THREAD_MAP_READ, &optr);
+	err = syscall_map_buffer(t, opts, sizeof(clone_opts), VM_FLAG_READ, &optr);
 	ANANAS_ERROR_RETURN(err);
 	memcpy(&clone_opts, optr, sizeof(clone_opts));
 	if (clone_opts.cl_size != sizeof(clone_opts))
@@ -201,7 +202,7 @@ sys_wait(thread_t* t, handleindex_t hindex, handle_event_t* event, handle_event_
 	handle_event_t wait_event = 0; /* XXX */
 	if (event != NULL) {
 		handle_event_t* in_event;
-		err = syscall_map_buffer(t, event, sizeof(handle_event_t), THREAD_MAP_READ, (void**)&in_event);
+		err = syscall_map_buffer(t, event, sizeof(handle_event_t), VM_FLAG_READ, (void**)&in_event);
 		ANANAS_ERROR_RETURN(err);
 		wait_event = *in_event;
 	}
@@ -214,7 +215,7 @@ sys_wait(thread_t* t, handleindex_t hindex, handle_event_t* event, handle_event_
 	/* If the event type was requested, set it up */
 	if (event != NULL) {
 		handle_event_t* out_event;
-		err = syscall_map_buffer(t, event, sizeof(handle_event_t), THREAD_MAP_WRITE, (void**)&out_event);
+		err = syscall_map_buffer(t, event, sizeof(handle_event_t), VM_FLAG_WRITE, (void**)&out_event);
 		ANANAS_ERROR_RETURN(err);
 		*out_event = wait_event;
 	}
@@ -222,7 +223,7 @@ sys_wait(thread_t* t, handleindex_t hindex, handle_event_t* event, handle_event_
 	/* If the result was requested, set it up */
 	if (result != NULL) {
 		handle_event_result_t* out_result;
-		err = syscall_map_buffer(t, result, sizeof(handle_event_result_t), THREAD_MAP_WRITE, (void*)&out_result);
+		err = syscall_map_buffer(t, result, sizeof(handle_event_result_t), VM_FLAG_WRITE, (void*)&out_result);
 		ANANAS_ERROR_RETURN(err);
 		*out_result = wait_result;
 	}
@@ -245,7 +246,7 @@ sys_summon(thread_t* t, handleindex_t hindex, struct SUMMON_OPTIONS* opts, handl
 
 	/* Obtain summoning options */
 	struct SUMMON_OPTIONS summon_opts; void* so;
-	err = syscall_map_buffer(t, opts, sizeof(summon_opts), THREAD_MAP_READ, &so);
+	err = syscall_map_buffer(t, opts, sizeof(summon_opts), VM_FLAG_READ, &so);
 	ANANAS_ERROR_RETURN(err);
 	memcpy(&summon_opts, so, sizeof(summon_opts));
 
@@ -277,7 +278,7 @@ sys_create(thread_t* t, struct CREATE_OPTIONS* opts, handleindex_t* out)
 	/* Obtain arguments */
 	struct CREATE_OPTIONS cropts;
 	void* opts_ptr;
-	err = syscall_map_buffer(t, opts, sizeof(cropts), THREAD_MAP_READ, &opts_ptr);
+	err = syscall_map_buffer(t, opts, sizeof(cropts), VM_FLAG_READ, &opts_ptr);
 	ANANAS_ERROR_RETURN(err);
 	memcpy(&cropts, opts_ptr, sizeof(cropts));
 	if (cropts.cr_size != sizeof(cropts))
@@ -397,7 +398,7 @@ sys_handlectl(thread_t* t, handleindex_t hindex, unsigned int op, void* arg, siz
 	/* Obtain arguments (note that some calls do not have an argument) */
 	void* handlectl_arg = NULL;
 	if (arg != NULL) {
-		err = syscall_map_buffer(t, arg, len, THREAD_MAP_READ | THREAD_MAP_WRITE, &handlectl_arg);
+		err = syscall_map_buffer(t, arg, len, VM_FLAG_READ | VM_FLAG_WRITE, &handlectl_arg);
 		if(err != ANANAS_ERROR_OK)
 			goto fail;
 	}

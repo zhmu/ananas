@@ -39,6 +39,8 @@ vfs/vfs-handle.c	option VFS
 vfs/vfs-thread.c	option VFS
 # XXX VFS KDB not; we can't do && on options yet
 vfs/vfs-kdb.c		option KDB
+# vm layer
+vm/vmspace.c		mandatory
 # libkern library
 lib/kern/misc.c		mandatory
 lib/kern/memset.c	mandatory

@@ -7,6 +7,8 @@
 #include <ananas/exec.h>
 #include <ananas/trace.h>
 #include <ananas/mm.h>
+#include <ananas/vm.h>
+#include <ananas/vmspace.h>
 #include <elf.h>
 
 TRACE_SETUP;
@@ -38,9 +40,9 @@ struct ELF_THREADMAP_PRIVDATA {
 };
 
 static errorcode_t
-elf_tm_destroy_func(thread_t* t, struct THREAD_MAPPING* tm)
+elf_tm_destroy_func(vmspace_t* vs, vmarea_t* va)
 {
-	struct ELF_THREADMAP_PROGHEADER* ph = tm->tm_privdata;
+	struct ELF_THREADMAP_PROGHEADER* ph = va->va_privdata;
 	struct ELF_THREADMAP_PRIVDATA* privdata = ph->ph_header;
 
 	if (--privdata->elf_num_refs == 0) {
@@ -52,9 +54,9 @@ elf_tm_destroy_func(thread_t* t, struct THREAD_MAPPING* tm)
 }
 
 static errorcode_t
-elf_tm_fault_func(thread_t* t, struct THREAD_MAPPING* tm, addr_t virt)
+elf_tm_fault_func(vmspace_t* vs, vmarea_t* va, addr_t virt)
 {
-	struct ELF_THREADMAP_PROGHEADER* ph = tm->tm_privdata;
+	struct ELF_THREADMAP_PROGHEADER* ph = va->va_privdata;
 	struct ELF_THREADMAP_PRIVDATA* privdata = ph->ph_header;
 
 	KASSERT((virt >= ph->ph_virt_begin && virt < ph->ph_virt_end), "wrong ph supplied (%p not in %p-%p)", virt, ph->ph_virt_begin, ph->ph_virt_end);
@@ -81,8 +83,8 @@ elf_tm_fault_func(thread_t* t, struct THREAD_MAPPING* tm, addr_t virt)
 		/* We'd read beyond the length of the file - don't do that */
 		read_len = (ph->ph_inode_offset + ph->ph_inode_len) - read_off;
 	}
-	TRACE(EXEC, INFO, "ph: t=%p, v=%p, reading %d bytes @ %d to %p (zeroing %p-%p)\n",
-	 t, virt, read_len, (uint32_t)read_off, read_addr, v_page, v_page + PAGE_SIZE - 1);
+	TRACE(EXEC, INFO, "ph: va=%p, v=%p, reading %d bytes @ %d to %p (zeroing %p-%p)",
+	 va, virt, read_len, (uint32_t)read_off, read_addr, v_page, v_page + PAGE_SIZE - 1);
 	if (read_addr != v_page || read_len != PAGE_SIZE)
 		memset((void*)v_page, 0, PAGE_SIZE);
 	if (read_len > 0)
@@ -91,11 +93,11 @@ elf_tm_fault_func(thread_t* t, struct THREAD_MAPPING* tm, addr_t virt)
 }
 
 static errorcode_t
-elf_tm_clone_func(thread_t* t, struct THREAD_MAPPING* tdest, struct THREAD_MAPPING* tsrc)
+elf_tm_clone_func(vmspace_t* vs_src, vmarea_t* va_src, vmspace_t* vs_dst, vmarea_t* va_dst)
 {
 	/* We can just re-use the mapping; we add a ref to ensure it will not go away */
-	tdest->tm_privdata = tsrc->tm_privdata;
-	((struct ELF_THREADMAP_PROGHEADER*)tdest->tm_privdata)->ph_header->elf_num_refs++;
+	va_dst->va_privdata = va_src->va_privdata;
+	((struct ELF_THREADMAP_PROGHEADER*)va_dst->va_privdata)->ph_header->elf_num_refs++;
 	return ANANAS_ERROR_NONE;
 }
 
@@ -160,17 +162,17 @@ elf32_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 			continue;
 
 		/* Construct the flags for the actual mapping */
-		unsigned int flags = THREAD_MAP_ALLOC | THREAD_MAP_LAZY;
-		flags |= THREAD_MAP_READ; /* XXX */
-		flags |= THREAD_MAP_WRITE; /* XXX */
-		flags |= THREAD_MAP_EXECUTE; /* XXX */
+		unsigned int flags = VM_FLAG_ALLOC | VM_FLAG_LAZY;
+		flags |= VM_FLAG_READ; /* XXX */
+		flags |= VM_FLAG_WRITE; /* XXX */
+		flags |= VM_FLAG_EXECUTE; /* XXX */
 
 		/*
 		 * The program need not begin at a page-size, so we may need to adjust.
 		 */
 		addr_t virt_begin = ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE);
 		addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_memsz), PAGE_SIZE);
-		struct THREAD_MAPPING* tm;
+		struct VM_FLAGPING* tm;
 		err = thread_mapto(thread, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &tm);
 		if (err != ANANAS_ERROR_OK)
 			goto fail;
@@ -264,18 +266,18 @@ elf64_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 			continue;
 
 		/* Construct the flags for the actual mapping */
-		unsigned int flags = THREAD_MAP_ALLOC | THREAD_MAP_LAZY;
-		flags |= THREAD_MAP_READ; /* XXX */
-		flags |= THREAD_MAP_WRITE; /* XXX */
-		flags |= THREAD_MAP_EXECUTE; /* XXX */
+		unsigned int flags = VM_FLAG_ALLOC | VM_FLAG_LAZY | VM_FLAG_USER;
+		flags |= VM_FLAG_READ; /* XXX */
+		flags |= VM_FLAG_WRITE; /* XXX */
+		flags |= VM_FLAG_EXECUTE; /* XXX */
 
 		/*
 		 * The program need not begin at a page-size, so we may need to adjust.
 		 */
 		addr_t virt_begin = ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE);
 		addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_memsz), PAGE_SIZE);
-		struct THREAD_MAPPING* tm;
-		err = thread_mapto(thread, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &tm);
+		vmarea_t* va;
+		err = vmspace_mapto(thread->t_vmspace, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &va);
 		if (err != ANANAS_ERROR_OK)
 			goto fail;
 
@@ -290,10 +292,10 @@ elf64_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 		privdata->elf_num_ph++;
 
 		/* Hook the program header to the mapping */
-		tm->tm_privdata = ph;
-		tm->tm_fault = elf_tm_fault_func;
-		tm->tm_destroy = elf_tm_destroy_func;
-		tm->tm_clone = elf_tm_clone_func;
+		va->va_privdata = ph;
+		va->va_fault = elf_tm_fault_func;
+		va->va_destroy = elf_tm_destroy_func;
+		va->va_clone = elf_tm_clone_func;
 		privdata->elf_num_refs++;
 	}
 

@@ -5,6 +5,7 @@
 #include <ananas/handle.h>
 #include <ananas/thread.h>
 #include <ananas/trace.h>
+#include <ananas/vm.h>
 
 TRACE_SETUP;
 
@@ -32,7 +33,7 @@ syscall_get_file(thread_t* t, handleindex_t hindex, struct VFS_FILE** out)
 errorcode_t
 syscall_map_string(thread_t* t, const void* ptr, const char** out)
 {
-	const char* x = md_map_thread_memory(t, (void*)ptr, PAGE_SIZE, THREAD_MAP_READ);
+	const char* x = md_map_thread_memory(t, (void*)ptr, PAGE_SIZE, VM_FLAG_READ);
 	if (x == NULL)
 		return ANANAS_ERROR(BAD_ADDRESS);
 
@@ -60,7 +61,7 @@ syscall_map_buffer(thread_t* t, const void* ptr, size_t len, int flags, void** o
 errorcode_t
 syscall_fetch_size(thread_t* t, const void* ptr, size_t* out)
 {
-	size_t* s = md_map_thread_memory(t, (void*)ptr, sizeof(size_t), THREAD_MAP_READ);
+	size_t* s = md_map_thread_memory(t, (void*)ptr, sizeof(size_t), VM_FLAG_READ);
 	if (s == NULL)
 		return ANANAS_ERROR(BAD_ADDRESS);
 
@@ -71,7 +72,7 @@ syscall_fetch_size(thread_t* t, const void* ptr, size_t* out)
 errorcode_t
 syscall_set_size(thread_t* t, void* ptr, size_t len)
 {
-	size_t* s = md_map_thread_memory(t, (void*)ptr, sizeof(size_t), THREAD_MAP_WRITE);
+	size_t* s = md_map_thread_memory(t, (void*)ptr, sizeof(size_t), VM_FLAG_WRITE);
 	if (s == NULL)
 		return ANANAS_ERROR(BAD_ADDRESS);
 
@@ -82,7 +83,7 @@ syscall_set_size(thread_t* t, void* ptr, size_t len)
 errorcode_t
 syscall_set_handleindex(thread_t* t, handleindex_t* ptr, handleindex_t index)
 {
-	handleindex_t* p = md_map_thread_memory(t, (void*)ptr, sizeof(handleindex_t), THREAD_MAP_WRITE);
+	handleindex_t* p = md_map_thread_memory(t, (void*)ptr, sizeof(handleindex_t), VM_FLAG_WRITE);
 	if (p == NULL)
 		return ANANAS_ERROR(BAD_ADDRESS);
 
@@ -93,7 +94,7 @@ syscall_set_handleindex(thread_t* t, handleindex_t* ptr, handleindex_t index)
 errorcode_t
 syscall_fetch_offset(thread_t* t, const void* ptr, off_t* out)
 {
-	off_t* o = md_map_thread_memory(t, (void*)ptr, sizeof(off_t), THREAD_MAP_READ);
+	off_t* o = md_map_thread_memory(t, (void*)ptr, sizeof(off_t), VM_FLAG_READ);
 	if (o == NULL)
 		return ANANAS_ERROR(BAD_ADDRESS);
 
@@ -104,7 +105,7 @@ syscall_fetch_offset(thread_t* t, const void* ptr, off_t* out)
 errorcode_t
 syscall_set_offset(thread_t* t, void* ptr, off_t len)
 {
-	off_t* o = md_map_thread_memory(t, (void*)ptr, sizeof(size_t), THREAD_MAP_WRITE);
+	off_t* o = md_map_thread_memory(t, (void*)ptr, sizeof(size_t), VM_FLAG_WRITE);
 	if (o == NULL)
 		return ANANAS_ERROR(BAD_ADDRESS);
 
