@@ -8,11 +8,12 @@
 #include <ananas/thread.h>
 #include <ananas/mm.h>
 #include <ananas/vm.h>
+#include <ananas/vmspace.h>
 
 extern uint32_t* kernel_pd;
 
 void
-md_map_pages(thread_t* t, addr_t virt, addr_t phys, size_t num_pages, int flags)
+md_map_pages(vmspace_t* vs, addr_t virt, addr_t phys, size_t num_pages, int flags)
 {
 	KASSERT(virt % PAGE_SIZE == 0, "unaligned address 0x%x", virt);
 	KASSERT(phys % PAGE_SIZE == 0, "unaligned address 0x%x", phys);
@@ -27,7 +28,7 @@ md_map_pages(thread_t* t, addr_t virt, addr_t phys, size_t num_pages, int flags)
 	if (flags & VM_FLAG_DEVICE)
 		pt_flags |= PTE_PCD | PDE_PWT;
 
-	uint32_t* pagedir = (t != NULL) ? t->md_pagedir : kernel_pd;
+	uint32_t* pagedir = (vs != NULL) ? vs->vs_md_pagedir : kernel_pd;
 	while (num_pages > 0) {
 		uint32_t pd_entrynum = virt >> 22;
 		if (pagedir[pd_entrynum] == 0) {
@@ -35,10 +36,10 @@ md_map_pages(thread_t* t, addr_t virt, addr_t phys, size_t num_pages, int flags)
 			 * This page isn't yet mapped, so we need to allocate a new page entry
 			 * where we can map the pointer.
 			 */
-			KASSERT(t != NULL, "unmapped page while mapping kernel pages?");
+			KASSERT(vs != NULL, "unmapped page while mapping kernel pages?");
 			struct PAGE* p = page_alloc_single();
 			KASSERT(p != NULL, "out of pages");
-			DQUEUE_ADD_TAIL(&t->t_pages, p);
+			DQUEUE_ADD_TAIL(&vs->vs_pages, p);
 
 			/* Map the new page into kernelspace XXX This shouldn't be needed at all; threadspace would work too */
 			addr_t new_pt = (addr_t)kmem_map(page_get_paddr(p), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
@@ -61,11 +62,11 @@ md_map_pages(thread_t* t, addr_t virt, addr_t phys, size_t num_pages, int flags)
 }
 
 void
-md_unmap_pages(thread_t* t, addr_t virt, size_t num_pages)
+md_unmap_pages(vmspace_t* vs, addr_t virt, size_t num_pages)
 {
 	KASSERT(virt % PAGE_SIZE == 0, "unaligned address 0x%x", virt);
 
-	uint32_t* pagedir = (t != NULL) ? t->md_pagedir : kernel_pd;
+	uint32_t* pagedir = (vs != NULL) ? vs->vs_md_pagedir : kernel_pd;
 	while (num_pages > 0) {
 		uint32_t pd_entrynum = virt >> 22;
 		if (pagedir[pd_entrynum] & PDE_P) {
@@ -75,27 +76,6 @@ md_unmap_pages(thread_t* t, addr_t virt, size_t num_pages)
 
 		virt += PAGE_SIZE; num_pages--;
 	}
-}
-
-int
-md_get_mapping(thread_t* t, addr_t virt, int flags, addr_t* phys)
-{
-	uint32_t pd_entrynum = virt >> 22;
-	const uint32_t* pagedir = (t != NULL) ? t->md_pagedir : kernel_pd;
-	if ((pagedir[pd_entrynum] & PDE_P) == 0)
-		return 0;
-
-	const uint32_t* pt = (uint32_t*)(PTOKV(pagedir[pd_entrynum] & ~(PAGE_SIZE - 1)));
-	uint32_t  pte = pt[(((virt >> 12) & ((1 << 10) - 1)))];
-	if ((pte & PTE_P) == 0) /* not present? */
-		return 0;
-	if ((flags & VM_FLAG_WRITE) && ((pte & PTE_RW) == 0)) /* check writable */
-		return 0;
-	if (phys != NULL)
-		*phys = pte & ~(PAGE_SIZE - 1);
-	kprintf("md_get_mapping(): pd=%p virt=%p phys=%p\n",
-	 pagedir, virt, *phys);
-	return 1;
 }
 
 void
@@ -111,9 +91,9 @@ md_kunmap(addr_t virt, size_t num_pages)
 }
 
 void
-md_map_kernel(thread_t* t)
+md_map_kernel(vmspace_t* vs)
 {
-	uint32_t* pd = t->md_pagedir;
+	uint32_t* pd = vs->vs_md_pagedir;
 	for (unsigned int n = 0; n < VM_NUM_KERNEL_PTS; n++) {
 		pd[VM_FIRST_KERNEL_PT + n] = kernel_pd[VM_FIRST_KERNEL_PT + n];
 	}

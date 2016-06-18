@@ -3,7 +3,8 @@ arch/i386/stub.S		mandatory
 arch/i386/exception.c		mandatory
 arch/i386/interrupts.S		mandatory
 arch/i386/startup.c		mandatory
-arch/i386/vm.c			mandatory
+arch/i386/md_map.c			mandatory
+arch/i386/md_vmspace.c			mandatory
 arch/i386/md_thread.c		mandatory
 arch/i386/mp_stub.S		option SMP
 arch/i386/debug.c		mandatory

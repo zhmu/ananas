@@ -10,6 +10,7 @@
 #include <ananas/irq.h>
 #include <ananas/pcpu.h>
 #include <ananas/vm.h>
+#include <ananas/vmspace.h>
 #include <ananas/lib.h>
 
 static void
@@ -104,7 +105,8 @@ exception_pf(struct STACKFRAME* sf)
 	else
 		flags |= VM_FLAG_READ;
 	if ((sf->sf_errnum & EXC_PF_FLAG_P) == 0) { /* page not present */
-		errorcode_t err = thread_handle_fault(PCPU_GET(curthread), fault_addr & ~(PAGE_SIZE - 1), flags);
+		thread_t* curthread = PCPU_GET(curthread);
+		errorcode_t err = vmspace_handle_fault(curthread->t_vmspace, fault_addr & ~(PAGE_SIZE - 1), flags);
 		if (err == ANANAS_ERROR_NONE) {
 			return; /* fault handeled */
 		}

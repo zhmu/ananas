@@ -169,20 +169,16 @@
 
 #ifndef ASM
 
+typedef struct VM_SPACE vmspace_t;
+
 /* Maps relevant kernel addresses for a given thread */
-void md_map_kernel(thread_t* t);
+void md_map_kernel(vmspace_t* vs);
 
-/* Maps num_pages at physical address phys to virtual address virt for thread t with flags flags */
-void md_map_pages(thread_t* t, addr_t virt, addr_t phys, size_t num_pages, int flags);
+/* Maps 'num_pages' at physical address 'phys' to virtual address 'virt' for vmspace 'vs' with flags 'flags' */
+void md_map_pages(vmspace_t* vs, addr_t virt, addr_t phys, size_t num_pages, int flags);
 
-/* Unmaps num_pages at virtual address virt for thread t */
-void md_unmap_pages(thread_t* t, addr_t virt, size_t num_pages);
-
-/* Frees the machine-dependant mapping structures for thread t */
-void md_free_mappings(thread_t* t);
-
-/* XXX removeme */
-int md_get_mapping(thread_t* t, addr_t virt, int flags, addr_t* phys_addr);
+/* Unmaps 'num_pages' at virtual address virt for vmspace 'vs' */
+void md_unmap_pages(vmspace_t* vs, addr_t virt, size_t num_pages);
 
 #endif
 
