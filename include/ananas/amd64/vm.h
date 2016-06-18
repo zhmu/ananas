@@ -18,16 +18,19 @@
  *              100 0000 (1MB)         +--------------------------+
  *                                     | Process memory           |
  *                                     |                          |
- *                                     +--------------------------+ ^
- * 0xffff 8800 0000 0000               | Kernel virtual addresses | | 64TB
- * 0xffff c7ff ffff ffff               +--------------------------+ v
+ *                                     +--------------------------+
+ * 0xffff 8800 0000 0000               | Kernel virtual addresses | 64TB
+ * 0xffff c7ff ffff ffff               +--------------------------+
+ * 0xffff c800 0000 0000               | Dynamic KVA mappings     | 4GB
+ * 0xffff c800 ffff ffff               +--------------------------+
  *                                     | Unused                   |
  *                                     +--------------------------+ ^
  * 0xffff ffff 8000 0000               | Kernel                   | | 2GB
  *                                     |                          | | 
  * 0xffff ffff ffff ffff               +--------------------------+ v
  *
- * The result is 1TB of kernel virtual addresses available.
+ * The result is 64TB of direct Kernel Virtual Addresses available,
+ * which is basically our limit on physical memory.
  */
 
 /* Convert a physical to a kernel virtual address */
@@ -110,20 +113,16 @@
 
 #ifndef ASM
 
+typedef struct VM_SPACE vmspace_t;
+
 /* Maps relevant kernel addresses for a given thread */
-void md_map_kernel(thread_t* t);
+void md_map_kernel(vmspace_t* vs);
 
-/* Maps num_pages at physical address phys to virtual address virt for thread t with flags flags */
-void md_map_pages(thread_t* t, addr_t virt, addr_t phys, size_t num_pages, int flags);
+/* Maps 'num_pages' at physical address 'phys' to virtual address 'virt' for vmspace 'vs' with flags 'flags' */
+void md_map_pages(vmspace_t* vs, addr_t virt, addr_t phys, size_t num_pages, int flags);
 
-/* Unmaps num_pages at virtual address virt for thread t */
-void md_unmap_pages(thread_t* t, addr_t virt, size_t num_pages);
-
-/* Frees the machine-dependant mapping structures for thread t */
-void md_free_mappings(thread_t* t);
-
-/* XXX removeme */
-int md_get_mapping(thread_t* t, addr_t virt, int flags, addr_t* phys_addr);
+/* Unmaps 'num_pages' at virtual address virt for vmspace 'vs' */
+void md_unmap_pages(vmspace_t* vs, addr_t virt, size_t num_pages);
 
 #endif
 

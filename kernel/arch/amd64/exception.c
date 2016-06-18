@@ -6,10 +6,12 @@
 #include <machine/param.h> /* for PAGE_SIZE */
 #include <ananas/x86/exceptions.h>
 #include <ananas/thread.h>
+#include <ananas/threadinfo.h>
 #include <ananas/pcpu.h>
 #include <ananas/error.h>
 #include <ananas/irq.h>
 #include <ananas/vm.h>
+#include <ananas/vmspace.h>
 #include <ananas/lib.h>
 
 static void
@@ -46,6 +48,11 @@ exception_generic(struct STACKFRAME* sf)
 		PCPU_GET(cpuid), userland ? "user land" : "kernel", descr,
 		sf->sf_trapno, sf->sf_cs, sf->sf_rip);
 
+	if (userland) {
+		thread_t* cur_thread = PCPU_GET(curthread);
+		kprintf("proc='%s'\n", cur_thread->t_threadinfo->ti_args);
+	}
+
 	kprintf("rax=%p rbx=%p rcx=%p rdx=%p\n", sf->sf_rax, sf->sf_rbx, sf->sf_rcx, sf->sf_rdx);
 	kprintf("rbp=%p rsi=%p rdi=%p rsp=%p\n", sf->sf_rbp, sf->sf_rsi, sf->sf_rdi, sf->sf_rsp);
 	kprintf("r8=%p r9=%p r10=%p r11=%p\n", sf->sf_r8, sf->sf_r9, sf->sf_r10, sf->sf_r11);
@@ -63,6 +70,7 @@ exception_generic(struct STACKFRAME* sf)
 		thread_exit(THREAD_MAKE_EXITCODE(THREAD_TERM_FAULT, sf->sf_trapno));
 		/* NOTREACHED */
 	}
+
 	panic("kernel exception");
 }
 
@@ -83,7 +91,8 @@ exception_pf(struct STACKFRAME* sf)
 	else
 		flags |= VM_FLAG_READ;
 	if ((sf->sf_errnum & EXC_PF_FLAG_P) == 0) { /* page not present */
-		errorcode_t err = thread_handle_fault(PCPU_GET(curthread), fault_addr, flags);
+		thread_t* curthread = PCPU_GET(curthread);
+		errorcode_t err = vmspace_handle_fault(curthread->t_vmspace, fault_addr, flags);
 		if (err == ANANAS_ERROR_NONE) {
 			return; /* fault handeled */
 		}

@@ -29,4 +29,7 @@
 #define KERNEL_STACK_SIZE	0x2000
 
 /* Thread stack size */
-#define THREAD_STACK_SIZE	0x2000
+#define THREAD_STACK_SIZE	0x8000
+
+/* First thread mapping virtual address */
+#define THREAD_INITIAL_MAPPING_ADDR	1048576

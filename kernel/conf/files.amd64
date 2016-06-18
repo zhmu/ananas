@@ -1,7 +1,8 @@
 # Note that the order in this file is the same order passed to the linker!
 arch/amd64/stub.S		mandatory
-arch/amd64/vm.c			mandatory
+arch/amd64/md_map.c		mandatory
 arch/amd64/md_thread.c		mandatory
+arch/amd64/md_vmspace.c		mandatory
 arch/amd64/startup.c		mandatory
 arch/amd64/interrupts.S		mandatory
 arch/amd64/exception.c		mandatory

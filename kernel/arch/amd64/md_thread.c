@@ -8,10 +8,8 @@
 #include <ananas/mm.h>
 #include <ananas/pcpu.h>
 #include <ananas/syscall.h>
-#include <ananas/trace.h>
 #include <ananas/vm.h>
-
-TRACE_SETUP;
+#include <ananas/vmspace.h>
 
 extern void* kernel_pagedir;
 void clone_return();
@@ -21,24 +19,13 @@ void kthread_trampoline();
 errorcode_t
 md_thread_init(thread_t* t, int flags)
 {
-	/* Create a pagedirectory */
-	struct PAGE* pagedir_page;
-	t->md_pagedir = page_alloc_single_mapped(&pagedir_page, VM_FLAG_READ | VM_FLAG_WRITE);
-	if (t->md_pagedir == NULL)
-		return ANANAS_ERROR(OUT_OF_MEMORY);
-	DQUEUE_ADD_TAIL(&t->t_pages, pagedir_page);
-
-	/* Map the kernel pages in there */
-	memset(t->md_pagedir, 0, PAGE_SIZE);
-	md_map_kernel(t);
-
 	/*
 	 * Create the user stack page piece, if we are not cloning - otherwise, we'll
 	 * copy the parent's stack instead.
 	 */
 	if ((flags & THREAD_ALLOC_CLONE) == 0) {
-		struct THREAD_MAPPING* ustack_tm;
-		errorcode_t err = thread_mapto(t, USERLAND_STACK_ADDR, 0, THREAD_STACK_SIZE, THREAD_MAP_READ | THREAD_MAP_WRITE | THREAD_MAP_ALLOC, &ustack_tm);
+		vmarea_t* va;
+		errorcode_t err = vmspace_mapto(t->t_vmspace, USERLAND_STACK_ADDR, 0, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_ALLOC, &va);
 		ANANAS_ERROR_RETURN(err);
 	}
 
@@ -46,7 +33,7 @@ md_thread_init(thread_t* t, int flags)
 	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
 
 	/* Fill out our MD fields */
-	t->md_cr3 = KVTOP((addr_t)t->md_pagedir);
+	t->md_cr3 = KVTOP((addr_t)t->t_vmspace->vs_md_pagedir);
 	t->md_rsp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE;
 	t->md_rsp = t->md_rsp0;
 	t->md_rip = (addr_t)&userland_trampoline;
@@ -54,8 +41,6 @@ md_thread_init(thread_t* t, int flags)
 	/* initialize FPU state similar to what finit would do */
 	t->md_fpu_ctx.fcw = 0x37f;
 	t->md_fpu_ctx.ftw = 0xffff;
-
-	t->t_next_mapping = 1048576;
 	return ANANAS_ERROR_OK;
 }
 
@@ -150,35 +135,6 @@ md_map_thread_memory(thread_t* thread, void* ptr, size_t length, int write)
 	return ptr;
 }
 
-int
-md_thread_is_mapped(thread_t* thread, addr_t virt, int flags, addr_t* va)
-{
-	return md_get_mapping(thread, virt, flags, va);
-}
-
-void*
-md_thread_map(thread_t* thread, void* to, void* from, size_t length, int flags)
-{
-	KASSERT((flags & VM_FLAG_KERNEL) == 0, "attempt to map kernel memory");
-	int num_pages = length / PAGE_SIZE;
-	if (length % PAGE_SIZE > 0)
-		num_pages++;
-  if ((flags & VM_FLAG_DEVICE) == 0)
-    from = (void*)KVTOP((addr_t)from);
-	md_map_pages(thread, (addr_t)to, (addr_t)from, num_pages, VM_FLAG_USER | flags);
-	return to;
-}
-
-errorcode_t
-md_thread_unmap(thread_t* thread, addr_t addr, size_t length)
-{
-	int num_pages = length / PAGE_SIZE;
-	if (length % PAGE_SIZE > 0)
-		num_pages++;
-	md_unmap_pages(thread, addr, num_pages);
-	return ANANAS_ERROR_OK;
-}
-
 void
 md_thread_set_entrypoint(thread_t* thread, addr_t entry)
 {
@@ -197,7 +153,7 @@ md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
 	KASSERT(PCPU_GET(curthread) == parent, "must clone active thread");
 
 	/* Restore the thread's own page directory */
-	t->md_cr3 = KVTOP((addr_t)t->md_pagedir);
+	t->md_cr3 = KVTOP((addr_t)t->t_vmspace->vs_md_pagedir);
 
 	/*
 	 * We need to copy the part from the parent's kernel stack that lets us
