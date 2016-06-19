@@ -457,12 +457,6 @@ KDB_COMMAND(handle, "i:handle", "Display handle information")
 			kprintf("   thread         : 0x%x\n", handle->h_data.d_thread);
 			break;
 		}
-		case HANDLE_TYPE_MEMORY: {
-			kprintf("memory handle specifics:\n");
-			kprintf("   address        : 0x%x\n", handle->h_data.d_memory.hmi_addr);
-			kprintf("   size           : %u\n", handle->h_data.d_memory.hmi_length);
-			break;
-		}
 	}
 }
 #endif

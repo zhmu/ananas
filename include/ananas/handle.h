@@ -14,9 +14,8 @@ typedef unsigned int handle_event_result_t;
 #define HANDLE_TYPE_UNUSED	0
 #define HANDLE_TYPE_FILE	1
 #define HANDLE_TYPE_THREAD	2
-#define HANDLE_TYPE_MEMORY	3
+#define HANDLE_TYPE_PIPE	3
 #define HANDLE_TYPE_REFERENCE	4
-#define HANDLE_TYPE_PIPE	5
 
 #define HANDLE_EVENT_ANY	0
 #define HANDLE_EVENT_READ	1
@@ -38,10 +37,6 @@ struct HANDLE_WAITER {
 	handle_event_t hw_event_mask;
 	handle_event_t hw_event_reported;
 	handle_event_result_t hw_result;
-};
-
-struct HANDLE_MEMORY_INFO {
-	struct VM_AREA* hmi_vmarea;
 };
 
 struct HANDLE_PIPE_BUFFER {
@@ -87,7 +82,6 @@ struct HANDLE {
 	union {
 		struct VFS_FILE d_vfs_file;
 		struct THREAD*  d_thread;
-		struct HANDLE_MEMORY_INFO d_memory;
 		struct HANDLE_PIPE_INFO d_pipe;
 		struct HANDLE_REF_INFO d_ref;
 	} h_data;
