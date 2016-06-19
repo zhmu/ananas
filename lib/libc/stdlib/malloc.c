@@ -491,6 +491,7 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 #include <ananas/types.h>
 #include <ananas/error.h>
 #include <ananas/syscalls.h>
+#include <ananas/syscall-vmops.h>
 #include <_posix/error.h>
 #include <assert.h>
 #include <string.h>
@@ -509,60 +510,49 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 
 #define MALLOC_FAILURE_ACTION
 
-struct MMAP_HEADER {
-	uint32_t	mh_magic;
-#define MMAP_HEADER_MAGIC 0x4d654d7e
-	handleindex_t	mh_index;
-	size_t		mh_length;
-};
-
 #include <stdio.h>
         
 #define MMAP_FAIL ((void*)-1)
 
 static unsigned int time(void* ptr) { return 1; }
-static void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offset) {
-	/*
-	 * Emulate fetching a block of memory by allocating a few bytes more
-	 * and using these to store the pointer. This could be more efficient,
-	 * but how?
-	 */
-	errorcode_t err;
-	struct CREATE_OPTIONS cropts;
-	handleindex_t index;
-	memset(&cropts, 0, sizeof(cropts));
-	cropts.cr_size = sizeof(cropts);
-	cropts.cr_flags = CREATE_MEMORY_FLAG_READ | CREATE_MEMORY_FLAG_WRITE;
-	cropts.cr_type = HANDLE_TYPE_MEMORY;
-	cropts.cr_length = len + sizeof(struct MMAP_HEADER);
-	err = sys_create(&cropts, &index);
+static void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offset)
+{
+	struct VMOP_OPTIONS vo;
+
+	memset(&vo, 0, sizeof(vo));
+	vo.vo_size = sizeof(vo);
+	vo.vo_op = OP_MAP;
+	vo.vo_addr = 0;
+	vo.vo_len = len;
+	vo.vo_flags = VMOP_FLAG_PRIVATE;
+	vo.vo_flags |= VMOP_FLAG_READ;
+	vo.vo_flags |= VMOP_FLAG_WRITE;
+	errorcode_t err = sys_vmop(&vo);
 	if (err != ANANAS_ERROR_NONE) {
 		_posix_map_error(err);
 		return MMAP_FAIL;
 	}
 
-	/* OK, allocation worked. Now fetch the memory base */
-	struct HCTL_MEMORY_GET_INFO_ARG meminfo;
-	err = sys_handlectl(index, HCTL_MEMORY_GET_INFO, &meminfo, sizeof(meminfo));
-	if (err != ANANAS_ERROR_NONE) {
-		sys_destroy(index); /* don't care if this fails or not */
-		_posix_map_error(err);
-		return MMAP_FAIL;
-	}
-	struct MMAP_HEADER* mh = meminfo.in_base;
-	mh->mh_magic = MMAP_HEADER_MAGIC;
-	mh->mh_index = index;
-	mh->mh_length = meminfo.in_length;
-	return (void*)((addr_t)meminfo.in_base + sizeof(struct MMAP_HEADER));
+	return vo.vo_addr;
 }
 
 #undef MMAP_FAIL
 
-static int munmap(void* addr, size_t len) {
-	struct MMAP_HEADER* mh = (struct MMAP_HEADER*)((addr_t)addr - sizeof(struct MMAP_HEADER));
-	assert((addr_t)addr > sizeof(struct MMAP_HEADER));
-	assert(mh->mh_magic == MMAP_HEADER_MAGIC);
-	sys_destroy(mh->mh_index);
+static int munmap(void* addr, size_t len)
+{
+	struct VMOP_OPTIONS vo;
+
+	memset(&vo, 0, sizeof(vo));
+	vo.vo_size = sizeof(vo);
+	vo.vo_op = OP_UNMAP;
+	vo.vo_addr = addr;
+	vo.vo_len = len;
+	errorcode_t err = sys_vmop(&vo);
+	if (err != ANANAS_ERROR_NONE) {
+		_posix_map_error(err);
+		return -1;
+	}
+
 	return 0;
 }
 
