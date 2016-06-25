@@ -25,24 +25,11 @@ vfs_init_thread(thread_t* thread, thread_t* parent)
 	struct HANDLE* stdout_handle;
 	struct HANDLE* stderr_handle;
 	if (parent != NULL) {
-		/* Clone the stdin/stdout/err handles so they'll get handle index 0, 1, 2 */
-		err = handle_clone(parent, parent->t_threadinfo->ti_handle_stdin, NULL, thread, &stdin_handle, &thread->t_threadinfo->ti_handle_stdin);
-		KASSERT(err == ANANAS_ERROR_OK, "can't clone stdin handle: %u", err);
-		err = handle_clone(parent, parent->t_threadinfo->ti_handle_stdout, NULL, thread, &stdout_handle, &thread->t_threadinfo->ti_handle_stdout);
-		KASSERT(err == ANANAS_ERROR_OK, "can't clone stdout handle: %u", err);
-		err = handle_clone(parent, parent->t_threadinfo->ti_handle_stderr, NULL, thread, &stderr_handle, &thread->t_threadinfo->ti_handle_stderr);
-		KASSERT(err == ANANAS_ERROR_OK, "can't clone stderr handle: %u", err);
-
-		err = handle_clone(parent, parent->t_hidx_path, NULL, thread, &path_handle, &thread->t_hidx_path);
-		if (err != ANANAS_ERROR_NONE) {
-			/*
-			 * XXX Unable to clone parent's path - what now? Our VFS isn't mature enough
-			 * to deal with abandoned handles (or even abandon handles in the first
-			 * place), so this should never, ever happen.
-			 */
-			panic("thread_init(): could not clone root path");
-		}
-
+		/* Parent should have cloned our handles; we can just copy the indices */
+		thread->t_threadinfo->ti_handle_stdin = parent->t_threadinfo->ti_handle_stdin;
+		thread->t_threadinfo->ti_handle_stdout = parent->t_threadinfo->ti_handle_stdout;
+		thread->t_threadinfo->ti_handle_stderr = parent->t_threadinfo->ti_handle_stderr;
+		thread->t_hidx_path = parent->t_hidx_path;
 	} else {
 		/* Initialize stdin/out/error, so they'll get handle index 0, 1, 2 */
 		err = handle_alloc(HANDLE_TYPE_FILE, thread, 0, &stdin_handle, &thread->t_threadinfo->ti_handle_stdin);

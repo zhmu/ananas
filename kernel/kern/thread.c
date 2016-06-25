@@ -25,7 +25,7 @@ static struct THREAD_QUEUE threadqueue;
 static struct THREAD_CALLBACKS threadcallbacks_init;
 static struct THREAD_CALLBACKS threadcallbacks_exit;
 
-errorcode_t
+static errorcode_t
 thread_init(thread_t* t, thread_t* parent, int flags)
 {
 	errorcode_t err;
@@ -67,6 +67,22 @@ thread_init(thread_t* t, thread_t* parent, int flags)
 	if (err != ANANAS_ERROR_NONE)
 		goto fail;
 	md_thread_set_argument(t, va->va_virt);
+
+	/* Clone the parent's handles - we skip the thread handle */
+	if (parent != NULL) {
+		for (unsigned int n = 0; n < THREAD_MAX_HANDLES; n++) {
+			if (n == parent->t_hidx_thread)
+				continue; /* do not clone the parent handle */
+			if (parent->t_handle[n] == NULL)
+				continue;
+
+			struct HANDLE* handle;
+			handleindex_t out;
+			err = handle_clone(parent, n, NULL, t, &handle, &out);
+			ANANAS_ERROR_RETURN(err); /* XXX clean up */
+			KASSERT(n == out, "cloned handle %d to new handle %d", n, out);
+		}
+	}
 
 	/* Initialize scheduler-specific parts */
 	scheduler_init_thread(t);
@@ -436,6 +452,7 @@ KDB_COMMAND(bt, NULL, "Current thread backtrace")
 		return;
 	}
 
+#ifdef __amd64__
 	struct THREAD* thread = kdb_curthread;
 	for (int x = 0; x <= 32; x += 8)
 		kprintf("rbp %d -> %p\n", x, *(register_t*)(thread->md_rsp + x));
@@ -446,7 +463,7 @@ KDB_COMMAND(bt, NULL, "Current thread backtrace")
     kprintf("[%p] ", *(uint64_t*)(rbp + 8));
     rbp = *(uint64_t*)rbp;
   }
-
+#endif
 }
 
 KDB_COMMAND(curthread, "i:thread", "Sets current thread")
