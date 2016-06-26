@@ -6,7 +6,7 @@ IMG=/tmp/disk.img
 SIZE=500
 UID=`id -u`
 
-GRUB_ROOT=~/build
+GRUB_ROOT=/home/rink/build
 
 echo "This (Linux only!) script will create a ${SIZE} MB disk image in ${IMG} with VFAT"
 echo "The image will be prepared with GRUB2 so it can be booted from"

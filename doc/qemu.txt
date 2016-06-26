@@ -9,7 +9,7 @@ Maybe more.
 1) Build
 
 $ git clone git://git.qemu-project.org/qemu.git
-$ './configure' '--prefix=~/build' '--target-list=x86_64-softmmu' '--enable-libusb' '--enable-debug'
+$ './configure' '--prefix=/home/rink/build' '--target-list=x86_64-softmmu' '--enable-libusb' '--enable-debug' '--audio-drv-list=alsa,sdl'
 $ make -j8
 $ make install
 
@@ -35,3 +35,7 @@ OHCI
 Note that '1c4f' is the USB vendor ID, and 0002 is the USB device ID that you want to hook up to your QEMU instance.
 
 Also, you may need to 'sudo chown -R `whoami` /dev/bus/usb' to ensure you have the appropriate permissions.
+
+---
+
+-global intel-hda.debug=10
