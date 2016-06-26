@@ -21,11 +21,22 @@ struct VM_SPACE;
 
 #define THREAD_EVENT_EXIT 1
 
+DQUEUE_DEFINE(THREAD_QUEUE, thread_t);
+
+struct THREAD_WAITER {
+	semaphore_t	tw_sem;
+	DQUEUE_FIELDS(struct THREAD_WAITER);
+};
+
+DQUEUE_DEFINE(THREAD_WAIT_QUEUE, struct THREAD_WAITER);
+
 struct THREAD {
 	/* Machine-dependant data - must be first */
 	MD_THREAD_FIELDS
 
 	spinlock_t t_lock;	/* Lock protecting the thread data */
+
+	refcount_t t_refcount;		/* Reference count of the thread, >0 */
 
 	unsigned int t_flags;
 #define THREAD_FLAG_ACTIVE	0x0001	/* Thread is scheduled somewhere */
@@ -58,13 +69,14 @@ struct THREAD {
 	/* Handles */
 	struct HANDLE* t_handle[THREAD_MAX_HANDLES];
 
+	/* Waiters to signal on thread changes */
+	struct THREAD_WAIT_QUEUE t_waitqueue;
+
 	/* Scheduler specific information */
 	struct SCHED_PRIV t_sched_priv;
 
 	DQUEUE_FIELDS(thread_t);
 };
-
-DQUEUE_DEFINE(THREAD_QUEUE, thread_t);
 
 /* Macro's to facilitate flag checking */
 #define THREAD_IS_ACTIVE(t) ((t)->t_flags & THREAD_FLAG_ACTIVE)
@@ -86,8 +98,8 @@ errorcode_t kthread_init(thread_t* t, kthread_func_t func, void* arg);
 #define THREAD_ALLOC_CLONE	1	/* Thread is created for cloning */
 
 errorcode_t thread_alloc(thread_t* parent, thread_t** dest, int flags);
-void thread_free(thread_t* t);
-void thread_destroy(thread_t* t);
+void thread_ref(thread_t* t);
+void thread_deref(thread_t* t);
 errorcode_t thread_set_args(thread_t* t, const char* args, size_t args_len);
 errorcode_t thread_set_environment(thread_t* t, const char* env, size_t env_len);
 
@@ -109,6 +121,9 @@ void thread_resume(thread_t* t);
 void thread_exit(int exitcode);
 void thread_dump(int num_args, char** arg);
 errorcode_t thread_clone(thread_t* parent, int flags, thread_t** dest);
+
+void thread_signal_waiters(thread_t* t);
+void thread_wait(thread_t* t);
 
 /*
  * Thread callback functions are provided so that modules can take action upon

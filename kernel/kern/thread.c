@@ -36,6 +36,7 @@ thread_init(thread_t* t, thread_t* parent, int flags)
 	err = handle_alloc(HANDLE_TYPE_THREAD, t /* XXX should be parent? */, THREAD_MAX_HANDLES - 1, &thread_handle, &t->t_hidx_thread);
 	ANANAS_ERROR_RETURN(err);
 	thread_handle->h_data.d_thread = t;
+	t->t_refcount = 1; /* caller */
 
 	/* Set up CPU affinity and priority */
 	t->t_priority = THREAD_PRIORITY_DEFAULT;
@@ -78,7 +79,7 @@ thread_init(thread_t* t, thread_t* parent, int flags)
 
 			struct HANDLE* handle;
 			handleindex_t out;
-			err = handle_clone(parent, n, NULL, t, &handle, &out);
+			err = handle_clone(parent, n, NULL, t, &handle, n, &out);
 			ANANAS_ERROR_RETURN(err); /* XXX clean up */
 			KASSERT(n == out, "cloned handle %d to new handle %d", n, out);
 		}
@@ -156,9 +157,12 @@ thread_alloc(thread_t* parent, thread_t** dest, int flags)
 	return err;
 }
 
-
-void
-thread_free(thread_t* t)
+/*
+ * thread_cleanup() migrates a thread to zombie-state; this involves freeing
+ * most resources.
+ */
+static void
+thread_cleanup(thread_t* t)
 {
 	KASSERT((t->t_flags & THREAD_FLAG_ZOMBIE) == 0, "freeing zombie thread %p", t);
 
@@ -166,8 +170,6 @@ thread_free(thread_t* t)
 	struct HANDLE* thread_handle;
 	err = handle_lookup(t, t->t_hidx_thread, HANDLE_TYPE_THREAD, &thread_handle);
 	KASSERT(err == ANANAS_ERROR_NONE, "cannot look up thread handle for %p: %d", t, err);
-
-	KASSERT(PCPU_GET(curthread) != t || thread_handle->h_refcount > 1, "freeing current thread with invalid refcount %d", thread_handle->h_refcount);
 
 	/*
 	 * Free all handles in use by the thread. Note that we must not free the thread
@@ -203,7 +205,13 @@ thread_free(thread_t* t)
 	 * already be set at this point - note that handle_wait() will do additional
 	 * checks to ensure the thread is truly gone.
 	 */
-	handle_signal(thread_handle, THREAD_EVENT_EXIT, t->t_terminate_info);
+	thread_signal_waiters(t);
+
+	/*
+	 * Force our thread handle to point to nothing; we're about to free it, but we
+	 * don't want it to deref us again.
+	 */
+	thread_handle->h_data.d_thread = NULL;
 
 	/*
 	 * Throw away the thread handle itself; it will be removed once it runs out of
@@ -213,11 +221,16 @@ thread_free(thread_t* t)
 	handle_free_byindex(t, t->t_hidx_thread);
 }
 
-void
+/*
+ * thread_destroy() take a zombie thread and completely frees it (the thread
+ * will not be valid after calling this function)
+ */
+static void
 thread_destroy(thread_t* t)
 {
 	KASSERT(PCPU_GET(curthread) != t, "thread_destroy() on current thread");
 	KASSERT(THREAD_IS_ZOMBIE(t), "thread_destroy() on a non-zombie thread");
+	KASSERT((t), "thread_destroy() on a non-zombie thread");
 
 	/* Free the machine-dependant bits */
 	md_thread_free(t);
@@ -232,6 +245,64 @@ thread_destroy(thread_t* t)
 	spinlock_unlock(&spl_threadqueue);
 
 	kfree(t);
+}
+
+void
+thread_ref(thread_t* t)
+{
+	KASSERT(t->t_refcount > 0, "reffing thread with invalid refcount %d", t->t_refcount);
+	++t->t_refcount;
+}
+
+void
+thread_deref(thread_t* t)
+{
+	KASSERT(t->t_refcount > 0, "dereffing thread with invalid refcount %d", t->t_refcount);
+
+	/*
+	 * Thread cleanup is quite involved - we have two scenario's:
+	 *
+	 *  1) t is in non-zombie state
+	 *  2) t is in zombie-state
+	 *
+	 * For each of which there are two cases:
+	 *
+	 *  a) Thread itself is calling thread_deref()
+	 *  b) Other thread is calling thread_deref()
+	 *
+	 * Where we need to do the following (each of which involves decrementing
+	 * the refcount):
+	 *
+	 * (1a) It is safe to move the thread to zombie-state as the thread itself
+	 *      requested the free.
+ 	 * (1b) Nothing special; if the refcount reaches zero we must move the
+ 	 *      thread to zombie-state and move to (2b) - note that this
+	 *      shouldn't ordinarily happen: where did the thread's ref to itself
+	 *      go?
+	 * (2a) Nothing - we can't clean up our own resources any futher. If we took
+	 *      the last ref, we must give one to another thread because we cannot
+	 *      clean ourselves up.
+	 * (2b) Clean up the thread if this is the final ref.
+	 */
+	int is_self = PCPU_GET(curthread) == t;
+	if (!THREAD_IS_ZOMBIE(t)) /* (1) */ {
+		if (is_self) /* (1a) */ {
+			thread_cleanup(t);
+		} else /* (1b) */ {
+			if (t->t_refcount == 1) {
+				kprintf("thread_deref(): warning: 1b with refcount 1!\n");
+			}
+		}
+	} else /* (2) */ {
+		if (is_self) /* (2a) */ {
+			panic("(2a), t=%p", t);
+		}
+	}
+
+	if (--t->t_refcount > 0)
+		return;
+
+	thread_destroy(t);
 }
 
 void
@@ -272,8 +343,11 @@ thread_exit(int exitcode)
 	/* Store the result code; thread_free() will mark the thread as terminating */
 	thread->t_terminate_info = exitcode;
 
-	/* Free as much of the thread as we can */
-	thread_free(thread);
+	/*
+	 * Dereference our own thread handle; this will cause a transition to
+	 * zombie-state - we are invoking case (1a) of thread_deref() here.
+	 */
+	thread_deref(thread);
 
 	/* Ask the scheduler to exit the thread */
 	scheduler_exit_thread(thread);
@@ -371,6 +445,32 @@ thread_unregister_exit_func(struct THREAD_CALLBACK* fn)
 	DQUEUE_REMOVE(&threadcallbacks_exit, fn);
 	spinlock_unlock(&spl_threadfuncs);	
 	return ANANAS_ERROR_OK;
+}
+
+void
+thread_signal_waiters(thread_t* t)
+{
+	spinlock_lock(&t->t_lock);
+	while (!DQUEUE_EMPTY(&t->t_waitqueue)) {
+		struct THREAD_WAITER* tw = DQUEUE_HEAD(&t->t_waitqueue);
+		DQUEUE_POP_HEAD(&t->t_waitqueue);
+		sem_signal(&tw->tw_sem);
+	}
+	spinlock_unlock(&t->t_lock);
+}
+
+void
+thread_wait(thread_t* t)
+{
+	struct THREAD_WAITER tw;
+	sem_init(&tw.tw_sem, 0);
+
+	spinlock_lock(&t->t_lock);
+	DQUEUE_ADD_TAIL(&t->t_waitqueue, &tw);
+	spinlock_unlock(&t->t_lock);
+
+	sem_wait(&tw.tw_sem);
+	/* 'tw' will be removed by thread_signal_waiters() */
 }
 
 void

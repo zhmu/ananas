@@ -48,23 +48,29 @@ threadhandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handl
 }
 
 static errorcode_t
-threadhandle_clone(thread_t* thread_in, handleindex_t index, struct HANDLE* handle, struct CLONE_OPTIONS* opts, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t* index_out)
+threadhandle_clone(thread_t* thread_in, handleindex_t index, struct HANDLE* handle, struct CLONE_OPTIONS* opts, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
 {
 	thread_t* newthread;
 	errorcode_t err = thread_clone(handle->h_thread, 0, &newthread);
 	ANANAS_ERROR_RETURN(err);
+
+	/* Grab an extra ref; we'll give it to the new thread */
+	thread_ref(newthread);
 
 	/* Look up the new thread's handle */
 	struct HANDLE* thread_handle;
 	err = handle_lookup(newthread, newthread->t_hidx_thread, HANDLE_TYPE_THREAD, &thread_handle);
 	KASSERT(err == ANANAS_ERROR_OK, "unable to look up new thread %p handle %d: %d", newthread, newthread->t_hidx_thread, err);
 
-	/* Create a reference to the new thread's handle; we won't be owner of it */
-	err = handle_create_ref(newthread, newthread->t_hidx_thread, thread_out, handle_out, index_out);
+	/* Create a a handle to the new thread; we'll share refcount with the thread itself  */
+	err = handle_alloc(HANDLE_TYPE_THREAD, thread_in, index_out_min, handle_out, index_out);
 	if (err != ANANAS_ERROR_OK) {
-		thread_destroy(newthread);
+		/* Remove our ref and the thread itself */
+		thread_deref(newthread);
+		thread_deref(newthread);
 		return err;
 	}
+	(*handle_out)->h_data.d_thread = newthread;
 
 	TRACE(HANDLE, INFO, "newthread handle=%x index=%d", *handle_out, *index_out);
 	return ANANAS_ERROR_OK;
@@ -73,7 +79,9 @@ threadhandle_clone(thread_t* thread_in, handleindex_t index, struct HANDLE* hand
 static errorcode_t
 threadhandle_free(thread_t* thread, struct HANDLE* handle)
 {
-	thread_destroy(thread);
+	thread_t* t = handle->h_data.d_thread;
+	if (t != NULL)
+		thread_deref(t);
 	return ANANAS_ERROR_OK;
 }
 

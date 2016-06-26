@@ -7,6 +7,7 @@
 #include <ananas/mm.h>
 #include <ananas/lib.h>
 
+#if 0
 TRACE_SETUP;
 
 /* Note that pipehandle_signal() signals everything *except* the hpi passed to it! */
@@ -187,5 +188,6 @@ static struct HANDLE_OPS pipe_hops = {
 	.hop_clone = pipehandle_clone,
 };
 HANDLE_TYPE(HANDLE_TYPE_PIPE, "pipe", pipe_hops);
+#endif
 
 /* vim:set ts=2 sw=2: */

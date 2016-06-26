@@ -53,7 +53,7 @@ vfshandle_open(thread_t* thread, handleindex_t index, struct HANDLE* handle, str
 	/* Grab the path handle for the thread */
 	struct HANDLE* path_handle;
 	errorcode_t err = handle_lookup(thread, thread->t_hidx_path, HANDLE_TYPE_FILE, &path_handle);
-	KASSERT(err == ANANAS_ERROR_NONE, "vfshandle_open(): thread %p path handle %d invalid", thread, thread->t_hidx_path);
+	KASSERT(err == ANANAS_ERROR_NONE, "vfshandle_open(): thread %p path handle %d invalid: %d", thread, thread->t_hidx_path, err);
 
 	/*
 	 * If we could try to create the file, do so - if this fails, we'll attempt
@@ -274,7 +274,7 @@ vfshandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handle, 
 }
 
 static errorcode_t
-vfshandle_clone(thread_t* thread_in, handleindex_t index_in, struct HANDLE* handle_in, struct CLONE_OPTIONS* opts, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t* index_out)
+vfshandle_clone(thread_t* thread_in, handleindex_t index_in, struct HANDLE* handle_in, struct CLONE_OPTIONS* opts, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
 {
 	struct VFS_FILE* file;
 	errorcode_t err = vfshandle_get_file(handle_in, &file);
@@ -290,7 +290,7 @@ vfshandle_clone(thread_t* thread_in, handleindex_t index_in, struct HANDLE* hand
 		dentry_ref(dentry);
 
 	/* Now, just ordinarely clone the handle */
-	return handle_clone_generic(handle_in, thread_out, handle_out, index_out);
+	return handle_clone_generic(handle_in, thread_out, handle_out, index_out_min, index_out);
 }
 
 static errorcode_t
@@ -305,14 +305,15 @@ vfshandle_summon(thread_t* thread, struct HANDLE* handle, struct SUMMON_OPTIONS*
 	err = thread_alloc(thread, &newthread, THREAD_ALLOC_DEFAULT);
 	ANANAS_ERROR_RETURN(err);
 
-	/*
-	 * Create a reference to the new thread's handle to give to our parent; we are not
-	 * the owner of the thread handle, so we can't directly return it.
-	 */
-	struct HANDLE* ref_handle = NULL;
-	err = handle_create_ref(newthread, newthread->t_hidx_thread, thread, handle_out, index_out);
+	/* Grab an extra ref for the client */
+	thread_ref(newthread);
+
+	/* Create an extra thread handle to give to the parent so it can monitor the child */
+	*handle_out = NULL;
+	err = handle_alloc(HANDLE_TYPE_THREAD, thread, 0, handle_out, index_out);
 	if (err != ANANAS_ERROR_NONE)
 		goto fail;
+	(*handle_out)->h_data.d_thread = newthread;
 
 	/* Ask the VFS to summon the file over our thread */
 	err = vfs_summon(file, newthread);
@@ -348,12 +349,14 @@ vfshandle_summon(thread_t* thread, struct HANDLE* handle, struct SUMMON_OPTIONS*
 	return ANANAS_ERROR_OK;
 
 fail:
-	if (ref_handle != NULL)
-		handle_free(ref_handle);
-	if (newthread != NULL) {
-		thread_free(newthread);
-		thread_destroy(newthread);
+	if (handle_out != NULL) {
+		handle_free(*handle_out);
+		*handle_out = NULL;
+	} else {
+		/* Remove the ref we'd have given to handle_out */
+		thread_deref(newthread);
 	}
+	thread_deref(newthread);
 	return err;
 }
 

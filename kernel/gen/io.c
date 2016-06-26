@@ -173,7 +173,7 @@ sys_clone(thread_t* t, handleindex_t in, struct CLONE_OPTIONS* opts, handleindex
 	/* Try to clone it */
 	struct HANDLE* dest_handle;
 	handleindex_t dest_index;
-	err = handle_clone(t, in, &clone_opts, t, &dest_handle, &dest_index);
+	err = handle_clone(t, in, &clone_opts, t, &dest_handle, 0, &dest_index);
 	ANANAS_ERROR_RETURN(err);
 
 	/*
@@ -207,10 +207,15 @@ sys_wait(thread_t* t, handleindex_t hindex, handle_event_t* event, handle_event_
 		wait_event = *in_event;
 	}
 
-	/* Wait for the handle */
-	handle_event_result_t wait_result;
-	err = handle_wait(t, hindex, &wait_event, &wait_result);
-	ANANAS_ERROR_RETURN(err);
+	/* Wait for the handle - XXX only thread handles for now */
+	if(h->h_type != HANDLE_TYPE_THREAD)
+		return ANANAS_ERROR(BAD_OPERATION);
+	handle_event_result_t wait_result = 0;
+	thread_wait(h->h_data.d_thread);
+
+	/* XXX this shouldn't be hardcoded here */
+	wait_event = THREAD_EVENT_EXIT;
+	wait_result = h->h_data.d_thread->t_terminate_info;
 
 	/* If the event type was requested, set it up */
 	if (event != NULL) {

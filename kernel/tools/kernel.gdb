@@ -60,7 +60,7 @@ define t_print
 		end
 		echo \n
 		set $hindex = 0
-		while $hindex < 256
+		while $hindex < 64
 			if $t->t_handle[$hindex] != 0
 				printf "handle %d, ", $hindex
 				h_print $t->t_handle[$hindex]
@@ -100,10 +100,6 @@ def h_print
 		end
 		if ($h->h_type == 3)
 			printf "<pipe>"
-		end
-		if ($h->h_type == 4)
-			set $p = (struct HANDLE_MEMORY_INFO)($h->h_data.d_ref)
-			printf "<ref>, handle=%p ref_thread=%p ref_index=%d", $p.ref_handle, $p.ref_thread, $p.ref_index
 		end
 		echo \n
 	end

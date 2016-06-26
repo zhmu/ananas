@@ -15,29 +15,15 @@ typedef unsigned int handle_event_result_t;
 #define HANDLE_TYPE_FILE	1
 #define HANDLE_TYPE_THREAD	2
 #define HANDLE_TYPE_PIPE	3
-#define HANDLE_TYPE_REFERENCE	4
 
 #define HANDLE_EVENT_ANY	0
 #define HANDLE_EVENT_READ	1
 #define HANDLE_EVENT_WRITE	2
 
 #define HANDLE_VALUE_INVALID	0
-#define HANDLE_MAX_WAITERS	10	/* XXX should be any limit */
-
-#define HANDLE_FLAG_TEARDOWN	1	/* if set, handle is going away and can't be reffed anymore */
 
 struct THREAD;
 struct HANDLE_OPS;
-
-/* Waiters are threads waiting for an event on a thread */
-struct HANDLE_WAITER {
-	struct THREAD* hw_thread;
-	semaphore_t hw_sem;
-	int hw_event;
-	handle_event_t hw_event_mask;
-	handle_event_t hw_event_reported;
-	handle_event_result_t hw_result;
-};
 
 struct HANDLE_PIPE_BUFFER {
 	mutex_t hpb_mutex;
@@ -62,28 +48,19 @@ struct HANDLE_PIPE_INFO {
 	struct HANDLE* hpi_handle;
 };
 
-struct HANDLE_REF_INFO {
-	struct HANDLE* ref_handle;
-	thread_t* ref_thread;
-	handleindex_t ref_index;
-};
-
 struct HANDLE {
 	int h_type;				/* one of HANDLE_TYPE_... */
 	int h_flags;				/* flags */
 	struct THREAD* h_thread;		/* owning thread */
 	mutex_t h_mutex;			/* mutex guarding the handle */
-	refcount_t h_refcount;			/* reference count */
 	struct HANDLE_OPS* h_hops;		/* handle operations */
 	DQUEUE_FIELDS(struct HANDLE);		/* used for the queue structure */
 
 	/* Waiters are those who are waiting on this handle */
-	struct HANDLE_WAITER h_waiters[HANDLE_MAX_WAITERS];
 	union {
 		struct VFS_FILE d_vfs_file;
 		struct THREAD*  d_thread;
 		struct HANDLE_PIPE_INFO d_pipe;
-		struct HANDLE_REF_INFO d_ref;
 	} h_data;
 };
 
@@ -103,7 +80,7 @@ typedef errorcode_t (*handle_free_fn)(thread_t* thread, struct HANDLE* handle);
 typedef errorcode_t (*handle_unlink_fn)(thread_t* thread, handleindex_t index, struct HANDLE* handle);
 typedef errorcode_t (*handle_create_fn)(thread_t* thread, handleindex_t index, struct HANDLE* handle, struct CREATE_OPTIONS* opts);
 typedef errorcode_t (*handle_control_fn)(thread_t* thread, handleindex_t index, struct HANDLE* handle, unsigned int op, void* arg, size_t len);
-typedef errorcode_t (*handle_clone_fn)(thread_t* thread_in, handleindex_t index, struct HANDLE* handle, struct CLONE_OPTIONS* opts, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t* index_out);
+typedef errorcode_t (*handle_clone_fn)(thread_t* thread_in, handleindex_t index, struct HANDLE* handle, struct CLONE_OPTIONS* opts, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out);
 typedef errorcode_t (*handle_summon_fn)(thread_t* thread, struct HANDLE* handle, struct SUMMON_OPTIONS* opts, struct HANDLE** handle_out, handleindex_t* index_out);
 
 struct HANDLE_OPS {
@@ -132,15 +109,14 @@ errorcode_t handle_alloc(int type, thread_t* t, handleindex_t index_from, struct
 errorcode_t handle_free(struct HANDLE* h);
 errorcode_t handle_free_byindex(thread_t* t, handleindex_t index);
 errorcode_t handle_lookup(thread_t* t, handleindex_t index, int type, struct HANDLE** handle_out);
-errorcode_t handle_clone(thread_t* t_in, handleindex_t index, struct CLONE_OPTIONS* opts, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t* index_out);
+errorcode_t handle_clone(thread_t* t_in, handleindex_t index, struct CLONE_OPTIONS* opts, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out);
 errorcode_t handle_set_owner(thread_t* t, handleindex_t index_in, handleindex_t owner_thread_in, handleindex_t* index_out);
-errorcode_t handle_create_ref(thread_t* thread_in, handleindex_t index_in, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t* index_out);
 
 errorcode_t handle_wait(thread_t* t, handleindex_t index, handle_event_t* event, handle_event_result_t* h);
 void handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t result);
 
 /* Only to be used from handle implementation code */
-errorcode_t handle_clone_generic(struct HANDLE* handle, thread_t* thread_out, struct HANDLE** out, handleindex_t* index);
+errorcode_t handle_clone_generic(struct HANDLE* handle, thread_t* thread_out, struct HANDLE** out, handleindex_t index_out_min, handleindex_t* index);
 errorcode_t handle_register_type(struct HANDLE_TYPE* ht);
 errorcode_t handle_unregister_type(struct HANDLE_TYPE* ht);
 
