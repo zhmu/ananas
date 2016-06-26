@@ -127,8 +127,8 @@ if [ ! -x "$CROSS_CC" ]; then
 	exit 1
 fi
 
-# prepare target
-rm -rf ${TARGET}/*
+# remove apps from target; leave bootloader/kernel intact
+rm -rf ${TARGET}/bin ${TARGET}/lib ${TARGET}/share ${TARGET}/usr
 
 do_libc
 do_crt
