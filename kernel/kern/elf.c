@@ -172,8 +172,8 @@ elf32_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 		 */
 		addr_t virt_begin = ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE);
 		addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_memsz), PAGE_SIZE);
-		struct VM_FLAGPING* tm;
-		err = thread_mapto(thread, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &tm);
+		vmarea_t* va;
+		err = vmspace_mapto(thread->t_vmspace, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &va);
 		if (err != ANANAS_ERROR_OK)
 			goto fail;
 		TRACE(EXEC, INFO, "ph %u: instantiated mapping for %x-%x",
@@ -189,10 +189,10 @@ elf32_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 		privdata->elf_num_ph++;
 
 		/* Hook the program header to the mapping */
-		tm->tm_privdata = ph;
-		tm->tm_fault = elf_tm_fault_func;
-		tm->tm_destroy = elf_tm_destroy_func;
-		tm->tm_clone = elf_tm_clone_func;
+		va->va_privdata = ph;
+		va->va_fault = elf_tm_fault_func;
+		va->va_destroy = elf_tm_destroy_func;
+		va->va_clone = elf_tm_clone_func;
 		privdata->elf_num_refs++;
 	}
 	TRACE(EXEC, INFO, "done, entry point is 0x%x", ehdr.e_entry);
