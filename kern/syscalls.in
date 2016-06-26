@@ -13,3 +13,4 @@
 8	{ errorcode_t clone(handleindex_t handle, struct CLONE_OPTIONS* opts, handleindex_t* out); }
 9	{ errorcode_t wait(handleindex_t handle, handle_event_t* event, handle_event_result_t* result); }
 10	{ errorcode_t summon(handleindex_t handle, struct SUMMON_OPTIONS* opts, handleindex_t* out); }
+11 { errorcode_t vmop(struct VMOP_OPTIONS* opts); }
