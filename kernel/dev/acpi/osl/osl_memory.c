@@ -2,6 +2,7 @@
 #include <ananas/vm.h>
 #include <ananas/mm.h>
 #include <ananas/kmem.h>
+#include <ananas/lib.h>
 #include <machine/param.h>
 #include <machine/vm.h>
 #include "../acpica/acpi.h"

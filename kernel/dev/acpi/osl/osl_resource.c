@@ -3,6 +3,7 @@
 #include <ananas/bus/pcihb.h>
 #include <ananas/error.h>
 #include <ananas/irq.h>
+#include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/kmem.h>
 #include <ananas/x86/io.h>

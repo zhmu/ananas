@@ -1,4 +1,5 @@
 #include <ananas/lock.h>
+#include <ananas/lib.h>
 #include <ananas/mm.h>
 #include "../acpica/acpi.h"
 
