@@ -67,7 +67,7 @@ struct EXIT_FUNC {
 		.if_subsystem = subsys, \
 		.if_order = order \
 	}; \
-	static void const * const __if_include_##fn __attribute__((section("initfuncs"))) = &if_##fn
+	void const * const __if_include_##fn __attribute__((section("initfuncs"))) = &if_##fn
 
 /*
  * Defines an exit function; currently only used for modules.
@@ -76,7 +76,7 @@ struct EXIT_FUNC {
 	static const struct EXIT_FUNC ef_##fn = { \
 		.ef_func = fn \
 	}; \
-	static const void * const __ef_include_##fn __attribute__((section("exitfuncs"))) = &ef_##fn
+	const void * const __ef_include_##fn __attribute__((section("exitfuncs"))) = &ef_##fn
 
 void mi_startup();
 void init_register_func(struct KERNEL_MODULE* kmod, struct INIT_FUNC* ifunc);
