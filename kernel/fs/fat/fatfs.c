@@ -149,7 +149,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 					if (next_free >= 2 && next_free < privdata->total_clusters)
 						privdata->next_avail_cluster = next_free;
 					uint32_t num_free = FAT_FROM_LE32(fsi->fsi_free_count);
-					if (num_free >= 0 && num_free < privdata->total_clusters)
+					if (num_free < privdata->total_clusters)
 						privdata->num_avail_clusters = num_free;
 
 					/* We have an info sector we should update */
