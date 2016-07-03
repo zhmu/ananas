@@ -17,4 +17,16 @@
 /* Used to indicate that arguments may not be NULL */
 #define __nonnull __attribute((nonnull))
 
+/* Used to indicate that a value is unused */
+#define __unused __attribute__((unused))
+
+#define STATIC_ASSERT3(line, cond, msg) \
+	typedef char __unused static_assert_failure_in_line_##line[(cond) ? 1 : -1]
+
+#define STATIC_ASSERT2(line, cond, msg) \
+	STATIC_ASSERT3(line, cond, msg)
+
+#define static_assert(cond, msg) \
+	STATIC_ASSERT2(__LINE__, (cond), (msg))
+
 #endif /* __ANANAS_CDEFS_H__ */

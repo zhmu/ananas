@@ -1,9 +1,6 @@
-#ifndef __SYS_CDEFS_H__
-#define __SYS_CDEFS_H__
+#ifndef SYS_CDEFS_H
+#define SYS_CDEFS_H
 
-#define __dead		__attribute__((__noreturn__))
-#define __unused	__attribute__((__unused__))
-#define __packed	__attribute__((__packed__))
-#define __aligned(x)	__attribute__((__aligned__(x)))
+#include <ananas/cdefs.h>
 
-#endif /* __SYS_CDEFS_H__ */
+#endif /* SYS_CDEFS_H */
