@@ -1,6 +1,8 @@
 #ifndef __AMD64_PCPU_H__
 #define __AMD64_PCPU_H__
 
+#include <ananas/cdefs.h>
+
 /* amd64-specific per-cpu structure */
 #define MD_PCPU_FIELDS								\
 	void		*context;						\
@@ -28,8 +30,7 @@
 
 #define PCPU_GET(name) ({							\
 	PCPU_TYPE(name) p;							\
-	if (sizeof(p) != 1 && sizeof(p) != 2 && sizeof(p) != 4 && sizeof(p) != 8)	\
-		panic("PCPU_GET: Unsupported field size %u", sizeof(p));	\
+	static_assert(sizeof(p) == 1 || sizeof(p) == 2 || sizeof(p) == 4 || sizeof(p) == 8, "unsupported field size"); \
 	__asm __volatile (							\
 		"mov %%gs:%1, %0"						\
 		: "=r" (p)							\
@@ -40,9 +41,8 @@
 
 #define PCPU_SET(name, val) do {						\
 	PCPU_TYPE(name) p;							\
+	static_assert(sizeof(p) == 1 || sizeof(p) == 2 || sizeof(p) == 4 || sizeof(p) == 8, "unsupported field size"); \
 	p = (val);								\
-	if (sizeof(p) != 1 && sizeof(p) != 2 && sizeof(p) != 4 && sizeof(p) != 8)	\
-		panic("PCPU_SET: Unsupported field size %u", sizeof(p));	\
 	__asm __volatile (							\
 		"mov %1,%%gs:%0"						\
 		: "=m" (*(uint32_t*)PCPU_OFFSET(name))				\

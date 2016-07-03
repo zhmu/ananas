@@ -1,6 +1,8 @@
 #ifndef __I386_PCPU_H__
 #define __I386_PCPU_H__
 
+#include <ananas/cdefs.h>
+
 /* i386-specific per-cpu structure */
 #define MD_PCPU_FIELDS \
 	void		*context; \
@@ -17,8 +19,7 @@
 
 #define PCPU_GET(name) ({							\
 	PCPU_TYPE(name) p;							\
-	if (sizeof(p) != 1 && sizeof(p) != 2 && sizeof(p) != 4)			\
-		panic("PCPU_GET: Unsupported field size %u", sizeof(p));	\
+	static_assert(sizeof(p) == 1 || sizeof(p) == 2 || sizeof(p) == 4, "unsupported field size"); \
 	__asm __volatile (							\
 		"mov %%fs:%1, %0"						\
 		: "=r" (p)							\
@@ -29,8 +30,8 @@
 
 #define PCPU_SET(name, val) do {						\
 	PCPU_TYPE(name) p;							\
+	static_assert(sizeof(p) == 1 || sizeof(p) == 2 || sizeof(p) == 4, "unsupported field size"); \
 	p = (val);								\
-	if (sizeof(p) != 1 && sizeof(p) != 2 && sizeof(p) != 4)			\
 		panic("PCPU_SET: Unsupported field size %u", sizeof(p));	\
 	__asm __volatile (							\
 		"mov %1,%%fs:%0"						\
