@@ -23,6 +23,7 @@
 #include <ananas/_types/spinlock.h>
 #include <ananas/_types/time.h>
 #include <ananas/_types/thread.h>
+#include <ananas/_types/vmspace.h>
 
 
 typedef unsigned char	u_char;

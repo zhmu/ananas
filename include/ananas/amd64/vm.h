@@ -113,8 +113,6 @@
 
 #ifndef ASM
 
-typedef struct VM_SPACE vmspace_t;
-
 /* Maps relevant kernel addresses for a given thread */
 void md_map_kernel(vmspace_t* vs);
 

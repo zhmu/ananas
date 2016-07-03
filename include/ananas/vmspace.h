@@ -6,7 +6,6 @@
 #include <ananas/page.h>
 
 typedef struct VM_AREA vmarea_t;
-typedef struct VM_SPACE vmspace_t;
 
 /* Fault function: handles a page fault for vmspace 'vs', area 'va' and address 'virt' */
 typedef errorcode_t (*vmarea_fault_t)(vmspace_t* vs, vmarea_t* va, addr_t virt);
