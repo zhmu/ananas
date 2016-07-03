@@ -139,11 +139,12 @@ strncpy(char* dst, const char* src, size_t n)
 {
 	char* ptr = dst;
 
-	while (*src && n > 0) {
+	while (*src != '\0' && n > 0) {
 		*ptr++ = *src++; n--;
 	}
-	if (n >= 0)
-		*ptr = '\0';
+	while(n > 0) {
+		*ptr++ = '\0'; n--;
+	}
 	return dst;
 }
 

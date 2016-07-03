@@ -184,6 +184,7 @@ vfs_lookup_internal(struct DENTRY* curdentry, const char* name, struct DENTRY** 
 		if (ptr != NULL) {
 			/* There's a slash in the path - must lookup next part */
 			strncpy(tmp, next_name, ptr - next_name);
+			tmp[ptr - next_name] = '\0';
 			next_name = ++ptr;
 			next_lookup = tmp;
 		} else {
