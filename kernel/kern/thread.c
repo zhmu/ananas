@@ -56,7 +56,7 @@ thread_init(thread_t* t, thread_t* parent, int flags)
 		return ANANAS_ERROR(OUT_OF_MEMORY);
 
 	/* Initialize thread information structure */
-	memset(t->t_threadinfo, 0, sizeof(t->t_threadinfo));
+	memset(t->t_threadinfo, 0, sizeof(struct THREADINFO));
 	t->t_threadinfo->ti_size = sizeof(struct THREADINFO);
 	t->t_threadinfo->ti_handle = t->t_hidx_thread;
 	if (parent != NULL)
