@@ -420,7 +420,7 @@ module_init()
 	if (bootinfo == NULL)
 		return ANANAS_ERROR(NO_DEVICE);
 
-#ifndef __amd64__
+#ifdef BROKEN
 	/* Walk through all modules the loader has for us */
 	for (struct LOADER_MODULE* mod = (struct LOADER_MODULE*)PTOKV((addr_t)bootinfo->bi_modules);
 	     (addr_t)mod != PTOKV((addr_t)NULL); mod = (struct LOADER_MODULE*)PTOKV((addr_t)mod->mod_next)) {
