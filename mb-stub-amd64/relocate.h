@@ -4,6 +4,8 @@
 #include "types.h"
 
 struct RELOCATE_INFO {
+	/* Is this a 32 or 64 bit kernel? */
+	int ri_bits;
 	/* Virtual address start/end of relocation entry */
 	uint64_t ri_vaddr_start, ri_vaddr_end;
 	/* Physical address start/end of relocation entry */

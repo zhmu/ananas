@@ -43,6 +43,17 @@ entry:
 
 	xorl	%ebx, %ebx
 
+1:	/* Reload our descriptors with our GDT values */
+	mov 	$0x10, %ax
+	movw	%ax, %ds
+	movw	%ax, %es
+	movw	%ax, %fs
+	movw	%ax, %gs
+	movw	%ax, %ss
+
+	/* Reload %cs */
+	ljmp	$0x8, $1f
+
 1:	/* Call our C code */
 	pushl	%ebx		/* multiboot info structure */
 	call	startup
