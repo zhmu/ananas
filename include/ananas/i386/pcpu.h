@@ -32,7 +32,6 @@
 	PCPU_TYPE(name) p;							\
 	static_assert(sizeof(p) == 1 || sizeof(p) == 2 || sizeof(p) == 4, "unsupported field size"); \
 	p = (val);								\
-		panic("PCPU_SET: Unsupported field size %u", sizeof(p));	\
 	__asm __volatile (							\
 		"mov %1,%%fs:%0"						\
 		: "=m" (*(uint32_t*)PCPU_OFFSET(name))				\
