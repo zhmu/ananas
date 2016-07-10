@@ -1,13 +1,22 @@
 TARGET:		libc.a
 
-S=		../..
+# path to the source from here
+S=			../..
 
-CFLAGS+=	-nostdlib
+# tools
+CC=		${TOOL_PREFIX}clang
+
+# flags
+CFLAGS=		--sysroot ${SYSROOT}
+CFLAGS+=	-I$S/../../include -I. -std=c99
+CFLAGS+=	-Wall -Werror
+CFLAGS+=	-Wno-builtin-requires-header
+ASMFLAGS=	$(CFLAGS) -DASM
+
+# files to build
 SOURCES=	$(shell find $S -name "*.c" ! -name "syscalls.inc.c" )
 OBJS+=		$(patsubst %.c,%.o,$(SOURCES))
 OBJS+=		syscall.o
-
-ASMFLAGS=	$(CFLAGS) -DASM
 
 %.o:		%.c
 		$(CC) $(CFLAGS) -c -o $@ $<
@@ -23,6 +32,12 @@ libc.a:		machine $(OBJS) $(MDOBJS)
 
 libc.so.1:	machine $(OBJS) $(MDOBJS)
 		$(CC) -shared -Wl,-soname,libc.so.1 -o libc.so.1.0 $(OBJS) $(MDOBJS)
+
+# installation
+install:	${SYSROOT}/lib/libc.a
+
+${SYSROOT}/lib/libc.a:	libc.a
+		cp libc.a ${SYSROOT}/lib
 
 clean:
 		rm -f libc.a machine $(OBJS) $(MDOBJS)
