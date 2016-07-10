@@ -18,13 +18,13 @@ crt1_s.o:	crt1.S
 cstart.o:	../common/cstart.c
 		$(CC) $(CFLAGS) -c -o cstart.o ../common/cstart.c
 
-install:	${SYSROOT}/lib/crt1.o ${SYSROOT}/lib/crtn.o
+install:	${SYSROOT}/usr/lib/crt1.o ${SYSROOT}/usr/lib/crtn.o
 
-${SYSROOT}/lib/crt1.o: crt1.o
-		cp crt1.o ${SYSROOT}/lib
+${SYSROOT}/usr/lib/crt1.o: crt1.o
+		cp crt1.o ${SYSROOT}/usr/lib
 
-${SYSROOT}/lib/crtn.o: crtn.o
-		cp crtn.o ${SYSROOT}/lib
+${SYSROOT}/usr/lib/crtn.o: crtn.o
+		cp crtn.o ${SYSROOT}/usr/lib
 
 clean:
 		rm -f crt1.o $(OBJS)

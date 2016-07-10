@@ -34,10 +34,10 @@ libc.so.1:	machine $(OBJS) $(MDOBJS)
 		$(CC) -shared -Wl,-soname,libc.so.1 -o libc.so.1.0 $(OBJS) $(MDOBJS)
 
 # installation
-install:	${SYSROOT}/lib/libc.a
+install:	${SYSROOT}/usr/lib/libc.a
 
-${SYSROOT}/lib/libc.a:	libc.a
-		cp libc.a ${SYSROOT}/lib
+${SYSROOT}/usr/lib/libc.a:	libc.a
+		cp libc.a ${SYSROOT}/usr/lib
 
 clean:
 		rm -f libc.a machine $(OBJS) $(MDOBJS)
