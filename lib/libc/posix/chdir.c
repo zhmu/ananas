@@ -32,7 +32,7 @@ int chdir(const char* path)
 	if (path[0] == '/') {
 		strncpy(_posix_cwd, path, sizeof(_posix_cwd));
 	} else {
-		strncat(_posix_cwd, path, sizeof(_posix_cwd));
+		strncat(_posix_cwd, path, sizeof(_posix_cwd) - 1);
 	}
 	_posix_cwd[sizeof(_posix_cwd) - 1] = '\0';
 	return 0;
