@@ -1,10 +1,13 @@
-TC_PREFIX?=	../../../toolchain/prefix.${ARCH}
-CC=		${TC_PREFIX}/bin/${ARCH}-elf-ananas-gcc
-LD=		${TC_PREFIX}/bin/${ARCH}-elf-ananas-ld
-OBJS=		crt1_s.o cstart.o crtn.o
-include		../../../conf/Makefile.inc
+CC=		${TOOL_PREFIX}clang
+LD=		${TOOL_PREFIX}ld
 
-CFLAGS=		-Wall -Werror
+OBJS=		crt1_s.o cstart.o crtn.o
+
+# flags
+CFLAGS=		--sysroot ${SYSROOT}
+CFLAGS+=	-I$S/../../include -I. -std=c99
+CFLAGS+=	-Wall -Werror
+CFLAGS+=	-Wno-builtin-requires-header
 
 crt1.o:		crt1_s.o cstart.o
 		$(LD) -r -o crt1.o crt1_s.o cstart.o
@@ -15,13 +18,13 @@ crt1_s.o:	crt1.S
 cstart.o:	../common/cstart.c
 		$(CC) $(CFLAGS) -c -o cstart.o ../common/cstart.c
 
-install:	${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}/crt1.o ${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}/crtn.o
+install:	${SYSROOT}/lib/crt1.o ${SYSROOT}/lib/crtn.o
 
-${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}/crt1.o:	crt1.o
-		cp crt1.o ${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}
+${SYSROOT}/lib/crt1.o: crt1.o
+		cp crt1.o ${SYSROOT}/lib
 
-${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}/crtn.o:	crtn.o
-		cp crtn.o ${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}
+${SYSROOT}/lib/crtn.o: crtn.o
+		cp crtn.o ${SYSROOT}/lib
 
 clean:
 		rm -f crt1.o $(OBJS)
