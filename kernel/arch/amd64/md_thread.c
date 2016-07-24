@@ -5,6 +5,8 @@
 #include <ananas/thread.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
+#include <ananas/kmem.h>
+#include <ananas/page.h>
 #include <ananas/mm.h>
 #include <ananas/pcpu.h>
 #include <ananas/syscall.h>
@@ -29,8 +31,13 @@ md_thread_init(thread_t* t, int flags)
 		ANANAS_ERROR_RETURN(err);
 	}
 
-	/* Create the kernel stack for this thread; this is fixed-length and always mapped */
-	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
+	/*
+	 * Create the kernel stack for this thread; we'll grab a few pages for this
+	 * but we won't map all of them to ensure we can catch stack underflow
+	 * and overflow.
+	 */
+	t->md_kstack_page = page_alloc_length(KERNEL_STACK_SIZE + PAGE_SIZE);
+	t->md_kstack = kmem_map(page_get_paddr(t->md_kstack_page) + PAGE_SIZE, KERNEL_STACK_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 
 	/* Fill out our MD fields */
 	t->md_cr3 = KVTOP((addr_t)t->t_vmspace->vs_md_pagedir);
@@ -58,7 +65,8 @@ md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
 	 * stack. We do not differentiate between kernel and userland stacks as
 	 * no kernelthread ever runs userland code.
 	 */
-  t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
+	t->md_kstack_page = page_alloc_length(KERNEL_STACK_SIZE + PAGE_SIZE);
+	t->md_kstack = kmem_map(page_get_paddr(t->md_kstack_page) + PAGE_SIZE, KERNEL_STACK_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
   t->md_rsp = (addr_t)t->md_kstack + KERNEL_STACK_SIZE - 16;
 
 	return ANANAS_ERROR_OK;
@@ -75,7 +83,8 @@ md_thread_free(thread_t* t)
 	 * t->t_pages an will have been freed already (this is why we the thread must
 	 * be a zombie at this point)
 	 */
-	kfree(t->md_kstack);
+	kmem_unmap(t->md_kstack, KERNEL_STACK_SIZE);
+	page_free(t->md_kstack_page);
 }
 
 thread_t*
