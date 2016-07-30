@@ -57,8 +57,14 @@ symbols_init()
 	/* Reject any missing bootinfo field */
 	if (bootinfo == NULL || bootinfo->bi_modules == 0 || bootinfo->bi_modules_size == 0)
 		return ANANAS_ERROR(NO_DEVICE);
+#ifndef BROKEN
 	struct LOADER_MODULE* kernel_mod = kmem_map(bootinfo->bi_modules, bootinfo->bi_modules_size, VM_FLAG_READ);
 	kprintf("kernel_mod=%p\n", kernel_mod);
+	kprintf("bootinfo %p symtab %p symtab_size %d strtab %p strtab_size %d\n",
+	 bootinfo,
+	 kernel_mod->mod_symtab_addr, kernel_mod->mod_symtab_size,
+	 kernel_mod->mod_strtab_addr, kernel_mod->mod_strtab_size);
+
 
 	errorcode_t result = ANANAS_ERROR(NO_DEVICE);
 	if (kernel_mod->mod_symtab_addr > 0 && kernel_mod->mod_symtab_size > 0 &&
@@ -72,6 +78,10 @@ symbols_init()
 
 	kmem_unmap(kernel_mod, bootinfo->bi_modules_size);
 	return result;
+#else
+	str_tab_size = 0;
+	return ANANAS_ERROR(NO_DEVICE);
+#endif
 }
 
 INIT_FUNCTION(symbols_init, SUBSYSTEM_MODULE, ORDER_FIRST);
