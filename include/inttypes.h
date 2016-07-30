@@ -11,6 +11,11 @@
 
 #include <stdint.h>
 
+#ifndef _PDCLIB_AUX_H
+#define _PDCLIB_AUX_H _PDCLIB_AUX_H
+#include <_PDCLIB/_PDCLIB_aux.h>
+#endif
+
 typedef struct _PDCLIB_imaxdiv_t imaxdiv_t;
 
 #define PRId8  _PDCLIB_symbol2string( _PDCLIB_concat( _PDCLIB_8_CONV, d ) )
