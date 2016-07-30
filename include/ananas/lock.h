@@ -39,13 +39,15 @@ typedef struct {
  * lock is already being held. They cannot be used from interrupt context; they
  * are implemented as binary semaphores.
  */
-typedef struct {
+struct MUTEX {
 	const char*		mtx_name;
 	thread_t*		mtx_owner;
 	semaphore_t		mtx_sem;
 	const char*		mtx_fname;
 	int			mtx_line;
-} mutex_t;
+};
+
+typedef struct MUTEX mutex_t;
 
 
 /* Ordinary spinlocks which can be preempted at any time */
@@ -65,11 +67,14 @@ void mutex_unlock(mutex_t* mtx);
 #define MTX_LOCKED 1
 #define MTX_UNLOCKED 2
 void mutex_assert(mutex_t* mtx, int what);
+int mutex_trylock_(mutex_t* mtx, const char* fname, int len);
+#define mutex_trylock(mtx) mutex_trylock_(mtx, __FILE__, __LINE__)
 
 /* Semaphores */
 void sem_init(semaphore_t* sem, int count);
 void sem_signal(semaphore_t* sem);
 void sem_wait(semaphore_t* sem);
+int sem_trywait(semaphore_t* sem);
 void sem_wait_and_drain(semaphore_t* sem);
 
 #endif /* __LOCK_H__ */

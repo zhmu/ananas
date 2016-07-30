@@ -1,5 +1,6 @@
 #include <ananas/types.h>
 #include <ananas/lock.h>
+#include <ananas/kdb.h>
 #include <ananas/lib.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
@@ -75,6 +76,19 @@ mutex_lock_(mutex_t* mtx, const char* fname, int line)
 	mtx->mtx_owner = PCPU_GET(curthread);
 	mtx->mtx_fname = fname;
 	mtx->mtx_line = line;
+}
+
+int
+mutex_trylock_(mutex_t* mtx, const char* fname, int line)
+{
+	if (!sem_trywait(&mtx->mtx_sem))
+		return 0;
+
+	/* We got the mutex */
+	mtx->mtx_owner = PCPU_GET(curthread);
+	mtx->mtx_fname = fname;
+	mtx->mtx_line = line;
+	return 1;
 }
 
 void
@@ -190,6 +204,8 @@ sem_wait_and_lock(semaphore_t* sem, register_t* state)
 void
 sem_wait(semaphore_t* sem)
 {
+	KASSERT(PCPU_GET(nested_irq) == 0, "sem_wait() in irq");
+
 	register_t state;
 	sem_wait_and_lock(sem, &state);
 	spinlock_unlock_unpremptible(&sem->sem_lock, state);
@@ -198,10 +214,27 @@ sem_wait(semaphore_t* sem)
 void
 sem_wait_and_drain(semaphore_t* sem)
 {
+	KASSERT(PCPU_GET(nested_irq) == 0, "sem_wait_and_drain() in irq");
+
 	register_t state;
 	sem_wait_and_lock(sem, &state);
 	sem->sem_count = 0; /* drain all remaining units */
 	spinlock_unlock_unpremptible(&sem->sem_lock, state);
+}
+
+int
+sem_trywait(semaphore_t* sem)
+{
+	int result = 0;
+
+	register_t state = spinlock_lock_unpremptible(&sem->sem_lock);
+	if (sem->sem_count > 0) {
+		sem->sem_count--;
+		result++;
+	}
+	spinlock_unlock_unpremptible(&sem->sem_lock, state);
+
+	return result;
 }
 
 /* vim:set ts=2 sw=2: */
