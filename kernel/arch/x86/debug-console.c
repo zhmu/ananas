@@ -43,7 +43,7 @@ debugcon_putch(int ch)
 		outb(0xe9, ch);
 	} else {
 		while((inb(DEBUGCON_IO + SIO_REG_LSR) & 0x20) == 0)
-		/* wait for the transfer buffer to become empty */ ;
+			/* wait for the transfer buffer to become empty */ ;
 		outb(DEBUGCON_IO + SIO_REG_DATA, ch);
 	}
 }
