@@ -170,7 +170,7 @@ IRQ_HANDLER(15)
 #ifdef OPTION_SMP
 .globl	irq_spurious, ipi_schedule, ipi_panic
 irq_spurious:
-	iret
+	iretq
 
 ipi_schedule:
 	IRQ_HANDLER(SMP_IPI_SCHEDULE)
