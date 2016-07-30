@@ -36,14 +36,20 @@ clear_bit(char* map, int bit)
 	map[bit / 8] &= ~(1 << (bit & 7));
 }
 
-/* This just returns 2^order */
 static inline unsigned int
-order2pages(int order)
+bytes2order(size_t length)
 {
-	unsigned int result = 1;
-	for (int n = 0; n < order; n++)
-		result <<= 1;
-	return result;
+	/* Convert length from bytes to pages */
+	unsigned int pages = length / PAGE_SIZE;
+
+	/* Now find the 2_log of this; this is the order we'll be allocating in */
+	int order = 0;
+	for (unsigned int n = pages; n > 1; n >>= 1)
+		order++;
+	if (PAGE_SIZE << order < length)
+		order++;
+
+	return order;
 }
 
 void
@@ -238,20 +244,16 @@ page_alloc_order_mapped(int order, struct PAGE** p, int vm_flags)
 	return kmem_map(page_get_paddr(*p), PAGE_SIZE << order, vm_flags);
 }
 
+struct PAGE*
+page_alloc_length(size_t length)
+{
+	return page_alloc_order(bytes2order(length));
+}
+
 void*
 page_alloc_length_mapped(size_t length, struct PAGE** p, int vm_flags)
 {
-	/* Convert length from bytes to pages */
-	unsigned int pages = length / PAGE_SIZE;
-
-	/* Now find the 2_log of this; this is the order we'll be allocating in */
-	int order = 0;
-	for (unsigned int n = pages; n > 1; n >>= 1)
-		order++;
-	if (PAGE_SIZE << order < length)
-		order++;
-
-	return page_alloc_order_mapped(order, p, vm_flags);
+	return page_alloc_order_mapped(bytes2order(length), p, vm_flags);
 }
 
 void

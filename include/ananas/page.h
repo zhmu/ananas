@@ -72,6 +72,9 @@ inline static void* page_alloc_single_mapped(struct PAGE** p, int vm_flags) {
 	return page_alloc_order_mapped(0, p, vm_flags);
 }
 
+/* Allocates enough pages to hold length bytes */
+struct PAGE* page_alloc_length(size_t length);
+
 /* Allocates enough pages to hold length bytes and maps it to kernel memory */
 void* page_alloc_length_mapped(size_t length, struct PAGE** p, int vm_flags);
 
