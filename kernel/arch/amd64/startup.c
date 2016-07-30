@@ -418,7 +418,7 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	IDT_SET_ENTRY( 5, SEG_TGATE_TYPE, 0, exception5);
 	IDT_SET_ENTRY( 6, SEG_TGATE_TYPE, 0, exception6);
 	IDT_SET_ENTRY( 7, SEG_TGATE_TYPE, 0, exception7);
-	IDT_SET_ENTRY( 8, SEG_TGATE_TYPE, 0 /* 1 */, exception8); /* use IST1 for double fault */
+	IDT_SET_ENTRY( 8, SEG_TGATE_TYPE, 1, exception8); /* use IST1 for double fault */
 	IDT_SET_ENTRY( 9, SEG_TGATE_TYPE, 0, exception9);
 	IDT_SET_ENTRY(10, SEG_TGATE_TYPE, 0, exception10);
 	IDT_SET_ENTRY(11, SEG_TGATE_TYPE, 0, exception11);
