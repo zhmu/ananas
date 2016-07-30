@@ -3,6 +3,7 @@
 #include <ananas/error.h>
 #include <ananas/tty.h>
 #include <ananas/lib.h>
+#include <ananas/mm.h>
 #include <ananas/lock.h>
 #include <ananas/debug-console.h>
 #include "options.h"
@@ -12,7 +13,13 @@ static spinlock_t spl_consoledrivers = SPINLOCK_DEFAULT_INIT;
 static struct CONSOLE_DRIVERS console_drivers;
 device_t console_tty = NULL;
 
+#define CONSOLE_BACKLOG_SIZE 1024
+
 static int console_mutex_inuse = 0;
+static spinlock_t console_backlog_lock;
+static char* console_backlog;
+static int console_backlog_pos = 0;
+static int console_backlog_overrun = 0;
 static mutex_t mtx_console;
 
 /* If set, display the driver list before attaching */
@@ -96,6 +103,11 @@ console_init()
 	if (input_dev != NULL || output_dev != NULL)
 		console_tty = tty_alloc(input_dev, output_dev);
 
+	/* Initialize the backlog; we use it to queue messages once the mutex is hold */
+	spinlock_init(&console_backlog_lock);
+	console_backlog = kmalloc(CONSOLE_BACKLOG_SIZE);
+	console_backlog_pos = 0;
+
 	/* Initialize the console print mutex and start using it */
 	mutex_init(&mtx_console, "console");
 	console_mutex_inuse++;
@@ -118,14 +130,50 @@ console_putchar(int c)
 	device_write(console_tty, (const char*)&ch, &len, 0);
 }
 
+
+static void
+console_puts(const char* s)
+{
+	for (int c = *s++; c != 0; c = *s++)
+		console_putchar(c);
+}
+
 void
 console_putstring(const char* s)
 {
-	if (console_mutex_inuse)
-		mutex_lock(&mtx_console);
+	if (console_mutex_inuse && !mutex_trylock(&mtx_console)) {
+		/*
+		 * Couldn't obtain the console mutex; we should put our message in the
+		 * back log and wait for it to be picked up later.
+		 */
+		int len = strlen(s);
+		register_t state = spinlock_lock_unpremptible(&console_backlog_lock);
+		if (console_backlog_pos + len < CONSOLE_BACKLOG_SIZE) {
+			/* Fits! */
+			strcpy(&console_backlog[console_backlog_pos], s);
+			console_backlog_pos += len;
+		} else {
+			/* Doesn't fit */
+			console_backlog_overrun++;
+		}
+		spinlock_unlock_unpremptible(&console_backlog_lock, state);
+		return;
+	}
 
-	for (int c = *s++; c != 0; c = *s++)
-		console_putchar(c);
+	console_puts(s);
+
+	/* See if there's anything in the backlog that we can print */
+	if (console_backlog_pos > 0) {
+		register_t state = spinlock_lock_unpremptible(&console_backlog_lock);
+		for (int n = 0; n < console_backlog_pos; n++)
+			console_putchar(console_backlog[n]);
+		console_backlog_pos = 0;
+
+		if (console_backlog_overrun)
+			console_puts("[***OVERRUN***]");
+		spinlock_unlock_unpremptible(&console_backlog_lock, state);
+	}
+
 
 	if (console_mutex_inuse)
 		mutex_unlock(&mtx_console);
