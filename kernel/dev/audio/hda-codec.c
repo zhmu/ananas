@@ -72,6 +72,10 @@ hda_attach_widget_audioout(device_t dev, struct HDA_NODE_AUDIOOUT* ao)
 
 	errorcode_t err = devfuncs->hdf_issue_verb(dev, HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_PCM)), &ao->ao_pcm, NULL);
 	ANANAS_ERROR_RETURN(err);
+
+	/* Use the AFG's default if the widget doesn't specify any */
+	if (ao->ao_pcm == 0)
+		ao->ao_pcm = privdata->hda_afg->afg_pcm;
 	return ANANAS_ERROR_NONE;
 }
 
@@ -108,6 +112,24 @@ hda_attach_widget_audiomixer(device_t dev, struct HDA_NODE_AUDIOMIXER* am)
 }
 
 static errorcode_t
+hda_attach_widget_audioselector(device_t dev, struct HDA_NODE_AUDIOSELECTOR* as)
+{
+	errorcode_t err;
+	err = hda_fill_aw_connlist(dev, &as->as_node);
+	ANANAS_ERROR_RETURN(err);
+
+	kprintf("hda_attach_widget_audioselector: TODO\n");
+
+	return ANANAS_ERROR_NONE;
+}
+
+static errorcode_t
+hda_attach_widget_vendordefined(device_t dev, struct HDA_NODE_VENDORDEFINED* vd)
+{
+	return ANANAS_ERROR_NONE;
+}
+
+static errorcode_t
 hda_attach_widget_pincomplex(device_t dev, struct HDA_NODE_PIN* p)
 {
 	struct HDA_PRIVDATA* privdata = dev->privdata;
@@ -132,9 +154,13 @@ hda_attach_node_afg(device_t dev, struct HDA_AFG* afg)
 	int cad = afg->afg_cad;
 	int nid = afg->afg_nid;
 
-	/* Again, audio subnodes have even more subnodes... query it here */
+	/* Fetch the default parameters; these are used if the subnodes don't supply them */
 	uint32_t r;
-	errorcode_t err = devfuncs->hdf_issue_verb(dev, HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_SUBNODECOUNT)), &r, NULL);
+	errorcode_t err = devfuncs->hdf_issue_verb(dev, HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_PCM)), &afg->afg_pcm, NULL);
+	ANANAS_ERROR_RETURN(err);
+
+	/* Again, audio subnodes have even more subnodes... query it here */
+	err = devfuncs->hdf_issue_verb(dev, HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_SUBNODECOUNT)), &r, NULL);
 	ANANAS_ERROR_RETURN(err);
 	int sn_addr = HDA_PARAM_SUBNODECOUNT_START(r);
 	int sn_total = HDA_PARAM_SUBNODECOUNT_TOTAL(r);
@@ -176,10 +202,22 @@ hda_attach_node_afg(device_t dev, struct HDA_AFG* afg)
 				err = hda_attach_widget_audiomixer(dev, am);
 				break;
 			}
+			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_SELECTOR: {
+				struct HDA_NODE_AUDIOSELECTOR* as = kmalloc(sizeof *as);
+				HDA_AWNODE_INIT(as, NT_AudioSelector);
+				err = hda_attach_widget_audioselector(dev, as);
+				break;
+			}
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_PINCOMPLEX: {
 				struct HDA_NODE_PIN* p = kmalloc(sizeof *p);
 				HDA_AWNODE_INIT(p, NT_Pin);
 				err = hda_attach_widget_pincomplex(dev, p);
+				break;
+			}
+			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_VENDORDEFINED: {
+				struct HDA_NODE_VENDORDEFINED* vd = kmalloc(sizeof *vd);
+				HDA_AWNODE_INIT(vd, NT_VendorDefined);
+				err = hda_attach_widget_vendordefined(dev, vd);
 				break;
 			}
 			default:
@@ -200,7 +238,7 @@ hda_attach_node_afg(device_t dev, struct HDA_AFG* afg)
 	if (!DQUEUE_EMPTY(&afg->afg_nodes))
 		DQUEUE_FOREACH(&afg->afg_nodes, aw, struct HDA_NODE_AW) {
 			for(int n = 0; n < aw->aw_num_conn; n++) {
-				int nid = (int)aw->aw_conn[n];
+				uintptr_t nid = (uintptr_t)aw->aw_conn[n];
 				struct HDA_NODE_AW* aw_found = NULL;
 				DQUEUE_FOREACH(&afg->afg_nodes, aw2, struct HDA_NODE_AW) {
 					if (aw2->aw_node.n_nid != nid)
@@ -217,7 +255,6 @@ hda_attach_node_afg(device_t dev, struct HDA_AFG* afg)
 			}
 		}
 
-#undef HDA_AWNODE_INIT
 	return err;
 }
 
@@ -277,7 +314,7 @@ hda_dump_afg(struct HDA_AFG* afg)
 		return;
 
 	static const char* aw_node_types[] = {
-		"pc", "ao", "ai", "am"
+		"pc", "ao", "ai", "am", "as", "vd"
 	};
 	DQUEUE_FOREACH(&afg->afg_nodes, aw, struct HDA_NODE_AW) {
 		kprintf("cad %x nid % 2x type %s ->", aw->aw_node.n_cad, aw->aw_node.n_nid, aw_node_types[aw->aw_node.n_type]);
@@ -564,6 +601,8 @@ hda_attach_node(device_t dev, int cad, int nodeid)
 		afg->afg_nid = nid;
 		DQUEUE_INIT(&afg->afg_nodes);
 		DQUEUE_INIT(&afg->afg_outputs);
+		privdata->hda_afg = afg;
+
 		err = hda_attach_node_afg(dev, afg);
 		ANANAS_ERROR_RETURN(err);
 
@@ -574,6 +613,7 @@ hda_attach_node(device_t dev, int cad, int nodeid)
 #if HDA_VERBOSE
 		hda_dump_afg(afg);
 #endif
+		ANANAS_ERROR_RETURN(err);
 	}
 
 	return ANANAS_ERROR_OK;

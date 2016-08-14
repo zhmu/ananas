@@ -49,6 +49,7 @@
 #define    HDA_PARAM_AW_CAPS_TYPE_AUDIO_POWER	 	5
 #define    HDA_PARAM_AW_CAPS_TYPE_AUDIO_VOLUMEKNOB	6
 #define    HDA_PARAM_AW_CAPS_TYPE_AUDIO_BEEPGENERATOR	7
+#define    HDA_PARAM_AW_CAPS_TYPE_AUDIO_VENDORDEFINED 15
 #define   HDA_PARAM_AW_CAPS_DELAY(x)		(((x) >> 16) & 15)
 #define   HDA_PARAM_AW_CAPS_CHANCOUNTEXT(x)	(((x) >> 13) & 7)
 #define   HDA_PARAM_AW_CAPS_CPCAPS(x)		(((x) >> 12) & 1)
@@ -260,6 +261,8 @@ enum HDANodeType {
 	NT_AudioOut,
 	NT_AudioIn,
 	NT_AudioMixer,
+	NT_AudioSelector,
+	NT_VendorDefined
 };
 
 /*
@@ -281,6 +284,7 @@ DQUEUE_DEFINE(HDA_OUTPUT_LIST, struct HDA_OUTPUT);
 struct HDA_AFG {
 	int afg_cad;
 	int afg_nid;
+	uint32_t afg_pcm;
 	struct HDA_NODE_AWLIST afg_nodes;
 	struct HDA_OUTPUT_LIST afg_outputs;
 };
@@ -316,6 +320,14 @@ struct HDA_NODE_AUDIOMIXER {
 	struct HDA_NODE_AW am_node;
 	uint32_t am_ampcap_in;		/* Input amplifier capabilities */
 	uint32_t am_ampcap_out;		/* Output amplifier capabilities */
+};
+
+struct HDA_NODE_AUDIOSELECTOR {
+	struct HDA_NODE_AW as_node;
+};
+
+struct HDA_NODE_VENDORDEFINED {
+	struct HDA_NODE_AW vd_node;
 };
 
 /*
