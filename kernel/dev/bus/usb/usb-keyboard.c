@@ -42,7 +42,7 @@ usbkbd_callback(struct USB_PIPE* pipe)
 		return;
 	}
 
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < xfer->xfer_result_length; i++) {
 		kprintf("%x ", xfer->xfer_data[i]);
 	}
 	kprintf("]\n");
