@@ -63,4 +63,12 @@ unsigned int dma_buf_get_segments(dma_buf_t buf);
 /* Retrieve a given buffer's segment */
 dma_buf_seg_t dma_buf_get_segment(dma_buf_t buf, unsigned int n);
 
+typedef errorcode_t (*dma_load_func_t)(void* ctx, struct DMA_BUFFER_SEGMENT* s, int num_segs);
+
+/* Loads a given buffer to DMA-able addresses for the device */
+errorcode_t dma_buf_load(dma_buf_t buf, void* data, dma_size_t size, dma_load_func_t load, void* load_arg, int flags);
+
+/* Loads a BIO buffer to DMA-able addresses for the device */
+errorcode_t dma_buf_load_bio(dma_buf_t buf, struct BIO* bio, dma_load_func_t load, void* load_arg, int flags);
+
 #endif /* __ANANAS_DMA_H__ */

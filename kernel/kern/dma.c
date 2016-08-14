@@ -2,6 +2,7 @@
  * Ananas DMA infrastructure; this is very closely modelled after NetBSD's busdma(9).
  */
 #include <ananas/dma.h>
+#include <ananas/bio.h>
 #include <ananas/error.h>
 #include <ananas/trace.h>
 #include <ananas/lib.h>
@@ -128,7 +129,7 @@ dma_buf_alloc(dma_tag_t tag, dma_size_t size, dma_buf_t* buf)
 	errorcode_t err = ANANAS_ERROR_NONE;
 	for (unsigned int n = 0; err == ANANAS_ERROR_NONE && n < num_segs; n++) {
 		struct DMA_BUFFER_SEGMENT* s = &b->db_seg[n];
-		s->s_virt = page_alloc_length_mapped(seg_size, &s->s_page, VM_FLAG_READ | VM_FLAG_WRITE);
+		s->s_virt = page_alloc_length_mapped(seg_size, &s->s_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
 		if (s->s_virt == NULL) {
 			err = ANANAS_ERROR(OUT_OF_MEMORY);
 			break;
@@ -148,13 +149,16 @@ dma_buf_free(dma_buf_t buf)
 {
 	dma_tag_t tag = buf->db_tag;
 
+	/*
+	 * We need to be vigilant when freeing stuff; it may be that the buffer was
+	 * partially initialized (as dma_buf_alloc() can call us)
+	 */
 	for (unsigned int n = 0; n < buf->db_num_segs; n++) {
 		struct DMA_BUFFER_SEGMENT* s = &buf->db_seg[n];
-		if (s->s_page == NULL)
-			continue; /* may also be called by dma_alloc_buffer() on failure */
-
-		kmem_unmap(s->s_virt, buf->db_seg_size);
-		page_free(s->s_page);
+		if (s->s_virt != NULL)
+			kmem_unmap(s->s_virt, buf->db_seg_size);
+		if (s->s_page != NULL)
+			page_free(s->s_page);
 	}
 	kfree(buf);
 
@@ -171,6 +175,12 @@ dma_buf_seg_t
 dma_buf_get_segment(dma_buf_t buf, unsigned int n)
 {
 	KASSERT(n < buf->db_num_segs, "invalid segment %u", n);
+
+#if 0
+	kprintf("dma_buf_get_segment(): buf=%p n=%d -> size=%p seg=%p num=%d ",
+	 buf, n, buf->db_size, buf->db_seg_size, buf->db_num_segs);
+	kprintf("--> seg: virt %p phys %p\n", buf->db_seg[n].s_virt, buf->db_seg[n].s_phys);
+#endif
 	return &buf->db_seg[n];
 }
 
@@ -179,5 +189,31 @@ dma_buf_sync(dma_buf_t buf, DMA_SYNC_TYPE type)
 {
 }
 
+errorcode_t
+dma_buf_load(dma_buf_t buf, void* data, dma_size_t size, dma_load_func_t load, void* load_arg, int flags)
+{
+	dma_tag_t tag = buf->db_tag;
+
+	addr_t phys = kmem_get_phys(data);
+	if (phys >= tag->t_min_addr && phys + size <= tag->t_max_addr &&
+	    size < tag->t_max_seg_size &&
+	    (phys & tag->t_alignment) == 0) {
+		/* This is excellent; the device can accept this buffer as-is */
+		struct DMA_BUFFER_SEGMENT bs;
+		bs.s_page = NULL;
+		bs.s_phys = phys;
+		load(load_arg, &bs, 1);
+
+		return ANANAS_ERROR_NONE;
+	}
+
+	panic("dma_buf_load(): phys %p rejected, FIXME", phys);
+}
+
+errorcode_t
+dma_buf_load_bio(dma_buf_t buf, struct BIO* bio, dma_load_func_t load, void* load_arg, int flags)
+{
+	return dma_buf_load(buf, BIO_DATA(bio), bio->length, load, load_arg, flags);
+}
 
 /* vim:set ts=2 sw=2: */
