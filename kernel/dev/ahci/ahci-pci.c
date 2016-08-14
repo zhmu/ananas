@@ -83,11 +83,12 @@ ahcipci_probe(device_t dev)
 	uint32_t device = res->base;
 	if (vendor == 0x8086 && device == 0x2922) /* Intel ICH9, like what is in QEMU */
 		return ANANAS_ERROR_OK;
+	if (vendor == 0x8086 && device == 0x2829) /* Intel ICH8M, like what is in VirtualBox */
+		return ANANAS_ERROR_OK;
 	if (vendor == 0x10de && device == 0x7f4) /* NForce 630i SATA */
 		return ANANAS_ERROR_OK;
 	if (vendor == 0x1039 && device == 0x1185) /* SiS AHCI Controller (0106) */
 		return ANANAS_ERROR_OK;
-	//kprintf("ahcpci ?? %x %x\n", vendor, device);
 	return ANANAS_ERROR(NO_RESOURCE);
 }
 
