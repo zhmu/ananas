@@ -192,6 +192,7 @@ ahciport_start(device_t dev)
 		ct->ct_prd[0].prde_dw1 = AHCI_PRDE_DW1_DBAU(data_ptr >> 32);
 		ct->ct_prd[0].prde_dw2 = 0;
 		ct->ct_prd[0].prde_dw3 = AHCI_PRDE_DW3_I | AHCI_PRDE_DW3_DBC(sr->sr_count - 1);
+		ct->ct_prd[0].prde_dw3 = AHCI_PRDE_DW3_DBC(sr->sr_count - 1);
 		/* XXX handle atapi */
 		memcpy(&ct->ct_cfis[0], &sr->sr_fis.fis_h2d, sizeof(struct SATA_FIS_H2D));
 		dma_buf_sync(pr->pr_dmabuf_ct, DMA_SYNC_OUT);
