@@ -120,6 +120,8 @@ struct HDA_PCI_BDL_ENTRY {
 #define BDL_FLAG_IOC	1
 } __attribute__((packed));
 
+struct HDA_PCI_STREAM;
+
 struct HDA_PCI_PRIVDATA {
 	spinlock_t hda_hwlock;	/* used to protect the hardware registers */
 	addr_t hda_addr;
@@ -130,8 +132,8 @@ struct HDA_PCI_PRIVDATA {
 	uint32_t* hda_corb;
 	uint64_t* hda_rirb;
 	int hda_rirb_rp;
-
 	uint32_t hda_ss_avail;	/* stream# available*/
+	struct HDA_PCI_STREAM** hda_stream;
 };
 
 struct HDA_PCI_STREAM_PAGE {

@@ -28,19 +28,38 @@ TRACE_SETUP;
 #define HDA_READ_1(reg) \
 	(*(volatile uint8_t*)(privdata->hda_addr + reg))
 
+static void
+hdapci_stream_irq(device_t dev, struct HDA_PCI_STREAM* s)
+{
+	struct HDA_PRIVDATA* hda_pd = dev->privdata;
+	struct HDA_PCI_PRIVDATA* privdata = hda_pd->hda_dev_priv;
+
+	/* Acknowledge the stream's IRQ */
+	HDA_WRITE_1(HDA_REG_xSDnSTS(s->s_ss), HDA_READ_1(HDA_REG_xSDnSTS(s->s_ss)) | HDA_SDnSTS_BCIS);
+
+	hda_stream_irq(dev, s);
+}
+
+
 static irqresult_t
 hdapci_irq(device_t dev, void* context)
 {
 	struct HDA_PCI_PRIVDATA* privdata = context;
 
 	uint32_t sts = HDA_READ_4(HDA_REG_INTSTS);
-	device_printf(dev, "irq; sts=%x", sts);
 	if (sts & HDA_INTSTS_CIS) {
 		uint32_t rirb_sts = HDA_READ_1(HDA_REG_RIRBSTS);
 		device_printf(dev, "irq; rirb sts=%x", rirb_sts);
 		kprintf("irq: corb rp=%x wp=%x rirb wp=%x\n", HDA_READ_2(HDA_REG_CORBRP), HDA_READ_2(HDA_REG_CORBWP), HDA_READ_2(HDA_REG_RIRBWP));
 
 		HDA_WRITE_1(HDA_REG_RIRBSTS, sts & ~HDA_REG_RIRBSTS); /* acknowledge rirb status */
+	}
+
+	/* Handle stream interrupts */
+	for (unsigned int n = 0; n < privdata->hda_iss + privdata->hda_oss + privdata->hda_bss; n++) {
+		if ((sts & (1 << n)) == 0)
+			continue;
+		hdapci_stream_irq(dev, privdata->hda_stream[n]);
 	}
 
 	return IRQ_RESULT_PROCESSED;
@@ -50,6 +69,9 @@ static errorcode_t
 hdapci_probe(device_t dev)
 {
 	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PCI_VENDORID, 0);
+	if (res == NULL)
+		return ANANAS_ERROR(NO_RESOURCE); // XXX this should be fixed; attach_bus will try the entire attach-cycle without PCI resources!
+
 	uint32_t vendor = res->base;
 	res = device_get_resource(dev, RESTYPE_PCI_DEVICEID, 0);
 	uint32_t device = res->base;
@@ -57,7 +79,8 @@ hdapci_probe(device_t dev)
 		return ANANAS_ERROR_OK;
 	if (vendor == 0x10de && device == 0x7fc) /* nvidia MCP73 HDA */
 		return ANANAS_ERROR_OK;
-	//kprintf("pci dev %x %x\n", vendor, device);
+	if (vendor == 0x1039 && device == 0x7502) /* SiS 966 */
+		return ANANAS_ERROR_OK;
 	return ANANAS_ERROR(NO_RESOURCE);
 }
 
@@ -174,16 +197,19 @@ hdapci_open_stream(device_t dev, int tag, int dir, uint16_t fmt, int num_pages, 
 	s->s_ss = ss;
 	s->s_bdl = page_alloc_single_mapped(&s->s_bdl_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
 	s->s_num_pages = num_pages;
+	privdata->hda_stream[ss] = s;
 	*context = s;
 
 	/* Create a page-chain for the same data and place it in the BDL */
 	struct HDA_PCI_BDL_ENTRY* bdl = s->s_bdl;
 	struct HDA_PCI_STREAM_PAGE* sp = &s->s_page[0];
 	for (int n = 0; n < num_pages; n++, bdl++, sp++) {
+		/* XXX use dma system here */
 		sp->sp_ptr = page_alloc_single_mapped(&sp->sp_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
 		bdl->bdl_addr = page_get_paddr(sp->sp_page);
 		bdl->bdl_length = PAGE_SIZE;
-		bdl->bdl_flags = 0;
+		// XXX only give IRQ on each buffer half
+		bdl->bdl_flags = (n == (num_pages/ 2) || n == (num_pages - 1) ? BDL_FLAG_IOC : 0);
 	}
 
 	/* All set; time to set the stream itself up */
@@ -222,6 +248,7 @@ hdapci_close_stream(device_t dev, void* context)
 	page_free(s->s_bdl_page);
 
 	/* Free the stream and the context */
+	privdata->hda_stream[s->s_ss] = NULL;
 	privdata->hda_ss_avail |= 1 << s->s_ss;
 	kfree(s);
 
@@ -233,14 +260,22 @@ hdapci_start_streams(device_t dev, int num, void** context)
 {
 	struct HDA_PRIVDATA* hda_pd = dev->privdata;
 	struct HDA_PCI_PRIVDATA* privdata = hda_pd->hda_dev_priv;
+	struct HDA_PCI_STREAM** s;
 
+	/*
+	 * XXX No one seems to use the 'synchronized play'-stuff, but the spec is
+	 *     clear on it - it works on actual hardware but not in VirtualBox/QEMU,
+	 *     so let's just ignore it for now...
+	 */
+#if 0
 	/* First step is to set all SSYNC bits */
 	uint32_t ssync = HDA_READ_4(HDA_REG_SSYNC);
-	struct HDA_PCI_STREAM** s = (struct HDA_PCI_STREAM**)context;
+	s = (struct HDA_PCI_STREAM**)context;
 	for (int n = 0; n < num; n++, s++) {
 		ssync |= 1 << (*s)->s_ss;
 	}
 	HDA_WRITE_4(HDA_REG_SSYNC, ssync);
+#endif
 
 	/* Now set the running bits of all streams in place */
 	s = (struct HDA_PCI_STREAM**)context;
@@ -249,8 +284,10 @@ hdapci_start_streams(device_t dev, int num, void** context)
 		HDA_WRITE_4(HDA_REG_xSDnCTL((*s)->s_ss), ctl | HDA_SDnCTL_RUN);
 	}
 
+#if 0
 	/* Wait until each stream's FIFO has been filled */
 	for(int fifo_ready = 0; fifo_ready < num; /* nothing */) {
+		fifo_ready = 0;
 		s = (struct HDA_PCI_STREAM**)context;
 		for (int n = 0; n < num; n++, s++)
 			if (HDA_READ_4(HDA_REG_xSDnSTS((*s)->s_ss)) & HDA_SDnSTS_FIFORDY)
@@ -264,6 +301,7 @@ hdapci_start_streams(device_t dev, int num, void** context)
 		ssync &= ~(1 << (*s)->s_ss);
 	}
 	HDA_WRITE_4(HDA_REG_SSYNC, ssync);
+#endif
 
 	return ANANAS_ERROR_OK;
 }
@@ -338,7 +376,7 @@ hdapci_attach(device_t dev)
 	memset(privdata, 0, sizeof(*privdata));
 	privdata->hda_addr = (addr_t)res_io;
 
-	errorcode_t err = irq_register((int)res_irq, dev, hdapci_irq, IRQ_TYPE_DEFAULT, privdata);
+	errorcode_t err = irq_register((uintptr_t)res_irq, dev, hdapci_irq, IRQ_TYPE_DEFAULT, privdata);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Enable busmastering; all communication is done by DMA */
@@ -349,8 +387,11 @@ hdapci_attach(device_t dev)
 	 * properly initialize it; reset the device and wait a short while for it to
 	 * become available.
 	 */
+	HDA_WRITE_4(HDA_REG_GCTL, HDA_READ_4(HDA_REG_GCTL) & ~HDA_GCTL_CRST);
+	delay(1);
 	HDA_WRITE_4(HDA_REG_GCTL, HDA_READ_4(HDA_REG_GCTL) | HDA_GCTL_CRST);
-	int timeout = 10;
+	delay(1);
+	int timeout = 100;
 	while(--timeout && (HDA_READ_4(HDA_REG_GCTL) & HDA_GCTL_CRST) == 0)
 		delay(1);
 	if (timeout == 0) {
@@ -366,7 +407,6 @@ hdapci_attach(device_t dev)
 	 HDA_GCAP_ISS(gcap),
 	 HDA_GCAP_OSS(gcap),
 	 HDA_GCAP_BSS(gcap));
-	HDA_WRITE_4(HDA_REG_INTCTL, HDA_INTCTL_GIE | HDA_INTCTL_CIE);
 	privdata->hda_iss = HDA_GCAP_ISS(gcap);
 	privdata->hda_oss = HDA_GCAP_OSS(gcap);
 	privdata->hda_bss = HDA_GCAP_BSS(gcap);
@@ -375,10 +415,20 @@ hdapci_attach(device_t dev)
 		device_printf(dev, "no output stream support; perhaps FIXME by implementing bss? for now, aborting");
 		return ANANAS_ERROR(NO_DEVICE);
 	}
+	int num_streams = privdata->hda_iss + privdata->hda_oss + privdata->hda_bss;
+	privdata->hda_stream = kmalloc(sizeof(struct HDA_PCI_STREAM*) * num_streams);
+	memset(privdata->hda_stream, 0, sizeof(struct HDA_PCI_STREAM*) * num_streams);
+
+	/* Enable interrupts, also for every stream */
+	uint32_t ints = 0;
+	for (int n = 0; n < num_streams; n++) {
+		ints = (ints << 1) | 1;
+	}
+	HDA_WRITE_4(HDA_REG_INTCTL, HDA_INTCTL_GIE | HDA_INTCTL_CIE | ints);
 
 	/* Mark all stream descriptors we have as available */
 	privdata->hda_ss_avail = 0;
-	for (int n = 0; n < privdata->hda_iss + privdata->hda_oss + privdata->hda_bss; n++)
+	for (int n = 0; n < num_streams; n++)
 		privdata->hda_ss_avail |= 1 << n;
 
 	/*

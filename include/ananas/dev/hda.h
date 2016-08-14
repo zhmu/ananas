@@ -355,6 +355,7 @@ struct HDA_ROUTING_PLAN {
 	struct HDA_NODE_AW* rp_node[0];
 };
 
+void hda_stream_irq(device_t dev, void* ctx);
 errorcode_t hda_attach(device_t dev, struct HDA_DEV_FUNC* devfuncs, void* dev_privdata);
 
 #endif /* __ANANAS_HDA_H__ */
