@@ -35,7 +35,7 @@ reaper_reap(void* context)
 
 		/* Fetch the item to reap from the queue */
 		spinlock_lock(&spl_reaper);
-		KASSER(!DQUEUE_EMPTY(&reaper_queue), "reaper woke up with empty queue?");
+		KASSERT(!DQUEUE_EMPTY(&reaper_queue), "reaper woke up with empty queue?");
 		thread_t* t = DQUEUE_HEAD(&reaper_queue);
 		DQUEUE_POP_HEAD(&reaper_queue);
 		spinlock_unlock(&spl_reaper);
