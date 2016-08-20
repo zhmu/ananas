@@ -157,9 +157,9 @@ mount_filesystems()
 		kprintf(" failed, error %i\n", err);
 	}
 
-#ifdef DEVFS
-	kprintf("- Mounting devfs on %s...", DEVFS_MOUNTPOINT);
-	err = vfs_mount(NULL, DEVFS_MOUNTPOINT, "devfs", NULL);
+#ifdef OPTION_SYSFS
+	kprintf("- Mounting sysfs on %s...", SYSFS_MOUNTPOINT);
+	err = vfs_mount(NULL, SYSFS_MOUNTPOINT, "sysfs", NULL);
 	if (err == ANANAS_ERROR_NONE) {
 		kprintf(" ok\n");
 	} else {
@@ -227,13 +227,9 @@ init_thread_func(void* done)
 	run_init(SUBSYSTEM_MODULE, SUBSYSTEM_MODULE + 1);
 	run_init(SUBSYSTEM_MODULE + 1, SUBSYSTEM_LAST);
 
-	/* All done! */
+	/* All done - signal and exit - the reaper will clean up this thread */
 	*(volatile int*)done = 1;
-
-	/* XXX We can't yet exit kernel threads, so just suspend for now */
-	thread_suspend(PCPU_GET(curthread));
-	schedule();
-
+	thread_exit(0);
 	/* NOTREACHED */
 }
 
@@ -264,12 +260,6 @@ mi_startup()
 	while(!done) {
 		md_cpu_relax();
 	}
-
-#if 0 // NOTYET, can't destroy kernel threads
-	/* Guess we are all done; kill the init thread */
-	thread_free(&init_thread);
-	thread_destroy(&init_thread);
-#endif
 
 	/* And now, we become the idle thread */
 	idle_thread();
