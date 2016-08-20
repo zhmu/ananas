@@ -43,6 +43,8 @@ struct THREAD {
 #define THREAD_FLAG_SUSPENDED	0x0002	/* Thread is currently suspended */
 #define THREAD_FLAG_ZOMBIE	0x0004	/* Thread has no more resources */
 #define THREAD_FLAG_RESCHEDULE	0x0008	/* Thread desires a reschedule */
+#define THREAD_FLAG_REAPING	0x0010	/* Thread will be reaped (destroyed by idle thread) */
+#define THREAD_FLAG_MALLOC	0x0020	/* Thread is kmalloc()'ed */
 #define THREAD_FLAG_KTHREAD	0x8000	/* Kernel thread */
 
 	unsigned int t_terminate_info;

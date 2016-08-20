@@ -1,3 +1,20 @@
+/*
+ * Threads have a current state which is contained in t_flags; possible
+ * transitions are:
+ *
+ *  +-->[suspended]->-+
+ *  |       |         |
+ *  |       v         |
+ *  +-<--[active]     |
+ *          |         |
+ *          v         |
+ *       [zombie]<----+
+ *          |
+ *          v
+ *       [(gone)]
+ *
+ * All transitions are managed by scheduler.c.
+ */
 #include <ananas/types.h>
 #include <machine/param.h>
 #include <ananas/console.h>
@@ -7,6 +24,7 @@
 #include <ananas/kmem.h>
 #include <ananas/handle.h>
 #include <ananas/pcpu.h>
+#include <ananas/reaper.h>
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
 #include <ananas/thread.h>
@@ -21,21 +39,23 @@ TRACE_SETUP;
 
 static spinlock_t spl_threadqueue = SPINLOCK_DEFAULT_INIT;
 static spinlock_t spl_threadfuncs = SPINLOCK_DEFAULT_INIT;
-static struct THREAD_QUEUE threadqueue;
+static struct THREAD_QUEUE thread_queue;
 static struct THREAD_CALLBACKS threadcallbacks_init;
 static struct THREAD_CALLBACKS threadcallbacks_exit;
 
-static errorcode_t
-thread_init(thread_t* t, thread_t* parent, int flags)
+errorcode_t
+thread_alloc(thread_t* parent, thread_t** dest, int flags)
 {
 	errorcode_t err;
 
 	struct HANDLE* thread_handle;
 
+	thread_t* t = kmalloc(sizeof(struct THREAD));
 	memset(t, 0, sizeof(struct THREAD));
 	err = handle_alloc(HANDLE_TYPE_THREAD, t /* XXX should be parent? */, THREAD_MAX_HANDLES - 1, &thread_handle, &t->t_hidx_thread);
 	ANANAS_ERROR_RETURN(err);
 	thread_handle->h_data.d_thread = t;
+	t->t_flags = THREAD_FLAG_MALLOC;
 	t->t_refcount = 1; /* caller */
 
 	/* Set up CPU affinity and priority */
@@ -96,8 +116,10 @@ thread_init(thread_t* t, thread_t* parent, int flags)
 
 	/* Add the thread to the thread queue */
 	spinlock_lock(&spl_threadqueue);
-	DQUEUE_ADD_TAIL(&threadqueue, t);
+	DQUEUE_ADD_TAIL(&thread_queue, t);
 	spinlock_unlock(&spl_threadqueue);
+
+	*dest = t;
 	return ANANAS_ERROR_OK;
 
 fail:
@@ -118,6 +140,7 @@ kthread_init(thread_t* t, kthread_func_t func, void* arg)
 	err = handle_alloc(HANDLE_TYPE_THREAD, t, 0, &thread_handle, &t->t_hidx_thread);
 	ANANAS_ERROR_RETURN(err);
 	thread_handle->h_data.d_thread = t;
+	t->t_refcount = 1;
 
 	/* Set up CPU affinity and priority */
 	t->t_priority = THREAD_PRIORITY_DEFAULT;
@@ -142,19 +165,9 @@ kthread_init(thread_t* t, kthread_func_t func, void* arg)
 
 	/* Add the thread to the thread queue */
 	spinlock_lock(&spl_threadqueue);
-	DQUEUE_ADD_TAIL(&threadqueue, t);
+	DQUEUE_ADD_TAIL(&thread_queue, t);
 	spinlock_unlock(&spl_threadqueue);
 	return ANANAS_ERROR_OK;
-}
-
-errorcode_t
-thread_alloc(thread_t* parent, thread_t** dest, int flags)
-{
-	thread_t* t = kmalloc(sizeof(struct THREAD));
-	errorcode_t err = thread_init(t, parent, flags);
-	if (err == ANANAS_ERROR_NONE)
-		*dest = t;
-	return err;
 }
 
 /*
@@ -164,7 +177,7 @@ thread_alloc(thread_t* parent, thread_t** dest, int flags)
 static void
 thread_cleanup(thread_t* t)
 {
-	KASSERT((t->t_flags & THREAD_FLAG_ZOMBIE) == 0, "freeing zombie thread %p", t);
+	KASSERT((t->t_flags & THREAD_FLAG_ZOMBIE) == 0, "cleaning up zombie thread %p", t);
 
 	errorcode_t err;
 	struct HANDLE* thread_handle;
@@ -173,7 +186,7 @@ thread_cleanup(thread_t* t)
 
 	/*
 	 * Free all handles in use by the thread. Note that we must not free the thread
-	 * handle itself, as the thread isn't destroyed yet (we are just freeing all
+	 * handle itself, as the thread isn't destroyed yet (we are just all
 	 * resources here - the thread handle itself is necessary for obtaining the
 	 * result code etc)
 	 *
@@ -184,8 +197,12 @@ thread_cleanup(thread_t* t)
 			handle_free_byindex(t, n);
 	}
 
-	/* Clean the thread's vmspace up - this will remove all non-essential mappings */
-	vmspace_cleanup(t->t_vmspace);
+	/*
+	 * Clean the thread's vmspace up - this will remove all non-essential mappings. Note that
+	 * kernel threads do not have a vmspace and there's nothing to free here.
+	 */
+	if (t->t_vmspace != NULL)
+		vmspace_cleanup(t->t_vmspace);
 
 	/*
 	 * Clear the thread information; no one can query it at this point as the
@@ -223,28 +240,34 @@ thread_cleanup(thread_t* t)
 
 /*
  * thread_destroy() take a zombie thread and completely frees it (the thread
- * will not be valid after calling this function)
+ * will not be valid after calling this function and thus this can only be
+ * called from a different thread)
  */
 static void
 thread_destroy(thread_t* t)
 {
 	KASSERT(PCPU_GET(curthread) != t, "thread_destroy() on current thread");
 	KASSERT(THREAD_IS_ZOMBIE(t), "thread_destroy() on a non-zombie thread");
-	KASSERT((t), "thread_destroy() on a non-zombie thread");
 
 	/* Free the machine-dependant bits */
 	md_thread_free(t);
 
 	/* Get rid of the thread's vmspace - this removes all MD-dependant bits too */
-	vmspace_destroy(t->t_vmspace);
+	if (t->t_vmspace != NULL)
+		vmspace_destroy(t->t_vmspace);
 	t->t_vmspace = NULL;
 
-	/* Remove the thread from our thread queue; it'll be gone soon */
-	spinlock_lock(&spl_threadqueue);
-	DQUEUE_REMOVE(&threadqueue, t);
-	spinlock_unlock(&spl_threadqueue);
+	/* If we aren't reaping the thread, remove it from our thread queue; it'll be gone soon */
+	if ((t->t_flags & THREAD_FLAG_REAPING) == 0) {
+		spinlock_lock(&spl_threadqueue);
+		DQUEUE_REMOVE(&thread_queue, t);
+		spinlock_unlock(&spl_threadqueue);
+	}
 
-	kfree(t);
+	if (t->t_flags & THREAD_FLAG_MALLOC)
+		kfree(t);
+	else
+		memset(t, 0, sizeof(*t));
 }
 
 void
@@ -260,48 +283,47 @@ thread_deref(thread_t* t)
 	KASSERT(t->t_refcount > 0, "dereffing thread with invalid refcount %d", t->t_refcount);
 
 	/*
-	 * Thread cleanup is quite involved - we have two scenario's:
+	 * Thread cleanup is quite involved - we need to take the following into account:
 	 *
-	 *  1) t is in non-zombie state
-	 *  2) t is in zombie-state
-	 *
-	 * For each of which there are two cases:
-	 *
-	 *  a) Thread itself is calling thread_deref()
-	 *  b) Other thread is calling thread_deref()
-	 *
-	 * Where we need to do the following (each of which involves decrementing
-	 * the refcount):
-	 *
-	 * (1a) It is safe to move the thread to zombie-state as the thread itself
-	 *      requested the free.
- 	 * (1b) Nothing special; if the refcount reaches zero we must move the
- 	 *      thread to zombie-state and move to (2b) - note that this
-	 *      shouldn't ordinarily happen: where did the thread's ref to itself
-	 *      go?
-	 * (2a) Nothing - we can't clean up our own resources any futher. If we took
-	 *      the last ref, we must give one to another thread because we cannot
-	 *      clean ourselves up.
-	 * (2b) Clean up the thread if this is the final ref.
+	 * 1) A thread itself calling thread_deref() can demote the thread to zombie-state
+	 *    This is because the owner decides to stop the thread, which means we can free
+	 *    most associated resources.
+	 * 2) The new refcount would become 0
+	 *    We can go to zombie-state if we aren't already. However:
+	 *    2a) If curthread == 't', we can't destroy because we are using the
+	 *        threads stack. We'll postpone destruction to another thread.
+	 *    2b) Otherwise, we can destroy 't' and be done.
+	 * 3) Otherwise, the refcount > 0 and we must let the thread live.
 	 */
 	int is_self = PCPU_GET(curthread) == t;
-	if (!THREAD_IS_ZOMBIE(t)) /* (1) */ {
-		if (is_self) /* (1a) */ {
-			thread_cleanup(t);
-		} else /* (1b) */ {
-			if (t->t_refcount == 1) {
-				kprintf("thread_deref(): warning: 1b with refcount 1!\n");
-			}
-		}
-	} else /* (2) */ {
-		if (is_self) /* (2a) */ {
-			panic("(2a), t=%p", t);
-		}
+	if (is_self && !THREAD_IS_ZOMBIE(t)) {
+		/* (1) - we can free most associated thread resources */
+		thread_cleanup(t);
+	}
+	if (--t->t_refcount > 0) {
+		/* (3) - refcount isn't yet zero so nothing to destroy */
+		return;
 	}
 
-	if (--t->t_refcount > 0)
-		return;
+	if (is_self) {
+		/*
+		 * (2a) - mark the thread as reaping, and increment the refcount
+		 *        so that we can just thread_deref() it
+		 */
+		t->t_flags |= THREAD_FLAG_REAPING;
+		t->t_refcount++;
 
+		/* Assign the thread to the reaper queue */
+		spinlock_lock(&spl_threadqueue);
+		DQUEUE_REMOVE(&thread_queue, t);
+		spinlock_unlock(&spl_threadqueue);
+		reaper_enqueue(t);
+		return;
+	}
+
+	/* (2b) Final ref - let's get rid of it */
+	if (!THREAD_IS_ZOMBIE(t))
+		thread_cleanup(t);
 	thread_destroy(t);
 }
 
@@ -504,8 +526,8 @@ KDB_COMMAND(threads, "[s:flags]", "Displays current threads")
 	struct THREAD* cur = PCPU_CURTHREAD();
 	spinlock_lock(&spl_threadqueue);
 	kprintf("thread dump\n");
-	if (!DQUEUE_EMPTY(&threadqueue))
-		DQUEUE_FOREACH(&threadqueue, t, struct THREAD) {
+	if (!DQUEUE_EMPTY(&thread_queue))
+		DQUEUE_FOREACH(&thread_queue, t, struct THREAD) {
 			kprintf ("thread %p (hindex %d): %s: flags [", t, t->t_hidx_thread, t->t_threadinfo->ti_args);
 			if (THREAD_IS_ACTIVE(t))      kprintf(" active");
 			if (THREAD_IS_SUSPENDED(t))   kprintf(" suspended");
