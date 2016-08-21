@@ -5,6 +5,7 @@
 #include <ananas/kmem.h>
 #include <ananas/lib.h>
 #include <ananas/pcpu.h>
+#include <ananas/process.h>
 #include <ananas/thread.h>
 #include <ananas/vm.h>
 #include <ananas/vmspace.h>
@@ -98,7 +99,7 @@ void
 md_unmap_pages(vmspace_t* vs, addr_t virt, size_t num_pages)
 {
 	thread_t* curthread = PCPU_GET(curthread);
-	int is_cur_vmspace = curthread->t_vmspace == vs;
+	int is_cur_vmspace = curthread->t_process != NULL && curthread->t_process->p_vmspace == vs;
 
 	/* XXX we don't yet strip off bits 52-63 yet */
 	uint64_t* pagedir = (vs != NULL) ? vs->vs_md_pagedir : kernel_pagedir;

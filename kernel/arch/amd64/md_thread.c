@@ -7,6 +7,7 @@
 #include <ananas/lib.h>
 #include <ananas/kmem.h>
 #include <ananas/page.h>
+#include <ananas/process.h>
 #include <ananas/mm.h>
 #include <ananas/pcpu.h>
 #include <ananas/syscall.h>
@@ -25,9 +26,10 @@ md_thread_init(thread_t* t, int flags)
 	 * Create the user stack page piece, if we are not cloning - otherwise, we'll
 	 * copy the parent's stack instead.
 	 */
+	process_t* proc = t->t_process;
 	if ((flags & THREAD_ALLOC_CLONE) == 0) {
 		vmarea_t* va;
-		errorcode_t err = vmspace_mapto(t->t_vmspace, USERLAND_STACK_ADDR, 0, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_ALLOC, &va);
+		errorcode_t err = vmspace_mapto(proc->p_vmspace, USERLAND_STACK_ADDR, 0, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_ALLOC, &va);
 		ANANAS_ERROR_RETURN(err);
 	}
 
@@ -40,7 +42,7 @@ md_thread_init(thread_t* t, int flags)
 	t->md_kstack = kmem_map(page_get_paddr(t->md_kstack_page) + PAGE_SIZE, KERNEL_STACK_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 
 	/* Fill out our MD fields */
-	t->md_cr3 = KVTOP((addr_t)t->t_vmspace->vs_md_pagedir);
+	t->md_cr3 = KVTOP((addr_t)proc->p_vmspace->vs_md_pagedir);
 	t->md_rsp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE;
 	t->md_rsp = t->md_rsp0;
 	t->md_rip = (addr_t)&userland_trampoline;
@@ -162,7 +164,7 @@ md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
 	KASSERT(PCPU_GET(curthread) == parent, "must clone active thread");
 
 	/* Restore the thread's own page directory */
-	t->md_cr3 = KVTOP((addr_t)t->t_vmspace->vs_md_pagedir);
+	t->md_cr3 = KVTOP((addr_t)t->t_process->p_vmspace->vs_md_pagedir);
 
 	/*
 	 * We need to copy the part from the parent's kernel stack that lets us
