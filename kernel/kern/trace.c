@@ -2,7 +2,6 @@
 #include <ananas/console.h>
 #include <ananas/lib.h>
 #include <ananas/pcpu.h>
-#include <ananas/threadinfo.h>
 #include <ananas/trace.h>
 
 #define TRACE_PRINTF_BUFSIZE 256
@@ -22,7 +21,7 @@ tracef(int fileid, const char* func, const char* fmt, ...)
 	char buf[TRACE_PRINTF_BUFSIZE];
 
 	thread_t* curthread = PCPU_GET(curthread);
-	const char* tname = curthread->t_threadinfo->ti_args;
+	const char* tname = curthread->t_name;
 
 	snprintf(buf, sizeof(buf), "[%4u.%03u] (%s) %s: ", timestamp / 1000, timestamp % 1000, tname, func);
 

@@ -5,6 +5,7 @@
 #include <ananas/lib.h>
 #include <ananas/thread.h>
 #include <ananas/exec.h>
+#include <ananas/process.h>
 #include <ananas/trace.h>
 #include <ananas/mm.h>
 #include <ananas/vm.h>
@@ -277,7 +278,7 @@ elf64_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 		addr_t virt_begin = ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE);
 		addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_memsz), PAGE_SIZE);
 		vmarea_t* va;
-		err = vmspace_mapto(thread->t_vmspace, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &va);
+		err = vmspace_mapto(thread->t_process->p_vmspace, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &va);
 		if (err != ANANAS_ERROR_OK)
 			goto fail;
 

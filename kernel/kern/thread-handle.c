@@ -20,7 +20,7 @@ threadhandle_get_thread(struct HANDLE* handle, thread_t** out)
 }
 
 static errorcode_t
-threadhandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handle, unsigned int op, void* arg, size_t len)
+threadhandle_control(thread_t* t, handleindex_t index, struct HANDLE* handle, unsigned int op, void* arg, size_t len)
 {
 	thread_t* handle_thread;
 	errorcode_t err = threadhandle_get_thread(handle, &handle_thread);
@@ -48,10 +48,11 @@ threadhandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handl
 }
 
 static errorcode_t
-threadhandle_clone(thread_t* thread_in, handleindex_t index, struct HANDLE* handle, struct CLONE_OPTIONS* opts, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
+threadhandle_clone(process_t* p_in, handleindex_t index, struct HANDLE* handle, struct CLONE_OPTIONS* opts, process_t* proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
 {
+#if 0
 	thread_t* newthread;
-	errorcode_t err = thread_clone(handle->h_thread, 0, &newthread);
+	errorcode_t err = thread_clone(handle->h_process, 0, &newthread);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Grab an extra ref; we'll give it to the new thread */
@@ -74,10 +75,13 @@ threadhandle_clone(thread_t* thread_in, handleindex_t index, struct HANDLE* hand
 
 	TRACE(HANDLE, INFO, "newthread handle=%x index=%d", *handle_out, *index_out);
 	return ANANAS_ERROR_OK;
+#else
+	return ANANAS_ERROR(BAD_OPERATION);
+#endif
 }
 
 static errorcode_t
-threadhandle_free(thread_t* thread, struct HANDLE* handle)
+threadhandle_free(process_t* proc, struct HANDLE* handle)
 {
 	thread_t* t = handle->h_data.d_thread;
 	if (t != NULL)

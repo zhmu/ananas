@@ -24,11 +24,12 @@
 #include <ananas/kmem.h>
 #include <ananas/handle.h>
 #include <ananas/pcpu.h>
+#include <ananas/process.h>
+#include <ananas/procinfo.h>
 #include <ananas/reaper.h>
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
 #include <ananas/thread.h>
-#include <ananas/threadinfo.h>
 #include <ananas/vm.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
@@ -38,81 +39,44 @@
 TRACE_SETUP;
 
 static spinlock_t spl_threadqueue = SPINLOCK_DEFAULT_INIT;
-static spinlock_t spl_threadfuncs = SPINLOCK_DEFAULT_INIT;
 static struct THREAD_QUEUE thread_queue;
-static struct THREAD_CALLBACKS threadcallbacks_init;
-static struct THREAD_CALLBACKS threadcallbacks_exit;
 
 errorcode_t
-thread_alloc(thread_t* parent, thread_t** dest, int flags)
+thread_alloc(process_t* p, thread_t** dest, const char* name, int flags)
 {
 	errorcode_t err;
 
-	struct HANDLE* thread_handle;
-
+	/* First off, allocate the thread itself */
 	thread_t* t = kmalloc(sizeof(struct THREAD));
 	memset(t, 0, sizeof(struct THREAD));
-	err = handle_alloc(HANDLE_TYPE_THREAD, t /* XXX should be parent? */, THREAD_MAX_HANDLES - 1, &thread_handle, &t->t_hidx_thread);
-	ANANAS_ERROR_RETURN(err);
-	thread_handle->h_data.d_thread = t;
+	process_ref(p);
+	t->t_process = p;
 	t->t_flags = THREAD_FLAG_MALLOC;
 	t->t_refcount = 1; /* caller */
+	thread_set_name(t, name);
+
+
+	/* Allocate a handle for the thread */
+	struct HANDLE* thread_handle;
+	err = handle_alloc(HANDLE_TYPE_THREAD, p, 0, &thread_handle, &t->t_hidx_thread);
+	ANANAS_ERROR_RETURN(err);
+	thread_handle->h_data.d_thread = t;
 
 	/* Set up CPU affinity and priority */
 	t->t_priority = THREAD_PRIORITY_DEFAULT;
 	t->t_affinity = THREAD_AFFINITY_ANY;
 
-	/* Create the thread's vmspace */
-	err = vmspace_create(&t->t_vmspace);
-	if (err != ANANAS_ERROR_NONE)
-		goto fail;
-
-	/* ask machine-dependant bits to initialize our thread data */
+	/* Ask machine-dependant bits to initialize our thread data */
 	md_thread_init(t, flags);
+	md_thread_set_argument(t, p->p_info_va);
 
-	/* Create thread information structure */
-	t->t_threadinfo = page_alloc_length_mapped(sizeof(struct THREADINFO), &t->t_threadinfo_page, VM_FLAG_READ | VM_FLAG_WRITE);
-	if (t->t_threadinfo == NULL)
-		return ANANAS_ERROR(OUT_OF_MEMORY);
-
-	/* Initialize thread information structure */
-	memset(t->t_threadinfo, 0, sizeof(struct THREADINFO));
-	t->t_threadinfo->ti_size = sizeof(struct THREADINFO);
-	t->t_threadinfo->ti_handle = t->t_hidx_thread;
-	if (parent != NULL)
-		thread_set_environment(t, parent->t_threadinfo->ti_env, PAGE_SIZE /* XXX */);
-
-	/* Map the thread information structure in thread-space */
-	vmarea_t* va;
-	err = vmspace_map(t->t_vmspace, page_get_paddr(t->t_threadinfo_page), sizeof(struct THREADINFO), VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_PRIVATE, &va);
-	if (err != ANANAS_ERROR_NONE)
-		goto fail;
-	md_thread_set_argument(t, va->va_virt);
-
-	/* Clone the parent's handles - we skip the thread handle */
-	if (parent != NULL) {
-		for (unsigned int n = 0; n < THREAD_MAX_HANDLES; n++) {
-			if (n == parent->t_hidx_thread)
-				continue; /* do not clone the parent handle */
-			if (parent->t_handle[n] == NULL)
-				continue;
-
-			struct HANDLE* handle;
-			handleindex_t out;
-			err = handle_clone(parent, n, NULL, t, &handle, n, &out);
-			ANANAS_ERROR_RETURN(err); /* XXX clean up */
-			KASSERT(n == out, "cloned handle %d to new handle %d", n, out);
-		}
-	}
+	/* If we don't yet have a main thread, this thread will become the main */
+	struct PROCINFO* pi = p->p_info;
+	if (pi->pi_handle_main < 0)
+		pi->pi_handle_main = t->t_hidx_thread;
 
 	/* Initialize scheduler-specific parts */
 	scheduler_init_thread(t);
-
-	/* Run all thread initialization callbacks */
-	if (!DQUEUE_EMPTY(&threadcallbacks_init))
-		DQUEUE_FOREACH(&threadcallbacks_init, tc, struct THREAD_CALLBACK) {
-			tc->tc_func(t, parent);
-		}
 
 	/* Add the thread to the thread queue */
 	spinlock_lock(&spl_threadqueue);
@@ -121,47 +85,27 @@ thread_alloc(thread_t* parent, thread_t** dest, int flags)
 
 	*dest = t;
 	return ANANAS_ERROR_OK;
-
-fail:
-	/* XXXLEAK cleanup */
-	kprintf("thread_init(): XXX deal with error case cleanups (err=%i)\n", err);
-	return err;
 }
 
 errorcode_t
-kthread_init(thread_t* t, kthread_func_t func, void* arg)
+kthread_init(thread_t* t, const char* name, kthread_func_t func, void* arg)
 {
-	errorcode_t err;
-
-	/* Create a basic thread; we'll only make a thread handle, no I/O */
-	struct HANDLE* thread_handle;
+	/*
+	 * Kernel threads do not have an associated process, and thus no handles,
+	 * vmspace and the like.
+	 */
 	memset(t, 0, sizeof(struct THREAD));
 	t->t_flags = THREAD_FLAG_KTHREAD;
-	err = handle_alloc(HANDLE_TYPE_THREAD, t, 0, &thread_handle, &t->t_hidx_thread);
-	ANANAS_ERROR_RETURN(err);
-	thread_handle->h_data.d_thread = t;
 	t->t_refcount = 1;
-
-	/* Set up CPU affinity and priority */
 	t->t_priority = THREAD_PRIORITY_DEFAULT;
 	t->t_affinity = THREAD_AFFINITY_ANY;
-
-	/* Initialize dummy threadinfo; this is used to store the thread name */
-	t->t_threadinfo = page_alloc_length_mapped(sizeof(struct THREADINFO), &t->t_threadinfo_page, VM_FLAG_READ | VM_FLAG_WRITE);
-	if (t->t_threadinfo == NULL)
-		return ANANAS_ERROR(OUT_OF_MEMORY);
+	thread_set_name(t, name);
 
 	/* Initialize MD-specifics */
 	md_kthread_init(t, func, arg);
 
 	/* Initialize scheduler-specific parts */
 	scheduler_init_thread(t);
-
-	/* Run all thread initialization callbacks */
-	if (!DQUEUE_EMPTY(&threadcallbacks_init))
-		DQUEUE_FOREACH(&threadcallbacks_init, tc, struct THREAD_CALLBACK) {
-			tc->tc_func(t, NULL /* kthreads have no parent */);
-		}
 
 	/* Add the thread to the thread queue */
 	spinlock_lock(&spl_threadqueue);
@@ -177,45 +121,9 @@ kthread_init(thread_t* t, kthread_func_t func, void* arg)
 static void
 thread_cleanup(thread_t* t)
 {
+	struct PROCESS* p = t->t_process;
 	KASSERT((t->t_flags & THREAD_FLAG_ZOMBIE) == 0, "cleaning up zombie thread %p", t);
-
-	errorcode_t err;
-	struct HANDLE* thread_handle;
-	err = handle_lookup(t, t->t_hidx_thread, HANDLE_TYPE_THREAD, &thread_handle);
-	KASSERT(err == ANANAS_ERROR_NONE, "cannot look up thread handle for %p: %d", t, err);
-
-	/*
-	 * Free all handles in use by the thread. Note that we must not free the thread
-	 * handle itself, as the thread isn't destroyed yet (we are just all
-	 * resources here - the thread handle itself is necessary for obtaining the
-	 * result code etc)
-	 *
-	 * XXX LOCK
-	 */
-	for(unsigned int n = 0; n < THREAD_MAX_HANDLES; n++) {
-		if (n != t->t_hidx_thread)
-			handle_free_byindex(t, n);
-	}
-
-	/*
-	 * Clean the thread's vmspace up - this will remove all non-essential mappings. Note that
-	 * kernel threads do not have a vmspace and there's nothing to free here.
-	 */
-	if (t->t_vmspace != NULL)
-		vmspace_cleanup(t->t_vmspace);
-
-	/*
-	 * Clear the thread information; no one can query it at this point as the
-	 * thread itself will not run anymore.
-	 */
-	page_free(t->t_threadinfo_page);
-	t->t_threadinfo = NULL;
-
-	/* Run all thread exit callbacks */
-	if (!DQUEUE_EMPTY(&threadcallbacks_exit))
-		DQUEUE_FOREACH(&threadcallbacks_exit, tc, struct THREAD_CALLBACK) {
-			tc->tc_func(t, NULL);
-		}
+	KASSERT((t->t_flags & THREAD_FLAG_KTHREAD) != 0 || p != NULL, "thread without process");
 
 	/*
 	 * Signal anyone waiting on the thread; the terminate information should
@@ -223,6 +131,16 @@ thread_cleanup(thread_t* t)
 	 * checks to ensure the thread is truly gone.
 	 */
 	thread_signal_waiters(t);
+
+	/* If we don't have an associated process, we are done - no handles to free */
+	if (p == NULL)
+		return;
+
+	/* Look up the thread handle */
+	errorcode_t err;
+	struct HANDLE* thread_handle;
+	err = handle_lookup(p, t->t_hidx_thread, HANDLE_TYPE_THREAD, &thread_handle);
+	KASSERT(err == ANANAS_ERROR_NONE, "cannot look up thread handle for %p: %d", t, err);
 
 	/*
 	 * Force our thread handle to point to nothing; we're about to free it, but we
@@ -235,7 +153,7 @@ thread_cleanup(thread_t* t)
 	 * references (which will be the case once everyone is done waiting for it
 	 * and cleans up its own handle)
 	 */
-	handle_free_byindex(t, t->t_hidx_thread);
+	handle_free_byindex(p, t->t_hidx_thread);
 }
 
 /*
@@ -252,10 +170,10 @@ thread_destroy(thread_t* t)
 	/* Free the machine-dependant bits */
 	md_thread_free(t);
 
-	/* Get rid of the thread's vmspace - this removes all MD-dependant bits too */
-	if (t->t_vmspace != NULL)
-		vmspace_destroy(t->t_vmspace);
-	t->t_vmspace = NULL;
+	/* Unreference the associated process */
+	if (t->t_process != NULL)
+		process_deref(t->t_process);
+	t->t_process = NULL;
 
 	/* If we aren't reaping the thread, remove it from our thread queue; it'll be gone soon */
 	if ((t->t_flags & THREAD_FLAG_REAPING) == 0) {
@@ -376,6 +294,19 @@ thread_exit(int exitcode)
 	/* NOTREACHED */
 }
 
+void
+thread_set_name(thread_t* t, const char* name)
+{
+	if (t->t_flags & THREAD_FLAG_KTHREAD) {
+		/* Surround kernel thread names by [ ] to clearly identify them */
+		snprintf(t->t_name, THREAD_MAX_NAME_LEN, "[%s]", name);
+	} else {
+		strncpy(t->t_name, name, THREAD_MAX_NAME_LEN);
+	}
+	t->t_name[THREAD_MAX_NAME_LEN] = '\0';
+}
+
+#if 0
 errorcode_t
 thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 {
@@ -409,65 +340,7 @@ thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
 	*dest = t;
 	return ANANAS_ERROR_OK;
 }
-
-errorcode_t
-thread_set_args(thread_t* t, const char* args, size_t args_len)
-{
-	for (unsigned int i = 0; i < ((THREADINFO_ARGS_LENGTH - 1) < args_len ? (THREADINFO_ARGS_LENGTH - 1) : args_len); i++)
-		if(args[i] == '\0' && args[i + 1] == '\0') {
-			memcpy(t->t_threadinfo->ti_args, args, i + 2 /* terminating \0\0 */);
-			return ANANAS_ERROR_OK;
-		}
-	return ANANAS_ERROR(BAD_LENGTH);
-}
-
-errorcode_t
-thread_set_environment(thread_t* t, const char* env, size_t env_len)
-{
-	for (unsigned int i = 0; i < ((THREADINFO_ENV_LENGTH - 1) < env_len ? (THREADINFO_ENV_LENGTH - 1) : env_len); i++)
-		if(env[i] == '\0' && env[i + 1] == '\0') {
-			memcpy(t->t_threadinfo->ti_env, env, i + 2 /* terminating \0\0 */);
-			return ANANAS_ERROR_OK;
-		}
-
-	return ANANAS_ERROR(BAD_LENGTH);
-}
-
-errorcode_t
-thread_register_init_func(struct THREAD_CALLBACK* fn)
-{
-	spinlock_lock(&spl_threadfuncs);
-	DQUEUE_ADD_TAIL(&threadcallbacks_init, fn);
-	spinlock_unlock(&spl_threadfuncs);	
-	return ANANAS_ERROR_OK;
-}
-
-errorcode_t
-thread_register_exit_func(struct THREAD_CALLBACK* fn)
-{
-	spinlock_lock(&spl_threadfuncs);
-	DQUEUE_ADD_TAIL(&threadcallbacks_exit, fn);
-	spinlock_unlock(&spl_threadfuncs);	
-	return ANANAS_ERROR_OK;
-}
-
-errorcode_t
-thread_unregister_init_func(struct THREAD_CALLBACK* fn)
-{
-	spinlock_lock(&spl_threadfuncs);
-	DQUEUE_REMOVE(&threadcallbacks_init, fn);
-	spinlock_unlock(&spl_threadfuncs);	
-	return ANANAS_ERROR_OK;
-}
-
-errorcode_t
-thread_unregister_exit_func(struct THREAD_CALLBACK* fn)
-{
-	spinlock_lock(&spl_threadfuncs);
-	DQUEUE_REMOVE(&threadcallbacks_exit, fn);
-	spinlock_unlock(&spl_threadfuncs);	
-	return ANANAS_ERROR_OK;
-}
+#endif
 
 void
 thread_signal_waiters(thread_t* t)
@@ -503,7 +376,7 @@ idle_thread()
 	}
 }
 
-#ifdef OPTION_KDB
+#if 0
 extern struct THREAD* kdb_curthread;
 
 KDB_COMMAND(threads, "[s:flags]", "Displays current threads")

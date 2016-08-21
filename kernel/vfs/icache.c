@@ -315,7 +315,8 @@ icache_lookup(struct VFS_MOUNTED_FS* fs, void* fsop)
 			/* Freelist is empty; we need to sacrifice an item from the cache */
 			icache_purge_old_entries(fs);
 			/* XXX next condition is too harsh */
-			KASSERT(!DQUEUE_EMPTY(&fs->fs_icache_free), "icache still full after purge");
+			if (!DQUEUE_EMPTY(&fs->fs_icache_free))
+				kprintf("icache still full after purge??\n");
 		}
 	}
 

@@ -2,8 +2,8 @@
 #include <ananas/console.h>
 #include <ananas/error.h>
 #include <ananas/handle.h>
-#include <ananas/thread.h>
-#include <ananas/threadinfo.h>
+#include <ananas/process.h>
+#include <ananas/procinfo.h>
 #include <ananas/trace.h>
 #include <ananas/vfs.h>
 #include <ananas/lib.h>
@@ -11,32 +11,30 @@
 TRACE_SETUP;
 
 static errorcode_t
-vfs_init_thread(thread_t* thread, thread_t* parent)
+vfs_init_process(process_t* proc)
 {
 	errorcode_t err;
-
-	/* Do not bother for kernel threads; these won't use handles anyway */
-	if (THREAD_IS_KTHREAD(thread))
-		return ANANAS_ERROR_OK;
 
 	/* If there is a parent, try to clone it's parent handles */
 	struct HANDLE* path_handle;
 	struct HANDLE* stdin_handle;
 	struct HANDLE* stdout_handle;
 	struct HANDLE* stderr_handle;
+	process_t* parent = proc->p_parent;
 	if (parent != NULL) {
 		/* Parent should have cloned our handles; we can just copy the indices */
-		thread->t_threadinfo->ti_handle_stdin = parent->t_threadinfo->ti_handle_stdin;
-		thread->t_threadinfo->ti_handle_stdout = parent->t_threadinfo->ti_handle_stdout;
-		thread->t_threadinfo->ti_handle_stderr = parent->t_threadinfo->ti_handle_stderr;
-		thread->t_hidx_path = parent->t_hidx_path;
+		proc->p_info->pi_handle_stdin = parent->p_info->pi_handle_stdin;
+		proc->p_info->pi_handle_stdout = parent->p_info->pi_handle_stdout;
+		proc->p_info->pi_handle_stderr = parent->p_info->pi_handle_stderr;
+		proc->p_hidx_path = parent->p_hidx_path;
 	} else {
 		/* Initialize stdin/out/error, so they'll get handle index 0, 1, 2 */
-		err = handle_alloc(HANDLE_TYPE_FILE, thread, 0, &stdin_handle, &thread->t_threadinfo->ti_handle_stdin);
+		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stdin_handle, &proc->p_info->pi_handle_stdin);
 		ANANAS_ERROR_RETURN(err);
-		err = handle_alloc(HANDLE_TYPE_FILE, thread, 0, &stdout_handle, &thread->t_threadinfo->ti_handle_stdout);
+
+		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stdout_handle, &proc->p_info->pi_handle_stdout);
 		ANANAS_ERROR_RETURN(err);
-		err = handle_alloc(HANDLE_TYPE_FILE, thread, 0, &stderr_handle, &thread->t_threadinfo->ti_handle_stderr);
+		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stderr_handle, &proc->p_info->pi_handle_stderr);
 		ANANAS_ERROR_RETURN(err);
 
 		/* Hook the new handles to the console */
@@ -44,27 +42,22 @@ vfs_init_thread(thread_t* thread, thread_t* parent)
 		stdout_handle->h_data.d_vfs_file.f_device = console_tty;
 		stderr_handle->h_data.d_vfs_file.f_device = console_tty;
 
-		/*
-		 * No parent; use / as current path. This will not work in very early
-		 * initialiation, but that is fine - our lookup code should know what
-		 * to do with the NULL backing inode.
-		 */
-		err = handle_alloc(HANDLE_TYPE_FILE, thread, 0, &path_handle, &thread->t_hidx_path);
-		if (err == ANANAS_ERROR_NONE) {
-			(void)vfs_open("/", NULL, &path_handle->h_data.d_vfs_file);
-		}
-
+		/* Use / as current path - by the time we create processes, we should have a workable VFS */
+		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &path_handle, &proc->p_hidx_path);
+		ANANAS_ERROR_RETURN(err);
+		err = vfs_open("/", NULL, &path_handle->h_data.d_vfs_file);
+		ANANAS_ERROR_RETURN(err);
 	}
 
 	TRACE(THREAD, INFO, "t=%p, stdin=%u, stdout=%u, stderr=%u",
-	 thread,
-	 thread->t_threadinfo->ti_handle_stdin,
-	 thread->t_threadinfo->ti_handle_stdout,
-	 thread->t_threadinfo->ti_handle_stderr);
+	 proc,
+	 proc->p_info->pi_handle_stdin,
+	 proc->p_info->pi_handle_stdout,
+	 proc->p_info->pi_handle_stderr);
 
 	return ANANAS_ERROR_OK;
 }
 
-REGISTER_THREAD_INIT_FUNC(vfs_init_thread);
+REGISTER_PROCESS_INIT_FUNC(vfs_init_process);
 
 /* vim:set ts=2 sw=2: */

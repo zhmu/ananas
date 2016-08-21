@@ -5,6 +5,7 @@
 #include <ananas/lib.h>
 #include <ananas/lock.h>
 #include <ananas/mm.h>
+#include <ananas/process.h>
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
 #include <ananas/thread.h>
@@ -45,15 +46,18 @@ handle_init()
 	 * XXX Thread handles are often used during the boot process to make a handle
 	 * for the idle process; this means we cannot register them using the sysinit
 	 * framework - thus kludge and register them here.
+	 *
+	 * XXX REMOVE THIS - it will no longer be needed soon as kthread's do not have
+	 * a associated process_t.
 	 */
 	extern struct HANDLE_TYPE thread_handle_type;
 	handle_register_type(&thread_handle_type);
 }
 
 errorcode_t
-handle_alloc(int type, thread_t* t, handleindex_t index_from, struct HANDLE** handle_out, handleindex_t* index_out)
+handle_alloc(int type, process_t* proc, handleindex_t index_from, struct HANDLE** handle_out, handleindex_t* index_out)
 {
-	KASSERT(t != NULL, "handle_alloc() without thread");
+	KASSERT(proc != NULL, "handle_alloc() without process");
 
 	/* Look up the handle type XXX O(n) */
 	struct HANDLE_TYPE* htype = NULL;
@@ -86,39 +90,39 @@ handle_alloc(int type, thread_t* t, handleindex_t index_from, struct HANDLE** ha
 	/* Initialize the handle */
 	mutex_init(&handle->h_mutex, "handle");
 	handle->h_type = type;
-	handle->h_thread = t;
+	handle->h_process = proc;
 	handle->h_hops = htype->ht_hops;
 	handle->h_flags = 0;
 
-	/* Hook the handle to the thread */
-	spinlock_lock(&t->t_lock);
+	/* Hook the handle to the process */
+	process_lock(proc);
 	handleindex_t n = index_from;
-	while(n < THREAD_MAX_HANDLES && t->t_handle[n] != NULL)
+	while(n < PROCESS_MAX_HANDLES && proc->p_handle[n] != NULL)
 		n++;
-	if (n < THREAD_MAX_HANDLES)
-		t->t_handle[n] = handle;
-	spinlock_unlock(&t->t_lock);
+	if (n < PROCESS_MAX_HANDLES)
+		proc->p_handle[n] = handle;
+	process_unlock(proc);
 
-	if (n == THREAD_MAX_HANDLES)
+	if (n == PROCESS_MAX_HANDLES)
 		panic("out of handles"); // XXX FIX ME
 
-	KASSERT(((addr_t)handle % sizeof(struct HANDLE)) == 0, "handle address %p is not 0x%x byte aligned", (addr_t)handle, sizeof(struct HANDLE));
 	*handle_out = handle;
 	*index_out = n;
-	TRACE(HANDLE, INFO, "thread=%p, type=%u => handle=%p, index=%u", t, type, handle, n);
+	TRACE(HANDLE, INFO, "process=%p, type=%u => handle=%p, index=%u", proc, type, handle, n);
 	return ANANAS_ERROR_OK;
 }
 
 errorcode_t
-handle_lookup(thread_t* t, handleindex_t index, int type, struct HANDLE** handle_out)
+handle_lookup(process_t* proc, handleindex_t index, int type, struct HANDLE** handle_out)
 {
-	if(index < 0 || index >= THREAD_MAX_HANDLES)
+	KASSERT(proc != NULL, "handle_lookup() without process");
+	if(index < 0 || index >= PROCESS_MAX_HANDLES)
 		return ANANAS_ERROR(BAD_HANDLE);
 
 	/* Obtain the handle XXX How do we ensure it won't get freed after this? Should we ref it? */
-	spinlock_lock(&t->t_lock);
-	struct HANDLE* handle = t->t_handle[index];
-	spinlock_unlock(&t->t_lock);
+	process_lock(proc);
+	struct HANDLE* handle = proc->p_handle[index];
+	process_unlock(proc);
 
 	/* ensure handle exists - we don't verify ownership: it _is_ in the thread's handle table... */
 	if (handle == NULL)
@@ -143,13 +147,14 @@ handle_free(struct HANDLE* handle)
 	mutex_lock(&handle->h_mutex);
 
 	/* Remove us from the thread handle queue, if necessary */
-	if (handle->h_thread != NULL) {
-		spinlock_lock(&handle->h_thread->t_lock);
-		for (handleindex_t n = 0; n < THREAD_MAX_HANDLES; n++) {
-			if (handle->h_thread->t_handle[n] == handle)
-				handle->h_thread->t_handle[n] = NULL;
+	process_t* proc = handle->h_process;
+	if (proc != NULL) {
+		process_lock(proc);
+		for (handleindex_t n = 0; n < PROCESS_MAX_HANDLES; n++) {
+			if (proc->p_handle[n] == handle)
+				proc->p_handle[n] = NULL;
 		}
-		spinlock_unlock(&handle->h_thread->t_lock);
+		process_unlock(proc);
 	}
 
 	/*
@@ -157,14 +162,14 @@ handle_free(struct HANDLE* handle)
 	 * no special action is needed.
 	 */
 	if (handle->h_hops->hop_free != NULL) {
-		errorcode_t err = handle->h_hops->hop_free(handle->h_thread, handle);
+		errorcode_t err = handle->h_hops->hop_free(proc, handle);
 		ANANAS_ERROR_RETURN(err);
 	}
 
 	/* Clear the handle */
 	memset(&handle->h_data, 0, sizeof(handle->h_data));
 	handle->h_type = HANDLE_TYPE_UNUSED; /* just to ensure the value matches */
-	handle->h_thread = NULL;
+	handle->h_process = NULL;
 
 	/*	
 	 * Let go of the handle lock - if someone tries to use it, they'll lock it
@@ -181,79 +186,40 @@ handle_free(struct HANDLE* handle)
 }
 
 errorcode_t
-handle_free_byindex(thread_t* t, handleindex_t index)
+handle_free_byindex(process_t* proc, handleindex_t index)
 {
 	/* Look the handle up */
 	struct HANDLE* handle;
-	errorcode_t err = handle_lookup(t, index, HANDLE_TYPE_ANY, &handle);
+	errorcode_t err = handle_lookup(proc, index, HANDLE_TYPE_ANY, &handle);
 	ANANAS_ERROR_RETURN(err);
 
 	return handle_free(handle);
 }
 
 errorcode_t
-handle_clone_generic(struct HANDLE* handle_in, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
+handle_clone_generic(struct HANDLE* handle_in, process_t* proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
 {
-	errorcode_t err = handle_alloc(handle_in->h_type, thread_out, index_out_min, handle_out, index_out);
+	errorcode_t err = handle_alloc(handle_in->h_type, proc_out, index_out_min, handle_out, index_out);
 	ANANAS_ERROR_RETURN(err);
 	memcpy(&(*handle_out)->h_data, &handle_in->h_data, sizeof(handle_in->h_data));
 	return ANANAS_ERROR_OK;
 }
 
 errorcode_t
-handle_clone(thread_t* thread_in, handleindex_t index, struct CLONE_OPTIONS* opts, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
+handle_clone(process_t* proc_in, handleindex_t index, struct CLONE_OPTIONS* opts, process_t* proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
 {
 	struct HANDLE* handle;
-	errorcode_t err = handle_lookup(thread_in, index, HANDLE_TYPE_ANY, &handle);
+	errorcode_t err = handle_lookup(proc_in, index, HANDLE_TYPE_ANY, &handle);
 	ANANAS_ERROR_RETURN(err);
 
 	mutex_lock(&handle->h_mutex);
 	if (handle->h_hops->hop_clone != NULL) {
-		err = handle->h_hops->hop_clone(thread_in, index, handle, opts, thread_out, handle_out, index_out_min, index_out);
+		err = handle->h_hops->hop_clone(proc_in, index, handle, opts, proc_out, handle_out, index_out_min, index_out);
 	} else {
 		err = ANANAS_ERROR(BAD_OPERATION);
 	}
 	mutex_unlock(&handle->h_mutex);
 	return err;
-}
-
-errorcode_t
-handle_set_owner(thread_t* t, handleindex_t index_in, handleindex_t owner_thread_in, handleindex_t* index_out)
-{
-	errorcode_t err;
-
-	/* Fetch the owner thread */
-	struct HANDLE* owner_handle;
-	err = handle_lookup(t, owner_thread_in, HANDLE_TYPE_THREAD, &owner_handle);
-	ANANAS_ERROR_RETURN(err);
-	thread_t* new_thread = owner_handle->h_data.d_thread;
-
-	/* XXX We should check the relationship between the current and new thread */
-	
-	/* Fetch the handle */
-	struct HANDLE* handle_in;
-	err = handle_lookup(t, index_in, HANDLE_TYPE_ANY, &handle_in);
-	ANANAS_ERROR_RETURN(err);
-
-	/* Remove the thread from the old thread's handles */
-	thread_t* old_thread = handle_in->h_thread;
-	spinlock_lock(&old_thread->t_lock);
-	old_thread->t_handle[index_in] = NULL;
-	spinlock_unlock(&old_thread->t_lock);
-
-	/* And hook it up the new thread's handles */
-	spinlock_lock(&new_thread->t_lock);
-	handleindex_t n = 0;
-	for(/* nothing */; n < THREAD_MAX_HANDLES; n++)
-		if (new_thread->t_handle[n] == NULL)
-			break;
-	KASSERT(n < THREAD_MAX_HANDLES, "out of handles"); /* XXX deal with this */
-	new_thread->t_handle[n] = handle_in;
-	handle_in->h_thread = new_thread;
-	spinlock_unlock(&new_thread->t_lock);
-
-	*index_out = n;
-	return ANANAS_ERROR_OK;
 }
 
 errorcode_t
@@ -280,7 +246,7 @@ KDB_COMMAND(handle, "i:handle", "Display handle information")
 	struct HANDLE* handle = (void*)arg[1].a_u.u_value;
 	kprintf("type          : %u\n", handle->h_type);
 	kprintf("flags         : %u\n", handle->h_flags);
-	kprintf("owner thread  : 0x%x\n", handle->h_thread);
+	kprintf("owner process : 0x%p\n", handle->h_process);
 	switch(handle->h_type) {
 		case HANDLE_TYPE_FILE: {
 			kprintf("file handle specifics:\n");

@@ -23,8 +23,6 @@
 #include <machine/vm.h>
 #include <machine/param.h>
 
-#include <ananas/threadinfo.h>
-
 /*
  * The next define adds specific debugger assertions that may incur a
  * significant performance penalty - these assertions are named

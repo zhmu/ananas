@@ -94,6 +94,7 @@ sys_open(thread_t* t, struct OPEN_OPTIONS* opts, handleindex_t* result)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, opts=%p, result=%p", t, opts, result);
 	errorcode_t err;
+	process_t* proc = t->t_process;
 
 	/* Obtain open options */
 	struct OPEN_OPTIONS open_opts; void* optr;
@@ -112,7 +113,7 @@ sys_open(thread_t* t, struct OPEN_OPTIONS* opts, handleindex_t* result)
 	/* Obtain a new handle */
 	struct HANDLE* handle_out;
 	handleindex_t index_out;
-	err = handle_alloc(open_opts.op_type, t, 0, &handle_out, &index_out);
+	err = handle_alloc(open_opts.op_type, proc, 0, &handle_out, &index_out);
 	ANANAS_ERROR_RETURN(err);
 	err = syscall_set_handleindex(t, result, index_out);
 
@@ -129,7 +130,7 @@ sys_open(thread_t* t, struct OPEN_OPTIONS* opts, handleindex_t* result)
 
 	if (err != ANANAS_ERROR_OK) {
 		/* Create failed - destroy the handle */
-		handle_free_byindex(t, index_out);
+		handle_free_byindex(proc, index_out);
 		return err;
 	}
 	TRACE(SYSCALL, FUNC, "t=%p, success, hindex=%u", t, index_out);
@@ -156,6 +157,7 @@ sys_clone(thread_t* t, handleindex_t in, struct CLONE_OPTIONS* opts, handleindex
 {
 	TRACE(SYSCALL, FUNC, "t=%p, in=%p, opts=%p, out=%p", t, in, opts, out);
 	errorcode_t err;
+	process_t* proc = t->t_process;
 
 	/* Obtain clone options */
 	struct CLONE_OPTIONS clone_opts; void* optr;
@@ -173,7 +175,7 @@ sys_clone(thread_t* t, handleindex_t in, struct CLONE_OPTIONS* opts, handleindex
 	/* Try to clone it */
 	struct HANDLE* dest_handle;
 	handleindex_t dest_index;
-	err = handle_clone(t, in, &clone_opts, t, &dest_handle, 0, &dest_index);
+	err = handle_clone(proc, in, &clone_opts, proc, &dest_handle, 0, &dest_index);
 	ANANAS_ERROR_RETURN(err);
 
 	/*
@@ -279,6 +281,7 @@ sys_create(thread_t* t, struct CREATE_OPTIONS* opts, handleindex_t* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, opts=%p, out=%p", t, opts, out);
 	errorcode_t err;
+	process_t* proc = t->t_process;
 
 	/* Obtain arguments */
 	struct CREATE_OPTIONS cropts;
@@ -292,7 +295,7 @@ sys_create(thread_t* t, struct CREATE_OPTIONS* opts, handleindex_t* out)
 	/* Create a new handle and hand it to the thread*/
 	struct HANDLE* out_handle;
 	handleindex_t out_index;
-	err = handle_alloc(cropts.cr_type, t, 0, &out_handle, &out_index);
+	err = handle_alloc(cropts.cr_type, proc, 0, &out_handle, &out_index);
 	ANANAS_ERROR_RETURN(err);
 	err = syscall_set_handleindex(t, out, out_index);
 	ANANAS_ERROR_RETURN(err);
@@ -308,7 +311,7 @@ sys_create(thread_t* t, struct CREATE_OPTIONS* opts, handleindex_t* out)
 
 	if (err != ANANAS_ERROR_OK) {
 		/* Create failed - destroy the handle */
-		handle_free_byindex(t, out_index);
+		handle_free_byindex(proc, out_index);
 	} else {
 		TRACE(SYSCALL, INFO, "success, hindex=%u", out_index);
 	}
@@ -350,22 +353,6 @@ sys_handlectl_generic(thread_t* t, handleindex_t hindex, struct HANDLE* h, unsig
 	errorcode_t err;
 
 	switch(op) {
-		case HCTL_GENERIC_SETOWNER: {
-			handleindex_t* owner = arg;
-			if (len != sizeof(handleindex_t*)) {
-				err = ANANAS_ERROR(BAD_LENGTH);
-				goto fail;
-			}
-
-			handleindex_t new_owner_index;
-			err = handle_set_owner(t, hindex, *owner, &new_owner_index);
-			if (err == ANANAS_ERROR_OK) {
-				TRACE(SYSCALL, INFO, "t=%p, hindex=%u, new owner=%u, success", t, hindex, owner);
-			} else {
-				TRACE(SYSCALL, ERROR, "t=%p, hindex=%u, new owner=%u, failure, code %u", t, hindex, owner, err);
-			}
-			break;
-		}
 		case HCTL_GENERIC_STATUS: {
 			/* Ensure we understand the arguments */
 			struct HCTL_STATUS_ARG* sa = arg;
@@ -382,7 +369,6 @@ sys_handlectl_generic(thread_t* t, handleindex_t hindex, struct HANDLE* h, unsig
 			err = ANANAS_ERROR(BAD_SYSCALL);
 			break;
 	}
-fail:
 	return err;
 }
 

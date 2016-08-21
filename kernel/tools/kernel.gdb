@@ -23,13 +23,7 @@ define t_print
 		help t_print
 	else
 		set $t = ((thread_t*)$arg0)
-		printf "thread %p: ", $t
-		if $t->t_threadinfo != 0
-			output $t->t_threadinfo->ti_args
-		else
-			echo <unknown>
-		end
-		echo \n
+		printf "thread %p: '%s'\n", $t, $t->t_name
 		printf "status:"
 		if ($t->t_flags == 0)
 			printf " none"
@@ -52,22 +46,13 @@ define t_print
 		if ($t->t_flags & 0x8000)
 			printf " kthread"
 		end
+		printf " process: %p, ", $t->t_process
 		printf " priority: %d, affinity: ", $t->t_priority
 		if ($t->t_affinity == -1)
 			printf "any"
 		else
 			printf "cpu %u", $t->t_affinity
 		end
-		echo \n
-		set $hindex = 0
-		while $hindex < 64
-			if $t->t_handle[$hindex] != 0
-				printf "handle %d, ", $hindex
-				h_print $t->t_handle[$hindex]
-			end
-			set $hindex = $hindex + 1
-		end
-		output/x *$t
 		echo \n
 	end
 end
@@ -109,18 +94,36 @@ document h_print
 	Prints handle information
 end
 
+define p_print
+	if $argc == 0
+		help p_print
+	else
+		set $p = ((process_t*)$arg0)
+		printf "process %p, refcount %d\n", $p, $p->p_refcount
+		printf "parent %p", $p->p_parent
+		echo \n
+		set $hindex = 0
+		while $hindex < 64
+			if $p->p_handle[$hindex] != 0
+				printf "handle %d, ", $hindex
+				h_print $p->p_handle[$hindex]
+			end
+			set $hindex = $hindex + 1
+		end
+		echo \n
+	end
+end
+
+document p_print
+	Prints process information
+end
+
 define _ps_q
 	set $list = $arg0->dq_head
 	set $n = 0
 	while $list != 0
 		set $t = $list->sp_thread 
-		printf "(%u) %p: ", $n, $t
-		if $t->t_threadinfo != 0
-			output $t->t_threadinfo->ti_args
-		else
-			echo <unknown>
-		end
-		echo \n
+		printf "(%u) %p: %s\n", $n, $t, $t->t_name
 		set $n = $n + 1
 		set $list = $list->qi_next
 	end

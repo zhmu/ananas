@@ -3,6 +3,7 @@
 #include <ananas/bio.h>
 #include <ananas/handle.h>
 #include <ananas/handle-options.h>
+#include <ananas/process.h>
 #include <ananas/syscall.h>
 #include <ananas/trace.h>
 #include <ananas/vfs.h>
@@ -26,7 +27,7 @@ vfshandle_get_file(struct HANDLE* handle, struct VFS_FILE** out)
 }
 
 errorcode_t
-vfshandle_read(thread_t* thread, handleindex_t index, struct HANDLE* handle, void* buffer, size_t* size)
+vfshandle_read(thread_t* t, handleindex_t index, struct HANDLE* handle, void* buffer, size_t* size)
 {
 	struct VFS_FILE* file;
 	errorcode_t err = vfshandle_get_file(handle, &file);
@@ -36,7 +37,7 @@ vfshandle_read(thread_t* thread, handleindex_t index, struct HANDLE* handle, voi
 }
 
 errorcode_t
-vfshandle_write(thread_t* thread, handleindex_t index, struct HANDLE* handle, const void* buffer, size_t* size)
+vfshandle_write(thread_t* t, handleindex_t index, struct HANDLE* handle, const void* buffer, size_t* size)
 {
 	struct VFS_FILE* file;
 	errorcode_t err = vfshandle_get_file(handle, &file);
@@ -46,14 +47,15 @@ vfshandle_write(thread_t* thread, handleindex_t index, struct HANDLE* handle, co
 }
 
 static errorcode_t
-vfshandle_open(thread_t* thread, handleindex_t index, struct HANDLE* handle, struct OPEN_OPTIONS* opts)
+vfshandle_open(thread_t* t, handleindex_t index, struct HANDLE* handle, struct OPEN_OPTIONS* opts)
 {
+	process_t* proc = t->t_process;
 	const char* userpath = opts->op_path; /* safe because sys_open maps it */
 
 	/* Grab the path handle for the thread */
 	struct HANDLE* path_handle;
-	errorcode_t err = handle_lookup(thread, thread->t_hidx_path, HANDLE_TYPE_FILE, &path_handle);
-	KASSERT(err == ANANAS_ERROR_NONE, "vfshandle_open(): thread %p path handle %d invalid: %d", thread, thread->t_hidx_path, err);
+	errorcode_t err = handle_lookup(proc, proc->p_hidx_path, HANDLE_TYPE_FILE, &path_handle);
+	KASSERT(err == ANANAS_ERROR_NONE, "vfshandle_open(): process %p path handle %d invalid: %d", proc, proc->p_hidx_path, err);
 
 	/*
 	 * If we could try to create the file, do so - if this fails, we'll attempt
@@ -83,7 +85,7 @@ vfshandle_open(thread_t* thread, handleindex_t index, struct HANDLE* handle, str
 }
 
 static errorcode_t
-vfshandle_free(thread_t* thread, struct HANDLE* handle)
+vfshandle_free(process_t* proc, struct HANDLE* handle)
 {
 	/* If we have a backing dentry, dereference it - this will free it if needed */
 	struct DENTRY* dentry = handle->h_data.d_vfs_file.f_dentry;
@@ -93,7 +95,7 @@ vfshandle_free(thread_t* thread, struct HANDLE* handle)
 }
 
 static errorcode_t
-vfshandle_unlink(thread_t* thread, handleindex_t index, struct HANDLE* handle)
+vfshandle_unlink(thread_t* t, handleindex_t index, struct HANDLE* handle)
 {
 	struct VFS_FILE* file;
 	errorcode_t err = vfshandle_get_file(handle, &file);
@@ -103,17 +105,18 @@ vfshandle_unlink(thread_t* thread, handleindex_t index, struct HANDLE* handle)
 }
 
 static errorcode_t
-vfshandle_create(thread_t* thread, handleindex_t index, struct HANDLE* handle, struct CREATE_OPTIONS* opts)
+vfshandle_create(thread_t* t, handleindex_t index, struct HANDLE* handle, struct CREATE_OPTIONS* opts)
 {
 	/* Fetch the new path name */
 	const char* path;
-	errorcode_t err = syscall_map_string(thread, opts->cr_path, &path);
+	errorcode_t err = syscall_map_string(t, opts->cr_path, &path);
 	ANANAS_ERROR_RETURN(err);
 
-	/* Grab the path handle for the thread */
+	/* Grab the path handle */
+	process_t* proc = t->t_process;
 	struct HANDLE* path_handle;
-	err = handle_lookup(thread, thread->t_hidx_path, HANDLE_TYPE_FILE, &path_handle);
-	KASSERT(err == ANANAS_ERROR_NONE, "vfshandle_open(): thread %p path handle %d invalid", thread, thread->t_hidx_path);
+	err = handle_lookup(proc, proc->p_hidx_path, HANDLE_TYPE_FILE, &path_handle);
+	KASSERT(err == ANANAS_ERROR_NONE, "vfshandle_open(): process %p path handle %d invalid", proc, proc->p_hidx_path);
 
 	/* Attempt to create the new file */
 	return vfs_create(path_handle->h_data.d_vfs_file.f_dentry, &handle->h_data.d_vfs_file, path, opts->cr_mode);
@@ -123,6 +126,7 @@ static errorcode_t
 vfshandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handle, unsigned int op, void* arg, size_t len)
 {
 	errorcode_t err;
+	process_t* proc = thread->t_process;
 
 	/* Grab the file handle - we'll always need it as we're doing files */
 	struct VFS_FILE* file;
@@ -143,7 +147,7 @@ vfshandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handle, 
 		 * Note that arg/len are already filled out at this point, so we can just
 		 * call the devctl
 		 */
-		return file->f_device->driver->drv_devctl(file->f_device, thread, op, arg, len);
+		return file->f_device->driver->drv_devctl(file->f_device, proc, op, arg, len);
 	}
 
 	switch(op) {
@@ -168,10 +172,10 @@ vfshandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handle, 
 #endif
 
 			/* Disown the previous handle; it is no longer of concern */
-			handle_free_byindex(thread, thread->t_hidx_path);
+			handle_free_byindex(proc, proc->p_hidx_path);
 
 			/* And update the handle */
-			thread->t_hidx_path = index;
+			proc->p_hidx_path = index;
 			return ANANAS_ERROR_OK;
 		}
 		case HCTL_FILE_SEEK: {
@@ -256,8 +260,8 @@ vfshandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handle, 
 
 			/* Grab the path handle for the thread */
 			struct HANDLE* path_handle;
-			errorcode_t err = handle_lookup(thread, thread->t_hidx_path, HANDLE_TYPE_FILE, &path_handle);
-			KASSERT(err == ANANAS_ERROR_NONE, "vfshandle_open(): thread %p path handle %d invalid", thread, thread->t_hidx_path);
+			errorcode_t err = handle_lookup(proc, proc->p_hidx_path, HANDLE_TYPE_FILE, &path_handle);
+			KASSERT(err == ANANAS_ERROR_NONE, "vfshandle_control(): proc %p path handle %d invalid", proc, proc->p_hidx_path);
 
 			const char* dest;
 			err = syscall_map_string(thread, re->re_dest, &dest);
@@ -274,7 +278,7 @@ vfshandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handle, 
 }
 
 static errorcode_t
-vfshandle_clone(thread_t* thread_in, handleindex_t index_in, struct HANDLE* handle_in, struct CLONE_OPTIONS* opts, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
+vfshandle_clone(process_t* p_in, handleindex_t index_in, struct HANDLE* handle_in, struct CLONE_OPTIONS* opts, process_t* proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
 {
 	struct VFS_FILE* file;
 	errorcode_t err = vfshandle_get_file(handle_in, &file);
@@ -290,12 +294,13 @@ vfshandle_clone(thread_t* thread_in, handleindex_t index_in, struct HANDLE* hand
 		dentry_ref(dentry);
 
 	/* Now, just ordinarely clone the handle */
-	return handle_clone_generic(handle_in, thread_out, handle_out, index_out_min, index_out);
+	return handle_clone_generic(handle_in, proc_out, handle_out, index_out_min, index_out);
 }
 
 static errorcode_t
-vfshandle_summon(thread_t* thread, struct HANDLE* handle, struct SUMMON_OPTIONS* opts, struct HANDLE** handle_out, handleindex_t* index_out)
+vfshandle_summon(thread_t* t, struct HANDLE* handle, struct SUMMON_OPTIONS* opts, struct HANDLE** handle_out, handleindex_t* index_out)
 {
+#if 0
 	struct VFS_FILE* file;
 	errorcode_t err = vfshandle_get_file(handle, &file);
 	ANANAS_ERROR_RETURN(err);
@@ -358,6 +363,9 @@ fail:
 	}
 	thread_deref(newthread);
 	return err;
+#else
+	return ANANAS_ERROR(BAD_OPERATION);
+#endif
 }
 
 struct HANDLE_OPS vfs_hops = {

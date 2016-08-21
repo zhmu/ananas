@@ -51,7 +51,7 @@ struct HANDLE_PIPE_INFO {
 struct HANDLE {
 	int h_type;				/* one of HANDLE_TYPE_... */
 	int h_flags;				/* flags */
-	struct THREAD* h_thread;		/* owning thread */
+	process_t* h_process;			/* owning process */
 	mutex_t h_mutex;			/* mutex guarding the handle */
 	struct HANDLE_OPS* h_hops;		/* handle operations */
 	DQUEUE_FIELDS(struct HANDLE);		/* used for the queue structure */
@@ -76,11 +76,11 @@ struct CLONE_OPTIONS;
 typedef errorcode_t (*handle_read_fn)(thread_t* thread, handleindex_t index, struct HANDLE* handle, void* buf, size_t* len);
 typedef errorcode_t (*handle_write_fn)(thread_t* thread, handleindex_t index, struct HANDLE* handle, const void* buf, size_t* len);
 typedef errorcode_t (*handle_open_fn)(thread_t* thread, handleindex_t index, struct HANDLE* result, struct OPEN_OPTIONS* opts);
-typedef errorcode_t (*handle_free_fn)(thread_t* thread, struct HANDLE* handle);
+typedef errorcode_t (*handle_free_fn)(process_t* proc, struct HANDLE* handle);
 typedef errorcode_t (*handle_unlink_fn)(thread_t* thread, handleindex_t index, struct HANDLE* handle);
 typedef errorcode_t (*handle_create_fn)(thread_t* thread, handleindex_t index, struct HANDLE* handle, struct CREATE_OPTIONS* opts);
 typedef errorcode_t (*handle_control_fn)(thread_t* thread, handleindex_t index, struct HANDLE* handle, unsigned int op, void* arg, size_t len);
-typedef errorcode_t (*handle_clone_fn)(thread_t* thread_in, handleindex_t index, struct HANDLE* handle, struct CLONE_OPTIONS* opts, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out);
+typedef errorcode_t (*handle_clone_fn)(process_t* proc_in, handleindex_t index, struct HANDLE* handle, struct CLONE_OPTIONS* opts, process_t* proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out);
 typedef errorcode_t (*handle_summon_fn)(thread_t* thread, struct HANDLE* handle, struct SUMMON_OPTIONS* opts, struct HANDLE** handle_out, handleindex_t* index_out);
 
 struct HANDLE_OPS {
@@ -105,18 +105,17 @@ struct HANDLE_TYPE {
 DQUEUE_DEFINE(HANDLE_TYPES, struct HANDLE_TYPE);
 
 void handle_init();
-errorcode_t handle_alloc(int type, thread_t* t, handleindex_t index_from, struct HANDLE** handle_out, handleindex_t* index_out);
+errorcode_t handle_alloc(int type, process_t* p, handleindex_t index_from, struct HANDLE** handle_out, handleindex_t* index_out);
 errorcode_t handle_free(struct HANDLE* h);
-errorcode_t handle_free_byindex(thread_t* t, handleindex_t index);
-errorcode_t handle_lookup(thread_t* t, handleindex_t index, int type, struct HANDLE** handle_out);
-errorcode_t handle_clone(thread_t* t_in, handleindex_t index, struct CLONE_OPTIONS* opts, thread_t* thread_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out);
-errorcode_t handle_set_owner(thread_t* t, handleindex_t index_in, handleindex_t owner_thread_in, handleindex_t* index_out);
+errorcode_t handle_free_byindex(process_t* p, handleindex_t index);
+errorcode_t handle_lookup(process_t* p, handleindex_t index, int type, struct HANDLE** handle_out);
+errorcode_t handle_clone(process_t* p_in, handleindex_t index, struct CLONE_OPTIONS* opts, process_t* p_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out);
 
-errorcode_t handle_wait(thread_t* t, handleindex_t index, handle_event_t* event, handle_event_result_t* h);
+errorcode_t handle_wait(process_t* p, handleindex_t index, handle_event_t* event, handle_event_result_t* h);
 void handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t result);
 
 /* Only to be used from handle implementation code */
-errorcode_t handle_clone_generic(struct HANDLE* handle, thread_t* thread_out, struct HANDLE** out, handleindex_t index_out_min, handleindex_t* index);
+errorcode_t handle_clone_generic(struct HANDLE* handle, process_t* p_out, struct HANDLE** out, handleindex_t index_out_min, handleindex_t* index);
 errorcode_t handle_register_type(struct HANDLE_TYPE* ht);
 errorcode_t handle_unregister_type(struct HANDLE_TYPE* ht);
 

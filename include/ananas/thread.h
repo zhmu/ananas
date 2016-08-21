@@ -11,14 +11,11 @@
 #ifndef __THREAD_H__
 #define __THREAD_H__
 
-/* Maximum number of handles per thread */
-#define THREAD_MAX_HANDLES 64
-
 typedef void (*kthread_func_t)(void*);
-struct THREADINFO;
 struct VFS_INODE;
 struct VM_SPACE;
 
+#define THREAD_MAX_NAME_LEN 32
 #define THREAD_EVENT_EXIT 1
 
 DQUEUE_DEFINE(THREAD_QUEUE, thread_t);
@@ -35,6 +32,7 @@ struct THREAD {
 	MD_THREAD_FIELDS
 
 	spinlock_t t_lock;	/* Lock protecting the thread data */
+	char t_name[THREAD_MAX_NAME_LEN + 1];	/* Thread name */
 
 	refcount_t t_refcount;		/* Reference count of the thread, >0 */
 
@@ -53,7 +51,7 @@ struct THREAD {
 #define THREAD_TERM_FAULT	0x2	/* programming fault */
 #define THREAD_TERM_FAILURE	0x3	/* generic failure */
 
-	struct VM_SPACE*	t_vmspace;	/* thread's memory space */
+	struct PROCESS*		t_process;	/* associated process */
 
 	int t_priority;			/* priority (0 highest) */
 #define THREAD_PRIORITY_DEFAULT	200
@@ -61,15 +59,8 @@ struct THREAD {
 	int t_affinity;			/* thread CPU */
 #define THREAD_AFFINITY_ANY -1
 
-	struct PAGE* t_threadinfo_page;
-	struct THREADINFO* t_threadinfo;	/* Thread startup information */
-
 	/* Thread handles */
 	handleindex_t	t_hidx_thread;	/* Handle identifying this thread */
-	handleindex_t	t_hidx_path;	/* Current path */
-
-	/* Handles */
-	struct HANDLE* t_handle[THREAD_MAX_HANDLES];
 
 	/* Waiters to signal on thread changes */
 	struct THREAD_WAIT_QUEUE t_waitqueue;
@@ -94,16 +85,15 @@ errorcode_t md_kthread_init(thread_t* thread, kthread_func_t func, void* arg);
 /* Machine-dependant callback to free thread data */
 void md_thread_free(thread_t* thread);
 
-errorcode_t kthread_init(thread_t* t, kthread_func_t func, void* arg);
+errorcode_t kthread_init(thread_t* t, const char* name, kthread_func_t func, void* arg);
 
 #define THREAD_ALLOC_DEFAULT	0	/* Nothing special */
 #define THREAD_ALLOC_CLONE	1	/* Thread is created for cloning */
 
-errorcode_t thread_alloc(thread_t* parent, thread_t** dest, int flags);
+errorcode_t thread_alloc(process_t* p, thread_t** dest, const char* name, int flags);
 void thread_ref(thread_t* t);
 void thread_deref(thread_t* t);
-errorcode_t thread_set_args(thread_t* t, const char* args, size_t args_len);
-errorcode_t thread_set_environment(thread_t* t, const char* env, size_t env_len);
+void thread_set_name(thread_t* t, const char* name);
 
 thread_t* md_thread_switch(thread_t* new, thread_t* old);
 void idle_thread();
@@ -126,43 +116,5 @@ errorcode_t thread_clone(thread_t* parent, int flags, thread_t** dest);
 
 void thread_signal_waiters(thread_t* t);
 void thread_wait(thread_t* t);
-
-/*
- * Thread callback functions are provided so that modules can take action upon
- * creating or destroying of threads.
- */
-typedef errorcode_t (*thread_callback_t)(thread_t* thread, thread_t* parent);
-struct THREAD_CALLBACK {
-	thread_callback_t tc_func;
-	DQUEUE_FIELDS(struct THREAD_CALLBACK);
-};
-DQUEUE_DEFINE(THREAD_CALLBACKS, struct THREAD_CALLBACK);
-
-errorcode_t thread_register_init_func(struct THREAD_CALLBACK* fn);
-errorcode_t thread_register_exit_func(struct THREAD_CALLBACK* fn);
-errorcode_t thread_unregister_init_func(struct THREAD_CALLBACK* fn);
-errorcode_t thread_unregister_exit_func(struct THREAD_CALLBACK* fn);
-
-#define REGISTER_THREAD_INIT_FUNC(fn) \
-	static struct THREAD_CALLBACK cb_init_##fn = { .tc_func = fn }; \
-	static errorcode_t register_##fn() { \
-		return thread_register_init_func(&cb_init_##fn); \
-	} \
-	static errorcode_t unregister_##fn() { \
-		return thread_unregister_init_func(&cb_init_##fn); \
-	} \
-	INIT_FUNCTION(register_##fn, SUBSYSTEM_THREAD, ORDER_FIRST); \
-	EXIT_FUNCTION(unregister_##fn)
-
-#define REGISTER_THREAD_EXIT_FUNC(fn) \
-	static struct THREAD_CALLBACK cb_exit_##fn = { .tc_func = fn }; \
-	static errorcode_t register_##fn() { \
-		return thread_register_exit_func(&cb_exit_##fn); \
-	} \
-	static errorcode_t unregister_##fn() { \
-		return thread_unregister_exit_func(&cb_exit_##fn); \
-	} \
-	INIT_FUNCTION(register_##fn, SUBSYSTEM_THREAD, ORDER_FIRST); \
-	EXIT_FUNCTION(unregister_##fn)
 
 #endif
