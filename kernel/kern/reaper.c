@@ -47,8 +47,7 @@ reaper_reap(void* context)
 static errorcode_t
 start_reaper()
 {
-	kthread_init(&reaper_thread, &reaper_reap, NULL);
-	thread_set_args(&reaper_thread, "[reaper]\0", 10);
+	kthread_init(&reaper_thread, "reaper", &reaper_reap, NULL);
 	thread_resume(&reaper_thread);
 	return ANANAS_ERROR_OK;
 }

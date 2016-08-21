@@ -441,8 +441,7 @@ oroothub_start(device_t dev)
 	 * and we don't know the USB device either.
 	 */
 	struct OHCI_PRIVDATA* p = dev->privdata;
-	kthread_init(&p->ohci_rh_pollthread, &oroothub_thread, dev);
-	thread_set_args(&p->ohci_rh_pollthread, "[oroothub]\0\0", PAGE_SIZE);
+	kthread_init(&p->ohci_rh_pollthread, "oroothub", &oroothub_thread, dev);
 	thread_resume(&p->ohci_rh_pollthread);
 }
 

@@ -10,11 +10,11 @@ pcpu_init(struct PCPU* pcpu)
 {
 	pcpu->idlethread = kmalloc(sizeof(struct THREAD));
 	KASSERT(pcpu->idlethread != NULL, "out of memory for idle thread");
-	kthread_init(pcpu->idlethread, &idle_thread, NULL);
-	char tmp[64];
-	sprintf(tmp, "[idle:cpu%u]", pcpu->cpuid);
-	tmp[strlen(tmp) + 1] = '\0'; /* ensure doubly \0 terminated */
-	thread_set_args(pcpu->idlethread, tmp, PAGE_SIZE);
+
+	char name[64];
+	snprintf(name, sizeof(name) - 1, "idle:cpu%u", pcpu->cpuid);
+	name[sizeof(name) - 1] = '\0';
+	kthread_init(pcpu->idlethread, name, &idle_thread, NULL);
 	pcpu->nested_irq = 0;
 
 	/*

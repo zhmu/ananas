@@ -243,8 +243,7 @@ usbtransfer_init()
 	sem_init(&usbtransfer_sem, 0);
 
 	/* Create a kernel thread to handle USB completed messages */
-	kthread_init(&usbtransfer_thread, &transfer_thread, NULL);
-	thread_set_args(&usbtransfer_thread, "[usb-transfer]\0\0", PAGE_SIZE);
+	kthread_init(&usbtransfer_thread, "usb-transfer", &transfer_thread, NULL);
 	thread_resume(&usbtransfer_thread);
 }
 

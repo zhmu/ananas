@@ -192,8 +192,7 @@ usbbus_init()
 	 * Create a kernel thread to handle USB device attachments. We use a thread for this
 	 * since we can only attach one at the same time.
 	 */
-	kthread_init(&usbbus_thread, &usb_bus_thread, NULL);
-	thread_set_args(&usbbus_thread, "[usbbus]\0\0", PAGE_SIZE);
+	kthread_init(&usbbus_thread, "usbbus", &usb_bus_thread, NULL);
 	thread_resume(&usbbus_thread);
 }
 

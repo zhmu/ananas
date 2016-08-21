@@ -300,8 +300,7 @@ static errorcode_t
 tty_init()
 {
 	/* Launch our kernel thread */
-	kthread_init(&tty_thread, tty_thread_func, NULL);
-	thread_set_args(&tty_thread, "[tty]\0\0", 8);
+	kthread_init(&tty_thread, "tty", tty_thread_func, NULL);
 	thread_resume(&tty_thread);
 	return ANANAS_ERROR_OK;
 }

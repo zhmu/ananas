@@ -173,10 +173,9 @@ irq_register(unsigned int no, device_t dev, irqfunc_t func, int type, void* cont
 
 		/* (3) Create the thread */
 		char thread_name[PAGE_SIZE];
-		memset(thread_name, 0, sizeof thread_name);
-		sprintf(thread_name, "[irq-%d]", no);
-		kthread_init(&i->i_thread, &ithread, (void*)(uintptr_t)no);
-		thread_set_args(&i->i_thread, thread_name, PAGE_SIZE);
+		snprintf(thread_name, sizeof(thread_name) - 1, "irq-%d", no);
+		thread_name[sizeof(thread_name) - 1] = '\0';
+		kthread_init(&i->i_thread, thread_name, &ithread, (void*)(uintptr_t)no);
 		thread_resume(&i->i_thread);
 
 		/* XXX we should set a decent priority here */

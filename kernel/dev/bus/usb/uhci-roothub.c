@@ -422,8 +422,7 @@ uroothub_start(device_t dev)
 {
 	/* Create a kernel thread to monitor status updates and process requests */
 	struct UHCI_PRIVDATA* p = dev->privdata;
-	kthread_init(&p->uhci_rh_pollthread, &uroothub_thread, dev);
-	thread_set_args(&p->uhci_rh_pollthread, "[uroothub]\0\0", PAGE_SIZE);
+	kthread_init(&p->uhci_rh_pollthread, "uroothub", &uroothub_thread, dev);
 	thread_resume(&p->uhci_rh_pollthread);
 }
 
