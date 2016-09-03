@@ -2,7 +2,6 @@
 #include <ananas/bio.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
-#include <ananas/exec.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/schedule.h>
@@ -377,44 +376,6 @@ vfs_grow(struct VFS_FILE* file, off_t size)
 	}
 	file->f_offset = cur_offset;
 	return ANANAS_ERROR_OK;
-}
-
-static errorcode_t
-vfs_exec_obtain(void* priv, void* buf, off_t offset, size_t len)
-{
-	struct VFS_FILE f;
-	memset(&f, 0, sizeof(f));
-	f.f_dentry = priv;
-
-	/* kludge: cleanup is handeled by requesting 0 bytes at 0 to buffer NULL */
-	if (buf == NULL && offset == 0 && len == 0) {
-		dentry_deref(priv);
-		return ANANAS_ERROR_OK;
-	}
-
-	errorcode_t err = vfs_seek(&f, offset);
-	ANANAS_ERROR_RETURN(err);
-
-	size_t amount = len;
-	err = vfs_read(&f, buf, &amount);
-	ANANAS_ERROR_RETURN(err);
-
-	if (amount != len)
-		return ANANAS_ERROR(SHORT_READ);
-	return ANANAS_ERROR_OK;
-}
-
-errorcode_t
-vfs_summon(struct VFS_FILE* file, thread_t* t)
-{
-	KASSERT(file->f_dentry != NULL, "summon without dentry?");
-
-	/* Ensure the dentry will not go away while summoning */
-	dentry_ref(file->f_dentry);
-	errorcode_t err = exec_launch(t, file->f_dentry, &vfs_exec_obtain);
-	if (err != ANANAS_ERROR_NONE)
-		dentry_deref(file->f_dentry);
-	return err;
 }
 
 errorcode_t

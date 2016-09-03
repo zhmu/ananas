@@ -42,7 +42,6 @@ errorcode_t vfs_write(struct VFS_FILE* file, const void* buf, size_t* len);
 errorcode_t vfs_seek(struct VFS_FILE* file, off_t offset);
 errorcode_t vfs_create(struct DENTRY* parent, struct VFS_FILE* destfile, const char* dentry, int mode);
 errorcode_t vfs_grow(struct VFS_FILE* file, off_t size);
-errorcode_t vfs_summon(struct VFS_FILE* file, thread_t* t);
 errorcode_t vfs_unlink(struct VFS_FILE* file);
 errorcode_t vfs_rename(struct VFS_FILE* file, struct DENTRY* parent, const char* dest);
 
