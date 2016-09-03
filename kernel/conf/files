@@ -28,6 +28,11 @@ kern/disk_slice.c	option BIO
 # executable framework and formats
 kern/exec.c		mandatory
 kern/elf.c		option ELF
+# system calls
+sys/clone.c		mandatory
+sys/dupfd.c		mandatory
+sys/execve.c		mandatory
+sys/waitpid.c		mandatory
 # VFS
 vfs/core.c		option VFS
 vfs/dentry.c		option VFS

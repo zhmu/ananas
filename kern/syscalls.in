@@ -10,7 +10,8 @@
 5	{ errorcode_t unlink(handleindex_t handle); }
 6	{ errorcode_t create(struct CREATE_OPTIONS* opts, handleindex_t* out); }
 7	{ errorcode_t handlectl(handleindex_t handle, unsigned int op, void* arg, size_t len); }
-8	{ errorcode_t clone(handleindex_t handle, struct CLONE_OPTIONS* opts, handleindex_t* out); }
-9	{ errorcode_t wait(handleindex_t handle, handle_event_t* event, handle_event_result_t* result); }
-10	{ errorcode_t summon(handleindex_t handle, struct SUMMON_OPTIONS* opts, handleindex_t* out); }
+8	{ errorcode_t clone(int flags, pid_t* out); }
+9	{ errorcode_t waitpid(pid_t* pid, int* stat_loc, int options); }
+10 { errorcode_t execve(const char* path, const char** argv, const char** envp); }
 11 { errorcode_t vmop(struct VMOP_OPTIONS* opts); }
+12 { errorcode_t dupfd(handleindex_t index, int flags, handleindex_t* out); }
