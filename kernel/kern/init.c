@@ -9,6 +9,7 @@
 #include <ananas/pcpu.h>
 #include <ananas/tty.h>
 #include <ananas/vfs.h>
+#include <ananas/syscalls.h>
 #include <machine/vm.h>
 #include <machine/param.h> /* for PAGE_SIZE */
 
@@ -198,24 +199,17 @@ launch_shell()
 	err = thread_alloc(proc, &t, "sh", THREAD_ALLOC_DEFAULT);
 	process_deref(proc); /* 't' should have a ref, we don't need it anymore */
 	if (err != ANANAS_ERROR_NONE) {
-		kprintf(" couldn't create , thread%i\n", err);
+		kprintf(" couldn't create thread, %i\n", err);
 		return err;
 	}
 
-	struct VFS_FILE f;
 	kprintf("- Lauching %s...", SHELL_BIN);
-	err = vfs_open(SHELL_BIN, NULL, &f);
+	const char* argv[] = { "sh", "-l", NULL };
+	const char* env[] = { "OS=Ananas", "USER=root", NULL };
+	err = sys_execve(t, SHELL_BIN, argv, env);
 	if (err == ANANAS_ERROR_NONE) {
-		err = vfs_summon(&f, t);
-		if (err == ANANAS_ERROR_NONE) {
-			kprintf(" ok\n");
-			process_set_args(t->t_process, "sh\0-l\0", PAGE_SIZE);
-			process_set_environment(t->t_process, "OS=Ananas\0USER=root\0\0", PAGE_SIZE);
-			thread_resume(t);
-		} else {
-			kprintf(" fail - error %i\n", err);
-		}
-		vfs_close(&f);
+		kprintf(" ok\n");
+		thread_resume(t);
 	} else {
 		kprintf(" fail - error %i\n", err);
 	}
