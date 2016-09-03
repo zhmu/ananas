@@ -77,7 +77,6 @@ typedef errorcode_t (*handle_unlink_fn)(thread_t* thread, handleindex_t index, s
 typedef errorcode_t (*handle_create_fn)(thread_t* thread, handleindex_t index, struct HANDLE* handle, struct CREATE_OPTIONS* opts);
 typedef errorcode_t (*handle_control_fn)(thread_t* thread, handleindex_t index, struct HANDLE* handle, unsigned int op, void* arg, size_t len);
 typedef errorcode_t (*handle_clone_fn)(process_t* proc_in, handleindex_t index, struct HANDLE* handle, struct CLONE_OPTIONS* opts, process_t* proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out);
-typedef errorcode_t (*handle_summon_fn)(thread_t* thread, struct HANDLE* handle, struct SUMMON_OPTIONS* opts, struct HANDLE** handle_out, handleindex_t* index_out);
 
 struct HANDLE_OPS {
 	handle_read_fn hop_read;
@@ -88,7 +87,6 @@ struct HANDLE_OPS {
 	handle_create_fn hop_create;
 	handle_control_fn hop_control;
 	handle_clone_fn hop_clone;
-	handle_summon_fn hop_summon;
 };
 
 /* Registration of handle types */

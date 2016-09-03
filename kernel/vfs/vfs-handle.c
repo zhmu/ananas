@@ -297,77 +297,6 @@ vfshandle_clone(process_t* p_in, handleindex_t index_in, struct HANDLE* handle_i
 	return handle_clone_generic(handle_in, proc_out, handle_out, index_out_min, index_out);
 }
 
-static errorcode_t
-vfshandle_summon(thread_t* t, struct HANDLE* handle, struct SUMMON_OPTIONS* opts, struct HANDLE** handle_out, handleindex_t* index_out)
-{
-#if 0
-	struct VFS_FILE* file;
-	errorcode_t err = vfshandle_get_file(handle, &file);
-	ANANAS_ERROR_RETURN(err);
-
-	/* Create a new thread */
-	thread_t* newthread = NULL;
-	err = thread_alloc(thread, &newthread, THREAD_ALLOC_DEFAULT);
-	ANANAS_ERROR_RETURN(err);
-
-	/* Grab an extra ref for the client */
-	thread_ref(newthread);
-
-	/* Create an extra thread handle to give to the parent so it can monitor the child */
-	*handle_out = NULL;
-	err = handle_alloc(HANDLE_TYPE_THREAD, thread, 0, handle_out, index_out);
-	if (err != ANANAS_ERROR_NONE)
-		goto fail;
-	(*handle_out)->h_data.d_thread = newthread;
-
-	/* Ask the VFS to summon the file over our thread */
-	err = vfs_summon(file, newthread);
-	if (err != ANANAS_ERROR_NONE) {
-		/* Failure - no option but to kill the thread */
-		goto fail;
-	}
-
-	/* If arguments are given, handle them */
-	if (opts->su_args != NULL) {
-		const char* arg;
-		err = syscall_map_buffer(thread, opts->su_args, opts->su_args_len, VM_FLAG_READ, (void**)&arg);
-		if (err == ANANAS_ERROR_NONE)
-			err = thread_set_args(newthread, arg, opts->su_args_len);
-		if (err != ANANAS_ERROR_NONE)
-			goto fail;
-	}
-
-	/* If an environment is given, handle it */
-	if (opts->su_env != NULL) {
-		const char* env;
-		err = syscall_map_buffer(thread, opts->su_env, opts->su_env_len, VM_FLAG_READ, (void**)&env);
-		if (err == ANANAS_ERROR_NONE)
-			err = thread_set_environment(newthread, env, opts->su_env_len);
-		if (err != ANANAS_ERROR_NONE)
-			goto fail;
-	}
-
-	/* If we need to resume the thread, do so */
-	if (opts->su_flags & SUMMON_FLAG_RUNNING)
-		thread_resume(newthread);
-
-	return ANANAS_ERROR_OK;
-
-fail:
-	if (handle_out != NULL) {
-		handle_free(*handle_out);
-		*handle_out = NULL;
-	} else {
-		/* Remove the ref we'd have given to handle_out */
-		thread_deref(newthread);
-	}
-	thread_deref(newthread);
-	return err;
-#else
-	return ANANAS_ERROR(BAD_OPERATION);
-#endif
-}
-
 struct HANDLE_OPS vfs_hops = {
 	.hop_read = vfshandle_read,
 	.hop_write = vfshandle_write,
@@ -377,7 +306,6 @@ struct HANDLE_OPS vfs_hops = {
 	.hop_create = vfshandle_create,
 	.hop_control = vfshandle_control,
 	.hop_clone = vfshandle_clone,
-	.hop_summon = vfshandle_summon,
 };
 HANDLE_TYPE(HANDLE_TYPE_FILE, "file", vfs_hops);
 
