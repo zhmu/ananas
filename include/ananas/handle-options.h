@@ -1,14 +1,7 @@
 #ifndef __SYS_HANDLE_OPTIONS_H__
 #define __SYS_HANDLE_OPTIONS_H__
 
-struct CLONE_OPTIONS {
-	size_t		cl_size;
-	unsigned int	cl_flags;
-#define CLONE_FLAG_READONLY	0x0001		/* clone as readonly */
-#define CLONE_FLAG_WRITEONLY	0x0002		/* clone as writeonly */
-#define CLONE_FLAG_HANDLEINDEX	0x0004		/* clone to specified handle index */
-	handleindex_t	cl_hindex;
-};
+#define HANDLE_DUPFD_TO 1
 
 struct SUMMON_OPTIONS {
 	size_t		su_size;		/* structure length, in bytes */

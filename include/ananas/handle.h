@@ -16,10 +16,6 @@ typedef unsigned int handle_event_result_t;
 #define HANDLE_TYPE_THREAD	2
 #define HANDLE_TYPE_PIPE	3
 
-#define HANDLE_EVENT_ANY	0
-#define HANDLE_EVENT_READ	1
-#define HANDLE_EVENT_WRITE	2
-
 #define HANDLE_VALUE_INVALID	0
 
 struct THREAD;
@@ -110,9 +106,6 @@ errorcode_t handle_free(struct HANDLE* h);
 errorcode_t handle_free_byindex(process_t* p, handleindex_t index);
 errorcode_t handle_lookup(process_t* p, handleindex_t index, int type, struct HANDLE** handle_out);
 errorcode_t handle_clone(process_t* p_in, handleindex_t index, struct CLONE_OPTIONS* opts, process_t* p_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out);
-
-errorcode_t handle_wait(process_t* p, handleindex_t index, handle_event_t* event, handle_event_result_t* h);
-void handle_signal(struct HANDLE* handle, handle_event_t event, handle_event_result_t result);
 
 /* Only to be used from handle implementation code */
 errorcode_t handle_clone_generic(struct HANDLE* handle, process_t* p_out, struct HANDLE** out, handleindex_t index_out_min, handleindex_t* index);
