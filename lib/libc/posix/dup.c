@@ -8,19 +8,14 @@
 int
 dup(int fildes)
 {
-	errorcode_t err;
-
-	handleindex_t index;
-	struct CLONE_OPTIONS clopts;
-	memset(&clopts, 0, sizeof(clopts));
-	clopts.cl_size = sizeof(clopts);
-	err = sys_clone(fildes, &clopts, &index);
+	handleindex_t out;
+	errorcode_t err = sys_dupfd(fildes, 0, &out);
 	if (err != ANANAS_ERROR_NONE) {
 		_posix_map_error(err);
 		return -1;
 	}
 
-	return index;
+	return out;
 }
 
 /* vim:set ts=2 sw=2: */

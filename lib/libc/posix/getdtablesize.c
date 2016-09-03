@@ -1,6 +1,6 @@
-#include <ananas/thread.h>
+#include <ananas/process.h>
 
 int getdtablesize()
 {
-	return THREAD_MAX_HANDLES;
+	return PROCESS_MAX_HANDLES;
 }

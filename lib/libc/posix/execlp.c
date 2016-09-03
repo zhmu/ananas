@@ -12,23 +12,21 @@
 /* XXX This is just a copy of execl() for now ... */
 int execlp(const char *path, const char* arg0, ...)
 {
-	errorcode_t err;
 	va_list va;
 
-	/*
-	 * Determine the length of the arguments.
-	 */
-	int args_len = strlen(arg0) + 1 /* arg0 \0 */ + 1 /* terminating \0 */;
+	/* Count the number of arguments */
+	int num_args = 1 /* terminating \0 */;
 	va_start(va, arg0);
 	while(1) {
 		const char* arg = va_arg(va, const char*);
 		if (arg == NULL)
 			break;
-		args_len += strlen(arg) + 1;
+		num_args++;
 	}
+	va_end(va);
 
 	/* Construct the argument list */
-	char* args = malloc(args_len);
+	const char** args = malloc(num_args * sizeof(char*));
 	if (args == NULL) {
 		errno = ENOMEM;
 		return -1;
@@ -39,55 +37,15 @@ int execlp(const char *path, const char* arg0, ...)
 		const char* arg = va_arg(va, const char*);
 		if (arg == NULL)
 			break;
-		strcpy((args + pos), arg);
-		pos += strlen(arg) + 1;
+		args[pos++] = arg;
 	}
-	args[pos] = '\0'; /* double \0 termination */
+	args[pos] = NULL;
+	va_end(va);
 
-	/* Now, open the executable */
-	handleindex_t hindex;
-	struct OPEN_OPTIONS openopts;
-	memset(&openopts, 0, sizeof(openopts));
-	openopts.op_size = sizeof(openopts);
-	openopts.op_type = HANDLE_TYPE_FILE;
-	openopts.op_path = path;
-	openopts.op_mode = OPEN_MODE_READ;
-	err = sys_open(&openopts, &hindex);
-	if (err != ANANAS_ERROR_NONE) {
-		free(args);
-		goto fail;
-	}
+	execve(path, (char* const*)args, NULL);
 
-	/* Attempt to invoke the executable just opened */
-	handleindex_t child_index;
-	struct SUMMON_OPTIONS summonopts;
-	memset(&summonopts, 0, sizeof(summonopts));
-	summonopts.su_size = sizeof(summonopts);
-	summonopts.su_flags = SUMMON_FLAG_RUNNING;
-	summonopts.su_args_len = args_len;
-	summonopts.su_args = args;
-	err = sys_summon(hindex, &summonopts, &child_index);
+	/* If we got here, execve() failed and we must clean up after ourselves */
 	free(args);
-	sys_destroy(hindex);
-	if (err == ANANAS_ERROR_NONE) {
-		/* thread worked; wait for it to die */
-		handle_event_t event = HANDLE_EVENT_ANY;
-		handle_event_result_t result;
-		err = sys_wait(child_index, &event, &result);
-		sys_destroy(child_index);
-		if (err != ANANAS_ERROR_NONE)
-			goto fail;
-
-		/*
-		 * Now, we have to commit suicide using the exit code of the
-	 	 * previous thread...
-		 */
-		sys_exit((int)result);
-	}
-
-fail:
-	/* Summoning failed - report the code and leave */
-	_posix_map_error(err);
 	return -1;
 }
 

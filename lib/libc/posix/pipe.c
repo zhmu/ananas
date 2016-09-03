@@ -9,6 +9,7 @@
 
 int pipe(int fildes[2])
 {
+#if 0
 	struct CREATE_OPTIONS cropts;
 	memset(&cropts, 0, sizeof(cropts));
 	cropts.cr_size = sizeof(cropts);
@@ -66,4 +67,7 @@ int pipe(int fildes[2])
 	fildes[0] = ro_hindex;
 	fildes[1] = wo_hindex;
 	return 0;
+#else
+	return -1;
+#endif
 }
