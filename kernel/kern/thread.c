@@ -283,6 +283,10 @@ thread_exit(int exitcode)
 	/* Store the result code; thread_free() will mark the thread as terminating */
 	thread->t_terminate_info = exitcode;
 
+	/* XXX We'll assume we are our parent process' main thread */
+	if (thread->t_process != NULL)
+		process_exit(thread->t_process, exitcode);
+
 	/*
 	 * Dereference our own thread handle; this will cause a transition to
 	 * zombie-state - we are invoking case (1a) of thread_deref() here.
@@ -306,41 +310,27 @@ thread_set_name(thread_t* t, const char* name)
 	t->t_name[THREAD_MAX_NAME_LEN] = '\0';
 }
 
-#if 0
 errorcode_t
-thread_clone(struct THREAD* parent, int flags, struct THREAD** dest)
+thread_clone(process_t* proc, thread_t** out_thread)
 {
-	TRACE(THREAD, FUNC, "parent=%p, flags=%u", parent, flags);
-	errorcode_t err;
-
-	KASSERT(PCPU_GET(curthread) == parent, "thread_clone(): unsupported from non-current thread (curthread %p != parent %p)", PCPU_GET(curthread), parent);
+	TRACE(THREAD, FUNC, "proc=%p", proc);
+	thread_t* curthread = PCPU_GET(curthread);
 
 	struct THREAD* t;
-	err = thread_alloc(parent, &t, THREAD_ALLOC_CLONE);
+	errorcode_t err = thread_alloc(proc, &t, curthread->t_name, THREAD_ALLOC_CLONE);
 	ANANAS_ERROR_RETURN(err);
-
-	/* Duplicate the vmspace */
-	err = vmspace_clone(parent->t_vmspace, t->t_vmspace);
-	ANANAS_ERROR_RETURN(err); /* XXX clean up t! */
-
-	/*
-	 * Copy the thread's arguments over; the environment will already been
-	 * inherited if necessary.
-	 */
-	memcpy(t->t_threadinfo->ti_args, parent->t_threadinfo->ti_args, THREADINFO_ARGS_LENGTH);
 
 	/*
 	 * Must copy the thread state over; note that this is the
 	 * result of a system call, so we want to influence the
 	 * return value.
 	 */
-	md_thread_clone(t, parent, ANANAS_ERROR(CLONED));
+	md_thread_clone(t, curthread, ANANAS_ERROR(CLONED));
 
 	/* Thread is ready to rock */
-	*dest = t;
+	*out_thread = t;
 	return ANANAS_ERROR_OK;
 }
-#endif
 
 void
 thread_signal_waiters(thread_t* t)

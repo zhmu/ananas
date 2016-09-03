@@ -112,7 +112,7 @@ void thread_suspend(thread_t* t);
 void thread_resume(thread_t* t);
 void thread_exit(int exitcode);
 void thread_dump(int num_args, char** arg);
-errorcode_t thread_clone(thread_t* parent, int flags, thread_t** dest);
+errorcode_t thread_clone(process_t* proc, thread_t** dest);
 
 void thread_signal_waiters(thread_t* t);
 void thread_wait(thread_t* t);

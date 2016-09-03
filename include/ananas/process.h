@@ -8,10 +8,20 @@ struct PROCINFO;
 /* Maximum number of handles per process */
 #define PROCESS_MAX_HANDLES 64
 
-struct PROCESS {
-	mutex_t p_lock;	/* Locks the handles */
+#define PROCESS_STATE_ACTIVE	1
+#define PROCESS_STATE_ZOMBIE	2
 
+struct PROCESS;
+DQUEUE_DEFINE(PROCESS_QUEUE, struct PROCESS);
+
+struct PROCESS {
+	mutex_t p_lock;	/* Locks the process */
+
+	unsigned int p_state;		/* Process state */
 	refcount_t p_refcount;		/* Reference count of the process, >0 */
+
+	pid_t	p_pid;	/* Process ID */
+	int	p_exit_status;		/* Exit status / code */
 
 	struct PROCESS* p_parent;	/* Parent process, if any */
 	struct VM_SPACE* p_vmspace;	/* Process memory space */
@@ -24,6 +34,11 @@ struct PROCESS {
 	struct HANDLE* p_handle[PROCESS_MAX_HANDLES];
 
 	handleindex_t	p_hidx_path;	/* Current path */
+
+	struct PROCESS_QUEUE	p_children;	/* Queue of this process' children */
+
+        DQUEUE_FIELDS_IT(struct PROCESS, all);
+        DQUEUE_FIELDS_IT(struct PROCESS, children);
 };
 
 static inline void process_lock(process_t* p)
@@ -40,8 +55,11 @@ errorcode_t process_alloc(process_t* parent, process_t** dest);
 
 void process_ref(process_t* p);
 void process_deref(process_t* p);
+void process_exit(process_t* p, int status);
 errorcode_t process_set_args(process_t* p, const char* args, size_t args_len);
 errorcode_t process_set_environment(process_t* p, const char* env, size_t env_len);
+errorcode_t process_clone(process_t* p, int flags, process_t** out_p);
+errorcode_t process_wait_and_lock(process_t* p, int flags, process_t** p_out);
 
 /*
  * Process callback functions are provided so that modules can take action upon
