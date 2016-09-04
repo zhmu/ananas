@@ -153,42 +153,6 @@ sys_destroy(thread_t* t, handleindex_t hindex)
 }
 
 errorcode_t
-sys_summon(thread_t* t, handleindex_t hindex, struct SUMMON_OPTIONS* opts, handleindex_t* out)
-{
-	TRACE(SYSCALL, FUNC, "t=%p, hindex=%u, opts=%p, out=%p", t, hindex, opts, out);
-	errorcode_t err;
-
-	/* Get the handle */
-	struct HANDLE* h;
-	err = syscall_get_handle(t, hindex, &h);
-	ANANAS_ERROR_RETURN(err);
-
-	/* Obtain summoning options */
-	struct SUMMON_OPTIONS summon_opts; void* so;
-	err = syscall_map_buffer(t, opts, sizeof(summon_opts), VM_FLAG_READ, &so);
-	ANANAS_ERROR_RETURN(err);
-	memcpy(&summon_opts, so, sizeof(summon_opts));
-
-	/*
-	 * Ask the handle to summon - if there isn't a summon operation,
-	 * we assume this handle type cannot be summoned using a syscall.
-	 */
-	struct HANDLE* out_handle;
-	handleindex_t out_index;
-	if (h->h_hops->hop_summon != NULL)
-		err = h->h_hops->hop_summon(t, h, &summon_opts, &out_handle, &out_index);
-	else
-		err = ANANAS_ERROR(BAD_OPERATION);
-
-	if (err == ANANAS_ERROR_OK) {
-		err = syscall_set_handleindex(t, out, out_index);
-		ANANAS_ERROR_RETURN(err);
-		TRACE(SYSCALL, INFO, "success, handle=%p", out);
-	}
-	return err;
-}
-
-errorcode_t
 sys_create(thread_t* t, struct CREATE_OPTIONS* opts, handleindex_t* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, opts=%p, out=%p", t, opts, out);
