@@ -10,31 +10,6 @@
 
 TRACE_SETUP;
 
-static errorcode_t
-vfs_exec_obtain(void* priv, void* buf, off_t offset, size_t len)
-{
-	struct VFS_FILE f;
-	memset(&f, 0, sizeof(f));
-	f.f_dentry = priv;
-
-	/* kludge: cleanup is handeled by requesting 0 bytes at 0 to buffer NULL */
-	if (buf == NULL && offset == 0 && len == 0) {
-		dentry_deref(priv);
-		return ANANAS_ERROR_OK;
-	}
-
-	errorcode_t err = vfs_seek(&f, offset);
-	ANANAS_ERROR_RETURN(err);
-
-	size_t amount = len;
-	err = vfs_read(&f, buf, &amount);
-	ANANAS_ERROR_RETURN(err);
-
-	if (amount != len)
-		return ANANAS_ERROR(SHORT_READ);
-	return ANANAS_ERROR_OK;
-}
-
 enum SET_PROC_ATTR {
 	A_Args,
 	A_Env
@@ -103,7 +78,7 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 		set_proc_attribute(proc, A_Env, envp);
 
 	/* Attempt the launch; if this succeeds, it won't return */
-	err = exec_launch(t, dentry, &vfs_exec_obtain);
+	err = exec_launch(t, dentry);
 	dentry_deref(dentry);
 	return err;
 }
