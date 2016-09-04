@@ -19,4 +19,4 @@
 14 { errorcode_t chdir(const char* path); }
 15 { errorcode_t fstat(handleindex_t index, struct stat* buf); }
 16 { errorcode_t fchdir(handleindex_t index); }
-16 { errorcode_t fcntl(handleindex_t index, int cmd, const void* in, void* out); }
+17 { errorcode_t fcntl(handleindex_t index, int cmd, const void* in, void* out); }
