@@ -44,8 +44,6 @@ static struct THREAD_QUEUE thread_queue;
 errorcode_t
 thread_alloc(process_t* p, thread_t** dest, const char* name, int flags)
 {
-	errorcode_t err;
-
 	/* First off, allocate the thread itself */
 	thread_t* t = kmalloc(sizeof(struct THREAD));
 	memset(t, 0, sizeof(struct THREAD));
@@ -54,13 +52,6 @@ thread_alloc(process_t* p, thread_t** dest, const char* name, int flags)
 	t->t_flags = THREAD_FLAG_MALLOC;
 	t->t_refcount = 1; /* caller */
 	thread_set_name(t, name);
-
-
-	/* Allocate a handle for the thread */
-	struct HANDLE* thread_handle;
-	err = handle_alloc(HANDLE_TYPE_THREAD, p, 0, &thread_handle, &t->t_hidx_thread);
-	ANANAS_ERROR_RETURN(err);
-	thread_handle->h_data.d_thread = t;
 
 	/* Set up CPU affinity and priority */
 	t->t_priority = THREAD_PRIORITY_DEFAULT;
@@ -71,9 +62,8 @@ thread_alloc(process_t* p, thread_t** dest, const char* name, int flags)
 	md_thread_set_argument(t, p->p_info_va);
 
 	/* If we don't yet have a main thread, this thread will become the main */
-	struct PROCINFO* pi = p->p_info;
-	if (pi->pi_handle_main < 0)
-		pi->pi_handle_main = t->t_hidx_thread;
+	if (p->p_mainthread == NULL)
+		p->p_mainthread = t;
 
 	/* Initialize scheduler-specific parts */
 	scheduler_init_thread(t);
@@ -115,8 +105,8 @@ kthread_init(thread_t* t, const char* name, kthread_func_t func, void* arg)
 }
 
 /*
- * thread_cleanup() migrates a thread to zombie-state; this involves freeing
- * most resources.
+ * thread_cleanup() migrates a thread to zombie-state; this is generally just
+ * informing everyone about the thread's demise.
  */
 static void
 thread_cleanup(thread_t* t)
@@ -131,29 +121,6 @@ thread_cleanup(thread_t* t)
 	 * checks to ensure the thread is truly gone.
 	 */
 	thread_signal_waiters(t);
-
-	/* If we don't have an associated process, we are done - no handles to free */
-	if (p == NULL)
-		return;
-
-	/* Look up the thread handle */
-	errorcode_t err;
-	struct HANDLE* thread_handle;
-	err = handle_lookup(p, t->t_hidx_thread, HANDLE_TYPE_THREAD, &thread_handle);
-	KASSERT(err == ANANAS_ERROR_NONE, "cannot look up thread handle for %p: %d", t, err);
-
-	/*
-	 * Force our thread handle to point to nothing; we're about to free it, but we
-	 * don't want it to deref us again.
-	 */
-	thread_handle->h_data.d_thread = NULL;
-
-	/*
-	 * Throw away the thread handle itself; it will be removed once it runs out of
-	 * references (which will be the case once everyone is done waiting for it
-	 * and cleans up its own handle)
-	 */
-	handle_free_byindex(p, t->t_hidx_thread);
 }
 
 /*

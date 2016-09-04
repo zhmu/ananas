@@ -31,8 +31,9 @@ struct PROCESS {
 	struct PROCINFO* p_info;	/* Process startup information */
 	addr_t p_info_va;
 
-	/* Handles */
-	struct HANDLE* p_handle[PROCESS_MAX_HANDLES];
+	thread_t* p_mainthread;		/* Main thread */
+
+	struct HANDLE* p_handle[PROCESS_MAX_HANDLES];	/* Handles */
 
 	struct DENTRY* p_cwd;		/* Current path */
 

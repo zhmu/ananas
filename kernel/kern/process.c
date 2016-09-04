@@ -69,13 +69,10 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 	p->p_info->pi_size = sizeof(struct PROCINFO);
 	if (parent != NULL)
 		process_set_environment(p, parent->p_info->pi_env, PAGE_SIZE /* XXX */);
-	p->p_info->pi_handle_main = -1; /* no main thread handle yet */
 
 	/* Clone the parent's handles - we skip the thread handle */
 	if (parent != NULL) {
 		for (unsigned int n = 0; n < PROCESS_MAX_HANDLES; n++) {
-			if (n == parent->p_info->pi_handle_main)
-				continue; /* do not clone the main thread handle */
 			if (parent->p_handle[n] == NULL)
 				continue;
 

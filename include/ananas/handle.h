@@ -13,8 +13,7 @@ typedef unsigned int handle_event_result_t;
 #define HANDLE_TYPE_ANY		-1
 #define HANDLE_TYPE_UNUSED	0
 #define HANDLE_TYPE_FILE	1
-#define HANDLE_TYPE_THREAD	2
-#define HANDLE_TYPE_PIPE	3
+#define HANDLE_TYPE_PIPE	2
 
 #define HANDLE_VALUE_INVALID	0
 
@@ -55,7 +54,6 @@ struct HANDLE {
 	/* Waiters are those who are waiting on this handle */
 	union {
 		struct VFS_FILE d_vfs_file;
-		struct THREAD*  d_thread;
 		struct HANDLE_PIPE_INFO d_pipe;
 	} h_data;
 };

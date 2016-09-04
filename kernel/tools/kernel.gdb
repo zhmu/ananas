@@ -81,9 +81,6 @@ def h_print
 			end
 		end
 		if ($h->h_type == 2)
-			printf "<thread>, thread=%p", $h->h_data.d_thread
-		end
-		if ($h->h_type == 3)
 			printf "<pipe>"
 		end
 		echo \n

@@ -9,7 +9,6 @@
 
 struct PROCINFO {
 	int		pi_size;				/* structure length */
-	handleindex_t	pi_handle_main;				/* main thread handle */
 	handleindex_t	pi_handle_stdin;			/* stdin handle */
 	handleindex_t	pi_handle_stdout;			/* stdout handle */
 	handleindex_t	pi_handle_stderr;			/* stderr handle */

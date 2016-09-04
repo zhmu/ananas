@@ -41,17 +41,6 @@ handle_init()
 		struct HANDLE* h = &pool[i];
 		DQUEUE_ADD_TAIL(&handle_freelist, h);
 	}
-
-	/*
-	 * XXX Thread handles are often used during the boot process to make a handle
-	 * for the idle process; this means we cannot register them using the sysinit
-	 * framework - thus kludge and register them here.
-	 *
-	 * XXX REMOVE THIS - it will no longer be needed soon as kthread's do not have
-	 * a associated process_t.
-	 */
-	extern struct HANDLE_TYPE thread_handle_type;
-	handle_register_type(&thread_handle_type);
 }
 
 errorcode_t
@@ -253,11 +242,6 @@ KDB_COMMAND(handle, "i:handle", "Display handle information")
 			kprintf("   offset         : %u\n", handle->h_data.d_vfs_file.f_offset); /* XXXSIZE */
 			kprintf("   dentry         : 0x%x\n", handle->h_data.d_vfs_file.f_dentry);
 			kprintf("   device         : 0x%x\n", handle->h_data.d_vfs_file.f_device);
-			break;
-		}
-		case HANDLE_TYPE_THREAD: {
-			kprintf("thread handle specifics:\n");
-			kprintf("   thread         : 0x%x\n", handle->h_data.d_thread);
 			break;
 		}
 	}
