@@ -7,9 +7,7 @@
 
 int fchdir(int fd)
 {
-	errorcode_t err;
-
-	err = sys_handlectl(fd, HCTL_FILE_SETCWD, NULL, 0);
+	errorcode_t err = sys_fchdir(fd);
 	if (err != ANANAS_ERROR_NONE) {
 		_posix_map_error(err);
 		return -1;

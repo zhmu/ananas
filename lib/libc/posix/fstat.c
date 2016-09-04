@@ -8,13 +8,13 @@
 
 int fstat(int fd, struct stat* buf)
 {
-	struct HCTL_STAT_ARG statarg;
-	statarg.st_stat_len = sizeof(struct stat);
-	statarg.st_stat = buf;
-	errorcode_t err = sys_handlectl(fd, HCTL_FILE_STAT, &statarg, sizeof(statarg));
-	if (err != ANANAS_ERROR_NONE) {
-		_posix_map_error(err);
-		return -1;
-	}
+	errorcode_t err = sys_fstat(fd, buf);
+	if (err != ANANAS_ERROR_NONE)
+		goto fail;
+
 	return 0;
+
+fail:
+	_posix_map_error(err);
+	return -1;
 }

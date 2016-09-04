@@ -20,30 +20,7 @@
 
 int _PDCLIB_rename( const char * old, const char * new )
 {
-    /*
-     * First step is to open the file; Ananas can do renames only on an opened
-     * handle.
-     */
-    struct OPEN_OPTIONS openopts;
-    memset(&openopts, 0, sizeof(openopts));
-    openopts.op_size = sizeof(openopts);
-    openopts.op_type = HANDLE_TYPE_FILE;
-    openopts.op_path = old;
-    openopts.op_mode = OPEN_MODE_NONE;
-
-    handleindex_t hindex;
-    errorcode_t err = sys_open(&openopts, &hindex);
-    if (err != ANANAS_ERROR_NONE) {
-	_posix_map_error(err);
-	return EOF;
-    }
-
-    /* Now go for the actual rename */
-    struct HCTL_RENAME_ARG renamearg;
-    renamearg.re_dest = new;
-    err = sys_handlectl(hindex, HCTL_FILE_RENAME, &renamearg, sizeof(renamearg));
-    sys_destroy(hindex);
-
+    errorcode_t err = sys_rename(old, new);
     if (err == ANANAS_ERROR_NONE)
 	return 0;
    

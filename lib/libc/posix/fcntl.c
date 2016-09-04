@@ -10,35 +10,37 @@
 
 int fcntl(int fildes, int cmd, ...)
 {
+	errorcode_t err;
+	void* out;
+
 	va_list va;
 	va_start(va, cmd);
 
 	switch (cmd) {
-		case F_DUPFD: {
-			int minfd = va_arg(va, int);
-			for (; minfd < getdtablesize(); minfd++) {
-				if (fcntl(minfd, F_GETFD) >= 0)
-					continue;
-				return dup2(fildes, minfd);
-			}
-			/* out of descriptors */
-			errno = EMFILE;
-			return -1;
-		}
-		case F_GETFD: {
-			struct HCTL_STATUS_ARG sa;
-			errorcode_t err = sys_handlectl(fildes, HCTL_GENERIC_STATUS, &sa, sizeof(sa));
-			if (err != ANANAS_ERROR_NONE) {
-				_posix_map_error(err);
-				return -1;
-			}
-			return sa.sa_flags;
-		}
+		case F_DUPFD:
+		case F_SETFD:
+		case F_SETFL:
+			err = sys_fcntl(fildes, F_DUPFD, (void*)(uintptr_t)va_arg(va, int), &out);
+			if (err != ANANAS_ERROR_NONE)
+				goto fail;
+
+			return (int)(uintptr_t)out;
+		case F_GETFD:
+		case F_GETFL:
+			err = sys_fcntl(fildes, F_DUPFD, NULL, &out);
+			if (err != ANANAS_ERROR_NONE)
+				goto fail;
+
+			return (int)(uintptr_t)out;
 		default:
 			errno = EINVAL;
 			return -1;
 	}
 	/* NOTREACHED */
+
+fail:
+	_posix_map_error(err);
+	return -1;
 }
 
 /* vim:set ts=2 sw=2: */

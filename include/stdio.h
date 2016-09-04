@@ -23,6 +23,7 @@
 #include <machine/_stddef.h>
 
 #include <ananas/_types/null.h>
+#include <ananas/flags.h>
 
 /* See setvbuf(), third argument */
 #define _IOFBF 1
@@ -39,11 +40,6 @@ typedef struct _PDCLIB_file_t file_t;
 #define FILENAME_MAX _PDCLIB_FILENAME_MAX
 #define L_tmpnam _PDCLIB_L_tmpnam
 #define TMP_MAX _PDCLIB_TMP_MAX
-
-/* See fseek(), third argument */
-#define SEEK_CUR _PDCLIB_SEEK_CUR
-#define SEEK_END _PDCLIB_SEEK_END
-#define SEEK_SET _PDCLIB_SEEK_SET
 
 extern FILE * stdin;
 extern FILE * stdout;
@@ -66,7 +62,7 @@ int remove( const char * filename );
    If there already is a file with the new filename, behaviour is defined by
    the glue code (see functions/_PDCLIB/rename.c).
 */
-int rename( const char * old, const char * new );
+int rename( const char * oldpath, const char * newpath );
 
 /* Open a temporary file with mode "wb+", i.e. binary-update. Remove the file
    automatically if it is closed or the program exits normally (by returning
