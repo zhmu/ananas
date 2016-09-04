@@ -28,9 +28,24 @@ kern/disk_slice.c	option BIO
 kern/exec.c		mandatory
 kern/elf.c		option ELF
 # system calls
+sys/chdir.c		mandatory
 sys/clone.c		mandatory
+sys/close.c		mandatory
 sys/dupfd.c		mandatory
 sys/execve.c		mandatory
+sys/exit.c		mandatory
+sys/fchdir.c		mandatory
+sys/fcntl.c		mandatory
+sys/fstat.c		mandatory
+sys/open.c		mandatory
+sys/read.c		mandatory
+sys/rename.c		mandatory
+sys/seek.c		mandatory
+sys/stat.c		mandatory
+sys/support.c		mandatory
+sys/unlink.c		mandatory
+sys/vmop.c		mandatory
+sys/write.c		mandatory
 sys/waitpid.c		mandatory
 # VFS
 vfs/core.c		option VFS
@@ -78,10 +93,6 @@ dev/ata/atadisk.c	optional ata
 dev/ata/atacd.c		optional ata
 dev/vga.c		optional vga
 dev/sio.c		optional sio
-gen/std.c		mandatory
-gen/io.c		mandatory
-gen/support.c		mandatory
-gen/vm-syscalls.c		mandatory
 fs/ext2fs.c		option EXT2FS
 fs/iso9660.c		option ISO9660FS
 fs/cramfs.c		option CRAMFS

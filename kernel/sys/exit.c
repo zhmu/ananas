@@ -12,4 +12,3 @@ sys_exit(thread_t* t, int exitcode)
 	
 	thread_exit(THREAD_MAKE_EXITCODE(THREAD_TERM_SYSCALL, exitcode));
 }
-/* vim:set ts=2 sw=2: */

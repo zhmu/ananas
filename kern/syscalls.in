@@ -2,16 +2,21 @@
 # Specifies all systems calls. Must be in format:
 # <number> { prototype }
 #
-0	{ void exit(int exitcode); }
-1	{ errorcode_t read(handleindex_t index, void* buf, size_t* len); }
-2	{ errorcode_t write(handleindex_t index, const void* buf, size_t* len); }
-3	{ errorcode_t open(struct OPEN_OPTIONS* opts, handleindex_t* result); }
-4	{ errorcode_t destroy(handleindex_t handle); }
-5	{ errorcode_t unlink(handleindex_t handle); }
-6	{ errorcode_t create(struct CREATE_OPTIONS* opts, handleindex_t* out); }
-7	{ errorcode_t handlectl(handleindex_t handle, unsigned int op, void* arg, size_t len); }
-8	{ errorcode_t clone(int flags, pid_t* out); }
-9	{ errorcode_t waitpid(pid_t* pid, int* stat_loc, int options); }
-10 { errorcode_t execve(const char* path, const char** argv, const char** envp); }
-11 { errorcode_t vmop(struct VMOP_OPTIONS* opts); }
-12 { errorcode_t dupfd(handleindex_t index, int flags, handleindex_t* out); }
+0 { void exit(int exitcode); }
+1 { errorcode_t read(handleindex_t index, void* buf, size_t* len); }
+2 { errorcode_t write(handleindex_t index, const void* buf, size_t* len); }
+3 { errorcode_t open(const char* path, int flags, int mode, handleindex_t* out); }
+4 { errorcode_t close(handleindex_t handle); }
+5 { errorcode_t unlink(const char* path); }
+6 { errorcode_t seek(handleindex_t handle, off_t* offset, int whence); }
+7 { errorcode_t clone(int flags, pid_t* out); }
+8 { errorcode_t waitpid(pid_t* pid, int* stat_loc, int options); }
+9 { errorcode_t execve(const char* path, const char** argv, const char** envp); }
+10 { errorcode_t vmop(struct VMOP_OPTIONS* opts); }
+11 { errorcode_t dupfd(handleindex_t index, int flags, handleindex_t* out); }
+12 { errorcode_t rename(const char* oldpath, const char* newpath); }
+13 { errorcode_t stat(const char* path, struct stat* buf); }
+14 { errorcode_t chdir(const char* path); }
+15 { errorcode_t fstat(handleindex_t index, struct stat* buf); }
+16 { errorcode_t fchdir(handleindex_t index); }
+16 { errorcode_t fcntl(handleindex_t index, int cmd, const void* in, void* out); }

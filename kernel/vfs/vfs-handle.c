@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
 #include <ananas/bio.h>
+#include <ananas/flags.h>
 #include <ananas/handle.h>
 #include <ananas/handle-options.h>
 #include <ananas/process.h>
@@ -47,19 +48,18 @@ vfshandle_write(thread_t* t, handleindex_t index, struct HANDLE* handle, const v
 }
 
 static errorcode_t
-vfshandle_open(thread_t* t, handleindex_t index, struct HANDLE* handle, struct OPEN_OPTIONS* opts)
+vfshandle_open(thread_t* t, handleindex_t index, struct HANDLE* handle, const char* path, int flags, int mode)
 {
 	process_t* proc = t->t_process;
-	const char* userpath = opts->op_path; /* safe because sys_open maps it */
 
 	/*
 	 * If we could try to create the file, do so - if this fails, we'll attempt
 	 * the ordinary open. This should have the advantage of eliminating a race
 	 * condition.
 	 */
-	if (opts->op_mode & OPEN_MODE_CREATE) {
+	if (flags & O_CREAT) {
 		/* Attempt to create the new file - if this works, we're all set */
-		errorcode_t err = vfs_create(proc->p_cwd, &handle->h_data.d_vfs_file, userpath, opts->op_createmode);
+		errorcode_t err = vfs_create(proc->p_cwd, &handle->h_data.d_vfs_file, path, mode);
 		if (err == ANANAS_ERROR_NONE)
 			return err;
 
@@ -68,15 +68,17 @@ vfshandle_open(thread_t* t, handleindex_t index, struct HANDLE* handle, struct O
 		 * error whatsoever, otherwise we'll report anything but 'file already
 		 * exists' back to the caller.
 		 */
-		if ((opts->op_mode & OPEN_MODE_EXCLUSIVE) || ANANAS_ERROR_CODE(err) != ANANAS_ERROR_FILE_EXISTS)
+		if ((flags & O_EXCL) || ANANAS_ERROR_CODE(err) != ANANAS_ERROR_FILE_EXISTS)
 			return err;
 
 		/* File can't be created - try opening it instead */
 	}
 
+	/* XXX do something more with mode / open */
+
 	/* And open the path */
-	TRACE(SYSCALL, INFO, "opening userpath '%s'", userpath);
-	return vfs_open(userpath, proc->p_cwd, &handle->h_data.d_vfs_file);
+	TRACE(SYSCALL, INFO, "opening path '%s'", path);
+	return vfs_open(path, proc->p_cwd, &handle->h_data.d_vfs_file);
 }
 
 static errorcode_t
@@ -97,141 +99,6 @@ vfshandle_unlink(thread_t* t, handleindex_t index, struct HANDLE* handle)
 	ANANAS_ERROR_RETURN(err);
 
 	return vfs_unlink(file);
-}
-
-static errorcode_t
-vfshandle_create(thread_t* t, handleindex_t index, struct HANDLE* handle, struct CREATE_OPTIONS* opts)
-{
-	/* Fetch the new path name */
-	const char* path;
-	errorcode_t err = syscall_map_string(t, opts->cr_path, &path);
-	ANANAS_ERROR_RETURN(err);
-
-	/* Attempt to create the new file */
-	return vfs_create(t->t_process->p_cwd, &handle->h_data.d_vfs_file, path, opts->cr_mode);
-}
-
-static errorcode_t
-vfshandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handle, unsigned int op, void* arg, size_t len)
-{
-	errorcode_t err;
-	process_t* proc = thread->t_process;
-
-	/* Grab the file handle - we'll always need it as we're doing files */
-	struct VFS_FILE* file;
-	err = vfshandle_get_file(handle, &file);
-	ANANAS_ERROR_RETURN(err);
-
-	/* If this is a device-specific operation, deal with it */
-	if (op >= _HCTL_DEVICE_FIRST && op <= _HCTL_DEVICE_LAST) {
-		/* See if it's device-backed; it must be for this handlectl to work */
-		if (file->f_device == NULL)
-			return ANANAS_ERROR(NO_DEVICE);
-
-		/* Device driver must implement the devctl call as we're about to call it */
-		if (file->f_device->driver->drv_devctl == NULL)
-			return ANANAS_ERROR(BAD_OPERATION);
-
-		/*
-		 * Note that arg/len are already filled out at this point, so we can just
-		 * call the devctl
-		 */
-		return file->f_device->driver->drv_devctl(file->f_device, proc, op, arg, len);
-	}
-
-	switch(op) {
-		case HCTL_FILE_SEEK: {
-			/* Ensure we understand the whence */
-			struct HCTL_SEEK_ARG* se = arg;
-			if (arg == NULL)
-				return ANANAS_ERROR(BAD_ADDRESS);
-			if (len != sizeof(*se))
-				return ANANAS_ERROR(BAD_LENGTH);
-			if (se->se_whence != HCTL_SEEK_WHENCE_SET && se->se_whence != HCTL_SEEK_WHENCE_CUR && se->se_whence != HCTL_SEEK_WHENCE_END)
-				return ANANAS_ERROR(BAD_FLAG);
-			off_t offset;
-			err = syscall_fetch_offset(thread, se->se_offs, &offset);
-			ANANAS_ERROR_RETURN(err);
-
-			/* Update the offset */
-			switch(se->se_whence) {
-				case HCTL_SEEK_WHENCE_SET:
-					break;
-				case HCTL_SEEK_WHENCE_CUR:
-					offset = file->f_offset + offset;
-					break;
-				case HCTL_SEEK_WHENCE_END:
-					offset = file->f_dentry->d_inode->i_sb.st_size - offset;
-					break;
-			}
-			if (offset < 0)
-				return ANANAS_ERROR(BAD_RANGE);
-			if (offset > file->f_dentry->d_inode->i_sb.st_size) {
-				/* File needs to be grown to accommodate for this offset */
-				err = vfs_grow(file, offset);
-				ANANAS_ERROR_RETURN(err);
-			}
-			err = syscall_set_offset(thread, se->se_offs, offset);
-			ANANAS_ERROR_RETURN(err);
-			file->f_offset = offset;
-			return ANANAS_ERROR_OK;
-		}
-		case HCTL_FILE_STAT: {
-			/* Ensure we understand the arguments */
-			struct HCTL_STAT_ARG* st = arg;
-			if (arg == NULL)
-				return ANANAS_ERROR(BAD_ADDRESS);
-			if (len != sizeof(*st) || st->st_stat_len != sizeof(struct stat))
-				return ANANAS_ERROR(BAD_LENGTH);
-
-			void* dest;
-			err = syscall_map_buffer(thread, st->st_stat, sizeof(struct stat), VM_FLAG_WRITE, &dest);
-			ANANAS_ERROR_RETURN(err);
-
-			if (file->f_dentry != NULL) {
-				/* Copy the data and we're done */
-				memcpy(dest, &file->f_dentry->d_inode->i_sb, sizeof(struct stat));
-			} else {
-				/* First of all, start by filling with defaults */
-				struct stat* st = dest;
-				st->st_dev     = (dev_t)(uintptr_t)file->f_device;
-				st->st_ino     = (ino_t)0;
-				st->st_mode    = 0666;
-				st->st_nlink   = 1;
-				st->st_uid     = 0;
-				st->st_gid     = 0;
-				st->st_rdev    = (dev_t)(uintptr_t)file->f_device;
-				st->st_size    = 0;
-				st->st_atime   = 0;
-				st->st_mtime   = 0;
-				st->st_ctime   = 0;
-				st->st_blksize = BIO_SECTOR_SIZE;
-				if (file->f_device->driver->drv_stat != NULL) {
-					/* Allow the device driver to update */
-					err = file->f_device->driver->drv_stat(file->f_device, st);
-				}
-			}
-			return err;
-		}
-		case HCTL_FILE_RENAME: {
-			struct HCTL_RENAME_ARG* re = arg;
-			if (arg == NULL)
-				return ANANAS_ERROR(BAD_ADDRESS);
-			if (len != sizeof(*re))
-				return ANANAS_ERROR(BAD_LENGTH);
-
-			const char* dest;
-			err = syscall_map_string(thread, re->re_dest, &dest);
-			ANANAS_ERROR_RETURN(err);
-
-			return vfs_rename(file, proc->p_cwd, dest);
-		}
-		default:
-			/* What's this? */
-			return ANANAS_ERROR(BAD_SYSCALL);
-	}
-
-	/* NOTREACHED */
 }
 
 static errorcode_t
@@ -260,8 +127,6 @@ struct HANDLE_OPS vfs_hops = {
 	.hop_open = vfshandle_open,
 	.hop_free = vfshandle_free,
 	.hop_unlink = vfshandle_unlink,
-	.hop_create = vfshandle_create,
-	.hop_control = vfshandle_control,
 	.hop_clone = vfshandle_clone,
 };
 HANDLE_TYPE(HANDLE_TYPE_FILE, "file", vfs_hops);
