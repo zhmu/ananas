@@ -115,22 +115,36 @@ document p_print
 	Prints process information
 end
 
-define _ps_q
+define _ts_q
 	set $list = $arg0->dq_head
 	set $n = 0
 	while $list != 0
 		set $t = $list->sp_thread 
-		printf "(%u) %p: %s\n", $n, $t, $t->t_name
+		printf "(%u) %p : %s\n", $n, $t, $t->t_name
 		set $n = $n + 1
 		set $list = $list->qi_next
 	end
 end
 
-define ps
+define ts
 	echo runqueue\n
-	_ps_q sched_runqueue
+	_ts_q sched_runqueue
 	echo sleepqueue\n
-	_ps_q sched_sleepqueue
+	_ts_q sched_sleepqueue
+end
+
+define ps
+	set $n = 0
+	set $p = process_all.dq_head
+	while $p != 0
+		printf "(%u) %p : pid %d refcount %d\n", $n, $p, $p->p_pid, $p->p_refcount
+		set $t = $p->p_mainthread
+		if $t != 0
+			printf "  main thread: %p : '%s'\n", $t, $t->t_name
+		end
+		set $n = $n + 1
+		set $p = $p->all_next
+	end
 end
 
 define t_bt
