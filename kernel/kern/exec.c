@@ -15,12 +15,12 @@ exec_init()
 }
 
 errorcode_t
-exec_launch(thread_t* t, void* priv, exec_obtain_fn obtain)
+exec_launch(thread_t* t, struct DENTRY* dentry)
 {
 	errorcode_t err = ANANAS_ERROR(BAD_EXEC);
 	if (!DQUEUE_EMPTY(&exec_formats))
 		DQUEUE_FOREACH(&exec_formats, ef, struct EXEC_FORMAT) {
-			err = ef->ef_handler(t, priv, obtain);
+			err = ef->ef_handler(t, dentry);
 			if (err == ANANAS_ERROR_OK)
 				break;
 		}

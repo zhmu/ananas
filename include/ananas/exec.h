@@ -6,21 +6,9 @@
 #include <ananas/error.h>
 #include <ananas/init.h>
 
-/*
- * The obtain function will be called when the buffer is to be filled; it should
- * fill exactly 'len' bytes of 'buf' starting at offset 'offset'. 'priv' is
- * available for the function itself and will not be touched.
- *
- * As a kludge, this function will b called with buf = NULL, offset = 0 and len
- * = 0 if the resource is to be freed.
- */
-typedef errorcode_t (*exec_obtain_fn)(void* priv, void* buf, off_t offset, size_t len);
+struct DENTRY;
 
-/*
- * An executable handler should use the obtainfn as described above to set up thread t
- * so that it will be available to run, or return an error code. 
- */
-typedef errorcode_t (*exec_handler_t)(thread_t* t, void* priv, exec_obtain_fn obtainfn);
+typedef errorcode_t (*exec_handler_t)(thread_t* t, struct DENTRY* dentry);
 
 /*
  * Define an executable format.
@@ -52,7 +40,7 @@ DQUEUE_DEFINE(EXEC_FORMATS, struct EXEC_FORMAT);
 		.ef_handler = &handler \
 	};
 
-errorcode_t exec_launch(thread_t* t, void* priv, exec_obtain_fn obtain);
+errorcode_t exec_launch(thread_t* t, struct DENTRY* dentry);
 errorcode_t exec_register_format(struct EXEC_FORMAT* ef);
 errorcode_t exec_unregister_format(struct EXEC_FORMAT* ef);
 

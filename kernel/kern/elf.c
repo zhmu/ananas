@@ -33,12 +33,36 @@ struct ELF_THREADMAP_PROGHEADER {
 };
 
 struct ELF_THREADMAP_PRIVDATA {
-	exec_obtain_fn	elf_obtainfunc;
-	void*          	elf_obtainpriv;
+	struct DENTRY*	elf_dentry;
 	int            	elf_num_refs;
 	int            	elf_num_ph;
 	struct ELF_THREADMAP_PROGHEADER elf_ph[1];
 };
+
+static errorcode_t
+read_data(struct DENTRY* dentry, void* buf, off_t offset, size_t len)
+{
+	struct VFS_FILE f;
+	memset(&f, 0, sizeof(f));
+	f.f_dentry = dentry;
+
+	/* kludge: cleanup is handeled by requesting 0 bytes at 0 to buffer NULL */
+	if (buf == NULL && offset == 0 && len == 0) {
+		dentry_deref(dentry);
+		return ANANAS_ERROR_OK;
+	}
+
+	errorcode_t err = vfs_seek(&f, offset);
+	ANANAS_ERROR_RETURN(err);
+
+	size_t amount = len;
+	err = vfs_read(&f, buf, &amount);
+	ANANAS_ERROR_RETURN(err);
+
+	if (amount != len)
+		return ANANAS_ERROR(SHORT_READ);
+	return ANANAS_ERROR_OK;
+}
 
 static errorcode_t
 elf_tm_destroy_func(vmspace_t* vs, vmarea_t* va)
@@ -48,7 +72,7 @@ elf_tm_destroy_func(vmspace_t* vs, vmarea_t* va)
 
 	if (--privdata->elf_num_refs == 0) {
 		/* Last ref is gone; we can destroy the privdata now */
-		privdata->elf_obtainfunc(privdata->elf_obtainpriv, NULL, 0, 0); /* cleanup call */
+		read_data(privdata->elf_dentry, NULL, 0, 0); /* cleanup call */
 		kfree(privdata);
 	}
 	return ANANAS_ERROR_OK;
@@ -89,7 +113,7 @@ elf_tm_fault_func(vmspace_t* vs, vmarea_t* va, addr_t virt)
 	if (read_addr != v_page || read_len != PAGE_SIZE)
 		memset((void*)v_page, 0, PAGE_SIZE);
 	if (read_len > 0)
-		return privdata->elf_obtainfunc(privdata->elf_obtainpriv, (void*)read_addr, read_off, read_len);
+		return read_data(privdata->elf_dentry, (void*)read_addr, read_off, read_len);
 	return ANANAS_ERROR_NONE;
 }
 
@@ -104,12 +128,12 @@ elf_tm_clone_func(vmspace_t* vs_src, vmarea_t* va_src, vmspace_t* vs_dst, vmarea
 
 #if defined(__i386__)
 static errorcode_t
-elf32_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
+elf32_load(thread_t* thread, struct DENTRY* dentry)
 {
 	errorcode_t err;
 	Elf32_Ehdr ehdr;
 
-	err = obtain(priv, &ehdr, 0, sizeof(ehdr));
+	err = read_data(dentry, &ehdr, 0, sizeof(ehdr));
 	ANANAS_ERROR_RETURN(err);
 
 	/* Perform basic ELF checks */
@@ -144,8 +168,7 @@ elf32_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 
 	/* Note that we allocate worst-case; there can be no more than ehdr.e_phnum sections */
 	struct ELF_THREADMAP_PRIVDATA* privdata = kmalloc(sizeof(struct ELF_THREADMAP_PRIVDATA) + sizeof(struct ELF_THREADMAP_PROGHEADER) * (ehdr.e_phnum - 1));
-	privdata->elf_obtainpriv = priv;
-	privdata->elf_obtainfunc = obtain;
+	privdata->elf_dentry = dentry;
 	privdata->elf_num_ph = 0;
 	privdata->elf_num_refs = 0;
 
@@ -153,7 +176,7 @@ elf32_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 	for (unsigned int i = 0; i < ehdr.e_phnum; i++) {
 		Elf32_Phdr phdr;
 		TRACE(EXEC, INFO, "ph %u: obtaining header from offset %u", i, ehdr.e_phoff + i * ehdr.e_phentsize);
-		err = obtain(priv, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr));
+		err = read_data(dentry, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr));
 		if (err != ANANAS_ERROR_NONE) {
 			TRACE(EXEC, INFO, "ph %u: obtain failed: %i", i, err);
 			goto fail;
@@ -212,12 +235,12 @@ EXECUTABLE_FORMAT("elf32", elf32_load);
 
 #ifdef __amd64__
 static errorcode_t
-elf64_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
+elf64_load(thread_t* thread, struct DENTRY* dentry)
 {
 	errorcode_t err;
 	Elf64_Ehdr ehdr;
 
-	err = obtain(priv, &ehdr, 0, sizeof(ehdr));
+	err = read_data(dentry, &ehdr, 0, sizeof(ehdr));
 	ANANAS_ERROR_RETURN(err);
 
 	/* Perform basic ELF checks; must be 64 bit LSB statically-linked executable */
@@ -253,14 +276,13 @@ elf64_load(thread_t* thread, void* priv, exec_obtain_fn obtain)
 
 	/* Note that we allocate worst-case; there can be no more than ehdr.e_phnum sections */
 	struct ELF_THREADMAP_PRIVDATA* privdata = kmalloc(sizeof(struct ELF_THREADMAP_PRIVDATA) + sizeof(struct ELF_THREADMAP_PROGHEADER) * (ehdr.e_phnum - 1));
-	privdata->elf_obtainpriv = priv;
-	privdata->elf_obtainfunc = obtain;
+	privdata->elf_dentry = dentry;
 	privdata->elf_num_ph = 0;
 	privdata->elf_num_refs = 0;
 
 	for (unsigned int i = 0; i < ehdr.e_phnum; i++) {
 		Elf64_Phdr phdr;
-		err = obtain(priv, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr));
+		err = read_data(dentry, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr));
 		if (err != ANANAS_ERROR_NONE)
 			goto fail;
 		if (phdr.p_type != PT_LOAD)
