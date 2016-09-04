@@ -52,11 +52,6 @@ vfshandle_open(thread_t* t, handleindex_t index, struct HANDLE* handle, struct O
 	process_t* proc = t->t_process;
 	const char* userpath = opts->op_path; /* safe because sys_open maps it */
 
-	/* Grab the path handle for the thread */
-	struct HANDLE* path_handle;
-	errorcode_t err = handle_lookup(proc, proc->p_hidx_path, HANDLE_TYPE_FILE, &path_handle);
-	KASSERT(err == ANANAS_ERROR_NONE, "vfshandle_open(): process %p path handle %d invalid: %d", proc, proc->p_hidx_path, err);
-
 	/*
 	 * If we could try to create the file, do so - if this fails, we'll attempt
 	 * the ordinary open. This should have the advantage of eliminating a race
@@ -64,7 +59,7 @@ vfshandle_open(thread_t* t, handleindex_t index, struct HANDLE* handle, struct O
 	 */
 	if (opts->op_mode & OPEN_MODE_CREATE) {
 		/* Attempt to create the new file - if this works, we're all set */
-		errorcode_t err = vfs_create(path_handle->h_data.d_vfs_file.f_dentry, &handle->h_data.d_vfs_file, userpath, opts->op_createmode);
+		errorcode_t err = vfs_create(proc->p_cwd, &handle->h_data.d_vfs_file, userpath, opts->op_createmode);
 		if (err == ANANAS_ERROR_NONE)
 			return err;
 
@@ -81,7 +76,7 @@ vfshandle_open(thread_t* t, handleindex_t index, struct HANDLE* handle, struct O
 
 	/* And open the path */
 	TRACE(SYSCALL, INFO, "opening userpath '%s'", userpath);
-	return vfs_open(userpath, &path_handle->h_data.d_vfs_file, &handle->h_data.d_vfs_file);
+	return vfs_open(userpath, proc->p_cwd, &handle->h_data.d_vfs_file);
 }
 
 static errorcode_t
@@ -112,14 +107,8 @@ vfshandle_create(thread_t* t, handleindex_t index, struct HANDLE* handle, struct
 	errorcode_t err = syscall_map_string(t, opts->cr_path, &path);
 	ANANAS_ERROR_RETURN(err);
 
-	/* Grab the path handle */
-	process_t* proc = t->t_process;
-	struct HANDLE* path_handle;
-	err = handle_lookup(proc, proc->p_hidx_path, HANDLE_TYPE_FILE, &path_handle);
-	KASSERT(err == ANANAS_ERROR_NONE, "vfshandle_open(): process %p path handle %d invalid", proc, proc->p_hidx_path);
-
 	/* Attempt to create the new file */
-	return vfs_create(path_handle->h_data.d_vfs_file.f_dentry, &handle->h_data.d_vfs_file, path, opts->cr_mode);
+	return vfs_create(t->t_process->p_cwd, &handle->h_data.d_vfs_file, path, opts->cr_mode);
 }
 
 static errorcode_t
@@ -151,33 +140,6 @@ vfshandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handle, 
 	}
 
 	switch(op) {
-		case HCTL_FILE_SETCWD: {
-			/* Ensure we are dealing with a directory here */
-			if (!S_ISDIR(file->f_dentry->d_inode->i_sb.st_mode))
-				return ANANAS_ERROR(NOT_A_DIRECTORY);
-
-			/* XXX We should lock the thread? */
-
-#if 0
-			/*
-			 * The inode must be owned by the thread already, so we could just hand
-			 * it over without dealing with the reference count. However, closing the
-			 * handle (as we don't want the thread to mess with it anymore) is the
-			 * safest way to continue - so we just continue by referencing the inode
-			 * and then freeing the handle (yes, this is a kludge).
-			 *
-			 * XXX Why isn't this necessary?
-			 */
-			vfs_ref_inode(file->inode);
-#endif
-
-			/* Disown the previous handle; it is no longer of concern */
-			handle_free_byindex(proc, proc->p_hidx_path);
-
-			/* And update the handle */
-			proc->p_hidx_path = index;
-			return ANANAS_ERROR_OK;
-		}
 		case HCTL_FILE_SEEK: {
 			/* Ensure we understand the whence */
 			struct HCTL_SEEK_ARG* se = arg;
@@ -258,16 +220,11 @@ vfshandle_control(thread_t* thread, handleindex_t index, struct HANDLE* handle, 
 			if (len != sizeof(*re))
 				return ANANAS_ERROR(BAD_LENGTH);
 
-			/* Grab the path handle for the thread */
-			struct HANDLE* path_handle;
-			errorcode_t err = handle_lookup(proc, proc->p_hidx_path, HANDLE_TYPE_FILE, &path_handle);
-			KASSERT(err == ANANAS_ERROR_NONE, "vfshandle_control(): proc %p path handle %d invalid", proc, proc->p_hidx_path);
-
 			const char* dest;
 			err = syscall_map_string(thread, re->re_dest, &dest);
 			ANANAS_ERROR_RETURN(err);
 
-			return vfs_rename(file, path_handle->h_data.d_vfs_file.f_dentry, dest);
+			return vfs_rename(file, proc->p_cwd, dest);
 		}
 		default:
 			/* What's this? */

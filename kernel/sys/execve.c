@@ -53,14 +53,9 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	TRACE(SYSCALL, FUNC, "t=%p, path='%s', argv='%s', envp='%s'", path, argv, envp);
 	process_t* proc = t->t_process;
 
-	/* Grab the path handle for the thread XXX This has to go */
-	struct HANDLE* path_handle;
-	errorcode_t err = handle_lookup(proc, proc->p_hidx_path, HANDLE_TYPE_FILE, &path_handle);
-	KASSERT(err == ANANAS_ERROR_NONE, "sys_execve(): process %p path handle %d invalid: %d", proc, proc->p_hidx_path, err);
-
 	/* First step is to open the file */
 	struct VFS_FILE file;
-	err = vfs_open(path, &path_handle->h_data.d_vfs_file, &file);
+	errorcode_t err = vfs_open(path, proc->p_cwd, &file);
 	ANANAS_ERROR_RETURN(err);
 
 	/*

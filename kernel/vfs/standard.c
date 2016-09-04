@@ -27,10 +27,10 @@ vfs_make_file(struct VFS_FILE* file, struct DENTRY* dentry)
 }
 
 errorcode_t
-vfs_open(const char* fname, struct VFS_FILE* dir, struct VFS_FILE* out)
+vfs_open(const char* fname, struct DENTRY* cwd, struct VFS_FILE* out)
 {
 	struct DENTRY* dentry;
-	errorcode_t err = vfs_lookup(dir != NULL ? dir->f_dentry : NULL, &dentry, fname);
+	errorcode_t err = vfs_lookup(cwd, &dentry, fname);
 	ANANAS_ERROR_RETURN(err);
 
 	vfs_make_file(out, dentry);

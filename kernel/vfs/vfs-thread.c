@@ -16,7 +16,6 @@ vfs_init_process(process_t* proc)
 	errorcode_t err;
 
 	/* If there is a parent, try to clone it's parent handles */
-	struct HANDLE* path_handle;
 	struct HANDLE* stdin_handle;
 	struct HANDLE* stdout_handle;
 	struct HANDLE* stderr_handle;
@@ -26,7 +25,9 @@ vfs_init_process(process_t* proc)
 		proc->p_info->pi_handle_stdin = parent->p_info->pi_handle_stdin;
 		proc->p_info->pi_handle_stdout = parent->p_info->pi_handle_stdout;
 		proc->p_info->pi_handle_stderr = parent->p_info->pi_handle_stderr;
-		proc->p_hidx_path = parent->p_hidx_path;
+		proc->p_cwd = parent->p_cwd;
+		if (proc->p_cwd != NULL)
+			dentry_ref(proc->p_cwd);
 	} else {
 		/* Initialize stdin/out/error, so they'll get handle index 0, 1, 2 */
 		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stdin_handle, &proc->p_info->pi_handle_stdin);
@@ -43,9 +44,7 @@ vfs_init_process(process_t* proc)
 		stderr_handle->h_data.d_vfs_file.f_device = console_tty;
 
 		/* Use / as current path - by the time we create processes, we should have a workable VFS */
-		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &path_handle, &proc->p_hidx_path);
-		ANANAS_ERROR_RETURN(err);
-		err = vfs_open("/", NULL, &path_handle->h_data.d_vfs_file);
+		err = vfs_lookup(NULL, &proc->p_cwd, "/");
 		ANANAS_ERROR_RETURN(err);
 	}
 

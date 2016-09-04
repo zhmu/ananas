@@ -3,6 +3,7 @@
 
 #include <ananas/lock.h>
 
+struct DENTRY;
 struct PROCINFO;
 
 /* Maximum number of handles per process */
@@ -33,7 +34,7 @@ struct PROCESS {
 	/* Handles */
 	struct HANDLE* p_handle[PROCESS_MAX_HANDLES];
 
-	handleindex_t	p_hidx_path;	/* Current path */
+	struct DENTRY* p_cwd;		/* Current path */
 
 	struct PROCESS_QUEUE	p_children;	/* Queue of this process' children */
 
