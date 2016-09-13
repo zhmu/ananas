@@ -1,9 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
 #include <ananas/syscalls.h>
-#include <ananas/threadinfo.h>
 #include <_posix/error.h>
-//#include <errno.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>

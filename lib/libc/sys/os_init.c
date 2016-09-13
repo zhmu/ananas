@@ -1,11 +1,11 @@
-#include <ananas/threadinfo.h>
+#include <ananas/procinfo.h>
 #include <_posix/init.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-struct THREADINFO* libc_threadinfo;
+struct PROCINFO* ananas_procinfo;
 int    libc_argc = 0;
 char** libc_argv = NULL;
 char** environ = NULL;
@@ -50,16 +50,16 @@ libc_reinit_environ()
 {
 	if (environ != NULL)
 		free(environ);
-	libc_initialize_arg(libc_threadinfo->ti_env, &environ, NULL);
+	libc_initialize_arg(ananas_procinfo->pi_env, &environ, NULL);
 }
 
 void
-libc_init(struct THREADINFO* ti)
+libc_init(struct PROCINFO* pi)
 {
-	libc_threadinfo = ti;
+	ananas_procinfo = pi;
 
 	/* Initialize argument and environment variables */
-	libc_initialize_arg(ti->ti_args, &libc_argv, &libc_argc);
+	libc_initialize_arg(pi->pi_args, &libc_argv, &libc_argc);
 	libc_reinit_environ();
 
 	/* Run .init functions as emitted by the compiler */

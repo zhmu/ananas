@@ -1,4 +1,4 @@
-#include <ananas/threadinfo.h>
+#include <ananas/procinfo.h>
 #include <_posix/init.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -13,13 +13,13 @@ putenv(char* string)
 	 * append the string to there so we can immediately check whether it fits.
 	 */
 	int i = 0;
-	while(i < THREADINFO_ENV_LENGTH - 2) {
-		if (libc_threadinfo->ti_env[i    ] == '\0' &&
-		    libc_threadinfo->ti_env[i + 1] == '\0')
+	while(i < PROCINFO_ENV_LENGTH - 2) {
+		if (ananas_procinfo->pi_env[i    ] == '\0' &&
+		    ananas_procinfo->pi_env[i + 1] == '\0')
 			break;
 		i++;
 	}
-	if (i + strlen(string) >= THREADINFO_ENV_LENGTH) {
+	if (i + strlen(string) >= PROCINFO_ENV_LENGTH) {
 		/* No space left */
 		errno = ENOMEM;
 		return -1;
@@ -31,7 +31,7 @@ putenv(char* string)
 		 * See if we have the same variable key present; if so, we'll need to
 		 * remove it. Note that this uses the implementation specifics of
 		 * libc_reinit_environ() - namely that it'll store a pointer to something
-		 * that is in the ti_env field; we'll use this to remove the key if
+		 * that is in the pi_env field; we'll use this to remove the key if
 		 * necessary.
 		 */
 		char** env = environ;
@@ -43,7 +43,7 @@ putenv(char* string)
 		if (*env != NULL) {
 			/* Got a match; need to remove it */
 			i -= strlen(*env) + 1;
-			memcpy(*env, *env + strlen(*env) + 1, THREADINFO_ENV_LENGTH - (*env - libc_threadinfo->ti_env));
+			memcpy(*env, *env + strlen(*env) + 1, PROCINFO_ENV_LENGTH - (*env - ananas_procinfo->pi_env));
 		}
 	} else {
 		/*
@@ -53,8 +53,8 @@ putenv(char* string)
 	}
 
 	/* Add the string and double-\0-terminate it */
-	strcpy(&libc_threadinfo->ti_env[i + 1], string);
-	libc_threadinfo->ti_env[i + strlen(string) + 2] = '\0';
+	strcpy(&ananas_procinfo->pi_env[i + 1], string);
+	ananas_procinfo->pi_env[i + strlen(string) + 2] = '\0';
 
 	/* Reconstruct the environ array */
 	libc_reinit_environ();

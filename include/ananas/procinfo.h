@@ -17,7 +17,7 @@ struct PROCINFO {
 };
 
 #ifndef KERNEL
-extern struct PROCINFO* libc_procinfo;
+extern struct PROCINFO* ananas_procinfo;
 #endif
 
 #endif /* __SYS_PROCINFO_H__ */

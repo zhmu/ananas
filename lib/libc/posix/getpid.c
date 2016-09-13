@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include <ananas/threadinfo.h>
+#include <ananas/procinfo.h>
 #include <_posix/todo.h>
 
 pid_t
