@@ -8,7 +8,7 @@
 
 struct DENTRY;
 
-typedef errorcode_t (*exec_handler_t)(thread_t* t, struct DENTRY* dentry);
+typedef errorcode_t (*exec_handler_t)(thread_t* t, vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr);
 
 /*
  * Define an executable format.
@@ -40,7 +40,7 @@ DQUEUE_DEFINE(EXEC_FORMATS, struct EXEC_FORMAT);
 		.ef_handler = &handler \
 	};
 
-errorcode_t exec_launch(thread_t* t, struct DENTRY* dentry);
+errorcode_t exec_launch(thread_t* t, vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr);
 errorcode_t exec_register_format(struct EXEC_FORMAT* ef);
 errorcode_t exec_unregister_format(struct EXEC_FORMAT* ef);
 

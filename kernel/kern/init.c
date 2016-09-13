@@ -1,6 +1,7 @@
 #include <ananas/device.h>
 #include <ananas/console.h>
 #include <ananas/error.h>
+#include <ananas/exec.h>
 #include <ananas/mm.h>
 #include <ananas/lib.h>
 #include <ananas/init.h>
@@ -9,7 +10,6 @@
 #include <ananas/pcpu.h>
 #include <ananas/tty.h>
 #include <ananas/vfs.h>
-#include <ananas/syscalls.h>
 #include <machine/vm.h>
 #include <machine/param.h> /* for PAGE_SIZE */
 
@@ -204,15 +204,28 @@ launch_shell()
 	}
 
 	kprintf("- Lauching %s...", SHELL_BIN);
-	const char* argv[] = { "sh", "-l", NULL };
-	const char* env[] = { "OS=Ananas", "USER=root", NULL };
-	err = sys_execve(t, SHELL_BIN, argv, env);
+	struct VFS_FILE file;
+	err = vfs_open(SHELL_BIN, proc->p_cwd, &file);
+	if (err != ANANAS_ERROR_NONE) {
+		kprintf(" couldn't open file, %i\n", err);
+		return err;
+	}
+
+	const char args[] = "sh\0-l\0\0";
+	const char env[] = "OS=Ananas\0USER=root\0\0";
+	process_set_args(proc, args, sizeof(args));
+	process_set_environment(proc, env, sizeof(env));
+
+	addr_t exec_addr;
+	err = exec_launch(t, proc->p_vmspace, file.f_dentry, &exec_addr);
 	if (err == ANANAS_ERROR_NONE) {
 		kprintf(" ok\n");
+		md_setup_post_exec(t, exec_addr);
 		thread_resume(t);
 	} else {
 		kprintf(" fail - error %i\n", err);
 	}
+	vfs_close(&file);
 	return err;
 }
 

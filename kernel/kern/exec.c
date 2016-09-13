@@ -1,6 +1,8 @@
 #include <ananas/exec.h>
 #include <ananas/lib.h>
 #include <ananas/init.h>
+#include <ananas/process.h>
+#include <ananas/thread.h>
 #include <ananas/trace.h>
 
 TRACE_SETUP;
@@ -15,17 +17,23 @@ exec_init()
 }
 
 errorcode_t
-exec_launch(thread_t* t, struct DENTRY* dentry)
+exec_launch(thread_t* t, vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 {
-	errorcode_t err = ANANAS_ERROR(BAD_EXEC);
-	if (!DQUEUE_EMPTY(&exec_formats))
+	if (!DQUEUE_EMPTY(&exec_formats)) {
 		DQUEUE_FOREACH(&exec_formats, ef, struct EXEC_FORMAT) {
-			err = ef->ef_handler(t, dentry);
-			if (err == ANANAS_ERROR_OK)
-				break;
-		}
+			/* See if we can execute this... */
+			errorcode_t err = ef->ef_handler(t, vs, dentry, exec_addr);
+			if (err != ANANAS_ERROR_OK) {
+				/* Execute failed; try the next one */
+				continue;
+			}
 
-	return err;
+			return ANANAS_ERROR_NONE;
+		}
+	}
+
+	/* Nothing worked... */
+	return ANANAS_ERROR(BAD_EXEC);
 }
 
 INIT_FUNCTION(exec_init, SUBSYSTEM_THREAD, ORDER_FIRST);

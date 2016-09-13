@@ -128,7 +128,7 @@ elf_tm_clone_func(vmspace_t* vs_src, vmarea_t* va_src, vmspace_t* vs_dst, vmarea
 
 #if defined(__i386__)
 static errorcode_t
-elf32_load(thread_t* thread, struct DENTRY* dentry)
+elf32_load(thread_t* thread, vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 {
 	errorcode_t err;
 	Elf32_Ehdr ehdr;
@@ -197,7 +197,7 @@ elf32_load(thread_t* thread, struct DENTRY* dentry)
 		addr_t virt_begin = ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE);
 		addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_memsz), PAGE_SIZE);
 		vmarea_t* va;
-		err = vmspace_mapto(thread->t_vmspace, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &va);
+		err = vmspace_mapto(vs, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &va);
 		if (err != ANANAS_ERROR_OK)
 			goto fail;
 		TRACE(EXEC, INFO, "ph %u: instantiated mapping for %x-%x",
@@ -220,7 +220,7 @@ elf32_load(thread_t* thread, struct DENTRY* dentry)
 		privdata->elf_num_refs++;
 	}
 	TRACE(EXEC, INFO, "done, entry point is 0x%x", ehdr.e_entry);
-	md_thread_set_entrypoint(thread, ehdr.e_entry);
+	*exec_addr = ehdr.e_entry;
 
 	return ANANAS_ERROR_OK;
 
@@ -235,7 +235,7 @@ EXECUTABLE_FORMAT("elf32", elf32_load);
 
 #ifdef __amd64__
 static errorcode_t
-elf64_load(thread_t* thread, struct DENTRY* dentry)
+elf64_load(thread_t* thread, vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 {
 	errorcode_t err;
 	Elf64_Ehdr ehdr;
@@ -300,7 +300,7 @@ elf64_load(thread_t* thread, struct DENTRY* dentry)
 		addr_t virt_begin = ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE);
 		addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_memsz), PAGE_SIZE);
 		vmarea_t* va;
-		err = vmspace_mapto(thread->t_process->p_vmspace, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &va);
+		err = vmspace_mapto(vs, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &va);
 		if (err != ANANAS_ERROR_OK)
 			goto fail;
 
@@ -322,7 +322,7 @@ elf64_load(thread_t* thread, struct DENTRY* dentry)
 		privdata->elf_num_refs++;
 	}
 
-	md_thread_set_entrypoint(thread, ehdr.e_entry);
+	*exec_addr = ehdr.e_entry;
 	return ANANAS_ERROR_OK;
 
 fail:
