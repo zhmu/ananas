@@ -9,9 +9,7 @@
 
 struct PROCINFO {
 	int		pi_size;				/* structure length */
-	handleindex_t	pi_handle_stdin;			/* stdin handle */
-	handleindex_t	pi_handle_stdout;			/* stdout handle */
-	handleindex_t	pi_handle_stderr;			/* stderr handle */
+	pid_t		pi_pid;					/* process ID */
 	char		pi_args[PROCINFO_ARGS_LENGTH];	/* commandline arguments */
 	char		pi_env[PROCINFO_ENV_LENGTH];		/* environment */
 };

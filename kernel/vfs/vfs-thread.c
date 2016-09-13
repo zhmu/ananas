@@ -13,6 +13,8 @@ TRACE_SETUP;
 static errorcode_t
 vfs_init_process(process_t* proc)
 {
+	TRACE(THREAD, INFO, "proc=%p", proc);
+
 	errorcode_t err;
 
 	/* If there is a parent, try to clone it's parent handles */
@@ -21,22 +23,24 @@ vfs_init_process(process_t* proc)
 	struct HANDLE* stderr_handle;
 	process_t* parent = proc->p_parent;
 	if (parent != NULL) {
-		/* Parent should have cloned our handles; we can just copy the indices */
-		proc->p_info->pi_handle_stdin = parent->p_info->pi_handle_stdin;
-		proc->p_info->pi_handle_stdout = parent->p_info->pi_handle_stdout;
-		proc->p_info->pi_handle_stderr = parent->p_info->pi_handle_stderr;
+		/* Parent should have cloned our handles - only need to grab the work directory here */
 		proc->p_cwd = parent->p_cwd;
 		if (proc->p_cwd != NULL)
 			dentry_ref(proc->p_cwd);
 	} else {
 		/* Initialize stdin/out/error, so they'll get handle index 0, 1, 2 */
-		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stdin_handle, &proc->p_info->pi_handle_stdin);
+		handleindex_t hidx;
+		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stdin_handle, &hidx);
 		ANANAS_ERROR_RETURN(err);
+		KASSERT(hidx == 0, "stdin index mismatch (%d)", hidx);
 
-		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stdout_handle, &proc->p_info->pi_handle_stdout);
+		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stdout_handle, &hidx);
 		ANANAS_ERROR_RETURN(err);
-		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stderr_handle, &proc->p_info->pi_handle_stderr);
+		KASSERT(hidx == 1, "stdout index mismatch (%d)", hidx);
+
+		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stderr_handle, &hidx);
 		ANANAS_ERROR_RETURN(err);
+		KASSERT(hidx == 2, "stderr index mismatch (%d)", hidx);
 
 		/* Hook the new handles to the console */
 		stdin_handle->h_data.d_vfs_file.f_device  = console_tty;
@@ -47,12 +51,6 @@ vfs_init_process(process_t* proc)
 		err = vfs_lookup(NULL, &proc->p_cwd, "/");
 		ANANAS_ERROR_RETURN(err);
 	}
-
-	TRACE(THREAD, INFO, "t=%p, stdin=%u, stdout=%u, stderr=%u",
-	 proc,
-	 proc->p_info->pi_handle_stdin,
-	 proc->p_info->pi_handle_stdout,
-	 proc->p_info->pi_handle_stderr);
 
 	return ANANAS_ERROR_OK;
 }

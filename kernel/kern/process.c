@@ -39,6 +39,7 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 
 	process_t* p = kmalloc(sizeof(struct PROCESS));
 	memset(p, 0, sizeof(*p));
+	p->p_parent = parent; /* XXX should we take a ref here? */
 	p->p_refcount = 1; /* caller */
 	p->p_state = PROCESS_STATE_ACTIVE;
 	p->p_pid = process_alloc_pid();
@@ -67,6 +68,7 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 	/* Initialize thread information structure */
 	memset(p->p_info, 0, sizeof(struct PROCINFO));
 	p->p_info->pi_size = sizeof(struct PROCINFO);
+	p->p_info->pi_pid = p->p_pid;
 	if (parent != NULL)
 		process_set_environment(p, parent->p_info->pi_env, PAGE_SIZE /* XXX */);
 
