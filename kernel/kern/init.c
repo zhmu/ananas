@@ -217,7 +217,7 @@ launch_shell()
 	process_set_environment(proc, env, sizeof(env));
 
 	addr_t exec_addr;
-	err = exec_launch(t, proc->p_vmspace, file.f_dentry, &exec_addr);
+	err = exec_load(proc->p_vmspace, file.f_dentry, &exec_addr);
 	if (err == ANANAS_ERROR_NONE) {
 		kprintf(" ok\n");
 		md_setup_post_exec(t, exec_addr);

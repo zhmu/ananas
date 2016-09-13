@@ -1,9 +1,7 @@
 #include <ananas/types.h>
-#include <machine/thread.h>
 #include <machine/param.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
-#include <ananas/thread.h>
 #include <ananas/exec.h>
 #include <ananas/process.h>
 #include <ananas/trace.h>
@@ -128,7 +126,7 @@ elf_tm_clone_func(vmspace_t* vs_src, vmarea_t* va_src, vmspace_t* vs_dst, vmarea
 
 #if defined(__i386__)
 static errorcode_t
-elf32_load(thread_t* thread, vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
+elf32_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 {
 	errorcode_t err;
 	Elf32_Ehdr ehdr;
@@ -235,7 +233,7 @@ EXECUTABLE_FORMAT("elf32", elf32_load);
 
 #ifdef __amd64__
 static errorcode_t
-elf64_load(thread_t* thread, vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
+elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 {
 	errorcode_t err;
 	Elf64_Ehdr ehdr;

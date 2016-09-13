@@ -17,12 +17,12 @@ exec_init()
 }
 
 errorcode_t
-exec_launch(thread_t* t, vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
+exec_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 {
 	if (!DQUEUE_EMPTY(&exec_formats)) {
 		DQUEUE_FOREACH(&exec_formats, ef, struct EXEC_FORMAT) {
 			/* See if we can execute this... */
-			errorcode_t err = ef->ef_handler(t, vs, dentry, exec_addr);
+			errorcode_t err = ef->ef_handler(vs, dentry, exec_addr);
 			if (err != ANANAS_ERROR_OK) {
 				/* Execute failed; try the next one */
 				continue;

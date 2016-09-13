@@ -82,9 +82,12 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	if (err != ANANAS_ERROR_OK)
 		goto fail;
 
-	/* Attempt the launch */
+	/*
+	 * Attempt to load the executable; if this fails, we won't have destroyed
+	 * anything we cannot free.
+	 */
 	addr_t exec_addr;
-	err = exec_launch(t, vmspace, dentry, &exec_addr);
+	err = exec_load(vmspace, dentry, &exec_addr);
 	if (err != ANANAS_ERROR_OK)
 		goto fail;
 
