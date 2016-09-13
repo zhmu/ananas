@@ -52,6 +52,8 @@ struct VM_SPACE {
 	MD_VMSPACE_FIELDS
 };
 
+#define VMSPACE_CLONE_EXEC 1
+
 errorcode_t vmspace_create(vmspace_t** vs);
 void vmspace_cleanup(vmspace_t* vs); /* frees all mappings, but not MD-things */
 void vmspace_destroy(vmspace_t* vs);
@@ -59,7 +61,7 @@ errorcode_t vmspace_mapto(vmspace_t* vs, addr_t virt, addr_t phys, size_t len /*
 errorcode_t vmspace_map(vmspace_t* vs, addr_t phys, size_t len /* bytes */, uint32_t flags, vmarea_t** va_out);
 errorcode_t vmspace_area_resize(vmspace_t* vs, vmarea_t* va, size_t new_length /* in bytes */);
 errorcode_t vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags);
-errorcode_t vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest);
+errorcode_t vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags);
 void vmspace_area_free(vmspace_t* vs, vmarea_t* va);
 
 /* MD initialization/cleanup bits */

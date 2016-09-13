@@ -190,16 +190,60 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 	return ANANAS_ERROR(BAD_ADDRESS);
 }
 
-errorcode_t
-vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest)
+/*
+ * vmspace_clone() is used for two scenarios:
+ *
+ * (1) fork() uses it to copy the parent's vmspace to a new child
+ * (2) exec() uses it to fill the current vmspace with the new one
+ *
+ * In the first case, we just need to make things as identical as possible; yet
+ * for (2), the destination vmspace will not have MD-specific data as no
+ * threads were ever created in it.
+ *
+ * As the caller knows this information, we'll let the decision rest in the
+ * hands of the caller - if we are cloning for exec(), we'll clone MD-fields.
+ */
+static inline int
+vmspace_clone_area_must_free(vmarea_t* va, int flags)
 {
-	TRACE(VM, INFO, "vmspace_clone(): source=%p dest=%p", vs_source, vs_dest);
+	/* Scenario (2) does not free MD-specific parts */
+	if ((flags & VMSPACE_CLONE_EXEC) && (va->va_flags & VM_FLAG_MD))
+		return 0;
+	return (va->va_flags & VM_FLAG_PRIVATE) == 0;
+}
+
+static inline int
+vmspace_clone_area_must_copy(vmarea_t* va, int flags)
+{
+	/* Scenario (2) does copy MD-specific parts */
+	if ((flags & VMSPACE_CLONE_EXEC) && (va->va_flags & VM_FLAG_MD))
+		return 1;
+	return (va->va_flags & VM_FLAG_PRIVATE) == 0;
+}
+
+errorcode_t
+vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
+{
+	TRACE(VM, INFO, "vmspace_clone(): source=%p dest=%p flags=%x", vs_source, vs_dest, flags);
+
+	/*
+	 * First, clean up the destination area's mappings - this ensures we'll
+	 * overwrite them with our own. Note that we'll leave private mappings alone.
+	 */
+	if (!DQUEUE_EMPTY(&vs_dest->vs_areas)) {
+		DQUEUE_FOREACH_SAFE(&vs_dest->vs_areas, va, vmarea_t) {
+			if (!vmspace_clone_area_must_free(va, flags))
+				continue;
+			vmspace_area_free(vs_dest, va);
+		}
+	}
 
 	if(DQUEUE_EMPTY(&vs_source->vs_areas))
 		return ANANAS_ERROR_OK;
 
+	/* Now copy everything over that isn't private */
 	DQUEUE_FOREACH(&vs_source->vs_areas, va_src, vmarea_t) {
-		if (va_src->va_flags & VM_FLAG_PRIVATE)
+		if (!vmspace_clone_area_must_copy(va_src, flags))
 			continue;
 
 		vmarea_t* va_dst;
@@ -258,3 +302,16 @@ vmspace_area_free(vmspace_t* vs, vmarea_t* va)
 		}
 	kfree(va);
 }
+
+void
+vmspace_dump(vmspace_t* vs)
+{
+	if(DQUEUE_EMPTY(&vs->vs_areas))
+		return;
+
+	DQUEUE_FOREACH(&vs->vs_areas, va, vmarea_t) {
+		kprintf("area %p: %p..%p flags %x\n", va, va->va_virt, va->va_virt + va->va_len, va->va_flags);
+	}
+}
+
+/* vim:set ts=2 sw=2: */

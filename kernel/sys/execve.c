@@ -6,6 +6,7 @@
 #include <ananas/thread.h>
 #include <ananas/trace.h>
 #include <ananas/vfs.h>
+#include <ananas/vmspace.h>
 #include <machine/param.h>
 
 TRACE_SETUP;
@@ -50,7 +51,7 @@ set_proc_attribute(process_t* process, enum SET_PROC_ATTR attr, const char** lis
 errorcode_t
 sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, path='%s', argv='%s', envp='%s'", path, argv, envp);
+	TRACE(SYSCALL, FUNC, "t=%p, path='%s'", t, path);
 	process_t* proc = t->t_process;
 
 	/* First step is to open the file */
@@ -72,9 +73,34 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	if (envp != NULL)
 		set_proc_attribute(proc, A_Env, envp);
 
-	/* Attempt the launch; if this succeeds, it won't return */
-	err = exec_launch(t, dentry);
+	/*
+	 * Create a new vmspace to execute in; if the exec() works, we'll use it to
+	 * override our current vmspace.
+	 */
+	vmspace_t* vmspace;
+	err = vmspace_create(&vmspace);
+	if (err != ANANAS_ERROR_OK)
+		goto fail;
+
+	/* Attempt the launch */
+	addr_t exec_addr;
+	err = exec_launch(t, vmspace, dentry, &exec_addr);
+	if (err != ANANAS_ERROR_OK)
+		goto fail;
+
+	/* Copy the new vmspace to the destination */
+	err = vmspace_clone(vmspace, proc->p_vmspace, VMSPACE_CLONE_EXEC);
+	KASSERT(err == ANANAS_ERROR_OK, "unable to clone exec vmspace: %d", err);
+	vmspace_destroy(vmspace);
+
+	/* Now force a full return into the new thread state */
+	md_setup_post_exec(t, exec_addr);
+	return ANANAS_ERROR_OK;
+
+fail:
 	dentry_deref(dentry);
+	if (vmspace != NULL)
+		vmspace_destroy(vmspace);
 	return err;
 }
 

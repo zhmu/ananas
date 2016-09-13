@@ -133,7 +133,7 @@ process_clone(process_t* p, int flags, process_t** out_p)
 	ANANAS_ERROR_RETURN(err);
 
 	/* Duplicate the vmspace - this should leave the private mappings alone */
-	err = vmspace_clone(p->p_vmspace, newp->p_vmspace);
+	err = vmspace_clone(p->p_vmspace, newp->p_vmspace, 0);
 	if (err != ANANAS_ERROR_OK)
 		goto fail;
 

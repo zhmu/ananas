@@ -10,6 +10,7 @@
 #define VM_FLAG_USER	0x0010
 #define VM_FLAG_DEVICE	0x0020
 #define VM_FLAG_PRIVATE 0x0040	/* Private mapping, will not be cloned */
+#define VM_FLAG_MD	0x4000	/* Machine dependent mapping */
 
 #define VM_FLAG_LAZY	0x0080	/* Lazy mapping: page in as needed */
 #define VM_FLAG_ALLOC 	0x0100	/* Allocate memory for mapping */
