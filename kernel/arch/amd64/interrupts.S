@@ -6,14 +6,14 @@
 .globl exception6, exception7, exception8, exception9, exception10, exception11
 .globl exception12, exception13, exception14, exception16, exception17
 .globl exception18, exception19
-.globl irq0, irq1, irq2, irq3, irq4, irq5, irq6, irq7, irq8, irq9, irq10 
+.globl irq0, irq1, irq2, irq3, irq4, irq5, irq6, irq7, irq8, irq9, irq10
 .globl irq11, irq12, irq13, irq14, irq15, syscall_handler
-.globl clone_return
-.globl userland_trampoline, kthread_trampoline
+.globl thread_trampoline
 
 #include <machine/vm.h>
 #include <machine/param.h>
 #include <machine/macro.h>
+#include <machine/thread.h>
 #include <ananas/x86/smp.h>
 #include "options.h"
 #include "asmsyms.h"
@@ -26,7 +26,7 @@
 	movq	%rbp, SF_RBP(%rsp); \
 	movq	%rsi, SF_RSI(%rsp); \
 	movq	%rdi, SF_RDI(%rsp); \
-	movq	%rsp, SF_RSP(%rsp); \
+	/* movq	%rsp, SF_RSP(%rsp); */ \
 	movq	%r8,  SF_R8 (%rsp); \
 	movq	%r9,  SF_R9 (%rsp); \
 	movq	%r10, SF_R10(%rsp); \
@@ -34,7 +34,11 @@
 	movq	%r12, SF_R12(%rsp); \
 	movq	%r13, SF_R13(%rsp); \
 	movq	%r14, SF_R14(%rsp); \
-	movq	%r15, SF_R15(%rsp)
+	movq	%r15, SF_R15(%rsp);
+	movw	%ds, %ax; \
+	movw	%ax, SF_DS(%rsp); \
+	movw	%es, %ax; \
+	movw	%ax, SF_ES(%rsp); \
 
 #define RESTORE_REGISTERS \
 	movq	SF_RAX(%rsp), %rax; \
@@ -194,139 +198,59 @@ syscall_handler:
 	movq	%gs:PCPU_RSP0, %rsp
 
 	/* Create a stack frame and store the syscall arguments */
-	subq	$SYSARG_SIZE, %rsp
-	movq	%rax, SYSARG_NUM(%rsp)
-	movq	%rdi, SYSARG_ARG1(%rsp)
-	movq	%rsi, SYSARG_ARG2(%rsp)
-	movq	%rdx, SYSARG_ARG3(%rsp)
-	/* %rcx will be stored in %r10 because SYSCALL uses it */
-	movq	%r10, SYSARG_ARG4(%rsp)
-	movq	%r8,  SYSARG_ARG5(%rsp)
-	/* movq	%r9,  SYSARG_ARG6(%rsp) */
+	subq	$SF_SIZE, %rsp
+	movq	%r11, SF_RFLAGS(%rsp)	/* flags were in %r11 */
+	movq	%rcx, SF_RIP(%rsp)	/* rip was in %rcx */
+	movq	%gs:PCPU_SYSCALLRSP, %rcx
+	movq	%rcx, SF_RSP(%rsp)
+	/* Syscall arguments */
+	movq	%rax, SF_RAX(%rsp)
+	movq	%rdi, SF_RDI(%rsp)
+	movq	%rsi, SF_RSI(%rsp)
+	movq	%rdx, SF_RDX(%rsp)
+	movq	%r10, SF_R10(%rsp)
+	movq	%r8, SF_R8(%rsp)
+	movq	%r9, SF_R9(%rsp)
+	/* Registers we need to save */
+	movq	%rbx, SF_RBX(%rsp)
+	movq	%rbp, SF_RBP(%rsp)
+	movq	%r12, SF_R12(%rsp)
+	movq	%r13, SF_R12(%rsp)
+	movq	%r14, SF_R12(%rsp)
+	movq	%r15, SF_R12(%rsp)
 
-	/* Store the argument for syscall() later on */
-	movq	%rsp, %rdi
-
-	pushq	%gs:PCPU_SYSCALLRSP	/* userland %rsp */
-	pushq	%rcx		/* return %rip */
-	pushq	%r11		/* return %rflags */
-	/* Store the registers required by the ABI spec, 3.2.1 */
-	pushq	%rbx
-	pushq	%rbp
-	pushq	%r12
-	pushq	%r13
-	pushq	%r14
-	pushq	%r15
-
-	/* Re-enable interrupts as they were before the call */
-	testq	$0x200, %r11
-	jz	1f
-
+	/* Re-enable interrupts; they were always enabled coming from user mode */
 	sti
 
-1:	/* Invoke syscall - note that this uses %rdi set above */
-	call	syscall
+	movq	%rsp, %rdi
+	call	amd64_syscall
 
+syscall_return:
 	/*
-	 * No interrupts while restoring - we'll return the original %rflags
-	 * which will enable them as needed.
+	 * Note that we don't actually need to restore rbx, rbp, r12-r15 as
+	 * syscall() is a plain C function and thus will do that for us.
 	 */
 	cli
 
-syscall_return:
-	/* Restore the required registers */
-	popq	%r15
-	popq	%r14
-	popq	%r13
-	popq	%r12
-	popq	%rbp
-	popq	%rbx
-	/* Restore %r11/%rcx (used by sysret) and fix the stack */
-	popq	%r11
-	popq	%rcx
-	popq	%rsp
+	/* If we need to restore the entire context, do so */
+	movq	%gs:(PCPU_CURTHREAD), %rax
+	testl	$THREAD_MDFLAG_FULLRESTORE, T_MDFLAGS(%rax)
 
+	/* Do a full register restore */
+	andl	$~THREAD_MDFLAG_FULLRESTORE, T_MDFLAGS(%rax)
+	jmp	do_return
+
+1:
+	movq	SF_RAX(%rsp), %rax	/* return value */
+	movq	SF_RFLAGS(%rsp), %r11	/* original rflags */
+	movq	SF_RIP(%rsp), %rcx	/* original %rip */
+	movq	SF_RSP(%rsp), %rsp	/* original %rsp */
 	swapgs
 	sysretq
 
-clone_return:
-	/* release previous thread (was in %rbx, see md_thread_switch) */
-	movq	%rbx, %rdi
-	call	scheduler_release
-
-	/*
-	 * This function will be called in the cloned thread;
-	 * the purpose is to dissect the kernel stack and
-	 * return to the syscall-invoking thread.
-	 *
-	 * Note that the md_thread_clone() function will already
-	 * have updated the stackpointer to protect our saved
-	 * registers; all we need to do is to override the return
-	 * value in %rax and return as if this is an ordinary
-	 * syscall return.
-	 */
-	movq	%gs:(PCPU_CURTHREAD), %rbx
-	movq	T_ARG1(%rbx), %rax		/* return value */
-	jmp	syscall_return
-
-kthread_trampoline:
+thread_trampoline:
 	/* release our previous thread (will be in %rbx, see md_thread_switch) */
 	movq	%rbx, %rdi
 	call	scheduler_release
 
-	/* Fetch the arguments: arg1 is %rip and %arg2 is the argument */
-	movq	%gs:(PCPU_CURTHREAD), %rbx
-	movq	T_ARG1(%rbx), %rax		/* %rip */
-	movq	T_ARG2(%rbx), %rdi		/* argument */
-
-	/*
-	 * Note that iretq restores %ss:%rsp as well; we use %rbp to
-	 * store our initial %rsp so that it will end up with our return
-	 * address on the stack. Later we clear %rbp to aid a debugger.
-	 */
-	pushq	$1f
-	movq	%rsp, %rbp
-
-	pushq	$GDT_SEL_KERNEL_DATA		/* %ss */
-	pushq	%rbp				/* %rsp */
-	pushq	$0x200				/* Interrupt Flag */
-	pushq	$GDT_SEL_KERNEL_CODE		/* %cs */
-	pushq	%rax				/* %rip */
-	xorq	%rbp, %rbp
-	iretq
-
-1:
-	/* kthread returned; this isn't supposed to happen */
-	xorq	%rsi, %rsi
-	movq	$kthread_panicmsg, %rdi
-	call	_panic
-	/* NOTRACHED */
-
-kthread_panicmsg:
-	.ascii	"kthread returned"
-	.byte	0
-
-userland_trampoline:
-	/* release our previous thread (will be in %rbx, see md_thread_switch) */
-	movq	%rbx, %rdi
-	call	scheduler_release
-
-	/* Fetch the arguments: arg1 is %rip and %arg2 is the argument */
-	movq	%gs:(PCPU_CURTHREAD), %rbx
-	movq	T_ARG1(%rbx), %rax		/* %rip */
-	movq	T_ARG2(%rbx), %rdi		/* argument */
-
-	/* Set up %ds/%es */
-	movq	$(GDT_SEL_USER_DATA + 3), %rdx
-	movw	%dx, %ds
-	movw	%dx, %es
-
-	/* Switch to userland %gs; we are about to make the transition here */
-	swapgs
-
-	pushq	$(GDT_SEL_USER_DATA + 3)			/* ss */
-	pushq	$(USERLAND_STACK_ADDR + THREAD_STACK_SIZE)	/* rsp */
-	pushq	$0x200					/* eflags */
-	pushq	$(GDT_SEL_USER_CODE + 3)		/* cs */
-	pushq	%rax					/* rip */
-	iretq
+	jmp	do_return

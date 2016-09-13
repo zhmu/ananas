@@ -12,7 +12,6 @@ struct STACKFRAME {
 	uint64_t	sf_rbp;
 	uint64_t	sf_rsi;
 	uint64_t	sf_rdi;
-	uint64_t	sf_rsp;
 	uint64_t	sf_r8;
 	uint64_t	sf_r9;
 	uint64_t	sf_r10;
@@ -21,12 +20,14 @@ struct STACKFRAME {
 	uint64_t	sf_r13;
 	uint64_t	sf_r14;
 	uint64_t	sf_r15;
+	uint16_t	sf_ds;
+	uint16_t	sf_es;
 	/* Set by the hardware */
 	register_t	sf_errnum;
 	register_t	sf_rip;
 	register_t	sf_cs;
 	register_t	sf_rflags;
-	register_t	sf_sp;
+	register_t	sf_rsp;
 	register_t	sf_ss;
 };
 

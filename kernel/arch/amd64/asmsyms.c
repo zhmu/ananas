@@ -25,14 +25,15 @@ ASM_SYMBOL(SF_R14,    offsetof(struct STACKFRAME, sf_r14));
 ASM_SYMBOL(SF_R15,    offsetof(struct STACKFRAME, sf_r15));
 ASM_SYMBOL(SF_ERRNUM, offsetof(struct STACKFRAME, sf_errnum));
 ASM_SYMBOL(SF_RFLAGS, offsetof(struct STACKFRAME, sf_rflags));
-ASM_SYMBOL(SF_SP,     offsetof(struct STACKFRAME, sf_sp));
 ASM_SYMBOL(SF_RIP,    offsetof(struct STACKFRAME, sf_rip));
 ASM_SYMBOL(SF_CS,     offsetof(struct STACKFRAME, sf_cs));
+ASM_SYMBOL(SF_DS,     offsetof(struct STACKFRAME, sf_ds));
+ASM_SYMBOL(SF_ES,     offsetof(struct STACKFRAME, sf_es));
 ASM_SYMBOL(SF_SS,     offsetof(struct STACKFRAME, sf_ss));
 ASM_SYMBOL(SF_SIZE,   sizeof(struct STACKFRAME));
 
-ASM_SYMBOL(T_ARG1,    offsetof(struct THREAD, md_arg1));
-ASM_SYMBOL(T_ARG2,    offsetof(struct THREAD, md_arg2));
+ASM_SYMBOL(T_FRAME,   offsetof(struct THREAD, t_frame));
+ASM_SYMBOL(T_MDFLAGS, offsetof(struct THREAD, t_md_flags));
 
 ASM_SYMBOL(PCPU_CURTHREAD, offsetof(struct PCPU, curthread));
 ASM_SYMBOL(PCPU_NESTEDIRQ, offsetof(struct PCPU, nested_irq));

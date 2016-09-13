@@ -1,8 +1,11 @@
-#include <ananas/types.h>
-#include <machine/frame.h>
 
 #ifndef __AMD64_THREAD_H__
 #define __AMD64_THREAD_H__
+
+#ifndef ASM
+
+#include <ananas/types.h>
+#include <machine/frame.h>
 
 /* Details a 64-bit Task State Segment */
 struct TSS {
@@ -74,8 +77,6 @@ struct FPUREGS {
 	register_t	md_rsp0; \
 	register_t	md_rip; \
 	register_t	md_cr3; \
-	register_t	md_arg1 /* XXX */; \
-	register_t	md_arg2 /* XXX */; \
 	struct PAGE* md_kstack_page; \
 	struct FPUREGS	md_fpu_ctx __attribute__ ((aligned(16))); \
 	void*		md_stack; \
@@ -83,5 +84,9 @@ struct FPUREGS {
 
 #define md_cpu_relax() \
 	__asm __volatile("hlt")
+
+#endif
+
+#define THREAD_MDFLAG_FULLRESTORE 0x0001 /* Perform a full register restore upon return */
 
 #endif /* __AMD64_THREAD_H__ */

@@ -9,6 +9,7 @@
 #include <ananas/process.h>
 #include <ananas/procinfo.h>
 #include <ananas/pcpu.h>
+#include <ananas/syscall.h>
 #include <ananas/error.h>
 #include <ananas/irq.h>
 #include <ananas/vm.h>
@@ -51,14 +52,14 @@ exception_generic(struct STACKFRAME* sf)
 
 	if (userland) {
 		thread_t* cur_thread = PCPU_GET(curthread);
-		kprintf("name='%s'\n", cur_thread->t_name);
+		kprintf("name='%s' pid=%d\n", cur_thread->t_name, cur_thread->t_process != NULL ? (int)cur_thread->t_process->p_pid : -1);
 	}
 
 	kprintf("rax=%p rbx=%p rcx=%p rdx=%p\n", sf->sf_rax, sf->sf_rbx, sf->sf_rcx, sf->sf_rdx);
 	kprintf("rbp=%p rsi=%p rdi=%p rsp=%p\n", sf->sf_rbp, sf->sf_rsi, sf->sf_rdi, sf->sf_rsp);
 	kprintf("r8=%p r9=%p r10=%p r11=%p\n", sf->sf_r8, sf->sf_r9, sf->sf_r10, sf->sf_r11);
 	kprintf("r12=%p r13=%p r14=%p r15=%p\n", sf->sf_r12, sf->sf_r13, sf->sf_r14, sf->sf_r15);
-	kprintf("errnum=%p, ss:esp = %x:%p\n", sf->sf_errnum, sf->sf_ss, sf->sf_sp);
+	kprintf("errnum=%p, ss:esp = %x:%p\n", sf->sf_errnum, sf->sf_ss, sf->sf_rsp);
 	if (sf->sf_trapno == EXC_PF) {
 		/* Page fault; show offending address */
 		addr_t fault_addr;
@@ -124,6 +125,20 @@ void
 interrupt_handler(struct STACKFRAME* sf)
 {
 	irq_handler(sf->sf_trapno);
+}
+
+void
+amd64_syscall(struct STACKFRAME* sf)
+{
+	struct SYSCALL_ARGS sa;
+	sa.number = sf->sf_rax;
+	sa.arg1 = sf->sf_rdi;
+	sa.arg2 = sf->sf_rsi;
+	sa.arg3 = sf->sf_rdx;
+	sa.arg4 = sf->sf_r10;
+	sa.arg5 = sf->sf_r8;
+	/*sa.arg6 = sf->sf_r9;*/
+	sf->sf_rax = syscall(&sa);
 }
 
 /* vim:set ts=2 sw=2: */

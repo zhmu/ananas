@@ -14,6 +14,7 @@
 typedef void (*kthread_func_t)(void*);
 struct VFS_INODE;
 struct VM_SPACE;
+struct STACKFRAME;
 
 #define THREAD_MAX_NAME_LEN 32
 #define THREAD_EVENT_EXIT 1
@@ -44,6 +45,9 @@ struct THREAD {
 #define THREAD_FLAG_REAPING	0x0010	/* Thread will be reaped (destroyed by idle thread) */
 #define THREAD_FLAG_MALLOC	0x0020	/* Thread is kmalloc()'ed */
 #define THREAD_FLAG_KTHREAD	0x8000	/* Kernel thread */
+
+	struct STACKFRAME* t_frame;
+	unsigned int t_md_flags;
 
 	unsigned int t_terminate_info;
 #define THREAD_MAKE_EXITCODE(a,b) (((a) << 24) | ((b) & 0x00ffffff))
@@ -107,6 +111,7 @@ void md_thread_clone(thread_t* t, thread_t* parent, register_t retval);
 errorcode_t md_thread_unmap(thread_t* thread, addr_t virt, size_t length);
 int md_thread_peek_32(thread_t* thread, addr_t virt, uint32_t* val);
 int md_thread_is_mapped(thread_t* thread, addr_t virt, int flags, addr_t* va);
+void md_setup_post_exec(thread_t* thread, addr_t exec_addr);
 
 void thread_suspend(thread_t* t);
 void thread_resume(thread_t* t);

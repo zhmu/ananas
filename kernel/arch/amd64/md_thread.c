@@ -1,6 +1,7 @@
 #include <machine/param.h>
 #include <machine/thread.h>
 #include <machine/interrupts.h>
+#include <machine/frame.h>
 #include <machine/vm.h>
 #include <ananas/thread.h>
 #include <ananas/error.h>
@@ -15,9 +16,7 @@
 #include <ananas/vmspace.h>
 
 extern void* kernel_pagedir;
-void clone_return();
-void userland_trampoline();
-void kthread_trampoline();
+void thread_trampoline();
 
 errorcode_t
 md_thread_init(thread_t* t, int flags)
@@ -29,7 +28,7 @@ md_thread_init(thread_t* t, int flags)
 	process_t* proc = t->t_process;
 	if ((flags & THREAD_ALLOC_CLONE) == 0) {
 		vmarea_t* va;
-		errorcode_t err = vmspace_mapto(proc->p_vmspace, USERLAND_STACK_ADDR, 0, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_ALLOC, &va);
+		errorcode_t err = vmspace_mapto(proc->p_vmspace, USERLAND_STACK_ADDR, 0, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_ALLOC | VM_FLAG_USTACK, &va);
 		ANANAS_ERROR_RETURN(err);
 	}
 
@@ -41,27 +40,34 @@ md_thread_init(thread_t* t, int flags)
 	t->md_kstack_page = page_alloc_length(KERNEL_STACK_SIZE + PAGE_SIZE);
 	t->md_kstack = kmem_map(page_get_paddr(t->md_kstack_page) + PAGE_SIZE, KERNEL_STACK_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 
+	/* Set up a stackframe so that we can return to the kernel code */
+	struct STACKFRAME* sf = (struct STACKFRAME*)((addr_t)t->md_kstack + KERNEL_STACK_SIZE - sizeof(*sf));
+	memset(sf, 0, sizeof(*sf));
+	sf->sf_ds = GDT_SEL_USER_DATA;
+	sf->sf_es = GDT_SEL_USER_DATA;
+	sf->sf_cs = GDT_SEL_USER_CODE + 3;
+	sf->sf_ss = GDT_SEL_USER_DATA + 3;
+	sf->sf_rflags = 0x200; /* IF */
+	/* note that md_thread_set_entrypoint() / md_thread_set_argument() should be called! */
+	sf->sf_rsp = ((addr_t)USERLAND_STACK_ADDR + THREAD_STACK_SIZE);
+
 	/* Fill out our MD fields */
 	t->md_cr3 = KVTOP((addr_t)proc->p_vmspace->vs_md_pagedir);
+  t->md_rsp = (addr_t)sf;
 	t->md_rsp0 = (addr_t)t->md_kstack + KERNEL_STACK_SIZE;
-	t->md_rsp = t->md_rsp0;
-	t->md_rip = (addr_t)&userland_trampoline;
+	t->md_rip = (addr_t)&thread_trampoline;
+	t->t_frame = sf;
 
-	/* initialize FPU state similar to what finit would do */
+	/* Initialize FPU state similar to what finit would do */
 	t->md_fpu_ctx.fcw = 0x37f;
 	t->md_fpu_ctx.ftw = 0xffff;
+
 	return ANANAS_ERROR_OK;
 }
 
 errorcode_t
 md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
 {
-	/* Set up the thread context */
-	t->md_rip = (addr_t)&kthread_trampoline;
-	t->md_arg1 = (addr_t)kfunc;
-	t->md_arg2 = (addr_t)arg;
-	t->md_cr3 = KVTOP((addr_t)kernel_pagedir);
-
 	/*
 	 * Kernel threads share the kernel pagemap and thus need to map the kernel
 	 * stack. We do not differentiate between kernel and userland stacks as
@@ -69,7 +75,26 @@ md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
 	 */
 	t->md_kstack_page = page_alloc_length(KERNEL_STACK_SIZE + PAGE_SIZE);
 	t->md_kstack = kmem_map(page_get_paddr(t->md_kstack_page) + PAGE_SIZE, KERNEL_STACK_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
-  t->md_rsp = (addr_t)t->md_kstack + KERNEL_STACK_SIZE - 16;
+	t->t_md_flags = THREAD_MDFLAG_FULLRESTORE;
+
+	/* Set up a stackframe so that we can return to the kernel code */
+	struct STACKFRAME* sf = (struct STACKFRAME*)((addr_t)t->md_kstack + KERNEL_STACK_SIZE - 16 - sizeof(*sf));
+	memset(sf, 0, sizeof(*sf));
+	sf->sf_ds = GDT_SEL_KERNEL_DATA;
+	sf->sf_es = GDT_SEL_KERNEL_DATA;
+	sf->sf_cs = GDT_SEL_KERNEL_CODE;
+	sf->sf_ss = GDT_SEL_KERNEL_DATA;
+	sf->sf_rflags = 0x200; /* IF */
+	sf->sf_rip = (addr_t)kfunc;
+	sf->sf_rdi = (addr_t)arg;
+	sf->sf_rsp = ((addr_t)t->md_kstack + KERNEL_STACK_SIZE - 16);
+
+	/* Set up the thread context */
+	t->md_cr3 = KVTOP((addr_t)kernel_pagedir);
+  t->md_rsp = (addr_t)sf;
+	t->md_rip = (addr_t)&thread_trampoline;
+
+	kprintf("md_kthread_init(): rsp = %p, rip = %p, sf = %p\n", t->md_rsp, t->md_rip, sf);
 
 	return ANANAS_ERROR_OK;
 }
@@ -149,13 +174,13 @@ md_map_thread_memory(thread_t* thread, void* ptr, size_t length, int write)
 void
 md_thread_set_entrypoint(thread_t* thread, addr_t entry)
 {
-	thread->md_arg1 = entry;
+	thread->t_frame->sf_rip = entry;
 }
 
 void
 md_thread_set_argument(thread_t* thread, addr_t arg)
 {
-	thread->md_arg2 = arg;
+	thread->t_frame->sf_rdi = arg;
 }
 
 void
@@ -167,30 +192,38 @@ md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
 	t->md_cr3 = KVTOP((addr_t)t->t_process->p_vmspace->vs_md_pagedir);
 
 	/*
-	 * We need to copy the part from the parent's kernel stack that lets us
-	 * return safely to the original caller. Note that there are two important
-	 * aspects here:
-	 *
-	 * - A thread's kernel stack is always mapped, so we can always access it.
-	 * - We can start at the top of the kernel stack; the reason is that this is the
-	 *   only way to enter the syscall (t->md_rsp can change if we are are pre-empted
-	 *   by interrupts and such, but that is fine as they do not influence the result)
-	 *
-	 * We use the amd64-specific SYSCALL functionality; this won't push anything
-	 * on the stack by itself so all we have to do is count what
-	 * syscall_handler() places on the stack:
-	 *  sizeof(struct SYSCALL_ARGS) +  userland_rsp + rcx + r11 + rbx + rbp + r12..15
-	 *
+	 * We need to copy the the stack frame so we can return return safely to the
+	 * original caller; this is always at the same position as we expect we'll
+	 * only clone after a syscall. It doesn't matter if any interrupts fire in
+	 * between as this will be cleaned up once we get here.
 	 */
-#define SYSCALL_FRAME_SIZE (sizeof(struct SYSCALL_ARGS) + 9 * 8)
+	size_t sf_offset = KERNEL_STACK_SIZE - sizeof(struct STACKFRAME);
+	struct STACKFRAME* sf_parent = parent->md_kstack + sf_offset;
+	struct STACKFRAME* sf = t->md_kstack + sf_offset;
+	memcpy(sf, sf_parent, sizeof(struct STACKFRAME));
 
-	/* Copy the part of the parent kernel stack over; it'll always be mapped */
-	memcpy(t->md_kstack + KERNEL_STACK_SIZE - SYSCALL_FRAME_SIZE, parent->md_kstack + KERNEL_STACK_SIZE - SYSCALL_FRAME_SIZE, SYSCALL_FRAME_SIZE);
+	/*
+	 * Hook up the trap frame so we'll end up in the trampoline code, which will
+	 * fully restore the new thread's context.
+	 */
+	t->t_frame = sf;
+	t->md_rip = (addr_t)&thread_trampoline;
+	t->md_rsp = (addr_t)sf;
 
-	/* Handle return value */
-	t->md_rsp -= SYSCALL_FRAME_SIZE;
-	t->md_rip = (addr_t)&clone_return;
-	t->md_arg1 = retval;
+	/* Update the stack frame with the new return value to the child */
+	sf->sf_rax = retval;
+}
+
+void
+md_setup_post_exec(thread_t* t, addr_t exec_addr)
+{
+	struct STACKFRAME* sf = t->t_frame;
+	sf->sf_rip = exec_addr;
+	sf->sf_rdi = t->t_process->p_info_va;
+
+	t->t_md_flags |= THREAD_MDFLAG_FULLRESTORE;
+	t->md_rsp = (addr_t)sf;
+	t->md_rip = (addr_t)&thread_trampoline;
 }
 
 /* vim:set ts=2 sw=2: */
