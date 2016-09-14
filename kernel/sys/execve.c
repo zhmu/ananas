@@ -91,6 +91,13 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	if (err != ANANAS_ERROR_OK)
 		goto fail;
 
+	/*
+	 * Loading went okay; we can now set the new thread name (we won't be able to
+	 * access argv after the vmspace_clone() so best do it here)
+	 */
+	if (argv != NULL && argv[0] != NULL)
+		thread_set_name(t, argv[0]);
+
 	/* Copy the new vmspace to the destination */
 	err = vmspace_clone(vmspace, proc->p_vmspace, VMSPACE_CLONE_EXEC);
 	KASSERT(err == ANANAS_ERROR_OK, "unable to clone exec vmspace: %d", err);
