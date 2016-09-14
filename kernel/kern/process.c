@@ -201,7 +201,7 @@ process_exit(process_t* p, int status)
 }
 
 errorcode_t
-process_wait_and_lock(process_t* p, int flags, process_t** p_out)
+process_wait_and_lock(process_t* parent, int flags, process_t** p_out)
 {
 	if (flags != 0)
 		return ANANAS_ERROR(BAD_FLAG);
@@ -210,17 +210,21 @@ process_wait_and_lock(process_t* p, int flags, process_t** p_out)
 	 *     semaphore to wake anything up once a process has exited.
 	 */
 	for(;;) {
-		process_lock(p);
-		DQUEUE_FOREACH_IP(&p->p_children, children, child, struct PROCESS) {
+		process_lock(parent);
+		DQUEUE_FOREACH_IP(&parent->p_children, children, child, struct PROCESS) {
 			process_lock(child);
 			if (child->p_state == PROCESS_STATE_ZOMBIE) {
-				process_unlock(p);
+				/* Found one; remove it from the parent's list */
+				DQUEUE_REMOVE_IP(&parent->p_children, children, child);
+				process_unlock(parent);
+
+				/* Note that we give our ref to the caller! */
 				*p_out = child;
 				return ANANAS_ERROR_OK;
 			}
 			process_unlock(child);
 		}
-		process_unlock(p);
+		process_unlock(parent);
 
 		/* Nothing good yet; sleep on it */
 		sem_wait(&process_sleep_sem);
