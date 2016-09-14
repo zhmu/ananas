@@ -45,6 +45,7 @@ vmspace_destroy(vmspace_t* vs)
 
 	/* Remove the vmspace-specific mappings - these are generally MD */
 	DQUEUE_FOREACH_SAFE(&vs->vs_pages, p, struct PAGE) {
+		/* XXX should we unmap the page here? the vmspace shouldn't be active... */
 		page_free(p);
 	}
 	md_vmspace_destroy(vs);
@@ -298,6 +299,7 @@ vmspace_area_free(vmspace_t* vs, vmarea_t* va)
 	/* If the pages were allocated, we need to free them one by one */
 	if (!DQUEUE_EMPTY(&va->va_pages))
 		DQUEUE_FOREACH_SAFE(&va->va_pages, p, struct PAGE) {
+			md_unmap_pages(vs, p->p_addr, 1);
 			page_free(p);
 		}
 	kfree(va);
