@@ -235,6 +235,7 @@ syscall_return:
 	/* If we need to restore the entire context, do so */
 	movq	%gs:(PCPU_CURTHREAD), %rax
 	testl	$THREAD_MDFLAG_FULLRESTORE, T_MDFLAGS(%rax)
+	jz	1f
 
 	/* Do a full register restore */
 	andl	$~THREAD_MDFLAG_FULLRESTORE, T_MDFLAGS(%rax)
