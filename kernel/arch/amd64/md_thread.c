@@ -21,14 +21,11 @@ void thread_trampoline();
 errorcode_t
 md_thread_init(thread_t* t, int flags)
 {
-	/*
-	 * Create the user stack page piece, if we are not cloning - otherwise, we'll
-	 * copy the parent's stack instead.
-	 */
+	/* Create a stack if we aren't cloning - otherwise, we'll just copy the parent's stack instead */
 	process_t* proc = t->t_process;
 	if ((flags & THREAD_ALLOC_CLONE) == 0) {
 		vmarea_t* va;
-		errorcode_t err = vmspace_mapto(proc->p_vmspace, USERLAND_STACK_ADDR, 0, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_ALLOC | VM_FLAG_USTACK, &va);
+		errorcode_t err = vmspace_mapto(proc->p_vmspace, USERLAND_STACK_ADDR, 0, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_ALLOC | VM_FLAG_MD, &va);
 		ANANAS_ERROR_RETURN(err);
 	}
 
@@ -93,8 +90,6 @@ md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
 	t->md_cr3 = KVTOP((addr_t)kernel_pagedir);
   t->md_rsp = (addr_t)sf;
 	t->md_rip = (addr_t)&thread_trampoline;
-
-	kprintf("md_kthread_init(): rsp = %p, rip = %p, sf = %p\n", t->md_rsp, t->md_rip, sf);
 
 	return ANANAS_ERROR_OK;
 }
