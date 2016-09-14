@@ -32,7 +32,7 @@ sys_clone(thread_t* t, int flags, pid_t* out_pid)
 	/* Resume the cloned thread - it'll have a different return value from ours */
 	thread_resume(new_thread);
 
-	TRACE(SYSCALL, FUNC, "t=%p, success, new pid=%u", *out_pid);
+	TRACE(SYSCALL, FUNC, "t=%p, success, new pid=%u", t, *out_pid);
 	return err;
 
 fail:
