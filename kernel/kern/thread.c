@@ -250,8 +250,8 @@ thread_exit(int exitcode)
 	/* Store the result code; thread_free() will mark the thread as terminating */
 	thread->t_terminate_info = exitcode;
 
-	/* XXX We'll assume we are our parent process' main thread */
-	if (thread->t_process != NULL)
+	/* If we are the process' main thread, mark it as exiting */
+	if (thread->t_process != NULL && thread->t_process->p_mainthread == thread)
 		process_exit(thread->t_process, exitcode);
 
 	/*
