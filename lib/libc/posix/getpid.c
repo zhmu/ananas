@@ -5,6 +5,5 @@
 pid_t
 getpid()
 {
-	TODO;
-	return (pid_t)-1;
+	return ananas_procinfo->pi_pid;
 }
