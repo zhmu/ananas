@@ -1,6 +1,6 @@
 DESTDIR?=	$(realpath ../output.${ARCH})
 
-VERSION?=	0.5.6
+VERSION?=	0.5.9
 MIRROR?=	http://gondor.apana.org.au/~herbert/dash/files/
 PATCH?=		dash.ananas.diff
 
