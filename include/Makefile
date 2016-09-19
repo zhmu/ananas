@@ -1,9 +1,7 @@
-include		../conf/Makefile.inc
-ifeq ("${ARCH}", "")
-$(error Architecture undefined or unknown)
+ifeq ("${SYSROOT}", "")
+$(error Sysroot undefined)
 endif
-TC_PREFIX?=	../toolchain/prefix.${ARCH}
-DESTDIR?=	${TC_PREFIX}/lib/gcc/${ARCH}-elf-ananas/${GCC_VER}/include
+DESTDIR?=	${SYSROOT}/usr/include
 
 install:
 	mkdir -p ${DESTDIR}
