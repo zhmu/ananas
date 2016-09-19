@@ -1,10 +1,10 @@
+#ifndef __DEVICE_H__
+#define __DEVICE_H__
+
 #include <ananas/types.h>
 #include <ananas/dqueue.h>
 #include <ananas/lock.h>
 #include <ananas/init.h>
-
-#ifndef __DEVICE_H__
-#define __DEVICE_H__
 
 typedef struct DEVICE* device_t;
 typedef struct DRIVER* driver_t;

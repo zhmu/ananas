@@ -1,9 +1,9 @@
-#include <ananas/types.h>
-#include <ananas/cdefs.h>
-#include <stdarg.h>
-
 #ifndef __LIBKERN_H__
 #define __LIBKERN_H__
+
+#include <ananas/types.h>
+#include <ananas/cdefs.h>
+#include <ananas/stdarg.h>
 
 #define KASSERT(x, msg, args...) \
 	if (!(x)) \
