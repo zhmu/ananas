@@ -530,19 +530,30 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 #define DLMALLOC_EXPORT extern
 #endif
 
-/* Ananas options */
-#ifdef KERNEL
-# include <machine/param.h>
-# include <ananas/lib.h>
-# include <ananas/page.h>
-# include <ananas/vm.h>
+#ifdef __Ananas__
 
-# define LACKS_SYS_MMAN_H
-# define LACKS_TIME_H
-# define HAVE_MORECORE 0
-# define MALLOC_FAILURE_ACTION panic("out of memory")
-# define ABORT panic("abort")
-# define USE_DL_PREFIX
+/*
+ * Ananas: Prevent dragging in headers as much as possible; we are building
+ * kernel code here.
+ */
+#include <machine/param.h>
+#include <ananas/lib.h>
+#include <ananas/page.h>
+#include <ananas/vm.h>
+
+#define HAVE_MORECORE 0
+#define LACKS_ERRNO_H
+#define LACKS_FCNTL_H
+#define LACKS_STDDEF_
+#define LACKS_STDLIB_H
+#define LACKS_STRING_H
+#define LACKS_SYS_MMAN_H
+#define LACKS_TIME_H
+#define LACKS_UNISTD_H
+
+#define MALLOC_FAILURE_ACTION panic("out of memory")
+#define ABORT panic("abort")
+#define USE_DL_PREFIX
 
 # define CORRUPTION_ERROR_ACTION(m) panic("corruption detected, m=%p", m)
 # define USAGE_ERROR_ACTION(m,p) panic("bad usage detect, m=%p, p=%p", m, p)
@@ -550,9 +561,12 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 /* Extra sanity checks; these help catching memory overwrite bugs */
 #define DEBUG 1
 
+#define EINVAL -1
+#define ENOMEM -2
+
 #define fprintf(f, fmt, ...) kprintf(fmt, ## __VA_ARGS__)
 # define malloc_getpagesize PAGE_SIZE
-#endif
+#endif /* __Ananas__ */
 
 #ifndef WIN32
 #ifdef _WIN32
@@ -1514,10 +1528,14 @@ DLMALLOC_EXPORT int mspace_mallopt(int, int);
 #ifndef LACKS_UNISTD_H
 #include <unistd.h>     /* for sbrk, sysconf */
 #else /* LACKS_UNISTD_H */
-#if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__NetBSD__)
+#if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__NetBSD__) && HAVE_MORECORE
 extern void*     sbrk(ptrdiff_t);
 #endif /* FreeBSD etc */
 #endif /* LACKS_UNISTD_H */
+
+/* Creates a string of x => "x" */
+#define __STRINGIFY2(x) #x
+#define STRINGIFY(x) __STRINGIFY2(x)
 
 /* Ananas assert */
 #undef assert
