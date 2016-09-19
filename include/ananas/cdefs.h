@@ -20,6 +20,7 @@
 /* Used to indicate that a value is unused */
 #define __unused __attribute__((unused))
 
+#ifndef static_assert
 #define STATIC_ASSERT3(line, cond, msg) \
 	typedef char __unused static_assert_failure_in_line_##line[(cond) ? 1 : -1]
 
@@ -28,6 +29,7 @@
 
 #define static_assert(cond, msg) \
 	STATIC_ASSERT2(__LINE__, (cond), (msg))
+#endif
 
 /* Creates a string of x => "x" */
 #define __STRINGIFY2(x) #x
