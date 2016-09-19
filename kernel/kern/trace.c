@@ -2,6 +2,7 @@
 #include <ananas/console.h>
 #include <ananas/lib.h>
 #include <ananas/pcpu.h>
+#include <ananas/process.h>
 #include <ananas/trace.h>
 
 #define TRACE_PRINTF_BUFSIZE 256
@@ -22,8 +23,9 @@ tracef(int fileid, const char* func, const char* fmt, ...)
 
 	thread_t* curthread = PCPU_GET(curthread);
 	const char* tname = curthread->t_name;
+	pid_t pid = curthread->t_process != NULL ? curthread->t_process->p_pid : -1;
 
-	snprintf(buf, sizeof(buf), "[%4u.%03u] (%s) %s: ", timestamp / 1000, timestamp % 1000, tname, func);
+	snprintf(buf, sizeof(buf), "[%4u.%03u] (%d:%s) %s: ", timestamp / 1000, timestamp % 1000, (int)pid, tname, func);
 
 	va_list va;
 	va_start(va, fmt);
