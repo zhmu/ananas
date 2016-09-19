@@ -1,6 +1,3 @@
-ARCH?=		i386
-TARGET=		${ARCH}-elf-ananas
-PREFIX?=	/
 DESTDIR?=	$(realpath ../output.${ARCH})
 
 VERSION?=	0.5.6
@@ -8,6 +5,8 @@ MIRROR?=	http://gondor.apana.org.au/~herbert/dash/files/
 PATCH?=		dash.ananas.diff
 
 R=		${CURDIR}
+
+include	../Makefile.inc
 
 # tools to use
 DOWNLOAD?=	wget
@@ -28,7 +27,7 @@ dash:		.extract .configure .build .install
 		@${TOUCH} .patch
 
 .configure:	.patch
-		(cd dash-${VERSION} && ./configure --host=${TARGET} --prefix=/)
+		(cd dash-${VERSION} && CC="${CC}" LD="${LD}" CFLAGS="${CFLAGS}" CPPFLAGS="${CFLAGS}" ./configure --host=${TARGET} --prefix=/)
 		@${TOUCH} .configure
 
 .build:		.configure

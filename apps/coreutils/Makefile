@@ -13,6 +13,9 @@ TAR?=		tar
 TOUCH?=		touch
 
 R=		${CURDIR}
+
+include	../Makefile.inc
+
 # XXX this is unfortunate, but required for now
 CFLAGS+=	-DOK_TO_USE_1S_CLOCK
 CPPFLAGS=	${CFLAGS}
@@ -39,7 +42,7 @@ coreutils:	.install
 		@${TOUCH} .autoreconf
 
 .configure:	.autoreconf
-		(cd coreutils-${VERSION} && ./configure CFLAGS="${CFLAGS}" --host=${TARGET} --prefix=${PREFIX} --disable-nls)
+		(cd coreutils-${VERSION} && CC="${CC}" LD="${LD}" CFLAGS="${CFLAGS}" CPPFLAGS="${CFLAGS}" ./configure --host=${TARGET} --prefix=/)
 		@${TOUCH} .configure
 
 .build:		.configure
