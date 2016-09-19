@@ -12,6 +12,14 @@
 #include "_PDCLIB_encoding.h"
 #include "_PDCLIB_locale.h"
 
+#if _PDCLIB_WCHAR_ENCODING == _PDCLIB_WCHAR_ENCODING_UTF16
+typedef char16_t uc_t;
+#elif _PDCLIB_WCHAR_ENCODING == _PDCLIB_WCHAR_ENCODING_UCS4
+typedef char32_t uc_t;
+#else
+#error _PDCLIB_WCHAR_ENCODING unrecognized
+#endif
+
 static size_t mbrtowc_l(
     wchar_t    *restrict    pwc, 
     const char *restrict    s, 
@@ -28,7 +36,7 @@ static size_t mbrtowc_l(
     }
 
     if(ps->_PendState == _PendPrefix) {
-        res = _PDCLIB_mbrtocwc_l(pwc, &ps->_PendChar, 1, ps, l);
+        res = _PDCLIB_mbrtocwc_l((uc_t*)pwc, &ps->_PendChar, 1, ps, l);
         switch(res) {
             case 0:
                 // Converted the NUL character
@@ -56,7 +64,7 @@ static size_t mbrtowc_l(
     }
 
     // _PendClear state
-    res = _PDCLIB_mbrtocwc_l(pwc, s, n, ps, l);
+    res = _PDCLIB_mbrtocwc_l((uc_t*)pwc, s, n, ps, l);
     switch(res) {
         case (size_t) -3:
             // Converted entirely from internal state
