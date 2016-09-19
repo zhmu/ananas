@@ -1,12 +1,13 @@
-#include <machine/_types.h>
-#include <machine/_stddef.h>
-#include <ananas/_types/uid.h>
-#include <ananas/_types/gid.h>
-#include <ananas/_types/pid.h>
-#include <ananas/_types/null.h>
-
-#ifndef __UNISTD_H___
+#ifndef __UNISTD_H__
 #define __UNISTD_H__
+
+#include <machine/_types.h>
+#include <ananas/_types/off.h>
+#include <ananas/_types/gid.h>
+#include <ananas/_types/size.h>
+#include <ananas/_types/ssize.h>
+#include <ananas/_types/pid.h>
+#include <ananas/_types/uid.h>
 
 /* XXX We lie and claim to support IEEE Std 1003.1-2001 */
 #define _POSIX_VERSION 200112L
@@ -49,6 +50,8 @@ char*	crypt(const char* key, const char* salt);
 int	unlink(const char* path);
 int	chown(const char* path, uid_t owner, gid_t group);
 unsigned sleep(unsigned seconds);
+
+char*	getcwd(char* buf, size_t size);
 
 int	execvp(const char *path, char *const argv[]);
 int	execv(const char *path, char *const argv[]);

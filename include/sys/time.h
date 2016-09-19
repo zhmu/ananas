@@ -2,6 +2,7 @@
 #define __SYS_TIME_H__
 
 #include <sys/types.h>
+#include <ananas/_types/suseconds.h>
 
 struct timeval {
 	time_t		tv_sec;
