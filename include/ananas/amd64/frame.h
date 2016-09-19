@@ -1,7 +1,7 @@
-#include <ananas/types.h>
-
 #ifndef __AMD64_FRAME_H__
 #define __AMD64_FRAME_H__
+
+#include <ananas/types.h>
 
 struct STACKFRAME {
 	uint64_t	sf_trapno;
