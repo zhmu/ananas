@@ -8,6 +8,8 @@
    Permission is granted to use, modify, and / or redistribute at will.
 */
 
+#include <machine/_types.h>
+
 /* -------------------------------------------------------------------------- */
 /* Misc                                                                       */
 /* -------------------------------------------------------------------------- */
@@ -161,13 +163,8 @@ struct _PDCLIB_lldiv_t
    Note that the definition of this type must agree with the type used
    by the compiler for L"" string and L'' character literals.
 */
-#if defined(_LP64) || defined(__ILP64__)
-#define _PDCLIB_wchar int
+#define _PDCLIB_wchar __WCHAR_TYPE__
 #define _PDCLIB_WCHAR INT
-#else
-#define _PDCLIB_wchar long
-#define _PDCLIB_WCHAR LONG
-#endif
 
 /* Each member of the basic character set shall have a code value equal
    to its value when used as the lone character in an integer character
@@ -214,7 +211,7 @@ struct _PDCLIB_imaxdiv_t
  * any functions for manipulating more accurate values of time_t, this is
  * probably not useful.
  */
-#define _PDCLIB_time long
+#define _PDCLIB_time __time_t
 
 /* <time.h>: clock_t
  *
