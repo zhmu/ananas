@@ -1,6 +1,5 @@
 #include <ananas/kdb.h>
 #include <ananas/thread.h>
-#include <ananas/threadinfo.h>
 #include <ananas/error.h>
 #include <ananas/handle.h>
 #include <ananas/irq.h>

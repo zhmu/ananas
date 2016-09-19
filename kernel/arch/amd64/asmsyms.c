@@ -1,3 +1,4 @@
+#include <ananas/stdint.h>
 #include <machine/frame.h>
 #include <machine/pcpu.h>
 #include <machine/thread.h>
