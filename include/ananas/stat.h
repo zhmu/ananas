@@ -7,6 +7,7 @@
 #include <ananas/_types/uid.h>
 #include <ananas/_types/gid.h>
 #include <ananas/_types/ino.h>
+#include <ananas/_types/off.h>
 #include <ananas/_types/nlink.h>
 #include <ananas/_types/blksize.h>
 #include <ananas/_types/blkcnt.h>
