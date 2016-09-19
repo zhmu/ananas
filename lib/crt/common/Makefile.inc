@@ -1,30 +1,40 @@
 CC=		${TOOL_PREFIX}clang
 LD=		${TOOL_PREFIX}ld
 
-OBJS=		crt1_s.o cstart.o crtn.o
+OBJS=		crt0.o crtn.o crti.o crtbegin.o crtend.o
 
 # flags
 CFLAGS=		--sysroot ${SYSROOT}
-CFLAGS+=	-I$S/../../include -I. -std=c99
+CFLAGS+=	-I../../../include -I. -std=c99
 CFLAGS+=	-Wall -Werror
 CFLAGS+=	-Wno-builtin-requires-header
 
-crt1.o:		crt1_s.o cstart.o
-		$(LD) -r -o crt1.o crt1_s.o cstart.o
+.PHONY:		all clean
 
-crt1_s.o:	crt1.S
-		$(CC) $(CFLAGS) -c -o crt1_s.o crt1.S
+all:		$(OBJS)
 
-cstart.o:	../common/cstart.c
-		$(CC) $(CFLAGS) -c -o cstart.o ../common/cstart.c
+machine:	../../../include/ananas/${ARCH}
+		ln -sf ../../../include/ananas/${ARCH} machine
 
-install:	${SYSROOT}/usr/lib/crt1.o ${SYSROOT}/usr/lib/crtn.o
+crt0.o:		machine ../common/crt0.c
+		$(CC) $(CFLAGS) -c -o crt0.o ../common/crt0.c
 
-${SYSROOT}/usr/lib/crt1.o: crt1.o
-		cp crt1.o ${SYSROOT}/usr/lib
+install:	${SYSROOT}/usr/lib/crt0.o ${SYSROOT}/usr/lib/crti.o ${SYSROOT}/usr/lib/crtn.o ${SYSROOT}/usr/lib/crtbegin.o ${SYSROOT}/usr/lib/crtend.o
+
+${SYSROOT}/usr/lib/crt0.o: crt0.o
+		cp crt0.o ${SYSROOT}/usr/lib
+
+${SYSROOT}/usr/lib/crti.o: crti.o
+		cp crti.o ${SYSROOT}/usr/lib
 
 ${SYSROOT}/usr/lib/crtn.o: crtn.o
 		cp crtn.o ${SYSROOT}/usr/lib
 
+${SYSROOT}/usr/lib/crtbegin.o: crtbegin.o
+		cp crtbegin.o ${SYSROOT}/usr/lib
+
+${SYSROOT}/usr/lib/crtend.o: crtend.o
+		cp crtend.o ${SYSROOT}/usr/lib
+
 clean:
-		rm -f crt1.o $(OBJS)
+		rm -f machine $(OBJS)
