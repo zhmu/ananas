@@ -11,6 +11,8 @@
 #define O_APPEND	(1 << 4)
 #define O_EXCL		(1 << 5)
 #define O_TRUNC		(1 << 6)
+#define O_CLOEXEC	(1 << 7)
+#define O_NONBLOCK	(1 << 8)
 
 /* Internal use only */
 #define O_DIRECTORY	(1 << 31)
