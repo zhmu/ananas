@@ -1,9 +1,6 @@
-#include <machine/_limits.h>
+#ifndef __LIMITS_H__
+#define __LIMITS_H__
 
-/* Maximum path length */
-#define PATH_MAX	255
+#define PATH_MAX 256
 
-/* Argument list */
-#define _POSIX_ARG_MAX	4096
-#define ARG_MAX		_POSIX_ARG_MAX
-
+#endif /* __LIMITS_H__ */
