@@ -6,7 +6,7 @@
 #include <machine/atomic.h>
 #include <machine/pcpu.h>
 #ifdef OPTION_SMP
-#include <machine/smp.h>
+#include <ananas/x86/smp.h> /* XXX */
 #endif
 #include <machine/interrupts.h>
 

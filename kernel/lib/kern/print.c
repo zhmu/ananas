@@ -5,7 +5,7 @@
 #include <ananas/device.h>
 #include <ananas/lock.h>
 #include <ananas/lib.h>
-#include <stdarg.h>
+#include <ananas/stdarg.h>
 
 static const char hextab_hi[16] = "0123456789ABCDEF";
 static const char hextab_lo[16] = "0123456789abcdef";
