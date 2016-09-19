@@ -26,7 +26,7 @@
 #define IDT_NUM_ENTRIES		256
 
 /* Kernel stack size */
-#define KERNEL_STACK_SIZE	0x2000
+#define KERNEL_STACK_SIZE	0x4000
 
 /* Thread stack size */
 #define THREAD_STACK_SIZE	0x8000
