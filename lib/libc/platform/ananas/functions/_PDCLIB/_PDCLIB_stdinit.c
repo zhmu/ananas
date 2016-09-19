@@ -516,7 +516,9 @@ struct _PDCLIB_locale _PDCLIB_global_locale = {
 __attribute__((constructor)) static void init_stdio(void)
 {
     _PDCLIB_initclocale( &_PDCLIB_global_locale );
+#ifdef _PDCLIB_LOCALE_METHOD
     tss_create(&_PDCLIB_locale_tss, (tss_dtor_t) freelocale);
+#endif
     mtx_init(&stdin->lock,  mtx_recursive);
     mtx_init(&stdout->lock, mtx_recursive);
     mtx_init(&stderr->lock, mtx_recursive);

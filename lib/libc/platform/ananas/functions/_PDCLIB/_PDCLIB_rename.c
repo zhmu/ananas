@@ -9,8 +9,6 @@
 #ifndef REGTEST
 #include "_PDCLIB_glue.h"
 
-#include </usr/include/errno.h>
-
 extern int unlink( const char * pathname );
 extern int link( const char * old, const char * new );
 
