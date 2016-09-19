@@ -1,27 +1,27 @@
 #!/bin/sh -e
 
-MAKE_ARGS=-j8
+MAKE_JOBS=-j8
 
 do_libc()
 {
-	cd $R/lib/libc/compile/${ARCH}
-	make ARCH=${ARCH} clean
-	make ARCH=${ARCH} ${MAKE_ARGS}
-	make ARCH=${ARCH} install
+	cd $R/lib/libc/build/${ARCH}
+	make ${MAKE_ARGS} clean
+	make ${MAKE_ARGS}
+	make ${MAKE_ARGS} install
 }
 
 do_crt()
 {
 	cd $R/lib/crt/${ARCH}
-	make ARCH=${ARCH} clean
-	make ARCH=${ARCH} ${MAKE_ARGS}
-	make ARCH=${ARCH} install
+	make ${MAKE_ARGS} clean
+	make ${MAKE_ARGS}
+	make ${MAKE_ARGS} install
 }
 
 do_headers()
 {
 	cd $R/include
-	make ARCH=${ARCH} install
+	make ${MAKE_ARGS} install
 }
 
 do_dash()
@@ -41,67 +41,21 @@ do_coreutils()
 	make ARCH=${ARCH} ${MAKE_ARGS}
 }
 
-do_gmp()
-{
-	cd $R/apps/gmp
-	make ARCH=${ARCH} clean
-	make ARCH=${ARCH} ${MAKE_ARGS}
-}
-
-do_mpfr()
-{
-	cd $R/apps/mpfr
-	make ARCH=${ARCH} clean
-	make ARCH=${ARCH} ${MAKE_ARGS}
-}
-
-do_mpc()
-{
-	cd $R/apps/mpc
-	make ARCH=${ARCH} clean
-	make ARCH=${ARCH} ${MAKE_ARGS}
-}
-
-do_binutils()
-{
-	cd $R/apps/binutils
-	make ARCH=${ARCH} clean
-	make ARCH=${ARCH} ${MAKE_ARGS}
-}
-
-do_gcc()
-{
-	cd $R/apps/gcc
-	make ARCH=${ARCH} clean
-	make ARCH=${ARCH} ${MAKE_ARGS}
-}
-
-do_make()
-{
-	cd $R/apps/make
-	make ARCH=${ARCH} clean
-	make ARCH=${ARCH} ${MAKE_ARGS}
-}
-
-do_jpeg()
-{
-	cd $R/apps/jpeg
-	rm -rf build.${ARCH}
-	mkdir -p build.${ARCH}
-	make ARCH=${ARCH} clean
-	make ARCH=${ARCH} ${MAKE_ARGS}
-}
-
 install_includes()
 {
 	cd $R/include
-	make ARCH=${ARCH} DESTDIR=${TARGET}/usr/include
+	make ${MAKE_ARGS}
 }
 
 install_lib()
 {
 	cp $R/lib/libc/compile/${ARCH}/libc.a ${TARGET}/usr/lib
 	cp $R/lib/crt/${ARCH}/crt*.o ${TARGET}/usr/lib
+}
+
+install_tree()
+{
+	mkdir -p ${TARGET}/usr/lib
 }
 
 install_build()
@@ -111,38 +65,49 @@ install_build()
 }
 
 ARCH=amd64
+TOOLCHAIN_ARCH=x86_64
 TARGET=/mnt
 R=`cd .. && pwd`
 
+if [ ! -d ${R}/sysroot.${ARCH} ]; then
+	echo "*** sysroot does not exist"
+	exit 1
+fi
+SYSROOT=`realpath ${R}/sysroot.${ARCH}`
+TOOL_PREFIX="${TOOLCHAIN_ARCH}-ananas-elf-"
+
 # ensure the immediate output directory exists, or configure
 # will try to place things in /
-rm -rf $R/apps/output.${ARCH}
-mkdir -p $R/apps/output.${ARCH}
+#rm -rf $R/apps/output.${ARCH}
+#mkdir -p $R/apps/output.${ARCH}
 
 # make sure we have our compiler in our path; configure will not raise red
 # flags if it can't find it
-CROSS_CC=`which ${ARCH}-elf-ananas-gcc || true`
+CROSS_CC=`which ${TOOL_PREFIX}clang || true`
 if [ ! -x "$CROSS_CC" ]; then
-	echo "*** gcc not found; is the correct cross-path set?"
+	echo "*** clang not found; is the correct cross-path set?"
 	exit 1
 fi
 
 # remove apps from target; leave bootloader/kernel intact
 rm -rf ${TARGET}/bin ${TARGET}/lib ${TARGET}/share ${TARGET}/usr
 
-do_libc
-do_crt
-do_headers
-do_dash
-do_coreutils
-do_gmp
-do_mpfr
-do_mpc
-do_jpeg
-do_binutils
-do_gcc
-do_make
+# throw the sysroot away; we'll need to repopulate it
+rm -rf ${SYSROOT}
+mkdir ${SYSROOT}
+mkdir ${SYSROOT}/usr
+mkdir ${SYSROOT}/usr/include
+mkdir ${SYSROOT}/usr/lib
 
-install_build
+export MAKE_ARGS="SYSROOT=${SYSROOT} TOOL_PREFIX=${TOOL_PREFIX} ARCH=${ARCH}"
+
+do_libc
+do_headers
 install_includes
+do_crt
+do_dash
+#do_coreutils
+
+install_tree
+install_build
 install_lib
