@@ -1533,10 +1533,6 @@ extern void*     sbrk(ptrdiff_t);
 #endif /* FreeBSD etc */
 #endif /* LACKS_UNISTD_H */
 
-/* Creates a string of x => "x" */
-#define __STRINGIFY2(x) #x
-#define STRINGIFY(x) __STRINGIFY2(x)
-
 /* Ananas assert */
 #undef assert
 #define assert(x) KASSERT(x, STRINGIFY(x))

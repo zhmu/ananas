@@ -29,4 +29,8 @@
 #define static_assert(cond, msg) \
 	STATIC_ASSERT2(__LINE__, (cond), (msg))
 
+/* Creates a string of x => "x" */
+#define __STRINGIFY2(x) #x
+#define STRINGIFY(x) __STRINGIFY2(x)
+
 #endif /* __ANANAS_CDEFS_H__ */
