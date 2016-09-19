@@ -38,8 +38,7 @@ typedef _PDCLIB_mbstate_t mbstate_t;
 
 struct tm;
 
-#ifndef _PDCLIB_NULL_DEFINED
-#define _PDCLIB_NULL_DEFINED _PDCLIB_NULL_DEFINED
+#ifndef NULL
 #define NULL _PDCLIB_NULL
 #endif
 

@@ -18,8 +18,7 @@ extern "C" {
 typedef _PDCLIB_size_t size_t;
 #endif
 
-#ifndef _PDCLIB_NULL_DEFINED
-#define _PDCLIB_NULL_DEFINED _PDCLIB_NULL_DEFINED
+#ifndef NULL
 #define NULL _PDCLIB_NULL
 #endif
 
