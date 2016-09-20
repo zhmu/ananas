@@ -1,6 +1,9 @@
 #ifndef __DIRENT_H__
 #define __DIRENT_H__
 
+#include <ananas/types.h>
+#include <ananas/_types/ino.h>
+
 #define DIRENT_BUFFER_SIZE	4096 /* XXX */
 
 #define DE_FLAG_DONE		0x0001	/* Everything has been read */
