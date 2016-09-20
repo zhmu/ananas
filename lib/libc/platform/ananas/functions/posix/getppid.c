@@ -2,7 +2,7 @@
 #include <ananas/procinfo.h>
 
 pid_t
-getpid()
+getppid()
 {
-	return ananas_procinfo->pi_pid;
+	return ananas_procinfo->pi_ppid;
 }

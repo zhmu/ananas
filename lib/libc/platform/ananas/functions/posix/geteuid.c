@@ -1,8 +1,8 @@
 #include <unistd.h>
 #include <ananas/procinfo.h>
 
-pid_t
-getpid()
+uid_t
+geteuid()
 {
-	return ananas_procinfo->pi_pid;
+	return ananas_procinfo->pi_euid;
 }
