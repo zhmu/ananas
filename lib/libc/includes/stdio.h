@@ -174,6 +174,12 @@ int fflush( FILE * stream ) _PDCLIB_nothrow;
 FILE * fopen( const char * _PDCLIB_restrict filename,
               const char * _PDCLIB_restrict mode ) _PDCLIB_nothrow;
 
+/* Associate a stream with a file descriptor */
+FILE * fdopen( int fildes, const char * _PDCLIB_restrict mode ) _PDCLIB_nothrow;
+
+/* Map a stream pointer to a file descriptor */
+int fileno( FILE *stream );
+
 /* Creates a stream connected to the file descriptor \p fd with mode \p mode.
    Mode must match the mode with which the file descriptor was opened.
 */
