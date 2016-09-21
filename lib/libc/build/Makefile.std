@@ -49,6 +49,7 @@ install_headers:
 		cp -R ${S}/internals/*.h ${SYSROOT}/usr/include
 		#cp -R ${S}/platform/ananas/includes/* ${SYSROOT}/usr/include
 		cp -R ${S}/platform/ananas/internals/* ${SYSROOT}/usr/include
+		cp -R ${S}/opt/${THREADLIB}/*.h ${SYSROOT}/usr/include
 
 ${SYSROOT}/usr/lib/libc.a:	libc.a
 		cp libc.a ${SYSROOT}/usr/lib
