@@ -10,7 +10,8 @@
 #include <stdint.h>
 #endif
 #include <ananas/_types/null.h>
-#include <ananas/_types/addr.h>
+#include <ananas/_types/addr.h> /* XXX should this be removed? */
+#include <ananas/_types/clock.h>
 #include <ananas/_types/pid.h>
 #include <ananas/_types/uid.h>
 #include <ananas/_types/gid.h>

@@ -22,5 +22,6 @@ typedef __int64_t	__ssize_t;
 typedef __int64_t	__register_t;
 
 typedef __int64_t	__time_t;
+typedef __int32_t	__clock_t;
 
 #endif /* __MACHINE_TYPES_H__ */

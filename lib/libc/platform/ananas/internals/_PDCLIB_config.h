@@ -225,7 +225,7 @@ struct _PDCLIB_imaxdiv_t
  *
  * On XSI systems, CLOCKS_PER_SEC must be defined to 1000000
  */
-#define _PDCLIB_clock long
+#define _PDCLIB_clock __clock_t
 #define _PDCLIB_CLOCKS_PER_SEC 1000000
 
 /* <time.h>: TIME_UTC
