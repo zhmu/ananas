@@ -31,6 +31,11 @@ int _PDCLIB_fputc_unlocked( int c, FILE * stream )
     return c;
 }
 
+int fputc_unlocked( int c, FILE * stream )
+{
+    return _PDCLIB_fputc_unlocked( c, stream );
+}
+
 int fputc( int c, FILE * stream )
 {
     _PDCLIB_flockfile( stream );

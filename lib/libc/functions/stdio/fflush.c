@@ -37,6 +37,11 @@ int _PDCLIB_fflush_unlocked( FILE * stream )
     }
 }
 
+int fflush_unlocked( FILE * stream)
+{
+    return _PDCLIB_fflush_unlocked(stream);
+}
+
 int fflush( FILE * stream )
 {
     _PDCLIB_flockfile( stream );

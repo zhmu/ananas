@@ -24,6 +24,13 @@ int _PDCLIB_vfprintf_unlocked( FILE * _PDCLIB_restrict stream,
     return _vcbprintf(stream, filecb, format, arg);
 }
 
+int vfprintf_unlocked( FILE * _PDCLIB_restrict stream,
+                       const char * _PDCLIB_restrict format,
+                       va_list arg )
+{
+    return _PDCLIB_vfprintf_unlocked( stream, format, arg );
+}
+
 int vfprintf( FILE * _PDCLIB_restrict stream,
               const char * _PDCLIB_restrict format,
               va_list arg )

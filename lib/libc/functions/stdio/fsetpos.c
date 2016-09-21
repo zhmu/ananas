@@ -28,6 +28,12 @@ int _PDCLIB_fsetpos_unlocked( FILE * stream,
     return 0;
 }
 
+int fsetpos_unlocked( FILE * stream, 
+             const _PDCLIB_fpos_t * pos )
+{
+    return _PDCLIB_fsetpos_unlocked( stream, pos );
+}
+
 int fsetpos( FILE * stream, 
              const _PDCLIB_fpos_t * pos )
 {

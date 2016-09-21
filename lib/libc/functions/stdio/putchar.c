@@ -14,6 +14,11 @@ int _PDCLIB_putchar_unlocked( int c )
     return _PDCLIB_fputc_unlocked( c, stdout );
 }
 
+int putchar_unlocked( int c )
+{
+    return _PDCLIB_putchar_unlocked( c );
+}
+
 int putchar( int c )
 {
     return fputc( c, stdout );

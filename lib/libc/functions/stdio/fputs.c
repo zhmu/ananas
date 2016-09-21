@@ -44,6 +44,12 @@ int _PDCLIB_fputs_unlocked( const char * _PDCLIB_restrict s,
     return 0;
 }
 
+int fputs_unlocked( const char * _PDCLIB_restrict s,
+                    FILE * _PDCLIB_restrict stream )
+{
+    return _PDCLIB_fputs_unlocked( s, stream );
+}
+
 int fputs( const char * _PDCLIB_restrict s,
            FILE * _PDCLIB_restrict stream )
 {

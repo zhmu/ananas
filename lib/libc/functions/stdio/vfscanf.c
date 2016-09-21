@@ -86,6 +86,13 @@ int _PDCLIB_vfscanf_unlocked( FILE * _PDCLIB_restrict stream,
     return status.n;
 }
 
+int vfscanf_unlocked( FILE * _PDCLIB_restrict stream, 
+                      const char * _PDCLIB_restrict format, 
+                      va_list arg )
+{
+    return _PDCLIB_vfscanf_unlocked( stream, format, arg );
+}
+
 int vfscanf( FILE * _PDCLIB_restrict stream, 
              const char * _PDCLIB_restrict format, 
              va_list arg )

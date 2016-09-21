@@ -14,6 +14,11 @@ int _PDCLIB_ferror_unlocked( FILE * stream )
     return stream->status & _PDCLIB_ERRORFLAG;
 }
 
+int ferror_unlocked( FILE * stream )
+{
+    return _PDCLIB_ferror_unlocked( stream );
+}
+
 int ferror( FILE * stream )
 {
     _PDCLIB_flockfile( stream );

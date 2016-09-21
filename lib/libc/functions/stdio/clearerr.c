@@ -14,6 +14,11 @@ void _PDCLIB_clearerr_unlocked( FILE * stream )
     stream->status &= ~( _PDCLIB_ERRORFLAG | _PDCLIB_EOFFLAG );
 }
 
+void clearerr_unlocked( FILE * stream)
+{
+	_PDCLIB_clearerr_unlocked( stream );
+}
+
 void clearerr( FILE * stream )
 {
     _PDCLIB_flockfile( stream );

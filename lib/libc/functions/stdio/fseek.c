@@ -34,6 +34,11 @@ int _PDCLIB_fseek_unlocked( FILE * stream, long loffset, int whence )
     return ( _PDCLIB_seek( stream, offset, whence ) != EOF ) ? 0 : EOF;
 }
 
+int fseek_unlocked( FILE * stream, long loffset, int whence )
+{
+    return _PDCLIB_fseek_unlocked( stream, loffset, whence );
+}
+
 int fseek( FILE * stream, long loffset, int whence )
 {
     _PDCLIB_flockfile( stream );

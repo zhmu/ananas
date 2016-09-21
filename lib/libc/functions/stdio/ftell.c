@@ -25,6 +25,11 @@ long int _PDCLIB_ftell_unlocked( FILE * stream )
     return off64;
 }
 
+long int ftell_unlocked( FILE * stream )
+{
+    return _PDCLIB_ftell_unlocked( stream );
+}
+
 long int ftell( FILE * stream )
 {
     _PDCLIB_flockfile( stream );

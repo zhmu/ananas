@@ -17,6 +17,13 @@ int _PDCLIB_scanf_unlocked( const char * _PDCLIB_restrict format, ... )
     return _PDCLIB_vfscanf_unlocked( stdin, format, ap );
 }
 
+int scanf_unlocked( const char * _PDCLIB_restrict format, ... )
+{
+    va_list ap;
+    va_start( ap, format );
+    return _PDCLIB_vfscanf_unlocked( stdin, format, ap );
+}
+
 int scanf( const char * _PDCLIB_restrict format, ... )
 {
     va_list ap;

@@ -34,6 +34,13 @@ size_t _PDCLIB_fread_unlocked(
     return nmemb_i;
 }
 
+size_t fread_unlocked( void * _PDCLIB_restrict ptr, 
+                       size_t size, size_t nmemb, 
+                       FILE * _PDCLIB_restrict stream )
+{
+    return _PDCLIB_fread_unlocked( ptr, size, nmemb, stream );
+}
+
 size_t fread( void * _PDCLIB_restrict ptr, 
               size_t size, size_t nmemb, 
               FILE * _PDCLIB_restrict stream )

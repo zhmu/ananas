@@ -53,6 +53,13 @@ size_t _PDCLIB_fwrite_unlocked( const void *restrict vptr,
     return nmemb_i;
 }
 
+size_t fwrite_unlocked( const void * _PDCLIB_restrict ptr,
+                        size_t size, size_t nmemb,
+                        FILE * _PDCLIB_restrict stream )
+{
+    return _PDCLIB_fwrite_unlocked( ptr, size, nmemb, stream );
+}
+
 size_t fwrite( const void * _PDCLIB_restrict ptr,
                size_t size, size_t nmemb,
                FILE * _PDCLIB_restrict stream )

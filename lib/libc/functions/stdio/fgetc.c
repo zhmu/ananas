@@ -23,6 +23,11 @@ int _PDCLIB_fgetc_unlocked( FILE * stream )
     return n == 0 ? EOF : (unsigned char) c;
 }
 
+int fgetc_unlocked( FILE * stream )
+{
+    return _PDCLIB_fgetc_unlocked( stream );
+}
+
 int fgetc( FILE * stream )
 {
     _PDCLIB_flockfile( stream );

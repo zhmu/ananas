@@ -16,6 +16,11 @@ int _PDCLIB_vprintf_unlocked( const char * _PDCLIB_restrict format,
     return _PDCLIB_vfprintf_unlocked( stdout, format, arg );
 }
 
+int vprintf_unlocked( const char * _PDCLIB_restrict format, _PDCLIB_va_list arg )
+{
+    return _PDCLIB_vprintf_unlocked( format, arg );
+}
+
 int vprintf( const char * _PDCLIB_restrict format, _PDCLIB_va_list arg )
 {
     return vfprintf( stdout, format, arg );

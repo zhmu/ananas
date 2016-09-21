@@ -14,6 +14,10 @@ int _PDCLIB_putc_unlocked( int c, FILE * stream )
     return _PDCLIB_fputc_unlocked( c, stream );
 }
 
+int putc_unlocked( int c, FILE * stream )
+{
+	return _PDCLIB_putc_unlocked( c, stream );
+}
 
 int putc( int c, FILE * stream )
 {

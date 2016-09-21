@@ -40,6 +40,11 @@ int _PDCLIB_puts_unlocked( const char * s )
     }
 }
 
+int puts_unlocked( const char * s )
+{
+    return _PDCLIB_puts_unlocked( s );
+}
+
 int puts( const char * s )
 {
     _PDCLIB_flockfile( stdout );

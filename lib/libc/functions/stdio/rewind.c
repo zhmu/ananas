@@ -15,6 +15,11 @@ void _PDCLIB_rewind_unlocked( FILE * stream )
     _PDCLIB_fseek_unlocked( stream, 0L, SEEK_SET );
 }
 
+void rewind_unlocked( FILE * stream )
+{
+    _PDCLIB_rewind_unlocked(stream);
+}
+
 void rewind( FILE * stream )
 {
     _PDCLIB_flockfile(stream);

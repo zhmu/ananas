@@ -32,6 +32,12 @@ char * _PDCLIB_fgets_unlocked( char * _PDCLIB_restrict s, int size, FILE * _PDCL
     return ( dest == s ) ? NULL : s;
 }
 
+char * fgets_unlocked( char * _PDCLIB_restrict s, int size, 
+                       FILE * _PDCLIB_restrict stream )
+{
+    return _PDCLIB_fgets_unlocked( s, size, stream );
+}
+
 char * fgets( char * _PDCLIB_restrict s, int size, 
               FILE * _PDCLIB_restrict stream )
 {

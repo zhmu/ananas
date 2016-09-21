@@ -17,6 +17,11 @@ int _PDCLIB_fgetpos_unlocked( FILE * _PDCLIB_restrict stream, _PDCLIB_fpos_t * _
     return 0;
 }
 
+int fgetpos_unlocked( FILE * _PDCLIB_restrict stream, _PDCLIB_fpos_t * _PDCLIB_restrict pos )
+{
+    return _PDCLIB_fgetpos_unlocked( stream, pos );
+}
+
 int fgetpos( FILE * _PDCLIB_restrict stream, _PDCLIB_fpos_t * _PDCLIB_restrict pos )
 {
     _PDCLIB_flockfile( stream );

@@ -14,6 +14,11 @@ int _PDCLIB_feof_unlocked( FILE * stream )
     return stream->status & _PDCLIB_EOFFLAG;
 }
 
+int feof_unlocked( FILE * stream )
+{
+    return _PDCLIB_feof_unlocked( stream );
+}
+
 int feof( FILE * stream )
 {
     _PDCLIB_flockfile( stream );

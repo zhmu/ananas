@@ -18,6 +18,11 @@ int _PDCLIB_ungetc_unlocked( int c, FILE * stream )
     return stream->ungetbuf[stream->ungetidx++] = (unsigned char) c;
 }
 
+int ungetc_unlocked( int c, FILE * stream )
+{
+    return _PDCLIB_ungetc_unlocked( c, stream );
+}
+
 int ungetc( int c, FILE * stream )
 {
     _PDCLIB_flockfile( stream );
