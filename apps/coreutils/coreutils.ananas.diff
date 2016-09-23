@@ -109,3 +109,18 @@ diff -rubB coreutils-8.23.org/Makefile.am coreutils-8.23/Makefile.am
  include $(top_srcdir)/doc/local.mk
 -include $(top_srcdir)/man/local.mk
  include $(top_srcdir)/tests/local.mk
+diff -rubB coreutils-8.23.org/lib/stdio-impl.h coreutils-8.23/lib/stdio-impl.h
+--- coreutils-8.23.org/lib/stdio-impl.h	2014-05-29 14:05:50.000000000 +0200
++++ coreutils-8.23/lib/stdio-impl.h	2016-09-21 09:02:21.340348332 +0200
+@@ -28,6 +28,11 @@
+ 
+ #include <errno.h>                             /* For detecting Plan9.  */
+ 
++#if defined _PDCLIB_C_VERSION			/* PDCLIBC */
++/* Pull in the appropriate header file so we have the definition of FILE */
++# include "_PDCLIB_io.h"
++#endif
++
+ #if defined __sferror || defined __DragonFly__ /* FreeBSD, NetBSD, OpenBSD, DragonFly, Mac OS X, Cygwin */
+ 
+ # if defined __DragonFly__          /* DragonFly */
