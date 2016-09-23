@@ -20,14 +20,9 @@ int fcntl(int fildes, int cmd, ...)
 		case F_DUPFD:
 		case F_SETFD:
 		case F_SETFL:
-			err = sys_fcntl(fildes, F_DUPFD, (void*)(uintptr_t)va_arg(va, int), &out);
-			if (err != ANANAS_ERROR_NONE)
-				goto fail;
-
-			return (int)(uintptr_t)out;
 		case F_GETFD:
 		case F_GETFL:
-			err = sys_fcntl(fildes, F_DUPFD, NULL, &out);
+			err = sys_fcntl(fildes, cmd, (void*)(uintptr_t)va_arg(va, int), &out);
 			if (err != ANANAS_ERROR_NONE)
 				goto fail;
 
