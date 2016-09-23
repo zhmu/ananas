@@ -37,6 +37,7 @@ sys/exit.c		mandatory
 sys/fchdir.c		mandatory
 sys/fcntl.c		mandatory
 sys/fstat.c		mandatory
+sys/link.c		mandatory
 sys/open.c		mandatory
 sys/read.c		mandatory
 sys/rename.c		mandatory
@@ -44,6 +45,7 @@ sys/seek.c		mandatory
 sys/stat.c		mandatory
 sys/support.c		mandatory
 sys/unlink.c		mandatory
+sys/utime.c		mandatory
 sys/vmop.c		mandatory
 sys/write.c		mandatory
 sys/waitpid.c		mandatory
