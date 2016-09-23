@@ -20,3 +20,5 @@
 15 { errorcode_t fstat(handleindex_t index, struct stat* buf); }
 16 { errorcode_t fchdir(handleindex_t index); }
 17 { errorcode_t fcntl(handleindex_t index, int cmd, const void* in, void* out); }
+18 { errorcode_t link(const char* oldpath, const char* newpath); }
+19 { errorcode_t utime(const char* path, const struct utimbuf* times); }
