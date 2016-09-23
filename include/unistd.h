@@ -16,6 +16,16 @@
 #define STDOUT_FILENO	1
 #define STDERR_FILENO	2
 
+#ifndef SEEK_SET
+#define SEEK_SET	0
+#endif
+#ifndef SEEK_CUR
+#define SEEK_CUR	1
+#endif
+#ifndef SEEK_END
+#define SEEK_END	2
+#endif
+
 void	_exit(int status);
 ssize_t read(int fd, void* buf, size_t len);
 ssize_t write(int fd, const void* buf, size_t len);

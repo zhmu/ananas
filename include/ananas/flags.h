@@ -17,11 +17,6 @@
 /* Internal use only */
 #define O_DIRECTORY	(1 << 31)
 
-/* lseek() */
-#define SEEK_SET	0
-#define SEEK_CUR	1
-#define SEEK_END	2
-
 /* fcntl() */
 #define F_DUPFD 0
 #define F_GETFD 1
