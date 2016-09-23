@@ -20,6 +20,7 @@ ASMFLAGS=	$(CFLAGS) -DASM
 
 # files to build
 SOURCES=	$(shell find $S/functions -name "*.c")
+SOURCES+=	$(shell find $S/3rdparty -name "*.c")
 SOURCES+=	$(shell find $S/opt/${THREADLIB} -name "*.c")
 SOURCES+=	$(shell find $S/platform/ananas/functions -name "*.c")
 SOURCES+=	$(shell find $S/platform/ananas/ananas -name "*.c")

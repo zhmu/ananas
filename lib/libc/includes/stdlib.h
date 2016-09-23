@@ -39,13 +39,10 @@ typedef _PDCLIB_wchar_t wchar_t;
 
 /* TODO: atof(), strtof(), strtod(), strtold() */
 
-#if 0
-/* XXXRS While we don't yet have them, do not declare them... */
 double atof( const char * nptr ) _PDCLIB_nothrow;
 double strtod( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restrict endptr ) _PDCLIB_nothrow;
 float strtof( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restrict endptr ) _PDCLIB_nothrow;
 long double strtold( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restrict endptr ) _PDCLIB_nothrow;
-#endif
 
 /* Seperate the character array nptr into three parts: A (possibly empty)
    sequence of whitespace characters, a character representation of an integer
