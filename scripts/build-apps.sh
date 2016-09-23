@@ -27,7 +27,6 @@ do_headers()
 do_dash()
 {
 	cd $R/apps/dash
-	rm -rf build.${ARCH}
 	rm -f dash-${ARCH}
 	make ARCH=${ARCH} clean
 	make ARCH=${ARCH} ${MAKE_ARGS}
@@ -36,9 +35,8 @@ do_dash()
 do_coreutils()
 {
 	cd $R/apps/coreutils
-	rm -rf build.${ARCH}
-	mkdir -p build.${ARCH}
-	make ARCH=${ARCH} ${MAKE_ARGS}
+	make ARCH=${ARCH} clean
+	make ARCH=${ARCH} ${MAKE_ARGS} MAKEINFO=true
 }
 
 install_includes()
@@ -47,9 +45,15 @@ install_includes()
 	make ${MAKE_ARGS}
 }
 
+install_includes_target()
+{
+	cd $R/include
+	make ARCH=${ARCH} SYSROOT=${TARGET}
+}
+
 install_lib()
 {
-	cp $R/lib/libc/compile/${ARCH}/libc.a ${TARGET}/usr/lib
+	cp $R/lib/libc/build/${ARCH}/libc.a ${TARGET}/usr/lib
 	cp $R/lib/crt/${ARCH}/crt*.o ${TARGET}/usr/lib
 }
 
@@ -78,8 +82,8 @@ TOOL_PREFIX="${TOOLCHAIN_ARCH}-ananas-elf-"
 
 # ensure the immediate output directory exists, or configure
 # will try to place things in /
-#rm -rf $R/apps/output.${ARCH}
-#mkdir -p $R/apps/output.${ARCH}
+rm -rf $R/apps/output.${ARCH}
+mkdir -p $R/apps/output.${ARCH}
 
 # make sure we have our compiler in our path; configure will not raise red
 # flags if it can't find it
@@ -106,8 +110,9 @@ do_headers
 install_includes
 do_crt
 do_dash
-#do_coreutils
+do_coreutils
 
 install_tree
 install_build
 install_lib
+install_includes_target
