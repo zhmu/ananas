@@ -81,6 +81,9 @@ int isupper( int c ) _PDCLIB_nothrow;
 /* Returns true for any hexadecimal-digit character. Locale-independent. */
 int isxdigit( int c ) _PDCLIB_nothrow;
 
+/* Returns true for any 7-bit US-ASCII character */
+int isascii( int c ) _PDCLIB_nothrow;
+
 /* Character case mapping functions */
 
 /* Converts an uppercase letter to a corresponding lowercase letter. Input that
