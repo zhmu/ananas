@@ -3,12 +3,16 @@ TARGET:		kernel
 S=		../../../..
 ARCH=		amd64
 
-CC?=		cc
-LD?=		ld
-AWK?=		awk
-NM?=		nm
-OBJCOPY?=	objcopy
-OBJDUMP?=	objdump
+# use the llvm/clang toolchain
+TOOLCHAIN?=	$S/../toolchain/x86_64-ananas-elf-
+CC=		${TOOLCHAIN}clang
+LD=		ld # FIXME not yet
+OBJDUMP=	${TOOLCHAIN}objdump
+# objcopy isn't present in llvm yet?
+OBJCOPY=	objcopy
+# standard UNIX utilities
+AWK=		awk
+NM=		nm
 
 %OBJS
 %FILES
