@@ -13,7 +13,7 @@ OBJDUMP?=	objdump
 %OBJS
 %FILES
 
-CFLAGS=		-m64 -march=athlon64 -mcmodel=large -I$S/../include -I$S -I. -std=c99 -mno-red-zone -fno-stack-protector -DKERNEL
+CFLAGS=		-m64 -march=athlon64 -mcmodel=large -I$S/../include -I$S -I. -std=c99 -mno-red-zone -mno-sse -fno-stack-protector -DKERNEL
 CFLAGS+=	-Wall -Werror
 
 kernel:		kernel.full fileids.txt
