@@ -9,7 +9,7 @@ pid_t waitpid(pid_t pid, int* stat_loc, int options)
 {
 	pid_t p = pid;
 
-	errorcode_t err = sys_waitpid(&pid, stat_loc, options);
+	errorcode_t err = sys_waitpid(&p, stat_loc, options);
 	if (err != ANANAS_ERROR_NONE) {
 		_posix_map_error(err);
 		return (pid_t)-1;
