@@ -82,7 +82,6 @@ lib/zlib/uncompr.c	option ZLIB
 lib/zlib/zutil.c	option ZLIB
 # XXX this should be optional - depend on vga for now? we don't yet do (vga || fb) ...
 lib/teken/teken.c	mandatory
-dev/bus/isa.c		optional isa
 dev/bus/isa/atkbd.c	optional atkbd
 dev/bus/pci/pci.c	optional pci
 dev/bus/pci/pcibus.c	optional pci

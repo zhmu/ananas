@@ -3,9 +3,6 @@ ident		LINT
 
 include		../../../conf/LINT
 
-hints		hints.i386
-
-device		isa
 device		vga
 device		sio
 device		atkbd
