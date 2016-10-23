@@ -221,6 +221,8 @@ tty_handle_input(device_t dev)
 	 * to queue it up.
 	 */
 	while (1) {
+		KASSERT(priv->input_dev != NULL, "woke up without input device?");
+
 		unsigned char byte;
 		size_t len = sizeof(byte);
 		errorcode_t err = device_read(priv->input_dev, (char*)&byte, &len, 0);
@@ -290,7 +292,7 @@ tty_preinit()
 	/* Initialize the queue of all tty's */
 	QUEUE_INIT(&tty_queue);
 	spinlock_init(&tty_queue.tq_lock);
-	sem_init(&tty_sem, 1);
+	sem_init(&tty_sem, 0);
 	return ANANAS_ERROR_OK;
 }
 
