@@ -12,10 +12,11 @@ acpi_process_resources(ACPI_HANDLE ObjHandle, device_t dev)
 		return AE_OK;
 
 	/* If we have a PNP hardware ID, store it */
-	if (Info->HardwareId.String != NULL && strncmp(Info->HardwareId.String, "PNP", 3) == 0) {
-		/* XXX Convert PnPID to integer; resource management doesn't know how to deal with anything else */
-		uint32_t resource = ACPI_PNP_ID(Info->HardwareId.String);
-		device_add_resource(dev, RESTYPE_PNP_ID, resource, 0);
+	if (Info->HardwareId.String != NULL && Info->HardwareId.Length >= ACPI_EISAID_STRING_SIZE &&
+	    strncmp(Info->HardwareId.String, "PNP", 3) == 0) {
+		/* Fetch the value of the PNPxxxx string */
+		unsigned int pnpid = (unsigned int)strtoul(Info->HardwareId.String + 3 /* skip PNP */, NULL, 16);
+		device_add_resource(dev, RESTYPE_PNP_ID, pnpid, 0);
 		ACPI_DPRINTF("> [%s]\n", Info->HardwareId.String);
 	}
  	AcpiOsFree(Info);
