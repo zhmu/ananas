@@ -314,15 +314,26 @@ vga_write(device_t dev, const void* data, size_t* len, off_t off)
 	return ANANAS_ERROR_OK;
 }
 
+static errorcode_t
+vga_probe(device_t dev)
+{
+	/* XXX Look at the BIOS to see if there is any VGA at all */
+	if (!device_add_resource(dev, RESTYPE_MEMORY, 0xb8000, 128 * 1024) ||
+	    !device_add_resource(dev, RESTYPE_IO, 0x3c0, 32))
+		return ANANAS_ERROR(NO_DEVICE);
+
+	return ANANAS_ERROR_OK;
+}
+
 struct DRIVER drv_vga = {
 	.name					= "vga",
-	.drv_probe		= NULL,
+	.drv_probe		= vga_probe,
 	.drv_attach		= vga_attach,
 	.drv_write		= vga_write
 };
 
 DRIVER_PROBE(vga)
-DRIVER_PROBE_BUS(isa)
+DRIVER_PROBE_BUS(corebus)
 DRIVER_PROBE_END()
 
 DEFINE_CONSOLE_DRIVER(drv_vga, 10, CONSOLE_FLAG_OUT)
