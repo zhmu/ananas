@@ -12,7 +12,7 @@ static ACPI_STATUS
 acpi_probe_device(ACPI_HANDLE ObjHandle, UINT32 Level, void* Context, void** ReturnValue)
 {
 	ACPI_OBJECT_TYPE type;
-	if (!ACPI_SUCCESS(AcpiGetType(ObjHandle, &type)))
+	if (ACPI_FAILURE(AcpiGetType(ObjHandle, &type)))
 		return AE_OK;
 
 	/* Grab the device name; this is handy for debugging */
@@ -28,7 +28,6 @@ acpi_probe_device(ACPI_HANDLE ObjHandle, UINT32 Level, void* Context, void** Ret
 	device_t dev = device_alloc(bus, NULL);
 
 	/* Fetch the device resources */
-	ACPI_STATUS status = AE_OK;
 	if (ACPI_SUCCESS(acpi_process_resources(ObjHandle, dev))) {
 		/*
 		 * And see if we can attach this device to something - XXX As in the PCI
@@ -66,18 +65,17 @@ acpi_probe_device(ACPI_HANDLE ObjHandle, UINT32 Level, void* Context, void** Ret
 		}
 
 		/*
-		 * If we managed to attach the device, ignore going deeper during the ACPI
-		 * bus walk - the device is expected to handle this. Otherwise, throw away
-		 * the device we created and continue.
+		 * If attaching failed, clean up the device we allocated. However, we'll
+		 * continue to walk deeper down the tree - ACPI won't list the PCI devices
+		 * themselves, but it will provide an overview of ISA stuff which we intend
+		 * to attach.
 		 */
-		if (device_attached) {
-			status = AE_CTRL_DEPTH;
-		} else {
+		if (!device_attached) {
 			device_free(dev);
 		}
 	}
 
-	return status;
+	return AE_OK;
 }
 
 static errorcode_t
