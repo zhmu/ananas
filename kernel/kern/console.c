@@ -8,7 +8,6 @@
 #include <ananas/debug-console.h>
 #include "options.h"
 
-extern const char* config_hints[];
 static spinlock_t spl_consoledrivers = SPINLOCK_DEFAULT_INIT;
 static struct CONSOLE_DRIVERS console_drivers;
 device_t console_tty = NULL;
@@ -28,7 +27,6 @@ static mutex_t mtx_console;
 static errorcode_t
 console_init()
 {
-	char tmphint[32 /* XXX */];
 	device_t input_dev = NULL;
 	device_t output_dev = NULL;
 
@@ -78,13 +76,11 @@ console_init()
 				continue;
 
 			/*
-			 * OK, see if this devices probes. To do so, we need to construct a hint -
-			 * but as we have no idea on which bus it is, we'll use an asterisk to
-			 * match anything.
+			 * OK, see if this devices probes. Note that we don't provide any
+			 * resources here - XXX devices that require them can't be used as
+			 * console devices currently.
 			 */
 			device_t dev = device_alloc(NULL, condrv->con_driver);
-			sprintf(tmphint, "*.%s.%u.", dev->name, dev->unit);
-			device_get_resources_byhint(dev, tmphint, config_hints);
 			errorcode_t err = device_attach_single(dev);
 			if (err != ANANAS_ERROR_OK) {
 				/* Too bad; this driver won't work */

@@ -169,8 +169,6 @@ errorcode_t device_detach(device_t dev);
 errorcode_t device_register_probe(struct PROBE* p);
 errorcode_t device_unregister_probe(struct PROBE* p);
 
-int device_get_resources_byhint(device_t dev, const char* hint, const char** hints);
-int device_get_resources(device_t dev, const char** hints);
 errorcode_t device_write(device_t dev, const char* buf, size_t* len, off_t offset);
 errorcode_t device_bwrite(device_t dev, struct BIO* bio);
 errorcode_t device_read(device_t dev, char* buf, size_t* len, off_t offset);
