@@ -101,16 +101,25 @@ sio_read(device_t dev, void* data, size_t* len, off_t offset)
 	return ANANAS_ERROR_OK;
 }
 
+static errorcode_t
+sio_probe(device_t dev)
+{
+	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PNP_ID, 0);
+	if (res != NULL && res->base == 0x0501) /* PNP0501: 16550A-compatible COM port */
+		return ANANAS_ERROR_OK;
+	return ANANAS_ERROR(NO_DEVICE);
+}
+
 struct DRIVER drv_sio = {
 	.name					= "sio",
-	.drv_probe		= NULL,
+	.drv_probe		= sio_probe,
 	.drv_attach		= sio_attach,
 	.drv_write		= sio_write,
 	.drv_read     = sio_read
 };
 
 DRIVER_PROBE(sio)
-DRIVER_PROBE_BUS(isa)
+DRIVER_PROBE_BUS(acpi)
 DRIVER_PROBE_END()
 
 DEFINE_CONSOLE_DRIVER(drv_sio, 0, CONSOLE_FLAG_INOUT);

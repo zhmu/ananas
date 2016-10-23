@@ -128,6 +128,15 @@ atkbd_irq(device_t dev, void* context)
 }
 
 static errorcode_t
+atkbd_probe(device_t dev)
+{
+	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PNP_ID, 0);
+	if (res != NULL && res->base == 0x0303) /* PNP0303: IBM Enhanced (101/102-key, PS/2 mouse support) */
+		return ANANAS_ERROR_OK;
+	return ANANAS_ERROR(NO_DEVICE);
+}
+
+static errorcode_t
 atkbd_attach(device_t dev)
 {
 	void* res_io  = device_alloc_resource(dev, RESTYPE_IO, 7);
@@ -177,13 +186,13 @@ atkbd_read(device_t dev, void* data, size_t* len, off_t off)
 
 struct DRIVER drv_atkbd = {
 	.name       = "atkbd",
-	.drv_probe  = NULL,
+	.drv_probe  = atkbd_probe,
 	.drv_attach = atkbd_attach,
 	.drv_read   = atkbd_read
 };
 
 DRIVER_PROBE(atkbd)
-DRIVER_PROBE_BUS(isa)
+DRIVER_PROBE_BUS(acpi)
 DRIVER_PROBE_END()
 
 DEFINE_CONSOLE_DRIVER(drv_atkbd, 10, CONSOLE_FLAG_IN)
