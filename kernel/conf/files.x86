@@ -1,4 +1,3 @@
-arch/x86/dev/pcihb.c		optional pcihb
 arch/x86/pic.c			mandatory
 arch/x86/pit.c			mandatory
 arch/x86/exceptions.c		mandatory
@@ -10,7 +9,7 @@ arch/x86/acpi-smp.c		option SMP
 # ACPI
 dev/acpi/acpi.c			option ACPI
 dev/acpi/acpi_resource.c	option ACPI
-# XXX this makes us rely on pci (?)
+# XXX this needs pci as well
 dev/acpi/acpi_pcihb.c		option ACPI
 dev/acpi/osl/osl_env.c		option ACPI
 dev/acpi/osl/osl_memory.c	option ACPI

@@ -1,6 +1,5 @@
 #include <ananas/vm.h>
 #include <ananas/device.h>
-#include <ananas/bus/pcihb.h>
 #include <ananas/error.h>
 #include <ananas/irq.h>
 #include <ananas/lib.h>
@@ -8,6 +7,7 @@
 #include <ananas/kmem.h>
 #include <ananas/x86/io.h>
 #include <machine/param.h>
+#include <machine/pcihb.h>
 #include "../acpica/acpi.h"
 
 struct ACPI_IRQ_INFO {

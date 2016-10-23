@@ -1,9 +1,9 @@
 #include <ananas/x86/io.h>
 #include <ananas/bus/pci.h>
-#include <ananas/bus/pcihb.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
+#include <machine/pcihb.h>
 
 extern struct DRIVER drv_pcibus;
 
