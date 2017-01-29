@@ -74,6 +74,20 @@ create_bootinfo(const struct RELOCATE_INFO* ri_kernel, const struct MULTIBOOT* m
 	}
 	bootinfo->bi_memory_map_size = avail - bootinfo->bi_memory_map_addr;
 
+	if (mb->mb_flags & MULTIBOOT_FLAG_CMDLINE) {
+		/* Copy commandline arguments over */
+		const char* cmdline = (const char*)mb->mb_cmdline;
+		int cmdline_len = 0;
+		while(cmdline[cmdline_len] != '\0')
+			cmdline_len++;
+		cmdline_len++; /* terminating \0 */
+		char* args = ALLOC(cmdline_len);
+		memcpy(args, cmdline, cmdline_len);
+
+		bootinfo->bi_args_size = cmdline_len;
+		bootinfo->bi_args = (bi_addr_t)args;
+	}
+
 #undef ALLOC
 	return bootinfo;
 }

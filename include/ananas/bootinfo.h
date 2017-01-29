@@ -28,6 +28,9 @@ struct BOOTINFO {
 	uint32_t	bi_video_yres;
 	uint32_t	bi_video_bpp;
 	bi_addr_t	bi_video_framebuffer;
+	/* Kernel commandline arguments */
+	bi_size_t	bi_args_size;
+	bi_addr_t	bi_args;
 };
 #endif
 
