@@ -282,10 +282,8 @@ page_dump(struct PAGE_ZONE* z)
 	for (unsigned int order = 0; order < PAGE_NUM_ORDERS; order++) {
 		kprintf(" order %u: ", order);
 		int n = 0;
-		if (!LIST_EMPTY(&z->z_free[order])) {
-			LIST_FOREACH(&z->z_free[order], f, struct PAGE) {
-				n++;
-			}
+		LIST_FOREACH(&z->z_free[order], f, struct PAGE) {
+			n++;
 		}
 		kprintf("%d\n", n);
 	}

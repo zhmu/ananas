@@ -129,20 +129,19 @@ dcache_purge_old_entries(struct VFS_MOUNTED_FS* fs)
 	 * starting purging things - we'll only purge things that are in the cache.
 	 */
 	int num_removed = 0;
-	if (!LIST_EMPTY(&fs->fs_dcache_inuse))
-		LIST_FOREACH_REVERSE_SAFE(&fs->fs_dcache_inuse, d, struct DENTRY) {
-			if ((d->d_flags & DENTRY_FLAG_CACHED) == 0) 
-				continue;
-			if (d->d_refcount > 1)
-				continue;
+	LIST_FOREACH_REVERSE_SAFE(&fs->fs_dcache_inuse, d, struct DENTRY) {
+		if ((d->d_flags & DENTRY_FLAG_CACHED) == 0)
+			continue;
+		if (d->d_refcount > 1)
+			continue;
 
-			/*
-		 	 * This entry has a single ref, and the holder is the cache - it is safe to
-			 * dereference it.
-			 */
-			dentry_deref2(d, fs);
-			num_removed++;
-		}
+		/*
+		 * This entry has a single ref, and the holder is the cache - it is safe to
+		 * dereference it.
+		 */
+		dentry_deref2(d, fs);
+		num_removed++;
+	}
 
 	KASSERT(num_removed > 0, "no entries removed");
 }
@@ -172,35 +171,33 @@ dcache_lookup(struct DENTRY* parent, const char* entry)
 	 * XXX This is just a simple linear search which attempts to avoid
 	 * overhead by moving recent entries to the start
 	 */
-	if (!LIST_EMPTY(&fs->fs_dcache_inuse)) {
-		LIST_FOREACH(&fs->fs_dcache_inuse, d, struct DENTRY) {
-			if (d->d_parent != parent || strcmp(d->d_entry, entry) != 0)
-				continue;
+	LIST_FOREACH(&fs->fs_dcache_inuse, d, struct DENTRY) {
+		if (d->d_parent != parent || strcmp(d->d_entry, entry) != 0)
+			continue;
 
-			/*
-			 * It's quite possible that this inode is still pending; if that is the
-			 * case, our caller should sleep and wait for the other caller to finish
-			 * up.
-			 */
-			if (d->d_inode == NULL && (d->d_flags & DENTRY_FLAG_NEGATIVE) == 0) {
-				DCACHE_UNLOCK(fs);
-				return NULL;
-			}
-
-			/* Add an extra ref to the dentry; we'll be giving it to the caller */
-			dentry_ref(d);
-
-			/*
-			 * Push the the item to the head of the cache; we expect the caller to
-			 * free it once done, which will decrease the refcount to 1, which is OK
-			 * as only the cache owns it in such a case.
-		 	 */
-			LIST_REMOVE(&fs->fs_dcache_inuse, d);
-			LIST_PREPEND(&fs->fs_dcache_inuse, d);
+		/*
+		 * It's quite possible that this inode is still pending; if that is the
+		 * case, our caller should sleep and wait for the other caller to finish
+		 * up.
+		 */
+		if (d->d_inode == NULL && (d->d_flags & DENTRY_FLAG_NEGATIVE) == 0) {
 			DCACHE_UNLOCK(fs);
-			TRACE(VFS, INFO, "cache hit: parent=%p, entry='%s' => d=%p, d.inode=%p", parent, entry, d, d->d_inode);
-			return d;
+			return NULL;
 		}
+
+		/* Add an extra ref to the dentry; we'll be giving it to the caller */
+		dentry_ref(d);
+
+		/*
+		 * Push the the item to the head of the cache; we expect the caller to
+		 * free it once done, which will decrease the refcount to 1, which is OK
+		 * as only the cache owns it in such a case.
+		 */
+		LIST_REMOVE(&fs->fs_dcache_inuse, d);
+		LIST_PREPEND(&fs->fs_dcache_inuse, d);
+		DCACHE_UNLOCK(fs);
+		TRACE(VFS, INFO, "cache hit: parent=%p, entry='%s' => d=%p, d.inode=%p", parent, entry, d, d->d_inode);
+		return d;
 	}
 
 	/* Item was not found; try to get one from the freelist */
@@ -241,22 +238,20 @@ dcache_remove_inode(struct VFS_INODE* inode)
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 
 	DCACHE_LOCK(fs);
-	if (!LIST_EMPTY(&fs->fs_dcache_inuse)) {
-		LIST_FOREACH_SAFE(&fs->fs_dcache_inuse, d, struct DENTRY) {
-			/* Never touch pending entries; the lookup code deals with them */
-			if (d->d_inode == NULL)
-				continue;
-			/* Free the inode */
-			vfs_deref_inode(d->d_dir_inode);
-			if (d->d_entry_inode != NULL)
-				vfs_deref_inode(d->d_entry_inode);
+	LIST_FOREACH_SAFE(&fs->fs_dcache_inuse, d, struct DENTRY) {
+		/* Never touch pending entries; the lookup code deals with them */
+		if (d->d_inode == NULL)
+			continue;
+		/* Free the inode */
+		vfs_deref_inode(d->d_dir_inode);
+		if (d->d_entry_inode != NULL)
+			vfs_deref_inode(d->d_entry_inode);
 
-			/* Remove from in-use and add to free list */
-			LIST_REMOVE(&fs->fs_dcache_inuse, d);
-			LIST_APPEND(&fs->fs_dcache_free, d);
-			TRACE(VFS, INFO, "freed cache item: d=%p, entry='%s', dir_inode=%p, entry_inode=%p",
-			 d, d->d_entry, d->d_dir_inode, d->d_entry_inode);
-		}
+		/* Remove from in-use and add to free list */
+		LIST_REMOVE(&fs->fs_dcache_inuse, d);
+		LIST_APPEND(&fs->fs_dcache_free, d);
+		TRACE(VFS, INFO, "freed cache item: d=%p, entry='%s', dir_inode=%p, entry_inode=%p",
+		 d, d->d_entry, d->d_dir_inode, d->d_entry_inode);
 	}
 	DCACHE_UNLOCK(fs);
 #endif

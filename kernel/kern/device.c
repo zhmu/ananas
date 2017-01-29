@@ -79,11 +79,9 @@ static void
 device_add_to_tree(device_t dev)
 {
 	spinlock_lock(&spl_devicequeue);
-	if (!LIST_EMPTY(&device_queue)) {
-		LIST_FOREACH(&device_queue, dq_dev, struct DEVICE) {
-			if (dq_dev == dev)
-				goto skip;
-		}
+	LIST_FOREACH(&device_queue, dq_dev, struct DEVICE) {
+		if (dq_dev == dev)
+			goto skip;
 	}
 	LIST_APPEND(&device_queue, dev);
 skip:
@@ -375,13 +373,12 @@ device_get_queue()
 errorcode_t
 device_register_probe(struct PROBE* p)
 {
-	if (!LIST_EMPTY(&probe_queue))
-		LIST_FOREACH(&probe_queue, pqi, struct PROBE) {
-			if (pqi->driver == p->driver) {
-				/* Duplicate driver */
-				return ANANAS_ERROR(FILE_EXISTS);
-			}
+	LIST_FOREACH(&probe_queue, pqi, struct PROBE) {
+		if (pqi->driver == p->driver) {
+			/* Duplicate driver */
+			return ANANAS_ERROR(FILE_EXISTS);
 		}
+	}
 	LIST_APPEND(&probe_queue, p);
 	return ANANAS_ERROR_OK;
 }

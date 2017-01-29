@@ -235,25 +235,24 @@ hda_attach_node_afg(device_t dev, struct HDA_AFG* afg)
 	 * Okay, we are done - need to resolve the connection node ID's to pointers.
 	 * This is O(N^2)... XXX
 	 */
-	if (!LIST_EMPTY(&afg->afg_nodes))
-		LIST_FOREACH(&afg->afg_nodes, aw, struct HDA_NODE_AW) {
-			for(int n = 0; n < aw->aw_num_conn; n++) {
-				uintptr_t nid = (uintptr_t)aw->aw_conn[n];
-				struct HDA_NODE_AW* aw_found = NULL;
-				LIST_FOREACH(&afg->afg_nodes, aw2, struct HDA_NODE_AW) {
-					if (aw2->aw_node.n_nid != nid)
-						continue;
-					aw_found = aw2;
-					break;
-				}
-				if (aw_found == NULL) {
-					device_printf(dev, "cad %d nid %d lists connection nid %d, but not found - aborting",
-					 aw->aw_node.n_cad, aw->aw_node.n_nid, nid);
-					return ANANAS_ERROR(NO_DEVICE);
-				}
-				aw->aw_conn[n] = aw_found;
+	LIST_FOREACH(&afg->afg_nodes, aw, struct HDA_NODE_AW) {
+		for(int n = 0; n < aw->aw_num_conn; n++) {
+			uintptr_t nid = (uintptr_t)aw->aw_conn[n];
+			struct HDA_NODE_AW* aw_found = NULL;
+			LIST_FOREACH(&afg->afg_nodes, aw2, struct HDA_NODE_AW) {
+				if (aw2->aw_node.n_nid != nid)
+					continue;
+				aw_found = aw2;
+				break;
 			}
+			if (aw_found == NULL) {
+				device_printf(dev, "cad %d nid %d lists connection nid %d, but not found - aborting",
+				 aw->aw_node.n_cad, aw->aw_node.n_nid, nid);
+				return ANANAS_ERROR(NO_DEVICE);
+			}
+			aw->aw_conn[n] = aw_found;
 		}
+	}
 
 	return err;
 }
@@ -414,17 +413,15 @@ hda_dump_afg(struct HDA_AFG* afg)
 		kprintf("\n");
 	}
 
-	if (!LIST_EMPTY(&afg->afg_outputs)) {
-		LIST_FOREACH(&afg->afg_outputs, o, struct HDA_OUTPUT) {
-			kprintf("output: %d-channel ->", o->o_channels);
-			for (int n = 0; n < o->o_pingroup->pg_count; n++) {
-				struct HDA_NODE_PIN* p = o->o_pingroup->pg_pin[n];
-				kprintf(" %s-%s",
-				 hda_resolve_location(HDA_CODEC_CFGDEFAULT_LOCATION(p->p_cfg)),
-				 hda_pin_color_string[HDA_CODEC_CFGDEFAULT_COLOR(p->p_cfg)]);
-			}
-			kprintf("\n");
+	LIST_FOREACH(&afg->afg_outputs, o, struct HDA_OUTPUT) {
+		kprintf("output: %d-channel ->", o->o_channels);
+		for (int n = 0; n < o->o_pingroup->pg_count; n++) {
+			struct HDA_NODE_PIN* p = o->o_pingroup->pg_pin[n];
+			kprintf(" %s-%s",
+			 hda_resolve_location(HDA_CODEC_CFGDEFAULT_LOCATION(p->p_cfg)),
+			 hda_pin_color_string[HDA_CODEC_CFGDEFAULT_COLOR(p->p_cfg)]);
 		}
+		kprintf("\n");
 	}
 }
 #endif /* HDA_VERBOSE */

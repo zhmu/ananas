@@ -53,14 +53,13 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	 */
 	struct VFS_FILESYSTEM_OPS* fsops = NULL;
 	spinlock_lock(&spl_fstypes);
-	if (!LIST_EMPTY(&fstypes))
-		LIST_FOREACH(&fstypes, curfs, struct VFS_FILESYSTEM) {
-			if (strcmp(curfs->fs_name, type) == 0) {
-				/* Match */
-				fsops = curfs->fs_fsops;
-				break;
-			}
+	LIST_FOREACH(&fstypes, curfs, struct VFS_FILESYSTEM) {
+		if (strcmp(curfs->fs_name, type) == 0) {
+			/* Match */
+			fsops = curfs->fs_fsops;
+			break;
 		}
+	}
 	spinlock_unlock(&spl_fstypes);
 	if (fsops == NULL)
 		return ANANAS_ERROR(BAD_TYPE);
@@ -169,14 +168,13 @@ vfs_register_filesystem(struct VFS_FILESYSTEM* fs)
 {
 	spinlock_lock(&spl_fstypes);
 	/* Ensure the filesystem is not already registered */
-	if (!LIST_EMPTY(&fstypes))
-		LIST_FOREACH(&fstypes, curfs, struct VFS_FILESYSTEM) {
-			if (strcmp(curfs->fs_name, fs->fs_name) == 0) {
-				/* Duplicate filesystem type; refuse to register */
-				spinlock_unlock(&spl_fstypes);
-				return ANANAS_ERROR(FILE_EXISTS);
-			}
+	LIST_FOREACH(&fstypes, curfs, struct VFS_FILESYSTEM) {
+		if (strcmp(curfs->fs_name, fs->fs_name) == 0) {
+			/* Duplicate filesystem type; refuse to register */
+			spinlock_unlock(&spl_fstypes);
+			return ANANAS_ERROR(FILE_EXISTS);
 		}
+	}
 
 	/* Filesystem is clear; hook it up */
 	LIST_APPEND(&fstypes, fs);

@@ -55,12 +55,10 @@ vmspace_destroy(vmspace_t* vs)
 static int
 vmspace_is_inuse(vmspace_t* vs, addr_t virt, size_t len)
 {
-	if (!LIST_EMPTY(&vs->vs_areas)) {
-		LIST_FOREACH(&vs->vs_areas, va, vmarea_t) {
-			if ((virt >= va->va_virt && (virt + len) <= (va->va_virt + va->va_len)) ||
-			    (va->va_virt >= virt && (va->va_virt + va->va_len) <= (virt + len)))
-				return 1;
-		}
+	LIST_FOREACH(&vs->vs_areas, va, vmarea_t) {
+		if ((virt >= va->va_virt && (virt + len) <= (va->va_virt + va->va_len)) ||
+				(va->va_virt >= virt && (va->va_virt + va->va_len) <= (virt + len)))
+			return 1;
 	}
 
 	return 0;
@@ -156,36 +154,34 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 	TRACE(VM, INFO, "vmspace_handle_fault(): vs=%p, virt=%p, flags=0x%x", vs, virt, flags);
 
 	/* Walk through the areas one by one */
-	if (!LIST_EMPTY(&vs->vs_areas)) {
-		LIST_FOREACH(&vs->vs_areas, va, vmarea_t) {
-			if (!(virt >= va->va_virt && (virt < (va->va_virt + va->va_len))))
-				continue;
+	LIST_FOREACH(&vs->vs_areas, va, vmarea_t) {
+		if (!(virt >= va->va_virt && (virt < (va->va_virt + va->va_len))))
+			continue;
 
-			/* We should only get faults for lazy areas (filled by a function) or when we have to dynamically allocate things */
-			KASSERT((va->va_flags & (VM_FLAG_ALLOC | VM_FLAG_LAZY)) != 0, "unexpected pagefault in area %p, virt=%p, len=%d, flags 0x%x", va, va->va_virt, va->va_len, va->va_flags);
+		/* We should only get faults for lazy areas (filled by a function) or when we have to dynamically allocate things */
+		KASSERT((va->va_flags & (VM_FLAG_ALLOC | VM_FLAG_LAZY)) != 0, "unexpected pagefault in area %p, virt=%p, len=%d, flags 0x%x", va, va->va_virt, va->va_len, va->va_flags);
 
-			/* Allocate a new page; this will be used to handle the fault */
-			struct PAGE* p = page_alloc_single();
-			if (p == NULL)
-				return ANANAS_ERROR(OUT_OF_MEMORY);
-			LIST_APPEND(&va->va_pages, p);
-			p->p_addr = virt & ~(PAGE_SIZE - 1);
+		/* Allocate a new page; this will be used to handle the fault */
+		struct PAGE* p = page_alloc_single();
+		if (p == NULL)
+			return ANANAS_ERROR(OUT_OF_MEMORY);
+		LIST_APPEND(&va->va_pages, p);
+		p->p_addr = virt & ~(PAGE_SIZE - 1);
 
-			/* Map the page */
-			md_map_pages(vs, p->p_addr, page_get_paddr(p), 1, va->va_flags);
-			errorcode_t err = ANANAS_ERROR_OK;
-			if (va->va_fault != NULL) {
-				/* Invoke the mapping-specific fault handler */
-				err = va->va_fault(vs, va, virt);
-				if (err != ANANAS_ERROR_NONE) {
-					/* Mapping failed; throw the thread mapping away and nuke the page */
-					md_unmap_pages(vs, p->p_addr, 1);
-					LIST_REMOVE(&va->va_pages, p);
-					page_free(p);
-				}
+		/* Map the page */
+		md_map_pages(vs, p->p_addr, page_get_paddr(p), 1, va->va_flags);
+		errorcode_t err = ANANAS_ERROR_OK;
+		if (va->va_fault != NULL) {
+			/* Invoke the mapping-specific fault handler */
+			err = va->va_fault(vs, va, virt);
+			if (err != ANANAS_ERROR_NONE) {
+				/* Mapping failed; throw the thread mapping away and nuke the page */
+				md_unmap_pages(vs, p->p_addr, 1);
+				LIST_REMOVE(&va->va_pages, p);
+				page_free(p);
 			}
-			return err;
 		}
+		return err;
 	}
 
 	return ANANAS_ERROR(BAD_ADDRESS);
@@ -231,16 +227,11 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 	 * First, clean up the destination area's mappings - this ensures we'll
 	 * overwrite them with our own. Note that we'll leave private mappings alone.
 	 */
-	if (!LIST_EMPTY(&vs_dest->vs_areas)) {
-		LIST_FOREACH_SAFE(&vs_dest->vs_areas, va, vmarea_t) {
-			if (!vmspace_clone_area_must_free(va, flags))
-				continue;
-			vmspace_area_free(vs_dest, va);
-		}
+	LIST_FOREACH_SAFE(&vs_dest->vs_areas, va, vmarea_t) {
+		if (!vmspace_clone_area_must_free(va, flags))
+			continue;
+		vmspace_area_free(vs_dest, va);
 	}
-
-	if(LIST_EMPTY(&vs_source->vs_areas))
-		return ANANAS_ERROR_OK;
 
 	/* Now copy everything over that isn't private */
 	LIST_FOREACH(&vs_source->vs_areas, va_src, vmarea_t) {
@@ -266,23 +257,21 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 		 *
 		 * This loop assumes that our current vmspace is the source!
 		 */
-		if (!LIST_EMPTY(&va_src->va_pages)) {
-			LIST_FOREACH(&va_src->va_pages, p, struct PAGE) {
-				struct PAGE* new_page = page_alloc_order(p->p_order);
-				if (new_page == NULL)
-					return ANANAS_ERROR(OUT_OF_MEMORY);
-				LIST_APPEND(&va_dst->va_pages, new_page);
-				new_page->p_addr = p->p_addr;
-				int num_pages = 1 << p->p_order;
+		LIST_FOREACH(&va_src->va_pages, p, struct PAGE) {
+			struct PAGE* new_page = page_alloc_order(p->p_order);
+			if (new_page == NULL)
+				return ANANAS_ERROR(OUT_OF_MEMORY);
+			LIST_APPEND(&va_dst->va_pages, new_page);
+			new_page->p_addr = p->p_addr;
+			int num_pages = 1 << p->p_order;
 
-				/* XXX make a temporary mapping to copy the data. We should do a copy-on-write */
-				void* ktmp = kmem_map(page_get_paddr(new_page), num_pages * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
-				memcpy(ktmp, (void*)p->p_addr, num_pages * PAGE_SIZE);
-				kmem_unmap(ktmp, num_pages * PAGE_SIZE);
-				
-				/* Mark the page as present in the cloned process */
-				md_map_pages(vs_dest, p->p_addr, page_get_paddr(new_page), num_pages, va_dst->va_flags);
-			}
+			/* XXX make a temporary mapping to copy the data. We should do a copy-on-write */
+			void* ktmp = kmem_map(page_get_paddr(new_page), num_pages * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
+			memcpy(ktmp, (void*)p->p_addr, num_pages * PAGE_SIZE);
+			kmem_unmap(ktmp, num_pages * PAGE_SIZE);
+
+			/* Mark the page as present in the cloned process */
+			md_map_pages(vs_dest, p->p_addr, page_get_paddr(new_page), num_pages, va_dst->va_flags);
 		}
 	}
 
@@ -297,20 +286,16 @@ vmspace_area_free(vmspace_t* vs, vmarea_t* va)
 		va->va_destroy(vs, va);
 
 	/* If the pages were allocated, we need to free them one by one */
-	if (!LIST_EMPTY(&va->va_pages))
-		LIST_FOREACH_SAFE(&va->va_pages, p, struct PAGE) {
-			md_unmap_pages(vs, p->p_addr, 1);
-			page_free(p);
-		}
+	LIST_FOREACH_SAFE(&va->va_pages, p, struct PAGE) {
+		md_unmap_pages(vs, p->p_addr, 1);
+		page_free(p);
+	}
 	kfree(va);
 }
 
 void
 vmspace_dump(vmspace_t* vs)
 {
-	if(LIST_EMPTY(&vs->vs_areas))
-		return;
-
 	LIST_FOREACH(&vs->vs_areas, va, vmarea_t) {
 		kprintf("area %p: %p..%p flags %x\n", va, va->va_virt, va->va_virt + va->va_len, va->va_flags);
 	}

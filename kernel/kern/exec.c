@@ -19,17 +19,15 @@ exec_init()
 errorcode_t
 exec_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 {
-	if (!LIST_EMPTY(&exec_formats)) {
-		LIST_FOREACH(&exec_formats, ef, struct EXEC_FORMAT) {
-			/* See if we can execute this... */
-			errorcode_t err = ef->ef_handler(vs, dentry, exec_addr);
-			if (err != ANANAS_ERROR_OK) {
-				/* Execute failed; try the next one */
-				continue;
-			}
-
-			return ANANAS_ERROR_NONE;
+	LIST_FOREACH(&exec_formats, ef, struct EXEC_FORMAT) {
+		/* See if we can execute this... */
+		errorcode_t err = ef->ef_handler(vs, dentry, exec_addr);
+		if (err != ANANAS_ERROR_OK) {
+			/* Execute failed; try the next one */
+			continue;
 		}
+
+		return ANANAS_ERROR_NONE;
 	}
 
 	/* Nothing worked... */

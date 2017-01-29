@@ -263,45 +263,43 @@ icache_lookup(struct VFS_MOUNTED_FS* fs, void* fsop)
 	 * XXX This is just a simple linear search which attempts to avoid
 	 * overhead by moving recent entries to the start
 	 */
-	if (!LIST_EMPTY(&fs->fs_icache_inuse)) {
-		LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
-			if (fsop_compare(fs, fsop, ii->fsop) != 0)
-				continue;
+	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
+		if (fsop_compare(fs, fsop, ii->fsop) != 0)
+			continue;
 
-			/*
-			 * It's quite possible that this inode is still pending; if that
-		 	 * is the case, our caller should sleep and wait for the other
-			 * caller to finish up.
-			 */
-			if (ii->inode == NULL) {
-				ICACHE_UNLOCK(fs);
-				kprintf("icache_lookup(): pending item, waiting\n");
-				panic("musn't happen");
-				return NULL;
-			}
-
-			/* Now, we must increase the inode's lock count. We know the inode was
-			 * in the cache, so it's refcount must be at least one (it could not be
-			 * removed in between as we hold the cache lock). We increment the
-			 * refcount a second time, as it's now being given to the calling thread.
-			 *
-			 * Note that we cannot safely do this if we are dropping the icache lock,
-			 * because this creates a race: the item may be removed while we are
-			 * waiting for the inode lock.
-			 */
-			vfs_ref_inode(ii->inode);
-
-			/*
-			 * Push the the item to the head of the cache; we expect the caller to
-			 * free it once done, which will decrease the refcount to 1, which is OK
-			 * as only the cache owns it in such a case.
-		 	 */
-			LIST_REMOVE(&fs->fs_icache_inuse, ii);
-			LIST_PREPEND(&fs->fs_icache_inuse, ii);
+		/*
+		 * It's quite possible that this inode is still pending; if that
+		 * is the case, our caller should sleep and wait for the other
+		 * caller to finish up.
+		 */
+		if (ii->inode == NULL) {
 			ICACHE_UNLOCK(fs);
-			TRACE(VFS, INFO, "cache hit: fs=%p,fsop=% => ii=%p, inode=%p", fs, fsop_to_string(fs, fsop), ii, ii->inode);
-			return ii;
+			kprintf("icache_lookup(): pending item, waiting\n");
+			panic("musn't happen");
+			return NULL;
 		}
+
+		/* Now, we must increase the inode's lock count. We know the inode was
+		 * in the cache, so it's refcount must be at least one (it could not be
+		 * removed in between as we hold the cache lock). We increment the
+		 * refcount a second time, as it's now being given to the calling thread.
+		 *
+		 * Note that we cannot safely do this if we are dropping the icache lock,
+		 * because this creates a race: the item may be removed while we are
+		 * waiting for the inode lock.
+		 */
+		vfs_ref_inode(ii->inode);
+
+		/*
+		 * Push the the item to the head of the cache; we expect the caller to
+		 * free it once done, which will decrease the refcount to 1, which is OK
+		 * as only the cache owns it in such a case.
+		 */
+		LIST_REMOVE(&fs->fs_icache_inuse, ii);
+		LIST_PREPEND(&fs->fs_icache_inuse, ii);
+		ICACHE_UNLOCK(fs);
+		TRACE(VFS, INFO, "cache hit: fs=%p,fsop=% => ii=%p, inode=%p", fs, fsop_to_string(fs, fsop), ii, ii->inode);
+		return ii;
 	}
 
 	/* Item was not found; try to get one from the freelist */

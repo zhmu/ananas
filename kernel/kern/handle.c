@@ -51,13 +51,11 @@ handle_alloc(int type, process_t* proc, handleindex_t index_from, struct HANDLE*
 	/* Look up the handle type XXX O(n) */
 	struct HANDLE_TYPE* htype = NULL;
 	spinlock_lock(&spl_handletypes);
-	if (!LIST_EMPTY(&handle_types)) {
-		LIST_FOREACH(&handle_types, ht, struct HANDLE_TYPE) {
-			if (ht->ht_id != type)
-				continue;
-			htype = ht;
-			break;
-		}
+	LIST_FOREACH(&handle_types, ht, struct HANDLE_TYPE) {
+		if (ht->ht_id != type)
+			continue;
+		htype = ht;
+		break;
 	}
 	spinlock_unlock(&spl_handletypes);
 	if (htype == NULL)

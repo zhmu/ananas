@@ -48,13 +48,12 @@ void
 init_unregister_module(struct KERNEL_MODULE* kmod)
 {
 	/* No lock necessary as we're behind the module lock either way */
-	if (!LIST_EMPTY(&initfunc_dynamics))
-		LIST_FOREACH_SAFE(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
-			if (idf->idf_kmod != kmod)
-				continue;
-			LIST_REMOVE(&initfunc_dynamics, idf);
-			kfree(idf);
-		}
+	LIST_FOREACH_SAFE(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
+		if (idf->idf_kmod != kmod)
+			continue;
+		LIST_REMOVE(&initfunc_dynamics, idf);
+		kfree(idf);
+	}
 }
 
 static void
@@ -118,7 +117,7 @@ run_init(enum INIT_SUBSYSTEM first_subsystem, enum INIT_SUBSYSTEM last_subsystem
 	kfree(ifn_chain);
 
 	/* Only throw away the dynamic chain if this is our final init run */
-	if (last_subsystem == SUBSYSTEM_LAST && !LIST_EMPTY(&initfunc_dynamics))
+	if (last_subsystem == SUBSYSTEM_LAST)
 		LIST_FOREACH_SAFE(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
 			kfree(idf);
 		}

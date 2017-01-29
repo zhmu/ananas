@@ -62,9 +62,6 @@ int
 module_sym_resolve_name(const char* name, struct SYMBOL* s)
 {
 	/* XXX locking? */
-	if (LIST_EMPTY(&kernel_modules))
-		return 0;
-
 	LIST_FOREACH(&kernel_modules, kmod, struct KERNEL_MODULE) {
 		Elf_Sym* sym = kmod->kmod_symptr;
 		for (unsigned int i = 0; i < kmod->kmod_sym_size; i += sizeof(Elf_Sym), sym++) {
@@ -83,9 +80,6 @@ int
 module_sym_resolve_addr(addr_t addr, struct SYMBOL* s)
 {
 	/* XXX locking? */
-	if (LIST_EMPTY(&kernel_modules))
-		return 0;
-
 	LIST_FOREACH(&kernel_modules, kmod, struct KERNEL_MODULE) {
 		Elf_Sym* sym = kmod->kmod_symptr;
 		for (unsigned int i = 0; i < kmod->kmod_sym_size; i += sizeof(Elf_Sym), sym++) {

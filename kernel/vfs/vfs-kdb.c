@@ -48,13 +48,11 @@ KDB_COMMAND(inodes, NULL, "Inode status")
 #ifdef NOTYET
 		/* Now scour the handles for references to this inode */
 		for (struct THREAD* t = threads; t != NULL; t = t->next) {
-			if(!LIST_EMPTY(&t->handles)) {
-				LIST_FOREACH_SAFE(&t->handles, handle, struct HANDLE) {
-					if (handle->type != HANDLE_TYPE_FILE)
-						continue;
-					if (handle->data.vfs_file.f_inode == ii->inode)
-						expected_refs++; /* handle ref */
-				}
+			LIST_FOREACH_SAFE(&t->handles, handle, struct HANDLE) {
+				if (handle->type != HANDLE_TYPE_FILE)
+					continue;
+				if (handle->data.vfs_file.f_inode == ii->inode)
+					expected_refs++; /* handle ref */
 			}
 		}
 

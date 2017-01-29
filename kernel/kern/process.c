@@ -87,12 +87,11 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 		}
 	}
 	/* Run all process initialization callbacks */
-	if (!LIST_EMPTY(&process_callbacks_init))
-		LIST_FOREACH(&process_callbacks_init, pc, struct PROCESS_CALLBACK) {
-			err = pc->pc_func(p);
-			if (err != ANANAS_ERROR_NONE)
-				goto fail;
-		}
+	LIST_FOREACH(&process_callbacks_init, pc, struct PROCESS_CALLBACK) {
+		err = pc->pc_func(p);
+		if (err != ANANAS_ERROR_NONE)
+			goto fail;
+	}
 
 	/* Grab the parent's lock and insert the child */
 	if (parent != NULL) {
@@ -149,10 +148,9 @@ static void
 process_destroy(process_t* p)
 {
 	/* Run all process exit callbacks */
-	if (!LIST_EMPTY(&process_callbacks_exit))
-		LIST_FOREACH(&process_callbacks_exit, pc, struct PROCESS_CALLBACK) {
-			pc->pc_func(p);
-		}
+	LIST_FOREACH(&process_callbacks_exit, pc, struct PROCESS_CALLBACK) {
+		pc->pc_func(p);
+	}
 
 	/* Free all handles */
 	for(unsigned int n = 0; n < PROCESS_MAX_HANDLES; n++)

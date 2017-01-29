@@ -82,17 +82,15 @@ scheduler_add_thread_locked(thread_t* t)
 	 * XXX Note that this is O(n) - we can do better
 	 */
 	int inserted = 0;
-	if (!LIST_EMPTY(&sched_runqueue)) {
-		LIST_FOREACH(&sched_runqueue, s, struct SCHED_PRIV) {
-			KASSERT(s->sp_thread != t, "thread %p already in runqueue", t);
-			if (s->sp_thread->t_priority <= t->t_priority)
-				continue;
+	LIST_FOREACH(&sched_runqueue, s, struct SCHED_PRIV) {
+		KASSERT(s->sp_thread != t, "thread %p already in runqueue", t);
+		if (s->sp_thread->t_priority <= t->t_priority)
+			continue;
 
-			/* Found a thread with a lower priority; we can insert it here */
-			LIST_INSERT_BEFORE(&sched_runqueue, s, &t->t_sched_priv);
-			inserted++;
-			break;
-		}
+		/* Found a thread with a lower priority; we can insert it here */
+		LIST_INSERT_BEFORE(&sched_runqueue, s, &t->t_sched_priv);
+		inserted++;
+		break;
 	}
 	if (!inserted)
 		LIST_APPEND(&sched_runqueue, &t->t_sched_priv);

@@ -356,22 +356,21 @@ KDB_COMMAND(threads, "[s:flags]", "Displays current threads")
 	struct THREAD* cur = PCPU_CURTHREAD();
 	spinlock_lock(&spl_threadqueue);
 	kprintf("thread dump\n");
-	if (!LIST_EMPTY(&thread_queue))
-		LIST_FOREACH(&thread_queue, t, struct THREAD) {
-			kprintf ("thread %p (hindex %d): %s: flags [", t, t->t_hidx_thread, t->t_threadinfo->ti_args);
-			if (THREAD_IS_ACTIVE(t))      kprintf(" active");
-			if (THREAD_IS_SUSPENDED(t))   kprintf(" suspended");
-			if (THREAD_IS_ZOMBIE(t))      kprintf(" zombie");
-			kprintf(" ]%s\n", (t == cur) ? " <- current" : "");
-			if (flags & FLAG_HANDLE) {
-				kprintf("handles\n");
-				for (unsigned int n = 0; n < THREAD_MAX_HANDLES; n++) {
-					if (t->t_handle[n] == NULL)
-						continue;
-					kprintf(" %d: handle %p, type %u\n", n, t->t_handle[n], t->t_handle[n]->h_type);
-				}
+	LIST_FOREACH(&thread_queue, t, struct THREAD) {
+		kprintf ("thread %p (hindex %d): %s: flags [", t, t->t_hidx_thread, t->t_threadinfo->ti_args);
+		if (THREAD_IS_ACTIVE(t))      kprintf(" active");
+		if (THREAD_IS_SUSPENDED(t))   kprintf(" suspended");
+		if (THREAD_IS_ZOMBIE(t))      kprintf(" zombie");
+		kprintf(" ]%s\n", (t == cur) ? " <- current" : "");
+		if (flags & FLAG_HANDLE) {
+			kprintf("handles\n");
+			for (unsigned int n = 0; n < THREAD_MAX_HANDLES; n++) {
+				if (t->t_handle[n] == NULL)
+					continue;
+				kprintf(" %d: handle %p, type %u\n", n, t->t_handle[n], t->t_handle[n]->h_type);
 			}
 		}
+	}
 	spinlock_unlock(&spl_threadqueue);
 }
 
@@ -387,13 +386,11 @@ KDB_COMMAND(thread, NULL, "Shows current thread information")
 	kprintf("flags        : 0x%x\n", thread->t_flags);
 	kprintf("terminateinfo: 0x%x\n", thread->t_terminate_info);
 	kprintf("mappings:\n");
-	if (!LIST_EMPTY(&thread->t_vmspace->vs_areas)) {
-		LIST_FOREACH(&thread->t_vmspace->vs_areas, va, vmarea_t) {
-			kprintf("   flags      : 0x%x\n", va->va_flags);
-			kprintf("   virtual    : 0x%x - 0x%x\n", va->va_virt, va->va_virt + va->va_len);
-			kprintf("   length     : %u\n", va->va_len);
-			kprintf("\n");
-		}
+	LIST_FOREACH(&thread->t_vmspace->vs_areas, va, vmarea_t) {
+		kprintf("   flags      : 0x%x\n", va->va_flags);
+		kprintf("   virtual    : 0x%x - 0x%x\n", va->va_virt, va->va_virt + va->va_len);
+		kprintf("   length     : %u\n", va->va_len);
+		kprintf("\n");
 	}
 }
 

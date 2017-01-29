@@ -28,10 +28,8 @@ irqsource_register(struct IRQ_SOURCE* source)
 	KASSERT(source->is_first + source->is_count < MAX_IRQS, "can't register beyond MAX_IRQS range");
 
 	/* Ensure there will not be an overlap */
-	if(!LIST_EMPTY(&irq_sources)) {
-		LIST_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
-			KASSERT(source->is_first + source->is_count < is->is_first || is->is_first + is->is_count < source->is_first, "overlap in interrupt ranges (have %u-%u, attempt to add %u-%u)", is->is_first, is->is_first + is->is_count, source->is_first, source->is_first + source->is_count);
-		}
+	LIST_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
+		KASSERT(source->is_first + source->is_count < is->is_first || is->is_first + is->is_count < source->is_first, "overlap in interrupt ranges (have %u-%u, attempt to add %u-%u)", is->is_first, is->is_first + is->is_count, source->is_first, source->is_first + source->is_count);
 	}
 	LIST_APPEND(&irq_sources, source);
 
@@ -105,12 +103,10 @@ ithread(void* context)
 static struct IRQ_SOURCE*
 irqsource_find(unsigned int num)
 {
-	if(!LIST_EMPTY(&irq_sources)) {
-		LIST_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
-			if (num < is->is_first || num >= is->is_first + is->is_count)
-				continue;
-			return is;
-		}
+	LIST_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
+		if (num < is->is_first || num >= is->is_first + is->is_count)
+			continue;
+		return is;
 	}
 	return NULL;
 }
@@ -293,10 +289,8 @@ KDB_COMMAND(irq, NULL, "Display IRQ status")
 {
 	/* Note: no need to grab locks as the debugger runs with interrupts disabled */
 	kprintf("Registered IRQ sources:\n");
-	if(!LIST_EMPTY(&irq_sources)) {
-		LIST_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
-			kprintf(" IRQ %d..%d\n", is->is_first, is->is_first + is->is_count);
-		}
+	LIST_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
+		kprintf(" IRQ %d..%d\n", is->is_first, is->is_first + is->is_count);
 	}
 
 	kprintf("IRQ handlers:\n");

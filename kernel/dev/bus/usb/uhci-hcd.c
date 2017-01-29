@@ -248,26 +248,24 @@ uhci_irq(device_t dev, void* context)
 		 * what it was. We'll have to traverse the scheduled items and wake anything
 		 * up that finished.
 		 */
-		if (!LIST_EMPTY(&privdata->uhci_scheduled_items)) {
-			LIST_FOREACH_SAFE(&privdata->uhci_scheduled_items, si, struct UHCI_SCHEDULED_ITEM) {
-				/*
-				 * Transfers are scheduled in such a way that we can use the first TD to
-				 * determine whether the transfer went OK (as only the final TD will have the
-				 * interrupt-on-completion flag enabled)
-				 */
-				if (si->si_td->td_td.td_status & TD_STATUS_ACTIVE)
-					continue;
+		LIST_FOREACH_SAFE(&privdata->uhci_scheduled_items, si, struct UHCI_SCHEDULED_ITEM) {
+			/*
+			 * Transfers are scheduled in such a way that we can use the first TD to
+			 * determine whether the transfer went OK (as only the final TD will have the
+			 * interrupt-on-completion flag enabled)
+			 */
+			if (si->si_td->td_td.td_status & TD_STATUS_ACTIVE)
+				continue;
 
-				/* First of all, remove the scheduled item - this orphanages the TD's */
-				LIST_REMOVE(&privdata->uhci_scheduled_items, si);
+			/* First of all, remove the scheduled item - this orphanages the TD's */
+			LIST_REMOVE(&privdata->uhci_scheduled_items, si);
 
-				/* Walk through the chain to calculate the length and see if something gave an error */
-				if (uhci_inspect_chain(si->si_td, &si->si_xfer->xfer_result_length))
-					si->si_xfer->xfer_flags |= TRANSFER_FLAG_ERROR;
+			/* Walk through the chain to calculate the length and see if something gave an error */
+			if (uhci_inspect_chain(si->si_td, &si->si_xfer->xfer_result_length))
+				si->si_xfer->xfer_flags |= TRANSFER_FLAG_ERROR;
 
-				/* Finally, give hand the transfer back to the USB stack */
-				usbtransfer_complete(si->si_xfer);
-			}
+			/* Finally, give hand the transfer back to the USB stack */
+			usbtransfer_complete(si->si_xfer);
 		}
 	}
 
