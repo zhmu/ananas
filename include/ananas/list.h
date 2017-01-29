@@ -101,7 +101,7 @@
 
 #define LIST_FOREACH_SAFE_IP(q, ip, it, TYPE) \
 	for (TYPE* (it) = LIST_HEAD(q), \
-	     *__it = LIST_NEXT_IP(it, ip); \
+	     *__it = (it != NULL) ? LIST_NEXT_IP(it, ip) : NULL; \
 	     (it) != NULL; \
 	     (it) = __it, \
 	     __it = (__it != NULL) ? LIST_NEXT_IP(__it, ip) : NULL)
@@ -112,8 +112,8 @@
 	     (it) = LIST_PREV_IP(it, ip))
 
 #define LIST_FOREACH_REVERSE_SAFE_IP(q, ip, it, TYPE) \
-	for (TYPE *(it) = LIST_TAIL(q),	\
-	     *__it = LIST_PREV_IP(it, ip); \
+	for (TYPE* (it) = LIST_TAIL(q),	\
+	     *__it = (it != NULL) ? LIST_PREV_IP(it, ip) : NULL; \
 	     (it) != NULL; \
 	     (it) = __it, \
 	     __it = (__it != NULL) ? LIST_PREV_IP(__it, ip) : NULL)
