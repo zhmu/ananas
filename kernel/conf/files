@@ -1,5 +1,6 @@
 kern/init.c		mandatory
 kern/mm.c		mandatory
+kern/cmdline.c		mandatory
 kern/dlmalloc.c		mandatory
 kern/page.c		mandatory
 kern/kmem.c		mandatory
