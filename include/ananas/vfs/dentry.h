@@ -3,7 +3,7 @@
 
 #include <ananas/types.h>
 #include <ananas/device.h>
-#include <ananas/dqueue.h>
+#include <ananas/list.h>
 
 struct VFS_MOUNTED_FS;
 
@@ -19,10 +19,10 @@ struct DENTRY {
 #define DENTRY_FLAG_PERMANENT	0x0002		/* Entry must not be removed */
 #define DENTRY_FLAG_CACHED	0x0004		/* Entry is in the cache */
 	char	d_entry[DCACHE_MAX_NAME_LEN];	/* Entry name */
-	DQUEUE_FIELDS(struct DENTRY);
+	LIST_FIELDS(struct DENTRY);
 };
 
-DQUEUE_DEFINE(DENTRY_QUEUE, struct DENTRY);
+LIST_DEFINE(DENTRY_QUEUE, struct DENTRY);
 
 void dcache_init(struct VFS_MOUNTED_FS* fs);
 void dcache_dump(struct VFS_MOUNTED_FS* fs);

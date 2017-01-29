@@ -2,6 +2,7 @@
 #define ANANAS_VMSPACE_H
 
 #include <ananas/types.h>
+#include <ananas/list.h>
 #include <machine/vmspace.h>
 #include <ananas/page.h>
 
@@ -29,11 +30,10 @@ struct VM_AREA {
 	vmarea_clone_t	va_clone;		/* clone function */
 	vmarea_destroy_t	va_destroy;		/* destroy function */
 
-	DQUEUE_FIELDS(struct VM_AREA);
+	LIST_FIELDS(struct VM_AREA);
 };
 
-DQUEUE_DEFINE(VM_AREA_LIST, struct VM_AREA);
-
+LIST_DEFINE(VM_AREA_LIST, struct VM_AREA);
 
 /*
  * VM space describes a thread's complete overview of memory.

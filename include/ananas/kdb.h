@@ -1,7 +1,7 @@
 #ifndef __ANANAS_KDB_H__
 #define __ANANAS_KDB_H__
 
-#include <ananas/dqueue.h>
+#include <ananas/list.h>
 #include <ananas/types.h> /* for errorcode_t */
 
 enum KDB_ARG_TYPE {
@@ -33,7 +33,7 @@ struct KDB_COMMAND {
 	const char* cmd_help;
 	kdb_func_t* cmd_func;
 
-	DQUEUE_FIELDS(struct KDB_COMMAND);
+	LIST_FIELDS(struct KDB_COMMAND);
 };
 
 void kdb_enter(const char* why);

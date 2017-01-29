@@ -1,9 +1,10 @@
-#include <ananas/types.h>
-#include <ananas/device.h>
-#include <machine/param.h>	/* for PAGE_SIZE */
-
 #ifndef __ANANAS_BIO_H__
 #define __ANANAS_BIO_H__
+
+#include <ananas/types.h>
+#include <ananas/device.h>
+#include <ananas/list.h>
+#include <machine/param.h>	/* for PAGE_SIZE */
 
 /* Number of buckets used to hash a block number to */
 #define BIO_BUCKET_SIZE		16
@@ -38,8 +39,8 @@ struct BIO {
 	void*		  data;		/* Pointer to BIO data */
 	semaphore_t       sem;          /* Semaphore for this BIO */
 
-	DQUEUE_FIELDS_IT(struct BIO, chain);	/* Chain queue */
-	DQUEUE_FIELDS_IT(struct BIO, bucket);	/* Bucket queue */
+	LIST_FIELDS_IT(struct BIO, chain);	/* Chain queue */
+	LIST_FIELDS_IT(struct BIO, bucket);	/* Bucket queue */
 };
 
 /* Flags of BIO_READ */

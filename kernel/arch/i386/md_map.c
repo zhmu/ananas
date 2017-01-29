@@ -39,7 +39,7 @@ md_map_pages(vmspace_t* vs, addr_t virt, addr_t phys, size_t num_pages, int flag
 			KASSERT(vs != NULL, "unmapped page while mapping kernel pages?");
 			struct PAGE* p = page_alloc_single();
 			KASSERT(p != NULL, "out of pages");
-			DQUEUE_ADD_TAIL(&vs->vs_pages, p);
+			LIST_APPEND(&vs->vs_pages, p);
 
 			/* Map the new page into kernelspace XXX This shouldn't be needed at all; threadspace would work too */
 			addr_t new_pt = (addr_t)kmem_map(page_get_paddr(p), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);

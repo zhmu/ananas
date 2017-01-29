@@ -26,7 +26,7 @@ handle_init()
 	struct HANDLE* pool = kmalloc(sizeof(struct HANDLE) * (NUM_HANDLES + 1));
 	spinlock_init(&spl_handlequeue);
 	spinlock_init(&spl_handletypes);
-	DQUEUE_INIT(&handle_types);
+	LIST_INIT(&handle_types);
 
 	/*
 	 * Ensure handle pool is aligned; this makes checking for valid handles
@@ -36,10 +36,10 @@ handle_init()
 	memset(pool, 0, sizeof(struct HANDLE) * NUM_HANDLES);
 
 	/* Add all handles to the queue one by one */
-	DQUEUE_INIT(&handle_freelist);
+	LIST_INIT(&handle_freelist);
 	for (unsigned int i = 0; i < NUM_HANDLES; i++) {
 		struct HANDLE* h = &pool[i];
-		DQUEUE_ADD_TAIL(&handle_freelist, h);
+		LIST_APPEND(&handle_freelist, h);
 	}
 }
 
@@ -51,8 +51,8 @@ handle_alloc(int type, process_t* proc, handleindex_t index_from, struct HANDLE*
 	/* Look up the handle type XXX O(n) */
 	struct HANDLE_TYPE* htype = NULL;
 	spinlock_lock(&spl_handletypes);
-	if (!DQUEUE_EMPTY(&handle_types)) {
-		DQUEUE_FOREACH(&handle_types, ht, struct HANDLE_TYPE) {
+	if (!LIST_EMPTY(&handle_types)) {
+		LIST_FOREACH(&handle_types, ht, struct HANDLE_TYPE) {
 			if (ht->ht_id != type)
 				continue;
 			htype = ht;
@@ -65,12 +65,12 @@ handle_alloc(int type, process_t* proc, handleindex_t index_from, struct HANDLE*
 
 	/* Grab a handle from the pool */
 	spinlock_lock(&spl_handlequeue);
-	if (DQUEUE_EMPTY(&handle_freelist)) {
+	if (LIST_EMPTY(&handle_freelist)) {
 		/* XXX should we wait for a new handle, or just give an error? */
 		panic("out of handles");
 	}
-	struct HANDLE* handle = DQUEUE_HEAD(&handle_freelist);
-	DQUEUE_POP_HEAD(&handle_freelist);
+	struct HANDLE* handle = LIST_HEAD(&handle_freelist);
+	LIST_POP_HEAD(&handle_freelist);
 	spinlock_unlock(&spl_handlequeue);
 
 	/* Sanity checks */
@@ -169,7 +169,7 @@ handle_free(struct HANDLE* handle)
 
 	/* Hand it back to the the pool */
 	spinlock_lock(&spl_handlequeue);
-	DQUEUE_ADD_TAIL(&handle_freelist, handle);
+	LIST_APPEND(&handle_freelist, handle);
 	spinlock_unlock(&spl_handlequeue);
 	return ANANAS_ERROR_OK;
 }
@@ -215,7 +215,7 @@ errorcode_t
 handle_register_type(struct HANDLE_TYPE* ht)
 {
 	spinlock_lock(&spl_handletypes);
-	DQUEUE_ADD_TAIL(&handle_types, ht);
+	LIST_APPEND(&handle_types, ht);
 	spinlock_unlock(&spl_handletypes);
 	return ANANAS_ERROR_OK;
 }
@@ -224,7 +224,7 @@ errorcode_t
 handle_unregister_type(struct HANDLE_TYPE* ht)
 {
 	spinlock_lock(&spl_handletypes);
-	DQUEUE_REMOVE(&handle_types, ht);
+	LIST_REMOVE(&handle_types, ht);
 	spinlock_unlock(&spl_handletypes);
 	return ANANAS_ERROR_OK;
 }

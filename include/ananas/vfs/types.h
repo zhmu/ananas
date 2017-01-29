@@ -1,7 +1,7 @@
 #ifndef __ANANAS_VFS_TYPES_H__
 #define __ANANAS_VFS_TYPES_H__
 
-#include <ananas/dqueue.h>
+#include <ananas/list.h>
 #include <ananas/stat.h> /* for 'struct stat' */
 #include <ananas/vfs/dentry.h> /* for 'struct DENTRY_QUEUE' */
 #include <ananas/vfs/icache.h> /* for 'struct ICACHE_QUEUE' */
@@ -200,9 +200,9 @@ struct VFS_FILESYSTEM {
 	const char* fs_name;
 	/* Filesystem operations */
 	struct VFS_FILESYSTEM_OPS* fs_fsops;
-	DQUEUE_FIELDS(struct VFS_FILESYSTEM);
+	LIST_FIELDS(struct VFS_FILESYSTEM);
 };
 
-DQUEUE_DEFINE(VFS_FILESYSTEMS, struct VFS_FILESYSTEM);
+LIST_DEFINE(VFS_FILESYSTEMS, struct VFS_FILESYSTEM);
 
 #endif /* __ANANAS_VFS_TYPES_H__ */

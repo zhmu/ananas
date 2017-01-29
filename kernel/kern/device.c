@@ -70,7 +70,7 @@ device_free(device_t dev)
 	/* XXX clear waiters; should we signal them? */
 
 	spinlock_lock(&spl_devicequeue);
-	DQUEUE_REMOVE(&device_queue, dev);
+	LIST_REMOVE(&device_queue, dev);
 	spinlock_unlock(&spl_devicequeue);
 	kfree(dev);
 }
@@ -79,13 +79,13 @@ static void
 device_add_to_tree(device_t dev)
 {
 	spinlock_lock(&spl_devicequeue);
-	if (!DQUEUE_EMPTY(&device_queue)) {
-		DQUEUE_FOREACH(&device_queue, dq_dev, struct DEVICE) {
+	if (!LIST_EMPTY(&device_queue)) {
+		LIST_FOREACH(&device_queue, dq_dev, struct DEVICE) {
 			if (dq_dev == dev)
 				goto skip;
 		}
 	}
-	DQUEUE_ADD_TAIL(&device_queue, dev);
+	LIST_APPEND(&device_queue, dev);
 skip:
 	spinlock_unlock(&spl_devicequeue);
 }
@@ -219,7 +219,7 @@ device_alloc_resource(device_t dev, resource_type_t type, size_t len)
 void
 device_attach_bus(device_t bus)
 {
-	if (DQUEUE_EMPTY(&probe_queue))
+	if (LIST_EMPTY(&probe_queue))
 		return;
 
 	/*
@@ -228,7 +228,7 @@ device_attach_bus(device_t bus)
 	 */
 	device_t input_dev = tty_get_inputdev(console_tty);
 	device_t output_dev = tty_get_outputdev(console_tty);
-	DQUEUE_FOREACH_SAFE(&probe_queue, p, struct PROBE) {
+	LIST_FOREACH_SAFE(&probe_queue, p, struct PROBE) {
 		/* See if the device exists on this bus */
 		int exists = 0;
 		for (const char** curbus = p->bus; *curbus != NULL; curbus++) {
@@ -281,7 +281,7 @@ device_attach_bus(device_t bus)
 static errorcode_t
 device_init()
 {
-	DQUEUE_INIT(&device_queue);
+	LIST_INIT(&device_queue);
 
 	/*
 	 * First of all, create the core bus; this is as bare to the metal as it
@@ -304,7 +304,7 @@ device_find(const char* name)
 	while (*ptr != '\0' && (*ptr < '0' || *ptr > '9')) ptr++;
 	int unit = (*ptr != '\0') ? strtoul(ptr, NULL, 10) : 0;
 
-	DQUEUE_FOREACH(&device_queue, dev, struct DEVICE) {
+	LIST_FOREACH(&device_queue, dev, struct DEVICE) {
 		if (!strncmp(dev->name, name, ptr - name) && dev->unit == unit)
 			return dev;
 	}
@@ -375,21 +375,21 @@ device_get_queue()
 errorcode_t
 device_register_probe(struct PROBE* p)
 {
-	if (!DQUEUE_EMPTY(&probe_queue))
-		DQUEUE_FOREACH(&probe_queue, pqi, struct PROBE) {
+	if (!LIST_EMPTY(&probe_queue))
+		LIST_FOREACH(&probe_queue, pqi, struct PROBE) {
 			if (pqi->driver == p->driver) {
 				/* Duplicate driver */
 				return ANANAS_ERROR(FILE_EXISTS);
 			}
 		}
-	DQUEUE_ADD_TAIL(&probe_queue, p);
+	LIST_APPEND(&probe_queue, p);
 	return ANANAS_ERROR_OK;
 }
 
 errorcode_t
 device_unregister_probe(struct PROBE* p)
 {
-	DQUEUE_REMOVE(&probe_queue, p);
+	LIST_REMOVE(&probe_queue, p);
 	return ANANAS_ERROR_OK;
 }
 
@@ -398,7 +398,7 @@ static int
 print_devices(device_t parent, int indent)
 {
 	int count = 0;
-	DQUEUE_FOREACH(&device_queue, dev, struct DEVICE) {
+	LIST_FOREACH(&device_queue, dev, struct DEVICE) {
 		if (dev->parent != parent)
 			continue;
 		for (int n = 0; n < indent; n++)
@@ -416,7 +416,7 @@ KDB_COMMAND(devices, NULL, "Displays a list of all devices")
 
 	/* See if we have printed everything; if not, our structure is wrong and we should fix this */
 	int n = 0;
-	DQUEUE_FOREACH(&device_queue, dev, struct DEVICE) {
+	LIST_FOREACH(&device_queue, dev, struct DEVICE) {
 		n++;
 	}
 	if (n != count)

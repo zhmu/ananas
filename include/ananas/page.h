@@ -1,13 +1,13 @@
 #ifndef __ANANAS_PAGE_H__
 #define __ANANAS_PAGE_H__
 
-#include <ananas/dqueue.h>
+#include <ananas/list.h>
 #include <ananas/lock.h>
 
 #define PAGE_NUM_ORDERS 10
 
 struct PAGE {
-	DQUEUE_FIELDS(struct PAGE);
+	LIST_FIELDS(struct PAGE);
 
 	/* Mapped address, if any */
 	addr_t p_addr;
@@ -20,10 +20,10 @@ struct PAGE {
 };
 
 
-DQUEUE_DEFINE(page_list, struct PAGE);
+LIST_DEFINE(page_list, struct PAGE);
 
 struct PAGE_ZONE {
-	DQUEUE_FIELDS(struct PAGE_ZONE);
+	LIST_FIELDS(struct PAGE_ZONE);
 
 	/* Lock protecting the zone */
 	spinlock_t z_lock;
@@ -47,7 +47,7 @@ struct PAGE_ZONE {
 	char* z_bitmap;
 };
 
-DQUEUE_DEFINE(zone_list, struct PAGE_ZONE);
+LIST_DEFINE(zone_list, struct PAGE_ZONE);
 
 /* Add a chunk of memory to use for page allocation */
 void page_zone_add(addr_t base, size_t length);

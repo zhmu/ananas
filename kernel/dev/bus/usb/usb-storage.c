@@ -5,7 +5,6 @@
 #include <ananas/bus/usb/core.h>
 #include <ananas/bus/usb/pipe.h>
 #include <ananas/bus/usb/transfer.h>
-#include <ananas/dqueue.h>
 #include <ananas/endian.h>
 #include <ananas/lib.h>
 #include <ananas/lock.h>

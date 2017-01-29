@@ -64,8 +64,8 @@ fsop_compare(struct VFS_MOUNTED_FS* fs, const void* fsop1, const void* fsop2)
 static void
 icache_sanity_check(struct VFS_MOUNTED_FS* fs)
 {
-	DQUEUE_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
-		DQUEUE_FOREACH(&fs->fs_icache_inuse, jj, struct ICACHE_ITEM) {
+	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
+		LIST_FOREACH(&fs->fs_icache_inuse, jj, struct ICACHE_ITEM) {
 			if (ii == jj)
 				continue;
 
@@ -80,7 +80,7 @@ void
 icache_ensure_inode_gone(struct VFS_INODE* inode)
 {
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
-	DQUEUE_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
+	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
 		KASSERT(ii->inode != inode, "removing inode %p still in cache", inode);
 	}
 }
@@ -90,8 +90,8 @@ icache_init(struct VFS_MOUNTED_FS* fs)
 {
 	KASSERT(fs->fs_fsop_size > 0, "fsop size not initialized");
 	mutex_init(&fs->fs_icache_lock, "icache");
-	DQUEUE_INIT(&fs->fs_icache_inuse);
-	DQUEUE_INIT(&fs->fs_icache_free);
+	LIST_INIT(&fs->fs_icache_inuse);
+	LIST_INIT(&fs->fs_icache_free);
 
 	/*
 	 * Construct an empty cache; we do a single allocation and add the items one
@@ -101,7 +101,7 @@ icache_init(struct VFS_MOUNTED_FS* fs)
 	memset(fs->fs_icache_buffer, 0, ICACHE_ITEMS_PER_FS * (sizeof(struct ICACHE_ITEM) + fs->fs_fsop_size));
 	addr_t icache_ptr = (addr_t)fs->fs_icache_buffer;
 	for (int i = 0; i < ICACHE_ITEMS_PER_FS; i++) {
-		DQUEUE_ADD_TAIL(&fs->fs_icache_free, (struct ICACHE_ITEM*)icache_ptr);
+		LIST_APPEND(&fs->fs_icache_free, (struct ICACHE_ITEM*)icache_ptr);
 		icache_ptr += sizeof(struct ICACHE_ITEM) + fs->fs_fsop_size;
 	}
 }
@@ -111,7 +111,7 @@ icache_dump(struct VFS_MOUNTED_FS* fs)
 {
 	kprintf("icache_dump(): fs=%p\n", fs);
 	int n = 0;
-	DQUEUE_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
+	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
 		kprintf("icache_entry=%p, inode=%p, fsop=",ii, ii->inode);
 		for (int i = 0; i < fs->fs_fsop_size; i++)
 			kprintf("%x ", (unsigned char)ii->fsop[i]);
@@ -129,7 +129,7 @@ icache_destroy(struct VFS_MOUNTED_FS* fs)
 	panic("icache_destroy");
 #if 0
 	ICACHE_LOCK(fs);
-	DQUEUE_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
+	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
 		if (ii->inode != NULL)
 			vfs_deref_inode(ii->inode);
 	}
@@ -167,11 +167,11 @@ inode_deref_locked(struct VFS_INODE* inode)
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	int removed = 0;
 	ICACHE_LOCK(fs);
-	DQUEUE_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
+	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
 		if (ii->inode != inode)
 			continue;
-		DQUEUE_REMOVE(&fs->fs_icache_inuse, ii);
-		DQUEUE_ADD_TAIL(&fs->fs_icache_free, ii);
+		LIST_REMOVE(&fs->fs_icache_inuse, ii);
+		LIST_APPEND(&fs->fs_icache_free, ii);
 		removed++;
 		break;
 	}
@@ -212,7 +212,7 @@ vfs_ref_inode(struct VFS_INODE* inode)
 static void
 icache_purge_old_entries(struct VFS_MOUNTED_FS* fs)
 {
-	DQUEUE_FOREACH_REVERSE_SAFE(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
+	LIST_FOREACH_REVERSE_SAFE(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
 		/*
 		 * Skip any pending items - we are not responsible for their cleanup (and
 		 * to do so would be to introduce a race in vfs_read_inode() !
@@ -263,8 +263,8 @@ icache_lookup(struct VFS_MOUNTED_FS* fs, void* fsop)
 	 * XXX This is just a simple linear search which attempts to avoid
 	 * overhead by moving recent entries to the start
 	 */
-	if (!DQUEUE_EMPTY(&fs->fs_icache_inuse)) {
-		DQUEUE_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
+	if (!LIST_EMPTY(&fs->fs_icache_inuse)) {
+		LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
 			if (fsop_compare(fs, fsop, ii->fsop) != 0)
 				continue;
 
@@ -296,8 +296,8 @@ icache_lookup(struct VFS_MOUNTED_FS* fs, void* fsop)
 			 * free it once done, which will decrease the refcount to 1, which is OK
 			 * as only the cache owns it in such a case.
 		 	 */
-			DQUEUE_REMOVE(&fs->fs_icache_inuse, ii);
-			DQUEUE_ADD_HEAD(&fs->fs_icache_inuse, ii);
+			LIST_REMOVE(&fs->fs_icache_inuse, ii);
+			LIST_PREPEND(&fs->fs_icache_inuse, ii);
 			ICACHE_UNLOCK(fs);
 			TRACE(VFS, INFO, "cache hit: fs=%p,fsop=% => ii=%p, inode=%p", fs, fsop_to_string(fs, fsop), ii, ii->inode);
 			return ii;
@@ -307,15 +307,15 @@ icache_lookup(struct VFS_MOUNTED_FS* fs, void* fsop)
 	/* Item was not found; try to get one from the freelist */
 	struct ICACHE_ITEM* ii = NULL;
 	while(ii == NULL) {
-		if (!DQUEUE_EMPTY(&fs->fs_icache_free)) {
+		if (!LIST_EMPTY(&fs->fs_icache_free)) {
 			/* Got one! */
-			ii = DQUEUE_HEAD(&fs->fs_icache_free);
-			DQUEUE_POP_HEAD(&fs->fs_icache_free);
+			ii = LIST_HEAD(&fs->fs_icache_free);
+			LIST_POP_HEAD(&fs->fs_icache_free);
 		} else {
 			/* Freelist is empty; we need to sacrifice an item from the cache */
 			icache_purge_old_entries(fs);
 			/* XXX next condition is too harsh */
-			if (!DQUEUE_EMPTY(&fs->fs_icache_free))
+			if (!LIST_EMPTY(&fs->fs_icache_free))
 				kprintf("icache still full after purge??\n");
 		}
 	}
@@ -324,7 +324,7 @@ icache_lookup(struct VFS_MOUNTED_FS* fs, void* fsop)
 	TRACE(VFS, INFO, "cache miss: fs=%p, fsop=%s => ii=%p", fs, fsop_to_string(fs, fsop), ii);
 	ii->inode = NULL;
 	memcpy(ii->fsop, fsop, fs->fs_fsop_size);
-	DQUEUE_ADD_HEAD(&fs->fs_icache_inuse, ii);
+	LIST_PREPEND(&fs->fs_icache_inuse, ii);
 	ICACHE_UNLOCK(fs);
 	return ii;
 }
@@ -336,8 +336,8 @@ icache_remove_pending(struct VFS_MOUNTED_FS* fs, struct ICACHE_ITEM* ii)
 	KASSERT(ii->inode == NULL, "removing an item that is not pending");
 
 	ICACHE_LOCK(fs);
-	DQUEUE_REMOVE(&fs->fs_icache_inuse, ii);
-	DQUEUE_ADD_TAIL(&fs->fs_icache_free, ii);
+	LIST_REMOVE(&fs->fs_icache_inuse, ii);
+	LIST_APPEND(&fs->fs_icache_free, ii);
 	ICACHE_UNLOCK(fs);
 }
 

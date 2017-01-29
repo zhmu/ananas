@@ -18,7 +18,7 @@ vmspace_create(vmspace_t** vmspace)
 {
 	vmspace_t* vs = kmalloc(sizeof(*vs));
 	memset(vs, 0, sizeof(*vs));
-	DQUEUE_INIT(&vs->vs_pages);
+	LIST_INIT(&vs->vs_pages);
 	vs->vs_next_mapping = THREAD_INITIAL_MAPPING_ADDR;
 
 	errorcode_t err = md_vmspace_init(vs);
@@ -31,8 +31,8 @@ void
 vmspace_cleanup(vmspace_t* vs)
 {
 	/* Cleanup only removes all mapped areas */
-	while(!DQUEUE_EMPTY(&vs->vs_areas)) {
-		vmarea_t* va = DQUEUE_HEAD(&vs->vs_areas);
+	while(!LIST_EMPTY(&vs->vs_areas)) {
+		vmarea_t* va = LIST_HEAD(&vs->vs_areas);
 		vmspace_area_free(vs, va);
 	}
 }
@@ -44,7 +44,7 @@ vmspace_destroy(vmspace_t* vs)
 	vmspace_cleanup(vs);
 
 	/* Remove the vmspace-specific mappings - these are generally MD */
-	DQUEUE_FOREACH_SAFE(&vs->vs_pages, p, struct PAGE) {
+	LIST_FOREACH_SAFE(&vs->vs_pages, p, struct PAGE) {
 		/* XXX should we unmap the page here? the vmspace shouldn't be active... */
 		page_free(p);
 	}
@@ -55,8 +55,8 @@ vmspace_destroy(vmspace_t* vs)
 static int
 vmspace_is_inuse(vmspace_t* vs, addr_t virt, size_t len)
 {
-	if (!DQUEUE_EMPTY(&vs->vs_areas)) {
-		DQUEUE_FOREACH(&vs->vs_areas, va, vmarea_t) {
+	if (!LIST_EMPTY(&vs->vs_areas)) {
+		LIST_FOREACH(&vs->vs_areas, va, vmarea_t) {
 			if ((virt >= va->va_virt && (virt + len) <= (va->va_virt + va->va_len)) ||
 			    (va->va_virt >= virt && (va->va_virt + va->va_len) <= (virt + len)))
 				return 1;
@@ -83,11 +83,11 @@ vmspace_mapto(vmspace_t* vs, addr_t virt, addr_t phys, size_t len /* bytes */, u
 	 * THREAD_MAP_ALLOC flag is set; now we'll just assume that the
 	 * memory is there...
 	 */
-	DQUEUE_INIT(&va->va_pages);
+	LIST_INIT(&va->va_pages);
 	va->va_virt = virt;
 	va->va_len = len;
 	va->va_flags = flags;
-	DQUEUE_ADD_TAIL(&vs->vs_areas, va);
+	LIST_APPEND(&vs->vs_areas, va);
 	TRACE(VM, INFO, "vmspace_mapto(): vs=%p, va=%p, phys=%p, virt=%p, flags=0x%x", vs, va, phys, virt, flags);
 	*va_out = va;
 
@@ -135,10 +135,10 @@ vmspace_area_resize(vmspace_t* vs, vmarea_t* va, size_t new_length /* in bytes *
 	if (new_length < va->va_len) {
 		addr_t free_virt_begin = va->va_virt + new_length;
 		addr_t free_virt_end = va->va_virt + va->va_len;
-		DQUEUE_FOREACH_SAFE(&va->va_pages, p, struct PAGE) {
+		LIST_FOREACH_SAFE(&va->va_pages, p, struct PAGE) {
 			if (p->p_addr < free_virt_begin || p->p_addr >= free_virt_end)
 				continue;
-			DQUEUE_REMOVE(&va->va_pages, p);
+			LIST_REMOVE(&va->va_pages, p);
 			page_free(p);
 		}
 
@@ -156,8 +156,8 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 	TRACE(VM, INFO, "vmspace_handle_fault(): vs=%p, virt=%p, flags=0x%x", vs, virt, flags);
 
 	/* Walk through the areas one by one */
-	if (!DQUEUE_EMPTY(&vs->vs_areas)) {
-		DQUEUE_FOREACH(&vs->vs_areas, va, vmarea_t) {
+	if (!LIST_EMPTY(&vs->vs_areas)) {
+		LIST_FOREACH(&vs->vs_areas, va, vmarea_t) {
 			if (!(virt >= va->va_virt && (virt < (va->va_virt + va->va_len))))
 				continue;
 
@@ -168,7 +168,7 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 			struct PAGE* p = page_alloc_single();
 			if (p == NULL)
 				return ANANAS_ERROR(OUT_OF_MEMORY);
-			DQUEUE_ADD_TAIL(&va->va_pages, p);
+			LIST_APPEND(&va->va_pages, p);
 			p->p_addr = virt & ~(PAGE_SIZE - 1);
 
 			/* Map the page */
@@ -180,7 +180,7 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 				if (err != ANANAS_ERROR_NONE) {
 					/* Mapping failed; throw the thread mapping away and nuke the page */
 					md_unmap_pages(vs, p->p_addr, 1);
-					DQUEUE_REMOVE(&va->va_pages, p);
+					LIST_REMOVE(&va->va_pages, p);
 					page_free(p);
 				}
 			}
@@ -231,19 +231,19 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 	 * First, clean up the destination area's mappings - this ensures we'll
 	 * overwrite them with our own. Note that we'll leave private mappings alone.
 	 */
-	if (!DQUEUE_EMPTY(&vs_dest->vs_areas)) {
-		DQUEUE_FOREACH_SAFE(&vs_dest->vs_areas, va, vmarea_t) {
+	if (!LIST_EMPTY(&vs_dest->vs_areas)) {
+		LIST_FOREACH_SAFE(&vs_dest->vs_areas, va, vmarea_t) {
 			if (!vmspace_clone_area_must_free(va, flags))
 				continue;
 			vmspace_area_free(vs_dest, va);
 		}
 	}
 
-	if(DQUEUE_EMPTY(&vs_source->vs_areas))
+	if(LIST_EMPTY(&vs_source->vs_areas))
 		return ANANAS_ERROR_OK;
 
 	/* Now copy everything over that isn't private */
-	DQUEUE_FOREACH(&vs_source->vs_areas, va_src, vmarea_t) {
+	LIST_FOREACH(&vs_source->vs_areas, va_src, vmarea_t) {
 		if (!vmspace_clone_area_must_copy(va_src, flags))
 			continue;
 
@@ -266,12 +266,12 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 		 *
 		 * This loop assumes that our current vmspace is the source!
 		 */
-		if (!DQUEUE_EMPTY(&va_src->va_pages)) {
-			DQUEUE_FOREACH(&va_src->va_pages, p, struct PAGE) {
+		if (!LIST_EMPTY(&va_src->va_pages)) {
+			LIST_FOREACH(&va_src->va_pages, p, struct PAGE) {
 				struct PAGE* new_page = page_alloc_order(p->p_order);
 				if (new_page == NULL)
 					return ANANAS_ERROR(OUT_OF_MEMORY);
-				DQUEUE_ADD_TAIL(&va_dst->va_pages, new_page);
+				LIST_APPEND(&va_dst->va_pages, new_page);
 				new_page->p_addr = p->p_addr;
 				int num_pages = 1 << p->p_order;
 
@@ -292,13 +292,13 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 void
 vmspace_area_free(vmspace_t* vs, vmarea_t* va)
 {
-	DQUEUE_REMOVE(&vs->vs_areas, va);
+	LIST_REMOVE(&vs->vs_areas, va);
 	if (va->va_destroy != NULL)
 		va->va_destroy(vs, va);
 
 	/* If the pages were allocated, we need to free them one by one */
-	if (!DQUEUE_EMPTY(&va->va_pages))
-		DQUEUE_FOREACH_SAFE(&va->va_pages, p, struct PAGE) {
+	if (!LIST_EMPTY(&va->va_pages))
+		LIST_FOREACH_SAFE(&va->va_pages, p, struct PAGE) {
 			md_unmap_pages(vs, p->p_addr, 1);
 			page_free(p);
 		}
@@ -308,10 +308,10 @@ vmspace_area_free(vmspace_t* vs, vmarea_t* va)
 void
 vmspace_dump(vmspace_t* vs)
 {
-	if(DQUEUE_EMPTY(&vs->vs_areas))
+	if(LIST_EMPTY(&vs->vs_areas))
 		return;
 
-	DQUEUE_FOREACH(&vs->vs_areas, va, vmarea_t) {
+	LIST_FOREACH(&vs->vs_areas, va, vmarea_t) {
 		kprintf("area %p: %p..%p flags %x\n", va, va->va_virt, va->va_virt + va->va_len, va->va_flags);
 	}
 }

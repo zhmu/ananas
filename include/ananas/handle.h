@@ -3,7 +3,7 @@
 
 #include <ananas/lock.h>
 #include <ananas/cbuffer.h>
-#include <ananas/dqueue.h>
+#include <ananas/list.h>
 #include <ananas/lock.h>
 #include <ananas/vfs/types.h>
 
@@ -49,7 +49,7 @@ struct HANDLE {
 	process_t* h_process;			/* owning process */
 	mutex_t h_mutex;			/* mutex guarding the handle */
 	struct HANDLE_OPS* h_hops;		/* handle operations */
-	DQUEUE_FIELDS(struct HANDLE);		/* used for the queue structure */
+	LIST_FIELDS(struct HANDLE);		/* used for the queue structure */
 
 	/* Waiters are those who are waiting on this handle */
 	union {
@@ -58,7 +58,7 @@ struct HANDLE {
 	} h_data;
 };
 
-DQUEUE_DEFINE(HANDLE_QUEUE, struct HANDLE);
+LIST_DEFINE(HANDLE_QUEUE, struct HANDLE);
 
 /*
  * Handle operations map almost directly to the syscalls invoked on them.
@@ -88,9 +88,9 @@ struct HANDLE_TYPE {
 	const char* ht_name;
 	int ht_id;
 	struct HANDLE_OPS* ht_hops;
-	DQUEUE_FIELDS(struct HANDLE_TYPE);
+	LIST_FIELDS(struct HANDLE_TYPE);
 };
-DQUEUE_DEFINE(HANDLE_TYPES, struct HANDLE_TYPE);
+LIST_DEFINE(HANDLE_TYPES, struct HANDLE_TYPE);
 
 void handle_init();
 errorcode_t handle_alloc(int type, process_t* p, handleindex_t index_from, struct HANDLE** handle_out, handleindex_t* index_out);

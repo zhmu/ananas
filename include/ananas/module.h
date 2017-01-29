@@ -1,7 +1,7 @@
 #ifndef __ANANAS_MODULE_H__
 #define __ANANAS_MODULE_H__
 
-#include <ananas/dqueue.h>
+#include <ananas/list.h>
 
 /*
  * Module-specific initalization function.
@@ -28,9 +28,9 @@ struct KERNEL_MODULE {
 	void* kmod_rodataptr;			/* RO data */
 	void* kmod_codeptr;			/* Code */
 
-	DQUEUE_FIELDS(struct KERNEL_MODULE);
+	LIST_FIELDS(struct KERNEL_MODULE);
 };
 
-DQUEUE_DEFINE(KERNEL_MODULE_QUEUE, struct KERNEL_MODULE);
+LIST_DEFINE(KERNEL_MODULE_QUEUE, struct KERNEL_MODULE);
 
 #endif /* __ANANAS_MODULE_H__ */

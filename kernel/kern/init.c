@@ -37,7 +37,7 @@ init_register_func(struct KERNEL_MODULE* kmod, struct INIT_FUNC* ifunc)
 	idfunc->idf_kmod = kmod;
 	idfunc->idf_ifunc = ifunc;
 	/* No lock necessary as we're behind the module lock either way */
-	DQUEUE_ADD_TAIL(&initfunc_dynamics, idfunc);
+	LIST_APPEND(&initfunc_dynamics, idfunc);
 	initfunc_dynamics_amount++;
 #ifdef VERBOSE_INIT	
 	kprintf("init_register_func(): kmod=%p ifunc=%p\n", kmod, ifunc->if_func);
@@ -48,11 +48,11 @@ void
 init_unregister_module(struct KERNEL_MODULE* kmod)
 {
 	/* No lock necessary as we're behind the module lock either way */
-	if (!DQUEUE_EMPTY(&initfunc_dynamics))
-		DQUEUE_FOREACH_SAFE(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
+	if (!LIST_EMPTY(&initfunc_dynamics))
+		LIST_FOREACH_SAFE(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
 			if (idf->idf_kmod != kmod)
 				continue;
-			DQUEUE_REMOVE(&initfunc_dynamics, idf);
+			LIST_REMOVE(&initfunc_dynamics, idf);
 			kfree(idf);
 		}
 }
@@ -69,7 +69,7 @@ run_init(enum INIT_SUBSYSTEM first_subsystem, enum INIT_SUBSYSTEM last_subsystem
 	memcpy(ifn_chain, (void*)&__initfuncs_begin, init_static_func_len);
 	int n = init_static_func_len / sizeof(struct INIT_FUNC*);
 	if (n > 0)
-		DQUEUE_FOREACH(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
+		LIST_FOREACH(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
 			ifn_chain[n++] = idf->idf_ifunc;
 		}
 	
@@ -118,8 +118,8 @@ run_init(enum INIT_SUBSYSTEM first_subsystem, enum INIT_SUBSYSTEM last_subsystem
 	kfree(ifn_chain);
 
 	/* Only throw away the dynamic chain if this is our final init run */
-	if (last_subsystem == SUBSYSTEM_LAST && !DQUEUE_EMPTY(&initfunc_dynamics))
-		DQUEUE_FOREACH_SAFE(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
+	if (last_subsystem == SUBSYSTEM_LAST && !LIST_EMPTY(&initfunc_dynamics))
+		LIST_FOREACH_SAFE(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
 			kfree(idf);
 		}
 
@@ -253,7 +253,7 @@ init_thread_func(void* done)
 void
 mi_startup()
 {
-	DQUEUE_INIT(&initfunc_dynamics);
+	LIST_INIT(&initfunc_dynamics);
 
 	/*
 	 * Create a thread to handle the init functions; this will allow us to

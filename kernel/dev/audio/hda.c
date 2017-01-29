@@ -107,12 +107,12 @@ hda_attach(device_t dev, struct HDA_DEV_FUNC* devfuncs, void* dev_privdata)
 
 #if DEMO_PLAY
 	struct HDA_AFG* afg = privdata->hda_afg;
-	if (afg == NULL || DQUEUE_EMPTY(&afg->afg_outputs))
+	if (afg == NULL || LIST_EMPTY(&afg->afg_outputs))
 		return ANANAS_ERROR(NO_DEVICE); /* XXX can this happen? */
 
 	/* Let's play something! */
 	struct HDA_OUTPUT* o = NULL;
-	DQUEUE_FOREACH(&afg->afg_outputs, ao, struct HDA_OUTPUT) {
+	LIST_FOREACH(&afg->afg_outputs, ao, struct HDA_OUTPUT) {
 		/* XXX We specifically look for a 2-channel only output - this is wrong, but VirtualBox
 		 *     dies if we try to use 2-channels for a 7.1-output. Need to look into this XXX
 		 */

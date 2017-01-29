@@ -140,9 +140,9 @@ ohci_dump(device_t dev)
 	kprintf("** dumping bulk chain\n");
 	ohci_dump_edchain(p->ohci_bulk_ed);
 
-	if (!DQUEUE_EMPTY(&p->ohci_active_eds)) {
+	if (!LIST_EMPTY(&p->ohci_active_eds)) {
 		kprintf("** dumping active EDs\n");
-		DQUEUE_FOREACH_IP(&p->ohci_active_eds, active, ed, struct OHCI_HCD_ED) {
+		LIST_FOREACH_IP(&p->ohci_active_eds, active, ed, struct OHCI_HCD_ED) {
 			kprintf("ed %p -> xfer %p\n", ed, ed->ed_xfer);
 			ohci_dump_ed(ed);
 		}
@@ -184,8 +184,8 @@ ohci_irq(device_t dev, void* context)
 		 * Done queue has been updated; need to walk through all our scheduled items.
 		 */
 		mutex_lock(&p->ohci_mtx);
-		if (!DQUEUE_EMPTY(&p->ohci_active_eds)) {
-			DQUEUE_FOREACH_IP(&p->ohci_active_eds, active, ed, struct OHCI_HCD_ED) {
+		if (!LIST_EMPTY(&p->ohci_active_eds)) {
+			LIST_FOREACH_IP(&p->ohci_active_eds, active, ed, struct OHCI_HCD_ED) {
 				if (ed->ed_ed.ed_flags & OHCI_ED_K)
 					continue;
 				/*
@@ -427,7 +427,7 @@ ohci_setup_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	/* Hook the ED to the queue; it won't do anything yet */
 	struct OHCI_PRIVDATA* p = dev->privdata;
 	mutex_lock(&p->ohci_mtx);
-	DQUEUE_ADD_TAIL_IP(&p->ohci_active_eds, active, ed);
+	LIST_APPEND(&p->ohci_active_eds, active, ed);
 	mutex_unlock(&p->ohci_mtx);
 	return ANANAS_ERROR_NONE;
 }
@@ -454,7 +454,7 @@ ohci_teardown_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	/* And from our own administration */
 	struct OHCI_PRIVDATA* p = dev->privdata;
 	mutex_lock(&p->ohci_mtx);
-	DQUEUE_REMOVE_IP(&p->ohci_active_eds, active, ed);
+	LIST_REMOVE_IP(&p->ohci_active_eds, active, ed);
 	mutex_unlock(&p->ohci_mtx);
 
 	/* Finally, we can kill the ED itself XXX We should ensure it's no longer used */
@@ -575,7 +575,7 @@ ohci_schedule_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	 */
 	KASSERT((xfer->xfer_flags & TRANSFER_FLAG_PENDING) == 0, "scheduling transfer that is already pending (%x)", xfer->xfer_flags);
 	xfer->xfer_flags |= TRANSFER_FLAG_PENDING;
-	DQUEUE_ADD_TAIL_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
+	LIST_APPEND_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
 
 	/* If this is the root hub, immediately transfer the request to it */
 	struct OHCI_DEV_PRIVDATA* dev_p = xfer->xfer_device->usb_hcd_privdata;
@@ -616,7 +616,7 @@ ohci_cancel_transfer(device_t dev, struct USB_TRANSFER* xfer)
 
 	if (xfer->xfer_flags & TRANSFER_FLAG_PENDING) {
 		xfer->xfer_flags &= ~TRANSFER_FLAG_PENDING;
-		DQUEUE_REMOVE_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
+		LIST_REMOVE_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
 	}
 
 	/* XXX we should see if we're still running it */
@@ -709,7 +709,7 @@ ohci_attach(device_t dev)
 	memset(p, 0, sizeof *p);
 	p->ohci_membase = res_mem;
 	mutex_init(&p->ohci_mtx, "ohci");
-	DQUEUE_INIT(&p->ohci_active_eds);
+	LIST_INIT(&p->ohci_active_eds);
 	dev->privdata = p;
 
 	/* Set up the interrupt handler */

@@ -3,7 +3,7 @@
 
 #include <ananas/types.h>
 #include <ananas/device.h>
-#include <ananas/dqueue.h>
+#include <ananas/list.h>
 
 struct VFS_MOUNTED_FS;
 
@@ -11,11 +11,11 @@ struct VFS_MOUNTED_FS;
 
 struct ICACHE_ITEM {
 	struct VFS_INODE* inode;		/* Backing inode, or NULL */
-	DQUEUE_FIELDS(struct ICACHE_ITEM);
+	LIST_FIELDS(struct ICACHE_ITEM);
 	char fsop[1];				/* FSOP of the item */
 };
 
-DQUEUE_DEFINE(ICACHE_QUEUE, struct ICACHE_ITEM);
+LIST_DEFINE(ICACHE_QUEUE, struct ICACHE_ITEM);
 
 void icache_init(struct VFS_MOUNTED_FS* fs);
 void icache_dump(struct VFS_MOUNTED_FS* fs);

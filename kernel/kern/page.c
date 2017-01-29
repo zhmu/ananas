@@ -3,9 +3,9 @@
 #include <ananas/init.h>
 #include <ananas/kdb.h>
 #include <ananas/lib.h>
+#include <ananas/list.h>
 #include <ananas/vm.h>
 #include <ananas/kmem.h>
-#include <ananas/dqueue.h>
 #include "options.h"
 
 #undef PAGE_DEBUG
@@ -65,7 +65,7 @@ page_free_index(struct PAGE_ZONE* z, unsigned int order, unsigned int index)
 	z->z_avail_pages += 1 << order;
 
 	/* Add this buddy to the freelist */
-	DQUEUE_ADD_TAIL(&z->z_free[order], p);
+	LIST_APPEND(&z->z_free[order], p);
 
 	/* Now, attempt to merge the available pages */
 	while (order < PAGE_NUM_ORDERS - 1) {
@@ -83,13 +83,13 @@ page_free_index(struct PAGE_ZONE* z, unsigned int order, unsigned int index)
 		 * Now, we should combine the two buddies to one; first of all, remove them
 		 * both.
 		 */
-		DQUEUE_REMOVE(&z->z_free[order], &z->z_base[index]);
-		DQUEUE_REMOVE(&z->z_free[order], &z->z_base[buddy_index]);
+		LIST_REMOVE(&z->z_free[order], &z->z_base[index]);
+		LIST_REMOVE(&z->z_free[order], &z->z_base[buddy_index]);
 
 		/* And add a single entry to the freelist one order above us */
 		order++;
 		index &= ~((1 << order) - 1);
-		DQUEUE_ADD_TAIL(&z->z_free[order], &z->z_base[index]);
+		LIST_APPEND(&z->z_free[order], &z->z_base[index]);
 		z->z_base[index].p_order = order;
 	}
 
@@ -112,7 +112,7 @@ page_alloc_zone(struct PAGE_ZONE* z, unsigned int order)
 
 	/* First step is to figure out the initial order we need to use */
 	unsigned int alloc_order = order;
-	while (alloc_order < PAGE_NUM_ORDERS && DQUEUE_EMPTY(&z->z_free[alloc_order]))
+	while (alloc_order < PAGE_NUM_ORDERS && LIST_EMPTY(&z->z_free[alloc_order]))
 		alloc_order++; /* nothing free here */
 	DPRINTF("page_alloc_zone(): z=%p, order=%u -> alloc_order=%u\n", z, order, alloc_order);
 	if (alloc_order == PAGE_NUM_ORDERS) {
@@ -123,11 +123,11 @@ page_alloc_zone(struct PAGE_ZONE* z, unsigned int order)
 	/* Now we need to keep splitting each block from alloc_order .. order */
 	for (unsigned int n = alloc_order; n >= order; n--) {
 		DPRINTF("page_alloc_zone(): loop, n=%u\n", n);
-		KASSERT(!DQUEUE_EMPTY(&z->z_free[n]), "freelist of order %u can't be empty", n);
+		KASSERT(!LIST_EMPTY(&z->z_free[n]), "freelist of order %u can't be empty", n);
 
 		/* Grab the first block we see */
-		struct PAGE* p = DQUEUE_HEAD(&z->z_free[n]);
-		DQUEUE_POP_HEAD(&z->z_free[n]);
+		struct PAGE* p = LIST_HEAD(&z->z_free[n]);
+		LIST_POP_HEAD(&z->z_free[n]);
 
 		/* And allocate it in the bitmap */
 		unsigned int index = p - z->z_base;
@@ -150,8 +150,8 @@ page_alloc_zone(struct PAGE_ZONE* z, unsigned int order)
 		unsigned int buddy_index = index ^ (1 << (n - 1));
 		DPRINTF("page_alloc_zone(): n=%u, splitting index %u -> %u, %u\n", n, index, index, buddy_index);
 		DPRINTF("split page0=%p, page1=%p\n", &z->z_base[index], &z->z_base[buddy_index]);
-		DQUEUE_ADD_TAIL(&z->z_free[n - 1], &z->z_base[index]);
-		DQUEUE_ADD_TAIL(&z->z_free[n - 1], &z->z_base[buddy_index]);
+		LIST_APPEND(&z->z_free[n - 1], &z->z_base[index]);
+		LIST_APPEND(&z->z_free[n - 1], &z->z_base[buddy_index]);
 		z->z_base[index].p_order = n - 1;
 		z->z_base[buddy_index].p_order = n - 1;
 	}
@@ -185,7 +185,7 @@ page_zone_add(addr_t base, size_t length)
 	spinlock_init(&z->z_lock);
 	z->z_bitmap = mem + sizeof(*z);
 	for (int n = 0; n < PAGE_NUM_ORDERS; n++)
-		DQUEUE_INIT(&z->z_free[n]);
+		LIST_INIT(&z->z_free[n]);
 	memset(z->z_bitmap, 0xff, bitmap_size);
 	z->z_base = (struct PAGE*)(mem + bitmap_size + sizeof(*z));
 	z->z_num_pages = num_pages - num_admin_pages;
@@ -207,7 +207,7 @@ page_zone_add(addr_t base, size_t length)
 		page_free_index(z, 0, n);
 
 	/* Add the zone to the list XXX there should be some lock on zones */
-	DQUEUE_ADD_TAIL(&zones, z);
+	LIST_APPEND(&zones, z);
 }
 
 addr_t
@@ -224,9 +224,9 @@ page_alloc_order(int order)
 	/* XXX this function has no lock on zones */
 
 	KASSERT(order >= 0 && order < PAGE_NUM_ORDERS, "order %d out of range", order);
-	KASSERT(!DQUEUE_EMPTY(&zones), "no zones");
+	KASSERT(!LIST_EMPTY(&zones), "no zones");
 
-	DQUEUE_FOREACH(&zones, z, struct PAGE_ZONE) {
+	LIST_FOREACH(&zones, z, struct PAGE_ZONE) {
 		struct PAGE* page = page_alloc_zone(z, order);
 		if (page != NULL)
 			return page;
@@ -260,10 +260,10 @@ void
 page_get_stats(unsigned int* total_pages, unsigned int* avail_pages)
 {
 	/* XXX we need some lock on zones */
-	KASSERT(!DQUEUE_EMPTY(&zones), "no zones");
+	KASSERT(!LIST_EMPTY(&zones), "no zones");
 
 	*total_pages = 0; *avail_pages = 0;
-	DQUEUE_FOREACH(&zones, z, struct PAGE_ZONE) {
+	LIST_FOREACH(&zones, z, struct PAGE_ZONE) {
 		spinlock_lock(&z->z_lock);
 		*total_pages += z->z_num_pages;
 		*avail_pages += z->z_avail_pages;
@@ -282,8 +282,8 @@ page_dump(struct PAGE_ZONE* z)
 	for (unsigned int order = 0; order < PAGE_NUM_ORDERS; order++) {
 		kprintf(" order %u: ", order);
 		int n = 0;
-		if (!DQUEUE_EMPTY(&z->z_free[order])) {
-			DQUEUE_FOREACH(&z->z_free[order], f, struct PAGE) {
+		if (!LIST_EMPTY(&z->z_free[order])) {
+			LIST_FOREACH(&z->z_free[order], f, struct PAGE) {
 				n++;
 			}
 		}
@@ -301,7 +301,7 @@ page_dump(struct PAGE_ZONE* z)
 
 KDB_COMMAND(pages, NULL, "Display page zones")
 {
-	DQUEUE_FOREACH(&zones, z, struct PAGE_ZONE) {
+	LIST_FOREACH(&zones, z, struct PAGE_ZONE) {
 		page_dump(z);
 	}
 }

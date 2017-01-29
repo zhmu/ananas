@@ -44,7 +44,7 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 	p->p_state = PROCESS_STATE_ACTIVE;
 	p->p_pid = process_alloc_pid();
 	mutex_init(&p->p_lock, "plock");
-	DQUEUE_INIT(&p->p_children);
+	LIST_INIT(&p->p_children);
 
 	/* Create the process's vmspace */
 	err = vmspace_create(&p->p_vmspace);
@@ -87,8 +87,8 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 		}
 	}
 	/* Run all process initialization callbacks */
-	if (!DQUEUE_EMPTY(&process_callbacks_init))
-		DQUEUE_FOREACH(&process_callbacks_init, pc, struct PROCESS_CALLBACK) {
+	if (!LIST_EMPTY(&process_callbacks_init))
+		LIST_FOREACH(&process_callbacks_init, pc, struct PROCESS_CALLBACK) {
 			err = pc->pc_func(p);
 			if (err != ANANAS_ERROR_NONE)
 				goto fail;
@@ -97,13 +97,13 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 	/* Grab the parent's lock and insert the child */
 	if (parent != NULL) {
 		process_lock(parent);
-		DQUEUE_ADD_TAIL_IP(&parent->p_children, children, p);
+		LIST_APPEND_IP(&parent->p_children, children, p);
 		process_unlock(parent);
 	}
 
 	/* Finally, add the process to all processes */
 	mutex_lock(&process_mtx);
-	DQUEUE_ADD_TAIL_IP(&process_all, all, p);
+	LIST_APPEND_IP(&process_all, all, p);
 	mutex_unlock(&process_mtx);
 
 	*dest = p;
@@ -149,8 +149,8 @@ static void
 process_destroy(process_t* p)
 {
 	/* Run all process exit callbacks */
-	if (!DQUEUE_EMPTY(&process_callbacks_exit))
-		DQUEUE_FOREACH(&process_callbacks_exit, pc, struct PROCESS_CALLBACK) {
+	if (!LIST_EMPTY(&process_callbacks_exit))
+		LIST_FOREACH(&process_callbacks_exit, pc, struct PROCESS_CALLBACK) {
 			pc->pc_func(p);
 		}
 
@@ -163,7 +163,7 @@ process_destroy(process_t* p)
 
 	/* Remove the process from the all-process list */
 	mutex_lock(&process_mtx);
-	DQUEUE_REMOVE_IP(&process_all, all, p);
+	LIST_REMOVE_IP(&process_all, all, p);
 	mutex_unlock(&process_mtx);
 
 	/*
@@ -211,11 +211,11 @@ process_wait_and_lock(process_t* parent, int flags, process_t** p_out)
 	 */
 	for(;;) {
 		process_lock(parent);
-		DQUEUE_FOREACH_IP(&parent->p_children, children, child, struct PROCESS) {
+		LIST_FOREACH_IP(&parent->p_children, children, child, struct PROCESS) {
 			process_lock(child);
 			if (child->p_state == PROCESS_STATE_ZOMBIE) {
 				/* Found one; remove it from the parent's list */
-				DQUEUE_REMOVE_IP(&parent->p_children, children, child);
+				LIST_REMOVE_IP(&parent->p_children, children, child);
 				process_unlock(parent);
 
 				/* Note that we give our ref to the caller! */
@@ -263,28 +263,28 @@ process_set_environment(process_t* p, const char* env, size_t env_len)
 errorcode_t
 process_register_init_func(struct PROCESS_CALLBACK* fn)
 {
-	DQUEUE_ADD_TAIL(&process_callbacks_init, fn);
+	LIST_APPEND(&process_callbacks_init, fn);
 	return ANANAS_ERROR_OK;
 }
 
 errorcode_t
 process_register_exit_func(struct PROCESS_CALLBACK* fn)
 {
-	DQUEUE_ADD_TAIL(&process_callbacks_exit, fn);
+	LIST_APPEND(&process_callbacks_exit, fn);
 	return ANANAS_ERROR_OK;
 }
 
 errorcode_t
 process_unregister_init_func(struct PROCESS_CALLBACK* fn)
 {
-	DQUEUE_REMOVE(&process_callbacks_init, fn);
+	LIST_REMOVE(&process_callbacks_init, fn);
 	return ANANAS_ERROR_OK;
 }
 
 errorcode_t
 process_unregister_exit_func(struct PROCESS_CALLBACK* fn)
 {
-	DQUEUE_REMOVE(&process_callbacks_exit, fn);
+	LIST_REMOVE(&process_callbacks_exit, fn);
 	return ANANAS_ERROR_OK;
 }
 
@@ -293,7 +293,7 @@ process_init()
 {
 	mutex_init(&process_mtx, "proc");
 	sem_init(&process_sleep_sem, 0);
-	DQUEUE_INIT(&process_all);
+	LIST_INIT(&process_all);
 	process_curpid = 1;
 
 	return ANANAS_ERROR_OK;

@@ -2,7 +2,7 @@
 #define __ANANAS_USB_CORE_H__
 
 #include <ananas/device.h>
-#include <ananas/dqueue.h>
+#include <ananas/list.h>
 #include <ananas/lock.h>
 #include <ananas/bus/usb/descriptor.h>
 #include <ananas/bus/usb/pipe.h>
@@ -90,12 +90,12 @@ struct USB_TRANSFER {
 	void*				xfer_hcd;	/* [D] */
 
 	/* List of pending transfers */
-	DQUEUE_FIELDS_IT(struct USB_TRANSFER, pending);
+	LIST_FIELDS_IT(struct USB_TRANSFER, pending);
 
 	/* List of completed transfers */
-	DQUEUE_FIELDS_IT(struct USB_TRANSFER, completed);
+	LIST_FIELDS_IT(struct USB_TRANSFER, completed);
 };
 
-DQUEUE_DEFINE(USB_TRANSFER_QUEUE, struct USB_TRANSFER);
+LIST_DEFINE(USB_TRANSFER_QUEUE, struct USB_TRANSFER);
 
 #endif /* __ANANAS_USB_CORE_H__ */

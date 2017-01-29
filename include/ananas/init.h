@@ -1,7 +1,7 @@
 #ifndef __INIT_H__
 #define __INIT_H__
 
-#include <ananas/dqueue.h>
+#include <ananas/list.h>
 
 struct KERNEL_MODULE;
 
@@ -48,9 +48,9 @@ struct INIT_FUNC {
 struct INIT_DYNAMIC_FUNC {
 	struct INIT_FUNC*	idf_ifunc;
 	struct KERNEL_MODULE*	idf_kmod;
-	DQUEUE_FIELDS(struct INIT_DYNAMIC_FUNC);
+	LIST_FIELDS(struct INIT_DYNAMIC_FUNC);
 };
-DQUEUE_DEFINE(INIT_FUNC_DYNAMICS, struct INIT_DYNAMIC_FUNC);
+LIST_DEFINE(INIT_FUNC_DYNAMICS, struct INIT_DYNAMIC_FUNC);
 
 struct EXIT_FUNC {
 	exit_func_t	ef_func;

@@ -388,7 +388,7 @@ uroothub_update_status(struct USB_DEVICE* usb_dev)
 
 		/* Alter all entries in the transfer queue */
 		mutex_lock(&usb_dev->usb_mutex);
-		DQUEUE_FOREACH_IP(&usb_dev->usb_transfers, pending, xfer, struct USB_TRANSFER) {
+		LIST_FOREACH_IP(&usb_dev->usb_transfers, pending, xfer, struct USB_TRANSFER) {
 			if (xfer->xfer_type != TRANSFER_TYPE_INTERRUPT)
 				continue;
 			memcpy(&xfer->xfer_data, &hub_update, update_len);

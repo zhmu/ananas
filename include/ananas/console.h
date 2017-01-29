@@ -1,7 +1,8 @@
-#include <ananas/device.h>
-
 #ifndef __CONSOLE_H__
 #define __CONSOLE_H__
+
+#include <ananas/device.h>
+#include <ananas/list.h>
 
 void console_putchar(int c);
 void console_putstring(const char* s);
@@ -24,9 +25,9 @@ struct CONSOLE_DRIVER {
 #define CONSOLE_FLAG_IN		0x0001
 #define CONSOLE_FLAG_OUT	0x0002
 #define CONSOLE_FLAG_INOUT	(CONSOLE_FLAG_IN | CONSOLE_FLAG_OUT)
-	DQUEUE_FIELDS(struct CONSOLE_DRIVER);
+	LIST_FIELDS(struct CONSOLE_DRIVER);
 };
-DQUEUE_DEFINE(CONSOLE_DRIVERS, struct CONSOLE_DRIVER);
+LIST_DEFINE(CONSOLE_DRIVERS, struct CONSOLE_DRIVER);
 
 #define DEFINE_CONSOLE_DRIVER(drv, prio, flags) \
 	static struct CONSOLE_DRIVER condrv_##drv; \

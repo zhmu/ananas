@@ -51,9 +51,9 @@ devfs_readdir_root(struct VFS_FILE* file, void* dirents, size_t* len)
 	size_t left = *len, written = 0;
 	uint32_t inum = DEVFS_ROOTINODE_FSOP + 1;
 
-	struct DEVICE* dev = DQUEUE_HEAD(device_get_queue());
+	struct DEVICE* dev = LIST_HEAD(device_get_queue());
 	for (unsigned int i = 0; i < file->f_offset && dev != NULL; i++) {
-		dev = DQUEUE_NEXT(dev); inum++;
+		dev = LIST_NEXT(dev); inum++;
 	}
 
 	while (left > 0 && dev != NULL) {
@@ -65,7 +65,7 @@ devfs_readdir_root(struct VFS_FILE* file, void* dirents, size_t* len)
 			break;
 		}
 		written += filled; inum++;
-		file->f_offset++; dev = DQUEUE_NEXT(dev);
+		file->f_offset++; dev = LIST_NEXT(dev);
 	}
 
 	*len = written;
@@ -173,9 +173,9 @@ devfs_read_inode(struct VFS_INODE* inode, void* fsop)
 		inode->i_iops = &devfs_file_ops;
 
 		/* Obtain the device pointer XXX This is racey */
-		struct DEVICE* dev = DQUEUE_HEAD(device_get_queue());
+		struct DEVICE* dev = LIST_HEAD(device_get_queue());
 		for (unsigned int i = DEVFS_ROOTINODE_FSOP + 1; i < ino && dev != NULL; i++) {
-			dev = DQUEUE_NEXT(dev);
+			dev = LIST_NEXT(dev);
 		}
 		if (dev == NULL)
 			return ANANAS_ERROR(NO_FILE);

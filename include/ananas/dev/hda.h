@@ -1,6 +1,7 @@
 #ifndef __ANANAS_HDA_H__
 #define __ANANAS_HDA_H__
 
+#include <ananas/list.h>
 #include <ananas/types.h>
 #include <ananas/device.h>
 
@@ -274,9 +275,9 @@ struct HDA_NODE {
 	int	n_nid;			/* Node ID */
 };
 
-DQUEUE_DEFINE(HDA_NODE_AWLIST, struct HDA_NODE_AW);
+LIST_DEFINE(HDA_NODE_AWLIST, struct HDA_NODE_AW);
 
-DQUEUE_DEFINE(HDA_OUTPUT_LIST, struct HDA_OUTPUT);
+LIST_DEFINE(HDA_OUTPUT_LIST, struct HDA_OUTPUT);
 
 /*
  * Audio function group; contains pointers to all codec nodes therein.
@@ -295,7 +296,7 @@ struct HDA_AFG {
  */
 struct HDA_NODE_AW {
 	struct HDA_NODE aw_node;
-	DQUEUE_FIELDS(struct HDA_NODE_AW);
+	LIST_FIELDS(struct HDA_NODE_AW);
 	uint32_t aw_caps;		/* Audio widget capabilities */
 	int	aw_num_conn;		/* Number of connections */
 	struct HDA_NODE_AW** aw_conn;	/* Connection list */
@@ -343,7 +344,7 @@ struct HDA_PINGROUP {
  * Output definition; contains output pins to use and the configuration in use.
  */
 struct HDA_OUTPUT {
-	DQUEUE_FIELDS(struct HDA_OUTPUT);
+	LIST_FIELDS(struct HDA_OUTPUT);
 	int o_channels;
 	uint32_t o_pcm_output; /* Output PCM capabilities */
 	struct HDA_PINGROUP* o_pingroup;

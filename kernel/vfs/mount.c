@@ -23,7 +23,7 @@ void
 vfs_init_mount()
 {
 	memset(mountedfs, 0, sizeof(mountedfs));
-//	DQUEUE_INIT(&fstypes);
+//	LIST_INIT(&fstypes);
 }
 
 static struct VFS_MOUNTED_FS*
@@ -53,8 +53,8 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	 */
 	struct VFS_FILESYSTEM_OPS* fsops = NULL;
 	spinlock_lock(&spl_fstypes);
-	if (!DQUEUE_EMPTY(&fstypes))
-		DQUEUE_FOREACH(&fstypes, curfs, struct VFS_FILESYSTEM) {
+	if (!LIST_EMPTY(&fstypes))
+		LIST_FOREACH(&fstypes, curfs, struct VFS_FILESYSTEM) {
 			if (strcmp(curfs->fs_name, type) == 0) {
 				/* Match */
 				fsops = curfs->fs_fsops;
@@ -169,8 +169,8 @@ vfs_register_filesystem(struct VFS_FILESYSTEM* fs)
 {
 	spinlock_lock(&spl_fstypes);
 	/* Ensure the filesystem is not already registered */
-	if (!DQUEUE_EMPTY(&fstypes))
-		DQUEUE_FOREACH(&fstypes, curfs, struct VFS_FILESYSTEM) {
+	if (!LIST_EMPTY(&fstypes))
+		LIST_FOREACH(&fstypes, curfs, struct VFS_FILESYSTEM) {
 			if (strcmp(curfs->fs_name, fs->fs_name) == 0) {
 				/* Duplicate filesystem type; refuse to register */
 				spinlock_unlock(&spl_fstypes);
@@ -179,7 +179,7 @@ vfs_register_filesystem(struct VFS_FILESYSTEM* fs)
 		}
 
 	/* Filesystem is clear; hook it up */
-	DQUEUE_ADD_TAIL(&fstypes, fs);
+	LIST_APPEND(&fstypes, fs);
 	spinlock_unlock(&spl_fstypes);
 	return ANANAS_ERROR_OK;
 }
@@ -188,7 +188,7 @@ errorcode_t
 vfs_unregister_filesystem(struct VFS_FILESYSTEM* fs)
 {
 	spinlock_lock(&spl_fstypes);
-	DQUEUE_REMOVE(&fstypes, fs);
+	LIST_REMOVE(&fstypes, fs);
 	spinlock_unlock(&spl_fstypes);
 	return ANANAS_ERROR_OK;
 }

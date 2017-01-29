@@ -2,14 +2,14 @@
 #define __SCHEDULE_H__
 
 #include <ananas/types.h>
-#include <ananas/dqueue.h>
+#include <ananas/list.h>
 
 struct SCHED_PRIV {
 	thread_t* sp_thread;	/* Backreference to the thread */
-	DQUEUE_FIELDS(struct SCHED_PRIV);
+	LIST_FIELDS(struct SCHED_PRIV);
 };
 
-DQUEUE_DEFINE(SCHEDULER_QUEUE, struct SCHED_PRIV);
+LIST_DEFINE(SCHEDULER_QUEUE, struct SCHED_PRIV);
 
 void scheduler_add(thread_t* t);
 void scheduler_remove(thread_t* t);

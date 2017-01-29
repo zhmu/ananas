@@ -62,10 +62,10 @@ int
 module_sym_resolve_name(const char* name, struct SYMBOL* s)
 {
 	/* XXX locking? */
-	if (DQUEUE_EMPTY(&kernel_modules))
+	if (LIST_EMPTY(&kernel_modules))
 		return 0;
 
-	DQUEUE_FOREACH(&kernel_modules, kmod, struct KERNEL_MODULE) {
+	LIST_FOREACH(&kernel_modules, kmod, struct KERNEL_MODULE) {
 		Elf_Sym* sym = kmod->kmod_symptr;
 		for (unsigned int i = 0; i < kmod->kmod_sym_size; i += sizeof(Elf_Sym), sym++) {
 			if (strcmp(kmod->kmod_strptr + sym->st_name, name) != 0)
@@ -83,10 +83,10 @@ int
 module_sym_resolve_addr(addr_t addr, struct SYMBOL* s)
 {
 	/* XXX locking? */
-	if (DQUEUE_EMPTY(&kernel_modules))
+	if (LIST_EMPTY(&kernel_modules))
 		return 0;
 
-	DQUEUE_FOREACH(&kernel_modules, kmod, struct KERNEL_MODULE) {
+	LIST_FOREACH(&kernel_modules, kmod, struct KERNEL_MODULE) {
 		Elf_Sym* sym = kmod->kmod_symptr;
 		for (unsigned int i = 0; i < kmod->kmod_sym_size; i += sizeof(Elf_Sym), sym++) {
 			if (addr < sym->st_value ||
@@ -365,7 +365,7 @@ module_load(struct LOADER_MODULE* mod)
 
 	/* Hook up the module to the list of modules */
 	mutex_lock(&mtx_modules);
-	DQUEUE_ADD_TAIL(&kernel_modules, kmod);
+	LIST_APPEND(&kernel_modules, kmod);
 	mutex_unlock(&mtx_modules);
 
 	return ANANAS_ERROR_OK;
@@ -384,7 +384,7 @@ module_unload(struct KERNEL_MODULE* kmod)
 {
 	/* Remove up the module from the list of modules */
 	mutex_lock(&mtx_modules);
-	DQUEUE_REMOVE(&kernel_modules, kmod);
+	LIST_REMOVE(&kernel_modules, kmod);
 	mutex_unlock(&mtx_modules);
 
 	/* Ask it to exit */
@@ -393,7 +393,7 @@ module_unload(struct KERNEL_MODULE* kmod)
 	if (err != ANANAS_ERROR_OK) {
 		kprintf("module %p failed to exit with error %u\n", kmod, err);
 		/* Hook the module back in the list - we couldn't unload it */
-		DQUEUE_ADD_TAIL(&kernel_modules, kmod);
+		LIST_APPEND(&kernel_modules, kmod);
 		mutex_unlock(&mtx_modules);
 		return err;
 	}
@@ -416,7 +416,7 @@ static errorcode_t
 module_init()
 {
 	mutex_init(&mtx_modules, "mtx_modules");
-	DQUEUE_INIT(&kernel_modules);
+	LIST_INIT(&kernel_modules);
 	if (bootinfo == NULL)
 		return ANANAS_ERROR(NO_DEVICE);
 

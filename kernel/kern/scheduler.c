@@ -42,7 +42,7 @@ static int
 scheduler_is_on_queue(struct SCHEDULER_QUEUE* q, thread_t* t)
 {
 	int n = 0;
-	DQUEUE_FOREACH(q, s, struct SCHED_PRIV) {
+	LIST_FOREACH(q, s, struct SCHED_PRIV) {
 		if (s->sp_thread == t)
 			n++;
 	}
@@ -66,7 +66,7 @@ scheduler_init_thread(thread_t* t)
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
 	KASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 0, "new thread is already on runq?");
 	KASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 0, "new thread is already on sleepq?");
-	DQUEUE_ADD_TAIL(&sched_sleepqueue, &t->t_sched_priv);
+	LIST_APPEND(&sched_sleepqueue, &t->t_sched_priv);
 	spinlock_unlock_unpremptible(&spl_scheduler, state);
 }
 
@@ -82,20 +82,20 @@ scheduler_add_thread_locked(thread_t* t)
 	 * XXX Note that this is O(n) - we can do better
 	 */
 	int inserted = 0;
-	if (!DQUEUE_EMPTY(&sched_runqueue)) {
-		DQUEUE_FOREACH(&sched_runqueue, s, struct SCHED_PRIV) {
+	if (!LIST_EMPTY(&sched_runqueue)) {
+		LIST_FOREACH(&sched_runqueue, s, struct SCHED_PRIV) {
 			KASSERT(s->sp_thread != t, "thread %p already in runqueue", t);
 			if (s->sp_thread->t_priority <= t->t_priority)
 				continue;
 
 			/* Found a thread with a lower priority; we can insert it here */
-			DQUEUE_INSERT_BEFORE(&sched_runqueue, s, &t->t_sched_priv);
+			LIST_INSERT_BEFORE(&sched_runqueue, s, &t->t_sched_priv);
 			inserted++;
 			break;
 		}
 	}
 	if (!inserted)
-		DQUEUE_ADD_TAIL(&sched_runqueue, &t->t_sched_priv);
+		LIST_APPEND(&sched_runqueue, &t->t_sched_priv);
 }
 
 void
@@ -107,7 +107,7 @@ scheduler_add_thread(thread_t* t)
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 0, "adding thread %p already on runqueue", t);
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 1, "adding thread %p not on sleepqueue", t);
 	/* Remove the thread from the sleepqueue ... */
-	DQUEUE_REMOVE(&sched_sleepqueue, &t->t_sched_priv);
+	LIST_REMOVE(&sched_sleepqueue, &t->t_sched_priv);
 	/* ... and add it to the runqueue ... */
 	scheduler_add_thread_locked(t);
 	/*
@@ -127,9 +127,9 @@ scheduler_remove_thread(thread_t* t)
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 0, "removing thread already on sleepqueue");
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 1, "removing thread not on runqueue");
 	/* Remove the thread from the runqueue ... */
-	DQUEUE_REMOVE(&sched_runqueue, &t->t_sched_priv);
+	LIST_REMOVE(&sched_runqueue, &t->t_sched_priv);
 	/* ... add it to the sleepqueue ... */
-	DQUEUE_ADD_TAIL(&sched_sleepqueue, &t->t_sched_priv);
+	LIST_APPEND(&sched_sleepqueue, &t->t_sched_priv);
 	/*
 	 * ... and finally, update the flags: we must do this in the scheduler lock because
 	 *     no one else is allowed to touch the thread while we're moving it
@@ -150,7 +150,7 @@ scheduler_exit_thread(thread_t* t)
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 1, "exiting thread already not on sleepqueue");
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 0, "exiting thread on runqueue");
 	/* Thread seems sane; remove it from the runqueue */
-	DQUEUE_REMOVE(&sched_runqueue, &t->t_sched_priv);
+	LIST_REMOVE(&sched_runqueue, &t->t_sched_priv);
 	/*
 	 * Turn the thread into a zombie; we'll soon be letting go of the scheduler lock, but all
 	 * resources are gone and the thread can be destroyed from now on - interrupts are disabled,
@@ -193,9 +193,9 @@ schedule()
 	curthread->t_flags &= ~THREAD_FLAG_RESCHEDULE;
 
 	/* Pick the next thread to schedule */
-	KASSERT(!DQUEUE_EMPTY(&sched_runqueue), "runqueue cannot be empty");
+	KASSERT(!LIST_EMPTY(&sched_runqueue), "runqueue cannot be empty");
 	struct SCHED_PRIV* next_sched = NULL;
-	DQUEUE_FOREACH(&sched_runqueue, sp, struct SCHED_PRIV) {
+	LIST_FOREACH(&sched_runqueue, sp, struct SCHED_PRIV) {
 		/* Skip the thread if we can't schedule it here */
 		if (sp->sp_thread->t_affinity != THREAD_AFFINITY_ANY &&
 			  sp->sp_thread->t_affinity != cpuid)
@@ -227,7 +227,7 @@ schedule()
 	 */
 	if (!THREAD_IS_SUSPENDED(curthread) && !THREAD_IS_ZOMBIE(curthread)) {
 		SCHED_KPRINTF("%s[%d]: removing t=%p from runqueue\n", __func__, cpuid, curthread);
-		DQUEUE_REMOVE(&sched_runqueue, &curthread->t_sched_priv);
+		LIST_REMOVE(&sched_runqueue, &curthread->t_sched_priv);
 		SCHED_KPRINTF("%s[%d]: re-adding t=%p\n", __func__, cpuid, curthread);
 		scheduler_add_thread_locked(curthread);
 	}
@@ -293,16 +293,16 @@ scheduler_activated()
 KDB_COMMAND(scheduler, NULL, "Display scheduler status")
 {
 	kprintf("runqueue\n");
-	if (!DQUEUE_EMPTY(&sched_runqueue)) {
-		DQUEUE_FOREACH(&sched_runqueue, s, struct SCHED_PRIV) {
+	if (!LIST_EMPTY(&sched_runqueue)) {
+		LIST_FOREACH(&sched_runqueue, s, struct SCHED_PRIV) {
 			kprintf("  thread %p\n", s->sp_thread);
 		}
 	} else {
 		kprintf("(empty)\n");
 	}
 	kprintf("sleepqueue\n");
-	if (!DQUEUE_EMPTY(&sched_sleepqueue)) {
-		DQUEUE_FOREACH(&sched_sleepqueue, s, struct SCHED_PRIV) {
+	if (!LIST_EMPTY(&sched_sleepqueue)) {
+		LIST_FOREACH(&sched_sleepqueue, s, struct SCHED_PRIV) {
 			kprintf("  thread %p\n", s->sp_thread);
 		}
 	} else {

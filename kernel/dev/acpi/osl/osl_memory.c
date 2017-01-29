@@ -1,4 +1,4 @@
-#include <ananas/dqueue.h>
+#include <ananas/list.h>
 #include <ananas/vm.h>
 #include <ananas/mm.h>
 #include <ananas/kmem.h>
@@ -18,10 +18,10 @@ struct ACPI_MEMORY_MAPPING {
 	void* amm_virt;
 	size_t amm_length;
 	refcount_t amm_refcount;
-	DQUEUE_FIELDS(struct ACPI_MEMORY_MAPPING);
+	LIST_FIELDS(struct ACPI_MEMORY_MAPPING);
 };
 
-DQUEUE_DEFINE(ACPI_MEMORY_MAPPINGS, struct ACPI_MEMORY_MAPPING);
+LIST_DEFINE(ACPI_MEMORY_MAPPINGS, struct ACPI_MEMORY_MAPPING);
 
 static struct ACPI_MEMORY_MAPPINGS acpi_mappings;
 
@@ -36,7 +36,7 @@ AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 	int offset = PhysicalAddress & (PAGE_SIZE - 1);
 	addr_t pa = PhysicalAddress - offset;
 	size_t size = (Length + offset + PAGE_SIZE - 1) / PAGE_SIZE;
-	DQUEUE_FOREACH(&acpi_mappings, amm, struct ACPI_MEMORY_MAPPING) {
+	LIST_FOREACH(&acpi_mappings, amm, struct ACPI_MEMORY_MAPPING) {
 		if (amm->amm_phys < pa)
 			continue;
 		if (amm->amm_phys + amm->amm_length > pa + size)
@@ -69,7 +69,7 @@ AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 		kfree(amm);
 		return NULL;
 	}
-	DQUEUE_ADD_TAIL(&acpi_mappings, amm);
+	LIST_APPEND(&acpi_mappings, amm);
 
 	void* va = (void*)((addr_t)amm->amm_virt + offset);
 	ACPI_DEBUG(": %p\n", va);
@@ -85,7 +85,7 @@ AcpiOsUnmapMemory(void* LogicalAddress, ACPI_SIZE Length)
 	int offset = (addr_t)LogicalAddress & (PAGE_SIZE - 1);
 	addr_t la = (addr_t)LogicalAddress - offset;
 	size_t size = (Length + offset + PAGE_SIZE - 1) / PAGE_SIZE;
-	DQUEUE_FOREACH(&acpi_mappings, amm, struct ACPI_MEMORY_MAPPING) {
+	LIST_FOREACH(&acpi_mappings, amm, struct ACPI_MEMORY_MAPPING) {
 		if ((addr_t)amm->amm_virt < la)
 			continue;
 		if (la + size > (addr_t)amm->amm_virt + amm->amm_length)
@@ -102,7 +102,7 @@ AcpiOsUnmapMemory(void* LogicalAddress, ACPI_SIZE Length)
 		ACPI_DEBUG(" - throwing it away!\n");
 		kmem_unmap(amm->amm_virt, amm->amm_length * PAGE_SIZE);
 
-		DQUEUE_REMOVE(&acpi_mappings, amm);
+		LIST_REMOVE(&acpi_mappings, amm);
 		kfree(amm);
 		return;
 	}

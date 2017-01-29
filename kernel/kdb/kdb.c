@@ -16,7 +16,7 @@
 
 TRACE_SETUP;
 
-DQUEUE_DEFINE(KDB_COMMANDS, struct KDB_COMMAND);
+LIST_DEFINE(KDB_COMMANDS, struct KDB_COMMAND);
 
 static struct KDB_COMMANDS kdb_commands;
 
@@ -98,7 +98,7 @@ kdb_register_command(struct KDB_COMMAND* cmd)
 				a++;
 		}
 	}
-	DQUEUE_ADD_TAIL(&kdb_commands, cmd);
+	LIST_APPEND(&kdb_commands, cmd);
 	return ANANAS_ERROR_NONE;
 }
 
@@ -109,7 +109,7 @@ KDB_COMMAND(help, NULL, "Displays this help")
 	 * pretty printing
 	 */
 	int max_cmd_len = 0, max_args_len = 0;
-	DQUEUE_FOREACH(&kdb_commands, cmd, struct KDB_COMMAND) {
+	LIST_FOREACH(&kdb_commands, cmd, struct KDB_COMMAND) {
 		if (strlen(cmd->cmd_command) > max_cmd_len)
 			max_cmd_len = strlen(cmd->cmd_command);
 		if (cmd->cmd_args != NULL && strlen(cmd->cmd_args) > max_args_len)
@@ -117,7 +117,7 @@ KDB_COMMAND(help, NULL, "Displays this help")
 	}
 
 	/* Now off to print! */
-	DQUEUE_FOREACH(&kdb_commands, cmd, struct KDB_COMMAND) {
+	LIST_FOREACH(&kdb_commands, cmd, struct KDB_COMMAND) {
 		kprintf("%s", cmd->cmd_command);
 		kprintf(" %s", (cmd->cmd_args != NULL) ? cmd->cmd_args : "");
 		for (int n = (cmd->cmd_args != NULL ? strlen(cmd->cmd_args) : 0) + strlen(cmd->cmd_command); n < (max_cmd_len + 1 + max_cmd_len + 1); n++)
@@ -240,7 +240,7 @@ kdb_enter(const char* why)
 
 		/* Locate the command */
 		struct KDB_COMMAND* kcmd = NULL;
-		DQUEUE_FOREACH(&kdb_commands, cmd, struct KDB_COMMAND) {
+		LIST_FOREACH(&kdb_commands, cmd, struct KDB_COMMAND) {
 			if (strcmp(arg[0].a_u.u_string, cmd->cmd_command) != 0)
 				continue;
 

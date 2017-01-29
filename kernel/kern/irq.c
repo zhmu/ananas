@@ -28,12 +28,12 @@ irqsource_register(struct IRQ_SOURCE* source)
 	KASSERT(source->is_first + source->is_count < MAX_IRQS, "can't register beyond MAX_IRQS range");
 
 	/* Ensure there will not be an overlap */
-	if(!DQUEUE_EMPTY(&irq_sources)) {
-		DQUEUE_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
+	if(!LIST_EMPTY(&irq_sources)) {
+		LIST_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
 			KASSERT(source->is_first + source->is_count < is->is_first || is->is_first + is->is_count < source->is_first, "overlap in interrupt ranges (have %u-%u, attempt to add %u-%u)", is->is_first, is->is_first + is->is_count, source->is_first, source->is_first + source->is_count);
 		}
 	}
-	DQUEUE_ADD_TAIL(&irq_sources, source);
+	LIST_APPEND(&irq_sources, source);
 
 	/* Hook all IRQ's to this source - this saves having to look things up later */
 	for(unsigned int n = 0; n < source->is_count; n++) {
@@ -51,10 +51,10 @@ irqsource_unregister(struct IRQ_SOURCE* source)
 {
 	register_t state = spinlock_lock_unpremptible(&spl_irq);
 
-	KASSERT(!DQUEUE_EMPTY(&irq_sources), "no irq sources registered");
+	KASSERT(!LIST_EMPTY(&irq_sources), "no irq sources registered");
 	/* Ensure our source is registered */
 	int matches = 0;
-	DQUEUE_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
+	LIST_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
 		if (is != source)
 			continue;
 		matches++;
@@ -70,7 +70,7 @@ irqsource_unregister(struct IRQ_SOURCE* source)
 			KASSERT(irq[i].i_handler[n].h_func == NULL, "irq %u still registered to this source", i);
 	}
 
-	DQUEUE_REMOVE(&irq_sources, source);
+	LIST_REMOVE(&irq_sources, source);
 	spinlock_unlock_unpremptible(&spl_irq, state);
 }
 
@@ -105,8 +105,8 @@ ithread(void* context)
 static struct IRQ_SOURCE*
 irqsource_find(unsigned int num)
 {
-	if(!DQUEUE_EMPTY(&irq_sources)) {
-		DQUEUE_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
+	if(!LIST_EMPTY(&irq_sources)) {
+		LIST_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
 			if (num < is->is_first || num >= is->is_first + is->is_count)
 				continue;
 			return is;
@@ -293,8 +293,8 @@ KDB_COMMAND(irq, NULL, "Display IRQ status")
 {
 	/* Note: no need to grab locks as the debugger runs with interrupts disabled */
 	kprintf("Registered IRQ sources:\n");
-	if(!DQUEUE_EMPTY(&irq_sources)) {
-		DQUEUE_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
+	if(!LIST_EMPTY(&irq_sources)) {
+		LIST_FOREACH(&irq_sources, is, struct IRQ_SOURCE) {
 			kprintf(" IRQ %d..%d\n", is->is_first, is->is_first + is->is_count);
 		}
 	}

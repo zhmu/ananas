@@ -11,10 +11,10 @@
 
 TRACE_SETUP;
 
-DQUEUE_DEFINE_BEGIN(BIO_BUCKET, struct BIO)
+LIST_DEFINE_BEGIN(BIO_BUCKET, struct BIO)
 	spinlock_t spl_bucket;
-DQUEUE_DEFINE_END
-DQUEUE_DEFINE(BIO_CHAIN, struct BIO);
+LIST_DEFINE_END
+LIST_DEFINE(BIO_CHAIN, struct BIO);
 
 static struct BIO_CHAIN bio_freelist;
 static struct BIO_CHAIN bio_usedlist;
@@ -44,16 +44,16 @@ bio_init()
 
 	/* Clear the BIO bucket chain */
 	for (unsigned int i = 0; i < BIO_BUCKET_SIZE; i++) {
-		DQUEUE_INIT(&bio_bucket[i]);
+		LIST_INIT(&bio_bucket[i]);
 		spinlock_init(&bio_bucket[i].spl_bucket);
 	}
 
 	/* Initialize bio buffers and hook them up to the freelist */
 	struct BIO* bios = kmalloc(sizeof(struct BIO) * BIO_NUM_BUFFERS);
-	DQUEUE_INIT(&bio_freelist);
+	LIST_INIT(&bio_freelist);
 	for (unsigned int i = 0; i < BIO_NUM_BUFFERS; i++, bios++) {
 		sem_init(&bios->sem, 1);
-		DQUEUE_ADD_TAIL_IP(&bio_freelist, chain, bios);
+		LIST_APPEND_IP(&bio_freelist, chain, bios);
 	}
 
 	/*
@@ -129,16 +129,16 @@ bio_cleanup()
 	TRACE(BIO, FUNC, "called");
 
 	spinlock_lock(&spl_bio_lists);
-	KASSERT(!DQUEUE_EMPTY(&bio_usedlist), "usedlist is empty");
+	KASSERT(!LIST_EMPTY(&bio_usedlist), "usedlist is empty");
 
 	/* Grab the final entry and remove it from the list */
-	struct BIO* bio = DQUEUE_TAIL(&bio_usedlist);
-	DQUEUE_POP_TAIL_IP(&bio_usedlist, chain);
+	struct BIO* bio = LIST_TAIL(&bio_usedlist);
+	LIST_POP_TAIL_IP(&bio_usedlist, chain);
 
 	bio_flush(bio);
 
 	/* Add it to the freelist */
-	DQUEUE_ADD_TAIL_IP(&bio_freelist, chain, bio);
+	LIST_APPEND_IP(&bio_freelist, chain, bio);
 
 	KASSERT(bio->data != NULL, "to-remove bio %p has no data (fl %x, block %x, len %x)",
 	 bio, bio->flags, (int)bio->block, bio->length);
@@ -155,8 +155,8 @@ bio_cleanup()
 	/* Finally, remove the block from the bucket chain */
 	unsigned int bucket_num = bio->block % BIO_BUCKET_SIZE;
 	spinlock_lock(&bio_bucket[bucket_num].spl_bucket);
-	KASSERT(!DQUEUE_EMPTY(&bio_bucket[bucket_num]), "bio bucket %u is empty", bucket_num);
-	DQUEUE_REMOVE_IP(&bio_bucket[bucket_num], bucket, bio);
+	KASSERT(!LIST_EMPTY(&bio_bucket[bucket_num]), "bio bucket %u is empty", bucket_num);
+	LIST_REMOVE_IP(&bio_bucket[bucket_num], bucket, bio);
 
 	/*
 	 * Clear the bio info; it's available again for use (but set it as pending as
@@ -185,7 +185,7 @@ bio_restart:
 	spinlock_lock(&bio_bucket[bucket_num].spl_bucket);
 
 	/* See if we can find the block in the bucket queue; if so, we can just return it */
-	DQUEUE_FOREACH_IP(&bio_bucket[bucket_num], bucket, bio, struct BIO) {
+	LIST_FOREACH_IP(&bio_bucket[bucket_num], bucket, bio, struct BIO) {
 		if (bio->device != dev || bio->block != block)
 			continue;
 
@@ -194,11 +194,11 @@ bio_restart:
 		 * prevent it from being nuked.
 		 */
 		spinlock_lock(&spl_bio_lists);
-		KASSERT(!DQUEUE_EMPTY(&bio_usedlist), "usedlist is empty");
+		KASSERT(!LIST_EMPTY(&bio_usedlist), "usedlist is empty");
 		/* Remove ourselves from the chain... */
-		DQUEUE_REMOVE_IP(&bio_usedlist, chain, bio);
+		LIST_REMOVE_IP(&bio_usedlist, chain, bio);
 		/* ...and prepend us at the beginning */
-		DQUEUE_ADD_HEAD_IP(&bio_usedlist, chain, bio);
+		LIST_PREPEND_IP(&bio_usedlist, chain, bio);
 		spinlock_unlock(&spl_bio_lists);
 
 		spinlock_unlock(&bio_bucket[bucket_num].spl_bucket);
@@ -222,9 +222,9 @@ bio_restart:
 	/* Grab a bio from the head of the freelist */
 	spinlock_lock(&spl_bio_lists);
 	struct BIO* bio = NULL;
-	if (!DQUEUE_EMPTY(&bio_freelist)) {
-		bio = DQUEUE_HEAD(&bio_freelist);
-		DQUEUE_POP_HEAD_IP(&bio_freelist, chain);
+	if (!LIST_EMPTY(&bio_freelist)) {
+		bio = LIST_HEAD(&bio_freelist);
+		LIST_POP_HEAD_IP(&bio_freelist, chain);
 	}
 
 	if (bio == NULL) {
@@ -236,7 +236,7 @@ bio_restart:
 	}
 
 	/* And add it to the used list */
-	DQUEUE_ADD_HEAD_IP(&bio_usedlist, chain, bio);
+	LIST_PREPEND_IP(&bio_usedlist, chain, bio);
 	spinlock_unlock(&spl_bio_lists);
 
 	/* Find available data blocks in the bio data pool */
@@ -273,7 +273,7 @@ bio_restartdata:
 	spinlock_unlock(&spl_bio_bitmap);
 
 	/* Hook the request to the corresponding bucket */
-	DQUEUE_ADD_HEAD_IP(&bio_bucket[bucket_num], bucket, bio);
+	LIST_PREPEND_IP(&bio_bucket[bucket_num], bucket, bio);
 	spinlock_unlock(&bio_bucket[bucket_num].spl_bucket);
 
 	/*
@@ -370,12 +370,12 @@ KDB_COMMAND(bio, NULL, "Display I/O buffers")
 
 	unsigned int freelist_avail = 0, usedlist_used = 0;
 	spinlock_lock(&spl_bio_lists);
-	if(!DQUEUE_EMPTY(&bio_freelist))
-		DQUEUE_FOREACH_IP(&bio_freelist, chain, bio, struct BIO) {
+	if(!LIST_EMPTY(&bio_freelist))
+		LIST_FOREACH_IP(&bio_freelist, chain, bio, struct BIO) {
 			freelist_avail++;
 		}
-	if(!DQUEUE_EMPTY(&bio_usedlist))
-		DQUEUE_FOREACH_IP(&bio_usedlist, chain, bio, struct BIO) {
+	if(!LIST_EMPTY(&bio_usedlist))
+		LIST_FOREACH_IP(&bio_usedlist, chain, bio, struct BIO) {
 			usedlist_used++;
 		}
 	spinlock_unlock(&spl_bio_lists);
@@ -386,8 +386,8 @@ KDB_COMMAND(bio, NULL, "Display I/O buffers")
 	for (unsigned int bucket_num = 0; bucket_num < BIO_BUCKET_SIZE; bucket_num++) {
 		kprintf("%u =>", bucket_num);
 		spinlock_lock(&bio_bucket[bucket_num].spl_bucket);
-		if(!DQUEUE_EMPTY(&bio_bucket[bucket_num])) {
-			DQUEUE_FOREACH_IP(&bio_bucket[bucket_num], bucket, bio, struct BIO) {
+		if(!LIST_EMPTY(&bio_bucket[bucket_num])) {
+			LIST_FOREACH_IP(&bio_bucket[bucket_num], bucket, bio, struct BIO) {
 				kprintf(" 0x%p (%u)", bio, bio->block);
 			}
 		} else {

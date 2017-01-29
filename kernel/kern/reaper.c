@@ -21,7 +21,7 @@ void
 reaper_enqueue(thread_t* t)
 {
 	spinlock_lock(&spl_reaper);
-	DQUEUE_ADD_TAIL(&reaper_queue, t);
+	LIST_APPEND(&reaper_queue, t);
 	spinlock_unlock(&spl_reaper);
 
 	sem_signal(&reaper_sem);
@@ -35,9 +35,9 @@ reaper_reap(void* context)
 
 		/* Fetch the item to reap from the queue */
 		spinlock_lock(&spl_reaper);
-		KASSERT(!DQUEUE_EMPTY(&reaper_queue), "reaper woke up with empty queue?");
-		thread_t* t = DQUEUE_HEAD(&reaper_queue);
-		DQUEUE_POP_HEAD(&reaper_queue);
+		KASSERT(!LIST_EMPTY(&reaper_queue), "reaper woke up with empty queue?");
+		thread_t* t = LIST_HEAD(&reaper_queue);
+		LIST_POP_HEAD(&reaper_queue);
 		spinlock_unlock(&spl_reaper);
 
 		thread_deref(t);

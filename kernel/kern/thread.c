@@ -70,7 +70,7 @@ thread_alloc(process_t* p, thread_t** dest, const char* name, int flags)
 
 	/* Add the thread to the thread queue */
 	spinlock_lock(&spl_threadqueue);
-	DQUEUE_ADD_TAIL(&thread_queue, t);
+	LIST_APPEND(&thread_queue, t);
 	spinlock_unlock(&spl_threadqueue);
 
 	*dest = t;
@@ -99,7 +99,7 @@ kthread_init(thread_t* t, const char* name, kthread_func_t func, void* arg)
 
 	/* Add the thread to the thread queue */
 	spinlock_lock(&spl_threadqueue);
-	DQUEUE_ADD_TAIL(&thread_queue, t);
+	LIST_APPEND(&thread_queue, t);
 	spinlock_unlock(&spl_threadqueue);
 	return ANANAS_ERROR_OK;
 }
@@ -145,7 +145,7 @@ thread_destroy(thread_t* t)
 	/* If we aren't reaping the thread, remove it from our thread queue; it'll be gone soon */
 	if ((t->t_flags & THREAD_FLAG_REAPING) == 0) {
 		spinlock_lock(&spl_threadqueue);
-		DQUEUE_REMOVE(&thread_queue, t);
+		LIST_REMOVE(&thread_queue, t);
 		spinlock_unlock(&spl_threadqueue);
 	}
 
@@ -200,7 +200,7 @@ thread_deref(thread_t* t)
 
 		/* Assign the thread to the reaper queue */
 		spinlock_lock(&spl_threadqueue);
-		DQUEUE_REMOVE(&thread_queue, t);
+		LIST_REMOVE(&thread_queue, t);
 		spinlock_unlock(&spl_threadqueue);
 		reaper_enqueue(t);
 		return;
@@ -303,9 +303,9 @@ void
 thread_signal_waiters(thread_t* t)
 {
 	spinlock_lock(&t->t_lock);
-	while (!DQUEUE_EMPTY(&t->t_waitqueue)) {
-		struct THREAD_WAITER* tw = DQUEUE_HEAD(&t->t_waitqueue);
-		DQUEUE_POP_HEAD(&t->t_waitqueue);
+	while (!LIST_EMPTY(&t->t_waitqueue)) {
+		struct THREAD_WAITER* tw = LIST_HEAD(&t->t_waitqueue);
+		LIST_POP_HEAD(&t->t_waitqueue);
 		sem_signal(&tw->tw_sem);
 	}
 	spinlock_unlock(&t->t_lock);
@@ -318,7 +318,7 @@ thread_wait(thread_t* t)
 	sem_init(&tw.tw_sem, 0);
 
 	spinlock_lock(&t->t_lock);
-	DQUEUE_ADD_TAIL(&t->t_waitqueue, &tw);
+	LIST_APPEND(&t->t_waitqueue, &tw);
 	spinlock_unlock(&t->t_lock);
 
 	sem_wait(&tw.tw_sem);
@@ -356,8 +356,8 @@ KDB_COMMAND(threads, "[s:flags]", "Displays current threads")
 	struct THREAD* cur = PCPU_CURTHREAD();
 	spinlock_lock(&spl_threadqueue);
 	kprintf("thread dump\n");
-	if (!DQUEUE_EMPTY(&thread_queue))
-		DQUEUE_FOREACH(&thread_queue, t, struct THREAD) {
+	if (!LIST_EMPTY(&thread_queue))
+		LIST_FOREACH(&thread_queue, t, struct THREAD) {
 			kprintf ("thread %p (hindex %d): %s: flags [", t, t->t_hidx_thread, t->t_threadinfo->ti_args);
 			if (THREAD_IS_ACTIVE(t))      kprintf(" active");
 			if (THREAD_IS_SUSPENDED(t))   kprintf(" suspended");
@@ -387,8 +387,8 @@ KDB_COMMAND(thread, NULL, "Shows current thread information")
 	kprintf("flags        : 0x%x\n", thread->t_flags);
 	kprintf("terminateinfo: 0x%x\n", thread->t_terminate_info);
 	kprintf("mappings:\n");
-	if (!DQUEUE_EMPTY(&thread->t_vmspace->vs_areas)) {
-		DQUEUE_FOREACH(&thread->t_vmspace->vs_areas, va, vmarea_t) {
+	if (!LIST_EMPTY(&thread->t_vmspace->vs_areas)) {
+		LIST_FOREACH(&thread->t_vmspace->vs_areas, va, vmarea_t) {
 			kprintf("   flags      : 0x%x\n", va->va_flags);
 			kprintf("   virtual    : 0x%x - 0x%x\n", va->va_virt, va->va_virt + va->va_len);
 			kprintf("   length     : %u\n", va->va_len);

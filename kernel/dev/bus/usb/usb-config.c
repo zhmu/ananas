@@ -4,7 +4,6 @@
 #include <ananas/bus/usb/core.h>
 #include <ananas/bus/usb/config.h>
 #include <ananas/bus/usb/descriptor.h>
-#include <ananas/dqueue.h>
 #include <ananas/lib.h>
 #include <ananas/thread.h>
 #include <ananas/trace.h>

@@ -5,7 +5,7 @@
 #include <ananas/bus/usb/core.h>
 #include <ananas/bus/usb/transfer.h>
 #include <ananas/device.h>
-#include <ananas/dqueue.h>
+#include <ananas/LIST.h>
 #include <ananas/lib.h>
 #include <ananas/thread.h>
 #include <ananas/pcpu.h>
@@ -42,7 +42,7 @@ usb_alloc_device(struct USB_BUS* bus, struct USB_HUB* hub, int hub_port, int fla
 	usb_dev->usb_cur_interface = -1;
 	device_add_resource(usb_dev->usb_device, RESTYPE_USB_DEVICE, (resource_base_t)usb_dev, 0);
 
-	DQUEUE_INIT(&usb_dev->usb_pipes);
+	LIST_INIT(&usb_dev->usb_pipes);
 	return usb_dev;
 }
 
@@ -194,7 +194,7 @@ usbdev_attach(struct USB_DEVICE* usb_dev)
 
 	/* Now, we'll have to hook up some driver... XXX this is duplicated from device.c/pcibus.c */
 	int device_attached = 0;
-	DQUEUE_FOREACH(&probe_queue, p, struct PROBE) {
+	LIST_FOREACH(&probe_queue, p, struct PROBE) {
 		/* See if the device lives on our bus */
 		int exists = 0;
 		for (const char** curbus = p->bus; *curbus != NULL; curbus++) {
@@ -247,14 +247,14 @@ usbdev_detach(struct USB_DEVICE* usb_dev)
 	mutex_lock(&usb_dev->usb_mutex);
 
 	/* Remove any pipes the device has; this should get rid of all transfers  */
-	while(!DQUEUE_EMPTY(&usb_dev->usb_pipes)) {
-		struct USB_PIPE* p = DQUEUE_HEAD(&usb_dev->usb_pipes);
+	while(!LIST_EMPTY(&usb_dev->usb_pipes)) {
+		struct USB_PIPE* p = LIST_HEAD(&usb_dev->usb_pipes);
 		usbpipe_free_locked(p);
 	}
 
 	/* Get rid of all pending transfers; a control transfer may sneak in between */
-	while (!DQUEUE_EMPTY(&usb_dev->usb_transfers)) {
-		struct USB_TRANSFER* xfer = DQUEUE_HEAD(&usb_dev->usb_transfers);
+	while (!LIST_EMPTY(&usb_dev->usb_transfers)) {
+		struct USB_TRANSFER* xfer = LIST_HEAD(&usb_dev->usb_transfers);
 		/* Freeing the transfer will cancel them as needed */
 		usbtransfer_free_locked(xfer);
 	}
@@ -264,7 +264,7 @@ usbdev_detach(struct USB_DEVICE* usb_dev)
 
 	/* Remove the device from the bus - note that we hold the bus lock */
 	struct USB_BUS* bus = usb_dev->usb_bus;
-	DQUEUE_REMOVE(&bus->bus_devices, usb_dev);
+	LIST_REMOVE(&bus->bus_devices, usb_dev);
 
 	/* Finally, get rid of the device itself */
 	mutex_unlock(&usb_dev->usb_mutex);

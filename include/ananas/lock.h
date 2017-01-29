@@ -1,8 +1,8 @@
 #ifndef __LOCK_H__
 #define __LOCK_H__
 
+#include <ananas/list.h>
 #include <ananas/types.h>
-#include <ananas/dqueue.h>
 
 /*
  * Spinlocks are simply locks that just keep the CPU busy waiting if they can't
@@ -18,9 +18,9 @@
 struct SEMAPHORE_WAITER {
 	thread_t*		sw_thread;
 	int			sw_signalled;
-	DQUEUE_FIELDS(struct SEMAPHORE_WAITER);
+	LIST_FIELDS(struct SEMAPHORE_WAITER);
 };
-DQUEUE_DEFINE(semaphore_wq, struct SEMAPHORE_WAITER);
+LIST_DEFINE(semaphore_wq, struct SEMAPHORE_WAITER);
 
 /*
  * Semaphores are sleepable locks which guard an amount of units of a

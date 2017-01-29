@@ -2,7 +2,7 @@
 #define __ANANAS_EXEC_H__
 
 #include <ananas/types.h>
-#include <ananas/dqueue.h>
+#include <ananas/list.h>
 #include <ananas/error.h>
 #include <ananas/init.h>
 
@@ -21,9 +21,9 @@ struct EXEC_FORMAT {
 	exec_handler_t	ef_handler;
 
 	/* Queue fields */
-	DQUEUE_FIELDS(struct EXEC_FORMAT);
+	LIST_FIELDS(struct EXEC_FORMAT);
 };
-DQUEUE_DEFINE(EXEC_FORMATS, struct EXEC_FORMAT);
+LIST_DEFINE(EXEC_FORMATS, struct EXEC_FORMAT);
 
 #define EXECUTABLE_FORMAT(id, handler) \
 	static struct EXEC_FORMAT execfmt_##handler; \

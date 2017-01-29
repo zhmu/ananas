@@ -11,7 +11,7 @@ struct OHCI_HCD_TD {
 	struct OHCI_TD td_td;
 	dma_buf_t td_buf;
 	uint32_t td_length;
-	DQUEUE_FIELDS(struct OHCI_HCD_TD);
+	LIST_FIELDS(struct OHCI_HCD_TD);
 };
 
 struct OHCI_HCD_ED {
@@ -25,10 +25,10 @@ struct OHCI_HCD_ED {
 	dma_buf_t ed_buf;
 	struct USB_TRANSFER* ed_xfer;
 	/* Active queue fields; used by ohci_irq() to check all active transfers */
-	DQUEUE_FIELDS_IT(struct OHCI_HCD_ED, active);
+	LIST_FIELDS_IT(struct OHCI_HCD_ED, active);
 };
 
-DQUEUE_DEFINE(OHCI_HCD_ED_QUEUE, struct OHCI_HCD_ED);
+LIST_DEFINE(OHCI_HCD_ED_QUEUE, struct OHCI_HCD_ED);
 
 struct OHCI_PRIVDATA {
 	volatile uint8_t* ohci_membase;

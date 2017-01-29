@@ -35,7 +35,7 @@ struct USB_DEVICE {
 	struct USB_TRANSFER_QUEUE usb_transfers;	/* [M] */
 
 	/* Provide link fields for device list */
-	DQUEUE_FIELDS(struct USB_DEVICE);
+	LIST_FIELDS(struct USB_DEVICE);
 };
 
 #define USB_DEVICE_FLAG_LOW_SPEED (1 << 0)

@@ -1,6 +1,8 @@
 #ifndef __ANANAS_USB_PIPE_H__
 #define __ANANAS_USB_PIPE_H__
 
+#include <ananas/list.h>
+
 struct USB_DEVICE;
 struct USB_PIPE;
 struct USB_TRANSFER;
@@ -15,10 +17,10 @@ struct USB_PIPE {
 	usbpipe_callback_t p_callback;
 	
 	/* Provide queue structure */
-	DQUEUE_FIELDS(struct USB_PIPE);
+	LIST_FIELDS(struct USB_PIPE);
 };
 
-DQUEUE_DEFINE(USB_PIPES, struct USB_PIPE);
+LIST_DEFINE(USB_PIPES, struct USB_PIPE);
 
 errorcode_t usbpipe_alloc(struct USB_DEVICE* usb_dev, int num, int type, int dir, size_t maxlen, usbpipe_callback_t callback, struct USB_PIPE** pipe);
 void usbpipe_free(struct USB_PIPE* pipe);

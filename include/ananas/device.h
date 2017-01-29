@@ -2,7 +2,7 @@
 #define __DEVICE_H__
 
 #include <ananas/types.h>
-#include <ananas/dqueue.h>
+#include <ananas/list.h>
 #include <ananas/lock.h>
 #include <ananas/init.h>
 #include <ananas/cdefs.h>
@@ -115,9 +115,9 @@ struct DEVICE {
 	semaphore_t	waiters;
 
 	/* Queue fields */
-	DQUEUE_FIELDS(struct DEVICE);
+	LIST_FIELDS(struct DEVICE);
 };
-DQUEUE_DEFINE(DEVICE_QUEUE, struct DEVICE);
+LIST_DEFINE(DEVICE_QUEUE, struct DEVICE);
 
 /*
  * The Device Probe structure describes a possible relationship between a bus
@@ -130,12 +130,12 @@ struct PROBE {
 	driver_t	driver;
 
 	/* Queue fields */
-	DQUEUE_FIELDS(struct PROBE);
+	LIST_FIELDS(struct PROBE);
 
 	/* Busses this device appears on */
 	const char*	bus[];
 };
-DQUEUE_DEFINE(DEVICE_PROBE, struct PROBE);
+LIST_DEFINE(DEVICE_PROBE, struct PROBE);
 
 #define DRIVER_PROBE(drvr) \
 	extern struct PROBE probe_##drvr; \

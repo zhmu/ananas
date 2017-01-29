@@ -1,8 +1,8 @@
-define dq_print
+define l_print
 	if $argc == 0
-		help dq_print
+		help l_print
 	else
-		set $list = ($arg0->dq_head)
+		set $list = ($arg0->l_head)
 		set $n = 0
 		while $list != 0
 			printf "item[%u]: %p = ", $n, $list
@@ -14,8 +14,8 @@ define dq_print
 	end
 end
 
-document dq_print
-	Prints members of a DQUEUE
+document li_print
+	Prints members of a LIST
 end
 
 define t_print
@@ -116,7 +116,7 @@ document p_print
 end
 
 define _ts_q
-	set $list = $arg0->dq_head
+	set $list = $arg0->l_head
 	set $n = 0
 	while $list != 0
 		set $t = $list->sp_thread 
@@ -135,7 +135,7 @@ end
 
 define ps
 	set $n = 0
-	set $p = process_all.dq_head
+	set $p = process_all.l_head
 	while $p != 0
 		printf "(%u) %p : pid %d refcount %d\n", $n, $p, $p->p_pid, $p->p_refcount
 		set $t = $p->p_mainthread

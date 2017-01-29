@@ -226,7 +226,7 @@ hda_attach_node_afg(device_t dev, struct HDA_AFG* afg)
 		}
 
 		if (aw != NULL)
-			DQUEUE_ADD_TAIL(&afg->afg_nodes, aw);
+			LIST_APPEND(&afg->afg_nodes, aw);
 
 #undef HDA_AWNODE_INIT
 	}
@@ -235,12 +235,12 @@ hda_attach_node_afg(device_t dev, struct HDA_AFG* afg)
 	 * Okay, we are done - need to resolve the connection node ID's to pointers.
 	 * This is O(N^2)... XXX
 	 */
-	if (!DQUEUE_EMPTY(&afg->afg_nodes))
-		DQUEUE_FOREACH(&afg->afg_nodes, aw, struct HDA_NODE_AW) {
+	if (!LIST_EMPTY(&afg->afg_nodes))
+		LIST_FOREACH(&afg->afg_nodes, aw, struct HDA_NODE_AW) {
 			for(int n = 0; n < aw->aw_num_conn; n++) {
 				uintptr_t nid = (uintptr_t)aw->aw_conn[n];
 				struct HDA_NODE_AW* aw_found = NULL;
-				DQUEUE_FOREACH(&afg->afg_nodes, aw2, struct HDA_NODE_AW) {
+				LIST_FOREACH(&afg->afg_nodes, aw2, struct HDA_NODE_AW) {
 					if (aw2->aw_node.n_nid != nid)
 						continue;
 					aw_found = aw2;
@@ -310,13 +310,13 @@ hda_resolve_location(int location)
 static void
 hda_dump_afg(struct HDA_AFG* afg)
 {
-	if (DQUEUE_EMPTY(&afg->afg_nodes))
+	if (LIST_EMPTY(&afg->afg_nodes))
 		return;
 
 	static const char* aw_node_types[] = {
 		"pc", "ao", "ai", "am", "as", "vd"
 	};
-	DQUEUE_FOREACH(&afg->afg_nodes, aw, struct HDA_NODE_AW) {
+	LIST_FOREACH(&afg->afg_nodes, aw, struct HDA_NODE_AW) {
 		kprintf("cad %x nid % 2x type %s ->", aw->aw_node.n_cad, aw->aw_node.n_nid, aw_node_types[aw->aw_node.n_type]);
 
 		switch(aw->aw_node.n_type) {
@@ -414,8 +414,8 @@ hda_dump_afg(struct HDA_AFG* afg)
 		kprintf("\n");
 	}
 
-	if (!DQUEUE_EMPTY(&afg->afg_outputs)) {
-		DQUEUE_FOREACH(&afg->afg_outputs, o, struct HDA_OUTPUT) {
+	if (!LIST_EMPTY(&afg->afg_outputs)) {
+		LIST_FOREACH(&afg->afg_outputs, o, struct HDA_OUTPUT) {
 			kprintf("output: %d-channel ->", o->o_channels);
 			for (int n = 0; n < o->o_pingroup->pg_count; n++) {
 				struct HDA_NODE_PIN* p = o->o_pingroup->pg_pin[n];
@@ -439,7 +439,7 @@ hda_attach_multipin_render(device_t dev, struct HDA_AFG* afg, int association, i
 	int num_channels = 0;
 	for (unsigned int seq = 0; seq < 16; seq++) {
 		struct HDA_NODE_PIN* found_pin = NULL;
-		DQUEUE_FOREACH(&afg->afg_nodes, aw, struct HDA_NODE_AW) {
+		LIST_FOREACH(&afg->afg_nodes, aw, struct HDA_NODE_AW) {
 			if (aw->aw_node.n_type != NT_Pin)
 				continue;
 			struct HDA_NODE_PIN* p = (struct HDA_NODE_PIN*)aw;
@@ -498,7 +498,7 @@ hda_attach_multipin_render(device_t dev, struct HDA_AFG* afg, int association, i
 	}
 	kfree(rp);
 
-	DQUEUE_ADD_TAIL(&afg->afg_outputs, o);
+	LIST_APPEND(&afg->afg_outputs, o);
 	return ANANAS_ERROR_NONE;
 }
 
@@ -511,14 +511,14 @@ hda_attach_singlepin_render(device_t dev, struct HDA_AFG* afg, int association)
 static errorcode_t
 hda_attach_afg(device_t dev, struct HDA_AFG* afg)
 {
-	if (DQUEUE_EMPTY(&afg->afg_nodes))
+	if (LIST_EMPTY(&afg->afg_nodes))
 		return ANANAS_ERROR(NO_DEVICE);
 
 	/* Walk through all associations and see what we have got there */
 	for (unsigned int association = 1; association < 15; association++) {
 		int total_pins = 0;
 		int num_input = 0, num_output = 0;
-		DQUEUE_FOREACH(&afg->afg_nodes, aw, struct HDA_NODE_AW) {
+		LIST_FOREACH(&afg->afg_nodes, aw, struct HDA_NODE_AW) {
 			if (aw->aw_node.n_type != NT_Pin)
 				continue;
 			struct HDA_NODE_PIN* p = (struct HDA_NODE_PIN*)aw;
@@ -599,8 +599,8 @@ hda_attach_node(device_t dev, int cad, int nodeid)
 		struct HDA_AFG* afg = kmalloc(sizeof* afg);
 		afg->afg_cad = cad;
 		afg->afg_nid = nid;
-		DQUEUE_INIT(&afg->afg_nodes);
-		DQUEUE_INIT(&afg->afg_outputs);
+		LIST_INIT(&afg->afg_nodes);
+		LIST_INIT(&afg->afg_outputs);
 		privdata->hda_afg = afg;
 
 		err = hda_attach_node_afg(dev, afg);

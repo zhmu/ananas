@@ -38,7 +38,7 @@ hda_route_output(device_t dev, struct HDA_AFG* afg, int channels, struct HDA_OUT
 	 * we need to route.
 	 */
 	int max_nodes = 0;
-	DQUEUE_FOREACH(&afg->afg_nodes, aw, struct HDA_NODE_AW) {
+	LIST_FOREACH(&afg->afg_nodes, aw, struct HDA_NODE_AW) {
 		max_nodes++;
 	}
 	*rp = kmalloc(sizeof(struct HDA_ROUTING_PLAN) + sizeof(struct HDA_NODE_AW*) * max_nodes);

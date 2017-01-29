@@ -2,6 +2,7 @@
 #define __IRQ_H__
 
 #include <ananas/device.h>
+#include <ananas/list.h>
 #include <ananas/thread.h>
 
 /* Return values for the IRQ handler */
@@ -27,7 +28,7 @@ struct IRQ_SOURCE {
 	/* Private data */
 	void*           is_privdata;
 	/* Queue fields */
-	DQUEUE_FIELDS(struct IRQ_SOURCE);
+	LIST_FIELDS(struct IRQ_SOURCE);
 	/* Mask a given interrupt */
 	errorcode_t (*is_mask)(struct IRQ_SOURCE*, int);
 	/* Unmask a given interrupt */
@@ -35,7 +36,7 @@ struct IRQ_SOURCE {
 	/* Acknowledge a given interrupt */
 	void (*is_ack)(struct IRQ_SOURCE*, int);
 };
-DQUEUE_DEFINE(IRQ_SOURCES, struct IRQ_SOURCE);
+LIST_DEFINE(IRQ_SOURCES, struct IRQ_SOURCE);
 
 #define IRQ_MAX_HANDLERS 4
 

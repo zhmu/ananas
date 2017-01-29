@@ -15,7 +15,7 @@ md_vmspace_init(vmspace_t* vs)
 	vs->vs_md_pagedir = page_alloc_single_mapped(&pagedir_page, VM_FLAG_READ | VM_FLAG_WRITE);
 	if (vs->vs_md_pagedir == NULL)
 		return ANANAS_ERROR(OUT_OF_MEMORY);
-	DQUEUE_ADD_TAIL(&vs->vs_pages, pagedir_page);
+	LIST_APPEND(&vs->vs_pages, pagedir_page);
 
 	/* Map the kernel pages in there */
 	memset(vs->vs_md_pagedir, 0, PAGE_SIZE);

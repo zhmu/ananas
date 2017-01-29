@@ -1,6 +1,7 @@
 #ifndef __PROCESS_H__
 #define __PROCESS_H__
 
+#include <ananas/list.h>
 #include <ananas/lock.h>
 
 struct DENTRY;
@@ -13,7 +14,7 @@ struct PROCINFO;
 #define PROCESS_STATE_ZOMBIE	2
 
 struct PROCESS;
-DQUEUE_DEFINE(PROCESS_QUEUE, struct PROCESS);
+LIST_DEFINE(PROCESS_QUEUE, struct PROCESS);
 
 struct PROCESS {
 	mutex_t p_lock;	/* Locks the process */
@@ -39,8 +40,8 @@ struct PROCESS {
 
 	struct PROCESS_QUEUE	p_children;	/* Queue of this process' children */
 
-        DQUEUE_FIELDS_IT(struct PROCESS, all);
-        DQUEUE_FIELDS_IT(struct PROCESS, children);
+        LIST_FIELDS_IT(struct PROCESS, all);
+        LIST_FIELDS_IT(struct PROCESS, children);
 };
 
 static inline void process_lock(process_t* p)
@@ -70,9 +71,9 @@ errorcode_t process_wait_and_lock(process_t* p, int flags, process_t** p_out);
 typedef errorcode_t (*process_callback_t)(process_t* proc);
 struct PROCESS_CALLBACK {
 	process_callback_t pc_func;
-	DQUEUE_FIELDS(struct PROCESS_CALLBACK);
+	LIST_FIELDS(struct PROCESS_CALLBACK);
 };
-DQUEUE_DEFINE(PROCESS_CALLBACKS, struct PROCESS_CALLBACK);
+LIST_DEFINE(PROCESS_CALLBACKS, struct PROCESS_CALLBACK);
 
 errorcode_t process_register_init_func(struct PROCESS_CALLBACK* pc);
 errorcode_t process_register_exit_func(struct PROCESS_CALLBACK* pc);

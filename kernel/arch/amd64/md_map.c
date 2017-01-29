@@ -24,7 +24,7 @@ get_nextpage(vmspace_t* vs, uint64_t page_flags)
 	 * administer it there so we can free it once the thread is freed.
 	 */
 	if ((page_flags & PE_C_G) == 0)
-		DQUEUE_ADD_TAIL(&vs->vs_pages, p);
+		LIST_APPEND(&vs->vs_pages, p);
 
 	/* Map this page in kernel-space XXX How do we clean it up? */
 	addr_t phys = page_get_paddr(p);

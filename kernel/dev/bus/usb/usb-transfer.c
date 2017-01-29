@@ -3,7 +3,7 @@
 #include <ananas/error.h>
 #include <ananas/bus/usb/config.h>
 #include <ananas/bus/usb/core.h>
-#include <ananas/dqueue.h>
+#include <ananas/LIST.h>
 #include <ananas/lib.h>
 #include <ananas/thread.h>
 #include <ananas/pcpu.h>
@@ -25,7 +25,7 @@ TRACE_SETUP;
 
 static thread_t usbtransfer_thread;
 static semaphore_t usbtransfer_sem;
-static struct USB_TRANSFER_QUEUE usbtransfer_completedqueue;
+static struct USB_TRANSFER_QUEUE usbtransfer_completeLIST;
 static spinlock_t usbtransfer_lock = SPINLOCK_DEFAULT_INIT;
 
 static struct USB_TRANSFER*
@@ -180,7 +180,7 @@ usbtransfer_complete_locked(struct USB_TRANSFER* xfer)
 
 	/* Transfer is complete, so we can remove the pending flag */
 	xfer->xfer_flags &= ~TRANSFER_FLAG_PENDING;
-	DQUEUE_REMOVE_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
+	LIST_REMOVE_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
 
 	/*
 	 * This is generally called from interrupt context, so schedule a worker to
@@ -189,7 +189,7 @@ usbtransfer_complete_locked(struct USB_TRANSFER* xfer)
 	 */
 	if (xfer->xfer_callback != NULL) {
 		spinlock_lock(&usbtransfer_lock);
-		DQUEUE_ADD_TAIL_IP(&usbtransfer_completedqueue, completed, xfer);
+		LIST_APPEND_IP(&usbtransfer_completeLIST, completed, xfer);
 		spinlock_unlock(&usbtransfer_lock);
 
 		sem_signal(&usbtransfer_sem);
@@ -216,12 +216,12 @@ transfer_thread(void* arg)
 		/* Fetch an entry from the queue */
 		while (1) {
 			spinlock_lock(&usbtransfer_lock);
-			if(DQUEUE_EMPTY(&usbtransfer_completedqueue)) {
+			if(LIST_EMPTY(&usbtransfer_completeLIST)) {
 				spinlock_unlock(&usbtransfer_lock);
 				break;
 			}
-			struct USB_TRANSFER* xfer = DQUEUE_HEAD(&usbtransfer_completedqueue);
-			DQUEUE_POP_HEAD_IP(&usbtransfer_completedqueue, completed);
+			struct USB_TRANSFER* xfer = LIST_HEAD(&usbtransfer_completeLIST);
+			LIST_POP_HEAD_IP(&usbtransfer_completeLIST, completed);
 			spinlock_unlock(&usbtransfer_lock);
 
 			/* And handle it */
@@ -239,7 +239,7 @@ transfer_thread(void* arg)
 void
 usbtransfer_init()
 {
-	DQUEUE_INIT(&usbtransfer_completedqueue);
+	LIST_INIT(&usbtransfer_completeLIST);
 	sem_init(&usbtransfer_sem, 0);
 
 	/* Create a kernel thread to handle USB completed messages */

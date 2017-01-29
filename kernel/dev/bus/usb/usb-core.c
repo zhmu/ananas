@@ -2,7 +2,6 @@
 #include <ananas/device.h>
 #include <ananas/error.h>
 #include <ananas/bus/usb/core.h>
-#include <ananas/dqueue.h>
 #include <ananas/lib.h>
 #include <ananas/init.h>
 #include <ananas/thread.h>

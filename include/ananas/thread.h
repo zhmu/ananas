@@ -1,5 +1,5 @@
 #include <ananas/types.h>
-#include <ananas/dqueue.h>
+#include <ananas/list.h>
 #include <ananas/vfs.h>
 #include <ananas/limits.h>
 #include <ananas/handle.h>
@@ -19,14 +19,14 @@ struct STACKFRAME;
 #define THREAD_MAX_NAME_LEN 32
 #define THREAD_EVENT_EXIT 1
 
-DQUEUE_DEFINE(THREAD_QUEUE, thread_t);
+LIST_DEFINE(THREAD_QUEUE, thread_t);
 
 struct THREAD_WAITER {
 	semaphore_t	tw_sem;
-	DQUEUE_FIELDS(struct THREAD_WAITER);
+	LIST_FIELDS(struct THREAD_WAITER);
 };
 
-DQUEUE_DEFINE(THREAD_WAIT_QUEUE, struct THREAD_WAITER);
+LIST_DEFINE(THREAD_WAIT_QUEUE, struct THREAD_WAITER);
 
 struct THREAD {
 	/* Machine-dependant data - must be first */
@@ -72,7 +72,7 @@ struct THREAD {
 	/* Scheduler specific information */
 	struct SCHED_PRIV t_sched_priv;
 
-	DQUEUE_FIELDS(thread_t);
+	LIST_FIELDS(thread_t);
 };
 
 /* Macro's to facilitate flag checking */

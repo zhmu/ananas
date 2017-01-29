@@ -18,7 +18,7 @@ KDB_COMMAND(inodes, NULL, "Inode status")
 {
 	struct VFS_MOUNTED_FS* fs = vfs_get_rootfs(); /* XXX only root for now */
 
-	DQUEUE_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
+	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
 		int expected_refs = 1; /* icache */
 		kprintf("inode=%p, fsop=", ii->inode);
 		for (int i = 0; i < fs->fs_fsop_size; i++) {
@@ -32,7 +32,7 @@ KDB_COMMAND(inodes, NULL, "Inode status")
 	//	if (ii->inode == fs->fs_root_inode) expected_refs++; /* root inode */
 		kprintf(", refcount=%u", ii->inode->i_refcount);
 		const char* dentry_name = "?";
-		DQUEUE_FOREACH(&fs->fs_dcache_inuse, d, struct DENTRY) {
+		LIST_FOREACH(&fs->fs_dcache_inuse, d, struct DENTRY) {
 			if (d->d_inode != ii->inode && d->d_parent->d_inode != ii->inode)
 				continue;
 			if (d->d_inode == ii->inode) {
@@ -48,8 +48,8 @@ KDB_COMMAND(inodes, NULL, "Inode status")
 #ifdef NOTYET
 		/* Now scour the handles for references to this inode */
 		for (struct THREAD* t = threads; t != NULL; t = t->next) {
-			if(!DQUEUE_EMPTY(&t->handles)) {
-				DQUEUE_FOREACH_SAFE(&t->handles, handle, struct HANDLE) {
+			if(!LIST_EMPTY(&t->handles)) {
+				LIST_FOREACH_SAFE(&t->handles, handle, struct HANDLE) {
 					if (handle->type != HANDLE_TYPE_FILE)
 						continue;
 					if (handle->data.vfs_file.f_inode == ii->inode)

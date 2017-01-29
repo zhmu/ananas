@@ -1,11 +1,11 @@
 #ifndef __ANANAS_USB_BUS_H__
 #define __ANANAS_USB_BUS_H__
 
-#include <ananas/dqueue.h>
+#include <ananas/LIST.h>
 
 struct USB_DEVICE;
 struct USB_HUB;
-DQUEUE_DEFINE(USB_DEVICES, struct USB_DEVICE);
+LIST_DEFINE(USB_DEVICES, struct USB_DEVICE);
 
 /*
  * Single USB bus - directly connected to a HCD.
@@ -24,7 +24,7 @@ struct USB_BUS {
 	mutex_t bus_mutex;
 
 	/* Link fields for attach or bus list */
-	DQUEUE_FIELDS(struct USB_BUS);
+	LIST_FIELDS(struct USB_BUS);
 };
 
 /* Initialize the usbbus kernel thread which handles device exploring */

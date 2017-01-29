@@ -42,7 +42,7 @@ TRACE_SETUP;
 struct UHCI_HCD_TD {
 	struct UHCI_TD td_td;
 	dma_buf_t td_buf;
-	DQUEUE_FIELDS(struct UHCI_HCD_TD);
+	LIST_FIELDS(struct UHCI_HCD_TD);
 };
 
 struct UHCI_HCD_QH {
@@ -50,13 +50,13 @@ struct UHCI_HCD_QH {
 	struct UHCI_HCD_TD* qh_first_td;
 	struct UHCI_HCD_QH* qh_next_qh;
 	dma_buf_t qh_buf;
-	DQUEUE_FIELDS(struct UHCI_HCD_QH);
+	LIST_FIELDS(struct UHCI_HCD_QH);
 };
 
 struct UHCI_SCHEDULED_ITEM {
 	struct UHCI_HCD_TD* si_td;
 	struct USB_TRANSFER* si_xfer;
-	DQUEUE_FIELDS(struct UHCI_SCHEDULED_ITEM);
+	LIST_FIELDS(struct UHCI_SCHEDULED_ITEM);
 };
 
 static struct UHCI_HCD_TD*
@@ -118,7 +118,7 @@ uhci_dump_td(struct UHCI_HCD_TD* tdd)
 	uint32_t td_status = td->td_status;
 	kprintf("td [hcd %p td %p] => linkptr [hcd %p td %x] status 0x%x [%c%c%c%c%c%c%c%c%c%c%c]",
 	 td, &tdd->td_td,
-	 DQUEUE_NEXT(tdd), td->td_linkptr,
+	 LIST_NEXT(tdd), td->td_linkptr,
 	 td->td_status,
 	 (td_status & TD_STATUS_SPD) ? 'S' : '.',
 	 (td_status & TD_STATUS_LS) ? 'L' : '.',
@@ -137,7 +137,7 @@ uhci_dump_td(struct UHCI_HCD_TD* tdd)
 	 td->td_buffer);
 	if (td->td_linkptr & QH_PTR_T)
 		return;
-	uhci_dump_td(DQUEUE_NEXT(tdd));
+	uhci_dump_td(LIST_NEXT(tdd));
 }
 
 static void
@@ -210,7 +210,7 @@ uhci_inspect_chain(struct UHCI_HCD_TD* td, int* length)
 {
 	int errors = 0;
 	*length = 0;
-	for (/* nothing */; td != NULL; td = DQUEUE_NEXT(td)) {
+	for (/* nothing */; td != NULL; td = LIST_NEXT(td)) {
 		int len = TD_STATUS_ACTUALLEN(td->td_td.td_status);
 		if (len != TD_ACTUALLEN_NONE)
 			*length += len;
@@ -248,8 +248,8 @@ uhci_irq(device_t dev, void* context)
 		 * what it was. We'll have to traverse the scheduled items and wake anything
 		 * up that finished.
 		 */
-		if (!DQUEUE_EMPTY(&privdata->uhci_scheduled_items)) {
-			DQUEUE_FOREACH_SAFE(&privdata->uhci_scheduled_items, si, struct UHCI_SCHEDULED_ITEM) {
+		if (!LIST_EMPTY(&privdata->uhci_scheduled_items)) {
+			LIST_FOREACH_SAFE(&privdata->uhci_scheduled_items, si, struct UHCI_SCHEDULED_ITEM) {
 				/*
 				 * Transfers are scheduled in such a way that we can use the first TD to
 				 * determine whether the transfer went OK (as only the final TD will have the
@@ -259,7 +259,7 @@ uhci_irq(device_t dev, void* context)
 					continue;
 
 				/* First of all, remove the scheduled item - this orphanages the TD's */
-				DQUEUE_REMOVE(&privdata->uhci_scheduled_items, si);
+				LIST_REMOVE(&privdata->uhci_scheduled_items, si);
 
 				/* Walk through the chain to calculate the length and see if something gave an error */
 				if (uhci_inspect_chain(si->si_td, &si->si_xfer->xfer_result_length))
@@ -299,7 +299,7 @@ uhci_create_data_tds(device_t dev, addr_t data, size_t size, int max_packet_size
 		td_data->td_td.td_status = TO_REG32(ls | TD_STATUS_ACTIVE | TD_STATUS_INTONERR(3));
 		td_data->td_td.td_token = TO_REG32(token_addr | TD_TOKEN_MAXLEN(xfer_chunk_len) | TD_TOKEN_PID(token) | (data_token ? TD_TOKEN_DATA : 0));
 		td_data->td_td.td_buffer = cur_data_ptr - xfer_chunk_len;
-		DQUEUE_NEXT(td_data) = link_td;
+		LIST_NEXT(td_data) = link_td;
 
 		data_token ^= 1;
 		link_td = td_data;
@@ -341,7 +341,7 @@ uhci_cancel_transfer(device_t dev, struct USB_TRANSFER* xfer)
 
 	if (xfer->xfer_flags & TRANSFER_FLAG_PENDING) {
 		xfer->xfer_flags &= ~TRANSFER_FLAG_PENDING;
-		DQUEUE_REMOVE_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
+		LIST_REMOVE_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
 	}
 
 	kprintf("uhci_cancel_transfer(): TODO\n");
@@ -397,13 +397,13 @@ uhci_ctrl_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 	td_setup->td_td.td_status = TO_REG32(ls | TD_STATUS_ACTIVE | TD_STATUS_INTONERR(3));
 	td_setup->td_td.td_token = TO_REG32(TD_TOKEN_MAXLEN(sizeof(struct USB_CONTROL_REQUEST)) | token_addr | TD_TOKEN_PID(TD_PID_SETUP));
 	td_setup->td_td.td_buffer = KVTOP((addr_t)&xfer->xfer_control_req); /* XXX64 TODO */
-	DQUEUE_NEXT(td_setup) = next_setup_ptr;
+	LIST_NEXT(td_setup) = next_setup_ptr;
 
 	/* Schedule an item; this will cause the IRQ to handle our request - XXX needs lock */
 	struct UHCI_SCHEDULED_ITEM* si = kmalloc(sizeof *si);
 	si->si_td = td_setup;
 	si->si_xfer = xfer;
-	DQUEUE_ADD_TAIL(&p->uhci_scheduled_items, si);
+	LIST_APPEND(&p->uhci_scheduled_items, si);
 
 	/* Finally, hand the chain to the HD; it's ready to be transmitted */
 	/* XXX we should add to the chain not overwrite !!! */
@@ -433,7 +433,7 @@ uhci_interrupt_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 	struct UHCI_SCHEDULED_ITEM* si = kmalloc(sizeof *si);
 	si->si_td = td_chain;
 	si->si_xfer = xfer;
-	DQUEUE_ADD_TAIL(&p->uhci_scheduled_items, si);
+	LIST_APPEND(&p->uhci_scheduled_items, si);
 
 	/* Finally, hand the chain to the HD; it's ready to be transmitted */
 	/* XXX we should add to the chain not overwrite !!! */
@@ -455,7 +455,7 @@ uhci_schedule_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	 */
 	KASSERT((xfer->xfer_flags & TRANSFER_FLAG_PENDING) == 0, "scheduling transfer that is already pending (%x)", xfer->xfer_flags);
 	xfer->xfer_flags |= TRANSFER_FLAG_PENDING;
-	DQUEUE_ADD_TAIL_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
+	LIST_APPEND_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
 	errorcode_t err = ANANAS_ERROR_OK;
 
 	/* If this is the root hub, short-circuit the request */
@@ -500,7 +500,7 @@ uhci_attach(device_t dev)
 	dev->privdata = p;
 	p->uhci_io = (uint32_t)(uintptr_t)res_io;
 	mutex_init(&p->uhci_mtx, "uhci");
-	DQUEUE_INIT(&p->uhci_scheduled_items);
+	LIST_INIT(&p->uhci_scheduled_items);
 
 	/* Allocate the frame list; this will be programmed right into the controller */
 	err = dma_buf_alloc(dev->dma_tag, 4096, &p->uhci_framelist_buf);

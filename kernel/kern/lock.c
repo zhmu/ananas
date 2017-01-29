@@ -133,7 +133,7 @@ sem_init(semaphore_t* sem, int count)
 
 	spinlock_init(&sem->sem_lock);
 	sem->sem_count = count;
-	DQUEUE_INIT(&sem->sem_wq);
+	LIST_INIT(&sem->sem_wq);
 }
 
 void
@@ -147,10 +147,10 @@ sem_signal(semaphore_t* sem)
 	thread_t* curthread = PCPU_GET(curthread);
 	int wokeup_priority = (curthread != NULL) ? curthread->t_priority : 0;
 
-	if (!DQUEUE_EMPTY(&sem->sem_wq)) {
+	if (!LIST_EMPTY(&sem->sem_wq)) {
 		/* We have waiters; wake up the first one */
-		struct SEMAPHORE_WAITER* sw = DQUEUE_HEAD(&sem->sem_wq);
-		DQUEUE_POP_HEAD(&sem->sem_wq);
+		struct SEMAPHORE_WAITER* sw = LIST_HEAD(&sem->sem_wq);
+		LIST_POP_HEAD(&sem->sem_wq);
 		sw->sw_signalled = 1;
 		thread_resume(sw->sw_thread);
 		wokeup_priority = sw->sw_thread->t_priority;
@@ -191,7 +191,7 @@ sem_wait_and_lock(semaphore_t* sem, register_t* state)
 	struct SEMAPHORE_WAITER sw;
 	sw.sw_thread = curthread;
 	sw.sw_signalled = 0;
-	DQUEUE_ADD_TAIL(&sem->sem_wq, &sw);
+	LIST_APPEND(&sem->sem_wq, &sw);
 	do {
 		thread_suspend(curthread);
 		/* Let go of the lock, but keep interrupts disabled */

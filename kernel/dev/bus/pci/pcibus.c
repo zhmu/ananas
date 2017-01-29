@@ -106,7 +106,7 @@ pcibus_attach(device_t dev)
 			extern struct DEVICE_PROBE probe_queue;
 
 			int device_attached = 0;
-			DQUEUE_FOREACH(&probe_queue, p, struct PROBE) {
+			LIST_FOREACH(&probe_queue, p, struct PROBE) {
 				/* See if the device lives on our bus */
 				int exists = 0;
 				for (const char** curbus = p->bus; *curbus != NULL; curbus++) {

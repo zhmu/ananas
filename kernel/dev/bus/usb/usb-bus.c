@@ -24,7 +24,7 @@
 #include "usb-bus.h"
 #include "usb-device.h"
 
-DQUEUE_DEFINE(USB_BUSSES, struct USB_BUS);
+LIST_DEFINE(USB_BUSSES, struct USB_BUS);
 
 static thread_t usbbus_thread;
 static semaphore_t usbbus_semaphore;
@@ -38,7 +38,7 @@ usbbus_schedule_attach(struct USB_DEVICE* dev)
 {
 	/* Add the device to our queue */
 	spinlock_lock(&usbbus_spl_pendingqueue);
-	DQUEUE_ADD_TAIL(&usbbus_pendingqueue, dev);
+	LIST_APPEND(&usbbus_pendingqueue, dev);
 	spinlock_unlock(&usbbus_spl_pendingqueue);
 
 	/* Wake up our thread */
@@ -62,7 +62,7 @@ usbbus_attach(device_t dev)
 	bus->bus_dev = dev;
 	bus->bus_hcd = hcd_dev;
 	mutex_init(&bus->bus_mutex, "usbbus");
-	DQUEUE_INIT(&bus->bus_devices);
+	LIST_INIT(&bus->bus_devices);
 	bus->bus_flags = USB_BUS_FLAG_NEEDS_EXPLORE;
 	dev->privdata = bus;
 
@@ -77,7 +77,7 @@ usbbus_attach(device_t dev)
 
 	/* Register ourselves within the big bus list */
 	mutex_lock(&usbbus_mutex);
-	DQUEUE_ADD_TAIL(&usbbus_busses, bus);
+	LIST_APPEND(&usbbus_busses, bus);
 	mutex_unlock(&usbbus_mutex);
 	return ANANAS_ERROR_OK;
 }
@@ -106,7 +106,7 @@ usb_bus_explore(struct USB_BUS* bus)
 {
 	mutex_assert(&bus->bus_mutex, MTX_LOCKED);
 
-	DQUEUE_FOREACH(&bus->bus_devices, usb_dev, struct USB_DEVICE) {
+	LIST_FOREACH(&bus->bus_devices, usb_dev, struct USB_DEVICE) {
 		device_t dev = usb_dev->usb_device;
 		if (dev->driver != NULL && dev->driver->drv_usb_explore != NULL) {
 			dev->driver->drv_usb_explore(usb_dev);
@@ -120,7 +120,7 @@ usb_bus_detach_hub(struct USB_BUS* bus, struct USB_HUB* hub)
 {
 	mutex_assert(&bus->bus_mutex, MTX_LOCKED);
 
-	DQUEUE_FOREACH_SAFE(&bus->bus_devices, usb_dev, struct USB_DEVICE) {
+	LIST_FOREACH_SAFE(&bus->bus_devices, usb_dev, struct USB_DEVICE) {
 		if (usb_dev->usb_hub != hub)
 			continue;
 
@@ -145,7 +145,7 @@ usb_bus_thread(void* unused)
 			 * exploring may trigger new devices to attach or old ones to remove.
 			 */
 			mutex_lock(&usbbus_mutex);
-			DQUEUE_FOREACH(&usbbus_busses, bus, struct USB_BUS) {
+			LIST_FOREACH(&usbbus_busses, bus, struct USB_BUS) {
 				mutex_lock(&bus->bus_mutex);
 				if (bus->bus_flags & USB_BUS_FLAG_NEEDS_EXPLORE)
 					usb_bus_explore(bus);
@@ -155,12 +155,12 @@ usb_bus_thread(void* unused)
 
 			/* Handle attaching devices */
 			spinlock_lock(&usbbus_spl_pendingqueue);
-			if (DQUEUE_EMPTY(&usbbus_pendingqueue)) {
+			if (LIST_EMPTY(&usbbus_pendingqueue)) {
 				spinlock_unlock(&usbbus_spl_pendingqueue);
 				break;
 			}
-			struct USB_DEVICE* usb_dev = DQUEUE_HEAD(&usbbus_pendingqueue);
-			DQUEUE_POP_HEAD(&usbbus_pendingqueue);
+			struct USB_DEVICE* usb_dev = LIST_HEAD(&usbbus_pendingqueue);
+			LIST_POP_HEAD(&usbbus_pendingqueue);
 			spinlock_unlock(&usbbus_spl_pendingqueue);
 
 			/*
@@ -174,7 +174,7 @@ usb_bus_thread(void* unused)
 			/* This worked; hook the device to the bus' device list */
 			struct USB_BUS* bus = usb_dev->usb_bus;
 			mutex_lock(&bus->bus_mutex);
-			DQUEUE_ADD_TAIL(&bus->bus_devices, usb_dev);
+			LIST_APPEND(&bus->bus_devices, usb_dev);
 			mutex_unlock(&bus->bus_mutex);
 		}
 	}
@@ -184,9 +184,9 @@ void
 usbbus_init()
 {
 	sem_init(&usbbus_semaphore, 0);
-	DQUEUE_INIT(&usbbus_pendingqueue);
+	LIST_INIT(&usbbus_pendingqueue);
 	mutex_init(&usbbus_mutex, "usbbus");
-	DQUEUE_INIT(&usbbus_busses);
+	LIST_INIT(&usbbus_busses);
 
 	/*
 	 * Create a kernel thread to handle USB device attachments. We use a thread for this
