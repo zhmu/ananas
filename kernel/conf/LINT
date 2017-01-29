@@ -31,3 +31,4 @@ device		usbhub
 device		pci
 device		ata
 device		hda
+device		kbdmux

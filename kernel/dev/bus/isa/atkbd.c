@@ -6,8 +6,8 @@
 #include <ananas/mm.h>
 #include <ananas/tty.h>
 #include <ananas/trace.h>
-#include <ananas/console.h>
 #include <ananas/x86/io.h>
+#include <ananas/dev/kbdmux.h>
 #include "options.h"
 
 TRACE_SETUP;
@@ -62,10 +62,7 @@ static uint8_t atkbd_keymap_shift[128] = {
 
 struct ATKBD_PRIVDATA {
 	int	 kbd_ioport;
-	char kbd_buffer[ATKBD_BUFFER_SIZE];
-	char kbd_buffer_readpos;
-	char kbd_buffer_writepos;
-	char kbd_flags;
+	uint8_t	kbd_flags;
 };
 
 static irqresult_t
@@ -102,26 +99,18 @@ atkbd_irq(device_t dev, void* context)
 		if (scancode & 0x80) /* release event */
 			continue;
 
-	#ifdef OPTION_KDB
+#ifdef OPTION_KDB
 		if ((priv->kbd_flags == (ATKBD_FLAG_CONTROL | ATKBD_FLAG_SHIFT)) && scancode == 1 /* escape */) {
 			kdb_enter("keyboard sequence");
 			continue;
 		}
 		if (priv->kbd_flags == ATKBD_FLAG_CONTROL && scancode == 0x29 /* tilde */)
 			panic("forced by kdb");
-	#endif
+#endif
 
-		uint8_t ascii = ((priv->kbd_flags & ATKBD_FLAG_SHIFT) ? atkbd_keymap_shift : atkbd_keymap)[scancode];
-		if (ascii == 0)
-			continue; /* not ascii, not important */
-
-		priv->kbd_buffer[(int)priv->kbd_buffer_writepos] = ascii;
-		priv->kbd_buffer_writepos = (priv->kbd_buffer_writepos + 1) % ATKBD_BUFFER_SIZE;
-
-		/* XXX signal consumers - this is a hack */
-		if (console_tty != NULL && tty_get_inputdev(console_tty) == dev) {
-			tty_signal_data();
-		}
+		uint8_t ch = ((priv->kbd_flags & ATKBD_FLAG_SHIFT) ? atkbd_keymap_shift : atkbd_keymap)[scancode];
+		if (ch != 0)
+			kbdmux_on_input(ch);
 	}
 
 	return IRQ_RESULT_PROCESSED;
@@ -147,8 +136,6 @@ atkbd_attach(device_t dev)
 	/* Initialize private data; must be done before the interrupt is registered */
 	struct ATKBD_PRIVDATA* kbd_priv = kmalloc(sizeof(struct ATKBD_PRIVDATA));
 	kbd_priv->kbd_ioport = (uintptr_t)res_io;
-	kbd_priv->kbd_buffer_readpos = 0;
-	kbd_priv->kbd_buffer_writepos = 0;
 	kbd_priv->kbd_flags = 0;
 	dev->privdata = kbd_priv;
 
@@ -167,34 +154,14 @@ atkbd_attach(device_t dev)
 	return ANANAS_ERROR_OK;
 }
 
-static errorcode_t
-atkbd_read(device_t dev, void* data, size_t* len, off_t off)
-{
-	struct ATKBD_PRIVDATA* priv = dev->privdata;
-	size_t returned = 0, left = *len;
-
-	while (left-- > 0) {
-		if (priv->kbd_buffer_readpos == priv->kbd_buffer_writepos)
-			break;
-
-		*(uint8_t*)(data + returned++) = priv->kbd_buffer[(int)priv->kbd_buffer_readpos];
-		priv->kbd_buffer_readpos = (priv->kbd_buffer_readpos + 1) % ATKBD_BUFFER_SIZE;
-	}
-	*len = returned;
-	return ANANAS_ERROR_OK;
-}
-
 struct DRIVER drv_atkbd = {
 	.name       = "atkbd",
 	.drv_probe  = atkbd_probe,
-	.drv_attach = atkbd_attach,
-	.drv_read   = atkbd_read
+	.drv_attach = atkbd_attach
 };
 
 DRIVER_PROBE(atkbd)
 DRIVER_PROBE_BUS(acpi)
 DRIVER_PROBE_END()
-
-DEFINE_CONSOLE_DRIVER(drv_atkbd, 10, CONSOLE_FLAG_IN)
 
 /* vim:set ts=2 sw=2: */

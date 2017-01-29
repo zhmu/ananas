@@ -91,6 +91,7 @@ dev/ramdisk.c		optional ramdisk
 dev/ata/ata.c		optional ata
 dev/ata/atadisk.c	optional ata
 dev/ata/atacd.c		optional ata
+dev/kbdmux.c		optional kbdmux
 dev/vga.c		optional vga
 dev/sio.c		optional sio
 fs/ext2fs.c		option EXT2FS
