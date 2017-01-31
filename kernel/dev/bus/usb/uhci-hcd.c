@@ -317,7 +317,7 @@ uhci_setup_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	 */
 	struct UHCI_HCD_QH* qh = uhci_alloc_qh(dev);
 	xfer->xfer_hcd = qh;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -329,7 +329,7 @@ uhci_teardown_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	}
 
 	xfer->xfer_hcd = NULL;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -343,7 +343,7 @@ uhci_cancel_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	}
 
 	kprintf("uhci_cancel_transfer(): TODO\n");
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -409,7 +409,7 @@ uhci_ctrl_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 	p->uhci_qh_ls_control->qh_qh.qh_elementptr = TO_REG32(uhci_td_get_phys(td_setup));
 
 	//uhci_dump(dev);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -439,7 +439,7 @@ uhci_interrupt_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 	p->uhci_qh_interrupt[index]->qh_first_td = td_chain;
 	p->uhci_qh_interrupt[index]->qh_qh.qh_elementptr = TO_REG32(uhci_td_get_phys(td_chain));
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -619,7 +619,7 @@ uhci_attach(device_t dev)
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 
 fail:
 	kfree(p);
@@ -645,7 +645,7 @@ uhci_match_dev(device_t dev)
 
 	/* Generic UHCI USB device */
 	if (PCI_CLASS(classrev) == PCI_CLASS_SERIAL && PCI_SUBCLASS(classrev) == PCI_SUBCLASS_USB && PCI_PROGINT(classrev) == 0)
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	return ANANAS_ERROR(NO_RESOURCE);
 }
 

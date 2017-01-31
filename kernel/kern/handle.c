@@ -96,7 +96,7 @@ handle_alloc(int type, process_t* proc, handleindex_t index_from, struct HANDLE*
 	*handle_out = handle;
 	*index_out = n;
 	TRACE(HANDLE, INFO, "process=%p, type=%u => handle=%p, index=%u", proc, type, handle, n);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -121,7 +121,7 @@ handle_lookup(process_t* proc, handleindex_t index, int type, struct HANDLE** ha
 	if (handle->h_type == HANDLE_TYPE_UNUSED)
 		return ANANAS_ERROR(BAD_HANDLE);
 	*handle_out = handle;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -169,7 +169,7 @@ handle_free(struct HANDLE* handle)
 	spinlock_lock(&spl_handlequeue);
 	LIST_APPEND(&handle_freelist, handle);
 	spinlock_unlock(&spl_handlequeue);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -189,7 +189,7 @@ handle_clone_generic(struct HANDLE* handle_in, process_t* proc_out, struct HANDL
 	errorcode_t err = handle_alloc(handle_in->h_type, proc_out, index_out_min, handle_out, index_out);
 	ANANAS_ERROR_RETURN(err);
 	memcpy(&(*handle_out)->h_data, &handle_in->h_data, sizeof(handle_in->h_data));
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -215,7 +215,7 @@ handle_register_type(struct HANDLE_TYPE* ht)
 	spinlock_lock(&spl_handletypes);
 	LIST_APPEND(&handle_types, ht);
 	spinlock_unlock(&spl_handletypes);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -224,7 +224,7 @@ handle_unregister_type(struct HANDLE_TYPE* ht)
 	spinlock_lock(&spl_handletypes);
 	LIST_REMOVE(&handle_types, ht);
 	spinlock_unlock(&spl_handletypes);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 #ifdef OPTION_KDB

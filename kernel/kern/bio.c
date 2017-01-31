@@ -72,7 +72,7 @@ bio_init()
 	}
 	spinlock_init(&spl_bio_lists);
 	spinlock_init(&spl_bio_bitmap);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 INIT_FUNCTION(bio_init, SUBSYSTEM_BIO, ORDER_FIRST);

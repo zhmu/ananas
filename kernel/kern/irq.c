@@ -185,7 +185,7 @@ irq_register(unsigned int no, device_t dev, irqfunc_t func, int type, void* cont
 	}
 
 	spinlock_unlock_unpremptible(&spl_irq, state);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 void

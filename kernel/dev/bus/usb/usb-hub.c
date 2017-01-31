@@ -90,7 +90,7 @@ usbhub_probe(device_t dev)
 	if (iface->if_class != USB_IF_CLASS_HUB)
 		return ANANAS_ERROR(NO_DEVICE);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -151,7 +151,7 @@ ushub_reset_port(struct USB_HUB* hub, int n)
 		return err;
 	}
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static void
@@ -302,7 +302,7 @@ usbhub_detach(device_t dev)
 
 	struct USB_HUB* hub_hub = dev->privdata;
 	usb_bus_detach_hub(hub_hub->hub_device->usb_bus, hub_hub);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 struct DRIVER drv_usbhub = {

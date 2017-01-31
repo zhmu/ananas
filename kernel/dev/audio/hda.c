@@ -123,7 +123,7 @@ hda_attach(device_t dev, struct HDA_DEV_FUNC* devfuncs, void* dev_privdata)
 	}
 	if (o == NULL) {
 		kprintf("cannot find 2-channel output, aborting\n");
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	}
 
 	struct HDA_ROUTING_PLAN* rp;
@@ -180,7 +180,7 @@ hda_attach(device_t dev, struct HDA_DEV_FUNC* devfuncs, void* dev_privdata)
 	err = devfuncs->hdf_start_streams(dev, num_contexts, contexts);
 	ANANAS_ERROR_RETURN(err);
 #endif
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /* vim:set ts=2 sw=2: */

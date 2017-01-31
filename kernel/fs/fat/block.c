@@ -136,7 +136,7 @@ try_cache: ; /* dummy ; to keep gcc happy */
 		if (ci->f_nextcluster == -1)
 			return ANANAS_ERROR(BAD_RANGE);
 		*cluster_out = ci->f_nextcluster;
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	}
 
 	/* Not in the cache; we'll need to traverse the disk */
@@ -169,7 +169,7 @@ try_cache: ; /* dummy ; to keep gcc happy */
 	if (cur_cluster != 0) {
 		if (ci != NULL)
 			ci->f_nextcluster = *cluster_out;
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	} else {
 		if (ci != NULL)
 			ci->f_nextcluster = -1;
@@ -225,7 +225,7 @@ fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, uint32_t cluste
 	}
 	bio_free(bio);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /*
@@ -278,7 +278,7 @@ fat_claim_avail_cluster(struct VFS_MOUNTED_FS* fs, uint32_t* cluster_out)
 
 		/* XXX should update second fat */
 		*cluster_out = clusterno;
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	}
 
 	/* Out of available clusters */
@@ -345,7 +345,7 @@ fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
 	/* Update the block count of the inode */
 	privdata->last_cluster = new_cluster;
 	inode->i_sb.st_blocks += fs_privdata->sectors_per_cluster;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -432,7 +432,7 @@ fat_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out,
 	}
 
 	*block_out = want_block;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 int
@@ -494,12 +494,12 @@ fat_update_infosector(struct VFS_MOUNTED_FS* fs)
 {
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 	if (fs_privdata->infosector_num == 0)
-		return ANANAS_ERROR_NONE; /* no info sector; nothing to do */
+		return ananas_success(); /* no info sector; nothing to do */
 
 	/* If we have nothing sensible to store, don't bother */
 	if (fs_privdata->next_avail_cluster < 2 ||
 	    fs_privdata->num_avail_clusters == (uint32_t)-1)
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 
 	struct BIO* bio;
 	errorcode_t err = vfs_bread(fs, fs_privdata->infosector_num, &bio);
@@ -516,7 +516,7 @@ fat_update_infosector(struct VFS_MOUNTED_FS* fs)
 	bio_set_dirty(bio); /* XXX even if we updated nothing? */
 	bio_free(bio);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /* vim:set ts=2 sw=2: */

@@ -27,7 +27,7 @@ syscall_get_file(thread_t* t, handleindex_t hindex, struct VFS_FILE** out)
 		return ANANAS_ERROR(BAD_HANDLE);
 
 	*out = file;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -41,7 +41,7 @@ syscall_map_string(thread_t* t, const void* ptr, const char** out)
 	for(int i = 0; i < PAGE_SIZE /* XXX */; i++)
 		if (x[i] == '\0') {
 			*out = x;
-			return ANANAS_ERROR_NONE;
+			return ananas_success();
 		}
 
 	return ANANAS_ERROR(BAD_ADDRESS);
@@ -55,7 +55,7 @@ syscall_map_buffer(thread_t* t, const void* ptr, size_t len, int flags, void** o
 		return ANANAS_ERROR(BAD_ADDRESS);
 
 	*out = x;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -66,7 +66,7 @@ syscall_fetch_size(thread_t* t, const void* ptr, size_t* out)
 		return ANANAS_ERROR(BAD_ADDRESS);
 
 	*out = *s;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -77,7 +77,7 @@ syscall_set_size(thread_t* t, void* ptr, size_t len)
 		return ANANAS_ERROR(BAD_ADDRESS);
 
 	*s = len;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -88,7 +88,7 @@ syscall_set_handleindex(thread_t* t, handleindex_t* ptr, handleindex_t index)
 		return ANANAS_ERROR(BAD_ADDRESS);
 
 	*p = index;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -99,7 +99,7 @@ syscall_fetch_offset(thread_t* t, const void* ptr, off_t* out)
 		return ANANAS_ERROR(BAD_ADDRESS);
 
 	*out = *o;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -110,7 +110,7 @@ syscall_set_offset(thread_t* t, void* ptr, off_t len)
 		return ANANAS_ERROR(BAD_ADDRESS);
 
 	*o = len;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /* vim:set ts=2 sw=2: */

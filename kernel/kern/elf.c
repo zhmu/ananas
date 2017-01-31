@@ -47,7 +47,7 @@ read_data(struct DENTRY* dentry, void* buf, off_t offset, size_t len)
 	/* kludge: cleanup is handeled by requesting 0 bytes at 0 to buffer NULL */
 	if (buf == NULL && offset == 0 && len == 0) {
 		dentry_deref(dentry);
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	}
 
 	errorcode_t err = vfs_seek(&f, offset);
@@ -59,7 +59,7 @@ read_data(struct DENTRY* dentry, void* buf, off_t offset, size_t len)
 
 	if (amount != len)
 		return ANANAS_ERROR(SHORT_READ);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -73,7 +73,7 @@ elf_tm_destroy_func(vmspace_t* vs, vmarea_t* va)
 		read_data(privdata->elf_dentry, NULL, 0, 0); /* cleanup call */
 		kfree(privdata);
 	}
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -112,7 +112,7 @@ elf_tm_fault_func(vmspace_t* vs, vmarea_t* va, addr_t virt)
 		memset((void*)v_page, 0, PAGE_SIZE);
 	if (read_len > 0)
 		return read_data(privdata->elf_dentry, (void*)read_addr, read_off, read_len);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -121,7 +121,7 @@ elf_tm_clone_func(vmspace_t* vs_src, vmarea_t* va_src, vmspace_t* vs_dst, vmarea
 	/* We can just re-use the mapping; we add a ref to ensure it will not go away */
 	va_dst->va_privdata = va_src->va_privdata;
 	((struct ELF_THREADMAP_PROGHEADER*)va_dst->va_privdata)->ph_header->elf_num_refs++;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 #if defined(__i386__)
@@ -220,7 +220,7 @@ elf32_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 	TRACE(EXEC, INFO, "done, entry point is 0x%x", ehdr.e_entry);
 	*exec_addr = ehdr.e_entry;
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 
 fail:
 	kfree(privdata);
@@ -321,7 +321,7 @@ elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 	}
 
 	*exec_addr = ehdr.e_entry;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 
 fail:
 	kfree(privdata);

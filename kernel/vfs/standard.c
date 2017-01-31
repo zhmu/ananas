@@ -34,7 +34,7 @@ vfs_open(const char* fname, struct DENTRY* cwd, struct VFS_FILE* out)
 	ANANAS_ERROR_RETURN(err);
 
 	vfs_make_file(out, dentry);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -43,7 +43,7 @@ vfs_close(struct VFS_FILE* file)
 	if(file->f_dentry != NULL)
 		dentry_deref(file->f_dentry);
 	file->f_dentry = NULL; file->f_device = NULL;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -111,7 +111,7 @@ vfs_seek(struct VFS_FILE* file, off_t offset)
 	if (offset > file->f_dentry->d_inode->i_sb.st_size)
 		return ANANAS_ERROR(BAD_RANGE);
 	file->f_offset = offset;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /*
@@ -270,7 +270,7 @@ vfs_lookup_internal(struct DENTRY* curdentry, const char* name, struct DENTRY** 
 	}
 
 	*ditem = curdentry;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /*
@@ -375,7 +375,7 @@ vfs_grow(struct VFS_FILE* file, off_t size)
 		ANANAS_ERROR_RETURN(err);	
 	}
 	file->f_offset = cur_offset;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -476,7 +476,7 @@ vfs_rename(struct VFS_FILE* file, struct DENTRY* parent, const char* dest)
 	struct DENTRY* old_dentry = file->f_dentry;
 	file->f_dentry = de;
 	dentry_deref(old_dentry);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /* vim:set ts=2 sw=2: */

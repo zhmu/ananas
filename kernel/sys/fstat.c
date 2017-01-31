@@ -25,5 +25,5 @@ sys_fstat(thread_t* t, handleindex_t hindex, struct stat* buf)
 		err = ANANAS_ERROR(BAD_OPERATION); /* XXX maybe re-think this for devices */
 	}
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }

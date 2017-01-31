@@ -88,7 +88,7 @@ acpi_probe(device_t dev)
 	ACPI_SIZE TableAddress;
 	if (AcpiFindRootPointer(&TableAddress) != AE_OK)
 		return ANANAS_ERROR(NO_DEVICE);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -126,7 +126,7 @@ acpi_attach(device_t dev)
 	 */
 	AcpiWalkNamespace(ACPI_TYPE_ANY, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX, acpi_probe_device, NULL, dev, NULL);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 void

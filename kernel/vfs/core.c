@@ -15,7 +15,7 @@ static errorcode_t
 vfs_init()
 {
 	vfs_init_mount();
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 INIT_FUNCTION(vfs_init, SUBSYSTEM_VFS, ORDER_FIRST);
@@ -26,7 +26,7 @@ vfs_bget(struct VFS_MOUNTED_FS* fs, blocknr_t block, struct BIO** bio, int flags
 	*bio = bio_get(fs->fs_device, block * (fs->fs_block_size / BIO_SECTOR_SIZE), fs->fs_block_size, flags);
 	if (*bio == NULL)
 		return ANANAS_ERROR(IO);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 size_t

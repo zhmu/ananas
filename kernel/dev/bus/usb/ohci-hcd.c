@@ -414,7 +414,7 @@ ohci_setup_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	/* If this is the root hub, there's nothing to set up */
 	struct OHCI_DEV_PRIVDATA* dev_p = xfer->xfer_device->usb_hcd_privdata;
 	if (dev_p->dev_flags & USB_DEVICE_FLAG_ROOT_HUB)
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 
 	/*
 	 * Create the endpoint descriptor; this is where we'll chain transfers to. We
@@ -429,7 +429,7 @@ ohci_setup_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	mutex_lock(&p->ohci_mtx);
 	LIST_APPEND(&p->ohci_active_eds, active, ed);
 	mutex_unlock(&p->ohci_mtx);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -439,7 +439,7 @@ ohci_teardown_transfer(device_t dev, struct USB_TRANSFER* xfer)
 
 	struct OHCI_HCD_ED* ed = xfer->xfer_hcd;
 	if (ed == NULL)
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 
 	/* First of all, ensure the ED is marked as sKip in hopes the HC won't touch it */
 	ed->ed_ed.ed_flags |= OHCI_ED_K;
@@ -460,7 +460,7 @@ ohci_teardown_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	/* Finally, we can kill the ED itself XXX We should ensure it's no longer used */
 	ohci_free_ed(dev, ed);
 	xfer->xfer_hcd = NULL;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static void
@@ -605,7 +605,7 @@ ohci_schedule_transfer(device_t dev, struct USB_TRANSFER* xfer)
 			panic("implement type %d", xfer->xfer_type);
 	}
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /* We assume the USB device and transfer are locked here */
@@ -622,7 +622,7 @@ ohci_cancel_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	/* XXX we should see if we're still running it */
 	ohci_free_tds(dev, xfer);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static void*
@@ -678,7 +678,7 @@ ohci_setup(device_t dev)
 
 	p->ohci_control_ed->ed_ed.ed_flags = OHCI_ED_K;
 	p->ohci_bulk_ed->ed_ed.ed_flags = OHCI_ED_K;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -791,7 +791,7 @@ ohci_attach(device_t dev)
 	delay(10);
 	ohci_write4(dev, OHCI_HCRHDESCRIPTORA, a);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static int
@@ -804,7 +804,7 @@ ohci_match_dev(device_t dev)
 
 	/* Generic OHCI USB device */
 	if (PCI_CLASS(classrev) == PCI_CLASS_SERIAL && PCI_SUBCLASS(classrev) == PCI_SUBCLASS_USB && PCI_PROGINT(classrev) == 0x10)
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	return ANANAS_ERROR(NO_RESOURCE);
 }
 

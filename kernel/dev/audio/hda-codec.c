@@ -29,7 +29,7 @@ hda_fill_aw_connlist(device_t dev, struct HDA_NODE_AW* aw)
 	struct HDA_PRIVDATA* privdata = dev->privdata;
 	struct HDA_DEV_FUNC* devfuncs = privdata->hda_dev_func;
 	if (!HDA_PARAM_AW_CAPS_CONNLIST(aw->aw_caps))
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 
 	uint32_t r;
 	errorcode_t err = devfuncs->hdf_issue_verb(dev, HDA_MAKE_VERB_NODE(aw, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_CONLISTLEN)), &r, NULL);
@@ -61,7 +61,7 @@ hda_fill_aw_connlist(device_t dev, struct HDA_NODE_AW* aw)
 		}
 	}
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -76,13 +76,13 @@ hda_attach_widget_audioout(device_t dev, struct HDA_NODE_AUDIOOUT* ao)
 	/* Use the AFG's default if the widget doesn't specify any */
 	if (ao->ao_pcm == 0)
 		ao->ao_pcm = privdata->hda_afg->afg_pcm;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
 hda_attach_widget_audioin(device_t dev, struct HDA_NODE_AUDIOIN* ai)
 {
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -108,7 +108,7 @@ hda_attach_widget_audiomixer(device_t dev, struct HDA_NODE_AUDIOMIXER* am)
 
 	err = hda_fill_aw_connlist(dev, &am->am_node);
 	ANANAS_ERROR_RETURN(err);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -120,13 +120,13 @@ hda_attach_widget_audioselector(device_t dev, struct HDA_NODE_AUDIOSELECTOR* as)
 
 	kprintf("hda_attach_widget_audioselector: TODO\n");
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
 hda_attach_widget_vendordefined(device_t dev, struct HDA_NODE_VENDORDEFINED* vd)
 {
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -143,7 +143,7 @@ hda_attach_widget_pincomplex(device_t dev, struct HDA_NODE_PIN* p)
 
 	err = hda_fill_aw_connlist(dev, &p->p_node);
 	ANANAS_ERROR_RETURN(err);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -496,7 +496,7 @@ hda_attach_multipin_render(device_t dev, struct HDA_AFG* afg, int association, i
 	kfree(rp);
 
 	LIST_APPEND(&afg->afg_outputs, o);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -557,7 +557,7 @@ hda_attach_afg(device_t dev, struct HDA_AFG* afg)
 		}
 	}
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 
@@ -613,7 +613,7 @@ hda_attach_node(device_t dev, int cad, int nodeid)
 		ANANAS_ERROR_RETURN(err);
 	}
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 

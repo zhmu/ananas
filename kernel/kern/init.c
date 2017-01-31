@@ -134,7 +134,7 @@ hello_world()
 	kprintf("CPU: %u MHz\n", md_cpu_clock_mhz);
 #endif
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 INIT_FUNCTION(hello_world, SUBSYSTEM_CONSOLE, ORDER_LAST);
@@ -147,12 +147,12 @@ mount_filesystems()
 	/* We expect root=type:device here */
 	const char* rootfs_arg = cmdline_get_string("root");
 	if (rootfs_arg == NULL)
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 
 	char rootfs_type[64];
 	const char* p = strchr(rootfs_arg, ':');
 	if (p == NULL)
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 
 	memcpy(rootfs_type, rootfs_arg, p - rootfs_arg);
 	rootfs_type[p - rootfs_arg] = '\0';
@@ -166,7 +166,7 @@ mount_filesystems()
 		kprintf(" failed, error %i\n", err);
 	}
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 INIT_FUNCTION(mount_filesystems, SUBSYSTEM_VFS, ORDER_LAST);

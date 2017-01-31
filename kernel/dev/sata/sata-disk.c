@@ -100,7 +100,7 @@ satadisk_bread(device_t dev, struct BIO* bio)
 	sr.sr_flags = SATA_REQUEST_FLAG_READ;
 	dev->parent->driver->drv_enqueue(dev->parent, &sr);
 	dev->parent->driver->drv_start(dev->parent);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -116,7 +116,7 @@ satadisk_bwrite(device_t dev, struct BIO* bio)
 	sr.sr_flags = SATA_REQUEST_FLAG_WRITE;
 	dev->parent->driver->drv_enqueue(dev->parent, &sr);
 	dev->parent->driver->drv_start(dev->parent);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 struct DRIVER drv_sata_disk = {

@@ -24,7 +24,7 @@ sys_dupfd(thread_t* t, handleindex_t index, int flags, handleindex_t* out)
 	ANANAS_ERROR_RETURN(err);
 
 	*out = hidx_out;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /* vim:set ts=2 sw=2: */

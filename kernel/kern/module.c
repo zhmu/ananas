@@ -362,7 +362,7 @@ module_load(struct LOADER_MODULE* mod)
 	LIST_APPEND(&kernel_modules, kmod);
 	mutex_unlock(&mtx_modules);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 
 fail:
 	kfree(str_ptr);
@@ -403,7 +403,7 @@ module_unload(struct KERNEL_MODULE* kmod)
 	kfree(kmod->kmod_rodataptr);
 	kfree(kmod->kmod_codeptr);
 	kfree(kmod);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -431,7 +431,7 @@ module_init()
 #else
 	(void)module_load;
 #endif
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 INIT_FUNCTION(module_init, SUBSYSTEM_MODULE, ORDER_LAST);

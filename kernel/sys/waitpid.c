@@ -23,7 +23,7 @@ sys_waitpid(thread_t* t, pid_t* pid, int* stat_loc, int options)
 	/* Give up our refence to the zombie child; this should destroy it */
 	process_deref(p);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /* vim:set ts=2 sw=2: */

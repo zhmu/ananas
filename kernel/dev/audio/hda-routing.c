@@ -218,7 +218,7 @@ hda_route_output(device_t dev, struct HDA_AFG* afg, int channels, struct HDA_OUT
 	kprintf("\n");
 #endif
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /* vim:set ts=2 sw=2: */

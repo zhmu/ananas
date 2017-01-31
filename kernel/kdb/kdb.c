@@ -99,7 +99,7 @@ kdb_register_command(struct KDB_COMMAND* cmd)
 		}
 	}
 	LIST_APPEND(&kdb_commands, cmd);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 KDB_COMMAND(help, NULL, "Displays this help")
@@ -135,7 +135,7 @@ static errorcode_t
 kdb_init()
 {
 	/* XXX We should sort the entries here */
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 INIT_FUNCTION(kdb_init, SUBSYSTEM_KDB, ORDER_LAST);

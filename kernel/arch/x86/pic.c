@@ -84,7 +84,7 @@ pic_mask(struct IRQ_SOURCE* is, int no)
 	}
 
 	outb(port, inb(port) | (1 << no));
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -97,7 +97,7 @@ pic_unmask(struct IRQ_SOURCE* is, int no)
 	}
 
 	outb(port, inb(port) & ~(1 << no));
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static void

@@ -126,7 +126,7 @@ ext2_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out
 	/* (a) Direct blocks are easy */
 	if (block_in < 12) {
 		*block_out = in_privdata->block[block_in];
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	}
 
 	if (block_in < 12 + fs->fs_block_size / 4) {
@@ -138,7 +138,7 @@ ext2_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out
 		ANANAS_ERROR_RETURN(err);
 		*block_out = EXT2_TO_LE32(*(uint32_t*)(BIO_DATA(bio) + (block_in - 12) * sizeof(uint32_t)));
 		bio_free(bio);
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	}
 
 	panic("ext2_block_map() needs support for doubly/triple indirect blocks!");
@@ -209,7 +209,7 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	}
 	if (bio != NULL) bio_free(bio);
 	*len = written;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static struct VFS_INODE_OPS ext2_file_ops = {
@@ -288,7 +288,7 @@ ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 	}
 	bio_free(bio);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -371,7 +371,7 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 		kfree(privdata);
 		return err;
 	}
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static struct VFS_FILESYSTEM_OPS fsops_ext2 = {

@@ -98,7 +98,7 @@ usb_parse_configuration(struct USB_DEVICE* usb_dev, void* data, int datalen)
 		}
 	}
 	
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /* vim:set ts=2 sw=2: */

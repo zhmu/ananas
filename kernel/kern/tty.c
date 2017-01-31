@@ -171,7 +171,7 @@ tty_read(device_t dev, void* buf, size_t* len, off_t offset)
 			num_read++; num_left--;
 		}
 		*len = num_read;
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	}
 
 	/* NOTREACHED */
@@ -293,7 +293,7 @@ tty_preinit()
 	QUEUE_INIT(&tty_queue);
 	spinlock_init(&tty_queue.tq_lock);
 	sem_init(&tty_sem, 0);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 INIT_FUNCTION(tty_preinit, SUBSYSTEM_CONSOLE, ORDER_SECOND);
@@ -304,7 +304,7 @@ tty_init()
 	/* Launch our kernel thread */
 	kthread_init(&tty_thread, "tty", tty_thread_func, NULL);
 	thread_resume(&tty_thread);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 INIT_FUNCTION(tty_init, SUBSYSTEM_TTY, ORDER_ANY);

@@ -39,7 +39,7 @@ sys_vmop_map(ARG_CURTHREAD struct VMOP_OPTIONS* vo)
 
 	vo->vo_addr = (void*)va->va_virt;
 	vo->vo_len = va->va_len;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t

@@ -11,11 +11,11 @@ sysfs_read_string(char* string, char** start, off_t offset, size_t* len)
 	if (offset >= slen) {
 		/* No space left */
 		*len = 0;
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	}
 	*len = strlen(string) - slen;
 	*start = (char*)string + offset;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /* vim:set ts=2 sw=2: */

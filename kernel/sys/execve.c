@@ -110,7 +110,7 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 
 	/* Now force a full return into the new thread state */
 	md_setup_post_exec(t, exec_addr);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 
 fail:
 	dentry_deref(dentry);

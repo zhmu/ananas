@@ -360,7 +360,7 @@ uroothub_handle_transfer(device_t dev, struct USB_TRANSFER* xfer)
 			return uroothub_ctrl_xfer(dev, xfer);
 		case TRANSFER_TYPE_INTERRUPT:
 			/* Transfer has been added to the queue; no need to do anything else here */
-			return ANANAS_ERROR_NONE;
+			return ananas_success();
 	}
 	panic("unsupported transfer type %d", xfer->xfer_type);
 }

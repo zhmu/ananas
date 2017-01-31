@@ -84,7 +84,7 @@ dma_tag_create(dma_tag_t parent, device_t dev, dma_tag_t* tag, int alignment, dm
 	t->t_max_segs = max_segs;
 	t->t_max_seg_size = max_seg_size;
 	*tag = t;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -94,7 +94,7 @@ dma_tag_destroy(dma_tag_t tag)
 
 	/* Remove a reference; if we still have more, we do nothing */
 	if (--tag->t_refcount > 0)
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 
 	/* Remove our tag and try to kill the parent */
 	kfree(tag);
@@ -204,7 +204,7 @@ dma_buf_load(dma_buf_t buf, void* data, dma_size_t size, dma_load_func_t load, v
 		bs.s_phys = phys;
 		load(load_arg, &bs, 1);
 
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	}
 
 	panic("dma_buf_load(): phys %p rejected, FIXME", phys);

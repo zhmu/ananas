@@ -67,7 +67,7 @@ sio_attach(device_t dev)
 	outb(privdata->io_port + SIO_REG_LCR, 3);			/* 8N1 */
 	outb(privdata->io_port + SIO_REG_FIFO, 0xc7);	/* Enable/clear FIFO (14 bytes) */
 	outb(privdata->io_port + SIO_REG_IER, 0x01);	/* Enable interrupts (recv only) */
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -80,7 +80,7 @@ sio_write(device_t dev, const void* data, size_t* len, off_t offset)
 		while ((inb(privdata->io_port + SIO_REG_LSR) & 0x20) == 0);
 		outb(privdata->io_port + SIO_REG_DATA, *ch);
 	}
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -98,7 +98,7 @@ sio_read(device_t dev, void* data, size_t* len, off_t offset)
 		privdata->buffer_readpos = (privdata->buffer_readpos + 1) % SIO_BUFFER_SIZE;
 	}
 	*len = returned;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -106,7 +106,7 @@ sio_probe(device_t dev)
 {
 	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PNP_ID, 0);
 	if (res != NULL && res->base == 0x0501) /* PNP0501: 16550A-compatible COM port */
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	return ANANAS_ERROR(NO_DEVICE);
 }
 

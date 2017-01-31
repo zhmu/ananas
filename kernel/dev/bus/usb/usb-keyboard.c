@@ -26,7 +26,7 @@ usbkbd_probe(device_t dev)
 	if (iface->if_class != USB_IF_CLASS_HID || iface->if_protocol != 1 /* keyboard */)
 		return ANANAS_ERROR(NO_DEVICE);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static void

@@ -106,7 +106,7 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 	mutex_unlock(&process_mtx);
 
 	*dest = p;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 
 fail:
 	if (p->p_info != NULL)
@@ -137,7 +137,7 @@ process_clone(process_t* p, int flags, process_t** out_p)
 		goto fail;
 
 	*out_p = newp;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 
 fail:
 	process_deref(newp);
@@ -218,7 +218,7 @@ process_wait_and_lock(process_t* parent, int flags, process_t** p_out)
 
 				/* Note that we give our ref to the caller! */
 				*p_out = child;
-				return ANANAS_ERROR_NONE;
+				return ananas_success();
 			}
 			process_unlock(child);
 		}
@@ -239,7 +239,7 @@ process_set_args(process_t* p, const char* args, size_t args_len)
 	for (unsigned int i = 0; i < args_len; i++)
 		if(args[i] == '\0' && args[i + 1] == '\0') {
 			memcpy(p->p_info->pi_args, args, i + 2 /* terminating \0\0 */);
-			return ANANAS_ERROR_NONE;
+			return ananas_success();
 		}
 	return ANANAS_ERROR(BAD_LENGTH);
 }
@@ -252,7 +252,7 @@ process_set_environment(process_t* p, const char* env, size_t env_len)
 	for (unsigned int i = 0; i < env_len; i++)
 		if(env[i] == '\0' && env[i + 1] == '\0') {
 			memcpy(p->p_info->pi_env, env, i + 2 /* terminating \0\0 */);
-			return ANANAS_ERROR_NONE;
+			return ananas_success();
 		}
 
 	return ANANAS_ERROR(BAD_LENGTH);
@@ -262,28 +262,28 @@ errorcode_t
 process_register_init_func(struct PROCESS_CALLBACK* fn)
 {
 	LIST_APPEND(&process_callbacks_init, fn);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
 process_register_exit_func(struct PROCESS_CALLBACK* fn)
 {
 	LIST_APPEND(&process_callbacks_exit, fn);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
 process_unregister_init_func(struct PROCESS_CALLBACK* fn)
 {
 	LIST_REMOVE(&process_callbacks_init, fn);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
 process_unregister_exit_func(struct PROCESS_CALLBACK* fn)
 {
 	LIST_REMOVE(&process_callbacks_exit, fn);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -294,7 +294,7 @@ process_init()
 	LIST_INIT(&process_all);
 	process_curpid = 1;
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 INIT_FUNCTION(process_init, SUBSYSTEM_PROCESS, ORDER_FIRST);

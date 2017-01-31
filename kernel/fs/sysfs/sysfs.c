@@ -67,7 +67,7 @@ sysfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	}
 
 	*len = written;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static struct VFS_INODE_OPS sysfs_dir_ops = {
@@ -147,7 +147,7 @@ sysfs_read_inode(struct VFS_INODE* inode, void* fsop)
 	} else {
 		inode->i_iops = &sysfs_file_ops;
 	}
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -181,7 +181,7 @@ static errorcode_t
 sysfs_preinit()
 {
 	sysfs_init_structs();
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t

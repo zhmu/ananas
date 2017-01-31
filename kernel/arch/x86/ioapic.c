@@ -26,7 +26,7 @@ ioapic_mask(struct IRQ_SOURCE* source, int no)
 	uint32_t reg = IOREDTBL + no * 2;
 	*(volatile uint32_t*)(ioapic->ioa_addr + IOREGSEL) = reg & 0xff;
 	*(volatile uint32_t*)(ioapic->ioa_addr + IOWIN) |= MASKED;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -36,7 +36,7 @@ ioapic_unmask(struct IRQ_SOURCE* source, int no)
 	uint32_t reg = IOREDTBL + no * 2;
 	*(volatile uint32_t*)(ioapic->ioa_addr + IOREGSEL) = reg & 0xff;
 	*(volatile uint32_t*)(ioapic->ioa_addr + IOWIN) &= ~MASKED;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 void

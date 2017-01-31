@@ -61,7 +61,7 @@ device_detach(device_t dev)
 		ANANAS_ERROR_RETURN(err);
 	}
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 void
@@ -123,7 +123,7 @@ device_attach_single(device_t dev)
 		driver->drv_attach_children(dev);
 	device_attach_bus(dev);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 int
@@ -290,7 +290,7 @@ device_init()
 	strcpy(corebus->name, "corebus");
 	device_attach_bus(corebus);
 	device_add_to_tree(corebus);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 INIT_FUNCTION(device_init, SUBSYSTEM_DEVICE, ORDER_LAST);
@@ -380,14 +380,14 @@ device_register_probe(struct PROBE* p)
 		}
 	}
 	LIST_APPEND(&probe_queue, p);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
 device_unregister_probe(struct PROBE* p)
 {
 	LIST_REMOVE(&probe_queue, p);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 #ifdef OPTION_KDB

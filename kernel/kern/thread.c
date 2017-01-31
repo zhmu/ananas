@@ -74,7 +74,7 @@ thread_alloc(process_t* p, thread_t** dest, const char* name, int flags)
 	spinlock_unlock(&spl_threadqueue);
 
 	*dest = t;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -101,7 +101,7 @@ kthread_init(thread_t* t, const char* name, kthread_func_t func, void* arg)
 	spinlock_lock(&spl_threadqueue);
 	LIST_APPEND(&thread_queue, t);
 	spinlock_unlock(&spl_threadqueue);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /*
@@ -296,7 +296,7 @@ thread_clone(process_t* proc, thread_t** out_thread)
 
 	/* Thread is ready to rock */
 	*out_thread = t;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 void

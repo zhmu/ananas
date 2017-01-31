@@ -72,7 +72,7 @@ $AWK '
 #
 # becomes
 #
-#   case 1234: sys_foo(curthread, (int)a->arg1, (int)a->arg2, (int)a->arg3); return ANANAS_ERROR_NONE;
+#   case 1234: sys_foo(curthread, (int)a->arg1, (int)a->arg2, (int)a->arg3); return ananas_success();
 #   case 4321: return (errorcode_t)sys_bar(curthread, (int)a->arg1);
 #
 $AWK '
@@ -99,7 +99,7 @@ $AWK '
 
 		print "case "$1": "
 		if ($3 == "void")
-			print "\tsys_" FUNCNAME "(" ARGS "); return ANANAS_ERROR_NONE;"
+			print "\tsys_" FUNCNAME "(" ARGS "); return ananas_success();"
 		else
 			print "\treturn (register_t)sys_" FUNCNAME "(" ARGS ");"
 	}

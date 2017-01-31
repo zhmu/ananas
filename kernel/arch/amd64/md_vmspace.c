@@ -21,7 +21,7 @@ md_vmspace_init(vmspace_t* vs)
 	memset(vs->vs_md_pagedir, 0, PAGE_SIZE);
 	md_map_kernel(vs);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 void

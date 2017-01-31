@@ -74,7 +74,7 @@ ahcipci_probe(device_t dev)
 	/* Anything AHCI will do */
 	if (PCI_CLASS(classrev) == PCI_CLASS_STORAGE && PCI_SUBCLASS(classrev) == PCI_SUBCLASS_SATA &&
 	    PCI_REVISION(classrev) == 1 /* AHCI */)
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 
 	/* And some specific devices which pre-date this schema */
 	res = device_get_resource(dev, RESTYPE_PCI_VENDORID, 0);
@@ -82,13 +82,13 @@ ahcipci_probe(device_t dev)
 	res = device_get_resource(dev, RESTYPE_PCI_DEVICEID, 0);
 	uint32_t device = res->base;
 	if (vendor == 0x8086 && device == 0x2922) /* Intel ICH9, like what is in QEMU */
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	if (vendor == 0x8086 && device == 0x2829) /* Intel ICH8M, like what is in VirtualBox */
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	if (vendor == 0x10de && device == 0x7f4) /* NForce 630i SATA */
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	if (vendor == 0x1039 && device == 0x1185) /* SiS AHCI Controller (0106) */
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	return ANANAS_ERROR(NO_RESOURCE);
 }
 
@@ -159,7 +159,7 @@ ahcipci_reset_port(device_t dev, struct AHCI_PCI_PORT* p)
 	/* Clear any pending interrupts */
 	AHCI_WRITE_4(AHCI_REG_PxIS(n), 0xffffffff);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -348,7 +348,7 @@ ahcipci_attach(device_t dev)
 		device_attach_single(port_dev); /* XXX check error */
 	}
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 struct DRIVER drv_ahcipci = {

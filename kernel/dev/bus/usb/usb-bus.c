@@ -48,7 +48,7 @@ usbbus_schedule_attach(struct USB_DEVICE* dev)
 static errorcode_t
 usbbus_probe(device_t dev)
 {
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -79,7 +79,7 @@ usbbus_attach(device_t dev)
 	mutex_lock(&usbbus_mutex);
 	LIST_APPEND(&usbbus_busses, bus);
 	mutex_unlock(&usbbus_mutex);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 int
@@ -128,7 +128,7 @@ usb_bus_detach_hub(struct USB_BUS* bus, struct USB_HUB* hub)
 		ANANAS_ERROR_RETURN(err);
 	}
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static void

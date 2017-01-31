@@ -24,5 +24,5 @@ sys_stat(thread_t* t, const char* path, struct stat* buf)
 	}
 
 	vfs_close(&file);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }

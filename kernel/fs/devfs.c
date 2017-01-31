@@ -69,7 +69,7 @@ devfs_readdir_root(struct VFS_FILE* file, void* dirents, size_t* len)
 	}
 
 	*len = written;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static struct VFS_INODE_OPS devfs_rootdir_ops = {
@@ -189,7 +189,7 @@ devfs_read_inode(struct VFS_INODE* inode, void* fsop)
 			inode->i_sb.st_mode |= S_IFREG;
 		privdata->device = dev;
 	}
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t

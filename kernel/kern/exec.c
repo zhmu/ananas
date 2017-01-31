@@ -13,7 +13,7 @@ static errorcode_t
 exec_init()
 {
 	LIST_INIT(&exec_formats);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -27,7 +27,7 @@ exec_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 			continue;
 		}
 
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	}
 
 	/* Nothing worked... */
@@ -40,14 +40,14 @@ errorcode_t
 exec_register_format(struct EXEC_FORMAT* ef)
 {
 	LIST_APPEND(&exec_formats, ef);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
 exec_unregister_format(struct EXEC_FORMAT* ef)
 {
 	LIST_REMOVE(&exec_formats, ef);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /* vim:set ts=2 sw=2: */

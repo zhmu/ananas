@@ -367,7 +367,7 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 	}
 
 	bio_free(bio);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -512,7 +512,7 @@ fat_unlink(struct VFS_INODE* dir, struct DENTRY* de)
 	 */
 	de->d_inode->i_sb.st_nlink--;
 	vfs_set_inode_dirty(de->d_inode);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -566,7 +566,7 @@ fat_rename(struct VFS_INODE* old_dir, struct DENTRY* old_dentry, struct VFS_INOD
 	 */
 	dcache_set_inode(old_dentry, inode);
 	dcache_set_inode(new_dentry, inode);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 struct VFS_INODE_OPS fat_dir_ops = {

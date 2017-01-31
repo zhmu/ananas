@@ -23,7 +23,7 @@ atacd_attach(device_t dev)
 
 	device_printf(dev, "<%s>", identify->model);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -49,7 +49,7 @@ atacd_bread(device_t dev, struct BIO* bio)
 	item.atapi_command[8] = (bio->length / 2048) & 0xff;
 	dev->parent->driver->drv_enqueue(dev->parent, &item);
 	dev->parent->driver->drv_start(dev->parent);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 struct DRIVER drv_atacd = {

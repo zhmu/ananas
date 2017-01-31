@@ -27,12 +27,26 @@
 #define ANANAS_ERROR_OUT_OF_MEMORY	21		/* Out of memory */
 #define ANANAS_ERROR_CROSS_DEVICE	22		/* Cross device operation */
 
+static inline errorcode_t ananas_success()
+{
+	return ANANAS_ERROR_NONE;
+}
+
+static inline int ananas_is_success(errorcode_t err)
+{
+	return err == ANANAS_ERROR_NONE;
+}
+
+static inline int ananas_is_failure(errorcode_t err)
+{
+	return !ananas_is_success(err);
+}
+
 #define ANANAS_ERROR_RETURN(x) \
-	if((x) != ANANAS_ERROR_NONE) \
-		return (x);
+	if(ananas_is_failure((x))) \
+		return (x)
 
 /* OK is special; it does not have any line information */
-#define ANANAS_ERROR_OK			ANANAS_ERROR_NONE
 #define ANANAS_ERROR(x) \
 	(((TRACE_FILE_ID * 1000000) + (__LINE__) * 100) + ((ANANAS_ERROR_##x)))
 

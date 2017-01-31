@@ -56,5 +56,5 @@ sys_fcntl(thread_t* t, handleindex_t hindex, int cmd, const void* in, void* out)
 			return ANANAS_ERROR(BAD_OPERATION);
 	}
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }

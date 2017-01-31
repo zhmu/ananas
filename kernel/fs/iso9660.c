@@ -146,7 +146,7 @@ iso9660_read_inode(struct VFS_INODE* inode, void* fsop)
 		inode->i_iops = &iso9660_file_ops;
 		inode->i_sb.st_mode |= S_IFREG;
 	}
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static struct VFS_INODE*
@@ -245,7 +245,7 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	}
 	if (bio != NULL) bio_free(bio);
 	*len = written;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -283,7 +283,7 @@ iso9660_read(struct VFS_FILE* file, void* buf, size_t* len)
 	}
 
 	*len = numread;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static struct VFS_INODE_OPS iso9660_dir_ops = {

@@ -24,7 +24,7 @@ atapci_probe(device_t dev)
 	/* Reject anything not a IDE storage device */
 	if (PCI_CLASS(classrev) != PCI_CLASS_STORAGE || PCI_SUBCLASS(classrev) != PCI_SUBCLASS_IDE)
 		return ANANAS_ERROR(NO_RESOURCE);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -49,7 +49,7 @@ atapci_attach(device_t dev)
 	struct ATA_PRIVDATA* privdata = dev->privdata;
 	privdata->atapci.atapci_io = (uint32_t)(uintptr_t)res_io;
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static void

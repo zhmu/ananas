@@ -171,7 +171,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 		kfree(privdata);
 		return err;
 	}
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static struct VFS_FILESYSTEM_OPS fsops_fat = {

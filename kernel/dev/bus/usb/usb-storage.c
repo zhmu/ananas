@@ -236,7 +236,7 @@ usbstorage_handle_request(device_t dev, int lun, int flags, const void* cb, size
 		return ANANAS_ERROR(IO);
 	}
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -251,7 +251,7 @@ usbstorage_probe(device_t dev)
 	if (iface->if_class != USB_IF_CLASS_STORAGE || iface->if_protocol != USB_IF_PROTOCOL_BULKONLY)
 		return ANANAS_ERROR(NO_DEVICE);
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /* Called when data flows from the device -> us */
@@ -458,7 +458,7 @@ usbstorage_attach(device_t dev)
 		kprintf("%x ", block[n]);
 	}
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 struct DRIVER drv_usbstorage = {

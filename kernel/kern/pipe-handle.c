@@ -43,7 +43,7 @@ pipehandle_create(thread_t* thread, handleindex_t index, struct HANDLE* handle, 
 	hpi->hpi_buffer = hpb;
 	hpi->hpi_next = hpi;
 	hpi->hpi_handle = handle;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -80,14 +80,14 @@ pipehandle_free(thread_t* thread, struct HANDLE* handle)
 		parent_hpi->hpi_next = hpi->hpi_next;
 
 		mutex_unlock(&hpb->hpb_mutex);
-		return ANANAS_ERROR_NONE;
+		return ananas_success();
 	}
 	
 	/* OK, we can free the buffer */
 	mutex_unlock(&hpb->hpb_mutex);
 	hpi->hpi_buffer = NULL;
 	kfree(hpb);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -106,7 +106,7 @@ pipehandle_read(thread_t* thread, handleindex_t index, struct HANDLE* handle, vo
 	}
 	mutex_unlock(&hpb->hpb_mutex);
 	*len = n;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -125,7 +125,7 @@ pipehandle_write(thread_t* thread, handleindex_t index, struct HANDLE* handle, c
 	}
 	mutex_unlock(&hpb->hpb_mutex);
 	*len = n;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t

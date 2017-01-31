@@ -54,7 +54,7 @@ kbdmux_read(device_t dev, void* data, size_t* len, off_t off)
 	spinlock_unlock_unpremptible(&priv->kbd_lock, state);
 
 	*len = returned;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 static errorcode_t
@@ -67,7 +67,7 @@ kbdmux_attach(device_t dev)
 
 	KASSERT(kbdmux_privdata == NULL, "multiple kbdmux?");
 	kbdmux_privdata = mux_priv;
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 struct DRIVER drv_kbdmux = {

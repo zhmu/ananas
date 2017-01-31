@@ -123,7 +123,7 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 		dentry_root->d_flags |= DENTRY_FLAG_PERMANENT;
 	}
 	
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -140,7 +140,7 @@ vfs_unmount(const char* path)
 			spinlock_unlock(&spl_mountedfs);
 			/* XXX Ask filesystem politely to unmount */
 			fs->fs_flags = 0; /* Available */
-			return ANANAS_ERROR_NONE;
+			return ananas_success();
 		}
 	}
 	spinlock_unlock(&spl_mountedfs);
@@ -179,7 +179,7 @@ vfs_register_filesystem(struct VFS_FILESYSTEM* fs)
 	/* Filesystem is clear; hook it up */
 	LIST_APPEND(&fstypes, fs);
 	spinlock_unlock(&spl_fstypes);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 errorcode_t
@@ -188,7 +188,7 @@ vfs_unregister_filesystem(struct VFS_FILESYSTEM* fs)
 	spinlock_lock(&spl_fstypes);
 	LIST_REMOVE(&fstypes, fs);
 	spinlock_unlock(&spl_fstypes);
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 #ifdef OPTION_KDB

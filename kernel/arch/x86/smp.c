@@ -240,7 +240,7 @@ smp_init()
 	 */
 	can_smp_launch = 0;
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 /*
@@ -275,7 +275,7 @@ smp_launch()
 	smp_destroy_ap_pagetable();
 #endif
 
-	return ANANAS_ERROR_NONE;
+	return ananas_success();
 }
 
 INIT_FUNCTION(smp_launch, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);
