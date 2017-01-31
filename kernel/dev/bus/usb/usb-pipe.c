@@ -62,7 +62,7 @@ usbpipe_alloc(struct USB_DEVICE* usb_dev, int num, int type, int dir, size_t max
 	LIST_APPEND(&usb_dev->usb_pipes, p);
 	mutex_unlock(&usb_dev->usb_mutex);
 	*pipe = p;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 void

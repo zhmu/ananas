@@ -134,7 +134,7 @@ hello_world()
 	kprintf("CPU: %u MHz\n", md_cpu_clock_mhz);
 #endif
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 INIT_FUNCTION(hello_world, SUBSYSTEM_CONSOLE, ORDER_LAST);
@@ -166,7 +166,7 @@ mount_filesystems()
 		kprintf(" failed, error %i\n", err);
 	}
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 INIT_FUNCTION(mount_filesystems, SUBSYSTEM_VFS, ORDER_LAST);

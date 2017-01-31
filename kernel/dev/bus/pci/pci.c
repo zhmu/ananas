@@ -26,7 +26,7 @@ pci_attach(device_t dev)
 
 		device_attach_single(new_bus);
 	}
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 void

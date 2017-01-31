@@ -24,7 +24,7 @@ atapci_probe(device_t dev)
 	/* Reject anything not a IDE storage device */
 	if (PCI_CLASS(classrev) != PCI_CLASS_STORAGE || PCI_SUBCLASS(classrev) != PCI_SUBCLASS_IDE)
 		return ANANAS_ERROR(NO_RESOURCE);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t

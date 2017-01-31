@@ -32,7 +32,7 @@ AcpiOsInstallInterruptHandler(UINT32 InterruptLevel, ACPI_OSD_HANDLER Handler, v
 	info->i_context = Context;
 
 	errorcode_t err = irq_register(InterruptLevel, NULL, acpi_irq_wrapper, IRQ_TYPE_DEFAULT, info);
-	if (err != ANANAS_ERROR_OK) {
+	if (err != ANANAS_ERROR_NONE) {
 		kfree(info);
 		return AE_BAD_PARAMETER;
 	}

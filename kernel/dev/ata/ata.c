@@ -408,7 +408,7 @@ ata_attach(device_t dev, uint32_t io, uint32_t irq)
 
 	/* reset the control register - this ensures we receive interrupts */
 	outb(priv->io_port + ATA_REG_DEVCONTROL, 0);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 void

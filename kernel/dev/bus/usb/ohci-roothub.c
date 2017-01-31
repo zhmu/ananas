@@ -133,7 +133,7 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 					int amount = MIN(ohci_rh_device.dev_length, req->req_length);
 					memcpy(xfer->xfer_data, &ohci_rh_device, amount);
 					xfer->xfer_result_length = amount;
-					err = ANANAS_ERROR_OK;
+					err = ANANAS_ERROR_NONE;
 					break;
 				}
 				case USB_DESCR_TYPE_STRING: {
@@ -142,7 +142,7 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 						int amount = MIN(ohci_rh_strings[string_id].s_len, req->req_length);
 						memcpy(xfer->xfer_data, &ohci_rh_strings[string_id], amount);
 						xfer->xfer_result_length = amount;
-						err = ANANAS_ERROR_OK;
+						err = ANANAS_ERROR_NONE;
 					}
 					break;
 				}
@@ -150,18 +150,18 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 					int amount = MIN(ohci_rh_config.d_config.cfg_totallen, req->req_length);
 					memcpy(xfer->xfer_data, &ohci_rh_config, amount);
 					xfer->xfer_result_length = amount;
-					err = ANANAS_ERROR_OK;
+					err = ANANAS_ERROR_NONE;
 					break;
 				}
 			}
 			break;
 		case USB_REQUEST_STANDARD_SET_ADDRESS:
 			DPRINTF(dev, "set address: %d", req->req_value);
-			err = ANANAS_ERROR_OK;
+			err = ANANAS_ERROR_NONE;
 			break;
 		case USB_REQUEST_STANDARD_SET_CONFIGURATION:
 			DPRINTF(dev, "set config: %d", req->req_value);
-			err = ANANAS_ERROR_OK;
+			err = ANANAS_ERROR_NONE;
 			break;
 		case USB_REQUEST_CLEAR_HUB_FEATURE:
 			break;
@@ -202,7 +202,7 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 			int amount = MIN(hd.hd_length, req->req_length);
 			memcpy(xfer->xfer_data, &hd, amount);
 			xfer->xfer_result_length = amount;
-			err = ANANAS_ERROR_OK;
+			err = ANANAS_ERROR_NONE;
 			break;
 		}
 		case USB_REQUEST_GET_HUB_STATUS: {
@@ -211,7 +211,7 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 				/* XXX over-current */
 				memcpy(xfer->xfer_data, &hs, sizeof(hs));
 				xfer->xfer_result_length = sizeof(hs);
-				err = ANANAS_ERROR_OK;
+				err = ANANAS_ERROR_NONE;
 			}
 			break;
 		}
@@ -225,7 +225,7 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 				ps.ps_portchange = (st >> 16) & 0x1f;
 				memcpy(xfer->xfer_data, &ps, sizeof(ps));
 				xfer->xfer_result_length = sizeof(ps);
-				err = ANANAS_ERROR_OK;
+				err = ANANAS_ERROR_NONE;
 			}
 			break;
 		}
@@ -233,7 +233,7 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 			unsigned int port = req->req_index;
 			if (port >= 1 && port <= p->ohci_rh_numports) {
 				port = OHCI_HCRHPORTSTATUSx + (req->req_index - 1) * 4;
-				err = ANANAS_ERROR_OK;
+				err = ANANAS_ERROR_NONE;
 				switch(req->req_value) {
 					case HUB_FEATURE_PORT_RESET: {
 						/*
@@ -257,7 +257,7 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 					case HUB_FEATURE_PORT_SUSPEND:
 						DPRINTF(dev, "set port suspend, port %d", req->req_index);
 						ohci_write4(dev, port, OHCI_RHPS_PSS);
-						err = ANANAS_ERROR_OK;
+						err = ANANAS_ERROR_NONE;
 						break;
 					case HUB_FEATURE_PORT_POWER:
 						DPRINTF(dev, "set port power, port %d", req->req_index);
@@ -274,7 +274,7 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 			unsigned int port = req->req_index;
 			if (port >= 1 && port <= p->ohci_rh_numports) {
 				port = OHCI_HCRHPORTSTATUSx + (req->req_index - 1) * 4;
-				err = ANANAS_ERROR_OK;
+				err = ANANAS_ERROR_NONE;
 				switch(req->req_value) {
 					case HUB_FEATURE_PORT_ENABLE:
 						DPRINTF(dev, "HUB_FEATURE_PORT_ENABLE: port %d", req->req_index);
@@ -326,7 +326,7 @@ oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 
 #undef MIN
 
-	if (err != ANANAS_ERROR_OK) {
+	if (err != ANANAS_ERROR_NONE) {
 		kprintf("oroothub: error %d\n", err);
 		xfer->xfer_flags |= TRANSFER_FLAG_ERROR;
 	}
@@ -344,7 +344,7 @@ oroothub_handle_transfer(device_t dev, struct USB_TRANSFER* xfer)
 			return oroothub_ctrl_xfer(dev, xfer);
 		case TRANSFER_TYPE_INTERRUPT:
 			/* Transfer has been added to the queue; no need to do anything else here */
-			return ANANAS_ERROR_OK;
+			return ANANAS_ERROR_NONE;
 	}
 	panic("unsupported transfer type %d", xfer->xfer_type);
 }

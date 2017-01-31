@@ -351,7 +351,7 @@ module_load(struct LOADER_MODULE* mod)
 
 	/* Everything seems to be in order... it's time to call init! */
 	errorcode_t err = mod_init(kmod);
-	if (err != ANANAS_ERROR_OK) {
+	if (err != ANANAS_ERROR_NONE) {
 		kfree(kmod);
 		kprintf("module %p failed to initialize with error %u\n", kmod, err);
 		goto fail;
@@ -362,7 +362,7 @@ module_load(struct LOADER_MODULE* mod)
 	LIST_APPEND(&kernel_modules, kmod);
 	mutex_unlock(&mtx_modules);
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 
 fail:
 	kfree(str_ptr);
@@ -384,7 +384,7 @@ module_unload(struct KERNEL_MODULE* kmod)
 	/* Ask it to exit */
 	errorcode_t err = kmod->kmod_exit_func(kmod);
 	mutex_lock(&mtx_modules);
-	if (err != ANANAS_ERROR_OK) {
+	if (err != ANANAS_ERROR_NONE) {
 		kprintf("module %p failed to exit with error %u\n", kmod, err);
 		/* Hook the module back in the list - we couldn't unload it */
 		LIST_APPEND(&kernel_modules, kmod);
@@ -403,7 +403,7 @@ module_unload(struct KERNEL_MODULE* kmod)
 	kfree(kmod->kmod_rodataptr);
 	kfree(kmod->kmod_codeptr);
 	kfree(kmod);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -431,7 +431,7 @@ module_init()
 #else
 	(void)module_load;
 #endif
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 INIT_FUNCTION(module_init, SUBSYSTEM_MODULE, ORDER_LAST);

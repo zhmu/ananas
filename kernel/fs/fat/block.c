@@ -169,7 +169,7 @@ try_cache: ; /* dummy ; to keep gcc happy */
 	if (cur_cluster != 0) {
 		if (ci != NULL)
 			ci->f_nextcluster = *cluster_out;
-		return ANANAS_ERROR_OK;
+		return ANANAS_ERROR_NONE;
 	} else {
 		if (ci != NULL)
 			ci->f_nextcluster = -1;
@@ -225,7 +225,7 @@ fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, uint32_t cluste
 	}
 	bio_free(bio);
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 /*
@@ -304,7 +304,7 @@ fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
 	if (last_cluster == 0) {
 		errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, (uint32_t)-1, &last_cluster);
 		if (ANANAS_ERROR_CODE(err) != ANANAS_ERROR_BAD_RANGE) {
-			KASSERT(err != ANANAS_ERROR_OK, "able to obtain impossible cluster");
+			KASSERT(err != ANANAS_ERROR_NONE, "able to obtain impossible cluster");
 			return err;
 		}
 		privdata->last_cluster = last_cluster;
@@ -345,7 +345,7 @@ fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
 	/* Update the block count of the inode */
 	privdata->last_cluster = new_cluster;
 	inode->i_sb.st_blocks += fs_privdata->sectors_per_cluster;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -362,7 +362,7 @@ fat_truncate_clusterchain(struct VFS_INODE* inode)
 	unsigned int bytes_per_cluster = fs_privdata->sector_size * fs_privdata->sectors_per_cluster;
 	int num_clusters = (inode->i_sb.st_size + bytes_per_cluster - 1) / bytes_per_cluster;
 
-	errorcode_t err = ANANAS_ERROR_OK;
+	errorcode_t err = ANANAS_ERROR_NONE;
 	uint32_t cluster = 0;
 	for (int num = num_clusters - 1; num >= 0; num--) {
 		errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, num, &cluster);
@@ -375,7 +375,7 @@ fat_truncate_clusterchain(struct VFS_INODE* inode)
 		 * cluster map, which is fine as we'll just flush the cache soon.
 		 */
 		err = fat_set_cluster(fs, cluster, 0);
-		if (err != ANANAS_ERROR_OK)
+		if (err != ANANAS_ERROR_NONE)
 			break;
 	}
 
@@ -432,7 +432,7 @@ fat_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out,
 	}
 
 	*block_out = want_block;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 int
@@ -494,12 +494,12 @@ fat_update_infosector(struct VFS_MOUNTED_FS* fs)
 {
 	struct FAT_FS_PRIVDATA* fs_privdata = fs->fs_privdata;
 	if (fs_privdata->infosector_num == 0)
-		return ANANAS_ERROR_OK; /* no info sector; nothing to do */
+		return ANANAS_ERROR_NONE; /* no info sector; nothing to do */
 
 	/* If we have nothing sensible to store, don't bother */
 	if (fs_privdata->next_avail_cluster < 2 ||
 	    fs_privdata->num_avail_clusters == (uint32_t)-1)
-		return ANANAS_ERROR_OK;
+		return ANANAS_ERROR_NONE;
 
 	struct BIO* bio;
 	errorcode_t err = vfs_bread(fs, fs_privdata->infosector_num, &bio);
@@ -516,7 +516,7 @@ fat_update_infosector(struct VFS_MOUNTED_FS* fs)
 	bio_set_dirty(bio); /* XXX even if we updated nothing? */
 	bio_free(bio);
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 /* vim:set ts=2 sw=2: */

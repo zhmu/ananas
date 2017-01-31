@@ -159,7 +159,7 @@ acpi_smp_init(int* bsp_apic_id)
 		}
 	}
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 /* vim:set ts=2 sw=2: */

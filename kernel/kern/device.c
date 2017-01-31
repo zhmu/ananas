@@ -61,7 +61,7 @@ device_detach(device_t dev)
 		ANANAS_ERROR_RETURN(err);
 	}
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 void
@@ -123,7 +123,7 @@ device_attach_single(device_t dev)
 		driver->drv_attach_children(dev);
 	device_attach_bus(dev);
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 int
@@ -267,7 +267,7 @@ device_attach_bus(device_t bus)
 				break; /* XXX this is a horrible hack - should go away 'soon' */
 
 			errorcode_t err = device_attach_single(dev);
-			if (err == ANANAS_ERROR_OK)
+			if (err == ANANAS_ERROR_NONE)
 				continue;
 
 			device_free(dev);
@@ -290,7 +290,7 @@ device_init()
 	strcpy(corebus->name, "corebus");
 	device_attach_bus(corebus);
 	device_add_to_tree(corebus);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 INIT_FUNCTION(device_init, SUBSYSTEM_DEVICE, ORDER_LAST);
@@ -380,14 +380,14 @@ device_register_probe(struct PROBE* p)
 		}
 	}
 	LIST_APPEND(&probe_queue, p);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
 device_unregister_probe(struct PROBE* p)
 {
 	LIST_REMOVE(&probe_queue, p);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 #ifdef OPTION_KDB

@@ -82,7 +82,7 @@ console_init()
 			 */
 			device_t dev = device_alloc(NULL, condrv->con_driver);
 			errorcode_t err = device_attach_single(dev);
-			if (err != ANANAS_ERROR_OK) {
+			if (err != ANANAS_ERROR_NONE) {
 				/* Too bad; this driver won't work */
 				device_free(dev);
 				continue;
@@ -108,7 +108,7 @@ console_init()
 	mutex_init(&mtx_console, "console");
 	console_mutex_inuse++;
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 INIT_FUNCTION(console_init, SUBSYSTEM_CONSOLE, ORDER_MIDDLE);
@@ -198,7 +198,7 @@ console_register_driver(struct CONSOLE_DRIVER* con)
 	spinlock_lock(&spl_consoledrivers);
 	LIST_APPEND(&console_drivers, con);
 	spinlock_unlock(&spl_consoledrivers);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -207,7 +207,7 @@ console_unregister_driver(struct CONSOLE_DRIVER* con)
 	spinlock_lock(&spl_consoledrivers);
 	LIST_REMOVE(&console_drivers, con);
 	spinlock_unlock(&spl_consoledrivers);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 /* vim:set ts=2 sw=2: */

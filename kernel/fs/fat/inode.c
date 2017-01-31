@@ -96,7 +96,7 @@ fat_read_inode(struct VFS_INODE* inode, void* fsop)
 	if (*(uint64_t*)fsop == FAT_ROOTINODE_FSOP) {
 		privdata->root_inode = 1;
 		fat_fill_inode(inode, fsop, NULL);
-		return ANANAS_ERROR_OK;
+		return ANANAS_ERROR_NONE;
 	}
 
 	/*
@@ -113,7 +113,7 @@ fat_read_inode(struct VFS_INODE* inode, void* fsop)
 	struct FAT_ENTRY* fentry = (struct FAT_ENTRY*)(void*)(BIO_DATA(bio) + offset);
 	fat_fill_inode(inode, fsop, fentry);
 	bio_free(bio);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -150,7 +150,7 @@ fat_write_inode(struct VFS_INODE* inode)
 	/* And off it goes */
 	bio_set_dirty(bio);
 	bio_free(bio);
-	return ANANAS_ERROR_OK; /* XXX How should we deal with errors? */
+	return ANANAS_ERROR_NONE; /* XXX How should we deal with errors? */
 }
 
 struct VFS_INODE_OPS fat_inode_ops = {

@@ -73,7 +73,7 @@ symbols_init()
 		sym_tab_size = kernel_mod->mod_symtab_size;
 		str_tab = kmem_map(kernel_mod->mod_strtab_addr, kernel_mod->mod_strtab_size, VM_FLAG_READ);
 		str_tab_size = kernel_mod->mod_strtab_size;
-		result = ANANAS_ERROR_OK;
+		result = ANANAS_ERROR_NONE;
 	}
 
 	kmem_unmap(kernel_mod, bootinfo->bi_modules_size);

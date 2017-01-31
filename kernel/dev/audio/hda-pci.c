@@ -76,11 +76,11 @@ hdapci_probe(device_t dev)
 	res = device_get_resource(dev, RESTYPE_PCI_DEVICEID, 0);
 	uint32_t device = res->base;
 	if (vendor == 0x8086 && device == 0x2668) /* intel hda in QEMU */
-		return ANANAS_ERROR_OK;
+		return ANANAS_ERROR_NONE;
 	if (vendor == 0x10de && device == 0x7fc) /* nvidia MCP73 HDA */
-		return ANANAS_ERROR_OK;
+		return ANANAS_ERROR_NONE;
 	if (vendor == 0x1039 && device == 0x7502) /* SiS 966 */
-		return ANANAS_ERROR_OK;
+		return ANANAS_ERROR_NONE;
 	return ANANAS_ERROR(NO_RESOURCE);
 }
 
@@ -128,7 +128,7 @@ hdapci_issue_verb(device_t dev, uint32_t verb, uint32_t* resp, uint32_t* resp_ex
 	if (resp_ex != NULL)
 		*resp_ex = (uint32_t)(r >> 32);
 	//HDA_DEBUG("issued verb %x -> response %x:%x", verb, (uint32_t)(r >> 32), (uint32_t)(r & 0xffffffff));
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static uint16_t
@@ -226,7 +226,7 @@ hdapci_open_stream(device_t dev, int tag, int dir, uint16_t fmt, int num_pages, 
 	else
 		ctl |= HDA_SDnCTL_DIR_OUT;
 	HDA_WRITE_4(HDA_REG_xSDnCTL(ss), ctl);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -252,7 +252,7 @@ hdapci_close_stream(device_t dev, void* context)
 	privdata->hda_ss_avail |= 1 << s->s_ss;
 	kfree(s);
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -303,7 +303,7 @@ hdapci_start_streams(device_t dev, int num, void** context)
 	HDA_WRITE_4(HDA_REG_SSYNC, ssync);
 #endif
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t

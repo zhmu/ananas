@@ -262,7 +262,7 @@ fb_write(device_t dev, const void* data, size_t* len, off_t offset)
 		teken_input(&fb->fb_teken, ptr, 1);
 		ptr++;
 	}
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -275,7 +275,7 @@ fb_probe(device_t dev)
 		/* Loader didn't supply a video device; bail */
 		return ANANAS_ERROR(NO_DEVICE);
 	}
-	return ANANAS_ERROR_OK; 
+	return ANANAS_ERROR_NONE; 
 }
 
 static errorcode_t
@@ -317,7 +317,7 @@ fb_attach(device_t dev)
 	kprintf("%s: console is %u x %u @ %u bpp\n",
 	 dev->name, fb->fb_width, fb->fb_height, fb->fb_depth);
    
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -337,7 +337,7 @@ fb_devctl(device_t dev, thread_t* t, unsigned int op, void* arg, size_t len)
 			fbinfo->fb_xres = fb->fb_xres;
 			fbinfo->fb_yres = fb->fb_yres;
 			fbinfo->fb_bpp = fb->fb_depth;
-			return ANANAS_ERROR_OK;
+			return ANANAS_ERROR_NONE;
 		}
 		case HCTL_FB_CLAIM: {
 			struct HCTL_FB_CLAIM_ARG* claim = arg;
@@ -352,11 +352,11 @@ fb_devctl(device_t dev, thread_t* t, unsigned int op, void* arg, size_t len)
 			ANANAS_ERROR_RETURN(err);
 			claim->fb_framebuffer = (void*)tm->tm_virt;
 			claim->fb_size = fb_len;
-			return ANANAS_ERROR_OK;
+			return ANANAS_ERROR_NONE;
 		}
 		case HCTL_FB_RELEASE: {	
 			/* TODO */
-			return ANANAS_ERROR_OK;
+			return ANANAS_ERROR_NONE;
 		}
 	}
 	return ANANAS_ERROR(BAD_OPERATION);

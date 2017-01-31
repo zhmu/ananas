@@ -48,7 +48,7 @@ md_thread_init(thread_t* t, int flags)
 	/* initialize FPU state similar to what finit would do */
 	t->md_fpu_ctx.cw = 0x37f;
 	t->md_fpu_ctx.tw = 0xffff;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -67,7 +67,7 @@ md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
 	 */
 	t->md_kstack = kmalloc(KERNEL_STACK_SIZE);
 	t->md_esp = (addr_t)t->md_kstack + KERNEL_STACK_SIZE - 4;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 void

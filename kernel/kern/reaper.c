@@ -49,7 +49,7 @@ start_reaper()
 {
 	kthread_init(&reaper_thread, "reaper", &reaper_reap, NULL);
 	thread_resume(&reaper_thread);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 INIT_FUNCTION(start_reaper, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);

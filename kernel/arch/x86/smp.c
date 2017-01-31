@@ -191,7 +191,7 @@ smp_init()
 	kmem_unmap(ap_code, PAGE_SIZE);
 
 	int bsp_apic_id;
-	if (acpi_smp_init(&bsp_apic_id) != ANANAS_ERROR_OK) {
+	if (acpi_smp_init(&bsp_apic_id) != ANANAS_ERROR_NONE) {
 		/* SMP not present or not usable */
 		page_free(ap_page);
 #ifdef __i386__
@@ -228,9 +228,9 @@ smp_init()
  	 * interrupts and this lets us process them as such.
 	 */
 	irqsource_register(&ipi_source);
-	if (irq_register(SMP_IPI_PANIC, NULL, smp_ipi_panic, IRQ_TYPE_IPI, NULL) != ANANAS_ERROR_OK)
+	if (irq_register(SMP_IPI_PANIC, NULL, smp_ipi_panic, IRQ_TYPE_IPI, NULL) != ANANAS_ERROR_NONE)
 		panic("can't register ipi");
-	if (irq_register(SMP_IPI_SCHEDULE, NULL, smp_ipi_schedule, IRQ_TYPE_IPI, NULL) != ANANAS_ERROR_OK)
+	if (irq_register(SMP_IPI_SCHEDULE, NULL, smp_ipi_schedule, IRQ_TYPE_IPI, NULL) != ANANAS_ERROR_NONE)
 		panic("can't register ipi");
 
 	/*
@@ -240,7 +240,7 @@ smp_init()
 	 */
 	can_smp_launch = 0;
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 /*
@@ -275,7 +275,7 @@ smp_launch()
 	smp_destroy_ap_pagetable();
 #endif
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 INIT_FUNCTION(smp_launch, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);

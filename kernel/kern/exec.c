@@ -13,7 +13,7 @@ static errorcode_t
 exec_init()
 {
 	LIST_INIT(&exec_formats);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -22,7 +22,7 @@ exec_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 	LIST_FOREACH(&exec_formats, ef, struct EXEC_FORMAT) {
 		/* See if we can execute this... */
 		errorcode_t err = ef->ef_handler(vs, dentry, exec_addr);
-		if (err != ANANAS_ERROR_OK) {
+		if (err != ANANAS_ERROR_NONE) {
 			/* Execute failed; try the next one */
 			continue;
 		}
@@ -40,14 +40,14 @@ errorcode_t
 exec_register_format(struct EXEC_FORMAT* ef)
 {
 	LIST_APPEND(&exec_formats, ef);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
 exec_unregister_format(struct EXEC_FORMAT* ef)
 {
 	LIST_REMOVE(&exec_formats, ef);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 /* vim:set ts=2 sw=2: */

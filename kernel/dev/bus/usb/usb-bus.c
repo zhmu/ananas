@@ -48,7 +48,7 @@ usbbus_schedule_attach(struct USB_DEVICE* dev)
 static errorcode_t
 usbbus_probe(device_t dev)
 {
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -79,7 +79,7 @@ usbbus_attach(device_t dev)
 	mutex_lock(&usbbus_mutex);
 	LIST_APPEND(&usbbus_busses, bus);
 	mutex_unlock(&usbbus_mutex);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 int
@@ -169,7 +169,7 @@ usb_bus_thread(void* unused)
 			 * at any given time.
 			 */
 			errorcode_t err = usbdev_attach(usb_dev);
-			KASSERT(err == ANANAS_ERROR_OK, "cannot yet deal with failures %d", err);
+			KASSERT(err == ANANAS_ERROR_NONE, "cannot yet deal with failures %d", err);
 
 			/* This worked; hook the device to the bus' device list */
 			struct USB_BUS* bus = usb_dev->usb_bus;

@@ -69,7 +69,7 @@ devfs_readdir_root(struct VFS_FILE* file, void* dirents, size_t* len)
 	}
 
 	*len = written;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static struct VFS_INODE_OPS devfs_rootdir_ops = {
@@ -82,7 +82,7 @@ devfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
 	struct VFS_INODE* inode = file->f_dentry->d_inode;
 	struct DEVFS_INODE_PRIVDATA* privdata = inode->i_privdata;
-	errorcode_t err = ANANAS_ERROR_OK;
+	errorcode_t err = ANANAS_ERROR_NONE;
 
 	if (privdata->device->driver->drv_read != NULL) {
 		size_t length = *len;
@@ -117,7 +117,7 @@ devfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
 {
 	struct VFS_INODE* inode = file->f_dentry->d_inode;
 	struct DEVFS_INODE_PRIVDATA* privdata = inode->i_privdata;
-	errorcode_t err = ANANAS_ERROR_OK;
+	errorcode_t err = ANANAS_ERROR_NONE;
 
 	if (privdata->device->driver->drv_write != NULL) {
 		size_t length = *len;

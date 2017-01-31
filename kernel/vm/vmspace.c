@@ -91,7 +91,7 @@ vmspace_mapto(vmspace_t* vs, addr_t virt, addr_t phys, size_t len /* bytes */, u
 
 	/* Provide a mapping for the pages */
 	md_map_pages(vs, va->va_virt, phys, BYTES_TO_PAGES(len), (flags & (VM_FLAG_LAZY | VM_FLAG_ALLOC)) ? 0 : flags);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -145,7 +145,7 @@ vmspace_area_resize(vmspace_t* vs, vmarea_t* va, size_t new_length /* in bytes *
 	}
 
 	va->va_len = new_length;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -170,7 +170,7 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 
 		/* Map the page */
 		md_map_pages(vs, p->p_addr, page_get_paddr(p), 1, va->va_flags);
-		errorcode_t err = ANANAS_ERROR_OK;
+		errorcode_t err = ANANAS_ERROR_NONE;
 		if (va->va_fault != NULL) {
 			/* Invoke the mapping-specific fault handler */
 			err = va->va_fault(vs, va, virt);
@@ -275,7 +275,7 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 		}
 	}
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 void

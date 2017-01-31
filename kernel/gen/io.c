@@ -61,7 +61,7 @@ sys_handlectl(thread_t* t, handleindex_t hindex, unsigned int op, void* arg, siz
 	void* handlectl_arg = NULL;
 	if (arg != NULL) {
 		err = syscall_map_buffer(t, arg, len, VM_FLAG_READ | VM_FLAG_WRITE, &handlectl_arg);
-		if(err != ANANAS_ERROR_OK)
+		if(err != ANANAS_ERROR_NONE)
 			goto fail;
 	}
 

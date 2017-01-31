@@ -74,7 +74,7 @@ usb_control_xfer(struct USB_DEVICE* usb_dev, int req, int recipient, int type, i
 
 	usbtransfer_free(xfer);
 	DPRINTF("usb_control_xfer(): xfer %p done\n", xfer);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static inline device_t

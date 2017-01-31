@@ -105,7 +105,7 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 	}
 	if (bio != NULL) bio_free(bio);
 	*len = read;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -172,7 +172,7 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 
 	if (inode_dirty)
 		vfs_set_inode_dirty(inode);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 /* vim:set ts=2 sw=2: */

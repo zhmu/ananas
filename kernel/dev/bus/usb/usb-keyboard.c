@@ -26,7 +26,7 @@ usbkbd_probe(device_t dev)
 	if (iface->if_class != USB_IF_CLASS_HID || iface->if_protocol != 1 /* keyboard */)
 		return ANANAS_ERROR(NO_DEVICE);
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static void
@@ -61,7 +61,7 @@ usbkbd_attach(device_t dev)
 	 */
 	struct USB_PIPE* pipe;
 	errorcode_t err = usbpipe_alloc(usb_dev, 0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, 0, usbkbd_callback, &pipe);
-	if (err != ANANAS_ERROR_OK) {
+	if (err != ANANAS_ERROR_NONE) {
 		device_printf(dev, "endpoint 0 not interrupt/in");
 		return ANANAS_ERROR(NO_RESOURCE);
 	}

@@ -79,7 +79,7 @@ atadisk_bread(device_t dev, struct BIO* bio)
 		item.flags |= ATA_ITEM_FLAG_DMA;
 	dev->parent->driver->drv_enqueue(dev->parent, &item);
 	dev->parent->driver->drv_start(dev->parent);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -104,7 +104,7 @@ atadisk_bwrite(device_t dev, struct BIO* bio)
 #endif
 	dev->parent->driver->drv_enqueue(dev->parent, &item);
 	dev->parent->driver->drv_start(dev->parent);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 struct DRIVER drv_atadisk = {

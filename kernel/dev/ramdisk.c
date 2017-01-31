@@ -23,7 +23,7 @@ ramdisk_probe(device_t dev)
 {
 	if (bootinfo == NULL)
 		return ANANAS_ERROR(NO_DEVICE);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -45,7 +45,7 @@ ramdisk_attach(device_t dev)
 		 (addr_t)mod->mod_phys_start_addr, (addr_t)mod->mod_phys_end_addr,
 		 privdata->ram_size / 1024);
 		
-		return ANANAS_ERROR_OK;
+		return ANANAS_ERROR_NONE;
 	}
 	return ANANAS_ERROR(NO_DEVICE);
 }
@@ -63,7 +63,7 @@ ramdisk_bread(device_t dev, struct BIO* bio)
 	memcpy(BIO_DATA(bio), (void*)((addr_t)privdata->ram_buffer + (addr_t)bio->io_block * BIO_SECTOR_SIZE), bio->length);
 
 	bio_set_available(bio);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 struct DRIVER drv_ramdisk = {

@@ -115,7 +115,7 @@ ahciport_attach(device_t dev)
 		device_add_resource(sub_dev, RESTYPE_CHILDNUM, 0, 0);
 		device_attach_single(sub_dev);
 	}
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static void

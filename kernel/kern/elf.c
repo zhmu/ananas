@@ -47,7 +47,7 @@ read_data(struct DENTRY* dentry, void* buf, off_t offset, size_t len)
 	/* kludge: cleanup is handeled by requesting 0 bytes at 0 to buffer NULL */
 	if (buf == NULL && offset == 0 && len == 0) {
 		dentry_deref(dentry);
-		return ANANAS_ERROR_OK;
+		return ANANAS_ERROR_NONE;
 	}
 
 	errorcode_t err = vfs_seek(&f, offset);
@@ -59,7 +59,7 @@ read_data(struct DENTRY* dentry, void* buf, off_t offset, size_t len)
 
 	if (amount != len)
 		return ANANAS_ERROR(SHORT_READ);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -73,7 +73,7 @@ elf_tm_destroy_func(vmspace_t* vs, vmarea_t* va)
 		read_data(privdata->elf_dentry, NULL, 0, 0); /* cleanup call */
 		kfree(privdata);
 	}
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -196,7 +196,7 @@ elf32_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 		addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_memsz), PAGE_SIZE);
 		vmarea_t* va;
 		err = vmspace_mapto(vs, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &va);
-		if (err != ANANAS_ERROR_OK)
+		if (err != ANANAS_ERROR_NONE)
 			goto fail;
 		TRACE(EXEC, INFO, "ph %u: instantiated mapping for %x-%x",
 		 privdata->elf_num_ph, virt_begin, virt_end);
@@ -220,7 +220,7 @@ elf32_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 	TRACE(EXEC, INFO, "done, entry point is 0x%x", ehdr.e_entry);
 	*exec_addr = ehdr.e_entry;
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 
 fail:
 	kfree(privdata);
@@ -299,7 +299,7 @@ elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 		addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_memsz), PAGE_SIZE);
 		vmarea_t* va;
 		err = vmspace_mapto(vs, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &va);
-		if (err != ANANAS_ERROR_OK)
+		if (err != ANANAS_ERROR_NONE)
 			goto fail;
 
 		/* Hook up the program header */
@@ -321,7 +321,7 @@ elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 	}
 
 	*exec_addr = ehdr.e_entry;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 
 fail:
 	kfree(privdata);

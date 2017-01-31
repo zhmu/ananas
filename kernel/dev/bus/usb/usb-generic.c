@@ -22,13 +22,13 @@ usbgeneric_probe(device_t dev)
 		return ANANAS_ERROR(NO_DEVICE);
 
 	/* We always accept anything that is USB; usbdev_attach() will only attach us as a last resort */
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
 usbgeneric_attach(device_t dev)
 {
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 struct DRIVER drv_usbgeneric = {

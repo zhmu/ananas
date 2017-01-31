@@ -34,7 +34,7 @@ vfs_open(const char* fname, struct DENTRY* cwd, struct VFS_FILE* out)
 	ANANAS_ERROR_RETURN(err);
 
 	vfs_make_file(out, dentry);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -43,7 +43,7 @@ vfs_close(struct VFS_FILE* file)
 	if(file->f_dentry != NULL)
 		dentry_deref(file->f_dentry);
 	file->f_dentry = NULL; file->f_device = NULL;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -111,7 +111,7 @@ vfs_seek(struct VFS_FILE* file, off_t offset)
 	if (offset > file->f_dentry->d_inode->i_sb.st_size)
 		return ANANAS_ERROR(BAD_RANGE);
 	file->f_offset = offset;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 /*
@@ -270,7 +270,7 @@ vfs_lookup_internal(struct DENTRY* curdentry, const char* name, struct DENTRY** 
 	}
 
 	*ditem = curdentry;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 /*
@@ -283,7 +283,7 @@ vfs_lookup(struct DENTRY* parent, struct DENTRY** destentry, const char* dentry)
 {
 	int final;
 	errorcode_t err = vfs_lookup_internal(parent, dentry, destentry, &final);
-	if (err == ANANAS_ERROR_OK) {
+	if (err == ANANAS_ERROR_NONE) {
 #if VFS_DEBUG_LOOKUP
 		kprintf("vfs_lookup(): parent=%p,dentry='%s' okay -> dentry %p\n", parent, dentry, *destentry);
 #endif
@@ -310,7 +310,7 @@ vfs_create(struct DENTRY* parent, struct VFS_FILE* file, const char* dentry, int
 		 * A 'no file found' error is expected as we are creating the new file; we
 		 * are using the lookup code in order to obtain the cache item entry.
 	 	 */
-		if (err == ANANAS_ERROR_OK) {
+		if (err == ANANAS_ERROR_NONE) {
 			/* The lookup worked?! The file already exists; cancel the ref */
 			KASSERT(de->d_inode != NULL, "successful lookup without inode");
 			dentry_deref(de);
@@ -342,7 +342,7 @@ vfs_create(struct DENTRY* parent, struct VFS_FILE* file, const char* dentry, int
 
 	/* Dear filesystem, create a new inode for us */
 	err = parentinode->i_iops->create(parentinode, de, mode);
-	if (err != ANANAS_ERROR_OK) {
+	if (err != ANANAS_ERROR_NONE) {
 		/* Failure; remark the directory entry (we don't own it anymore) and report the failure */
 		de->d_flags |= DENTRY_FLAG_NEGATIVE;
 	} else {
@@ -375,7 +375,7 @@ vfs_grow(struct VFS_FILE* file, off_t size)
 		ANANAS_ERROR_RETURN(err);	
 	}
 	file->f_offset = cur_offset;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -428,7 +428,7 @@ vfs_rename(struct VFS_FILE* file, struct DENTRY* parent, const char* dest)
 		 * A 'no file found' error is expected as we are creating a new name here;
 		 * we are using the lookup code in order to obtain the cache item entry.
 	 	 */
-		if (err == ANANAS_ERROR_OK) {
+		if (err == ANANAS_ERROR_NONE) {
 			/* The lookup worked?! The file already exists; cancel the ref */
 			KASSERT(de->d_inode != NULL, "successful lookup without inode");
 			dentry_deref(de);

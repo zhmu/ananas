@@ -136,7 +136,7 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 	}
 
 	*len = total;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -229,7 +229,7 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 
 	CRAMFS_DEBUG_READDIR("cramfs_readdir(): done, returning %u bytes\n", written);
 	*len = written;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static struct VFS_INODE_OPS cramfs_file_ops = {
@@ -309,7 +309,7 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 	cramfs_zstream.avail_in = 0;
 	inflateInit(&cramfs_zstream);
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -328,7 +328,7 @@ cramfs_read_inode(struct VFS_INODE* inode, void* fsop)
 	struct CRAMFS_INODE* cram_inode = (void*)((addr_t)BIO_DATA(bio) + offset % fs->fs_block_size);
 	cramfs_convert_inode(offset, cram_inode, inode);
 	bio_free(bio);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static struct VFS_INODE*

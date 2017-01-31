@@ -234,7 +234,7 @@ usbdev_attach(struct USB_DEVICE* usb_dev)
 		errorcode_t err = device_attach_single(dev);
 		KASSERT(err == ANANAS_ERROR_NONE, "usb generic device failed %d", err);
 	}
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 /* Called with bus lock held */
@@ -270,7 +270,7 @@ usbdev_detach(struct USB_DEVICE* usb_dev)
 	mutex_unlock(&usb_dev->usb_mutex);
 	usbdev_free(usb_dev);
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 /* vim:set ts=2 sw=2: */

@@ -24,7 +24,7 @@ vfshandle_get_file(struct HANDLE* handle, struct VFS_FILE** out)
 		return ANANAS_ERROR(BAD_HANDLE);
 
 	*out = file;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -88,7 +88,7 @@ vfshandle_free(process_t* proc, struct HANDLE* handle)
 	struct DENTRY* dentry = handle->h_data.d_vfs_file.f_dentry;
 	if (dentry != NULL)
 		dentry_deref(dentry);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t

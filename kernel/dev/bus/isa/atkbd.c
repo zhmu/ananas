@@ -121,7 +121,7 @@ atkbd_probe(device_t dev)
 {
 	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PNP_ID, 0);
 	if (res != NULL && res->base == 0x0303) /* PNP0303: IBM Enhanced (101/102-key, PS/2 mouse support) */
-		return ANANAS_ERROR_OK;
+		return ANANAS_ERROR_NONE;
 	return ANANAS_ERROR(NO_DEVICE);
 }
 
@@ -140,7 +140,7 @@ atkbd_attach(device_t dev)
 	dev->privdata = kbd_priv;
 
 	errorcode_t err = irq_register((uintptr_t)res_irq, dev, atkbd_irq, IRQ_TYPE_DEFAULT, NULL);
-	if (err != ANANAS_ERROR_OK) {
+	if (err != ANANAS_ERROR_NONE) {
 		kfree(kbd_priv);
 		return err;
 	}
@@ -151,7 +151,7 @@ atkbd_attach(device_t dev)
 	 */
 	inb(kbd_priv->kbd_ioport);
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 struct DRIVER drv_atkbd = {

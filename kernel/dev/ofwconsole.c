@@ -8,7 +8,7 @@
 static errorcode_t
 ofwconsole_attach(device_t dev)
 {
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -21,14 +21,14 @@ ofwconsole_write(device_t dev, const void* data, size_t* len, off_t offset)
 		ofw_putch(*ch);
 		ch++; left--;
 	}
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
 ofwconsole_read(device_t dev, void* data, size_t* len, off_t offset)
 {
 	*len = 0;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 struct DRIVER drv_ofwconsole = {

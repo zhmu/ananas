@@ -113,7 +113,7 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	 * always just hook our path to the fs root dentry... need to think about it
 	 */
 	struct DENTRY* dentry_root;
-	if (vfs_lookup(NULL, &dentry_root, to) == ANANAS_ERROR_OK &&
+	if (vfs_lookup(NULL, &dentry_root, to) == ANANAS_ERROR_NONE &&
 	    dentry_root != fs->fs_root_dentry) {
 		if (dentry_root->d_inode != NULL)
 			vfs_deref_inode(dentry_root->d_inode);
@@ -123,7 +123,7 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 		dentry_root->d_flags |= DENTRY_FLAG_PERMANENT;
 	}
 	
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -140,7 +140,7 @@ vfs_unmount(const char* path)
 			spinlock_unlock(&spl_mountedfs);
 			/* XXX Ask filesystem politely to unmount */
 			fs->fs_flags = 0; /* Available */
-			return ANANAS_ERROR_OK;
+			return ANANAS_ERROR_NONE;
 		}
 	}
 	spinlock_unlock(&spl_mountedfs);
@@ -179,7 +179,7 @@ vfs_register_filesystem(struct VFS_FILESYSTEM* fs)
 	/* Filesystem is clear; hook it up */
 	LIST_APPEND(&fstypes, fs);
 	spinlock_unlock(&spl_fstypes);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -188,7 +188,7 @@ vfs_unregister_filesystem(struct VFS_FILESYSTEM* fs)
 	spinlock_lock(&spl_fstypes);
 	LIST_REMOVE(&fstypes, fs);
 	spinlock_unlock(&spl_fstypes);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 #ifdef OPTION_KDB

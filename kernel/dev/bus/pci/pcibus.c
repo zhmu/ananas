@@ -143,7 +143,7 @@ pcibus_attach(device_t dev)
 			}
 		}
 	}
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 struct DRIVER drv_pcibus = {

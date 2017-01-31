@@ -106,7 +106,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	char cur_filename[128]; /* currently assembled filename */
 	off_t full_filename_offset = file->f_offset;
 	struct BIO* bio = NULL;
-	errorcode_t err = ANANAS_ERROR_OK;
+	errorcode_t err = ANANAS_ERROR_NONE;
 
 	memset(cur_filename, 0, sizeof(cur_filename));
 
@@ -367,7 +367,7 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 	}
 
 	bio_free(bio);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -460,7 +460,7 @@ fat_remove_directory_entry(struct VFS_INODE* dir, const char* dentry)
 
 			bio_set_dirty(bio);
 		}
-		errorcode = ANANAS_ERROR_OK;
+		errorcode = ANANAS_ERROR_NONE;
 		break;
 	}
 
@@ -512,7 +512,7 @@ fat_unlink(struct VFS_INODE* dir, struct DENTRY* de)
 	 */
 	de->d_inode->i_sb.st_nlink--;
 	vfs_set_inode_dirty(de->d_inode);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -539,14 +539,14 @@ fat_rename(struct VFS_INODE* old_dir, struct DENTRY* old_dentry, struct VFS_INOD
 	/* And fetch the new inode */
 	struct VFS_INODE* inode;
 	err = vfs_get_inode(new_dir->i_fs, &new_fsop, &inode);
-	if (err != ANANAS_ERROR_OK) {
+	if (err != ANANAS_ERROR_NONE) {
 		fat_remove_directory_entry(new_dir, new_dentry->d_entry); /* XXX hope this works! */
 		return err;
 	}
 
 	/* Get rid of the previous directory entry */
 	err = fat_remove_directory_entry(old_dir, old_dentry->d_entry);
-	if (err != ANANAS_ERROR_OK) {
+	if (err != ANANAS_ERROR_NONE) {
 		vfs_deref_inode(inode); /* remove the previous inode */
 		fat_remove_directory_entry(new_dir, new_dentry->d_entry); /* XXX hope this works! */
 		return err;

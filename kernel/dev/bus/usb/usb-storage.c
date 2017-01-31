@@ -236,7 +236,7 @@ usbstorage_handle_request(device_t dev, int lun, int flags, const void* cb, size
 		return ANANAS_ERROR(IO);
 	}
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -251,7 +251,7 @@ usbstorage_probe(device_t dev)
 	if (iface->if_class != USB_IF_CLASS_STORAGE || iface->if_protocol != USB_IF_PROTOCOL_BULKONLY)
 		return ANANAS_ERROR(NO_DEVICE);
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 /* Called when data flows from the device -> us */
@@ -364,7 +364,7 @@ usbstorage_attach(device_t dev)
 	uint8_t max_lun = 0xff;
 	size_t len = sizeof(max_lun);
 	errorcode_t err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_MAX_LUN, USB_CONTROL_RECIPIENT_INTERFACE, USB_CONTROL_TYPE_CLASS, USB_REQUEST_MAKE(0, 0), 0, &max_lun, &len, 0);
-	if (err != ANANAS_ERROR_OK) {
+	if (err != ANANAS_ERROR_NONE) {
 		device_printf(dev, "unable to get max LUN: %d", err);
 		return ANANAS_ERROR(NO_RESOURCE);
 	}
@@ -376,16 +376,16 @@ usbstorage_attach(device_t dev)
 	 *
 	 */
 	err = usbpipe_alloc(usb_dev, 0, TRANSFER_TYPE_BULK, EP_DIR_IN, 0, usbstorage_in_callback, &p->s_bulk_in);
-	if (err != ANANAS_ERROR_OK)
+	if (err != ANANAS_ERROR_NONE)
 		err = usbpipe_alloc(usb_dev, 1, TRANSFER_TYPE_BULK, EP_DIR_IN, 0, usbstorage_in_callback, &p->s_bulk_in);
-	if (err != ANANAS_ERROR_OK) {
+	if (err != ANANAS_ERROR_NONE) {
 		device_printf(dev, "no bulk/in endpoint present");
 		return ANANAS_ERROR(NO_RESOURCE);
 	}
 	err = usbpipe_alloc(usb_dev, 1, TRANSFER_TYPE_BULK, EP_DIR_OUT, 0, usbstorage_out_callback, &p->s_bulk_out);
-	if (err != ANANAS_ERROR_OK)
+	if (err != ANANAS_ERROR_NONE)
 		err = usbpipe_alloc(usb_dev, 0, TRANSFER_TYPE_BULK, EP_DIR_OUT, 0, usbstorage_out_callback, &p->s_bulk_out);
-	if (err != ANANAS_ERROR_OK) {
+	if (err != ANANAS_ERROR_NONE) {
 		device_printf(dev, "no bulk/out endpoint present");
 		return ANANAS_ERROR(NO_RESOURCE);
 	}
@@ -458,7 +458,7 @@ usbstorage_attach(device_t dev)
 		kprintf("%x ", block[n]);
 	}
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 struct DRIVER drv_usbstorage = {

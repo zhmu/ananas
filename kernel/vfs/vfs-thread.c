@@ -52,7 +52,7 @@ vfs_init_process(process_t* proc)
 		ANANAS_ERROR_RETURN(err);
 	}
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 REGISTER_PROCESS_INIT_FUNC(vfs_init_process);

@@ -104,7 +104,7 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 	(*root_inode)->i_iops = &iso9660_dir_ops;
 	privdata->lba = ISO9660_GET_DWORD(rootentry->de_extent_lba);
 
-	err = ANANAS_ERROR_OK;
+	err = ANANAS_ERROR_NONE;
 
 fail:
 	bio_free(bio);
@@ -146,7 +146,7 @@ iso9660_read_inode(struct VFS_INODE* inode, void* fsop)
 		inode->i_iops = &iso9660_file_ops;
 		inode->i_sb.st_mode |= S_IFREG;
 	}
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static struct VFS_INODE*
@@ -245,7 +245,7 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	}
 	if (bio != NULL) bio_free(bio);
 	*len = written;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -283,7 +283,7 @@ iso9660_read(struct VFS_FILE* file, void* buf, size_t* len)
 	}
 
 	*len = numread;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static struct VFS_INODE_OPS iso9660_dir_ops = {

@@ -135,7 +135,7 @@ static errorcode_t
 kdb_init()
 {
 	/* XXX We should sort the entries here */
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 INIT_FUNCTION(kdb_init, SUBSYSTEM_KDB, ORDER_LAST);

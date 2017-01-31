@@ -383,7 +383,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinod
 		/* Already have the inode cached -> return it (refcount will already be incremented) */
 		*destinode = ii->inode;
 		TRACE(VFS, INFO, "cache hit: fs=%p, fsop=%s => ii=%p,inode=%p", fs, fsop_to_string(fs, fsop), ii, ii->inode);
-		return ANANAS_ERROR_OK;
+		return ANANAS_ERROR_NONE;
 	}
 
 	/*
@@ -416,7 +416,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinod
 #endif
 	TRACE(VFS, INFO, "cache miss: fs=%p, fsop=%s => ii=%p,inode=%p", fs, fsop_to_string(fs, fsop), ii, inode);
 	*destinode = inode;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 struct VFS_INODE*

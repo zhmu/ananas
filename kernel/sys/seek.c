@@ -46,5 +46,5 @@ sys_seek(thread_t* t, handleindex_t hindex, off_t* offset, int whence)
 	}
 	file->f_offset = new_offset;
 	*offset = new_offset;
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }

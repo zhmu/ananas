@@ -16,20 +16,20 @@ sysfs_init_thread(thread_t* thread, thread_t* parent)
 
 	(void)root;
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
 sysfs_exit_thread(thread_t* thread, thread_t* parent)
 {
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
 sysfs_thread_init()
 {
 	thread_sysfs_root = sysfs_mkdir(NULL, "thread", 0555);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 INIT_FUNCTION(sysfs_thread_init, SUBSYSTEM_THREAD, ORDER_FIRST);

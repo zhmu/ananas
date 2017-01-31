@@ -50,7 +50,7 @@ device_bread(device_t dev, struct BIO* bio)
 	if (read(dev_fd, bio->data, bio->length) != bio->length)
 		panic("read error");
 	bio_set_available(bio);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t

@@ -20,7 +20,7 @@ usb_init()
 {
 	usbtransfer_init();
 	usbbus_init();
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 INIT_FUNCTION(usb_init, SUBSYSTEM_DEVICE, ORDER_FIRST);

@@ -293,7 +293,7 @@ vga_attach(device_t dev)
 	sem_init(&vga_privdata->vga_sem, 0);
 	thread_resume(&vga_privdata->vga_workerthread);
 #endif
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -311,7 +311,7 @@ vga_write(device_t dev, const void* data, size_t* len, off_t off)
 		ptr++;
 	}
 	mutex_unlock(&priv->vga_mtx_teken);
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 static errorcode_t
@@ -322,7 +322,7 @@ vga_probe(device_t dev)
 	    !device_add_resource(dev, RESTYPE_IO, 0x3c0, 32))
 		return ANANAS_ERROR(NO_DEVICE);
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 struct DRIVER drv_vga = {

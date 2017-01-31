@@ -59,7 +59,7 @@ md_thread_init(thread_t* t, int flags)
 	t->md_fpu_ctx.fcw = 0x37f;
 	t->md_fpu_ctx.ftw = 0xffff;
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 errorcode_t
@@ -91,7 +91,7 @@ md_kthread_init(thread_t* t, kthread_func_t kfunc, void* arg)
   t->md_rsp = (addr_t)sf;
 	t->md_rip = (addr_t)&thread_trampoline;
 
-	return ANANAS_ERROR_OK;
+	return ANANAS_ERROR_NONE;
 }
 
 void
