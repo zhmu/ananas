@@ -3,6 +3,7 @@
 #include <ananas/exec.h>
 #include <ananas/lib.h>
 #include <ananas/process.h>
+#include <ananas/procinfo.h>
 #include <ananas/thread.h>
 #include <ananas/trace.h>
 #include <ananas/vfs.h>
@@ -16,10 +17,10 @@ enum SET_PROC_ATTR {
 	A_Env
 };
 
-static void
+static errorcode_t
 set_proc_attribute(process_t* process, enum SET_PROC_ATTR attr, const char** list)
 {
-	char buf[PAGE_SIZE];
+	char buf[PROCINFO_ENV_LENGTH];
 
 	/* Convert list to a \0-separated string, \0\0-terminated */
 	int arg_len = 2; /* \0\0-terminator */
@@ -38,11 +39,9 @@ set_proc_attribute(process_t* process, enum SET_PROC_ATTR attr, const char** lis
 
 	switch(attr) {
 		case A_Args:
-			process_set_args(process, buf, pos);
-			break;
+			return process_set_args(process, buf, pos);
 		case A_Env:
-			process_set_environment(process, buf, pos);
-			break;
+			return process_set_environment(process, buf, pos);
 		default:
 			panic("unexpected attribute %d", attr);
 	}
@@ -68,16 +67,22 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	vfs_close(&file);
 
 	/* XXX Do we inherit correctly here? */
-	if (argv != NULL)
-		set_proc_attribute(proc, A_Args, argv);
-	if (envp != NULL)
-		set_proc_attribute(proc, A_Env, envp);
+	vmspace_t* vmspace = NULL;
+	if (argv != NULL) {
+		err = set_proc_attribute(proc, A_Args, argv);
+		if (err != ANANAS_ERROR_OK)
+			goto fail;
+	}
+	if (envp != NULL) {
+		err = set_proc_attribute(proc, A_Env, envp);
+		if (err != ANANAS_ERROR_OK)
+			goto fail;
+	}
 
 	/*
 	 * Create a new vmspace to execute in; if the exec() works, we'll use it to
 	 * override our current vmspace.
 	 */
-	vmspace_t* vmspace;
 	err = vmspace_create(&vmspace);
 	if (err != ANANAS_ERROR_OK)
 		goto fail;

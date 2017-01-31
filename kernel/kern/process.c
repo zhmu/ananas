@@ -70,7 +70,7 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 	p->p_info->pi_size = sizeof(struct PROCINFO);
 	p->p_info->pi_pid = p->p_pid;
 	if (parent != NULL)
-		process_set_environment(p, parent->p_info->pi_env, PAGE_SIZE /* XXX */);
+		process_set_environment(p, parent->p_info->pi_env, PROCINFO_ENV_LENGTH - 1);
 
 	/* Clone the parent's handles - we skip the thread handle */
 	if (parent != NULL) {
