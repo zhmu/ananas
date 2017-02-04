@@ -175,7 +175,7 @@ elf32_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 		Elf32_Phdr phdr;
 		TRACE(EXEC, INFO, "ph %u: obtaining header from offset %u", i, ehdr.e_phoff + i * ehdr.e_phentsize);
 		err = read_data(dentry, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr));
-		if (err != ANANAS_ERROR_NONE) {
+		if (ananas_is_failure(err)) {
 			TRACE(EXEC, INFO, "ph %u: obtain failed: %i", i, err);
 			goto fail;
 		}
@@ -196,7 +196,7 @@ elf32_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 		addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_memsz), PAGE_SIZE);
 		vmarea_t* va;
 		err = vmspace_mapto(vs, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &va);
-		if (err != ANANAS_ERROR_NONE)
+		if (ananas_is_failure(err)) {
 			goto fail;
 		TRACE(EXEC, INFO, "ph %u: instantiated mapping for %x-%x",
 		 privdata->elf_num_ph, virt_begin, virt_end);
@@ -281,7 +281,7 @@ elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 	for (unsigned int i = 0; i < ehdr.e_phnum; i++) {
 		Elf64_Phdr phdr;
 		err = read_data(dentry, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr));
-		if (err != ANANAS_ERROR_NONE)
+		if (ananas_is_failure(err))
 			goto fail;
 		if (phdr.p_type != PT_LOAD)
 			continue;
@@ -299,7 +299,7 @@ elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 		addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_memsz), PAGE_SIZE);
 		vmarea_t* va;
 		err = vmspace_mapto(vs, virt_begin, (addr_t)NULL, virt_end - virt_begin, flags, &va);
-		if (err != ANANAS_ERROR_NONE)
+		if (ananas_is_failure(err))
 			goto fail;
 
 		/* Hook up the program header */

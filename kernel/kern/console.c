@@ -82,7 +82,7 @@ console_init()
 			 */
 			device_t dev = device_alloc(NULL, condrv->con_driver);
 			errorcode_t err = device_attach_single(dev);
-			if (err != ANANAS_ERROR_NONE) {
+			if (ananas_is_failure(err)) {
 				/* Too bad; this driver won't work */
 				device_free(dev);
 				continue;

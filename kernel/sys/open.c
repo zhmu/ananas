@@ -25,14 +25,14 @@ sys_open(thread_t* t, const char* path, int flags, int mode, handleindex_t* out)
 	 * Ask the handle to open the resource - if there isn't an open operation, we
 	 * assume this handle type cannot be opened using a syscall.
 	 */
-	if (err == ANANAS_ERROR_NONE) {
+	if (ananas_is_success(err)) {
 		if (handle_out->h_hops->hop_open != NULL)
 			err = handle_out->h_hops->hop_open(t, index_out, handle_out, path, flags, mode);
 		else
 			err = ANANAS_ERROR(BAD_OPERATION);
 	}
 
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		/* Open failed - destroy the handle */
 		handle_free_byindex(proc, index_out);
 		return err;

@@ -170,11 +170,11 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 
 		/* Map the page */
 		md_map_pages(vs, p->p_addr, page_get_paddr(p), 1, va->va_flags);
-		errorcode_t err = ANANAS_ERROR_NONE;
+		errorcode_t err = ananas_success();
 		if (va->va_fault != NULL) {
 			/* Invoke the mapping-specific fault handler */
 			err = va->va_fault(vs, va, virt);
-			if (err != ANANAS_ERROR_NONE) {
+			if (ananas_is_failure(err)) {
 				/* Mapping failed; throw the thread mapping away and nuke the page */
 				md_unmap_pages(vs, p->p_addr, 1);
 				LIST_REMOVE(&va->va_pages, p);

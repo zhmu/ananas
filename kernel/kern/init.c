@@ -160,7 +160,7 @@ mount_filesystems()
 
 	kprintf("- Mounting / (type %s) from %s...", rootfs_type, rootfs);
 	err = vfs_mount(rootfs, "/", rootfs_type, NULL);
-	if (err == ANANAS_ERROR_NONE) {
+	if (ananas_is_success(err)) {
 		kprintf(" ok\n");
 	} else {
 		kprintf(" failed, error %i\n", err);
@@ -174,7 +174,7 @@ INIT_FUNCTION(mount_filesystems, SUBSYSTEM_VFS, ORDER_LAST);
 static errorcode_t
 launch_init()
 {
-	errorcode_t err = ANANAS_ERROR_NONE;
+	errorcode_t err = ananas_success();
 	process_t* proc;
 	thread_t* t;
 
@@ -183,13 +183,13 @@ launch_init()
 		return err;
 
 	err = process_alloc(NULL, &proc);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		kprintf(" couldn't create process, %i\n", err);
 		return err;
 	}
 	err = thread_alloc(proc, &t, "init", THREAD_ALLOC_DEFAULT);
 	process_deref(proc); /* 't' should have a ref, we don't need it anymore */
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		kprintf(" couldn't create thread, %i\n", err);
 		return err;
 	}
@@ -197,7 +197,7 @@ launch_init()
 	kprintf("- Lauching init from %s...", init_path);
 	struct VFS_FILE file;
 	err = vfs_open(init_path, proc->p_cwd, &file);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		kprintf(" couldn't open init executable, %i\n", err);
 		return err;
 	}
@@ -209,7 +209,7 @@ launch_init()
 
 	addr_t exec_addr;
 	err = exec_load(proc->p_vmspace, file.f_dentry, &exec_addr);
-	if (err == ANANAS_ERROR_NONE) {
+	if (ananas_is_success(err)) {
 		kprintf(" ok\n");
 		md_setup_post_exec(t, exec_addr);
 		thread_resume(t);

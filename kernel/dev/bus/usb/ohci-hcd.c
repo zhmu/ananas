@@ -269,7 +269,7 @@ ohci_alloc_td(device_t dev)
 {
 	dma_buf_t buf;
 	errorcode_t err = dma_buf_alloc(dev->dma_tag, sizeof(struct OHCI_HCD_TD), &buf);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		return NULL;
 
 	struct OHCI_HCD_TD* td = dma_buf_get_segment(buf, 0)->s_virt;
@@ -289,7 +289,7 @@ ohci_alloc_ed(device_t dev)
 {
 	dma_buf_t buf;
 	errorcode_t err = dma_buf_alloc(dev->dma_tag, sizeof(struct OHCI_HCD_ED), &buf);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		return NULL;
 
 	struct OHCI_HCD_ED* ed = dma_buf_get_segment(buf, 0)->s_virt;

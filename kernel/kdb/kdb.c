@@ -179,7 +179,7 @@ kdb_get_line(char* line, int max_len)
 #else
 	size_t len = KDB_MAX_LINE;
 	errorcode_t err = device_read(console_tty, line, &len, 0);
-	KASSERT(err == ANANAS_ERROR_NONE, "tty read failed with error %i", err);
+	KASSERT(ananas_is_success(err), "tty read failed with error %i", err);
 	KASSERT(len > 0, "tty read returned without data");
 	line[len] = '\0';
 	return len;

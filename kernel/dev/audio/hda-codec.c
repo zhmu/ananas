@@ -471,7 +471,7 @@ hda_attach_multipin_render(device_t dev, struct HDA_AFG* afg, int association, i
 	 */
 	struct HDA_ROUTING_PLAN* rp;
 	errorcode_t err = hda_route_output(dev, afg, num_channels, o, &rp);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		kfree(pg);
 		kfree(o);
 		return err;

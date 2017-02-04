@@ -298,7 +298,7 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 	/* Everything is ok; fill out the filesystem details */
 	uint32_t root_fsop = __builtin_offsetof(struct CRAMFS_SUPERBLOCK, c_rootinode);
 	err = vfs_get_inode(fs, &root_fsop, root_inode);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		kfree(fs->fs_privdata);
 		bio_free(bio);
 		return ANANAS_ERROR(NO_DEVICE);

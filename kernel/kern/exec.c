@@ -22,7 +22,7 @@ exec_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 	LIST_FOREACH(&exec_formats, ef, struct EXEC_FORMAT) {
 		/* See if we can execute this... */
 		errorcode_t err = ef->ef_handler(vs, dentry, exec_addr);
-		if (err != ANANAS_ERROR_NONE) {
+		if (ananas_is_failure(err)) {
 			/* Execute failed; try the next one */
 			continue;
 		}

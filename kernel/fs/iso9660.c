@@ -96,7 +96,7 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 	/* Read the root inode */
 	uint64_t root_fsop = 0;
 	err = vfs_get_inode(fs, &root_fsop, root_inode);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		goto fail;
 
 	struct ISO9660_INODE_PRIVDATA* privdata = (struct ISO9660_INODE_PRIVDATA*)(*root_inode)->i_privdata;
@@ -104,7 +104,7 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 	(*root_inode)->i_iops = &iso9660_dir_ops;
 	privdata->lba = ISO9660_GET_DWORD(rootentry->de_extent_lba);
 
-	err = ANANAS_ERROR_NONE;
+	err = ananas_success();
 
 fail:
 	bio_free(bio);

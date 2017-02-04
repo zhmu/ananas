@@ -351,7 +351,7 @@ module_load(struct LOADER_MODULE* mod)
 
 	/* Everything seems to be in order... it's time to call init! */
 	errorcode_t err = mod_init(kmod);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		kfree(kmod);
 		kprintf("module %p failed to initialize with error %u\n", kmod, err);
 		goto fail;
@@ -384,7 +384,7 @@ module_unload(struct KERNEL_MODULE* kmod)
 	/* Ask it to exit */
 	errorcode_t err = kmod->kmod_exit_func(kmod);
 	mutex_lock(&mtx_modules);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		kprintf("module %p failed to exit with error %u\n", kmod, err);
 		/* Hook the module back in the list - we couldn't unload it */
 		LIST_APPEND(&kernel_modules, kmod);
@@ -425,7 +425,7 @@ module_init()
 		/* Got a module here; we need to relocate and load it */
 		DPRINTF("module_init: module at %p-%p\n", (addr_t)mod->mod_phys_start_addr, (addr_t)mod->mod_phys_end_addr);
 		errorcode_t err = module_load(mod);
-		if (err != ANANAS_ERROR_NONE)
+		if (ananas_is_failure(err))
 			kprintf("cannot load module %p: %u\n", mod, err);
 	}
 #else

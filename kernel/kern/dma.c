@@ -126,8 +126,8 @@ dma_buf_alloc(dma_tag_t tag, dma_size_t size, dma_buf_t* buf)
 	tag->t_refcount++;
 
 	/* ...and any memory backed by it */
-	errorcode_t err = ANANAS_ERROR_NONE;
-	for (unsigned int n = 0; err == ANANAS_ERROR_NONE && n < num_segs; n++) {
+	errorcode_t err = ananas_success();
+	for (unsigned int n = 0; ananas_is_success(err) && n < num_segs; n++) {
 		struct DMA_BUFFER_SEGMENT* s = &b->db_seg[n];
 		s->s_virt = page_alloc_length_mapped(seg_size, &s->s_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
 		if (s->s_virt == NULL) {
@@ -137,7 +137,7 @@ dma_buf_alloc(dma_tag_t tag, dma_size_t size, dma_buf_t* buf)
 		s->s_phys = page_get_paddr(s->s_page);
 	}
 
-	if (err == ANANAS_ERROR_NONE)
+	if (ananas_is_success(err))
 		*buf = b;
 	else
 		dma_buf_free(b);

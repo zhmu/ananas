@@ -475,7 +475,7 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * Initialize the SMP parts - as x86 SMP relies on an APIC, we do this here
 	 * to prevent problems due to devices registering interrupts.
 	 */
-	if (smp_init() != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(smp_init()))
 #endif
 	{
 		/*

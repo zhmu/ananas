@@ -290,7 +290,7 @@ usbstorage_in_callback(struct USB_PIPE* pipe)
 			*p->s_result_ptr = ANANAS_ERROR(BAD_LENGTH);
 		} else {
 			memcpy(p->s_csw_ptr, &xfer->xfer_data[0], len);
-			*p->s_result_ptr = ANANAS_ERROR_NONE;
+			*p->s_result_ptr = ananas_success();
 		}
 		p->s_result_ptr = NULL;
 		p->s_csw_ptr = NULL;
@@ -364,7 +364,7 @@ usbstorage_attach(device_t dev)
 	uint8_t max_lun = 0xff;
 	size_t len = sizeof(max_lun);
 	errorcode_t err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_MAX_LUN, USB_CONTROL_RECIPIENT_INTERFACE, USB_CONTROL_TYPE_CLASS, USB_REQUEST_MAKE(0, 0), 0, &max_lun, &len, 0);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		device_printf(dev, "unable to get max LUN: %d", err);
 		return ANANAS_ERROR(NO_RESOURCE);
 	}
@@ -376,16 +376,16 @@ usbstorage_attach(device_t dev)
 	 *
 	 */
 	err = usbpipe_alloc(usb_dev, 0, TRANSFER_TYPE_BULK, EP_DIR_IN, 0, usbstorage_in_callback, &p->s_bulk_in);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		err = usbpipe_alloc(usb_dev, 1, TRANSFER_TYPE_BULK, EP_DIR_IN, 0, usbstorage_in_callback, &p->s_bulk_in);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		device_printf(dev, "no bulk/in endpoint present");
 		return ANANAS_ERROR(NO_RESOURCE);
 	}
 	err = usbpipe_alloc(usb_dev, 1, TRANSFER_TYPE_BULK, EP_DIR_OUT, 0, usbstorage_out_callback, &p->s_bulk_out);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		err = usbpipe_alloc(usb_dev, 0, TRANSFER_TYPE_BULK, EP_DIR_OUT, 0, usbstorage_out_callback, &p->s_bulk_out);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		device_printf(dev, "no bulk/out endpoint present");
 		return ANANAS_ERROR(NO_RESOURCE);
 	}
@@ -409,7 +409,7 @@ usbstorage_attach(device_t dev)
 	memset(&tur_cmd, 0, sizeof tur_cmd);
 	tur_cmd.c_code = SCSI_CMD_TEST_UNIT_READY;
 	err = usbstorage_handle_request(dev, 0, USBSTORAGE_CBW_FLAG_DATA_IN, &tur_cmd, sizeof(tur_cmd), NULL, NULL);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		/* This is expected; issue 'REQUEST SENSE' to reset the status */
 		struct SCSI_REQUEST_SENSE_CMD rs_cmd;
 		struct SCSI_FIXED_SENSE_DATA sd;

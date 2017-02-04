@@ -110,7 +110,7 @@ usbtransfer_alloc(struct USB_DEVICE* dev, int type, int flags, int endpt, size_t
 	sem_init(&usb_xfer->xfer_semaphore, 0);
 
 	errorcode_t err = usbtransfer_setup(usb_xfer);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		kfree(usb_xfer);
 		return NULL;
 	}

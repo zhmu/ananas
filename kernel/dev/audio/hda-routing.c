@@ -94,19 +94,19 @@ hda_route_output(device_t dev, struct HDA_AFG* afg, int channels, struct HDA_OUT
 			err = devfuncs->hdf_issue_verb(dev, HDA_MAKE_VERB_NODE(output_pin, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETPINCONTROL, 
 			 HDA_CODEC_PINCONTROL_HENABLE | HDA_CODEC_PINCONTROL_OUTENABLE
 			)), &r, NULL);
-			if (err != ANANAS_ERROR_NONE)
+			if (ananas_is_failure(err))
 				break;
 
 			/* Set input to what we found that should work */
 			err = devfuncs->hdf_issue_verb(dev, HDA_MAKE_VERB_NODE(output_pin, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETCONNSELECT, pin_in_idx)), &r, NULL);
-			if (err != ANANAS_ERROR_NONE)
+			if (ananas_is_failure(err))
 				break;
 
 			/* Set output gain XXX We should check if the pin supports this */
 			err = devfuncs->hdf_issue_verb(dev, HDA_MAKE_VERB_NODE(output_pin, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
 			 HDA_CODEC_AMP_GAINMUTE_OUTPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(60)
 			)), &r, NULL);
-			if (err != ANANAS_ERROR_NONE)
+			if (ananas_is_failure(err))
 				break;
 
 			/*
@@ -114,7 +114,7 @@ hda_route_output(device_t dev, struct HDA_AFG* afg, int channels, struct HDA_OUT
 			 * whatever hooks to it.
 			 */
 			struct HDA_NODE_AW* cur_aw = pin_in_aw;
-			while(cur_aw != NULL && err == ANANAS_ERROR_NONE) {
+			while(cur_aw != NULL && ananas_is_success(err)) {
 				/* Hook the input up to the list */
 				(*rp)->rp_node[(*rp)->rp_num_nodes++] = cur_aw;
 				switch(cur_aw->aw_node.n_type) {
@@ -160,20 +160,20 @@ hda_route_output(device_t dev, struct HDA_AFG* afg, int channels, struct HDA_OUT
 							/* Loop below checks err for us */
 
 							/* Set input amplifiers - mute everything not 'm' */
-							for (int i = 0; err == ANANAS_ERROR_NONE && i < aw->aw_num_conn; i++)
+							for (int i = 0; ananas_is_success(err) && i < aw->aw_num_conn; i++)
 								if (i != m)
 									err = devfuncs->hdf_issue_verb(dev, HDA_MAKE_VERB_NODE(aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
 									 HDA_CODEC_AMP_GAINMUTE_INPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_MUTE |
 									 HDA_CODEC_AMP_GAINMUTE_INDEX(i)
 									)), &r, NULL);
-							if (err != ANANAS_ERROR_NONE)
+							if (ananas_is_failure(err))
 								break;
 							
 							/* Set output gain */
 							err = devfuncs->hdf_issue_verb(dev, HDA_MAKE_VERB_NODE(aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
 							 HDA_CODEC_AMP_GAINMUTE_OUTPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(60)
 							)), &r, NULL);
-							if (err != ANANAS_ERROR_NONE)
+							if (ananas_is_failure(err))
 								break;
 
 							/* We've set up this mixer correctly */
@@ -205,7 +205,7 @@ hda_route_output(device_t dev, struct HDA_AFG* afg, int channels, struct HDA_OUT
 			break;
 		}
 
-		if (err != ANANAS_ERROR_NONE) {
+		if (ananas_is_failure(err)) {
 			kfree(*rp);
 			return err;
 		}

@@ -95,7 +95,7 @@ exception_pf(struct STACKFRAME* sf)
 	if ((sf->sf_errnum & EXC_PF_FLAG_P) == 0) { /* page not present */
 		thread_t* curthread = PCPU_GET(curthread);
 		errorcode_t err = vmspace_handle_fault(curthread->t_process->p_vmspace, fault_addr, flags);
-		if (err == ANANAS_ERROR_NONE) {
+		if (ananas_is_success(err)) {
 			return; /* fault handeled */
 		}
 	}

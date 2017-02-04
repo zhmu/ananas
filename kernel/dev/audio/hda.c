@@ -128,7 +128,7 @@ hda_attach(device_t dev, struct HDA_DEV_FUNC* devfuncs, void* dev_privdata)
 
 	struct HDA_ROUTING_PLAN* rp;
 	errorcode_t err = hda_route_output(dev, afg, o->o_channels, o, &rp);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		return err;
 
 	void* contexts[10]; /* XXX */

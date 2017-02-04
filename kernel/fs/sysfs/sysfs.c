@@ -93,7 +93,7 @@ sysfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 	char* buffer = kmalloc(1);
 	char* start = buffer;
 	errorcode_t err = entry->e_read_fn(entry, buffer, &start, file->f_offset, len);
-	if (err == ANANAS_ERROR_NONE) {
+	if (ananas_is_success(err)) {
 		/* Read went OK; update content */
 		KASSERT(start >= buffer && start < buffer + PAGE_SIZE, "start offset out of range");
 		memcpy(buf, start, *len);
@@ -114,7 +114,7 @@ sysfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
 		return ANANAS_ERROR(BAD_OPERATION);
 
 	kprintf("sysfs_write()\n");
-	errorcode_t err = ANANAS_ERROR_NONE;
+	errorcode_t err = ananas_success();
 	err = ANANAS_ERROR(IO);
 	return err;
 }

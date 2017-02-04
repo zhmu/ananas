@@ -398,7 +398,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinod
 	}
 
 	errorcode_t result = fs->fs_fsops->read_inode(inode, fsop);
-	if (result != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(result)) {
 		vfs_deref_inode(inode); /* throws it away */
 		return result;
 	}

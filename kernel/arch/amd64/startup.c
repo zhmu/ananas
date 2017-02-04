@@ -614,7 +614,7 @@ extern void* bootstrap_stack;
 	 * Initialize the SMP parts - as x86 SMP relies on an APIC, we do this here
 	 * to prevent problems due to devices registering interrupts.
 	 */
-	if (smp_init() == ANANAS_ERROR_NONE) {
+	if (ananas_is_success(smp_init())) {
 		smp_init_ap_pagetable();
 	} else
 #endif

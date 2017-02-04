@@ -25,7 +25,7 @@ sys_clone(thread_t* t, int flags, pid_t* out_pid)
 	/* Now clone the handle to the new process */
 	thread_t* new_thread;
 	err = thread_clone(new_proc, &new_thread);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		goto fail;
 	*out_pid = new_proc->p_pid;
 

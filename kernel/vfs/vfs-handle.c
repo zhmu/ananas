@@ -60,7 +60,7 @@ vfshandle_open(thread_t* t, handleindex_t index, struct HANDLE* handle, const ch
 	if (flags & O_CREAT) {
 		/* Attempt to create the new file - if this works, we're all set */
 		errorcode_t err = vfs_create(proc->p_cwd, &handle->h_data.d_vfs_file, path, mode);
-		if (err == ANANAS_ERROR_NONE)
+		if (ananas_is_success(err))
 			return err;
 
 		/*

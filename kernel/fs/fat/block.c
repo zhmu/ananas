@@ -213,7 +213,7 @@ fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, uint32_t cluste
 		sector_num += fs_privdata->num_fat_sectors;
 		struct BIO* bio2;
 		err = vfs_bread(fs, sector_num, &bio2);
-		if (err != ANANAS_ERROR_NONE) {
+		if (ananas_is_failure(err)) {
 			/* XXX we should free the cluster */
 			bio_free(bio);
 			kprintf("fat_set_cluster(): XXX leaking cluster %u\n", sector_num);
@@ -304,7 +304,7 @@ fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
 	if (last_cluster == 0) {
 		errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, (uint32_t)-1, &last_cluster);
 		if (ANANAS_ERROR_CODE(err) != ANANAS_ERROR_BAD_RANGE) {
-			KASSERT(err != ANANAS_ERROR_NONE, "able to obtain impossible cluster");
+			KASSERT(ananas_is_failure(err), "able to obtain impossible cluster");
 			return err;
 		}
 		privdata->last_cluster = last_cluster;
@@ -362,7 +362,7 @@ fat_truncate_clusterchain(struct VFS_INODE* inode)
 	unsigned int bytes_per_cluster = fs_privdata->sector_size * fs_privdata->sectors_per_cluster;
 	int num_clusters = (inode->i_sb.st_size + bytes_per_cluster - 1) / bytes_per_cluster;
 
-	errorcode_t err = ANANAS_ERROR_NONE;
+	errorcode_t err = ananas_success();
 	uint32_t cluster = 0;
 	for (int num = num_clusters - 1; num >= 0; num--) {
 		errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, num, &cluster);
@@ -375,7 +375,7 @@ fat_truncate_clusterchain(struct VFS_INODE* inode)
 		 * cluster map, which is fine as we'll just flush the cache soon.
 		 */
 		err = fat_set_cluster(fs, cluster, 0);
-		if (err != ANANAS_ERROR_NONE)
+		if (ananas_is_failure(err))
 			break;
 	}
 
@@ -421,7 +421,7 @@ fat_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out,
 			}
 			err = fat_append_cluster(inode, &cluster);
 			ANANAS_ERROR_RETURN(err);
-		} else if (err == ANANAS_ERROR_NONE) {
+		} else if (ananas_is_success(err)) {
 			KASSERT(create == 0, "request to create block that already exists (blocknum=%u, cluster=%u)", (int)(block_in / fs_privdata->sectors_per_cluster), cluster);
 		} else {
 			return err;

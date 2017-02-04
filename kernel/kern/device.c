@@ -267,7 +267,7 @@ device_attach_bus(device_t bus)
 				break; /* XXX this is a horrible hack - should go away 'soon' */
 
 			errorcode_t err = device_attach_single(dev);
-			if (err == ANANAS_ERROR_NONE)
+			if (ananas_is_success(err))
 				continue;
 
 			device_free(dev);

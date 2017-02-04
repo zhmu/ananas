@@ -216,7 +216,7 @@ usbdev_attach(struct USB_DEVICE* usb_dev)
 		strcpy(dev->name, dev->driver->name);
 		dev->unit = dev->driver->current_unit++;
 		errorcode_t err = device_attach_single(dev);
-		if (err == ANANAS_ERROR_NONE) {
+		if (ananas_is_success(err)) {
 			/* This worked; use the next unit for the new device */
 			device_attached++;
 			break;
@@ -232,7 +232,7 @@ usbdev_attach(struct USB_DEVICE* usb_dev)
 		strcpy(dev->name, dev->driver->name);
 		dev->unit = dev->driver->current_unit++;
 		errorcode_t err = device_attach_single(dev);
-		KASSERT(err == ANANAS_ERROR_NONE, "usb generic device failed %d", err);
+		KASSERT(ananas_is_success(err), "usb generic device failed %d", err);
 	}
 	return ananas_success();
 }

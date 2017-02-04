@@ -52,7 +52,7 @@ sio_attach(device_t dev)
 
 	/* SIO is so simple that a plain ISR will do */
 	errorcode_t err = irq_register((uintptr_t)res_irq, dev, sio_irq, IRQ_TYPE_ISR, NULL);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		kfree(privdata);
 		return err;
 	}

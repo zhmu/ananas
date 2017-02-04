@@ -41,7 +41,7 @@ sys_create(thread_t* t, struct CREATE_OPTIONS* opts, handleindex_t* out)
 	else
 		err = ANANAS_ERROR(BAD_OPERATION);
 
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		/* Create failed - destroy the handle */
 		handle_free_byindex(proc, out_index);
 	} else {

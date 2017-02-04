@@ -140,7 +140,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 			/* Looks sane; read it */
 			struct BIO* bio;
 			errorcode_t err = vfs_bread(fs, fsinfo_sector, &bio);
-			if (err == ANANAS_ERROR_NONE) {
+			if (ananas_is_success(err)) {
 				struct FAT_FAT32_FSINFO* fsi = (struct FAT_FAT32_FSINFO*)BIO_DATA(bio);
 				if (FAT_FROM_LE32(fsi->fsi_signature1) == FAT_FSINFO_SIGNATURE1 &&
 				    FAT_FROM_LE32(fsi->fsi_signature2) == FAT_FSINFO_SIGNATURE2) {
@@ -167,7 +167,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 	uint64_t root_fsop = FAT_ROOTINODE_FSOP;
 	//*root_inode = fat_alloc_inode(fs, (const void*)&root_fsop);
 	err = vfs_get_inode(fs, &root_fsop, root_inode);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		kfree(privdata);
 		return err;
 	}

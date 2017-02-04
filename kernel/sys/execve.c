@@ -70,12 +70,12 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	vmspace_t* vmspace = NULL;
 	if (argv != NULL) {
 		err = set_proc_attribute(proc, A_Args, argv);
-		if (err != ANANAS_ERROR_NONE)
+		if (ananas_is_failure(err))
 			goto fail;
 	}
 	if (envp != NULL) {
 		err = set_proc_attribute(proc, A_Env, envp);
-		if (err != ANANAS_ERROR_NONE)
+		if (ananas_is_failure(err))
 			goto fail;
 	}
 
@@ -84,7 +84,7 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	 * override our current vmspace.
 	 */
 	err = vmspace_create(&vmspace);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		goto fail;
 
 	/*
@@ -93,7 +93,7 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	 */
 	addr_t exec_addr;
 	err = exec_load(vmspace, dentry, &exec_addr);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		goto fail;
 
 	/*
@@ -105,7 +105,7 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 
 	/* Copy the new vmspace to the destination */
 	err = vmspace_clone(vmspace, proc->p_vmspace, VMSPACE_CLONE_EXEC);
-	KASSERT(err == ANANAS_ERROR_NONE, "unable to clone exec vmspace: %d", err);
+	KASSERT(ananas_is_success(err), "unable to clone exec vmspace: %d", err);
 	vmspace_destroy(vmspace);
 
 	/* Now force a full return into the new thread state */

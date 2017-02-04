@@ -32,7 +32,7 @@ sys_handlectl_generic(thread_t* t, handleindex_t hindex, struct HANDLE* h, unsig
 			if (len != sizeof(*sa))
 				return ANANAS_ERROR(BAD_LENGTH);
 			sa->sa_flags = 0;
-			err = ANANAS_ERROR_NONE;
+			err = ananas_success();
 			break;
 		}
 		default:
@@ -61,7 +61,7 @@ sys_handlectl(thread_t* t, handleindex_t hindex, unsigned int op, void* arg, siz
 	void* handlectl_arg = NULL;
 	if (arg != NULL) {
 		err = syscall_map_buffer(t, arg, len, VM_FLAG_READ | VM_FLAG_WRITE, &handlectl_arg);
-		if(err != ANANAS_ERROR_NONE)
+		if(ananas_is_failure(err))
 			goto fail;
 	}
 

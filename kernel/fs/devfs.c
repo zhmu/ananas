@@ -82,12 +82,12 @@ devfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
 	struct VFS_INODE* inode = file->f_dentry->d_inode;
 	struct DEVFS_INODE_PRIVDATA* privdata = inode->i_privdata;
-	errorcode_t err = ANANAS_ERROR_NONE;
+	errorcode_t err = ananas_success();
 
 	if (privdata->device->driver->drv_read != NULL) {
 		size_t length = *len;
 		err = device_read(privdata->device, buf, &length, file->f_offset);
-		if (err == ANANAS_ERROR_NONE) {
+		if (ananas_is_success(err)) {
 			/* Read went OK; update the file pointer */
 			file->f_offset += length;
 			*len = length;
@@ -117,12 +117,12 @@ devfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
 {
 	struct VFS_INODE* inode = file->f_dentry->d_inode;
 	struct DEVFS_INODE_PRIVDATA* privdata = inode->i_privdata;
-	errorcode_t err = ANANAS_ERROR_NONE;
+	errorcode_t err = ananas_success();
 
 	if (privdata->device->driver->drv_write != NULL) {
 		size_t length = *len;
 		err = device_write(privdata->device, buf, &length, file->f_offset);
-		if (err == ANANAS_ERROR_NONE) {
+		if (ananas_is_success(err)) {
 			/* Write went OK; update the file pointer */
 			file->f_offset += length;
 			*len = length;

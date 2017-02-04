@@ -226,7 +226,7 @@ tty_handle_input(device_t dev)
 		unsigned char byte;
 		size_t len = sizeof(byte);
 		errorcode_t err = device_read(priv->input_dev, (char*)&byte, &len, 0);
-		if (err != ANANAS_ERROR_NONE || len == 0)
+		if (ananas_is_failure(err) || len == 0)
 			break;
 
 		/* If we are out of buffer space, just eat the charachter XXX possibly unnecessary for VERASE */

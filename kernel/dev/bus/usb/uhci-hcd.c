@@ -64,7 +64,7 @@ uhci_alloc_td(device_t dev)
 {
 	dma_buf_t buf;
 	errorcode_t err = dma_buf_alloc(dev->dma_tag, sizeof(struct UHCI_HCD_TD), &buf);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		return NULL;
 
 	struct UHCI_HCD_TD* td = dma_buf_get_segment(buf, 0)->s_virt;
@@ -79,7 +79,7 @@ uhci_alloc_qh(device_t dev)
 {
 	dma_buf_t buf;
 	errorcode_t err = dma_buf_alloc(dev->dma_tag, sizeof(struct UHCI_HCD_QH), &buf);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		return NULL;
 
 	struct UHCI_HCD_QH* qh = dma_buf_get_segment(buf, 0)->s_virt;
@@ -454,7 +454,7 @@ uhci_schedule_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	KASSERT((xfer->xfer_flags & TRANSFER_FLAG_PENDING) == 0, "scheduling transfer that is already pending (%x)", xfer->xfer_flags);
 	xfer->xfer_flags |= TRANSFER_FLAG_PENDING;
 	LIST_APPEND_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
-	errorcode_t err = ANANAS_ERROR_NONE;
+	errorcode_t err = ananas_success();
 
 	/* If this is the root hub, short-circuit the request */
 	struct UHCI_DEV_PRIVDATA* dev_p = xfer->xfer_device->usb_hcd_privdata;
@@ -502,7 +502,7 @@ uhci_attach(device_t dev)
 
 	/* Allocate the frame list; this will be programmed right into the controller */
 	err = dma_buf_alloc(dev->dma_tag, 4096, &p->uhci_framelist_buf);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		goto fail;
 	p->uhci_framelist = dma_buf_get_segment(p->uhci_framelist_buf, 0)->s_virt;
 	KASSERT((((addr_t)p->uhci_framelist) & 0x3ff) == 0, "framelist misaligned");
@@ -593,7 +593,7 @@ uhci_attach(device_t dev)
 
 	/* Hook up our interrupt handler and get it going */
 	err = irq_register((int)(uintptr_t)res_irq, dev, uhci_irq, IRQ_TYPE_DEFAULT, NULL);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		goto fail;
 	outw(p->uhci_io + UHCI_REG_USBINTR, UHCI_USBINTR_SPI | UHCI_USBINTR_IOC | UHCI_USBINTR_RI | UHCI_USBINTR_TOCRC);
 	delay(10);

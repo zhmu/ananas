@@ -482,7 +482,7 @@ hdapci_attach(device_t dev)
 	HDA_WRITE_1(HDA_REG_RIRBCTL, HDA_READ_1(HDA_REG_RIRBCTL) | (HDA_RIRBCTL_RIRBDMAEN /* | HDA_RIRBCTL_RINTCTL */));
 
 	err = hda_attach(dev, &hdapci_devfuncs, privdata);
-	if (err == ANANAS_ERROR_NONE)
+	if (ananas_is_success(err))
 		return err;
 
 	/* XXX we should clean up the tree thus far */

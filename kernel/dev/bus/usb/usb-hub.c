@@ -102,14 +102,14 @@ ushub_reset_port(struct USB_HUB* hub, int n)
 	/* Reset the reset state of the port in case it lingers */
 	DPRINTF(hub_dev->usb_device, "%s: port %d: clearing c_port_reset", __func__, n);
 	errorcode_t err = usb_control_xfer(hub_dev, USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_RESET, n, NULL, NULL, 1);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		device_printf(hub_dev->usb_device, "port_clear error %d, continuing anyway", err);
 	}
 
 	/* Need to reset the port */
 	DPRINTF(hub_dev->usb_device, "%s: port %d: resetting", __func__, n);
 	err = usb_control_xfer(hub_dev, USB_CONTROL_REQUEST_SET_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_PORT_RESET, n, NULL, NULL, 1);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		device_printf(hub_dev->usb_device, "port_reset error %d, ignoring port", err);
 		return err;
 	}
@@ -123,7 +123,7 @@ ushub_reset_port(struct USB_HUB* hub, int n)
 		size_t len = sizeof(ps);
 		memset(&ps, 0, len);
 		err = usb_control_xfer(hub_dev, USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, 0);
-		if (err != ANANAS_ERROR_NONE) {
+		if (ananas_is_failure(err)) {
 			device_printf(hub_dev->usb_device, "get_status error %d, ignoring port", err);
 			return err;
 		}
@@ -146,7 +146,7 @@ ushub_reset_port(struct USB_HUB* hub, int n)
 
 	DPRINTF(hub_dev->usb_device, "%s: port %d: reset completed; clearing c_reset", __func__, n);
 	err = usb_control_xfer(hub_dev, USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_RESET, n, NULL, NULL, 1);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		device_printf(hub_dev->usb_device, "unable to clear reset of port %d", n);
 		return err;
 	}
@@ -164,7 +164,7 @@ usbhub_handle_explore_new_device(struct USB_DEVICE* hub_dev, struct HUB_PORT* po
 	size_t len = sizeof(ps);
 	memset(&ps, 0, len);
 	errorcode_t err = usb_control_xfer(hub_dev, USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, 0);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		device_printf(hub_dev->usb_device, "get_status(%d) error %d, ignoring port", n, err);
 		return;
 	}
@@ -192,7 +192,7 @@ usbhub_handle_detach(struct USB_DEVICE* hub_dev, struct HUB_PORT* port, int n)
 	KASSERT(usb_dev != NULL, "detaching null device");
 
 	errorcode_t err = usbdev_detach(usb_dev);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		device_printf(usb_dev->usb_device, "unable to detach device (%d)", err);
 		return;
 	}
@@ -222,7 +222,7 @@ usbhub_handle_explore(struct USB_DEVICE* usb_dev)
 		struct HUB_PORT_STATUS ps;
 		size_t len = sizeof(ps);
 		errorcode_t err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, 0);
-		if (err != ANANAS_ERROR_NONE) {
+		if (ananas_is_failure(err)) {
 			device_printf(dev, "get_status error %d, ignoring port", err);
 			continue;
 		}
@@ -268,7 +268,7 @@ usbhub_attach(device_t dev)
 	/* Enable power to all ports */
 	for (int n = 0; n < hub->hub_numports; n++) {
 		err = usb_control_xfer(usb_dev, USB_CONTROL_REQUEST_SET_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_PORT_POWER, n + 1, NULL, NULL, 1);
-		if (err != ANANAS_ERROR_NONE)
+		if (ananas_is_failure(err))
 			goto fail;
 
 		/* Force the port as 'updated' - we need to check it initially */
@@ -281,12 +281,12 @@ usbhub_attach(device_t dev)
 	/* Initialization went well; hook up the interrupt pipe so that we may receive updates */
 	struct USB_PIPE* pipe;
 	err = usbpipe_alloc(usb_dev, 0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, 0, usbhub_int_callback, &pipe);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		device_printf(dev, "endpoint 0 not interrupt/in");
 		goto fail;
 	}
 	err = usbpipe_schedule(pipe);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		goto fail;
 	return err;
 

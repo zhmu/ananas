@@ -110,7 +110,7 @@ bio_flush(struct BIO* bio)
 	TRACE(BIO, INFO, "bio %p (lba %u) is dirty, flushing", bio, (uint32_t)bio->io_block);
 
 	errorcode_t err = device_bwrite(bio->device, bio);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		kprintf("bio_flush(): device_write() failed, %i\n", err);
 		bio_set_error(bio);
 	} else {
@@ -327,7 +327,7 @@ bio_get(device_t dev, blocknr_t block, size_t len, int flags)
 
 	/* kick the device; we want it to read */
 	errorcode_t err = device_bread(dev, bio);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		kprintf("bio_read(): device_read() failed, %i\n", err);
 		bio_set_error(bio);
 		return bio;

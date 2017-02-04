@@ -341,7 +341,7 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 		blocknr_t blocknum = 1 + (n * sizeof(struct EXT2_BLOCKGROUP)) / fs->fs_block_size;
 		blocknum += privdata->sb.s_first_data_block;
 		err = vfs_bread(fs, blocknum, &bio);
-		if (err != ANANAS_ERROR_NONE) {
+		if (ananas_is_failure(err)) {
 			kfree(privdata);
 			return err;
 		}
@@ -367,7 +367,7 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 	/* Read the root inode */
 	uint32_t root_fsop = EXT2_ROOT_INO;
 	err = vfs_get_inode(fs, &root_fsop, root_inode);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		kfree(privdata);
 		return err;
 	}

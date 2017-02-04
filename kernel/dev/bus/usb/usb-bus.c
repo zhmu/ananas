@@ -169,7 +169,7 @@ usb_bus_thread(void* unused)
 			 * at any given time.
 			 */
 			errorcode_t err = usbdev_attach(usb_dev);
-			KASSERT(err == ANANAS_ERROR_NONE, "cannot yet deal with failures %d", err);
+			KASSERT(ananas_is_success(err), "cannot yet deal with failures %d", err);
 
 			/* This worked; hook the device to the bus' device list */
 			struct USB_BUS* bus = usb_dev->usb_bus;

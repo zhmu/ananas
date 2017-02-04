@@ -54,7 +54,7 @@ acpi_probe_device(ACPI_HANDLE ObjHandle, UINT32 Level, void* Context, void** Ret
 			strcpy(dev->name, dev->driver->name);
 			dev->unit = dev->driver->current_unit++;
 			errorcode_t err = device_attach_single(dev);
-			if (err == ANANAS_ERROR_NONE) {
+			if (ananas_is_success(err)) {
 				/* This worked; use the next unit for the new device */
 				device_attached++;
 				break;

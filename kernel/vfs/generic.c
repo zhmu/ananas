@@ -35,9 +35,9 @@ vfs_generic_lookup(struct DENTRY* parent, struct VFS_INODE** destinode, const ch
 	dirf.f_dentry = parent;
 	while (1) {
 		size_t buf_len = sizeof(buf);
-		int result = vfs_read(&dirf, buf, &buf_len);
-		if (result != ANANAS_ERROR_NONE)
-			return result;
+		errorcode_t err = vfs_read(&dirf, buf, &buf_len);
+		if (ananas_is_failure(err))
+			return err;
 		if (buf_len == 0)
 			return ANANAS_ERROR(NO_FILE);
 

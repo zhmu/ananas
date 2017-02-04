@@ -82,7 +82,7 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 
 	struct VFS_INODE* root_inode = NULL;
 	err = fs->fs_fsops->mount(fs, &root_inode);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		dcache_destroy(fs);
 		icache_destroy(fs);
 		memset(fs, 0, sizeof(*fs));
@@ -101,7 +101,7 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	 * Now perform a root entry lookup; if this fails, we'll have to abort everything we have done before
 	 * XXX Maybe special-case once we have a root filesystem?
 	 */
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		dcache_destroy(fs);
 		memset(fs, 0, sizeof(*fs));
 		return err;
@@ -113,7 +113,7 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	 * always just hook our path to the fs root dentry... need to think about it
 	 */
 	struct DENTRY* dentry_root;
-	if (vfs_lookup(NULL, &dentry_root, to) == ANANAS_ERROR_NONE &&
+	if (ananas_is_success(vfs_lookup(NULL, &dentry_root, to)) &&
 	    dentry_root != fs->fs_root_dentry) {
 		if (dentry_root->d_inode != NULL)
 			vfs_deref_inode(dentry_root->d_inode);

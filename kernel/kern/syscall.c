@@ -31,7 +31,7 @@ syscall(struct SYSCALL_ARGS* a)
 
 	errorcode_t err = perform_syscall(curthread, a);
 
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		TRACE(SYSCALL, WARN, "err=%u", err);
 	return err;
 }

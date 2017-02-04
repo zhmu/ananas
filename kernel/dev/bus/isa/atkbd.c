@@ -140,7 +140,7 @@ atkbd_attach(device_t dev)
 	dev->privdata = kbd_priv;
 
 	errorcode_t err = irq_register((uintptr_t)res_irq, dev, atkbd_irq, IRQ_TYPE_DEFAULT, NULL);
-	if (err != ANANAS_ERROR_NONE) {
+	if (ananas_is_failure(err)) {
 		kfree(kbd_priv);
 		return err;
 	}

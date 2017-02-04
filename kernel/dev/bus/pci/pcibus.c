@@ -123,7 +123,7 @@ pcibus_attach(device_t dev)
 				strcpy(new_dev->name, new_dev->driver->name);
 				new_dev->unit = new_dev->driver->current_unit++;
 				errorcode_t err = device_attach_single(new_dev);
-				if (err == ANANAS_ERROR_NONE) {
+				if (ananas_is_success(err)) {
 					/* This worked; use the next unit for the new device */
 					device_attached++;
 					break;

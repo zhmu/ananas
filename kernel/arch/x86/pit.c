@@ -56,7 +56,7 @@ x86_pit_init()
 	outb(PIT_MODE_CMD, PIT_CH_CHAN0 | PIT_MODE_3 | PIT_ACCESS_BOTH);
 	outb(PIT_CH0_DATA, (count & 0xff));
 	outb(PIT_CH0_DATA, (count >> 8));
-	if (irq_register(IRQ_PIT, NULL, x86_pit_irq, IRQ_TYPE_TIMER, NULL) != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(irq_register(IRQ_PIT, NULL, x86_pit_irq, IRQ_TYPE_TIMER, NULL)))
 		panic("cannot register timer irq");
 }
 

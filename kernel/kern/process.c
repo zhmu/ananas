@@ -48,7 +48,7 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 
 	/* Create the process's vmspace */
 	err = vmspace_create(&p->p_vmspace);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		goto fail;
 
 	/* Create process information structure */
@@ -61,7 +61,7 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 	/* Map the process information structure in the vm area so all out threads can access it */
 	vmarea_t* va;
 	err = vmspace_map(p->p_vmspace, page_get_paddr(p->p_info_page), sizeof(struct PROCINFO), VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_PRIVATE, &va);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		goto fail;
 	p->p_info_va = va->va_virt;
 
@@ -81,7 +81,7 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 			struct HANDLE* handle;
 			handleindex_t out;
 			err = handle_clone(parent, n, NULL, p, &handle, n, &out);
-			if (err != ANANAS_ERROR_NONE)
+			if (ananas_is_failure(err))
 				goto fail;
 			KASSERT(n == out, "cloned handle %d to new handle %d", n, out);
 		}
@@ -89,7 +89,7 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 	/* Run all process initialization callbacks */
 	LIST_FOREACH(&process_callbacks_init, pc, struct PROCESS_CALLBACK) {
 		err = pc->pc_func(p);
-		if (err != ANANAS_ERROR_NONE)
+		if (ananas_is_failure(err))
 			goto fail;
 	}
 
@@ -133,7 +133,7 @@ process_clone(process_t* p, int flags, process_t** out_p)
 
 	/* Duplicate the vmspace - this should leave the private mappings alone */
 	err = vmspace_clone(p->p_vmspace, newp->p_vmspace, 0);
-	if (err != ANANAS_ERROR_NONE)
+	if (ananas_is_failure(err))
 		goto fail;
 
 	*out_p = newp;
