@@ -6,11 +6,14 @@
 #include <ananas/lib.h>
 
 static char* cmdline = NULL;
-static int cmdline_len = 0;
+static int cmdline_len = -1;
 
 void
 cmdline_init()
 {
+	/* Default to no sensible commmandline */
+	cmdline_len = 0;
+
 	/* 1 because bi_args_size includes the terminating \0 */
 	if (bootinfo->bi_args_size <= 1 || bootinfo->bi_args == 0)
 		return;
@@ -37,7 +40,9 @@ cmdline_init()
 const char*
 cmdline_get_string(const char* key)
 {
-	KASSERT(cmdline != NULL, "cmdline not initialized");
+	KASSERT(cmdline_len >= 0, "cmdline not initialized");
+	if (cmdline == NULL)
+		return NULL;
 
 	const char* cur = cmdline;
 	while((cur - cmdline) < cmdline_len) {
