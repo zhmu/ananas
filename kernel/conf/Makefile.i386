@@ -18,7 +18,7 @@ NM=		nm
 %FILES
 
 CFLAGS=		-I$S/../include -I$S -I. -std=c99 -DKERNEL -fno-stack-protector
-CFLAGS+=	-Wall -Werror
+CFLAGS+=	-Wall -Werror -g
 
 kernel:		kernel.full fileids.txt
 		$(OBJCOPY) -R '.traceids' -R '.tracenames' -R '.comment' kernel.full kernel 2> /dev/null
