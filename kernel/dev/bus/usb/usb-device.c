@@ -21,7 +21,6 @@
 TRACE_SETUP;
 
 extern struct DRIVER drv_usbgeneric;
-extern struct DEVICE_PROBE probe_queue; /* XXX gross */
 
 struct USB_DEVICE*
 usb_alloc_device(struct USB_BUS* bus, struct USB_HUB* hub, int hub_port, int flags)
