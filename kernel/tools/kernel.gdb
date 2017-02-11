@@ -14,7 +14,7 @@ define l_print
 	end
 end
 
-document li_print
+document l_print
 	Prints members of a LIST
 end
 
