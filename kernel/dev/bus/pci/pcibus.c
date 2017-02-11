@@ -13,16 +13,10 @@ pcibus_attach(device_t dev)
 	KASSERT(res != NULL, "called without a PCI bus resource");
 
 	unsigned int busno = res->r_base;
-	unsigned int devno;
-	for (devno = 0; devno < PCI_MAX_DEVICES; devno++) {
-		/*
-		 * Grab the device/vendor pair; if the vendor is PCI_NOVENDOR, there's no
-		 * device here and we skip the device alltogether.
-		 */
+	for (unsigned int devno = 0; devno < PCI_MAX_DEVICES; devno++) {
 		uint32_t dev_vendor = pci_read_config(busno, devno, 0, PCI_REG_DEVICEVENDOR, 32);
-		if ((uint32_t)(dev_vendor & 0xffff) == PCI_NOVENDOR) {
-			continue;
-		}
+		if ((uint32_t)(dev_vendor & 0xffff) == PCI_NOVENDOR)
+			continue; /* nothing here */
 
 		/*
 		 * Fetch the header-type; this is used to figure out whether this is an
@@ -35,7 +29,7 @@ pcibus_attach(device_t dev)
 		for (unsigned int funcno = 0; funcno <= max_func; funcno++) {
 			dev_vendor = pci_read_config(busno, devno, funcno, PCI_REG_DEVICEVENDOR, 32);
 			if ((uint32_t)(dev_vendor & 0xffff) == PCI_NOVENDOR)
-				continue;
+				continue; /* nothing here */
 
 			/*
 			 * Retrieve the PCI device class; drivers may use this to determine whether
@@ -43,7 +37,7 @@ pcibus_attach(device_t dev)
 			 */
 			uint32_t class_revision = pci_read_config(busno, devno, funcno, PCI_REG_CLASSREVISION, 32);
 
-			/* Create a new device and pollute it with PCI resources */
+			/* Create a new device and populate it with PCI resources */
 			device_t new_dev = device_alloc(dev, NULL);
 			device_add_resource(new_dev, RESTYPE_PCI_BUS, busno, 0);
 			device_add_resource(new_dev, RESTYPE_PCI_DEVICE, devno, 0);
@@ -99,48 +93,14 @@ pcibus_attach(device_t dev)
 			if (irq != 0 && irq != 0xff)
 				device_add_resource(new_dev, RESTYPE_IRQ, irq, 0);
 
-			/*
-			 * Walk through any device that attached on our bus, and see if it works
-			 * XXX This is a kludge; the device stuff should do this
-			 */
-			extern struct DEVICE_PROBE probe_queue;
-
-			int device_attached = 0;
-			LIST_FOREACH(&probe_queue, p, struct PROBE) {
-				/* See if the device lives on our bus */
-				int exists = 0;
-				for (const char** curbus = p->bus; *curbus != NULL; curbus++) {
-					if (strcmp(*curbus, dev->name) == 0) {
-						exists = 1;
-						break;
-					}
-				}
-				if (!exists)
-					continue;
-
-				/* This device may work - give it a chance to attach */
-				new_dev->driver = p->driver;
-				strcpy(new_dev->name, new_dev->driver->name);
-				new_dev->unit = new_dev->driver->current_unit++;
-				errorcode_t err = device_attach_single(new_dev);
-				if (ananas_is_success(err)) {
-					/* This worked; use the next unit for the new device */
-					device_attached++;
-					break;
-				} else {
-					/* No luck, revert the unit number */
-					new_dev->driver->current_unit--;
-				}
-			}
-
-			if (!device_attached) {
+			/* Attempt to attach this new child device */
+			if (ananas_is_success(device_attach_child(new_dev)))
+				continue;
 #if 0
-				kprintf("%s%u: no match for vendor 0x%x device 0x%x class %u, device ignored\n",
-					dev->name, dev->unit, dev_vendor & 0xffff, dev_vendor >> 16, PCI_CLASS(class_revision));
+			device_printf(dev, "no match for vendor 0x%x device 0x%x class %u, device ignored",
+				dev_vendor & 0xffff, dev_vendor >> 16, PCI_CLASS(class_revision));
 #endif
-				new_dev->driver = NULL;
-				device_free(new_dev);
-			}
+			device_free(new_dev);
 		}
 	}
 	return ananas_success();

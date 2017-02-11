@@ -127,6 +127,7 @@ LIST_DEFINE(DEVICE_PROBE, struct PROBE);
 device_t device_alloc(device_t bus, driver_t drv);
 void device_free(device_t dev);
 errorcode_t device_attach_single(device_t dev);
+errorcode_t device_attach_child(device_t dev);
 void device_attach_bus(device_t bus);
 device_t device_clone(device_t dev);
 errorcode_t device_detach(device_t dev);

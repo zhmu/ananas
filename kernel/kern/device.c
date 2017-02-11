@@ -17,7 +17,7 @@ static void device_print_attachment(device_t dev);
 
 static spinlock_t spl_devicequeue = SPINLOCK_DEFAULT_INIT;
 static struct DEVICE_QUEUE device_queue;
-struct DEVICE_PROBE probe_queue; /* XXX not locked yet */
+static struct DEVICE_PROBE probe_queue; /* XXX not locked yet */
 
 /* Note: drv = NULL will be used if the driver isn't yet known! */
 device_t
@@ -129,8 +129,59 @@ device_print_attachment(device_t dev)
 	kprintf("\n");
 }
 
+static int
+device_must_probe_on_bus(const struct PROBE* p, const device_t bus)
+{
+	for (const char* const* curbus = p->bus; *curbus != NULL; curbus++) {
+		if (strcmp(*curbus, bus->name) == 0)
+			return 1;
+	}
+	return 0;
+}
+
 /*
- * Handles attaching devices to a bus; may recursively call itself.
+ * Attaches a single device, by handing it off to all possible drivers (first
+ * one wins). Succeeds if a driver accepted the device, in which case the
+ * device name and unit will be updated.
+ */
+errorcode_t
+device_attach_child(device_t dev)
+{
+	if (LIST_EMPTY(&probe_queue))
+		return ANANAS_ERROR(NO_DEVICE);
+
+	device_t bus = dev->parent;
+	LIST_FOREACH_SAFE(&probe_queue, p, struct PROBE) {
+		if (!device_must_probe_on_bus(p, bus))
+			continue; /* bus cannot contain this device */
+
+		driver_t driver = p->driver;
+		KASSERT(driver != NULL, "matched a probe device without a driver!");
+
+		/* Hook the device to this driver and try to attach it */
+		dev->driver = driver;
+		strcpy(dev->name, driver->name);
+		dev->unit = driver->current_unit++;
+
+		errorcode_t err = device_attach_single(dev);
+		if (ananas_is_success(err))
+			return err;
+
+		/* Attach failed */
+		strcpy(dev->name, "???");
+		dev->driver = NULL;
+		driver->current_unit--;
+	}
+
+	return ANANAS_ERROR(NO_DEVICE);
+}
+
+/*
+ * Attaches children on a given bus - assumes the bus is already set up. May
+ * attach multiple devices or none at all.
+ *
+ * XXX contains hacks for the input/output console device stuff (skips
+ * attaching them, as they are already at the point this is run)
  */
 void
 device_attach_bus(device_t bus)
@@ -145,52 +196,36 @@ device_attach_bus(device_t bus)
 	device_t input_dev = tty_get_inputdev(console_tty);
 	device_t output_dev = tty_get_outputdev(console_tty);
 	LIST_FOREACH_SAFE(&probe_queue, p, struct PROBE) {
-		/* See if the device exists on this bus */
-		int exists = 0;
-		for (const char** curbus = p->bus; *curbus != NULL; curbus++) {
-			if (strcmp(*curbus, bus->name) == 0) {
-				exists = 1;
-				break;
-			}
-		}
+		if (!device_must_probe_on_bus(p, bus))
+			continue; /* bus cannot contain this device */
 
-		if (!exists)
-			continue;
-
-		/*
-		 * OK, the device may be present on this bus; allocate a device for it.
-		 */
 		driver_t driver = p->driver;
 		KASSERT(driver != NULL, "matched a probe device without a driver!");
 
 		/*
-		 * If we found the driver for the in- or output driver, display it; we'll give
-		 * the extra units a chance to attach as well.
+		 * If we found the driver for the in- or output driver, display it.
+		 *
+		 * XXX we will any extra units here, maybe we should re-think that? The entire
+		 *     tty-device-stuff is a hack anyway...
 		 */
 		if (input_dev != NULL && input_dev->driver == driver) {
 			input_dev->parent = bus;
 			device_print_attachment(input_dev);
 			device_add_to_tree(input_dev);
+			continue;
 		}
 		if (output_dev != NULL && output_dev->driver == driver && input_dev != output_dev) {
 			output_dev->parent = bus;
 			device_print_attachment(output_dev);
 			device_add_to_tree(output_dev);
+			continue;
 		}
 
-		/* Attach any units */
-		while (1) {
-			device_t dev = device_alloc(bus, driver);
-			if (dev->unit > 0)
-				break; /* XXX this is a horrible hack - should go away 'soon' */
-
-			errorcode_t err = device_attach_single(dev);
-			if (ananas_is_success(err))
-				continue;
-
-			device_free(dev);
-			break;
-		}
+		/* Hook the device to this driver and try to attach it */
+		device_t dev = device_alloc(bus, driver);
+		errorcode_t err = device_attach_single(dev);
+		if (ananas_is_failure(err))
+			device_free(dev); /* attach failed; discard the device */
 	}
 }
 

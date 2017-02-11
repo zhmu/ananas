@@ -9,7 +9,7 @@
 TRACE_SETUP;
 
 static ACPI_STATUS
-acpi_probe_device(ACPI_HANDLE ObjHandle, UINT32 Level, void* Context, void** ReturnValue)
+acpi_attach_device(ACPI_HANDLE ObjHandle, UINT32 Level, void* Context, void** ReturnValue)
 {
 	ACPI_OBJECT_TYPE type;
 	if (ACPI_FAILURE(AcpiGetType(ObjHandle, &type)))
@@ -27,50 +27,16 @@ acpi_probe_device(ACPI_HANDLE ObjHandle, UINT32 Level, void* Context, void** Ret
 	device_t bus = Context;
 	device_t dev = device_alloc(bus, NULL);
 
-	/* Fetch the device resources */
+	/* Fetch the device resources... */
 	if (ACPI_SUCCESS(acpi_process_resources(ObjHandle, dev))) {
-		/*
-		 * And see if we can attach this device to something - XXX As in the PCI
-		 * case, we need to get better support for this stuff instead of looking
-		 * in the device stuff's internal structures...
-		 */
-		extern struct DEVICE_PROBE probe_queue;
-
-		int device_attached = 0;
-		LIST_FOREACH(&probe_queue, p, struct PROBE) {
-			/* See if the device lives on our bus */
-			int exists = 0;
-			for (const char** curbus = p->bus; *curbus != NULL; curbus++) {
-				if (strcmp(*curbus, bus->name) == 0) {
-					exists = 1;
-					break;
-				}
-			}
-			if (!exists)
-				continue;
-
-			/* This device may work - give it a chance to attach */
-			dev->driver = p->driver;
-			strcpy(dev->name, dev->driver->name);
-			dev->unit = dev->driver->current_unit++;
-			errorcode_t err = device_attach_single(dev);
-			if (ananas_is_success(err)) {
-				/* This worked; use the next unit for the new device */
-				device_attached++;
-				break;
-			} else {
-				/* No luck, revert the unit number */
-				dev->driver->current_unit--;
-			}
-		}
-
-		/*
-		 * If attaching failed, clean up the device we allocated. However, we'll
-		 * continue to walk deeper down the tree - ACPI won't list the PCI devices
-		 * themselves, but it will provide an overview of ISA stuff which we intend
-		 * to attach.
-		 */
-		if (!device_attached) {
+		/* ... and see if we can attach this device to something */
+		if (ananas_is_failure(device_attach_child(dev))) {
+			/*
+			 * Unable to attach - do not return failure here, we need to walk
+			 * deeper in the tree (ACPI won't list the PCI devices themselves,
+			 * but it does provide an overview of the ISA stuff which we can't
+			 * find otherwise)
+			 */
 			device_free(dev);
 		}
 	}
@@ -124,7 +90,7 @@ acpi_attach(device_t dev)
 	/*
 	 * Now enumerate through all ACPI devices and see what we can find.
 	 */
-	AcpiWalkNamespace(ACPI_TYPE_ANY, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX, acpi_probe_device, NULL, dev, NULL);
+	AcpiWalkNamespace(ACPI_TYPE_ANY, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX, acpi_attach_device, NULL, dev, NULL);
 
 	return ananas_success();
 }

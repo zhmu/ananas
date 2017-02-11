@@ -192,42 +192,12 @@ usbdev_attach(struct USB_DEVICE* usb_dev)
 	TRACE_DEV(USB, INFO, dev, "configuration activated");
 	usb_dev->usb_cur_interface = 0;
 
-	/* Now, we'll have to hook up some driver... XXX this is duplicated from device.c/pcibus.c */
-	int device_attached = 0;
-	LIST_FOREACH(&probe_queue, p, struct PROBE) {
-		/* See if the device lives on our bus */
-		int exists = 0;
-		for (const char** curbus = p->bus; *curbus != NULL; curbus++) {
-			/*
-			 * Note that we need to check the _parent_ as that is the bus; 'dev' will
-			 * be turned into a fully-flegded device once we find a driver which
-			 * likes it.
-			 */
-			if (strcmp(*curbus, dev->parent->name) == 0) {
-				exists = 1;
-				break;
-			}
-		}
-		if (!exists)
-			continue;
-
-		/* This device may work - give it a chance to attach */
-		dev->driver = p->driver;
-		strcpy(dev->name, dev->driver->name);
-		dev->unit = dev->driver->current_unit++;
-		errorcode_t err = device_attach_single(dev);
-		if (ananas_is_success(err)) {
-			/* This worked; use the next unit for the new device */
-			device_attached++;
-			break;
-		} else {
-			/* No luck, revert the unit number */
-			dev->driver->current_unit--;
-		}
-	}
-
-	if (!device_attached) {
-		/* Nothing found; revert to the generic USB device here */
+	/* Now, we'll have to hook up some driver... */
+	if (ananas_is_failure(device_attach_child(dev))) {
+		/*
+	 	 * Nothing found; revert to the generic USB device here XXX we can avoid
+		 * this if we have a driver priority (to have a last-resort driver)
+		 */
 		dev->driver = &drv_usbgeneric;
 		strcpy(dev->name, dev->driver->name);
 		dev->unit = dev->driver->current_unit++;
