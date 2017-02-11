@@ -120,7 +120,7 @@ static errorcode_t
 atkbd_probe(device_t dev)
 {
 	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PNP_ID, 0);
-	if (res != NULL && res->base == 0x0303) /* PNP0303: IBM Enhanced (101/102-key, PS/2 mouse support) */
+	if (res != NULL && res->r_base == 0x0303) /* PNP0303: IBM Enhanced (101/102-key, PS/2 mouse support) */
 		return ananas_success();
 	return ANANAS_ERROR(NO_DEVICE);
 }

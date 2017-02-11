@@ -12,7 +12,7 @@ pcibus_attach(device_t dev)
 	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PCI_BUS, 0);
 	KASSERT(res != NULL, "called without a PCI bus resource");
 
-	unsigned int busno = res->base;
+	unsigned int busno = res->r_base;
 	unsigned int devno;
 	for (devno = 0; devno < PCI_MAX_DEVICES; devno++) {
 		/*

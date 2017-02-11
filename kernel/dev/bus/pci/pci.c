@@ -37,7 +37,7 @@ pci_write_cfg(device_t dev, uint32_t reg, uint32_t val, int size)
 	struct RESOURCE* func_res = device_get_resource(dev, RESTYPE_PCI_FUNCTION, 0);
 	KASSERT(bus_res != NULL && dev_res != NULL && func_res != NULL, "missing pci resources");
 
-	pci_write_config(bus_res->base, dev_res->base, func_res->base, reg, val, size);
+	pci_write_config(bus_res->r_base, dev_res->r_base, func_res->r_base, reg, val, size);
 }
 
 uint32_t
@@ -48,7 +48,7 @@ pci_read_cfg(device_t dev, uint32_t reg, int size)
 	struct RESOURCE* func_res = device_get_resource(dev, RESTYPE_PCI_FUNCTION, 0);
 	KASSERT(bus_res != NULL && dev_res != NULL && func_res != NULL, "missing pci resources");
 
-	return pci_read_config(bus_res->base, dev_res->base, func_res->base, reg, size);
+	return pci_read_config(bus_res->r_base, dev_res->r_base, func_res->r_base, reg, size);
 }
 
 void

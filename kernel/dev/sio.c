@@ -105,7 +105,7 @@ static errorcode_t
 sio_probe(device_t dev)
 {
 	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PNP_ID, 0);
-	if (res != NULL && res->base == 0x0501) /* PNP0501: 16550A-compatible COM port */
+	if (res != NULL && res->r_base == 0x0501) /* PNP0501: 16550A-compatible COM port */
 		return ananas_success();
 	return ANANAS_ERROR(NO_DEVICE);
 }

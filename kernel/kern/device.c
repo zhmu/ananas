@@ -42,13 +42,7 @@ device_t
 device_clone(device_t dev)
 {
 	device_t new_dev = device_alloc(dev->parent, dev->driver);
-
-	/* Copy the resources over */
-	for (int i = 0; i < DEVICE_MAX_RESOURCES; i++) {
-		new_dev->resource[i].type = dev->resource[i].type;
-		new_dev->resource[i].base = dev->resource[i].base;
-		new_dev->resource[i].length = dev->resource[i].length;
-	}
+	resourceset_copy(&new_dev->d_resourceset, &dev->d_resourceset);
 	return new_dev;
 }
 
@@ -126,89 +120,13 @@ device_attach_single(device_t dev)
 	return ananas_success();
 }
 
-int
-device_add_resource(device_t dev, resource_type_t type, resource_base_t base, resource_length_t len)
-{
-	for (unsigned int curhint = 0; curhint < DEVICE_MAX_RESOURCES; curhint++) {
-		if (dev->resource[curhint].type != RESTYPE_UNUSED)
-			continue;
-		dev->resource[curhint].type = type;
-		dev->resource[curhint].base = base;
-		dev->resource[curhint].length = len;
-		return 1;
-	}
-
-	return 0;
-}
-
 static void
 device_print_attachment(device_t dev)
 {
 	KASSERT(dev->parent != NULL, "can't print device which doesn't have a parent bus");
 	kprintf("%s%u on %s%u ", dev->name, dev->unit, dev->parent->name, dev->parent->unit);
-	int i;
-	for (i = 0; i < DEVICE_MAX_RESOURCES; i++) {
-		int hex = 0;
-		switch (dev->resource[i].type) {
-			case RESTYPE_MEMORY: kprintf("memory "); hex = 1; break;
-			case RESTYPE_IO: kprintf("io "); hex = 1; break;
-			case RESTYPE_IRQ: kprintf("irq "); break;
-			case RESTYPE_CHILDNUM: kprintf("child "); break;
-			case RESTYPE_PCI_BUS: kprintf("bus "); break;
-			case RESTYPE_PCI_DEVICE: kprintf("dev "); break;
-			case RESTYPE_PCI_FUNCTION: kprintf("func "); break;
-			case RESTYPE_PCI_VENDORID: kprintf("vendor "); hex = 1; break;
-			case RESTYPE_PCI_DEVICEID: kprintf("device "); hex = 1; break;
-			case RESTYPE_PCI_CLASSREV: kprintf("class/revision "); break;
-			default: continue;
-		}
-		kprintf(hex ? "0x%x" : "%u", dev->resource[i].base);
-		if (dev->resource[i].length > 0)
-			kprintf(hex ? "-0x%x" : "-%u", dev->resource[i].base + dev->resource[i].length);
-		kprintf(" ");
-	}
+	resourceset_print(&dev->d_resourceset);
 	kprintf("\n");
-}
-
-struct RESOURCE*
-device_get_resource(device_t dev, resource_type_t type, int index)
-{
-	int i;
-	for (i = 0; i < DEVICE_MAX_RESOURCES; i++) {
-		if (dev->resource[i].type != type)
-			continue;
-		if (index-- > 0)
-			continue;
-		return &dev->resource[i];
-	}
-
-	return NULL;
-}
-
-void*
-device_alloc_resource(device_t dev, resource_type_t type, size_t len)
-{
-	struct RESOURCE* res = device_get_resource(dev, type, 0);
-	if (res == NULL)
-		/* No such resource! */
-		return NULL;
-
-	res->length = len;
-
-	switch(type) {
-		case RESTYPE_MEMORY:
-			return (void*)kmem_map(res->base, len, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
-		case RESTYPE_IO:
-		case RESTYPE_CHILDNUM:
-		case RESTYPE_IRQ: /* XXX should allocate, not just return */
-		case RESTYPE_USB_DEVICE:
-			return (void*)res->base;
-		default:
-			panic("%s: resource type %u exists, but can't allocate", dev->name, type);
-	}
-
-	/* NOTREACHED */
-	return NULL;
 }
 
 /*

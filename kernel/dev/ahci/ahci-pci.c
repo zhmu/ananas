@@ -69,7 +69,7 @@ ahcipci_probe(device_t dev)
 	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PCI_CLASSREV, 0);
 	if (res == NULL)
 		return ANANAS_ERROR(NO_DEVICE);
-	uint32_t classrev = res->base;
+	uint32_t classrev = res->r_base;
 
 	/* Anything AHCI will do */
 	if (PCI_CLASS(classrev) == PCI_CLASS_STORAGE && PCI_SUBCLASS(classrev) == PCI_SUBCLASS_SATA &&
@@ -78,9 +78,9 @@ ahcipci_probe(device_t dev)
 
 	/* And some specific devices which pre-date this schema */
 	res = device_get_resource(dev, RESTYPE_PCI_VENDORID, 0);
-	uint32_t vendor = res->base;
+	uint32_t vendor = res->r_base;
 	res = device_get_resource(dev, RESTYPE_PCI_DEVICEID, 0);
-	uint32_t device = res->base;
+	uint32_t device = res->r_base;
 	if (vendor == 0x8086 && device == 0x2922) /* Intel ICH9, like what is in QEMU */
 		return ananas_success();
 	if (vendor == 0x8086 && device == 0x2829) /* Intel ICH8M, like what is in VirtualBox */

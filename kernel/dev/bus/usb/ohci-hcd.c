@@ -800,7 +800,7 @@ ohci_match_dev(device_t dev)
 	struct RESOURCE* class_res  = device_get_resource(dev, RESTYPE_PCI_CLASSREV, 0);
 	if (class_res == NULL) /* XXX it's a bug if this happens */
 		return ANANAS_ERROR(NO_RESOURCE);
-	uint32_t classrev = class_res->base;
+	uint32_t classrev = class_res->r_base;
 
 	/* Generic OHCI USB device */
 	if (PCI_CLASS(classrev) == PCI_CLASS_SERIAL && PCI_SUBCLASS(classrev) == PCI_SUBCLASS_USB && PCI_PROGINT(classrev) == 0x10)

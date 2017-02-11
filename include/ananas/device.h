@@ -6,46 +6,11 @@
 #include <ananas/lock.h>
 #include <ananas/init.h>
 #include <ananas/cdefs.h>
+#include <ananas/resourceset.h>
 
 typedef struct DEVICE* device_t;
 typedef struct DRIVER* driver_t;
 typedef struct PROBE* probe_t;
-
-/* Maximum number of resources a given device can have */
-#define DEVICE_MAX_RESOURCES 16
-
-/* Resources types */
-enum RESOURCE_TYPE {
-	RESTYPE_UNUSED,
-	/* Base resource types */
-	RESTYPE_MEMORY,
-	RESTYPE_IO,
-	RESTYPE_IRQ,
-	/* Generic child devices */
-	RESTYPE_CHILDNUM,
-	/* PCI-specific resource types */
-	RESTYPE_PCI_VENDORID,
-	RESTYPE_PCI_DEVICEID,
-	RESTYPE_PCI_BUS,
-	RESTYPE_PCI_DEVICE,
-	RESTYPE_PCI_FUNCTION,
-	RESTYPE_PCI_CLASSREV,
-	/* PnP ID - used by ACPI */
-	RESTYPE_PNP_ID,
-	/* USB-specific */
-	RESTYPE_USB_DEVICE,
-};
-
-typedef enum RESOURCE_TYPE resource_type_t;
-typedef uintptr_t resource_base_t;
-typedef size_t resource_length_t;
-
-/* A resource is just a type with an <base,length> tuple */
-struct RESOURCE {
-	resource_type_t type;
-	resource_base_t base;
-	resource_length_t length;
-};
 
 struct BIO;
 struct USB_BUS;
@@ -103,7 +68,7 @@ struct DEVICE {
 	unsigned int	unit;
 
 	/* Device resources */
-	struct RESOURCE	resource[DEVICE_MAX_RESOURCES];
+	struct RESOURCE_SET d_resourceset;
 
 	/* Formatted name XXX */
 	char		name[128 /* XXX */];
@@ -174,11 +139,6 @@ errorcode_t device_bwrite(device_t dev, struct BIO* bio);
 errorcode_t device_read(device_t dev, char* buf, size_t* len, off_t offset);
 errorcode_t device_bread(device_t dev, struct BIO* bio);
 
-void* device_alloc_resource(device_t dev, resource_type_t type, size_t len);
-
-int device_add_resource(device_t dev, resource_type_t type, resource_base_t base, resource_length_t len);
-struct RESOURCE* device_get_resource(device_t dev, resource_type_t type, int index);
-
 struct DEVICE* device_find(const char* name);
 struct DEVICE_QUEUE* device_get_queue();
 
@@ -187,5 +147,20 @@ void device_printf(device_t dev, const char* fmt, ...);
 void device_waiter_add_head(device_t dev, struct THREAD* thread);
 void device_waiter_add_tail(device_t dev, struct THREAD* thread);
 void device_waiter_signal(device_t dev);
+
+static inline int device_add_resource(device_t dev, resource_type_t type, resource_base_t base, resource_length_t len)
+{
+	return resourceset_add_resource(&dev->d_resourceset, type, base, len);
+}
+
+static inline resource_t* device_get_resource(device_t dev, resource_type_t type, int index)
+{
+	return resourceset_get_resource(&dev->d_resourceset, type, index);
+}
+
+static inline void* device_alloc_resource(device_t dev, resource_type_t type, resource_length_t len)
+{
+	return resourceset_alloc_resource(&dev->d_resourceset, type, len);
+}
 
 #endif /* __DEVICE_H__ */

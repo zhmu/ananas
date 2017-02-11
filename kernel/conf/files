@@ -9,6 +9,7 @@ kern/device.c		mandatory
 kern/console.c		mandatory
 kern/pcpu.c		mandatory
 kern/process.c		mandatory
+kern/resourceset.c	mandatory
 kern/reaper.c		mandatory
 kern/thread.c		mandatory
 kern/scheduler.c	mandatory

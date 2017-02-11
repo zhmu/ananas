@@ -20,7 +20,7 @@ atapci_probe(device_t dev)
 	if (res == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 
-	uint32_t classrev = res->base;
+	uint32_t classrev = res->r_base;
 	/* Reject anything not a IDE storage device */
 	if (PCI_CLASS(classrev) != PCI_CLASS_STORAGE || PCI_SUBCLASS(classrev) != PCI_SUBCLASS_IDE)
 		return ANANAS_ERROR(NO_RESOURCE);

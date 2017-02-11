@@ -72,9 +72,9 @@ hdapci_probe(device_t dev)
 	if (res == NULL)
 		return ANANAS_ERROR(NO_RESOURCE); // XXX this should be fixed; attach_bus will try the entire attach-cycle without PCI resources!
 
-	uint32_t vendor = res->base;
+	uint32_t vendor = res->r_base;
 	res = device_get_resource(dev, RESTYPE_PCI_DEVICEID, 0);
-	uint32_t device = res->base;
+	uint32_t device = res->r_base;
 	if (vendor == 0x8086 && device == 0x2668) /* intel hda in QEMU */
 		return ananas_success();
 	if (vendor == 0x10de && device == 0x7fc) /* nvidia MCP73 HDA */
