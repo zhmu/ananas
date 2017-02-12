@@ -31,7 +31,7 @@ acpi_process_resources(ACPI_HANDLE ObjHandle, device_t dev)
 		return status;
 
 	/* Now, process the resources */
-	auto resourceSet = dev->d_resourceset;
+	auto& resourceSet = dev->d_resourceset;
 	char* end = (char*)buf.Pointer + buf.Length;
 	for (char* ptr = static_cast<char*>(buf.Pointer); ptr < end; /* nothing */) {
 		ACPI_RESOURCE* res = (ACPI_RESOURCE*)ptr;
