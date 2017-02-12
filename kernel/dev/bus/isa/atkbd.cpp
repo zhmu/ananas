@@ -119,8 +119,8 @@ atkbd_irq(device_t dev, void* context)
 static errorcode_t
 atkbd_probe(device_t dev)
 {
-	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PNP_ID, 0);
-	if (res != NULL && res->r_base == 0x0303) /* PNP0303: IBM Enhanced (101/102-key, PS/2 mouse support) */
+	auto res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PNP_ID, 0);
+	if (res != NULL && res->r_Base == 0x0303) /* PNP0303: IBM Enhanced (101/102-key, PS/2 mouse support) */
 		return ananas_success();
 	return ANANAS_ERROR(NO_DEVICE);
 }
@@ -128,8 +128,8 @@ atkbd_probe(device_t dev)
 static errorcode_t
 atkbd_attach(device_t dev)
 {
-	void* res_io  = device_alloc_resource(dev, RESTYPE_IO, 7);
-	void* res_irq = device_alloc_resource(dev, RESTYPE_IRQ, 0);
+	void* res_io = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_IO, 7);
+	void* res_irq = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 

@@ -8,3 +8,6 @@ device		sio
 device		atkbd
 
 option		DEBUG_CONSOLE
+
+device		ohci
+device		uhci

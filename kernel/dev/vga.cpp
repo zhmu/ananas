@@ -250,8 +250,8 @@ vga_crtc_write(struct VGA_PRIVDATA* p, uint8_t reg, uint8_t val)
 static errorcode_t
 vga_attach(device_t dev)
 {
-	void* mem = device_alloc_resource(dev, RESTYPE_MEMORY, 0x7fff);
-	void* res = device_alloc_resource(dev, RESTYPE_IO, 0x1f);
+	void* mem = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_Memory, 0x7fff);
+	void* res = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_IO, 0x1f);
 	if (mem == NULL || res == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 
@@ -318,8 +318,8 @@ static errorcode_t
 vga_probe(device_t dev)
 {
 	/* XXX Look at the BIOS to see if there is any VGA at all */
-	if (!device_add_resource(dev, RESTYPE_MEMORY, 0xb8000, 128 * 1024) ||
-	    !device_add_resource(dev, RESTYPE_IO, 0x3c0, 32))
+	if (!dev->d_resourceset.AddResource(Ananas::Resource(Ananas::Resource::RT_Memory, 0xb8000, 128 * 1024)) ||
+	    !dev->d_resourceset.AddResource(Ananas::Resource(Ananas::Resource::RT_IO, 0x3c0, 32)))
 		return ANANAS_ERROR(NO_DEVICE);
 
 	return ananas_success();

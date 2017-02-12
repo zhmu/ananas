@@ -82,7 +82,7 @@ usbhub_int_callback(struct USB_PIPE* pipe)
 static errorcode_t
 usbhub_probe(device_t dev)
 {
-	auto usb_dev = static_cast<struct USB_DEVICE*>(device_alloc_resource(dev, RESTYPE_USB_DEVICE, 0));
+	auto usb_dev = static_cast<struct USB_DEVICE*>(dev->d_resourceset.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
 	if (usb_dev == NULL)
 		return ANANAS_ERROR(NO_DEVICE);
 
@@ -250,7 +250,7 @@ usbhub_handle_explore(struct USB_DEVICE* usb_dev)
 static errorcode_t
 usbhub_attach(device_t dev)
 {
-	auto usb_dev = static_cast<struct USB_DEVICE*>(device_alloc_resource(dev, RESTYPE_USB_DEVICE, 0));
+	auto usb_dev = static_cast<struct USB_DEVICE*>(dev->d_resourceset.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
 
 	/* Obtain the hub descriptor */
 	struct USB_DESCR_HUB hd;

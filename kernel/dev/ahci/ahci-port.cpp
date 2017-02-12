@@ -112,7 +112,7 @@ ahciport_attach(device_t dev)
 		 * care of this like command queueing.
 		 */
 		device_t sub_dev = device_alloc(dev, drv);
-		device_add_resource(sub_dev, RESTYPE_CHILDNUM, 0, 0);
+		sub_dev->d_resourceset.AddResource(Ananas::Resource(Ananas::Resource::RT_ChildNum, 0, 0));
 		device_attach_single(sub_dev);
 	}
 	return ananas_success();

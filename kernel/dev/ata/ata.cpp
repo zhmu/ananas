@@ -450,7 +450,7 @@ ata_attach_children(device_t dev)
 
 		device_t new_dev = device_alloc(dev, driver);
 		new_dev->privdata = (void*)&identify; /* XXX this is a hack; we should have an userpointer */
-		device_add_resource(new_dev, RESTYPE_CHILDNUM, unit, 0);
+		new_dev->d_resourceset.AddResource(Ananas::Resource(Ananas::Resource::RT_ChildNum, unit, 0));
 		device_attach_single(new_dev);
 	}
 }

@@ -68,13 +68,13 @@ hdapci_irq(device_t dev, void* context)
 static errorcode_t
 hdapci_probe(device_t dev)
 {
-	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PCI_VENDORID, 0);
+	auto res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_VendorID, 0);
 	if (res == NULL)
 		return ANANAS_ERROR(NO_RESOURCE); // XXX this should be fixed; attach_bus will try the entire attach-cycle without PCI resources!
 
-	uint32_t vendor = res->r_base;
-	res = device_get_resource(dev, RESTYPE_PCI_DEVICEID, 0);
-	uint32_t device = res->r_base;
+	uint32_t vendor = res->r_Base;
+	res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_DeviceID, 0);
+	uint32_t device = res->r_Base;
 	if (vendor == 0x8086 && device == 0x2668) /* intel hda in QEMU */
 		return ananas_success();
 	if (vendor == 0x10de && device == 0x7fc) /* nvidia MCP73 HDA */
@@ -367,8 +367,8 @@ static struct HDA_DEV_FUNC hdapci_devfuncs = {
 static errorcode_t
 hdapci_attach(device_t dev)
 {
-	void* res_io = device_alloc_resource(dev, RESTYPE_MEMORY, 4096);
-	void* res_irq = device_alloc_resource(dev, RESTYPE_IRQ, 0);
+	void* res_io = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_Memory, 4096);
+	void* res_irq = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 

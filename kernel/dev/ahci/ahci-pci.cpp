@@ -66,10 +66,10 @@ ahcipci_irq(device_t dev, void* context)
 static errorcode_t
 ahcipci_probe(device_t dev)
 {
-	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PCI_CLASSREV, 0);
+	auto res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
 	if (res == NULL)
 		return ANANAS_ERROR(NO_DEVICE);
-	uint32_t classrev = res->r_base;
+	uint32_t classrev = res->r_Base;
 
 	/* Anything AHCI will do */
 	if (PCI_CLASS(classrev) == PCI_CLASS_STORAGE && PCI_SUBCLASS(classrev) == PCI_SUBCLASS_SATA &&
@@ -77,10 +77,10 @@ ahcipci_probe(device_t dev)
 		return ananas_success();
 
 	/* And some specific devices which pre-date this schema */
-	res = device_get_resource(dev, RESTYPE_PCI_VENDORID, 0);
-	uint32_t vendor = res->r_base;
-	res = device_get_resource(dev, RESTYPE_PCI_DEVICEID, 0);
-	uint32_t device = res->r_base;
+	res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_VendorID, 0);
+	uint32_t vendor = res->r_Base;
+	res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_DeviceID, 0);
+	uint32_t device = res->r_Base;
 	if (vendor == 0x8086 && device == 0x2922) /* Intel ICH9, like what is in QEMU */
 		return ananas_success();
 	if (vendor == 0x8086 && device == 0x2829) /* Intel ICH8M, like what is in VirtualBox */
@@ -165,8 +165,8 @@ ahcipci_reset_port(device_t dev, struct AHCI_PCI_PORT* p)
 static errorcode_t
 ahcipci_attach(device_t dev)
 {
-	char* res_mem = static_cast<char*>(device_alloc_resource(dev, RESTYPE_MEMORY, 4096));
-	void* res_irq = device_alloc_resource(dev, RESTYPE_IRQ, 0);
+	char* res_mem = static_cast<char*>(dev->d_resourceset.AllocateResource(Ananas::Resource::RT_Memory, 4096));
+	void* res_irq = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 	if (res_mem == NULL || res_irq == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 
@@ -344,7 +344,7 @@ ahcipci_attach(device_t dev)
 		device_t port_dev = device_alloc(dev, &drv_ahcipci_port);
 		port_dev->privdata = p;
 		p->p_dev = port_dev;
-		device_add_resource(port_dev, RESTYPE_CHILDNUM, n, 0);
+		port_dev->d_resourceset.AddResource(Ananas::Resource(Ananas::Resource::RT_ChildNum, n, 0));
 		device_attach_single(port_dev); /* XXX check error */
 	}
 

@@ -16,11 +16,11 @@ extern struct DRIVER drv_atapci;
 static errorcode_t
 atapci_probe(device_t dev)
 {
-	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PCI_CLASSREV, 0);
+	auto res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
 	if (res == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 
-	uint32_t classrev = res->r_base;
+	uint32_t classrev = res->r_Base;
 	/* Reject anything not a IDE storage device */
 	if (PCI_CLASS(classrev) != PCI_CLASS_STORAGE || PCI_SUBCLASS(classrev) != PCI_SUBCLASS_IDE)
 		return ANANAS_ERROR(NO_RESOURCE);
@@ -42,7 +42,7 @@ atapci_attach(device_t dev)
 	ANANAS_ERROR_RETURN(err);
 
 	/* Device initialization went OK; now we should initialize the PCI DMA aspects */
-	void* res_io = device_alloc_resource(dev, RESTYPE_IO, 16);
+	void* res_io = dev->d_resourceset.GetResource(Ananas::Resource::RT_IO, 16);
 	if (res_io == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 

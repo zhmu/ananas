@@ -14,7 +14,7 @@ struct ATACD_PRIVDATA {
 static errorcode_t
 atacd_attach(device_t dev)
 {
-	int unit = (int)(uintptr_t)device_alloc_resource(dev, RESTYPE_CHILDNUM, 0);
+	int unit = (int)(uintptr_t)dev->d_resourceset.AllocateResource(Ananas::Resource::RT_ChildNum, 0);
 	struct ATA_IDENTIFY* identify = (struct ATA_IDENTIFY*)dev->privdata;
 
 	auto priv = new(dev) ATACD_PRIVDATA;

@@ -20,9 +20,11 @@ pci_attach(device_t dev)
 			continue;
 
 		device_t new_bus = device_alloc(dev, &drv_pcibus);
-		device_add_resource(new_bus, RESTYPE_PCI_BUS, bus, 0);
-		device_add_resource(new_bus, RESTYPE_PCI_VENDORID, dev_vendor & 0xffff, 0);
-		device_add_resource(new_bus, RESTYPE_PCI_DEVICEID, dev_vendor >> 16, 0);
+
+		Ananas::ResourceSet& resourceSet = new_bus->d_resourceset;
+		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_Bus, bus, 0));
+		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_VendorID, dev_vendor & 0xffff, 0));
+		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_DeviceID, dev_vendor >> 16, 0));
 
 		device_attach_single(new_bus);
 	}
@@ -32,23 +34,25 @@ pci_attach(device_t dev)
 void
 pci_write_cfg(device_t dev, uint32_t reg, uint32_t val, int size)
 {
-	struct RESOURCE* bus_res = device_get_resource(dev, RESTYPE_PCI_BUS, 0);
-	struct RESOURCE* dev_res = device_get_resource(dev, RESTYPE_PCI_DEVICE, 0);
-	struct RESOURCE* func_res = device_get_resource(dev, RESTYPE_PCI_FUNCTION, 0);
+	Ananas::ResourceSet& resourceSet = dev->d_resourceset;
+	auto bus_res = resourceSet.GetResource(Ananas::Resource::RT_PCI_Bus, 0);
+	auto dev_res = resourceSet.GetResource(Ananas::Resource::RT_PCI_Device, 0); 
+	auto func_res = resourceSet.GetResource(Ananas::Resource::RT_PCI_Function, 0); 
 	KASSERT(bus_res != NULL && dev_res != NULL && func_res != NULL, "missing pci resources");
 
-	pci_write_config(bus_res->r_base, dev_res->r_base, func_res->r_base, reg, val, size);
+	pci_write_config(bus_res->r_Base, dev_res->r_Base, func_res->r_Base, reg, val, size);
 }
 
 uint32_t
 pci_read_cfg(device_t dev, uint32_t reg, int size)
 {
-	struct RESOURCE* bus_res = device_get_resource(dev, RESTYPE_PCI_BUS, 0);
-	struct RESOURCE* dev_res = device_get_resource(dev, RESTYPE_PCI_DEVICE, 0);
-	struct RESOURCE* func_res = device_get_resource(dev, RESTYPE_PCI_FUNCTION, 0);
+	Ananas::ResourceSet& resourceSet = dev->d_resourceset;
+	auto bus_res = resourceSet.GetResource(Ananas::Resource::RT_PCI_Bus, 0);
+	auto dev_res = resourceSet.GetResource(Ananas::Resource::RT_PCI_Device, 0); 
+	auto func_res = resourceSet.GetResource(Ananas::Resource::RT_PCI_Function, 0); 
 	KASSERT(bus_res != NULL && dev_res != NULL && func_res != NULL, "missing pci resources");
 
-	return pci_read_config(bus_res->r_base, dev_res->r_base, func_res->r_base, reg, size);
+	return pci_read_config(bus_res->r_Base, dev_res->r_Base, func_res->r_Base, reg, size);
 }
 
 void

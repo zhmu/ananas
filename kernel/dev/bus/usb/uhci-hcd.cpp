@@ -484,8 +484,8 @@ uhci_attach(device_t dev)
 	 */
 	pci_write_cfg(dev, UHCI_PCI_LEGSUPP, UHCI_LEGSUPP_PIRQEN, 16);
 
-  void* res_io = device_alloc_resource(dev, RESTYPE_IO, 16);
-	void* res_irq = device_alloc_resource(dev, RESTYPE_IRQ, 0);
+	void* res_io = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_IO, 16);
+	void* res_irq = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 
@@ -638,10 +638,10 @@ uhci_device_init_privdata(int flags)
 static int
 uhci_match_dev(device_t dev)
 {
-	struct RESOURCE* class_res  = device_get_resource(dev, RESTYPE_PCI_CLASSREV, 0);
+	auto class_res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
 	if (class_res == NULL) /* XXX it's a bug if this happens */
 		return ANANAS_ERROR(NO_RESOURCE);
-	uint32_t classrev = class_res->r_base;
+	uint32_t classrev = class_res->r_Base;
 
 	/* Generic UHCI USB device */
 	if (PCI_CLASS(classrev) == PCI_CLASS_SERIAL && PCI_SUBCLASS(classrev) == PCI_SUBCLASS_USB && PCI_PROGINT(classrev) == 0)

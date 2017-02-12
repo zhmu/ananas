@@ -42,7 +42,7 @@ device_t
 device_clone(device_t dev)
 {
 	device_t new_dev = device_alloc(dev->parent, dev->driver);
-	resourceset_copy(&new_dev->d_resourceset, &dev->d_resourceset);
+	new_dev->d_resourceset = dev->d_resourceset;
 	return new_dev;
 }
 
@@ -125,7 +125,7 @@ device_print_attachment(device_t dev)
 {
 	KASSERT(dev->parent != NULL, "can't print device which doesn't have a parent bus");
 	kprintf("%s%u on %s%u ", dev->name, dev->unit, dev->parent->name, dev->parent->unit);
-	resourceset_print(&dev->d_resourceset);
+	dev->d_resourceset.Print();
 	kprintf("\n");
 }
 

@@ -3,53 +3,57 @@
 
 #include <ananas/types.h>
 
-/* Resources types */
-enum RESOURCE_TYPE {
-	RESTYPE_UNUSED,
-	/* Base resource types */
-	RESTYPE_MEMORY,
-	RESTYPE_IO,
-	RESTYPE_IRQ,
-	/* Generic child devices */
-	RESTYPE_CHILDNUM,
-	/* PCI-specific resource types */
-	RESTYPE_PCI_VENDORID,
-	RESTYPE_PCI_DEVICEID,
-	RESTYPE_PCI_BUS,
-	RESTYPE_PCI_DEVICE,
-	RESTYPE_PCI_FUNCTION,
-	RESTYPE_PCI_CLASSREV,
-	/* PnP ID - used by ACPI */
-	RESTYPE_PNP_ID,
-	/* USB-specific */
-	RESTYPE_USB_DEVICE,
+namespace Ananas {
+
+struct Resource {
+	enum Type {
+		RT_Unused,
+		/* Base resource types */
+		RT_Memory,
+		RT_IO,
+		RT_IRQ,
+		/* Generic child devices */
+		RT_ChildNum,
+		/* Pci-specific resource types */
+		RT_PCI_VendorID,
+		RT_PCI_DeviceID,
+		RT_PCI_Bus,
+		RT_PCI_Device,
+		RT_PCI_Function,
+		RT_PCI_ClassRev,
+		/* Pnp id - used by acpi */
+		RT_PNP_ID,
+		/* USB-specific */
+		RT_USB_Device,
+	};
+	typedef uintptr_t Base;
+	typedef size_t Length;
+
+	Resource() = default;
+	Resource(const Type& type, Base base, Length length) : r_Type(type), r_Base(base), r_Length(length) { }
+
+	Type r_Type = RT_Unused;
+	Base r_Base = 0;
+	Length r_Length = 0;
 };
 
-typedef enum RESOURCE_TYPE resource_type_t;
-typedef uintptr_t resource_base_t;
-typedef size_t resource_length_t;
+class ResourceSet {
+public:
 
-/* A resource is just a type with an <base,length> tuple */
-struct RESOURCE {
-	resource_type_t r_type;
-	resource_base_t r_base;
-	resource_length_t r_length;
-};
-typedef struct RESOURCE resource_t;
+	/* Maximum number of resources a given resource set can have */
+	static const size_t rs_MaxEntries = 16;
 
-/* Maximum number of resources a given resource set can have */
-#define RESOURCESET_MAX_ENTRIES 16
+	void* AllocateResource(const Resource::Type& type, Resource::Length length);
+	bool AddResource(const Resource& resource);
+	Resource* GetResource(const Resource::Type& type, size_t index);
+	void Print() const;
 
-struct RESOURCE_SET {
-	resource_t rs_resource[RESOURCESET_MAX_ENTRIES];
+private:
+	Resource rs_Resource[rs_MaxEntries];
 };
 
-typedef struct RESOURCE_SET resource_set_t;
 
-void* resourceset_alloc_resource(resource_set_t* resources, resource_type_t type, resource_length_t len);
-int resourceset_add_resource(resource_set_t* resourceset, resource_type_t type, resource_base_t base, resource_length_t len);
-resource_t* resourceset_get_resource(resource_set_t* resources, resource_type_t type, int index);
-void resourceset_copy(resource_set_t* dst, const resource_set_t* src);
-void resourceset_print(resource_set_t* rs);
+} // namespace Ananas
+
 
 #endif /* __ANANAS_RESOURCE_H__ */

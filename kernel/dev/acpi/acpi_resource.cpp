@@ -3,6 +3,8 @@
 #include "acpi.h"
 #include "acpi_resource.h"
 
+using Resource = Ananas::Resource;
+
 ACPI_STATUS
 acpi_process_resources(ACPI_HANDLE ObjHandle, device_t dev)
 {
@@ -16,7 +18,7 @@ acpi_process_resources(ACPI_HANDLE ObjHandle, device_t dev)
 	    strncmp(Info->HardwareId.String, "PNP", 3) == 0) {
 		/* Fetch the value of the PNPxxxx string */
 		unsigned int pnpid = (unsigned int)strtoul(Info->HardwareId.String + 3 /* skip PNP */, NULL, 16);
-		device_add_resource(dev, RESTYPE_PNP_ID, pnpid, 0);
+		dev->d_resourceset.AddResource(Resource(Resource::RT_PNP_ID, pnpid, 0));
 		ACPI_DPRINTF("> [%s]\n", Info->HardwareId.String);
 	}
  	AcpiOsFree(Info);
@@ -29,6 +31,7 @@ acpi_process_resources(ACPI_HANDLE ObjHandle, device_t dev)
 		return status;
 
 	/* Now, process the resources */
+	auto resourceSet = dev->d_resourceset;
 	char* end = (char*)buf.Pointer + buf.Length;
 	for (char* ptr = static_cast<char*>(buf.Pointer); ptr < end; /* nothing */) {
 		ACPI_RESOURCE* res = (ACPI_RESOURCE*)ptr;
@@ -43,21 +46,21 @@ acpi_process_resources(ACPI_HANDLE ObjHandle, device_t dev)
 				ACPI_DPRINTF("irq:");
 				for (int i = 0; i < res->Data.Irq.InterruptCount; i++) {
 					ACPI_DPRINTF(" %x", res->Data.Irq.Interrupts[i]);
-					device_add_resource(dev, RESTYPE_IRQ, res->Data.Irq.Interrupts[i], 0);
+					resourceSet.AddResource(Resource(Resource::RT_IRQ, res->Data.Irq.Interrupts[i], 0));
 				}
 				ACPI_DPRINTF("\n");
 				break;
 			case ACPI_RESOURCE_TYPE_IO:
 				ACPI_DPRINTF("i/o: %x/%d\n", res->Data.Io.Minimum, res->Data.Io.AddressLength);
-				device_add_resource(dev, RESTYPE_IO, res->Data.Io.Minimum, res->Data.Io.AddressLength);
+				resourceSet.AddResource(Resource(Resource::RT_IO, res->Data.Io.Minimum, res->Data.Io.AddressLength));
 				break;
 			case ACPI_RESOURCE_TYPE_ADDRESS16:
 				ACPI_DPRINTF("addr16: %x/%d\n", res->Data.Address16.Minimum, res->Data.Address16.AddressLength);
-				device_add_resource(dev, RESTYPE_MEMORY, res->Data.Address16.Minimum, res->Data.Address16.AddressLength);
+				resourceSet.AddResource(Resource(Resource::RT_Memory, res->Data.Address16.Minimum, res->Data.Address16.AddressLength));
 				break;
 			case ACPI_RESOURCE_TYPE_ADDRESS32:
 				ACPI_DPRINTF("addr32: %x/%d\n", res->Data.Address32.Minimum, res->Data.Address32.AddressLength);
-				device_add_resource(dev, RESTYPE_MEMORY, res->Data.Address32.Minimum, res->Data.Address32.AddressLength);
+				resourceSet.AddResource(Resource(Resource::RT_Memory,res->Data.Address32.Minimum, res->Data.Address32.AddressLength));
 				break;
 		}
 	}

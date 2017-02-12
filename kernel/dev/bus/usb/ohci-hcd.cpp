@@ -684,8 +684,8 @@ ohci_setup(device_t dev)
 static errorcode_t
 ohci_attach(device_t dev)
 {
-  void* res_mem = device_alloc_resource(dev, RESTYPE_MEMORY, 4096);
-	void* res_irq = device_alloc_resource(dev, RESTYPE_IRQ, 0);
+	void* res_mem = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_IO, 4096);
+	void* res_irq = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 	if (res_mem == NULL || res_irq == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 	pci_enable_busmaster(dev, 1);
@@ -797,7 +797,7 @@ ohci_attach(device_t dev)
 static int
 ohci_match_dev(device_t dev)
 {
-	struct RESOURCE* class_res  = device_get_resource(dev, RESTYPE_PCI_CLASSREV, 0);
+	auto class_res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
 	if (class_res == NULL) /* XXX it's a bug if this happens */
 		return ANANAS_ERROR(NO_RESOURCE);
 	uint32_t classrev = class_res->r_base;

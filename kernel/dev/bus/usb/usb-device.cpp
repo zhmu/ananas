@@ -39,7 +39,7 @@ usb_alloc_device(struct USB_BUS* bus, struct USB_HUB* hub, int hub_port, int fla
 	usb_dev->usb_max_packet_sz0 = USB_DEVICE_DEFAULT_MAX_PACKET_SZ0;
 	usb_dev->usb_num_interfaces = 0;
 	usb_dev->usb_cur_interface = -1;
-	device_add_resource(usb_dev->usb_device, RESTYPE_USB_DEVICE, (resource_base_t)usb_dev, 0);
+	usb_dev->usb_device->d_resourceset.AddResource(Ananas::Resource(Ananas::Resource::RT_USB_Device, reinterpret_cast<Ananas::Resource::Base>(usb_dev), 0));
 
 	LIST_INIT(&usb_dev->usb_pipes);
 	return usb_dev;

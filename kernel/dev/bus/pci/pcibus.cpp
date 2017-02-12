@@ -9,10 +9,10 @@ extern struct PROBE* devprobe[];
 static errorcode_t
 pcibus_attach(device_t dev)
 {
-	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PCI_BUS, 0);
-	KASSERT(res != NULL, "called without a PCI bus resource");
+	auto busResource = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_Bus, 0);
+	KASSERT(busResource != nullptr, "called without a PCI bus resource");
 
-	unsigned int busno = res->r_base;
+	unsigned int busno = busResource->r_Base;
 	for (unsigned int devno = 0; devno < PCI_MAX_DEVICES; devno++) {
 		uint32_t dev_vendor = pci_read_config(busno, devno, 0, PCI_REG_DEVICEVENDOR, 32);
 		if ((uint32_t)(dev_vendor & 0xffff) == PCI_NOVENDOR)
@@ -39,12 +39,13 @@ pcibus_attach(device_t dev)
 
 			/* Create a new device and populate it with PCI resources */
 			device_t new_dev = device_alloc(dev, NULL);
-			device_add_resource(new_dev, RESTYPE_PCI_BUS, busno, 0);
-			device_add_resource(new_dev, RESTYPE_PCI_DEVICE, devno, 0);
-			device_add_resource(new_dev, RESTYPE_PCI_FUNCTION, funcno, 0);
-			device_add_resource(new_dev, RESTYPE_PCI_VENDORID, dev_vendor & 0xffff, 0);
-			device_add_resource(new_dev, RESTYPE_PCI_DEVICEID, dev_vendor >> 16, 0);
-			device_add_resource(new_dev, RESTYPE_PCI_CLASSREV, class_revision, 0);
+			Ananas::ResourceSet& resourceSet = new_dev->d_resourceset;
+			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_Bus, busno, 0));
+			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_Device, devno, 0));
+			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_Function, funcno, 0));
+			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_VendorID, dev_vendor & 0xffff, 0));
+			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_DeviceID, dev_vendor >> 16, 0));
+			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_ClassRev, class_revision, 0));
 
 			/* Walk through the BAR registers */
 			for (unsigned int bar = PCI_REG_BAR0; bar <= PCI_REG_BAR5; bar += 4) {
@@ -75,7 +76,7 @@ pcibus_attach(device_t dev)
 					len = 0xfffffffc & len;
 					if (mmio != 0 && len != 0) {
 						len = (len & ~(len - 1)) - 1;
-						device_add_resource(new_dev, RESTYPE_IO, mmio, len);
+						resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IO, mmio, len));
 					}
 				} else {
 					/* memory space */
@@ -83,7 +84,7 @@ pcibus_attach(device_t dev)
 					len = 0xfffffff0 & len;
 					if (mem != 0 && len != 0) {
 						len = (len & ~(len - 1)) - 1;
-						device_add_resource(new_dev, RESTYPE_MEMORY, mem, len);
+						resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_Memory, mem, len));
 					}
 				}
 			}
@@ -91,7 +92,7 @@ pcibus_attach(device_t dev)
 			/* Fetch the IRQ line, if any */
 			uint32_t irq = pci_read_config(busno, devno, funcno, PCI_REG_INTERRUPT, 32) & 0xff;
 			if (irq != 0 && irq != 0xff)
-				device_add_resource(new_dev, RESTYPE_IRQ, irq, 0);
+				resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IRQ, irq, 0));
 
 			/* Attempt to attach this new child device */
 			if (ananas_is_success(device_attach_child(new_dev)))

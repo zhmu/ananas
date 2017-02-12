@@ -26,6 +26,7 @@ option		KDB
 option		USB
 device		usbkeyboard
 device		usbhub
+device		usbstorage
 
 # various subsystems
 device		pci

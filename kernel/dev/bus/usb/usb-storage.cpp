@@ -242,7 +242,7 @@ usbstorage_handle_request(device_t dev, int lun, int flags, const void* cb, size
 static errorcode_t
 usbstorage_probe(device_t dev)
 {
-	struct USB_DEVICE* usb_dev = device_alloc_resource(dev, RESTYPE_USB_DEVICE, 0);
+	auto usb_dev = static_cast<struct USB_DEVICE*>(dev->d_resourceset.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
 	if (usb_dev == NULL)
 		return ANANAS_ERROR(NO_DEVICE);
 
@@ -351,7 +351,7 @@ scsi_dump_sense_data(const struct SCSI_FIXED_SENSE_DATA* sd)
 static errorcode_t
 usbstorage_attach(device_t dev)
 {
-	struct USB_DEVICE* usb_dev = device_alloc_resource(dev, RESTYPE_USB_DEVICE, 0);
+	auto usb_dev = static_cast<struct USB_DEVICE*>(dev->d_resourceset.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
 
 	auto p = new(dev) USBSTORAGE_PRIVDATA;
 	memset(p, 0, sizeof *p);

@@ -68,7 +68,7 @@ struct DEVICE {
 	unsigned int	unit;
 
 	/* Device resources */
-	struct RESOURCE_SET d_resourceset;
+	Ananas::ResourceSet d_resourceset;
 
 	/* Formatted name XXX */
 	char		name[128 /* XXX */];
@@ -146,21 +146,6 @@ void device_printf(device_t dev, const char* fmt, ...);
 void device_waiter_add_head(device_t dev, struct THREAD* thread);
 void device_waiter_add_tail(device_t dev, struct THREAD* thread);
 void device_waiter_signal(device_t dev);
-
-static inline int device_add_resource(device_t dev, resource_type_t type, resource_base_t base, resource_length_t len)
-{
-	return resourceset_add_resource(&dev->d_resourceset, type, base, len);
-}
-
-static inline resource_t* device_get_resource(device_t dev, resource_type_t type, int index)
-{
-	return resourceset_get_resource(&dev->d_resourceset, type, index);
-}
-
-static inline void* device_alloc_resource(device_t dev, resource_type_t type, resource_length_t len)
-{
-	return resourceset_alloc_resource(&dev->d_resourceset, type, len);
-}
 
 // Device-specific resource management; assigns the resource to the device
 void* operator new(size_t len, device_t dev) throw();

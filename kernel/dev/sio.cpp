@@ -40,8 +40,8 @@ sio_irq(device_t dev, void* context)
 static errorcode_t
 sio_attach(device_t dev)
 {
-	void* res_io = device_alloc_resource(dev, RESTYPE_IO, 7);
-	void* res_irq = device_alloc_resource(dev, RESTYPE_IRQ, 0);
+	void* res_io = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_IO, 7);
+	void* res_irq = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 
@@ -104,8 +104,8 @@ sio_read(device_t dev, void* data, size_t* len, off_t offset)
 static errorcode_t
 sio_probe(device_t dev)
 {
-	struct RESOURCE* res = device_get_resource(dev, RESTYPE_PNP_ID, 0);
-	if (res != NULL && res->r_base == 0x0501) /* PNP0501: 16550A-compatible COM port */
+	auto res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PNP_ID, 0);
+	if (res != NULL && res->r_Base == 0x0501) /* PNP0501: 16550A-compatible COM port */
 		return ananas_success();
 	return ANANAS_ERROR(NO_DEVICE);
 }

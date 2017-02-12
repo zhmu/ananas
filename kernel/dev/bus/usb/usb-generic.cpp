@@ -17,7 +17,7 @@ TRACE_SETUP;
 static errorcode_t
 usbgeneric_probe(device_t dev)
 {
-	auto usb_dev = static_cast<struct USB_DEVICE*>(device_alloc_resource(dev, RESTYPE_USB_DEVICE, 0));
+	auto usb_dev = static_cast<struct USB_DEVICE*>(dev->d_resourceset.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
 	if (usb_dev == NULL)
 		return ANANAS_ERROR(NO_DEVICE);
 

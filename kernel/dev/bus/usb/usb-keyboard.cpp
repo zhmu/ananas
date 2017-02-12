@@ -17,7 +17,7 @@ TRACE_SETUP;
 static errorcode_t
 usbkbd_probe(device_t dev)
 {
-	auto usb_dev = static_cast<struct USB_DEVICE*>(device_alloc_resource(dev, RESTYPE_USB_DEVICE, 0));
+	auto usb_dev = static_cast<struct USB_DEVICE*>(dev->d_resourceset.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
 	if (usb_dev == NULL)
 		return ANANAS_ERROR(NO_DEVICE);
 
@@ -53,7 +53,7 @@ usbkbd_callback(struct USB_PIPE* pipe)
 static errorcode_t
 usbkbd_attach(device_t dev)
 {
-	auto usb_dev = static_cast<struct USB_DEVICE*>(device_alloc_resource(dev, RESTYPE_USB_DEVICE, 0));
+	auto usb_dev = static_cast<struct USB_DEVICE*>(dev->d_resourceset.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
 
 	/*
 	 * OK; there's a keyboard here we want to attach. There must be an
