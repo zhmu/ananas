@@ -315,11 +315,11 @@ vga_write(device_t dev, const void* data, size_t* len, off_t off)
 }
 
 static errorcode_t
-vga_probe(device_t dev)
+vga_probe(Ananas::ResourceSet& resourceSet)
 {
-	/* XXX Look at the BIOS to see if there is any VGA at all */
-	if (!dev->d_resourceset.AddResource(Ananas::Resource(Ananas::Resource::RT_Memory, 0xb8000, 128 * 1024)) ||
-	    !dev->d_resourceset.AddResource(Ananas::Resource(Ananas::Resource::RT_IO, 0x3c0, 32)))
+	/* XXX Look at the BIOS to see if there is any VGA at all - this is more of an identify function now... */
+	if (!resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_Memory, 0xb8000, 128 * 1024)) ||
+	    !resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IO, 0x3c0, 32)))
 		return ANANAS_ERROR(NO_DEVICE);
 
 	return ananas_success();

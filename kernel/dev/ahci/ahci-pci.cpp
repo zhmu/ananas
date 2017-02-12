@@ -64,9 +64,9 @@ ahcipci_irq(device_t dev, void* context)
 }
 
 static errorcode_t
-ahcipci_probe(device_t dev)
+ahcipci_probe(Ananas::ResourceSet& resourceSet)
 {
-	auto res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
+	auto res = resourceSet.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
 	if (res == NULL)
 		return ANANAS_ERROR(NO_DEVICE);
 	uint32_t classrev = res->r_Base;
@@ -77,9 +77,9 @@ ahcipci_probe(device_t dev)
 		return ananas_success();
 
 	/* And some specific devices which pre-date this schema */
-	res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_VendorID, 0);
+	res = resourceSet.GetResource(Ananas::Resource::RT_PCI_VendorID, 0);
 	uint32_t vendor = res->r_Base;
-	res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_DeviceID, 0);
+	res = resourceSet.GetResource(Ananas::Resource::RT_PCI_DeviceID, 0);
 	uint32_t device = res->r_Base;
 	if (vendor == 0x8086 && device == 0x2922) /* Intel ICH9, like what is in QEMU */
 		return ananas_success();

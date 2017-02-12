@@ -66,14 +66,14 @@ hdapci_irq(device_t dev, void* context)
 }
 
 static errorcode_t
-hdapci_probe(device_t dev)
+hdapci_probe(Ananas::ResourceSet& resourceSet)
 {
-	auto res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_VendorID, 0);
+	auto res = resourceSet.GetResource(Ananas::Resource::RT_PCI_VendorID, 0);
 	if (res == NULL)
 		return ANANAS_ERROR(NO_RESOURCE); // XXX this should be fixed; attach_bus will try the entire attach-cycle without PCI resources!
 
 	uint32_t vendor = res->r_Base;
-	res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_DeviceID, 0);
+	res = resourceSet.GetResource(Ananas::Resource::RT_PCI_DeviceID, 0);
 	uint32_t device = res->r_Base;
 	if (vendor == 0x8086 && device == 0x2668) /* intel hda in QEMU */
 		return ananas_success();

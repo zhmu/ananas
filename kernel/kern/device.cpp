@@ -93,7 +93,7 @@ device_attach_single(device_t dev)
 	 	 * whether the device actually exists or we're about to attach
 		 * something out of thin air here...
 		 */
-		errorcode_t err = driver->drv_probe(dev);
+		errorcode_t err = driver->drv_probe(dev->d_resourceset);
 		ANANAS_ERROR_RETURN(err);
 	}
 

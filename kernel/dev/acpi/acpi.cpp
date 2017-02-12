@@ -45,7 +45,7 @@ acpi_attach_device(ACPI_HANDLE ObjHandle, UINT32 Level, void* Context, void** Re
 }
 
 static errorcode_t
-acpi_probe(device_t dev)
+acpi_probe(Ananas::ResourceSet& resourceSet)
 {
 	/*
 	 * XXX This means we'll end up finding the root pointer twice if it exists

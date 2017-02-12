@@ -24,7 +24,7 @@ struct DRIVER {
 	const char*   	name;
 	unsigned int	current_unit;
 
-	errorcode_t	(*drv_probe)(device_t);
+	errorcode_t	(*drv_probe)(Ananas::ResourceSet&);
 	errorcode_t	(*drv_attach)(device_t);
 	errorcode_t	(*drv_detach)(device_t);
 	void		(*drv_dump)(device_t); /* debug dump */

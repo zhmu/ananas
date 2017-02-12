@@ -794,10 +794,10 @@ ohci_attach(device_t dev)
 	return ananas_success();
 }
 
-static int
-ohci_match_dev(device_t dev)
+static errorcode_t
+ohci_probe(Ananas::ResourceSet& resourceSet)
 {
-	auto class_res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
+	auto class_res = resourceSet.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
 	if (class_res == NULL) /* XXX it's a bug if this happens */
 		return ANANAS_ERROR(NO_RESOURCE);
 	uint32_t classrev = class_res->r_Base;
@@ -806,14 +806,6 @@ ohci_match_dev(device_t dev)
 	if (PCI_CLASS(classrev) == PCI_CLASS_SERIAL && PCI_SUBCLASS(classrev) == PCI_SUBCLASS_USB && PCI_PROGINT(classrev) == 0x10)
 		return ananas_success();
 	return ANANAS_ERROR(NO_RESOURCE);
-}
-
-static errorcode_t
-ohci_probe(device_t dev)
-{
-	/* XXX This is a crude hack to ensure we only use one OHCI device for now */
-	if (dev->unit > 0) return ANANAS_ERROR(NO_RESOURCE);
-	return ohci_match_dev(dev);
 }
 
 static void

@@ -46,12 +46,6 @@ usbbus_schedule_attach(struct USB_DEVICE* dev)
 }
 
 static errorcode_t
-usbbus_probe(device_t dev)
-{
-	return ananas_success();
-}
-
-static errorcode_t
 usbbus_attach(device_t dev)
 {
 	device_t hcd_dev = dev->parent; /* usbbus is attached to the HCD */
@@ -198,7 +192,7 @@ usbbus_init()
 
 static struct DRIVER drv_usbbus = {
 	.name = "usbbus",
-	.drv_probe = usbbus_probe,
+	.drv_probe = NULL,
 	.drv_attach = usbbus_attach,
 };
 

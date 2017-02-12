@@ -240,9 +240,9 @@ usbstorage_handle_request(device_t dev, int lun, int flags, const void* cb, size
 }
 
 static errorcode_t
-usbstorage_probe(device_t dev)
+usbstorage_probe(Ananas::ResourceSet& resourceSet)
 {
-	auto usb_dev = static_cast<struct USB_DEVICE*>(dev->d_resourceset.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
+	auto usb_dev = static_cast<struct USB_DEVICE*>(resourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
 	if (usb_dev == NULL)
 		return ANANAS_ERROR(NO_DEVICE);
 

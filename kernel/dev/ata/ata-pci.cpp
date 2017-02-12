@@ -14,9 +14,9 @@ TRACE_SETUP;
 extern struct DRIVER drv_atapci;
 
 static errorcode_t
-atapci_probe(device_t dev)
+atapci_probe(Ananas::ResourceSet& resourceSet)
 {
-	auto res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
+	auto res = resourceSet.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
 	if (res == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 

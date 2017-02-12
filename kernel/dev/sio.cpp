@@ -102,9 +102,9 @@ sio_read(device_t dev, void* data, size_t* len, off_t offset)
 }
 
 static errorcode_t
-sio_probe(device_t dev)
+sio_probe(Ananas::ResourceSet& resourceSet)
 {
-	auto res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PNP_ID, 0);
+	auto res = resourceSet.GetResource(Ananas::Resource::RT_PNP_ID, 0);
 	if (res != NULL && res->r_Base == 0x0501) /* PNP0501: 16550A-compatible COM port */
 		return ananas_success();
 	return ANANAS_ERROR(NO_DEVICE);

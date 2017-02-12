@@ -266,7 +266,7 @@ fb_write(device_t dev, const void* data, size_t* len, off_t offset)
 }
 
 static errorcode_t
-fb_probe(device_t dev)
+fb_probe(Ananas::ResourceSet& resourceSet)
 {
 	if (bootinfo->bi_video_xres == 0 ||
 	    bootinfo->bi_video_yres == 0 ||

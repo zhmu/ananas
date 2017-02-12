@@ -8,9 +8,9 @@
 TRACE_SETUP;
 
 static errorcode_t
-acpi_pcihb_probe(device_t dev)
+acpi_pcihb_probe(Ananas::ResourceSet& resourceSet)
 {
-	auto res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PNP_ID, 0);
+	auto res = resourceSet.GetResource(Ananas::Resource::RT_PNP_ID, 0);
 	if (res != NULL && res->r_Base == 0x0a03 /* PNP0A03: PCI Bus */)
 		return ananas_success();
 	return ANANAS_ERROR(NO_DEVICE);

@@ -15,9 +15,9 @@
 TRACE_SETUP;
 
 static errorcode_t
-usbkbd_probe(device_t dev)
+usbkbd_probe(Ananas::ResourceSet& resourceSet)
 {
-	auto usb_dev = static_cast<struct USB_DEVICE*>(dev->d_resourceset.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
+	auto usb_dev = static_cast<struct USB_DEVICE*>(resourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
 	if (usb_dev == NULL)
 		return ANANAS_ERROR(NO_DEVICE);
 

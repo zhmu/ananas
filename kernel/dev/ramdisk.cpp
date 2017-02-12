@@ -19,7 +19,7 @@ struct RAMDISK_PRIVDATA {
 };
 
 static errorcode_t
-ramdisk_probe(device_t dev)
+ramdisk_probe(Ananas::ResourceSet& resourceSet)
 {
 	if (bootinfo == NULL)
 		return ANANAS_ERROR(NO_DEVICE);
