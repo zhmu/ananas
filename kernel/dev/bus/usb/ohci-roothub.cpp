@@ -121,7 +121,7 @@ static errorcode_t
 oroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 {
 	struct USB_CONTROL_REQUEST* req = &xfer->xfer_control_req;
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 	errorcode_t err = ANANAS_ERROR(BAD_OPERATION);
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -353,7 +353,7 @@ void
 oroothub_process_interrupt_transfers(struct USB_DEVICE* usb_dev)
 {
 	device_t dev = usb_dev->usb_bus->bus_hcd;
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 
 	/* Walk through every port, hungry for updates... */
 	uint8_t hub_update[2] = { 0, 0 }; /* max 15 ports + hub status itself = 16 bits */
@@ -387,15 +387,15 @@ oroothub_process_interrupt_transfers(struct USB_DEVICE* usb_dev)
 void
 ohci_roothub_irq(device_t dev)
 {
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 	sem_signal(&p->ohci_rh_semaphore);
 }
 
 static void
 oroothub_thread(void* ptr)
 {
-	device_t dev = ptr;
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	device_t dev = static_cast<device_t>(ptr);
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 	KASSERT(p->ohci_roothub != NULL, "no root hub?");
 
 	while(1) {
@@ -413,7 +413,7 @@ oroothub_thread(void* ptr)
 errorcode_t
 oroothub_init(device_t dev)
 {
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 
 	sem_init(&p->ohci_rh_semaphore, 0);
 
@@ -440,7 +440,7 @@ oroothub_start(device_t dev)
 	 * that from oroothub_init() because the usbbus doesn't exist at that point
 	 * and we don't know the USB device either.
 	 */
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 	kthread_init(&p->ohci_rh_pollthread, "oroothub", &oroothub_thread, dev);
 	thread_resume(&p->ohci_rh_pollthread);
 }

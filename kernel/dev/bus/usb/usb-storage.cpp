@@ -167,7 +167,7 @@ struct USBSTORAGE_PRIVDATA {
 static errorcode_t
 usbstorage_handle_request(device_t dev, int lun, int flags, const void* cb, size_t cb_len, void* result, size_t* result_len)
 {
-	struct USBSTORAGE_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct USBSTORAGE_PRIVDATA*>(dev->privdata);
 	errorcode_t err = ANANAS_ERROR(UNKNOWN);
 	struct USBSTORAGE_CSW csw;
 	KASSERT(result_len == NULL || result != NULL, "result_len without result?");
@@ -259,7 +259,7 @@ static void
 usbstorage_in_callback(struct USB_PIPE* pipe)
 {
 	device_t dev = pipe->p_dev->usb_device;
-	struct USBSTORAGE_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct USBSTORAGE_PRIVDATA*>(dev->privdata);
 	struct USB_TRANSFER* xfer = pipe->p_xfer;
 
 	kprintf("usbstorage_in_callback! -> p %p flags %x len %d\n", p, xfer->xfer_flags, xfer->xfer_result_length);

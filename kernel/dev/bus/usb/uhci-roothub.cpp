@@ -121,7 +121,7 @@ static errorcode_t
 uroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 {
 	struct USB_CONTROL_REQUEST* req = &xfer->xfer_control_req;
-	struct UHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct UHCI_PRIVDATA*>(dev->privdata);
 	errorcode_t err = ANANAS_ERROR(BAD_OPERATION);
 
 #define MASK(x) ((x) & (UHCI_PORTSC_SUSP | UHCI_PORTSC_RESET | UHCI_PORTSC_RD	| UHCI_PORTSC_PORTEN))
@@ -369,7 +369,7 @@ static void
 uroothub_update_status(struct USB_DEVICE* usb_dev)
 {
 	device_t dev = usb_dev->usb_bus->bus_hcd;
-	struct UHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct UHCI_PRIVDATA*>(dev->privdata);
 
 	/* Walk through every port, hungry for updates... */
 	uint8_t hub_update = 0; /* max 7 ports, hub itself = 8 bits */
@@ -402,8 +402,8 @@ uroothub_update_status(struct USB_DEVICE* usb_dev)
 static void
 uroothub_thread(void* ptr)
 {
-	device_t dev = ptr;
-	struct UHCI_PRIVDATA* p = dev->privdata;
+	device_t dev = static_cast<device_t>(ptr);
+	auto p = static_cast<struct UHCI_PRIVDATA*>(dev->privdata);
 	KASSERT(p->uhci_roothub != NULL, "no root hub?");
 
 	while (1) {
@@ -421,7 +421,7 @@ void
 uroothub_start(device_t dev)
 {
 	/* Create a kernel thread to monitor status updates and process requests */
-	struct UHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct UHCI_PRIVDATA*>(dev->privdata);
 	kthread_init(&p->uhci_rh_pollthread, "uroothub", &uroothub_thread, dev);
 	thread_resume(&p->uhci_rh_pollthread);
 }

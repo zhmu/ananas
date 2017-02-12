@@ -48,28 +48,28 @@ struct OHCI_PRIVDATA {
 static inline void
 ohci_write2(device_t dev, unsigned int reg, uint16_t value)
 {
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 	*(volatile uint16_t*)(p->ohci_membase + reg) = value;
 }
 
 static inline void
 ohci_write4(device_t dev, unsigned int reg, uint32_t value)
 {
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 	*(volatile uint32_t*)(p->ohci_membase + reg) = value;
 }
 
 static inline uint16_t
 ohci_read2(device_t dev, unsigned int reg)
 {
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 	return *(volatile uint16_t*)(p->ohci_membase + reg);
 }
 
 static inline uint32_t
 ohci_read4(device_t dev, unsigned int reg)
 {
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 	return *(volatile uint32_t*)(p->ohci_membase + reg);
 }
 

@@ -85,7 +85,7 @@ ohci_dump_ed(struct OHCI_HCD_ED* ed)
 	 (ed->ed_ed.ed_headp & OHCI_ED_HEADP_H) ? 'H' : '.',
 	 ed->ed_ed.ed_nexted);
 
-	for (struct OHCI_HCD_TD* td = ed->ed_headtd; td != NULL; td = td->qi_next) {
+	for (struct OHCI_HCD_TD* td = ed->ed_headtd; td != NULL; td = td->li_next) {
 		kprintf("  ");
 		ohci_dump_td(td);
 	}
@@ -107,7 +107,7 @@ ohci_dump_edchain(struct OHCI_HCD_ED* ed)
 static void
 ohci_dump(device_t dev)
 {
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 
 	device_printf(dev, "hcca %x -> fnum %d dh %x",
 	 ohci_read4(dev, OHCI_HCHCCA),
@@ -158,7 +158,7 @@ ohci_dump(device_t dev)
 static irqresult_t
 ohci_irq(device_t dev, void* context)
 {
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 
 	/*
 	 * Obtain the interrupt status. Note that donehead is funky; bit 0 indicates
@@ -201,7 +201,7 @@ ohci_irq(device_t dev, void* context)
 				/* Walk through all TD's and determine the length plus the status */
 				size_t transferred = 0;
 				int status = OHCI_TD_CC_NOERROR;
-				for (struct OHCI_HCD_TD* td = ed->ed_headtd; td != NULL; td = td->qi_next) {
+				for (struct OHCI_HCD_TD* td = ed->ed_headtd; td != NULL; td = td->li_next) {
 					if (td->td_td.td_cbp == 0)
 						transferred += td->td_length; /* full TD */
 					else
@@ -272,7 +272,7 @@ ohci_alloc_td(device_t dev)
 	if (ananas_is_failure(err))
 		return NULL;
 
-	struct OHCI_HCD_TD* td = dma_buf_get_segment(buf, 0)->s_virt;
+	auto td = static_cast<struct OHCI_HCD_TD*>(dma_buf_get_segment(buf, 0)->s_virt);
 	memset(td, 0, sizeof(struct OHCI_HCD_TD));
 	td->td_buf = buf;
 	return td;
@@ -292,7 +292,7 @@ ohci_alloc_ed(device_t dev)
 	if (ananas_is_failure(err))
 		return NULL;
 
-	struct OHCI_HCD_ED* ed = dma_buf_get_segment(buf, 0)->s_virt;
+	auto ed = static_cast<struct OHCI_HCD_ED*>(dma_buf_get_segment(buf, 0)->s_virt);
 	memset(ed, 0, sizeof(struct OHCI_HCD_ED));
 	ed->ed_buf = buf;
 	return ed;
@@ -302,7 +302,7 @@ static void
 ohci_free_ed(device_t dev, struct OHCI_HCD_ED* ed)
 {
 	for (struct OHCI_HCD_TD* td = ed->ed_headtd; td != NULL; /* nothing */) {
-		struct OHCI_HCD_TD* next_td = td->qi_next;
+		struct OHCI_HCD_TD* next_td = td->li_next;
 		ohci_free_td(dev, td);
 		td = next_td;
 	}
@@ -314,7 +314,7 @@ static inline void
 ohci_set_td_next(struct OHCI_HCD_TD* td, struct OHCI_HCD_TD* next)
 {
 	td->td_td.td_nexttd = ohci_td_get_phys(next);
-	td->qi_next = next;
+	td->li_next = next;
 }
 
 /* Enqueues 'ed' *after* 'parent' - assumes ED is skipped */
@@ -338,7 +338,7 @@ ohci_enqueue_ed(struct OHCI_HCD_ED* parent, struct OHCI_HCD_ED* ed)
 static void
 ohci_free_tds(device_t dev, struct USB_TRANSFER* xfer)
 {
-	struct OHCI_HCD_ED* ed = xfer->xfer_hcd;
+	auto ed = static_cast<struct OHCI_HCD_ED*>(xfer->xfer_hcd);
 	if (ed == NULL)
 		return; /* nothing to free */
 
@@ -347,7 +347,7 @@ ohci_free_tds(device_t dev, struct USB_TRANSFER* xfer)
 	 * ohci_create_tds().
 	 */
 	for (struct OHCI_HCD_TD* td = ed->ed_headtd; td != NULL && td != ed->ed_tailtd; /* nothing */) {
-		struct OHCI_HCD_TD* next_td = td->qi_next;
+		struct OHCI_HCD_TD* next_td = td->li_next;
 		ohci_free_td(dev, td);
 		td = next_td;
 	}
@@ -357,7 +357,7 @@ ohci_free_tds(device_t dev, struct USB_TRANSFER* xfer)
 struct OHCI_HCD_ED*
 ohci_setup_ed(device_t dev, struct USB_TRANSFER* xfer)
 {
-	struct OHCI_DEV_PRIVDATA* devp = xfer->xfer_device->usb_hcd_privdata;
+	auto devp = static_cast<struct OHCI_DEV_PRIVDATA*>(xfer->xfer_device->usb_hcd_privdata);
 	int is_ls = devp->dev_flags & USB_DEVICE_FLAG_LOW_SPEED;
 	int max_packet_sz = xfer->xfer_device->usb_max_packet_sz0; /* XXX this is wrong for non-control */
 
@@ -387,7 +387,7 @@ ohci_setup_ed(device_t dev, struct USB_TRANSFER* xfer)
 	ed->ed_headtd = NULL;
 
 	/* Finally, hook it up to the correct queue */
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 	switch(xfer->xfer_type) {
 		case TRANSFER_TYPE_CONTROL: {
 			ohci_enqueue_ed(p->ohci_control_ed, ed);
@@ -412,7 +412,7 @@ static errorcode_t
 ohci_setup_transfer(device_t dev, struct USB_TRANSFER* xfer)
 {
 	/* If this is the root hub, there's nothing to set up */
-	struct OHCI_DEV_PRIVDATA* dev_p = xfer->xfer_device->usb_hcd_privdata;
+	auto dev_p = static_cast<struct OHCI_DEV_PRIVDATA*>(xfer->xfer_device->usb_hcd_privdata);
 	if (dev_p->dev_flags & USB_DEVICE_FLAG_ROOT_HUB)
 		return ananas_success();
 
@@ -425,9 +425,9 @@ ohci_setup_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	xfer->xfer_hcd = ed;
 
 	/* Hook the ED to the queue; it won't do anything yet */
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 	mutex_lock(&p->ohci_mtx);
-	LIST_APPEND(&p->ohci_active_eds, active, ed);
+	LIST_APPEND_IP(&p->ohci_active_eds, active, ed);
 	mutex_unlock(&p->ohci_mtx);
 	return ananas_success();
 }
@@ -437,7 +437,7 @@ ohci_teardown_transfer(device_t dev, struct USB_TRANSFER* xfer)
 {
 	mutex_assert(&xfer->xfer_device->usb_mutex, MTX_LOCKED);
 
-	struct OHCI_HCD_ED* ed = xfer->xfer_hcd;
+	auto ed = static_cast<struct OHCI_HCD_ED*>(xfer->xfer_hcd);
 	if (ed == NULL)
 		return ananas_success();
 
@@ -452,7 +452,7 @@ ohci_teardown_transfer(device_t dev, struct USB_TRANSFER* xfer)
 		ed->ed_nexted->ed_preved = ed->ed_preved;
 
 	/* And from our own administration */
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 	mutex_lock(&p->ohci_mtx);
 	LIST_REMOVE_IP(&p->ohci_active_eds, active, ed);
 	mutex_unlock(&p->ohci_mtx);
@@ -466,7 +466,7 @@ ohci_teardown_transfer(device_t dev, struct USB_TRANSFER* xfer)
 static void
 ohci_create_tds(device_t dev, struct USB_TRANSFER* xfer)
 {
-	struct OHCI_HCD_ED* ed = xfer->xfer_hcd;
+	auto ed = static_cast<struct OHCI_HCD_ED*>(xfer->xfer_hcd);
 	int is_read = xfer->xfer_flags & TRANSFER_FLAG_READ;
 
 	KASSERT(ed != NULL, "ohci_create_tds() without ed?");
@@ -578,7 +578,7 @@ ohci_schedule_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	LIST_APPEND_IP(&xfer->xfer_device->usb_transfers, pending, xfer);
 
 	/* If this is the root hub, immediately transfer the request to it */
-	struct OHCI_DEV_PRIVDATA* dev_p = xfer->xfer_device->usb_hcd_privdata;
+	auto dev_p = static_cast<struct OHCI_DEV_PRIVDATA*>(xfer->xfer_device->usb_hcd_privdata);
 	if (dev_p->dev_flags & USB_DEVICE_FLAG_ROOT_HUB)
 		return oroothub_handle_transfer(dev, xfer);
 
@@ -637,12 +637,12 @@ ohci_device_init_privdata(int flags)
 static errorcode_t
 ohci_setup(device_t dev)
 {
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 
 	/* Allocate and initialize the HCCA structure */
 	errorcode_t err = dma_buf_alloc(dev->dma_tag, sizeof(struct OHCI_HCCA), &p->ohci_hcca_buf);
 	ANANAS_ERROR_RETURN(err);
-	p->ohci_hcca = dma_buf_get_segment(p->ohci_hcca_buf, 0)->s_virt;
+	p->ohci_hcca = static_cast<struct OHCI_HCCA*>(dma_buf_get_segment(p->ohci_hcca_buf, 0)->s_virt);
 	memset(p->ohci_hcca, 0, sizeof(struct OHCI_HCCA));
 
 	/*
@@ -707,7 +707,7 @@ ohci_attach(device_t dev)
 	 */
 	auto p = new(dev) OHCI_PRIVDATA;
 	memset(p, 0, sizeof *p);
-	p->ohci_membase = res_mem;
+	p->ohci_membase = static_cast<volatile uint8_t*>(res_mem);
 	mutex_init(&p->ohci_mtx, "ohci");
 	LIST_INIT(&p->ohci_active_eds);
 	dev->privdata = p;
@@ -800,7 +800,7 @@ ohci_match_dev(device_t dev)
 	auto class_res = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
 	if (class_res == NULL) /* XXX it's a bug if this happens */
 		return ANANAS_ERROR(NO_RESOURCE);
-	uint32_t classrev = class_res->r_base;
+	uint32_t classrev = class_res->r_Base;
 
 	/* Generic OHCI USB device */
 	if (PCI_CLASS(classrev) == PCI_CLASS_SERIAL && PCI_SUBCLASS(classrev) == PCI_SUBCLASS_USB && PCI_PROGINT(classrev) == 0x10)
@@ -819,7 +819,7 @@ ohci_probe(device_t dev)
 static void
 ohci_set_roothub(device_t dev, struct USB_DEVICE* usb_dev)
 {
-	struct OHCI_PRIVDATA* p = dev->privdata;
+	auto p = static_cast<struct OHCI_PRIVDATA*>(dev->privdata);
 	p->ohci_roothub = usb_dev;
 
 	/* Now we can start the roothub thread to service updates */

@@ -67,7 +67,7 @@ uhci_alloc_td(device_t dev)
 	if (ananas_is_failure(err))
 		return NULL;
 
-	struct UHCI_HCD_TD* td = dma_buf_get_segment(buf, 0)->s_virt;
+	auto td = static_cast<struct UHCI_HCD_TD*>(dma_buf_get_segment(buf, 0)->s_virt);
 	memset(td, 0, sizeof(struct UHCI_HCD_TD));
 	td->td_buf = buf;
 	return td;
@@ -82,7 +82,7 @@ uhci_alloc_qh(device_t dev)
 	if (ananas_is_failure(err))
 		return NULL;
 
-	struct UHCI_HCD_QH* qh = dma_buf_get_segment(buf, 0)->s_virt;
+	auto qh = static_cast<struct UHCI_HCD_QH*>(dma_buf_get_segment(buf, 0)->s_virt);
 	qh->qh_buf = buf;
 	qh->qh_first_td = NULL;
 	qh->qh_next_qh = NULL;
@@ -166,7 +166,7 @@ uhci_dump_qh(struct UHCI_HCD_QH* qhh)
 static void
 uhci_dump(device_t dev)
 {
-	struct UHCI_PRIVDATA* privdata = dev->privdata;
+	auto privdata = static_cast<UHCI_PRIVDATA*>(dev->privdata);
 
 	int frnum     = inw(privdata->uhci_io + UHCI_REG_FRNUM) & 0x3ff;
 	addr_t flbase = inl(privdata->uhci_io + UHCI_REG_FLBASEADD) & 0xfffff000;
@@ -223,7 +223,7 @@ uhci_inspect_chain(struct UHCI_HCD_TD* td, int* length)
 static irqresult_t
 uhci_irq(device_t dev, void* context)
 {
-	struct UHCI_PRIVDATA* privdata = dev->privdata;
+	auto privdata = static_cast<UHCI_PRIVDATA*>(dev->privdata);
 	int stat = inw(privdata->uhci_io + UHCI_REG_USBSTS);
 	outw(privdata->uhci_io + UHCI_REG_USBSTS, stat);
 
@@ -325,7 +325,7 @@ uhci_teardown_transfer(device_t dev, struct USB_TRANSFER* xfer)
 {
 	if (xfer->xfer_hcd != NULL) {
 		/* XXX We should ensure it's no longer in use */
-		uhci_free_qh(dev, xfer->xfer_hcd);
+		uhci_free_qh(dev, static_cast<struct UHCI_HCD_QH*>(xfer->xfer_hcd));
 	}
 
 	xfer->xfer_hcd = NULL;
@@ -349,8 +349,8 @@ uhci_cancel_transfer(device_t dev, struct USB_TRANSFER* xfer)
 static errorcode_t
 uhci_ctrl_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 {
-	struct UHCI_PRIVDATA* p = dev->privdata;
-	struct UHCI_DEV_PRIVDATA* hcd_privdata = xfer->xfer_device->usb_hcd_privdata;
+	auto p = static_cast<UHCI_PRIVDATA*>(dev->privdata);
+	auto hcd_privdata = static_cast<struct UHCI_DEV_PRIVDATA*>(xfer->xfer_device->usb_hcd_privdata);
 	int ls = (hcd_privdata->dev_flags & UHCI_DEV_FLAG_LOWSPEED) ? TD_STATUS_LS : 0;
 	uint32_t token_addr = TD_TOKEN_ENDPOINT(xfer->xfer_endpoint) | TD_TOKEN_ADDRESS(xfer->xfer_address);
 	int isread = xfer->xfer_flags & TRANSFER_FLAG_READ;
@@ -415,8 +415,8 @@ uhci_ctrl_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 static errorcode_t
 uhci_interrupt_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 {
-	struct UHCI_PRIVDATA* p = dev->privdata;
-	struct UHCI_DEV_PRIVDATA* hcd_privdata = xfer->xfer_device->usb_hcd_privdata;
+	auto p = static_cast<UHCI_PRIVDATA*>(dev->privdata);
+	auto hcd_privdata = static_cast<struct UHCI_DEV_PRIVDATA*>(xfer->xfer_device->usb_hcd_privdata);
 	int ls = (hcd_privdata->dev_flags & UHCI_DEV_FLAG_LOWSPEED) ? TD_STATUS_LS : 0;
 	uint32_t token_addr = TD_TOKEN_ENDPOINT(xfer->xfer_endpoint) | TD_TOKEN_ADDRESS(xfer->xfer_address);
 	int isread = xfer->xfer_flags & TRANSFER_FLAG_READ;
@@ -457,7 +457,7 @@ uhci_schedule_transfer(device_t dev, struct USB_TRANSFER* xfer)
 	errorcode_t err = ananas_success();
 
 	/* If this is the root hub, short-circuit the request */
-	struct UHCI_DEV_PRIVDATA* dev_p = xfer->xfer_device->usb_hcd_privdata;
+	auto dev_p = static_cast<struct UHCI_DEV_PRIVDATA*>(xfer->xfer_device->usb_hcd_privdata);
 	if (dev_p->dev_flags & USB_DEVICE_FLAG_ROOT_HUB)
 		return uroothub_handle_transfer(dev, xfer);
 
@@ -504,7 +504,7 @@ uhci_attach(device_t dev)
 	err = dma_buf_alloc(dev->dma_tag, 4096, &p->uhci_framelist_buf);
 	if (ananas_is_failure(err))
 		goto fail;
-	p->uhci_framelist = dma_buf_get_segment(p->uhci_framelist_buf, 0)->s_virt;
+	p->uhci_framelist = static_cast<uint32_t*>(dma_buf_get_segment(p->uhci_framelist_buf, 0)->s_virt);
 	KASSERT((((addr_t)p->uhci_framelist) & 0x3ff) == 0, "framelist misaligned");
 
 	/* Disable interrupts; we don't want the messing along */
@@ -566,14 +566,16 @@ uhci_attach(device_t dev)
 
 	/* Now issue a host controller reset and wait until it is done */
 	outw(p->uhci_io + UHCI_REG_USBCMD, UHCI_USBCMD_HCRESET);
-	int timeout = 50000;
-	while (timeout > 0) {
-		if ((inw(p->uhci_io + UHCI_REG_USBCMD) & UHCI_USBCMD_HCRESET) == 0)
-			break;
-		timeout--;
+	{
+		int timeout = 50000;
+		while (timeout > 0) {
+			if ((inw(p->uhci_io + UHCI_REG_USBCMD) & UHCI_USBCMD_HCRESET) == 0)
+				break;
+			timeout--;
+		}
+		if (timeout == 0)
+			device_printf(dev, "warning: no response on reset");
 	}
-	if (timeout == 0)
-		device_printf(dev, "warning: no response on reset");
 
 	/*
 	 * Program the USB frame number, start of frame and frame list address base
@@ -629,7 +631,7 @@ fail:
 static void*
 uhci_device_init_privdata(int flags)
 {
-	auto privdata = new(dev) UHCI_DEV_PRIVDATA;
+	auto privdata = new UHCI_DEV_PRIVDATA;
 	memset(privdata, 0, sizeof *privdata);
 	privdata->dev_flags = flags;
 	return privdata;
@@ -660,8 +662,8 @@ uhci_probe(device_t dev)
 static void
 uhci_set_roothub(device_t dev, struct USB_DEVICE* usb_dev)
 {
-	struct UHCI_PRIVDATA* p = dev->privdata;
-	p->uhci_roothub = usb_dev;
+	auto privdata = static_cast<UHCI_PRIVDATA*>(dev->privdata);
+	privdata->uhci_roothub = usb_dev;
 
 	/* Now we can start the roothub thread to service updates */
 	uroothub_start(dev);
