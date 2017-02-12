@@ -24,7 +24,7 @@ atadisk_attach(device_t dev)
 	struct ATA_IDENTIFY* identify = (struct ATA_IDENTIFY*)dev->privdata;
 
 	/* Allocate our private data */
-	auto priv = static_cast<struct ATADISK_PRIVDATA*>(kmalloc(sizeof(struct ATADISK_PRIVDATA)));
+	auto priv = new(dev) ATADISK_PRIVDATA;
 	dev->privdata = priv;
 	priv->unit = unit;
 

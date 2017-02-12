@@ -28,7 +28,7 @@ static int initfunc_dynamics_amount = 0;
 void
 init_register_func(struct KERNEL_MODULE* kmod, struct INIT_FUNC* ifunc)
 {
-	struct INIT_DYNAMIC_FUNC* idfunc = static_cast<struct INIT_DYNAMIC_FUNC*>(kmalloc(sizeof(struct INIT_DYNAMIC_FUNC)));
+	auto idfunc = new INIT_DYNAMIC_FUNC;
 	idfunc->idf_kmod = kmod;
 	idfunc->idf_ifunc = ifunc;
 	/* No lock necessary as we're behind the module lock either way */

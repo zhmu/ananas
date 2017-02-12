@@ -101,7 +101,7 @@ console_init()
 
 	/* Initialize the backlog; we use it to queue messages once the mutex is hold */
 	spinlock_init(&console_backlog_lock);
-	console_backlog = static_cast<char*>(kmalloc(CONSOLE_BACKLOG_SIZE));
+	console_backlog = new char[CONSOLE_BACKLOG_SIZE];
 	console_backlog_pos = 0;
 
 	/* Initialize the console print mutex and start using it */

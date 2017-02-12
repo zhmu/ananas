@@ -146,15 +146,15 @@ extern void* gdt; /* XXX */
 	}
 
 	/* Prepare the IOAPIC structure */
-	cfg->cfg_ioapic = static_cast<struct X86_IOAPIC*>(kmalloc(sizeof(struct X86_IOAPIC) * cfg->cfg_num_ioapics));
+	cfg->cfg_ioapic = new X86_IOAPIC[cfg->cfg_num_ioapics];
 	memset(cfg->cfg_ioapic, 0, sizeof(struct X86_IOAPIC) * cfg->cfg_num_ioapics);
 
 	/* Prepare the BUS structure */
-	cfg->cfg_bus = static_cast<struct X86_BUS*>(kmalloc(sizeof(struct X86_BUS) * cfg->cfg_num_busses));
+	cfg->cfg_bus = new X86_BUS[cfg->cfg_num_busses];
 	memset(cfg->cfg_bus, 0, sizeof(struct X86_BUS) * cfg->cfg_num_busses);
 
 	/* Prepare the INTERRUPTS structure */
-	cfg->cfg_int = static_cast<struct X86_INTERRUPT*>(kmalloc(sizeof(struct X86_INTERRUPT) * cfg->cfg_num_ints));
+	cfg->cfg_int = new X86_INTERRUPT[cfg->cfg_num_ints];
 	memset(cfg->cfg_int, 0, sizeof(struct X86_INTERRUPT) * cfg->cfg_num_ints);
 }
 

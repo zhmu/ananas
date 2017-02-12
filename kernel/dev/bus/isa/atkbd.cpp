@@ -134,7 +134,7 @@ atkbd_attach(device_t dev)
 		return ANANAS_ERROR(NO_RESOURCE);
 
 	/* Initialize private data; must be done before the interrupt is registered */
-	auto kbd_priv = static_cast<struct ATKBD_PRIVDATA*>(kmalloc(sizeof(struct ATKBD_PRIVDATA)));
+	auto kbd_priv = new(dev) ATKBD_PRIVDATA;
 	kbd_priv->kbd_ioport = (uintptr_t)res_io;
 	kbd_priv->kbd_flags = 0;
 	dev->privdata = kbd_priv;

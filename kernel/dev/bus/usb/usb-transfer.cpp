@@ -98,7 +98,7 @@ usbtransfer_setup(struct USB_TRANSFER* xfer)
 struct USB_TRANSFER*
 usbtransfer_alloc(struct USB_DEVICE* dev, int type, int flags, int endpt, size_t maxlen)
 {
-	auto usb_xfer = static_cast<struct USB_TRANSFER*>(kmalloc(sizeof(struct USB_TRANSFER)));
+	auto usb_xfer = new USB_TRANSFER;
 	DPRINTF("usbtransfer_alloc: xfer=%x type %d\n", usb_xfer, type);
 	memset(usb_xfer, 0, sizeof *usb_xfer);
 	usb_xfer->xfer_device = dev;

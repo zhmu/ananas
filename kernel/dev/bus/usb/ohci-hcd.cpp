@@ -628,7 +628,7 @@ ohci_cancel_transfer(device_t dev, struct USB_TRANSFER* xfer)
 static void*
 ohci_device_init_privdata(int flags)
 {
-	struct OHCI_DEV_PRIVDATA* p = kmalloc(sizeof *p);
+	auto p = new OHCI_DEV_PRIVDATA;
 	memset(p, 0, sizeof *p);
 	p->dev_flags = flags;
 	return p;
@@ -705,7 +705,7 @@ ohci_attach(device_t dev)
 	 * Okay, we should be able to support this; initialize our private data so we can use
 	 * ohci_{read,write}[24].
 	 */
-	struct OHCI_PRIVDATA* p = kmalloc(sizeof *p);
+	auto p = new(dev) OHCI_PRIVDATA;
 	memset(p, 0, sizeof *p);
 	p->ohci_membase = res_mem;
 	mutex_init(&p->ohci_mtx, "ohci");

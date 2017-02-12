@@ -73,7 +73,7 @@ dma_tag_create(dma_tag_t parent, device_t dev, dma_tag_t* tag, int alignment, dm
 	}
 
 	/* We've got all restrictions in place; create the tag using these */
-	struct DMA_TAG* t = static_cast<struct DMA_TAG*>(kmalloc(sizeof(*t)));
+	auto t = new DMA_TAG;
 	memset(t, 0, sizeof(*t));
 	t->t_parent = parent;
 	t->t_refcount = 1;
@@ -117,7 +117,7 @@ dma_buf_alloc(dma_tag_t tag, dma_size_t size, dma_buf_t* buf)
 		return ANANAS_ERROR(BAD_LENGTH);
 
 	/* Allocate the buffer itself... */
-	struct DMA_BUFFER* b = static_cast<struct DMA_BUFFER*>(kmalloc(sizeof(*b) + num_segs * sizeof(struct DMA_BUFFER_SEGMENT)));
+	auto b = static_cast<struct DMA_BUFFER*>(kmalloc(sizeof(struct DMA_BUFFER) + num_segs * sizeof(struct DMA_BUFFER_SEGMENT)));
 	memset(b, 0, sizeof(*b) + num_segs * sizeof(struct DMA_BUFFER_SEGMENT));
 	b->db_tag = tag;
 	b->db_size = size;

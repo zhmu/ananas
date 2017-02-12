@@ -51,7 +51,7 @@ usbpipe_alloc(struct USB_DEVICE* usb_dev, int num, int type, int dir, size_t max
 	if (maxlen == 0)
 		maxlen = ep->ep_maxpacketsize;
 
-	auto p = static_cast<struct USB_PIPE*>(kmalloc(sizeof(struct USB_PIPE)));
+	auto p = new USB_PIPE;
 	p->p_dev = usb_dev;
 	p->p_callback = callback;
 	p->p_ep = ep;

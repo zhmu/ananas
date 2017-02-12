@@ -378,7 +378,7 @@ ata_start(device_t dev)
 errorcode_t
 ata_attach(device_t dev, uint32_t io, uint32_t irq)
 {
-	auto priv = static_cast<struct ATA_PRIVDATA*>(kmalloc(sizeof(struct ATA_PRIVDATA)));
+	auto priv = new(dev) ATA_PRIVDATA;
 	priv->io_port = io;
 	/* XXX this is a hack - at least, until we properly support multiple resources */
 	if (priv->io_port == 0x170) {
@@ -402,7 +402,7 @@ ata_attach(device_t dev, uint32_t io, uint32_t irq)
 	/* Initialize a freelist of request items */
 	QUEUE_INIT(&priv->freelist);
 	spinlock_init(&priv->spl_freelist);
-	auto item = static_cast<struct ATA_REQUEST_ITEM*>(kmalloc(sizeof(struct ATA_REQUEST_ITEM) * ATA_FREELIST_LENGTH));
+	auto item = new(dev) ATA_REQUEST_ITEM[ATA_FREELIST_LENGTH];
 	for (unsigned int i = 0; i < ATA_FREELIST_LENGTH; i++, item++)
 		QUEUE_ADD_TAIL(&priv->freelist, item);
 

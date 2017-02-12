@@ -42,7 +42,7 @@ hda_fill_aw_connlist(device_t dev, struct HDA_NODE_AW* aw)
 
 
 	aw->aw_num_conn = cl_len;
-	aw->aw_conn = static_cast<struct HDA_NODE_AW**>(kmalloc(sizeof(struct HDA_NODE_AW*) * cl_len));
+	aw->aw_conn = new(dev) HDA_NODE_AW*[cl_len];
 
 	for (int idx = 0; idx < cl_len; idx += 4) {
 		err = devfuncs->hdf_issue_verb(dev, HDA_MAKE_VERB_NODE(aw, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETCONNLISTENTRY, idx)), &r, NULL);
@@ -185,37 +185,37 @@ hda_attach_node_afg(device_t dev, struct HDA_AFG* afg)
 		struct HDA_NODE_AW* aw = NULL;
 		switch(HDA_PARAM_AW_CAPS_TYPE(aw_caps)) {
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_OUT: {
-				auto ao = static_cast<struct HDA_NODE_AUDIOOUT*>(kmalloc(sizeof(struct HDA_NODE_AUDIOOUT)));
+				auto ao = new(dev) HDA_NODE_AUDIOOUT;
 				HDA_AWNODE_INIT(ao, NT_AudioOut);
 				err = hda_attach_widget_audioout(dev, ao);
 				break;
 			}
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_IN: {
-				auto ai = static_cast<struct HDA_NODE_AUDIOIN*>(kmalloc(sizeof(struct HDA_NODE_AUDIOIN)));
+				auto ai = new(dev) HDA_NODE_AUDIOIN;
 				HDA_AWNODE_INIT(ai, NT_AudioIn);
 				err = hda_attach_widget_audioin(dev, ai);
 				break;
 			}
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_MIXER: {
-				auto am = static_cast<struct HDA_NODE_AUDIOMIXER*>(kmalloc(sizeof(struct HDA_NODE_AUDIOMIXER)));
+				auto am = new(dev) HDA_NODE_AUDIOMIXER;
 				HDA_AWNODE_INIT(am, NT_AudioMixer);
 				err = hda_attach_widget_audiomixer(dev, am);
 				break;
 			}
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_SELECTOR: {
-				auto as = static_cast<struct HDA_NODE_AUDIOSELECTOR*>(kmalloc(sizeof(struct HDA_NODE_AUDIOSELECTOR)));
+				auto as = new(dev) HDA_NODE_AUDIOSELECTOR;
 				HDA_AWNODE_INIT(as, NT_AudioSelector);
 				err = hda_attach_widget_audioselector(dev, as);
 				break;
 			}
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_PINCOMPLEX: {
-				auto p = static_cast<struct HDA_NODE_PIN*>(kmalloc(sizeof(struct HDA_NODE_PIN)));
+				auto p = new(dev) HDA_NODE_PIN;
 				HDA_AWNODE_INIT(p, NT_Pin);
 				err = hda_attach_widget_pincomplex(dev, p);
 				break;
 			}
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_VENDORDEFINED: {
-				auto vd = static_cast<struct HDA_NODE_VENDORDEFINED*>(kmalloc(sizeof(struct HDA_NODE_VENDORDEFINED)));
+				auto vd = new(dev) HDA_NODE_VENDORDEFINED;
 				HDA_AWNODE_INIT(vd, NT_VendorDefined);
 				err = hda_attach_widget_vendordefined(dev, vd);
 				break;
@@ -460,7 +460,7 @@ hda_attach_multipin_render(device_t dev, struct HDA_AFG* afg, int association, i
 			return ANANAS_ERROR(NO_DEVICE);
 
 	/* Construct the output provider */
-	auto o = static_cast<struct HDA_OUTPUT*>(kmalloc(sizeof(struct HDA_OUTPUT)));
+	auto o = new(dev) HDA_OUTPUT;
 	o->o_channels = num_channels;
 	o->o_pingroup = pg;
 	o->o_pcm_output = 0;
@@ -593,7 +593,7 @@ hda_attach_node(device_t dev, int cad, int nodeid)
 		}
 
 		/* Now dive into this subnode and attach it */
-		auto afg = static_cast<struct HDA_AFG*>(kmalloc(sizeof(struct HDA_AFG)));
+		auto afg = new(dev) HDA_AFG;
 		afg->afg_cad = cad;
 		afg->afg_nid = nid;
 		LIST_INIT(&afg->afg_nodes);

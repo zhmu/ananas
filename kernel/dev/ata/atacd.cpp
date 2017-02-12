@@ -17,7 +17,7 @@ atacd_attach(device_t dev)
 	int unit = (int)(uintptr_t)device_alloc_resource(dev, RESTYPE_CHILDNUM, 0);
 	struct ATA_IDENTIFY* identify = (struct ATA_IDENTIFY*)dev->privdata;
 
-	auto priv = static_cast<struct ATACD_PRIVDATA*>(kmalloc(sizeof(struct ATACD_PRIVDATA)));
+	auto priv = new(dev) ATACD_PRIVDATA;
 	dev->privdata = priv;
 	priv->unit = unit;
 

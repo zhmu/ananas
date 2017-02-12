@@ -23,16 +23,11 @@ static spinlock_t spl_handletypes;
 void
 handle_init()
 {
-	struct HANDLE* pool = static_cast<struct HANDLE*>(kmalloc(sizeof(struct HANDLE) * (NUM_HANDLES + 1)));
 	spinlock_init(&spl_handlequeue);
 	spinlock_init(&spl_handletypes);
 	LIST_INIT(&handle_types);
 
-	/*
-	 * Ensure handle pool is aligned; this makes checking for valid handles
-	 * easier.
-	 */
-	pool = (struct HANDLE*)((addr_t)pool + (sizeof(struct HANDLE) - (addr_t)pool % sizeof(struct HANDLE)));
+	auto pool = new HANDLE[NUM_HANDLES];
 	memset(pool, 0, sizeof(struct HANDLE) * NUM_HANDLES);
 
 	/* Add all handles to the queue one by one */

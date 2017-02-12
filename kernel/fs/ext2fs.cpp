@@ -63,7 +63,7 @@ ext2_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 	struct VFS_INODE* inode = vfs_make_inode(fs, fsop);
 	if (inode == NULL)
 		return NULL;
-	auto privdata = static_cast<struct EXT2_INODE_PRIVDATA*>(kmalloc(sizeof(struct EXT2_INODE_PRIVDATA)));
+	auto privdata = new EXT2_INODE_PRIVDATA;
 	memset(privdata, 0, sizeof(struct EXT2_INODE_PRIVDATA));
 	inode->i_privdata = privdata;
 	return inode;
@@ -314,12 +314,12 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 	}
 
 	/* Victory */
-	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)kmalloc(sizeof *privdata);
+	auto privdata = new EXT2_FS_PRIVDATA;
 	memcpy(&privdata->sb, sb, sizeof(*sb));
 	fs->fs_privdata = privdata;
 
 	privdata->num_blockgroups = (sb->s_blocks_count - sb->s_first_data_block - 1) / sb->s_blocks_per_group + 1;
-	privdata->blockgroup = (struct EXT2_BLOCKGROUP*)kmalloc(sizeof(struct EXT2_BLOCKGROUP) * privdata->num_blockgroups);
+	privdata->blockgroup = new EXT2_BLOCKGROUP[privdata->num_blockgroups];
 
 	/* Fill out filesystem fields */
 	fs->fs_block_size = 1024L << sb->s_log_block_size;

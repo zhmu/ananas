@@ -33,7 +33,7 @@ slice_bwrite(device_t dev, struct BIO* bio)
 	return device_bwrite(dev->parent, bio);
 }
 
-struct DRIVER drv_slice = {
+static struct DRIVER drv_slice = {
 	.name	= "slice",
 	.drv_bread = slice_bread,
 	.drv_bwrite = slice_bwrite
@@ -42,11 +42,11 @@ struct DRIVER drv_slice = {
 struct DEVICE*
 slice_create(device_t dev, blocknr_t begin, blocknr_t length)
 {
-	struct SLICE_PRIVATE* privdata = (struct SLICE_PRIVATE*)kmalloc(sizeof(struct SLICE_PRIVATE));
+	device_t new_dev = device_alloc(dev, &drv_slice);
+	auto privdata = new(new_dev) SLICE_PRIVATE;
 	privdata->first_block = begin;
 	privdata->length = length;
 
-	device_t new_dev = device_alloc(dev, &drv_slice);
 	new_dev->privdata = privdata;
 	device_attach_single(new_dev);
 

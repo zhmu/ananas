@@ -45,7 +45,7 @@ sio_attach(device_t dev)
 	if (res_io == NULL || res_irq == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 
-	auto privdata = static_cast<struct SIO_PRIVDATA*>(kmalloc(sizeof(struct SIO_PRIVDATA)));
+	auto privdata = new(dev) SIO_PRIVDATA;
 	privdata->io_port = (uint32_t)(uintptr_t)res_io;
 
 	dev->privdata = privdata;

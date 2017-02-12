@@ -37,7 +37,7 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 {
 	errorcode_t err;
 
-	process_t* p = static_cast<process_t*>(kmalloc(sizeof(struct PROCESS)));
+	auto p = new PROCESS;
 	memset(p, 0, sizeof(*p));
 	p->p_parent = parent; /* XXX should we take a ref here? */
 	p->p_refcount = 1; /* caller */

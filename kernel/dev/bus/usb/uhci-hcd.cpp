@@ -398,7 +398,7 @@ uhci_ctrl_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 	LIST_NEXT(td_setup) = next_setup_ptr;
 
 	/* Schedule an item; this will cause the IRQ to handle our request - XXX needs lock */
-	struct UHCI_SCHEDULED_ITEM* si = kmalloc(sizeof *si);
+	auto si = new(dev) UHCI_SCHEDULED_ITEM;
 	si->si_td = td_setup;
 	si->si_xfer = xfer;
 	LIST_APPEND(&p->uhci_scheduled_items, si);
@@ -428,7 +428,7 @@ uhci_interrupt_schedule_xfer(device_t dev, struct USB_TRANSFER* xfer)
 	td_chain->td_td.td_token &= ~TD_TOKEN_DATA; /* XXX */
 
 	/* Schedule an item; this will cause the IRQ to handle our request - XXX needs lock */
-	struct UHCI_SCHEDULED_ITEM* si = kmalloc(sizeof *si);
+	auto si = new(dev) UHCI_SCHEDULED_ITEM;
 	si->si_td = td_chain;
 	si->si_xfer = xfer;
 	LIST_APPEND(&p->uhci_scheduled_items, si);
@@ -493,7 +493,7 @@ uhci_attach(device_t dev)
 	errorcode_t err = dma_tag_create(dev->parent->dma_tag, dev, &dev->dma_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE);
 	ANANAS_ERROR_RETURN(err);
 
-	struct UHCI_PRIVDATA* p = kmalloc(sizeof *p);
+	auto p = new(dev) UHCI_PRIVDATA;
 	memset(p, 0, sizeof *p);
 	dev->privdata = p;
 	p->uhci_io = (uint32_t)(uintptr_t)res_io;
@@ -629,7 +629,7 @@ fail:
 static void*
 uhci_device_init_privdata(int flags)
 {
-	struct UHCI_DEV_PRIVDATA* privdata = kmalloc(sizeof *privdata);
+	auto privdata = new(dev) UHCI_DEV_PRIVDATA;
 	memset(privdata, 0, sizeof *privdata);
 	privdata->dev_flags = flags;
 	return privdata;

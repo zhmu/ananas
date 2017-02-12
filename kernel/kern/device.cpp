@@ -23,7 +23,7 @@ static struct DEVICE_PROBE probe_queue; /* XXX not locked yet */
 device_t
 device_alloc(device_t bus, driver_t drv)
 {
-	device_t dev = static_cast<device_t>(kmalloc(sizeof(struct DEVICE)));
+	auto dev = new DEVICE;
 	memset(dev, 0, sizeof(struct DEVICE));
 	dev->driver = drv;
 	dev->parent = bus;
@@ -245,7 +245,7 @@ device_init()
 	 * First of all, create the core bus; this is as bare to the metal as it
 	 * gets.
 	 */
-	device_t corebus = (device_t)kmalloc(sizeof(struct DEVICE));
+	device_t corebus = new DEVICE;
 	memset(corebus, 0, sizeof(struct DEVICE));
 	strcpy(corebus->name, "corebus");
 	device_attach_bus(corebus);
@@ -348,6 +348,30 @@ device_unregister_probe(struct PROBE* p)
 {
 	LIST_REMOVE(&probe_queue, p);
 	return ananas_success();
+}
+
+void*
+operator new(size_t len, device_t dev) throw()
+{
+	return kmalloc(len);
+}
+
+void*
+operator new[](size_t len, device_t dev) throw()
+{
+	return kmalloc(len);
+}
+
+void
+operator delete(void* p, device_t dev) throw()
+{
+	kfree(p);
+}
+
+void
+operator delete[](void* p, device_t dev) throw()
+{
+	kfree(p);
 }
 
 #ifdef OPTION_KDB

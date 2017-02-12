@@ -353,7 +353,7 @@ usbstorage_attach(device_t dev)
 {
 	struct USB_DEVICE* usb_dev = device_alloc_resource(dev, RESTYPE_USB_DEVICE, 0);
 
-	struct USBSTORAGE_PRIVDATA* p = kmalloc(sizeof *p);
+	auto p = new(dev) USBSTORAGE_PRIVDATA;
 	memset(p, 0, sizeof *p);
 	dev->privdata = p;
 	usb_dev->usb_device->privdata = p;

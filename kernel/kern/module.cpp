@@ -340,7 +340,7 @@ module_load(struct LOADER_MODULE* mod)
 
 	/* Set up the module structure */
 	{
-		struct KERNEL_MODULE* kmod = static_cast<struct KERNEL_MODULE*>(kmalloc(sizeof(struct KERNEL_MODULE)));
+		auto kmod = new KERNEL_MODULE;
 		kmod->kmod_init_func = mod_init;
 		kmod->kmod_exit_func = mod_exit;
 		kmod->kmod_strptr = str_ptr;

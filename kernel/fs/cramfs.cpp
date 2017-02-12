@@ -288,7 +288,7 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 
-	fs->fs_privdata = kmalloc(sizeof(struct CRAMFS_PRIVDATA));
+	fs->fs_privdata = new CRAMFS_PRIVDATA;
 
 	/* Initialize the inode cache right before reading the root directory inode */
 	fs->fs_fsop_size = sizeof(uint32_t);
@@ -336,7 +336,7 @@ cramfs_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 	struct VFS_INODE* inode = vfs_make_inode(fs, fsop);
 	if (inode == NULL)
 		return NULL;
-	auto i_privdata = static_cast<struct CRAMFS_INODE_PRIVDATA*>(kmalloc(sizeof(struct CRAMFS_INODE_PRIVDATA)));
+	auto i_privdata = new CRAMFS_INODE_PRIVDATA;
 	memset(i_privdata, 0, sizeof(struct CRAMFS_INODE_PRIVDATA));
 	inode->i_privdata = i_privdata;
 	return inode;

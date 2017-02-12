@@ -84,7 +84,7 @@ hda_stream_irq(device_t dev, void* ctx)
 errorcode_t
 hda_attach(device_t dev, struct HDA_DEV_FUNC* devfuncs, void* dev_privdata)
 {
-	auto privdata = static_cast<struct HDA_PRIVDATA*>(kmalloc(sizeof(struct HDA_PRIVDATA)));
+	auto privdata = new(dev) HDA_PRIVDATA;
 	dev->privdata = privdata;
 	memset(privdata, 0, sizeof(*privdata));
 	privdata->hda_dev_priv = dev_privdata;

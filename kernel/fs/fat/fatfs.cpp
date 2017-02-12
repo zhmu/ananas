@@ -64,7 +64,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 
 	/* Parse what we just read */
 	struct FAT_BPB* bpb = (struct FAT_BPB*)BIO_DATA(bio);
-	auto privdata = static_cast<struct FAT_FS_PRIVDATA*>(kmalloc(sizeof(struct FAT_FS_PRIVDATA)));
+	auto privdata = new FAT_FS_PRIVDATA;
 	memset(privdata, 0, sizeof(struct FAT_FS_PRIVDATA));
 	spinlock_init(&privdata->spl_cache);
 	fs->fs_privdata = privdata; /* immediately, this is used by other functions */

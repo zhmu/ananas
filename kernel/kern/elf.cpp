@@ -165,7 +165,7 @@ elf32_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 		return ANANAS_ERROR(BAD_EXEC);
 
 	/* Note that we allocate worst-case; there can be no more than ehdr.e_phnum sections */
-	struct ELF_THREADMAP_PRIVDATA* privdata = kmalloc(sizeof(struct ELF_THREADMAP_PRIVDATA) + sizeof(struct ELF_THREADMAP_PROGHEADER) * (ehdr.e_phnum - 1));
+	auto privdata = static_cast<struct ELF_THREADMAP_PRIVDATA*>(kmalloc(sizeof(struct ELF_THREADMAP_PRIVDATA) + sizeof(struct ELF_THREADMAP_PROGHEADER) * (ehdr.e_phnum - 1)));
 	privdata->elf_dentry = dentry;
 	privdata->elf_num_ph = 0;
 	privdata->elf_num_refs = 0;

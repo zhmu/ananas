@@ -164,7 +164,7 @@ iso9660_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 	if (inode == NULL)
 		return NULL;
 
-	auto privdata = static_cast<struct ISO9660_INODE_PRIVDATA*>(kmalloc(sizeof(struct ISO9660_INODE_PRIVDATA)));
+	auto privdata = new ISO9660_INODE_PRIVDATA;
 	memset(privdata, 0, sizeof(struct ISO9660_INODE_PRIVDATA));
 	inode->i_privdata = privdata;
 	return inode;

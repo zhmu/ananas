@@ -60,7 +60,7 @@ kbdmux_read(device_t dev, void* data, size_t* len, off_t off)
 static errorcode_t
 kbdmux_attach(device_t dev)
 {
-	auto mux_priv = static_cast<struct KBDMUX_PRIVDATA*>(kmalloc(sizeof(struct KBDMUX_PRIVDATA)));
+	auto mux_priv = new(dev) KBDMUX_PRIVDATA;
 	memset(mux_priv, 0, sizeof(*mux_priv));
 	dev->privdata = mux_priv;
 	spinlock_init(&mux_priv->kbd_lock);

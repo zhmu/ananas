@@ -39,7 +39,7 @@ bio_init()
 	int bio_bitmap_slack = 0;
 	if ((bio_bitmap_size & (BIO_SECTOR_SIZE - 1)) > 0)
 		bio_bitmap_slack = BIO_SECTOR_SIZE - (bio_bitmap_size % BIO_SECTOR_SIZE);
-	bio_bitmap = static_cast<uint8_t*>(kmalloc(BIO_DATA_SIZE + bio_bitmap_size + bio_bitmap_slack));
+	bio_bitmap = new uint8_t[BIO_DATA_SIZE + bio_bitmap_size + bio_bitmap_slack];
 	bio_data = bio_bitmap + bio_bitmap_size + bio_bitmap_slack;
 
 	/* Clear the BIO bucket chain */
@@ -49,7 +49,7 @@ bio_init()
 	}
 
 	/* Initialize bio buffers and hook them up to the freelist */
-	struct BIO* bios = static_cast<struct BIO*>(kmalloc(sizeof(struct BIO) * BIO_NUM_BUFFERS));
+	struct BIO* bios = new BIO[BIO_NUM_BUFFERS];
 	LIST_INIT(&bio_freelist);
 	for (unsigned int i = 0; i < BIO_NUM_BUFFERS; i++, bios++) {
 		sem_init(&bios->sem, 1);

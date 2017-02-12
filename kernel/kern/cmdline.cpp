@@ -22,7 +22,7 @@ cmdline_init()
 	char* bootargs = static_cast<char*>(kmem_map(bootinfo->bi_args, bootargs_len, VM_FLAG_READ));
 	if (bootargs[bootinfo->bi_args_size - 1] == '\0') {
 		/* Okay, looks sensible - allocate a commandline and copy over */
-		cmdline = static_cast<char*>(kmalloc(bootargs_len));
+		cmdline = new char[bootargs_len];
 		strcpy(cmdline, bootargs);
 		cmdline_len = bootargs_len;
 

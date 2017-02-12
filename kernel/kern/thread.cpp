@@ -45,7 +45,7 @@ errorcode_t
 thread_alloc(process_t* p, thread_t** dest, const char* name, int flags)
 {
 	/* First off, allocate the thread itself */
-	thread_t* t = static_cast<thread_t*>(kmalloc(sizeof(struct THREAD)));
+	auto t = new THREAD;
 	memset(t, 0, sizeof(struct THREAD));
 	process_ref(p);
 	t->t_process = p;

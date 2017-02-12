@@ -22,7 +22,7 @@ struct SATADISK_PRIVDATA {
 static errorcode_t
 satadisk_attach(device_t dev)
 {
-	auto priv = static_cast<struct SATADISK_PRIVDATA*>(kmalloc(sizeof(struct SATADISK_PRIVDATA)));
+	auto priv = new(dev) SATADISK_PRIVDATA;
 	memset(priv, 0, sizeof(*priv));
 	dev->privdata = priv;
 

@@ -59,7 +59,7 @@ AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 	ACPI_DEBUG("NEW pa=%p size=%d for phys=%p len=%p", pa, size, PhysicalAddress, Length);
 
 	/* No luck; need to make a new mapping */
-	struct ACPI_MEMORY_MAPPING* amm = static_cast<struct ACPI_MEMORY_MAPPING*>(kmalloc(sizeof *amm));
+	auto amm = new ACPI_MEMORY_MAPPING;
 	amm->amm_phys = pa;
 	amm->amm_virt = kmem_map(pa, size * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_FORCEMAP);
 	amm->amm_length = size;

@@ -289,7 +289,7 @@ fb_attach(device_t dev)
 	addr_t memory = bootinfo->bi_video_framebuffer;
 	void* phys = vm_map_kernel(memory, ((height * bytes_per_line) + PAGE_SIZE - 1) / PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 
-	struct FB_PRIVDATA* fb = (struct FB_PRIVDATA*)kmalloc(sizeof(struct FB_PRIVDATA));
+	auto fb = new(dev) FB_PRIVDATA;
 	fb->fb_memory = memory;
 	fb->fb_framebuffer = (void*)phys;
 	fb->fb_xres = width;
@@ -304,7 +304,7 @@ fb_attach(device_t dev)
 	fb->fb_width = width / fb->fb_font_width;
 	fb->fb_x = 0;
 	fb->fb_y = 0;
-	fb->fb_buffer = kmalloc(fb->fb_height * fb->fb_width * sizeof(struct pixel));
+	fb->fb_buffer = new(dev) pixel[fb->fb_height * fb->fb_width];
 	memset(fb->fb_buffer, 0, fb->fb_height * fb->fb_width * sizeof(struct pixel));
 	dev->privdata = fb;
 

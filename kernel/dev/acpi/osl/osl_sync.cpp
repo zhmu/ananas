@@ -6,7 +6,7 @@
 ACPI_STATUS
 AcpiOsCreateSemaphore(UINT32 MaxUnits, UINT32 InitialUnits, ACPI_SEMAPHORE* OutHandle)
 {
-	semaphore_t* sem = static_cast<semaphore_t*>(kmalloc(sizeof(semaphore_t)));
+	semaphore_t* sem = new semaphore_t;
 	if (sem == NULL)
 		return AE_NO_MEMORY;
 
@@ -52,7 +52,7 @@ AcpiOsSignalSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units)
 ACPI_STATUS
 AcpiOsCreateLock(ACPI_SPINLOCK* OutHandle)
 {
-	spinlock_t* sl = static_cast<spinlock_t*>(kmalloc(sizeof(spinlock_t)));
+	spinlock_t* sl = new spinlock_t;
 	if (sl == NULL)
 		return AE_NO_MEMORY;
 

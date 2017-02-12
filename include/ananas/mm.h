@@ -13,6 +13,11 @@ void  kfree(void* ptr);
 }
 #endif
 
+#ifdef __cplusplus
+void* operator new(size_t len) throw();
+void operator delete(void* p) throw();
+#endif
+
 void mm_init();
 void kmem_chunk_reserve(addr_t chunk_start, addr_t chunk_end, addr_t reserved_start, addr_t reserved_end, addr_t* out_start, addr_t* out_end);
 

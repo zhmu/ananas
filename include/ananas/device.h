@@ -162,4 +162,10 @@ static inline void* device_alloc_resource(device_t dev, resource_type_t type, re
 	return resourceset_alloc_resource(&dev->d_resourceset, type, len);
 }
 
+// Device-specific resource management; assigns the resource to the device
+void* operator new(size_t len, device_t dev) throw();
+void operator delete(void* p, device_t dev) throw();
+void* operator new[](size_t len, device_t dev) throw();
+void operator delete[](void* p, device_t dev) throw();
+
 #endif /* __DEVICE_H__ */

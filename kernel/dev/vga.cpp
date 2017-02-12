@@ -255,11 +255,11 @@ vga_attach(device_t dev)
 	if (mem == NULL || res == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 
-	auto vga_privdata = static_cast<struct VGA_PRIVDATA*>(kmalloc(sizeof(struct VGA_PRIVDATA)));
+	auto vga_privdata = new(dev) VGA_PRIVDATA;
 	memset(vga_privdata, 0, sizeof(*vga_privdata));
 	vga_privdata->vga_io        = (uintptr_t)res;
 	vga_privdata->vga_video_mem = static_cast<uint16_t*>(mem);
-	vga_privdata->vga_buffer    = static_cast<struct pixel*>(kmalloc(VGA_HEIGHT * VGA_WIDTH * sizeof(struct pixel)));
+	vga_privdata->vga_buffer    = new(dev) pixel[VGA_HEIGHT * VGA_WIDTH];
 	vga_privdata->vga_attr      = 0xf;
 	dev->privdata = vga_privdata;
 	memset(vga_privdata->vga_buffer, 0, VGA_HEIGHT * VGA_WIDTH * sizeof(struct pixel));

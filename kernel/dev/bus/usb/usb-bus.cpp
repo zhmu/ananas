@@ -57,7 +57,7 @@ usbbus_attach(device_t dev)
 	device_t hcd_dev = dev->parent; /* usbbus is attached to the HCD */
 
 	/* Create our bus itself */
-	auto bus = static_cast<struct USB_BUS*>(kmalloc(sizeof(struct USB_BUS)));
+	auto bus = new(dev) USB_BUS;
 	memset(bus, 0, sizeof *bus);
 	bus->bus_dev = dev;
 	bus->bus_hcd = hcd_dev;

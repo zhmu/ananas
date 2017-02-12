@@ -224,7 +224,7 @@ ahcipci_attach(device_t dev)
 	privdata->ap_ncs = AHCI_CAP_NCS(cap) + 1;
 
 	/* XXX */
-	auto pd = static_cast<struct AHCI_PRIVDATA*>(kmalloc(sizeof(struct AHCI_PRIVDATA)));
+	auto pd = new(dev) AHCI_PRIVDATA;
 	memset(pd, 0, sizeof(*pd));
 	pd->ahci_dev_privdata = privdata;
 	dev->privdata = pd;

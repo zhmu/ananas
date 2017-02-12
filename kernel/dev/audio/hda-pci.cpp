@@ -372,7 +372,7 @@ hdapci_attach(device_t dev)
 	if (res_io == NULL || res_irq == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 
-	auto privdata = static_cast<struct HDA_PCI_PRIVDATA*>(kmalloc(sizeof(struct HDA_PCI_PRIVDATA)));
+	auto privdata = new(dev) HDA_PCI_PRIVDATA;
 	memset(privdata, 0, sizeof(*privdata));
 	privdata->hda_addr = (addr_t)res_io;
 
@@ -416,7 +416,7 @@ hdapci_attach(device_t dev)
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 	int num_streams = privdata->hda_iss + privdata->hda_oss + privdata->hda_bss;
-	privdata->hda_stream = static_cast<struct HDA_PCI_STREAM**>(kmalloc(sizeof(struct HDA_PCI_STREAM*) * num_streams));
+	privdata->hda_stream = new(dev) HDA_PCI_STREAM*[num_streams];
 	memset(privdata->hda_stream, 0, sizeof(struct HDA_PCI_STREAM*) * num_streams);
 
 	/* Enable interrupts, also for every stream */

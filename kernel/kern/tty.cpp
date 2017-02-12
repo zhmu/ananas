@@ -60,7 +60,7 @@ tty_alloc(device_t input_dev, device_t output_dev)
 	if (dev == NULL)
 		return NULL;
 
-	struct TTY_PRIVDATA* priv = static_cast<struct TTY_PRIVDATA*>(kmalloc(sizeof(struct TTY_PRIVDATA)));
+	auto priv = new TTY_PRIVDATA;
 	memset(priv, 0, sizeof(struct TTY_PRIVDATA));
 	priv->input_dev = input_dev;
 	priv->output_dev = output_dev;

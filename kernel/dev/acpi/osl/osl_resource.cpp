@@ -27,7 +27,7 @@ acpi_irq_wrapper(device_t dev, void* context)
 ACPI_STATUS
 AcpiOsInstallInterruptHandler(UINT32 InterruptLevel, ACPI_OSD_HANDLER Handler, void* Context)
 {
-	struct ACPI_IRQ_INFO* info = static_cast<struct ACPI_IRQ_INFO*>(kmalloc(sizeof(struct ACPI_IRQ_INFO)));
+	auto info = new ACPI_IRQ_INFO;
 	info->i_handler = Handler;
 	info->i_context = Context;
 

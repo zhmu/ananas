@@ -35,8 +35,7 @@ ramdisk_attach(device_t dev)
 		if (mod->mod_type != MOD_RAMDISK)
 			continue;
 
-		auto privdata = static_cast<struct RAMDISK_PRIVDATA*>(kmalloc(sizeof(struct RAMDISK_PRIVDATA)));
-
+		auto privdata = new(dev) RAMDISK_PRIVDATA;
 		privdata->ram_buffer = (void*)PTOKV((addr_t)mod->mod_phys_start_addr);
 		privdata->ram_size = (addr_t)mod->mod_phys_end_addr - (addr_t)mod->mod_phys_start_addr;
 		dev->privdata = privdata;

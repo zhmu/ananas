@@ -8,7 +8,7 @@
 void
 pcpu_init(struct PCPU* pcpu)
 {
-	pcpu->idlethread = static_cast<thread_t*>(kmalloc(sizeof(struct THREAD)));
+	pcpu->idlethread = new THREAD;
 	KASSERT(pcpu->idlethread != NULL, "out of memory for idle thread");
 
 	char name[64];

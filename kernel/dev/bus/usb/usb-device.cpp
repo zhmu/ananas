@@ -27,7 +27,7 @@ usb_alloc_device(struct USB_BUS* bus, struct USB_HUB* hub, int hub_port, int fla
 {
 	void* hcd_privdata = bus->bus_hcd->driver->drv_usb_hcd_initprivdata(flags);
 
-	auto usb_dev = static_cast<struct USB_DEVICE*>(kmalloc(sizeof(struct USB_DEVICE)));
+	auto usb_dev = new USB_DEVICE;
 	memset(usb_dev, 0, sizeof *usb_dev);
 	mutex_init(&usb_dev->usb_mutex, "usbdev");
 	usb_dev->usb_bus = bus;

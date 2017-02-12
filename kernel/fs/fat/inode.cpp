@@ -19,7 +19,7 @@ fat_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
 	struct VFS_INODE* inode = vfs_make_inode(fs, fsop);
 	if (inode == NULL)
 		return NULL;
-	inode->i_privdata = kmalloc(sizeof(struct FAT_INODE_PRIVDATA));
+	inode->i_privdata = new FAT_INODE_PRIVDATA;
 	memset(inode->i_privdata, 0, sizeof(struct FAT_INODE_PRIVDATA));
 	return inode;
 }

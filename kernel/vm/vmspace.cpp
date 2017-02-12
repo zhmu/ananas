@@ -16,7 +16,7 @@ TRACE_SETUP;
 errorcode_t
 vmspace_create(vmspace_t** vmspace)
 {
-	auto vs = static_cast<vmspace_t*>(kmalloc(sizeof(vmspace_t)));
+	auto vs = new vmspace_t;
 	memset(vs, 0, sizeof(*vs));
 	LIST_INIT(&vs->vs_pages);
 	vs->vs_next_mapping = THREAD_INITIAL_MAPPING_ADDR;
@@ -73,7 +73,7 @@ vmspace_mapto(vmspace_t* vs, addr_t virt, addr_t phys, size_t len /* bytes */, u
 	if (len == 0)
 		return ANANAS_ERROR(BAD_LENGTH);
 
-	auto va = static_cast<vmarea_t*>(kmalloc(sizeof(vmarea_t)));
+	auto va = new vmarea_t;
 	memset(va, 0, sizeof(*va));
 
 	/*
