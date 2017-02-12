@@ -1,75 +1,75 @@
-kern/init.c		mandatory
-kern/mm.c		mandatory
-kern/cmdline.c		mandatory
-kern/dlmalloc.c		mandatory
-kern/page.c		mandatory
-kern/kmem.c		mandatory
-kern/dma.c		mandatory
-kern/device.c		mandatory
-kern/console.c		mandatory
-kern/pcpu.c		mandatory
-kern/process.c		mandatory
-kern/resourceset.c	mandatory
-kern/reaper.c		mandatory
-kern/thread.c		mandatory
-kern/scheduler.c	mandatory
-kern/syscall.c		mandatory
-kern/lock.c		mandatory
-kern/irq.c		mandatory
-kern/handle.c		mandatory
-kern/tty.c		mandatory
-kern/trace.c		mandatory
-kern/symbols.c		mandatory
-kern/module.c		mandatory
-kern/pipe-handle.c	option PIPE
+kern/init.cpp		mandatory
+kern/mm.cpp		mandatory
+kern/cmdline.cpp	mandatory
+kern/dlmalloc.cpp	mandatory
+kern/page.cpp		mandatory
+kern/kmem.cpp		mandatory
+kern/dma.cpp		mandatory
+kern/device.cpp		mandatory
+kern/console.cpp	mandatory
+kern/pcpu.cpp		mandatory
+kern/process.cpp	mandatory
+kern/resourceset.cpp	mandatory
+kern/reaper.cpp		mandatory
+kern/thread.cpp		mandatory
+kern/scheduler.cpp	mandatory
+kern/syscall.cpp	mandatory
+kern/lock.cpp		mandatory
+kern/irq.cpp		mandatory
+kern/handle.cpp		mandatory
+kern/tty.cpp		mandatory
+kern/trace.cpp		mandatory
+kern/symbols.cpp	mandatory
+kern/module.cpp		mandatory
+kern/pipe-handle.cpp	option PIPE
 # block I/O
-kern/bio.c		option BIO
-kern/disk_mbr.c		option BIO
-kern/disk_slice.c	option BIO
+kern/bio.cpp		option BIO
+kern/disk_mbr.cpp	option BIO
+kern/disk_slice.cpp	option BIO
 # executable framework and formats
-kern/exec.c		mandatory
-kern/elf.c		option ELF
+kern/exec.cpp		mandatory
+kern/elf.cpp		option ELF
 # system calls
-sys/chdir.c		mandatory
-sys/clone.c		mandatory
-sys/close.c		mandatory
-sys/dupfd.c		mandatory
-sys/execve.c		mandatory
-sys/exit.c		mandatory
-sys/fchdir.c		mandatory
-sys/fcntl.c		mandatory
-sys/fstat.c		mandatory
-sys/link.c		mandatory
-sys/open.c		mandatory
-sys/read.c		mandatory
-sys/rename.c		mandatory
-sys/seek.c		mandatory
-sys/stat.c		mandatory
-sys/support.c		mandatory
-sys/unlink.c		mandatory
-sys/utime.c		mandatory
-sys/vmop.c		mandatory
-sys/write.c		mandatory
-sys/waitpid.c		mandatory
+sys/chdir.cpp		mandatory
+sys/clone.cpp		mandatory
+sys/close.cpp		mandatory
+sys/dupfd.cpp		mandatory
+sys/execve.cpp		mandatory
+sys/exit.cpp		mandatory
+sys/fchdir.cpp		mandatory
+sys/fcntl.cpp		mandatory
+sys/fstat.cpp		mandatory
+sys/link.cpp		mandatory
+sys/open.cpp		mandatory
+sys/read.cpp		mandatory
+sys/rename.cpp		mandatory
+sys/seek.cpp		mandatory
+sys/stat.cpp		mandatory
+sys/support.cpp		mandatory
+sys/unlink.cpp		mandatory
+sys/utime.cpp		mandatory
+sys/vmop.cpp		mandatory
+sys/write.cpp		mandatory
+sys/waitpid.cpp		mandatory
 # VFS
-vfs/core.c		option VFS
-vfs/dentry.c		option VFS
-vfs/generic.c		option VFS
-vfs/icache.c		option VFS
-vfs/mount.c		option VFS
-vfs/standard.c		option VFS
-vfs/vfs-handle.c	option VFS
-vfs/vfs-thread.c	option VFS
+vfs/core.cpp		option VFS
+vfs/dentry.cpp		option VFS
+vfs/generic.cpp		option VFS
+vfs/icache.cpp		option VFS
+vfs/mount.cpp		option VFS
+vfs/standard.cpp	option VFS
+vfs/vfs-handle.cpp	option VFS
+vfs/vfs-thread.cpp	option VFS
 # XXX VFS KDB not; we can't do && on options yet
-vfs/vfs-kdb.c		option KDB
+vfs/vfs-kdb.cpp		option KDB
 # vm layer
-vm/vmspace.c		mandatory
+vm/vmspace.cpp		mandatory
 # libkern library
-lib/kern/misc.c		mandatory
-lib/kern/memset.c	mandatory
-lib/kern/memcpy.c	mandatory
-lib/kern/print.c	mandatory
-lib/kern/string.c	mandatory
+lib/kern/misc.cpp	mandatory
+lib/kern/memset.cpp	mandatory
+lib/kern/memcpy.cpp	mandatory
+lib/kern/print.cpp	mandatory
+lib/kern/string.cpp	mandatory
 # zlib
 lib/zlib/adler32.c	option ZLIB
 lib/zlib/compress.c	option ZLIB
@@ -84,57 +84,57 @@ lib/zlib/uncompr.c	option ZLIB
 lib/zlib/zutil.c	option ZLIB
 # XXX this should be optional - depend on vga for now? we don't yet do (vga || fb) ...
 lib/teken/teken.c	mandatory
-dev/bus/isa/atkbd.c	optional atkbd
-dev/bus/pci/pci.c	optional pci
-dev/bus/pci/pcibus.c	optional pci
-dev/ata/ata-pci.c	optional atapci
-dev/ramdisk.c		optional ramdisk
+dev/bus/isa/atkbd.cpp	optional atkbd
+dev/bus/pci/pci.cpp	optional pci
+dev/bus/pci/pcibus.cpp	optional pci
+dev/ata/ata-pci.cpp	optional atapci
+dev/ramdisk.cpp		optional ramdisk
 # XXX maybe divide IDE stuff in disk, cd, etc ?
-dev/ata/ata.c		optional ata
-dev/ata/atadisk.c	optional ata
-dev/ata/atacd.c		optional ata
-dev/kbdmux.c		optional kbdmux
-dev/vga.c		optional vga
-dev/sio.c		optional sio
-fs/ext2fs.c		option EXT2FS
-fs/iso9660.c		option ISO9660FS
-fs/cramfs.c		option CRAMFS
-fs/devfs.c		option DEVFS
+dev/ata/ata.cpp		optional ata
+dev/ata/atadisk.cpp	optional ata
+dev/ata/atacd.cpp	optional ata
+dev/kbdmux.cpp		optional kbdmux
+dev/vga.cpp		optional vga
+dev/sio.cpp		optional sio
+fs/ext2fs.cpp		option EXT2FS
+fs/iso9660.cpp		option ISO9660FS
+fs/cramfs.cpp		option CRAMFS
+fs/devfs.cpp		option DEVFS
 # fat
-fs/fat/fatfs.c		option FATFS
-fs/fat/block.c		option FATFS
-fs/fat/dir.c		option FATFS
-fs/fat/inode.c		option FATFS
+fs/fat/fatfs.cpp	option FATFS
+fs/fat/block.cpp	option FATFS
+fs/fat/dir.cpp		option FATFS
+fs/fat/inode.cpp	option FATFS
 # sysfs
-fs/sysfs/sysfs.c	option SYSFS
-fs/sysfs/entry.c	option SYSFS
-fs/sysfs/helper.c	option SYSFS
-fs/sysfs/thread-sysfs.c	option SYSFS
-kdb/kdb.c		option KDB
-kdb/kdb_commands.c	option KDB
+fs/sysfs/sysfs.cpp		option SYSFS
+fs/sysfs/entry.cpp		option SYSFS
+fs/sysfs/helper.cpp		option SYSFS
+fs/sysfs/thread-sysfs.cpp	option SYSFS
+kdb/kdb.cpp			option KDB
+kdb/kdb_commands.cpp		option KDB
 # USB
-dev/bus/usb/usb-core.c		option USB
-dev/bus/usb/usb-device.c	option USB
-dev/bus/usb/usb-config.c	option USB
-dev/bus/usb/usb-pipe.c		option USB
-dev/bus/usb/usb-transfer.c	option USB
-dev/bus/usb/usb-generic.c	option USB
-dev/bus/usb/usb-bus.c		option USB
-dev/bus/usb/usb-hub.c		optional usbhub
-dev/bus/usb/uhci-hcd.c		optional uhci
-dev/bus/usb/uhci-roothub.c	optional uhci
-dev/bus/usb/ohci-hcd.c		optional ohci
-dev/bus/usb/ohci-roothub.c	optional ohci
+dev/bus/usb/usb-core.cpp	option USB
+dev/bus/usb/usb-device.cpp	option USB
+dev/bus/usb/usb-config.cpp	option USB
+dev/bus/usb/usb-pipe.cpp	option USB
+dev/bus/usb/usb-transfer.cpp	option USB
+dev/bus/usb/usb-generic.cpp	option USB
+dev/bus/usb/usb-bus.cpp		option USB
+dev/bus/usb/usb-hub.cpp		optional usbhub
+dev/bus/usb/uhci-hcd.cpp	optional uhci
+dev/bus/usb/uhci-roothub.cpp	optional uhci
+dev/bus/usb/ohci-hcd.cpp	optional ohci
+dev/bus/usb/ohci-roothub.cpp	optional ohci
 # USB peripherals
-dev/bus/usb/usb-keyboard.c	optional usbkeyboard
-dev/bus/usb/usb-storage.c	optional usbstorage
+dev/bus/usb/usb-keyboard.cpp	optional usbkeyboard
+dev/bus/usb/usb-storage.cpp	optional usbstorage
 # audio
-dev/audio/hda.c			optional hda
-dev/audio/hda-codec.c		optional hda
-dev/audio/hda-routing.c		optional hda
-dev/audio/hda-pci.c		optional hda
+dev/audio/hda.cpp		optional hda
+dev/audio/hda-codec.cpp		optional hda
+dev/audio/hda-routing.cpp	optional hda
+dev/audio/hda-pci.cpp		optional hda
 # ahci
-dev/ahci/ahci-pci.c		optional ahci
-dev/ahci/ahci-port.c		optional ahci
-dev/sata/sata.c			optional sata
-dev/sata/sata-disk.c		optional sata
+dev/ahci/ahci-pci.cpp		optional ahci
+dev/ahci/ahci-port.cpp		optional ahci
+dev/sata/sata.cpp		optional sata
+dev/sata/sata-disk.cpp		optional sata

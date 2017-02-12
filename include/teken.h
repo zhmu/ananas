@@ -19,6 +19,10 @@
 #ifndef _TEKEN_H_
 #define	_TEKEN_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * libteken: terminal emulation library.
  *
@@ -190,5 +194,9 @@ void	teken_set_cons25(teken_t *);
 
 /* Color conversion. */
 teken_color_t teken_256to8(teken_color_t);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif /* !_TEKEN_H_ */

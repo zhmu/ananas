@@ -1,15 +1,15 @@
 # Note that the order in this file is the same order passed to the linker!
 arch/i386/stub.S		mandatory
-arch/i386/exception.c		mandatory
+arch/i386/exception.cpp		mandatory
 arch/i386/interrupts.S		mandatory
-arch/i386/startup.c		mandatory
-arch/i386/md_map.c			mandatory
-arch/i386/md_vmspace.c			mandatory
-arch/i386/md_thread.c		mandatory
+arch/i386/startup.cpp		mandatory
+arch/i386/md_map.cpp		mandatory
+arch/i386/md_vmspace.cpp		mandatory
+arch/i386/md_thread.cpp		mandatory
 arch/i386/mp_stub.S		option SMP
-arch/i386/debug.c		mandatory
-lib/kern/qdivrem.c		mandatory
-lib/kern/divdi3.c		mandatory
-dev/fb.c			optional fb
+arch/i386/debug.cpp		mandatory
+lib/kern/qdivrem.cpp		mandatory
+lib/kern/divdi3.cpp		mandatory
+dev/fb.cpp			optional fb
 # Pull in generic x86 stuff
 include x86

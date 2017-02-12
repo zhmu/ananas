@@ -7,13 +7,13 @@
  * Module-specific initalization function.
  */
 #define MOD_INIT_FUNC_NAME "mod_init"
-typedef errorcode_t (*mod_init_func_t)();
+typedef errorcode_t (*mod_init_func_t)(struct KERNEL_MODULE*);
 
 /*
  * Module-specific deinitialization function.
  */
 #define MOD_EXIT_FUNC_NAME "mod_exit"
-typedef errorcode_t (*mod_exit_func_t)();
+typedef errorcode_t (*mod_exit_func_t)(struct KERNEL_MODULE*);
 
 struct KERNEL_MODULE {
 	/* Init/exit functions */

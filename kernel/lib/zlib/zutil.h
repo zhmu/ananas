@@ -21,12 +21,16 @@
 
 #include "zlib.h"
 
+#ifdef __Ananas__
+# include <ananas/lib.h>
+#else
 #ifdef STDC
 #  if !(defined(_WIN32_WCE) && defined(_MSC_VER))
 #    include <stddef.h>
 #  endif
 #  include <string.h>
 #  include <stdlib.h>
+#endif
 #endif
 
 #ifndef local

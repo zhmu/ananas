@@ -26,7 +26,10 @@ struct EXEC_FORMAT {
 LIST_DEFINE(EXEC_FORMATS, struct EXEC_FORMAT);
 
 #define EXECUTABLE_FORMAT(id, handler) \
-	static struct EXEC_FORMAT execfmt_##handler; \
+	static struct EXEC_FORMAT execfmt_##handler = { \
+		.ef_identifier = id, \
+		.ef_handler = &handler \
+	}; \
 	static errorcode_t register_##handler() { \
 		return exec_register_format(&execfmt_##handler); \
 	}; \
@@ -34,11 +37,7 @@ LIST_DEFINE(EXEC_FORMATS, struct EXEC_FORMAT);
 		return exec_unregister_format(&execfmt_##handler); \
 	}; \
 	INIT_FUNCTION(register_##handler, SUBSYSTEM_THREAD, ORDER_MIDDLE); \
-	EXIT_FUNCTION(unregister_##handler); \
-	static struct EXEC_FORMAT execfmt_##handler = { \
-		.ef_identifier = id, \
-		.ef_handler = &handler \
-	};
+	EXIT_FUNCTION(unregister_##handler);
 
 errorcode_t exec_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr);
 errorcode_t exec_register_format(struct EXEC_FORMAT* ef);

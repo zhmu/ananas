@@ -7,8 +7,4 @@ device		vga
 device		sio
 device		atkbd
 
-device		pcihb
-
 option		DEBUG_CONSOLE
-
-device		ataisa

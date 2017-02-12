@@ -2,6 +2,6 @@
 #define ANANAS_AMD64_VMSPACE_H
 
 #define MD_VMSPACE_FIELDS \
-	void*		vs_md_pagedir;
+	uint64_t*	vs_md_pagedir;
 
 #endif /* ANANAS_AMD64_VMSPACE_H */

@@ -6,6 +6,7 @@ ARCH=		amd64
 # use the llvm/clang toolchain
 TOOLCHAIN?=	$S/../toolchain/x86_64-ananas-elf-
 CC=		${TOOLCHAIN}clang
+CXX=		${TOOLCHAIN}clang
 LD=		ld # FIXME not yet
 OBJDUMP=	${TOOLCHAIN}objdump
 # objcopy isn't present in llvm yet?
@@ -17,8 +18,11 @@ NM=		nm
 %OBJS
 %FILES
 
-CFLAGS=		-m64 -march=athlon64 -mcmodel=large -I$S/../include -I$S -I. -std=c99 -mno-red-zone -mno-sse -fno-stack-protector -DKERNEL
-CFLAGS+=	-Wall -Werror -g
+COMMON_FLAGS=	-m64 -march=athlon64 -mcmodel=large -I$S/../include -I$S -I. -mno-red-zone -mno-sse -fno-stack-protector -DKERNEL
+COMMON_FLAGS+=	-Wall -Werror -g
+
+CXXFLAGS=	-std=c++14 $(COMMON_FLAGS)
+CFLAGS=		-std=c99 $(COMMON_FLAGS)
 
 kernel:		kernel.full fileids.txt
 		$(OBJCOPY) -R '.traceids' -R '.tracenames' -R '.comment' kernel.full kernel 2> /dev/null
@@ -36,8 +40,8 @@ kernel.symbols:	kernel
 #
 # Assembly symbols: we need a way to pass symbols to our assembly scripts.
 #
-asmsyms.o:	$S/arch/${ARCH}/asmsyms.c
-		$(CC) $(CFLAGS) -c -o asmsyms.o $S/arch/${ARCH}/asmsyms.c
+asmsyms.o:	$S/arch/${ARCH}/asmsyms.cpp
+		$(CXX) $(CXXFLAGS) -c -o asmsyms.o $S/arch/${ARCH}/asmsyms.cpp
 
 asmsyms.h:	asmsyms.o $S/tools/gen_asmsyms.sh
 		$S/tools/gen_asmsyms.sh ${NM} ${AWK} asmsyms.o > asmsyms.h

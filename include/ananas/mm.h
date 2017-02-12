@@ -4,8 +4,14 @@
 #include <ananas/types.h>
 #include <ananas/cdefs.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 void* kmalloc(size_t len) __malloc;
 void  kfree(void* ptr);
+#ifdef __cplusplus
+}
+#endif
 
 void mm_init();
 void kmem_chunk_reserve(addr_t chunk_start, addr_t chunk_end, addr_t reserved_start, addr_t reserved_end, addr_t* out_start, addr_t* out_end);

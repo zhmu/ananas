@@ -20,6 +20,9 @@
 #define ROUND_DOWN(n, mult) \
 	(((n) % (mult) == 0) ? (n) : (n) - (n) % (mult))
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 void* memcpy(void* dst, const void* src, size_t len) __nonnull;
 void* memset(void* b, int c, size_t len) __nonnull;
 void vaprintf(const char* fmt, va_list ap);
@@ -46,5 +49,9 @@ unsigned long strtoul(const char* ptr, char** endptr, int base);
 
 /* Crude, but our memcpy() should be able to handle overlapping regions */
 #define memmove memcpy
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif /* __LIBKERN_H__ */

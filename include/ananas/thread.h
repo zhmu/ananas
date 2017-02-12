@@ -99,8 +99,8 @@ void thread_ref(thread_t* t);
 void thread_deref(thread_t* t);
 void thread_set_name(thread_t* t, const char* name);
 
-thread_t* md_thread_switch(thread_t* new, thread_t* old);
-void idle_thread();
+thread_t* md_thread_switch(thread_t* new_thread, thread_t* old_thread);
+void idle_thread(void*);
 
 void md_thread_set_entrypoint(thread_t* thread, addr_t entry);
 void md_thread_set_argument(thread_t* thread, addr_t arg);

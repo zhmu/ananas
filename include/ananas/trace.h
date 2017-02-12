@@ -65,7 +65,7 @@
 		TRACE_DO(x)
 
 #define TRACE_DEV(s,l,dev,fmt,...) \
-	TRACE(s,l, "%s%u: "fmt, dev->name, dev->unit, ## __VA_ARGS__)
+	TRACE(s,l, "%s%u: " fmt, dev->name, dev->unit, ## __VA_ARGS__)
 
 #define TRACE_ENABLE(s,l) \
 	trace_subsystem_mask[TRACE_SUBSYSTEM_##s] |= TRACE_LEVEL_##l

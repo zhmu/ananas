@@ -105,7 +105,11 @@ errorcode_t handle_register_type(struct HANDLE_TYPE* ht);
 errorcode_t handle_unregister_type(struct HANDLE_TYPE* ht);
 
 #define HANDLE_TYPE(id, name, ops) \
-	static struct HANDLE_TYPE ht_##id; \
+	static struct HANDLE_TYPE ht_##id = { \
+		.ht_name = name, \
+		.ht_id = id, \
+		.ht_hops = &ops \
+	}; \
 	static errorcode_t register_##id() { \
 		return handle_register_type(&ht_##id); \
 	}; \
@@ -113,11 +117,6 @@ errorcode_t handle_unregister_type(struct HANDLE_TYPE* ht);
 		return handle_unregister_type(&ht_##id); \
 	}; \
 	INIT_FUNCTION(register_##id, SUBSYSTEM_HANDLE, ORDER_SECOND); \
-	EXIT_FUNCTION(unregister_##id); \
-	static struct HANDLE_TYPE ht_##id = { \
-		.ht_name = name, \
-		.ht_id = id, \
-		.ht_hops = &ops \
-	}
+	EXIT_FUNCTION(unregister_##id)
 	
 #endif /* __SYS_HANDLE_H__ */

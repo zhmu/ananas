@@ -21,7 +21,7 @@ struct USB_TRANSFER;
  *  This describes a device driver.
  */
 struct DRIVER {
-	char*   	name;
+	const char*   	name;
 	unsigned int	current_unit;
 
 	errorcode_t	(*drv_probe)(device_t);
@@ -98,7 +98,7 @@ struct PROBE {
 	LIST_FIELDS(struct PROBE);
 
 	/* Busses this device appears on */
-	const char*	bus[];
+	const char*	busses;
 };
 LIST_DEFINE(DEVICE_PROBE, struct PROBE);
 
@@ -114,14 +114,12 @@ LIST_DEFINE(DEVICE_PROBE, struct PROBE);
 	EXIT_FUNCTION(unregister_##drvr); \
 	struct PROBE probe_##drvr = { \
 		.driver = &drv_##drvr, \
-		.bus = {
+		.busses =
 
 #define DRIVER_PROBE_BUS(bus) \
-			STRINGIFY(bus),
+			STRINGIFY(bus) ","
 
 #define DRIVER_PROBE_END() \
-			NULL \
-		} \
 	};
 
 device_t device_alloc(device_t bus, driver_t drv);
@@ -135,9 +133,9 @@ errorcode_t device_detach(device_t dev);
 errorcode_t device_register_probe(struct PROBE* p);
 errorcode_t device_unregister_probe(struct PROBE* p);
 
-errorcode_t device_write(device_t dev, const char* buf, size_t* len, off_t offset);
+errorcode_t device_write(device_t dev, const void* buf, size_t* len, off_t offset);
 errorcode_t device_bwrite(device_t dev, struct BIO* bio);
-errorcode_t device_read(device_t dev, char* buf, size_t* len, off_t offset);
+errorcode_t device_read(device_t dev, void* buf, size_t* len, off_t offset);
 errorcode_t device_bread(device_t dev, struct BIO* bio);
 
 struct DEVICE* device_find(const char* name);

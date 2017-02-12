@@ -30,7 +30,7 @@ static inline void md_interrupts_restore(int enabled)
 
 static inline int md_interrupts_save()
 {
-	register int r;
+	int r;
 	__asm __volatile(
 		/* get eflags */
 		"pushfq\n"

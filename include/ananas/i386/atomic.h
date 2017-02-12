@@ -15,7 +15,7 @@ static inline void atomic_set(atomic_t* a, int v)
 
 static inline int atomic_xchg(atomic_t* a, int v)
 {
-	register int m = v;
+	int m = v;
 	__asm __volatile(
 		"xchg (%1), %0"
 	: "+r" (m) : "r" (&a->value));

@@ -1,11 +1,11 @@
 # Note that the order in this file is the same order passed to the linker!
 arch/amd64/stub.S		mandatory
-arch/amd64/md_map.c		mandatory
-arch/amd64/md_thread.c		mandatory
-arch/amd64/md_vmspace.c		mandatory
-arch/amd64/startup.c		mandatory
+arch/amd64/md_map.cpp		mandatory
+arch/amd64/md_thread.cpp	mandatory
+arch/amd64/md_vmspace.cpp	mandatory
+arch/amd64/startup.cpp		mandatory
 arch/amd64/interrupts.S		mandatory
-arch/amd64/exception.c		mandatory
+arch/amd64/exception.cpp	mandatory
 arch/amd64/mp_stub.S		option SMP
 # Pull in generic x86 stuff
 include x86

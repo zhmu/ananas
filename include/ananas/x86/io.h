@@ -21,7 +21,7 @@ outl(uint16_t port, uint32_t data) {
 static inline uint8_t
 inb(uint16_t port)
 {
-	register uint8_t a;
+	uint8_t a;
 	__asm volatile ("inb %w1, %0" : "=a" (a) : "d" (port));
 	return a;
 }
@@ -29,7 +29,7 @@ inb(uint16_t port)
 static inline uint16_t
 inw(uint16_t port)
 {
-	register uint16_t a;
+	uint16_t a;
 	__asm volatile ("inw %w1, %0" : "=a" (a) : "d" (port));
 	return a;
 }
@@ -37,7 +37,7 @@ inw(uint16_t port)
 static inline uint32_t
 inl(uint16_t port)
 {
-	register uint32_t a;
+	uint32_t a;
 	__asm volatile ("inl %w1, %0" : "=a" (a) : "d" (port));
 	return a;
 }
@@ -45,7 +45,7 @@ inl(uint16_t port)
 static inline uint64_t
 rdtsc()
 {
-	register uint64_t v;
+	uint64_t v;
 #ifdef __i386__
 	__asm __volatile("rdtsc" : "=A" (v));
 #elif defined(__amd64__)

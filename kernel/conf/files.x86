@@ -1,22 +1,22 @@
-arch/x86/pic.c			mandatory
-arch/x86/pit.c			mandatory
-arch/x86/exceptions.c		mandatory
-arch/x86/debug-console.c	option DEBUG_CONSOLE
+arch/x86/pic.cpp		mandatory
+arch/x86/pit.cpp		mandatory
+arch/x86/exceptions.cpp		mandatory
+arch/x86/debug-console.cpp	option DEBUG_CONSOLE
 # SMP
-arch/x86/ioapic.c		option SMP
-arch/x86/smp.c			option SMP
-arch/x86/acpi-smp.c		option SMP
+arch/x86/ioapic.cpp		option SMP
+arch/x86/smp.cpp		option SMP
+arch/x86/acpi-smp.cpp		option SMP
 # ACPI
-dev/acpi/acpi.c			option ACPI
-dev/acpi/acpi_resource.c	option ACPI
+dev/acpi/acpi.cpp		option ACPI
+dev/acpi/acpi_resource.cpp	option ACPI
 # XXX this needs pci as well
-dev/acpi/acpi_pcihb.c		option ACPI
-dev/acpi/osl/osl_env.c		option ACPI
-dev/acpi/osl/osl_memory.c	option ACPI
-dev/acpi/osl/osl_thread.c	option ACPI
-dev/acpi/osl/osl_sync.c		option ACPI
-dev/acpi/osl/osl_resource.c	option ACPI
-dev/acpi/osl/osl_misc.c		option ACPI
+dev/acpi/acpi_pcihb.cpp		option ACPI
+dev/acpi/osl/osl_env.cpp	option ACPI
+dev/acpi/osl/osl_memory.cpp	option ACPI
+dev/acpi/osl/osl_thread.cpp	option ACPI
+dev/acpi/osl/osl_sync.cpp	option ACPI
+dev/acpi/osl/osl_resource.cpp	option ACPI
+dev/acpi/osl/osl_misc.cpp	option ACPI
 # ACPICA
 dev/acpi/acpica/dsinit.c	option ACPI
 dev/acpi/acpica/dsutils.c	option ACPI

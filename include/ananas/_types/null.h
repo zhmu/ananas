@@ -2,7 +2,11 @@
 #define __TYPES_NULL_H__
 
 #ifndef NULL
-#define NULL	((void*)0)
+#ifdef __cplusplus
+#define NULL nullptr
+#else
+#define NULL ((void*)0)
+#endif
 #endif
 
 #endif /* __TYPES_NULL_H__ */
