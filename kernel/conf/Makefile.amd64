@@ -21,7 +21,7 @@ NM=		nm
 COMMON_FLAGS=	-m64 -march=athlon64 -mcmodel=large -I$S/../include -I$S -I. -mno-red-zone -mno-sse -fno-stack-protector -DKERNEL
 COMMON_FLAGS+=	-Wall -Werror -g
 
-CXXFLAGS=	-std=c++14 $(COMMON_FLAGS)
+CXXFLAGS=	-std=c++14 $(COMMON_FLAGS) -fno-rtti -fno-exceptions
 CFLAGS=		-std=c99 $(COMMON_FLAGS)
 
 kernel:		kernel.full fileids.txt
