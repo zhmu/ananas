@@ -37,7 +37,7 @@ struct DMA_BUFFER_SEGMENT {
  * max_segs: Maximum number of segments supported by the device
  * max_seg_size: Maximum number of bytes per segment supported
  */
-errorcode_t dma_tag_create(dma_tag_t parent, device_t dev, dma_tag_t* tag, int alignment, dma_addr_t min_addr, dma_addr_t max_addr, unsigned int max_segs, dma_size_t max_seg_size);
+errorcode_t dma_tag_create(dma_tag_t parent, Ananas::Device& dev, dma_tag_t* tag, int alignment, dma_addr_t min_addr, dma_addr_t max_addr, unsigned int max_segs, dma_size_t max_seg_size);
 
 /* Destroys a given DMA tag */
 errorcode_t dma_tag_destroy(dma_tag_t tag);

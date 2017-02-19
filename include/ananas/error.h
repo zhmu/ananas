@@ -26,6 +26,7 @@
 #define ANANAS_ERROR_NO_SPACE		20		/* Out of space */
 #define ANANAS_ERROR_OUT_OF_MEMORY	21		/* Out of memory */
 #define ANANAS_ERROR_CROSS_DEVICE	22		/* Cross device operation */
+#define ANANAS_ERROR_UNSUPPORTED	23		/* Unsupported operation */
 
 static inline errorcode_t ananas_success()
 {
@@ -40,6 +41,11 @@ static inline int ananas_is_success(errorcode_t err)
 static inline int ananas_is_failure(errorcode_t err)
 {
 	return !ananas_is_success(err);
+}
+
+static inline errorcode_t ananas_make_error(int type)
+{
+	return type;
 }
 
 #define ANANAS_ERROR_RETURN(x) \

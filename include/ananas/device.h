@@ -2,6 +2,7 @@
 #define __DEVICE_H__
 
 #include <ananas/types.h>
+#include <ananas/error.h>
 #include <ananas/list.h>
 #include <ananas/lock.h>
 #include <ananas/init.h>
@@ -17,72 +18,101 @@ struct USB_BUS;
 struct USB_DEVICE;
 struct USB_TRANSFER;
 
-/*
- *  This describes a device driver.
- */
-struct DRIVER {
-	const char*   	name;
-	unsigned int	current_unit;
+namespace Ananas {
 
-	errorcode_t	(*drv_probe)(Ananas::ResourceSet&);
-	errorcode_t	(*drv_attach)(device_t);
-	errorcode_t	(*drv_detach)(device_t);
-	void		(*drv_dump)(device_t); /* debug dump */
-	void		(*drv_attach_children)(device_t);
-	errorcode_t	(*drv_write)(device_t, const void*, size_t*, off_t);
-	errorcode_t	(*drv_bwrite)(device_t, struct BIO*);
-	errorcode_t	(*drv_read)(device_t, void*, size_t*, off_t);
-	errorcode_t	(*drv_bread)(device_t, struct BIO*);
-	errorcode_t	(*drv_stat)(device_t, void*);
-	errorcode_t	(*drv_devctl)(device_t, process_t*, unsigned int, void*, size_t);
-	/* for block devices: enqueue request */
-	void		(*drv_enqueue)(device_t, void*);
-	/* for block devices: start request queue */
-	void		(*drv_start)(device_t);
-	/* USB */
-	errorcode_t	(*drv_usb_setup_xfer)(device_t, struct USB_TRANSFER*);
-	errorcode_t	(*drv_usb_schedule_xfer)(device_t, struct USB_TRANSFER*);
-	errorcode_t	(*drv_usb_cancel_xfer)(device_t, struct USB_TRANSFER*);
-	errorcode_t	(*drv_usb_teardown_xfer)(device_t, struct USB_TRANSFER*);
-	void*		(*drv_usb_hcd_initprivdata)(int);
-	void		(*drv_usb_set_roothub)(device_t, struct USB_DEVICE*);
-	errorcode_t	(*drv_roothub_xfer)(device_t, struct USB_TRANSFER*);
-	void		(*drv_usb_explore)(struct USB_DEVICE*);
+class IDeviceOperations {
+public:
+	virtual errorcode_t Attach() = 0;
+	virtual errorcode_t Detach() = 0;
+	virtual void DebugDump() { }
+
+	virtual errorcode_t DeviceControl(process_t* proc, unsigned int op, void* buffer, size_t len)
+	{
+		return ananas_make_error(ANANAS_ERROR_UNSUPPORTED);
+	}
 };
 
-/*
- * This describes a device; it is generally attached but this structure
- * is also used during probe / attach phase.
- */
-struct DEVICE {
-	/* Device's driver */
-	driver_t	driver;
+class ICharDeviceOperations {
+public:
+	virtual errorcode_t Write(const void* buffer, size_t& len, off_t offset)
+	{
+		return ananas_make_error(ANANAS_ERROR_UNSUPPORTED);
+	}
 
-	/* Parent device */
-	device_t	parent;
-
-	/* DMA tag assigned to the device */
-	dma_tag_t	dma_tag;
-
-	/* Unit number */
-	unsigned int	unit;
-
-	/* Device resources */
-	Ananas::ResourceSet d_resourceset;
-
-	/* Formatted name XXX */
-	char		name[128 /* XXX */];
-
-	/* Private data for the device driver */
-	void*		privdata;
-
-	/* Waiters */
-	semaphore_t	waiters;
-
-	/* Queue fields */
-	LIST_FIELDS(struct DEVICE);
+	virtual errorcode_t Read(void* buffer, size_t& len, off_t offset)
+	{
+		return ananas_make_error(ANANAS_ERROR_UNSUPPORTED);
+	}
 };
-LIST_DEFINE(DEVICE_QUEUE, struct DEVICE);
+
+class IBIODeviceOperations {
+public:
+	virtual errorcode_t ReadBIO(struct BIO& bio) = 0;
+	virtual errorcode_t WriteBIO(struct BIO& bio) = 0;
+};
+
+class IUSBDeviceOperations {
+public:
+	virtual errorcode_t SetupTransfer(struct USB_TRANSFER*) = 0;
+	virtual errorcode_t ScheduleTransfer(struct USB_TRANSFER*) = 0;
+	virtual errorcode_t CancelTransfer(struct USB_TRANSFER*) = 0;
+	virtual errorcode_t TearDownTransfer(struct USB_TRANSFER*) = 0;
+	virtual void* InitializeHCDPrivateData(int) = 0;
+	virtual void SetRootHub(struct USB_DEVICE*) = 0;
+	virtual errorcode_t RootHubTransfer(struct USB_TRANSFER*) = 0;
+	virtual void Explore(struct USB_DEVICE*) = 0;
+};
+
+class Device;
+struct DeviceProbe;
+
+struct CreateDeviceProperties
+{
+	CreateDeviceProperties(Ananas::Device& parent, const DeviceProbe& p, const Ananas::ResourceSet& resourceSet);
+	CreateDeviceProperties(Ananas::Device& parent, const char* name, int unit, const Ananas::ResourceSet& resourceSet = Ananas::ResourceSet())
+	 : cdp_Parent(&parent), cdp_Name(name), cdp_Unit(unit), cdp_ResourceSet(resourceSet)
+	{
+	}
+	CreateDeviceProperties(const char* name, int unit, const Ananas::ResourceSet& resourceSet = Ananas::ResourceSet())
+	 : cdp_Parent(nullptr), cdp_Name(name), cdp_Unit(unit), cdp_ResourceSet(resourceSet)
+	{
+	}
+
+	Ananas::Device* cdp_Parent = nullptr;
+	const char* cdp_Name = "???";
+	int cdp_Unit = -1;
+	Ananas::ResourceSet cdp_ResourceSet;
+};
+
+class Device {
+public:
+	Device(const CreateDeviceProperties& properties);
+	virtual ~Device();
+
+	virtual IDeviceOperations& GetDeviceOperations() = 0;
+
+	virtual ICharDeviceOperations* GetCharDeviceOperations() { return nullptr; }
+	virtual IBIODeviceOperations* GetBIODeviceOperations() { return nullptr; }
+	virtual IUSBDeviceOperations* GetUSBDeviceOperations() { return nullptr; }
+
+	void Printf(const char* fmt, ...) const;
+
+	// XXX Private me
+	LIST_FIELDS(Device);
+	Device* d_Parent = nullptr;
+	char d_Name[64]; // XXX
+	unsigned int d_Unit = -1;
+	ResourceSet d_ResourceSet;
+	dma_tag_t d_DMA_tag;
+	semaphore_t d_Waiters;
+
+	Device(const Device&) = delete;
+	Device& operator=(const Device&) = delete;
+};
+LIST_DEFINE(DeviceList, Device);
+
+// Create device function, used while probing
+typedef Device* (*CreateDeviceFunc)(const Ananas::CreateDeviceProperties& cdp);
 
 /*
  * The Device Probe structure describes a possible relationship between a bus
@@ -90,31 +120,45 @@ LIST_DEFINE(DEVICE_QUEUE, struct DEVICE);
  * it will use these declarations as an attempt to add all possible devices on
  * the bus.
  */
-struct PROBE {
-	/* Driver we are attaching */
-	driver_t	driver;
-
-	/* Queue fields */
-	LIST_FIELDS(struct PROBE);
+struct DeviceProbe {
+	const char* dp_Name;
+	int dp_CurrentUnit;
+	CreateDeviceFunc dp_CreateDeviceFunc;
+	LIST_FIELDS(DeviceProbe);
 
 	/* Busses this device appears on */
-	const char*	busses;
+	const char* dp_Busses;
 };
-LIST_DEFINE(DEVICE_PROBE, struct PROBE);
+LIST_DEFINE(DeviceProbeList, DeviceProbe);
 
-#define DRIVER_PROBE(drvr) \
-	extern struct PROBE probe_##drvr; \
-	static errorcode_t register_##drvr() { \
-		return device_register_probe(&probe_##drvr); \
+namespace DeviceManager {
+
+errorcode_t AttachSingle(Device& device);
+errorcode_t AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet);
+void AttachBus(Device& bus);
+Device* FindDevice(const char* name);
+
+errorcode_t RegisterDeviceProbe(DeviceProbe& p);
+errorcode_t UnregisterDeviceProbe(DeviceProbe& p);
+} // namespace DeviceManager
+
+} // namespace Ananas
+
+#define DRIVER_PROBE(id, name, create_dev_func) \
+	extern Ananas::DeviceProbe probe_##id; \
+	static errorcode_t register_##id() { \
+		return Ananas::DeviceManager::RegisterDeviceProbe(probe_##id); \
 	}; \
-	static errorcode_t unregister_##drvr() { \
-		return device_unregister_probe(&probe_##drvr); \
+	static errorcode_t unregister_##id() { \
+		return Ananas::DeviceManager::UnregisterDeviceProbe(probe_##id); \
 	}; \
-	INIT_FUNCTION(register_##drvr, SUBSYSTEM_DEVICE, ORDER_MIDDLE); \
-	EXIT_FUNCTION(unregister_##drvr); \
-	struct PROBE probe_##drvr = { \
-		.driver = &drv_##drvr, \
-		.busses =
+	INIT_FUNCTION(register_##id, SUBSYSTEM_DEVICE, ORDER_MIDDLE); \
+	EXIT_FUNCTION(unregister_##id); \
+	Ananas::DeviceProbe probe_##id= { \
+		.dp_Name = (name), \
+		.dp_CurrentUnit = 0, \
+		.dp_CreateDeviceFunc = &create_dev_func, \
+		.dp_Busses =
 
 #define DRIVER_PROBE_BUS(bus) \
 			STRINGIFY(bus) ","
@@ -122,30 +166,11 @@ LIST_DEFINE(DEVICE_PROBE, struct PROBE);
 #define DRIVER_PROBE_END() \
 	};
 
-device_t device_alloc(device_t bus, driver_t drv);
-void device_free(device_t dev);
-errorcode_t device_attach_single(device_t dev);
-errorcode_t device_attach_child(device_t dev);
-void device_attach_bus(device_t bus);
-device_t device_clone(device_t dev);
-errorcode_t device_detach(device_t dev);
-
-errorcode_t device_register_probe(struct PROBE* p);
-errorcode_t device_unregister_probe(struct PROBE* p);
-
-errorcode_t device_write(device_t dev, const void* buf, size_t* len, off_t offset);
-errorcode_t device_bwrite(device_t dev, struct BIO* bio);
-errorcode_t device_read(device_t dev, void* buf, size_t* len, off_t offset);
-errorcode_t device_bread(device_t dev, struct BIO* bio);
-
-struct DEVICE* device_find(const char* name);
-struct DEVICE_QUEUE* device_get_queue();
-
-void device_printf(device_t dev, const char* fmt, ...);
-
+/*
 void device_waiter_add_head(device_t dev, struct THREAD* thread);
 void device_waiter_add_tail(device_t dev, struct THREAD* thread);
 void device_waiter_signal(device_t dev);
+*/
 
 // Device-specific resource management; assigns the resource to the device
 void* operator new(size_t len, device_t dev) throw();

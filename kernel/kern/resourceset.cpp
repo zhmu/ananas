@@ -5,10 +5,10 @@
 
 namespace Ananas {
 
-Resource*
-ResourceSet::GetResource(const Resource::Type& type, size_t index)
+const Resource*
+ResourceSet::GetResource(const Resource::Type& type, size_t index) const
 {
-	for(Resource& res: rs_Resource) {
+	for(const Resource& res: rs_Resource) {
 		if (res.r_Type != type)
 			continue;
 		if (index-- > 0)
@@ -22,7 +22,7 @@ ResourceSet::GetResource(const Resource::Type& type, size_t index)
 void*
 ResourceSet::AllocateResource(const Resource::Type& type, Resource::Length length)
 {
-	auto res = GetResource(type, 0);
+	auto res = const_cast<Resource*>(GetResource(type, 0));
 	if (res == nullptr)
 		return nullptr; // no such resource
 

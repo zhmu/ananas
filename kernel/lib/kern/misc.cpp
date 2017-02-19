@@ -53,4 +53,9 @@ _panic(const char* file, const char* func, int line, const char* fmt, ...)
 	for(;;);
 }
 
+extern "C" void __cxa_pure_virtual()
+{
+	panic("pure virtual call");
+}
+
 /* vim:set ts=2 sw=2: */

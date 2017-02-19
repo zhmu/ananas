@@ -112,7 +112,7 @@ irqsource_find(unsigned int num)
 }
 
 errorcode_t
-irq_register(unsigned int no, device_t dev, irqfunc_t func, int type, void* context)
+irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, void* context)
 {
 	if (no >= MAX_IRQS)
 		return ANANAS_ERROR(BAD_RANGE);
@@ -189,7 +189,7 @@ irq_register(unsigned int no, device_t dev, irqfunc_t func, int type, void* cont
 }
 
 void
-irq_unregister(unsigned int no, device_t dev, irqfunc_t func, void* context)
+irq_unregister(unsigned int no, Ananas::Device* dev, irqfunc_t func, void* context)
 {
 	KASSERT(no < MAX_IRQS, "interrupt %u out of range", no);
 
@@ -305,7 +305,7 @@ KDB_COMMAND(irq, NULL, "Display IRQ status")
 				kprintf(" IRQ %d flags %x count %u stray %d\n", no, i->i_flags, i->i_count, i->i_straycount);
 				banner = 1;
 			}
-			kprintf("  device '%s' handler %p flags %x\n", (handler->h_device != NULL) ? handler->h_device->name : "<none>", handler->h_func, handler->h_flags);
+			kprintf("  device '%s' handler %p flags %x\n", (handler->h_device != NULL) ? handler->h_device->d_Name : "<none>", handler->h_func, handler->h_flags);
 		}
 		if (!banner && (i->i_flags != 0 || i->i_count > 0 || i->i_straycount > 0))
 			kprintf(" IRQ %d flags %x count %u stray %d\n", no, i->i_flags, i->i_count, i->i_straycount);

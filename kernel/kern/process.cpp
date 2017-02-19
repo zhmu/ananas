@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
+#include <ananas/init.h>
 #include <ananas/mm.h>
 #include <ananas/page.h>
 #include <ananas/handle.h>

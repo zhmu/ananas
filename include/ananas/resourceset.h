@@ -45,7 +45,7 @@ public:
 
 	void* AllocateResource(const Resource::Type& type, Resource::Length length);
 	bool AddResource(const Resource& resource);
-	Resource* GetResource(const Resource::Type& type, size_t index);
+	const Resource* GetResource(const Resource::Type& type, size_t index) const;
 	void Print() const;
 
 private:

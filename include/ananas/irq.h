@@ -12,7 +12,7 @@ typedef enum {
 } irqresult_t;
 
 /* Prototype of an IRQ handler function */
-typedef irqresult_t (*irqfunc_t)(device_t, void*);
+typedef irqresult_t (*irqfunc_t)(Ananas::Device*, void*);
 
 /*
  * Describes an IRQ source; this is generally an interrupt controller - every
@@ -42,7 +42,7 @@ LIST_DEFINE(IRQ_SOURCES, struct IRQ_SOURCE);
 
 /* Single IRQ handler */
 struct IRQ_HANDLER {
-	device_t		h_device;
+	Ananas::Device*		h_device;
 	void*			h_context;
 	irqfunc_t		h_func;
 	unsigned int		h_flags;
@@ -76,8 +76,8 @@ void irqsource_unregister(struct IRQ_SOURCE* source);
 #define IRQ_TYPE_ISR		1 /* do not launch the handler from a thread */
 #define IRQ_TYPE_IPI		IRQ_TYPE_ISR
 #define IRQ_TYPE_TIMER		IRQ_TYPE_ISR
-errorcode_t irq_register(unsigned int no, device_t dev, irqfunc_t func, int type, void* context);
-void irq_unregister(unsigned int no, device_t dev, irqfunc_t func, void* context);
+errorcode_t irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, void* context);
+void irq_unregister(unsigned int no, Ananas::Device* dev, irqfunc_t func, void* context);
 void irq_handler(unsigned int no);
 void irq_dump();
 
