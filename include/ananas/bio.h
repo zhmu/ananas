@@ -32,7 +32,7 @@ struct BIO {
 #define BIO_FLAG_PENDING	0x0001	/* Block is pending read */
 #define BIO_FLAG_DIRTY		0x0002	/* I/O needs to be written */
 #define BIO_FLAG_ERROR		0x8000	/* Request failed */
-	device_t	  device;	/* Device I/O'ing from */
+	Ananas::Device* device;	/* Device I/O'ing from */
 	blocknr_t	  block;	/* Block number to I/O */
 	blocknr_t	  io_block;	/* Translated block number to I/O */
 	unsigned int	  length;	/* Length in bytes (<= PAGE_SIZE, so int will do) */
@@ -49,14 +49,14 @@ struct BIO {
 void bio_set_error(struct BIO* bio);
 void bio_set_available(struct BIO* bio);
 void bio_set_dirty(struct BIO* bio);
-struct BIO* bio_get(device_t dev, blocknr_t block, size_t len, int flags);
+struct BIO* bio_get(Ananas::Device* device, blocknr_t block, size_t len, int flags);
 
-static inline struct BIO* bio_read(device_t dev, blocknr_t block, size_t len)
+static inline struct BIO* bio_read(Ananas::Device* device, blocknr_t block, size_t len)
 {
-	return bio_get(dev, block, len, 0);
+	return bio_get(device, block, len, 0);
 }
 
-struct BIO* bio_get_next(device_t dev);
+struct BIO* bio_get_next(Ananas::Device* device);
 void bio_free(struct BIO* bio);
 void bio_dump();
 

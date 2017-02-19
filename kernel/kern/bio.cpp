@@ -109,7 +109,7 @@ bio_flush(struct BIO* bio)
 
 	TRACE(BIO, INFO, "bio %p (lba %u) is dirty, flushing", bio, (uint32_t)bio->io_block);
 
-	errorcode_t err = device_bwrite(bio->device, bio);
+	errorcode_t err = bio->device->GetBIODeviceOperations()->WriteBIO(*bio);
 	if (ananas_is_failure(err)) {
 		kprintf("bio_flush(): device_write() failed, %i\n", err);
 		bio_set_error(bio);
@@ -174,9 +174,9 @@ bio_cleanup()
  * allocate a new one as required.
  */
 static struct BIO*
-bio_get_buffer(device_t dev, blocknr_t block, size_t len)
+bio_get_buffer(Ananas::Device* device, blocknr_t block, size_t len)
 {
-	TRACE(BIO, FUNC, "dev=%p, block=%u, len=%u", dev, (int)block, len);
+	TRACE(BIO, FUNC, "dev=%p, block=%u, len=%u", device, (int)block, len);
 	KASSERT((len % BIO_SECTOR_SIZE) == 0, "length %u not a multiple of bio sector size", len);
 
 	/* First of all, lock the corresponding queue */
@@ -186,7 +186,7 @@ bio_restart:
 
 	/* See if we can find the block in the bucket queue; if so, we can just return it */
 	LIST_FOREACH_IP(&bio_bucket[bucket_num], bucket, bio, struct BIO) {
-		if (bio->device != dev || bio->block != block)
+		if (bio->device != device || bio->block != block)
 			continue;
 
 		/*
@@ -282,7 +282,7 @@ bio_restartdata:
 	 * because the data isn't ready yet.
 	 */
 	bio->flags = BIO_FLAG_PENDING;
-	bio->device = dev;
+	bio->device = device;
 	bio->block = block;
 	bio->io_block = block;
 	bio->length = len;
@@ -301,9 +301,9 @@ bio_free(struct BIO* bio)
 }
 
 struct BIO*
-bio_get(device_t dev, blocknr_t block, size_t len, int flags)
+bio_get(Ananas::Device* device, blocknr_t block, size_t len, int flags)
 {
-	struct BIO* bio = bio_get_buffer(dev, block, len);
+	struct BIO* bio = bio_get_buffer(device, block, len);
 	if (flags & BIO_READ_NODATA) {
 		/*
 		 * The requester doesn't want the actual data; this means we needn't
@@ -321,12 +321,12 @@ bio_get(device_t dev, blocknr_t block, size_t len, int flags)
 	 * dirty blocks are never pending.
 	 */
 	if ((bio->flags & BIO_FLAG_PENDING) == 0) {
-		TRACE(BIO, INFO, "dev=%p, block=%u, len=%u ==> cached block %p", dev, (int)block, len, bio);
+		TRACE(BIO, INFO, "dev=%p, block=%u, len=%u ==> cached block %p", device, (int)block, len, bio);
 		return bio;
 	}
 
 	/* kick the device; we want it to read */
-	errorcode_t err = device_bread(dev, bio);
+	errorcode_t err = device->GetBIODeviceOperations()->ReadBIO(*bio);
 	if (ananas_is_failure(err)) {
 		kprintf("bio_read(): device_read() failed, %i\n", err);
 		bio_set_error(bio);
@@ -335,7 +335,7 @@ bio_get(device_t dev, blocknr_t block, size_t len, int flags)
 
 	/* ... and wait until we have something to report... */
 	bio_waitcomplete(bio);
-	TRACE(BIO, INFO, "dev=%p, block=%u, len=%u ==> new block %p", dev, (int)block, len, bio);
+	TRACE(BIO, INFO, "dev=%p, block=%u, len=%u ==> new block %p", device, (int)block, len, bio);
 	return bio;
 }
 
