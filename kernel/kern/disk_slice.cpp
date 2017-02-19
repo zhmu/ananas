@@ -5,52 +5,73 @@
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 
-struct SLICE_PRIVATE {
-	device_t biodev;
-	blocknr_t	first_block;
-	size_t	length;
+namespace {
+
+class Slice : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IBIODeviceOperations
+{
+public:
+	Slice(int unit, Ananas::Device* biodev, blocknr_t first_block, size_t length)
+	 : Device(Ananas::CreateDeviceProperties(*biodev, "slice", unit)),
+		 slice_biodev(biodev), slice_first_block(first_block), slice_length(length)
+	{
+		(void)slice_length; // XXX use
+	}
+
+	IDeviceOperations& GetDeviceOperations() override
+	{
+		return *this;
+	}
+
+	IBIODeviceOperations* GetBIODeviceOperations() override
+	{
+		return this;
+	}
+
+	errorcode_t Attach() override
+	{
+		return ananas_success();
+	}
+
+	errorcode_t Detach() override
+	{
+		return ananas_success();
+	}
+
+	errorcode_t ReadBIO(struct BIO& bio) override;
+	errorcode_t WriteBIO(struct BIO& bio) override;
+
+private:
+	Ananas::Device* slice_biodev;
+	blocknr_t	slice_first_block;
+	size_t slice_length;
 };
 
-static errorcode_t
-slice_bread(device_t dev, struct BIO* bio)
+errorcode_t
+Slice::ReadBIO(struct BIO& bio)
 {
-	/*
-	 * All we do is grab the request, mangle it and call the parent's read routine.
-	 */
-	struct SLICE_PRIVATE* privdata = (struct SLICE_PRIVATE*)dev->privdata;
-	bio->io_block = bio->block + privdata->first_block;
-	return device_bread(dev->parent, bio);
+	bio.io_block = bio.block + slice_first_block;
+	return slice_biodev->GetBIODeviceOperations()->ReadBIO(bio);
 }
 
-static errorcode_t
-slice_bwrite(device_t dev, struct BIO* bio)
+errorcode_t
+Slice::WriteBIO(struct BIO& bio)
 {
-	/*
-	 * All we do is grab the request, mangle it and call the parent's read routine.
-	 */
-	struct SLICE_PRIVATE* privdata = (struct SLICE_PRIVATE*)dev->privdata;
-	bio->io_block = bio->block + privdata->first_block;
-	return device_bwrite(dev->parent, bio);
+	bio.io_block = bio.block + slice_first_block;
+	return slice_biodev->GetBIODeviceOperations()->WriteBIO(bio);
 }
 
-static struct DRIVER drv_slice = {
-	.name	= "slice",
-	.drv_bread = slice_bread,
-	.drv_bwrite = slice_bwrite
-};
+} // namespace
 
-struct DEVICE*
-slice_create(device_t dev, blocknr_t begin, blocknr_t length)
+Ananas::Device*
+slice_create(Ananas::Device* parent, blocknr_t begin, blocknr_t length)
 {
-	device_t new_dev = device_alloc(dev, &drv_slice);
-	auto privdata = new(new_dev) SLICE_PRIVATE;
-	privdata->first_block = begin;
-	privdata->length = length;
-
-	new_dev->privdata = privdata;
-	device_attach_single(new_dev);
-
-	return new_dev;
+	int unit = 0; // XXX
+	auto device = new Slice(unit++, parent, begin, length);
+	if (ananas_is_failure(Ananas::DeviceManager::AttachSingle(*device))) {
+		delete device;
+		return NULL;
+	}
+	return device;
 }
 
 /* vim:set ts=2 sw=2: */

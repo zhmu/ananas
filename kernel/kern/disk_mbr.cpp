@@ -5,13 +5,11 @@
 #include <ananas/slice.h>
 #include <mbr.h>
 
-extern struct DRIVER drv_slice;
-
 int
-mbr_process(device_t dev, struct BIO* bio)
+mbr_process(Ananas::Device* device, struct BIO* bio)
 {
 	struct MBR* mbr = (struct MBR*)BIO_DATA(bio);
-	/* CTASSERT(sizeof(struct MBR) == 512, "MBR structure out of size"); */
+	static_assert(sizeof(struct MBR) == 512, "MBR structure out of size");
 
 	/* First of all, check the MBR signature. If this does not match, reject it */
 	if (((mbr->signature[1] << 8) | mbr->signature[0]) != MBR_SIGNATURE)
@@ -35,7 +33,7 @@ mbr_process(device_t dev, struct BIO* bio)
 			continue;
 
 		/* Excellent, we have a partition. Add the slice */
-		slice_create(dev, first_sector, size);
+		slice_create(device, first_sector, size);
 	}
 
 	return 0;

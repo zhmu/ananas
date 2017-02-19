@@ -1,9 +1,12 @@
 #include <ananas/types.h>
-#include <ananas/device.h>
 
 #ifndef __SLICE_H__
 #define __SLICE_H__
 
-struct DEVICE* slice_create(device_t dev, blocknr_t begin, blocknr_t length);
+namespace Ananas {
+class Device;
+}
+
+Ananas::Device* slice_create(Ananas::Device* parent, blocknr_t begin, blocknr_t length);
 
 #endif /* __SLICE_H__ */
