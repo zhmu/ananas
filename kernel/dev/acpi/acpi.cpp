@@ -8,8 +8,24 @@
 
 TRACE_SETUP;
 
-static ACPI_STATUS
-acpi_attach_device(ACPI_HANDLE ObjHandle, UINT32 Level, void* Context, void** ReturnValue)
+namespace {
+
+struct ACPI : public Ananas::Device, private Ananas::IDeviceOperations
+{
+	using Device::Device;
+
+	static ACPI_STATUS AttachDevice(ACPI_HANDLE ObjHandle, UINT32 Level, void* Context, void** ReturnValue);
+	IDeviceOperations& GetDeviceOperations() override
+	{
+		return *this;
+	}
+
+	errorcode_t Attach() override;
+	errorcode_t Detach() override;
+};
+
+ACPI_STATUS
+ACPI::AttachDevice(ACPI_HANDLE ObjHandle, UINT32 Level, void* Context, void** ReturnValue)
 {
 	ACPI_OBJECT_TYPE type;
 	if (ACPI_FAILURE(AcpiGetType(ObjHandle, &type)))
@@ -23,42 +39,20 @@ acpi_attach_device(ACPI_HANDLE ObjHandle, UINT32 Level, void* Context, void** Re
 	if (ACPI_FAILURE(AcpiGetName(ObjHandle, ACPI_FULL_PATHNAME, &buf)))
 		return AE_OK;
 
-	/* Make a device for us, we won't yet know the driver tho */
-	device_t bus = static_cast<device_t>(Context);
-	device_t dev = device_alloc(bus, NULL);
+	auto& acpi = *static_cast<ACPI*>(Context);
 
 	/* Fetch the device resources... */
-	if (ACPI_SUCCESS(acpi_process_resources(ObjHandle, dev))) {
-		/* ... and see if we can attach this device to something */
-		if (ananas_is_failure(device_attach_child(dev))) {
-			/*
-			 * Unable to attach - do not return failure here, we need to walk
-			 * deeper in the tree (ACPI won't list the PCI devices themselves,
-			 * but it does provide an overview of the ISA stuff which we can't
-			 * find otherwise)
-			 */
-			device_free(dev);
-		}
+	Ananas::ResourceSet resourceSet;
+	if (ACPI_SUCCESS(acpi_process_resources(ObjHandle, resourceSet))) {
+		/* ... and see if we can attach something to these resources */
+		Ananas::DeviceManager::AttachChild(acpi, resourceSet);
 	}
 
 	return AE_OK;
 }
 
-static errorcode_t
-acpi_probe(Ananas::ResourceSet& resourceSet)
-{
-	/*
-	 * XXX This means we'll end up finding the root pointer twice if it exists
-	 * since the attach function will do it too...
-	 */
-	ACPI_SIZE TableAddress;
-	if (AcpiFindRootPointer(&TableAddress) != AE_OK)
-		return ANANAS_ERROR(NO_DEVICE);
-	return ananas_success();
-}
-
-static errorcode_t
-acpi_attach(device_t dev)
+errorcode_t
+ACPI::Attach()
 {
 	ACPI_STATUS status;
 
@@ -90,10 +84,31 @@ acpi_attach(device_t dev)
 	/*
 	 * Now enumerate through all ACPI devices and see what we can find.
 	 */
-	AcpiWalkNamespace(ACPI_TYPE_ANY, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX, acpi_attach_device, NULL, dev, NULL);
+	AcpiWalkNamespace(ACPI_TYPE_ANY, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX, AttachDevice, NULL, this, NULL);
 
 	return ananas_success();
 }
+
+errorcode_t
+ACPI::Detach()
+{
+	return ananas_success();
+}
+
+Ananas::Device*
+acpi_CreateDevice(const Ananas::CreateDeviceProperties& cdp)
+{
+	/*
+	 * XXX This means we'll end up finding the root pointer twice if it exists
+	 * since the attach function will do it too...
+	 */
+	ACPI_SIZE TableAddress;
+	if (AcpiFindRootPointer(&TableAddress) != AE_OK)
+		return NULL;
+	return new ACPI(cdp);
+}
+
+} // unnamed namespace
 
 void
 acpi_init()
@@ -105,14 +120,7 @@ acpi_init()
 	AcpiInitializeTables(NULL, 2, TRUE);
 }
 
-struct DRIVER drv_acpi = {
-	.name				= "acpi",
-	.drv_probe	= acpi_probe,
-	.drv_attach	= acpi_attach,
-	.drv_write	= NULL
-};
-
-DRIVER_PROBE(acpi)
+DRIVER_PROBE(acpi, "acpi", acpi_CreateDevice)
 DRIVER_PROBE_BUS(corebus)
 DRIVER_PROBE_END()
 

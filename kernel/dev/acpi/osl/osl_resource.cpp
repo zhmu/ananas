@@ -16,7 +16,7 @@ struct ACPI_IRQ_INFO {
 };
 
 static irqresult_t
-acpi_irq_wrapper(device_t dev, void* context)
+acpi_irq_wrapper(Ananas::Device*, void* context)
 {
 	struct ACPI_IRQ_INFO* info = static_cast<ACPI_IRQ_INFO*>(context);
 	if (info->i_handler(info->i_context) == ACPI_INTERRUPT_HANDLED)

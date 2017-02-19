@@ -6,7 +6,7 @@
 using Resource = Ananas::Resource;
 
 ACPI_STATUS
-acpi_process_resources(ACPI_HANDLE ObjHandle, device_t dev)
+acpi_process_resources(ACPI_HANDLE ObjHandle, Ananas::ResourceSet& resourceSet)
 {
 	/* Fetch device information; we need the hardware ID */
 	ACPI_DEVICE_INFO* Info;
@@ -18,7 +18,7 @@ acpi_process_resources(ACPI_HANDLE ObjHandle, device_t dev)
 	    strncmp(Info->HardwareId.String, "PNP", 3) == 0) {
 		/* Fetch the value of the PNPxxxx string */
 		unsigned int pnpid = (unsigned int)strtoul(Info->HardwareId.String + 3 /* skip PNP */, NULL, 16);
-		dev->d_resourceset.AddResource(Resource(Resource::RT_PNP_ID, pnpid, 0));
+		resourceSet.AddResource(Resource(Resource::RT_PNP_ID, pnpid, 0));
 		ACPI_DPRINTF("> [%s]\n", Info->HardwareId.String);
 	}
  	AcpiOsFree(Info);
@@ -31,7 +31,6 @@ acpi_process_resources(ACPI_HANDLE ObjHandle, device_t dev)
 		return status;
 
 	/* Now, process the resources */
-	auto& resourceSet = dev->d_resourceset;
 	char* end = (char*)buf.Pointer + buf.Length;
 	for (char* ptr = static_cast<char*>(buf.Pointer); ptr < end; /* nothing */) {
 		ACPI_RESOURCE* res = (ACPI_RESOURCE*)ptr;

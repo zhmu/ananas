@@ -108,8 +108,8 @@
 #define _PCI_REG_RESERVED	0x38
 #define PCI_REG_INTERRUPT	0x3c
 
-void pci_write_cfg(device_t dev, uint32_t reg, uint32_t val, int size);
-uint32_t pci_read_cfg(device_t dev, uint32_t reg, int size);
-void pci_enable_busmaster(device_t dev, int on);
+void pci_write_cfg(Ananas::Device& dev, uint32_t reg, uint32_t val, int size);
+uint32_t pci_read_cfg(Ananas::Device& dev, uint32_t reg, int size);
+void pci_enable_busmaster(Ananas::Device& dev, bool on);
 
 #endif /* __BUS_PCI_H__ */

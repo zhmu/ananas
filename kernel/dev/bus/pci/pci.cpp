@@ -5,10 +5,27 @@
 #include <ananas/lib.h>
 #include <machine/pcihb.h>
 
-extern struct DRIVER drv_pcibus;
+Ananas::Device* pcibus_CreateDevice(const Ananas::CreateDeviceProperties& cdp);
 
-static errorcode_t
-pci_attach(device_t dev)
+namespace {
+
+class PCI : public Ananas::Device, private Ananas::IDeviceOperations
+{
+public:
+	using Device::Device;
+	virtual ~PCI() = default;
+
+	IDeviceOperations& GetDeviceOperations() override
+	{
+		return *this;
+	}
+
+	errorcode_t Attach() override;
+	errorcode_t Detach() override;
+};
+
+errorcode_t
+PCI::Attach()
 {
 	for (unsigned int bus = 0; bus < PCI_MAX_BUSSES; bus++) {
 		/*
@@ -19,22 +36,42 @@ pci_attach(device_t dev)
 		if ((dev_vendor & 0xffff) == PCI_NOVENDOR)
 			continue;
 
-		device_t new_bus = device_alloc(dev, &drv_pcibus);
-
-		Ananas::ResourceSet& resourceSet = new_bus->d_resourceset;
+		Ananas::ResourceSet resourceSet;
 		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_Bus, bus, 0));
 		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_VendorID, dev_vendor & 0xffff, 0));
 		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_DeviceID, dev_vendor >> 16, 0));
 
-		device_attach_single(new_bus);
+		static int pcibus_unit = 0; // XXX
+		Ananas::Device* new_bus = pcibus_CreateDevice(Ananas::CreateDeviceProperties(*this, "pcibus", pcibus_unit++, resourceSet));
+		if (new_bus != NULL)
+			Ananas::DeviceManager::AttachSingle(*new_bus);
 	}
 	return ananas_success();
 }
 
-void
-pci_write_cfg(device_t dev, uint32_t reg, uint32_t val, int size)
+errorcode_t
+PCI::Detach()
 {
-	Ananas::ResourceSet& resourceSet = dev->d_resourceset;
+	return ananas_success();
+}
+
+Ananas::Device*
+pci_CreateDevice(const Ananas::CreateDeviceProperties& cdp)
+{
+	return new PCI(cdp);
+}
+
+} // unnamed namespace
+
+DRIVER_PROBE(pci, "pci", pci_CreateDevice)
+DRIVER_PROBE_BUS(pcihb)
+DRIVER_PROBE_BUS(acpi-pcihb)
+DRIVER_PROBE_END()
+
+void
+pci_write_cfg(Ananas::Device& device, uint32_t reg, uint32_t val, int size)
+{
+	Ananas::ResourceSet& resourceSet = device.d_ResourceSet;
 	auto bus_res = resourceSet.GetResource(Ananas::Resource::RT_PCI_Bus, 0);
 	auto dev_res = resourceSet.GetResource(Ananas::Resource::RT_PCI_Device, 0); 
 	auto func_res = resourceSet.GetResource(Ananas::Resource::RT_PCI_Function, 0); 
@@ -44,9 +81,9 @@ pci_write_cfg(device_t dev, uint32_t reg, uint32_t val, int size)
 }
 
 uint32_t
-pci_read_cfg(device_t dev, uint32_t reg, int size)
+pci_read_cfg(Ananas::Device& device, uint32_t reg, int size)
 {
-	Ananas::ResourceSet& resourceSet = dev->d_resourceset;
+	Ananas::ResourceSet& resourceSet = device.d_ResourceSet;
 	auto bus_res = resourceSet.GetResource(Ananas::Resource::RT_PCI_Bus, 0);
 	auto dev_res = resourceSet.GetResource(Ananas::Resource::RT_PCI_Device, 0); 
 	auto func_res = resourceSet.GetResource(Ananas::Resource::RT_PCI_Function, 0); 
@@ -56,25 +93,14 @@ pci_read_cfg(device_t dev, uint32_t reg, int size)
 }
 
 void
-pci_enable_busmaster(device_t dev, int on)
+pci_enable_busmaster(Ananas::Device& device, bool on)
 {
-	uint32_t cmd = pci_read_cfg(dev, PCI_REG_STATUSCOMMAND, 32);
+	uint32_t cmd = pci_read_cfg(device, PCI_REG_STATUSCOMMAND, 32);
 	if (on)
 		cmd |= PCI_CMD_BM;
 	else
 		cmd &= ~PCI_CMD_BM;
-	pci_write_cfg(dev, PCI_REG_STATUSCOMMAND, cmd, 32);
+	pci_write_cfg(device, PCI_REG_STATUSCOMMAND, cmd, 32);
 }
-
-struct DRIVER drv_pci = {
-	.name					= "pci",
-	.drv_probe		= NULL,
-	.drv_attach		= pci_attach
-};
-
-DRIVER_PROBE(pci)
-DRIVER_PROBE_BUS(pcihb)
-DRIVER_PROBE_BUS(acpi-pcihb)
-DRIVER_PROBE_END()
 
 /* vim:set ts=2 sw=2: */

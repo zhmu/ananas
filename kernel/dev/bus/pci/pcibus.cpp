@@ -4,12 +4,28 @@
 #include <ananas/lib.h>
 #include <machine/pcihb.h>
 
-extern struct PROBE* devprobe[];
+namespace {
 
-static errorcode_t
-pcibus_attach(device_t dev)
+class PCIBus : public Ananas::Device, private Ananas::IDeviceOperations
 {
-	auto busResource = dev->d_resourceset.GetResource(Ananas::Resource::RT_PCI_Bus, 0);
+public:
+	using Device::Device;
+	virtual ~PCIBus() = default;
+
+	IDeviceOperations& GetDeviceOperations() override
+	{
+		return *this;
+	}
+
+	errorcode_t Attach() override;
+	errorcode_t Detach() override;
+
+};
+
+errorcode_t
+PCIBus::Attach()
+{
+	auto busResource = d_ResourceSet.GetResource(Ananas::Resource::RT_PCI_Bus, 0);
 	KASSERT(busResource != nullptr, "called without a PCI bus resource");
 
 	unsigned int busno = busResource->r_Base;
@@ -37,9 +53,8 @@ pcibus_attach(device_t dev)
 			 */
 			uint32_t class_revision = pci_read_config(busno, devno, funcno, PCI_REG_CLASSREVISION, 32);
 
-			/* Create a new device and populate it with PCI resources */
-			device_t new_dev = device_alloc(dev, NULL);
-			Ananas::ResourceSet& resourceSet = new_dev->d_resourceset;
+			// Collect the PCI resources
+			Ananas::ResourceSet resourceSet;
 			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_Bus, busno, 0));
 			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_Device, devno, 0));
 			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_Function, funcno, 0));
@@ -95,30 +110,33 @@ pcibus_attach(device_t dev)
 				resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IRQ, irq, 0));
 
 			/* Attempt to attach this new child device */
-			if (ananas_is_success(device_attach_child(new_dev)))
+			if (ananas_is_success(Ananas::DeviceManager::AttachChild(*this, resourceSet)))
 				continue;
 #if 0
-			device_printf(dev, "no match for vendor 0x%x device 0x%x class %u, device ignored",
+			Printf("no match for vendor 0x%x device 0x%x class %u, device ignored",
 				dev_vendor & 0xffff, dev_vendor >> 16, PCI_CLASS(class_revision));
 #endif
-			device_free(new_dev);
 		}
 	}
 	return ananas_success();
 }
 
-struct DRIVER drv_pcibus = {
-	.name			= "pcibus",
-	.drv_probe		= NULL,
-	.drv_attach		= pcibus_attach
-};
+errorcode_t
+PCIBus::Detach()
+{
+	return ananas_success();
+}
 
-DRIVER_PROBE(pcibus)
-/*
- * The 'pci' driver will attach each bus itself as needed. 
- *
- * DRIVER_PROBE_BUS(pci)
- */
+} // unnamed namespace
+
+Ananas::Device*
+pcibus_CreateDevice(const Ananas::CreateDeviceProperties& cdp)
+{
+	return new PCIBus(cdp);
+}
+
+DRIVER_PROBE(pcibus, "pcibus", pcibus_CreateDevice)
+// The 'pci' driver will attach each bus itself as needed.
 "" // HACK
 DRIVER_PROBE_END()
 
