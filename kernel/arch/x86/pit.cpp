@@ -17,7 +17,7 @@ extern int md_cpu_clock_mhz;
 static uint64_t tsc_boot_time;
 
 static irqresult_t
-x86_pit_irq(struct DEVICE*, void*)
+x86_pit_irq(Ananas::Device*, void*)
 {
 	PCPU_SET(tickcount, PCPU_GET(tickcount) + 1);
 	if (!scheduler_activated())

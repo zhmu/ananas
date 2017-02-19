@@ -65,7 +65,7 @@ get_num_cpus()
 }
 
 static irqresult_t
-smp_ipi_schedule(device_t dev, void* context)
+smp_ipi_schedule(Ananas::Device*, void* context)
 {
 	/* Flip the reschedule flag of the current thread; this makes the IRQ reschedule us as needed */
 	thread_t* curthread = PCPU_GET(curthread);
@@ -74,7 +74,7 @@ smp_ipi_schedule(device_t dev, void* context)
 }
 
 static irqresult_t
-smp_ipi_panic(device_t dev, void* context)
+smp_ipi_panic(Ananas::Device*, void* context)
 {
 	md_interrupts_disable();
 	while (1) {
