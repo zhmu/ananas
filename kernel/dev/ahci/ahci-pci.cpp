@@ -17,25 +17,19 @@
 #include <machine/param.h>
 #include <machine/dma.h>
 #include <machine/vm.h>
+#include "ahci.h"
 
 TRACE_SETUP;
 
-#define AHCI_WRITE_4(reg, val) \
-	*(volatile uint32_t*)(privdata->ap_addr + (reg)) = (val)
-#define AHCI_READ_4(reg) \
-	(*(volatile uint32_t*)(privdata->ap_addr + (reg)))
+Ananas::AHCI::Port* ahciport_CreateDevice(Ananas::AHCI::AHCIDevice& device, const Ananas::CreateDeviceProperties& cdp);
 
-extern struct DRIVER drv_ahcipci_port;
+namespace Ananas {
+namespace AHCI {
 
-extern void ahcipci_port_irq(device_t dev, struct AHCI_PCI_PORT* p, uint32_t pis);
-
-irqresult_t
-ahcipci_irq(device_t dev, void* context)
+void
+AHCIDevice::OnIRQ()
 {
-	auto pd = static_cast<struct AHCI_PRIVDATA*>(dev->privdata);
-	auto privdata = static_cast<struct AHCI_PCI_PRIVDATA*>(pd->ahci_dev_privdata);
-
-	uint32_t is = AHCI_READ_4(AHCI_REG_IS);
+	uint32_t is = Read(AHCI_REG_IS);
 	AHCI_DPRINTF("irq: is=%x", is);
 
 	for (unsigned int n = 0; n < 32; n++) {
@@ -43,79 +37,46 @@ ahcipci_irq(device_t dev, void* context)
 			continue;
 
 		/* XXX We could directly look them up */
-		struct AHCI_PCI_PORT* p = NULL;
-		for (unsigned int i = 0; i < privdata->ap_num_ports; i++)
-			if (privdata->ap_port[i].p_num == n) {
-				p = &privdata->ap_port[i];
+		Port* p = NULL;
+		for (unsigned int i = 0; i < ap_num_ports; i++)
+			if (ap_port[i]->p_num == n) {
+				p = ap_port[i];
 				break;
 			}
 
-		uint32_t pis = AHCI_READ_4(AHCI_REG_PxIS(n));
-		AHCI_WRITE_4(AHCI_REG_PxIS(n), pis);
-		if (p != NULL && p->p_dev != NULL) {
-			ahcipci_port_irq(p->p_dev, p, pis);
+		uint32_t pis = Read(AHCI_REG_PxIS(n));
+		Write(AHCI_REG_PxIS(n), pis);
+		if (p != NULL) {
+			p->OnIRQ(pis);
 		} else {
 			AHCI_DPRINTF("got IRQ for unsupported port %d", n);
 		}
 	}
-	AHCI_WRITE_4(AHCI_REG_IS, is);
-
-	return IRQ_RESULT_PROCESSED;
+	Write(AHCI_REG_IS, is);
 }
 
-static errorcode_t
-ahcipci_probe(Ananas::ResourceSet& resourceSet)
+errorcode_t
+AHCIDevice::ResetPort(Port& p)
 {
-	auto res = resourceSet.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
-	if (res == NULL)
-		return ANANAS_ERROR(NO_DEVICE);
-	uint32_t classrev = res->r_Base;
-
-	/* Anything AHCI will do */
-	if (PCI_CLASS(classrev) == PCI_CLASS_STORAGE && PCI_SUBCLASS(classrev) == PCI_SUBCLASS_SATA &&
-	    PCI_REVISION(classrev) == 1 /* AHCI */)
-		return ananas_success();
-
-	/* And some specific devices which pre-date this schema */
-	res = resourceSet.GetResource(Ananas::Resource::RT_PCI_VendorID, 0);
-	uint32_t vendor = res->r_Base;
-	res = resourceSet.GetResource(Ananas::Resource::RT_PCI_DeviceID, 0);
-	uint32_t device = res->r_Base;
-	if (vendor == 0x8086 && device == 0x2922) /* Intel ICH9, like what is in QEMU */
-		return ananas_success();
-	if (vendor == 0x8086 && device == 0x2829) /* Intel ICH8M, like what is in VirtualBox */
-		return ananas_success();
-	if (vendor == 0x10de && device == 0x7f4) /* NForce 630i SATA */
-		return ananas_success();
-	if (vendor == 0x1039 && device == 0x1185) /* SiS AHCI Controller (0106) */
-		return ananas_success();
-	return ANANAS_ERROR(NO_RESOURCE);
-}
-
-static errorcode_t
-ahcipci_reset_port(device_t dev, struct AHCI_PCI_PORT* p)
-{
-	auto pd = static_cast<struct AHCI_PRIVDATA*>(dev->privdata);
-	auto privdata = static_cast<struct AHCI_PCI_PRIVDATA*>(pd->ahci_dev_privdata);
-	int n = p->p_num;
+	int n = p.p_num;
 
 	/* Force a hard port reset */
-	AHCI_WRITE_4(AHCI_REG_PxSCTL(n), AHCI_PxSCTL_DET(AHCI_DET_RESET));
+	Write(AHCI_REG_PxSCTL(n), AHCI_PxSCTL_DET(AHCI_DET_RESET));
 	delay(100);
-	AHCI_WRITE_4(AHCI_REG_PxSCTL(n), AHCI_READ_4(AHCI_REG_PxSCTL(n)) & ~AHCI_PxSCTL_DET(AHCI_DET_RESET));
+	Write(AHCI_REG_PxSCTL(n), Read(AHCI_REG_PxSCTL(n)) & ~AHCI_PxSCTL_DET(AHCI_DET_RESET));
 	delay(100);
 
 	/* Wait until the port shows some life */
 	int port_delay = 100;
 	while(port_delay > 0) {
-		int detd = AHCI_PxSSTS_DETD(AHCI_READ_4(AHCI_REG_PxSSTS(n)));
+		int detd = AHCI_PxSSTS_DETD(Read(AHCI_REG_PxSSTS(n)));
 		if (detd == AHCI_DETD_DEV_NO_PHY || detd == AHCI_DETD_DEV_PHY)
 			break;
 		delay(1);
 		port_delay--;
 	}
 	if (port_delay == 0) {
-		device_printf(dev, "port #%d not responding; no device?", n);
+		Printf("port #%d not responding; no device?", n);
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 
@@ -123,25 +84,25 @@ ahcipci_reset_port(device_t dev, struct AHCI_PCI_PORT* p)
 	 * Okay, we now need to clear the error register; this should allow us to
 	 * transition to active mode
 	 */
-	AHCI_WRITE_4(AHCI_REG_PxSERR(n), 0xffffffff);
+	Write(AHCI_REG_PxSERR(n), 0xffffffff);
 
 	port_delay = 1000;
 	while(port_delay > 0) {
-		int detd = AHCI_PxSSTS_DETD(AHCI_READ_4(AHCI_REG_PxSSTS(n)));
+		int detd = AHCI_PxSSTS_DETD(Read(AHCI_REG_PxSSTS(n)));
 		if (detd == AHCI_DETD_DEV_PHY)
 			break;
 		delay(1);
 		port_delay--;
 	}
 	if (port_delay == 0) {
-		device_printf(dev, "port #%d doesn't go to dev/phy", n);
+		Printf("port #%d doesn't go to dev/phy", n);
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 
 	/* Now wait for a bit until the port's BSY flag drops */
 	port_delay = 1000;
 	while(port_delay > 0) {
-		uint32_t tfd = AHCI_READ_4(AHCI_REG_PxTFD(n));
+		uint32_t tfd = Read(AHCI_REG_PxTFD(n));
 		if ((tfd & 0x80) == 0)
 			break;
 		delay(10);
@@ -149,39 +110,35 @@ ahcipci_reset_port(device_t dev, struct AHCI_PCI_PORT* p)
 	}
 
 	if (port_delay == 0)
-		device_printf(dev, "port #%d alive but never clears bsy?!", n);
+		Printf("port #%d alive but never clears bsy?!", n);
 	else
-		device_printf(dev, "port #%d okay", n);
+		Printf("port #%d okay", n);
 
 	/* Reset any port errors */
-	AHCI_WRITE_4(AHCI_REG_PxSERR(n), 0xffffffff);
+	Write(AHCI_REG_PxSERR(n), 0xffffffff);
 
 	/* Clear any pending interrupts */
-	AHCI_WRITE_4(AHCI_REG_PxIS(n), 0xffffffff);
+	Write(AHCI_REG_PxIS(n), 0xffffffff);
 
 	return ananas_success();
 }
 
-static errorcode_t
-ahcipci_attach(device_t dev)
+errorcode_t
+AHCIDevice::Attach()
 {
-	char* res_mem = static_cast<char*>(dev->d_resourceset.AllocateResource(Ananas::Resource::RT_Memory, 4096));
-	void* res_irq = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_IRQ, 0);
+	char* res_mem = static_cast<char*>(d_ResourceSet.AllocateResource(Ananas::Resource::RT_Memory, 4096));
+	void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 	if (res_mem == NULL || res_irq == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 
 	/* Enable busmastering; all communication is done by DMA */
-	pci_enable_busmaster(dev, 1);
+	pci_enable_busmaster(*this, 1);
 
 	/* XXX I wonder if the BIOS/OS handoff (10.6) should happen here? */
 	if (*(volatile uint32_t*)(res_mem + AHCI_REG_CAP2) & AHCI_CAP2_BOH) {
-		kprintf("NEED BIOS stuff\n");
+		Printf("NEED BIOS stuff");
 	}
 
-	/*
-	 * While initializing, do not use AHCI_READ_ for this because we need to
-	 * allocate the privdata based on the number of ports we have.
-	 */
 	/* Enable AHCI aware mode, but disable interrupts */
 	*(volatile uint32_t*)(res_mem + AHCI_REG_GHC) = AHCI_GHC_AE;
 
@@ -195,7 +152,7 @@ ahcipci_attach(device_t dev)
 		delay(1);
 	}
 	if (reset_wait == 0) {
-		device_printf(dev, "controller never leaves reset, giving up");
+		Printf("controller never leaves reset, giving up");
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 	/* Re-enable AHCI mode; this is part of what is reset */
@@ -209,41 +166,36 @@ ahcipci_attach(device_t dev)
 			num_ports++;
 	AHCI_DPRINTF("pi=%x -> #ports=%d", pi, num_ports);
 
-	/* We can grab memory now */
-	auto privdata = static_cast<struct AHCI_PCI_PRIVDATA*>(kmalloc(sizeof(struct AHCI_PCI_PRIVDATA) + sizeof(struct AHCI_PCI_PORT) * num_ports));
-	memset(privdata, 0, sizeof(*privdata) + sizeof(struct AHCI_PCI_PORT) * num_ports);
-	privdata->ap_addr = (addr_t)res_mem;
-	privdata->ap_pi = pi;
-	privdata->ap_num_ports = num_ports;
+	/* Initialize the per-port structures */
+	ap_port = new Port*[num_ports];
+	for (unsigned int n = 0; n < num_ports; n++)
+		ap_port[n] = nullptr;
+	ap_addr = (addr_t)res_mem;
+	ap_pi = pi;
+	ap_num_ports = num_ports;
 
 	/* Create DMA tags; we need those to do DMA */
-	errorcode_t err = dma_tag_create(dev->parent->dma_tag, dev, &dev->dma_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE);
+	errorcode_t err = dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE);
 	ANANAS_ERROR_RETURN(err);
 
-	uint32_t cap = AHCI_READ_4(AHCI_REG_CAP);
-	privdata->ap_ncs = AHCI_CAP_NCS(cap) + 1;
+	uint32_t cap = Read(AHCI_REG_CAP);
+	ap_ncs = AHCI_CAP_NCS(cap) + 1;
 
-	/* XXX */
-	auto pd = new(dev) AHCI_PRIVDATA;
-	memset(pd, 0, sizeof(*pd));
-	pd->ahci_dev_privdata = privdata;
-	dev->privdata = pd;
-
-	err = irq_register((int)(uintptr_t)res_irq, dev, ahcipci_irq, IRQ_TYPE_DEFAULT, privdata);
+	err = irq_register((int)(uintptr_t)res_irq, this, IRQWrapper, IRQ_TYPE_DEFAULT, NULL);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Force all ports into idle mode */
 	int need_wait = 0;
 	for (unsigned int n = 0; n < 32; n++) {
-		if ((privdata->ap_pi & AHCI_PI_PI(n)) == 0)
+		if ((ap_pi & AHCI_PI_PI(n)) == 0)
 			continue;
 
 		/* Check if the port is idle; if this is true, we needn't do anything here */
-		if ((AHCI_READ_4(AHCI_REG_PxCMD(n)) & (AHCI_PxCMD_ST | AHCI_PxCMD_CR | AHCI_PxCMD_FRE | AHCI_PxCMD_FR)) == 0)
+		if ((Read(AHCI_REG_PxCMD(n)) & (AHCI_PxCMD_ST | AHCI_PxCMD_CR | AHCI_PxCMD_FRE | AHCI_PxCMD_FR)) == 0)
 			continue;
 
 		/* Port still running; reset ST and FRE (this is acknowledged by the CR and FR being cleared) */
-		AHCI_WRITE_4(AHCI_REG_PxCMD(n), (AHCI_READ_4(AHCI_REG_PxCMD(n)) & ~(AHCI_PxCMD_ST | AHCI_PxCMD_FRE)));
+		Write(AHCI_REG_PxCMD(n), (Read(AHCI_REG_PxCMD(n)) & ~(AHCI_PxCMD_ST | AHCI_PxCMD_FRE)));
 		need_wait++;
 	}
 
@@ -254,50 +206,56 @@ ahcipci_attach(device_t dev)
 
 		/* Check if they are all okay */
 		for (unsigned int n = 0; n < 32; n++) {
-			if ((privdata->ap_pi & AHCI_PI_PI(n)) == 0)
+			if ((ap_pi & AHCI_PI_PI(n)) == 0)
 				continue;
 
-			if ((AHCI_READ_4(AHCI_REG_PxCMD(n)) & (AHCI_PxCMD_CR | AHCI_PxCMD_FR)) != 0)
+			if ((Read(AHCI_REG_PxCMD(n)) & (AHCI_PxCMD_CR | AHCI_PxCMD_FR)) != 0)
 				ok = 0;
 		}
 		if (!ok) {
 			/* XXX we can and should recover from this */
-			device_printf(dev, "not all ports reset correctly");
+			Printf("not all ports reset correctly");
 			return ANANAS_ERROR(NO_DEVICE);
 		}
 	}
 
 	/* Allocate memory and program buffers for all usable ports */
+	static int port_unit = 0; // XXX
 	int idx = 0;
 	for (unsigned int n = 0; n < 32; n++) {
-		if ((privdata->ap_pi & AHCI_PI_PI(n)) == 0)
+		if ((ap_pi & AHCI_PI_PI(n)) == 0)
 			continue;
-		struct AHCI_PCI_PORT* p = &privdata->ap_port[idx];
+
+		// Make the device here; we'll initialize part of it shortly. Do not call
+		// attachSingle() as we need interrupts for that, which we can't handle yet
+		Ananas::ResourceSet resourceSet;
+		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_ChildNum, n, 0));
+		Port* p = ahciport_CreateDevice(*this, Ananas::CreateDeviceProperties(*this, "ahci-port", port_unit++, resourceSet));
+		ap_port[idx] = p;
 		idx++;
 
 		/* Create DMA-able memory buffers for the command list and RFIS */
-		err = dma_buf_alloc(dev->dma_tag, 1024, &p->p_dmabuf_cl);
+		err = dma_buf_alloc(d_DMA_tag, 1024, &p->p_dmabuf_cl);
 		ANANAS_ERROR_RETURN(err);
-		err = dma_buf_alloc(dev->dma_tag, 256, &p->p_dmabuf_rfis);
+		err = dma_buf_alloc(d_DMA_tag, 256, &p->p_dmabuf_rfis);
 		ANANAS_ERROR_RETURN(err);
 
 		spinlock_init(&p->p_lock);
-		p->p_pd = privdata;
 		p->p_cle = static_cast<struct AHCI_PCI_CLE*>(dma_buf_get_segment(p->p_dmabuf_cl, 0)->s_virt);
 		p->p_rfis = static_cast<struct AHCI_PCI_RFIS*>(dma_buf_get_segment(p->p_dmabuf_rfis, 0)->s_virt);
 		p->p_num = n;
 
 		/* Program our command list and FIS buffer addresses */
 		uint64_t addr_cl = dma_buf_get_segment(p->p_dmabuf_cl, 0)->s_phys;
-		AHCI_WRITE_4(AHCI_REG_PxCLB(n), addr_cl & 0xffffffff);
-		AHCI_WRITE_4(AHCI_REG_PxCLBU(n), addr_cl >> 32);
+		Write(AHCI_REG_PxCLB(n), addr_cl & 0xffffffff);
+		Write(AHCI_REG_PxCLBU(n), addr_cl >> 32);
 		uint64_t addr_rfis = dma_buf_get_segment(p->p_dmabuf_rfis, 0)->s_phys;
-		AHCI_WRITE_4(AHCI_REG_PxFB(n), addr_rfis & 0xffffffff);
-		AHCI_WRITE_4(AHCI_REG_PxFBU(n), addr_rfis >> 32);
+		Write(AHCI_REG_PxFB(n), addr_rfis & 0xffffffff);
+		Write(AHCI_REG_PxFBU(n), addr_rfis >> 32);
 		AHCI_DPRINTF("## port %d command list at %p rfis at %p",  n, addr_cl, addr_rfis);
 
 		/* Activate the channel */
-		AHCI_WRITE_4(AHCI_REG_PxCMD(n),
+		Write(AHCI_REG_PxCMD(n),
 		 AHCI_PxCMD_ICC(AHCI_ICC_ACTIVE) |
 		 AHCI_PxCMD_POD |	AHCI_PxCMD_SUD
 		);
@@ -306,13 +264,13 @@ ahcipci_attach(device_t dev)
 		 * Enable receiving of FISes; we'll remain BSY without this as we need to
 		 * retrieve the device's signature...
 		 */
-		AHCI_WRITE_4(AHCI_REG_PxCMD(n), AHCI_READ_4(AHCI_REG_PxCMD(n)) | AHCI_PxCMD_FRE);
+		Write(AHCI_REG_PxCMD(n), Read(AHCI_REG_PxCMD(n)) | AHCI_PxCMD_FRE);
 
 		/* Reset the port to ensure the device is in a sane state */
-		ahcipci_reset_port(dev, p);
+		ResetPort(*p);
 
 		/* XXX For now, be extra interrupt-prone */
-		AHCI_WRITE_4(AHCI_REG_PxIE(n),
+		Write(AHCI_REG_PxIE(n),
 		 AHCI_PxIE_CPDE | AHCI_PxIE_TFEE | AHCI_PxIE_HBFE | AHCI_PxIE_HBDE |
 		 AHCI_PxIE_IFE | AHCI_PxIE_INFE | AHCI_PxIE_OFE | AHCI_PxIE_IPME |
 		 AHCI_PxIE_PRCE | AHCI_PxIE_DMPE | AHCI_PxIE_PCE | AHCI_PxIE_DPE |
@@ -322,8 +280,8 @@ ahcipci_attach(device_t dev)
 	}
 
 	/* Enable global AHCI interrupts */
-	AHCI_WRITE_4(AHCI_REG_IS, 0xffffffff);
-	AHCI_WRITE_4(AHCI_REG_GHC, AHCI_READ_4(AHCI_REG_GHC) | AHCI_GHC_IE);
+	Write(AHCI_REG_IS, 0xffffffff);
+	Write(AHCI_REG_GHC, Read(AHCI_REG_GHC) | AHCI_GHC_IE);
 
 	/*
 	 * Interrupts are enabled; ports should be happy - now, attach all devices on
@@ -331,33 +289,60 @@ ahcipci_attach(device_t dev)
 	 */
 	idx = 0;
 	for (unsigned int n = 0; n < 32; n++) {
-		if ((privdata->ap_pi & AHCI_PI_PI(n)) == 0)
+		if ((ap_pi & AHCI_PI_PI(n)) == 0)
 			continue;
-		struct AHCI_PCI_PORT* p = &privdata->ap_port[idx];
-		idx++;
+		Port* p = ap_port[idx++];
 
-		/*
-		 * Create a port device here; the port will handle device attaching,
-		 * command queuing and other such things. Things like disks and ATAPI
-		 * devices will connect to the port itself.
-		 */
-		device_t port_dev = device_alloc(dev, &drv_ahcipci_port);
-		port_dev->privdata = p;
-		p->p_dev = port_dev;
-		port_dev->d_resourceset.AddResource(Ananas::Resource(Ananas::Resource::RT_ChildNum, n, 0));
-		device_attach_single(port_dev); /* XXX check error */
+		// Attach the port; things like disks will be attached on top of it
+		Ananas::DeviceManager::AttachSingle(*p); /* XXX check error */
 	}
 
 	return ananas_success();
 }
 
-struct DRIVER drv_ahcipci = {
-	.name			= "ahci-pci",
-	.drv_probe		= ahcipci_probe,
-	.drv_attach		= ahcipci_attach,
-};
+errorcode_t
+AHCIDevice::Detach()
+{
+	panic("TODO");
+	return ananas_success();
+}
 
-DRIVER_PROBE(ahcipci)
+} // namespace AHCI
+} // namespace Ananas
+
+namespace {
+
+Ananas::Device* ahcipci_CreateDevice(const Ananas::CreateDeviceProperties& cdp)
+{
+	auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
+	if (res == NULL)
+		return nullptr;
+	uint32_t classrev = res->r_Base;
+
+	/* Anything AHCI will do */
+	if (PCI_CLASS(classrev) == PCI_CLASS_STORAGE && PCI_SUBCLASS(classrev) == PCI_SUBCLASS_SATA &&
+	    PCI_REVISION(classrev) == 1 /* AHCI */)
+		return new Ananas::AHCI::AHCIDevice(cdp);
+
+	/* And some specific devices which pre-date this schema */
+	res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_VendorID, 0);
+	uint32_t vendor = res->r_Base;
+	res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_DeviceID, 0);
+	uint32_t device = res->r_Base;
+	if (vendor == 0x8086 && device == 0x2922) /* Intel ICH9, like what is in QEMU */
+		return new Ananas::AHCI::AHCIDevice(cdp);
+	if (vendor == 0x8086 && device == 0x2829) /* Intel ICH8M, like what is in VirtualBox */
+		return new Ananas::AHCI::AHCIDevice(cdp);
+	if (vendor == 0x10de && device == 0x7f4) /* NForce 630i SATA */
+		return new Ananas::AHCI::AHCIDevice(cdp);
+	if (vendor == 0x1039 && device == 0x1185) /* SiS AHCI Controller (0106) */
+		return new Ananas::AHCI::AHCIDevice(cdp);
+	return nullptr;
+}
+
+} // unnamed namespace
+
+DRIVER_PROBE(ahcipci, "ahcipci", ahcipci_CreateDevice)
 DRIVER_PROBE_BUS(pcibus)
 DRIVER_PROBE_END()
 

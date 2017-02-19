@@ -2,8 +2,6 @@
 #define __ANANAS_AHCIPCI_H__
 
 #include <ananas/types.h>
-#include <ananas/dma.h>
-#include <ananas/dev/sata.h>
 #include <ananas/dev/ahci.h>
 
 #define AHCI_REG_CAP	0x00			/* HBA capabilities */
@@ -275,41 +273,6 @@ struct AHCI_PCI_CT {
 	 */
 	struct		AHCI_PCI_PRDE ct_prd[1];
 } __attribute__((packed));
-
-struct AHCI_PCI_REQUEST {
-	struct SATA_REQUEST	pr_request;
-	dma_buf_t pr_dmabuf_ct;
-	struct AHCI_PCI_CT*	pr_ct;
-};
-
-struct AHCI_PCI_PORT {
-	spinlock_t p_lock;
-	device_t p_dev;			/* [RO] Device we belong to */
-	struct AHCI_PCI_PRIVDATA* p_pd;	/* [RO] Link back to AHCI privdata */
-	int p_num;			/* [RO] Port number */
-	dma_buf_t p_dmabuf_cl;		/* [RO] DMA buffer for command list */
-	dma_buf_t p_dmabuf_rfis;	/* [RO] DMA buffer for RFIS */
-
-	struct AHCI_PCI_CLE* p_cle;
-	struct AHCI_PCI_RFIS* p_rfis;
-	uint32_t p_request_in_use;	/* [RW] Current requests in use */
-	uint32_t p_request_valid;	/* [RW] Requests that can be activated */
-	uint32_t p_request_active;	/* [RW] Requests that are activated */
-	struct AHCI_PCI_REQUEST p_request[32];
-};
-
-struct AHCI_PCI_PRIVDATA {
-	addr_t ap_addr;
-	uint32_t ap_pi;
-	unsigned int ap_ncs;
-	unsigned int ap_num_ports;
-	struct AHCI_PCI_PORT ap_port[0];
-};
-
-#define AHCI_WRITE_4(reg, val) \
-	*(volatile uint32_t*)(privdata->ap_addr + (reg)) = (val)
-#define AHCI_READ_4(reg) \
-	(*(volatile uint32_t*)(privdata->ap_addr + (reg)))
 
 #if AHCI_DEBUG
 #define DUMP_PORT_STATE(n) \
