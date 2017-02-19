@@ -52,10 +52,10 @@ vfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 	KASSERT(file->f_dentry != NULL || file->f_device != NULL, "vfs_read on nonbacked file");
 	if (file->f_device != NULL) {
 		/* Device */
-		if (file->f_device->driver == NULL || file->f_device->driver->drv_read == NULL)
+		if (file->f_device->GetCharDeviceOperations() == NULL)
 			return ANANAS_ERROR(BAD_OPERATION);
 		else {
-			return file->f_device->driver->drv_read(file->f_device, buf, len, 0);
+			return file->f_device->GetCharDeviceOperations()->Read(buf, *len, 0);
 		}
 	}
 
@@ -82,10 +82,10 @@ vfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
 	KASSERT(file->f_dentry != NULL || file->f_device != NULL, "vfs_write on nonbacked file");
 	if (file->f_device != NULL) {
 		/* Device */
-		if (file->f_device->driver == NULL || file->f_device->driver->drv_write == NULL)
+		if (file->f_device == NULL || file->f_device->GetCharDeviceOperations() == NULL)
 			return ANANAS_ERROR(BAD_OPERATION);
 		else
-			return file->f_device->driver->drv_write(file->f_device, buf, len, 0);
+			return file->f_device->GetCharDeviceOperations()->Write(buf, *len, 0);
 	}
 
 	struct VFS_INODE* inode = file->f_dentry->d_inode;

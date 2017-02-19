@@ -2,7 +2,6 @@
 #define __ANANAS_ICACHE_H__
 
 #include <ananas/types.h>
-#include <ananas/device.h>
 #include <ananas/list.h>
 
 struct VFS_MOUNTED_FS;

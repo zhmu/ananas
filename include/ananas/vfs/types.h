@@ -2,12 +2,15 @@
 #define __ANANAS_VFS_TYPES_H__
 
 #include <ananas/list.h>
+#include <ananas/lock.h>
 #include <ananas/stat.h> /* for 'struct stat' */
 #include <ananas/vfs/dentry.h> /* for 'struct DENTRY_QUEUE' */
 #include <ananas/vfs/icache.h> /* for 'struct ICACHE_QUEUE' */
 
+namespace Ananas {
+class Device;
+};
 struct DENTRY;
-struct DEVICE;
 struct VFS_MOUNTED_FS;
 struct VFS_INODE_OPS;
 struct VFS_FILESYSTEM_OPS;
@@ -48,7 +51,7 @@ struct VFS_FILE {
 	 * useful when resolving the item back to a path)
 	 */
 	struct DENTRY*		f_dentry;
-	struct DEVICE*		f_device;
+	Ananas::Device*		f_device;
 };
 
 /*
@@ -77,7 +80,7 @@ struct VFS_DIRENT {
  */
 struct VFS_MOUNTED_FS {
 	spinlock_t	fs_spinlock;		/* Protects fields marked with (F) */
-	device_t	fs_device;		/* (F) Device where the filesystem lives */
+	Ananas::Device*	fs_device;		/* (F) Device where the filesystem lives */
 	unsigned int	fs_flags;		/* (F) Filesystem flags */
 #define VFS_FLAG_INUSE    0x0001		/* Filesystem entry is in use */
 #define VFS_FLAG_READONLY 0x0002		/* Filesystem is readonly */

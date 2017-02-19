@@ -2,6 +2,7 @@
 #define __ANANAS_VFS_CORE_H__
 
 #include <ananas/types.h>
+#include <ananas/lock.h>
 #include <ananas/vfs/types.h>
 
 #define VFS_MAX_NAME_LEN 255

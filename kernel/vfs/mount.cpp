@@ -65,9 +65,9 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 		return ANANAS_ERROR(BAD_TYPE);
 
 	/* Locate the device to mount from */
-	struct DEVICE* dev = NULL;
+	Ananas::Device* dev = NULL;
 	if (from != NULL) {
-		dev = device_find(from);
+		dev = Ananas::DeviceManager::FindDevice(from);
 		if (dev == NULL)
 			return ANANAS_ERROR(NO_FILE);
 	}
