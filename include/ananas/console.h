@@ -8,7 +8,9 @@ void console_putchar(int c);
 void console_putstring(const char* s);
 uint8_t console_getchar();
 
-extern device_t console_tty;
+extern Ananas::Device* console_tty;
+
+typedef Ananas::Device* (*ProbeConsoleDriverFunc)();
 
 /*
  * Console drivers are 'special' as they will be probed during early boot and
@@ -19,7 +21,7 @@ extern device_t console_tty;
  * highest first, so use zero for the 'if all else fails'-driver.
  */
 struct CONSOLE_DRIVER {
-	struct DRIVER*	con_driver;
+	ProbeConsoleDriverFunc con_probeFunc;
 	int		con_priority;
 	int		con_flags;
 #define CONSOLE_FLAG_IN		0x0001
@@ -29,9 +31,9 @@ struct CONSOLE_DRIVER {
 };
 LIST_DEFINE(CONSOLE_DRIVERS, struct CONSOLE_DRIVER);
 
-#define DEFINE_CONSOLE_DRIVER(drv, prio, flags) \
+#define DEFINE_CONSOLE_DRIVER(drv, prio, flags, probeFn) \
 	static struct CONSOLE_DRIVER condrv_##drv = { \
-		.con_driver = &drv, \
+		.con_probeFunc = &probeFn, \
 		.con_priority = prio, \
 		.con_flags = flags \
 	}; \

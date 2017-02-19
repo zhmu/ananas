@@ -10,7 +10,7 @@
 
 static spinlock_t spl_consoledrivers = SPINLOCK_DEFAULT_INIT;
 static struct CONSOLE_DRIVERS console_drivers;
-device_t console_tty = NULL;
+Ananas::Device* console_tty = nullptr;
 
 #define CONSOLE_BACKLOG_SIZE 1024
 
@@ -27,8 +27,8 @@ static mutex_t mtx_console;
 static errorcode_t
 console_init()
 {
-	device_t input_dev = NULL;
-	device_t output_dev = NULL;
+	Ananas::Device* input_dev = nullptr;
+	Ananas::Device* output_dev = nullptr;
 
 	/*
 	 * First of all, we need to sort our console drivers; we do not need to care
@@ -80,11 +80,13 @@ console_init()
 			 * resources here - XXX devices that require them can't be used as
 			 * console devices currently.
 			 */
-			device_t dev = device_alloc(NULL, condrv->con_driver);
-			errorcode_t err = device_attach_single(dev);
+			Ananas::Device* dev = condrv->con_probeFunc();
+			if (dev == NULL)
+				continue; // likely not present
+			errorcode_t err = Ananas::DeviceManager::AttachSingle(*dev);
 			if (ananas_is_failure(err)) {
-				/* Too bad; this driver won't work */
-				device_free(dev);
+				// Too bad; this driver won't work
+				delete dev;
 				continue;
 			}
 
@@ -96,7 +98,7 @@ console_init()
 		}
 	}
 
-	if (input_dev != NULL || output_dev != NULL)
+	if (input_dev != nullptr || output_dev != nullptr)
 		console_tty = tty_alloc(input_dev, output_dev);
 
 	/* Initialize the backlog; we use it to queue messages once the mutex is hold */
@@ -123,7 +125,8 @@ console_putchar(int c)
 		return;
 	uint8_t ch = c; // cannot cast due to endianness!
 	size_t len = sizeof(ch);
-	device_write(console_tty, (const void*)&ch, &len, 0);
+
+	console_tty->GetCharDeviceOperations()->Write((const void*)&ch, len, 0);
 }
 
 
@@ -187,7 +190,7 @@ console_getchar()
 		return 0;
 	uint8_t c;
 	size_t len = sizeof(c);
-	if (device_read(console_tty, (char*)&c, &len, 0) < 1)
+	if (console_tty->GetCharDeviceOperations()->Read((void*)&c, len, 0) < 1)
 		return 0;
 	return c;
 }

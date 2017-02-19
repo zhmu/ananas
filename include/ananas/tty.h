@@ -3,9 +3,9 @@
 #ifndef __TTY_H__
 #define __TTY_H__
 
-device_t tty_alloc(device_t input_dev, device_t output_dev);
-device_t tty_get_inputdev(device_t dev);
-device_t tty_get_outputdev(device_t dev);
+Ananas::Device* tty_alloc(Ananas::Device* input_dev, Ananas::Device* output_dev);
+Ananas::Device* tty_get_inputdev(Ananas::Device*);
+Ananas::Device* tty_get_outputdev(Ananas::Device*);
 void tty_signal_data();
 
 #endif /* __TTY_H__ */
