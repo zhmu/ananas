@@ -6,30 +6,50 @@
 #include <ananas/mm.h>
 #include <ananas/tty.h>
 
+namespace {
+
 #define KBDMUX_BUFFER_SIZE 16
 
-struct KBDMUX_PRIVDATA {
+class KeyboardMux : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations
+{
+public:
+	using Device::Device;
+	virtual ~KeyboardMux() = default;
+
+	IDeviceOperations& GetDeviceOperations() override
+	{
+		return *this;
+	}
+
+  ICharDeviceOperations* GetCharDeviceOperations() override
+	{
+		return this;
+	}
+
+	errorcode_t Attach() override;
+	errorcode_t Detach() override;
+	errorcode_t Read(void* buffer, size_t& len, off_t offset) override;
+
+	void OnInput(uint8_t ch);
+
 	/* We must use a spinlock here as kbdmux_on_input() can be called from IRQ context */
 	spinlock_t kbd_lock;
 	char kbd_buffer[KBDMUX_BUFFER_SIZE];
-	int kbd_buffer_readpos;
-	int kbd_buffer_writepos;
+	int kbd_buffer_readpos = 0;
+	int kbd_buffer_writepos = 0;
 };
 
-static struct KBDMUX_PRIVDATA* kbdmux_privdata = NULL;
+KeyboardMux* kbdmux_instance = NULL; // XXX KLUDGE
 
 void
-kbdmux_on_input(uint8_t ch)
+KeyboardMux::OnInput(uint8_t ch)
 {
-	struct KBDMUX_PRIVDATA* priv = kbdmux_privdata;
-	KASSERT(priv != NULL, "input without priv");
-
 	/* Add the data to our buffer */
-	register_t state = spinlock_lock_unpremptible(&priv->kbd_lock);
+	register_t state = spinlock_lock_unpremptible(&kbd_lock);
 	/* XXX we should protect against buffer overruns */
-	priv->kbd_buffer[priv->kbd_buffer_writepos] = ch;
-	priv->kbd_buffer_writepos = (priv->kbd_buffer_writepos + 1) % KBDMUX_BUFFER_SIZE;
-	spinlock_unlock_unpremptible(&priv->kbd_lock, state);
+	kbd_buffer[kbd_buffer_writepos] = ch;
+	kbd_buffer_writepos = (kbd_buffer_writepos + 1) % KBDMUX_BUFFER_SIZE;
+	spinlock_unlock_unpremptible(&kbd_lock, state);
 
 	/* XXX signal consumers - this is a hack */
 	if (console_tty != NULL) {
@@ -37,49 +57,70 @@ kbdmux_on_input(uint8_t ch)
 	}
 }
 
-static errorcode_t
-kbdmux_read(device_t dev, void* data, size_t* len, off_t off)
+errorcode_t
+KeyboardMux::Read(void* data, size_t& len, off_t off)
 {
-	auto priv = static_cast<struct KBDMUX_PRIVDATA*>(dev->privdata);
-	size_t returned = 0, left = *len;
+	size_t returned = 0, left = len;
 
-	register_t state = spinlock_lock_unpremptible(&priv->kbd_lock);
+	register_t state = spinlock_lock_unpremptible(&kbd_lock);
 	while (left-- > 0) {
-		if (priv->kbd_buffer_readpos == priv->kbd_buffer_writepos)
+		if (kbd_buffer_readpos == kbd_buffer_writepos)
 			break;
 
-		*(uint8_t*)(static_cast<uint8_t*>(data) + returned++) = priv->kbd_buffer[priv->kbd_buffer_readpos];
-		priv->kbd_buffer_readpos = (priv->kbd_buffer_readpos + 1) % KBDMUX_BUFFER_SIZE;
+		*(uint8_t*)(static_cast<uint8_t*>(data) + returned++) = kbd_buffer[kbd_buffer_readpos];
+		kbd_buffer_readpos = (kbd_buffer_readpos + 1) % KBDMUX_BUFFER_SIZE;
 	}
-	spinlock_unlock_unpremptible(&priv->kbd_lock, state);
+	spinlock_unlock_unpremptible(&kbd_lock, state);
 
-	*len = returned;
+	len = returned;
 	return ananas_success();
 }
 
-static errorcode_t
-kbdmux_attach(device_t dev)
+errorcode_t
+KeyboardMux::Attach()
 {
-	auto mux_priv = new(dev) KBDMUX_PRIVDATA;
-	memset(mux_priv, 0, sizeof(*mux_priv));
-	dev->privdata = mux_priv;
-	spinlock_init(&mux_priv->kbd_lock);
+	KASSERT(kbdmux_instance == NULL, "multiple kbdmux");
+	kbdmux_instance = this;
+	spinlock_init(&kbd_lock);
 
-	KASSERT(kbdmux_privdata == NULL, "multiple kbdmux?");
-	kbdmux_privdata = mux_priv;
 	return ananas_success();
 }
 
-struct DRIVER drv_kbdmux = {
-	.name       = "kbdmux",
-	.drv_attach	= kbdmux_attach,
-	.drv_read   = kbdmux_read
-};
+errorcode_t
+KeyboardMux::Detach()
+{
+	return ananas_success();
+}
 
-DRIVER_PROBE(kbdmux)
+Ananas::Device*
+kbdmux_CreateDevice(const Ananas::CreateDeviceProperties& cdp)
+{
+	if (kbdmux_instance != nullptr)
+		return nullptr; // allow only a single keyboard mux
+	return new KeyboardMux(cdp);
+}
+
+Ananas::Device*
+kbdmux_ProbeFunction()
+{
+	if (kbdmux_instance != nullptr)
+		return nullptr; // allow only a single keyboard mux
+	return new KeyboardMux(Ananas::CreateDeviceProperties("kbdmux", 0));
+}
+
+} // unnamed namespace
+
+void
+kbdmux_on_input(uint8_t ch)
+{
+	KASSERT(kbdmux_instance != NULL, "no instance?");
+	kbdmux_instance->OnInput(ch);
+}
+
+DRIVER_PROBE(kbdmux, "kbdmux", kbdmux_CreateDevice)
 DRIVER_PROBE_BUS(corebus)
 DRIVER_PROBE_END()
 
-DEFINE_CONSOLE_DRIVER(drv_kbdmux, 10, CONSOLE_FLAG_IN)
+DEFINE_CONSOLE_DRIVER(kbdmux, 10, CONSOLE_FLAG_IN, kbdmux_ProbeFunction)
 
 /* vim:set ts=2 sw=2: */
