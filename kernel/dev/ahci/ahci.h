@@ -19,10 +19,8 @@ struct Request {
 
 class Port : public Ananas::Device, private Ananas::IDeviceOperations {
 public:
-	Port(AHCIDevice& device, const Ananas::CreateDeviceProperties& cdp)
-	 : Device(cdp), p_device(device)
-	{
-	}
+	Port(const Ananas::CreateDeviceProperties& cdp);
+	virtual ~Port() = default;
 
 	IDeviceOperations& GetDeviceOperations() override
 	{

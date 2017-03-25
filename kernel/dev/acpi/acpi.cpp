@@ -1,4 +1,5 @@
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/error.h>
 #include <ananas/trace.h>
 #include <ananas/x86/acpi.h>
@@ -95,8 +96,28 @@ ACPI::Detach()
 	return ananas_success();
 }
 
-Ananas::Device*
-acpi_CreateDevice(const Ananas::CreateDeviceProperties& cdp)
+class ACPIDriver : public Ananas::Driver
+{
+public:
+	ACPIDriver();
+	virtual ~ACPIDriver() = default;
+
+  const char* GetBussesToProbeOn() const override;
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override;
+
+};
+
+ACPIDriver::ACPIDriver()
+	: Driver("acpi")
+{
+}
+
+const char* ACPIDriver::GetBussesToProbeOn() const
+{
+	return "corebus";
+}
+
+Ananas::Device* ACPIDriver::CreateDevice(const Ananas::CreateDeviceProperties& cdp)
 {
 	/*
 	 * XXX This means we'll end up finding the root pointer twice if it exists
@@ -107,6 +128,8 @@ acpi_CreateDevice(const Ananas::CreateDeviceProperties& cdp)
 		return NULL;
 	return new ACPI(cdp);
 }
+
+REGISTER_DRIVER(ACPIDriver);
 
 } // unnamed namespace
 
@@ -120,8 +143,5 @@ acpi_init()
 	AcpiInitializeTables(NULL, 2, TRUE);
 }
 
-DRIVER_PROBE(acpi, "acpi", acpi_CreateDevice)
-DRIVER_PROBE_BUS(corebus)
-DRIVER_PROBE_END()
 
 /* vim:set ts=2 sw=2: */

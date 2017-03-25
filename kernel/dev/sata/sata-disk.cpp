@@ -3,6 +3,7 @@
 #include <ananas/dev/sata.h>
 #include <ananas/bio.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/endian.h>
 #include <ananas/error.h>
 #include <ananas/trace.h>
@@ -157,11 +158,26 @@ SATADisk::WriteBIO(struct BIO& bio)
 	return ananas_success();
 }
 
+struct SATADisk_Driver : public Ananas::Driver
+{
+	SATADisk_Driver()
+	 : Driver("satadisk")
+	{
+	}
+
+	const char* GetBussesToProbeOn() const override
+	{
+		return nullptr; // instantiated by ahci-port
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		return new SATADisk(cdp);
+	}
+};
+
 } // unnamed namespace
 
-Ananas::Device* satadisk_Create(const Ananas::CreateDeviceProperties& cdp)
-{
-	return new SATADisk(cdp);
-}
+REGISTER_DRIVER(SATADisk_Driver)
 
 /* vim:set ts=2 sw=2: */

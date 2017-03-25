@@ -5,6 +5,7 @@
 #include <ananas/dev/ata.h>
 #include <ananas/dev/sata.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/dma.h>
 #include <ananas/error.h>
 #include <ananas/irq.h>
@@ -20,8 +21,6 @@
 #include "ahci.h"
 
 TRACE_SETUP;
-
-Ananas::AHCI::Port* ahciport_CreateDevice(Ananas::AHCI::AHCIDevice& device, const Ananas::CreateDeviceProperties& cdp);
 
 namespace Ananas {
 namespace AHCI {
@@ -43,6 +42,7 @@ AHCIDevice::OnIRQ()
 				p = ap_port[i];
 				break;
 			}
+
 
 		uint32_t pis = Read(AHCI_REG_PxIS(n));
 		Write(AHCI_REG_PxIS(n), pis);
@@ -220,7 +220,6 @@ AHCIDevice::Attach()
 	}
 
 	/* Allocate memory and program buffers for all usable ports */
-	static int port_unit = 0; // XXX
 	int idx = 0;
 	for (unsigned int n = 0; n < 32; n++) {
 		if ((ap_pi & AHCI_PI_PI(n)) == 0)
@@ -230,7 +229,8 @@ AHCIDevice::Attach()
 		// attachSingle() as we need interrupts for that, which we can't handle yet
 		Ananas::ResourceSet resourceSet;
 		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_ChildNum, n, 0));
-		Port* p = ahciport_CreateDevice(*this, Ananas::CreateDeviceProperties(*this, "ahci-port", port_unit++, resourceSet));
+		Port* p = static_cast<Port*>(Ananas::DeviceManager::CreateDevice("ahci-port", Ananas::CreateDeviceProperties(*this, resourceSet)));
+		KASSERT(p != nullptr, "unable to create port?");
 		ap_port[idx] = p;
 		idx++;
 
@@ -312,38 +312,49 @@ AHCIDevice::Detach()
 
 namespace {
 
-Ananas::Device* ahcipci_CreateDevice(const Ananas::CreateDeviceProperties& cdp)
+struct AHCI_PCI_Driver : public Ananas::Driver
 {
-	auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
-	if (res == NULL)
+	AHCI_PCI_Driver()
+	 : Driver("ahcipci")
+	{
+	}
+
+	const char* GetBussesToProbeOn() const override
+	{
+		return "pcibus";
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
+		if (res == NULL)
+			return nullptr;
+		uint32_t classrev = res->r_Base;
+
+		/* Anything AHCI will do */
+		if (PCI_CLASS(classrev) == PCI_CLASS_STORAGE && PCI_SUBCLASS(classrev) == PCI_SUBCLASS_SATA &&
+				PCI_REVISION(classrev) == 1 /* AHCI */)
+			return new Ananas::AHCI::AHCIDevice(cdp);
+
+		/* And some specific devices which pre-date this schema */
+		res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_VendorID, 0);
+		uint32_t vendor = res->r_Base;
+		res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_DeviceID, 0);
+		uint32_t device = res->r_Base;
+		if (vendor == 0x8086 && device == 0x2922) /* Intel ICH9, like what is in QEMU */
+			return new Ananas::AHCI::AHCIDevice(cdp);
+		if (vendor == 0x8086 && device == 0x2829) /* Intel ICH8M, like what is in VirtualBox */
+			return new Ananas::AHCI::AHCIDevice(cdp);
+		if (vendor == 0x10de && device == 0x7f4) /* NForce 630i SATA */
+			return new Ananas::AHCI::AHCIDevice(cdp);
+		if (vendor == 0x1039 && device == 0x1185) /* SiS AHCI Controller (0106) */
+			return new Ananas::AHCI::AHCIDevice(cdp);
 		return nullptr;
-	uint32_t classrev = res->r_Base;
-
-	/* Anything AHCI will do */
-	if (PCI_CLASS(classrev) == PCI_CLASS_STORAGE && PCI_SUBCLASS(classrev) == PCI_SUBCLASS_SATA &&
-	    PCI_REVISION(classrev) == 1 /* AHCI */)
-		return new Ananas::AHCI::AHCIDevice(cdp);
-
-	/* And some specific devices which pre-date this schema */
-	res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_VendorID, 0);
-	uint32_t vendor = res->r_Base;
-	res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_DeviceID, 0);
-	uint32_t device = res->r_Base;
-	if (vendor == 0x8086 && device == 0x2922) /* Intel ICH9, like what is in QEMU */
-		return new Ananas::AHCI::AHCIDevice(cdp);
-	if (vendor == 0x8086 && device == 0x2829) /* Intel ICH8M, like what is in VirtualBox */
-		return new Ananas::AHCI::AHCIDevice(cdp);
-	if (vendor == 0x10de && device == 0x7f4) /* NForce 630i SATA */
-		return new Ananas::AHCI::AHCIDevice(cdp);
-	if (vendor == 0x1039 && device == 0x1185) /* SiS AHCI Controller (0106) */
-		return new Ananas::AHCI::AHCIDevice(cdp);
-	return nullptr;
-}
+	}
+};
 
 } // unnamed namespace
 
-DRIVER_PROBE(ahcipci, "ahcipci", ahcipci_CreateDevice)
-DRIVER_PROBE_BUS(pcibus)
-DRIVER_PROBE_END()
+REGISTER_DRIVER(AHCI_PCI_Driver)
 
 /* vim:set ts=2 sw=2: */

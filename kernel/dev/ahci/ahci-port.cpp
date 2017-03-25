@@ -5,6 +5,7 @@
 #include <ananas/bio.h>
 #include <ananas/kmem.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/error.h>
 #include <ananas/trace.h>
 #include <ananas/lib.h>
@@ -16,10 +17,17 @@ TRACE_SETUP;
 #define PORT_LOCK spinlock_lock(&p_lock)
 #define PORT_UNLOCK spinlock_unlock(&p_lock)
 
-Ananas::Device* satadisk_Create(const Ananas::CreateDeviceProperties& cdp);
-
 namespace Ananas {
 namespace AHCI {
+
+Port::Port(const Ananas::CreateDeviceProperties& cdp)
+	: Device(cdp), p_device(static_cast<AHCIDevice&>(*cdp.cdp_Parent))
+{
+	p_request_in_use = 0;
+	p_request_active = 0;
+	p_request_valid = 0;
+	memset(&p_request, 0, sizeof(p_request));
+}
 
 void
 Port::OnIRQ(uint32_t pis)
@@ -100,8 +108,7 @@ Port::Attach()
 			Printf("port #%d contains packet-device, todo", n);
 			break;
 		case SATA_SIG_ATA:
-			static int disk_unit = 0; // XXX
-			sub_device = satadisk_Create(Ananas::CreateDeviceProperties(*this, "satadisk", disk_unit++, sub_resourceSet));
+			sub_device = Ananas::DeviceManager::CreateDevice("satadisk", Ananas::CreateDeviceProperties(*this, sub_resourceSet));
 			break;
 		default:
 			Printf("port #%d contains unrecognized signature %x, ignoring", n, sig);
@@ -236,10 +243,28 @@ Port::Start()
 } // namespace AHCI
 } // namespace Ananas
 
-Ananas::AHCI::Port*
-ahciport_CreateDevice(Ananas::AHCI::AHCIDevice& device, const Ananas::CreateDeviceProperties& cdp)
+namespace {
+
+struct AHCI_Port_Driver : public Ananas::Driver
 {
-	return new Ananas::AHCI::Port(device, cdp);
-}
+	AHCI_Port_Driver()
+	 : Driver("ahci-port")
+	{
+	}
+
+	const char* GetBussesToProbeOn() const override
+	{
+		return nullptr; // created by ahci-pci for every port detected
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		return new Ananas::AHCI::Port(cdp);
+	}
+};
+
+} // unnamed namespace
+
+REGISTER_DRIVER(AHCI_Port_Driver)
 
 /* vim:set ts=2 sw=2: */
