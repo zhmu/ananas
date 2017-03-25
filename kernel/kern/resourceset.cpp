@@ -20,9 +20,9 @@ ResourceSet::GetResource(const Resource::Type& type, size_t index) const
 }
 
 void*
-ResourceSet::AllocateResource(const Resource::Type& type, Resource::Length length)
+ResourceSet::AllocateResource(const Resource::Type& type, Resource::Length length, size_t index)
 {
-	auto res = const_cast<Resource*>(GetResource(type, 0));
+	auto res = const_cast<Resource*>(GetResource(type, index));
 	if (res == nullptr)
 		return nullptr; // no such resource
 

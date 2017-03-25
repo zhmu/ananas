@@ -43,7 +43,7 @@ public:
 	/* Maximum number of resources a given resource set can have */
 	static const size_t rs_MaxEntries = 16;
 
-	void* AllocateResource(const Resource::Type& type, Resource::Length length);
+	void* AllocateResource(const Resource::Type& type, Resource::Length length, size_t index = 0);
 	bool AddResource(const Resource& resource);
 	const Resource* GetResource(const Resource::Type& type, size_t index) const;
 	void Print() const;
