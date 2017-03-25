@@ -10,6 +10,5 @@ arch/i386/mp_stub.S		option SMP
 arch/i386/debug.cpp		mandatory
 lib/kern/qdivrem.cpp		mandatory
 lib/kern/divdi3.cpp		mandatory
-dev/fb.cpp			optional fb
 # Pull in generic x86 stuff
 include x86

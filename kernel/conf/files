@@ -84,7 +84,7 @@ lib/zlib/inftrees.c	option ZLIB
 lib/zlib/trees.c	option ZLIB
 lib/zlib/uncompr.c	option ZLIB
 lib/zlib/zutil.c	option ZLIB
-# XXX this should be optional - depend on vga for now? we don't yet do (vga || fb) ...
+# XXX this should be optional - depend on vga for now?
 lib/teken/teken.c	mandatory
 dev/bus/isa/atkbd.cpp	optional atkbd
 dev/bus/pci/pci.cpp	optional pci
