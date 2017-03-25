@@ -5,6 +5,7 @@
 #include <ananas/console.h>
 #include <ananas/x86/io.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/lock.h>
 #include <ananas/lib.h>
 #include <ananas/trace.h>
@@ -288,28 +289,35 @@ VGA::Write(const void* buffer, size_t& len, off_t offset)
 	return ananas_success();
 }
 
-Ananas::Device*
-vga_CreateDevice(const Ananas::CreateDeviceProperties& cdp)
+struct VGA_Driver : public Ananas::ConsoleDriver
 {
-	return new VGA(cdp);
-}
+	VGA_Driver()
+	 : ConsoleDriver("vga", 10, CONSOLE_FLAG_OUT)
+	{
+	}
 
-Ananas::Device*
-vga_ProbeDevice()
-{
-	/* XXX Look at the BIOS to see if there is any VGA at all */
-	Ananas::ResourceSet resourceSet;
-	resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_Memory, 0xb8000, 128 * 1024));
-	resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IO, 0x3c0, 32));
-	return new VGA(Ananas::CreateDeviceProperties("vga", 0, resourceSet));
-}
+	const char* GetBussesToProbeOn() const override
+	{
+		return "corebus";
+	}
+
+	Ananas::Device* ProbeDevice() override
+	{
+		/* XXX Look at the BIOS to see if there is any VGA at all */
+		Ananas::ResourceSet resourceSet;
+		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_Memory, 0xb8000, 128 * 1024));
+		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IO, 0x3c0, 32));
+		return new VGA(Ananas::CreateDeviceProperties(resourceSet));
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		return new VGA(cdp);
+	}
+};
 
 } // unnamed namespace
 
-DRIVER_PROBE(vga, "vga", vga_CreateDevice)
-DRIVER_PROBE_BUS(corebus)
-DRIVER_PROBE_END()
-
-DEFINE_CONSOLE_DRIVER(vga, 10, CONSOLE_FLAG_OUT, vga_ProbeDevice)
+REGISTER_DRIVER(VGA_Driver)
 
 /* vim:set ts=2 sw=2: */

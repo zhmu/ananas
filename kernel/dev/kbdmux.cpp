@@ -1,4 +1,5 @@
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/console.h>
 #include <ananas/error.h>
 #include <ananas/lock.h>
@@ -92,21 +93,30 @@ KeyboardMux::Detach()
 	return ananas_success();
 }
 
-Ananas::Device*
-kbdmux_CreateDevice(const Ananas::CreateDeviceProperties& cdp)
+struct KeyboardMux_Driver : public Ananas::ConsoleDriver
 {
-	if (kbdmux_instance != nullptr)
-		return nullptr; // allow only a single keyboard mux
-	return new KeyboardMux(cdp);
-}
+	KeyboardMux_Driver()
+	 : ConsoleDriver("kbdmux", 10, CONSOLE_FLAG_IN)
+	{
+	}
 
-Ananas::Device*
-kbdmux_ProbeFunction()
-{
-	if (kbdmux_instance != nullptr)
-		return nullptr; // allow only a single keyboard mux
-	return new KeyboardMux(Ananas::CreateDeviceProperties("kbdmux", 0));
-}
+	const char* GetBussesToProbeOn() const override
+	{
+		return "corebus";
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		if (kbdmux_instance != nullptr)
+			return nullptr; // allow only a single keyboard mux
+		return new KeyboardMux(cdp);
+	}
+
+	Ananas::Device* ProbeDevice() override
+	{
+		return new KeyboardMux(Ananas::CreateDeviceProperties(Ananas::ResourceSet()));
+	}
+};
 
 } // unnamed namespace
 
@@ -117,10 +127,6 @@ kbdmux_on_input(uint8_t ch)
 	kbdmux_instance->OnInput(ch);
 }
 
-DRIVER_PROBE(kbdmux, "kbdmux", kbdmux_CreateDevice)
-DRIVER_PROBE_BUS(corebus)
-DRIVER_PROBE_END()
-
-DEFINE_CONSOLE_DRIVER(kbdmux, 10, CONSOLE_FLAG_IN, kbdmux_ProbeFunction)
+REGISTER_DRIVER(KeyboardMux_Driver)
 
 /* vim:set ts=2 sw=2: */

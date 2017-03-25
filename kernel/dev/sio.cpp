@@ -1,6 +1,7 @@
 #include <ananas/x86/io.h>
 #include <ananas/console.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/error.h>
 #include <ananas/irq.h>
 #include <ananas/lib.h>
@@ -130,28 +131,35 @@ SIO::Read(void* data, size_t& len, off_t offset)
 	return ananas_success();
 }
 
-Ananas::Device*
-sio_CreateDevice(const Ananas::CreateDeviceProperties& cdp)
+struct SIO_Driver : public Ananas::ConsoleDriver
 {
-	auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PNP_ID, 0);
-	if (res != NULL && res->r_Base == 0x0501) /* PNP0501: 16550A-compatible COM port */
-		return new SIO(cdp);
-	return nullptr;
-}
+	SIO_Driver()
+	 : ConsoleDriver("sio", 0, CONSOLE_FLAG_INOUT)
+	{
+	}
 
-Ananas::Device*
-sio_Probe()
-{
-	// XXX NOTYET - how do you probe sio anyway?
-	return nullptr;
-}
+	const char* GetBussesToProbeOn() const override
+	{
+		return "acpi";
+	}
+
+	Ananas::Device* ProbeDevice() override
+	{
+		// XXX NOTYET - how do you probe SIO anyway?
+		return nullptr;
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PNP_ID, 0);
+		if (res != NULL && res->r_Base == 0x0501) /* PNP0501: 16550A-compatible COM port */
+			return new SIO(cdp);
+		return nullptr;
+	}
+};
 
 } // unnamed namespace
 
-DRIVER_PROBE(sio, "sio", sio_CreateDevice)
-DRIVER_PROBE_BUS(acpi)
-DRIVER_PROBE_END()
-
-DEFINE_CONSOLE_DRIVER(sio, 0, CONSOLE_FLAG_INOUT, sio_Probe);
+REGISTER_DRIVER(SIO_Driver)
 
 /* vim:set ts=2 sw=2: */
