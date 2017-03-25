@@ -2,6 +2,7 @@
 #include <ananas/error.h>
 #include <ananas/bio.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 
@@ -10,11 +11,19 @@ namespace {
 class Slice : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IBIODeviceOperations
 {
 public:
-	Slice(int unit, Ananas::Device* biodev, blocknr_t first_block, size_t length)
-	 : Device(Ananas::CreateDeviceProperties(*biodev, "slice", unit)),
-		 slice_biodev(biodev), slice_first_block(first_block), slice_length(length)
+	Slice(const Ananas::CreateDeviceProperties& cdp)
+	 : Device(cdp)
 	{
-		(void)slice_length; // XXX use
+	}
+
+	void SetFirstBlock(blocknr_t firstBlock)
+	{
+		slice_first_block = firstBlock;
+	}
+
+	void SetLength(blocknr_t length)
+	{
+		slice_length = length;
 	}
 
 	IDeviceOperations& GetDeviceOperations() override
@@ -41,37 +50,59 @@ public:
 	errorcode_t WriteBIO(struct BIO& bio) override;
 
 private:
-	Ananas::Device* slice_biodev;
-	blocknr_t	slice_first_block;
-	size_t slice_length;
+	blocknr_t	slice_first_block = 0;
+	blocknr_t slice_length = 0;
 };
 
 errorcode_t
 Slice::ReadBIO(struct BIO& bio)
 {
 	bio.io_block = bio.block + slice_first_block;
-	return slice_biodev->GetBIODeviceOperations()->ReadBIO(bio);
+	return d_Parent->GetBIODeviceOperations()->ReadBIO(bio);
 }
 
 errorcode_t
 Slice::WriteBIO(struct BIO& bio)
 {
 	bio.io_block = bio.block + slice_first_block;
-	return slice_biodev->GetBIODeviceOperations()->WriteBIO(bio);
+	return d_Parent->GetBIODeviceOperations()->WriteBIO(bio);
 }
 
-} // namespace
+struct Slice_Driver : public Ananas::Driver
+{
+	Slice_Driver()
+	 : Driver("slice")
+	{
+	}
+
+	const char* GetBussesToProbeOn() const override
+	{
+		return nullptr; // instantiated by disk_mbr
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		return new Slice(cdp);
+	}
+};
+
+} // unnamed namespace
+
+REGISTER_DRIVER(Slice_Driver)
 
 Ananas::Device*
 slice_create(Ananas::Device* parent, blocknr_t begin, blocknr_t length)
 {
-	int unit = 0; // XXX
-	auto device = new Slice(unit++, parent, begin, length);
-	if (ananas_is_failure(Ananas::DeviceManager::AttachSingle(*device))) {
-		delete device;
-		return NULL;
+	auto slice = static_cast<Slice*>(Ananas::DeviceManager::CreateDevice("slice", Ananas::CreateDeviceProperties(*parent, Ananas::ResourceSet())));
+	if (slice != nullptr) {
+		slice->SetFirstBlock(begin);
+		slice->SetLength(length);
+		if (ananas_is_failure(Ananas::DeviceManager::AttachSingle(*slice))) {
+			delete slice;
+			slice = nullptr;
+		}
 	}
-	return device;
+	return slice;
 }
 
 /* vim:set ts=2 sw=2: */
