@@ -9,6 +9,7 @@
  */
 #include <ananas/types.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/error.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
@@ -30,7 +31,7 @@ namespace {
 class TTY : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations
 {
 public:
-	TTY(int unit, Ananas::Device* input, Ananas::Device* output);
+	TTY(const Ananas::CreateDeviceProperties& cdp);
 	virtual ~TTY() = default;
 
 	IDeviceOperations& GetDeviceOperations() override
@@ -56,8 +57,18 @@ public:
 	QUEUE_FIELDS(TTY);
 	void ProcessInput();
 
-	Ananas::Device* tty_input_dev;
-	Ananas::Device* tty_output_dev;
+	void SetInputDevice(Ananas::Device* input_dev)
+	{
+		tty_input_dev = input_dev;
+	}
+
+	void SetOutputDevice(Ananas::Device* output_dev)
+	{
+		tty_output_dev = output_dev;
+	}
+
+	Ananas::Device* tty_input_dev = nullptr;
+	Ananas::Device* tty_output_dev = nullptr;
 
 private:
 	void PutChar(unsigned char ch);
@@ -77,9 +88,8 @@ static thread_t tty_thread;
 static struct TTY_QUEUE tty_queue;
 static semaphore_t tty_sem;
 
-TTY::TTY(int unit, Ananas::Device* input, Ananas::Device* output)
-	: Device(Ananas::CreateDeviceProperties("tty", unit)),
-	  tty_input_dev(input), tty_output_dev(output)
+TTY::TTY(const Ananas::CreateDeviceProperties& cdp)
+	: Device(cdp)
 {
 	/* Use sensible defaults for the termios structure */
 	for (int i = 0; i < NCCS; i++)
@@ -289,15 +299,38 @@ tty_thread_func(void* ptr)
 	}
 }
 
+struct TTY_Driver : public Ananas::Driver
+{
+	TTY_Driver()
+	 : Driver("tty")
+	{
+	}
+
+	const char* GetBussesToProbeOn() const override
+	{
+		return nullptr; // instantiated by tty_alloc()
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		return new TTY(cdp);
+	}
+};
+
 } // unnamed namespace
+
+REGISTER_DRIVER(TTY_Driver)
 
 Ananas::Device*
 tty_alloc(Ananas::Device* input_dev, Ananas::Device* output_dev)
 {
-	static int unit = 0; // XXX
-	auto tty = new TTY(unit++, input_dev, output_dev);
-	if (ananas_is_failure(tty->Attach()))
-		panic("tty::Attach() failed");
+	auto tty = static_cast<TTY*>(Ananas::DeviceManager::CreateDevice("tty", Ananas::CreateDeviceProperties(Ananas::ResourceSet())));
+	if (tty != nullptr) {
+		tty->SetInputDevice(input_dev);
+		tty->SetOutputDevice(output_dev);
+		if (ananas_is_failure(tty->Attach()))
+			panic("tty::Attach() failed");
+	}
 	return tty;
 }
 
@@ -305,14 +338,14 @@ Ananas::Device*
 tty_get_inputdev(Ananas::Device* dev)
 {
 	auto tty = reinterpret_cast<TTY*>(dev);
-	return tty->tty_input_dev;
+	return tty != nullptr ? tty->tty_input_dev : nullptr;
 }
 
 Ananas::Device*
 tty_get_outputdev(Ananas::Device* dev)
 {
 	auto tty = reinterpret_cast<TTY*>(dev);
-	return tty->tty_output_dev;
+	return tty != nullptr ? tty->tty_output_dev : nullptr;
 }
 
 void
