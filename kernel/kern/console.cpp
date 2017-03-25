@@ -8,8 +8,14 @@
 #include <ananas/debug-console.h>
 #include "options.h"
 
-static spinlock_t spl_consoledrivers = SPINLOCK_DEFAULT_INIT;
-static struct CONSOLE_DRIVERS console_drivers;
+namespace Ananas {
+namespace DriverManager {
+namespace internal {
+Ananas::DriverList& GetDriverList();
+} // namespace internal
+} // namespace DriverManager
+} // namespace Ananas
+
 Ananas::Device* console_tty = nullptr;
 
 #define CONSOLE_BACKLOG_SIZE 1024
@@ -22,81 +28,95 @@ static int console_backlog_overrun = 0;
 static mutex_t mtx_console;
 
 /* If set, display the driver list before attaching */
-#undef VERBOSE_LIST
+#define VERBOSE_LIST 0
 
 static errorcode_t
 console_init()
 {
-	Ananas::Device* input_dev = nullptr;
-	Ananas::Device* output_dev = nullptr;
-
 	/*
-	 * First of all, we need to sort our console drivers; we do not need to care
-	 * about the flags as it only matters that we try them in the correct order.
+	 * We need to isolate our console drivers. We do this in two steps: first, we
+	 * count how many we have, and then we insert them in the correct order.
+	 *
+	 * XXX We should just integrate this into the driver system itself - it makes
+	 *     sense to be able to order drivers.
+	 *
+	 * XXX We should lock something here
 	 */
-	if (!LIST_EMPTY(&console_drivers)) {
-		/*
-		 * XXX Sorting a linked list sucks as it's hard to find the n-th element; so what
-		 * we do is just keep on travering through the list to find the next
-		 * element we need to add and add it. This is O(N^2), which is quite bad
-		 * (but N will be small, so ...)
-		 */
-		struct CONSOLE_DRIVERS sort_list;
-		LIST_INIT(&sort_list);
-		while(!LIST_EMPTY(&console_drivers)) {
-			/* Find the element with the highest priority value */
-			struct CONSOLE_DRIVER* cur_driver = NULL;
-			LIST_FOREACH(&console_drivers, condrv, struct CONSOLE_DRIVER) {
-				if (cur_driver != NULL && condrv->con_priority < cur_driver->con_priority)
+	Ananas::DriverList& console_drivers = Ananas::DriverManager::internal::GetDriverList();
+	size_t numDrivers = 0;
+	LIST_FOREACH(&console_drivers, d, Ananas::Driver) {
+		if (d->GetConsoleDriver() == nullptr)
+			continue;
+		numDrivers++;
+	}
+	if (numDrivers == 0)
+		return ananas_success();
+	Ananas::ConsoleDriver** consoleDrivers = new Ananas::ConsoleDriver*[numDrivers];
+	{
+		size_t n = 0;
+		LIST_FOREACH(&console_drivers, d, Ananas::Driver) {
+			if (d->GetConsoleDriver() == nullptr)
+				continue;
+			consoleDrivers[n++] = d->GetConsoleDriver();
+		}
+		KASSERT(n == numDrivers, "driver list not complete?");
+	}
+
+	// Use a bubble sort to sort the drivers based on their priority
+	{
+		for (int i = 0; i < numDrivers; i++)
+			for (int j = numDrivers - 1; j > i; j--) {
+				if (consoleDrivers[j]->c_Priority <= consoleDrivers[j - 1]->c_Priority)
 					continue;
-				cur_driver = condrv;
-			} 
+				Ananas::ConsoleDriver* prev = consoleDrivers[j];
+				consoleDrivers[j] = consoleDrivers[j - 1];
+				consoleDrivers[j - 1] = prev;
+			}
+	}
 
-			/* OK, add the highest priority console at the end of the sorted queue */
-			LIST_REMOVE(&console_drivers, cur_driver);
-			LIST_APPEND(&sort_list, cur_driver);
-		}
-
-#ifdef VERBOSE_LIST
-		kprintf("console_init(): driver list\n");
-		LIST_FOREACH(&sort_list, condrv, struct CONSOLE_DRIVER) {
-			kprintf("%p: '%s' (priority %d, flags 0x%x)\n",
-			 condrv->con_driver, condrv->con_driver->name,
-			 condrv->con_priority, condrv->con_flags);
-		}
+#if VERBOSE_LIST
+	kprintf("console_init(): driver list\n");
+	for(size_t n = 0; n < numDrivers; n++) {
+		kprintf("%p: '%s' (priority %d, flags 0x%x)\n",
+			consoleDrivers[n], consoleDrivers[n]->d_Name,
+			consoleDrivers[n]->c_Priority,
+			consoleDrivers[n]->c_Flags);
+	}
 #endif
 
+	/* Now try the sorted list in order */
+	Ananas::Device* input_dev = nullptr;
+	Ananas::Device* output_dev = nullptr;
+	for(size_t n = 0; n < numDrivers; n++) {
+		Ananas::ConsoleDriver* consoleDriver = consoleDrivers[n];
+
+		/* Skip any driver that is already provided for */
+		if (((consoleDriver->c_Flags & CONSOLE_FLAG_IN ) == 0 || input_dev  != nullptr) &&
+		    ((consoleDriver->c_Flags & CONSOLE_FLAG_OUT) == 0 || output_dev != nullptr))
+			continue;
+
 		/*
-		 * Now try the sorted list in order.
+		 * OK, see if this devices probes. Note that we don't provide any
+		 * resources here - XXX devices that require them can't be used as
+		 * console devices currently.
 		 */
-		LIST_FOREACH(&sort_list, condrv, struct CONSOLE_DRIVER) {
-			/* Skip any driver that is already provided for */
-			if (((condrv->con_flags & CONSOLE_FLAG_IN ) == 0 || input_dev  != NULL) &&
-			    ((condrv->con_flags & CONSOLE_FLAG_OUT) == 0 || output_dev != NULL))
-				continue;
-
-			/*
-			 * OK, see if this devices probes. Note that we don't provide any
-			 * resources here - XXX devices that require them can't be used as
-			 * console devices currently.
-			 */
-			Ananas::Device* dev = condrv->con_probeFunc();
-			if (dev == NULL)
-				continue; // likely not present
-			errorcode_t err = Ananas::DeviceManager::AttachSingle(*dev);
-			if (ananas_is_failure(err)) {
-				// Too bad; this driver won't work
-				delete dev;
-				continue;
-			}
-
-			/* We have liftoff! */
-			if ((condrv->con_flags & CONSOLE_FLAG_IN) && input_dev == NULL)
-				input_dev = dev;
-			if ((condrv->con_flags & CONSOLE_FLAG_OUT) && output_dev == NULL)
-				output_dev = dev;
+		Ananas::Device* dev = consoleDriver->ProbeDevice();
+		if (dev == NULL)
+			continue; // likely not present
+		errorcode_t err = Ananas::DeviceManager::AttachSingle(*dev);
+		if (ananas_is_failure(err)) {
+			// Too bad; this driver won't work
+			delete dev;
+			continue;
 		}
+
+		/* We have liftoff! */
+		if ((consoleDriver->c_Flags & CONSOLE_FLAG_IN) && input_dev == nullptr)
+			input_dev = dev;
+		if ((consoleDriver->c_Flags & CONSOLE_FLAG_OUT) && output_dev == nullptr)
+			output_dev = dev;
 	}
+	delete[] consoleDrivers;
 
 	if (input_dev != nullptr || output_dev != nullptr)
 		console_tty = tty_alloc(input_dev, output_dev);
@@ -128,7 +148,6 @@ console_putchar(int c)
 
 	console_tty->GetCharDeviceOperations()->Write((const void*)&ch, len, 0);
 }
-
 
 static void
 console_puts(const char* s)
@@ -193,24 +212,6 @@ console_getchar()
 	if (console_tty->GetCharDeviceOperations()->Read((void*)&c, len, 0) < 1)
 		return 0;
 	return c;
-}
-
-errorcode_t
-console_register_driver(struct CONSOLE_DRIVER* con)
-{
-	spinlock_lock(&spl_consoledrivers);
-	LIST_APPEND(&console_drivers, con);
-	spinlock_unlock(&spl_consoledrivers);
-	return ananas_success();
-}
-
-errorcode_t
-console_unregister_driver(struct CONSOLE_DRIVER* con)
-{
-	spinlock_lock(&spl_consoledrivers);
-	LIST_REMOVE(&console_drivers, con);
-	spinlock_unlock(&spl_consoledrivers);
-	return ananas_success();
 }
 
 /* vim:set ts=2 sw=2: */

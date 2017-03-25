@@ -1,5 +1,6 @@
 #include <ananas/console.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/error.h>
 #include <ananas/kdb.h>
 #include <ananas/lib.h>
@@ -15,21 +16,25 @@ TRACE_SETUP;
 
 static spinlock_t spl_devicequeue = SPINLOCK_DEFAULT_INIT;
 static Ananas::DeviceList deviceList;
-static struct Ananas::DeviceProbeList deviceProbeList; /* XXX not locked yet */
 
 namespace Ananas {
 namespace DeviceManager {
 namespace internal {
 void Unregister(Device&);
 } // namespace internal
-// namespace DeviceManager
-}
+} // namespace DeviceManager
 
-CreateDeviceProperties::CreateDeviceProperties(Ananas::Device& parent, const DeviceProbe& p, const Ananas::ResourceSet& resourceSet)
-	: cdp_Parent(&parent), cdp_ResourceSet(resourceSet)
+namespace DriverManager {
+namespace internal {
+Ananas::DriverList& GetDriverList();
+} // namespace internal
+} // namespace DriverManager
+
+Device::Device()
+	: d_Parent(this)
 {
-	cdp_Name = p.dp_Name;
-	cdp_Unit = p.dp_CurrentUnit;
+	li_next = NULL; li_prev = NULL;
+	sem_init(&d_Waiters, 1);
 }
 
 Device::Device(const CreateDeviceProperties& cdp)
@@ -38,9 +43,6 @@ Device::Device(const CreateDeviceProperties& cdp)
 {
 	li_next = NULL; li_prev = NULL;
 	sem_init(&d_Waiters, 1);
-
-	strcpy(d_Name, cdp.cdp_Name);
-	d_Unit = cdp.cdp_Unit;
 }
 
 Device::~Device()
@@ -69,34 +71,12 @@ namespace DeviceManager {
 
 namespace {
 
-Device* CreateDevice(Device& bus, DeviceProbe& dp, const Ananas::ResourceSet& resourceSet)
-{
-	return dp.dp_CreateDeviceFunc(CreateDeviceProperties(bus, dp, resourceSet));
-}
-
 void PrintAttachment(Device& device)
 {
 	KASSERT(device.d_Parent != NULL, "can't print device which doesn't have a parent bus");
 	kprintf("%s%u on %s%u ", device.d_Name, device.d_Unit, device.d_Parent->d_Name, device.d_Parent->d_Unit);
 	device.d_ResourceSet.Print();
 	kprintf("\n");
-}
-
-bool
-MustProbeOnBus(const Ananas::DeviceProbe& p, const Device& bus)
-{
-	const char* ptr = p.dp_Busses;
-	while(*ptr != '\0') {
-		const char* next = strchr(ptr, ',');
-		if (next == NULL)
-			next = strchr(ptr, '\0');
-
-		if (strncmp(ptr, bus.d_Name, next - ptr) == 0)
-			return true;
-
-		ptr = next + 1;
-	}
-	return false;
 }
 
 } // unnamed namespace
@@ -117,6 +97,21 @@ void Unregister(Device& device)
 	spinlock_lock(&spl_devicequeue);
 	LIST_REMOVE(&deviceList, &device);
 	spinlock_unlock(&spl_devicequeue);
+}
+
+Device* InstantiateDevice(Driver& driver, const CreateDeviceProperties& cdp)
+{
+	Device* device = driver.CreateDevice(cdp);
+	if (device != nullptr) {
+		strcpy(device->d_Name, driver.d_Name);
+		device->d_Unit = driver.d_CurrentUnit++; // XXX should we lock this?
+	}
+	return device;
+}
+
+void DeinstantiateDevice(Device& device)
+{
+	delete &device;
 }
 
 } // namespace internal
@@ -166,23 +161,25 @@ AttachSingle(Device& device)
 errorcode_t
 AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet)
 {
-	if (LIST_EMPTY(&deviceProbeList))
+	auto& driverList = Ananas::DriverManager::internal::GetDriverList();
+	if (LIST_EMPTY(&driverList))
 		return ANANAS_ERROR(NO_DEVICE);
 
-	LIST_FOREACH_SAFE(&deviceProbeList, dp, DeviceProbe) {
-		if (!MustProbeOnBus(*dp, bus))
+	CreateDeviceProperties cdp(bus, resourceSet);
+	LIST_FOREACH_SAFE(&driverList, d, Driver) {
+		if (!d->MustProbeOnBus(bus))
 			continue; /* bus cannot contain this device */
 
 		/* Hook the device to this driver and try to attach it */
-		Device* device = CreateDevice(bus, *dp, resourceSet);
-		if (device == NULL)
+		Device* device = internal::InstantiateDevice(*d, cdp);
+		if (device == nullptr)
 			continue;
 		if (ananas_is_success(AttachSingle(*device))) {
 			return ananas_success();
 		}
 
 		// Attach failed - get rid of the device
-		delete device;
+		internal::DeinstantiateDevice(*device);
 	}
 
 	return ANANAS_ERROR(NO_DEVICE);
@@ -198,67 +195,48 @@ AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet)
 void
 AttachBus(Device& bus)
 {
-	if (LIST_EMPTY(&deviceProbeList))
+	auto& driverList = Ananas::DriverManager::internal::GetDriverList();
+	if (LIST_EMPTY(&driverList))
 		return;
 
 	/*
 	 * Fetch TTY devices; we need them to report the device that is already
 	 * attached at this point.
 	 */
-#if 0
 	Ananas::Device* input_dev = tty_get_inputdev(console_tty);
 	Ananas::Device* output_dev = tty_get_outputdev(console_tty);
-#endif
-	LIST_FOREACH_SAFE(&deviceProbeList, dp, DeviceProbe) {
-		if (!MustProbeOnBus(*dp, bus))
+	LIST_FOREACH_SAFE(&driverList, d, Driver) {
+		if (!d->MustProbeOnBus(bus))
 			continue; /* bus cannot contain this device */
 
 		/*
-		 * If we found the driver for the in- or output driver, display it.
-		 *
-		 * XXX we will any extra units here, maybe we should re-think that? The entire
-		 *     tty-device-stuff is a hack anyway...
+		 * If we found the driver for the in- or output driver, display it (they are
+		 * already attached). XXX we will skip any extra units here
 		 */
-#if 0
-		if (input_dev != NULL && input_dev->driver == driver) {
-			input_dev->parent = bus;
-			device_print_attachment(input_dev);
-			device_add_to_tree(input_dev);
+		if (input_dev != NULL && strcmp(input_dev->d_Name, d->d_Name) == 0) {
+			input_dev->d_Parent = &bus;
+			PrintAttachment(*input_dev);
+			internal::Register(*input_dev);
 			continue;
 		}
-		if (output_dev != NULL && output_dev->driver == driver && input_dev != output_dev) {
-			output_dev->parent = bus;
-			device_print_attachment(output_dev);
-			device_add_to_tree(output_dev);
+		if (output_dev != NULL && strcmp(output_dev->d_Name, d->d_Name) == 0) {
+			output_dev->d_Parent = &bus;
+			PrintAttachment(*output_dev);
+			internal::Register(*output_dev);
 			continue;
 		}
-#endif
 
 		Ananas::ResourceSet resourceSet; // TODO
 
 		// See if the driver accepts our resource set
-		Device* device = CreateDevice(bus, *dp, resourceSet);
+		Device* device = internal::InstantiateDevice(*d, CreateDeviceProperties(bus, resourceSet));
 		if (device == nullptr)
 			continue;
 
 		if (ananas_is_failure(AttachSingle(*device))) {
-			delete device; // attach failed; discard the device
+			internal::DeinstantiateDevice(*device); // attach failed; discard the device
 		}
 	}
-}
-
-errorcode_t
-RegisterDeviceProbe(DeviceProbe& p)
-{
-	LIST_APPEND(&deviceProbeList, &p);
-	return ananas_success();
-}
-
-errorcode_t
-UnregisterDeviceProbe(DeviceProbe& p)
-{
-	LIST_REMOVE(&deviceProbeList, &p);
-	return ananas_success();
 }
 
 namespace {
@@ -266,7 +244,11 @@ namespace {
 class CoreBus : public Device, private IDeviceOperations
 {
 public:
-	using Device::Device;
+	CoreBus()
+	{
+		strcpy(d_Name, "corebus");
+		d_Unit = 0;
+	}
 
 	IDeviceOperations& GetDeviceOperations() override {
 		return *this;
@@ -309,13 +291,24 @@ FindDevice(const char* name)
 	return nullptr;
 }
 
+Device*
+CreateDevice(const char* driver, const Ananas::CreateDeviceProperties& cdp)
+{
+	auto& driverList = Ananas::DriverManager::internal::GetDriverList();
+	LIST_FOREACH_SAFE(&driverList, d, Driver) {
+		if (strcmp(d->d_Name, driver) == 0)
+			return internal::InstantiateDevice(*d, cdp);
+	}
+
+	return nullptr;
+}
+
 errorcode_t
 Initialize()
 {
 	LIST_INIT(&deviceList);
 
-	Device* corebus = new CoreBus(CreateDeviceProperties("corebus", 0));
-	return AttachSingle(*corebus);
+	return AttachSingle(*new CoreBus);
 }
 
 INIT_FUNCTION(Initialize, SUBSYSTEM_DEVICE, ORDER_LAST);

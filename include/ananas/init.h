@@ -13,6 +13,7 @@ enum INIT_SUBSYSTEM {
 	/* Everything above here cannot be used by modules */
 	SUBSYSTEM_HANDLE	= 0x0100000,
 	SUBSYSTEM_KDB		= 0x0110000,
+	SUBSYSTEM_DRIVER	= 0x0118000,
 	SUBSYSTEM_CONSOLE	= 0x0120000,
 	/* After this point, there is a console */
 	SUBSYSTEM_PROCESS	= 0x01f0000,

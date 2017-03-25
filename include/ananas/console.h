@@ -1,8 +1,7 @@
 #ifndef __CONSOLE_H__
 #define __CONSOLE_H__
 
-#include <ananas/device.h>
-#include <ananas/list.h>
+#include <ananas/driver.h>
 
 void console_putchar(int c);
 void console_putstring(const char* s);
@@ -10,7 +9,7 @@ uint8_t console_getchar();
 
 extern Ananas::Device* console_tty;
 
-typedef Ananas::Device* (*ProbeConsoleDriverFunc)();
+namespace Ananas {
 
 /*
  * Console drivers are 'special' as they will be probed during early boot and
@@ -20,33 +19,29 @@ typedef Ananas::Device* (*ProbeConsoleDriverFunc)();
  * first successful driver wins and becomes the console driver. The order is
  * highest first, so use zero for the 'if all else fails'-driver.
  */
-struct CONSOLE_DRIVER {
-	ProbeConsoleDriverFunc con_probeFunc;
-	int		con_priority;
-	int		con_flags;
+class ConsoleDriver : public Driver
+{
+public:
+	ConsoleDriver(const char* name, int priority, int flags)
+	 : Driver(name), c_Priority(priority), c_Flags(flags)
+	{
+	}
+	virtual ~ConsoleDriver() = default;
+
+	ConsoleDriver* GetConsoleDriver() override
+	{
+		return this;
+	}
+
+	virtual Device* ProbeDevice() = 0;
+
+	int c_Priority;
 #define CONSOLE_FLAG_IN		0x0001
 #define CONSOLE_FLAG_OUT	0x0002
 #define CONSOLE_FLAG_INOUT	(CONSOLE_FLAG_IN | CONSOLE_FLAG_OUT)
-	LIST_FIELDS(struct CONSOLE_DRIVER);
+	int c_Flags;
 };
-LIST_DEFINE(CONSOLE_DRIVERS, struct CONSOLE_DRIVER);
 
-#define DEFINE_CONSOLE_DRIVER(drv, prio, flags, probeFn) \
-	static struct CONSOLE_DRIVER condrv_##drv = { \
-		.con_probeFunc = &probeFn, \
-		.con_priority = prio, \
-		.con_flags = flags \
-	}; \
-	static errorcode_t register_condrv_##drv() { \
-		return console_register_driver(&condrv_##drv); \
-	} \
-	static errorcode_t unregister_condrv_##drv() { \
-		return console_unregister_driver(&condrv_##drv); \
-	} \
-	INIT_FUNCTION(register_condrv_##drv, SUBSYSTEM_CONSOLE, ORDER_FIRST); \
-	EXIT_FUNCTION(unregister_condrv_##drv);
-
-errorcode_t console_register_driver(struct CONSOLE_DRIVER* con);
-errorcode_t console_unregister_driver(struct CONSOLE_DRIVER* con);
+} // namespace Ananas
 
 #endif /* __CONSOLE_H__ */

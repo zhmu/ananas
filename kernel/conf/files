@@ -6,6 +6,8 @@ kern/page.cpp		mandatory
 kern/kmem.cpp		mandatory
 kern/dma.cpp		mandatory
 kern/device.cpp		mandatory
+kern/driver.cpp		mandatory
+kern/drivermanager.cpp	mandatory
 kern/console.cpp	mandatory
 kern/pcpu.cpp		mandatory
 kern/process.cpp	mandatory
