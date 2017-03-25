@@ -19,6 +19,8 @@
 #ifndef __ANANAS_TRACE_H__
 #define __ANANAS_TRACE_H__
 
+#include <ananas/types.h>
+
 #ifdef KERNEL
 # ifndef MODULE
 # define TRACE_SETUP \
