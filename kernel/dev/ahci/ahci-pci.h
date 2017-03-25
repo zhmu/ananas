@@ -2,7 +2,9 @@
 #define __ANANAS_AHCIPCI_H__
 
 #include <ananas/types.h>
-#include <ananas/dev/ahci.h>
+
+namespace Ananas {
+namespace AHCI {
 
 #define AHCI_REG_CAP	0x00			/* HBA capabilities */
 #define  AHCI_CAP_S64A		(1 << 31)
@@ -281,5 +283,8 @@ struct AHCI_PCI_CT {
 #else
 #define DUMP_PORT_STATE(n)
 #endif
+
+} // namespace AHCI
+} // namespace Ananas
 
 #endif /* __ANANAS_AHCIPCI_H__ */

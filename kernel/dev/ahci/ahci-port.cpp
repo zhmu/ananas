@@ -1,6 +1,4 @@
 #include <ananas/types.h>
-#include <ananas/dev/ahci.h>
-#include <ananas/dev/ahci-pci.h>
 #include <ananas/dev/sata.h>
 #include <ananas/bio.h>
 #include <ananas/kmem.h>
@@ -11,6 +9,7 @@
 #include <ananas/lib.h>
 #include <machine/vm.h>
 #include "ahci.h"
+#include "ahci-pci.h"
 
 TRACE_SETUP;
 

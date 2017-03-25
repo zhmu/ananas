@@ -1,6 +1,7 @@
 #ifndef ANANAS_ATA_CD_H
 #define ANANAS_ATA_CD_H
 
+#include <ananas/dev/ata.h>
 #include "ata.h"
 
 namespace Ananas {

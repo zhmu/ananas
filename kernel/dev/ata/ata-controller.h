@@ -2,6 +2,7 @@
 #define ANANAS_ATA_CONTROLLER_H
 
 #include <ananas/device.h>
+#include <ananas/dev/ata.h>
 #include <ananas/irq.h>
 #include "ata.h"
 

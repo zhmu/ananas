@@ -4,10 +4,20 @@
 #include <ananas/dev/sata.h>
 #include <ananas/irq.h>
 #include <ananas/dma.h>
-#include <ananas/dev/ahci-pci.h>
+
+#define AHCI_DEBUG 0
+
+#if AHCI_DEBUG
+#define AHCI_DPRINTF(fmt, ...) \
+	device_printf(dev, fmt, __VA_ARGS__)
+#else
+#define AHCI_DPRINTF(...) (void)0
+#endif
 
 namespace Ananas {
 namespace AHCI {
+
+struct AHCI_PCI_CT;
 
 class AHCIDevice;
 
