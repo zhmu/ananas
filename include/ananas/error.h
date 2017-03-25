@@ -27,6 +27,7 @@
 #define ANANAS_ERROR_OUT_OF_MEMORY	21		/* Out of memory */
 #define ANANAS_ERROR_CROSS_DEVICE	22		/* Cross device operation */
 #define ANANAS_ERROR_UNSUPPORTED	23		/* Unsupported operation */
+#define ANANAS_ERROR_READ_ONLY		24		/* Writing is prohibited */
 
 static inline errorcode_t ananas_success()
 {
