@@ -1,62 +1,101 @@
 #include <ananas/types.h>
+#include <ananas/driver.h>
 #include <ananas/error.h>
-#include <ananas/dev/ata.h>
 #include <ananas/x86/io.h>
 #include <ananas/bio.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <mbr.h>
+#include "ata.h"
+#include "atacd.h"
+#include "ata-controller.h"
 
-struct ATACD_PRIVDATA {
-	int unit;
-};
+TRACE_SETUP;
 
-static errorcode_t
-atacd_attach(device_t dev)
+namespace Ananas {
+namespace ATA {
+
+namespace {
+
+void EnqueueAndStart(Ananas::Device* parent, ATA_REQUEST_ITEM& item)
 {
-	int unit = (int)(uintptr_t)dev->d_resourceset.AllocateResource(Ananas::Resource::RT_ChildNum, 0);
-	struct ATA_IDENTIFY* identify = (struct ATA_IDENTIFY*)dev->privdata;
+  // XXX this is a hack
+  auto atacl = static_cast<Ananas::ATA::ATAController*>(parent);
+  atacl->Enqueue(&item);
+  atacl->Start();
+}
 
-	auto priv = new(dev) ATACD_PRIVDATA;
-	dev->privdata = priv;
-	priv->unit = unit;
+} // unnamed namespace
 
-	device_printf(dev, "<%s>", identify->model);
+errorcode_t
+ATACD::Attach()
+{
+	ata_unit = (int)(uintptr_t)d_ResourceSet.AllocateResource(Ananas::Resource::RT_ChildNum, 0);
+
+	Printf("<%s>", ata_identify.model);
 
 	return ananas_success();
 }
 
-static errorcode_t
-atacd_bread(device_t dev, struct BIO* bio)
+errorcode_t
+ATACD::Detach()
 {
-	struct ATACD_PRIVDATA* priv = (struct ATACD_PRIVDATA*)dev->privdata;
+	panic("unimplemented");
+	return ananas_success();
+}
+
+errorcode_t
+ATACD::ReadBIO(struct BIO& bio)
+{
 	struct ATA_REQUEST_ITEM item;
-	KASSERT(bio->length == 2048, "invalid length"); /* XXX */
+	KASSERT(bio.length == 2048, "invalid length"); /* XXX */
 
 	/* XXX boundary check */
 	memset(&item, 0, sizeof(item));
-	item.unit = priv->unit;
-	item.count = bio->length;
-	item.bio = bio;
+	item.unit = ata_unit;
+	item.count = bio.length;
+	item.bio = &bio;
 	item.command = ATA_CMD_PACKET;
 	item.flags = ATA_ITEM_FLAG_READ | ATA_ITEM_FLAG_ATAPI;
 	item.atapi_command[0] = ATAPI_CMD_READ_SECTORS;
-	item.atapi_command[2] = (bio->io_block >> 24) & 0xff;
-	item.atapi_command[3] = (bio->io_block >> 16) & 0xff;
-	item.atapi_command[4] = (bio->io_block >>  8) & 0xff;
-	item.atapi_command[5] = (bio->io_block      ) & 0xff;
-	item.atapi_command[7] = (bio->length / 2048) >> 8;
-	item.atapi_command[8] = (bio->length / 2048) & 0xff;
-	dev->parent->driver->drv_enqueue(dev->parent, &item);
-	dev->parent->driver->drv_start(dev->parent);
+	item.atapi_command[2] = (bio.io_block >> 24) & 0xff;
+	item.atapi_command[3] = (bio.io_block >> 16) & 0xff;
+	item.atapi_command[4] = (bio.io_block >>  8) & 0xff;
+	item.atapi_command[5] = (bio.io_block      ) & 0xff;
+	item.atapi_command[7] = (bio.length / 2048) >> 8;
+	item.atapi_command[8] = (bio.length / 2048) & 0xff;
+	EnqueueAndStart(d_Parent, item);
+
 	return ananas_success();
 }
 
-struct DRIVER drv_atacd = {
-	.name					= "atacd",
-	.drv_probe		= NULL,
-	.drv_attach		= atacd_attach,
-	.drv_bread		= atacd_bread
+errorcode_t
+ATACD::WriteBIO(struct BIO& bio)
+{
+	return ANANAS_ERROR(READ_ONLY);
+}
+
+struct ATACD_Driver : public Ananas::Driver
+{
+	ATACD_Driver()
+	: Driver("atacd")
+	{
+	}
+
+	const char* GetBussesToProbeOn() const override
+	{
+		return nullptr; // instantiated by ata-pci
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		return new ATACD(cdp);
+	}
 };
+
+REGISTER_DRIVER(ATACD_Driver)
+
+} // namespace ATA
+} // namespace Ananas
 
 /* vim:set ts=2 sw=2: */
