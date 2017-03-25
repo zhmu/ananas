@@ -1,4 +1,5 @@
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/error.h>
 #include <ananas/irq.h>
 #include <ananas/kdb.h>
@@ -168,19 +169,29 @@ ATKeyboard::Detach()
 	return ananas_success();
 }
 
-Ananas::Device*
-atkbd_CreateDevice(const Ananas::CreateDeviceProperties& cdp)
+struct ATKeyboard_Driver : public Ananas::Driver
 {
+	ATKeyboard_Driver()
+	 : Driver("atkbd")
+	{
+	}
+
+	const char* GetBussesToProbeOn() const override
+	{
+		return "acpi";
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
 	auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PNP_ID, 0);
 	if (res != NULL && res->r_Base == 0x0303) /* PNP0303: IBM Enhanced (101/102-key, PS/2 mouse support) */
 		return new ATKeyboard(cdp);
 	return nullptr;
-}
+	}
+};
 
 } // unnamed namespace
 
-DRIVER_PROBE(atkbd, "atkbd", atkbd_CreateDevice)
-DRIVER_PROBE_BUS(acpi)
-DRIVER_PROBE_END()
+REGISTER_DRIVER(ATKeyboard_Driver)
 
 /* vim:set ts=2 sw=2: */
