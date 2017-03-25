@@ -1,5 +1,6 @@
 #include <ananas/bus/pci.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
 #include <machine/pcihb.h>
@@ -127,17 +128,26 @@ PCIBus::Detach()
 	return ananas_success();
 }
 
+struct PCIBus_Driver : public Ananas::Driver
+{
+	PCIBus_Driver()
+	 : Driver("pcibus")
+	{
+	}
+
+	const char* GetBussesToProbeOn() const override
+	{
+		return nullptr;
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		return new PCIBus(cdp);
+	}
+};
+
 } // unnamed namespace
 
-Ananas::Device*
-pcibus_CreateDevice(const Ananas::CreateDeviceProperties& cdp)
-{
-	return new PCIBus(cdp);
-}
-
-DRIVER_PROBE(pcibus, "pcibus", pcibus_CreateDevice)
-// The 'pci' driver will attach each bus itself as needed.
-"" // HACK
-DRIVER_PROBE_END()
+REGISTER_DRIVER(PCIBus_Driver)
 
 /* vim:set ts=2 sw=2: */

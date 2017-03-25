@@ -1,11 +1,10 @@
 #include <ananas/x86/io.h>
 #include <ananas/bus/pci.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
 #include <machine/pcihb.h>
-
-Ananas::Device* pcibus_CreateDevice(const Ananas::CreateDeviceProperties& cdp);
 
 namespace {
 
@@ -41,9 +40,8 @@ PCI::Attach()
 		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_VendorID, dev_vendor & 0xffff, 0));
 		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_DeviceID, dev_vendor >> 16, 0));
 
-		static int pcibus_unit = 0; // XXX
-		Ananas::Device* new_bus = pcibus_CreateDevice(Ananas::CreateDeviceProperties(*this, "pcibus", pcibus_unit++, resourceSet));
-		if (new_bus != NULL)
+		Ananas::Device* new_bus = Ananas::DeviceManager::CreateDevice("pcibus", Ananas::CreateDeviceProperties(*this, resourceSet));
+		if (new_bus != nullptr)
 			Ananas::DeviceManager::AttachSingle(*new_bus);
 	}
 	return ananas_success();
@@ -55,18 +53,27 @@ PCI::Detach()
 	return ananas_success();
 }
 
-Ananas::Device*
-pci_CreateDevice(const Ananas::CreateDeviceProperties& cdp)
+struct PCI_Driver : public Ananas::Driver
 {
-	return new PCI(cdp);
-}
+	PCI_Driver()
+	 : Driver("pci")
+	{
+	}
+
+	const char* GetBussesToProbeOn() const override
+	{
+		return "pcihb,acpi-pcihb";
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		return new PCI(cdp);
+	}
+};
 
 } // unnamed namespace
 
-DRIVER_PROBE(pci, "pci", pci_CreateDevice)
-DRIVER_PROBE_BUS(pcihb)
-DRIVER_PROBE_BUS(acpi-pcihb)
-DRIVER_PROBE_END()
+REGISTER_DRIVER(PCI_Driver)
 
 void
 pci_write_cfg(Ananas::Device& device, uint32_t reg, uint32_t val, int size)
