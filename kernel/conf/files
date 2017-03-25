@@ -90,7 +90,6 @@ dev/bus/isa/atkbd.cpp	optional atkbd
 dev/bus/pci/pci.cpp	optional pci
 dev/bus/pci/pcibus.cpp	optional pci
 dev/ata/ata-pci.cpp	optional atapci
-dev/ramdisk.cpp		optional ramdisk
 # XXX maybe divide IDE stuff in disk, cd, etc ?
 dev/ata/ata-controller.cpp	optional ata
 dev/ata/atadisk.cpp	optional ata
