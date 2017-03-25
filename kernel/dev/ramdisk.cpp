@@ -4,6 +4,7 @@
 #include <ananas/bio.h>
 #include <ananas/trace.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/trace.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
@@ -13,21 +14,37 @@
 
 TRACE_SETUP;
 
-struct RAMDISK_PRIVDATA {
+namespace {
+
+class RAMDisk : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IBIODeviceOperations
+{
+public:
+	using Device::Device;
+	virtual ~RAMDisk() = default;
+
+	IDeviceOperations& GetDeviceOperations() override
+	{
+		return *this;
+	}
+
+	IBIODeviceOperations* GetBIODeviceOperations() override
+	{
+		return this;
+	}
+
+	errorcode_t Attach() override;
+	errorcode_t Detach() override;
+
+	errorcode_t ReadBIO(struct BIO& bio) override;
+	errorcode_t WriteBIO(struct BIO& bio) override;
+
+private:
 	void*		ram_buffer;
 	size_t	ram_size;
 };
 
-static errorcode_t
-ramdisk_probe(Ananas::ResourceSet& resourceSet)
-{
-	if (bootinfo == NULL)
-		return ANANAS_ERROR(NO_DEVICE);
-	return ananas_success();
-}
-
-static errorcode_t
-ramdisk_attach(device_t dev)
+errorcode_t
+RAMDisk::Attach()
 {
 	/* Walk through all modules and attach the first RAM disk we see XXX we should support more */
 	for (struct LOADER_MODULE* mod = (struct LOADER_MODULE*)PTOKV((addr_t)bootinfo->bi_modules);
@@ -35,45 +52,68 @@ ramdisk_attach(device_t dev)
 		if (mod->mod_type != MOD_RAMDISK)
 			continue;
 
-		auto privdata = new(dev) RAMDISK_PRIVDATA;
-		privdata->ram_buffer = (void*)PTOKV((addr_t)mod->mod_phys_start_addr);
-		privdata->ram_size = (addr_t)mod->mod_phys_end_addr - (addr_t)mod->mod_phys_start_addr;
-		dev->privdata = privdata;
+		ram_buffer = (void*)PTOKV((addr_t)mod->mod_phys_start_addr);
+		ram_size = (addr_t)mod->mod_phys_end_addr - (addr_t)mod->mod_phys_start_addr;
 
-		device_printf(dev, "%u KB",
+		Printf("%u KB",
 		 (addr_t)mod->mod_phys_start_addr, (addr_t)mod->mod_phys_end_addr,
-		 privdata->ram_size / 1024);
+		 ram_size / 1024);
 		
 		return ananas_success();
 	}
 	return ANANAS_ERROR(NO_DEVICE);
 }
 
-static errorcode_t
-ramdisk_bread(device_t dev, struct BIO* bio)
+errorcode_t
+RAMDisk::Detach()
 {
-	struct RAMDISK_PRIVDATA* privdata = (struct RAMDISK_PRIVDATA*)dev->privdata;
-	KASSERT(bio->length > 0, "invalid length");
-	KASSERT(bio->length % BIO_SECTOR_SIZE== 0, "invalid length"); /* XXX */
-
-	KASSERT((bio->io_block * BIO_SECTOR_SIZE) + bio->length < privdata->ram_size, "attempted to read beyond ramdisk range");
-
-	/* XXX We could really use page-mapped blocks now */
-	memcpy(BIO_DATA(bio), (void*)((addr_t)privdata->ram_buffer + (addr_t)bio->io_block * BIO_SECTOR_SIZE), bio->length);
-
-	bio_set_available(bio);
+	panic("Detach");
 	return ananas_success();
 }
 
-struct DRIVER drv_ramdisk = {
-	.name					= "ramdisk",
-	.drv_probe		= ramdisk_probe,
-	.drv_attach		= ramdisk_attach,
-	.drv_bread		= ramdisk_bread
+errorcode_t
+RAMDisk::ReadBIO(struct BIO& bio)
+{
+	KASSERT(bio.length > 0, "invalid length");
+	KASSERT(bio.length % BIO_SECTOR_SIZE== 0, "invalid length"); /* XXX */
+
+	KASSERT((bio.io_block * BIO_SECTOR_SIZE) + bio.length < ram_size, "attempted to read beyond ramdisk range");
+
+	/* XXX We could really use page-mapped blocks now */
+	memcpy(BIO_DATA(&bio), (void*)((addr_t)ram_buffer + (addr_t)bio.io_block * BIO_SECTOR_SIZE), bio.length);
+
+	bio_set_available(&bio);
+	return ananas_success();
+}
+
+errorcode_t
+RAMDisk::WriteBIO(struct BIO& bio)
+{
+	return ANANAS_ERROR(READ_ONLY);
+}
+
+struct RAMDisk_Driver : public Ananas::Driver
+{
+	RAMDisk_Driver()
+	: Driver("ramdisk")
+	{
+	}
+
+	const char* GetBussesToProbeOn() const override
+	{
+		return "corebus";
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		if (bootinfo == NULL)
+			return nullptr;
+		return new RAMDisk(cdp);
+	}
 };
 
-DRIVER_PROBE(ramdisk)
-DRIVER_PROBE_BUS(corebus)
-DRIVER_PROBE_END()
+} // unnamed namespace
+
+REGISTER_DRIVER(RAMDisk_Driver)
 
 /* vim:set ts=2 sw=2: */
