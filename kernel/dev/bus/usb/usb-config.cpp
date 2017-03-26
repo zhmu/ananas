@@ -1,14 +1,14 @@
 #include <ananas/types.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
-#include <ananas/bus/usb/core.h>
-#include <ananas/bus/usb/config.h>
-#include <ananas/bus/usb/descriptor.h>
 #include <ananas/lib.h>
 #include <ananas/thread.h>
 #include <ananas/trace.h>
 #include <ananas/mm.h>
+#include "usb-core.h"
 #include "usb-device.h"
+#include "config.h"
+#include "descriptor.h"
 
 TRACE_SETUP;
 

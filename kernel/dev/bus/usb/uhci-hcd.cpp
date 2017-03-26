@@ -18,8 +18,6 @@
  */
 #include <ananas/types.h>
 #include <ananas/bus/pci.h>
-#include <ananas/bus/usb/descriptor.h>
-#include <ananas/bus/usb/core.h>
 #include <ananas/x86/io.h>
 #include <ananas/device.h>
 #include <ananas/dma.h>
@@ -34,8 +32,10 @@
 #include "uhci-hcd.h"
 #include "uhci-roothub.h"
 #include "uhci-reg.h"
+#include "usb-core.h"
 #include "usb-device.h"
 #include "usb-transfer.h"
+#include "descriptor.h"
 
 TRACE_SETUP;
 

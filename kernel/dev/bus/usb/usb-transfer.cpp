@@ -1,8 +1,6 @@
 #include <ananas/types.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
-#include <ananas/bus/usb/config.h>
-#include <ananas/bus/usb/core.h>
 #include <ananas/list.h>
 #include <ananas/lib.h>
 #include <ananas/thread.h>
@@ -11,7 +9,9 @@
 #include <ananas/trace.h>
 #include <ananas/mm.h>
 #include <machine/param.h> /* XXX for PAGE_SIZE */
+#include "config.h"
 #include "usb-bus.h"
+#include "usb-core.h"
 #include "usb-device.h"
 #include "usb-transfer.h"
 

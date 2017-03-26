@@ -1,7 +1,7 @@
 #ifndef __ANANAS_USB_DEVICE_H__
 #define __ANANAS_USB_DEVICE_H__
 
-#include <ananas/bus/usb/core.h>
+#include "usb-core.h"
 
 struct USB_BUS;
 struct USB_HUB;

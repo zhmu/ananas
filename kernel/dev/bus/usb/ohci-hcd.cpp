@@ -23,7 +23,6 @@
  */
 #include <ananas/types.h>
 #include <ananas/bus/pci.h>
-#include <ananas/bus/usb/core.h>
 #include <ananas/error.h>
 #include <ananas/dma.h>
 #include <ananas/irq.h>
@@ -34,6 +33,7 @@
 #include "ohci-reg.h"
 #include "ohci-roothub.h"
 #include "ohci-hcd.h"
+#include "usb-core.h"
 #include "usb-device.h"
 #include "usb-transfer.h"
 

@@ -1,9 +1,6 @@
 #include <ananas/types.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
-#include <ananas/bus/usb/config.h>
-#include <ananas/bus/usb/core.h>
-#include <ananas/bus/usb/transfer.h>
 #include <ananas/device.h>
 #include <ananas/list.h>
 #include <ananas/lib.h>
@@ -13,10 +10,13 @@
 #include <ananas/trace.h>
 #include <ananas/mm.h>
 #include <machine/param.h> /* for PAGE_SIZE XXX */
+#include "config.h"
 #include "usb-bus.h"
+#include "usb-core.h"
 #include "usb-hub.h"
 #include "usb-device.h"
 #include "usb-transfer.h"
+#include "transfer.h"
 
 TRACE_SETUP;
 

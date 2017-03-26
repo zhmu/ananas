@@ -3,8 +3,6 @@
  */
 #include <ananas/types.h>
 #include <ananas/bus/pci.h>
-#include <ananas/bus/usb/descriptor.h>
-#include <ananas/bus/usb/core.h>
 #include <ananas/x86/io.h>
 #include <ananas/error.h>
 #include <ananas/trace.h>
@@ -17,6 +15,8 @@
 #include "ohci-reg.h"
 #include "ohci-hcd.h"
 #include "ohci-roothub.h"
+#include "descriptor.h"
+#include "usb-core.h"
 #include "usb-bus.h"
 #include "usb-device.h"
 #include "usb-transfer.h"

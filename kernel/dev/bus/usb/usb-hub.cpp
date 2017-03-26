@@ -1,17 +1,17 @@
 #include <ananas/types.h>
 #include <ananas/device.h>
 #include <ananas/error.h>
-#include <ananas/bus/usb/config.h>
-#include <ananas/bus/usb/core.h>
-#include <ananas/bus/usb/pipe.h>
-#include <ananas/bus/usb/transfer.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/thread.h>
 #include <ananas/trace.h>
 #include <ananas/time.h>
 #include <machine/param.h>
+#include "config.h"
+#include "pipe.h"
+#include "transfer.h"
 #include "usb-bus.h"
+#include "usb-core.h"
 #include "usb-device.h"
 #include "usb-hub.h"
 
