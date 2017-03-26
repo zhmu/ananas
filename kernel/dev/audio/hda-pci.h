@@ -123,17 +123,6 @@ struct HDA_PCI_BDL_ENTRY {
 struct HDA_PCI_STREAM;
 
 struct HDA_PCI_PRIVDATA {
-	spinlock_t hda_hwlock;	/* used to protect the hardware registers */
-	addr_t hda_addr;
-	int hda_iss, hda_oss, hda_bss;	/* stream counts, per type */
-	int hda_corb_size;
-	int hda_rirb_size;
-	struct PAGE* hda_page;
-	uint32_t* hda_corb;
-	uint64_t* hda_rirb;
-	int hda_rirb_rp;
-	uint32_t hda_ss_avail;	/* stream# available*/
-	struct HDA_PCI_STREAM** hda_stream;
 };
 
 struct HDA_PCI_STREAM_PAGE {

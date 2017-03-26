@@ -1,8 +1,7 @@
 #include <ananas/types.h>
-#include <ananas/dev/hda.h>
-#include <ananas/dev/hda-pci.h>
 #include <ananas/bus/pci.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/error.h>
 #include <ananas/irq.h>
 #include <ananas/page.h>
@@ -12,90 +11,107 @@
 #include <ananas/lib.h>
 #include <ananas/vm.h>
 #include <machine/param.h>
+#include "hda.h"
+#include "hda-pci.h"
 
 TRACE_SETUP;
 
 #define HDA_WRITE_4(reg, val) \
-	*(volatile uint32_t*)(privdata->hda_addr + reg) = (val)
+	*(volatile uint32_t*)(hda_addr + reg) = (val)
 #define HDA_READ_4(reg) \
-	(*(volatile uint32_t*)(privdata->hda_addr + reg))
+	(*(volatile uint32_t*)(hda_addr + reg))
 #define HDA_WRITE_2(reg, val) \
-	*(volatile uint16_t*)(privdata->hda_addr + reg) = (val)
+	*(volatile uint16_t*)(hda_addr + reg) = (val)
 #define HDA_READ_2(reg) \
-	(*(volatile uint16_t*)(privdata->hda_addr + reg))
+	(*(volatile uint16_t*)(hda_addr + reg))
 #define HDA_WRITE_1(reg, val) \
-	*(volatile uint8_t*)(privdata->hda_addr + reg) = (val)
+	*(volatile uint8_t*)(hda_addr + reg) = (val)
 #define HDA_READ_1(reg) \
-	(*(volatile uint8_t*)(privdata->hda_addr + reg))
+	(*(volatile uint8_t*)(hda_addr + reg))
 
-static void
-hdapci_stream_irq(device_t dev, struct HDA_PCI_STREAM* s)
+namespace Ananas {
+namespace HDA {
+
+class HDAPCIDevice : public Ananas::Device, private Ananas::IDeviceOperations, private IHDAFunctions
 {
-	auto hda_pd = static_cast<struct HDA_PRIVDATA*>(dev->privdata);
-	auto privdata = static_cast<struct HDA_PCI_PRIVDATA*>(hda_pd->hda_dev_priv);
+public:
+	using Device::Device;
+	virtual ~HDAPCIDevice() = default;
 
-	/* Acknowledge the stream's IRQ */
-	HDA_WRITE_1(HDA_REG_xSDnSTS(s->s_ss), HDA_READ_1(HDA_REG_xSDnSTS(s->s_ss)) | HDA_SDnSTS_BCIS);
+	IDeviceOperations& GetDeviceOperations() override
+	{
+		return *this;
+	}
 
-	hda_stream_irq(dev, s);
-}
+	errorcode_t Attach() override;
+	errorcode_t Detach() override;
 
+	errorcode_t IssueVerb(uint32_t verb, uint32_t* resp, uint32_t* resp_ex) override;
 
-static irqresult_t
-hdapci_irq(device_t dev, void* context)
+	uint16_t GetAndClearStateChange() override;
+	errorcode_t OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context* context) override;
+	errorcode_t CloseStream(Context context) override;
+	errorcode_t StartStreams(int num, Context* context) override;
+	errorcode_t StopStreams(int num, Context* context) override;
+	void* GetStreamDataPointer(Context context, int page) override;
+
+private:
+	void OnIRQ();
+
+	static irqresult_t IRQWrapper(Ananas::Device* device, void* context)
+	{
+		auto hdapci = static_cast<HDAPCIDevice*>(device);
+		hdapci->OnIRQ();
+		return IRQ_RESULT_PROCESSED;
+	}
+
+	addr_t hda_addr;
+	int hda_iss, hda_oss, hda_bss;	/* stream counts, per type */
+	int hda_corb_size;
+	int hda_rirb_size;
+	struct PAGE* hda_page;
+	uint32_t* hda_corb;
+	uint64_t* hda_rirb;
+	int hda_rirb_rp;
+	uint32_t hda_ss_avail;	/* stream# available*/
+	struct HDA_PCI_STREAM** hda_stream;
+
+	HDADevice* hda_device;
+};
+
+void
+HDAPCIDevice::OnIRQ()
 {
-	auto privdata = static_cast<struct HDA_PCI_PRIVDATA*>(context);
-
 	uint32_t sts = HDA_READ_4(HDA_REG_INTSTS);
 	if (sts & HDA_INTSTS_CIS) {
 		uint32_t rirb_sts = HDA_READ_1(HDA_REG_RIRBSTS);
-		device_printf(dev, "irq; rirb sts=%x", rirb_sts);
+		Printf("irq; rirb sts=%x", rirb_sts);
 		kprintf("irq: corb rp=%x wp=%x rirb wp=%x\n", HDA_READ_2(HDA_REG_CORBRP), HDA_READ_2(HDA_REG_CORBWP), HDA_READ_2(HDA_REG_RIRBWP));
 
 		HDA_WRITE_1(HDA_REG_RIRBSTS, sts & ~HDA_REG_RIRBSTS); /* acknowledge rirb status */
 	}
 
 	/* Handle stream interrupts */
-	for (unsigned int n = 0; n < privdata->hda_iss + privdata->hda_oss + privdata->hda_bss; n++) {
+	for (unsigned int n = 0; n < hda_iss + hda_oss + hda_bss; n++) {
 		if ((sts & (1 << n)) == 0)
 			continue;
-		hdapci_stream_irq(dev, privdata->hda_stream[n]);
+		struct HDA_PCI_STREAM* s = hda_stream[n];
+
+		/* Acknowledge the stream's IRQ */
+		HDA_WRITE_1(HDA_REG_xSDnSTS(s->s_ss), HDA_READ_1(HDA_REG_xSDnSTS(s->s_ss)) | HDA_SDnSTS_BCIS);
+		hda_device->OnStreamIRQ(s);
 	}
-
-	return IRQ_RESULT_PROCESSED;
 }
 
-static errorcode_t
-hdapci_probe(Ananas::ResourceSet& resourceSet)
+errorcode_t
+HDAPCIDevice::IssueVerb(uint32_t verb, uint32_t* resp, uint32_t* resp_ex)
 {
-	auto res = resourceSet.GetResource(Ananas::Resource::RT_PCI_VendorID, 0);
-	if (res == NULL)
-		return ANANAS_ERROR(NO_RESOURCE); // XXX this should be fixed; attach_bus will try the entire attach-cycle without PCI resources!
-
-	uint32_t vendor = res->r_Base;
-	res = resourceSet.GetResource(Ananas::Resource::RT_PCI_DeviceID, 0);
-	uint32_t device = res->r_Base;
-	if (vendor == 0x8086 && device == 0x2668) /* intel hda in QEMU */
-		return ananas_success();
-	if (vendor == 0x10de && device == 0x7fc) /* nvidia MCP73 HDA */
-		return ananas_success();
-	if (vendor == 0x1039 && device == 0x7502) /* SiS 966 */
-		return ananas_success();
-	return ANANAS_ERROR(NO_RESOURCE);
-}
-
-static errorcode_t
-hdapci_issue_verb(device_t dev, uint32_t verb, uint32_t* resp, uint32_t* resp_ex)
-{
-	auto hda_pd = static_cast<struct HDA_PRIVDATA*>(dev->privdata);
-	auto privdata = static_cast<struct HDA_PCI_PRIVDATA*>(hda_pd->hda_dev_priv);
-
 	/* Ask an IRQ after 64k replies (the IRQ is masked, so we'll never see it) */
 	HDA_WRITE_2(HDA_REG_RINTCNT, 0xffff);
 
 	/* Prepare the next write pointer */
-	int next_wp = (HDA_READ_2(HDA_REG_CORBWP) + 1) % privdata->hda_corb_size;
-	privdata->hda_corb[next_wp] = verb;
+	int next_wp = (HDA_READ_2(HDA_REG_CORBWP) + 1) % hda_corb_size;
+	hda_corb[next_wp] = verb;
 
 	/* Increment the write pointer so the HDA will send the command */
 	HDA_WRITE_2(HDA_REG_CORBWP, next_wp);
@@ -104,7 +120,7 @@ hdapci_issue_verb(device_t dev, uint32_t verb, uint32_t* resp, uint32_t* resp_ex
 	 * XXX For now, determine the next read pointer value and wait until it
 	 *     triggers... we use polling with a timeout.
 	 */
-	int next_rp = (privdata->hda_rirb_rp + 1) % privdata->hda_rirb_size;
+	int next_rp = (hda_rirb_rp + 1) % hda_rirb_size;
 	int timeout = 1000;
 	uint64_t r;
 	for(/* nothing */; timeout > 0; timeout--) {
@@ -114,12 +130,12 @@ hdapci_issue_verb(device_t dev, uint32_t verb, uint32_t* resp, uint32_t* resp_ex
 			continue;
 		}
 
-		r = privdata->hda_rirb[next_rp];
-		privdata->hda_rirb_rp = next_rp;
+		r = hda_rirb[next_rp];
+		hda_rirb_rp = next_rp;
 		break;
 	}
 	if (timeout == 0) {
-		HDA_DEBUG("issued verb %x -> timeout", verb);
+		Printf("issued verb %x -> timeout", verb);
 		return ANANAS_ERROR(NO_DEVICE); /* or another silly error code */
 	}
 
@@ -131,23 +147,17 @@ hdapci_issue_verb(device_t dev, uint32_t verb, uint32_t* resp, uint32_t* resp_ex
 	return ananas_success();
 }
 
-static uint16_t
-hdapci_get_state_change(device_t dev)
+uint16_t
+HDAPCIDevice::GetAndClearStateChange()
 {
-	auto hda_pd = static_cast<struct HDA_PRIVDATA*>(dev->privdata);
-	auto privdata = static_cast<struct HDA_PCI_PRIVDATA*>(hda_pd->hda_dev_priv);
-
 	uint16_t x = HDA_READ_2(HDA_REG_STATESTS);
 	HDA_WRITE_2(HDA_REG_STATESTS, x & 0x7fff);
 	return x;
 }
 
-static errorcode_t
-hdapci_open_stream(device_t dev, int tag, int dir, uint16_t fmt, int num_pages, void** context)
+errorcode_t
+HDAPCIDevice::OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context* context)
 {
-	auto hda_pd = static_cast<struct HDA_PRIVDATA*>(dev->privdata);
-	auto privdata = static_cast<struct HDA_PCI_PRIVDATA*>(hda_pd->hda_dev_priv);
-
 	KASSERT(dir == HDF_DIR_OUT, "unsupported direction %d", dir);
 
 	/*
@@ -158,17 +168,17 @@ hdapci_open_stream(device_t dev, int tag, int dir, uint16_t fmt, int num_pages, 
 	int ss = -1;
 	if (dir == HDF_DIR_IN) {
 		/* Try input streams */
-		for (int n = 0; n < privdata->hda_iss; n++) {
-			if (privdata->hda_ss_avail & (1 << n)) {
+		for (int n = 0; n < hda_iss; n++) {
+			if (hda_ss_avail & (1 << n)) {
 				ss = n;
 				break;
 			}
 		}
 	} else /* dir == HDF_DIR_OUT */ {
 		/* Try output streams */
-		int base = privdata->hda_iss;
-		for (int n = 0; n < privdata->hda_oss; n++) {
-			if (privdata->hda_ss_avail & (1 << (base + n))) {
+		int base = hda_iss;
+		for (int n = 0; n < hda_oss; n++) {
+			if (hda_ss_avail & (1 << (base + n))) {
 				ss = base + n;
 				break;
 			}
@@ -177,9 +187,9 @@ hdapci_open_stream(device_t dev, int tag, int dir, uint16_t fmt, int num_pages, 
 
 	/* If we still have found nothing, try the bidirectional streams */
 	if (ss < 0) {
-		int base = privdata->hda_iss + privdata->hda_oss;
-		for (int n = 0; n < privdata->hda_bss; n++) {
-			if (privdata->hda_ss_avail & (1 << (base + n))) {
+		int base = hda_iss + hda_oss;
+		for (int n = 0; n < hda_bss; n++) {
+			if (hda_ss_avail & (1 << (base + n))) {
 				ss = base + n;
 				break;
 			}
@@ -190,14 +200,14 @@ hdapci_open_stream(device_t dev, int tag, int dir, uint16_t fmt, int num_pages, 
 		return ANANAS_ERROR(NO_SPACE);
 
 	/* Claim the stream# */
-	privdata->hda_ss_avail &= ~(1 << ss);
+	hda_ss_avail &= ~(1 << ss);
 
 	/* Setup the stream structure */
 	auto s = static_cast<struct HDA_PCI_STREAM*>(kmalloc(sizeof(struct HDA_PCI_STREAM) + sizeof(struct HDA_PCI_STREAM_PAGE) * num_pages));
 	s->s_ss = ss;
 	s->s_bdl = static_cast<struct HDA_PCI_BDL_ENTRY*>(page_alloc_single_mapped(&s->s_bdl_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE));
 	s->s_num_pages = num_pages;
-	privdata->hda_stream[ss] = s;
+	hda_stream[ss] = s;
 	*context = s;
 
 	/* Create a page-chain for the same data and place it in the BDL */
@@ -229,15 +239,13 @@ hdapci_open_stream(device_t dev, int tag, int dir, uint16_t fmt, int num_pages, 
 	return ananas_success();
 }
 
-static errorcode_t
-hdapci_close_stream(device_t dev, void* context)
+errorcode_t
+HDAPCIDevice::CloseStream(void* context)
 {
-	auto hda_pd = static_cast<struct HDA_PRIVDATA*>(dev->privdata);
-	auto privdata = static_cast<struct HDA_PCI_PRIVDATA*>(hda_pd->hda_dev_priv);
 	auto s = static_cast<struct HDA_PCI_STREAM*>(context);
 
 	/* Ensure the stream is used and does not run anymore */
-	KASSERT((privdata->hda_ss_avail & (1 << s->s_ss)) == 0, "closing unused stream?");
+	KASSERT((hda_ss_avail & (1 << s->s_ss)) == 0, "closing unused stream?");
 	KASSERT((HDA_READ_4(HDA_REG_xSDnCTL(s->s_ss)) & HDA_SDnCTL_RUN) == 0, "closing running stream");
 
 	/* Free all stream subpages */
@@ -248,18 +256,16 @@ hdapci_close_stream(device_t dev, void* context)
 	page_free(s->s_bdl_page);
 
 	/* Free the stream and the context */
-	privdata->hda_stream[s->s_ss] = NULL;
-	privdata->hda_ss_avail |= 1 << s->s_ss;
+	hda_stream[s->s_ss] = NULL;
+	hda_ss_avail |= 1 << s->s_ss;
 	kfree(s);
 
 	return ananas_success();
 }
 
-static errorcode_t
-hdapci_start_streams(device_t dev, int num, void** context)
+errorcode_t
+HDAPCIDevice::StartStreams(int num, Context* context)
 {
-	auto hda_pd = static_cast<struct HDA_PRIVDATA*>(dev->privdata);
-	auto privdata = static_cast<struct HDA_PCI_PRIVDATA*>(hda_pd->hda_dev_priv);
 	struct HDA_PCI_STREAM** s;
 
 	/*
@@ -306,12 +312,9 @@ hdapci_start_streams(device_t dev, int num, void** context)
 	return ananas_success();
 }
 
-static errorcode_t
-hdapci_stop_streams(device_t dev, int num, void** context)
+errorcode_t
+HDAPCIDevice::StopStreams(int num, void** context)
 {
-	auto hda_pd = static_cast<struct HDA_PRIVDATA*>(dev->privdata);
-	auto privdata = static_cast<struct HDA_PCI_PRIVDATA*>(hda_pd->hda_dev_priv);
-
 	/* First step is to set all SSYNC bits to prevent the HDA from fetching new data */
 	uint32_t ssync = HDA_READ_4(HDA_REG_SSYNC);
 	struct HDA_PCI_STREAM** s = (struct HDA_PCI_STREAM**)context;
@@ -346,41 +349,29 @@ hdapci_stop_streams(device_t dev, int num, void** context)
 	return ananas_success();
 }
 
-static void*
-hdapci_get_stream_data_ptr(device_t dev, void* context, int page)
+void*
+HDAPCIDevice::GetStreamDataPointer(void* context, int page)
 {
 	auto s = static_cast<struct HDA_PCI_STREAM*>(context);
 	KASSERT(page >= 0 && page < s->s_num_pages, "page out of range");
 	return s->s_page[page].sp_ptr;
 }
 
-static struct HDA_DEV_FUNC hdapci_devfuncs = {
-	.hdf_issue_verb = hdapci_issue_verb,
-	.hdf_get_state_change = hdapci_get_state_change,
-	.hdf_open_stream = hdapci_open_stream,
-	.hdf_close_stream = hdapci_close_stream,
-	.hdf_start_streams = hdapci_start_streams,
-	.hdf_stop_streams = hdapci_stop_streams,
-	.hdf_get_stream_data_ptr = hdapci_get_stream_data_ptr,
-};
-
-static errorcode_t
-hdapci_attach(device_t dev)
+errorcode_t
+HDAPCIDevice::Attach()
 {
-	void* res_io = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_Memory, 4096);
-	void* res_irq = dev->d_resourceset.AllocateResource(Ananas::Resource::RT_IRQ, 0);
+	void* res_io = d_ResourceSet.AllocateResource(Ananas::Resource::RT_Memory, 4096);
+	void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 
-	auto privdata = new(dev) HDA_PCI_PRIVDATA;
-	memset(privdata, 0, sizeof(*privdata));
-	privdata->hda_addr = (addr_t)res_io;
+	hda_addr = (addr_t)res_io;
 
-	errorcode_t err = irq_register((uintptr_t)res_irq, dev, hdapci_irq, IRQ_TYPE_DEFAULT, privdata);
+	errorcode_t err = irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_DEFAULT, nullptr);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Enable busmastering; all communication is done by DMA */
-	pci_enable_busmaster(dev, 1);
+	pci_enable_busmaster(*this, 1);
 
 	/*
 	 * We have a memory address and IRQ for the HDA controller; we now need to
@@ -395,29 +386,27 @@ hdapci_attach(device_t dev)
 	while(--timeout && (HDA_READ_4(HDA_REG_GCTL) & HDA_GCTL_CRST) == 0)
 		delay(1);
 	if (timeout == 0) {
-		kfree(privdata);
-		device_printf(dev, "still stuck in reset, giving up");
+		Printf("still stuck in reset, giving up");
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 	/* XXX WAKEEN ... ? */
 
 	uint16_t gcap = HDA_READ_2(HDA_REG_GCAP);
-	device_printf(dev, "gcap %x -> iss %d oss %d bss %d",
+	Printf("gcap %x -> iss %d oss %d bss %d",
 	 gcap,
 	 HDA_GCAP_ISS(gcap),
 	 HDA_GCAP_OSS(gcap),
 	 HDA_GCAP_BSS(gcap));
-	privdata->hda_iss = HDA_GCAP_ISS(gcap);
-	privdata->hda_oss = HDA_GCAP_OSS(gcap);
-	privdata->hda_bss = HDA_GCAP_BSS(gcap);
-	if (privdata->hda_oss == 0) {
-		kfree(privdata);
-		device_printf(dev, "no output stream support; perhaps FIXME by implementing bss? for now, aborting");
+	hda_iss = HDA_GCAP_ISS(gcap);
+	hda_oss = HDA_GCAP_OSS(gcap);
+	hda_bss = HDA_GCAP_BSS(gcap);
+	if (hda_oss == 0) {
+		Printf("no output stream support; perhaps FIXME by implementing bss? for now, aborting");
 		return ANANAS_ERROR(NO_DEVICE);
 	}
-	int num_streams = privdata->hda_iss + privdata->hda_oss + privdata->hda_bss;
-	privdata->hda_stream = new(dev) HDA_PCI_STREAM*[num_streams];
-	memset(privdata->hda_stream, 0, sizeof(struct HDA_PCI_STREAM*) * num_streams);
+	int num_streams = hda_iss + hda_oss + hda_bss;
+	hda_stream = new HDA_PCI_STREAM*[num_streams];
+	memset(hda_stream, 0, sizeof(struct HDA_PCI_STREAM*) * num_streams);
 
 	/* Enable interrupts, also for every stream */
 	uint32_t ints = 0;
@@ -427,9 +416,9 @@ hdapci_attach(device_t dev)
 	HDA_WRITE_4(HDA_REG_INTCTL, HDA_INTCTL_GIE | HDA_INTCTL_CIE | ints);
 
 	/* Mark all stream descriptors we have as available */
-	privdata->hda_ss_avail = 0;
+	hda_ss_avail = 0;
 	for (int n = 0; n < num_streams; n++)
-		privdata->hda_ss_avail |= 1 << n;
+		hda_ss_avail |= 1 << n;
 
 	/*
 	 * Regardless of how large they are, the CORB and RIRB will always fit in a
@@ -437,22 +426,22 @@ hdapci_attach(device_t dev)
 	 * this means we can just grab a single page use it.
 	 */
 	static_assert(PAGE_SIZE >= 4096, "tiny page size?");
-	privdata->hda_corb = static_cast<uint32_t*>(page_alloc_single_mapped(&privdata->hda_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE));
-	privdata->hda_rirb = (uint64_t*)((char*)privdata->hda_corb + 1024);
-	addr_t corb_paddr = page_get_paddr(privdata->hda_page);
-	memset(privdata->hda_corb, 0, PAGE_SIZE);
+	hda_corb = static_cast<uint32_t*>(page_alloc_single_mapped(&hda_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE));
+	hda_rirb = (uint64_t*)((char*)hda_corb + 1024);
+	addr_t corb_paddr = page_get_paddr(hda_page);
+	memset(hda_corb, 0, PAGE_SIZE);
 
 	/* Set up the CORB buffer; this is used to transfer commands to a codec */
 	uint8_t x = HDA_READ_1(HDA_REG_CORBSIZE);
 	int corb_size_val = 0;
 	if (HDA_CORBSIZE_CORBSZCAP(x) & HDA_CORBSIZE_CORBSZCAP_256E) {
-		privdata->hda_corb_size = 256; corb_size_val = HDA_CORBSIZE_CORBSIZE_256E;
+		hda_corb_size = 256; corb_size_val = HDA_CORBSIZE_CORBSIZE_256E;
 	} else if (HDA_CORBSIZE_CORBSZCAP(x) & HDA_CORBSIZE_CORBSZCAP_16E) {
-		privdata->hda_corb_size = 16; corb_size_val = HDA_CORBSIZE_CORBSIZE_16E;
+		hda_corb_size = 16; corb_size_val = HDA_CORBSIZE_CORBSIZE_16E;
 	} else if (HDA_CORBSIZE_CORBSZCAP(x) & HDA_CORBSIZE_CORBSZCAP_2E) {
-		privdata->hda_corb_size = 2; corb_size_val = HDA_CORBSIZE_CORBSIZE_2E;
+		hda_corb_size = 2; corb_size_val = HDA_CORBSIZE_CORBSIZE_2E;
 	} else {
-		device_printf(dev, "corb size invalid?! corbsize=%x", x);
+		Printf("corb size invalid?! corbsize=%x", x);
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 	HDA_WRITE_1(HDA_REG_CORBSIZE, (x & ~HDA_CORBSIZE_CORBSIZE_MASK) | corb_size_val);
@@ -463,42 +452,82 @@ hdapci_attach(device_t dev)
 	x = HDA_READ_1(HDA_REG_RIRBSIZE);
 	int rirb_size_val = 0;
 	if (HDA_RIRBSIZE_RIRBSZCAP(x) & HDA_RIRBSIZE_RIRBSZCAP_256E) {
-		privdata->hda_rirb_size = 256; rirb_size_val = HDA_RIRBSIZE_RIRBSIZE_256E;
+		hda_rirb_size = 256; rirb_size_val = HDA_RIRBSIZE_RIRBSIZE_256E;
 	} else if (HDA_RIRBSIZE_RIRBSZCAP(x) & HDA_RIRBSIZE_RIRBSZCAP_16E) {
-		privdata->hda_rirb_size = 16; rirb_size_val = HDA_RIRBSIZE_RIRBSIZE_16E;
+		hda_rirb_size = 16; rirb_size_val = HDA_RIRBSIZE_RIRBSIZE_16E;
 	} else if (HDA_RIRBSIZE_RIRBSZCAP(x) & HDA_RIRBSIZE_RIRBSZCAP_2E) {
-		privdata->hda_rirb_size = 2; corb_size_val = HDA_RIRBSIZE_RIRBSIZE_2E;
+		hda_rirb_size = 2; corb_size_val = HDA_RIRBSIZE_RIRBSIZE_2E;
 	} else {
-		device_printf(dev, "rirb size invalid?! rirbsize=%x", x);
+		Printf("rirb size invalid?! rirbsize=%x", x);
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 	HDA_WRITE_1(HDA_REG_RIRBSIZE, (x & ~HDA_RIRBSIZE_RIRBSIZE_MASK) | rirb_size_val);
 	HDA_WRITE_4(HDA_REG_RIRBL, (uint32_t)((corb_paddr + 1024) & 0xffffffff));
 	HDA_WRITE_4(HDA_REG_RIRBU, 0); // XXX
-	privdata->hda_rirb_rp = 0;
+	hda_rirb_rp = 0;
 
 	/* Kick the CORB and RIRB into action */
 	HDA_WRITE_1(HDA_REG_CORBCTL, HDA_READ_1(HDA_REG_CORBCTL) | (HDA_CORBCTL_CORBRUN | HDA_CORBCTL_CMEIE));
 	HDA_WRITE_1(HDA_REG_RIRBCTL, HDA_READ_1(HDA_REG_RIRBCTL) | (HDA_RIRBCTL_RIRBDMAEN /* | HDA_RIRBCTL_RINTCTL */));
 
-	err = hda_attach(dev, &hdapci_devfuncs, privdata);
-	if (ananas_is_success(err))
-		return err;
+	// Hook up the HDA device on top of us
+	hda_device = static_cast<Ananas::HDA::HDADevice*>(Ananas::DeviceManager::CreateDevice("hda", Ananas::CreateDeviceProperties(*this, Ananas::ResourceSet())));
+	KASSERT(hda_device != nullptr, "unable to create hda device");
+	hda_device->SetHDAFunctions(*this);
+
+	if (ananas_is_success(Ananas::DeviceManager::AttachSingle(*hda_device)))
+		return ananas_success();
 
 	/* XXX we should clean up the tree thus far */
-	page_free(privdata->hda_page);
-	kfree(privdata);
+	page_free(hda_page);
 	return err;
 }
 
-struct DRIVER drv_hdapci = {
-	.name					= "hdapci",
-	.drv_probe		= hdapci_probe,
-	.drv_attach		= hdapci_attach,
+errorcode_t
+HDAPCIDevice::Detach()
+{
+	panic("detach");
+	return ananas_success();
+}
+
+namespace {
+
+struct HDAPCI_Driver : public Ananas::Driver
+{
+	HDAPCI_Driver()
+	 : Driver("hda-pci")
+	{
+	}
+
+	const char* GetBussesToProbeOn() const override
+	{
+		return "pcibus";
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_VendorID, 0);
+		if(res == nullptr)
+			return nullptr; // XXX this should be fixed; attach_bus will try the entire attach-cycle without PCI resources
+
+		uint32_t vendor = res->r_Base;
+		res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_DeviceID, 0);
+		uint32_t device = res->r_Base;
+		if (vendor == 0x8086 && device == 0x2668) /* intel hda in QEMU */
+			return new HDAPCIDevice(cdp);
+		if (vendor == 0x10de && device == 0x7fc) /* nvidia MCP73 HDA */
+			return new HDAPCIDevice(cdp);
+		if (vendor == 0x1039 && device == 0x7502) /* SiS 966 */
+			return new HDAPCIDevice(cdp);
+		return nullptr;
+	}
 };
 
-DRIVER_PROBE(hdapci)
-DRIVER_PROBE_BUS(pcibus)
-DRIVER_PROBE_END()
+} // unnamed namespace
+
+REGISTER_DRIVER(HDAPCI_Driver)
+
+} // namespace HDA
+} // namespace Ananas
 
 /* vim:set ts=2 sw=2: */
