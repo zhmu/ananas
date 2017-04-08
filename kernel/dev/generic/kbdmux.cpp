@@ -96,7 +96,7 @@ KeyboardMux::Detach()
 struct KeyboardMux_Driver : public Ananas::ConsoleDriver
 {
 	KeyboardMux_Driver()
-	 : ConsoleDriver("kbdmux", 10, CONSOLE_FLAG_IN)
+	 : ConsoleDriver("kbdmux", 1000, CONSOLE_FLAG_IN)
 	{
 	}
 

@@ -292,7 +292,7 @@ VGA::Write(const void* buffer, size_t& len, off_t offset)
 struct VGA_Driver : public Ananas::ConsoleDriver
 {
 	VGA_Driver()
-	 : ConsoleDriver("vga", 10, CONSOLE_FLAG_OUT)
+	 : ConsoleDriver("vga", 100, CONSOLE_FLAG_OUT)
 	{
 	}
 

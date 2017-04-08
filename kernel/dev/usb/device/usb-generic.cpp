@@ -45,8 +45,11 @@ USBGeneric::Detach()
 struct USBGeneric_Driver : public Ananas::Driver
 {
 	USBGeneric_Driver()
-	 : Driver("usbgeneric")
+	 : Driver("usbgeneric", 1000000)
 	{
+		// Note that we are a fall-back driver (we'll attach to anything USB), so
+		// we have a very high priority value to push us to the end of the driver
+		// list
 	}
 
 	const char* GetBussesToProbeOn() const override
@@ -61,7 +64,6 @@ struct USBGeneric_Driver : public Ananas::Driver
 		if (res == nullptr)
 			return nullptr;
 
-		return nullptr; // XXX
 		return new USBGeneric(cdp);
 	}
 };

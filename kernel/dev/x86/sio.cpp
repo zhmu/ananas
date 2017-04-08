@@ -134,7 +134,7 @@ SIO::Read(void* data, size_t& len, off_t offset)
 struct SIO_Driver : public Ananas::ConsoleDriver
 {
 	SIO_Driver()
-	 : ConsoleDriver("sio", 0, CONSOLE_FLAG_INOUT)
+	 : ConsoleDriver("sio", 200, CONSOLE_FLAG_INOUT)
 	{
 	}
 
