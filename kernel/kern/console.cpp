@@ -38,10 +38,6 @@ console_init()
 	Ananas::Device* output_dev = nullptr;
 	Ananas::DriverList& drivers = Ananas::DriverManager::internal::GetDriverList();
 	LIST_FOREACH(&drivers, driver, Ananas::Driver) {
-		kprintf(">%s<\n", driver->d_Name);
-	}
-
-	LIST_FOREACH(&drivers, driver, Ananas::Driver) {
 		Ananas::ConsoleDriver* consoleDriver = driver->GetConsoleDriver();
 		if (consoleDriver == nullptr)
 			continue; // not a console driver, skip
