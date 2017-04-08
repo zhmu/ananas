@@ -33,62 +33,18 @@ static mutex_t mtx_console;
 static errorcode_t
 console_init()
 {
-	/*
-	 * We need to isolate our console drivers. We do this in two steps: first, we
-	 * count how many we have, and then we insert them in the correct order.
-	 *
-	 * XXX We should just integrate this into the driver system itself - it makes
-	 *     sense to be able to order drivers.
-	 *
-	 * XXX We should lock something here
-	 */
-	Ananas::DriverList& console_drivers = Ananas::DriverManager::internal::GetDriverList();
-	size_t numDrivers = 0;
-	LIST_FOREACH(&console_drivers, d, Ananas::Driver) {
-		if (d->GetConsoleDriver() == nullptr)
-			continue;
-		numDrivers++;
-	}
-	if (numDrivers == 0)
-		return ananas_success();
-	Ananas::ConsoleDriver** consoleDrivers = new Ananas::ConsoleDriver*[numDrivers];
-	{
-		size_t n = 0;
-		LIST_FOREACH(&console_drivers, d, Ananas::Driver) {
-			if (d->GetConsoleDriver() == nullptr)
-				continue;
-			consoleDrivers[n++] = d->GetConsoleDriver();
-		}
-		KASSERT(n == numDrivers, "driver list not complete?");
-	}
 
-	// Use a bubble sort to sort the drivers based on their priority
-	{
-		for (int i = 0; i < numDrivers; i++)
-			for (int j = numDrivers - 1; j > i; j--) {
-				if (consoleDrivers[j]->c_Priority <= consoleDrivers[j - 1]->c_Priority)
-					continue;
-				Ananas::ConsoleDriver* prev = consoleDrivers[j];
-				consoleDrivers[j] = consoleDrivers[j - 1];
-				consoleDrivers[j - 1] = prev;
-			}
-	}
-
-#if VERBOSE_LIST
-	kprintf("console_init(): driver list\n");
-	for(size_t n = 0; n < numDrivers; n++) {
-		kprintf("%p: '%s' (priority %d, flags 0x%x)\n",
-			consoleDrivers[n], consoleDrivers[n]->d_Name,
-			consoleDrivers[n]->c_Priority,
-			consoleDrivers[n]->c_Flags);
-	}
-#endif
-
-	/* Now try the sorted list in order */
 	Ananas::Device* input_dev = nullptr;
 	Ananas::Device* output_dev = nullptr;
-	for(size_t n = 0; n < numDrivers; n++) {
-		Ananas::ConsoleDriver* consoleDriver = consoleDrivers[n];
+	Ananas::DriverList& drivers = Ananas::DriverManager::internal::GetDriverList();
+	LIST_FOREACH(&drivers, driver, Ananas::Driver) {
+		kprintf(">%s<\n", driver->d_Name);
+	}
+
+	LIST_FOREACH(&drivers, driver, Ananas::Driver) {
+		Ananas::ConsoleDriver* consoleDriver = driver->GetConsoleDriver();
+		if (consoleDriver == nullptr)
+			continue; // not a console driver, skip
 
 		/* Skip any driver that is already provided for */
 		if (((consoleDriver->c_Flags & CONSOLE_FLAG_IN ) == 0 || input_dev  != nullptr) &&
@@ -116,7 +72,6 @@ console_init()
 		if ((consoleDriver->c_Flags & CONSOLE_FLAG_OUT) && output_dev == nullptr)
 			output_dev = dev;
 	}
-	delete[] consoleDrivers;
 
 	if (input_dev != nullptr || output_dev != nullptr)
 		console_tty = tty_alloc(input_dev, output_dev);

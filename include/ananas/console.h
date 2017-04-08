@@ -23,7 +23,7 @@ class ConsoleDriver : public Driver
 {
 public:
 	ConsoleDriver(const char* name, int priority, int flags)
-	 : Driver(name), c_Priority(priority), c_Flags(flags)
+	 : Driver(name, priority), c_Flags(flags)
 	{
 	}
 	virtual ~ConsoleDriver() = default;
@@ -35,7 +35,6 @@ public:
 
 	virtual Device* ProbeDevice() = 0;
 
-	int c_Priority;
 #define CONSOLE_FLAG_IN		0x0001
 #define CONSOLE_FLAG_OUT	0x0002
 #define CONSOLE_FLAG_INOUT	(CONSOLE_FLAG_IN | CONSOLE_FLAG_OUT)

@@ -28,8 +28,8 @@ errorcode_t Unregister(const char* name);
  */
 class Driver {
 public:
-	Driver(const char* name)
-	 : d_Name(name)
+	Driver(const char* name, int priority = 1000)
+	 : d_Name(name), d_Priority(priority)
 	{
 	}
 	virtual ~Driver() = default;
@@ -45,6 +45,7 @@ public:
 	bool MustProbeOnBus(const Device& bus) const;
 
 	const char* d_Name;
+	int d_Priority;
 	int d_CurrentUnit = 0;
 	LIST_FIELDS(Driver);
 };
