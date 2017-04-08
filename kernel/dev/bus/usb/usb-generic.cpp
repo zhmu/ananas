@@ -1,40 +1,73 @@
 #include <ananas/types.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
-#include <ananas/thread.h>
-#include <ananas/pcpu.h>
-#include <ananas/schedule.h>
-#include <ananas/trace.h>
-#include <ananas/mm.h>
 #include "config.h"
 #include "usb-core.h"
 #include "usb-device.h"
 #include "pipe.h"
 
-TRACE_SETUP;
+namespace {
 
-static errorcode_t
-usbgeneric_probe(Ananas::ResourceSet& resourceSet)
+class USBGeneric : public Ananas::Device, private Ananas::IDeviceOperations
 {
-	auto usb_dev = static_cast<struct USB_DEVICE*>(resourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
-	if (usb_dev == NULL)
-		return ANANAS_ERROR(NO_DEVICE);
+public:
+	using Device::Device;
+	virtual ~USBGeneric() = default;
 
-	/* We always accept anything that is USB; usbdev_attach() will only attach us as a last resort */
-	return ananas_success();
-}
+	IDeviceOperations& GetDeviceOperations() override
+	{
+		return *this;
+	}
 
-static errorcode_t
-usbgeneric_attach(device_t dev)
-{
-	return ananas_success();
-}
+	errorcode_t Attach() override;
+	errorcode_t Detach() override;
 
-struct DRIVER drv_usbgeneric = {
-	.name = "usbgeneric",
-	.drv_probe = usbgeneric_probe,
-	.drv_attach = usbgeneric_attach
+private:
+	Ananas::USB::USBDevice* ug_Device;
 };
+
+errorcode_t
+USBGeneric::Attach()
+{
+	ug_Device = static_cast<Ananas::USB::USBDevice*>(d_ResourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
+	return ananas_success();
+}
+
+errorcode_t
+USBGeneric::Detach()
+{
+	panic("TODO");
+	return ananas_success();
+}
+
+struct USBGeneric_Driver : public Ananas::Driver
+{
+	USBGeneric_Driver()
+	 : Driver("usbgeneric")
+	{
+	}
+
+	const char* GetBussesToProbeOn() const override
+	{
+		return "usbbus";
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		// We accept any USB device
+		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_USB_Device, 0);
+		if (res == nullptr)
+			return nullptr;
+
+		return nullptr; // XXX
+		return new USBGeneric(cdp);
+	}
+};
+
+} // unnamed namespace
+
+REGISTER_DRIVER(USBGeneric_Driver)
 
 /* vim:set ts=2 sw=2: */

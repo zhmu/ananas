@@ -7,53 +7,59 @@
 #include <ananas/mm.h>
 #include "usb-core.h"
 #include "usb-device.h"
+#include "usb-transfer.h"
 #include "config.h"
 #include "descriptor.h"
 
 TRACE_SETUP;
 
-static int
-usb_find_type(void** data, int* left, int type, void** out)
+namespace Ananas {
+namespace USB {
+namespace {
+
+template<typename T> bool
+LookupDescriptorByType(char*& data, size_t& left, int type, T*& out)
 {
-	while (*left > 0) {
-		auto g = static_cast<struct USB_DESCR_GENERIC*>(*data);
+	while (left > 0) {
+		auto g = reinterpret_cast<struct USB_DESCR_GENERIC*>(data);
 
 		/* Already update the data pointer */
-		*data = reinterpret_cast<void**>(reinterpret_cast<char**>(data) + g->gen_length);
-		*left -= g->gen_length;
+		data += g->gen_length;
+		left -= g->gen_length;
 		if (g->gen_type == type) {
 			/* Found it */
-			*out = g;
-			return 1;
+			out = reinterpret_cast<T*>(g);
+			return true;
 		}
 	}
-	return 0;
+	return false;
 }
 
+} // unnamed namespace
+
 errorcode_t
-usb_parse_configuration(struct USB_DEVICE* usb_dev, void* data, int datalen)
+ParseConfiguration(Interface* usb_if, int& usb_num_if, void* data, int datalen)
 {
-	struct DEVICE* dev = usb_dev->usb_device;
 	auto cfg = static_cast<struct USB_DESCR_CONFIG*>(data);
 	if (cfg->cfg_type != USB_DESCR_TYPE_CONFIG)
 		return ANANAS_ERROR(BAD_TYPE);
 
 	/* Walk over all interfaces */
-	void* ptr = reinterpret_cast<void*>(static_cast<char*>(data) + cfg->cfg_length);
-	int left = datalen - cfg->cfg_length;
+	char* ptr = static_cast<char*>(data) + cfg->cfg_length;
+	size_t left = datalen - cfg->cfg_length;
 	for (int ifacenum = 0; ifacenum < cfg->cfg_numinterfaces; ifacenum++) {
 		/* Find the interface */
 		struct USB_DESCR_INTERFACE* iface;
-		if (!usb_find_type(&ptr, &left, USB_DESCR_TYPE_INTERFACE, (void**)&iface))
+		if (!LookupDescriptorByType(ptr, left, USB_DESCR_TYPE_INTERFACE, iface))
 			return ANANAS_ERROR(NO_RESOURCE);
 
-		TRACE_DEV(USB, INFO, dev,
+		TRACE(USB, INFO,
 		 "interface%u: class=%u, subclass=%u, protocol=%u, %u endpoint(s)",
 		 iface->if_number, iface->if_class, iface->if_subclass, iface->if_protocol,
 		 iface->if_numendpoints);
 
 		/* Create the USB interface */
-		struct USB_INTERFACE* usb_iface = &usb_dev->usb_interface[usb_dev->usb_num_interfaces++];
+		Interface* usb_iface = &usb_if[usb_num_if++]; // XXX range check!
 		usb_iface->if_class = iface->if_class;
 		usb_iface->if_subclass = iface->if_subclass;
 		usb_iface->if_protocol = iface->if_protocol;
@@ -61,10 +67,10 @@ usb_parse_configuration(struct USB_DEVICE* usb_dev, void* data, int datalen)
 		/* Handle all endpoints */
 		for (int epnum = 0; epnum < iface->if_numendpoints; epnum++) {
 			struct USB_DESCR_ENDPOINT* ep;
-			if (!usb_find_type(&ptr, &left, USB_DESCR_TYPE_ENDPOINT, (void**)&ep))
+			if (!LookupDescriptorByType(ptr, left, USB_DESCR_TYPE_ENDPOINT, ep))
 				return ANANAS_ERROR(NO_RESOURCE);
 
-			TRACE_DEV(USB, INFO, dev,
+			TRACE(USB, INFO,
 			 "endpoint %u: addr=%s:%u, attr=%u, type=%u, maxpacketsz=%u",
 			 epnum, (ep->ep_addr & USB_EP_ADDR_IN) ? "in" : "out",
 			 USB_EP_ADDR(ep->ep_addr), USB_PE_ATTR_TYPE(ep->ep_attr),
@@ -100,5 +106,8 @@ usb_parse_configuration(struct USB_DEVICE* usb_dev, void* data, int datalen)
 	
 	return ananas_success();
 }
+
+} // namespace Ananas
+} // namespace USB
 
 /* vim:set ts=2 sw=2: */

@@ -1,10 +1,20 @@
 #ifndef __UHCI_HUB_H__
 #define __UHCI_HUB_H__
 
-#include <ananas/device.h>
-#include <ananas/thread.h>
+namespace Ananas {
+namespace USB {
 
-void uroothub_start(device_t dev);
-errorcode_t uroothub_handle_transfer(device_t dev, struct USB_TRANSFER* xfer);
+class Transfer;
+class USBDevice;
+class UHCI_HCD;
+
+namespace UHCIRootHub {
+
+void Start(UHCI_HCD& hcd, USBDevice& usb_dev);
+errorcode_t HandleTransfer(Transfer& xfer);
+
+} // namespace UHCIRootHub
+} // namespace USB
+} // namespace Ananas
 
 #endif /* __UHCI_HUB_H__ */

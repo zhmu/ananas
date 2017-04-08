@@ -3,28 +3,48 @@
 
 #include <ananas/list.h>
 
-struct USB_DEVICE;
-struct USB_PIPE;
-struct USB_TRANSFER;
-struct USB_ENDPOINT;
+namespace Ananas {
+namespace USB {
 
-typedef void (*usbpipe_callback_t)(struct USB_PIPE*);
+class USBDevice;
+class Endpoint;
+class Pipe;
+class Transfer;
 
-struct USB_PIPE {
-	struct USB_DEVICE* p_dev;
-	struct USB_TRANSFER* p_xfer;
-	struct USB_ENDPOINT* p_ep;
-	usbpipe_callback_t p_callback;
-	
-	/* Provide queue structure */
-	LIST_FIELDS(struct USB_PIPE);
+class IPipeCallback
+{
+public:
+	virtual void OnPipeCallback(Pipe&) = 0;
 };
 
-LIST_DEFINE(USB_PIPES, struct USB_PIPE);
+class Pipe {
+public:
+	Pipe(USBDevice& usb_dev, Endpoint& ep, IPipeCallback& callback)
+	 : p_dev(usb_dev), p_ep(ep), p_callback(callback)
+	{
+	}
 
-errorcode_t usbpipe_alloc(struct USB_DEVICE* usb_dev, int num, int type, int dir, size_t maxlen, usbpipe_callback_t callback, struct USB_PIPE** pipe);
-void usbpipe_free(struct USB_PIPE* pipe);
-void usbpipe_free_locked(struct USB_PIPE* pipe);
-errorcode_t usbpipe_schedule(struct USB_PIPE* pipe);
+	Pipe(const Pipe&) = delete;
+	Pipe& operator=(const Pipe&) = delete;
+
+	USBDevice& p_dev;
+	Endpoint& p_ep;
+	IPipeCallback& p_callback;
+	Transfer* p_xfer = nullptr;
+	
+	/* Provide queue structure */
+	LIST_FIELDS(Pipe);
+};
+
+LIST_DEFINE(Pipes, Pipe);
+
+errorcode_t AllocatePipe(USBDevice& usb_dev, int num, int type, int dir, size_t maxlen, IPipeCallback& callback, Pipe*& pipe);
+void FreePipe(Pipe& pipe);
+
+void FreePipe_Locked(Pipe& pipe);
+errorcode_t SchedulePipe(Pipe& pipe);
+
+} // namespace USB
+} // namespace Ananas
 
 #endif /* __ANANAS_USB_PIPE_H__ */

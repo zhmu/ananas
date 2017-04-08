@@ -3,11 +3,22 @@
 
 #include <ananas/device.h>
 
-struct USB_TRANSFER;
+namespace Ananas {
+namespace USB {
 
-errorcode_t oroothub_init(device_t dev);
-errorcode_t oroothub_handle_transfer(device_t dev, struct USB_TRANSFER* xfer);
-void ohci_roothub_irq(device_t dev);
-void oroothub_start(device_t dev);
+class Transfer;
+class USBDevice;
+class OHCI_HCD;
+
+namespace OHCIRootHub {
+
+errorcode_t Initialize(OHCI_HCD& hcd);
+void Start(OHCI_HCD& hcd, USBDevice& usb_dev);
+void OnIRQ(OHCI_HCD& hcd);
+errorcode_t HandleTransfer(Transfer& xfer);
+
+} // namespace UHCIRootHub
+} // namespace USB
+} // namespace Ananas
 
 #endif /* __OHCI_ROOTHUB_H__ */

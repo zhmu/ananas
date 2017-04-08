@@ -14,30 +14,35 @@
 #define USB_MAX_INTERFACES	8
 #define USB_MAX_DATALEN		1024
 
-struct USB_DEVICE;
+namespace Ananas {
+namespace USB {
 
 /*
  * A standard USB endpoint.
  */
-struct USB_ENDPOINT {
-	int			ep_type;
-	int			ep_address;
-	int			ep_dir;
-#define EP_DIR_IN		0
-#define EP_DIR_OUT		1
-	int			ep_maxpacketsize;
-	int			ep_interval;
+class Endpoint
+{
+public:
+	int		ep_type;
+	int		ep_address;
+	int		ep_dir;
+#define EP_DIR_IN	0
+#define EP_DIR_OUT	1
+	int		ep_maxpacketsize;
+	int		ep_interval;
 };
 
 /*
  * USB interface.
  */
-struct USB_INTERFACE {
-	int			if_class;
-	int			if_subclass;
-	int			if_protocol;
-	struct USB_ENDPOINT	if_endpoint[USB_MAX_ENDPOINTS];	/* Endpoint configuration */
-	int			if_num_endpoints;		/* Number of configured endpoints */
+class Interface
+{
+public:
+	int		if_class;
+	int		if_subclass;
+	int		if_protocol;
+	Endpoint	if_endpoint[USB_MAX_ENDPOINTS];	/* Endpoint configuration */
+	int		if_num_endpoints;		/* Number of configured endpoints */
 };
 
 /*
@@ -50,52 +55,11 @@ enum usb_devstat_t {
 	STATUS_SUSPENDED
 };
 
-typedef void (*usb_xfer_callback_t)(struct USB_TRANSFER*);
+typedef void (*usb_xfer_callback_t)(Transfer&);
 
-/*
- * A generic transfer to an USB device; used to issue any transfer type to any
- * breakpoint.
- *
- * This structure is locked using the device lock (xfer_device); all members
- * that are protected using that lock are marked with a [D].
- *
- * Static members are marked [S] and are not locked.
- */
-struct USB_TRANSFER {
-	struct USB_DEVICE*		xfer_device;	/* [S] */
-	int				xfer_type;	/* [S] */
-#define TRANSFER_TYPE_CONTROL		1
-#define TRANSFER_TYPE_INTERRUPT		2
-#define TRANSFER_TYPE_BULK		3
-#define TRANSFER_TYPE_ISOCHRONOUS	4
-#define TRANSFER_TYPE_HUB_ATTACH_DONE	100
-	int				xfer_flags;	/* [D] */
-#define TRANSFER_FLAG_READ		0x0001
-#define TRANSFER_FLAG_WRITE		0x0002
-#define TRANSFER_FLAG_DATA		0x0004
-#define TRANSFER_FLAG_ERROR		0x0008
-#define TRANSFER_FLAG_PENDING		0x0010
-	int				xfer_data_toggle;
-	int				xfer_address;	/* [S] */
-	int				xfer_endpoint;	/* [S] */
-	/* XXX This may be a bit too much */
-	struct USB_CONTROL_REQUEST	xfer_control_req;
-	uint8_t				xfer_data[USB_MAX_DATALEN];
-	int				xfer_length;
-	int				xfer_result_length;
-	usb_xfer_callback_t		xfer_callback;
-	void*				xfer_callback_data;
-	semaphore_t			xfer_semaphore;
-	/* HCD-specific */
-	void*				xfer_hcd;	/* [D] */
+LIST_DEFINE(TransferQueue, Transfer);
 
-	/* List of pending transfers */
-	LIST_FIELDS_IT(struct USB_TRANSFER, pending);
-
-	/* List of completed transfers */
-	LIST_FIELDS_IT(struct USB_TRANSFER, completed);
-};
-
-LIST_DEFINE(USB_TRANSFER_QUEUE, struct USB_TRANSFER);
+} // namespace USB
+} // namespace Ananas
 
 #endif /* __ANANAS_USB_CORE_H__ */

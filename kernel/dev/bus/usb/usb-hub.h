@@ -1,14 +1,8 @@
 #ifndef __ANANAS_USB_HUB_H__
 #define __ANANAS_USB_HUB_H__
 
-struct HUB_STATUS {
-	uint16_t	hs_hubstatus;
-#define HUB_STATUS_POWERLOST		(1 << 0)		/* Local power supply lost */
-#define HUB_STATUS_OVERCURRENT		(1 << 1)		/* Over-current condition active */
-	uint16_t	hs_hubchange;
-#define HUB_CHANGE_LOST			(1 << 0)		/* Local power condition changed */
-#define HUB_CHANGE_OVERCURRENT		(1 << 1)		/* Over-current condition changed */
-};
+namespace Ananas {
+namespace USB {
 
 struct HUB_PORT_STATUS {
 	uint16_t	ps_portstatus;
@@ -27,8 +21,54 @@ struct HUB_PORT_STATUS {
 #define HUB_PORTCHANGE_RESET		(1 << 4)		/* Reset complete */
 };
 
-struct USB_BUS;
+class Hub : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IUSBHubDeviceOperations, private IPipeCallback
+{
+	class Port;
+public:
+	using Device::Device;
+	virtual ~Hub();
 
-errorcode_t ushub_reset_port(struct USB_HUB* hub, int n);
+	IDeviceOperations& GetDeviceOperations() override
+	{
+		return *this;
+	}
+
+	IUSBHubDeviceOperations* GetUSBHubDeviceOperations() override
+	{
+		return this;
+	}
+
+	errorcode_t Attach() override;
+	errorcode_t Detach() override;
+	errorcode_t ResetPort(int n);
+	void HandleExplore() override;
+
+protected:
+	void OnPipeCallback(Pipe& pipe) override;
+
+	void ExploreNewDevice(Port& port, int n);
+	void HandleDetach(Port& port, int n);
+
+private:
+	Pipe* h_Pipe = nullptr;
+	class Port
+	{
+	public:
+		int	p_flags = 0;
+#define HUB_PORT_FLAG_CONNECTED		(1 << 0)		/* Device is connected */
+#define HUB_PORT_FLAG_UPDATED		(1 << 1)		/* Port status is updated */
+		USBDevice* p_device = nullptr;
+	};
+
+	int		hub_flags = 0;
+#define HUB_FLAG_SELFPOWERED		(1 << 0)		/* Hub is self powered */
+#define HUB_FLAG_UPDATED		(1 << 1)		/* Hub status needs updating */
+	USBDevice* h_Device = nullptr;
+	int	h_NumPorts = 0;
+	Port**	h_Port = nullptr;
+};
+
+} // namespace USB
+} // namespace Ananas
 
 #endif /* __ANANAS_USB_HUB_H__ */

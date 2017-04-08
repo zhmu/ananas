@@ -18,8 +18,8 @@
 static errorcode_t
 usb_init()
 {
-	usbtransfer_init();
-	usbbus_init();
+	Ananas::USB::usbtransfer_init();
+	Ananas::USB::InitializeBus();
 	return ananas_success();
 }
 

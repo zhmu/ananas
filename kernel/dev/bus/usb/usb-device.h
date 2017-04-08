@@ -3,9 +3,15 @@
 
 #include "usb-core.h"
 
-struct USB_BUS;
-struct USB_HUB;
-struct USB_TRANSFER;
+namespace Ananas {
+
+class Device;
+
+namespace USB {
+
+class Bus;
+class Hub;
+class Transfer;
 
 /*
  * An USB device consists of a name, an address, pipes and a driver. We
@@ -15,38 +21,64 @@ struct USB_TRANSFER;
  * Fields marked with [S] are static and won't change after initialization; fields
  * with [M] use the mutex to protect them.
  */
-struct USB_DEVICE {
-	mutex_t usb_mutex;
-	struct USB_BUS*	usb_bus;			/* [S] Bus the device resides on */
-	struct USB_HUB*	usb_hub;			/* [S] Hub the device is attached to */
-	int		usb_port;			/* [S] Port of the hub the device is attached to */
-	device_t	usb_device;			/* [S] Device reference */
-	void*		usb_hcd_privdata;		/* [S] HCD data for the given device */
-	int		usb_address;		   	/* Assigned USB address */
-	int		usb_max_packet_sz0;		/* Maximum packet size for endpoint 0 */
-#define USB_DEVICE_DEFAULT_MAX_PACKET_SZ0	8
-	struct USB_INTERFACE usb_interface[USB_MAX_INTERFACES];
-	int		usb_num_interfaces;
-	int		usb_cur_interface;
-	struct USB_DESCR_DEVICE usb_descr_device;
-	struct USB_PIPES usb_pipes;			/* [M] */
+class USBDevice
+{
+public:
+	USBDevice(Bus& bus, Hub* hub, int hub_port, int flags);
+	~USBDevice();
+
+	USBDevice(const USBDevice&) = delete;
+	USBDevice& operator=(const USBDevice&) = delete;
+
+	static const size_t s_DefaultMaxPacketSz0 = 8;
+
+	Bus&	ud_bus;			/* [S] Bus the device resides on */
+	Hub*	ud_hub;			/* [S] Hub the device is attached to, or nullptr for the root hub */
+	int	ud_port;			/* [S] Port of the hub the device is attached to */
+	Device*	ud_device = nullptr;		/* [S] Device reference */
+	int	ud_flags;			/* [S] Device flags */
+	int	ud_address = 0;		   	/* Assigned USB address */
+	int	ud_max_packet_sz0 = s_DefaultMaxPacketSz0;		/* Maximum packet size for endpoint 0 */
+	Interface	ud_interface[USB_MAX_INTERFACES];
+	int	ud_num_interfaces = 0;
+	int	ud_cur_interface = -1;
+	struct USB_DESCR_DEVICE ud_descr_device;
+	struct Pipes ud_pipes;			/* [M] */
+
+//	void*	ud_hcd_privdata = nullptr;
+
+	errorcode_t Attach();
+	errorcode_t Detach(); // called with bus lock held
 
 	/* Pending transfers for this device */
-	struct USB_TRANSFER_QUEUE usb_transfers;	/* [M] */
+	TransferQueue ud_transfers;		/* [M] */
 
 	/* Provide link fields for device list */
-	LIST_FIELDS(struct USB_DEVICE);
+	LIST_FIELDS(USBDevice);
+
+	void Lock()
+	{
+		mutex_lock(&ud_mutex);
+	}
+
+	void Unlock()
+	{
+		mutex_unlock(&ud_mutex);
+	}
+
+	void AssertLocked()
+	{
+		mutex_assert(&ud_mutex, MTX_LOCKED);
+	}
+
+private:
+	mutex_t ud_mutex;
 };
 
 #define USB_DEVICE_FLAG_LOW_SPEED (1 << 0)
 #define USB_DEVICE_FLAG_ROOT_HUB (1 << 31)
 
-struct USB_DEVICE* usb_alloc_device(struct USB_BUS* bus, struct USB_HUB* hub, int hub_port, int flags);
-
-/* Attaches a single device (which doesn't have an address yet) */
-errorcode_t usbdev_attach(struct USB_DEVICE* usb_dev);
-
-/* Removes an USB device from the bus */
-errorcode_t usbdev_detach(struct USB_DEVICE* usb_dev);
+} // namespace USB
+} // namespace Ananas
 
 #endif /* __ANANAS_USB_DEVICE_H__ */

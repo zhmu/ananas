@@ -121,7 +121,7 @@ dev/bus/usb/usb-pipe.cpp	option USB
 dev/bus/usb/usb-transfer.cpp	option USB
 dev/bus/usb/usb-generic.cpp	option USB
 dev/bus/usb/usb-bus.cpp		option USB
-dev/bus/usb/usb-hub.cpp		optional usbhub
+dev/bus/usb/usb-hub.cpp		option USB
 dev/bus/usb/uhci-hcd.cpp	optional uhci
 dev/bus/usb/uhci-roothub.cpp	optional uhci
 dev/bus/usb/ohci-hcd.cpp	optional ohci

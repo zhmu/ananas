@@ -111,7 +111,7 @@ PCIBus::Attach()
 				resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IRQ, irq, 0));
 
 			/* Attempt to attach this new child device */
-			if (ananas_is_success(Ananas::DeviceManager::AttachChild(*this, resourceSet)))
+			if (Ananas::DeviceManager::AttachChild(*this, resourceSet) != nullptr)
 				continue;
 #if 0
 			Printf("no match for vendor 0x%x device 0x%x class %u, device ignored",

@@ -1,81 +1,108 @@
 #include <ananas/types.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
-#include <ananas/thread.h>
-#include <ananas/pcpu.h>
-#include <ananas/schedule.h>
-#include <ananas/trace.h>
 #include <ananas/mm.h>
 #include "config.h"
 #include "pipe.h"
 #include "usb-core.h"
 #include "usb-device.h"
+#include "usb-transfer.h"
 
-TRACE_SETUP;
+namespace {
 
-static errorcode_t
-usbkbd_probe(Ananas::ResourceSet& resourceSet)
+class USBKeyboard : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::USB::IPipeCallback
 {
-	auto usb_dev = static_cast<struct USB_DEVICE*>(resourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
-	if (usb_dev == NULL)
-		return ANANAS_ERROR(NO_DEVICE);
+public:
+	using Device::Device;
+	virtual ~USBKeyboard() = default;
 
-	/* XXX This is crude */
-	struct USB_INTERFACE* iface = &usb_dev->usb_interface[usb_dev->usb_cur_interface];
-	if (iface->if_class != USB_IF_CLASS_HID || iface->if_protocol != 1 /* keyboard */)
-		return ANANAS_ERROR(NO_DEVICE);
+	IDeviceOperations& GetDeviceOperations() override
+	{
+		return *this;
+	}
 
+	errorcode_t Attach() override;
+	errorcode_t Detach() override;
+
+protected:
+	void OnPipeCallback(Ananas::USB::Pipe& pipe) override;
+
+private:
+	Ananas::USB::USBDevice* uk_Device = nullptr;
+	Ananas::USB::Pipe* uk_Pipe = nullptr;
+};
+
+errorcode_t
+USBKeyboard::Attach()
+{
+	uk_Device = static_cast<Ananas::USB::USBDevice*>(d_ResourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
+
+	errorcode_t err = AllocatePipe(*uk_Device, 0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, 0, *this, uk_Pipe);
+	if (ananas_is_failure(err)) {
+		Printf("endpoint 0 not interrupt/in");
+		return err;
+	}
+	return SchedulePipe(*uk_Pipe);
+}
+
+errorcode_t
+USBKeyboard::Detach()
+{
+	panic("TODO");
 	return ananas_success();
 }
 
-static void
-usbkbd_callback(struct USB_PIPE* pipe)
+void
+USBKeyboard::OnPipeCallback(Ananas::USB::Pipe& pipe)
 {
-	struct USB_TRANSFER* xfer = pipe->p_xfer;
+	Ananas::USB::Transfer& xfer = *pipe.p_xfer;
 
-	kprintf("usbkbd_callback! -> [");
+	Printf("USBKeyboard::OnPipeCallback() -> [");
 
-	if (xfer->xfer_flags & TRANSFER_FLAG_ERROR) {
-		kprintf("error, aborting]\n");
+	if (xfer.t_flags & TRANSFER_FLAG_ERROR) {
+		Printf("error, aborting]");
 		return;
 	}
 
-	for (int i = 0; i < xfer->xfer_result_length; i++) {
-		kprintf("%x ", xfer->xfer_data[i]);
+	for (int i = 0; i < xfer.t_result_length; i++) {
+		Printf("%d: %x", i, xfer.t_data[i]);
 	}
-	kprintf("]\n");
 
 	/* Reschedule the pipe for future updates */
-	usbpipe_schedule(pipe);
+	SchedulePipe(*uk_Pipe);
 }
 
-static errorcode_t
-usbkbd_attach(device_t dev)
+struct USBKeyboard_Driver : public Ananas::Driver
 {
-	auto usb_dev = static_cast<struct USB_DEVICE*>(dev->d_resourceset.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
-
-	/*
-	 * OK; there's a keyboard here we want to attach. There must be an
-	 * interrupt IN endpoint; this is where we get our data from.
-	 */
-	struct USB_PIPE* pipe;
-	errorcode_t err = usbpipe_alloc(usb_dev, 0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, 0, usbkbd_callback, &pipe);
-	if (ananas_is_failure(err)) {
-		device_printf(dev, "endpoint 0 not interrupt/in");
-		return ANANAS_ERROR(NO_RESOURCE);
+	USBKeyboard_Driver()
+	 : Driver("usbkeyboard")
+	{
 	}
-	return usbpipe_schedule(pipe);
-}
 
-struct DRIVER drv_usbkeyboard = {
-	.name = "usbkeyboard",
-	.drv_probe = usbkbd_probe,
-	.drv_attach = usbkbd_attach
+	const char* GetBussesToProbeOn() const override
+	{
+		return "usbbus";
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_USB_Device, 0);
+		if (res == nullptr)
+			return nullptr;
+
+		auto usb_dev = static_cast<Ananas::USB::USBDevice*>(reinterpret_cast<void*>(res->r_Base));
+
+		Ananas::USB::Interface& iface = usb_dev->ud_interface[usb_dev->ud_cur_interface];
+		if (iface.if_class == USB_IF_CLASS_HID && iface.if_protocol == 1 /* keyboard */)
+			return new USBKeyboard(cdp);
+		return nullptr;
+	}
 };
 
-DRIVER_PROBE(usbkeyboard)
-DRIVER_PROBE_BUS(usbbus)
-DRIVER_PROBE_END()
+} // unnamed namespace
+
+REGISTER_DRIVER(USBKeyboard_Driver)
 
 /* vim:set ts=2 sw=2: */

@@ -23,13 +23,19 @@
 
 TRACE_SETUP;
 
+namespace Ananas {
+namespace USB {
+namespace UHCIRootHub {
+
 #if 0
-# define DPRINTF device_printf
+# define DPRINTF hcd->Printf
 #else
 # define DPRINTF(...)
 #endif
 
-static const struct USB_DESCR_DEVICE uhci_rh_device = {
+namespace {
+
+const struct USB_DESCR_DEVICE uhci_rh_device = {
 	.dev_length = sizeof(struct USB_DESCR_DEVICE),
 	.dev_type = 0,
 	.dev_version = 0x101,
@@ -46,7 +52,7 @@ static const struct USB_DESCR_DEVICE uhci_rh_device = {
 	.dev_num_configs = 1,
 };
 
-static const struct uhci_rh_string {
+const struct uhci_rh_string {
 	uint8_t s_len, s_type;
 	uint16_t s_string[13];
 } uhci_rh_strings[] = {
@@ -78,7 +84,7 @@ static const struct uhci_rh_string {
 	},
 };
 
-static struct {
+struct {
 	struct USB_DESCR_CONFIG d_config;
 	struct USB_DESCR_INTERFACE d_interface;
 	struct USB_DESCR_ENDPOINT d_endpoint;
@@ -117,11 +123,11 @@ static struct {
 	}
 };
 
-static errorcode_t
-uroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
+errorcode_t
+ControlTransfer(Transfer& xfer)
 {
-	struct USB_CONTROL_REQUEST* req = &xfer->xfer_control_req;
-	auto p = static_cast<struct UHCI_PRIVDATA*>(dev->privdata);
+	struct USB_CONTROL_REQUEST* req = &xfer.t_control_req;
+	auto hcd = static_cast<UHCI_HCD*>(xfer.t_device.ud_bus.d_Parent);
 	errorcode_t err = ANANAS_ERROR(BAD_OPERATION);
 
 #define MASK(x) ((x) & (UHCI_PORTSC_SUSP | UHCI_PORTSC_RESET | UHCI_PORTSC_RD	| UHCI_PORTSC_PORTEN))
@@ -132,8 +138,8 @@ uroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 			switch(req->req_value >> 8) {
 				case USB_DESCR_TYPE_DEVICE: {
 					int amount = MIN(uhci_rh_device.dev_length, req->req_length);
-					memcpy(xfer->xfer_data, &uhci_rh_device, amount);
-					xfer->xfer_result_length = amount;
+					memcpy(xfer.t_data, &uhci_rh_device, amount);
+					xfer.t_result_length = amount;
 					err = ananas_success();
 					break;
 				}
@@ -141,27 +147,27 @@ uroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 					int string_id = req->req_value & 0xff;
 					if (string_id >= 0 && string_id < sizeof(uhci_rh_strings) / sizeof(uhci_rh_strings[0])) {
 						int amount = MIN(uhci_rh_strings[string_id].s_len, req->req_length);
-						memcpy(xfer->xfer_data, &uhci_rh_strings[string_id], amount);
-						xfer->xfer_result_length = amount;
+						memcpy(xfer.t_data, &uhci_rh_strings[string_id], amount);
+						xfer.t_result_length = amount;
 						err = ananas_success();
 					}
 					break;
 				}
 				case USB_DESCR_TYPE_CONFIG: {
 					int amount = MIN(uhci_rh_config.d_config.cfg_totallen, req->req_length);
-					memcpy(xfer->xfer_data, &uhci_rh_config, amount);
-					xfer->xfer_result_length = amount;
+					memcpy(xfer.t_data, &uhci_rh_config, amount);
+					xfer.t_result_length = amount;
 					err = ananas_success();
 					break;
 				}
 			}
 			break;
 		case USB_REQUEST_STANDARD_SET_ADDRESS:
-			DPRINTF(dev, "set address: %d", req->req_value);
+			DPRINTF("set address: %d", req->req_value);
 			err = ananas_success();
 			break;
 		case USB_REQUEST_STANDARD_SET_CONFIGURATION:
-			DPRINTF(dev, "set config: %d", req->req_value);
+			DPRINTF("set config: %d", req->req_value);
 			err = ananas_success();
 			break;
 		case USB_REQUEST_CLEAR_HUB_FEATURE:
@@ -172,12 +178,12 @@ uroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 			break;
 		case USB_REQUEST_GET_HUB_DESCRIPTOR: {
 			/* First step is to construct our hub descriptor */
-			int port_len = (p->uhci_rh_numports + 7) / 8;
+			int port_len = (hcd->uhci_rh_numports + 7) / 8;
 			struct USB_DESCR_HUB hd;
 			memset(&hd, 0, sizeof(hd));
 			hd.hd_length = sizeof(hd) - (HUB_MAX_PORTS + 7) / 8 + port_len;
 			hd.hd_type = USB_DESCR_TYPE_HUB;
-			hd.hd_numports = p->uhci_rh_numports;
+			hd.hd_numports = hcd->uhci_rh_numports;
 			hd.hd_max_current = 0;
 
 			hd.hd_flags = USB_HD_FLAG_PS_INDIVIDUAL;
@@ -185,8 +191,8 @@ uroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 			/* All ports are removable; no need to do anything */
 			/* Copy the descriptor we just created */
 			int amount = MIN(hd.hd_length, req->req_length);
-			memcpy(xfer->xfer_data, &hd, amount);
-			xfer->xfer_result_length = amount;
+			memcpy(xfer.t_data, &hd, amount);
+			xfer.t_result_length = amount;
 			err = ananas_success();
 			break;
 		}
@@ -194,15 +200,15 @@ uroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 			if (req->req_value == 0 && req->req_index == 0 && req->req_length == 4) {
 				uint32_t hs = 0;
 				/* XXX over-current */
-				memcpy(xfer->xfer_data, &hs, sizeof(hs));
-				xfer->xfer_result_length = sizeof(hs);
+				memcpy(xfer.t_data, &hs, sizeof(hs));
+				xfer.t_result_length = sizeof(hs);
 				err = ananas_success();
 			}
 			break;
 		}
 		case USB_REQUEST_GET_PORT_STATUS: {
-			if (req->req_value == 0 && req->req_index >= 1 && req->req_index <= p->uhci_rh_numports && req->req_length == 4) {
-				int port_io = p->uhci_io + UHCI_REG_PORTSC1 + (req->req_index - 1) * 2;
+			if (req->req_value == 0 && req->req_index >= 1 && req->req_index <= hcd->uhci_rh_numports && req->req_length == 4) {
+				int port_io = hcd->uhci_io + UHCI_REG_PORTSC1 + (req->req_index - 1) * 2;
 
 				struct USB_HUB_PORTSTATUS ps;
 				ps.ps_portstatus = USB_HUB_PS_PORT_POWER; /* always powered */
@@ -216,28 +222,28 @@ uroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 				if (portstat & UHCI_PORTSC_PORTEN)   ps.ps_portstatus |= USB_HUB_PS_PORT_ENABLE;
 				if (portstat & UHCI_PORTSC_CSCHANGE) ps.ps_portchange |= USB_HUB_PC_C_PORT_CONNECTION;
 				if (portstat & UHCI_PORTSC_CONNSTAT) ps.ps_portstatus |= USB_HUB_PS_PORT_CONNECTION;
-				if (p->uhci_c_portreset) {
+				if (hcd->uhci_c_portreset) {
 					/* C_PORT_RESET is emulated manually */
 					ps.ps_portchange |= USB_HUB_PC_C_PORT_RESET;
-					p->uhci_c_portreset = 0;
+					hcd->uhci_c_portreset = 0;
 				}
 				/* XXX We don't do overcurrent */
 
-				memcpy(xfer->xfer_data, &ps, sizeof(ps));
-				xfer->xfer_result_length = sizeof(ps);
+				memcpy(xfer.t_data, &ps, sizeof(ps));
+				xfer.t_result_length = sizeof(ps);
 				err = ananas_success();
 			}
 			break;
 		}
 		case USB_REQUEST_SET_PORT_FEATURE: {
 			unsigned int port = req->req_index;
-			if (port >= 1 && port <= p->uhci_rh_numports) {
-				port = p->uhci_io + UHCI_REG_PORTSC1 + (req->req_index - 1) * 2;
+			if (port >= 1 && port <= hcd->uhci_rh_numports) {
+				port = hcd->uhci_io + UHCI_REG_PORTSC1 + (req->req_index - 1) * 2;
 				err = ananas_success();
 
 				switch(req->req_value) {
 					case HUB_FEATURE_PORT_RESET: {
-						DPRINTF(dev, "set port reset, port %d", req->req_index);
+						DPRINTF("set port reset, port %d", req->req_index);
 
 						/* First step is to reset the port */
 						outw(port, MASK(inw(port)) | UHCI_PORTSC_RESET);
@@ -270,16 +276,16 @@ uroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 							outw(port, MASK(inw(port)) | UHCI_PORTSC_PORTEN);
 						}
 						if (n == 0) {
-							device_printf(dev, "port %u not responding to reset", n);
+							kprintf("port %u not responding to reset", n);
 							err = ANANAS_ERROR(NO_DEVICE);
 						} else {
 							/* Used to emulate 'port reset changed'-bit */
-							p->uhci_c_portreset = 1;
+							hcd->uhci_c_portreset = 1;
 						}
 						break;
 					}
 					case HUB_FEATURE_PORT_SUSPEND:
-						DPRINTF(dev, "set port suspend, port %d", req->req_index);
+						DPRINTF("set port suspend, port %d", req->req_index);
 						outw(port, MASK(inw(port)) | UHCI_PORTSC_SUSP);
 						err = ananas_success();
 						break;
@@ -303,28 +309,28 @@ uroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 		}
 		case USB_REQUEST_CLEAR_PORT_FEATURE: {
 			unsigned int port = req->req_index;
-			if (port >= 1 && port <= p->uhci_rh_numports) {
-				port = p->uhci_io + UHCI_REG_PORTSC1 + (req->req_index - 1) * 2;
+			if (port >= 1 && port <= hcd->uhci_rh_numports) {
+				port = hcd->uhci_io + UHCI_REG_PORTSC1 + (req->req_index - 1) * 2;
 				err = ananas_success();
 				switch(req->req_value) {
 					case HUB_FEATURE_PORT_ENABLE:
-						DPRINTF(dev, "HUB_FEATURE_PORT_ENABLE: port %d", req->req_index);
+						DPRINTF("HUB_FEATURE_PORT_ENABLE: port %d", req->req_index);
 						outw(port, MASK(inw(port)) & ~UHCI_PORTSC_PORTEN);
 						break;
 					case HUB_FEATURE_PORT_SUSPEND:
-						DPRINTF(dev, "HUB_FEATURE_PORT_SUSPEND: port %d", req->req_index);
+						DPRINTF("HUB_FEATURE_PORT_SUSPEND: port %d", req->req_index);
 						outw(port, MASK(inw(port)) & ~UHCI_PORTSC_SUSP);
 						break;
 					case HUB_FEATURE_C_PORT_CONNECTION:
-						DPRINTF(dev, "HUB_FEATURE_C_PORT_CONNECTION: port %d", req->req_index);
+						DPRINTF("HUB_FEATURE_C_PORT_CONNECTION: port %d", req->req_index);
 						outw(port, MASK(inw(port)) | UHCI_PORTSC_CSCHANGE);
 						break;
 					case HUB_FEATURE_C_PORT_RESET:
-						DPRINTF(dev, "HUB_FEATURE_C_PORT_RESET: port %d", req->req_index);
-						p->uhci_c_portreset = 0;
+						DPRINTF("HUB_FEATURE_C_PORT_RESET: port %d", req->req_index);
+						hcd->uhci_c_portreset = 0;
 						break;
 					case HUB_FEATURE_C_PORT_ENABLE:
-						DPRINTF(dev, "HUB_FEATURE_C_PORT_ENABLE: port %d", req->req_index);
+						DPRINTF("HUB_FEATURE_C_PORT_ENABLE: port %d", req->req_index);
 						outw(port, MASK(inw(port)) | UHCI_PORTSC_PECHANGE);
 						break;
 					default:
@@ -344,38 +350,24 @@ uroothub_ctrl_xfer(device_t dev, struct USB_TRANSFER* xfer)
 
 	if (ananas_is_failure(err)) {
 		kprintf("oroothub: error %d\n", err);
-		xfer->xfer_flags |= TRANSFER_FLAG_ERROR;
+		xfer.t_flags |= TRANSFER_FLAG_ERROR;
 	}
 
 	/* Immediately mark the transfer as completed */
-	usbtransfer_complete_locked(xfer);
+	CompleteTransfer_Locked(xfer);
 	return err;
 }
 
-errorcode_t
-uroothub_handle_transfer(device_t dev, struct USB_TRANSFER* xfer)
-{
-	switch(xfer->xfer_type) {
-		case TRANSFER_TYPE_CONTROL:
-			return uroothub_ctrl_xfer(dev, xfer);
-		case TRANSFER_TYPE_INTERRUPT:
-			/* Transfer has been added to the queue; no need to do anything else here */
-			return ananas_success();
-	}
-	panic("unsupported transfer type %d", xfer->xfer_type);
-}
-
 static void
-uroothub_update_status(struct USB_DEVICE* usb_dev)
+uroothub_update_status(USBDevice& usb_dev)
 {
-	device_t dev = usb_dev->usb_bus->bus_hcd;
-	auto p = static_cast<struct UHCI_PRIVDATA*>(dev->privdata);
+	auto hcd = static_cast<UHCI_HCD*>(usb_dev.ud_bus.d_Parent);
 
 	/* Walk through every port, hungry for updates... */
 	uint8_t hub_update = 0; /* max 7 ports, hub itself = 8 bits */
 	int num_updates = 0;
-	for (unsigned int n = 1; n <= p->uhci_rh_numports; n++) {
-		int st = inw(p->uhci_io + UHCI_REG_PORTSC1 + (n - 1) * 2);
+	for (unsigned int n = 1; n <= hcd->uhci_rh_numports; n++) {
+		int st = inw(hcd->uhci_io + UHCI_REG_PORTSC1 + (n - 1) * 2);
 		if (st & (UHCI_PORTSC_PECHANGE | UHCI_PORTSC_CSCHANGE)) {
 			/* A changed event was triggered - need to report this */
 			hub_update |= 1 << (n % 8);
@@ -387,27 +379,27 @@ uroothub_update_status(struct USB_DEVICE* usb_dev)
 		int update_len = 1; /* always a single byte since we max the port count */
 
 		/* Alter all entries in the transfer queue */
-		mutex_lock(&usb_dev->usb_mutex);
-		LIST_FOREACH_IP(&usb_dev->usb_transfers, pending, xfer, struct USB_TRANSFER) {
-			if (xfer->xfer_type != TRANSFER_TYPE_INTERRUPT)
+		usb_dev.Lock();
+		LIST_FOREACH_IP(&usb_dev.ud_transfers, pending, xfer, Transfer) {
+			if (xfer->t_type != TRANSFER_TYPE_INTERRUPT)
 				continue;
-			memcpy(&xfer->xfer_data, &hub_update, update_len);
-			xfer->xfer_result_length = update_len;
-			usbtransfer_complete_locked(xfer);
+			memcpy(&xfer->t_data, &hub_update, update_len);
+			xfer->t_result_length = update_len;
+			CompleteTransfer_Locked(*xfer);
 		}
-		mutex_unlock(&usb_dev->usb_mutex);
+		usb_dev.Unlock();
 	}
 }
 
 static void
 uroothub_thread(void* ptr)
 {
-	device_t dev = static_cast<device_t>(ptr);
-	auto p = static_cast<struct UHCI_PRIVDATA*>(dev->privdata);
-	KASSERT(p->uhci_roothub != NULL, "no root hub?");
+	auto usb_dev = static_cast<USBDevice*>(ptr);
+	auto hcd = static_cast<UHCI_HCD*>(usb_dev->ud_bus.d_Parent);
+	KASSERT(hcd->uhci_roothub != NULL, "no root hub?");
 
 	while (1) {
-		uroothub_update_status(p->uhci_roothub);
+		uroothub_update_status(*hcd->uhci_roothub);
 
 		/* XXX we need some sensible sleep mechanism */
 		for (int n = 0; n < 100; n++) {
@@ -417,13 +409,31 @@ uroothub_thread(void* ptr)
 	}
 }
 
+} // unnamed namespace
+
+errorcode_t
+HandleTransfer(Transfer& xfer)
+{
+	switch(xfer.t_type) {
+		case TRANSFER_TYPE_CONTROL:
+			return ControlTransfer(xfer);
+		case TRANSFER_TYPE_INTERRUPT:
+			/* Transfer has been added to the queue; no need to do anything else here */
+			return ananas_success();
+	}
+	panic("unsupported transfer type %d", xfer.t_type);
+}
+
 void
-uroothub_start(device_t dev)
+Start(UHCI_HCD& hcd, USBDevice& usb_dev)
 {
 	/* Create a kernel thread to monitor status updates and process requests */
-	auto p = static_cast<struct UHCI_PRIVDATA*>(dev->privdata);
-	kthread_init(&p->uhci_rh_pollthread, "uroothub", &uroothub_thread, dev);
-	thread_resume(&p->uhci_rh_pollthread);
+	kthread_init(&hcd.uhci_rh_pollthread, "uroothub", &uroothub_thread, &usb_dev);
+	thread_resume(&hcd.uhci_rh_pollthread);
 }
+
+} // namespace UHCIRootHub
+} // namespace USB
+} // namespace Ananas
 
 /* vim:set ts=2 sw=2: */

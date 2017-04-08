@@ -1,10 +1,14 @@
 #ifndef __ANANAS_USB_CONFIG_H__
 #define __ANANAS_USB_CONFIG_H__
 
-#include <ananas/types.h>
+namespace Ananas {
+namespace USB {
 
-struct USB_DEVICE;
+class Interface;
 
-errorcode_t usb_parse_configuration(struct USB_DEVICE* usb_dev, void* data, int datalen);
+errorcode_t ParseConfiguration(Interface* usb_if, int& usb_num_if, void* data, int datalen);
+
+} // namespace USB
+} // namespace Ananas
 
 #endif

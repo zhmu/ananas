@@ -16,68 +16,71 @@
  */
 #include <ananas/types.h>
 #include <ananas/device.h>
+#include <ananas/driver.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/thread.h>
-#include <machine/param.h> /* XXX for PAGE_SIZE */
 #include "usb-bus.h"
 #include "usb-device.h"
 
-LIST_DEFINE(USB_BUSSES, struct USB_BUS);
+namespace Ananas {
+namespace USB {
 
-static thread_t usbbus_thread;
-static semaphore_t usbbus_semaphore;
-static struct USB_DEVICES usbbus_pendingqueue;
-static spinlock_t usbbus_spl_pendingqueue = SPINLOCK_DEFAULT_INIT; /* protects usbbus_pendingqueue */
-static struct USB_BUSSES usbbus_busses;
-static mutex_t usbbus_mutex; /* protects usbbus_busses */
+LIST_DEFINE(USBBusses, Bus);
+
+namespace {
+thread_t usbbus_thread;
+semaphore_t usbbus_semaphore;
+USBDevices usbbus_pendingqueue;
+spinlock_t usbbus_spl_pendingqueue = SPINLOCK_DEFAULT_INIT; /* protects usbbus_pendingqueue */
+USBBusses usbbus_busses;
+mutex_t usbbus_mutex; /* protects usbbus_busses */
+} // unnamed namespace
 
 void
-usbbus_schedule_attach(struct USB_DEVICE* dev)
+ScheduleAttach(USBDevice& usb_dev)
 {
 	/* Add the device to our queue */
 	spinlock_lock(&usbbus_spl_pendingqueue);
-	LIST_APPEND(&usbbus_pendingqueue, dev);
+	LIST_APPEND(&usbbus_pendingqueue, &usb_dev);
 	spinlock_unlock(&usbbus_spl_pendingqueue);
 
 	/* Wake up our thread */
 	sem_signal(&usbbus_semaphore);
 }
 
-static errorcode_t
-usbbus_attach(device_t dev)
+errorcode_t
+Bus::Attach()
 {
-	device_t hcd_dev = dev->parent; /* usbbus is attached to the HCD */
-
-	/* Create our bus itself */
-	auto bus = new(dev) USB_BUS;
-	memset(bus, 0, sizeof *bus);
-	bus->bus_dev = dev;
-	bus->bus_hcd = hcd_dev;
-	mutex_init(&bus->bus_mutex, "usbbus");
-	LIST_INIT(&bus->bus_devices);
-	bus->bus_flags = USB_BUS_FLAG_NEEDS_EXPLORE;
-	dev->privdata = bus;
+	mutex_init(&bus_mutex, "usbbus");
+	LIST_INIT(&bus_devices);
+	bus_flags = USB_BUS_FLAG_NEEDS_EXPLORE;
 
 	/*
 	 * Create the root hub device; it will handle all our children - the HCD may
 	 * need to know about this as the root hub may be polling...
 	  */
-	struct USB_DEVICE* roothub_dev = usb_alloc_device(bus, NULL, 0, USB_DEVICE_FLAG_ROOT_HUB);
-	if (hcd_dev->driver->drv_usb_set_roothub != NULL)
-		hcd_dev->driver->drv_usb_set_roothub(bus->bus_hcd, roothub_dev);
-	usbbus_schedule_attach(roothub_dev);
+	auto roothub = new USBDevice(*this, nullptr, 0, USB_DEVICE_FLAG_ROOT_HUB);
+	d_Parent->GetUSBDeviceOperations()->SetRootHub(*roothub);
+	ScheduleAttach(*roothub);
 
 	/* Register ourselves within the big bus list */
 	mutex_lock(&usbbus_mutex);
-	LIST_APPEND(&usbbus_busses, bus);
+	LIST_APPEND(&usbbus_busses, this);
 	mutex_unlock(&usbbus_mutex);
 	return ananas_success();
 }
 
+errorcode_t
+Bus::Detach()
+{
+	panic("detach");
+	return ananas_success();
+}
+
 int
-usbbus_alloc_address(struct USB_BUS* bus)
+Bus::AllocateAddress()
 {
 	/* XXX crude */
 	static int cur_addr = 1;
@@ -85,41 +88,42 @@ usbbus_alloc_address(struct USB_BUS* bus)
 }
 
 void
-usbbus_schedule_explore(struct USB_BUS* bus)
+Bus::ScheduleExplore()
 {
-	mutex_lock(&bus->bus_mutex);
-	bus->bus_flags |= USB_BUS_FLAG_NEEDS_EXPLORE;
-	mutex_unlock(&bus->bus_mutex);
+	Lock();
+	bus_flags |= USB_BUS_FLAG_NEEDS_EXPLORE;
+	Unlock();
 
 	sem_signal(&usbbus_semaphore);
 }
 
 /* Must be called with lock held! */
-static void
-usb_bus_explore(struct USB_BUS* bus)
+void
+Bus::Explore()
 {
-	mutex_assert(&bus->bus_mutex, MTX_LOCKED);
+	AssertLocked();
 
-	LIST_FOREACH(&bus->bus_devices, usb_dev, struct USB_DEVICE) {
-		device_t dev = usb_dev->usb_device;
-		if (dev->driver != NULL && dev->driver->drv_usb_explore != NULL) {
-			dev->driver->drv_usb_explore(usb_dev);
-		}
+	LIST_FOREACH(&bus_devices, usb_dev, USBDevice) {
+		Device* dev = usb_dev->ud_device;
+		if (dev->GetUSBHubDeviceOperations() != nullptr)
+			dev->GetUSBHubDeviceOperations()->HandleExplore();
 	}
 }
 
 /* Must be called with lock held! */
 errorcode_t
-usb_bus_detach_hub(struct USB_BUS* bus, struct USB_HUB* hub)
+Bus::DetachHub(Hub& hub)
 {
-	mutex_assert(&bus->bus_mutex, MTX_LOCKED);
+	AssertLocked();
 
-	LIST_FOREACH_SAFE(&bus->bus_devices, usb_dev, struct USB_DEVICE) {
-		if (usb_dev->usb_hub != hub)
+	LIST_FOREACH_SAFE(&bus_devices, usb_dev, USBDevice) {
+		if (usb_dev->ud_hub != &hub)
 			continue;
 
+#if 0
 		errorcode_t err = usbdev_detach(usb_dev);
 		ANANAS_ERROR_RETURN(err);
+#endif
 	}
 
 	return ananas_success();
@@ -139,11 +143,11 @@ usb_bus_thread(void* unused)
 			 * exploring may trigger new devices to attach or old ones to remove.
 			 */
 			mutex_lock(&usbbus_mutex);
-			LIST_FOREACH(&usbbus_busses, bus, struct USB_BUS) {
-				mutex_lock(&bus->bus_mutex);
+			LIST_FOREACH(&usbbus_busses, bus, Bus) {
+				bus->Lock();
 				if (bus->bus_flags & USB_BUS_FLAG_NEEDS_EXPLORE)
-					usb_bus_explore(bus);
-				mutex_unlock(&bus->bus_mutex);
+					bus->Explore();
+				bus->Unlock();
 			}
 			mutex_unlock(&usbbus_mutex);
 
@@ -153,7 +157,7 @@ usb_bus_thread(void* unused)
 				spinlock_unlock(&usbbus_spl_pendingqueue);
 				break;
 			}
-			struct USB_DEVICE* usb_dev = LIST_HEAD(&usbbus_pendingqueue);
+			auto usb_dev = LIST_HEAD(&usbbus_pendingqueue);
 			LIST_POP_HEAD(&usbbus_pendingqueue);
 			spinlock_unlock(&usbbus_spl_pendingqueue);
 
@@ -162,20 +166,20 @@ usb_bus_thread(void* unused)
 			 * as it ensures we will never attach more than one device in the system
 			 * at any given time.
 			 */
-			errorcode_t err = usbdev_attach(usb_dev);
+			errorcode_t err = usb_dev->Attach();
 			KASSERT(ananas_is_success(err), "cannot yet deal with failures %d", err);
 
 			/* This worked; hook the device to the bus' device list */
-			struct USB_BUS* bus = usb_dev->usb_bus;
-			mutex_lock(&bus->bus_mutex);
-			LIST_APPEND(&bus->bus_devices, usb_dev);
-			mutex_unlock(&bus->bus_mutex);
+			Bus& bus = usb_dev->ud_bus;
+			bus.Lock();
+			LIST_APPEND(&bus.bus_devices, usb_dev);
+			bus.Unlock();
 		}
 	}
 }
 
 void
-usbbus_init()
+InitializeBus()
 {
 	sem_init(&usbbus_semaphore, 0);
 	LIST_INIT(&usbbus_pendingqueue);
@@ -190,15 +194,31 @@ usbbus_init()
 	thread_resume(&usbbus_thread);
 }
 
-static struct DRIVER drv_usbbus = {
-	.name = "usbbus",
-	.drv_probe = NULL,
-	.drv_attach = usbbus_attach,
+namespace {
+
+struct USBBus_Driver : public Ananas::Driver
+{
+	USBBus_Driver()
+	 : Driver("usbbus")
+	{
+	}
+
+	const char* GetBussesToProbeOn() const override
+	{
+		return "ohci,uhci";
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		return new Bus(cdp);
+	}
 };
 
-DRIVER_PROBE(usbbus)
-DRIVER_PROBE_BUS(ohci)
-DRIVER_PROBE_BUS(uhci)
-DRIVER_PROBE_END()
+} // unnamed namespace
+
+REGISTER_DRIVER(USBBus_Driver)
+
+} // namespace USB
+} // namespace Ananas
 
 /* vim:set ts=2 sw=2: */

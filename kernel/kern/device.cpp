@@ -158,12 +158,12 @@ AttachSingle(Device& device)
  * one wins). Succeeds if a driver accepted the device, in which case the
  * device name and unit will be updated.
  */
-errorcode_t
+Ananas::Device*
 AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet)
 {
 	auto& driverList = Ananas::DriverManager::internal::GetDriverList();
 	if (LIST_EMPTY(&driverList))
-		return ANANAS_ERROR(NO_DEVICE);
+		return nullptr;
 
 	CreateDeviceProperties cdp(bus, resourceSet);
 	LIST_FOREACH_SAFE(&driverList, d, Driver) {
@@ -174,15 +174,14 @@ AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet)
 		Device* device = internal::InstantiateDevice(*d, cdp);
 		if (device == nullptr)
 			continue;
-		if (ananas_is_success(AttachSingle(*device))) {
-			return ananas_success();
-		}
+		if (ananas_is_success(AttachSingle(*device)))
+			return device;
 
 		// Attach failed - get rid of the device
 		internal::DeinstantiateDevice(*device);
 	}
 
-	return ANANAS_ERROR(NO_DEVICE);
+	return nullptr;
 }
 
 /*

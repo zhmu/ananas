@@ -14,11 +14,13 @@ typedef struct DRIVER* driver_t;
 typedef struct PROBE* probe_t;
 
 struct BIO;
-struct USB_BUS;
-struct USB_DEVICE;
-struct USB_TRANSFER;
 
 namespace Ananas {
+
+namespace USB {
+class USBDevice;
+class Transfer;
+}
 
 class IDeviceOperations {
 public:
@@ -53,14 +55,16 @@ public:
 
 class IUSBDeviceOperations {
 public:
-	virtual errorcode_t SetupTransfer(struct USB_TRANSFER*) = 0;
-	virtual errorcode_t ScheduleTransfer(struct USB_TRANSFER*) = 0;
-	virtual errorcode_t CancelTransfer(struct USB_TRANSFER*) = 0;
-	virtual errorcode_t TearDownTransfer(struct USB_TRANSFER*) = 0;
-	virtual void* InitializeHCDPrivateData(int) = 0;
-	virtual void SetRootHub(struct USB_DEVICE*) = 0;
-	virtual errorcode_t RootHubTransfer(struct USB_TRANSFER*) = 0;
-	virtual void Explore(struct USB_DEVICE*) = 0;
+	virtual errorcode_t SetupTransfer(USB::Transfer&) = 0;
+	virtual errorcode_t ScheduleTransfer(USB::Transfer&) = 0;
+	virtual errorcode_t CancelTransfer(USB::Transfer&) = 0;
+	virtual errorcode_t TearDownTransfer(USB::Transfer&) = 0;
+	virtual void SetRootHub(USB::USBDevice&) = 0;
+};
+
+class IUSBHubDeviceOperations {
+public:
+	virtual void HandleExplore() = 0;
 };
 
 class Device;
@@ -92,6 +96,7 @@ public:
 	virtual ICharDeviceOperations* GetCharDeviceOperations() { return nullptr; }
 	virtual IBIODeviceOperations* GetBIODeviceOperations() { return nullptr; }
 	virtual IUSBDeviceOperations* GetUSBDeviceOperations() { return nullptr; }
+	virtual IUSBHubDeviceOperations* GetUSBHubDeviceOperations() { return nullptr; }
 
 	void Printf(const char* fmt, ...) const;
 
@@ -115,7 +120,7 @@ typedef Device* (*CreateDeviceFunc)(const Ananas::CreateDeviceProperties& cdp);
 namespace DeviceManager {
 
 errorcode_t AttachSingle(Device& device);
-errorcode_t AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet);
+Device* AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet);
 void AttachBus(Device& bus);
 Device* FindDevice(const char* name);
 Device* CreateDevice(const char* driver, const Ananas::CreateDeviceProperties& cdp);
