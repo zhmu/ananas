@@ -6,6 +6,7 @@ kern/page.cpp		mandatory
 kern/kmem.cpp		mandatory
 kern/dma.cpp		mandatory
 kern/device.cpp		mandatory
+kern/devicemanager.cpp	mandatory
 kern/driver.cpp		mandatory
 kern/drivermanager.cpp	mandatory
 kern/console.cpp	mandatory
@@ -24,6 +25,7 @@ kern/trace.cpp		mandatory
 kern/symbols.cpp	mandatory
 kern/module.cpp		mandatory
 kern/pipe-handle.cpp	option PIPE
+dev/generic/corebus.cpp	mandatory
 # block I/O
 kern/bio.cpp		option BIO
 kern/disk_mbr.cpp	option BIO
