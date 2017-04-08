@@ -6,14 +6,39 @@ namespace USB {
 
 class Transfer;
 class USBDevice;
-class UHCI_HCD;
+class HCD_Resources;
 
-namespace UHCIRootHub {
+namespace UHCI {
 
-void Start(UHCI_HCD& hcd, USBDevice& usb_dev);
-errorcode_t HandleTransfer(Transfer& xfer);
+class RootHub {
+public:
+	RootHub(HCD_Resources& hcdResources, USBDevice& usbDevice);
+	errorcode_t Initialize();
 
-} // namespace UHCIRootHub
+	void SetUSBDevice(USBDevice& usbDevice);
+	errorcode_t HandleTransfer(Transfer& xfer);
+	void OnIRQ();
+
+protected:
+	errorcode_t ControlTransfer(Transfer& xfer);
+	void ProcessInterruptTransfers();
+	static void ThreadWrapper(void* context)
+	{
+		(static_cast<RootHub*>(context))->Thread();
+	}
+	void Thread();
+	void UpdateStatus();
+
+private:
+	HCD_Resources& rh_Resources;
+	USBDevice& rh_Device;
+
+	unsigned int rh_numports = 0;
+	bool rh_c_portreset = false;
+	thread_t rh_pollthread;
+};
+
+} // namespace UHCI
 } // namespace USB
 } // namespace Ananas
 

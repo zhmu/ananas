@@ -16,6 +16,47 @@ LIST_DEFINE(QH_QUEUE, struct HCD_QH);
 
 struct HCD_TD;
 struct HCD_QH;
+
+class RootHub;
+
+class HCD_Resources
+{
+public:
+	HCD_Resources()
+	 : res_io(0)
+	{
+	}
+
+	HCD_Resources(uint32_t io)
+	 : res_io(io)
+	{
+	}
+
+	inline uint16_t Read2(int reg)
+	{
+		return inw(res_io + reg);
+	}
+
+	inline uint32_t Read4(int reg)
+	{
+		return inl(res_io + reg);
+	}
+
+	inline void Write2(int reg, uint16_t value)
+	{
+		outw(res_io + reg, value);
+	}
+
+	inline void Write4(int reg, uint32_t value)
+	{
+		outl(res_io + reg, value);
+	}
+
+private:
+	/* I/O port */
+	uint32_t res_io;
+};
+
 } // namespace UHCI
 
 class UHCI_HCD : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IUSBDeviceOperations
@@ -40,15 +81,6 @@ public:
 	UHCI::HCD_TD* AllocateTD();
 	UHCI::HCD_QH* AllocateQH();
 	void FreeQH(UHCI::HCD_QH* qh);
-
-	/* Number of root hub ports */
-	unsigned int uhci_rh_numports;
-	USBDevice* uhci_roothub = nullptr;
-	thread_t uhci_rh_pollthread;
-	/* I/O port */
-	uint32_t uhci_io;
-	/* Have we completed a port reset? */
-	int uhci_c_portreset = 0;
 
 protected:
 	errorcode_t SetupTransfer(Transfer& xfer) override;
@@ -76,6 +108,9 @@ private:
 
 	dma_buf_t uhci_framelist_buf;
 	uint32_t* uhci_framelist;
+
+	UHCI::HCD_Resources uhci_Resources;
+	UHCI::RootHub* uhci_RootHub = nullptr;
 
 	/* Start of frame value */
 	uint32_t uhci_sof_modify;

@@ -242,17 +242,17 @@ UHCI_HCD::FreeQH(UHCI::HCD_QH* qh)
 void
 UHCI_HCD::Dump()
 {
-	int frnum     = inw(uhci_io + UHCI_REG_FRNUM) & 0x3ff;
-	addr_t flbase = inl(uhci_io + UHCI_REG_FLBASEADD) & 0xfffff000;
+	int frnum     = uhci_Resources.Read2(UHCI_REG_FRNUM) & 0x3ff;
+	addr_t flbase = uhci_Resources.Read4(UHCI_REG_FLBASEADD) & 0xfffff000;
 	kprintf("uhci dump\n");
-	kprintf(" cmd 0x%x", inw(uhci_io + UHCI_REG_USBCMD));
-	kprintf(" status 0x%x", inw(uhci_io + UHCI_REG_USBSTS));
-	kprintf(" intr 0x%x", inw(uhci_io + UHCI_REG_USBINTR));
+	kprintf(" cmd 0x%x", uhci_Resources.Read2(UHCI_REG_USBCMD));
+	kprintf(" status 0x%x", uhci_Resources.Read2(UHCI_REG_USBSTS));
+	kprintf(" intr 0x%x", uhci_Resources.Read2(UHCI_REG_USBINTR));
 	kprintf(" frnum %u",   frnum);
 	kprintf(" flbase %p",   flbase);
-	kprintf(" sof %u",   inw(uhci_io + UHCI_REG_SOF));
-	kprintf(" portsc1 0x%x", inw(uhci_io + UHCI_REG_PORTSC1));
-	kprintf(" portsc2 0x%x", inw(uhci_io + UHCI_REG_PORTSC2));
+	kprintf(" sof %u",   uhci_Resources.Read2(UHCI_REG_SOF));
+	kprintf(" portsc1 0x%x", uhci_Resources.Read2(UHCI_REG_PORTSC1));
+	kprintf(" portsc2 0x%x", uhci_Resources.Read2(UHCI_REG_PORTSC2));
 	KASSERT((addr_t)uhci_framelist == PTOKV(flbase), "framelist %p not in framelist base register %p?", uhci_framelist, PTOKV(flbase));
 	uint32_t fl_ptr = *(uint32_t*)(PTOKV(flbase) + frnum * sizeof(uint32_t));
 	kprintf(" flptr 0x%x\n", fl_ptr);
@@ -267,8 +267,8 @@ UHCI_HCD::Dump()
 void
 UHCI_HCD::OnIRQ()
 {
-	int stat = inw(uhci_io + UHCI_REG_USBSTS);
-	outw(uhci_io + UHCI_REG_USBSTS, stat);
+	int stat = uhci_Resources.Read2(UHCI_REG_USBSTS);
+	uhci_Resources.Write2(UHCI_REG_USBSTS, stat);
 
 	kprintf("uhci_irq: stat=%x\n", stat);
 
@@ -463,7 +463,7 @@ UHCI_HCD::ScheduleTransfer(Transfer& xfer)
 
 	/* If this is the root hub, short-circuit the request */
 	if (usb_dev.ud_flags & USB_DEVICE_FLAG_ROOT_HUB)
-		return UHCIRootHub::HandleTransfer(xfer);
+		return uhci_RootHub->HandleTransfer(xfer);
 
 	switch(xfer.t_type) {
 		case TRANSFER_TYPE_CONTROL:
@@ -497,7 +497,7 @@ UHCI_HCD::Attach()
 	errorcode_t err = dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE);
 	ANANAS_ERROR_RETURN(err);
 
-	uhci_io = (uint32_t)(uintptr_t)res_io;
+	uhci_Resources = UHCI::HCD_Resources((uint32_t)(uintptr_t)res_io);
 	mutex_init(&uhci_mtx, "uhci");
 	LIST_INIT(&uhci_scheduled_items);
 
@@ -509,7 +509,7 @@ UHCI_HCD::Attach()
 	KASSERT((((addr_t)uhci_framelist) & 0x3ff) == 0, "framelist misaligned");
 
 	/* Disable interrupts; we don't want the messing along */
-	outw(uhci_io + UHCI_REG_USBINTR, 0);
+	uhci_Resources.Write2(UHCI_REG_USBINTR, 0);
 
 	/*
 	 * Allocate our interrupt, control and bulk queue's. These will be used for
@@ -557,20 +557,20 @@ UHCI_HCD::Attach()
 	 * Grab a copy of the SOF modify register; we have no idea what it should be,
 	 * so we just rely on the BIOS doing the right thing.
 	 */
-	uhci_sof_modify = inw(uhci_io + UHCI_REG_SOF);
+	uhci_sof_modify = uhci_Resources.Read2(UHCI_REG_SOF);
 
 	/* Reset the host controller */
-	outw(uhci_io + UHCI_REG_USBCMD, UHCI_USBCMD_GRESET);
+	uhci_Resources.Write2(UHCI_REG_USBCMD, UHCI_USBCMD_GRESET);
 	delay(10);
-	outw(uhci_io + UHCI_REG_USBCMD, 0);
+	uhci_Resources.Write2(UHCI_REG_USBCMD, 0);
 	delay(1);
 
 	/* Now issue a host controller reset and wait until it is done */
-	outw(uhci_io + UHCI_REG_USBCMD, UHCI_USBCMD_HCRESET);
+	uhci_Resources.Write2(UHCI_REG_USBCMD, UHCI_USBCMD_HCRESET);
 	{
 		int timeout = 50000;
 		while (timeout > 0) {
-			if ((inw(uhci_io + UHCI_REG_USBCMD) & UHCI_USBCMD_HCRESET) == 0)
+			if ((uhci_Resources.Read2(UHCI_REG_USBCMD) & UHCI_USBCMD_HCRESET) == 0)
 				break;
 			timeout--;
 		}
@@ -582,14 +582,14 @@ UHCI_HCD::Attach()
 	 * Program the USB frame number, start of frame and frame list address base
 	 * registers.
 	 */
-	outw(uhci_io + UHCI_REG_FRNUM, 0);
-	outw(uhci_io + UHCI_REG_SOF, uhci_sof_modify);
-	outl(uhci_io + UHCI_REG_FLBASEADD, TO_REG32(dma_buf_get_segment(uhci_framelist_buf, 0)->s_phys));
+	uhci_Resources.Write2(UHCI_REG_FRNUM, 0);
+	uhci_Resources.Write2(UHCI_REG_SOF, uhci_sof_modify);
+	uhci_Resources.Write4(UHCI_REG_FLBASEADD, TO_REG32(dma_buf_get_segment(uhci_framelist_buf, 0)->s_phys));
 
 	/* Tell the USB controller to start pumping frames */
-	outw(uhci_io + UHCI_REG_USBCMD, UHCI_USBCMD_MAXP | UHCI_USBCMD_RS);
+	uhci_Resources.Write2(UHCI_REG_USBCMD, UHCI_USBCMD_MAXP | UHCI_USBCMD_RS);
 	delay(10);
-	if (inw(uhci_io + UHCI_REG_USBSTS) & UHCI_USBSTS_HCHALTED) {
+	if (uhci_Resources.Read2(UHCI_REG_USBSTS) & UHCI_USBSTS_HCHALTED) {
 		Printf("controller does not start");
 		goto fail;
 	}
@@ -598,29 +598,8 @@ UHCI_HCD::Attach()
 	err = irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_DEFAULT, NULL);
 	if (ananas_is_failure(err))
 		goto fail;
-	outw(uhci_io + UHCI_REG_USBINTR, UHCI_USBINTR_SPI | UHCI_USBINTR_IOC | UHCI_USBINTR_RI | UHCI_USBINTR_TOCRC);
+	uhci_Resources.Write2(UHCI_REG_USBINTR, UHCI_USBINTR_SPI | UHCI_USBINTR_IOC | UHCI_USBINTR_RI | UHCI_USBINTR_TOCRC);
 	delay(10);
-
-	/*
-	 * We are all set up and good to go; attach the root hub. It is used to
-	 * actually detect the devices.
-	 *
-	 * Note that there doesn't seem to be a way to ask the HC how much ports it
-	 * has; we try to take advantage of the fact that bit 7 is always set, so if
-	 * this is true and not all other bits are set as well, we assume there's a
-	 * port there...
-	 */
-	uhci_rh_numports = 0;
-	while (1) {
-		int stat = inw(uhci_io + UHCI_REG_PORTSC1 + uhci_rh_numports * 2);
-		if ((stat & UHCI_PORTSC_ALWAYS1) == 0 || (stat == 0xffff))
-			break;
-		uhci_rh_numports++;
-	}
-	if (uhci_rh_numports > 7) {
-		Printf("detected excessive %d usb ports; aborting", uhci_rh_numports);
-		return ANANAS_ERROR(NO_DEVICE);
-	}
 
 	return ananas_success();
 
@@ -638,10 +617,9 @@ UHCI_HCD::Detach()
 void
 UHCI_HCD::SetRootHub(USB::USBDevice& dev)
 {
-	uhci_roothub = &dev;
-
-	// Now we can start the roothub thread to service updates
-	UHCIRootHub::Start(*this, dev);
+	uhci_RootHub = new UHCI::RootHub(uhci_Resources, dev);
+	errorcode_t err = uhci_RootHub->Initialize();
+	(void)err; // XXX allow this function to fail
 }
 
 namespace {
