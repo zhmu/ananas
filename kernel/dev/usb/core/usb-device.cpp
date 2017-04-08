@@ -13,10 +13,10 @@
 #include "config.h"
 #include "usb-bus.h"
 #include "usb-core.h"
-#include "usb-hub.h"
 #include "usb-device.h"
 #include "usb-transfer.h"
 #include "transfer.h"
+#include "../device/usb-hub.h"
 
 TRACE_SETUP;
 

@@ -12,14 +12,14 @@
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <machine/param.h> /* for PAGE_SIZE */
+#include "../core/descriptor.h"
+#include "../core/usb-core.h"
+#include "../core/usb-bus.h"
+#include "../core/usb-device.h"
+#include "../core/usb-transfer.h"
 #include "ohci-reg.h"
 #include "ohci-hcd.h"
 #include "ohci-roothub.h"
-#include "descriptor.h"
-#include "usb-core.h"
-#include "usb-bus.h"
-#include "usb-device.h"
-#include "usb-transfer.h"
 
 TRACE_SETUP;
 

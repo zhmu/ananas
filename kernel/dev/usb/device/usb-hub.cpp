@@ -8,14 +8,14 @@
 #include <ananas/trace.h>
 #include <ananas/time.h>
 #include <machine/param.h>
-#include "config.h"
-#include "pipe.h"
-#include "transfer.h"
-#include "usb-bus.h"
-#include "usb-core.h"
-#include "usb-device.h"
+#include "../core/config.h"
+#include "../core/pipe.h"
+#include "../core/transfer.h"
+#include "../core/usb-bus.h"
+#include "../core/usb-core.h"
+#include "../core/usb-device.h"
+#include "../core/usb-transfer.h"
 #include "usb-hub.h"
-#include "usb-transfer.h"
 
 namespace Ananas {
 namespace USB {

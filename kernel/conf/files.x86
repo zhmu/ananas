@@ -2,6 +2,10 @@ arch/x86/pic.cpp		mandatory
 arch/x86/pit.cpp		mandatory
 arch/x86/exceptions.cpp		mandatory
 arch/x86/debug-console.cpp	option DEBUG_CONSOLE
+# x86-specific devices
+dev/x86/atkbd.cpp		optional atkbd
+dev/x86/vga.cpp			optional vga
+dev/x86/sio.cpp			optional sio
 # SMP
 arch/x86/ioapic.cpp		option SMP
 arch/x86/smp.cpp		option SMP

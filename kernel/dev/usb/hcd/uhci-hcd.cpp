@@ -30,13 +30,13 @@
 #include <ananas/time.h>
 #include <machine/param.h>
 #include <machine/vm.h>
+#include "../core/usb-core.h"
+#include "../core/usb-device.h"
+#include "../core/usb-transfer.h"
+#include "../core/descriptor.h"
 #include "uhci-hcd.h"
 #include "uhci-roothub.h"
 #include "uhci-reg.h"
-#include "usb-core.h"
-#include "usb-device.h"
-#include "usb-transfer.h"
-#include "descriptor.h"
 
 TRACE_SETUP;
 

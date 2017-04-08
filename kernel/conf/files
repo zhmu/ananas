@@ -86,17 +86,14 @@ lib/zlib/uncompr.c	option ZLIB
 lib/zlib/zutil.c	option ZLIB
 # XXX this should be optional - depend on vga for now?
 lib/teken/teken.c	mandatory
-dev/bus/isa/atkbd.cpp	optional atkbd
-dev/bus/pci/pci.cpp	optional pci
-dev/bus/pci/pcibus.cpp	optional pci
+dev/pci/pci.cpp	optional pci
+dev/pci/pcibus.cpp	optional pci
 dev/ata/ata-pci.cpp	optional atapci
 # XXX maybe divide IDE stuff in disk, cd, etc ?
 dev/ata/ata-controller.cpp	optional ata
 dev/ata/atadisk.cpp	optional ata
 dev/ata/atacd.cpp	optional ata
-dev/kbdmux.cpp		optional kbdmux
-dev/vga.cpp		optional vga
-dev/sio.cpp		optional sio
+dev/generic/kbdmux.cpp		optional kbdmux
 fs/ext2fs.cpp		option EXT2FS
 fs/iso9660.cpp		option ISO9660FS
 fs/cramfs.cpp		option CRAMFS
@@ -114,21 +111,21 @@ fs/sysfs/thread-sysfs.cpp	option SYSFS
 kdb/kdb.cpp			option KDB
 kdb/kdb_commands.cpp		option KDB
 # USB
-dev/bus/usb/usb-core.cpp	option USB
-dev/bus/usb/usb-device.cpp	option USB
-dev/bus/usb/usb-config.cpp	option USB
-dev/bus/usb/usb-pipe.cpp	option USB
-dev/bus/usb/usb-transfer.cpp	option USB
-dev/bus/usb/usb-generic.cpp	option USB
-dev/bus/usb/usb-bus.cpp		option USB
-dev/bus/usb/usb-hub.cpp		option USB
-dev/bus/usb/uhci-hcd.cpp	optional uhci
-dev/bus/usb/uhci-roothub.cpp	optional uhci
-dev/bus/usb/ohci-hcd.cpp	optional ohci
-dev/bus/usb/ohci-roothub.cpp	optional ohci
+dev/usb/core/usb-core.cpp		option USB
+dev/usb/core/usb-device.cpp		option USB
+dev/usb/core/usb-config.cpp		option USB
+dev/usb/core/usb-pipe.cpp		option USB
+dev/usb/core/usb-transfer.cpp	option USB
+dev/usb/core/usb-bus.cpp		option USB
+dev/usb/device/usb-generic.cpp		option USB
+dev/usb/device/usb-hub.cpp		option USB
+dev/usb/hcd/uhci-hcd.cpp		optional uhci
+dev/usb/hcd/uhci-roothub.cpp	optional uhci
+dev/usb/hcd/ohci-hcd.cpp		optional ohci
+dev/usb/hcd/ohci-roothub.cpp	optional ohci
 # USB peripherals
-dev/bus/usb/usb-keyboard.cpp	optional usbkeyboard
-dev/bus/usb/usb-storage.cpp	optional usbstorage
+dev/usb/device/usb-keyboard.cpp	optional usbkeyboard
+dev/usb/device/usb-storage.cpp	optional usbstorage
 # audio
 dev/audio/hda.cpp		optional hda
 dev/audio/hda-codec.cpp		optional hda

@@ -3,10 +3,10 @@
 #include <ananas/driver.h>
 #include <ananas/error.h>
 #include <ananas/lib.h>
-#include "config.h"
-#include "usb-core.h"
-#include "usb-device.h"
-#include "pipe.h"
+#include "../core/config.h"
+#include "../core/usb-core.h"
+#include "../core/usb-device.h"
+#include "../core/pipe.h"
 
 namespace {
 

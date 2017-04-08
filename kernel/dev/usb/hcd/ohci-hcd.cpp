@@ -31,12 +31,12 @@
 #include <ananas/lib.h>
 #include <ananas/time.h>
 #include <ananas/trace.h>
+#include "../core/usb-core.h"
+#include "../core/usb-device.h"
+#include "../core/usb-transfer.h"
 #include "ohci-reg.h"
 #include "ohci-roothub.h"
 #include "ohci-hcd.h"
-#include "usb-core.h"
-#include "usb-device.h"
-#include "usb-transfer.h"
 
 #include <machine/vm.h> /* for KVTOP, which must go */
 

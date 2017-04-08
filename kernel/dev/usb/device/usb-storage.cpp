@@ -10,11 +10,11 @@
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
 #include <ananas/mm.h>
-#include "usb-core.h"
-#include "usb-device.h"
-#include "config.h"
-#include "pipe.h"
-#include "usb-transfer.h"
+#include "../core/usb-core.h"
+#include "../core/usb-device.h"
+#include "../core/config.h"
+#include "../core/pipe.h"
+#include "../core/usb-transfer.h"
 
 TRACE_SETUP;
 
