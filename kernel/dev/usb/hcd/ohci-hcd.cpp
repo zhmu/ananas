@@ -171,29 +171,29 @@ void
 OHCI_HCD::Dump()
 {
 	Printf("hcca %x -> fnum %d dh %x",
-	 Read4(OHCI_HCHCCA),
+	 ohci_Resources.Read4(OHCI_HCHCCA),
 	 ohci_hcca->hcca_framenumber,
 	 ohci_hcca->hcca_donehead
 	);
 	Printf("control %x cmdstat %x intstat %x intena %x intdis %x",
-	 Read4(OHCI_HCCONTROL),
-	 Read4(OHCI_HCCOMMANDSTATUS),
-	 Read4(OHCI_HCINTERRUPTSTATUS),
-	 Read4(OHCI_HCINTERRUPTENABLE),
-	 Read4(OHCI_HCINTERRUPTDISABLE));
+	 ohci_Resources.Read4(OHCI_HCCONTROL),
+	 ohci_Resources.Read4(OHCI_HCCOMMANDSTATUS),
+	 ohci_Resources.Read4(OHCI_HCINTERRUPTSTATUS),
+	 ohci_Resources.Read4(OHCI_HCINTERRUPTENABLE),
+	 ohci_Resources.Read4(OHCI_HCINTERRUPTDISABLE));
 	Printf("period_cured %x ctrlhead %x ctrlcur %x bulkhead %x bulkcur %x",
-	 Read4(OHCI_HCPERIODCURRENTED),
-	 Read4(OHCI_HCCONTROLHEADED),
-	 Read4(OHCI_HCCONTROLCURRENTED),
-	 Read4(OHCI_HCBULKHEADED),
-	 Read4(OHCI_HCBULKCURRENTED));
+	 ohci_Resources.Read4(OHCI_HCPERIODCURRENTED),
+	 ohci_Resources.Read4(OHCI_HCCONTROLHEADED),
+	 ohci_Resources.Read4(OHCI_HCCONTROLCURRENTED),
+	 ohci_Resources.Read4(OHCI_HCBULKHEADED),
+	 ohci_Resources.Read4(OHCI_HCBULKCURRENTED));
 	Printf("rhda %x rhdb %x rhstatus %x rhps[0] %x rhps[1] %x rphs[2] %x",
-		Read4(OHCI_HCRHDESCRIPTORA),
-		Read4(OHCI_HCRHDESCRIPTORB),
-		Read4(OHCI_HCRHSTATUS),
-		Read4(OHCI_HCRHPORTSTATUSx),
-		Read4(OHCI_HCRHPORTSTATUSx + 4),
-		Read4(OHCI_HCRHPORTSTATUSx + 8));
+		ohci_Resources.Read4(OHCI_HCRHDESCRIPTORA),
+		ohci_Resources.Read4(OHCI_HCRHDESCRIPTORB),
+		ohci_Resources.Read4(OHCI_HCRHSTATUS),
+		ohci_Resources.Read4(OHCI_HCRHPORTSTATUSx),
+		ohci_Resources.Read4(OHCI_HCRHPORTSTATUSx + 4),
+		ohci_Resources.Read4(OHCI_HCRHPORTSTATUSx + 8));
 
 	kprintf("** dumping control chain\n");
 	OHCI::DumpEDChain(ohci_control_ed);
@@ -229,9 +229,9 @@ OHCI_HCD::OnIRQ()
 	if (dh != 0) {
 		is = OHCI_IS_WDH;
 		if (dh & 1)
-			is |= Read4(OHCI_HCINTERRUPTSTATUS) & Read4(OHCI_HCINTERRUPTENABLE);
+			is |= ohci_Resources.Read4(OHCI_HCINTERRUPTSTATUS) & ohci_Resources.Read4(OHCI_HCINTERRUPTENABLE);
 	} else {
-		is = Read4(OHCI_HCINTERRUPTSTATUS) & Read4(OHCI_HCINTERRUPTENABLE);
+		is = ohci_Resources.Read4(OHCI_HCINTERRUPTSTATUS) & ohci_Resources.Read4(OHCI_HCINTERRUPTENABLE);
 	}
 	if (is == 0) {
 		/* Not my interrupt; ignore */
@@ -286,38 +286,39 @@ OHCI_HCD::OnIRQ()
 		Unlock();
 
 		ohci_hcca->hcca_donehead = 0; /* acknowledge donehead */
-		Write4(OHCI_HCINTERRUPTSTATUS, OHCI_IS_WDH);
+		ohci_Resources.Write4(OHCI_HCINTERRUPTSTATUS, OHCI_IS_WDH);
 	}
 	if (is & OHCI_IS_SO) {
 		Printf("scheduling overrun!");
 		Dump();
 		panic("XXX scheduling overrun");
-		Write4(OHCI_HCINTERRUPTSTATUS, OHCI_IS_SO);
+		ohci_Resources.Write4(OHCI_HCINTERRUPTSTATUS, OHCI_IS_SO);
 	}
 
 	if (is & OHCI_IS_FNO) {
 		Printf("frame num overflow!");
 		Dump();
 
-		Write4(OHCI_HCINTERRUPTSTATUS, OHCI_IS_FNO);
+		ohci_Resources.Write4(OHCI_HCINTERRUPTSTATUS, OHCI_IS_FNO);
 	}
 
 	if (is & OHCI_IS_RHSC) { 
-		OHCIRootHub::OnIRQ(*this);
+		if (ohci_RootHub != nullptr)
+			ohci_RootHub->OnIRQ();
 
 		/*
 		 * Disable the roothub irq, we'll re-enable it when the port has been reset
 		 * to avoid excessive interrupts.
 		 */
-		Write4(OHCI_HCINTERRUPTDISABLE, OHCI_ID_RHSC);
-		Write4(OHCI_HCINTERRUPTSTATUS, OHCI_IS_RHSC);
+		ohci_Resources.Write4(OHCI_HCINTERRUPTDISABLE, OHCI_ID_RHSC);
+		ohci_Resources.Write4(OHCI_HCINTERRUPTSTATUS, OHCI_IS_RHSC);
 	}
 
 	/* If we got anything unexpected, warn and disable them */
 	is &= ~(OHCI_IS_WDH | OHCI_IS_SO | OHCI_IS_FNO | OHCI_IS_RHSC);
 	if (is != 0) {
 		Printf("disabling excessive interrupts %x", is);
-		Write4(OHCI_HCINTERRUPTDISABLE, is);
+		ohci_Resources.Write4(OHCI_HCINTERRUPTDISABLE, is);
 	}
 }
 
@@ -577,7 +578,7 @@ OHCI_HCD::ScheduleTransfer(Transfer& xfer)
 
 	/* If this is the root hub, immediately transfer the request to it */
 	if (usb_dev.ud_flags & USB_DEVICE_FLAG_ROOT_HUB)
-		return OHCIRootHub::HandleTransfer(xfer);
+		return ohci_RootHub->HandleTransfer(xfer);
 
 	/* XXX We should re-cycle them instead... */
 	OHCI::FreeTDsFromTransfer(xfer);
@@ -592,10 +593,10 @@ OHCI_HCD::ScheduleTransfer(Transfer& xfer)
 	/* Kick the appropriate queue, if needed */
 	switch(xfer.t_type) {
 		case TRANSFER_TYPE_CONTROL:
-			Write4(OHCI_HCCOMMANDSTATUS, OHCI_CS_CLF);
+			ohci_Resources.Write4(OHCI_HCCOMMANDSTATUS, OHCI_CS_CLF);
 			break;
 		case TRANSFER_TYPE_BULK:
-			Write4(OHCI_HCCOMMANDSTATUS, OHCI_CS_BLF);
+			ohci_Resources.Write4(OHCI_HCCOMMANDSTATUS, OHCI_CS_BLF);
 			break;
 		case TRANSFER_TYPE_INTERRUPT:
 			break;
@@ -689,11 +690,7 @@ OHCI_HCD::Attach()
   errorcode_t err = dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, 1, DMA_SEGS_MAX_SIZE);
 	ANANAS_ERROR_RETURN(err);
 
-	/*
-	 * Okay, we should be able to support this; initialize our private data so we can use
-	 * ohci_{read,write}[24].
-	 */
-	ohci_membase = static_cast<volatile uint8_t*>(res_mem);
+	ohci_Resources = OHCI::HCD_Resources(static_cast<uint8_t*>(res_mem));
 	mutex_init(&ohci_mtx, "ohci");
 	LIST_INIT(&ohci_active_eds);
 
@@ -705,11 +702,11 @@ OHCI_HCD::Attach()
 	err = Setup();
 	ANANAS_ERROR_RETURN(err);
 
-	if (Read4(OHCI_HCCONTROL) & OHCI_CONTROL_IR) {
+	if (ohci_Resources.Read4(OHCI_HCCONTROL) & OHCI_CONTROL_IR) {
 		/* Controller is in SMM mode - we need to ask it to stop doing that */
-		Write4(OHCI_HCCOMMANDSTATUS, OHCI_CS_OCR);
+		ohci_Resources.Write4(OHCI_HCCOMMANDSTATUS, OHCI_CS_OCR);
 		int n = 5000;
-		while (n > 0 && Read4(OHCI_HCCONTROL) & OHCI_CONTROL_IR)
+		while (n > 0 && ohci_Resources.Read4(OHCI_HCCONTROL) & OHCI_CONTROL_IR)
 			n--; /* XXX kludge; should use a real timeout mechanism */
 		if (n == 0) {
 			Printf("stuck in smm, giving up");
@@ -717,20 +714,16 @@ OHCI_HCD::Attach()
 		}
 	}
 
-	/* Initialize our root hub; actual attaching/probing is handled by usbbus */
-	err = OHCIRootHub::Initialize(*this);
-	ANANAS_ERROR_RETURN(err);
-
 	/* Kludge: force reset state */
-	Write4(OHCI_HCCONTROL, OHCI_CONTROL_HCFS(OHCI_HCFS_USBRESET));
+	ohci_Resources.Write4(OHCI_HCCONTROL, OHCI_CONTROL_HCFS(OHCI_HCFS_USBRESET));
 	
 	/* Save contents of 'frame interval' and reset the HC */
-	uint32_t fi = OHCI_FM_FI(Read4(OHCI_HCFMINTERVAL));
-	Write4(OHCI_HCCOMMANDSTATUS, OHCI_CS_HCR);
+	uint32_t fi = OHCI_FM_FI(ohci_Resources.Read4(OHCI_HCFMINTERVAL));
+	ohci_Resources.Write4(OHCI_HCCOMMANDSTATUS, OHCI_CS_HCR);
 	int n = 5000;
 	while (n > 0) {
 		delay(1);
-		if ((Read4(OHCI_HCCOMMANDSTATUS) & OHCI_CS_HCR) == 0)
+		if ((ohci_Resources.Read4(OHCI_HCCOMMANDSTATUS) & OHCI_CS_HCR) == 0)
 			break;
 		n--; /* XXX kludge; should use a real timeout mechanism */
 	}
@@ -740,41 +733,41 @@ OHCI_HCD::Attach()
 	}
 	/* Now in USBSUSPEND state -> we have 2ms to continue */
 
-	/* Write addresses of our buffers */
-	Write4(OHCI_HCHCCA, dma_buf_get_segment(ohci_hcca_buf, 0)->s_phys);
-	Write4(OHCI_HCCONTROLHEADED, OHCI::GetPhysicalAddress(*ohci_control_ed));
-	Write4(OHCI_HCBULKHEADED, OHCI::GetPhysicalAddress(*ohci_bulk_ed));
+	/* ohci_Resources.Write addresses of our buffers */
+	ohci_Resources.Write4(OHCI_HCHCCA, dma_buf_get_segment(ohci_hcca_buf, 0)->s_phys);
+	ohci_Resources.Write4(OHCI_HCCONTROLHEADED, OHCI::GetPhysicalAddress(*ohci_control_ed));
+	ohci_Resources.Write4(OHCI_HCBULKHEADED, OHCI::GetPhysicalAddress(*ohci_bulk_ed));
 
 	/* Enable interrupts */
-	Write4(OHCI_HCINTERRUPTDISABLE, 
+	ohci_Resources.Write4(OHCI_HCINTERRUPTDISABLE,
 	 (OHCI_ID_SO | OHCI_ID_WDH | OHCI_ID_SF | OHCI_ID_RD | OHCI_ID_UE | OHCI_ID_FNO | OHCI_ID_RHSC | OHCI_ID_OC)
 	);
 	int ints_enabled = (
 		OHCI_IE_SO | OHCI_IE_WDH | OHCI_IE_RD | OHCI_IE_UE | OHCI_IE_RHSC | OHCI_IE_OC
 	);
-	Write4(OHCI_HCINTERRUPTENABLE, ints_enabled | OHCI_IE_MIE);
+	ohci_Resources.Write4(OHCI_HCINTERRUPTENABLE, ints_enabled | OHCI_IE_MIE);
 
 	/* Start sending USB frames */
-	uint32_t c = Read4(OHCI_HCCONTROL);
+	uint32_t c = ohci_Resources.Read4(OHCI_HCCONTROL);
 	c &= ~(OHCI_CONTROL_CBSR(OHCI_CBSR_MASK) | OHCI_CONTROL_HCFS(OHCI_HCFS_MASK) | OHCI_CONTROL_PLE | OHCI_CONTROL_IE | OHCI_CONTROL_CLE | OHCI_CONTROL_BLE | OHCI_CONTROL_IR);
 	c |= OHCI_CONTROL_PLE | OHCI_CONTROL_IE | OHCI_CONTROL_CLE | OHCI_CONTROL_BLE;
 	c |= OHCI_CONTROL_CBSR(OHCI_CBSR_4_1) | OHCI_CONTROL_HCFS(OHCI_HCFS_USBOPERATIONAL);
-	Write4(OHCI_HCCONTROL, c);
+	ohci_Resources.Write4(OHCI_HCCONTROL, c);
 
 	/* State is now OPERATIONAL -> we can write interval/periodic start now */
-	uint32_t fm = (Read4(OHCI_HCFMINTERVAL) ^ OHCI_FM_FIT); /* invert FIT bit */
+	uint32_t fm = (ohci_Resources.Read4(OHCI_HCFMINTERVAL) ^ OHCI_FM_FIT); /* invert FIT bit */
 	fm |= OHCI_FM_FSMPS(((fi - OHCI_FM_MAX_OVERHEAD) * 6) / 7); /* calculate FSLargestDataPacket */
 	fm |= fi; /* restore frame interval */
-	Write4(OHCI_HCFMINTERVAL, fm);
+	ohci_Resources.Write4(OHCI_HCFMINTERVAL, fm);
 	uint32_t ps = (OHCI_FM_FI(fi) * 9) / 10;
-	Write4(OHCI_HCPERIODICSTART, ps);
+	ohci_Resources.Write4(OHCI_HCPERIODICSTART, ps);
 
 	/* 'Fiddle' with roothub registers to awaken it */
-	uint32_t a = Read4(OHCI_HCRHDESCRIPTORA);
-	Write4(OHCI_HCRHDESCRIPTORA, a | OHCI_RHDA_NOCP);
-	Write4(OHCI_HCRHSTATUS, OHCI_RHS_LPSC); /* set global power */
+	uint32_t a = ohci_Resources.Read4(OHCI_HCRHDESCRIPTORA);
+	ohci_Resources.Write4(OHCI_HCRHDESCRIPTORA, a | OHCI_RHDA_NOCP);
+	ohci_Resources.Write4(OHCI_HCRHSTATUS, OHCI_RHS_LPSC); /* set global power */
 	delay(10);
-	Write4(OHCI_HCRHDESCRIPTORA, a);
+	ohci_Resources.Write4(OHCI_HCRHDESCRIPTORA, a);
 
 	return ananas_success();
 }
@@ -789,10 +782,10 @@ OHCI_HCD::Detach()
 void
 OHCI_HCD::SetRootHub(USB::USBDevice& dev)
 {
-	ohci_roothub = &dev;
-
-	/* Now we can start the roothub thread to service updates */
-	OHCIRootHub::Start(*this, dev);
+	KASSERT(ohci_RootHub == nullptr, "roothub is already set");
+	ohci_RootHub = new OHCI::RootHub(ohci_Resources, dev);
+	errorcode_t err = ohci_RootHub->Initialize();
+	(void)err; // XXX check error
 }
 
 namespace {

@@ -25,7 +25,7 @@ TRACE_SETUP;
 
 namespace Ananas {
 namespace USB {
-namespace OHCIRootHub {
+namespace OHCI {
 namespace {
 
 #if 0
@@ -122,11 +122,18 @@ struct {
 	}
 };
 
+} // unnamed namespace
+
+RootHub::RootHub(HCD_Resources& hcdResources, USBDevice& device)
+	: rh_Resources(hcdResources), rh_Device(device)
+{
+	sem_init(&rh_semaphore, 0);
+}
+
 errorcode_t
-ControlTransfer(Transfer& xfer)
+RootHub::ControlTransfer(Transfer& xfer)
 {
 	struct USB_CONTROL_REQUEST* req = &xfer.t_control_req;
-	auto hcd = static_cast<OHCI_HCD*>(xfer.t_device.ud_bus.d_Parent);
 	errorcode_t err = ANANAS_ERROR(BAD_OPERATION);
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -176,15 +183,15 @@ ControlTransfer(Transfer& xfer)
 			break;
 		case USB_REQUEST_GET_HUB_DESCRIPTOR: {
 			/* First step is to construct our hub descriptor */
-			int port_len = (hcd->ohci_rh_numports + 7) / 8;
+			int port_len = (rh_numports + 7) / 8;
 			struct USB_DESCR_HUB hd;
 			memset(&hd, 0, sizeof(hd));
 			hd.hd_length = sizeof(hd) - (HUB_MAX_PORTS + 7) / 8 + port_len;
 			hd.hd_type = USB_DESCR_TYPE_HUB;
-			hd.hd_numports = hcd->ohci_rh_numports;
+			hd.hd_numports = rh_numports;
 			hd.hd_max_current = 0;
 
-			uint32_t rhda = hcd->Read4(OHCI_HCRHDESCRIPTORA);
+			uint32_t rhda = rh_Resources.Read4(OHCI_HCRHDESCRIPTORA);
 			hd.hd_flags = 0;
 			if ((rhda & (OHCI_RHDA_NPS | OHCI_RHDA_PSM)) == OHCI_RHDA_PSM)
 				hd.hd_flags |= USB_HD_FLAG_PS_INDIVIDUAL;
@@ -197,8 +204,8 @@ ControlTransfer(Transfer& xfer)
 			hd.hd_poweron2good = OHCI_RHDA_POTPGT(rhda);
 
 			/* Fill out all removable bits */
-			uint32_t rhdb = hcd->Read4(OHCI_HCRHDESCRIPTORB);
-			for (unsigned int n = 1; n < hcd->ohci_rh_numports; n++) {
+			uint32_t rhdb = rh_Resources.Read4(OHCI_HCRHDESCRIPTORB);
+			for (unsigned int n = 1; n < rh_numports; n++) {
 				if (rhdb & (1 << n))
 					hd.hd_removable[n / 8] |= 1 << (n  & 7);
 			}
@@ -221,8 +228,8 @@ ControlTransfer(Transfer& xfer)
 			break;
 		}
 		case USB_REQUEST_GET_PORT_STATUS: {
-			if (req->req_value == 0 && req->req_index >= 1 && req->req_index <= hcd->ohci_rh_numports && req->req_length == 4) {
-				uint32_t st = hcd->Read4(OHCI_HCRHPORTSTATUSx + (req->req_index - 1) * 4);
+			if (req->req_value == 0 && req->req_index >= 1 && req->req_index <= rh_numports && req->req_length == 4) {
+				uint32_t st = rh_Resources.Read4(OHCI_HCRHPORTSTATUSx + (req->req_index - 1) * 4);
 
 				struct USB_HUB_PORTSTATUS ps;
 				memset(&ps, 0, sizeof(ps));
@@ -236,7 +243,7 @@ ControlTransfer(Transfer& xfer)
 		}
 		case USB_REQUEST_SET_PORT_FEATURE: {
 			unsigned int port = req->req_index;
-			if (port >= 1 && port <= hcd->ohci_rh_numports) {
+			if (port >= 1 && port <= rh_numports) {
 				port = OHCI_HCRHPORTSTATUSx + (req->req_index - 1) * 4;
 				err = ananas_success();
 				switch(req->req_value) {
@@ -247,26 +254,26 @@ ControlTransfer(Transfer& xfer)
 						 * checks for)
 						 */
 						DPRINTF("set port reset, port %d", req->req_index);
-						hcd->Write4(port, OHCI_RHPS_PRS);
+						rh_Resources.Write4(port, OHCI_RHPS_PRS);
 						int n = 10;
-						while (n > 0 && (hcd->Read4(port) & OHCI_RHPS_PRS) != 0) {
+						while (n > 0 && (rh_Resources.Read4(port) & OHCI_RHPS_PRS) != 0) {
 							delay(100);
 							n--;
 						}
 						if (n == 0) {
-							hcd->Printf("port %u not responding to reset", n);
+							kprintf("oroothub: port %u not responding to reset", n);
 							err = ANANAS_ERROR(NO_DEVICE);
 						}
 						break;
 					}
 					case HUB_FEATURE_PORT_SUSPEND:
 						DPRINTF("set port suspend, port %d", req->req_index);
-						hcd->Write4(port, OHCI_RHPS_PSS);
+						rh_Resources.Write4(port, OHCI_RHPS_PSS);
 						err = ananas_success();
 						break;
 					case HUB_FEATURE_PORT_POWER:
 						DPRINTF("set port power, port %d", req->req_index);
-						hcd->Write4(port, OHCI_RHPS_PPS);
+						rh_Resources.Write4(port, OHCI_RHPS_PPS);
 						break;
 					default:
 						err = ANANAS_ERROR(BAD_OPERATION);
@@ -277,45 +284,45 @@ ControlTransfer(Transfer& xfer)
 		}
 		case USB_REQUEST_CLEAR_PORT_FEATURE: {
 			unsigned int port = req->req_index;
-			if (port >= 1 && port <= hcd->ohci_rh_numports) {
+			if (port >= 1 && port <= rh_numports) {
 				port = OHCI_HCRHPORTSTATUSx + (req->req_index - 1) * 4;
 				err = ananas_success();
 				switch(req->req_value) {
 					case HUB_FEATURE_PORT_ENABLE:
 						DPRINTF("HUB_FEATURE_PORT_ENABLE: port %d", req->req_index);
-						hcd->Write4(port, OHCI_RHPS_CCS);
+						rh_Resources.Write4(port, OHCI_RHPS_CCS);
 						break;
 					case HUB_FEATURE_PORT_SUSPEND:
 						DPRINTF("HUB_FEATURE_PORT_SUSPEND: port %d", req->req_index);
-						hcd->Write4(port, OHCI_RHPS_POCI);
+						rh_Resources.Write4(port, OHCI_RHPS_POCI);
 						break;
 					case HUB_FEATURE_PORT_POWER:
 						DPRINTF("HUB_FEATURE_PORT_POWER: port %d", req->req_index);
-						hcd->Write4(port, OHCI_RHPS_LSDA);
+						rh_Resources.Write4(port, OHCI_RHPS_LSDA);
 						break;
 					case HUB_FEATURE_C_PORT_CONNECTION:
 						DPRINTF("HUB_FEATURE_C_PORT_CONNECTION: port %d", req->req_index);
-						hcd->Write4(port, OHCI_RHPS_CSC);
+						rh_Resources.Write4(port, OHCI_RHPS_CSC);
 						/* Re-enable RHSC after clear is complete */
-						hcd->Write4(OHCI_HCINTERRUPTENABLE, OHCI_IE_RHSC);
+						rh_Resources.Write4(OHCI_HCINTERRUPTENABLE, OHCI_IE_RHSC);
 						break;
 					case HUB_FEATURE_C_PORT_RESET:
 						DPRINTF("HUB_FEATURE_C_PORT_RESET: port %d", req->req_index);
-						hcd->Write4(port, OHCI_RHPS_PRSC);
+						rh_Resources.Write4(port, OHCI_RHPS_PRSC);
 						/* Re-enable RHSC after reset is complete; otherwise it keeps spamming */
-						hcd->Write4(OHCI_HCINTERRUPTENABLE, OHCI_IE_RHSC);
+						rh_Resources.Write4(OHCI_HCINTERRUPTENABLE, OHCI_IE_RHSC);
 						break;
 					case HUB_FEATURE_C_PORT_ENABLE:
 						DPRINTF("HUB_FEATURE_C_PORT_ENABLE: port %d", req->req_index);
-						hcd->Write4(port, OHCI_RHPS_PESC);
+						rh_Resources.Write4(port, OHCI_RHPS_PESC);
 						break;
 					case HUB_FEATURE_C_PORT_SUSPEND:
 						DPRINTF("HUB_FEATURE_C_PORT_SUSPEND: port %d", req->req_index);
-						hcd->Write4(port, OHCI_RHPS_PSSC);
+						rh_Resources.Write4(port, OHCI_RHPS_PSSC);
 						break;
 					case HUB_FEATURE_C_PORT_OVER_CURRENT:
 						DPRINTF("HUB_FEATURE_C_PORT_OVER_CURRENT: port %d", req->req_index);
-						hcd->Write4(port, OHCI_RHPS_OCIC);
+						rh_Resources.Write4(port, OHCI_RHPS_OCIC);
 						break;
 					default:
 						err = ANANAS_ERROR(BAD_OPERATION);
@@ -342,14 +349,14 @@ ControlTransfer(Transfer& xfer)
 }
 
 void
-ProcessInterruptTransfers(OHCI_HCD& hcd, USBDevice& usb_dev)
+RootHub::ProcessInterruptTransfers()
 {
 	/* Walk through every port, hungry for updates... */
 	uint8_t hub_update[2] = { 0, 0 }; /* max 15 ports + hub status itself = 16 bits */
 	int num_updates = 0;
-	for (unsigned int n = 1; n <= hcd.ohci_rh_numports; n++) {
+	for (unsigned int n = 1; n <= rh_numports; n++) {
 		int index = OHCI_HCRHPORTSTATUSx + (n - 1) * 4;
-		uint32_t st = hcd.Read4(index);
+		uint32_t st = rh_Resources.Read4(index);
 		if ((st >> 16) != 0) {
 			/* A changed event was triggered - need to report this */
 			hub_update[n / 8] |= 1 << (n % 8);
@@ -358,44 +365,38 @@ ProcessInterruptTransfers(OHCI_HCD& hcd, USBDevice& usb_dev)
 	}
 
 	if (num_updates > 0) {
-		int update_len = (hcd.ohci_rh_numports + 1 /* hub */ + 7 /* round up */) / 8;
+		int update_len = (rh_numports + 1 /* hub */ + 7 /* round up */) / 8;
 
 		/* Alter all entries in the transfer queue */
-		usb_dev.Lock();
-		LIST_FOREACH_IP(&usb_dev.ud_transfers, pending, xfer, Transfer) {
+		rh_Device.Lock();
+		LIST_FOREACH_IP(&rh_Device.ud_transfers, pending, xfer, Transfer) {
 			if (xfer->t_type != TRANSFER_TYPE_INTERRUPT)
 				continue;
 			memcpy(&xfer->t_data, hub_update, update_len);
 			xfer->t_result_length = update_len;
 			CompleteTransfer_Locked(*xfer);
 		}
-		usb_dev.Unlock();
+		rh_Device.Unlock();
 	}
 }
 
 void
-RootHubThread(void* ptr)
+RootHub::Thread()
 {
-	auto& usb_dev = *static_cast<USBDevice*>(ptr);
-	auto& hcd = *static_cast<OHCI_HCD*>(usb_dev.ud_bus.d_Parent);
-	KASSERT(hcd.ohci_roothub != NULL, "no root hub?");
-
 	while(1) {
 		/* Wait until we get a roothub interrupt; that should signal something happened */
-		sem_wait_and_drain(&hcd.ohci_rh_semaphore);
+		sem_wait_and_drain(&rh_semaphore);
 
 		/*
 		 * If we do not have anything in the interrupt queue, there is no need to
 		 * bother checking as no one can handle yet - best to wait...
 		 */
-		ProcessInterruptTransfers(hcd, usb_dev);
+		ProcessInterruptTransfers();
 	}	
 }
 
-} // unnamed namespace
-
 errorcode_t
-HandleTransfer(Transfer& xfer)
+RootHub::HandleTransfer(Transfer& xfer)
 {
 	switch(xfer.t_type) {
 		case TRANSFER_TYPE_CONTROL:
@@ -408,44 +409,32 @@ HandleTransfer(Transfer& xfer)
 }
 
 void
-OnIRQ(OHCI_HCD& hcd)
+RootHub::OnIRQ()
 {
-	sem_signal(&hcd.ohci_rh_semaphore);
+	sem_signal(&rh_semaphore);
 }
 
 errorcode_t
-Initialize(OHCI_HCD& hcd)
+RootHub::Initialize()
 {
-	sem_init(&hcd.ohci_rh_semaphore, 0);
-
-	uint32_t rhda = hcd.Read4(OHCI_HCRHDESCRIPTORA);
-	int numports = OHCI_RHDA_NDP(rhda);
-	if (numports < 1 || numports > 15) {
-		hcd.Printf("invalid number of %d port(s) present", numports);
+	uint32_t rhda = rh_Resources.Read4(OHCI_HCRHDESCRIPTORA);
+	rh_numports = OHCI_RHDA_NDP(rhda);
+	if (rh_numports < 1 || rh_numports > 15) {
+		kprintf("oroothub: invalid number of %d port(s) present", rh_numports);
 		return ANANAS_ERROR(NO_DEVICE);
 	}
-	hcd.ohci_rh_numports = numports;
 
-	/*
-	 * Note that there is no need to attach the root hub; usb-bus does this upon attaching
-	 * to the HCD driver.
-	 */
-	return ananas_success();
-}
-
-void
-Start(OHCI_HCD& hcd, USBDevice& usb_dev)
-{
 	/*
 	 * Launch the poll thread to handle the interrupt pipe requests; we can't do
 	 * that from oroothub_init() because the usbbus doesn't exist at that point
 	 * and we don't know the USB device either.
 	 */
-	kthread_init(&hcd.ohci_rh_pollthread, "oroothub", &OHCIRootHub::RootHubThread, &usb_dev);
-	thread_resume(&hcd.ohci_rh_pollthread);
+	kthread_init(&rh_pollthread, "oroothub", &ThreadWrapper, this);
+	thread_resume(&rh_pollthread);
+	return ananas_success();
 }
 
-} // namespace UHCIRootHub
+} // namespace OHCI
 } // namespace USB
 } // namespace Ananas
 

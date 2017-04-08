@@ -8,16 +8,39 @@ namespace USB {
 
 class Transfer;
 class USBDevice;
-class OHCI_HCD;
 
-namespace OHCIRootHub {
+namespace OHCI {
 
-errorcode_t Initialize(OHCI_HCD& hcd);
-void Start(OHCI_HCD& hcd, USBDevice& usb_dev);
-void OnIRQ(OHCI_HCD& hcd);
-errorcode_t HandleTransfer(Transfer& xfer);
+class HCD_Resources;
 
-} // namespace UHCIRootHub
+class RootHub {
+public:
+	RootHub(HCD_Resources& hcdResources, USBDevice& usbDevice);
+	errorcode_t Initialize();
+
+	void SetUSBDevice(USBDevice& usbDevice);
+	errorcode_t HandleTransfer(Transfer& xfer);
+	void OnIRQ();
+
+protected:
+	errorcode_t ControlTransfer(Transfer& xfer);
+	void ProcessInterruptTransfers();
+	static void ThreadWrapper(void* context)
+	{
+		(static_cast<RootHub*>(context))->Thread();
+	}
+	void Thread();
+
+private:
+	HCD_Resources& rh_Resources;
+	USBDevice& rh_Device;
+
+	int rh_numports;
+	semaphore_t rh_semaphore;
+	thread_t rh_pollthread;
+};
+
+} // namespace OHCI
 } // namespace USB
 } // namespace Ananas
 

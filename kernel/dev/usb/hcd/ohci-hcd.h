@@ -39,6 +39,44 @@ struct HCD_ED {
 
 LIST_DEFINE(HCD_ED_QUEUE, struct HCD_ED);
 
+class HCD_Resources
+{
+public:
+	HCD_Resources()
+	 : ohci_membase(nullptr)
+	{
+	}
+
+	HCD_Resources(uint8_t* membase)
+	 : ohci_membase(membase)
+	{
+	}
+
+	inline void Write2(unsigned int reg, uint16_t value)
+	{
+		*(volatile uint16_t*)(ohci_membase + reg) = value;
+	}
+
+	inline void Write4(unsigned int reg, uint32_t value)
+	{
+		*(volatile uint32_t*)(ohci_membase + reg) = value;
+	}
+
+	inline uint16_t Read2(unsigned int reg)
+	{
+		return *(volatile uint16_t*)(ohci_membase + reg);
+	}
+
+	inline uint32_t Read4(unsigned int reg)
+	{
+		return *(volatile uint32_t*)(ohci_membase + reg);
+	}
+
+private:
+	volatile uint8_t* ohci_membase;
+};
+
+class RootHub;
 
 } // namespace OHCI
 
@@ -67,36 +105,9 @@ public:
 	errorcode_t CancelTransfer(Transfer& xfer) override;
 	void SetRootHub(USB::USBDevice& dev) override;
 
-	int ohci_rh_numports;
-
-	inline void Write2(unsigned int reg, uint16_t value)
-	{
-		*(volatile uint16_t*)(ohci_membase + reg) = value;
-	}
-
-	inline void Write4(unsigned int reg, uint32_t value)
-	{
-		*(volatile uint32_t*)(ohci_membase + reg) = value;
-	}
-
-	inline uint16_t Read2(unsigned int reg)
-	{
-		return *(volatile uint16_t*)(ohci_membase + reg);
-	}
-
-	inline uint32_t Read4(unsigned int reg)
-	{
-		return *(volatile uint32_t*)(ohci_membase + reg);
-	}
-
-	semaphore_t ohci_rh_semaphore;
-	thread_t ohci_rh_pollthread;
-	USB::USBDevice* ohci_roothub = nullptr;
-
 protected:
 	void Dump();
 	errorcode_t Setup();
-
 
 	void CreateTDs(Transfer& xfer);
 
@@ -124,7 +135,6 @@ private:
 		return IRQ_RESULT_PROCESSED;
 	}
 
-	volatile uint8_t* ohci_membase;
 	dma_buf_t ohci_hcca_buf;
 	struct OHCI_HCCA* ohci_hcca = nullptr;
 	struct OHCI::HCD_ED* ohci_interrupt_ed[OHCI_NUM_ED_LISTS];
@@ -132,6 +142,9 @@ private:
 	struct OHCI::HCD_ED* ohci_bulk_ed = nullptr;
 	struct OHCI::HCD_ED_QUEUE ohci_active_eds;
 	mutex_t ohci_mtx;
+
+	OHCI::HCD_Resources ohci_Resources;
+	OHCI::RootHub* ohci_RootHub = nullptr;
 };
 
 } // namespace USB
