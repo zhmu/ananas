@@ -55,6 +55,10 @@ public:
 	/* HCD-specific */
 	void*				t_hcd = nullptr;	/* [D] */
 
+	errorcode_t Schedule();
+	void Complete();
+	void Complete_Locked();
+
 	/* List of pending transfers */
 	LIST_FIELDS_IT(Transfer, pending);
 
@@ -63,12 +67,8 @@ public:
 };
 
 Transfer* AllocateTransfer(USBDevice& dev, int type, int flags, int endpt, size_t maxlen);
-
-errorcode_t ScheduleTransfer(Transfer& xfer);
 void FreeTransfer(Transfer& xfer);
 void FreeTransfer_Locked(Transfer& xfer);
-void CompleteTransfer(Transfer& xfer);
-void CompleteTransfer_Locked(Transfer& xfer);
 
 } // namespace USB
 } // namespace Ananas

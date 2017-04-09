@@ -308,7 +308,7 @@ UHCI_HCD::OnIRQ()
 				si->si_xfer->t_flags |= TRANSFER_FLAG_ERROR;
 
 			/* Finally, give hand the transfer back to the USB stack */
-			CompleteTransfer(*si->si_xfer);
+			si->si_xfer->Complete();
 			// XXX Where will will we free si ?
 		}
 	}

@@ -274,7 +274,7 @@ OHCI_HCD::OnIRQ()
 				xfer.t_result_length = transferred;
 				if (status != OHCI_TD_CC_NOERROR)
 					xfer.t_flags |= TRANSFER_FLAG_ERROR;
-				CompleteTransfer(xfer);
+				xfer.Complete();
 
 				/* Skip ED now, it's processed */
 				ed->ed_ed.ed_flags |= OHCI_ED_K;

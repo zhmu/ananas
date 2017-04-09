@@ -296,7 +296,7 @@ USBDevice::FreePipe_Locked(Pipe& pipe)
 errorcode_t
 Pipe::Start()
 {
-	return ScheduleTransfer(p_xfer);
+	return p_xfer.Schedule();
 }
 
 errorcode_t
@@ -318,7 +318,7 @@ USBDevice::PerformControlTransfer(int req, int recipient, int type, int value, i
 	xfer->t_length = (len != NULL) ? *len : 0;
 
 	/* Now schedule the transfer and until it's completed XXX Timeout */
-	ScheduleTransfer(*xfer);
+	xfer->Schedule();
 	sem_wait_and_drain(&xfer->t_semaphore);
 	if (xfer->t_flags & TRANSFER_FLAG_ERROR) {
 		FreeTransfer(*xfer);

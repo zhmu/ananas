@@ -360,7 +360,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 	}
 
 	/* Immediately mark the transfer as completed */
-	CompleteTransfer_Locked(xfer);
+	xfer.Complete_Locked();
 	return err;
 }
 
@@ -389,7 +389,7 @@ RootHub::UpdateStatus()
 				continue;
 			memcpy(&xfer->t_data, &hub_update, update_len);
 			xfer->t_result_length = update_len;
-			CompleteTransfer_Locked(*xfer);
+			xfer->Complete_Locked();
 		}
 		rh_Device.Unlock();
 	}

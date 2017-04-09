@@ -23,25 +23,29 @@
 namespace Ananas {
 namespace USB {
 
-static thread_t usbtransfer_thread;
-static semaphore_t usbtransfer_sem;
-static TransferQueue usbtransfer_complete;
-static spinlock_t usbtransfer_lock = SPINLOCK_DEFAULT_INIT;
+namespace {
 
-static inline Device&
+thread_t usbtransfer_thread;
+semaphore_t usbtransfer_sem;
+TransferQueue usbtransfer_complete;
+spinlock_t usbtransfer_lock = SPINLOCK_DEFAULT_INIT;
+
+inline Device&
 usbtransfer_get_hcd_device(Transfer& xfer)
 {
 	/* All USB_DEVICE's are on usbbusX; the bus' parent is the HCD to use */
 	return *xfer.t_device.ud_bus.d_Parent;
 }
 
-static errorcode_t
+errorcode_t
 SetupTransfer(Transfer& xfer)
 {
 	auto& hcd_dev = usbtransfer_get_hcd_device(xfer);
 	KASSERT(hcd_dev.GetUSBDeviceOperations() != NULL, "transferring without usb transfer");
 	return hcd_dev.GetUSBDeviceOperations()->SetupTransfer(xfer);
 }
+
+} // unnamed namespace
 
 Transfer*
 AllocateTransfer(USBDevice& usb_dev, int type, int flags, int endpt, size_t maxlen)
@@ -62,16 +66,15 @@ AllocateTransfer(USBDevice& usb_dev, int type, int flags, int endpt, size_t maxl
 }
 
 errorcode_t
-ScheduleTransfer(Transfer& xfer)
+Transfer::Schedule()
 {
 	/* All USB_DEVICE's are on usbbusX; the bus' parent is the HCD to use */
-	auto& hcd_dev = usbtransfer_get_hcd_device(xfer);
-	auto& usb_dev = xfer.t_device;
+	auto& hcd_dev = usbtransfer_get_hcd_device(*this);
 
 	/* Schedule the transfer; we are responsible for locking here */
-	usb_dev.Lock();
-	errorcode_t err = hcd_dev.GetUSBDeviceOperations()->ScheduleTransfer(xfer);
-	usb_dev.Unlock();
+	t_device.Lock();
+	errorcode_t err = hcd_dev.GetUSBDeviceOperations()->ScheduleTransfer(*this);
+	t_device.Unlock();
 	return err;
 }
 
@@ -99,43 +102,42 @@ FreeTransfer(Transfer& xfer)
 }
 
 void
-CompleteTransfer_Locked(Transfer& xfer)
+Transfer::Complete_Locked()
 {
-	auto& usb_dev = xfer.t_device;
-	usb_dev.AssertLocked();
-	KASSERT(xfer.t_flags & TRANSFER_FLAG_PENDING, "completing transfer that isn't pending %p", xfer.t_hcd);
+	t_device.AssertLocked();
+	KASSERT(t_flags & TRANSFER_FLAG_PENDING, "completing transfer that isn't pending");
 
 	/* Transfer is complete, so we can remove the pending flag */
-	xfer.t_flags &= ~TRANSFER_FLAG_PENDING;
-	LIST_REMOVE_IP(&xfer.t_device.ud_transfers, pending, &xfer);
+	t_flags &= ~TRANSFER_FLAG_PENDING;
+	LIST_REMOVE_IP(&t_device.ud_transfers, pending, this);
 
 	/*
 	 * This is generally called from interrupt context, so schedule a worker to
 	 * process the transfer; if the transfer doesn't have a callback function,
 	 * assume we'll just have to signal its semaphore.
 	 */
-	if (xfer.t_callback != nullptr) {
+	if (t_callback != nullptr) {
 		spinlock_lock(&usbtransfer_lock);
-		LIST_APPEND_IP(&usbtransfer_complete, completed, &xfer);
+		LIST_APPEND_IP(&usbtransfer_complete, completed, this);
 		spinlock_unlock(&usbtransfer_lock);
 
 		sem_signal(&usbtransfer_sem);
 	} else {
-		sem_signal(&xfer.t_semaphore);
+		sem_signal(&t_semaphore);
 	}
 }
 
 void
-CompleteTransfer(Transfer& xfer)
+Transfer::Complete()
 {
-	auto& usb_dev = xfer.t_device;
-
-	usb_dev.Lock();
-	CompleteTransfer_Locked(xfer);
-	usb_dev.Unlock();
+	t_device.Lock();
+	Complete_Locked();
+	t_device.Unlock();
 }
 
-static void
+namespace {
+
+void
 transfer_thread(void* arg)
 {
 	while(1) {
@@ -164,8 +166,6 @@ transfer_thread(void* arg)
 		}
 	}
 }
-
-namespace {
 
 errorcode_t
 InitializeTransfer()
