@@ -179,22 +179,6 @@ usb_bus_thread(void* unused)
 	}
 }
 
-void
-InitializeBus()
-{
-	sem_init(&usbbus_semaphore, 0);
-	LIST_INIT(&usbbus_pendingqueue);
-	mutex_init(&usbbus_mutex, "usbbus");
-	LIST_INIT(&usbbus_busses);
-
-	/*
-	 * Create a kernel thread to handle USB device attachments. We use a thread for this
-	 * since we can only attach one at the same time.
-	 */
-	kthread_init(&usbbus_thread, "usbbus", &usb_bus_thread, NULL);
-	thread_resume(&usbbus_thread);
-}
-
 namespace {
 
 struct USBBus_Driver : public Ananas::Driver
@@ -215,9 +199,28 @@ struct USBBus_Driver : public Ananas::Driver
 	}
 };
 
+errorcode_t
+InitializeBus()
+{
+	sem_init(&usbbus_semaphore, 0);
+	LIST_INIT(&usbbus_pendingqueue);
+	mutex_init(&usbbus_mutex, "usbbus");
+	LIST_INIT(&usbbus_busses);
+
+	/*
+	 * Create a kernel thread to handle USB device attachments. We use a thread for this
+	 * since we can only attach one at the same time.
+	 */
+	kthread_init(&usbbus_thread, "usbbus", &usb_bus_thread, NULL);
+	thread_resume(&usbbus_thread);
+	return ananas_success();
+}
+
 } // unnamed namespace
 
 REGISTER_DRIVER(USBBus_Driver)
+
+INIT_FUNCTION(InitializeBus, SUBSYSTEM_DEVICE, ORDER_FIRST);
 
 } // namespace USB
 } // namespace Ananas

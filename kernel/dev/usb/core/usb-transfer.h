@@ -62,8 +62,6 @@ public:
 	LIST_FIELDS_IT(Transfer, completed);
 };
 
-void usbtransfer_init();
-
 Transfer* AllocateTransfer(USBDevice& dev, int type, int flags, int endpt, size_t maxlen);
 
 errorcode_t ScheduleTransfer(Transfer& xfer);

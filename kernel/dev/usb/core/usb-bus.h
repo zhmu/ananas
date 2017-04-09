@@ -64,8 +64,6 @@ private:
 	mutex_t bus_mutex;
 };
 
-/* Initialize the usbbus kernel thread which handles device exploring */
-void InitializeBus();
 void ScheduleAttach(USBDevice& usb_dev);
 
 } // namespace USB

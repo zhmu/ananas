@@ -113,11 +113,10 @@ fs/sysfs/thread-sysfs.cpp	option SYSFS
 kdb/kdb.cpp			option KDB
 kdb/kdb_commands.cpp		option KDB
 # USB
-dev/usb/core/usb-core.cpp		option USB
-dev/usb/core/usb-device.cpp		option USB
-dev/usb/core/usb-config.cpp		option USB
-dev/usb/core/usb-transfer.cpp	option USB
 dev/usb/core/usb-bus.cpp		option USB
+dev/usb/core/usb-config.cpp		option USB
+dev/usb/core/usb-device.cpp		option USB
+dev/usb/core/usb-transfer.cpp	option USB
 dev/usb/device/usb-generic.cpp		option USB
 dev/usb/device/usb-hub.cpp		option USB
 dev/usb/hcd/uhci-hcd.cpp		optional uhci

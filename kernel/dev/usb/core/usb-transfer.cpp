@@ -165,8 +165,10 @@ transfer_thread(void* arg)
 	}
 }
 
-void
-usbtransfer_init()
+namespace {
+
+errorcode_t
+InitializeTransfer()
 {
 	LIST_INIT(&usbtransfer_complete);
 	sem_init(&usbtransfer_sem, 0);
@@ -174,7 +176,12 @@ usbtransfer_init()
 	/* Create a kernel thread to handle USB completed messages */
 	kthread_init(&usbtransfer_thread, "usb-transfer", &transfer_thread, NULL);
 	thread_resume(&usbtransfer_thread);
+	return ananas_success();
 }
+
+} // unnamed namespace
+
+INIT_FUNCTION(InitializeTransfer, SUBSYSTEM_DEVICE, ORDER_FIRST);
 
 } // namespace USB
 } // namespace Ananas
