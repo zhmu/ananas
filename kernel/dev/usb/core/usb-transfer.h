@@ -62,8 +62,6 @@ public:
 	LIST_FIELDS_IT(Transfer, completed);
 };
 
-errorcode_t PerformControlTransfer(USBDevice& usb_dev, int req, int recipient, int type, int value, int index, void* buf, size_t* len, int write);
-
 void usbtransfer_init();
 
 Transfer* AllocateTransfer(USBDevice& dev, int type, int flags, int endpt, size_t maxlen);

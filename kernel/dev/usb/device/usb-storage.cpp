@@ -13,7 +13,6 @@
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"
 #include "../core/config.h"
-#include "../core/pipe.h"
 #include "../core/usb-transfer.h"
 
 TRACE_SETUP;
@@ -339,17 +338,17 @@ USBStorage::HandleRequest(int lun, int flags, const void* cb, size_t cb_len, voi
 	us_result_ptr = &err;
 	us_csw_ptr = &csw;
 	/* Now, submit the request */
-	us_BulkOut->p_xfer->t_length = sizeof(cbw);
-	memcpy(&us_BulkOut->p_xfer->t_data[0], &cbw, us_BulkOut->p_xfer->t_length);
+	us_BulkOut->p_xfer.t_length = sizeof(cbw);
+	memcpy(&us_BulkOut->p_xfer.t_data[0], &cbw, us_BulkOut->p_xfer.t_length);
 
 	kprintf(">>> submitting cbw\n");
-	for (int n = 0; n < us_BulkOut->p_xfer->t_length; n++)
-		kprintf("%x ", us_BulkOut->p_xfer->t_data[n]);
+	for (int n = 0; n < us_BulkOut->p_xfer.t_length; n++)
+		kprintf("%x ", us_BulkOut->p_xfer.t_data[n]);
 	kprintf("\n");
 	DumpCBW(cbw);
 
-	SchedulePipe(*us_BulkIn);
-	SchedulePipe(*us_BulkOut);
+	us_BulkIn->Start();
+	us_BulkOut->Start();
 	Unlock();
 
 	/* Now we wait for the signal ... */
@@ -373,7 +372,7 @@ USBStorage::HandleRequest(int lun, int flags, const void* cb, size_t cb_len, voi
 void
 USBStorage::OnPipeInCallback()
 {
-	Ananas::USB::Transfer& xfer = *us_BulkIn->p_xfer;
+	Ananas::USB::Transfer& xfer = us_BulkIn->p_xfer;
 
 	Printf("usbstorage_in_callback! -> flags %x len %d\n", xfer.t_flags, xfer.t_result_length);
 
@@ -414,13 +413,13 @@ USBStorage::OnPipeInCallback()
 	Unlock();
 
 	if (need_schedule)
-		SchedulePipe(*us_BulkIn);
+		us_BulkIn->Start();
 }
 
 void
 USBStorage::OnPipeOutCallback()
 {
-	Ananas::USB::Transfer& xfer = *us_BulkOut->p_xfer;
+	Ananas::USB::Transfer& xfer = us_BulkOut->p_xfer;
 
 	Printf("usbstorage_out_callback! -> len %d\n", xfer.t_result_length);
 }
@@ -436,7 +435,7 @@ USBStorage::Attach()
 	/* Determine the max LUN of the device */
 	uint8_t max_lun = 0xff;
 	size_t len = sizeof(max_lun);
-	errorcode_t err = PerformControlTransfer(*us_Device, USB_CONTROL_REQUEST_GET_MAX_LUN, USB_CONTROL_RECIPIENT_INTERFACE, USB_CONTROL_TYPE_CLASS, USB_REQUEST_MAKE(0, 0), 0, &max_lun, &len, 0);
+	errorcode_t err = us_Device->PerformControlTransfer(USB_CONTROL_REQUEST_GET_MAX_LUN, USB_CONTROL_RECIPIENT_INTERFACE, USB_CONTROL_TYPE_CLASS, USB_REQUEST_MAKE(0, 0), 0, &max_lun, &len, false);
 	if (ananas_is_failure(err)) {
 		Printf("unable to get max LUN: %d", err);
 		return ANANAS_ERROR(NO_RESOURCE);
@@ -449,16 +448,16 @@ USBStorage::Attach()
 	 *
 	 */
 	int outep_index = 1;
-	err = AllocatePipe(*us_Device, 0, TRANSFER_TYPE_BULK, EP_DIR_IN, 0, us_PipeInCallback, us_BulkIn);
+	err = us_Device->AllocatePipe(0, TRANSFER_TYPE_BULK, EP_DIR_IN, 0, us_PipeInCallback, us_BulkIn);
 	if (ananas_is_failure(err)) {
-		err = AllocatePipe(*us_Device, 1, TRANSFER_TYPE_BULK, EP_DIR_IN, 0, us_PipeInCallback, us_BulkIn);
+		err = us_Device->AllocatePipe(1, TRANSFER_TYPE_BULK, EP_DIR_IN, 0, us_PipeInCallback, us_BulkIn);
 		outep_index = 0;
 	}
 	if (ananas_is_failure(err)) {
 		Printf("no bulk/in endpoint present");
 		return ANANAS_ERROR(NO_RESOURCE);
 	}
-	err = AllocatePipe(*us_Device, outep_index, TRANSFER_TYPE_BULK, EP_DIR_OUT, 0, us_PipeOutCallback, us_BulkOut);
+	err = us_Device->AllocatePipe(outep_index, TRANSFER_TYPE_BULK, EP_DIR_OUT, 0, us_PipeOutCallback, us_BulkOut);
 	if (ananas_is_failure(err)) {
 		Printf("no bulk/out endpoint present");
 		return ANANAS_ERROR(NO_RESOURCE);

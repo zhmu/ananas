@@ -6,7 +6,6 @@
 #include <ananas/thread.h>
 #include <ananas/pcpu.h>
 #include <ananas/schedule.h>
-#include <ananas/trace.h>
 #include <ananas/mm.h>
 #include <machine/param.h> /* XXX for PAGE_SIZE */
 #include "config.h"
@@ -21,8 +20,6 @@
 # define DPRINTF(...)
 #endif
 
-TRACE_SETUP;
-
 namespace Ananas {
 namespace USB {
 
@@ -30,55 +27,6 @@ static thread_t usbtransfer_thread;
 static semaphore_t usbtransfer_sem;
 static TransferQueue usbtransfer_complete;
 static spinlock_t usbtransfer_lock = SPINLOCK_DEFAULT_INIT;
-
-static Transfer*
-CreateControlTransfer(USBDevice& usb_dev, int req, int recipient, int type, int value, int index, void* buf, size_t* len, int write)
-{
-	/* Make the USB transfer itself */
-	int flags = 0;
-	if (buf != NULL)
-		flags |= TRANSFER_FLAG_DATA;
-	if (write)
-		flags |= TRANSFER_FLAG_WRITE;
-	else
-		flags |= TRANSFER_FLAG_READ;
-	auto xfer = AllocateTransfer(usb_dev, TRANSFER_TYPE_CONTROL, flags, 0, (len != NULL) ? *len : 0);
-	xfer->t_control_req.req_type = TO_REG32((write ? 0 : USB_CONTROL_REQ_DEV2HOST) | USB_CONTROL_REQ_RECIPIENT(recipient) | USB_CONTROL_REQ_TYPE(type));
-	xfer->t_control_req.req_request = TO_REG32(req);
-	xfer->t_control_req.req_value = TO_REG32(value);
-	xfer->t_control_req.req_index = index;
-	xfer->t_control_req.req_length = (len != NULL) ? *len : 0;
-	xfer->t_length = (len != NULL) ? *len : 0;
-	return xfer;
-}
-
-errorcode_t
-PerformControlTransfer(USBDevice& usb_dev, int req, int recipient, int type, int value, int index, void* buf, size_t* len, int write)
-{
-	auto xfer = CreateControlTransfer(usb_dev, req, recipient, type, value, index, buf, len, write);
-
-	DPRINTF("usb_control_xfer(): req %d value %x -> xfer=%p\n", req, value, xfer);
-
-	/* Now schedule the transfer and until it's completed XXX Timeout */
-	ScheduleTransfer(*xfer);
-	sem_wait_and_drain(&xfer->t_semaphore);
-	if (xfer->t_flags & TRANSFER_FLAG_ERROR) {
-		DPRINTF("usb_control_xfer(): xfer %p ERROR\n", xfer);
-		FreeTransfer(*xfer);
-		return ANANAS_ERROR(IO);
-	}
-
-	if (buf != NULL && len != NULL) {
-		/* XXX Ensure we don't return more than the user wants to know */
-		if (*len > xfer->t_result_length)
-			*len = xfer->t_result_length;
-		memcpy(buf, xfer->t_data, *len);
-	}
-
-	FreeTransfer(*xfer);
-	DPRINTF("usb_control_xfer(): xfer %p done\n", xfer);
-	return ananas_success();
-}
 
 static inline Device&
 usbtransfer_get_hcd_device(Transfer& xfer)

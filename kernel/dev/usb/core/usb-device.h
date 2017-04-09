@@ -11,7 +11,37 @@ namespace USB {
 
 class Bus;
 class Hub;
+class Pipe;
 class Transfer;
+
+class IPipeCallback
+{
+public:
+	virtual void OnPipeCallback(Pipe&) = 0;
+};
+
+class Pipe {
+public:
+	Pipe(USBDevice& usb_dev, Endpoint& ep, Transfer& xfer, IPipeCallback& callback)
+	 : p_dev(usb_dev), p_ep(ep), p_xfer(xfer), p_callback(callback)
+	{
+	}
+
+	Pipe(const Pipe&) = delete;
+	Pipe& operator=(const Pipe&) = delete;
+
+	errorcode_t Start();
+
+	USBDevice& p_dev;
+	Endpoint& p_ep;
+	Transfer& p_xfer;
+	IPipeCallback& p_callback;
+
+	/* Provide queue structure */
+	LIST_FIELDS(Pipe);
+};
+
+LIST_DEFINE(Pipes, Pipe);
 
 /*
  * An USB device consists of a name, an address, pipes and a driver. We
@@ -43,15 +73,15 @@ public:
 	int	ud_num_interfaces = 0;
 	int	ud_cur_interface = -1;
 	struct USB_DESCR_DEVICE ud_descr_device;
-	struct Pipes ud_pipes;			/* [M] */
 
-//	void*	ud_hcd_privdata = nullptr;
+	/* Pending transfers for this device */
+	TransferQueue ud_transfers;		/* [M] */
 
 	errorcode_t Attach();
 	errorcode_t Detach(); // called with bus lock held
 
-	/* Pending transfers for this device */
-	TransferQueue ud_transfers;		/* [M] */
+	errorcode_t AllocatePipe(int num, int type, int dir, size_t maxlen, IPipeCallback& callback, Pipe*& pipe);
+	void FreePipe(Pipe& pipe);
 
 	/* Provide link fields for device list */
 	LIST_FIELDS(USBDevice);
@@ -71,8 +101,13 @@ public:
 		mutex_assert(&ud_mutex, MTX_LOCKED);
 	}
 
+	errorcode_t PerformControlTransfer(int req, int recipient, int type, int value, int index, void* buf, size_t* len, bool write);
+
 private:
+	void FreePipe_Locked(Pipe& pipe);
+
 	mutex_t ud_mutex;
+	struct Pipes ud_pipes;			/* [M] */
 };
 
 #define USB_DEVICE_FLAG_LOW_SPEED (1 << 0)

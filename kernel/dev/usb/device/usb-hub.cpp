@@ -9,8 +9,6 @@
 #include <ananas/time.h>
 #include <machine/param.h>
 #include "../core/config.h"
-#include "../core/pipe.h"
-#include "../core/transfer.h"
 #include "../core/usb-bus.h"
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"
@@ -39,7 +37,7 @@ Hub::~Hub()
 void
 Hub::OnPipeCallback(Pipe& pipe)
 {
-	Transfer& xfer = *pipe.p_xfer;
+	Transfer& xfer = pipe.p_xfer;
 
 	/* Error means nothing happened, so request a new transfer */
 	if (xfer.t_flags & TRANSFER_FLAG_ERROR) {
@@ -71,7 +69,7 @@ Hub::OnPipeCallback(Pipe& pipe)
 		h_Device->ud_bus.ScheduleExplore();
 
 	/* Reschedule the pipe for future updates */
-	SchedulePipe(*h_Pipe);
+	h_Pipe->Start();
 }
 
 errorcode_t
@@ -81,14 +79,14 @@ Hub::ResetPort(int n)
 
 	/* Reset the reset state of the port in case it lingers */
 	DPRINTF("%s: port %d: clearing c_port_reset", __func__, n);
-	errorcode_t err = PerformControlTransfer(*h_Device, USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_RESET, n, NULL, NULL, 1);
+	errorcode_t err = h_Device->PerformControlTransfer(USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_RESET, n, NULL, NULL, true);
 	if (ananas_is_failure(err)) {
 		Printf("port_clear error %d, continuing anyway", err);
 	}
 
 	/* Need to reset the port */
 	DPRINTF("%s: port %d: resetting", __func__, n);
-	err = PerformControlTransfer(*h_Device, USB_CONTROL_REQUEST_SET_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_PORT_RESET, n, NULL, NULL, 1);
+	err = h_Device->PerformControlTransfer(USB_CONTROL_REQUEST_SET_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_PORT_RESET, n, NULL, NULL, true);
 	if (ananas_is_failure(err)) {
 		Printf("port_reset error %d, ignoring port", err);
 		return err;
@@ -102,7 +100,7 @@ Hub::ResetPort(int n)
 		/* See if the device is correctly reset */
 		size_t len = sizeof(ps);
 		memset(&ps, 0, len);
-		err = PerformControlTransfer(*h_Device, USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, 0);
+		err = h_Device->PerformControlTransfer(USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, false);
 		if (ananas_is_failure(err)) {
 			Printf("get_status error %d, ignoring port", err);
 			return err;
@@ -125,7 +123,7 @@ Hub::ResetPort(int n)
 	}
 
 	DPRINTF("%s: port %d: reset completed; clearing c_reset", __func__, n);
-	err = PerformControlTransfer(*h_Device, USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_RESET, n, NULL, NULL, 1);
+	err = h_Device->PerformControlTransfer(USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_RESET, n, NULL, NULL, true);
 	if (ananas_is_failure(err)) {
 		Printf("unable to clear reset of port %d", n);
 		return err;
@@ -145,7 +143,7 @@ Hub::ExploreNewDevice(Port& port, int n)
 	struct HUB_PORT_STATUS ps;
 	size_t len = sizeof(ps);
 	memset(&ps, 0, len);
-	errorcode_t err = PerformControlTransfer(*h_Device, USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, 0);
+	errorcode_t err = h_Device->PerformControlTransfer(USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, false);
 	if (ananas_is_failure(err)) {
 		Printf("get_status(%d) error %d, ignoring port", n, err);
 		return;
@@ -201,7 +199,7 @@ Hub::HandleExplore()
 
 		struct HUB_PORT_STATUS ps;
 		size_t len = sizeof(ps);
-		errorcode_t err = PerformControlTransfer(*h_Device, USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, 0);
+		errorcode_t err = h_Device->PerformControlTransfer(USB_CONTROL_REQUEST_GET_STATUS, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, 0, n, &ps, &len, false);
 		if (ananas_is_failure(err)) {
 			Printf("get_status error %d, ignoring port", err);
 			continue;
@@ -209,13 +207,13 @@ Hub::HandleExplore()
 
 		if (ps.ps_portchange & HUB_PORTCHANGE_ENABLE) {
 			DPRINTF("%s: port %d: enabled changed, clearing c_port_enable", __func__, n);
-			PerformControlTransfer(*h_Device, USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_ENABLE, n, NULL, NULL, 1);
+			h_Device->PerformControlTransfer(USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_ENABLE, n, NULL, NULL, true);
 		}
 
 		if (ps.ps_portchange & HUB_PORTCHANGE_CONNECT) {
 			/* Port connection changed - acknowledge this */
 			DPRINTF("%s: port %d: connect changed, clearing c_port_connnection", __func__, n);
-			PerformControlTransfer(*h_Device, USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_CONNECTION, n, NULL, NULL, 1);
+			h_Device->PerformControlTransfer(USB_CONTROL_REQUEST_CLEAR_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_C_PORT_CONNECTION, n, NULL, NULL, true);
 
 			if ((port.p_flags & HUB_PORT_FLAG_CONNECTED) == 0) {
 				/* Nothing was connected to there; need to hook something up */
@@ -235,7 +233,7 @@ Hub::Attach()
 	/* Obtain the hub descriptor */
 	struct USB_DESCR_HUB hd;
 	size_t len = sizeof(hd);
-	errorcode_t err = PerformControlTransfer(*h_Device, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_CLASS, USB_REQUEST_MAKE(USB_DESCR_TYPE_HUB, 0), 0, &hd, &len, 0);
+	errorcode_t err = h_Device->PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_CLASS, USB_REQUEST_MAKE(USB_DESCR_TYPE_HUB, 0), 0, &hd, &len, false);
 	ANANAS_ERROR_RETURN(err);
 
 	h_NumPorts = hd.hd_numports;
@@ -247,7 +245,7 @@ Hub::Attach()
 
 	/* Enable power to all ports */
 	for (int n = 0; n < h_NumPorts; n++) {
-		err = PerformControlTransfer(*h_Device, USB_CONTROL_REQUEST_SET_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_PORT_POWER, n + 1, NULL, NULL, 1);
+		err = h_Device->PerformControlTransfer(USB_CONTROL_REQUEST_SET_FEATURE, USB_CONTROL_RECIPIENT_OTHER, USB_CONTROL_TYPE_CLASS, HUB_FEATURE_PORT_POWER, n + 1, NULL, NULL, true);
 		if (ananas_is_failure(err))
 			goto fail;
 
@@ -259,12 +257,12 @@ Hub::Attach()
 	}
 
 	/* Initialization went well; hook up the interrupt pipe so that we may receive updates */
-	err = AllocatePipe(*h_Device, 0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, 0, *this, h_Pipe);
+	err = h_Device->AllocatePipe(0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, 0, *this, h_Pipe);
 	if (ananas_is_failure(err)) {
 		Printf("endpoint 0 not interrupt/in");
 		goto fail;
 	}
-	err = SchedulePipe(*h_Pipe);
+	err = h_Pipe->Start();
 	if (ananas_is_failure(err))
 		goto fail;
 	return err;

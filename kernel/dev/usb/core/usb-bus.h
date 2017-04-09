@@ -30,8 +30,7 @@ public:
 	errorcode_t Attach() override;
 	errorcode_t Detach() override;
 
-#define USB_BUS_FLAG_NEEDS_EXPLORE (1 << 0)
-	int bus_flags = 0;
+	bool bus_NeedsExplore = false;
 
 	/* List of all USB devices on this bus */
 	USBDevices bus_devices;

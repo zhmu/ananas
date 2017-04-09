@@ -116,7 +116,6 @@ kdb/kdb_commands.cpp		option KDB
 dev/usb/core/usb-core.cpp		option USB
 dev/usb/core/usb-device.cpp		option USB
 dev/usb/core/usb-config.cpp		option USB
-dev/usb/core/usb-pipe.cpp		option USB
 dev/usb/core/usb-transfer.cpp	option USB
 dev/usb/core/usb-bus.cpp		option USB
 dev/usb/device/usb-generic.cpp		option USB

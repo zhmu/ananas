@@ -15,7 +15,6 @@
 #include "usb-core.h"
 #include "usb-device.h"
 #include "usb-transfer.h"
-#include "transfer.h"
 #include "../device/usb-hub.h"
 
 TRACE_SETUP;
@@ -66,7 +65,7 @@ USBDevice::Attach()
 	 */
 	{
 		size_t len = 8;
-		errorcode_t err = PerformControlTransfer(*this, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_DEVICE, 0), 0, &ud_descr_device, &len, 0);
+		errorcode_t err = PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_DEVICE, 0), 0, &ud_descr_device, &len, false);
 		ANANAS_ERROR_RETURN(err);
 
 		TRACE(USB, INFO,
@@ -88,7 +87,7 @@ USBDevice::Attach()
 		}
 
 		/* Assign the device a logical address */
-		errorcode_t err = PerformControlTransfer(*this, USB_CONTROL_REQUEST_SET_ADDRESS, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, dev_address, 0, NULL, NULL, 1);
+		errorcode_t err = PerformControlTransfer(USB_CONTROL_REQUEST_SET_ADDRESS, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, dev_address, 0, NULL, NULL, true);
 		ANANAS_ERROR_RETURN(err);
 
 		/*
@@ -102,7 +101,7 @@ USBDevice::Attach()
 	/* Now, obtain the entire device descriptor */
 	{
 		size_t len = sizeof(ud_descr_device);
-		errorcode_t err = PerformControlTransfer(*this, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_DEVICE, 0), 0, &ud_descr_device, &len, 0);
+		errorcode_t err = PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_DEVICE, 0), 0, &ud_descr_device, &len, false);
 		ANANAS_ERROR_RETURN(err);
 
 		TRACE(USB, INFO,
@@ -116,7 +115,7 @@ USBDevice::Attach()
 		/* Obtain the language ID of this device */
 		struct USB_DESCR_STRING s;
 		size_t len = 4  /* just the first language */ ;
-		errorcode_t err = PerformControlTransfer(*this, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, 0), 0, &s, &len, 0);
+		errorcode_t err = PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, 0), 0, &s, &len, false);
 		ANANAS_ERROR_RETURN(err);
 
 		/* Retrieved string language code */
@@ -125,7 +124,7 @@ USBDevice::Attach()
 
 		/* Time to fetch strings; this must be done in two steps: length and content */
 		len = 4 /* length only */ ;
-		err = PerformControlTransfer(*this, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, ud_descr_device.dev_productidx), langid, &s, &len, 0);
+		err = PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, ud_descr_device.dev_productidx), langid, &s, &len, false);
 		ANANAS_ERROR_RETURN(err);
 
 		/* Retrieved string length */
@@ -136,7 +135,7 @@ USBDevice::Attach()
 		auto s_full = reinterpret_cast<struct USB_DESCR_STRING*>(tmp);
 		len = s.str_length;
 		KASSERT(len < sizeof(tmp), "very large string descriptor %u", s.str_length);
-		err = PerformControlTransfer(*this, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, ud_descr_device.dev_productidx), langid, s_full, &len, 0);
+		err = PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, ud_descr_device.dev_productidx), langid, s_full, &len, false);
 		ANANAS_ERROR_RETURN(err);
 
 		kprintf("product <");
@@ -154,7 +153,7 @@ USBDevice::Attach()
 	{
 		struct USB_DESCR_CONFIG c;
 		size_t len = sizeof(c);
-		errorcode_t err = PerformControlTransfer(*this, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_CONFIG, 0), 0, &c, &len, 0);
+		errorcode_t err = PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_CONFIG, 0), 0, &c, &len, false);
 		ANANAS_ERROR_RETURN(err);
 
 		/* Retrieved partial config descriptor */
@@ -168,7 +167,7 @@ USBDevice::Attach()
 		auto c_full = reinterpret_cast<struct USB_DESCR_CONFIG*>(tmp);
 		len = c.cfg_totallen;
 		KASSERT(len < sizeof(tmp), "very large configuration descriptor %u", c.cfg_totallen);
-		err = PerformControlTransfer(*this, USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_CONFIG, 0), 0, c_full, &len, 0);
+		err = PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_CONFIG, 0), 0, c_full, &len, false);
 		ANANAS_ERROR_RETURN(err);
 
 		/* Retrieved full device descriptor */
@@ -179,7 +178,7 @@ USBDevice::Attach()
 		ANANAS_ERROR_RETURN(err);
 
 		/* For now, we'll just activate the very first configuration */
-		err = PerformControlTransfer(*this, USB_CONTROL_REQUEST_SET_CONFIGURATION, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, c_full->cfg_identifier, 0, NULL, NULL, 1);
+		err = PerformControlTransfer(USB_CONTROL_REQUEST_SET_CONFIGURATION, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, c_full->cfg_identifier, 0, NULL, NULL, true);
 		ANANAS_ERROR_RETURN(err);
 
 		/* Configuration activated */
@@ -229,6 +228,111 @@ USBDevice::Detach()
 	Unlock();
 	//sbdev_free(usb_dev); TODO
 
+	return ananas_success();
+}
+
+namespace {
+
+void
+CallbackWrapper(Transfer& xfer)
+{
+	auto pipe = static_cast<Pipe*>(xfer.t_callback_data);
+	pipe->p_callback.OnPipeCallback(*pipe);
+}
+
+} // unnamed namespace
+
+errorcode_t
+USBDevice::AllocatePipe(int num, int type, int dir, size_t maxlen, IPipeCallback& callback, Pipe*& pipe)
+{
+	KASSERT(dir == EP_DIR_IN || dir == EP_DIR_OUT, "invalid direction %u", dir);
+	KASSERT(type == TRANSFER_TYPE_CONTROL || type == TRANSFER_TYPE_INTERRUPT || type == TRANSFER_TYPE_BULK || type == TRANSFER_TYPE_ISOCHRONOUS, "invalid type %u", type);
+
+	Interface& uif = ud_interface[ud_cur_interface];
+	if (num < 0 || num >= uif.if_num_endpoints)
+		return ANANAS_ERROR(BAD_RANGE);
+
+	Endpoint& ep = uif.if_endpoint[num];
+	if (ep.ep_type != type || ep.ep_dir != dir)
+		return ANANAS_ERROR(BAD_TYPE);
+
+	if (maxlen == 0)
+		maxlen = ep.ep_maxpacketsize;
+
+	Transfer* xfer = AllocateTransfer(*this, ep.ep_type, ((ep.ep_dir == EP_DIR_IN) ? TRANSFER_FLAG_READ : TRANSFER_FLAG_WRITE) | TRANSFER_FLAG_DATA, ep.ep_address, maxlen);
+	auto p = new Pipe(*this, ep, *xfer, callback);
+
+	xfer->t_length = ep.ep_maxpacketsize;
+	xfer->t_callback = CallbackWrapper;
+	xfer->t_callback_data = p;
+
+	/* Hook up the pipe to the device */
+	Lock();
+	LIST_APPEND(&ud_pipes, p);
+	Unlock();
+	pipe = p;
+	return ananas_success();
+}
+
+void
+USBDevice::FreePipe(Pipe& pipe)
+{
+	Lock();
+	FreePipe_Locked(pipe);
+	Unlock();
+}
+
+void
+USBDevice::FreePipe_Locked(Pipe& pipe)
+{
+	/* Free the transfer (this cancels it as well) */
+	FreeTransfer_Locked(pipe.p_xfer);
+
+	/* Unregister the pipe - this is where we need the lock for */
+	LIST_REMOVE(&ud_pipes, &pipe);
+	delete &pipe;
+}
+
+errorcode_t
+Pipe::Start()
+{
+	return ScheduleTransfer(p_xfer);
+}
+
+errorcode_t
+USBDevice::PerformControlTransfer(int req, int recipient, int type, int value, int index, void* buf, size_t* len, bool write)
+{
+	int flags = 0;
+	if (buf != nullptr)
+		flags |= TRANSFER_FLAG_DATA;
+	if (write)
+		flags |= TRANSFER_FLAG_WRITE;
+	else
+		flags |= TRANSFER_FLAG_READ;
+	auto xfer = AllocateTransfer(*this, TRANSFER_TYPE_CONTROL, flags, 0, (len != NULL) ? *len : 0);
+	xfer->t_control_req.req_type = TO_REG32((write ? 0 : USB_CONTROL_REQ_DEV2HOST) | USB_CONTROL_REQ_RECIPIENT(recipient) | USB_CONTROL_REQ_TYPE(type));
+	xfer->t_control_req.req_request = TO_REG32(req);
+	xfer->t_control_req.req_value = TO_REG32(value);
+	xfer->t_control_req.req_index = index;
+	xfer->t_control_req.req_length = (len != NULL) ? *len : 0;
+	xfer->t_length = (len != NULL) ? *len : 0;
+
+	/* Now schedule the transfer and until it's completed XXX Timeout */
+	ScheduleTransfer(*xfer);
+	sem_wait_and_drain(&xfer->t_semaphore);
+	if (xfer->t_flags & TRANSFER_FLAG_ERROR) {
+		FreeTransfer(*xfer);
+		return ANANAS_ERROR(IO);
+	}
+
+	if (buf != nullptr && len != nullptr) {
+		/* XXX Ensure we don't return more than the user wants to know */
+		if (*len > xfer->t_result_length)
+			*len = xfer->t_result_length;
+		memcpy(buf, xfer->t_data, *len);
+	}
+
+	FreeTransfer(*xfer);
 	return ananas_success();
 }
 

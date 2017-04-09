@@ -5,7 +5,6 @@
 #include <ananas/list.h>
 #include <ananas/lock.h>
 #include "descriptor.h"
-#include "pipe.h"
 
 /* XXX This is ugly */
 #define TO_REG32(x) (x)

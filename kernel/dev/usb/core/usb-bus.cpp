@@ -55,7 +55,7 @@ Bus::Attach()
 {
 	mutex_init(&bus_mutex, "usbbus");
 	LIST_INIT(&bus_devices);
-	bus_flags = USB_BUS_FLAG_NEEDS_EXPLORE;
+	bus_NeedsExplore = true;
 
 	/*
 	 * Create the root hub device; it will handle all our children - the HCD may
@@ -91,7 +91,7 @@ void
 Bus::ScheduleExplore()
 {
 	Lock();
-	bus_flags |= USB_BUS_FLAG_NEEDS_EXPLORE;
+	bus_NeedsExplore = true;
 	Unlock();
 
 	sem_signal(&usbbus_semaphore);
@@ -102,6 +102,7 @@ void
 Bus::Explore()
 {
 	AssertLocked();
+	bus_NeedsExplore = false;
 
 	LIST_FOREACH(&bus_devices, usb_dev, USBDevice) {
 		Device* dev = usb_dev->ud_device;
@@ -145,7 +146,7 @@ usb_bus_thread(void* unused)
 			mutex_lock(&usbbus_mutex);
 			LIST_FOREACH(&usbbus_busses, bus, Bus) {
 				bus->Lock();
-				if (bus->bus_flags & USB_BUS_FLAG_NEEDS_EXPLORE)
+				if (bus->bus_NeedsExplore)
 					bus->Explore();
 				bus->Unlock();
 			}

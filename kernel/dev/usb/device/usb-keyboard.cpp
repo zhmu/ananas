@@ -5,7 +5,6 @@
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include "../core/config.h"
-#include "../core/pipe.h"
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"
 #include "../core/usb-transfer.h"
@@ -39,12 +38,12 @@ USBKeyboard::Attach()
 {
 	uk_Device = static_cast<Ananas::USB::USBDevice*>(d_ResourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
 
-	errorcode_t err = AllocatePipe(*uk_Device, 0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, 0, *this, uk_Pipe);
+	errorcode_t err = uk_Device->AllocatePipe(0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, 0, *this, uk_Pipe);
 	if (ananas_is_failure(err)) {
 		Printf("endpoint 0 not interrupt/in");
 		return err;
 	}
-	return SchedulePipe(*uk_Pipe);
+	return uk_Pipe->Start();
 }
 
 errorcode_t
@@ -57,7 +56,7 @@ USBKeyboard::Detach()
 void
 USBKeyboard::OnPipeCallback(Ananas::USB::Pipe& pipe)
 {
-	Ananas::USB::Transfer& xfer = *pipe.p_xfer;
+	Ananas::USB::Transfer& xfer = pipe.p_xfer;
 
 	Printf("USBKeyboard::OnPipeCallback() -> [");
 
@@ -71,7 +70,7 @@ USBKeyboard::OnPipeCallback(Ananas::USB::Pipe& pipe)
 	}
 
 	/* Reschedule the pipe for future updates */
-	SchedulePipe(*uk_Pipe);
+	uk_Pipe->Start();
 }
 
 struct USBKeyboard_Driver : public Ananas::Driver

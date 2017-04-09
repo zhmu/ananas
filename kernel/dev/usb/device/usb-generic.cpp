@@ -6,7 +6,6 @@
 #include "../core/config.h"
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"
-#include "../core/pipe.h"
 
 namespace {
 
