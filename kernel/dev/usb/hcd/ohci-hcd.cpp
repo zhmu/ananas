@@ -302,15 +302,9 @@ OHCI_HCD::OnIRQ()
 		ohci_Resources.Write4(OHCI_HCINTERRUPTSTATUS, OHCI_IS_FNO);
 	}
 
-	if (is & OHCI_IS_RHSC) { 
+	if (is & OHCI_IS_RHSC) {
 		if (ohci_RootHub != nullptr)
 			ohci_RootHub->OnIRQ();
-
-		/*
-		 * Disable the roothub irq, we'll re-enable it when the port has been reset
-		 * to avoid excessive interrupts.
-		 */
-		ohci_Resources.Write4(OHCI_HCINTERRUPTDISABLE, OHCI_ID_RHSC);
 		ohci_Resources.Write4(OHCI_HCINTERRUPTSTATUS, OHCI_IS_RHSC);
 	}
 
@@ -588,7 +582,6 @@ OHCI_HCD::ScheduleTransfer(Transfer& xfer)
 	 * we created in ohci_setup_transfer().
 	 */
 	CreateTDs(xfer);
-	kprintf("ed = %p\n", static_cast<struct OHCI::HCD_ED*>(xfer.t_hcd));
 
 	/* Kick the appropriate queue, if needed */
 	switch(xfer.t_type) {

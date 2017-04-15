@@ -29,7 +29,7 @@ namespace OHCI {
 namespace {
 
 #if 0
-# define DPRINTF device_printf
+# define DPRINTF(s,...) kprintf(s"\n", __VA_ARGS__)
 #else
 # define DPRINTF(...)
 #endif
@@ -168,11 +168,11 @@ RootHub::ControlTransfer(Transfer& xfer)
 			}
 			break;
 		case USB_REQUEST_STANDARD_SET_ADDRESS:
-			DPRINTF(dev, "set address: %d", req->req_value);
+			DPRINTF("set address: %d", req->req_value);
 			err = ananas_success();
 			break;
 		case USB_REQUEST_STANDARD_SET_CONFIGURATION:
-			DPRINTF(dev, "set config: %d", req->req_value);
+			DPRINTF("set config: %d", req->req_value);
 			err = ananas_success();
 			break;
 		case USB_REQUEST_CLEAR_HUB_FEATURE:
@@ -364,20 +364,20 @@ RootHub::ProcessInterruptTransfers()
 		}
 	}
 
-	if (num_updates > 0) {
-		int update_len = (rh_numports + 1 /* hub */ + 7 /* round up */) / 8;
+	if (num_updates == 0)
+		return;
+	int update_len = (rh_numports + 1 /* hub */ + 7 /* round up */) / 8;
 
-		/* Alter all entries in the transfer queue */
-		rh_Device.Lock();
-		LIST_FOREACH_IP(&rh_Device.ud_transfers, pending, xfer, Transfer) {
-			if (xfer->t_type != TRANSFER_TYPE_INTERRUPT)
-				continue;
-			memcpy(&xfer->t_data, hub_update, update_len);
-			xfer->t_result_length = update_len;
-			xfer->Complete_Locked();
-		}
-		rh_Device.Unlock();
+	/* Alter all entries in the transfer queue */
+	LIST_FOREACH_IP(&rh_Device.ud_transfers, pending, xfer, Transfer) {
+		if (xfer->t_type != TRANSFER_TYPE_INTERRUPT)
+			continue;
+		memcpy(&xfer->t_data, hub_update, update_len);
+		xfer->t_result_length = update_len;
+		xfer->Complete_Locked();
 	}
+
+	rh_pending_changes = false;
 }
 
 void
@@ -391,7 +391,9 @@ RootHub::Thread()
 		 * If we do not have anything in the interrupt queue, there is no need to
 		 * bother checking as no one can handle yet - best to wait...
 		 */
+		rh_Device.Lock();
 		ProcessInterruptTransfers();
+		rh_Device.Unlock();
 	}	
 }
 
@@ -402,7 +404,17 @@ RootHub::HandleTransfer(Transfer& xfer)
 		case TRANSFER_TYPE_CONTROL:
 			return ControlTransfer(xfer);
 		case TRANSFER_TYPE_INTERRUPT:
-			/* Transfer has been added to the queue; no need to do anything else here */
+			/*
+			 * The transfer will have been added to the list of pending interrupt
+			 * transfers; however, we will only honor those if something changes (i.e.
+			 * Thread() wakes up). If there are any pending changes, this transfer
+			 * wouldn't see them.
+			 *
+			 * We avoid this by seeing if there are any pending changes. If there
+			 * are, we force the transfer to be processed.
+			 */
+			if (rh_pending_changes)
+				ProcessInterruptTransfers();
 			return ananas_success();
 	}
 	panic("unsupported transfer type %d", xfer.t_type);
@@ -412,6 +424,14 @@ void
 RootHub::OnIRQ()
 {
 	sem_signal(&rh_semaphore);
+
+#if 0
+		/*
+		 * Disable the roothub irq, we'll re-enable it when the port has been reset
+		 * to avoid excessive interrupts.
+		 */
+		rh_Resources.Write4(OHCI_HCINTERRUPTDISABLE, OHCI_ID_RHSC);
+#endif
 }
 
 errorcode_t

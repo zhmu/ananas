@@ -38,6 +38,7 @@ private:
 	int rh_numports;
 	semaphore_t rh_semaphore;
 	thread_t rh_pollthread;
+	bool rh_pending_changes = true;
 };
 
 } // namespace OHCI
