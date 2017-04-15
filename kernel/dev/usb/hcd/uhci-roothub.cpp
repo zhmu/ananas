@@ -28,7 +28,7 @@ namespace USB {
 namespace UHCI {
 
 #if 0
-# define DPRINTF hcd->Printf
+# define DPRINTF kprintf
 #else
 # define DPRINTF(...)
 #endif
