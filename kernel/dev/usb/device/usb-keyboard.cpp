@@ -4,12 +4,62 @@
 #include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/mm.h>
+#include <ananas/dev/kbdmux.h>
 #include "../core/config.h"
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"
 #include "../core/usb-transfer.h"
 
 namespace {
+
+// As outlined in USB HID Usage Tables 1.12, chapter 10
+uint8_t usb_keymap[128] = {
+	/* 00-07 */    0,    0,   0,    0,  'a', 'b', 'c', 'd',
+	/* 08-0f */  'e',  'f', 'g',  'h',  'i', 'j', 'k', 'l',
+	/* 10-17 */  'm',  'n', 'o',  'p',  'q', 'r', 's', 't',
+	/* 18-1f */  'u',  'v', 'w',  'x',  'y', 'z', '1', '2',
+	/* 20-27 */  '3',  '4', '5',  '6',  '7', '8', '9', '0',
+	/* 28-2f */   13,  27,    8,    9,  ' ', '-', '=', '[',
+	/* 30-37 */  ']', '\\',   0,  ';', '\'', '`', ',', '.',
+	/* 38-3f */  '/',    0,   0,    0,    0,   0,   0,   0,
+	/* 40-47 */    0,    0,   0,    0,    0,   0,   0,   0,
+	/* 48-4f */    0,    0,   0,    0,    0,   0,   0,   0,
+	/* 50-57 */    0,    0,   0,    0,  '/', '*', '-', '+',
+	/* 58-5f */   13,  '1', '2',  '3',  '4', '5', '6', '7',
+	/* 60-67 */  '8',  '9', '0',  '.',    0,   0,   0,   0,
+	/* 68-6f */    0,    0,   0,    0,    0,   0,   0,   0,
+	/* 70-76 */    0,    0,   0,    0,    0,   0,   0,   0,
+	/* 77-7f */    0,    0,   0,    0,    0,   0,   0,   0
+};
+
+uint8_t usb_keymap_shift[128] = {
+	/* 00-07 */    0,    0,   0,    0,  'A', 'B', 'C', 'D',
+	/* 08-0f */  'E',  'F', 'G',  'H',  'I', 'J', 'K', 'L',
+	/* 10-17 */  'M',  'N', 'O',  'P',  'Q', 'R', 'S', 'T',
+	/* 18-1f */  'U',  'V', 'W',  'X',  'Y', 'Z', '!', '@',
+	/* 20-27 */  '#',  '$', '%',  '^',  '&', '*', '(', ')',
+	/* 28-2f */   13,  27,    8,    9,  ' ', '_', '+', '{',
+	/* 30-37 */  '}',  '|',   0,  ':',  '"', '~', '<', '>',
+	/* 38-3f */  '?',    0,   0,    0,    0,   0,   0,   0,
+	/* 40-47 */    0,    0,   0,    0,    0,   0,   0,   0,
+	/* 48-4f */    0,    0,   0,    0,    0,   0,   0,   0,
+	/* 50-57 */    0,    0,   0,    0,  '/', '*',  '-','+',
+	/* 58-5f */   13,  '1', '2',  '3',  '4', '5', '6', '7',
+	/* 60-67 */  '8',  '9', '0',  '.',    0,   0,   0,   0,
+	/* 68-6f */    0,    0,   0,    0,    0,   0,   0,   0,
+	/* 70-76 */    0,    0,   0,    0,    0,   0,   0,   0,
+	/* 77-7f */    0,    0,   0,    0,    0,   0,   0,   0
+};
+
+// Modifier byte is defined in HID 1.11 8.3
+#define MODIFIER_LEFT_CONTROL (1 << 0)
+#define MODIFIER_LEFT_SHIFT (1 << 1)
+#define MODIFIER_LEFT_ALT (1 << 2)
+#define MODIFIER_LEFT_GUI (1 << 3)
+#define MODIFIER_RIGHT_CONTROL (1 << 4)
+#define MODIFIER_RIGHT_SHIFT (1 << 5)
+#define MODIFIER_RIGHT_ALT (1 << 6)
+#define MODIFIER_RIGHT_GUI (1 << 7)
 
 class USBKeyboard : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::USB::IPipeCallback
 {
@@ -49,7 +99,13 @@ USBKeyboard::Attach()
 errorcode_t
 USBKeyboard::Detach()
 {
-	panic("TODO");
+	if (uk_Device == nullptr)
+		return ananas_success();
+
+	if (uk_Pipe != nullptr)
+		uk_Device->FreePipe(*uk_Pipe);
+
+	uk_Pipe = nullptr;
 	return ananas_success();
 }
 
@@ -58,15 +114,22 @@ USBKeyboard::OnPipeCallback(Ananas::USB::Pipe& pipe)
 {
 	Ananas::USB::Transfer& xfer = pipe.p_xfer;
 
-	Printf("USBKeyboard::OnPipeCallback() -> [");
-
-	if (xfer.t_flags & TRANSFER_FLAG_ERROR) {
-		Printf("error, aborting]");
+	if (xfer.t_flags & TRANSFER_FLAG_ERROR)
 		return;
-	}
 
-	for (int i = 0; i < xfer.t_result_length; i++) {
-		Printf("%d: %x", i, xfer.t_data[i]);
+	// See if there's anything worthwhile to report here. We lazily use the USB boot class as it's much
+	// easier to process: HID 1.1 B.1 Protocol 1 (keyboard) lists everything
+	for (int n = 2; n < 8; n++) {
+		int key = xfer.t_data[n];
+		if (key == 0 || key > 128)
+			continue;
+
+		uint8_t modifier = xfer.t_data[0];
+		bool is_shift = (modifier & (MODIFIER_LEFT_SHIFT | MODIFIER_RIGHT_SHIFT)) != 0;
+		const uint8_t* map = is_shift ? usb_keymap_shift : usb_keymap;
+		uint8_t ch = map[key];
+		if (ch != 0)
+			kbdmux_on_input(ch);
 	}
 
 	/* Reschedule the pipe for future updates */
@@ -94,7 +157,7 @@ struct USBKeyboard_Driver : public Ananas::Driver
 		auto usb_dev = static_cast<Ananas::USB::USBDevice*>(reinterpret_cast<void*>(res->r_Base));
 
 		Ananas::USB::Interface& iface = usb_dev->ud_interface[usb_dev->ud_cur_interface];
-		if (iface.if_class == USB_IF_CLASS_HID && iface.if_protocol == 1 /* keyboard */)
+		if (iface.if_class == USB_IF_CLASS_HID && iface.if_subclass == 1 /* boot interface */ && iface.if_protocol == 1 /* keyboard */)
 			return new USBKeyboard(cdp);
 		return nullptr;
 	}
