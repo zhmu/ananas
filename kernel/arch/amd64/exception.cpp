@@ -15,6 +15,8 @@
 #include <ananas/vm.h>
 #include <ananas/vmspace.h>
 #include <ananas/lib.h>
+#include <ananas/gdb.h>
+#include "options.h"
 
 static void
 exception_nm(struct STACKFRAME* sf)
@@ -73,6 +75,9 @@ exception_generic(struct STACKFRAME* sf)
 		/* NOTREACHED */
 	}
 
+#ifdef OPTION_GDB
+	gdb_handle_exception(sf);
+#endif
 	panic("kernel exception");
 }
 

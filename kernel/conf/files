@@ -25,6 +25,7 @@ kern/trace.cpp		mandatory
 kern/symbols.cpp	mandatory
 kern/module.cpp		mandatory
 kern/pipe-handle.cpp	option PIPE
+gdb/gdb-stub.cpp	option GDB
 dev/generic/corebus.cpp	mandatory
 # block I/O
 kern/bio.cpp		option BIO
