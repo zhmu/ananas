@@ -18,7 +18,7 @@
 namespace Ananas {
 namespace USB {
 
-#if 1
+#if 0
 # define DPRINTF Printf
 #else
 # define DPRINTF(...)
@@ -131,8 +131,6 @@ void
 Hub::ExploreNewDevice(Port& port, int n)
 {
 	KASSERT(port.p_device == nullptr, "exploring new device over current?");
-
-	kprintf("ExploreNewDevice p=%d\n", n);
 
 	/* Fetch the port status; we need to know if it's lo- or high speed */
 	struct HUB_PORT_STATUS ps;
