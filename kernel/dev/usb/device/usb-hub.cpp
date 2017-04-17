@@ -28,7 +28,6 @@ TRACE_SETUP;
 
 Hub::~Hub()
 {
-	panic("OHNOE");
 	for (int n = 0; n < h_NumPorts; n++)
 		delete h_Port[n];
 	delete[] h_Port;
@@ -50,14 +49,10 @@ Hub::OnPipeCallback(Pipe& pipe)
 		hub_flags |= HUB_FLAG_UPDATED;
 	}
 
-	Printf("*** usbhub_int_callback(): changed %x", xfer.t_data[0]);
-
 	int num_changed = 0;
 	for (int n = 1; n <= h_NumPorts; n++) {
 		if ((xfer.t_data[n / 8] & (1 << (n & 7))) == 0)
 			continue;
-
-		Printf("port %d changed", n);
 
 		/* This port was updated - fetch the port status */
 		h_Port[n - 1]->p_flags |= HUB_PORT_FLAG_UPDATED;
@@ -170,13 +165,12 @@ Hub::HandleDetach(Port& port, int n)
 	USBDevice* usb_dev = port.p_device;
 	KASSERT(usb_dev != nullptr, "detaching null device");
 
-	// XXX this should be made more uniform
 	errorcode_t err = usb_dev->Detach();
 	if (ananas_is_failure(err)) {
 		Printf("unable to detach device (%d)", err);
 		return;
 	}
-	delete usb_dev;
+	// usb_dev is no longer valid at this point
 
 	/* Deregister the device and mark the port as disconnected */
 	port.p_device = nullptr;
@@ -274,7 +268,10 @@ fail:
 errorcode_t
 Hub::Detach()
 {
-	Printf("usbhub_detach");
+	if (h_Pipe != nullptr) {
+		h_Device->FreePipe(*h_Pipe);
+		h_Pipe = nullptr;
+	}
 
 	h_Device->ud_bus.DetachHub(*this);
 	return ananas_success();

@@ -78,6 +78,37 @@ Transfer::Schedule()
 	return err;
 }
 
+errorcode_t
+Transfer::Cancel_Locked()
+{
+	auto& hcd_dev = usbtransfer_get_hcd_device(*this);
+	t_device.AssertLocked();
+
+	// We have to ensure the transfer isn't in the completed queue; this would cause it to be re-scheduled,
+	// which we must avoid XXX We already have the device lock here - is that wise?
+	spinlock_lock(&usbtransfer_lock);
+	LIST_FOREACH_IP(&usbtransfer_complete, completed, transfer, Transfer) {
+		if (transfer != this)
+			continue;
+
+		LIST_REMOVE_IP(&usbtransfer_complete, completed, this);
+		break;
+	}
+	spinlock_unlock(&usbtransfer_lock);
+
+	// XXX how do we know the transfer thread wasn't handling _this_ completed transfer by here?
+	return hcd_dev.GetUSBDeviceOperations()->CancelTransfer(*this);
+}
+
+errorcode_t
+Transfer::Cancel()
+{
+	t_device.Lock();
+	errorcode_t err = Cancel_Locked();
+	t_device.Unlock();
+	return err;
+}
+
 void
 FreeTransfer_Locked(Transfer& xfer)
 {
@@ -85,7 +116,7 @@ FreeTransfer_Locked(Transfer& xfer)
 	auto& hcd_dev = usbtransfer_get_hcd_device(xfer);
 	usb_dev.AssertLocked();
 
-	hcd_dev.GetUSBDeviceOperations()->CancelTransfer(xfer);
+	xfer.Cancel_Locked();
 	hcd_dev.GetUSBDeviceOperations()->TearDownTransfer(xfer);
 	delete &xfer;
 }

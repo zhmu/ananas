@@ -37,7 +37,6 @@ USBGeneric::Attach()
 errorcode_t
 USBGeneric::Detach()
 {
-	panic("TODO");
 	return ananas_success();
 }
 

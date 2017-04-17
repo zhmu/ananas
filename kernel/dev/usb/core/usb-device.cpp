@@ -32,7 +32,10 @@ USBDevice::USBDevice(Bus& bus, Hub* hub, int hub_port, int flags)
 	//usb_dev->usb_hcd_privdata = hcd_privdata;
 	//usb_dev->usb_device->d_resourceset.AddResource(Ananas::Resource(Ananas::Resource::RT_USB_Device, reinterpret_cast<Ananas::Resource::Base>(usb_dev), 0));
 
+	LIST_INIT(&ud_transfers);
 	LIST_INIT(&ud_pipes);
+	memset(&ud_interface, 0, sizeof(ud_interface));
+	memset(&ud_descr_device, 0, sizeof(ud_descr_device));
 }
 
 USBDevice::~USBDevice()
@@ -199,35 +202,32 @@ USBDevice::Attach()
 errorcode_t
 USBDevice::Detach()
 {
-	kprintf("usbdev_detach: removing %p\n", this);
-
 	ud_bus.AssertLocked();
+
+	// Stop any pending pipes - this should cancel any pending transfers, which ensures Detach()
+	// can run without any callbacks in between
 	Lock();
+	LIST_FOREACH(&ud_pipes, pipe, Pipe) {
+		pipe->p_xfer.Cancel_Locked();
+	}
+	Unlock();
 
-	/* Remove any pipes the device has; this should get rid of all transfers  */
-	while(!LIST_EMPTY(&ud_pipes)) {
-		Pipe* p = LIST_HEAD(&ud_pipes);
-		FreePipe_Locked(*p);
+	// Ask the device to clean up after itself
+	if (ud_device != nullptr) {
+		errorcode_t err = DeviceManager::Detach(*ud_device);
+		ANANAS_ERROR_RETURN(err);
+		ud_device = nullptr;
 	}
 
-	/* Get rid of all pending transfers; a control transfer may sneak in between */
-	while (!LIST_EMPTY(&ud_transfers)) {
-		Transfer* xfer = LIST_HEAD(&ud_transfers);
-		/* Freeing the transfer will cancel them as needed */
-		FreeTransfer_Locked(*xfer);
-	}
-
-	/* Give the driver a chance to clean up */
-	// XXX TODO
-	//device_detach(usb_dev->usb_device);
+	Lock();
+	KASSERT(LIST_EMPTY(&ud_pipes), "device detach with active pipes");
+	KASSERT(LIST_EMPTY(&ud_transfers), "device detach with active transfers");
 
 	/* Remove the device from the bus - note that we hold the bus lock */
 	LIST_REMOVE(&ud_bus.bus_devices, this);
 
-	/* Finally, get rid of the device itself */
+	// All set; the device is eligable for destruction now
 	Unlock();
-	//sbdev_free(usb_dev); TODO
-
 	return ananas_success();
 }
 
@@ -297,6 +297,12 @@ errorcode_t
 Pipe::Start()
 {
 	return p_xfer.Schedule();
+}
+
+errorcode_t
+Pipe::Stop()
+{
+	return p_xfer.Cancel();
 }
 
 errorcode_t

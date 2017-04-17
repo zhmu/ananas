@@ -31,6 +31,7 @@ public:
 	Pipe& operator=(const Pipe&) = delete;
 
 	errorcode_t Start();
+	errorcode_t Stop();
 
 	USBDevice& p_dev;
 	Endpoint& p_ep;

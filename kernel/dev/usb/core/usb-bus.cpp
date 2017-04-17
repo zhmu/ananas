@@ -121,10 +121,8 @@ Bus::DetachHub(Hub& hub)
 		if (usb_dev->ud_hub != &hub)
 			continue;
 
-#if 0
-		errorcode_t err = usbdev_detach(usb_dev);
-		ANANAS_ERROR_RETURN(err);
-#endif
+		errorcode_t err = usb_dev->Detach();
+		(void)err; // XXX what to do in this case?
 	}
 
 	return ananas_success();
