@@ -6,7 +6,7 @@ namespace Ananas {
 
 namespace DeviceManager {
 namespace internal {
-void Unregister(Device&);
+void OnDeviceDestruction(Device&);
 } // namespace internal
 } // namespace DeviceManager
 
@@ -27,7 +27,7 @@ Device::Device(const CreateDeviceProperties& cdp)
 
 Device::~Device()
 {
-	DeviceManager::internal::Unregister(*this);
+	DeviceManager::internal::OnDeviceDestruction(*this);
 }
 
 void Device::Printf(const char* fmt, ...) const

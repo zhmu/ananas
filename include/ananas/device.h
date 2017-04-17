@@ -120,6 +120,7 @@ typedef Device* (*CreateDeviceFunc)(const Ananas::CreateDeviceProperties& cdp);
 namespace DeviceManager {
 
 errorcode_t AttachSingle(Device& device);
+errorcode_t Detach(Device& device);
 Device* AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet);
 void AttachBus(Device& bus);
 Device* FindDevice(const char* name);

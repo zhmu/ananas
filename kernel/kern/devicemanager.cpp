@@ -45,6 +45,16 @@ void Register(Device& device)
 	spinlock_unlock(&spl_devicequeue);
 }
 
+void OnDeviceDestruction(Device& device)
+{
+	// This is just a safety precaution for now
+	spinlock_lock(&spl_devicequeue);
+	LIST_FOREACH(&deviceList, d, Device) {
+		KASSERT(d != &device, "destroying device '%s' still in the device queue", device.d_Name);
+	}
+	spinlock_unlock(&spl_devicequeue);
+}
+
 void Unregister(Device& device)
 {
 	/* XXX clear waiters; should we signal them? */
@@ -91,6 +101,24 @@ AttachSingle(Device& device)
 	/* Attempt to attach child devices, if any */
 	AttachBus(device);
 
+	return ananas_success();
+}
+
+errorcode_t
+Detach(Device& device)
+{
+	// Ensure the device is out of the queue; this prevents anyone from using the
+	// device
+	internal::Unregister(device);
+
+	// XXX I wonder how realistic this is - failing to detach (what can we do?)
+	errorcode_t err = device.GetDeviceOperations().Detach();
+	ANANAS_ERROR_RETURN(err);
+
+	device.Printf("detached");
+
+	// XXX We should destroy the device, but only if we know this is safe (we need refcounting here)
+	internal::DeinstantiateDevice(device);
 	return ananas_success();
 }
 
