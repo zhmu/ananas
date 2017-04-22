@@ -41,7 +41,7 @@ public:
 #define TRANSFER_FLAG_DATA		0x0004
 #define TRANSFER_FLAG_ERROR		0x0008
 #define TRANSFER_FLAG_PENDING		0x0010
-	int				t_data_toggle;
+	int				t_data_toggle = 0;
 	int				t_address;	/* [S] */
 	int				t_endpoint;	/* [S] */
 	/* XXX This may be a bit too much */
