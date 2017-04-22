@@ -12,10 +12,16 @@
 #include <ananas/mm.h>
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"
-#include "../core/config.h"
 #include "../core/usb-transfer.h"
+#include "../core/config.h"
 
 TRACE_SETUP;
+
+#if 0
+#define DPRINTF Printf
+#else
+#define DPRINTF(...)
+#endif
 
 namespace {
 
@@ -186,6 +192,7 @@ DumpSenseData(const struct SCSI_FIXED_SENSE_DATA& sd)
 	 sd.sd_field_replace_code);
 }
 
+#if 0
 void
 DumpCBW(USBSTORAGE_CBW& cbw)
 {
@@ -197,6 +204,7 @@ DumpCBW(USBSTORAGE_CBW& cbw)
 		kprintf(" %x", cbw.d_cbw_cb[n]);
 	kprintf("\n");
 }
+#endif
 
 class USBStorage;
 
@@ -278,13 +286,11 @@ private:
 
 void StorageDevice_PipeInCallbackWrapper::OnPipeCallback(Ananas::USB::Pipe& pipe)
 {
-	kprintf(":StorageDevice_PipeInCallbackWrapper\n");
 	pi_Device.OnPipeInCallback();
 }
 
 void StorageDevice_PipeOutCallbackWrapper::OnPipeCallback(Ananas::USB::Pipe& pipe)
 {
-	kprintf(":StorageDevice_PipeOutCallbackWrapper\n");
 	pi_Device.OnPipeOutCallback();
 }
 
@@ -297,7 +303,7 @@ errorcode_t
 USBStorage::HandleRequest(int lun, int flags, const void* cb, size_t cb_len, void* result, size_t* result_len)
 {
 	KASSERT(result_len == nullptr || result != nullptr, "result_len without result?");
-	Printf("flags %d len %d cb_len %d result_len %d\n", flags, lun, cb_len, result_len ? *result_len : -1);
+	DPRINTF("flags %d len %d cb_len %d result_len %d", flags, lun, cb_len, result_len ? *result_len : -1);
 
 	struct USBSTORAGE_CSW csw;
 	errorcode_t err = ANANAS_ERROR(UNKNOWN);
@@ -341,13 +347,6 @@ USBStorage::HandleRequest(int lun, int flags, const void* cb, size_t cb_len, voi
 	us_BulkOut->p_xfer.t_length = sizeof(cbw);
 	memcpy(&us_BulkOut->p_xfer.t_data[0], &cbw, us_BulkOut->p_xfer.t_length);
 
-	kprintf(">>> submitting cbw\n");
-	for (int n = 0; n < us_BulkOut->p_xfer.t_length; n++)
-		kprintf("%x ", us_BulkOut->p_xfer.t_data[n]);
-	kprintf("\n");
-	DumpCBW(cbw);
-
-	us_BulkIn->Start();
 	us_BulkOut->Start();
 	Unlock();
 
@@ -374,7 +373,7 @@ USBStorage::OnPipeInCallback()
 {
 	Ananas::USB::Transfer& xfer = us_BulkIn->p_xfer;
 
-	Printf("usbstorage_in_callback! -> flags %x len %d\n", xfer.t_flags, xfer.t_result_length);
+	DPRINTF("usbstorage_in_callback! -> flags %x len %d", xfer.t_flags, xfer.t_result_length);
 
 	/*
 	 * We'll have one or two responses now: the first will be the resulting data,
@@ -420,8 +419,11 @@ void
 USBStorage::OnPipeOutCallback()
 {
 	Ananas::USB::Transfer& xfer = us_BulkOut->p_xfer;
+	(void)xfer;
 
-	Printf("usbstorage_out_callback! -> len %d\n", xfer.t_result_length);
+	DPRINTF("usbstorage_out_callback! -> len %d", xfer.t_result_length);
+
+	us_BulkIn->Start();
 }
 
 errorcode_t
@@ -473,8 +475,6 @@ USBStorage::Attach()
 	err = HandleRequest(0, USBSTORAGE_CBW_FLAG_DATA_IN, &inq_cmd, sizeof(inq_cmd), &inq_reply, &reply_len);
 	ANANAS_ERROR_RETURN(err);
 
-	panic("DIE");
-
 	/*
 	 * We expect the device to be unavailable (as it's just reset) - we'll issue
 	 * a 'TEST UNIT READY' and if that fails, we'll do a 'REQUEST SENSE' so the
@@ -492,7 +492,7 @@ USBStorage::Attach()
 		rs_cmd.c_code = SCSI_CMD_REQUEST_SENSE;
 		reply_len = sizeof(sd);
 		err = HandleRequest(0, USBSTORAGE_CBW_FLAG_DATA_IN, &rs_cmd, sizeof(rs_cmd), &sd, &reply_len);
-		Printf("handle_req: err=%d len %d\n", err, reply_len);
+		Printf("handle_req: err=%d len %d", err, reply_len);
 
 		DumpSenseData(sd);
 	}
@@ -514,8 +514,6 @@ USBStorage::Attach()
 	copy_string(pid, sizeof(pid), inq_reply.r_product_id, sizeof(inq_reply.r_product_id));
 	Printf("vendor <%s> product <%s> size %d MB", vid, pid,
 	 num_lba / ((1024 * 1024) / block_len));
-
-	Printf("lba %d blocklen %d", num_lba, block_len);
 
 	/* Let's read something! */
 	uint8_t block[512];
@@ -539,7 +537,16 @@ USBStorage::Attach()
 errorcode_t
 USBStorage::Detach()
 {
-	panic("detach");
+	if (us_Device == nullptr)
+		return ananas_success();
+
+	if (us_BulkIn != nullptr)
+		us_Device->FreePipe(*us_BulkIn);
+	us_BulkIn = nullptr;
+
+	if (us_BulkOut != nullptr)
+		us_Device->FreePipe(*us_BulkOut);
+	us_BulkOut = nullptr;
 	return ananas_success();
 }
 
