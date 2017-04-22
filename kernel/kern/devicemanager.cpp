@@ -41,7 +41,7 @@ namespace internal {
 void Register(Device& device)
 {
 	spinlock_lock(&spl_devicequeue);
-	LIST_APPEND(&deviceList, &device);
+	LIST_APPEND_IP(&deviceList, all, &device);
 	spinlock_unlock(&spl_devicequeue);
 }
 
@@ -49,7 +49,7 @@ void OnDeviceDestruction(Device& device)
 {
 	// This is just a safety precaution for now
 	spinlock_lock(&spl_devicequeue);
-	LIST_FOREACH(&deviceList, d, Device) {
+	LIST_FOREACH_IP(&deviceList, all, d, Device) {
 		KASSERT(d != &device, "destroying device '%s' still in the device queue", device.d_Name);
 	}
 	spinlock_unlock(&spl_devicequeue);
@@ -60,7 +60,7 @@ void Unregister(Device& device)
 	/* XXX clear waiters; should we signal them? */
 
 	spinlock_lock(&spl_devicequeue);
-	LIST_REMOVE(&deviceList, &device);
+	LIST_REMOVE_IP(&deviceList, all, &device);
 	spinlock_unlock(&spl_devicequeue);
 }
 
@@ -97,6 +97,8 @@ AttachSingle(Device& device)
 
 	/* Hook the device up to the tree */
 	internal::Register(device);
+	if (device.d_Parent != nullptr)
+		LIST_APPEND_IP(&device.d_Parent->d_Children, children, &device);
 
 	/* Attempt to attach child devices, if any */
 	AttachBus(device);
@@ -107,9 +109,14 @@ AttachSingle(Device& device)
 errorcode_t
 Detach(Device& device)
 {
-	// Ensure the device is out of the queue; this prevents anyone from using the
-	// device
+	// Ensure the device is out of the queue; this prevents new access to the
+	// device device
 	internal::Unregister(device);
+
+	// All children must be detached before we can clean up the main device
+	LIST_FOREACH_SAFE_IP(&device.d_Children, children, childDevice, Device) {
+		Detach(*childDevice);
+	}
 
 	// XXX I wonder how realistic this is - failing to detach (what can we do?)
 	errorcode_t err = device.GetDeviceOperations().Detach();
@@ -215,7 +222,7 @@ FindDevice(const char* name)
 		ptr++;
 	int unit = (*ptr != '\0') ? strtoul(ptr, NULL, 10) : 0;
 
-	LIST_FOREACH(&deviceList, device, Device) {
+	LIST_FOREACH_IP(&deviceList, all, device, Device) {
 		if (!strncmp(device->d_Name, name, ptr - name) && device->d_Unit == unit)
 			return device;
 	}
@@ -243,7 +250,7 @@ static int
 print_devices(Ananas::Device* parent, int indent)
 {
 	int count = 0;
-	LIST_FOREACH(&deviceList, dev, Ananas::Device) {
+	LIST_FOREACH_IP(&deviceList, all, dev, Ananas::Device) {
 		if (dev->d_Parent != parent)
 			continue;
 		for (int n = 0; n < indent; n++)
@@ -261,7 +268,7 @@ KDB_COMMAND(devices, NULL, "Displays a list of all devices")
 
 	/* See if we have printed everything; if not, our structure is wrong and we should fix this */
 	int n = 0;
-	LIST_FOREACH(&deviceList, dev, Ananas::Device) {
+	LIST_FOREACH_IP(&deviceList, all, dev, Ananas::Device) {
 		n++;
 	}
 	if (n != count)

@@ -79,6 +79,7 @@ public:
 };
 
 class Device;
+LIST_DEFINE(DeviceList, Device);
 
 struct CreateDeviceProperties
 {
@@ -113,18 +114,21 @@ public:
 	void Printf(const char* fmt, ...) const;
 
 	// XXX Private me
-	LIST_FIELDS(Device);
+	LIST_FIELDS_IT(Device, all);
+	LIST_FIELDS_IT(Device, children);
+
+	DeviceList d_Children;
+
 	Device* d_Parent = nullptr;
 	char d_Name[64] = "unknown";
 	unsigned int d_Unit = -1;
 	ResourceSet d_ResourceSet;
-	dma_tag_t d_DMA_tag;
+	dma_tag_t d_DMA_tag = nullptr;
 	semaphore_t d_Waiters;
 
 	Device(const Device&) = delete;
 	Device& operator=(const Device&) = delete;
 };
-LIST_DEFINE(DeviceList, Device);
 
 // Create device function, used while probing
 typedef Device* (*CreateDeviceFunc)(const Ananas::CreateDeviceProperties& cdp);
