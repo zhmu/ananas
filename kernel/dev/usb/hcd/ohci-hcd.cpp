@@ -62,10 +62,15 @@ GetPhysicalAddress(HCD_ED& ed)
 void
 DumpTD(HCD_TD& td)
 {
-	kprintf("td %x -> flags %p (cc %d) cbp %x nexttd %x be %x\n",
+	kprintf("td %x -> flags %x (cc %d ec %d t %d di %d dp %d r %d) cbp %x nexttd %x be %x\n",
 	 GetPhysicalAddress(td),
 	 td.td_td.td_flags,
-	 OHCI_TD_CC(td.td_td.td_flags),
+	 (td.td_td.td_flags >> 28) & 0x1f,
+	 (td.td_td.td_flags >> 26) & 0x3,
+	 (td.td_td.td_flags >> 24) & 0x3,
+	 (td.td_td.td_flags >> 21) & 0x7,
+	 (td.td_td.td_flags >> 19) & 0x3,
+	 (td.td_td.td_flags >> 18) & 0x1,
 	 td.td_td.td_cbp,
 	 td.td_td.td_nexttd,
 	 td.td_td.td_be);
@@ -74,10 +79,13 @@ DumpTD(HCD_TD& td)
 void
 DumpED(HCD_ED& ed)
 {
-	kprintf(" ed %x -> flags %x (mps %d %c%c%c) tailp %x headp %x (%c%c) nexted %x\n",
+	kprintf(" ed %x -> flags %x (mps %d en %d fa %d dir %d %c%c%c) tailp %x headp %x (%c%c) nexted %x\n",
 	 GetPhysicalAddress(ed),
 	 ed.ed_ed.ed_flags,
 	 (ed.ed_ed.ed_flags >> 16) & 0x3ff,
+	 (ed.ed_ed.ed_flags >> 7) & 0xf,
+	 (ed.ed_ed.ed_flags & 0x7f),
+	 (ed.ed_ed.ed_flags >> 11) & 3,
 	 (ed.ed_ed.ed_flags & OHCI_ED_F) ? 'F' : '.',
 	 (ed.ed_ed.ed_flags & OHCI_ED_K) ? 'K' : '.',
 	 (ed.ed_ed.ed_flags & OHCI_ED_S) ? 'S' : '.',

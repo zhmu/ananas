@@ -98,6 +98,10 @@ public:
 
 	errorcode_t Attach() override;
 	errorcode_t Detach() override;
+	void DebugDump() override
+	{
+		Dump();
+	}
 
 	errorcode_t SetupTransfer(Transfer& xfer) override;
 	errorcode_t TearDownTransfer(Transfer& xfer) override;
