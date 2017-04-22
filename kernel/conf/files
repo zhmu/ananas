@@ -137,3 +137,5 @@ dev/ahci/ahci-pci.cpp		optional ahci
 dev/ahci/ahci-port.cpp		optional ahci
 dev/sata/sata.cpp		optional sata
 dev/sata/sata-disk.cpp		optional sata
+# SCSI (needed for usbstorage)
+dev/scsi/scsi-disk.cpp		optional scsi

@@ -67,6 +67,17 @@ public:
 	virtual void HandleExplore() = 0;
 };
 
+class ISCSIDeviceOperations
+{
+public:
+	enum class Direction {
+		D_In,
+		D_Out
+	};
+
+	virtual errorcode_t PerformSCSIRequest(int lun, Direction dir, const void* cb, size_t cb_len, void* result, size_t* result_len) = 0;
+};
+
 class Device;
 
 struct CreateDeviceProperties
@@ -97,6 +108,7 @@ public:
 	virtual IBIODeviceOperations* GetBIODeviceOperations() { return nullptr; }
 	virtual IUSBDeviceOperations* GetUSBDeviceOperations() { return nullptr; }
 	virtual IUSBHubDeviceOperations* GetUSBHubDeviceOperations() { return nullptr; }
+	virtual ISCSIDeviceOperations* GetSCSIDeviceOperations() { return nullptr; }
 
 	void Printf(const char* fmt, ...) const;
 
