@@ -165,7 +165,7 @@ SCSIDisk::ReadBIO(struct BIO& bio)
 	struct SCSI_READ_10_CMD r_cmd;
 	memset(&r_cmd, 0, sizeof r_cmd);
 	r_cmd.c_code = SCSI_CMD_READ_10;
-	r_cmd.c_lba = htobe32(0);
+	r_cmd.c_lba = htobe32(bio.io_block);
 	r_cmd.c_transfer_len = htobe16(bio.length / 512);
 	size_t reply_len = bio.length;
 	errorcode_t err = HandleRequest(0, Direction::D_In, &r_cmd, sizeof(r_cmd), BIO_DATA(&bio), &reply_len);
