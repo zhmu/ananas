@@ -2,6 +2,7 @@
 #include <ananas/error.h>
 #include <ananas/process.h>
 #include <ananas/thread.h>
+#include <ananas/handle-options.h>
 #include <ananas/trace.h>
 
 TRACE_SETUP;

@@ -1,4 +1,3 @@
-#include <ananas/syscall.h>
 #include <_posix/todo.h>
 #include <fcntl.h>
 
