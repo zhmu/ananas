@@ -274,7 +274,4 @@ mi_startup()
 	/* NOTREACHED */
 }
 
-#define TEST_THREADS 0
-#include "init-debug.cpp"
-
 /* vim:set ts=2 sw=2: */
