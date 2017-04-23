@@ -6,6 +6,7 @@
 #include <ananas/stat.h> /* for 'struct stat' */
 #include <ananas/vfs/dentry.h> /* for 'struct DENTRY_QUEUE' */
 #include <ananas/vfs/icache.h> /* for 'struct ICACHE_QUEUE' */
+#include <ananas/vfs/dirent.h>
 
 namespace Ananas {
 class Device;
@@ -53,23 +54,6 @@ struct VFS_FILE {
 	struct DENTRY*		f_dentry;
 	Ananas::Device*		f_device;
 };
-
-/*
- * Directory entry, as returned by the kernel. The fsop length is stored
- * for easy iteration on the caller side.
- */
-struct VFS_DIRENT {
-	uint32_t	de_flags;		/* Flags */
-	uint8_t		de_fsop_length;		/* Length of identifier */
-	uint8_t		de_name_length;		/* Length of name */
-	char		de_fsop[1];		/* Identifier */
-	/*
-	 * de_name will be stored directly after the fsop.
-	 */
-};
-#define DE_LENGTH(x) (sizeof(struct VFS_DIRENT) + (x)->de_fsop_length + (x)->de_name_length)
-#define DE_FSOP(x) (&((x)->de_fsop))
-#define DE_NAME(x) (&((x)->de_fsop[(x)->de_fsop_length]))
 
 /*
  * VFS_MOUNTED_FS is used to refer to a mounted filesystem. Note that
