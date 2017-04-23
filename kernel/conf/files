@@ -22,8 +22,6 @@ kern/irq.cpp		mandatory
 kern/handle.cpp		mandatory
 kern/tty.cpp		mandatory
 kern/trace.cpp		mandatory
-kern/symbols.cpp	mandatory
-kern/module.cpp		mandatory
 kern/pipe-handle.cpp	option PIPE
 gdb/gdb-stub.cpp	option GDB
 dev/generic/corebus.cpp	mandatory
