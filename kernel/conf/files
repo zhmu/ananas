@@ -1,4 +1,5 @@
 kern/init.cpp		mandatory
+kern/init-userland.cpp	mandatory
 kern/mm.cpp		mandatory
 kern/cmdline.cpp	mandatory
 kern/dlmalloc.cpp	mandatory

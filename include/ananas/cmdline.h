@@ -1,6 +1,8 @@
 #ifndef __ANANAS_CMDLINE_H__
 #define __ANANAS_CMDLINE_H__
 
+#include <ananas/types.h>
+
 void cmdline_init(char* bootargs, size_t bootargs_len);
 const char* cmdline_get_string(const char* key);
 
