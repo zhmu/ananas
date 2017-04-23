@@ -243,7 +243,6 @@ init_thread_func(void* done)
 void
 mi_startup()
 {
-	cmdline_init();
 	LIST_INIT(&initfunc_dynamics);
 
 	/*

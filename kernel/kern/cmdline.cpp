@@ -9,32 +9,26 @@ static char* cmdline = NULL;
 static int cmdline_len = -1;
 
 void
-cmdline_init()
+cmdline_init(char* bootargs, size_t bootargs_len)
 {
 	/* Default to no sensible commmandline */
 	cmdline_len = 0;
 
 	/* 1 because bi_args_size includes the terminating \0 */
-	if (bootinfo->bi_args_size <= 1 || bootinfo->bi_args == 0)
+	if (bootargs == nullptr || bootargs_len <= 1 || bootargs[bootargs_len - 1] != '\0')
 		return;
-	size_t bootargs_len = bootinfo->bi_args_size;
 
-	char* bootargs = static_cast<char*>(kmem_map(bootinfo->bi_args, bootargs_len, VM_FLAG_READ));
-	if (bootargs[bootinfo->bi_args_size - 1] == '\0') {
-		/* Okay, looks sensible - allocate a commandline and copy over */
-		cmdline = new char[bootargs_len];
-		strcpy(cmdline, bootargs);
-		cmdline_len = bootargs_len;
+	// Okay, looks sensible - claim them
+	cmdline = bootargs;
+	cmdline_len = bootargs_len;
 
-		/*
-		 * Transform all spaces to \0's; thisallows cmdline_get_string() to just
-		 * return on a match
-		 */
-		for(int n = 0; n < cmdline_len; n++)
-			if (cmdline[n] == ' ')
-				cmdline[n] = '\0';
-	}
-	kmem_unmap(bootargs, bootargs_len);
+	/*
+	 * Transform all spaces to \0's; this allows cmdline_get_string() to just
+	 * return on a match
+	 */
+	for(int n = 0; n < cmdline_len; n++)
+		if (cmdline[n] == ' ')
+			cmdline[n] = '\0';
 }
 
 const char*

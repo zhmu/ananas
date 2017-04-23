@@ -12,6 +12,7 @@
 #include <ananas/x86/smp.h>
 #include <ananas/handle.h>
 #include <ananas/bootinfo.h>
+#include <ananas/cmdline.h>
 #include <ananas/error.h>
 #include <ananas/kmem.h>
 #include <ananas/init.h>
@@ -489,6 +490,17 @@ extern void* bootstrap_stack;
 	 * the kernel.
 	 */
 	addr_t avail = (addr_t)(((struct LOADER_MODULE*)(addr_t)bootinfo_ptr->bi_modules)->mod_phys_end_addr);
+
+	/*
+	 * Grab extra space for the boot arguments - it's much easier to do so before enabling
+	 * paging, and we cannot trust the addresses.
+	 */
+	char* bootinfo_args = nullptr;
+	if (bootinfo_ptr->bi_args != 0) {
+		memcpy(reinterpret_cast<void*>(avail), reinterpret_cast<void*>(bootinfo->bi_args), bootinfo_ptr->bi_args_size);
+		bootinfo_args = reinterpret_cast<char*>(KERNBASE | avail);
+		avail += bootinfo_ptr->bi_args_size;
+	}
 	avail = (addr_t)((addr_t)avail | (PAGE_SIZE - 1)) + 1;
 	kprintf("avail = %p\n", avail);
 
@@ -581,6 +593,9 @@ extern void* bootstrap_stack;
 
 	/* Initialize the handles; this is needed by the per-CPU code as it initialize threads */
 	handle_init();
+
+	// Initialize the commandline arguments, if we have any
+	cmdline_init(bootinfo_args, bootinfo->bi_args_size);
 
 	/*
 	 * Initialize the per-CPU thread; this needs a working memory allocator, so that is why
