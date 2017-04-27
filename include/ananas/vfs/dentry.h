@@ -9,8 +9,11 @@ struct VFS_MOUNTED_FS;
 #define DCACHE_ITEMS_PER_FS	32
 #define DCACHE_MAX_NAME_LEN	255
 
+struct VFS_MOUNTED_FS;
+
 struct DENTRY {
 	refcount_t d_refcount;			/* Reference count, >0 */
+	struct VFS_MOUNTED_FS* d_fs;
 	struct DENTRY* d_parent;		/* Parent directory entry */
 	struct VFS_INODE* d_inode;		/* Backing entry inode, or NULL */
 	uint32_t d_flags;			/* Item flags */
@@ -23,9 +26,9 @@ struct DENTRY {
 
 LIST_DEFINE(DENTRY_QUEUE, struct DENTRY);
 
-void dcache_init(struct VFS_MOUNTED_FS* fs);
-void dcache_dump(struct VFS_MOUNTED_FS* fs);
-void dcache_destroy(struct VFS_MOUNTED_FS* fs);
+struct DENTRY* dcache_create_root_dentry(struct VFS_MOUNTED_FS* fs);
+
+void dcache_dump();
 struct DENTRY* dcache_lookup(struct DENTRY* parent, const char* entry);
 void dcache_remove_inode(struct VFS_INODE* inode);
 void dcache_set_inode(struct DENTRY* de, struct VFS_INODE* inode);

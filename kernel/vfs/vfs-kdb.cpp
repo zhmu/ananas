@@ -19,12 +19,7 @@ KDB_COMMAND(inodes, NULL, "Inode status")
 	struct VFS_MOUNTED_FS* fs = vfs_get_rootfs(); /* XXX only root for now */
 
 	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
-		int expected_refs = 1; /* icache */
-		kprintf("inode=%p, fsop=", ii->inode);
-		for (int i = 0; i < fs->fs_fsop_size; i++) {
-			if (i > 0) kprintf(" ");
-			kprintf("%x", (unsigned char)ii->fsop[i]);
-		}
+		kprintf("inode=%p, inum=%lx", ii->inode, ii->inum);
 		if (ii->inode == NULL) {
 			kprintf(", nil\n");
 			continue;
@@ -32,6 +27,7 @@ KDB_COMMAND(inodes, NULL, "Inode status")
 	//	if (ii->inode == fs->fs_root_inode) expected_refs++; /* root inode */
 		kprintf(", refcount=%u", ii->inode->i_refcount);
 		const char* dentry_name = "?";
+#if 0
 		LIST_FOREACH(&fs->fs_dcache_inuse, d, struct DENTRY) {
 			if (d->d_inode != ii->inode && d->d_parent->d_inode != ii->inode)
 				continue;
@@ -43,6 +39,7 @@ KDB_COMMAND(inodes, NULL, "Inode status")
 				expected_refs++; /* dentry dir ref */
 			}
 		}
+#endif
 		kprintf(", dentry='%s'\n", dentry_name);
 
 #ifdef NOTYET

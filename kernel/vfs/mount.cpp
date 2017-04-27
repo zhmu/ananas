@@ -78,12 +78,10 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 		return ANANAS_ERROR(OUT_OF_HANDLES);
 	fs->fs_device = dev;
 	fs->fs_fsops = fsops;
-	dcache_init(fs);
 
 	struct VFS_INODE* root_inode = NULL;
 	err = fs->fs_fsops->mount(fs, &root_inode);
 	if (ananas_is_failure(err)) {
-		dcache_destroy(fs);
 		icache_destroy(fs);
 		memset(fs, 0, sizeof(*fs));
 		return err;
@@ -95,6 +93,7 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	/* The refcount must be two: one for the root_inode reference and one for the cache */
 	KASSERT(root_inode->i_refcount == 2, "bad refcount of root inode (must be 2, is %u)", root_inode->i_refcount);
 	fs->fs_mountpoint = strdup(to);
+	fs->fs_root_dentry = dcache_create_root_dentry(fs);
 	fs->fs_root_dentry->d_inode = root_inode; /* don't deref - we're giving the ref to the root dentry */
 
 	/*	
@@ -102,7 +101,6 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	 * XXX Maybe special-case once we have a root filesystem?
 	 */
 	if (ananas_is_failure(err)) {
-		dcache_destroy(fs);
 		memset(fs, 0, sizeof(*fs));
 		return err;
 	}
@@ -112,7 +110,7 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	 * our filesystem to the parent. XXX I wonder if this is correct; we should
 	 * always just hook our path to the fs root dentry... need to think about it
 	 */
-	struct DENTRY* dentry_root;
+	struct DENTRY* dentry_root = fs->fs_root_dentry;
 	if (ananas_is_success(vfs_lookup(NULL, &dentry_root, to)) &&
 	    dentry_root != fs->fs_root_dentry) {
 		if (dentry_root->d_inode != NULL)
@@ -201,9 +199,10 @@ KDB_COMMAND(mounts, NULL, "Shows current mounts")
 			continue;
 		kprintf(">> vfs=%p, flags=0x%x, mountpoint='%s'\n", fs, fs->fs_flags, fs->fs_mountpoint);
 		icache_dump(fs);
-		dcache_dump(fs);
 	}
 	spinlock_unlock(&spl_mountedfs);
+
+	dcache_dump();
 }
 #endif /* KDB */
 

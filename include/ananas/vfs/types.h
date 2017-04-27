@@ -78,12 +78,6 @@ struct VFS_MOUNTED_FS {
 	struct ICACHE_QUEUE	fs_icache_free;		/* (I) Available inode list */
 	void*			fs_icache_buffer;	/* (I) Inode cache buffer, for cleanup */
 
-	/* Dentry cache */
-	mutex_t			fs_dcache_lock;		/* Protects fields marked with (D) */
-	struct DENTRY_QUEUE	fs_dcache_inuse;	/* (D) Currently used items */
-	struct DENTRY_QUEUE	fs_dcache_free;		/* (D) Currently used items */
-	void*			fs_dcache_buffer;	/* (D) Dentry cache buffer, for cleanup */
-
 	struct VFS_FILESYSTEM_OPS* fs_fsops;		/* (R) Filesystem operations */
 	struct DENTRY* fs_root_dentry;			/* (R) Filesystem's root dentry */
 };
