@@ -360,9 +360,6 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 	}
 #endif
 
-	/* Initialize the inode cache right before reading the root directory inode */
-	icache_init(fs);
-
 	/* Read the root inode */
 	err = vfs_get_inode(fs, EXT2_ROOT_INO, root_inode);
 	if (ananas_is_failure(err)) {

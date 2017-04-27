@@ -159,9 +159,6 @@ fat_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 		}
 	}
 
-	/* Initialize the inode cache right before reading the root directory inode */
-	icache_init(fs);
-
 	err = vfs_get_inode(fs, FAT_ROOTINODE_INUM, root_inode);
 	if (ananas_is_failure(err)) {
 		kfree(privdata);
