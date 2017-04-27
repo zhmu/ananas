@@ -58,9 +58,9 @@ ext2_conv_superblock(struct EXT2_SUPERBLOCK* sb)
 }
 
 static struct VFS_INODE*
-ext2_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
+ext2_alloc_inode(struct VFS_MOUNTED_FS* fs, ino_t inum)
 {
-	struct VFS_INODE* inode = vfs_make_inode(fs, fsop);
+	struct VFS_INODE* inode = vfs_make_inode(fs, inum);
 	if (inode == NULL)
 		return NULL;
 	auto privdata = new EXT2_INODE_PRIVDATA;
@@ -188,7 +188,7 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			 * Inode number values of zero indicate the entry is not used; this entry
 			 * works and we mustreturn it.
 			 */
-			int filled = vfs_filldirent(&dirents, &left, (const void*)&inum, inode->i_fs->fs_fsop_size, (const char*)ext2de->name, ext2de->name_len);
+			int filled = vfs_filldirent(&dirents, &left, inum, (const char*)ext2de->name, ext2de->name_len);
 			if (!filled) {
 				/* out of space! */
 				break;
@@ -226,7 +226,7 @@ static struct VFS_INODE_OPS ext2_dir_ops = {
  * Reads a filesystem inode and fills a corresponding inode structure.
  */
 static errorcode_t
-ext2_read_inode(struct VFS_INODE* inode, void* fsop)
+ext2_read_inode(struct VFS_INODE* inode, ino_t inum)
 {
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)inode->i_fs->fs_privdata;
@@ -236,7 +236,7 @@ ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 	 * but it is considered wasteful to ignore an inode, so inode 1 maps to the
 	 * first inode entry on disk...
 	 */
-	uint32_t inum = (*(uint32_t*)fsop) - 1;
+	inum--;
 	KASSERT(inum < privdata->sb.s_inodes_count, "inode out of range");
 
 	/*
@@ -257,7 +257,7 @@ ext2_read_inode(struct VFS_INODE* inode, void* fsop)
 	auto ext2inode = reinterpret_cast<struct EXT2_INODE*>(static_cast<char*>(BIO_DATA(bio)) + idx);
 
 	/* Fill the stat buffer with date */
-	inode->i_sb.st_ino    = *(uint32_t*)fsop;
+	inode->i_sb.st_ino    = inum;
 	inode->i_sb.st_mode   = EXT2_TO_LE16(ext2inode->i_mode);
 	inode->i_sb.st_nlink  = EXT2_TO_LE16(ext2inode->i_links_count);
 	inode->i_sb.st_uid    = EXT2_TO_LE16(ext2inode->i_uid);
@@ -323,7 +323,6 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 
 	/* Fill out filesystem fields */
 	fs->fs_block_size = 1024L << sb->s_log_block_size;
-	fs->fs_fsop_size = sizeof(uint32_t);
 
 	/* Free the superblock */
 	bio_free(bio);
@@ -365,8 +364,7 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 	icache_init(fs);
 
 	/* Read the root inode */
-	uint32_t root_fsop = EXT2_ROOT_INO;
-	err = vfs_get_inode(fs, &root_fsop, root_inode);
+	err = vfs_get_inode(fs, EXT2_ROOT_INO, root_inode);
 	if (ananas_is_failure(err)) {
 		kfree(privdata);
 		return err;
