@@ -18,7 +18,7 @@ errorcode_t vfs_mount(const char* from, const char* to, const char* type, void* 
  * Obtains an inode for a given FSOP. The destination inode will have a reference count of
  * at least 2 (one for the caller, and one for the cache).
  */
-errorcode_t vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinode);
+errorcode_t vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, struct VFS_INODE** destinode);
 
 /*
  * Retrieves a given block for the given filesystem to a bio.
@@ -47,6 +47,6 @@ errorcode_t vfs_unlink(struct VFS_FILE* file);
 errorcode_t vfs_rename(struct VFS_FILE* file, struct DENTRY* parent, const char* dest);
 
 /* Filesystem specific functions */
-size_t vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, const char* name, int namelen);
+size_t vfs_filldirent(void** dirents, size_t* size, ino_t inum, const char* name, int namelen);
 
 #endif /* __ANANAS_VFS_CORE_H__ */

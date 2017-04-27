@@ -30,13 +30,13 @@ vfs_bget(struct VFS_MOUNTED_FS* fs, blocknr_t block, struct BIO** bio, int flags
 }
 
 size_t
-vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, const char* name, int namelen)
+vfs_filldirent(void** dirents, size_t* size, ino_t inum, const char* name, int namelen)
 {
 	/*
 	 * First of all, ensure we have sufficient space. Note that we use the fact
-	 * that de_fsop is only a single byte; we count it as the \0 byte.
+	 * that de_name is only a single byte; we count it as the \0 byte.
 	 */
-	int de_length = sizeof(struct VFS_DIRENT) + fsoplen + namelen;
+	int de_length = sizeof(struct VFS_DIRENT) + namelen;
 	if (*size < de_length)
 		return 0;
 	*size -= de_length;
@@ -45,11 +45,10 @@ vfs_filldirent(void** dirents, size_t* size, const void* fsop, int fsoplen, cons
 	*dirents = static_cast<void*>(static_cast<char*>(*dirents) + de_length);
 
 	de->de_flags = 0; /* TODO */
-	de->de_fsop_length = fsoplen;
 	de->de_name_length = namelen;
-	memcpy(de->de_fsop, fsop, fsoplen);
-	memcpy(de->de_fsop + fsoplen, name, namelen);
-	de->de_fsop[fsoplen + namelen] = '\0'; /* zero terminate */
+	de->de_inum = inum;
+	memcpy(de->de_name, name, namelen);
+	de->de_name[namelen] = '\0'; /* zero terminate */
 
 	/*
 	 * TODO Now that we have the entry, this is a good time to add it to our

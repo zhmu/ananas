@@ -3,7 +3,7 @@
  *
  * Inode caching is done on a per-filesystem basis, and currently using a
  * simple linear list. It should be unified to a single tree for all
- * filesystems one day, but this is complicated because FSOP's are
+ * filesystems one day, but this was complicated because FSOP's were
  * variable length.
  */
 #include <ananas/types.h>
@@ -28,38 +28,6 @@ TRACE_SETUP;
 
 #undef ICACHE_DEBUG
 
-static char*
-fsop_to_string(struct VFS_MOUNTED_FS* fs, void* fsop)
-{
-	static char out[128];
-	char tmp[32];
-	strcpy(out, "");
-	for (int i = 0; i < fs->fs_fsop_size; i++) {
-		snprintf(tmp, sizeof(tmp), "%x", ((unsigned char*)fsop)[i]);
-		if (i > 0)
-			strcat(out, ",");
-		strcat(out, tmp);
-	}
-	return out;
-}
-
-static int
-fsop_compare(struct VFS_MOUNTED_FS* fs, const void* fsop1, const void* fsop2)
-{
-	auto f1 = static_cast<const uint8_t*>(fsop1);
-	auto f2 = static_cast<const uint8_t*>(fsop2);
-
-	/* XXX this is just a dumb big-endian compare for now */
-	for (int i = fs->fs_fsop_size - 1; i >= 0; i--) {
-		if (f1[i] < f2[i])
-			return -1;
-		else if (f1[i] > f2[i])
-			return 1;
-		/* else equal; continue */
-	}
-	return 0;
-}
-
 #ifdef ICACHE_DEBUG
 static void
 icache_sanity_check(struct VFS_MOUNTED_FS* fs)
@@ -69,7 +37,7 @@ icache_sanity_check(struct VFS_MOUNTED_FS* fs)
 			if (ii == jj)
 				continue;
 
-			KASSERT(fsop_compare(fs, ii->fsop, jj->fsop) != 0, "duplicate fsop in cache");
+			KASSERT(ii->inum != jj->inum) != 0, "duplicate inum in cache (%lx)", ii->inum);
 			KASSERT(ii->inode != jj->inode, "duplicate inode in cache");
 		}
 	}
@@ -88,7 +56,6 @@ icache_ensure_inode_gone(struct VFS_INODE* inode)
 void
 icache_init(struct VFS_MOUNTED_FS* fs)
 {
-	KASSERT(fs->fs_fsop_size > 0, "fsop size not initialized");
 	mutex_init(&fs->fs_icache_lock, "icache");
 	LIST_INIT(&fs->fs_icache_inuse);
 	LIST_INIT(&fs->fs_icache_free);
@@ -97,12 +64,12 @@ icache_init(struct VFS_MOUNTED_FS* fs)
 	 * Construct an empty cache; we do a single allocation and add the items one
 	 * by one to the free list.
 	 */
-	fs->fs_icache_buffer = kmalloc(ICACHE_ITEMS_PER_FS * (sizeof(struct ICACHE_ITEM) + fs->fs_fsop_size));
-	memset(fs->fs_icache_buffer, 0, ICACHE_ITEMS_PER_FS * (sizeof(struct ICACHE_ITEM) + fs->fs_fsop_size));
+	fs->fs_icache_buffer = kmalloc(ICACHE_ITEMS_PER_FS * sizeof(struct ICACHE_ITEM));
+	memset(fs->fs_icache_buffer, 0, ICACHE_ITEMS_PER_FS * sizeof(struct ICACHE_ITEM));
 	addr_t icache_ptr = (addr_t)fs->fs_icache_buffer;
 	for (int i = 0; i < ICACHE_ITEMS_PER_FS; i++) {
 		LIST_APPEND(&fs->fs_icache_free, (struct ICACHE_ITEM*)icache_ptr);
-		icache_ptr += sizeof(struct ICACHE_ITEM) + fs->fs_fsop_size;
+		icache_ptr += sizeof(struct ICACHE_ITEM);
 	}
 }
 
@@ -112,10 +79,7 @@ icache_dump(struct VFS_MOUNTED_FS* fs)
 	kprintf("icache_dump(): fs=%p\n", fs);
 	int n = 0;
 	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
-		kprintf("icache_entry=%p, inode=%p, fsop=",ii, ii->inode);
-		for (int i = 0; i < fs->fs_fsop_size; i++)
-			kprintf("%x ", (unsigned char)ii->fsop[i]);
-		kprintf("\n");
+		kprintf("icache_entry=%p, inode=%p, inum=%lx\n", ii, ii->inum);
 		if (ii->inode != NULL)
 			vfs_dump_inode(ii->inode);
 		n++;
@@ -253,7 +217,7 @@ icache_purge_old_entries(struct VFS_MOUNTED_FS* fs)
  * 
  */
 static struct ICACHE_ITEM*
-icache_lookup(struct VFS_MOUNTED_FS* fs, void* fsop)
+icache_lookup(struct VFS_MOUNTED_FS* fs, ino_t inum)
 {
 	KASSERT(fs->fs_icache_buffer != NULL, "icache pool not initialized");
 
@@ -264,7 +228,7 @@ icache_lookup(struct VFS_MOUNTED_FS* fs, void* fsop)
 	 * overhead by moving recent entries to the start
 	 */
 	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
-		if (fsop_compare(fs, fsop, ii->fsop) != 0)
+		if (ii->inum != inum)
 			continue;
 
 		/*
@@ -298,7 +262,7 @@ icache_lookup(struct VFS_MOUNTED_FS* fs, void* fsop)
 		LIST_REMOVE(&fs->fs_icache_inuse, ii);
 		LIST_PREPEND(&fs->fs_icache_inuse, ii);
 		ICACHE_UNLOCK(fs);
-		TRACE(VFS, INFO, "cache hit: fs=%p,fsop=% => ii=%p, inode=%p", fs, fsop_to_string(fs, fsop), ii, ii->inode);
+		TRACE(VFS, INFO, "cache hit: fs=%p, inum=%lx => ii=%p, inode=%p", fs, inum, ii, ii->inode);
 		return ii;
 	}
 
@@ -321,9 +285,9 @@ icache_lookup(struct VFS_MOUNTED_FS* fs, void* fsop)
 	}
 
 	/* Initialize the item and place it at the head; it's most recently used after all */
-	TRACE(VFS, INFO, "cache miss: fs=%p, fsop=%s => ii=%p", fs, fsop_to_string(fs, fsop), ii);
+	TRACE(VFS, INFO, "cache miss: fs=%p, inum=%lx => ii=%p", fs, inum, ii);
 	ii->inode = NULL;
-	memcpy(ii->fsop, fsop, fs->fs_fsop_size);
+	ii->inum = inum;
 	LIST_PREPEND(&fs->fs_icache_inuse, ii);
 	ICACHE_UNLOCK(fs);
 	return ii;
@@ -342,28 +306,28 @@ icache_remove_pending(struct VFS_MOUNTED_FS* fs, struct ICACHE_ITEM* ii)
 }
 
 static struct VFS_INODE*
-vfs_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
+vfs_alloc_inode(struct VFS_MOUNTED_FS* fs, ino_t inum)
 {
 	struct VFS_INODE* inode;
 
 	if (fs->fs_fsops->alloc_inode != NULL) {
-		inode = fs->fs_fsops->alloc_inode(fs, fsop);
+		inode = fs->fs_fsops->alloc_inode(fs, inum);
 	} else {
-		inode = vfs_make_inode(fs, fsop);
+		inode = vfs_make_inode(fs, inum);
 	}
 	return inode;
 }
 
 /*
- * Retrieves an inode by fsop. The inode's refcount will always be incremented
+ * Retrieves an inode by number - inode's refcount will always be incremented
  * so the caller is responsible for calling vfs_deref_inode() once it is done.
  */
 errorcode_t
-vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinode)
+vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, struct VFS_INODE** destinode)
 {
 	struct ICACHE_ITEM* ii = NULL;
 
-	TRACE(VFS, FUNC, "fs=%p, fsop=%s", fs, fsop_to_string(fs, fsop));
+	TRACE(VFS, FUNC, "fs=%p, inum=%lx", fs, inum);
 
 	/*
 	 * Wait until we obtain a cache spot - this waits for pending inodes to be
@@ -371,10 +335,10 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinod
 	 * exist a single time.
 	 */
 	while(1) {
-		ii = icache_lookup(fs, fsop);
+		ii = icache_lookup(fs, inum);
 		if (ii != NULL)
 			break;
-		TRACE(VFS, WARN, "fsop is already pending, waiting...");
+		TRACE(VFS, WARN, "inode is already pending, waiting...");
 		/* XXX There should be a wakeup signal of some kind */
 		reschedule();
 	}
@@ -382,22 +346,22 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinod
 	if (ii->inode != NULL) {
 		/* Already have the inode cached -> return it (refcount will already be incremented) */
 		*destinode = ii->inode;
-		TRACE(VFS, INFO, "cache hit: fs=%p, fsop=%s => ii=%p,inode=%p", fs, fsop_to_string(fs, fsop), ii, ii->inode);
+		TRACE(VFS, INFO, "cache hit: fs=%p, inum=%lx => ii=%p,inode=%p", fs, inum, ii, ii->inode);
 		return ananas_success();
 	}
 
 	/*
 	 * Must read the inode; if this fails, we have to ask the cache to remove the
-	 * pending item. Because multiple callers for the same FSOP will not reach
+	 * pending item. Because multiple callers for the same inum will not reach
 	 * this point (they keep rescheduling, waiting for us to deal with it)
 	 */
-	struct VFS_INODE* inode = vfs_alloc_inode(fs, fsop);
+	struct VFS_INODE* inode = vfs_alloc_inode(fs, inum);
 	if (inode == NULL) {
 		icache_remove_pending(fs, ii);
 		return ANANAS_ERROR(OUT_OF_HANDLES);
 	}
 
-	errorcode_t result = fs->fs_fsops->read_inode(inode, fsop);
+	errorcode_t result = fs->fs_fsops->read_inode(inode, inum);
 	if (ananas_is_failure(result)) {
 		vfs_deref_inode(inode); /* throws it away */
 		return result;
@@ -414,22 +378,22 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, void* fsop, struct VFS_INODE** destinod
 #ifdef ICACHE_DEBUG
 	icache_sanity_check(fs);
 #endif
-	TRACE(VFS, INFO, "cache miss: fs=%p, fsop=%s => ii=%p,inode=%p", fs, fsop_to_string(fs, fsop), ii, inode);
+	TRACE(VFS, INFO, "cache miss: fs=%p, inum=%lx => ii=%p,inode=%p", fs, inum, ii, inode);
 	*destinode = inode;
 	return ananas_success();
 }
 
 struct VFS_INODE*
-vfs_make_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
+vfs_make_inode(struct VFS_MOUNTED_FS* fs, ino_t inum)
 {
-	auto inode = static_cast<struct VFS_INODE*>(kmalloc(sizeof(struct VFS_INODE) + fs->fs_fsop_size));
+	auto inode = new VFS_INODE;
 
 	/* Set up the basic inode information */
 	memset(inode, 0, sizeof(*inode));
 	mutex_init(&inode->i_mutex, "inode");
 	inode->i_refcount = 1;
 	inode->i_fs = fs;
-	memcpy(inode->i_fsop, fsop, fs->fs_fsop_size);
+	inode->i_inum = inum;
 	/* Fill out the stat fields we can */
 	inode->i_sb.st_dev = (dev_t)(uintptr_t)fs->fs_device;
 	inode->i_sb.st_rdev = (dev_t)(uintptr_t)fs->fs_device;

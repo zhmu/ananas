@@ -47,14 +47,14 @@ vfs_generic_lookup(struct DENTRY* parent, struct VFS_INODE** destinode, const ch
 			buf_len -= DE_LENGTH(de); cur_ptr += DE_LENGTH(de);
 
 #ifdef DEBUG_VFS_LOOKUP
-			kprintf("vfs_generic_lookup('%s'): comparing with '%s'\n", dentry, de->de_fsop + de->de_fsop_length);
+			kprintf("vfs_generic_lookup('%s'): comparing with '%s'\n", dentry, de->de_name);
 #endif
 	
-			if (strcmp(de->de_fsop + de->de_fsop_length, dentry) != 0)
+			if (strcmp(de->de_name, dentry) != 0)
 				continue;
 
 			/* Found it! */
-			return vfs_get_inode(parent_inode->i_fs, de->de_fsop, destinode);
+			return vfs_get_inode(parent_inode->i_fs, de->de_inum, destinode);
 		}
 	}
 }

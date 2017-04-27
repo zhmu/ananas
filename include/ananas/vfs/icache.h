@@ -11,7 +11,7 @@ struct VFS_MOUNTED_FS;
 struct ICACHE_ITEM {
 	struct VFS_INODE* inode;		/* Backing inode, or NULL */
 	LIST_FIELDS(struct ICACHE_ITEM);
-	char fsop[1];				/* FSOP of the item */
+	ino_t inum;
 };
 
 LIST_DEFINE(ICACHE_QUEUE, struct ICACHE_ITEM);
@@ -37,7 +37,7 @@ void vfs_ref_inode(struct VFS_INODE* inode);
  * locked, has a refcount of one and must be filled by the filesystem before
  * unlocking.
  */
-struct VFS_INODE* vfs_make_inode(struct VFS_MOUNTED_FS* fs, const void* fsop);
+struct VFS_INODE* vfs_make_inode(struct VFS_MOUNTED_FS* fs, ino_t inum);
 
 /*
  * Destroys a locked inode; this should be called by the filesystem's

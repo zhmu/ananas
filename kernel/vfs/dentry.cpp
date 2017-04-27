@@ -3,7 +3,7 @@
  *
  * A 'dentry' is a directory entry, and can be seen as the function f:
  * directory_inode x entry_name -> inode. These are cached on a per-filesystem
- * basis (to simplify the implementation due to the variable-length FSOP's)
+ * basis (XXX this must change as we no longer have variable-length FSOP's)
  *
  * Note that this code depends heavily on the fact that an inode will never be
  * in memory multiple times; this implies that the inode pointer can be used

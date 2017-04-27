@@ -36,7 +36,7 @@ struct VFS_INODE {
 
 	struct VFS_MOUNTED_FS* i_fs;		/* Filesystem where the inode lives */
 	void*		i_privdata;		/* Filesystem-specific data */
-	uint8_t		i_fsop[1];		/* File system object pointer */
+	ino_t		i_inum;			/* Inode number */
 };
 
 /*
@@ -70,7 +70,6 @@ struct VFS_MOUNTED_FS {
 #define VFS_FLAG_READONLY 0x0002		/* Filesystem is readonly */
 	const char*	fs_mountpoint;		/* (R) Mount point */
 	uint32_t	fs_block_size;		/* (R) Block size */
-	uint8_t		fs_fsop_size;		/* (R) FSOP identifier length */
 	void*		fs_privdata;		/* (R) Private filesystem data */
 
 	/* Inode cache */
@@ -105,7 +104,7 @@ struct VFS_FILESYSTEM_OPS {
 	 * the 'privdata' field of the inode - the function should call
 	 * vfs_make_inode() to obtain the new, locked inode.
 	 */
-	struct VFS_INODE* (*alloc_inode)(struct VFS_MOUNTED_FS* fs, const void* fsop);
+	struct VFS_INODE* (*alloc_inode)(struct VFS_MOUNTED_FS* fs, ino_t inum);
 
 	/*
 	 * Destroy a locked inode. The purpose for this function is to deinitialize
@@ -119,7 +118,7 @@ struct VFS_FILESYSTEM_OPS {
 	 * alloc_inode().  The 'fs' field of the inode is guaranteed to be
 	 * filled out.
 	 */
-	errorcode_t (*read_inode)(struct VFS_INODE* inode, void* fsop);
+	errorcode_t (*read_inode)(struct VFS_INODE* inode, ino_t num);
 
 	/*
 	 * Writes an inode back to disk; inode is locked.

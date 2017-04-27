@@ -42,8 +42,8 @@ readdir(DIR* dirp)
 		dirp->d_cur_pos += DE_LENGTH(de);
 		if (de->de_name_length == 0)
 			continue;
-		dirp->d_entry.d_ino = 0; /* XXX not supported yet */
-		strcpy(dirp->d_entry.d_name, DE_NAME(de));
+		dirp->d_entry.d_ino = de->de_inum;
+		strcpy(dirp->d_entry.d_name, de->de_name);
 		return &dirp->d_entry;
 	}
 
