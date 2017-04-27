@@ -1,27 +1,15 @@
-/*
- * Ananas inode cache
- *
- * Inode caching is done on a per-filesystem basis, and currently using a
- * simple linear list. It should be unified to a single tree for all
- * filesystems one day, but this was complicated because FSOP's were
- * variable length.
- */
 #include <ananas/types.h>
 #include <ananas/error.h>
 #include <ananas/vfs.h>
 #include <ananas/vfs/icache.h>
 #include <ananas/mm.h>
+#include <ananas/init.h>
 #include <ananas/lock.h>
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
 #include <ananas/lib.h>
 
 TRACE_SETUP;
-
-#define ICACHE_LOCK(fs) \
-	mutex_lock(&(fs)->fs_icache_lock)
-#define ICACHE_UNLOCK(fs) \
-	mutex_unlock(&(fs)->fs_icache_lock)
 
 #define INODE_ASSERT_SANE(i) \
 	KASSERT((i)->i_refcount > 0, "referencing inode with no refs");
@@ -30,10 +18,10 @@ TRACE_SETUP;
 
 #ifdef ICACHE_DEBUG
 static void
-icache_sanity_check(struct VFS_MOUNTED_FS* fs)
+icache_sanity_check()
 {
-	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
-		LIST_FOREACH(&fs->fs_icache_inuse, jj, struct ICACHE_ITEM) {
+	LIST_FOREACH(&icache_inuse, ii, struct ICACHE_ITEM) {
+		LIST_FOREACH(&icache_inuse, jj, struct ICACHE_ITEM) {
 			if (ii == jj)
 				continue;
 
@@ -44,63 +32,60 @@ icache_sanity_check(struct VFS_MOUNTED_FS* fs)
 }
 #endif
 
-void
-icache_ensure_inode_gone(struct VFS_INODE* inode)
+namespace {
+
+mutex_t icache_mtx;
+struct ICACHE_QUEUE	icache_inuse;
+struct ICACHE_QUEUE	icache_free;
+
+inline void icache_lock()
 {
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
-	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
-		KASSERT(ii->inode != inode, "removing inode %p still in cache", inode);
-	}
+	mutex_lock(&icache_mtx);
 }
 
-void
-icache_init(struct VFS_MOUNTED_FS* fs)
+inline void icache_unlock()
 {
-	mutex_init(&fs->fs_icache_lock, "icache");
-	LIST_INIT(&fs->fs_icache_inuse);
-	LIST_INIT(&fs->fs_icache_free);
+	mutex_unlock(&icache_mtx);
+}
+
+inline void icache_assert_locked()
+{
+	mutex_assert(&icache_mtx, MTX_LOCKED);
+}
+
+errorcode_t
+icache_init()
+{
+	mutex_init(&icache_mtx, "icache");
+	LIST_INIT(&icache_inuse);
+	LIST_INIT(&icache_free);
 
 	/*
 	 * Construct an empty cache; we do a single allocation and add the items one
 	 * by one to the free list.
 	 */
-	fs->fs_icache_buffer = kmalloc(ICACHE_ITEMS_PER_FS * sizeof(struct ICACHE_ITEM));
-	memset(fs->fs_icache_buffer, 0, ICACHE_ITEMS_PER_FS * sizeof(struct ICACHE_ITEM));
-	addr_t icache_ptr = (addr_t)fs->fs_icache_buffer;
-	for (int i = 0; i < ICACHE_ITEMS_PER_FS; i++) {
-		LIST_APPEND(&fs->fs_icache_free, (struct ICACHE_ITEM*)icache_ptr);
-		icache_ptr += sizeof(struct ICACHE_ITEM);
-	}
+	auto icache = static_cast<struct ICACHE_ITEM*>(kmalloc(ICACHE_ITEMS_PER_FS * sizeof(struct ICACHE_ITEM)));
+	memset(icache, 0, ICACHE_ITEMS_PER_FS * sizeof(struct ICACHE_ITEM));
+	for (int i = 0; i < ICACHE_ITEMS_PER_FS; i++, icache++)
+		LIST_APPEND(&icache_free, icache);
+
+	return ananas_success();
 }
 
+} // unnamed namespace
+
 void
-icache_dump(struct VFS_MOUNTED_FS* fs)
+icache_dump()
 {
-	kprintf("icache_dump(): fs=%p\n", fs);
+	kprintf("icache_dump()\n");
 	int n = 0;
-	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
-		kprintf("icache_entry=%p, inode=%p, inum=%lx\n", ii, ii->inum);
-		if (ii->inode != NULL)
-			vfs_dump_inode(ii->inode);
+	LIST_FOREACH(&icache_inuse, ii, struct ICACHE_ITEM) {
+		kprintf("icache_entry=%p, inode=%p, inum=%lx\n", ii, ii->ic_inum);
+		if (ii->ic_inode != NULL)
+			vfs_dump_inode(ii->ic_inode);
 		n++;
 	}               
 	kprintf("icache_dump(): %u entries\n", n);
-}
-
-void
-icache_destroy(struct VFS_MOUNTED_FS* fs)
-{	
-	panic("icache_destroy");
-#if 0
-	ICACHE_LOCK(fs);
-	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
-		if (ii->inode != NULL)
-			vfs_deref_inode(ii->inode);
-	}
-	kfree(fs->fs_icache_buffer);
-	fs->fs_icache_buffer = NULL;
-	ICACHE_UNLOCK(fs);
-#endif
 }
 
 /* Do not hold the icache lock when calling this function */
@@ -128,21 +113,21 @@ inode_deref_locked(struct VFS_INODE* inode)
 	 * well. We do this right before destroying it because we use the cache to
 	 * ensure we will never have multiple copies of the same inode.
 	 */
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	int removed = 0;
-	ICACHE_LOCK(fs);
-	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
-		if (ii->inode != inode)
+	icache_lock();
+	LIST_FOREACH(&icache_inuse, ii, struct ICACHE_ITEM) {
+		if (ii->ic_inode != inode)
 			continue;
-		LIST_REMOVE(&fs->fs_icache_inuse, ii);
-		LIST_APPEND(&fs->fs_icache_free, ii);
+		LIST_REMOVE(&icache_inuse, ii);
+		LIST_APPEND(&icache_free, ii);
 		removed++;
 		break;
 	}
-	ICACHE_UNLOCK(fs);
+	icache_unlock();
 	KASSERT(removed == 1, "inode %p not in cache?", inode);
 
 	/* Throw away the filesystem-specific inode parts, if any */
+	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	if (fs->fs_fsops->destroy_inode != NULL) {
 		fs->fs_fsops->destroy_inode(inode);
 	} else {
@@ -174,39 +159,41 @@ vfs_ref_inode(struct VFS_INODE* inode)
 
 /* Removes old entries from the cache - icache must be locked */
 static void
-icache_purge_old_entries(struct VFS_MOUNTED_FS* fs)
+icache_purge_old_entries()
 {
-	LIST_FOREACH_REVERSE_SAFE(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
+	icache_assert_locked();
+
+	LIST_FOREACH_REVERSE_SAFE(&icache_inuse, ic, struct ICACHE_ITEM) {
 		/*
 		 * Skip any pending items - we are not responsible for their cleanup (and
 		 * to do so would be to introduce a race in vfs_read_inode() !
 		 */
-		if (ii->inode == NULL)
+		if (ic->ic_inode == NULL)
 			continue;
 
 		/*
 		 * Purge the dentry for the given inode; this should free the refs up and
 		 * allow us to throw the inode away.
 		 */
-		dcache_remove_inode(ii->inode);
+		dcache_remove_inode(ic->ic_inode);
 
 		/*
 		 * Lock the item; if the refcount is one, it means the cache is the
 		 * sole owner and we can just grab the inode.
 		 */
-		INODE_LOCK(ii->inode);
-		KASSERT(ii->inode->i_refcount > 0, "cached inode %p has no refs! (refcount is %u)", ii->inode, ii->inode->i_refcount);
-		if (ii->inode->i_refcount > 1) {
+		INODE_LOCK(ic->ic_inode);
+		KASSERT(ic->ic_inode->i_refcount > 0, "cached inode %p has no refs! (refcount is %u)", ic->ic_inode, ic->ic_inode->i_refcount);
+		if (ic->ic_inode->i_refcount > 1) {
 			/* Not just in the cache, this one */
-			INODE_UNLOCK(ii->inode);
+			INODE_UNLOCK(ic->ic_inode);
 			continue;
 		}
-		TRACE(VFS, INFO, "removing only-cache item, ii=%p, inode=%p", ii, ii->inode);
+		TRACE(VFS, INFO, "removing only-cache item, ic=%p, inode=%p", ic, ic->ic_inode);
 
 		/* Remove the inode; this will be the final reference, so the cache item will be removed */
-		ICACHE_UNLOCK(fs);
-		inode_deref_locked(ii->inode);
-		ICACHE_LOCK(fs);
+		icache_unlock();
+		inode_deref_locked(ic->ic_inode);
+		icache_lock();
 	}
 }
 
@@ -219,16 +206,14 @@ icache_purge_old_entries(struct VFS_MOUNTED_FS* fs)
 static struct ICACHE_ITEM*
 icache_lookup(struct VFS_MOUNTED_FS* fs, ino_t inum)
 {
-	KASSERT(fs->fs_icache_buffer != NULL, "icache pool not initialized");
-
-	ICACHE_LOCK(fs);
+	icache_lock();
 
 	/*
 	 * XXX This is just a simple linear search which attempts to avoid
 	 * overhead by moving recent entries to the start
 	 */
-	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
-		if (ii->inum != inum)
+	LIST_FOREACH(&icache_inuse, ic, struct ICACHE_ITEM) {
+		if (ic->ic_fs != fs || ic->ic_inum != inum)
 			continue;
 
 		/*
@@ -236,10 +221,10 @@ icache_lookup(struct VFS_MOUNTED_FS* fs, ino_t inum)
 		 * is the case, our caller should sleep and wait for the other
 		 * caller to finish up.
 		 */
-		if (ii->inode == NULL) {
-			ICACHE_UNLOCK(fs);
+		if (ic->ic_inode == NULL) {
+			icache_unlock();
 			kprintf("icache_lookup(): pending item, waiting\n");
-			panic("musn't happen");
+			panic("musn't happen"); // XXX
 			return NULL;
 		}
 
@@ -252,57 +237,58 @@ icache_lookup(struct VFS_MOUNTED_FS* fs, ino_t inum)
 		 * because this creates a race: the item may be removed while we are
 		 * waiting for the inode lock.
 		 */
-		vfs_ref_inode(ii->inode);
+		vfs_ref_inode(ic->ic_inode);
 
 		/*
 		 * Push the the item to the head of the cache; we expect the caller to
 		 * free it once done, which will decrease the refcount to 1, which is OK
 		 * as only the cache owns it in such a case.
 		 */
-		LIST_REMOVE(&fs->fs_icache_inuse, ii);
-		LIST_PREPEND(&fs->fs_icache_inuse, ii);
-		ICACHE_UNLOCK(fs);
-		TRACE(VFS, INFO, "cache hit: fs=%p, inum=%lx => ii=%p, inode=%p", fs, inum, ii, ii->inode);
-		return ii;
+		LIST_REMOVE(&icache_inuse, ic);
+		LIST_PREPEND(&icache_inuse, ic);
+		icache_unlock();
+		TRACE(VFS, INFO, "cache hit: fs=%p, inum=%lx => ic=%p, inode=%p", fs, inum, ic, ic->ic_inode);
+		return ic;
 	}
 
 	/* Item was not found; try to get one from the freelist */
-	struct ICACHE_ITEM* ii = NULL;
-	while(ii == NULL) {
-		if (!LIST_EMPTY(&fs->fs_icache_free)) {
+	struct ICACHE_ITEM* ic = NULL;
+	while(ic == NULL) {
+		if (!LIST_EMPTY(&icache_free)) {
 			/* Got one! */
-			ii = LIST_HEAD(&fs->fs_icache_free);
-			LIST_POP_HEAD(&fs->fs_icache_free);
+			ic = LIST_HEAD(&icache_free);
+			LIST_POP_HEAD(&icache_free);
 		} else {
 			/* Freelist is empty; we need to sacrifice an item from the cache */
-			icache_purge_old_entries(fs);
+			icache_purge_old_entries();
 			/*
 			 * XXX next condition is too harsh - we should wait until we have an
 			 *     available inode here...
 			 */
-			KASSERT(!LIST_EMPTY(&fs->fs_icache_free), "icache still full after purge??");
+			KASSERT(!LIST_EMPTY(&icache_free), "icache still full after purge??");
 		}
 	}
 
 	/* Initialize the item and place it at the head; it's most recently used after all */
-	TRACE(VFS, INFO, "cache miss: fs=%p, inum=%lx => ii=%p", fs, inum, ii);
-	ii->inode = NULL;
-	ii->inum = inum;
-	LIST_PREPEND(&fs->fs_icache_inuse, ii);
-	ICACHE_UNLOCK(fs);
-	return ii;
+	TRACE(VFS, INFO, "cache miss: fs=%p, inum=%lx => ic=%p", fs, inum, ic);
+	ic->ic_fs = fs;
+	ic->ic_inode = NULL;
+	ic->ic_inum = inum;
+	LIST_PREPEND(&icache_inuse, ic);
+	icache_unlock();
+	return ic;
 }
 
 static void
-icache_remove_pending(struct VFS_MOUNTED_FS* fs, struct ICACHE_ITEM* ii)
+icache_remove_pending(struct ICACHE_ITEM* ic)
 {
 	panic("musn't happen");
-	KASSERT(ii->inode == NULL, "removing an item that is not pending");
+	KASSERT(ic->ic_inode == NULL, "removing an item that is not pending");
 
-	ICACHE_LOCK(fs);
-	LIST_REMOVE(&fs->fs_icache_inuse, ii);
-	LIST_APPEND(&fs->fs_icache_free, ii);
-	ICACHE_UNLOCK(fs);
+	icache_lock();
+	LIST_REMOVE(&icache_inuse, ic);
+	LIST_APPEND(&icache_free, ic);
+	icache_unlock();
 }
 
 static struct VFS_INODE*
@@ -325,7 +311,7 @@ vfs_alloc_inode(struct VFS_MOUNTED_FS* fs, ino_t inum)
 errorcode_t
 vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, struct VFS_INODE** destinode)
 {
-	struct ICACHE_ITEM* ii = NULL;
+	struct ICACHE_ITEM* ic = NULL;
 
 	TRACE(VFS, FUNC, "fs=%p, inum=%lx", fs, inum);
 
@@ -335,18 +321,18 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, struct VFS_INODE** destinod
 	 * exist a single time.
 	 */
 	while(1) {
-		ii = icache_lookup(fs, inum);
-		if (ii != NULL)
+		ic = icache_lookup(fs, inum);
+		if (ic != NULL)
 			break;
 		TRACE(VFS, WARN, "inode is already pending, waiting...");
 		/* XXX There should be a wakeup signal of some kind */
 		reschedule();
 	}
 
-	if (ii->inode != NULL) {
+	if (ic->ic_inode != NULL) {
 		/* Already have the inode cached -> return it (refcount will already be incremented) */
-		*destinode = ii->inode;
-		TRACE(VFS, INFO, "cache hit: fs=%p, inum=%lx => ii=%p,inode=%p", fs, inum, ii, ii->inode);
+		*destinode = ic->ic_inode;
+		TRACE(VFS, INFO, "cache hit: fs=%p, inum=%lx => ic=%p,inode=%p", fs, inum, ic, ic->ic_inode);
 		return ananas_success();
 	}
 
@@ -357,7 +343,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, struct VFS_INODE** destinod
 	 */
 	struct VFS_INODE* inode = vfs_alloc_inode(fs, inum);
 	if (inode == NULL) {
-		icache_remove_pending(fs, ii);
+		icache_remove_pending(ic);
 		return ANANAS_ERROR(OUT_OF_HANDLES);
 	}
 
@@ -373,12 +359,12 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, struct VFS_INODE** destinod
 	 */
 	KASSERT(inode != NULL, "wtf");
 	vfs_ref_inode(inode);
-	ii->inode = inode;
-	KASSERT(ii->inode->i_refcount == 2, "fresh inode refcount incorrect");
+	ic->ic_inode = inode;
+	KASSERT(ic->ic_inode->i_refcount == 2, "fresh inode refcount incorrect");
 #ifdef ICACHE_DEBUG
-	icache_sanity_check(fs);
+	icache_sanity_check();
 #endif
-	TRACE(VFS, INFO, "cache miss: fs=%p, inum=%lx => ii=%p,inode=%p", fs, inum, ii, inode);
+	TRACE(VFS, INFO, "cache miss: fs=%p, inum=%lx => ic=%p,inode=%p", fs, inum, ic, inode);
 	*destinode = inode;
 	return ananas_success();
 }
@@ -421,5 +407,7 @@ vfs_destroy_inode(struct VFS_INODE* inode)
 	kfree(inode);
 	TRACE(VFS, INFO, "destroyed inode=%p", inode);
 }
+
+INIT_FUNCTION(icache_init, SUBSYSTEM_VFS, ORDER_FIRST);
 
 /* vim:set ts=2 sw=2: */

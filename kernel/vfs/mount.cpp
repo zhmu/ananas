@@ -82,7 +82,6 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	struct VFS_INODE* root_inode = NULL;
 	err = fs->fs_fsops->mount(fs, &root_inode);
 	if (ananas_is_failure(err)) {
-		icache_destroy(fs);
 		memset(fs, 0, sizeof(*fs));
 		return err;
 	}
@@ -198,10 +197,10 @@ KDB_COMMAND(mounts, NULL, "Shows current mounts")
 		if ((fs->fs_flags & VFS_FLAG_INUSE) == 0)
 			continue;
 		kprintf(">> vfs=%p, flags=0x%x, mountpoint='%s'\n", fs, fs->fs_flags, fs->fs_mountpoint);
-		icache_dump(fs);
 	}
 	spinlock_unlock(&spl_mountedfs);
 
+	icache_dump();
 	dcache_dump();
 }
 #endif /* KDB */

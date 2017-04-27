@@ -9,16 +9,15 @@ struct VFS_MOUNTED_FS;
 #define ICACHE_ITEMS_PER_FS	32
 
 struct ICACHE_ITEM {
-	struct VFS_INODE* inode;		/* Backing inode, or NULL */
 	LIST_FIELDS(struct ICACHE_ITEM);
-	ino_t inum;
+	struct VFS_MOUNTED_FS* ic_fs;
+	struct VFS_INODE* ic_inode;		/* Backing inode, or NULL */
+	ino_t ic_inum;
 };
 
 LIST_DEFINE(ICACHE_QUEUE, struct ICACHE_ITEM);
 
-void icache_init(struct VFS_MOUNTED_FS* fs);
-void icache_dump(struct VFS_MOUNTED_FS* fs);
-void icache_destroy(struct VFS_MOUNTED_FS* fs);
+void icache_dump();
 void icache_remove_inode(struct VFS_INODE* inode);
 /*
  * Removes an inode reference; cleans up the inode if the refcount is zero.

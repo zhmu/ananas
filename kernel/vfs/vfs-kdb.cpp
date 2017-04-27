@@ -8,56 +8,12 @@
 #include <ananas/thread.h>
 #include <ananas/lib.h>
 
-extern struct THREAD* threads;
-
 /*
  * This function is more of a sanity check; it does not lock anything to
  * prevent deadlocks.
  */
 KDB_COMMAND(inodes, NULL, "Inode status")
 {
-	struct VFS_MOUNTED_FS* fs = vfs_get_rootfs(); /* XXX only root for now */
-
-	LIST_FOREACH(&fs->fs_icache_inuse, ii, struct ICACHE_ITEM) {
-		kprintf("inode=%p, inum=%lx", ii->inode, ii->inum);
-		if (ii->inode == NULL) {
-			kprintf(", nil\n");
-			continue;
-		}
-	//	if (ii->inode == fs->fs_root_inode) expected_refs++; /* root inode */
-		kprintf(", refcount=%u", ii->inode->i_refcount);
-		const char* dentry_name = "?";
-#if 0
-		LIST_FOREACH(&fs->fs_dcache_inuse, d, struct DENTRY) {
-			if (d->d_inode != ii->inode && d->d_parent->d_inode != ii->inode)
-				continue;
-			if (d->d_inode == ii->inode) {
-				dentry_name = d->d_entry;
-				expected_refs++; /* dentry entry ref */
-			}
-			if (d->d_parent->d_inode == ii->inode) {
-				expected_refs++; /* dentry dir ref */
-			}
-		}
-#endif
-		kprintf(", dentry='%s'\n", dentry_name);
-
-#ifdef NOTYET
-		/* Now scour the handles for references to this inode */
-		for (struct THREAD* t = threads; t != NULL; t = t->next) {
-			LIST_FOREACH_SAFE(&t->handles, handle, struct HANDLE) {
-				if (handle->type != HANDLE_TYPE_FILE)
-					continue;
-				if (handle->data.vfs_file.f_inode == ii->inode)
-					expected_refs++; /* handle ref */
-			}
-		}
-
-		if (expected_refs != ii->inode->i_refcount)
-			kprintf("WARNING: has %u refs, expected %u!!!\n",
-			 ii->inode->i_refcount, expected_refs);
-#endif
-	}		
 }
 
 /* vim:set ts=2 sw=2: */

@@ -72,12 +72,6 @@ struct VFS_MOUNTED_FS {
 	uint32_t	fs_block_size;		/* (R) Block size */
 	void*		fs_privdata;		/* (R) Private filesystem data */
 
-	/* Inode cache */
-	mutex_t			fs_icache_lock;		/* Protects fields marked with (I) */
-	struct ICACHE_QUEUE	fs_icache_inuse;	/* (I) Currently used inodes */
-	struct ICACHE_QUEUE	fs_icache_free;		/* (I) Available inode list */
-	void*			fs_icache_buffer;	/* (I) Inode cache buffer, for cleanup */
-
 	struct VFS_FILESYSTEM_OPS* fs_fsops;		/* (R) Filesystem operations */
 	struct DENTRY* fs_root_dentry;			/* (R) Filesystem's root dentry */
 };
