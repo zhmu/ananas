@@ -14,9 +14,9 @@
 #include "inode.h"
 
 struct VFS_INODE*
-fat_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
+fat_alloc_inode(struct VFS_MOUNTED_FS* fs, ino_t inum)
 {
-	struct VFS_INODE* inode = vfs_make_inode(fs, fsop);
+	struct VFS_INODE* inode = vfs_make_inode(fs, inum);
 	if (inode == NULL)
 		return NULL;
 	inode->i_privdata = new FAT_INODE_PRIVDATA;
@@ -41,13 +41,13 @@ fat_destroy_inode(struct VFS_INODE* inode)
 }
 
 static void
-fat_fill_inode(struct VFS_INODE* inode, void* fsop, struct FAT_ENTRY* fentry)
+fat_fill_inode(struct VFS_INODE* inode, ino_t inum, struct FAT_ENTRY* fentry)
 {
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	auto privdata = static_cast<struct FAT_INODE_PRIVDATA*>(inode->i_privdata);
 	auto fs_privdata = static_cast<struct FAT_FS_PRIVDATA*>(fs->fs_privdata);
 
-	inode->i_sb.st_ino = (*(uint64_t*)fsop) & 0xffffffff; /* XXX */
+	inode->i_sb.st_ino = inum;
 	inode->i_sb.st_mode = 0755;
 	inode->i_sb.st_nlink = 1;
 	inode->i_sb.st_uid = 0;
@@ -84,7 +84,7 @@ fat_fill_inode(struct VFS_INODE* inode, void* fsop, struct FAT_ENTRY* fentry)
 }
 
 errorcode_t
-fat_read_inode(struct VFS_INODE* inode, void* fsop)
+fat_read_inode(struct VFS_INODE* inode, ino_t inum)
 {
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	auto privdata = static_cast<struct FAT_INODE_PRIVDATA*>(inode->i_privdata);
@@ -93,25 +93,25 @@ fat_read_inode(struct VFS_INODE* inode, void* fsop)
 	 * FAT doesn't really have a root inode, so we just fake one. The root_inode
 	 * flag makes the read/write functions do the right thing.
 	 */
-	if (*(uint64_t*)fsop == FAT_ROOTINODE_FSOP) {
+	if (inum == FAT_ROOTINODE_INUM) {
 		privdata->root_inode = 1;
-		fat_fill_inode(inode, fsop, NULL);
+		fat_fill_inode(inode, inum, NULL);
 		return ananas_success();
 	}
 
 	/*
-	 * For ordinary inodes, the fsop is just the block with the 16-bit offset
+	 * For ordinary inodes, the inum is just the block with the 16-bit offset
 	 * within that block.
 	 */
-	uint32_t block  = (*(uint64_t*)fsop) >> 16;
-	uint32_t offset = (*(uint64_t*)fsop) & 0xffff;
-	KASSERT(offset <= fs->fs_block_size - sizeof(struct FAT_ENTRY), "fsop inode offset %u out of range", offset);
+	uint32_t block  = inum >> 16;
+	uint32_t offset = inum & 0xffff;
+	KASSERT(offset <= fs->fs_block_size - sizeof(struct FAT_ENTRY), "inode offset %u out of range", offset);
 	struct BIO* bio;
 	errorcode_t err = vfs_bread(fs, block, &bio);
 	ANANAS_ERROR_RETURN(err);
 	/* Fill out the inode details */
 	auto fentry = reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + offset);
-	fat_fill_inode(inode, fsop, fentry);
+	fat_fill_inode(inode, inum, fentry);
 	bio_free(bio);
 	return ananas_success();
 }
@@ -122,14 +122,13 @@ fat_write_inode(struct VFS_INODE* inode)
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 	auto fs_privdata = static_cast<struct FAT_FS_PRIVDATA*>(fs->fs_privdata);
 	auto privdata = static_cast<struct FAT_INODE_PRIVDATA*>(inode->i_privdata);
-	void* fsop_ptr = (void*)&inode->i_fsop[0]; /* XXX kludge to avoid gcc warning */
-	uint64_t fsop = *(uint64_t*)fsop_ptr;
-	KASSERT(fsop != FAT_ROOTINODE_FSOP, "writing the root inode");
+	ino_t inum = inode->i_inum;
+	KASSERT(inum != FAT_ROOTINODE_INUM, "writing the root inode");
 
 	/* Grab the current inode data block */
-	uint32_t block  = fsop >> 16;
-	uint32_t offset = fsop & 0xffff;
-	KASSERT(offset <= fs->fs_block_size - sizeof(struct FAT_ENTRY), "fsop inode offset %u out of range", offset);
+	uint32_t block  = inum >> 16;
+	uint32_t offset = inum & 0xffff;
+	KASSERT(offset <= fs->fs_block_size - sizeof(struct FAT_ENTRY), "inode offset %u out of range", offset);
 	struct BIO* bio;
 	errorcode_t err = vfs_bread(fs, block, &bio);
 	ANANAS_ERROR_RETURN(err);

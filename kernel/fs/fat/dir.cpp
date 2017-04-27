@@ -152,8 +152,8 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			continue;
 
 		/* And hand it to the fill function */
-		uint64_t fsop = cur_block << 16 | cur_offs;
-		int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, fs->fs_fsop_size, cur_filename, strlen(cur_filename));
+		ino_t inum = cur_block << 16 | cur_offs;
+		int filled = vfs_filldirent(&dirents, &left, inum, cur_filename, strlen(cur_filename));
 		if (!filled) {
 			/*
 			 * Out of space - we need to restore the offset of the LFN chain. This must
@@ -220,7 +220,7 @@ fat_sanitize_83_name(const char* fname, char* shortname)
  * uint16_t!) - so relying on large FAT directories would be most unwise anyway.
  */
 static errorcode_t
-fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_ENTRY* fentry, void* fsop)
+fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_ENTRY* fentry, ino_t* inum)
 {
 	struct VFS_MOUNTED_FS* fs = dir->i_fs;
 	struct BIO* bio = NULL;
@@ -340,8 +340,8 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 		if (cur_entry_idx == chain_needed - 1) {
 			/* Final FAT entry; this contains the shortname */
 			memcpy(nentry, fentry, sizeof(*nentry));
-			/* fsop is the pointer to this entry */
-			*(uint64_t*)fsop = cur_block << 16 | cur_offs;
+			/* inum is the pointer to this entry */
+			*(ino_t*)inum = cur_block << 16 | cur_offs;
 		} else {
 			/* LFN entry */
 			struct FAT_ENTRY_LFN* lfn = (struct FAT_ENTRY_LFN*)nentry;
@@ -477,13 +477,13 @@ fat_create(struct VFS_INODE* dir, struct DENTRY* de, int mode)
 	fentry.fe_attributes = FAT_ATTRIBUTE_ARCHIVE; /* XXX must be specifiable */
 
 	/* Hook the new file to the directory */
-	uint64_t fsop;
-	errorcode_t err = fat_add_directory_entry(dir, de->d_entry, &fentry, (void*)&fsop);
+	ino_t inum;
+	errorcode_t err = fat_add_directory_entry(dir, de->d_entry, &fentry, &inum);
 	ANANAS_ERROR_RETURN(err);
 
 	/* And obtain it */
 	struct VFS_INODE* inode;
-	err = vfs_get_inode(dir->i_fs, &fsop, &inode);
+	err = vfs_get_inode(dir->i_fs, inum, &inode);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Almost done - hook it to the dentry */
@@ -521,7 +521,7 @@ fat_rename(struct VFS_INODE* old_dir, struct DENTRY* old_dentry, struct VFS_INOD
 	KASSERT(!S_ISDIR(old_dentry->d_inode->i_sb.st_mode), "FIXME directory");
 
 	/*
-	 * Due to the way we use FSOP's (it is the location within the directory), we
+	 * Due to the way we use inum's (it is the location within the directory), we
 	 * need to alter the inode itself to refer to the new location - to do this,
 	 * we'll create a blank item in the new directory and copy the relevant
 	 * inode fields over .
@@ -532,13 +532,13 @@ fat_rename(struct VFS_INODE* old_dir, struct DENTRY* old_dentry, struct VFS_INOD
 	memset(&fentry, 0, sizeof(fentry));
 	fentry.fe_attributes = FAT_ATTRIBUTE_ARCHIVE; /* XXX we should copy the old entry */
 
-	uint64_t new_fsop;
-	errorcode_t err = fat_add_directory_entry(new_dir, new_dentry->d_entry, &fentry, (void*)&new_fsop);
+	ino_t inum;
+	errorcode_t err = fat_add_directory_entry(new_dir, new_dentry->d_entry, &fentry, &inum);
 	ANANAS_ERROR_RETURN(err);
 
 	/* And fetch the new inode */
 	struct VFS_INODE* inode;
-	err = vfs_get_inode(new_dir->i_fs, &new_fsop, &inode);
+	err = vfs_get_inode(new_dir->i_fs, inum, &inode);
 	if (ananas_is_failure(err)) {
 		fat_remove_directory_entry(new_dir, new_dentry->d_entry); /* XXX hope this works! */
 		return err;

@@ -130,7 +130,6 @@ fat_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 
 	/* Everything is in order - fill out our filesystem details */
 	fs->fs_block_size = privdata->sector_size;
-	fs->fs_fsop_size = sizeof(uint64_t);
 
 	/* If we are using FAT32, there should be an 'info sector' with some (cached) information */
 	privdata->num_avail_clusters = (uint32_t)-1;
@@ -163,10 +162,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 	/* Initialize the inode cache right before reading the root directory inode */
 	icache_init(fs);
 
-	/* Grab the root directory inode */
-	uint64_t root_fsop = FAT_ROOTINODE_FSOP;
-	//*root_inode = fat_alloc_inode(fs, (const void*)&root_fsop);
-	err = vfs_get_inode(fs, &root_fsop, root_inode);
+	err = vfs_get_inode(fs, FAT_ROOTINODE_INUM, root_inode);
 	if (ananas_is_failure(err)) {
 		kfree(privdata);
 		return err;

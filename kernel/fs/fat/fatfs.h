@@ -8,7 +8,7 @@
  * special, fixed place and has a limited number of entries. FAT32
  * just uses a normal cluster as FAT16 do for subdirectories.
  */
-#define FAT_ROOTINODE_FSOP 0xfffffffe
+#define FAT_ROOTINODE_INUM 0xfffffffe
 
 #define FAT_FROM_LE16(x) \
 	(((uint8_t*)(x))[0] | (((uint8_t*)(x))[1] << 8))

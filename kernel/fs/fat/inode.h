@@ -6,9 +6,9 @@
 struct VFS_INODE;
 struct DENTRY_CACHE_ITEM;
 
-struct VFS_INODE* fat_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop);
+struct VFS_INODE* fat_alloc_inode(struct VFS_MOUNTED_FS* fs, ino_t inum);
 void fat_destroy_inode(struct VFS_INODE* inode);
-errorcode_t fat_read_inode(struct VFS_INODE* inode, void* fsop);
+errorcode_t fat_read_inode(struct VFS_INODE* inode, ino_t inum);
 errorcode_t fat_write_inode(struct VFS_INODE* inode);
 
 extern struct VFS_INODE_OPS fat_inode_ops;
