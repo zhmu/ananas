@@ -116,8 +116,6 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 			vfs_deref_inode(dentry_root->d_inode);
 		vfs_ref_inode(root_inode);
 		dentry_root->d_inode = root_inode;
-		/* Ensure our entry will never be purged from the cache */
-		dentry_root->d_flags |= DENTRY_FLAG_PERMANENT;
 	}
 	
 	return ananas_success();
@@ -201,7 +199,6 @@ KDB_COMMAND(mounts, NULL, "Shows current mounts")
 	spinlock_unlock(&spl_mountedfs);
 
 	icache_dump();
-	dcache_dump();
 }
 #endif /* KDB */
 

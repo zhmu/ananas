@@ -395,10 +395,10 @@ vfs_unlink(struct VFS_FILE* file)
 	ANANAS_ERROR_RETURN(err);
 
 	/*
-	 * Purge the dentry from the cache; the unlink operation should have removed
-	 * it from storage, but we need to make sure it cannot be found anymore.
+	 * Inform the dentry cache; the unlink operation should have removed it
+	 * from storage, but we need to make sure it cannot be found anymore.
 	 */
-	dcache_purge_entry(file->f_dentry);
+	dentry_unlink(file->f_dentry);
 	return err;
 }
 

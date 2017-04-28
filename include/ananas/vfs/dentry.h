@@ -18,8 +18,7 @@ struct DENTRY {
 	struct VFS_INODE* d_inode;		/* Backing entry inode, or NULL */
 	uint32_t d_flags;			/* Item flags */
 #define DENTRY_FLAG_NEGATIVE	0x0001		/* Negative entry; does not exist */
-#define DENTRY_FLAG_PERMANENT	0x0002		/* Entry must not be removed */
-#define DENTRY_FLAG_CACHED	0x0004		/* Entry is in the cache */
+#define DENTRY_FLAG_ROOT			0x0002		/* Root dentry; must not be removed */
 	char	d_entry[DCACHE_MAX_NAME_LEN];	/* Entry name */
 	LIST_FIELDS(struct DENTRY);
 };
@@ -39,7 +38,7 @@ void dentry_ref(struct DENTRY* d);
 /* Removes a reference from d; cleans up the item when out of references */
 void dentry_deref(struct DENTRY* d);
 
-/* Purges an entry from the cache; this may clean up the item when out of references */
-void dcache_purge_entry(struct DENTRY* d);
+/* Purges an entry from the cache; used when the dentry name is unlinked from the filesystem */
+void dentry_unlink(struct DENTRY* de);
 
 #endif /*  __ANANAS_DENTRY_H__ */
