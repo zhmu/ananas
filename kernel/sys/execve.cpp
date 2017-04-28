@@ -70,13 +70,17 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	vmspace_t* vmspace = NULL;
 	if (argv != NULL) {
 		err = set_proc_attribute(proc, A_Args, argv);
-		if (ananas_is_failure(err))
+		if (ananas_is_failure(err)) {
+			dentry_deref(dentry);
 			goto fail;
+		}
 	}
 	if (envp != NULL) {
 		err = set_proc_attribute(proc, A_Env, envp);
-		if (ananas_is_failure(err))
+		if (ananas_is_failure(err)) {
+			dentry_deref(dentry);
 			goto fail;
+		}
 	}
 
 	/*
@@ -84,15 +88,19 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	 * override our current vmspace.
 	 */
 	err = vmspace_create(&vmspace);
-	if (ananas_is_failure(err))
+	if (ananas_is_failure(err)) {
+		dentry_deref(dentry);
 		goto fail;
+	}
 
 	/*
 	 * Attempt to load the executable; if this fails, we won't have destroyed
-	 * anything we cannot free.
+	 * anything we cannot free. Note that we can free our dentry ref because
+	 * exec_load() manages that all by itself.
 	 */
 	addr_t exec_addr;
 	err = exec_load(vmspace, dentry, &exec_addr);
+	dentry_deref(dentry);
 	if (ananas_is_failure(err))
 		goto fail;
 
@@ -113,7 +121,6 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	return ananas_success();
 
 fail:
-	dentry_deref(dentry);
 	if (vmspace != NULL)
 		vmspace_destroy(vmspace);
 	return err;

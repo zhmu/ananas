@@ -19,6 +19,10 @@ exec_init()
 errorcode_t
 exec_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 {
+	// Start by taking an extra ref to the dentry; this is the ref which we'll hand over
+	// to the handler, if all goes well
+	dentry_ref(dentry);
+
 	LIST_FOREACH(&exec_formats, ef, struct EXEC_FORMAT) {
 		/* See if we can execute this... */
 		errorcode_t err = ef->ef_handler(vs, dentry, exec_addr);
@@ -30,7 +34,8 @@ exec_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 		return ananas_success();
 	}
 
-	/* Nothing worked... */
+	/* Nothing worked... return our ref */
+	dentry_deref(dentry);
 	return ANANAS_ERROR(BAD_EXEC);
 }
 
