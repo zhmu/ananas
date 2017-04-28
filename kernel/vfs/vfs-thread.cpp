@@ -55,6 +55,20 @@ vfs_init_process(process_t* proc)
 	return ananas_success();
 }
 
+static errorcode_t
+vfs_exit_process(process_t* proc)
+{
+	TRACE(THREAD, INFO, "proc=%p", proc);
+
+	if (proc->p_cwd != nullptr) {
+		dentry_deref(proc->p_cwd);
+		proc->p_cwd = nullptr;
+	}
+
+	return ananas_success();
+}
+
 REGISTER_PROCESS_INIT_FUNC(vfs_init_process);
+REGISTER_PROCESS_EXIT_FUNC(vfs_exit_process);
 
 /* vim:set ts=2 sw=2: */
