@@ -3,8 +3,6 @@
 
 #include <ananas/list.h>
 
-struct KERNEL_MODULE;
-
 typedef errorcode_t (*init_func_t)();
 typedef errorcode_t (*exit_func_t)();
 
@@ -43,16 +41,6 @@ struct INIT_FUNC {
 	enum INIT_ORDER		if_order;
 };
 
-/*
- * Dynamic init functions; these are used from modules.
- */
-struct INIT_DYNAMIC_FUNC {
-	struct INIT_FUNC*	idf_ifunc;
-	struct KERNEL_MODULE*	idf_kmod;
-	LIST_FIELDS(struct INIT_DYNAMIC_FUNC);
-};
-LIST_DEFINE(INIT_FUNC_DYNAMICS, struct INIT_DYNAMIC_FUNC);
-
 struct EXIT_FUNC {
 	exit_func_t	ef_func;
 };
@@ -81,7 +69,5 @@ struct EXIT_FUNC {
 	extern "C" const void * const __ef_include_##fn __attribute__((section("exitfuncs")))  __attribute__((unused)) = &ef_##fn
 
 void mi_startup();
-void init_register_func(struct KERNEL_MODULE* kmod, struct INIT_FUNC* ifunc);
-void init_unregister_module(struct KERNEL_MODULE* kmod);
 
 #endif /* __INIT_H__ */

@@ -17,54 +17,19 @@
 extern void* __initfuncs_begin;
 extern void* __initfuncs_end;
 
-static struct INIT_FUNC_DYNAMICS initfunc_dynamics;
-static int initfunc_dynamics_amount = 0;
-
-void
-init_register_func(struct KERNEL_MODULE* kmod, struct INIT_FUNC* ifunc)
-{
-	auto idfunc = new INIT_DYNAMIC_FUNC;
-	idfunc->idf_kmod = kmod;
-	idfunc->idf_ifunc = ifunc;
-	/* No lock necessary as we're behind the module lock either way */
-	LIST_APPEND(&initfunc_dynamics, idfunc);
-	initfunc_dynamics_amount++;
-#ifdef VERBOSE_INIT	
-	kprintf("init_register_func(): kmod=%p ifunc=%p\n", kmod, ifunc->if_func);
-#endif
-}
-
-void
-init_unregister_module(struct KERNEL_MODULE* kmod)
-{
-	/* No lock necessary as we're behind the module lock either way */
-	LIST_FOREACH_SAFE(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
-		if (idf->idf_kmod != kmod)
-			continue;
-		LIST_REMOVE(&initfunc_dynamics, idf);
-		kfree(idf);
-	}
-}
-
 static void
-run_init(enum INIT_SUBSYSTEM first_subsystem, enum INIT_SUBSYSTEM last_subsystem)
+run_init()
 {
 	/*
 	 * Create a shadow copy of the init function chain; this is done so that we
 	 * can sort it.
 	 */
 	size_t init_static_func_len  = (addr_t)&__initfuncs_end - (addr_t)&__initfuncs_begin;
-	kprintf("init_static_func_len = %d\n", init_static_func_len);
-	struct INIT_FUNC** ifn_chain = static_cast<struct INIT_FUNC**>(kmalloc(init_static_func_len + initfunc_dynamics_amount * sizeof(struct INIT_FUNC*)));
+	struct INIT_FUNC** ifn_chain = static_cast<struct INIT_FUNC**>(kmalloc(init_static_func_len));
 	memcpy(ifn_chain, (void*)&__initfuncs_begin, init_static_func_len);
-	int n = init_static_func_len / sizeof(struct INIT_FUNC*);
-	if (n > 0)
-		LIST_FOREACH(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
-			ifn_chain[n++] = idf->idf_ifunc;
-		}
 	
 	/* Sort the init functions chain; we use a simple bubble sort to do so */
-	int num_init_funcs = init_static_func_len / sizeof(struct INIT_FUNC*) + initfunc_dynamics_amount;
+	int num_init_funcs = init_static_func_len / sizeof(struct INIT_FUNC*);
 	for (int i = 0; i < num_init_funcs; i++)
 		for (int j = num_init_funcs - 1; j > i; j--) {
 			struct INIT_FUNC* a = ifn_chain[j];
@@ -83,35 +48,19 @@ run_init(enum INIT_SUBSYSTEM first_subsystem, enum INIT_SUBSYSTEM last_subsystem
 	kprintf("Init tree\n");
 	struct INIT_FUNC** c = (struct INIT_FUNC**)ifn_chain;
 	for (int n = 0; n < num_init_funcs; n++, c++) {
-		kprintf("initfunc %u -> %p (subsys %x, order %x)", n,
+		kprintf("initfunc %u -> %p (subsys %x, order %x)\n", n,
 		 (*c)->if_func, (*c)->if_subsystem, (*c)->if_order);
-		if ((*c)->if_subsystem < first_subsystem)
-			kprintf(" [skip]");
-		else if ((*c)->if_subsystem > last_subsystem)
-			kprintf(" [ignore]");
-		kprintf("\n");
 	}
 #endif
 	
 	/* Execute all init functions in order except the final one */
 	struct INIT_FUNC** ifn = (struct INIT_FUNC**)ifn_chain;
-	for (int i = 0; i < num_init_funcs - 1; i++, ifn++) {
-		if ((*ifn)->if_subsystem < first_subsystem)
-			continue;
-		if ((*ifn)->if_subsystem > last_subsystem)
-			break;
+	for (int i = 0; i < num_init_funcs - 1; i++, ifn++)
 		(*ifn)->if_func();
-	}
 
 	/* Throw away the init function chain; it served its purpose */
 	struct INIT_FUNC* ifunc = *ifn;
 	kfree(ifn_chain);
-
-	/* Only throw away the dynamic chain if this is our final init run */
-	if (last_subsystem == SUBSYSTEM_LAST)
-		LIST_FOREACH_SAFE(&initfunc_dynamics, idf, struct INIT_DYNAMIC_FUNC) {
-			kfree(idf);
-		}
 
 	/* Call the final init function; it shouldn't return */
 	ifunc->if_func();
@@ -138,13 +87,7 @@ INIT_FUNCTION(hello_world, SUBSYSTEM_CONSOLE, ORDER_LAST);
 static void
 init_thread_func(void* done)
 {
-	/*
-	 * We need to run the init tree in two steps: up to the module part, and everything
-	 * after it; this is done so that modules can dynamically register functions as
-	 * well.
-	 */
-	run_init(SUBSYSTEM_MODULE, static_cast<INIT_SUBSYSTEM>(SUBSYSTEM_MODULE + 1));
-	run_init(static_cast<INIT_SUBSYSTEM>(SUBSYSTEM_MODULE + 1), SUBSYSTEM_LAST);
+	run_init();
 
 	/* All done - signal and exit - the reaper will clean up this thread */
 	*(volatile int*)done = 1;
@@ -155,8 +98,6 @@ init_thread_func(void* done)
 void
 mi_startup()
 {
-	LIST_INIT(&initfunc_dynamics);
-
 	/*
 	 * Create a thread to handle the init functions; this will allow us to
 	 * sleep whenever we want, as there is always the idle thread to pick up the
