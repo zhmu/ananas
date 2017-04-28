@@ -3,11 +3,13 @@
 #include <ananas/vfs.h>
 #include <ananas/vfs/icache.h>
 #include <ananas/mm.h>
+#include <ananas/kdb.h>
 #include <ananas/init.h>
 #include <ananas/lock.h>
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
 #include <ananas/lib.h>
+#include "options.h"
 
 TRACE_SETUP;
 
@@ -77,15 +79,6 @@ icache_init()
 void
 icache_dump()
 {
-	kprintf("icache_dump()\n");
-	int n = 0;
-	LIST_FOREACH(&icache_inuse, ii, struct ICACHE_ITEM) {
-		kprintf("icache_entry=%p, inode=%p, inum=%lx\n", ii, ii->ic_inum);
-		if (ii->ic_inode != NULL)
-			vfs_dump_inode(ii->ic_inode);
-		n++;
-	}               
-	kprintf("icache_dump(): %u entries\n", n);
 }
 
 /* Do not hold the icache lock when calling this function */
@@ -407,6 +400,20 @@ vfs_destroy_inode(struct VFS_INODE* inode)
 	kfree(inode);
 	TRACE(VFS, INFO, "destroyed inode=%p", inode);
 }
+
+#ifdef OPTION_KDB
+KDB_COMMAND(icache, NULL, "Show inode cache")
+{
+	int n = 0;
+	LIST_FOREACH(&icache_inuse, ii, struct ICACHE_ITEM) {
+		kprintf("icache_entry=%p, inode=%p, inum=%lx\n", ii, ii->ic_inum);
+		if (ii->ic_inode != NULL)
+			vfs_dump_inode(ii->ic_inode);
+		n++;
+	}               
+	kprintf("Inode cache contains %u entries\n", n);
+}
+#endif
 
 INIT_FUNCTION(icache_init, SUBSYSTEM_VFS, ORDER_FIRST);
 

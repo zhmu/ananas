@@ -64,8 +64,6 @@ vfs/mount.cpp		option VFS
 vfs/standard.cpp	option VFS
 vfs/vfs-handle.cpp	option VFS
 vfs/vfs-thread.cpp	option VFS
-# XXX VFS KDB not; we can't do && on options yet
-vfs/vfs-kdb.cpp		option KDB
 # vm layer
 vm/vmspace.cpp		mandatory
 # libkern library
