@@ -74,67 +74,84 @@ icache_init()
 	return ananas_success();
 }
 
-} // unnamed namespace
-
 void
-icache_dump()
+icache_purge_old_entries()
 {
+	icache_assert_locked();
+
+	LIST_FOREACH_REVERSE_SAFE(&icache_inuse, ic, struct ICACHE_ITEM) {
+		/*
+		 * Skip any pending items (we are not responsible for their cleanup (and
+		 * to do so would be to introduce a race in vfs_read_inode()) and anything
+		 * that still has references.
+		 */
+		struct VFS_INODE* inode = ic->ic_inode;
+		if (inode == NULL || inode->i_refcount > 0)
+			continue;
+
+		/*
+		 * Purge the dentry for the given inode; this should free the refs up and
+		 * allow us to throw the inode away.
+		 */
+		dcache_remove_inode(inode);
+
+		// Throw the actual inode away
+		INODE_LOCK(inode);
+		struct VFS_MOUNTED_FS* fs = inode->i_fs;
+		if (fs->fs_fsops->destroy_inode != NULL) {
+			fs->fs_fsops->destroy_inode(inode);
+		} else {
+			vfs_destroy_inode(inode);
+		}
+		// No need to INODE_UNLOCK() as the inode is destroyed now
+
+		// Add the entry back to the freelist
+		LIST_REMOVE(&icache_inuse, ic);
+		LIST_APPEND(&icache_free, ic);
+	}
 }
 
-/* Do not hold the icache lock when calling this function */
-static void
-inode_deref_locked(struct VFS_INODE* inode)
+struct ICACHE_ITEM*
+icache_find_item_to_use()
 {
-	TRACE(VFS, FUNC, "inode=%p,cur refcount=%u", inode, inode->i_refcount);
-	if (--inode->i_refcount > 0) {
-		/*
-		 * Refcount isn't zero - this means we shouldn't throw the item away. However,
-		 * if the inode has no more references _and_ only the cache owns it at this
-		 * point, we should remove it from the cache.
-		 */
-		if (inode->i_sb.st_nlink != 0 || inode->i_refcount != 1) {
-			INODE_UNLOCK(inode);
-			return;
+	icache_assert_locked();
+
+	while(true) {
+		if (!LIST_EMPTY(&icache_free)) {
+			/* Got one! */
+			struct ICACHE_ITEM* ic = LIST_HEAD(&icache_free);
+			LIST_POP_HEAD(&icache_free);
+			return ic;
 		}
 
-		/* Inode should be removed and has only a single reference (the cache) - force it */
-		inode->i_refcount--;
+		/* Freelist is empty; we need to sacrifice an item from the cache */
+		icache_purge_old_entries();
+		/*
+		 * XXX next condition is too harsh - we should wait until we have an
+		 *     available inode here...
+		 */
+		KASSERT(!LIST_EMPTY(&icache_free), "icache still full after purge??");
 	}
 
-	/*
-	 * The inode is truly gone; this means we have to remove it from our cache as
-	 * well. We do this right before destroying it because we use the cache to
-	 * ensure we will never have multiple copies of the same inode.
-	 */
-	int removed = 0;
-	icache_lock();
-	LIST_FOREACH(&icache_inuse, ii, struct ICACHE_ITEM) {
-		if (ii->ic_inode != inode)
-			continue;
-		LIST_REMOVE(&icache_inuse, ii);
-		LIST_APPEND(&icache_free, ii);
-		removed++;
-		break;
-	}
-	icache_unlock();
-	KASSERT(removed == 1, "inode %p not in cache?", inode);
-
-	/* Throw away the filesystem-specific inode parts, if any */
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
-	if (fs->fs_fsops->destroy_inode != NULL) {
-		fs->fs_fsops->destroy_inode(inode);
-	} else {
-		vfs_destroy_inode(inode);
-	}
+	// NOTREACHED
 }
+
+} // unnamed namespace
 
 void
 vfs_deref_inode(struct VFS_INODE* inode)
 {
+	KASSERT(inode != NULL, "dereffing a null inode");
+	TRACE(VFS, FUNC, "inode=%p,cur refcount=%u", inode, inode->i_refcount);
 	INODE_ASSERT_SANE(inode);
+
 	INODE_LOCK(inode);
-	inode_deref_locked(inode);
-	/* INODE_UNLOCK(inode); - no need, inode_deref_locked() handles this if needed */
+	KASSERT(inode->i_refcount > 0, "dereffing inode %p with invalid refcount %d", inode, inode->i_refcount);
+	--inode->i_refcount;
+	INODE_UNLOCK(inode);
+
+  // Never free the backing inode here - we don't have to! We will get rid of
+  // it once we need a fresh inode (icache_purge_old_entries() does this)
 }
 
 void
@@ -146,55 +163,16 @@ vfs_ref_inode(struct VFS_INODE* inode)
 
 	INODE_LOCK(inode);
 	KASSERT(inode->i_refcount > 0, "referencing a dead inode");
-	inode->i_refcount++;
+	++inode->i_refcount;
 	INODE_UNLOCK(inode);
-}
-
-/* Removes old entries from the cache - icache must be locked */
-static void
-icache_purge_old_entries()
-{
-	icache_assert_locked();
-
-	LIST_FOREACH_REVERSE_SAFE(&icache_inuse, ic, struct ICACHE_ITEM) {
-		/*
-		 * Skip any pending items - we are not responsible for their cleanup (and
-		 * to do so would be to introduce a race in vfs_read_inode() !
-		 */
-		if (ic->ic_inode == NULL)
-			continue;
-
-		/*
-		 * Purge the dentry for the given inode; this should free the refs up and
-		 * allow us to throw the inode away.
-		 */
-		dcache_remove_inode(ic->ic_inode);
-
-		/*
-		 * Lock the item; if the refcount is one, it means the cache is the
-		 * sole owner and we can just grab the inode.
-		 */
-		INODE_LOCK(ic->ic_inode);
-		KASSERT(ic->ic_inode->i_refcount > 0, "cached inode %p has no refs! (refcount is %u)", ic->ic_inode, ic->ic_inode->i_refcount);
-		if (ic->ic_inode->i_refcount > 1) {
-			/* Not just in the cache, this one */
-			INODE_UNLOCK(ic->ic_inode);
-			continue;
-		}
-		TRACE(VFS, INFO, "removing only-cache item, ic=%p, inode=%p", ic, ic->ic_inode);
-
-		/* Remove the inode; this will be the final reference, so the cache item will be removed */
-		icache_unlock();
-		inode_deref_locked(ic->ic_inode);
-		icache_lock();
-	}
 }
 
 /*
  * Searches find an inode in the cache; adds a pending entry if it's not found.
  * Will return the cache item; the inode is NULL if a pending item was added,
  * the result is NULL if a pending inode is already in the cache.
- * 
+ *
+ * On success, an extra ref to the inode will be added (for the caller to free)
  */
 static struct ICACHE_ITEM*
 icache_lookup(struct VFS_MOUNTED_FS* fs, ino_t inum)
@@ -217,20 +195,18 @@ icache_lookup(struct VFS_MOUNTED_FS* fs, ino_t inum)
 		if (ic->ic_inode == NULL) {
 			icache_unlock();
 			kprintf("icache_lookup(): pending item, waiting\n");
-			panic("musn't happen"); // XXX
 			return NULL;
 		}
 
-		/* Now, we must increase the inode's lock count. We know the inode was
-		 * in the cache, so it's refcount must be at least one (it could not be
-		 * removed in between as we hold the cache lock). We increment the
-		 * refcount a second time, as it's now being given to the calling thread.
+		/*
+		 * Now, we must increase the inode's refcount. It could be anything
+		 * from zero upwards, so we can't use vfs_ref_inode() to ref it.
 		 *
 		 * Note that we cannot safely do this if we are dropping the icache lock,
 		 * because this creates a race: the item may be removed while we are
 		 * waiting for the inode lock.
 		 */
-		vfs_ref_inode(ic->ic_inode);
+		++ic->ic_inode->i_refcount;
 
 		/*
 		 * Push the the item to the head of the cache; we expect the caller to
@@ -244,25 +220,8 @@ icache_lookup(struct VFS_MOUNTED_FS* fs, ino_t inum)
 		return ic;
 	}
 
-	/* Item was not found; try to get one from the freelist */
-	struct ICACHE_ITEM* ic = NULL;
-	while(ic == NULL) {
-		if (!LIST_EMPTY(&icache_free)) {
-			/* Got one! */
-			ic = LIST_HEAD(&icache_free);
-			LIST_POP_HEAD(&icache_free);
-		} else {
-			/* Freelist is empty; we need to sacrifice an item from the cache */
-			icache_purge_old_entries();
-			/*
-			 * XXX next condition is too harsh - we should wait until we have an
-			 *     available inode here...
-			 */
-			KASSERT(!LIST_EMPTY(&icache_free), "icache still full after purge??");
-		}
-	}
-
-	/* Initialize the item and place it at the head; it's most recently used after all */
+	/* Fetch a new item and place it at the head; it's most recently used after all */
+	struct ICACHE_ITEM* ic = icache_find_item_to_use();
 	TRACE(VFS, INFO, "cache miss: fs=%p, inum=%lx => ic=%p", fs, inum, ic);
 	ic->ic_fs = fs;
 	ic->ic_inode = NULL;
@@ -298,8 +257,7 @@ vfs_alloc_inode(struct VFS_MOUNTED_FS* fs, ino_t inum)
 }
 
 /*
- * Retrieves an inode by number - inode's refcount will always be incremented
- * so the caller is responsible for calling vfs_deref_inode() once it is done.
+ * Retrieves an inode by number - on success, the owner will hold a reference.
  */
 errorcode_t
 vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, struct VFS_INODE** destinode)
@@ -346,14 +304,9 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, struct VFS_INODE** destinod
 		return result;
 	}
 
-	/*
-	 * First of all, increment the inode's refcount so that it will not go away while in the cache;
-	 * the caller has one ref, and the cache has the second.
-	 */
-	KASSERT(inode != NULL, "wtf");
-	vfs_ref_inode(inode);
+	// Hook the inode to our cache
 	ic->ic_inode = inode;
-	KASSERT(ic->ic_inode->i_refcount == 2, "fresh inode refcount incorrect");
+	KASSERT(ic->ic_inode->i_refcount == 1, "fresh inode refcount incorrect");
 #ifdef ICACHE_DEBUG
 	icache_sanity_check();
 #endif
@@ -385,12 +338,12 @@ void
 vfs_dump_inode(struct VFS_INODE* inode)
 {
 	struct stat* sb = &inode->i_sb;
-	kprintf("ino     = %u\n", sb->st_ino);
-	kprintf("refcount= %u\n", inode->i_refcount);
-	kprintf("mode    = 0x%x\n", sb->st_mode);
-	kprintf("uid/gid = %u:%u\n", sb->st_uid, sb->st_gid);
-	kprintf("size    = %u\n", (uint32_t)sb->st_size); /* XXX for now */
-	kprintf("blksize = %u\n", sb->st_blksize);
+	kprintf("  ino     = %u\n", sb->st_ino);
+	kprintf("  refcount= %u\n", inode->i_refcount);
+	kprintf("  mode    = 0x%x\n", sb->st_mode);
+	kprintf("  uid/gid = %u:%u\n", sb->st_uid, sb->st_gid);
+	kprintf("  size    = %u\n", (uint32_t)sb->st_size); /* XXX for now */
+	kprintf("  blksize = %u\n", sb->st_blksize);
 }
 
 void
@@ -406,7 +359,7 @@ KDB_COMMAND(icache, NULL, "Show inode cache")
 {
 	int n = 0;
 	LIST_FOREACH(&icache_inuse, ii, struct ICACHE_ITEM) {
-		kprintf("icache_entry=%p, inode=%p, inum=%lx\n", ii, ii->ic_inum);
+		kprintf("icache_entry=%p, inode=%p, inum=%lx\n", ii, ii->ic_inode, ii->ic_inum);
 		if (ii->ic_inode != NULL)
 			vfs_dump_inode(ii->ic_inode);
 		n++;

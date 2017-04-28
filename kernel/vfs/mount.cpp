@@ -89,8 +89,7 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 
 	KASSERT(root_inode != NULL, "successful mount without a root inode");
 	KASSERT(S_ISDIR(root_inode->i_sb.st_mode), "root inode isn't a directory");
-	/* The refcount must be two: one for the root_inode reference and one for the cache */
-	KASSERT(root_inode->i_refcount == 2, "bad refcount of root inode (must be 2, is %u)", root_inode->i_refcount);
+	KASSERT(root_inode->i_refcount == 1, "bad refcount of root inode (must be 1, is %u)", root_inode->i_refcount);
 	fs->fs_mountpoint = strdup(to);
 	fs->fs_root_dentry = dcache_create_root_dentry(fs);
 	fs->fs_root_dentry->d_inode = root_inode; /* don't deref - we're giving the ref to the root dentry */
@@ -197,8 +196,6 @@ KDB_COMMAND(mounts, NULL, "Shows current mounts")
 		kprintf(">> vfs=%p, flags=0x%x, mountpoint='%s'\n", fs, fs->fs_flags, fs->fs_mountpoint);
 	}
 	spinlock_unlock(&spl_mountedfs);
-
-	icache_dump();
 }
 #endif /* KDB */
 

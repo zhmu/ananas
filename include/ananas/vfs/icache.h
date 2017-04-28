@@ -17,7 +17,6 @@ struct ICACHE_ITEM {
 
 LIST_DEFINE(ICACHE_QUEUE, struct ICACHE_ITEM);
 
-void icache_dump();
 void icache_remove_inode(struct VFS_INODE* inode);
 /*
  * Removes an inode reference; cleans up the inode if the refcount is zero.
