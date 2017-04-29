@@ -12,9 +12,9 @@ if [ -z "$TARGET" ]; then
 fi
 
 if [ "$ARCH" = "amd64" ]; then
-	TRIPLET='i386-ananas-elf'
-elif [ "$ARCH" = "i386" ]; then
 	TRIPLET='x86_64-ananas-elf'
+elif [ "$ARCH" = "i386" ]; then
+	TRIPLET='i386-ananas-elf'
 else
 	print "error: unrecognized architecture '$ARCH'"
 	exit 1
