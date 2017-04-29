@@ -6,8 +6,8 @@
 struct VFS_INODE;
 struct DENTRY_CACHE_ITEM;
 
-struct VFS_INODE* fat_alloc_inode(struct VFS_MOUNTED_FS* fs, ino_t inum);
-void fat_destroy_inode(struct VFS_INODE* inode);
+errorcode_t fat_prepare_inode(struct VFS_INODE* inode);
+void fat_discard_inode(struct VFS_INODE* inode);
 errorcode_t fat_read_inode(struct VFS_INODE* inode, ino_t inum);
 errorcode_t fat_write_inode(struct VFS_INODE* inode);
 

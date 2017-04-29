@@ -13,19 +13,16 @@
 #include "fatfs.h"
 #include "inode.h"
 
-struct VFS_INODE*
-fat_alloc_inode(struct VFS_MOUNTED_FS* fs, ino_t inum)
+errorcode_t
+fat_prepare_inode(struct VFS_INODE* inode)
 {
-	struct VFS_INODE* inode = vfs_make_inode(fs, inum);
-	if (inode == NULL)
-		return NULL;
 	inode->i_privdata = new FAT_INODE_PRIVDATA;
 	memset(inode->i_privdata, 0, sizeof(struct FAT_INODE_PRIVDATA));
-	return inode;
+	return ananas_success();
 }
 
 void
-fat_destroy_inode(struct VFS_INODE* inode)
+fat_discard_inode(struct VFS_INODE* inode)
 {
 	auto privdata = static_cast<struct FAT_INODE_PRIVDATA*>(inode->i_privdata);
 
@@ -37,7 +34,6 @@ fat_destroy_inode(struct VFS_INODE* inode)
 		fat_clear_cache(inode->i_fs, privdata->first_cluster);
 
 	kfree(inode->i_privdata);
-	vfs_destroy_inode(inode);
 }
 
 static void

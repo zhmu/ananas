@@ -169,8 +169,8 @@ fat_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 
 static struct VFS_FILESYSTEM_OPS fsops_fat = {
 	.mount = fat_mount,
-	.alloc_inode = fat_alloc_inode,
-	.destroy_inode = fat_destroy_inode,
+	.prepare_inode = fat_prepare_inode,
+	.discard_inode = fat_discard_inode,
 	.read_inode = fat_read_inode,
 	.write_inode = fat_write_inode
 };

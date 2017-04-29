@@ -57,23 +57,19 @@ ext2_conv_superblock(struct EXT2_SUPERBLOCK* sb)
 	sb->s_magic = EXT2_TO_LE16(sb->s_magic);
 }
 
-static struct VFS_INODE*
-ext2_alloc_inode(struct VFS_MOUNTED_FS* fs, ino_t inum)
+static errorcode_t
+ext2_prepare_inode(struct VFS_INODE* inode)
 {
-	struct VFS_INODE* inode = vfs_make_inode(fs, inum);
-	if (inode == NULL)
-		return NULL;
 	auto privdata = new EXT2_INODE_PRIVDATA;
 	memset(privdata, 0, sizeof(struct EXT2_INODE_PRIVDATA));
 	inode->i_privdata = privdata;
-	return inode;
+	return ananas_success();
 }
 
 static void
-ext2_destroy_inode(struct VFS_INODE* inode)
+ext2_discard_inode(struct VFS_INODE* inode)
 {
 	kfree(inode->i_privdata);
-	vfs_destroy_inode(inode);
 }
 
 #if 0
@@ -371,8 +367,8 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 
 static struct VFS_FILESYSTEM_OPS fsops_ext2 = {
 	.mount = ext2_mount,
-	.alloc_inode = ext2_alloc_inode,
-	.destroy_inode = ext2_destroy_inode,
+	.prepare_inode = ext2_prepare_inode,
+	.discard_inode = ext2_discard_inode,
 	.read_inode = ext2_read_inode
 };
 
