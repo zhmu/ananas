@@ -63,6 +63,9 @@ vfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 	if (inode == NULL || inode->i_iops == NULL)
 		return ANANAS_ERROR(BAD_OPERATION);
 
+	if (!vfs_is_filesystem_sane(inode->i_fs))
+		return ANANAS_ERROR(IO);
+
 	if (!S_ISDIR(inode->i_sb.st_mode)) {
 		/* Regular file */
 		if (inode->i_iops->read == NULL)
@@ -96,6 +99,9 @@ vfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
 		/* Directory */
 		return ANANAS_ERROR(BAD_OPERATION);
 	}
+
+	if (!vfs_is_filesystem_sane(inode->i_fs))
+		return ANANAS_ERROR(IO);
 
 	/* Regular file */
 	if (inode->i_iops->write == NULL)
@@ -191,6 +197,12 @@ vfs_lookup_internal(struct DENTRY* curdentry, const char* name, struct DENTRY** 
 			next_name = NULL;
 			/* This has to be the final entry */
 			(*final)++;
+		}
+
+		// Ensure the dentry points to something still sane
+		if (!vfs_is_filesystem_sane(curdentry->d_fs)) {
+			dentry_deref(curdentry); /* let go of the ref; we are done with it */
+			return ANANAS_ERROR(IO);
 		}
 
 		/*
@@ -340,6 +352,9 @@ vfs_create(struct DENTRY* parent, struct VFS_FILE* file, const char* dentry, int
 	if (parentinode->i_iops->create == NULL)
 		return ANANAS_ERROR(BAD_OPERATION);
 
+	if (!vfs_is_filesystem_sane(parentinode->i_fs))
+		return ANANAS_ERROR(IO);
+
 	/* Dear filesystem, create a new inode for us */
 	err = parentinode->i_iops->create(parentinode, de, mode);
 	if (ananas_is_failure(err)) {
@@ -360,6 +375,9 @@ vfs_grow(struct VFS_FILE* file, off_t size)
 {
 	struct VFS_INODE* inode = file->f_dentry->d_inode;
 	KASSERT(inode->i_sb.st_size < size, "no need to grow");
+
+	if (!vfs_is_filesystem_sane(inode->i_fs))
+		return ANANAS_ERROR(IO);
 
 	/* Allocate a dummy buffer with the file data */
 	char buffer[128];
@@ -391,6 +409,10 @@ vfs_unlink(struct VFS_FILE* file)
 	struct VFS_INODE* inode = parent->d_inode;
 	if (inode->i_iops->unlink == NULL)
 		return ANANAS_ERROR(BAD_OPERATION);
+
+	if (!vfs_is_filesystem_sane(inode->i_fs))
+		return ANANAS_ERROR(IO);
+
 	errorcode_t err = inode->i_iops->unlink(inode, file->f_dentry);
 	ANANAS_ERROR_RETURN(err);
 

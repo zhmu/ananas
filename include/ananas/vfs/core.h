@@ -35,6 +35,8 @@ static inline errorcode_t vfs_bread(struct VFS_MOUNTED_FS* fs, blocknr_t block, 
 
 errorcode_t vfs_lookup(struct DENTRY* parent, struct DENTRY** destentry, const char* dentry);
 
+bool vfs_is_filesystem_sane(struct VFS_MOUNTED_FS* fs);
+
 /* Higher-level interface */
 errorcode_t vfs_open(const char* fname, struct DENTRY* cwd, struct VFS_FILE* file);
 errorcode_t vfs_close(struct VFS_FILE* file);

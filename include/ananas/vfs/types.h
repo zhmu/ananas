@@ -71,6 +71,7 @@ struct VFS_MOUNTED_FS {
 	unsigned int	fs_flags;		/* (F) Filesystem flags */
 #define VFS_FLAG_INUSE    0x0001		/* Filesystem entry is in use */
 #define VFS_FLAG_READONLY 0x0002		/* Filesystem is readonly */
+#define VFS_FLAG_ABANDONED	0x0004		/* Filesystem is no longer available */
 	const char*	fs_mountpoint;		/* (R) Mount point */
 	uint32_t	fs_block_size;		/* (R) Block size */
 	void*		fs_privdata;		/* (R) Private filesystem data */

@@ -8,6 +8,7 @@
 #include <ananas/kmem.h>
 #include <ananas/tty.h>
 #include <ananas/thread.h>
+#include <ananas/vfs/mount.h>
 #include <ananas/vm.h>
 #include "options.h"
 
@@ -112,6 +113,9 @@ Detach(Device& device)
 	// Ensure the device is out of the queue; this prevents new access to the
 	// device device
 	internal::Unregister(device);
+
+	// In case there is any filesystem here, abandon it
+	vfs_abandon_device(device);
 
 	// All children must be detached before we can clean up the main device
 	LIST_FOREACH_SAFE_IP(&device.d_Children, children, childDevice, Device) {

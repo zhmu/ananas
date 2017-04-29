@@ -34,6 +34,9 @@ vfs_generic_lookup(struct DENTRY* parent, struct VFS_INODE** destinode, const ch
 	dirf.f_offset = 0;
 	dirf.f_dentry = parent;
 	while (1) {
+		if (!vfs_is_filesystem_sane(parent_inode->i_fs))
+			return ANANAS_ERROR(IO);
+
 		size_t buf_len = sizeof(buf);
 		errorcode_t err = vfs_read(&dirf, buf, &buf_len);
 		if (ananas_is_failure(err))
@@ -77,6 +80,9 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 
 	blocknr_t cur_block = 0;
 	while(left > 0) {
+		if (!vfs_is_filesystem_sane(inode->i_fs))
+			return ANANAS_ERROR(IO);
+
 		/* Figure out which block to use next */
 		blocknr_t want_block;
 		errorcode_t err = inode->i_iops->block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
@@ -126,6 +132,9 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 		blocknr_t logical_block = file->f_offset / (blocknr_t)fs->fs_block_size;
 		if (logical_block >= inode->i_sb.st_blocks /* XXX is this correct with sparse files? */)
 			create++;
+
+		if (!vfs_is_filesystem_sane(inode->i_fs))
+			return ANANAS_ERROR(IO);
 
 		/* Figure out which block to use next */
 		blocknr_t want_block;

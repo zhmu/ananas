@@ -120,6 +120,27 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	return ananas_success();
 }
 
+void
+vfs_abandon_device(Ananas::Device& device)
+{
+	spinlock_lock(&spl_mountedfs);
+	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {
+		struct VFS_MOUNTED_FS* fs = &mountedfs[n];
+		if ((fs->fs_flags & VFS_FLAG_INUSE) == 0 || (fs->fs_flags & VFS_FLAG_ABANDONED) || fs->fs_device != &device)
+			continue;
+
+		/*
+		 * This filesystem can no longer operate sanely - ensure all requests for it are
+		 * rejected instead of serviced.
+		 *
+		 * XXX We should at least start the unmount process here.
+		 */
+		 fs->fs_flags |= VFS_FLAG_ABANDONED;
+		 fs->fs_device = nullptr;
+	}
+	spinlock_unlock(&spl_mountedfs);
+}
+
 errorcode_t
 vfs_unmount(const char* path)
 {
