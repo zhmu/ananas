@@ -197,7 +197,7 @@ dcache_lookup(struct DENTRY* parent, const char* entry)
 }
 
 void
-dcache_remove_inode(struct VFS_INODE* inode)
+dcache_purge_old_entries()
 {
 #if 0
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;

@@ -29,7 +29,7 @@ struct DENTRY* dcache_create_root_dentry(struct VFS_MOUNTED_FS* fs);
 
 void dcache_dump();
 struct DENTRY* dcache_lookup(struct DENTRY* parent, const char* entry);
-void dcache_remove_inode(struct VFS_INODE* inode);
+void dcache_purge_old_entries();
 void dcache_set_inode(struct DENTRY* de, struct VFS_INODE* inode);
 
 /* Adds a reference to dentry d */

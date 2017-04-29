@@ -27,10 +27,13 @@ struct VFS_FILESYSTEM_OPS;
  * it is still being used.
  */
 struct VFS_INODE {
+	LIST_FIELDS(struct VFS_INODE);		/* Cache entries */
 	mutex_t		i_mutex;		/* Mutex protecting inode */
-	refcount_t	i_refcount;		/* Refcount, must be >=1 */
+	refcount_t	i_refcount;		/* Refcount, must be >=0 */
 	unsigned int	i_flags;		/* Inode flags */
 #define INODE_FLAG_DIRTY	(1 << 0)	/* Needs to be written */
+#define INODE_FLAG_PENDING	(1 << 1)	/* Needs to be filled */
+#define INODE_FLAG_GONE (1 << 2) /* No longer valid */
 	struct stat 	i_sb;			/* Inode information */
 	struct VFS_INODE_OPS* i_iops;		/* Inode operations */
 
@@ -88,18 +91,17 @@ struct VFS_FILESYSTEM_OPS {
 	errorcode_t (*mount)(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode);
 
 	/*
-	 * Allocate an inode. The purpose for this function is to initialize
-	 * the 'privdata' field of the inode - the function should call
-	 * vfs_make_inode() to obtain the new, locked inode.
+	 * Initialize an inode. The purpose for this function is to initialize
+	 * the 'privdata' field of the inode. Only i_num is available at this point.
 	 */
-	struct VFS_INODE* (*alloc_inode)(struct VFS_MOUNTED_FS* fs, ino_t inum);
+	errorcode_t (*prepare_inode)(struct VFS_INODE* inode);
 
 	/*
 	 * Destroy a locked inode. The purpose for this function is to deinitialize
 	 * the 'privdata' field of the inode. The function should end by
-	 * calling vfs_destroy_inode() to remove the inode itself.
+	 * calling vfs_discard_inode() to remove the inode itself.
 	 */
-	void (*destroy_inode)(struct VFS_INODE* inode);
+	void (*discard_inode)(struct VFS_INODE* inode);
 
 	/*
 	 * Read an inode from disk; inode is locked and pre-allocated using
