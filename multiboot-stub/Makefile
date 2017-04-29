@@ -1,6 +1,6 @@
 TARGET:		mbstub
 OBJS=		stub.o main.o io.o relocate.o lib.o amd64.o bootinfo.o i386.o
-CFLAGS+=	-std=c99 -m32 -I../include -DLOADER -Wall
+CFLAGS+=	-std=c99 -m32 -mno-red-zone -mno-sse -I../include -DLOADER -Wall
 CFLAGS+=	-DDEBUG=0
 
 mbstub:		$(OBJS) ldscript
