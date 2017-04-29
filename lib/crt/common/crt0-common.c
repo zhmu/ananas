@@ -17,7 +17,7 @@ extern void _fini(void) __hidden;
 extern void _init(void) __hidden;
 
 void
-_start(void* threadinfo)
+__start(void* threadinfo)
 {
 	libc_init(threadinfo);
 	atexit(_fini);
