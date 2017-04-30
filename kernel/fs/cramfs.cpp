@@ -60,8 +60,6 @@ struct CRAMFS_PRIVDATA {
 	unsigned char decompress_buf[CRAMFS_PAGE_SIZE + 4];
 };
 
-static struct VFS_INODE* cramfs_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop);
-
 static errorcode_t
 cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
@@ -211,8 +209,7 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		 &cram_inode->in_namelen_offset);
 
 		/* And hand it to the fill function */
-		uint32_t fsop = cur_offset;
-		int filled = vfs_filldirent(&dirents, &toread, (const void*)&fsop, inode->i_fs->fs_fsop_size, ((char*)(cram_inode + 1)), real_name_len);
+		int filled = vfs_filldirent(&dirents, &toread, cur_offset, ((char*)(cram_inode + 1)), real_name_len);
 		if (!filled) {
 			/* out of space! */
 			break;
@@ -290,13 +287,8 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 
 	fs->fs_privdata = new CRAMFS_PRIVDATA;
 
-	/* Initialize the inode cache right before reading the root directory inode */
-	fs->fs_fsop_size = sizeof(uint32_t);
-	icache_init(fs);
-
 	/* Everything is ok; fill out the filesystem details */
-	uint32_t root_fsop = __builtin_offsetof(struct CRAMFS_SUPERBLOCK, c_rootinode);
-	err = vfs_get_inode(fs, &root_fsop, root_inode);
+	err = vfs_get_inode(fs, __builtin_offsetof(struct CRAMFS_SUPERBLOCK, c_rootinode), root_inode);
 	if (ananas_is_failure(err)) {
 		kfree(fs->fs_privdata);
 		bio_free(bio);
@@ -312,7 +304,7 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 }
 
 static errorcode_t
-cramfs_read_inode(struct VFS_INODE* inode, void* fsop)
+cramfs_read_inode(struct VFS_INODE* inode, ino_t inum)
 {
 	struct VFS_MOUNTED_FS* fs = inode->i_fs;
 
@@ -320,7 +312,7 @@ cramfs_read_inode(struct VFS_INODE* inode, void* fsop)
 	 * Our fsop is just an offset in the filesystem, so all we have to do is
 	 * grab the block in which the inode resides and convert the inode.
 	 */
-	uint32_t offset = *(uint32_t*)fsop;
+	uint32_t offset = inum;
 	struct BIO* bio;
 	errorcode_t err = vfs_bread(fs, offset / fs->fs_block_size, &bio);
 	ANANAS_ERROR_RETURN(err);
@@ -330,29 +322,25 @@ cramfs_read_inode(struct VFS_INODE* inode, void* fsop)
 	return ananas_success();
 }
 
-static struct VFS_INODE*
-cramfs_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
+static errorcode_t
+cramfs_prepare_inode(struct VFS_INODE* inode)
 {
-	struct VFS_INODE* inode = vfs_make_inode(fs, fsop);
-	if (inode == NULL)
-		return NULL;
 	auto i_privdata = new CRAMFS_INODE_PRIVDATA;
 	memset(i_privdata, 0, sizeof(struct CRAMFS_INODE_PRIVDATA));
 	inode->i_privdata = i_privdata;
-	return inode;
+	return ananas_success();
 }
 
 static void
-cramfs_destroy_inode(struct VFS_INODE* inode)
+cramfs_discard_inode(struct VFS_INODE* inode)
 {
 	kfree(inode->i_privdata);
-	vfs_destroy_inode(inode);
 }
 
 static struct VFS_FILESYSTEM_OPS fsops_cramfs = {
 	.mount = cramfs_mount,
-	.alloc_inode = cramfs_alloc_inode,
-	.destroy_inode = cramfs_destroy_inode,
+	.prepare_inode = cramfs_prepare_inode,
+	.discard_inode = cramfs_discard_inode,
 	.read_inode = cramfs_read_inode
 };
 
