@@ -97,7 +97,6 @@ dev/generic/kbdmux.cpp		optional kbdmux
 fs/ext2fs.cpp		option EXT2FS
 fs/iso9660.cpp		option ISO9660FS
 fs/cramfs.cpp		option CRAMFS
-fs/devfs.cpp		option DEVFS
 # fat
 fs/fat/fatfs.cpp	option FATFS
 fs/fat/block.cpp	option FATFS

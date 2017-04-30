@@ -11,7 +11,6 @@ option		PIPE
 # filesystems
 option		EXT2FS
 option		FATFS
-option		DEVFS
 option		ISO9660FS
 
 # cramfs requires zlib
