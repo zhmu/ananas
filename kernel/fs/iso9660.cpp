@@ -33,8 +33,6 @@ extern struct VFS_INODE_OPS iso9660_dir_ops;
 extern struct VFS_INODE_OPS iso9660_file_ops;
 } // unnamed namespace
 
-static struct VFS_INODE* iso9660_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop);
-
 #if 0
 static void
 iso9660_dump_dirent(struct ISO9660_DIRECTORY_ENTRY* e)
@@ -92,18 +90,11 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 		goto fail;
 	}
 	fs->fs_block_size = ISO9660_GET_WORD(pvd->pv_blocksize);
-	fs->fs_fsop_size = sizeof(uint64_t);
-
-	/* Initialize the inode cache right before reading the root directory inode */
-	icache_init(fs);
 
 	/* Read the root inode */
-	{
-		uint64_t root_fsop = 0;
-		err = vfs_get_inode(fs, &root_fsop, root_inode);
-		if (ananas_is_failure(err))
-			goto fail;
-	}
+	err = vfs_get_inode(fs, 0, root_inode);
+	if (ananas_is_failure(err))
+		goto fail;
 
 	{
 		auto privdata = static_cast<struct ISO9660_INODE_PRIVDATA*>((*root_inode)->i_privdata);
@@ -120,11 +111,10 @@ fail:
 }
 
 static errorcode_t
-iso9660_read_inode(struct VFS_INODE* inode, void* fsop)
+iso9660_read_inode(struct VFS_INODE* inode, ino_t inum)
 {
-	uint64_t iso9660_fsop = *(uint64_t*)fsop;
-	uint32_t block = iso9660_fsop >> 16;
-	uint16_t offset = iso9660_fsop & 0xffff;
+	uint32_t block = inum >> 16;
+	uint16_t offset = inum & 0xffff;
 	KASSERT(offset < inode->i_fs->fs_block_size + sizeof(struct ISO9660_DIRECTORY_ENTRY), "offset does not reside in block");
 
 	/* Grab the block containing the inode */
@@ -157,24 +147,19 @@ iso9660_read_inode(struct VFS_INODE* inode, void* fsop)
 	return ananas_success();
 }
 
-static struct VFS_INODE*
-iso9660_alloc_inode(struct VFS_MOUNTED_FS* fs, const void* fsop)
+static errorcode_t
+iso9660_prepare_inode(struct VFS_INODE* inode)
 {
-	struct VFS_INODE* inode = vfs_make_inode(fs, fsop);
-	if (inode == NULL)
-		return NULL;
-
 	auto privdata = new ISO9660_INODE_PRIVDATA;
 	memset(privdata, 0, sizeof(struct ISO9660_INODE_PRIVDATA));
 	inode->i_privdata = privdata;
-	return inode;
+	return ananas_success();
 }
 
 static void
-iso9660_destroy_inode(struct VFS_INODE* inode)
+iso9660_discard_inode(struct VFS_INODE* inode)
 {
 	kfree(inode->i_privdata);
-	vfs_destroy_inode(inode);
 }
 
 static errorcode_t
@@ -231,8 +216,8 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 					iso9660de->de_filename_len--;
 			}
 
-			uint64_t fsop = (uint64_t)curblock << 16 | offset;
-			int filled = vfs_filldirent(&dirents, &left, (const void*)&fsop, inode->i_fs->fs_fsop_size, (const char*)iso9660de->de_filename, iso9660de->de_filename_len);
+			ino_t inum = (ino_t)curblock << 16 | offset;
+			int filled = vfs_filldirent(&dirents, &left, inum, (const char*)iso9660de->de_filename, iso9660de->de_filename_len);
 			if (!filled) {
 				/* out of space! */
 				break;
@@ -307,8 +292,8 @@ struct VFS_INODE_OPS iso9660_file_ops = {
 
 struct VFS_FILESYSTEM_OPS fsops_iso9660 = {
 	.mount = iso9660_mount,
-	.alloc_inode = iso9660_alloc_inode,
-	.destroy_inode = iso9660_destroy_inode,
+	.prepare_inode = iso9660_prepare_inode,
+	.discard_inode = iso9660_discard_inode,
 	.read_inode = iso9660_read_inode
 };
 
