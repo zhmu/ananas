@@ -70,7 +70,9 @@ install_build()
 
 ARCH=amd64
 TOOLCHAIN_ARCH=x86_64
-TARGET=/mnt
+if [ -z "$TARGET" ]; then
+	TARGET=/mnt
+fi
 R=`cd .. && pwd`
 
 if [ ! -d ${R}/sysroot.${ARCH} ]; then
