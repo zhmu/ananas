@@ -9,6 +9,7 @@
 #include <ananas/trace.h>
 #include <ananas/x86/io.h>
 #include <ananas/dev/kbdmux.h>
+#include <machine/reboot.h>
 #include "options.h"
 
 TRACE_SETUP;
@@ -132,6 +133,9 @@ ATKeyboard::OnIRQ()
 		if (kbd_flags == ATKBD_FLAG_CONTROL && scancode == 0x29 /* tilde */)
 			panic("forced by kdb");
 #endif
+
+		if (kbd_flags == (ATKBD_FLAG_CONTROL | ATKBD_FLAG_ALT) && scancode == 83 /* delete */)
+			md_reboot();
 
 		uint8_t ch = ((kbd_flags & ATKBD_FLAG_SHIFT) ? atkbd_keymap_shift : atkbd_keymap)[scancode];
 		if (ch != 0)

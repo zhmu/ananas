@@ -6,6 +6,7 @@ arch/amd64/md_vmspace.cpp	mandatory
 arch/amd64/startup.cpp		mandatory
 arch/amd64/interrupts.S		mandatory
 arch/amd64/exception.cpp	mandatory
+arch/amd64/reboot.cpp		mandatory
 arch/amd64/mp_stub.S		option SMP
 arch/amd64/gdb-support.cpp	option GDB
 # Pull in generic x86 stuff

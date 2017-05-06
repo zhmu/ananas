@@ -7,6 +7,7 @@
 #include <ananas/lib.h>
 #include <ananas/vfs.h>
 #include <ananas/mm.h>
+#include <machine/reboot.h>
 
 KDB_COMMAND(bootinfo, NULL, "Display boot info")
 {
@@ -19,6 +20,11 @@ KDB_COMMAND(bootinfo, NULL, "Display boot info")
 	kprintf("memorymap location: %x - %x\n",
 	 bootinfo->bi_memory_map_addr,
 	 bootinfo->bi_memory_map_addr + bootinfo->bi_memory_map_size);
+}
+
+KDB_COMMAND(reboot, NULL, "Force a reboot")
+{
+	md_reboot();
 }
 
 /* vim:set ts=2 sw=2: */
