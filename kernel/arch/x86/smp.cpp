@@ -169,7 +169,7 @@ smp_init()
 	 *       enable paging.  Once this is all done, the mapping can safely be removed.
 	 */
 	KASSERT(ap_page != NULL, "smp_prepare() not called");
-	void* ap_code = kmem_map(page_get_paddr(ap_page), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
+	void* ap_code = kmem_map(page_get_paddr(ap_page), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_EXECUTE);
 	memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
 	kmem_unmap(ap_code, PAGE_SIZE);
 

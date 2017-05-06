@@ -317,6 +317,9 @@ extern void* syscall_handler;
 	/* Enable FPU use; the kernel will save/restore it as needed */
 	write_cr4(read_cr4() | 0x600); /* OSFXSR | OSXMMEXCPT */
 
+	// Enable No-Execute Enable bit XXX we should check to ensure it is supported
+	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | MSR_EFER_NXE);
+
 #if 0
 	/* Enable the write-protect bit; this ensures kernel-code can't write to readonly pages */
 	__asm(

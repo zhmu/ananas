@@ -53,10 +53,8 @@ md_map_pages(vmspace_t* vs, addr_t virt, addr_t phys, size_t num_pages, int flag
 		pt_flags |= PE_RW;
 	if (flags & VM_FLAG_DEVICE)
 		pt_flags |= PE_PCD | PE_PWT;
-#if 0
 	if ((flags & VM_FLAG_EXECUTE) == 0)
 		pt_flags |= PE_NX;
-#endif
 
 	/* Flags for the page-directory leading up to the mapped page */
 	uint64_t pd_flags = PE_US | PE_P | PE_RW;

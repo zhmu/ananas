@@ -16,6 +16,7 @@
 #define	MSR_EFER	 0xc0000080
 #define	EFER_SCE	(1 << 0)
 #define	EFER_LME	(1 << 8)
+#define	EFER_NXE	(1 << 11)
 
 .code16
 .align 16
@@ -76,10 +77,11 @@ mp_stub32:
 	movl	(smp_ap_pagedir - KERNBASE), %eax
 	movl	%eax, %cr3
 
-	/* Enable long mode */
+	/* Enable long mode - note that we must enable NX too as pages will be mapped with that set */
 	movl	$MSR_EFER, %ecx
 	rdmsr
 	orl	$EFER_LME, %eax
+	orl	$EFER_NXE, %eax
 	wrmsr
 
 	/* Enable paging (%ebx still holds our initial %cr0) */
