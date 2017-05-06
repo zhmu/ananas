@@ -4,6 +4,7 @@
 #include "io.h"
 #include "lib.h"
 #include "relocate.h"
+#include "verify.h"
 #include "types.h"
 
 void
@@ -16,6 +17,9 @@ startup(struct MULTIBOOT* mb)
 
 	if ((mb->mb_flags & MULTIBOOT_FLAG_MMAP) == 0)
 		panic("no memory map supplied");
+
+	/* Ensure the platform is sane enough before we continue */
+	verify_platform();
 
 	/*
 	 * Relocate the kernel image; this will also give us the memory range
