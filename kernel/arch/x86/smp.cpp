@@ -40,7 +40,7 @@ struct X86_SMP_CONFIG smp_config;
 
 static struct PAGE* ap_page;
 static int can_smp_launch = 0;
-extern "C" int num_smp_launched = 1; /* BSP is always launched */
+extern "C" volatile int num_smp_launched = 1; /* BSP is always launched */
 
 static struct IRQ_SOURCE ipi_source = {
 	.is_first = SMP_IPI_FIRST,
