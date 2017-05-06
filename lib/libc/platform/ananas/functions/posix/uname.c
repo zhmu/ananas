@@ -7,9 +7,7 @@ int uname(struct utsname* utsname)
 	strcpy(utsname->sysname, "Ananas");
 	strcpy(utsname->nodename, "local");
 	strcpy(utsname->release, "testing");
-#ifdef __i386__
-	strcpy(utsname->machine, "i386");
-#elif defined(__amd64__)
+#ifdef __amd64__
 	strcpy(utsname->machine, "amd64");
 #else
 	/* how did you get this to compile anyway? :-) */

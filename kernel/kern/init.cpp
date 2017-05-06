@@ -74,7 +74,7 @@ hello_world()
 	unsigned int total_pages, avail_pages;
 	page_get_stats(&total_pages, &avail_pages);
 	kprintf("Memory: %uKB available / %uKB total\n", avail_pages * (PAGE_SIZE / 1024), total_pages * (PAGE_SIZE / 1024));
-#if defined(__i386__) || defined(__amd64__)
+#if defined(__amd64__)
 	extern int md_cpu_clock_mhz;
 	kprintf("CPU: %u MHz\n", md_cpu_clock_mhz);
 #endif

@@ -13,7 +13,7 @@ void
 tracef(int fileid, const char* func, const char* fmt, ...)
 {
 	uint32_t timestamp = 0;
-#if defined(__i386__) || defined(__amd64__)
+#if defined(__amd64__)
 	/* XXX This should be generic somehow */
 	extern uint32_t x86_get_ms_since_boot();
 	timestamp = x86_get_ms_since_boot();

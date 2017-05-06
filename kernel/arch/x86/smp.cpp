@@ -100,11 +100,7 @@ smp_prepare_config(struct X86_SMP_CONFIG* cfg)
 		if (i == 0)
 			continue;
 
-#ifdef __i386__
-# define GDT_SIZE (GDT_NUM_ENTRIES * 8)
-#elif defined(__amd64__)
 # define GDT_SIZE (GDT_NUM_ENTRIES * 16)
-#endif
 
 		/*
 		 * Allocate one buffer and place all necessary administration in there.
@@ -117,12 +113,7 @@ extern void* gdt; /* XXX */
 		memcpy(cpu->gdt, &gdt, GDT_SIZE);
 		struct TSS* tss = (struct TSS*)(buf + GDT_SIZE);
 		memset(tss, 0, sizeof(struct TSS));
-#ifdef __i386__
-		tss->ss0 = GDT_SEL_KERNEL_DATA;
-		GDT_SET_TSS(cpu->gdt, GDT_IDX_KERNEL_TASK, 0, (addr_t)tss, sizeof(struct TSS));
-#elif defined(__amd64__)
 		GDT_SET_TSS64(cpu->gdt, GDT_SEL_TASK, 0, (addr_t)tss, sizeof(struct TSS));
-#endif
 		cpu->tss = (char*)tss;
 
 		/* Initialize per-CPU data */
@@ -131,18 +122,10 @@ extern void* gdt; /* XXX */
 		pcpu->cpuid = i;
 		pcpu->tss = (addr_t)cpu->tss;
 		pcpu_init(pcpu);
-#ifdef __i386__
-		GDT_SET_ENTRY32(cpu->gdt, GDT_IDX_KERNEL_PCPU, SEG_TYPE_DATA, SEG_DPL_SUPERVISOR, (addr_t)pcpu, sizeof(struct PCPU));
-#elif defined(__amd64__)
 		cpu->pcpu = pcpu;
-#endif
 
 		/* Use the idle thread stack to execute from; we're becoming the idle thread anyway */
-#ifdef __i386__
-		cpu->stack = (void*)pcpu->idlethread->md_esp;
-#elif defined(__amd64__)
 		cpu->stack = reinterpret_cast<char*>(pcpu->idlethread->md_rsp);
-#endif
 	}
 
 	/* Prepare the IOAPIC structure */
@@ -194,11 +177,7 @@ smp_init()
 	if (ananas_is_failure(acpi_smp_init(&bsp_apic_id))) {
 		/* SMP not present or not usable */
 		page_free(ap_page);
-#ifdef __i386__
-		md_remove_low_mappings();
-#elif defined(__amd64__)
 		smp_destroy_ap_pagetable();
-#endif
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 
