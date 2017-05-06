@@ -1,7 +1,6 @@
 #include "multiboot.h"
 #include "amd64.h"
 #include "bootinfo.h"
-#include "i386.h"
 #include "io.h"
 #include "lib.h"
 #include "relocate.h"
@@ -29,9 +28,7 @@ startup(struct MULTIBOOT* mb)
 	struct BOOTINFO* bi = create_bootinfo(&ri_kernel, mb);
 
 	/* And... throw the switch - won't return */
-	if (ri_kernel.ri_bits == 32) {
-		i386_exec(ri_kernel.ri_entry, bi);
-	} else {
-		amd64_exec(ri_kernel.ri_entry, bi);
-	}
+	if (ri_kernel.ri_bits != 64)
+		panic("only 64 bit kernels are supported");
+	amd64_exec(ri_kernel.ri_entry, bi);
 }
