@@ -8,10 +8,13 @@ SECTIONS {
 		*(.rodata)
 		*(.rodata*)
 		__rodata_end = ALIGN(4096);
+	}
+	.data : {
+		*(.data)
+		*(.data*)
 		/*
-		 * Init/exit definitions after the readonly data; there's no
-		 * reason why these should be writable or take up a section of
-		 * their own.
+		 * Init/exit definitions after the r/w data; we need to sort
+		 * them and thus be able to write them.
 		 */
 		__initfuncs_begin = ALIGN(8);
 		*(initfuncs)
@@ -19,12 +22,6 @@ SECTIONS {
 		__exitfuncs_begin = ALIGN(8);
 		*(exitfuncs)
 		__exitfuncs_end = .;
-		. = ALIGN(4096);
-
-	}
-	.data : {
-		*(.data)
-		*(.data*)
 		. = ALIGN(4096);
 	}
 	.bss : {

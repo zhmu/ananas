@@ -52,21 +52,21 @@ struct EXIT_FUNC {
  *
  */
 #define INIT_FUNCTION(fn,subsys,order) \
-	static const struct INIT_FUNC if_##fn = { \
+	static struct INIT_FUNC if_##fn = { \
 		.if_func = fn, \
 		.if_subsystem = subsys, \
 		.if_order = order \
 	}; \
-	extern "C" void const * const __if_include_##fn __attribute__((section("initfuncs"))) __attribute__((unused)) = &if_##fn
+	extern "C" void * const __if_include_##fn __attribute__((section("initfuncs"))) __attribute__((unused)) = &if_##fn
 
 /*
  * Defines an exit function; currently only used for modules.
  */
 #define EXIT_FUNCTION(fn) \
-	static const struct EXIT_FUNC ef_##fn = { \
+	static struct EXIT_FUNC ef_##fn = { \
 		.ef_func = fn \
 	}; \
-	extern "C" const void * const __ef_include_##fn __attribute__((section("exitfuncs")))  __attribute__((unused)) = &ef_##fn
+	extern "C" void * __ef_include_##fn __attribute__((section("exitfuncs")))  __attribute__((unused)) = &ef_##fn
 
 void mi_startup();
 

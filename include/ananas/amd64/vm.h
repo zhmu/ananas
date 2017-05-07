@@ -95,6 +95,7 @@
 
 /* CR0 specific flags */
 #define CR0_TS			(1 << 3)	/* Task switched */
+#define CR0_WP      (1 << 16)	/* Write protect */
 
 /* CR4 specific flags */
 #define CR4_OSFXSR		(1 << 9)	/* OS saves/restores SSE state */

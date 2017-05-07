@@ -320,14 +320,8 @@ extern void* syscall_handler;
 	// Enable No-Execute Enable bit XXX we should check to ensure it is supported
 	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | MSR_EFER_NXE);
 
-#if 0
-	/* Enable the write-protect bit; this ensures kernel-code can't write to readonly pages */
-	__asm(
-		"movq	%cr0, %rax\n"
-		"orq	$(1 << 16), %rax\n"	/* WP */
-		"movq	%rax, %cr0\n"
-	);
-#endif
+	// Enable the write-protect bit; this ensures kernel-code can't write to readonly pages
+	write_cr0(read_cr0() | CR0_WP);
 }
 
 #ifdef OPTION_SMP

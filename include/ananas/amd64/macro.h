@@ -120,6 +120,24 @@ wrmsr(uint32_t msr, uint64_t val)
 }
 
 static inline uint64_t
+read_cr0()
+{
+	uint64_t r;
+	__asm __volatile(
+		"movq %%cr0, %0\n"
+	: "=a" (r));
+	return r;
+}
+
+static inline void
+write_cr0(uint64_t val)
+{
+	__asm __volatile(
+		"movq %0, %%cr0\n"
+	: : "a" (val));
+}
+
+static inline uint64_t
 read_cr4()
 {
 	uint64_t r;
