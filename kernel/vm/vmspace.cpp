@@ -275,6 +275,18 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 		}
 	}
 
+	/*
+	 * See where the next mapping can be placed; we should use something more
+	 * clever than vs_next_mapping someday but this will have to suffice for
+	 * now.
+	 */
+	vs_dest->vs_next_mapping = 0;
+	LIST_FOREACH(&vs_dest->vs_areas, va, vmarea_t) {
+		addr_t next = va->va_virt + va->va_len;
+		if (vs_dest->vs_next_mapping < next)
+			vs_dest->vs_next_mapping = next;
+	}
+
 	return ananas_success();
 }
 
