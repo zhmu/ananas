@@ -141,7 +141,7 @@ kmem_get_flags(void* ctx, addr_t phys, addr_t virt)
 {
 	addr_t kernel_text_end = *(addr_t*)ctx;
 	uint64_t flags = PE_G | PE_P;
-	if (virt > kernel_text_end)
+	if (virt >= kernel_text_end)
 		flags |= PE_RW;
 	return flags;
 }
