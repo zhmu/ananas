@@ -12,33 +12,46 @@
 
 TRACE_SETUP;
 
-#define VFS_MOUNTED_FS_MAX	16
-static spinlock_t spl_mountedfs = SPINLOCK_DEFAULT_INIT;
-static struct VFS_MOUNTED_FS mountedfs[VFS_MOUNTED_FS_MAX];
+namespace Ananas {
+namespace VFS {
+namespace {
+const size_t Max_Mounted_FS = 16;
+} // unnamed namespace
 
-static spinlock_t spl_fstypes = SPINLOCK_DEFAULT_INIT;
-static struct VFS_FILESYSTEMS fstypes;
+spinlock_t spl_mountedfs = SPINLOCK_DEFAULT_INIT;
+struct VFS_MOUNTED_FS mountedfs[Max_Mounted_FS];
+
+spinlock_t spl_fstypes = SPINLOCK_DEFAULT_INIT;
+struct VFS_FILESYSTEMS fstypes;
+
+size_t GetMaxMountedFilesystems()
+{
+	return Max_Mounted_FS;
+}
+
+} // namespace VFS
+} // namespace Ananas
 
 void
 vfs_init_mount()
 {
-	memset(mountedfs, 0, sizeof(mountedfs));
+	memset(Ananas::VFS::mountedfs, 0, sizeof(Ananas::VFS::mountedfs));
 //	LIST_INIT(&fstypes);
 }
 
 static struct VFS_MOUNTED_FS*
 vfs_get_availmountpoint()
 {
-	spinlock_lock(&spl_mountedfs);
-	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {
-		struct VFS_MOUNTED_FS* fs = &mountedfs[n];
+	spinlock_lock(&Ananas::VFS::spl_mountedfs);
+	for (unsigned int n = 0; n < Ananas::VFS::Max_Mounted_FS; n++) {
+		struct VFS_MOUNTED_FS* fs = &Ananas::VFS::mountedfs[n];
 		if ((fs->fs_flags & VFS_FLAG_INUSE) == 0) {
 			fs->fs_flags |= VFS_FLAG_INUSE;
-			spinlock_unlock(&spl_mountedfs);
+			spinlock_unlock(&Ananas::VFS::spl_mountedfs);
 			return fs;
 		}
 	}
-	spinlock_unlock(&spl_mountedfs);
+	spinlock_unlock(&Ananas::VFS::spl_mountedfs);
 	return NULL;
 }
 
@@ -52,15 +65,15 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	 * it.
 	 */
 	struct VFS_FILESYSTEM_OPS* fsops = NULL;
-	spinlock_lock(&spl_fstypes);
-	LIST_FOREACH(&fstypes, curfs, struct VFS_FILESYSTEM) {
+	spinlock_lock(&Ananas::VFS::spl_fstypes);
+	LIST_FOREACH(&Ananas::VFS::fstypes, curfs, struct VFS_FILESYSTEM) {
 		if (strcmp(curfs->fs_name, type) == 0) {
 			/* Match */
 			fsops = curfs->fs_fsops;
 			break;
 		}
 	}
-	spinlock_unlock(&spl_fstypes);
+	spinlock_unlock(&Ananas::VFS::spl_fstypes);
 	if (fsops == NULL)
 		return ANANAS_ERROR(BAD_TYPE);
 
@@ -123,9 +136,9 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 void
 vfs_abandon_device(Ananas::Device& device)
 {
-	spinlock_lock(&spl_mountedfs);
-	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {
-		struct VFS_MOUNTED_FS* fs = &mountedfs[n];
+	spinlock_lock(&Ananas::VFS::spl_mountedfs);
+	for (unsigned int n = 0; n < Ananas::VFS::Max_Mounted_FS; n++) {
+		struct VFS_MOUNTED_FS* fs = &Ananas::VFS::mountedfs[n];
 		if ((fs->fs_flags & VFS_FLAG_INUSE) == 0 || (fs->fs_flags & VFS_FLAG_ABANDONED) || fs->fs_device != &device)
 			continue;
 
@@ -138,7 +151,7 @@ vfs_abandon_device(Ananas::Device& device)
 		 fs->fs_flags |= VFS_FLAG_ABANDONED;
 		 fs->fs_device = nullptr;
 	}
-	spinlock_unlock(&spl_mountedfs);
+	spinlock_unlock(&Ananas::VFS::spl_mountedfs);
 }
 
 errorcode_t
@@ -146,19 +159,19 @@ vfs_unmount(const char* path)
 {
 	panic("fix me");
 
-	spinlock_lock(&spl_mountedfs);
-	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {
-		struct VFS_MOUNTED_FS* fs = &mountedfs[n];
+	spinlock_lock(&Ananas::VFS::spl_mountedfs);
+	for (unsigned int n = 0; n < Ananas::VFS::Max_Mounted_FS; n++) {
+		struct VFS_MOUNTED_FS* fs = &Ananas::VFS::mountedfs[n];
 		if ((fs->fs_flags & VFS_FLAG_INUSE) && (fs->fs_mountpoint != NULL) && (strcmp(fs->fs_mountpoint, path) == 0)) {
 			/* Got it; disown it immediately. XXX What about pending inodes etc? */
 			fs->fs_mountpoint = NULL;
-			spinlock_unlock(&spl_mountedfs);
+			spinlock_unlock(&Ananas::VFS::spl_mountedfs);
 			/* XXX Ask filesystem politely to unmount */
 			fs->fs_flags = 0; /* Available */
 			return ananas_success();
 		}
 	}
-	spinlock_unlock(&spl_mountedfs);
+	spinlock_unlock(&Ananas::VFS::spl_mountedfs);
 	return ANANAS_ERROR(BAD_HANDLE); /* XXX */
 }
 
@@ -166,57 +179,57 @@ struct VFS_MOUNTED_FS*
 vfs_get_rootfs()
 {
 	/* XXX the root fs should have a flag marking it as such */
-	spinlock_lock(&spl_mountedfs);
-	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {
-		struct VFS_MOUNTED_FS* fs = &mountedfs[n];
+	spinlock_lock(&Ananas::VFS::spl_mountedfs);
+	for (unsigned int n = 0; n < Ananas::VFS::Max_Mounted_FS; n++) {
+		struct VFS_MOUNTED_FS* fs = &Ananas::VFS::mountedfs[n];
 		if ((fs->fs_flags & VFS_FLAG_INUSE) && (fs->fs_mountpoint != NULL) && (strcmp(fs->fs_mountpoint, "/") == 0)) {
-			spinlock_unlock(&spl_mountedfs);
+			spinlock_unlock(&Ananas::VFS::spl_mountedfs);
 			return fs;
 		}
 	}
-	spinlock_unlock(&spl_mountedfs);
+	spinlock_unlock(&Ananas::VFS::spl_mountedfs);
 	return NULL;
 }
 
 errorcode_t
 vfs_register_filesystem(struct VFS_FILESYSTEM* fs)
 {
-	spinlock_lock(&spl_fstypes);
+	spinlock_lock(&Ananas::VFS::spl_fstypes);
 	/* Ensure the filesystem is not already registered */
-	LIST_FOREACH(&fstypes, curfs, struct VFS_FILESYSTEM) {
+	LIST_FOREACH(&Ananas::VFS::fstypes, curfs, struct VFS_FILESYSTEM) {
 		if (strcmp(curfs->fs_name, fs->fs_name) == 0) {
 			/* Duplicate filesystem type; refuse to register */
-			spinlock_unlock(&spl_fstypes);
+			spinlock_unlock(&Ananas::VFS::spl_fstypes);
 			return ANANAS_ERROR(FILE_EXISTS);
 		}
 	}
 
 	/* Filesystem is clear; hook it up */
-	LIST_APPEND(&fstypes, fs);
-	spinlock_unlock(&spl_fstypes);
+	LIST_APPEND(&Ananas::VFS::fstypes, fs);
+	spinlock_unlock(&Ananas::VFS::spl_fstypes);
 	return ananas_success();
 }
 
 errorcode_t
 vfs_unregister_filesystem(struct VFS_FILESYSTEM* fs)
 {
-	spinlock_lock(&spl_fstypes);
-	LIST_REMOVE(&fstypes, fs);
-	spinlock_unlock(&spl_fstypes);
+	spinlock_lock(&Ananas::VFS::spl_fstypes);
+	LIST_REMOVE(&Ananas::VFS::fstypes, fs);
+	spinlock_unlock(&Ananas::VFS::spl_fstypes);
 	return ananas_success();
 }
 
 #ifdef OPTION_KDB
 KDB_COMMAND(mounts, NULL, "Shows current mounts")
 {
-	spinlock_lock(&spl_mountedfs);
-	for (unsigned int n = 0; n < VFS_MOUNTED_FS_MAX; n++) {
-		struct VFS_MOUNTED_FS* fs = &mountedfs[n];
+	spinlock_lock(&Ananas::VFS::spl_mountedfs);
+	for (unsigned int n = 0; n < Ananas::VFS::Max_Mounted_FS; n++) {
+		struct VFS_MOUNTED_FS* fs = &Ananas::VFS::mountedfs[n];
 		if ((fs->fs_flags & VFS_FLAG_INUSE) == 0)
 			continue;
 		kprintf(">> vfs=%p, flags=0x%x, mountpoint='%s'\n", fs, fs->fs_flags, fs->fs_mountpoint);
 	}
-	spinlock_unlock(&spl_mountedfs);
+	spinlock_unlock(&Ananas::VFS::spl_mountedfs);
 }
 #endif /* KDB */
 
