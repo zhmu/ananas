@@ -7,6 +7,7 @@
 #include <ananas/thread.h>
 #include <ananas/time.h>
 #include <ananas/vfs.h>
+#include "options.h"
 
 namespace {
 
@@ -41,6 +42,16 @@ userinit_func(void*)
 
 		delay(1000); // XXX we really need a sleep mechanism here
 	}
+	kprintf(" ok\n");
+
+#ifdef OPTION_ANKHFS
+	kprintf("- Mounting /ankh...");
+	err = vfs_mount(nullptr, "/ankh", "ankhfs", nullptr);
+	if (ananas_is_failure(err))
+		kprintf(" error %d\n", err);
+	else
+		kprintf(" success\n", err);
+#endif
 
 	// Now it makes sense to try to load init
 	const char* init_path = cmdline_get_string("init");
