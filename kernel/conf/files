@@ -108,11 +108,6 @@ fs/ankhfs/ankhfs-proc.cpp	option ANKHFS
 fs/ankhfs/ankhfs-support.cpp	option ANKHFS
 fs/ankhfs/ankhfs-filesystem.cpp	option ANKHFS
 fs/ankhfs/ankhfs-vfs-glue.cpp	option ANKHFS
-# sysfs
-fs/sysfs/sysfs.cpp		option SYSFS
-fs/sysfs/entry.cpp		option SYSFS
-fs/sysfs/helper.cpp		option SYSFS
-fs/sysfs/thread-sysfs.cpp	option SYSFS
 kdb/kdb.cpp			option KDB
 kdb/kdb_commands.cpp		option KDB
 # USB
