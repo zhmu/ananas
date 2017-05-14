@@ -12,6 +12,7 @@ option		PIPE
 option		EXT2FS
 option		FATFS
 option		ISO9660FS
+option		ANKHFS
 
 # cramfs requires zlib
 option		ZLIB

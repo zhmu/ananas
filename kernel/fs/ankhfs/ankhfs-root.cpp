@@ -1,0 +1,53 @@
+#include <ananas/types.h>
+#include <ananas/error.h>
+#include <ananas/trace.h>
+#include <ananas/vfs.h>
+#include <ananas/vfs/core.h>
+#include <ananas/vfs/generic.h>
+#include <ananas/lib.h>
+#include "support.h"
+
+TRACE_SETUP;
+
+namespace Ananas {
+namespace AnkhFS {
+namespace {
+
+struct DirectoryEntry root_entries[] = {
+	{ "proc", make_inum(SS_Proc, 0, 0) },
+	{ "fs", make_inum(SS_FileSystem, 0, 0) },
+	{ NULL,   0 }
+};
+
+class RootProcSubSystem : public IAnkhSubSystem
+{
+public:
+	errorcode_t HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len) override
+	{
+		return AnkhFS::HandleReadDir(file, dirents, len, root_entries[0]);
+	}
+
+	errorcode_t FillInode(struct VFS_INODE* inode, ino_t inum) override
+	{
+		inode->i_sb.st_mode |= S_IFDIR;
+		return ananas_success();
+	}
+
+	errorcode_t HandleRead(struct VFS_FILE* file, void* buf, size_t* len) override
+	{
+		return ANANAS_ERROR(UNSUPPORTED);
+	}
+};
+
+} // unnamed namespace
+
+IAnkhSubSystem& GetRootSubSystem()
+{
+	static RootProcSubSystem rootProcSubSystem;
+	return rootProcSubSystem;
+}
+
+} // namespace AnkhFS
+} // namespace Ananas
+
+/* vim:set ts=2 sw=2: */

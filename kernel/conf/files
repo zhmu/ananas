@@ -102,6 +102,12 @@ fs/fat/fatfs.cpp	option FATFS
 fs/fat/block.cpp	option FATFS
 fs/fat/dir.cpp		option FATFS
 fs/fat/inode.cpp	option FATFS
+# ankhfs
+fs/ankhfs/ankhfs-root.cpp	option ANKHFS
+fs/ankhfs/ankhfs-proc.cpp	option ANKHFS
+fs/ankhfs/ankhfs-support.cpp	option ANKHFS
+fs/ankhfs/ankhfs-filesystem.cpp	option ANKHFS
+fs/ankhfs/ankhfs-vfs-glue.cpp	option ANKHFS
 # sysfs
 fs/sysfs/sysfs.cpp		option SYSFS
 fs/sysfs/entry.cpp		option SYSFS
