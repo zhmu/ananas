@@ -17,18 +17,27 @@ TRACE_SETUP;
 static struct PROCESS_CALLBACKS process_callbacks_init;
 static struct PROCESS_CALLBACKS process_callbacks_exit;
 
-static semaphore_t process_sleep_sem;
-static mutex_t process_mtx;
-static struct PROCESS_QUEUE process_all;
-static pid_t process_curpid = -1;
+namespace Ananas {
+namespace Process {
+
+mutex_t process_mtx;
+struct PROCESS_QUEUE process_all;
+
+namespace {
+semaphore_t process_sleep_sem;
+pid_t process_curpid = -1;
+} // unnamed namespace
+
+} // namespace Process
+} // namespace Ananas
 
 static pid_t
 process_alloc_pid()
 {
 	/* XXX this is a bit of a kludge for now ... */
-	mutex_lock(&process_mtx);
-	pid_t pid = process_curpid++;
-	mutex_unlock(&process_mtx);
+	mutex_lock(&Ananas::Process::process_mtx);
+	pid_t pid = Ananas::Process::process_curpid++;
+	mutex_unlock(&Ananas::Process::process_mtx);
 
 	return pid;
 }
@@ -102,9 +111,9 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 	}
 
 	/* Finally, add the process to all processes */
-	mutex_lock(&process_mtx);
-	LIST_APPEND_IP(&process_all, all, p);
-	mutex_unlock(&process_mtx);
+	mutex_lock(&Ananas::Process::process_mtx);
+	LIST_APPEND_IP(&Ananas::Process::process_all, all, p);
+	mutex_unlock(&Ananas::Process::process_mtx);
 
 	*dest = p;
 	return ananas_success();
@@ -161,9 +170,9 @@ process_destroy(process_t* p)
 	vmspace_cleanup(p->p_vmspace);
 
 	/* Remove the process from the all-process list */
-	mutex_lock(&process_mtx);
-	LIST_REMOVE_IP(&process_all, all, p);
-	mutex_unlock(&process_mtx);
+	mutex_lock(&Ananas::Process::process_mtx);
+	LIST_REMOVE_IP(&Ananas::Process::process_all, all, p);
+	mutex_unlock(&Ananas::Process::process_mtx);
 
 	/*
 	 * Clear the process information; no one can query it at this point as the
@@ -196,7 +205,7 @@ process_exit(process_t* p, int status)
 	p->p_exit_status = status;
 	process_unlock(p);
 
-	sem_signal(&process_sleep_sem);
+	sem_signal(&Ananas::Process::process_sleep_sem);
 }
 
 errorcode_t
@@ -226,7 +235,7 @@ process_wait_and_lock(process_t* parent, int flags, process_t** p_out)
 		process_unlock(parent);
 
 		/* Nothing good yet; sleep on it */
-		sem_wait(&process_sleep_sem);
+		sem_wait(&Ananas::Process::process_sleep_sem);
 	}
 
 	/* NOTREACHED */
@@ -257,6 +266,27 @@ process_set_environment(process_t* p, const char* env, size_t env_len)
 		}
 
 	return ANANAS_ERROR(BAD_LENGTH);
+}
+
+process_t*
+process_lookup_by_id_and_ref(pid_t pid)
+{
+	mutex_lock(&Ananas::Process::process_mtx);
+	LIST_FOREACH_IP(&Ananas::Process::process_all, all, p, struct PROCESS) {
+		process_lock(p);
+		if (p->p_pid != pid) {
+			process_unlock(p);
+			continue;
+		}
+
+		// Process found; get a ref and return it
+		process_ref(p);
+		process_unlock(p);
+		mutex_unlock(&Ananas::Process::process_mtx);
+		return p;
+	}
+	mutex_unlock(&Ananas::Process::process_mtx);
+	return nullptr;
 }
 
 errorcode_t
@@ -290,10 +320,10 @@ process_unregister_exit_func(struct PROCESS_CALLBACK* fn)
 static errorcode_t
 process_init()
 {
-	mutex_init(&process_mtx, "proc");
-	sem_init(&process_sleep_sem, 0);
-	LIST_INIT(&process_all);
-	process_curpid = 1;
+	mutex_init(&Ananas::Process::process_mtx, "proc");
+	sem_init(&Ananas::Process::process_sleep_sem, 0);
+	LIST_INIT(&Ananas::Process::process_all);
+	Ananas::Process::process_curpid = 1;
 
 	return ananas_success();
 }

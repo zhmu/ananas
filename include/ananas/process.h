@@ -63,6 +63,7 @@ errorcode_t process_set_args(process_t* p, const char* args, size_t args_len);
 errorcode_t process_set_environment(process_t* p, const char* env, size_t env_len);
 errorcode_t process_clone(process_t* p, int flags, process_t** out_p);
 errorcode_t process_wait_and_lock(process_t* p, int flags, process_t** p_out);
+process_t* process_lookup_by_id_and_ref(pid_t pid);
 
 /*
  * Process callback functions are provided so that modules can take action upon
