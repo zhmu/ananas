@@ -18,7 +18,37 @@
 #include <ananas/gdb.h>
 #include "options.h"
 
-static void
+namespace {
+
+int
+map_trapno_to_signal(int trapno)
+{
+	switch(trapno) {
+		case EXC_DB:
+		case EXC_BP:
+			return 5;
+		case EXC_OF:
+		case EXC_BR:
+			return 16;
+		case EXC_UD:
+			return 4;
+		case EXC_DE:
+		case EXC_NM:
+			return 8;
+		case EXC_TS:
+		case EXC_NP:
+		case EXC_SS:
+		case EXC_GP:
+		case EXC_PF:
+			return 11;
+		case EXC_DF:
+		case EXC_MF:
+		default:
+			return 7;
+	}
+}
+
+void
 exception_nm(struct STACKFRAME* sf)
 {
 	/*
@@ -42,7 +72,7 @@ exception_nm(struct STACKFRAME* sf)
 		: : "a" (&thread->md_fpu_ctx));
 }
 
-static void
+void
 exception_generic(struct STACKFRAME* sf)
 {
 	const char* descr = x86_exception_name(sf->sf_trapno);
@@ -70,8 +100,8 @@ exception_generic(struct STACKFRAME* sf)
 	}
 
 	if (userland) {
-		/* A thread was naughty. Kill it */
-		thread_exit(THREAD_MAKE_EXITCODE(THREAD_TERM_FAULT, sf->sf_trapno));
+		/* A thread was naughty. Kill it XXX we should send the signal instead */
+		thread_exit(THREAD_MAKE_EXITCODE(THREAD_TERM_SIGNAL, map_trapno_to_signal(sf->sf_trapno)));
 		/* NOTREACHED */
 	}
 
@@ -81,7 +111,7 @@ exception_generic(struct STACKFRAME* sf)
 	panic("kernel exception");
 }
 
-static void
+void
 exception_pf(struct STACKFRAME* sf)
 {
 	/* Obtain the fault address; it caused the page fault */
@@ -109,6 +139,8 @@ exception_pf(struct STACKFRAME* sf)
 	/* Either not in userland or couldn't be handled; chain through */
 	exception_generic(sf);
 }
+
+} // unnamed namespace
 
 extern "C" void
 exception(struct STACKFRAME* sf)

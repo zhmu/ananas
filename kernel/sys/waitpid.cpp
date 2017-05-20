@@ -18,6 +18,8 @@ sys_waitpid(thread_t* t, pid_t* pid, int* stat_loc, int options)
 	ANANAS_ERROR_RETURN(err);
 
 	*pid = p->p_pid;
+	if (stat_loc != nullptr)
+		*stat_loc = p->p_exit_status;
 	process_unlock(p);
 
 	/* Give up our refence to the zombie child; this should destroy it */

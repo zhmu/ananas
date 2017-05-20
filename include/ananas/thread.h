@@ -51,9 +51,8 @@ struct THREAD {
 
 	unsigned int t_terminate_info;
 #define THREAD_MAKE_EXITCODE(a,b) (((a) << 24) | ((b) & 0x00ffffff))
-#define THREAD_TERM_SYSCALL	0x1	/* euthanasia */
-#define THREAD_TERM_FAULT	0x2	/* programming fault */
-#define THREAD_TERM_FAILURE	0x3	/* generic failure */
+#define THREAD_TERM_SYSCALL	0	/* euthanasia */
+#define THREAD_TERM_SIGNAL 1	/* terminated by signal */
 
 	struct PROCESS*		t_process;	/* associated process */
 
