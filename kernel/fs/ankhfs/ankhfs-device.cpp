@@ -45,7 +45,7 @@ HandleReadDir_Device(struct VFS_FILE* file, void* dirents, size_t* len)
 				return false;
 
 			snprintf(entry, maxLength, "%s%d", currentDevice->d_Name, currentDevice->d_Unit);
-			inum = make_inum(SS_Device, make_dev(currentDevice->d_Major, currentDevice->d_Unit), 0);
+			inum = make_inum(SS_Device, makedev(currentDevice->d_Major, currentDevice->d_Unit), 0);
 			currentDevice = LIST_NEXT_IP(currentDevice, all);
 			return true;
 		}

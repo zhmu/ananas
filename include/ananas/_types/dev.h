@@ -4,6 +4,6 @@ typedef __uint32_t	dev_t;
 
 #define major(x)	((x) >> 16)
 #define minor(x)	((x) & 0xffff)
-#define make_dev(ma,mi)	(((ma) << 16) | ((mi) & 0xffff))
+#define makedev(ma,mi)	(((ma) << 16) | ((mi) & 0xffff))
 
 #endif
