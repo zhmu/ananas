@@ -82,6 +82,21 @@ Device* InstantiateDevice(Driver& driver, const CreateDeviceProperties& cdp)
 	return device;
 }
 
+Device* ProbeConsole(ConsoleDriver& driver)
+{
+	Device* device = driver.ProbeDevice();
+	if (device == nullptr)
+		return nullptr;
+
+	// XXX duplication, locking etc
+	if (driver.d_Major == 0)
+		driver.d_Major = currentMajor++;
+	strcpy(device->d_Name, driver.d_Name);
+	device->d_Major = driver.d_Major;
+	device->d_Unit = driver.d_CurrentUnit++;
+	return device;
+}
+
 void DeinstantiateDevice(Device& device)
 {
 	delete &device;

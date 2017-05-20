@@ -14,6 +14,11 @@ namespace internal {
 Ananas::DriverList& GetDriverList();
 } // namespace internal
 } // namespace DriverManager
+namespace DeviceManager {
+namespace internal {
+Device* ProbeConsole(ConsoleDriver& driver);
+} // namespace internal
+} // namespace DeviceManager
 } // namespace Ananas
 
 Ananas::Device* console_tty = nullptr;
@@ -52,7 +57,7 @@ console_init()
 		 * resources here - XXX devices that require them can't be used as
 		 * console devices currently.
 		 */
-		Ananas::Device* dev = consoleDriver->ProbeDevice();
+		Ananas::Device* dev = Ananas::DeviceManager::internal::ProbeConsole(*consoleDriver);
 		if (dev == NULL)
 			continue; // likely not present
 		errorcode_t err = Ananas::DeviceManager::AttachSingle(*dev);
