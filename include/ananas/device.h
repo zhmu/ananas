@@ -121,6 +121,7 @@ public:
 
 	Device* d_Parent = nullptr;
 	char d_Name[64] = "unknown";
+	unsigned int d_Major = -1;
 	unsigned int d_Unit = -1;
 	ResourceSet d_ResourceSet;
 	dma_tag_t d_DMA_tag = nullptr;
@@ -140,6 +141,7 @@ errorcode_t Detach(Device& device);
 Device* AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet);
 void AttachBus(Device& bus);
 Device* FindDevice(const char* name);
+Device* FindDevice(dev_t dev);
 Device* CreateDevice(const char* driver, const Ananas::CreateDeviceProperties& cdp);
 
 } // namespace DeviceManager

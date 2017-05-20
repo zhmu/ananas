@@ -22,9 +22,9 @@ errorcode_t Unregister(const char* name);
 /*
  * Driver has three main purposes:
  *
- * (2) Take care of the driver name and unit assignment
- * (1) Create a given Device object, either by probing or on request
- * (3) Determine on which busses the device can occur 
+ * - Take care of the driver name and unit assignment
+ * - Create a given Device object, either by probing or on request
+ * - Determine on which busses the device can occur
  */
 class Driver {
 public:
@@ -46,6 +46,7 @@ public:
 
 	const char* d_Name;
 	int d_Priority;
+	int d_Major = 0;
 	int d_CurrentUnit = 0;
 	LIST_FIELDS(Driver);
 };

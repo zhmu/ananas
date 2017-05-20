@@ -12,9 +12,6 @@
 #include <ananas/vm.h>
 #include "options.h"
 
-static spinlock_t spl_devicequeue = SPINLOCK_DEFAULT_INIT;
-static Ananas::DeviceList deviceList;
-
 namespace Ananas {
 
 namespace DriverManager {
@@ -27,6 +24,8 @@ namespace DeviceManager {
 
 namespace {
 
+int currentMajor = 1;
+
 void PrintAttachment(Device& device)
 {
 	KASSERT(device.d_Parent != NULL, "can't print device which doesn't have a parent bus");
@@ -38,6 +37,9 @@ void PrintAttachment(Device& device)
 } // unnamed namespace
 
 namespace internal {
+
+spinlock_t spl_devicequeue = SPINLOCK_DEFAULT_INIT;
+Ananas::DeviceList deviceList;
 
 void Register(Device& device)
 {
@@ -67,10 +69,15 @@ void Unregister(Device& device)
 
 Device* InstantiateDevice(Driver& driver, const CreateDeviceProperties& cdp)
 {
+	// XXX we need locking for currentunit / major / currentMajor
+	if (driver.d_Major == 0)
+		driver.d_Major = currentMajor++;
+
 	Device* device = driver.CreateDevice(cdp);
 	if (device != nullptr) {
 		strcpy(device->d_Name, driver.d_Name);
-		device->d_Unit = driver.d_CurrentUnit++; // XXX should we lock this?
+		device->d_Major = driver.d_Major;
+		device->d_Unit = driver.d_CurrentUnit++;
 	}
 	return device;
 }
@@ -226,10 +233,28 @@ FindDevice(const char* name)
 		ptr++;
 	int unit = (*ptr != '\0') ? strtoul(ptr, NULL, 10) : 0;
 
-	LIST_FOREACH_IP(&deviceList, all, device, Device) {
-		if (!strncmp(device->d_Name, name, ptr - name) && device->d_Unit == unit)
+	spinlock_lock(&internal::spl_devicequeue);
+	LIST_FOREACH_IP(&internal::deviceList, all, device, Device) {
+		if (strncmp(device->d_Name, name, ptr - name) == 0 && device->d_Unit == unit) {
+			spinlock_unlock(&internal::spl_devicequeue);
 			return device;
+		}
 	}
+	spinlock_unlock(&internal::spl_devicequeue);
+	return nullptr;
+}
+
+Device*
+FindDevice(dev_t dev)
+{
+	spinlock_lock(&internal::spl_devicequeue);
+	LIST_FOREACH_IP(&internal::deviceList, all, device, Device) {
+		if (device->d_Major == major(dev) && device->d_Unit == minor(dev)) {
+			spinlock_unlock(&internal::spl_devicequeue);
+			return device;
+		}
+	}
+	spinlock_unlock(&internal::spl_devicequeue);
 	return nullptr;
 }
 
@@ -254,7 +279,7 @@ static int
 print_devices(Ananas::Device* parent, int indent)
 {
 	int count = 0;
-	LIST_FOREACH_IP(&deviceList, all, dev, Ananas::Device) {
+	LIST_FOREACH_IP(&Ananas::DeviceManager::internal::deviceList, all, dev, Ananas::Device) {
 		if (dev->d_Parent != parent)
 			continue;
 		for (int n = 0; n < indent; n++)
@@ -272,7 +297,7 @@ KDB_COMMAND(devices, NULL, "Displays a list of all devices")
 
 	/* See if we have printed everything; if not, our structure is wrong and we should fix this */
 	int n = 0;
-	LIST_FOREACH_IP(&deviceList, all, dev, Ananas::Device) {
+	LIST_FOREACH_IP(&Ananas::DeviceManager::internal::deviceList, all, dev, Ananas::Device) {
 		n++;
 	}
 	if (n != count)
