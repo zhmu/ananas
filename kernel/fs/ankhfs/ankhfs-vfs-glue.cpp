@@ -7,6 +7,7 @@
 #include <ananas/vfs/generic.h>
 #include <ananas/vfs/mount.h>
 #include <ananas/lib.h>
+#include "device.h"
 #include "filesystem.h"
 #include "proc.h"
 #include "root.h"
@@ -46,7 +47,14 @@ ankhfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	return subSystem->HandleReadDir(file, dirents, len);
 }
 
+struct VFS_INODE_OPS ankhfs_no_ops = {
+};
+
 struct VFS_INODE_OPS ankhfs_file_ops = {
+	.read = ankhfs_read
+};
+
+struct VFS_INODE_OPS ankhfs_dev_ops = {
 	.read = ankhfs_read
 };
 
@@ -64,6 +72,7 @@ ankhfs_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 	subSystems[static_cast<size_t>(SubSystem::SS_Root)] = &GetRootSubSystem();
 	subSystems[static_cast<size_t>(SubSystem::SS_Proc)] = &GetProcSubSystem();
 	subSystems[static_cast<size_t>(SubSystem::SS_FileSystem)] = &GetFileSystemSubSystem();
+	subSystems[static_cast<size_t>(SubSystem::SS_Device)] = &GetDeviceSubSystem();
 
 	errorcode_t err = vfs_get_inode(fs, make_inum(SS_Root, 0, 0), root_inode);
 	KASSERT(ananas_is_success(err), "cannot get root inode of synthetic filesystem (%d)", err);
@@ -95,8 +104,10 @@ ankhfs_read_inode(struct VFS_INODE* inode, ino_t inum)
 		inode->i_iops = &ankhfs_dir_ops;
 	} else if (S_ISREG(inode->i_sb.st_mode))
 		inode->i_iops = &ankhfs_file_ops;
+	else if (S_ISCHR(inode->i_sb.st_mode) || S_ISBLK(inode->i_sb.st_mode))
+		inode->i_iops = &ankhfs_dev_ops;
 	else
-		panic("got unsupported mode %d", inode->i_sb.st_mode);
+		inode->i_iops = &ankhfs_no_ops;
 
 	return ananas_success();
 }

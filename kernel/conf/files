@@ -107,6 +107,7 @@ fs/ankhfs/ankhfs-root.cpp	option ANKHFS
 fs/ankhfs/ankhfs-proc.cpp	option ANKHFS
 fs/ankhfs/ankhfs-support.cpp	option ANKHFS
 fs/ankhfs/ankhfs-filesystem.cpp	option ANKHFS
+fs/ankhfs/ankhfs-device.cpp	option ANKHFS
 fs/ankhfs/ankhfs-vfs-glue.cpp	option ANKHFS
 kdb/kdb.cpp			option KDB
 kdb/kdb_commands.cpp		option KDB

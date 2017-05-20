@@ -5,6 +5,7 @@
 #include <ananas/vfs/core.h>
 #include <ananas/vfs/generic.h>
 #include <ananas/lib.h>
+#include "device.h"
 #include "support.h"
 
 TRACE_SETUP;
@@ -16,7 +17,10 @@ namespace {
 struct DirectoryEntry root_entries[] = {
 	{ "proc", make_inum(SS_Proc, 0, 0) },
 	{ "fs", make_inum(SS_FileSystem, 0, 0) },
-	{ NULL,   0 }
+	{ "dev", make_inum(SS_Device, 0, Devices::subRoot) },
+	{ "devices", make_inum(SS_Device, 0, Devices::subDevices) },
+	{ "drivers", make_inum(SS_Device, 0, Devices::subDrivers) },
+	{ NULL,  0 }
 };
 
 class RootProcSubSystem : public IAnkhSubSystem
