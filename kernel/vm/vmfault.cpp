@@ -92,9 +92,10 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 		p->p_addr = virt & ~(PAGE_SIZE - 1);
 
 		/* Map the page */
-		md_map_pages(vs, p->p_addr, page_get_paddr(p), 1, va->va_flags);
 		errorcode_t err = ananas_success();
 		if (va->va_dentry != nullptr) {
+			// Map the page kernel read/write-only; we need this to fill it. The permissions are corrected later on
+			md_map_pages(vs, p->p_addr, page_get_paddr(p), 1, VM_FLAG_READ | VM_FLAG_WRITE);
 			err = vmspace_handle_fault_dentry(vs, va, virt);
 			if (ananas_is_failure(err)) {
 				/* Mapping failed; throw the thread mapping away and nuke the page */
@@ -103,6 +104,10 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 				page_free(p);
 			}
 		}
+
+		// Map the page using the flags it needs to have
+		if (ananas_is_success(err))
+			md_map_pages(vs, p->p_addr, page_get_paddr(p), 1, va->va_flags);
 		return err;
 	}
 

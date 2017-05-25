@@ -237,6 +237,9 @@ typedef struct {
 	Elf32_Word	p_filesz;		/* Number of bytes in image */
 	Elf32_Word	p_memsz;		/* Number of bytes in memory */
 	Elf32_Word	p_flags;		/* Flags */
+#define PF_X		0x1			/* Execute */
+#define PF_W		0x2			/* Write */
+#define PF_R		0x4			/* Read */
 	Elf32_Word	p_align;		/* Alignment restriction */
 } Elf32_Phdr;
 
