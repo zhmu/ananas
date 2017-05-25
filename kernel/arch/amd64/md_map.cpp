@@ -87,8 +87,13 @@ md_map_pages(vmspace_t* vs, addr_t virt, addr_t phys, size_t num_pages, int flag
 			pde[(virt >> 21) & 0x1ff] = get_nextpage(vs, pd_flags);
 		}
 
+		// Ensure we'll flush the mapping if it was already present - it may be in the TLB
 		uint64_t* pte = pt_resolve_addr(pde[(virt >> 21) & 0x1ff]);
+		bool need_invalidate = (pte[(virt >> 12) & 0x1ff] & PE_P) != 0;
 		pte[(virt >> 12) & 0x1ff] = (uint64_t)phys | pt_flags;
+		if (need_invalidate)
+			__asm __volatile("invlpg %0" : : "m" (*(char*)virt) : "memory");
+
 		virt += PAGE_SIZE; phys += PAGE_SIZE;
 	}
 }
