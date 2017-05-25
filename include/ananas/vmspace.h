@@ -8,27 +8,36 @@
 
 typedef struct VM_AREA vmarea_t;
 
-/* Fault function: handles a page fault for vmspace 'vs', area 'va' and address 'virt' */
-typedef errorcode_t (*vmarea_fault_t)(vmspace_t* vs, vmarea_t* va, addr_t virt);
-
-/* Clone function: copies mapping 'vs_src'/'va_src' to 'vs_dst'/'va_dst' */
-typedef errorcode_t (*vmarea_clone_t)(vmspace_t* vs_src, vmarea_t* va_src, vmspace_t* vs_dst, vmarea_t* va_dst);
-
-/* Destroy function: cleans up the given mapping's private data */
-typedef errorcode_t (*vmarea_destroy_t)(vmspace_t* vs, vmarea_t* va);
-
 /*
- * VM area describes an adjacent mapping though virtual memory.
+ * VM area describes an adjacent mapping though virtual memory. It can be
+  backed by an inode in the following way:
+ *
+ *                         +------+
+ *              va_doffset |      |
+ *       +-------+       \ |      |
+ *       |       |        \|      |
+  *      |d_vskip|>--------+......| ^
+ *       |       |         | file | | va_dlength
+ *       +-------+         |      | |
+ *       |       |<--------+......| v
+ *       | page2 |         |      |
+ *       |       |         |      |
+ *       +-------+         |      |
+ *                         +------+
+ *
+ * Note that we'll only fault one page at a time.
+ *
  */
 struct VM_AREA {
 	unsigned int		va_flags;		/* flags, combination of VM_FLAG_... */
 	addr_t			va_virt;		/* userland address */
 	size_t			va_len;			/* length */
 	struct page_list	va_pages;		/* backing pages */
-	void*			va_privdata;		/* private data */
-	vmarea_fault_t	va_fault;		/* fault function */
-	vmarea_clone_t	va_clone;		/* clone function */
-	vmarea_destroy_t	va_destroy;		/* destroy function */
+	/* dentry-specific mapping fields */
+	struct DENTRY* 		va_dentry;		/* backing dentry, if any */
+	off_t			va_dvskip;		/* number of initial bytes to skip */
+	off_t			va_doffset;		/* dentry offset */
+	size_t			va_dlength;		/* dentry length */
 
 	LIST_FIELDS(struct VM_AREA);
 };
@@ -58,6 +67,7 @@ errorcode_t vmspace_create(vmspace_t** vs);
 void vmspace_cleanup(vmspace_t* vs); /* frees all mappings, but not MD-things */
 void vmspace_destroy(vmspace_t* vs);
 errorcode_t vmspace_mapto(vmspace_t* vs, addr_t virt, addr_t phys, size_t len /* bytes */, uint32_t flags, vmarea_t** va_out);
+errorcode_t vmspace_mapto_dentry(vmspace_t* vs, addr_t virt, off_t vskip, size_t vlength, struct DENTRY* dentry, off_t doffset, size_t dlength, int flags, vmarea_t** va_out);
 errorcode_t vmspace_map(vmspace_t* vs, addr_t phys, size_t len /* bytes */, uint32_t flags, vmarea_t** va_out);
 errorcode_t vmspace_area_resize(vmspace_t* vs, vmarea_t* va, size_t new_length /* in bytes */);
 errorcode_t vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags);

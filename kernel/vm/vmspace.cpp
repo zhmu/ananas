@@ -5,6 +5,7 @@
 #include <ananas/lib.h>
 #include <ananas/mm.h>
 #include <ananas/error.h>
+#include <ananas/vfs/dentry.h>
 #include <ananas/trace.h>
 #include <ananas/vm.h>
 #include <ananas/vmspace.h>
@@ -95,6 +96,20 @@ vmspace_mapto(vmspace_t* vs, addr_t virt, addr_t phys, size_t len /* bytes */, u
 }
 
 errorcode_t
+vmspace_mapto_dentry(vmspace_t* vs, addr_t virt, off_t vskip, size_t vlength, struct DENTRY* dentry, off_t doffset, size_t dlength, int flags, vmarea_t** va_out)
+{
+	errorcode_t err = vmspace_mapto(vs, virt, (addr_t)NULL, vlength, flags | VM_FLAG_LAZY, va_out);
+	ANANAS_ERROR_RETURN(err);
+
+	dentry_ref(dentry);
+	(*va_out)->va_dentry = dentry;
+	(*va_out)->va_dvskip = vskip;
+	(*va_out)->va_doffset = doffset;
+	(*va_out)->va_dlength = dlength;
+	return ananas_success();
+}
+
+errorcode_t
 vmspace_map(vmspace_t* vs, addr_t phys, size_t len /* bytes */, uint32_t flags, vmarea_t** va_out)
 {
 	/*
@@ -146,45 +161,6 @@ vmspace_area_resize(vmspace_t* vs, vmarea_t* va, size_t new_length /* in bytes *
 
 	va->va_len = new_length;
 	return ananas_success();
-}
-
-errorcode_t
-vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
-{
-	TRACE(VM, INFO, "vmspace_handle_fault(): vs=%p, virt=%p, flags=0x%x", vs, virt, flags);
-
-	/* Walk through the areas one by one */
-	LIST_FOREACH(&vs->vs_areas, va, vmarea_t) {
-		if (!(virt >= va->va_virt && (virt < (va->va_virt + va->va_len))))
-			continue;
-
-		/* We should only get faults for lazy areas (filled by a function) or when we have to dynamically allocate things */
-		KASSERT((va->va_flags & (VM_FLAG_ALLOC | VM_FLAG_LAZY)) != 0, "unexpected pagefault in area %p, virt=%p, len=%d, flags 0x%x", va, va->va_virt, va->va_len, va->va_flags);
-
-		/* Allocate a new page; this will be used to handle the fault */
-		struct PAGE* p = page_alloc_single();
-		if (p == NULL)
-			return ANANAS_ERROR(OUT_OF_MEMORY);
-		LIST_APPEND(&va->va_pages, p);
-		p->p_addr = virt & ~(PAGE_SIZE - 1);
-
-		/* Map the page */
-		md_map_pages(vs, p->p_addr, page_get_paddr(p), 1, va->va_flags);
-		errorcode_t err = ananas_success();
-		if (va->va_fault != NULL) {
-			/* Invoke the mapping-specific fault handler */
-			err = va->va_fault(vs, va, virt);
-			if (ananas_is_failure(err)) {
-				/* Mapping failed; throw the thread mapping away and nuke the page */
-				md_unmap_pages(vs, p->p_addr, 1);
-				LIST_REMOVE(&va->va_pages, p);
-				page_free(p);
-			}
-		}
-		return err;
-	}
-
-	return ANANAS_ERROR(BAD_ADDRESS);
 }
 
 /*
@@ -241,15 +217,13 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 		vmarea_t* va_dst;
 		errorcode_t err = vmspace_mapto(vs_dest, va_src->va_virt, 0, va_src->va_len, VM_FLAG_ALLOC | va_src->va_flags, &va_dst);
 		ANANAS_ERROR_RETURN(err);
-
-		/* Copy the mapping-specific parts */
-		va_dst->va_privdata = NULL; /* to be filled out by clone */
-		va_dst->va_fault = va_src->va_fault;
-		va_dst->va_destroy = va_src->va_destroy;
-		va_dst->va_clone = va_src->va_clone;
-		if (va_src->va_clone != NULL) {
-			err = va_src->va_clone(vs_source, va_src, vs_dest, va_dst);
-			ANANAS_ERROR_RETURN(err);
+		if (va_src->va_dentry != nullptr) {
+			// Backed by an inode; copy the necessary fields over
+			va_dst->va_doffset = va_src->va_doffset;
+			va_dst->va_dvskip = va_src->va_dvskip;
+			va_dst->va_dlength = va_src->va_dlength;
+			va_dst->va_dentry = va_src->va_dentry;
+			dentry_ref(va_dst->va_dentry);
 		}
 
 		/*
@@ -294,8 +268,10 @@ void
 vmspace_area_free(vmspace_t* vs, vmarea_t* va)
 {
 	LIST_REMOVE(&vs->vs_areas, va);
-	if (va->va_destroy != NULL)
-		va->va_destroy(vs, va);
+
+	/* Free any backing dentry, if we have one */
+	if (va->va_dentry != nullptr)
+		dentry_deref(va->va_dentry);
 
 	/* If the pages were allocated, we need to free them one by one */
 	LIST_FOREACH_SAFE(&va->va_pages, p, struct PAGE) {

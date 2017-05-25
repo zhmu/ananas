@@ -66,6 +66,7 @@ vfs/vfs-handle.cpp	option VFS
 vfs/vfs-thread.cpp	option VFS
 # vm layer
 vm/vmspace.cpp		mandatory
+vm/vmfault.cpp		mandatory
 # libkern library
 lib/kern/misc.cpp	mandatory
 lib/kern/memset.cpp	mandatory
