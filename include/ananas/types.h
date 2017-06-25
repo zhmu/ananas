@@ -36,6 +36,7 @@
 #include <ananas/_types/time.h>
 #include <ananas/_types/thread.h>
 #include <ananas/_types/vmspace.h>
+#include <ananas/_types/vmarea.h>
 
 #endif /* !ASM */
 
