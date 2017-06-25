@@ -25,7 +25,7 @@ sys_vmop_map(ARG_CURTHREAD struct VMOP_OPTIONS* vo)
 	if (vo->vo_len == 0)
 		return ANANAS_ERROR(BAD_LENGTH);
 
-	int vm_flags = VM_FLAG_USER | VM_FLAG_ALLOC;
+	int vm_flags = VM_FLAG_USER | VM_FLAG_FAULT;
 	if (vo->vo_flags & VMOP_FLAG_READ)
 		vm_flags |= VM_FLAG_READ;
 	if (vo->vo_flags & VMOP_FLAG_WRITE)

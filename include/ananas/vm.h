@@ -11,23 +11,11 @@
 #define VM_FLAG_DEVICE     (1 << 5)
 #define VM_FLAG_PRIVATE    (1 << 6)  /* Do not share mapping (used for inodes) */
 #define VM_FLAG_NO_CLONE   (1 << 7)  /* Do not clone mapping */
-#define VM_FLAG_LAZY       (1 << 8)  /* Lazy mapping: page in as needed */
-#define VM_FLAG_ALLOC      (1 << 9)  /* Allocate memory for mapping */
+#define VM_FLAG_FAULT      (1 << 8)  /* Force faults */
 #define VM_FLAG_MD         (1 << 15) /* Machine dependent mapping */
 
 /* Force a specific mapping to be made */
 #define VM_FLAG_FORCEMAP	 (1 << 16)
-
-#if 0
-/* Map a piece of memory */
-void* vm_map_kernel(addr_t phys, size_t num_pages, int flags);
-
-/* Unmap a piece of memory */
-void vm_unmap_kernel(addr_t virt, size_t num_pages);
-
-/* Map memory of a device so it can be accessed */
-void* vm_map_device(addr_t phys, size_t len);
-#endif
 
 /* Maps a piece of memory for kernel use */
 void md_kmap(addr_t phys, addr_t virt, size_t num_pages, int flags);

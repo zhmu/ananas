@@ -59,7 +59,7 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 			continue;
 
 		/* We should only get faults for lazy areas (filled by a function) or when we have to dynamically allocate things */
-		KASSERT((va->va_flags & (VM_FLAG_ALLOC | VM_FLAG_LAZY)) != 0, "unexpected pagefault in area %p, virt=%p, len=%d, flags 0x%x", va, va->va_virt, va->va_len, va->va_flags);
+		KASSERT((va->va_flags & VM_FLAG_FAULT) != 0, "unexpected pagefault in area %p, virt=%p, len=%d, flags 0x%x", va, va->va_virt, va->va_len, va->va_flags);
 
 		// XXX lookup the page here, perhaps we are going from COW a new copy
 		//struct VM_PAGE* vp =

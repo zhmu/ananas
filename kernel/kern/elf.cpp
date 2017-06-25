@@ -81,7 +81,7 @@ elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 			continue;
 
 		/* Construct the flags for the actual mapping */
-		unsigned int flags = VM_FLAG_ALLOC | VM_FLAG_LAZY | VM_FLAG_USER;
+		unsigned int flags = VM_FLAG_FAULT | VM_FLAG_USER;
 		if (phdr.p_flags & PF_R)
 			flags |= VM_FLAG_READ;
 		if (phdr.p_flags & PF_W)

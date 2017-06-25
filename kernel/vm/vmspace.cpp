@@ -94,14 +94,14 @@ vmspace_mapto(vmspace_t* vs, addr_t virt, addr_t phys, size_t len /* bytes */, u
 	*va_out = va;
 
 	/* Provide a mapping for the pages */
-	md_map_pages(vs, va->va_virt, phys, BYTES_TO_PAGES(len), (flags & (VM_FLAG_LAZY | VM_FLAG_ALLOC)) ? 0 : flags);
+	md_map_pages(vs, va->va_virt, phys, BYTES_TO_PAGES(len), (flags & VM_FLAG_FAULT) ? 0 : flags);
 	return ananas_success();
 }
 
 errorcode_t
 vmspace_mapto_dentry(vmspace_t* vs, addr_t virt, off_t vskip, size_t vlength, struct DENTRY* dentry, off_t doffset, size_t dlength, int flags, vmarea_t** va_out)
 {
-	errorcode_t err = vmspace_mapto(vs, virt, (addr_t)NULL, vlength, flags | VM_FLAG_LAZY, va_out);
+	errorcode_t err = vmspace_mapto(vs, virt, (addr_t)NULL, vlength, flags | VM_FLAG_FAULT, va_out);
 	ANANAS_ERROR_RETURN(err);
 
 	dentry_ref(dentry);
@@ -177,7 +177,7 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 			continue;
 
 		vmarea_t* va_dst;
-		errorcode_t err = vmspace_mapto(vs_dest, va_src->va_virt, 0, va_src->va_len, VM_FLAG_ALLOC | va_src->va_flags, &va_dst);
+		errorcode_t err = vmspace_mapto(vs_dest, va_src->va_virt, 0, va_src->va_len, VM_FLAG_FAULT | va_src->va_flags, &va_dst);
 		ANANAS_ERROR_RETURN(err);
 		if (va_src->va_dentry != nullptr) {
 			// Backed by an inode; copy the necessary fields over
