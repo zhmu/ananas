@@ -5,6 +5,7 @@
 #include <ananas/vfs/generic.h>
 #include <ananas/process.h>
 #include <ananas/procinfo.h>
+#include <ananas/vm.h>
 #include <ananas/vmspace.h>
 #include <ananas/trace.h>
 #include <ananas/lib.h>
@@ -106,7 +107,11 @@ public:
 					// XXX shouldn't we lock something here?'
 					char* r = result;
 					LIST_FOREACH(&p->p_vmspace->vs_areas, va, vmarea_t) {
-						snprintf(r, sizeof(result) - (r - result), "%p %p %x\n", reinterpret_cast<void*>(va->va_virt), reinterpret_cast<void*>(va->va_len), va->va_flags);
+						snprintf(r, sizeof(result) - (r - result), "%p %p %c%c%c\n",
+						 reinterpret_cast<void*>(va->va_virt), reinterpret_cast<void*>(va->va_len),
+						 (va->va_flags & VM_FLAG_READ) ? 'r' : '-',
+						 (va->va_flags & VM_FLAG_WRITE) ? 'w' : '-',
+						 (va->va_flags & VM_FLAG_EXECUTE) ? 'x' : '-');
 						r += strlen(r);
 					}
 				}

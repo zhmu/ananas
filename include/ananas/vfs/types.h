@@ -7,6 +7,7 @@
 #include <ananas/vfs/dentry.h> /* for 'struct DENTRY_QUEUE' */
 #include <ananas/vfs/icache.h> /* for 'struct ICACHE_QUEUE' */
 #include <ananas/vfs/dirent.h>
+#include <ananas/vmpage.h>
 
 namespace Ananas {
 class Device;
@@ -40,6 +41,8 @@ struct VFS_INODE {
 	struct VFS_MOUNTED_FS* i_fs;		/* Filesystem where the inode lives */
 	void*		i_privdata;		/* Filesystem-specific data */
 	ino_t		i_inum;			/* Inode number */
+
+	struct VM_PAGE_LIST	i_pages;	/* Backing VM pages, if any */
 };
 
 /*

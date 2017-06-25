@@ -89,6 +89,10 @@ elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 		if (phdr.p_flags & PF_X)
 			flags |= VM_FLAG_EXECUTE;
 
+		// If this mapping is writable, do not share it
+		if (flags & VM_FLAG_WRITE)
+			flags |= VM_FLAG_PRIVATE;
+
 		/*
 		 * The program need not begin at a page-size, so we may need to adjust.
 		 */
@@ -96,6 +100,7 @@ elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 		addr_t virt_begin = ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE);
 		addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_memsz), PAGE_SIZE);
 		off_t vskip = phdr.p_vaddr - virt_begin;
+		TRACE(EXEC, INFO, "elf map: vbegin=%p vend=%p vskip=%d offset=%d filesz=%d\n", virt_begin, virt_end, vskip, phdr.p_offset, phdr.p_filesz);
 		err = vmspace_mapto_dentry(vs, virt_begin, vskip, virt_end - virt_begin, dentry, phdr.p_offset, phdr.p_filesz, flags, &va);
 		ANANAS_ERROR_RETURN(err);
 	}

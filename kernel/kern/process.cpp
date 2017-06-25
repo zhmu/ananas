@@ -2,6 +2,7 @@
 #include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/init.h>
+#include <ananas/kdb.h>
 #include <ananas/mm.h>
 #include <ananas/page.h>
 #include <ananas/handle.h>
@@ -10,6 +11,7 @@
 #include <ananas/vm.h>
 #include <ananas/vmspace.h>
 #include <machine/param.h> /* for PAGE_SIZE */
+#include "options.h"
 
 TRACE_SETUP;
 
@@ -70,7 +72,7 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 
 	/* Map the process information structure in the vm area so all out threads can access it */
 	vmarea_t* va;
-	err = vmspace_map(p->p_vmspace, page_get_paddr(p->p_info_page), sizeof(struct PROCINFO), VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_PRIVATE, &va);
+	err = vmspace_map(p->p_vmspace, page_get_paddr(p->p_info_page), sizeof(struct PROCINFO), VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_NO_CLONE, &va);
 	if (ananas_is_failure(err))
 		goto fail;
 	p->p_info_va = va->va_virt;
@@ -329,5 +331,21 @@ process_init()
 }
 
 INIT_FUNCTION(process_init, SUBSYSTEM_PROCESS, ORDER_FIRST);
+
+#ifdef OPTION_KDB
+
+extern void vmspace_dump(vmspace_t*);
+
+KDB_COMMAND(ps, "[s:flags]", "Displays all processes")
+{
+	mutex_lock(&Ananas::Process::process_mtx);
+	LIST_FOREACH_IP(&Ananas::Process::process_all, all, p, struct PROCESS) {
+		kprintf("process %d (%p): state %d\n", p->p_pid, p, p->p_state);
+		vmspace_dump(p->p_vmspace);
+	}
+	mutex_unlock(&Ananas::Process::process_mtx);
+}
+
+#endif // OPTION_KDB
 
 /* vim:set ts=2 sw=2: */

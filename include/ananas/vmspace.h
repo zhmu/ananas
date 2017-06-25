@@ -3,10 +3,9 @@
 
 #include <ananas/types.h>
 #include <ananas/list.h>
+#include <ananas/vmpage.h>
 #include <machine/vmspace.h>
 #include <ananas/page.h>
-
-typedef struct VM_AREA vmarea_t;
 
 /*
  * VM area describes an adjacent mapping though virtual memory. It can be
@@ -32,7 +31,7 @@ struct VM_AREA {
 	unsigned int		va_flags;		/* flags, combination of VM_FLAG_... */
 	addr_t			va_virt;		/* userland address */
 	size_t			va_len;			/* length */
-	struct page_list	va_pages;		/* backing pages */
+	struct VM_PAGE_LIST	va_pages;		/* backing pages */
 	/* dentry-specific mapping fields */
 	struct DENTRY* 		va_dentry;		/* backing dentry, if any */
 	off_t			va_dvskip;		/* number of initial bytes to skip */
@@ -48,6 +47,8 @@ LIST_DEFINE(VM_AREA_LIST, struct VM_AREA);
  * VM space describes a thread's complete overview of memory.
  */
 struct VM_SPACE {
+	mutex_t vs_mutex; /* protects all fields and sub-areas */
+
 	struct VM_AREA_LIST	vs_areas;
 
 	/*
@@ -73,9 +74,25 @@ errorcode_t vmspace_area_resize(vmspace_t* vs, vmarea_t* va, size_t new_length /
 errorcode_t vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags);
 errorcode_t vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags);
 void vmspace_area_free(vmspace_t* vs, vmarea_t* va);
+void vmspace_dump(vmspace_t* vs);
 
 /* MD initialization/cleanup bits */
 errorcode_t md_vmspace_init(vmspace_t* vs);
 void md_vmspace_destroy(vmspace_t* vs);
+
+static inline void vmspace_lock(vmspace_t* vs)
+{
+	mutex_lock(&vs->vs_mutex);
+}
+
+static inline void vmspace_unlock(vmspace_t* vs)
+{
+	mutex_unlock(&vs->vs_mutex);
+}
+
+static inline void vmspace_assert_locked(vmspace_t* vs)
+{
+	mutex_assert(&vs->vs_mutex, MTX_LOCKED);
+}
 
 #endif /* ANANAS_VMSPACE_H */

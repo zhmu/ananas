@@ -8,6 +8,7 @@
 #include <ananas/vfs/dentry.h>
 #include <ananas/trace.h>
 #include <ananas/vm.h>
+#include <ananas/vmpage.h>
 #include <ananas/vmspace.h>
 
 TRACE_SETUP;
@@ -24,6 +25,8 @@ vmspace_create(vmspace_t** vmspace)
 
 	errorcode_t err = md_vmspace_init(vs);
 	ANANAS_ERROR_RETURN(err);
+
+	mutex_init(&vs->vs_mutex, "vmspace");
 	*vmspace = vs;
 	return err;
 }
@@ -122,47 +125,6 @@ vmspace_map(vmspace_t* vs, addr_t phys, size_t len /* bytes */, uint32_t flags, 
 	return vmspace_mapto(vs, virt, phys, len, flags, va_out);
 }
 
-errorcode_t
-vmspace_area_resize(vmspace_t* vs, vmarea_t* va, size_t new_length /* in bytes */)
-{
-	/* XXX we should lock the mapping here! */
-	if (new_length == 0)
-		return ANANAS_ERROR(BAD_LENGTH);
-
-	/* If we're mapping a large piece, the new virtual space must not be in use */
-	if(new_length > va->va_len) {
-		addr_t new_virt = va->va_virt + new_length - va->va_len;
-		size_t grow_length = new_length - va->va_len;
-		if(vmspace_is_inuse(vs, new_virt, grow_length))
-			return ANANAS_ERROR(NO_SPACE);
-
-		/* XXX If this isn't a ALLOC mapping, reject - we don't know the physical address anymore */
-		if ((va->va_flags & VM_FLAG_ALLOC) == 0)
-			return ANANAS_ERROR(BAD_FLAG);
-
-		/* Extend the mapping */
-		md_map_pages(vs, new_virt, 0, BYTES_TO_PAGES(grow_length), (va->va_flags & (VM_FLAG_LAZY | VM_FLAG_ALLOC)) ? 0 : va->va_flags);
-	}
-
-	/* If we're shrinking the mapping, free all pages that are no longer in use */
-	if (new_length < va->va_len) {
-		addr_t free_virt_begin = va->va_virt + new_length;
-		addr_t free_virt_end = va->va_virt + va->va_len;
-		LIST_FOREACH_SAFE(&va->va_pages, p, struct PAGE) {
-			if (p->p_addr < free_virt_begin || p->p_addr >= free_virt_end)
-				continue;
-			LIST_REMOVE(&va->va_pages, p);
-			page_free(p);
-		}
-
-		/* Shrink the mapping */
-		md_unmap_pages(vs, free_virt_begin, free_virt_end - free_virt_begin);
-	}
-
-	va->va_len = new_length;
-	return ananas_success();
-}
-
 /*
  * vmspace_clone() is used for two scenarios:
  *
@@ -182,7 +144,7 @@ vmspace_clone_area_must_free(vmarea_t* va, int flags)
 	/* Scenario (2) does not free MD-specific parts */
 	if ((flags & VMSPACE_CLONE_EXEC) && (va->va_flags & VM_FLAG_MD))
 		return 0;
-	return (va->va_flags & VM_FLAG_PRIVATE) == 0;
+	return (va->va_flags & VM_FLAG_NO_CLONE) == 0;
 }
 
 static inline int
@@ -191,7 +153,7 @@ vmspace_clone_area_must_copy(vmarea_t* va, int flags)
 	/* Scenario (2) does copy MD-specific parts */
 	if ((flags & VMSPACE_CLONE_EXEC) && (va->va_flags & VM_FLAG_MD))
 		return 1;
-	return (va->va_flags & VM_FLAG_PRIVATE) == 0;
+	return (va->va_flags & VM_FLAG_NO_CLONE) == 0;
 }
 
 errorcode_t
@@ -226,26 +188,17 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 			dentry_ref(va_dst->va_dentry);
 		}
 
-		/*
-		 * Copy the area page-wise - XXX we should use a copy-on-write mechanism.
-		 *
-		 * This loop assumes that our current vmspace is the source!
-		 */
-		LIST_FOREACH(&va_src->va_pages, p, struct PAGE) {
-			struct PAGE* new_page = page_alloc_order(p->p_order);
-			if (new_page == NULL)
-				return ANANAS_ERROR(OUT_OF_MEMORY);
-			LIST_APPEND(&va_dst->va_pages, new_page);
-			new_page->p_addr = p->p_addr;
-			int num_pages = 1 << p->p_order;
+		// Copy the area page-wise
+		LIST_FOREACH(&va_src->va_pages, vp, struct VM_PAGE) {
+			KASSERT(vmpage_get_page(vp)->p_order == 0, "unexpected %d order page here", vmpage_get_page(vp)->p_order);
 
-			/* XXX make a temporary mapping to copy the data. We should do a copy-on-write */
-			void* ktmp = kmem_map(page_get_paddr(new_page), num_pages * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_KERNEL);
-			memcpy(ktmp, (void*)p->p_addr, num_pages * PAGE_SIZE);
-			kmem_unmap(ktmp, num_pages * PAGE_SIZE);
+			// Create a clone of the data; it is up to the vmpage how to do this (it may go for COW)
+			struct VM_PAGE* new_vp = vmpage_clone(vp);
+			LIST_APPEND(&va_dst->va_pages, new_vp);
 
-			/* Mark the page as present in the cloned process */
-			md_map_pages(vs_dest, p->p_addr, page_get_paddr(new_page), num_pages, va_dst->va_flags);
+			// Mark the page as present in the cloned vmspace with the correct flags
+			struct PAGE* p = vmpage_get_page(new_vp);
+			md_map_pages(vs_dest, new_vp->vp_vaddr, page_get_paddr(p), 1, va_dst->va_flags);
 		}
 	}
 
@@ -274,9 +227,8 @@ vmspace_area_free(vmspace_t* vs, vmarea_t* va)
 		dentry_deref(va->va_dentry);
 
 	/* If the pages were allocated, we need to free them one by one */
-	LIST_FOREACH_SAFE(&va->va_pages, p, struct PAGE) {
-		md_unmap_pages(vs, p->p_addr, 1);
-		page_free(p);
+	LIST_FOREACH_SAFE(&va->va_pages, vp, struct VM_PAGE) {
+		vmpage_deref(vp);
 	}
 	kfree(va);
 }
@@ -285,7 +237,20 @@ void
 vmspace_dump(vmspace_t* vs)
 {
 	LIST_FOREACH(&vs->vs_areas, va, vmarea_t) {
-		kprintf("area %p: %p..%p flags %x\n", va, va->va_virt, va->va_virt + va->va_len, va->va_flags);
+		kprintf("  area %p: %p..%p flags %c%c%c%c%c%c%c%c\n",
+		 va, va->va_virt, va->va_virt + va->va_len - 1,
+		 (va->va_flags & VM_FLAG_READ) ? 'r' : '.',
+		 (va->va_flags & VM_FLAG_WRITE) ? 'w' : '.',
+		 (va->va_flags & VM_FLAG_EXECUTE) ? 'x' : '.',
+		 (va->va_flags & VM_FLAG_KERNEL) ? 'k' : '.',
+		 (va->va_flags & VM_FLAG_USER) ? 'u' : '.',
+		 (va->va_flags & VM_FLAG_PRIVATE) ? 'p' : '.',
+		 (va->va_flags & VM_FLAG_NO_CLONE) ? 'n' : '.',
+		 (va->va_flags & VM_FLAG_MD) ? 'm' : '.');
+		kprintf("    pages:\n");
+		LIST_FOREACH(&va->va_pages, vp, struct VM_PAGE) {
+			vmpage_dump(vp, "      ");
+		}
 	}
 }
 

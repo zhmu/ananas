@@ -8,6 +8,7 @@
 #include <ananas/lock.h>
 #include <ananas/schedule.h>
 #include <ananas/trace.h>
+#include <ananas/vmpage.h>
 #include <ananas/lib.h>
 #include "options.h"
 
@@ -312,6 +313,9 @@ vfs_dump_inode(struct VFS_INODE* inode)
 	kprintf("  uid/gid = %u:%u\n", sb->st_uid, sb->st_gid);
 	kprintf("  size    = %u\n", (uint32_t)sb->st_size); /* XXX for now */
 	kprintf("  blksize = %u\n", sb->st_blksize);
+	LIST_FOREACH(&inode->i_pages, vp, struct VM_PAGE) {
+		vmpage_dump(vp, "    ");
+	}
 }
 
 #ifdef OPTION_KDB

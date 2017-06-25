@@ -9,16 +9,12 @@
 struct PAGE {
 	LIST_FIELDS(struct PAGE);
 
-	/* Mapped address, if any */
-	addr_t p_addr;
-
 	/* Page order */
 	unsigned int p_order;
 
 	/* Owning zone */
 	struct PAGE_ZONE* p_zone;
 };
-
 
 LIST_DEFINE(page_list, struct PAGE);
 

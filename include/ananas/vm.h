@@ -3,20 +3,20 @@
 #ifndef __VM_H__
 #define __VM_H__
 
-#define VM_FLAG_READ	0x0001
-#define VM_FLAG_WRITE	0x0002
-#define VM_FLAG_EXECUTE	0x0004
-#define VM_FLAG_KERNEL	0x0008
-#define VM_FLAG_USER	0x0010
-#define VM_FLAG_DEVICE	0x0020
-#define VM_FLAG_PRIVATE 0x0040	/* Private mapping, will not be cloned */
-#define VM_FLAG_MD	0x4000	/* Machine dependent mapping */
-
-#define VM_FLAG_LAZY	0x0080	/* Lazy mapping: page in as needed */
-#define VM_FLAG_ALLOC 	0x0100	/* Allocate memory for mapping */
+#define VM_FLAG_READ       (1 << 0)
+#define VM_FLAG_WRITE      (1 << 1)
+#define VM_FLAG_EXECUTE    (1 << 2)
+#define VM_FLAG_KERNEL     (1 << 3)
+#define VM_FLAG_USER       (1 << 4)
+#define VM_FLAG_DEVICE     (1 << 5)
+#define VM_FLAG_PRIVATE    (1 << 6)  /* Do not share mapping (used for inodes) */
+#define VM_FLAG_NO_CLONE   (1 << 7)  /* Do not clone mapping */
+#define VM_FLAG_LAZY       (1 << 8)  /* Lazy mapping: page in as needed */
+#define VM_FLAG_ALLOC      (1 << 9)  /* Allocate memory for mapping */
+#define VM_FLAG_MD         (1 << 15) /* Machine dependent mapping */
 
 /* Force a specific mapping to be made */
-#define VM_FLAG_FORCEMAP	0x8000
+#define VM_FLAG_FORCEMAP	 (1 << 16)
 
 #if 0
 /* Map a piece of memory */
