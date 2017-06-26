@@ -1,6 +1,5 @@
 #include <ananas/types.h>
 #include <machine/param.h> /* for PAGE_SIZE */
-#include <machine/vm.h> /* for md_{,un}map_pages() */
 #include <ananas/error.h>
 #include <ananas/lib.h>
 #include <ananas/process.h>
@@ -118,8 +117,7 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 				new_vp->vp_vaddr = virt & ~(PAGE_SIZE - 1);
 
 				// Finally, update the permissions and we are done
-				struct PAGE* new_p = vmpage_get_page(new_vp);
-				md_map_pages(vs, new_vp->vp_vaddr, page_get_paddr(new_p), 1, va->va_flags);
+				vmpage_map(vs, va, new_vp);
 				return ananas_success();
 			}
 		}
@@ -127,15 +125,13 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 		// We need a new VM page here; this is an anonymous mapping which we need to back
 		struct VM_PAGE* new_vp = vmpage_create_private(VM_PAGE_FLAG_PRIVATE);
 		LIST_APPEND(&va->va_pages, new_vp);
-		struct PAGE* new_p = vmpage_get_page(new_vp);
 		new_vp->vp_vaddr = virt & ~(PAGE_SIZE - 1);
 
-		// Clear the page XXX This is unfortunate, we should have a supply of pre-zeroed pages
-		md_map_pages(vs, new_vp->vp_vaddr, page_get_paddr(new_p), 1, VM_FLAG_READ | VM_FLAG_WRITE);
-		memset((void*)new_vp->vp_vaddr, 0, PAGE_SIZE);
+		// Ensure the page cleaned so we don't leak any information
+		vmpage_zero(vs, new_vp);
 
 		// And now (re)map the page for the caller
-		md_map_pages(vs, new_vp->vp_vaddr, page_get_paddr(new_p), 1, va->va_flags);
+		vmpage_map(vs, va, new_vp);
 		return ananas_success();
 	}
 

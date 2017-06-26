@@ -222,6 +222,23 @@ vmpage_create_private(int flags)
   return new_page;
 }
 
+void
+vmpage_map(vmspace_t* vs, vmarea_t* va, struct VM_PAGE* vp)
+{
+	int flags = va->va_flags;
+	struct PAGE* p = vmpage_get_page(vp);
+	md_map_pages(vs, vp->vp_vaddr, page_get_paddr(p), 1, flags);
+}
+
+void
+vmpage_zero(vmspace_t* vs, struct VM_PAGE* vp)
+{
+	// Clear the page XXX This is unfortunate, we should have a supply of pre-zeroed pages
+	struct PAGE* p = vmpage_get_page(vp);
+	md_map_pages(vs, vp->vp_vaddr, page_get_paddr(p), 1, VM_FLAG_READ | VM_FLAG_WRITE);
+	memset((void*)vp->vp_vaddr, 0, PAGE_SIZE);
+}
+
 void vmpage_dump(struct VM_PAGE* vp, const char* prefix)
 {
   kprintf("%s%p: refcount %d vaddr %p flags %s/%s/%s/%c ",

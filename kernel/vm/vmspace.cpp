@@ -196,9 +196,8 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 			struct VM_PAGE* new_vp = vmpage_clone(vp);
 			LIST_APPEND(&va_dst->va_pages, new_vp);
 
-			// Mark the page as present in the cloned vmspace with the correct flags
-			struct PAGE* p = vmpage_get_page(new_vp);
-			md_map_pages(vs_dest, new_vp->vp_vaddr, page_get_paddr(p), 1, va_dst->va_flags);
+			// Map the page into the cloned vmspace
+			vmpage_map(vs_dest, va_dst, new_vp);
 		}
 	}
 

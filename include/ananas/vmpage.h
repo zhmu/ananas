@@ -60,6 +60,8 @@ struct PAGE* vmpage_get_page(struct VM_PAGE* vp);
 struct VM_PAGE* vmpage_clone(struct VM_PAGE* vp_source);
 struct VM_PAGE* vmpage_link(struct VM_PAGE* vp);
 void vmpage_copy(struct VM_PAGE* vp_src, struct VM_PAGE* vp_dst);
+void vmpage_map(vmspace_t* vs, vmarea_t* va, struct VM_PAGE* vp);
+void vmpage_zero(vmspace_t* vs, struct VM_PAGE* vp);
 
 void vmpage_dump(struct VM_PAGE* vp, const char* prefix);
 
