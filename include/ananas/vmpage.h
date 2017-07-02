@@ -17,6 +17,7 @@ struct VM_PAGE {
 	LIST_FIELDS(struct VM_PAGE);
 
 	mutex_t vp_mtx;
+	vmarea_t* vp_vmarea;
 
 	int vp_flags;
 	refcount_t vp_refcount;
@@ -39,29 +40,30 @@ struct VM_PAGE {
 
 LIST_DEFINE(VM_PAGE_LIST, struct VM_PAGE);
 
-static inline void vmpage_lock(struct VM_PAGE* vmpage)
-{
-	mutex_lock(&vmpage->vp_mtx);
-}
+#define vmpage_lock(vp) \
+	mutex_lock(&(vp)->vp_mtx)
 
-static inline void vmpage_unlock(struct VM_PAGE* vmpage)
-{
-	mutex_unlock(&vmpage->vp_mtx);
-}
+#define vmpage_unlock(vp) \
+	mutex_unlock(&(vp)->vp_mtx)
+
+#define vmpage_assert_locked(vp) \
+	mutex_assert(&(vp)->vp_mtx, MTX_LOCKED)
 
 void vmpage_ref(struct VM_PAGE* vmpage);
 void vmpage_deref(struct VM_PAGE* vmpage);
 
 struct VM_PAGE* vmpage_lookup_locked(vmarea_t* va, struct VFS_INODE* inode, off_t offs);
-struct VM_PAGE* vmpage_create_shared(vmarea_t* va, struct VFS_INODE* inode, off_t offs, int flags);
-struct VM_PAGE* vmpage_create_private(int flags);
+struct VM_PAGE* vmpage_lookup_vaddr_locked(vmarea_t* va, addr_t vaddr);
+struct VM_PAGE* vmpage_create_shared(struct VFS_INODE* inode, off_t offs, int flags);
+struct VM_PAGE* vmpage_create_private(vmarea_t* va, int flags);
 struct PAGE* vmpage_get_page(struct VM_PAGE* vp);
 
-struct VM_PAGE* vmpage_clone(struct VM_PAGE* vp_source);
-struct VM_PAGE* vmpage_link(struct VM_PAGE* vp);
+struct VM_PAGE* vmpage_clone(vmspace_t* vs, vmarea_t* va_source, vmarea_t* va_dest, struct VM_PAGE* vp);
+struct VM_PAGE* vmpage_link(vmarea_t* va, struct VM_PAGE* vp);
 void vmpage_copy(struct VM_PAGE* vp_src, struct VM_PAGE* vp_dst);
 void vmpage_map(vmspace_t* vs, vmarea_t* va, struct VM_PAGE* vp);
 void vmpage_zero(vmspace_t* vs, struct VM_PAGE* vp);
+struct VM_PAGE* vmpage_promote(vmspace_t* vs, vmarea_t* va, struct VM_PAGE* vp);
 
 void vmpage_dump(struct VM_PAGE* vp, const char* prefix);
 

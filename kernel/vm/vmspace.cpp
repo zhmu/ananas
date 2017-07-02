@@ -190,14 +190,16 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 
 		// Copy the area page-wise
 		LIST_FOREACH(&va_src->va_pages, vp, struct VM_PAGE) {
+			vmpage_lock(vp);
 			KASSERT(vmpage_get_page(vp)->p_order == 0, "unexpected %d order page here", vmpage_get_page(vp)->p_order);
 
 			// Create a clone of the data; it is up to the vmpage how to do this (it may go for COW)
-			struct VM_PAGE* new_vp = vmpage_clone(vp);
-			LIST_APPEND(&va_dst->va_pages, new_vp);
+			struct VM_PAGE* new_vp = vmpage_clone(vs_source, va_src, va_dst, vp);
 
 			// Map the page into the cloned vmspace
 			vmpage_map(vs_dest, va_dst, new_vp);
+			vmpage_unlock(new_vp);
+			vmpage_unlock(vp);
 		}
 	}
 
@@ -227,6 +229,7 @@ vmspace_area_free(vmspace_t* vs, vmarea_t* va)
 
 	/* If the pages were allocated, we need to free them one by one */
 	LIST_FOREACH_SAFE(&va->va_pages, vp, struct VM_PAGE) {
+		vmpage_lock(vp);
 		vmpage_deref(vp);
 	}
 	kfree(va);

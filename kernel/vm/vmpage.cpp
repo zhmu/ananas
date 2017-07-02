@@ -12,75 +12,152 @@
 #include <machine/param.h> // for PAGE_SIZE
 #include <machine/vm.h> /* for md_{,un}map_pages() */
 
+#define DEBUG 0
+
+#if DEBUG
+
+#define DPRINTF kprintf
+
+#include <ananas/pcpu.h>
+#include <ananas/process.h>
+
+static inline int get_pid()
+{
+  process_t* p = PCPU_GET(curthread)->t_process;
+  return p != nullptr ? p->p_pid : 0;
+}
+
+#else
+#define DPRINTF(...)
+#endif
+
 namespace {
 
 void
 vmpage_free(struct VM_PAGE* vmpage)
 {
+  vmpage_assert_locked(vmpage);
+
+  KASSERT(vmpage->vp_refcount == 0, "freeing page with refcount %d", vmpage->vp_refcount);
+
+  DPRINTF("[%d] vmpage_free(): vp %p @ %p (page %p phys %p)\n", get_pid(), vmpage, vmpage->vp_vaddr,
+    (vmpage->vp_flags & VM_PAGE_FLAG_LINK) == 0 ? vmpage->vp_page : 0,
+    (vmpage->vp_flags & VM_PAGE_FLAG_LINK) == 0 && vmpage->vp_page != nullptr ? page_get_paddr(vmpage->vp_page) : 0);
+
   // Note that we do not hold any references to the inode (the inode owns us)
   if (vmpage->vp_flags & VM_PAGE_FLAG_LINK) {
-    if (vmpage->vp_link != nullptr)
+    if (vmpage->vp_link != nullptr) {
+      vmpage_lock(vmpage->vp_link);
       vmpage_deref(vmpage->vp_link);
+    }
   } else {
     if (vmpage->vp_page != nullptr)
       page_free(vmpage->vp_page);
   }
+
+  // If we are hooked to a vmarea, unlink us
+  if (vmpage->vp_vmarea != nullptr)
+    LIST_REMOVE(&vmpage->vp_vmarea->va_pages, vmpage);
   kfree(vmpage);
 }
 
-#if 0
-void
-vmpage_promote(struct VM_PAGE* vp)
+struct VM_PAGE*
+vmpage_resolve(struct VM_PAGE* vp)
 {
-  // This promotes a COW page to a new writable page
-  KASSERT((vp->vp_flags & VM_PAGE_FLAG_COW) != 0, "attempt to promote non-COW page");
-
-  panic("todo");
+  if (vp->vp_flags & VM_PAGE_FLAG_LINK) {
+    vp = vp->vp_link;
+    KASSERT((vp->vp_flags & VM_PAGE_FLAG_LINK) == 0, "link to a linked page");
+  }
+  return vp;
 }
-#endif
 
 struct VM_PAGE*
-vmpage_alloc(struct VFS_INODE* inode, off_t offset, int flags)
+vmpage_resolve_locked(struct VM_PAGE* vp)
+{
+  vmpage_assert_locked(vp);
+
+  struct VM_PAGE* vp_resolved = vmpage_resolve(vp);
+  if (vp_resolved == vp)
+    return vp;
+  vmpage_lock(vp_resolved);
+
+  vmpage_unlock(vp);
+  return vp_resolved;
+}
+
+struct VM_PAGE*
+vmpage_alloc(vmarea_t* va, struct VFS_INODE* inode, off_t offset, int flags)
 {
   auto vp = static_cast<struct VM_PAGE*>(kmalloc(sizeof(struct VM_PAGE)));
   memset(vp, 0, sizeof(struct VM_PAGE));
   mutex_init(&vp->vp_mtx, "vmpage");
+  vp->vp_vmarea = va;
   vp->vp_inode = inode;
   vp->vp_offset = offset;
   vp->vp_flags = flags;
   vp->vp_refcount = 1; // caller
 
+  vmpage_lock(vp);
+  if (va != nullptr)
+    LIST_APPEND(&va->va_pages, vp);
   return vp;
+}
+
+struct VM_PAGE*
+vmpage_clone_cow(vmspace_t* vs, vmarea_t* va, struct VM_PAGE* vp)
+{
+  //KASSERT((vp->vp_flags & VM_PAGE_FLAG_COW) == 0, "trying to clone cow page %p that is already cow", vp);
+
+  // Get the virtual address before dereferencing links as the source is never mapped
+  addr_t vaddr = vp->vp_vaddr;
+  vp = vmpage_resolve_locked(vp);
+
+  // Mark the source page as COW and update the mapping - this makes it read-only
+  vp->vp_flags |= VM_PAGE_FLAG_COW;
+  vmpage_map(vs, va, vp);
+
+  // Return a link to the page, but do mark it as COW as well
+  struct VM_PAGE* vp_new = vmpage_link(va, vp);
+  vp_new->vp_flags |= VM_PAGE_FLAG_COW;
+  vp_new->vp_vaddr = vaddr;
+  return vp_new;
 }
 
 } // unnamed namespace
 
 struct VM_PAGE*
-vmpage_link(struct VM_PAGE* vp)
+vmpage_link(vmarea_t* va, struct VM_PAGE* vp)
 {
-  // If the source is a link itself, dereference it
-  if (vp->vp_flags & VM_PAGE_FLAG_LINK) {
-    vp = vp->vp_link;
-    KASSERT((vp->vp_flags & VM_PAGE_FLAG_LINK) == 0, "link to a linked page");
-  }
+  vmpage_assert_locked(vp);
+  struct VM_PAGE* vp_source = vmpage_resolve_locked(vp);
 
   // Increase source refcount as we will be linked towards it
-  vmpage_ref(vp);
+  vmpage_ref(vp_source);
 
   int flags = VM_PAGE_FLAG_LINK;
-  if (vp->vp_flags & VM_PAGE_FLAG_READONLY)
+  if (vp_source->vp_flags & VM_PAGE_FLAG_READONLY)
     flags |= VM_PAGE_FLAG_READONLY;
 
-  struct VM_PAGE* vp_new = vmpage_alloc(vp->vp_inode, vp->vp_offset, flags);
-  vp_new->vp_link = vp;
+  struct VM_PAGE* vp_new = vmpage_alloc(va, vp_source->vp_inode, vp_source->vp_offset, flags);
+  vp_new->vp_link = vp_source;
+
+  if (vp_source != vp) {
+    vmpage_unlock(vp_source);
+    vmpage_lock(vp);
+  }
   return vp_new;
 }
 
 void
 vmpage_copy(struct VM_PAGE* vp_src, struct VM_PAGE* vp_dst)
 {
+  vmpage_assert_locked(vp_src);
+  vmpage_assert_locked(vp_dst);
+  KASSERT(vp_src != vp_dst, "copying same vmpage %p", vp_src);
+
   struct PAGE* p_src = vmpage_get_page(vp_src);
   struct PAGE* p_dst = vmpage_get_page(vp_dst);
+  KASSERT(p_src != p_dst, "copying same page %p", p_src);
 
   void* src = kmem_map(page_get_paddr(p_src), PAGE_SIZE, VM_FLAG_READ);
   void* dst = kmem_map(page_get_paddr(p_dst), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
@@ -89,18 +166,99 @@ vmpage_copy(struct VM_PAGE* vp_src, struct VM_PAGE* vp_dst)
   kmem_unmap(src, PAGE_SIZE);
 }
 
+struct VM_PAGE*
+vmpage_promote(vmspace_t* vs, vmarea_t* va, struct VM_PAGE* vp)
+{
+  // This promotes a COW page to a new writable page
+  vmpage_assert_locked(vp);
+  KASSERT((vp->vp_flags & VM_PAGE_FLAG_COW) != 0, "attempt to promote non-COW page");
+
+  // Get a reference to the source page - this is what we need to copy
+  struct VM_PAGE* vp_source = vmpage_resolve(vp);
+  if (vp_source != vp)
+    vmpage_lock(vp_source); // freed by vmpage_deref()
+  KASSERT(vp->vp_refcount > 0, "invalid refcount of vp");
+  KASSERT(vp_source->vp_refcount > 0, "invalid refcount of source");
+
+  /*
+   * Multiple scenario's here:
+   *
+   * (1) We hold the last reference to to the source page
+   *     This means we can re-use the page it contains and free the source.
+   * (2) The source page still have >1 reference
+   *     We need to copy the contents to a fresh new page
+   */
+  if (vp_source->vp_refcount == 1) {
+    /*
+     * (1) We hold the only reference. However, this is tricky because there may be
+     *     a linked page in between.
+     */
+    if (vp != vp_source) {
+      DPRINTF("%d: vmpage_promote(): vp %p, last user %p @ %p -> stealing page %p\n", get_pid(), vp_source, vp, vp->vp_vaddr, vp_source->vp_page);
+      // Steal the page from the source...
+      vp->vp_page = vp_source->vp_page;
+      vp_source->vp_page = nullptr;
+
+      // ... which we can now destroy
+      vmpage_deref(vp_source);
+
+      // We're no longer linked, either
+      vp->vp_flags &= ~VM_PAGE_FLAG_LINK;
+    } else /* vp_source == vp - we are not linked */ {
+      // We *are* the source page! We can just use it
+      DPRINTF("%d: vmpage_promote(): vp %p, we are the last page - using it! (page %p @ %p)\n", get_pid(), vp, vp->vp_page, vp->vp_vaddr);
+    }
+  } else /* vp_source->vp_refcount > 1 */ {
+    /* (2) - multiple references, need to make a copy */
+    if (vp_source == vp) {
+      // We have the original page - must allocate a new one, as we can't touch this one
+      vp = vmpage_create_private(va, vp_source->vp_flags | VM_PAGE_FLAG_PRIVATE);
+      vp->vp_vaddr = vp_source->vp_vaddr;
+
+      // Remove the original source from the vmarea
+      LIST_REMOVE(&vp_source->vp_vmarea->va_pages, vp_source);
+      vp_source->vp_vmarea = nullptr;
+
+      DPRINTF("%d: vmpage_promote(): made new vp %p page %p for %p @ %p\n", get_pid(), vp, vp->vp_page, vp_source, vp->vp_vaddr);
+    } else /* vp_source != vp */ {
+      KASSERT((vp->vp_flags & VM_PAGE_FLAG_LINK) != 0, "destination vp not linked?");
+
+      // We need t allocate a new page for the destination and hook it up
+      vp->vp_page = page_alloc_single();
+      KASSERT(vp->vp_page != nullptr, "out of pages");
+      vp->vp_flags &= ~VM_PAGE_FLAG_LINK;
+
+      // And we can continue copying things into it
+      DPRINTF("%d: vmpage_promote(): vp %p, must copy page %p -> page %p @ %p!\n", get_pid(), vp, vp_source->vp_page, vp->vp_page, vp->vp_vaddr);
+    }
+
+    // Copy the data over and throw away the source; this never deletes it
+    vmpage_copy(vp_source, vp);
+    vmpage_deref(vp_source);
+  }
+
+  // Our page is no longer COW, but it is private. Note that we never unlock vp here
+  vp->vp_flags = (vp->vp_flags & ~VM_PAGE_FLAG_COW) | VM_PAGE_FLAG_PRIVATE;
+  return vp;
+}
+
 void
 vmpage_ref(struct VM_PAGE* vmpage)
 {
+  vmpage_assert_locked(vmpage);
   ++vmpage->vp_refcount;
 }
 
 void
 vmpage_deref(struct VM_PAGE* vmpage)
 {
+  vmpage_assert_locked(vmpage);
+
   KASSERT(vmpage->vp_refcount > 0, "invalid refcount %d", vmpage->vp_refcount);
-  if (--vmpage->vp_refcount > 0)
+  if (--vmpage->vp_refcount > 0) {
+    vmpage_unlock(vmpage);
     return;
+  }
 
   vmpage_free(vmpage);
 }
@@ -138,10 +296,25 @@ vmpage_lookup_locked(vmarea_t* va, struct VFS_INODE* inode, off_t offs)
 }
 
 struct VM_PAGE*
-vmpage_clone(struct VM_PAGE* vp_source)
+vmpage_lookup_vaddr_locked(vmarea_t* va, addr_t vaddr)
 {
-  // Get the virtual address before dereferencing links as the source is never mapped
-  addr_t vaddr = vp_source->vp_vaddr;
+  LIST_FOREACH(&va->va_pages, vmpage, struct VM_PAGE) {
+    if (vmpage->vp_vaddr != vaddr)
+      continue;
+
+    vmpage_lock(vmpage);
+    return vmpage;
+  }
+
+  // Nothing was found
+  return nullptr;
+}
+
+struct VM_PAGE*
+vmpage_clone(vmspace_t* vs, vmarea_t* va_source, vmarea_t* va_dest, struct VM_PAGE* vp_source)
+{
+  vmpage_assert_locked(vp_source);
+  struct VM_PAGE* vp_orig = vp_source;
 
   /*
    * Cloning a page may results in different scenarios:
@@ -151,24 +324,28 @@ vmpage_clone(struct VM_PAGE* vp_source)
    *    This consists of marking the original page as read-only.
    * 3) We need to duplicate the source page
    */
-  if (vp_source->vp_flags & VM_PAGE_FLAG_LINK) {
-    // Linked page - get the reference to the original
-    vp_source = vp_source->vp_link;
-    KASSERT((vp_source->vp_flags & VM_PAGE_FLAG_LINK) == 0, "link to a linked page");
-  }
+  vp_source = vmpage_resolve_locked(vp_source);
   KASSERT((vp_source->vp_flags & VM_PAGE_FLAG_PENDING) == 0, "trying to clone a pending page");
 
-  // (1) If the source is read-only, we can always share it
-  if (vp_source->vp_flags & VM_PAGE_FLAG_READONLY) 
-    return vmpage_link(vp_source);
-  
-  // TODO Implement (2) !
+  // (3) If this is a MD-specific page, just duplicate it - we don't want to share things like
+  // pagetables and the like
+  struct VM_PAGE* vp_dst;
+  if (va_source->va_flags & VM_FLAG_MD) {
+    vp_dst = vmpage_create_private(va_dest, vp_source->vp_flags | VM_PAGE_FLAG_PRIVATE);
+    vp_dst->vp_vaddr = vp_source->vp_vaddr;
+    vmpage_copy(vp_source, vp_dst);
+  } else if (vp_source->vp_flags & VM_PAGE_FLAG_READONLY) {
+    // (1) If the source is read-only, we can always share it
+    vp_dst = vmpage_link(va_dest, vp_source);
+  } else {
+    // (2) Clone the page using COW
+    vp_dst = vmpage_clone_cow(vs, va_dest, vp_source);
+  }
 
-  // (3) Make a copy of the page; it will always become a private page now since it won't
-  //     be shared
-  struct VM_PAGE* vp_dst = vmpage_create_private(vp_source->vp_flags | VM_PAGE_FLAG_PRIVATE /* XXX? is this ok? */);
-  vp_dst->vp_vaddr = vaddr;
-	vmpage_copy(vp_source, vp_dst);
+  if (vp_orig != vp_source) {
+    vmpage_unlock(vp_source);
+    vmpage_lock(vp_orig);
+  }
   return vp_dst;
 }
 
@@ -184,15 +361,14 @@ vmpage_get_page(struct VM_PAGE* vp)
 }
 
 struct VM_PAGE*
-vmpage_create_shared(vmarea_t* va, struct VFS_INODE* inode, off_t offs, int flags)
+vmpage_create_shared(struct VFS_INODE* inode, off_t offs, int flags)
 {
-  struct VM_PAGE* new_page = vmpage_alloc(inode, offs, flags);
-  vmpage_lock(new_page);
+  struct VM_PAGE* new_page = vmpage_alloc(nullptr, inode, offs, flags);
 
   // Hook the vm page to the inode
   INODE_LOCK(inode);
   LIST_FOREACH(&inode->i_pages, vmpage, struct VM_PAGE) {
-    if (vmpage->vp_offset != offs)
+    if (vmpage->vp_offset != offs || vmpage == new_page)
       continue;
 
     // Page is already present - return the one already in use
@@ -212,9 +388,9 @@ vmpage_create_shared(vmarea_t* va, struct VFS_INODE* inode, off_t offs, int flag
 }
 
 struct VM_PAGE*
-vmpage_create_private(int flags)
+vmpage_create_private(vmarea_t* va, int flags)
 {
-  auto new_page = vmpage_alloc(nullptr, 0, flags);
+  auto new_page = vmpage_alloc(va, nullptr, 0, flags);
 
   // Hook a page to here as well, as the caller needs it anyway
   new_page->vp_page = page_alloc_single();
@@ -225,7 +401,12 @@ vmpage_create_private(int flags)
 void
 vmpage_map(vmspace_t* vs, vmarea_t* va, struct VM_PAGE* vp)
 {
+	vmpage_assert_locked(vp);
+
 	int flags = va->va_flags;
+	// Map COW pages as unwritable so we'll fault on a write
+	if (vp->vp_flags & VM_PAGE_FLAG_COW)
+		flags &= ~VM_FLAG_WRITE;
 	struct PAGE* p = vmpage_get_page(vp);
 	md_map_pages(vs, vp->vp_vaddr, page_get_paddr(p), 1, flags);
 }
@@ -255,7 +436,7 @@ void vmpage_dump(struct VM_PAGE* vp, const char* prefix)
     return;
   }
   if (vp->vp_page != nullptr)
-    kprintf("%spage %p order %d", prefix, vp->vp_page, vp->vp_page->p_order);
+    kprintf("%spage %p phys %p order %d", prefix, vp->vp_page, page_get_paddr(vp->vp_page), vp->vp_page->p_order);
   kprintf("\n");
 }
 

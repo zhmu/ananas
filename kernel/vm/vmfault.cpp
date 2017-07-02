@@ -60,8 +60,21 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 		/* We should only get faults for lazy areas (filled by a function) or when we have to dynamically allocate things */
 		KASSERT((va->va_flags & VM_FLAG_FAULT) != 0, "unexpected pagefault in area %p, virt=%p, len=%d, flags 0x%x", va, va->va_virt, va->va_len, va->va_flags);
 
-		// XXX lookup the page here, perhaps we are going from COW a new copy
-		//struct VM_PAGE* vp =
+		// See if we have this page mapped
+		struct VM_PAGE* vp = vmpage_lookup_vaddr_locked(va, virt & ~(PAGE_SIZE - 1));
+		if (vp != nullptr) {
+			if ((flags & VM_FLAG_WRITE) && (vp->vp_flags & VM_PAGE_FLAG_COW)) {
+				// Promote our copy to a writable page and update the mapping
+				vp = vmpage_promote(vs, va, vp);
+				vmpage_map(vs, va, vp);
+				vmpage_unlock(vp);
+				return ananas_success();
+			}
+
+			// Page is already mapped, but not COW. Bad, reject
+			vmpage_unlock(vp);
+			return ANANAS_ERROR(BAD_ADDRESS);
+		}
 
 		// XXX we expect va_doffset to be page-aligned here (i.e. we can always use a page directly)
 		// this needs to be enforced when making mappings!
@@ -77,7 +90,7 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 				struct VM_PAGE* vmpage = vmpage_lookup_locked(va, va->va_dentry->d_inode, read_off);
 				if (vmpage == nullptr) {
 					// Page not found - we need to allocate one. This is always a shared mapping, which we'll copy if needed
-					vmpage = vmpage_create_shared(va, va->va_dentry->d_inode, read_off, VM_PAGE_FLAG_PENDING | vmspace_page_flags_from_va(va));
+					vmpage = vmpage_create_shared(va->va_dentry->d_inode, read_off, VM_PAGE_FLAG_PENDING | vmspace_page_flags_from_va(va));
 				}
 				// vmpage will be locked at this point!
 
@@ -100,31 +113,28 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 				// mapping and avoid the entire copy
 				struct VM_PAGE* new_vp;
 				bool is_whole_page = (read_off + PAGE_SIZE) <= (va->va_doffset + va->va_dlength);
-				//is_whole_page = false; // xxx
 				if (is_whole_page && (va->va_flags & VM_FLAG_PRIVATE) == 0) {
-					new_vp = vmpage_link(vmpage);
+					new_vp = vmpage_link(va, vmpage);
 				} else {
-					//kprintf("could NOT share %p (%x, %u, %u)\n", v_page, va->va_flags, (int)(read_off + PAGE_SIZE), (int)(va->va_doffset + va->va_dlength));
 					// Cannot re-use; create a new VM page, with appropriate flags based on the va
-					new_vp = vmpage_create_private(VM_PAGE_FLAG_PRIVATE | vmspace_page_flags_from_va(va));
+					new_vp = vmpage_create_private(va, VM_PAGE_FLAG_PRIVATE | vmspace_page_flags_from_va(va));
 
 					// Copy the content over - XXX handle zeroing out of unused parts
 					vmpage_copy(vmpage, new_vp);
 				}
 				vmpage_unlock(vmpage);
 
-				LIST_APPEND(&va->va_pages, new_vp);
 				new_vp->vp_vaddr = virt & ~(PAGE_SIZE - 1);
 
 				// Finally, update the permissions and we are done
 				vmpage_map(vs, va, new_vp);
+				vmpage_unlock(new_vp);
 				return ananas_success();
 			}
 		}
 
 		// We need a new VM page here; this is an anonymous mapping which we need to back
-		struct VM_PAGE* new_vp = vmpage_create_private(VM_PAGE_FLAG_PRIVATE);
-		LIST_APPEND(&va->va_pages, new_vp);
+		struct VM_PAGE* new_vp = vmpage_create_private(va, VM_PAGE_FLAG_PRIVATE);
 		new_vp->vp_vaddr = virt & ~(PAGE_SIZE - 1);
 
 		// Ensure the page cleaned so we don't leak any information
@@ -132,6 +142,7 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 
 		// And now (re)map the page for the caller
 		vmpage_map(vs, va, new_vp);
+		vmpage_unlock(new_vp);
 		return ananas_success();
 	}
 
