@@ -18,6 +18,12 @@
 
 static struct zone_list zones;
 
+static inline void
+page_assert_sane(struct PAGE* p)
+{
+	KASSERT(p->p_order >= 0 && p->p_order < PAGE_NUM_ORDERS, "corrupt page %p", p);
+}
+
 static inline int
 get_bit(const char* map, int bit)
 {
@@ -99,6 +105,8 @@ page_free_index(struct PAGE_ZONE* z, unsigned int order, unsigned int index)
 void
 page_free(struct PAGE* p)
 {
+	page_assert_sane(p);
+
 	struct PAGE_ZONE* z = p->p_zone;
 	page_free_index(z, p->p_order, p - z->z_base);
 }
@@ -213,6 +221,8 @@ page_zone_add(addr_t base, size_t length)
 addr_t
 page_get_paddr(struct PAGE* p)
 {
+	page_assert_sane(p);
+
 	struct PAGE_ZONE* z = p->p_zone;
 	unsigned int index = p - z->z_base;
 	return z->z_phys_addr + index * PAGE_SIZE;
