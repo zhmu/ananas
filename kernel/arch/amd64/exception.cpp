@@ -127,16 +127,16 @@ exception_pf(struct STACKFRAME* sf)
 		flags |= VM_FLAG_WRITE;
 	else
 		flags |= VM_FLAG_READ;
-	if ((sf->sf_errnum & EXC_PF_FLAG_P) == 0) { /* page not present */
-		thread_t* curthread = PCPU_GET(curthread);
-		if (curthread != NULL && curthread->t_process != NULL) {
-			errorcode_t err = vmspace_handle_fault(curthread->t_process->p_vmspace, fault_addr, flags);
-			if (ananas_is_success(err))
-				return; /* fault handeled */
-		}
+
+	// Let the VM code deal with the fault
+	thread_t* curthread = PCPU_GET(curthread);
+	if (curthread != NULL && curthread->t_process != NULL) {
+		errorcode_t err = vmspace_handle_fault(curthread->t_process->p_vmspace, fault_addr, flags);
+		if (ananas_is_success(err))
+			return; /* fault handeled */
 	}
 
-	/* Either not in userland or couldn't be handled; chain through */
+	// Couldn't be handled; chain through
 	exception_generic(sf);
 }
 
