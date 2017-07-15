@@ -4,6 +4,7 @@
 #include <ananas/init.h>
 #include <ananas/kdb.h>
 #include <ananas/mm.h>
+#include <ananas/kmem.h>
 #include <ananas/page.h>
 #include <ananas/handle.h>
 #include <ananas/process.h>
@@ -63,28 +64,31 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 	if (ananas_is_failure(err))
 		goto fail;
 
-	/* Create process information structure */
-	p->p_info = static_cast<struct PROCINFO*>(page_alloc_length_mapped(sizeof(struct PROCINFO), &p->p_info_page, VM_FLAG_READ | VM_FLAG_WRITE));
-	if (p->p_info == NULL) {
-		err = ANANAS_ERROR(OUT_OF_MEMORY);
-		goto fail;
-	}
-
-	/* Map the process information structure in the vm area so all out threads can access it */
+	// Map a process info structure so everything beloning to this process can use it
 	vmarea_t* va;
-	err = vmspace_map(p->p_vmspace, page_get_paddr(p->p_info_page), sizeof(struct PROCINFO), VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_NO_CLONE, &va);
+	err = vmspace_map(p->p_vmspace, sizeof(struct PROCINFO), VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_NO_CLONE, &va);
 	if (ananas_is_failure(err))
 		goto fail;
 	p->p_info_va = va->va_virt;
 
-	/* Initialize thread information structure */
+	// Now hook the process info structure up to it
+	{
+		// XXX we should have a separate vmpage_create_...() for this that sets vp_vaddr
+		struct VM_PAGE* vp = vmpage_create_private(va, 0);
+		vp->vp_vaddr = va->va_virt;
+		p->p_info = static_cast<struct PROCINFO*>(kmem_map(page_get_paddr(vmpage_get_page(vp)), sizeof(struct PROCINFO), VM_FLAG_READ | VM_FLAG_WRITE));
+		vmpage_map(p->p_vmspace, va, vp);
+		vmpage_unlock(vp);
+	}
+
+	/* Initialize process information structure */
 	memset(p->p_info, 0, sizeof(struct PROCINFO));
 	p->p_info->pi_size = sizeof(struct PROCINFO);
 	p->p_info->pi_pid = p->p_pid;
 	if (parent != NULL)
 		process_set_environment(p, parent->p_info->pi_env, PROCINFO_ENV_LENGTH - 1);
 
-	/* Clone the parent's handles - we skip the thread handle */
+	// Clone the parent's handles
 	if (parent != NULL) {
 		for (unsigned int n = 0; n < PROCESS_MAX_HANDLES; n++) {
 			if (parent->p_handle[n] == NULL)
@@ -121,8 +125,6 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 	return ananas_success();
 
 fail:
-	if (p->p_info != NULL)
-		page_free(p->p_info_page);
 	if (p->p_vmspace != NULL)
 		vmspace_destroy(p->p_vmspace);
 	kfree(p);
@@ -168,7 +170,7 @@ process_destroy(process_t* p)
 	for(unsigned int n = 0; n < PROCESS_MAX_HANDLES; n++)
 		handle_free_byindex(p, n);
 
-	/* Clean the thread's vmspace up - this will remove all non-essential mappings */
+	/* Clean the process's vmspace up - this will remove all non-essential mappings */
 	vmspace_cleanup(p->p_vmspace);
 
 	/* Remove the process from the all-process list */
@@ -177,10 +179,10 @@ process_destroy(process_t* p)
 	mutex_unlock(&Ananas::Process::process_mtx);
 
 	/*
-	 * Clear the process information; no one can query it at this point as the
-	 * thread itself will not run anymore.
+	 * Unmap the process information; no one can query it at this point as the
+	 * process itself will not run anymore.
 	 */
-	page_free(p->p_info_page);
+	kmem_unmap(p->p_info, sizeof(struct PROCINFO));
 }
 
 void

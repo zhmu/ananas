@@ -140,6 +140,7 @@ vmpage_link(vmarea_t* va, struct VM_PAGE* vp)
 
   struct VM_PAGE* vp_new = vmpage_alloc(va, vp_source->vp_inode, vp_source->vp_offset, flags);
   vp_new->vp_link = vp_source;
+  vp_new->vp_vaddr = vp_source->vp_vaddr;
 
   if (vp_source != vp) {
     vmpage_unlock(vp_source);

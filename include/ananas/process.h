@@ -28,7 +28,6 @@ struct PROCESS {
 	struct PROCESS* p_parent;	/* Parent process, if any */
 	struct VM_SPACE* p_vmspace;	/* Process memory space */
 
-	struct PAGE* p_info_page;
 	struct PROCINFO* p_info;	/* Process startup information */
 	addr_t p_info_va;
 

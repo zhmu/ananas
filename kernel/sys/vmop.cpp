@@ -34,7 +34,7 @@ sys_vmop_map(ARG_CURTHREAD struct VMOP_OPTIONS* vo)
 		vm_flags |= VM_FLAG_EXECUTE;
 
 	vmarea_t* va;
-	errorcode_t err = vmspace_map(curthread->t_process->p_vmspace, (addr_t)NULL, vo->vo_len, vm_flags, &va);
+	errorcode_t err = vmspace_map(curthread->t_process->p_vmspace, vo->vo_len, vm_flags, &va);
 	ANANAS_ERROR_RETURN(err);
 
 	vo->vo_addr = (void*)va->va_virt;

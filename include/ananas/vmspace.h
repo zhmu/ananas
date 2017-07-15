@@ -67,9 +67,9 @@ struct VM_SPACE {
 errorcode_t vmspace_create(vmspace_t** vs);
 void vmspace_cleanup(vmspace_t* vs); /* frees all mappings, but not MD-things */
 void vmspace_destroy(vmspace_t* vs);
-errorcode_t vmspace_mapto(vmspace_t* vs, addr_t virt, addr_t phys, size_t len /* bytes */, uint32_t flags, vmarea_t** va_out);
+errorcode_t vmspace_mapto(vmspace_t* vs, addr_t virt, size_t len /* bytes */, uint32_t flags, vmarea_t** va_out);
 errorcode_t vmspace_mapto_dentry(vmspace_t* vs, addr_t virt, off_t vskip, size_t vlength, struct DENTRY* dentry, off_t doffset, size_t dlength, int flags, vmarea_t** va_out);
-errorcode_t vmspace_map(vmspace_t* vs, addr_t phys, size_t len /* bytes */, uint32_t flags, vmarea_t** va_out);
+errorcode_t vmspace_map(vmspace_t* vs, size_t len /* bytes */, uint32_t flags, vmarea_t** va_out);
 errorcode_t vmspace_area_resize(vmspace_t* vs, vmarea_t* va, size_t new_length /* in bytes */);
 errorcode_t vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags);
 errorcode_t vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags);
