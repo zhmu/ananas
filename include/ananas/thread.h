@@ -110,7 +110,7 @@ void md_thread_clone(thread_t* t, thread_t* parent, register_t retval);
 errorcode_t md_thread_unmap(thread_t* thread, addr_t virt, size_t length);
 int md_thread_peek_32(thread_t* thread, addr_t virt, uint32_t* val);
 int md_thread_is_mapped(thread_t* thread, addr_t virt, int flags, addr_t* va);
-void md_setup_post_exec(thread_t* thread, addr_t exec_addr);
+void md_setup_post_exec(thread_t* thread, addr_t exec_addr, register_t exec_arg);
 
 void thread_suspend(thread_t* t);
 void thread_resume(thread_t* t);

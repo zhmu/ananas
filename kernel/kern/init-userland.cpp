@@ -89,10 +89,11 @@ userinit_func(void*)
 	process_set_environment(proc, env, sizeof(env));
 
 	addr_t exec_addr;
-	err = exec_load(proc->p_vmspace, file.f_dentry, &exec_addr);
+	register_t exec_arg;
+	err = exec_load(proc->p_vmspace, file.f_dentry, &exec_addr, &exec_arg);
 	if (ananas_is_success(err)) {
 		kprintf(" ok\n");
-		md_setup_post_exec(t, exec_addr);
+		md_setup_post_exec(t, exec_addr, exec_arg);
 		thread_resume(t);
 	} else {
 		kprintf(" fail - error %i\n", err);

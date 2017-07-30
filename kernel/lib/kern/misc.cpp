@@ -47,6 +47,10 @@ _panic(const char* file, const char* func, int line, const char* fmt, ...)
 	va_end(ap);
 	kprintf("\n");
 
+#ifdef OPTION_GDB
+	__asm("ud2");
+#endif
+
 #ifdef OPTION_KDB
 	kdb_panic();
 #endif

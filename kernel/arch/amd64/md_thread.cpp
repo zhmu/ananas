@@ -212,11 +212,12 @@ md_thread_clone(struct THREAD* t, struct THREAD* parent, register_t retval)
 }
 
 void
-md_setup_post_exec(thread_t* t, addr_t exec_addr)
+md_setup_post_exec(thread_t* t, addr_t exec_addr, register_t exec_arg)
 {
 	struct STACKFRAME* sf = t->t_frame;
 	sf->sf_rip = exec_addr;
 	sf->sf_rdi = t->t_process->p_info_va;
+	sf->sf_rsi = exec_arg;
 
 	t->t_md_flags |= THREAD_MDFLAG_FULLRESTORE;
 	t->md_rsp = (addr_t)sf;

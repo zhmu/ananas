@@ -17,7 +17,7 @@ exec_init()
 }
 
 errorcode_t
-exec_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
+exec_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* exec_arg)
 {
 	// Start by taking an extra ref to the dentry; this is the ref which we'll hand over
 	// to the handler, if all goes well
@@ -25,7 +25,7 @@ exec_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr)
 
 	LIST_FOREACH(&exec_formats, ef, struct EXEC_FORMAT) {
 		/* See if we can execute this... */
-		errorcode_t err = ef->ef_handler(vs, dentry, exec_addr);
+		errorcode_t err = ef->ef_handler(vs, dentry, exec_addr, exec_arg);
 		if (ananas_is_failure(err)) {
 			/* Execute failed; try the next one */
 			continue;

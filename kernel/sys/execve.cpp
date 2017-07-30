@@ -99,7 +99,8 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	 * exec_load() manages that all by itself.
 	 */
 	addr_t exec_addr;
-	err = exec_load(vmspace, dentry, &exec_addr);
+	register_t exec_arg;
+	err = exec_load(vmspace, dentry, &exec_addr, &exec_arg);
 	dentry_deref(dentry);
 	if (ananas_is_failure(err))
 		goto fail;
@@ -117,7 +118,7 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	vmspace_destroy(vmspace);
 
 	/* Now force a full return into the new thread state */
-	md_setup_post_exec(t, exec_addr);
+	md_setup_post_exec(t, exec_addr, exec_arg);
 	return ananas_success();
 
 fail:
