@@ -16,6 +16,9 @@ TRACE_SETUP;
 
 namespace {
 
+// XXX This is a horrible kludge to prevent attaching the console SIO twice...
+bool s_IsConsole = false;
+
 class SIO : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations
 {
 public:
@@ -145,12 +148,21 @@ struct SIO_Driver : public Ananas::ConsoleDriver
 
 	Ananas::Device* ProbeDevice() override
 	{
-		// XXX NOTYET - how do you probe SIO anyway?
-		return nullptr;
+		if (s_IsConsole)
+			return nullptr;
+
+		s_IsConsole = true;
+		Ananas::ResourceSet resourceSet;
+		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IO, 0x3f8, 7));
+		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IRQ, 4, 0));
+		return new SIO(Ananas::CreateDeviceProperties(resourceSet));
 	}
 
 	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
 	{
+		if (s_IsConsole)
+			return nullptr;
+
 		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PNP_ID, 0);
 		if (res != NULL && res->r_Base == 0x0501) /* PNP0501: 16550A-compatible COM port */
 			return new SIO(cdp);
