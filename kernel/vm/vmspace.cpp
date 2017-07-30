@@ -15,6 +15,21 @@ TRACE_SETUP;
 
 #define BYTES_TO_PAGES(len) ((len + PAGE_SIZE - 1) / PAGE_SIZE)
 
+static addr_t
+vmspace_determine_va(vmspace_t* vs, size_t len)
+{
+	/*
+	 * XXX This is a bit of a kludge - besides, we currently never re-use old
+	 * addresses which may get ugly.
+	 */
+	addr_t virt = vs->vs_next_mapping;
+	vs->vs_next_mapping += len;
+	// Always round up to a full page
+	if (vs->vs_next_mapping & (PAGE_SIZE - 1))
+		vs->vs_next_mapping = (vs->vs_next_mapping | (PAGE_SIZE - 1)) + 1;
+	return virt;
+}
+
 errorcode_t
 vmspace_create(vmspace_t** vmspace)
 {
@@ -56,26 +71,59 @@ vmspace_destroy(vmspace_t* vs)
 	kfree(vs);
 }
 
-static int
-vmspace_is_inuse(vmspace_t* vs, addr_t virt, size_t len)
+static bool
+vmspace_free_range(vmspace_t* vs, addr_t virt, size_t len)
 {
 	LIST_FOREACH(&vs->vs_areas, va, vmarea_t) {
-		if ((virt >= va->va_virt && (virt + len) <= (va->va_virt + va->va_len)) ||
-				(va->va_virt >= virt && (va->va_virt + va->va_len) <= (virt + len)))
-			return 1;
+		/*
+		 * To keep things simple, we will only break up mappings if they occur
+		 * completely within a single - this avoids complicated merging logic.
+		 */
+		if (virt >= va->va_virt + va->va_len || virt + len < va->va_virt)
+			continue; // not within our area, skip
+
+		// See if this range extends before or beyond our va - if that is the case, we
+		// will reject it
+		if (virt < va->va_virt || virt + len > va->va_virt + va->va_len)
+			return false;
+
+		// Okay, we can alter this va to exclude our mapping. If it matches 1-to-1, just throw it away
+		if (virt == va->va_virt && len == va->va_len) {
+			vmspace_area_free(vs, va);
+			return true;
+		}
+
+		// Not a full match; maybe at the start?
+		if (virt == va->va_virt) {
+			// Shift the entire range
+			KASSERT(va->va_dvskip == 0, "deal with non-zero dvskip %d", va->va_dvskip); // XXX maybe just reject here?
+			va->va_virt += len;
+			va->va_len -= len;
+			va->va_doffset += len;
+			if (va->va_dlength >= len)
+				va->va_dlength -= len;
+			else
+				va->va_dlength = 0;
+			return true;
+		}
+
+		// XXX we need to cover the other use cases here as well (range at end, range in the middle)
+		panic("implement me! virt=%p..%p, va=%p..%p", virt, virt+len, va->va_virt, va->va_virt+va->va_len);
 	}
 
-	return 0;
+	// No ranges match; this is okay
+	return true;
 }
 
 errorcode_t
 vmspace_mapto(vmspace_t* vs, addr_t virt, size_t len /* bytes */, uint32_t flags, vmarea_t** va_out)
 {
-	/* First, ensure the range isn't used and the length is sane */
-	if(vmspace_is_inuse(vs, virt, len))
-		return ANANAS_ERROR(NO_SPACE);
 	if (len == 0)
 		return ANANAS_ERROR(BAD_LENGTH);
+
+	// If the virtual address space is already in use, we need to break it up
+	if (!vmspace_free_range(vs, virt, len))
+		return ANANAS_ERROR(NO_SPACE);
 
 	auto va = new vmarea_t;
 	memset(va, 0, sizeof(*va));
@@ -101,6 +149,12 @@ vmspace_mapto(vmspace_t* vs, addr_t virt, size_t len /* bytes */, uint32_t flags
 errorcode_t
 vmspace_mapto_dentry(vmspace_t* vs, addr_t virt, off_t vskip, size_t vlength, struct DENTRY* dentry, off_t doffset, size_t dlength, int flags, vmarea_t** va_out)
 {
+	if (virt == 0)
+		virt = vmspace_determine_va(vs, vlength);
+
+	KASSERT((doffset & (PAGE_SIZE - 1)) == 0, "offset %d not page-aligned", doffset);
+	KASSERT(vskip < PAGE_SIZE, "skip %d larger than a page", vskip);
+
 	errorcode_t err = vmspace_mapto(vs, virt, vlength, flags | VM_FLAG_FAULT, va_out);
 	ANANAS_ERROR_RETURN(err);
 
@@ -115,14 +169,7 @@ vmspace_mapto_dentry(vmspace_t* vs, addr_t virt, off_t vskip, size_t vlength, st
 errorcode_t
 vmspace_map(vmspace_t* vs, size_t len /* bytes */, uint32_t flags, vmarea_t** va_out)
 {
-	/*
-	 * Locate a new address to map to; we currently never re-use old addresses.
-	 */
-	addr_t virt = vs->vs_next_mapping;
-	vs->vs_next_mapping += len;
-	if ((vs->vs_next_mapping & (PAGE_SIZE - 1)) > 0)
-		vs->vs_next_mapping += PAGE_SIZE - (vs->vs_next_mapping & (PAGE_SIZE - 1));
-	return vmspace_mapto(vs, virt, len, flags, va_out);
+	return vmspace_mapto(vs, vmspace_determine_va(vs, len), len, flags, va_out);
 }
 
 /*
@@ -211,6 +258,8 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 	vs_dest->vs_next_mapping = 0;
 	LIST_FOREACH(&vs_dest->vs_areas, va, vmarea_t) {
 		addr_t next = va->va_virt + va->va_len;
+		if (next & (PAGE_SIZE - 1))
+			next = (next | (PAGE_SIZE - 1)) + 1; // round up
 		if (vs_dest->vs_next_mapping < next)
 			vs_dest->vs_next_mapping = next;
 	}
