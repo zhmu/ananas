@@ -44,6 +44,9 @@ Ananas::DeviceList deviceList;
 void Register(Device& device)
 {
 	spinlock_lock(&spl_devicequeue);
+	LIST_FOREACH_IP(&deviceList, all, d, Device) {
+		KASSERT(d != &device, "registering device '%s' already in the device queue", device.d_Name);
+	}
 	LIST_APPEND_IP(&deviceList, all, &device);
 	spinlock_unlock(&spl_devicequeue);
 }
@@ -217,13 +220,11 @@ AttachBus(Device& bus)
 		if (input_dev != NULL && strcmp(input_dev->d_Name, d->d_Name) == 0) {
 			input_dev->d_Parent = &bus;
 			PrintAttachment(*input_dev);
-			internal::Register(*input_dev);
 			continue;
 		}
 		if (output_dev != NULL && strcmp(output_dev->d_Name, d->d_Name) == 0) {
 			output_dev->d_Parent = &bus;
 			PrintAttachment(*output_dev);
-			internal::Register(*output_dev);
 			continue;
 		}
 
