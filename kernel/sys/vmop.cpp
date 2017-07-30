@@ -13,17 +13,10 @@ TRACE_SETUP;
 static errorcode_t
 sys_vmop_map(ARG_CURTHREAD struct VMOP_OPTIONS* vo)
 {
-	/* TODO: support handle-based mappings */
-	if (vo->vo_flags & VMOP_FLAG_HANDLE)
-		return ANANAS_ERROR(BAD_HANDLE);
-
-	/* TODO: support different mappings */
-
-	/* TODO: support fixed mappings? */
-	if (vo->vo_addr != NULL)
-		return ANANAS_ERROR(BAD_ADDRESS);
 	if (vo->vo_len == 0)
 		return ANANAS_ERROR(BAD_LENGTH);
+	if ((vo->vo_flags & (VMOP_FLAG_PRIVATE | VMOP_FLAG_SHARED)) == 0)
+		return ANANAS_ERROR(BAD_FLAG);
 
 	int vm_flags = VM_FLAG_USER | VM_FLAG_FAULT;
 	if (vo->vo_flags & VMOP_FLAG_READ)
@@ -32,9 +25,27 @@ sys_vmop_map(ARG_CURTHREAD struct VMOP_OPTIONS* vo)
 		vm_flags |= VM_FLAG_WRITE;
 	if (vo->vo_flags & VMOP_FLAG_EXECUTE)
 		vm_flags |= VM_FLAG_EXECUTE;
+	if (vo->vo_flags & VMOP_FLAG_PRIVATE)
+		vm_flags |= VM_FLAG_PRIVATE;
 
+	vmspace_t* vs = curthread->t_process->p_vmspace;
 	vmarea_t* va;
-	errorcode_t err = vmspace_map(curthread->t_process->p_vmspace, vo->vo_len, vm_flags, &va);
+	errorcode_t err;
+	if (vo->vo_flags & VMOP_FLAG_HANDLE) {
+		struct HANDLE* h;
+		err = syscall_get_handle(curthread, vo->vo_handle, &h);
+		ANANAS_ERROR_RETURN(err);
+
+		if (h->h_type != HANDLE_TYPE_FILE)
+			return ANANAS_ERROR(BAD_HANDLE);
+		struct DENTRY* dentry = h->h_data.d_vfs_file.f_dentry;
+		if (dentry == nullptr)
+			return ANANAS_ERROR(BAD_HANDLE);
+
+		err = vmspace_mapto_dentry(vs, reinterpret_cast<addr_t>(vo->vo_addr), 0, vo->vo_len, dentry, vo->vo_offset, vo->vo_len, vm_flags, &va);
+	} else {
+		err = vmspace_map(vs, vo->vo_len, vm_flags, &va);
+	}
 	ANANAS_ERROR_RETURN(err);
 
 	vo->vo_addr = (void*)va->va_virt;
