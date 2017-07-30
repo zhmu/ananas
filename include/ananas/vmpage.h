@@ -4,6 +4,7 @@
 #include <ananas/types.h>
 #include <ananas/list.h>
 #include <ananas/lock.h>
+#include <machine/param.h> // for PAGE_SIZE
 
 struct PAGE;
 
@@ -60,11 +61,37 @@ struct PAGE* vmpage_get_page(struct VM_PAGE* vp);
 
 struct VM_PAGE* vmpage_clone(vmspace_t* vs, vmarea_t* va_source, vmarea_t* va_dest, struct VM_PAGE* vp);
 struct VM_PAGE* vmpage_link(vmarea_t* va, struct VM_PAGE* vp);
-void vmpage_copy(struct VM_PAGE* vp_src, struct VM_PAGE* vp_dst);
 void vmpage_map(vmspace_t* vs, vmarea_t* va, struct VM_PAGE* vp);
 void vmpage_zero(vmspace_t* vs, struct VM_PAGE* vp);
 struct VM_PAGE* vmpage_promote(vmspace_t* vs, vmarea_t* va, struct VM_PAGE* vp);
 
 void vmpage_dump(struct VM_PAGE* vp, const char* prefix);
+
+/*
+ * Copies a (piece of) vp_src to vp_dst:
+ *
+ *      src_off   src_off + len
+ *      v        /
+ * +----+-------+------+
+ * |????|XXXXXXX|??????|
+ * +----+-------+------+
+ *         |
+ *         v
+ * +-------+-------+---+
+ * |0000000|XXXXXXX|000+
+ * +-------+-------+---+
+ *         ^        \
+ *     dst_off       dst_off + len
+ *
+ *
+ * X = bytes to be copied, 0 = bytes set to zero, ? = don't care
+ */
+void vmpage_copy_extended(struct VM_PAGE* vp_src, struct VM_PAGE* vp_dst, size_t len, size_t src_off, size_t dst_off);
+
+static inline void
+vmpage_copy(struct VM_PAGE* vp_src, struct VM_PAGE* vp_dst)
+{
+  vmpage_copy_extended(vp_src, vp_dst, PAGE_SIZE, 0, 0);
+}
 
 #endif // ANANAS_VM_PAGE_H

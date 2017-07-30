@@ -150,19 +150,27 @@ vmpage_link(vmarea_t* va, struct VM_PAGE* vp)
 }
 
 void
-vmpage_copy(struct VM_PAGE* vp_src, struct VM_PAGE* vp_dst)
+vmpage_copy_extended(struct VM_PAGE* vp_src, struct VM_PAGE* vp_dst, size_t len, size_t src_off, size_t dst_off)
 {
   vmpage_assert_locked(vp_src);
   vmpage_assert_locked(vp_dst);
   KASSERT(vp_src != vp_dst, "copying same vmpage %p", vp_src);
+  KASSERT(src_off + len <= PAGE_SIZE, "copying beyond source page");
+  KASSERT(dst_off + len <= PAGE_SIZE, "copying beyond destination page");
 
   struct PAGE* p_src = vmpage_get_page(vp_src);
   struct PAGE* p_dst = vmpage_get_page(vp_dst);
   KASSERT(p_src != p_dst, "copying same page %p", p_src);
 
-  void* src = kmem_map(page_get_paddr(p_src), PAGE_SIZE, VM_FLAG_READ);
-  void* dst = kmem_map(page_get_paddr(p_dst), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
-	memcpy(dst, src, PAGE_SIZE);
+  auto src = static_cast<char*>(kmem_map(page_get_paddr(p_src), PAGE_SIZE, VM_FLAG_READ));
+  auto dst = static_cast<char*>(kmem_map(page_get_paddr(p_dst), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE));
+
+	memcpy(dst + dst_off, src + src_off, len);
+  if (dst_off != 0)
+    memset(dst, 0, dst_off); // zero-fill before the data to be copied
+  if (dst_off + len < PAGE_SIZE)
+    memset(dst + dst_off, 0, PAGE_SIZE - len); // zero-fill after the data to be copied
+
   kmem_unmap(dst, PAGE_SIZE);
   kmem_unmap(src, PAGE_SIZE);
 }
