@@ -3,6 +3,7 @@
 
 #include <ananas/types.h>
 #include <ananas/_types/ino.h>
+#include <sys/cdefs.h>
 
 #define DIRENT_BUFFER_SIZE	4096 /* XXX */
 
@@ -24,6 +25,8 @@ typedef struct {
 	struct dirent d_entry;	/* Current dir entry */
 } DIR;
 
+__BEGIN_DECLS
+
 int closedir(DIR* dirp);
 int dirfd(DIR* dirp);
 DIR* opendir(const char* filename);
@@ -31,5 +34,7 @@ struct dirent* readdir(DIR* dirp);
 void rewinddir(DIR* dirp);
 void seekdir(DIR* dirp, long loc);
 long telldir(DIR* dirp);
+
+__END_DECLS
 
 #endif /* __DIRENT_H__ */

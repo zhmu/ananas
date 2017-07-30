@@ -3,6 +3,8 @@
 
 #include <machine/_types.h>
 #include <ananas/_types/off.h>
+#include <ananas/_types/size.h>
+#include <sys/cdefs.h>
 
 #define PROT_READ	(1 << 0)
 #define PROT_WRITE	(1 << 1)
@@ -24,7 +26,11 @@
 #define MCL_CURRENT	(1 << 0)
 #define MCL_FUTURE	(1 << 1)
 
+__BEGIN_DECLS
+
 void* mmap(void*, size_t, int, int, int, off_t);
 int munmap(void*, size_t);
+
+__END_DECLS
 
 #endif /* __SYS_MMAN_H__ */

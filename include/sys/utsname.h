@@ -1,6 +1,8 @@
 #ifndef __SYS_UTSNAME_H__
 #define __SYS_UTSNAME_H__
 
+#include <sys/cdefs.h>
+
 #define UTSNAME_SYSNAME_LEN 64
 #define UTSNAME_NODENAME_LEN 16
 #define UTSNAME_RELEASE_LEN 16
@@ -16,6 +18,10 @@ struct utsname {
 	char	version[UTSNAME_VERSION_LEN];
 };
 
+__BEGIN_DECLS
+
 int uname(struct utsname* utsname);
+
+__END_DECLS
 
 #endif /* __SYS_UTSNAME_H__ */

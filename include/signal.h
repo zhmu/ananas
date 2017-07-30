@@ -4,6 +4,7 @@
 #include <machine/_types.h>
 #include <ananas/_types/pid.h>
 #include <ananas/_types/uid.h>
+#include <sys/cdefs.h>
 
 /*
  * Note that Ananas does not support POSIX signals; anything here will be
@@ -88,6 +89,8 @@ struct sigaction {
 #define SIG_SETMASK	1
 #define SIG_UNBLOCK	2
 
+__BEGIN_DECLS
+
 int raise(int sig);
 int sigemptyset(sigset_t*);
 int sigfillset(sigset_t*);
@@ -102,5 +105,7 @@ sig_t signal(int sig, sig_t func);
 /* BSD extensions */
 #define NSIG		(SIGTHR+1)
 extern const char* const sys_siglist[NSIG];
+
+__END_DECLS
 
 #endif /* __SIGNAL_H__ */

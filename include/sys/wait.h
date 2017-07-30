@@ -2,9 +2,14 @@
 #define __SYS_WAIT_H__
 
 #include <ananas/_types/pid.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 pid_t wait(int* stat_loc);
 pid_t waitpid(pid_t pid, int* stat_loc, int options);
+
+__END_DECLS
 
 #define WCONTINUED 	0x01
 #define WNOHANG		0x02

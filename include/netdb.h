@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 #include <ananas/_types/socklen.h>
+#include <sys/cdefs.h>
 
 struct hostent {
 	char*		h_name;
@@ -57,7 +58,11 @@ struct addrinfo {
 #define NI_NUMERICSCOPE	0x0010
 #define NI_DGRAM	0x0020
 
+__BEGIN_DECLS
+
 struct servent* getservbyname(const char* name, const char* proto);
 struct hostent* gethostbyname(const char* name);
+
+__END_DECLS
 
 #endif /* __NETDB_H__ */

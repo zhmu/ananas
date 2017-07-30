@@ -3,6 +3,7 @@
 
 #include <sys/time.h>
 #include <ananas/_types/id.h>
+#include <sys/cdefs.h>
 
 #define PRIO_PROCESS	0
 #define PRIO_PGRP	1
@@ -35,10 +36,14 @@ struct rusage {
 	struct timeval ru_stime;
 };
 
+__BEGIN_DECLS
+
 int getpriority(int, id_t);
 int getrlimit(int, struct rlimit*);
 int getrusage(int, struct rusage*);
 int setpriority(int, id_t, int);
 int setrlimit(int, const struct rlimit*);
+
+__END_DECLS
 
 #endif /* __SYS_RESOURCE_H__ */

@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <ananas/_types/suseconds.h>
+#include <sys/cdefs.h>
 
 struct timeval {
 	time_t		tv_sec;
@@ -16,6 +17,10 @@ struct itimerval {
 	struct timeval	it_value;
 };
 
+__BEGIN_DECLS
+
 int gettimeofday(struct timeval* tp, void* tz);
+
+__END_DECLS
 
 #endif /* __SYS_TIME_H__ */

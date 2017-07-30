@@ -3,6 +3,7 @@
 
 #include <machine/_types.h>
 #include <ananas/_types/mode.h>
+#include <sys/cdefs.h>
 
 /* open() */
 #define O_CREAT		(1 << 0)
@@ -27,8 +28,12 @@
 
 #define FD_CLOEXEC 1
 
+__BEGIN_DECLS
+
 int creat(const char*, mode_t);
 int open(const char*, int, ...);
 int fcntl(int fildes, int cmd, ...);
+
+__END_DECLS
 
 #endif /* __FCNTL_H__ */

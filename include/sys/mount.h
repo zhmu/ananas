@@ -1,6 +1,8 @@
 #ifndef __SYS_MOUNT_H__
 #define __SYS_MOUNT_H__
 
+#include <sys/cdefs.h>
+
 #define MNT_RDONLY	0x0001	/* read only */
 #define MNT_NOWAIT	0x0002
 
@@ -20,6 +22,10 @@ struct statfs {
 	char*	f_mntonname;
 };
 
+__BEGIN_DECLS
+
 int getmntinfo(struct statfs** mntbufp, int flags);
+
+__END_DECLS
 
 #endif /* __SYS_MOUNT_H__ */

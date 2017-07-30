@@ -8,6 +8,7 @@
 #include <ananas/_types/ssize.h>
 #include <ananas/_types/pid.h>
 #include <ananas/_types/uid.h>
+#include <sys/cdefs.h>
 
 /* XXX We lie and claim to support IEEE Std 1003.1-2001 */
 #define _POSIX_VERSION 200112L
@@ -25,6 +26,8 @@
 #ifndef SEEK_END
 #define SEEK_END	2
 #endif
+
+__BEGIN_DECLS
 
 void	_exit(int status);
 ssize_t read(int fd, void* buf, size_t len);
@@ -87,5 +90,7 @@ long	sysconf(int name);
 int getdtablesize();
 
 int pipe(int fildes[2]);
+
+__END_DECLS
 
 #endif /* __UNISTD_H__ */
