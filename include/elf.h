@@ -206,6 +206,41 @@ typedef struct {
 typedef struct {
 	Elf64_Addr	r_offset;		/* Address of reference */
 	Elf64_Xword	r_info;			/* Symbol index and type of relocation */
+#define ELF64_R_SYM(i)		((i)>>32)
+#define ELF64_R_TYPE(i)		((i)&0xffffffff)
+#define ELF64_R_INFO(s,t)	(((s)<<32)+((t)&0xffffffff))
+#define R_X86_64_NONE			0	/* none */
+#define R_X86_64_64			1	/* (word64) S + A */
+#define R_X86_64_PC32			2	/* (word32) S + A - P */
+#define R_X86_64_GOT32			3	/* (word32) G + A */
+#define R_X86_64_PLT32			4	/* (word32) L + A - P */
+#define R_X86_64_COPY			5	/* none */
+#define R_X86_64_GLOB_DAT		6	/* (word64) S */
+#define R_X86_64_JUMP_SLOT		7	/* (word64) S */
+#define R_X86_64_RELATIVE		8	/* (word64) B + A */
+#define R_X86_64_GOTPCREL		9	/* (word32) G + GOT + A - P */
+#define R_X86_64_32			10	/* (word32) S + A */
+#define R_X86_64_32S			11	/* (word32) S + A */
+#define R_X86_64_16			12	/* (word16) S + A */
+#define R_X86_64_PC16			13	/* (word16) S + A - P */
+#define R_X86_64_8			14	/* (word8) S + A */
+#define R_X86_64_PC8			15	/* (word8) S + A - P */
+#define R_X86_64_DTPMOD64		16	/* (word64)*/
+#define R_X86_64_DTPOFF64		17	/* (word64) */
+#define R_X86_64_TPOFF64		18	/* (word64) */
+#define R_X86_64_TLSGD			19	/* (word32) */
+#define R_X86_64_TLSLD			20	/* (word32) */
+#define R_X86_64_DTPOFF32		21	/* (word32) */
+#define R_X86_64_GOTTPOFF		22	/* (word32) */
+#define R_X86_64_TPOFF32		23	/* (word32) */
+#define R_X86_64_PC64			24	/* (word64) S + A - P */
+#define R_X86_64_GOTOFF64		25	/* (word64) S + A - GOT */
+#define R_X86_64_GOTPC32		26	/* (word32) GOT + A - P */
+#define R_X86_64_SIZE32			32	/* (word32) Z + A */
+#define R_X86_64_SIZE64			33	/* (word64) Z + A */
+#define R_X86_64_GOTPC32_TLSDESC	34	/* (word32) */
+#define R_X86_64_TLSDESC_CALL		35	/* none */
+#define R_X86_64_TLSDESC		36	/* (word64 x 2) */
 } Elf64_Rel;
 
 typedef struct {
