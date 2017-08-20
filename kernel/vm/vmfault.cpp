@@ -68,6 +68,8 @@ vmspace_get_dentry_backed_page(vmarea_t* va, off_t read_off)
 	if (read_off + read_length > va->va_dentry->d_inode->i_sb.st_size) {
 		// This inode is simply not long enough to cover our read - adjust XXX what when it grows?
 		read_length = va->va_dentry->d_inode->i_sb.st_size - read_off;
+		// Zero out everything after the part we will read so we don't leak any data
+		memset(static_cast<char*>(page) + read_length, 0, PAGE_SIZE - read_length);
 	}
 
 	errorcode_t err = read_data(va->va_dentry, page, read_off, read_length);
