@@ -6,6 +6,7 @@
 #include <ananas/mm.h>
 #include <ananas/error.h>
 #include <ananas/vfs/dentry.h>
+#include <ananas/vfs/types.h>
 #include <ananas/trace.h>
 #include <ananas/vm.h>
 #include <ananas/vmpage.h>
@@ -149,6 +150,12 @@ vmspace_mapto(vmspace_t* vs, addr_t virt, size_t len /* bytes */, uint32_t flags
 errorcode_t
 vmspace_mapto_dentry(vmspace_t* vs, addr_t virt, off_t vskip, size_t vlength, struct DENTRY* dentry, off_t doffset, size_t dlength, int flags, vmarea_t** va_out)
 {
+	// Ensure the range we are mapping does not exceed the inode; if this is the case, we silently truncate
+	if (vskip + doffset + vlength > dentry->d_inode->i_sb.st_size) {
+		if (vskip >= dentry->d_inode->i_sb.st_size)
+			return ANANAS_ERROR(BAD_RANGE); // can't skip the entire inode
+		vlength = dentry->d_inode->i_sb.st_size - doffset - vskip;
+	}
 	if (virt == 0)
 		virt = vmspace_determine_va(vs, vlength);
 
