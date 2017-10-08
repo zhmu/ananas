@@ -1,6 +1,5 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <mbr.h>
 #include "kernel/dev/ata.h"
 #include "kernel/dev/sata.h"
 #include "kernel/bio.h"
@@ -8,6 +7,7 @@
 #include "kernel/driver.h"
 #include "kernel/endian.h"
 #include "kernel/lib.h"
+#include "kernel/mbr.h"
 #include "kernel/mm.h"
 #include "kernel/trace.h"
 

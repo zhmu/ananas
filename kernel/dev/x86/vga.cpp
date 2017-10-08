@@ -9,7 +9,7 @@
 #include "kernel/trace.h"
 #include "kernel/x86/io.h"
 
-#include <teken.h>
+#include "../../lib/teken/teken.h"
 
 /* Console height */
 #define VGA_HEIGHT 25

@@ -1,9 +1,9 @@
 #include <ananas/types.h>
+#include <ananas/elf.h>
 #include <ananas/handle-options.h>
 #include <ananas/error.h>
 #include <ananas/stat.h>
 #include <ananas/syscalls.h>
-#include <elf.h>
 #include "kernel/bio.h"
 #include "kernel/device.h"
 #include "kernel/handle.h"

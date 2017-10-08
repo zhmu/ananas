@@ -1,6 +1,5 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <fat.h>
 #include "kernel/bio.h"
 #include "kernel/lib.h"
 #include "kernel/lock.h"
@@ -10,6 +9,7 @@
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/generic.h"
 #include "block.h"
+#include "fat.h"
 #include "fatfs.h"
 
 TRACE_SETUP;

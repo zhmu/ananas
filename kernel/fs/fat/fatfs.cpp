@@ -31,7 +31,6 @@
  */
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <fat.h>
 #include "kernel/bio.h"
 #include "kernel/init.h"
 #include "kernel/lib.h"
@@ -42,6 +41,7 @@
 #include "kernel/vfs/mount.h"
 #include "block.h"
 #include "dir.h"
+#include "fat.h"
 #include "inode.h"
 #include "fatfs.h"
 

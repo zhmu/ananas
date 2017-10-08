@@ -1,7 +1,7 @@
 #include <ananas/types.h>
-#include <mbr.h>
 #include "kernel/bio.h"
 #include "kernel/device.h"
+#include "kernel/mbr.h"
 #include "slice.h"
 
 int

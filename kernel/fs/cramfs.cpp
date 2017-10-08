@@ -29,7 +29,6 @@
  */
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <cramfs.h>
 #include "kernel/bio.h"
 #include "kernel/init.h"
 #include "kernel/lib.h"
@@ -39,6 +38,7 @@
 #include "kernel/vfs/generic.h"
 #include "kernel/vfs/mount.h"
 #include "../lib/zlib/zlib.h"
+#include "cramfs.h"
 
 TRACE_SETUP;
 

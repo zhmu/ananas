@@ -1,6 +1,5 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <fat.h>
 #include "kernel/bio.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
@@ -10,6 +9,7 @@
 #include "block.h"
 #include "dir.h"
 #include "inode.h"
+#include "fat.h"
 #include "fatfs.h"
 
 errorcode_t

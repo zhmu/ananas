@@ -1,8 +1,8 @@
 #include <machine/param.h>
 #include <ananas/types.h>
 #include <ananas/error.h>
+#include <ananas/elf.h>
 #include <ananas/elfinfo.h>
-#include <elf.h>
 #include "kernel/exec.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"

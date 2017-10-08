@@ -1,5 +1,5 @@
 #include "relocate.h"
-#include <elf.h>
+#include <ananas/elf.h>
 #include <loader/module.h>
 #include "io.h"
 #include "lib.h"

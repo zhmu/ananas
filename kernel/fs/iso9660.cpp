@@ -9,7 +9,6 @@
  */
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <iso9660.h>
 #include "kernel/bio.h"
 #include "kernel/init.h"
 #include "kernel/lib.h"
@@ -18,6 +17,7 @@
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/generic.h"
 #include "kernel/vfs/mount.h"
+#include "iso9660.h"
 
 TRACE_SETUP;
 
