@@ -1,17 +1,16 @@
 #include <ananas/types.h>
-#include <ananas/vfs/types.h>
-#include <ananas/vfs/core.h>
-#include <ananas/vfs/generic.h>
-#include <ananas/bio.h>
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <ananas/mm.h>
-#include <ananas/lock.h>
 #include <fat.h>
+#include "kernel/bio.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/vfs/types.h"
+#include "kernel/vfs/core.h"
+#include "kernel/vfs/generic.h"
 #include "block.h"
 #include "dir.h"
-#include "fatfs.h"
 #include "inode.h"
+#include "fatfs.h"
 
 errorcode_t
 fat_prepare_inode(struct VFS_INODE* inode)

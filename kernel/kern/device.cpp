@@ -1,6 +1,6 @@
-#include <ananas/console.h>
-#include <ananas/device.h>
-#include <ananas/lib.h>
+#include "kernel/console.h"
+#include "kernel/device.h"
+#include "kernel/lib.h"
 
 namespace Ananas {
 

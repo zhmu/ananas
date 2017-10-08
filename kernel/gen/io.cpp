@@ -1,20 +1,16 @@
-#include <machine/param.h>
 #include <ananas/types.h>
-#include <ananas/bio.h>
-#include <ananas/device.h>
-#include <ananas/lib.h>
-#include <ananas/handle.h>
 #include <ananas/handle-options.h>
 #include <ananas/error.h>
-#include <ananas/thread.h>
-#include <ananas/pcpu.h>
 #include <ananas/stat.h>
-#include <ananas/schedule.h>
-#include <ananas/syscall.h>
 #include <ananas/syscalls.h>
-#include <ananas/trace.h>
-#include <ananas/vm.h>
 #include <elf.h>
+#include "kernel/bio.h"
+#include "kernel/device.h"
+#include "kernel/handle.h"
+#include "kernel/lib.h"
+#include "kernel/syscall.h"
+#include "kernel/trace.h"
+#include "kernel/vm.h"
 
 TRACE_SETUP;
 

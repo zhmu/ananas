@@ -1,11 +1,10 @@
-#include <ananas/page.h>
 #include <machine/param.h>
-#include <ananas/init.h>
-#include <ananas/kdb.h>
-#include <ananas/lib.h>
-#include <ananas/list.h>
-#include <ananas/vm.h>
-#include <ananas/kmem.h>
+#include "kernel/kdb.h"
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/list.h"
+#include "kernel/page.h"
+#include "kernel/vm.h"
 #include "options.h"
 
 #undef PAGE_DEBUG

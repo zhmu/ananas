@@ -1,4 +1,4 @@
-/* 
+/*
  * Ananas FAT filesystem driver.
  *
  * FAT is one of the most trivial filesystems ever created - unfortunately,
@@ -30,17 +30,16 @@
  * a linked-list of clusters like everywhere else).
  */
 #include <ananas/types.h>
-#include <ananas/bio.h>
 #include <ananas/error.h>
-#include <ananas/vfs.h>
-#include <ananas/vfs/generic.h>
-#include <ananas/vfs/mount.h>
-#include <ananas/lib.h>
-#include <ananas/schedule.h>
-#include <ananas/trace.h>
-#include <ananas/mm.h>
-#include <ananas/init.h>
 #include <fat.h>
+#include "kernel/bio.h"
+#include "kernel/init.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/trace.h"
+#include "kernel/vfs/core.h"
+#include "kernel/vfs/generic.h"
+#include "kernel/vfs/mount.h"
 #include "block.h"
 #include "dir.h"
 #include "inode.h"

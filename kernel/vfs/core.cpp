@@ -1,13 +1,13 @@
 #include <ananas/types.h>
-#include <ananas/bio.h>
-#include <ananas/device.h>
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <ananas/mm.h>
-#include <ananas/schedule.h>
-#include <ananas/trace.h>
-#include <ananas/vfs/types.h>
-#include <ananas/vfs/mount.h>
+#include "kernel/bio.h"
+#include "kernel/init.h"
+#include "kernel/device.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/trace.h"
+#include "kernel/vfs/types.h"
+#include "kernel/vfs/mount.h"
 
 TRACE_SETUP;
 

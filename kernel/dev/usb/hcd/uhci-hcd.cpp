@@ -17,19 +17,18 @@
  * runs out; this allows them to be retried if necessary.
  */
 #include <ananas/types.h>
-#include <ananas/bus/pci.h>
-#include <ananas/x86/io.h>
-#include <ananas/device.h>
-#include <ananas/driver.h>
-#include <ananas/dma.h>
 #include <ananas/error.h>
-#include <ananas/irq.h>
-#include <ananas/mm.h>
-#include <ananas/trace.h>
-#include <ananas/lib.h>
-#include <ananas/time.h>
-#include <machine/param.h>
-#include <machine/vm.h>
+#include "kernel/dev/pci.h"
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/dma.h"
+#include "kernel/irq.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/time.h"
+#include "kernel/trace.h"
+#include "kernel/x86/io.h"
+#include "kernel-md/vm.h" // XXX for KVTOP, which should be removed
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"
 #include "../core/usb-transfer.h"

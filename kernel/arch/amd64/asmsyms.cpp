@@ -1,11 +1,11 @@
-#include <ananas/stdint.h>
-#include <machine/frame.h>
-#include <machine/pcpu.h>
-#include <machine/thread.h>
-#include <ananas/pcpu.h>
-#include <ananas/syscall.h>
-#include <ananas/asmsymbols.h>
-#include <ananas/x86/smp.h>
+#include <ananas/types.h>
+#include "kernel/x86/smp.h"
+#include "kernel/asmsymbols.h"
+#include "kernel/pcpu.h"
+#include "kernel-md/frame.h"
+#include "kernel-md/pcpu.h"
+#include "kernel-md/thread.h"
+#include "../sys/syscall.h"
 
 ASM_SYMBOL(SF_TRAPNO, offsetof(struct STACKFRAME, sf_trapno));
 ASM_SYMBOL(SF_RAX,    offsetof(struct STACKFRAME, sf_rax));

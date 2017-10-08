@@ -1,12 +1,12 @@
 #include <ananas/types.h>
-#include <ananas/syscall.h>
 #include <ananas/syscalls.h>
-#include <ananas/process.h>
-#include <ananas/trace.h>
 #include <ananas/error.h>
-#include <ananas/vm.h>
 #include <ananas/syscall-vmops.h>
-#include <ananas/vmspace.h>
+#include "kernel/process.h"
+#include "kernel/trace.h"
+#include "kernel/vm.h"
+#include "kernel/vmspace.h"
+#include "syscall.h"
 
 TRACE_SETUP;
 

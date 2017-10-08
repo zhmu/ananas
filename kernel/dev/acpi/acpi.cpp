@@ -1,11 +1,11 @@
-#include <ananas/device.h>
-#include <ananas/driver.h>
 #include <ananas/error.h>
-#include <ananas/trace.h>
-#include <ananas/x86/acpi.h>
 #include "acpica/acpi.h"
 #include "acpi.h"
 #include "acpi_resource.h"
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/trace.h"
+#include "kernel/x86/acpi.h"
 
 TRACE_SETUP;
 

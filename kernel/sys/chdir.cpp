@@ -1,9 +1,10 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <ananas/process.h>
-#include <ananas/syscall.h>
-#include <ananas/trace.h>
-#include <ananas/vm.h>
+#include "kernel/process.h"
+#include "kernel/thread.h"
+#include "kernel/trace.h"
+#include "kernel/vfs/core.h"
+#include "kernel/vm.h"
 
 TRACE_SETUP;
 

@@ -1,26 +1,25 @@
 #include <ananas/types.h>
-#include <machine/param.h>
-#include <machine/macro.h>
-#include <machine/interrupts.h>
-#include <machine/vm.h>
-#include <machine/pcpu.h>
-#include <machine/thread.h>
-#include <ananas/x86/acpi.h>
-#include <ananas/x86/pic.h>
-#include <ananas/x86/pit.h>
-#include <ananas/x86/smap.h>
-#include <ananas/x86/smp.h>
-#include <ananas/handle.h>
 #include <ananas/bootinfo.h>
-#include <ananas/cmdline.h>
 #include <ananas/error.h>
-#include <ananas/kmem.h>
-#include <ananas/init.h>
-#include <ananas/vm.h>
-#include <ananas/pcpu.h>
-#include <ananas/mm.h>
-#include <ananas/lib.h>
+#include <ananas/x86/smap.h>
 #include <loader/module.h>
+#include <machine/param.h>
+#include "kernel/cmdline.h"
+#include "kernel/init.h"
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/pcpu.h"
+#include "kernel/mm.h"
+#include "kernel/vm.h"
+#include "kernel/x86/acpi.h"
+#include "kernel/x86/pic.h"
+#include "kernel/x86/pit.h"
+#include "kernel/x86/smp.h"
+#include "kernel-md/macro.h"
+#include "kernel-md/interrupts.h"
+#include "kernel-md/param.h"
+#include "kernel-md/vm.h"
+#include "kernel-md/thread.h"
 #include "options.h"
 
 /* Pointer to the page directory level 4 */
@@ -161,7 +160,7 @@ setup_paging(addr_t* avail, addr_t mem_end, size_t kernel_size)
 	addr_t avail_start = *avail;
 
 	/*
-	 * Taking the overview in machine/vm.h into account, we want to map the
+	 * Taking the overview in machine-md/vm.h into account, we want to map the
 	 * following regions:
 	 *
 	 * - KMAP_KVA_START .. KMAP_KVA_END: the kernel's KVA

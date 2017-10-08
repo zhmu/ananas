@@ -1,5 +1,5 @@
 #include <ananas/types.h>
-#include <ananas/lib.h>
+#include "kernel/lib.h"
 
 /*
  * The naive implementation is easy but slow; we can do much better by

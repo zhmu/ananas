@@ -1,15 +1,13 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <ananas/handle.h>
-#include <ananas/kdb.h>
-#include <ananas/lib.h>
-#include <ananas/lock.h>
-#include <ananas/mm.h>
-#include <ananas/process.h>
-#include <ananas/schedule.h>
-#include <ananas/trace.h>
-#include <ananas/thread.h>
 #include "options.h"
+#include "kernel/handle.h"
+#include "kernel/kdb.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/lock.h"
+#include "kernel/process.h"
+#include "kernel/trace.h"
 
 TRACE_SETUP;
 

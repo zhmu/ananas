@@ -1,14 +1,14 @@
 #include <ananas/types.h>
-#include <machine/vm.h>
 #include <machine/param.h>
-#include <ananas/mm.h>
-#include <ananas/kmem.h>
-#include <ananas/lib.h>
-#include <ananas/pcpu.h>
-#include <ananas/process.h>
-#include <ananas/thread.h>
-#include <ananas/vm.h>
-#include <ananas/vmspace.h>
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/pcpu.h"
+#include "kernel/process.h"
+#include "kernel/thread.h"
+#include "kernel/vm.h"
+#include "kernel/vmspace.h"
+#include "kernel-md/vm.h"
 
 extern uint64_t* kernel_pagedir;
 

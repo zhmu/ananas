@@ -1,9 +1,9 @@
 #include <ananas/types.h>
-#include <ananas/console.h>
-#include <ananas/lib.h>
-#include <ananas/pcpu.h>
-#include <ananas/process.h>
-#include <ananas/trace.h>
+#include "kernel/console.h"
+#include "kernel/lib.h"
+#include "kernel/pcpu.h"
+#include "kernel/process.h"
+#include "kernel/trace.h"
 
 #define TRACE_PRINTF_BUFSIZE 256
 

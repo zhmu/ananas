@@ -1,12 +1,12 @@
-#include <ananas/cmdline.h>
 #include <ananas/error.h>
-#include <ananas/exec.h>
-#include <ananas/init.h>
-#include <ananas/lib.h>
-#include <ananas/process.h>
-#include <ananas/thread.h>
-#include <ananas/time.h>
-#include <ananas/vfs.h>
+#include "kernel/cmdline.h"
+#include "kernel/exec.h"
+#include "kernel/init.h"
+#include "kernel/lib.h"
+#include "kernel/process.h"
+#include "kernel/thread.h"
+#include "kernel/time.h"
+#include "kernel/vfs/core.h"
 #include "options.h"
 
 namespace {

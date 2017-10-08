@@ -1,7 +1,7 @@
 CC=		${TOOL_PREFIX}clang
 LD=		${TOOL_PREFIX}ld
 
-OBJS=		crt0.o crtn.o crti.o crtbegin.o crtend.o crt0.S.o crt0-common.o
+OBJS=		crt0.o crtn.o crti.o crtbegin.o crtbeginS.o crtend.o crtendS.o crt0.S.o crt0-common.o
 
 # flags
 CFLAGS=		--sysroot ${SYSROOT}
@@ -25,7 +25,17 @@ crt0.S.o:	machine crt0.S
 crt0-common.o:	machine ../common/crt0-common.c
 		$(CC) $(CFLAGS) -c -o crt0-common.o ../common/crt0-common.c
 
-install:	${SYSROOT}/usr/lib/crt0.o ${SYSROOT}/usr/lib/crti.o ${SYSROOT}/usr/lib/crtn.o ${SYSROOT}/usr/lib/crtbegin.o ${SYSROOT}/usr/lib/crtend.o
+crtbegin.o:	crtbegin.S
+		$(CC) -c -o crtbegin.o crtbegin.S
+
+crtbeginS.o:	crtbegin.S
+		$(CC) -c -o crtbeginS.o -DSHARED crtbegin.S
+
+# crtend only contains sections, no actual code - so we can re-use the static version here
+crtendS.o:	crtend.o
+		cp crtend.o crtendS.o
+
+install:	${SYSROOT}/usr/lib/crt0.o ${SYSROOT}/usr/lib/crti.o ${SYSROOT}/usr/lib/crtn.o ${SYSROOT}/usr/lib/crtbegin.o ${SYSROOT}/usr/lib/crtbeginS.o ${SYSROOT}/usr/lib/crtend.o ${SYSROOT}/usr/lib/crtendS.o
 
 ${SYSROOT}/usr/lib/crt0.o: crt0.o
 		cp crt0.o ${SYSROOT}/usr/lib
@@ -39,8 +49,14 @@ ${SYSROOT}/usr/lib/crtn.o: crtn.o
 ${SYSROOT}/usr/lib/crtbegin.o: crtbegin.o
 		cp crtbegin.o ${SYSROOT}/usr/lib
 
+${SYSROOT}/usr/lib/crtbeginS.o: crtbeginS.o
+		cp crtbeginS.o ${SYSROOT}/usr/lib
+
 ${SYSROOT}/usr/lib/crtend.o: crtend.o
 		cp crtend.o ${SYSROOT}/usr/lib
+
+${SYSROOT}/usr/lib/crtendS.o: crtendS.o
+		cp crtendS.o ${SYSROOT}/usr/lib
 
 clean:
 		rm -f machine $(OBJS)

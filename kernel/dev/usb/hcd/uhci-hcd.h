@@ -1,7 +1,7 @@
 #ifndef __UHCI_HCD_H__
 #define __UHCI_HCD_H__
 
-#include <ananas/irq.h>
+#include "kernel/irq.h"
 
 #define UHCI_FRAMELIST_LEN	(4096 / 4)
 #define UHCI_NUM_INTERRUPT_QH	6 /* 1, 2, 4, 8, 16, 32ms queues */

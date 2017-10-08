@@ -13,6 +13,7 @@ DOWNLOAD?=	wget
 TAR?=		tar
 TOUCH?=		touch
 
+CFLAGS+=	-g
 dash:		.extract .configure .build .install
 
 ../distfiles/dash-${VERSION}.tar.gz:

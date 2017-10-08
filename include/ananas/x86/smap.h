@@ -1,10 +1,6 @@
 #ifndef __X86_SMAP_H__
 #define __X86_SMAP_H__
 
-#ifndef LOADER
-#include <sys/types.h>
-#endif
-
 #define SMAP_TYPE_MEMORY   0x01
 #define SMAP_TYPE_RESERVED 0x02
 #define SMAP_TYPE_RECLAIM  0x03

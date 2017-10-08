@@ -1,19 +1,18 @@
-#include <machine/param.h>
-#include <machine/thread.h>
-#include <machine/interrupts.h>
-#include <machine/frame.h>
-#include <machine/vm.h>
-#include <ananas/thread.h>
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <ananas/kmem.h>
-#include <ananas/page.h>
-#include <ananas/process.h>
-#include <ananas/mm.h>
-#include <ananas/pcpu.h>
-#include <ananas/syscall.h>
-#include <ananas/vm.h>
-#include <ananas/vmspace.h>
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/page.h"
+#include "kernel/pcpu.h"
+#include "kernel/process.h"
+#include "kernel/thread.h"
+#include "kernel/vm.h"
+#include "kernel/vmspace.h"
+#include "kernel-md/interrupts.h"
+#include "kernel-md/frame.h"
+#include "kernel-md/param.h"
+#include "kernel-md/vm.h"
+#include "../sys/syscall.h"
 
 extern void* kernel_pagedir;
 extern "C" {

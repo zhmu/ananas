@@ -1,7 +1,8 @@
 #ifndef __ANANAS_USB_BUS_H__
 #define __ANANAS_USB_BUS_H__
 
-#include <ananas/list.h>
+#include "kernel/device.h"
+#include "kernel/list.h"
 
 namespace Ananas {
 

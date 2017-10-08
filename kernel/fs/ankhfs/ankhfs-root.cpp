@@ -1,10 +1,8 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <ananas/trace.h>
-#include <ananas/vfs.h>
-#include <ananas/vfs/core.h>
-#include <ananas/vfs/generic.h>
-#include <ananas/lib.h>
+#include "kernel/lib.h"
+#include "kernel/trace.h"
+#include "kernel/vfs/types.h"
 #include "device.h"
 #include "support.h"
 

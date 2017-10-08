@@ -11,11 +11,27 @@ __DTOR_LIST__:
 .section .data.rel, "aw", @progbits
 .align 8
 
+/*
+ * Provide the __dso_handle symbol - this is used to identify the instance of the
+ * shared library and only execute destructors belonging to it.
+ */
+.type	__dso_handle, @object
+.size	__dso_handle, 8
+.globl	__dso_handle
+.hidden	__dso_handle
+__dso_handle:
+#ifdef SHARED
+	.quad	__dso_handle
+#else
+	.quad	0
+#endif
+
 __ran_ctors:
 	.zero	1
 
 __ran_dtors:
 	.zero	1
+
 
 .text
 
@@ -60,6 +76,20 @@ __run_global_dtors:
 	ret
 
 1:	incb	__ran_dtors(%rip)
+
+#if 0 // NOT YET
+#ifdef SHARED
+	cmpq	$0, __cxa_finalize@GOTPCREL(%rip)
+	je	5f
+
+	/* Call destructors of global (or local static) C++ objects and exit functions */
+	movq	__dso_handle(%rip), %rdi
+	call	__c
+#endifxa_finalize@PLT
+
+5:
+#endif
+#endif
 
 	/*
 	 * For all pointers in the .dtors, run them until we hit NULL. Note

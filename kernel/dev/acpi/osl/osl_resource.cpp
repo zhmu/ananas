@@ -1,13 +1,12 @@
-#include <ananas/vm.h>
-#include <ananas/device.h>
 #include <ananas/error.h>
-#include <ananas/irq.h>
-#include <ananas/lib.h>
-#include <ananas/mm.h>
-#include <ananas/kmem.h>
-#include <ananas/x86/io.h>
-#include <machine/param.h>
-#include <machine/pcihb.h>
+#include "kernel/device.h"
+#include "kernel/irq.h"
+#include "kernel/kmem.h"
+#include "kernel/mm.h"
+#include "kernel/lib.h"
+#include "kernel/vm.h"
+#include "kernel/x86/io.h"
+#include "kernel/x86/pcihb.h"
 #include "../acpica/acpi.h"
 
 struct ACPI_IRQ_INFO {

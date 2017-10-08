@@ -1,5 +1,5 @@
-#include <ananas/lib.h>
-#include <ananas/mm.h>
+#include "kernel/lib.h"
+#include "kernel/mm.h"
 
 char*
 strcpy(char* dst, const char* src)

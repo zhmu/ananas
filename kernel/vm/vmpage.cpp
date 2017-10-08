@@ -1,16 +1,13 @@
 #include <ananas/types.h>
-#include <ananas/vmpage.h>
-#include <ananas/init.h>
-#include <ananas/lock.h>
-#include <ananas/mm.h>
-#include <ananas/lib.h>
-#include <ananas/vmspace.h>
 #include <ananas/error.h>
-#include <ananas/vfs/types.h>
-#include <ananas/kmem.h>
-#include <ananas/vm.h>
-#include <machine/param.h> // for PAGE_SIZE
-#include <machine/vm.h> /* for md_{,un}map_pages() */
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/vmpage.h"
+#include "kernel/vmspace.h"
+#include "kernel/vfs/types.h"
+#include "kernel/vm.h"
+#include "kernel-md/vm.h" // for md_{,un}map_pages()
 
 #define DEBUG 0
 
@@ -18,8 +15,8 @@
 
 #define DPRINTF kprintf
 
-#include <ananas/pcpu.h>
-#include <ananas/process.h>
+#include "kernel/pcpu.h"
+#include "kernel/process.h"
 
 static inline int get_pid()
 {

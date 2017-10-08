@@ -2,9 +2,9 @@
 #define __ANANAS_OHCI_HCD_H__
 
 #include <ananas/types.h>
-#include <ananas/irq.h>
-#include <ananas/thread.h>
-#include <ananas/dma.h>
+#include "kernel/device.h"
+#include "kernel/dma.h"
+#include "kernel/irq.h"
 
 #define OHCI_NUM_ED_LISTS 6 /* 1, 2, 4, 8, 16 and 32ms list */
 

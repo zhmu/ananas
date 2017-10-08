@@ -1,7 +1,7 @@
-#include <ananas/resourceset.h>
-#include <ananas/kmem.h>
-#include <ananas/vm.h>
-#include <ananas/lib.h>
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/resourceset.h"
+#include "kernel/vm.h"
 
 namespace Ananas {
 

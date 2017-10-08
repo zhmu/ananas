@@ -1,11 +1,11 @@
-#include <ananas/list.h>
-#include <ananas/vm.h>
-#include <ananas/mm.h>
-#include <ananas/kmem.h>
-#include <ananas/lib.h>
 #include <machine/param.h>
-#include <machine/vm.h>
 #include "../acpica/acpi.h"
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/list.h"
+#include "kernel/mm.h"
+#include "kernel/vm.h"
+#include "kernel-md/vm.h"
 
 #define ACPI_DEBUG(...)
 

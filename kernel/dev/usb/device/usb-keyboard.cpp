@@ -1,10 +1,10 @@
 #include <ananas/types.h>
-#include <ananas/device.h>
-#include <ananas/driver.h>
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <ananas/mm.h>
-#include <ananas/dev/kbdmux.h>
+#include "kernel/dev/kbdmux.h"
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
 #include "../core/config.h"
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"

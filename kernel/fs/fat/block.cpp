@@ -1,16 +1,16 @@
 #include <ananas/types.h>
-#include <ananas/vfs/types.h>
-#include <ananas/vfs/core.h>
-#include <ananas/vfs/generic.h>
-#include <ananas/bio.h>
-#include <ananas/lock.h>
 #include <ananas/error.h>
 #include <fat.h>
-#include <ananas/schedule.h>
-#include <ananas/trace.h>
-#include <ananas/lib.h>
-#include "fatfs.h"
+#include "kernel/bio.h"
+#include "kernel/lib.h"
+#include "kernel/lock.h"
+#include "kernel/schedule.h" // XXX
+#include "kernel/trace.h"
+#include "kernel/vfs/types.h"
+#include "kernel/vfs/core.h"
+#include "kernel/vfs/generic.h"
 #include "block.h"
+#include "fatfs.h"
 
 TRACE_SETUP;
 

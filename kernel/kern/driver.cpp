@@ -1,9 +1,8 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <ananas/trace.h>
-#include <ananas/device.h>
-#include <ananas/driver.h>
-#include <ananas/lib.h>
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/lib.h"
 
 namespace Ananas {
 

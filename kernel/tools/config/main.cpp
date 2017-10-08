@@ -9,7 +9,7 @@
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
-#include "../../../include/ananas/queue.h"
+#include "../../../kernel/include/kernel/queue.h" // XXX
 
 /* XXX This is a kludge, but PATH_MAX need not be defined */
 #ifndef PATH_MAX
@@ -498,6 +498,11 @@ create_symlink()
 
 	snprintf(src_path, sizeof(src_path), "../../../../../include/ananas/%s", architecture);
 	snprintf(dst_path, sizeof(dst_path), "../compile/%s/machine", ident);
+	if (symlink(src_path, dst_path) < 0 && errno != EEXIST)
+		err(1, "symlink");
+
+	snprintf(src_path, sizeof(src_path), "../../../../include/kernel/%s", architecture);
+	snprintf(dst_path, sizeof(dst_path), "../compile/%s/kernel-md", ident);
 	if (symlink(src_path, dst_path) < 0 && errno != EEXIST)
 		err(1, "symlink");
 }

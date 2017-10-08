@@ -1,14 +1,15 @@
-#include <ananas/x86/io.h>
-#include <ananas/console.h>
-#include <ananas/device.h>
-#include <ananas/driver.h>
 #include <ananas/error.h>
-#include <ananas/irq.h>
-#include <ananas/lib.h>
-#include <ananas/trace.h>
-#include <ananas/tty.h>
-#include <ananas/mm.h>
-#include <ananas/x86/sio.h>
+#include "kernel/console.h"
+#include "kernel/console-driver.h"
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/irq.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/trace.h"
+#include "kernel/tty.h"
+#include "kernel/x86/io.h"
+#include "kernel/x86/sio.h"
 
 #define SIO_BUFFER_SIZE	16
 

@@ -1,6 +1,6 @@
 #include <ananas/types.h>
-#include <ananas/lib.h>
-#include <machine/reboot.h>
+#include "kernel/lib.h"
+#include "kernel/reboot.h"
 
 void
 md_reboot()

@@ -1,17 +1,16 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <ananas/init.h>
-#include <ananas/kdb.h>
-#include <ananas/mm.h>
-#include <ananas/kmem.h>
-#include <ananas/page.h>
-#include <ananas/handle.h>
-#include <ananas/process.h>
 #include <ananas/procinfo.h>
-#include <ananas/vm.h>
-#include <ananas/vmspace.h>
-#include <machine/param.h> /* for PAGE_SIZE */
+#include "kernel/handle.h"
+#include "kernel/init.h"
+#include "kernel/kdb.h"
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/process.h"
+#include "kernel/trace.h"
+#include "kernel/vm.h"
+#include "kernel/vmspace.h"
 #include "options.h"
 
 TRACE_SETUP;

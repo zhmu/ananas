@@ -1,6 +1,6 @@
-#include <ananas/pcpu.h>
-#include <ananas/time.h>
-#include <ananas/lib.h>
+#include "kernel/lib.h"
+#include "kernel/time.h"
+#include "kernel/pcpu.h"
 #include "../acpica/acpi.h"
 
 ACPI_THREAD_ID

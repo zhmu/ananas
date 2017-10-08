@@ -1,11 +1,11 @@
-#include <ananas/x86/io.h>
-#include <ananas/x86/pit.h>
-#include <ananas/x86/smp.h> /* XXX */
 #include <ananas/error.h>
-#include <ananas/pcpu.h>
-#include <ananas/irq.h>
-#include <ananas/lib.h>
-#include <machine/interrupts.h>
+#include "kernel/irq.h"
+#include "kernel/lib.h"
+#include "kernel/pcpu.h"
+#include "kernel/x86/io.h"
+#include "kernel/x86/pit.h"
+#include "kernel/x86/smp.h" // XXX
+#include "kernel-md/interrupts.h"
 #include "options.h"
 
 #define IRQ_PIT 0

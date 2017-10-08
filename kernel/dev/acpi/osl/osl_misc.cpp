@@ -1,4 +1,4 @@
-#include <ananas/lib.h>
+#include "kernel/lib.h"
 #include "../acpica/acpi.h"
 
 ACPI_STATUS

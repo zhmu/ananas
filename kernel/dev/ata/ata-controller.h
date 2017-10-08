@@ -1,9 +1,9 @@
 #ifndef ANANAS_ATA_CONTROLLER_H
 #define ANANAS_ATA_CONTROLLER_H
 
-#include <ananas/device.h>
-#include <ananas/dev/ata.h>
-#include <ananas/irq.h>
+#include "kernel/dev/ata.h"
+#include "kernel/irq.h"
+#include "kernel/device.h"
 #include "ata.h"
 
 namespace Ananas {

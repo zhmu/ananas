@@ -22,7 +22,7 @@
 #include "zlib.h"
 
 #ifdef __Ananas__
-# include <ananas/lib.h>
+# include "kernel/lib.h"
 #else
 #ifdef STDC
 #  if !(defined(_WIN32_WCE) && defined(_MSC_VER))

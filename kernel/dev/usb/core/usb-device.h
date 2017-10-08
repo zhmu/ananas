@@ -1,6 +1,7 @@
 #ifndef __ANANAS_USB_DEVICE_H__
 #define __ANANAS_USB_DEVICE_H__
 
+#include "kernel/lock.h"
 #include "usb-core.h"
 
 namespace Ananas {
@@ -13,6 +14,7 @@ class Bus;
 class Hub;
 class Pipe;
 class Transfer;
+class USBDevice;
 
 class IPipeCallback
 {

@@ -3,7 +3,7 @@
  * amount of virtual addresses (KVA), this code will handle the mapping of
  * physical addresses to KVA.
  *
- * We have several ranges at our disposal, each declared in machine/vm.h:
+ * We have several ranges at our disposal, each declared in kernel-md/vm.h:
  *
  * - KERNBASE .. ???: Kernel image, individual pieces may be mapped read-only,
  *   read-write, no-execute. The actual range is up to startup.c, which
@@ -22,18 +22,17 @@
  * - (2) Addresses outside (1) are dynamically mapped using by finding an
  *       appropriate va which satisfies KMEM_DYNAMIC_VA_START <= va <=
  *       KMEM_DYNAMIC_VA_END
- * 
+ *
  */
-#include <ananas/kmem.h>
-#include <ananas/lock.h>
-#include <ananas/init.h>
-#include <ananas/page.h>
-#include <ananas/vm.h>
-#include <ananas/mm.h>
-#include <ananas/kdb.h>
-#include <ananas/lib.h>
 #include <machine/param.h>
-#include <machine/vm.h>
+#include "kernel/mm.h"
+#include "kernel/kdb.h"
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/lock.h"
+#include "kernel/page.h"
+#include "kernel/vm.h"
+#include "kernel-md/vm.h"
 #include "options.h"
 
 #define KMEM_DEBUG(...) (void)0

@@ -1,7 +1,8 @@
 #ifndef ANANAS_ATA_DISK_H
 #define ANANAS_ATA_DISK_H
 
-#include <ananas/dev/ata.h>
+#include "kernel/dev/ata.h"
+#include "kernel/device.h"
 
 namespace Ananas {
 namespace ATA {

@@ -1,10 +1,6 @@
 #ifndef __ANANAS_BOOTINFO_H__
 #define __ANANAS_BOOTINFO_H__
 
-#ifndef LOADER
-#include <ananas/types.h>
-#endif
-
 #ifndef ASM
 /*
  * This structure will be used by the loader, which is always 32 bit. Thus, it

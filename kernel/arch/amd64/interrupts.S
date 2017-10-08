@@ -10,11 +10,10 @@
 .globl irq11, irq12, irq13, irq14, irq15, syscall_handler
 .globl thread_trampoline
 
-#include <machine/vm.h>
-#include <machine/param.h>
-#include <machine/macro.h>
-#include <machine/thread.h>
-#include <ananas/x86/smp.h>
+#include "kernel-md/vm.h"
+#include "kernel-md/macro.h"
+#include "kernel-md/thread.h"
+#include "kernel/x86/smp.h"
 #include "options.h"
 #include "asmsyms.h"
 

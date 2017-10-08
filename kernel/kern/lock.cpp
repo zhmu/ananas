@@ -1,10 +1,10 @@
 #include <ananas/types.h>
-#include <ananas/lock.h>
-#include <ananas/kdb.h>
-#include <ananas/lib.h>
-#include <ananas/pcpu.h>
-#include <ananas/schedule.h>
-#include <machine/interrupts.h>
+#include "kernel/kdb.h"
+#include "kernel/lib.h"
+#include "kernel/lock.h"
+#include "kernel/pcpu.h"
+#include "kernel/schedule.h"
+#include "kernel-md/interrupts.h"
 
 void
 spinlock_lock(spinlock_t* s)

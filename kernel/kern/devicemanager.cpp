@@ -1,15 +1,14 @@
-#include <ananas/console.h>
-#include <ananas/device.h>
-#include <ananas/driver.h>
 #include <ananas/error.h>
-#include <ananas/kdb.h>
-#include <ananas/lib.h>
-#include <ananas/mm.h>
-#include <ananas/kmem.h>
-#include <ananas/tty.h>
-#include <ananas/thread.h>
-#include <ananas/vfs/mount.h>
-#include <ananas/vm.h>
+#include "kernel/console.h"
+#include "kernel/console-driver.h"
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/kdb.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/tty.h"
+#include "kernel/vfs/mount.h" // for vfs_abandon_device()
+#include "kernel/vm.h"
 #include "options.h"
 
 namespace Ananas {

@@ -127,8 +127,8 @@
 
 #ifdef KERNEL
 #include <ananas/types.h>
-#include <ananas/lock.h>
-#include <ananas/lib.h>
+#include "kernel/lib.h"
+#include "kernel/lock.h"
 
 #ifdef __amd64__
 # define ACPI_MACHINE_WIDTH 64

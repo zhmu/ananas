@@ -1,6 +1,6 @@
 #include <ananas/types.h>
-#include <ananas/dev/sata.h>
-#include <ananas/lib.h>
+#include "kernel/dev/sata.h"
+#include "kernel/lib.h"
 
 void
 sata_fis_h2d_make_cmd(struct SATA_FIS_H2D* h2d, uint8_t cmd)

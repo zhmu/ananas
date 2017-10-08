@@ -1,15 +1,15 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <ananas/vfs.h>
-#include <ananas/vfs/icache.h>
-#include <ananas/mm.h>
-#include <ananas/kdb.h>
-#include <ananas/init.h>
-#include <ananas/lock.h>
-#include <ananas/schedule.h>
-#include <ananas/trace.h>
-#include <ananas/vmpage.h>
-#include <ananas/lib.h>
+#include "kernel/init.h"
+#include "kernel/kdb.h"
+#include "kernel/lib.h"
+#include "kernel/lock.h"
+#include "kernel/mm.h"
+#include "kernel/schedule.h" // XXX
+#include "kernel/trace.h"
+#include "kernel/vmpage.h"
+#include "kernel/vfs/core.h"
+#include "kernel/vfs/icache.h"
 #include "options.h"
 
 TRACE_SETUP;

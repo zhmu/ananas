@@ -1,11 +1,12 @@
-#include <ananas/device.h>
-#include <ananas/driver.h>
-#include <ananas/console.h>
 #include <ananas/error.h>
-#include <ananas/lock.h>
-#include <ananas/lib.h>
-#include <ananas/mm.h>
-#include <ananas/tty.h>
+#include "kernel/console.h"
+#include "kernel/console-driver.h"
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/lib.h"
+#include "kernel/lock.h"
+#include "kernel/mm.h"
+#include "kernel/tty.h"
 
 namespace {
 

@@ -1,13 +1,12 @@
 #include <ananas/types.h>
-#include <ananas/dev/sata.h>
-#include <ananas/bio.h>
-#include <ananas/kmem.h>
-#include <ananas/device.h>
-#include <ananas/driver.h>
 #include <ananas/error.h>
-#include <ananas/trace.h>
-#include <ananas/lib.h>
-#include <machine/vm.h>
+#include "kernel/bio.h"
+#include "kernel/dev/sata.h"
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/trace.h"
 #include "ahci.h"
 #include "ahci-pci.h"
 

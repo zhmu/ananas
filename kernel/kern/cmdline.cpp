@@ -1,9 +1,8 @@
+#include <ananas/types.h>
 #include <ananas/bootinfo.h>
-#include <ananas/cmdline.h>
-#include <ananas/kmem.h>
-#include <ananas/mm.h>
-#include <ananas/vm.h>
-#include <ananas/lib.h>
+#include "kernel/cmdline.h"
+#include "kernel/lib.h"
+#include "kernel/vm.h"
 
 static char* cmdline = NULL;
 static int cmdline_len = -1;

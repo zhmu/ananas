@@ -1,5 +1,5 @@
-#ifndef __I386_STDINT_H__
-#define __I386_STDINT_H__
+#ifndef __AMD64_STDINT_H__
+#define __AMD64_STDINT_H__
 
 /* 7.18.2.1: Limits of exact-width integer types */
 #define INT8_MIN		(-128)
@@ -87,4 +87,4 @@
 #define INTMAX_C(c)		(c ## LL)
 #define UINTMAX_C(c)		(c ## ULL)
 
-#endif /* __I386_STDINT_H__ */
+#endif /* __AMD64_STDINT_H__ */

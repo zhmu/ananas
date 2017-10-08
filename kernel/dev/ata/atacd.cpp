@@ -1,11 +1,12 @@
 #include <ananas/types.h>
-#include <ananas/driver.h>
 #include <ananas/error.h>
-#include <ananas/x86/io.h>
-#include <ananas/bio.h>
-#include <ananas/lib.h>
-#include <ananas/mm.h>
 #include <mbr.h>
+#include "kernel/bio.h"
+#include "kernel/driver.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/trace.h"
+#include "kernel/x86/io.h"
 #include "ata.h"
 #include "atacd.h"
 #include "ata-controller.h"

@@ -1,8 +1,6 @@
 #ifndef __OHCI_ROOTHUB_H__
 #define __OHCI_ROOTHUB_H__
 
-#include <ananas/device.h>
-
 namespace Ananas {
 namespace USB {
 

@@ -1,8 +1,7 @@
-#include <ananas/queue.h>
-#include <ananas/device.h>
-
 #ifndef __ATA_H__
 #define __ATA_H__
+
+#include "kernel/queue.h"
 
 #define ATA_REG_DATA		0		/* Data Register (R/W) */
 #define ATA_REG_ERROR		1		/* Error Register (R) */

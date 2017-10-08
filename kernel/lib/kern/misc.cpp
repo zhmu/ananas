@@ -1,14 +1,12 @@
+#include "kernel/kdb.h"
+#include "kernel/lib.h"
+#include "kernel/schedule.h"
 #include "options.h"
-#include <ananas/lib.h>
-#include <ananas/schedule.h>
-#include <ananas/kdb.h>
-#include <ananas/pcpu.h>
-#include <machine/atomic.h>
-#include <machine/pcpu.h>
 #ifdef OPTION_SMP
-#include <ananas/x86/smp.h> /* XXX */
+#include "kernel/x86/smp.h" // XXX
 #endif
-#include <machine/interrupts.h>
+#include "kernel-md/atomic.h"
+#include "kernel-md/interrupts.h"
 
 static atomic_t kdb_panicing;
 

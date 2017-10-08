@@ -1,14 +1,12 @@
-#include <ananas/device.h>
-#include <ananas/console.h>
 #include <ananas/error.h>
-#include <ananas/mm.h>
-#include <ananas/lib.h>
-#include <ananas/init.h>
-#include <ananas/thread.h>
-#include <ananas/pcpu.h>
-#include <ananas/tty.h>
-#include <machine/vm.h>
-#include <machine/param.h> /* for PAGE_SIZE */
+#include <machine/param.h>
+#include "kernel/console.h"
+#include "kernel/device.h"
+#include "kernel/init.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/thread.h"
+#include "kernel/tty.h"
 #include "options.h" // for ARCHITECTURE
 
 /* If set, display the entire init tree before launching it */

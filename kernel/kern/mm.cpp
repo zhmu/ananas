@@ -1,10 +1,9 @@
 #include <ananas/types.h>
-#include <machine/param.h>
-#include <machine/vm.h>
-#include <ananas/lock.h>
-#include <ananas/mm.h>
-#include <ananas/vm.h>
-#include <ananas/lib.h>
+#include "kernel/lib.h"
+#include "kernel/lock.h"
+#include "kernel/mm.h"
+#include "kernel/vm.h"
+#include "kernel-md/vm.h"
 
 static mutex_t mtx_mm;
 

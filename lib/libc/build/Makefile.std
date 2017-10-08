@@ -16,6 +16,7 @@ CFLAGS+=	-I$S/opt/${THREADLIB}
 CFLAGS+=	-I.
 CFLAGS+=	-Wall -Werror
 CFLAGS+=	-Wno-builtin-requires-header
+CFLAGS+=	-fPIC
 ASMFLAGS=	$(CFLAGS) -DASM
 
 # files to build

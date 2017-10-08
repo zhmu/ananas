@@ -2,16 +2,15 @@
  * UHCI root hub
  */
 #include <ananas/types.h>
-#include <ananas/bus/pci.h>
-#include <ananas/x86/io.h>
 #include <ananas/error.h>
-#include <ananas/trace.h>
-#include <ananas/thread.h>
-#include <ananas/schedule.h>
-#include <ananas/time.h>
-#include <ananas/lib.h>
-#include <ananas/mm.h>
-#include <machine/param.h> /* for PAGE_SIZE */
+#include "kernel/dev/pci.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/schedule.h" // XXX
+#include "kernel/thread.h"
+#include "kernel/time.h"
+#include "kernel/trace.h"
+#include "kernel/x86/io.h"
 #include "../core/descriptor.h"
 #include "../core/usb-bus.h"
 #include "../core/usb-core.h"

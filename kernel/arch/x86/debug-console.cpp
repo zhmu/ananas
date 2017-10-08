@@ -1,8 +1,6 @@
-#include <ananas/debug-console.h>
-#include <ananas/x86/io.h>
-#include <ananas/x86/sio.h>
-#include <machine/param.h> /* for KERNBASE */
-#include <machine/vm.h> /* for KVTOP */
+#include "kernel/x86/io.h"
+#include "kernel/x86/sio.h"
+#include "kernel/debug-console.h"
 
 #define DEBUGCON_IO 0x3f8	/* COM1 */
 
@@ -19,12 +17,7 @@ debugcon_init()
 	 */
 	outb(0x80, 0xff);
 	if(inb(0xe9) == 0xe9) {
-#ifdef __i386__
-		/* Paging isn't set up in i386 yet... so this ugly hack is needed */
-		*(int*)(KVTOP((addr_t)&debugcon_bochs_console)) = 1;
-#else
 		debugcon_bochs_console++;
-#endif
 	}
 
 	/* Wire up the serial port */

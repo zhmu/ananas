@@ -1,16 +1,12 @@
 #include <ananas/types.h>
-#include <machine/param.h> /* for PAGE_SIZE */
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <ananas/process.h>
-#include <ananas/trace.h>
-#include <ananas/kmem.h>
-#include <ananas/pcpu.h>
-#include <ananas/vm.h>
-#include <ananas/lib.h>
-#include <ananas/vmpage.h>
-#include <ananas/vfs/core.h>
-#include <ananas/vmspace.h>
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/trace.h"
+#include "kernel/vmspace.h"
+#include "kernel/vmpage.h"
+#include "kernel/vfs/core.h"
+#include "kernel/vm.h"
 
 TRACE_SETUP;
 

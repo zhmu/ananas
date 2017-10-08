@@ -1,7 +1,7 @@
-#include <ananas/device.h>
 #include "acpica/acpi.h"
 #include "acpi.h"
 #include "acpi_resource.h"
+#include "kernel/device.h"
 
 using Resource = Ananas::Resource;
 

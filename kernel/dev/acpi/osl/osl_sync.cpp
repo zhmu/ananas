@@ -1,6 +1,6 @@
-#include <ananas/lock.h>
-#include <ananas/lib.h>
-#include <ananas/mm.h>
+#include "kernel/lib.h"
+#include "kernel/lock.h"
+#include "kernel/mm.h"
 #include "../acpica/acpi.h"
 
 ACPI_STATUS

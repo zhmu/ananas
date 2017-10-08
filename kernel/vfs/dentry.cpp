@@ -8,16 +8,15 @@
  * them if we really need to.
  */
 #include <ananas/types.h>
-#include <ananas/vfs/core.h>
-#include <ananas/vfs/dentry.h>
 #include <ananas/error.h>
-#include <ananas/init.h>
-#include <ananas/mm.h>
-#include <ananas/lock.h>
-#include <ananas/schedule.h>
-#include <ananas/trace.h>
-#include <ananas/lib.h>
-#include <ananas/kdb.h>
+#include "kernel/init.h"
+#include "kernel/kdb.h"
+#include "kernel/lib.h"
+#include "kernel/lock.h"
+#include "kernel/mm.h"
+#include "kernel/trace.h"
+#include "kernel/vfs/types.h"
+#include "kernel/vfs/mount.h"
 #include "options.h"
 
 TRACE_SETUP;

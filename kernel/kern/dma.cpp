@@ -1,17 +1,16 @@
 /*
  * Ananas DMA infrastructure; this is very closely modelled after NetBSD's busdma(9).
  */
-#include <ananas/dma.h>
-#include <ananas/bio.h>
 #include <ananas/error.h>
-#include <ananas/trace.h>
-#include <ananas/lib.h>
-#include <ananas/kmem.h>
-#include <ananas/mm.h>
-#include <ananas/page.h>
-#include <ananas/vm.h>
-#include <machine/dma.h>
-#include <machine/param.h>
+#include "kernel/bio.h"
+#include "kernel/dma.h"
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/page.h"
+#include "kernel/trace.h"
+#include "kernel/vm.h"
+#include "kernel-md/dma.h"
 
 TRACE_SETUP;
 

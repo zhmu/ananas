@@ -16,24 +16,19 @@
  * All transitions are managed by scheduler.c.
  */
 #include <ananas/types.h>
-#include <machine/param.h>
-#include <ananas/console.h>
-#include <ananas/device.h>
 #include <ananas/error.h>
-#include <ananas/kdb.h>
-#include <ananas/kmem.h>
-#include <ananas/handle.h>
-#include <ananas/pcpu.h>
-#include <ananas/process.h>
 #include <ananas/procinfo.h>
-#include <ananas/reaper.h>
-#include <ananas/schedule.h>
-#include <ananas/trace.h>
-#include <ananas/thread.h>
-#include <ananas/vm.h>
-#include <ananas/lib.h>
-#include <ananas/mm.h>
-#include <ananas/vmspace.h>
+#include "kernel/device.h"
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/pcpu.h"
+#include "kernel/process.h"
+#include "kernel/reaper.h"
+#include "kernel/schedule.h"
+#include "kernel/trace.h"
+#include "kernel/thread.h"
+#include "kernel/vm.h"
 #include "options.h"
 
 TRACE_SETUP;
@@ -332,93 +327,5 @@ idle_thread(void*)
 		md_cpu_relax();
 	}
 }
-
-#if 0
-extern struct THREAD* kdb_curthread;
-
-KDB_COMMAND(threads, "[s:flags]", "Displays current threads")
-{
-	int flags = 0;
-
-#define FLAG_HANDLE 1
-
-	/* we use arguments as a mask to determine which information is to be dumped */
-	for (int i = 1; i < num_args; i++) {
-		for (const char* ptr = arg[i].a_u.u_string; *ptr != '\0'; ptr++)
-			switch(*ptr) {
-				case 'h': flags |= FLAG_HANDLE; break;
-				default:
-					kprintf("unknown modifier '%c', ignored\n", *ptr);
-					break;
-			}
-	}
-
-	struct THREAD* cur = PCPU_CURTHREAD();
-	spinlock_lock(&spl_threadqueue);
-	kprintf("thread dump\n");
-	LIST_FOREACH(&thread_queue, t, struct THREAD) {
-		kprintf ("thread %p (hindex %d): %s: flags [", t, t->t_hidx_thread, t->t_threadinfo->ti_args);
-		if (THREAD_IS_ACTIVE(t))      kprintf(" active");
-		if (THREAD_IS_SUSPENDED(t))   kprintf(" suspended");
-		if (THREAD_IS_ZOMBIE(t))      kprintf(" zombie");
-		kprintf(" ]%s\n", (t == cur) ? " <- current" : "");
-		if (flags & FLAG_HANDLE) {
-			kprintf("handles\n");
-			for (unsigned int n = 0; n < THREAD_MAX_HANDLES; n++) {
-				if (t->t_handle[n] == NULL)
-					continue;
-				kprintf(" %d: handle %p, type %u\n", n, t->t_handle[n], t->t_handle[n]->h_type);
-			}
-		}
-	}
-	spinlock_unlock(&spl_threadqueue);
-}
-
-KDB_COMMAND(thread, NULL, "Shows current thread information")
-{
-	if (kdb_curthread == NULL) {
-		kprintf("no current thread set\n");
-		return;
-	}
-
-	struct THREAD* thread = kdb_curthread;
-	kprintf("arg          : '%s'\n", thread->t_threadinfo->ti_args);
-	kprintf("flags        : 0x%x\n", thread->t_flags);
-	kprintf("terminateinfo: 0x%x\n", thread->t_terminate_info);
-	kprintf("mappings:\n");
-	LIST_FOREACH(&thread->t_vmspace->vs_areas, va, vmarea_t) {
-		kprintf("   flags      : 0x%x\n", va->va_flags);
-		kprintf("   virtual    : 0x%x - 0x%x\n", va->va_virt, va->va_virt + va->va_len);
-		kprintf("   length     : %u\n", va->va_len);
-		kprintf("\n");
-	}
-}
-
-KDB_COMMAND(bt, NULL, "Current thread backtrace")
-{
-	if (kdb_curthread == NULL) {
-		kprintf("no current thread set\n");
-		return;
-	}
-
-#ifdef __amd64__
-	struct THREAD* thread = kdb_curthread;
-	for (int x = 0; x <= 32; x += 8)
-		kprintf("rbp %d -> %p\n", x, *(register_t*)(thread->md_rsp + x));
-
-	register_t rbp = *(register_t*)(thread->md_rsp + 24);
-	kprintf("rbp %p rsp %p\n", rbp, thread->md_rsp);
-  while(rbp >= 0xffff880000000000) {
-    kprintf("[%p] ", *(uint64_t*)(rbp + 8));
-    rbp = *(uint64_t*)rbp;
-  }
-#endif
-}
-
-KDB_COMMAND(curthread, "i:thread", "Sets current thread")
-{
-	kdb_curthread = (struct THREAD*)arg[1].a_u.u_value;
-}
-#endif /* KDB */
 
 /* vim:set ts=2 sw=2: */

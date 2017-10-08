@@ -1,9 +1,9 @@
 #ifndef __ANANAS_HDA_H__
 #define __ANANAS_HDA_H__
 
-#include <ananas/list.h>
 #include <ananas/types.h>
-#include <ananas/device.h>
+#include "kernel/device.h"
+#include "kernel/list.h"
 
 namespace Ananas {
 namespace HDA {

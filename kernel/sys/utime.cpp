@@ -1,7 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
 #include <ananas/syscalls.h>
-#include <ananas/trace.h>
+#include "kernel/trace.h"
 
 TRACE_SETUP;
 

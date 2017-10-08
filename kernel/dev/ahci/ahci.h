@@ -1,9 +1,9 @@
 #ifndef __ANANAS_AHCI2_H__
 #define __ANANAS_AHCI2_H__
 
-#include <ananas/dev/sata.h>
-#include <ananas/irq.h>
-#include <ananas/dma.h>
+#include "kernel/dev/sata.h"
+#include "kernel/dma.h"
+#include "kernel/irq.h"
 
 #define AHCI_DEBUG 0
 

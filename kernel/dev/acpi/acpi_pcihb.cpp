@@ -1,9 +1,9 @@
-#include <ananas/device.h>
-#include <ananas/driver.h>
 #include <ananas/error.h>
 #include "acpica/acpi.h"
 #include "acpi.h"
 #include "acpi_resource.h"
+#include "kernel/device.h"
+#include "kernel/driver.h"
 
 namespace {
 

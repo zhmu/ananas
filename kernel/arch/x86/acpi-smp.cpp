@@ -1,14 +1,13 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <ananas/kmem.h>
-#include <ananas/trace.h>
-#include <ananas/vm.h>
-#include <ananas/x86/apic.h>
-#include <ananas/x86/ioapic.h>
-#include <ananas/x86/smp.h>
-#include <machine/param.h>
-#include <machine/vm.h>
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/trace.h"
+#include "kernel/vm.h"
+#include "kernel/x86/apic.h"
+#include "kernel/x86/ioapic.h"
+#include "kernel/x86/smp.h"
+#include "kernel-md/vm.h"
 #include "../../dev/acpi/acpi.h"
 #include "../../dev/acpi/acpica/acpi.h"
 

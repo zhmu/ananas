@@ -1,5 +1,5 @@
-#include <ananas/driver.h>
-#include <ananas/lib.h>
+#include "kernel/driver.h"
+#include "kernel/lib.h"
 
 namespace Ananas {
 

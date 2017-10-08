@@ -1,11 +1,10 @@
-#include <ananas/syscall.h>
 #include <ananas/error.h>
 #include <ananas/stat.h>
-#include <ananas/handle.h>
-#include <ananas/lib.h>
-#include <ananas/pcpu.h>
 #include <ananas/syscalls.h>
-#include <ananas/trace.h>
+#include "kernel/lib.h"
+#include "kernel/pcpu.h"
+#include "kernel/trace.h"
+#include "../sys/syscall.h"
 
 TRACE_SETUP;
 
@@ -14,10 +13,6 @@ perform_syscall(thread_t* curthread, struct SYSCALL_ARGS* a)
 {
 	switch(a->number) {
 #include "syscalls.inc.cpp"
-		case 0x42:
-			kprintf("[%u]", PCPU_GET(cpuid));
-			reschedule();
-			return ANANAS_ERROR(BAD_SYSCALL);
 		default:
 			kprintf("warning: unsupported syscall %u\n", a->number);
 			return ANANAS_ERROR(BAD_SYSCALL);

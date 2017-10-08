@@ -2,7 +2,7 @@
 #define __RESOURCE_H__
 
 #include <machine/_types.h>
-#include <machine/_stddef.h>
+#include <ananas/_types/size.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS

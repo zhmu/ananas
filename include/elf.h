@@ -1,7 +1,3 @@
-#ifdef KERNEL
-#include <ananas/thread.h>
-#endif
-
 #ifndef __ELF_H__
 #define __ELF_H__
 
@@ -337,13 +333,5 @@ typedef struct {
 		Elf64_Addr	d_ptr;
 	} d_un;
 } Elf64_Dyn;
-
-#ifdef KERNEL
-struct VFS_FILE;
-
-typedef errorcode_t (*elf_getfunc_t)(void* priv, void* buf, off_t offset, size_t len);
-errorcode_t elf_load(thread_t* thread, void* priv, elf_getfunc_t obtain);
-errorcode_t elf_load_from_file(thread_t* t, struct VFS_INODE* inode);
-#endif /* KERNEL */
 
 #endif /* __ELF_H__ */

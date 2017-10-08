@@ -1,16 +1,15 @@
 #include <ananas/types.h>
-#include <machine/param.h> /* for THREAD_INITIAL_MAPPING_ADDR */
-#include <machine/vm.h> /* for md_{,un}map_pages() */
-#include <ananas/kmem.h>
-#include <ananas/lib.h>
-#include <ananas/mm.h>
 #include <ananas/error.h>
-#include <ananas/vfs/dentry.h>
-#include <ananas/vfs/types.h>
-#include <ananas/trace.h>
-#include <ananas/vm.h>
-#include <ananas/vmpage.h>
-#include <ananas/vmspace.h>
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/trace.h"
+#include "kernel/vmpage.h"
+#include "kernel/vmspace.h"
+#include "kernel/vfs/dentry.h"
+#include "kernel/vfs/types.h"
+#include "kernel/vm.h"
+#include "kernel-md/param.h" // for THREAD_INITIAL_MAPPING_ADDR
+#include "kernel-md/vm.h" // for md_{,un}map_pages()
 
 TRACE_SETUP;
 

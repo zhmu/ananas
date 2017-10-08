@@ -1,10 +1,7 @@
-#ifndef __ANANAS_LIMITS_H__
-#define __ANANAS_LIMITS_H__
+#ifndef ANANAS_LIMITS_H
+#define  ANANAS_LIMITS_H
 
-/* Maximum number of bytes in an input queue */
-#define MAX_INPUT	256
+/* Maximum number of handles per process */
+#define PROCESS_MAX_HANDLES 64
 
-/* Maximum path size */
-#define MAX_PATH	256
-
-#endif /* __ANANAS_LIMITS_H__ */
+#endif /* ANANAS_LIMITS_H */

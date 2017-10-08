@@ -1,13 +1,11 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <ananas/vfs.h>
-#include <ananas/vfs/core.h>
-#include <ananas/vfs/generic.h>
-#include <ananas/driver.h>
-#include <ananas/device.h>
-#include <ananas/vmspace.h>
-#include <ananas/trace.h>
-#include <ananas/lib.h>
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/lib.h"
+#include "kernel/trace.h"
+#include "kernel/vfs/core.h"
+#include "kernel/vfs/generic.h"
 #include "device.h"
 #include "support.h"
 

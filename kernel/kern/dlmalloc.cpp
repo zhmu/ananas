@@ -537,9 +537,9 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
  * kernel code here.
  */
 #include <machine/param.h>
-#include <ananas/lib.h>
-#include <ananas/page.h>
-#include <ananas/vm.h>
+#include "kernel/lib.h"
+#include "kernel/page.h"
+#include "kernel/vm.h"
 
 #define HAVE_MORECORE 0
 #define LACKS_ERRNO_H

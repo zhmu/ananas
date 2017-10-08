@@ -15,12 +15,12 @@
  *               +-----< usb-keyboard0
  */
 #include <ananas/types.h>
-#include <ananas/device.h>
-#include <ananas/driver.h>
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <ananas/mm.h>
-#include <ananas/thread.h>
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/thread.h"
 #include "usb-bus.h"
 #include "usb-device.h"
 

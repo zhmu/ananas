@@ -23,16 +23,16 @@
  * Internal Layout" by Dave Poirier.
  */
 #include <ananas/types.h>
-#include <ananas/bio.h>
 #include <ananas/error.h>
-#include <ananas/vfs.h>
-#include <ananas/vfs/generic.h>
-#include <ananas/vfs/mount.h>
-#include <ananas/init.h>
-#include <ananas/lib.h>
-#include <ananas/trace.h>
-#include <ananas/mm.h>
 #include <ext2.h>
+#include "kernel/bio.h"
+#include "kernel/init.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/trace.h"
+#include "kernel/vfs/core.h"
+#include "kernel/vfs/generic.h"
+#include "kernel/vfs/mount.h"
 
 TRACE_SETUP;
 

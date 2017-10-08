@@ -1,14 +1,13 @@
 #include <ananas/types.h>
-#include <ananas/driver.h>
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <ananas/mm.h>
-#include <ananas/trace.h>
-#include <machine/param.h>
+#include "kernel/driver.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/trace.h"
 #include "hda.h"
 
+#include <machine/param.h>
 #include "hda-pci.h" // XXX
-#include <ananas/thread.h>
 
 TRACE_SETUP;
 

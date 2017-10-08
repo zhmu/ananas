@@ -1,18 +1,17 @@
-#include <ananas/kdb.h>
-#include <ananas/lib.h>
-#include <ananas/console.h>
 #include <ananas/error.h>
-#include <ananas/pcpu.h>
-#include <ananas/schedule.h>
-#include <ananas/trace.h>
-#include <machine/interrupts.h>
+#include "kernel/console.h"
+#include "kernel/kdb.h"
+#include "kernel/lib.h"
+#include "kernel/pcpu.h"
+#include "kernel/trace.h"
 #include "options.h"
 #ifdef OPTION_DEBUG_CONSOLE
-#include <ananas/debug-console.h>
+#include "kernel/debug-console.h"
 #endif
 #ifdef OPTION_SMP
-#include <ananas/x86/smp.h>
+#include "kernel/x86/smp.h"
 #endif
+#include "kernel-md/interrupts.h"
 
 TRACE_SETUP;
 

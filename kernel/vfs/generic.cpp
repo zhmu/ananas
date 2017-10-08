@@ -1,11 +1,11 @@
 #include <ananas/types.h>
-#include <ananas/bio.h>
-#include <ananas/device.h>
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <ananas/trace.h>
-#include <ananas/vfs.h>
-#include <ananas/vfs/generic.h>
+#include "kernel/bio.h"
+#include "kernel/device.h"
+#include "kernel/lib.h"
+#include "kernel/trace.h"
+#include "kernel/vfs/core.h"
+#include "kernel/vfs/generic.h"
 
 TRACE_SETUP;
 

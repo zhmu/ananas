@@ -1,9 +1,7 @@
-#include <ananas/x86/apic.h>
-#include <ananas/x86/ioapic.h>
-#include <ananas/lib.h>
 #include <ananas/error.h>
-#include <machine/param.h>
-#include <machine/vm.h>
+#include "kernel/x86/apic.h"
+#include "kernel/x86/ioapic.h"
+#include "kernel-md/vm.h"
 
 void
 ioapic_write(struct X86_IOAPIC* ioapic, uint32_t reg, uint32_t val)

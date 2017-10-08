@@ -1,9 +1,8 @@
-#include <ananas/exec.h>
-#include <ananas/lib.h>
-#include <ananas/init.h>
-#include <ananas/process.h>
-#include <ananas/thread.h>
-#include <ananas/trace.h>
+#include "kernel/exec.h"
+#include "kernel/lib.h"
+#include "kernel/init.h"
+#include "kernel/trace.h"
+#include "kernel/vfs/dentry.h"
 
 TRACE_SETUP;
 

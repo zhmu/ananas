@@ -1,11 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <ananas/handle.h>
 #include <ananas/handle-options.h>
-#include <ananas/trace.h>
-#include <ananas/thread.h>
-#include <ananas/mm.h>
-#include <ananas/lib.h>
+#include "kernel/mm.h"
 
 #if 0
 TRACE_SETUP;

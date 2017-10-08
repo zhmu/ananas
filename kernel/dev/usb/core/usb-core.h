@@ -1,9 +1,7 @@
 #ifndef __ANANAS_USB_CORE_H__
 #define __ANANAS_USB_CORE_H__
 
-#include <ananas/device.h>
-#include <ananas/list.h>
-#include <ananas/lock.h>
+#include "kernel/list.h"
 #include "descriptor.h"
 
 /* XXX This is ugly */
@@ -53,6 +51,8 @@ enum usb_devstat_t {
 	STATUS_CONFIGURED,
 	STATUS_SUSPENDED
 };
+
+class Transfer;
 
 typedef void (*usb_xfer_callback_t)(Transfer&);
 

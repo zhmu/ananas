@@ -1,9 +1,6 @@
-#include <machine/pcpu.h>
-#include <ananas/mm.h>
-#include <ananas/lib.h>
-#include <ananas/pcpu.h>
-#include <ananas/thread.h>
-#include <machine/param.h> /* for PAGE_SIZE */
+#include "kernel/lib.h"
+#include "kernel/pcpu.h"
+#include "kernel/thread.h"
 
 void
 pcpu_init(struct PCPU* pcpu)

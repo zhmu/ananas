@@ -1,5 +1,5 @@
 #include <ananas/types.h>
-#include <machine/frame.h>
+#include "kernel-md/frame.h"
 
 size_t
 gdb_md_get_register_size(int regnum)

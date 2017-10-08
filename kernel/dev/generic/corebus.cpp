@@ -1,7 +1,7 @@
-#include <ananas/device.h>
-#include <ananas/driver.h>
-#include <ananas/lib.h>
-#include <ananas/trace.h>
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/lib.h"
+#include "kernel/trace.h"
 
 TRACE_SETUP;
 

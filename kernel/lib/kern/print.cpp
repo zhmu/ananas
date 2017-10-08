@@ -1,11 +1,9 @@
 #include <ananas/types.h>
-#include <ananas/console.h>
-#include <ananas/init.h>
 #include <ananas/error.h>
-#include <ananas/device.h>
-#include <ananas/lock.h>
-#include <ananas/lib.h>
-#include <ananas/stdarg.h>
+#include "kernel/console.h"
+#include "kernel/lib.h"
+#include "kernel/lock.h"
+#include "kernel/device.h"
 
 static const char hextab_hi[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 static const char hextab_lo[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };

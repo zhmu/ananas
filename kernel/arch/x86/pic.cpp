@@ -1,8 +1,7 @@
-#include <ananas/x86/io.h>
-#include <ananas/x86/pic.h>
 #include <ananas/error.h>
-#include <ananas/irq.h>
-#include <ananas/lib.h>
+#include "kernel/irq.h"
+#include "kernel/x86/io.h"
+#include "kernel/x86/pic.h"
 
 static errorcode_t pic_mask(struct IRQ_SOURCE* is, int no);
 static errorcode_t pic_unmask(struct IRQ_SOURCE* is, int no);

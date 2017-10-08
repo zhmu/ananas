@@ -1,11 +1,10 @@
-#include <machine/param.h>
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <ananas/handle.h>
-#include <ananas/thread.h>
-#include <ananas/trace.h>
-#include <ananas/vm.h>
+#include "kernel/handle.h"
+#include "kernel/lib.h"
+#include "kernel/thread.h"
+#include "kernel/trace.h"
+#include "kernel/vm.h"
 
 TRACE_SETUP;
 

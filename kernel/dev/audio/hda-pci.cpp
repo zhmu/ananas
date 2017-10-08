@@ -1,16 +1,16 @@
 #include <ananas/types.h>
-#include <ananas/bus/pci.h>
-#include <ananas/device.h>
-#include <ananas/driver.h>
 #include <ananas/error.h>
-#include <ananas/irq.h>
-#include <ananas/page.h>
-#include <ananas/time.h>
-#include <ananas/mm.h>
-#include <ananas/trace.h>
-#include <ananas/lib.h>
-#include <ananas/vm.h>
 #include <machine/param.h>
+#include "kernel/dev/pci.h"
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/irq.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/page.h"
+#include "kernel/time.h"
+#include "kernel/trace.h"
+#include "kernel/vm.h"
 #include "hda.h"
 #include "hda-pci.h"
 

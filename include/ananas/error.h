@@ -1,7 +1,8 @@
 #ifndef __ANANAS_ERROR_H__
 #define __ANANAS_ERROR_H__
 
-#include <ananas/trace.h>
+#include <ananas/types.h>
+#include <ananas/_types/errorcode.h>
 
 #define ANANAS_ERROR_NONE		0		/* All is fine */
 #define ANANAS_ERROR_BAD_HANDLE		1		/* Supplied handle is invalid or bad type */

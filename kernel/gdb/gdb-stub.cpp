@@ -74,11 +74,11 @@
  ****************************************************************************/
 
 #include <ananas/types.h>
-#include <ananas/gdb.h>
-#include <ananas/debug-console.h>
-#include <machine/gdb-support.h>
-#include <machine/frame.h>
-#include <ananas/lib.h>
+#include "kernel/debug-console.h"
+#include "kernel/gdb.h"
+#include "kernel/lib.h"
+#include "kernel-md/frame.h"
+#include "kernel-md/gdb-support.h"
 
 namespace {
 

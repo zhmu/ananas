@@ -25,7 +25,7 @@
 #define	teken_printf(x,...)
 #else /* For Ananas */
 #include <ananas/types.h>
-#include <ananas/lib.h>
+#include "kernel/lib.h"
 #define	teken_assert(x)		KASSERT(x, #x)
 #define	teken_printf(x,...)
 #endif /* __FreeBSD__ && _KERNEL */

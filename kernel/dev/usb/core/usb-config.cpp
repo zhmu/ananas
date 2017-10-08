@@ -1,10 +1,9 @@
 #include <ananas/types.h>
-#include <ananas/device.h>
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <ananas/thread.h>
-#include <ananas/trace.h>
-#include <ananas/mm.h>
+#include "kernel/device.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/trace.h"
 #include "usb-core.h"
 #include "usb-device.h"
 #include "usb-transfer.h"

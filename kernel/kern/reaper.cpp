@@ -6,11 +6,11 @@
  * This is commonly used for kernel threads; user threads are generally
  * destroyed by their parent wait()-ing for them.
  */
-#include <ananas/reaper.h>
 #include <ananas/error.h>
-#include <ananas/init.h>
-#include <ananas/lib.h>
-#include <ananas/thread.h>
+#include "kernel/init.h"
+#include "kernel/lib.h"
+#include "kernel/reaper.h"
+#include "kernel/thread.h"
 
 static spinlock_t spl_reaper = SPINLOCK_DEFAULT_INIT;
 static struct THREAD_QUEUE reaper_queue;

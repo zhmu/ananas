@@ -22,15 +22,15 @@
  * they won't overflow for now.
  */
 #include <ananas/types.h>
-#include <ananas/bus/pci.h>
-#include <ananas/driver.h>
 #include <ananas/error.h>
-#include <ananas/dma.h>
-#include <ananas/irq.h>
-#include <ananas/mm.h>
-#include <ananas/lib.h>
-#include <ananas/time.h>
-#include <ananas/trace.h>
+#include "kernel/dev/pci.h"
+#include "kernel/dma.h"
+#include "kernel/driver.h"
+#include "kernel/irq.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/time.h"
+#include "kernel/trace.h"
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"
 #include "../core/usb-transfer.h"
@@ -38,7 +38,7 @@
 #include "ohci-roothub.h"
 #include "ohci-hcd.h"
 
-#include <machine/vm.h> /* for KVTOP, which must go */
+#include "kernel-md/vm.h" // XXX for KVTOP, which we must remove
 
 TRACE_SETUP;
 

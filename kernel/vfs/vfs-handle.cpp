@@ -1,15 +1,15 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <ananas/bio.h>
 #include <ananas/flags.h>
-#include <ananas/handle.h>
 #include <ananas/handle-options.h>
-#include <ananas/process.h>
-#include <ananas/syscall.h>
-#include <ananas/trace.h>
-#include <ananas/vfs.h>
-#include <ananas/vm.h>
-#include <ananas/lib.h>
+#include "kernel/bio.h"
+#include "kernel/handle.h"
+#include "kernel/init.h"
+#include "kernel/lib.h"
+#include "kernel/process.h"
+#include "kernel/thread.h"
+#include "kernel/trace.h"
+#include "kernel/vfs/core.h"
 
 TRACE_SETUP;
 

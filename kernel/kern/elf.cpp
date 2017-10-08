@@ -1,16 +1,17 @@
-#include <ananas/types.h>
 #include <machine/param.h>
+#include <ananas/types.h>
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <ananas/exec.h>
-#include <ananas/process.h>
-#include <ananas/trace.h>
-#include <ananas/kmem.h>
-#include <ananas/mm.h>
-#include <ananas/vm.h>
-#include <ananas/vmspace.h>
 #include <ananas/elfinfo.h>
 #include <elf.h>
+#include "kernel/exec.h"
+#include "kernel/kmem.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/trace.h"
+#include "kernel/vmspace.h"
+#include "kernel/vfs/core.h"
+#include "kernel/vfs/types.h"
+#include "kernel/vm.h"
 
 TRACE_SETUP;
 

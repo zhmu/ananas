@@ -8,23 +8,24 @@
  * we spawn a generic thread which takes care of all of them.
  */
 #include <ananas/types.h>
-#include <ananas/device.h>
-#include <ananas/driver.h>
 #include <ananas/error.h>
-#include <ananas/pcpu.h>
-#include <ananas/schedule.h>
-#include <ananas/queue.h>
-#include <ananas/limits.h>
-#include <ananas/mm.h>
-#include <ananas/trace.h>
-#include <ananas/lib.h>
 #include <termios.h>
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
+#include "kernel/queue.h"
+#include "kernel/thread.h"
+#include "kernel/trace.h"
 
 TRACE_SETUP;
 
 /* Newline char - cannot be modified using c_cc */
 #define NL '\n'
 #define CR 0xd
+
+/* Maximum number of bytes in an input queue */
+#define MAX_INPUT	256
 
 namespace {
 

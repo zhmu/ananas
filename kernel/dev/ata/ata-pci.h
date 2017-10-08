@@ -1,7 +1,7 @@
 #ifndef ANANAS_ATA_PCI_H
 #define ANANAS_ATA_PCI_H
 
-#include <ananas/device.h>
+#include "kernel/device.h"
 #include "ata.h"
 
 namespace Ananas {

@@ -1,9 +1,9 @@
 .text
 
-#include <machine/vm.h>
-#include <machine/macro.h>
-#include <machine/param.h>
-#include <ananas/x86/apic.h>
+#include "kernel/x86/apic.h"
+#include "kernel-md/vm.h"
+#include "kernel-md/macro.h"
+#include "kernel-md/param.h"
 #include "asmsyms.h"
 
 .globl __ap_entry, __ap_entry_end

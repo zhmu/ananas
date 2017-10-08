@@ -1,15 +1,10 @@
 #include <ananas/types.h>
-#include <ananas/device.h>
 #include <ananas/error.h>
-#include <ananas/device.h>
-#include <ananas/list.h>
-#include <ananas/lib.h>
-#include <ananas/thread.h>
-#include <ananas/pcpu.h>
-#include <ananas/schedule.h>
-#include <ananas/trace.h>
-#include <ananas/mm.h>
-#include <machine/param.h> /* for PAGE_SIZE XXX */
+#include "kernel/device.h"
+#include "kernel/lib.h"
+#include "kernel/list.h"
+#include "kernel/mm.h"
+#include "kernel/trace.h"
 #include "config.h"
 #include "usb-bus.h"
 #include "usb-core.h"

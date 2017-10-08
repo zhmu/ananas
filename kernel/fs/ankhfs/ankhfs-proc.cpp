@@ -1,14 +1,13 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <ananas/vfs.h>
-#include <ananas/vfs/core.h>
-#include <ananas/vfs/generic.h>
-#include <ananas/process.h>
 #include <ananas/procinfo.h>
-#include <ananas/vm.h>
-#include <ananas/vmspace.h>
-#include <ananas/trace.h>
-#include <ananas/lib.h>
+#include "kernel/lib.h"
+#include "kernel/process.h"
+#include "kernel/trace.h"
+#include "kernel/vfs/core.h"
+#include "kernel/vfs/generic.h"
+#include "kernel/vm.h"
+#include "kernel/vmspace.h"
 #include "proc.h"
 #include "support.h"
 

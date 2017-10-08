@@ -1,10 +1,10 @@
-#include <ananas/x86/io.h>
-#include <ananas/bus/pci.h>
-#include <ananas/device.h>
-#include <ananas/driver.h>
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <machine/pcihb.h>
+#include "kernel/dev/pci.h"
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/lib.h"
+#include "kernel/x86/io.h"
+#include "kernel/x86/pcihb.h"
 
 namespace {
 

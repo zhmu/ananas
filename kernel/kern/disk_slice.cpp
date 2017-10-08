@@ -1,10 +1,10 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
-#include <ananas/bio.h>
-#include <ananas/device.h>
-#include <ananas/driver.h>
-#include <ananas/lib.h>
-#include <ananas/mm.h>
+#include "kernel/bio.h"
+#include "kernel/device.h"
+#include "kernel/driver.h"
+#include "kernel/lib.h"
+#include "kernel/mm.h"
 
 namespace {
 

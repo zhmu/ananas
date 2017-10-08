@@ -1,10 +1,10 @@
-#include <ananas/vmspace.h>
-#include <machine/param.h>
-#include <machine/vm.h>
 #include <ananas/error.h>
-#include <ananas/lib.h>
-#include <ananas/vm.h>
-#include <ananas/trace.h>
+#include <machine/param.h>
+#include "kernel/lib.h"
+#include "kernel/trace.h"
+#include "kernel/vm.h"
+#include "kernel/vmspace.h"
+#include "kernel-md/vm.h"
 
 TRACE_SETUP;
 

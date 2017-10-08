@@ -1,9 +1,8 @@
 #include <ananas/types.h>
-#include <ananas/bio.h>
-#include <ananas/lib.h>
-#include <ananas/device.h>
-#include <ananas/slice.h>
 #include <mbr.h>
+#include "kernel/bio.h"
+#include "kernel/device.h"
+#include "slice.h"
 
 int
 mbr_process(Ananas::Device* device, struct BIO* bio)

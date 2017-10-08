@@ -1,21 +1,20 @@
 #include <ananas/types.h>
-#include <machine/frame.h>
-#include <machine/interrupts.h>
-#include <machine/thread.h>
-#include <machine/vm.h>
-#include <machine/param.h> /* for PAGE_SIZE */
-#include <ananas/x86/exceptions.h>
-#include <ananas/thread.h>
-#include <ananas/process.h>
 #include <ananas/procinfo.h>
-#include <ananas/pcpu.h>
-#include <ananas/syscall.h>
 #include <ananas/error.h>
-#include <ananas/irq.h>
-#include <ananas/vm.h>
-#include <ananas/vmspace.h>
-#include <ananas/lib.h>
-#include <ananas/gdb.h>
+#include <machine/param.h>
+#include "kernel/gdb.h"
+#include "kernel/irq.h"
+#include "kernel/lib.h"
+#include "kernel/process.h"
+#include "kernel/pcpu.h"
+#include "kernel/thread.h"
+#include "kernel/vm.h"
+#include "kernel/vmspace.h"
+#include "kernel/x86/exceptions.h"
+#include "kernel-md/frame.h"
+#include "kernel-md/interrupts.h"
+#include "kernel-md/vm.h"
+#include "../sys/syscall.h"
 #include "options.h"
 
 namespace {
