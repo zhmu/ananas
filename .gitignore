@@ -1,5 +1,5 @@
 # ignore any files in the compile trees
-^kernel/arch/.*/compile/
+^kernel/arch/.*/compile/*
 # ignore all toolchain aspects, only the patches/makefiles matter
 toolchain/build/
 toolchain/src/
@@ -14,6 +14,9 @@ toolchain/.*.prepatch
 toolchain/.*.patch
 # ignore everything extract in the apps directory XXX this could be done better
 apps/distfiles/
+apps/coreutils/coreutils-*/
+apps/dash/dash-*/
+apps/output.*/
 apps/*/.build
 apps/*/.configure
 apps/*/.includes
@@ -22,7 +25,7 @@ apps/*/.extract
 apps/*/.prepatch
 apps/*/.patch
 # ignore output
-output.i386/
+sysroot.*/
 # ignore generated files for the system call infrastructure
 include/_gen/
 include/syscalls.h
@@ -30,3 +33,9 @@ kernel/kern/syscalls.inc.c
 lib/libc/gen/syscalls.inc.S
 # ignore any object/archive files
 *.[oa]
+# temporary stuff
+beun/
+stash/
+# python cache
+__pycache__
+*.pyc
