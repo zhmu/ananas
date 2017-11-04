@@ -4,6 +4,7 @@ arch/x86/exceptions.cpp		mandatory
 arch/x86/debug-console.cpp	option DEBUG_CONSOLE
 # x86-specific devices
 dev/x86/atkbd.cpp		optional atkbd
+dev/x86/atrtc.cpp		optional atrtc
 dev/x86/vga.cpp			optional vga
 dev/x86/sio.cpp			optional sio
 # SMP

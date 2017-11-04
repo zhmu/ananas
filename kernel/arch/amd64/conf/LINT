@@ -6,6 +6,7 @@ include		../../../conf/LINT
 device		vga
 device		sio
 device		atkbd
+device		atrtc
 
 option		DEBUG_CONSOLE
 
