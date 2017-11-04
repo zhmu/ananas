@@ -22,3 +22,6 @@
 17 { errorcode_t fcntl(handleindex_t index, int cmd, const void* in, void* out); }
 18 { errorcode_t link(const char* oldpath, const char* newpath); }
 19 { errorcode_t utime(const char* path, const struct utimbuf* times); }
+20 { errorcode_t clock_settime(clockid_t id, const struct timespec* tp); }
+21 { errorcode_t clock_gettime(clockid_t id, struct timespec* tp); }
+22 { errorcode_t clock_getres(clockid_t id, struct timespec* res); }

@@ -2,9 +2,9 @@
 #include "kernel/irq.h"
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"
+#include "kernel/time.h"
 #include "kernel/x86/io.h"
 #include "kernel/x86/pit.h"
-#include "kernel/x86/smp.h" // XXX
 #include "kernel-md/interrupts.h"
 #include "options.h"
 
@@ -19,21 +19,7 @@ static uint64_t tsc_boot_time;
 static irqresult_t
 x86_pit_irq(Ananas::Device*, void*)
 {
-	PCPU_SET(tickcount, PCPU_GET(tickcount) + 1);
-	if (!scheduler_activated())
-		return IRQ_RESULT_PROCESSED;
-
-#ifdef OPTION_SMP
-	smp_broadcast_schedule();
-#else
-	/*
-	 * Timeslice is up -> next thread please; we can implement this
-	 * by simply setting the 'want to reschedule' flag.
-	 */
-	thread_t* curthread = PCPU_GET(curthread);
-	curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
-#endif
-
+	Ananas::Time::OnTick();
 	return IRQ_RESULT_PROCESSED;
 }
 
@@ -71,17 +57,18 @@ x86_pit_calc_cpuspeed_mhz()
 	 * figure out the CPU speed; we use the following formula:
 	 *
 	 *  current - base     number of ticks to wait 1/HZ sec
-	 * 
+	 *
 	 *  So to figure out the number of Hz's the CPU is, we'll have
-	 *  (current-base)*HZ; 
+	 *  (current-base)*HZ;
 	 */
-	uint64_t tsc_base, tsc_current;
-	uint32_t tickcount = PCPU_GET(tickcount);
-	while (PCPU_GET(tickcount) == tickcount);	/* wait for next tick */
+	uint32_t tickcount = Ananas::Time::GetTicks();
+	while (Ananas::Time::GetTicks() == tickcount)
+		/* wait for next tick */ ;
 	tickcount += 2;
-	tsc_base = rdtsc();
-	while (PCPU_GET(tickcount) < tickcount);	/* wait for yet another tick */
-	tsc_current = rdtsc();
+	uint64_t tsc_base = rdtsc();
+	while (Ananas::Time::GetTicks() < tickcount)
+		/* wait for yet another tick */ ;
+	uint64_t tsc_current = rdtsc();
 	/* We use the tsc_current value as the boot time */
 	tsc_boot_time = tsc_current;
 	return ((tsc_current - tsc_base) * HZ) / 1000000;

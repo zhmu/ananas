@@ -21,6 +21,7 @@ kern/syscall.cpp	mandatory
 kern/lock.cpp		mandatory
 kern/irq.cpp		mandatory
 kern/handle.cpp		mandatory
+kern/time.cpp		mandatory
 kern/tty.cpp		mandatory
 kern/trace.cpp		mandatory
 kern/pipe-handle.cpp	option PIPE
@@ -35,6 +36,7 @@ kern/exec.cpp		mandatory
 kern/elf.cpp		option ELF
 # system calls
 sys/chdir.cpp		mandatory
+sys/clock.cpp		mandatory
 sys/clone.cpp		mandatory
 sys/close.cpp		mandatory
 sys/dupfd.cpp		mandatory
