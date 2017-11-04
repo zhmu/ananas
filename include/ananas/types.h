@@ -12,6 +12,7 @@
 #include <ananas/_types/null.h>
 #include <ananas/_types/addr.h> /* XXX should this be removed? */
 #include <ananas/_types/clock.h>
+#include <ananas/_types/clockid.h>
 #include <ananas/_types/pid.h>
 #include <ananas/_types/uid.h>
 #include <ananas/_types/gid.h>
@@ -34,6 +35,7 @@
 #include <ananas/_types/ssize.h>
 #include <ananas/_types/time.h>
 #include <ananas/_types/thread.h>
+#include <ananas/_types/timespec.h>
 #include <ananas/_types/vmspace.h>
 #include <ananas/_types/vmarea.h>
 
