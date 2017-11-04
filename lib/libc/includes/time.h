@@ -9,6 +9,9 @@
 #include "_PDCLIB_aux.h"
 #include "_PDCLIB_int.h"
 
+#include <ananas/_types/clockid.h>
+#include <ananas/_types/timespec.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -27,12 +30,6 @@ typedef _PDCLIB_clock_t clock_t;
 
 #define CLOCKS_PER_SEC _PDCLIB_CLOCKS_PER_SEC
 #define TIME_UTC _PDCLIB_TIME_UTC
-
-struct timespec
-{
-    time_t tv_sec;
-    long tv_nsec;
-};
 
 struct tm
 {
@@ -72,6 +69,19 @@ struct tm * gmtime( const time_t * timer ) _PDCLIB_nothrow;
 struct tm * localtime( const time_t * timer ) _PDCLIB_nothrow;
 
 size_t strftime( char * _PDCLIB_restrict s, size_t maxsize, const char * _PDCLIB_restrict format, const struct tm * _PDCLIB_restrict timeptr );
+
+#define CLOCK_MONOTONIC 0
+#define CLOCK_REALTIME 1
+#define CLOCK_SECONDS 2
+
+int clock_getres(clockid_t id, struct timespec* res);
+int clock_gettime(clockid_t id, struct timespec* ts);
+int clock_settime(clockid_t id, const struct timespec* ts);
+
+struct tm* gmtime_r(const time_t* timer, struct tm* tm);
+struct tm* gmtime(const time_t* timer);
+struct tm* localtime_r(const time_t* timer, struct tm* tm);
+struct tm* localtime(const time_t* timer);
 
 #ifdef __cplusplus
 }
