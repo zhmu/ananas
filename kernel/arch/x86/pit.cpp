@@ -11,8 +11,6 @@
 #define IRQ_PIT 0
 #define TIMER_FREQ 1193182
 
-#define HZ 100 /* XXX does not belong here */
-
 extern int md_cpu_clock_mhz;
 static uint64_t tsc_boot_time;
 
@@ -38,7 +36,7 @@ x86_get_ms_since_boot()
 void
 x86_pit_init()
 {
-	uint16_t count = TIMER_FREQ / HZ;
+	uint16_t count = TIMER_FREQ / Ananas::Time::GetPeriodicyInHz();
 	outb(PIT_MODE_CMD, PIT_CH_CHAN0 | PIT_MODE_3 | PIT_ACCESS_BOTH);
 	outb(PIT_CH0_DATA, (count & 0xff));
 	outb(PIT_CH0_DATA, (count >> 8));
@@ -71,7 +69,7 @@ x86_pit_calc_cpuspeed_mhz()
 	uint64_t tsc_current = rdtsc();
 	/* We use the tsc_current value as the boot time */
 	tsc_boot_time = tsc_current;
-	return ((tsc_current - tsc_base) * HZ) / 1000000;
+	return ((tsc_current - tsc_base) * Ananas::Time::GetPeriodicyInHz()) / 1000000;
 }
 
 void

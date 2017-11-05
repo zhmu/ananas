@@ -48,6 +48,12 @@ void TMtoTS(const struct tm& tm, struct timespec& ts)
 
 } // unnamed namespace
 
+unsigned int GetPeriodicyInHz()
+{
+	// XXX make me configurable in some way
+	return 100;
+}
+
 uint64_t GetTicks()
 {
 	register_t state = spinlock_lock_unpremptible(&time_lock);
@@ -81,12 +87,23 @@ struct timespec GetTime()
 void
 OnTick()
 {
-	// XXX for now, this should only be called in the boot CPU
+	// This should only be called in the boot CPU
 
 	// Increment system tick count
 	register_t state = spinlock_lock_unpremptible(&time_lock);
 	ticks++;
+
+	// Update the timestamp - XXX we should synchronise every now and then with
+	// the RTC. XXX we can use the TSC to get a much more accurate value than
+	// this
+	time_current.tv_nsec += 1000000000 / GetPeriodicyInHz();
+	while (time_current.tv_nsec >= 1000000000) {
+		time_current.tv_sec++;
+		time_current.tv_nsec -= 1000000000;
+	}
+
 	spinlock_unlock_unpremptible(&time_lock, state);
+
 
 	if (!scheduler_activated())
 		return;

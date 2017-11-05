@@ -24,6 +24,8 @@ void delay(int ms);
 namespace Ananas {
 namespace Time {
 
+unsigned int GetPeriodicyInHz();
+
 void OnTick();
 uint64_t GetTicks();
 
