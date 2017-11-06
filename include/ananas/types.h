@@ -33,6 +33,7 @@
 #include <ananas/_types/refcount.h>
 #include <ananas/_types/size.h>
 #include <ananas/_types/ssize.h>
+#include <ananas/_types/tick.h>
 #include <ananas/_types/time.h>
 #include <ananas/_types/thread.h>
 #include <ananas/_types/timespec.h>

@@ -16,7 +16,7 @@ namespace {
 // XXX Maybe using a spinlock here isn't such a good idea - we could benefit much more
 //     from atomic add/subtract/compare...
 spinlock_t time_lock;
-uint64_t ticks = 0;
+tick_t ticks = 0;
 struct timespec time_current;
 
 // DateToSerialDayNumber() is inspired by
@@ -54,7 +54,7 @@ unsigned int GetPeriodicyInHz()
 	return 100;
 }
 
-uint64_t GetTicks()
+tick_t GetTicks()
 {
 	register_t state = spinlock_lock_unpremptible(&time_lock);
 	auto cur_ticks = ticks;
@@ -103,7 +103,6 @@ OnTick()
 	}
 
 	spinlock_unlock_unpremptible(&time_lock, state);
-
 
 	if (!scheduler_activated())
 		return;

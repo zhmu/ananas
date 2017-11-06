@@ -27,7 +27,20 @@ namespace Time {
 unsigned int GetPeriodicyInHz();
 
 void OnTick();
-uint64_t GetTicks();
+tick_t GetTicks();
+
+/*
+ * Tick counter comparison functions.
+ */
+inline bool IsTickBefore(tick_t a, tick_t b)
+{
+	return ((int64_t)b - (int64_t)a) > 0;
+}
+
+inline bool IsTickAfter(tick_t a, tick_t b)
+{
+	return IsTickBefore(b, a);
+}
 
 void SetTime(const struct tm& tm);
 void SetTime(const struct timespec& ts);
