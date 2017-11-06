@@ -26,6 +26,7 @@
 #include "kernel/process.h"
 #include "kernel/reaper.h"
 #include "kernel/schedule.h"
+#include "kernel/time.h"
 #include "kernel/trace.h"
 #include "kernel/thread.h"
 #include "kernel/vm.h"
@@ -217,6 +218,16 @@ thread_suspend(thread_t* t)
 }
 
 void
+thread_sleep(tick_t num_ticks)
+{
+	thread_t* t = PCPU_GET(curthread);
+	t->t_timeout = Ananas::Time::GetTicks() + num_ticks;
+	t->t_flags |= THREAD_FLAG_TIMEOUT;
+	thread_suspend(t);
+	schedule();
+}
+
+void
 thread_resume(thread_t* t)
 {
 	TRACE(THREAD, FUNC, "t=%p", t);
@@ -233,7 +244,7 @@ thread_resume(thread_t* t)
 	}
 	scheduler_add_thread(t);
 }
-	
+
 void
 thread_exit(int exitcode)
 {

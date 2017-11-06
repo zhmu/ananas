@@ -14,6 +14,7 @@
 #include "kernel/pcpu.h"
 #include "kernel/schedule.h"
 #include "kernel/thread.h"
+#include "kernel/time.h"
 #include "kernel-md/interrupts.h"
 #include "kernel-md/vm.h"
 #include "options.h"
@@ -105,9 +106,10 @@ scheduler_add_thread(thread_t* t)
 	scheduler_add_thread_locked(t);
 	/*
 	 * ... and finally, update the flags: we must do this in the scheduler lock because
-	 *     no one else is allowed to touch the thread while we're moving it
+	 *     no one else is allowed to touch the thread while we're moving it. Note that we
+	 *     also remove the timeout flag here as the thread is already unsuspended.
 	 */
-	t->t_flags &= ~THREAD_FLAG_SUSPENDED;
+	t->t_flags &= ~(THREAD_FLAG_SUSPENDED | THREAD_FLAG_TIMEOUT);
 	spinlock_unlock_unpremptible(&spl_scheduler, state);
 }
 
@@ -122,7 +124,23 @@ scheduler_remove_thread(thread_t* t)
 	/* Remove the thread from the runqueue ... */
 	LIST_REMOVE(&sched_runqueue, &t->t_sched_priv);
 	/* ... add it to the sleepqueue ... */
-	LIST_APPEND(&sched_sleepqueue, &t->t_sched_priv);
+	if (t->t_flags & THREAD_FLAG_TIMEOUT) {
+		/* ... but the sleepqueue must be in first-to-wakeup order... */
+		bool inserted = false;
+		LIST_FOREACH(&sched_sleepqueue, s, struct SCHED_PRIV) {
+			thread_t* st = s->sp_thread;
+			if ((st->t_flags & THREAD_FLAG_TIMEOUT) && Ananas::Time::IsTickBefore(st->t_timeout, t->t_timeout))
+				continue; /* st wakes up earlier than we do */
+			LIST_INSERT_BEFORE(&sched_sleepqueue, s, &t->t_sched_priv);
+			inserted = true;
+			break;
+		}
+		if (!inserted) {
+			LIST_APPEND(&sched_sleepqueue, &t->t_sched_priv);
+		}
+	} else {
+		LIST_APPEND(&sched_sleepqueue, &t->t_sched_priv);
+	}
 	/*
 	 * ... and finally, update the flags: we must do this in the scheduler lock because
 	 *     no one else is allowed to touch the thread while we're moving it
@@ -184,6 +202,22 @@ schedule()
 
 	/* Cancel any rescheduling as we are about to schedule here */
 	curthread->t_flags &= ~THREAD_FLAG_RESCHEDULE;
+
+	/*
+	 * See if the first item on the sleepqueue is worth waking up; we'll only
+	 * look at the first item as we expect them to be added in a sorted way.
+	 */
+	if (!LIST_EMPTY(&sched_sleepqueue)) {
+		thread_t* t = LIST_HEAD(&sched_sleepqueue)->sp_thread;
+		if ((t->t_flags & THREAD_FLAG_TIMEOUT) && Ananas::Time::IsTickAfter(Ananas::Time::GetTicks(), t->t_timeout)) {
+			/* Remove the thread from the sleepqueue ... */
+			LIST_REMOVE(&sched_sleepqueue, &t->t_sched_priv);
+			/* ... and add it to the runqueue ... */
+			scheduler_add_thread_locked(t);
+			/* ... finally, remove the flags - it's no longer suspended now */
+			t->t_flags &= ~(THREAD_FLAG_TIMEOUT | THREAD_FLAG_SUSPENDED);
+		}
+	}
 
 	/* Pick the next thread to schedule */
 	KASSERT(!LIST_EMPTY(&sched_runqueue), "runqueue cannot be empty");

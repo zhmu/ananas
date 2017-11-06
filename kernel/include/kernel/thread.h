@@ -42,6 +42,7 @@ struct THREAD {
 #define THREAD_FLAG_RESCHEDULE	0x0008	/* Thread desires a reschedule */
 #define THREAD_FLAG_REAPING	0x0010	/* Thread will be reaped (destroyed by idle thread) */
 #define THREAD_FLAG_MALLOC	0x0020	/* Thread is kmalloc()'ed */
+#define THREAD_FLAG_TIMEOUT	0x0040	/* Timeout field is valid */
 #define THREAD_FLAG_KTHREAD	0x8000	/* Kernel thread */
 
 	struct STACKFRAME* t_frame;
@@ -65,6 +66,9 @@ struct THREAD {
 
 	/* Waiters to signal on thread changes */
 	struct THREAD_WAIT_QUEUE t_waitqueue;
+
+	/* Timeout, when it expires the thread will be scheduled in */
+	tick_t t_timeout;
 
 	/* Scheduler specific information */
 	struct SCHED_PRIV t_sched_priv;
@@ -112,6 +116,7 @@ void md_setup_post_exec(thread_t* thread, addr_t exec_addr, register_t exec_arg)
 
 void thread_suspend(thread_t* t);
 void thread_resume(thread_t* t);
+void thread_sleep(tick_t num_ticks);
 void thread_exit(int exitcode);
 void thread_dump(int num_args, char** arg);
 errorcode_t thread_clone(process_t* proc, thread_t** dest);
