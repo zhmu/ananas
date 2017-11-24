@@ -21,6 +21,8 @@ void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offset)
 		vo.vo_flags |= VMOP_FLAG_WRITE;
 	if (prot & PROT_EXEC)
 		vo.vo_flags |= VMOP_FLAG_EXECUTE;
+	if (flags & MAP_FIXED)
+		vo.vo_flags |= VMOP_FLAG_FIXED;
 	if (flags & MAP_PRIVATE)
 		vo.vo_flags |= VMOP_FLAG_PRIVATE;
 	else
@@ -34,7 +36,7 @@ void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offset)
 		vo.vo_handle = fd;
 		vo.vo_offset = offset;
 	}
-	
+
 	errorcode_t err = sys_vmop(&vo);
 	if (err != ANANAS_ERROR_NONE) {
 		_posix_map_error(err);
