@@ -126,20 +126,18 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 			 * +------------+-------------+-------------------------------+
 			 *             /     |||      \ va_doffset + va_dlength
 			 *            /      vvv
-			 *     +-----+-------------+---------------+
-			 *     |00000|XXXXXXXXXXXXX|000000000000000|
-			 *     |00000|XXXXXXXXXXXXX|000000000000000|
-			 *     +-----+-------------+---------------+
-			 *     0     ^             \                \
-			 *           ^              \                \
-			 *      va_dvskip     va_dvskip + va_dlength  va_le
+			 *     +-------------+---------------+
+			 *     |XXXXXXXXXXXXX|000000000000000|
+			 *     |XXXXXXXXXXXXX|000000000000000|
+			 *     +-------------+---------------+
+			 *     0            \
+			 *                   \
+			 *                    va_dlength
 			 */
-			addr_t v_page = virt & ~(PAGE_SIZE - 1);
-			off_t read_off = v_page - va->va_virt; // offset in area, still needs va_doffset added
-			off_t read_skip = va->va_dvskip; // this is always < PAGE_SIZE, so we need to work regardless
+			off_t read_off = (virt & ~(PAGE_SIZE - 1)) - va->va_virt; // offset in area, still needs va_doffset added
 			if (read_off < va->va_dlength) {
-				// At least (part of) the page is to be read from disk - this means we want
-				// the entire page
+				// At least (part of) the page is to be read from the backing dentry -
+				// this means we want the entire page
 				struct VM_PAGE* vmpage = vmspace_get_dentry_backed_page(va, read_off + va->va_doffset);
 				// vmpage is locked at this point
 
@@ -149,10 +147,8 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 				bool can_reuse_page_1on1 = true;
 				// Reusing means the page resides in the section...
 				can_reuse_page_1on1 &= (read_off + PAGE_SIZE) <= va->va_dlength;
-				// ... and we have a page-aligned offset ...
+				// ... and we have a page-aligned offset
 				can_reuse_page_1on1 &= (va->va_doffset & (PAGE_SIZE - 1)) == 0;
-				// ... and we didn't have to skip anything
-				can_reuse_page_1on1 &= (read_off >= PAGE_SIZE) || read_skip == 0;
 				if (can_reuse_page_1on1 && (va->va_flags & VM_FLAG_PRIVATE) == 0) {
 					new_vp = vmpage_link(va, vmpage);
 				} else {
@@ -160,44 +156,10 @@ vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags)
 					new_vp = vmpage_create_private(va, VM_PAGE_FLAG_PRIVATE | vmspace_page_flags_from_va(va));
 
 					// Now copy the parts of the dentry-backed page
-					size_t src_off = 0;
-					size_t copy_len = PAGE_SIZE;
-					if (read_off < PAGE_SIZE && read_skip > 0) {
-						// Need to skip pieces of the first page
-						src_off = read_skip;
-						copy_len -= read_skip;
-						kprintf("doing read skip! copy_len %d src_off %d\n", copy_len, src_off);
-					}
-					vmpage_copy_extended(vmpage, new_vp, copy_len, src_off, 0);
-
-					// XXX Ensure we don't have to piece together two pages
-					if (read_skip > 0 && copy_len < va->va_dlength && read_off != (va->va_doffset & (PAGE_SIZE - 1))) {
-						/*
-						* We'll assume that the lower PAGE_SIZE - 1 bits of the virtual and
-						* offset line up, i.e.:
-						*
-						* Page:
-						*           va_dvskip
-						*             v
-						*  +----------+--------+
-						*  |0000000000|XXXXXXXX|
-						*  |0000000000|XXXXXXXX|
-						*  +----------+--------+
-						*              \        \
-						*  File:        \        \
-						*    +-----------+--------+
-						*    |           |XXXXXXXX|
-						*    |           |XXXXXXXX|
-						*    +-----------+--------+
-						*                v
-						*            va_doffset
-						*
-						* And these align (i.e. va_dvskip & (PAGE_SIZE - 1) == va_doffset & (PAGE_SIZE - 1) - this prevents us
-						* having to grab another page and keep merging them, which hurts performance and makes things far more
-						* difficult than they need to be.
-						*/
-						panic("unaligned vskip <-> doffset (%x, %x)", va->va_doffset, read_off);
-					}
+					size_t copy_len = va->va_dlength - read_off; // this is size-left after where we read
+					if (copy_len > PAGE_SIZE)
+						copy_len = PAGE_SIZE;
+					vmpage_copy_extended(vmpage, new_vp, copy_len);
 				}
 				vmpage_unlock(vmpage);
 

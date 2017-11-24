@@ -29,6 +29,10 @@ sys_vmop_map(ARG_CURTHREAD struct VMOP_OPTIONS* vo)
 		vm_flags |= VM_FLAG_PRIVATE;
 
 	vmspace_t* vs = curthread->t_process->p_vmspace;
+	addr_t dest_addr = reinterpret_cast<addr_t>(vo->vo_addr);
+	if ((vo->vo_flags & VMOP_FLAG_FIXED) == 0)
+		dest_addr = vmspace_determine_va(vs, vo->vo_len);
+
 	vmarea_t* va;
 	errorcode_t err;
 	if (vo->vo_flags & VMOP_FLAG_HANDLE) {
@@ -42,9 +46,9 @@ sys_vmop_map(ARG_CURTHREAD struct VMOP_OPTIONS* vo)
 		if (dentry == nullptr)
 			return ANANAS_ERROR(BAD_HANDLE);
 
-		err = vmspace_mapto_dentry(vs, reinterpret_cast<addr_t>(vo->vo_addr), 0, vo->vo_len, dentry, vo->vo_offset, vo->vo_len, vm_flags, &va);
+		err = vmspace_mapto_dentry(vs, dest_addr, vo->vo_len, dentry, vo->vo_offset, vo->vo_len, vm_flags, &va);
 	} else {
-		err = vmspace_map(vs, vo->vo_len, vm_flags, &va);
+		err = vmspace_mapto(vs, dest_addr, vo->vo_len, vm_flags, &va);
 	}
 	ANANAS_ERROR_RETURN(err);
 

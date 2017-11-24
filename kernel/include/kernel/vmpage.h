@@ -70,28 +70,29 @@ void vmpage_dump(struct VM_PAGE* vp, const char* prefix);
 /*
  * Copies a (piece of) vp_src to vp_dst:
  *
- *      src_off   src_off + len
- *      v        /
- * +----+-------+------+
- * |????|XXXXXXX|??????|
- * +----+-------+------+
+ *        len
+ *         /
+ * +-------+------+
+ * |XXXXXXX|??????|
+ * +-------+------+
  *         |
  *         v
- * +-------+-------+---+
- * |0000000|XXXXXXX|000+
- * +-------+-------+---+
- *         ^        \
- *     dst_off       dst_off + len
+ * +-------+---+
+ * |XXXXXXX|000|
+ * +-------+---+
+ *         ^    \
+ *        len    PAGE_SIZE
  *
  *
- * X = bytes to be copied, 0 = bytes set to zero, ? = don't care
+ * X = bytes to be copied, 0 = bytes set to zero, ? = don't care - note that
+ * thus the vp_dst page is always completely filled.
  */
-void vmpage_copy_extended(struct VM_PAGE* vp_src, struct VM_PAGE* vp_dst, size_t len, size_t src_off, size_t dst_off);
+void vmpage_copy_extended(struct VM_PAGE* vp_src, struct VM_PAGE* vp_dst, size_t len);
 
 static inline void
 vmpage_copy(struct VM_PAGE* vp_src, struct VM_PAGE* vp_dst)
 {
-  vmpage_copy_extended(vp_src, vp_dst, PAGE_SIZE, 0, 0);
+  vmpage_copy_extended(vp_src, vp_dst, PAGE_SIZE);
 }
 
 #endif // ANANAS_VM_PAGE_H

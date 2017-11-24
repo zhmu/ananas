@@ -21,6 +21,9 @@ typedef enum {
 /* If set, vo_handle / vo_offset will back the mapping */
 #define VMOP_FLAG_HANDLE	0x0020
 
+/* If set, force mapping to be placed here */
+#define VMOP_FLAG_FIXED		0x0040
+
 struct VMOP_OPTIONS {
 	size_t		vo_size;	/* must be sizeof(VMOP_OPTIONS) */
 	VMOP_OPERATION	vo_op;

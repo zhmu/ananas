@@ -13,9 +13,9 @@
  *
  *                         +------+
  *              va_doffset |      |
- *       +-------+       \ |      |
- *       |       |        \|      |
-  *      |d_vskip|>--------+......| ^
+ *       +-------+\      \ |      |
+ *       |       | \      \|      |
+  *      |       |  -------+......| ^
  *       |       |         | file | | va_dlength
  *       +-------+         |      | |
  *       |       |<--------+......| v
@@ -34,7 +34,6 @@ struct VM_AREA {
 	struct VM_PAGE_LIST	va_pages;		/* backing pages */
 	/* dentry-specific mapping fields */
 	struct DENTRY* 		va_dentry;		/* backing dentry, if any */
-	off_t			va_dvskip;		/* number of initial bytes to skip */
 	off_t			va_doffset;		/* dentry offset */
 	size_t			va_dlength;		/* dentry length */
 
@@ -64,11 +63,12 @@ struct VM_SPACE {
 
 #define VMSPACE_CLONE_EXEC 1
 
+addr_t vmspace_determine_va(vmspace_t* vs, size_t len);
 errorcode_t vmspace_create(vmspace_t** vs);
 void vmspace_cleanup(vmspace_t* vs); /* frees all mappings, but not MD-things */
 void vmspace_destroy(vmspace_t* vs);
 errorcode_t vmspace_mapto(vmspace_t* vs, addr_t virt, size_t len /* bytes */, uint32_t flags, vmarea_t** va_out);
-errorcode_t vmspace_mapto_dentry(vmspace_t* vs, addr_t virt, off_t vskip, size_t vlength, struct DENTRY* dentry, off_t doffset, size_t dlength, int flags, vmarea_t** va_out);
+errorcode_t vmspace_mapto_dentry(vmspace_t* vs, addr_t virt, size_t vlength, struct DENTRY* dentry, off_t doffset, size_t dlength, int flags, vmarea_t** va_out);
 errorcode_t vmspace_map(vmspace_t* vs, size_t len /* bytes */, uint32_t flags, vmarea_t** va_out);
 errorcode_t vmspace_area_resize(vmspace_t* vs, vmarea_t* va, size_t new_length /* in bytes */);
 errorcode_t vmspace_handle_fault(vmspace_t* vs, addr_t virt, int flags);

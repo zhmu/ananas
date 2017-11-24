@@ -13,9 +13,25 @@
 
 TRACE_SETUP;
 
-#define BYTES_TO_PAGES(len) ((len + PAGE_SIZE - 1) / PAGE_SIZE)
+namespace
+{
 
-static addr_t
+size_t BytesToPages(size_t len)
+{
+	return (len + PAGE_SIZE - 1) / PAGE_SIZE;
+}
+
+addr_t RoundUp(addr_t addr)
+{
+	if ((addr & (PAGE_SIZE - 1)) == 0)
+		return addr;
+
+	return (addr | (PAGE_SIZE - 1)) + 1;
+}
+
+} // unnamed namespace
+
+addr_t
 vmspace_determine_va(vmspace_t* vs, size_t len)
 {
 	/*
@@ -23,10 +39,7 @@ vmspace_determine_va(vmspace_t* vs, size_t len)
 	 * addresses which may get ugly.
 	 */
 	addr_t virt = vs->vs_next_mapping;
-	vs->vs_next_mapping += len;
-	// Always round up to a full page
-	if (vs->vs_next_mapping & (PAGE_SIZE - 1))
-		vs->vs_next_mapping = (vs->vs_next_mapping | (PAGE_SIZE - 1)) + 1;
+	vs->vs_next_mapping = RoundUp(vs->vs_next_mapping + len);
 	return virt;
 }
 
@@ -79,13 +92,15 @@ vmspace_free_range(vmspace_t* vs, addr_t virt, size_t len)
 		 * To keep things simple, we will only break up mappings if they occur
 		 * completely within a single - this avoids complicated merging logic.
 		 */
-		if (virt >= va->va_virt + va->va_len || virt + len < va->va_virt)
+		if (virt >= va->va_virt + va->va_len || virt + len <= va->va_virt)
 			continue; // not within our area, skip
 
 		// See if this range extends before or beyond our va - if that is the case, we
 		// will reject it
 		if (virt < va->va_virt || virt + len > va->va_virt + va->va_len)
 			return false;
+
+		//kprintf("I think this overlaps: va [%p..%p] arg [%p..%p] !\n", va->va_virt, va->va_virt + va->va_len, virt, virt + len);
 
 		// Okay, we can alter this va to exclude our mapping. If it matches 1-to-1, just throw it away
 		if (virt == va->va_virt && len == va->va_len) {
@@ -95,15 +110,23 @@ vmspace_free_range(vmspace_t* vs, addr_t virt, size_t len)
 
 		// Not a full match; maybe at the start?
 		if (virt == va->va_virt) {
-			// Shift the entire range
-			KASSERT(va->va_dvskip == 0, "deal with non-zero dvskip %d", va->va_dvskip); // XXX maybe just reject here?
-			va->va_virt += len;
-			va->va_len -= len;
-			va->va_doffset += len;
-			if (va->va_dlength >= len)
-				va->va_dlength -= len;
-			else
-				va->va_dlength = 0;
+			// Shift the entire range, but ensure we'll honor page-boundaries
+			va->va_virt = RoundUp(va->va_virt + len);
+			va->va_len = RoundUp(va->va_len - len);
+			if (va->va_dentry != nullptr) {
+				// Backed by an inode; correct the offsets
+				va->va_doffset += len;
+				if (va->va_dlength >= len)
+					va->va_dlength -= len;
+				else
+					va->va_dlength = 0;
+				KASSERT((va->va_doffset & (PAGE_SIZE - 1)) == 0, "doffset %x not page-aligned", (int)va->va_doffset);
+			}
+
+			// Make sure we will have space for our next mapping XXX
+			addr_t next_addr = va->va_virt + va->va_len;
+			if (vs->vs_next_mapping < next_addr)
+				vs->vs_next_mapping = next_addr;
 			return true;
 		}
 
@@ -129,7 +152,7 @@ vmspace_mapto(vmspace_t* vs, addr_t virt, size_t len /* bytes */, uint32_t flags
 	memset(va, 0, sizeof(*va));
 
 	/*
-	 * XXX We should ask the VM for some kind of reservation of the
+	 * XXX We should ask the VM for some kind of reservation if the
 	 * THREAD_MAP_ALLOC flag is set; now we'll just assume that the
 	 * memory is there...
 	 */
@@ -142,31 +165,26 @@ vmspace_mapto(vmspace_t* vs, addr_t virt, size_t len /* bytes */, uint32_t flags
 	*va_out = va;
 
 	/* Provide a mapping for the pages */
-	md_map_pages(vs, va->va_virt, 0, BYTES_TO_PAGES(len), 0); //(flags & VM_FLAG_FAULT) ? 0 : flags);
+	md_map_pages(vs, va->va_virt, 0, BytesToPages(len), 0); //(flags & VM_FLAG_FAULT) ? 0 : flags);
 	return ananas_success();
 }
 
 errorcode_t
-vmspace_mapto_dentry(vmspace_t* vs, addr_t virt, off_t vskip, size_t vlength, struct DENTRY* dentry, off_t doffset, size_t dlength, int flags, vmarea_t** va_out)
+vmspace_mapto_dentry(vmspace_t* vs, addr_t virt, size_t vlength, struct DENTRY* dentry, off_t doffset, size_t dlength, int flags, vmarea_t** va_out)
 {
+	kprintf("vmspace_mapto_dentry(): START mapped %x..%x --> %p..%p\n", doffset, doffset + dlength - 1, virt, virt + vlength - 1);
 	// Ensure the range we are mapping does not exceed the inode; if this is the case, we silently truncate
-	if (vskip + doffset + vlength > dentry->d_inode->i_sb.st_size) {
-		if (vskip >= dentry->d_inode->i_sb.st_size)
-			return ANANAS_ERROR(BAD_RANGE); // can't skip the entire inode
-		vlength = dentry->d_inode->i_sb.st_size - doffset - vskip;
+	if (doffset + vlength > dentry->d_inode->i_sb.st_size) {
+		vlength = dentry->d_inode->i_sb.st_size - doffset;
 	}
-	if (virt == 0)
-		virt = vmspace_determine_va(vs, vlength);
 
 	KASSERT((doffset & (PAGE_SIZE - 1)) == 0, "offset %d not page-aligned", doffset);
-	KASSERT(vskip < PAGE_SIZE, "skip %d larger than a page", vskip);
 
 	errorcode_t err = vmspace_mapto(vs, virt, vlength, flags | VM_FLAG_FAULT, va_out);
 	ANANAS_ERROR_RETURN(err);
 
 	dentry_ref(dentry);
 	(*va_out)->va_dentry = dentry;
-	(*va_out)->va_dvskip = vskip;
 	(*va_out)->va_doffset = doffset;
 	(*va_out)->va_dlength = dlength;
 	return ananas_success();
@@ -235,7 +253,6 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 		if (va_src->va_dentry != nullptr) {
 			// Backed by an inode; copy the necessary fields over
 			va_dst->va_doffset = va_src->va_doffset;
-			va_dst->va_dvskip = va_src->va_dvskip;
 			va_dst->va_dlength = va_src->va_dlength;
 			va_dst->va_dentry = va_src->va_dentry;
 			dentry_ref(va_dst->va_dentry);
@@ -263,9 +280,7 @@ vmspace_clone(vmspace_t* vs_source, vmspace_t* vs_dest, int flags)
 	 */
 	vs_dest->vs_next_mapping = 0;
 	LIST_FOREACH(&vs_dest->vs_areas, va, vmarea_t) {
-		addr_t next = va->va_virt + va->va_len;
-		if (next & (PAGE_SIZE - 1))
-			next = (next | (PAGE_SIZE - 1)) + 1; // round up
+		addr_t next = RoundUp(va->va_virt + va->va_len);
 		if (vs_dest->vs_next_mapping < next)
 			vs_dest->vs_next_mapping = next;
 	}
