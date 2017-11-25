@@ -100,8 +100,6 @@ vmspace_free_range(vmspace_t* vs, addr_t virt, size_t len)
 		if (virt < va->va_virt || virt + len > va->va_virt + va->va_len)
 			return false;
 
-		//kprintf("I think this overlaps: va [%p..%p] arg [%p..%p] !\n", va->va_virt, va->va_virt + va->va_len, virt, virt + len);
-
 		// Okay, we can alter this va to exclude our mapping. If it matches 1-to-1, just throw it away
 		if (virt == va->va_virt && len == va->va_len) {
 			vmspace_area_free(vs, va);
@@ -172,7 +170,6 @@ vmspace_mapto(vmspace_t* vs, addr_t virt, size_t len /* bytes */, uint32_t flags
 errorcode_t
 vmspace_mapto_dentry(vmspace_t* vs, addr_t virt, size_t vlength, struct DENTRY* dentry, off_t doffset, size_t dlength, int flags, vmarea_t** va_out)
 {
-	kprintf("vmspace_mapto_dentry(): START mapped %x..%x --> %p..%p\n", doffset, doffset + dlength - 1, virt, virt + vlength - 1);
 	// Ensure the range we are mapping does not exceed the inode; if this is the case, we silently truncate
 	if (doffset + vlength > dentry->d_inode->i_sb.st_size) {
 		vlength = dentry->d_inode->i_sb.st_size - doffset;
