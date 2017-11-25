@@ -58,15 +58,49 @@ elf64_load_ph(vmspace_t* vs, struct DENTRY* dentry, const Elf64_Phdr& phdr, addr
 		flags |= VM_FLAG_PRIVATE;
 
 	/*
-	 * The program need not begin at a page-size, so we may need to adjust. XXX we need more checks here,
-	 * for example to see if we can even map this and if we aren't going out of bounds somewhere.
+	 * We can only map things at PAGE_SIZE offsets and these must start at some
+	 * PAGE_SIZE-aligned offset.
+	 *
+	 * Note that we may map extra bytes here, this shouldn't really matter since
+	 * everything we map here won't make it back to disk, and it is likely
+	 * available anyway (in theory, the file could be execute-only, but you can
+	 * still read the extra pieces in memory...)
+	 *
+	 * Finally, we have a separate mapping for things outside of the file as
+	 * that makes stuff easier to manage (plus, mapping extending past the file
+	 * length may be silently truncated)
+	 *
+	 *  virt_extra                      virt_end
+	 * <---------->                        /
+	 * +----------+------------+----------+
+	 * |          |XXXXXXXXXXXX|          |
+	 * +----------+------------+----------+
+	 *           /             |
+	 *       virt_begin    ROUND_UP(v_addr + filesz)
 	 */
 	vmarea_t* va;
 	addr_t virt_begin = ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE);
-	addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_memsz), PAGE_SIZE);
-	off_t vskip = phdr.p_vaddr - virt_begin;
-	TRACE(EXEC, INFO, "elf map: vbegin=%p vend=%p vskip=%d offset=%d filesz=%d\n", virt_begin, virt_end, vskip, phdr.p_offset, phdr.p_filesz);
-	return vmspace_mapto_dentry(vs, rbase + virt_begin, vskip, virt_end - virt_begin, dentry, phdr.p_offset - vskip, phdr.p_filesz, flags, &va);
+	addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_filesz), PAGE_SIZE);
+	addr_t virt_extra = phdr.p_vaddr - virt_begin;
+	addr_t doffset = phdr.p_offset - virt_extra;
+	size_t filesz = phdr.p_filesz + virt_extra;
+	if (doffset & (PAGE_SIZE - 1)) {
+		kprintf("elf64_load_ph: refusing to map offset %d not a page-multiple\n", doffset);
+		return ANANAS_ERROR(BAD_EXEC);
+	}
+
+	// First step is to map the dentry-backed data
+	errorcode_t err = vmspace_mapto_dentry(vs, rbase + virt_begin, virt_end - virt_begin, dentry, doffset, filesz, flags, &va);
+	ANANAS_ERROR_RETURN(err);
+	if (phdr.p_filesz == phdr.p_memsz)
+		return ananas_success();
+
+	// Now map the part that isn't dentry-backed, if we have enough
+	addr_t v_extra = virt_end;
+	addr_t v_extra_len = ROUND_UP(phdr.p_vaddr + phdr.p_memsz - v_extra, PAGE_SIZE);
+	if (v_extra_len == 0)
+		return ananas_success();
+	return vmspace_mapto(vs, rbase + v_extra, v_extra_len, flags, &va);
 }
 
 static errorcode_t
@@ -202,7 +236,7 @@ elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* 
 		vmarea_t* va_phdr;
 		{
 			size_t phdr_len = ehdr.e_phnum * ehdr.e_phentsize;
-			err = vmspace_mapto_dentry(vs, PHDR_BASE, ehdr.e_phoff & (PAGE_SIZE - 1), phdr_len, dentry, ehdr.e_phoff & ~(PAGE_SIZE - 1), phdr_len, VM_FLAG_READ | VM_FLAG_USER, &va_phdr);
+			err = vmspace_mapto_dentry(vs, PHDR_BASE, phdr_len, dentry, ehdr.e_phoff & ~(PAGE_SIZE - 1), phdr_len, VM_FLAG_READ | VM_FLAG_USER, &va_phdr);
 			ANANAS_ERROR_RETURN(err);
 		}
 
@@ -229,13 +263,12 @@ elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* 
 		elf_info->ei_size = sizeof(*elf_info);
 		elf_info->ei_interpreter_base = interp_rbase;
 		elf_info->ei_entry = *exec_addr;
-		elf_info->ei_phdr = va_phdr->va_virt;
+		elf_info->ei_phdr = va_phdr->va_virt + (ehdr.e_phoff & (PAGE_SIZE - 1));
 		elf_info->ei_phdr_entries = ehdr.e_phnum;
 		kmem_unmap(elf_info, sizeof(struct ANANAS_ELF_INFO));
 
 		// Override the load address
 		*exec_addr = interp_entry + interp_rbase;
-		kprintf(">> exec addr %p virt %p\n", *exec_addr, *exec_arg);
 	}
 
 	return ananas_success();
