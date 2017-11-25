@@ -1,4 +1,4 @@
-TARGET:		libc.a
+TARGET:		.output
 
 # path to the source from here
 S=		../..
@@ -28,6 +28,9 @@ SOURCES+=	$(shell find $S/platform/ananas/ananas -name "*.c")
 OBJS+=		$(patsubst %.c,%.o,$(SOURCES))
 OBJS+=		syscall.o
 
+.PHONY:		.output
+.output:	libc.a libc.so
+
 %.o:		%.c
 		$(CC) $(CFLAGS) -c -o $@ $<
 
@@ -40,11 +43,11 @@ machine:	$S/../../include/ananas/${ARCH}
 libc.a:		machine $(OBJS) $(MDOBJS)
 		$(AR) cr libc.a $(OBJS) $(MDOBJS)
 
-libc.so.1:	machine $(OBJS) $(MDOBJS)
-		$(CC) -shared -Wl,-soname,libc.so.1 -o libc.so.1.0 $(OBJS) $(MDOBJS)
+libc.so:	machine $(OBJS) $(MDOBJS)
+		$(CC) --sysroot ${SYSROOT} -nostdlib -shared -Wl,-soname,libc.so -o libc.so $(OBJS) $(MDOBJS)
 
 # installation
-install:	${SYSROOT}/usr/lib/libc.a install_headers
+install:	${SYSROOT}/usr/lib/libc.a ${SYSROOT}/usr/lib/libc.so install_headers
 
 install_headers:
 		cp -R ${S}/includes/* ${SYSROOT}/usr/include
@@ -55,6 +58,9 @@ install_headers:
 
 ${SYSROOT}/usr/lib/libc.a:	libc.a
 		cp libc.a ${SYSROOT}/usr/lib
+
+${SYSROOT}/usr/lib/libc.so:	libc.so
+		cp libc.so ${SYSROOT}/usr/lib
 
 clean:
 		rm -f libc.a machine $(OBJS) $(MDOBJS)
