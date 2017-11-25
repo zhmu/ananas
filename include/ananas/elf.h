@@ -144,8 +144,9 @@ typedef struct {
 	Elf64_Word	sh_info;		/* Miscellaneous information */
 	Elf64_Xword	sh_addralign;		/* Address alignment boundary */
 	Elf64_Xword	sh_entsize;		/* Size of entries, if section ha table */
-
 } Elf64_Shdr;
+
+#define STN_UNDEF	0
 
 typedef struct {
 	Elf32_Word	st_name;		/* String table index */
@@ -174,6 +175,8 @@ typedef struct {
 typedef struct {
 	Elf64_Word	st_name;		/* Symbol name */
 	unsigned char	st_info;		/* Type and Binding attributes */
+#define ELF64_ST_BIND(i)   ((i)>>4)
+#define ELF64_ST_TYPE(i)   ((i)&0xf)
 	unsigned char	st_other;		/* Reserved */
 	Elf64_Half	st_shndx;		/* Section table index */
 	Elf64_Addr	st_value;		/* Symbol value */
@@ -325,6 +328,7 @@ typedef struct {
 #define DT_INIT_ARRAYSZ	27	/* Size, in bytes, of the array of initialization functions */
 #define DT_FINI_ARRAYSZ	28	/* Size, in bytes, of the array of termination functions */
 #define DT_LOOS		0x60000000 /* Defines a range of dynamic table tags for environment-specific use */
+#define DT_GNU_HASH	0x6ffffef5
 #define DT_HIOS		0x6fffffff
 #define DT_LOPROC	0x70000000 /* Defines a range of dynamic table tags for processor-specific use */
 #define DT_HIPROC	0x7fffffff

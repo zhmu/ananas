@@ -10,6 +10,13 @@ do_libc()
 	make ${MAKE_ARGS} install
 }
 
+do_rtld()
+{
+	cd $R/lib/rtld
+	make ${MAKE_ARGS} clean
+	make ${MAKE_ARGS}
+}
+
 do_crt()
 {
 	cd $R/lib/crt/${ARCH}
@@ -54,7 +61,13 @@ install_includes_target()
 install_lib()
 {
 	cp $R/lib/libc/build/${ARCH}/libc.a ${TARGET}/usr/lib
+	cp $R/lib/libc/build/${ARCH}/libc.so ${TARGET}/usr/lib
 	cp $R/lib/crt/${ARCH}/crt*.o ${TARGET}/usr/lib
+}
+
+install_rtld()
+{
+	cp $R/lib/rtld/ld-ananas.so ${TARGET}/lib
 }
 
 install_tree()
@@ -111,10 +124,12 @@ do_libc
 do_headers
 install_includes
 do_crt
+do_rtld
 do_dash
 do_coreutils
 
 install_tree
 install_build
 install_lib
+install_rtld
 install_includes_target
