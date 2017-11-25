@@ -252,13 +252,14 @@ elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* 
 		ANANAS_ERROR_RETURN(err);
 		*exec_arg = va->va_virt;
 
-		// Now assign a page to there
+		// Now assign a page to there and map it into the vmspae
 		struct VM_PAGE* vp = vmpage_create_private(va, VM_PAGE_FLAG_PRIVATE | VM_PAGE_FLAG_READONLY);
 		vp->vp_vaddr = ELFINFO_BASE;
 		auto elf_info = static_cast<struct ANANAS_ELF_INFO*>(kmem_map(page_get_paddr(vmpage_get_page(vp)), sizeof(struct ANANAS_ELF_INFO), VM_FLAG_READ | VM_FLAG_WRITE));
+		vmpage_map(vs, va, vp);
 		vmpage_unlock(vp);
 
-		// And fil it out
+		// And fill it out
 		memset(elf_info, 0, PAGE_SIZE);
 		elf_info->ei_size = sizeof(*elf_info);
 		elf_info->ei_interpreter_base = interp_rbase;
