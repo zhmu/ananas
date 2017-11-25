@@ -9,6 +9,7 @@
 /*
  * setjmp(jmp_buf env): store context for a longjmp.
  */
+.type setjmp, @function
 setjmp:
 	movq	0(%rsp), %rdx	/* get return address from stack */
 
@@ -25,6 +26,7 @@ setjmp:
 	ret
 
 /* longjmp(jmp_buf env, int val): restore context previously set using setjmp */
+.type longjmp, @function
 longjmp:
 	movq	%rdi, %rax	/* get return value */
 
