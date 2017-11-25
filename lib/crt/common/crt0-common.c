@@ -16,10 +16,15 @@ extern char** libc_argv;
 extern void _fini(void) __hidden;
 extern void _init(void) __hidden;
 
+extern void* _DYNAMIC;
+#pragma weak _DYNAMIC
+
 void
-__start(void* threadinfo)
+__start(void* threadinfo, void (*cleanup)() /* provided by rtld-elf */)
 {
 	libc_init(threadinfo);
+	if (&_DYNAMIC != NULL)
+		atexit(cleanup);
 	atexit(_fini);
 	_init();
 
