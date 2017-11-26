@@ -36,16 +36,16 @@ AllocateObject(const char* name)
 	Object* obj = new Object;
 	memset(obj, 0, sizeof(*obj));
 	obj->o_name = strdup(name);
-	LIST_APPEND(&s_Objects, obj);
+	s_Objects.Append(*obj);
 	return obj;
 }
 
 Object*
 FindLibraryByName(const char* name)
 {
-	LIST_FOREACH(&s_Objects, obj, struct Object) {
-		if (strcmp(obj->o_name, name) == 0)
-			return obj;
+	for(auto& obj: s_Objects) {
+		if (strcmp(obj.o_name, name) == 0)
+			return &obj;
 	}
 	return nullptr;
 }
@@ -80,27 +80,25 @@ IsEnvironmentVariableSet(const char* env)
 static inline void
 ObjectListAppend(ObjectList& ol, Object& o)
 {
-	// XXX this is a silly way to remove duplicates
-	LIST_FOREACH(&ol, ole, struct ObjectListEntry) {
-		if (ole->ol_object == &o)
+	// XXX this is a silly way to avoid adding duplicates
+	for (const auto& entry: ol)
+		if (entry.ol_object == &o)
 			return;
-	}
 	auto ole = new ObjectListEntry;
 	ole->ol_object = &o;
-	LIST_APPEND(&ol, ole);
+	ol.Append(*ole);
 }
 
 static inline void
 ObjectListPrepend(ObjectList& ol, Object& o)
 {
-	// XXX this is a silly way to remove duplicates
-	LIST_FOREACH(&ol, ole, struct ObjectListEntry) {
-		if (ole->ol_object == &o)
+	// XXX this is a silly way to avoid adding duplicates
+	for (const auto& entry: ol)
+		if (entry.ol_object == &o)
 			return;
-	}
 	auto ole = new ObjectListEntry;
 	ole->ol_object = &o;
-	LIST_PREPEND(&ol, ole);
+	ol.Prepend(*ole);
 }
 
 void
@@ -113,15 +111,15 @@ ObjectInitializeLookupScope(Object& target, Object& o, Object& main_obj)
 	ObjectListAppend(target.o_lookup_scope, o);
 
 	// Then we need to add all NEEDED things
-	LIST_FOREACH(&o.o_needed, needed, struct Needed) {
-		if (needed->n_object == nullptr)
-			die("%s: unreferenced NEEDED '%s' found", o.o_name, o.o_strtab + needed->n_name_idx);
-		ObjectListAppend(target.o_lookup_scope, *needed->n_object);
+	for(auto& needed: o.o_needed) {
+		if (needed.n_object == nullptr)
+			die("%s: unreferenced NEEDED '%s' found", o.o_name, o.o_strtab + needed.n_name_idx);
+		ObjectListAppend(target.o_lookup_scope, *needed.n_object);
 	}
 
 	// Repeat, for all NEEDED things - we need to look at their dependencies as well
-	LIST_FOREACH(&o.o_needed, needed, struct Needed) {
-		ObjectInitializeLookupScope(target, *needed->n_object, main_obj);
+	for(auto& needed: o.o_needed) {
+		ObjectInitializeLookupScope(target, *needed.n_object, main_obj);
 	}
 }
 
@@ -181,7 +179,7 @@ parse_dynamic(Object& obj, const Elf_Dyn* dyn)
 				auto needed = new Needed;
 				memset(needed, 0, sizeof(struct Needed));
 				needed->n_name_idx = dyn->d_un.d_val;
-				LIST_APPEND(&obj.o_needed, needed);
+				obj.o_needed.Append(*needed);
 				break;
 			}
 			case DT_HASH:
@@ -418,8 +416,8 @@ find_symdef(Object& ref_obj, Elf_Addr ref_symnum, bool skip_ref_obj, Object*& de
 
 	// Not local, need to look it up
 	uint32_t hash = CalculateHash(ref_name);
-	LIST_FOREACH(&ref_obj.o_lookup_scope, ole, struct ObjectListEntry) {
-		Object& obj = *ole->ol_object;
+	for (const auto& entry: ref_obj.o_lookup_scope) {
+		auto& obj = *entry.ol_object;
 		if (obj.o_sysv_bucket == nullptr)
 			continue;
 		if (skip_ref_obj && &obj == &ref_obj)
@@ -671,10 +669,10 @@ map_object(int fd, const char* name)
 void
 dump_libs()
 {
-	LIST_FOREACH(&s_Objects, object, Object) {
-		if (object->o_main)
+	for(const auto& object: s_Objects) {
+		if (object.o_main)
 			continue;
-		printf("%s => 0x%p\n", object->o_name, object->o_reloc_base);
+		printf("%s => 0x%p\n", object.o_name, object.o_reloc_base);
 	}
 }
 
@@ -682,14 +680,14 @@ void
 dump_init_fini()
 {
 	printf("Init funcs:\n");
-	LIST_FOREACH(&s_InitList, ole, struct ObjectListEntry) {
-		Object& o = *ole->ol_object;
+	for(const auto& ole: s_InitList) {
+		Object& o = *ole.ol_object;
 		printf("%s (%p)\n", o.o_name, o.o_init);
 	}
 
 	printf("Fini funcs:\n");
-	LIST_FOREACH(&s_FiniList, ole, struct ObjectListEntry) {
-		Object& o = *ole->ol_object;
+	for(const auto& ole: s_FiniList) {
+		Object& o = *ole.ol_object;
 		printf("%s (%p)\n", o.o_name, o.o_fini);
 	}
 }
@@ -698,8 +696,8 @@ void
 dump_lookup_scope(Object& obj)
 {
 	printf("%s (%p)\n", obj.o_name, obj.o_reloc_base);
-	LIST_FOREACH(&obj.o_lookup_scope, ole, struct ObjectListEntry) {
-		Object& o = *ole->ol_object;
+	for(const auto& ole: obj.o_lookup_scope) {
+		Object& o = *ole.ol_object;
 		printf("  %s (%p)\n", o.o_name, o.o_reloc_base);
 	}
 }
@@ -708,8 +706,8 @@ void
 process_init_fini_funcs(Object& obj)
 {
 	// First, dive into all NEEDED objects
-	LIST_FOREACH(&obj.o_needed, needed, struct Needed) {
-		process_init_fini_funcs(*needed->n_object);
+	for(auto& needed: obj.o_needed) {
+		process_init_fini_funcs(*needed.n_object);
 	}
 
 	// And add the current object, if it has an init function
@@ -722,8 +720,8 @@ process_init_fini_funcs(Object& obj)
 void
 run_init_funcs()
 {
-	LIST_FOREACH(&s_InitList, ole, struct ObjectListEntry) {
-		Object& o = *ole->ol_object;
+	for(const auto& ole: s_InitList) {
+		Object& o = *ole.ol_object;
 		typedef void (*FuncPtr)();
 		((FuncPtr)(o.o_init))();
 	}
@@ -732,8 +730,8 @@ run_init_funcs()
 void
 run_fini_funcs()
 {
-	LIST_FOREACH(&s_FiniList, ole, struct ObjectListEntry) {
-		Object& o = *ole->ol_object;
+	for(const auto& ole: s_FiniList) {
+		Object& o = *ole.ol_object;
 		typedef void (*FuncPtr)();
 		((FuncPtr)(o.o_fini))();
 	}
@@ -768,14 +766,14 @@ rtld(void* procinfo, struct ANANAS_ELF_INFO* ei, addr_t* exit_func)
 	 * Do not use _SAFE here, we want to re-evaluate the next object every
 	 * loop iteration.
 	 */
-	LIST_FOREACH(&s_Objects, obj, struct Object) {
-		LIST_FOREACH(&obj->o_needed, needed, struct Needed) {
-			const char* name = obj->o_strtab + needed->n_name_idx;
+	for(auto& obj: s_Objects) {
+		for(auto& needed: obj.o_needed) {
+			const char* name = obj.o_strtab + needed.n_name_idx;
 			Object* found_obj = FindLibraryByName(name);
 			if (found_obj != nullptr) {
-				if (found_obj == obj)
+				if (found_obj == &obj)
 					die("%s: depends on itself", name);
-				needed->n_object = found_obj;
+				needed.n_object = found_obj;
 				continue;
 			}
 
@@ -786,22 +784,22 @@ rtld(void* procinfo, struct ANANAS_ELF_INFO* ei, addr_t* exit_func)
 			Object* new_obj = map_object(fd, name);
 			if (new_obj == nullptr)
 				die("cannot load library '%s', aborting\n", name);
-			needed->n_object = new_obj;
+			needed.n_object = new_obj;
 		}
 	}
 
-	LIST_FOREACH_SAFE(&s_Objects, obj, struct Object) {
-		ObjectInitializeLookupScope(*obj, *obj, *main_obj);
+	for(auto& obj: s_Objects) {
+		ObjectInitializeLookupScope(obj, obj, *main_obj);
 		if (!debug)
 			continue;
-		printf("lookup scope for '%s'\n", obj->o_name);
-		dump_lookup_scope(*obj);
+		printf("lookup scope for '%s'\n", obj.o_name);
+		dump_lookup_scope(obj);
 	}
 
 	// Process all relocations
-	LIST_FOREACH_SAFE(&s_Objects, obj, struct Object) {
-		process_relocations_rela(*obj);
-		process_relocations_plt(*obj);
+	for(auto& obj: s_Objects) {
+		process_relocations_rela(obj);
+		process_relocations_plt(obj);
 	}
 	process_relocations_copy(*main_obj);
 	if (IsEnvironmentVariableSet("LD_LDD")) {

@@ -4,31 +4,24 @@
 #include "list.h"
 #include "elf-types.h"
 
-LIST_DEFINE(Objects, struct Object);
-
-struct Needed
+struct Needed : public List<Needed>::Ptr
 {
-	LIST_FIELDS(struct Needed);
 	size_t n_name_idx;
 	struct Object* n_object;
 };
-LIST_DEFINE(NeededList, struct Needed);
 
-struct ObjectListEntry
+struct ObjectListEntry : public List<ObjectListEntry>::Ptr
 {
-	LIST_FIELDS(struct ObjectListEntry);
 	struct Object* ol_object;
 };
-LIST_DEFINE(ObjectList, struct ObjectListEntry);
+typedef List<ObjectListEntry> ObjectList;
 
 /*
  * A linker object object - this is an executable, the RTLD itself or
- *any shared library we know about.
+ * any shared library we know about.
  */
-struct Object
+struct Object : public List<Object>::Ptr
 {
-	LIST_FIELDS(struct Object);
-
 	addr_t o_reloc_base;		// Relocated base address
 	const char* o_strtab;
 	size_t o_strtab_sz;
@@ -53,8 +46,10 @@ struct Object
 	const uint32_t* o_sysv_bucket;
 	const uint32_t* o_sysv_chain;
 
-	struct NeededList o_needed;
-	struct ObjectList o_lookup_scope;
+	List<Needed> o_needed;
+	ObjectList o_lookup_scope;
 };
+
+typedef List<Object> Objects;
 
 #endif // RTLD_H
