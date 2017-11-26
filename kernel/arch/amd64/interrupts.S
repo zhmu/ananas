@@ -214,9 +214,9 @@ syscall_handler:
 	movq	%rbx, SF_RBX(%rsp)
 	movq	%rbp, SF_RBP(%rsp)
 	movq	%r12, SF_R12(%rsp)
-	movq	%r13, SF_R12(%rsp)
-	movq	%r14, SF_R12(%rsp)
-	movq	%r15, SF_R12(%rsp)
+	movq	%r13, SF_R13(%rsp)
+	movq	%r14, SF_R14(%rsp)
+	movq	%r15, SF_R15(%rsp)
 
 	/* Re-enable interrupts; they were always enabled coming from user mode */
 	sti
