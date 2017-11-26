@@ -5,11 +5,10 @@ LINK=		gcc
 ARCH=		amd64
 
 CXXFLAGS+=	--sysroot=${SYSROOT}
-CXXFLAGS+=	-std=c++11 -fno-rtti -fno-exceptions
-CXXFLAGS+=	-mno-sse
-CXXFLAGS+=	-fPIC -g
+CXXFLAGS+=	-std=c++11 -fno-rtti -fno-exceptions -fno-builtin
+CXXFLAGS+=	-fPIC -O3 -g
 # hide all symbols by default so we won't accidently publish things applications can use
-LDFLAGS+=	-fvisibility=hidden
+CXXFLAGS+=	-fvisibility=hidden
 
 LDFLAGS+=	-shared -Wl,-Bsymbolic
 LDFLAGS+=	-nostdlib -e entry
