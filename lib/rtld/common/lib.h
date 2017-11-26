@@ -23,7 +23,7 @@ int strcmp(const char* a, const char* b);
 int strncmp(const char* s1, const char* s2, size_t n);
 char* strdup(const char* s);
 
-void memset(void* s, int c, size_t n);
+void* memset(void* s, int c, size_t n);
 void memcpy(void* d, const void* s, size_t n);
 extern "C" errorcode_t sys_vmop(struct VMOP_OPTIONS* vo);
 

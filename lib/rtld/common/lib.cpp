@@ -185,12 +185,13 @@ strdup(const char* s)
 	return p;
 }
 
-void
+void*
 memset(void* s, int c, size_t n)
 {
 	char* p = static_cast<char*>(s);
 	while(n-- > 0)
 		*p++ = c;
+	return s;
 }
 
 void
