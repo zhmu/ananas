@@ -10,6 +10,14 @@ do_libc()
 	make ${MAKE_ARGS} install
 }
 
+do_libm()
+{
+	cd $R/lib/libc/build/${ARCH}
+	make ${MAKE_ARGS} clean
+	make ${MAKE_ARGS}
+	make ${MAKE_ARGS} install
+}
+
 do_rtld()
 {
 	cd $R/lib/rtld
@@ -123,6 +131,7 @@ export MAKE_ARGS="SYSROOT=${SYSROOT} TOOL_PREFIX=${TOOL_PREFIX} ARCH=${ARCH}"
 do_libc
 do_headers
 install_includes
+do_libm
 do_crt
 do_rtld
 do_dash
