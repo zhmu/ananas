@@ -41,4 +41,7 @@ void dentry_deref(struct DENTRY* d);
 /* Purges an entry from the cache; used when the dentry name is unlinked from the filesystem */
 void dentry_unlink(struct DENTRY* de);
 
+/* Creates the full path to a dentry - it is always zero-terminated */
+size_t dentry_construct_path(char* dest, size_t n, struct DENTRY* dentry);
+
 #endif /*  __ANANAS_DENTRY_H__ */

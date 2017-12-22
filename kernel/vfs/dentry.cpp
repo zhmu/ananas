@@ -286,6 +286,51 @@ dcache_purge()
 	dcache_unlock();
 }
 
+size_t
+dentry_construct_path(char* dest, size_t n, struct DENTRY* dentry)
+{
+	/*
+	 * XXX This code looks quite messy due to all the checks - the reason is that it always wants
+	 * to return the number of bytes that _would_ be needed, if we had unlimited space - this
+	 * allows it to be used to determine the length needed.
+	 *
+	 * Also, the workaround when dentry is the root isn't very pretty...
+	 */
+	size_t len = 0;
+	for(struct DENTRY* d = dentry; (d->d_flags & DENTRY_FLAG_ROOT) == 0; d = d->d_parent) {
+		len += strlen(d->d_entry) + 1 /* extra / */ ;
+	}
+
+	// If we were handed only the root dentry, cope with that here
+	if(len == 0)
+		len = 1;
+
+	// Now slice pieces back-to-front
+	size_t cur_offset = len;
+	struct DENTRY* d = dentry;
+	do {
+		size_t entry_len = strlen(d->d_entry);
+		cur_offset -= entry_len;
+		ssize_t piece_len = entry_len;
+		if (piece_len + cur_offset > n)
+			piece_len = n - cur_offset;
+		if (piece_len > 0)
+			memcpy(&dest[cur_offset], d->d_entry, piece_len);
+		cur_offset--;
+		if (cur_offset < n)
+			dest[cur_offset] = '/';
+
+		d = d->d_parent;
+	} while (d != NULL && (d->d_flags & DENTRY_FLAG_ROOT) == 0);
+
+	// Ensure we'll place a \0-terminator - if we didn't have enough space, we'll
+	// overwrite whatever was there.
+	if (n > 0)
+		dest[len < n ? len : n - 1] = '\0';
+	return len;
+}
+
+
 #ifdef OPTION_KDB
 KDB_COMMAND(dcache, NULL, "Show dentry cache")
 {
