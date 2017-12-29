@@ -2,7 +2,7 @@
 #define RTLD_H
 
 #include "list.h"
-#include "elf-types.h"
+#include <machine/elf.h>
 
 struct Needed : public List<Needed>::Ptr
 {

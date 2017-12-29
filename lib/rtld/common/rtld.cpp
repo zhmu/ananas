@@ -5,7 +5,8 @@
 #include <unistd.h>
 #include <machine/param.h> // for PAGE_SIZE
 #include <sys/mman.h>
-#include "elf-types.h"
+#include <machine/elf.h>
+#include <limits.h>
 #include "lib.h"
 #include "rtld.h"
 
@@ -22,6 +23,8 @@ namespace
 {
 
 bool debug = false;
+const char* ld_library_path = nullptr;
+const char* ld_default_path = "/lib:/usr/lib";
 
 #define dbg(...) (debug ? (void)printf(__VA_ARGS__) : (void)0)
 
@@ -121,6 +124,40 @@ ObjectInitializeLookupScope(Object& target, Object& o, Object& main_obj)
 	for(auto& needed: o.o_needed) {
 		ObjectInitializeLookupScope(target, *needed.n_object, main_obj);
 	}
+}
+
+// Attempts to locate a file based on a given name from a specified set of colon-separated directories
+// Note: path must be PATH_MAX-bytes sized!
+int
+OpenFile(const char* name, const char* paths, char* dest_path)
+{
+	if (paths == nullptr)
+		return -1;
+
+	char tmp_path[PATH_MAX];
+	for(const char* cur = paths; *cur != '\0'; /* nothing */) {
+		// XXX we need range checking here!
+		char* sep = strchr(cur, ':');
+		if (sep != nullptr) {
+			strncpy(tmp_path, cur, sep - cur);
+			cur = sep + 1;
+		} else {
+			strcpy(tmp_path, cur);
+			cur = ""; // to break loop
+		}
+		strcat(tmp_path, "/");
+		strcat(tmp_path, name);
+
+		// See if the file exists; that's good for now
+		int fd = open(tmp_path, O_RDONLY);
+		if (fd >= 0) {
+			// XXX we should realpath() path here
+			strcpy(dest_path, tmp_path);
+			return fd;
+		}
+	}
+
+	return -1;
 }
 
 } // unnamed namespace
@@ -362,11 +399,8 @@ process_phdr(Object& obj, const Elf_Phdr* phdr, size_t phdr_num_entries)
 void
 setup_got(Object& obj)
 {
-	if (obj.o_plt_got == nullptr) {
-		printf("%s: cannot set up plt\n", obj.o_name);
-		for(;;);
+	if (obj.o_plt_got == nullptr)
 		return; // nothing to set up
-	}
 
 	obj.o_plt_got[1] = reinterpret_cast<Elf_Addr>(&obj);
 	obj.o_plt_got[2] = reinterpret_cast<Elf_Addr>(&rtld_bind_trampoline);
@@ -468,45 +502,17 @@ rtld_bind(Object* obj, size_t offs)
 	return target;
 }
 
-// Tries to open 'name' in colon-separated list in 'paths'; returns fd or -1
 int
-try_open_given_directories(const char* name, const char* paths)
-{
-	int fd = -1;
-	for(const char* cur = paths; fd < 0 && *cur != '\0'; /* nothing */) {
-		char* sep = strchr(cur, ':');
-
-		// XXX we need range checking here!
-		char path[256];
-		memset(path, 0, sizeof(path));
-		if (sep != nullptr) {
-			strncpy(path, cur, sep - cur);
-			cur = sep + 1;
-		} else {
-			strcpy(path, cur);
-			cur = ""; // to break loop
-		}
-		strcat(path, "/");
-		strcat(path, name);
-
-		// Try to open it; the loop ends if fd >= 0
-		fd = open(path, O_RDONLY);
-	}
-
-	return fd;
-}
-
-int
-open_library(const char* name)
+open_library(const char* name, char* path)
 {
 	int fd;
-	if (strchr(name, '/') != nullptr) {
-		fd = open(name, O_RDONLY);
-	} else {
-		// XXX for now we hardcode the path and don't care about security
-		fd = try_open_given_directories(name, "/lib:/usr/lib:/t");
-	}
-	return fd;
+
+	// XXX for now we hardncode the path and don't care about security
+	fd = OpenFile(name, ld_library_path, path);
+	if (fd >= 0)
+		return fd;
+
+	return OpenFile(name, ld_default_path, path);
 }
 
 static bool
@@ -659,9 +665,11 @@ map_object(int fd, const char* name)
 
 	Object* obj = AllocateObject(name);
 	obj->o_reloc_base = base;
+
 	process_phdr(*obj, reinterpret_cast<const Elf_Phdr*>(static_cast<char*>(first) + ehdr.e_phoff), ehdr.e_phnum);
 	if (obj->o_sysv_nbucket == 0 || obj->o_sysv_nchain == 0)
 		die("%s: hash not present or unusable", name);
+
 	setup_got(*obj);
 	return obj;
 }
@@ -759,6 +767,9 @@ rtld(void* procinfo, struct ANANAS_ELF_INFO* ei, addr_t* exit_func)
 	process_phdr(*main_obj, reinterpret_cast<const Elf_Phdr*>(ei->ei_phdr), ei->ei_phdr_entries);
 	setup_got(*main_obj);
 
+	// Handle LD_LIBRARY_PATH - we'll be loading extra things from here on
+	ld_library_path = getenv("LD_LIBRARY_PATH");
+
 	/*
 	 * Walk through all objects and process their needed parts. We use the
 	 * fact that things are added in-order to s_Objects here.
@@ -769,19 +780,24 @@ rtld(void* procinfo, struct ANANAS_ELF_INFO* ei, addr_t* exit_func)
 	for(auto& obj: s_Objects) {
 		for(auto& needed: obj.o_needed) {
 			const char* name = obj.o_strtab + needed.n_name_idx;
-			Object* found_obj = FindLibraryByName(name);
+			char path[PATH_MAX];
+			int fd = open_library(name, path);
+			if (fd < 0)
+				die("unable to open library '%s', aborting\n", name);
+
+			// XXX we should check whether fd points to something we already know,
+			// but we'd need fstat() for that...
+			Object* found_obj = FindLibraryByName(path);
 			if (found_obj != nullptr) {
+				close(fd);
 				if (found_obj == &obj)
 					die("%s: depends on itself", name);
 				needed.n_object = found_obj;
 				continue;
 			}
 
-			int fd = open_library(name);
-			if (fd < 0)
-				die("unable to open library '%s', aborting\n", name);
 
-			Object* new_obj = map_object(fd, name);
+			Object* new_obj = map_object(fd, path);
 			if (new_obj == nullptr)
 				die("cannot load library '%s', aborting\n", name);
 			needed.n_object = new_obj;
