@@ -24,6 +24,7 @@ namespace
 {
 
 bool debug = false;
+struct r_debug r_debugstate;
 const char* ld_library_path = nullptr;
 const char* ld_default_path = "/lib:/usr/lib";
 
@@ -161,14 +162,51 @@ OpenFile(const char* name, const char* paths, char* dest_path)
 	return -1;
 }
 
+/*
+ * Used by the debugger to place a breakpoint when we change share library
+ * information. It is presented to the debugger via the r_debugstate structure
+ * obtained from DT_DEBUG.
+ */
+void
+r_debug_state(struct r_debug* rd, struct link_map* m)
+{
+	__asm __volatile("nop");
+}
+
+/* Used to maintain r_debug */
+void
+linkmap_add(Object& obj)
+{
+	auto lm = new link_map;
+	memset(lm, 0, sizeof(*lm));
+	lm->l_addr = obj.o_reloc_base;
+	lm->l_name = obj.o_name;
+	lm->l_ld = obj.o_dynamic;
+
+	if (r_debugstate.r_map != nullptr) {
+		// Find the last entry
+		auto last = r_debugstate.r_map;
+		while(last->l_next != nullptr)
+			last = last->l_next;
+
+		// Append after the last entry
+		last->l_next = lm;
+		lm->l_prev = last;
+	} else {
+		// No entries - add us as the last one
+		r_debugstate.r_map = lm;
+	}
+}
+
 } // unnamed namespace
 
 bool find_symdef(Object& ref_obj, Elf_Addr ref_symnum, bool skip_ref_obj, Object*& def_obj, Elf_Sym*& def_sym);
 const char* sym_getname(const Object& obj, unsigned int symnum);
 
 void
-parse_dynamic(Object& obj, const Elf_Dyn* dyn)
+parse_dynamic(Object& obj)
 {
+	auto dyn = obj.o_dynamic;
 	for(/* nothing */; dyn->d_tag != DT_NULL; dyn++) {
 		switch(dyn->d_tag) {
 			case DT_STRTAB:
@@ -239,12 +277,14 @@ parse_dynamic(Object& obj, const Elf_Dyn* dyn)
 			case DT_FINI:
 				obj.o_fini = obj.o_reloc_base + dyn->d_un.d_ptr;
 				break;
+			case DT_DEBUG:
+				dyn->d_un.d_ptr = (addr_t)&r_debugstate;
+				break;
 			case DT_INIT_ARRAY:
 				die("%s: DT_INIT_ARRAY unsupported", obj.o_name);
 			case DT_FINI_ARRAY:
 				die("%s: DT_FINI_ARRAY unsupported", obj.o_name);
 			case DT_NULL:
-			case DT_DEBUG:
 				break;
 #if 0
 			default:
@@ -362,14 +402,18 @@ rtld_relocate(addr_t base)
 	memset(&temp_obj, 0, sizeof(temp_obj));
 	temp_obj.o_name = "ld-ananas.so";
 
-	const Elf_Dyn* dyn = reinterpret_cast<const Elf_Dyn*>(base + reinterpret_cast<addr_t>(&_DYNAMIC));
 	temp_obj.o_reloc_base = base;
-	parse_dynamic(temp_obj, dyn);
+	temp_obj.o_dynamic = reinterpret_cast<Elf_Dyn*>(base + reinterpret_cast<addr_t>(&_DYNAMIC));
+	parse_dynamic(temp_obj);
 	process_relocations_rela(temp_obj);
 
 	// Move our relocatable object to the object chain
 	Object* rtld_obj = AllocateObject(temp_obj.o_name);
 	memcpy(rtld_obj, &temp_obj, sizeof(temp_obj));
+
+	// Initialize r_debug state
+	r_debugstate.r_brk = &r_debug_state;
+	r_debugstate.r_status = r_debug::RT_CONSISTENT;
 }
 
 void
@@ -385,7 +429,8 @@ process_phdr(Object& obj)
 		case PT_LOAD:
 			break;
 		case PT_DYNAMIC:
-			parse_dynamic(obj, reinterpret_cast<Elf_Dyn*>(obj.o_reloc_base + phdr->p_vaddr));
+			obj.o_dynamic = reinterpret_cast<Elf_Dyn*>(obj.o_reloc_base + phdr->p_vaddr);
+			parse_dynamic(obj);
 			break;
 		case PT_NOTE:
 			// XXX We should parse the .note here ...
@@ -678,8 +723,8 @@ map_object(int fd, const char* name)
 	process_phdr(*obj);
 	if (obj->o_sysv_nbucket == 0 || obj->o_sysv_nchain == 0)
 		die("%s: hash not present or unusable", name);
-
 	setup_got(*obj);
+	linkmap_add(*obj);
 	return obj;
 }
 
@@ -796,6 +841,9 @@ rtld(void* procinfo, struct ANANAS_ELF_INFO* ei, addr_t* exit_func)
 	main_obj->o_phdr_num = ei->ei_phdr_entries;
 	process_phdr(*main_obj);
 	setup_got(*main_obj);
+
+	linkmap_add(*main_obj);
+	linkmap_add(*s_Objects.begin());
 
 	// Handle LD_LIBRARY_PATH - we'll be loading extra things from here on
 	ld_library_path = getenv("LD_LIBRARY_PATH");

@@ -43,6 +43,8 @@ struct Object : public List<Object>::Ptr
 	const Elf_Phdr* o_phdr;
 	Elf_Half o_phdr_num;
 
+	Elf_Dyn* o_dynamic;
+
 	// System V hashed symbols
 	unsigned int o_sysv_nbucket;
 	unsigned int o_sysv_nchain;
