@@ -454,6 +454,8 @@ find_symdef(Object& ref_obj, Elf_Addr ref_symnum, bool skip_ref_obj, Object*& de
 
 	// Not local, need to look it up
 	uint32_t hash = CalculateHash(ref_name);
+	def_obj = nullptr;
+	def_sym = nullptr;
 	for (const auto& entry: ref_obj.o_lookup_scope) {
 		auto& obj = *entry.ol_object;
 		if (obj.o_sysv_bucket == nullptr)
@@ -472,14 +474,15 @@ find_symdef(Object& ref_obj, Elf_Addr ref_symnum, bool skip_ref_obj, Object*& de
 				def_obj = &obj;
 				def_sym = &sym;
 				dbg("find_symdef(): '%s' defined in %s @ %p\n", sym_name, obj.o_name, sym.st_value);
-				return true;
+				if (ELF_ST_BIND(def_sym->st_info) != STB_WEAK)
+					return true;
 			}
 
 			symnum = obj.o_sysv_chain[symnum];
 		}
 	}
 
-	return false;
+	return def_sym != nullptr;
 }
 
 extern "C"
