@@ -263,6 +263,9 @@ typedef struct {
 #define PT_NOTE		4			/* Auxiliary information */
 #define PT_SHLIB	5			/* Reserved */
 #define PT_PHDR		6			/* Program header */
+#define PT_GNU_EH_FRAME	0x6474e550
+#define PT_GNU_STACK	0x6474e551
+#define PT_GNU_RELRO	0x6474e552
 #define PT_LOPROC	0x70000000
 #define PT_HIPROC	0x7fffffff
 	Elf32_Off	p_offset;		/* Segment offset in file */
