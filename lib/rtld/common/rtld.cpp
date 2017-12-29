@@ -6,6 +6,7 @@
 #include <machine/param.h> // for PAGE_SIZE
 #include <sys/mman.h>
 #include <machine/elf.h>
+#include <link.h>
 #include <limits.h>
 #include "lib.h"
 #include "rtld.h"
@@ -372,8 +373,11 @@ rtld_relocate(addr_t base)
 }
 
 void
-process_phdr(Object& obj, const Elf_Phdr* phdr, size_t phdr_num_entries)
+process_phdr(Object& obj)
 {
+	const Elf_Phdr* phdr = obj.o_phdr;
+	Elf_Half phdr_num_entries = obj.o_phdr_num;
+
 	dbg("%s: process_phdr()\n", obj.o_name);
 	for (size_t n = 0; n < phdr_num_entries; n++, phdr++) {
 		switch (phdr->p_type) {
@@ -665,8 +669,10 @@ map_object(int fd, const char* name)
 
 	Object* obj = AllocateObject(name);
 	obj->o_reloc_base = base;
+	obj->o_phdr = reinterpret_cast<const Elf_Phdr*>(static_cast<char*>(first) + ehdr.e_phoff);
+	obj->o_phdr_num = ehdr.e_phnum;
 
-	process_phdr(*obj, reinterpret_cast<const Elf_Phdr*>(static_cast<char*>(first) + ehdr.e_phoff), ehdr.e_phnum);
+	process_phdr(*obj);
 	if (obj->o_sysv_nbucket == 0 || obj->o_sysv_nchain == 0)
 		die("%s: hash not present or unusable", name);
 
@@ -746,6 +752,25 @@ run_fini_funcs()
 }
 
 extern "C"
+__attribute__((visibility("default")))
+int dl_iterate_phdr(int (*callback)(struct dl_phdr_info* info, size_t size, void* data), void* data)
+{
+	for(const auto& obj: s_Objects) {
+		struct dl_phdr_info info;
+		memset(&info, 0, sizeof(info));
+		info.dlpi_addr = obj.o_reloc_base;
+		info.dlpi_name = obj.o_name;
+		info.dlpi_phdr = obj.o_phdr;
+		info.dlpi_phnum = obj.o_phdr_num;
+		int result = callback(&info, sizeof(info), data);
+		if (result != 0)
+			return result;
+	}
+
+	return 0;
+}
+
+extern "C"
 Elf_Addr
 rtld(void* procinfo, struct ANANAS_ELF_INFO* ei, addr_t* exit_func)
 {
@@ -764,7 +789,9 @@ rtld(void* procinfo, struct ANANAS_ELF_INFO* ei, addr_t* exit_func)
 	// Now, locate our executable and process it
 	auto main_obj = AllocateObject(GetProgName());
 	main_obj->o_main = true;
-	process_phdr(*main_obj, reinterpret_cast<const Elf_Phdr*>(ei->ei_phdr), ei->ei_phdr_entries);
+	main_obj->o_phdr = reinterpret_cast<const Elf_Phdr*>(ei->ei_phdr);
+	main_obj->o_phdr_num = ei->ei_phdr_entries;
+	process_phdr(*main_obj);
 	setup_got(*main_obj);
 
 	// Handle LD_LIBRARY_PATH - we'll be loading extra things from here on
@@ -804,8 +831,14 @@ rtld(void* procinfo, struct ANANAS_ELF_INFO* ei, addr_t* exit_func)
 		}
 	}
 
+	auto& rtld_obj = *s_Objects.begin();
 	for(auto& obj: s_Objects) {
 		ObjectInitializeLookupScope(obj, obj, *main_obj);
+
+		// At the very end, insert the dynamic loader we can provide dl_iterate_phdr
+		// and dl...()
+		ObjectListAppend(obj.o_lookup_scope, rtld_obj);
+
 		if (!debug)
 			continue;
 		printf("lookup scope for '%s'\n", obj.o_name);

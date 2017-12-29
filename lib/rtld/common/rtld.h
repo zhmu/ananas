@@ -40,6 +40,9 @@ struct Object : public List<Object>::Ptr
 	Elf_Addr o_init;
 	Elf_Addr o_fini;
 
+	const Elf_Phdr* o_phdr;
+	Elf_Half o_phdr_num;
+
 	// System V hashed symbols
 	unsigned int o_sysv_nbucket;
 	unsigned int o_sysv_nchain;
