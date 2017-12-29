@@ -76,6 +76,8 @@ struct lconv
 #define LC_NUMERIC  3
 /* Time formats (strftime(), wcsftime()) */
 #define LC_TIME     4
+/* Messages */
+#define LC_MESSAGES 5
 
 /* The category parameter can be any of the LC_* macros to specify if the call
    to setlocale() shall affect the entire locale or only a portion thereof.
@@ -93,13 +95,17 @@ char * setlocale( int category, const char * locale ) _PDCLIB_nothrow;
 struct lconv * localeconv( void ) _PDCLIB_nothrow;
 
 #if _PDCLIB_POSIX_MIN(2008)
+
+#if defined(_PDCLIB_LOCALE_METHOD) || defined(_PDCLIB_BUILD)
+
 #define LC_COLLATE_MASK  (1 << LC_COLLATE)
 #define LC_CTYPE_MASK    (1 << LC_CTYPE)
 #define LC_MONETARY_MASK (1 << LC_MONETARY)
 #define LC_NUMERIC_MASK  (1 << LC_NUMERIC)
 #define LC_TIME_MASK     (1 << LC_TIME)
+#define LC_MESSAGES_MASK (1 << LC_MESSAGES)
 #define LC_ALL_MASK      (LC_COLLATE_MASK | LC_CTYPE_MASK | LC_MONETARY_MASK | \
-                          LC_NUMERIC_MASK | LC_TIME_MASK)
+                          LC_NUMERIC_MASK | LC_TIME_MASK | LC_MESSAGES_MASK)
 
 /* POSIX locale type */
 typedef _PDCLIB_locale_t locale_t;
@@ -107,8 +113,6 @@ typedef _PDCLIB_locale_t locale_t;
 /* Global locale */
 extern struct _PDCLIB_locale _PDCLIB_global_locale;
 #define LC_GLOBAL_LOCALE (&_PDCLIB_global_locale)
-
-#ifdef _PDCLIB_LOCALE_METHOD
 
 locale_t newlocale(int category_mask, const char *locale, locale_t base);
 
