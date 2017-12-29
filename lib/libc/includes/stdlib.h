@@ -109,6 +109,9 @@ void srand( unsigned int seed ) _PDCLIB_nothrow;
 */
 void * malloc( size_t size ) _PDCLIB_nothrow;
 
+/* dlmalloc declares this for us */
+int posix_memalign(void**, size_t, size_t) _PDCLIB_nothrow;
+
 /* Allocate a chunk of memory that is large enough to hold nmemb elements of
    the given size, and zero-initialize that memory. If request could not be
    satisfied, return NULL. Otherwise, return a pointer to the allocated
