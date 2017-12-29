@@ -10,7 +10,7 @@ CXXFLAGS+=	-fPIC -O3 -g
 # hide all symbols by default so we won't accidently publish things applications can use
 CXXFLAGS+=	-fvisibility=hidden
 
-LDFLAGS+=	-shared -Wl,-Bsymbolic
+LDFLAGS+=	-shared -Wl,-Bsymbolic -Wl,--hash-style=sysv
 LDFLAGS+=	-nostdlib -e entry
 
 all:		machine ld-ananas.so
