@@ -24,7 +24,7 @@ open(const char* path, int flags, ...)
 	return sys_open(path, flags, 0, &index) == ANANAS_ERROR_NONE ? index : -1;
 }
 
-int
+extern "C" int
 close(int fd)
 {
 	return sys_close(fd) == ANANAS_ERROR_NONE ? 0 : -1;

@@ -28,13 +28,14 @@ void memcpy(void* d, const void* s, size_t n);
 extern "C" errorcode_t sys_vmop(struct VMOP_OPTIONS* vo);
 
 extern "C" int open(const char* path, int flags, ...);
-int close(int fd);
+extern "C" int close(int fd);
 ssize_t read(int fd, void* buf, size_t count);
 ssize_t write(int fd, const void* buf, size_t count);
 off_t lseek(int fd, off_t offset, int whence);
 void exit(int status);
 
 int printf(const char* fmt, ...);
+int sprintf(char* str, const char* fmt, ...);
 
 void InitializeProcessInfo(void* procinfo);
 const char* GetProgName();
