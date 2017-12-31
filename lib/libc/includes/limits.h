@@ -6,6 +6,8 @@
 
 #ifndef _PDCLIB_LIMITS_H
 #define _PDCLIB_LIMITS_H _PDCLIB_LIMITS_H
+
+#include <ananas/limits.h>
 #include "_PDCLIB_int.h"
 
 /* MSVC 2010 defines this to 5, which is enough for UTF-8 but might rule out
