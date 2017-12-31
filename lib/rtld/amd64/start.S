@@ -88,6 +88,18 @@ rtld_bind_trampoline:
 	addq		$8,%rsp
 	ret
 
+#
+# Helper function to obtain the address of _DYNAMIC - needed for lld (see lld
+# bug 33802)
+#
+.globl	rtld_dynamic
+.type	rtld_dynamic,@function
+rtld_dynamic:
+.weak	_DYNAMIC
+.hidden	_DYNAMIC
+	lea	_DYNAMIC(%rip),%rax
+	ret
+
 /*
  * XXX this doesn't belong here - I should create a libsyscall.a with this stuff so
  *     that this and libc can use it (or forget about this stuff and just use a

@@ -11,13 +11,7 @@
 #include "lib.h"
 #include "rtld.h"
 
-/*
- * _DYNAMIC will be output by the linker and contains the contents of the
- * '.dynamic' section. (ELF spec 2-6)
- */
-extern Elf_Dyn _DYNAMIC;
-#pragma weak _DYNAMIC
-
+extern "C" Elf_Dyn* rtld_dynamic();
 extern "C" Elf_Addr rtld_bind_trampoline();
 
 namespace
@@ -403,7 +397,7 @@ rtld_relocate(addr_t base)
 	temp_obj.o_name = "ld-ananas.so";
 
 	temp_obj.o_reloc_base = base;
-	temp_obj.o_dynamic = reinterpret_cast<Elf_Dyn*>(base + reinterpret_cast<addr_t>(&_DYNAMIC));
+	temp_obj.o_dynamic = rtld_dynamic();
 	parse_dynamic(temp_obj);
 	process_relocations_rela(temp_obj);
 
