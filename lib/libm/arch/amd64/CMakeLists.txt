@@ -1,0 +1,33 @@
+set(MD_SOURCES
+	arch/amd64/llrintf.s
+	arch/amd64/rintl.s
+	arch/amd64/fabsl.s
+	arch/amd64/expm1l.s
+	arch/amd64/truncl.s
+	arch/amd64/log2l.s
+	arch/amd64/lrintf.s
+	arch/amd64/sqrtf.s
+	arch/amd64/fmodl.s
+	arch/amd64/lrintl.s
+	arch/amd64/llrintl.s
+	arch/amd64/llrint.s
+	arch/amd64/sqrt.s
+	arch/amd64/atan2l.s
+	arch/amd64/remainderl.s
+	arch/amd64/asinl.s
+	arch/amd64/__invtrigl.s
+	arch/amd64/acosl.s
+	arch/amd64/lrint.s
+	arch/amd64/log10l.s
+	arch/amd64/logl.s
+	arch/amd64/fabs.s
+	arch/amd64/exp2l.s
+	arch/amd64/fabsf.s
+	arch/amd64/atanl.s
+	arch/amd64/expl.s
+	arch/amd64/sqrtl.s
+	arch/amd64/ceill.s
+	arch/amd64/floorl.s
+	arch/amd64/log1pl.s
+	fenv/amd64/fenv.s
+)

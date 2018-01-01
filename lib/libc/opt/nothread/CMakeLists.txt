@@ -1,0 +1,25 @@
+set(SOURCES
+	${SOURCES}
+	${CMAKE_CURRENT_SOURCE_DIR}/thrd_yield.c
+	${CMAKE_CURRENT_SOURCE_DIR}/cnd_init.c
+	${CMAKE_CURRENT_SOURCE_DIR}/cnd_wait.c
+	${CMAKE_CURRENT_SOURCE_DIR}/mtx_unlock.c
+	${CMAKE_CURRENT_SOURCE_DIR}/call_once.c
+	${CMAKE_CURRENT_SOURCE_DIR}/tss_create.c
+	${CMAKE_CURRENT_SOURCE_DIR}/mtx_trylock.c
+	${CMAKE_CURRENT_SOURCE_DIR}/mtx_destroy.c
+	${CMAKE_CURRENT_SOURCE_DIR}/mtx_timedlock.c
+	${CMAKE_CURRENT_SOURCE_DIR}/tss_delete.c
+	${CMAKE_CURRENT_SOURCE_DIR}/cnd_signal.c
+	${CMAKE_CURRENT_SOURCE_DIR}/mtx_init.c
+	${CMAKE_CURRENT_SOURCE_DIR}/mtx_lock.c
+	${CMAKE_CURRENT_SOURCE_DIR}/tss_set.c
+	${CMAKE_CURRENT_SOURCE_DIR}/tss_get.c
+	PARENT_SCOPE
+)
+
+set(HEADERS
+	${HEADERS}
+	${CMAKE_CURRENT_SOURCE_DIR}/_PDCLIB_threadconfig.h
+	PARENT_SCOPE
+)
