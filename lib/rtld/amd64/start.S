@@ -99,25 +99,3 @@ rtld_dynamic:
 .hidden	_DYNAMIC
 	lea	_DYNAMIC(%rip),%rax
 	ret
-
-/*
- * XXX this doesn't belong here - I should create a libsyscall.a with this stuff so
- *     that this and libc can use it (or forget about this stuff and just use a
- *     static libc?)
- */
-#define DEFINE_SYSCALL(func, num) \
-.globl	sys_##func; \
-.type	sys_##func,@function; \
-sys_##func: \
-	movq	$num, %rax; \
-	movq	%rcx, %r10; \
-	syscall; \
-	ret
-
-DEFINE_SYSCALL(exit, 0)
-DEFINE_SYSCALL(read, 1)
-DEFINE_SYSCALL(write, 2)
-DEFINE_SYSCALL(open, 3)
-DEFINE_SYSCALL(close, 4)
-DEFINE_SYSCALL(seek, 6)
-DEFINE_SYSCALL(vmop, 10)
