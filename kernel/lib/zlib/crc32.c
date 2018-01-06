@@ -33,7 +33,7 @@
 /* Find a four-byte integer type for crc32_little() and crc32_big(). */
 #ifndef NOBYFOUR
 #  ifdef STDC           /* need ANSI C limits.h to determine sizes */
-#    include <limits.h>
+#    include <ananas/limits.h>
 #    define BYFOUR
 #    if (UINT_MAX == 0xffffffffUL)
        typedef unsigned int u4;
