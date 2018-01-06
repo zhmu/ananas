@@ -78,7 +78,16 @@ add_subdirectory(vfs)
 add_subdirectory(vm)
 
 get_property(SOURCES GLOBAL PROPERTY SourceList)
-add_executable(kernel ${SOURCES})
+add_executable(kernel_elf ${SOURCES})
+set_target_properties(kernel_elf PROPERTIES OUTPUT_NAME "kernel.elf")
+
+# add a custom target that combines the multiboot stub to get a bootable kernel
+# XXX this will only work on unix-like systems
+add_custom_target(kernel_bin ALL
+	COMMENT "Creating kernel binary"
+	COMMAND cat ${CMAKE_SYSROOT}/lib/mbstub.bin ${CMAKE_CURRENT_BINARY_DIR}/kernel.elf > ${CMAKE_CURRENT_BINARY_DIR}/kernel
+)
+add_dependencies(kernel_bin kernel_elf)
 
 # prepare our include directories: we will copy what we need to keep things as
 # clean as possible
@@ -88,21 +97,14 @@ add_custom_target(kernel_md_param_h ALL
 	${CMAKE_CURRENT_SOURCE_DIR}/include/kernel/amd64
 	${CMAKE_CURRENT_BINARY_DIR}/include/kernel-md
 )
-add_dependencies(kernel kernel_md_param_h)
+add_dependencies(kernel_elf kernel_md_param_h)
 add_custom_target(machine_types_h ALL
 	#OUTPUT include/machine/_types.h
 	COMMAND ${CMAKE_COMMAND} -E copy_directory
 	${CMAKE_CURRENT_SOURCE_DIR}/../include/ananas/amd64
 	${CMAKE_CURRENT_BINARY_DIR}/include/machine
 )
-add_dependencies(kernel machine_types_h)
-#add_custom_command(OUTPUT include/sys/param.h
-#	COMMAND ${CMAKE_COMMAND} -E copy_directory
-#	${CMAKE_CURRENT_SOURCE_DIR}/../include/sys
-#	${CMAKE_CURRENT_BINARY_DIR}/include/sys
-#)
-#add_custom_target(copy_includes DEPENDS include/kernel-md/param.h include/ananas/types.h include/machine/_types.h include/sys/param.h)
-#add_custom_target(copy_includes DEPENDS include/kernel-md/param.h include/machine/_types.h)
+add_dependencies(kernel_elf machine_types_h)
 
 # generate syscalls.h from the kern's syscalls.in - we don't care about
 # anything else so just write to /dev/null there
@@ -113,7 +115,7 @@ add_custom_command(
 	DEPENDS ${KERN_PATH}/syscalls.in
 )
 add_custom_target(syscall_gen DEPENDS include/_gen/syscalls.h)
-add_dependencies(kernel syscall_gen)
+add_dependencies(kernel_elf syscall_gen)
 
 # generate asmsyms.h; this is needed to look up offsets within structs from
 # assembler files, which is sure a lot better than having to maintain them
@@ -125,7 +127,7 @@ add_custom_command(
 	DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/asmsyms.o
 )
 add_custom_target(asmsyms_h DEPENDS include/asmsyms.h)
-add_dependencies(kernel asmsyms_h)
+add_dependencies(kernel_elf asmsyms_h)
 
 # XXX this should be done automatically
 set(OPT_H ${CMAKE_CURRENT_BINARY_DIR}/include/options.h)
@@ -136,5 +138,3 @@ file(APPEND ${OPT_H} "#define OPTION_ANKHFS\n")
 file(APPEND ${OPT_H} "#define OPTION_KDB\n")
 file(APPEND ${OPT_H} "#define OPTION_ACPI\n")
 file(APPEND ${OPT_H} "#define FS_ANKHFS\n")
-
-#add_dependencies(kernel copy_includes)
