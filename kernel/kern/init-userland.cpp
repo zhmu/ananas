@@ -44,7 +44,7 @@ userinit_func(void*)
 	}
 	kprintf(" ok\n");
 
-#ifdef OPTION_ANKHFS
+#ifdef FS_ANKHFS
 	kprintf("- Mounting /ankh...");
 	err = vfs_mount(nullptr, "/ankh", "ankhfs", nullptr);
 	if (ananas_is_failure(err))
