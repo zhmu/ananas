@@ -20,10 +20,6 @@
 #include "kernel-md/vm.h"
 #include "options.h"
 
-#ifndef OPTION_ACPI
-# error ACPI is mandatory for SMP
-#endif
-
 #define SMP_DEBUG 0
 
 TRACE_SETUP;
