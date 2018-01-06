@@ -39,7 +39,6 @@ struct TSS kernel_tss;
 
 /* Bootinfo as supplied by the loader, or NULL */
 struct BOOTINFO* bootinfo = NULL;
-static struct BOOTINFO _bootinfo;
 
 #define PHYSMEM_NUM_CHUNKS 32
 struct PHYSMEM_CHUNK {
@@ -368,7 +367,7 @@ smp_ap_startup(struct X86_CPU* cpu)
 #endif
 
 extern "C" void
-md_startup(struct BOOTINFO* bootinfo_ptr)
+md_startup(const struct BOOTINFO* bootinfo_ptr)
 {
 	/*
 	 * This function will be called by the loader, which hands us a bootinfo
@@ -380,17 +379,8 @@ md_startup(struct BOOTINFO* bootinfo_ptr)
 	 * makes setting up our page tables much easier as we'll always have enough
 	 * space to store them.
 	 */
-	if (bootinfo_ptr != NULL) {
-		/*
-		 * Copy enough bytes to cover our bootinfo - but only activate the bootinfo
-	   * if the size is correct.
-		 */
-		memcpy(&_bootinfo, bootinfo_ptr, sizeof(struct BOOTINFO));
-		if (bootinfo_ptr->bi_size >= sizeof(struct BOOTINFO))
-			bootinfo = (struct BOOTINFO*)&_bootinfo;
-	}
-	if (bootinfo == NULL)
-		panic("going nowhere without my bootinfo");
+	KASSERT(bootinfo_ptr != nullptr, "no bootinfo provided");
+	KASSERT(bootinfo_ptr->bi_size >= sizeof(struct BOOTINFO), "bootinfo size mismatch");
 
 	/*
 	 * Initialize a new Global Descriptor Table; we shouldn't trust what the
@@ -476,27 +466,43 @@ extern void* bootstrap_stack;
 	 * Determine how much memory we have; we need this in order to pre-allocate
 	 * our page tables.
 	 */
-	if (bootinfo->bi_memory_map_addr == (addr_t)NULL ||
-	    bootinfo->bi_memory_map_size == 0 ||
-	    (bootinfo->bi_memory_map_size % sizeof(struct SMAP_ENTRY)) != 0)
+	if (bootinfo_ptr->bi_memory_map_addr == (addr_t)NULL ||
+	    bootinfo_ptr->bi_memory_map_size == 0 ||
+	    (bootinfo_ptr->bi_memory_map_size % sizeof(struct SMAP_ENTRY)) != 0)
 		panic("going nowhere without a memory map");
 
 	/*
 	 * The loader tells us how large the kernel is; we use pages directly after
-	 * the kernel.
+	 * the kernel. Note that this doesn't have to be aligned, so we ensure it is.
 	 */
 	addr_t avail = (addr_t)(((struct LOADER_MODULE*)(addr_t)bootinfo_ptr->bi_modules)->mod_phys_end_addr);
+	if (avail & (PAGE_SIZE - 1))
+		avail = (avail | (PAGE_SIZE - 1)) + 1;
+	kprintf(">> avail %p __entry %p __end %p\n", avail, &__entry, &__end);
 
 	/*
-	 * Grab extra space for the boot arguments - it's much easier to do so before enabling
-	 * paging, and we cannot trust the addresses.
+	 * Move the bootinfo structure directly at the available space, directly
+	 * after the kernel - we consider it as part of the kernel. This simplifies
+	 * mapping it, and ensures we won't accidently overwrite it.
 	 */
-	char* bootinfo_args = nullptr;
-	if (bootinfo_ptr->bi_args != 0) {
-		memcpy(reinterpret_cast<void*>(avail), reinterpret_cast<void*>(bootinfo->bi_args), bootinfo_ptr->bi_args_size);
-		bootinfo_args = reinterpret_cast<char*>(KERNBASE | avail);
-		avail += bootinfo_ptr->bi_args_size;
+	char* boot_args = nullptr;
+	{
+		bootinfo = reinterpret_cast<struct BOOTINFO*>(KERNBASE | avail);
+		avail += sizeof(*bootinfo);
+
+		memset(bootinfo, 0, sizeof(*bootinfo));
+		memcpy(bootinfo, bootinfo_ptr, bootinfo_ptr->bi_size);
+
+		// Append the arguments directly after, if we have any
+		if (bootinfo_ptr->bi_args != 0) {
+			boot_args = reinterpret_cast<char*>(KERNBASE | avail);
+			avail += bootinfo_ptr->bi_args_size;
+			memcpy(boot_args, reinterpret_cast<void*>(bootinfo_ptr->bi_args), bootinfo_ptr->bi_args_size);
+		}
 	}
+
+	// Ensure the available pointer is round up to the next page, as we'll be
+	// creating pagetables there
 	avail = (addr_t)((addr_t)avail | (PAGE_SIZE - 1)) + 1;
 	kprintf("avail = %p\n", avail);
 
@@ -505,7 +511,7 @@ extern void* bootstrap_stack;
 	 * the memory maps.
 	 */
 	addr_t kernel_from = ((addr_t)&__entry - KERNBASE) & ~(PAGE_SIZE - 1);
-	addr_t kernel_to = (((addr_t)&__end - KERNBASE) | (PAGE_SIZE - 1)) + 1;
+	addr_t kernel_to = avail;
 
 	/* Now build the memory chunk list */
 	int phys_idx = 0;
@@ -591,7 +597,7 @@ extern void* bootstrap_stack;
 	handle_init();
 
 	// Initialize the commandline arguments, if we have any
-	cmdline_init(bootinfo_args, bootinfo->bi_args_size);
+	cmdline_init(boot_args, bootinfo->bi_args_size);
 
 	/*
 	 * Initialize the per-CPU thread; this needs a working memory allocator, so that is why
