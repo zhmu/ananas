@@ -40,73 +40,66 @@ struct TSS kernel_tss;
 /* Bootinfo as supplied by the loader, or NULL */
 struct BOOTINFO* bootinfo = NULL;
 
-#define PHYSMEM_NUM_CHUNKS 32
-struct PHYSMEM_CHUNK {
-	addr_t addr, len;
-};
-static struct PHYSMEM_CHUNK phys[PHYSMEM_NUM_CHUNKS];
-
 extern "C" void *__entry, *__end, *__rodata_end;
+extern void* syscall_handler;
 
 /* CPU clock speed, in MHz */
 int md_cpu_clock_mhz = 0;
 
-static void*
-bootstrap_get_pages(addr_t* avail, size_t num)
+namespace {
+
+void*
+bootstrap_get_pages(addr_t& avail, size_t num)
 {
-	void* ptr = (void*)*avail;
+	void* ptr = (void*)avail;
 	memset(ptr, 0, num * PAGE_SIZE);
-	*avail += num * PAGE_SIZE;
+	avail += num * PAGE_SIZE;
 	return ptr;
 }
-
-typedef uint64_t (phys_flags_t)(void* ctx, addr_t phys, addr_t virt);
 
 /*
  * Maps num_pages of phys -> virt; when pages are needed, *avail is used and incremented.
  *
- * get_flags(flags_ctx, phys, virt) will be called for every actual mapping to determine the
+ * get_flags(phys, virt) will be called for every actual mapping to determine the
  * mapping-specific flags that are to be used.
  */
-static void
-map_kernel_pages(addr_t phys, addr_t virt, unsigned int num_pages, addr_t* avail, phys_flags_t* get_flags, void* flags_ctx)
+template<typename T> void
+map_kernel_pages(addr_t phys, addr_t virt, unsigned int num_pages, addr_t& avail, T get_flags)
 {
-#define ADDR_MASK 0xffffffffff000 /* bits 12 .. 51 */
+	static constexpr uint64_t addr_mask = 0xffffffffff000; /* bits 12 .. 51 */
 
 	for (unsigned int n = 0; n < num_pages; n++) {
 		uint64_t* pml4e = &kernel_pagedir[(virt >> 39) & 0x1ff];
 		if (*pml4e == 0) {
-			*pml4e = *avail | PE_RW | PE_P | PE_C_G;
-			*avail += PAGE_SIZE;
+			*pml4e = avail | PE_RW | PE_P | PE_C_G;
+			avail += PAGE_SIZE;
 		}
-		uint64_t* p = (uint64_t*)(*pml4e & ADDR_MASK);
+		uint64_t* p = (uint64_t*)(*pml4e & addr_mask);
 		uint64_t* pdpe = &p[(virt >> 30) & 0x1ff];
 		if (*pdpe == 0) {
-			*pdpe = *avail | PE_RW | PE_P | PE_C_G;
-			*avail += PAGE_SIZE;
+			*pdpe = avail | PE_RW | PE_P | PE_C_G;
+			avail += PAGE_SIZE;
 		}
-		uint64_t* q = (uint64_t*)(*pdpe & ADDR_MASK);
+		uint64_t* q = (uint64_t*)(*pdpe & addr_mask);
 		uint64_t* pde = &q[(virt >> 21) & 0x1ff];
 		if (*pde == 0) {
-			*pde = *avail | PE_RW | PE_P | PE_C_G;
-			*avail += PAGE_SIZE;
+			*pde = avail | PE_RW | PE_P | PE_C_G;
+			avail += PAGE_SIZE;
 		}
 
-		uint64_t* r = (uint64_t*)(*pde & ADDR_MASK);
-		r[(virt >> 12) & 0x1ff] = phys | get_flags(flags_ctx, phys, virt);
+		uint64_t* r = (uint64_t*)(*pde & addr_mask);
+		r[(virt >> 12) & 0x1ff] = phys | get_flags(phys, virt);
 		virt += PAGE_SIZE;
 		phys += PAGE_SIZE;
 	}
-
-#undef ADDR_MASK
 }
 
 /*
  * Calculated how many PAGE_SIZE-sized pieces we need to map mem_size bytes - note that this is only
  * accurate if the memory is mapped at address zero (it doesn't consider crossing boundaries)
  */
-static inline void
-calculate_num_pages_required(size_t mem_size, unsigned int* num_pages_needed, unsigned int* length_in_pages) 
+inline void
+calculate_num_pages_required(size_t mem_size, unsigned int& num_pages_needed, unsigned int& length_in_pages)
 {
 	/* Number of level-4 page-table entries required; these map bits 63..39 */
 	unsigned int num_pml4e = (mem_size + (1ULL << 39) - 1) >> 39;
@@ -116,47 +109,16 @@ calculate_num_pages_required(size_t mem_size, unsigned int* num_pages_needed, un
 	unsigned int num_pde = (mem_size + (1ULL << 21) - 1) >> 21;
 	/* Number of level-1 page-table entries required; these map bits 20..12 */
 	unsigned int num_pte = (mem_size + (1ULL << 12) - 1) >> 12;
-	*num_pages_needed = num_pml4e + num_pdpe + num_pde;
-	*length_in_pages = num_pte;
+	num_pages_needed = num_pml4e + num_pdpe + num_pde;
+	length_in_pages = num_pte;
 }
 
-struct AVAIL_CTX {
-	addr_t avail_start;
-	addr_t* avail_end;
-};
-
-static uint64_t
-kva_get_flags(void* ctx, addr_t phys, addr_t virt)
-{
-	struct AVAIL_CTX* actx = static_cast<struct AVAIL_CTX*>(ctx);
-	if (phys >= actx->avail_start && phys <= *actx->avail_end)
-		return PE_G | PE_RW | PE_P;
-	return 0;
-}
-
-static uint64_t
-kmem_get_flags(void* ctx, addr_t phys, addr_t virt)
-{
-	addr_t kernel_text_end = *(addr_t*)ctx;
-	uint64_t flags = PE_G | PE_P;
-	if (virt >= kernel_text_end)
-		flags |= PE_RW;
-	return flags;
-}
-
-static uint64_t
-dynkva_get_flags(void* ctx, addr_t phys, addr_t virt)
-{
-	/* We just setup space for mappings; not the actual mappings themselves */
-	return 0;
-}
-
-static void
-setup_paging(addr_t* avail, addr_t mem_end, size_t kernel_size)
+void
+setup_paging(addr_t& avail, addr_t mem_end, size_t kernel_size)
 {
 #define KMAP_KVA_START KMEM_DIRECT_VA_START
 #define KMAP_KVA_END KMEM_DYNAMIC_VA_END
-	addr_t avail_start = *avail;
+	addr_t avail_start = avail;
 
 	/*
 	 * Taking the overview in machine-md/vm.h into account, we want to map the
@@ -182,7 +144,7 @@ setup_paging(addr_t* avail, addr_t mem_end, size_t kernel_size)
 
 	uint64_t kva_size = kmap_kva_end - KMAP_KVA_START;
 	unsigned int kva_pages_needed, kva_size_in_pages;
-	calculate_num_pages_required(kva_size, &kva_pages_needed, &kva_size_in_pages);
+	calculate_num_pages_required(kva_size, kva_pages_needed, kva_size_in_pages);
 	addr_t kva_pages = (addr_t)bootstrap_get_pages(avail, kva_pages_needed);
 
 	/* Finally, allocate the kernel pagedir itself */
@@ -198,7 +160,7 @@ setup_paging(addr_t* avail, addr_t mem_end, size_t kernel_size)
 	 * XXX We could consider mapping the kernel using 2MB pages if the NX bits align...
  	 */
 	unsigned int kernel_pages_needed, kernel_size_in_pages;
-	calculate_num_pages_required(kernel_size, &kernel_pages_needed, &kernel_size_in_pages);
+	calculate_num_pages_required(kernel_size, kernel_pages_needed, kernel_size_in_pages);
 	/*
 	 * XXX calculate_num_pages_required() doesn't consider page boundaries -
 	 * however, the kernel is generally mapped to address 1MB, which means we may
@@ -215,7 +177,7 @@ setup_paging(addr_t* avail, addr_t mem_end, size_t kernel_size)
 	 * have address space plenty...
 	 */
 	unsigned int dyn_kva_pages_needed, dyn_kva_size_in_pages;
-	calculate_num_pages_required(KMEM_DYNAMIC_VA_END - KMEM_DYNAMIC_VA_START, &dyn_kva_pages_needed, &dyn_kva_size_in_pages);
+	calculate_num_pages_required(KMEM_DYNAMIC_VA_END - KMEM_DYNAMIC_VA_START, dyn_kva_pages_needed, dyn_kva_size_in_pages);
 	addr_t dyn_kva_pages = (addr_t)bootstrap_get_pages(avail, dyn_kva_pages_needed);
 
 	/*
@@ -223,9 +185,14 @@ setup_paging(addr_t* avail, addr_t mem_end, size_t kernel_size)
 	 * ensure we can change them later as necessary. We explicitly won't map the
 	 * kernel page tables here because we never need to change them.
 	 */
-	struct AVAIL_CTX actx = { avail_start, avail };
 	addr_t kva_avail_ptr = (addr_t)kva_pages;
-	map_kernel_pages(0, KMAP_KVA_START, kva_size_in_pages, &kva_avail_ptr, kva_get_flags, &actx);
+	map_kernel_pages(0, KMAP_KVA_START, kva_size_in_pages, kva_avail_ptr, [&](addr_t phys, addr_t virt)
+	{
+		uint64_t flags = 0;
+		if (phys >= avail_start && phys <= avail)
+			flags = PE_G | PE_RW | PE_P;
+		return flags;
+	});
 	KASSERT(kva_avail_ptr == (addr_t)kva_pages + kva_pages_needed * PAGE_SIZE, "not all KVA pages used (used %d, expected %d)", (kva_avail_ptr - kva_pages) / PAGE_SIZE, kva_pages);
 
 	/* Now map the kernel itself */
@@ -233,12 +200,22 @@ setup_paging(addr_t* avail, addr_t mem_end, size_t kernel_size)
 	addr_t kernel_text_end  = (addr_t)&__rodata_end & ~(PAGE_SIZE - 1);
 
 	addr_t kernel_avail_ptr = (addr_t)kernel_pages;
-	map_kernel_pages(kernel_addr & 0x00ffffff, kernel_addr, kernel_size_in_pages, &kernel_avail_ptr, kmem_get_flags, &kernel_text_end);
+	map_kernel_pages(kernel_addr & 0x00ffffff, kernel_addr, kernel_size_in_pages, kernel_avail_ptr, [&](addr_t phys, addr_t virt)
+	{
+		uint64_t flags = PE_G | PE_P;
+		if (virt >= kernel_text_end)
+			flags |= PE_RW;
+		return flags;
+	});
 	KASSERT(kernel_avail_ptr <= (addr_t)kernel_pages + kernel_pages_needed * PAGE_SIZE, "not all kernel pages used (used %d, expected %d)", (kernel_avail_ptr - kernel_pages) / PAGE_SIZE, kernel_pages_needed);
 
 	/* And map the dynamic KVA pages */
 	addr_t dyn_kva_avail_ptr = dyn_kva_pages;
-	map_kernel_pages(0, KMEM_DYNAMIC_VA_START, dyn_kva_size_in_pages, &dyn_kva_avail_ptr, dynkva_get_flags, NULL);
+	map_kernel_pages(0, KMEM_DYNAMIC_VA_START, dyn_kva_size_in_pages, dyn_kva_avail_ptr, [](addr_t phys, addr_t virt)
+	{
+		// We just setup space for mappings; not the actual mappings themselves
+		return 0;
+	});
 	KASSERT(dyn_kva_avail_ptr == (addr_t)dyn_kva_pages + dyn_kva_pages_needed * PAGE_SIZE, "not all dynamic KVA pages used (used %d, expected %d)", (dyn_kva_avail_ptr - dyn_kva_pages) / PAGE_SIZE, dyn_kva_pages_needed);
 
 	/* Activate our new page tables */
@@ -256,132 +233,100 @@ setup_paging(addr_t* avail, addr_t mem_end, size_t kernel_size)
 	kprintf(">>> *kernel_pagedir = %p\n", *kernel_pagedir);
 }
 
-static void
-setup_cpu(addr_t gdt, addr_t pcpu)
+void
+setup_memory(addr_t& avail)
 {
-	/* Load IDT */
-	MAKE_RREGISTER(idtr, idt, (IDT_NUM_ENTRIES * 16) - 1);
-	__asm __volatile(
-		"lidt (%%rax)\n"
-	: : "a" (&idtr));
+	/*
+	 * Figure out where the kernel is in physical memory; we must exclude it from
+	 * the memory maps.
+	 */
+	addr_t kernel_from = ((addr_t)&__entry - KERNBASE) & ~(PAGE_SIZE - 1);
+	addr_t kernel_to = avail;
 
-	/* Load GDT and re-load all segment register */
-	MAKE_RREGISTER(gdtr, gdt, GDT_LENGTH - 1);
-	__asm(
-		"lgdt (%%rax)\n"
-		"mov %%cx, %%ds\n"
-		"mov %%cx, %%es\n"
-		"mov %%cx, %%fs\n"
-		"mov %%cx, %%gs\n"
-		"mov %%cx, %%ss\n"
-		/* Jump to our new %cs */
-		"pushq	%%rbx\n"
-		"pushq	$1f\n"
-		"lretq\n"
-"1:\n"
-		/* Load our task register */
-		"ltr	%%dx\n"
-	: : "a" (&gdtr),
-	    "b" (GDT_SEL_KERNEL_CODE),
-	    "c" (GDT_SEL_KERNEL_DATA),
-	    "d" (GDT_SEL_TASK));
+	/* Now build the memory chunk list */
+	constexpr size_t max_chunks = 32;
+	struct PHYSMEM_CHUNK {
+		addr_t addr, len;
+	} phys_chunk[max_chunks];
+	int phys_chunk_index = 0;
 
-	/* Set up the userland %fs/%gs base adress to zero (it should be, but don't take chances) */
-	wrmsr(MSR_FS_BASE, 0);
-	wrmsr(MSR_GS_BASE, 0);
+	addr_t mem_end = 0;
+	struct SMAP_ENTRY* smap_entry = reinterpret_cast<struct SMAP_ENTRY*>((uintptr_t)bootinfo->bi_memory_map_addr);
+	for (int i = 0; i < bootinfo->bi_memory_map_size / sizeof(struct SMAP_ENTRY); i++, smap_entry++) {
+		if (smap_entry->type != SMAP_TYPE_MEMORY)
+			continue;
+
+		/* This piece of memory is available; add it */
+		addr_t base = (addr_t)smap_entry->base_hi << 32 | smap_entry->base_lo;
+		size_t len = (size_t)smap_entry->len_hi << 32 | smap_entry->len_lo;
+		base  = (base + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+		len  &= ~(PAGE_SIZE - 1);
+
+		/* See if this chunk collides with our kernel; if it does, add it in 0 .. 2 slices */
+		constexpr size_t max_slices = 2;
+		addr_t start[max_slices], end[max_slices];
+		kmem_chunk_reserve(base, base + len, kernel_from, kernel_to, &start[0], &end[0]);
+		for (unsigned int n = 0; n < max_slices; n++) {
+			KASSERT(start[n] <= end[n] && end[n] >= start[n], "invalid start/end pair %p/%p", start[n], end[n]);
+			if (start[n] == end[n])
+				continue;
+			// XXX We should check to make sure we don't go beyond phys_... here
+			phys_chunk[phys_chunk_index].addr = start[n];
+			phys_chunk[phys_chunk_index].len = end[n] - start[n];
+			if (mem_end < end[n])
+				mem_end = end[n];
+			phys_chunk_index++;
+		}
+#undef MAX_SLICES
+	}
+	KASSERT(phys_chunk_index > 0, "no physical memory chunks");
+
+	// Dump the physical memory layout as far as we know it
+	size_t mem_size = 0;
+	kprintf("physical memory dump: %d chunk(s)\n", phys_chunk_index);
+	for (int n = 0; n < phys_chunk_index; n++) {
+		struct PHYSMEM_CHUNK* p = &phys_chunk[n];
+		kprintf("  chunk %d: %016p-%016p (%u KB)\n",
+		 n, p->addr, p->addr + p->len - 1,
+		 p->len / 1024);
+		mem_size += p->len / 1024;
+	}
+	kprintf("total physical memory present: %d MB\n", mem_size / 1024);
+
+	uint64_t prev_avail = avail;
+	setup_paging(avail, mem_end, kernel_to - kernel_from);
 
 	/*
-	 * Set up the kernel / current %gs base; this points to our per-cpu data; the
-	 * current %gs base must be set because the interrupt code will not swap it
-	 * if we came from kernel context.
+	 * Now add the physical chunks of memory. Note that phys_chunk[] isn't up-to-date
+	 * anymore as it will contain things we have used for the page tables - this
+	 * is why we store prev_avail: it's always at the start of a chunk, and we can
+	 * just update the chunk as needed.
 	 */
-	wrmsr(MSR_GS_BASE, pcpu); /* XXX why do we need this? */
-	wrmsr(MSR_KERNEL_GS_BASE, pcpu);
-
-	/*
-	 * Set up the fast system call (SYSCALL/SYSEXIT) mechanism; this is our way
-	 * of doing system calls.
-	 */
-	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | MSR_EFER_SCE);
-	wrmsr(MSR_STAR, ((uint64_t)(GDT_SEL_USER_CODE - 0x10) | SEG_DPL_USER) << 48L |
-                  ((uint64_t)GDT_SEL_KERNEL_CODE << 32L));
-extern void* syscall_handler;
-	wrmsr(MSR_LSTAR, (addr_t)&syscall_handler);
-	wrmsr(MSR_SFMASK, 0x200 /* IF */);
-
-	/* Enable global pages */
-	write_cr4(read_cr4() | 0x80); /* PGE */
-
-	/* Enable FPU use; the kernel will save/restore it as needed */
-	write_cr4(read_cr4() | 0x600); /* OSFXSR | OSXMMEXCPT */
-
-	// Enable No-Execute Enable bit XXX we should check to ensure it is supported
-	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | MSR_EFER_NXE);
-
-	// Enable the write-protect bit; this ensures kernel-code can't write to readonly pages
-	write_cr0(read_cr0() | CR0_WP);
-}
+	for (int n = 0; n < phys_chunk_index; n++) {
+		struct PHYSMEM_CHUNK* p = &phys_chunk[n];
+		if (p->addr == prev_avail) {
+			p->addr = avail;
+			p->len -= avail - prev_avail;
+		}
+		page_zone_add(p->addr, p->len);
 
 #ifdef OPTION_SMP
-static struct PAGE* smp_ap_pages;
-addr_t smp_ap_pagedir;
+		/*
+		 * In the SMP case, ensure we'll prepare allocating memory for the SMP structures
+		 * right after we have memory to do so - we can't bootstrap from memory >1MB
+		 * and this is a handy, though crude way to avoid it.
+		 */
+		if (n == 0)
+			smp_prepare();
+#endif
+	}
+}
+
+} // unnamed namespace
 
 static void
-smp_init_ap_pagetable()
+setup_descriptors()
 {
-	/*
-	 * When booting the AP's, we need to have identity-mapped memory - and this
-	 * does not exist in our normal pages. It's actually easier just to construct
-	 * pagetables similar to what the loader uses (refer to loader/x86/x86_64.c)
-	 * to get us to long mode.
-	 */
-	void* ptr = page_alloc_length_mapped(3 * PAGE_SIZE, &smp_ap_pages, VM_FLAG_READ | VM_FLAG_WRITE);
-
-	addr_t pa = page_get_paddr(smp_ap_pages);
-	uint64_t* pml4 = static_cast<uint64_t*>(ptr);
-	uint64_t* pdpe = reinterpret_cast<uint64_t*>(static_cast<char*>(ptr) + PAGE_SIZE);
-	uint64_t* pde = reinterpret_cast<uint64_t*>(static_cast<char*>(ptr) + PAGE_SIZE * 2);
-	for (unsigned int n = 0; n < 512; n++) {
-		pde[n] = (uint64_t)((addr_t)(n << 21) | PE_PS | PE_RW | PE_P);
-		pdpe[n] = (uint64_t)((addr_t)(pa + PAGE_SIZE * 2) | PE_RW | PE_P);
-		pml4[n] = (uint64_t)((addr_t)(pa + PAGE_SIZE) | PE_RW | PE_P);
-  }
-
-	smp_ap_pagedir = pa;
-}
-
-void
-smp_destroy_ap_pagetable()
-{
-	if (smp_ap_pages != NULL)
-		page_free(smp_ap_pages);
-	smp_ap_pages = NULL;
-	smp_ap_pagedir = 0;
-}
-
-extern "C" void
-smp_ap_startup(struct X86_CPU* cpu)
-{
-	setup_cpu((addr_t)cpu->gdt, (addr_t)cpu->pcpu);
-}
-#endif
-
-extern "C" void
-md_startup(const struct BOOTINFO* bootinfo_ptr)
-{
-	/*
-	 * This function will be called by the loader, which hands us a bootinfo
-	 * structure containing a lot of useful information. We need it as soon
-	 * as possible to bootstrap the VM and initialize the memory manager.
-	 *
-	 * Note that this implicitely assumes that the bootinfo memory is mapped -
-	 * indeed, we'll assume that the entire 1GB memory space is mapped. This
-	 * makes setting up our page tables much easier as we'll always have enough
-	 * space to store them.
-	 */
-	KASSERT(bootinfo_ptr != nullptr, "no bootinfo provided");
-	KASSERT(bootinfo_ptr->bi_size >= sizeof(struct BOOTINFO), "bootinfo size mismatch");
-
 	/*
 	 * Initialize a new Global Descriptor Table; we shouldn't trust what the
 	 * loader gives us and we'll need things like a TSS.
@@ -446,21 +391,95 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 	IDT_SET_ENTRY(0xff,             SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, irq_spurious);
 #endif
 
-	/* Ask the PIC to mask everything; we'll initialize when we are ready */
-	x86_pic_mask_all();
-
 	/*
 	 * Initialize the kernel TSS; we just need so set up separate stacks here.
 	 */
 	memset(&kernel_tss, 0, sizeof(struct TSS));
-extern void* bootstrap_stack;
+	extern void* bootstrap_stack;
 	kernel_tss.ist1 = (addr_t)&bootstrap_stack;
+}
+
+static void
+setup_cpu(addr_t gdt, addr_t pcpu)
+{
+	/* Load IDT */
+	MAKE_RREGISTER(idtr, idt, (IDT_NUM_ENTRIES * 16) - 1);
+	__asm __volatile(
+		"lidt (%%rax)\n"
+	: : "a" (&idtr));
+
+	/* Load GDT and re-load all segment register */
+	MAKE_RREGISTER(gdtr, gdt, GDT_LENGTH - 1);
+	__asm(
+		"lgdt (%%rax)\n"
+		"mov %%cx, %%ds\n"
+		"mov %%cx, %%es\n"
+		"mov %%cx, %%fs\n"
+		"mov %%cx, %%gs\n"
+		"mov %%cx, %%ss\n"
+		/* Jump to our new %cs */
+		"pushq	%%rbx\n"
+		"pushq	$1f\n"
+		"lretq\n"
+"1:\n"
+		/* Load our task register */
+		"ltr	%%dx\n"
+	: : "a" (&gdtr),
+	    "b" (GDT_SEL_KERNEL_CODE),
+	    "c" (GDT_SEL_KERNEL_DATA),
+	    "d" (GDT_SEL_TASK));
+
+	/* Set up the userland %fs/%gs base adress to zero (it should be, but don't take chances) */
+	wrmsr(MSR_FS_BASE, 0);
+	wrmsr(MSR_GS_BASE, 0);
 
 	/*
-	 * Wire the CPU for operation; this actually sets up more things than we can
-	 * handle at the moment, but we'll cope with this soon.
+	 * Set up the kernel / current %gs base; this points to our per-cpu data; the
+	 * current %gs base must be set because the interrupt code will not swap it
+	 * if we came from kernel context.
 	 */
-	setup_cpu((addr_t)&gdt, (addr_t)&bsp_pcpu);
+	wrmsr(MSR_GS_BASE, pcpu); /* XXX why do we need this? */
+	wrmsr(MSR_KERNEL_GS_BASE, pcpu);
+
+	/*
+	 * Set up the fast system call (SYSCALL/SYSEXIT) mechanism; this is our way
+	 * of doing system calls.
+	 */
+	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | MSR_EFER_SCE);
+	wrmsr(MSR_STAR, ((uint64_t)(GDT_SEL_USER_CODE - 0x10) | SEG_DPL_USER) << 48L |
+                  ((uint64_t)GDT_SEL_KERNEL_CODE << 32L));
+	wrmsr(MSR_LSTAR, (addr_t)&syscall_handler);
+	wrmsr(MSR_SFMASK, 0x200 /* IF */);
+
+	/* Enable global pages */
+	write_cr4(read_cr4() | 0x80); /* PGE */
+
+	/* Enable FPU use; the kernel will save/restore it as needed */
+	write_cr4(read_cr4() | 0x600); /* OSFXSR | OSXMMEXCPT */
+
+	// Enable No-Execute Enable bit XXX we should check to ensure it is supported
+	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | MSR_EFER_NXE);
+
+	// Enable the write-protect bit; this ensures kernel-code can't write to readonly pages
+	write_cr0(read_cr0() | CR0_WP);
+}
+
+static void
+setup_bootinfo(const struct BOOTINFO* bootinfo_ptr, addr_t& avail, char*& boot_args)
+{
+	/*
+	 * Now that most low-level stuff is sanely set up, see what the loader gave
+	 * us: we should have a bootinfo structure containing a lot of useful
+	 * information. We need it to bootstrap the VM and initialize the memory
+	 * manager.
+	 *
+	 * Note that this implicitely assumes that the bootinfo memory is mapped -
+	 * indeed, we'll assume that the entire 1GB memory space is mapped. This
+	 * makes setting up our page tables much easier as we'll always have enough
+	 * space to store them.
+	 */
+	KASSERT(bootinfo_ptr != nullptr, "no bootinfo provided");
+	KASSERT(bootinfo_ptr->bi_size >= sizeof(struct BOOTINFO), "bootinfo size mismatch");
 
 	/*
 	 * Determine how much memory we have; we need this in order to pre-allocate
@@ -475,7 +494,7 @@ extern void* bootstrap_stack;
 	 * The loader tells us how large the kernel is; we use pages directly after
 	 * the kernel. Note that this doesn't have to be aligned, so we ensure it is.
 	 */
-	addr_t avail = (addr_t)(((struct LOADER_MODULE*)(addr_t)bootinfo_ptr->bi_modules)->mod_phys_end_addr);
+	avail = (addr_t)(((struct LOADER_MODULE*)(addr_t)bootinfo_ptr->bi_modules)->mod_phys_end_addr);
 	if (avail & (PAGE_SIZE - 1))
 		avail = (avail | (PAGE_SIZE - 1)) + 1;
 	kprintf(">> avail %p __entry %p __end %p\n", avail, &__entry, &__end);
@@ -485,107 +504,94 @@ extern void* bootstrap_stack;
 	 * after the kernel - we consider it as part of the kernel. This simplifies
 	 * mapping it, and ensures we won't accidently overwrite it.
 	 */
-	char* boot_args = nullptr;
-	{
-		bootinfo = reinterpret_cast<struct BOOTINFO*>(KERNBASE | avail);
-		avail += sizeof(*bootinfo);
+	bootinfo = reinterpret_cast<struct BOOTINFO*>(KERNBASE | avail);
+	avail += sizeof(*bootinfo);
 
-		memset(bootinfo, 0, sizeof(*bootinfo));
-		memcpy(bootinfo, bootinfo_ptr, bootinfo_ptr->bi_size);
+	memset(bootinfo, 0, sizeof(*bootinfo));
+	memcpy(bootinfo, bootinfo_ptr, bootinfo_ptr->bi_size);
 
-		// Append the arguments directly after, if we have any
-		if (bootinfo_ptr->bi_args != 0) {
-			boot_args = reinterpret_cast<char*>(KERNBASE | avail);
-			avail += bootinfo_ptr->bi_args_size;
-			memcpy(boot_args, reinterpret_cast<void*>(bootinfo_ptr->bi_args), bootinfo_ptr->bi_args_size);
-		}
+	// Append the arguments directly after, if we have any
+	if (bootinfo_ptr->bi_args != 0) {
+		boot_args = reinterpret_cast<char*>(KERNBASE | avail);
+		avail += bootinfo_ptr->bi_args_size;
+		memcpy(boot_args, reinterpret_cast<void*>(bootinfo_ptr->bi_args), bootinfo_ptr->bi_args_size);
 	}
 
-	// Ensure the available pointer is round up to the next page, as we'll be
-	// creating pagetables there
+	// Ensure the available pointer is still page-aligned, as we'll be creating
+	// pagetables there
 	avail = (addr_t)((addr_t)avail | (PAGE_SIZE - 1)) + 1;
-	kprintf("avail = %p\n", avail);
-
-	/*
-	 * Figure out where the kernel is in physical memory; we must exclude it from
-	 * the memory maps.
-	 */
-	addr_t kernel_from = ((addr_t)&__entry - KERNBASE) & ~(PAGE_SIZE - 1);
-	addr_t kernel_to = avail;
-
-	/* Now build the memory chunk list */
-	int phys_idx = 0;
-
-	addr_t mem_end = 0;
-	struct SMAP_ENTRY* smap_entry = reinterpret_cast<struct SMAP_ENTRY*>((uintptr_t)bootinfo->bi_memory_map_addr);
-	for (int i = 0; i < bootinfo->bi_memory_map_size / sizeof(struct SMAP_ENTRY); i++, smap_entry++) {
-		if (smap_entry->type != SMAP_TYPE_MEMORY)
-			continue;
-
-		/* This piece of memory is available; add it */
-		addr_t base = (addr_t)smap_entry->base_hi << 32 | smap_entry->base_lo;
-		size_t len = (size_t)smap_entry->len_hi << 32 | smap_entry->len_lo;
-		base  = (base + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-		len  &= ~(PAGE_SIZE - 1);
-
-		/* See if this chunk collides with our kernel; if it does, add it in 0 .. 2 slices */
-#define MAX_SLICES 2
-		addr_t start[MAX_SLICES], end[MAX_SLICES];
-		kmem_chunk_reserve(base, base + len, kernel_from, kernel_to, &start[0], &end[0]);
-		for (unsigned int n = 0; n < MAX_SLICES; n++) {
-			KASSERT(start[n] <= end[n] && end[n] >= start[n], "invalid start/end pair %p/%p", start[n], end[n]);
-			if (start[n] == end[n])
-				continue;
-			// XXX We should check to make sure we don't go beyond phys_... here
-			phys[phys_idx].addr = start[n];
-			phys[phys_idx].len = end[n] - start[n];
-			if (mem_end < end[n])
-				mem_end = end[n];
-			phys_idx++;
-		}
-#undef MAX_SLICES
-	}
-	KASSERT(phys_idx > 0, "no physical memory chunks");
-
-	/* Dump the physical memory layout as far as we know it */
-	unsigned int mem_size = 0;
-	kprintf("physical memory dump: %d chunk(s)\n", phys_idx);
-	for (int n = 0; n < phys_idx; n++) {
-		struct PHYSMEM_CHUNK* p = &phys[n];
-		kprintf("  chunk %d: %016p-%016p (%u KB)\n",
-		 n, p->addr, p->addr + p->len - 1,
-		 p->len / 1024);
-		mem_size += p->len / 1024;
-	}
-	kprintf("total physical memory present: %d MB\n", mem_size / 1024);
-
-	uint64_t prev_avail = avail;
-	setup_paging(&avail, mem_end, kernel_to - kernel_from);
-
-	/*
-	 * Now add the physical chunks of memory. Note that phys[] isn't up-to-date
-	 * anymore as it will contain things we have used for the page tables - this
-	 * is why we store prev_avail: it's always at the start of a chunk, and we can
-	 * just update the chunk as needed.
-	 */
-	for (int n = 0; n < phys_idx; n++) {
-		struct PHYSMEM_CHUNK* p = &phys[n];
-		if (p->addr == prev_avail) {
-			p->addr = avail;
-			p->len -= avail - prev_avail;
-		}
-		page_zone_add(p->addr, p->len);
+}
 
 #ifdef OPTION_SMP
-		/*
-		 * In the SMP case, ensure we'll prepare allocating memory for the SMP structures
-		 * right after we have memory to do so - we can't bootstrap from memory >1MB
-		 * and this is a handy, though crude way to avoid it.
-		 */
-		if (n == 0)
-			smp_prepare();
+struct PAGE* smp_ap_pages;
+addr_t smp_ap_pagedir;
+
+static void
+smp_init_ap_pagetable()
+{
+	/*
+	 * When booting the AP's, we need to have identity-mapped memory - and this
+	 * does not exist in our normal pages. It's actually easier just to construct
+	 * pagetables similar to what the multiboot stub uses to get us to long mode.
+	 */
+	void* ptr = page_alloc_length_mapped(3 * PAGE_SIZE, &smp_ap_pages, VM_FLAG_READ | VM_FLAG_WRITE);
+
+	addr_t pa = page_get_paddr(smp_ap_pages);
+	uint64_t* pml4 = static_cast<uint64_t*>(ptr);
+	uint64_t* pdpe = reinterpret_cast<uint64_t*>(static_cast<char*>(ptr) + PAGE_SIZE);
+	uint64_t* pde = reinterpret_cast<uint64_t*>(static_cast<char*>(ptr) + PAGE_SIZE * 2);
+	for (unsigned int n = 0; n < 512; n++) {
+		pde[n] = (uint64_t)((addr_t)(n << 21) | PE_PS | PE_RW | PE_P);
+		pdpe[n] = (uint64_t)((addr_t)(pa + PAGE_SIZE * 2) | PE_RW | PE_P);
+		pml4[n] = (uint64_t)((addr_t)(pa + PAGE_SIZE) | PE_RW | PE_P);
+  }
+
+	smp_ap_pagedir = pa;
+}
+
+void
+smp_destroy_ap_pagetable()
+{
+	if (smp_ap_pages != NULL)
+		page_free(smp_ap_pages);
+	smp_ap_pages = NULL;
+	smp_ap_pagedir = 0;
+}
+
+extern "C" void
+smp_ap_startup(struct X86_CPU* cpu)
+{
+	setup_cpu((addr_t)cpu->gdt, (addr_t)cpu->pcpu);
+}
 #endif
-	}
+
+extern "C" void
+md_startup(const struct BOOTINFO* bootinfo_ptr)
+{
+	// Create a sane GDT/IDT so we can handle extensions and such soon
+	setup_descriptors();
+
+	// Ask the PIC to mask everything; we'll initialize when we are ready
+	x86_pic_mask_all();
+
+	/*
+	 * Wire the CPU for operation; this actually sets up more things than we can
+	 * handle at the moment, but we'll cope with this soon.
+	 */
+	setup_cpu((addr_t)&gdt, (addr_t)&bsp_pcpu);
+
+	/*
+	 * Process the boot information passed by the multiboot stub; this ensures
+	 * it cannot be overwritten and tells us where available memory for our
+	 * pagetables is.
+	 */
+	addr_t avail;
+	char* boot_args;
+	setup_bootinfo(bootinfo_ptr, avail, boot_args);
+	kprintf("avail = %p\n", avail);
+
+	// Initialize our memory mappings
+	setup_memory(avail);
 
 	/* We have memory - initialize our VM */
 	vm_init();
@@ -644,7 +650,7 @@ extern void* bootstrap_stack;
 		x86_pic_init();
 	}
 
-	/* Initialize the PIT */
+	// Initialize the PIT
 	x86_pit_init();
 
 	/*
@@ -653,11 +659,12 @@ extern void* bootstrap_stack;
 	 */
 	md_interrupts_enable();
 
-	/* Find out how quick the CPU is; this requires interrupts and will be needed for delay() */
+	// Find out how quick the CPU is; this requires interrupts and will be needed for delay()
 	md_cpu_clock_mhz = x86_pit_calc_cpuspeed_mhz();
 
-	/* All done - it's up to the machine-independant code now */
+	// All done - it's up to the machine-independant code now
 	mi_startup();
+	/* NOTREACHED */
 }
 
 /* vim:set ts=2 sw=2: */
