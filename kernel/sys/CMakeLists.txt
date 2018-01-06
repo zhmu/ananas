@@ -1,0 +1,24 @@
+add_sources(
+	chdir.cpp
+	clock.cpp
+	clone.cpp
+	close.cpp
+	dupfd.cpp
+	execve.cpp
+	exit.cpp
+	fchdir.cpp
+	fcntl.cpp
+	fstat.cpp
+	link.cpp
+	open.cpp
+	read.cpp
+	rename.cpp
+	seek.cpp
+	stat.cpp
+	support.cpp
+	unlink.cpp
+	utime.cpp
+	vmop.cpp
+	waitpid.cpp
+	write.cpp
+)

@@ -1,0 +1,10 @@
+if(FS_ANKHFS)
+	add_sources(
+		ankhfs-root.cpp
+		ankhfs-proc.cpp
+		ankhfs-support.cpp
+		ankhfs-filesystem.cpp
+		ankhfs-device.cpp
+		ankhfs-vfs-glue.cpp
+	)
+endif()

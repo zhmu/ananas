@@ -1,0 +1,34 @@
+add_sources(
+	bio.cpp
+	cmdline.cpp
+	console.cpp
+	coredump.cpp
+	device.cpp
+	devicemanager.cpp
+	disk_mbr.cpp
+	disk_slice.cpp
+	dlmalloc.cpp
+	dma.cpp
+	driver.cpp
+	drivermanager.cpp
+	elf.cpp
+	exec.cpp
+	handle.cpp
+	init-userland.cpp
+	init.cpp
+	irq.cpp
+	kmem.cpp
+	lock.cpp
+	mm.cpp
+	page.cpp
+	pcpu.cpp
+	process.cpp
+	reaper.cpp
+	resourceset.cpp
+	scheduler.cpp
+	syscall.cpp
+	thread.cpp
+	time.cpp
+	trace.cpp
+	tty.cpp
+)
