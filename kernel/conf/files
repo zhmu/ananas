@@ -24,7 +24,6 @@ kern/handle.cpp		mandatory
 kern/time.cpp		mandatory
 kern/tty.cpp		mandatory
 kern/trace.cpp		mandatory
-kern/pipe-handle.cpp	option PIPE
 gdb/gdb-stub.cpp	option GDB
 dev/generic/corebus.cpp	mandatory
 # block I/O
