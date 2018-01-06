@@ -91,3 +91,9 @@ END
 
 # build the runtime linker so we can run shared library things
 build rtld lib/rtld
+
+# build the multiboot stub so we can make something bootable
+build multiboot-stub multiboot-stub
+
+# build the kernel
+build kernel kernel
