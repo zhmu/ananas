@@ -22,3 +22,6 @@ set(SOURCES
 )
 
 add_executable(mbstub ${SOURCES})
+
+set_target_properties(mbstub PROPERTIES OUTPUT_NAME "mbstub.bin")
+install(TARGETS mbstub DESTINATION lib)
