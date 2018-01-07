@@ -83,11 +83,14 @@ set_target_properties(kernel_elf PROPERTIES OUTPUT_NAME "kernel.elf")
 
 # add a custom target that combines the multiboot stub to get a bootable kernel
 # XXX this will only work on unix-like systems
-add_custom_target(kernel_bin ALL
+add_custom_command(
+	OUTPUT kernel
 	COMMENT "Creating kernel binary"
+	DEPENDS kernel_elf
 	COMMAND cat ${CMAKE_SYSROOT}/lib/mbstub.bin ${CMAKE_CURRENT_BINARY_DIR}/kernel.elf > ${CMAKE_CURRENT_BINARY_DIR}/kernel
 )
-add_dependencies(kernel_bin kernel_elf)
+add_custom_target(kernel_bin DEPENDS kernel)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/kernel DESTINATION .)
 
 # prepare our include directories: we will copy what we need to keep things as
 # clean as possible
