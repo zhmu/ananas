@@ -60,6 +60,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/fcntl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/getpriority.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/sigsuspend.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/times.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/dl_iterate_phdr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/fchown.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/getgroups.c
