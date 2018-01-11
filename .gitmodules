@@ -1,0 +1,6 @@
+[submodule "external/dash"]
+	path = external/dash
+	url = https://github.com/zhmu/ananas-dash.git
+[submodule "external/coreutils"]
+	path = external/coreutils
+	url = https://github.com/zhmu/ananas-coreutils.git
