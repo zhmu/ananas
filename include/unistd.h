@@ -83,7 +83,8 @@ extern char* optarg;
 
 extern char** environ;
 
-#define _SC_PAGESIZE 1000
+#define _SC_PAGESIZE	1000
+#define _SC_CLK_TCK	1001
 long	sysconf(int name);
 
 /* legacy interfaces - should be nuked sometime */
