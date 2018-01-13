@@ -1,7 +1,7 @@
 #ifndef __IRQ_H__
 #define __IRQ_H__
 
-#include "kernel/list.h"
+#include <ananas/util/list.h>
 #include "kernel/thread.h"
 
 namespace Ananas {
@@ -23,7 +23,7 @@ typedef IRQResult (*irqfunc_t)(Ananas::Device*, void*);
  * [ is_first .. is_first + is_count ]. Callbacks are always issued using the
  * relative interrupt number, i.e. using [ 0 .. is_count ].
  */
-struct IRQSource
+struct IRQSource : util::List<IRQSource>::NodePtr
 {
 	IRQSource(unsigned int first, unsigned int count)
 	 : is_first(first), is_count(count)
@@ -35,8 +35,6 @@ struct IRQSource
 	/* Number of interrupts handled */
 	unsigned int	is_count;
 
-	LIST_FIELDS(IRQSource);
-
 	/* Mask a given interrupt */
 	virtual void	Mask(int) = 0;
 	/* Unmask a given interrupt */
@@ -44,7 +42,7 @@ struct IRQSource
 	/* Acknowledge a given interrupt */
 	virtual void	Acknowledge(int) = 0;
 };
-LIST_DEFINE(IRQ_SOURCES, IRQSource);
+typedef util::List<IRQSource> IRQSourceList;
 
 #define IRQ_MAX_HANDLERS 4
 

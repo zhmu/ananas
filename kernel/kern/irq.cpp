@@ -13,7 +13,7 @@
 TRACE_SETUP;
 
 static struct IRQ irq[MAX_IRQS];
-static struct IRQ_SOURCES irq_sources;
+static IRQSourceList irq_sources;
 static spinlock_t spl_irq = SPINLOCK_DEFAULT_INIT;
 
 /* Number of stray IRQ's that occur before reporting stops */
@@ -29,10 +29,10 @@ irqsource_register(IRQSource& source)
 	KASSERT(source.is_first + source.is_count < MAX_IRQS, "can't register beyond MAX_IRQS range");
 
 	/* Ensure there will not be an overlap */
-	LIST_FOREACH(&irq_sources, is, IRQSource) {
-		KASSERT(source.is_first + source.is_count < is->is_first || is->is_first + is->is_count < source.is_first, "overlap in interrupt ranges (have %u-%u, attempt to add %u-%u)", is->is_first, is->is_first + is->is_count, source.is_first, source.is_first + source.is_count);
+	for(auto& is: irq_sources) {
+		KASSERT(source.is_first + source.is_count < is.is_first || is.is_first + is.is_count < source.is_first, "overlap in interrupt ranges (have %u-%u, attempt to add %u-%u)", is.is_first, is.is_first + is.is_count, source.is_first, source.is_first + source.is_count);
 	}
-	LIST_APPEND(&irq_sources, &source);
+	irq_sources.push_back(source);
 
 	/* Hook all IRQ's to this source - this saves having to look things up later */
 	for(unsigned int n = 0; n < source.is_count; n++) {
@@ -50,11 +50,11 @@ irqsource_unregister(IRQSource& source)
 {
 	register_t state = spinlock_lock_unpremptible(&spl_irq);
 
-	KASSERT(!LIST_EMPTY(&irq_sources), "no irq sources registered");
+	KASSERT(!irq_sources.empty(), "no irq sources registered");
 	/* Ensure our source is registered */
 	int matches = 0;
-	LIST_FOREACH(&irq_sources, is, IRQSource) {
-		if (is != &source)
+	for(const auto& is: irq_sources) {
+		if (&is != &source)
 			continue;
 		matches++;
 	}
@@ -69,7 +69,7 @@ irqsource_unregister(IRQSource& source)
 			KASSERT(irq[i].i_handler[n].h_func == NULL, "irq %u still registered to this source", i);
 	}
 
-	LIST_REMOVE(&irq_sources, &source);
+	irq_sources.remove(source);
 	spinlock_unlock_unpremptible(&spl_irq, state);
 }
 
@@ -101,15 +101,15 @@ ithread(void* context)
 }
 
 /* Must be called with spl_irq held */
-static struct IRQSource*
+static IRQSource*
 irqsource_find(unsigned int num)
 {
-	LIST_FOREACH(&irq_sources, is, IRQSource) {
-		if (num < is->is_first || num >= is->is_first + is->is_count)
+	for(auto& is: irq_sources) {
+		if (num < is.is_first || num >= is.is_first + is.is_count)
 			continue;
-		return is;
+		return &is;
 	}
-	return NULL;
+	return nullptr;
 }
 
 errorcode_t
@@ -290,8 +290,8 @@ KDB_COMMAND(irq, NULL, "Display IRQ status")
 {
 	/* Note: no need to grab locks as the debugger runs with interrupts disabled */
 	kprintf("Registered IRQ sources:\n");
-	LIST_FOREACH(&irq_sources, is, IRQSource) {
-		kprintf(" IRQ %d..%d\n", is->is_first, is->is_first + is->is_count);
+	for(const auto& is: irq_sources) {
+		kprintf(" IRQ %d..%d\n", is.is_first, is.is_first + is.is_count);
 	}
 
 	kprintf("IRQ handlers:\n");
