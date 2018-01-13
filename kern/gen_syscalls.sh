@@ -32,6 +32,7 @@ $AWK '
 		NR=$1
 		FUNCNAME=substr($4, 1, index($4, "(") - 1)
 		print ".globl sys_" FUNCNAME
+		print ".type sys_" FUNCNAME",@function"
 		print "sys_" FUNCNAME ":"
 		print "\tSYSCALL(" NR ")"
 	}
