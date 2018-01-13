@@ -39,6 +39,7 @@ extern int * _PDCLIB_errno_func( void );
 #define ECONNRESET      _PDCLIB_ECONNRESET
 #define EDEADLK         _PDCLIB_EDEADLK
 #define EDESTADDRREQ    _PDCLIB_EDESTADDRREQ
+#define EDQUOT          _PDCLIB_EDQUOT
 #define EEXIST          _PDCLIB_EEXIST
 #define EFAULT          _PDCLIB_EFAULT
 #define EFBIG           _PDCLIB_EFBIG
@@ -92,6 +93,7 @@ extern int * _PDCLIB_errno_func( void );
 #define EROFS           _PDCLIB_EROFS
 #define ESPIPE          _PDCLIB_ESPIPE
 #define ESRCH           _PDCLIB_ESRCH
+#define ESTALE          _PDCLIB_ESTALE
 #define ETIME           _PDCLIB_ETIME
 #define ETIMEDOUT       _PDCLIB_ETIMEDOUT
 #define ETXTBSY         _PDCLIB_ETXTBSY

@@ -256,7 +256,7 @@ struct _PDCLIB_imaxdiv_t
    signifies indeterminable behaviour, any other value implementation-specific
    behaviour.
 */
-#define _PDCLIB_FLT_EVAL_METHOD -1
+/* #undef _PDCLIB_FLT_EVAL_METHOD */
 
 /* "Number of the decimal digits (n), such that any floating-point number in the
    widest supported floating type with p(max) radix (b) digits can be rounded to
@@ -424,6 +424,7 @@ typedef __builtin_va_list _PDCLIB_va_list;
 #define _PDCLIB_EDEADLK           35
 #define _PDCLIB_EDESTADDRREQ      89
 #define _PDCLIB_EDOM              33
+#define _PDCLIB_EDQUOT           122
 #define _PDCLIB_EEXIST            17
 #define _PDCLIB_EFAULT            14
 #define _PDCLIB_EFBIG             27
@@ -479,6 +480,7 @@ typedef __builtin_va_list _PDCLIB_va_list;
 #define _PDCLIB_EROFS             30
 #define _PDCLIB_ESPIPE            29
 #define _PDCLIB_ESRCH              3
+#define _PDCLIB_ESTALE           116
 #define _PDCLIB_ETIME             62
 #define _PDCLIB_ETIMEDOUT        110
 #define _PDCLIB_ETXTBSY           26
