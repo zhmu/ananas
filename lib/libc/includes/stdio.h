@@ -690,7 +690,7 @@ int getc( FILE * stream ) _PDCLIB_nothrow;
 /* Equivalent to fgetc( stdin ). */
 int getchar( void ) _PDCLIB_nothrow;
 
-#if _PDCLIB_C_MAX(1999)
+//#if _PDCLIB_C_MAX(1999)
 /* Read characters from given stream into the array s, stopping at \n or EOF.
    The string read is terminated with \0. Returns s if successful. If EOF is
    encountered before any characters are read, the contents of s are unchanged,
@@ -700,8 +700,8 @@ int getchar( void ) _PDCLIB_nothrow;
    This function is dangerous and has been a great source of security
    vulnerabilities. Do not use it. It was removed by C11.
 */
-char * gets( char * s ) _PDCLIB_DEPRECATED _PDCLIB_nothrow;
-#endif
+char * gets( char * s ) _PDCLIB_nothrow;
+//#endif
 
 /* Equivalent to fputc( c, stream ), but may be overloaded by a macro that
    evaluates its parameter more than once.
