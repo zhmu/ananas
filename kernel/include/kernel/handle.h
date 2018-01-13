@@ -1,9 +1,9 @@
 #ifndef __SYS_HANDLE_H__
 #define __SYS_HANDLE_H__
 
+#include <ananas/util/list.h>
 #include "kernel/cbuffer.h"
 #include "kernel/lock.h"
-#include "kernel/list.h"
 #include "kernel/vfs/types.h"
 
 typedef unsigned int handle_event_t;
@@ -42,13 +42,12 @@ struct HANDLE_PIPE_INFO {
 	struct HANDLE* hpi_handle;
 };
 
-struct HANDLE {
+struct HANDLE : util::List<HANDLE>::NodePtr {
 	int h_type;				/* one of HANDLE_TYPE_... */
 	int h_flags;				/* flags */
 	process_t* h_process;			/* owning process */
 	mutex_t h_mutex;			/* mutex guarding the handle */
 	struct HANDLE_OPS* h_hops;		/* handle operations */
-	LIST_FIELDS(struct HANDLE);		/* used for the queue structure */
 
 	/* Waiters are those who are waiting on this handle */
 	union {
@@ -57,7 +56,7 @@ struct HANDLE {
 	} h_data;
 };
 
-LIST_DEFINE(HANDLE_QUEUE, struct HANDLE);
+typedef util::List<HANDLE> HandleList;
 
 /*
  * Handle operations map almost directly to the syscalls invoked on them.
@@ -83,13 +82,16 @@ struct HANDLE_OPS {
 };
 
 /* Registration of handle types */
-struct HANDLE_TYPE {
+struct HandleType : util::List<HandleType>::NodePtr {
+	HandleType(const char* name, int id, struct HANDLE_OPS* hops)
+	 : ht_name(name), ht_id(id), ht_hops(hops)
+	{
+	}
 	const char* ht_name;
 	int ht_id;
 	struct HANDLE_OPS* ht_hops;
-	LIST_FIELDS(struct HANDLE_TYPE);
 };
-LIST_DEFINE(HANDLE_TYPES, struct HANDLE_TYPE);
+typedef util::List<HandleType> HandleTypeList;
 
 void handle_init();
 errorcode_t handle_alloc(int type, process_t* p, handleindex_t index_from, struct HANDLE** handle_out, handleindex_t* index_out);
@@ -100,22 +102,18 @@ errorcode_t handle_clone(process_t* p_in, handleindex_t index, struct CLONE_OPTI
 
 /* Only to be used from handle implementation code */
 errorcode_t handle_clone_generic(struct HANDLE* handle, process_t* p_out, struct HANDLE** out, handleindex_t index_out_min, handleindex_t* index);
-errorcode_t handle_register_type(struct HANDLE_TYPE* ht);
-errorcode_t handle_unregister_type(struct HANDLE_TYPE* ht);
+errorcode_t handle_register_type(HandleType& ht);
+errorcode_t handle_unregister_type(HandleType& ht);
 
 #define HANDLE_TYPE(id, name, ops) \
-	static struct HANDLE_TYPE ht_##id = { \
-		.ht_name = name, \
-		.ht_id = id, \
-		.ht_hops = &ops \
-	}; \
+	static HandleType ht_##id(name, id, &ops); \
 	static errorcode_t register_##id() { \
-		return handle_register_type(&ht_##id); \
+		return handle_register_type(ht_##id); \
 	}; \
 	static errorcode_t unregister_##id() { \
-		return handle_unregister_type(&ht_##id); \
+		return handle_unregister_type(ht_##id); \
 	}; \
 	INIT_FUNCTION(register_##id, SUBSYSTEM_HANDLE, ORDER_SECOND); \
 	EXIT_FUNCTION(unregister_##id)
-	
+
 #endif /* __SYS_HANDLE_H__ */

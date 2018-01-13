@@ -13,9 +13,9 @@ TRACE_SETUP;
 
 #define NUM_HANDLES 500 /* XXX shouldn't be static */
 
-static struct HANDLE_QUEUE handle_freelist;
+static HandleList handle_freelist;
 static spinlock_t spl_handlequeue;
-static struct HANDLE_TYPES handle_types;
+static HandleTypeList handle_types;
 static spinlock_t spl_handletypes;
 
 void
@@ -23,16 +23,14 @@ handle_init()
 {
 	spinlock_init(&spl_handlequeue);
 	spinlock_init(&spl_handletypes);
-	LIST_INIT(&handle_types);
 
 	auto pool = new HANDLE[NUM_HANDLES];
 	memset(pool, 0, sizeof(struct HANDLE) * NUM_HANDLES);
 
 	/* Add all handles to the queue one by one */
-	LIST_INIT(&handle_freelist);
 	for (unsigned int i = 0; i < NUM_HANDLES; i++) {
 		struct HANDLE* h = &pool[i];
-		LIST_APPEND(&handle_freelist, h);
+		handle_freelist.push_back(*h);
 	}
 }
 
@@ -42,26 +40,26 @@ handle_alloc(int type, process_t* proc, handleindex_t index_from, struct HANDLE*
 	KASSERT(proc != NULL, "handle_alloc() without process");
 
 	/* Look up the handle type XXX O(n) */
-	struct HANDLE_TYPE* htype = NULL;
+	HandleType* htype = nullptr;
 	spinlock_lock(&spl_handletypes);
-	LIST_FOREACH(&handle_types, ht, struct HANDLE_TYPE) {
-		if (ht->ht_id != type)
+	for(auto& ht: handle_types) {
+		if (ht.ht_id != type)
 			continue;
-		htype = ht;
+		htype = &ht;
 		break;
 	}
 	spinlock_unlock(&spl_handletypes);
-	if (htype == NULL)
+	if (htype == nullptr)
 		return ANANAS_ERROR(BAD_TYPE);
 
 	/* Grab a handle from the pool */
 	spinlock_lock(&spl_handlequeue);
-	if (LIST_EMPTY(&handle_freelist)) {
+	if (handle_freelist.empty()) {
 		/* XXX should we wait for a new handle, or just give an error? */
 		panic("out of handles");
 	}
-	struct HANDLE* handle = LIST_HEAD(&handle_freelist);
-	LIST_POP_HEAD(&handle_freelist);
+	struct HANDLE* handle = &handle_freelist.front();
+	handle_freelist.pop_front();
 	spinlock_unlock(&spl_handlequeue);
 
 	/* Sanity checks */
@@ -160,7 +158,7 @@ handle_free(struct HANDLE* handle)
 
 	/* Hand it back to the the pool */
 	spinlock_lock(&spl_handlequeue);
-	LIST_APPEND(&handle_freelist, handle);
+	handle_freelist.push_back(*handle);
 	spinlock_unlock(&spl_handlequeue);
 	return ananas_success();
 }
@@ -203,19 +201,19 @@ handle_clone(process_t* proc_in, handleindex_t index, struct CLONE_OPTIONS* opts
 }
 
 errorcode_t
-handle_register_type(struct HANDLE_TYPE* ht)
+handle_register_type(HandleType& ht)
 {
 	spinlock_lock(&spl_handletypes);
-	LIST_APPEND(&handle_types, ht);
+	handle_types.push_back(ht);
 	spinlock_unlock(&spl_handletypes);
 	return ananas_success();
 }
 
 errorcode_t
-handle_unregister_type(struct HANDLE_TYPE* ht)
+handle_unregister_type(HandleType& ht)
 {
 	spinlock_lock(&spl_handletypes);
-	LIST_REMOVE(&handle_types, ht);
+	handle_types.remove(ht);
 	spinlock_unlock(&spl_handletypes);
 	return ananas_success();
 }
