@@ -42,7 +42,7 @@ struct VFS_INODE {
 	void*		i_privdata;		/* Filesystem-specific data */
 	ino_t		i_inum;			/* Inode number */
 
-	struct VM_PAGE_LIST	i_pages;	/* Backing VM pages, if any */
+	VMPageList	i_pages;		/* Backing VM pages, if any */
 };
 
 /*

@@ -42,7 +42,7 @@ read_data(struct DENTRY* dentry, void* buf, off_t offset, size_t len)
 
 #ifdef __amd64__
 static errorcode_t
-elf64_load_ph(vmspace_t* vs, struct DENTRY* dentry, const Elf64_Phdr& phdr, addr_t rbase)
+elf64_load_ph(VMSpace& vs, struct DENTRY* dentry, const Elf64_Phdr& phdr, addr_t rbase)
 {
 	/* Construct the flags for the actual mapping */
 	unsigned int flags = VM_FLAG_FAULT | VM_FLAG_USER;
@@ -78,7 +78,7 @@ elf64_load_ph(vmspace_t* vs, struct DENTRY* dentry, const Elf64_Phdr& phdr, addr
 	 *           /             |
 	 *       virt_begin    ROUND_UP(v_addr + filesz)
 	 */
-	vmarea_t* va;
+	VMArea* va;
 	addr_t virt_begin = ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE);
 	addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_filesz), PAGE_SIZE);
 	addr_t virt_extra = phdr.p_vaddr - virt_begin;
@@ -90,7 +90,7 @@ elf64_load_ph(vmspace_t* vs, struct DENTRY* dentry, const Elf64_Phdr& phdr, addr
 	}
 
 	// First step is to map the dentry-backed data
-	errorcode_t err = vmspace_mapto_dentry(vs, rbase + virt_begin, virt_end - virt_begin, dentry, doffset, filesz, flags, &va);
+	errorcode_t err = vmspace_mapto_dentry(vs, rbase + virt_begin, virt_end - virt_begin, dentry, doffset, filesz, flags, va);
 	ANANAS_ERROR_RETURN(err);
 	if (phdr.p_filesz == phdr.p_memsz)
 		return ananas_success();
@@ -100,7 +100,7 @@ elf64_load_ph(vmspace_t* vs, struct DENTRY* dentry, const Elf64_Phdr& phdr, addr
 	addr_t v_extra_len = ROUND_UP(phdr.p_vaddr + phdr.p_memsz - v_extra, PAGE_SIZE);
 	if (v_extra_len == 0)
 		return ananas_success();
-	return vmspace_mapto(vs, rbase + v_extra, v_extra_len, flags, &va);
+	return vmspace_mapto(vs, rbase + v_extra, v_extra_len, flags, va);
 }
 
 static errorcode_t
@@ -131,7 +131,7 @@ elf64_check_header(const Elf64_Ehdr& ehdr)
 }
 
 static errorcode_t
-elf64_load_file(vmspace_t* vs, struct DENTRY* dentry, addr_t rbase, addr_t* exec_addr)
+elf64_load_file(VMSpace& vs, struct DENTRY* dentry, addr_t rbase, addr_t* exec_addr)
 {
 	errorcode_t err;
 	Elf64_Ehdr ehdr;
@@ -159,7 +159,7 @@ elf64_load_file(vmspace_t* vs, struct DENTRY* dentry, addr_t rbase, addr_t* exec
 }
 
 static errorcode_t
-elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* exec_arg)
+elf64_load(VMSpace& vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* exec_arg)
 {
 	*exec_arg = 0;
 
@@ -233,10 +233,10 @@ elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* 
 		* XXX Note that _we_ can't use the mappings here because vs is likely not
 		*     our current vmspace...
 		*/
-		vmarea_t* va_phdr;
+		VMArea* va_phdr;
 		{
 			size_t phdr_len = ehdr.e_phnum * ehdr.e_phentsize;
-			err = vmspace_mapto_dentry(vs, PHDR_BASE, phdr_len, dentry, ehdr.e_phoff & ~(PAGE_SIZE - 1), phdr_len, VM_FLAG_READ | VM_FLAG_USER, &va_phdr);
+			err = vmspace_mapto_dentry(vs, PHDR_BASE, phdr_len, dentry, ehdr.e_phoff & ~(PAGE_SIZE - 1), phdr_len, VM_FLAG_READ | VM_FLAG_USER, va_phdr);
 			ANANAS_ERROR_RETURN(err);
 		}
 
@@ -247,16 +247,16 @@ elf64_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* 
 		 */
 
 		// Create a mapping for the ELF information
-		vmarea_t* va;
-		err = vmspace_mapto(vs, ELFINFO_BASE, sizeof(struct ANANAS_ELF_INFO), VM_FLAG_READ | VM_FLAG_USER, &va);
+		VMArea* va;
+		err = vmspace_mapto(vs, ELFINFO_BASE, sizeof(struct ANANAS_ELF_INFO), VM_FLAG_READ | VM_FLAG_USER, va);
 		ANANAS_ERROR_RETURN(err);
 		*exec_arg = va->va_virt;
 
 		// Now assign a page to there and map it into the vmspae
-		struct VM_PAGE* vp = vmpage_create_private(va, VM_PAGE_FLAG_PRIVATE | VM_PAGE_FLAG_READONLY);
-		vp->vp_vaddr = ELFINFO_BASE;
+		VMPage& vp = vmpage_create_private(va, VM_PAGE_FLAG_PRIVATE | VM_PAGE_FLAG_READONLY);
+		vp.vp_vaddr = ELFINFO_BASE;
 		auto elf_info = static_cast<struct ANANAS_ELF_INFO*>(kmem_map(page_get_paddr(vmpage_get_page(vp)), sizeof(struct ANANAS_ELF_INFO), VM_FLAG_READ | VM_FLAG_WRITE));
-		vmpage_map(vs, va, vp);
+		vmpage_map(vs, *va, vp);
 		vmpage_unlock(vp);
 
 		// And fill it out

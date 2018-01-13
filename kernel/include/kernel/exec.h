@@ -7,8 +7,9 @@
 #include "kernel/list.h"
 
 struct DENTRY;
+class VMSpace;
 
-typedef errorcode_t (*exec_handler_t)(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* exec_arg);
+typedef errorcode_t (*exec_handler_t)(VMSpace& vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* exec_arg);
 
 /*
  * Define an executable format.
@@ -39,7 +40,7 @@ LIST_DEFINE(EXEC_FORMATS, struct EXEC_FORMAT);
 	INIT_FUNCTION(register_##handler, SUBSYSTEM_THREAD, ORDER_MIDDLE); \
 	EXIT_FUNCTION(unregister_##handler);
 
-errorcode_t exec_load(vmspace_t* vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* exec_arg);
+errorcode_t exec_load(VMSpace& vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* exec_arg);
 errorcode_t exec_register_format(struct EXEC_FORMAT* ef);
 errorcode_t exec_unregister_format(struct EXEC_FORMAT* ef);
 

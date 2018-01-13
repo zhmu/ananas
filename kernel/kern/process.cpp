@@ -59,13 +59,16 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 	LIST_INIT(&p->p_children);
 
 	/* Create the process's vmspace */
-	err = vmspace_create(&p->p_vmspace);
-	if (ananas_is_failure(err))
-		goto fail;
+	err = vmspace_create(p->p_vmspace);
+	if (ananas_is_failure(err)) {
+		kfree(p);
+		return err;
+	}
+	VMSpace& vs = *p->p_vmspace;
 
 	// Map a process info structure so everything beloning to this process can use it
-	vmarea_t* va;
-	err = vmspace_map(p->p_vmspace, sizeof(struct PROCINFO), VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_NO_CLONE, &va);
+	VMArea* va;
+	err = vmspace_map(vs, sizeof(struct PROCINFO), VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_NO_CLONE, va);
 	if (ananas_is_failure(err))
 		goto fail;
 	p->p_info_va = va->va_virt;
@@ -73,10 +76,10 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 	// Now hook the process info structure up to it
 	{
 		// XXX we should have a separate vmpage_create_...() for this that sets vp_vaddr
-		struct VM_PAGE* vp = vmpage_create_private(va, 0);
-		vp->vp_vaddr = va->va_virt;
+		VMPage& vp = vmpage_create_private(va, 0);
+		vp.vp_vaddr = va->va_virt;
 		p->p_info = static_cast<struct PROCINFO*>(kmem_map(page_get_paddr(vmpage_get_page(vp)), sizeof(struct PROCINFO), VM_FLAG_READ | VM_FLAG_WRITE));
-		vmpage_map(p->p_vmspace, va, vp);
+		vmpage_map(vs, *va, vp);
 		vmpage_unlock(vp);
 	}
 
@@ -124,8 +127,7 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 	return ananas_success();
 
 fail:
-	if (p->p_vmspace != NULL)
-		vmspace_destroy(p->p_vmspace);
+	vmspace_destroy(*p->p_vmspace);
 	kfree(p);
 	return err;
 }
@@ -145,7 +147,7 @@ process_clone(process_t* p, int flags, process_t** out_p)
 	ANANAS_ERROR_RETURN(err);
 
 	/* Duplicate the vmspace - this should leave the private mappings alone */
-	err = vmspace_clone(p->p_vmspace, newp->p_vmspace, 0);
+	err = vmspace_clone(*p->p_vmspace, *newp->p_vmspace, 0);
 	if (ananas_is_failure(err))
 		goto fail;
 
@@ -170,7 +172,7 @@ process_destroy(process_t* p)
 		handle_free_byindex(p, n);
 
 	/* Clean the process's vmspace up - this will remove all non-essential mappings */
-	vmspace_cleanup(p->p_vmspace);
+	vmspace_cleanup(*p->p_vmspace);
 
 	/* Remove the process from the all-process list */
 	mutex_lock(&Ananas::Process::process_mtx);
@@ -335,14 +337,14 @@ INIT_FUNCTION(process_init, SUBSYSTEM_PROCESS, ORDER_FIRST);
 
 #ifdef OPTION_KDB
 
-extern void vmspace_dump(vmspace_t*);
+void vmspace_dump(VMSpace&);
 
 KDB_COMMAND(ps, "[s:flags]", "Displays all processes")
 {
 	mutex_lock(&Ananas::Process::process_mtx);
 	LIST_FOREACH_IP(&Ananas::Process::process_all, all, p, struct PROCESS) {
 		kprintf("process %d (%p): state %d\n", p->p_pid, p, p->p_state);
-		vmspace_dump(p->p_vmspace);
+		vmspace_dump(*p->p_vmspace);
 	}
 	mutex_unlock(&Ananas::Process::process_mtx);
 }

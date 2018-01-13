@@ -66,7 +66,7 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	vfs_close(&file);
 
 	/* XXX Do we inherit correctly here? */
-	vmspace_t* vmspace = NULL;
+	VMSpace* vmspace = NULL;
 	if (argv != NULL) {
 		err = set_proc_attribute(proc, A_Args, argv);
 		if (ananas_is_failure(err)) {
@@ -86,7 +86,7 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	 * Create a new vmspace to execute in; if the exec() works, we'll use it to
 	 * override our current vmspace.
 	 */
-	err = vmspace_create(&vmspace);
+	err = vmspace_create(vmspace);
 	if (ananas_is_failure(err)) {
 		dentry_deref(dentry);
 		goto fail;
@@ -99,7 +99,7 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	 */
 	addr_t exec_addr;
 	register_t exec_arg;
-	err = exec_load(vmspace, dentry, &exec_addr, &exec_arg);
+	err = exec_load(*vmspace, dentry, &exec_addr, &exec_arg);
 	dentry_deref(dentry);
 	if (ananas_is_failure(err))
 		goto fail;
@@ -112,17 +112,17 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 		thread_set_name(t, argv[0]);
 
 	/* Copy the new vmspace to the destination */
-	err = vmspace_clone(vmspace, proc->p_vmspace, VMSPACE_CLONE_EXEC);
+	err = vmspace_clone(*vmspace, *proc->p_vmspace, VMSPACE_CLONE_EXEC);
 	KASSERT(ananas_is_success(err), "unable to clone exec vmspace: %d", err);
-	vmspace_destroy(vmspace);
+	vmspace_destroy(*vmspace);
 
 	/* Now force a full return into the new thread state */
 	md_setup_post_exec(t, exec_addr, exec_arg);
 	return ananas_success();
 
 fail:
-	if (vmspace != NULL)
-		vmspace_destroy(vmspace);
+	if (vmspace != nullptr)
+		vmspace_destroy(*vmspace);
 	return err;
 }
 

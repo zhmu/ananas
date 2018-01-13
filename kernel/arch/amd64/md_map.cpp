@@ -13,7 +13,7 @@
 extern uint64_t* kernel_pagedir;
 
 static addr_t
-get_nextpage(vmspace_t* vs, uint64_t page_flags)
+get_nextpage(VMSpace* vs, uint64_t page_flags)
 {
 	KASSERT(vs != NULL, "unmapped page while mapping kernel pages?");
 	struct PAGE* p = page_alloc_single();
@@ -41,7 +41,7 @@ pt_resolve_addr(uint64_t entry)
 }
 
 void
-md_map_pages(vmspace_t* vs, addr_t virt, addr_t phys, size_t num_pages, int flags)
+md_map_pages(VMSpace* vs, addr_t virt, addr_t phys, size_t num_pages, int flags)
 {
 	/* Flags for the mapped pages themselves */
 	uint64_t pt_flags = 0;
@@ -99,7 +99,7 @@ md_map_pages(vmspace_t* vs, addr_t virt, addr_t phys, size_t num_pages, int flag
 }
 
 void
-md_unmap_pages(vmspace_t* vs, addr_t virt, size_t num_pages)
+md_unmap_pages(VMSpace* vs, addr_t virt, size_t num_pages)
 {
 	thread_t* curthread = PCPU_GET(curthread);
 	int is_cur_vmspace = curthread->t_process != NULL && curthread->t_process->p_vmspace == vs;
@@ -154,10 +154,10 @@ vm_init()
 }
 
 void
-md_map_kernel(vmspace_t* vs)
+md_map_kernel(VMSpace& vs)
 {
 	/* We can just copy the entire kernel pagemap over; it's shared with everything else */
-	memcpy(vs->vs_md_pagedir, kernel_pagedir, PAGE_SIZE);
+	memcpy(vs.vs_md_pagedir, kernel_pagedir, PAGE_SIZE);
 }
 
 /* vim:set ts=2 sw=2: */

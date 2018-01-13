@@ -313,7 +313,7 @@ vfs_dump_inode(struct VFS_INODE* inode)
 	kprintf("  uid/gid = %u:%u\n", sb->st_uid, sb->st_gid);
 	kprintf("  size    = %u\n", (uint32_t)sb->st_size); /* XXX for now */
 	kprintf("  blksize = %u\n", sb->st_blksize);
-	LIST_FOREACH(&inode->i_pages, vp, struct VM_PAGE) {
+	for(const auto& vp: inode->i_pages) {
 		vmpage_dump(vp, "    ");
 	}
 }

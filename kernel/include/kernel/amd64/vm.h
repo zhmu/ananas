@@ -114,14 +114,16 @@
 
 #ifndef ASM
 
+class VMSpace;
+
 /* Maps relevant kernel addresses for a given thread */
-void md_map_kernel(vmspace_t* vs);
+void md_map_kernel(VMSpace& vs);
 
 /* Maps 'num_pages' at physical address 'phys' to virtual address 'virt' for vmspace 'vs' with flags 'flags' */
-void md_map_pages(vmspace_t* vs, addr_t virt, addr_t phys, size_t num_pages, int flags);
+void md_map_pages(VMSpace* vs, addr_t virt, addr_t phys, size_t num_pages, int flags);
 
 /* Unmaps 'num_pages' at virtual address virt for vmspace 'vs' */
-void md_unmap_pages(vmspace_t* vs, addr_t virt, size_t num_pages);
+void md_unmap_pages(VMSpace* vs, addr_t virt, size_t num_pages);
 
 #endif
 

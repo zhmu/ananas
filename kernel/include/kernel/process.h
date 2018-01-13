@@ -7,6 +7,7 @@
 
 struct DENTRY;
 struct PROCINFO;
+class VMSpace;
 
 #define PROCESS_STATE_ACTIVE	1
 #define PROCESS_STATE_ZOMBIE	2
@@ -24,7 +25,7 @@ struct PROCESS {
 	int	p_exit_status;		/* Exit status / code */
 
 	struct PROCESS* p_parent;	/* Parent process, if any */
-	struct VM_SPACE* p_vmspace;	/* Process memory space */
+	VMSpace*	p_vmspace;	/* Process memory space */
 
 	struct PROCINFO* p_info;	/* Process startup information */
 	addr_t p_info_va;

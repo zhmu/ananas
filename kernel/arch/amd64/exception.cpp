@@ -130,7 +130,7 @@ exception_pf(struct STACKFRAME* sf)
 	// Let the VM code deal with the fault
 	thread_t* curthread = PCPU_GET(curthread);
 	if (curthread != NULL && curthread->t_process != NULL) {
-		errorcode_t err = vmspace_handle_fault(curthread->t_process->p_vmspace, fault_addr, flags);
+		errorcode_t err = vmspace_handle_fault(*curthread->t_process->p_vmspace, fault_addr, flags);
 		if (ananas_is_success(err))
 			return; /* fault handeled */
 	}
