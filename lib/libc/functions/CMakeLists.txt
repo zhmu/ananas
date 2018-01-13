@@ -52,6 +52,8 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/atoll.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/_Exit.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/atexit.c
+	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/getprogname.c
+	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/setprogname.c
 	${CMAKE_CURRENT_SOURCE_DIR}/_PDCLIB/_PDCLIB_strtox_prelim.c
 	${CMAKE_CURRENT_SOURCE_DIR}/_PDCLIB/stdarg.c
 	${CMAKE_CURRENT_SOURCE_DIR}/_PDCLIB/_PDCLIB_atomax.c
