@@ -21,11 +21,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 ${COMMON_FLAGS}")
 
 set(CMAKE_CXX_LINK_EXECUTABLE "ld <CMAKE_CXX_LINK_FLAGS> <LINK_FLAGS> <OBJECTS>  -o <TARGET> <LINK_LIBRARIES>")
 set(CMAKE_CXX_LINK_FLAGS "-b elf64-x86-64 -T ${CMAKE_CURRENT_SOURCE_DIR}/conf/ld.amd64 -nostdlib -nodefaultlibs")
-#set(CMAKE_EXE_LINKER_FLAGS "-Wl,-b -Wl,elf64 -T ${CMAKE_CURRENT_SOURCE_DIR}/conf/ld.amd64 -nostdlib -nodefaultlibs")
 
 function(build_object dest src opts)
 	string(REPLACE " " ";" flags ${CMAKE_CXX_FLAGS})
-	add_custom_target(${dest} ALL
+	add_custom_command(
+		OUTPUT ${dest}
 		COMMAND ${CMAKE_CXX_COMPILER} ${flags} ${opts} -c -o ${CMAKE_CURRENT_BINARY_DIR}/${dest} ${CMAKE_CURRENT_SOURCE_DIR}/${src} ${opts}
 	)
 endfunction()
@@ -78,6 +78,7 @@ add_subdirectory(vfs)
 add_subdirectory(vm)
 
 get_property(SOURCES GLOBAL PROPERTY SourceList)
+set(SOURCES ${SOURCES} include/_gen/syscalls.h)
 add_executable(kernel_elf ${SOURCES})
 set_target_properties(kernel_elf PROPERTIES OUTPUT_NAME "kernel.elf")
 
@@ -89,7 +90,7 @@ add_custom_command(
 	DEPENDS kernel_elf
 	COMMAND cat ${CMAKE_SYSROOT}/lib/mbstub.bin ${CMAKE_CURRENT_BINARY_DIR}/kernel.elf > ${CMAKE_CURRENT_BINARY_DIR}/kernel
 )
-add_custom_target(kernel_bin DEPENDS kernel)
+add_custom_target(kernel_bin ALL DEPENDS kernel)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/kernel DESTINATION .)
 
 # prepare our include directories: we make a symlink to avoid unnecessary
@@ -115,8 +116,8 @@ add_custom_command(
 	COMMAND ${KERN_PATH}/gen_syscalls.sh ${KERN_PATH}/syscalls.in /dev/null ${CMAKE_BINARY_DIR}/include/_gen/syscalls.h /dev/null
 	DEPENDS ${KERN_PATH}/syscalls.in
 )
-add_custom_target(syscall_gen DEPENDS include/_gen/syscalls.h)
-add_dependencies(kernel_elf syscall_gen)
+#add_custom_target(syscall_gen DEPENDS include/_gen/syscalls.h)
+#add_dependencies(kernel_elf syscall_gen)
 
 # generate asmsyms.h; this is needed to look up offsets within structs from
 # assembler files, which is sure a lot better than having to maintain them
