@@ -35,7 +35,7 @@ AllocateObject(const char* name)
 	Object* obj = new Object;
 	memset(obj, 0, sizeof(*obj));
 	obj->o_name = strdup(name);
-	s_Objects.Append(*obj);
+	s_Objects.push_back(*obj);
 	return obj;
 }
 
@@ -85,7 +85,7 @@ ObjectListAppend(ObjectList& ol, Object& o)
 			return;
 	auto ole = new ObjectListEntry;
 	ole->ol_object = &o;
-	ol.Append(*ole);
+	ol.push_back(*ole);
 }
 
 static inline void
@@ -97,7 +97,7 @@ ObjectListPrepend(ObjectList& ol, Object& o)
 			return;
 	auto ole = new ObjectListEntry;
 	ole->ol_object = &o;
-	ol.Prepend(*ole);
+	ol.push_front(*ole);
 }
 
 void
@@ -249,7 +249,7 @@ parse_dynamic(Object& obj)
 				auto needed = new Needed;
 				memset(needed, 0, sizeof(struct Needed));
 				needed->n_name_idx = dyn->d_un.d_val;
-				obj.o_needed.Append(*needed);
+				obj.o_needed.push_back(*needed);
 				break;
 			}
 			case DT_HASH:

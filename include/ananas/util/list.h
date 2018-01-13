@@ -1,5 +1,68 @@
-#ifndef ANANAS_LIST_H
-#define ANANAS_LIST_H
+#ifndef ANANAS_UTIL_LIST_H
+#define ANANAS_UTIL_LIST_H
+
+namespace util {
+
+namespace detail {
+
+// Pointers associated with each list entry
+template<typename T>
+struct list_node {
+	list_node() = default;
+	list_node(const list_node&) = delete;
+	list_node(const list_node&&) = delete;
+	list_node& operator=(const list_node&) = delete;
+	list_node& operator=(list_node&&) = delete;
+
+	T* p_Prev = nullptr;
+	T* p_Next = nullptr;
+};
+
+
+template<typename T>
+struct list_iterator
+{
+	typedef list_node<T> Ptr;
+
+	list_iterator(Ptr* s) : i_NodePtr(s) { }
+	Ptr* i_NodePtr;
+
+	list_iterator& operator++() {
+		i_NodePtr = i_NodePtr->p_Next;
+		return *this;
+	}
+
+	list_iterator& operator++(int) {
+		Ptr s(*this);
+		i_NodePtr = i_NodePtr->p_Next;
+		return s;
+	}
+
+	list_iterator& operator--() {
+		i_NodePtr = i_NodePtr->p_Prev;
+		return *this;
+	}
+
+	list_iterator& operator--(int) {
+		Ptr s(*this);
+		i_NodePtr = i_NodePtr->p_Prev;
+		return s;
+	}
+
+	T& operator*() const {
+		return *static_cast<T*>(i_NodePtr);
+	}
+
+	bool operator==(const list_iterator& rhs) const {
+		return i_NodePtr == rhs.i_NodePtr;
+	}
+
+	bool operator!=(const list_iterator& rhs) const {
+		return !(*this == rhs);
+	}
+};
+
+}
 
 /*
  * This implements a standard doubly-linked list structure; obtaining/removing
@@ -8,63 +71,16 @@
  * for locating a single item).
  *
  * Each list has a 'head' and 'tail' element, and every item has a previous
- * and next pointer.
+ * and next pointer (contained in NodePtr, so you need to derive from that)
  */
 template<typename T>
 struct List
 {
-	// Pointers associated with the entry
-	struct Ptr {
-		Ptr() = default;
-		Ptr(const Ptr&) = delete;
-		Ptr(const Ptr&&) = delete;
-		Ptr& operator=(const Ptr&) = delete;
-		Ptr& operator=(Ptr&&) = delete;
+	typedef typename detail::list_node<T> NodePtr;
+	typedef typename detail::list_iterator<T> iterator;
+	typedef typename detail::list_iterator<const T> const_iterator;
 
-		T* p_Prev = nullptr;
-		T* p_Next = nullptr;
-	};
-
-	struct iterator {
-		iterator(Ptr* s) : i_Ptr(s) { }
-		Ptr* i_Ptr;
-
-		iterator& operator++() {
-			i_Ptr = i_Ptr->p_Next;
-			return *this;
-		}
-
-		iterator& operator++(int) {
-			Ptr s(*this);
-			i_Ptr = i_Ptr->p_Next;
-			return s;
-		}
-
-		iterator& operator--() {
-			i_Ptr = i_Ptr->p_Prev;
-			return *this;
-		}
-
-		iterator& operator--(int) {
-			Ptr s(*this);
-			i_Ptr = i_Ptr->p_Prev;
-			return s;
-		}
-
-		T& operator*() const {
-			return *static_cast<T*>(i_Ptr);
-		}
-
-		bool operator==(const iterator& rhs) const {
-			return i_Ptr == rhs.i_Ptr;
-		}
-
-		bool operator!=(const iterator& rhs) const {
-			return !(*this == rhs);
-		}
-	};
-
-	void Append(T& item)
+	void push_back(T& item)
 	{
 		item.p_Next = nullptr;
 		if (l_Head == nullptr) {
@@ -77,7 +93,7 @@ struct List
 		l_Tail = &item;
 	}
 
-	void Prepend(T& item)
+	void push_front(T& item)
 	{
 		item.p_Prev = nullptr;
 		if (l_Head == NULL) {
@@ -90,23 +106,24 @@ struct List
 		l_Head = &item;
 	}
 
-	void PopHead()
+	void pop_front()
 	{
 		l_Head = l_Head->p_Next;
 		if (l_Head != nullptr)
 			l_Head->p_Prev = nullptr;
 	}
 
-	void PopTail()
+	void pop_back()
 	{
 		l_Tail = l_Tail->p_Prev;
 		if (l_Tail != nullptr)
 			l_Tail->p_Next = nullptr;
 	}
 
-	void InsertBefore(T& pos, T& item)
+	void insert(T& pos, T& item)
 	{
-		if (pos.p_Prev != nullptr)
+		// Inserts before pos in the list
+	 	if (pos.p_Prev != nullptr)
 			pos.p_Prev->p_Next = &item;
 		item.p_Next = &pos;
 		item.p_Prev = pos.p_Prev;
@@ -115,7 +132,7 @@ struct List
 			l_Head = &item;
 	}
 
-	void Remove(T& item)
+	void remove(T& item)
 	{
 		if (item.p_Prev != nullptr)
 			item.p_Prev->p_Next = item.p_Next;
@@ -127,24 +144,34 @@ struct List
 			l_Tail = item.p_Prev;
 	}
 
-	void Clear()
+	void clear()
 	{
 		l_Head = nullptr; l_Tail = nullptr;
 	}
 
-	bool IsEmpty() const
+	bool empty() const
 	{
 		return l_Head == nullptr;
 	}
 
-	T& Head() const
+	T& front()
 	{
-		return *l_Head;
+		return *begin();
 	}
 
-	T& Tail() const
+	const T& front() const
 	{
-		return *l_Tail;
+		return *cbegin();
+	}
+
+	T& back()
+	{
+		return *end();
+	}
+
+	const T& back() const
+	{
+		return *cend();
 	}
 
 	List()
@@ -162,13 +189,26 @@ struct List
 		return iterator(l_Head);
 	}
 
+	const_iterator cbegin()
+	{
+		return const_iterator(l_Head);
+	}
+
 	iterator end()
 	{
 		return iterator(nullptr);
 	}
 
+	const_iterator cend()
+	{
+		return const_iterator(nullptr);
+	}
+
+private:
 	T* l_Head;
 	T* l_Tail;
 };
 
-#endif // ANANAS_LIST_H
+} // namespace util
+
+#endif // ANANAS_UTIL_LIST_H

@@ -1,26 +1,26 @@
 #ifndef RTLD_H
 #define RTLD_H
 
-#include "list.h"
+#include <ananas/util/list.h>
 #include <machine/elf.h>
 
-struct Needed : public List<Needed>::Ptr
+struct Needed : util::List<Needed>::NodePtr
 {
 	size_t n_name_idx;
 	struct Object* n_object;
 };
 
-struct ObjectListEntry : public List<ObjectListEntry>::Ptr
+struct ObjectListEntry : util::List<ObjectListEntry>::NodePtr
 {
 	struct Object* ol_object;
 };
-typedef List<ObjectListEntry> ObjectList;
+typedef util::List<ObjectListEntry> ObjectList;
 
 /*
  * A linker object object - this is an executable, the RTLD itself or
  * any shared library we know about.
  */
-struct Object : public List<Object>::Ptr
+struct Object : public util::List<Object>::NodePtr
 {
 	addr_t o_reloc_base;		// Relocated base address
 	const char* o_strtab;
@@ -51,10 +51,10 @@ struct Object : public List<Object>::Ptr
 	const uint32_t* o_sysv_bucket;
 	const uint32_t* o_sysv_chain;
 
-	List<Needed> o_needed;
+	util::List<Needed> o_needed;
 	ObjectList o_lookup_scope;
 };
 
-typedef List<Object> Objects;
+typedef util::List<Object> Objects;
 
 #endif // RTLD_H
