@@ -92,18 +92,16 @@ add_custom_command(
 add_custom_target(kernel_bin DEPENDS kernel)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/kernel DESTINATION .)
 
-# prepare our include directories: we will copy what we need to keep things as
-# clean as possible
+# prepare our include directories: we make a symlink to avoid unnecessary
+# rebuilds
 add_custom_target(kernel_md_param_h ALL
-	#OUTPUT include/kernel-md/param.h
-	COMMAND ${CMAKE_COMMAND} -E copy_directory
+	COMMAND ${CMAKE_COMMAND} -E create_symlink
 	${CMAKE_CURRENT_SOURCE_DIR}/include/kernel/amd64
 	${CMAKE_CURRENT_BINARY_DIR}/include/kernel-md
 )
 add_dependencies(kernel_elf kernel_md_param_h)
 add_custom_target(machine_types_h ALL
-	#OUTPUT include/machine/_types.h
-	COMMAND ${CMAKE_COMMAND} -E copy_directory
+	COMMAND ${CMAKE_COMMAND} -E create_symlink
 	${CMAKE_CURRENT_SOURCE_DIR}/../include/ananas/amd64
 	${CMAKE_CURRENT_BINARY_DIR}/include/machine
 )
