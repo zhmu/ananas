@@ -87,11 +87,11 @@ protected:
 
 	void OnIRQ();
 
-	static irqresult_t IRQWrapper(Ananas::Device* device, void* context)
+	static IRQResult IRQWrapper(Ananas::Device* device, void* context)
 	{
 		auto ahci = static_cast<AHCIDevice*>(device);
 		ahci->OnIRQ();
-		return IRQ_RESULT_PROCESSED;
+		return IRQResult::IR_Processed;
 	}
 
 

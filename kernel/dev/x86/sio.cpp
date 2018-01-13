@@ -45,11 +45,11 @@ public:
 private:
 	void OnIRQ();
 
-	static irqresult_t IRQWrapper(Ananas::Device* device, void* context)
+	static IRQResult IRQWrapper(Ananas::Device* device, void* context)
 	{
 		auto sio = static_cast<SIO*>(device);
 		sio->OnIRQ();
-		return IRQ_RESULT_PROCESSED;
+		return IRQResult::IR_Processed;
 	}
 
 	uint32_t sio_port;

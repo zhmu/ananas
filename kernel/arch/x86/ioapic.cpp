@@ -3,60 +3,66 @@
 #include "kernel/x86/ioapic.h"
 #include "kernel-md/vm.h"
 
-void
-ioapic_write(struct X86_IOAPIC* ioapic, uint32_t reg, uint32_t val)
+X86_IOAPIC::X86_IOAPIC()
+	: IRQSource(0, 0)
 {
-	*(volatile uint32_t*)(ioapic->ioa_addr + IOREGSEL) = reg & 0xff;
-	*(volatile uint32_t*)(ioapic->ioa_addr + IOWIN) = val;
+	// Note that we expect Initialize() to be called. This is not very OOP-y, but
+	// it ensures that our vtable is in place
+}
+
+void
+X86_IOAPIC::Write(uint32_t reg, uint32_t val)
+{
+	*reinterpret_cast<volatile uint32_t*>(ioa_addr + IOREGSEL) = reg & 0xff;
+	*reinterpret_cast<volatile uint32_t*>(ioa_addr + IOWIN) = val;
 }
 
 uint32_t
-ioapic_read(struct X86_IOAPIC* ioapic, uint32_t reg)
+X86_IOAPIC::Read(uint32_t reg)
 {
-	*(volatile uint32_t*)(ioapic->ioa_addr + IOREGSEL) = reg & 0xff;
-	return *(volatile uint32_t*)(ioapic->ioa_addr + IOWIN);
+	*reinterpret_cast<volatile uint32_t*>(ioa_addr + IOREGSEL) = reg & 0xff;
+	return *reinterpret_cast<volatile uint32_t*>(ioa_addr + IOWIN);
 }
 
-static errorcode_t
-ioapic_mask(struct IRQ_SOURCE* source, int no)
-{
-	struct X86_IOAPIC* ioapic = static_cast<X86_IOAPIC*>(source->is_privdata);
-	uint32_t reg = IOREDTBL + no * 2;
-	*(volatile uint32_t*)(ioapic->ioa_addr + IOREGSEL) = reg & 0xff;
-	*(volatile uint32_t*)(ioapic->ioa_addr + IOWIN) |= MASKED;
-	return ananas_success();
-}
 
-static errorcode_t
-ioapic_unmask(struct IRQ_SOURCE* source, int no)
+void
+X86_IOAPIC::Mask(int no)
 {
-	struct X86_IOAPIC* ioapic = static_cast<X86_IOAPIC*>(source->is_privdata);
 	uint32_t reg = IOREDTBL + no * 2;
-	*(volatile uint32_t*)(ioapic->ioa_addr + IOREGSEL) = reg & 0xff;
-	*(volatile uint32_t*)(ioapic->ioa_addr + IOWIN) &= ~MASKED;
-	return ananas_success();
+	*reinterpret_cast<volatile uint32_t*>(ioa_addr + IOREGSEL) = reg & 0xff;
+	*reinterpret_cast<volatile uint32_t*>(ioa_addr + IOWIN) |= MASKED;
 }
 
 void
-ioapic_ack(struct IRQ_SOURCE* source, int no)
+X86_IOAPIC::Unmask(int no)
+{
+	uint32_t reg = IOREDTBL + no * 2;
+	*reinterpret_cast<volatile uint32_t*>(ioa_addr + IOREGSEL) = reg & 0xff;
+	*reinterpret_cast<volatile uint32_t*>(ioa_addr + IOWIN) &= ~MASKED;
+}
+
+void
+X86_IOAPIC::AcknowledgeAll()
 {
 	*(volatile uint32_t*)(PTOKV(LAPIC_BASE) + LAPIC_EOI) = 0;
 }
 
 void
-ioapic_register(struct X86_IOAPIC* ioapic, int base)
+X86_IOAPIC::Acknowledge(int no)
 {
-	/* Fetch IOAPIC version register; this contains the number of interrupts supported */
-	uint32_t num_ints = ((ioapic_read(ioapic, IOAPICVER) >> 16) & 0xff);
+	AcknowledgeAll();
+}
 
-	/* Fill out the remaining structure members */
-	ioapic->ioa_source.is_first = base;
-	ioapic->ioa_source.is_count = num_ints;
-	ioapic->ioa_source.is_privdata = ioapic;
-	ioapic->ioa_source.is_mask = ioapic_mask;
-	ioapic->ioa_source.is_unmask = ioapic_unmask;
-	ioapic->ioa_source.is_ack = ioapic_ack;
-	irqsource_register(&ioapic->ioa_source);
+void
+X86_IOAPIC::Initialize(uint8_t id, addr_t addr, int base_irq)
+{
+	ioa_id = id;
+	ioa_addr = addr;
+	is_first = base_irq;
+	// Fetch IOAPIC version register; this contains the number of interrupts supported
+	is_count = (Read(IOAPICVER) >> 16) & 0xff;
+
+	irqsource_register(*this);
 }
 
 /* vim:set ts=2 sw=2: */

@@ -9,13 +9,13 @@ class Device;
 }
 
 /* Return values for the IRQ handler */
-typedef enum {
-	IRQ_RESULT_IGNORED,
-	IRQ_RESULT_PROCESSED
-} irqresult_t;
+enum class IRQResult {
+	IR_Ignored,
+	IR_Processed
+};
 
 /* Prototype of an IRQ handler function */
-typedef irqresult_t (*irqfunc_t)(Ananas::Device*, void*);
+typedef IRQResult (*irqfunc_t)(Ananas::Device*, void*);
 
 /*
  * Describes an IRQ source; this is generally an interrupt controller - every
@@ -23,23 +23,28 @@ typedef irqresult_t (*irqfunc_t)(Ananas::Device*, void*);
  * [ is_first .. is_first + is_count ]. Callbacks are always issued using the
  * relative interrupt number, i.e. using [ 0 .. is_count ].
  */
-struct IRQ_SOURCE {
+struct IRQSource
+{
+	IRQSource(unsigned int first, unsigned int count)
+	 : is_first(first), is_count(count)
+	{
+	}
+
 	/* First interrupt number handled */
 	unsigned int	is_first;
 	/* Number of interrupts handled */
 	unsigned int	is_count;
-	/* Private data */
-	void*           is_privdata;
-	/* Queue fields */
-	LIST_FIELDS(struct IRQ_SOURCE);
+
+	LIST_FIELDS(IRQSource);
+
 	/* Mask a given interrupt */
-	errorcode_t (*is_mask)(struct IRQ_SOURCE*, int);
+	virtual void	Mask(int) = 0;
 	/* Unmask a given interrupt */
-	errorcode_t (*is_unmask)(struct IRQ_SOURCE*, int);
+	virtual void	Unmask(int) = 0;
 	/* Acknowledge a given interrupt */
-	void (*is_ack)(struct IRQ_SOURCE*, int);
+	virtual void	Acknowledge(int) = 0;
 };
-LIST_DEFINE(IRQ_SOURCES, struct IRQ_SOURCE);
+LIST_DEFINE(IRQ_SOURCES, IRQSource);
 
 #define IRQ_MAX_HANDLERS 4
 
@@ -57,7 +62,7 @@ struct IRQ_HANDLER {
  * Describes an IRQ in machine-independant context.
  */
 struct IRQ {
-	struct IRQ_SOURCE*	i_source;
+	IRQSource*		i_source;
 	struct IRQ_HANDLER	i_handler[IRQ_MAX_HANDLERS];
 	unsigned int		i_count;
 	unsigned int		i_straycount;
@@ -71,8 +76,8 @@ struct IRQ {
  * Note: on registering or removing an IRQ source, all interrupts are expected
  * to be masked.
  */
-void irqsource_register(struct IRQ_SOURCE* source);
-void irqsource_unregister(struct IRQ_SOURCE* source);
+void irqsource_register(IRQSource& source);
+void irqsource_unregister(IRQSource& source);
 
 #define IRQ_TYPE_DEFAULT	IRQ_TYPE_IST
 #define IRQ_TYPE_IST		0 /* use an IST to launch the handler */

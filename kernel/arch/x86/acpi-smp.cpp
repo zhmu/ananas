@@ -60,7 +60,7 @@ acpi_smp_init(int* bsp_apic_id)
 	*(volatile uint32_t*)(lapic_base + LAPIC_TPR) &= ~0xff;
 	/* Finally, enable the APIC */
 	*(volatile uint32_t*)(lapic_base + LAPIC_SVR) |= LAPIC_SVR_APIC_EN;
-	
+
 	/* First of all, walk through the MADT and just count everything */
 	for (ACPI_SUBTABLE_HEADER* sub = reinterpret_cast<ACPI_SUBTABLE_HEADER*>(madt + 1);
 	     sub < (ACPI_SUBTABLE_HEADER*)((char*)madt + madt->Header.Length);
@@ -130,9 +130,7 @@ acpi_smp_init(int* bsp_apic_id)
 
 				/* Create the associated I/O APIC and hook it up */
 				struct X86_IOAPIC* ioapic = &smp_config.cfg_ioapic[cur_ioapic];
-				ioapic->ioa_id = apic->Id;
-				ioapic->ioa_addr = (addr_t)ioapic_base;
-				ioapic_register(ioapic, apic->GlobalIrqBase);
+				ioapic->Initialize(apic->Id, reinterpret_cast<addr_t>(ioapic_base), apic->GlobalIrqBase);
 				cur_ioapic++;
 				break;
 			}

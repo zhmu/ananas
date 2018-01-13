@@ -58,11 +58,11 @@ public:
 private:
 	void OnIRQ();
 
-	static irqresult_t IRQWrapper(Ananas::Device* device, void* context)
+	static IRQResult IRQWrapper(Ananas::Device* device, void* context)
 	{
 		auto hdapci = static_cast<HDAPCIDevice*>(device);
 		hdapci->OnIRQ();
-		return IRQ_RESULT_PROCESSED;
+		return IRQResult::IR_Processed;
 	}
 
 	addr_t hda_addr;

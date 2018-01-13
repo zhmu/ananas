@@ -14,11 +14,11 @@
 extern int md_cpu_clock_mhz;
 static uint64_t tsc_boot_time;
 
-static irqresult_t
+static IRQResult
 x86_pit_irq(Ananas::Device*, void*)
 {
 	Ananas::Time::OnTick();
-	return IRQ_RESULT_PROCESSED;
+	return IRQResult::IR_Processed;
 }
 
 /*

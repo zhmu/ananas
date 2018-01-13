@@ -36,13 +36,57 @@ static struct PAGE* ap_page;
 static int can_smp_launch = 0;
 extern "C" volatile int num_smp_launched = 1; /* BSP is always launched */
 
-static struct IRQ_SOURCE ipi_source = {
-	.is_first = SMP_IPI_FIRST,
-	.is_count = SMP_IPI_COUNT,
-	.is_mask = NULL,
-	.is_unmask = NULL,
-	.is_ack = ioapic_ack
-};
+namespace {
+
+struct IPISource : IRQSource
+{
+	IPISource();
+
+	void Mask(int no) override;
+	void Unmask(int no) override;
+	void Acknowledge(int no) override;
+} ipi_source;
+
+IPISource::IPISource()
+	: IRQSource(SMP_IPI_FIRST, SMP_IPI_COUNT)
+{
+}
+
+void IPISource::Mask(int no)
+{
+}
+
+void IPISource::Unmask(int no)
+{
+}
+
+void IPISource::Acknowledge(int no)
+{
+	X86_IOAPIC::AcknowledgeAll();
+}
+
+IRQResult
+smp_ipi_schedule(Ananas::Device*, void* context)
+{
+	/* Flip the reschedule flag of the current thread; this makes the IRQ reschedule us as needed */
+	thread_t* curthread = PCPU_GET(curthread);
+	curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
+	return IRQResult::IR_Processed;
+}
+
+IRQResult
+smp_ipi_panic(Ananas::Device*, void* context)
+{
+	md_interrupts_disable();
+	while (1) {
+		__asm("hlt");
+	}
+
+	/* NOTREACHED */
+	return IRQResult::IR_Processed;
+}
+
+} // unnamed namespace
 
 static void
 delay(int n) {
@@ -56,27 +100,6 @@ uint32_t
 get_num_cpus()
 {
 	return smp_config.cfg_num_cpus;
-}
-
-static irqresult_t
-smp_ipi_schedule(Ananas::Device*, void* context)
-{
-	/* Flip the reschedule flag of the current thread; this makes the IRQ reschedule us as needed */
-	thread_t* curthread = PCPU_GET(curthread);
-	curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
-	return IRQ_RESULT_PROCESSED;
-}
-
-static irqresult_t
-smp_ipi_panic(Ananas::Device*, void* context)
-{
-	md_interrupts_disable();
-	while (1) {
-		__asm("hlt");
-	}
-
-	/* NOTREACHED */
-	return IRQ_RESULT_PROCESSED;
 }
 
 void
@@ -124,7 +147,6 @@ extern void* gdt; /* XXX */
 
 	/* Prepare the IOAPIC structure */
 	cfg->cfg_ioapic = new X86_IOAPIC[cfg->cfg_num_ioapics];
-	memset(cfg->cfg_ioapic, 0, sizeof(struct X86_IOAPIC) * cfg->cfg_num_ioapics);
 
 	/* Prepare the BUS structure */
 	cfg->cfg_bus = new X86_BUS[cfg->cfg_num_busses];
@@ -192,15 +214,15 @@ smp_init()
 
 		/* XXX For now, route all interrupts to the BSP */
 		uint32_t reg = IOREDTBL + (interrupt->dest_no * 2);
-		ioapic_write(interrupt->ioapic, reg, TRIGGER_EDGE | DESTMOD_PHYSICAL | DELMOD_FIXED | (interrupt->source_no + 0x20));
-		ioapic_write(interrupt->ioapic, reg + 1, bsp_apic_id << 24);
+		interrupt->ioapic->Write(reg, TRIGGER_EDGE | DESTMOD_PHYSICAL | DELMOD_FIXED | (interrupt->source_no + 0x20));
+		interrupt->ioapic->Write(reg + 1, bsp_apic_id << 24);
 	}
 
 	/*
 	 * Register an interrupt source for the IPI's; they appear as normal
  	 * interrupts and this lets us process them as such.
 	 */
-	irqsource_register(&ipi_source);
+	irqsource_register(ipi_source);
 	if (ananas_is_failure(irq_register(SMP_IPI_PANIC, NULL, smp_ipi_panic, IRQ_TYPE_IPI, NULL)))
 		panic("can't register ipi");
 	if (ananas_is_failure(irq_register(SMP_IPI_SCHEDULE, NULL, smp_ipi_schedule, IRQ_TYPE_IPI, NULL)))

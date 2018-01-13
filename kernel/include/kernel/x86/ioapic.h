@@ -31,17 +31,25 @@
 #define DELMOD_INIT		(5 << 8)	/* INIT IPI */
 #define DELMOD_EXTINT		(7 << 8)	/* External int, must be edge */
 
+struct X86_IOAPIC : IRQSource
+{
+	X86_IOAPIC();
 
-struct X86_IOAPIC {
-	uint8_t		ioa_id;
-	addr_t		ioa_addr;
-	struct IRQ_SOURCE ioa_source;
+	void		Write(uint32_t reg, uint32_t val);
+	uint32_t	Read(uint32_t reg);
+
+	void		Mask(int no) override;
+	void		Unmask(int no) override;
+	void		Acknowledge(int no) override;
+	static void	AcknowledgeAll();
+
+	void		Initialize(uint8_t id, addr_t addr, int base_irq);
+
+private:
+	uint8_t		ioa_id = 0;
+	addr_t		ioa_addr = 0;
 };
 
-void ioapic_write(struct X86_IOAPIC* apic, uint32_t reg, uint32_t val);
-uint32_t ioapic_read(struct X86_IOAPIC* apic, uint32_t reg);
 void ioapic_register(struct X86_IOAPIC* ioapic, int base);
-
-void ioapic_ack(struct IRQ_SOURCE* source, int no);
 
 #endif /* __X86_IOAPIC_H__ */

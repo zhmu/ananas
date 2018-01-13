@@ -132,11 +132,11 @@ private:
 
 	void OnIRQ();
 
-	static irqresult_t IRQWrapper(Ananas::Device* device, void* context)
+	static IRQResult IRQWrapper(Ananas::Device* device, void* context)
 	{
 		auto ohci = static_cast<OHCI_HCD*>(device);
 		ohci->OnIRQ();
-		return IRQ_RESULT_PROCESSED;
+		return IRQResult::IR_Processed;
 	}
 
 	dma_buf_t ohci_hcca_buf;

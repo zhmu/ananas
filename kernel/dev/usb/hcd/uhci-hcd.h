@@ -95,11 +95,11 @@ protected:
 	void Dump();
 	void OnIRQ();
 
-	static irqresult_t IRQWrapper(Ananas::Device* device, void* context)
+	static IRQResult IRQWrapper(Ananas::Device* device, void* context)
 	{
 		auto uhci_hcd = static_cast<UHCI_HCD*>(device);
 		uhci_hcd->OnIRQ();
-		return IRQ_RESULT_PROCESSED;
+		return IRQResult::IR_Processed;
 	}
 
 private:

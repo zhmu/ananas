@@ -3,19 +3,9 @@
 #include "kernel/x86/io.h"
 #include "kernel/x86/pic.h"
 
-static errorcode_t pic_mask(struct IRQ_SOURCE* is, int no);
-static errorcode_t pic_unmask(struct IRQ_SOURCE* is, int no);
-static void pic_ack(struct IRQ_SOURCE* is, int no);
+namespace {
 
-static struct IRQ_SOURCE pic_source = {
-	.is_first = 0,
-	.is_count = 16,
-	.is_mask = pic_mask,
-	.is_unmask = pic_unmask,
-	.is_ack = pic_ack
-};
-
-static void
+void
 x86_pic_wire()
 {
 	/*
@@ -44,6 +34,56 @@ x86_pic_wire()
 #undef IO_WAIT
 }
 
+struct PIC: IRQSource
+{
+	PIC();
+
+	void Mask(int no) override;
+	void Unmask(int no) override;
+	void Acknowledge(int no) override;
+};
+
+PIC::PIC()
+	: IRQSource(0, 16)
+{
+}
+
+void
+PIC::Mask(int no)
+{
+	int port = PIC1_DATA;
+	if (no >= 8) {
+		port = PIC2_DATA;
+		no -= 8;
+	}
+
+	outb(port, inb(port) | (1 << no));
+}
+
+void
+PIC::Unmask(int no)
+{
+	int port = PIC1_DATA;
+	if (no >= 8) {
+		port = PIC2_DATA;
+		no -= 8;
+	}
+
+	outb(port, inb(port) & ~(1 << no));
+}
+
+void
+PIC::Acknowledge(int no)
+{
+	outb(0x20, 0x20);
+	if (no >= 8)
+		outb(0xa0, 0x20);
+}
+
+PIC pic;
+
+} // unnamed namespace
+
 void
 x86_pic_init()
 {
@@ -51,7 +91,7 @@ x86_pic_init()
 	x86_pic_wire();
 
 	/* Register the PIC as interrupt source */
-	irqsource_register(&pic_source);
+	irqsource_register(pic);
 }
 
 void
@@ -71,40 +111,6 @@ x86_pic_mask_all()
 	 */
 	outb(PIC1_DATA, 0xff);
 	outb(PIC2_DATA, 0xff);
-}
-
-static errorcode_t
-pic_mask(struct IRQ_SOURCE* is, int no)
-{
-	int port = PIC1_DATA;
-	if (no >= 8) {
-		port = PIC2_DATA;
-		no -= 8;
-	}
-
-	outb(port, inb(port) | (1 << no));
-	return ananas_success();
-}
-
-static errorcode_t
-pic_unmask(struct IRQ_SOURCE* is, int no)
-{
-	int port = PIC1_DATA;
-	if (no >= 8) {
-		port = PIC2_DATA;
-		no -= 8;
-	}
-
-	outb(port, inb(port) & ~(1 << no));
-	return ananas_success();
-}
-
-static void
-pic_ack(struct IRQ_SOURCE* is, int no)
-{
-	outb(0x20, 0x20);
-	if (no >= 8)
-		outb(0xa0, 0x20);
 }
 
 int

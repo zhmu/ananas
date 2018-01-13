@@ -14,13 +14,13 @@ struct ACPI_IRQ_INFO {
 	void* i_context;
 };
 
-static irqresult_t
+static IRQResult
 acpi_irq_wrapper(Ananas::Device*, void* context)
 {
 	struct ACPI_IRQ_INFO* info = static_cast<ACPI_IRQ_INFO*>(context);
 	if (info->i_handler(info->i_context) == ACPI_INTERRUPT_HANDLED)
-		return IRQ_RESULT_PROCESSED;
-	return IRQ_RESULT_IGNORED;
+		return IRQResult::IR_Processed;
+	return IRQResult::IR_Ignored;
 }
 
 ACPI_STATUS
