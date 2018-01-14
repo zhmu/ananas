@@ -38,7 +38,7 @@
 #define KMEM_DEBUG(...) (void)0
 
 static spinlock_t kmem_lock = SPINLOCK_DEFAULT_INIT;
-static struct PAGE* kmem_page;
+static Page* kmem_page;
 static struct KMEM_MAPPING* kmem_mappings = NULL;
 
 #define KMEM_NUM_MAPPINGS (PAGE_SIZE / sizeof(struct KMEM_MAPPING))
@@ -71,7 +71,7 @@ kmem_map(addr_t phys, size_t length, int flags)
 		 *
 		 * XXX We just hope that this won't happen for now
 		 */
-		kmem_mappings = static_cast<struct KMEM_MAPPING*>(page_alloc_single_mapped(&kmem_page, VM_FLAG_READ | VM_FLAG_WRITE));
+		kmem_mappings = static_cast<struct KMEM_MAPPING*>(page_alloc_single_mapped(kmem_page, VM_FLAG_READ | VM_FLAG_WRITE));
 		memset(kmem_mappings, 0, PAGE_SIZE);
 	}
 

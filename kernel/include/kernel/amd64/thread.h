@@ -76,7 +76,7 @@ struct FPUREGS {
 	register_t	md_rsp0; \
 	register_t	md_rip; \
 	register_t	md_cr3; \
-	struct PAGE* md_kstack_page; \
+	Page*		md_kstack_page; \
 	struct FPUREGS	md_fpu_ctx __attribute__ ((aligned(16))); \
 	void*		md_stack; \
 	void*		md_kstack;

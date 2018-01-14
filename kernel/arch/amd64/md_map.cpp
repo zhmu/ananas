@@ -16,7 +16,7 @@ static addr_t
 get_nextpage(VMSpace* vs, uint64_t page_flags)
 {
 	KASSERT(vs != NULL, "unmapped page while mapping kernel pages?");
-	struct PAGE* p = page_alloc_single();
+	Page* p = page_alloc_single();
 	KASSERT(p != NULL, "out of pages");
 
 	/*
@@ -24,10 +24,10 @@ get_nextpage(VMSpace* vs, uint64_t page_flags)
 	 * administer it there so we can free it once the thread is freed.
 	 */
 	if ((page_flags & PE_C_G) == 0)
-		LIST_APPEND(&vs->vs_pages, p);
+		vs->vs_pages.push_back(*p);
 
 	/* Map this page in kernel-space XXX How do we clean it up? */
-	addr_t phys = page_get_paddr(p);
+	addr_t phys = page_get_paddr(*p);
 	void* va = kmem_map(phys, PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 	memset(va, 0, PAGE_SIZE);
 	return phys | page_flags;

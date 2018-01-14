@@ -1703,8 +1703,8 @@ unsigned char _BitScanReverse(unsigned long *index, unsigned long mask);
 static void*
 ananas_get_memory(size_t len)
 {
-	struct PAGE* p;
-	void* v = page_alloc_length_mapped(len, &p, VM_FLAG_READ | VM_FLAG_WRITE);
+	Page* p;
+	void* v = page_alloc_length_mapped(len, p, VM_FLAG_READ | VM_FLAG_WRITE);
 	KASSERT(v != NULL, "out of memory allocating %u bytes", len);
 	/* XXX We should store 'p' in a list so we can find it when freeing stuff */
 	return v;

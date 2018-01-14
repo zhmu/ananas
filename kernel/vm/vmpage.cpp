@@ -39,7 +39,7 @@ vmpage_free(VMPage& vmpage)
 
   DPRINTF("[%d] vmpage_free(): vp %p @ %p (page %p phys %p)\n", get_pid(), &vmpage, vmpage.vp_vaddr,
     (vmpage.vp_flags & VM_PAGE_FLAG_LINK) == 0 ? vmpage.vp_page : 0,
-    (vmpage.vp_flags & VM_PAGE_FLAG_LINK) == 0 && vmpage.vp_page != nullptr ? page_get_paddr(vmpage.vp_page) : 0);
+    (vmpage.vp_flags & VM_PAGE_FLAG_LINK) == 0 && vmpage.vp_page != nullptr ? page_get_paddr(*vmpage.vp_page) : 0);
 
   // Note that we do not hold any references to the inode (the inode owns us)
   if (vmpage.vp_flags & VM_PAGE_FLAG_LINK) {
@@ -49,7 +49,7 @@ vmpage_free(VMPage& vmpage)
     }
   } else {
     if (vmpage.vp_page != nullptr)
-      page_free(vmpage.vp_page);
+      page_free(*vmpage.vp_page);
   }
 
   // If we are hooked to a vmarea, unlink us
@@ -155,12 +155,12 @@ vmpage_copy_extended(VMPage& vp_src, VMPage& vp_dst, size_t len)
   KASSERT(&vp_src != &vp_dst, "copying same vmpage %p", &vp_src);
   KASSERT(len <= PAGE_SIZE, "copying more than a page");
 
-  struct PAGE* p_src = vmpage_get_page(vp_src);
-  struct PAGE* p_dst = vmpage_get_page(vp_dst);
+  Page* p_src = vmpage_get_page(vp_src);
+  Page* p_dst = vmpage_get_page(vp_dst);
   KASSERT(p_src != p_dst, "copying same page %p", p_src);
 
-  auto src = static_cast<char*>(kmem_map(page_get_paddr(p_src), PAGE_SIZE, VM_FLAG_READ));
-  auto dst = static_cast<char*>(kmem_map(page_get_paddr(p_dst), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE));
+  auto src = static_cast<char*>(kmem_map(page_get_paddr(*p_src), PAGE_SIZE, VM_FLAG_READ));
+  auto dst = static_cast<char*>(kmem_map(page_get_paddr(*p_dst), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE));
 
 	memcpy(dst, src, len);
   if (len < PAGE_SIZE)
@@ -353,7 +353,7 @@ vmpage_clone(VMSpace& vs, VMArea& va_source, VMArea& va_dest, VMPage& vp_orig)
   return *vp_dst;
 }
 
-struct PAGE*
+Page*
 vmpage_get_page(VMPage& v)
 {
 	VMPage* vp = &v;
@@ -412,16 +412,16 @@ vmpage_map(VMSpace& vs, VMArea& va, VMPage& vp)
 	// Map COW pages as unwritable so we'll fault on a write
 	if (vp.vp_flags & VM_PAGE_FLAG_COW)
 		flags &= ~VM_FLAG_WRITE;
-	struct PAGE* p = vmpage_get_page(vp);
-	md_map_pages(&vs, vp.vp_vaddr, page_get_paddr(p), 1, flags);
+	Page* p = vmpage_get_page(vp);
+	md_map_pages(&vs, vp.vp_vaddr, page_get_paddr(*p), 1, flags);
 }
 
 void
 vmpage_zero(VMSpace& vs, VMPage& vp)
 {
 	// Clear the page XXX This is unfortunate, we should have a supply of pre-zeroed pages
-	struct PAGE* p = vmpage_get_page(vp);
-	md_map_pages(&vs, vp.vp_vaddr, page_get_paddr(p), 1, VM_FLAG_READ | VM_FLAG_WRITE);
+	Page* p = vmpage_get_page(vp);
+	md_map_pages(&vs, vp.vp_vaddr, page_get_paddr(*p), 1, VM_FLAG_READ | VM_FLAG_WRITE);
 	memset((void*)vp.vp_vaddr, 0, PAGE_SIZE);
 }
 
@@ -440,7 +440,7 @@ void vmpage_dump(const VMPage& vp, const char* prefix)
     return;
   }
   if (vp.vp_page != nullptr)
-    kprintf("%spage %p phys %p order %d", prefix, vp.vp_page, page_get_paddr(vp.vp_page), vp.vp_page->p_order);
+    kprintf("%spage %p phys %p order %d", prefix, vp.vp_page, page_get_paddr(*vp.vp_page), vp.vp_page->p_order);
   kprintf("\n");
 }
 

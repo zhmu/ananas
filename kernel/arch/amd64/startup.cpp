@@ -526,7 +526,7 @@ setup_bootinfo(const struct BOOTINFO* bootinfo_ptr, addr_t& avail, char*& boot_a
 }
 
 #ifdef OPTION_SMP
-struct PAGE* smp_ap_pages;
+Page* smp_ap_pages;
 addr_t smp_ap_pagedir;
 
 static void
@@ -537,9 +537,9 @@ smp_init_ap_pagetable()
 	 * does not exist in our normal pages. It's actually easier just to construct
 	 * pagetables similar to what the multiboot stub uses to get us to long mode.
 	 */
-	void* ptr = page_alloc_length_mapped(3 * PAGE_SIZE, &smp_ap_pages, VM_FLAG_READ | VM_FLAG_WRITE);
+	void* ptr = page_alloc_length_mapped(3 * PAGE_SIZE, smp_ap_pages, VM_FLAG_READ | VM_FLAG_WRITE);
 
-	addr_t pa = page_get_paddr(smp_ap_pages);
+	addr_t pa = page_get_paddr(*smp_ap_pages);
 	uint64_t* pml4 = static_cast<uint64_t*>(ptr);
 	uint64_t* pdpe = reinterpret_cast<uint64_t*>(static_cast<char*>(ptr) + PAGE_SIZE);
 	uint64_t* pde = reinterpret_cast<uint64_t*>(static_cast<char*>(ptr) + PAGE_SIZE * 2);
@@ -555,8 +555,8 @@ smp_init_ap_pagetable()
 void
 smp_destroy_ap_pagetable()
 {
-	if (smp_ap_pages != NULL)
-		page_free(smp_ap_pages);
+	if (smp_ap_pages != nullptr)
+		page_free(*smp_ap_pages);
 	smp_ap_pages = NULL;
 	smp_ap_pagedir = 0;
 }

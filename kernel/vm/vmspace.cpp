@@ -48,7 +48,6 @@ vmspace_create(VMSpace*& vmspace)
 {
 	auto vs = new VMSpace;
 	memset(vs, 0, sizeof(*vs));
-	LIST_INIT(&vs->vs_pages);
 	vs->vs_next_mapping = THREAD_INITIAL_MAPPING_ADDR;
 
 	errorcode_t err = md_vmspace_init(*vs);
@@ -76,7 +75,8 @@ vmspace_destroy(VMSpace& vs)
 	vmspace_cleanup(vs);
 
 	/* Remove the vmspace-specific mappings - these are generally MD */
-	LIST_FOREACH_SAFE(&vs.vs_pages, p, struct PAGE) {
+	for(auto it = vs.vs_pages.begin(); it != vs.vs_pages.end(); /* nothing */) {
+		auto& p = *it; ++it;
 		/* XXX should we unmap the page here? the vmspace shouldn't be active... */
 		page_free(p);
 	}

@@ -78,7 +78,7 @@ process_alloc_ex(process_t* parent, process_t** dest, int flags)
 		// XXX we should have a separate vmpage_create_...() for this that sets vp_vaddr
 		VMPage& vp = vmpage_create_private(va, 0);
 		vp.vp_vaddr = va->va_virt;
-		p->p_info = static_cast<struct PROCINFO*>(kmem_map(page_get_paddr(vmpage_get_page(vp)), sizeof(struct PROCINFO), VM_FLAG_READ | VM_FLAG_WRITE));
+		p->p_info = static_cast<struct PROCINFO*>(kmem_map(page_get_paddr(*vmpage_get_page(vp)), sizeof(struct PROCINFO), VM_FLAG_READ | VM_FLAG_WRITE));
 		vmpage_map(vs, *va, vp);
 		vmpage_unlock(vp);
 	}

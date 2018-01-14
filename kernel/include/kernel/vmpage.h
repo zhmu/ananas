@@ -6,7 +6,7 @@
 #include <machine/param.h>
 #include "kernel/lock.h"
 
-struct PAGE;
+struct Page;
 
 #define VM_PAGE_FLAG_PRIVATE   (1 << 0)  /* page is private to the process */
 #define VM_PAGE_FLAG_READONLY  (1 << 1)  /* page cannot be modified */
@@ -26,7 +26,7 @@ struct VMPage : util::List<VMPage>::NodePtr {
 
 	union {
 		/* Backing page, if any */
-		struct PAGE* vp_page;
+		Page* vp_page;
 
 		/* Source page */
 		VMPage* vp_link;
@@ -58,7 +58,7 @@ VMPage* vmpage_lookup_locked(VMArea& va, struct VFS_INODE* inode, off_t offs);
 VMPage* vmpage_lookup_vaddr_locked(VMArea& va, addr_t vaddr);
 VMPage& vmpage_create_shared(struct VFS_INODE* inode, off_t offs, int flags);
 VMPage& vmpage_create_private(VMArea* va, int flags);
-struct PAGE* vmpage_get_page(VMPage& vp);
+Page* vmpage_get_page(VMPage& vp);
 
 VMPage& vmpage_clone(VMSpace& vs, VMArea& va_source, VMArea& va_dest, VMPage& vp);
 VMPage& vmpage_link(VMArea& va, VMPage& vp);

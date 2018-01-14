@@ -32,7 +32,7 @@ void smp_destroy_ap_pagetable();
 
 struct X86_SMP_CONFIG smp_config;
 
-static struct PAGE* ap_page;
+static Page* ap_page;
 static int can_smp_launch = 0;
 extern "C" volatile int num_smp_launched = 1; /* BSP is always launched */
 
@@ -165,7 +165,7 @@ void
 smp_prepare()
 {
 	ap_page = page_alloc_single();
-	KASSERT(page_get_paddr(ap_page) < 0x100000, "ap code must be below 1MB"); /* XXX crude */
+	KASSERT(page_get_paddr(*ap_page) < 0x100000, "ap code must be below 1MB"); /* XXX crude */
 }
 
 /*
@@ -185,14 +185,14 @@ smp_init()
 	 *       enable paging.  Once this is all done, the mapping can safely be removed.
 	 */
 	KASSERT(ap_page != NULL, "smp_prepare() not called");
-	void* ap_code = kmem_map(page_get_paddr(ap_page), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_EXECUTE);
+	void* ap_code = kmem_map(page_get_paddr(*ap_page), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_EXECUTE);
 	memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
 	kmem_unmap(ap_code, PAGE_SIZE);
 
 	int bsp_apic_id;
 	if (ananas_is_failure(acpi_smp_init(&bsp_apic_id))) {
 		/* SMP not present or not usable */
-		page_free(ap_page);
+		page_free(*ap_page);
 		smp_destroy_ap_pagetable();
 		return ANANAS_ERROR(NO_DEVICE);
 	}
@@ -253,9 +253,9 @@ smp_launch()
 	addr_t lapic_base = PTOKV(LAPIC_BASE);
 	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_INIT;
 	delay(10);
-	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | page_get_paddr(ap_page) >> 12;
+	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | page_get_paddr(*ap_page) >> 12;
 	delay(200);
-	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | page_get_paddr(ap_page) >> 12;
+	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | page_get_paddr(*ap_page) >> 12;
 	delay(200);
 
 	kprintf("SMP: %d CPU(s) found, waiting for %d CPU(s)\n", smp_config.cfg_num_cpus, smp_config.cfg_num_cpus - num_smp_launched);
@@ -263,12 +263,8 @@ smp_launch()
 		/* wait for it ... */ ;
 
 	/* All done - we can throw away the AP code and mappings */
-	page_free(ap_page);
-#ifdef __i386_
-	md_remove_low_mappings();
-#elif defined(__amd64__)
+	page_free(*ap_page);
 	smp_destroy_ap_pagetable();
-#endif
 
 	return ananas_success();
 }

@@ -128,12 +128,12 @@ dma_buf_alloc(dma_tag_t tag, dma_size_t size, dma_buf_t* buf)
 	errorcode_t err = ananas_success();
 	for (unsigned int n = 0; ananas_is_success(err) && n < num_segs; n++) {
 		struct DMA_BUFFER_SEGMENT* s = &b->db_seg[n];
-		s->s_virt = page_alloc_length_mapped(seg_size, &s->s_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
+		s->s_virt = page_alloc_length_mapped(seg_size, s->s_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
 		if (s->s_virt == NULL) {
 			err = ANANAS_ERROR(OUT_OF_MEMORY);
 			break;
 		}
-		s->s_phys = page_get_paddr(s->s_page);
+		s->s_phys = page_get_paddr(*s->s_page);
 	}
 
 	if (ananas_is_success(err))
@@ -154,10 +154,10 @@ dma_buf_free(dma_buf_t buf)
 	 */
 	for (unsigned int n = 0; n < buf->db_num_segs; n++) {
 		struct DMA_BUFFER_SEGMENT* s = &buf->db_seg[n];
-		if (s->s_virt != NULL)
+		if (s->s_virt != nullptr)
 			kmem_unmap(s->s_virt, buf->db_seg_size);
-		if (s->s_page != NULL)
-			page_free(s->s_page);
+		if (s->s_page != nullptr)
+			page_free(*s->s_page);
 	}
 	kfree(buf);
 

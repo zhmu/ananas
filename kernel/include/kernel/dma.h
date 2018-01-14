@@ -22,8 +22,10 @@ typedef enum {
 	DMA_SYNC_OUT
 } DMA_SYNC_TYPE;
 
+struct Page;
+
 struct DMA_BUFFER_SEGMENT {
-	struct PAGE* s_page;
+	Page* s_page;
 	void* s_virt;
 	dma_addr_t s_phys;
 };

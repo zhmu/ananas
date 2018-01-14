@@ -69,7 +69,7 @@ private:
 	int hda_iss, hda_oss, hda_bss;	/* stream counts, per type */
 	int hda_corb_size;
 	int hda_rirb_size;
-	struct PAGE* hda_page;
+	Page* hda_page;
 	uint32_t* hda_corb;
 	uint64_t* hda_rirb;
 	int hda_rirb_rp;
@@ -205,7 +205,7 @@ HDAPCIDevice::OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context*
 	/* Setup the stream structure */
 	auto s = static_cast<struct HDA_PCI_STREAM*>(kmalloc(sizeof(struct HDA_PCI_STREAM) + sizeof(struct HDA_PCI_STREAM_PAGE) * num_pages));
 	s->s_ss = ss;
-	s->s_bdl = static_cast<struct HDA_PCI_BDL_ENTRY*>(page_alloc_single_mapped(&s->s_bdl_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE));
+	s->s_bdl = static_cast<struct HDA_PCI_BDL_ENTRY*>(page_alloc_single_mapped(s->s_bdl_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE));
 	s->s_num_pages = num_pages;
 	hda_stream[ss] = s;
 	*context = s;
@@ -215,8 +215,8 @@ HDAPCIDevice::OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context*
 	struct HDA_PCI_STREAM_PAGE* sp = &s->s_page[0];
 	for (int n = 0; n < num_pages; n++, bdl++, sp++) {
 		/* XXX use dma system here */
-		sp->sp_ptr = page_alloc_single_mapped(&sp->sp_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
-		bdl->bdl_addr = page_get_paddr(sp->sp_page);
+		sp->sp_ptr = page_alloc_single_mapped(sp->sp_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
+		bdl->bdl_addr = page_get_paddr(*sp->sp_page);
 		bdl->bdl_length = PAGE_SIZE;
 		// XXX only give IRQ on each buffer half
 		bdl->bdl_flags = (n == (num_pages/ 2) || n == (num_pages - 1) ? BDL_FLAG_IOC : 0);
@@ -226,7 +226,7 @@ HDAPCIDevice::OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context*
 	HDA_WRITE_4(HDA_REG_xSDnCBL(ss), num_pages * PAGE_SIZE);
 	HDA_WRITE_4(HDA_REG_xSDnLVI(ss), num_pages - 1);
 	HDA_WRITE_2(HDA_REG_xSDnFMT(ss), fmt);
-	HDA_WRITE_4(HDA_REG_xSDnBDPL(ss), page_get_paddr(s->s_bdl_page));
+	HDA_WRITE_4(HDA_REG_xSDnBDPL(ss), page_get_paddr(*s->s_bdl_page));
 	HDA_WRITE_4(HDA_REG_xSDnBDPU(ss), 0); // XXX
 
 	/* Set the stream status up - we don't set the RUN bit just yet */
@@ -250,10 +250,10 @@ HDAPCIDevice::CloseStream(void* context)
 
 	/* Free all stream subpages */
 	for (int n = 0; n < s->s_num_pages; n++)
-		page_free(s->s_page[n].sp_page);
+		page_free(*s->s_page[n].sp_page);
 
 	/* Free the BDL page */
-	page_free(s->s_bdl_page);
+	page_free(*s->s_bdl_page);
 
 	/* Free the stream and the context */
 	hda_stream[s->s_ss] = NULL;
@@ -426,9 +426,9 @@ HDAPCIDevice::Attach()
 	 * this means we can just grab a single page use it.
 	 */
 	static_assert(PAGE_SIZE >= 4096, "tiny page size?");
-	hda_corb = static_cast<uint32_t*>(page_alloc_single_mapped(&hda_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE));
+	hda_corb = static_cast<uint32_t*>(page_alloc_single_mapped(hda_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE));
 	hda_rirb = (uint64_t*)((char*)hda_corb + 1024);
-	addr_t corb_paddr = page_get_paddr(hda_page);
+	addr_t corb_paddr = page_get_paddr(*hda_page);
 	memset(hda_corb, 0, PAGE_SIZE);
 
 	/* Set up the CORB buffer; this is used to transfer commands to a codec */
@@ -479,7 +479,7 @@ HDAPCIDevice::Attach()
 		return ananas_success();
 
 	/* XXX we should clean up the tree thus far */
-	page_free(hda_page);
+	page_free(*hda_page);
 	return err;
 }
 

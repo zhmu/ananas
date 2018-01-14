@@ -125,8 +125,10 @@ struct HDA_PCI_STREAM;
 struct HDA_PCI_PRIVDATA {
 };
 
+struct Page;
+
 struct HDA_PCI_STREAM_PAGE {
-	struct PAGE* sp_page;
+	Page* sp_page;
 	void* sp_ptr;
 };
 
@@ -134,7 +136,7 @@ struct HDA_PCI_STREAM {
 	int s_ss;			/* Stream# in use */
 	int s_num_pages;
 	struct HDA_PCI_BDL_ENTRY* s_bdl;	/* BDL entries */
-	struct PAGE* s_bdl_page;	/* Page for the BDL */
+	Page* s_bdl_page;			/* Page for the BDL */
 	struct HDA_PCI_STREAM_PAGE s_page[0];
 };
 

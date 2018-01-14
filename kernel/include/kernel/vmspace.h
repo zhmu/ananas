@@ -51,7 +51,7 @@ struct VMSpace {
 	 * Contains pages allocated to the space that aren't part of a mapping; this
 	 * is mainly used to store MD-dependant things like pagetables.
 	 */
-	struct page_list vs_pages;
+	PageList		vs_pages;
 
 	addr_t			vs_next_mapping;	/* address of next mapping */
 

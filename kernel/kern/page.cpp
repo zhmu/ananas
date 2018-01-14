@@ -2,7 +2,6 @@
 #include "kernel/kdb.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
-#include "kernel/list.h"
 #include "kernel/page.h"
 #include "kernel/vm.h"
 #include "options.h"
@@ -15,12 +14,12 @@
 # define DPRINTF(...)
 #endif
 
-static struct zone_list zones;
+static PageZoneList zones;
 
 static inline void
-page_assert_sane(struct PAGE* p)
+page_assert_sane(Page& p)
 {
-	KASSERT(p->p_order >= 0 && p->p_order < PAGE_NUM_ORDERS, "corrupt page %p", p);
+	KASSERT(p.p_order >= 0 && p.p_order < PAGE_NUM_ORDERS, "corrupt page %p", &p);
 }
 
 static inline int
@@ -58,109 +57,109 @@ bytes2order(size_t length)
 }
 
 void
-page_free_index(struct PAGE_ZONE* z, unsigned int order, unsigned int index)
+page_free_index(PageZone& z, unsigned int order, unsigned int index)
 {
-	struct PAGE* p = &z->z_base[index];
-	DPRINTF("page_free_index(): order=%u index=%u -> p=%p\n", order, index, p);
+	Page& p = z.z_base[index];
+	DPRINTF("page_free_index(): order=%u index=%u -> p=%p\n", order, index, &p);
 
-	spinlock_lock(&z->z_lock);
+	spinlock_lock(&z.z_lock);
 
 	/* Clear the current index; it is available */
-	clear_bit(z->z_bitmap, index);
-	z->z_avail_pages += 1 << order;
+	clear_bit(z.z_bitmap, index);
+	z.z_avail_pages += 1 << order;
 
 	/* Add this buddy to the freelist */
-	LIST_APPEND(&z->z_free[order], p);
+	z.z_free[order].push_back(p);
 
 	/* Now, attempt to merge the available pages */
 	while (order < PAGE_NUM_ORDERS - 1) {
 		unsigned int buddy_index = index ^ (1 << order);
-		if (buddy_index >= z->z_num_pages || get_bit(z->z_bitmap, buddy_index))
+		if (buddy_index >= z.z_num_pages || get_bit(z.z_bitmap, buddy_index))
 			break; /* not free, bail out */
 
-		if (z->z_base[buddy_index].p_order != order)
+		if (z.z_base[buddy_index].p_order != order)
 			break; /* buddy is of different order than this block, can't merge */
 
 		/* Clear the lower bits from the index value */
 		DPRINTF("page_free_index(): order=%u, index=%u, buddy free %u, combining\n", order, index, buddy_index);
-		
+
 		/*
 		 * Now, we should combine the two buddies to one; first of all, remove them
 		 * both.
 		 */
-		LIST_REMOVE(&z->z_free[order], &z->z_base[index]);
-		LIST_REMOVE(&z->z_free[order], &z->z_base[buddy_index]);
+		z.z_free[order].remove(z.z_base[index]);
+		z.z_free[order].remove(z.z_base[buddy_index]);
 
 		/* And add a single entry to the freelist one order above us */
 		order++;
 		index &= ~((1 << order) - 1);
-		LIST_APPEND(&z->z_free[order], &z->z_base[index]);
-		z->z_base[index].p_order = order;
+		z.z_free[order].push_back(z.z_base[index]);
+		z.z_base[index].p_order = order;
 	}
 
-	spinlock_unlock(&z->z_lock);
+	spinlock_unlock(&z.z_lock);
 }
 
 void
-page_free(struct PAGE* p)
+page_free(Page& p)
 {
 	page_assert_sane(p);
 
-	struct PAGE_ZONE* z = p->p_zone;
-	page_free_index(z, p->p_order, p - z->z_base);
+	PageZone& z = *p.p_zone;
+	page_free_index(z, p.p_order, &p - z.z_base);
 }
 
-struct PAGE*
-page_alloc_zone(struct PAGE_ZONE* z, unsigned int order)
+Page*
+page_alloc_zone(PageZone& z, unsigned int order)
 {
-	DPRINTF("page_alloc_zone(): z=%p, order=%u\n", z, order);
+	DPRINTF("page_alloc_zone(): z=%p, order=%u\n", &z, order);
 
-	spinlock_lock(&z->z_lock);
+	spinlock_lock(&z.z_lock);
 
 	/* First step is to figure out the initial order we need to use */
 	unsigned int alloc_order = order;
-	while (alloc_order < PAGE_NUM_ORDERS && LIST_EMPTY(&z->z_free[alloc_order]))
+	while (alloc_order < PAGE_NUM_ORDERS && z.z_free[alloc_order].empty())
 		alloc_order++; /* nothing free here */
-	DPRINTF("page_alloc_zone(): z=%p, order=%u -> alloc_order=%u\n", z, order, alloc_order);
+	DPRINTF("page_alloc_zone(): z=%p, order=%u -> alloc_order=%u\n", &z, order, alloc_order);
 	if (alloc_order == PAGE_NUM_ORDERS) {
-		spinlock_unlock(&z->z_lock);
+		spinlock_unlock(&z.z_lock);
 		return NULL;
 	}
 
 	/* Now we need to keep splitting each block from alloc_order .. order */
 	for (unsigned int n = alloc_order; n >= order; n--) {
 		DPRINTF("page_alloc_zone(): loop, n=%u\n", n);
-		KASSERT(!LIST_EMPTY(&z->z_free[n]), "freelist of order %u can't be empty", n);
+		KASSERT(!z.z_free[n].empty(), "freelist of order %u can't be empty", n);
 
 		/* Grab the first block we see */
-		struct PAGE* p = LIST_HEAD(&z->z_free[n]);
-		LIST_POP_HEAD(&z->z_free[n]);
+		Page& p = z.z_free[n].front();
+		z.z_free[n].pop_front();
 
 		/* And allocate it in the bitmap */
-		unsigned int index = p - z->z_base;
+		unsigned int index = &p - z.z_base;
 
-		/* If we reached the order we wanted, we are done */ 
+		/* If we reached the order we wanted, we are done */
 		if (n == order) {
 			/*
 			 * We only need to set the current bitmap bit; order is already correct
 			 * since splitting blocks sets it for us.
 			 */
-			KASSERT(p->p_order == order, "wrong order?");
-			set_bit(z->z_bitmap, index);
-			DPRINTF("page_alloc_zone(): got page=%p, index %u\n", p, index);
-			z->z_avail_pages -= 1 << order;
-			spinlock_unlock(&z->z_lock);
-			return p;
+			KASSERT(p.p_order == order, "wrong order?");
+			set_bit(z.z_bitmap, index);
+			DPRINTF("page_alloc_zone(): got page=%p, index %u\n", &p, index);
+			z.z_avail_pages -= 1 << order;
+			spinlock_unlock(&z.z_lock);
+			return &p;
 		}
 
 		/* Split this block - no need to set bits because they were already free */
 		unsigned int buddy_index = index ^ (1 << (n - 1));
 		DPRINTF("page_alloc_zone(): n=%u, splitting index %u -> %u, %u\n", n, index, index, buddy_index);
 		DPRINTF("split page0=%p, page1=%p\n", &z->z_base[index], &z->z_base[buddy_index]);
-		LIST_APPEND(&z->z_free[n - 1], &z->z_base[index]);
-		LIST_APPEND(&z->z_free[n - 1], &z->z_base[buddy_index]);
-		z->z_base[index].p_order = n - 1;
-		z->z_base[buddy_index].p_order = n - 1;
+		z.z_free[n - 1].push_back(z.z_base[index]);
+		z.z_free[n - 1].push_back(z.z_base[buddy_index]);
+		z.z_base[index].p_order = n - 1;
+		z.z_base[buddy_index].p_order = n - 1;
 	}
 
 	/* NOTREACHED */
@@ -177,32 +176,30 @@ page_zone_add(addr_t base, size_t length)
 	 * - struct PAGE_ZONE with information regarding this zone
 	 * - [num_pages] bits, to see whether a page is used
 	 * - [num_pages] x (struct PAGE) to contain information for a given memory page
-	 *
-	 * 
 	 */
 	unsigned int num_pages = length / PAGE_SIZE;
 	unsigned int bitmap_size = (num_pages + 7) / 8;
-	unsigned int num_admin_pages = (sizeof(struct PAGE_ZONE) + bitmap_size + (num_pages * sizeof(struct PAGE)) + PAGE_SIZE - 1) / PAGE_SIZE;
+	unsigned int num_admin_pages = (sizeof(PageZone) + bitmap_size + (num_pages * sizeof(Page)) + PAGE_SIZE - 1) / PAGE_SIZE;
 	DPRINTF("%s: base=%p length=%u -> num_pages=%u, num_admin_pages=%u\n", __func__, base, length, num_pages, num_admin_pages);
 
 	char* mem = static_cast<char*>(kmem_map(base, num_admin_pages * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE));
 
-	/* Initialize the page zone; initially, we'll just mark everything as allocated */	
-	struct PAGE_ZONE* z = (struct PAGE_ZONE*)mem;
-	spinlock_init(&z->z_lock);
-	z->z_bitmap = mem + sizeof(*z);
+	/* Initialize the page zone; initially, we'll just mark everything as allocated */
+	PageZone& z = *reinterpret_cast<PageZone*>(mem);
+	spinlock_init(&z.z_lock);
+	z.z_bitmap = mem + sizeof(z);
 	for (int n = 0; n < PAGE_NUM_ORDERS; n++)
-		LIST_INIT(&z->z_free[n]);
-	memset(z->z_bitmap, 0xff, bitmap_size);
-	z->z_base = (struct PAGE*)(mem + bitmap_size + sizeof(*z));
-	z->z_num_pages = num_pages - num_admin_pages;
-	z->z_avail_pages = 0;
-	z->z_phys_addr = base + num_admin_pages * PAGE_SIZE;
+		z.z_free[n].clear();
+	memset(z.z_bitmap, 0xff, bitmap_size);
+	z.z_base = reinterpret_cast<Page*>(mem + bitmap_size + sizeof(z));
+	z.z_num_pages = num_pages - num_admin_pages;
+	z.z_avail_pages = 0;
+	z.z_phys_addr = base + num_admin_pages * PAGE_SIZE;
 
 	/* Create the page structures; we mark everything as a order 0 page */
-	struct PAGE* p = z->z_base;
-	for (unsigned int n = 0; n < z->z_num_pages; n++, p++) {
-		p->p_zone = z;
+	Page* p = z.z_base;
+	for (unsigned int n = 0; n < z.z_num_pages; n++, p++) {
+		p->p_zone = &z;
 		p->p_order = 0;
 	}
 
@@ -210,33 +207,33 @@ page_zone_add(addr_t base, size_t length)
 	 * Now, free all chunks of memory. This is slow, we could do better but for
 	 * now it'll help guarantee that the implementation is correct.
 	 */
-	for (int n = 0; n < z->z_num_pages; n++)
+	for (int n = 0; n < z.z_num_pages; n++)
 		page_free_index(z, 0, n);
 
 	/* Add the zone to the list XXX there should be some lock on zones */
-	LIST_APPEND(&zones, z);
+	zones.push_back(z);
 }
 
 addr_t
-page_get_paddr(struct PAGE* p)
+page_get_paddr(Page& p)
 {
 	page_assert_sane(p);
 
-	struct PAGE_ZONE* z = p->p_zone;
-	unsigned int index = p - z->z_base;
-	return z->z_phys_addr + index * PAGE_SIZE;
+	PageZone& z = *p.p_zone;
+	unsigned int index = &p - z.z_base;
+	return z.z_phys_addr + index * PAGE_SIZE;
 }
 
-struct PAGE*
+Page*
 page_alloc_order(int order)
 {
 	/* XXX this function has no lock on zones */
 
 	KASSERT(order >= 0 && order < PAGE_NUM_ORDERS, "order %d out of range", order);
-	KASSERT(!LIST_EMPTY(&zones), "no zones");
+	KASSERT(!zones.empty(), "no zones");
 
-	LIST_FOREACH(&zones, z, struct PAGE_ZONE) {
-		struct PAGE* page = page_alloc_zone(z, order);
+	for(auto& z: zones) {
+		Page* page = page_alloc_zone(z, order);
 		if (page != NULL)
 			return page;
 	}
@@ -245,22 +242,22 @@ page_alloc_order(int order)
 }
 
 void*
-page_alloc_order_mapped(int order, struct PAGE** p, int vm_flags)
+page_alloc_order_mapped(int order, Page*& p, int vm_flags)
 {
-	*p = page_alloc_order(order);
-	if (*p == NULL)
-		return NULL;
+	p = page_alloc_order(order);
+	if (p == nullptr)
+		return nullptr;
 	return kmem_map(page_get_paddr(*p), PAGE_SIZE << order, vm_flags);
 }
 
-struct PAGE*
+Page*
 page_alloc_length(size_t length)
 {
 	return page_alloc_order(bytes2order(length));
 }
 
 void*
-page_alloc_length_mapped(size_t length, struct PAGE** p, int vm_flags)
+page_alloc_length_mapped(size_t length, Page*& p, int vm_flags)
 {
 	return page_alloc_order_mapped(bytes2order(length), p, vm_flags);
 }
@@ -269,46 +266,37 @@ void
 page_get_stats(unsigned int* total_pages, unsigned int* avail_pages)
 {
 	/* XXX we need some lock on zones */
-	KASSERT(!LIST_EMPTY(&zones), "no zones");
+	KASSERT(!zones.empty(), "no zones");
 
 	*total_pages = 0; *avail_pages = 0;
-	LIST_FOREACH(&zones, z, struct PAGE_ZONE) {
-		spinlock_lock(&z->z_lock);
-		*total_pages += z->z_num_pages;
-		*avail_pages += z->z_avail_pages;
-		spinlock_unlock(&z->z_lock);
+	for(auto& z: zones) {
+		spinlock_lock(&z.z_lock);
+		*total_pages += z.z_num_pages;
+		*avail_pages += z.z_avail_pages;
+		spinlock_unlock(&z.z_lock);
 	}
 }
 
 #ifdef OPTION_KDB
 static void
-page_dump(struct PAGE_ZONE* z)
+page_dump(PageZone& z)
 {
 	kprintf("page_dump: zone=%p total=%u avail=%u (%u KB of %u KB in use)\n",
-	 z, z->z_num_pages, z->z_avail_pages,
-	 (z->z_num_pages - z->z_avail_pages) * (PAGE_SIZE / 1024),
-	 z->z_num_pages * (PAGE_SIZE / 1024));
+	 &z, z.z_num_pages, z.z_avail_pages,
+	 (z.z_num_pages - z.z_avail_pages) * (PAGE_SIZE / 1024),
+	 z.z_num_pages * (PAGE_SIZE / 1024));
 	for (unsigned int order = 0; order < PAGE_NUM_ORDERS; order++) {
 		kprintf(" order %u: ", order);
 		int n = 0;
-		LIST_FOREACH(&z->z_free[order], f, struct PAGE) {
+		for(auto& f: z.z_free[order])
 			n++;
-		}
 		kprintf("%d\n", n);
 	}
-
-#if 0
-	kprintf("free pages in bitmap:");
-	for (int n = 0; n < z->z_num_pages; n++)
-		if (!get_bit(z->z_bitmap, n))
-			kprintf(" %u", n);
-	kprintf("\n");
-#endif
 }
 
 KDB_COMMAND(pages, NULL, "Display page zones")
 {
-	LIST_FOREACH(&zones, z, struct PAGE_ZONE) {
+	for(auto& z: zones) {
 		page_dump(z);
 	}
 }

@@ -56,8 +56,8 @@ vmspace_get_dentry_backed_page(VMArea& va, off_t read_off)
 		return *vmpage;
 
 	// Read the page - note that we hold the vmpage lock while doing this
-	struct PAGE* p;
-	void* page = page_alloc_single_mapped(&p, VM_FLAG_READ | VM_FLAG_WRITE);
+	Page* p;
+	void* page = page_alloc_single_mapped(p, VM_FLAG_READ | VM_FLAG_WRITE);
 	KASSERT(p != nullptr, "out of memory"); // XXX handle this
 
 	size_t read_length = PAGE_SIZE;
