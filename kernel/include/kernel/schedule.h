@@ -1,17 +1,14 @@
 #ifndef __SCHEDULE_H__
 #define __SCHEDULE_H__
 
-#include <ananas/types.h>
-#include "kernel/list.h"
+#include <ananas/util/list.h>
 
 struct Thread;
 
-struct SCHED_PRIV {
+struct SchedulerPriv : util::List<SchedulerPriv>::NodePtr {
 	Thread* sp_thread;	/* Backreference to the thread */
-	LIST_FIELDS(struct SCHED_PRIV);
 };
-
-LIST_DEFINE(SCHEDULER_QUEUE, struct SCHED_PRIV);
+typedef util::List<SchedulerPriv> SchedulerPrivList;
 
 void scheduler_add(Thread& t);
 void scheduler_remove(Thread& t);

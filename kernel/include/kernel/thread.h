@@ -5,7 +5,7 @@
 #include <ananas/util/list.h>
 #include "kernel/handle.h"
 #include "kernel/page.h"
-#include "kernel/schedule.h" // for SCHED_PRIV
+#include "kernel/schedule.h" // for SchedulerPriv
 #include "kernel/vfs/generic.h"
 #include "kernel-md/thread.h"
 
@@ -65,10 +65,10 @@ struct Thread : public util::List<Thread>::NodePtr {
 	ThreadWaiterList	t_waitqueue;
 
 	/* Timeout, when it expires the thread will be scheduled in */
-	tick_t t_timeout;
+	tick_t			t_timeout;
 
 	/* Scheduler specific information */
-	struct SCHED_PRIV t_sched_priv;
+	SchedulerPriv		t_sched_priv;
 };
 
 typedef util::List<Thread> ThreadList;
