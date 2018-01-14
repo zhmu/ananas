@@ -101,7 +101,7 @@ md_map_pages(VMSpace* vs, addr_t virt, addr_t phys, size_t num_pages, int flags)
 void
 md_unmap_pages(VMSpace* vs, addr_t virt, size_t num_pages)
 {
-	thread_t* curthread = PCPU_GET(curthread);
+	Thread* curthread = PCPU_GET(curthread);
 	int is_cur_vmspace = curthread->t_process != NULL && curthread->t_process->p_vmspace == vs;
 
 	/* XXX we don't yet strip off bits 52-63 yet */

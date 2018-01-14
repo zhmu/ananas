@@ -28,7 +28,7 @@ vfshandle_get_file(struct HANDLE* handle, struct VFS_FILE** out)
 }
 
 errorcode_t
-vfshandle_read(thread_t* t, handleindex_t index, struct HANDLE* handle, void* buffer, size_t* size)
+vfshandle_read(Thread* t, handleindex_t index, struct HANDLE* handle, void* buffer, size_t* size)
 {
 	struct VFS_FILE* file;
 	errorcode_t err = vfshandle_get_file(handle, &file);
@@ -38,7 +38,7 @@ vfshandle_read(thread_t* t, handleindex_t index, struct HANDLE* handle, void* bu
 }
 
 errorcode_t
-vfshandle_write(thread_t* t, handleindex_t index, struct HANDLE* handle, const void* buffer, size_t* size)
+vfshandle_write(Thread* t, handleindex_t index, struct HANDLE* handle, const void* buffer, size_t* size)
 {
 	struct VFS_FILE* file;
 	errorcode_t err = vfshandle_get_file(handle, &file);
@@ -48,7 +48,7 @@ vfshandle_write(thread_t* t, handleindex_t index, struct HANDLE* handle, const v
 }
 
 static errorcode_t
-vfshandle_open(thread_t* t, handleindex_t index, struct HANDLE* handle, const char* path, int flags, int mode)
+vfshandle_open(Thread* t, handleindex_t index, struct HANDLE* handle, const char* path, int flags, int mode)
 {
 	process_t* proc = t->t_process;
 
@@ -92,7 +92,7 @@ vfshandle_free(process_t* proc, struct HANDLE* handle)
 }
 
 static errorcode_t
-vfshandle_unlink(thread_t* t, handleindex_t index, struct HANDLE* handle)
+vfshandle_unlink(Thread* t, handleindex_t index, struct HANDLE* handle)
 {
 	struct VFS_FILE* file;
 	errorcode_t err = vfshandle_get_file(handle, &file);

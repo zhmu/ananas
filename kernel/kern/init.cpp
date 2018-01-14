@@ -103,9 +103,9 @@ mi_startup()
 	 * must never sleep)
 	 */
 	volatile int done = 0;
-	thread_t init_thread;
-	kthread_init(&init_thread, "init", init_thread_func, (void*)&done);
-	thread_resume(&init_thread);
+	Thread init_thread;
+	kthread_init(init_thread, "init", init_thread_func, (void*)&done);
+	thread_resume(init_thread);
 
 	/* Activate the scheduler - it is time */
 	scheduler_launch();

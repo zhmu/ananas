@@ -66,7 +66,7 @@ struct IRQ {
 	unsigned int		i_straycount;
 	unsigned int		i_flags;
 #define IRQ_FLAG_THREAD	(1 << 0)	/* execute this handler from a thread */
-	thread_t		i_thread;
+	Thread			i_thread;
 	semaphore_t		i_semaphore;
 };
 

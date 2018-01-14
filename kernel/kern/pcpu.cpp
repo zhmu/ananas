@@ -5,13 +5,13 @@
 void
 pcpu_init(struct PCPU* pcpu)
 {
-	pcpu->idlethread = new THREAD;
-	KASSERT(pcpu->idlethread != NULL, "out of memory for idle thread");
+	pcpu->idlethread = new Thread;
+	KASSERT(pcpu->idlethread != nullptr, "out of memory for idle thread");
 
 	char name[64];
 	snprintf(name, sizeof(name) - 1, "idle:cpu%u", pcpu->cpuid);
 	name[sizeof(name) - 1] = '\0';
-	kthread_init(pcpu->idlethread, name, &idle_thread, NULL);
+	kthread_init(*pcpu->idlethread, name, &idle_thread, NULL);
 	pcpu->nested_irq = 0;
 
 	/*

@@ -2,8 +2,8 @@
 #define __THREAD_H__
 
 #include <ananas/types.h>
+#include <ananas/util/list.h>
 #include "kernel/handle.h"
-#include "kernel/list.h"
 #include "kernel/page.h"
 #include "kernel/schedule.h" // for SCHED_PRIV
 #include "kernel/vfs/generic.h"
@@ -17,16 +17,13 @@ struct STACKFRAME;
 #define THREAD_MAX_NAME_LEN 32
 #define THREAD_EVENT_EXIT 1
 
-LIST_DEFINE(THREAD_QUEUE, thread_t);
-
-struct THREAD_WAITER {
+struct ThreadWaiter : util::List<ThreadWaiter>::NodePtr {
 	semaphore_t	tw_sem;
-	LIST_FIELDS(struct THREAD_WAITER);
 };
 
-LIST_DEFINE(THREAD_WAIT_QUEUE, struct THREAD_WAITER);
+typedef util::List<ThreadWaiter> ThreadWaiterList;
 
-struct THREAD {
+struct Thread : public util::List<Thread>::NodePtr {
 	/* Machine-dependant data - must be first */
 	MD_THREAD_FIELDS
 
@@ -65,16 +62,16 @@ struct THREAD {
 	handleindex_t	t_hidx_thread;	/* Handle identifying this thread */
 
 	/* Waiters to signal on thread changes */
-	struct THREAD_WAIT_QUEUE t_waitqueue;
+	ThreadWaiterList	t_waitqueue;
 
 	/* Timeout, when it expires the thread will be scheduled in */
 	tick_t t_timeout;
 
 	/* Scheduler specific information */
 	struct SCHED_PRIV t_sched_priv;
-
-	LIST_FIELDS(thread_t);
 };
+
+typedef util::List<Thread> ThreadList;
 
 /* Macro's to facilitate flag checking */
 #define THREAD_IS_ACTIVE(t) ((t)->t_flags & THREAD_FLAG_ACTIVE)
@@ -84,44 +81,42 @@ struct THREAD {
 #define THREAD_IS_KTHREAD(t) ((t)->t_flags & THREAD_FLAG_KTHREAD)
 
 /* Machine-dependant callback to initialize a thread */
-errorcode_t md_thread_init(thread_t* thread, int flags);
-errorcode_t md_kthread_init(thread_t* thread, kthread_func_t func, void* arg);
+errorcode_t md_thread_init(Thread& thread, int flags);
+errorcode_t md_kthread_init(Thread& thread, kthread_func_t func, void* arg);
 
 /* Machine-dependant callback to free thread data */
-void md_thread_free(thread_t* thread);
+void md_thread_free(Thread& thread);
 
-errorcode_t kthread_init(thread_t* t, const char* name, kthread_func_t func, void* arg);
+errorcode_t kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg);
 
 #define THREAD_ALLOC_DEFAULT	0	/* Nothing special */
 #define THREAD_ALLOC_CLONE	1	/* Thread is created for cloning */
 
-errorcode_t thread_alloc(process_t* p, thread_t** dest, const char* name, int flags);
-void thread_ref(thread_t* t);
-void thread_deref(thread_t* t);
-void thread_set_name(thread_t* t, const char* name);
+errorcode_t thread_alloc(process_t* p, Thread*& dest, const char* name, int flags);
+void thread_ref(Thread& t);
+void thread_deref(Thread& t);
+void thread_set_name(Thread& t, const char* name);
 
-thread_t* md_thread_switch(thread_t* new_thread, thread_t* old_thread);
+Thread& md_thread_switch(Thread& new_thread, Thread& old_thread);
 void idle_thread(void*);
 
-void md_thread_set_entrypoint(thread_t* thread, addr_t entry);
-void md_thread_set_argument(thread_t* thread, addr_t arg);
-void* md_thread_map(thread_t* thread, void* to, void* from, size_t length, int flags);
-errorcode_t thread_unmap(thread_t* t, addr_t virt, size_t len);
-void* md_map_thread_memory(thread_t* thread, void* ptr, size_t length, int write);
-void md_thread_clone(thread_t* t, thread_t* parent, register_t retval);
-errorcode_t md_thread_unmap(thread_t* thread, addr_t virt, size_t length);
-int md_thread_peek_32(thread_t* thread, addr_t virt, uint32_t* val);
-int md_thread_is_mapped(thread_t* thread, addr_t virt, int flags, addr_t* va);
-void md_setup_post_exec(thread_t* thread, addr_t exec_addr, register_t exec_arg);
+void md_thread_set_entrypoint(Thread& thread, addr_t entry);
+void md_thread_set_argument(Thread& thread, addr_t arg);
+void* md_thread_map(Thread& thread, void* to, void* from, size_t length, int flags);
+errorcode_t thread_unmap(Thread& t, addr_t virt, size_t len);
+void* md_map_thread_memory(Thread& thread, void* ptr, size_t length, int write);
+void md_thread_clone(Thread& t, Thread& parent, register_t retval);
+errorcode_t md_thread_unmap(Thread& thread, addr_t virt, size_t length);
+void md_setup_post_exec(Thread& thread, addr_t exec_addr, register_t exec_arg);
 
-void thread_suspend(thread_t* t);
-void thread_resume(thread_t* t);
+void thread_suspend(Thread& t);
+void thread_resume(Thread& t);
 void thread_sleep(tick_t num_ticks);
 void thread_exit(int exitcode);
 void thread_dump(int num_args, char** arg);
-errorcode_t thread_clone(process_t* proc, thread_t** dest);
+errorcode_t thread_clone(process_t* proc, Thread*& dest);
 
-void thread_signal_waiters(thread_t* t);
-void thread_wait(thread_t* t);
+void thread_signal_waiters(Thread& t);
+void thread_wait(Thread& t);
 
 #endif

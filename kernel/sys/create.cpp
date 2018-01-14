@@ -9,7 +9,7 @@
 TRACE_SETUP;
 
 errorcode_t
-sys_create(thread_t* t, struct CREATE_OPTIONS* opts, handleindex_t* out)
+sys_create(Thread* t, struct CREATE_OPTIONS* opts, handleindex_t* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, opts=%p, out=%p", t, opts, out);
 	errorcode_t err;

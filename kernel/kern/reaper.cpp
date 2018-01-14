@@ -12,20 +12,12 @@
 #include "kernel/reaper.h"
 #include "kernel/thread.h"
 
-static spinlock_t spl_reaper = SPINLOCK_DEFAULT_INIT;
-static struct THREAD_QUEUE reaper_queue;
-static semaphore_t reaper_sem;
-static thread_t reaper_thread;
+namespace {
 
-void
-reaper_enqueue(thread_t* t)
-{
-	spinlock_lock(&spl_reaper);
-	LIST_APPEND(&reaper_queue, t);
-	spinlock_unlock(&spl_reaper);
-
-	sem_signal(&reaper_sem);
-}
+spinlock_t spl_reaper = SPINLOCK_DEFAULT_INIT;
+ThreadList reaper_list;
+semaphore_t reaper_sem;
+Thread reaper_thread;
 
 static void
 reaper_reap(void* context)
@@ -35,21 +27,33 @@ reaper_reap(void* context)
 
 		/* Fetch the item to reap from the queue */
 		spinlock_lock(&spl_reaper);
-		KASSERT(!LIST_EMPTY(&reaper_queue), "reaper woke up with empty queue?");
-		thread_t* t = LIST_HEAD(&reaper_queue);
-		LIST_POP_HEAD(&reaper_queue);
+		KASSERT(!reaper_list.empty(), "reaper woke up with empty queue?");
+		Thread& t = reaper_list.front();
+		reaper_list.pop_front();
 		spinlock_unlock(&spl_reaper);
 
 		thread_deref(t);
 	}
 }
 
-static errorcode_t
+errorcode_t
 start_reaper()
 {
-	kthread_init(&reaper_thread, "reaper", &reaper_reap, NULL);
-	thread_resume(&reaper_thread);
+	kthread_init(reaper_thread, "reaper", &reaper_reap, NULL);
+	thread_resume(reaper_thread);
 	return ananas_success();
+}
+
+} // unnamed namespace
+
+void
+reaper_enqueue(Thread& t)
+{
+	spinlock_lock(&spl_reaper);
+	reaper_list.push_back(t);
+	spinlock_unlock(&spl_reaper);
+
+	sem_signal(&reaper_sem);
 }
 
 INIT_FUNCTION(start_reaper, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);

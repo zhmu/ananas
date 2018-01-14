@@ -7,7 +7,7 @@
 TRACE_SETUP;
 
 errorcode_t
-sys_waitpid(thread_t* t, pid_t* pid, int* stat_loc, int options)
+sys_waitpid(Thread* t, pid_t* pid, int* stat_loc, int options)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, pid=%d stat_loc=%p options=%d", t, pid, stat_loc, options);
 

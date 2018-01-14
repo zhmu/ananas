@@ -1,20 +1,21 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
 #include <ananas/flags.h>
+#include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "syscall.h"
 
 TRACE_SETUP;
 
 errorcode_t
-sys_fcntl(thread_t* t, handleindex_t hindex, int cmd, const void* in, void* out)
+sys_fcntl(Thread* t, handleindex_t hindex, int cmd, const void* in, void* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, hindex=%d cmd=%d", t, hindex, cmd);
 	process_t* process = t->t_process;
 
 	/* Get the handle */
 	struct HANDLE* h;
-	errorcode_t err = syscall_get_handle(t, hindex, &h);
+	errorcode_t err = syscall_get_handle(*t, hindex, &h);
 	ANANAS_ERROR_RETURN(err);
 
 	if (h->h_type != HANDLE_TYPE_FILE)

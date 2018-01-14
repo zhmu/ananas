@@ -4,7 +4,7 @@
 TRACE_SETUP;
 
 void
-sys_exit(thread_t* t, int exitcode)
+sys_exit(Thread* t, int exitcode)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, exitcode=%u", t, exitcode);
 

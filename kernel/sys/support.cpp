@@ -9,16 +9,16 @@
 TRACE_SETUP;
 
 errorcode_t
-syscall_get_handle(thread_t* t, handleindex_t hindex, struct HANDLE** out)
+syscall_get_handle(Thread& t, handleindex_t hindex, struct HANDLE** out)
 {
-	return handle_lookup(t->t_process, hindex, HANDLE_TYPE_ANY, out);
+	return handle_lookup(t.t_process, hindex, HANDLE_TYPE_ANY, out);
 }
 
 errorcode_t
-syscall_get_file(thread_t* t, handleindex_t hindex, struct VFS_FILE** out)
+syscall_get_file(Thread& t, handleindex_t hindex, struct VFS_FILE** out)
 {
 	struct HANDLE* handle;
-	errorcode_t err = handle_lookup(t->t_process, hindex, HANDLE_TYPE_ANY, &handle);
+	errorcode_t err = handle_lookup(t.t_process, hindex, HANDLE_TYPE_ANY, &handle);
 	ANANAS_ERROR_RETURN(err);
 
 	struct VFS_FILE* file = &((struct HANDLE*)handle)->h_data.d_vfs_file;
@@ -30,7 +30,7 @@ syscall_get_file(thread_t* t, handleindex_t hindex, struct VFS_FILE** out)
 }
 
 errorcode_t
-syscall_map_string(thread_t* t, const void* ptr, const char** out)
+syscall_map_string(Thread& t, const void* ptr, const char** out)
 {
 	auto x = static_cast<const char*>(md_map_thread_memory(t, (void*)ptr, PAGE_SIZE, VM_FLAG_READ));
 	if (x == NULL)
@@ -47,7 +47,7 @@ syscall_map_string(thread_t* t, const void* ptr, const char** out)
 }
 
 errorcode_t
-syscall_map_buffer(thread_t* t, const void* ptr, size_t len, int flags, void** out)
+syscall_map_buffer(Thread& t, const void* ptr, size_t len, int flags, void** out)
 {
 	void* x = md_map_thread_memory(t, (void*)ptr, len, flags);
 	if (x == NULL)
@@ -58,7 +58,7 @@ syscall_map_buffer(thread_t* t, const void* ptr, size_t len, int flags, void** o
 }
 
 errorcode_t
-syscall_fetch_size(thread_t* t, const void* ptr, size_t* out)
+syscall_fetch_size(Thread& t, const void* ptr, size_t* out)
 {
 	auto s = static_cast<size_t*>(md_map_thread_memory(t, (void*)ptr, sizeof(size_t), VM_FLAG_READ));
 	if (s == NULL)
@@ -69,7 +69,7 @@ syscall_fetch_size(thread_t* t, const void* ptr, size_t* out)
 }
 
 errorcode_t
-syscall_set_size(thread_t* t, void* ptr, size_t len)
+syscall_set_size(Thread& t, void* ptr, size_t len)
 {
 	auto s = static_cast<size_t*>(md_map_thread_memory(t, (void*)ptr, sizeof(size_t), VM_FLAG_WRITE));
 	if (s == NULL)
@@ -80,7 +80,7 @@ syscall_set_size(thread_t* t, void* ptr, size_t len)
 }
 
 errorcode_t
-syscall_set_handleindex(thread_t* t, handleindex_t* ptr, handleindex_t index)
+syscall_set_handleindex(Thread& t, handleindex_t* ptr, handleindex_t index)
 {
 	auto p = static_cast<handleindex_t*>(md_map_thread_memory(t, (void*)ptr, sizeof(handleindex_t), VM_FLAG_WRITE));
 	if (p == NULL)
@@ -91,7 +91,7 @@ syscall_set_handleindex(thread_t* t, handleindex_t* ptr, handleindex_t index)
 }
 
 errorcode_t
-syscall_fetch_offset(thread_t* t, const void* ptr, off_t* out)
+syscall_fetch_offset(Thread& t, const void* ptr, off_t* out)
 {
 	auto o = static_cast<off_t*>(md_map_thread_memory(t, (void*)ptr, sizeof(off_t), VM_FLAG_READ));
 	if (o == NULL)
@@ -102,7 +102,7 @@ syscall_fetch_offset(thread_t* t, const void* ptr, off_t* out)
 }
 
 errorcode_t
-syscall_set_offset(thread_t* t, void* ptr, off_t len)
+syscall_set_offset(Thread& t, void* ptr, off_t len)
 {
 	auto o = static_cast<size_t*>(md_map_thread_memory(t, (void*)ptr, sizeof(size_t), VM_FLAG_WRITE));
 	if (o == NULL)

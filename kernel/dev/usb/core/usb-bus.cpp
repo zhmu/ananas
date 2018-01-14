@@ -30,7 +30,7 @@ namespace USB {
 LIST_DEFINE(USBBusses, Bus);
 
 namespace {
-thread_t usbbus_thread;
+Thread usbbus_thread;
 semaphore_t usbbus_semaphore;
 USBDevices usbbus_pendingqueue;
 spinlock_t usbbus_spl_pendingqueue = SPINLOCK_DEFAULT_INIT; /* protects usbbus_pendingqueue */
@@ -209,8 +209,8 @@ InitializeBus()
 	 * Create a kernel thread to handle USB device attachments. We use a thread for this
 	 * since we can only attach one at the same time.
 	 */
-	kthread_init(&usbbus_thread, "usbbus", &usb_bus_thread, NULL);
-	thread_resume(&usbbus_thread);
+	kthread_init(usbbus_thread, "usbbus", &usb_bus_thread, NULL);
+	thread_resume(usbbus_thread);
 	return ananas_success();
 }
 

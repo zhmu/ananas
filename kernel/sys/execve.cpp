@@ -47,7 +47,7 @@ set_proc_attribute(process_t* process, enum SET_PROC_ATTR attr, const char** lis
 }
 
 errorcode_t
-sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
+sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, path='%s'", t, path);
 	process_t* proc = t->t_process;
@@ -108,8 +108,8 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	 * Loading went okay; we can now set the new thread name (we won't be able to
 	 * access argv after the vmspace_clone() so best do it here)
 	 */
-	if (argv != NULL && argv[0] != NULL)
-		thread_set_name(t, argv[0]);
+	if (argv != nullptr && argv[0] != nullptr)
+		thread_set_name(*t, argv[0]);
 
 	/* Copy the new vmspace to the destination */
 	err = vmspace_clone(*vmspace, *proc->p_vmspace, VMSPACE_CLONE_EXEC);
@@ -117,7 +117,7 @@ sys_execve(thread_t* t, const char* path, const char** argv, const char** envp)
 	vmspace_destroy(*vmspace);
 
 	/* Now force a full return into the new thread state */
-	md_setup_post_exec(t, exec_addr, exec_arg);
+	md_setup_post_exec(*t, exec_addr, exec_arg);
 	return ananas_success();
 
 fail:

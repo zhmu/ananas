@@ -2,6 +2,7 @@
 #include "kernel/x86/smp.h"
 #include "kernel/asmsymbols.h"
 #include "kernel/pcpu.h"
+#include "kernel/thread.h"
 #include "kernel-md/frame.h"
 #include "kernel-md/pcpu.h"
 #include "kernel-md/thread.h"
@@ -33,8 +34,8 @@ ASM_SYMBOL(SF_ES,     offsetof(struct STACKFRAME, sf_es));
 ASM_SYMBOL(SF_SS,     offsetof(struct STACKFRAME, sf_ss));
 ASM_SYMBOL(SF_SIZE,   sizeof(struct STACKFRAME));
 
-ASM_SYMBOL(T_FRAME,   offsetof(struct THREAD, t_frame));
-ASM_SYMBOL(T_MDFLAGS, offsetof(struct THREAD, t_md_flags));
+ASM_SYMBOL(T_FRAME,   offsetof(Thread, t_frame));
+ASM_SYMBOL(T_MDFLAGS, offsetof(Thread, t_md_flags));
 
 ASM_SYMBOL(PCPU_CURTHREAD, offsetof(struct PCPU, curthread));
 ASM_SYMBOL(PCPU_NESTEDIRQ, offsetof(struct PCPU, nested_irq));

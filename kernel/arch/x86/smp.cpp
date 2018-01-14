@@ -69,7 +69,7 @@ IRQResult
 smp_ipi_schedule(Ananas::Device*, void* context)
 {
 	/* Flip the reschedule flag of the current thread; this makes the IRQ reschedule us as needed */
-	thread_t* curthread = PCPU_GET(curthread);
+	Thread* curthread = PCPU_GET(curthread);
 	curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
 	return IRQResult::IR_Processed;
 }
@@ -277,7 +277,7 @@ INIT_FUNCTION(smp_launch, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);
 
 void
 smp_panic_others()
-{	
+{
 	if (num_smp_launched > 1)
 		*((volatile uint32_t*)(PTOKV(LAPIC_BASE) + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_FIXED | SMP_IPI_PANIC;
 }
@@ -295,9 +295,9 @@ extern "C" void
 mp_ap_startup(uint32_t lapic_id)
 {
 	/* Switch to our idle thread */
-	thread_t* idlethread = PCPU_GET(idlethread);
+	Thread* idlethread = PCPU_GET(idlethread);
   PCPU_SET(curthread, idlethread);
-  scheduler_add_thread(idlethread);
+  scheduler_add_thread(*idlethread);
 
 	/* Reset destination format to flat mode */
 	addr_t lapic_base = PTOKV(LAPIC_BASE);
@@ -316,7 +316,7 @@ mp_ap_startup(uint32_t lapic_id)
 
 	/* We're up and running! Increment the launched count */
 	__asm("lock incl (num_smp_launched)");
-	
+
 	/* Enable interrupts and become the idle thread; this doesn't return */
 	md_interrupts_enable();
 	idle_thread(nullptr);

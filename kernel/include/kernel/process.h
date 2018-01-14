@@ -7,6 +7,8 @@
 
 struct DENTRY;
 struct PROCINFO;
+
+struct Thread;
 class VMSpace;
 
 #define PROCESS_STATE_ACTIVE	1
@@ -30,7 +32,7 @@ struct PROCESS {
 	struct PROCINFO* p_info;	/* Process startup information */
 	addr_t p_info_va;
 
-	thread_t* p_mainthread;		/* Main thread */
+	Thread* p_mainthread;		/* Main thread */
 
 	struct HANDLE* p_handle[PROCESS_MAX_HANDLES];	/* Handles */
 

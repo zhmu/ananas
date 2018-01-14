@@ -9,7 +9,7 @@
 TRACE_SETUP;
 
 errorcode_t
-sys_chdir(thread_t* t, const char* path)
+sys_chdir(Thread* t, const char* path)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, path='%s'", t, path);
 	process_t* proc = t->t_process;

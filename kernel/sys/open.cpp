@@ -7,7 +7,7 @@
 TRACE_SETUP;
 
 errorcode_t
-sys_open(thread_t* t, const char* path, int flags, int mode, handleindex_t* out)
+sys_open(Thread* t, const char* path, int flags, int mode, handleindex_t* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, path='%s', flags=%d, mode=%o", t, path, flags, mode);
 	errorcode_t err;

@@ -23,7 +23,7 @@ namespace USB {
 
 namespace {
 
-thread_t usbtransfer_thread;
+Thread usbtransfer_thread;
 semaphore_t usbtransfer_sem;
 TransferQueue usbtransfer_complete;
 spinlock_t usbtransfer_lock = SPINLOCK_DEFAULT_INIT;
@@ -203,8 +203,8 @@ InitializeTransfer()
 	sem_init(&usbtransfer_sem, 0);
 
 	/* Create a kernel thread to handle USB completed messages */
-	kthread_init(&usbtransfer_thread, "usb-transfer", &transfer_thread, NULL);
-	thread_resume(&usbtransfer_thread);
+	kthread_init(usbtransfer_thread, "usb-transfer", &transfer_thread, NULL);
+	thread_resume(usbtransfer_thread);
 	return ananas_success();
 }
 

@@ -3,6 +3,7 @@
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"
 #include "kernel/process.h"
+#include "kernel/thread.h"
 #include "kernel/trace.h"
 
 #define TRACE_PRINTF_BUFSIZE 256
@@ -21,7 +22,7 @@ tracef(int fileid, const char* func, const char* fmt, ...)
 
 	char buf[TRACE_PRINTF_BUFSIZE];
 
-	thread_t* curthread = PCPU_GET(curthread);
+	Thread* curthread = PCPU_GET(curthread);
 	const char* tname = curthread->t_name;
 	pid_t pid = curthread->t_process != NULL ? curthread->t_process->p_pid : -1;
 

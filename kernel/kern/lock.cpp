@@ -4,6 +4,7 @@
 #include "kernel/lock.h"
 #include "kernel/pcpu.h"
 #include "kernel/schedule.h"
+#include "kernel/thread.h"
 #include "kernel-md/interrupts.h"
 
 void
@@ -144,7 +145,7 @@ sem_signal(semaphore_t* sem)
 	 * wake-up thing in such a case
 	 */
 	register_t state = spinlock_lock_unpremptible(&sem->sem_lock);
-	thread_t* curthread = PCPU_GET(curthread);
+	Thread* curthread = PCPU_GET(curthread);
 	int wokeup_priority = (curthread != NULL) ? curthread->t_priority : 0;
 
 	if (!LIST_EMPTY(&sem->sem_wq)) {
@@ -152,7 +153,7 @@ sem_signal(semaphore_t* sem)
 		struct SEMAPHORE_WAITER* sw = LIST_HEAD(&sem->sem_wq);
 		LIST_POP_HEAD(&sem->sem_wq);
 		sw->sw_signalled = 1;
-		thread_resume(sw->sw_thread);
+		thread_resume(*sw->sw_thread);
 		wokeup_priority = sw->sw_thread->t_priority;
 		/* No need to adjust sem_count since the unblocked waiter won't touch it */
 	} else {
@@ -168,7 +169,7 @@ sem_signal(semaphore_t* sem)
 		curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
 
 	spinlock_unlock_unpremptible(&sem->sem_lock, state);
-}	
+}
 
 /* Waits for a semaphore to be signalled, but holds it locked */
 static void
@@ -186,14 +187,14 @@ sem_wait_and_lock(semaphore_t* sem, register_t* state)
 	 * get signalled. We will assume the idle thread never gets here, and
 	 * dies in thread_suspend() if we do.
 	 */
-	thread_t* curthread = PCPU_GET(curthread);
+	Thread* curthread = PCPU_GET(curthread);
 
 	struct SEMAPHORE_WAITER sw;
 	sw.sw_thread = curthread;
 	sw.sw_signalled = 0;
 	LIST_APPEND(&sem->sem_wq, &sw);
 	do {
-		thread_suspend(curthread);
+		thread_suspend(*curthread);
 		/* Let go of the lock, but keep interrupts disabled */
 		spinlock_unlock(&sem->sem_lock);
 		schedule();

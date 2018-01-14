@@ -8,7 +8,10 @@
 #include "kernel/init.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
+#include "kernel/handle.h"
+#include "kernel/page.h"
 #include "kernel/pcpu.h"
+#include "kernel/thread.h"
 #include "kernel/mm.h"
 #include "kernel/vm.h"
 #include "kernel/x86/acpi.h"
@@ -622,7 +625,7 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 		"movq %0, %%rsp\n"
 	: : "r" (bsp_pcpu.idlethread->md_rsp));
 	PCPU_SET(curthread, bsp_pcpu.idlethread);
-	scheduler_add_thread(bsp_pcpu.idlethread);
+	scheduler_add_thread(*bsp_pcpu.idlethread);
 
   /*
    * If we have ACPI, do a pre-initialization; we need this mostly in the SMP

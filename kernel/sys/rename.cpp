@@ -8,7 +8,7 @@
 TRACE_SETUP;
 
 errorcode_t
-sys_rename(thread_t* t, const char* oldpath, const char* newpath)
+sys_rename(Thread* t, const char* oldpath, const char* newpath)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, oldpath='%s' newpath='%s'", t, oldpath, newpath);
 	process_t* proc = t->t_process;

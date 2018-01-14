@@ -9,7 +9,7 @@
 TRACE_SETUP;
 
 errorcode_t
-sys_stat(thread_t* t, const char* path, struct stat* buf)
+sys_stat(Thread* t, const char* path, struct stat* buf)
 {
 	process_t* proc = t->t_process;
 

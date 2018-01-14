@@ -55,7 +55,7 @@ exception_nm(struct STACKFRAME* sf)
 	 * an FPU access is made while the task-switched-flag is set. We will
 	 * obtain the FPU state and bind it to the thread.
 	 */
-	thread_t* thread = PCPU_GET(curthread);
+	Thread* thread = PCPU_GET(curthread);
 	KASSERT(thread != NULL, "curthread is NULL");
 	PCPU_SET(fpu_context, &thread->md_fpu_ctx);
 
@@ -82,7 +82,7 @@ exception_generic(struct STACKFRAME* sf)
 		sf->sf_trapno, sf->sf_cs, sf->sf_rip);
 
 	if (userland) {
-		thread_t* cur_thread = PCPU_GET(curthread);
+		Thread* cur_thread = PCPU_GET(curthread);
 		kprintf("name='%s' pid=%d\n", cur_thread->t_name, cur_thread->t_process != NULL ? (int)cur_thread->t_process->p_pid : -1);
 	}
 
@@ -128,7 +128,7 @@ exception_pf(struct STACKFRAME* sf)
 		flags |= VM_FLAG_READ;
 
 	// Let the VM code deal with the fault
-	thread_t* curthread = PCPU_GET(curthread);
+	Thread* curthread = PCPU_GET(curthread);
 	if (curthread != NULL && curthread->t_process != NULL) {
 		errorcode_t err = vmspace_handle_fault(*curthread->t_process->p_vmspace, fault_addr, flags);
 		if (ananas_is_success(err))

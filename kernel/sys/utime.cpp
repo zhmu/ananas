@@ -6,7 +6,7 @@
 TRACE_SETUP;
 
 errorcode_t
-sys_utime(thread_t* t, const char* path, const struct utimbuf* times)
+sys_utime(Thread* t, const char* path, const struct utimbuf* times)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, path='%s' times=%p", t, path, times);
 

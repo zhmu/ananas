@@ -2,15 +2,16 @@
 #define __PCPU_H__
 
 #include <ananas/types.h>
-#include "kernel/thread.h"
 #include "kernel-md/pcpu.h"
+
+struct Thread;
 
 /* Per-CPU information pointer */
 struct PCPU {
 	MD_PCPU_FIELDS				/* Machine-dependant data */
 	uint32_t cpuid;				/* CPU ID */
-	thread_t* curthread;			/* current thread */
-	thread_t* idlethread;			/* idle thread */
+	Thread* curthread;			/* current thread */
+	Thread* idlethread;			/* idle thread */
 	int nested_irq;				/* number of nested IRQ functions */
 };
 

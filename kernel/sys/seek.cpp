@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
 #include <ananas/handle-options.h>
+#include "kernel/handle.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "syscall.h"
@@ -8,11 +9,11 @@
 TRACE_SETUP;
 
 errorcode_t
-sys_seek(thread_t* t, handleindex_t hindex, off_t* offset, int whence)
+sys_seek(Thread* t, handleindex_t hindex, off_t* offset, int whence)
 {
 	/* Get the handle */
 	struct HANDLE* h;
-	errorcode_t err = syscall_get_handle(t, hindex, &h);
+	errorcode_t err = syscall_get_handle(*t, hindex, &h);
 	ANANAS_ERROR_RETURN(err);
 
 	if (h->h_type != HANDLE_TYPE_FILE)

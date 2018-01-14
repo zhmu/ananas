@@ -16,7 +16,7 @@ typedef unsigned int handle_event_result_t;
 
 #define HANDLE_VALUE_INVALID	0
 
-struct THREAD;
+struct Thread;
 struct HANDLE_OPS;
 
 struct HANDLE_PIPE_BUFFER {
@@ -65,11 +65,11 @@ struct OPEN_OPTIONS;
 struct CREATE_OPTIONS;
 struct SUMMON_OPTIONS;
 struct CLONE_OPTIONS;
-typedef errorcode_t (*handle_read_fn)(thread_t* thread, handleindex_t index, struct HANDLE* handle, void* buf, size_t* len);
-typedef errorcode_t (*handle_write_fn)(thread_t* thread, handleindex_t index, struct HANDLE* handle, const void* buf, size_t* len);
-typedef errorcode_t (*handle_open_fn)(thread_t* thread, handleindex_t index, struct HANDLE* result, const char* path, int flags, int mode);
+typedef errorcode_t (*handle_read_fn)(Thread* thread, handleindex_t index, struct HANDLE* handle, void* buf, size_t* len);
+typedef errorcode_t (*handle_write_fn)(Thread* thread, handleindex_t index, struct HANDLE* handle, const void* buf, size_t* len);
+typedef errorcode_t (*handle_open_fn)(Thread* thread, handleindex_t index, struct HANDLE* result, const char* path, int flags, int mode);
 typedef errorcode_t (*handle_free_fn)(process_t* proc, struct HANDLE* handle);
-typedef errorcode_t (*handle_unlink_fn)(thread_t* thread, handleindex_t index, struct HANDLE* handle);
+typedef errorcode_t (*handle_unlink_fn)(Thread* thread, handleindex_t index, struct HANDLE* handle);
 typedef errorcode_t (*handle_clone_fn)(process_t* proc_in, handleindex_t index, struct HANDLE* handle, struct CLONE_OPTIONS* opts, process_t* proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out);
 
 struct HANDLE_OPS {

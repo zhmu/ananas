@@ -4,7 +4,9 @@
 
 TRACE_SETUP;
 
-errorcode_t sys_link(thread_t* t, const char* oldpath, const char* newpath)
+struct Thread;
+
+errorcode_t sys_link(Thread* t, const char* oldpath, const char* newpath)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, oldpath='%s' newpath='%s'", t, oldpath, newpath);
 

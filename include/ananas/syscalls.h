@@ -3,5 +3,6 @@
 #include <ananas/stat.h>
 
 struct utimbuf;
+struct Thread;
 
 #include <_gen/syscalls.h>

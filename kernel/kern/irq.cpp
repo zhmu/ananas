@@ -172,8 +172,8 @@ irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, voi
 		char thread_name[PAGE_SIZE];
 		snprintf(thread_name, sizeof(thread_name) - 1, "irq-%d", no);
 		thread_name[sizeof(thread_name) - 1] = '\0';
-		kthread_init(&i->i_thread, thread_name, &ithread, (void*)(uintptr_t)no);
-		thread_resume(&i->i_thread);
+		kthread_init(i->i_thread, thread_name, &ithread, (void*)(uintptr_t)no);
+		thread_resume(i->i_thread);
 
 		/* XXX we should set a decent priority here */
 
@@ -280,7 +280,7 @@ irq_handler(unsigned int no)
 	PCPU_SET(nested_irq, irq_nestcount);
 
 	/* If the IRQ handler resulted in a reschedule of the current thread, handle it */
-	thread_t* curthread = PCPU_GET(curthread);
+	Thread* curthread = PCPU_GET(curthread);
 	if (irq_nestcount == 0 && THREAD_WANT_RESCHEDULE(curthread))
 		schedule();
 }

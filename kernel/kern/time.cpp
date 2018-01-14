@@ -3,6 +3,7 @@
 #include "kernel/lock.h"
 #include "kernel/pcpu.h"
 #include "kernel/schedule.h"
+#include "kernel/thread.h"
 #include "kernel/x86/smp.h" // XXX
 
 #include "kernel/lib.h"
@@ -114,7 +115,7 @@ OnTick()
 	 * Timeslice is up -> next thread please; we can implement this
 	 * by simply setting the 'want to reschedule' flag.
 	 */
-	thread_t* curthread = PCPU_GET(curthread);
+	Thread* curthread = PCPU_GET(curthread);
 	curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
 #endif
 

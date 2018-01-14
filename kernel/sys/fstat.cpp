@@ -1,17 +1,18 @@
 #include <ananas/types.h>
 #include <ananas/error.h>
 #include "kernel/lib.h"
+#include "kernel/handle.h"
 #include "kernel/trace.h"
 #include "syscall.h"
 
 TRACE_SETUP;
 
 errorcode_t
-sys_fstat(thread_t* t, handleindex_t hindex, struct stat* buf)
+sys_fstat(Thread* t, handleindex_t hindex, struct stat* buf)
 {
 	/* Get the handle */
 	struct HANDLE* h;
-	errorcode_t err = syscall_get_handle(t, hindex, &h);
+	errorcode_t err = syscall_get_handle(*t, hindex, &h);
 	ANANAS_ERROR_RETURN(err);
 
 	if (h->h_type != HANDLE_TYPE_FILE)

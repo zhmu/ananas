@@ -3,6 +3,7 @@
 #include <ananas/error.h>
 #include <ananas/syscall-vmops.h>
 #include "kernel/process.h"
+#include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel/vmspace.h"
@@ -11,7 +12,7 @@
 TRACE_SETUP;
 
 static errorcode_t
-sys_vmop_map(ARG_CURTHREAD struct VMOP_OPTIONS* vo)
+sys_vmop_map(Thread* curthread, struct VMOP_OPTIONS* vo)
 {
 	if (vo->vo_len == 0)
 		return ANANAS_ERROR(BAD_LENGTH);
@@ -37,7 +38,7 @@ sys_vmop_map(ARG_CURTHREAD struct VMOP_OPTIONS* vo)
 	errorcode_t err;
 	if (vo->vo_flags & VMOP_FLAG_HANDLE) {
 		struct HANDLE* h;
-		err = syscall_get_handle(curthread, vo->vo_handle, &h);
+		err = syscall_get_handle(*curthread, vo->vo_handle, &h);
 		ANANAS_ERROR_RETURN(err);
 
 		if (h->h_type != HANDLE_TYPE_FILE)
@@ -72,7 +73,7 @@ sys_vmop(ARG_CURTHREAD struct VMOP_OPTIONS* opts)
 
 	/* Opbtain options */
 	struct VMOP_OPTIONS* vmop_opts;
-	err = syscall_map_buffer(curthread, opts, sizeof(*vmop_opts), VM_FLAG_READ | VM_FLAG_WRITE, (void**)&vmop_opts);
+	err = syscall_map_buffer(*curthread, opts, sizeof(*vmop_opts), VM_FLAG_READ | VM_FLAG_WRITE, (void**)&vmop_opts);
 	ANANAS_ERROR_RETURN(err);
 	if (vmop_opts->vo_size != sizeof(*vmop_opts))
 		return ANANAS_ERROR(BAD_LENGTH);

@@ -85,7 +85,7 @@ QUEUE_DEFINE_BEGIN(TTY_QUEUE, TTY)
 	spinlock_t tq_lock;
 QUEUE_DEFINE_END
 
-static thread_t tty_thread;
+static Thread tty_thread;
 static struct TTY_QUEUE tty_queue;
 static semaphore_t tty_sem;
 
@@ -371,8 +371,8 @@ static errorcode_t
 tty_init()
 {
 	/* Launch our kernel thread */
-	kthread_init(&tty_thread, "tty", tty_thread_func, NULL);
-	thread_resume(&tty_thread);
+	kthread_init(tty_thread, "tty", tty_thread_func, NULL);
+	thread_resume(tty_thread);
 	return ananas_success();
 }
 

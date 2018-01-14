@@ -9,7 +9,7 @@
 TRACE_SETUP;
 
 static register_t
-perform_syscall(thread_t* curthread, struct SYSCALL_ARGS* a)
+perform_syscall(Thread* curthread, struct SYSCALL_ARGS* a)
 {
 	switch(a->number) {
 #include "syscalls.inc.cpp"
@@ -22,7 +22,7 @@ perform_syscall(thread_t* curthread, struct SYSCALL_ARGS* a)
 register_t
 syscall(struct SYSCALL_ARGS* a)
 {
-	thread_t* curthread = PCPU_GET(curthread);
+	Thread* curthread = PCPU_GET(curthread);
 
 	errorcode_t err = perform_syscall(curthread, a);
 

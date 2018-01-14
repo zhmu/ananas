@@ -7,7 +7,7 @@
 TRACE_SETUP;
 
 errorcode_t
-sys_dupfd(thread_t* t, handleindex_t index, int flags, handleindex_t* out)
+sys_dupfd(Thread* t, handleindex_t index, int flags, handleindex_t* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, index=%d, flags=%d", t, index, flags);
 

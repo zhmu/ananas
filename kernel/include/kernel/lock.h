@@ -5,6 +5,13 @@
 #include "kernel/list.h"
 #include "kernel-md/atomic.h"
 
+// XXX Ugly workaround to get ACPICA C code to build
+#ifdef __cplusplus
+struct Thread;
+#else
+typedef struct thread Thread;
+#endif
+
 typedef struct {
 	atomic_t		sl_var;
 } spinlock_t;
@@ -21,7 +28,7 @@ typedef struct {
  */
 
 struct SEMAPHORE_WAITER {
-	thread_t*		sw_thread;
+	Thread*			sw_thread;
 	int			sw_signalled;
 	LIST_FIELDS(struct SEMAPHORE_WAITER);
 };
@@ -46,7 +53,7 @@ typedef struct {
  */
 struct MUTEX {
 	const char*		mtx_name;
-	thread_t*		mtx_owner;
+	Thread*			mtx_owner;
 	semaphore_t		mtx_sem;
 	const char*		mtx_fname;
 	int			mtx_line;

@@ -7,7 +7,7 @@
 TRACE_SETUP;
 
 errorcode_t
-sys_clone(thread_t* t, int flags, pid_t* out_pid)
+sys_clone(Thread* t, int flags, pid_t* out_pid)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, flags=0x%x, out_pid=%p", t, flags, out_pid);
 	errorcode_t err;
@@ -23,14 +23,14 @@ sys_clone(thread_t* t, int flags, pid_t* out_pid)
 	ANANAS_ERROR_RETURN(err);
 
 	/* Now clone the handle to the new process */
-	thread_t* new_thread;
-	err = thread_clone(new_proc, &new_thread);
+	Thread* new_thread;
+	err = thread_clone(new_proc, new_thread);
 	if (ananas_is_failure(err))
 		goto fail;
 	*out_pid = new_proc->p_pid;
 
 	/* Resume the cloned thread - it'll have a different return value from ours */
-	thread_resume(new_thread);
+	thread_resume(*new_thread);
 
 	TRACE(SYSCALL, FUNC, "t=%p, success, new pid=%u", t, *out_pid);
 	return err;

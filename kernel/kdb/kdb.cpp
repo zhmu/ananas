@@ -23,7 +23,7 @@ static struct KDB_COMMANDS kdb_commands;
 #define KDB_MAX_ARGS 16
 
 static int kdb_active = 0;
-struct THREAD* kdb_curthread = NULL;
+Thread* kdb_curthread = nullptr;
 
 static kdb_arg_type_t
 kdb_resolve_argtype(const char* q)

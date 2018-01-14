@@ -35,11 +35,11 @@ static struct SCHEDULER_QUEUE sched_sleepqueue;
 
 #ifdef DEBUG_SCHEDULER
 static int
-scheduler_is_on_queue(struct SCHEDULER_QUEUE* q, thread_t* t)
+scheduler_is_on_queue(struct SCHEDULER_QUEUE* q, Thread& t)
 {
 	int n = 0;
 	LIST_FOREACH(q, s, struct SCHED_PRIV) {
-		if (s->sp_thread == t)
+		if (s->sp_thread == &t)
 			n++;
 	}
 	return n;
@@ -50,24 +50,24 @@ scheduler_is_on_queue(struct SCHEDULER_QUEUE* q, thread_t* t)
 #endif
 
 void
-scheduler_init_thread(thread_t* t)
+scheduler_init_thread(Thread& t)
 {
 	/* Hook up our private scheduling entity */
-	t->t_sched_priv.sp_thread = t;
+	t.t_sched_priv.sp_thread = &t;
 
 	/* Mark the thread as suspened - the scheduler is responsible for this */
-	t->t_flags |= THREAD_FLAG_SUSPENDED;
+	t.t_flags |= THREAD_FLAG_SUSPENDED;
 
 	/* Hook the thread to our sleepqueue */
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
 	KASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 0, "new thread is already on runq?");
 	KASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 0, "new thread is already on sleepq?");
-	LIST_APPEND(&sched_sleepqueue, &t->t_sched_priv);
+	LIST_APPEND(&sched_sleepqueue, &t.t_sched_priv);
 	spinlock_unlock_unpremptible(&spl_scheduler, state);
 }
 
 static void
-scheduler_add_thread_locked(thread_t* t)
+scheduler_add_thread_locked(Thread& t)
 {
 	KASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 0, "adding thread on runq?");
 	KASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 0, "adding thread on sleepq?");
@@ -79,29 +79,29 @@ scheduler_add_thread_locked(thread_t* t)
 	 */
 	int inserted = 0;
 	LIST_FOREACH(&sched_runqueue, s, struct SCHED_PRIV) {
-		KASSERT(s->sp_thread != t, "thread %p already in runqueue", t);
-		if (s->sp_thread->t_priority <= t->t_priority)
+		KASSERT(s->sp_thread != &t, "thread %p already in runqueue", &t);
+		if (s->sp_thread->t_priority <= t.t_priority)
 			continue;
 
 		/* Found a thread with a lower priority; we can insert it here */
-		LIST_INSERT_BEFORE(&sched_runqueue, s, &t->t_sched_priv);
+		LIST_INSERT_BEFORE(&sched_runqueue, s, &t.t_sched_priv);
 		inserted++;
 		break;
 	}
 	if (!inserted)
-		LIST_APPEND(&sched_runqueue, &t->t_sched_priv);
+		LIST_APPEND(&sched_runqueue, &t.t_sched_priv);
 }
 
 void
-scheduler_add_thread(thread_t* t)
+scheduler_add_thread(Thread& t)
 {
-	SCHED_KPRINTF("%s: t=%p\n", __func__, t);
+	SCHED_KPRINTF("%s: t=%p\n", __func__, &t);
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
-	KASSERT(THREAD_IS_SUSPENDED(t), "adding non-suspended thread %p", t);
-	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 0, "adding thread %p already on runqueue", t);
-	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 1, "adding thread %p not on sleepqueue", t);
+	KASSERT(THREAD_IS_SUSPENDED(&t), "adding non-suspended thread %p", &t);
+	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 0, "adding thread %p already on runqueue", &t);
+	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 1, "adding thread %p not on sleepqueue", &t);
 	/* Remove the thread from the sleepqueue ... */
-	LIST_REMOVE(&sched_sleepqueue, &t->t_sched_priv);
+	LIST_REMOVE(&sched_sleepqueue, &t.t_sched_priv);
 	/* ... and add it to the runqueue ... */
 	scheduler_add_thread_locked(t);
 	/*
@@ -109,48 +109,48 @@ scheduler_add_thread(thread_t* t)
 	 *     no one else is allowed to touch the thread while we're moving it. Note that we
 	 *     also remove the timeout flag here as the thread is already unsuspended.
 	 */
-	t->t_flags &= ~(THREAD_FLAG_SUSPENDED | THREAD_FLAG_TIMEOUT);
+	t.t_flags &= ~(THREAD_FLAG_SUSPENDED | THREAD_FLAG_TIMEOUT);
 	spinlock_unlock_unpremptible(&spl_scheduler, state);
 }
 
 void
-scheduler_remove_thread(thread_t* t)
+scheduler_remove_thread(Thread& t)
 {
-	SCHED_KPRINTF("%s: t=%p\n", __func__, t);
+	SCHED_KPRINTF("%s: t=%p\n", __func__, &t);
 	register_t state = spinlock_lock_unpremptible(&spl_scheduler);
-	KASSERT(!THREAD_IS_SUSPENDED(t), "removing suspended thread %p", t);
+	KASSERT(!THREAD_IS_SUSPENDED(&t), "removing suspended thread %p", &t);
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 0, "removing thread already on sleepqueue");
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 1, "removing thread not on runqueue");
 	/* Remove the thread from the runqueue ... */
-	LIST_REMOVE(&sched_runqueue, &t->t_sched_priv);
+	LIST_REMOVE(&sched_runqueue, &t.t_sched_priv);
 	/* ... add it to the sleepqueue ... */
-	if (t->t_flags & THREAD_FLAG_TIMEOUT) {
+	if (t.t_flags & THREAD_FLAG_TIMEOUT) {
 		/* ... but the sleepqueue must be in first-to-wakeup order... */
 		bool inserted = false;
 		LIST_FOREACH(&sched_sleepqueue, s, struct SCHED_PRIV) {
-			thread_t* st = s->sp_thread;
-			if ((st->t_flags & THREAD_FLAG_TIMEOUT) && Ananas::Time::IsTickBefore(st->t_timeout, t->t_timeout))
+			Thread* st = s->sp_thread;
+			if ((st->t_flags & THREAD_FLAG_TIMEOUT) && Ananas::Time::IsTickBefore(st->t_timeout, t.t_timeout))
 				continue; /* st wakes up earlier than we do */
-			LIST_INSERT_BEFORE(&sched_sleepqueue, s, &t->t_sched_priv);
+			LIST_INSERT_BEFORE(&sched_sleepqueue, s, &t.t_sched_priv);
 			inserted = true;
 			break;
 		}
 		if (!inserted) {
-			LIST_APPEND(&sched_sleepqueue, &t->t_sched_priv);
+			LIST_APPEND(&sched_sleepqueue, &t.t_sched_priv);
 		}
 	} else {
-		LIST_APPEND(&sched_sleepqueue, &t->t_sched_priv);
+		LIST_APPEND(&sched_sleepqueue, &t.t_sched_priv);
 	}
 	/*
 	 * ... and finally, update the flags: we must do this in the scheduler lock because
 	 *     no one else is allowed to touch the thread while we're moving it
 	 */
-	t->t_flags |= THREAD_FLAG_SUSPENDED;
+	t.t_flags |= THREAD_FLAG_SUSPENDED;
 	spinlock_unlock_unpremptible(&spl_scheduler, state);
 }
 
 void
-scheduler_exit_thread(thread_t* t)
+scheduler_exit_thread(Thread& t)
 {
 	/*
 	 * Note that interrupts must be disabled - this is important because we are about to
@@ -161,7 +161,7 @@ scheduler_exit_thread(thread_t* t)
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, t) == 1, "exiting thread already not on sleepqueue");
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, t) == 0, "exiting thread on runqueue");
 	/* Thread seems sane; remove it from the runqueue */
-	LIST_REMOVE(&sched_runqueue, &t->t_sched_priv);
+	LIST_REMOVE(&sched_runqueue, &t.t_sched_priv);
 	/*
 	 * Turn the thread into a zombie; we'll soon be letting go of the scheduler lock, but all
 	 * resources are gone and the thread can be destroyed from now on - interrupts are disabled,
@@ -169,7 +169,7 @@ scheduler_exit_thread(thread_t* t)
 	 * scheduled anymore because it's on neither runqueue nor sleepqueue; the scheduler won't know
 	 * about the thread at all.
 	 */
-	t->t_flags |= THREAD_FLAG_ZOMBIE;
+	t.t_flags |= THREAD_FLAG_ZOMBIE;
 	/* Let go of the scheduler lock but leave interrupts disabled */
 	spinlock_unlock(&spl_scheduler);
 
@@ -178,7 +178,7 @@ scheduler_exit_thread(thread_t* t)
 }
 
 extern "C" void
-scheduler_release(thread_t* old)
+scheduler_release(Thread* old)
 {
 	/* Release the old thread; it is now safe to schedule it elsewhere */
 	SCHED_KPRINTF("old[%p] -active\n", old);
@@ -188,7 +188,7 @@ scheduler_release(thread_t* old)
 void
 schedule()
 {
-	thread_t* curthread = PCPU_GET(curthread);
+	Thread* curthread = PCPU_GET(curthread);
 	int cpuid = PCPU_GET(cpuid);
 	KASSERT(curthread != NULL, "no current thread active");
 	SCHED_KPRINTF("schedule(): cpu=%u curthread=%p\n", cpuid, curthread);
@@ -208,12 +208,12 @@ schedule()
 	 * look at the first item as we expect them to be added in a sorted way.
 	 */
 	if (!LIST_EMPTY(&sched_sleepqueue)) {
-		thread_t* t = LIST_HEAD(&sched_sleepqueue)->sp_thread;
+		Thread* t = LIST_HEAD(&sched_sleepqueue)->sp_thread;
 		if ((t->t_flags & THREAD_FLAG_TIMEOUT) && Ananas::Time::IsTickAfter(Ananas::Time::GetTicks(), t->t_timeout)) {
 			/* Remove the thread from the sleepqueue ... */
 			LIST_REMOVE(&sched_sleepqueue, &t->t_sched_priv);
 			/* ... and add it to the runqueue ... */
-			scheduler_add_thread_locked(t);
+			scheduler_add_thread_locked(*t);
 			/* ... finally, remove the flags - it's no longer suspended now */
 			t->t_flags &= ~(THREAD_FLAG_TIMEOUT | THREAD_FLAG_SUSPENDED);
 		}
@@ -235,13 +235,13 @@ schedule()
 	KASSERT(next_sched != NULL, "nothing on the runqueue for cpu %u", cpuid);
 
 	/* Sanity checks */
-	thread_t* newthread = next_sched->sp_thread;
-	KASSERT(!THREAD_IS_SUSPENDED(newthread), "activating suspended thread %p", newthread);
-	KASSERT(newthread == curthread || !THREAD_IS_ACTIVE(newthread), "activating active thread %p", newthread);
+	Thread& newthread = *next_sched->sp_thread;
+	KASSERT(!THREAD_IS_SUSPENDED(&newthread), "activating suspended thread %p", &newthread);
+	KASSERT(&newthread == curthread || !THREAD_IS_ACTIVE(&newthread), "activating active thread %p", &newthread);
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_runqueue, newthread) == 1, "scheduling thread not on runqueue (?)");
 	SCHED_ASSERT(scheduler_is_on_queue(&sched_sleepqueue, newthread) == 0, "scheduling thread on sleepqueue");
 
-	SCHED_KPRINTF("%s[%d]: newthread=%p curthread=%p\n", __func__, cpuid, newthread, curthread);
+	SCHED_KPRINTF("%s[%d]: newthread=%p curthread=%p\n", __func__, cpuid, &newthread, curthread);
 
 	/*
 	 * If the current thread is not suspended, this means it got interrupted
@@ -256,22 +256,22 @@ schedule()
 		SCHED_KPRINTF("%s[%d]: removing t=%p from runqueue\n", __func__, cpuid, curthread);
 		LIST_REMOVE(&sched_runqueue, &curthread->t_sched_priv);
 		SCHED_KPRINTF("%s[%d]: re-adding t=%p\n", __func__, cpuid, curthread);
-		scheduler_add_thread_locked(curthread);
+		scheduler_add_thread_locked(*curthread);
 	}
 
 	/*
 	 * Schedule our new thread; by marking it as active, it will not be picked up by another
 	 * CPU.
 	 */
-	newthread->t_flags |= THREAD_FLAG_ACTIVE;
-	PCPU_SET(curthread, newthread);
+	newthread.t_flags |= THREAD_FLAG_ACTIVE;
+	PCPU_SET(curthread, &newthread);
 
 	/* Now unlock the scheduler lock but do _not_ enable interrupts */
 	spinlock_unlock(&spl_scheduler);
 
-	if (curthread != newthread) {
-		thread_t* prev = md_thread_switch(newthread, curthread);
-		scheduler_release(prev);
+	if (curthread != &newthread) {
+		Thread& prev = md_thread_switch(newthread, *curthread);
+		scheduler_release(&prev);
 	}
 
 	/* Re-enable interrupts if they were */
@@ -281,7 +281,7 @@ schedule()
 void
 scheduler_launch()
 {
-	thread_t* idlethread = PCPU_GET(idlethread);
+	Thread* idlethread = PCPU_GET(idlethread);
 	KASSERT(PCPU_GET(curthread) == idlethread, "idle thread not correct");
 
 	/*

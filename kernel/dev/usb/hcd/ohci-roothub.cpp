@@ -447,8 +447,8 @@ RootHub::Initialize()
 	 * that from oroothub_init() because the usbbus doesn't exist at that point
 	 * and we don't know the USB device either.
 	 */
-	kthread_init(&rh_pollthread, "oroothub", &ThreadWrapper, this);
-	thread_resume(&rh_pollthread);
+	kthread_init(rh_pollthread, "oroothub", &ThreadWrapper, this);
+	thread_resume(rh_pollthread);
 	return ananas_success();
 }
 

@@ -35,7 +35,7 @@ private:
 
 	int rh_numports;
 	semaphore_t rh_semaphore;
-	thread_t rh_pollthread;
+	struct Thread rh_pollthread;
 	bool rh_pending_changes = true;
 };
 

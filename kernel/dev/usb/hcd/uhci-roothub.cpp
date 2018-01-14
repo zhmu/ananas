@@ -443,8 +443,8 @@ RootHub::Initialize()
 	}
 
 	/* Create a kernel thread to monitor status updates and process requests */
-	kthread_init(&rh_pollthread, "uroothub", &ThreadWrapper, this);
-	thread_resume(&rh_pollthread);
+	kthread_init(rh_pollthread, "uroothub", &ThreadWrapper, this);
+	thread_resume(rh_pollthread);
 	return ananas_success();
 }
 

@@ -67,8 +67,8 @@ userinit_func(void*)
 		thread_exit(0);
 	}
 
-	thread_t* t;
-	err = thread_alloc(proc, &t, "init", THREAD_ALLOC_DEFAULT);
+	Thread* t;
+	err = thread_alloc(proc, t, "init", THREAD_ALLOC_DEFAULT);
 	process_deref(proc); /* 't' should have a ref, we don't need it anymore */
 	if (ananas_is_failure(err)) {
 		kprintf("couldn't create thread, %i\n", err);
@@ -93,8 +93,8 @@ userinit_func(void*)
 	err = exec_load(*proc->p_vmspace, file.f_dentry, &exec_addr, &exec_arg);
 	if (ananas_is_success(err)) {
 		kprintf(" ok\n");
-		md_setup_post_exec(t, exec_addr, exec_arg);
-		thread_resume(t);
+		md_setup_post_exec(*t, exec_addr, exec_arg);
+		thread_resume(*t);
 	} else {
 		kprintf(" fail - error %i\n", err);
 	}
@@ -102,13 +102,13 @@ userinit_func(void*)
 	thread_exit(0);
 }
 
-thread_t userinit_thread;
+Thread userinit_thread;
 
 errorcode_t
 init_userland()
 {
-	kthread_init(&userinit_thread, "user-init", &userinit_func, nullptr);
-	thread_resume(&userinit_thread);
+	kthread_init(userinit_thread, "user-init", &userinit_func, nullptr);
+	thread_resume(userinit_thread);
 	return ananas_success();
 }
 

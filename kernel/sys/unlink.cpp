@@ -4,8 +4,10 @@
 
 TRACE_SETUP;
 
+struct Thread;
+
 errorcode_t
-sys_unlink(thread_t* t, const char* path)
+sys_unlink(Thread* t, const char* path)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, path='%s'", t, path);
 
