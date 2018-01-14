@@ -4,6 +4,7 @@
 #include "kernel/handle.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/dentry.h"
 #include "syscall.h"
 
 TRACE_SETUP;

@@ -7,6 +7,7 @@
 #include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel/vmspace.h"
+#include "kernel/vfs/dentry.h"
 #include "syscall.h"
 
 TRACE_SETUP;
@@ -43,11 +44,11 @@ sys_vmop_map(Thread* curthread, struct VMOP_OPTIONS* vo)
 
 		if (h->h_type != HANDLE_TYPE_FILE)
 			return ANANAS_ERROR(BAD_HANDLE);
-		struct DENTRY* dentry = h->h_data.d_vfs_file.f_dentry;
+		DEntry* dentry = h->h_data.d_vfs_file.f_dentry;
 		if (dentry == nullptr)
 			return ANANAS_ERROR(BAD_HANDLE);
 
-		err = vmspace_mapto_dentry(vs, dest_addr, vo->vo_len, dentry, vo->vo_offset, vo->vo_len, vm_flags, va);
+		err = vmspace_mapto_dentry(vs, dest_addr, vo->vo_len, *dentry, vo->vo_offset, vo->vo_len, vm_flags, va);
 	} else {
 		err = vmspace_mapto(vs, dest_addr, vo->vo_len, vm_flags, va);
 	}

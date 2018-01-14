@@ -9,6 +9,7 @@
 #include "kernel/trace.h"
 #include "kernel/vmpage.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/dentry.h"
 #include "kernel/vfs/icache.h"
 #include "options.h"
 

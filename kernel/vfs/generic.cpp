@@ -5,34 +5,35 @@
 #include "kernel/lib.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/dentry.h"
 #include "kernel/vfs/generic.h"
+#include "kernel/vfs/icache.h"
 
 TRACE_SETUP;
 
 #define VFS_DEBUG_LOOKUP 0
 
 errorcode_t
-vfs_generic_lookup(struct DENTRY* parent, struct VFS_INODE** destinode, const char* dentry)
+vfs_generic_lookup(DEntry& parent, struct VFS_INODE** destinode, const char* dentry)
 {
-	KASSERT(parent != NULL, "lookup with no parent?");
 	char buf[1024]; /* XXX */
 
 #if VFS_DEBUG_LOOKUP
-	kprintf("vfs_generic_lookup(); parent=%p dentry='%s'\n", parent, dentry);
+	kprintf("vfs_generic_lookup(); parent=%p dentry='%s'\n", &parent, dentry);
 #endif
 
 	/*
 	 * XXX This is a very naive implementation which does not use the
 	 * possible directory index.
 	 */
-	struct VFS_INODE* parent_inode = parent->d_inode;
+	struct VFS_INODE* parent_inode = parent.d_inode;
 	KASSERT(S_ISDIR(parent_inode->i_sb.st_mode), "supplied inode is not a directory");
 
 	/* Rewind the directory back; we'll be traversing it from front to back */
 	struct VFS_FILE dirf;
 	memset(&dirf, 0, sizeof(dirf));
 	dirf.f_offset = 0;
-	dirf.f_dentry = parent;
+	dirf.f_dentry = &parent;
 	while (1) {
 		if (!vfs_is_filesystem_sane(parent_inode->i_fs))
 			return ANANAS_ERROR(IO);

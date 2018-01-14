@@ -7,6 +7,7 @@
 #include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/dentry.h"
 #include "kernel/vmspace.h"
 
 TRACE_SETUP;
@@ -61,7 +62,7 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 	 * Add a ref to the dentry; we'll be throwing away 'f' soon but we need to
 	 * keep the backing item intact.
 	 */
-	struct DENTRY* dentry = file.f_dentry;
+	DEntry& dentry = *file.f_dentry;
 	dentry_ref(dentry);
 	vfs_close(&file);
 

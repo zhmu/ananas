@@ -8,6 +8,7 @@
 #include "kernel/vfs/types.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/generic.h"
+#include "kernel/vfs/icache.h"
 #include "block.h"
 #include "fat.h"
 #include "fatfs.h"

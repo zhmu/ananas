@@ -5,6 +5,7 @@
 #include "kernel/process.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/dentry.h"
 #include "kernel/vfs/generic.h"
 #include "kernel/vm.h"
 #include "kernel/vmspace.h"

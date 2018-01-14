@@ -15,6 +15,7 @@
 #include "kernel/mm.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/dentry.h"
 #include "kernel/vfs/generic.h"
 #include "kernel/vfs/mount.h"
 #include "iso9660.h"

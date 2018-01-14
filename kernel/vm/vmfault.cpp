@@ -6,6 +6,7 @@
 #include "kernel/vmspace.h"
 #include "kernel/vmpage.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/dentry.h"
 #include "kernel/vm.h"
 
 TRACE_SETUP;
@@ -13,11 +14,11 @@ TRACE_SETUP;
 namespace {
 
 errorcode_t
-read_data(struct DENTRY* dentry, void* buf, off_t offset, size_t len)
+read_data(DEntry& dentry, void* buf, off_t offset, size_t len)
 {
 	struct VFS_FILE f;
 	memset(&f, 0, sizeof(f));
-	f.f_dentry = dentry;
+	f.f_dentry = &dentry;
 
 	errorcode_t err = vfs_seek(&f, offset);
 	ANANAS_ERROR_RETURN(err);
@@ -68,7 +69,7 @@ vmspace_get_dentry_backed_page(VMArea& va, off_t read_off)
 		memset(static_cast<char*>(page) + read_length, 0, PAGE_SIZE - read_length);
 	}
 
-	errorcode_t err = read_data(va.va_dentry, page, read_off, read_length);
+	errorcode_t err = read_data(*va.va_dentry, page, read_off, read_length);
 	kmem_unmap(page, PAGE_SIZE);
 	KASSERT(ananas_is_success(err), "cannot deal with error %d", err); // XXX
 

@@ -16,7 +16,7 @@ exec_init()
 }
 
 errorcode_t
-exec_load(VMSpace& vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* exec_arg)
+exec_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 {
 	// Start by taking an extra ref to the dentry; this is the ref which we'll hand over
 	// to the handler, if all goes well

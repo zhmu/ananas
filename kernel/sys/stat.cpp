@@ -5,6 +5,7 @@
 #include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/dentry.h"
 
 TRACE_SETUP;
 

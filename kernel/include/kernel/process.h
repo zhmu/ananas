@@ -5,7 +5,7 @@
 #include "kernel/list.h"
 #include "kernel/lock.h"
 
-struct DENTRY;
+struct DEntry;
 struct PROCINFO;
 
 struct Thread;
@@ -36,7 +36,7 @@ struct PROCESS {
 
 	struct HANDLE* p_handle[PROCESS_MAX_HANDLES];	/* Handles */
 
-	struct DENTRY* p_cwd;		/* Current path */
+	DEntry*	p_cwd;		/* Current path */
 
 	struct PROCESS_QUEUE	p_children;	/* Queue of this process' children */
 

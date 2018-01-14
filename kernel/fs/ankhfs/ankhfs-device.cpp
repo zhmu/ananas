@@ -5,6 +5,7 @@
 #include "kernel/lib.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/dentry.h"
 #include "kernel/vfs/generic.h"
 #include "device.h"
 #include "support.h"

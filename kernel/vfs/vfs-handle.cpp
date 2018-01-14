@@ -10,6 +10,7 @@
 #include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/dentry.h"
 
 TRACE_SETUP;
 
@@ -85,9 +86,9 @@ static errorcode_t
 vfshandle_free(process_t* proc, struct HANDLE* handle)
 {
 	/* If we have a backing dentry, dereference it - this will free it if needed */
-	struct DENTRY* dentry = handle->h_data.d_vfs_file.f_dentry;
-	if (dentry != NULL)
-		dentry_deref(dentry);
+	DEntry* dentry = handle->h_data.d_vfs_file.f_dentry;
+	if (dentry != nullptr)
+		dentry_deref(*dentry);
 	return ananas_success();
 }
 
@@ -113,9 +114,9 @@ vfshandle_clone(process_t* p_in, handleindex_t index_in, struct HANDLE* handle_i
 	 * reference count as we, too, depend on it. Closing the handle
 	 * will release the dentry, which will remove it if needed.
 	 */
-	struct DENTRY* dentry = file->f_dentry;
-	if (dentry != NULL)
-		dentry_ref(dentry);
+	DEntry* dentry = file->f_dentry;
+	if (dentry != nullptr)
+		dentry_ref(*dentry);
 
 	/* Now, just ordinarely clone the handle */
 	return handle_clone_generic(handle_in, proc_out, handle_out, index_out_min, index_out);

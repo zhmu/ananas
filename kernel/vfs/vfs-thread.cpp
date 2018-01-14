@@ -8,6 +8,7 @@
 #include "kernel/process.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/dentry.h"
 
 TRACE_SETUP;
 
@@ -23,11 +24,11 @@ vfs_init_process(process_t* proc)
 	struct HANDLE* stdout_handle;
 	struct HANDLE* stderr_handle;
 	process_t* parent = proc->p_parent;
-	if (parent != NULL) {
+	if (parent != nullptr) {
 		/* Parent should have cloned our handles - only need to grab the work directory here */
 		proc->p_cwd = parent->p_cwd;
-		if (proc->p_cwd != NULL)
-			dentry_ref(proc->p_cwd);
+		if (proc->p_cwd != nullptr)
+			dentry_ref(*proc->p_cwd);
 	} else {
 		/* Initialize stdin/out/error, so they'll get handle index 0, 1, 2 */
 		handleindex_t hidx;
@@ -49,7 +50,7 @@ vfs_init_process(process_t* proc)
 		stderr_handle->h_data.d_vfs_file.f_device = console_tty;
 
 		/* Use / as current path - by the time we create processes, we should have a workable VFS */
-		err = vfs_lookup(NULL, &proc->p_cwd, "/");
+		err = vfs_lookup(NULL, proc->p_cwd, "/");
 		ANANAS_ERROR_RETURN(err);
 	}
 
@@ -62,7 +63,7 @@ vfs_exit_process(process_t* proc)
 	TRACE(THREAD, INFO, "proc=%p", proc);
 
 	if (proc->p_cwd != nullptr) {
-		dentry_deref(proc->p_cwd);
+		dentry_deref(*proc->p_cwd);
 		proc->p_cwd = nullptr;
 	}
 

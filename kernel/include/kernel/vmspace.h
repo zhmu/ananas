@@ -7,6 +7,8 @@
 #include "kernel/vmpage.h"
 #include "kernel-md/vmspace.h"
 
+struct DEntry;
+
 /*
  * VM area describes an adjacent mapping though virtual memory. It can be
   backed by an inode in the following way:
@@ -33,7 +35,7 @@ struct VMArea : util::List<VMArea>::NodePtr {
 	size_t			va_len;			/* length */
 	VMPageList		va_pages;		/* backing pages */
 	/* dentry-specific mapping fields */
-	struct DENTRY* 		va_dentry;		/* backing dentry, if any */
+	DEntry* 		va_dentry;		/* backing dentry, if any */
 	off_t			va_doffset;		/* dentry offset */
 	size_t			va_dlength;		/* dentry length */
 };
@@ -65,7 +67,7 @@ errorcode_t vmspace_create(VMSpace*& vs);
 void vmspace_cleanup(VMSpace& vs); /* frees all mappings, but not MD-things */
 void vmspace_destroy(VMSpace& vs);
 errorcode_t vmspace_mapto(VMSpace& vs, addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
-errorcode_t vmspace_mapto_dentry(VMSpace& vs, addr_t virt, size_t vlength, struct DENTRY* dentry, off_t doffset, size_t dlength, int flags, VMArea*& va_out);
+errorcode_t vmspace_mapto_dentry(VMSpace& vs, addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags, VMArea*& va_out);
 errorcode_t vmspace_map(VMSpace& vs, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
 errorcode_t vmspace_area_resize(VMSpace& vs, VMArea& va, size_t new_length /* in bytes */);
 errorcode_t vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags);

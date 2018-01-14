@@ -16,7 +16,9 @@
 #include "kernel/mm.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/types.h"
+#include "kernel/vfs/dentry.h"
 #include "kernel/vfs/mount.h"
+#include "kernel/vfs/icache.h"
 #include "options.h"
 
 TRACE_SETUP;
@@ -24,8 +26,8 @@ TRACE_SETUP;
 namespace {
 
 mutex_t dcache_mtx;
-struct DENTRY_QUEUE	dcache_inuse;
-struct DENTRY_QUEUE	dcache_free;
+DEntryList dcache_inuse;
+DEntryList dcache_free;
 
 inline void dcache_lock()
 {
@@ -46,49 +48,48 @@ errorcode_t
 dcache_init()
 {
 	mutex_init(&dcache_mtx, "dcache");
-	LIST_INIT(&dcache_inuse);
-	LIST_INIT(&dcache_free);
 
 	/*
 	 * Make an empty cache; we allocate one big pool and set up pointers to the
 	 * items as necessary.
 	 */
 	{
-		auto dentry = static_cast<struct DENTRY*>(kmalloc(DCACHE_ITEMS_PER_FS * sizeof(struct DENTRY)));
-		memset(dentry, 0, DCACHE_ITEMS_PER_FS * sizeof(struct DENTRY));
+		auto dentry = static_cast<DEntry*>(kmalloc(DCACHE_ITEMS_PER_FS * sizeof(DEntry)));
+		memset(dentry, 0, DCACHE_ITEMS_PER_FS * sizeof(DEntry));
 		for (int i = 0; i < DCACHE_ITEMS_PER_FS; i++, dentry++)
-			LIST_APPEND(&dcache_free, dentry);
+			dcache_free.push_back(*dentry);
 	}
 
 	return ananas_success();
 }
 
-struct DENTRY*
+DEntry*
 dcache_find_entry_to_use()
 {
 	dcache_assert_locked();
 
-	if (!LIST_EMPTY(&dcache_free)) {
-			struct DENTRY* d = LIST_HEAD(&dcache_free);
-			LIST_POP_HEAD(&dcache_free);
-			return d;
+	if (!dcache_free.empty()) {
+			DEntry& d = dcache_free.front();
+			dcache_free.pop_front();
+			return &d;
 	}
 
 	/*
 	 * Our dcache is ordered from old-to-new, so we'll start at the back and
 	 * take anything which has no refs and isn't a root dentry.
 	 */
-	LIST_FOREACH_REVERSE_SAFE(&dcache_inuse, d, struct DENTRY) {
-		if (d->d_refcount == 0 && (d->d_flags & DENTRY_FLAG_ROOT) == 0) {
+	for(auto it = dcache_inuse.rbegin(); it != dcache_inuse.rend(); /* nothing */) {
+		auto& d = *it; ++it;
+		if (d.d_refcount == 0 && (d.d_flags & DENTRY_FLAG_ROOT) == 0) {
 			// This dentry should be good to use - remove any backing inode it has,
 			// as we will overwrite it
-			if (d->d_inode != NULL) {
-				vfs_deref_inode(d->d_inode);
-				d->d_inode = nullptr;
+			if (d.d_inode != nullptr) {
+				vfs_deref_inode(d.d_inode);
+				d.d_inode = nullptr;
 			}
 
-			LIST_REMOVE(&dcache_inuse, d);
-			return d;
+			dcache_inuse.remove(d);
+			return &d;
 		}
 	}
 
@@ -98,14 +99,14 @@ dcache_find_entry_to_use()
 
 } // unnamed namespace
 
-static void dentry_deref_locked(struct DENTRY* de);
+static void dentry_deref_locked(DEntry& de);
 
-struct DENTRY*
+DEntry&
 dcache_create_root_dentry(struct VFS_MOUNTED_FS* fs)
 {
 	dcache_lock();
 
-	struct DENTRY* d = dcache_find_entry_to_use();
+	DEntry* d = dcache_find_entry_to_use();
 	KASSERT(d != nullptr, "out of dentries"); // XXX deal with this
 
 	d->d_fs = fs;
@@ -113,10 +114,10 @@ dcache_create_root_dentry(struct VFS_MOUNTED_FS* fs)
 	d->d_inode = NULL; /* supplied by the file system */
 	d->d_flags = DENTRY_FLAG_ROOT;
 	strcpy(d->d_entry, "/");
-	LIST_PREPEND(&dcache_inuse, d);
+	dcache_inuse.push_front(*d);
 
 	dcache_unlock();
-	return d;
+	return *d;
 }
 
 /*
@@ -130,10 +131,10 @@ dcache_create_root_dentry(struct VFS_MOUNTED_FS* fs)
  * Note that this function must be called with a referenced dentry to ensure it
  * will not go away. This ref is not touched by this function.
  */
-struct DENTRY*
-dcache_lookup(struct DENTRY* parent, const char* entry)
+DEntry*
+dcache_lookup(DEntry& parent, const char* entry)
 {
-	TRACE(VFS, FUNC, "parent=%p, entry='%s'", parent, entry);
+	TRACE(VFS, FUNC, "parent=%p, entry='%s'", &parent, entry);
 
 	dcache_lock();
 
@@ -141,8 +142,8 @@ dcache_lookup(struct DENTRY* parent, const char* entry)
 	 * XXX This is just a simple linear search which attempts to avoid
 	 * overhead by moving recent entries to the start.
 	 */
-	LIST_FOREACH(&dcache_inuse, d, struct DENTRY) {
-		if (d->d_parent != parent || strcmp(d->d_entry, entry) != 0)
+	for(auto& d: dcache_inuse) {
+		if (d.d_parent != &parent || strcmp(d.d_entry, entry) != 0)
 			continue;
 
 		/*
@@ -152,25 +153,25 @@ dcache_lookup(struct DENTRY* parent, const char* entry)
 		 *
 		 * XXX We shouldn't burden the caller with this!
 		 */
-		if (d->d_inode == nullptr && (d->d_flags & DENTRY_FLAG_NEGATIVE) == 0) {
+		if (d.d_inode == nullptr && (d.d_flags & DENTRY_FLAG_NEGATIVE) == 0) {
 			dcache_unlock();
 			return nullptr;
 		}
 
 		// Add an extra ref to the dentry; we'll be giving it to the caller. Don't use dentry_ref()
 		// here as the original refcount may be zero.
-		++d->d_refcount;
+		++d.d_refcount;
 
 		// Push the the item to the head of the cache
-		LIST_REMOVE(&dcache_inuse, d);
-		LIST_PREPEND(&dcache_inuse, d);
+		dcache_inuse.remove(d);
+		dcache_inuse.push_front(d);
 		dcache_unlock();
-		TRACE(VFS, INFO, "cache hit: parent=%p, entry='%s' => d=%p, d.inode=%p", parent, entry, d, d->d_inode);
-		return d;
+		TRACE(VFS, INFO, "cache hit: parent=%p, entry='%s' => d=%p, d.inode=%p", &parent, entry, &d, d.d_inode);
+		return &d;
 	}
 
 	// Item was not found; try to get one from the freelist
-	struct DENTRY* d = nullptr;
+	DEntry* d = nullptr;
 	while(d == nullptr) {
 		/* We are out of dcache entries; we should remove some of the older entries */
 		d = dcache_find_entry_to_use();
@@ -183,15 +184,15 @@ dcache_lookup(struct DENTRY* parent, const char* entry)
 
 	/* Initialize the item */
 	memset(d, 0, sizeof *d);
-	d->d_fs = parent->d_fs;
+	d->d_fs = parent.d_fs;
 	d->d_refcount = 1; // the caller
-	d->d_parent = parent;
+	d->d_parent = &parent;
 	d->d_inode = NULL;
 	d->d_flags = 0;
 	strcpy(d->d_entry, entry);
-	LIST_PREPEND(&dcache_inuse, d);
+	dcache_inuse.push_front(*d);
 	dcache_unlock();
-	TRACE(VFS, INFO, "cache miss: parent=%p, entry='%s' => d=%p", parent, entry, d);
+	TRACE(VFS, INFO, "cache miss: parent=%p, entry='%s' => d=%p", &parent, entry, d);
 	return d;
 }
 
@@ -199,24 +200,25 @@ void
 dcache_purge_old_entries()
 {
 	dcache_lock();
-	LIST_FOREACH_SAFE(&dcache_inuse, d, struct DENTRY) {
-		if (d->d_refcount > 0 || (d->d_flags & DENTRY_FLAG_ROOT))
+	for(auto it = dcache_inuse.begin(); it != dcache_inuse.end(); /* nothing */) {
+		auto& d = *it; ++it;
+		if (d.d_refcount > 0 || (d.d_flags & DENTRY_FLAG_ROOT))
 			continue; // in use or root, skip
 
 		// Get rid of any backing inode; this is why we are called
-		if (d->d_inode != NULL) {
-			vfs_deref_inode(d->d_inode);
-			d->d_inode = nullptr;
+		if (d.d_inode != nullptr) {
+			vfs_deref_inode(d.d_inode);
+			d.d_inode = nullptr;
 		}
 
-		LIST_REMOVE(&dcache_inuse, d);
-		LIST_PREPEND(&dcache_free, d);
+		dcache_inuse.remove(d);
+		dcache_free.push_front(d);
 	}
 	dcache_unlock();
 }
 
 void
-dcache_set_inode(struct DENTRY* de, struct VFS_INODE* inode)
+dcache_set_inode(DEntry& de, struct VFS_INODE* inode)
 {
 #if 0
 	/* XXX NOTYET - negative flag is cleared to keep the entry alive */
@@ -225,54 +227,54 @@ dcache_set_inode(struct DENTRY* de, struct VFS_INODE* inode)
 	KASSERT(inode != NULL, "no inode given");
 
 	/* If we already have an inode, deref it; we don't care about it anymore */
-	if (de->d_inode != NULL)
-		vfs_deref_inode(de->d_inode);
+	if (de.d_inode != NULL)
+		vfs_deref_inode(de.d_inode);
 
 	/* Increase the refcount - the cache will have a ref to the inode now */
 	vfs_ref_inode(inode);
-	de->d_inode = inode;
-	de->d_flags &= ~DENTRY_FLAG_NEGATIVE;
+	de.d_inode = inode;
+	de.d_flags &= ~DENTRY_FLAG_NEGATIVE;
 }
 
 void
-dentry_ref(struct DENTRY* d)
+dentry_ref(DEntry& d)
 {
-	KASSERT(d->d_refcount > 0, "invalid refcount %d", d->d_refcount);
-	d->d_refcount++;
+	KASSERT(d.d_refcount > 0, "invalid refcount %d", d.d_refcount);
+	d.d_refcount++;
 }
 
 static void
-dentry_deref_locked(struct DENTRY* d)
+dentry_deref_locked(DEntry& d)
 {
-	KASSERT(d->d_refcount > 0, "invalid refcount %d", d->d_refcount);
+	KASSERT(d.d_refcount > 0, "invalid refcount %d", d.d_refcount);
 
 	// Remove a reference; if this brings us to zero, we need to remove it
-	if (--d->d_refcount > 0)
+	if (--d.d_refcount > 0)
 		return;
 
 	// We do not free backing inodes here - the reason is that we don't know
 	// how they are to be re-looked up.
 
 	// Free our reference to the parent
-	if (d->d_parent != NULL) {
-		dentry_deref_locked(d->d_parent);
-		d->d_parent = nullptr;
+	if (d.d_parent != nullptr) {
+		dentry_deref_locked(*d.d_parent);
+		d.d_parent = nullptr;
 	}
 }
 
 void
-dentry_unlink(struct DENTRY* de)
+dentry_unlink(DEntry& de)
 {
 	dcache_lock();
-	de->d_flags |= DENTRY_FLAG_NEGATIVE;
-	if (de->d_inode != nullptr)
-		vfs_deref_inode(de->d_inode);
-  de->d_inode = nullptr;
+	de.d_flags |= DENTRY_FLAG_NEGATIVE;
+	if (de.d_inode != nullptr)
+		vfs_deref_inode(de.d_inode);
+  de.d_inode = nullptr;
 	dcache_unlock();
 }
 
 void
-dentry_deref(struct DENTRY* de)
+dentry_deref(DEntry& de)
 {
 	dcache_lock();
 	dentry_deref_locked(de);
@@ -287,7 +289,7 @@ dcache_purge()
 }
 
 size_t
-dentry_construct_path(char* dest, size_t n, struct DENTRY* dentry)
+dentry_construct_path(char* dest, size_t n, DEntry& dentry)
 {
 	/*
 	 * XXX This code looks quite messy due to all the checks - the reason is that it always wants
@@ -297,7 +299,7 @@ dentry_construct_path(char* dest, size_t n, struct DENTRY* dentry)
 	 * Also, the workaround when dentry is the root isn't very pretty...
 	 */
 	size_t len = 0;
-	for(struct DENTRY* d = dentry; (d->d_flags & DENTRY_FLAG_ROOT) == 0; d = d->d_parent) {
+	for(DEntry* d = &dentry; (d->d_flags & DENTRY_FLAG_ROOT) == 0; d = d->d_parent) {
 		len += strlen(d->d_entry) + 1 /* extra / */ ;
 	}
 
@@ -307,7 +309,7 @@ dentry_construct_path(char* dest, size_t n, struct DENTRY* dentry)
 
 	// Now slice pieces back-to-front
 	size_t cur_offset = len;
-	struct DENTRY* d = dentry;
+	DEntry* d = &dentry;
 	do {
 		size_t entry_len = strlen(d->d_entry);
 		cur_offset -= entry_len;
@@ -336,13 +338,13 @@ KDB_COMMAND(dcache, NULL, "Show dentry cache")
 {
 	/* XXX Don't lock; this is for debugging purposes only */
 	int n = 0;
-	LIST_FOREACH(&dcache_inuse, d, struct DENTRY) {
+	for(auto& d: dcache_inuse) {
 		kprintf("dcache_entry=%p, parent=%p, inode=%p, reverse name=%s[%d]",
-		 d, d->d_parent, d->d_inode, d->d_entry, d->d_refcount);
-		for (struct DENTRY* curde = d->d_parent; curde != NULL; curde = curde->d_parent)
+		 &d, d.d_parent, d.d_inode, d.d_entry, d.d_refcount);
+		for (DEntry* curde = d.d_parent; curde != NULL; curde = curde->d_parent)
 			kprintf(",%s[%d]", curde->d_entry, curde->d_refcount);
 		kprintf("',flags=0x%x, refcount=%d\n",
-		 d->d_flags, d->d_refcount);
+		 d.d_flags, d.d_refcount);
 		n++;
 	}
 	kprintf("dentry cache contains %u entries\n", n);

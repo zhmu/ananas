@@ -12,7 +12,7 @@ sys_rename(Thread* t, const char* oldpath, const char* newpath)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, oldpath='%s' newpath='%s'", t, oldpath, newpath);
 	process_t* proc = t->t_process;
-	struct DENTRY* cwd = proc->p_cwd;
+	DEntry* cwd = proc->p_cwd;
 
 	struct VFS_FILE file;
 	errorcode_t err = vfs_open(oldpath, cwd, &file);

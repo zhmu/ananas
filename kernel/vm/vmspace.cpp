@@ -168,11 +168,11 @@ vmspace_mapto(VMSpace& vs, addr_t virt, size_t len /* bytes */, uint32_t flags, 
 }
 
 errorcode_t
-vmspace_mapto_dentry(VMSpace& vs, addr_t virt, size_t vlength, struct DENTRY* dentry, off_t doffset, size_t dlength, int flags, VMArea*& va_out)
+vmspace_mapto_dentry(VMSpace& vs, addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags, VMArea*& va_out)
 {
 	// Ensure the range we are mapping does not exceed the inode; if this is the case, we silently truncate
-	if (doffset + vlength > dentry->d_inode->i_sb.st_size) {
-		vlength = dentry->d_inode->i_sb.st_size - doffset;
+	if (doffset + vlength > dentry.d_inode->i_sb.st_size) {
+		vlength = dentry.d_inode->i_sb.st_size - doffset;
 	}
 
 	KASSERT((doffset & (PAGE_SIZE - 1)) == 0, "offset %d not page-aligned", doffset);
@@ -181,7 +181,7 @@ vmspace_mapto_dentry(VMSpace& vs, addr_t virt, size_t vlength, struct DENTRY* de
 	ANANAS_ERROR_RETURN(err);
 
 	dentry_ref(dentry);
-	va_out->va_dentry = dentry;
+	va_out->va_dentry = &dentry;
 	va_out->va_doffset = doffset;
 	va_out->va_dlength = dlength;
 	return ananas_success();
@@ -256,7 +256,7 @@ vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags)
 			va_dst->va_doffset = va_src.va_doffset;
 			va_dst->va_dlength = va_src.va_dlength;
 			va_dst->va_dentry = va_src.va_dentry;
-			dentry_ref(va_dst->va_dentry);
+			dentry_ref(*va_dst->va_dentry);
 		}
 
 		// Copy the area page-wise
@@ -296,7 +296,7 @@ vmspace_area_free(VMSpace& vs, VMArea& va)
 
 	/* Free any backing dentry, if we have one */
 	if (va.va_dentry != nullptr)
-		dentry_deref(va.va_dentry);
+		dentry_deref(*va.va_dentry);
 
 	/*
 	 * If the pages were allocated, we need to free them one by one

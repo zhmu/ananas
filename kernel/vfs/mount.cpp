@@ -7,6 +7,8 @@
 #include "kernel/mm.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/dentry.h"
+#include "kernel/vfs/icache.h"
 #include "options.h"
 
 TRACE_SETUP;
@@ -103,7 +105,7 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	KASSERT(S_ISDIR(root_inode->i_sb.st_mode), "root inode isn't a directory");
 	KASSERT(root_inode->i_refcount == 1, "bad refcount of root inode (must be 1, is %u)", root_inode->i_refcount);
 	fs->fs_mountpoint = strdup(to);
-	fs->fs_root_dentry = dcache_create_root_dentry(fs);
+	fs->fs_root_dentry = &dcache_create_root_dentry(fs);
 	fs->fs_root_dentry->d_inode = root_inode; /* don't deref - we're giving the ref to the root dentry */
 
 	/*	
@@ -120,8 +122,8 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	 * our filesystem to the parent. XXX I wonder if this is correct; we should
 	 * always just hook our path to the fs root dentry... need to think about it
 	 */
-	struct DENTRY* dentry_root = fs->fs_root_dentry;
-	if (ananas_is_success(vfs_lookup(NULL, &dentry_root, to)) &&
+	DEntry* dentry_root = fs->fs_root_dentry;
+	if (ananas_is_success(vfs_lookup(NULL, dentry_root, to)) &&
 	    dentry_root != fs->fs_root_dentry) {
 		if (dentry_root->d_inode != NULL)
 			vfs_deref_inode(dentry_root->d_inode);

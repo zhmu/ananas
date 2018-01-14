@@ -3,8 +3,6 @@
 
 #include <ananas/stat.h> /* for 'struct stat' */
 #include <ananas/dirent.h>
-#include "kernel/vfs/dentry.h" /* for 'struct DENTRY_QUEUE' */
-#include "kernel/vfs/icache.h" /* for 'struct ICACHE_QUEUE' */
 #include "kernel/list.h"
 #include "kernel/lock.h"
 #include "kernel/vmpage.h"
@@ -12,7 +10,7 @@
 namespace Ananas {
 class Device;
 };
-struct DENTRY;
+struct DEntry;
 struct VFS_MOUNTED_FS;
 struct VFS_INODE_OPS;
 struct VFS_FILESYSTEM_OPS;
@@ -57,7 +55,7 @@ struct VFS_FILE {
 	 * unlink()-ing it; plus the dentry also contains the parent (which is
 	 * useful when resolving the item back to a path)
 	 */
-	struct DENTRY*		f_dentry;
+	DEntry*			f_dentry;
 	Ananas::Device*		f_device;
 };
 
@@ -80,7 +78,7 @@ struct VFS_MOUNTED_FS {
 	void*		fs_privdata;		/* (R) Private filesystem data */
 
 	struct VFS_FILESYSTEM_OPS* fs_fsops;		/* (R) Filesystem operations */
-	struct DENTRY* fs_root_dentry;			/* (R) Filesystem's root dentry */
+	DEntry* fs_root_dentry;				/* (R) Filesystem's root dentry */
 };
 
 /*
@@ -130,7 +128,7 @@ struct VFS_INODE_OPS {
 	/*
 	 * Looks up an entry within a directory, updates 'destinode' on success.
 	 */
-	errorcode_t (*lookup)(struct DENTRY* parent, struct VFS_INODE** destinode, const char* dentry);
+	errorcode_t (*lookup)(DEntry& parent, struct VFS_INODE** destinode, const char* dentry);
 
 	/*
 	 * Maps the inode's given block number to a block device's block
@@ -154,17 +152,17 @@ struct VFS_INODE_OPS {
 	 * Creates a new entry in the directory. On success, calls
 	 * dentry_set_inode() to fill out the entry's inode.
 	 */
-	errorcode_t (*create)(struct VFS_INODE* dir, struct DENTRY* de, int mode);
+	errorcode_t (*create)(struct VFS_INODE* dir, DEntry* de, int mode);
 
 	/*
 	 * Removes an entry from a directory.
 	 */
-	errorcode_t (*unlink)(struct VFS_INODE* dir, struct DENTRY* de);
+	errorcode_t (*unlink)(struct VFS_INODE* dir, DEntry& de);
 
 	/*
 	 * Renames an entry.
 	 */
-	errorcode_t (*rename)(struct VFS_INODE* old_dir, struct DENTRY* old_dentry, struct VFS_INODE* new_dir, struct DENTRY* new_dentry);
+	errorcode_t (*rename)(struct VFS_INODE* old_dir, DEntry& old_dentry, struct VFS_INODE* new_dir, DEntry& new_dentry);
 
 	/*
 	 * Fills out the file structure.

@@ -8,6 +8,7 @@
 #include "kernel/trace.h"
 #include "kernel/vfs/types.h"
 #include "kernel/vfs/mount.h"
+#include "kernel/vfs/icache.h"
 
 TRACE_SETUP;
 

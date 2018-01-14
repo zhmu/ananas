@@ -32,20 +32,20 @@ static inline errorcode_t vfs_bread(struct VFS_MOUNTED_FS* fs, blocknr_t block, 
 	return vfs_bget(fs, block, bio, 0);
 }
 
-errorcode_t vfs_lookup(struct DENTRY* parent, struct DENTRY** destentry, const char* dentry);
+errorcode_t vfs_lookup(DEntry* parent, DEntry*& destentry, const char* dentry);
 
 bool vfs_is_filesystem_sane(struct VFS_MOUNTED_FS* fs);
 
 /* Higher-level interface */
-errorcode_t vfs_open(const char* fname, struct DENTRY* cwd, struct VFS_FILE* file);
+errorcode_t vfs_open(const char* fname, DEntry* cwd, struct VFS_FILE* file);
 errorcode_t vfs_close(struct VFS_FILE* file);
 errorcode_t vfs_read(struct VFS_FILE* file, void* buf, size_t* len);
 errorcode_t vfs_write(struct VFS_FILE* file, const void* buf, size_t* len);
 errorcode_t vfs_seek(struct VFS_FILE* file, off_t offset);
-errorcode_t vfs_create(struct DENTRY* parent, struct VFS_FILE* destfile, const char* dentry, int mode);
+errorcode_t vfs_create(DEntry* parent, struct VFS_FILE* destfile, const char* dentry, int mode);
 errorcode_t vfs_grow(struct VFS_FILE* file, off_t size);
 errorcode_t vfs_unlink(struct VFS_FILE* file);
-errorcode_t vfs_rename(struct VFS_FILE* file, struct DENTRY* parent, const char* dest);
+errorcode_t vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest);
 
 /* Filesystem specific functions */
 size_t vfs_filldirent(void** dirents, size_t* size, ino_t inum, const char* name, int namelen);

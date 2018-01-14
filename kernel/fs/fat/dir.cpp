@@ -5,7 +5,9 @@
 #include "kernel/trace.h"
 #include "kernel/vfs/types.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/dentry.h"
 #include "kernel/vfs/generic.h"
+#include "kernel/vfs/icache.h"
 #include "block.h"
 #include "dir.h"
 #include "fat.h"
@@ -469,7 +471,7 @@ fat_remove_directory_entry(struct VFS_INODE* dir, const char* dentry)
 }
 
 static errorcode_t
-fat_create(struct VFS_INODE* dir, struct DENTRY* de, int mode)
+fat_create(struct VFS_INODE* dir, DEntry* de, int mode)
 {
 	struct FAT_ENTRY fentry;
 	memset(&fentry, 0, sizeof(fentry));
@@ -486,38 +488,38 @@ fat_create(struct VFS_INODE* dir, struct DENTRY* de, int mode)
 	ANANAS_ERROR_RETURN(err);
 
 	/* Almost done - hook it to the dentry */
-	dcache_set_inode(de, inode);
+	dcache_set_inode(*de, inode);
 	return err;
 }
 
 static errorcode_t
-fat_unlink(struct VFS_INODE* dir, struct DENTRY* de)
+fat_unlink(struct VFS_INODE* dir, DEntry& de)
 {
 	/* Sanity checks first: we must have a backing inode */
-	if (de->d_inode == NULL || de->d_flags & DENTRY_FLAG_NEGATIVE)
+	if (de.d_inode == NULL || de.d_flags & DENTRY_FLAG_NEGATIVE)
 		return ANANAS_ERROR(BAD_OPERATION);
 
 	/*
 	 * We must remove this item from the directory it is in - the nlink field determines when the file data
 	 * itself will go.
 	 */
-	KASSERT(de->d_inode->i_sb.st_nlink > 0, "removing entry '%s' with invalid link %d", de->d_entry, de->d_inode->i_sb.st_nlink);
-	errorcode_t err = fat_remove_directory_entry(dir, de->d_entry);
+	KASSERT(de.d_inode->i_sb.st_nlink > 0, "removing entry '%s' with invalid link %d", de.d_entry, de.d_inode->i_sb.st_nlink);
+	errorcode_t err = fat_remove_directory_entry(dir, de.d_entry);
 	ANANAS_ERROR_RETURN(err);
 
 	/*
 	 * All is well; decrement the nlink field - if it reaches zero, the file
 	 * content will be removed once the inode is destroyed
 	 */
-	de->d_inode->i_sb.st_nlink--;
-	vfs_set_inode_dirty(de->d_inode);
+	de.d_inode->i_sb.st_nlink--;
+	vfs_set_inode_dirty(de.d_inode);
 	return ananas_success();
 }
 
 static errorcode_t
-fat_rename(struct VFS_INODE* old_dir, struct DENTRY* old_dentry, struct VFS_INODE* new_dir, struct DENTRY* new_dentry)
+fat_rename(struct VFS_INODE* old_dir, DEntry& old_dentry, struct VFS_INODE* new_dir, DEntry& new_dentry)
 {
-	KASSERT(!S_ISDIR(old_dentry->d_inode->i_sb.st_mode), "FIXME directory");
+	KASSERT(!S_ISDIR(old_dentry.d_inode->i_sb.st_mode), "FIXME directory");
 
 	/*
 	 * Due to the way we use inum's (it is the location within the directory), we
@@ -532,29 +534,29 @@ fat_rename(struct VFS_INODE* old_dir, struct DENTRY* old_dentry, struct VFS_INOD
 	fentry.fe_attributes = FAT_ATTRIBUTE_ARCHIVE; /* XXX we should copy the old entry */
 
 	ino_t inum;
-	errorcode_t err = fat_add_directory_entry(new_dir, new_dentry->d_entry, &fentry, &inum);
+	errorcode_t err = fat_add_directory_entry(new_dir, new_dentry.d_entry, &fentry, &inum);
 	ANANAS_ERROR_RETURN(err);
 
 	/* And fetch the new inode */
 	struct VFS_INODE* inode;
 	err = vfs_get_inode(new_dir->i_fs, inum, &inode);
 	if (ananas_is_failure(err)) {
-		fat_remove_directory_entry(new_dir, new_dentry->d_entry); /* XXX hope this works! */
+		fat_remove_directory_entry(new_dir, new_dentry.d_entry); /* XXX hope this works! */
 		return err;
 	}
 
 	/* Get rid of the previous directory entry */
-	err = fat_remove_directory_entry(old_dir, old_dentry->d_entry);
+	err = fat_remove_directory_entry(old_dir, old_dentry.d_entry);
 	if (ananas_is_failure(err)) {
 		vfs_deref_inode(inode); /* remove the previous inode */
-		fat_remove_directory_entry(new_dir, new_dentry->d_entry); /* XXX hope this works! */
+		fat_remove_directory_entry(new_dir, new_dentry.d_entry); /* XXX hope this works! */
 		return err;
 	}
 
 	/*
 	 * Copy the inode information over; the old inode will soon go XXX we should copy more
 	 */
-	struct VFS_INODE* old_inode = old_dentry->d_inode;
+	struct VFS_INODE* old_inode = old_dentry.d_inode;
 	inode->i_sb.st_size = old_inode->i_sb.st_size;
 	memcpy(inode->i_privdata, old_inode->i_privdata, sizeof(struct FAT_INODE_PRIVDATA));
 	vfs_set_inode_dirty(inode);

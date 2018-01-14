@@ -22,11 +22,11 @@ TRACE_SETUP;
 #define ELFINFO_BASE 0xe000000
 
 static errorcode_t
-read_data(struct DENTRY* dentry, void* buf, off_t offset, size_t len)
+read_data(DEntry& dentry, void* buf, off_t offset, size_t len)
 {
 	struct VFS_FILE f;
 	memset(&f, 0, sizeof(f));
-	f.f_dentry = dentry;
+	f.f_dentry = &dentry;
 
 	errorcode_t err = vfs_seek(&f, offset);
 	ANANAS_ERROR_RETURN(err);
@@ -42,7 +42,7 @@ read_data(struct DENTRY* dentry, void* buf, off_t offset, size_t len)
 
 #ifdef __amd64__
 static errorcode_t
-elf64_load_ph(VMSpace& vs, struct DENTRY* dentry, const Elf64_Phdr& phdr, addr_t rbase)
+elf64_load_ph(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase)
 {
 	/* Construct the flags for the actual mapping */
 	unsigned int flags = VM_FLAG_FAULT | VM_FLAG_USER;
@@ -131,7 +131,7 @@ elf64_check_header(const Elf64_Ehdr& ehdr)
 }
 
 static errorcode_t
-elf64_load_file(VMSpace& vs, struct DENTRY* dentry, addr_t rbase, addr_t* exec_addr)
+elf64_load_file(VMSpace& vs, DEntry& dentry, addr_t rbase, addr_t* exec_addr)
 {
 	errorcode_t err;
 	Elf64_Ehdr ehdr;
@@ -159,7 +159,7 @@ elf64_load_file(VMSpace& vs, struct DENTRY* dentry, addr_t rbase, addr_t* exec_a
 }
 
 static errorcode_t
-elf64_load(VMSpace& vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* exec_arg)
+elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 {
 	*exec_arg = 0;
 
@@ -221,7 +221,7 @@ elf64_load(VMSpace& vs, struct DENTRY* dentry, addr_t* exec_addr, register_t* ex
 		// Load the interpreter ELF file
 		addr_t interp_rbase = INTERPRETER_BASE;
 		addr_t interp_entry;
-		err = elf64_load_file(vs, interp_file.f_dentry, interp_rbase, &interp_entry);
+		err = elf64_load_file(vs, *interp_file.f_dentry, interp_rbase, &interp_entry);
 		vfs_close(&interp_file); // we don't need it anymore
 		ANANAS_ERROR_RETURN(err);
 
