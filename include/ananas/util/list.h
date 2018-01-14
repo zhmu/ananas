@@ -3,7 +3,11 @@
 
 namespace util {
 
+template<typename T> struct List;
+
 namespace detail {
+
+template<typename T> using list_type = typename util::List<T>;
 
 // Pointers associated with each list entry
 template<typename T>
@@ -18,43 +22,51 @@ struct list_node {
 	T* p_Next = nullptr;
 };
 
-
 template<typename T, typename Advance>
 struct base_list_iterator
 {
-	typedef list_node<T> Ptr;
+	typedef list_type<T> ListType;
+	typedef list_node<T> Node;
 
-	base_list_iterator(Ptr* s) : i_NodePtr(s) { }
-	Ptr* i_NodePtr;
+	base_list_iterator(const ListType& list, Node* p)
+	 : i_List(list), i_NodePtr(p)
+	{
+	}
+	const ListType& i_List;
+	Node* i_NodePtr;
 
 	base_list_iterator& operator++() {
-		i_NodePtr = Advance::Next(i_NodePtr);
+		Advance::Next(i_List, i_NodePtr);
 		return *this;
 	}
 
-	base_list_iterator& operator++(int) {
-		Ptr s(*this);
-		i_NodePtr = Advance::Next(i_NodePtr);
+	base_list_iterator operator++(int) {
+		auto s(*this);
+		Advance::Next(i_List, i_NodePtr);
 		return s;
 	}
 
 	base_list_iterator& operator--() {
-		i_NodePtr = Advance::Prev(i_NodePtr);
+		Advance::Prev(i_List, i_NodePtr);
 		return *this;
 	}
 
-	base_list_iterator& operator--(int) {
-		Ptr s(*this);
-		i_NodePtr = Advance::Prev(i_NodePtr);
+	base_list_iterator operator--(int) {
+		auto s(*this);
+		Advance::Prev(i_List, i_NodePtr);
 		return s;
 	}
 
+	T* operator->() const {
+		return static_cast<T*>(i_NodePtr);
+	}
+
 	T& operator*() const {
-		return *static_cast<T*>(i_NodePtr);
+		return *operator->();
 	}
 
 	bool operator==(const base_list_iterator& rhs) const {
-		return i_NodePtr == rhs.i_NodePtr;
+		return i_NodePtr == rhs.i_NodePtr && &i_List == &rhs.i_List;
 	}
 
 	bool operator!=(const base_list_iterator& rhs) const {
@@ -65,33 +77,45 @@ struct base_list_iterator
 template<typename T>
 struct forward_advance
 {
-	static T* Next(T* p)
+	typedef list_type<T> ListType;
+	typedef list_node<T> Node;
+
+	static void Next(const ListType& list, Node*& p)
 	{
-		return p->p_Next;
+		if (p == nullptr)
+			p = list.l_Head;
+		else
+			p = p->p_Next;
 	}
 
-	static T* Prev(T* p)
+	static void Prev(const ListType& list, Node*& p)
 	{
-		return p->p_Prev;
+		if (p == nullptr)
+			p = list.l_Tail;
+		else
+			p = p->p_Prev;
 	}
 };
 
 template<typename T>
 struct backward_advance
 {
-	static T* Next(T* p)
+	typedef list_type<T> ListType;
+	typedef list_node<T> Node;
+
+	static void Next(const ListType& list, Node*& p)
 	{
-		return forward_advance<T>::Prev(p);
+		forward_advance<T>::Prev(list, p);
 	}
 
-	static T* Prev(T* p)
+	static void Prev(const ListType& list, Node*& p)
 	{
-		return forward_advance<T>::Next(p);
+		forward_advance<T>::Next(list, p);
 	}
 };
 
-template<typename T> using list_iterator = base_list_iterator<T, forward_advance<list_node<T>>>;
-template<typename T> using list_reverse_iterator = base_list_iterator<T, backward_advance<list_node<T>>>;
+template<typename T> using list_iterator = base_list_iterator<T, forward_advance<T>>;
+template<typename T> using list_reverse_iterator = base_list_iterator<T, backward_advance<T>>;
 
 }
 
@@ -107,9 +131,11 @@ template<typename T> using list_reverse_iterator = base_list_iterator<T, backwar
 template<typename T>
 struct List
 {
+	friend class detail::forward_advance<T>;
+	friend class detail::backward_advance<T>;
+
 	typedef typename detail::list_node<T> NodePtr;
 	typedef typename detail::list_iterator<T> iterator;
-	typedef typename detail::list_iterator<const T> const_iterator;
 	typedef typename detail::list_reverse_iterator<T> reverse_iterator;
 
 	void push_back(T& item)
@@ -188,22 +214,22 @@ struct List
 
 	T& front()
 	{
-		return *begin();
+		return *l_Head;
 	}
 
 	const T& front() const
 	{
-		return *cbegin();
+		return *l_Head;
 	}
 
 	T& back()
 	{
-		return *end();
+		return *l_Tail;
 	}
 
 	const T& back() const
 	{
-		return *cend();
+		return *l_Tail;
 	}
 
 	List()
@@ -218,32 +244,22 @@ struct List
 
 	iterator begin()
 	{
-		return iterator(l_Head);
-	}
-
-	const_iterator cbegin()
-	{
-		return const_iterator(l_Head);
+		return iterator(*this, l_Head);
 	}
 
 	reverse_iterator rbegin()
 	{
-		return reverse_iterator(l_Head);
+		return reverse_iterator(*this, l_Tail);
 	}
 
 	iterator end()
 	{
-		return iterator(nullptr);
-	}
-
-	const_iterator cend()
-	{
-		return const_iterator(nullptr);
+		return iterator(*this, nullptr);
 	}
 
 	reverse_iterator rend()
 	{
-		return reverse_iterator(nullptr);
+		return reverse_iterator(*this, nullptr);
 	}
 
 private:
