@@ -19,33 +19,33 @@ struct list_node {
 };
 
 
-template<typename T>
-struct list_iterator
+template<typename T, typename Advance>
+struct base_list_iterator
 {
 	typedef list_node<T> Ptr;
 
-	list_iterator(Ptr* s) : i_NodePtr(s) { }
+	base_list_iterator(Ptr* s) : i_NodePtr(s) { }
 	Ptr* i_NodePtr;
 
-	list_iterator& operator++() {
-		i_NodePtr = i_NodePtr->p_Next;
+	base_list_iterator& operator++() {
+		i_NodePtr = Advance::Next(i_NodePtr);
 		return *this;
 	}
 
-	list_iterator& operator++(int) {
+	base_list_iterator& operator++(int) {
 		Ptr s(*this);
-		i_NodePtr = i_NodePtr->p_Next;
+		i_NodePtr = Advance::Next(i_NodePtr);
 		return s;
 	}
 
-	list_iterator& operator--() {
-		i_NodePtr = i_NodePtr->p_Prev;
+	base_list_iterator& operator--() {
+		i_NodePtr = Advance::Prev(i_NodePtr);
 		return *this;
 	}
 
-	list_iterator& operator--(int) {
+	base_list_iterator& operator--(int) {
 		Ptr s(*this);
-		i_NodePtr = i_NodePtr->p_Prev;
+		i_NodePtr = Advance::Prev(i_NodePtr);
 		return s;
 	}
 
@@ -53,14 +53,45 @@ struct list_iterator
 		return *static_cast<T*>(i_NodePtr);
 	}
 
-	bool operator==(const list_iterator& rhs) const {
+	bool operator==(const base_list_iterator& rhs) const {
 		return i_NodePtr == rhs.i_NodePtr;
 	}
 
-	bool operator!=(const list_iterator& rhs) const {
+	bool operator!=(const base_list_iterator& rhs) const {
 		return !(*this == rhs);
 	}
 };
+
+template<typename T>
+struct forward_advance
+{
+	static T* Next(T* p)
+	{
+		return p->p_Next;
+	}
+
+	static T* Prev(T* p)
+	{
+		return p->p_Prev;
+	}
+};
+
+template<typename T>
+struct backward_advance
+{
+	static T* Next(T* p)
+	{
+		return forward_advance<T>::Prev(p);
+	}
+
+	static T* Prev(T* p)
+	{
+		return forward_advance<T>::Next(p);
+	}
+};
+
+template<typename T> using list_iterator = base_list_iterator<T, forward_advance<list_node<T>>>;
+template<typename T> using list_reverse_iterator = base_list_iterator<T, backward_advance<list_node<T>>>;
 
 }
 
@@ -79,6 +110,7 @@ struct List
 	typedef typename detail::list_node<T> NodePtr;
 	typedef typename detail::list_iterator<T> iterator;
 	typedef typename detail::list_iterator<const T> const_iterator;
+	typedef typename detail::list_reverse_iterator<T> reverse_iterator;
 
 	void push_back(T& item)
 	{
@@ -194,6 +226,11 @@ struct List
 		return const_iterator(l_Head);
 	}
 
+	reverse_iterator rbegin()
+	{
+		return reverse_iterator(l_Head);
+	}
+
 	iterator end()
 	{
 		return iterator(nullptr);
@@ -202,6 +239,11 @@ struct List
 	const_iterator cend()
 	{
 		return const_iterator(nullptr);
+	}
+
+	reverse_iterator rend()
+	{
+		return reverse_iterator(nullptr);
 	}
 
 private:
