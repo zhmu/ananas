@@ -27,8 +27,6 @@ USBDevice::USBDevice(Bus& bus, Hub* hub, int hub_port, int flags)
 	//usb_dev->usb_hcd_privdata = hcd_privdata;
 	//usb_dev->usb_device->d_resourceset.AddResource(Ananas::Resource(Ananas::Resource::RT_USB_Device, reinterpret_cast<Ananas::Resource::Base>(usb_dev), 0));
 
-	LIST_INIT(&ud_transfers);
-	LIST_INIT(&ud_pipes);
 	memset(&ud_interface, 0, sizeof(ud_interface));
 	memset(&ud_descr_device, 0, sizeof(ud_descr_device));
 }
@@ -202,8 +200,8 @@ USBDevice::Detach()
 	// Stop any pending pipes - this should cancel any pending transfers, which ensures Detach()
 	// can run without any callbacks in between
 	Lock();
-	LIST_FOREACH(&ud_pipes, pipe, Pipe) {
-		pipe->p_xfer.Cancel_Locked();
+	for(auto& pipe: ud_pipes) {
+		pipe.p_xfer.Cancel_Locked();
 	}
 	Unlock();
 
@@ -215,11 +213,11 @@ USBDevice::Detach()
 	}
 
 	Lock();
-	KASSERT(LIST_EMPTY(&ud_pipes), "device detach with active pipes");
+	KASSERT(ud_pipes.empty(), "device detach with active pipes");
 	KASSERT(LIST_EMPTY(&ud_transfers), "device detach with active transfers");
 
 	/* Remove the device from the bus - note that we hold the bus lock */
-	LIST_REMOVE(&ud_bus.bus_devices, this);
+	ud_bus.bus_devices.remove(*this);
 
 	// All set; the device is eligable for destruction now
 	Unlock();
@@ -263,7 +261,7 @@ USBDevice::AllocatePipe(int num, int type, int dir, size_t maxlen, IPipeCallback
 
 	/* Hook up the pipe to the device */
 	Lock();
-	LIST_APPEND(&ud_pipes, p);
+	ud_pipes.push_back(*p);
 	Unlock();
 	pipe = p;
 	return ananas_success();
@@ -284,7 +282,7 @@ USBDevice::FreePipe_Locked(Pipe& pipe)
 	FreeTransfer_Locked(pipe.p_xfer);
 
 	/* Unregister the pipe - this is where we need the lock for */
-	LIST_REMOVE(&ud_pipes, &pipe);
+	ud_pipes.remove(pipe);
 	delete &pipe;
 }
 

@@ -1,8 +1,8 @@
 #ifndef __ANANAS_USB_BUS_H__
 #define __ANANAS_USB_BUS_H__
 
+#include <ananas/util/list.h>
 #include "kernel/device.h"
-#include "kernel/list.h"
 
 namespace Ananas {
 
@@ -12,12 +12,12 @@ namespace USB {
 
 class USBDevice;
 class Hub;
-LIST_DEFINE(USBDevices, USBDevice);
+typedef util::List<USBDevice> USBDeviceList;
 
 /*
  * Single USB bus - directly connected to a HCD.
  */
-class Bus : public Ananas::Device, private Ananas::IDeviceOperations
+class Bus : public Ananas::Device, private Ananas::IDeviceOperations, public util::List<Bus>::NodePtr
 {
 public:
 	using Device::Device;
@@ -34,16 +34,13 @@ public:
 	bool bus_NeedsExplore = false;
 
 	/* List of all USB devices on this bus */
-	USBDevices bus_devices;
+	USBDeviceList bus_devices;
 
 	int AllocateAddress();
 
 	void ScheduleExplore();
 	void Explore();
 	errorcode_t DetachHub(Hub& hub);
-
-	/* Link fields for attach or bus list */
-	LIST_FIELDS(Bus);
 
 	void Lock()
 	{

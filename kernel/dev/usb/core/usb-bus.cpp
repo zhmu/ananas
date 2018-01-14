@@ -16,6 +16,7 @@
  */
 #include <ananas/types.h>
 #include <ananas/error.h>
+#include <ananas/util/list.h>
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
@@ -27,14 +28,14 @@
 namespace Ananas {
 namespace USB {
 
-LIST_DEFINE(USBBusses, Bus);
+typedef util::List<Bus> BusList;
 
 namespace {
 Thread usbbus_thread;
 semaphore_t usbbus_semaphore;
-USBDevices usbbus_pendingqueue;
+USBDeviceList usbbus_pendingqueue;
 spinlock_t usbbus_spl_pendingqueue = SPINLOCK_DEFAULT_INIT; /* protects usbbus_pendingqueue */
-USBBusses usbbus_busses;
+BusList usbbus_busses;
 mutex_t usbbus_mutex; /* protects usbbus_busses */
 } // unnamed namespace
 
@@ -43,7 +44,7 @@ ScheduleAttach(USBDevice& usb_dev)
 {
 	/* Add the device to our queue */
 	spinlock_lock(&usbbus_spl_pendingqueue);
-	LIST_APPEND(&usbbus_pendingqueue, &usb_dev);
+	usbbus_pendingqueue.push_back(usb_dev);
 	spinlock_unlock(&usbbus_spl_pendingqueue);
 
 	/* Wake up our thread */
@@ -54,7 +55,6 @@ errorcode_t
 Bus::Attach()
 {
 	mutex_init(&bus_mutex, "usbbus");
-	LIST_INIT(&bus_devices);
 	bus_NeedsExplore = true;
 
 	/*
@@ -67,7 +67,7 @@ Bus::Attach()
 
 	/* Register ourselves within the big bus list */
 	mutex_lock(&usbbus_mutex);
-	LIST_APPEND(&usbbus_busses, this);
+	usbbus_busses.push_back(*this);
 	mutex_unlock(&usbbus_mutex);
 	return ananas_success();
 }
@@ -104,8 +104,8 @@ Bus::Explore()
 	AssertLocked();
 	bus_NeedsExplore = false;
 
-	LIST_FOREACH(&bus_devices, usb_dev, USBDevice) {
-		Device* dev = usb_dev->ud_device;
+	for(auto& usb_dev: bus_devices) {
+		Device* dev = usb_dev.ud_device;
 		if (dev->GetUSBHubDeviceOperations() != nullptr)
 			dev->GetUSBHubDeviceOperations()->HandleExplore();
 	}
@@ -117,11 +117,12 @@ Bus::DetachHub(Hub& hub)
 {
 	AssertLocked();
 
-	LIST_FOREACH_SAFE(&bus_devices, usb_dev, USBDevice) {
-		if (usb_dev->ud_hub != &hub)
+	for(auto it = bus_devices.begin(); it != bus_devices.end(); /* nothing */) {
+		auto& usb_dev = *it; ++it;
+		if (usb_dev.ud_hub != &hub)
 			continue;
 
-		errorcode_t err = usb_dev->Detach();
+		errorcode_t err = usb_dev.Detach();
 		(void)err; // XXX what to do in this case?
 	}
 
@@ -142,22 +143,22 @@ usb_bus_thread(void* unused)
 			 * exploring may trigger new devices to attach or old ones to remove.
 			 */
 			mutex_lock(&usbbus_mutex);
-			LIST_FOREACH(&usbbus_busses, bus, Bus) {
-				bus->Lock();
-				if (bus->bus_NeedsExplore)
-					bus->Explore();
-				bus->Unlock();
+			for(auto& bus: usbbus_busses) {
+				bus.Lock();
+				if (bus.bus_NeedsExplore)
+					bus.Explore();
+				bus.Unlock();
 			}
 			mutex_unlock(&usbbus_mutex);
 
 			/* Handle attaching devices */
 			spinlock_lock(&usbbus_spl_pendingqueue);
-			if (LIST_EMPTY(&usbbus_pendingqueue)) {
+			if (usbbus_pendingqueue.empty()) {
 				spinlock_unlock(&usbbus_spl_pendingqueue);
 				break;
 			}
-			auto usb_dev = LIST_HEAD(&usbbus_pendingqueue);
-			LIST_POP_HEAD(&usbbus_pendingqueue);
+			auto& usb_dev = usbbus_pendingqueue.front();
+			usbbus_pendingqueue.pop_front();
 			spinlock_unlock(&usbbus_spl_pendingqueue);
 
 			/*
@@ -165,13 +166,13 @@ usb_bus_thread(void* unused)
 			 * as it ensures we will never attach more than one device in the system
 			 * at any given time.
 			 */
-			errorcode_t err = usb_dev->Attach();
+			errorcode_t err = usb_dev.Attach();
 			KASSERT(ananas_is_success(err), "cannot yet deal with failures %d", err);
 
 			/* This worked; hook the device to the bus' device list */
-			Bus& bus = usb_dev->ud_bus;
+			Bus& bus = usb_dev.ud_bus;
 			bus.Lock();
-			LIST_APPEND(&bus.bus_devices, usb_dev);
+			bus.bus_devices.push_back(usb_dev);
 			bus.Unlock();
 		}
 	}
@@ -201,9 +202,7 @@ errorcode_t
 InitializeBus()
 {
 	sem_init(&usbbus_semaphore, 0);
-	LIST_INIT(&usbbus_pendingqueue);
 	mutex_init(&usbbus_mutex, "usbbus");
-	LIST_INIT(&usbbus_busses);
 
 	/*
 	 * Create a kernel thread to handle USB device attachments. We use a thread for this

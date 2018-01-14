@@ -22,7 +22,7 @@ public:
 	virtual void OnPipeCallback(Pipe&) = 0;
 };
 
-class Pipe {
+class Pipe : public util::List<Pipe>::NodePtr {
 public:
 	Pipe(USBDevice& usb_dev, Endpoint& ep, Transfer& xfer, IPipeCallback& callback)
 	 : p_dev(usb_dev), p_ep(ep), p_xfer(xfer), p_callback(callback)
@@ -39,12 +39,9 @@ public:
 	Endpoint& p_ep;
 	Transfer& p_xfer;
 	IPipeCallback& p_callback;
-
-	/* Provide queue structure */
-	LIST_FIELDS(Pipe);
 };
 
-LIST_DEFINE(Pipes, Pipe);
+typedef util::List<Pipe> PipeList;
 
 /*
  * An USB device consists of a name, an address, pipes and a driver. We
@@ -54,7 +51,7 @@ LIST_DEFINE(Pipes, Pipe);
  * Fields marked with [S] are static and won't change after initialization; fields
  * with [M] use the mutex to protect them.
  */
-class USBDevice
+class USBDevice : public util::List<USBDevice>::NodePtr
 {
 public:
 	USBDevice(Bus& bus, Hub* hub, int hub_port, int flags);
@@ -86,9 +83,6 @@ public:
 	errorcode_t AllocatePipe(int num, int type, int dir, size_t maxlen, IPipeCallback& callback, Pipe*& pipe);
 	void FreePipe(Pipe& pipe);
 
-	/* Provide link fields for device list */
-	LIST_FIELDS(USBDevice);
-
 	void Lock()
 	{
 		mutex_lock(&ud_mutex);
@@ -110,7 +104,7 @@ private:
 	void FreePipe_Locked(Pipe& pipe);
 
 	mutex_t ud_mutex;
-	struct Pipes ud_pipes;			/* [M] */
+	PipeList ud_pipes;			/* [M] */
 };
 
 #define USB_DEVICE_FLAG_LOW_SPEED (1 << 0)
