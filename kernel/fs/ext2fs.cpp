@@ -59,18 +59,18 @@ ext2_conv_superblock(struct EXT2_SUPERBLOCK* sb)
 }
 
 static errorcode_t
-ext2_prepare_inode(struct VFS_INODE* inode)
+ext2_prepare_inode(INode& inode)
 {
 	auto privdata = new EXT2_INODE_PRIVDATA;
 	memset(privdata, 0, sizeof(struct EXT2_INODE_PRIVDATA));
-	inode->i_privdata = privdata;
+	inode.i_privdata = privdata;
 	return ananas_success();
 }
 
 static void
-ext2_discard_inode(struct VFS_INODE* inode)
+ext2_discard_inode(INode& inode)
 {
-	kfree(inode->i_privdata);
+	kfree(inode.i_privdata);
 }
 
 #if 0
@@ -104,10 +104,10 @@ ext2_dump_inode(struct EXT2_INODE* inode)
  * contains X * X blocks, so we can store X * X * X = 16777216 blocks.
  */
 static errorcode_t
-ext2_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out, int create)
+ext2_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int create)
 {
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
-	auto in_privdata = static_cast<struct EXT2_INODE_PRIVDATA*>(inode->i_privdata);
+	struct VFS_MOUNTED_FS* fs = inode.i_fs;
+	auto in_privdata = static_cast<struct EXT2_INODE_PRIVDATA*>(inode.i_privdata);
 
 	/*
 	 * We need to figure out whether we have to look up the block in the single,
@@ -145,8 +145,8 @@ ext2_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out
 static errorcode_t
 ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
-	struct VFS_INODE* inode = file->f_dentry->d_inode;
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	INode& inode = *file->f_dentry->d_inode;
+	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	blocknr_t blocknum = (blocknr_t)file->f_offset / (blocknr_t)fs->fs_block_size;
 	uint32_t offset = file->f_offset % fs->fs_block_size;
 	size_t written = 0, left = *len;
@@ -223,10 +223,10 @@ static struct VFS_INODE_OPS ext2_dir_ops = {
  * Reads a filesystem inode and fills a corresponding inode structure.
  */
 static errorcode_t
-ext2_read_inode(struct VFS_INODE* inode, ino_t inum)
+ext2_read_inode(INode& inode, ino_t inum)
 {
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
-	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)inode->i_fs->fs_privdata;
+	struct VFS_MOUNTED_FS* fs = inode.i_fs;
+	struct EXT2_FS_PRIVDATA* privdata = (struct EXT2_FS_PRIVDATA*)inode.i_fs->fs_privdata;
 
 	/*
 	 * Inode number zero does not exists within ext2 (or Linux for that matter),
@@ -254,22 +254,22 @@ ext2_read_inode(struct VFS_INODE* inode, ino_t inum)
 	auto ext2inode = reinterpret_cast<struct EXT2_INODE*>(static_cast<char*>(BIO_DATA(bio)) + idx);
 
 	/* Fill the stat buffer with date */
-	inode->i_sb.st_ino    = inum;
-	inode->i_sb.st_mode   = EXT2_TO_LE16(ext2inode->i_mode);
-	inode->i_sb.st_nlink  = EXT2_TO_LE16(ext2inode->i_links_count);
-	inode->i_sb.st_uid    = EXT2_TO_LE16(ext2inode->i_uid);
-	inode->i_sb.st_gid    = EXT2_TO_LE16(ext2inode->i_gid);
-	inode->i_sb.st_atime  = EXT2_TO_LE32(ext2inode->i_atime);
-	inode->i_sb.st_mtime  = EXT2_TO_LE32(ext2inode->i_mtime);
-	inode->i_sb.st_ctime  = EXT2_TO_LE32(ext2inode->i_ctime);
-	inode->i_sb.st_blocks = EXT2_TO_LE32(ext2inode->i_blocks);
-	inode->i_sb.st_size   = EXT2_TO_LE32(ext2inode->i_size);
+	inode.i_sb.st_ino    = inum;
+	inode.i_sb.st_mode   = EXT2_TO_LE16(ext2inode->i_mode);
+	inode.i_sb.st_nlink  = EXT2_TO_LE16(ext2inode->i_links_count);
+	inode.i_sb.st_uid    = EXT2_TO_LE16(ext2inode->i_uid);
+	inode.i_sb.st_gid    = EXT2_TO_LE16(ext2inode->i_gid);
+	inode.i_sb.st_atime  = EXT2_TO_LE32(ext2inode->i_atime);
+	inode.i_sb.st_mtime  = EXT2_TO_LE32(ext2inode->i_mtime);
+	inode.i_sb.st_ctime  = EXT2_TO_LE32(ext2inode->i_ctime);
+	inode.i_sb.st_blocks = EXT2_TO_LE32(ext2inode->i_blocks);
+	inode.i_sb.st_size   = EXT2_TO_LE32(ext2inode->i_size);
 
 	/*
 	 * Copy the block pointers to the private inode structure; we need them for
 	 * any read/write operation.
 	 */
-	auto iprivdata = static_cast<struct EXT2_INODE_PRIVDATA*>(inode->i_privdata);
+	auto iprivdata = static_cast<struct EXT2_INODE_PRIVDATA*>(inode.i_privdata);
 	for (unsigned int i = 0; i < EXT2_INODE_BLOCKS; i++)
 		iprivdata->block[i] = EXT2_TO_LE32(ext2inode->i_block[i]);
 
@@ -277,10 +277,10 @@ ext2_read_inode(struct VFS_INODE* inode, ino_t inum)
 	uint16_t imode = EXT2_TO_LE16(ext2inode->i_mode);
 	switch(imode & 0xf000) {
 		case EXT2_S_IFREG:
-			inode->i_iops = &ext2_file_ops;
+			inode.i_iops = &ext2_file_ops;
 			break;
 		case EXT2_S_IFDIR:
-			inode->i_iops = &ext2_dir_ops;
+			inode.i_iops = &ext2_dir_ops;
 			break;
 	}
 	bio_free(bio);
@@ -289,7 +289,7 @@ ext2_read_inode(struct VFS_INODE* inode, ino_t inum)
 }
 
 static errorcode_t
-ext2_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
+ext2_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 {
 	/* Default to 1KB blocksize and fetch the superblock */
 	struct BIO* bio;

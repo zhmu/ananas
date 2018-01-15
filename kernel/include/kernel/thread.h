@@ -10,7 +10,6 @@
 #include "kernel-md/thread.h"
 
 typedef void (*kthread_func_t)(void*);
-struct VFS_INODE;
 struct VM_SPACE;
 struct STACKFRAME;
 

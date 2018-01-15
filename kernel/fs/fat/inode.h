@@ -3,13 +3,12 @@
 
 #include <ananas/types.h>
 
-struct VFS_INODE;
-struct DENTRY_CACHE_ITEM;
+struct INode;
 
-errorcode_t fat_prepare_inode(struct VFS_INODE* inode);
-void fat_discard_inode(struct VFS_INODE* inode);
-errorcode_t fat_read_inode(struct VFS_INODE* inode, ino_t inum);
-errorcode_t fat_write_inode(struct VFS_INODE* inode);
+errorcode_t fat_prepare_inode(INode& inode);
+void fat_discard_inode(INode& inode);
+errorcode_t fat_read_inode(INode& inode, ino_t inum);
+errorcode_t fat_write_inode(INode& inode);
 
 extern struct VFS_INODE_OPS fat_inode_ops;
 

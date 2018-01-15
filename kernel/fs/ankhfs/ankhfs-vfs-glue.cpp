@@ -21,9 +21,9 @@ namespace {
 
 IAnkhSubSystem* subSystems[static_cast<size_t>(SubSystem::SS_Last)];
 
-IAnkhSubSystem* GetSubSystemFromInode(struct VFS_INODE* inode)
+IAnkhSubSystem* GetSubSystemFromInode(INode& inode)
 {
-	auto subSystem = inum_to_subsystem(inode->i_inum);
+	auto subSystem = inum_to_subsystem(inode.i_inum);
 	if (subSystem >= SS_Last)
 		return nullptr;
 	return subSystems[static_cast<int>(subSystem)];
@@ -32,7 +32,7 @@ IAnkhSubSystem* GetSubSystemFromInode(struct VFS_INODE* inode)
 errorcode_t
 ankhfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
-	auto subSystem = GetSubSystemFromInode(file->f_dentry->d_inode);
+	auto subSystem = GetSubSystemFromInode(*file->f_dentry->d_inode);
 	if (subSystem == nullptr)
 		return ANANAS_ERROR(IO);
 	return subSystem->HandleRead(file, buf, len);
@@ -41,7 +41,7 @@ ankhfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 errorcode_t
 ankhfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
-	auto subSystem = GetSubSystemFromInode(file->f_dentry->d_inode);
+	auto subSystem = GetSubSystemFromInode(*file->f_dentry->d_inode);
 	if (subSystem == nullptr)
 		return ANANAS_ERROR(IO);
 	return subSystem->HandleReadDir(file, dirents, len);
@@ -64,7 +64,7 @@ struct VFS_INODE_OPS ankhfs_dir_ops = {
 };
 
 errorcode_t
-ankhfs_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
+ankhfs_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 {
 	fs->fs_block_size = 512;
 	fs->fs_privdata = nullptr;
@@ -80,18 +80,18 @@ ankhfs_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 }
 
 errorcode_t
-ankhfs_read_inode(struct VFS_INODE* inode, ino_t inum)
+ankhfs_read_inode(INode& inode, ino_t inum)
 {
-	inode->i_sb.st_ino    = inum;
-	inode->i_sb.st_mode   = 0444;
-	inode->i_sb.st_nlink  = 1;
-	inode->i_sb.st_uid    = 0;
-	inode->i_sb.st_gid    = 0;
-	inode->i_sb.st_atime  = 0; // XXX
-	inode->i_sb.st_mtime  = 0;
-	inode->i_sb.st_ctime  = 0;
-	inode->i_sb.st_blocks = 0;
-	inode->i_sb.st_size   = 0;
+	inode.i_sb.st_ino    = inum;
+	inode.i_sb.st_mode   = 0444;
+	inode.i_sb.st_nlink  = 1;
+	inode.i_sb.st_uid    = 0;
+	inode.i_sb.st_gid    = 0;
+	inode.i_sb.st_atime  = 0; // XXX
+	inode.i_sb.st_mtime  = 0;
+	inode.i_sb.st_ctime  = 0;
+	inode.i_sb.st_blocks = 0;
+	inode.i_sb.st_size   = 0;
 	auto subSystem = GetSubSystemFromInode(inode);
 	if (subSystem == nullptr)
 		return ANANAS_ERROR(IO);
@@ -99,15 +99,15 @@ ankhfs_read_inode(struct VFS_INODE* inode, ino_t inum)
 	errorcode_t err = subSystem->FillInode(inode, inum);
 	ANANAS_ERROR_RETURN(err);
 
-	if (S_ISDIR(inode->i_sb.st_mode)) {
-		inode->i_sb.st_mode |= 0111;
-		inode->i_iops = &ankhfs_dir_ops;
-	} else if (S_ISREG(inode->i_sb.st_mode))
-		inode->i_iops = &ankhfs_file_ops;
-	else if (S_ISCHR(inode->i_sb.st_mode) || S_ISBLK(inode->i_sb.st_mode))
-		inode->i_iops = &ankhfs_dev_ops;
+	if (S_ISDIR(inode.i_sb.st_mode)) {
+		inode.i_sb.st_mode |= 0111;
+		inode.i_iops = &ankhfs_dir_ops;
+	} else if (S_ISREG(inode.i_sb.st_mode))
+		inode.i_iops = &ankhfs_file_ops;
+	else if (S_ISCHR(inode.i_sb.st_mode) || S_ISBLK(inode.i_sb.st_mode))
+		inode.i_iops = &ankhfs_dev_ops;
 	else
-		inode->i_iops = &ankhfs_no_ops;
+		inode.i_iops = &ankhfs_no_ops;
 
 	return ananas_success();
 }

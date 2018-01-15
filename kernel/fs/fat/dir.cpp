@@ -100,8 +100,8 @@ fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename)
 errorcode_t
 fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
-	struct VFS_INODE* inode = file->f_dentry->d_inode;
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	INode& inode = *file->f_dentry->d_inode;
+	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	size_t written = 0;
 	size_t left = *len;
 	char cur_filename[128]; /* currently assembled filename */
@@ -221,9 +221,9 @@ fat_sanitize_83_name(const char* fname, char* shortname)
  * uint16_t!) - so relying on large FAT directories would be most unwise anyway.
  */
 static errorcode_t
-fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_ENTRY* fentry, ino_t* inum)
+fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry, ino_t* inum)
 {
-	struct VFS_MOUNTED_FS* fs = dir->i_fs;
+	struct VFS_MOUNTED_FS* fs = dir.i_fs;
 	struct BIO* bio = NULL;
 
 	/*
@@ -372,9 +372,9 @@ fat_add_directory_entry(struct VFS_INODE* dir, const char* dentry, struct FAT_EN
 }
 
 static errorcode_t
-fat_remove_directory_entry(struct VFS_INODE* dir, const char* dentry)
+fat_remove_directory_entry(INode& dir, const char* dentry)
 {
-	struct VFS_MOUNTED_FS* fs = dir->i_fs;
+	struct VFS_MOUNTED_FS* fs = dir.i_fs;
 	struct BIO* bio = NULL;
 
 	char cur_filename[128]; /* currently assembled filename */
@@ -471,7 +471,7 @@ fat_remove_directory_entry(struct VFS_INODE* dir, const char* dentry)
 }
 
 static errorcode_t
-fat_create(struct VFS_INODE* dir, DEntry* de, int mode)
+fat_create(INode& dir, DEntry* de, int mode)
 {
 	struct FAT_ENTRY fentry;
 	memset(&fentry, 0, sizeof(fentry));
@@ -483,17 +483,17 @@ fat_create(struct VFS_INODE* dir, DEntry* de, int mode)
 	ANANAS_ERROR_RETURN(err);
 
 	/* And obtain it */
-	struct VFS_INODE* inode;
-	err = vfs_get_inode(dir->i_fs, inum, &inode);
+	INode* inode;
+	err = vfs_get_inode(dir.i_fs, inum, inode);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Almost done - hook it to the dentry */
-	dcache_set_inode(*de, inode);
+	dcache_set_inode(*de, *inode);
 	return err;
 }
 
 static errorcode_t
-fat_unlink(struct VFS_INODE* dir, DEntry& de)
+fat_unlink(INode& dir, DEntry& de)
 {
 	/* Sanity checks first: we must have a backing inode */
 	if (de.d_inode == NULL || de.d_flags & DENTRY_FLAG_NEGATIVE)
@@ -512,12 +512,12 @@ fat_unlink(struct VFS_INODE* dir, DEntry& de)
 	 * content will be removed once the inode is destroyed
 	 */
 	de.d_inode->i_sb.st_nlink--;
-	vfs_set_inode_dirty(de.d_inode);
+	vfs_set_inode_dirty(*de.d_inode);
 	return ananas_success();
 }
 
 static errorcode_t
-fat_rename(struct VFS_INODE* old_dir, DEntry& old_dentry, struct VFS_INODE* new_dir, DEntry& new_dentry)
+fat_rename(INode& old_dir, DEntry& old_dentry, INode& new_dir, DEntry& new_dentry)
 {
 	KASSERT(!S_ISDIR(old_dentry.d_inode->i_sb.st_mode), "FIXME directory");
 
@@ -538,8 +538,8 @@ fat_rename(struct VFS_INODE* old_dir, DEntry& old_dentry, struct VFS_INODE* new_
 	ANANAS_ERROR_RETURN(err);
 
 	/* And fetch the new inode */
-	struct VFS_INODE* inode;
-	err = vfs_get_inode(new_dir->i_fs, inum, &inode);
+	INode* inode;
+	err = vfs_get_inode(new_dir.i_fs, inum, inode);
 	if (ananas_is_failure(err)) {
 		fat_remove_directory_entry(new_dir, new_dentry.d_entry); /* XXX hope this works! */
 		return err;
@@ -548,7 +548,7 @@ fat_rename(struct VFS_INODE* old_dir, DEntry& old_dentry, struct VFS_INODE* new_
 	/* Get rid of the previous directory entry */
 	err = fat_remove_directory_entry(old_dir, old_dentry.d_entry);
 	if (ananas_is_failure(err)) {
-		vfs_deref_inode(inode); /* remove the previous inode */
+		vfs_deref_inode(*inode); /* remove the previous inode */
 		fat_remove_directory_entry(new_dir, new_dentry.d_entry); /* XXX hope this works! */
 		return err;
 	}
@@ -556,17 +556,17 @@ fat_rename(struct VFS_INODE* old_dir, DEntry& old_dentry, struct VFS_INODE* new_
 	/*
 	 * Copy the inode information over; the old inode will soon go XXX we should copy more
 	 */
-	struct VFS_INODE* old_inode = old_dentry.d_inode;
-	inode->i_sb.st_size = old_inode->i_sb.st_size;
-	memcpy(inode->i_privdata, old_inode->i_privdata, sizeof(struct FAT_INODE_PRIVDATA));
-	vfs_set_inode_dirty(inode);
+	INode& old_inode = *old_dentry.d_inode;
+	inode->i_sb.st_size = old_inode.i_sb.st_size;
+	memcpy(inode->i_privdata, old_inode.i_privdata, sizeof(struct FAT_INODE_PRIVDATA));
+	vfs_set_inode_dirty(*inode);
 
 	/*
 	 * Okay, the on-disk structure is okay; update the dentries. This should
 	 * abandon the previous inode (as the old ref will be freed)
 	 */
-	dcache_set_inode(old_dentry, inode);
-	dcache_set_inode(new_dentry, inode);
+	dcache_set_inode(old_dentry, *inode);
+	dcache_set_inode(new_dentry, *inode);
 	return ananas_success();
 }
 

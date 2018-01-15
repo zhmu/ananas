@@ -84,7 +84,7 @@ dcache_find_entry_to_use()
 			// This dentry should be good to use - remove any backing inode it has,
 			// as we will overwrite it
 			if (d.d_inode != nullptr) {
-				vfs_deref_inode(d.d_inode);
+				vfs_deref_inode(*d.d_inode);
 				d.d_inode = nullptr;
 			}
 
@@ -207,7 +207,7 @@ dcache_purge_old_entries()
 
 		// Get rid of any backing inode; this is why we are called
 		if (d.d_inode != nullptr) {
-			vfs_deref_inode(d.d_inode);
+			vfs_deref_inode(*d.d_inode);
 			d.d_inode = nullptr;
 		}
 
@@ -218,21 +218,20 @@ dcache_purge_old_entries()
 }
 
 void
-dcache_set_inode(DEntry& de, struct VFS_INODE* inode)
+dcache_set_inode(DEntry& de, INode& inode)
 {
 #if 0
 	/* XXX NOTYET - negative flag is cleared to keep the entry alive */
 	KASSERT((de->d_flags & DENTRY_FLAG_NEGATIVE), "entry is not negative");
 #endif
-	KASSERT(inode != NULL, "no inode given");
 
 	/* If we already have an inode, deref it; we don't care about it anymore */
 	if (de.d_inode != NULL)
-		vfs_deref_inode(de.d_inode);
+		vfs_deref_inode(*de.d_inode);
 
 	/* Increase the refcount - the cache will have a ref to the inode now */
 	vfs_ref_inode(inode);
-	de.d_inode = inode;
+	de.d_inode = &inode;
 	de.d_flags &= ~DENTRY_FLAG_NEGATIVE;
 }
 
@@ -268,7 +267,7 @@ dentry_unlink(DEntry& de)
 	dcache_lock();
 	de.d_flags |= DENTRY_FLAG_NEGATIVE;
 	if (de.d_inode != nullptr)
-		vfs_deref_inode(de.d_inode);
+		vfs_deref_inode(*de.d_inode);
   de.d_inode = nullptr;
 	dcache_unlock();
 }

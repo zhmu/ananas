@@ -84,7 +84,7 @@ vmpage_resolve_locked(VMPage& vp)
 }
 
 VMPage&
-vmpage_alloc(VMArea* va, struct VFS_INODE* inode, off_t offset, int flags)
+vmpage_alloc(VMArea* va, INode* inode, off_t offset, int flags)
 {
   auto vp = new VMPage;
 	memset(vp, 0, sizeof(*vp));
@@ -269,14 +269,14 @@ vmpage_deref(VMPage& vmpage)
 }
 
 VMPage*
-vmpage_lookup_locked(VMArea& va, struct VFS_INODE* inode, off_t offs)
+vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs)
 {
   /*
    * First step is to see if we can locate this page for the given vmspace - the private mappings
    * are stored there and override global ones.
    */
 	for(auto& vmpage: va.va_pages) {
-    if (vmpage.vp_inode != inode || vmpage.vp_offset != offs)
+    if (vmpage.vp_inode != &inode || vmpage.vp_offset != offs)
       continue;
 
     vmpage_lock(vmpage);
@@ -285,7 +285,7 @@ vmpage_lookup_locked(VMArea& va, struct VFS_INODE* inode, off_t offs)
 
   // Try all inode-private pages
 	INODE_LOCK(inode);
-	for(auto& vmpage: inode->i_pages) {
+	for(auto& vmpage: inode.i_pages) {
     // We don't check vp_inode here as this is the per-inode list already
     if (vmpage.vp_offset != offs)
       continue;
@@ -366,13 +366,13 @@ vmpage_get_page(VMPage& v)
 }
 
 VMPage&
-vmpage_create_shared(struct VFS_INODE* inode, off_t offs, int flags)
+vmpage_create_shared(INode& inode, off_t offs, int flags)
 {
-  VMPage& new_page = vmpage_alloc(nullptr, inode, offs, flags);
+  VMPage& new_page = vmpage_alloc(nullptr, &inode, offs, flags);
 
   // Hook the vm page to the inode
   INODE_LOCK(inode);
-	for(auto& vmpage: inode->i_pages) {
+	for(auto& vmpage: inode.i_pages) {
     if (vmpage.vp_offset != offs || &vmpage == &new_page)
       continue;
 
@@ -387,7 +387,7 @@ vmpage_create_shared(struct VFS_INODE* inode, off_t offs, int flags)
   }
 
   // Not yet present; add the new page and return it
-	inode->i_pages.push_back(new_page);
+	inode.i_pages.push_back(new_page);
   INODE_UNLOCK(inode);
   return new_page;
 }

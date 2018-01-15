@@ -29,9 +29,9 @@ public:
 		return AnkhFS::HandleReadDir(file, dirents, len, root_entries[0]);
 	}
 
-	errorcode_t FillInode(struct VFS_INODE* inode, ino_t inum) override
+	errorcode_t FillInode(INode& inode, ino_t inum) override
 	{
-		inode->i_sb.st_mode |= S_IFDIR;
+		inode.i_sb.st_mode |= S_IFDIR;
 		return ananas_success();
 	}
 

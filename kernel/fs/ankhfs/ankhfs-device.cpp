@@ -68,17 +68,17 @@ public:
 		return HandleReadDir_Device(file, dirents, len);
 	}
 
-	errorcode_t FillInode(struct VFS_INODE* inode, ino_t inum) override
+	errorcode_t FillInode(INode& inode, ino_t inum) override
 	{
 		// Special-case the non-device entries; we can't look them up
 		if (inum_to_id(inum) == 0) {
 			switch(inum_to_sub(inum)) {
 				case Devices::subRoot:
-					inode->i_sb.st_mode |= S_IFDIR;
+					inode.i_sb.st_mode |= S_IFDIR;
 					return ananas_success();
 				case Devices::subDevices:
 				case Devices::subDrivers:
-					inode->i_sb.st_mode |= S_IFREG;
+					inode.i_sb.st_mode |= S_IFREG;
 					return ananas_success();
 			}
 		}
@@ -89,9 +89,9 @@ public:
 			return ANANAS_ERROR(IO);
 
 		if (device->GetCharDeviceOperations() != nullptr) {
-			inode->i_sb.st_mode |= S_IFCHR;
+			inode.i_sb.st_mode |= S_IFCHR;
 		} else if (device->GetBIODeviceOperations() != nullptr) {
-			inode->i_sb.st_mode |= S_IFBLK;
+			inode.i_sb.st_mode |= S_IFBLK;
 		}
 		return ananas_success();
 	}

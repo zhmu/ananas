@@ -54,7 +54,7 @@ iso9660_dump_dirent(struct ISO9660_DIRECTORY_ENTRY* e)
 #endif
 
 static errorcode_t
-iso9660_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
+iso9660_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 {
 	struct ISO9660_DIRECTORY_ENTRY* rootentry = nullptr;
 
@@ -98,9 +98,9 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
 		goto fail;
 
 	{
-		auto privdata = static_cast<struct ISO9660_INODE_PRIVDATA*>((*root_inode)->i_privdata);
-		(*root_inode)->i_sb.st_size = ISO9660_GET_DWORD(rootentry->de_data_length);
-		(*root_inode)->i_iops = &iso9660_dir_ops;
+		auto privdata = static_cast<struct ISO9660_INODE_PRIVDATA*>(root_inode->i_privdata);
+		root_inode->i_sb.st_size = ISO9660_GET_DWORD(rootentry->de_data_length);
+		root_inode->i_iops = &iso9660_dir_ops;
 		privdata->lba = ISO9660_GET_DWORD(rootentry->de_extent_lba);
 	}
 
@@ -112,63 +112,63 @@ fail:
 }
 
 static errorcode_t
-iso9660_read_inode(struct VFS_INODE* inode, ino_t inum)
+iso9660_read_inode(INode& inode, ino_t inum)
 {
 	uint32_t block = inum >> 16;
 	uint16_t offset = inum & 0xffff;
-	KASSERT(offset < inode->i_fs->fs_block_size + sizeof(struct ISO9660_DIRECTORY_ENTRY), "offset does not reside in block");
+	KASSERT(offset < inode.i_fs->fs_block_size + sizeof(struct ISO9660_DIRECTORY_ENTRY), "offset does not reside in block");
 
 	/* Grab the block containing the inode */
 	struct BIO* bio;
-	errorcode_t err = vfs_bread(inode->i_fs, block, &bio);
+	errorcode_t err = vfs_bread(inode.i_fs, block, &bio);
 	ANANAS_ERROR_RETURN(err);
 
 	/* Convert the inode */
 	auto iso9660_de = reinterpret_cast<struct ISO9660_DIRECTORY_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + offset);
-	struct ISO9660_INODE_PRIVDATA* privdata = (struct ISO9660_INODE_PRIVDATA*)inode->i_privdata;
-	inode->i_sb.st_ino = block << 16 | offset;
-	inode->i_sb.st_mode = S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH; /* r-xr-xr-x */
-	inode->i_sb.st_nlink = 1;
-	inode->i_sb.st_uid = 0;
-	inode->i_sb.st_gid = 0;
-	inode->i_sb.st_size = ISO9660_GET_DWORD(iso9660_de->de_data_length);
-	inode->i_sb.st_atime = 0; /* XXX */
-	inode->i_sb.st_mtime = 0; /* XXX */
-	inode->i_sb.st_ctime = 0; /* XXX */
-	inode->i_sb.st_blocks = inode->i_sb.st_size / inode->i_fs->fs_block_size;
+	struct ISO9660_INODE_PRIVDATA* privdata = (struct ISO9660_INODE_PRIVDATA*)inode.i_privdata;
+	inode.i_sb.st_ino = block << 16 | offset;
+	inode.i_sb.st_mode = S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH; /* r-xr-xr-x */
+	inode.i_sb.st_nlink = 1;
+	inode.i_sb.st_uid = 0;
+	inode.i_sb.st_gid = 0;
+	inode.i_sb.st_size = ISO9660_GET_DWORD(iso9660_de->de_data_length);
+	inode.i_sb.st_atime = 0; /* XXX */
+	inode.i_sb.st_mtime = 0; /* XXX */
+	inode.i_sb.st_ctime = 0; /* XXX */
+	inode.i_sb.st_blocks = inode.i_sb.st_size / inode.i_fs->fs_block_size;
 
 	privdata->lba = ISO9660_GET_DWORD(iso9660_de->de_extent_lba);
 	if (iso9660_de->de_flags & DE_FLAG_DIRECTORY) {
-		inode->i_iops = &iso9660_dir_ops;
-		inode->i_sb.st_mode |= S_IFDIR;
+		inode.i_iops = &iso9660_dir_ops;
+		inode.i_sb.st_mode |= S_IFDIR;
 	} else {
-		inode->i_iops = &iso9660_file_ops;
-		inode->i_sb.st_mode |= S_IFREG;
+		inode.i_iops = &iso9660_file_ops;
+		inode.i_sb.st_mode |= S_IFREG;
 	}
 	return ananas_success();
 }
 
 static errorcode_t
-iso9660_prepare_inode(struct VFS_INODE* inode)
+iso9660_prepare_inode(INode& inode)
 {
 	auto privdata = new ISO9660_INODE_PRIVDATA;
 	memset(privdata, 0, sizeof(struct ISO9660_INODE_PRIVDATA));
-	inode->i_privdata = privdata;
+	inode.i_privdata = privdata;
 	return ananas_success();
 }
 
 static void
-iso9660_discard_inode(struct VFS_INODE* inode)
+iso9660_discard_inode(INode& inode)
 {
-	kfree(inode->i_privdata);
+	kfree(inode.i_privdata);
 }
 
 static errorcode_t
 iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
-	struct VFS_INODE* inode = file->f_dentry->d_inode;
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
-	auto privdata = static_cast<struct ISO9660_INODE_PRIVDATA*>(inode->i_privdata);
+	INode& inode = *file->f_dentry->d_inode;
+	struct VFS_MOUNTED_FS* fs = inode.i_fs;
+	auto privdata = static_cast<struct ISO9660_INODE_PRIVDATA*>(inode.i_privdata);
 	blocknr_t block = privdata->lba + file->f_offset / fs->fs_block_size;
 	uint32_t offset = file->f_offset % fs->fs_block_size;
 	size_t written = 0, left = *len;
@@ -176,7 +176,7 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	struct BIO* bio = NULL;
 	blocknr_t curblock = 0;
 	while(left > 0) {
-		if (block > privdata->lba + inode->i_sb.st_size / fs->fs_block_size) {
+		if (block > privdata->lba + inode.i_sb.st_size / fs->fs_block_size) {
 			/*
 			 * We've run out of blocks. Need to stop here.
 			 */
@@ -245,16 +245,16 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 static errorcode_t
 iso9660_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
-	struct VFS_INODE* inode = file->f_dentry->d_inode;
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
-	auto privdata = static_cast<struct ISO9660_INODE_PRIVDATA*>(inode->i_privdata);
+	INode& inode = *file->f_dentry->d_inode;
+	struct VFS_MOUNTED_FS* fs = inode.i_fs;
+	auto privdata = static_cast<struct ISO9660_INODE_PRIVDATA*>(inode.i_privdata);
 	blocknr_t blocknum = (blocknr_t)file->f_offset / fs->fs_block_size;
 	uint32_t offset = file->f_offset % fs->fs_block_size;
 	size_t numread = 0, left = *len;
 
 	/* Normalize len so that it cannot expand beyond the file size */
-	if (file->f_offset + left > inode->i_sb.st_size)
-		left = inode->i_sb.st_size - file->f_offset;
+	if (file->f_offset + left > inode.i_sb.st_size)
+		left = inode.i_sb.st_size - file->f_offset;
 
 	while(left > 0) {
 		/* Fetch the block */
@@ -284,7 +284,7 @@ iso9660_read(struct VFS_FILE* file, void* buf, size_t* len)
 namespace {
 struct VFS_INODE_OPS iso9660_dir_ops = {
 	.readdir = iso9660_readdir,
-	.lookup = vfs_generic_lookup 
+	.lookup = vfs_generic_lookup
 };
 
 struct VFS_INODE_OPS iso9660_file_ops = {

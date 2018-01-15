@@ -14,7 +14,7 @@ TRACE_SETUP;
 #define VFS_DEBUG_LOOKUP 0
 
 errorcode_t
-vfs_generic_lookup(DEntry& parent, struct VFS_INODE** destinode, const char* dentry)
+vfs_generic_lookup(DEntry& parent, INode*& destinode, const char* dentry)
 {
 	char buf[1024]; /* XXX */
 
@@ -26,8 +26,8 @@ vfs_generic_lookup(DEntry& parent, struct VFS_INODE** destinode, const char* den
 	 * XXX This is a very naive implementation which does not use the
 	 * possible directory index.
 	 */
-	struct VFS_INODE* parent_inode = parent.d_inode;
-	KASSERT(S_ISDIR(parent_inode->i_sb.st_mode), "supplied inode is not a directory");
+	INode& parent_inode = *parent.d_inode;
+	KASSERT(S_ISDIR(parent_inode.i_sb.st_mode), "supplied inode is not a directory");
 
 	/* Rewind the directory back; we'll be traversing it from front to back */
 	struct VFS_FILE dirf;
@@ -35,7 +35,7 @@ vfs_generic_lookup(DEntry& parent, struct VFS_INODE** destinode, const char* den
 	dirf.f_offset = 0;
 	dirf.f_dentry = &parent;
 	while (1) {
-		if (!vfs_is_filesystem_sane(parent_inode->i_fs))
+		if (!vfs_is_filesystem_sane(parent_inode.i_fs))
 			return ANANAS_ERROR(IO);
 
 		size_t buf_len = sizeof(buf);
@@ -53,12 +53,12 @@ vfs_generic_lookup(DEntry& parent, struct VFS_INODE** destinode, const char* den
 #ifdef DEBUG_VFS_LOOKUP
 			kprintf("vfs_generic_lookup('%s'): comparing with '%s'\n", dentry, de->de_name);
 #endif
-	
+
 			if (strcmp(de->de_name, dentry) != 0)
 				continue;
 
 			/* Found it! */
-			return vfs_get_inode(parent_inode->i_fs, de->de_inum, destinode);
+			return vfs_get_inode(parent_inode.i_fs, de->de_inum, destinode);
 		}
 	}
 }
@@ -66,27 +66,27 @@ vfs_generic_lookup(DEntry& parent, struct VFS_INODE** destinode, const char* den
 errorcode_t
 vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
-	struct VFS_INODE* inode = file->f_dentry->d_inode;
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	INode& inode = *file->f_dentry->d_inode;
+	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	size_t read = 0;
 	size_t left = *len;
 	struct BIO* bio = NULL;
 
-	KASSERT(inode->i_iops->block_map != NULL, "called without block_map implementation");
+	KASSERT(inode.i_iops->block_map != NULL, "called without block_map implementation");
 
 	/* Adjust left so that we don't attempt to read beyond the end of the file */
-	if ((inode->i_sb.st_size - file->f_offset) < left) {
-		left = inode->i_sb.st_size - file->f_offset;
+	if ((inode.i_sb.st_size - file->f_offset) < left) {
+		left = inode.i_sb.st_size - file->f_offset;
 	}
 
 	blocknr_t cur_block = 0;
 	while(left > 0) {
-		if (!vfs_is_filesystem_sane(inode->i_fs))
+		if (!vfs_is_filesystem_sane(inode.i_fs))
 			return ANANAS_ERROR(IO);
 
 		/* Figure out which block to use next */
 		blocknr_t want_block;
-		errorcode_t err = inode->i_iops->block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
+		errorcode_t err = inode.i_iops->block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
 		ANANAS_ERROR_RETURN(err);
 
 		/* Grab the next block if necessary */
@@ -118,28 +118,28 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 errorcode_t
 vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 {
-	struct VFS_INODE* inode = file->f_dentry->d_inode;
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	INode& inode = *file->f_dentry->d_inode;
+	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	size_t written = 0;
 	size_t left = *len;
 	struct BIO* bio = NULL;
 
-	KASSERT(inode->i_iops->block_map != NULL, "called without block_map implementation");
+	KASSERT(inode.i_iops->block_map != NULL, "called without block_map implementation");
 
 	int inode_dirty = 0;
 	blocknr_t cur_block = 0;
 	while(left > 0) {
 		int create = 0;
 		blocknr_t logical_block = file->f_offset / (blocknr_t)fs->fs_block_size;
-		if (logical_block >= inode->i_sb.st_blocks /* XXX is this correct with sparse files? */)
+		if (logical_block >= inode.i_sb.st_blocks /* XXX is this correct with sparse files? */)
 			create++;
 
-		if (!vfs_is_filesystem_sane(inode->i_fs))
+		if (!vfs_is_filesystem_sane(inode.i_fs))
 			return ANANAS_ERROR(IO);
 
 		/* Figure out which block to use next */
 		blocknr_t want_block;
-		errorcode_t err = inode->i_iops->block_map(inode, logical_block, &want_block, create);
+		errorcode_t err = inode.i_iops->block_map(inode, logical_block, &want_block, create);
 		ANANAS_ERROR_RETURN(err);
 
 		/* Calculate how much we have to put in the block */
@@ -172,8 +172,8 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 		 * If we had to create a new block or we'd have to write beyond the current
 		 * inode's size, enlarge the inode and mark it as dirty.
 		 */
-		if (create || file->f_offset > inode->i_sb.st_size) {
-			inode->i_sb.st_size = file->f_offset;
+		if (create || file->f_offset > inode.i_sb.st_size) {
+			inode.i_sb.st_size = file->f_offset;
 			inode_dirty++;
 		}
 	}

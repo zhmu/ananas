@@ -9,6 +9,7 @@
 struct VFS_MOUNTED_FS;
 struct VFS_INODE_OPS;
 struct VFS_FILESYSTEM_OPS;
+struct INode;
 
 errorcode_t vfs_mount(const char* from, const char* to, const char* type, void* options);
 
@@ -17,7 +18,7 @@ errorcode_t vfs_mount(const char* from, const char* to, const char* type, void* 
  * Obtains an inode for a given FSOP. The destination inode will have a reference count of
  * at least 2 (one for the caller, and one for the cache).
  */
-errorcode_t vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, struct VFS_INODE** destinode);
+errorcode_t vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode);
 
 /*
  * Retrieves a given block for the given filesystem to a bio.

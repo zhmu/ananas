@@ -46,10 +46,10 @@ VMPage&
 vmspace_get_dentry_backed_page(VMArea& va, off_t read_off)
 {
 	// First, try to lookup the page; if we already have it, no need to read it
-	VMPage* vmpage = vmpage_lookup_locked(va, va.va_dentry->d_inode, read_off);
+	VMPage* vmpage = vmpage_lookup_locked(va, *va.va_dentry->d_inode, read_off);
 	if (vmpage == nullptr) {
 		// Page not found - we need to allocate one. This is always a shared mapping, which we'll copy if needed
-		vmpage = &vmpage_create_shared(va.va_dentry->d_inode, read_off, VM_PAGE_FLAG_PENDING | vmspace_page_flags_from_va(va));
+		vmpage = &vmpage_create_shared(*va.va_dentry->d_inode, read_off, VM_PAGE_FLAG_PENDING | vmspace_page_flags_from_va(va));
 	}
 	// vmpage will be locked at this point!
 

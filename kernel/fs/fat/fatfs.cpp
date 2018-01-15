@@ -50,7 +50,7 @@
 TRACE_SETUP;
 
 static errorcode_t
-fat_mount(struct VFS_MOUNTED_FS* fs, struct VFS_INODE** root_inode)
+fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 {
 	/* XXX this should be made a compile-time check */
 	KASSERT(sizeof(struct FAT_ENTRY) == 32, "compiler error: fat entry is not 32 bytes!");

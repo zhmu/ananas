@@ -20,11 +20,11 @@ vfs_make_file(struct VFS_FILE* file, DEntry& dentry)
 {
 	memset(file, 0, sizeof(struct VFS_FILE));
 
-	struct VFS_INODE* inode = dentry.d_inode;
+	INode& inode = *dentry.d_inode;
 	file->f_dentry = &dentry;
 	file->f_offset = 0;
-	if (inode->i_iops->fill_file != NULL)
-		inode->i_iops->fill_file(inode, file);
+	if (inode.i_iops->fill_file != NULL)
+		inode.i_iops->fill_file(inode, file);
 }
 
 errorcode_t
@@ -61,7 +61,7 @@ vfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 		}
 	}
 
-	struct VFS_INODE* inode = file->f_dentry->d_inode;
+	INode* inode = file->f_dentry->d_inode;
 	if (inode == NULL || inode->i_iops == NULL)
 		return ANANAS_ERROR(BAD_OPERATION);
 
@@ -93,7 +93,7 @@ vfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
 			return file->f_device->GetCharDeviceOperations()->Write(buf, *len, 0);
 	}
 
-	struct VFS_INODE* inode = file->f_dentry->d_inode;
+	INode* inode = file->f_dentry->d_inode;
 	if (inode == NULL || inode->i_iops == NULL)
 		return ANANAS_ERROR(BAD_OPERATION);
 
@@ -261,9 +261,9 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
 		 * If we got here, it means the new dcache entry doesn't have an inode
 		 * attached to it; we need to read it.
 		 */
-		struct VFS_INODE* inode;
+		INode* inode;
 		TRACE(VFS, INFO, "performing lookup from %p:'%s'", curdentry, next_lookup);
-		errorcode_t err = curdentry->d_inode->i_iops->lookup(*curdentry, &inode, next_lookup);
+		errorcode_t err = curdentry->d_inode->i_iops->lookup(*curdentry, inode, next_lookup);
 		dentry_deref(*curdentry); /* we no longer need it */
 		if (ananas_is_success(err)) {
 			/*
@@ -347,7 +347,7 @@ vfs_create(DEntry* parent, struct VFS_FILE* file, const char* dentry, int mode)
 	 */
 	de->d_flags &= ~DENTRY_FLAG_NEGATIVE;
 	KASSERT(parent != NULL && parent->d_inode != NULL, "attempt to create entry without a parent inode");
-	struct VFS_INODE* parentinode = parent->d_inode;
+	INode* parentinode = parent->d_inode;
 	KASSERT(S_ISDIR(parentinode->i_sb.st_mode), "final entry isn't an inode");
 
 	/* If the filesystem can't create inodes, assume the operation is faulty */
@@ -358,7 +358,7 @@ vfs_create(DEntry* parent, struct VFS_FILE* file, const char* dentry, int mode)
 		return ANANAS_ERROR(IO);
 
 	/* Dear filesystem, create a new inode for us */
-	err = parentinode->i_iops->create(parentinode, de, mode);
+	err = parentinode->i_iops->create(*parentinode, de, mode);
 	if (ananas_is_failure(err)) {
 		/* Failure; remark the directory entry (we don't own it anymore) and report the failure */
 		de->d_flags |= DENTRY_FLAG_NEGATIVE;
@@ -375,7 +375,7 @@ vfs_create(DEntry* parent, struct VFS_FILE* file, const char* dentry, int mode)
 errorcode_t
 vfs_grow(struct VFS_FILE* file, off_t size)
 {
-	struct VFS_INODE* inode = file->f_dentry->d_inode;
+	INode* inode = file->f_dentry->d_inode;
 	KASSERT(inode->i_sb.st_size < size, "no need to grow");
 
 	if (!vfs_is_filesystem_sane(inode->i_fs))
@@ -408,14 +408,14 @@ vfs_unlink(struct VFS_FILE* file)
 	if (parent == NULL || parent->d_inode == NULL)
 		return ANANAS_ERROR(BAD_OPERATION);
 
-	struct VFS_INODE* inode = parent->d_inode;
-	if (inode->i_iops->unlink == NULL)
+	INode& inode = *parent->d_inode;
+	if (inode.i_iops->unlink == NULL)
 		return ANANAS_ERROR(BAD_OPERATION);
 
-	if (!vfs_is_filesystem_sane(inode->i_fs))
+	if (!vfs_is_filesystem_sane(inode.i_fs))
 		return ANANAS_ERROR(IO);
 
-	errorcode_t err = inode->i_iops->unlink(inode, *file->f_dentry);
+	errorcode_t err = inode.i_iops->unlink(inode, *file->f_dentry);
 	ANANAS_ERROR_RETURN(err);
 
 	/*
@@ -477,15 +477,15 @@ vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest)
 	 * don't cross any filesystem boundaries. We can most easily do this by checking whether
 	 * the parent directories reside on the same backing filesystem.
 	 */
-	struct VFS_INODE* parent_inode = parent_dentry->d_inode;
-	struct VFS_INODE* dest_inode = de->d_parent->d_inode;
+	INode* parent_inode = parent_dentry->d_inode;
+	INode* dest_inode = de->d_parent->d_inode;
 	if (parent_inode->i_fs != dest_inode->i_fs) {
 		dentry_deref(*de);
 		return ANANAS_ERROR(CROSS_DEVICE);
 	}
 
 	/* All seems to be in order; ask the filesystem to deal with the change */
-	err = parent_inode->i_iops->rename(parent_inode, *file->f_dentry, dest_inode, *de);
+	err = parent_inode->i_iops->rename(*parent_inode, *file->f_dentry, *dest_inode, *de);
 	if (ananas_is_failure(err)) {
 		/* If something went wrong, ensure to free the new dentry */
 		dentry_deref(*de);

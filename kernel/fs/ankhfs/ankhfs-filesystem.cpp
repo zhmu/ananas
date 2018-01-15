@@ -40,12 +40,12 @@ public:
 		return AnkhFS::HandleReadDir(file, dirents, len, fs_entries[0]);
 	}
 
-	errorcode_t FillInode(struct VFS_INODE* inode, ino_t inum) override
+	errorcode_t FillInode(INode& inode, ino_t inum) override
 	{
 		if (inum_to_sub(inum) == 0)
-			inode->i_sb.st_mode |= S_IFDIR;
+			inode.i_sb.st_mode |= S_IFDIR;
 		else
-			inode->i_sb.st_mode |= S_IFREG;
+			inode.i_sb.st_mode |= S_IFREG;
 		return ananas_success();
 	}
 

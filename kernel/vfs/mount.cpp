@@ -93,8 +93,8 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	fs->fs_device = dev;
 	fs->fs_fsops = fsops;
 
-	struct VFS_INODE* root_inode = NULL;
-	err = fs->fs_fsops->mount(fs, &root_inode);
+	INode* root_inode = nullptr;
+	err = fs->fs_fsops->mount(fs, root_inode);
 	if (ananas_is_failure(err)) {
 		memset(fs, 0, sizeof(*fs));
 		return err;
@@ -126,8 +126,8 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	if (ananas_is_success(vfs_lookup(NULL, dentry_root, to)) &&
 	    dentry_root != fs->fs_root_dentry) {
 		if (dentry_root->d_inode != NULL)
-			vfs_deref_inode(dentry_root->d_inode);
-		vfs_ref_inode(root_inode);
+			vfs_deref_inode(*dentry_root->d_inode);
+		vfs_ref_inode(*root_inode);
 		dentry_root->d_inode = root_inode;
 	}
 	

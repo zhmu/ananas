@@ -66,8 +66,8 @@ class ProcSubSystem : public IAnkhSubSystem
 public:
 	errorcode_t HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len) override
 	{
-		struct VFS_INODE* inode = file->f_dentry->d_inode;
-		ino_t inum = inode->i_inum;
+		INode& inode = *file->f_dentry->d_inode;
+		ino_t inum = inode.i_inum;
 
 		if (inum_to_id(inum) == 0)
 			return HandleReadDir_Proc_Root(file, dirents, len);
@@ -75,12 +75,12 @@ public:
 		return AnkhFS::HandleReadDir(file, dirents, len, proc_entries[0], inum_to_id(inum));
 	}
 
-	errorcode_t FillInode(struct VFS_INODE* inode, ino_t inum) override
+	errorcode_t FillInode(INode& inode, ino_t inum) override
 	{
 		if (inum_to_sub(inum) == 0) {
-			inode->i_sb.st_mode |= S_IFDIR;
+			inode.i_sb.st_mode |= S_IFDIR;
 		} else {
-			inode->i_sb.st_mode |= S_IFREG;
+			inode.i_sb.st_mode |= S_IFREG;
 		}
 		return ananas_success();
 	}

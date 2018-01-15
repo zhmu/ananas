@@ -290,10 +290,10 @@ fat_claim_avail_cluster(struct VFS_MOUNTED_FS* fs, uint32_t* cluster_out)
  * Appends a new cluster to an inode; returns the next cluster.
  */
 static errorcode_t
-fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
+fat_append_cluster(INode& inode, uint32_t* cluster_out)
 {
-	auto privdata = static_cast<struct FAT_INODE_PRIVDATA*>(inode->i_privdata);
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	auto privdata = static_cast<struct FAT_INODE_PRIVDATA*>(inode.i_privdata);
+	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	auto fs_privdata = static_cast<struct FAT_FS_PRIVDATA*>(fs->fs_privdata);
 
 	/*
@@ -336,7 +336,7 @@ fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
 		struct FAT_CLUSTER_CACHEITEM* ci = &fs_privdata->cluster_cache[cache_item];
 		if (ci->f_clusterno == privdata->first_cluster && ci->f_nextcluster == -1) {
 			/* Found empty item - use it (we assume this always occurs at the end of the items) */
-			KASSERT(ci->f_index == (inode->i_sb.st_size + ((fs_privdata->sector_size * fs_privdata->sectors_per_cluster) - 1)) / (fs_privdata->sector_size * fs_privdata->sectors_per_cluster), "empty cache item isn't final item?");
+			KASSERT(ci->f_index == (inode.i_sb.st_size + ((fs_privdata->sector_size * fs_privdata->sectors_per_cluster) - 1)) / (fs_privdata->sector_size * fs_privdata->sectors_per_cluster), "empty cache item isn't final item?");
 			ci->f_nextcluster = new_cluster;
 			break;
 		}
@@ -345,15 +345,15 @@ fat_append_cluster(struct VFS_INODE* inode, uint32_t* cluster_out)
 
 	/* Update the block count of the inode */
 	privdata->last_cluster = new_cluster;
-	inode->i_sb.st_blocks += fs_privdata->sectors_per_cluster;
+	inode.i_sb.st_blocks += fs_privdata->sectors_per_cluster;
 	return ananas_success();
 }
 
 errorcode_t
-fat_truncate_clusterchain(struct VFS_INODE* inode)
+fat_truncate_clusterchain(INode& inode)
 {
-	auto privdata = static_cast<struct FAT_INODE_PRIVDATA*>(inode->i_privdata);
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	auto privdata = static_cast<struct FAT_INODE_PRIVDATA*>(inode.i_privdata);
+	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	auto fs_privdata = static_cast<struct FAT_FS_PRIVDATA*>(fs->fs_privdata);
 
 	/*
@@ -361,7 +361,7 @@ fat_truncate_clusterchain(struct VFS_INODE* inode)
 	 * we won't be able to find the next one as we broke the chain...
 	 */
 	unsigned int bytes_per_cluster = fs_privdata->sector_size * fs_privdata->sectors_per_cluster;
-	int num_clusters = (inode->i_sb.st_size + bytes_per_cluster - 1) / bytes_per_cluster;
+	int num_clusters = (inode.i_sb.st_size + bytes_per_cluster - 1) / bytes_per_cluster;
 
 	errorcode_t err = ananas_success();
 	uint32_t cluster = 0;
@@ -396,10 +396,10 @@ fat_truncate_clusterchain(struct VFS_INODE* inode)
  * multiple of a cluster size)
  */
 errorcode_t
-fat_block_map(struct VFS_INODE* inode, blocknr_t block_in, blocknr_t* block_out, int create)
+fat_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int create)
 {
-	auto privdata = static_cast<struct FAT_INODE_PRIVDATA*>(inode->i_privdata);
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	auto privdata = static_cast<struct FAT_INODE_PRIVDATA*>(inode.i_privdata);
+	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	auto fs_privdata = static_cast<struct FAT_FS_PRIVDATA*>(fs->fs_privdata);
 
 	/*

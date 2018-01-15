@@ -16,6 +16,7 @@ struct Page;
 
 class VMArea;
 class VMSpace;
+struct INode;
 
 struct VMPage : util::List<VMPage>::NodePtr {
 	mutex_t vp_mtx;
@@ -36,7 +37,7 @@ struct VMPage : util::List<VMPage>::NodePtr {
 	addr_t vp_vaddr;
 
 	/* Backing inode and offset */
-	struct VFS_INODE* vp_inode;
+	INode* vp_inode;
 	off_t vp_offset;
 };
 
@@ -54,9 +55,9 @@ typedef util::List<VMPage> VMPageList;
 void vmpage_ref(VMPage& vmpage);
 void vmpage_deref(VMPage& vmpage);
 
-VMPage* vmpage_lookup_locked(VMArea& va, struct VFS_INODE* inode, off_t offs);
+VMPage* vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs);
 VMPage* vmpage_lookup_vaddr_locked(VMArea& va, addr_t vaddr);
-VMPage& vmpage_create_shared(struct VFS_INODE* inode, off_t offs, int flags);
+VMPage& vmpage_create_shared(INode& inode, off_t offs, int flags);
 VMPage& vmpage_create_private(VMArea* va, int flags);
 Page* vmpage_get_page(VMPage& vp);
 

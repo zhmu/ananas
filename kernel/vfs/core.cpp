@@ -71,13 +71,13 @@ vfs_filldirent(void** dirents, size_t* size, ino_t inum, const char* name, int n
 }
 
 void
-vfs_set_inode_dirty(struct VFS_INODE* inode)
+vfs_set_inode_dirty(INode& inode)
 {
 	/* Ref the inode to prevent it from going away */
 	vfs_ref_inode(inode);
-	
+
 	/* XXX For now, we just immediately write the inode */
-	struct VFS_MOUNTED_FS* fs = inode->i_fs;
+	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	fs->fs_fsops->write_inode(inode);
 
 	vfs_deref_inode(inode);
