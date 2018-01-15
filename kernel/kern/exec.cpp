@@ -6,14 +6,7 @@
 
 TRACE_SETUP;
 
-static struct EXEC_FORMATS exec_formats; /* XXX do we need to lock this? */
-
-static errorcode_t
-exec_init()
-{
-	LIST_INIT(&exec_formats);
-	return ananas_success();
-}
+static util::List<ExecFormat> exec_formats; /* XXX do we need to lock this? */
 
 errorcode_t
 exec_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
@@ -22,9 +15,9 @@ exec_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 	// to the handler, if all goes well
 	dentry_ref(dentry);
 
-	LIST_FOREACH(&exec_formats, ef, struct EXEC_FORMAT) {
+	for(auto& ef: exec_formats) {
 		/* See if we can execute this... */
-		errorcode_t err = ef->ef_handler(vs, dentry, exec_addr, exec_arg);
+		errorcode_t err = ef.ef_handler(vs, dentry, exec_addr, exec_arg);
 		if (ananas_is_failure(err)) {
 			/* Execute failed; try the next one */
 			continue;
@@ -38,19 +31,17 @@ exec_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 	return ANANAS_ERROR(BAD_EXEC);
 }
 
-INIT_FUNCTION(exec_init, SUBSYSTEM_THREAD, ORDER_FIRST);
-
 errorcode_t
-exec_register_format(struct EXEC_FORMAT* ef)
+exec_register_format(ExecFormat& ef)
 {
-	LIST_APPEND(&exec_formats, ef);
+	exec_formats.push_back(ef);
 	return ananas_success();
 }
 
 errorcode_t
-exec_unregister_format(struct EXEC_FORMAT* ef)
+exec_unregister_format(ExecFormat& ef)
 {
-	LIST_REMOVE(&exec_formats, ef);
+	exec_formats.remove(ef);
 	return ananas_success();
 }
 
