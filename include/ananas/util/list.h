@@ -3,11 +3,11 @@
 
 namespace util {
 
-template<typename T> struct List;
+template<typename T, typename Accessor> struct List;
 
 namespace detail {
 
-template<typename T> using list_type = typename util::List<T>;
+template<typename T, typename Accessor> using list_type = typename util::List<T, Accessor>;
 
 // Pointers associated with each list entry
 template<typename T>
@@ -22,43 +22,42 @@ struct list_node {
 	T* p_Next = nullptr;
 };
 
-template<typename T, typename Advance>
+template<typename T, typename Accessor, typename Advance>
 struct base_list_iterator
 {
-	typedef list_type<T> ListType;
-	typedef list_node<T> Node;
+	typedef list_type<T, Accessor> ListType;
 
-	base_list_iterator(const ListType& list, Node* p)
-	 : i_List(list), i_NodePtr(p)
+	base_list_iterator(const ListType& list, T* p)
+	 : i_List(list), i_Ptr(p)
 	{
 	}
 	const ListType& i_List;
-	Node* i_NodePtr;
+	T* i_Ptr;
 
 	base_list_iterator& operator++() {
-		Advance::Next(i_List, i_NodePtr);
+		Advance::Next(i_List, i_Ptr);
 		return *this;
 	}
 
 	base_list_iterator operator++(int) {
 		auto s(*this);
-		Advance::Next(i_List, i_NodePtr);
+		Advance::Next(i_List, i_Ptr);
 		return s;
 	}
 
 	base_list_iterator& operator--() {
-		Advance::Prev(i_List, i_NodePtr);
+		Advance::Prev(i_List, i_Ptr);
 		return *this;
 	}
 
 	base_list_iterator operator--(int) {
 		auto s(*this);
-		Advance::Prev(i_List, i_NodePtr);
+		Advance::Prev(i_List, i_Ptr);
 		return s;
 	}
 
 	T* operator->() const {
-		return static_cast<T*>(i_NodePtr);
+		return i_Ptr;
 	}
 
 	T& operator*() const {
@@ -66,7 +65,7 @@ struct base_list_iterator
 	}
 
 	bool operator==(const base_list_iterator& rhs) const {
-		return i_NodePtr == rhs.i_NodePtr && &i_List == &rhs.i_List;
+		return i_Ptr == rhs.i_Ptr && &i_List == &rhs.i_List;
 	}
 
 	bool operator!=(const base_list_iterator& rhs) const {
@@ -74,48 +73,70 @@ struct base_list_iterator
 	}
 };
 
-template<typename T>
+template<typename T, typename Accessor>
 struct forward_advance
 {
-	typedef list_type<T> ListType;
-	typedef list_node<T> Node;
+	typedef list_type<T, Accessor> ListType;
 
-	static void Next(const ListType& list, Node*& p)
+	static void Next(const ListType& list, T*& p)
 	{
 		if (p == nullptr)
 			p = list.l_Head;
 		else
-			p = p->p_Next;
+			p = Accessor::Next(*p);
 	}
 
-	static void Prev(const ListType& list, Node*& p)
+	static void Prev(const ListType& list, T*& p)
 	{
 		if (p == nullptr)
 			p = list.l_Tail;
 		else
-			p = p->p_Prev;
+			p = Accessor::Prev(*p);
 	}
 };
 
-template<typename T>
+template<typename T, typename Accessor>
 struct backward_advance
 {
-	typedef list_type<T> ListType;
-	typedef list_node<T> Node;
+	typedef list_type<T, Accessor> ListType;
 
-	static void Next(const ListType& list, Node*& p)
+	static void Next(const ListType& list, T*& p)
 	{
-		forward_advance<T>::Prev(list, p);
+		forward_advance<T, Accessor>::Prev(list, p);
 	}
 
-	static void Prev(const ListType& list, Node*& p)
+	static void Prev(const ListType& list, T*& p)
 	{
-		forward_advance<T>::Next(list, p);
+		forward_advance<T, Accessor>::Next(list, p);
 	}
 };
 
-template<typename T> using list_iterator = base_list_iterator<T, forward_advance<T>>;
-template<typename T> using list_reverse_iterator = base_list_iterator<T, backward_advance<T>>;
+template<typename T, typename Accessor> using list_iterator = base_list_iterator<T, Accessor, forward_advance<T, Accessor>>;
+template<typename T, typename Accessor> using list_reverse_iterator = base_list_iterator<T, Accessor, backward_advance<T, Accessor>>;
+
+template<typename T, typename NodeGetter>
+struct nodeptr_accessor
+{
+	static T*& Prev(T& t) {
+		return NodeGetter::Get(t).p_Prev;
+	}
+
+	static T*& Next(T& t) {
+		return NodeGetter::Get(t).p_Next;
+	}
+};
+
+// Yields the member of struct NodePtr that is used for our pointers
+template<typename T>
+struct GetDerivedNodePtr
+{
+	static list_node<T>& Get(T& t) {
+		return t.np_NodePtr;
+	}
+};
+
+// Default accessor just uses the embedded NodePtr in each node, obtained by inheritance
+template<typename T> using default_accessor = nodeptr_accessor<T, GetDerivedNodePtr<T> >;
 
 }
 
@@ -126,80 +147,87 @@ template<typename T> using list_reverse_iterator = base_list_iterator<T, backwar
  * for locating a single item).
  *
  * Each list has a 'head' and 'tail' element, and every item has a previous
- * and next pointer (contained in NodePtr, so you need to derive from that)
+ * and next pointer (contained in NodePtr) - you can either derive from NodePtr
+ * or put Node's in your class and provide an accessor to them.
  */
-template<typename T>
+template<typename T, typename Accessor = detail::default_accessor<T> >
 struct List
 {
-	friend class detail::forward_advance<T>;
-	friend class detail::backward_advance<T>;
+	friend class detail::forward_advance<T, Accessor>;
+	friend class detail::backward_advance<T, Accessor>;
 
-	typedef typename detail::list_node<T> NodePtr;
-	typedef typename detail::list_iterator<T> iterator;
-	typedef typename detail::list_reverse_iterator<T> reverse_iterator;
+	typedef typename detail::list_node<T> Node;
+
+	struct NodePtr {
+		detail::list_node<T> np_NodePtr;
+	};
+
+	typedef typename detail::list_iterator<T, Accessor> iterator;
+	typedef typename detail::list_reverse_iterator<T, Accessor> reverse_iterator;
+	template<typename NodeGetter> using nodeptr_accessor = detail::nodeptr_accessor<T, NodeGetter>;
 
 	void push_back(T& item)
 	{
-		item.p_Next = nullptr;
+		Accessor::Next(item) = nullptr;
 		if (l_Head == nullptr) {
-			item.p_Prev = nullptr;
+			Accessor::Prev(item) = nullptr;
 			l_Head = &item;
 		} else {
-			item.p_Prev = l_Tail;
-			l_Tail->p_Next = &item;
+			Accessor::Prev(item) = l_Tail;
+			Accessor::Next(*l_Tail) = &item;
 		}
 		l_Tail = &item;
 	}
 
 	void push_front(T& item)
 	{
-		item.p_Prev = nullptr;
+		Accessor::Prev(item) = nullptr;
 		if (l_Head == NULL) {
-			item.p_Next = nullptr;
+			Accessor::Next(item) = nullptr;
 			l_Tail = &item;
 		} else {
-			item.p_Next = l_Head;
-			l_Head->p_Prev = &item;
+			Accessor::Next(item) = l_Head;
+			Accessor::Prev(*l_Head) = &item;
 		}
 		l_Head = &item;
 	}
 
 	void pop_front()
 	{
-		l_Head = l_Head->p_Next;
+		l_Head = Accessor::Next(*l_Head);
 		if (l_Head != nullptr)
-			l_Head->p_Prev = nullptr;
+			Accessor::Prev(*l_Head) = nullptr;
 	}
 
 	void pop_back()
 	{
-		l_Tail = l_Tail->p_Prev;
+		l_Tail = Accessor::Prev(*l_Tail);
 		if (l_Tail != nullptr)
-			l_Tail->p_Next = nullptr;
+			Accessor::Next(*l_Tail) = nullptr;
 	}
 
 	void insert(T& pos, T& item)
 	{
 		// Inserts before pos in the list
-	 	if (pos.p_Prev != nullptr)
-			pos.p_Prev->p_Next = &item;
-		item.p_Next = &pos;
-		item.p_Prev = pos.p_Prev;
-		pos.p_Prev = &item;
+		if (Accessor::Prev(pos) != nullptr)
+			Accessor::Next(*Accessor::Prev(pos)) = &item;
+		Accessor::Next(item) = &pos;
+		Accessor::Prev(item) = Accessor::Prev(pos);
+		Accessor::Prev(pos) = &item;
 		if (l_Head == &pos)
 			l_Head = &item;
 	}
 
 	void remove(T& item)
 	{
-		if (item.p_Prev != nullptr)
-			item.p_Prev->p_Next = item.p_Next;
-		if (item.p_Next != nullptr)
-			item.p_Next->p_Prev = item.p_Prev;
+		if (Accessor::Prev(item) != nullptr)
+			Accessor::Next(*Accessor::Prev(item)) = Accessor::Next(item);
+		if (Accessor::Next(item) != nullptr)
+			Accessor::Prev(*Accessor::Next(item)) = Accessor::Prev(item);
 		if (l_Head == &item)
-			l_Head = item.p_Next;
+			l_Head = Accessor::Next(item);
 		if (l_Tail == &item)
-			l_Tail = item.p_Prev;
+			l_Tail = Accessor::Prev(item);
 	}
 
 	void clear()
