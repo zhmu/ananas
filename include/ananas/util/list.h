@@ -8,6 +8,7 @@ template<typename T, typename Accessor> struct List;
 namespace detail {
 
 template<typename T, typename Accessor> using list_type = typename util::List<T, Accessor>;
+template<typename T, typename NodeGetter> struct nodeptr_accessor;
 
 // Pointers associated with each list entry
 template<typename T>
@@ -17,6 +18,10 @@ struct list_node {
 	list_node(const list_node&&) = delete;
 	list_node& operator=(const list_node&) = delete;
 	list_node& operator=(list_node&&) = delete;
+
+private:
+	// Ideally, we'd befriend just the instances where T==U ...
+	template<typename U, typename NodeGetter> friend class nodeptr_accessor;
 
 	T* p_Prev = nullptr;
 	T* p_Next = nullptr;
@@ -31,8 +36,6 @@ struct base_list_iterator
 	 : i_List(list), i_Ptr(p)
 	{
 	}
-	const ListType& i_List;
-	T* i_Ptr;
 
 	base_list_iterator& operator++() {
 		Advance::Next(i_List, i_Ptr);
@@ -71,6 +74,10 @@ struct base_list_iterator
 	bool operator!=(const base_list_iterator& rhs) const {
 		return !(*this == rhs);
 	}
+
+private:
+	const ListType& i_List;
+	T* i_Ptr;
 };
 
 template<typename T, typename Accessor>
@@ -232,7 +239,8 @@ struct List
 
 	void clear()
 	{
-		l_Head = nullptr; l_Tail = nullptr;
+		l_Head = nullptr;
+		l_Tail = nullptr;
 	}
 
 	bool empty() const
