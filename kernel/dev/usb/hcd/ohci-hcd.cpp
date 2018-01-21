@@ -47,6 +47,31 @@ namespace USB {
 
 namespace OHCI {
 
+// HCD_[ET]D must start with an OHCI_[ET]D struct - this is what the HCD
+// hardware uses! This means we cannot inherit from NodePtr
+struct HCD_TD {
+	struct OHCI_TD td_td;
+	dma_buf_t td_buf;
+	uint32_t td_length;
+
+	struct HCD_TD* td_next;
+};
+
+struct HCD_ED {
+	struct OHCI_ED ed_ed;
+	/* Virtual addresses of the TD chain */
+	struct HCD_TD* ed_headtd;
+	struct HCD_TD* ed_tailtd;
+	/* Virtual addresses of the ED chain */
+	struct HCD_ED* ed_preved;
+	struct HCD_ED* ed_nexted;
+	dma_buf_t ed_buf;
+	Transfer* ed_xfer;
+
+	/* Active queue fields; used by ohci_irq() to check all active transfers */
+	util::List<HCD_ED>::Node np_NodePtr;
+};
+
 inline uint32_t
 GetPhysicalAddress(HCD_TD& td)
 {
@@ -95,7 +120,7 @@ DumpED(HCD_ED& ed)
 	 (ed.ed_ed.ed_headp & OHCI_ED_HEADP_H) ? 'H' : '.',
 	 ed.ed_ed.ed_nexted);
 
-	for (HCD_TD* td = ed.ed_headtd; td != nullptr; td = td->li_next) {
+	for (HCD_TD* td = ed.ed_headtd; td != nullptr; td = td->td_next) {
 		kprintf("  ");
 		DumpTD(*td);
 	}
@@ -121,7 +146,7 @@ void
 FreeED(HCD_ED* ed)
 {
 	for (HCD_TD* td = ed->ed_headtd; td != nullptr; /* nothing */) {
-		OHCI::HCD_TD* next_td = td->li_next;
+		OHCI::HCD_TD* next_td = td->td_next;
 		FreeTD(td);
 		td = next_td;
 	}
@@ -133,7 +158,7 @@ void
 SetTDNext(HCD_TD& td, HCD_TD& next)
 {
 	td.td_td.td_nexttd = GetPhysicalAddress(next);
-	td.li_next = &next;
+	td.td_next = &next;
 }
 
 /* Enqueues 'ed' *after* 'parent' - assumes ED is skipped */
@@ -166,7 +191,7 @@ FreeTDsFromTransfer(Transfer& xfer)
 	 * ohci_create_tds().
 	 */
 	for (HCD_TD* td = ed->ed_headtd; td != nullptr && td != ed->ed_tailtd; /* nothing */) {
-		HCD_TD* next_td = td->li_next;
+		HCD_TD* next_td = td->td_next;
 		FreeTD(td);
 		td = next_td;
 	}
@@ -209,11 +234,11 @@ OHCI_HCD::Dump()
 	kprintf("** dumping bulk chain\n");
 	OHCI::DumpEDChain(ohci_bulk_ed);
 
-	if (!LIST_EMPTY(&ohci_active_eds)) {
+	if (!ohci_active_eds.empty()) {
 		kprintf("** dumping active EDs\n");
-		LIST_FOREACH_IP(&ohci_active_eds, active, ed, struct OHCI::HCD_ED) {
-			kprintf("ed %p -> xfer %p\n", ed, ed->ed_xfer);
-			OHCI::DumpED(*ed);
+		for(auto& ed: ohci_active_eds) {
+			kprintf("ed %p -> xfer %p\n", &ed, ed.ed_xfer);
+			OHCI::DumpED(ed);
 		}
 	}
 
@@ -251,24 +276,24 @@ OHCI_HCD::OnIRQ()
 		 * Done queue has been updated; need to walk through all our scheduled items.
 		 */
 		Lock();
-		if (!LIST_EMPTY(&ohci_active_eds)) {
-			LIST_FOREACH_IP(&ohci_active_eds, active, ed, struct OHCI::HCD_ED) {
-				if (ed->ed_ed.ed_flags & OHCI_ED_K)
+		if (!ohci_active_eds.empty()) {
+			for(auto& ed: ohci_active_eds) {
+				if (ed.ed_ed.ed_flags & OHCI_ED_K)
 					continue;
 				/*
 				 * Transfer is done if the ED's head and tail pointer match (minus the
 				 * extra flag fields which only appear in the head field) or if the TD
 				 * was halted (which the HC should do in case of error)
 				 */
-				if ((ed->ed_ed.ed_tailp != (ed->ed_ed.ed_headp & ~0xf)) /* headp != tailp */ &&
-				    (ed->ed_ed.ed_headp & OHCI_ED_HEADP_H) == 0) /* not halted */ {
+				if ((ed.ed_ed.ed_tailp != (ed.ed_ed.ed_headp & ~0xf)) /* headp != tailp */ &&
+				    (ed.ed_ed.ed_headp & OHCI_ED_HEADP_H) == 0) /* not halted */ {
 					continue;
 				}
 
 				/* Walk through all TD's and determine the length plus the status */
 				size_t transferred = 0;
 				int status = OHCI_TD_CC_NOERROR;
-				for (struct OHCI::HCD_TD* td = ed->ed_headtd; td != nullptr; td = td->li_next) {
+				for (struct OHCI::HCD_TD* td = ed.ed_headtd; td != nullptr; td = td->td_next) {
 					if (td->td_td.td_cbp == 0)
 						transferred += td->td_length; /* full TD */
 					else
@@ -277,15 +302,15 @@ OHCI_HCD::OnIRQ()
 						status = OHCI_TD_CC(td->td_td.td_flags);
 				}
 
-				Transfer& xfer = *ed->ed_xfer;
-				xfer.t_data_toggle = (ed->ed_ed.ed_headp & OHCI_ED_HEADP_C) != 0;
+				Transfer& xfer = *ed.ed_xfer;
+				xfer.t_data_toggle = (ed.ed_ed.ed_headp & OHCI_ED_HEADP_C) != 0;
 				xfer.t_result_length = transferred;
 				if (status != OHCI_TD_CC_NOERROR)
 					xfer.t_flags |= TRANSFER_FLAG_ERROR;
 				xfer.Complete();
 
 				/* Skip ED now, it's processed */
-				ed->ed_ed.ed_flags |= OHCI_ED_K;
+				ed.ed_ed.ed_flags |= OHCI_ED_K;
 			}
 		} else {
 			kprintf("WDH without eds?!\n");
@@ -423,7 +448,7 @@ OHCI_HCD::SetupTransfer(Transfer& xfer)
 
 	/* Hook the ED to the queue; it won't do anything yet */
 	Lock();
-	LIST_APPEND_IP(&ohci_active_eds, active, ed);
+	ohci_active_eds.push_back(*ed);
 	Unlock();
 	return ananas_success();
 }
@@ -450,7 +475,7 @@ OHCI_HCD::TearDownTransfer(Transfer& xfer)
 
 	/* And from our own administration */
 	Lock();
-	LIST_REMOVE_IP(&ohci_active_eds, active, ed);
+	ohci_active_eds.remove(*ed);
 	Unlock();
 
 	/* Finally, we can kill the ED itself XXX We should ensure it's no longer used */
@@ -693,7 +718,6 @@ OHCI_HCD::Attach()
 
 	ohci_Resources = OHCI::HCD_Resources(static_cast<uint8_t*>(res_mem));
 	mutex_init(&ohci_mtx, "ohci");
-	LIST_INIT(&ohci_active_eds);
 
 	/* Set up the interrupt handler */
 	err = irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_DEFAULT, NULL);

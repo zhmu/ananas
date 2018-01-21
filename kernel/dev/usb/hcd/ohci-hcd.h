@@ -16,28 +16,10 @@ class USBDevice;
 
 namespace OHCI {
 
-struct HCD_TD {
-	struct OHCI_TD td_td;
-	dma_buf_t td_buf;
-	uint32_t td_length;
-	LIST_FIELDS(struct HCD_TD);
-};
+struct HCD_TD;
+struct HCD_ED;
 
-struct HCD_ED {
-	struct OHCI_ED ed_ed;
-	/* Virtual addresses of the TD chain */
-	struct HCD_TD* ed_headtd;
-	struct HCD_TD* ed_tailtd;
-	/* Virtual addresses of the ED chain */
-	struct HCD_ED* ed_preved;
-	struct HCD_ED* ed_nexted;
-	dma_buf_t ed_buf;
-	Transfer* ed_xfer;
-	/* Active queue fields; used by ohci_irq() to check all active transfers */
-	LIST_FIELDS_IT(struct HCD_ED, active);
-};
-
-LIST_DEFINE(HCD_ED_QUEUE, struct HCD_ED);
+typedef util::List<HCD_ED> HCDEDList;
 
 class HCD_Resources
 {
@@ -140,11 +122,11 @@ private:
 	}
 
 	dma_buf_t ohci_hcca_buf;
-	struct OHCI_HCCA* ohci_hcca = nullptr;
-	struct OHCI::HCD_ED* ohci_interrupt_ed[OHCI_NUM_ED_LISTS];
-	struct OHCI::HCD_ED* ohci_control_ed = nullptr;
-	struct OHCI::HCD_ED* ohci_bulk_ed = nullptr;
-	struct OHCI::HCD_ED_QUEUE ohci_active_eds;
+	OHCI_HCCA* ohci_hcca = nullptr;
+	OHCI::HCD_ED* ohci_interrupt_ed[OHCI_NUM_ED_LISTS];
+	OHCI::HCD_ED* ohci_control_ed = nullptr;
+	OHCI::HCD_ED* ohci_bulk_ed = nullptr;
+	OHCI::HCDEDList ohci_active_eds;
 	mutex_t ohci_mtx;
 
 	OHCI::HCD_Resources ohci_Resources;
