@@ -10,9 +10,10 @@ namespace Ananas {
 namespace USB {
 
 namespace UHCI {
-LIST_DEFINE(HCD_ScheduledItemQueue, struct HCD_ScheduledItem);
-LIST_DEFINE(TD_QUEUE, struct HCD_TD);
-LIST_DEFINE(QH_QUEUE, struct HCD_QH);
+
+struct HCD_ScheduledItem;
+
+typedef util::List<HCD_ScheduledItem> HCD_ScheduledItemList;
 
 struct HCD_TD;
 struct HCD_QH;
@@ -119,8 +120,8 @@ private:
 	struct UHCI::HCD_QH* uhci_qh_ls_control;
 	struct UHCI::HCD_QH* uhci_qh_fs_control;
 	struct UHCI::HCD_QH* uhci_qh_bulk;
-	/* Currently scheduled queue items */
-	struct UHCI::HCD_ScheduledItemQueue uhci_scheduled_items;
+	/* Currently scheduled items */
+	UHCI::HCD_ScheduledItemList uhci_scheduled_items;
 };
 
 } // namespace USB

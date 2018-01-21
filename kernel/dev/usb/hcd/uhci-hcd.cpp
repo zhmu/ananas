@@ -45,10 +45,13 @@ namespace USB {
 
 namespace UHCI {
 
+// HCD_{TD,QH} must start with an UHCI{TD,QH} struct - this is what the HCD
+// hardware uses! This means we cannot inherit from NodePtr
 struct HCD_TD {
 	struct UHCI_TD td_td;
 	dma_buf_t td_buf;
-	LIST_FIELDS(struct HCD_TD);
+
+	struct HCD_TD* td_next;
 };
 
 struct HCD_QH {
@@ -56,13 +59,13 @@ struct HCD_QH {
 	struct HCD_TD* qh_first_td;
 	struct HCD_QH* qh_next_qh;
 	dma_buf_t qh_buf;
-	LIST_FIELDS(struct HCD_QH);
+
+	util::List<HCD_QH>::Node np_NodePtr;
 };
 
-struct HCD_ScheduledItem {
+struct HCD_ScheduledItem : util::List<HCD_ScheduledItem>::NodePtr {
 	struct HCD_TD* si_td;
 	Transfer* si_xfer;
-	LIST_FIELDS(struct HCD_ScheduledItem);
 };
 
 namespace {
@@ -91,7 +94,7 @@ DumpTD(HCD_TD* tdd)
 	uint32_t td_status = td->td_status;
 	kprintf("td [hcd %p td %p] => linkptr [hcd %p td %x] status 0x%x [%c%c%c%c%c%c%c%c%c%c%c]",
 	 td, &tdd->td_td,
-	 LIST_NEXT(tdd), td->td_linkptr,
+	 tdd->td_next, td->td_linkptr,
 	 td->td_status,
 	 (td_status & TD_STATUS_SPD) ? 'S' : '.',
 	 (td_status & TD_STATUS_LS) ? 'L' : '.',
@@ -110,7 +113,7 @@ DumpTD(HCD_TD* tdd)
 	 td->td_buffer);
 	if (td->td_linkptr & QH_PTR_T)
 		return;
-	DumpTD(LIST_NEXT(tdd));
+	DumpTD(tdd->td_next);
 }
 
 void
@@ -142,7 +145,7 @@ VerifyChainAndCalculateLength(HCD_TD* td, int* length)
 {
 	int errors = 0;
 	*length = 0;
-	for (/* nothing */; td != NULL; td = LIST_NEXT(td)) {
+	for (/* nothing */; td != NULL; td = td->td_next) {
 		int len = TD_STATUS_ACTUALLEN(td->td_td.td_status);
 		if (len != TD_ACTUALLEN_NONE)
 			*length += len;
@@ -177,7 +180,7 @@ CreateDataTDs(UHCI_HCD& hcd, addr_t data, size_t size, int max_packet_size, int 
 		td_data->td_td.td_status = TO_REG32(ls | TD_STATUS_ACTIVE | TD_STATUS_INTONERR(3));
 		td_data->td_td.td_token = TO_REG32(token_addr | TD_TOKEN_MAXLEN(xfer_chunk_len) | TD_TOKEN_PID(token) | (data_token ? TD_TOKEN_DATA : 0));
 		td_data->td_td.td_buffer = cur_data_ptr - xfer_chunk_len;
-		LIST_NEXT(td_data) = link_td;
+		td_data->td_next = link_td;
 
 		data_token ^= 1;
 		link_td = td_data;
@@ -291,24 +294,26 @@ UHCI_HCD::OnIRQ()
 		 * what it was. We'll have to traverse the scheduled items and wake anything
 		 * up that finished.
 		 */
-		LIST_FOREACH_SAFE(&uhci_scheduled_items, si, UHCI::HCD_ScheduledItem) {
+		for(auto it = uhci_scheduled_items.begin(); it != uhci_scheduled_items.end(); /* nothing */) {
+			auto& si = *it; ++it;
+
 			/*
 			 * Transfers are scheduled in such a way that we can use the first TD to
 			 * determine whether the transfer went OK (as only the final TD will have the
 			 * interrupt-on-completion flag enabled)
 			 */
-			if (si->si_td->td_td.td_status & TD_STATUS_ACTIVE)
+			if (si.si_td->td_td.td_status & TD_STATUS_ACTIVE)
 				continue;
 
 			/* First of all, remove the scheduled item - this orphanages the TD's */
-			LIST_REMOVE(&uhci_scheduled_items, si);
+			uhci_scheduled_items.remove(si);
 
 			/* Walk through the chain to calculate the length and see if something gave an error */
-			if (!UHCI::VerifyChainAndCalculateLength(si->si_td, &si->si_xfer->t_result_length))
-				si->si_xfer->t_flags |= TRANSFER_FLAG_ERROR;
+			if (!UHCI::VerifyChainAndCalculateLength(si.si_td, &si.si_xfer->t_result_length))
+				si.si_xfer->t_flags |= TRANSFER_FLAG_ERROR;
 
 			/* Finally, give hand the transfer back to the USB stack */
-			si->si_xfer->Complete();
+			si.si_xfer->Complete();
 			// XXX Where will will we free si ?
 		}
 	}
@@ -399,13 +404,13 @@ UHCI_HCD::ScheduleControlTransfer(Transfer& xfer)
 	td_setup->td_td.td_status = TO_REG32(ls | TD_STATUS_ACTIVE | TD_STATUS_INTONERR(3));
 	td_setup->td_td.td_token = TO_REG32(TD_TOKEN_MAXLEN(sizeof(struct USB_CONTROL_REQUEST)) | token_addr | TD_TOKEN_PID(TD_PID_SETUP));
 	td_setup->td_td.td_buffer = KVTOP((addr_t)&xfer.t_control_req); /* XXX64 TODO */
-	LIST_NEXT(td_setup) = next_setup_ptr;
+	td_setup->td_next = next_setup_ptr;
 
 	/* Schedule an item; this will cause the IRQ to handle our request - XXX needs lock */
 	auto si = new UHCI::HCD_ScheduledItem;
 	si->si_td = td_setup;
 	si->si_xfer = &xfer;
-	LIST_APPEND(&uhci_scheduled_items, si);
+	uhci_scheduled_items.push_back(*si);
 
 	/* Finally, hand the chain to the HD; it's ready to be transmitted */
 	/* XXX we should add to the chain not overwrite !!! */
@@ -435,7 +440,7 @@ UHCI_HCD::ScheduleInterruptTransfer(Transfer& xfer)
 	auto si = new UHCI::HCD_ScheduledItem;
 	si->si_td = td_chain;
 	si->si_xfer = &xfer;
-	LIST_APPEND(&uhci_scheduled_items, si);
+	uhci_scheduled_items.push_back(*si);
 
 	/* Finally, hand the chain to the HD; it's ready to be transmitted */
 	/* XXX we should add to the chain not overwrite !!! */
@@ -499,7 +504,6 @@ UHCI_HCD::Attach()
 
 	uhci_Resources = UHCI::HCD_Resources((uint32_t)(uintptr_t)res_io);
 	mutex_init(&uhci_mtx, "uhci");
-	LIST_INIT(&uhci_scheduled_items);
 
 	/* Allocate the frame list; this will be programmed right into the controller */
 	err = dma_buf_alloc(d_DMA_tag, 4096, &uhci_framelist_buf);
