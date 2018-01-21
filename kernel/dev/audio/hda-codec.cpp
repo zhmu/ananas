@@ -196,7 +196,7 @@ HDADevice::AttachNode_AFG(AFG& afg)
 		}
 
 		if (ananas_is_success(err) && aw != nullptr)
-			LIST_APPEND(&afg.afg_nodes, aw);
+			afg.afg_nodes.push_back(*aw);
 #undef HDA_AWNODE_INIT
 	}
 
@@ -204,22 +204,22 @@ HDADevice::AttachNode_AFG(AFG& afg)
 	 * Okay, we are done - need to resolve the connection node ID's to pointers.
 	 * This is O(N^2)... XXX
 	 */
-	LIST_FOREACH(&afg.afg_nodes, aw, Node_AW) {
-		for(int n = 0; n < aw->aw_num_conn; n++) {
-			uintptr_t nid = (uintptr_t)aw->aw_conn[n];
+	for(auto& aw: afg.afg_nodes) {
+		for(int n = 0; n < aw.aw_num_conn; n++) {
+			uintptr_t nid = (uintptr_t)aw.aw_conn[n];
 			Node_AW* aw_found = nullptr;
-			LIST_FOREACH(&afg.afg_nodes, aw2, Node_AW) {
-				if (aw2->n_address.na_nid != nid)
+			for(auto& aw2: afg.afg_nodes) {
+				if (aw2.n_address.na_nid != nid)
 					continue;
-				aw_found = aw2;
+				aw_found = &aw2;
 				break;
 			}
 			if (aw_found == nullptr) {
 				Printf("cad %d nid %d lists connection nid %d, but not found - aborting",
-				 aw->n_address.na_cad, aw->n_address.na_nid, nid);
+				 aw.n_address.na_cad, aw.n_address.na_nid, nid);
 				return ANANAS_ERROR(NO_DEVICE);
 			}
-			aw->aw_conn[n] = aw_found;
+			aw.aw_conn[n] = aw_found;
 		}
 	}
 
@@ -278,18 +278,18 @@ ResolveLocationToString(int location)
 void
 DumpAFG(AFG& afg)
 {
-	if (LIST_EMPTY(&afg.afg_nodes))
+	if (afg.afg_nodes.empty())
 		return;
 
 	static const char* aw_node_types[] = {
 		"pc", "ao", "ai", "am", "as", "vd"
 	};
-	LIST_FOREACH(&afg.afg_nodes, aw, Node_AW) {
-		kprintf("cad %x nid % 2x type %s ->", aw->n_address.na_cad, aw->n_address.na_nid, aw_node_types[aw->GetType()]);
+	for(auto& aw: afg.afg_nodes) {
+		kprintf("cad %x nid % 2x type %s ->", aw.n_address.na_cad, aw.n_address.na_nid, aw_node_types[aw.GetType()]);
 
-		switch(aw->GetType()) {
+		switch(aw.GetType()) {
 			case NT_Pin: {
-				auto& p = static_cast<Node_Pin&>(*aw);
+				auto& p = static_cast<Node_Pin&>(aw);
 				kprintf(" [");
 				if (HDA_CODEC_PINCAP_HBR(p.p_cap))
 					kprintf(" hbr");
@@ -327,7 +327,7 @@ DumpAFG(AFG& afg)
 				break;
 			}
 			case NT_AudioOut: {
-				auto& ao = static_cast<Node_AudioOut&>(*aw);
+				auto& ao = static_cast<Node_AudioOut&>(aw);
 
 				kprintf(" formats [");
 				if (HDA_CODEC_PARAM_PCM_B32(ao.ao_pcm))
@@ -372,20 +372,20 @@ DumpAFG(AFG& afg)
 				break;
 		}
 
-		if (aw->aw_num_conn > 0) {
+		if (aw.aw_num_conn > 0) {
 			kprintf(" conn [");
-			for(int n = 0; n < aw->aw_num_conn; n++) {
-				kprintf("%s%x", (n > 0) ? "," : "", aw->aw_conn[n]->n_address.na_nid);
+			for(int n = 0; n < aw.aw_num_conn; n++) {
+				kprintf("%s%x", (n > 0) ? "," : "", aw.aw_conn[n]->n_address.na_nid);
 			}
 			kprintf("]");
 		}
 		kprintf("\n");
 	}
 
-	LIST_FOREACH(&afg.afg_outputs, o, Output) {
-		kprintf("output: %d-channel ->", o->o_channels);
-		for (int n = 0; n < o->o_pingroup->pg_count; n++) {
-			Node_Pin* p = o->o_pingroup->pg_pin[n];
+	for(auto& o: afg.afg_outputs) {
+		kprintf("output: %d-channel ->", o.o_channels);
+		for (int n = 0; n < o.o_pingroup->pg_count; n++) {
+			Node_Pin* p = o.o_pingroup->pg_pin[n];
 			kprintf(" %s-%s",
 			 ResolveLocationToString(HDA_CODEC_CFGDEFAULT_LOCATION(p->p_cfg)),
 			 PinColorString[HDA_CODEC_CFGDEFAULT_COLOR(p->p_cfg)]);
@@ -406,10 +406,10 @@ HDADevice::AttachMultiPin_Render(AFG& afg, int association, int num_pins)
 	int num_channels = 0;
 	for (unsigned int seq = 0; seq < 16; seq++) {
 		Node_Pin* found_pin = nullptr;
-		LIST_FOREACH(&afg.afg_nodes, aw, Node_AW) {
-			if (aw->GetType() != NT_Pin)
+		for(auto& aw: afg.afg_nodes) {
+			if (aw.GetType() != NT_Pin)
 				continue;
-			auto& p = static_cast<Node_Pin&>(*aw);
+			auto& p = static_cast<Node_Pin&>(aw);
 			if (HDA_CODEC_CFGDEFAULT_DEFAULT_ASSOCIATION(p.p_cfg) != association)
 				continue;
 			if (HDA_CODEC_CFGDEFAULT_SEQUENCE(p.p_cfg) != seq)
@@ -467,7 +467,7 @@ HDADevice::AttachMultiPin_Render(AFG& afg, int association, int num_pins)
 	}
 	delete rp;
 
-	LIST_APPEND(&afg.afg_outputs, o);
+	afg.afg_outputs.push_back(*o);
 	return ananas_success();
 }
 
@@ -480,17 +480,17 @@ HDADevice::AttachSinglePin_Render(AFG& afg, int association)
 errorcode_t
 HDADevice::AttachAFG(AFG& afg)
 {
-	if (LIST_EMPTY(&afg.afg_nodes))
+	if (afg.afg_nodes.empty())
 		return ANANAS_ERROR(NO_DEVICE);
 
 	/* Walk through all associations and see what we have got there */
 	for (unsigned int association = 1; association < 15; association++) {
 		int total_pins = 0;
 		int num_input = 0, num_output = 0;
-		LIST_FOREACH(&afg.afg_nodes, aw, Node_AW) {
-			if (aw->GetType() != NT_Pin)
+		for(auto& aw: afg.afg_nodes) {
+			if (aw.GetType() != NT_Pin)
 				continue;
-			auto& p = static_cast<Node_Pin&>(*aw);
+			auto& p = static_cast<Node_Pin&>(aw);
 			if (HDA_CODEC_CFGDEFAULT_DEFAULT_ASSOCIATION(p.p_cfg) != association)
 				continue;
 
@@ -554,7 +554,7 @@ HDADevice::AttachNode(int cad, int nodeid)
 		int fgt_type = HDA_PARAM_FGT_NODETYPE(r);
 		if (fgt_type != HDA_PARAM_FGT_NODETYPE_AUDIO)
 			continue; /* we don't care about non-audio types */
-	
+
 		if (hda_afg != NULL) {
 			Printf("warning: ignoring afg %d (we only support one per device)", nid);
 			continue;
@@ -564,8 +564,6 @@ HDADevice::AttachNode(int cad, int nodeid)
 		auto afg = new AFG;
 		afg->afg_cad = cad;
 		afg->afg_nid = nid;
-		LIST_INIT(&afg->afg_nodes);
-		LIST_INIT(&afg->afg_outputs);
 		hda_afg = afg;
 
 		err = AttachNode_AFG(*afg);

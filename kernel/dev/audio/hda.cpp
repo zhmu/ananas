@@ -112,16 +112,16 @@ HDADevice::Attach()
 
 #if DEMO_PLAY
 	AFG* afg = hda_afg;
-	if (afg == NULL || LIST_EMPTY(&afg->afg_outputs))
+	if (afg == NULL || afg->afg_outputs.empty())
 		return ANANAS_ERROR(NO_DEVICE); /* XXX can this happen? */
 
 	/* Let's play something! */
 	Output* o = NULL;
-	LIST_FOREACH(&afg->afg_outputs, ao, Output) {
+	for(auto& ao: afg->afg_outputs) {
 		/* XXX We specifically look for a 2-channel only output - this is wrong, but VirtualBox
 		 *     dies if we try to use 2-channels for a 7.1-output. Need to look into this XXX
 		 */
-		if (ao->o_channels == 2) {
+		if (ao.o_channels == 2) {
 			o = ao;
 			break;
 		}

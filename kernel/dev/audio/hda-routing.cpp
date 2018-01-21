@@ -38,7 +38,7 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 	 * we need to route.
 	 */
 	int max_nodes = 0;
-	LIST_FOREACH(&afg.afg_nodes, aw, Node_AW) {
+	for(auto& aw: afg.afg_nodes) {
 		max_nodes++;
 	}
 	*rp = new RoutingPlan;

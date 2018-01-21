@@ -2,8 +2,8 @@
 #define __ANANAS_HDA_H__
 
 #include <ananas/types.h>
+#include <ananas/util/list.h>
 #include "kernel/device.h"
-#include "kernel/list.h"
 
 namespace Ananas {
 namespace HDA {
@@ -259,9 +259,6 @@ enum HDANodeType {
 class Node_AW;
 class Output;
 
-LIST_DEFINE(HDA_NODE_AWLIST, Node_AW);
-LIST_DEFINE(HDA_OUTPUT_LIST, Output);
-
 /*
  * Audio function group; contains pointers to all codec nodes therein.
  */
@@ -271,8 +268,8 @@ public:
 	int afg_cad;
 	int afg_nid;
 	uint32_t afg_pcm;
-	struct HDA_NODE_AWLIST afg_nodes;
-	struct HDA_OUTPUT_LIST afg_outputs;
+	util::List<Node_AW> afg_nodes;
+	util::List<Output> afg_outputs;
 };
 
 class NodeAddress
@@ -305,7 +302,7 @@ public:
  * Plain audio widget with an optional connection list; these are always
  * connected to an audio function group.
  */
-class Node_AW : public Node
+class Node_AW : public Node, public util::List<Node_AW>::NodePtr
 {
 public:
 	Node_AW(const NodeAddress& na, uint32_t caps)
@@ -313,7 +310,6 @@ public:
 	{
 	}
 
-	LIST_FIELDS(class Node_AW);
 	uint32_t aw_caps;		/* Audio widget capabilities */
 	int aw_num_conn = 0;		/* Number of connections */
 	Node_AW** aw_conn = nullptr;	/* Connection list */
@@ -404,10 +400,9 @@ public:
 /*
  * Output definition; contains output pins to use and the configuration in use.
  */
-class Output
+class Output : public util::List<Output>::NodePtr
 {
 public:
-	LIST_FIELDS(class Output);
 	int o_channels;
 	uint32_t o_pcm_output; /* Output PCM capabilities */
 	PinGroup* o_pingroup;
