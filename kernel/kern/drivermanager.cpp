@@ -23,24 +23,24 @@ errorcode_t Register(Driver& driver)
 	// Insert the driver in-place - we want to keep the driver list sorted on
 	// priority as this simplifies things (we can just look for the first driver
 	// that matches)
-	LIST_FOREACH_SAFE(&driverList, d, Driver) {
-		if (d->d_Priority < driver.d_Priority)
+	for(auto& d: driverList) {
+		if (d.d_Priority < driver.d_Priority)
 			continue;
-		LIST_INSERT_BEFORE(&driverList, d, &driver);
+		driverList.insert(d, driver);
 		return ananas_success();
 	}
 
-	LIST_APPEND(&driverList, &driver);
+	driverList.push_back(driver);
 	return ananas_success();
 }
 
 errorcode_t Unregister(const char* name)
 {
-	LIST_FOREACH_SAFE(&driverList, d, Driver) {
-		if (strcmp(d->d_Name, name) != 0)
+	for(auto& d: driverList) {
+		if (strcmp(d.d_Name, name) != 0)
 			continue;
 
-		LIST_REMOVE(&driverList, d);
+		driverList.remove(d);
 		return ananas_success();
 	}
 	return ananas_success();

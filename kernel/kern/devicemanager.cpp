@@ -38,15 +38,15 @@ void PrintAttachment(Device& device)
 namespace internal {
 
 spinlock_t spl_devicequeue = SPINLOCK_DEFAULT_INIT;
-Ananas::DeviceList deviceList;
+DeviceList deviceList;
 
 void Register(Device& device)
 {
 	spinlock_lock(&spl_devicequeue);
-	LIST_FOREACH_IP(&deviceList, all, d, Device) {
-		KASSERT(d != &device, "registering device '%s' already in the device queue", device.d_Name);
+	for(auto& d: deviceList) {
+		KASSERT(&d != &device, "registering device '%s' already in the device queue", device.d_Name);
 	}
-	LIST_APPEND_IP(&deviceList, all, &device);
+	deviceList.push_back(device);
 	spinlock_unlock(&spl_devicequeue);
 }
 
@@ -54,8 +54,8 @@ void OnDeviceDestruction(Device& device)
 {
 	// This is just a safety precaution for now
 	spinlock_lock(&spl_devicequeue);
-	LIST_FOREACH_IP(&deviceList, all, d, Device) {
-		KASSERT(d != &device, "destroying device '%s' still in the device queue", device.d_Name);
+	for(auto& d: deviceList) {
+		KASSERT(&d != &device, "destroying device '%s' still in the device queue", device.d_Name);
 	}
 	spinlock_unlock(&spl_devicequeue);
 }
@@ -65,7 +65,7 @@ void Unregister(Device& device)
 	/* XXX clear waiters; should we signal them? */
 
 	spinlock_lock(&spl_devicequeue);
-	LIST_REMOVE_IP(&deviceList, all, &device);
+	deviceList.remove(device);
 	spinlock_unlock(&spl_devicequeue);
 }
 
@@ -123,7 +123,7 @@ AttachSingle(Device& device)
 	/* Hook the device up to the tree */
 	internal::Register(device);
 	if (device.d_Parent != nullptr)
-		LIST_APPEND_IP(&device.d_Parent->d_Children, children, &device);
+		device.d_Parent->d_Children.push_back(device);
 
 	/* Attempt to attach child devices, if any */
 	AttachBus(device);
@@ -142,8 +142,9 @@ Detach(Device& device)
 	vfs_abandon_device(device);
 
 	// All children must be detached before we can clean up the main device
-	LIST_FOREACH_SAFE_IP(&device.d_Children, children, childDevice, Device) {
-		Detach(*childDevice);
+	for(auto it = device.d_Children.begin(); it != device.d_Children.end(); /* nothing */) {
+		Device& childDevice = *it; ++it;
+		Detach(childDevice);
 	}
 
 	// XXX I wonder how realistic this is - failing to detach (what can we do?)
@@ -166,16 +167,17 @@ Ananas::Device*
 AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet)
 {
 	auto& driverList = Ananas::DriverManager::internal::GetDriverList();
-	if (LIST_EMPTY(&driverList))
+	if (driverList.empty())
 		return nullptr;
 
 	CreateDeviceProperties cdp(bus, resourceSet);
-	LIST_FOREACH_SAFE(&driverList, d, Driver) {
-		if (!d->MustProbeOnBus(bus))
+	for(auto it = driverList.begin(); it != driverList.end(); /* nothing */) {
+		Driver& d = *it; ++it;
+		if (!d.MustProbeOnBus(bus))
 			continue; /* bus cannot contain this device */
 
 		/* Hook the device to this driver and try to attach it */
-		Device* device = internal::InstantiateDevice(*d, cdp);
+		Device* device = internal::InstantiateDevice(d, cdp);
 		if (device == nullptr)
 			continue;
 		if (ananas_is_success(AttachSingle(*device)))
@@ -199,7 +201,7 @@ void
 AttachBus(Device& bus)
 {
 	auto& driverList = Ananas::DriverManager::internal::GetDriverList();
-	if (LIST_EMPTY(&driverList))
+	if (driverList.empty())
 		return;
 
 	/*
@@ -208,20 +210,21 @@ AttachBus(Device& bus)
 	 */
 	Ananas::Device* input_dev = tty_get_inputdev(console_tty);
 	Ananas::Device* output_dev = tty_get_outputdev(console_tty);
-	LIST_FOREACH_SAFE(&driverList, d, Driver) {
-		if (!d->MustProbeOnBus(bus))
+	for(auto it = driverList.begin(); it != driverList.end(); /* nothing */) {
+		Driver& d = *it; ++it;
+		if (!d.MustProbeOnBus(bus))
 			continue; /* bus cannot contain this device */
 
 		/*
 		 * If we found the driver for the in- or output driver, display it (they are
 		 * already attached). XXX we will skip any extra units here
 		 */
-		if (input_dev != NULL && strcmp(input_dev->d_Name, d->d_Name) == 0) {
+		if (input_dev != NULL && strcmp(input_dev->d_Name, d.d_Name) == 0) {
 			input_dev->d_Parent = &bus;
 			PrintAttachment(*input_dev);
 			continue;
 		}
-		if (output_dev != NULL && strcmp(output_dev->d_Name, d->d_Name) == 0) {
+		if (output_dev != NULL && strcmp(output_dev->d_Name, d.d_Name) == 0) {
 			output_dev->d_Parent = &bus;
 			PrintAttachment(*output_dev);
 			continue;
@@ -230,7 +233,7 @@ AttachBus(Device& bus)
 		Ananas::ResourceSet resourceSet; // TODO
 
 		// See if the driver accepts our resource set
-		Device* device = internal::InstantiateDevice(*d, CreateDeviceProperties(bus, resourceSet));
+		Device* device = internal::InstantiateDevice(d, CreateDeviceProperties(bus, resourceSet));
 		if (device == nullptr)
 			continue;
 
@@ -249,10 +252,10 @@ FindDevice(const char* name)
 	int unit = (*ptr != '\0') ? strtoul(ptr, NULL, 10) : 0;
 
 	spinlock_lock(&internal::spl_devicequeue);
-	LIST_FOREACH_IP(&internal::deviceList, all, device, Device) {
-		if (strncmp(device->d_Name, name, ptr - name) == 0 && device->d_Unit == unit) {
+	for(auto& device: internal::deviceList) {
+		if (strncmp(device.d_Name, name, ptr - name) == 0 && device.d_Unit == unit) {
 			spinlock_unlock(&internal::spl_devicequeue);
-			return device;
+			return &device;
 		}
 	}
 	spinlock_unlock(&internal::spl_devicequeue);
@@ -263,10 +266,10 @@ Device*
 FindDevice(dev_t dev)
 {
 	spinlock_lock(&internal::spl_devicequeue);
-	LIST_FOREACH_IP(&internal::deviceList, all, device, Device) {
-		if (device->d_Major == major(dev) && device->d_Unit == minor(dev)) {
+	for(auto& device: internal::deviceList) {
+		if (device.d_Major == major(dev) && device.d_Unit == minor(dev)) {
 			spinlock_unlock(&internal::spl_devicequeue);
-			return device;
+			return &device;
 		}
 	}
 	spinlock_unlock(&internal::spl_devicequeue);
@@ -277,9 +280,10 @@ Device*
 CreateDevice(const char* driver, const Ananas::CreateDeviceProperties& cdp)
 {
 	auto& driverList = Ananas::DriverManager::internal::GetDriverList();
-	LIST_FOREACH_SAFE(&driverList, d, Driver) {
-		if (strcmp(d->d_Name, driver) == 0)
-			return internal::InstantiateDevice(*d, cdp);
+	for(auto it = driverList.begin(); it != driverList.end(); /* nothing */) {
+		Driver& d = *it; ++it;
+		if (strcmp(d.d_Name, driver) == 0)
+			return internal::InstantiateDevice(d, cdp);
 	}
 
 	return nullptr;
@@ -294,14 +298,14 @@ static int
 print_devices(Ananas::Device* parent, int indent)
 {
 	int count = 0;
-	LIST_FOREACH_IP(&Ananas::DeviceManager::internal::deviceList, all, dev, Ananas::Device) {
-		if (dev->d_Parent != parent)
+	for(auto& dev: Ananas::DeviceManager::internal::deviceList) {
+		if (dev.d_Parent != parent)
 			continue;
 		for (int n = 0; n < indent; n++)
 			kprintf(" ");
 		kprintf("device %p: '%s' unit %u\n",
-	 	 dev, dev->d_Name, dev->d_Unit);
-		count += print_devices(dev, indent + 1) + 1;
+		 &dev, dev.d_Name, dev.d_Unit);
+		count += print_devices(&dev, indent + 1) + 1;
 	}
 	return count;
 }
@@ -312,7 +316,7 @@ KDB_COMMAND(devices, NULL, "Displays a list of all devices")
 
 	/* See if we have printed everything; if not, our structure is wrong and we should fix this */
 	int n = 0;
-	LIST_FOREACH_IP(&Ananas::DeviceManager::internal::deviceList, all, dev, Ananas::Device) {
+	for(auto& dev: Ananas::DeviceManager::internal::deviceList) {
 		n++;
 	}
 	if (n != count)

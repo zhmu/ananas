@@ -43,8 +43,8 @@ console_init()
 	Ananas::Device* input_dev = nullptr;
 	Ananas::Device* output_dev = nullptr;
 	Ananas::DriverList& drivers = Ananas::DriverManager::internal::GetDriverList();
-	LIST_FOREACH(&drivers, driver, Ananas::Driver) {
-		Ananas::ConsoleDriver* consoleDriver = driver->GetConsoleDriver();
+	for(auto& driver: drivers) {
+		Ananas::ConsoleDriver* consoleDriver = driver.GetConsoleDriver();
 		if (consoleDriver == nullptr)
 			continue; // not a console driver, skip
 

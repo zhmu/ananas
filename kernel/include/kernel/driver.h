@@ -2,6 +2,7 @@
 #define __DRIVER_H__
 
 #include <ananas/error.h>
+#include <ananas/util/list.h>
 #include "kernel/init.h"
 
 namespace Ananas {
@@ -10,7 +11,6 @@ struct CreateDeviceProperties;
 class Device;
 class Driver;
 class ConsoleDriver;
-struct DriverList;
 
 namespace DriverManager {
 
@@ -26,7 +26,7 @@ errorcode_t Unregister(const char* name);
  * - Create a given Device object, either by probing or on request
  * - Determine on which busses the device can occur
  */
-class Driver {
+class Driver : public util::List<Driver>::NodePtr {
 public:
 	Driver(const char* name, int priority = 1000)
 	 : d_Name(name), d_Priority(priority)
@@ -48,9 +48,9 @@ public:
 	int d_Priority;
 	int d_Major = 0;
 	int d_CurrentUnit = 0;
-	LIST_FIELDS(Driver);
 };
-LIST_DEFINE(DriverList, Driver);
+
+typedef util::List<Driver> DriverList;
 
 // XXX The Unregister-part is a bit clumsy...
 #define REGISTER_DRIVER(name) \

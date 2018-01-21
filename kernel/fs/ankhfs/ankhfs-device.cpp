@@ -16,7 +16,7 @@ namespace Ananas {
 namespace DeviceManager {
 namespace internal {
 extern spinlock_t spl_devicequeue;
-extern Ananas::DeviceList deviceList;
+extern device::DeviceList deviceList;
 } // namespace internal
 } // namespace DeviceManager
 
@@ -38,18 +38,18 @@ HandleReadDir_Device(struct VFS_FILE* file, void* dirents, size_t* len)
 			// XXX we should lock the device here
 
 			// Skip anything that isn't a char/block device - we can do nothing with those
-			while (currentDevice != nullptr && currentDevice->GetCharDeviceOperations() == nullptr && currentDevice->GetBIODeviceOperations() == nullptr)
-				currentDevice = LIST_NEXT_IP(currentDevice, all);
-			if (currentDevice == nullptr)
+			while (currentDevice != DeviceManager::internal::deviceList.end() && currentDevice->GetCharDeviceOperations() == nullptr && currentDevice->GetBIODeviceOperations() == nullptr)
+				++currentDevice;
+			if (currentDevice == DeviceManager::internal::deviceList.end())
 				return false;
 
 			snprintf(entry, maxLength, "%s%d", currentDevice->d_Name, currentDevice->d_Unit);
 			inum = make_inum(SS_Device, makedev(currentDevice->d_Major, currentDevice->d_Unit), 0);
-			currentDevice = LIST_NEXT_IP(currentDevice, all);
+			++currentDevice;
 			return true;
 		}
 
-		Ananas::Device* currentDevice = LIST_HEAD(&DeviceManager::internal::deviceList);
+		device::DeviceList::iterator currentDevice = DeviceManager::internal::deviceList.begin();
 	};
 
 	// Fill the root directory with one entry per device
@@ -108,14 +108,14 @@ public:
 				case Devices::subDevices: {
 					char* r = result;
 					spinlock_lock(&DeviceManager::internal::spl_devicequeue);
-					LIST_FOREACH_IP(&DeviceManager::internal::deviceList, all, device, Device) {
+					for(auto& device: DeviceManager::internal::deviceList) {
 						snprintf(r, sizeof(result) - (r - result), "%s %d %d %c%c%c%c%c\n",
-						 device->d_Name, device->d_Major, device->d_Unit, 
-						 device->GetBIODeviceOperations() != nullptr ? 'b' : '.',
-						 device->GetCharDeviceOperations() != nullptr ? 'c' : '.',
-						 device->GetUSBHubDeviceOperations() != nullptr ? 'h' : '.',
-						 device->GetSCSIDeviceOperations() != nullptr ? 's' : '.',
-						 device->GetUSBDeviceOperations() != nullptr ? 'u' : '.');
+						 device.d_Name, device.d_Major, device.d_Unit,
+						 device.GetBIODeviceOperations() != nullptr ? 'b' : '.',
+						 device.GetCharDeviceOperations() != nullptr ? 'c' : '.',
+						 device.GetUSBHubDeviceOperations() != nullptr ? 'h' : '.',
+						 device.GetSCSIDeviceOperations() != nullptr ? 's' : '.',
+						 device.GetUSBDeviceOperations() != nullptr ? 'u' : '.');
 						r += strlen(r);
 					}
 					spinlock_unlock(&DeviceManager::internal::spl_devicequeue);
@@ -124,9 +124,9 @@ public:
 				case Devices::subDrivers: {
 					char* r = result;
 					auto& driverList = Ananas::DriverManager::internal::GetDriverList();
-					LIST_FOREACH_SAFE(&driverList, d, Driver) {
+					for(auto& d: driverList) {
 						snprintf(r, sizeof(result) - (r - result), "%s %d %d %d\n",
-						 d->d_Name, d->d_Priority, d->d_Major, d->d_CurrentUnit);
+						 d.d_Name, d.d_Priority, d.d_Major, d.d_CurrentUnit);
 						r += strlen(r);
 					}
 					break;

@@ -3,8 +3,8 @@
 
 #include <ananas/types.h>
 #include <ananas/error.h>
+#include <ananas/util/list.h>
 #include "kernel/lock.h"
-#include "kernel/list.h"
 #include "kernel/resourceset.h"
 
 typedef struct DEVICE* device_t;
@@ -13,6 +13,41 @@ typedef struct PROBE* probe_t;
 
 struct BIO;
 struct Process;
+
+namespace Ananas {
+class Device;
+}
+
+namespace device {
+
+// Internal stuff so we can work with children and all nodes
+namespace internal {
+
+template<typename T>
+struct AllNode
+{
+	static typename util::List<T>::Node& Get(T& t) {
+		return t.p_NodeAll;
+	}
+};
+
+template<typename T>
+struct ChildrenNode
+{
+	static typename util::List<T>::Node& Get(T& t) {
+		return t.p_NodeChildren;
+	}
+};
+
+template<typename T> using DeviceAllNodeAccessor = typename util::List<T>::template nodeptr_accessor<AllNode<T> >;
+template<typename T> using DeviceChildrenNodeAccessor = typename util::List<T>::template nodeptr_accessor<ChildrenNode<T> >;
+
+} // namespace internal
+
+typedef util::List<::Ananas::Device, internal::DeviceAllNodeAccessor<::Ananas::Device> > ChildrenList;
+typedef util::List<::Ananas::Device, internal::DeviceChildrenNodeAccessor<::Ananas::Device> > DeviceList;
+
+} // namespace device
 
 namespace Ananas {
 
@@ -77,9 +112,6 @@ public:
 	virtual errorcode_t PerformSCSIRequest(int lun, Direction dir, const void* cb, size_t cb_len, void* result, size_t* result_len) = 0;
 };
 
-class Device;
-LIST_DEFINE(DeviceList, Device);
-
 struct CreateDeviceProperties
 {
 	CreateDeviceProperties(Ananas::Device& parent, const Ananas::ResourceSet& resourceSet)
@@ -113,10 +145,9 @@ public:
 	void Printf(const char* fmt, ...) const;
 
 	// XXX Private me
-	LIST_FIELDS_IT(Device, all);
-	LIST_FIELDS_IT(Device, children);
-
-	DeviceList d_Children;
+	util::List<Device>::Node p_NodeAll;
+	util::List<Device>::Node p_NodeChildren;
+	device::ChildrenList d_Children;
 
 	Device* d_Parent = nullptr;
 	char d_Name[64] = "unknown";
@@ -134,6 +165,8 @@ public:
 typedef Device* (*CreateDeviceFunc)(const Ananas::CreateDeviceProperties& cdp);
 
 namespace DeviceManager {
+
+using DeviceList = ::device::DeviceList;
 
 errorcode_t AttachSingle(Device& device);
 errorcode_t Detach(Device& device);
