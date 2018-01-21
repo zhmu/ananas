@@ -174,21 +174,18 @@ static struct VFS_FILESYSTEM_OPS fsops_fat = {
 	.write_inode = fat_write_inode
 };
 
-static struct VFS_FILESYSTEM fs_fat = {
-	.fs_name = "fatfs",
-	.fs_fsops = &fsops_fat
-};
+static VFSFileSystem fs_fat("fatfat", &fsops_fat);
 
 errorcode_t
 fatfs_init()
 {
-	return vfs_register_filesystem(&fs_fat);
+	return vfs_register_filesystem(fs_fat);
 }
 
 static errorcode_t
 fatfs_exit()
 {
-	return vfs_unregister_filesystem(&fs_fat);
+	return vfs_unregister_filesystem(fs_fat);
 }
 
 INIT_FUNCTION(fatfs_init, SUBSYSTEM_VFS, ORDER_MIDDLE);

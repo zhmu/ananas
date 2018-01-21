@@ -169,17 +169,17 @@ struct VFS_INODE_OPS {
 	void (*fill_file)(INode& inode, struct VFS_FILE* file);
 };
 
-/* 
+/*
  * A VFS filesystem defines the name of a filesystem and the operations to use.
  */
-struct VFS_FILESYSTEM {
+struct VFSFileSystem : util::List<VFSFileSystem>::NodePtr {
+	VFSFileSystem(const char* name, struct VFS_FILESYSTEM_OPS* ops) : fs_name(name), fs_fsops(ops) { }
 	/* Filesystem name */
 	const char* fs_name;
 	/* Filesystem operations */
 	struct VFS_FILESYSTEM_OPS* fs_fsops;
-	LIST_FIELDS(struct VFS_FILESYSTEM);
 };
 
-LIST_DEFINE(VFS_FILESYSTEMS, struct VFS_FILESYSTEM);
+typedef util::List<VFSFileSystem> VFSFileSystemList;
 
 #endif /* __ANANAS_VFS_TYPES_H__ */

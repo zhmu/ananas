@@ -345,21 +345,18 @@ static struct VFS_FILESYSTEM_OPS fsops_cramfs = {
 	.read_inode = cramfs_read_inode
 };
 
-static struct VFS_FILESYSTEM fs_cramfs = {
-	.fs_name = "cramfs",
-	.fs_fsops = &fsops_cramfs
-};
+static VFSFileSystem fs_cramfs("cramfs", &fsops_cramfs);
 
 errorcode_t
 cramfs_init()
 {
-	return vfs_register_filesystem(&fs_cramfs);
+	return vfs_register_filesystem(fs_cramfs);
 }
 
 static errorcode_t
 cramfs_exit()
 {
-	return vfs_unregister_filesystem(&fs_cramfs);
+	return vfs_unregister_filesystem(fs_cramfs);
 }
 
 INIT_FUNCTION(cramfs_init, SUBSYSTEM_VFS, ORDER_MIDDLE);

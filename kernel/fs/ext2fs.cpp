@@ -373,21 +373,18 @@ static struct VFS_FILESYSTEM_OPS fsops_ext2 = {
 	.read_inode = ext2_read_inode
 };
 
-static struct VFS_FILESYSTEM fs_ext2 = {
-	.fs_name = "ext2",
-	.fs_fsops = &fsops_ext2
-};
+static VFSFileSystem fs_ext2("ext2", &fsops_ext2);
 
 errorcode_t
 ext2_init()
 {
-	return vfs_register_filesystem(&fs_ext2);
+	return vfs_register_filesystem(fs_ext2);
 }
 
 static errorcode_t
 ext2_exit()
 {
-	return vfs_unregister_filesystem(&fs_ext2);
+	return vfs_unregister_filesystem(fs_ext2);
 }
 
 INIT_FUNCTION(ext2_init, SUBSYSTEM_VFS, ORDER_MIDDLE);

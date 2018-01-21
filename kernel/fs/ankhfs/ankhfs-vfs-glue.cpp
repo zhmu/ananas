@@ -117,21 +117,18 @@ struct VFS_FILESYSTEM_OPS fsops_ankhfs = {
 	.read_inode = ankhfs_read_inode
 };
 
-struct VFS_FILESYSTEM fs_ankhfs = {
-	.fs_name = "ankhfs",
-	.fs_fsops = &fsops_ankhfs
-};
+struct VFSFileSystem fs_ankhfs("ankhfs", &fsops_ankhfs);
 
 errorcode_t
 ankhfs_init()
 {
-	return vfs_register_filesystem(&fs_ankhfs);
+	return vfs_register_filesystem(fs_ankhfs);
 }
 
 errorcode_t
 ankhfs_exit()
 {
-	return vfs_unregister_filesystem(&fs_ankhfs);
+	return vfs_unregister_filesystem(fs_ankhfs);
 }
 
 INIT_FUNCTION(ankhfs_init, SUBSYSTEM_VFS, ORDER_MIDDLE);

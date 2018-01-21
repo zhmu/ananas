@@ -16,7 +16,7 @@ extern spinlock_t spl_mountedfs;
 extern struct VFS_MOUNTED_FS mountedfs[];
 
 extern spinlock_t spl_fstypes;
-extern struct VFS_FILESYSTEMS fstypes;
+extern VFSFileSystemList fstypes;
 
 } // namespace VFS
 
@@ -75,8 +75,8 @@ public:
 			case subFileSystems: {
 				char* r = result;
 				spinlock_lock(&Ananas::VFS::spl_fstypes);
-				LIST_FOREACH(&Ananas::VFS::fstypes, curfs, struct VFS_FILESYSTEM) {
-				  snprintf(r, sizeof(result) - (r - result), "%s\n", curfs->fs_name);
+				for(auto& curfs: Ananas::VFS::fstypes) {
+				  snprintf(r, sizeof(result) - (r - result), "%s\n", curfs.fs_name);
 					r += strlen(r);
 				}
 				spinlock_unlock(&Ananas::VFS::spl_fstypes);

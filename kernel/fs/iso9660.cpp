@@ -298,23 +298,20 @@ struct VFS_FILESYSTEM_OPS fsops_iso9660 = {
 	.read_inode = iso9660_read_inode
 };
 
-struct VFS_FILESYSTEM fs_iso9660 = {
-	.fs_name = "iso9660",
-	.fs_fsops = &fsops_iso9660
-};
+struct VFSFileSystem fs_iso9660("iso9660", &fsops_iso9660);
 
 } // unnamed namespace
 
 errorcode_t
 iso9660_init()
 {
-	return vfs_register_filesystem(&fs_iso9660);
+	return vfs_register_filesystem(fs_iso9660);
 }
 
 static errorcode_t
 iso9660_exit()
 {
-	return vfs_unregister_filesystem(&fs_iso9660);
+	return vfs_unregister_filesystem(fs_iso9660);
 }
 
 INIT_FUNCTION(iso9660_init, SUBSYSTEM_VFS, ORDER_MIDDLE);

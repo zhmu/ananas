@@ -23,7 +23,7 @@ spinlock_t spl_mountedfs = SPINLOCK_DEFAULT_INIT;
 struct VFS_MOUNTED_FS mountedfs[Max_Mounted_FS];
 
 spinlock_t spl_fstypes = SPINLOCK_DEFAULT_INIT;
-struct VFS_FILESYSTEMS fstypes;
+VFSFileSystemList fstypes;
 
 size_t GetMaxMountedFilesystems()
 {
@@ -37,7 +37,6 @@ void
 vfs_init_mount()
 {
 	memset(Ananas::VFS::mountedfs, 0, sizeof(Ananas::VFS::mountedfs));
-//	LIST_INIT(&fstypes);
 }
 
 static struct VFS_MOUNTED_FS*
@@ -67,10 +66,10 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	 */
 	struct VFS_FILESYSTEM_OPS* fsops = NULL;
 	spinlock_lock(&Ananas::VFS::spl_fstypes);
-	LIST_FOREACH(&Ananas::VFS::fstypes, curfs, struct VFS_FILESYSTEM) {
-		if (strcmp(curfs->fs_name, type) == 0) {
+	for(auto& curfs: Ananas::VFS::fstypes) {
+		if (strcmp(curfs.fs_name, type) == 0) {
 			/* Match */
-			fsops = curfs->fs_fsops;
+			fsops = curfs.fs_fsops;
 			break;
 		}
 	}
@@ -193,12 +192,12 @@ vfs_get_rootfs()
 }
 
 errorcode_t
-vfs_register_filesystem(struct VFS_FILESYSTEM* fs)
+vfs_register_filesystem(VFSFileSystem& fs)
 {
 	spinlock_lock(&Ananas::VFS::spl_fstypes);
 	/* Ensure the filesystem is not already registered */
-	LIST_FOREACH(&Ananas::VFS::fstypes, curfs, struct VFS_FILESYSTEM) {
-		if (strcmp(curfs->fs_name, fs->fs_name) == 0) {
+	for(auto& curfs: Ananas::VFS::fstypes) {
+		if (strcmp(curfs.fs_name, fs.fs_name) == 0) {
 			/* Duplicate filesystem type; refuse to register */
 			spinlock_unlock(&Ananas::VFS::spl_fstypes);
 			return ANANAS_ERROR(FILE_EXISTS);
@@ -206,16 +205,16 @@ vfs_register_filesystem(struct VFS_FILESYSTEM* fs)
 	}
 
 	/* Filesystem is clear; hook it up */
-	LIST_APPEND(&Ananas::VFS::fstypes, fs);
+	Ananas::VFS::fstypes.push_back(fs);
 	spinlock_unlock(&Ananas::VFS::spl_fstypes);
 	return ananas_success();
 }
 
 errorcode_t
-vfs_unregister_filesystem(struct VFS_FILESYSTEM* fs)
+vfs_unregister_filesystem(VFSFileSystem& fs)
 {
 	spinlock_lock(&Ananas::VFS::spl_fstypes);
-	LIST_REMOVE(&Ananas::VFS::fstypes, fs);
+	Ananas::VFS::fstypes.remove(fs);
 	spinlock_unlock(&Ananas::VFS::spl_fstypes);
 	return ananas_success();
 }
