@@ -24,6 +24,7 @@
 #include "kernel/dma.h"
 #include "kernel/irq.h"
 #include "kernel/lib.h"
+#include "kernel/list.h"
 #include "kernel/mm.h"
 #include "kernel/time.h"
 #include "kernel/trace.h"
@@ -346,7 +347,7 @@ UHCI_HCD::CancelTransfer(Transfer& xfer)
 
 	if (xfer.t_flags & TRANSFER_FLAG_PENDING) {
 		xfer.t_flags &= ~TRANSFER_FLAG_PENDING;
-		LIST_REMOVE_IP(&usb_dev.ud_transfers, pending, &xfer);
+		usb_dev.ud_transfers.remove(xfer);
 	}
 
 	return ananas_success();
@@ -457,7 +458,7 @@ UHCI_HCD::ScheduleTransfer(Transfer& xfer)
 	 */
 	KASSERT((xfer.t_flags & TRANSFER_FLAG_PENDING) == 0, "scheduling transfer that is already pending (%x)", xfer.t_flags);
 	xfer.t_flags |= TRANSFER_FLAG_PENDING;
-	LIST_APPEND_IP(&usb_dev.ud_transfers, pending, &xfer);
+	usb_dev.ud_transfers.push_back(xfer);
 	errorcode_t err = ananas_success();
 
 	/* If this is the root hub, short-circuit the request */

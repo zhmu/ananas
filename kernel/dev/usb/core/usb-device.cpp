@@ -214,7 +214,7 @@ USBDevice::Detach()
 
 	Lock();
 	KASSERT(ud_pipes.empty(), "device detach with active pipes");
-	KASSERT(LIST_EMPTY(&ud_transfers), "device detach with active transfers");
+	KASSERT(ud_transfers.empty(), "device detach with active transfers");
 
 	/* Remove the device from the bus - note that we hold the bus lock */
 	ud_bus.bus_devices.remove(*this);

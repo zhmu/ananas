@@ -383,12 +383,12 @@ RootHub::UpdateStatus()
 
 		/* Alter all entries in the transfer queue */
 		rh_Device.Lock();
-		LIST_FOREACH_IP(&rh_Device.ud_transfers, pending, xfer, Transfer) {
-			if (xfer->t_type != TRANSFER_TYPE_INTERRUPT)
+		for(auto& xfer: rh_Device.ud_transfers) {
+			if (xfer.t_type != TRANSFER_TYPE_INTERRUPT)
 				continue;
-			memcpy(&xfer->t_data, &hub_update, update_len);
-			xfer->t_result_length = update_len;
-			xfer->Complete_Locked();
+			memcpy(&xfer.t_data, &hub_update, update_len);
+			xfer.t_result_length = update_len;
+			xfer.Complete_Locked();
 		}
 		rh_Device.Unlock();
 	}

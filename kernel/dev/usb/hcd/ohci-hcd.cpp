@@ -576,7 +576,7 @@ OHCI_HCD::ScheduleTransfer(Transfer& xfer)
 	 */
 	KASSERT((xfer.t_flags & TRANSFER_FLAG_PENDING) == 0, "scheduling transfer that is already pending (%x)", xfer.t_flags);
 	xfer.t_flags |= TRANSFER_FLAG_PENDING;
-	LIST_APPEND_IP(&usb_dev.ud_transfers, pending, &xfer);
+	usb_dev.ud_transfers.push_back(xfer);
 
 	/* If this is the root hub, immediately transfer the request to it */
 	if (usb_dev.ud_flags & USB_DEVICE_FLAG_ROOT_HUB)
@@ -617,7 +617,7 @@ OHCI_HCD::CancelTransfer(Transfer& xfer)
 
 	if (xfer.t_flags & TRANSFER_FLAG_PENDING) {
 		xfer.t_flags &= ~TRANSFER_FLAG_PENDING;
-		LIST_REMOVE_IP(&usb_dev.ud_transfers, pending, &xfer);
+		usb_dev.ud_transfers.remove(xfer);
 	}
 
 	/* XXX we should see if we're still running it */

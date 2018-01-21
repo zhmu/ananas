@@ -3,6 +3,7 @@
 
 #include "kernel/lock.h"
 #include "usb-core.h"
+#include "usb-transfer.h"
 
 namespace Ananas {
 
@@ -75,7 +76,7 @@ public:
 	struct USB_DESCR_DEVICE ud_descr_device;
 
 	/* Pending transfers for this device */
-	TransferQueue ud_transfers;		/* [M] */
+	PendingTransferList ud_transfers;		/* [M] */
 
 	errorcode_t Attach();
 	errorcode_t Detach(); // called with bus lock held

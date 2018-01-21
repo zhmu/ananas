@@ -367,12 +367,12 @@ RootHub::ProcessInterruptTransfers()
 	int update_len = (rh_numports + 1 /* hub */ + 7 /* round up */) / 8;
 
 	/* Alter all entries in the transfer queue */
-	LIST_FOREACH_IP(&rh_Device.ud_transfers, pending, xfer, Transfer) {
-		if (xfer->t_type != TRANSFER_TYPE_INTERRUPT)
+	for(auto& xfer: rh_Device.ud_transfers) {
+		if (xfer.t_type != TRANSFER_TYPE_INTERRUPT)
 			continue;
-		memcpy(&xfer->t_data, hub_update, update_len);
-		xfer->t_result_length = update_len;
-		xfer->Complete_Locked();
+		memcpy(&xfer.t_data, hub_update, update_len);
+		xfer.t_result_length = update_len;
+		xfer.Complete_Locked();
 	}
 
 	rh_pending_changes = false;

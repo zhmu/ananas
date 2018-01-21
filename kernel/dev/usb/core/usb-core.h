@@ -56,7 +56,6 @@ enum usb_devstat_t {
 class Transfer;
 
 typedef void (*usb_xfer_callback_t)(Transfer&);
-LIST_DEFINE(TransferQueue, Transfer);
 
 } // namespace USB
 } // namespace Ananas

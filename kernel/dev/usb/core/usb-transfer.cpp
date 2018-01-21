@@ -1,4 +1,4 @@
-#include <ananas/types.h>
+#>include <ananas/types.h>
 #include <ananas/error.h>
 #include "kernel/device.h"
 #include "kernel/lib.h"
@@ -25,7 +25,7 @@ namespace {
 
 Thread usbtransfer_thread;
 semaphore_t usbtransfer_sem;
-TransferQueue usbtransfer_complete;
+CompletedTransferList usbtransfer_complete;
 spinlock_t usbtransfer_lock = SPINLOCK_DEFAULT_INIT;
 
 inline Device&
@@ -85,11 +85,11 @@ Transfer::Cancel_Locked()
 	// We have to ensure the transfer isn't in the completed queue; this would cause it to be re-scheduled,
 	// which we must avoid XXX We already have the device lock here - is that wise?
 	spinlock_lock(&usbtransfer_lock);
-	LIST_FOREACH_IP(&usbtransfer_complete, completed, transfer, Transfer) {
-		if (transfer != this)
+	for(auto& xfer: usbtransfer_complete){
+		if (&xfer != this)
 			continue;
 
-		LIST_REMOVE_IP(&usbtransfer_complete, completed, this);
+		usbtransfer_complete.remove(*this);
 		break;
 	}
 	spinlock_unlock(&usbtransfer_lock);
@@ -138,7 +138,7 @@ Transfer::Complete_Locked()
 
 	/* Transfer is complete, so we can remove the pending flag */
 	t_flags &= ~TRANSFER_FLAG_PENDING;
-	LIST_REMOVE_IP(&t_device.ud_transfers, pending, this);
+	t_device.ud_transfers.push_back(*this);
 
 	/*
 	 * This is generally called from interrupt context, so schedule a worker to
@@ -147,7 +147,7 @@ Transfer::Complete_Locked()
 	 */
 	if (t_callback != nullptr) {
 		spinlock_lock(&usbtransfer_lock);
-		LIST_APPEND_IP(&usbtransfer_complete, completed, this);
+		usbtransfer_complete.push_back(*this);
 		spinlock_unlock(&usbtransfer_lock);
 
 		sem_signal(&usbtransfer_sem);
@@ -176,17 +176,17 @@ transfer_thread(void* arg)
 		/* Fetch an entry from the queue */
 		while (1) {
 			spinlock_lock(&usbtransfer_lock);
-			if(LIST_EMPTY(&usbtransfer_complete)) {
+			if(usbtransfer_complete.empty()) {
 				spinlock_unlock(&usbtransfer_lock);
 				break;
 			}
-			Transfer* xfer = LIST_HEAD(&usbtransfer_complete);
-			LIST_POP_HEAD_IP(&usbtransfer_complete, completed);
+			Transfer& xfer = usbtransfer_complete.front();
+			usbtransfer_complete.pop_front();
 			spinlock_unlock(&usbtransfer_lock);
 
 			/* And handle it */
-			KASSERT(xfer->t_callback != nullptr, "xfer %p in completed list without callback?", xfer);
-			xfer->t_callback(*xfer);
+			KASSERT(xfer.t_callback != nullptr, "xfer %p in completed list without callback?", &xfer);
+			xfer.t_callback(xfer);
 
 			/*
 			 * At this point, xfer may be freed, resubmitted or simply left lingering for
@@ -199,7 +199,6 @@ transfer_thread(void* arg)
 errorcode_t
 InitializeTransfer()
 {
-	LIST_INIT(&usbtransfer_complete);
 	sem_init(&usbtransfer_sem, 0);
 
 	/* Create a kernel thread to handle USB completed messages */

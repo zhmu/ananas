@@ -6,11 +6,38 @@
 namespace Ananas {
 namespace USB {
 
+// Internal stuff so we can work with pending and completed lists
+namespace internal {
+
+template<typename T>
+struct PendingNode
+{
+	static typename util::List<T>::Node& Get(T& t) {
+		return t.t_Pending;
+	}
+};
+
+template<typename T>
+struct CompletedNode
+{
+	static typename util::List<T>::Node& Get(T& t) {
+		return t.t_Completed;
+	}
+};
+
+template<typename T> using TransferPendingNodeAccessor = typename util::List<T>::template nodeptr_accessor<PendingNode<T> >;
+template<typename T> using TransferCompletedNodeAccessor = typename util::List<T>::template nodeptr_accessor<CompletedNode<T> >;
+
+} // namespace internal
+
+typedef util::List<Transfer, internal::TransferPendingNodeAccessor<Transfer> > PendingTransferList;
+typedef util::List<Transfer, internal::TransferCompletedNodeAccessor<Transfer> > CompletedTransferList;
+
 class USBDevice;
 
 /*
  * A generic transfer to an USB device; used to issue any transfer type to any
- * breakpoint.
+ * endpoint.
  *
  * This structure is locked using the device lock (xfer_device); all members
  * that are protected using that lock are marked with a [D].
@@ -62,10 +89,9 @@ public:
 	void Complete_Locked();
 
 	/* List of pending transfers */
-	LIST_FIELDS_IT(Transfer, pending);
-
+	util::List<Transfer>::Node	t_Pending;
 	/* List of completed transfers */
-	LIST_FIELDS_IT(Transfer, completed);
+	util::List<Transfer>::Node	t_Completed;
 };
 
 Transfer* AllocateTransfer(USBDevice& dev, int type, int flags, int endpt, size_t maxlen);
