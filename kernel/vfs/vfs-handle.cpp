@@ -51,7 +51,7 @@ vfshandle_write(Thread* t, handleindex_t index, struct HANDLE* handle, const voi
 static errorcode_t
 vfshandle_open(Thread* t, handleindex_t index, struct HANDLE* handle, const char* path, int flags, int mode)
 {
-	process_t* proc = t->t_process;
+	Process& proc = *t->t_process;
 
 	/*
 	 * If we could try to create the file, do so - if this fails, we'll attempt
@@ -60,7 +60,7 @@ vfshandle_open(Thread* t, handleindex_t index, struct HANDLE* handle, const char
 	 */
 	if (flags & O_CREAT) {
 		/* Attempt to create the new file - if this works, we're all set */
-		errorcode_t err = vfs_create(proc->p_cwd, &handle->h_data.d_vfs_file, path, mode);
+		errorcode_t err = vfs_create(proc.p_cwd, &handle->h_data.d_vfs_file, path, mode);
 		if (ananas_is_success(err))
 			return err;
 
@@ -79,11 +79,11 @@ vfshandle_open(Thread* t, handleindex_t index, struct HANDLE* handle, const char
 
 	/* And open the path */
 	TRACE(SYSCALL, INFO, "opening path '%s'", path);
-	return vfs_open(path, proc->p_cwd, &handle->h_data.d_vfs_file);
+	return vfs_open(path, proc.p_cwd, &handle->h_data.d_vfs_file);
 }
 
 static errorcode_t
-vfshandle_free(process_t* proc, struct HANDLE* handle)
+vfshandle_free(Process& proc, struct HANDLE* handle)
 {
 	/* If we have a backing dentry, dereference it - this will free it if needed */
 	DEntry* dentry = handle->h_data.d_vfs_file.f_dentry;
@@ -103,7 +103,7 @@ vfshandle_unlink(Thread* t, handleindex_t index, struct HANDLE* handle)
 }
 
 static errorcode_t
-vfshandle_clone(process_t* p_in, handleindex_t index_in, struct HANDLE* handle_in, struct CLONE_OPTIONS* opts, process_t* proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
+vfshandle_clone(Process& p_in, handleindex_t index_in, struct HANDLE* handle_in, struct CLONE_OPTIONS* opts, Process& proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
 {
 	struct VFS_FILE* file;
 	errorcode_t err = vfshandle_get_file(handle_in, &file);

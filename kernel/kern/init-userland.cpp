@@ -60,16 +60,16 @@ userinit_func(void*)
 		thread_exit(0);
 	}
 
-	process_t* proc;
-	err = process_alloc(NULL, &proc);
+	Process* proc;
+	err = process_alloc(NULL, proc);
 	if (ananas_is_failure(err)) {
 		kprintf("couldn't create process, %i\n", err);
 		thread_exit(0);
 	}
 
 	Thread* t;
-	err = thread_alloc(proc, t, "init", THREAD_ALLOC_DEFAULT);
-	process_deref(proc); /* 't' should have a ref, we don't need it anymore */
+	err = thread_alloc(*proc, t, "init", THREAD_ALLOC_DEFAULT);
+	process_deref(*proc); /* 't' should have a ref, we don't need it anymore */
 	if (ananas_is_failure(err)) {
 		kprintf("couldn't create thread, %i\n", err);
 		thread_exit(0);
@@ -85,8 +85,8 @@ userinit_func(void*)
 
 	const char args[] = "init\0\0";
 	const char env[] = "OS=Ananas\0USER=root\0\0";
-	process_set_args(proc, args, sizeof(args));
-	process_set_environment(proc, env, sizeof(env));
+	process_set_args(*proc, args, sizeof(args));
+	process_set_environment(*proc, env, sizeof(env));
 
 	addr_t exec_addr;
 	register_t exec_arg;

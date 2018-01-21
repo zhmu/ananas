@@ -11,7 +11,7 @@ sys_open(Thread* t, const char* path, int flags, int mode, handleindex_t* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, path='%s', flags=%d, mode=%o", t, path, flags, mode);
 	errorcode_t err;
-	process_t* proc = t->t_process;
+	Process& proc = *t->t_process;
 
 	/* Obtain a new handle */
 	struct HANDLE* handle_out;

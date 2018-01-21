@@ -11,14 +11,14 @@ errorcode_t
 sys_rename(Thread* t, const char* oldpath, const char* newpath)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, oldpath='%s' newpath='%s'", t, oldpath, newpath);
-	process_t* proc = t->t_process;
-	DEntry* cwd = proc->p_cwd;
+	Process& proc = *t->t_process;
+	DEntry* cwd = proc.p_cwd;
 
 	struct VFS_FILE file;
 	errorcode_t err = vfs_open(oldpath, cwd, &file);
 	ANANAS_ERROR_RETURN(err);
 
-	err = vfs_rename(&file, proc->p_cwd, newpath);
+	err = vfs_rename(&file, cwd, newpath);
 	vfs_close(&file);
 	return err;
 }

@@ -34,7 +34,7 @@ public:
 	{
 	}
 
-	errorcode_t DeviceControl(process_t* proc, unsigned int op, void* buffer, size_t len) override
+	errorcode_t DeviceControl(Process& proc, unsigned int op, void* buffer, size_t len) override
 	{
 		return ANANAS_ERROR(BAD_OPERATION);
 	}

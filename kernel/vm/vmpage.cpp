@@ -20,7 +20,7 @@
 
 static inline int get_pid()
 {
-  process_t* p = PCPU_GET(curthread)->t_process;
+  Process* p = PCPU_GET(curthread)->t_process;
   return p != nullptr ? p->p_pid : 0;
 }
 

@@ -38,13 +38,13 @@ static spinlock_t spl_threadqueue = SPINLOCK_DEFAULT_INIT;
 static ThreadList allThreads;
 
 errorcode_t
-thread_alloc(process_t* p, Thread*& dest, const char* name, int flags)
+thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
 {
 	/* First off, allocate the thread itself */
 	auto t = new Thread;
 	memset(t, 0, sizeof(Thread));
 	process_ref(p);
-	t->t_process = p;
+	t->t_process = &p;
 	t->t_flags = THREAD_FLAG_MALLOC;
 	t->t_refcount = 1; /* caller */
 	thread_set_name(*t, name);
@@ -55,11 +55,11 @@ thread_alloc(process_t* p, Thread*& dest, const char* name, int flags)
 
 	/* Ask machine-dependant bits to initialize our thread data */
 	md_thread_init(*t, flags);
-	md_thread_set_argument(*t, p->p_info_va);
+	md_thread_set_argument(*t, p.p_info_va);
 
 	/* If we don't yet have a main thread, this thread will become the main */
-	if (p->p_mainthread == NULL)
-		p->p_mainthread = t;
+	if (p.p_mainthread == NULL)
+		p.p_mainthread = t;
 
 	/* Initialize scheduler-specific parts */
 	scheduler_init_thread(*t);
@@ -107,9 +107,9 @@ kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg)
 static void
 thread_cleanup(Thread& t)
 {
-	struct PROCESS* p = t.t_process;
+	Process* p = t.t_process;
 	KASSERT((t.t_flags & THREAD_FLAG_ZOMBIE) == 0, "cleaning up zombie thread %p", &t);
-	KASSERT((t.t_flags & THREAD_FLAG_KTHREAD) != 0 || p != NULL, "thread without process");
+	KASSERT((t.t_flags & THREAD_FLAG_KTHREAD) != 0 || p != nullptr, "thread without process");
 
 	/*
 	 * Signal anyone waiting on the thread; the terminate information should
@@ -135,7 +135,7 @@ thread_destroy(Thread& t)
 
 	/* Unreference the associated process */
 	if (t.t_process != nullptr)
-		process_deref(t.t_process);
+		process_deref(*t.t_process);
 	t.t_process = nullptr;
 
 	/* If we aren't reaping the thread, remove it from our thread queue; it'll be gone soon */
@@ -257,8 +257,8 @@ thread_exit(int exitcode)
 	thread->t_terminate_info = exitcode;
 
 	/* If we are the process' main thread, mark it as exiting */
-	if (thread->t_process != NULL && thread->t_process->p_mainthread == thread)
-		process_exit(thread->t_process, exitcode);
+	if (thread->t_process != nullptr && thread->t_process->p_mainthread == thread)
+		process_exit(*thread->t_process, exitcode);
 
 	/*
 	 * Dereference our own thread handle; this will cause a transition to
@@ -284,9 +284,9 @@ thread_set_name(Thread& t, const char* name)
 }
 
 errorcode_t
-thread_clone(process_t* proc, Thread*& out_thread)
+thread_clone(Process& proc, Thread*& out_thread)
 {
-	TRACE(THREAD, FUNC, "proc=%p", proc);
+	TRACE(THREAD, FUNC, "proc=%p", &proc);
 	Thread* curthread = PCPU_GET(curthread);
 
 	Thread* t;

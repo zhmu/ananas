@@ -35,10 +35,8 @@ handle_init()
 }
 
 errorcode_t
-handle_alloc(int type, process_t* proc, handleindex_t index_from, struct HANDLE** handle_out, handleindex_t* index_out)
+handle_alloc(int type, Process& proc, handleindex_t index_from, struct HANDLE** handle_out, handleindex_t* index_out)
 {
-	KASSERT(proc != NULL, "handle_alloc() without process");
-
 	/* Look up the handle type XXX O(n) */
 	HandleType* htype = nullptr;
 	spinlock_lock(&spl_handletypes);
@@ -68,17 +66,17 @@ handle_alloc(int type, process_t* proc, handleindex_t index_from, struct HANDLE*
 	/* Initialize the handle */
 	mutex_init(&handle->h_mutex, "handle");
 	handle->h_type = type;
-	handle->h_process = proc;
+	handle->h_process = &proc;
 	handle->h_hops = htype->ht_hops;
 	handle->h_flags = 0;
 
 	/* Hook the handle to the process */
 	process_lock(proc);
 	handleindex_t n = index_from;
-	while(n < PROCESS_MAX_HANDLES && proc->p_handle[n] != NULL)
+	while(n < PROCESS_MAX_HANDLES && proc.p_handle[n] != nullptr)
 		n++;
 	if (n < PROCESS_MAX_HANDLES)
-		proc->p_handle[n] = handle;
+		proc.p_handle[n] = handle;
 	process_unlock(proc);
 
 	if (n == PROCESS_MAX_HANDLES)
@@ -86,20 +84,19 @@ handle_alloc(int type, process_t* proc, handleindex_t index_from, struct HANDLE*
 
 	*handle_out = handle;
 	*index_out = n;
-	TRACE(HANDLE, INFO, "process=%p, type=%u => handle=%p, index=%u", proc, type, handle, n);
+	TRACE(HANDLE, INFO, "process=%p, type=%u => handle=%p, index=%u", &proc, type, handle, n);
 	return ananas_success();
 }
 
 errorcode_t
-handle_lookup(process_t* proc, handleindex_t index, int type, struct HANDLE** handle_out)
+handle_lookup(Process& proc, handleindex_t index, int type, struct HANDLE** handle_out)
 {
-	KASSERT(proc != NULL, "handle_lookup() without process");
 	if(index < 0 || index >= PROCESS_MAX_HANDLES)
 		return ANANAS_ERROR(BAD_HANDLE);
 
 	/* Obtain the handle XXX How do we ensure it won't get freed after this? Should we ref it? */
 	process_lock(proc);
-	struct HANDLE* handle = proc->p_handle[index];
+	struct HANDLE* handle = proc.p_handle[index];
 	process_unlock(proc);
 
 	/* ensure handle exists - we don't verify ownership: it _is_ in the thread's handle table... */
@@ -125,14 +122,14 @@ handle_free(struct HANDLE* handle)
 	mutex_lock(&handle->h_mutex);
 
 	/* Remove us from the thread handle queue, if necessary */
-	process_t* proc = handle->h_process;
-	if (proc != NULL) {
-		process_lock(proc);
+	Process* proc = handle->h_process;
+	if (proc != nullptr) {
+		process_lock(*proc);
 		for (handleindex_t n = 0; n < PROCESS_MAX_HANDLES; n++) {
 			if (proc->p_handle[n] == handle)
 				proc->p_handle[n] = NULL;
 		}
-		process_unlock(proc);
+		process_unlock(*proc);
 	}
 
 	/*
@@ -140,7 +137,7 @@ handle_free(struct HANDLE* handle)
 	 * no special action is needed.
 	 */
 	if (handle->h_hops->hop_free != NULL) {
-		errorcode_t err = handle->h_hops->hop_free(proc, handle);
+		errorcode_t err = handle->h_hops->hop_free(*proc, handle);
 		ANANAS_ERROR_RETURN(err);
 	}
 
@@ -164,7 +161,7 @@ handle_free(struct HANDLE* handle)
 }
 
 errorcode_t
-handle_free_byindex(process_t* proc, handleindex_t index)
+handle_free_byindex(Process& proc, handleindex_t index)
 {
 	/* Look the handle up */
 	struct HANDLE* handle;
@@ -175,7 +172,7 @@ handle_free_byindex(process_t* proc, handleindex_t index)
 }
 
 errorcode_t
-handle_clone_generic(struct HANDLE* handle_in, process_t* proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
+handle_clone_generic(struct HANDLE* handle_in, Process& proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
 {
 	errorcode_t err = handle_alloc(handle_in->h_type, proc_out, index_out_min, handle_out, index_out);
 	ANANAS_ERROR_RETURN(err);
@@ -184,7 +181,7 @@ handle_clone_generic(struct HANDLE* handle_in, process_t* proc_out, struct HANDL
 }
 
 errorcode_t
-handle_clone(process_t* proc_in, handleindex_t index, struct CLONE_OPTIONS* opts, process_t* proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
+handle_clone(Process& proc_in, handleindex_t index, struct CLONE_OPTIONS* opts, Process& proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
 {
 	struct HANDLE* handle;
 	errorcode_t err = handle_lookup(proc_in, index, HANDLE_TYPE_ANY, &handle);

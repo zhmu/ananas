@@ -11,7 +11,7 @@ errorcode_t
 sys_fcntl(Thread* t, handleindex_t hindex, int cmd, const void* in, void* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, hindex=%d cmd=%d", t, hindex, cmd);
-	process_t* process = t->t_process;
+	Process& process = *t->t_process;
 
 	/* Get the handle */
 	struct HANDLE* h;

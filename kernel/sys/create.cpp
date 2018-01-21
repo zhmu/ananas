@@ -13,7 +13,7 @@ sys_create(Thread* t, struct CREATE_OPTIONS* opts, handleindex_t* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, opts=%p, out=%p", t, opts, out);
 	errorcode_t err;
-	process_t* proc = t->t_process;
+	Process& proc = *t->t_process;
 
 	/* Obtain arguments */
 	struct CREATE_OPTIONS cropts;

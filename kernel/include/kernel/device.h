@@ -12,6 +12,7 @@ typedef struct DRIVER* driver_t;
 typedef struct PROBE* probe_t;
 
 struct BIO;
+struct Process;
 
 namespace Ananas {
 
@@ -26,7 +27,7 @@ public:
 	virtual errorcode_t Detach() = 0;
 	virtual void DebugDump() { }
 
-	virtual errorcode_t DeviceControl(process_t* proc, unsigned int op, void* buffer, size_t len)
+	virtual errorcode_t DeviceControl(Process& proc, unsigned int op, void* buffer, size_t len)
 	{
 		return ananas_make_error(ANANAS_ERROR_UNSUPPORTED);
 	}

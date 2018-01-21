@@ -13,8 +13,8 @@ errorcode_t
 sys_chdir(Thread* t, const char* path)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, path='%s'", t, path);
-	process_t* proc = t->t_process;
-	DEntry* cwd = proc->p_cwd;
+	Process& proc = *t->t_process;
+	DEntry* cwd = proc.p_cwd;
 
 	struct VFS_FILE file;
 	errorcode_t err = vfs_open(path, cwd, &file);
@@ -25,7 +25,7 @@ sys_chdir(Thread* t, const char* path)
 	/* Open succeeded - now update the cwd */
 	DEntry& new_cwd = *file.f_dentry;
 	dentry_ref(new_cwd);
-	proc->p_cwd = &new_cwd;
+	proc.p_cwd = &new_cwd;
 	dentry_deref(*cwd);
 
 	vfs_close(&file);

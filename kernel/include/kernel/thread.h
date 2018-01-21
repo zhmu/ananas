@@ -12,6 +12,7 @@
 typedef void (*kthread_func_t)(void*);
 struct VM_SPACE;
 struct STACKFRAME;
+struct Process;
 
 #define THREAD_MAX_NAME_LEN 32
 #define THREAD_EVENT_EXIT 1
@@ -49,7 +50,7 @@ struct Thread : public util::List<Thread>::NodePtr {
 #define THREAD_TERM_SYSCALL	0	/* euthanasia */
 #define THREAD_TERM_SIGNAL 1	/* terminated by signal */
 
-	struct PROCESS*		t_process;	/* associated process */
+	Process*		t_process;	/* associated process */
 
 	int t_priority;			/* priority (0 highest) */
 #define THREAD_PRIORITY_DEFAULT	200
@@ -91,7 +92,7 @@ errorcode_t kthread_init(Thread& t, const char* name, kthread_func_t func, void*
 #define THREAD_ALLOC_DEFAULT	0	/* Nothing special */
 #define THREAD_ALLOC_CLONE	1	/* Thread is created for cloning */
 
-errorcode_t thread_alloc(process_t* p, Thread*& dest, const char* name, int flags);
+errorcode_t thread_alloc(Process& p, Thread*& dest, const char* name, int flags);
 void thread_ref(Thread& t);
 void thread_deref(Thread& t);
 void thread_set_name(Thread& t, const char* name);
@@ -113,7 +114,7 @@ void thread_resume(Thread& t);
 void thread_sleep(tick_t num_ticks);
 void thread_exit(int exitcode);
 void thread_dump(int num_args, char** arg);
-errorcode_t thread_clone(process_t* proc, Thread*& dest);
+errorcode_t thread_clone(Process& proc, Thread*& dest);
 
 void thread_signal_waiters(Thread& t);
 void thread_wait(Thread& t);

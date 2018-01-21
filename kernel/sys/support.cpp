@@ -11,14 +11,14 @@ TRACE_SETUP;
 errorcode_t
 syscall_get_handle(Thread& t, handleindex_t hindex, struct HANDLE** out)
 {
-	return handle_lookup(t.t_process, hindex, HANDLE_TYPE_ANY, out);
+	return handle_lookup(*t.t_process, hindex, HANDLE_TYPE_ANY, out);
 }
 
 errorcode_t
 syscall_get_file(Thread& t, handleindex_t hindex, struct VFS_FILE** out)
 {
 	struct HANDLE* handle;
-	errorcode_t err = handle_lookup(t.t_process, hindex, HANDLE_TYPE_ANY, &handle);
+	errorcode_t err = handle_lookup(*t.t_process, hindex, HANDLE_TYPE_ANY, &handle);
 	ANANAS_ERROR_RETURN(err);
 
 	struct VFS_FILE* file = &((struct HANDLE*)handle)->h_data.d_vfs_file;

@@ -14,14 +14,14 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace Process {
+namespace process {
 
 extern mutex_t process_mtx;
-extern struct PROCESS_QUEUE process_all;
+extern process::ProcessList process_all;
 
-} // namespace Process
+} // namespace process
 
+namespace Ananas {
 namespace AnkhFS {
 
 namespace {
@@ -40,24 +40,24 @@ HandleReadDir_Proc_Root(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	struct FetchEntry : IReadDirCallback {
 		bool FetchNextEntry(char* entry, size_t maxLength, ino_t& inum) override {
-			if (currentProcess == nullptr)
+			if (currentProcess == process::process_all.end())
 				return false;
 
 			// XXX we should lock currentProcess here
 			snprintf(entry, maxLength, "%d", static_cast<int>(currentProcess->p_pid));
 			inum = make_inum(SS_Proc, currentProcess->p_pid, 0);
-			currentProcess = LIST_NEXT_IP(currentProcess, all);
+			++currentProcess;
 			return true;
 		}
 
-		process_t* currentProcess = LIST_HEAD(&Process::process_all);
+		process::ProcessList::iterator currentProcess = process::process_all.begin();
 	};
 
 	// Fill the root directory with one directory per process ID
-	mutex_lock(&Process::process_mtx);
+	mutex_lock(&process::process_mtx);
 	FetchEntry entryFetcher;
 	errorcode_t err = HandleReadDir(file, dirents, len, entryFetcher);
-	mutex_unlock(&Process::process_mtx);
+	mutex_unlock(&process::process_mtx);
 	return err;
 }
 
@@ -90,7 +90,7 @@ public:
 		ino_t inum = file->f_dentry->d_inode->i_inum;
 
 		pid_t pid = static_cast<pid_t>(inum_to_id(inum));
-		process_t* p = process_lookup_by_id_and_ref(pid);
+		Process* p = process_lookup_by_id_and_ref(pid);
 		if (p == nullptr)
 			return ANANAS_ERROR(IO);
 
@@ -119,7 +119,7 @@ public:
 			}
 		}
 		result[sizeof(result) - 1] = '\0';
-		process_deref(p);
+		process_deref(*p);
 		return AnkhFS::HandleRead(file, buf, len, result);
 	}
 };

@@ -23,7 +23,7 @@ errorcode_t
 md_thread_init(Thread& t, int flags)
 {
 	/* Create a stack if we aren't cloning - otherwise, we'll just copy the parent's stack instead */
-	process_t* proc = t.t_process;
+	Process* proc = t.t_process;
 	if ((flags & THREAD_ALLOC_CLONE) == 0) {
 		VMArea* va;
 		errorcode_t err = vmspace_mapto(*proc->p_vmspace, USERLAND_STACK_ADDR, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_FAULT | VM_FLAG_MD, va);

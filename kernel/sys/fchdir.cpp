@@ -12,8 +12,8 @@ errorcode_t
 sys_fchdir(Thread* t, handleindex_t index)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, index=%d'", t, index);
-	process_t* proc = t->t_process;
-	DEntry& cwd = *proc->p_cwd;
+	Process& proc = *t->t_process;
+	DEntry& cwd = *proc.p_cwd;
 
 	/* Get the handle */
 	struct HANDLE* h;
@@ -26,7 +26,7 @@ sys_fchdir(Thread* t, handleindex_t index)
         struct VFS_FILE* file = &h->h_data.d_vfs_file;
 	DEntry& new_cwd = *file->f_dentry;
 	dentry_ref(new_cwd);
-	proc->p_cwd = &new_cwd;
+	proc.p_cwd = &new_cwd;
 	dentry_deref(cwd);
 
 	return err;

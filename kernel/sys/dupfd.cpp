@@ -11,7 +11,7 @@ sys_dupfd(Thread* t, handleindex_t index, int flags, handleindex_t* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, index=%d, flags=%d", t, index, flags);
 
-	process_t* process = t->t_process;
+	Process& process = *t->t_process;
 	handleindex_t new_idx = 0;
 	if (flags & HANDLE_DUPFD_TO) {
 		new_idx = *out;

@@ -2,7 +2,7 @@
 #define __PROCESS_H__
 
 #include <ananas/limits.h>
-#include "kernel/list.h"
+#include <ananas/util/list.h>
 #include "kernel/lock.h"
 
 struct DEntry;
@@ -14,10 +14,49 @@ class VMSpace;
 #define PROCESS_STATE_ACTIVE	1
 #define PROCESS_STATE_ZOMBIE	2
 
-struct PROCESS;
-LIST_DEFINE(PROCESS_QUEUE, struct PROCESS);
+struct Process;
 
-struct PROCESS {
+namespace process {
+
+// Internal stuff so we can work with children and all nodes
+namespace internal {
+
+template<typename T>
+struct AllNode
+{
+	static typename util::List<T>::Node& Get(T& t) {
+		return t.p_NodeAll;
+	}
+};
+
+template<typename T>
+struct ChildrenNode
+{
+	static typename util::List<T>::Node& Get(T& t) {
+		return t.p_NodeChildren;
+	}
+};
+
+template<typename T> using ProcessAllNodeAccessor = typename util::List<T>::template nodeptr_accessor<AllNode<T> >;
+template<typename T> using ProcessChildrenNodeAccessor = typename util::List<T>::template nodeptr_accessor<ChildrenNode<T> >;
+
+}
+
+typedef util::List<::Process, internal::ProcessAllNodeAccessor<::Process> > ChildrenList;
+typedef util::List<::Process, internal::ProcessChildrenNodeAccessor<::Process> > ProcessList;
+
+// Callbacks so we can organise things when needed
+typedef errorcode_t (*process_callback_t)(Process& proc);
+struct Callback : util::List<Callback>::NodePtr {
+	Callback(process_callback_t func) : pc_func(func) { }
+	process_callback_t pc_func;
+};
+typedef util::List<Callback> CallbackList;
+
+} // namespace process
+
+
+struct Process {
 	mutex_t p_lock;	/* Locks the process */
 
 	unsigned int p_state;		/* Process state */
@@ -26,7 +65,7 @@ struct PROCESS {
 	pid_t	p_pid;	/* Process ID */
 	int	p_exit_status;		/* Exit status / code */
 
-	struct PROCESS* p_parent;	/* Parent process, if any */
+	Process* 	p_parent;	/* Parent process, if any */
 	VMSpace*	p_vmspace;	/* Process memory space */
 
 	struct PROCINFO* p_info;	/* Process startup information */
@@ -38,67 +77,61 @@ struct PROCESS {
 
 	DEntry*	p_cwd;		/* Current path */
 
-	struct PROCESS_QUEUE	p_children;	/* Queue of this process' children */
+	process::ChildrenList	p_children;	// List of this process' children
 
-        LIST_FIELDS_IT(struct PROCESS, all);
-        LIST_FIELDS_IT(struct PROCESS, children);
+	util::List<Process>::Node p_NodeAll;
+	util::List<Process>::Node p_NodeChildren;
 };
 
-static inline void process_lock(process_t* p)
+static inline void process_lock(Process& p)
 {
-	mutex_lock(&p->p_lock);
+	mutex_lock(&p.p_lock);
 }
 
-static inline void process_unlock(process_t* p)
+static inline void process_unlock(Process& p)
 {
-	mutex_unlock(&p->p_lock);
+	mutex_unlock(&p.p_lock);
 }
 
-errorcode_t process_alloc(process_t* parent, process_t** dest);
+errorcode_t process_alloc(Process* parent, Process*& dest);
 
-void process_ref(process_t* p);
-void process_deref(process_t* p);
-void process_exit(process_t* p, int status);
-errorcode_t process_set_args(process_t* p, const char* args, size_t args_len);
-errorcode_t process_set_environment(process_t* p, const char* env, size_t env_len);
-errorcode_t process_clone(process_t* p, int flags, process_t** out_p);
-errorcode_t process_wait_and_lock(process_t* p, int flags, process_t** p_out);
-process_t* process_lookup_by_id_and_ref(pid_t pid);
+void process_ref(Process& p);
+void process_deref(Process& p);
+void process_exit(Process& p, int status);
+errorcode_t process_set_args(Process& p, const char* args, size_t args_len);
+errorcode_t process_set_environment(Process& p, const char* env, size_t env_len);
+errorcode_t process_clone(Process& p, int flags, Process*& out_p);
+errorcode_t process_wait_and_lock(Process& p, int flags, Process*& p_out);
+Process* process_lookup_by_id_and_ref(pid_t pid);
 
 /*
  * Process callback functions are provided so that modules can take action upon
  * creating or destroying of processes.
  */
-typedef errorcode_t (*process_callback_t)(process_t* proc);
-struct PROCESS_CALLBACK {
-	process_callback_t pc_func;
-	LIST_FIELDS(struct PROCESS_CALLBACK);
-};
-LIST_DEFINE(PROCESS_CALLBACKS, struct PROCESS_CALLBACK);
 
-errorcode_t process_register_init_func(struct PROCESS_CALLBACK* pc);
-errorcode_t process_register_exit_func(struct PROCESS_CALLBACK* pc);
-errorcode_t process_unregister_init_func(struct PROCESS_CALLBACK* pc);
-errorcode_t process_unregister_exit_func(struct PROCESS_CALLBACK* pc);
+errorcode_t process_register_init_func(process::Callback& pc);
+errorcode_t process_register_exit_func(process::Callback& pc);
+errorcode_t process_unregister_init_func(process::Callback& pc);
+errorcode_t process_unregister_exit_func(process::Callback& pc);
 
 #define REGISTER_PROCESS_INIT_FUNC(fn) \
-	static struct PROCESS_CALLBACK cb_init_##fn = { .pc_func = fn }; \
+	static process::Callback cb_init_##fn(fn); \
 	static errorcode_t register_##fn() { \
-		return process_register_init_func(&cb_init_##fn); \
+		return process_register_init_func(cb_init_##fn); \
 	} \
 	static errorcode_t unregister_##fn() { \
-		return process_unregister_init_func(&cb_init_##fn); \
+		return process_unregister_init_func(cb_init_##fn); \
 	} \
 	INIT_FUNCTION(register_##fn, SUBSYSTEM_THREAD, ORDER_FIRST); \
 	EXIT_FUNCTION(unregister_##fn)
 
 #define REGISTER_PROCESS_EXIT_FUNC(fn) \
-	static struct PROCESS_CALLBACK cb_exit_##fn = { .pc_func = fn }; \
+	static process::Callback cb_exit_##fn(fn); \
 	static errorcode_t register_##fn() { \
-		return process_register_exit_func(&cb_exit_##fn); \
+		return process_register_exit_func(cb_exit_##fn); \
 	} \
 	static errorcode_t unregister_##fn() { \
-		return process_unregister_exit_func(&cb_exit_##fn); \
+		return process_unregister_exit_func(cb_exit_##fn); \
 	} \
 	INIT_FUNCTION(register_##fn, SUBSYSTEM_THREAD, ORDER_FIRST); \
 	EXIT_FUNCTION(unregister_##fn)

@@ -18,7 +18,7 @@ enum SET_PROC_ATTR {
 };
 
 static errorcode_t
-set_proc_attribute(process_t* process, enum SET_PROC_ATTR attr, const char** list)
+set_proc_attribute(Process& process, enum SET_PROC_ATTR attr, const char** list)
 {
 	char buf[PROCINFO_ENV_LENGTH];
 
@@ -51,11 +51,11 @@ errorcode_t
 sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, path='%s'", t, path);
-	process_t* proc = t->t_process;
+	Process& proc = *t->t_process;
 
 	/* First step is to open the file */
 	struct VFS_FILE file;
-	errorcode_t err = vfs_open(path, proc->p_cwd, &file);
+	errorcode_t err = vfs_open(path, proc.p_cwd, &file);
 	ANANAS_ERROR_RETURN(err);
 
 	/*
@@ -113,7 +113,7 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 		thread_set_name(*t, argv[0]);
 
 	/* Copy the new vmspace to the destination */
-	err = vmspace_clone(*vmspace, *proc->p_vmspace, VMSPACE_CLONE_EXEC);
+	err = vmspace_clone(*vmspace, *proc.p_vmspace, VMSPACE_CLONE_EXEC);
 	KASSERT(ananas_is_success(err), "unable to clone exec vmspace: %d", err);
 	vmspace_destroy(*vmspace);
 
