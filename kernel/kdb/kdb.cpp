@@ -15,9 +15,7 @@
 
 TRACE_SETUP;
 
-LIST_DEFINE(KDB_COMMANDS, struct KDB_COMMAND);
-
-static struct KDB_COMMANDS kdb_commands;
+static util::List<KDBCommand> kdb_commands;
 
 #define KDB_MAX_LINE 128
 #define KDB_MAX_ARGS 16
@@ -41,9 +39,9 @@ kdb_resolve_argtype(const char* q)
 }
 
 errorcode_t
-kdb_register_command(struct KDB_COMMAND* cmd)
+kdb_register_command(KDBCommand& cmd)
 {
-	if (cmd->cmd_args != NULL) {
+	if (cmd.cmd_args != NULL) {
 		/*
 		 * Arguments must be either 'type:description' or '[type:description]' -
 		 * check here if that matches up and refuse to add the command otherwise.
@@ -52,7 +50,7 @@ kdb_register_command(struct KDB_COMMAND* cmd)
 		 * optional ones.
 		 */
 		int have_opt = 0;
-		for (const char* a = cmd->cmd_args; *a != '\0'; /* nothing */) {
+		for (const char* a = cmd.cmd_args; *a != '\0'; /* nothing */) {
 			/* Locate the terminator of this argument */
 			const char* end = strchr(a, ' ');
 			if (end == NULL)
@@ -62,7 +60,7 @@ kdb_register_command(struct KDB_COMMAND* cmd)
 			if (*a == '[') {
 				const char* p = strchr(a, ']');
 				if (p == NULL || p >= end) {
-					kprintf("KDB: command '%s' rejected, end of argument not found (%s)\n", cmd->cmd_command, a);
+					kprintf("KDB: command '%s' rejected, end of argument not found (%s)\n", cmd.cmd_command, a);
 					return ANANAS_ERROR(BAD_TYPE);
 				}
 				a++; /* skip [ */
@@ -70,24 +68,24 @@ kdb_register_command(struct KDB_COMMAND* cmd)
 				have_opt++;
 			} else {
 				if (have_opt) {
-					kprintf("KDB: command '%s' rejected, required arguments after optional ones (%s)\n", cmd->cmd_command, a);
+					kprintf("KDB: command '%s' rejected, required arguments after optional ones (%s)\n", cmd.cmd_command, a);
 					return ANANAS_ERROR(BAD_TYPE);
 				}
 			}
 
 			const char* split = strchr(a, ':');
 			if (split == NULL || split >= end) {
-				kprintf("KDB: command '%s' rejected, type/description split not found\n", cmd->cmd_command);
+				kprintf("KDB: command '%s' rejected, type/description split not found\n", cmd.cmd_command);
 				return ANANAS_ERROR(BAD_TYPE);
 			}
 
 			if (split - a != 1) {
-				kprintf("KDB: command '%s' rejected, expected a single type char, got '%s'\n", cmd->cmd_command, a);
+				kprintf("KDB: command '%s' rejected, expected a single type char, got '%s'\n", cmd.cmd_command, a);
 				return ANANAS_ERROR(BAD_TYPE);
 			}
 
 			if (kdb_resolve_argtype(a) == T_INVALID) {
-				kprintf("KDB: command '%s' rejected, invalid type '%s'\n", cmd->cmd_command, a);
+				kprintf("KDB: command '%s' rejected, invalid type '%s'\n", cmd.cmd_command, a);
 				return ANANAS_ERROR(BAD_TYPE);
 			}
 
@@ -97,7 +95,7 @@ kdb_register_command(struct KDB_COMMAND* cmd)
 				a++;
 		}
 	}
-	LIST_APPEND(&kdb_commands, cmd);
+	kdb_commands.push_back(cmd);
 	return ananas_success();
 }
 
@@ -108,20 +106,20 @@ KDB_COMMAND(help, NULL, "Displays this help")
 	 * pretty printing
 	 */
 	int max_cmd_len = 0, max_args_len = 0;
-	LIST_FOREACH(&kdb_commands, cmd, struct KDB_COMMAND) {
-		if (strlen(cmd->cmd_command) > max_cmd_len)
-			max_cmd_len = strlen(cmd->cmd_command);
-		if (cmd->cmd_args != NULL && strlen(cmd->cmd_args) > max_args_len)
-			max_args_len = strlen(cmd->cmd_args);
+	for(auto& cmd: kdb_commands) {
+		if (strlen(cmd.cmd_command) > max_cmd_len)
+			max_cmd_len = strlen(cmd.cmd_command);
+		if (cmd.cmd_args != nullptr && strlen(cmd.cmd_args) > max_args_len)
+			max_args_len = strlen(cmd.cmd_args);
 	}
 
 	/* Now off to print! */
-	LIST_FOREACH(&kdb_commands, cmd, struct KDB_COMMAND) {
-		kprintf("%s", cmd->cmd_command);
-		kprintf(" %s", (cmd->cmd_args != NULL) ? cmd->cmd_args : "");
-		for (int n = (cmd->cmd_args != NULL ? strlen(cmd->cmd_args) : 0) + strlen(cmd->cmd_command); n < (max_cmd_len + 1 + max_cmd_len + 1); n++)
+	for(auto& cmd: kdb_commands) {
+		kprintf("%s", cmd.cmd_command);
+		kprintf(" %s", (cmd.cmd_args != NULL) ? cmd.cmd_args : "");
+		for (int n = (cmd.cmd_args != NULL ? strlen(cmd.cmd_args) : 0) + strlen(cmd.cmd_command); n < (max_cmd_len + 1 + max_cmd_len + 1); n++)
 			kprintf(" ");
-		kprintf("%s\n", cmd->cmd_help);
+		kprintf("%s\n", cmd.cmd_help);
 	}
 }
 
@@ -238,15 +236,16 @@ kdb_enter(const char* why)
 		}
 
 		/* Locate the command */
-		struct KDB_COMMAND* kcmd = NULL;
-		LIST_FOREACH(&kdb_commands, cmd, struct KDB_COMMAND) {
-			if (strcmp(arg[0].a_u.u_string, cmd->cmd_command) != 0)
+		KDBCommand* kcmd = nullptr;
+		for(auto& cmd: kdb_commands) {
+			if (strcmp(arg[0].a_u.u_string, cmd.cmd_command) != 0)
 				continue;
+			kprintf("[%s][%s][%s][%p]\n", cmd.cmd_command, cmd.cmd_args, cmd.cmd_help, cmd.cmd_func);
 
-			kcmd = cmd;
+			kcmd = &cmd;
 			break;
 		}
-		if (kcmd == NULL) {
+		if (kcmd == nullptr) {
 			kprintf("unknown command - try 'help'\n");
 			continue;
 		}
@@ -263,7 +262,7 @@ kdb_enter(const char* why)
 				int optional = 0;
 
 				const char* next = strchr(a, ' ');
-				if (next == NULL)
+				if (next == nullptr)
 					next = strchr(a, '\0');
 				if (*a == '[') {
 					a++; /* skip [ */
