@@ -142,7 +142,7 @@ SCSIDisk::Attach()
 		return ANANAS_ERROR(IO); /* XXX should get error from bio */
 
 	mbr_process(this, bio);
-	bio_free(bio);
+	bio_free(*bio);
 
 	return ananas_success();
 }
@@ -171,7 +171,7 @@ SCSIDisk::ReadBIO(struct BIO& bio)
 	errorcode_t err = HandleRequest(0, Direction::D_In, &r_cmd, sizeof(r_cmd), BIO_DATA(&bio), &reply_len);
 	ANANAS_ERROR_RETURN(err);
 
-	bio_set_available(&bio);
+	bio_set_available(bio);
 	return ananas_success();
 }
 

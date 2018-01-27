@@ -146,7 +146,7 @@ try_cache: ; /* dummy ; to keep gcc happy */
 		blocknr_t sector_num;
 		uint32_t offset;
 		fat_make_cluster_block_offset(fs, cur_cluster, &sector_num, &offset);
-		struct BIO* bio;
+		BIO* bio;
 		errorcode_t err = vfs_bread(fs, sector_num, &bio);
 		ANANAS_ERROR_RETURN(err);
 
@@ -163,7 +163,7 @@ try_cache: ; /* dummy ; to keep gcc happy */
 					cur_cluster = 0;
 				break;
 		}
-		bio_free(bio);
+		bio_free(*bio);
 		if (cur_cluster != 0)
 			*cluster_out = cur_cluster;
 	}
@@ -192,7 +192,7 @@ fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, uint32_t cluste
 	fat_make_cluster_block_offset(fs, cluster_num, &sector_num, &offset);
 
 	/* Fetch the FAT data */
-	struct BIO* bio;
+	BIO* bio;
 	errorcode_t err = vfs_bread(fs, sector_num, &bio);
 	ANANAS_ERROR_RETURN(err);
 
@@ -207,24 +207,24 @@ fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, uint32_t cluste
 			panic("unsuported fat type");
 	}
 
-	bio_set_dirty(bio);
+	bio_set_dirty(*bio);
 
 	/* Sync all other FAT tables as well */
 	for (int i = 1; i < fs_privdata->num_fats; i++) {
 		sector_num += fs_privdata->num_fat_sectors;
-		struct BIO* bio2;
+		BIO* bio2;
 		err = vfs_bread(fs, sector_num, &bio2);
 		if (ananas_is_failure(err)) {
 			/* XXX we should free the cluster */
-			bio_free(bio);
+			bio_free(*bio);
 			kprintf("fat_set_cluster(): XXX leaking cluster %u\n", sector_num);
 			return err;
 		}
 		memcpy(BIO_DATA(bio2), static_cast<char*>(BIO_DATA(bio)), fs_privdata->sector_size);
-		bio_set_dirty(bio2);
-		bio_free(bio2);
+		bio_set_dirty(*bio2);
+		bio_free(*bio2);
 	}
-	bio_free(bio);
+	bio_free(*bio);
 
 	return ananas_success();
 }
@@ -239,14 +239,15 @@ fat_claim_avail_cluster(struct VFS_MOUNTED_FS* fs, uint32_t* cluster_out)
 
 	/* XXX We do a dumb find-first on the filesystem for now */
 	blocknr_t cur_block = (blocknr_t)-1;
-	struct BIO* bio = NULL;
+	BIO* bio = nullptr;
 	for (uint32_t clusterno = fs_privdata->next_avail_cluster; clusterno < fs_privdata->total_clusters; clusterno++) {
 		/* Obtain the FAT block, if necessary */
 		uint32_t offset;
 		blocknr_t want_block;
 		fat_make_cluster_block_offset(fs, clusterno, &want_block, &offset);
 		if (want_block != cur_block || bio == NULL) {
-			if (bio != NULL) bio_free(bio);
+			if (bio != nullptr)
+				bio_free(*bio);
 			errorcode_t err = vfs_bread(fs, want_block, &bio);
 			ANANAS_ERROR_RETURN(err);
 			cur_block = want_block;
@@ -274,8 +275,8 @@ fat_claim_avail_cluster(struct VFS_MOUNTED_FS* fs, uint32_t* cluster_out)
 			continue;
 
 		/* OK; this one is available (and we just claimed it) - flush the FAT entry */
-		bio_set_dirty(bio);
-		bio_free(bio);
+		bio_set_dirty(*bio);
+		bio_free(*bio);
 
 		/* XXX should update second fat */
 		*cluster_out = clusterno;
@@ -502,7 +503,7 @@ fat_update_infosector(struct VFS_MOUNTED_FS* fs)
 	    fs_privdata->num_avail_clusters == (uint32_t)-1)
 		return ananas_success();
 
-	struct BIO* bio;
+	BIO* bio;
 	errorcode_t err = vfs_bread(fs, fs_privdata->infosector_num, &bio);
 	ANANAS_ERROR_RETURN(err);
 
@@ -514,8 +515,8 @@ fat_update_infosector(struct VFS_MOUNTED_FS* fs)
 	struct FAT_FAT32_FSINFO* fsi = (struct FAT_FAT32_FSINFO*)static_cast<char*>(BIO_DATA(bio));
 	FAT_TO_LE32(fsi->fsi_next_free, fs_privdata->next_avail_cluster);
 	FAT_TO_LE32(fsi->fsi_free_count, fs_privdata->num_avail_clusters);
-	bio_set_dirty(bio); /* XXX even if we updated nothing? */
-	bio_free(bio);
+	bio_set_dirty(*bio); /* XXX even if we updated nothing? */
+	bio_free(*bio);
 
 	return ananas_success();
 }

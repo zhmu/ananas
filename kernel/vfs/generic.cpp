@@ -70,7 +70,7 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	size_t read = 0;
 	size_t left = *len;
-	struct BIO* bio = NULL;
+	BIO* bio = nullptr;
 
 	KASSERT(inode.i_iops->block_map != NULL, "called without block_map implementation");
 
@@ -91,7 +91,8 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 
 		/* Grab the next block if necessary */
 		if (cur_block != want_block || bio == NULL) {
-			if (bio != NULL) bio_free(bio);
+			if (bio != nullptr)
+				bio_free(*bio);
 			err = vfs_bread(fs, want_block, &bio);
 			ANANAS_ERROR_RETURN(err);
 			cur_block = want_block;
@@ -110,7 +111,8 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 		left -= chunk_len;
 		file->f_offset += chunk_len;
 	}
-	if (bio != NULL) bio_free(bio);
+	if (bio != nullptr)
+		bio_free(*bio);
 	*len = read;
 	return ananas_success();
 }
@@ -122,7 +124,7 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	size_t written = 0;
 	size_t left = *len;
-	struct BIO* bio = NULL;
+	BIO* bio = nullptr;
 
 	KASSERT(inode.i_iops->block_map != NULL, "called without block_map implementation");
 
@@ -150,7 +152,8 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 
 		/* Grab the next block if necessary */
 		if (cur_block != want_block || bio == NULL) {
-			if (bio != NULL) bio_free(bio);
+			if (bio != nullptr)
+				bio_free(*bio);
 			/* Only read the block if it's a new one or we're not replacing everything */
 			err = vfs_bget(fs, want_block, &bio, (create || chunk_len == fs->fs_block_size) ? BIO_READ_NODATA : 0);
 			ANANAS_ERROR_RETURN(err);
@@ -160,7 +163,7 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 		/* Copy as much to the block as we can */
 		KASSERT(chunk_len > 0, "attempt to handle empty chunk");
 		memcpy((void*)(static_cast<char*>(BIO_DATA(bio)) + cur_offset), buf, chunk_len);
-		bio_set_dirty(bio);
+		bio_set_dirty(*bio);
 
 		/* Update the offsets and sizes */
 		written += chunk_len;
@@ -177,7 +180,8 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 			inode_dirty++;
 		}
 	}
-	if (bio != NULL) bio_free(bio);
+	if (bio != nullptr)
+		bio_free(*bio);
 	*len = written;
 
 	if (inode_dirty)

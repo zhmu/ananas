@@ -101,13 +101,13 @@ fat_read_inode(INode& inode, ino_t inum)
 	uint32_t block  = inum >> 16;
 	uint32_t offset = inum & 0xffff;
 	KASSERT(offset <= fs->fs_block_size - sizeof(struct FAT_ENTRY), "inode offset %u out of range", offset);
-	struct BIO* bio;
+	BIO* bio;
 	errorcode_t err = vfs_bread(fs, block, &bio);
 	ANANAS_ERROR_RETURN(err);
 	/* Fill out the inode details */
 	auto fentry = reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + offset);
 	fat_fill_inode(inode, inum, fentry);
-	bio_free(bio);
+	bio_free(*bio);
 	return ananas_success();
 }
 
@@ -124,7 +124,7 @@ fat_write_inode(INode& inode)
 	uint32_t block  = inum >> 16;
 	uint32_t offset = inum & 0xffff;
 	KASSERT(offset <= fs->fs_block_size - sizeof(struct FAT_ENTRY), "inode offset %u out of range", offset);
-	struct BIO* bio;
+	BIO* bio;
 	errorcode_t err = vfs_bread(fs, block, &bio);
 	ANANAS_ERROR_RETURN(err);
 
@@ -142,8 +142,8 @@ fat_write_inode(INode& inode)
 	}
 
 	/* And off it goes */
-	bio_set_dirty(bio);
-	bio_free(bio);
+	bio_set_dirty(*bio);
+	bio_free(*bio);
 	return ananas_success(); /* XXX How should we deal with errors? */
 }
 

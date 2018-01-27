@@ -57,7 +57,7 @@ Port::OnIRQ(uint32_t pis)
 		if (sr->sr_bio != NULL) {
 			if (sr->sr_flags & SATA_REQUEST_FLAG_WRITE)
 				sr->sr_bio->flags &= ~BIO_FLAG_DIRTY;
-			bio_set_available(sr->sr_bio);
+			bio_set_available(*sr->sr_bio);
 		}
 
 		/* This request is no longer active nor valid */

@@ -56,7 +56,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	KASSERT(sizeof(struct FAT_ENTRY) == 32, "compiler error: fat entry is not 32 bytes!");
 
 	/* Fill out a sector size and grab the first block */
-	struct BIO* bio;
+	BIO* bio;
 	fs->fs_block_size = BIO_SECTOR_SIZE;
 	errorcode_t err = vfs_bread(fs, 0, &bio);
 	ANANAS_ERROR_RETURN(err);
@@ -136,7 +136,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 		uint16_t fsinfo_sector = FAT_FROM_LE16(bpb->epb.fat32.epb_fsinfo_sector);
 		if (fsinfo_sector >= 1 && fsinfo_sector < num_sectors) {
 			/* Looks sane; read it */
-			struct BIO* bio;
+			BIO* bio;
 			errorcode_t err = vfs_bread(fs, fsinfo_sector, &bio);
 			if (ananas_is_success(err)) {
 				struct FAT_FAT32_FSINFO* fsi = (struct FAT_FAT32_FSINFO*)BIO_DATA(bio);
@@ -153,7 +153,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 					/* We have an info sector we should update */
 					privdata->infosector_num = fsinfo_sector;
 				}
-				bio_free(bio);
+				bio_free(*bio);
 			}
 		}
 	}
@@ -174,7 +174,7 @@ static struct VFS_FILESYSTEM_OPS fsops_fat = {
 	.write_inode = fat_write_inode
 };
 
-static VFSFileSystem fs_fat("fatfat", &fsops_fat);
+static VFSFileSystem fs_fat("fatfs", &fsops_fat);
 
 errorcode_t
 fatfs_init()

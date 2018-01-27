@@ -36,8 +36,8 @@ public:
 	errorcode_t Attach() override;
 	errorcode_t Detach() override;
 
-	errorcode_t ReadBIO(struct BIO& bio) override;
-	errorcode_t WriteBIO(struct BIO& bio) override;
+	errorcode_t ReadBIO(BIO& bio) override;
+	errorcode_t WriteBIO(BIO& bio) override;
 
 	void Execute(struct SATA_REQUEST& sr);
 
@@ -110,12 +110,12 @@ SATADisk::Attach()
 	 * Read the first sector and pass it to the MBR code; this is crude
 	 * and does not really belong here.
 	 */
-	struct BIO* bio = bio_read(this, 0, BIO_SECTOR_SIZE);
+	BIO* bio = bio_read(this, 0, BIO_SECTOR_SIZE);
 	if (BIO_IS_ERROR(bio))
 		return ANANAS_ERROR(IO); /* XXX should get error from bio */
 
 	mbr_process(this, bio);
-	bio_free(bio);
+	bio_free(*bio);
 	return ANANAS_ERROR(IO);
 }
 
@@ -126,7 +126,7 @@ SATADisk::Detach()
 }
 
 errorcode_t
-SATADisk::ReadBIO(struct BIO& bio)
+SATADisk::ReadBIO(BIO& bio)
 {
 	KASSERT(bio.length > 0, "invalid length");
 	KASSERT(bio.length % 512 == 0, "invalid length"); /* XXX */
@@ -144,7 +144,7 @@ SATADisk::ReadBIO(struct BIO& bio)
 }
 
 errorcode_t
-SATADisk::WriteBIO(struct BIO& bio)
+SATADisk::WriteBIO(BIO& bio)
 {
 	struct SATA_REQUEST sr;
 	memset(&sr, 0, sizeof(sr));

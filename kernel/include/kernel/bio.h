@@ -2,7 +2,7 @@
 #define __ANANAS_BIO_H__
 
 #include <ananas/types.h>
-#include "kernel/list.h"
+#include <ananas/util/list.h>
 #include "kernel/lock.h"
 
 /* Number of buckets used to hash a block number to */
@@ -27,8 +27,37 @@ namespace Ananas {
 class Device;
 }
 
+// Internal stuff so we can work with children and all nodes
+namespace internal {
+
+template<typename T>
+struct BucketNode
+{
+	static typename util::List<T>::Node& Get(T& t) {
+		return t.b_NodeBucket;
+	}
+};
+
+template<typename T>
+struct ChainNode
+{
+	static typename util::List<T>::Node& Get(T& t) {
+		return t.b_NodeChain;
+	}
+};
+
+template<typename T> using BIOBucketNodeAccessor = typename util::List<T>::template nodeptr_accessor<BucketNode<T> >;
+template<typename T> using BIOChainNodeAccessor = typename util::List<T>::template nodeptr_accessor<ChainNode<T> >;
+
+} // internal namespace
+
+struct BIO;
+typedef util::List<BIO, internal::BIOBucketNodeAccessor<BIO> > BIOBucketList;
+typedef util::List<BIO, internal::BIOChainNodeAccessor<BIO> > BIOChainList;
+
+
 /*
- * A basic I/O buffer, the root of all I/O requests. 
+ * A basic I/O buffer, the root of all I/O requests.
  */
 struct BIO {
 	uint32_t  	flags;
@@ -42,25 +71,26 @@ struct BIO {
 	void*		  data;		/* Pointer to BIO data */
 	semaphore_t       sem;          /* Semaphore for this BIO */
 
-	LIST_FIELDS_IT(struct BIO, chain);	/* Chain queue */
-	LIST_FIELDS_IT(struct BIO, bucket);	/* Bucket queue */
+
+	util::List<BIO>::Node b_NodeBucket	/* Bucket list */;
+	util::List<BIO>::Node b_NodeChain;	/* Chain list */
 };
 
 /* Flags of BIO_READ */
 #define BIO_READ_NODATA		0x0001	/* Caller is not interested in the data */
 
-void bio_set_error(struct BIO* bio);
-void bio_set_available(struct BIO* bio);
-void bio_set_dirty(struct BIO* bio);
-struct BIO* bio_get(Ananas::Device* device, blocknr_t block, size_t len, int flags);
+void bio_set_error(BIO& bio);
+void bio_set_available(BIO& bio);
+void bio_set_dirty(BIO& bio);
+BIO* bio_get(Ananas::Device* device, blocknr_t block, size_t len, int flags);
 
-static inline struct BIO* bio_read(Ananas::Device* device, blocknr_t block, size_t len)
+static inline BIO* bio_read(Ananas::Device* device, blocknr_t block, size_t len)
 {
 	return bio_get(device, block, len, 0);
 }
 
-struct BIO* bio_get_next(Ananas::Device* device);
-void bio_free(struct BIO* bio);
+BIO& bio_get_next(Ananas::Device* device);
+void bio_free(BIO& bio);
 void bio_dump();
 
 #endif /* __ANANAS_BIO_H__ */

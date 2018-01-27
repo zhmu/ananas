@@ -60,7 +60,7 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 
 	/* Obtain the primary volume descriptor; it contains vital information */
 	fs->fs_block_size = 2048;
-	struct BIO* bio;
+	BIO* bio;
 	errorcode_t err = vfs_bread(fs, 4, &bio);
 	ANANAS_ERROR_RETURN(err);
 
@@ -107,7 +107,7 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	err = ananas_success();
 
 fail:
-	bio_free(bio);
+	bio_free(*bio);
 	return err;
 }
 
@@ -119,7 +119,7 @@ iso9660_read_inode(INode& inode, ino_t inum)
 	KASSERT(offset < inode.i_fs->fs_block_size + sizeof(struct ISO9660_DIRECTORY_ENTRY), "offset does not reside in block");
 
 	/* Grab the block containing the inode */
-	struct BIO* bio;
+	BIO* bio;
 	errorcode_t err = vfs_bread(inode.i_fs, block, &bio);
 	ANANAS_ERROR_RETURN(err);
 
@@ -173,7 +173,7 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	uint32_t offset = file->f_offset % fs->fs_block_size;
 	size_t written = 0, left = *len;
 
-	struct BIO* bio = NULL;
+	BIO* bio = NULL;
 	blocknr_t curblock = 0;
 	while(left > 0) {
 		if (block > privdata->lba + inode.i_sb.st_size / fs->fs_block_size) {
@@ -183,7 +183,8 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			break;
 		}
 		if(curblock != block) {
-			if (bio != NULL) bio_free(bio);
+			if (bio != nullptr)
+				bio_free(*bio);
 			errorcode_t err = vfs_bread(fs, block, &bio);
 			ANANAS_ERROR_RETURN(err);
 			curblock = block;
@@ -237,7 +238,8 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			block++;
 		}
 	}
-	if (bio != NULL) bio_free(bio);
+	if (bio != NULL)
+		bio_free(*bio);
 	*len = written;
 	return ananas_success();
 }
@@ -258,7 +260,7 @@ iso9660_read(struct VFS_FILE* file, void* buf, size_t* len)
 
 	while(left > 0) {
 		/* Fetch the block */
-		struct BIO* bio;
+		BIO* bio;
 		errorcode_t err = vfs_bread(fs, privdata->lba + blocknum, &bio);
 		ANANAS_ERROR_RETURN(err);
 
@@ -269,7 +271,7 @@ iso9660_read(struct VFS_FILE* file, void* buf, size_t* len)
 		memcpy(buf, reinterpret_cast<void*>(static_cast<char*>(BIO_DATA(bio)) + offset), chunklen);
 		buf = reinterpret_cast<void*>(static_cast<char*>(buf) + chunklen);
 		numread += chunklen; left -= chunklen;
-		bio_free(bio);
+		bio_free(*bio);
 
 		/* Update pointers */
 		offset = (offset + chunklen) % fs->fs_block_size;

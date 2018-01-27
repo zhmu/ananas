@@ -80,7 +80,7 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 		errorcode_t err = vfs_bread(fs, cur_block, &bio);
 		ANANAS_ERROR_RETURN(err);
 		uint32_t next_offset = *(uint32_t*)(static_cast<char*>(BIO_DATA(bio)) + (i_privdata->offset + page_index * sizeof(uint32_t)) % fs->fs_block_size);
-		bio_free(bio);
+		bio_free(*bio);
 
 		uint32_t start_offset = 0;
 		if (page_index > 0) {
@@ -160,11 +160,12 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	char partial_inode_data[sizeof(struct CRAMFS_INODE) + 64 /* max name len */];
 
 	unsigned int cur_block = (unsigned int)-1;
-	struct BIO* bio = NULL;
+	BIO* bio = nullptr;
 	while (toread > 0 && left > 0) {
 		unsigned int new_block = cur_offset / fs->fs_block_size;
 		if (new_block != cur_block) {
-			if (bio != NULL) bio_free(bio);
+			if (bio != nullptr)
+				bio_free(*bio);
 			errorcode_t err = vfs_bread(fs, new_block, &bio);
 			ANANAS_ERROR_RETURN(err);
 			cur_block = new_block;
@@ -222,7 +223,8 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		KASSERT(left >= entry_len, "removing beyond directory inode length");
 		left -= entry_len;
 	}
-	if (bio != NULL) bio_free(bio);
+	if (bio != nullptr)
+		bio_free(*bio);
 
 	CRAMFS_DEBUG_READDIR("cramfs_readdir(): done, returning %u bytes\n", written);
 	*len = written;
@@ -276,12 +278,12 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	ANANAS_ERROR_RETURN(err);
 	auto sb = static_cast<struct CRAMFS_SUPERBLOCK*>(BIO_DATA(bio));
 	if (CRAMFS_TO_LE32(sb->c_magic) != CRAMFS_MAGIC) {
-		bio_free(bio);
+		bio_free(*bio);
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 
 	if ((CRAMFS_TO_LE32(sb->c_flags) & ~CRAMFS_FLAG_MASK) != 0) {
-		bio_free(bio);
+		bio_free(*bio);
 		kprintf("cramfs: unsupported flags, refusing to mount\n");
 		return ANANAS_ERROR(NO_DEVICE);
 	}
@@ -292,12 +294,12 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	err = vfs_get_inode(fs, __builtin_offsetof(struct CRAMFS_SUPERBLOCK, c_rootinode), root_inode);
 	if (ananas_is_failure(err)) {
 		kfree(fs->fs_privdata);
-		bio_free(bio);
+		bio_free(*bio);
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 
 	/* Initialize our deflater */
-	cramfs_zstream.next_in = NULL;
+	cramfs_zstream.next_in = nullptr;
 	cramfs_zstream.avail_in = 0;
 	inflateInit(&cramfs_zstream);
 
@@ -319,7 +321,7 @@ cramfs_read_inode(INode& inode, ino_t inum)
 	ANANAS_ERROR_RETURN(err);
 	auto cram_inode = reinterpret_cast<struct CRAMFS_INODE*>(static_cast<char*>(BIO_DATA(bio)) + offset % fs->fs_block_size);
 	cramfs_convert_inode(offset, cram_inode, inode);
-	bio_free(bio);
+	bio_free(*bio);
 	return ananas_success();
 }
 

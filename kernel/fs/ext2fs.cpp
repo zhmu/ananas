@@ -130,11 +130,11 @@ ext2_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int creat
 		/*
 		 * (b) Need to look up the block the first indirect block, 13.
 		 */
-		struct BIO* bio;
+		BIO* bio;
 		errorcode_t err = vfs_bread(fs, in_privdata->block[12], &bio);
 		ANANAS_ERROR_RETURN(err);
 		*block_out = EXT2_TO_LE32(*(uint32_t*)(static_cast<char*>(BIO_DATA(bio)) + (block_in - 12) * sizeof(uint32_t)));
-		bio_free(bio);
+		bio_free(*bio);
 		return ananas_success();
 	}
 
@@ -151,7 +151,7 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	uint32_t offset = file->f_offset % fs->fs_block_size;
 	size_t written = 0, left = *len;
 
-	struct BIO* bio = NULL;
+	BIO* bio = nullptr;
 	blocknr_t curblock = 0;
 	while(left > 0) {
 		blocknr_t block;
@@ -164,7 +164,8 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			break;
 		}
 		if(curblock != block) {
-			if (bio != NULL) bio_free(bio);
+			if (bio != nullptr)
+				bio_free(*bio);
 			err = vfs_bread(fs, block, &bio);
 			ANANAS_ERROR_RETURN(err);
 			curblock = block;
@@ -204,7 +205,8 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			blocknum++;
 		}
 	}
-	if (bio != NULL) bio_free(bio);
+	if (bio != nullptr)
+		bio_free(*bio);
 	*len = written;
 	return ananas_success();
 }
@@ -247,7 +249,7 @@ ext2_read_inode(INode& inode, ino_t inum)
 	blocknr_t block = privdata->blockgroup[bgroup].bg_inode_table + (iindex * privdata->sb.s_inode_size) / fs->fs_block_size;
 
 	/* Fetch the block and make a pointer to the inode */
-	struct BIO* bio;
+	BIO* bio;
 	errorcode_t err = vfs_bread(fs, block, &bio);
 	ANANAS_ERROR_RETURN(err);
 	unsigned int idx = (iindex * privdata->sb.s_inode_size) % fs->fs_block_size;
@@ -283,7 +285,7 @@ ext2_read_inode(INode& inode, ino_t inum)
 			inode.i_iops = &ext2_dir_ops;
 			break;
 	}
-	bio_free(bio);
+	bio_free(*bio);
 
 	return ananas_success();
 }
@@ -292,7 +294,7 @@ static errorcode_t
 ext2_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 {
 	/* Default to 1KB blocksize and fetch the superblock */
-	struct BIO* bio;
+	BIO* bio;
 	fs->fs_block_size = 1024;
 	errorcode_t err = vfs_bread(fs, 1, &bio);
 	ANANAS_ERROR_RETURN(err);
@@ -301,7 +303,7 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	struct EXT2_SUPERBLOCK* sb = (struct EXT2_SUPERBLOCK*)BIO_DATA(bio);
 	ext2_conv_superblock(sb);
 	if (sb->s_magic != EXT2_SUPER_MAGIC) {
-		bio_free(bio);
+		bio_free(*bio);
 		return ANANAS_ERROR(NO_DEVICE);
 	}
 
@@ -322,7 +324,7 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	fs->fs_block_size = 1024L << sb->s_log_block_size;
 
 	/* Free the superblock */
-	bio_free(bio);
+	bio_free(*bio);
 
 	/*
 	 * Read the block group descriptor table; we use the fact that this table
@@ -344,7 +346,7 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 		memcpy((void*)(privdata->blockgroup + n),
 		       (void*)(static_cast<char*>(BIO_DATA(bio)) + ((n * sizeof(struct EXT2_BLOCKGROUP)) % fs->fs_block_size)),
 		       sizeof(struct EXT2_BLOCKGROUP));
-		bio_free(bio);
+		bio_free(*bio);
 	}
 
 #if 0

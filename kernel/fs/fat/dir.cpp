@@ -106,7 +106,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	size_t left = *len;
 	char cur_filename[128]; /* currently assembled filename */
 	off_t full_filename_offset = file->f_offset;
-	struct BIO* bio = NULL;
+	BIO* bio = nullptr;
 	errorcode_t err = ananas_success();
 
 	memset(cur_filename, 0, sizeof(cur_filename));
@@ -119,8 +119,9 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE)
 			break;
 		ANANAS_ERROR_RETURN(err);
-		if (want_block != cur_block || bio == NULL) {
-			if (bio != NULL) bio_free(bio);
+		if (want_block != cur_block || bio == nullptr) {
+			if (bio != nullptr)
+				bio_free(*bio);
 			err = vfs_bread(fs, want_block, &bio);
 			ANANAS_ERROR_RETURN(err);
 			cur_block = want_block;
@@ -176,7 +177,8 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		/* Start over from the next filename */
 		memset(cur_filename, 0, sizeof(cur_filename));
 	}
-	if (bio != NULL) bio_free(bio);
+	if (bio != nullptr)
+		bio_free(*bio);
 	*len = written;
 	return err;
 }
@@ -224,7 +226,7 @@ static errorcode_t
 fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry, ino_t* inum)
 {
 	struct VFS_MOUNTED_FS* fs = dir.i_fs;
-	struct BIO* bio = NULL;
+	BIO* bio = nullptr;
 
 	/*
 	 * Calculate the number of entries we need; each LFN entry stores 13 characters,
@@ -250,7 +252,8 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
 		}
 		ANANAS_ERROR_RETURN(err);
 		if (want_block != cur_block || bio == NULL) {
-			if (bio != NULL) bio_free(bio);
+			if (bio != nullptr)
+				bio_free(*bio);
 			err = vfs_bread(fs, want_block, &bio);
 			ANANAS_ERROR_RETURN(err);
 			cur_block = want_block;
@@ -329,7 +332,7 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
 		errorcode_t err = fat_block_map(dir, (current_filename_offset / (blocknr_t)fs->fs_block_size), &want_block, (cur_lfn_chain < 0));
 		ANANAS_ERROR_RETURN(err);
 		if (want_block != cur_block) {
-			bio_free(bio);
+			bio_free(*bio);
 			err = vfs_bread(fs, want_block, &bio);
 			ANANAS_ERROR_RETURN(err);
 			cur_block = want_block;
@@ -363,11 +366,11 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
 				lfn->lfn_name_3[i * 2] = dentry[13 * cur_entry_idx + 11 + i];
 		}
 
-		bio_set_dirty(bio);
+		bio_set_dirty(*bio);
 		current_filename_offset += sizeof(struct FAT_ENTRY);
 	}
 
-	bio_free(bio);
+	bio_free(*bio);
 	return ananas_success();
 }
 
@@ -375,7 +378,7 @@ static errorcode_t
 fat_remove_directory_entry(INode& dir, const char* dentry)
 {
 	struct VFS_MOUNTED_FS* fs = dir.i_fs;
-	struct BIO* bio = NULL;
+	BIO* bio = nullptr;
 
 	char cur_filename[128]; /* currently assembled filename */
 	memset(cur_filename, 0, sizeof(cur_filename));
@@ -394,7 +397,8 @@ fat_remove_directory_entry(INode& dir, const char* dentry)
 		}
 		ANANAS_ERROR_RETURN(err);
 		if (want_block != cur_block || bio == NULL) {
-			if (bio != NULL) bio_free(bio);
+			if (bio != nullptr)
+				bio_free(*bio);
 			err = vfs_bread(fs, want_block, &bio);
 			ANANAS_ERROR_RETURN(err);
 			cur_block = want_block;
@@ -446,8 +450,9 @@ fat_remove_directory_entry(INode& dir, const char* dentry)
 				break;
 			}
 			ANANAS_ERROR_RETURN(err);
-			if (want_block != cur_block || bio == NULL) {
-				if (bio != NULL) bio_free(bio);
+			if (want_block != cur_block || bio == nullptr) {
+				if (bio != nullptr)
+					bio_free(*bio);
 				err = vfs_bread(fs, want_block, &bio);
 				ANANAS_ERROR_RETURN(err);
 				cur_block = want_block;
@@ -459,14 +464,14 @@ fat_remove_directory_entry(INode& dir, const char* dentry)
 			auto fentry = reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + cur_offs);
 			fentry->fe_filename[0] = 0xe5; /* deleted */
 
-			bio_set_dirty(bio);
+			bio_set_dirty(*bio);
 		}
 		errorcode = ananas_success();
 		break;
 	}
 
-	if (bio != NULL)
-		bio_free(bio);
+	if (bio != nullptr)
+		bio_free(*bio);
 	return errorcode;
 }
 
