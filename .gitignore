@@ -26,11 +26,6 @@ apps/*/.prepatch
 apps/*/.patch
 # ignore output
 sysroot.*/
-# ignore generated files for the system call infrastructure
-include/_gen/
-include/syscalls.h
-kernel/kern/syscalls.inc.c
-lib/libc/gen/syscalls.inc.S
 # ignore any object/archive files
 *.[oa]
 # temporary stuff

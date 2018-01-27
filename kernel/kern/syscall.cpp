@@ -12,7 +12,7 @@ static register_t
 perform_syscall(Thread* curthread, struct SYSCALL_ARGS* a)
 {
 	switch(a->number) {
-#include "syscalls.inc.cpp"
+#include "_gen/syscalls.inc.h"
 		default:
 			kprintf("warning: unsupported syscall %u\n", a->number);
 			return ANANAS_ERROR(BAD_SYSCALL);

@@ -78,7 +78,7 @@ add_subdirectory(vfs)
 add_subdirectory(vm)
 
 get_property(SOURCES GLOBAL PROPERTY SourceList)
-set(SOURCES ${SOURCES} include/_gen/syscalls.h)
+set(SOURCES ${SOURCES} include/_gen/syscalls.h include/_gen/syscalls.inc.h)
 add_executable(kernel_elf ${SOURCES})
 set_target_properties(kernel_elf PROPERTIES OUTPUT_NAME "kernel.elf")
 
@@ -118,6 +118,14 @@ add_custom_command(
 )
 #add_custom_target(syscall_gen DEPENDS include/_gen/syscalls.h)
 #add_dependencies(kernel_elf syscall_gen)
+
+# generate syscalls.inc.h like before. the .h extension is cheating, but this
+# avoids CMake trying to build it
+add_custom_command(
+	OUTPUT include/_gen/syscalls.inc.h
+	COMMAND ${KERN_PATH}/gen_syscalls.sh ${KERN_PATH}/syscalls.in /dev/null /dev/null ${CMAKE_BINARY_DIR}/include/_gen/syscalls.inc.h
+	DEPENDS ${KERN_PATH}/syscalls.in
+)
 
 # generate asmsyms.h; this is needed to look up offsets within structs from
 # assembler files, which is sure a lot better than having to maintain them
