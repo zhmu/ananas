@@ -18,7 +18,7 @@ struct Process;
 #define THREAD_EVENT_EXIT 1
 
 struct ThreadWaiter : util::List<ThreadWaiter>::NodePtr {
-	semaphore_t	tw_sem;
+	Semaphore tw_sem;
 };
 
 typedef util::List<ThreadWaiter> ThreadWaiterList;
@@ -27,7 +27,7 @@ struct Thread : public util::List<Thread>::NodePtr {
 	/* Machine-dependant data - must be first */
 	MD_THREAD_FIELDS
 
-	spinlock_t t_lock;	/* Lock protecting the thread data */
+	Spinlock t_lock;	/* Lock protecting the thread data */
 	char t_name[THREAD_MAX_NAME_LEN + 1];	/* Thread name */
 
 	refcount_t t_refcount;		/* Reference count of the thread, >0 */

@@ -16,7 +16,7 @@ TRACE_SETUP;
 
 namespace process {
 
-extern mutex_t process_mtx;
+extern Mutex process_mtx;
 extern process::ProcessList process_all;
 
 } // namespace process
@@ -54,10 +54,10 @@ HandleReadDir_Proc_Root(struct VFS_FILE* file, void* dirents, size_t* len)
 	};
 
 	// Fill the root directory with one directory per process ID
-	mutex_lock(&process::process_mtx);
+	mutex_lock(process::process_mtx);
 	FetchEntry entryFetcher;
 	errorcode_t err = HandleReadDir(file, dirents, len, entryFetcher);
-	mutex_unlock(&process::process_mtx);
+	mutex_unlock(process::process_mtx);
 	return err;
 }
 

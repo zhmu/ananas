@@ -78,7 +78,7 @@ public:
 	int				t_result_length;
 	usb_xfer_callback_t		t_callback = nullptr;
 	void*				t_callback_data;
-	semaphore_t			t_semaphore;
+	Semaphore			t_semaphore;
 	/* HCD-specific */
 	void*				t_hcd = nullptr;	/* [D] */
 

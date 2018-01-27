@@ -53,7 +53,7 @@ vmspace_create(VMSpace*& vmspace)
 	errorcode_t err = md_vmspace_init(*vs);
 	ANANAS_ERROR_RETURN(err);
 
-	mutex_init(&vs->vs_mutex, "vmspace");
+	mutex_init(vs->vs_mutex, "vmspace");
 	vmspace = vs;
 	return err;
 }

@@ -73,7 +73,7 @@ try_cache: ; /* dummy ; to keep gcc happy */
 	struct FAT_CLUSTER_CACHEITEM* ci = NULL;
 	struct FAT_CLUSTER_CACHEITEM* ci_closest = NULL;
 	if (clusternum != -1) {
-		spinlock_lock(&fs_privdata->spl_cache);
+		spinlock_lock(fs_privdata->spl_cache);
 		for(int cache_item = 0; cache_item < FAT_NUM_CACHEITEMS; cache_item++) {
 			ci = &fs_privdata->cluster_cache[cache_item];
 			if (ci->f_clusterno == 0) {
@@ -107,7 +107,7 @@ try_cache: ; /* dummy ; to keep gcc happy */
 			cur_cluster = ci_closest->f_nextcluster;
 			clusternum -= ci_closest->f_index;
 		}
-		spinlock_unlock(&fs_privdata->spl_cache);
+		spinlock_unlock(fs_privdata->spl_cache);
 
 		if (create == 0 && found == 0) {
 			/*
@@ -332,7 +332,7 @@ fat_append_cluster(INode& inode, uint32_t* cluster_out)
 	 * Update the cache; if there is an entry for our inode which is marked as
 	 * nonexistent, we expect it to be the last one and overwrite it.
 	 */
-	spinlock_lock(&fs_privdata->spl_cache);
+	spinlock_lock(fs_privdata->spl_cache);
 	for(int cache_item = 0; cache_item < FAT_NUM_CACHEITEMS; cache_item++) {
 		struct FAT_CLUSTER_CACHEITEM* ci = &fs_privdata->cluster_cache[cache_item];
 		if (ci->f_clusterno == privdata->first_cluster && ci->f_nextcluster == -1) {
@@ -342,7 +342,7 @@ fat_append_cluster(INode& inode, uint32_t* cluster_out)
 			break;
 		}
 	}
-	spinlock_unlock(&fs_privdata->spl_cache);
+	spinlock_unlock(fs_privdata->spl_cache);
 
 	/* Update the block count of the inode */
 	privdata->last_cluster = new_cluster;
@@ -447,7 +447,7 @@ fat_clear_cache(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster)
 	 * item in the cluster cache and copying it over our removed blocks - this
 	 * works because the cache isn't sorted.
 	 */
-	spinlock_lock(&fs_privdata->spl_cache);
+	spinlock_lock(fs_privdata->spl_cache);
 	unsigned int last_index = 0;
 	while (last_index < FAT_NUM_CACHEITEMS && fs_privdata->cluster_cache[last_index].f_clusterno != 0)
 		last_index++;
@@ -476,7 +476,7 @@ fat_clear_cache(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster)
 		}
 		num_removed++;
 	}
-	spinlock_unlock(&fs_privdata->spl_cache);
+	spinlock_unlock(fs_privdata->spl_cache);
 	return num_removed;
 }
 

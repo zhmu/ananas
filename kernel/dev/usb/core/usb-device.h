@@ -86,17 +86,17 @@ public:
 
 	void Lock()
 	{
-		mutex_lock(&ud_mutex);
+		mutex_lock(ud_mutex);
 	}
 
 	void Unlock()
 	{
-		mutex_unlock(&ud_mutex);
+		mutex_unlock(ud_mutex);
 	}
 
 	void AssertLocked()
 	{
-		mutex_assert(&ud_mutex, MTX_LOCKED);
+		mutex_assert(ud_mutex, MTX_LOCKED);
 	}
 
 	errorcode_t PerformControlTransfer(int req, int recipient, int type, int value, int index, void* buf, size_t* len, bool write);
@@ -104,7 +104,7 @@ public:
 private:
 	void FreePipe_Locked(Pipe& pipe);
 
-	mutex_t ud_mutex;
+	Mutex ud_mutex;
 	PipeList ud_pipes;			/* [M] */
 };
 

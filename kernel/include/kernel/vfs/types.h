@@ -16,9 +16,9 @@ struct VFS_INODE_OPS;
 struct VFS_FILESYSTEM_OPS;
 
 #define INODE_LOCK(i) \
-	mutex_lock(&(i).i_mutex)
+	mutex_lock((i).i_mutex)
 #define INODE_UNLOCK(i) \
-	mutex_unlock(&(i).i_mutex)
+	mutex_unlock((i).i_mutex)
 
 /*
  * This is our defacto inode; it must be locked before any fields can be
@@ -26,7 +26,7 @@ struct VFS_FILESYSTEM_OPS;
  * being used.
  */
 struct INode : util::List<INode>::NodePtr {
-	mutex_t		i_mutex;		/* Mutex protecting inode */
+	Mutex		i_mutex;		/* Mutex protecting inode */
 	refcount_t	i_refcount;		/* Refcount, must be >=0 */
 	unsigned int	i_flags;		/* Inode flags */
 #define INODE_FLAG_DIRTY	(1 << 0)	/* Needs to be written */
@@ -66,7 +66,7 @@ struct VFS_FILE {
  * mounting.
  */
 struct VFS_MOUNTED_FS {
-	spinlock_t	fs_spinlock;		/* Protects fields marked with (F) */
+	Spinlock	fs_spinlock;		/* Protects fields marked with (F) */
 	Ananas::Device*	fs_device;		/* (F) Device where the filesystem lives */
 	unsigned int	fs_flags;		/* (F) Filesystem flags */
 #define VFS_FLAG_INUSE    0x0001		/* Filesystem entry is in use */

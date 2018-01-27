@@ -22,20 +22,20 @@ static process::CallbackList process_callbacks_exit;
 
 namespace process {
 
-mutex_t process_mtx;
+Mutex process_mtx;
 ProcessList process_all;
 
 namespace {
 
-semaphore_t process_sleep_sem;
+Semaphore process_sleep_sem;
 pid_t process_curpid = -1;
 
 pid_t AllocateProcessID()
 {
 	/* XXX this is a bit of a kludge for now ... */
-	mutex_lock(&process_mtx);
+	mutex_lock(process_mtx);
 	pid_t pid = process_curpid++;
-	mutex_unlock(&process_mtx);
+	mutex_unlock(process_mtx);
 
 	return pid;
 }
@@ -56,7 +56,7 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 	p->p_refcount = 1; /* caller */
 	p->p_state = PROCESS_STATE_ACTIVE;
 	p->p_pid = process::AllocateProcessID();
-	mutex_init(&p->p_lock, "plock");
+	mutex_init(p->p_lock, "plock");
 
 	/* Create the process's vmspace */
 	err = vmspace_create(p->p_vmspace);
@@ -119,9 +119,9 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 	}
 
 	/* Finally, add the process to all processes */
-	mutex_lock(&process::process_mtx);
+	mutex_lock(process::process_mtx);
 	process::process_all.push_back(*p);
-	mutex_unlock(&process::process_mtx);
+	mutex_unlock(process::process_mtx);
 
 	dest = p;
 	return ananas_success();
@@ -173,9 +173,9 @@ process_destroy(Process& p)
 	vmspace_cleanup(*p.p_vmspace);
 
 	/* Remove the process from the all-process list */
-	mutex_lock(&process::process_mtx);
+	mutex_lock(process::process_mtx);
 	process::process_all.remove(p);
-	mutex_unlock(&process::process_mtx);
+	mutex_unlock(process::process_mtx);
 
 	/*
 	 * Unmap the process information; no one can query it at this point as the
@@ -208,7 +208,7 @@ process_exit(Process& p, int status)
 	p.p_exit_status = status;
 	process_unlock(p);
 
-	sem_signal(&process::process_sleep_sem);
+	sem_signal(process::process_sleep_sem);
 }
 
 errorcode_t
@@ -238,7 +238,7 @@ process_wait_and_lock(Process& parent, int flags, Process*& p_out)
 		process_unlock(parent);
 
 		/* Nothing good yet; sleep on it */
-		sem_wait(&process::process_sleep_sem);
+		sem_wait(process::process_sleep_sem);
 	}
 
 	/* NOTREACHED */
@@ -274,7 +274,7 @@ process_set_environment(Process& p, const char* env, size_t env_len)
 Process*
 process_lookup_by_id_and_ref(pid_t pid)
 {
-	mutex_lock(&process::process_mtx);
+	mutex_lock(process::process_mtx);
 	for(auto& p: process::process_all) {
 		process_lock(p);
 		if (p.p_pid != pid) {
@@ -285,10 +285,10 @@ process_lookup_by_id_and_ref(pid_t pid)
 		// Process found; get a ref and return it
 		process_ref(p);
 		process_unlock(p);
-		mutex_unlock(&process::process_mtx);
+		mutex_unlock(process::process_mtx);
 		return &p;
 	}
-	mutex_unlock(&process::process_mtx);
+	mutex_unlock(process::process_mtx);
 	return nullptr;
 }
 
@@ -323,8 +323,8 @@ process_unregister_exit_func(process::Callback& fn)
 static errorcode_t
 process_init()
 {
-	mutex_init(&process::process_mtx, "proc");
-	sem_init(&process::process_sleep_sem, 0);
+	mutex_init(process::process_mtx, "proc");
+	sem_init(process::process_sleep_sem, 0);
 	process::process_curpid = 1;
 
 	return ananas_success();
@@ -338,12 +338,12 @@ void vmspace_dump(VMSpace&);
 
 KDB_COMMAND(ps, "[s:flags]", "Displays all processes")
 {
-	mutex_lock(&process::process_mtx);
+	mutex_lock(process::process_mtx);
 	for(auto& p: process::process_all) {
 		kprintf("process %d (%p): state %d\n", p.p_pid, &p, p.p_state);
 		vmspace_dump(*p.p_vmspace);
 	}
-	mutex_unlock(&process::process_mtx);
+	mutex_unlock(process::process_mtx);
 }
 
 #endif // OPTION_KDB

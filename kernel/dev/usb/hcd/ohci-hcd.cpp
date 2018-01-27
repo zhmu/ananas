@@ -717,7 +717,7 @@ OHCI_HCD::Attach()
 	ANANAS_ERROR_RETURN(err);
 
 	ohci_Resources = OHCI::HCD_Resources(static_cast<uint8_t*>(res_mem));
-	mutex_init(&ohci_mtx, "ohci");
+	mutex_init(ohci_mtx, "ohci");
 
 	/* Set up the interrupt handler */
 	err = irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_DEFAULT, NULL);

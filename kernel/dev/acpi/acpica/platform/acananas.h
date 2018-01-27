@@ -128,7 +128,6 @@
 #ifdef KERNEL
 #include <ananas/types.h>
 #include "kernel/lib.h"
-#include "kernel/lock.h"
 
 #ifdef __amd64__
 # define ACPI_MACHINE_WIDTH 64
@@ -139,8 +138,20 @@
 /* Use binary semaphores for now */
 #define ACPI_MUTEX_TYPE ACPI_BINARY_SEMAPHORE
 
-#define ACPI_SPINLOCK spinlock_t*
-#define ACPI_SEMAPHORE semaphore_t*
+/*
+ * Silly workaround so that the C stuff is happy and we can still build out C++
+ * wrappers.
+ */
+#ifndef __cplusplus
+typedef struct SPINLOCK Spinlock;
+typedef struct SEMAPHORE Semaphore;
+#else
+struct Spinlock;
+struct Semaphore;
+#endif
+
+#define ACPI_SPINLOCK Spinlock*
+#define ACPI_SEMAPHORE Semaphore*
 #define ACPI_CPU_FLAGS register_t
 
 #else /* !__KERNEL__ */

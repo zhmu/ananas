@@ -15,7 +15,7 @@ TRACE_SETUP;
 namespace Ananas {
 namespace DeviceManager {
 namespace internal {
-extern spinlock_t spl_devicequeue;
+extern Spinlock spl_devicequeue;
 extern device::DeviceList deviceList;
 } // namespace internal
 } // namespace DeviceManager
@@ -53,10 +53,10 @@ HandleReadDir_Device(struct VFS_FILE* file, void* dirents, size_t* len)
 	};
 
 	// Fill the root directory with one entry per device
-	spinlock_lock(&DeviceManager::internal::spl_devicequeue);
+	spinlock_lock(DeviceManager::internal::spl_devicequeue);
 	FetchEntry entryFetcher;
 	errorcode_t err = HandleReadDir(file, dirents, len, entryFetcher);
-	spinlock_unlock(&DeviceManager::internal::spl_devicequeue);
+	spinlock_unlock(DeviceManager::internal::spl_devicequeue);
 	return err;
 }
 
@@ -107,7 +107,7 @@ public:
 			switch(inum_to_sub(inum)) {
 				case Devices::subDevices: {
 					char* r = result;
-					spinlock_lock(&DeviceManager::internal::spl_devicequeue);
+					spinlock_lock(DeviceManager::internal::spl_devicequeue);
 					for(auto& device: DeviceManager::internal::deviceList) {
 						snprintf(r, sizeof(result) - (r - result), "%s %d %d %c%c%c%c%c\n",
 						 device.d_Name, device.d_Major, device.d_Unit,
@@ -118,7 +118,7 @@ public:
 						 device.GetUSBDeviceOperations() != nullptr ? 'u' : '.');
 						r += strlen(r);
 					}
-					spinlock_unlock(&DeviceManager::internal::spl_devicequeue);
+					spinlock_unlock(DeviceManager::internal::spl_devicequeue);
 					break;
 				}
 				case Devices::subDrivers: {

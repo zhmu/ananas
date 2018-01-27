@@ -65,7 +65,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	struct FAT_BPB* bpb = (struct FAT_BPB*)BIO_DATA(bio);
 	auto privdata = new FAT_FS_PRIVDATA;
 	memset(privdata, 0, sizeof(struct FAT_FS_PRIVDATA));
-	spinlock_init(&privdata->spl_cache);
+	spinlock_init(privdata->spl_cache);
 	fs->fs_privdata = privdata; /* immediately, this is used by other functions */
 
 #define FAT_ABORT(x...) \

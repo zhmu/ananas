@@ -34,7 +34,7 @@
 
 TRACE_SETUP;
 
-static spinlock_t spl_threadqueue = SPINLOCK_DEFAULT_INIT;
+static Spinlock spl_threadqueue;
 static ThreadList allThreads;
 
 errorcode_t
@@ -65,9 +65,9 @@ thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
 	scheduler_init_thread(*t);
 
 	/* Add the thread to the thread queue */
-	spinlock_lock(&spl_threadqueue);
+	spinlock_lock(spl_threadqueue);
 	allThreads.push_back(*t);
-	spinlock_unlock(&spl_threadqueue);
+	spinlock_unlock(spl_threadqueue);
 
 	dest = t;
 	return ananas_success();
@@ -94,9 +94,9 @@ kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg)
 	scheduler_init_thread(t);
 
 	/* Add the thread to the thread queue */
-	spinlock_lock(&spl_threadqueue);
+	spinlock_lock(spl_threadqueue);
 	allThreads.push_back(t);
-	spinlock_unlock(&spl_threadqueue);
+	spinlock_unlock(spl_threadqueue);
 	return ananas_success();
 }
 
@@ -140,9 +140,9 @@ thread_destroy(Thread& t)
 
 	/* If we aren't reaping the thread, remove it from our thread queue; it'll be gone soon */
 	if ((t.t_flags & THREAD_FLAG_REAPING) == 0) {
-		spinlock_lock(&spl_threadqueue);
+		spinlock_lock(spl_threadqueue);
 		allThreads.remove(t);
-		spinlock_unlock(&spl_threadqueue);
+		spinlock_unlock(spl_threadqueue);
 	}
 
 	if (t.t_flags & THREAD_FLAG_MALLOC)
@@ -195,9 +195,9 @@ thread_deref(Thread& t)
 		t.t_refcount++;
 
 		/* Assign the thread to the reaper queue */
-		spinlock_lock(&spl_threadqueue);
+		spinlock_lock(spl_threadqueue);
 		allThreads.remove(t);
-		spinlock_unlock(&spl_threadqueue);
+		spinlock_unlock(spl_threadqueue);
 		reaper_enqueue(t);
 		return;
 	}
@@ -308,27 +308,27 @@ thread_clone(Process& proc, Thread*& out_thread)
 void
 thread_signal_waiters(Thread& t)
 {
-	spinlock_lock(&t.t_lock);
+	spinlock_lock(t.t_lock);
 	while(!t.t_waitqueue.empty()) {
 		auto& tw = t.t_waitqueue.front();
 		t.t_waitqueue.pop_front();
 
-		sem_signal(&tw.tw_sem);
+		sem_signal(tw.tw_sem);
 	}
-	spinlock_unlock(&t.t_lock);
+	spinlock_unlock(t.t_lock);
 }
 
 void
 thread_wait(Thread& t)
 {
 	ThreadWaiter tw;
-	sem_init(&tw.tw_sem, 0);
+	sem_init(tw.tw_sem, 0);
 
-	spinlock_lock(&t.t_lock);
+	spinlock_lock(t.t_lock);
 	t.t_waitqueue.push_back(tw);
-	spinlock_unlock(&t.t_lock);
+	spinlock_unlock(t.t_lock);
 
-	sem_wait(&tw.tw_sem);
+	sem_wait(tw.tw_sem);
 	/* 'tw' will be removed by thread_signal_waiters() */
 }
 

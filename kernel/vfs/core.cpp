@@ -24,9 +24,9 @@ INIT_FUNCTION(vfs_init, SUBSYSTEM_VFS, ORDER_FIRST);
 bool
 vfs_is_filesystem_sane(struct VFS_MOUNTED_FS* fs)
 {
-	spinlock_lock(&fs->fs_spinlock);
+	spinlock_lock(fs->fs_spinlock);
 	bool sane = (fs->fs_flags & VFS_FLAG_ABANDONED) == 0;
-	spinlock_unlock(&fs->fs_spinlock);
+	spinlock_unlock(fs->fs_spinlock);
 	return sane;
 }
 

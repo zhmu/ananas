@@ -2,10 +2,11 @@
 #define __ANANAS_SATA_H__
 
 #include <ananas/types.h>
-#include "kernel/lock.h"
 
 #define SATA_FIS_TYPE_H2D	0x27
 #define SATA_FIS_UPD_C		0x80
+
+struct Semaphore;
 
 struct SATA_FIS_H2D {
 	/* dw0 */
@@ -43,7 +44,7 @@ struct SATA_REQUEST {
 	uint16_t	sr_count;	/* request length in bytes */
 	void*		sr_buffer;	/* data buffer, if not NULL */
 	struct BIO*	sr_bio;		/* associated I/O buffer, if not NULL */
-	semaphore_t*	sr_semaphore;		/* Semaphore to signal on completion, if any */
+	Semaphore*	sr_semaphore;		/* Semaphore to signal on completion, if any */
 	uint32_t	sr_flags;
 #define SATA_REQUEST_FLAG_READ	(1 << 0)	/* Read request */
 #define SATA_REQUEST_FLAG_WRITE	(1 << 1)	/* Write request */

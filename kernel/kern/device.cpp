@@ -13,14 +13,14 @@ void OnDeviceDestruction(Device&);
 Device::Device()
 	: d_Parent(this)
 {
-	sem_init(&d_Waiters, 1);
+	sem_init(d_Waiters, 1);
 }
 
 Device::Device(const CreateDeviceProperties& cdp)
 	: d_Parent(cdp.cdp_Parent),
 	  d_ResourceSet(cdp.cdp_ResourceSet)
 {
-	sem_init(&d_Waiters, 1);
+	sem_init(d_Waiters, 1);
 }
 
 Device::~Device()

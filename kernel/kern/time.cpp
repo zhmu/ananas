@@ -16,7 +16,7 @@ namespace {
 
 // XXX Maybe using a spinlock here isn't such a good idea - we could benefit much more
 //     from atomic add/subtract/compare...
-spinlock_t time_lock;
+Spinlock time_lock;
 tick_t ticks = 0;
 struct timespec time_current;
 
@@ -57,9 +57,9 @@ unsigned int GetPeriodicyInHz()
 
 tick_t GetTicks()
 {
-	register_t state = spinlock_lock_unpremptible(&time_lock);
+	register_t state = spinlock_lock_unpremptible(time_lock);
 	auto cur_ticks = ticks;
-	spinlock_unlock_unpremptible(&time_lock, state);
+	spinlock_unlock_unpremptible(time_lock, state);
 	return cur_ticks;
 }
 
@@ -72,16 +72,16 @@ void SetTime(const struct tm& tm)
 
 void SetTime(const struct timespec& ts)
 {
-	spinlock_lock(&time_lock);
+	spinlock_lock(time_lock);
 	time_current = ts;
-	spinlock_unlock(&time_lock);
+	spinlock_unlock(time_lock);
 }
 
 struct timespec GetTime()
 {
-	spinlock_lock(&time_lock);
+	spinlock_lock(time_lock);
 	auto ts = time_current;
-	spinlock_unlock(&time_lock);
+	spinlock_unlock(time_lock);
 	return ts;
 }
 
@@ -91,7 +91,7 @@ OnTick()
 	// This should only be called in the boot CPU
 
 	// Increment system tick count
-	register_t state = spinlock_lock_unpremptible(&time_lock);
+	register_t state = spinlock_lock_unpremptible(time_lock);
 	ticks++;
 
 	// Update the timestamp - XXX we should synchronise every now and then with
@@ -103,7 +103,7 @@ OnTick()
 		time_current.tv_nsec -= 1000000000;
 	}
 
-	spinlock_unlock_unpremptible(&time_lock, state);
+	spinlock_unlock_unpremptible(time_lock, state);
 
 	if (!scheduler_activated())
 		return;

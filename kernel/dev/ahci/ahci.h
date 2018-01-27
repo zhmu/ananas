@@ -43,7 +43,7 @@ public:
 	void Enqueue(void* request);
 	void Start();
 
-	spinlock_t p_lock;
+	Spinlock p_lock;
 	AHCIDevice& p_device;		/* [RO] Device we belong to */
 	int p_num;			/* [RO] Port number */
 	dma_buf_t p_dmabuf_cl;		/* [RO] DMA buffer for command list */

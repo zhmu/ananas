@@ -45,7 +45,7 @@ typedef util::List<VMArea> VMAreaList;
  * VM space describes a thread's complete overview of memory.
  */
 struct VMSpace {
-	mutex_t vs_mutex; /* protects all fields and sub-areas */
+	Mutex vs_mutex; /* protects all fields and sub-areas */
 
 	VMAreaList vs_areas;
 
@@ -81,17 +81,17 @@ void md_vmspace_destroy(VMSpace& vs);
 
 static inline void vmspace_lock(VMSpace& vs)
 {
-	mutex_lock(&vs.vs_mutex);
+	mutex_lock(vs.vs_mutex);
 }
 
 static inline void vmspace_unlock(VMSpace& vs)
 {
-	mutex_unlock(&vs.vs_mutex);
+	mutex_unlock(vs.vs_mutex);
 }
 
 static inline void vmspace_assert_locked(VMSpace& vs)
 {
-	mutex_assert(&vs.vs_mutex, MTX_LOCKED);
+	mutex_assert(vs.vs_mutex, MTX_LOCKED);
 }
 
 #endif /* ANANAS_VMSPACE_H */

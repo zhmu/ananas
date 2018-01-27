@@ -41,6 +41,11 @@ kdb_resolve_argtype(const char* q)
 errorcode_t
 kdb_register_command(KDBCommand& cmd)
 {
+	if(cmd.cmd_command == nullptr) {
+		kprintf("kdb_register_command: BAD %p, ", &cmd.cmd_command);
+		kprintf("%p, '%s'\n", &cmd, cmd.cmd_command);
+	}
+
 	if (cmd.cmd_args != NULL) {
 		/*
 		 * Arguments must be either 'type:description' or '[type:description]' -

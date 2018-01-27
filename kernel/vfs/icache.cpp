@@ -25,29 +25,29 @@ namespace {
 
 typedef util::List<INode> INodeList;
 
-mutex_t icache_mtx;
+Mutex icache_mtx;
 INodeList icache_inuse;
 INodeList icache_free;
 
 inline void icache_lock()
 {
-	mutex_lock(&icache_mtx);
+	mutex_lock(icache_mtx);
 }
 
 inline void icache_unlock()
 {
-	mutex_unlock(&icache_mtx);
+	mutex_unlock(icache_mtx);
 }
 
 inline void icache_assert_locked()
 {
-	mutex_assert(&icache_mtx, MTX_LOCKED);
+	mutex_assert(icache_mtx, MTX_LOCKED);
 }
 
 errorcode_t
 icache_init()
 {
-	mutex_init(&icache_mtx, "icache");
+	mutex_init(icache_mtx, "icache");
 
 	// Allocate inodes - we can set up some basic information here
 	// XXX we could use a slab allocator for this
@@ -55,7 +55,7 @@ icache_init()
 		auto inode = static_cast<INode*>(kmalloc(ICACHE_ITEMS * sizeof(INode)));
 		memset(inode, 0, ICACHE_ITEMS * sizeof(INode));
 		for (int i = 0; i < ICACHE_ITEMS; i++, inode++) {
-			mutex_init(&inode->i_mutex, "inode");
+			mutex_init(inode->i_mutex, "inode");
 			icache_free.push_back(*inode);
 		}
 	}

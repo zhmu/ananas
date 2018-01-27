@@ -12,10 +12,10 @@
 namespace Ananas {
 namespace VFS {
 size_t GetMaxMountedFilesystems();
-extern spinlock_t spl_mountedfs;
+extern Spinlock spl_mountedfs;
 extern struct VFS_MOUNTED_FS mountedfs[];
 
-extern spinlock_t spl_fstypes;
+extern Spinlock spl_fstypes;
 extern VFSFileSystemList fstypes;
 
 } // namespace VFS
@@ -58,7 +58,7 @@ public:
 		switch(inum_to_sub(inum)) {
 			case subMounts: {
 				char* r = result;
-				spinlock_lock(&Ananas::VFS::spl_mountedfs);
+				spinlock_lock(Ananas::VFS::spl_mountedfs);
 				for (unsigned int n = 0; n < Ananas::VFS::GetMaxMountedFilesystems(); n++) {
 					struct VFS_MOUNTED_FS* fs = &Ananas::VFS::mountedfs[n];
 					if ((fs->fs_flags & VFS_FLAG_INUSE) == 0)
@@ -69,17 +69,17 @@ public:
 				  snprintf(r, sizeof(result) - (r - result), "%s %s %x\n", fs->fs_mountpoint, device, fs->fs_flags);
 					r += strlen(r);
 				}
-				spinlock_unlock(&Ananas::VFS::spl_mountedfs);
+				spinlock_unlock(Ananas::VFS::spl_mountedfs);
 				break;
 			}
 			case subFileSystems: {
 				char* r = result;
-				spinlock_lock(&Ananas::VFS::spl_fstypes);
+				spinlock_lock(Ananas::VFS::spl_fstypes);
 				for(auto& curfs: Ananas::VFS::fstypes) {
 				  snprintf(r, sizeof(result) - (r - result), "%s\n", curfs.fs_name);
 					r += strlen(r);
 				}
-				spinlock_unlock(&Ananas::VFS::spl_fstypes);
+				spinlock_unlock(Ananas::VFS::spl_fstypes);
 				break;
 			}
 		}

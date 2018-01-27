@@ -14,15 +14,15 @@ TRACE_SETUP;
 #define NUM_HANDLES 500 /* XXX shouldn't be static */
 
 static HandleList handle_freelist;
-static spinlock_t spl_handlequeue;
+static Spinlock spl_handlequeue;
 static HandleTypeList handle_types;
-static spinlock_t spl_handletypes;
+static Spinlock spl_handletypes;
 
 void
 handle_init()
 {
-	spinlock_init(&spl_handlequeue);
-	spinlock_init(&spl_handletypes);
+	spinlock_init(spl_handlequeue);
+	spinlock_init(spl_handletypes);
 
 	auto pool = new HANDLE[NUM_HANDLES];
 	memset(pool, 0, sizeof(struct HANDLE) * NUM_HANDLES);
@@ -39,32 +39,32 @@ handle_alloc(int type, Process& proc, handleindex_t index_from, struct HANDLE** 
 {
 	/* Look up the handle type XXX O(n) */
 	HandleType* htype = nullptr;
-	spinlock_lock(&spl_handletypes);
+	spinlock_lock(spl_handletypes);
 	for(auto& ht: handle_types) {
 		if (ht.ht_id != type)
 			continue;
 		htype = &ht;
 		break;
 	}
-	spinlock_unlock(&spl_handletypes);
+	spinlock_unlock(spl_handletypes);
 	if (htype == nullptr)
 		return ANANAS_ERROR(BAD_TYPE);
 
 	/* Grab a handle from the pool */
-	spinlock_lock(&spl_handlequeue);
+	spinlock_lock(spl_handlequeue);
 	if (handle_freelist.empty()) {
 		/* XXX should we wait for a new handle, or just give an error? */
 		panic("out of handles");
 	}
 	struct HANDLE* handle = &handle_freelist.front();
 	handle_freelist.pop_front();
-	spinlock_unlock(&spl_handlequeue);
+	spinlock_unlock(spl_handlequeue);
 
 	/* Sanity checks */
 	KASSERT(handle->h_type == HANDLE_TYPE_UNUSED, "handle from pool must be unused");
 
 	/* Initialize the handle */
-	mutex_init(&handle->h_mutex, "handle");
+	mutex_init(handle->h_mutex, "handle");
 	handle->h_type = type;
 	handle->h_process = &proc;
 	handle->h_hops = htype->ht_hops;
@@ -119,7 +119,7 @@ handle_free(struct HANDLE* handle)
 	 * Lock the handle so that no-one else can touch it, mark the handle as being
 	 * torn-down and see if we actually have to destroy it at this point.
 	 */
-	mutex_lock(&handle->h_mutex);
+	mutex_lock(handle->h_mutex);
 
 	/* Remove us from the thread handle queue, if necessary */
 	Process* proc = handle->h_process;
@@ -151,12 +151,12 @@ handle_free(struct HANDLE* handle)
 	 * before looking at the flags field and this will cause a deadlock.  Better
 	 * safe than sorry.
 	 */
-	mutex_unlock(&handle->h_mutex);
+	mutex_unlock(handle->h_mutex);
 
 	/* Hand it back to the the pool */
-	spinlock_lock(&spl_handlequeue);
+	spinlock_lock(spl_handlequeue);
 	handle_freelist.push_back(*handle);
-	spinlock_unlock(&spl_handlequeue);
+	spinlock_unlock(spl_handlequeue);
 	return ananas_success();
 }
 
@@ -187,31 +187,31 @@ handle_clone(Process& proc_in, handleindex_t index, struct CLONE_OPTIONS* opts, 
 	errorcode_t err = handle_lookup(proc_in, index, HANDLE_TYPE_ANY, &handle);
 	ANANAS_ERROR_RETURN(err);
 
-	mutex_lock(&handle->h_mutex);
+	mutex_lock(handle->h_mutex);
 	if (handle->h_hops->hop_clone != NULL) {
 		err = handle->h_hops->hop_clone(proc_in, index, handle, opts, proc_out, handle_out, index_out_min, index_out);
 	} else {
 		err = ANANAS_ERROR(BAD_OPERATION);
 	}
-	mutex_unlock(&handle->h_mutex);
+	mutex_unlock(handle->h_mutex);
 	return err;
 }
 
 errorcode_t
 handle_register_type(HandleType& ht)
 {
-	spinlock_lock(&spl_handletypes);
+	spinlock_lock(spl_handletypes);
 	handle_types.push_back(ht);
-	spinlock_unlock(&spl_handletypes);
+	spinlock_unlock(spl_handletypes);
 	return ananas_success();
 }
 
 errorcode_t
 handle_unregister_type(HandleType& ht)
 {
-	spinlock_lock(&spl_handletypes);
+	spinlock_lock(spl_handletypes);
 	handle_types.remove(ht);
-	spinlock_unlock(&spl_handletypes);
+	spinlock_unlock(spl_handletypes);
 	return ananas_success();
 }
 

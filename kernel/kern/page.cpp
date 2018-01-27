@@ -62,7 +62,7 @@ page_free_index(PageZone& z, unsigned int order, unsigned int index)
 	Page& p = z.z_base[index];
 	DPRINTF("page_free_index(): order=%u index=%u -> p=%p\n", order, index, &p);
 
-	spinlock_lock(&z.z_lock);
+	spinlock_lock(z.z_lock);
 
 	/* Clear the current index; it is available */
 	clear_bit(z.z_bitmap, index);
@@ -97,7 +97,7 @@ page_free_index(PageZone& z, unsigned int order, unsigned int index)
 		z.z_base[index].p_order = order;
 	}
 
-	spinlock_unlock(&z.z_lock);
+	spinlock_unlock(z.z_lock);
 }
 
 void
@@ -114,7 +114,7 @@ page_alloc_zone(PageZone& z, unsigned int order)
 {
 	DPRINTF("page_alloc_zone(): z=%p, order=%u\n", &z, order);
 
-	spinlock_lock(&z.z_lock);
+	spinlock_lock(z.z_lock);
 
 	/* First step is to figure out the initial order we need to use */
 	unsigned int alloc_order = order;
@@ -122,7 +122,7 @@ page_alloc_zone(PageZone& z, unsigned int order)
 		alloc_order++; /* nothing free here */
 	DPRINTF("page_alloc_zone(): z=%p, order=%u -> alloc_order=%u\n", &z, order, alloc_order);
 	if (alloc_order == PAGE_NUM_ORDERS) {
-		spinlock_unlock(&z.z_lock);
+		spinlock_unlock(z.z_lock);
 		return NULL;
 	}
 
@@ -148,7 +148,7 @@ page_alloc_zone(PageZone& z, unsigned int order)
 			set_bit(z.z_bitmap, index);
 			DPRINTF("page_alloc_zone(): got page=%p, index %u\n", &p, index);
 			z.z_avail_pages -= 1 << order;
-			spinlock_unlock(&z.z_lock);
+			spinlock_unlock(z.z_lock);
 			return &p;
 		}
 
@@ -186,7 +186,7 @@ page_zone_add(addr_t base, size_t length)
 
 	/* Initialize the page zone; initially, we'll just mark everything as allocated */
 	PageZone& z = *reinterpret_cast<PageZone*>(mem);
-	spinlock_init(&z.z_lock);
+	spinlock_init(z.z_lock);
 	z.z_bitmap = mem + sizeof(z);
 	for (int n = 0; n < PAGE_NUM_ORDERS; n++)
 		z.z_free[n].clear();
@@ -270,10 +270,10 @@ page_get_stats(unsigned int* total_pages, unsigned int* avail_pages)
 
 	*total_pages = 0; *avail_pages = 0;
 	for(auto& z: zones) {
-		spinlock_lock(&z.z_lock);
+		spinlock_lock(z.z_lock);
 		*total_pages += z.z_num_pages;
 		*avail_pages += z.z_avail_pages;
-		spinlock_unlock(&z.z_lock);
+		spinlock_unlock(z.z_lock);
 	}
 }
 

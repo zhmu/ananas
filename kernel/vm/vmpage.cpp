@@ -88,7 +88,7 @@ vmpage_alloc(VMArea* va, INode* inode, off_t offset, int flags)
 {
   auto vp = new VMPage;
 	memset(vp, 0, sizeof(*vp));
-  mutex_init(&vp->vp_mtx, "vmpage");
+  mutex_init(vp->vp_mtx, "vmpage");
   vp->vp_vmarea = va;
   vp->vp_inode = inode;
   vp->vp_offset = offset;

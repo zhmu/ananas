@@ -236,7 +236,7 @@ AHCIDevice::Attach()
 		err = dma_buf_alloc(d_DMA_tag, 256, &p->p_dmabuf_rfis);
 		ANANAS_ERROR_RETURN(err);
 
-		spinlock_init(&p->p_lock);
+		spinlock_init(p->p_lock);
 		p->p_cle = static_cast<struct AHCI_PCI_CLE*>(dma_buf_get_segment(p->p_dmabuf_cl, 0)->s_virt);
 		p->p_rfis = static_cast<struct AHCI_PCI_RFIS*>(dma_buf_get_segment(p->p_dmabuf_rfis, 0)->s_virt);
 		p->p_num = n;

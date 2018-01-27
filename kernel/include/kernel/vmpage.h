@@ -19,7 +19,7 @@ class VMSpace;
 struct INode;
 
 struct VMPage : util::List<VMPage>::NodePtr {
-	mutex_t vp_mtx;
+	Mutex vp_mtx;
 	VMArea* vp_vmarea;
 
 	int vp_flags;
@@ -44,13 +44,13 @@ struct VMPage : util::List<VMPage>::NodePtr {
 typedef util::List<VMPage> VMPageList;
 
 #define vmpage_lock(vp) \
-	mutex_lock(&(vp).vp_mtx)
+	mutex_lock((vp).vp_mtx)
 
 #define vmpage_unlock(vp) \
-	mutex_unlock(&(vp).vp_mtx)
+	mutex_unlock((vp).vp_mtx)
 
 #define vmpage_assert_locked(vp) \
-	mutex_assert(&(vp).vp_mtx, MTX_LOCKED)
+	mutex_assert((vp).vp_mtx, MTX_LOCKED)
 
 void vmpage_ref(VMPage& vmpage);
 void vmpage_deref(VMPage& vmpage);

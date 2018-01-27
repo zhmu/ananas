@@ -24,9 +24,9 @@ namespace USB {
 namespace {
 
 Thread usbtransfer_thread;
-semaphore_t usbtransfer_sem;
+Semaphore usbtransfer_sem;
 CompletedTransferList usbtransfer_complete;
-spinlock_t usbtransfer_lock = SPINLOCK_DEFAULT_INIT;
+Spinlock usbtransfer_lock;
 
 inline Device&
 usbtransfer_get_hcd_device(Transfer& xfer)
@@ -53,7 +53,7 @@ AllocateTransfer(USBDevice& usb_dev, int type, int flags, int endpt, size_t maxl
 	usb_xfer->t_length = maxlen; /* transfer buffer length */
 	usb_xfer->t_address = usb_dev.ud_address;
 	usb_xfer->t_endpoint = endpt;
-	sem_init(&usb_xfer->t_semaphore, 0);
+	sem_init(usb_xfer->t_semaphore, 0);
 
 	errorcode_t err = SetupTransfer(*usb_xfer);
 	if (ananas_is_failure(err)) {
@@ -84,7 +84,7 @@ Transfer::Cancel_Locked()
 
 	// We have to ensure the transfer isn't in the completed queue; this would cause it to be re-scheduled,
 	// which we must avoid XXX We already have the device lock here - is that wise?
-	spinlock_lock(&usbtransfer_lock);
+	spinlock_lock(usbtransfer_lock);
 	for(auto& xfer: usbtransfer_complete){
 		if (&xfer != this)
 			continue;
@@ -92,7 +92,7 @@ Transfer::Cancel_Locked()
 		usbtransfer_complete.remove(*this);
 		break;
 	}
-	spinlock_unlock(&usbtransfer_lock);
+	spinlock_unlock(usbtransfer_lock);
 
 	// XXX how do we know the transfer thread wasn't handling _this_ completed transfer by here?
 	return hcd_dev.GetUSBDeviceOperations()->CancelTransfer(*this);
@@ -146,13 +146,13 @@ Transfer::Complete_Locked()
 	 * assume we'll just have to signal its semaphore.
 	 */
 	if (t_callback != nullptr) {
-		spinlock_lock(&usbtransfer_lock);
+		spinlock_lock(usbtransfer_lock);
 		usbtransfer_complete.push_back(*this);
-		spinlock_unlock(&usbtransfer_lock);
+		spinlock_unlock(usbtransfer_lock);
 
-		sem_signal(&usbtransfer_sem);
+		sem_signal(usbtransfer_sem);
 	} else {
-		sem_signal(&t_semaphore);
+		sem_signal(t_semaphore);
 	}
 }
 
@@ -171,18 +171,18 @@ transfer_thread(void* arg)
 {
 	while(1) {
 		/* Wait until there's something to report */
-		sem_wait(&usbtransfer_sem);
+		sem_wait(usbtransfer_sem);
 
 		/* Fetch an entry from the queue */
 		while (1) {
-			spinlock_lock(&usbtransfer_lock);
+			spinlock_lock(usbtransfer_lock);
 			if(usbtransfer_complete.empty()) {
-				spinlock_unlock(&usbtransfer_lock);
+				spinlock_unlock(usbtransfer_lock);
 				break;
 			}
 			Transfer& xfer = usbtransfer_complete.front();
 			usbtransfer_complete.pop_front();
-			spinlock_unlock(&usbtransfer_lock);
+			spinlock_unlock(usbtransfer_lock);
 
 			/* And handle it */
 			KASSERT(xfer.t_callback != nullptr, "xfer %p in completed list without callback?", &xfer);
@@ -199,7 +199,7 @@ transfer_thread(void* arg)
 errorcode_t
 InitializeTransfer()
 {
-	sem_init(&usbtransfer_sem, 0);
+	sem_init(usbtransfer_sem, 0);
 
 	/* Create a kernel thread to handle USB completed messages */
 	kthread_init(usbtransfer_thread, "usb-transfer", &transfer_thread, NULL);

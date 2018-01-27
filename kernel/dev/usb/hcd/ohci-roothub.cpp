@@ -125,7 +125,7 @@ struct {
 RootHub::RootHub(HCD_Resources& hcdResources, USBDevice& device)
 	: rh_Resources(hcdResources), rh_Device(device)
 {
-	sem_init(&rh_semaphore, 0);
+	sem_init(rh_semaphore, 0);
 }
 
 errorcode_t
@@ -383,7 +383,7 @@ RootHub::Thread()
 {
 	while(1) {
 		/* Wait until we get a roothub interrupt; that should signal something happened */
-		sem_wait_and_drain(&rh_semaphore);
+		sem_wait_and_drain(rh_semaphore);
 
 		/*
 		 * If we do not have anything in the interrupt queue, there is no need to
@@ -392,7 +392,7 @@ RootHub::Thread()
 		rh_Device.Lock();
 		ProcessInterruptTransfers();
 		rh_Device.Unlock();
-	}	
+	}
 }
 
 errorcode_t
@@ -421,7 +421,7 @@ RootHub::HandleTransfer(Transfer& xfer)
 void
 RootHub::OnIRQ()
 {
-	sem_signal(&rh_semaphore);
+	sem_signal(rh_semaphore);
 
 #if 0
 		/*

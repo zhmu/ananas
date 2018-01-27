@@ -22,7 +22,7 @@ typedef util::List<Page> PageList;
 struct PageZone : util::List<PageZone>::NodePtr
 {
 	/* Lock protecting the zone */
-	spinlock_t z_lock;
+	Spinlock z_lock;
 
 	/* Free pages within this zone */
 	PageList z_free[PAGE_NUM_ORDERS];

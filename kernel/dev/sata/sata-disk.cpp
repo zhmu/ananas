@@ -70,8 +70,8 @@ SATADisk::Attach()
 	 * know anything else though, so we'll have to issue an IDENTIFY command to
 	 * get down to the details.
 	 */
-	semaphore_t sem;
-	sem_init(&sem, 0);
+	Semaphore sem;
+	sem_init(sem, 0);
 
 	struct SATA_REQUEST sr;
 	memset(&sr, 0, sizeof(sr));
@@ -84,7 +84,7 @@ SATADisk::Attach()
 	Execute(sr);
 
 	/* Wait until the request has been completed */
-	sem_wait(&sem);
+	sem_wait(sem);
 
 	/* Fix endianness */
 	auto p = reinterpret_cast<uint16_t*>(&sd_identify);

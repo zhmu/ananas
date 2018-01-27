@@ -22,7 +22,7 @@ USBDevice::USBDevice(Bus& bus, Hub* hub, int hub_port, int flags)
 {
 	//void* hcd_privdata = bus->bus_hcd->driver->drv_usb_hcd_initprivdata(flags);
 
-	mutex_init(&ud_mutex, "usbdev");
+	mutex_init(ud_mutex, "usbdev");
 	//usb_dev->usb_device = device_alloc(bus->bus_dev, NULL);
 	//usb_dev->usb_hcd_privdata = hcd_privdata;
 	//usb_dev->usb_device->d_resourceset.AddResource(Ananas::Resource(Ananas::Resource::RT_USB_Device, reinterpret_cast<Ananas::Resource::Base>(usb_dev), 0));
@@ -318,7 +318,7 @@ USBDevice::PerformControlTransfer(int req, int recipient, int type, int value, i
 
 	/* Now schedule the transfer and until it's completed XXX Timeout */
 	xfer->Schedule();
-	sem_wait_and_drain(&xfer->t_semaphore);
+	sem_wait_and_drain(xfer->t_semaphore);
 	if (xfer->t_flags & TRANSFER_FLAG_ERROR) {
 		FreeTransfer(*xfer);
 		return ANANAS_ERROR(IO);

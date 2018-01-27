@@ -100,12 +100,12 @@ protected:
 private:
 	void Lock()
 	{
-		mutex_lock(&ohci_mtx);
+		mutex_lock(ohci_mtx);
 	}
 
 	void Unlock()
 	{
-		mutex_unlock(&ohci_mtx);
+		mutex_unlock(ohci_mtx);
 	}
 
 	OHCI::HCD_TD* AllocateTD();
@@ -127,7 +127,7 @@ private:
 	OHCI::HCD_ED* ohci_control_ed = nullptr;
 	OHCI::HCD_ED* ohci_bulk_ed = nullptr;
 	OHCI::HCDEDList ohci_active_eds;
-	mutex_t ohci_mtx;
+	Mutex ohci_mtx;
 
 	OHCI::HCD_Resources ohci_Resources;
 	OHCI::RootHub* ohci_RootHub = nullptr;

@@ -52,7 +52,7 @@ struct FAT_FS_PRIVDATA {
 	uint32_t next_avail_cluster;		/* Next available cluster */
 	uint32_t num_avail_clusters;		/* Number of available clusters */
 	uint32_t infosector_num;		/* Info sector, or 0 if not present */
-	spinlock_t spl_cache;
+	Spinlock spl_cache;
 	struct FAT_CLUSTER_CACHEITEM cluster_cache[FAT_NUM_CACHEITEMS];
 };
 

@@ -2,19 +2,14 @@
 #define __LOCK_H__
 
 #include <ananas/types.h>
-#include "kernel/list.h"
+#include <ananas/util/list.h>
 #include "kernel-md/atomic.h"
 
-// XXX Ugly workaround to get ACPICA C code to build
-#ifdef __cplusplus
 struct Thread;
-#else
-typedef struct thread Thread;
-#endif
 
-typedef struct {
+struct Spinlock final {
 	atomic_t		sl_var;
-} spinlock_t;
+};
 
 /*
  * Spinlocks are simply locks that just keep the CPU busy waiting if they can't
@@ -27,34 +22,32 @@ typedef struct {
  * waitqueues, so they can't be declared in this file...
  */
 
-struct SEMAPHORE_WAITER {
+struct SemaphoreWaiter final : util::List<SemaphoreWaiter>::NodePtr {
 	Thread*			sw_thread;
 	int			sw_signalled;
-	LIST_FIELDS(struct SEMAPHORE_WAITER);
 };
-LIST_DEFINE(semaphore_wq, struct SEMAPHORE_WAITER);
+
+typedef util::List<SemaphoreWaiter> SemaphoreWaiterList;
 
 /*
  * Semaphores are sleepable locks which guard an amount of units of a
  * particular resource.
  */
-typedef struct {
-	spinlock_t		sem_lock;
+struct Semaphore final {
+	Spinlock		sem_lock;
 	unsigned int		sem_count;
-	struct semaphore_wq	sem_wq;
-} semaphore_t;
-
-#define SPINLOCK_DEFAULT_INIT { { 0 } }
+	SemaphoreWaiterList	sem_wq;
+};
 
 /*
  * Mutexes are sleepable locks that will suspend the current thread when the
  * lock is already being held. They cannot be used from interrupt context; they
  * are implemented as binary semaphores.
  */
-struct MUTEX {
+struct Mutex final {
 	const char*		mtx_name;
 	Thread*			mtx_owner;
-	semaphore_t		mtx_sem;
+	Semaphore		mtx_sem;
 	const char*		mtx_fname;
 	int			mtx_line;
 };
@@ -63,30 +56,30 @@ typedef struct MUTEX mutex_t;
 
 
 /* Ordinary spinlocks which can be preempted at any time */
-void spinlock_lock(spinlock_t* l);
-void spinlock_unlock(spinlock_t* l);
-void spinlock_init(spinlock_t* l);
+void spinlock_lock(Spinlock& l);
+void spinlock_unlock(Spinlock& l);
+void spinlock_init(Spinlock& l);
 
 /* Unpremptible spinlocks disable the interrupt flag while they are active */
-register_t spinlock_lock_unpremptible(spinlock_t* l);
-void spinlock_unlock_unpremptible(spinlock_t* l, register_t state);
+register_t spinlock_lock_unpremptible(Spinlock& l);
+void spinlock_unlock_unpremptible(Spinlock& l, register_t state);
 
 /* Mutexes */
-void mutex_init(mutex_t* mtx, const char* name);
-void mutex_lock_(mutex_t* mtx, const char* file, int line);
-void mutex_unlock(mutex_t* mtx);
+void mutex_init(Mutex& mtx, const char* name);
+void mutex_lock_(Mutex& mtx, const char* file, int line);
+void mutex_unlock(Mutex& mtx);
 #define mutex_lock(mtx) mutex_lock_(mtx, __FILE__, __LINE__)
 #define MTX_LOCKED 1
 #define MTX_UNLOCKED 2
-void mutex_assert(mutex_t* mtx, int what);
-int mutex_trylock_(mutex_t* mtx, const char* fname, int len);
+void mutex_assert(Mutex& mtx, int what);
+int mutex_trylock_(Mutex& mtx, const char* fname, int len);
 #define mutex_trylock(mtx) mutex_trylock_(mtx, __FILE__, __LINE__)
 
 /* Semaphores */
-void sem_init(semaphore_t* sem, int count);
-void sem_signal(semaphore_t* sem);
-void sem_wait(semaphore_t* sem);
-int sem_trywait(semaphore_t* sem);
-void sem_wait_and_drain(semaphore_t* sem);
+void sem_init(Semaphore& sem, int count);
+void sem_signal(Semaphore& sem);
+void sem_wait(Semaphore& sem);
+int sem_trywait(Semaphore& sem);
+void sem_wait_and_drain(Semaphore& sem);
 
 #endif /* __LOCK_H__ */

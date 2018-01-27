@@ -105,7 +105,7 @@ protected:
 
 private:
 	/* Mutex used to protect the privdata */
-	mutex_t uhci_mtx;
+	Mutex uhci_mtx;
 
 	dma_buf_t uhci_framelist_buf;
 	uint32_t* uhci_framelist;

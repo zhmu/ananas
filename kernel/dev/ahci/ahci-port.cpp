@@ -12,8 +12,8 @@
 
 TRACE_SETUP;
 
-#define PORT_LOCK spinlock_lock(&p_lock)
-#define PORT_UNLOCK spinlock_unlock(&p_lock)
+#define PORT_LOCK spinlock_lock(p_lock)
+#define PORT_UNLOCK spinlock_unlock(p_lock)
 
 namespace Ananas {
 namespace AHCI {
@@ -52,9 +52,9 @@ Port::OnIRQ(uint32_t pis)
 		 */
 		Request* pr = &p_request[i];
 		struct SATA_REQUEST* sr = &pr->pr_request;
-		if (sr->sr_semaphore != NULL)
-			sem_signal(sr->sr_semaphore);
-		if (sr->sr_bio != NULL) {
+		if (sr->sr_semaphore != nullptr)
+			sem_signal(*sr->sr_semaphore);
+		if (sr->sr_bio != nullptr) {
 			if (sr->sr_flags & SATA_REQUEST_FLAG_WRITE)
 				sr->sr_bio->flags &= ~BIO_FLAG_DIRTY;
 			bio_set_available(*sr->sr_bio);

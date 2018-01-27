@@ -503,7 +503,7 @@ UHCI_HCD::Attach()
 	ANANAS_ERROR_RETURN(err);
 
 	uhci_Resources = UHCI::HCD_Resources((uint32_t)(uintptr_t)res_io);
-	mutex_init(&uhci_mtx, "uhci");
+	mutex_init(uhci_mtx, "uhci");
 
 	/* Allocate the frame list; this will be programmed right into the controller */
 	err = dma_buf_alloc(d_DMA_tag, 4096, &uhci_framelist_buf);

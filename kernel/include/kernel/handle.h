@@ -21,7 +21,7 @@ struct Thread;
 struct HANDLE_OPS;
 
 struct HANDLE_PIPE_BUFFER {
-	mutex_t hpb_mutex;
+	Mutex hpb_mutex;
 	refcount_t hpb_read_count;
 	refcount_t hpb_write_count;
 	CBUFFER_FIELDS;
@@ -47,7 +47,7 @@ struct HANDLE : util::List<HANDLE>::NodePtr {
 	int h_type;				/* one of HANDLE_TYPE_... */
 	int h_flags;				/* flags */
 	Process* h_process;			/* owning process */
-	mutex_t h_mutex;			/* mutex guarding the handle */
+	Mutex h_mutex;			/* mutex guarding the handle */
 	struct HANDLE_OPS* h_hops;		/* handle operations */
 
 	/* Waiters are those who are waiting on this handle */

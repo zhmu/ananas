@@ -115,12 +115,12 @@ protected:
 private:
 	void Lock()
 	{
-		mutex_lock(&us_mutex);
+		mutex_lock(us_mutex);
 	}
 
 	void Unlock()
 	{
-		mutex_unlock(&us_mutex);
+		mutex_unlock(us_mutex);
 	}
 
 	Ananas::USB::USBDevice* us_Device = nullptr;
@@ -130,7 +130,7 @@ private:
 	StorageDevice_PipeInCallbackWrapper us_PipeInCallback;
 	StorageDevice_PipeOutCallbackWrapper us_PipeOutCallback;
 
-	mutex_t us_mutex;
+	Mutex us_mutex;
 	unsigned int us_max_lun = 0;
 	/* Output buffer */
 	void* us_output_buffer = nullptr;
@@ -141,7 +141,7 @@ private:
 	struct USBSTORAGE_CSW* us_csw_ptr = nullptr;
 
 	/* Signalled when the CSW is received */
-	semaphore_t us_signal_sem;
+	Semaphore us_signal_sem;
 };
 
 void StorageDevice_PipeInCallbackWrapper::OnPipeCallback(Ananas::USB::Pipe& pipe)
@@ -211,7 +211,7 @@ USBStorage::PerformSCSIRequest(int lun, Direction dir, const void* cb, size_t cb
 	Unlock();
 
 	/* Now we wait for the signal ... */
-	sem_wait_and_drain(&us_signal_sem);
+	sem_wait_and_drain(us_signal_sem);
 	ANANAS_ERROR_RETURN(err);
 
 	/* See if the CSW makes sense */
@@ -265,7 +265,7 @@ USBStorage::OnPipeInCallback()
 		}
 		us_result_ptr = nullptr;
 		us_csw_ptr = nullptr;
-		sem_signal(&us_signal_sem);
+		sem_signal(us_signal_sem);
 	} else {
 		Printf("received %d bytes but no sink?", len);
 	}
@@ -291,8 +291,8 @@ USBStorage::Attach()
 {
 	us_Device = static_cast<Ananas::USB::USBDevice*>(d_ResourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
 
-	mutex_init(&us_mutex, "usbstorage");
-	sem_init(&us_signal_sem, 0);
+	mutex_init(us_mutex, "usbstorage");
+	sem_init(us_signal_sem, 0);
 
 	/*
 	 * Determine the max LUN of the device - note that devices do not have to support this,

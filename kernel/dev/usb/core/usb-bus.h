@@ -44,22 +44,22 @@ public:
 
 	void Lock()
 	{
-		mutex_lock(&bus_mutex);
+		mutex_lock(bus_mutex);
 	}
 
 	void Unlock()
 	{
-		mutex_unlock(&bus_mutex);
+		mutex_unlock(bus_mutex);
 	}
 
 	void AssertLocked()
 	{
-		mutex_assert(&bus_mutex, MTX_LOCKED);
+		mutex_assert(bus_mutex, MTX_LOCKED);
 	}
 
 private:
 	/* Mutex protecting the bus */
-	mutex_t bus_mutex;
+	Mutex bus_mutex;
 };
 
 void ScheduleAttach(USBDevice& usb_dev);
