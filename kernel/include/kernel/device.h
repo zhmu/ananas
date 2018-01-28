@@ -155,7 +155,7 @@ public:
 	unsigned int d_Unit = -1;
 	ResourceSet d_ResourceSet;
 	dma_tag_t d_DMA_tag = nullptr;
-	Semaphore d_Waiters;
+	Semaphore d_Waiters{1};
 
 	Device(const Device&) = delete;
 	Device& operator=(const Device&) = delete;

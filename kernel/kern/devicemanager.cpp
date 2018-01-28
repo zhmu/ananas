@@ -42,31 +42,28 @@ DeviceList deviceList;
 
 void Register(Device& device)
 {
-	spinlock_lock(spl_devicequeue);
+	SpinlockGuard g(spl_devicequeue);
 	for(auto& d: deviceList) {
 		KASSERT(&d != &device, "registering device '%s' already in the device queue", device.d_Name);
 	}
 	deviceList.push_back(device);
-	spinlock_unlock(spl_devicequeue);
 }
 
 void OnDeviceDestruction(Device& device)
 {
 	// This is just a safety precaution for now
-	spinlock_lock(spl_devicequeue);
+	SpinlockGuard g(spl_devicequeue);
 	for(auto& d: deviceList) {
 		KASSERT(&d != &device, "destroying device '%s' still in the device queue", device.d_Name);
 	}
-	spinlock_unlock(spl_devicequeue);
 }
 
 void Unregister(Device& device)
 {
 	/* XXX clear waiters; should we signal them? */
 
-	spinlock_lock(spl_devicequeue);
+	SpinlockGuard g(spl_devicequeue);
 	deviceList.remove(device);
-	spinlock_unlock(spl_devicequeue);
 }
 
 Device* InstantiateDevice(Driver& driver, const CreateDeviceProperties& cdp)
@@ -251,28 +248,23 @@ FindDevice(const char* name)
 		ptr++;
 	int unit = (*ptr != '\0') ? strtoul(ptr, NULL, 10) : 0;
 
-	spinlock_lock(internal::spl_devicequeue);
+	SpinlockGuard g(internal::spl_devicequeue);
 	for(auto& device: internal::deviceList) {
-		if (strncmp(device.d_Name, name, ptr - name) == 0 && device.d_Unit == unit) {
-			spinlock_unlock(internal::spl_devicequeue);
+		if (strncmp(device.d_Name, name, ptr - name) == 0 && device.d_Unit == unit)
 			return &device;
-		}
 	}
-	spinlock_unlock(internal::spl_devicequeue);
 	return nullptr;
 }
 
 Device*
 FindDevice(dev_t dev)
 {
-	spinlock_lock(internal::spl_devicequeue);
+	SpinlockGuard g(internal::spl_devicequeue);
+
 	for(auto& device: internal::deviceList) {
-		if (device.d_Major == major(dev) && device.d_Unit == minor(dev)) {
-			spinlock_unlock(internal::spl_devicequeue);
+		if (device.d_Major == major(dev) && device.d_Unit == minor(dev))
 			return &device;
-		}
 	}
-	spinlock_unlock(internal::spl_devicequeue);
 	return nullptr;
 }
 

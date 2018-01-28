@@ -25,30 +25,28 @@ TRACE_SETUP;
 
 namespace {
 
-Mutex dcache_mtx;
+Mutex dcache_mtx{"dcache"};
 DEntryList dcache_inuse;
 DEntryList dcache_free;
 
 inline void dcache_lock()
 {
-	mutex_lock(dcache_mtx);
+	dcache_mtx.Lock();
 }
 
 inline void dcache_unlock()
 {
-	mutex_unlock(dcache_mtx);
+	dcache_mtx.Unlock();
 }
 
 inline void dcache_assert_locked()
 {
-	mutex_assert(dcache_mtx, MTX_LOCKED);
+	dcache_mtx.AssertLocked();
 }
 
 errorcode_t
 dcache_init()
 {
-	mutex_init(dcache_mtx, "dcache");
-
 	/*
 	 * Make an empty cache; we allocate one big pool and set up pointers to the
 	 * items as necessary.

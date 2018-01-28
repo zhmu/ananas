@@ -15,18 +15,12 @@ struct VFS_MOUNTED_FS;
 struct VFS_INODE_OPS;
 struct VFS_FILESYSTEM_OPS;
 
-#define INODE_LOCK(i) \
-	mutex_lock((i).i_mutex)
-#define INODE_UNLOCK(i) \
-	mutex_unlock((i).i_mutex)
-
 /*
  * This is our defacto inode; it must be locked before any fields can be
  * updated. The refcount protects the inode from disappearing while it is still
  * being used.
  */
 struct INode : util::List<INode>::NodePtr {
-	Mutex		i_mutex;		/* Mutex protecting inode */
 	refcount_t	i_refcount;		/* Refcount, must be >=0 */
 	unsigned int	i_flags;		/* Inode flags */
 #define INODE_FLAG_DIRTY	(1 << 0)	/* Needs to be written */
@@ -40,6 +34,17 @@ struct INode : util::List<INode>::NodePtr {
 	ino_t		i_inum;			/* Inode number */
 
 	VMPageList	i_pages;		/* Backing VM pages, if any */
+
+	void Lock() {
+		i_mutex.Lock();
+	}
+
+	void Unlock() {
+		i_mutex.Unlock();
+	}
+
+private:
+	Mutex		i_mutex{"inode"};	/* Mutex protecting inode */
 };
 
 /*

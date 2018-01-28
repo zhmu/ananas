@@ -27,7 +27,7 @@ struct Request {
 	struct AHCI_PCI_CT*	pr_ct;
 };
 
-class Port : public Ananas::Device, private Ananas::IDeviceOperations {
+class Port final : public Ananas::Device, private Ananas::IDeviceOperations {
 public:
 	Port(const Ananas::CreateDeviceProperties& cdp);
 	virtual ~Port() = default;
@@ -43,7 +43,6 @@ public:
 	void Enqueue(void* request);
 	void Start();
 
-	Spinlock p_lock;
 	AHCIDevice& p_device;		/* [RO] Device we belong to */
 	int p_num;			/* [RO] Port number */
 	dma_buf_t p_dmabuf_cl;		/* [RO] DMA buffer for command list */
@@ -57,6 +56,17 @@ public:
 	struct Request p_request[32];
 
 	void OnIRQ(uint32_t pis);
+
+private:
+	void Lock() {
+		p_lock.Lock();
+	}
+
+	void Unlock() {
+		p_lock.Unlock();
+	}
+
+	Spinlock p_lock;
 };
 
 class AHCIDevice : public Ananas::Device, private Ananas::IDeviceOperations

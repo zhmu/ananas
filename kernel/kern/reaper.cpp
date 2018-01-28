@@ -16,23 +16,24 @@ namespace {
 
 Spinlock spl_reaper;
 ThreadList reaper_list;
-Semaphore reaper_sem;
+Semaphore reaper_sem{0};
 Thread reaper_thread;
 
 static void
 reaper_reap(void* context)
 {
 	while(1) {
-		sem_wait(reaper_sem);
+		reaper_sem.Wait();
 
 		/* Fetch the item to reap from the queue */
-		spinlock_lock(spl_reaper);
-		KASSERT(!reaper_list.empty(), "reaper woke up with empty queue?");
-		Thread& t = reaper_list.front();
-		reaper_list.pop_front();
-		spinlock_unlock(spl_reaper);
-
-		thread_deref(t);
+		Thread* t;
+		{
+			SpinlockGuard g(spl_reaper);
+			KASSERT(!reaper_list.empty(), "reaper woke up with empty queue?");
+			t = &reaper_list.front();
+			reaper_list.pop_front();
+		}
+		thread_deref(*t);
 	}
 }
 
@@ -49,11 +50,12 @@ start_reaper()
 void
 reaper_enqueue(Thread& t)
 {
-	spinlock_lock(spl_reaper);
-	reaper_list.push_back(t);
-	spinlock_unlock(spl_reaper);
+	{
+		SpinlockGuard g(spl_reaper);
+		reaper_list.push_back(t);
+	}
 
-	sem_signal(reaper_sem);
+	reaper_sem.Signal();
 }
 
 INIT_FUNCTION(start_reaper, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);

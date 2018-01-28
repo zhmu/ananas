@@ -44,22 +44,22 @@ public:
 
 	void Lock()
 	{
-		mutex_lock(bus_mutex);
+		bus_mutex.Lock();
 	}
 
 	void Unlock()
 	{
-		mutex_unlock(bus_mutex);
+		bus_mutex.Unlock();
 	}
 
 	void AssertLocked()
 	{
-		mutex_assert(bus_mutex, MTX_LOCKED);
+		bus_mutex.AssertLocked();
 	}
 
 private:
 	/* Mutex protecting the bus */
-	Mutex bus_mutex;
+	Mutex bus_mutex{"usbbus"};
 };
 
 void ScheduleAttach(USBDevice& usb_dev);

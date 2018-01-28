@@ -43,14 +43,13 @@ bio_init()
 
 	/* Clear the BIO bucket chain */
 	for (unsigned int i = 0; i < BIO_BUCKET_SIZE; i++) {
-		spinlock_init(bio_bucket[i].b_Lock);
+		new(&bio_bucket[i].b_Lock) Spinlock;
 		bio_bucket[i].b_List.clear();
 	}
 
 	/* Initialize bio buffers and hook them up to the freelist */
 	struct BIO* bios = new BIO[BIO_NUM_BUFFERS];
 	for (unsigned int i = 0; i < BIO_NUM_BUFFERS; i++, bios++) {
-		sem_init(bios->sem, 1);
 		bio_freelist.push_back(*bios);
 	}
 
@@ -68,8 +67,6 @@ bio_init()
 		for (int n = (BIO_DATA_SIZE / BIO_SECTOR_SIZE) & 7; n < 8; n++)
 			bio_bitmap[bio_bitmap_size] |= (1 << n);
 	}
-	spinlock_init(spl_bio_lists);
-	spinlock_init(spl_bio_bitmap);
 	return ananas_success();
 }
 
@@ -80,7 +77,7 @@ bio_waitcomplete(BIO& bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", &bio);
 	while((bio.flags & BIO_FLAG_PENDING) != 0) {
-		sem_wait(bio.sem);
+		bio.sem.Wait();
 	}
 }
 
@@ -89,7 +86,7 @@ bio_waitdirty(BIO& bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", &bio);
 	while((bio.flags & BIO_FLAG_DIRTY) != 0) {
-		sem_wait(bio.sem);
+		bio.sem.Wait();
 	}
 }
 
@@ -126,7 +123,7 @@ bio_cleanup()
 {
 	TRACE(BIO, FUNC, "called");
 
-	spinlock_lock(spl_bio_lists);
+	SpinlockGuard g(spl_bio_lists);
 	KASSERT(!bio_usedlist.empty(), "usedlist is empty");
 
 	/* Grab the final entry and remove it from the list */
@@ -144,7 +141,7 @@ bio_cleanup()
 	 * OK, now we need to nuke the data bio points to; this must be done within
 	 * the lists spinlock because it must not be allocated by someone else.
 	 */
-	spinlock_lock(spl_bio_bitmap);
+	SpinlockGuard sgb(spl_bio_bitmap);
 	unsigned int bio_data_block = (static_cast<uint8_t*>(bio.data) - static_cast<uint8_t*>(bio_data)) / BIO_SECTOR_SIZE;
 	for (unsigned int n = bio_data_block; n < bio_data_block + (bio.length / BIO_SECTOR_SIZE); n++) {
 		KASSERT((bio_bitmap[n / 8] & (1 << (n % 8))) != 0, "data block %u not assigned", n);
@@ -152,7 +149,7 @@ bio_cleanup()
 	}
 	/* Finally, remove the block from the bucket chain */
 	unsigned int bucket_num = bio.block % BIO_BUCKET_SIZE;
-	spinlock_lock(bio_bucket[bucket_num].b_Lock);
+	SpinlockGuard spbu(bio_bucket[bucket_num].b_Lock);
 	KASSERT(!bio_bucket[bucket_num].b_List.empty(), "bio bucket %u is empty", bucket_num);
 	bio_bucket[bucket_num].b_List.remove(bio);
 
@@ -162,9 +159,6 @@ bio_cleanup()
 	 */
 	bio.flags = BIO_FLAG_PENDING;
 	bio.data = nullptr;
-	spinlock_unlock(bio_bucket[bucket_num].b_Lock);
-	spinlock_unlock(spl_bio_bitmap);
-	spinlock_unlock(spl_bio_lists);
 }
 
 /*
@@ -180,7 +174,7 @@ bio_get_buffer(Ananas::Device* device, blocknr_t block, size_t len)
 	/* First of all, lock the corresponding queue */
 	unsigned int bucket_num = block % BIO_BUCKET_SIZE;
 bio_restart:
-	spinlock_lock(bio_bucket[bucket_num].b_Lock);
+	bio_bucket[bucket_num].b_Lock.Lock();
 
 	/* See if we can find the block in the bucket queue; if so, we can just return it */
 	for(auto& bio: bio_bucket[bucket_num].b_List) {
@@ -191,15 +185,16 @@ bio_restart:
 	 	 * This is the block we need; we must move it in front of the used queue to
 		 * prevent it from being nuked.
 		 */
-		spinlock_lock(spl_bio_lists);
-		KASSERT(!bio_usedlist.empty(), "usedlist is empty");
-		/* Remove ourselves from the chain... */
-		bio_usedlist.remove(bio);
-		/* ...and prepend us at the beginning */
-		bio_usedlist.push_front(bio);
-		spinlock_unlock(spl_bio_lists);
+		{
+			SpinlockGuard g(spl_bio_lists);
+			KASSERT(!bio_usedlist.empty(), "usedlist is empty");
+			/* Remove ourselves from the chain... */
+			bio_usedlist.remove(bio);
+			/* ...and prepend us at the beginning */
+			bio_usedlist.push_front(bio);
+		}
 
-		spinlock_unlock(bio_bucket[bucket_num].b_Lock);
+		bio_bucket[bucket_num].b_Lock.Unlock();
 		KASSERT(bio.length == len, "bio item found with length %u, requested length %u", bio.length, len); /* XXX should avoid... somehow */
 
 		/*
@@ -218,7 +213,7 @@ bio_restart:
 	}
 
 	/* Grab a bio from the head of the freelist */
-	spinlock_lock(spl_bio_lists);
+	spl_bio_lists.Lock();
 	BIO* bio = nullptr;
 	if (!bio_freelist.empty()) {
 		bio = &bio_freelist.front();
@@ -227,19 +222,19 @@ bio_restart:
 
 	if (bio == nullptr) {
 		/* No bio's available; clean up some */
-		spinlock_unlock(spl_bio_lists);
-		spinlock_unlock(bio_bucket[bucket_num].b_Lock);
+		spl_bio_lists.Unlock();
+		bio_bucket[bucket_num].b_Lock.Unlock();
 		bio_cleanup();
 		goto bio_restart;
 	}
 
 	/* And add it to the used list */
 	bio_usedlist.push_front(*bio);
-	spinlock_unlock(spl_bio_lists);
+	spl_bio_lists.Unlock();
 
 	/* Find available data blocks in the bio data pool */
 bio_restartdata:
-	spinlock_lock(spl_bio_bitmap);
+	spl_bio_bitmap.Lock();
 	unsigned int chain_length = 0, cur_data_block = 0;
 	unsigned int num_blocks = len / BIO_SECTOR_SIZE;
 	for (; cur_data_block < bio_bitmap_size * 8; cur_data_block++) {
@@ -255,10 +250,10 @@ bio_restartdata:
 	}
 	if (chain_length != num_blocks) {
 		/* No bio data available; clean up some */
-		spinlock_unlock(spl_bio_bitmap);
-		spinlock_unlock(bio_bucket[bucket_num].b_Lock);
+		spl_bio_bitmap.Unlock();
+		bio_bucket[bucket_num].b_Lock.Unlock();
 		bio_cleanup();
-		spinlock_lock(bio_bucket[bucket_num].b_Lock);
+		bio_bucket[bucket_num].b_Lock.Lock();
 		goto bio_restartdata;
 	}
 	/* Walk back the number of blocks we need to allocate, we know they are free */
@@ -268,11 +263,11 @@ bio_restartdata:
 	for (unsigned int n = cur_data_block; n <  cur_data_block + num_blocks; n++) {
 		bio_bitmap[n / 8] |= (1 << (n % 8));
 	}
-	spinlock_unlock(spl_bio_bitmap);
+	spl_bio_bitmap.Unlock();
 
 	/* Hook the request to the corresponding bucket */
 	bio_bucket[bucket_num].b_List.push_front(*bio);
-	spinlock_unlock(bio_bucket[bucket_num].b_Lock);
+	bio_bucket[bucket_num].b_Lock.Unlock();
 
 	/*
 	 * Throw away any flags the buffer has (as this is a new request, we can't
@@ -342,7 +337,7 @@ bio_set_error(BIO& bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", &bio);
 	bio.flags = (bio.flags & ~BIO_FLAG_PENDING) | BIO_FLAG_ERROR;
-	sem_signal(bio.sem);
+	bio.sem.Signal();
 }
 
 void
@@ -350,7 +345,7 @@ bio_set_available(BIO& bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", &bio);
 	bio.flags &= ~BIO_FLAG_PENDING;
-	sem_signal(bio.sem);
+	bio.sem.Signal();
 }
 
 void
@@ -367,50 +362,53 @@ KDB_COMMAND(bio, NULL, "Display I/O buffers")
 	kprintf("bio dump\n");
 
 	unsigned int freelist_avail = 0, usedlist_used = 0;
-	spinlock_lock(spl_bio_lists);
-	for(auto& bio: bio_freelist)
-		freelist_avail++;
-	for(auto& bio: bio_usedlist)
-		usedlist_used++;
-	spinlock_unlock(spl_bio_lists);
+	{
+		SpinlockGuard g(spl_bio_lists);
+		for(auto& bio: bio_freelist)
+			freelist_avail++;
+		for(auto& bio: bio_usedlist)
+			usedlist_used++;
+	}
 	kprintf("lists: %u bio's used, %u bio's free, %u total\n", usedlist_used, freelist_avail, BIO_NUM_BUFFERS);
 	KASSERT(freelist_avail + usedlist_used == BIO_NUM_BUFFERS, "chain length does not add up");
 
 	kprintf("buckets:");
 	for (unsigned int bucket_num = 0; bucket_num < BIO_BUCKET_SIZE; bucket_num++) {
 		kprintf("%u =>", bucket_num);
-		spinlock_lock(bio_bucket[bucket_num].b_Lock);
-		if(!bio_bucket[bucket_num].b_List.empty()) {
-			for(auto& bio: bio_bucket[bucket_num].b_List)
-				kprintf(" %p (%u)", &bio, bio.block);
-		} else {
-			kprintf(" (empty)");
+		{
+			SpinlockGuard g(bio_bucket[bucket_num].b_Lock);
+			if(!bio_bucket[bucket_num].b_List.empty()) {
+				for(auto& bio: bio_bucket[bucket_num].b_List)
+					kprintf(" %p (%u)", &bio, bio.block);
+			} else {
+				kprintf(" (empty)");
+			}
+			kprintf("\n");
 		}
-		kprintf("\n");
-		spinlock_unlock(bio_bucket[bucket_num].b_Lock);
 	}
 
 	unsigned int databuf_avail = 0;
 	kprintf("data buffers:");
-	spinlock_lock(spl_bio_bitmap);
-	int current = -1;
-	for (unsigned int i = 0; i < bio_bitmap_size * 8; i++) {
-		if((bio_bitmap[i / 8] & (1 << (i % 8))) != 0) {
-			/* This entry is used; need to show it */
-			if (current == -1)
-				kprintf(" %u", i);
-			current = i;
-			continue;
+	{
+		SpinlockGuard g(spl_bio_bitmap);
+		int current = -1;
+		for (unsigned int i = 0; i < bio_bitmap_size * 8; i++) {
+			if((bio_bitmap[i / 8] & (1 << (i % 8))) != 0) {
+				/* This entry is used; need to show it */
+				if (current == -1)
+					kprintf(" %u", i);
+				current = i;
+				continue;
+			}
+			if (current != -1) {
+				kprintf("-%u", i);
+				current = -1;
+			}
+			databuf_avail++;
 		}
-		if (current != -1) {
-			kprintf("-%u", i);
-			current = -1;
-		}
-		databuf_avail++;
+		if (current != -1)
+			kprintf("-%u\n", bio_bitmap_size * 8);
 	}
-	if (current != -1)
-		kprintf("-%u\n", bio_bitmap_size * 8);
-	spinlock_unlock(spl_bio_bitmap);
 	kprintf(" %u available (%u total)\n", databuf_avail, BIO_DATA_SIZE / BIO_SECTOR_SIZE);
 
 	KASSERT(databuf_avail <= (BIO_DATA_SIZE / BIO_SECTOR_SIZE), "more bio data available than total");

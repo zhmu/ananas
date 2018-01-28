@@ -47,13 +47,11 @@ errorcode_t
 vmspace_create(VMSpace*& vmspace)
 {
 	auto vs = new VMSpace;
-	memset(vs, 0, sizeof(*vs));
 	vs->vs_next_mapping = THREAD_INITIAL_MAPPING_ADDR;
 
 	errorcode_t err = md_vmspace_init(*vs);
 	ANANAS_ERROR_RETURN(err);
 
-	mutex_init(vs->vs_mutex, "vmspace");
 	vmspace = vs;
 	return err;
 }
@@ -261,7 +259,7 @@ vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags)
 
 		// Copy the area page-wise
 		for(auto& vp: va_src.va_pages) {
-			vmpage_lock(vp);
+			vp.Lock();
 			KASSERT(vmpage_get_page(vp)->p_order == 0, "unexpected %d order page here", vmpage_get_page(vp)->p_order);
 
 			// Create a clone of the data; it is up to the vmpage how to do this (it may go for COW)
@@ -269,8 +267,8 @@ vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags)
 
 			// Map the page into the cloned vmspace
 			vmpage_map(vs_dest, *va_dst, new_vp);
-			vmpage_unlock(new_vp);
-			vmpage_unlock(vp);
+			new_vp.Unlock();
+			vp.Unlock();
 		}
 	}
 
@@ -306,7 +304,7 @@ vmspace_area_free(VMSpace& vs, VMArea& va)
 	 */
 	for (auto it = va.va_pages.begin(); it != va.va_pages.end(); /* nothing */) {
 		VMPage& vp = *it; ++it;
-		vmpage_lock(vp);
+		vp.Unlock();
 		vmpage_deref(vp);
 	}
 	delete &va;

@@ -20,6 +20,9 @@
 	(((n) % (mult) == 0) ? (n) : (n) - (n) % (mult))
 
 #ifdef __cplusplus
+// Placement new declaration
+void* operator new(size_t, void*) throw();
+
 extern "C" {
 #endif
 void* memcpy(void* dst, const void* src, size_t len) __nonnull;

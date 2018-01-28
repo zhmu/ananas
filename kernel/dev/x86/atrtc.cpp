@@ -54,11 +54,9 @@ private:
 uint8_t
 ATRTC::ReadRegister(int reg)
 {
-	register_t state = spinlock_lock_unpremptible(atrtc_lock);
+	SpinlockUnpremptibleGuard g(atrtc_lock);
 	outb(atrtc_ioport, reg);
-	uint8_t value = inb(atrtc_ioport + 1);
-	spinlock_unlock_unpremptible(atrtc_lock, state);
-	return value;
+	return inb(atrtc_ioport + 1);
 }
 
 errorcode_t
@@ -68,7 +66,6 @@ ATRTC::Attach()
 	if (res_io == NULL)
 		return ANANAS_ERROR(NO_RESOURCE);
 
-	spinlock_init(atrtc_lock);
 	atrtc_ioport = (uintptr_t)res_io;
 
 	struct tm tm;

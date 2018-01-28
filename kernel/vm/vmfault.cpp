@@ -102,12 +102,12 @@ vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags)
 				// Promote our copy to a writable page and update the mapping
 				vp = &vmpage_promote(vs, va, *vp);
 				vmpage_map(vs, va, *vp);
-				vmpage_unlock(*vp);
+				vp->Unlock();
 				return ananas_success();
 			}
 
 			// Page is already mapped, but not COW. Bad, reject
-			vmpage_unlock(*vp);
+			vp->Unlock();
 			return ANANAS_ERROR(BAD_ADDRESS);
 		}
 
@@ -162,13 +162,13 @@ vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags)
 						copy_len = PAGE_SIZE;
 					vmpage_copy_extended(vmpage, *new_vp, copy_len);
 				}
-				vmpage_unlock(vmpage);
+				vmpage.Unlock();
 
 				new_vp->vp_vaddr = virt & ~(PAGE_SIZE - 1);
 
 				// Finally, update the permissions and we are done
 				vmpage_map(vs, va, *new_vp);
-				vmpage_unlock(*new_vp);
+				new_vp->Unlock();
 				return ananas_success();
 			}
 		}
@@ -182,7 +182,7 @@ vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags)
 
 		// And now (re)map the page for the caller
 		vmpage_map(vs, va, new_vp);
-		vmpage_unlock(new_vp);
+		new_vp.Unlock();
 		return ananas_success();
 	}
 

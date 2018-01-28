@@ -12,9 +12,6 @@
 
 TRACE_SETUP;
 
-#define PORT_LOCK spinlock_lock(p_lock)
-#define PORT_UNLOCK spinlock_unlock(p_lock)
-
 namespace Ananas {
 namespace AHCI {
 
@@ -32,7 +29,7 @@ Port::OnIRQ(uint32_t pis)
 {
 	AHCI_DPRINTF("got irq, pis=%x", pis);
 
-	PORT_LOCK;
+	Lock();
 	uint32_t ci = p_device.Read(AHCI_REG_PxCI(p_num));
 	for (int i = 0; i < p_device.ap_ncs; i++) {
 		if ((p_request_valid & (1 << i)) == 0)
@@ -53,7 +50,7 @@ Port::OnIRQ(uint32_t pis)
 		Request* pr = &p_request[i];
 		struct SATA_REQUEST* sr = &pr->pr_request;
 		if (sr->sr_semaphore != nullptr)
-			sem_signal(*sr->sr_semaphore);
+			sr->sr_semaphore->Signal();
 		if (sr->sr_bio != nullptr) {
 			if (sr->sr_flags & SATA_REQUEST_FLAG_WRITE)
 				sr->sr_bio->flags &= ~BIO_FLAG_DIRTY;
@@ -65,7 +62,7 @@ Port::OnIRQ(uint32_t pis)
 		p_request_valid &= ~(1 << i);
 		p_request_in_use &= ~(1 << i);
 	}
-	PORT_UNLOCK;
+	Unlock();
 }
 
 errorcode_t
@@ -138,7 +135,7 @@ Port::Enqueue(void* item)
 	/* Fetch an usable command slot */
 	int n = -1;
 	while (n < 0) {
-		PORT_LOCK;
+		Lock();
 		int i = 0;
 		for (/* nothing */; i < p_device.ap_ncs; i++)
 			if ((p_request_in_use & (1 << i)) == 0)
@@ -147,7 +144,7 @@ Port::Enqueue(void* item)
 			p_request_in_use |= 1 << i;
 			n = i;
 		} 
-		PORT_UNLOCK;
+		Unlock();
 
 		if (n < 0) {
 			/* XXX This is valid, but it'd be odd without any load */
@@ -159,9 +156,9 @@ Port::Enqueue(void* item)
 
 	/* Enqueue the item and mark it as valid */
 	memcpy(&p_request[n], item, sizeof(struct SATA_REQUEST));
-	PORT_LOCK;
+	Lock();
 	p_request_valid |= 1 << n;
-	PORT_UNLOCK;
+	Unlock();
 }
 
 void
@@ -173,7 +170,7 @@ Port::Start()
 	 * XXX Maybe we could do something more sane than keep the lock all this
 	 *     time?
 	 */
-	PORT_LOCK;
+	Lock();
 	uint32_t ci = p_request_active;
 	for (int i = 0; i < p_device.ap_ncs; i++) {
 		if ((p_request_valid & (1 << i)) == 0)
@@ -226,11 +223,11 @@ Port::Start()
 
 	/* XXXRS Maybe small race here? */
 	if (ci == p_request_active) {
-		PORT_UNLOCK;
+		Unlock();
 		return;
 	}
 	p_request_active = ci;
-	PORT_UNLOCK;
+	Unlock();
 
 	AHCI_DPRINTF(">> #%d issuing command\n", p_num);
 	DUMP_PORT_STATE(p_num);

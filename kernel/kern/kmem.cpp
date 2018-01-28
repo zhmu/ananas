@@ -79,63 +79,60 @@ kmem_map(addr_t phys, size_t length, int flags)
 	 * Try to locate a sensible location for this mapping; we keep kmem_mappings sorted so we can
 	 * easily reclaim virtual space in between.
 	 */
-	spinlock_lock(kmem_lock);
 	addr_t virt = KMEM_DYNAMIC_VA_START;
-	struct KMEM_MAPPING* kmm = kmem_mappings;
-	unsigned int n = 0;
-	for (/* nothing */; n < KMEM_NUM_MAPPINGS; n++, kmm++) {
-		if (kmm->kmm_size == 0)
-			break; /* end of the line */
-		if (virt + size <= kmm->kmm_virt)
-			break; /* fits here */
+	{
+		SpinlockGuard g(kmem_lock);
+		struct KMEM_MAPPING* kmm = kmem_mappings;
+		unsigned int n = 0;
+		for (/* nothing */; n < KMEM_NUM_MAPPINGS; n++, kmm++) {
+			if (kmm->kmm_size == 0)
+				break; /* end of the line */
+			if (virt + size <= kmm->kmm_virt)
+				break; /* fits here */
 
-		/*
-		 * Only reject exact mappings; it's not up to us to determine how the
-		 * caller should behave.
-		 */
-		if (pa == kmm->kmm_phys && size == kmm->kmm_size) {
-			/* Already mapped */
-			spinlock_unlock(kmem_lock);
+			/*
+			 * Only reject exact mappings; it's not up to us to determine how the
+			 * caller should behave.
+			 */
+			if (pa == kmm->kmm_phys && size == kmm->kmm_size) {
+				/* Already mapped */
+				panic("XXX range %p-%p already mapped (%p-%p) -> %p",
+				 pa, pa + size, kmm->kmm_phys, kmm->kmm_phys + size, kmm->kmm_virt);
+				return NULL;
+			}
 
-			panic("XXX range %p-%p already mapped (%p-%p) -> %p",
-			 pa, pa + size, kmm->kmm_phys, kmm->kmm_phys + size, kmm->kmm_virt);
+			/*
+			 * No fit here; try to place it after this mapping (this is an attempt to
+			 * fill up holes)
+			 */
+			virt = kmm->kmm_virt + kmm->kmm_size * PAGE_SIZE;
+		}
+
+		if (virt + size >= KMEM_DYNAMIC_VA_END) {
+			/* Out of KVA! XXX This shouldn't panic, but it's weird all-right */
+			panic("out of kva (%p + %x >= %p)", virt, size, KMEM_DYNAMIC_VA_END);
 			return NULL;
 		}
 
 		/*
-		 * No fit here; try to place it after this mapping (this is an attempt to
-		 * fill up holes)
+		 * XXX I wonder how realistic this is and whether it's worth bothering to come up with
+		 *     something more clever (there is no reason we couldn't move kmem_mappings)
 		 */
-		virt = kmm->kmm_virt + kmm->kmm_size * PAGE_SIZE;
-	}
+		if (n == KMEM_NUM_MAPPINGS) {
+			/* XXX This shouldn't panic either */
+			panic("out of kva mappings!!");
+			return NULL;
+		}
 
-	if (virt + size >= KMEM_DYNAMIC_VA_END) {
-		/* Out of KVA! XXX This shouldn't panic, but it's weird all-right */
-		spinlock_unlock(kmem_lock);
-		panic("out of kva (%p + %x >= %p)", virt, size, KMEM_DYNAMIC_VA_END);
-		return NULL;
+		/*
+		 * Need to insert the mapping at position n.
+		 */
+		memmove(&kmem_mappings[n + 1], &kmem_mappings[n], KMEM_NUM_MAPPINGS - n);
+		kmm->kmm_phys = pa;
+		kmm->kmm_size = size;
+		kmm->kmm_flags = flags;
+		kmm->kmm_virt = virt;
 	}
-
-	/*
-	 * XXX I wonder how realistic this is and whether it's worth bothering to come up with
-	 *     something more clever (there is no reason we couldn't move kmem_mappings)
-	 */
-	if (n == KMEM_NUM_MAPPINGS) {
-		spinlock_unlock(kmem_lock);
-		/* XXX This shouldn't panic either */
-		panic("out of kva mappings!!");
-		return NULL;
-	}
-
-	/*
-	 * Need to insert the mapping at position n.
-	 */
-	memmove(&kmem_mappings[n + 1], &kmem_mappings[n], KMEM_NUM_MAPPINGS - n);
-	kmm->kmm_phys = pa;
-	kmm->kmm_size = size;
-	kmm->kmm_flags = flags;
-	kmm->kmm_virt = virt;
-	spinlock_unlock(kmem_lock);
 
 	/* Now perform the actual mapping and we're set */
 	KMEM_DEBUG(">>> DID outside kmem map: pa=%p virt=%p size=%d\n", pa, virt, size);
@@ -162,7 +159,7 @@ kmem_unmap(void* virt, size_t length)
 	}
 
 	/* We only allow exact mappings to be unmapped */
-	spinlock_lock(kmem_lock);
+	kmem_lock.Lock();
 	struct KMEM_MAPPING* kmm = kmem_mappings;
 	for (unsigned int n = 0; n < KMEM_NUM_MAPPINGS; n++, kmm++) {
 		if (kmm->kmm_size == 0)
@@ -181,12 +178,12 @@ kmem_unmap(void* virt, size_t length)
 			memset(kmm, 0, sizeof(*kmm));
 			break;
 		}
-		spinlock_unlock(kmem_lock);
+		kmem_lock.Unlock();
 
 		md_kunmap(va, size);
 		return;
 	}
-	spinlock_unlock(kmem_lock);
+	kmem_lock.Unlock();
 
 	panic("kmem_unmap(): virt=%p length=%d not mapped", virt, length);
 }
@@ -202,23 +199,22 @@ kmem_get_phys(void* virt)
 		return (va - PA_TO_DIRECT_VA(KMEM_DIRECT_PA_START)) + offset;
 
 	/* Walk through the mappings */
-	spinlock_lock(kmem_lock);
-	struct KMEM_MAPPING* kmm = kmem_mappings;
-	for (unsigned int n = 0; n < KMEM_NUM_MAPPINGS; n++, kmm++) {
-		if (kmm->kmm_size == 0)
-			break; /* end of the line */
+	{
+		SpinlockGuard g(kmem_lock);
+		struct KMEM_MAPPING* kmm = kmem_mappings;
+		for (unsigned int n = 0; n < KMEM_NUM_MAPPINGS; n++, kmm++) {
+			if (kmm->kmm_size == 0)
+				break; /* end of the line */
 
-		if (va < kmm->kmm_virt)
-			continue;
-		if (va > kmm->kmm_virt + kmm->kmm_size * PAGE_SIZE)
-			continue;
+			if (va < kmm->kmm_virt)
+				continue;
+			if (va > kmm->kmm_virt + kmm->kmm_size * PAGE_SIZE)
+				continue;
 
-		addr_t phys = kmm->kmm_phys + ((addr_t)virt - (addr_t)kmm->kmm_virt);
-		spinlock_unlock(kmem_lock);
-		return phys;
+			addr_t phys = kmm->kmm_phys + ((addr_t)virt - (addr_t)kmm->kmm_virt);
+			return phys;
+		}
 	}
-
-	spinlock_unlock(kmem_lock);
 
 	panic("kmem_get_phys(): va=%p not mapped", va);
 }

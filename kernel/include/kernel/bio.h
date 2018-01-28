@@ -69,7 +69,7 @@ struct BIO {
 	blocknr_t	  io_block;	/* Translated block number to I/O */
 	unsigned int	  length;	/* Length in bytes (<= PAGE_SIZE, so int will do) */
 	void*		  data;		/* Pointer to BIO data */
-	Semaphore	sem;          /* Semaphore for this BIO */
+	Semaphore	sem{1};          /* Semaphore for this BIO */
 
 
 	util::List<BIO>::Node b_NodeBucket	/* Bucket list */;

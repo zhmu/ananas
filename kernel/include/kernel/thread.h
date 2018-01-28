@@ -17,10 +17,7 @@ struct Process;
 #define THREAD_MAX_NAME_LEN 32
 #define THREAD_EVENT_EXIT 1
 
-struct ThreadWaiter : util::List<ThreadWaiter>::NodePtr {
-	Semaphore tw_sem;
-};
-
+struct ThreadWaiter;
 typedef util::List<ThreadWaiter> ThreadWaiterList;
 
 struct Thread : public util::List<Thread>::NodePtr {

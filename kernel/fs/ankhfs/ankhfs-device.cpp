@@ -53,11 +53,9 @@ HandleReadDir_Device(struct VFS_FILE* file, void* dirents, size_t* len)
 	};
 
 	// Fill the root directory with one entry per device
-	spinlock_lock(DeviceManager::internal::spl_devicequeue);
+	SpinlockGuard g(DeviceManager::internal::spl_devicequeue);
 	FetchEntry entryFetcher;
-	errorcode_t err = HandleReadDir(file, dirents, len, entryFetcher);
-	spinlock_unlock(DeviceManager::internal::spl_devicequeue);
-	return err;
+	return HandleReadDir(file, dirents, len, entryFetcher);
 }
 
 class DeviceSubSystem : public IAnkhSubSystem
@@ -106,8 +104,9 @@ public:
 			strcpy(result, "???");
 			switch(inum_to_sub(inum)) {
 				case Devices::subDevices: {
+					SpinlockGuard g(DeviceManager::internal::spl_devicequeue);
+
 					char* r = result;
-					spinlock_lock(DeviceManager::internal::spl_devicequeue);
 					for(auto& device: DeviceManager::internal::deviceList) {
 						snprintf(r, sizeof(result) - (r - result), "%s %d %d %c%c%c%c%c\n",
 						 device.d_Name, device.d_Major, device.d_Unit,
@@ -118,7 +117,6 @@ public:
 						 device.GetUSBDeviceOperations() != nullptr ? 'u' : '.');
 						r += strlen(r);
 					}
-					spinlock_unlock(DeviceManager::internal::spl_devicequeue);
 					break;
 				}
 				case Devices::subDrivers: {

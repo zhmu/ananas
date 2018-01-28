@@ -8,42 +8,41 @@
 #include "kernel-md/interrupts.h"
 
 void
-spinlock_lock(Spinlock& s)
+Spinlock::Lock()
 {
 	if (scheduler_activated())
 		KASSERT(md_interrupts_save(), "interrups must be enabled");
 
 	for(;;) {
-		while(atomic_read(&s.sl_var) != 0)
+		while(atomic_read(&sl_var) != 0)
 			/* spin */ ;
-		if (atomic_xchg(&s.sl_var, 1) == 0)
+		if (atomic_xchg(&sl_var, 1) == 0)
 			break;
 	}
 }
 
 void
-spinlock_unlock(Spinlock& s)
+Spinlock::Unlock()
 {
-	if (atomic_xchg(&s.sl_var, 0) == 0)
-		panic("spinlock %p was not locked", &s);
+	if (atomic_xchg(&sl_var, 0) == 0)
+		panic("spinlock %p was not locked", this);
 }
 
-void
-spinlock_init(Spinlock& s)
+Spinlock::Spinlock()
 {
-	atomic_set(&s.sl_var, 0);
+	atomic_set(&sl_var, 0);
 }
 
 register_t
-spinlock_lock_unpremptible(Spinlock& s)
+Spinlock::LockUnpremptible()
 {
 	register_t state = md_interrupts_save();
 
 	for(;;) {
-		while(atomic_read(&s.sl_var) != 0)
+		while(atomic_read(&sl_var) != 0)
 			/* spin */ ;
 		md_interrupts_disable();
-		if (atomic_xchg(&s.sl_var, 1) == 0)
+		if (atomic_xchg(&sl_var, 1) == 0)
 			break;
 		/* Lock failed; restore interrupts and try again */
 		md_interrupts_restore(state);
@@ -52,134 +51,106 @@ spinlock_lock_unpremptible(Spinlock& s)
 }
 
 void
-spinlock_unlock_unpremptible(Spinlock& s, register_t state)
+Spinlock::UnlockUnpremptible(register_t state)
 {
-	spinlock_unlock(s);
+	Unlock();
 	md_interrupts_restore(state);
 }
 
-void
-mutex_init(Mutex& mtx, const char* name)
+Mutex::Mutex(const char* name)
+	: mtx_name(name)
 {
-	mtx.mtx_name = name;
-	mtx.mtx_owner = NULL;
-	mtx.mtx_fname = NULL;
-	mtx.mtx_line = 0;
-	sem_init(mtx.mtx_sem, 1);
 }
 
 void
-mutex_lock_(Mutex& mtx, const char* fname, int line)
+Mutex::Lock()
 {
-	sem_wait(mtx.mtx_sem);
-
-	/* We got the mutex */
-	mtx.mtx_owner = PCPU_GET(curthread);
-	mtx.mtx_fname = fname;
-	mtx.mtx_line = line;
+	mtx_sem.Wait();
+	mtx_owner = PCPU_GET(curthread);
 }
 
-int
-mutex_trylock_(Mutex& mtx, const char* fname, int line)
+bool
+Mutex::TryLock()
 {
-	if (!sem_trywait(mtx.mtx_sem))
-		return 0;
+	if (!mtx_sem.TryWait())
+		return false;
 
-	/* We got the mutex */
-	mtx.mtx_owner = PCPU_GET(curthread);
-	mtx.mtx_fname = fname;
-	mtx.mtx_line = line;
-	return 1;
+	mtx_owner = PCPU_GET(curthread);
+	return true;
 }
 
 void
-mutex_unlock(Mutex& mtx)
+Mutex::Unlock()
 {
-	KASSERT(mtx.mtx_owner == PCPU_GET(curthread), "unlocking mutex %p which isn't owned", &mtx);
-	mtx.mtx_owner = NULL;
-	mtx.mtx_fname = NULL;
-	mtx.mtx_line = 0;
-	sem_signal(mtx.mtx_sem);
+	KASSERT(mtx_owner == PCPU_GET(curthread), "unlocking mutex %p which isn't owned", this);
+	mtx_owner = nullptr;
+	mtx_sem.Signal();
 }
 
 void
-mutex_assert(Mutex& mtx, int what)
+Mutex::AssertLocked()
 {
-	/*
-	 * We don't lock the mtx_ fields because the semaphore protects them -
-	 * unfortunately, this means this function won't be 100% accurate.
-	 */
-	switch(what) {
-		case MTX_LOCKED:
-			if (mtx.mtx_owner != PCPU_GET(curthread) /* not owner */ ||
-					mtx.mtx_fname == NULL /* filename not filled out */ ||
-					mtx.mtx_line == 0L /* line not filled out */)
-				panic("mutex '%s' not held by current thread", mtx.mtx_name);
-			break;
-		case MTX_UNLOCKED:
-			if (mtx.mtx_owner != NULL /* owned by someone */ ||
-					mtx.mtx_fname != NULL /* filename filled out */ ||
-					mtx.mtx_line != 0L /* line filled out */)
-				panic("mutex '%s' held", mtx.mtx_name);
-			break;
-		default:
-			panic("unknown condition %d", what);
-	}
+	if (mtx_owner != PCPU_GET(curthread))
+		panic("mutex '%s' not held by current thread", mtx_name);
 }
 
 void
-sem_init(Semaphore& sem, int count)
+Mutex::AssertUnlocked()
+{
+	if (mtx_owner != nullptr)
+		panic("mutex '%s' held", mtx_name);
+}
+
+Semaphore::Semaphore(int count)
+	: sem_count(count)
 {
 	KASSERT(count >= 0, "creating semaphore with negative count %d", count);
-
-	spinlock_init(sem.sem_lock);
-	sem.sem_count = count;
-	sem.sem_wq.clear();
 }
 
 void
-sem_signal(Semaphore& sem)
+Semaphore::Signal()
 {
 	/*
 	 * It is possible that we are run when curthread == NULL; we have to skip the entire
 	 * wake-up thing in such a case
 	 */
-	register_t state = spinlock_lock_unpremptible(sem.sem_lock);
-	Thread* curthread = PCPU_GET(curthread);
-	int wokeup_priority = (curthread != NULL) ? curthread->t_priority : 0;
+	SpinlockUnpremptibleGuard g(sem_lock);
 
-	if (!sem.sem_wq.empty()) {
+	Thread* curthread = PCPU_GET(curthread);
+	int wokeup_priority = (curthread != nullptr) ? curthread->t_priority : 0;
+
+	if (!sem_wq.empty()) {
 		/* We have waiters; wake up the first one */
-		SemaphoreWaiter& sw = sem.sem_wq.front();
-		sem.sem_wq.pop_front();
+		SemaphoreWaiter& sw = sem_wq.front();
+		sem_wq.pop_front();
 		sw.sw_signalled = 1;
 		thread_resume(*sw.sw_thread);
 		wokeup_priority = sw.sw_thread->t_priority;
 		/* No need to adjust sem_count since the unblocked waiter won't touch it */
 	} else {
 		/* No waiters; increment the number of units left */
-		sem.sem_count++;
+		sem_count++;
 	}
 
 	/*
 	 * If we woke up something more important than us, mark us as
 	 * reschedule.
 	 */
-	if (curthread != NULL && wokeup_priority < curthread->t_priority)
+	if (curthread != nullptr && wokeup_priority < curthread->t_priority)
 		curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
-
-	spinlock_unlock_unpremptible(sem.sem_lock, state);
 }
 
 /* Waits for a semaphore to be signalled, but holds it locked */
-static void
-sem_wait_and_lock(Semaphore& sem, register_t* state)
+register_t
+Semaphore::WaitAndLock()
 {
+	KASSERT(PCPU_GET(nested_irq) == 0, "waiting in irq");
+
 	/* Happy flow first: if there are units left, we are done */
-	*state = spinlock_lock_unpremptible(sem.sem_lock);
-	if (sem.sem_count > 0) {
-		sem.sem_count--;
-		return;
+	auto state = sem_lock.LockUnpremptible();
+	if (sem_count > 0) {
+		sem_count--;
+		return state;
 	}
 
 	/*
@@ -192,48 +163,44 @@ sem_wait_and_lock(Semaphore& sem, register_t* state)
 	SemaphoreWaiter sw;
 	sw.sw_thread = curthread;
 	sw.sw_signalled = 0;
-	sem.sem_wq.push_back(sw);
+	sem_wq.push_back(sw);
 	do {
 		thread_suspend(*curthread);
 		/* Let go of the lock, but keep interrupts disabled */
-		spinlock_unlock(sem.sem_lock);
+		sem_lock.Unlock();
 		schedule();
-		spinlock_lock_unpremptible(sem.sem_lock);
+		sem_lock.LockUnpremptible();
 	} while (sw.sw_signalled == 0);
+
+	return state;
 }
 
 void
-sem_wait(Semaphore& sem)
+Semaphore::Wait()
 {
-	KASSERT(PCPU_GET(nested_irq) == 0, "sem_wait() in irq");
-
-	register_t state;
-	sem_wait_and_lock(sem, &state);
-	spinlock_unlock_unpremptible(sem.sem_lock, state);
+	auto state = WaitAndLock();
+	sem_lock.UnlockUnpremptible(state);
 }
 
 void
-sem_wait_and_drain(Semaphore& sem)
+Semaphore::WaitAndDrain()
 {
-	KASSERT(PCPU_GET(nested_irq) == 0, "sem_wait_and_drain() in irq");
-
-	register_t state;
-	sem_wait_and_lock(sem, &state);
-	sem.sem_count = 0; /* drain all remaining units */
-	spinlock_unlock_unpremptible(sem.sem_lock, state);
+	auto state = WaitAndLock();
+	sem_count = 0; // drain all remaining units
+	sem_lock.UnlockUnpremptible(state);
 }
 
-int
-sem_trywait(Semaphore& sem)
+bool
+Semaphore::TryWait()
 {
-	int result = 0;
+	bool result = false;
 
-	register_t state = spinlock_lock_unpremptible(sem.sem_lock);
-	if (sem.sem_count > 0) {
-		sem.sem_count--;
-		result++;
+	auto state = sem_lock.LockUnpremptible();
+	if (sem_count > 0) {
+		sem_count--;
+		result = true;
 	}
-	spinlock_unlock_unpremptible(sem.sem_lock, state);
+	sem_lock.UnlockUnpremptible(state);
 
 	return result;
 }

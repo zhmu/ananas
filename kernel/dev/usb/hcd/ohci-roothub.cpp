@@ -125,7 +125,6 @@ struct {
 RootHub::RootHub(HCD_Resources& hcdResources, USBDevice& device)
 	: rh_Resources(hcdResources), rh_Device(device)
 {
-	sem_init(rh_semaphore, 0);
 }
 
 errorcode_t
@@ -383,7 +382,7 @@ RootHub::Thread()
 {
 	while(1) {
 		/* Wait until we get a roothub interrupt; that should signal something happened */
-		sem_wait_and_drain(rh_semaphore);
+		rh_semaphore.WaitAndDrain();
 
 		/*
 		 * If we do not have anything in the interrupt queue, there is no need to
@@ -421,7 +420,7 @@ RootHub::HandleTransfer(Transfer& xfer)
 void
 RootHub::OnIRQ()
 {
-	sem_signal(rh_semaphore);
+	rh_semaphore.Signal();
 
 #if 0
 		/*

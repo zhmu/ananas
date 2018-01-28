@@ -6,13 +6,12 @@
 ACPI_STATUS
 AcpiOsCreateSemaphore(UINT32 MaxUnits, UINT32 InitialUnits, ACPI_SEMAPHORE* OutHandle)
 {
-	auto sem = new Semaphore;
+	auto sem = new Semaphore(MaxUnits);
 	if (sem == NULL)
 		return AE_NO_MEMORY;
 
-	sem_init(*sem, MaxUnits);
 	while (InitialUnits > MaxUnits) {
-		sem_wait(*sem);
+		sem->Wait();
 		InitialUnits--;
 	}
 	*OutHandle = sem;
@@ -35,7 +34,7 @@ AcpiOsWaitSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units, UINT16 Timeout)
 	/*KASSERT(Timeout == -1, "unsupported timout value");*/
 	if (Handle == NULL)
 		return AE_BAD_PARAMETER;
-	sem_wait(*Handle);
+	Handle->Wait();
 	return AE_OK;
 }
 
@@ -45,20 +44,15 @@ AcpiOsSignalSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units)
 	KASSERT(Units == 1, "unsupported number of units");
 	if (Handle == NULL)
 		return AE_BAD_PARAMETER;
-	sem_signal(*Handle);
+	Handle->Signal();
 	return AE_OK;
 }
 
 ACPI_STATUS
 AcpiOsCreateLock(ACPI_SPINLOCK* OutHandle)
 {
-	auto sl = new Spinlock;
-	if (sl == NULL)
-		return AE_NO_MEMORY;
-
-	spinlock_init(*sl);
-	*OutHandle = sl;
-	return AE_OK;
+	*OutHandle = new Spinlock;
+	return *OutHandle != nullptr ? AE_OK : AE_NO_MEMORY;
 }
 
 void
@@ -70,13 +64,13 @@ AcpiOsDeleteLock(ACPI_SPINLOCK Handle)
 ACPI_CPU_FLAGS
 AcpiOsAcquireLock(ACPI_SPINLOCK Handle)
 {
-	return spinlock_lock_unpremptible(*Handle);
+	return Handle->LockUnpremptible();
 }
 
 void
 AcpiOsReleaseLock(ACPI_SPINLOCK Handle, ACPI_CPU_FLAGS Flags)
 {
-	spinlock_unlock_unpremptible(*Handle, Flags);
+	Handle->UnlockUnpremptible(Flags);
 }
 
 /* vim:set ts=2 sw=2: */

@@ -32,29 +32,29 @@ typedef util::List<Bus> BusList;
 
 namespace {
 Thread usbbus_thread;
-Semaphore usbbus_semaphore;
+Semaphore usbbus_semaphore(0);
 USBDeviceList usbbus_pendingqueue;
 Spinlock usbbus_spl_pendingqueue; /* protects usbbus_pendingqueue */
 BusList usbbus_busses;
-Mutex usbbus_mutex; /* protects usbbus_busses */
+Mutex usbbus_mutex("usbbus"); /* protects usbbus_busses */
 } // unnamed namespace
 
 void
 ScheduleAttach(USBDevice& usb_dev)
 {
 	/* Add the device to our queue */
-	spinlock_lock(usbbus_spl_pendingqueue);
-	usbbus_pendingqueue.push_back(usb_dev);
-	spinlock_unlock(usbbus_spl_pendingqueue);
+	{
+		SpinlockGuard g(usbbus_spl_pendingqueue);
+		usbbus_pendingqueue.push_back(usb_dev);
+	}
 
 	/* Wake up our thread */
-	sem_signal(usbbus_semaphore);
+	usbbus_semaphore.Signal();
 }
 
 errorcode_t
 Bus::Attach()
 {
-	mutex_init(bus_mutex, "usbbus");
 	bus_NeedsExplore = true;
 
 	/*
@@ -66,9 +66,10 @@ Bus::Attach()
 	ScheduleAttach(*roothub);
 
 	/* Register ourselves within the big bus list */
-	mutex_lock(usbbus_mutex);
-	usbbus_busses.push_back(*this);
-	mutex_unlock(usbbus_mutex);
+	{
+		MutexGuard g(usbbus_mutex);
+		usbbus_busses.push_back(*this);
+	}
 	return ananas_success();
 }
 
@@ -94,7 +95,7 @@ Bus::ScheduleExplore()
 	bus_NeedsExplore = true;
 	Unlock();
 
-	sem_signal(usbbus_semaphore);
+	usbbus_semaphore.Signal();
 }
 
 /* Must be called with lock held! */
@@ -135,44 +136,45 @@ usb_bus_thread(void* unused)
 	/* Note that this thread is used for _all_ USB busses */
 	while(1) {
 		/* Wait until we have to wake up... */
-		sem_wait(usbbus_semaphore);
+		usbbus_semaphore.Wait();
 
 		while(1) {
 			/*
 			 * See if any USB busses need to be explored; we do this first because
 			 * exploring may trigger new devices to attach or old ones to remove.
 			 */
-			mutex_lock(usbbus_mutex);
-			for(auto& bus: usbbus_busses) {
-				bus.Lock();
-				if (bus.bus_NeedsExplore)
-					bus.Explore();
-				bus.Unlock();
+			{
+				MutexGuard g(usbbus_mutex);
+				for(auto& bus: usbbus_busses) {
+					bus.Lock();
+					if (bus.bus_NeedsExplore)
+						bus.Explore();
+					bus.Unlock();
+				}
 			}
-			mutex_unlock(usbbus_mutex);
 
 			/* Handle attaching devices */
-			spinlock_lock(usbbus_spl_pendingqueue);
-			if (usbbus_pendingqueue.empty()) {
-				spinlock_unlock(usbbus_spl_pendingqueue);
-				break;
+			USBDevice* usb_dev;
+			{
+				SpinlockGuard g(usbbus_spl_pendingqueue);
+				if (usbbus_pendingqueue.empty())
+					break;
+				usb_dev = &usbbus_pendingqueue.front();
+				usbbus_pendingqueue.pop_front();
 			}
-			auto& usb_dev = usbbus_pendingqueue.front();
-			usbbus_pendingqueue.pop_front();
-			spinlock_unlock(usbbus_spl_pendingqueue);
 
 			/*
 			 * Note that attaching will block until completed, which is intentional
 			 * as it ensures we will never attach more than one device in the system
 			 * at any given time.
 			 */
-			errorcode_t err = usb_dev.Attach();
+			errorcode_t err = usb_dev->Attach();
 			KASSERT(ananas_is_success(err), "cannot yet deal with failures %d", err);
 
 			/* This worked; hook the device to the bus' device list */
-			Bus& bus = usb_dev.ud_bus;
+			Bus& bus = usb_dev->ud_bus;
 			bus.Lock();
-			bus.bus_devices.push_back(usb_dev);
+			bus.bus_devices.push_back(*usb_dev);
 			bus.Unlock();
 		}
 	}
@@ -201,9 +203,6 @@ struct USBBus_Driver : public Ananas::Driver
 errorcode_t
 InitializeBus()
 {
-	sem_init(usbbus_semaphore, 0);
-	mutex_init(usbbus_mutex, "usbbus");
-
 	/*
 	 * Create a kernel thread to handle USB device attachments. We use a thread for this
 	 * since we can only attach one at the same time.

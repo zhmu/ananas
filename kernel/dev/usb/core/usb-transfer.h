@@ -48,7 +48,7 @@ class Transfer
 {
 public:
 	Transfer(USBDevice& dev, int type, int flags)
-	 : t_device(dev), t_type(type), t_flags(flags)
+	 : t_device(dev), t_type(type), t_flags(flags), t_semaphore(0)
 	{
 	}
 

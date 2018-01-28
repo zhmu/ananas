@@ -57,7 +57,15 @@ typedef util::List<Callback> CallbackList;
 
 
 struct Process {
-	Mutex	p_lock;	/* Locks the process */
+	void Lock()
+	{
+		p_lock.Lock();
+	}
+
+	void Unlock()
+	{
+		p_lock.Unlock();
+	}
 
 	unsigned int p_state;		/* Process state */
 	refcount_t p_refcount;		/* Reference count of the process, >0 */
@@ -81,17 +89,10 @@ struct Process {
 
 	util::List<Process>::Node p_NodeAll;
 	util::List<Process>::Node p_NodeChildren;
+
+private:
+	Mutex p_lock{"plock"};	/* Locks the process */
 };
-
-static inline void process_lock(Process& p)
-{
-	mutex_lock(p.p_lock);
-}
-
-static inline void process_unlock(Process& p)
-{
-	mutex_unlock(p.p_lock);
-}
 
 errorcode_t process_alloc(Process* parent, Process*& dest);
 

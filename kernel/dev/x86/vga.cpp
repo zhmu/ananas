@@ -67,7 +67,7 @@ struct VGA : public Ananas::Device, private Ananas::IDeviceOperations, private A
 	Pixel* vga_buffer;
 	uint8_t vga_attr;
 	teken_t vga_teken;
-	Mutex vga_mtx_teken;
+	Mutex vga_mtx_teken{"vga_mtx_teken"};
 };
 
 /* XXX this doesn't really belong here */
@@ -258,7 +258,6 @@ VGA::Attach()
 	tp.tp_row = VGA_HEIGHT; tp.tp_col = VGA_WIDTH;
 	teken_init(&vga_teken, &tf, this);
 	teken_set_winsize(&vga_teken, &tp);
-	mutex_init(vga_mtx_teken, "vga_mtx_teken");
 
 	return ananas_success();
 }
@@ -274,7 +273,8 @@ VGA::Write(const void* buffer, size_t& len, off_t offset)
 {
 	auto ptr = static_cast<const uint8_t*>(buffer);
 	size_t left = len;
-	mutex_lock(vga_mtx_teken);
+
+	MutexGuard g(vga_mtx_teken);
 	while(left--) {
 		/* XXX this is a hack which should be performed in a TTY layer, once we have one */
 		if(*ptr == '\n')
@@ -282,7 +282,6 @@ VGA::Write(const void* buffer, size_t& len, off_t offset)
 		teken_input(&vga_teken, ptr, 1);
 		ptr++;
 	}
-	mutex_unlock(vga_mtx_teken);
 	return ananas_success();
 }
 

@@ -57,8 +57,9 @@ public:
 		ino_t inum = file->f_dentry->d_inode->i_inum;
 		switch(inum_to_sub(inum)) {
 			case subMounts: {
+				SpinlockGuard g(Ananas::VFS::spl_mountedfs);
+
 				char* r = result;
-				spinlock_lock(Ananas::VFS::spl_mountedfs);
 				for (unsigned int n = 0; n < Ananas::VFS::GetMaxMountedFilesystems(); n++) {
 					struct VFS_MOUNTED_FS* fs = &Ananas::VFS::mountedfs[n];
 					if ((fs->fs_flags & VFS_FLAG_INUSE) == 0)
@@ -69,17 +70,16 @@ public:
 				  snprintf(r, sizeof(result) - (r - result), "%s %s %x\n", fs->fs_mountpoint, device, fs->fs_flags);
 					r += strlen(r);
 				}
-				spinlock_unlock(Ananas::VFS::spl_mountedfs);
 				break;
 			}
 			case subFileSystems: {
+				SpinlockGuard g(Ananas::VFS::spl_fstypes);
+
 				char* r = result;
-				spinlock_lock(Ananas::VFS::spl_fstypes);
 				for(auto& curfs: Ananas::VFS::fstypes) {
 				  snprintf(r, sizeof(result) - (r - result), "%s\n", curfs.fs_name);
 					r += strlen(r);
 				}
-				spinlock_unlock(Ananas::VFS::spl_fstypes);
 				break;
 			}
 		}

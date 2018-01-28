@@ -19,7 +19,6 @@ class VMSpace;
 struct INode;
 
 struct VMPage : util::List<VMPage>::NodePtr {
-	Mutex vp_mtx;
 	VMArea* vp_vmarea;
 
 	int vp_flags;
@@ -34,23 +33,29 @@ struct VMPage : util::List<VMPage>::NodePtr {
 	};
 
 	/* Virtual address mapped to */
-	addr_t vp_vaddr;
+	addr_t vp_vaddr = 0;
 
 	/* Backing inode and offset */
 	INode* vp_inode;
 	off_t vp_offset;
+
+	void Lock() {
+		vp_mtx.Lock();
+	}
+
+	void Unlock() {
+		vp_mtx.Unlock();
+	}
+
+	void AssertLocked() {
+		vp_mtx.AssertLocked();
+	}
+
+private:
+	Mutex vp_mtx{"vmpage"};
 };
 
 typedef util::List<VMPage> VMPageList;
-
-#define vmpage_lock(vp) \
-	mutex_lock((vp).vp_mtx)
-
-#define vmpage_unlock(vp) \
-	mutex_unlock((vp).vp_mtx)
-
-#define vmpage_assert_locked(vp) \
-	mutex_assert((vp).vp_mtx, MTX_LOCKED)
 
 void vmpage_ref(VMPage& vmpage);
 void vmpage_deref(VMPage& vmpage);

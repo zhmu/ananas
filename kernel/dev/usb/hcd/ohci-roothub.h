@@ -34,7 +34,7 @@ private:
 	USBDevice& rh_Device;
 
 	int rh_numports;
-	Semaphore rh_semaphore;
+	Semaphore rh_semaphore{0};
 	struct Thread rh_pollthread;
 	bool rh_pending_changes = true;
 };

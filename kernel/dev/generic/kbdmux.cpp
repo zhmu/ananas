@@ -34,6 +34,7 @@ public:
 
 	void OnInput(uint8_t ch);
 
+private:
 	/* We must use a spinlock here as kbdmux_on_input() can be called from IRQ context */
 	Spinlock kbd_lock;
 	char kbd_buffer[KBDMUX_BUFFER_SIZE];
@@ -46,12 +47,13 @@ KeyboardMux* kbdmux_instance = NULL; // XXX KLUDGE
 void
 KeyboardMux::OnInput(uint8_t ch)
 {
-	/* Add the data to our buffer */
-	register_t state = spinlock_lock_unpremptible(kbd_lock);
-	/* XXX we should protect against buffer overruns */
-	kbd_buffer[kbd_buffer_writepos] = ch;
-	kbd_buffer_writepos = (kbd_buffer_writepos + 1) % KBDMUX_BUFFER_SIZE;
-	spinlock_unlock_unpremptible(kbd_lock, state);
+	// Add the data to our buffer
+	{
+		SpinlockUnpremptibleGuard g(kbd_lock);
+		/* XXX we should protect against buffer overruns */
+		kbd_buffer[kbd_buffer_writepos] = ch;
+		kbd_buffer_writepos = (kbd_buffer_writepos + 1) % KBDMUX_BUFFER_SIZE;
+	}
 
 	/* XXX signal consumers - this is a hack */
 	if (console_tty != NULL) {
@@ -64,15 +66,16 @@ KeyboardMux::Read(void* data, size_t& len, off_t off)
 {
 	size_t returned = 0, left = len;
 
-	register_t state = spinlock_lock_unpremptible(kbd_lock);
-	while (left-- > 0) {
-		if (kbd_buffer_readpos == kbd_buffer_writepos)
-			break;
+	{
+		SpinlockUnpremptibleGuard g(kbd_lock);
+		while (left-- > 0) {
+			if (kbd_buffer_readpos == kbd_buffer_writepos)
+				break;
 
-		*(uint8_t*)(static_cast<uint8_t*>(data) + returned++) = kbd_buffer[kbd_buffer_readpos];
-		kbd_buffer_readpos = (kbd_buffer_readpos + 1) % KBDMUX_BUFFER_SIZE;
+			*(uint8_t*)(static_cast<uint8_t*>(data) + returned++) = kbd_buffer[kbd_buffer_readpos];
+			kbd_buffer_readpos = (kbd_buffer_readpos + 1) % KBDMUX_BUFFER_SIZE;
+		}
 	}
-	spinlock_unlock_unpremptible(kbd_lock, state);
 
 	len = returned;
 	return ananas_success();
@@ -83,7 +86,6 @@ KeyboardMux::Attach()
 {
 	KASSERT(kbdmux_instance == NULL, "multiple kbdmux");
 	kbdmux_instance = this;
-	spinlock_init(kbd_lock);
 
 	return ananas_success();
 }

@@ -87,7 +87,7 @@ QUEUE_DEFINE_END
 
 static Thread tty_thread;
 static struct TTY_QUEUE tty_queue;
-static Semaphore tty_sem;
+static Semaphore tty_sem{0};
 
 TTY::TTY(const Ananas::CreateDeviceProperties& cdp)
 	: Device(cdp)
@@ -110,9 +110,8 @@ errorcode_t
 TTY::Attach()
 {
 	// Hook our device to the TTY queue so that we handle it in our thread
-	spinlock_lock(tty_queue.tq_lock);
+	SpinlockGuard g(tty_queue.tq_lock);
 	QUEUE_ADD_TAIL(&tty_queue, this);
-	spinlock_unlock(tty_queue.tq_lock);
 
 	return ananas_success();
 }
@@ -151,7 +150,7 @@ TTY::Read(void* buf, size_t& len, off_t offset)
 			/*
 			 * Buffer is empty - schedule the thread for a wakeup once we have data.
 			  */
-			sem_wait(d_Waiters);
+			d_Waiters.Wait();
 			continue;
 		}
 
@@ -181,7 +180,7 @@ TTY::Read(void* buf, size_t& len, off_t offset)
 #undef CHAR_AT
 		if (n == in_len) {
 			/* Line is not complete - try again later */
-			sem_wait(d_Waiters);
+			d_Waiters.Wait();
 			continue;
 		}
 
@@ -282,21 +281,22 @@ TTY::ProcessInput()
 	}
 
 	/* If we have waiters, awaken them */
-	sem_signal(d_Waiters);
+	d_Waiters.Signal();
 }
 
 static void
 tty_thread_func(void* ptr)
 {
 	while(1) {
-		sem_wait(tty_sem);
+		tty_sem.Wait();
 
-		spinlock_lock(tty_queue.tq_lock);
-		KASSERT(!QUEUE_EMPTY(&tty_queue), "woken up without tty's?");
-		QUEUE_FOREACH(&tty_queue, tty, TTY) {
-			tty->ProcessInput();
+		{
+			SpinlockGuard g(tty_queue.tq_lock);
+			KASSERT(!QUEUE_EMPTY(&tty_queue), "woken up without tty's?");
+			QUEUE_FOREACH(&tty_queue, tty, TTY) {
+				tty->ProcessInput();
+			}
 		}
-		spinlock_unlock(tty_queue.tq_lock);
 	}
 }
 
@@ -352,7 +352,7 @@ tty_get_outputdev(Ananas::Device* dev)
 void
 tty_signal_data()
 {
-	sem_signal(tty_sem);
+	tty_sem.Signal();
 }
 
 static errorcode_t
@@ -360,8 +360,6 @@ tty_preinit()
 {
 	/* Initialize the queue of all tty's */
 	QUEUE_INIT(&tty_queue);
-	spinlock_init(tty_queue.tq_lock);
-	sem_init(tty_sem, 0);
 	return ananas_success();
 }
 

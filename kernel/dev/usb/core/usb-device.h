@@ -86,17 +86,17 @@ public:
 
 	void Lock()
 	{
-		mutex_lock(ud_mutex);
+		ud_mutex.Lock();
 	}
 
 	void Unlock()
 	{
-		mutex_unlock(ud_mutex);
+		ud_mutex.Unlock();
 	}
 
 	void AssertLocked()
 	{
-		mutex_assert(ud_mutex, MTX_LOCKED);
+		ud_mutex.AssertLocked();
 	}
 
 	errorcode_t PerformControlTransfer(int req, int recipient, int type, int value, int index, void* buf, size_t* len, bool write);
@@ -104,7 +104,7 @@ public:
 private:
 	void FreePipe_Locked(Pipe& pipe);
 
-	Mutex ud_mutex;
+	Mutex ud_mutex{"usbdev"};
 	PipeList ud_pipes;			/* [M] */
 };
 

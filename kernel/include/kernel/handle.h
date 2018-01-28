@@ -47,7 +47,7 @@ struct HANDLE : util::List<HANDLE>::NodePtr {
 	int h_type;				/* one of HANDLE_TYPE_... */
 	int h_flags;				/* flags */
 	Process* h_process;			/* owning process */
-	Mutex h_mutex;			/* mutex guarding the handle */
+	Mutex h_mutex{"handle"};		/* mutex guarding the handle */
 	struct HANDLE_OPS* h_hops;		/* handle operations */
 
 	/* Waiters are those who are waiting on this handle */

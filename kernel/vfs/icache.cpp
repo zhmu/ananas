@@ -25,37 +25,34 @@ namespace {
 
 typedef util::List<INode> INodeList;
 
-Mutex icache_mtx;
+Mutex icache_mtx{"icache"};
 INodeList icache_inuse;
 INodeList icache_free;
 
 inline void icache_lock()
 {
-	mutex_lock(icache_mtx);
+	icache_mtx.Lock();
 }
 
 inline void icache_unlock()
 {
-	mutex_unlock(icache_mtx);
+	icache_mtx.Unlock();
 }
 
 inline void icache_assert_locked()
 {
-	mutex_assert(icache_mtx, MTX_LOCKED);
+	icache_mtx.AssertLocked();
 }
 
 errorcode_t
 icache_init()
 {
-	mutex_init(icache_mtx, "icache");
-
 	// Allocate inodes - we can set up some basic information here
 	// XXX we could use a slab allocator for this
 	{
-		auto inode = static_cast<INode*>(kmalloc(ICACHE_ITEMS * sizeof(INode)));
+		auto inode = new INode[ICACHE_ITEMS];
 		memset(inode, 0, ICACHE_ITEMS * sizeof(INode));
 		for (int i = 0; i < ICACHE_ITEMS; i++, inode++) {
-			mutex_init(inode->i_mutex, "inode");
 			icache_free.push_back(*inode);
 		}
 	}
@@ -84,9 +81,9 @@ icache_purge_old_entries()
 		 * to do so would be to introduce a race in vfs_read_inode()) and anything
 		 * that still has references.
 		 */
-		INODE_LOCK(inode);
+		inode.Lock();
 		if (inode.i_refcount > 0 || (inode.i_flags & INODE_FLAG_PENDING)) {
-			INODE_UNLOCK(inode);
+			inode.Unlock();
 			continue;
 		}
 
@@ -98,7 +95,7 @@ icache_purge_old_entries()
 		inode.i_refcount = -1; // in case someone tries to use it
 		inode.i_privdata = nullptr;
 		inode.i_flags |= INODE_FLAG_GONE;
-		INODE_UNLOCK(inode);
+		inode.Unlock();
 
 		// Move the inode to the freelist as we can re-use it again
 		icache_inuse.remove(inode);
@@ -140,10 +137,10 @@ vfs_deref_inode(INode& inode)
 	TRACE(VFS, FUNC, "inode=%p,cur refcount=%u", &inode, inode.i_refcount);
 	INODE_ASSERT_SANE(inode);
 
-	INODE_LOCK(inode);
+	inode.Lock();
 	KASSERT(inode.i_refcount > 0, "dereffing inode %p with invalid refcount %d", &inode, inode.i_refcount);
 	--inode.i_refcount;
-	INODE_UNLOCK(inode);
+	inode.Unlock();
 
   // Never free the backing inode here - we don't have to! We will get rid of
   // it once we need a fresh inode (icache_purge_old_entries() does this)
@@ -155,10 +152,10 @@ vfs_ref_inode(INode& inode)
 	TRACE(VFS, FUNC, "inode=%p,cur refcount=%u", &inode, inode.i_refcount);
 	INODE_ASSERT_SANE(inode);
 
-	INODE_LOCK(inode);
+	inode.Lock();
 	KASSERT(inode.i_refcount > 0, "referencing a dead inode");
 	++inode.i_refcount;
-	INODE_UNLOCK(inode);
+	inode.Unlock();
 }
 
 /*
@@ -183,7 +180,7 @@ icache_lookup_locked(struct VFS_MOUNTED_FS* fs, ino_t inum)
 			continue;
 
 		// We found the inode - lock it so that it won't go
-		INODE_LOCK(inode);
+		inode.Lock();
 
 		/*
 		 * It's quite possible that this inode is still pending; if that
@@ -191,7 +188,7 @@ icache_lookup_locked(struct VFS_MOUNTED_FS* fs, ino_t inum)
 		 * caller to finish up.
 		 */
 		if (inode.i_flags & INODE_FLAG_PENDING) {
-			INODE_UNLOCK(inode);
+			inode.Unlock();
 			icache_unlock();
 			kprintf("icache_lookup(): pending item, waiting\n");
 			return nullptr;
@@ -226,7 +223,7 @@ icache_lookup_locked(struct VFS_MOUNTED_FS* fs, ino_t inum)
 	icache_inuse.push_front(inode);
 
 	// Fill out some basic information
-	INODE_LOCK(inode);
+	inode.Lock();
 	inode.i_refcount = 1; // caller
 	inode.i_flags = INODE_FLAG_PENDING;
 	inode.i_fs = fs;
@@ -264,7 +261,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode)
 
 	if ((inode->i_flags & INODE_FLAG_PENDING) == 0) {
 		/* Already have the inode cached -> return it (refcount will already be incremented) */
-		INODE_UNLOCK(*inode);
+		inode->Unlock();
 		destinode = inode;
 		TRACE(VFS, INFO, "cache hit: fs=%p, inum=%lx => inode=%p", fs, inum, inode);
 		return ananas_success();
@@ -277,7 +274,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode)
 	if (fs->fs_fsops->prepare_inode != NULL)
 		result = fs->fs_fsops->prepare_inode(*inode);
 	if (ananas_is_failure(result)) {
-		INODE_UNLOCK(*inode);
+		inode->Unlock();
 		vfs_deref_inode(*inode); /* throws it away */
 		return result;
 	}
@@ -288,7 +285,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode)
 	 */
 	result = fs->fs_fsops->read_inode(*inode, inum);
 	if (ananas_is_failure(result)) {
-		INODE_UNLOCK(*inode);
+		inode->Unlock();
 		vfs_deref_inode(*inode); /* throws it away */
 		return result;
 	}
@@ -297,7 +294,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode)
 	KASSERT(inode->i_refcount == 1, "fresh inode refcount incorrect");
 	TRACE(VFS, INFO, "cache miss: fs=%p, inum=%lx => inode=%p", fs, inum, inode);
 	inode->i_flags &= ~INODE_FLAG_PENDING;
-	INODE_UNLOCK(*inode);
+	inode->Unlock();
 	destinode = inode;
 	return ananas_success();
 }

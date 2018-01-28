@@ -31,7 +31,7 @@ static Spinlock console_backlog_lock;
 static char* console_backlog;
 static int console_backlog_pos = 0;
 static int console_backlog_overrun = 0;
-static Mutex mtx_console;
+static Mutex mtx_console("console");
 
 /* If set, display the driver list before attaching */
 #define VERBOSE_LIST 0
@@ -79,12 +79,10 @@ console_init()
 		console_tty = tty_alloc(input_dev, output_dev);
 
 	/* Initialize the backlog; we use it to queue messages once the mutex is hold */
-	spinlock_init(console_backlog_lock);
 	console_backlog = new char[CONSOLE_BACKLOG_SIZE];
 	console_backlog_pos = 0;
 
 	/* Initialize the console print mutex and start using it */
-	mutex_init(mtx_console, "console");
 	console_mutex_inuse++;
 
 	return ananas_success();
@@ -116,13 +114,14 @@ console_puts(const char* s)
 void
 console_putstring(const char* s)
 {
-	if (console_mutex_inuse && !mutex_trylock(mtx_console)) {
+	if (console_mutex_inuse && !mtx_console.TryLock()) {
+		SpinlockUnpremptibleGuard g(console_backlog_lock);
+
 		/*
 		 * Couldn't obtain the console mutex; we should put our message in the
 		 * back log and wait for it to be picked up later.
 		 */
 		int len = strlen(s);
-		register_t state = spinlock_lock_unpremptible(console_backlog_lock);
 		if (console_backlog_pos + len < CONSOLE_BACKLOG_SIZE) {
 			/* Fits! */
 			strcpy(&console_backlog[console_backlog_pos], s);
@@ -131,7 +130,6 @@ console_putstring(const char* s)
 			/* Doesn't fit */
 			console_backlog_overrun++;
 		}
-		spinlock_unlock_unpremptible(console_backlog_lock, state);
 		return;
 	}
 
@@ -139,19 +137,18 @@ console_putstring(const char* s)
 
 	/* See if there's anything in the backlog that we can print */
 	if (console_backlog_pos > 0) {
-		register_t state = spinlock_lock_unpremptible(console_backlog_lock);
+		SpinlockUnpremptibleGuard g(console_backlog_lock);
 		for (int n = 0; n < console_backlog_pos; n++)
 			console_putchar(console_backlog[n]);
 		console_backlog_pos = 0;
 
 		if (console_backlog_overrun)
 			console_puts("[***OVERRUN***]");
-		spinlock_unlock_unpremptible(console_backlog_lock, state);
 	}
 
 
 	if (console_mutex_inuse)
-		mutex_unlock(mtx_console);
+		mtx_console.Unlock();
 }
 
 uint8_t

@@ -73,41 +73,42 @@ try_cache: ; /* dummy ; to keep gcc happy */
 	struct FAT_CLUSTER_CACHEITEM* ci = NULL;
 	struct FAT_CLUSTER_CACHEITEM* ci_closest = NULL;
 	if (clusternum != -1) {
-		spinlock_lock(fs_privdata->spl_cache);
-		for(int cache_item = 0; cache_item < FAT_NUM_CACHEITEMS; cache_item++) {
-			ci = &fs_privdata->cluster_cache[cache_item];
-			if (ci->f_clusterno == 0) {
-				/* Found empty item - use it (we assume this always occurs at the end of the items) */
-				create++;
-				ci->f_clusterno = first_cluster;
-				ci->f_index = clusternum;
-				ci->f_nextcluster = 0;
-				break;
-			}
-			if (ci->f_clusterno == first_cluster) {
-				if (ci->f_index == clusternum) {
-					/* Got it */
-					found++;
+		{
+			SpinlockGuard g(fs_privdata->spl_cache);
+			for(int cache_item = 0; cache_item < FAT_NUM_CACHEITEMS; cache_item++) {
+				ci = &fs_privdata->cluster_cache[cache_item];
+				if (ci->f_clusterno == 0) {
+					/* Found empty item - use it (we assume this always occurs at the end of the items) */
+					create++;
+					ci->f_clusterno = first_cluster;
+					ci->f_index = clusternum;
+					ci->f_nextcluster = 0;
 					break;
 				}
+				if (ci->f_clusterno == first_cluster) {
+					if (ci->f_index == clusternum) {
+						/* Got it */
+						found++;
+						break;
+					}
 
-				/*
-				 * Cluster is fine, but index isn't. Attempt to use this item as a base;
-				 * the less items we'll have to walk through, the better.
-				 */
-				if (ci->f_index < clusternum && (ci_closest == NULL || ci->f_index > ci_closest->f_index))
-					ci_closest = ci;
+					/*
+					 * Cluster is fine, but index isn't. Attempt to use this item as a base;
+					 * the less items we'll have to walk through, the better.
+					 */
+					if (ci->f_index < clusternum && (ci_closest == NULL || ci->f_index > ci_closest->f_index))
+						ci_closest = ci;
+				}
+			}
+			/*
+			 * If we need to do a lookup, use the closest item as base; we do this
+			 * while holding the lock to ensure the item won't vanish.
+			 */
+			if (create && !found && ci_closest != NULL) {
+				cur_cluster = ci_closest->f_nextcluster;
+				clusternum -= ci_closest->f_index;
 			}
 		}
-		/*
-		 * If we need to do a lookup, use the closest item as base; we do this
-		 * while holding the lock to ensure the item won't vanish.
-		 */
-		if (create && !found && ci_closest != NULL) {
-			cur_cluster = ci_closest->f_nextcluster;
-			clusternum -= ci_closest->f_index;
-		}
-		spinlock_unlock(fs_privdata->spl_cache);
 
 		if (create == 0 && found == 0) {
 			/*
@@ -332,17 +333,18 @@ fat_append_cluster(INode& inode, uint32_t* cluster_out)
 	 * Update the cache; if there is an entry for our inode which is marked as
 	 * nonexistent, we expect it to be the last one and overwrite it.
 	 */
-	spinlock_lock(fs_privdata->spl_cache);
-	for(int cache_item = 0; cache_item < FAT_NUM_CACHEITEMS; cache_item++) {
-		struct FAT_CLUSTER_CACHEITEM* ci = &fs_privdata->cluster_cache[cache_item];
-		if (ci->f_clusterno == privdata->first_cluster && ci->f_nextcluster == -1) {
-			/* Found empty item - use it (we assume this always occurs at the end of the items) */
-			KASSERT(ci->f_index == (inode.i_sb.st_size + ((fs_privdata->sector_size * fs_privdata->sectors_per_cluster) - 1)) / (fs_privdata->sector_size * fs_privdata->sectors_per_cluster), "empty cache item isn't final item?");
-			ci->f_nextcluster = new_cluster;
-			break;
+	{
+		SpinlockGuard g(fs_privdata->spl_cache);
+		for(int cache_item = 0; cache_item < FAT_NUM_CACHEITEMS; cache_item++) {
+			struct FAT_CLUSTER_CACHEITEM* ci = &fs_privdata->cluster_cache[cache_item];
+			if (ci->f_clusterno == privdata->first_cluster && ci->f_nextcluster == -1) {
+				/* Found empty item - use it (we assume this always occurs at the end of the items) */
+				KASSERT(ci->f_index == (inode.i_sb.st_size + ((fs_privdata->sector_size * fs_privdata->sectors_per_cluster) - 1)) / (fs_privdata->sector_size * fs_privdata->sectors_per_cluster), "empty cache item isn't final item?");
+				ci->f_nextcluster = new_cluster;
+				break;
+			}
 		}
 	}
-	spinlock_unlock(fs_privdata->spl_cache);
 
 	/* Update the block count of the inode */
 	privdata->last_cluster = new_cluster;
@@ -441,13 +443,13 @@ int
 fat_clear_cache(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster)
 {
 	auto fs_privdata = static_cast<struct FAT_FS_PRIVDATA*>(fs->fs_privdata);
+	SpinlockGuard g(fs_privdata->spl_cache);
 
 	/*
 	 * Throw away al inode's cluster items; this works by searching for the last
 	 * item in the cluster cache and copying it over our removed blocks - this
 	 * works because the cache isn't sorted.
 	 */
-	spinlock_lock(fs_privdata->spl_cache);
 	unsigned int last_index = 0;
 	while (last_index < FAT_NUM_CACHEITEMS && fs_privdata->cluster_cache[last_index].f_clusterno != 0)
 		last_index++;
@@ -476,7 +478,6 @@ fat_clear_cache(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster)
 		}
 		num_removed++;
 	}
-	spinlock_unlock(fs_privdata->spl_cache);
 	return num_removed;
 }
 

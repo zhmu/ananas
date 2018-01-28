@@ -59,11 +59,10 @@ scheduler_init_thread(Thread& t)
 	t.t_flags |= THREAD_FLAG_SUSPENDED;
 
 	/* Hook the thread to our sleepqueue */
-	register_t state = spinlock_lock_unpremptible(spl_scheduler);
+	SpinlockUnpremptibleGuard g(spl_scheduler);
 	KASSERT(scheduler_is_on_queue(sched_runqueue, t) == 0, "new thread is already on runq?");
 	KASSERT(scheduler_is_on_queue(sched_sleepqueue, t) == 0, "new thread is already on sleepq?");
 	sched_sleepqueue.push_back(t.t_sched_priv);
-	spinlock_unlock_unpremptible(spl_scheduler, state);
 }
 
 static void
@@ -96,7 +95,8 @@ void
 scheduler_add_thread(Thread& t)
 {
 	SCHED_KPRINTF("%s: t=%p\n", __func__, &t);
-	register_t state = spinlock_lock_unpremptible(spl_scheduler);
+	SpinlockUnpremptibleGuard g(spl_scheduler);
+
 	KASSERT(THREAD_IS_SUSPENDED(&t), "adding non-suspended thread %p", &t);
 	SCHED_ASSERT(scheduler_is_on_queue(sched_runqueue, t) == 0, "adding thread %p already on runqueue", &t);
 	SCHED_ASSERT(scheduler_is_on_queue(sched_sleepqueue, t) == 1, "adding thread %p not on sleepqueue", &t);
@@ -110,14 +110,14 @@ scheduler_add_thread(Thread& t)
 	 *     also remove the timeout flag here as the thread is already unsuspended.
 	 */
 	t.t_flags &= ~(THREAD_FLAG_SUSPENDED | THREAD_FLAG_TIMEOUT);
-	spinlock_unlock_unpremptible(spl_scheduler, state);
 }
 
 void
 scheduler_remove_thread(Thread& t)
 {
 	SCHED_KPRINTF("%s: t=%p\n", __func__, &t);
-	register_t state = spinlock_lock_unpremptible(spl_scheduler);
+	SpinlockUnpremptibleGuard g(spl_scheduler);
+
 	KASSERT(!THREAD_IS_SUSPENDED(&t), "removing suspended thread %p", &t);
 	SCHED_ASSERT(scheduler_is_on_queue(sched_sleepqueue, t) == 0, "removing thread already on sleepqueue");
 	SCHED_ASSERT(scheduler_is_on_queue(sched_runqueue, t) == 1, "removing thread not on runqueue");
@@ -146,7 +146,6 @@ scheduler_remove_thread(Thread& t)
 	 *     no one else is allowed to touch the thread while we're moving it
 	 */
 	t.t_flags |= THREAD_FLAG_SUSPENDED;
-	spinlock_unlock_unpremptible(spl_scheduler, state);
 }
 
 void
@@ -157,7 +156,8 @@ scheduler_exit_thread(Thread& t)
 	 * remove the thread from the schedulers runqueue, and it will not be re-added again.
 	 * Thus, if a context switch would occur, the final exiting code will not be run.
 	 */
-	spinlock_lock_unpremptible(spl_scheduler);
+	spl_scheduler.LockUnpremptible();
+
 	SCHED_ASSERT(scheduler_is_on_queue(sched_runqueue, t) == 1, "exiting thread already not on sleepqueue");
 	SCHED_ASSERT(scheduler_is_on_queue(sched_sleepqueue, t) == 0, "exiting thread on runqueue");
 	/* Thread seems sane; remove it from the runqueue */
@@ -171,7 +171,7 @@ scheduler_exit_thread(Thread& t)
 	 */
 	t.t_flags |= THREAD_FLAG_ZOMBIE;
 	/* Let go of the scheduler lock but leave interrupts disabled */
-	spinlock_unlock(spl_scheduler);
+	spl_scheduler.Unlock();
 
 	/* Force a reschedule - won't return */
 	schedule();
@@ -198,7 +198,7 @@ schedule()
 	 * enabled - this happens in interrupt context, which needs to clean up
 	 * before another interrupt can be handled.
 	 */
-	register_t state = spinlock_lock_unpremptible(spl_scheduler);
+	auto state = spl_scheduler.LockUnpremptible();
 
 	/* Cancel any rescheduling as we are about to schedule here */
 	curthread->t_flags &= ~THREAD_FLAG_RESCHEDULE;
@@ -267,7 +267,7 @@ schedule()
 	PCPU_SET(curthread, &newthread);
 
 	/* Now unlock the scheduler lock but do _not_ enable interrupts */
-	spinlock_unlock(spl_scheduler);
+	spl_scheduler.Unlock();
 
 	if (curthread != &newthread) {
 		Thread& prev = md_thread_switch(newthread, *curthread);

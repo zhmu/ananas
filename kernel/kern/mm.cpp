@@ -5,7 +5,7 @@
 #include "kernel/vm.h"
 #include "kernel-md/vm.h"
 
-static Mutex mtx_mm;
+static Mutex mtx_mm("mm");
 
 extern "C" {
 void* dlmalloc(size_t);
@@ -15,25 +15,21 @@ void dlfree(void*);
 void
 mm_init()
 {
-	mutex_init(mtx_mm, "mm");
 }
 
 
 void*
 kmalloc(size_t len)
 {
-	mutex_lock(mtx_mm);
-	void* ptr = dlmalloc(len);
-	mutex_unlock(mtx_mm);
-	return ptr;
+	MutexGuard g(mtx_mm);
+	return dlmalloc(len);
 }
 
 void
 kfree(void* addr)
 {
-	mutex_lock(mtx_mm);
+	MutexGuard g(mtx_mm);
 	dlfree(addr);
-	mutex_unlock(mtx_mm);
 }
 
 void*

@@ -257,7 +257,7 @@ elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 		vp.vp_vaddr = ELFINFO_BASE;
 		auto elf_info = static_cast<struct ANANAS_ELF_INFO*>(kmem_map(page_get_paddr(*vmpage_get_page(vp)), sizeof(struct ANANAS_ELF_INFO), VM_FLAG_READ | VM_FLAG_WRITE));
 		vmpage_map(vs, *va, vp);
-		vmpage_unlock(vp);
+		vp.Unlock();
 
 		// And fill it out
 		memset(elf_info, 0, PAGE_SIZE);

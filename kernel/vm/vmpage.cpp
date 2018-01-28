@@ -33,7 +33,7 @@ namespace {
 void
 vmpage_free(VMPage& vmpage)
 {
-  vmpage_assert_locked(vmpage);
+  vmpage.AssertLocked();
 
   KASSERT(vmpage.vp_refcount == 0, "freeing page with refcount %d", vmpage.vp_refcount);
 
@@ -44,7 +44,7 @@ vmpage_free(VMPage& vmpage)
   // Note that we do not hold any references to the inode (the inode owns us)
   if (vmpage.vp_flags & VM_PAGE_FLAG_LINK) {
     if (vmpage.vp_link != nullptr) {
-      vmpage_lock(*vmpage.vp_link);
+      vmpage.vp_link->Lock();
       vmpage_deref(*vmpage.vp_link);
     }
   } else {
@@ -72,14 +72,14 @@ vmpage_resolve(VMPage& v)
 VMPage&
 vmpage_resolve_locked(VMPage& vp)
 {
-  vmpage_assert_locked(vp);
+  vp.AssertLocked();
 
   auto& vp_resolved = vmpage_resolve(vp);
   if (&vp_resolved == &vp)
     return vp;
-  vmpage_lock(vp_resolved);
+  vp_resolved.Lock();
 
-  vmpage_unlock(vp);
+  vp.Unlock();
   return vp_resolved;
 }
 
@@ -87,25 +87,21 @@ VMPage&
 vmpage_alloc(VMArea* va, INode* inode, off_t offset, int flags)
 {
   auto vp = new VMPage;
-	memset(vp, 0, sizeof(*vp));
-  mutex_init(vp->vp_mtx, "vmpage");
   vp->vp_vmarea = va;
   vp->vp_inode = inode;
   vp->vp_offset = offset;
   vp->vp_flags = flags;
   vp->vp_refcount = 1; // caller
 
-  vmpage_lock(*vp);
+  vp->Lock();
   if (va != nullptr)
-		va->va_pages.push_back(*vp);
+	va->va_pages.push_back(*vp);
   return *vp;
 }
 
 VMPage&
 vmpage_clone_cow(VMSpace& vs, VMArea& va, VMPage& v)
 {
-  //KASSERT((vp->vp_flags & VM_PAGE_FLAG_COW) == 0, "trying to clone cow page %p that is already cow", vp);
-
   // Get the virtual address before dereferencing links as the source is never mapped
   addr_t vaddr = v.vp_vaddr;
   auto& vp = vmpage_resolve_locked(v);
@@ -126,7 +122,7 @@ vmpage_clone_cow(VMSpace& vs, VMArea& va, VMPage& v)
 VMPage&
 vmpage_link(VMArea& va, VMPage& vp)
 {
-  vmpage_assert_locked(vp);
+  vp.AssertLocked();
   VMPage& vp_source = vmpage_resolve_locked(vp);
 
   // Increase source refcount as we will be linked towards it
@@ -141,8 +137,8 @@ vmpage_link(VMArea& va, VMPage& vp)
   vp_new.vp_vaddr = vp_source.vp_vaddr;
 
   if (&vp_source != &vp) {
-    vmpage_unlock(vp_source);
-    vmpage_lock(vp);
+    vp_source.Unlock();
+    vp.Lock();
   }
   return vp_new;
 }
@@ -150,8 +146,8 @@ vmpage_link(VMArea& va, VMPage& vp)
 void
 vmpage_copy_extended(VMPage& vp_src, VMPage& vp_dst, size_t len)
 {
-  vmpage_assert_locked(vp_src);
-  vmpage_assert_locked(vp_dst);
+  vp_src.AssertLocked();
+  vp_dst.AssertLocked();
   KASSERT(&vp_src != &vp_dst, "copying same vmpage %p", &vp_src);
   KASSERT(len <= PAGE_SIZE, "copying more than a page");
 
@@ -174,13 +170,13 @@ VMPage&
 vmpage_promote(VMSpace& vs, VMArea& va, VMPage& vp)
 {
   // This promotes a COW page to a new writable page
-  vmpage_assert_locked(vp);
+  vp.AssertLocked();
   KASSERT((vp.vp_flags & VM_PAGE_FLAG_COW) != 0, "attempt to promote non-COW page");
 
   // Get a reference to the source page - this is what we need to copy
   auto& vp_source = vmpage_resolve(vp);
   if (&vp_source != &vp)
-    vmpage_lock(vp_source); // freed by vmpage_deref()
+    vp_source.Lock(); // freed by vmpage_deref()
   KASSERT(vp.vp_refcount > 0, "invalid refcount of vp");
   KASSERT(vp_source.vp_refcount > 0, "invalid refcount of source");
 
@@ -250,18 +246,18 @@ vmpage_promote(VMSpace& vs, VMArea& va, VMPage& vp)
 void
 vmpage_ref(VMPage& vmpage)
 {
-  vmpage_assert_locked(vmpage);
+  vmpage.AssertLocked();
   ++vmpage.vp_refcount;
 }
 
 void
 vmpage_deref(VMPage& vmpage)
 {
-  vmpage_assert_locked(vmpage);
+  vmpage.AssertLocked();
 
   KASSERT(vmpage.vp_refcount > 0, "invalid refcount %d", vmpage.vp_refcount);
   if (--vmpage.vp_refcount > 0) {
-    vmpage_unlock(vmpage);
+    vmpage.Unlock();
     return;
   }
 
@@ -279,22 +275,22 @@ vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs)
     if (vmpage.vp_inode != &inode || vmpage.vp_offset != offs)
       continue;
 
-    vmpage_lock(vmpage);
+    vmpage.Lock();
     return &vmpage;
   }
 
   // Try all inode-private pages
-	INODE_LOCK(inode);
+	inode.Lock();
 	for(auto& vmpage: inode.i_pages) {
     // We don't check vp_inode here as this is the per-inode list already
     if (vmpage.vp_offset != offs)
       continue;
 
-    vmpage_lock(vmpage); // XXX is this order wise?
-    INODE_UNLOCK(inode);
+    vmpage.Lock(); // XXX is this order wise?
+    inode.Unlock();
     return &vmpage;
   }
-	INODE_UNLOCK(inode);
+	inode.Unlock();
 
   // Nothing was found
   return nullptr;
@@ -307,7 +303,7 @@ vmpage_lookup_vaddr_locked(VMArea& va, addr_t vaddr)
     if (vmpage.vp_vaddr != vaddr)
       continue;
 
-    vmpage_lock(vmpage);
+    vmpage.Lock();
     return &vmpage;
   }
 
@@ -318,7 +314,7 @@ vmpage_lookup_vaddr_locked(VMArea& va, addr_t vaddr)
 VMPage&
 vmpage_clone(VMSpace& vs, VMArea& va_source, VMArea& va_dest, VMPage& vp_orig)
 {
-  vmpage_assert_locked(vp_orig);
+  vp_orig.AssertLocked();
 
   /*
    * Cloning a page may results in different scenarios:
@@ -347,8 +343,8 @@ vmpage_clone(VMSpace& vs, VMArea& va_source, VMArea& va_dest, VMPage& vp_orig)
   }
 
   if (&vp_orig != &vp_source) {
-    vmpage_unlock(vp_source);
-    vmpage_lock(vp_orig);
+    vp_source.Unlock();
+    vp_orig.Lock();
   }
   return *vp_dst;
 }
@@ -371,24 +367,24 @@ vmpage_create_shared(INode& inode, off_t offs, int flags)
   VMPage& new_page = vmpage_alloc(nullptr, &inode, offs, flags);
 
   // Hook the vm page to the inode
-  INODE_LOCK(inode);
+  inode.Lock();
 	for(auto& vmpage: inode.i_pages) {
     if (vmpage.vp_offset != offs || &vmpage == &new_page)
       continue;
 
     // Page is already present - return the one already in use
-    vmpage_lock(vmpage); // XXX is this order wise?
-    INODE_UNLOCK(inode);
+    vmpage.Lock(); // XXX is this order wise?
+    inode.Unlock();
 
     // And throw the new page away, we won't need it
-    vmpage_unlock(new_page);
+    new_page.Unlock();
     delete &new_page;
     return vmpage;
   }
 
   // Not yet present; add the new page and return it
 	inode.i_pages.push_back(new_page);
-  INODE_UNLOCK(inode);
+  inode.Unlock();
   return new_page;
 }
 
@@ -406,7 +402,7 @@ vmpage_create_private(VMArea* va, int flags)
 void
 vmpage_map(VMSpace& vs, VMArea& va, VMPage& vp)
 {
-	vmpage_assert_locked(vp);
+  vp.AssertLocked();
 
 	int flags = va.va_flags;
 	// Map COW pages as unwritable so we'll fault on a write

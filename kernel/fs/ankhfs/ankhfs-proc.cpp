@@ -54,11 +54,9 @@ HandleReadDir_Proc_Root(struct VFS_FILE* file, void* dirents, size_t* len)
 	};
 
 	// Fill the root directory with one directory per process ID
-	mutex_lock(process::process_mtx);
+	MutexGuard g(process::process_mtx);
 	FetchEntry entryFetcher;
-	errorcode_t err = HandleReadDir(file, dirents, len, entryFetcher);
-	mutex_unlock(process::process_mtx);
-	return err;
+	return HandleReadDir(file, dirents, len, entryFetcher);
 }
 
 class ProcSubSystem : public IAnkhSubSystem

@@ -22,7 +22,7 @@ static Spinlock spl_irq;
 void
 irqsource_register(IRQSource& source)
 {
-	register_t state = spinlock_lock_unpremptible(spl_irq);
+	SpinlockUnpremptibleGuard g(spl_irq);
 
 	/* Ensure no bogus ranges are being registered */
 	KASSERT(source.is_count >= 1, "must register at least one irq");
@@ -39,16 +39,13 @@ irqsource_register(IRQSource& source)
 		struct IRQ* i = &irq[source.is_first + n];
 		i->i_source = &source;
 		/* Also a good time to initialize the semaphore */
-		sem_init(i->i_semaphore, 0);
 	}
-
-	spinlock_unlock_unpremptible(spl_irq, state);
 }
 
 void
 irqsource_unregister(IRQSource& source)
 {
-	register_t state = spinlock_lock_unpremptible(spl_irq);
+	SpinlockUnpremptibleGuard g(spl_irq);
 
 	KASSERT(!irq_sources.empty(), "no irq sources registered");
 	/* Ensure our source is registered */
@@ -70,7 +67,6 @@ irqsource_unregister(IRQSource& source)
 	}
 
 	irq_sources.remove(source);
-	spinlock_unlock_unpremptible(spl_irq, state);
 }
 
 static void
@@ -84,7 +80,7 @@ ithread(void* context)
 	KASSERT(is != NULL, "ithread for irq %u without source fired", no);
 
 	while(1) {
-		sem_wait(i->i_semaphore);
+		i->i_semaphore.Wait();
 
 		/* XXX We do need a lock here */
 		struct IRQ_HANDLER* handler = &i->i_handler[0];
@@ -118,7 +114,7 @@ irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, voi
 	if (no >= MAX_IRQS)
 		return ANANAS_ERROR(BAD_RANGE);
 
-	register_t state = spinlock_lock_unpremptible(spl_irq);
+	auto state = spl_irq.LockUnpremptible();
 
 	/*
 	 * Look up the interrupt source; if we can't find it, it means this interrupt will
@@ -126,7 +122,7 @@ irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, voi
 	 */
 	IRQSource* is = irqsource_find(no);
 	if (is == NULL) {
-		spinlock_unlock_unpremptible(spl_irq, state);
+		spl_irq.UnlockUnpremptible(state);
 		return ANANAS_ERROR(NO_RESOURCE);
 	}
 
@@ -138,7 +134,7 @@ irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, voi
 	for (/* nothing */; i->i_handler[slot].h_func != NULL && slot < IRQ_MAX_HANDLERS; slot++)
 		/* nothing */;
 	if (slot == IRQ_MAX_HANDLERS) {
-		spinlock_unlock_unpremptible(spl_irq, state);
+		spl_irq.UnlockUnpremptible(state);
 		return ANANAS_ERROR(FILE_EXISTS); /* XXX maybe make the error more generic? */
 	}
 
@@ -166,7 +162,7 @@ irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, voi
 		handler->h_flags |= IRQ_HANDLER_FLAG_SKIP; /* (1) */
 
 	if (create_thread) {
-		spinlock_unlock_unpremptible(spl_irq, state); /* (2) */
+		spl_irq.UnlockUnpremptible(state); /* (2) */
 
 		/* (3) Create the thread */
 		char thread_name[PAGE_SIZE];
@@ -178,14 +174,14 @@ irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, voi
 		/* XXX we should set a decent priority here */
 
 		/* (4) Re-acquire the lock */
-		state = spinlock_lock_unpremptible(spl_irq);
+		state = spl_irq.LockUnpremptible();
 
 		/* (5) Remove the IRQ_SKIP flag, add IRQ_FLAG_THREAD  */
 		handler->h_flags &= ~IRQ_HANDLER_FLAG_SKIP;
 		i->i_flags |= IRQ_FLAG_THREAD;
 	}
 
-	spinlock_unlock_unpremptible(spl_irq, state);
+	spl_irq.UnlockUnpremptible(state);
 	return ananas_success();
 }
 
@@ -194,7 +190,7 @@ irq_unregister(unsigned int no, Ananas::Device* dev, irqfunc_t func, void* conte
 {
 	KASSERT(no < MAX_IRQS, "interrupt %u out of range", no);
 
-	register_t state = spinlock_lock_unpremptible(spl_irq);
+	SpinlockUnpremptibleGuard g(spl_irq);
 	struct IRQ* i = &irq[no];
 	KASSERT(i->i_source != NULL, "interrupt %u has no source", no);
 
@@ -211,7 +207,6 @@ irq_unregister(unsigned int no, Ananas::Device* dev, irqfunc_t func, void* conte
 		handler->h_flags = 0;
 		matches++;
 	}
-	spinlock_unlock_unpremptible(spl_irq, state);
 
 	KASSERT(matches > 0, "interrupt %u not registered", no);
 }
@@ -250,7 +245,7 @@ irq_handler(unsigned int no)
 		is->Mask(no - is->is_first);
 
 		/* Awake the interrupt thread */
-		sem_signal(i->i_semaphore);
+		i->i_semaphore.Signal();
 	} else if (!handled && i->i_straycount < IRQ_MAX_STRAY_COUNT) {
 		/* If they IRQ wasn't handled, it is stray */
 		kprintf("irq_handler(): (CPU %u) stray irq %u, ignored\n", cpuid, no);

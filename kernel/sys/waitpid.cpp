@@ -18,7 +18,7 @@ sys_waitpid(Thread* t, pid_t* pid, int* stat_loc, int options)
 	*pid = p->p_pid;
 	if (stat_loc != nullptr)
 		*stat_loc = p->p_exit_status;
-	process_unlock(*p);
+	p->Unlock();
 
 	/* Give up our refence to the zombie child; this should destroy it */
 	process_deref(*p);
