@@ -49,6 +49,8 @@ extern void* syscall_handler;
 /* CPU clock speed, in MHz */
 int md_cpu_clock_mhz = 0;
 
+extern "C" void __run_global_ctors();
+
 namespace {
 
 void*
@@ -595,6 +597,10 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 
 	// Initialize our memory mappings
 	setup_memory(avail);
+
+	// Run the constructor list; we have sane memory at this point (but no kmalloc/new!) so don't
+	// allocate things from constructors!
+	__run_global_ctors();
 
 	/* We have memory - initialize our VM */
 	vm_init();

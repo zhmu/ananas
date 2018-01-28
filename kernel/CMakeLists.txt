@@ -79,7 +79,7 @@ add_subdirectory(vm)
 
 get_property(SOURCES GLOBAL PROPERTY SourceList)
 set(SOURCES ${SOURCES} include/_gen/syscalls.h include/_gen/syscalls.inc.h)
-add_executable(kernel_elf ${SOURCES})
+add_executable(kernel_elf arch/amd64/prelude.S ${SOURCES} arch/amd64/postlude.S )
 set_target_properties(kernel_elf PROPERTIES OUTPUT_NAME "kernel.elf")
 
 # add a custom target that combines the multiboot stub to get a bootable kernel
