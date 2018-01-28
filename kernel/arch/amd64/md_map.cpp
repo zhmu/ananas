@@ -149,11 +149,6 @@ md_kunmap(addr_t virt, size_t num_pages)
 }
 
 void
-vm_init()
-{
-}
-
-void
 md_map_kernel(VMSpace& vs)
 {
 	/* We can just copy the entire kernel pagemap over; it's shared with everything else */

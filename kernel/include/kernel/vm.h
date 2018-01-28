@@ -23,7 +23,4 @@ void md_kmap(addr_t phys, addr_t virt, size_t num_pages, int flags);
 /* Unmaps a piece of kernel memory */
 void md_kunmap(addr_t virt, size_t num_pages);
 
-/* Initialize the memory manager */
-void vm_init();
-
 #endif /* __VM_H__ */

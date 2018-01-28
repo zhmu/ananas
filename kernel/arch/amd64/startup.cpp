@@ -602,12 +602,6 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 	// allocate things from constructors!
 	__run_global_ctors();
 
-	/* We have memory - initialize our VM */
-	vm_init();
-
-	/* Enable the memory code - handle_init() needs a memory allocator */
-	mm_init();
-
 	/* Initialize the handles; this is needed by the per-CPU code as it initialize threads */
 	handle_init();
 

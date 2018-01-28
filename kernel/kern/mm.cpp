@@ -12,12 +12,6 @@ void* dlmalloc(size_t);
 void dlfree(void*);
 }
 
-void
-mm_init()
-{
-}
-
-
 void*
 kmalloc(size_t len)
 {
