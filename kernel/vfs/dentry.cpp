@@ -52,8 +52,7 @@ dcache_init()
 	 * items as necessary.
 	 */
 	{
-		auto dentry = static_cast<DEntry*>(kmalloc(DCACHE_ITEMS_PER_FS * sizeof(DEntry)));
-		memset(dentry, 0, DCACHE_ITEMS_PER_FS * sizeof(DEntry));
+		auto dentry = new DEntry[DCACHE_ITEMS_PER_FS];
 		for (int i = 0; i < DCACHE_ITEMS_PER_FS; i++, dentry++)
 			dcache_free.push_back(*dentry);
 	}

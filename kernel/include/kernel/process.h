@@ -67,23 +67,23 @@ struct Process {
 		p_lock.Unlock();
 	}
 
-	unsigned int p_state;		/* Process state */
-	refcount_t p_refcount;		/* Reference count of the process, >0 */
+	unsigned int p_state = 0;	/* Process state */
+	refcount_t p_refcount = 0;		/* Reference count of the process, >0 */
 
-	pid_t	p_pid;	/* Process ID */
-	int	p_exit_status;		/* Exit status / code */
+	pid_t	p_pid = 0;/* Process ID */
+	int	p_exit_status = 0;	/* Exit status / code */
 
-	Process* 	p_parent;	/* Parent process, if any */
-	VMSpace*	p_vmspace;	/* Process memory space */
+	Process* 	p_parent = nullptr;	/* Parent process, if any */
+	VMSpace*	p_vmspace = nullptr;	/* Process memory space */
 
-	struct PROCINFO* p_info;	/* Process startup information */
-	addr_t p_info_va;
+	struct PROCINFO* p_info = nullptr; 	/* Process startup information */
+	addr_t p_info_va = 0;
 
-	Thread* p_mainthread;		/* Main thread */
+	Thread* p_mainthread = nullptr;		/* Main thread */
 
-	struct HANDLE* p_handle[PROCESS_MAX_HANDLES];	/* Handles */
+	struct HANDLE* p_handle[PROCESS_MAX_HANDLES] = {0};	/* Handles */
 
-	DEntry*	p_cwd;		/* Current path */
+	DEntry*	p_cwd = nullptr;		/* Current path */
 
 	process::ChildrenList	p_children;	// List of this process' children
 

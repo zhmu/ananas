@@ -21,12 +21,10 @@ static Spinlock spl_handletypes;
 void
 handle_init()
 {
-	auto pool = new HANDLE[NUM_HANDLES];
-	memset(pool, 0, sizeof(struct HANDLE) * NUM_HANDLES);
+	auto h = new HANDLE[NUM_HANDLES];
 
 	/* Add all handles to the queue one by one */
-	for (unsigned int i = 0; i < NUM_HANDLES; i++) {
-		struct HANDLE* h = &pool[i];
+	for (unsigned int i = 0; i < NUM_HANDLES; i++, h++) {
 		handle_freelist.push_back(*h);
 	}
 }
@@ -64,7 +62,6 @@ handle_alloc(int type, Process& proc, handleindex_t index_from, struct HANDLE** 
 	KASSERT(handle->h_type == HANDLE_TYPE_UNUSED, "handle from pool must be unused");
 
 	/* Initialize the handle */
-	new(&handle->h_mutex) Mutex{"handle"};
 	handle->h_type = type;
 	handle->h_process = &proc;
 	handle->h_hops = htype->ht_hops;

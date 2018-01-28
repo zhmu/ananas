@@ -48,7 +48,6 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 	errorcode_t err;
 
 	auto p = new Process;
-	memset(p, 0, sizeof(*p));
 	p->p_parent = parent; /* XXX should we take a ref here? */
 	p->p_refcount = 1; /* caller */
 	p->p_state = PROCESS_STATE_ACTIVE;

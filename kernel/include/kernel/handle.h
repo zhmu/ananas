@@ -44,17 +44,17 @@ struct HANDLE_PIPE_INFO {
 };
 
 struct HANDLE : util::List<HANDLE>::NodePtr {
-	int h_type;				/* one of HANDLE_TYPE_... */
-	int h_flags;				/* flags */
-	Process* h_process;			/* owning process */
+	int h_type = 0;				/* one of HANDLE_TYPE_... */
+	int h_flags = 0;			/* flags */
+	Process* h_process = nullptr;		/* owning process */
 	Mutex h_mutex{"handle"};		/* mutex guarding the handle */
-	struct HANDLE_OPS* h_hops;		/* handle operations */
+	struct HANDLE_OPS* h_hops = nullptr;	/* handle operations */
 
 	/* Waiters are those who are waiting on this handle */
 	union {
 		struct VFS_FILE d_vfs_file;
 		struct HANDLE_PIPE_INFO d_pipe;
-	} h_data;
+	} h_data{};
 };
 
 typedef util::List<HANDLE> HandleList;

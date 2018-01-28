@@ -145,7 +145,6 @@ vmspace_mapto(VMSpace& vs, addr_t virt, size_t len /* bytes */, uint32_t flags, 
 		return ANANAS_ERROR(NO_SPACE);
 
 	auto va = new VMArea;
-	memset(va, 0, sizeof(*va));
 
 	/*
 	 * XXX We should ask the VM for some kind of reservation if the

@@ -51,7 +51,6 @@ icache_init()
 	// XXX we could use a slab allocator for this
 	{
 		auto inode = new INode[ICACHE_ITEMS];
-		memset(inode, 0, ICACHE_ITEMS * sizeof(INode));
 		for (int i = 0; i < ICACHE_ITEMS; i++, inode++) {
 			icache_free.push_back(*inode);
 		}

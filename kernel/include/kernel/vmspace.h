@@ -30,14 +30,14 @@ struct DEntry;
  *
  */
 struct VMArea : util::List<VMArea>::NodePtr {
-	unsigned int		va_flags;		/* flags, combination of VM_FLAG_... */
-	addr_t			va_virt;		/* userland address */
-	size_t			va_len;			/* length */
+	unsigned int		va_flags = 0;		/* flags, combination of VM_FLAG_... */
+	addr_t			va_virt = 0;		/* userland address */
+	size_t			va_len = 0;		/* length */
 	VMPageList		va_pages;		/* backing pages */
 	/* dentry-specific mapping fields */
-	DEntry* 		va_dentry;		/* backing dentry, if any */
-	off_t			va_doffset;		/* dentry offset */
-	size_t			va_dlength;		/* dentry length */
+	DEntry* 		va_dentry = nullptr;	/* backing dentry, if any */
+	off_t			va_doffset = 0;		/* dentry offset */
+	size_t			va_dlength = 0;		/* dentry length */
 };
 typedef util::List<VMArea> VMAreaList;
 
