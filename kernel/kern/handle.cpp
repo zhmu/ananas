@@ -64,6 +64,7 @@ handle_alloc(int type, Process& proc, handleindex_t index_from, struct HANDLE** 
 	KASSERT(handle->h_type == HANDLE_TYPE_UNUSED, "handle from pool must be unused");
 
 	/* Initialize the handle */
+	new(&handle->h_mutex) Mutex{"handle"};
 	handle->h_type = type;
 	handle->h_process = &proc;
 	handle->h_hops = htype->ht_hops;
@@ -118,44 +119,43 @@ handle_lookup(Process& proc, handleindex_t index, int type, struct HANDLE** hand
 errorcode_t
 handle_free(struct HANDLE* handle)
 {
-	{
-		/*
-		 * Lock the handle so that no-one else can touch it, mark the handle as being
-		 * torn-down and see if we actually have to destroy it at this point.
-		 */
-		MutexGuard g(handle->h_mutex);
+	/*
+	 * Lock the handle so that no-one else can touch it, mark the handle as being
+	 * torn-down and see if we actually have to destroy it at this point.
+	 */
+	handle->h_mutex.Lock();
 
-		/* Remove us from the thread handle queue, if necessary */
-		Process* proc = handle->h_process;
-		if (proc != nullptr) {
-			proc->Lock();
-			for (handleindex_t n = 0; n < PROCESS_MAX_HANDLES; n++) {
-				if (proc->p_handle[n] == handle)
-					proc->p_handle[n] = NULL;
-			}
-			proc->Unlock();
+	/* Remove us from the thread handle queue, if necessary */
+	Process* proc = handle->h_process;
+	if (proc != nullptr) {
+		proc->Lock();
+		for (handleindex_t n = 0; n < PROCESS_MAX_HANDLES; n++) {
+			if (proc->p_handle[n] == handle)
+				proc->p_handle[n] = NULL;
 		}
-
-		/*
-		 * If the handle has a specific free function, call it - otherwise assume
-		 * no special action is needed.
-		 */
-		if (handle->h_hops->hop_free != NULL) {
-			errorcode_t err = handle->h_hops->hop_free(*proc, handle);
-			ANANAS_ERROR_RETURN(err);
-		}
-
-		/* Clear the handle */
-		memset(&handle->h_data, 0, sizeof(handle->h_data));
-		handle->h_type = HANDLE_TYPE_UNUSED; /* just to ensure the value matches */
-		handle->h_process = NULL;
-
-		/*
-		 * Let go of the handle lock - if someone tries to use it, they'll lock it
-		 * before looking at the flags field and this will cause a deadlock.  Better
-		 * safe than sorry.
-		 */
+		proc->Unlock();
 	}
+
+	/*
+	 * If the handle has a specific free function, call it - otherwise assume
+	 * no special action is needed.
+	 */
+	if (handle->h_hops->hop_free != NULL) {
+		errorcode_t err = handle->h_hops->hop_free(*proc, handle);
+		ANANAS_ERROR_RETURN(err);
+	}
+
+	/* Clear the handle */
+	memset(&handle->h_data, 0, sizeof(handle->h_data));
+	handle->h_type = HANDLE_TYPE_UNUSED; /* just to ensure the value matches */
+	handle->h_process = NULL;
+
+	/*
+	 * Let go of the handle lock - if someone tries to use it, they'll lock it
+	 * before looking at the flags field and this will cause a deadlock.  Better
+	 * safe than sorry.
+	 */
+	handle->h_mutex.Unlock();
 
 	/* Hand it back to the the pool */
 	{

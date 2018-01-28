@@ -304,7 +304,7 @@ vmspace_area_free(VMSpace& vs, VMArea& va)
 	 */
 	for (auto it = va.va_pages.begin(); it != va.va_pages.end(); /* nothing */) {
 		VMPage& vp = *it; ++it;
-		vp.Unlock();
+		vp.Lock();
 		vmpage_deref(vp);
 	}
 	delete &va;
