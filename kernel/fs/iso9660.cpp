@@ -8,11 +8,12 @@
  * noticable)
  */
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "kernel/bio.h"
 #include "kernel/init.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
@@ -53,7 +54,7 @@ iso9660_dump_dirent(struct ISO9660_DIRECTORY_ENTRY* e)
 }
 #endif
 
-static errorcode_t
+static Result
 iso9660_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 {
 	struct ISO9660_DIRECTORY_ENTRY* rootentry = nullptr;
@@ -61,12 +62,13 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	/* Obtain the primary volume descriptor; it contains vital information */
 	fs->fs_block_size = 2048;
 	BIO* bio;
-	errorcode_t err = vfs_bread(fs, 4, &bio);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_bread(fs, 4, &bio)
+	);
 
 	/* Verify the primary volume descriptor */
 	struct ISO9660_PRIMARY_VOLUME_DESCR* pvd = (struct ISO9660_PRIMARY_VOLUME_DESCR*)BIO_DATA(bio);
-	err = ANANAS_ERROR(NO_DEVICE);
+	Result result = RESULT_MAKE_FAILURE(ENODEV);
 	if (pvd->pv_typecode != 1 || memcmp(pvd->pv_stdentry, "CD001", 5) || pvd->pv_version != 1 || pvd->pv_structure_version != 1) {
 		/* Not an ISO9660 filesystem */
 		goto fail;
@@ -93,25 +95,20 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	fs->fs_block_size = ISO9660_GET_WORD(pvd->pv_blocksize);
 
 	/* Read the root inode */
-	err = vfs_get_inode(fs, 0, root_inode);
-	if (ananas_is_failure(err))
-		goto fail;
-
-	{
+	result = vfs_get_inode(fs, 0, root_inode);
+	if (result.IsSuccess()) {
 		auto privdata = static_cast<struct ISO9660_INODE_PRIVDATA*>(root_inode->i_privdata);
 		root_inode->i_sb.st_size = ISO9660_GET_DWORD(rootentry->de_data_length);
 		root_inode->i_iops = &iso9660_dir_ops;
 		privdata->lba = ISO9660_GET_DWORD(rootentry->de_extent_lba);
 	}
 
-	err = ananas_success();
-
 fail:
 	bio_free(*bio);
-	return err;
+	return result;
 }
 
-static errorcode_t
+static Result
 iso9660_read_inode(INode& inode, ino_t inum)
 {
 	uint32_t block = inum >> 16;
@@ -120,8 +117,9 @@ iso9660_read_inode(INode& inode, ino_t inum)
 
 	/* Grab the block containing the inode */
 	BIO* bio;
-	errorcode_t err = vfs_bread(inode.i_fs, block, &bio);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_bread(inode.i_fs, block, &bio)
+	);
 
 	/* Convert the inode */
 	auto iso9660_de = reinterpret_cast<struct ISO9660_DIRECTORY_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + offset);
@@ -145,16 +143,16 @@ iso9660_read_inode(INode& inode, ino_t inum)
 		inode.i_iops = &iso9660_file_ops;
 		inode.i_sb.st_mode |= S_IFREG;
 	}
-	return ananas_success();
+	return Result::Success();
 }
 
-static errorcode_t
+static Result
 iso9660_prepare_inode(INode& inode)
 {
 	auto privdata = new ISO9660_INODE_PRIVDATA;
 	memset(privdata, 0, sizeof(struct ISO9660_INODE_PRIVDATA));
 	inode.i_privdata = privdata;
-	return ananas_success();
+	return Result::Success();
 }
 
 static void
@@ -163,7 +161,7 @@ iso9660_discard_inode(INode& inode)
 	kfree(inode.i_privdata);
 }
 
-static errorcode_t
+static Result
 iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	INode& inode = *file->f_dentry->d_inode;
@@ -185,8 +183,9 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		if(curblock != block) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			errorcode_t err = vfs_bread(fs, block, &bio);
-			ANANAS_ERROR_RETURN(err);
+			RESULT_PROPAGATE_FAILURE(
+				vfs_bread(fs, block, &bio)
+			);
 			curblock = block;
 		}
 
@@ -241,10 +240,10 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	if (bio != NULL)
 		bio_free(*bio);
 	*len = written;
-	return ananas_success();
+	return Result::Success();
 }
 
-static errorcode_t
+static Result
 iso9660_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
 	INode& inode = *file->f_dentry->d_inode;
@@ -261,8 +260,9 @@ iso9660_read(struct VFS_FILE* file, void* buf, size_t* len)
 	while(left > 0) {
 		/* Fetch the block */
 		BIO* bio;
-		errorcode_t err = vfs_bread(fs, privdata->lba + blocknum, &bio);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			vfs_bread(fs, privdata->lba + blocknum, &bio)
+		);
 
 		/* Copy what we can so far */
 		size_t chunklen = (fs->fs_block_size < left ? fs->fs_block_size : left);
@@ -280,7 +280,7 @@ iso9660_read(struct VFS_FILE* file, void* buf, size_t* len)
 	}
 
 	*len = numread;
-	return ananas_success();
+	return Result::Success();
 }
 
 namespace {
@@ -304,13 +304,13 @@ struct VFSFileSystem fs_iso9660("iso9660", &fsops_iso9660);
 
 } // unnamed namespace
 
-errorcode_t
+Result
 iso9660_init()
 {
 	return vfs_register_filesystem(fs_iso9660);
 }
 
-static errorcode_t
+static Result
 iso9660_exit()
 {
 	return vfs_unregister_filesystem(fs_iso9660);

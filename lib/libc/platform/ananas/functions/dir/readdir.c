@@ -1,8 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/dirent.h>
-#include <ananas/error.h>
+#include <ananas/statuscode.h>
 #include <ananas/syscalls.h>
-#include <_posix/error.h>
 #include <errno.h>
 #include <string.h>
 #include <dirent.h>
@@ -23,9 +22,9 @@ readdir(DIR* dirp)
 		if (dirp->d_cur_pos == 0) {
 			/* Buffer is empty; must re-read */
 			size_t len = dirp->d_buf_size;
-			errorcode_t err = sys_read(dirp->d_fd, dirp->d_buffer, &len);
-			if (err != ANANAS_ERROR_NONE) {
-				_posix_map_error(err);
+			statuscode_t status = sys_read(dirp->d_fd, dirp->d_buffer, &len);
+			if (status != ananas_statuscode_success()) {
+				errno = ananas_statuscode_extract_errno(status);
 				return NULL;
 			}
 			dirp->d_buf_filled = len;
@@ -35,7 +34,7 @@ readdir(DIR* dirp)
 				dirp->d_flags |= DE_FLAG_DONE;
 				dirp->d_cur_pos = dirp->d_buf_filled;
 				return NULL;
-			} 
+			}
 		}
 
 		struct VFS_DIRENT* de = (struct VFS_DIRENT*)(dirp->d_buffer + dirp->d_cur_pos);

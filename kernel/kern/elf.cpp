@@ -1,12 +1,13 @@
 #include <machine/param.h>
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include <ananas/elf.h>
 #include <ananas/elfinfo.h>
 #include "kernel/exec.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vmspace.h"
 #include "kernel/vfs/core.h"
@@ -21,27 +22,29 @@ TRACE_SETUP;
 #define PHDR_BASE 0xd0000000
 #define ELFINFO_BASE 0xe000000
 
-static errorcode_t
+static Result
 read_data(DEntry& dentry, void* buf, off_t offset, size_t len)
 {
 	struct VFS_FILE f;
 	memset(&f, 0, sizeof(f));
 	f.f_dentry = &dentry;
 
-	errorcode_t err = vfs_seek(&f, offset);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_seek(&f, offset)
+	);
 
 	size_t amount = len;
-	err = vfs_read(&f, buf, &amount);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_read(&f, buf, &amount)
+	);
 
 	if (amount != len)
-		return ANANAS_ERROR(SHORT_READ);
-	return ananas_success();
+		return RESULT_MAKE_FAILURE(EOVERFLOW); // XXX is this sane?
+	return Result::Success();
 }
 
 #ifdef __amd64__
-static errorcode_t
+static Result
 elf64_load_ph(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase)
 {
 	/* Construct the flags for the actual mapping */
@@ -86,121 +89,129 @@ elf64_load_ph(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase)
 	size_t filesz = phdr.p_filesz + virt_extra;
 	if (doffset & (PAGE_SIZE - 1)) {
 		kprintf("elf64_load_ph: refusing to map offset %d not a page-multiple\n", doffset);
-		return ANANAS_ERROR(BAD_EXEC);
+		return RESULT_MAKE_FAILURE(ENOEXEC);
 	}
 
 	// First step is to map the dentry-backed data
-	errorcode_t err = vmspace_mapto_dentry(vs, rbase + virt_begin, virt_end - virt_begin, dentry, doffset, filesz, flags, va);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vmspace_mapto_dentry(vs, rbase + virt_begin, virt_end - virt_begin, dentry, doffset, filesz, flags, va)
+	);
 	if (phdr.p_filesz == phdr.p_memsz)
-		return ananas_success();
+		return Result::Success();
 
 	// Now map the part that isn't dentry-backed, if we have enough
 	addr_t v_extra = virt_end;
 	addr_t v_extra_len = ROUND_UP(phdr.p_vaddr + phdr.p_memsz - v_extra, PAGE_SIZE);
 	if (v_extra_len == 0)
-		return ananas_success();
+		return Result::Success();
 	return vmspace_mapto(vs, rbase + v_extra, v_extra_len, flags, va);
 }
 
-static errorcode_t
+static Result
 elf64_check_header(const Elf64_Ehdr& ehdr)
 {
 	/* Perform basic ELF checks; must be statically-linked executable */
 	if (ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != ELFMAG1 ||
 	    ehdr.e_ident[EI_MAG2] != ELFMAG2 || ehdr.e_ident[EI_MAG3] != ELFMAG3)
-		return ANANAS_ERROR(BAD_EXEC);
+		return RESULT_MAKE_FAILURE(ENOEXEC);
 	if (ehdr.e_ident[EI_VERSION] != EV_CURRENT)
-		return ANANAS_ERROR(BAD_EXEC);
+		return RESULT_MAKE_FAILURE(ENOEXEC);
 
 	/* XXX This specifically checks for amd64 at the moment */
 	if (ehdr.e_ident[EI_CLASS] != ELFCLASS64)
-		return ANANAS_ERROR(BAD_EXEC);
+		return RESULT_MAKE_FAILURE(ENOEXEC);
 	if (ehdr.e_ident[EI_DATA] != ELFDATA2LSB)
-		return ANANAS_ERROR(BAD_EXEC);
+		return RESULT_MAKE_FAILURE(ENOEXEC);
 	if (ehdr.e_machine != EM_X86_64)
-		return ANANAS_ERROR(BAD_EXEC);
+		return RESULT_MAKE_FAILURE(ENOEXEC);
 
 	/* We only support static binaries here, so reject anything without a program table */
 	if (ehdr.e_phnum == 0)
-		return ANANAS_ERROR(BAD_EXEC);
+		return RESULT_MAKE_FAILURE(ENOEXEC);
 	if (ehdr.e_phentsize < sizeof(Elf64_Phdr))
-		return ANANAS_ERROR(BAD_EXEC);
+		return RESULT_MAKE_FAILURE(ENOEXEC);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-static errorcode_t
+static Result
 elf64_load_file(VMSpace& vs, DEntry& dentry, addr_t rbase, addr_t* exec_addr)
 {
-	errorcode_t err;
 	Elf64_Ehdr ehdr;
 
-	err = read_data(dentry, &ehdr, 0, sizeof(ehdr));
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		read_data(dentry, &ehdr, 0, sizeof(ehdr))
+	);
 
-	err = elf64_check_header(ehdr);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		elf64_check_header(ehdr)
+	);
 
 	/* Process all program headers one by one */
 	for (unsigned int i = 0; i < ehdr.e_phnum; i++) {
 		Elf64_Phdr phdr;
-		err = read_data(dentry, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr));
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			read_data(dentry, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr))
+		);
 		if(phdr.p_type != PT_LOAD)
 			continue;
 
-		err = elf64_load_ph(vs, dentry, phdr, rbase);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			elf64_load_ph(vs, dentry, phdr, rbase)
+		);
 	}
 
 	*exec_addr = ehdr.e_entry;
-	return ananas_success();
+	return Result::Success();
 }
 
-static errorcode_t
+static Result
 elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 {
 	*exec_arg = 0;
 
 	// Load the file - this checks the ELF header as well
-	errorcode_t err = elf64_load_file(vs, dentry, 0, exec_addr);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		elf64_load_file(vs, dentry, 0, exec_addr)
+	);
 
 	// Fetch the ELF header (again - this could be nicer...)
 	Elf64_Ehdr ehdr;
-	err = read_data(dentry, &ehdr, 0, sizeof(ehdr));
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		read_data(dentry, &ehdr, 0, sizeof(ehdr))
+	);
 
 	// Only accept executables here
 	if (ehdr.e_type != ET_EXEC)
-		return ANANAS_ERROR(BAD_EXEC);
+		return RESULT_MAKE_FAILURE(ENOEXEC);
 
 	// This went okay - see if there any other interesting headers here
 	char* interp = nullptr;
 	for (unsigned int i = 0; i < ehdr.e_phnum; i++) {
 		Elf64_Phdr phdr;
-		err = read_data(dentry, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr));
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			read_data(dentry, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr))
+		);
 		switch(phdr.p_type) {
 			case PT_INTERP: {
 				if (interp != nullptr) {
 					kfree(interp);
 					kprintf("elf64_load: multiple interp headers\n");
-					return ANANAS_ERROR(BAD_EXEC);
+					return RESULT_MAKE_FAILURE(ENOEXEC);
 				}
 
 				if (phdr.p_filesz >= PAGE_SIZE) {
 					kprintf("elf64_load: interp too large\n");
-					return ANANAS_ERROR(BAD_EXEC);
+					return RESULT_MAKE_FAILURE(ENOEXEC);
 				}
 
 				// Read the interpreter from disk
 				interp = static_cast<char*>(kmalloc(phdr.p_filesz + 1));
 				interp[phdr.p_filesz] = '\0';
 
-				err = read_data(dentry, interp, phdr.p_offset, phdr.p_filesz);
-				ANANAS_ERROR_RETURN(err); // XXX leaks interp
+				RESULT_PROPAGATE_FAILURE(
+					read_data(dentry, interp, phdr.p_offset, phdr.p_filesz)
+				); // XXX leaks interp
 				break;
 			}
 		}
@@ -210,20 +221,22 @@ elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 		// We need to use an interpreter to load this
 		struct VFS_FILE interp_file;
 		// Note that the nullptr requires interp to be absolute
-		err = vfs_open(interp, nullptr, &interp_file);
-		if (ananas_is_failure(err)) {
-			kprintf("unable to load ELF interpreter '%s': %d\n", interp, err);
+		if (auto result = vfs_open(interp, nullptr, &interp_file); result.IsFailure()) {
+			kprintf("unable to load ELF interpreter '%s': %d\n", interp, result.AsStatusCode());
 			kfree(interp);
-			ANANAS_ERROR_RETURN(err);
+			return result;
 		}
 		kfree(interp);
 
 		// Load the interpreter ELF file
 		addr_t interp_rbase = INTERPRETER_BASE;
 		addr_t interp_entry;
-		err = elf64_load_file(vs, *interp_file.f_dentry, interp_rbase, &interp_entry);
-		vfs_close(&interp_file); // we don't need it anymore
-		ANANAS_ERROR_RETURN(err);
+		{
+			auto result = elf64_load_file(vs, *interp_file.f_dentry, interp_rbase, &interp_entry);
+			vfs_close(&interp_file); // we don't need it anymore
+			if (result.IsFailure())
+				return result;
+		}
 
 		/*
 		* Map the program headers in memory - we need to process them anyway, and we
@@ -236,8 +249,9 @@ elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 		VMArea* va_phdr;
 		{
 			size_t phdr_len = ehdr.e_phnum * ehdr.e_phentsize;
-			err = vmspace_mapto_dentry(vs, PHDR_BASE, phdr_len, dentry, ehdr.e_phoff & ~(PAGE_SIZE - 1), phdr_len, VM_FLAG_READ | VM_FLAG_USER, va_phdr);
-			ANANAS_ERROR_RETURN(err);
+			RESULT_PROPAGATE_FAILURE(
+				vmspace_mapto_dentry(vs, PHDR_BASE, phdr_len, dentry, ehdr.e_phoff & ~(PAGE_SIZE - 1), phdr_len, VM_FLAG_READ | VM_FLAG_USER, va_phdr)
+			);
 		}
 
 		/*
@@ -248,8 +262,9 @@ elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 
 		// Create a mapping for the ELF information
 		VMArea* va;
-		err = vmspace_mapto(vs, ELFINFO_BASE, sizeof(struct ANANAS_ELF_INFO), VM_FLAG_READ | VM_FLAG_USER, va);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			vmspace_mapto(vs, ELFINFO_BASE, sizeof(struct ANANAS_ELF_INFO), VM_FLAG_READ | VM_FLAG_USER, va)
+		);
 		*exec_arg = va->va_virt;
 
 		// Now assign a page to there and map it into the vmspae
@@ -272,7 +287,7 @@ elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 		*exec_addr = interp_entry + interp_rbase;
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
 EXECUTABLE_FORMAT("elf64", elf64_load);

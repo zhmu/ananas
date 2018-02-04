@@ -1,6 +1,6 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/generic.h"
 #include "support.h"
@@ -8,7 +8,7 @@
 namespace Ananas {
 namespace AnkhFS {
 
-errorcode_t
+Result
 HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len, IReadDirCallback& callback)
 {
 	size_t written = 0, left = *len;
@@ -31,10 +31,10 @@ HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len, IReadDirCallbac
 	}
 
 	*len = written;
-	return ananas_success();
-} 
+	return Result::Success();
+}
 
-errorcode_t
+Result
 HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len, const DirectoryEntry& firstEntry, unsigned int id)
 {
 	struct FetchDirectoryEntry : IReadDirCallback {
@@ -61,13 +61,13 @@ HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len, const Directory
 	return HandleReadDir(file, dirents, len, fetcher);
 }
 
-errorcode_t
+Result
 HandleRead(struct VFS_FILE* file, void* buf, size_t* len, const char* data)
 {
 	size_t dataLength = strlen(data);
 	if (file->f_offset >= dataLength) {
 		*len = 0;
-		return ananas_success();
+		return Result::Success();
 	}
 
 	size_t left = dataLength - file->f_offset;
@@ -77,7 +77,7 @@ HandleRead(struct VFS_FILE* file, void* buf, size_t* len, const char* data)
 
 	*len = left;
 	file->f_offset += left;
-	return ananas_success();
+	return Result::Success();
 }
 
 } // namespace AnkhFS

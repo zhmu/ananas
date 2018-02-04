@@ -1,7 +1,8 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vmspace.h"
 #include "kernel/vmpage.h"
@@ -13,23 +14,25 @@ TRACE_SETUP;
 
 namespace {
 
-errorcode_t
+Result
 read_data(DEntry& dentry, void* buf, off_t offset, size_t len)
 {
 	struct VFS_FILE f;
 	memset(&f, 0, sizeof(f));
 	f.f_dentry = &dentry;
 
-	errorcode_t err = vfs_seek(&f, offset);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_seek(&f, offset)
+	);
 
 	size_t amount = len;
-	err = vfs_read(&f, buf, &amount);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_read(&f, buf, &amount)
+	);
 
 	if (amount != len)
-		return ANANAS_ERROR(SHORT_READ);
-	return ananas_success();
+		return RESULT_MAKE_FAILURE(ERANGE);
+	return Result::Success();
 }
 
 int
@@ -69,9 +72,9 @@ vmspace_get_dentry_backed_page(VMArea& va, off_t read_off)
 		memset(static_cast<char*>(page) + read_length, 0, PAGE_SIZE - read_length);
 	}
 
-	errorcode_t err = read_data(*va.va_dentry, page, read_off, read_length);
+	Result result = read_data(*va.va_dentry, page, read_off, read_length);
 	kmem_unmap(page, PAGE_SIZE);
-	KASSERT(ananas_is_success(err), "cannot deal with error %d", err); // XXX
+	KASSERT(result.IsSuccess(), "cannot deal with error %d", result.AsStatusCode()); // XXX
 
 	// Update the vm page to contain our new address
 	vmpage->vp_page = p;
@@ -81,7 +84,7 @@ vmspace_get_dentry_backed_page(VMArea& va, off_t read_off)
 
 } // unnamed namespace
 
-errorcode_t
+Result
 vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags)
 {
 	TRACE(VM, INFO, "vmspace_handle_fault(): vs=%p, virt=%p, flags=0x%x", &vs, virt, flags);
@@ -103,12 +106,12 @@ vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags)
 				vp = &vmpage_promote(vs, va, *vp);
 				vmpage_map(vs, va, *vp);
 				vp->Unlock();
-				return ananas_success();
+				return Result::Success();
 			}
 
 			// Page is already mapped, but not COW. Bad, reject
 			vp->Unlock();
-			return ANANAS_ERROR(BAD_ADDRESS);
+			return RESULT_MAKE_FAILURE(EFAULT);
 		}
 
 		// XXX we expect va_doffset to be page-aligned here (i.e. we can always use a page directly)
@@ -169,7 +172,7 @@ vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags)
 				// Finally, update the permissions and we are done
 				vmpage_map(vs, va, *new_vp);
 				new_vp->Unlock();
-				return ananas_success();
+				return Result::Success();
 			}
 		}
 
@@ -183,10 +186,10 @@ vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags)
 		// And now (re)map the page for the caller
 		vmpage_map(vs, va, new_vp);
 		new_vp.Unlock();
-		return ananas_success();
+		return Result::Success();
 	}
 
-	return ANANAS_ERROR(BAD_ADDRESS);
+	return RESULT_MAKE_FAILURE(EFAULT);
 }
 
 /* vim:set ts=2 sw=2: */

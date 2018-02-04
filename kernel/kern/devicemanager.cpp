@@ -1,4 +1,3 @@
-#include <ananas/error.h>
 #include "kernel/console.h"
 #include "kernel/console-driver.h"
 #include "kernel/device.h"
@@ -6,6 +5,7 @@
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/tty.h"
 #include "kernel/vfs/mount.h" // for vfs_abandon_device()
 #include "kernel/vm.h"
@@ -103,7 +103,7 @@ void DeinstantiateDevice(Device& device)
 
 } // namespace internal
 
-errorcode_t
+Result
 AttachSingle(Device& device)
 {
 	/*
@@ -114,8 +114,9 @@ AttachSingle(Device& device)
 	if (device.d_Parent != nullptr)
 		PrintAttachment(device);
 
-	errorcode_t err = device.GetDeviceOperations().Attach();
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		device.GetDeviceOperations().Attach()
+	);
 
 	/* Hook the device up to the tree */
 	internal::Register(device);
@@ -125,10 +126,10 @@ AttachSingle(Device& device)
 	/* Attempt to attach child devices, if any */
 	AttachBus(device);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 Detach(Device& device)
 {
 	// Ensure the device is out of the queue; this prevents new access to the
@@ -145,14 +146,15 @@ Detach(Device& device)
 	}
 
 	// XXX I wonder how realistic this is - failing to detach (what can we do?)
-	errorcode_t err = device.GetDeviceOperations().Detach();
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		device.GetDeviceOperations().Detach()
+	);
 
 	device.Printf("detached");
 
 	// XXX We should destroy the device, but only if we know this is safe (we need refcounting here)
 	internal::DeinstantiateDevice(device);
-	return ananas_success();
+	return Result::Success();
 }
 
 /*
@@ -177,7 +179,7 @@ AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet)
 		Device* device = internal::InstantiateDevice(d, cdp);
 		if (device == nullptr)
 			continue;
-		if (ananas_is_success(AttachSingle(*device)))
+		if (auto result = AttachSingle(*device); result.IsSuccess())
 			return device;
 
 		// Attach failed - get rid of the device
@@ -234,7 +236,7 @@ AttachBus(Device& bus)
 		if (device == nullptr)
 			continue;
 
-		if (ananas_is_failure(AttachSingle(*device))) {
+		if (auto result = AttachSingle(*device); result.IsFailure()) {
 			internal::DeinstantiateDevice(*device); // attach failed; discard the device
 		}
 	}

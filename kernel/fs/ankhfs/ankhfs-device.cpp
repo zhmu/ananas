@@ -1,8 +1,8 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
@@ -30,7 +30,7 @@ namespace AnkhFS {
 
 namespace {
 
-errorcode_t
+Result
 HandleReadDir_Device(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	struct FetchEntry : IReadDirCallback {
@@ -61,40 +61,40 @@ HandleReadDir_Device(struct VFS_FILE* file, void* dirents, size_t* len)
 class DeviceSubSystem : public IAnkhSubSystem
 {
 public:
-	errorcode_t HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len) override
+	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len) override
 	{
 		return HandleReadDir_Device(file, dirents, len);
 	}
 
-	errorcode_t FillInode(INode& inode, ino_t inum) override
+	Result FillInode(INode& inode, ino_t inum) override
 	{
 		// Special-case the non-device entries; we can't look them up
 		if (inum_to_id(inum) == 0) {
 			switch(inum_to_sub(inum)) {
 				case Devices::subRoot:
 					inode.i_sb.st_mode |= S_IFDIR;
-					return ananas_success();
+					return Result::Success();
 				case Devices::subDevices:
 				case Devices::subDrivers:
 					inode.i_sb.st_mode |= S_IFREG;
-					return ananas_success();
+					return Result::Success();
 			}
 		}
 
 		dev_t devno = static_cast<dev_t>(inum_to_id(inum));
 		Device* device = DeviceManager::FindDevice(devno);
 		if (device == nullptr)
-			return ANANAS_ERROR(IO);
+			return RESULT_MAKE_FAILURE(EIO);
 
 		if (device->GetCharDeviceOperations() != nullptr) {
 			inode.i_sb.st_mode |= S_IFCHR;
 		} else if (device->GetBIODeviceOperations() != nullptr) {
 			inode.i_sb.st_mode |= S_IFBLK;
 		}
-		return ananas_success();
+		return Result::Success();
 	}
 
-	errorcode_t HandleRead(struct VFS_FILE* file, void* buf, size_t* len) override
+	Result HandleRead(struct VFS_FILE* file, void* buf, size_t* len) override
 	{
 		ino_t inum = file->f_dentry->d_inode->i_inum;
 
@@ -134,7 +134,7 @@ public:
 		}
 
 		// TODO
-		return ANANAS_ERROR(IO);
+		return RESULT_MAKE_FAILURE(EIO);
 	}
 };
 

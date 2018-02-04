@@ -1,5 +1,4 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <sys/resource.h>

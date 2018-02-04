@@ -1,5 +1,6 @@
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"
+#include "kernel/result.h"
 #include "kernel/thread.h"
 
 void

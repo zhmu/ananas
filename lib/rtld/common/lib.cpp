@@ -1,40 +1,35 @@
 #include "lib.h"
-#include <ananas/error.h>
+#include <ananas/statuscode.h>
 #include <ananas/procinfo.h>
 #include <ananas/syscall-vmops.h>
 #include <sys/mman.h> // for PROT_...
 
-namespace {
-struct PROCINFO* s_ProcInfo;
+extern "C" {
+#include <ananas/syscalls.h>
 }
 
-extern "C" {
-long sys_open(const char*, int, int, handleindex_t*);
-long sys_close(handleindex_t);
-long sys_read(int, void*, size_t*);
-long sys_write(int, const void*, size_t*);
-long sys_seek(int, off_t*, int);
-void sys_exit(int);
+namespace {
+struct PROCINFO* s_ProcInfo;
 }
 
 extern "C" int
 open(const char* path, int flags, ...)
 {
 	handleindex_t index;
-	return sys_open(path, flags, 0, &index) == ANANAS_ERROR_NONE ? index : -1;
+	return sys_open(path, flags, 0, &index) == ananas_statuscode_success() ? index : -1;
 }
 
 extern "C" int
 close(int fd)
 {
-	return sys_close(fd) == ANANAS_ERROR_NONE ? 0 : -1;
+	return sys_close(fd) == ananas_statuscode_success() ? 0 : -1;
 }
 
 ssize_t
 read(int fd, void* buf, size_t count)
 {
 	size_t len = count;
-	if (sys_read(fd, buf, &len) != ANANAS_ERROR_NONE)
+	if (sys_read(fd, buf, &len) != ananas_statuscode_success())
 		return -1;
 	return len;
 }
@@ -43,7 +38,7 @@ ssize_t
 write(int fd, const void* buf, size_t count)
 {
 	size_t len = count;
-	if (sys_write(fd, buf, &len) != ANANAS_ERROR_NONE)
+	if (sys_write(fd, buf, &len) != ananas_statuscode_success())
 		return -1;
 	return len;
 }
@@ -52,7 +47,7 @@ off_t
 lseek(int fd, off_t offset, int whence)
 {
 	off_t new_offset = offset;
-	return sys_seek(fd, &new_offset, whence) == ANANAS_ERROR_NONE ? new_offset : -1;
+	return sys_seek(fd, &new_offset, whence) == ananas_statuscode_success() ? new_offset : -1;
 }
 
 void
@@ -92,7 +87,7 @@ mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset)
 	}
 	vo.vo_offset = offset;
 
-	return sys_vmop(&vo) == ANANAS_ERROR_NONE ? static_cast<void*>(vo.vo_addr) : reinterpret_cast<void*>(-1);
+	return sys_vmop(&vo) == ananas_statuscode_success() ? static_cast<void*>(vo.vo_addr) : reinterpret_cast<void*>(-1);
 }
 
 int
@@ -106,7 +101,7 @@ munmap(void* addr, size_t length)
 	vo.vo_addr = addr;
 	vo.vo_len = length;
 
-	return sys_vmop(&vo) == ANANAS_ERROR_NONE ? 0 : -1;
+	return sys_vmop(&vo) == ananas_statuscode_success() ? 0 : -1;
 }
 
 size_t

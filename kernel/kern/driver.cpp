@@ -1,5 +1,4 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"

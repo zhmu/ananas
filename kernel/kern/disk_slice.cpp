@@ -1,9 +1,9 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/bio.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "kernel/mm.h"
 
 namespace {
@@ -36,32 +36,32 @@ public:
 		return this;
 	}
 
-	errorcode_t Attach() override
+	Result Attach() override
 	{
-		return ananas_success();
+		return Result::Success();
 	}
 
-	errorcode_t Detach() override
+	Result Detach() override
 	{
-		return ananas_success();
+		return Result::Success();
 	}
 
-	errorcode_t ReadBIO(struct BIO& bio) override;
-	errorcode_t WriteBIO(struct BIO& bio) override;
+	Result ReadBIO(struct BIO& bio) override;
+	Result WriteBIO(struct BIO& bio) override;
 
 private:
 	blocknr_t	slice_first_block = 0;
 	blocknr_t slice_length = 0;
 };
 
-errorcode_t
+Result
 Slice::ReadBIO(struct BIO& bio)
 {
 	bio.io_block = bio.block + slice_first_block;
 	return d_Parent->GetBIODeviceOperations()->ReadBIO(bio);
 }
 
-errorcode_t
+Result
 Slice::WriteBIO(struct BIO& bio)
 {
 	bio.io_block = bio.block + slice_first_block;
@@ -97,7 +97,7 @@ slice_create(Ananas::Device* parent, blocknr_t begin, blocknr_t length)
 	if (slice != nullptr) {
 		slice->SetFirstBlock(begin);
 		slice->SetLength(length);
-		if (ananas_is_failure(Ananas::DeviceManager::AttachSingle(*slice))) {
+		if (auto result = Ananas::DeviceManager::AttachSingle(*slice); result.IsFailure()) {
 			delete slice;
 			slice = nullptr;
 		}

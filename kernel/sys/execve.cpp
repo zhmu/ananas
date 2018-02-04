@@ -1,9 +1,9 @@
 #include <ananas/syscalls.h>
-#include <ananas/error.h>
 #include <ananas/procinfo.h>
 #include "kernel/exec.h"
 #include "kernel/lib.h"
 #include "kernel/process.h"
+#include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
@@ -17,7 +17,7 @@ enum SET_PROC_ATTR {
 	A_Env
 };
 
-static errorcode_t
+static Result
 set_proc_attribute(Process& process, enum SET_PROC_ATTR attr, const char** list)
 {
 	char buf[PROCINFO_ENV_LENGTH];
@@ -47,7 +47,7 @@ set_proc_attribute(Process& process, enum SET_PROC_ATTR attr, const char** list)
 	}
 }
 
-errorcode_t
+Result
 sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, path='%s'", t, path);
@@ -55,8 +55,9 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 
 	/* First step is to open the file */
 	struct VFS_FILE file;
-	errorcode_t err = vfs_open(path, proc.p_cwd, &file);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_open(path, proc.p_cwd, &file)
+	);
 
 	/*
 	 * Add a ref to the dentry; we'll be throwing away 'f' soon but we need to
@@ -67,19 +68,16 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 	vfs_close(&file);
 
 	/* XXX Do we inherit correctly here? */
-	VMSpace* vmspace = NULL;
 	if (argv != NULL) {
-		err = set_proc_attribute(proc, A_Args, argv);
-		if (ananas_is_failure(err)) {
+		if (auto result = set_proc_attribute(proc, A_Args, argv); result.IsFailure()) {
 			dentry_deref(dentry);
-			goto fail;
+			return result;
 		}
 	}
 	if (envp != NULL) {
-		err = set_proc_attribute(proc, A_Env, envp);
-		if (ananas_is_failure(err)) {
+		if (auto result = set_proc_attribute(proc, A_Env, envp); result.IsFailure()) {
 			dentry_deref(dentry);
-			goto fail;
+			return result;
 		}
 	}
 
@@ -87,8 +85,9 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 	 * Create a new vmspace to execute in; if the exec() works, we'll use it to
 	 * override our current vmspace.
 	 */
-	err = vmspace_create(vmspace);
-	if (ananas_is_failure(err)) {
+	VMSpace* vmspace = NULL;
+	Result result = vmspace_create(vmspace);
+	if (result.IsFailure()) {
 		dentry_deref(dentry);
 		goto fail;
 	}
@@ -100,9 +99,9 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 	 */
 	addr_t exec_addr;
 	register_t exec_arg;
-	err = exec_load(*vmspace, dentry, &exec_addr, &exec_arg);
+	result = exec_load(*vmspace, dentry, &exec_addr, &exec_arg);
 	dentry_deref(dentry);
-	if (ananas_is_failure(err))
+	if (result.IsFailure())
 		goto fail;
 
 	/*
@@ -113,18 +112,18 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 		thread_set_name(*t, argv[0]);
 
 	/* Copy the new vmspace to the destination */
-	err = vmspace_clone(*vmspace, *proc.p_vmspace, VMSPACE_CLONE_EXEC);
-	KASSERT(ananas_is_success(err), "unable to clone exec vmspace: %d", err);
+	result = vmspace_clone(*vmspace, *proc.p_vmspace, VMSPACE_CLONE_EXEC);
+	KASSERT(result.IsSuccess(), "unable to clone exec vmspace: %d", result.AsStatusCode());
 	vmspace_destroy(*vmspace);
 
 	/* Now force a full return into the new thread state */
 	md_setup_post_exec(*t, exec_addr, exec_arg);
-	return ananas_success();
+	return Result::Success();
 
 fail:
 	if (vmspace != nullptr)
 		vmspace_destroy(*vmspace);
-	return err;
+	return result;
 }
 
 /* vim:set ts=2 sw=2: */

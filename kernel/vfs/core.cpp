@@ -1,10 +1,10 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/bio.h"
 #include "kernel/init.h"
 #include "kernel/device.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/types.h"
 #include "kernel/vfs/mount.h"
@@ -12,11 +12,11 @@
 
 TRACE_SETUP;
 
-static errorcode_t
+static Result
 vfs_init()
 {
 	vfs_init_mount();
-	return ananas_success();
+	return Result::Success();
 }
 
 INIT_FUNCTION(vfs_init, SUBSYSTEM_VFS, ORDER_FIRST);
@@ -28,16 +28,16 @@ vfs_is_filesystem_sane(struct VFS_MOUNTED_FS* fs)
 	return (fs->fs_flags & VFS_FLAG_ABANDONED) == 0;
 }
 
-errorcode_t
+Result
 vfs_bget(struct VFS_MOUNTED_FS* fs, blocknr_t block, struct BIO** bio, int flags)
 {
 	if (!vfs_is_filesystem_sane(fs))
-		return ANANAS_ERROR(IO);
+		return RESULT_MAKE_FAILURE(EIO);
 
 	*bio = bio_get(fs->fs_device, block * (fs->fs_block_size / BIO_SECTOR_SIZE), fs->fs_block_size, flags);
 	if (*bio == NULL)
-		return ANANAS_ERROR(IO);
-	return ananas_success();
+		return RESULT_MAKE_FAILURE(EIO);
+	return Result::Success();
 }
 
 size_t

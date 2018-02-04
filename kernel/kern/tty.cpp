@@ -8,13 +8,13 @@
  * we spawn a generic thread which takes care of all of them.
  */
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include <termios.h>
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/queue.h"
+#include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/trace.h"
 
@@ -45,11 +45,11 @@ public:
 		return this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
-	errorcode_t	Write(const void* data, size_t& len, off_t offset) override;
-	errorcode_t Read(void* buf, size_t& len, off_t offset) override;
+	Result	Write(const void* data, size_t& len, off_t offset) override;
+	Result Read(void* buf, size_t& len, off_t offset) override;
 
 	/*
 	 * This is crude, but we'll need a queue for all TTY devices so that
@@ -106,33 +106,33 @@ TTY::TTY(const Ananas::CreateDeviceProperties& cdp)
 	tty_termios.c_cflag = CREAD;
 }
 
-errorcode_t
+Result
 TTY::Attach()
 {
 	// Hook our device to the TTY queue so that we handle it in our thread
 	SpinlockGuard g(tty_queue.tq_lock);
 	QUEUE_ADD_TAIL(&tty_queue, this);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 TTY::Detach()
 {
 	panic("remove from queue");
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 TTY::Write(const void* data, size_t& len, off_t offset)
 {
 	if (tty_output_dev == NULL)
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	return tty_output_dev->GetCharDeviceOperations()->Write(data, len, offset);
 }
 
-errorcode_t
+Result
 TTY::Read(void* buf, size_t& len, off_t offset)
 {
 	auto data = static_cast<char*>(buf);
@@ -194,7 +194,7 @@ TTY::Read(void* buf, size_t& len, off_t offset)
 			num_read++; num_left--;
 		}
 		len = num_read;
-		return ananas_success();
+		return Result::Success();
 	}
 
 	/* NOTREACHED */
@@ -244,8 +244,7 @@ TTY::ProcessInput()
 
 		unsigned char byte;
 		size_t len = sizeof(byte);
-		errorcode_t err = tty_input_dev->GetCharDeviceOperations()->Read(static_cast<void*>(&byte), len, 0);
-		if (ananas_is_failure(err) || len == 0)
+		if (Result result = tty_input_dev->GetCharDeviceOperations()->Read(static_cast<void*>(&byte), len, 0); result.IsFailure() || len == 0)
 			break;
 
 		/* If we are out of buffer space, just eat the charachter XXX possibly unnecessary for VERASE */
@@ -329,8 +328,8 @@ tty_alloc(Ananas::Device* input_dev, Ananas::Device* output_dev)
 	if (tty != nullptr) {
 		tty->SetInputDevice(input_dev);
 		tty->SetOutputDevice(output_dev);
-		if (ananas_is_failure(tty->Attach()))
-			panic("tty::Attach() failed");
+		if (auto result = tty->Attach(); result.IsFailure())
+			panic("tty::Attach() failed, %d", result.AsStatusCode());
 	}
 	return tty;
 }
@@ -355,23 +354,23 @@ tty_signal_data()
 	tty_sem.Signal();
 }
 
-static errorcode_t
+static Result
 tty_preinit()
 {
 	/* Initialize the queue of all tty's */
 	QUEUE_INIT(&tty_queue);
-	return ananas_success();
+	return Result::Success();
 }
 
 INIT_FUNCTION(tty_preinit, SUBSYSTEM_CONSOLE, ORDER_SECOND);
 
-static errorcode_t
+static Result
 tty_init()
 {
 	/* Launch our kernel thread */
 	kthread_init(tty_thread, "tty", tty_thread_func, NULL);
 	thread_resume(tty_thread);
-	return ananas_success();
+	return Result::Success();
 }
 
 INIT_FUNCTION(tty_init, SUBSYSTEM_TTY, ORDER_ANY);

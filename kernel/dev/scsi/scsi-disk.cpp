@@ -1,5 +1,4 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/bio.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
@@ -7,6 +6,7 @@
 #include "kernel/lib.h"
 #include "kernel/mbr.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "scsi.h"
 
@@ -68,22 +68,22 @@ public:
 		return this;
 	}
 
-	errorcode_t HandleRequest(int lun, Direction dir, const void* cb, size_t cb_len, void* result, size_t* result_len);
+	Result HandleRequest(int lun, Direction dir, const void* cb, size_t cb_len, void* result, size_t* result_len);
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
-	errorcode_t ReadBIO(struct BIO& bio) override;
-	errorcode_t WriteBIO(struct BIO& bio) override;
+	Result ReadBIO(struct BIO& bio) override;
+	Result WriteBIO(struct BIO& bio) override;
 };
 
-errorcode_t
+Result
 SCSIDisk::HandleRequest(int lun, Direction dir, const void* cb, size_t cb_len, void* result, size_t* result_len)
 {
 	return d_Parent->GetSCSIDeviceOperations()->PerformSCSIRequest(lun, dir, cb, cb_len, result, result_len);
 }
 
-errorcode_t
+Result
 SCSIDisk::Attach()
 {
 	/* Do a SCSI INQUIRY command; we only use the vendor/product ID for now */
@@ -93,8 +93,9 @@ SCSIDisk::Attach()
 	inq_cmd.c_code = SCSI_CMD_INQUIRY_6;
 
 	size_t reply_len = sizeof(inq_reply);
-	errorcode_t err = HandleRequest(0, Direction::D_In, &inq_cmd, sizeof(inq_cmd), &inq_reply, &reply_len);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		HandleRequest(0, Direction::D_In, &inq_cmd, sizeof(inq_cmd), &inq_reply, &reply_len)
+	);
 
 	/*
 	 * We expect the device to be unavailable (as it's just reset) - we'll issue
@@ -104,17 +105,15 @@ SCSIDisk::Attach()
 	struct SCSI_TEST_UNIT_READY_CMD tur_cmd;
 	memset(&tur_cmd, 0, sizeof tur_cmd);
 	tur_cmd.c_code = SCSI_CMD_TEST_UNIT_READY;
-	err = HandleRequest(0, Direction::D_In, &tur_cmd, sizeof(tur_cmd), NULL, NULL);
-	if (ananas_is_failure(err)) {
+	if (auto result = HandleRequest(0, Direction::D_In, &tur_cmd, sizeof(tur_cmd), NULL, NULL); result.IsFailure()) {
 		/* This is expected; issue 'REQUEST SENSE' to reset the status */
 		struct SCSI_REQUEST_SENSE_CMD rs_cmd;
 		struct SCSI_FIXED_SENSE_DATA sd;
 		memset(&rs_cmd, 0, sizeof rs_cmd);
 		rs_cmd.c_code = SCSI_CMD_REQUEST_SENSE;
 		reply_len = sizeof(sd);
-		err = HandleRequest(0, Direction::D_In, &rs_cmd, sizeof(rs_cmd), &sd, &reply_len);
-		if (ananas_is_failure(err)) {
-			Printf("handle_req: err=%d len %d", err, reply_len);
+		if (auto result = HandleRequest(0, Direction::D_In, &rs_cmd, sizeof(rs_cmd), &sd, &reply_len); result.IsFailure()) {
+			Printf("handle_req: err=%d len %d", result.AsStatusCode(), reply_len);
 			DumpSenseData(sd);
 		}
 	}
@@ -125,8 +124,9 @@ SCSIDisk::Attach()
 	cap_cmd.c_code = SCSI_CMD_READ_CAPACITY_10;
 	struct SCSI_READ_CAPACITY_10_REPLY cap_reply;
 	reply_len = sizeof(cap_reply);
-	err = HandleRequest(0, Direction::D_In, &cap_cmd, sizeof(cap_cmd), &cap_reply, &reply_len);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		HandleRequest(0, Direction::D_In, &cap_cmd, sizeof(cap_cmd), &cap_reply, &reply_len)
+	);
 	uint32_t num_lba = betoh32(cap_reply.r_lba);
 	uint32_t block_len = betoh32(cap_reply.r_block_length);
 
@@ -139,21 +139,21 @@ SCSIDisk::Attach()
 
 	struct BIO* bio = bio_read(this, 0, BIO_SECTOR_SIZE);
 	if (BIO_IS_ERROR(bio))
-		return ANANAS_ERROR(IO); /* XXX should get error from bio */
+		return RESULT_MAKE_FAILURE(EIO); /* XXX should get error from bio */
 
 	mbr_process(this, bio);
 	bio_free(*bio);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 SCSIDisk::Detach()
 {
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 SCSIDisk::ReadBIO(struct BIO& bio)
 {
 	KASSERT(bio.length > 0, "invalid length");
@@ -168,18 +168,19 @@ SCSIDisk::ReadBIO(struct BIO& bio)
 	r_cmd.c_lba = htobe32(bio.io_block);
 	r_cmd.c_transfer_len = htobe16(bio.length / 512);
 	size_t reply_len = bio.length;
-	errorcode_t err = HandleRequest(0, Direction::D_In, &r_cmd, sizeof(r_cmd), BIO_DATA(&bio), &reply_len);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		HandleRequest(0, Direction::D_In, &r_cmd, sizeof(r_cmd), BIO_DATA(&bio), &reply_len)
+	);
 
 	bio_set_available(bio);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 SCSIDisk::WriteBIO(struct BIO& bio)
 {
 	// XXX Not yet implemented
-	return ANANAS_ERROR(READ_ONLY);
+	return RESULT_MAKE_FAILURE(EROFS);
 }
 
 struct SCSIDisk_Driver : public Ananas::Driver

@@ -1,5 +1,4 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/dev/pci.h"
 #include "kernel/dev/sata.h"
 #include "kernel/device.h"
@@ -8,6 +7,7 @@
 #include "kernel/irq.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/time.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
@@ -51,7 +51,7 @@ AHCIDevice::OnIRQ()
 	Write(AHCI_REG_IS, is);
 }
 
-errorcode_t
+Result
 AHCIDevice::ResetPort(Port& p)
 {
 	int n = p.p_num;
@@ -73,7 +73,7 @@ AHCIDevice::ResetPort(Port& p)
 	}
 	if (port_delay == 0) {
 		Printf("port #%d not responding; no device?", n);
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 	/*
@@ -92,7 +92,7 @@ AHCIDevice::ResetPort(Port& p)
 	}
 	if (port_delay == 0) {
 		Printf("port #%d doesn't go to dev/phy", n);
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 	/* Now wait for a bit until the port's BSY flag drops */
@@ -116,16 +116,16 @@ AHCIDevice::ResetPort(Port& p)
 	/* Clear any pending interrupts */
 	Write(AHCI_REG_PxIS(n), 0xffffffff);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 AHCIDevice::Attach()
 {
 	char* res_mem = static_cast<char*>(d_ResourceSet.AllocateResource(Ananas::Resource::RT_Memory, 4096));
 	void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 	if (res_mem == NULL || res_irq == NULL)
-		return ANANAS_ERROR(NO_RESOURCE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
 	/* Enable busmastering; all communication is done by DMA */
 	pci_enable_busmaster(*this, 1);
@@ -149,7 +149,7 @@ AHCIDevice::Attach()
 	}
 	if (reset_wait == 0) {
 		Printf("controller never leaves reset, giving up");
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 	/* Re-enable AHCI mode; this is part of what is reset */
 	*(volatile uint32_t*)(res_mem + AHCI_REG_GHC) |= AHCI_GHC_AE;
@@ -171,14 +171,16 @@ AHCIDevice::Attach()
 	ap_num_ports = num_ports;
 
 	/* Create DMA tags; we need those to do DMA */
-	errorcode_t err = dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE)
+	);
 
 	uint32_t cap = Read(AHCI_REG_CAP);
 	ap_ncs = AHCI_CAP_NCS(cap) + 1;
 
-	err = irq_register((int)(uintptr_t)res_irq, this, IRQWrapper, IRQ_TYPE_DEFAULT, NULL);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		irq_register((int)(uintptr_t)res_irq, this, IRQWrapper, IRQ_TYPE_DEFAULT, NULL)
+	);
 
 	/* Force all ports into idle mode */
 	int need_wait = 0;
@@ -211,7 +213,7 @@ AHCIDevice::Attach()
 		if (!ok) {
 			/* XXX we can and should recover from this */
 			Printf("not all ports reset correctly");
-			return ANANAS_ERROR(NO_DEVICE);
+			return RESULT_MAKE_FAILURE(ENODEV);
 		}
 	}
 
@@ -231,10 +233,12 @@ AHCIDevice::Attach()
 		idx++;
 
 		/* Create DMA-able memory buffers for the command list and RFIS */
-		err = dma_buf_alloc(d_DMA_tag, 1024, &p->p_dmabuf_cl);
-		ANANAS_ERROR_RETURN(err);
-		err = dma_buf_alloc(d_DMA_tag, 256, &p->p_dmabuf_rfis);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			dma_buf_alloc(d_DMA_tag, 1024, &p->p_dmabuf_cl)
+		);
+		RESULT_PROPAGATE_FAILURE(
+			dma_buf_alloc(d_DMA_tag, 256, &p->p_dmabuf_rfis)
+		);
 
 		p->p_cle = static_cast<struct AHCI_PCI_CLE*>(dma_buf_get_segment(p->p_dmabuf_cl, 0)->s_virt);
 		p->p_rfis = static_cast<struct AHCI_PCI_RFIS*>(dma_buf_get_segment(p->p_dmabuf_rfis, 0)->s_virt);
@@ -292,14 +296,14 @@ AHCIDevice::Attach()
 		Ananas::DeviceManager::AttachSingle(*p); /* XXX check error */
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 AHCIDevice::Detach()
 {
 	panic("TODO");
-	return ananas_success();
+	return Result::Success();
 }
 
 } // namespace AHCI

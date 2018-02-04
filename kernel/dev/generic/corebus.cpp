@@ -1,6 +1,7 @@
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 
 TRACE_SETUP;
@@ -20,27 +21,27 @@ public:
 		return *this;
 	}
 
-	errorcode_t Attach() override
+	Result Attach() override
 	{
-		return ananas_success();
+		return Result::Success();
 	}
 
-	errorcode_t Detach() override
+	Result Detach() override
 	{
-		return ananas_success();
+		return Result::Success();
 	}
 
 	void DebugDump() override
 	{
 	}
 
-	errorcode_t DeviceControl(Process& proc, unsigned int op, void* buffer, size_t len) override
+	Result DeviceControl(Process& proc, unsigned int op, void* buffer, size_t len) override
 	{
-		return ANANAS_ERROR(BAD_OPERATION);
+		return RESULT_MAKE_FAILURE(EINVAL);
 	}
 };
 
-errorcode_t
+Result
 Initialize()
 {
 	return Ananas::DeviceManager::AttachSingle(*new CoreBus);

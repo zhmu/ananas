@@ -1,15 +1,10 @@
 #include <ananas/types.h>
 #include <ananas/syscalls.h>
-#include <ananas/error.h>
-#include <_posix/error.h>
 #include <unistd.h>
+#include "_map_statuscode.h"
 
 int close(int fd)
 {
-	errorcode_t err = sys_close(fd);
-	if (err != ANANAS_ERROR_NONE) {
-		_posix_map_error(err);
-		return -1;
-	}
-	return 0;
+	statuscode_t status = sys_close(fd);
+	return map_statuscode(status);
 }

@@ -1,9 +1,9 @@
-#include <ananas/error.h>
 #include "acpica/acpi.h"
 #include "acpi.h"
 #include "acpi_resource.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/x86/acpi.h"
 
@@ -21,8 +21,8 @@ struct ACPI : public Ananas::Device, private Ananas::IDeviceOperations
 		return *this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 };
 
 ACPI_STATUS
@@ -52,7 +52,7 @@ ACPI::AttachDevice(ACPI_HANDLE ObjHandle, UINT32 Level, void* Context, void** Re
 	return AE_OK;
 }
 
-errorcode_t
+Result
 ACPI::Attach()
 {
 	ACPI_STATUS status;
@@ -60,40 +60,40 @@ ACPI::Attach()
 	/* Initialize ACPI subsystem */
 	status = AcpiInitializeSubsystem();
 	if (ACPI_FAILURE(status))
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
 	/* Initialize tablde manager and fetch all tables */
 	status = AcpiInitializeTables(NULL, 16, FALSE);
 	if (ACPI_FAILURE(status))
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
 	/* Create ACPI namespace from ACPI tables */
 	status = AcpiLoadTables();
 	if (ACPI_FAILURE(status))
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
 	/* Enable ACPI hardware */
 	status = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
 	if (ACPI_FAILURE(status))
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
 	/* Complete ACPI namespace object initialization */
 	status = AcpiInitializeObjects(ACPI_FULL_INITIALIZATION);
 	if (ACPI_FAILURE(status))
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
 	/*
 	 * Now enumerate through all ACPI devices and see what we can find.
 	 */
 	AcpiWalkNamespace(ACPI_TYPE_ANY, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX, AttachDevice, NULL, this, NULL);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 ACPI::Detach()
 {
-	return ananas_success();
+	return Result::Success();
 }
 
 class ACPIDriver : public Ananas::Driver

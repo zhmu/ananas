@@ -1,7 +1,7 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "hda.h"
 
@@ -14,7 +14,7 @@ namespace HDA {
  * Given audio group 'afg' on device 'dev', this will route 'channels'-channel
  * output to output 'o'. On success, returns the kmalloc()'ed routing plan.
  */
-errorcode_t
+Result
 HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 {
 	HDA_VPRINTF("routing %d channel(s) to %d-channel output", channels, o.o_channels);
@@ -71,18 +71,18 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 			delete *rp;
 			Printf("unable to route from cad %d nid %d; it has no outputs",
 			 output_pin->n_address.na_cad, output_pin->n_address.na_nid);
-			return ANANAS_ERROR(NO_SPACE);
+			return RESULT_MAKE_FAILURE(ENOSPC); // XXX does this make sense?
 		}
 
 		/*
 		 * Walk through this pin's input list and start routing the very first item we see that
 		 * is acceptable.
 		 */
-		errorcode_t err = ANANAS_ERROR(NO_SPACE);
+		Result result(RESULT_MAKE_FAILURE(ENOSPC)); // XXX does this make sense
 		for(int pin_in_idx  = 0; pin_in_idx < output_pin->aw_num_conn; pin_in_idx++) {
 			/* pin_in_aw is the node connected to output_pin's input index pin_in_idx */
 			Node_AW* pin_in_aw = output_pin->aw_conn[pin_in_idx];
-			
+
 			/* First see if we have already routed this item */
 			int found = 0;
 			for (int i = 0; !found && i < (*rp)->rp_num_nodes; i++)
@@ -92,22 +92,22 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 
 			/* Enable output on this pin */
 			uint32_t r;
-			err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*output_pin, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETPINCONTROL, 
+			result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*output_pin, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETPINCONTROL, 
 			 HDA_CODEC_PINCONTROL_HENABLE | HDA_CODEC_PINCONTROL_OUTENABLE
 			)), &r, NULL);
-			if (ananas_is_failure(err))
+			if (result.IsFailure())
 				break;
 
 			/* Set input to what we found that should work */
-			err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*output_pin, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETCONNSELECT, pin_in_idx)), &r, NULL);
-			if (ananas_is_failure(err))
+			result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*output_pin, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETCONNSELECT, pin_in_idx)), &r, NULL);
+			if (result.IsFailure())
 				break;
 
 			/* Set output gain XXX We should check if the pin supports this */
-			err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*output_pin, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
+			result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*output_pin, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
 			 HDA_CODEC_AMP_GAINMUTE_OUTPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(60)
 			)), &r, NULL);
-			if (ananas_is_failure(err))
+			if (result.IsFailure())
 				break;
 
 			/*
@@ -115,7 +115,7 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 			 * whatever hooks to it.
 			 */
 			Node_AW* cur_aw = pin_in_aw;
-			while(cur_aw != nullptr && ananas_is_success(err)) {
+			while(cur_aw != nullptr && result.IsSuccess()) {
 				/* Hook the input up to the list */
 				(*rp)->rp_node[(*rp)->rp_num_nodes++] = cur_aw;
 				switch(cur_aw->GetType()) {
@@ -154,27 +154,27 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 							/* Okay, this mixer connects to an unused audio output; set up the mixer first */
 
 							/* Set input amplifiers - allow index 'm' */
-							err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
+							result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
 							 HDA_CODEC_AMP_GAINMUTE_INPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(60) |
 							 HDA_CODEC_AMP_GAINMUTE_INDEX(m)
 							)), &r, NULL);
-							/* Loop below checks err for us */
+							/* Loop below checks result for us */
 
 							/* Set input amplifiers - mute everything not 'm' */
-							for (int i = 0; ananas_is_success(err) && i < aw->aw_num_conn; i++)
+							for (int i = 0; result.IsSuccess() && i < aw->aw_num_conn; i++)
 								if (i != m)
-									err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
+									result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
 									 HDA_CODEC_AMP_GAINMUTE_INPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_MUTE |
 									 HDA_CODEC_AMP_GAINMUTE_INDEX(i)
 									)), &r, NULL);
-							if (ananas_is_failure(err))
+							if (result.IsFailure())
 								break;
-							
+
 							/* Set output gain */
-							err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
+							result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
 							 HDA_CODEC_AMP_GAINMUTE_OUTPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(60)
 							)), &r, NULL);
-							if (ananas_is_failure(err))
+							if (result.IsFailure())
 								break;
 
 							/* We've set up this mixer correctly */
@@ -184,7 +184,7 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 						if (mixer_in == NULL) {
 							Printf("TODO: when routing pin nid 0x%x, ended up at audio mixer nid 0x%x which we can't route to an audioout - aborting",
 							 output_pin->n_address.na_nid, cur_aw->n_address.na_nid);
-							err = ANANAS_ERROR(NO_SPACE);
+							result = RESULT_MAKE_FAILURE(ENOSPC); // XXX makes no sense?
 						}
 
 						/* Mixer was routed; we need to continue routing */
@@ -194,7 +194,7 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 					default:
 						Printf("TODO: when routing pin nid 0x%x, ended up at unsupported node nid 0x%x type 0x%d - aborting",
 						 output_pin->n_address.na_nid, cur_aw->n_address.na_nid, cur_aw->GetType());
-						err = ANANAS_ERROR(NO_SPACE);
+						result = RESULT_MAKE_FAILURE(ENOSPC); // XXX makes no sense?
 						break;
 				}
 			}
@@ -206,9 +206,9 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 			break;
 		}
 
-		if (ananas_is_failure(err)) {
+		if (result.IsFailure()) {
 			kfree(*rp);
-			return err;
+			return result;
 		}
 	}
 
@@ -219,7 +219,7 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 	kprintf("\n");
 #endif
 
-	return ananas_success();
+	return Result::Success();
 }
 
 } // namespace HDA

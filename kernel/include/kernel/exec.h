@@ -2,14 +2,14 @@
 #define __ANANAS_EXEC_H__
 
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include <ananas/util/list.h>
 #include "kernel/init.h"
 
 struct DEntry;
+class Result;
 class VMSpace;
 
-typedef errorcode_t (*exec_handler_t)(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg);
+typedef Result(*exec_handler_t)(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg);
 
 /*
  * Define an executable format.
@@ -29,17 +29,17 @@ struct ExecFormat : util::List<ExecFormat>::NodePtr {
 
 #define EXECUTABLE_FORMAT(id, handler) \
 	static ExecFormat execfmt_##handler(id, &handler); \
-	static errorcode_t register_##handler() { \
+	static Result register_##handler() { \
 		return exec_register_format(execfmt_##handler); \
 	}; \
-	static errorcode_t unregister_##handler() { \
+	static Result unregister_##handler() { \
 		return exec_unregister_format(execfmt_##handler); \
 	}; \
 	INIT_FUNCTION(register_##handler, SUBSYSTEM_THREAD, ORDER_MIDDLE); \
 	EXIT_FUNCTION(unregister_##handler);
 
-errorcode_t exec_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg);
-errorcode_t exec_register_format(ExecFormat& ef);
-errorcode_t exec_unregister_format(ExecFormat& ef);
+Result exec_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg);
+Result exec_register_format(ExecFormat& ef);
+Result exec_unregister_format(ExecFormat& ef);
 
 #endif /* __ANANAS_EXEC_H__ */

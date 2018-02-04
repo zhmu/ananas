@@ -1,9 +1,10 @@
 #ifndef __DRIVER_H__
 #define __DRIVER_H__
 
-#include <ananas/error.h>
 #include <ananas/util/list.h>
 #include "kernel/init.h"
+
+class Result;
 
 namespace Ananas {
 
@@ -14,8 +15,8 @@ class ConsoleDriver;
 
 namespace DriverManager {
 
-errorcode_t Register(Driver& driver);
-errorcode_t Unregister(const char* name);
+Result Register(Driver& driver);
+Result Unregister(const char* name);
 
 } // namespace DriverManager
 
@@ -54,14 +55,14 @@ typedef util::List<Driver> DriverList;
 
 // XXX The Unregister-part is a bit clumsy...
 #define REGISTER_DRIVER(name) \
-	static errorcode_t register_driver_##name() { \
+	static Result register_driver_##name() { \
 		return Ananas::DriverManager::Register(*new name); \
 	} \
-	static errorcode_t unregister_driver_##name() { \
+	static Result unregister_driver_##name() { \
 		Ananas::Driver* d = new name; \
-		errorcode_t err = Ananas::DriverManager::Unregister(d->d_Name); \
+		auto result = Ananas::DriverManager::Unregister(d->d_Name); \
 		delete d; \
-		return err; \
+		return result; \
 	} \
 	INIT_FUNCTION(register_driver_##name, SUBSYSTEM_DRIVER, ORDER_MIDDLE); \
 	EXIT_FUNCTION(unregister_driver_##name);

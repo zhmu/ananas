@@ -1,6 +1,5 @@
 #include <ananas/types.h>
 #include <ananas/bootinfo.h>
-#include <ananas/error.h>
 #include <ananas/x86/smap.h>
 #include <loader/module.h>
 #include <machine/param.h>
@@ -11,6 +10,7 @@
 #include "kernel/handle.h"
 #include "kernel/page.h"
 #include "kernel/pcpu.h"
+#include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/mm.h"
 #include "kernel/vm.h"
@@ -640,7 +640,7 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 	 * Initialize the SMP parts - as x86 SMP relies on an APIC, we do this here
 	 * to prevent problems due to devices registering interrupts.
 	 */
-	if (ananas_is_success(smp_init())) {
+	if (auto result = smp_init(); result.IsSuccess()) {
 		smp_init_ap_pagetable();
 	} else
 #endif

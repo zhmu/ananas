@@ -1,7 +1,7 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/device.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/generic.h"
@@ -35,21 +35,21 @@ struct DirectoryEntry fs_entries[] = {
 class FileSystemSubSystem : public IAnkhSubSystem
 {
 public:
-	errorcode_t HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len) override
+	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len) override
 	{
 		return AnkhFS::HandleReadDir(file, dirents, len, fs_entries[0]);
 	}
 
-	errorcode_t FillInode(INode& inode, ino_t inum) override
+	Result FillInode(INode& inode, ino_t inum) override
 	{
 		if (inum_to_sub(inum) == 0)
 			inode.i_sb.st_mode |= S_IFDIR;
 		else
 			inode.i_sb.st_mode |= S_IFREG;
-		return ananas_success();
+		return Result::Success();
 	}
 
-	errorcode_t HandleRead(struct VFS_FILE* file, void* buf, size_t* len) override
+	Result HandleRead(struct VFS_FILE* file, void* buf, size_t* len) override
 	{
 		char result[256]; // XXX
 		strcpy(result, "???");

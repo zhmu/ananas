@@ -1,10 +1,10 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/device.h"
 #include "kernel/lib.h"
 #include "kernel/list.h"
 #include "kernel/mm.h"
 #include "kernel/init.h"
+#include "kernel/result.h"
 #include "kernel/thread.h"
 #include "config.h"
 #include "usb-bus.h"
@@ -35,7 +35,7 @@ usbtransfer_get_hcd_device(Transfer& xfer)
 	return *xfer.t_device.ud_bus.d_Parent;
 }
 
-errorcode_t
+Result
 SetupTransfer(Transfer& xfer)
 {
 	auto& hcd_dev = usbtransfer_get_hcd_device(xfer);
@@ -54,15 +54,14 @@ AllocateTransfer(USBDevice& usb_dev, int type, int flags, int endpt, size_t maxl
 	usb_xfer->t_address = usb_dev.ud_address;
 	usb_xfer->t_endpoint = endpt;
 
-	errorcode_t err = SetupTransfer(*usb_xfer);
-	if (ananas_is_failure(err)) {
+	if (auto result = SetupTransfer(*usb_xfer); result.IsFailure()) {
 		kfree(usb_xfer);
-		return NULL;
+		return nullptr;
 	}
 	return usb_xfer;
 }
 
-errorcode_t
+Result
 Transfer::Schedule()
 {
 	/* All USB_DEVICE's are on usbbusX; the bus' parent is the HCD to use */
@@ -70,12 +69,12 @@ Transfer::Schedule()
 
 	/* Schedule the transfer; we are responsible for locking here */
 	t_device.Lock();
-	errorcode_t err = hcd_dev.GetUSBDeviceOperations()->ScheduleTransfer(*this);
+	Result err = hcd_dev.GetUSBDeviceOperations()->ScheduleTransfer(*this);
 	t_device.Unlock();
 	return err;
 }
 
-errorcode_t
+Result
 Transfer::Cancel_Locked()
 {
 	auto& hcd_dev = usbtransfer_get_hcd_device(*this);
@@ -98,11 +97,11 @@ Transfer::Cancel_Locked()
 	return hcd_dev.GetUSBDeviceOperations()->CancelTransfer(*this);
 }
 
-errorcode_t
+Result
 Transfer::Cancel()
 {
 	t_device.Lock();
-	errorcode_t err = Cancel_Locked();
+	Result err = Cancel_Locked();
 	t_device.Unlock();
 	return err;
 }
@@ -197,13 +196,13 @@ transfer_thread(void* arg)
 	}
 }
 
-errorcode_t
+Result
 InitializeTransfer()
 {
 	/* Create a kernel thread to handle USB completed messages */
 	kthread_init(usbtransfer_thread, "usb-transfer", &transfer_thread, NULL);
 	thread_resume(usbtransfer_thread);
-	return ananas_success();
+	return Result::Success();
 }
 
 } // unnamed namespace

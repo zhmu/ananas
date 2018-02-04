@@ -1,9 +1,6 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
-#include <_posix/error.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <sys/stat.h>
+#include <errno.h>
 #include <string.h>
 #include <unistd.h>
 

@@ -31,6 +31,7 @@
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/page.h"
+#include "kernel/result.h"
 #include "kernel/vm.h"
 #include "kernel-md/vm.h"
 #include "options.h"

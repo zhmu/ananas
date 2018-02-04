@@ -1,10 +1,10 @@
-#include <ananas/error.h>
 #include <machine/param.h>
 #include "kernel/console.h"
 #include "kernel/device.h"
 #include "kernel/init.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/tty.h"
 #include "options.h" // for ARCHITECTURE
@@ -25,7 +25,7 @@ run_init()
 	size_t init_static_func_len  = (addr_t)&__initfuncs_end - (addr_t)&__initfuncs_begin;
 	struct INIT_FUNC** ifn_chain = static_cast<struct INIT_FUNC**>(kmalloc(init_static_func_len));
 	memcpy(ifn_chain, (void*)&__initfuncs_begin, init_static_func_len);
-	
+
 	/* Sort the init functions chain; we use a simple bubble sort to do so */
 	int num_init_funcs = init_static_func_len / sizeof(struct INIT_FUNC*);
 	for (int i = 0; i < num_init_funcs; i++)
@@ -50,7 +50,7 @@ run_init()
 		 (*c)->if_func, (*c)->if_subsystem, (*c)->if_order);
 	}
 #endif
-	
+
 	/* Execute all init functions in order except the final one */
 	struct INIT_FUNC** ifn = (struct INIT_FUNC**)ifn_chain;
 	for (int i = 0; i < num_init_funcs - 1; i++, ifn++)
@@ -64,7 +64,7 @@ run_init()
 	ifunc->if_func();
 }
 
-static errorcode_t
+static Result
 hello_world()
 {
 	/* Show a startup banner */
@@ -77,7 +77,7 @@ hello_world()
 	kprintf("CPU: %u MHz\n", md_cpu_clock_mhz);
 #endif
 
-	return ananas_success();
+	return Result::Success();
 }
 
 INIT_FUNCTION(hello_world, SUBSYSTEM_CONSOLE, ORDER_LAST);

@@ -1,12 +1,12 @@
 #include <ananas/types.h>
 #include <ananas/procinfo.h>
-#include <ananas/error.h>
 #include <machine/param.h>
 #include "kernel/gdb.h"
 #include "kernel/irq.h"
 #include "kernel/lib.h"
 #include "kernel/process.h"
 #include "kernel/pcpu.h"
+#include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/vm.h"
 #include "kernel/vmspace.h"
@@ -130,8 +130,7 @@ exception_pf(struct STACKFRAME* sf)
 	// Let the VM code deal with the fault
 	Thread* curthread = PCPU_GET(curthread);
 	if (curthread != NULL && curthread->t_process != NULL) {
-		errorcode_t err = vmspace_handle_fault(*curthread->t_process->p_vmspace, fault_addr, flags);
-		if (ananas_is_success(err))
+		if (auto result = vmspace_handle_fault(*curthread->t_process->p_vmspace, fault_addr, flags); result.IsSuccess())
 			return; /* fault handeled */
 	}
 

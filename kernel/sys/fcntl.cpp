@@ -1,13 +1,14 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include <ananas/flags.h>
+#include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "syscall.h"
 
 TRACE_SETUP;
 
-errorcode_t
+Result
 sys_fcntl(Thread* t, handleindex_t hindex, int cmd, const void* in, void* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, hindex=%d cmd=%d", t, hindex, cmd);
@@ -15,19 +16,21 @@ sys_fcntl(Thread* t, handleindex_t hindex, int cmd, const void* in, void* out)
 
 	/* Get the handle */
 	struct HANDLE* h;
-	errorcode_t err = syscall_get_handle(*t, hindex, &h);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		syscall_get_handle(*t, hindex, &h)
+	);
 
 	if (h->h_type != HANDLE_TYPE_FILE)
-		return ANANAS_ERROR(BAD_HANDLE);
+		return RESULT_MAKE_FAILURE(EBADF);
 
 	switch(cmd) {
 		case F_DUPFD: {
 			int min_fd = (int)(uintptr_t)out;
 			struct HANDLE* handle_out;
 			handleindex_t hidx_out;
-			err = handle_clone(process, hindex, NULL, process, &handle_out, min_fd, &hidx_out);
-			ANANAS_ERROR_RETURN(err);
+			RESULT_PROPAGATE_FAILURE(
+				handle_clone(process, hindex, NULL, process, &handle_out, min_fd, &hidx_out)
+			);
 			*(int*)out = hidx_out;
 			break;
 		}
@@ -52,8 +55,8 @@ sys_fcntl(Thread* t, handleindex_t hindex, int cmd, const void* in, void* out)
 			break;
 		}
 		default:
-			return ANANAS_ERROR(BAD_OPERATION);
+			return RESULT_MAKE_FAILURE(EINVAL);
 	}
 
-	return ananas_success();
+	return Result::Success();
 }

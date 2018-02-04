@@ -14,6 +14,7 @@ struct DEntry;
 struct VFS_MOUNTED_FS;
 struct VFS_INODE_OPS;
 struct VFS_FILESYSTEM_OPS;
+class Result;
 
 /*
  * This is our defacto inode; it must be locked before any fields can be
@@ -94,13 +95,13 @@ struct VFS_FILESYSTEM_OPS {
 	 * Mount a filesystem. device, mountpoint and fsops in 'fs' are
 	 * guaranteed to be filled out. Must fill out the root inode on success.
 	 */
-	errorcode_t (*mount)(struct VFS_MOUNTED_FS* fs, INode*& root_inode);
+	Result (*mount)(struct VFS_MOUNTED_FS* fs, INode*& root_inode);
 
 	/*
 	 * Initialize an inode. The purpose for this function is to initialize
 	 * the 'privdata' field of the inode. Only i_num is available at this point.
 	 */
-	errorcode_t (*prepare_inode)(INode& inode);
+	Result (*prepare_inode)(INode& inode);
 
 	/*
 	 * Destroy a locked inode. The purpose for this function is to deinitialize
@@ -114,12 +115,12 @@ struct VFS_FILESYSTEM_OPS {
 	 * alloc_inode().  The 'fs' field of the inode is guaranteed to be
 	 * filled out.
 	 */
-	errorcode_t (*read_inode)(INode& inode, ino_t num);
+	Result (*read_inode)(INode& inode, ino_t num);
 
 	/*
 	 * Writes an inode back to disk; inode is locked.
 	 */
-	errorcode_t (*write_inode)(INode& inode);
+	Result (*write_inode)(INode& inode);
 };
 
 struct VFS_INODE_OPS {
@@ -127,46 +128,46 @@ struct VFS_INODE_OPS {
 	 * Reads directory entries. Must set length to amount of data filled on
 	 * success.
 	 */
-	errorcode_t (*readdir)(struct VFS_FILE* file, void* buf, size_t* length);
+	Result (*readdir)(struct VFS_FILE* file, void* buf, size_t* length);
 
 	/*
 	 * Looks up an entry within a directory, updates 'destinode' on success.
 	 */
-	errorcode_t (*lookup)(DEntry& parent, INode*& destinode, const char* dentry);
+	Result (*lookup)(DEntry& parent, INode*& destinode, const char* dentry);
 
 	/*
 	 * Maps the inode's given block number to a block device's block
 	 * number. A new block is to be allocated if create is non-zero.
 	 */
-	errorcode_t (*block_map)(INode& inode, blocknr_t block_in, blocknr_t* block_out, int create);
+	Result (*block_map)(INode& inode, blocknr_t block_in, blocknr_t* block_out, int create);
 
 	/*
 	 * Reads inode data to a buffer, up to len bytes. Must update len on success
 	 * with the amount of data read.
 	 */
-	errorcode_t (*read)(struct VFS_FILE* file, void* buf, size_t* len);
+	Result (*read)(struct VFS_FILE* file, void* buf, size_t* len);
 
 	/*
 	 * Writes inode data from a buffer, up to len bytes. Must update len on success
 	 * wit hthe amount of data written.
 	 */
-	errorcode_t (*write)(struct VFS_FILE* file, const void* buf, size_t* len);
+	Result (*write)(struct VFS_FILE* file, const void* buf, size_t* len);
 
 	/*
 	 * Creates a new entry in the directory. On success, calls
 	 * dentry_set_inode() to fill out the entry's inode.
 	 */
-	errorcode_t (*create)(INode& dir, DEntry* de, int mode);
+	Result (*create)(INode& dir, DEntry* de, int mode);
 
 	/*
 	 * Removes an entry from a directory.
 	 */
-	errorcode_t (*unlink)(INode& dir, DEntry& de);
+	Result (*unlink)(INode& dir, DEntry& de);
 
 	/*
 	 * Renames an entry.
 	 */
-	errorcode_t (*rename)(INode& old_dir, DEntry& old_dentry, INode& new_dir, DEntry& new_dentry);
+	Result (*rename)(INode& old_dir, DEntry& old_dentry, INode& new_dir, DEntry& new_dentry);
 
 	/*
 	 * Fills out the file structure.

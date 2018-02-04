@@ -7,6 +7,7 @@
 namespace Ananas {
 class Device;
 }
+class Result;
 
 #define DMA_ADDR_MAX_32BIT ((dma_addr_t)0xFFFFFFFF)
 #define DMA_ADDR_MAX_ANY ((dma_addr_t)~0)
@@ -42,17 +43,17 @@ struct DMA_BUFFER_SEGMENT {
  * max_segs: Maximum number of segments supported by the device
  * max_seg_size: Maximum number of bytes per segment supported
  */
-errorcode_t dma_tag_create(dma_tag_t parent, Ananas::Device& dev, dma_tag_t* tag, int alignment, dma_addr_t min_addr, dma_addr_t max_addr, unsigned int max_segs, dma_size_t max_seg_size);
+Result dma_tag_create(dma_tag_t parent, Ananas::Device& dev, dma_tag_t* tag, int alignment, dma_addr_t min_addr, dma_addr_t max_addr, unsigned int max_segs, dma_size_t max_seg_size);
 
 /* Destroys a given DMA tag */
-errorcode_t dma_tag_destroy(dma_tag_t tag);
+Result dma_tag_destroy(dma_tag_t tag);
 
 /*
  * Allocates a buffer intended for DMA to a given device.
  *
  * tag: DMA tag in use by the device
  */
-errorcode_t dma_buf_alloc(dma_tag_t tag, dma_size_t size, dma_buf_t* buf);
+Result dma_buf_alloc(dma_tag_t tag, dma_size_t size, dma_buf_t* buf);
 
 /*
  * Frees a buffer
@@ -68,12 +69,12 @@ unsigned int dma_buf_get_segments(dma_buf_t buf);
 /* Retrieve a given buffer's segment */
 dma_buf_seg_t dma_buf_get_segment(dma_buf_t buf, unsigned int n);
 
-typedef errorcode_t (*dma_load_func_t)(void* ctx, struct DMA_BUFFER_SEGMENT* s, int num_segs);
+typedef Result (*dma_load_func_t)(void* ctx, struct DMA_BUFFER_SEGMENT* s, int num_segs);
 
 /* Loads a given buffer to DMA-able addresses for the device */
-errorcode_t dma_buf_load(dma_buf_t buf, void* data, dma_size_t size, dma_load_func_t load, void* load_arg, int flags);
+Result dma_buf_load(dma_buf_t buf, void* data, dma_size_t size, dma_load_func_t load, void* load_arg, int flags);
 
 /* Loads a BIO buffer to DMA-able addresses for the device */
-errorcode_t dma_buf_load_bio(dma_buf_t buf, struct BIO* bio, dma_load_func_t load, void* load_arg, int flags);
+Result dma_buf_load_bio(dma_buf_t buf, struct BIO* bio, dma_load_func_t load, void* load_arg, int flags);
 
 #endif /* __ANANAS_DMA_H__ */

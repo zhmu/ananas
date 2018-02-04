@@ -1,20 +1,21 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/statuscode.h>
 #include <ananas/syscalls.h>
-#include <_posix/error.h>
+#include <errno.h>
 
 pid_t fork()
 {
 	pid_t pid;
-	errorcode_t err = sys_clone(0, &pid);
-	if (err != ANANAS_ERROR_NONE) {
-		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_CLONED) {
+	statuscode_t status = sys_clone(0, &pid);
+	if (status != ananas_statuscode_success()) {
+		unsigned int error = ananas_statuscode_extract_errno(status);
+		if (error == EEXIST) {
 			/* We are the cloned thread - we are all done */
 			return 0;
 		}
 
 		/* Something did go wrong */
-		_posix_map_error(err);
+		errno = error;
 		return -1;
 	}
 

@@ -1,7 +1,8 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vmpage.h"
 #include "kernel/vmspace.h"
@@ -43,17 +44,18 @@ vmspace_determine_va(VMSpace& vs, size_t len)
 	return virt;
 }
 
-errorcode_t
+Result
 vmspace_create(VMSpace*& vmspace)
 {
 	auto vs = new VMSpace;
 	vs->vs_next_mapping = THREAD_INITIAL_MAPPING_ADDR;
 
-	errorcode_t err = md_vmspace_init(*vs);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		md_vmspace_init(*vs)
+	);
 
 	vmspace = vs;
-	return err;
+	return Result::Success();
 }
 
 void
@@ -134,15 +136,15 @@ vmspace_free_range(VMSpace& vs, addr_t virt, size_t len)
 	return true;
 }
 
-errorcode_t
+Result
 vmspace_mapto(VMSpace& vs, addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out)
 {
 	if (len == 0)
-		return ANANAS_ERROR(BAD_LENGTH);
+		return RESULT_MAKE_FAILURE(EINVAL);
 
 	// If the virtual address space is already in use, we need to break it up
 	if (!vmspace_free_range(vs, virt, len))
-		return ANANAS_ERROR(NO_SPACE);
+		return RESULT_MAKE_FAILURE(ENOSPC);
 
 	auto va = new VMArea;
 
@@ -161,10 +163,10 @@ vmspace_mapto(VMSpace& vs, addr_t virt, size_t len /* bytes */, uint32_t flags, 
 
 	/* Provide a mapping for the pages */
 	md_map_pages(&vs, va->va_virt, 0, BytesToPages(len), 0); //(flags & VM_FLAG_FAULT) ? 0 : flags);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 vmspace_mapto_dentry(VMSpace& vs, addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags, VMArea*& va_out)
 {
 	// Ensure the range we are mapping does not exceed the inode; if this is the case, we silently truncate
@@ -174,17 +176,18 @@ vmspace_mapto_dentry(VMSpace& vs, addr_t virt, size_t vlength, DEntry& dentry, o
 
 	KASSERT((doffset & (PAGE_SIZE - 1)) == 0, "offset %d not page-aligned", doffset);
 
-	errorcode_t err = vmspace_mapto(vs, virt, vlength, flags | VM_FLAG_FAULT, va_out);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vmspace_mapto(vs, virt, vlength, flags | VM_FLAG_FAULT, va_out)
+	);
 
 	dentry_ref(dentry);
 	va_out->va_dentry = &dentry;
 	va_out->va_doffset = doffset;
 	va_out->va_dlength = dlength;
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 vmspace_map(VMSpace& vs, size_t len /* bytes */, uint32_t flags, VMArea*& va_out)
 {
 	return vmspace_mapto(vs, vmspace_determine_va(vs, len), len, flags, va_out);
@@ -221,7 +224,7 @@ vmspace_clone_area_must_copy(const VMArea& va, int flags)
 	return (va.va_flags & VM_FLAG_NO_CLONE) == 0;
 }
 
-errorcode_t
+Result
 vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags)
 {
 	TRACE(VM, INFO, "vmspace_clone(): source=%p dest=%p flags=%x", &vs_source, &vs_dest, flags);
@@ -246,8 +249,9 @@ vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags)
 			continue;
 
 		VMArea* va_dst;
-		errorcode_t err = vmspace_mapto(vs_dest, va_src.va_virt, va_src.va_len, va_src.va_flags, va_dst);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			vmspace_mapto(vs_dest, va_src.va_virt, va_src.va_len, va_src.va_flags, va_dst)
+		);
 		if (va_src.va_dentry != nullptr) {
 			// Backed by an inode; copy the necessary fields over
 			va_dst->va_doffset = va_src.va_doffset;
@@ -283,7 +287,7 @@ vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags)
 			vs_dest.vs_next_mapping = next;
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
 void

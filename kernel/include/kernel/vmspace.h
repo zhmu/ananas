@@ -8,6 +8,7 @@
 #include "kernel-md/vmspace.h"
 
 struct DEntry;
+class Result;
 
 /*
  * VM area describes an adjacent mapping though virtual memory. It can be
@@ -80,20 +81,20 @@ private:
 #define VMSPACE_CLONE_EXEC 1
 
 addr_t vmspace_determine_va(VMSpace& vs, size_t len);
-errorcode_t vmspace_create(VMSpace*& vs);
+Result vmspace_create(VMSpace*& vs);
 void vmspace_cleanup(VMSpace& vs); /* frees all mappings, but not MD-things */
 void vmspace_destroy(VMSpace& vs);
-errorcode_t vmspace_mapto(VMSpace& vs, addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
-errorcode_t vmspace_mapto_dentry(VMSpace& vs, addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags, VMArea*& va_out);
-errorcode_t vmspace_map(VMSpace& vs, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
-errorcode_t vmspace_area_resize(VMSpace& vs, VMArea& va, size_t new_length /* in bytes */);
-errorcode_t vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags);
-errorcode_t vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags);
+Result vmspace_mapto(VMSpace& vs, addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
+Result vmspace_mapto_dentry(VMSpace& vs, addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags, VMArea*& va_out);
+Result vmspace_map(VMSpace& vs, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
+Result vmspace_area_resize(VMSpace& vs, VMArea& va, size_t new_length /* in bytes */);
+Result vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags);
+Result vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags);
 void vmspace_area_free(VMSpace& vs, VMArea& va);
 void vmspace_dump(VMSpace& vs);
 
 /* MD initialization/cleanup bits */
-errorcode_t md_vmspace_init(VMSpace& vs);
+Result md_vmspace_init(VMSpace& vs);
 void md_vmspace_destroy(VMSpace& vs);
 
 #endif /* ANANAS_VMSPACE_H */

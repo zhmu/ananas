@@ -1,5 +1,5 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "options.h"
 #include "kernel/handle.h"
 #include "kernel/kdb.h"
@@ -7,6 +7,7 @@
 #include "kernel/mm.h"
 #include "kernel/lock.h"
 #include "kernel/process.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 
 TRACE_SETUP;
@@ -29,7 +30,7 @@ handle_init()
 	}
 }
 
-errorcode_t
+Result
 handle_alloc(int type, Process& proc, handleindex_t index_from, struct HANDLE** handle_out, handleindex_t* index_out)
 {
 	/* Look up the handle type XXX O(n) */
@@ -44,7 +45,7 @@ handle_alloc(int type, Process& proc, handleindex_t index_from, struct HANDLE** 
 		}
 	}
 	if (htype == nullptr)
-		return ANANAS_ERROR(BAD_TYPE);
+		return RESULT_MAKE_FAILURE(EINVAL);
 
 	/* Grab a handle from the pool */
 	struct HANDLE* handle;
@@ -83,14 +84,14 @@ handle_alloc(int type, Process& proc, handleindex_t index_from, struct HANDLE** 
 	*handle_out = handle;
 	*index_out = n;
 	TRACE(HANDLE, INFO, "process=%p, type=%u => handle=%p, index=%u", &proc, type, handle, n);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 handle_lookup(Process& proc, handleindex_t index, int type, struct HANDLE** handle_out)
 {
 	if(index < 0 || index >= PROCESS_MAX_HANDLES)
-		return ANANAS_ERROR(BAD_HANDLE);
+		return RESULT_MAKE_FAILURE(EINVAL);
 
 	/* Obtain the handle XXX How do we ensure it won't get freed after this? Should we ref it? */
 	struct HANDLE* handle;
@@ -102,18 +103,18 @@ handle_lookup(Process& proc, handleindex_t index, int type, struct HANDLE** hand
 
 	/* ensure handle exists - we don't verify ownership: it _is_ in the thread's handle table... */
 	if (handle == NULL)
-		return ANANAS_ERROR(BAD_HANDLE);
+		return RESULT_MAKE_FAILURE(EINVAL);
 	/* if this is a handle reference, check the type of the handle we are refering to */
 	if (type != HANDLE_TYPE_ANY && handle->h_type != type)
-		return ANANAS_ERROR(BAD_HANDLE);
+		return RESULT_MAKE_FAILURE(EINVAL);
 	/* ... yet unused handles are never valid */
 	if (handle->h_type == HANDLE_TYPE_UNUSED)
-		return ANANAS_ERROR(BAD_HANDLE);
+		return RESULT_MAKE_FAILURE(EINVAL);
 	*handle_out = handle;
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 handle_free(struct HANDLE* handle)
 {
 	/*
@@ -138,8 +139,9 @@ handle_free(struct HANDLE* handle)
 	 * no special action is needed.
 	 */
 	if (handle->h_hops->hop_free != NULL) {
-		errorcode_t err = handle->h_hops->hop_free(*proc, handle);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			handle->h_hops->hop_free(*proc, handle)
+		);
 	}
 
 	/* Clear the handle */
@@ -159,56 +161,59 @@ handle_free(struct HANDLE* handle)
 		SpinlockGuard g(spl_handlequeue);
 		handle_freelist.push_back(*handle);
 	}
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 handle_free_byindex(Process& proc, handleindex_t index)
 {
 	/* Look the handle up */
 	struct HANDLE* handle;
-	errorcode_t err = handle_lookup(proc, index, HANDLE_TYPE_ANY, &handle);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		handle_lookup(proc, index, HANDLE_TYPE_ANY, &handle)
+	);
 
 	return handle_free(handle);
 }
 
-errorcode_t
+Result
 handle_clone_generic(struct HANDLE* handle_in, Process& proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
 {
-	errorcode_t err = handle_alloc(handle_in->h_type, proc_out, index_out_min, handle_out, index_out);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		handle_alloc(handle_in->h_type, proc_out, index_out_min, handle_out, index_out)
+	);
 	memcpy(&(*handle_out)->h_data, &handle_in->h_data, sizeof(handle_in->h_data));
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 handle_clone(Process& proc_in, handleindex_t index, struct CLONE_OPTIONS* opts, Process& proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
 {
 	struct HANDLE* handle;
-	errorcode_t err = handle_lookup(proc_in, index, HANDLE_TYPE_ANY, &handle);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		handle_lookup(proc_in, index, HANDLE_TYPE_ANY, &handle)
+	);
 
 	MutexGuard g(handle->h_mutex);
 	if (handle->h_hops->hop_clone != NULL)
 		return handle->h_hops->hop_clone(proc_in, index, handle, opts, proc_out, handle_out, index_out_min, index_out);
-	return ANANAS_ERROR(BAD_OPERATION);
+	return RESULT_MAKE_FAILURE(EINVAL);
 }
 
-errorcode_t
+Result
 handle_register_type(HandleType& ht)
 {
 	SpinlockGuard g(spl_handletypes);
 	handle_types.push_back(ht);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 handle_unregister_type(HandleType& ht)
 {
 	SpinlockGuard g(spl_handletypes);
 	handle_types.remove(ht);
-	return ananas_success();
+	return Result::Success();
 }
 
 #ifdef OPTION_KDB

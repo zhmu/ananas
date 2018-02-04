@@ -14,14 +14,14 @@ class HCD_Resources;
 class RootHub {
 public:
 	RootHub(HCD_Resources& hcdResources, USBDevice& usbDevice);
-	errorcode_t Initialize();
+	Result Initialize();
 
 	void SetUSBDevice(USBDevice& usbDevice);
-	errorcode_t HandleTransfer(Transfer& xfer);
+	Result HandleTransfer(Transfer& xfer);
 	void OnIRQ();
 
 protected:
-	errorcode_t ControlTransfer(Transfer& xfer);
+	Result ControlTransfer(Transfer& xfer);
 	void ProcessInterruptTransfers();
 	static void ThreadWrapper(void* context)
 	{

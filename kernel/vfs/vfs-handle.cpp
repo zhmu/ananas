@@ -1,5 +1,5 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include <ananas/flags.h>
 #include <ananas/handle-options.h>
 #include "kernel/bio.h"
@@ -7,6 +7,7 @@
 #include "kernel/init.h"
 #include "kernel/lib.h"
 #include "kernel/process.h"
+#include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
@@ -14,41 +15,44 @@
 
 TRACE_SETUP;
 
-static errorcode_t
+static Result
 vfshandle_get_file(struct HANDLE* handle, struct VFS_FILE** out)
 {
 	if (handle->h_type != HANDLE_TYPE_FILE)
-		return ANANAS_ERROR(BAD_HANDLE);
+		return RESULT_MAKE_FAILURE(EBADF);
 
 	struct VFS_FILE* file = &((struct HANDLE*)handle)->h_data.d_vfs_file;
 	if (file->f_dentry == NULL && file->f_device == NULL)
-		return ANANAS_ERROR(BAD_HANDLE);
+		return RESULT_MAKE_FAILURE(EBADF);
 
 	*out = file;
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 vfshandle_read(Thread* t, handleindex_t index, struct HANDLE* handle, void* buffer, size_t* size)
 {
 	struct VFS_FILE* file;
-	errorcode_t err = vfshandle_get_file(handle, &file);
-	ANANAS_ERROR_RETURN(err);
+
+	RESULT_PROPAGATE_FAILURE(
+		vfshandle_get_file(handle, &file)
+	);
 
 	return vfs_read(file, buffer, size);
 }
 
-errorcode_t
+Result
 vfshandle_write(Thread* t, handleindex_t index, struct HANDLE* handle, const void* buffer, size_t* size)
 {
 	struct VFS_FILE* file;
-	errorcode_t err = vfshandle_get_file(handle, &file);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfshandle_get_file(handle, &file)
+	);
 
 	return vfs_write(file, buffer, size);
 }
 
-static errorcode_t
+static Result
 vfshandle_open(Thread* t, handleindex_t index, struct HANDLE* handle, const char* path, int flags, int mode)
 {
 	Process& proc = *t->t_process;
@@ -60,17 +64,17 @@ vfshandle_open(Thread* t, handleindex_t index, struct HANDLE* handle, const char
 	 */
 	if (flags & O_CREAT) {
 		/* Attempt to create the new file - if this works, we're all set */
-		errorcode_t err = vfs_create(proc.p_cwd, &handle->h_data.d_vfs_file, path, mode);
-		if (ananas_is_success(err))
-			return err;
+		Result result = vfs_create(proc.p_cwd, &handle->h_data.d_vfs_file, path, mode);
+		if (result.IsSuccess())
+			return result;
 
 		/*
 		 * File could not be created; if we had to create the file, this is an
 		 * error whatsoever, otherwise we'll report anything but 'file already
 		 * exists' back to the caller.
 		 */
-		if ((flags & O_EXCL) || ANANAS_ERROR_CODE(err) != ANANAS_ERROR_FILE_EXISTS)
-			return err;
+		if ((flags & O_EXCL) || result.AsErrno() != EEXIST)
+			return result;
 
 		/* File can't be created - try opening it instead */
 	}
@@ -82,32 +86,34 @@ vfshandle_open(Thread* t, handleindex_t index, struct HANDLE* handle, const char
 	return vfs_open(path, proc.p_cwd, &handle->h_data.d_vfs_file);
 }
 
-static errorcode_t
+static Result
 vfshandle_free(Process& proc, struct HANDLE* handle)
 {
 	/* If we have a backing dentry, dereference it - this will free it if needed */
 	DEntry* dentry = handle->h_data.d_vfs_file.f_dentry;
 	if (dentry != nullptr)
 		dentry_deref(*dentry);
-	return ananas_success();
+	return Result::Success();
 }
 
-static errorcode_t
+static Result
 vfshandle_unlink(Thread* t, handleindex_t index, struct HANDLE* handle)
 {
 	struct VFS_FILE* file;
-	errorcode_t err = vfshandle_get_file(handle, &file);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfshandle_get_file(handle, &file)
+	);
 
 	return vfs_unlink(file);
 }
 
-static errorcode_t
+static Result
 vfshandle_clone(Process& p_in, handleindex_t index_in, struct HANDLE* handle_in, struct CLONE_OPTIONS* opts, Process& proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
 {
 	struct VFS_FILE* file;
-	errorcode_t err = vfshandle_get_file(handle_in, &file);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfshandle_get_file(handle_in, &file)
+	);
 
 	/*
 	 * If the handle has a backing dentry reference, we have to increase it's

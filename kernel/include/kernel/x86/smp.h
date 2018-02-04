@@ -43,7 +43,9 @@ struct X86_SMP_CONFIG {
 	struct X86_BUS* cfg_bus;
 };
 
-errorcode_t smp_init();
+class Result;
+
+Result smp_init();
 uint32_t get_num_cpus();
 
 void smp_prepare();

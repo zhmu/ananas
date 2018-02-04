@@ -2,10 +2,10 @@
  * UHCI root hub
  */
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/dev/pci.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/schedule.h" // XXX
 #include "kernel/thread.h"
 #include "kernel/time.h"
@@ -129,11 +129,11 @@ RootHub::RootHub(HCD_Resources& hcdResources, USBDevice& device)
 {
 }
 
-errorcode_t
+Result
 RootHub::ControlTransfer(Transfer& xfer)
 {
 	struct USB_CONTROL_REQUEST* req = &xfer.t_control_req;
-	errorcode_t err = ANANAS_ERROR(BAD_OPERATION);
+	Result result = RESULT_MAKE_FAILURE(EINVAL);
 
 #define MASK(x) ((x) & (UHCI_PORTSC_SUSP | UHCI_PORTSC_RESET | UHCI_PORTSC_RD	| UHCI_PORTSC_PORTEN))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -145,7 +145,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 					int amount = MIN(uhci_rh_device.dev_length, req->req_length);
 					memcpy(xfer.t_data, &uhci_rh_device, amount);
 					xfer.t_result_length = amount;
-					err = ananas_success();
+					result = Result::Success();
 					break;
 				}
 				case USB_DESCR_TYPE_STRING: {
@@ -154,7 +154,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 						int amount = MIN(uhci_rh_strings[string_id].s_len, req->req_length);
 						memcpy(xfer.t_data, &uhci_rh_strings[string_id], amount);
 						xfer.t_result_length = amount;
-						err = ananas_success();
+						result = Result::Success();
 					}
 					break;
 				}
@@ -162,18 +162,18 @@ RootHub::ControlTransfer(Transfer& xfer)
 					int amount = MIN(uhci_rh_config.d_config.cfg_totallen, req->req_length);
 					memcpy(xfer.t_data, &uhci_rh_config, amount);
 					xfer.t_result_length = amount;
-					err = ananas_success();
+					result = Result::Success();
 					break;
 				}
 			}
 			break;
 		case USB_REQUEST_STANDARD_SET_ADDRESS:
 			DPRINTF("set address: %d", req->req_value);
-			err = ananas_success();
+			result = Result::Success();
 			break;
 		case USB_REQUEST_STANDARD_SET_CONFIGURATION:
 			DPRINTF("set config: %d", req->req_value);
-			err = ananas_success();
+			result = Result::Success();
 			break;
 		case USB_REQUEST_CLEAR_HUB_FEATURE:
 			break;
@@ -198,7 +198,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 			int amount = MIN(hd.hd_length, req->req_length);
 			memcpy(xfer.t_data, &hd, amount);
 			xfer.t_result_length = amount;
-			err = ananas_success();
+			result = Result::Success();
 			break;
 		}
 		case USB_REQUEST_GET_HUB_STATUS: {
@@ -207,7 +207,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 				/* XXX over-current */
 				memcpy(xfer.t_data, &hs, sizeof(hs));
 				xfer.t_result_length = sizeof(hs);
-				err = ananas_success();
+				result = Result::Success();
 			}
 			break;
 		}
@@ -236,7 +236,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 
 				memcpy(xfer.t_data, &ps, sizeof(ps));
 				xfer.t_result_length = sizeof(ps);
-				err = ananas_success();
+				result = Result::Success();
 			}
 			break;
 		}
@@ -244,7 +244,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 			unsigned int port = req->req_index;
 			if (port >= 1 && port <= rh_numports) {
 				int reg = UHCI_REG_PORTSC1 + (req->req_index - 1) * 2;
-				err = ananas_success();
+				result = Result::Success();
 
 				switch(req->req_value) {
 					case HUB_FEATURE_PORT_RESET: {
@@ -282,7 +282,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 						}
 						if (n == 0) {
 							kprintf("port %u not responding to reset", n);
-							err = ANANAS_ERROR(NO_DEVICE);
+							result = RESULT_MAKE_FAILURE(ENODEV);
 						} else {
 							/* Used to emulate 'port reset changed'-bit */
 							rh_c_portreset = true;
@@ -292,7 +292,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 					case HUB_FEATURE_PORT_SUSPEND:
 						DPRINTF("set port suspend, port %d", req->req_index);
 						rh_Resources.Write2(reg, MASK(rh_Resources.Read2(reg)) | UHCI_PORTSC_SUSP);
-						err = ananas_success();
+						result = Result::Success();
 						break;
 					case HUB_FEATURE_PORT_ENABLE:
 						/*
@@ -306,7 +306,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 						/* No-op, power is always enabled for us */
 						break;
 					default:
-						err = ANANAS_ERROR(BAD_OPERATION);
+						result = RESULT_MAKE_FAILURE(EINVAL);
 						break;
 				}
 			}
@@ -316,7 +316,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 			unsigned int port = req->req_index;
 			if (port >= 1 && port <= rh_numports) {
 				int reg = UHCI_REG_PORTSC1 + (req->req_index - 1) * 2;
-				err = ananas_success();
+				result = Result::Success();
 				switch(req->req_value) {
 					case HUB_FEATURE_PORT_ENABLE:
 						DPRINTF("HUB_FEATURE_PORT_ENABLE: port %d", req->req_index);
@@ -339,28 +339,28 @@ RootHub::ControlTransfer(Transfer& xfer)
 						rh_Resources.Write2(reg, MASK(rh_Resources.Read2(reg)) | UHCI_PORTSC_PECHANGE);
 						break;
 					default:
-						err = ANANAS_ERROR(BAD_OPERATION);
+						result = RESULT_MAKE_FAILURE(EINVAL);
 						break;
 				}
 			}
 			break;
 		}
 		default:
-			err = ANANAS_ERROR(BAD_TYPE);
+			result = RESULT_MAKE_FAILURE(EINVAL);
 			break;
 	}
 
 #undef MIN
 #undef MASK
 
-	if (ananas_is_failure(err)) {
-		kprintf("oroothub: error %d\n", err);
+	if (result.IsFailure()) {
+		kprintf("oroothub: error %d\n", result.AsStatusCode());
 		xfer.t_flags |= TRANSFER_FLAG_ERROR;
 	}
 
 	/* Immediately mark the transfer as completed */
 	xfer.Complete_Locked();
-	return err;
+	return result;
 }
 
 void
@@ -408,7 +408,7 @@ RootHub::Thread()
 	}
 }
 
-errorcode_t
+Result
 RootHub::HandleTransfer(Transfer& xfer)
 {
 	switch(xfer.t_type) {
@@ -416,12 +416,12 @@ RootHub::HandleTransfer(Transfer& xfer)
 			return ControlTransfer(xfer);
 		case TRANSFER_TYPE_INTERRUPT:
 			/* Transfer has been added to the queue; no need to do anything else here */
-			return ananas_success();
+			return Result::Success();
 	}
 	panic("unsupported transfer type %d", xfer.t_type);
 }
 
-errorcode_t
+Result
 RootHub::Initialize()
 {
 	/*
@@ -439,13 +439,13 @@ RootHub::Initialize()
 	}
 	if (rh_numports > 7) {
 		kprintf("detected excessive %d usb ports; aborting", rh_numports);
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 	/* Create a kernel thread to monitor status updates and process requests */
 	kthread_init(rh_pollthread, "uroothub", &ThreadWrapper, this);
 	thread_resume(rh_pollthread);
-	return ananas_success();
+	return Result::Success();
 }
 
 } // namespace UHCIRootHub

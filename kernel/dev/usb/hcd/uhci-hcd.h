@@ -76,22 +76,22 @@ public:
 		return this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
 	UHCI::HCD_TD* AllocateTD();
 	UHCI::HCD_QH* AllocateQH();
 	void FreeQH(UHCI::HCD_QH* qh);
 
 protected:
-	errorcode_t SetupTransfer(Transfer& xfer) override;
-	errorcode_t TearDownTransfer(Transfer& xfer) override;
-	errorcode_t CancelTransfer(Transfer& xfer) override;
-	errorcode_t ScheduleTransfer(Transfer& xfer) override;
+	Result SetupTransfer(Transfer& xfer) override;
+	Result TearDownTransfer(Transfer& xfer) override;
+	Result CancelTransfer(Transfer& xfer) override;
+	Result ScheduleTransfer(Transfer& xfer) override;
 	void SetRootHub(USB::USBDevice& dev) override;
 
-	errorcode_t ScheduleControlTransfer(Transfer& xfer);
-	errorcode_t ScheduleInterruptTransfer(Transfer& xfer);
+	Result ScheduleControlTransfer(Transfer& xfer);
+	Result ScheduleInterruptTransfer(Transfer& xfer);
 
 	void Dump();
 	void OnIRQ();

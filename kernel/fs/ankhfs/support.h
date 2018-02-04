@@ -52,14 +52,14 @@ public:
 class IAnkhSubSystem
 {
 public:
-	virtual errorcode_t HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len) = 0;
-	virtual errorcode_t HandleRead(struct VFS_FILE* file, void* buf, size_t* len) = 0;
-	virtual errorcode_t FillInode(INode& inode, ino_t inum) = 0;
+	virtual Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len) = 0;
+	virtual Result HandleRead(struct VFS_FILE* file, void* buf, size_t* len) = 0;
+	virtual Result FillInode(INode& inode, ino_t inum) = 0;
 };
 
-errorcode_t HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len, IReadDirCallback& callback);
-errorcode_t HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len, const DirectoryEntry& firstEntry, unsigned int id = 0);
-errorcode_t HandleRead(struct VFS_FILE* file, void* buf, size_t* len, const char* data);
+Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len, IReadDirCallback& callback);
+Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len, const DirectoryEntry& firstEntry, unsigned int id = 0);
+Result HandleRead(struct VFS_FILE* file, void* buf, size_t* len, const char* data);
 
 } // namespace AnkhFS
 } // namespace Ananas

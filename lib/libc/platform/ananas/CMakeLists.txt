@@ -37,7 +37,6 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/link.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/fsync.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/lseek.c
-	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/error.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/getuid.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/waitpid.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/mmap.c

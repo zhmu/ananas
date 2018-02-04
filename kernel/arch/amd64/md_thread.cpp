@@ -1,10 +1,10 @@
-#include <ananas/error.h>
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/page.h"
 #include "kernel/pcpu.h"
 #include "kernel/process.h"
+#include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/vm.h"
 #include "kernel/vmspace.h"
@@ -19,15 +19,16 @@ extern "C" {
 void thread_trampoline();
 }
 
-errorcode_t
+Result
 md_thread_init(Thread& t, int flags)
 {
 	/* Create a stack if we aren't cloning - otherwise, we'll just copy the parent's stack instead */
 	Process* proc = t.t_process;
 	if ((flags & THREAD_ALLOC_CLONE) == 0) {
 		VMArea* va;
-		errorcode_t err = vmspace_mapto(*proc->p_vmspace, USERLAND_STACK_ADDR, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_FAULT | VM_FLAG_MD, va);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			vmspace_mapto(*proc->p_vmspace, USERLAND_STACK_ADDR, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_FAULT | VM_FLAG_MD, va)
+		);
 	}
 
 	/*
@@ -60,10 +61,10 @@ md_thread_init(Thread& t, int flags)
 	t.md_fpu_ctx.fcw = 0x37f;
 	t.md_fpu_ctx.ftw = 0xffff;
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+void
 md_kthread_init(Thread& t, kthread_func_t kfunc, void* arg)
 {
 	/*
@@ -91,8 +92,6 @@ md_kthread_init(Thread& t, kthread_func_t kfunc, void* arg)
 	t.md_cr3 = KVTOP((addr_t)kernel_pagedir);
   t.md_rsp = (addr_t)sf;
 	t.md_rip = (addr_t)&thread_trampoline;
-
-	return ananas_success();
 }
 
 void

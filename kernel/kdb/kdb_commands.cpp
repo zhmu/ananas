@@ -1,8 +1,9 @@
-#include <ananas/error.h>
+#include <ananas/types.h>
 #include <ananas/bootinfo.h>
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/reboot.h"
+#include "kernel/result.h"
 
 KDB_COMMAND(bootinfo, NULL, "Display boot info")
 {

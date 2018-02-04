@@ -6,10 +6,10 @@
  * This is commonly used for kernel threads; user threads are generally
  * destroyed by their parent wait()-ing for them.
  */
-#include <ananas/error.h>
 #include "kernel/init.h"
 #include "kernel/lib.h"
 #include "kernel/reaper.h"
+#include "kernel/result.h"
 #include "kernel/thread.h"
 
 namespace {
@@ -37,12 +37,12 @@ reaper_reap(void* context)
 	}
 }
 
-errorcode_t
+Result
 start_reaper()
 {
 	kthread_init(reaper_thread, "reaper", &reaper_reap, NULL);
 	thread_resume(reaper_thread);
-	return ananas_success();
+	return Result::Success();
 }
 
 } // unnamed namespace

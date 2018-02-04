@@ -1,4 +1,3 @@
-#include <ananas/error.h>
 #include "kernel/console.h"
 #include "kernel/console-driver.h"
 #include "kernel/device.h"
@@ -6,6 +5,7 @@
 #include "kernel/irq.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/tty.h"
 #include "kernel/x86/io.h"
@@ -36,11 +36,11 @@ public:
 		return this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
-	errorcode_t Read(void* data, size_t& len, off_t offset) override;
-	errorcode_t Write(const void* data, size_t& len, off_t offset) override;
+	Result Read(void* data, size_t& len, off_t offset) override;
+	Result Write(const void* data, size_t& len, off_t offset) override;
 
 private:
 	void OnIRQ();
@@ -71,19 +71,20 @@ SIO::OnIRQ()
 		tty_signal_data();
 }
 
-errorcode_t
+Result
 SIO::Attach()
 {
 	void* res_io = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IO, 7);
 	void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
-		return ANANAS_ERROR(NO_RESOURCE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
 	sio_port = (uint32_t)(uintptr_t)res_io;
 
 	/* SIO is so simple that a plain ISR will do */
-	errorcode_t err = irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_ISR, NULL);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_ISR, NULL)
+	);
 
 	/*
 	 * Wire up the serial port for sensible defaults.
@@ -95,17 +96,17 @@ SIO::Attach()
 	outb(sio_port + SIO_REG_LCR, 3);			/* 8N1 */
 	outb(sio_port + SIO_REG_FIFO, 0xc7);	/* Enable/clear FIFO (14 bytes) */
 	outb(sio_port + SIO_REG_IER, 0x01);	/* Enable interrupts (recv only) */
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 SIO::Detach()
 {
 	panic("TODO");
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 SIO::Write(const void* data, size_t& len, off_t offset)
 {
 	const char* ch = (const char*)data;
@@ -115,10 +116,10 @@ SIO::Write(const void* data, size_t& len, off_t offset)
 			/* nothing */;
 		outb(sio_port + SIO_REG_DATA, *ch);
 	}
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 SIO::Read(void* data, size_t& len, off_t offset)
 {
 	size_t returned = 0, left = len;
@@ -132,7 +133,7 @@ SIO::Read(void* data, size_t& len, off_t offset)
 		sio_buffer_readpos = (sio_buffer_readpos + 1) % SIO_BUFFER_SIZE;
 	}
 	len = returned;
-	return ananas_success();
+	return Result::Success();
 }
 
 struct SIO_Driver : public Ananas::ConsoleDriver

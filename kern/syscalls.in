@@ -3,25 +3,25 @@
 # <number> { prototype }
 #
 0 { void exit(int exitcode); }
-1 { errorcode_t read(handleindex_t index, void* buf, size_t* len); }
-2 { errorcode_t write(handleindex_t index, const void* buf, size_t* len); }
-3 { errorcode_t open(const char* path, int flags, int mode, handleindex_t* out); }
-4 { errorcode_t close(handleindex_t handle); }
-5 { errorcode_t unlink(const char* path); }
-6 { errorcode_t seek(handleindex_t handle, off_t* offset, int whence); }
-7 { errorcode_t clone(int flags, pid_t* out); }
-8 { errorcode_t waitpid(pid_t* pid, int* stat_loc, int options); }
-9 { errorcode_t execve(const char* path, const char** argv, const char** envp); }
-10 { errorcode_t vmop(struct VMOP_OPTIONS* opts); }
-11 { errorcode_t dupfd(handleindex_t index, int flags, handleindex_t* out); }
-12 { errorcode_t rename(const char* oldpath, const char* newpath); }
-13 { errorcode_t stat(const char* path, struct stat* buf); }
-14 { errorcode_t chdir(const char* path); }
-15 { errorcode_t fstat(handleindex_t index, struct stat* buf); }
-16 { errorcode_t fchdir(handleindex_t index); }
-17 { errorcode_t fcntl(handleindex_t index, int cmd, const void* in, void* out); }
-18 { errorcode_t link(const char* oldpath, const char* newpath); }
-19 { errorcode_t utime(const char* path, const struct utimbuf* times); }
-20 { errorcode_t clock_settime(clockid_t id, const struct timespec* tp); }
-21 { errorcode_t clock_gettime(clockid_t id, struct timespec* tp); }
-22 { errorcode_t clock_getres(clockid_t id, struct timespec* res); }
+1 { Result read(handleindex_t index, void* buf, size_t* len); }
+2 { Result write(handleindex_t index, const void* buf, size_t* len); }
+3 { Result open(const char* path, int flags, int mode, handleindex_t* out); }
+4 { Result close(handleindex_t handle); }
+5 { Result unlink(const char* path); }
+6 { Result seek(handleindex_t handle, off_t* offset, int whence); }
+7 { Result clone(int flags, pid_t* out); }
+8 { Result waitpid(pid_t* pid, int* stat_loc, int options); }
+9 { Result execve(const char* path, const char** argv, const char** envp); }
+10 { Result vmop(struct VMOP_OPTIONS* opts); }
+11 { Result dupfd(handleindex_t index, int flags, handleindex_t* out); }
+12 { Result rename(const char* oldpath, const char* newpath); }
+13 { Result stat(const char* path, struct stat* buf); }
+14 { Result chdir(const char* path); }
+15 { Result fstat(handleindex_t index, struct stat* buf); }
+16 { Result fchdir(handleindex_t index); }
+17 { Result fcntl(handleindex_t index, int cmd, const void* in, void* out); }
+18 { Result link(const char* oldpath, const char* newpath); }
+19 { Result utime(const char* path, const struct utimbuf* times); }
+20 { Result clock_settime(clockid_t id, const struct timespec* tp); }
+21 { Result clock_gettime(clockid_t id, struct timespec* tp); }
+22 { Result clock_getres(clockid_t id, struct timespec* res); }

@@ -1,7 +1,7 @@
-#include <ananas/error.h>
 #include "kernel/dev/pci.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
+#include "kernel/result.h"
 #include "kernel/lib.h"
 #include "kernel/x86/io.h"
 #include "kernel/x86/pcihb.h"
@@ -19,11 +19,11 @@ public:
 		return *this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 };
 
-errorcode_t
+Result
 PCI::Attach()
 {
 	for (unsigned int bus = 0; bus < PCI_MAX_BUSSES; bus++) {
@@ -44,13 +44,13 @@ PCI::Attach()
 		if (new_bus != nullptr)
 			Ananas::DeviceManager::AttachSingle(*new_bus);
 	}
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 PCI::Detach()
 {
-	return ananas_success();
+	return Result::Success();
 }
 
 struct PCI_Driver : public Ananas::Driver

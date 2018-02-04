@@ -37,8 +37,8 @@ public:
 		return *this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
 	void Enqueue(void* request);
 	void Start();
@@ -81,8 +81,8 @@ public:
 		return *this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
 protected:
 	inline void Write(unsigned int reg, uint32_t val)
@@ -105,7 +105,7 @@ protected:
 	}
 
 
-	errorcode_t ResetPort(Port& p);
+	Result ResetPort(Port& p);
 
 
 private:

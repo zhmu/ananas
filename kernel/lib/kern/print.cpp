@@ -1,5 +1,4 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/console.h"
 #include "kernel/lib.h"
 #include "kernel/lock.h"

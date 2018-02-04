@@ -1,8 +1,8 @@
-#include <ananas/error.h>
 #include "kernel/dev/pci.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "kernel/x86/pcihb.h"
 
 namespace {
@@ -18,12 +18,12 @@ public:
 		return *this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
 };
 
-errorcode_t
+Result
 PCIBus::Attach()
 {
 	auto busResource = d_ResourceSet.GetResource(Ananas::Resource::RT_PCI_Bus, 0);
@@ -119,13 +119,13 @@ PCIBus::Attach()
 #endif
 		}
 	}
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 PCIBus::Detach()
 {
-	return ananas_success();
+	return Result::Success();
 }
 
 struct PCIBus_Driver : public Ananas::Driver

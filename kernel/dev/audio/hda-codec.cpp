@@ -1,7 +1,7 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "hda.h"
 
@@ -25,19 +25,20 @@ const char* const PinColorString[] = {
 };
 #endif
 
-errorcode_t
+Result
 HDADevice::FillAWConnectionList(Node_AW& aw)
 {
 	if (!HDA_PARAM_AW_CAPS_CONNLIST(aw.aw_caps))
-		return ananas_success();
+		return Result::Success();
 
 	uint32_t r;
-	errorcode_t err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(aw, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_CONLISTLEN)), &r, NULL);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(aw, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_CONLISTLEN)), &r, NULL)
+	);
 	int cl_len = HDA_CODEC_PARAM_CONLISTLEN_LENGTH(r);
 	if (HDA_CODEC_PARAM_CONLISTLEN_LONGFORM(r)) {
 		Printf("unsupported long nentry form!");
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 
@@ -45,8 +46,9 @@ HDADevice::FillAWConnectionList(Node_AW& aw)
 	aw.aw_conn = new Node_AW*[cl_len];
 
 	for (int idx = 0; idx < cl_len; idx += 4) {
-		err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(aw, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETCONNLISTENTRY, idx)), &r, NULL);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(aw, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETCONNLISTENTRY, idx)), &r, NULL)	
+		);
 
 		for (int n = 0; n < 4; n++) {
 			if (n + idx == cl_len)
@@ -61,82 +63,84 @@ HDADevice::FillAWConnectionList(Node_AW& aw)
 		}
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 HDADevice::AttachWidget_AudioOut(Node_AudioOut& ao)
 {
-	errorcode_t err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_PCM)), &ao.ao_pcm, NULL);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_PCM)), &ao.ao_pcm, NULL)
+	);
 
 	/* Use the AFG's default if the widget doesn't specify any */
 	if (ao.ao_pcm == 0)
 		ao.ao_pcm = hda_afg->afg_pcm;
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 HDADevice::AttachWidget_AudioIn(Node_AudioIn& ai)
 {
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 HDADevice::AttachWidget_AudioMixer(Node_AudioMixer& am)
 {
 	int aw_caps = am.aw_caps;
 
 	am.am_ampcap_in = 0;
 	am.am_ampcap_out = 0;
-	
-	errorcode_t err;
+
 	if (HDA_PARAM_AW_CAPS_INAMPPRESENT(aw_caps)) {
-		err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(am, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_AMPCAP_IN)), &am.am_ampcap_in, NULL);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(am, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_AMPCAP_IN)), &am.am_ampcap_in, NULL)
+		);
 	}
 
 	if (HDA_PARAM_AW_CAPS_OUTAMPPRESENT(aw_caps)) {
-		err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(am, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_AMPCAP_OUT)), &am.am_ampcap_out, NULL);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(am, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_AMPCAP_OUT)), &am.am_ampcap_out, NULL)
+		);
 	}
 
-	err = FillAWConnectionList(am);
-	ANANAS_ERROR_RETURN(err);
-	return ananas_success();
+	return FillAWConnectionList(am);
 }
 
-errorcode_t
+Result
 HDADevice::AttachWidget_AudioSelector(Node_AudioSelector& as)
 {
-	errorcode_t err;
-	err = FillAWConnectionList(as);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		FillAWConnectionList(as)
+	);
 
 	kprintf("hda_attach_widget_audioselector: TODO\n");
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 HDADevice::AttachWidget_VendorDefined(Node_VendorDefined& vd)
 {
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 HDADevice::AttachWidget_PinComplex(Node_Pin& p)
 {
-	errorcode_t err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(p, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_PINCAP)), &p.p_cap, NULL);
-	ANANAS_ERROR_RETURN(err);
-	
-	err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(p, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETCFGDEFAULT, 0)), &p.p_cfg, NULL);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(p, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_PINCAP)), &p.p_cap, NULL)
+	);
+
+	RESULT_PROPAGATE_FAILURE(
+		hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(p, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETCFGDEFAULT, 0)), &p.p_cfg, NULL)
+	);
 
 	return FillAWConnectionList(p);
 }
 
-errorcode_t
+Result
 HDADevice::AttachNode_AFG(AFG& afg)
 {
 	int cad = afg.afg_cad;
@@ -144,12 +148,14 @@ HDADevice::AttachNode_AFG(AFG& afg)
 
 	/* Fetch the default parameters; these are used if the subnodes don't supply them */
 	uint32_t r;
-	errorcode_t err = hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_PCM)), &afg.afg_pcm, NULL);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_PCM)), &afg.afg_pcm, NULL)
+	);
 
 	/* Again, audio subnodes have even more subnodes... query it here */
-	err = hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_SUBNODECOUNT)), &r, NULL);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_SUBNODECOUNT)), &r, NULL)
+	);
 	int sn_addr = HDA_PARAM_SUBNODECOUNT_START(r);
 	int sn_total = HDA_PARAM_SUBNODECOUNT_TOTAL(r);
 	//HDA_DEBUG("hda_attach_node_afg(): codec %d nodeid=%x -> sn_addr %x sn_total %d", cad, nodeid, sn_addr, sn_total);
@@ -158,36 +164,38 @@ HDADevice::AttachNode_AFG(AFG& afg)
 		/* Obtain the audio widget capabilities of this node; this tells us what it is */
 		int nid = sn_addr + sn;
 		uint32_t aw_caps;
-		err = hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_AW_CAPS)), &aw_caps, NULL);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_AW_CAPS)), &aw_caps, NULL)
+		);
 
 		Node_AW* aw = nullptr;
 		NodeAddress nodeAddress(cad, nid);
+		Result result = Result::Success();
 		switch(HDA_PARAM_AW_CAPS_TYPE(aw_caps)) {
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_OUT:
 				aw = new Node_AudioOut(nodeAddress, aw_caps);
-				err = AttachWidget_AudioOut(static_cast<Node_AudioOut&>(*aw));
+				result = AttachWidget_AudioOut(static_cast<Node_AudioOut&>(*aw));
 				break;
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_IN:
 				aw = new Node_AudioIn(nodeAddress, aw_caps);
-				err = AttachWidget_AudioIn(static_cast<Node_AudioIn&>(*aw));
+				result = AttachWidget_AudioIn(static_cast<Node_AudioIn&>(*aw));
 				break;
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_MIXER:
 				aw = new Node_AudioMixer(nodeAddress, aw_caps);
-				err = AttachWidget_AudioMixer(static_cast<Node_AudioMixer&>(*aw));
+				result = AttachWidget_AudioMixer(static_cast<Node_AudioMixer&>(*aw));
 				break;
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_SELECTOR:
 				aw = new Node_AudioSelector(nodeAddress, aw_caps);
-				err = AttachWidget_AudioSelector(static_cast<Node_AudioSelector&>(*aw));
+				result = AttachWidget_AudioSelector(static_cast<Node_AudioSelector&>(*aw));
 				break;
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_PINCOMPLEX: {
 				aw = new Node_Pin(nodeAddress, aw_caps);
-				err = AttachWidget_PinComplex(static_cast<Node_Pin&>(*aw));
+				result = AttachWidget_PinComplex(static_cast<Node_Pin&>(*aw));
 				break;
 			}
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_VENDORDEFINED: {
 				aw = new Node_VendorDefined(nodeAddress, aw_caps);
-				err = AttachWidget_VendorDefined(static_cast<Node_VendorDefined&>(*aw));
+				result = AttachWidget_VendorDefined(static_cast<Node_VendorDefined&>(*aw));
 				break;
 			}
 			default:
@@ -195,7 +203,7 @@ HDADevice::AttachNode_AFG(AFG& afg)
 				break;
 		}
 
-		if (ananas_is_success(err) && aw != nullptr)
+		if (result.IsSuccess() && aw != nullptr)
 			afg.afg_nodes.push_back(*aw);
 #undef HDA_AWNODE_INIT
 	}
@@ -217,13 +225,13 @@ HDADevice::AttachNode_AFG(AFG& afg)
 			if (aw_found == nullptr) {
 				Printf("cad %d nid %d lists connection nid %d, but not found - aborting",
 				 aw.n_address.na_cad, aw.n_address.na_nid, nid);
-				return ANANAS_ERROR(NO_DEVICE);
+				return RESULT_MAKE_FAILURE(ENODEV);
 			}
 			aw.aw_conn[n] = aw_found;
 		}
 	}
 
-	return err;
+	return Result::Success();
 }
 
 #if HDA_VERBOSE
@@ -395,7 +403,7 @@ DumpAFG(AFG& afg)
 }
 #endif /* HDA_VERBOSE */
 
-errorcode_t
+Result
 HDADevice::AttachMultiPin_Render(AFG& afg, int association, int num_pins)
 {
 	auto pg = new PinGroup;
@@ -428,7 +436,7 @@ HDADevice::AttachMultiPin_Render(AFG& afg, int association, int num_pins)
 	/* Make sure we have found all pins (this may be paranoid) */
 	if (pg->pg_count != num_pins) {
 		delete pg;
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 	/* Construct the output provider */
@@ -442,11 +450,10 @@ HDADevice::AttachMultiPin_Render(AFG& afg, int association, int num_pins)
 	 * the maximum sample rate and such that we can use.
 	 */
 	RoutingPlan* rp;
-	errorcode_t err = RouteOutput(afg, num_channels, *o, &rp);
-	if (ananas_is_failure(err)) {
+	if (auto result = RouteOutput(afg, num_channels, *o, &rp); result.IsFailure()) {
 		delete pg;
 		delete o;
-		return err;
+		return result;
 	}
 
 	/*
@@ -468,20 +475,20 @@ HDADevice::AttachMultiPin_Render(AFG& afg, int association, int num_pins)
 	delete rp;
 
 	afg.afg_outputs.push_back(*o);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 HDADevice::AttachSinglePin_Render(AFG& afg, int association)
 {
 	return AttachMultiPin_Render(afg, association, 1);
 }
 
-errorcode_t
+Result
 HDADevice::AttachAFG(AFG& afg)
 {
 	if (afg.afg_nodes.empty())
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
 	/* Walk through all associations and see what we have got there */
 	for (unsigned int association = 1; association < 15; association++) {
@@ -511,12 +518,14 @@ HDADevice::AttachAFG(AFG& afg)
 		if (total_pins == num_output) {
 			if (total_pins > 1) {
 				/* Multi-pin rendering device */
-				errorcode_t err = AttachMultiPin_Render(afg, association, total_pins);
-				ANANAS_ERROR_RETURN(err);
+				RESULT_PROPAGATE_FAILURE(
+					AttachMultiPin_Render(afg, association, total_pins)
+				);
 			} else /* total_pins == 1 */ {
 				/* Single-pin rendering device */
-				errorcode_t err = AttachSinglePin_Render(afg, association);
-				ANANAS_ERROR_RETURN(err);
+				RESULT_PROPAGATE_FAILURE(
+					AttachSinglePin_Render(afg, association)
+				);
 			}
 		}
 
@@ -529,10 +538,10 @@ HDADevice::AttachAFG(AFG& afg)
 		}
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 HDADevice::AttachNode(int cad, int nodeid)
 {
 	/*
@@ -540,8 +549,9 @@ HDADevice::AttachNode(int cad, int nodeid)
 	 * need to dive into the subnodes.
 	 */
 	uint32_t r;
-	errorcode_t err = hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nodeid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_SUBNODECOUNT)), &r, NULL);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nodeid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_SUBNODECOUNT)), &r, NULL)
+	);
 	int sn_addr = HDA_PARAM_SUBNODECOUNT_START(r);
 	int sn_total = HDA_PARAM_SUBNODECOUNT_TOTAL(r);
 
@@ -549,8 +559,9 @@ HDADevice::AttachNode(int cad, int nodeid)
 	hda_afg = NULL;
 	for (unsigned int sn = 0; sn < sn_total; sn++) {
 		int nid = sn_addr + sn;
-		err = hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_FGT)), &r, NULL);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_FGT)), &r, NULL)
+		);
 		int fgt_type = HDA_PARAM_FGT_NODETYPE(r);
 		if (fgt_type != HDA_PARAM_FGT_NODETYPE_AUDIO)
 			continue; /* we don't care about non-audio types */
@@ -566,20 +577,21 @@ HDADevice::AttachNode(int cad, int nodeid)
 		afg->afg_nid = nid;
 		hda_afg = afg;
 
-		err = AttachNode_AFG(*afg);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			AttachNode_AFG(*afg)
+		);
 
-		err = AttachAFG(*afg);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			AttachAFG(*afg)
+		);
 		hda_afg = afg;
 
 #if HDA_VERBOSE
 		DumpAFG(*afg);
 #endif
-		ANANAS_ERROR_RETURN(err);
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
 } // namespace HDA

@@ -1,19 +1,20 @@
 #include <ananas/syscalls.h>
-#include <ananas/error.h>
 #include "kernel/process.h"
+#include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/trace.h"
 
 TRACE_SETUP;
 
-errorcode_t
+Result
 sys_waitpid(Thread* t, pid_t* pid, int* stat_loc, int options)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, pid=%d stat_loc=%p options=%d", t, pid, stat_loc, options);
 
 	Process* p;
-	errorcode_t err = process_wait_and_lock(*t->t_process, options, p);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		process_wait_and_lock(*t->t_process, options, p)
+	);
 
 	*pid = p->p_pid;
 	if (stat_loc != nullptr)
@@ -23,7 +24,7 @@ sys_waitpid(Thread* t, pid_t* pid, int* stat_loc, int options)
 	/* Give up our refence to the zombie child; this should destroy it */
 	process_deref(*p);
 
-	return ananas_success();
+	return Result::Success();
 }
 
 /* vim:set ts=2 sw=2: */

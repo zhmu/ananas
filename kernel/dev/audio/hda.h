@@ -5,6 +5,8 @@
 #include <ananas/util/list.h>
 #include "kernel/device.h"
 
+class Result;
+
 namespace Ananas {
 namespace HDA {
 
@@ -238,12 +240,12 @@ class IHDAFunctions
 {
 public:
 	typedef void* Context;
-	virtual errorcode_t IssueVerb(uint32_t verb, uint32_t* resp, uint32_t* resp_ex) = 0;
+	virtual Result IssueVerb(uint32_t verb, uint32_t* resp, uint32_t* resp_ex) = 0;
 	virtual uint16_t GetAndClearStateChange() = 0;
-	virtual errorcode_t OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context* context) = 0;
-	virtual errorcode_t CloseStream(Context context) = 0;
-	virtual errorcode_t StartStreams(int num, Context* context) = 0;
-	virtual errorcode_t StopStreams(int num, Context* context) = 0;
+	virtual Result OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context* context) = 0;
+	virtual Result CloseStream(Context context) = 0;
+	virtual Result StartStreams(int num, Context* context) = 0;
+	virtual Result StopStreams(int num, Context* context) = 0;
 	virtual void* GetStreamDataPointer(Context context, int page) = 0;
 };
 
@@ -435,26 +437,26 @@ public:
 		hdaFunctions = &hdafunctions;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
 	void OnStreamIRQ(IHDAFunctions::Context ctx);
 
 protected:
-	errorcode_t AttachNode(int cad, int nodeid);
-	errorcode_t FillAWConnectionList(Node_AW& aw);
-	errorcode_t AttachWidget_AudioOut(Node_AudioOut& ao);
-	errorcode_t AttachWidget_AudioIn(Node_AudioIn& ai);
-	errorcode_t AttachWidget_AudioMixer(Node_AudioMixer& am);
-	errorcode_t AttachWidget_AudioSelector(Node_AudioSelector& as);
-	errorcode_t AttachWidget_VendorDefined(Node_VendorDefined& vd);
-	errorcode_t AttachWidget_PinComplex(Node_Pin& p);
-	errorcode_t AttachNode_AFG(AFG& afg);
-	errorcode_t AttachMultiPin_Render(AFG& afg, int association, int num_pins);
-	errorcode_t AttachSinglePin_Render(AFG& afg, int association);
-	errorcode_t AttachAFG(AFG& afg);
+	Result AttachNode(int cad, int nodeid);
+	Result FillAWConnectionList(Node_AW& aw);
+	Result AttachWidget_AudioOut(Node_AudioOut& ao);
+	Result AttachWidget_AudioIn(Node_AudioIn& ai);
+	Result AttachWidget_AudioMixer(Node_AudioMixer& am);
+	Result AttachWidget_AudioSelector(Node_AudioSelector& as);
+	Result AttachWidget_VendorDefined(Node_VendorDefined& vd);
+	Result AttachWidget_PinComplex(Node_Pin& p);
+	Result AttachNode_AFG(AFG& afg);
+	Result AttachMultiPin_Render(AFG& afg, int association, int num_pins);
+	Result AttachSinglePin_Render(AFG& afg, int association);
+	Result AttachAFG(AFG& afg);
 
-	errorcode_t RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp);
+	Result RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp);
 
 private:
 	IHDAFunctions* hdaFunctions = nullptr;

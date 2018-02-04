@@ -1,8 +1,8 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/bio.h"
 #include "kernel/device.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
@@ -13,7 +13,7 @@ TRACE_SETUP;
 
 #define VFS_DEBUG_LOOKUP 0
 
-errorcode_t
+Result
 vfs_generic_lookup(DEntry& parent, INode*& destinode, const char* dentry)
 {
 	char buf[1024]; /* XXX */
@@ -36,14 +36,14 @@ vfs_generic_lookup(DEntry& parent, INode*& destinode, const char* dentry)
 	dirf.f_dentry = &parent;
 	while (1) {
 		if (!vfs_is_filesystem_sane(parent_inode.i_fs))
-			return ANANAS_ERROR(IO);
+			return RESULT_MAKE_FAILURE(EIO);
 
 		size_t buf_len = sizeof(buf);
-		errorcode_t err = vfs_read(&dirf, buf, &buf_len);
-		if (ananas_is_failure(err))
-			return err;
+		RESULT_PROPAGATE_FAILURE(
+			vfs_read(&dirf, buf, &buf_len)
+		);
 		if (buf_len == 0)
-			return ANANAS_ERROR(NO_FILE);
+			return RESULT_MAKE_FAILURE(ENOENT);
 
 		char* cur_ptr = buf;
 		while (buf_len > 0) {
@@ -63,7 +63,7 @@ vfs_generic_lookup(DEntry& parent, INode*& destinode, const char* dentry)
 	}
 }
 
-errorcode_t
+Result
 vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
 	INode& inode = *file->f_dentry->d_inode;
@@ -82,19 +82,21 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 	blocknr_t cur_block = 0;
 	while(left > 0) {
 		if (!vfs_is_filesystem_sane(inode.i_fs))
-			return ANANAS_ERROR(IO);
+			return RESULT_MAKE_FAILURE(EIO);
 
 		/* Figure out which block to use next */
 		blocknr_t want_block;
-		errorcode_t err = inode.i_iops->block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			inode.i_iops->block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), &want_block, 0)
+		);
 
 		/* Grab the next block if necessary */
 		if (cur_block != want_block || bio == NULL) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			err = vfs_bread(fs, want_block, &bio);
-			ANANAS_ERROR_RETURN(err);
+			RESULT_PROPAGATE_FAILURE(
+				vfs_bread(fs, want_block, &bio)
+			);
 			cur_block = want_block;
 		}
 
@@ -114,10 +116,10 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 	if (bio != nullptr)
 		bio_free(*bio);
 	*len = read;
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 {
 	INode& inode = *file->f_dentry->d_inode;
@@ -137,12 +139,13 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 			create++;
 
 		if (!vfs_is_filesystem_sane(inode.i_fs))
-			return ANANAS_ERROR(IO);
+			return RESULT_MAKE_FAILURE(EIO);
 
 		/* Figure out which block to use next */
 		blocknr_t want_block;
-		errorcode_t err = inode.i_iops->block_map(inode, logical_block, &want_block, create);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			inode.i_iops->block_map(inode, logical_block, &want_block, create)
+		);
 
 		/* Calculate how much we have to put in the block */
 		off_t cur_offset = file->f_offset % (blocknr_t)fs->fs_block_size;
@@ -155,8 +158,9 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 			if (bio != nullptr)
 				bio_free(*bio);
 			/* Only read the block if it's a new one or we're not replacing everything */
-			err = vfs_bget(fs, want_block, &bio, (create || chunk_len == fs->fs_block_size) ? BIO_READ_NODATA : 0);
-			ANANAS_ERROR_RETURN(err);
+			RESULT_PROPAGATE_FAILURE(
+				vfs_bget(fs, want_block, &bio, (create || chunk_len == fs->fs_block_size) ? BIO_READ_NODATA : 0)
+			);
 			cur_block = want_block;
 		}
 
@@ -186,7 +190,7 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 
 	if (inode_dirty)
 		vfs_set_inode_dirty(inode);
-	return ananas_success();
+	return Result::Success();
 }
 
 /* vim:set ts=2 sw=2: */

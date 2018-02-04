@@ -16,7 +16,6 @@
  * All transitions are managed by scheduler.c.
  */
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include <ananas/procinfo.h>
 #include "kernel/device.h"
 #include "kernel/kmem.h"
@@ -25,6 +24,7 @@
 #include "kernel/pcpu.h"
 #include "kernel/process.h"
 #include "kernel/reaper.h"
+#include "kernel/result.h"
 #include "kernel/schedule.h"
 #include "kernel/time.h"
 #include "kernel/trace.h"
@@ -37,7 +37,7 @@ TRACE_SETUP;
 static Spinlock spl_threadqueue;
 static ThreadList allThreads;
 
-errorcode_t
+Result
 thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
 {
 	/* First off, allocate the thread itself */
@@ -71,10 +71,10 @@ thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
 	}
 
 	dest = t;
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg)
 {
 	/*
@@ -99,7 +99,7 @@ kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg)
 		SpinlockGuard g(spl_threadqueue);
 		allThreads.push_back(t);
 	}
-	return ananas_success();
+	return Result::Success();
 }
 
 /*
@@ -285,26 +285,27 @@ thread_set_name(Thread& t, const char* name)
 	t.t_name[THREAD_MAX_NAME_LEN] = '\0';
 }
 
-errorcode_t
+Result
 thread_clone(Process& proc, Thread*& out_thread)
 {
 	TRACE(THREAD, FUNC, "proc=%p", &proc);
 	Thread* curthread = PCPU_GET(curthread);
 
 	Thread* t;
-	errorcode_t err = thread_alloc(proc, t, curthread->t_name, THREAD_ALLOC_CLONE);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		thread_alloc(proc, t, curthread->t_name, THREAD_ALLOC_CLONE)
+	);
 
 	/*
 	 * Must copy the thread state over; note that this is the
 	 * result of a system call, so we want to influence the
 	 * return value.
 	 */
-	md_thread_clone(*t, *curthread, ANANAS_ERROR(CLONED));
+	md_thread_clone(*t, *curthread, RESULT_MAKE_FAILURE(EEXIST).AsStatusCode());
 
 	/* Thread is ready to rock */
 	out_thread = t;
-	return ananas_success();
+	return Result::Success();
 }
 
 struct ThreadWaiter : util::List<ThreadWaiter>::NodePtr {

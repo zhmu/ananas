@@ -30,11 +30,12 @@
  * a linked-list of clusters like everywhere else).
  */
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "kernel/bio.h"
 #include "kernel/init.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/generic.h"
@@ -49,7 +50,7 @@
 
 TRACE_SETUP;
 
-static errorcode_t
+static Result
 fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 {
 	/* XXX this should be made a compile-time check */
@@ -58,8 +59,9 @@ fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	/* Fill out a sector size and grab the first block */
 	BIO* bio;
 	fs->fs_block_size = BIO_SECTOR_SIZE;
-	errorcode_t err = vfs_bread(fs, 0, &bio);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_bread(fs, 0, &bio)
+	);
 
 	/* Parse what we just read */
 	struct FAT_BPB* bpb = (struct FAT_BPB*)BIO_DATA(bio);
@@ -71,7 +73,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	do { \
 		kfree(privdata); \
 		kprintf(x); \
-		return ANANAS_ERROR(NO_DEVICE); \
+		return RESULT_MAKE_FAILURE(ENODEV); \
 	} while(0)
 
 	privdata->sector_size = FAT_FROM_LE16(bpb->bpb_bytespersector);
@@ -136,8 +138,7 @@ fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 		if (fsinfo_sector >= 1 && fsinfo_sector < num_sectors) {
 			/* Looks sane; read it */
 			BIO* bio;
-			errorcode_t err = vfs_bread(fs, fsinfo_sector, &bio);
-			if (ananas_is_success(err)) {
+			if (auto result = vfs_bread(fs, fsinfo_sector, &bio); result.IsSuccess()) {
 				struct FAT_FAT32_FSINFO* fsi = (struct FAT_FAT32_FSINFO*)BIO_DATA(bio);
 				if (FAT_FROM_LE32(fsi->fsi_signature1) == FAT_FSINFO_SIGNATURE1 &&
 				    FAT_FROM_LE32(fsi->fsi_signature2) == FAT_FSINFO_SIGNATURE2) {
@@ -157,12 +158,11 @@ fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 		}
 	}
 
-	err = vfs_get_inode(fs, FAT_ROOTINODE_INUM, root_inode);
-	if (ananas_is_failure(err)) {
+	if (auto result = vfs_get_inode(fs, FAT_ROOTINODE_INUM, root_inode); result.IsFailure()) {
 		kfree(privdata);
-		return err;
+		return result;
 	}
-	return ananas_success();
+	return Result::Success();
 }
 
 static struct VFS_FILESYSTEM_OPS fsops_fat = {
@@ -175,13 +175,13 @@ static struct VFS_FILESYSTEM_OPS fsops_fat = {
 
 static VFSFileSystem fs_fat("fatfs", &fsops_fat);
 
-errorcode_t
+Result
 fatfs_init()
 {
 	return vfs_register_filesystem(fs_fat);
 }
 
-static errorcode_t
+static Result
 fatfs_exit()
 {
 	return vfs_unregister_filesystem(fs_fat);

@@ -15,12 +15,12 @@
  *               +-----< usb-keyboard0
  */
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include <ananas/util/list.h>
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/thread.h"
 #include "usb-bus.h"
 #include "usb-device.h"
@@ -52,7 +52,7 @@ ScheduleAttach(USBDevice& usb_dev)
 	usbbus_semaphore.Signal();
 }
 
-errorcode_t
+Result
 Bus::Attach()
 {
 	bus_NeedsExplore = true;
@@ -70,14 +70,14 @@ Bus::Attach()
 		MutexGuard g(usbbus_mutex);
 		usbbus_busses.push_back(*this);
 	}
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 Bus::Detach()
 {
 	panic("detach");
-	return ananas_success();
+	return Result::Success();
 }
 
 int
@@ -113,7 +113,7 @@ Bus::Explore()
 }
 
 /* Must be called with lock held! */
-errorcode_t
+Result
 Bus::DetachHub(Hub& hub)
 {
 	AssertLocked();
@@ -123,11 +123,11 @@ Bus::DetachHub(Hub& hub)
 		if (usb_dev.ud_hub != &hub)
 			continue;
 
-		errorcode_t err = usb_dev.Detach();
+		Result err = usb_dev.Detach();
 		(void)err; // XXX what to do in this case?
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
 static void
@@ -168,8 +168,8 @@ usb_bus_thread(void* unused)
 			 * as it ensures we will never attach more than one device in the system
 			 * at any given time.
 			 */
-			errorcode_t err = usb_dev->Attach();
-			KASSERT(ananas_is_success(err), "cannot yet deal with failures %d", err);
+			Result result = usb_dev->Attach();
+			KASSERT(result.IsSuccess(), "cannot yet deal with failures %d", result.AsStatusCode());
 
 			/* This worked; hook the device to the bus' device list */
 			Bus& bus = usb_dev->ud_bus;
@@ -200,7 +200,7 @@ struct USBBus_Driver : public Ananas::Driver
 	}
 };
 
-errorcode_t
+Result
 InitializeBus()
 {
 	/*
@@ -209,7 +209,7 @@ InitializeBus()
 	 */
 	kthread_init(usbbus_thread, "usbbus", &usb_bus_thread, NULL);
 	thread_resume(usbbus_thread);
-	return ananas_success();
+	return Result::Success();
 }
 
 } // unnamed namespace

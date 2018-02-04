@@ -20,8 +20,8 @@ public:
 		return *this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
 	void Enqueue(void* request);
 	void Start();

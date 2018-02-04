@@ -1,5 +1,5 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include <ananas/procinfo.h>
 #include "kernel/handle.h"
 #include "kernel/init.h"
@@ -8,6 +8,7 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/process.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel/vmspace.h"
@@ -42,11 +43,9 @@ pid_t AllocateProcessID()
 
 } // namespace process
 
-static errorcode_t
+static Result
 process_alloc_ex(Process* parent, Process*& dest, int flags)
 {
-	errorcode_t err;
-
 	auto p = new Process;
 	p->p_parent = parent; /* XXX should we take a ref here? */
 	p->p_refcount = 1; /* caller */
@@ -54,17 +53,16 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 	p->p_pid = process::AllocateProcessID();
 
 	/* Create the process's vmspace */
-	err = vmspace_create(p->p_vmspace);
-	if (ananas_is_failure(err)) {
+	if (auto result = vmspace_create(p->p_vmspace); result.IsFailure()) {
 		kfree(p);
-		return err;
+		return result;
 	}
 	VMSpace& vs = *p->p_vmspace;
 
 	// Map a process info structure so everything beloning to this process can use it
 	VMArea* va;
-	err = vmspace_map(vs, sizeof(struct PROCINFO), VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_NO_CLONE, va);
-	if (ananas_is_failure(err))
+	auto result = vmspace_map(vs, sizeof(struct PROCINFO), VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_NO_CLONE, va);
+	if (result.IsFailure())
 		goto fail;
 	p->p_info_va = va->va_virt;
 
@@ -93,16 +91,16 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 
 			struct HANDLE* handle;
 			handleindex_t out;
-			err = handle_clone(*parent, n, nullptr, *p, &handle, n, &out);
-			if (ananas_is_failure(err))
+			result = handle_clone(*parent, n, nullptr, *p, &handle, n, &out);
+			if (result.IsFailure())
 				goto fail;
 			KASSERT(n == out, "cloned handle %d to new handle %d", n, out);
 		}
 	}
 	/* Run all process initialization callbacks */
 	for(auto& pc: process_callbacks_init) {
-		err = pc.pc_func(*p);
-		if (ananas_is_failure(err))
+		result = pc.pc_func(*p);
+		if (result.IsFailure())
 			goto fail;
 	}
 
@@ -120,37 +118,36 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 	}
 
 	dest = p;
-	return ananas_success();
+	return Result::Success();
 
 fail:
 	vmspace_destroy(*p->p_vmspace);
 	kfree(p);
-	return err;
+	return result;
 }
 
-errorcode_t
+Result
 process_alloc(Process* parent, Process*& dest)
 {
 	return process_alloc_ex(parent, dest, 0);
 }
 
-errorcode_t
+Result
 process_clone(Process& p, int flags, Process*& out_p)
 {
-	errorcode_t err;
 	Process* newp;
-	err = process_alloc_ex(&p, newp, 0);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		process_alloc_ex(&p, newp, 0)
+	);
 
 	/* Duplicate the vmspace - this should leave the private mappings alone */
-	err = vmspace_clone(*p.p_vmspace, *newp->p_vmspace, 0);
-	if (ananas_is_failure(err)) {
+	if (auto result = vmspace_clone(*p.p_vmspace, *newp->p_vmspace, 0); result.IsFailure()) {
 		process_deref(*newp);
-		return err;
+		return result;
 	}
 
 	out_p = newp;
-	return ananas_success();
+	return Result::Success();
 }
 
 static void
@@ -208,11 +205,11 @@ process_exit(Process& p, int status)
 	process::process_sleep_sem.Signal();
 }
 
-errorcode_t
+Result
 process_wait_and_lock(Process& parent, int flags, Process*& p_out)
 {
 	if (flags != 0)
-		return ANANAS_ERROR(BAD_FLAG);
+		return RESULT_MAKE_FAILURE(EINVAL);
 	/*
 	 * XXX We aren't going for efficiency here - thus we use a single
 	 *     semaphore to wake anything up once a process has exited.
@@ -228,7 +225,7 @@ process_wait_and_lock(Process& parent, int flags, Process*& p_out)
 
 				/* Note that we give our ref to the caller! */
 				p_out = &child;
-				return ananas_success();
+				return Result::Success();
 			}
 			child.Unlock();
 		}
@@ -241,7 +238,7 @@ process_wait_and_lock(Process& parent, int flags, Process*& p_out)
 	/* NOTREACHED */
 }
 
-errorcode_t
+Result
 process_set_args(Process& p, const char* args, size_t args_len)
 {
 	if (args_len >= (PROCINFO_ARGS_LENGTH - 1))
@@ -249,12 +246,12 @@ process_set_args(Process& p, const char* args, size_t args_len)
 	for (unsigned int i = 0; i < args_len; i++)
 		if(args[i] == '\0' && args[i + 1] == '\0') {
 			memcpy(p.p_info->pi_args, args, i + 2 /* terminating \0\0 */);
-			return ananas_success();
+			return Result::Success();
 		}
-	return ANANAS_ERROR(BAD_LENGTH);
+	return RESULT_MAKE_FAILURE(EINVAL);
 }
 
-errorcode_t
+Result
 process_set_environment(Process& p, const char* env, size_t env_len)
 {
 	if (env_len >= (PROCINFO_ENV_LENGTH - 1))
@@ -262,10 +259,10 @@ process_set_environment(Process& p, const char* env, size_t env_len)
 	for (unsigned int i = 0; i < env_len; i++)
 		if(env[i] == '\0' && env[i + 1] == '\0') {
 			memcpy(p.p_info->pi_env, env, i + 2 /* terminating \0\0 */);
-			return ananas_success();
+			return Result::Success();
 		}
 
-	return ANANAS_ERROR(BAD_LENGTH);
+	return RESULT_MAKE_FAILURE(EINVAL);
 }
 
 Process*
@@ -288,40 +285,40 @@ process_lookup_by_id_and_ref(pid_t pid)
 	return nullptr;
 }
 
-errorcode_t
+Result
 process_register_init_func(process::Callback& fn)
 {
 	process_callbacks_init.push_back(fn);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 process_register_exit_func(process::Callback& fn)
 {
 	process_callbacks_exit.push_back(fn);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 process_unregister_init_func(process::Callback& fn)
 {
 	process_callbacks_init.remove(fn);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 process_unregister_exit_func(process::Callback& fn)
 {
 	process_callbacks_exit.remove(fn);
-	return ananas_success();
+	return Result::Success();
 }
 
-static errorcode_t
+static Result
 process_init()
 {
 	process::process_curpid = 1;
 
-	return ananas_success();
+	return Result::Success();
 }
 
 INIT_FUNCTION(process_init, SUBSYSTEM_PROCESS, ORDER_FIRST);

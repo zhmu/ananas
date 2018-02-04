@@ -7,6 +7,7 @@
 namespace Ananas {
 class Device;
 }
+class Result;
 
 /* Return values for the IRQ handler */
 enum class IRQResult {
@@ -82,7 +83,7 @@ void irqsource_unregister(IRQSource& source);
 #define IRQ_TYPE_ISR		1 /* do not launch the handler from a thread */
 #define IRQ_TYPE_IPI		IRQ_TYPE_ISR
 #define IRQ_TYPE_TIMER		IRQ_TYPE_ISR
-errorcode_t irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, void* context);
+Result irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, void* context);
 void irq_unregister(unsigned int no, Ananas::Device* dev, irqfunc_t func, void* context);
 void irq_handler(unsigned int no);
 void irq_dump();

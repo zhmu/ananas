@@ -1,4 +1,3 @@
-#include <ananas/error.h>
 #include "kernel/console.h"
 #include "kernel/console-driver.h"
 #include "kernel/debug-console.h"
@@ -6,6 +5,7 @@
 #include "kernel/mm.h"
 #include "kernel/lib.h"
 #include "kernel/lock.h"
+#include "kernel/result.h"
 #include "kernel/tty.h"
 #include "options.h"
 
@@ -36,7 +36,7 @@ static Mutex mtx_console("console");
 /* If set, display the driver list before attaching */
 #define VERBOSE_LIST 0
 
-static errorcode_t
+static Result
 console_init()
 {
 
@@ -59,10 +59,9 @@ console_init()
 		 * console devices currently.
 		 */
 		Ananas::Device* dev = Ananas::DeviceManager::internal::ProbeConsole(*consoleDriver);
-		if (dev == NULL)
+		if (dev == nullptr)
 			continue; // likely not present
-		errorcode_t err = Ananas::DeviceManager::AttachSingle(*dev);
-		if (ananas_is_failure(err)) {
+		if (auto result = Ananas::DeviceManager::AttachSingle(*dev); result.IsFailure()) {
 			// Too bad; this driver won't work
 			delete dev;
 			continue;
@@ -85,7 +84,7 @@ console_init()
 	/* Initialize the console print mutex and start using it */
 	console_mutex_inuse++;
 
-	return ananas_success();
+	return Result::Success();
 }
 
 INIT_FUNCTION(console_init, SUBSYSTEM_CONSOLE, ORDER_MIDDLE);
@@ -159,11 +158,11 @@ console_getchar()
 	if (ch != 0)
 		return ch;
 #endif /* OPTION_DEBUG_CONSOLE */
-	if (console_tty == NULL)
+	if (console_tty == nullptr)
 		return 0;
-	uint8_t c;
+	uint8_t c = 0;
 	size_t len = sizeof(c);
-	if (console_tty->GetCharDeviceOperations()->Read((void*)&c, len, 0) < 1)
+	if (auto result = console_tty->GetCharDeviceOperations()->Read((void*)&c, len, 0); result.IsFailure())
 		return 0;
 	return c;
 }

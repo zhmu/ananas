@@ -3,6 +3,8 @@
 
 #include <ananas/types.h>
 
+class Result;
+
 namespace Ananas {
 namespace USB {
 
@@ -82,9 +84,9 @@ public:
 	/* HCD-specific */
 	void*				t_hcd = nullptr;	/* [D] */
 
-	errorcode_t Schedule();
-	errorcode_t Cancel();
-	errorcode_t Cancel_Locked();
+	Result Schedule();
+	Result Cancel();
+	Result Cancel_Locked();
 	void Complete();
 	void Complete_Locked();
 

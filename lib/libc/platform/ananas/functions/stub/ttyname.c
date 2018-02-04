@@ -1,6 +1,5 @@
 #include <unistd.h>
 #include <string.h>
-#include <_posix/todo.h>
 
 static char s_ttyname[32];
 

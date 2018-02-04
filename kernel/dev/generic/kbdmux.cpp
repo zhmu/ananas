@@ -1,4 +1,3 @@
-#include <ananas/error.h>
 #include "kernel/console.h"
 #include "kernel/console-driver.h"
 #include "kernel/device.h"
@@ -6,6 +5,7 @@
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/tty.h"
 
 namespace {
@@ -28,9 +28,9 @@ public:
 		return this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
-	errorcode_t Read(void* buffer, size_t& len, off_t offset) override;
+	Result Attach() override;
+	Result Detach() override;
+	Result Read(void* buffer, size_t& len, off_t offset) override;
 
 	void OnInput(uint8_t ch);
 
@@ -61,7 +61,7 @@ KeyboardMux::OnInput(uint8_t ch)
 	}
 }
 
-errorcode_t
+Result
 KeyboardMux::Read(void* data, size_t& len, off_t off)
 {
 	size_t returned = 0, left = len;
@@ -78,22 +78,22 @@ KeyboardMux::Read(void* data, size_t& len, off_t off)
 	}
 
 	len = returned;
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 KeyboardMux::Attach()
 {
 	KASSERT(kbdmux_instance == NULL, "multiple kbdmux");
 	kbdmux_instance = this;
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 KeyboardMux::Detach()
 {
-	return ananas_success();
+	return Result::Success();
 }
 
 struct KeyboardMux_Driver : public Ananas::ConsoleDriver

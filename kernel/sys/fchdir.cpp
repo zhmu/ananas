@@ -1,6 +1,7 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "kernel/process.h"
+#include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/dentry.h"
@@ -8,7 +9,7 @@
 
 TRACE_SETUP;
 
-errorcode_t
+Result
 sys_fchdir(Thread* t, handleindex_t index)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, index=%d'", t, index);
@@ -17,11 +18,12 @@ sys_fchdir(Thread* t, handleindex_t index)
 
 	/* Get the handle */
 	struct HANDLE* h;
-	errorcode_t err = syscall_get_handle(*t, index, &h);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		syscall_get_handle(*t, index, &h)
+	);
 
 	if (h->h_type != HANDLE_TYPE_FILE)
-		return ANANAS_ERROR(BAD_HANDLE);
+		return RESULT_MAKE_FAILURE(EBADF);
 
         struct VFS_FILE* file = &h->h_data.d_vfs_file;
 	DEntry& new_cwd = *file->f_dentry;
@@ -29,5 +31,5 @@ sys_fchdir(Thread* t, handleindex_t index)
 	proc.p_cwd = &new_cwd;
 	dentry_deref(cwd);
 
-	return err;
+	return Result::Success();
 }

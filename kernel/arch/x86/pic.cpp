@@ -1,4 +1,3 @@
-#include <ananas/error.h>
 #include "kernel/irq.h"
 #include "kernel/x86/io.h"
 #include "kernel/x86/pic.h"

@@ -1,8 +1,8 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "../core/config.h"
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"
@@ -20,24 +20,24 @@ public:
 		return *this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
 private:
 	Ananas::USB::USBDevice* ug_Device;
 };
 
-errorcode_t
+Result
 USBGeneric::Attach()
 {
 	ug_Device = static_cast<Ananas::USB::USBDevice*>(d_ResourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 USBGeneric::Detach()
 {
-	return ananas_success();
+	return Result::Success();
 }
 
 struct USBGeneric_Driver : public Ananas::Driver

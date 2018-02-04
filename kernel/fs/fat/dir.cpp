@@ -1,7 +1,8 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "kernel/bio.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/types.h"
 #include "kernel/vfs/core.h"
@@ -97,7 +98,7 @@ fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename)
 	return 1;
 }
 
-errorcode_t
+Result
 fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	INode& inode = *file->f_dentry->d_inode;
@@ -107,7 +108,6 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	char cur_filename[128]; /* currently assembled filename */
 	off_t full_filename_offset = file->f_offset;
 	BIO* bio = nullptr;
-	errorcode_t err = ananas_success();
 
 	memset(cur_filename, 0, sizeof(cur_filename));
 
@@ -115,15 +115,18 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	while(left > 0) {
 		/* Obtain the current directory block data */
 		blocknr_t want_block;
-		errorcode_t err = fat_block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
-		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE)
-			break;
-		ANANAS_ERROR_RETURN(err);
+		Result result = fat_block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
+		if (result.IsFailure()) {
+			if (result.AsErrno() == ERANGE)
+				break;
+			return result;
+		}
 		if (want_block != cur_block || bio == nullptr) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			err = vfs_bread(fs, want_block, &bio);
-			ANANAS_ERROR_RETURN(err);
+			RESULT_PROPAGATE_FAILURE(
+				vfs_bread(fs, want_block, &bio)
+			);
 			cur_block = want_block;
 		}
 
@@ -180,7 +183,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	if (bio != nullptr)
 		bio_free(*bio);
 	*len = written;
-	return err;
+	return Result::Success();
 }
 
 /*
@@ -222,7 +225,7 @@ fat_sanitize_83_name(const char* fname, char* shortname)
  * size cannot be >4GB anyway (MS docs claim most implementations use an
  * uint16_t!) - so relying on large FAT directories would be most unwise anyway.
  */
-static errorcode_t
+static Result
 fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry, ino_t* inum)
 {
 	struct VFS_MOUNTED_FS* fs = dir.i_fs;
@@ -244,18 +247,21 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
 	while(1) {
 		/* Obtain the current directory block data */
 		blocknr_t want_block;
-		errorcode_t err = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
-		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE) {
-			/* We've hit an end-of-file - this means we'll have to enlarge the directory */
-			cur_lfn_chain = -1;
-			break;
+		Result result = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
+		if (result.IsFailure()) {
+			if (result.AsErrno() == ERANGE) {
+				/* We've hit an end-of-file - this means we'll have to enlarge the directory */
+				cur_lfn_chain = -1;
+				break;
+			}
+			return result;
 		}
-		ANANAS_ERROR_RETURN(err);
 		if (want_block != cur_block || bio == NULL) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			err = vfs_bread(fs, want_block, &bio);
-			ANANAS_ERROR_RETURN(err);
+			RESULT_PROPAGATE_FAILURE(
+				vfs_bread(fs, want_block, &bio)
+			);
 			cur_block = want_block;
 		}
 
@@ -329,12 +335,14 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
 	for(int cur_entry_idx = 0; cur_entry_idx < chain_needed; cur_entry_idx++) {
 		/* Fetch/allocate the desired block */
 		blocknr_t want_block;
-		errorcode_t err = fat_block_map(dir, (current_filename_offset / (blocknr_t)fs->fs_block_size), &want_block, (cur_lfn_chain < 0));
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			fat_block_map(dir, (current_filename_offset / (blocknr_t)fs->fs_block_size), &want_block, (cur_lfn_chain < 0))
+		);
 		if (want_block != cur_block) {
 			bio_free(*bio);
-			err = vfs_bread(fs, want_block, &bio);
-			ANANAS_ERROR_RETURN(err);
+			RESULT_PROPAGATE_FAILURE(
+				vfs_bread(fs, want_block, &bio)
+			);
 			cur_block = want_block;
 		}
 
@@ -371,10 +379,10 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
 	}
 
 	bio_free(*bio);
-	return ananas_success();
+	return Result::Success();
 }
 
-static errorcode_t
+static Result
 fat_remove_directory_entry(INode& dir, const char* dentry)
 {
 	struct VFS_MOUNTED_FS* fs = dir.i_fs;
@@ -383,24 +391,27 @@ fat_remove_directory_entry(INode& dir, const char* dentry)
 	char cur_filename[128]; /* currently assembled filename */
 	memset(cur_filename, 0, sizeof(cur_filename));
 
-	errorcode_t errorcode = ANANAS_ERROR(NO_FILE);
+	Result result = RESULT_MAKE_FAILURE(ENOENT);
 	blocknr_t cur_block = (blocknr_t)-1;
 	uint32_t cur_dir_offset = 0;
 	int chain_length = 0;
 	while(1) {
 		/* Obtain the current directory block data */
 		blocknr_t want_block;
-		errorcode_t err = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
-		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE) {
-			/* We've hit an end-of-file */
-			break;
+		Result result = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
+		if (result.IsFailure()) {
+			if (result.AsErrno() == ERANGE) {
+				/* We've hit an end-of-file */
+				break;
+			}
+			return result;
 		}
-		ANANAS_ERROR_RETURN(err);
 		if (want_block != cur_block || bio == NULL) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			err = vfs_bread(fs, want_block, &bio);
-			ANANAS_ERROR_RETURN(err);
+			RESULT_PROPAGATE_FAILURE(
+				vfs_bread(fs, want_block, &bio)
+			);
 			cur_block = want_block;
 		}
 
@@ -444,17 +455,20 @@ fat_remove_directory_entry(INode& dir, const char* dentry)
 		for(/* nothing */; chain_length > 0; chain_length--) {
 			/* Obtain the current directory block data */
 			blocknr_t want_block;
-			errorcode_t err = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
-			if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE) {
-				/* We've hit an end-of-file */
-				break;
+			Result result = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
+			if (result.IsFailure()) {
+				if (result.AsErrno() == ERANGE) {
+					/* We've hit an end-of-file */
+					break;
+				}
+				return result;
 			}
-			ANANAS_ERROR_RETURN(err);
 			if (want_block != cur_block || bio == nullptr) {
 				if (bio != nullptr)
 					bio_free(*bio);
-				err = vfs_bread(fs, want_block, &bio);
-				ANANAS_ERROR_RETURN(err);
+				RESULT_PROPAGATE_FAILURE(
+					vfs_bread(fs, want_block, &bio)
+				);
 				cur_block = want_block;
 			}
 
@@ -466,16 +480,16 @@ fat_remove_directory_entry(INode& dir, const char* dentry)
 
 			bio_set_dirty(*bio);
 		}
-		errorcode = ananas_success();
+		result = Result::Success();
 		break;
 	}
 
 	if (bio != nullptr)
 		bio_free(*bio);
-	return errorcode;
+	return result;
 }
 
-static errorcode_t
+static Result
 fat_create(INode& dir, DEntry* de, int mode)
 {
 	struct FAT_ENTRY fentry;
@@ -484,33 +498,36 @@ fat_create(INode& dir, DEntry* de, int mode)
 
 	/* Hook the new file to the directory */
 	ino_t inum;
-	errorcode_t err = fat_add_directory_entry(dir, de->d_entry, &fentry, &inum);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		fat_add_directory_entry(dir, de->d_entry, &fentry, &inum)
+	);
 
 	/* And obtain it */
 	INode* inode;
-	err = vfs_get_inode(dir.i_fs, inum, inode);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_get_inode(dir.i_fs, inum, inode)
+	);
 
 	/* Almost done - hook it to the dentry */
 	dcache_set_inode(*de, *inode);
-	return err;
+	return Result::Success();
 }
 
-static errorcode_t
+static Result
 fat_unlink(INode& dir, DEntry& de)
 {
 	/* Sanity checks first: we must have a backing inode */
 	if (de.d_inode == NULL || de.d_flags & DENTRY_FLAG_NEGATIVE)
-		return ANANAS_ERROR(BAD_OPERATION);
+		return RESULT_MAKE_FAILURE(EINVAL);
 
 	/*
 	 * We must remove this item from the directory it is in - the nlink field determines when the file data
 	 * itself will go.
 	 */
 	KASSERT(de.d_inode->i_sb.st_nlink > 0, "removing entry '%s' with invalid link %d", de.d_entry, de.d_inode->i_sb.st_nlink);
-	errorcode_t err = fat_remove_directory_entry(dir, de.d_entry);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		fat_remove_directory_entry(dir, de.d_entry)
+	);
 
 	/*
 	 * All is well; decrement the nlink field - if it reaches zero, the file
@@ -518,10 +535,10 @@ fat_unlink(INode& dir, DEntry& de)
 	 */
 	de.d_inode->i_sb.st_nlink--;
 	vfs_set_inode_dirty(*de.d_inode);
-	return ananas_success();
+	return Result::Success();
 }
 
-static errorcode_t
+static Result
 fat_rename(INode& old_dir, DEntry& old_dentry, INode& new_dir, DEntry& new_dentry)
 {
 	KASSERT(!S_ISDIR(old_dentry.d_inode->i_sb.st_mode), "FIXME directory");
@@ -539,23 +556,22 @@ fat_rename(INode& old_dir, DEntry& old_dentry, INode& new_dir, DEntry& new_dentr
 	fentry.fe_attributes = FAT_ATTRIBUTE_ARCHIVE; /* XXX we should copy the old entry */
 
 	ino_t inum;
-	errorcode_t err = fat_add_directory_entry(new_dir, new_dentry.d_entry, &fentry, &inum);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		fat_add_directory_entry(new_dir, new_dentry.d_entry, &fentry, &inum)
+	);
 
 	/* And fetch the new inode */
 	INode* inode;
-	err = vfs_get_inode(new_dir.i_fs, inum, inode);
-	if (ananas_is_failure(err)) {
+	if (auto result = vfs_get_inode(new_dir.i_fs, inum, inode); result.IsFailure()) {
 		fat_remove_directory_entry(new_dir, new_dentry.d_entry); /* XXX hope this works! */
-		return err;
+		return result;
 	}
 
 	/* Get rid of the previous directory entry */
-	err = fat_remove_directory_entry(old_dir, old_dentry.d_entry);
-	if (ananas_is_failure(err)) {
+	if (auto result = fat_remove_directory_entry(old_dir, old_dentry.d_entry); result.IsFailure()) {
 		vfs_deref_inode(*inode); /* remove the previous inode */
 		fat_remove_directory_entry(new_dir, new_dentry.d_entry); /* XXX hope this works! */
-		return err;
+		return result;
 	}
 
 	/*
@@ -572,7 +588,7 @@ fat_rename(INode& old_dir, DEntry& old_dentry, INode& new_dir, DEntry& new_dentr
 	 */
 	dcache_set_inode(old_dentry, *inode);
 	dcache_set_inode(new_dentry, *inode);
-	return ananas_success();
+	return Result::Success();
 }
 
 struct VFS_INODE_OPS fat_dir_ops = {

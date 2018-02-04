@@ -1,10 +1,10 @@
-#include <ananas/error.h>
 #include "kernel/bio.h"
 #include "kernel/device.h"
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "options.h"
 
@@ -25,7 +25,7 @@ static uint8_t* bio_data = NULL;
 static Spinlock spl_bio_lists;
 static Spinlock spl_bio_bitmap;
 
-static errorcode_t
+static Result
 bio_init()
 {
 	/*
@@ -67,7 +67,7 @@ bio_init()
 		for (int n = (BIO_DATA_SIZE / BIO_SECTOR_SIZE) & 7; n < 8; n++)
 			bio_bitmap[bio_bitmap_size] |= (1 << n);
 	}
-	return ananas_success();
+	return Result::Success();
 }
 
 INIT_FUNCTION(bio_init, SUBSYSTEM_BIO, ORDER_FIRST);
@@ -104,9 +104,8 @@ bio_flush(BIO& bio)
 
 	TRACE(BIO, INFO, "bio %p (lba %u) is dirty, flushing", &bio, (uint32_t)bio.io_block);
 
-	errorcode_t err = bio.device->GetBIODeviceOperations()->WriteBIO(bio);
-	if (ananas_is_failure(err)) {
-		kprintf("bio_flush(): device_write() failed, %i\n", err);
+	if (auto result = bio.device->GetBIODeviceOperations()->WriteBIO(bio); result.IsFailure()) {
+		kprintf("bio_flush(): device_write() failed, %i\n", result.AsStatusCode());
 		bio_set_error(bio);
 	} else {
 		/* Wait until we have something to report... */
@@ -319,9 +318,8 @@ bio_get(Ananas::Device* device, blocknr_t block, size_t len, int flags)
 	}
 
 	/* kick the device; we want it to read */
-	errorcode_t err = device->GetBIODeviceOperations()->ReadBIO(*bio);
-	if (ananas_is_failure(err)) {
-		kprintf("bio_read(): device_read() failed, %i\n", err);
+	if (auto result = device->GetBIODeviceOperations()->ReadBIO(*bio); result.IsFailure()) {
+		kprintf("bio_read(): device_read() failed, %i\n", result.AsStatusCode());
 		bio_set_error(*bio);
 		return bio;
 	}

@@ -1,11 +1,11 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/bio.h"
 #include "kernel/dev/sata.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "ahci.h"
 #include "ahci-pci.h"
@@ -65,7 +65,7 @@ Port::OnIRQ(uint32_t pis)
 	Unlock();
 }
 
-errorcode_t
+Result
 Port::Attach()
 {
 	int n = p_num;
@@ -77,19 +77,20 @@ Port::Attach()
 	uint32_t tfd = p_device.Read(AHCI_REG_PxTFD(n));
 	if ((tfd & (AHCI_PxTFD_STS_BSY | AHCI_PxTFD_STS_DRQ)) != 0) {
 		AHCI_DPRINTF("skipping port #%d; bsy/drq active (%x)", n, tfd);
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 	uint32_t sts = p_device.Read(AHCI_REG_PxSSTS(n));
 	if (AHCI_PxSSTS_DETD(sts) != AHCI_DETD_DEV_PHY) {
 		AHCI_DPRINTF("skipping port #%d; no device/phy (%x)", n, tfd);
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 	/* Initialize the DMA buffers for requests */
 	for(unsigned int n = 0; n < 32; n++) {
 		Request* pr = &p_request[n];
-		errorcode_t err = dma_buf_alloc(p_device.d_DMA_tag, sizeof(struct AHCI_PCI_CT), &pr->pr_dmabuf_ct);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			dma_buf_alloc(p_device.d_DMA_tag, sizeof(struct AHCI_PCI_CT), &pr->pr_dmabuf_ct)
+		);
 		pr->pr_ct = static_cast<struct AHCI_PCI_CT*>(dma_buf_get_segment(pr->pr_dmabuf_ct, 0)->s_virt);
 	}
 
@@ -119,14 +120,14 @@ Port::Attach()
 		 */
 		Ananas::DeviceManager::AttachSingle(*sub_device);
 	}
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 Port::Detach()
 {
 	panic("TODO");
-	return ananas_success();
+	return Result::Success();
 }
 
 void
@@ -143,7 +144,7 @@ Port::Enqueue(void* item)
 		if (i < p_device.ap_ncs) {
 			p_request_in_use |= 1 << i;
 			n = i;
-		} 
+		}
 		Unlock();
 
 		if (n < 0) {

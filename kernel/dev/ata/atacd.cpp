@@ -1,10 +1,10 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/bio.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
 #include "kernel/mbr.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/x86/io.h"
 #include "ata.h"
@@ -28,24 +28,24 @@ void EnqueueAndStart(Ananas::Device* parent, ATA_REQUEST_ITEM& item)
 
 } // unnamed namespace
 
-errorcode_t
+Result
 ATACD::Attach()
 {
 	ata_unit = (int)(uintptr_t)d_ResourceSet.AllocateResource(Ananas::Resource::RT_ChildNum, 0);
 
 	Printf("<%s>", ata_identify.model);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 ATACD::Detach()
 {
 	panic("unimplemented");
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 ATACD::ReadBIO(struct BIO& bio)
 {
 	struct ATA_REQUEST_ITEM item;
@@ -67,13 +67,13 @@ ATACD::ReadBIO(struct BIO& bio)
 	item.atapi_command[8] = (bio.length / 2048) & 0xff;
 	EnqueueAndStart(d_Parent, item);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 ATACD::WriteBIO(struct BIO& bio)
 {
-	return ANANAS_ERROR(READ_ONLY);
+	return RESULT_MAKE_FAILURE(EROFS);
 }
 
 struct ATACD_Driver : public Ananas::Driver

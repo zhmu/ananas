@@ -1,9 +1,10 @@
 #ifndef __ANANAS_KDB_H__
 #define __ANANAS_KDB_H__
 
-#include <ananas/types.h> /* for errorcode_t */
 #include <ananas/util/list.h>
 #include "kernel/init.h"
+
+class Result;
 
 enum KDB_ARG_TYPE {
 	T_INVALID, /* internal use only */
@@ -41,12 +42,12 @@ struct KDBCommand : util::List<KDBCommand>::NodePtr {
 
 void kdb_enter(const char* why);
 void kdb_panic();
-errorcode_t kdb_register_command(KDBCommand& cmd);
+Result kdb_register_command(KDBCommand& cmd);
 
 #define KDB_COMMAND(CMD, ARGS, HELP) \
 	static kdb_func_t kdb_func_ ## CMD; \
 	static KDBCommand kdb_cmd_ ## CMD(#CMD, (ARGS), (HELP), &kdb_func_##CMD); \
-	static errorcode_t kdb_add_ ## CMD() { \
+	static Result kdb_add_ ## CMD() { \
 		return kdb_register_command(kdb_cmd_ ## CMD); \
 	} \
 	INIT_FUNCTION(kdb_add_ ## CMD , SUBSYSTEM_KDB, ORDER_MIDDLE); \

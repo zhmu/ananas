@@ -1,10 +1,10 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/bio.h"
 #include "kernel/device.h"
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
@@ -53,11 +53,9 @@ vfs_get_availmountpoint()
 	return NULL;
 }
 
-errorcode_t
+Result
 vfs_mount(const char* from, const char* to, const char* type, void* options)
 {
-	errorcode_t err;
-
 	/*
 	 * Attempt to locate the filesystem type; so we know what to call to mount
 	 * it.
@@ -74,28 +72,27 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 		}
 	}
 	if (fsops == NULL)
-		return ANANAS_ERROR(BAD_TYPE);
+		return RESULT_MAKE_FAILURE(EINVAL);
 
 	/* Locate the device to mount from */
 	Ananas::Device* dev = NULL;
 	if (from != NULL) {
 		dev = Ananas::DeviceManager::FindDevice(from);
 		if (dev == NULL)
-			return ANANAS_ERROR(NO_FILE);
+			return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 	/* Locate an available mountpoint and hook it up */
 	struct VFS_MOUNTED_FS* fs = vfs_get_availmountpoint();
 	if (fs == NULL)
-		return ANANAS_ERROR(OUT_OF_HANDLES);
+		return RESULT_MAKE_FAILURE(ENXIO); // XXX silly error
 	fs->fs_device = dev;
 	fs->fs_fsops = fsops;
 
 	INode* root_inode = nullptr;
-	err = fs->fs_fsops->mount(fs, root_inode);
-	if (ananas_is_failure(err)) {
+	if (auto result = fs->fs_fsops->mount(fs, root_inode); result.IsFailure()) {
 		memset(fs, 0, sizeof(*fs));
-		return err;
+		return result;
 	}
 	TRACE(VFS, INFO, "to='%s',fs=%p,rootinode=%p", to, fs, root_inode);
 
@@ -106,30 +103,20 @@ vfs_mount(const char* from, const char* to, const char* type, void* options)
 	fs->fs_root_dentry = &dcache_create_root_dentry(fs);
 	fs->fs_root_dentry->d_inode = root_inode; /* don't deref - we're giving the ref to the root dentry */
 
-	/*	
-	 * Now perform a root entry lookup; if this fails, we'll have to abort everything we have done before
-	 * XXX Maybe special-case once we have a root filesystem?
-	 */
-	if (ananas_is_failure(err)) {
-		memset(fs, 0, sizeof(*fs));
-		return err;
-	}
-
 	/*
 	 * Override the root path dentry with our root inode; this effectively hooks
 	 * our filesystem to the parent. XXX I wonder if this is correct; we should
 	 * always just hook our path to the fs root dentry... need to think about it
 	 */
 	DEntry* dentry_root = fs->fs_root_dentry;
-	if (ananas_is_success(vfs_lookup(NULL, dentry_root, to)) &&
-	    dentry_root != fs->fs_root_dentry) {
+	if (auto result = vfs_lookup(NULL, dentry_root, to); result.IsSuccess() && dentry_root != fs->fs_root_dentry) {
 		if (dentry_root->d_inode != NULL)
 			vfs_deref_inode(*dentry_root->d_inode);
 		vfs_ref_inode(*root_inode);
 		dentry_root->d_inode = root_inode;
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
 void
@@ -153,7 +140,7 @@ vfs_abandon_device(Ananas::Device& device)
 	}
 }
 
-errorcode_t
+Result
 vfs_unmount(const char* path)
 {
 	panic("fix me");
@@ -167,10 +154,10 @@ vfs_unmount(const char* path)
 			fs->fs_mountpoint = NULL;
 			/* XXX Ask filesystem politely to unmount */
 			fs->fs_flags = 0; /* Available */
-			return ananas_success();
+			return Result::Success();
 		}
 	}
-	return ANANAS_ERROR(BAD_HANDLE); /* XXX */
+	return RESULT_MAKE_FAILURE(ENOENT);
 }
 
 struct VFS_MOUNTED_FS*
@@ -187,7 +174,7 @@ vfs_get_rootfs()
 	return NULL;
 }
 
-errorcode_t
+Result
 vfs_register_filesystem(VFSFileSystem& fs)
 {
 	SpinlockGuard g(Ananas::VFS::spl_fstypes);
@@ -196,22 +183,22 @@ vfs_register_filesystem(VFSFileSystem& fs)
 	for(auto& curfs: Ananas::VFS::fstypes) {
 		if (strcmp(curfs.fs_name, fs.fs_name) == 0) {
 			/* Duplicate filesystem type; refuse to register */
-			return ANANAS_ERROR(FILE_EXISTS);
+			return RESULT_MAKE_FAILURE(EEXIST);
 		}
 	}
 
 	/* Filesystem is clear; hook it up */
 	Ananas::VFS::fstypes.push_back(fs);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 vfs_unregister_filesystem(VFSFileSystem& fs)
 {
 	SpinlockGuard g(Ananas::VFS::spl_fstypes);
 
 	Ananas::VFS::fstypes.remove(fs);
-	return ananas_success();
+	return Result::Success();
 }
 
 #ifdef OPTION_KDB

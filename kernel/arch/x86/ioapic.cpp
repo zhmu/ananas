@@ -1,4 +1,3 @@
-#include <ananas/error.h>
 #include "kernel/x86/apic.h"
 #include "kernel/x86/ioapic.h"
 #include "kernel-md/vm.h"

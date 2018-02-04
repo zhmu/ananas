@@ -2,9 +2,10 @@
 #define __DEVICE_H__
 
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include <ananas/util/list.h>
 #include "kernel/lock.h"
+#include "kernel/result.h"
 #include "kernel/resourceset.h"
 
 typedef struct DEVICE* device_t;
@@ -58,41 +59,41 @@ class Transfer;
 
 class IDeviceOperations {
 public:
-	virtual errorcode_t Attach() = 0;
-	virtual errorcode_t Detach() = 0;
+	virtual Result Attach() = 0;
+	virtual Result Detach() = 0;
 	virtual void DebugDump() { }
 
-	virtual errorcode_t DeviceControl(Process& proc, unsigned int op, void* buffer, size_t len)
+	virtual Result DeviceControl(Process& proc, unsigned int op, void* buffer, size_t len)
 	{
-		return ananas_make_error(ANANAS_ERROR_UNSUPPORTED);
+		return Result::FromErrNo(EINVAL);
 	}
 };
 
 class ICharDeviceOperations {
 public:
-	virtual errorcode_t Write(const void* buffer, size_t& len, off_t offset)
+	virtual Result Write(const void* buffer, size_t& len, off_t offset)
 	{
-		return ananas_make_error(ANANAS_ERROR_UNSUPPORTED);
+		return Result::FromErrNo(EINVAL);
 	}
 
-	virtual errorcode_t Read(void* buffer, size_t& len, off_t offset)
+	virtual Result Read(void* buffer, size_t& len, off_t offset)
 	{
-		return ananas_make_error(ANANAS_ERROR_UNSUPPORTED);
+		return Result::FromErrNo(EINVAL);
 	}
 };
 
 class IBIODeviceOperations {
 public:
-	virtual errorcode_t ReadBIO(struct BIO& bio) = 0;
-	virtual errorcode_t WriteBIO(struct BIO& bio) = 0;
+	virtual Result ReadBIO(struct BIO& bio) = 0;
+	virtual Result WriteBIO(struct BIO& bio) = 0;
 };
 
 class IUSBDeviceOperations {
 public:
-	virtual errorcode_t SetupTransfer(USB::Transfer&) = 0;
-	virtual errorcode_t ScheduleTransfer(USB::Transfer&) = 0;
-	virtual errorcode_t CancelTransfer(USB::Transfer&) = 0;
-	virtual errorcode_t TearDownTransfer(USB::Transfer&) = 0;
+	virtual Result SetupTransfer(USB::Transfer&) = 0;
+	virtual Result ScheduleTransfer(USB::Transfer&) = 0;
+	virtual Result CancelTransfer(USB::Transfer&) = 0;
+	virtual Result TearDownTransfer(USB::Transfer&) = 0;
 	virtual void SetRootHub(USB::USBDevice&) = 0;
 };
 
@@ -109,7 +110,7 @@ public:
 		D_Out
 	};
 
-	virtual errorcode_t PerformSCSIRequest(int lun, Direction dir, const void* cb, size_t cb_len, void* result, size_t* result_len) = 0;
+	virtual Result PerformSCSIRequest(int lun, Direction dir, const void* cb, size_t cb_len, void* result, size_t* result_len) = 0;
 };
 
 struct CreateDeviceProperties
@@ -168,8 +169,8 @@ namespace DeviceManager {
 
 using DeviceList = ::device::DeviceList;
 
-errorcode_t AttachSingle(Device& device);
-errorcode_t Detach(Device& device);
+Result AttachSingle(Device& device);
+Result Detach(Device& device);
 Device* AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet);
 void AttachBus(Device& bus);
 Device* FindDevice(const char* name);

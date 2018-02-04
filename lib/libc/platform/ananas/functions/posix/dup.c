@@ -1,19 +1,15 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include <ananas/syscalls.h>
-#include <_posix/error.h>
-#include <string.h>
 #include <unistd.h>
+#include "_map_statuscode.h"
 
 int
 dup(int fildes)
 {
 	handleindex_t out;
-	errorcode_t err = sys_dupfd(fildes, 0, &out);
-	if (err != ANANAS_ERROR_NONE) {
-		_posix_map_error(err);
-		return -1;
-	}
+	statuscode_t status = sys_dupfd(fildes, 0, &out);
+	if (status != ananas_statuscode_success())
+		return map_statuscode(status);
 
 	return out;
 }

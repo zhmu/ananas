@@ -39,7 +39,7 @@ $AWK '
 ' < $1 > $2
 
 #
-# for the kernel, part 1, generate prototypes. i.e.
+# for the kernel/userland, part 1, generate prototypes. i.e.
 #
 #   1234 { void foo(int a, int b, int c)
 #
@@ -55,6 +55,14 @@ $AWK '
 		print " #define ARG_CURTHREAD Thread* curthread,"
 		print "#else"
 		print " #define ARG_CURTHREAD"
+		print " #ifdef __cplusplus"
+		print "  extern \"C\" {"
+		print " #endif"
+		print "#endif"
+	}
+	END {
+		print "#if !defined(KERNEL) && defined(__cplusplus)"
+		print "  }"
 		print "#endif"
 	}
 	/^#/ { next; }
@@ -69,12 +77,12 @@ $AWK '
 # for the kernel, part 2, generate function calls. i.e.
 #
 #   1234 { void foo(int a, int b, int c); }
-#   4321 { errorcode_t bar(int a); }
+#   4321 { Result errorcode_t bar(int a); }
 #
 # becomes
 #
-#   case 1234: sys_foo(curthread, (int)a->arg1, (int)a->arg2, (int)a->arg3); return ananas_success();
-#   case 4321: return (errorcode_t)sys_bar(curthread, (int)a->arg1);
+#   case 1234: sys_foo(curthread, (int)a->arg1, (int)a->arg2, (int)a->arg3); return Result::Success();
+#   case 4321: return sys_bar(curthread, (int)a->arg1);
 #
 $AWK '
 	/^#/ { next; }
@@ -100,8 +108,8 @@ $AWK '
 
 		print "case "$1": "
 		if ($3 == "void")
-			print "\tsys_" FUNCNAME "(" ARGS "); return ananas_success();"
+			print "\tsys_" FUNCNAME "(" ARGS "); return Result::Success();"
 		else
-			print "\treturn (register_t)sys_" FUNCNAME "(" ARGS ");"
+			print "\treturn sys_" FUNCNAME "(" ARGS ");"
 	}
 ' < $1 > $4

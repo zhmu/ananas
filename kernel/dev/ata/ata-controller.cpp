@@ -1,11 +1,11 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/bio.h"
 #include "kernel/dev/pci.h"
 #include "kernel/driver.h"
 #include "kernel/irq.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/x86/io.h"
 #include "kernel-md/vm.h" // XXX for KVTOP, which should be removed
@@ -390,18 +390,9 @@ ATAController::Enqueue(void* request)
 	spinlock_unlock(&spl_requests);
 }
 
-errorcode_t
+Result
 ATAController::Attach()
 {
-#if 0
-	int irq;
-	switch(d_Unit) {
-		case 0: ata_io = 0x1f0; ata_io_alt = 0x3f4; irq = 14; break;
-		case 1: ata_io = 0x170; ata_io_alt = 0x374; irq = 15; break;
-		default: return ANANAS_ERROR(NO_RESOURCE);
-	}
-#endif
-
 	// Grab our resources
 	int irq;
 	{
@@ -410,7 +401,7 @@ ATAController::Attach()
 		void* res_io3 = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IO, 16, 2);
 		void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 		if (res_io1 == nullptr || res_io2 == nullptr || res_io3 == nullptr || res_irq == nullptr)
-			return ANANAS_ERROR(NO_RESOURCE);
+			return RESULT_MAKE_FAILURE(ENODEV);
 		ata_io = (uint32_t)(uintptr_t)res_io1;
 		ata_io_alt = (uint32_t)(uintptr_t)res_io2;
 		ata_dma_io = (uint32_t)(uintptr_t)res_io3;
@@ -422,10 +413,11 @@ ATAController::Attach()
 
 	/* Ensure there's something living at the I/O addresses */
 	if (inb(ata_io + ATA_REG_STATUS) == 0xff)
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
-	errorcode_t err = irq_register(irq, this, IRQWrapper, IRQ_TYPE_DEFAULT, NULL);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		irq_register(irq, this, IRQWrapper, IRQ_TYPE_DEFAULT, NULL)
+	);
 
 	/* Initialize a freelist of request items */
 	QUEUE_INIT(&freelist);
@@ -481,14 +473,14 @@ ATAController::Attach()
 		Ananas::DeviceManager::AttachSingle(*sub_device);
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 ATAController::Detach()
 {
 	panic("detach");
-	return ananas_success();
+	return Result::Success();
 }
 
 namespace {

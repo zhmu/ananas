@@ -1,44 +1,52 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "kernel/handle.h"
 #include "kernel/trace.h"
+#include "kernel/result.h"
 #include "kernel/vm.h"
 #include "syscall.h"
 
 TRACE_SETUP;
 
-errorcode_t
+Result
 sys_read(Thread* t, handleindex_t hindex, void* buf, size_t* len)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, hindex=%u, buf=%p, len=%p", t, hindex, buf, len);
-	errorcode_t err;
 
 	/* Get the handle */
 	struct HANDLE* h;
-	err = syscall_get_handle(*t, hindex, &h);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		syscall_get_handle(*t, hindex, &h)
+	);
 
 	/* Fetch the size operand */
 	size_t size;
-	err = syscall_fetch_size(*t, len, &size);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		syscall_fetch_size(*t, len, &size)
+	);
 
 	/* Attempt to map the buffer write-only */
 	void* buffer;
-	err = syscall_map_buffer(*t, buf, size, VM_FLAG_WRITE, &buffer);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		syscall_map_buffer(*t, buf, size, VM_FLAG_WRITE, &buffer)
+	);
 
 	/* And read data to it */
-	if (h->h_hops->hop_read != NULL)
-		err = h->h_hops->hop_read(t, hindex, h, buf, &size);
-	else
-		err = ANANAS_ERROR(BAD_OPERATION);
+	Result result = RESULT_MAKE_FAILURE(EINVAL);
+	if (h->h_hops->hop_read != NULL) {
+		RESULT_PROPAGATE_FAILURE(
+			h->h_hops->hop_read(t, hindex, h, buf, &size)
+		);
+	} else {
+		return RESULT_MAKE_FAILURE(EINVAL);
+	}
 
 	/* Finally, inform the user of the length read - the read went OK */
-	err = syscall_set_size(*t, len, size);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		syscall_set_size(*t, len, size)
+	);
 
 	TRACE(SYSCALL, FUNC, "t=%p, success: size=%u", t, size);
-	return err;
+	return Result::Success();
 }
 

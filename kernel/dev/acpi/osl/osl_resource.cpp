@@ -1,9 +1,9 @@
-#include <ananas/error.h>
 #include "kernel/device.h"
 #include "kernel/irq.h"
 #include "kernel/kmem.h"
 #include "kernel/mm.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "kernel/vm.h"
 #include "kernel/x86/io.h"
 #include "kernel/x86/pcihb.h"
@@ -30,8 +30,7 @@ AcpiOsInstallInterruptHandler(UINT32 InterruptLevel, ACPI_OSD_HANDLER Handler, v
 	info->i_handler = Handler;
 	info->i_context = Context;
 
-	errorcode_t err = irq_register(InterruptLevel, NULL, acpi_irq_wrapper, IRQ_TYPE_DEFAULT, info);
-	if (ananas_is_failure(err)) {
+	if (auto result = irq_register(InterruptLevel, NULL, acpi_irq_wrapper, IRQ_TYPE_DEFAULT, info); result.IsFailure()) {
 		kfree(info);
 		return AE_BAD_PARAMETER;
 	}

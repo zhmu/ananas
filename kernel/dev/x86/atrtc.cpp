@@ -1,7 +1,7 @@
-#include <ananas/error.h>
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lock.h"
+#include "kernel/result.h"
 #include "kernel/time.h"
 #include "kernel/trace.h"
 #include "kernel/x86/io.h"
@@ -40,8 +40,8 @@ public:
 		return *this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
 protected:
 	uint8_t ReadRegister(int reg);
@@ -59,12 +59,12 @@ ATRTC::ReadRegister(int reg)
 	return inb(atrtc_ioport + 1);
 }
 
-errorcode_t
+Result
 ATRTC::Attach()
 {
 	void* res_io = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IO, 2);
 	if (res_io == NULL)
-		return ANANAS_ERROR(NO_RESOURCE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
 	atrtc_ioport = (uintptr_t)res_io;
 
@@ -97,14 +97,14 @@ ATRTC::Attach()
 	Printf("time: %02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
 #endif
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 ATRTC::Detach()
 {
 	panic("detach");
-	return ananas_success();
+	return Result::Success();
 }
 
 struct ATRTC_Driver : public Ananas::Driver

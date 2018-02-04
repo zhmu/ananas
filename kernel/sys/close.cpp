@@ -1,24 +1,26 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/handle.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "syscall.h"
 
 TRACE_SETUP;
 
-errorcode_t
+Result
 sys_close(Thread* t, handleindex_t hindex)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, hindex=%p", t, hindex);
 
 	struct HANDLE* h;
-	errorcode_t err = syscall_get_handle(*t, hindex, &h);
-	ANANAS_ERROR_RETURN(err);
-	err = handle_free(h);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		syscall_get_handle(*t, hindex, &h)
+	);
+	RESULT_PROPAGATE_FAILURE(
+		handle_free(h)
+	);
 
 	TRACE(SYSCALL, INFO, "t=%p, success", t);
-	return err;
+	return Result::Success();
 }
 

@@ -1,8 +1,8 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/driver.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "hda.h"
 
@@ -90,7 +90,7 @@ HDADevice::OnStreamIRQ(IHDAFunctions::Context ctx)
 #endif
 }
 
-errorcode_t
+Result
 HDADevice::Attach()
 {
 	KASSERT(hdaFunctions != nullptr, "HDADevice::Attach() without hdaFunctions!");
@@ -98,7 +98,7 @@ HDADevice::Attach()
 	uint16_t codec_mask = hdaFunctions->GetAndClearStateChange();
 	if (codec_mask == 0) {
 		Printf("no codecs present, aborting attach");
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 	for (unsigned int cad = 0; cad <= 15; cad++) {
@@ -106,14 +106,15 @@ HDADevice::Attach()
 			continue; // no codec on this address
 
 		/* Attach the root node - it will recurse to subnodes if needed */
-		errorcode_t err = AttachNode(cad, 0);		
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			AttachNode(cad, 0)
+		);
 	}
 
 #if DEMO_PLAY
 	AFG* afg = hda_afg;
 	if (afg == NULL || afg->afg_outputs.empty())
-		return ANANAS_ERROR(NO_DEVICE); /* XXX can this happen? */
+		return RESULT_MAKE_FAILURE(ENODEV); /* XXX can this happen? */
 
 	/* Let's play something! */
 	Output* o = NULL;
@@ -128,13 +129,13 @@ HDADevice::Attach()
 	}
 	if (o == NULL) {
 		kprintf("cannot find 2-channel output, aborting\n");
-		return ananas_success();
+		return Result::Success();
 	}
 
 	RoutingPlan* rp;
-	errorcode_t err = RouteOutput(*afg, o->o_channels, *o, &rp);
-	if (ananas_is_failure(err))
-		return err;
+	RESULT_PROPAGATE_FAILURE(
+		RouteOutput(*afg, o->o_channels, *o, &rp)
+	);
 
 	IHDAFunctions::Context contexts[10]; /* XXX */
 	int num_contexts = 0;
@@ -149,21 +150,26 @@ HDADevice::Attach()
 
 		/* hook stream up to output 2 */
 		uint32_t r;
-		err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETCONVCONTROL,
-		 HDA_CODEC_CONVCONTROL_STREAM(tag) | HDA_CODEC_CONVCONTROL_CHANNEL(0)
-		)), &r, NULL);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETCONVCONTROL,
+			 HDA_CODEC_CONVCONTROL_STREAM(tag) | HDA_CODEC_CONVCONTROL_CHANNEL(0)
+			)), &r, NULL);
+		);
 
 		/* set stream format: 48.0Hz, 16-bit stereo  */
-		int stream_fmt = STREAM_TYPE_PCM | STREAM_BASE_48_0 | STREAM_MULT_x1 | STREAM_DIV_1 | STREAM_BITS_16 | STREAM_CHANNELS(1);
-		err = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_CONV_FORMAT, stream_fmt)), &r, NULL);
-		ANANAS_ERROR_RETURN(err);
+		{
+			int stream_fmt = STREAM_TYPE_PCM | STREAM_BASE_48_0 | STREAM_MULT_x1 | STREAM_DIV_1 | STREAM_BITS_16 | STREAM_CHANNELS(1);
+			RESULT_PROPAGATE_FAILURE(
+				hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_CONV_FORMAT, stream_fmt)), &r, NULL)
+			);
+		}
 
 		/* open a stream to play things */
 		IHDAFunctions::Context ctx;
 		int num_pages = 64;
-		err = hdaFunctions->OpenStream(tag, HDF_DIR_OUT, stream_fmt, num_pages, &ctx);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			hdaFunctions->OpenStream(tag, HDF_DIR_OUT, stream_fmt, num_pages, &ctx)
+		);
 
 		/* Fill the stream with silence */
 		cur_stream_offset = 0;
@@ -182,17 +188,18 @@ HDADevice::Attach()
 	mutex_init(&play_mtx, "play");
 	sem_init(&play_sem, 0);
 
-	err = hdaFunctions->StartStreams(num_contexts, contexts);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		hdaFunctions->StartStreams(num_contexts, contexts)
+	);
 #endif
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 HDADevice::Detach()
 {
 	panic("detach");
-	return ananas_success();
+	return Result::Success();
 }
 
 namespace {

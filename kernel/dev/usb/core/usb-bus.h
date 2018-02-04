@@ -28,8 +28,8 @@ public:
 		return *this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
 	bool bus_NeedsExplore = false;
 
@@ -40,7 +40,7 @@ public:
 
 	void ScheduleExplore();
 	void Explore();
-	errorcode_t DetachHub(Hub& hub);
+	Result DetachHub(Hub& hub);
 
 	void Lock()
 	{

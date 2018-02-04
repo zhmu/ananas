@@ -1,8 +1,9 @@
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "kernel/console.h"
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "options.h"
 #ifdef OPTION_DEBUG_CONSOLE
@@ -38,7 +39,7 @@ kdb_resolve_argtype(const char* q)
 	}
 }
 
-errorcode_t
+Result
 kdb_register_command(KDBCommand& cmd)
 {
 	if(cmd.cmd_command == nullptr) {
@@ -66,7 +67,7 @@ kdb_register_command(KDBCommand& cmd)
 				const char* p = strchr(a, ']');
 				if (p == NULL || p >= end) {
 					kprintf("KDB: command '%s' rejected, end of argument not found (%s)\n", cmd.cmd_command, a);
-					return ANANAS_ERROR(BAD_TYPE);
+					return RESULT_MAKE_FAILURE(EINVAL);
 				}
 				a++; /* skip [ */
 				end = p + 1; /* skip ] */
@@ -74,24 +75,24 @@ kdb_register_command(KDBCommand& cmd)
 			} else {
 				if (have_opt) {
 					kprintf("KDB: command '%s' rejected, required arguments after optional ones (%s)\n", cmd.cmd_command, a);
-					return ANANAS_ERROR(BAD_TYPE);
+					return RESULT_MAKE_FAILURE(EINVAL);
 				}
 			}
 
 			const char* split = strchr(a, ':');
 			if (split == NULL || split >= end) {
 				kprintf("KDB: command '%s' rejected, type/description split not found\n", cmd.cmd_command);
-				return ANANAS_ERROR(BAD_TYPE);
+				return RESULT_MAKE_FAILURE(EINVAL);
 			}
 
 			if (split - a != 1) {
 				kprintf("KDB: command '%s' rejected, expected a single type char, got '%s'\n", cmd.cmd_command, a);
-				return ANANAS_ERROR(BAD_TYPE);
+				return RESULT_MAKE_FAILURE(EINVAL);
 			}
 
 			if (kdb_resolve_argtype(a) == T_INVALID) {
 				kprintf("KDB: command '%s' rejected, invalid type '%s'\n", cmd.cmd_command, a);
-				return ANANAS_ERROR(BAD_TYPE);
+				return RESULT_MAKE_FAILURE(EINVAL);
 			}
 
 			/* Skip this command and go to the next, ignoring extra spaces */
@@ -101,7 +102,7 @@ kdb_register_command(KDBCommand& cmd)
 		}
 	}
 	kdb_commands.push_back(cmd);
-	return ananas_success();
+	return Result::Success();
 }
 
 KDB_COMMAND(help, NULL, "Displays this help")
@@ -133,11 +134,11 @@ KDB_COMMAND(exit, NULL, "Leaves the debugger")
 	kdb_active = 0;
 }
 
-static errorcode_t
+static Result
 kdb_init()
 {
 	/* XXX We should sort the entries here */
-	return ananas_success();
+	return Result::Success();
 }
 
 INIT_FUNCTION(kdb_init, SUBSYSTEM_KDB, ORDER_LAST);
@@ -180,8 +181,8 @@ kdb_get_line(char* line, int max_len)
 	/* NOTREACHED */
 #else
 	size_t len = KDB_MAX_LINE;
-	errorcode_t err = device_read(console_tty, line, &len, 0);
-	KASSERT(ananas_is_success(err), "tty read failed with error %i", err);
+	auto result = device_read(console_tty, line, &len, 0);
+	KASSERT(result.IsSuccess(), "tty read failed with error %i", result.AsStatusCode());
 	KASSERT(len > 0, "tty read returned without data");
 	line[len] = '\0';
 	return len;

@@ -33,8 +33,8 @@ public:
 	Pipe(const Pipe&) = delete;
 	Pipe& operator=(const Pipe&) = delete;
 
-	errorcode_t Start();
-	errorcode_t Stop();
+	Result Start();
+	Result Stop();
 
 	USBDevice& p_dev;
 	Endpoint& p_ep;
@@ -78,10 +78,10 @@ public:
 	/* Pending transfers for this device */
 	PendingTransferList ud_transfers;		/* [M] */
 
-	errorcode_t Attach();
-	errorcode_t Detach(); // called with bus lock held
+	Result Attach();
+	Result Detach(); // called with bus lock held
 
-	errorcode_t AllocatePipe(int num, int type, int dir, size_t maxlen, IPipeCallback& callback, Pipe*& pipe);
+	Result AllocatePipe(int num, int type, int dir, size_t maxlen, IPipeCallback& callback, Pipe*& pipe);
 	void FreePipe(Pipe& pipe);
 
 	void Lock()
@@ -99,7 +99,7 @@ public:
 		ud_mutex.AssertLocked();
 	}
 
-	errorcode_t PerformControlTransfer(int req, int recipient, int type, int value, int index, void* buf, size_t* len, bool write);
+	Result PerformControlTransfer(int req, int recipient, int type, int value, int index, void* buf, size_t* len, bool write);
 
 private:
 	void FreePipe_Locked(Pipe& pipe);

@@ -22,13 +22,13 @@
  * they won't overflow for now.
  */
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/dev/pci.h"
 #include "kernel/dma.h"
 #include "kernel/driver.h"
 #include "kernel/irq.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/time.h"
 #include "kernel/trace.h"
 #include "../core/usb-core.h"
@@ -353,8 +353,7 @@ OHCI::HCD_TD*
 OHCI_HCD::AllocateTD()
 {
 	dma_buf_t buf;
-	errorcode_t err = dma_buf_alloc(d_DMA_tag, sizeof(struct OHCI::HCD_TD), &buf);
-	if (ananas_is_failure(err))
+	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct OHCI::HCD_TD), &buf); result.IsFailure())
 		return nullptr;
 
 	auto td = static_cast<struct OHCI::HCD_TD*>(dma_buf_get_segment(buf, 0)->s_virt);
@@ -367,8 +366,7 @@ OHCI::HCD_ED*
 OHCI_HCD::AllocateED()
 {
 	dma_buf_t buf;
-	errorcode_t err = dma_buf_alloc(d_DMA_tag, sizeof(struct OHCI::HCD_ED), &buf);
-	if (ananas_is_failure(err))
+	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct OHCI::HCD_ED), &buf); result.IsFailure())
 		return nullptr;
 
 	auto ed = static_cast<struct OHCI::HCD_ED*>(dma_buf_get_segment(buf, 0)->s_virt);
@@ -429,14 +427,14 @@ OHCI_HCD::SetupED(Transfer& xfer)
 	return ed;
 }
 
-errorcode_t
+Result
 OHCI_HCD::SetupTransfer(Transfer& xfer)
 {
 	auto& usb_dev = xfer.t_device;
 
 	/* If this is the root hub, there's nothing to set up */
 	if (usb_dev.ud_flags & USB_DEVICE_FLAG_ROOT_HUB)
-		return ananas_success();
+		return Result::Success();
 
 	/*
 	 * Create the endpoint descriptor; this is where we'll chain transfers to. We
@@ -450,10 +448,10 @@ OHCI_HCD::SetupTransfer(Transfer& xfer)
 	Lock();
 	ohci_active_eds.push_back(*ed);
 	Unlock();
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 OHCI_HCD::TearDownTransfer(Transfer& xfer)
 {
 	auto& usb_dev = xfer.t_device;
@@ -461,7 +459,7 @@ OHCI_HCD::TearDownTransfer(Transfer& xfer)
 
 	auto ed = static_cast<OHCI::HCD_ED*>(xfer.t_hcd);
 	if (ed == nullptr)
-		return ananas_success();
+		return Result::Success();
 
 	/* First of all, ensure the ED is marked as sKip in hopes the HC won't touch it */
 	ed->ed_ed.ed_flags |= OHCI_ED_K;
@@ -481,7 +479,7 @@ OHCI_HCD::TearDownTransfer(Transfer& xfer)
 	/* Finally, we can kill the ED itself XXX We should ensure it's no longer used */
 	FreeED(ed);
 	xfer.t_hcd = nullptr;
-	return ananas_success();
+	return Result::Success();
 }
 
 void
@@ -589,7 +587,7 @@ OHCI_HCD::CreateTDs(Transfer& xfer)
 }
 
 /* We assume the USB device and transfer are locked here */
-errorcode_t
+Result
 OHCI_HCD::ScheduleTransfer(Transfer& xfer)
 {
 	auto& usb_dev = xfer.t_device;
@@ -630,11 +628,11 @@ OHCI_HCD::ScheduleTransfer(Transfer& xfer)
 			panic("implement type %d", xfer.t_type);
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
 /* We assume the USB device and transfer are locked here */
-errorcode_t
+Result
 OHCI_HCD::CancelTransfer(Transfer& xfer)
 {
 	auto& usb_dev = xfer.t_device;
@@ -648,15 +646,16 @@ OHCI_HCD::CancelTransfer(Transfer& xfer)
 	/* XXX we should see if we're still running it */
 	OHCI::FreeTDsFromTransfer(xfer);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 OHCI_HCD::Setup()
 {
 	/* Allocate and initialize the HCCA structure */
-	errorcode_t err = dma_buf_alloc(d_DMA_tag, sizeof(struct OHCI_HCCA), &ohci_hcca_buf);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		dma_buf_alloc(d_DMA_tag, sizeof(struct OHCI_HCCA), &ohci_hcca_buf)
+	);
 	ohci_hcca = static_cast<struct OHCI_HCCA*>(dma_buf_get_segment(ohci_hcca_buf, 0)->s_virt);
 	memset(ohci_hcca, 0, sizeof(struct OHCI_HCCA));
 
@@ -692,39 +691,42 @@ OHCI_HCD::Setup()
 
 	ohci_control_ed->ed_ed.ed_flags = OHCI_ED_K;
 	ohci_bulk_ed->ed_ed.ed_flags = OHCI_ED_K;
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 OHCI_HCD::Attach()
 {
 	void* res_mem = d_ResourceSet.AllocateResource(Ananas::Resource::RT_Memory, 4096);
 	void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 
 	if (res_mem == nullptr || res_irq == nullptr)
-		return ANANAS_ERROR(NO_RESOURCE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	pci_enable_busmaster(*this, 1);
 
 	/* See if the revision makes sense; if not, we can't attach to this */
 	uint32_t rev = *(volatile uint32_t*)((char*)res_mem + OHCI_HCREVISION);
 	if (OHCI_REVISION(rev) != 0x10) {
 		Printf("unsupported revision 0x%x", OHCI_REVISION(rev));
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 	/* Allocate DMA tags */
-  errorcode_t err = dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, 1, DMA_SEGS_MAX_SIZE);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, 1, DMA_SEGS_MAX_SIZE)
+	);
 
 	ohci_Resources = OHCI::HCD_Resources(static_cast<uint8_t*>(res_mem));
 
 	/* Set up the interrupt handler */
-	err = irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_DEFAULT, NULL);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_DEFAULT, NULL)
+	);
 
 	/* Initialize the structures */
-	err = Setup();
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		Setup()
+	);
 
 	if (ohci_Resources.Read4(OHCI_HCCONTROL) & OHCI_CONTROL_IR) {
 		/* Controller is in SMM mode - we need to ask it to stop doing that */
@@ -734,13 +736,13 @@ OHCI_HCD::Attach()
 			n--; /* XXX kludge; should use a real timeout mechanism */
 		if (n == 0) {
 			Printf("stuck in smm, giving up");
-			return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 		}
 	}
 
 	/* Kludge: force reset state */
 	ohci_Resources.Write4(OHCI_HCCONTROL, OHCI_CONTROL_HCFS(OHCI_HCFS_USBRESET));
-	
+
 	/* Save contents of 'frame interval' and reset the HC */
 	uint32_t fi = OHCI_FM_FI(ohci_Resources.Read4(OHCI_HCFMINTERVAL));
 	ohci_Resources.Write4(OHCI_HCCOMMANDSTATUS, OHCI_CS_HCR);
@@ -753,7 +755,7 @@ OHCI_HCD::Attach()
 	}
 	if (n == 0) {
 		Printf("stuck in reset, giving up");
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 	/* Now in USBSUSPEND state -> we have 2ms to continue */
 
@@ -793,14 +795,14 @@ OHCI_HCD::Attach()
 	delay(10);
 	ohci_Resources.Write4(OHCI_HCRHDESCRIPTORA, a);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 OHCI_HCD::Detach()
 {
 	panic("Detach");
-	return ananas_success();
+	return Result::Success();
 }
 
 void
@@ -808,8 +810,8 @@ OHCI_HCD::SetRootHub(USB::USBDevice& dev)
 {
 	KASSERT(ohci_RootHub == nullptr, "roothub is already set");
 	ohci_RootHub = new OHCI::RootHub(ohci_Resources, dev);
-	errorcode_t err = ohci_RootHub->Initialize();
-	(void)err; // XXX check error
+	auto result = ohci_RootHub->Initialize();
+	(void)result; // XXX check error
 }
 
 namespace {

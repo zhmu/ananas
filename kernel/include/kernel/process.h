@@ -7,6 +7,7 @@
 
 struct DEntry;
 struct PROCINFO;
+class Result;
 
 struct Thread;
 class VMSpace;
@@ -46,7 +47,7 @@ typedef util::List<::Process, internal::ProcessAllNodeAccessor<::Process> > Chil
 typedef util::List<::Process, internal::ProcessChildrenNodeAccessor<::Process> > ProcessList;
 
 // Callbacks so we can organise things when needed
-typedef errorcode_t (*process_callback_t)(Process& proc);
+typedef Result (*process_callback_t)(Process& proc);
 struct Callback : util::List<Callback>::NodePtr {
 	Callback(process_callback_t func) : pc_func(func) { }
 	process_callback_t pc_func;
@@ -94,15 +95,15 @@ private:
 	Mutex p_lock{"plock"};	/* Locks the process */
 };
 
-errorcode_t process_alloc(Process* parent, Process*& dest);
+Result process_alloc(Process* parent, Process*& dest);
 
 void process_ref(Process& p);
 void process_deref(Process& p);
 void process_exit(Process& p, int status);
-errorcode_t process_set_args(Process& p, const char* args, size_t args_len);
-errorcode_t process_set_environment(Process& p, const char* env, size_t env_len);
-errorcode_t process_clone(Process& p, int flags, Process*& out_p);
-errorcode_t process_wait_and_lock(Process& p, int flags, Process*& p_out);
+Result process_set_args(Process& p, const char* args, size_t args_len);
+Result process_set_environment(Process& p, const char* env, size_t env_len);
+Result process_clone(Process& p, int flags, Process*& out_p);
+Result process_wait_and_lock(Process& p, int flags, Process*& p_out);
 Process* process_lookup_by_id_and_ref(pid_t pid);
 
 /*
@@ -110,17 +111,17 @@ Process* process_lookup_by_id_and_ref(pid_t pid);
  * creating or destroying of processes.
  */
 
-errorcode_t process_register_init_func(process::Callback& pc);
-errorcode_t process_register_exit_func(process::Callback& pc);
-errorcode_t process_unregister_init_func(process::Callback& pc);
-errorcode_t process_unregister_exit_func(process::Callback& pc);
+Result process_register_init_func(process::Callback& pc);
+Result process_register_exit_func(process::Callback& pc);
+Result process_unregister_init_func(process::Callback& pc);
+Result process_unregister_exit_func(process::Callback& pc);
 
 #define REGISTER_PROCESS_INIT_FUNC(fn) \
 	static process::Callback cb_init_##fn(fn); \
-	static errorcode_t register_##fn() { \
+	static Result register_##fn() { \
 		return process_register_init_func(cb_init_##fn); \
 	} \
-	static errorcode_t unregister_##fn() { \
+	static Result unregister_##fn() { \
 		return process_unregister_init_func(cb_init_##fn); \
 	} \
 	INIT_FUNCTION(register_##fn, SUBSYSTEM_THREAD, ORDER_FIRST); \
@@ -128,10 +129,10 @@ errorcode_t process_unregister_exit_func(process::Callback& pc);
 
 #define REGISTER_PROCESS_EXIT_FUNC(fn) \
 	static process::Callback cb_exit_##fn(fn); \
-	static errorcode_t register_##fn() { \
+	static Result register_##fn() { \
 		return process_register_exit_func(cb_exit_##fn); \
 	} \
-	static errorcode_t unregister_##fn() { \
+	static Result unregister_##fn() { \
 		return process_unregister_exit_func(cb_exit_##fn); \
 	} \
 	INIT_FUNCTION(register_##fn, SUBSYSTEM_THREAD, ORDER_FIRST); \

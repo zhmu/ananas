@@ -1,7 +1,8 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel/x86/apic.h"
@@ -35,12 +36,12 @@ map_device(addr_t phys)
 	return static_cast<T>(va);
 }
 
-errorcode_t
+Result
 acpi_smp_init(int* bsp_apic_id)
 {
 	ACPI_TABLE_MADT* madt;
 	if (ACPI_FAILURE(AcpiGetTable(const_cast<char*>(ACPI_SIG_MADT), 0, (ACPI_TABLE_HEADER**)&madt)))
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
 	/*
 	 * The MADT doesn't tell us which CPU is the BSP, but we do know it is our
@@ -156,7 +157,7 @@ acpi_smp_init(int* bsp_apic_id)
 		}
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
 /* vim:set ts=2 sw=2: */

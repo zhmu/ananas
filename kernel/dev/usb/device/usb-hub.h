@@ -38,9 +38,9 @@ public:
 		return this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
-	errorcode_t ResetPort(int n);
+	Result Attach() override;
+	Result Detach() override;
+	Result ResetPort(int n);
 	void HandleExplore() override;
 
 protected:

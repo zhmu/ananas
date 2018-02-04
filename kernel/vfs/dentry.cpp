@@ -8,12 +8,12 @@
  * them if we really need to.
  */
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/init.h"
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/types.h"
 #include "kernel/vfs/dentry.h"
@@ -44,7 +44,7 @@ inline void dcache_assert_locked()
 	dcache_mtx.AssertLocked();
 }
 
-errorcode_t
+Result
 dcache_init()
 {
 	/*
@@ -57,7 +57,7 @@ dcache_init()
 			dcache_free.push_back(*dentry);
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
 DEntry*

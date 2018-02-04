@@ -1,11 +1,11 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/endian.h"
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"
@@ -106,11 +106,11 @@ public:
 	void OnPipeInCallback();
 	void OnPipeOutCallback();
 
-	errorcode_t PerformSCSIRequest(int lun, ISCSIDeviceOperations::Direction dir, const void* cb, size_t cb_len, void* result, size_t* result_len) override;
+	Result PerformSCSIRequest(int lun, ISCSIDeviceOperations::Direction dir, const void* cb, size_t cb_len, void* result, size_t* result_len) override;
 
 protected:
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
 private:
 	void Lock()
@@ -137,7 +137,7 @@ private:
 	size_t us_output_filled = 0;
 	size_t us_output_len = 0;
 	/* Most recent CSW received */
-	errorcode_t* us_result_ptr = nullptr;
+	Result* us_result_ptr = nullptr;
 	struct USBSTORAGE_CSW* us_csw_ptr = nullptr;
 
 	/* Signalled when the CSW is received */
@@ -159,14 +159,13 @@ USBStorage::USBStorage(const Ananas::CreateDeviceProperties& cdp)
 {
 }
 
-errorcode_t
+Result
 USBStorage::PerformSCSIRequest(int lun, Direction dir, const void* cb, size_t cb_len, void* result, size_t* result_len)
 {
 	KASSERT(result_len == nullptr || result != nullptr, "result_len without result?");
 	DPRINTF("dir %d len %d cb_len %d result_len %d", dir, lun, cb_len, result_len ? *result_len : -1);
 
 	struct USBSTORAGE_CSW csw;
-	errorcode_t err = ANANAS_ERROR(UNKNOWN);
 
 	/* Create the command-block-wrapper */
 	struct USBSTORAGE_CBW cbw;
@@ -201,7 +200,8 @@ USBStorage::PerformSCSIRequest(int lun, Direction dir, const void* cb, size_t cb
 	us_output_buffer = result;
 	us_output_filled = 0;
 	us_output_len = (result_len != NULL) ? *result_len : 0;
-	us_result_ptr = &err;
+	Result r = RESULT_MAKE_FAILURE(EIO);
+	us_result_ptr = &r;
 	us_csw_ptr = &csw;
 	/* Now, submit the request */
 	us_BulkOut->p_xfer.t_length = sizeof(cbw);
@@ -212,19 +212,19 @@ USBStorage::PerformSCSIRequest(int lun, Direction dir, const void* cb, size_t cb
 
 	/* Now we wait for the signal ... */
 	us_signal_sem.WaitAndDrain();
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(r);
 
 	/* See if the CSW makes sense */
 	if (csw.d_csw_signature != USBSTORAGE_CSW_SIGNATURE)
-		return ANANAS_ERROR(IO);
+		return RESULT_MAKE_FAILURE(EIO);
 	if (csw.d_csw_tag != cbw.d_cbw_tag)
-		return ANANAS_ERROR(IO);
+		return RESULT_MAKE_FAILURE(EIO);
 	if (csw.d_csw_status != USBSTORAGE_CSW_STATUS_GOOD) {
 		DPRINTF("device rejected request: %d", csw.d_csw_status);
-		return ANANAS_ERROR(IO);
+		return RESULT_MAKE_FAILURE(EIO);
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
 /* Called when data flows from the device -> us */
@@ -258,10 +258,10 @@ USBStorage::OnPipeInCallback()
 	} else if (us_csw_ptr != nullptr && us_result_ptr != nullptr) {
 		if (len != sizeof(struct USBSTORAGE_CSW)) {
 			Printf("invalid csw length (expected %d got %d)", sizeof(struct USBSTORAGE_CSW), len);
-			*us_result_ptr = ANANAS_ERROR(BAD_LENGTH);
+			*us_result_ptr = RESULT_MAKE_FAILURE(EIO);
 		} else {
 			memcpy(us_csw_ptr, &xfer.t_data[0], len);
-			*us_result_ptr = ananas_success();
+			*us_result_ptr = Result::Success();
 		}
 		us_result_ptr = nullptr;
 		us_csw_ptr = nullptr;
@@ -286,7 +286,7 @@ USBStorage::OnPipeOutCallback()
 	us_BulkIn->Start();
 }
 
-errorcode_t
+Result
 USBStorage::Attach()
 {
 	us_Device = static_cast<Ananas::USB::USBDevice*>(d_ResourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
@@ -297,8 +297,8 @@ USBStorage::Attach()
 	 */
 	uint8_t max_lun;
 	size_t len = sizeof(max_lun);
-	errorcode_t err = us_Device->PerformControlTransfer(USB_CONTROL_REQUEST_GET_MAX_LUN, USB_CONTROL_RECIPIENT_INTERFACE, USB_CONTROL_TYPE_CLASS, USB_REQUEST_MAKE(0, 0), 0, &max_lun, &len, false);
-	if (ananas_is_failure(err) || len != sizeof(max_lun))
+	auto result = us_Device->PerformControlTransfer(USB_CONTROL_REQUEST_GET_MAX_LUN, USB_CONTROL_RECIPIENT_INTERFACE, USB_CONTROL_TYPE_CLASS, USB_REQUEST_MAKE(0, 0), 0, &max_lun, &len, false);
+	if (result.IsFailure() || len != sizeof(max_lun))
 		max_lun = 0;
 	us_max_lun = max_lun;
 
@@ -307,19 +307,19 @@ USBStorage::Attach()
 	 * say in which order they are. To cope, we'll just try both.
 	 */
 	int outep_index = 1;
-	err = us_Device->AllocatePipe(0, TRANSFER_TYPE_BULK, EP_DIR_IN, 0, us_PipeInCallback, us_BulkIn);
-	if (ananas_is_failure(err)) {
-		err = us_Device->AllocatePipe(1, TRANSFER_TYPE_BULK, EP_DIR_IN, 0, us_PipeInCallback, us_BulkIn);
+	result = us_Device->AllocatePipe(0, TRANSFER_TYPE_BULK, EP_DIR_IN, 0, us_PipeInCallback, us_BulkIn);
+	if (result.IsFailure()) {
+		result = us_Device->AllocatePipe(1, TRANSFER_TYPE_BULK, EP_DIR_IN, 0, us_PipeInCallback, us_BulkIn);
 		outep_index = 0;
 	}
-	if (ananas_is_failure(err)) {
+	if (result.IsFailure()) {
 		Printf("no bulk/in endpoint present");
-		return ANANAS_ERROR(NO_RESOURCE);
+		return result;
 	}
-	err = us_Device->AllocatePipe(outep_index, TRANSFER_TYPE_BULK, EP_DIR_OUT, 0, us_PipeOutCallback, us_BulkOut);
-	if (ananas_is_failure(err)) {
+	result = us_Device->AllocatePipe(outep_index, TRANSFER_TYPE_BULK, EP_DIR_OUT, 0, us_PipeOutCallback, us_BulkOut);
+	if (result.IsFailure()) {
 		Printf("no bulk/out endpoint present");
-		return ANANAS_ERROR(NO_RESOURCE);
+		return result;
 	}
 
 	// Now create SCSI disks for all LUN's here
@@ -334,14 +334,14 @@ USBStorage::Attach()
 		Ananas::DeviceManager::AttachSingle(*sub_device);
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 USBStorage::Detach()
 {
 	if (us_Device == nullptr)
-		return ananas_success();
+		return Result::Success();
 
 	if (us_BulkIn != nullptr)
 		us_Device->FreePipe(*us_BulkIn);
@@ -350,7 +350,7 @@ USBStorage::Detach()
 	if (us_BulkOut != nullptr)
 		us_Device->FreePipe(*us_BulkOut);
 	us_BulkOut = nullptr;
-	return ananas_success();
+	return Result::Success();
 }
 
 struct USBStorage_Driver : public Ananas::Driver

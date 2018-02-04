@@ -25,7 +25,6 @@ char* strdup(const char* s);
 
 void* memset(void* s, int c, size_t n);
 void memcpy(void* d, const void* s, size_t n);
-extern "C" errorcode_t sys_vmop(struct VMOP_OPTIONS* vo);
 
 extern "C" int open(const char* path, int flags, ...);
 extern "C" int close(int fd);

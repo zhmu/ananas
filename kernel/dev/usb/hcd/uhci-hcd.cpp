@@ -17,7 +17,6 @@
  * runs out; this allows them to be retried if necessary.
  */
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/dev/pci.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
@@ -26,6 +25,7 @@
 #include "kernel/lib.h"
 #include "kernel/list.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/time.h"
 #include "kernel/trace.h"
 #include "kernel/x86/io.h"
@@ -198,8 +198,7 @@ UHCI::HCD_TD*
 UHCI_HCD::AllocateTD()
 {
 	dma_buf_t buf;
-	errorcode_t err = dma_buf_alloc(d_DMA_tag, sizeof(struct UHCI::HCD_TD), &buf);
-	if (ananas_is_failure(err))
+	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct UHCI::HCD_TD), &buf); result.IsFailure())
 		return nullptr;
 
 	auto td = static_cast<struct UHCI::HCD_TD*>(dma_buf_get_segment(buf, 0)->s_virt);
@@ -212,9 +211,8 @@ UHCI::HCD_QH*
 UHCI_HCD::AllocateQH()
 {
 	dma_buf_t buf;
-	errorcode_t err = dma_buf_alloc(d_DMA_tag, sizeof(struct UHCI::HCD_QH), &buf);
-	if (ananas_is_failure(err))
-		return NULL;
+	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct UHCI::HCD_QH), &buf); result.IsFailure())
+		return nullptr;
 
 	auto qh = static_cast<struct UHCI::HCD_QH*>(dma_buf_get_segment(buf, 0)->s_virt);
 	qh->qh_buf = buf;
@@ -319,7 +317,7 @@ UHCI_HCD::OnIRQ()
 	}
 }
 
-errorcode_t
+Result
 UHCI_HCD::SetupTransfer(Transfer& xfer)
 {
 	/*
@@ -329,10 +327,10 @@ UHCI_HCD::SetupTransfer(Transfer& xfer)
 	 */
 	UHCI::HCD_QH* qh = AllocateQH();
 	xfer.t_hcd = qh;
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 UHCI_HCD::TearDownTransfer(Transfer& xfer)
 {
 	if (xfer.t_hcd != nullptr) {
@@ -341,10 +339,10 @@ UHCI_HCD::TearDownTransfer(Transfer& xfer)
 	}
 
 	xfer.t_hcd = nullptr;
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 UHCI_HCD::CancelTransfer(Transfer& xfer)
 {
 	auto& usb_dev = xfer.t_device;
@@ -355,11 +353,11 @@ UHCI_HCD::CancelTransfer(Transfer& xfer)
 		usb_dev.ud_transfers.remove(xfer);
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
 // XXX Maybe combine with ScheduleInterruptTransfer ?
-errorcode_t
+Result
 UHCI_HCD::ScheduleControlTransfer(Transfer& xfer)
 {
 	int ls = (xfer.t_device.ud_flags & USB_DEVICE_FLAG_LOW_SPEED) ? TD_STATUS_LS : 0;
@@ -419,11 +417,11 @@ UHCI_HCD::ScheduleControlTransfer(Transfer& xfer)
 	uhci_qh_ls_control->qh_qh.qh_elementptr = TO_REG32(UHCI::GetPhysicalAddress(td_setup));
 
 	//uhci_dump(dev);
-	return ananas_success();
+	return Result::Success();
 }
 
 // XXX Maybe combine with ScheduleControlTransfer ?
-errorcode_t
+Result
 UHCI_HCD::ScheduleInterruptTransfer(Transfer& xfer)
 {
 	int ls = (xfer.t_device.ud_flags & USB_DEVICE_FLAG_LOW_SPEED) ? TD_STATUS_LS : 0;
@@ -448,10 +446,10 @@ UHCI_HCD::ScheduleInterruptTransfer(Transfer& xfer)
 	uhci_qh_interrupt[index]->qh_first_td = td_chain;
 	uhci_qh_interrupt[index]->qh_qh.qh_elementptr = TO_REG32(UHCI::GetPhysicalAddress(td_chain));
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 UHCI_HCD::ScheduleTransfer(Transfer& xfer)
 {
 	auto& usb_dev = xfer.t_device;
@@ -464,7 +462,6 @@ UHCI_HCD::ScheduleTransfer(Transfer& xfer)
 	KASSERT((xfer.t_flags & TRANSFER_FLAG_PENDING) == 0, "scheduling transfer that is already pending (%x)", xfer.t_flags);
 	xfer.t_flags |= TRANSFER_FLAG_PENDING;
 	usb_dev.ud_transfers.push_back(xfer);
-	errorcode_t err = ananas_success();
 
 	/* If this is the root hub, short-circuit the request */
 	if (usb_dev.ud_flags & USB_DEVICE_FLAG_ROOT_HUB)
@@ -472,19 +469,15 @@ UHCI_HCD::ScheduleTransfer(Transfer& xfer)
 
 	switch(xfer.t_type) {
 		case TRANSFER_TYPE_CONTROL:
-			err = ScheduleControlTransfer(xfer);
-			break;
+			return ScheduleControlTransfer(xfer);
 		case TRANSFER_TYPE_INTERRUPT:
-			err = ScheduleInterruptTransfer(xfer);
-			break;
-		default:
-			panic("unsupported transfer type %u", xfer.t_type);
+			return ScheduleInterruptTransfer(xfer);
 	}
 
-	return err;
+	panic("unsupported transfer type %u", xfer.t_type);
 }
 
-errorcode_t
+Result
 UHCI_HCD::Attach()
 {
 	/*
@@ -496,18 +489,19 @@ UHCI_HCD::Attach()
 	void* res_io = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IO, 16);
 	void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
-		return ANANAS_ERROR(NO_RESOURCE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
 	/* Create DMA tags; we need these to do DMA */
-	errorcode_t err = dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE)
+	);
 
 	uhci_Resources = UHCI::HCD_Resources((uint32_t)(uintptr_t)res_io);
 
 	/* Allocate the frame list; this will be programmed right into the controller */
-	err = dma_buf_alloc(d_DMA_tag, 4096, &uhci_framelist_buf);
-	if (ananas_is_failure(err))
-		goto fail;
+	RESULT_PROPAGATE_FAILURE(
+		dma_buf_alloc(d_DMA_tag, 4096, &uhci_framelist_buf)
+	);
 	uhci_framelist = static_cast<uint32_t*>(dma_buf_get_segment(uhci_framelist_buf, 0)->s_virt);
 	KASSERT((((addr_t)uhci_framelist) & 0x3ff) == 0, "framelist misaligned");
 
@@ -594,35 +588,32 @@ UHCI_HCD::Attach()
 	delay(10);
 	if (uhci_Resources.Read2(UHCI_REG_USBSTS) & UHCI_USBSTS_HCHALTED) {
 		Printf("controller does not start");
-		goto fail;
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 	/* Hook up our interrupt handler and get it going */
-	err = irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_DEFAULT, NULL);
-	if (ananas_is_failure(err))
-		goto fail;
+	RESULT_PROPAGATE_FAILURE(
+		irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_DEFAULT, NULL)
+	);
 	uhci_Resources.Write2(UHCI_REG_USBINTR, UHCI_USBINTR_SPI | UHCI_USBINTR_IOC | UHCI_USBINTR_RI | UHCI_USBINTR_TOCRC);
 	delay(10);
 
-	return ananas_success();
-
-fail:
-	return err;
+	return Result::Success();
 }
 
-errorcode_t
+Result
 UHCI_HCD::Detach()
 {
 	panic("detach");
-	return ananas_success();
+	return Result::Success();
 }
 
 void
 UHCI_HCD::SetRootHub(USB::USBDevice& dev)
 {
 	uhci_RootHub = new UHCI::RootHub(uhci_Resources, dev);
-	errorcode_t err = uhci_RootHub->Initialize();
-	(void)err; // XXX allow this function to fail
+	Result result = uhci_RootHub->Initialize();
+	(void)result; // XXX allow this function to fail
 }
 
 namespace {

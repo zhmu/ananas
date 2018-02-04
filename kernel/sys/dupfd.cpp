@@ -1,12 +1,12 @@
 #include <ananas/syscalls.h>
-#include <ananas/error.h>
 #include <ananas/handle-options.h>
+#include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/trace.h"
 
 TRACE_SETUP;
 
-errorcode_t
+Result
 sys_dupfd(Thread* t, handleindex_t index, int flags, handleindex_t* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, index=%d, flags=%d", t, index, flags);
@@ -20,11 +20,12 @@ sys_dupfd(Thread* t, handleindex_t index, int flags, handleindex_t* out)
 
 	struct HANDLE* handle_out;
 	handleindex_t hidx_out;
-	errorcode_t err = handle_clone(process, index, NULL, process, &handle_out, new_idx, &hidx_out);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		handle_clone(process, index, NULL, process, &handle_out, new_idx, &hidx_out)
+	);
 
 	*out = hidx_out;
-	return ananas_success();
+	return Result::Success();
 }
 
 /* vim:set ts=2 sw=2: */

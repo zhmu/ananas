@@ -1,5 +1,4 @@
 #include <ananas/types.h>
-#include <ananas/_types/errorcode.h>
 
 #ifndef __SYS_PROCINFO_H__
 #define __SYS_PROCINFO_H__

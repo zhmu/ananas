@@ -1,7 +1,5 @@
 #include <ananas/types.h>
 #include <ananas/syscalls.h>
-#include <ananas/error.h>
-#include <_posix/error.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -43,7 +41,7 @@ int execl(const char *path, const char* arg0, ...)
 
 	execve(path, (char* const*)args, NULL);
 
-	/* If we got here, execve() failed and we must clean up after ourselves */
+	/* If we got here, execve() failed (and set errno) and we must clean up after ourselves */
 	free(args);
 	return -1;
 }

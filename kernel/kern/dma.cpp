@@ -1,13 +1,14 @@
 /*
  * Ananas DMA infrastructure; this is very closely modelled after NetBSD's busdma(9).
  */
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "kernel/bio.h"
 #include "kernel/dma.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/page.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel-md/dma.h"
@@ -48,7 +49,7 @@ struct DMA_BUFFER {
 	struct DMA_BUFFER_SEGMENT db_seg[0];
 };
 
-errorcode_t
+Result
 dma_tag_create(dma_tag_t parent, Ananas::Device& dev, dma_tag_t* tag, int alignment, dma_addr_t min_addr, dma_addr_t max_addr, unsigned int max_segs, dma_size_t max_seg_size)
 {
 	KASSERT(max_segs > 0, "invalid segment count %u", max_segs);
@@ -83,24 +84,24 @@ dma_tag_create(dma_tag_t parent, Ananas::Device& dev, dma_tag_t* tag, int alignm
 	t->t_max_segs = max_segs;
 	t->t_max_seg_size = max_seg_size;
 	*tag = t;
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 dma_tag_destroy(dma_tag_t tag)
 {
 	struct DMA_TAG* parent = tag->t_parent;
 
 	/* Remove a reference; if we still have more, we do nothing */
 	if (--tag->t_refcount > 0)
-		return ananas_success();
+		return Result::Success();
 
 	/* Remove our tag and try to kill the parent */
 	kfree(tag);
 	return dma_tag_destroy(parent);
 }
 
-errorcode_t
+Result
 dma_buf_alloc(dma_tag_t tag, dma_size_t size, dma_buf_t* buf)
 {
 	/* First step is to see how many segments we need */
@@ -111,9 +112,9 @@ dma_buf_alloc(dma_tag_t tag, dma_size_t size, dma_buf_t* buf)
 		seg_size = size / num_segs; /* XXX is this correct? */
 	}
 	if (num_segs > tag->t_max_segs)
-		return ANANAS_ERROR(BAD_LENGTH);
+		return RESULT_MAKE_FAILURE(EINVAL);
 	if (seg_size > tag->t_max_seg_size)
-		return ANANAS_ERROR(BAD_LENGTH);
+		return RESULT_MAKE_FAILURE(EINVAL);
 
 	/* Allocate the buffer itself... */
 	auto b = static_cast<struct DMA_BUFFER*>(kmalloc(sizeof(struct DMA_BUFFER) + num_segs * sizeof(struct DMA_BUFFER_SEGMENT)));
@@ -125,22 +126,22 @@ dma_buf_alloc(dma_tag_t tag, dma_size_t size, dma_buf_t* buf)
 	tag->t_refcount++;
 
 	/* ...and any memory backed by it */
-	errorcode_t err = ananas_success();
-	for (unsigned int n = 0; ananas_is_success(err) && n < num_segs; n++) {
+	Result result = Result::Success();
+	for (unsigned int n = 0; result.IsSuccess() && n < num_segs; n++) {
 		struct DMA_BUFFER_SEGMENT* s = &b->db_seg[n];
 		s->s_virt = page_alloc_length_mapped(seg_size, s->s_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
 		if (s->s_virt == NULL) {
-			err = ANANAS_ERROR(OUT_OF_MEMORY);
+			result = RESULT_MAKE_FAILURE(ENOMEM);
 			break;
 		}
 		s->s_phys = page_get_paddr(*s->s_page);
 	}
 
-	if (ananas_is_success(err))
+	if (result.IsSuccess())
 		*buf = b;
 	else
 		dma_buf_free(b);
-	return err;
+	return result;
 }
 
 void
@@ -188,7 +189,7 @@ dma_buf_sync(dma_buf_t buf, DMA_SYNC_TYPE type)
 {
 }
 
-errorcode_t
+Result
 dma_buf_load(dma_buf_t buf, void* data, dma_size_t size, dma_load_func_t load, void* load_arg, int flags)
 {
 	dma_tag_t tag = buf->db_tag;
@@ -203,13 +204,13 @@ dma_buf_load(dma_buf_t buf, void* data, dma_size_t size, dma_load_func_t load, v
 		bs.s_phys = phys;
 		load(load_arg, &bs, 1);
 
-		return ananas_success();
+		return Result::Success();
 	}
 
 	panic("dma_buf_load(): phys %p rejected, FIXME", phys);
 }
 
-errorcode_t
+Result
 dma_buf_load_bio(dma_buf_t buf, struct BIO* bio, dma_load_func_t load, void* load_arg, int flags)
 {
 	return dma_buf_load(buf, BIO_DATA(bio), bio->length, load, load_arg, flags);

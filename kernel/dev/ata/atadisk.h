@@ -23,11 +23,11 @@ public:
 		return this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
-	errorcode_t ReadBIO(struct BIO& bio) override;
-	errorcode_t WriteBIO(struct BIO& bio) override;
+	Result ReadBIO(struct BIO& bio) override;
+	Result WriteBIO(struct BIO& bio) override;
 
 	void SetIdentify(const ATA_IDENTIFY& identify)
 	{

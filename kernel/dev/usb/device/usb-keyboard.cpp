@@ -1,10 +1,10 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/dev/kbdmux.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "../core/config.h"
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"
@@ -72,8 +72,8 @@ public:
 		return *this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
 protected:
 	void OnPipeCallback(Ananas::USB::Pipe& pipe) override;
@@ -83,30 +83,29 @@ private:
 	Ananas::USB::Pipe* uk_Pipe = nullptr;
 };
 
-errorcode_t
+Result
 USBKeyboard::Attach()
 {
 	uk_Device = static_cast<Ananas::USB::USBDevice*>(d_ResourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
 
-	errorcode_t err = uk_Device->AllocatePipe(0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, 0, *this, uk_Pipe);
-	if (ananas_is_failure(err)) {
+	if (auto result = uk_Device->AllocatePipe(0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, 0, *this, uk_Pipe); result.IsFailure()) {
 		Printf("endpoint 0 not interrupt/in");
-		return err;
+		return result;
 	}
 	return uk_Pipe->Start();
 }
 
-errorcode_t
+Result
 USBKeyboard::Detach()
 {
 	if (uk_Device == nullptr)
-		return ananas_success();
+		return Result::Success();
 
 	if (uk_Pipe != nullptr)
 		uk_Device->FreePipe(*uk_Pipe);
 
 	uk_Pipe = nullptr;
-	return ananas_success();
+	return Result::Success();
 }
 
 void

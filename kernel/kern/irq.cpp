@@ -1,11 +1,11 @@
 #include <machine/param.h>
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/device.h"
 #include "kernel/irq.h"
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel-md/interrupts.h"
 #include "options.h"
@@ -108,11 +108,11 @@ irqsource_find(unsigned int num)
 	return nullptr;
 }
 
-errorcode_t
+Result
 irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, void* context)
 {
 	if (no >= MAX_IRQS)
-		return ANANAS_ERROR(BAD_RANGE);
+		return RESULT_MAKE_FAILURE(ERANGE);
 
 	auto state = spl_irq.LockUnpremptible();
 
@@ -123,7 +123,7 @@ irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, voi
 	IRQSource* is = irqsource_find(no);
 	if (is == NULL) {
 		spl_irq.UnlockUnpremptible(state);
-		return ANANAS_ERROR(NO_RESOURCE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 	struct IRQ* i = &irq[no];
@@ -135,7 +135,7 @@ irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, voi
 		/* nothing */;
 	if (slot == IRQ_MAX_HANDLERS) {
 		spl_irq.UnlockUnpremptible(state);
-		return ANANAS_ERROR(FILE_EXISTS); /* XXX maybe make the error more generic? */
+		return RESULT_MAKE_FAILURE(EEXIST);
 	}
 
 	/* Found one, hook it up */
@@ -182,7 +182,7 @@ irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, voi
 	}
 
 	spl_irq.UnlockUnpremptible(state);
-	return ananas_success();
+	return Result::Success();
 }
 
 void

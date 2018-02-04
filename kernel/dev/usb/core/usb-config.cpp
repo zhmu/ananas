@@ -1,8 +1,8 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/device.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "usb-core.h"
 #include "usb-device.h"
@@ -36,12 +36,12 @@ LookupDescriptorByType(char*& data, size_t& left, int type, T*& out)
 
 } // unnamed namespace
 
-errorcode_t
+Result
 ParseConfiguration(Interface* usb_if, int& usb_num_if, void* data, int datalen)
 {
 	auto cfg = static_cast<struct USB_DESCR_CONFIG*>(data);
 	if (cfg->cfg_type != USB_DESCR_TYPE_CONFIG)
-		return ANANAS_ERROR(BAD_TYPE);
+		return RESULT_MAKE_FAILURE(EINVAL);
 
 	/* Walk over all interfaces */
 	char* ptr = static_cast<char*>(data) + cfg->cfg_length;
@@ -50,7 +50,7 @@ ParseConfiguration(Interface* usb_if, int& usb_num_if, void* data, int datalen)
 		/* Find the interface */
 		struct USB_DESCR_INTERFACE* iface;
 		if (!LookupDescriptorByType(ptr, left, USB_DESCR_TYPE_INTERFACE, iface))
-			return ANANAS_ERROR(NO_RESOURCE);
+			return RESULT_MAKE_FAILURE(EINVAL);
 
 		TRACE(USB, INFO,
 		 "interface%u: class=%u, subclass=%u, protocol=%u, %u endpoint(s)",
@@ -67,7 +67,7 @@ ParseConfiguration(Interface* usb_if, int& usb_num_if, void* data, int datalen)
 		for (int epnum = 0; epnum < iface->if_numendpoints; epnum++) {
 			struct USB_DESCR_ENDPOINT* ep;
 			if (!LookupDescriptorByType(ptr, left, USB_DESCR_TYPE_ENDPOINT, ep))
-				return ANANAS_ERROR(NO_RESOURCE);
+				return RESULT_MAKE_FAILURE(EINVAL);
 
 			TRACE(USB, INFO,
 			 "endpoint %u: addr=%s:%u, attr=%u, type=%u, maxpacketsz=%u",
@@ -102,8 +102,8 @@ ParseConfiguration(Interface* usb_if, int& usb_num_if, void* data, int datalen)
 			usb_iface->if_num_endpoints++;
 		}
 	}
-	
-	return ananas_success();
+
+	return Result::Success();
 }
 
 } // namespace Ananas

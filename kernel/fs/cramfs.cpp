@@ -28,11 +28,12 @@
  * (this makes sense, as the first chunk is always right after this list)
  */
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "kernel/bio.h"
 #include "kernel/init.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
@@ -61,7 +62,7 @@ struct CRAMFS_PRIVDATA {
 	unsigned char decompress_buf[CRAMFS_PAGE_SIZE + 4];
 };
 
-static errorcode_t
+static Result
 cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
 	INode& inode = *file->f_dentry->d_inode;
@@ -77,8 +78,9 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 
 		/* Calculate the compressed data offset of this page */
 		cur_block = (i_privdata->offset + page_index * sizeof(uint32_t)) / fs->fs_block_size;
-		errorcode_t err = vfs_bread(fs, cur_block, &bio);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			vfs_bread(fs, cur_block, &bio)
+		);
 		uint32_t next_offset = *(uint32_t*)(static_cast<char*>(BIO_DATA(bio)) + (i_privdata->offset + page_index * sizeof(uint32_t)) % fs->fs_block_size);
 		bio_free(*bio);
 
@@ -87,8 +89,9 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 			/* Now, fetch the offset of the previous page; this gives us the length of the compressed chunk */
 			int prev_block = (i_privdata->offset + (page_index - 1) * sizeof(uint32_t)) / fs->fs_block_size;
 			if (cur_block != prev_block) {
-				errorcode_t err = vfs_bread(fs, prev_block, &bio);
-				ANANAS_ERROR_RETURN(err);
+				RESULT_PROPAGATE_FAILURE(
+					vfs_bread(fs, prev_block, &bio)
+				);
 			}
 			start_offset = *(uint32_t*)(static_cast<char*>(BIO_DATA(bio)) + (i_privdata->offset + (page_index - 1) * sizeof(uint32_t)) % fs->fs_block_size);
 		} else {
@@ -103,8 +106,9 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 		uint32_t buf_pos = 0;
 		while(buf_pos < left) {
 			cur_block = (start_offset + buf_pos) / fs->fs_block_size;
-			err = vfs_bread(fs, cur_block, &bio);
-			ANANAS_ERROR_RETURN(err);
+			RESULT_PROPAGATE_FAILURE(
+				vfs_bread(fs, cur_block, &bio)
+			);
 			int piece_len = fs->fs_block_size - ((start_offset + buf_pos) % fs->fs_block_size);
 			if (piece_len > left)
 				piece_len = left;
@@ -134,10 +138,10 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 	}
 
 	*len = total;
-	return ananas_success();
+	return Result::Success();
 }
 
-static errorcode_t
+static Result
 cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	INode& inode = *file->f_dentry->d_inode;
@@ -166,8 +170,9 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		if (new_block != cur_block) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			errorcode_t err = vfs_bread(fs, new_block, &bio);
-			ANANAS_ERROR_RETURN(err);
+			RESULT_PROPAGATE_FAILURE(
+				vfs_bread(fs, new_block, &bio)
+			);
 			cur_block = new_block;
 		}
 
@@ -228,7 +233,7 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 
 	CRAMFS_DEBUG_READDIR("cramfs_readdir(): done, returning %u bytes\n", written);
 	*len = written;
-	return ananas_success();
+	return Result::Success();
 }
 
 static struct VFS_INODE_OPS cramfs_file_ops = {
@@ -267,35 +272,35 @@ cramfs_convert_inode(uint32_t offset, struct CRAMFS_INODE* cinode, INode& inode)
 	}
 }
 
-static errorcode_t
+static Result
 cramfs_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 {
 	fs->fs_block_size = 512;
 
 	/* Fetch the first sector; we use it to validate the filesystem */
 	struct BIO* bio;
-	errorcode_t err = vfs_bread(fs, 0, &bio);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_bread(fs, 0, &bio)
+	);
 	auto sb = static_cast<struct CRAMFS_SUPERBLOCK*>(BIO_DATA(bio));
 	if (CRAMFS_TO_LE32(sb->c_magic) != CRAMFS_MAGIC) {
 		bio_free(*bio);
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 	if ((CRAMFS_TO_LE32(sb->c_flags) & ~CRAMFS_FLAG_MASK) != 0) {
 		bio_free(*bio);
 		kprintf("cramfs: unsupported flags, refusing to mount\n");
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 	fs->fs_privdata = new CRAMFS_PRIVDATA;
 
 	/* Everything is ok; fill out the filesystem details */
-	err = vfs_get_inode(fs, __builtin_offsetof(struct CRAMFS_SUPERBLOCK, c_rootinode), root_inode);
-	if (ananas_is_failure(err)) {
+	if (auto result = vfs_get_inode(fs, __builtin_offsetof(struct CRAMFS_SUPERBLOCK, c_rootinode), root_inode); result.IsFailure()) {
 		kfree(fs->fs_privdata);
 		bio_free(*bio);
-		return ANANAS_ERROR(NO_DEVICE);
+		return result;
 	}
 
 	/* Initialize our deflater */
@@ -303,10 +308,10 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	cramfs_zstream.avail_in = 0;
 	inflateInit(&cramfs_zstream);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-static errorcode_t
+static Result
 cramfs_read_inode(INode& inode, ino_t inum)
 {
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
@@ -317,21 +322,22 @@ cramfs_read_inode(INode& inode, ino_t inum)
 	 */
 	uint32_t offset = inum;
 	struct BIO* bio;
-	errorcode_t err = vfs_bread(fs, offset / fs->fs_block_size, &bio);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_bread(fs, offset / fs->fs_block_size, &bio)
+	);
 	auto cram_inode = reinterpret_cast<struct CRAMFS_INODE*>(static_cast<char*>(BIO_DATA(bio)) + offset % fs->fs_block_size);
 	cramfs_convert_inode(offset, cram_inode, inode);
 	bio_free(*bio);
-	return ananas_success();
+	return Result::Success();
 }
 
-static errorcode_t
+static Result
 cramfs_prepare_inode(INode& inode)
 {
 	auto i_privdata = new CRAMFS_INODE_PRIVDATA;
 	memset(i_privdata, 0, sizeof(struct CRAMFS_INODE_PRIVDATA));
 	inode.i_privdata = i_privdata;
-	return ananas_success();
+	return Result::Success();
 }
 
 static void
@@ -349,13 +355,13 @@ static struct VFS_FILESYSTEM_OPS fsops_cramfs = {
 
 static VFSFileSystem fs_cramfs("cramfs", &fsops_cramfs);
 
-errorcode_t
+Result
 cramfs_init()
 {
 	return vfs_register_filesystem(fs_cramfs);
 }
 
-static errorcode_t
+static Result
 cramfs_exit()
 {
 	return vfs_unregister_filesystem(fs_cramfs);

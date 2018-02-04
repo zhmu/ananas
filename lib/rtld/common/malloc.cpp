@@ -3,7 +3,6 @@
  */
 
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include <machine/param.h> // for PAGE_SIZE
 #include <sys/mman.h>
 #include "lib.h"

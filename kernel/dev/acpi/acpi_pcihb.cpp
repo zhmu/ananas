@@ -1,9 +1,9 @@
-#include <ananas/error.h>
 #include "acpica/acpi.h"
 #include "acpi.h"
 #include "acpi_resource.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
+#include "kernel/result.h"
 
 namespace {
 
@@ -16,14 +16,14 @@ struct ACPI_PCIHB : public Ananas::Device, private Ananas::IDeviceOperations
 		return *this;
 	}
 
-	errorcode_t Attach() override
+	Result Attach() override
 	{
-		return ananas_success();
+		return Result::Success();
 	}
 
-	errorcode_t Detach() override
+	Result Detach() override
 	{
-		return ananas_success();
+		return Result::Success();
 	}
 };
 

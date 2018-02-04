@@ -1,10 +1,10 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/bio.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
 #include "kernel/mbr.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/x86/io.h"
 #include "ata.h"
@@ -28,7 +28,7 @@ void EnqueueAndStart(Ananas::Device* parent, ATA_REQUEST_ITEM& item)
 
 } // unnamed namespace
 
-errorcode_t
+Result
 ATADisk::Attach()
 {
 	disk_unit = (int)(uintptr_t)d_ResourceSet.AllocateResource(Ananas::Resource::RT_ChildNum, 0);
@@ -55,21 +55,21 @@ ATADisk::Attach()
 	 */
 	struct BIO* bio = bio_read(this, 0, BIO_SECTOR_SIZE);
 	if (BIO_IS_ERROR(bio))
-		return ANANAS_ERROR(IO); /* XXX should get error from bio */
+		return RESULT_MAKE_FAILURE(EIO); /* XXX should get error from bio */
 
 	mbr_process(this, bio);
 	bio_free(bio);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 ATADisk::Detach()
 {
 	panic("unimplemented");
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 ATADisk::ReadBIO(struct BIO& bio)
 {
 	struct ATA_REQUEST_ITEM item;
@@ -87,10 +87,10 @@ ATADisk::ReadBIO(struct BIO& bio)
 		item.flags |= ATA_ITEM_FLAG_DMA;
 	EnqueueAndStart(d_Parent, item);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 ATADisk::WriteBIO(struct BIO& bio)
 {
 	struct ATA_REQUEST_ITEM item;
@@ -110,7 +110,7 @@ ATADisk::WriteBIO(struct BIO& bio)
 #endif
 	EnqueueAndStart(d_Parent, item);
 
-	return ananas_success();
+	return Result::Success();
 }
 
 namespace {

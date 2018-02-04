@@ -1,5 +1,4 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include <machine/param.h>
 #include "kernel/dev/pci.h"
 #include "kernel/device.h"
@@ -8,6 +7,7 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/page.h"
+#include "kernel/result.h"
 #include "kernel/time.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
@@ -43,16 +43,16 @@ public:
 		return *this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
-	errorcode_t IssueVerb(uint32_t verb, uint32_t* resp, uint32_t* resp_ex) override;
+	Result IssueVerb(uint32_t verb, uint32_t* resp, uint32_t* resp_ex) override;
 
 	uint16_t GetAndClearStateChange() override;
-	errorcode_t OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context* context) override;
-	errorcode_t CloseStream(Context context) override;
-	errorcode_t StartStreams(int num, Context* context) override;
-	errorcode_t StopStreams(int num, Context* context) override;
+	Result OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context* context) override;
+	Result CloseStream(Context context) override;
+	Result StartStreams(int num, Context* context) override;
+	Result StopStreams(int num, Context* context) override;
 	void* GetStreamDataPointer(Context context, int page) override;
 
 private:
@@ -103,7 +103,7 @@ HDAPCIDevice::OnIRQ()
 	}
 }
 
-errorcode_t
+Result
 HDAPCIDevice::IssueVerb(uint32_t verb, uint32_t* resp, uint32_t* resp_ex)
 {
 	/* Ask an IRQ after 64k replies (the IRQ is masked, so we'll never see it) */
@@ -136,7 +136,7 @@ HDAPCIDevice::IssueVerb(uint32_t verb, uint32_t* resp, uint32_t* resp_ex)
 	}
 	if (timeout == 0) {
 		Printf("issued verb %x -> timeout", verb);
-		return ANANAS_ERROR(NO_DEVICE); /* or another silly error code */
+		return RESULT_MAKE_FAILURE(ENODEV); /* or another silly error code */;
 	}
 
 	if (resp != NULL)
@@ -144,7 +144,7 @@ HDAPCIDevice::IssueVerb(uint32_t verb, uint32_t* resp, uint32_t* resp_ex)
 	if (resp_ex != NULL)
 		*resp_ex = (uint32_t)(r >> 32);
 	//HDA_DEBUG("issued verb %x -> response %x:%x", verb, (uint32_t)(r >> 32), (uint32_t)(r & 0xffffffff));
-	return ananas_success();
+	return Result::Success();
 }
 
 uint16_t
@@ -155,7 +155,7 @@ HDAPCIDevice::GetAndClearStateChange()
 	return x;
 }
 
-errorcode_t
+Result
 HDAPCIDevice::OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context* context)
 {
 	KASSERT(dir == HDF_DIR_OUT, "unsupported direction %d", dir);
@@ -197,7 +197,7 @@ HDAPCIDevice::OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context*
 	}
 
 	if (ss < 0)
-		return ANANAS_ERROR(NO_SPACE);
+		return RESULT_MAKE_FAILURE(ENOSPC); // XXX does this make sense?
 
 	/* Claim the stream# */
 	hda_ss_avail &= ~(1 << ss);
@@ -236,10 +236,10 @@ HDAPCIDevice::OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context*
 	else
 		ctl |= HDA_SDnCTL_DIR_OUT;
 	HDA_WRITE_4(HDA_REG_xSDnCTL(ss), ctl);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 HDAPCIDevice::CloseStream(void* context)
 {
 	auto s = static_cast<struct HDA_PCI_STREAM*>(context);
@@ -260,10 +260,10 @@ HDAPCIDevice::CloseStream(void* context)
 	hda_ss_avail |= 1 << s->s_ss;
 	kfree(s);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 HDAPCIDevice::StartStreams(int num, Context* context)
 {
 	struct HDA_PCI_STREAM** s;
@@ -309,10 +309,10 @@ HDAPCIDevice::StartStreams(int num, Context* context)
 	HDA_WRITE_4(HDA_REG_SSYNC, ssync);
 #endif
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 HDAPCIDevice::StopStreams(int num, void** context)
 {
 	/* First step is to set all SSYNC bits to prevent the HDA from fetching new data */
@@ -346,7 +346,7 @@ HDAPCIDevice::StopStreams(int num, void** context)
 	}
 	HDA_WRITE_4(HDA_REG_SSYNC, ssync);
 
-	return ananas_success();
+	return Result::Success();
 }
 
 void*
@@ -357,18 +357,19 @@ HDAPCIDevice::GetStreamDataPointer(void* context, int page)
 	return s->s_page[page].sp_ptr;
 }
 
-errorcode_t
+Result
 HDAPCIDevice::Attach()
 {
 	void* res_io = d_ResourceSet.AllocateResource(Ananas::Resource::RT_Memory, 4096);
 	void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
-		return ANANAS_ERROR(NO_RESOURCE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
 	hda_addr = (addr_t)res_io;
 
-	errorcode_t err = irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_DEFAULT, nullptr);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_DEFAULT, nullptr)
+	);
 
 	/* Enable busmastering; all communication is done by DMA */
 	pci_enable_busmaster(*this, 1);
@@ -387,7 +388,7 @@ HDAPCIDevice::Attach()
 		delay(1);
 	if (timeout == 0) {
 		Printf("still stuck in reset, giving up");
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 	/* XXX WAKEEN ... ? */
 
@@ -402,7 +403,7 @@ HDAPCIDevice::Attach()
 	hda_bss = HDA_GCAP_BSS(gcap);
 	if (hda_oss == 0) {
 		Printf("no output stream support; perhaps FIXME by implementing bss? for now, aborting");
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 	int num_streams = hda_iss + hda_oss + hda_bss;
 	hda_stream = new HDA_PCI_STREAM*[num_streams];
@@ -442,7 +443,7 @@ HDAPCIDevice::Attach()
 		hda_corb_size = 2; corb_size_val = HDA_CORBSIZE_CORBSIZE_2E;
 	} else {
 		Printf("corb size invalid?! corbsize=%x", x);
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 	HDA_WRITE_1(HDA_REG_CORBSIZE, (x & ~HDA_CORBSIZE_CORBSIZE_MASK) | corb_size_val);
 	HDA_WRITE_4(HDA_REG_CORBL, (uint32_t)(corb_paddr & 0xffffffff));
@@ -459,7 +460,7 @@ HDAPCIDevice::Attach()
 		hda_rirb_size = 2; corb_size_val = HDA_RIRBSIZE_RIRBSIZE_2E;
 	} else {
 		Printf("rirb size invalid?! rirbsize=%x", x);
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 	HDA_WRITE_1(HDA_REG_RIRBSIZE, (x & ~HDA_RIRBSIZE_RIRBSIZE_MASK) | rirb_size_val);
 	HDA_WRITE_4(HDA_REG_RIRBL, (uint32_t)((corb_paddr + 1024) & 0xffffffff));
@@ -475,19 +476,20 @@ HDAPCIDevice::Attach()
 	KASSERT(hda_device != nullptr, "unable to create hda device");
 	hda_device->SetHDAFunctions(*this);
 
-	if (ananas_is_success(Ananas::DeviceManager::AttachSingle(*hda_device)))
-		return ananas_success();
+	if (auto result = Ananas::DeviceManager::AttachSingle(*hda_device); result.IsFailure()) {
+		/* XXX we should clean up the tree thus far */
+		page_free(*hda_page);
+		return result;
+	}
 
-	/* XXX we should clean up the tree thus far */
-	page_free(*hda_page);
-	return err;
+	return Result::Success();
 }
 
-errorcode_t
+Result
 HDAPCIDevice::Detach()
 {
 	panic("detach");
-	return ananas_success();
+	return Result::Success();
 }
 
 namespace {

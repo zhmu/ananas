@@ -1,7 +1,8 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "kernel/init.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
@@ -29,21 +30,21 @@ IAnkhSubSystem* GetSubSystemFromInode(INode& inode)
 	return subSystems[static_cast<int>(subSystem)];
 }
 
-errorcode_t
+Result
 ankhfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
 	auto subSystem = GetSubSystemFromInode(*file->f_dentry->d_inode);
 	if (subSystem == nullptr)
-		return ANANAS_ERROR(IO);
+		return RESULT_MAKE_FAILURE(EIO);
 	return subSystem->HandleRead(file, buf, len);
 }
 
-errorcode_t
+Result
 ankhfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	auto subSystem = GetSubSystemFromInode(*file->f_dentry->d_inode);
 	if (subSystem == nullptr)
-		return ANANAS_ERROR(IO);
+		return RESULT_MAKE_FAILURE(EIO);
 	return subSystem->HandleReadDir(file, dirents, len);
 }
 
@@ -63,7 +64,7 @@ struct VFS_INODE_OPS ankhfs_dir_ops = {
 	.lookup = vfs_generic_lookup
 };
 
-errorcode_t
+Result
 ankhfs_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 {
 	fs->fs_block_size = 512;
@@ -74,12 +75,12 @@ ankhfs_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	subSystems[static_cast<size_t>(SubSystem::SS_FileSystem)] = &GetFileSystemSubSystem();
 	subSystems[static_cast<size_t>(SubSystem::SS_Device)] = &GetDeviceSubSystem();
 
-	errorcode_t err = vfs_get_inode(fs, make_inum(SS_Root, 0, 0), root_inode);
-	KASSERT(ananas_is_success(err), "cannot get root inode of synthetic filesystem (%d)", err);
-	return err;
+	auto result = vfs_get_inode(fs, make_inum(SS_Root, 0, 0), root_inode);
+	KASSERT(result.IsSuccess(), "cannot get root inode of synthetic filesystem (%d)", result.AsStatusCode());
+	return result;
 }
 
-errorcode_t
+Result
 ankhfs_read_inode(INode& inode, ino_t inum)
 {
 	inode.i_sb.st_ino    = inum;
@@ -94,10 +95,11 @@ ankhfs_read_inode(INode& inode, ino_t inum)
 	inode.i_sb.st_size   = 0;
 	auto subSystem = GetSubSystemFromInode(inode);
 	if (subSystem == nullptr)
-		return ANANAS_ERROR(IO);
+		return RESULT_MAKE_FAILURE(EIO);
 
-	errorcode_t err = subSystem->FillInode(inode, inum);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		subSystem->FillInode(inode, inum)
+	);
 
 	if (S_ISDIR(inode.i_sb.st_mode)) {
 		inode.i_sb.st_mode |= 0111;
@@ -109,7 +111,7 @@ ankhfs_read_inode(INode& inode, ino_t inum)
 	else
 		inode.i_iops = &ankhfs_no_ops;
 
-	return ananas_success();
+	return Result::Success();
 }
 
 struct VFS_FILESYSTEM_OPS fsops_ankhfs = {
@@ -119,13 +121,13 @@ struct VFS_FILESYSTEM_OPS fsops_ankhfs = {
 
 struct VFSFileSystem fs_ankhfs("ankhfs", &fsops_ankhfs);
 
-errorcode_t
+Result
 ankhfs_init()
 {
 	return vfs_register_filesystem(fs_ankhfs);
 }
 
-errorcode_t
+Result
 ankhfs_exit()
 {
 	return vfs_unregister_filesystem(fs_ankhfs);

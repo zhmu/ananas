@@ -1,8 +1,8 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/bio.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/vfs/types.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/generic.h"
@@ -12,12 +12,12 @@
 #include "fat.h"
 #include "fatfs.h"
 
-errorcode_t
+Result
 fat_prepare_inode(INode& inode)
 {
 	inode.i_privdata = new FAT_INODE_PRIVDATA;
 	memset(inode.i_privdata, 0, sizeof(struct FAT_INODE_PRIVDATA));
-	return ananas_success();
+	return Result::Success();
 }
 
 void
@@ -78,7 +78,7 @@ fat_fill_inode(INode& inode, ino_t inum, struct FAT_ENTRY* fentry)
 		inode.i_sb.st_blocks++;
 }
 
-errorcode_t
+Result
 fat_read_inode(INode& inode, ino_t inum)
 {
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
@@ -91,7 +91,7 @@ fat_read_inode(INode& inode, ino_t inum)
 	if (inum == FAT_ROOTINODE_INUM) {
 		privdata->root_inode = 1;
 		fat_fill_inode(inode, inum, NULL);
-		return ananas_success();
+		return Result::Success();
 	}
 
 	/*
@@ -102,16 +102,17 @@ fat_read_inode(INode& inode, ino_t inum)
 	uint32_t offset = inum & 0xffff;
 	KASSERT(offset <= fs->fs_block_size - sizeof(struct FAT_ENTRY), "inode offset %u out of range", offset);
 	BIO* bio;
-	errorcode_t err = vfs_bread(fs, block, &bio);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_bread(fs, block, &bio)
+	);
 	/* Fill out the inode details */
 	auto fentry = reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + offset);
 	fat_fill_inode(inode, inum, fentry);
 	bio_free(*bio);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 fat_write_inode(INode& inode)
 {
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
@@ -125,8 +126,9 @@ fat_write_inode(INode& inode)
 	uint32_t offset = inum & 0xffff;
 	KASSERT(offset <= fs->fs_block_size - sizeof(struct FAT_ENTRY), "inode offset %u out of range", offset);
 	BIO* bio;
-	errorcode_t err = vfs_bread(fs, block, &bio);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_bread(fs, block, &bio)
+	);
 
 	/* Fill out the inode details */
 	auto fentry = reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + offset);
@@ -137,14 +139,15 @@ fat_write_inode(INode& inode)
 
 	/* If the inode has run out of references, we must free the clusters it occupied */
 	if (inode.i_sb.st_nlink == 0) {
-		err = fat_truncate_clusterchain(inode);
-		ANANAS_ERROR_RETURN(err); /* XXX Should this be fatal? */
+		RESULT_PROPAGATE_FAILURE(
+			fat_truncate_clusterchain(inode)
+		); /* XXX Should this be fatal? */
 	}
 
 	/* And off it goes */
 	bio_set_dirty(*bio);
 	bio_free(*bio);
-	return ananas_success(); /* XXX How should we deal with errors? */
+	return Result::Success(); /* XXX How should we deal with errors? */
 }
 
 struct VFS_INODE_OPS fat_inode_ops = {

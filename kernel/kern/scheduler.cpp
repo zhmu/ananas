@@ -6,12 +6,12 @@
  * scheduler re-add a thread that has expired its timeslice back to the
  * runqueue avoids nasty races (as well as being much easier to follow)
  */
-#include <ananas/error.h>
 #include "kernel/kdb.h"
 #include "kernel/lock.h"
 #include "kernel/init.h"
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"
+#include "kernel/result.h"
 #include "kernel/schedule.h"
 #include "kernel/thread.h"
 #include "kernel/time.h"

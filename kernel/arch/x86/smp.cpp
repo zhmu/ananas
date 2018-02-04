@@ -1,10 +1,10 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/init.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/pcpu.h"
+#include "kernel/result.h"
 #include "kernel/schedule.h"
 #include "kernel/thread.h"
 #include "kernel/trace.h"
@@ -172,7 +172,7 @@ smp_prepare()
  * Called on the Boot Strap Processor, in order to prepare the system for
  * multiprocessing.
  */
-errorcode_t
+Result
 smp_init()
 {
 	/*
@@ -190,11 +190,11 @@ smp_init()
 	kmem_unmap(ap_code, PAGE_SIZE);
 
 	int bsp_apic_id;
-	if (ananas_is_failure(acpi_smp_init(&bsp_apic_id))) {
+	if (auto result = acpi_smp_init(&bsp_apic_id); result.IsFailure()) {
 		/* SMP not present or not usable */
 		page_free(*ap_page);
 		smp_destroy_ap_pagetable();
-		return ANANAS_ERROR(NO_DEVICE);
+		return result;
 	}
 
 	/* Program the I/O APIC - we currently just wire all ISA interrupts */
@@ -223,9 +223,9 @@ smp_init()
  	 * interrupts and this lets us process them as such.
 	 */
 	irqsource_register(ipi_source);
-	if (ananas_is_failure(irq_register(SMP_IPI_PANIC, NULL, smp_ipi_panic, IRQ_TYPE_IPI, NULL)))
+	if (auto result = irq_register(SMP_IPI_PANIC, NULL, smp_ipi_panic, IRQ_TYPE_IPI, NULL); result.IsFailure())
 		panic("can't register ipi");
-	if (ananas_is_failure(irq_register(SMP_IPI_SCHEDULE, NULL, smp_ipi_schedule, IRQ_TYPE_IPI, NULL)))
+	if (auto result = irq_register(SMP_IPI_SCHEDULE, NULL, smp_ipi_schedule, IRQ_TYPE_IPI, NULL); result.IsFailure())
 		panic("can't register ipi");
 
 	/*
@@ -235,13 +235,13 @@ smp_init()
 	 */
 	can_smp_launch = 0;
 
-	return ananas_success();
+	return Result::Success();
 }
 
 /*
  * Called on the Boot Strap Processor, in order to fully launch the AP's.
  */
-static errorcode_t
+static Result
 smp_launch()
 {
 	can_smp_launch++;
@@ -266,7 +266,7 @@ smp_launch()
 	page_free(*ap_page);
 	smp_destroy_ap_pagetable();
 
-	return ananas_success();
+	return Result::Success();
 }
 
 INIT_FUNCTION(smp_launch, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);

@@ -3,8 +3,10 @@
 
 #include "kernel/list.h"
 
-typedef errorcode_t (*init_func_t)();
-typedef errorcode_t (*exit_func_t)();
+class Result;
+
+typedef Result (*init_func_t)();
+typedef Result (*exit_func_t)();
 
 enum INIT_SUBSYSTEM {
 	SUBSYSTEM_MODULE	= 0x0080000,

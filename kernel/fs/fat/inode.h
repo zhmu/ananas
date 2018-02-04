@@ -3,12 +3,13 @@
 
 #include <ananas/types.h>
 
+class Result;
 struct INode;
 
-errorcode_t fat_prepare_inode(INode& inode);
+Result fat_prepare_inode(INode& inode);
 void fat_discard_inode(INode& inode);
-errorcode_t fat_read_inode(INode& inode, ino_t inum);
-errorcode_t fat_write_inode(INode& inode);
+Result fat_read_inode(INode& inode, ino_t inum);
+Result fat_write_inode(INode& inode);
 
 extern struct VFS_INODE_OPS fat_inode_ops;
 

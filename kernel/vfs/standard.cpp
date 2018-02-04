@@ -1,9 +1,9 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/bio.h"
 #include "kernel/device.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/schedule.h" // XXX
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
@@ -27,35 +27,36 @@ vfs_make_file(struct VFS_FILE* file, DEntry& dentry)
 		inode.i_iops->fill_file(inode, file);
 }
 
-errorcode_t
+Result
 vfs_open(const char* fname, DEntry* cwd, struct VFS_FILE* out)
 {
 	DEntry* dentry;
-	errorcode_t err = vfs_lookup(cwd, dentry, fname);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_lookup(cwd, dentry, fname)
+	);
 
 	vfs_make_file(out, *dentry);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 vfs_close(struct VFS_FILE* file)
 {
 	if(file->f_dentry != nullptr)
 		dentry_deref(*file->f_dentry);
 	file->f_dentry = nullptr;
 	file->f_device = nullptr;
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 vfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 {
 	KASSERT(file->f_dentry != NULL || file->f_device != NULL, "vfs_read on nonbacked file");
 	if (file->f_device != NULL) {
 		/* Device */
 		if (file->f_device->GetCharDeviceOperations() == NULL)
-			return ANANAS_ERROR(BAD_OPERATION);
+			return RESULT_MAKE_FAILURE(EINVAL);
 		else {
 			return file->f_device->GetCharDeviceOperations()->Read(buf, *len, 0);
 		}
@@ -63,63 +64,63 @@ vfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 
 	INode* inode = file->f_dentry->d_inode;
 	if (inode == NULL || inode->i_iops == NULL)
-		return ANANAS_ERROR(BAD_OPERATION);
+		return RESULT_MAKE_FAILURE(EINVAL);
 
 	if (!vfs_is_filesystem_sane(inode->i_fs))
-		return ANANAS_ERROR(IO);
+		return RESULT_MAKE_FAILURE(EIO);
 
 	if (!S_ISDIR(inode->i_sb.st_mode)) {
 		/* Regular file */
 		if (inode->i_iops->read == NULL)
-			return ANANAS_ERROR(BAD_OPERATION);
+			return RESULT_MAKE_FAILURE(EINVAL);
 		return inode->i_iops->read(file, buf, len);
 	}
 
 	/* Directory */
 	if (inode->i_iops->readdir == NULL)
-		return ANANAS_ERROR(BAD_OPERATION);
+		return RESULT_MAKE_FAILURE(EINVAL);
 	return inode->i_iops->readdir(file, buf, len);
 }
 
-errorcode_t
+Result
 vfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
 {
 	KASSERT(file->f_dentry != NULL || file->f_device != NULL, "vfs_write on nonbacked file");
 	if (file->f_device != NULL) {
 		/* Device */
 		if (file->f_device == NULL || file->f_device->GetCharDeviceOperations() == NULL)
-			return ANANAS_ERROR(BAD_OPERATION);
+			return RESULT_MAKE_FAILURE(EINVAL);
 		else
 			return file->f_device->GetCharDeviceOperations()->Write(buf, *len, 0);
 	}
 
 	INode* inode = file->f_dentry->d_inode;
 	if (inode == NULL || inode->i_iops == NULL)
-		return ANANAS_ERROR(BAD_OPERATION);
+		return RESULT_MAKE_FAILURE(EINVAL);
 
 	if (S_ISDIR(inode->i_sb.st_mode)) {
 		/* Directory */
-		return ANANAS_ERROR(BAD_OPERATION);
+		return RESULT_MAKE_FAILURE(EINVAL);
 	}
 
 	if (!vfs_is_filesystem_sane(inode->i_fs))
-		return ANANAS_ERROR(IO);
+		return RESULT_MAKE_FAILURE(EIO);
 
 	/* Regular file */
 	if (inode->i_iops->write == NULL)
-		return ANANAS_ERROR(BAD_OPERATION);
+		return RESULT_MAKE_FAILURE(EINVAL);
 	return inode->i_iops->write(file, buf, len);
 }
 
-errorcode_t
+Result
 vfs_seek(struct VFS_FILE* file, off_t offset)
 {
 	if (file->f_dentry == NULL || file->f_dentry->d_inode == NULL)
-		return ANANAS_ERROR(BAD_HANDLE);
+		return RESULT_MAKE_FAILURE(EBADF);
 	if (offset > file->f_dentry->d_inode->i_sb.st_size)
-		return ANANAS_ERROR(BAD_RANGE);
+		return RESULT_MAKE_FAILURE(ERANGE);
 	file->f_offset = offset;
-	return ananas_success();
+	return Result::Success();
 }
 
 /*
@@ -131,7 +132,7 @@ vfs_seek(struct VFS_FILE* file, off_t offset)
  * Note that destinode, if filled out, will always be referenced; it is the
  * responsibility of the caller to derefence it.
  */
-static errorcode_t
+static Result
 vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& final)
 {
 	char tmp[VFS_MAX_NAME_LEN + 1];
@@ -154,7 +155,7 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
 		struct VFS_MOUNTED_FS* fs = vfs_get_rootfs();
 		if (fs == NULL)
 			/* If there is no root filesystem, nothing to do */
-			return ANANAS_ERROR(NO_FILE);
+			return RESULT_MAKE_FAILURE(ENOENT);
 		if (*name == '/')
 			name++;
 
@@ -204,7 +205,7 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
 		// Ensure the dentry points to something still sane
 		if (!vfs_is_filesystem_sane(curdentry->d_fs)) {
 			dentry_deref(*curdentry); /* let go of the ref; we are done with it */
-			return ANANAS_ERROR(IO);
+			return RESULT_MAKE_FAILURE(EIO);
 		}
 
 		/*
@@ -220,7 +221,7 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
 		 */
 		if (S_ISDIR(curdentry->d_inode->i_sb.st_mode) == 0) {
 			dentry_deref(*curdentry); /* let go of the ref; we are done with it */
-			return ANANAS_ERROR(NO_FILE);
+			return RESULT_MAKE_FAILURE(ENOENT);
 		}
 
 		/*
@@ -247,7 +248,7 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
 			dentry_deref(*curdentry); /* release parent, we are done with it */
 			KASSERT(dentry->d_inode == NULL, "negative lookup with inode?");
 			TRACE(VFS, INFO, "bailing, found negative dentry for '%s', curdentry %p -> %p", next_lookup, curdentry, dentry);
-			return ANANAS_ERROR(NO_FILE);
+			return RESULT_MAKE_FAILURE(ENOENT);
 		}
 
 		/* If the entry has a backing inode, we are done and can look up the next part */
@@ -263,9 +264,9 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
 		 */
 		INode* inode;
 		TRACE(VFS, INFO, "performing lookup from %p:'%s'", curdentry, next_lookup);
-		errorcode_t err = curdentry->d_inode->i_iops->lookup(*curdentry, inode, next_lookup);
+		Result result = curdentry->d_inode->i_iops->lookup(*curdentry, inode, next_lookup);
 		dentry_deref(*curdentry); /* we no longer need it */
-		if (ananas_is_success(err)) {
+		if (result.IsSuccess()) {
 			/*
 			 * Lookup worked; we have a single-reffed inode now. We have to hook it
 			 * up to the dentry cache, which can re-use the reference we have for it.
@@ -276,7 +277,7 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
 			TRACE(VFS, INFO, "making negative dentry for %p:%s\n", curdentry, next_lookup);
 			dentry->d_flags |= DENTRY_FLAG_NEGATIVE;
 			/* No need to touch ditem; it'll be set already to the new dentry (and we can get to the parent from there) */
-			return err;
+			return result;
 		}
 
 		/* Go one level deeper; we've already dereffed curdentry */
@@ -284,7 +285,7 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
 	}
 
 	ditem = curdentry;
-	return ananas_success();
+	return Result::Success();
 }
 
 /*
@@ -292,52 +293,52 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
  * 'curinode' is the initial inode to start the lookup relative to, or NULL to
  * start from the root.
  */
-errorcode_t
+Result
 vfs_lookup(DEntry* parent, DEntry*& destentry, const char* dentry)
 {
 	bool final;
-	errorcode_t err = vfs_lookup_internal(parent, dentry, destentry, final);
-	if (ananas_is_success(err)) {
+	Result result = vfs_lookup_internal(parent, dentry, destentry, final);
+	if (result.IsSuccess()) {
 #if VFS_DEBUG_LOOKUP
 		kprintf("vfs_lookup(): parent=%p,dentry='%s' okay -> dentry %p\n", parent, dentry, *destentry);
 #endif
-		return err;
+		return result;
 	}
 
 	/* Lookup failed; dereference the destination if necessary */
 	if (destentry != nullptr)
 		dentry_deref(*destentry);
-	return err;
+	return result;
 }
 
 /*
  * Creates a new inode in parent; sets 'file' to the destination on success.
  */
-errorcode_t
+Result
 vfs_create(DEntry* parent, struct VFS_FILE* file, const char* dentry, int mode)
 {
 	DEntry* de;
 	bool final;
-	errorcode_t err = vfs_lookup_internal(parent, dentry, de, final);
-	if (ANANAS_ERROR_CODE(err) != ANANAS_ERROR_NO_FILE) {
+	Result result = vfs_lookup_internal(parent, dentry, de, final);
+	if (result.IsSuccess() || result.AsErrno() != ENOENT) {
 		/*
 		 * A 'no file found' error is expected as we are creating the new file; we
 		 * are using the lookup code in order to obtain the cache item entry.
 	 	 */
-		if (ananas_is_success(err)) {
+		if (result.IsSuccess()) {
 			/* The lookup worked?! The file already exists; cancel the ref */
 			KASSERT(de->d_inode != NULL, "successful lookup without inode");
 			dentry_deref(*de);
 			/* Update the error code */
-			err = ANANAS_ERROR(FILE_EXISTS);
+			result = RESULT_MAKE_FAILURE(EEXIST);
 		}
-		return err;
+		return result;
 	}
 
 	/* Request failed; if this wasn't the final entry, bail: path is not present */
 	if (!final) {
 		dentry_deref(*de);
-		return err;
+		return result;
 	}
 
 	/*
@@ -352,34 +353,34 @@ vfs_create(DEntry* parent, struct VFS_FILE* file, const char* dentry, int mode)
 
 	/* If the filesystem can't create inodes, assume the operation is faulty */
 	if (parentinode->i_iops->create == NULL)
-		return ANANAS_ERROR(BAD_OPERATION);
+		return RESULT_MAKE_FAILURE(EINVAL);
 
 	if (!vfs_is_filesystem_sane(parentinode->i_fs))
-		return ANANAS_ERROR(IO);
+		return RESULT_MAKE_FAILURE(EIO);
 
 	/* Dear filesystem, create a new inode for us */
-	err = parentinode->i_iops->create(*parentinode, de, mode);
-	if (ananas_is_failure(err)) {
+	result = parentinode->i_iops->create(*parentinode, de, mode);
+	if (result.IsFailure()) {
 		/* Failure; remark the directory entry (we don't own it anymore) and report the failure */
 		de->d_flags |= DENTRY_FLAG_NEGATIVE;
 	} else {
 		/* Success; report the inode we created */
 		vfs_make_file(file, *de);
 	}
-	return err;
+	return result;
 }
 
 /*
  * Grows a file to a given size.
  */
-errorcode_t
+Result
 vfs_grow(struct VFS_FILE* file, off_t size)
 {
 	INode* inode = file->f_dentry->d_inode;
 	KASSERT(inode->i_sb.st_size < size, "no need to grow");
 
 	if (!vfs_is_filesystem_sane(inode->i_fs))
-		return ANANAS_ERROR(IO);
+		return RESULT_MAKE_FAILURE(EIO);
 
 	/* Allocate a dummy buffer with the file data */
 	char buffer[128];
@@ -391,14 +392,15 @@ vfs_grow(struct VFS_FILE* file, off_t size)
 	while (inode->i_sb.st_size < size) {
 		size_t chunklen = (size - inode->i_sb.st_size) > sizeof(buffer) ? sizeof(buffer) : size - inode->i_sb.st_size;
 		size_t len = chunklen;
-		errorcode_t err = vfs_write(file, buffer, &len);
-		ANANAS_ERROR_RETURN(err);	
+		RESULT_PROPAGATE_FAILURE(
+			vfs_write(file, buffer, &len)
+		);
 	}
 	file->f_offset = cur_offset;
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 vfs_unlink(struct VFS_FILE* file)
 {
 	KASSERT(file->f_dentry != NULL, "unlink without dentry?");
@@ -406,27 +408,28 @@ vfs_unlink(struct VFS_FILE* file)
 	/* Unlink is relative to the parent; so we'll need to obtain it */
 	DEntry* parent = file->f_dentry->d_parent;
 	if (parent == NULL || parent->d_inode == NULL)
-		return ANANAS_ERROR(BAD_OPERATION);
+		return RESULT_MAKE_FAILURE(EINVAL);
 
 	INode& inode = *parent->d_inode;
 	if (inode.i_iops->unlink == NULL)
-		return ANANAS_ERROR(BAD_OPERATION);
+		return RESULT_MAKE_FAILURE(EINVAL);
 
 	if (!vfs_is_filesystem_sane(inode.i_fs))
-		return ANANAS_ERROR(IO);
+		return RESULT_MAKE_FAILURE(EIO);
 
-	errorcode_t err = inode.i_iops->unlink(inode, *file->f_dentry);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		inode.i_iops->unlink(inode, *file->f_dentry)
+	);
 
 	/*
 	 * Inform the dentry cache; the unlink operation should have removed it
 	 * from storage, but we need to make sure it cannot be found anymore.
 	 */
 	dentry_unlink(*file->f_dentry);
-	return err;
+	return Result::Success();
 }
 
-errorcode_t
+Result
 vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest)
 {
 	KASSERT(file->f_dentry != NULL, "rename without dentry?");
@@ -438,7 +441,7 @@ vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest)
 	DEntry* parent_dentry = file->f_dentry->d_parent;
 	if (parent_dentry == NULL || parent_dentry->d_inode == NULL ||
 	    parent_dentry->d_inode->i_iops->rename == NULL)
-		return ANANAS_ERROR(BAD_OPERATION);
+		return RESULT_MAKE_FAILURE(EINVAL);
 
 	/*
 	 * Look up the new location; we need a dentry to the new location for this to
@@ -446,26 +449,26 @@ vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest)
 	 */
 	DEntry* de;
 	bool final;
-	errorcode_t err = vfs_lookup_internal(parent, dest, de, final);
-	if (ANANAS_ERROR_CODE(err) != ANANAS_ERROR_NO_FILE) {
+	Result result = vfs_lookup_internal(parent, dest, de, final);
+	if (result.IsSuccess() || result.AsErrno() != ENOENT) {
 		/*
 		 * A 'no file found' error is expected as we are creating a new name here;
 		 * we are using the lookup code in order to obtain the cache item entry.
 	 	 */
-		if (ananas_is_success(err)) {
+		if (result.IsSuccess()) {
 			/* The lookup worked?! The file already exists; cancel the ref */
 			KASSERT(de->d_inode != NULL, "successful lookup without inode");
 			dentry_deref(*de);
 			/* Update the error code */
-			err = ANANAS_ERROR(FILE_EXISTS);
+			result = RESULT_MAKE_FAILURE(EEXIST);
 		}
-		return err;
+		return result;
 	}
 
 	/* Request failed; if this wasn't the final entry, bail: parent path is not present */
 	if (!final) {
 		dentry_deref(*de);
-		return err;
+		return result;
 	}
 
 	/* Sanity checks */
@@ -481,15 +484,15 @@ vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest)
 	INode* dest_inode = de->d_parent->d_inode;
 	if (parent_inode->i_fs != dest_inode->i_fs) {
 		dentry_deref(*de);
-		return ANANAS_ERROR(CROSS_DEVICE);
+		return RESULT_MAKE_FAILURE(EXDEV);
 	}
 
 	/* All seems to be in order; ask the filesystem to deal with the change */
-	err = parent_inode->i_iops->rename(*parent_inode, *file->f_dentry, *dest_inode, *de);
-	if (ananas_is_failure(err)) {
+	result = parent_inode->i_iops->rename(*parent_inode, *file->f_dentry, *dest_inode, *de);
+	if (result.IsFailure()) {
 		/* If something went wrong, ensure to free the new dentry */
 		dentry_deref(*de);
-		return err;
+		return result;
 	}
 
 	/*
@@ -500,7 +503,7 @@ vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest)
 	DEntry* old_dentry = file->f_dentry;
 	file->f_dentry = de;
 	dentry_deref(*old_dentry);
-	return ananas_success();
+	return Result::Success();
 }
 
 /* vim:set ts=2 sw=2: */

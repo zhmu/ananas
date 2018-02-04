@@ -1,5 +1,6 @@
 #include "kernel/driver.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 
 namespace Ananas {
 
@@ -18,7 +19,7 @@ Ananas::DriverList& GetDriverList()
 
 } // namespace internal
 
-errorcode_t Register(Driver& driver)
+Result Register(Driver& driver)
 {
 	// Insert the driver in-place - we want to keep the driver list sorted on
 	// priority as this simplifies things (we can just look for the first driver
@@ -27,23 +28,23 @@ errorcode_t Register(Driver& driver)
 		if (d.d_Priority < driver.d_Priority)
 			continue;
 		driverList.insert(d, driver);
-		return ananas_success();
+		return Result::Success();
 	}
 
 	driverList.push_back(driver);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t Unregister(const char* name)
+Result Unregister(const char* name)
 {
 	for(auto& d: driverList) {
 		if (strcmp(d.d_Name, name) != 0)
 			continue;
 
 		driverList.remove(d);
-		return ananas_success();
+		return Result::Success();
 	}
-	return ananas_success();
+	return Result::Success();
 }
 
 } // namespace DriverManager

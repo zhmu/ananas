@@ -13,6 +13,7 @@ typedef void (*kthread_func_t)(void*);
 struct VM_SPACE;
 struct STACKFRAME;
 struct Process;
+class Result;
 
 #define THREAD_MAX_NAME_LEN 32
 #define THREAD_EVENT_EXIT 1
@@ -78,18 +79,18 @@ typedef util::List<Thread> ThreadList;
 #define THREAD_IS_KTHREAD(t) ((t)->t_flags & THREAD_FLAG_KTHREAD)
 
 /* Machine-dependant callback to initialize a thread */
-errorcode_t md_thread_init(Thread& thread, int flags);
-errorcode_t md_kthread_init(Thread& thread, kthread_func_t func, void* arg);
+Result md_thread_init(Thread& thread, int flags);
+void md_kthread_init(Thread& thread, kthread_func_t func, void* arg);
 
 /* Machine-dependant callback to free thread data */
 void md_thread_free(Thread& thread);
 
-errorcode_t kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg);
+Result kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg);
 
 #define THREAD_ALLOC_DEFAULT	0	/* Nothing special */
 #define THREAD_ALLOC_CLONE	1	/* Thread is created for cloning */
 
-errorcode_t thread_alloc(Process& p, Thread*& dest, const char* name, int flags);
+Result thread_alloc(Process& p, Thread*& dest, const char* name, int flags);
 void thread_ref(Thread& t);
 void thread_deref(Thread& t);
 void thread_set_name(Thread& t, const char* name);
@@ -100,10 +101,10 @@ void idle_thread(void*);
 void md_thread_set_entrypoint(Thread& thread, addr_t entry);
 void md_thread_set_argument(Thread& thread, addr_t arg);
 void* md_thread_map(Thread& thread, void* to, void* from, size_t length, int flags);
-errorcode_t thread_unmap(Thread& t, addr_t virt, size_t len);
+Result thread_unmap(Thread& t, addr_t virt, size_t len);
 void* md_map_thread_memory(Thread& thread, void* ptr, size_t length, int write);
 void md_thread_clone(Thread& t, Thread& parent, register_t retval);
-errorcode_t md_thread_unmap(Thread& thread, addr_t virt, size_t length);
+Result md_thread_unmap(Thread& thread, addr_t virt, size_t length);
 void md_setup_post_exec(Thread& thread, addr_t exec_addr, register_t exec_arg);
 
 void thread_suspend(Thread& t);
@@ -111,7 +112,7 @@ void thread_resume(Thread& t);
 void thread_sleep(tick_t num_ticks);
 void thread_exit(int exitcode);
 void thread_dump(int num_args, char** arg);
-errorcode_t thread_clone(Process& proc, Thread*& dest);
+Result thread_clone(Process& proc, Thread*& dest);
 
 void thread_signal_waiters(Thread& t);
 void thread_wait(Thread& t);

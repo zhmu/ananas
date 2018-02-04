@@ -19,6 +19,7 @@ typedef unsigned int handle_event_result_t;
 struct Process;
 struct Thread;
 struct HANDLE_OPS;
+class Result;
 
 struct HANDLE_PIPE_BUFFER {
 	Mutex hpb_mutex;
@@ -66,12 +67,12 @@ struct OPEN_OPTIONS;
 struct CREATE_OPTIONS;
 struct SUMMON_OPTIONS;
 struct CLONE_OPTIONS;
-typedef errorcode_t (*handle_read_fn)(Thread* thread, handleindex_t index, struct HANDLE* handle, void* buf, size_t* len);
-typedef errorcode_t (*handle_write_fn)(Thread* thread, handleindex_t index, struct HANDLE* handle, const void* buf, size_t* len);
-typedef errorcode_t (*handle_open_fn)(Thread* thread, handleindex_t index, struct HANDLE* result, const char* path, int flags, int mode);
-typedef errorcode_t (*handle_free_fn)(Process& proc, struct HANDLE* handle);
-typedef errorcode_t (*handle_unlink_fn)(Thread* thread, handleindex_t index, struct HANDLE* handle);
-typedef errorcode_t (*handle_clone_fn)(Process& proc_in, handleindex_t index, struct HANDLE* handle, struct CLONE_OPTIONS* opts, Process& proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out);
+typedef Result (*handle_read_fn)(Thread* thread, handleindex_t index, struct HANDLE* handle, void* buf, size_t* len);
+typedef Result (*handle_write_fn)(Thread* thread, handleindex_t index, struct HANDLE* handle, const void* buf, size_t* len);
+typedef Result (*handle_open_fn)(Thread* thread, handleindex_t index, struct HANDLE* result, const char* path, int flags, int mode);
+typedef Result (*handle_free_fn)(Process& proc, struct HANDLE* handle);
+typedef Result (*handle_unlink_fn)(Thread* thread, handleindex_t index, struct HANDLE* handle);
+typedef Result (*handle_clone_fn)(Process& proc_in, handleindex_t index, struct HANDLE* handle, struct CLONE_OPTIONS* opts, Process& proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out);
 
 struct HANDLE_OPS {
 	handle_read_fn hop_read;
@@ -95,23 +96,23 @@ struct HandleType : util::List<HandleType>::NodePtr {
 typedef util::List<HandleType> HandleTypeList;
 
 void handle_init();
-errorcode_t handle_alloc(int type, Process& p, handleindex_t index_from, struct HANDLE** handle_out, handleindex_t* index_out);
-errorcode_t handle_free(struct HANDLE* h);
-errorcode_t handle_free_byindex(Process& p, handleindex_t index);
-errorcode_t handle_lookup(Process& p, handleindex_t index, int type, struct HANDLE** handle_out);
-errorcode_t handle_clone(Process& p_in, handleindex_t index, struct CLONE_OPTIONS* opts, Process& p_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out);
+Result handle_alloc(int type, Process& p, handleindex_t index_from, struct HANDLE** handle_out, handleindex_t* index_out);
+Result handle_free(struct HANDLE* h);
+Result handle_free_byindex(Process& p, handleindex_t index);
+Result handle_lookup(Process& p, handleindex_t index, int type, struct HANDLE** handle_out);
+Result handle_clone(Process& p_in, handleindex_t index, struct CLONE_OPTIONS* opts, Process& p_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out);
 
 /* Only to be used from handle implementation code */
-errorcode_t handle_clone_generic(struct HANDLE* handle, Process& p_out, struct HANDLE** out, handleindex_t index_out_min, handleindex_t* index);
-errorcode_t handle_register_type(HandleType& ht);
-errorcode_t handle_unregister_type(HandleType& ht);
+Result handle_clone_generic(struct HANDLE* handle, Process& p_out, struct HANDLE** out, handleindex_t index_out_min, handleindex_t* index);
+Result handle_register_type(HandleType& ht);
+Result handle_unregister_type(HandleType& ht);
 
 #define HANDLE_TYPE(id, name, ops) \
 	static HandleType ht_##id(name, id, &ops); \
-	static errorcode_t register_##id() { \
+	static Result register_##id() { \
 		return handle_register_type(ht_##id); \
 	}; \
-	static errorcode_t unregister_##id() { \
+	static Result unregister_##id() { \
 		return handle_unregister_type(ht_##id); \
 	}; \
 	INIT_FUNCTION(register_##id, SUBSYSTEM_HANDLE, ORDER_SECOND); \

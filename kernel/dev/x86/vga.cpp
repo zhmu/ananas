@@ -1,11 +1,11 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/console-driver.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/x86/io.h"
 
@@ -58,9 +58,9 @@ struct VGA : public Ananas::Device, private Ananas::IDeviceOperations, private A
 		return vga_buffer[(y) * VGA_WIDTH + (x)];
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
-	errorcode_t Write(const void* buffer, size_t& len, off_t offset) override;
+	Result Attach() override;
+	Result Detach() override;
+	Result Write(const void* buffer, size_t& len, off_t offset) override;
 
 	uint32_t vga_io;
 	uint16_t* vga_video_mem;
@@ -229,13 +229,13 @@ VGA::SetCursor(int x, int y)
 	WriteCRTC(0xf, offs & 0xff);
 }
 
-errorcode_t
+Result
 VGA::Attach()
 {
 	void* mem = d_ResourceSet.AllocateResource(Ananas::Resource::RT_Memory, 0x7fff);
 	void* res = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IO, 0x1f);
 	if (mem == nullptr || res == nullptr)
-		return ANANAS_ERROR(NO_RESOURCE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
 	vga_io        = (uintptr_t)res;
 	vga_video_mem = static_cast<uint16_t*>(mem);
@@ -259,16 +259,16 @@ VGA::Attach()
 	teken_init(&vga_teken, &tf, this);
 	teken_set_winsize(&vga_teken, &tp);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 VGA::Detach()
 {
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 VGA::Write(const void* buffer, size_t& len, off_t offset)
 {
 	auto ptr = static_cast<const uint8_t*>(buffer);
@@ -282,7 +282,7 @@ VGA::Write(const void* buffer, size_t& len, off_t offset)
 		teken_input(&vga_teken, ptr, 1);
 		ptr++;
 	}
-	return ananas_success();
+	return Result::Success();
 }
 
 struct VGA_Driver : public Ananas::ConsoleDriver

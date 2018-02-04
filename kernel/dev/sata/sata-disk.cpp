@@ -1,5 +1,4 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/dev/ata.h"
 #include "kernel/dev/sata.h"
 #include "kernel/bio.h"
@@ -9,6 +8,7 @@
 #include "kernel/lib.h"
 #include "kernel/mbr.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 
 #include "../ahci/ahci.h" // XXX
@@ -33,11 +33,11 @@ public:
 		return this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
-	errorcode_t ReadBIO(BIO& bio) override;
-	errorcode_t WriteBIO(BIO& bio) override;
+	Result ReadBIO(BIO& bio) override;
+	Result WriteBIO(BIO& bio) override;
 
 	void Execute(struct SATA_REQUEST& sr);
 
@@ -62,7 +62,7 @@ SATADisk::Execute(struct SATA_REQUEST& sr)
 #endif
 }
 
-errorcode_t
+Result
 SATADisk::Attach()
 {
 	/*
@@ -111,20 +111,20 @@ SATADisk::Attach()
 	 */
 	BIO* bio = bio_read(this, 0, BIO_SECTOR_SIZE);
 	if (BIO_IS_ERROR(bio))
-		return ANANAS_ERROR(IO); /* XXX should get error from bio */
+		return RESULT_MAKE_FAILURE(EIO); /* XXX should get error from bio */
 
 	mbr_process(this, bio);
 	bio_free(*bio);
-	return ANANAS_ERROR(IO);
+	return Result::Success();
 }
 
-errorcode_t
+Result
 SATADisk::Detach()
 {
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 SATADisk::ReadBIO(BIO& bio)
 {
 	KASSERT(bio.length > 0, "invalid length");
@@ -139,10 +139,10 @@ SATADisk::ReadBIO(BIO& bio)
 	sr.sr_bio = &bio;
 	sr.sr_flags = SATA_REQUEST_FLAG_READ;
 	Execute(sr);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 SATADisk::WriteBIO(BIO& bio)
 {
 	struct SATA_REQUEST sr;
@@ -154,7 +154,7 @@ SATADisk::WriteBIO(BIO& bio)
 	sr.sr_bio = &bio;
 	sr.sr_flags = SATA_REQUEST_FLAG_WRITE;
 	Execute(sr);
-	return ananas_success();
+	return Result::Success();
 }
 
 struct SATADisk_Driver : public Ananas::Driver

@@ -1,4 +1,3 @@
-#include <ananas/error.h>
 #include "kernel/dev/kbdmux.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
@@ -7,6 +6,7 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/reboot.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/tty.h"
 #include "kernel/x86/io.h"
@@ -75,8 +75,8 @@ public:
 		return *this;
 	}
 
-	errorcode_t Attach() override;
-	errorcode_t Detach() override;
+	Result Attach() override;
+	Result Detach() override;
 
 private:
 	void OnIRQ();
@@ -143,34 +143,35 @@ ATKeyboard::OnIRQ()
 	}
 }
 
-errorcode_t
+Result
 ATKeyboard::Attach()
 {
 	void* res_io = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IO, 7);
 	void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
-		return ANANAS_ERROR(NO_RESOURCE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 
 	// Initialize private data; must be done before the interrupt is registered
 	kbd_ioport = (uintptr_t)res_io;
 	kbd_flags = 0;
 
-	errorcode_t err = irq_register((uintptr_t)res_irq, this, IRQWrapper, IRQ_TYPE_DEFAULT, NULL);
-	ANANAS_ERROR_RETURN(err);
-	
+	RESULT_PROPAGATE_FAILURE(
+		irq_register((uintptr_t)res_irq, this, IRQWrapper, IRQ_TYPE_DEFAULT, NULL)
+	);
+
 	/*
 	 * Ensure the keyboard's input buffer is empty; this will cause it to
 	 * send IRQ's to us.
 	 */
 	inb(kbd_ioport);
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 ATKeyboard::Detach()
 {
 	panic("detach");
-	return ananas_success();
+	return Result::Success();
 }
 
 struct ATKeyboard_Driver : public Ananas::Driver

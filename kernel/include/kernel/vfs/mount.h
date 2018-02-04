@@ -7,14 +7,15 @@ namespace Ananas {
 class Device;
 }
 
+class Result;
 struct VFSFileSystem;
 
 void vfs_init_mount();
-errorcode_t vfs_register_filesystem(VFSFileSystem& fs);
-errorcode_t vfs_unregister_filesystem(VFSFileSystem& fs);
+Result vfs_register_filesystem(VFSFileSystem& fs);
+Result vfs_unregister_filesystem(VFSFileSystem& fs);
 
-errorcode_t vfs_mount(const char* from, const char* to, const char* type, void* options);
-errorcode_t vfs_unmount(const char* path);
+Result vfs_mount(const char* from, const char* to, const char* type, void* options);
+Result vfs_unmount(const char* path);
 
 void vfs_abandon_device(Ananas::Device& device);
 

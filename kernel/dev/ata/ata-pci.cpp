@@ -1,10 +1,10 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/dev/pci.h"
 #include "kernel/driver.h"
 #include "kernel/irq.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/x86/io.h"
 #include "ata.h"
@@ -18,7 +18,7 @@ TRACE_SETUP;
 namespace Ananas {
 namespace ATA {
 
-errorcode_t
+Result
 ATAPCI::Attach()
 {
 	// Enable busmastering; we need this to be able to do DMA
@@ -27,7 +27,7 @@ ATAPCI::Attach()
 	// Grab the PCI DMA I/O port, it is the same for all PCI IDE controllers
 	void* res_io = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IO, 16);
 	if (res_io == NULL)
-		return ANANAS_ERROR(NO_RESOURCE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	uint32_t atapci_dma_io = (uint32_t)(uintptr_t)res_io;
 
 	/* XXX This is crude - but PCI/APCI do not seem to advertise these addresses? */
@@ -50,26 +50,18 @@ ATAPCI::Attach()
 		if (atacl == nullptr)
 			continue;
 
-		if (ananas_is_failure(Ananas::DeviceManager::AttachSingle(*atacl)))
+		if (auto result = Ananas::DeviceManager::AttachSingle(*atacl); result.IsFailure())
 			delete atacl;
 	}
-#if 0
-	int irq;
-	switch(d_Unit) {
-		case 0: atapci_io = 0x1f0; atapci_io_alt = 0x3f4; irq = 14; break;
-		case 1: atapci_io = 0x170; atapci_io_alt = 0x374; irq = 15; break;
-		default: return ANANAS_ERROR(NO_RESOURCE);
-	}
-#endif
 
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 ATAPCI::Detach()
 {
 	panic("detach");
-	return ananas_success();
+	return Result::Success();
 }
 
 namespace {
@@ -106,6 +98,5 @@ REGISTER_DRIVER(ATAPCI_Driver)
 
 } // namespace ATA
 } // namespace Ananas
-
 
 /* vim:set ts=2 sw=2: */

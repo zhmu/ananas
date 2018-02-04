@@ -23,10 +23,11 @@
  * Internal Layout" by Dave Poirier.
  */
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "kernel/bio.h"
 #include "kernel/init.h"
 #include "kernel/lib.h"
+#include "kernel/result.h"
 #include "kernel/mm.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
@@ -58,13 +59,13 @@ ext2_conv_superblock(struct EXT2_SUPERBLOCK* sb)
 	sb->s_magic = EXT2_TO_LE16(sb->s_magic);
 }
 
-static errorcode_t
+static Result
 ext2_prepare_inode(INode& inode)
 {
 	auto privdata = new EXT2_INODE_PRIVDATA;
 	memset(privdata, 0, sizeof(struct EXT2_INODE_PRIVDATA));
 	inode.i_privdata = privdata;
-	return ananas_success();
+	return Result::Success();
 }
 
 static void
@@ -103,7 +104,7 @@ ext2_dump_inode(struct EXT2_INODE* inode)
  * an doubly-indirect block. With an 1KB blocksize, each doubly-indirect block
  * contains X * X blocks, so we can store X * X * X = 16777216 blocks.
  */
-static errorcode_t
+static Result
 ext2_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int create)
 {
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
@@ -123,7 +124,7 @@ ext2_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int creat
 	/* (a) Direct blocks are easy */
 	if (block_in < 12) {
 		*block_out = in_privdata->block[block_in];
-		return ananas_success();
+		return Result::Success();
 	}
 
 	if (block_in < 12 + fs->fs_block_size / 4) {
@@ -131,18 +132,19 @@ ext2_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int creat
 		 * (b) Need to look up the block the first indirect block, 13.
 		 */
 		BIO* bio;
-		errorcode_t err = vfs_bread(fs, in_privdata->block[12], &bio);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			vfs_bread(fs, in_privdata->block[12], &bio)
+		);
 		*block_out = EXT2_TO_LE32(*(uint32_t*)(static_cast<char*>(BIO_DATA(bio)) + (block_in - 12) * sizeof(uint32_t)));
 		bio_free(*bio);
-		return ananas_success();
+		return Result::Success();
 	}
 
 	panic("ext2_block_map() needs support for doubly/triple indirect blocks!");
-	return ANANAS_ERROR(BAD_RANGE);
+	return RESULT_MAKE_FAILURE(ERANGE);
 }
 
-static errorcode_t
+static Result
 ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	INode& inode = *file->f_dentry->d_inode;
@@ -155,8 +157,9 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	blocknr_t curblock = 0;
 	while(left > 0) {
 		blocknr_t block;
-		errorcode_t err = ext2_block_map(inode, blocknum, &block, 0);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			ext2_block_map(inode, blocknum, &block, 0)
+		);
 		if (block == 0) {
 			/*
 			 * We've run out of blocks. Need to stop here.
@@ -166,8 +169,9 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		if(curblock != block) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			err = vfs_bread(fs, block, &bio);
-			ANANAS_ERROR_RETURN(err);
+			RESULT_PROPAGATE_FAILURE(
+				vfs_bread(fs, block, &bio)
+			);
 			curblock = block;
 		}
 
@@ -208,7 +212,7 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	if (bio != nullptr)
 		bio_free(*bio);
 	*len = written;
-	return ananas_success();
+	return Result::Success();
 }
 
 static struct VFS_INODE_OPS ext2_file_ops = {
@@ -224,7 +228,7 @@ static struct VFS_INODE_OPS ext2_dir_ops = {
 /*
  * Reads a filesystem inode and fills a corresponding inode structure.
  */
-static errorcode_t
+static Result
 ext2_read_inode(INode& inode, ino_t inum)
 {
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
@@ -250,8 +254,9 @@ ext2_read_inode(INode& inode, ino_t inum)
 
 	/* Fetch the block and make a pointer to the inode */
 	BIO* bio;
-	errorcode_t err = vfs_bread(fs, block, &bio);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_bread(fs, block, &bio)
+	);
 	unsigned int idx = (iindex * privdata->sb.s_inode_size) % fs->fs_block_size;
 	auto ext2inode = reinterpret_cast<struct EXT2_INODE*>(static_cast<char*>(BIO_DATA(bio)) + idx);
 
@@ -287,24 +292,25 @@ ext2_read_inode(INode& inode, ino_t inum)
 	}
 	bio_free(*bio);
 
-	return ananas_success();
+	return Result::Success();
 }
 
-static errorcode_t
+static Result
 ext2_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 {
 	/* Default to 1KB blocksize and fetch the superblock */
 	BIO* bio;
 	fs->fs_block_size = 1024;
-	errorcode_t err = vfs_bread(fs, 1, &bio);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_bread(fs, 1, &bio)
+	);
 
 	/* See if something ext2-y lives here */
 	struct EXT2_SUPERBLOCK* sb = (struct EXT2_SUPERBLOCK*)BIO_DATA(bio);
 	ext2_conv_superblock(sb);
 	if (sb->s_magic != EXT2_SUPER_MAGIC) {
 		bio_free(*bio);
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 	/* Fill out some fields with the defaults for very old ext2 filesystems */
@@ -338,10 +344,9 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 		 */
 		blocknr_t blocknum = 1 + (n * sizeof(struct EXT2_BLOCKGROUP)) / fs->fs_block_size;
 		blocknum += privdata->sb.s_first_data_block;
-		err = vfs_bread(fs, blocknum, &bio);
-		if (ananas_is_failure(err)) {
+		if (auto result = vfs_bread(fs, blocknum, &bio); result.IsFailure()) {
 			kfree(privdata);
-			return err;
+			return result;
 		}
 		memcpy((void*)(privdata->blockgroup + n),
 		       (void*)(static_cast<char*>(BIO_DATA(bio)) + ((n * sizeof(struct EXT2_BLOCKGROUP)) % fs->fs_block_size)),
@@ -360,12 +365,11 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 #endif
 
 	/* Read the root inode */
-	err = vfs_get_inode(fs, EXT2_ROOT_INO, root_inode);
-	if (ananas_is_failure(err)) {
+	if (auto result = vfs_get_inode(fs, EXT2_ROOT_INO, root_inode); result.IsFailure()) {
 		kfree(privdata);
-		return err;
+		return result;
 	}
-	return ananas_success();
+	return Result::Success();
 }
 
 static struct VFS_FILESYSTEM_OPS fsops_ext2 = {
@@ -377,13 +381,13 @@ static struct VFS_FILESYSTEM_OPS fsops_ext2 = {
 
 static VFSFileSystem fs_ext2("ext2", &fsops_ext2);
 
-errorcode_t
+Result
 ext2_init()
 {
 	return vfs_register_filesystem(fs_ext2);
 }
 
-static errorcode_t
+static Result
 ext2_exit()
 {
 	return vfs_unregister_filesystem(fs_ext2);

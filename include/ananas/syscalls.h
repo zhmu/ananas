@@ -5,4 +5,10 @@
 struct utimbuf;
 struct Thread;
 
+#ifdef KERNEL
+class Result;
+#else
+typedef statuscode_t Result;
+#endif
+
 #include <_gen/syscalls.h>

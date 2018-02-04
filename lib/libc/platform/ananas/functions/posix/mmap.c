@@ -1,9 +1,9 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/statuscode.h>
 #include <ananas/syscall-vmops.h>
 #include <ananas/syscalls.h>
-#include <_posix/error.h>
 #include <sys/mman.h>
+#include <errno.h>
 #include <string.h>
 
 void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offset)
@@ -37,9 +37,9 @@ void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offset)
 		vo.vo_offset = offset;
 	}
 
-	errorcode_t err = sys_vmop(&vo);
-	if (err != ANANAS_ERROR_NONE) {
-		_posix_map_error(err);
+	statuscode_t status = sys_vmop(&vo);
+	if (status != ananas_statuscode_success()) {
+		errno = ananas_statuscode_extract_errno(status);
 		return MAP_FAILED;
 	}
 

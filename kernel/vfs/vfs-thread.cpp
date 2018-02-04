@@ -1,23 +1,21 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include <ananas/procinfo.h>
 #include "kernel/console.h"
 #include "kernel/handle.h"
 #include "kernel/init.h"
 #include "kernel/lib.h"
 #include "kernel/process.h"
+#include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 
 TRACE_SETUP;
 
-static errorcode_t
+static Result
 vfs_init_process(Process& proc)
 {
 	TRACE(THREAD, INFO, "proc=%p", &proc);
-
-	errorcode_t err;
 
 	/* If there is a parent, try to clone it's parent handles */
 	struct HANDLE* stdin_handle;
@@ -32,16 +30,19 @@ vfs_init_process(Process& proc)
 	} else {
 		/* Initialize stdin/out/error, so they'll get handle index 0, 1, 2 */
 		handleindex_t hidx;
-		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stdin_handle, &hidx);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stdin_handle, &hidx)
+		);
 		KASSERT(hidx == 0, "stdin index mismatch (%d)", hidx);
 
-		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stdout_handle, &hidx);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stdout_handle, &hidx)
+		);
 		KASSERT(hidx == 1, "stdout index mismatch (%d)", hidx);
 
-		err = handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stderr_handle, &hidx);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			handle_alloc(HANDLE_TYPE_FILE, proc, 0, &stderr_handle, &hidx)
+		);
 		KASSERT(hidx == 2, "stderr index mismatch (%d)", hidx);
 
 		/* Hook the new handles to the console */
@@ -50,14 +51,15 @@ vfs_init_process(Process& proc)
 		stderr_handle->h_data.d_vfs_file.f_device = console_tty;
 
 		/* Use / as current path - by the time we create processes, we should have a workable VFS */
-		err = vfs_lookup(NULL, proc.p_cwd, "/");
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			vfs_lookup(NULL, proc.p_cwd, "/")
+		);
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
-static errorcode_t
+static Result
 vfs_exit_process(Process& proc)
 {
 	TRACE(THREAD, INFO, "proc=%p", &proc);
@@ -67,7 +69,7 @@ vfs_exit_process(Process& proc)
 		proc.p_cwd = nullptr;
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
 REGISTER_PROCESS_INIT_FUNC(vfs_init_process);

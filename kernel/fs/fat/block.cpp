@@ -1,8 +1,9 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
 #include "kernel/bio.h"
 #include "kernel/lib.h"
 #include "kernel/lock.h"
+#include "kernel/result.h"
 #include "kernel/schedule.h" // XXX
 #include "kernel/trace.h"
 #include "kernel/vfs/types.h"
@@ -52,7 +53,7 @@ fat_make_cluster_block_offset(struct VFS_MOUNTED_FS* fs, uint32_t cluster, block
  * first_cluster. Returns BAD_RANGE error if end-of-file was found (but
  * cluster_out will be set to the final cluster found_
  */
-static errorcode_t
+static Result
 fat_get_cluster(struct VFS_MOUNTED_FS* fs, uint32_t first_cluster, uint32_t clusternum, uint32_t* cluster_out)
 {
 	auto fs_privdata = static_cast<struct FAT_FS_PRIVDATA*>(fs->fs_privdata);
@@ -136,9 +137,9 @@ try_cache: ; /* dummy ; to keep gcc happy */
 			reschedule();
 		}
 		if (ci->f_nextcluster == -1)
-			return ANANAS_ERROR(BAD_RANGE);
+			return RESULT_MAKE_FAILURE(ERANGE);
 		*cluster_out = ci->f_nextcluster;
-		return ananas_success();
+		return Result::Success();
 	}
 
 	/* Not in the cache; we'll need to traverse the disk */
@@ -148,8 +149,9 @@ try_cache: ; /* dummy ; to keep gcc happy */
 		uint32_t offset;
 		fat_make_cluster_block_offset(fs, cur_cluster, &sector_num, &offset);
 		BIO* bio;
-		errorcode_t err = vfs_bread(fs, sector_num, &bio);
-		ANANAS_ERROR_RETURN(err);
+		RESULT_PROPAGATE_FAILURE(
+			vfs_bread(fs, sector_num, &bio)
+		);
 
 		/* Grab the value from the FAT */
 		switch (fs_privdata->fat_type) {
@@ -171,18 +173,18 @@ try_cache: ; /* dummy ; to keep gcc happy */
 	if (cur_cluster != 0) {
 		if (ci != NULL)
 			ci->f_nextcluster = *cluster_out;
-		return ananas_success();
+		return Result::Success();
 	} else {
 		if (ci != NULL)
 			ci->f_nextcluster = -1;
-		return ANANAS_ERROR(BAD_RANGE);
+		return RESULT_MAKE_FAILURE(ERANGE);
 	}
 }
 
 /*
  * Sets a cluster value to a given value.
  */
-static errorcode_t
+static Result
 fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, uint32_t cluster_val)
 {
 	auto fs_privdata = static_cast<struct FAT_FS_PRIVDATA*>(fs->fs_privdata);
@@ -194,8 +196,9 @@ fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, uint32_t cluste
 
 	/* Fetch the FAT data */
 	BIO* bio;
-	errorcode_t err = vfs_bread(fs, sector_num, &bio);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_bread(fs, sector_num, &bio)
+	);
 
 	switch (fs_privdata->fat_type) {
 		case 16:
@@ -214,12 +217,11 @@ fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, uint32_t cluste
 	for (int i = 1; i < fs_privdata->num_fats; i++) {
 		sector_num += fs_privdata->num_fat_sectors;
 		BIO* bio2;
-		err = vfs_bread(fs, sector_num, &bio2);
-		if (ananas_is_failure(err)) {
+		if (auto result = vfs_bread(fs, sector_num, &bio2); result.IsFailure()) {
 			/* XXX we should free the cluster */
 			bio_free(*bio);
 			kprintf("fat_set_cluster(): XXX leaking cluster %u\n", sector_num);
-			return err;
+			return result;
 		}
 		memcpy(BIO_DATA(bio2), static_cast<char*>(BIO_DATA(bio)), fs_privdata->sector_size);
 		bio_set_dirty(*bio2);
@@ -227,13 +229,13 @@ fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, uint32_t cluste
 	}
 	bio_free(*bio);
 
-	return ananas_success();
+	return Result::Success();
 }
 
 /*
  * Obtains the first available cluster and marks it as being used.
  */
-static errorcode_t
+static Result
 fat_claim_avail_cluster(struct VFS_MOUNTED_FS* fs, uint32_t* cluster_out)
 {
 	auto fs_privdata = static_cast<struct FAT_FS_PRIVDATA*>(fs->fs_privdata);
@@ -249,8 +251,9 @@ fat_claim_avail_cluster(struct VFS_MOUNTED_FS* fs, uint32_t* cluster_out)
 		if (want_block != cur_block || bio == NULL) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			errorcode_t err = vfs_bread(fs, want_block, &bio);
-			ANANAS_ERROR_RETURN(err);
+			RESULT_PROPAGATE_FAILURE(
+				vfs_bread(fs, want_block, &bio)
+			);
 			cur_block = want_block;
 		}
 
@@ -281,17 +284,17 @@ fat_claim_avail_cluster(struct VFS_MOUNTED_FS* fs, uint32_t* cluster_out)
 
 		/* XXX should update second fat */
 		*cluster_out = clusterno;
-		return ananas_success();
+		return Result::Success();
 	}
 
 	/* Out of available clusters */
-	return ANANAS_ERROR(NO_SPACE);
+	return RESULT_MAKE_FAILURE(ENOSPC);
 }
 
 /*
  * Appends a new cluster to an inode; returns the next cluster.
  */
-static errorcode_t
+static Result
 fat_append_cluster(INode& inode, uint32_t* cluster_out)
 {
 	auto privdata = static_cast<struct FAT_INODE_PRIVDATA*>(inode.i_privdata);
@@ -305,18 +308,18 @@ fat_append_cluster(INode& inode, uint32_t* cluster_out)
 	 */
 	uint32_t last_cluster = privdata->last_cluster;
 	if (last_cluster == 0) {
-		errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, (uint32_t)-1, &last_cluster);
-		if (ANANAS_ERROR_CODE(err) != ANANAS_ERROR_BAD_RANGE) {
-			KASSERT(ananas_is_failure(err), "able to obtain impossible cluster");
-			return err;
+		Result result = fat_get_cluster(fs, privdata->first_cluster, (uint32_t)-1, &last_cluster);
+		if (result.IsFailure() && result.AsErrno() != ERANGE) {
+			panic("unable to obtain last cluster");
 		}
 		privdata->last_cluster = last_cluster;
 	}
 
 	/* Obtain the next cluster - this will also mark it as being in use */
 	uint32_t new_cluster = 0;
-	errorcode_t err = fat_claim_avail_cluster(fs, &new_cluster);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		fat_claim_avail_cluster(fs, &new_cluster)
+	);
 
 	/* If the file didn't have any clusters before, it sure does now */
 	if (privdata->first_cluster == 0) {
@@ -324,8 +327,9 @@ fat_append_cluster(INode& inode, uint32_t* cluster_out)
 		vfs_set_inode_dirty(inode);
 	} else {
 		/* Append this cluster to the file chain */
-		err = fat_set_cluster(fs, last_cluster, new_cluster);
-		ANANAS_ERROR_RETURN(err); /* XXX leaks clusterno */
+		RESULT_PROPAGATE_FAILURE(
+			fat_set_cluster(fs, last_cluster, new_cluster)
+		); /* XXX leaks clusterno */
 	}
 	*cluster_out = new_cluster;
 
@@ -349,10 +353,10 @@ fat_append_cluster(INode& inode, uint32_t* cluster_out)
 	/* Update the block count of the inode */
 	privdata->last_cluster = new_cluster;
 	inode.i_sb.st_blocks += fs_privdata->sectors_per_cluster;
-	return ananas_success();
+	return Result::Success();
 }
 
-errorcode_t
+Result
 fat_truncate_clusterchain(INode& inode)
 {
 	auto privdata = static_cast<struct FAT_INODE_PRIVDATA*>(inode.i_privdata);
@@ -366,20 +370,24 @@ fat_truncate_clusterchain(INode& inode)
 	unsigned int bytes_per_cluster = fs_privdata->sector_size * fs_privdata->sectors_per_cluster;
 	int num_clusters = (inode.i_sb.st_size + bytes_per_cluster - 1) / bytes_per_cluster;
 
-	errorcode_t err = ananas_success();
+	Result result = Result::Success();
 	uint32_t cluster = 0;
 	for (int num = num_clusters - 1; num >= 0; num--) {
-		errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, num, &cluster);
-		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE)
-			break; /* end of the run */
-		ANANAS_ERROR_RETURN(err); /* anything else is bad */
+		{
+			result = fat_get_cluster(fs, privdata->first_cluster, num, &cluster);
+			if (result.IsFailure()) {
+				if (result.AsErrno() == ERANGE)
+					break; /* end of the run */
+				return result; /* anything else is bad */
+			}
+		}
 
 		/*
 		 * Throw away this cluster; note that fat_set_cluster() will not update the
 		 * cluster map, which is fine as we'll just flush the cache soon.
 		 */
-		err = fat_set_cluster(fs, cluster, 0);
-		if (ananas_is_failure(err))
+		result = fat_set_cluster(fs, cluster, 0);
+		if (result.IsFailure())
 			break;
 	}
 
@@ -389,7 +397,7 @@ fat_truncate_clusterchain(INode& inode)
 	 */
 	if (privdata->first_cluster > 0)
 		fat_clear_cache(fs, privdata->first_cluster);
-	return err;
+	return result;
 }
 
 /*
@@ -398,7 +406,7 @@ fat_truncate_clusterchain(INode& inode)
  * (this is necessary because the data may not begin at a sector number
  * multiple of a cluster size)
  */
-errorcode_t
+Result
 fat_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int create)
 {
 	auto privdata = static_cast<struct FAT_INODE_PRIVDATA*>(inode.i_privdata);
@@ -414,21 +422,22 @@ fat_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int create
 		want_block = fs_privdata->first_rootdir_sector + block_in;
 		if (block_in >= (fs_privdata->num_rootdir_sectors * fs_privdata->sector_size))
 			/* Cannot expand the root directory */
-			return ANANAS_ERROR(BAD_RANGE);
+			return RESULT_MAKE_FAILURE(ERANGE);
 	} else {
 		uint32_t cluster;
-		errorcode_t err = fat_get_cluster(fs, privdata->first_cluster, block_in / fs_privdata->sectors_per_cluster, &cluster);
-		if (ANANAS_ERROR_CODE(err) == ANANAS_ERROR_BAD_RANGE) {
+		Result result = fat_get_cluster(fs, privdata->first_cluster, block_in / fs_privdata->sectors_per_cluster, &cluster);
+		if (result.IsFailure() && result.AsErrno() == ERANGE) {
 			/* end of the chain */
 			if (!create) {
-				return err;
+				return result ;
 			}
-			err = fat_append_cluster(inode, &cluster);
-			ANANAS_ERROR_RETURN(err);
-		} else if (ananas_is_success(err)) {
+			RESULT_PROPAGATE_FAILURE(
+				fat_append_cluster(inode, &cluster)
+			);
+		} else if (result.IsSuccess()) {
 			KASSERT(create == 0, "request to create block that already exists (blocknum=%u, cluster=%u)", (int)(block_in / fs_privdata->sectors_per_cluster), cluster);
 		} else {
-			return err;
+			return result;
 		}
 
 		want_block  = fat_cluster_to_sector(fs, cluster);
@@ -436,7 +445,7 @@ fat_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int create
 	}
 
 	*block_out = want_block;
-	return ananas_success();
+	return Result::Success();
 }
 
 int
@@ -492,21 +501,22 @@ fat_dump_cache(struct VFS_MOUNTED_FS* fs)
 	}
 }
 
-errorcode_t
+Result
 fat_update_infosector(struct VFS_MOUNTED_FS* fs)
 {
 	auto fs_privdata = static_cast<struct FAT_FS_PRIVDATA*>(fs->fs_privdata);
 	if (fs_privdata->infosector_num == 0)
-		return ananas_success(); /* no info sector; nothing to do */
+		return Result::Success(); /* no info sector; nothing to do */
 
 	/* If we have nothing sensible to store, don't bother */
 	if (fs_privdata->next_avail_cluster < 2 ||
 	    fs_privdata->num_avail_clusters == (uint32_t)-1)
-		return ananas_success();
+		return Result::Success();
 
 	BIO* bio;
-	errorcode_t err = vfs_bread(fs, fs_privdata->infosector_num, &bio);
-	ANANAS_ERROR_RETURN(err);
+	RESULT_PROPAGATE_FAILURE(
+		vfs_bread(fs, fs_privdata->infosector_num, &bio)
+	);
 
 	/*
 	 * We don't do any verification (this should have been done upon mount time)
@@ -519,7 +529,7 @@ fat_update_infosector(struct VFS_MOUNTED_FS* fs)
 	bio_set_dirty(*bio); /* XXX even if we updated nothing? */
 	bio_free(*bio);
 
-	return ananas_success();
+	return Result::Success();
 }
 
 /* vim:set ts=2 sw=2: */

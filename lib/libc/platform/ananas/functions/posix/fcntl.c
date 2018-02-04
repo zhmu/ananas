@@ -1,16 +1,13 @@
 #include <ananas/types.h>
-#include <ananas/handle-options.h>
-#include <ananas/error.h>
 #include <ananas/syscalls.h>
-#include <_posix/error.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <unistd.h>
-#include <errno.h>
+#include "_map_statuscode.h"
 
 int fcntl(int fildes, int cmd, ...)
 {
-	errorcode_t err;
+	statuscode_t status;
 	void* out;
 
 	va_list va;
@@ -22,9 +19,9 @@ int fcntl(int fildes, int cmd, ...)
 		case F_SETFL:
 		case F_GETFD:
 		case F_GETFL:
-			err = sys_fcntl(fildes, cmd, (void*)(uintptr_t)va_arg(va, int), &out);
-			if (err != ANANAS_ERROR_NONE)
-				goto fail;
+			status = sys_fcntl(fildes, cmd, (void*)(uintptr_t)va_arg(va, int), &out);
+			if (status != ananas_statuscode_success())
+				return map_statuscode(status);
 
 			return (int)(uintptr_t)out;
 		default:
@@ -32,10 +29,6 @@ int fcntl(int fildes, int cmd, ...)
 			return -1;
 	}
 	/* NOTREACHED */
-
-fail:
-	_posix_map_error(err);
-	return -1;
 }
 
 /* vim:set ts=2 sw=2: */

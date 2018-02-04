@@ -1,17 +1,18 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
+#include <ananas/errno.h>
+#include "kernel/result.h"
 #include "kernel/trace.h"
 
 TRACE_SETUP;
 
 struct Thread;
 
-errorcode_t
+Result
 sys_unlink(Thread* t, const char* path)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, path='%s'", t, path);
 
 	/* TODO */
-	return ANANAS_ERROR(BAD_OPERATION);
+	return RESULT_MAKE_FAILURE(EIO);
 }
 

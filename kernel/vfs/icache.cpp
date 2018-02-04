@@ -1,10 +1,10 @@
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/init.h"
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/schedule.h" // XXX
 #include "kernel/trace.h"
 #include "kernel/vmpage.h"
@@ -44,7 +44,7 @@ inline void icache_assert_locked()
 	icache_mtx.AssertLocked();
 }
 
-errorcode_t
+Result
 icache_init()
 {
 	// Allocate inodes - we can set up some basic information here
@@ -56,7 +56,7 @@ icache_init()
 		}
 	}
 
-	return ananas_success();
+	return Result::Success();
 }
 
 void
@@ -237,7 +237,7 @@ icache_lookup_locked(struct VFS_MOUNTED_FS* fs, ino_t inum)
 /*
  * Retrieves an inode by number - on success, the owner will hold a reference.
  */
-errorcode_t
+Result
 vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode)
 {
 	TRACE(VFS, FUNC, "fs=%p, inum=%lx", fs, inum);
@@ -263,16 +263,16 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode)
 		inode->Unlock();
 		destinode = inode;
 		TRACE(VFS, INFO, "cache hit: fs=%p, inum=%lx => inode=%p", fs, inum, inode);
-		return ananas_success();
+		return Result::Success();
 	}
 
 	/*
 	 * Must read the inode; first, we need to set up the filesystem-specifics of the inode.
 	 */
-	errorcode_t result = ananas_success();
+	Result result = Result::Success();
 	if (fs->fs_fsops->prepare_inode != NULL)
 		result = fs->fs_fsops->prepare_inode(*inode);
-	if (ananas_is_failure(result)) {
+	if (result.IsFailure()) {
 		inode->Unlock();
 		vfs_deref_inode(*inode); /* throws it away */
 		return result;
@@ -283,7 +283,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode)
    * this point (they keep rescheduling, waiting for us to deal with it)
 	 */
 	result = fs->fs_fsops->read_inode(*inode, inum);
-	if (ananas_is_failure(result)) {
+	if (result.IsFailure()) {
 		inode->Unlock();
 		vfs_deref_inode(*inode); /* throws it away */
 		return result;
@@ -295,7 +295,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode)
 	inode->i_flags &= ~INODE_FLAG_PENDING;
 	inode->Unlock();
 	destinode = inode;
-	return ananas_success();
+	return Result::Success();
 }
 
 void

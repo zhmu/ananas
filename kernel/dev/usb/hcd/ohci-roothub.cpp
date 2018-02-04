@@ -2,10 +2,10 @@
  * OHCI root hub
  */
 #include <ananas/types.h>
-#include <ananas/error.h>
 #include "kernel/dev/pci.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/result.h"
 #include "kernel/time.h"
 #include "kernel/thread.h"
 #include "kernel/trace.h"
@@ -127,11 +127,11 @@ RootHub::RootHub(HCD_Resources& hcdResources, USBDevice& device)
 {
 }
 
-errorcode_t
+Result
 RootHub::ControlTransfer(Transfer& xfer)
 {
 	struct USB_CONTROL_REQUEST* req = &xfer.t_control_req;
-	errorcode_t err = ANANAS_ERROR(BAD_OPERATION);
+	Result result = RESULT_MAKE_FAILURE(EINVAL);
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
@@ -142,7 +142,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 					int amount = MIN(ohci_rh_device.dev_length, req->req_length);
 					memcpy(xfer.t_data, &ohci_rh_device, amount);
 					xfer.t_result_length = amount;
-					err = ananas_success();
+					result = Result::Success();
 					break;
 				}
 				case USB_DESCR_TYPE_STRING: {
@@ -151,7 +151,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 						int amount = MIN(ohci_rh_strings[string_id].s_len, req->req_length);
 						memcpy(xfer.t_data, &ohci_rh_strings[string_id], amount);
 						xfer.t_result_length = amount;
-						err = ananas_success();
+						result = Result::Success();
 					}
 					break;
 				}
@@ -159,18 +159,18 @@ RootHub::ControlTransfer(Transfer& xfer)
 					int amount = MIN(ohci_rh_config.d_config.cfg_totallen, req->req_length);
 					memcpy(xfer.t_data, &ohci_rh_config, amount);
 					xfer.t_result_length = amount;
-					err = ananas_success();
+					result = Result::Success();
 					break;
 				}
 			}
 			break;
 		case USB_REQUEST_STANDARD_SET_ADDRESS:
 			DPRINTF("set address: %d", req->req_value);
-			err = ananas_success();
+			result = Result::Success();
 			break;
 		case USB_REQUEST_STANDARD_SET_CONFIGURATION:
 			DPRINTF("set config: %d", req->req_value);
-			err = ananas_success();
+			result = Result::Success();
 			break;
 		case USB_REQUEST_CLEAR_HUB_FEATURE:
 			break;
@@ -211,7 +211,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 			int amount = MIN(hd.hd_length, req->req_length);
 			memcpy(xfer.t_data, &hd, amount);
 			xfer.t_result_length = amount;
-			err = ananas_success();
+			result = Result::Success();
 			break;
 		}
 		case USB_REQUEST_GET_HUB_STATUS: {
@@ -220,7 +220,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 				/* XXX over-current */
 				memcpy(xfer.t_data, &hs, sizeof(hs));
 				xfer.t_result_length = sizeof(hs);
-				err = ananas_success();
+				result = Result::Success();
 			}
 			break;
 		}
@@ -234,7 +234,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 				ps.ps_portchange = (st >> 16) & 0x1f;
 				memcpy(xfer.t_data, &ps, sizeof(ps));
 				xfer.t_result_length = sizeof(ps);
-				err = ananas_success();
+				result = Result::Success();
 			}
 			break;
 		}
@@ -242,7 +242,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 			unsigned int port = req->req_index;
 			if (port >= 1 && port <= rh_numports) {
 				port = OHCI_HCRHPORTSTATUSx + (req->req_index - 1) * 4;
-				err = ananas_success();
+				result = Result::Success();
 				switch(req->req_value) {
 					case HUB_FEATURE_PORT_RESET: {
 						/*
@@ -259,21 +259,21 @@ RootHub::ControlTransfer(Transfer& xfer)
 						}
 						if (n == 0) {
 							kprintf("oroothub: port %u not responding to reset", n);
-							err = ANANAS_ERROR(NO_DEVICE);
+							result = RESULT_MAKE_FAILURE(ENODEV);
 						}
 						break;
 					}
 					case HUB_FEATURE_PORT_SUSPEND:
 						DPRINTF("set port suspend, port %d", req->req_index);
 						rh_Resources.Write4(port, OHCI_RHPS_PSS);
-						err = ananas_success();
+						result = Result::Success();
 						break;
 					case HUB_FEATURE_PORT_POWER:
 						DPRINTF("set port power, port %d", req->req_index);
 						rh_Resources.Write4(port, OHCI_RHPS_PPS);
 						break;
 					default:
-						err = ANANAS_ERROR(BAD_OPERATION);
+						result = RESULT_MAKE_FAILURE(EINVAL);
 						break;
 				}
 			}
@@ -283,7 +283,7 @@ RootHub::ControlTransfer(Transfer& xfer)
 			unsigned int port = req->req_index;
 			if (port >= 1 && port <= rh_numports) {
 				port = OHCI_HCRHPORTSTATUSx + (req->req_index - 1) * 4;
-				err = ananas_success();
+				result = Result::Success();
 				switch(req->req_value) {
 					case HUB_FEATURE_PORT_ENABLE:
 						DPRINTF("HUB_FEATURE_PORT_ENABLE: port %d", req->req_index);
@@ -322,27 +322,27 @@ RootHub::ControlTransfer(Transfer& xfer)
 						rh_Resources.Write4(port, OHCI_RHPS_OCIC);
 						break;
 					default:
-						err = ANANAS_ERROR(BAD_OPERATION);
+						result = RESULT_MAKE_FAILURE(EINVAL);
 						break;
 				}
 			}
 			break;
 		}
 		default:
-			err = ANANAS_ERROR(BAD_TYPE);
+			result = RESULT_MAKE_FAILURE(EINVAL);
 			break;
 	}
 
 #undef MIN
 
-	if (ananas_is_failure(err)) {
-		kprintf("oroothub: error %d\n", err);
+	if (result.IsFailure()) {
+		kprintf("oroothub: error %d\n", result.AsStatusCode());
 		xfer.t_flags |= TRANSFER_FLAG_ERROR;
 	}
 
 	/* Immediately mark the transfer as completed */
 	xfer.Complete_Locked();
-	return err;
+	return result;
 }
 
 void
@@ -394,7 +394,7 @@ RootHub::Thread()
 	}
 }
 
-errorcode_t
+Result
 RootHub::HandleTransfer(Transfer& xfer)
 {
 	switch(xfer.t_type) {
@@ -412,7 +412,7 @@ RootHub::HandleTransfer(Transfer& xfer)
 			 */
 			if (rh_pending_changes)
 				ProcessInterruptTransfers();
-			return ananas_success();
+			return Result::Success();
 	}
 	panic("unsupported transfer type %d", xfer.t_type);
 }
@@ -431,14 +431,14 @@ RootHub::OnIRQ()
 #endif
 }
 
-errorcode_t
+Result
 RootHub::Initialize()
 {
 	uint32_t rhda = rh_Resources.Read4(OHCI_HCRHDESCRIPTORA);
 	rh_numports = OHCI_RHDA_NDP(rhda);
 	if (rh_numports < 1 || rh_numports > 15) {
 		kprintf("oroothub: invalid number of %d port(s) present", rh_numports);
-		return ANANAS_ERROR(NO_DEVICE);
+		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
 	/*
@@ -448,7 +448,7 @@ RootHub::Initialize()
 	 */
 	kthread_init(rh_pollthread, "oroothub", &ThreadWrapper, this);
 	thread_resume(rh_pollthread);
-	return ananas_success();
+	return Result::Success();
 }
 
 } // namespace OHCI

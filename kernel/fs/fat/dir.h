@@ -5,7 +5,7 @@
 
 struct VFS_FILE;
 
-errorcode_t fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len);
+Result fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len);
 extern struct VFS_INODE_OPS fat_dir_ops;
 
 #endif /* __FATFS_DIR_H__ */

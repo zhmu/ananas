@@ -1,9 +1,9 @@
-#include <ananas/error.h>
 #include "kernel/cmdline.h"
 #include "kernel/exec.h"
 #include "kernel/init.h"
 #include "kernel/lib.h"
 #include "kernel/process.h"
+#include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/time.h"
 #include "kernel/vfs/core.h"
@@ -14,8 +14,6 @@ namespace {
 void
 userinit_func(void*)
 {
-	errorcode_t err;
-
 	/* We expect root=type:device here */
 	const char* rootfs_arg = cmdline_get_string("root");
 	if (rootfs_arg == NULL) {
@@ -36,8 +34,7 @@ userinit_func(void*)
 
 	kprintf("- Mounting / (type %s) from %s...", rootfs_type, rootfs);
 	while(true) {
-		err = vfs_mount(rootfs, "/", rootfs_type, NULL);
-		if (ananas_is_success(err))
+		if (auto result = vfs_mount(rootfs, "/", rootfs_type, NULL); result.IsSuccess())
 			break;
 
 		delay(1000); // XXX we really need a sleep mechanism here
@@ -46,11 +43,10 @@ userinit_func(void*)
 
 #ifdef FS_ANKHFS
 	kprintf("- Mounting /ankh...");
-	err = vfs_mount(nullptr, "/ankh", "ankhfs", nullptr);
-	if (ananas_is_failure(err))
-		kprintf(" error %d\n", err);
+	if (auto result = vfs_mount(nullptr, "/ankh", "ankhfs", nullptr); result.IsSuccess())
+		kprintf(" success\n");
 	else
-		kprintf(" success\n", err);
+		kprintf(" error %d\n", result.AsStatusCode());
 #endif
 
 	// Now it makes sense to try to load init
@@ -61,25 +57,25 @@ userinit_func(void*)
 	}
 
 	Process* proc;
-	err = process_alloc(NULL, proc);
-	if (ananas_is_failure(err)) {
-		kprintf("couldn't create process, %i\n", err);
+	if (auto result = process_alloc(NULL, proc); result.IsFailure()) {
+		kprintf("couldn't create process, %i\n", result.AsStatusCode());
 		thread_exit(0);
 	}
 
 	Thread* t;
-	err = thread_alloc(*proc, t, "init", THREAD_ALLOC_DEFAULT);
-	process_deref(*proc); /* 't' should have a ref, we don't need it anymore */
-	if (ananas_is_failure(err)) {
-		kprintf("couldn't create thread, %i\n", err);
-		thread_exit(0);
+	{
+		Result result = thread_alloc(*proc, t, "init", THREAD_ALLOC_DEFAULT);
+		process_deref(*proc); /* 't' should have a ref, we don't need it anymore */
+		if (result.IsFailure()) {
+			kprintf("couldn't create thread, %i\n", result.AsStatusCode());
+			thread_exit(0);
+		}
 	}
 
 	kprintf("- Lauching init from %s...", init_path);
 	struct VFS_FILE file;
-	err = vfs_open(init_path, proc->p_cwd, &file);
-	if (ananas_is_failure(err)) {
-		kprintf("couldn't open init executable, %i\n", err);
+	if (auto result = vfs_open(init_path, proc->p_cwd, &file); result.IsFailure()) {
+		kprintf("couldn't open init executable, %i\n", result.AsStatusCode());
 		thread_exit(0);
 	}
 
@@ -90,13 +86,12 @@ userinit_func(void*)
 
 	addr_t exec_addr;
 	register_t exec_arg;
-	err = exec_load(*proc->p_vmspace, *file.f_dentry, &exec_addr, &exec_arg);
-	if (ananas_is_success(err)) {
+	if (auto result = exec_load(*proc->p_vmspace, *file.f_dentry, &exec_addr, &exec_arg); result.IsSuccess()) {
 		kprintf(" ok\n");
 		md_setup_post_exec(*t, exec_addr, exec_arg);
 		thread_resume(*t);
 	} else {
-		kprintf(" fail - error %i\n", err);
+		kprintf(" fail - error %i\n", result.AsStatusCode());
 	}
 	vfs_close(&file);
 	thread_exit(0);
@@ -104,12 +99,12 @@ userinit_func(void*)
 
 Thread userinit_thread;
 
-errorcode_t
+Result
 init_userland()
 {
 	kthread_init(userinit_thread, "user-init", &userinit_func, nullptr);
 	thread_resume(userinit_thread);
-	return ananas_success();
+	return Result::Success();
 }
 
 } // unnamed namespace
