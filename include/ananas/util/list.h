@@ -189,7 +189,7 @@ struct List
 	void push_front(T& item)
 	{
 		Accessor::Prev(item) = nullptr;
-		if (l_Head == NULL) {
+		if (l_Head == nullptr) {
 			Accessor::Next(item) = nullptr;
 			l_Tail = &item;
 		} else {
