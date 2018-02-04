@@ -3,6 +3,8 @@
 #include <ananas/syscalls.h>
 #include <errno.h>
 
+#include <stdio.h>
+
 pid_t fork()
 {
 	pid_t pid;
@@ -15,10 +17,12 @@ pid_t fork()
 		}
 
 		/* Something did go wrong */
+		printf(">>krak[%d->%d,%d]\n", status, error, EEXIST);
 		errno = error;
 		return -1;
 	}
 
 	/* Victory - hand the pid to the parent */
+		printf(">>ok[%d]\n", (int)pid);
 	return pid;
 }

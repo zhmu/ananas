@@ -9,6 +9,7 @@
 
 #include "_PDCLIB_int.h"
 
+#include <errno.h>
 #include <locale.h>
 #include <wctype.h>
 #include <threads.h>
