@@ -27,25 +27,25 @@ kfree(void* addr)
 }
 
 void*
-operator new(size_t len) throw()
+operator new(size_t len)
 {
 	return kmalloc(len);
 }
 
 void*
-operator new[](size_t len) throw()
+operator new[](size_t len)
 {
 	return kmalloc(len);
 }
 
 void
-operator delete(void* p) throw()
+operator delete(void* p) noexcept
 {
 	kfree(p);
 }
 
 void
-operator delete[](void* p) throw()
+operator delete[](void* p) noexcept
 {
 	kfree(p);
 }
