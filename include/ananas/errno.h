@@ -79,7 +79,10 @@
 #define ETIME		75
 #define ETIMEDOUT	76
 #define ETXTBSY		77
-#define EWOULDBLOCK	78
-#define EXDEV  		79
+#define EWOULDBLOCK	EAGAIN
+#define EXDEV  		78
+
+/* Not in POSIX, but useful nevertheless: last errno we have defined */
+#define ELAST		78
 
 #endif /* ANANAS_ERRNO_H */
