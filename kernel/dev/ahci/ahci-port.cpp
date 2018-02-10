@@ -172,7 +172,6 @@ Port::Start()
 	 *     time?
 	 */
 	Lock();
-	uint32_t ci = p_request_active;
 	for (int i = 0; i < p_device.ap_ncs; i++) {
 		if ((p_request_valid & (1 << i)) == 0)
 			continue;
@@ -218,22 +217,15 @@ Port::Start()
 		cle->cle_dw3 = AHCI_CLE_DW3_CTBAU(addr_ct >> 32);
 		dma_buf_sync(p_dmabuf_cl, DMA_SYNC_OUT);
 
-		/* Command is ready to be transmitted */
-		ci |= 1 << i;
+		/* Transmit the command */
+		p_request_active |= 1 << i;
+		p_device.Write(AHCI_REG_PxCI(p_num), 1 << i);
 	}
 
-	/* XXXRS Maybe small race here? */
-	if (ci == p_request_active) {
-		Unlock();
-		return;
-	}
-	p_request_active = ci;
 	Unlock();
 
 	AHCI_DPRINTF(">> #%d issuing command\n", p_num);
 	DUMP_PORT_STATE(p_num);
-
-	p_device.Write(AHCI_REG_PxCI(p_num), ci);
 }
 
 } // namespace AHCI
