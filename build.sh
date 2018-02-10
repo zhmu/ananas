@@ -119,7 +119,7 @@ build kernel kernel
 build_external dash
 
 # build coreutils
-build_external dash
+build_external coreutils
 
 # copy dash to /bin/sh so we can boot things
 cp ${OUTDIR}/bin/dash ${OUTDIR}/bin/sh
