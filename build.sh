@@ -7,6 +7,7 @@
 #     however, as we build and install things like libc, this is nontrivial.
 #
 
+# build an internal cmake project using cmake and ninja
 build()
 {
 	workpath=$1
@@ -17,6 +18,22 @@ build()
 	cd ${WORKDIR}/${workpath}
 	cmake ${CMAKE_ARGS} ${ROOT}/${srcpath}
 	ninja install
+}
+
+# builds an external project using autoconf and make
+build_external()
+{
+	srcpath=$1
+
+	echo "*** Configuring ${srcpath}"
+	cd ${ROOT}/external/${srcpath}
+	CC="x86_64-ananas-elf-clang" CFLAGS="--sysroot ${OUTDIR} -DJOBS=0" ./configure --host=x86_64-ananas-elf --prefix=/
+
+	echo "*** Building ${srcpath}"
+	make
+
+	echo "*** Installing ${srcpath}"
+	make install DESTDIR=${OUTDIR}
 }
 
 TARGET="x86_64-ananas-elf"
@@ -97,3 +114,12 @@ build multiboot-stub multiboot-stub
 
 # build the kernel
 build kernel kernel
+
+# build dash
+build_external dash
+
+# build coreutils
+build_external dash
+
+# copy dash to /bin/sh so we can boot things
+cp ${OUTDIR}/bin/dash ${OUTDIR}/bin/sh
