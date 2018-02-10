@@ -28,6 +28,12 @@ struct X86_BUS {
 struct X86_INTERRUPT {
 	int                 source_no;
 	int                 dest_no;
+	int                 polarity;
+#define INTERRUPT_POLARITY_LOW	1
+#define INTERRUPT_POLARITY_HIGH	2
+	int                 trigger;
+#define INTERRUPT_TRIGGER_EDGE	1
+#define INTERRUPT_TRIGGER_LEVEL	2
 	struct X86_IOAPIC* ioapic;
 	struct X86_BUS*    bus;
 };

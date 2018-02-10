@@ -137,12 +137,42 @@ acpi_smp_init(int* bsp_apic_id)
 			}
 			case ACPI_MADT_TYPE_INTERRUPT_OVERRIDE: {
 				ACPI_MADT_INTERRUPT_OVERRIDE* io = (ACPI_MADT_INTERRUPT_OVERRIDE*)sub;
-				kprintf("intoverride, bus=%u SourceIrq=%u globalirq=%u\n", io->Bus, io->SourceIrq, io->GlobalIrq);
+				kprintf("intoverride, bus=%u SourceIrq=%u globalirq=%u flags=%x\n", io->Bus, io->SourceIrq, io->GlobalIrq, io->IntiFlags);
 				KASSERT(io->SourceIrq < smp_config.cfg_num_ints, "interrupt override out of range");
 
 				struct X86_INTERRUPT* interrupt = &smp_config.cfg_int[io->SourceIrq];
 				interrupt->source_no = io->SourceIrq;
 				interrupt->dest_no = io->GlobalIrq;
+				switch(io->IntiFlags & ACPI_MADT_POLARITY_MASK) {
+					default:
+					case ACPI_MADT_POLARITY_CONFORMS:
+						if (io->SourceIrq == AcpiGbl_FADT.SciInterrupt)
+							interrupt->polarity = INTERRUPT_POLARITY_LOW;
+						else
+							interrupt->polarity = INTERRUPT_POLARITY_HIGH;
+						break;
+					case ACPI_MADT_POLARITY_ACTIVE_HIGH:
+						interrupt->polarity = INTERRUPT_POLARITY_HIGH;
+						break;
+					case ACPI_MADT_POLARITY_ACTIVE_LOW:
+						interrupt->polarity = INTERRUPT_POLARITY_LOW;
+						break;
+				}
+				switch(io->IntiFlags & ACPI_MADT_TRIGGER_MASK) {
+					default:
+					case ACPI_MADT_TRIGGER_CONFORMS:
+						if (io->SourceIrq == AcpiGbl_FADT.SciInterrupt)
+							interrupt->trigger = INTERRUPT_TRIGGER_LEVEL;
+						else
+							interrupt->trigger = INTERRUPT_TRIGGER_EDGE;
+						break;
+					case ACPI_MADT_TRIGGER_EDGE:
+						interrupt->trigger = INTERRUPT_TRIGGER_EDGE;
+						break;
+					case ACPI_MADT_TRIGGER_LEVEL:
+						interrupt->trigger = INTERRUPT_TRIGGER_LEVEL;
+						break;
+				}
 
 				/*
 				 * Disable the identity mapping of this IRQ - this prevents entries from

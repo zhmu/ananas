@@ -214,7 +214,12 @@ smp_init()
 
 		/* XXX For now, route all interrupts to the BSP */
 		uint32_t reg = IOREDTBL + (interrupt->dest_no * 2);
-		interrupt->ioapic->Write(reg, TRIGGER_EDGE | DESTMOD_PHYSICAL | DELMOD_FIXED | (interrupt->source_no + 0x20));
+		uint64_t val = DESTMOD_PHYSICAL | DELMOD_FIXED | (interrupt->source_no + 0x20);
+		if (interrupt->polarity == INTERRUPT_POLARITY_LOW)
+			val |= INTPOL;
+		if (interrupt->trigger == INTERRUPT_TRIGGER_LEVEL)
+			val |= TRIGGER_LEVEL;
+		interrupt->ioapic->Write(reg, val);
 		interrupt->ioapic->Write(reg + 1, bsp_apic_id << 24);
 	}
 
