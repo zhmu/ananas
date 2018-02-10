@@ -46,6 +46,7 @@ struct EXT2_FS_PRIVDATA {
 
 	unsigned int num_blockgroups;
 	struct EXT2_BLOCKGROUP* blockgroup;
+	unsigned int log_blocksize;
 };
 
 struct EXT2_INODE_PRIVDATA {
@@ -89,6 +90,39 @@ ext2_dump_inode(struct EXT2_INODE* inode)
 }
 #endif
 
+static bool
+ext2_determine_indirect(INode& inode, blocknr_t& block_in, int& level, blocknr_t& indirect)
+{
+	auto& fs = *inode.i_fs;
+	auto in_privdata = static_cast<struct EXT2_INODE_PRIVDATA*>(inode.i_privdata);
+	auto bsOver4 = fs.fs_block_size / 4;
+	block_in -= 12;
+	if (block_in < bsOver4) {
+		/* (b) first indirect */
+		indirect = in_privdata->block[12];
+		level = 0;
+		return true;
+	}
+
+	block_in -= bsOver4;
+	if (block_in < (bsOver4 * bsOver4)) {
+		/* (c) double indirect */
+		indirect = in_privdata->block[13];
+		level = 1;
+		return true;
+	}
+
+	block_in -= bsOver4 * bsOver4;
+	if (block_in < bsOver4 * bsOver4 * (bsOver4 + 1)) {
+		/* (d) triple indirect */
+		indirect = in_privdata->block[14];
+		level = 2;
+		return true;
+	}
+
+	return false;
+}
+
 /*
  * Retrieves the disk block for a given file block. In ext2, the first 12 blocks
  * are direct blocks. Block 13 is the first indirect block and contains pointers to
@@ -108,17 +142,19 @@ static Result
 ext2_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int create)
 {
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
+	auto privdata = (struct EXT2_FS_PRIVDATA*)fs->fs_privdata;
 	auto in_privdata = static_cast<struct EXT2_INODE_PRIVDATA*>(inode.i_privdata);
+	auto orig_block_in = block_in;
 
 	/*
 	 * We need to figure out whether we have to look up the block in the single,
 	 * double or triply-linked block. From the comments above, we know that:
 	 *
 	 * (a) The first 12 blocks (0 .. 11) can directly be accessed.
-	 * (a) The first indirect block contains blocks 12 .. 12 + block_size / 4.
-	 * (b) The double-indirect block contains blocks 12 + block_size / 4 to
-	 *     13 + (block_size / 4)^2
-	 * (c) The triple-indirect block contains everything else.
+	 * (b) The first indirect block contains blocks 12 .. (block_size / 4) + 11
+	 * (c) The double-indirect block contains blocks 12 + (block_size / 4) to
+	 *     (block_size / 4)^2 + (block_size / 4) + 11
+	 * (d) The triple-indirect block contains everything else.
 	 */
 
 	/* (a) Direct blocks are easy */
@@ -127,21 +163,39 @@ ext2_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int creat
 		return Result::Success();
 	}
 
-	if (block_in < 12 + fs->fs_block_size / 4) {
-		/*
-		 * (b) Need to look up the block the first indirect block, 13.
-		 */
+	// Determine where to start and what to read
+	int level;
+	blocknr_t indirect;
+	if (!ext2_determine_indirect(inode, block_in, level, indirect))
+		return RESULT_MAKE_FAILURE(ERANGE);
+
+	/*
+	 * A 1KB block has spots for 1024/4 = 256 indirect block numbers; this
+	 * number needs to double for 2KB blocks, etc, so it is easiest just to
+	 * use the log2 of the blocksize. Note that log_blocksize is 0 for
+	 * 1024, so we just add 8 to it.
+	 *
+	 * This approach is inspired by GRUB's ext2fs code.
+	 */
+	int block_shift = privdata->log_blocksize + 8;
+	do {
+		// Read the indirect block
 		BIO* bio;
 		RESULT_PROPAGATE_FAILURE(
-			vfs_bread(fs, in_privdata->block[12], &bio)
+			vfs_bread(fs, indirect, &bio)
 		);
-		*block_out = EXT2_TO_LE32(*(uint32_t*)(static_cast<char*>(BIO_DATA(bio)) + (block_in - 12) * sizeof(uint32_t)));
+		// Extract the next block to read
+		indirect = [&]() {
+			const auto blocks = reinterpret_cast<uint32_t*>(static_cast<char*>(BIO_DATA(bio)));
+			int blockIndex = (block_in >> (block_shift * level)) % (fs->fs_block_size / 4);
+			return EXT2_TO_LE32(blocks[blockIndex]);
+		}();
 		bio_free(*bio);
-		return Result::Success();
-	}
+	} while(--level >= 0);
 
-	panic("ext2_block_map() needs support for doubly/triple indirect blocks!");
-	return RESULT_MAKE_FAILURE(ERANGE);
+	*block_out = indirect;
+
+	return Result::Success();
 }
 
 static Result
@@ -325,6 +379,7 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 
 	privdata->num_blockgroups = (sb->s_blocks_count - sb->s_first_data_block - 1) / sb->s_blocks_per_group + 1;
 	privdata->blockgroup = new EXT2_BLOCKGROUP[privdata->num_blockgroups];
+	privdata->log_blocksize = sb->s_log_block_size;
 
 	/* Fill out filesystem fields */
 	fs->fs_block_size = 1024L << sb->s_log_block_size;
