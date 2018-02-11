@@ -14,6 +14,7 @@
 TRACE_SETUP;
 
 #define VFS_DEBUG_LOOKUP 0
+#define VFS_MAX_SYMLINK_LOOPS 20
 
 static void
 vfs_make_file(struct VFS_FILE* file, DEntry& dentry)
@@ -28,11 +29,11 @@ vfs_make_file(struct VFS_FILE* file, DEntry& dentry)
 }
 
 Result
-vfs_open(const char* fname, DEntry* cwd, struct VFS_FILE* out)
+vfs_open(const char* fname, DEntry* cwd, struct VFS_FILE* out, int lookup_flags)
 {
 	DEntry* dentry;
 	RESULT_PROPAGATE_FAILURE(
-		vfs_lookup(cwd, dentry, fname)
+		vfs_lookup(cwd, dentry, fname, lookup_flags)
 	);
 
 	vfs_make_file(out, *dentry);
@@ -73,7 +74,7 @@ vfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 		// Symbolic link
 		if (inode->i_iops->read_link == NULL)
 			return RESULT_MAKE_FAILURE(EINVAL);
-		return inode->i_iops->read_link(file, static_cast<char*>(buf), len);
+		return inode->i_iops->read_link(*inode, static_cast<char*>(buf), len);
 	}
 
 	if (S_ISREG(inode->i_sb.st_mode)) {
@@ -135,6 +136,29 @@ vfs_seek(struct VFS_FILE* file, off_t offset)
 	return Result::Success();
 }
 
+static Result
+vfs_follow_symlink(DEntry*& curdentry)
+{
+	int symlink_loops = 0;
+	while (S_ISLNK(curdentry->d_inode->i_sb.st_mode) && symlink_loops < VFS_MAX_SYMLINK_LOOPS) {
+		INode& inode = *curdentry->d_inode;
+		DEntry* followed_dentry;
+		auto result = inode.i_iops->follow_link(inode, *curdentry, followed_dentry);
+		dentry_deref(*curdentry); /* let go of the ref; we are done with it */
+		if (result.IsFailure())
+			return result;
+
+		curdentry = followed_dentry;
+		symlink_loops++;
+	}
+
+	if (symlink_loops == VFS_MAX_SYMLINK_LOOPS) {
+		dentry_deref(*curdentry);
+		return RESULT_MAKE_FAILURE(ELOOP);
+	}
+	return Result::Success();
+}
+
 /*
  * Internally used to perform a lookup from directory entry 'name' to an inode;
  * 'curdentry' is the dentry  to start the lookup relative to, or NULL to
@@ -145,7 +169,7 @@ vfs_seek(struct VFS_FILE* file, off_t offset)
  * responsibility of the caller to derefence it.
  */
 static Result
-vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& final)
+vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& final, int flags)
 {
 	char tmp[VFS_MAX_NAME_LEN + 1];
 #if VFS_DEBUG_LOOKUP
@@ -228,6 +252,13 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
 			continue;
 
 		/*
+		 * We need to recurse - is this item a symlink? If so, we need to follow
+		 * it.
+		 */
+		if (auto result = vfs_follow_symlink(curdentry); result.IsFailure())
+				return result;
+
+		/*
 		 * We need to recurse; this can only be done if this is a directory, so
 		 * refuse if this isn't the case.
 		 */
@@ -296,6 +327,13 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
 		curdentry = dentry;
 	}
 
+	// Handle with the last follow, if we need to
+	if (curdentry != nullptr && (flags & VFS_LOOKUP_FLAG_NO_FOLLOW) == 0) {
+		auto result = vfs_follow_symlink(curdentry);
+		if (result.IsFailure())
+			return result;
+	}
+
 	ditem = curdentry;
 	return Result::Success();
 }
@@ -306,10 +344,10 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
  * start from the root.
  */
 Result
-vfs_lookup(DEntry* parent, DEntry*& destentry, const char* dentry)
+vfs_lookup(DEntry* parent, DEntry*& destentry, const char* dentry, int flags)
 {
 	bool final;
-	Result result = vfs_lookup_internal(parent, dentry, destentry, final);
+	Result result = vfs_lookup_internal(parent, dentry, destentry, final, flags);
 	if (result.IsSuccess()) {
 #if VFS_DEBUG_LOOKUP
 		kprintf("vfs_lookup(): parent=%p,dentry='%s' okay -> dentry %p\n", parent, dentry, *destentry);
@@ -331,7 +369,7 @@ vfs_create(DEntry* parent, struct VFS_FILE* file, const char* dentry, int mode)
 {
 	DEntry* de;
 	bool final;
-	Result result = vfs_lookup_internal(parent, dentry, de, final);
+	Result result = vfs_lookup_internal(parent, dentry, de, final, 0);
 	if (result.IsSuccess() || result.AsErrno() != ENOENT) {
 		/*
 		 * A 'no file found' error is expected as we are creating the new file; we
@@ -461,7 +499,7 @@ vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest)
 	 */
 	DEntry* de;
 	bool final;
-	Result result = vfs_lookup_internal(parent, dest, de, final);
+	Result result = vfs_lookup_internal(parent, dest, de, final, 0);
 	if (result.IsSuccess() || result.AsErrno() != ENOENT) {
 		/*
 		 * A 'no file found' error is expected as we are creating a new name here;

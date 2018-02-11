@@ -177,12 +177,12 @@ struct VFS_INODE_OPS {
 	/*
 	 * Read the content of a symlink.
 	 */
-	Result (*read_link)(struct VFS_FILE* file, char* buffer, size_t* buflen);
+	Result (*read_link)(INode& inode, char* buffer, size_t* buflen);
 
 	/*
 	 * Follows a symbolic link.
 	 */
-	Result (*follow_link)(struct VFS_FILE* file, DEntry& base, DEntry*& result);
+	Result (*follow_link)(INode& inode, DEntry& base, DEntry*& result);
 };
 
 /*

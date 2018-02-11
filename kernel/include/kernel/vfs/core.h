@@ -34,12 +34,14 @@ static inline Result vfs_bread(struct VFS_MOUNTED_FS* fs, blocknr_t block, struc
 	return vfs_bget(fs, block, bio, 0);
 }
 
-Result vfs_lookup(DEntry* parent, DEntry*& destentry, const char* dentry);
+#define VFS_LOOKUP_FLAG_DEFAULT 	0
+#define VFS_LOOKUP_FLAG_NO_FOLLOW	1
+Result vfs_lookup(DEntry* parent, DEntry*& destentry, const char* dentry, int flags = VFS_LOOKUP_FLAG_DEFAULT);
 
 bool vfs_is_filesystem_sane(struct VFS_MOUNTED_FS* fs);
 
 /* Higher-level interface */
-Result vfs_open(const char* fname, DEntry* cwd, struct VFS_FILE* file);
+Result vfs_open(const char* fname, DEntry* cwd, struct VFS_FILE* file, int lookup_flags = VFS_LOOKUP_FLAG_DEFAULT);
 Result vfs_close(struct VFS_FILE* file);
 Result vfs_read(struct VFS_FILE* file, void* buf, size_t* len);
 Result vfs_write(struct VFS_FILE* file, const void* buf, size_t* len);

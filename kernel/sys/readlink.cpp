@@ -35,7 +35,7 @@ sys_readlink(Thread* t, const char* path, char* buf, size_t* buflen)
 	// Open the link
 	struct VFS_FILE file;
 	RESULT_PROPAGATE_FAILURE(
-		vfs_open(path, cwd, &file)
+		vfs_open(path, cwd, &file, VFS_LOOKUP_FLAG_NO_FOLLOW)
 	);
 
 	// And copy the contents

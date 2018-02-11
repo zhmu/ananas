@@ -194,20 +194,19 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 }
 
 Result
-vfs_generic_follow_link(struct VFS_FILE* file, DEntry& base, DEntry*& result)
+vfs_generic_follow_link(INode& inode, DEntry& base, DEntry*& result)
 {
-	INode& inode = *file->f_dentry->d_inode;
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 
 	char buf[1024]; // XXX
 	size_t buflen = sizeof(buf);
 	RESULT_PROPAGATE_FAILURE(
-		inode.i_iops->read_link(file, buf, &buflen)
+		inode.i_iops->read_link(inode, buf, &buflen)
 	);
 	if (buflen > 0)
 		buf[buflen - 1] = '\0';
 
-	return vfs_lookup(&base, result, buf);
+	return vfs_lookup(base.d_parent, result, buf);
 }
 
 /* vim:set ts=2 sw=2: */

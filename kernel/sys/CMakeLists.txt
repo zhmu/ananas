@@ -8,7 +8,6 @@ add_sources(
 	exit.cpp
 	fchdir.cpp
 	fcntl.cpp
-	fstat.cpp
 	link.cpp
 	open.cpp
 	read.cpp
