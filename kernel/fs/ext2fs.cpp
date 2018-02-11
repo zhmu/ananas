@@ -50,7 +50,7 @@ struct EXT2_FS_PRIVDATA {
 };
 
 struct EXT2_INODE_PRIVDATA {
-	blocknr_t block[EXT2_INODE_BLOCKS];
+	uint32_t block[EXT2_INODE_BLOCKS];
 };
 
 static void
@@ -279,6 +279,27 @@ static struct VFS_INODE_OPS ext2_dir_ops = {
 	.lookup = vfs_generic_lookup
 };
 
+static Result
+ext2_read_link(struct VFS_FILE* file, char* buffer, size_t* buflen)
+{
+	INode& inode = *file->f_dentry->d_inode;
+	auto in_privdata = static_cast<struct EXT2_INODE_PRIVDATA*>(inode.i_privdata);
+
+	// XXX i_block[] may be byte-swapped - how to deal with this?
+	KASSERT(*buflen > 0, "empty buffer?");
+	buffer[*buflen - 1] = '\0';
+	if (*buflen > 60)
+		*buflen = 60;
+	memcpy(buffer, in_privdata->block, *buflen);
+	return Result::Success();
+}
+
+static struct VFS_INODE_OPS ext2_symlink_ops = {
+	.read_link = ext2_read_link,
+	.follow_link = vfs_generic_follow_link
+};
+
+
 /*
  * Reads a filesystem inode and fills a corresponding inode structure.
  */
@@ -343,6 +364,18 @@ ext2_read_inode(INode& inode, ino_t inum)
 		case EXT2_S_IFDIR:
 			inode.i_iops = &ext2_dir_ops;
 			break;
+		case EXT2_S_IFLNK:
+			// XXX For now
+			if (EXT2_TO_LE32(ext2inode->i_blocks) != 0) {
+				kprintf("ext2: symlink inode %d has blocks, unsupported yet!\n", (int)inum);
+				bio_free(*bio);
+				return RESULT_MAKE_FAILURE(EPERM);
+			}
+			inode.i_iops = &ext2_symlink_ops;
+			break;
+		default:
+			bio_free(*bio);
+			return RESULT_MAKE_FAILURE(EPERM);
 	}
 	bio_free(*bio);
 
