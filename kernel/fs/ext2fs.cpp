@@ -280,9 +280,8 @@ static struct VFS_INODE_OPS ext2_dir_ops = {
 };
 
 static Result
-ext2_read_link(struct VFS_FILE* file, char* buffer, size_t* buflen)
+ext2_read_link(INode& inode, char* buffer, size_t* buflen)
 {
-	INode& inode = *file->f_dentry->d_inode;
 	auto in_privdata = static_cast<struct EXT2_INODE_PRIVDATA*>(inode.i_privdata);
 
 	// XXX i_block[] may be byte-swapped - how to deal with this?
