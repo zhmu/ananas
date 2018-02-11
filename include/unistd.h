@@ -65,6 +65,7 @@ int	chown(const char* path, uid_t owner, gid_t group);
 unsigned sleep(unsigned seconds);
 
 char*	getcwd(char* buf, size_t size);
+ssize_t	readlink(const char* path, char* buf, size_t bufsize);
 
 int	execvp(const char *path, char *const argv[]);
 int	execv(const char *path, char *const argv[]);
