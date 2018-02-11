@@ -12,6 +12,7 @@ add_sources(
 	link.cpp
 	open.cpp
 	read.cpp
+	readlink.cpp
 	rename.cpp
 	seek.cpp
 	stat.cpp

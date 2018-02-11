@@ -69,17 +69,29 @@ vfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 	if (!vfs_is_filesystem_sane(inode->i_fs))
 		return RESULT_MAKE_FAILURE(EIO);
 
-	if (!S_ISDIR(inode->i_sb.st_mode)) {
+	if (S_ISLNK(inode->i_sb.st_mode)) {
+		// Symbolic link
+		if (inode->i_iops->read_link == NULL)
+			return RESULT_MAKE_FAILURE(EINVAL);
+		return inode->i_iops->read_link(file, static_cast<char*>(buf), len);
+	}
+
+	if (S_ISREG(inode->i_sb.st_mode)) {
 		/* Regular file */
 		if (inode->i_iops->read == NULL)
 			return RESULT_MAKE_FAILURE(EINVAL);
 		return inode->i_iops->read(file, buf, len);
 	}
 
-	/* Directory */
-	if (inode->i_iops->readdir == NULL)
-		return RESULT_MAKE_FAILURE(EINVAL);
-	return inode->i_iops->readdir(file, buf, len);
+	if (S_ISDIR(inode->i_sb.st_mode)) {
+		// Directory
+		if (inode->i_iops->readdir == NULL)
+			return RESULT_MAKE_FAILURE(EINVAL);
+		return inode->i_iops->readdir(file, buf, len);
+	}
+
+	// What's this?
+	return RESULT_MAKE_FAILURE(EINVAL);
 }
 
 Result

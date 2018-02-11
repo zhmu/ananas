@@ -25,3 +25,4 @@
 20 { Result clock_settime(clockid_t id, const struct timespec* tp); }
 21 { Result clock_gettime(clockid_t id, struct timespec* tp); }
 22 { Result clock_getres(clockid_t id, struct timespec* res); }
+23 { Result readlink(const char* path, char* buffer, size_t* bufsize); }
