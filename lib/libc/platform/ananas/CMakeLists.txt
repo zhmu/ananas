@@ -2,7 +2,6 @@ set(SOURCES
 	${SOURCES}
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stub/ttyname.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stub/wait3.c
-	${CMAKE_CURRENT_SOURCE_DIR}/functions/stub/lstat.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/time/clock_settime.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/time/time.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/time/unimplemented/tzset.c
@@ -22,6 +21,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/getegid.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/chdir.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/stat.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/lstat.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/execve.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/_exit.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/access.c
