@@ -165,7 +165,7 @@ vfs_follow_symlink(DEntry*& curdentry)
  * start from the root. This fills out the final dcache entry of the lookup; if
  * the last entry of the inode was resolved, final will be non-zero.
  *
- * Note that destinode, if filled out, will always be referenced; it is the
+ * Note ditem, if not nullptr, will always be referenced; it is the
  * responsibility of the caller to derefence it.
  */
 static Result
@@ -397,8 +397,8 @@ vfs_create(DEntry* parent, struct VFS_FILE* file, const char* dentry, int mode)
 	 * away.
 	 */
 	de->d_flags &= ~DENTRY_FLAG_NEGATIVE;
-	KASSERT(parent != NULL && parent->d_inode != NULL, "attempt to create entry without a parent inode");
-	INode* parentinode = parent->d_inode;
+	KASSERT(de->d_parent != nullptr && de->d_parent->d_inode != nullptr, "attempt to create entry without a parent inode");
+	INode* parentinode = de->d_parent->d_inode;
 	KASSERT(S_ISDIR(parentinode->i_sb.st_mode), "final entry isn't an inode");
 
 	/* If the filesystem can't create inodes, assume the operation is faulty */
