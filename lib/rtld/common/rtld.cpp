@@ -457,6 +457,8 @@ sym_matches(const Object& obj, const Elf_Sym& sym, const char* name)
 	switch(ELF_ST_TYPE(sym.st_info)) {
 		case STT_NOTYPE:
 		case STT_FUNC:
+		case STT_OBJECT:
+		case STT_COMMON:
 			// If the symbol isn't actually declared here, do not match it - this
 			// prevents functions from being matched in the .dynsym table of the
 			// finder

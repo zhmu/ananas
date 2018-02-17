@@ -165,6 +165,7 @@ typedef struct {
 #define STT_FUNC	2			/* Function symbol */
 #define STT_SECTION	3			/* Section symbol */
 #define STT_FILE	4			/* File symbol */
+#define STT_COMMON	5			/* Uninitialized common block */
 #define STT_LOPROC	13
 #define STT_HIPROC	15
 #define ELF32_ST_INFO(b,t) (((b)<<4)+((t)&0xf))
