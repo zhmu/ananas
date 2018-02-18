@@ -1,12 +1,11 @@
 add_sources(
-	chdir.cpp
 	clock.cpp
 	clone.cpp
 	close.cpp
+	dir.cpp
 	dupfd.cpp
 	execve.cpp
 	exit.cpp
-	fchdir.cpp
 	fcntl.cpp
 	link.cpp
 	open.cpp
