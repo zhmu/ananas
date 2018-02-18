@@ -1,19 +1,14 @@
+#include <ananas/types.h>
+#include <ananas/syscalls.h>
 #include <unistd.h>
-#include <string.h>
-#include <errno.h>
+#include "_map_statuscode.h"
 
-extern char _posix_cwd[];
-
-char* getcwd( char* buf, size_t size)
+char* getcwd(char* buf, size_t size)
 {
-	if (size == 0) {
-		errno = EINVAL;
-		return NULL;
-	}
-	if (strlen(_posix_cwd) >= size) {
-		errno = ERANGE;
-		return NULL;
-	}
-	strcpy(buf, _posix_cwd);
-	return buf;
+	statuscode_t status = sys_getcwd(buf, size);
+	if (status == ananas_statuscode_success())
+		return buf;
+
+	map_statuscode(status);
+	return NULL;
 }
