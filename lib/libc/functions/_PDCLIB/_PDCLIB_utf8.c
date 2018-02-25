@@ -48,7 +48,7 @@ end_conversion:             \
 } while(0)
 
 #define OUT32(_c)  do {             \
-    if(p_outbuf)                    \
+    if(*p_outbuf)                   \
         (*((*p_outbuf)++)) = (_c);  \
     (*p_outsz)--;                   \
     _PDCLIB_UNDEFINED(accum);       \
@@ -222,7 +222,7 @@ static bool c32toutf8(
             break;
         }
 
-        if(p_outbuf) {
+        if(*p_outbuf) {
             **p_outbuf = outc;
             (*p_outbuf)++;
         }

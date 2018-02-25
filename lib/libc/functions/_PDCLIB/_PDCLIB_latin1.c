@@ -22,7 +22,7 @@ static bool latin1toc32(
     while(*p_outsz && *p_insz) {
         unsigned char c = **p_inbuf;
 
-        if(p_outbuf) {
+        if(*p_outbuf) {
             **p_outbuf = c;
             (*p_outbuf)++; 
         }

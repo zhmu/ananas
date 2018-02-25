@@ -24,7 +24,7 @@ static bool asciitoc32(
         if(c > 127)
             return false;
         
-        if(p_outbuf) {
+        if(*p_outbuf) {
             **p_outbuf = c;
             (*p_outbuf)++; 
         }
