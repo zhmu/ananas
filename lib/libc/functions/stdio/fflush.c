@@ -5,12 +5,11 @@
 */
 
 #include <stdio.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
 extern FILE * _PDCLIB_filelist;
 
+// Testing covered by ftell.cpp
 int _PDCLIB_fflush_unlocked( FILE * stream )
 {
     if ( stream == NULL )
@@ -49,17 +48,3 @@ int fflush( FILE * stream )
     _PDCLIB_funlockfile( stream );
     return res;
 }
-                
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* Testing covered by ftell.c */
-    return TEST_RESULTS;
-}
-
-#endif
-

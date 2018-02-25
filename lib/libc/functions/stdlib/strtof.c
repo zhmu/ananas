@@ -7,11 +7,7 @@
 
 #include <stdlib.h>
 
-#ifndef REGTEST
-
 float strtof( const char * nptr, char * * endptr )
 {
     return (float)strtod( nptr, endptr );
 }
-
-#endif

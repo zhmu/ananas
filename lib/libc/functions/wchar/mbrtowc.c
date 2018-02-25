@@ -5,7 +5,6 @@
 */
 
 #include <wchar.h>
-#ifndef REGTEST
 #include <errno.h>
 #include <stdint.h>
 #include <assert.h>
@@ -21,9 +20,9 @@ typedef char32_t uc_t;
 #endif
 
 static size_t mbrtowc_l(
-    wchar_t    *restrict    pwc, 
-    const char *restrict    s, 
-    size_t                  n, 
+    wchar_t    *restrict    pwc,
+    const char *restrict    s,
+    size_t                  n,
     mbstate_t  *restrict    ps,
     locale_t    restrict    l
 )
@@ -64,6 +63,11 @@ static size_t mbrtowc_l(
     }
 
     // _PendClear state
+    if (s[0] == '\0')
+    {
+        /* XXX Is this correct? */
+        return 0;
+    }
     res = _PDCLIB_mbrtocwc_l((uc_t*)pwc, s, n, ps, l);
     switch(res) {
         case (size_t) -3:
@@ -77,24 +81,12 @@ static size_t mbrtowc_l(
 }
 
 size_t mbrtowc(
-    wchar_t *restrict pwc, 
-    const char *restrict s, 
-    size_t n, 
+    wchar_t *restrict pwc,
+    const char *restrict s,
+    size_t n,
     mbstate_t *restrict ps
 )
 {
     static mbstate_t st;
     return mbrtowc_l(pwc, s, n, ps ? ps : &st, _PDCLIB_threadlocale());
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE( NO_TESTDRIVER );
-    return TEST_RESULTS;
-}
-#endif

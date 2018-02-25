@@ -6,11 +6,7 @@
 
 #include <stdlib.h>
 
-#ifndef REGTEST
-
 double atof( const char* nptr )
 {
     return strtod( nptr, NULL );
 }
-
-#endif

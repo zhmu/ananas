@@ -5,22 +5,9 @@
 */
 
 #include <locale.h>
-#ifndef REGTEST
 #include "_PDCLIB_locale.h"
 
 char * setlocale( int category, const char * locale )
 {
     return NULL;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE( NO_TESTDRIVER );
-    return TEST_RESULTS;
-}
-#endif

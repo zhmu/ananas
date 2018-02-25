@@ -5,27 +5,9 @@
 */
 
 #include <wctype.h>
-#ifndef REGTEST
 #include "_PDCLIB_locale.h"
 
 int iswpunct( wint_t wc )
 {
     return iswctype( wc, _PDCLIB_CTYPE_PUNCT );
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE(iswpunct(L';'));
-    TESTCASE(iswpunct(L'?'));
-    TESTCASE(iswpunct(L'.'));
-    TESTCASE(!iswpunct(L' '));
-    TESTCASE(!iswpunct(L'Z'));
-
-    return TEST_RESULTS;
-}
-#endif

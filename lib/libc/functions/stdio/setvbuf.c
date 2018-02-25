@@ -7,8 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
 int setvbuf( FILE * _PDCLIB_restrict stream, char * _PDCLIB_restrict buf, int mode, size_t size )
@@ -70,46 +68,3 @@ int setvbuf( FILE * _PDCLIB_restrict stream, char * _PDCLIB_restrict buf, int mo
     _PDCLIB_funlockfile( stream );
     return 0;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-#include <errno.h>
-#ifndef REGTEST
-#include "_PDCLIB_io.h"
-#endif
-#define BUFFERSIZE 500
-
-int main( void )
-{
-#ifndef REGTEST
-    char buffer[ BUFFERSIZE ];
-    FILE * fh;
-    /* full buffered, user-supplied buffer */
-    TESTCASE( ( fh = tmpfile() ) != NULL );
-    TESTCASE( setvbuf( fh, buffer, _IOFBF, BUFFERSIZE ) == 0 );
-    TESTCASE( fh->buffer == buffer );
-    TESTCASE( fh->bufsize == BUFFERSIZE );
-    TESTCASE( ( fh->status & ( _IOFBF | _IONBF | _IOLBF ) ) == _IOFBF );
-    TESTCASE( fclose( fh ) == 0 );
-    /* line buffered, lib-supplied buffer */
-    TESTCASE( ( fh = tmpfile() ) != NULL );
-    TESTCASE( setvbuf( fh, NULL, _IOLBF, BUFFERSIZE ) == 0 );
-    TESTCASE( fh->buffer != NULL );
-    TESTCASE( fh->bufsize == BUFFERSIZE );
-    TESTCASE( ( fh->status & ( _IOFBF | _IONBF | _IOLBF ) ) == _IOLBF );
-    TESTCASE( fclose( fh ) == 0 );
-    /* not buffered, user-supplied buffer */
-    TESTCASE( ( fh = tmpfile() ) != NULL );
-    TESTCASE( setvbuf( fh, buffer, _IONBF, BUFFERSIZE ) == 0 );
-    TESTCASE( ( fh->status & ( _IOFBF | _IONBF | _IOLBF ) ) == _IONBF );
-    TESTCASE( fclose( fh ) == 0 );
-#else
-    puts( " NOTEST setvbuf() test driver is PDCLib-specific." );
-#endif
-    return TEST_RESULTS;
-}
-
-#endif
-

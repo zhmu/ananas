@@ -5,7 +5,6 @@
 */
 
 #include <wctype.h>
-#ifndef REGTEST
 #include <string.h>
 #include "_PDCLIB_locale.h"
 
@@ -23,20 +22,3 @@ wint_t towctrans( wint_t wc, wctrans_t trans )
 {
     return _PDCLIB_towctrans_l( wc, trans, _PDCLIB_threadlocale() );
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE(towctrans(L'a', wctrans("toupper")) == L'A');
-    TESTCASE(towctrans(L'B', wctrans("toupper")) == L'B');
-    TESTCASE(towctrans(L'a', wctrans("tolower")) == L'a');
-    TESTCASE(towctrans(L'B', wctrans("tolower")) == L'b');
-    TESTCASE(towctrans(L'B', wctrans("invalid")) == L'B');
-    TESTCASE(towctrans(L'B', 0)                  == L'B');
-    return TEST_RESULTS;
-}
-#endif

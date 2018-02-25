@@ -5,22 +5,9 @@
 */
 
 #include <wctype.h>
-#ifndef REGTEST
 #include "_PDCLIB_locale.h"
 
 int iswprint( wint_t wc )
 {
     return iswctype( wc, _PDCLIB_CTYPE_GRAPH | _PDCLIB_CTYPE_SPACE );
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-
-    return TEST_RESULTS;
-}
-#endif

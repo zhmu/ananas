@@ -5,7 +5,6 @@
 */
 
 #include <wctype.h>
-#ifndef REGTEST
 #include <string.h>
 #include "_PDCLIB_locale.h"
 
@@ -21,18 +20,3 @@ wctrans_t wctrans( const char * property )
         return 0;
     }
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE(wctrans("") == 0);
-    TESTCASE(wctrans("invalid") == 0);
-    TESTCASE(wctrans("toupper") != 0);
-    TESTCASE(wctrans("tolower") != 0);
-    return TEST_RESULTS;
-}
-#endif

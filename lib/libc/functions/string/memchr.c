@@ -6,8 +6,6 @@
 
 #include <string.h>
 
-#ifndef REGTEST
-
 void * memchr( const void * s, int c, size_t n )
 {
     const unsigned char * p = (const unsigned char *) s;
@@ -21,20 +19,3 @@ void * memchr( const void * s, int c, size_t n )
     }
     return NULL;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE( memchr( abcde, 'c', 5 ) == &abcde[2] );
-    TESTCASE( memchr( abcde, 'a', 1 ) == &abcde[0] );
-    TESTCASE( memchr( abcde, 'a', 0 ) == NULL );
-    TESTCASE( memchr( abcde, '\0', 5 ) == NULL );
-    TESTCASE( memchr( abcde, '\0', 6 ) == &abcde[5] );
-    return TEST_RESULTS;
-}
-
-#endif

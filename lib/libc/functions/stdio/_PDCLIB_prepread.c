@@ -6,10 +6,9 @@
 
 #include <stdio.h>
 #include <errno.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_glue.h"
 
+// Testing covered by ftell.cpp
 int _PDCLIB_prepread( FILE * stream )
 {
     if ( ( stream->bufidx > stream->bufend ) ||
@@ -34,16 +33,3 @@ int _PDCLIB_prepread( FILE * stream )
         return 0;
     }
 }
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* Testing covered by ftell.c */
-    return TEST_RESULTS;
-}
-
-#endif
-

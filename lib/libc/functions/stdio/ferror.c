@@ -5,8 +5,6 @@
 */
 
 #include <stdio.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
 int _PDCLIB_ferror_unlocked( FILE * stream )
@@ -19,6 +17,7 @@ int ferror_unlocked( FILE * stream )
     return _PDCLIB_ferror_unlocked( stream );
 }
 
+// Testing covered by clearerr.cpp
 int ferror( FILE * stream )
 {
     _PDCLIB_flockfile( stream );
@@ -26,17 +25,3 @@ int ferror( FILE * stream )
     _PDCLIB_funlockfile( stream );
     return error;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* Testing covered by clearerr(). */
-    return TEST_RESULTS;
-}
-
-#endif
-

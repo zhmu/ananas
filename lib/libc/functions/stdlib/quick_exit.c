@@ -5,8 +5,6 @@
 */
 
 #include <stdlib.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
 /* TODO - "except that a function is called after any previously registered
@@ -29,16 +27,3 @@ void quick_exit( int status )
     }
     _Exit( status );
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* Unwinding of regstack tested in at_quick_exit(). */
-    return TEST_RESULTS;
-}
-
-#endif

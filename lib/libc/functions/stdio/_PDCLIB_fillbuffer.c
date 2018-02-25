@@ -5,11 +5,10 @@
 */
 
 #include <stdio.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_glue.h"
 #include "_PDCLIB_io.h"
 
+// Testing covered by ftell.cpp
 int _PDCLIB_fillbuffer( FILE * stream )
 {
     size_t bytesRead;
@@ -30,17 +29,3 @@ int _PDCLIB_fillbuffer( FILE * stream )
         return EOF;
     }
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* Testing covered by ftell.c */
-    return TEST_RESULTS;
-}
-
-#endif
-

@@ -5,10 +5,9 @@
 */
 
 #include <stdio.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
+// Testing covered by ftell.c
 int _PDCLIB_getchar_unlocked( void )
 {
     return _PDCLIB_fgetc_unlocked( stdin );
@@ -23,16 +22,3 @@ int getchar( void )
 {
     return fgetc( stdin );
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* Testing covered by ftell.c */
-    return TEST_RESULTS;
-}
-
-#endif

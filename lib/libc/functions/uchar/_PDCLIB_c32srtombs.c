@@ -4,7 +4,6 @@
    Permission is granted to use, modify, and / or redistribute at will.
 */
 
-#ifndef REGTEST
 #include <uchar.h>
 #include <errno.h>
 #include <stdint.h>
@@ -12,9 +11,9 @@
 #include "_PDCLIB_locale.h"
 
 static size_t _PDCLIB_c32srtombs_l(
-    char                *restrict   dst, 
-    const char32_t     **restrict   src, 
-    size_t                          len, 
+    char                *restrict   dst,
+    const char32_t     **restrict   src,
+    size_t                          len,
     mbstate_t           *restrict   ps,
     _PDCLIB_locale_t     restrict   l)
 {
@@ -35,23 +34,11 @@ static size_t _PDCLIB_c32srtombs_l(
 }
 
 size_t _PDCLIB_c32srtombs(
-    char                *restrict   dst, 
-    const char32_t     **restrict   src, 
-    size_t                          len, 
+    char                *restrict   dst,
+    const char32_t     **restrict   src,
+    size_t                          len,
     mbstate_t           *restrict   ps
 )
 {
     return _PDCLIB_c32srtombs_l(dst, src, len, ps, _PDCLIB_threadlocale());
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE( NO_TESTDRIVER );
-    return TEST_RESULTS;
-}
-#endif

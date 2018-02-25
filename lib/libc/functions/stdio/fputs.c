@@ -5,11 +5,9 @@
 */
 
 #include <stdio.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
-int _PDCLIB_fputs_unlocked( const char * _PDCLIB_restrict s, 
+int _PDCLIB_fputs_unlocked( const char * _PDCLIB_restrict s,
                     FILE * _PDCLIB_restrict stream )
 {
     if ( _PDCLIB_prepwrite( stream ) == EOF )
@@ -58,25 +56,3 @@ int fputs( const char * _PDCLIB_restrict s,
     _PDCLIB_funlockfile( stream );
     return r;
 }
-
-#endif
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    char const * const message = "SUCCESS testing fputs()";
-    FILE * fh;
-    TESTCASE( ( fh = tmpfile() ) != NULL );
-    TESTCASE( fputs( message, fh ) >= 0 );
-    rewind( fh );
-    for ( size_t i = 0; i < 23; ++i )
-    {
-        TESTCASE( fgetc( fh ) == message[i] );
-    }
-    TESTCASE( fclose( fh ) == 0 );
-    return TEST_RESULTS;
-}
-
-#endif
-

@@ -6,23 +6,9 @@
 
 #include <wchar.h>
 
-#ifndef REGTEST
-
 /* See notes on wcscoll. */
 size_t wcsxfrm( wchar_t * _PDCLIB_restrict s1, const wchar_t * _PDCLIB_restrict s2, size_t n )
 {
     wcsncpy(s1, s2, n);
     return wcslen(s2);
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    return TEST_RESULTS;
-}
-#endif
-

@@ -5,23 +5,21 @@
 */
 
 #include <stdio.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 #include "_PDCLIB_glue.h"
 #include <stdlib.h>
 #include <string.h>
 
-FILE * freopen( 
-    const char * _PDCLIB_restrict filename, 
-    const char * _PDCLIB_restrict mode, 
-    FILE * _PDCLIB_restrict stream 
+FILE * freopen(
+    const char * _PDCLIB_restrict filename,
+    const char * _PDCLIB_restrict mode,
+    FILE * _PDCLIB_restrict stream
 )
 {
     _PDCLIB_flockfile( stream );
 
-    unsigned int status = stream->status & 
-        ( _IONBF | _IOLBF | _IOFBF | _PDCLIB_FREEBUFFER 
+    unsigned int status = stream->status &
+        ( _IONBF | _IOLBF | _IOFBF | _PDCLIB_FREEBUFFER
         | _PDCLIB_DELONCLOSE | _PDCLIB_STATIC );
 
     /* TODO: This function can change wide orientation of a stream */
@@ -36,7 +34,7 @@ FILE * freopen(
         return NULL;
     }
     stream->ops->close(stream->handle);
-    
+
     /* TODO: It is not nice to do this on a stream we just closed.
        It does not matter with the current implementation of clearerr(),
        but it might start to matter if someone replaced that implementation.
@@ -88,33 +86,3 @@ FILE * freopen(
     _PDCLIB_funlockfile( stream );
     return stream;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    FILE * fin;
-    FILE * fout;
-    TESTCASE( ( fin = fopen( testfile1, "wb+" ) ) != NULL );
-    TESTCASE( fputc( 'x', fin ) == 'x' );
-    TESTCASE( fclose( fin ) == 0 );
-    TESTCASE( ( fin = freopen( testfile1, "rb", stdin ) ) != NULL );
-    TESTCASE( getchar() == 'x' );
-
-    TESTCASE( ( fout = freopen( testfile2, "wb+", stdout ) ) != NULL );
-    TESTCASE( putchar( 'x' ) == 'x' );
-    rewind( fout );
-    TESTCASE( fgetc( fout ) == 'x' );
-
-    TESTCASE( fclose( fin ) == 0 );
-    TESTCASE( fclose( fout ) == 0 );
-    TESTCASE( remove( testfile1 ) == 0 );
-    TESTCASE( remove( testfile2 ) == 0 );
-
-    return TEST_RESULTS;
-}
-
-#endif

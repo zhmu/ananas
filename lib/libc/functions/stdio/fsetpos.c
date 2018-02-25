@@ -5,11 +5,9 @@
 */
 
 #include <stdio.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
-int _PDCLIB_fsetpos_unlocked( FILE * stream, 
+int _PDCLIB_fsetpos_unlocked( FILE * stream,
                       const _PDCLIB_fpos_t * pos )
 {
     if ( stream->status & _PDCLIB_FWRITE )
@@ -24,17 +22,17 @@ int _PDCLIB_fsetpos_unlocked( FILE * stream,
         return EOF;
     }
     stream->pos.mbs = pos->mbs;
-    
+
     return 0;
 }
 
-int fsetpos_unlocked( FILE * stream, 
+int fsetpos_unlocked( FILE * stream,
              const _PDCLIB_fpos_t * pos )
 {
     return _PDCLIB_fsetpos_unlocked( stream, pos );
 }
 
-int fsetpos( FILE * stream, 
+int fsetpos( FILE * stream,
              const _PDCLIB_fpos_t * pos )
 {
     _PDCLIB_flockfile( stream );
@@ -42,16 +40,3 @@ int fsetpos( FILE * stream,
     _PDCLIB_funlockfile( stream );
     return res;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* fsetpos() tested together with fsetpos(). */
-    return TEST_RESULTS;
-}
-
-#endif

@@ -4,7 +4,6 @@
    Permission is granted to use, modify, and / or redistribute at will.
 */
 
-#ifndef REGTEST
 #include <wchar.h>
 #include <errno.h>
 #include <stdint.h>
@@ -38,15 +37,3 @@ size_t wcrtomb(
     static mbstate_t st;
     return _PDCLIB_cwcrtomb(s, wc, ps ? ps : &st);
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE( NO_TESTDRIVER );
-    return TEST_RESULTS;
-}
-#endif

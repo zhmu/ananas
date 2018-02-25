@@ -5,8 +5,6 @@
 */
 
 #include <stdio.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
 /* Write the value c (cast to unsigned char) to the given stream.
@@ -36,6 +34,7 @@ int fputc_unlocked( int c, FILE * stream )
     return _PDCLIB_fputc_unlocked( c, stream );
 }
 
+// Testing covered by ftell.cpp
 int fputc( int c, FILE * stream )
 {
     _PDCLIB_flockfile( stream );
@@ -43,16 +42,3 @@ int fputc( int c, FILE * stream )
     _PDCLIB_funlockfile( stream );
     return r;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* Testing covered by ftell.c */
-    return TEST_RESULTS;
-}
-
-#endif

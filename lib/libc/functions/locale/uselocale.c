@@ -5,7 +5,6 @@
 */
 
 #include <locale.h>
-#ifndef REGTEST
 #include "_PDCLIB_locale.h"
 
 #ifdef _PDCLIB_LOCALE_METHOD
@@ -20,17 +19,5 @@ locale_t uselocale( locale_t newloc )
     }
 
     return oldloc;
-}
-#endif
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE( NO_TESTDRIVER );
-    return TEST_RESULTS;
 }
 #endif

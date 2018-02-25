@@ -5,7 +5,6 @@
 */
 
 #include <wctype.h>
-#ifndef REGTEST
 #include <string.h>
 #include "_PDCLIB_locale.h"
 
@@ -69,42 +68,3 @@ wctype_t wctype( const char * property )
     }
     return 0;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE(wctype("")   == 0);
-    TESTCASE_NOREG(wctype(NULL) == 0); // mingw libc crashes on this
-
-    TESTCASE(wctype("alpha")  != 0);
-    TESTCASE(wctype("alnum")  != 0);
-    TESTCASE(wctype("blank")  != 0);
-    TESTCASE(wctype("cntrl")  != 0);
-    TESTCASE(wctype("digit")  != 0);
-    TESTCASE(wctype("graph")  != 0);
-    TESTCASE(wctype("lower")  != 0);
-    TESTCASE(wctype("print")  != 0);
-    TESTCASE(wctype("punct")  != 0);
-    TESTCASE(wctype("space")  != 0);
-    TESTCASE(wctype("upper")  != 0);
-    TESTCASE(wctype("xdigit") != 0);
-
-    TESTCASE_NOREG(wctype("alpha")  == _PDCLIB_CTYPE_ALPHA);
-    TESTCASE_NOREG(wctype("alnum")  == (_PDCLIB_CTYPE_ALPHA | _PDCLIB_CTYPE_DIGIT));
-    TESTCASE_NOREG(wctype("blank")  == _PDCLIB_CTYPE_BLANK);
-    TESTCASE_NOREG(wctype("cntrl")  == _PDCLIB_CTYPE_CNTRL);
-    TESTCASE_NOREG(wctype("digit")  == _PDCLIB_CTYPE_DIGIT);
-    TESTCASE_NOREG(wctype("graph")  == _PDCLIB_CTYPE_GRAPH);
-    TESTCASE_NOREG(wctype("lower")  == _PDCLIB_CTYPE_LOWER);
-    TESTCASE_NOREG(wctype("print")  == (_PDCLIB_CTYPE_GRAPH | _PDCLIB_CTYPE_SPACE));
-    TESTCASE_NOREG(wctype("punct")  == _PDCLIB_CTYPE_PUNCT);
-    TESTCASE_NOREG(wctype("space")  == _PDCLIB_CTYPE_SPACE);
-    TESTCASE_NOREG(wctype("upper")  == _PDCLIB_CTYPE_UPPER);
-    TESTCASE_NOREG(wctype("xdigit") == _PDCLIB_CTYPE_XDIGT);
-    return TEST_RESULTS;
-}
-#endif

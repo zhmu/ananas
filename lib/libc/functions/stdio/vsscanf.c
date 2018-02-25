@@ -6,13 +6,12 @@
 
 #include <stdio.h>
 #include <stdarg.h>
-
-#ifndef REGTEST
 #include <ctype.h>
 #include "_PDCLIB_io.h"
 
-int vsscanf( const char * _PDCLIB_restrict s, 
-             const char * _PDCLIB_restrict format, 
+// Testing covered by scanf.cpp
+int vsscanf( const char * _PDCLIB_restrict s,
+             const char * _PDCLIB_restrict format,
              va_list arg )
 {
     /* TODO: This function should interpret format as multibyte characters.  */
@@ -83,29 +82,3 @@ int vsscanf( const char * _PDCLIB_restrict s,
     va_end( status.arg );
     return status.n;
 }
-
-#endif
-
-#ifdef TEST
-#define _PDCLIB_FILEID "stdio/vsscanf.c"
-#define _PDCLIB_STRINGIO
-
-#include "_PDCLIB_test.h"
-
-static int testscanf( char const * stream, char const * format, ... )
-{
-    va_list ap;
-    va_start( ap, format );
-    int result = vsscanf( stream, format, ap );
-    va_end( ap );
-    return result;
-}
-
-int main( void )
-{
-    char source[100];
-#include "scanf_testcases.h"
-    return TEST_RESULTS;
-}
-
-#endif

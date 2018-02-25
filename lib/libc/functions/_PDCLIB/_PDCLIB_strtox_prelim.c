@@ -7,7 +7,7 @@
 #include <ctype.h>
 #include <stddef.h>
 #include <string.h>
-#ifndef REGTEST
+
 const char * _PDCLIB_strtox_prelim( const char * p, char * sign, int * base )
 {
     /* skipping leading whitespace */
@@ -48,43 +48,3 @@ const char * _PDCLIB_strtox_prelim( const char * p, char * sign, int * base )
     }
     return ( ( *base >= 2 ) && ( *base <= 36 ) ) ? p : NULL;
 }
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-#ifndef REGTEST
-    int base = 0;
-    char sign = '\0';
-    char test1[] = "  123";
-    char test2[] = "\t+0123";
-    char test3[] = "\v-0x123";
-    TESTCASE( _PDCLIB_strtox_prelim( test1, &sign, &base ) == &test1[2] );
-    TESTCASE( sign == '+' );
-    TESTCASE( base == 10 );
-    base = 0;
-    sign = '\0';
-    TESTCASE( _PDCLIB_strtox_prelim( test2, &sign, &base ) == &test2[3] );
-    TESTCASE( sign == '+' );
-    TESTCASE( base == 8 );
-    base = 0;
-    sign = '\0';
-    TESTCASE( _PDCLIB_strtox_prelim( test3, &sign, &base ) == &test3[4] );
-    TESTCASE( sign == '-' );
-    TESTCASE( base == 16 );
-    base = 10;
-    sign = '\0';
-    TESTCASE( _PDCLIB_strtox_prelim( test3, &sign, &base ) == &test3[2] );
-    TESTCASE( sign == '-' );
-    TESTCASE( base == 10 );
-    base = 1;
-    TESTCASE( _PDCLIB_strtox_prelim( test3, &sign, &base ) == NULL );
-    base = 37;
-    TESTCASE( _PDCLIB_strtox_prelim( test3, &sign, &base ) == NULL );
-#endif
-    return TEST_RESULTS;
-}
-
-#endif

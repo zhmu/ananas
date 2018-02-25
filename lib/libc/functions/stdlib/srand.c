@@ -6,22 +6,7 @@
 
 #include <stdlib.h>
 
-#ifndef REGTEST
-
 void srand( unsigned int seed )
 {
     _PDCLIB_seed = seed;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* tested in rand.c */
-    return TEST_RESULTS;
-}
-
-#endif

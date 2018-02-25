@@ -7,8 +7,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#ifndef REGTEST
-
+// Testing covered by scanf.cpp
 int sscanf( const char * _PDCLIB_restrict s, const char * _PDCLIB_restrict format, ... )
 {
     int rc;
@@ -18,23 +17,3 @@ int sscanf( const char * _PDCLIB_restrict s, const char * _PDCLIB_restrict forma
     va_end( ap );
     return rc;
 }
-
-#endif
-
-#ifdef TEST
-#define _PDCLIB_FILEID "stdio/sscanf.c"
-#define _PDCLIB_STRINGIO
-
-#include "_PDCLIB_test.h"
-
-#define testscanf( s, format, ... ) sscanf( s, format, __VA_ARGS__ )
-
-int main( void )
-{
-    char source[100];
-#include "scanf_testcases.h"
-    return TEST_RESULTS;
-}
-
-#endif
-

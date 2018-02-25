@@ -8,8 +8,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 
-#ifndef REGTEST
-
+// Testing covered by printf.cpp
 int sprintf( char * _PDCLIB_restrict s, const char * _PDCLIB_restrict format, ...)
 {
     int rc;
@@ -19,23 +18,3 @@ int sprintf( char * _PDCLIB_restrict s, const char * _PDCLIB_restrict format, ..
     va_end( ap );
     return rc;
 }
-
-#endif
-
-#ifdef TEST
-#define _PDCLIB_FILEID "stdio/sprintf.c"
-#define _PDCLIB_STRINGIO
-#include <stddef.h>
-
-#include "_PDCLIB_test.h"
-
-#define testprintf( s, ... ) sprintf( s, __VA_ARGS__ )
-
-int main( void )
-{
-    char target[100];
-#include "printf_testcases.h"
-    return TEST_RESULTS;
-}
-
-#endif

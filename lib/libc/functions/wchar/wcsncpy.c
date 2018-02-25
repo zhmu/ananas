@@ -6,9 +6,7 @@
 
 #include <wchar.h>
 
-#ifndef REGTEST
-
-wchar_t *wcsncpy( wchar_t * _PDCLIB_restrict s1, 
+wchar_t *wcsncpy( wchar_t * _PDCLIB_restrict s1,
                   const wchar_t * _PDCLIB_restrict s2,
                   size_t n )
 {
@@ -28,16 +26,3 @@ wchar_t *wcsncpy( wchar_t * _PDCLIB_restrict s1,
     }
     return rc;
 }
-
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    return TEST_RESULTS;
-}
-
-#endif

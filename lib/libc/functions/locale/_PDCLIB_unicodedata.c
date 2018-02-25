@@ -10,8 +10,7 @@
  * in Exhibit 1 of the Unicode Terms of Use, found at
  *   http://www.unicode.org/copyright.html#Exhibit1
  */
- #ifndef REGTEST
- #include <_PDCLIB_locale.h>
+#include <_PDCLIB_locale.h>
 
 const _PDCLIB_wcinfo_t _PDCLIB_wcinfo[] = {
 //   { value, 	length, 	flags,	lower,	upper	}, // name
@@ -29878,13 +29877,3 @@ const _PDCLIB_wcinfo_t _PDCLIB_wcinfo[] = {
 
 
 const size_t _PDCLIB_wcinfo_size = sizeof(_PDCLIB_wcinfo) / sizeof(_PDCLIB_wcinfo[0]);
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-int main( void )
-{
-    return TEST_RESULTS;
-}
-#endif
-

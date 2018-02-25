@@ -6,8 +6,6 @@
 
 #include <string.h>
 
-#ifndef REGTEST
-
 size_t strspn( const char * s1, const char * s2 )
 {
     size_t len = 0;
@@ -31,17 +29,3 @@ size_t strspn( const char * s1, const char * s2 )
     }
     return len;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE( strspn( abcde, "abc" ) == 3 );
-    TESTCASE( strspn( abcde, "b" ) == 0 );
-    TESTCASE( strspn( abcde, abcde ) == 5 );
-    return TEST_RESULTS;
-}
-#endif

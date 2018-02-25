@@ -6,8 +6,6 @@
 
 #include <stdio.h>
 #include <stdio_ext.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
 void __fpurge( FILE * stream)
@@ -20,5 +18,3 @@ void __fpurge( FILE * stream)
     stream->ungetidx = 0;
     _PDCLIB_funlockfile( stream );
 }
-
-#endif

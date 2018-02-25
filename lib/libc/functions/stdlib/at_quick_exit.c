@@ -6,8 +6,6 @@
 
 #include <stdlib.h>
 
-#ifndef REGTEST
-
 extern void (*_PDCLIB_quickexitstack[])( void );
 extern size_t _PDCLIB_quickexitptr;
 
@@ -24,9 +22,8 @@ int at_quick_exit( void (*func)( void ) )
     }
 }
 
-#endif
-
-#ifdef TEST
+// RSTODO how to test this?
+#if 0
 #include "_PDCLIB_test.h"
 #include <assert.h>
 
@@ -56,5 +53,4 @@ int main( void )
     }
     return TEST_RESULTS;
 }
-
 #endif

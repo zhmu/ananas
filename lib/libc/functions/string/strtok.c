@@ -6,8 +6,6 @@
 
 #include <string.h>
 
-#ifndef REGTEST
-
 char * strtok( char * _PDCLIB_restrict s1, const char * _PDCLIB_restrict s2 )
 {
     static char * tmp = NULL;
@@ -69,37 +67,3 @@ char * strtok( char * _PDCLIB_restrict s1, const char * _PDCLIB_restrict s2 )
     tmp = NULL;
     return s1;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    char s[] = "_a_bc__d_";
-    TESTCASE( strtok( s, "_" ) == &s[1] );
-    TESTCASE( s[1] == 'a' );
-    TESTCASE( s[2] == '\0' );
-    TESTCASE( strtok( NULL, "_" ) == &s[3] );
-    TESTCASE( s[3] == 'b' );
-    TESTCASE( s[4] == 'c' );
-    TESTCASE( s[5] == '\0' );
-    TESTCASE( strtok( NULL, "_" ) == &s[7] );
-    TESTCASE( s[6] == '_' );
-    TESTCASE( s[7] == 'd' );
-    TESTCASE( s[8] == '\0' );
-    TESTCASE( strtok( NULL, "_" ) == NULL );
-    strcpy( s, "ab_cd" );
-    TESTCASE( strtok( s, "_" ) == &s[0] );
-    TESTCASE( s[0] == 'a' );
-    TESTCASE( s[1] == 'b' );
-    TESTCASE( s[2] == '\0' );
-    TESTCASE( strtok( NULL, "_" ) == &s[3] );
-    TESTCASE( s[3] == 'c' );
-    TESTCASE( s[4] == 'd' );
-    TESTCASE( s[5] == '\0' );
-    TESTCASE( strtok( NULL, "_" ) == NULL );
-    return TEST_RESULTS;
-}
-#endif

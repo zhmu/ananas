@@ -6,10 +6,8 @@
 
 #include <stdio.h>
 #include <stdarg.h>
-
-#ifndef REGTEST
-#include "_PDCLIB_io.h"
 #include <string.h>
+#include "_PDCLIB_io.h"
 
 struct state {
     size_t bufrem;
@@ -26,6 +24,7 @@ static size_t strout( void *p, const char *buf, size_t sz )
     return sz;
 }
 
+// Testing covered by printf.cpp
 int vsnprintf( char * _PDCLIB_restrict s,
                size_t n,
                const char * _PDCLIB_restrict format,
@@ -42,32 +41,3 @@ int vsnprintf( char * _PDCLIB_restrict s,
 
     return r;
 }
-
-#endif
-
-#ifdef TEST
-#define _PDCLIB_FILEID "stdio/vsnprintf.c"
-#define _PDCLIB_STRINGIO
-#include <stdint.h>
-#include <stddef.h>
-#include "_PDCLIB_test.h"
-
-static int testprintf( char * s, const char * format, ... )
-{
-    int i;
-    va_list arg;
-    va_start( arg, format );
-    i = vsnprintf( s, 100, format, arg );
-    va_end( arg );
-    return i;
-}
-
-int main( void )
-{
-    char target[100];
-#include "printf_testcases.h"
-    return TEST_RESULTS;
-}
-
-#endif
-

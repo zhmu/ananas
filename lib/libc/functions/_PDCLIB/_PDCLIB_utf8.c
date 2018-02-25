@@ -4,7 +4,6 @@
    Permission is granted to use, modify, and / or redistribute at will.
 */
 
-#ifndef REGTEST
 #include <stdbool.h>
 #include <stdint.h>
 #include <uchar.h>
@@ -238,101 +237,3 @@ const struct _PDCLIB_charcodec_t _PDCLIB_utf8_codec = {
     .__c32stombs = c32toutf8,
     .__mb_max    = 4,
 };
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-#ifndef REGTEST
-    // Valid conversion & back
-
-    static const char* input = "abcde" "\xDF\xBF" "\xEF\xBF\xBF"
-                               "\xF4\x8F\xBF\xBF";
-
-    char32_t c32out[8];
-
-    char32_t   *c32ptr = &c32out[0];
-    size_t      c32rem = 8;
-    const char *chrptr = (char*) &input[0];
-    size_t      chrrem = strlen(input);
-    mbstate_t   mbs = { 0 };
-
-    TESTCASE(utf8toc32(&c32ptr, &c32rem, &chrptr, &chrrem, &mbs));
-    TESTCASE(c32rem == 0);
-    TESTCASE(chrrem == 0);
-    TESTCASE(c32ptr == &c32out[8]);
-    TESTCASE(chrptr == &input[strlen(input)]);
-    TESTCASE(c32out[0] == 'a' && c32out[1] == 'b' && c32out[2] == 'c' &&
-             c32out[3] == 'd' && c32out[4] == 'e' && c32out[5] == 0x7FF &&
-             c32out[6] == 0xFFFF && c32out[7] == 0x10FFFF);
-
-    char chrout[strlen(input)];
-    c32ptr = &c32out[0];
-    c32rem = 8;
-    chrptr = &chrout[0];
-    chrrem = strlen(input);
-    TESTCASE(c32toutf8(&chrptr, &chrrem, &c32ptr, &c32rem, &mbs));
-    TESTCASE(c32rem == 0);
-    TESTCASE(chrrem == 0);
-    TESTCASE(c32ptr == &c32out[8]);
-    TESTCASE(chrptr == &chrout[strlen(input)]);
-    TESTCASE(memcmp(chrout, input, strlen(input)) == 0);
-
-    // Multi-part conversion
-    static const char* mpinput = "\xDF\xBF";
-    c32ptr = &c32out[0];
-    c32rem = 8;
-    chrptr = &mpinput[0];
-    chrrem = 1;
-    TESTCASE(utf8toc32(&c32ptr, &c32rem, &chrptr, &chrrem, &mbs));
-    TESTCASE(c32ptr == &c32out[0]);
-    TESTCASE(c32rem == 8);
-    TESTCASE(chrptr == &mpinput[1]);
-    TESTCASE(chrrem == 0);
-    chrrem = 1;
-    TESTCASE(utf8toc32(&c32ptr, &c32rem, &chrptr, &chrrem, &mbs));
-    TESTCASE(c32ptr == &c32out[1]);
-    TESTCASE(c32rem == 7);
-    TESTCASE(chrptr == &mpinput[2]);
-    TESTCASE(chrrem == 0);
-
-    // Invalid conversions
-
-    // Overlong nuls
-    const char* nul2 = "\xC0\x80";
-    c32ptr = &c32out[0];
-    c32rem = 8;
-    chrptr = &nul2[0];
-    chrrem = 2;
-    TESTCASE(utf8toc32(&c32ptr, &c32rem, &chrptr, &chrrem, &mbs) == false);
-    memset(&mbs, 0, sizeof mbs);
-    const char* nul3 = "\xE0\x80\x80";
-    c32ptr = &c32out[0];
-    c32rem = 8;
-    chrptr = &nul3[0];
-    chrrem = 3;
-    TESTCASE(utf8toc32(&c32ptr, &c32rem, &chrptr, &chrrem, &mbs) == false);
-    memset(&mbs, 0, sizeof mbs);
-    const char* nul4 = "\xF0\x80\x80\x80";
-    c32ptr = &c32out[0];
-    c32rem = 8;
-    chrptr = &nul4[0];
-    chrrem = 4;
-    TESTCASE(utf8toc32(&c32ptr, &c32rem, &chrptr, &chrrem, &mbs) == false);
-
-    // Starting on a continuation
-    const char* cont = "\x80";
-    c32ptr = &c32out[0];
-    c32rem = 8;
-    chrptr = &cont[0];
-    chrrem = 1;
-    TESTCASE(utf8toc32(&c32ptr, &c32rem, &chrptr, &chrrem, &mbs) == false);
-#endif
-    return TEST_RESULTS;
-}
-
-#endif
-

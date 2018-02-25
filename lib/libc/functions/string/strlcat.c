@@ -6,8 +6,6 @@
 
 #include <string.h>
 
-#ifndef REGTEST
-
 #pragma weak strlcat = _PDCLIB_strlcat
 size_t _PDCLIB_strlcat(
    char *restrict dst,
@@ -35,23 +33,3 @@ size_t _PDCLIB_strlcat(
 
     return needed;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    char dstbuf[16];
-
-    strcpy(dstbuf, "hi");
-    TESTCASE_NOREG( strlcat(dstbuf, "", 16) == 3 );
-    TESTCASE_NOREG( strlcat(dstbuf, "hi", 16) == 5 );
-    TESTCASE_NOREG( strlcat(dstbuf, "hello, world", 16) == 17 );
-    TESTCASE_NOREG( strlcat(dstbuf, "hi", 16) == 18 );
-    TESTCASE_NOREG( strcmp(dstbuf, "hihihello, worl") == 0);
-    return TEST_RESULTS;
-}
-
-#endif

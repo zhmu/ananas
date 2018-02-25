@@ -6,8 +6,6 @@
 
 #include <wchar.h>
 
-#ifndef REGTEST
-
 size_t wcsspn( const wchar_t * s1, const wchar_t * s2 )
 {
     size_t len = 0;
@@ -31,17 +29,3 @@ size_t wcsspn( const wchar_t * s1, const wchar_t * s2 )
     }
     return len;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE( wcsspn( wabcde, L"abc" ) == 3 );
-    TESTCASE( wcsspn( wabcde, L"b" ) == 0 );
-    TESTCASE( wcsspn( wabcde, wabcde ) == 5 );
-    return TEST_RESULTS;
-}
-#endif

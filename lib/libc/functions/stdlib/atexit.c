@@ -5,8 +5,6 @@
 */
 
 #include <stdlib.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
 /* TODO: 32 is guaranteed. This should be dynamic but ATM gives problems
@@ -81,9 +79,7 @@ void __cxa_finalize(void* dso)
     }
 }
 
-#endif
-
-#ifdef TEST
+#ifdef TEST_TODO // TODO: how to test using gtest?
 #include "_PDCLIB_test.h"
 #include <assert.h>
 

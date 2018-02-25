@@ -5,13 +5,10 @@
 */
 
 #include <stdio.h>
-
-#ifndef REGTEST
-#include "_PDCLIB_io.h"
-#include "_PDCLIB_glue.h"
-
 #include <stdbool.h>
 #include <string.h>
+#include "_PDCLIB_io.h"
+#include "_PDCLIB_glue.h"
 
 size_t _PDCLIB_fwrite_unlocked( const void *restrict vptr,
                size_t size, size_t nmemb,
@@ -60,6 +57,7 @@ size_t fwrite_unlocked( const void * _PDCLIB_restrict ptr,
     return _PDCLIB_fwrite_unlocked( ptr, size, nmemb, stream );
 }
 
+// Testing covered by fread.cpp
 size_t fwrite( const void * _PDCLIB_restrict ptr,
                size_t size, size_t nmemb,
                FILE * _PDCLIB_restrict stream )
@@ -69,17 +67,3 @@ size_t fwrite( const void * _PDCLIB_restrict ptr,
     _PDCLIB_funlockfile( stream );
     return r;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* Testing covered by fread(). */
-    return TEST_RESULTS;
-}
-
-#endif
-

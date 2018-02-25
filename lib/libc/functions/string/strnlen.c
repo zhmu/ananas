@@ -7,8 +7,6 @@
 #include <string.h>
 #include <stdint.h>
 
-#ifndef REGTEST
-
 size_t strnlen( const char * s, size_t maxlen )
 {
     for( size_t len = 0; len != maxlen; len++ )
@@ -18,19 +16,3 @@ size_t strnlen( const char * s, size_t maxlen )
     }
     return maxlen;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-#ifndef REGTEST
-    TESTCASE( strnlen( abcde, 5 ) == 5 );
-    TESTCASE( strnlen( abcde, 3 ) == 3 )
-    TESTCASE( strnlen( "", SIZE_MAX ) == 0 );
-#endif
-    return TEST_RESULTS;
-}
-#endif

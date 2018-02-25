@@ -3,8 +3,6 @@
    This file is part of the Public Domain C Library (PDCLib).
    Permission is granted to use, modify, and / or redistribute at will.
 */
-
-#ifndef REGTEST
 #include <uchar.h>
 #include <errno.h>
 #include <stdint.h>
@@ -14,7 +12,7 @@
 #include "_PDCLIB_locale.h"
 
 size_t c32rtomb_l(
-    char        *restrict   s, 
+    char        *restrict   s,
     char32_t                c32,
     mbstate_t   *restrict   ps,
     locale_t     restrict   l
@@ -38,22 +36,10 @@ size_t c32rtomb_l(
 }
 
 size_t c32rtomb(
-    char        *restrict   s, 
+    char        *restrict   s,
     char32_t                c32,
     mbstate_t   *restrict   ps
 )
 {
     return c32rtomb_l(s, c32, ps, _PDCLIB_threadlocale());
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE( NO_TESTDRIVER );
-    return TEST_RESULTS;
-}
-#endif

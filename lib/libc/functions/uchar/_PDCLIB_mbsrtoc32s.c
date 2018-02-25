@@ -4,7 +4,6 @@
    Permission is granted to use, modify, and / or redistribute at will.
 */
 
-#ifndef REGTEST
 #include <uchar.h>
 #include <errno.h>
 #include <stdint.h>
@@ -14,9 +13,9 @@
 
 static size_t _PDCLIB_mbsrtoc32s_l
 (
-    char32_t        *restrict   dst, 
-    const char     **restrict   src, 
-    size_t                      len, 
+    char32_t        *restrict   dst,
+    const char     **restrict   src,
+    size_t                      len,
     mbstate_t       *restrict   ps,
     locale_t         restrict   l
 )
@@ -34,23 +33,11 @@ static size_t _PDCLIB_mbsrtoc32s_l
 }
 
 size_t _PDCLIB_mbsrtoc32s(
-    char32_t        *restrict   dst, 
-    const char     **restrict   src, 
-    size_t                      len, 
+    char32_t        *restrict   dst,
+    const char     **restrict   src,
+    size_t                      len,
     mbstate_t       *restrict   ps
 )
 {
     return _PDCLIB_mbsrtoc32s_l(dst, src, len, ps, _PDCLIB_threadlocale());
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE( NO_TESTDRIVER );
-    return TEST_RESULTS;
-}
-#endif

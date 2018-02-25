@@ -4,7 +4,6 @@
    Permission is granted to use, modify, and / or redistribute at will.
 */
 
-#ifndef REGTEST
 #include <uchar.h>
 #include <errno.h>
 #include <stdint.h>
@@ -14,7 +13,7 @@
 
 size_t mbrtoc32_l(
     char32_t    *restrict   pc32,
-    const char  *restrict   s, 
+    const char  *restrict   s,
     size_t                  n,
     mbstate_t   *restrict   ps,
     locale_t     restrict   l
@@ -31,7 +30,7 @@ size_t mbrtoc32_l(
                 // The output character resulted entirely from stored state
                 // With UTF-32, this shouldn't be possible?
                 return (size_t) -3;
-            } else if(pc32[-1] == 0) {
+            } else if(pc32[-1] == 0) { // TODO: pc32 can be NULL if s=""
                 // Was null character
                 return 0;
             } else {
@@ -51,22 +50,10 @@ size_t mbrtoc32_l(
 
 size_t mbrtoc32(
     char32_t    *restrict   pc32,
-    const char  *restrict   s, 
+    const char  *restrict   s,
     size_t                  n,
     mbstate_t   *restrict   ps
 )
 {
     return mbrtoc32_l(pc32, s, n, ps, _PDCLIB_threadlocale());
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE( NO_TESTDRIVER );
-    return TEST_RESULTS;
-}
-#endif

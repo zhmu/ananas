@@ -6,8 +6,6 @@
 
 #include <wchar.h>
 
-#ifndef REGTEST
-
 int wcsncmp( const wchar_t * s1, const wchar_t * s2, size_t n )
 {
     while ( *s1 && n && ( *s1 == *s2 ) )
@@ -25,28 +23,3 @@ int wcsncmp( const wchar_t * s1, const wchar_t * s2, size_t n )
         return ( *(wchar_t *)s1 - *(wchar_t *)s2 );
     }
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    wchar_t cmpabcde[] = L"abcde\0f";
-    wchar_t cmpabcd_[] = L"abcde\xfc";
-    wchar_t empty[] = L"";
-    wchar_t x[] = L"x";
-    TESTCASE( wcsncmp( wabcde, cmpabcde, 5 ) == 0 );
-    TESTCASE( wcsncmp( wabcde, cmpabcde, 10 ) == 0 );
-    TESTCASE( wcsncmp( wabcde, wabcdx, 5 ) < 0 );
-    TESTCASE( wcsncmp( wabcdx, wabcde, 5 ) > 0 );
-    TESTCASE( wcsncmp( empty, wabcde, 5 ) < 0 );
-    TESTCASE( wcsncmp( wabcde, empty, 5 ) > 0 );
-    TESTCASE( wcsncmp( wabcde, wabcdx, 4 ) == 0 );
-    TESTCASE( wcsncmp( wabcde, x, 0 ) == 0 );
-    TESTCASE( wcsncmp( wabcde, x, 1 ) < 0 );
-    TESTCASE( wcsncmp( wabcde, cmpabcd_, 10 ) < 0 );
-    return TEST_RESULTS;
-}
-#endif

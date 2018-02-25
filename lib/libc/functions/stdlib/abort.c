@@ -7,17 +7,13 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#ifndef REGTEST
-
 void abort( void )
 {
     raise( SIGABRT );
     exit( EXIT_FAILURE );
 }
 
-#endif
-
-#ifdef TEST
+#ifdef TEST_TODO // XXX How to test this in gtest?
 #include "_PDCLIB_test.h"
 
 #include <stdio.h>

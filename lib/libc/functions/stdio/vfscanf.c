@@ -7,12 +7,10 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <ctype.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
-int _PDCLIB_vfscanf_unlocked( FILE * _PDCLIB_restrict stream, 
-                      const char * _PDCLIB_restrict format, 
+int _PDCLIB_vfscanf_unlocked( FILE * _PDCLIB_restrict stream,
+                      const char * _PDCLIB_restrict format,
                       va_list arg )
 {
     /* TODO: This function should interpret format as multibyte characters.  */
@@ -86,15 +84,16 @@ int _PDCLIB_vfscanf_unlocked( FILE * _PDCLIB_restrict stream,
     return status.n;
 }
 
-int vfscanf_unlocked( FILE * _PDCLIB_restrict stream, 
-                      const char * _PDCLIB_restrict format, 
+int vfscanf_unlocked( FILE * _PDCLIB_restrict stream,
+                      const char * _PDCLIB_restrict format,
                       va_list arg )
 {
     return _PDCLIB_vfscanf_unlocked( stream, format, arg );
 }
 
-int vfscanf( FILE * _PDCLIB_restrict stream, 
-             const char * _PDCLIB_restrict format, 
+// Testing covered by scanf.cpp
+int vfscanf( FILE * _PDCLIB_restrict stream,
+             const char * _PDCLIB_restrict format,
              va_list arg )
 {
     _PDCLIB_flockfile( stream );
@@ -102,32 +101,3 @@ int vfscanf( FILE * _PDCLIB_restrict stream,
     _PDCLIB_funlockfile( stream );
     return r;
 }
-
-#endif
-
-#ifdef TEST
-#define _PDCLIB_FILEID "stdio/vfscanf.c"
-#define _PDCLIB_FILEIO
-
-#include "_PDCLIB_test.h"
-
-static int testscanf( FILE * stream, char const * format, ... )
-{
-    va_list ap;
-    va_start( ap, format );
-    int result = vfscanf( stream, format, ap );
-    va_end( ap );
-    return result;
-}
-
-int main( void )
-{
-    FILE * source;
-    TESTCASE( ( source = tmpfile() ) != NULL );
-#include "scanf_testcases.h"
-    TESTCASE( fclose( source ) == 0 );
-    return TEST_RESULTS;
-}
-
-#endif
-

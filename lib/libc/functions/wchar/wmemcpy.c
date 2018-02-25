@@ -6,10 +6,8 @@
 
 #include <wchar.h>
 
-#ifndef REGTEST
-
-wchar_t * wmemcpy( wchar_t * _PDCLIB_restrict dest, 
-                   const wchar_t * _PDCLIB_restrict src, 
+wchar_t * wmemcpy( wchar_t * _PDCLIB_restrict dest,
+                   const wchar_t * _PDCLIB_restrict src,
                    size_t n )
 {
     wchar_t* rv = dest;
@@ -19,21 +17,3 @@ wchar_t * wmemcpy( wchar_t * _PDCLIB_restrict dest,
     }
     return rv;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    wchar_t s[] = L"xxxxxxxxxxx";
-    TESTCASE( wmemcpy( s, wabcde, 6 ) == s );
-    TESTCASE( s[4] == L'e' );
-    TESTCASE( s[5] == L'\0' );
-    TESTCASE( wmemcpy( s + 5, wabcde, 5 ) == s + 5 );
-    TESTCASE( s[9] == L'e' );
-    TESTCASE( s[10] == L'x' );
-    return TEST_RESULTS;
-}
-#endif

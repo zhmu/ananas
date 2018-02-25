@@ -7,8 +7,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <limits.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
 uint_fast64_t _PDCLIB_ftell64_unlocked( FILE * stream )
@@ -37,6 +35,7 @@ uint_fast64_t _PDCLIB_ftell64_unlocked( FILE * stream )
     return ( stream->pos.offset - ( ( (int)stream->bufend - (int)stream->bufidx ) + (int)stream->ungetidx ) );
 }
 
+// Testing covered by ftell.cpp
 uint_fast64_t _PDCLIB_ftell64( FILE * stream )
 {
   _PDCLIB_flockfile( stream );
@@ -44,19 +43,3 @@ uint_fast64_t _PDCLIB_ftell64( FILE * stream )
   _PDCLIB_funlockfile( stream );
   return pos;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-#include <stdlib.h>
-
-int main( void )
-{
-    /* Tested by ftell */
-    return TEST_RESULTS;
-}
-
-#endif
-

@@ -5,9 +5,8 @@
 */
 
 #include <stddef.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
+
 /* Helper function that parses the C-style mode string passed to fopen() into
    the PDCLib flags FREAD, FWRITE, FAPPEND, FRW (read-write) and FBIN (binary
    mode).
@@ -55,36 +54,3 @@ unsigned int _PDCLIB_filemode( char const * const mode )
     /* Longer than three chars - invalid. */
     return 0;
 }
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-#ifndef REGTEST
-    TESTCASE( _PDCLIB_filemode( "r" ) == _PDCLIB_FREAD );
-    TESTCASE( _PDCLIB_filemode( "w" ) == _PDCLIB_FWRITE );
-    TESTCASE( _PDCLIB_filemode( "a" ) == ( _PDCLIB_FAPPEND | _PDCLIB_FWRITE ) );
-    TESTCASE( _PDCLIB_filemode( "r+" ) == ( _PDCLIB_FREAD | _PDCLIB_FRW ) );
-    TESTCASE( _PDCLIB_filemode( "w+" ) == ( _PDCLIB_FWRITE | _PDCLIB_FRW ) );
-    TESTCASE( _PDCLIB_filemode( "a+" ) == ( _PDCLIB_FAPPEND | _PDCLIB_FWRITE | _PDCLIB_FRW ) );
-    TESTCASE( _PDCLIB_filemode( "rb" ) == ( _PDCLIB_FREAD | _PDCLIB_FBIN ) );
-    TESTCASE( _PDCLIB_filemode( "wb" ) == ( _PDCLIB_FWRITE | _PDCLIB_FBIN ) );
-    TESTCASE( _PDCLIB_filemode( "ab" ) == ( _PDCLIB_FAPPEND | _PDCLIB_FWRITE | _PDCLIB_FBIN ) );
-    TESTCASE( _PDCLIB_filemode( "r+b" ) == ( _PDCLIB_FREAD | _PDCLIB_FRW | _PDCLIB_FBIN ) );
-    TESTCASE( _PDCLIB_filemode( "w+b" ) == ( _PDCLIB_FWRITE | _PDCLIB_FRW | _PDCLIB_FBIN ) );
-    TESTCASE( _PDCLIB_filemode( "a+b" ) == ( _PDCLIB_FAPPEND | _PDCLIB_FWRITE | _PDCLIB_FRW | _PDCLIB_FBIN ) );
-    TESTCASE( _PDCLIB_filemode( "rb+" ) == ( _PDCLIB_FREAD | _PDCLIB_FRW | _PDCLIB_FBIN ) );
-    TESTCASE( _PDCLIB_filemode( "wb+" ) == ( _PDCLIB_FWRITE | _PDCLIB_FRW | _PDCLIB_FBIN ) );
-    TESTCASE( _PDCLIB_filemode( "ab+" ) == ( _PDCLIB_FAPPEND | _PDCLIB_FWRITE | _PDCLIB_FRW | _PDCLIB_FBIN ) );
-    TESTCASE( _PDCLIB_filemode( "x" ) == 0 );
-    TESTCASE( _PDCLIB_filemode( "r++" ) == 0 );
-    TESTCASE( _PDCLIB_filemode( "wbb" ) == 0 );
-    TESTCASE( _PDCLIB_filemode( "a+bx" ) == 0 );
-#endif
-    return TEST_RESULTS;
-}
-
-#endif
-

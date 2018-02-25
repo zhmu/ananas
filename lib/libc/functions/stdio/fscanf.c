@@ -6,11 +6,9 @@
 
 #include <stdio.h>
 #include <stdarg.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
-int _PDCLIB_fscanf_unlocked( FILE * _PDCLIB_restrict stream, 
+int _PDCLIB_fscanf_unlocked( FILE * _PDCLIB_restrict stream,
                      const char * _PDCLIB_restrict format, ... )
 {
     int rc;
@@ -21,7 +19,7 @@ int _PDCLIB_fscanf_unlocked( FILE * _PDCLIB_restrict stream,
     return rc;
 }
 
-int fscanf_unlocked( FILE * _PDCLIB_restrict stream, 
+int fscanf_unlocked( FILE * _PDCLIB_restrict stream,
                      const char * _PDCLIB_restrict format, ... )
 {
     int rc;
@@ -32,7 +30,8 @@ int fscanf_unlocked( FILE * _PDCLIB_restrict stream,
     return rc;
 }
 
-int fscanf( FILE * _PDCLIB_restrict stream, 
+// Testing covered by scanf.cpp
+int fscanf( FILE * _PDCLIB_restrict stream,
             const char * _PDCLIB_restrict format, ... )
 {
     int rc;
@@ -42,24 +41,3 @@ int fscanf( FILE * _PDCLIB_restrict stream,
     va_end( ap );
     return rc;
 }
-
-#endif
-
-#ifdef TEST
-#define _PDCLIB_FILEID "stdio/fscanf.c"
-#define _PDCLIB_FILEIO
-
-#include "_PDCLIB_test.h"
-
-#define testscanf( stream, format, ... ) fscanf( stream, format, __VA_ARGS__ )
-
-int main( void )
-{
-    FILE * source;
-    TESTCASE( ( source = tmpfile() ) != NULL );
-#include "scanf_testcases.h"
-    TESTCASE( fclose( source ) == 0 );
-    return TEST_RESULTS;
-}
-
-#endif

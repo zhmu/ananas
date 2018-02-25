@@ -6,8 +6,6 @@
 
 #include <wchar.h>
 
-#ifndef REGTEST
-
 wchar_t * wmemchr( const wchar_t * p, wchar_t c, size_t n )
 {
     while ( n-- )
@@ -20,20 +18,3 @@ wchar_t * wmemchr( const wchar_t * p, wchar_t c, size_t n )
     }
     return NULL;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE( wmemchr( wabcde, L'c', 5 ) == &wabcde[2] );
-    TESTCASE( wmemchr( wabcde, L'a', 1 ) == &wabcde[0] );
-    TESTCASE( wmemchr( wabcde, L'a', 0 ) == NULL );
-    TESTCASE( wmemchr( wabcde, L'\0', 5 ) == NULL );
-    TESTCASE( wmemchr( wabcde, L'\0', 6 ) == &wabcde[5] );
-    return TEST_RESULTS;
-}
-
-#endif

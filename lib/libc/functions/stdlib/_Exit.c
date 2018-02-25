@@ -6,8 +6,6 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_glue.h"
 
 void _Exit( int status )
@@ -18,9 +16,7 @@ void _Exit( int status )
     _PDCLIB_Exit( status );
 }
 
-#endif
-
-#ifdef TEST
+#ifdef TEST_TODO // TODO how to test on gtest?
 #include "_PDCLIB_test.h"
 
 int main( void )

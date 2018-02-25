@@ -6,10 +6,9 @@
 
 #include <stdio.h>
 #include <errno.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
-   
+
+// Testing covered by ftell.cpp
 int _PDCLIB_prepwrite( FILE * stream )
 {
     if ( ( stream->bufidx < stream->bufend ) || ( stream->ungetidx > 0 ) ||
@@ -27,16 +26,3 @@ int _PDCLIB_prepwrite( FILE * stream )
     stream->status |= _PDCLIB_FWRITE | _PDCLIB_BYTESTREAM;
     return 0;
 }
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* Testing covered by ftell.c */
-    return TEST_RESULTS;
-}
-
-#endif
-

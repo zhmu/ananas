@@ -5,7 +5,6 @@
 */
 
 #include <locale.h>
-#ifndef REGTEST
 #include "_PDCLIB_locale.h"
 #include <assert.h>
 
@@ -15,15 +14,3 @@ void freelocale( locale_t newloc )
         assert( ! "Not implemented" );
     }
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE( NO_TESTDRIVER );
-    return TEST_RESULTS;
-}
-#endif

@@ -5,27 +5,9 @@
 */
 
 #include <wctype.h>
-#ifndef REGTEST
 #include "_PDCLIB_locale.h"
 
 int iswupper( wint_t wc )
 {
     return iswctype( wc, _PDCLIB_CTYPE_UPPER );
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE(!iswupper(L'a'));
-    TESTCASE(!iswupper(L'e'));
-    TESTCASE(!iswupper(L'z'));
-    TESTCASE(iswupper(L'A'));
-    TESTCASE(iswupper(L'E'));
-    TESTCASE(iswupper(L'Z'));
-    return TEST_RESULTS;
-}
-#endif

@@ -5,10 +5,9 @@
 */
 
 #include <stdio.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
+/* Testing covered by ftell.c */
 int _PDCLIB_putc_unlocked( int c, FILE * stream )
 {
     return _PDCLIB_fputc_unlocked( c, stream );
@@ -23,16 +22,3 @@ int putc( int c, FILE * stream )
 {
     return fputc( c, stream );
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* Testing covered by ftell.c */
-    return TEST_RESULTS;
-}
-
-#endif

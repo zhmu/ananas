@@ -7,11 +7,11 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <errno.h>
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
-int_fast64_t _PDCLIB_seek( FILE * stream, 
-                           int_fast64_t offset, 
+/* Testing covered by ftell.c */
+int_fast64_t _PDCLIB_seek( FILE * stream,
+                           int_fast64_t offset,
                            int whence )
 {
     int_fast64_t newPos;
@@ -25,17 +25,3 @@ int_fast64_t _PDCLIB_seek( FILE * stream,
     stream->pos.offset = newPos;
     return newPos;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* Testing covered by ftell.c */
-    return TEST_RESULTS;
-}
-
-#endif
-

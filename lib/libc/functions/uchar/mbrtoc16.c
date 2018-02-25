@@ -4,7 +4,6 @@
    Permission is granted to use, modify, and / or redistribute at will.
 */
 
-#ifndef REGTEST
 #include <uchar.h>
 #include <errno.h>
 #include <stdint.h>
@@ -14,7 +13,7 @@
 
 size_t mbrtoc16_l(
     char16_t    *restrict   pc16,
-    const char  *restrict   s, 
+    const char  *restrict   s,
     size_t                  n,
     mbstate_t   *restrict   ps,
     locale_t     restrict   l
@@ -74,22 +73,10 @@ size_t mbrtoc16_l(
 
 size_t mbrtoc16(
     char16_t    *restrict   pc16,
-    const char  *restrict   s, 
+    const char  *restrict   s,
     size_t                  n,
     mbstate_t   *restrict   ps
 )
 {
     return mbrtoc16_l(pc16, s, n, ps, _PDCLIB_threadlocale());
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    TESTCASE( NO_TESTDRIVER );
-    return TEST_RESULTS;
-}
-#endif

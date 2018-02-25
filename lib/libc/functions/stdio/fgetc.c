@@ -5,8 +5,6 @@
 */
 
 #include <stdio.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_io.h"
 
 int _PDCLIB_fgetc_unlocked( FILE * stream )
@@ -28,6 +26,7 @@ int fgetc_unlocked( FILE * stream )
     return _PDCLIB_fgetc_unlocked( stream );
 }
 
+// Testing covered by ftell.cpp
 int fgetc( FILE * stream )
 {
     _PDCLIB_flockfile( stream );
@@ -35,16 +34,3 @@ int fgetc( FILE * stream )
     _PDCLIB_funlockfile( stream );
     return c;
 }
-
-#endif
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* Testing covered by ftell.c */
-    return TEST_RESULTS;
-}
-
-#endif

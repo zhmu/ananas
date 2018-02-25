@@ -7,12 +7,8 @@
 
 #include <stdlib.h>
 
-#ifndef REGTEST
-
 long double strtold( const char * nptr, char * * endptr )
 {
     /* XXXRS This may be a bit too short-circuited... */
     return (long double)strtod( nptr, endptr );
 }
-
-#endif

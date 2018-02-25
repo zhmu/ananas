@@ -6,12 +6,10 @@
 
 #include <stdio.h>
 #include <string.h>
-
-#ifndef REGTEST
 #include "_PDCLIB_glue.h"
 #include "_PDCLIB_io.h"
 
-
+// Tested by ftell.cpp
 static int flushsubbuffer( FILE * stream, size_t length )
 {
     size_t justWrote;
@@ -102,18 +100,3 @@ int _PDCLIB_flushbuffer( FILE * stream )
 #endif
     return flushsubbuffer( stream, stream->bufidx );
 }
-
-#endif
-
-
-#ifdef TEST
-#include "_PDCLIB_test.h"
-
-int main( void )
-{
-    /* Testing covered by ftell.c */
-    return TEST_RESULTS;
-}
-
-#endif
-

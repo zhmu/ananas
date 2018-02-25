@@ -28,7 +28,7 @@ void _PDCLIB_assert89( char const * const message )
 
 #endif
 
-#ifdef TEST
+#ifdef TEST_TESTING // How to do this with gtest?
 #include "_PDCLIB_test.h"
 #include <signal.h>
 

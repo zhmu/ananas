@@ -6,12 +6,7 @@
 
 #include <ctype.h>
 
-#ifndef REGTEST
-#include "_PDCLIB_locale.h"
-
 int isascii( int c )
 {
     return c >= 0 && c <= 0177;
 }
-
-#endif
