@@ -36,6 +36,19 @@ build_external()
 	make install DESTDIR=${OUTDIR}
 }
 
+usage()
+{
+	echo "usage: build.sh [-hc] [-abku]"
+	echo ""
+	echo " -h        this help"
+	echo " -c        clean temporary directories beforehand"
+	echo ""
+	echo " -a        build everything"
+	echo " -b        bootstrap (include, libsyscall, libc, libm, rtld)"
+	echo " -e        build externals (dash, coreutils)"
+	echo " -k        build kernel (mb-stub, kernel)"
+}
+
 TARGET="x86_64-ananas-elf"
 OUTDIR="/tmp/ananas-build"
 WORKDIR="/tmp/ananas-work"
@@ -48,49 +61,90 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
+# cheap commandline parser, inspired by https://gist.github.com/jehiah/855086
+CLEAN=0
+BOOTSTRAP=0
+KERNEL=0
+EXTERNALS=0
+while [ "$1" != "" ]; do
+	P="$1"
+	case "$P" in
+		-h)
+			usage
+			exit 1
+			;;
+		-a)
+			BOOTSTRAP=1
+			KERNEL=1
+			EXTERNALS=1
+			;;
+		-b)
+			BOOTSTRAP=1
+			;;
+		-c)
+			CLEAN=1
+			;;
+		-e)
+			EXTERNALS=1
+			;;
+		-k)
+			KERNEL=1
+			;;
+		*)
+			echo "unexpect parameter '$P'"
+			usage
+			exit 1
+			;;
+	esac
+	shift
+done
+
 # from here on, we can no longer deal with failure
 set +e
 
 # clean up the output and work directories
-rm -rf ${OUTDIR} ${WORKDIR}
-mkdir -p ${OUTDIR} ${WORKDIR}
+if [ "$CLEAN" -ne 0 ]; then
+	rm -rf ${OUTDIR} ${WORKDIR}
+	mkdir -p ${OUTDIR} ${WORKDIR}
+fi
 
-# generate a toolchain.txt file - this is necessary for CMake to correctly
-# cross-build things.
 TOOLCHAIN_TXT="${OUTDIR}/toolchain.txt"
-cat > ${TOOLCHAIN_TXT} <<END
-set(CMAKE_SYSTEM_NAME Linux)
+if [ "$BOOTSTRAP" -ne 0 ]; then
+	# generate a toolchain.txt file - this is necessary for CMake to correctly
+	# cross-build things.
+	cat > ${TOOLCHAIN_TXT} <<END
+	set(CMAKE_SYSTEM_NAME Linux)
 
-set(triple ${TARGET})
+	set(triple ${TARGET})
 
-set(CMAKE_SYSROOT ${OUTDIR})
+	set(CMAKE_SYSROOT ${OUTDIR})
 
-# Force the compiler instead of letting CMake detect it - the reason is that
-# we will not have an usable environment when we begin (we are constructing it
-# on the fly)
-include(CMakeForceCompiler)
-CMAKE_FORCE_C_COMPILER(\${triple}-clang GNU)
-CMAKE_FORCE_CXX_COMPILER(\${triple}-clang GNU)
+	# Force the compiler instead of letting CMake detect it - the reason is that
+	# we will not have an usable environment when we begin (we are constructing it
+	# on the fly)
+	include(CMakeForceCompiler)
+	CMAKE_FORCE_C_COMPILER(\${triple}-clang GNU)
+	CMAKE_FORCE_CXX_COMPILER(\${triple}-clang GNU)
 
-set(CMAKE_ASM_COMPILER \${CMAKE_C_COMPILER})
+	set(CMAKE_ASM_COMPILER \${CMAKE_C_COMPILER})
 
-set(CMAKE_LD_LINKER ld)
+	set(CMAKE_LD_LINKER ld)
 END
 
-CMAKE_ARGS="-GNinja -DCMAKE_INSTALL_PREFIX=${OUTDIR} -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_TXT}"
+	CMAKE_ARGS="-GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=${OUTDIR} -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_TXT}"
 
-# start by include, libsyscall - these are pre-requisites to build a libc
-build include include
-build libsyscall lib/libsyscall
+	# start by include, libsyscall - these are pre-requisites to build a libc
+	build include include
+	build libsyscall lib/libsyscall
 
-# build libc, crt and libm
-build libc lib/libc
-build crt lib/crt
-build libm lib/libm
+	# build libc, crt and libm
+	build libc lib/libc
+	build crt lib/crt
+	build libm lib/libm
 
-# at this point, we should have a fully functional C build environment - replace the bogus toolchain.txt
-# by something sensible to reflect this. If CMake rejects our compiler, we have a problem
-cat > ${TOOLCHAIN_TXT} <<END
+	# at this point, we should have a fully functional C build environment - replace the bogus toolchain.txt
+	# by something sensible to reflect this. If CMake rejects our compiler, we have a problem
+	cat > ${TOOLCHAIN_TXT} <<END
 set(CMAKE_SYSTEM_NAME Linux)
 
 set(triple ${TARGET})
@@ -106,20 +160,30 @@ set(CMAKE_CXX_COMPILER \${triple}-clang)
 set(CMAKE_CXX_COMPILER_TARGET \${triple})
 END
 
-# build the runtime linker so we can run shared library things
-build rtld lib/rtld
+fi
 
-# build the multiboot stub so we can make something bootable
-build multiboot-stub multiboot-stub
+# assume we have a sensible bootstrapped environment here
+CMAKE_ARGS="-GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=${OUTDIR} -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_TXT}"
+if [ "$BOOTSTRAP" -ne 0 ]; then
+	# build the runtime linker so we can run shared library things
+	build rtld lib/rtld
+fi
 
-# build the kernel
-build kernel kernel
+if [ "$KERNEL" -ne 0 ]; then
+	# build the multiboot stub so we can make something bootable
+	build multiboot-stub multiboot-stub
 
-# build dash
-build_external dash
+	# build the kernel
+	build kernel kernel
+fi
 
-# build coreutils
-build_external coreutils
+if [ "$EXTERNALS" -ne 0 ]; then
+	# build dash
+	build_external dash
 
-# copy dash to /bin/sh so we can boot things
-cp ${OUTDIR}/bin/dash ${OUTDIR}/bin/sh
+	# build coreutils
+	build_external coreutils
+
+	# copy dash to /bin/sh so we can boot things
+	cp ${OUTDIR}/bin/dash ${OUTDIR}/bin/sh
+fi
