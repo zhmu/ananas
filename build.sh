@@ -16,7 +16,7 @@ build()
 	echo "*** Building ${srcpath}"
 	mkdir -p ${WORKDIR}/${workpath}
 	cd ${WORKDIR}/${workpath}
-	cmake ${CMAKE_ARGS} ${ROOT}/${srcpath}
+	cmake ${CMAKE_ARGS} ${CMAKE_ARGS_EXTRA} ${ROOT}/${srcpath}
 	ninja install
 }
 
@@ -38,7 +38,7 @@ build_external()
 
 usage()
 {
-	echo "usage: build.sh [-hc] [-abku]"
+	echo "usage: build.sh [-hc] [-abekp]"
 	echo ""
 	echo " -h        this help"
 	echo " -c        clean temporary directories beforehand"
@@ -47,6 +47,7 @@ usage()
 	echo " -b        bootstrap (include, libsyscall, libc, libm, rtld)"
 	echo " -e        build externals (dash, coreutils)"
 	echo " -k        build kernel (mb-stub, kernel)"
+	echo " -p        build c++ support (libunwind, libc++abi, libc++)"
 }
 
 TARGET="x86_64-ananas-elf"
@@ -66,6 +67,7 @@ CLEAN=0
 BOOTSTRAP=0
 KERNEL=0
 EXTERNALS=0
+CPLUSPLUS=0
 while [ "$1" != "" ]; do
 	P="$1"
 	case "$P" in
@@ -77,6 +79,7 @@ while [ "$1" != "" ]; do
 			BOOTSTRAP=1
 			KERNEL=1
 			EXTERNALS=1
+			CPLUSPLUS=1
 			;;
 		-b)
 			BOOTSTRAP=1
@@ -89,6 +92,9 @@ while [ "$1" != "" ]; do
 			;;
 		-k)
 			KERNEL=1
+			;;
+		-p)
+			CPLUSPLUS=1
 			;;
 		*)
 			echo "unexpect parameter '$P'"
@@ -108,6 +114,7 @@ if [ "$CLEAN" -ne 0 ]; then
 	mkdir -p ${OUTDIR} ${WORKDIR}
 fi
 
+CMAKE_ARGS_EXTRA=""
 TOOLCHAIN_TXT="${OUTDIR}/toolchain.txt"
 if [ "$BOOTSTRAP" -ne 0 ]; then
 	# generate a toolchain.txt file - this is necessary for CMake to correctly
@@ -163,7 +170,8 @@ END
 fi
 
 # assume we have a sensible bootstrapped environment here
-CMAKE_ARGS="-GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=${OUTDIR} -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_TXT}"
+CMAKE_ARGS_BASE="-GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=${OUTDIR} -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_TXT}"
+CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_INSTALL_PREFIX=${OUTDIR}"
 if [ "$BOOTSTRAP" -ne 0 ]; then
 	# build the runtime linker so we can run shared library things
 	build rtld lib/rtld
@@ -186,4 +194,22 @@ if [ "$EXTERNALS" -ne 0 ]; then
 
 	# copy dash to /bin/sh so we can boot things
 	cp ${OUTDIR}/bin/dash ${OUTDIR}/bin/sh
+fi
+
+if [ "$CPLUSPLUS" -ne 0 ]; then
+	# XXX I wonder if I should really want the usr/ suffix ?
+	CMAKE_ARGS="${CMAKE_ARGS_BASE} -DCMAKE_INSTALL_PREFIX=${OUTDIR}/usr"
+	CMAKE_ARGS="${CMAKE_ARGS} -DLLVM_PATH=${ROOT}/external/llvm"
+
+	# libunwind
+	CMAKE_ARGS_EXTRA="-DLLVM_ENABLE_LIBCXX:BOOL=ON -DLIBUNWIND_ENABLE_THREADS:BOOL=OFF"
+	build libunwind external/llvm/projects/libunwind
+
+	# libcxxabi
+	CMAKE_ARGS_EXTRA="-DLIBCXXABI_LIBCXX_PATH=${ROOT}/external/llvm/projects/libcxxabi -DLLVM_ENABLE_LIBCXX:BOOL=ON -DLIBCXXABI_ENABLE_THREADS:BOOL=OFF -DLIBCXXABI_USE_LLVM_UNWINDER=YES"
+	build libcxxabi external/llvm/projects/libcxxabi
+
+	# libcxx
+	CMAKE_ARGS_EXTRA="-DCMAKE_CROSSCOMPILING=True -DLIBCXX_CXX_ABI=libcxxabi -DLIBCXX_CXX_ABI_INCLUDE_PATHS=${ROOT}/external/llvm/projects/libcxxabi/include -DLIBCXX_ENABLE_THREADS:BOOL=OFF -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY=NO -DLIBCXX_STANDARD_VER=c++17"
+	build libcxx external/llvm/projects/libcxx
 fi
