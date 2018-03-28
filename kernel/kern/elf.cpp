@@ -22,6 +22,8 @@ TRACE_SETUP;
 #define PHDR_BASE 0xd0000000
 #define ELFINFO_BASE 0xe000000
 
+addr_t last_exec_addr;
+
 static Result
 read_data(DEntry& dentry, void* buf, off_t offset, size_t len)
 {
@@ -162,6 +164,7 @@ elf64_load_file(VMSpace& vs, DEntry& dentry, addr_t rbase, addr_t* exec_addr)
 	}
 
 	*exec_addr = ehdr.e_entry;
+	last_exec_addr = *exec_addr;
 	return Result::Success();
 }
 

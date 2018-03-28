@@ -17,6 +17,8 @@
 #include "../sys/syscall.h"
 #include "options.h"
 
+Result core_dump(Thread* t, struct STACKFRAME* sf);
+
 namespace {
 
 int
@@ -100,6 +102,9 @@ exception_generic(struct STACKFRAME* sf)
 
 	if (userland) {
 		/* A thread was naughty. Kill it XXX we should send the signal instead */
+		Thread* cur_thread = PCPU_GET(curthread);
+		auto result = core_dump(cur_thread, sf);
+		kprintf(">> core dump %d\n", result.AsStatusCode());
 		thread_exit(THREAD_MAKE_EXITCODE(THREAD_TERM_SIGNAL, map_trapno_to_signal(sf->sf_trapno)));
 		/* NOTREACHED */
 	}
