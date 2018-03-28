@@ -65,4 +65,8 @@ size_t _PDCLIB_c16srtombs( char * _PDCLIB_restrict dst, const char16_t * * _PDCL
 size_t _PDCLIB_c32srtombs( char * _PDCLIB_restrict dst, const char32_t * * _PDCLIB_restrict src, size_t len, mbstate_t * _PDCLIB_restrict ps );
 #endif
 
+#ifdef __cplusplus
+}
+#endif
+
 #endif
