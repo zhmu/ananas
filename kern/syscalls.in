@@ -28,3 +28,8 @@
 23 { Result readlink(const char* path, char* buffer, size_t* bufsize); }
 24 { Result lstat(const char* path, struct stat* buf); }
 25 { Result getcwd(char* buf, size_t buflen); }
+26 { Result sigaction(int sig, const struct sigaction* act, struct sigaction* oact); }
+27 { Result sigprocmask(int how, const sigset_t* set, sigset_t* oset); }
+28 { Result sigsuspend(const sigset_t* sigmask); }
+29 { Result kill(pid_t pid, int sig); }
+30 { void sigreturn(int dummy); }
