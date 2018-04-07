@@ -152,8 +152,19 @@ ATKeyboard::OnIRQ()
 		if (kbd_flags == (flag::Control | flag::Alt) && scancode == scancode::Delete)
 			md_reboot();
 
-		// Look up the scancode - if this yields anything, store the key
-		uint8_t ch = ((kbd_flags & flag::Shift) ? atkbd_keymap_shift : atkbd_keymap)[scancode];
+		// Look up the scancode
+		const int ch = [this](int scancode) {
+			if (kbd_flags & flag::Control) {
+				uint8_t ch = atkbd_keymap[scancode];
+				if (ch >= 'a' && ch <= 'z')
+					return (ch - 'a') + 1; // control-a -> 1, etc
+				return 0;
+			}
+
+			return static_cast<int>(((kbd_flags & flag::Shift) ? atkbd_keymap_shift : atkbd_keymap)[scancode]);
+		}(scancode);
+
+		// Add the character to the input queue, if we have anything
 		if (ch != 0)
 			kbdmux_on_input(ch);
 	}
