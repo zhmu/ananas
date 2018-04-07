@@ -58,9 +58,6 @@ struct Thread : public util::List<Thread>::NodePtr {
 	int t_affinity;			/* thread CPU */
 #define THREAD_AFFINITY_ANY -1
 
-	/* Thread handles */
-	handleindex_t	t_hidx_thread;	/* Handle identifying this thread */
-
 	/* Waiters to signal on thread changes */
 	ThreadWaiterList	t_waitqueue;
 
