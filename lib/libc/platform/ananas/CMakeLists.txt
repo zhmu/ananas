@@ -58,27 +58,27 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/wait.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/open.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/fcntl.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/kill.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/sigaction.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/signal.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/sigprocmask.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/sigset.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/sigsuspend.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/getpriority.c
-	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/sigsuspend.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/times.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/dl_iterate_phdr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/fchown.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/getgroups.c
-	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/kill.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/alarm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/isatty.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/setrlimit.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/chown.c
-	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/sigset.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/umask.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/pipe.c
-	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/sigprocmask.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/setpgid.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/select.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/getrlimit.c
-	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/sigaction.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/chmod.c
-	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/signal.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/getrusage.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/setpriority.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/seekdir.c
