@@ -4,6 +4,7 @@
 
 struct utimbuf;
 struct Thread;
+struct sigaction;
 
 #ifdef KERNEL
 class Result;

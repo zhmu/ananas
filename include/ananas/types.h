@@ -30,6 +30,7 @@
 #include <ananas/_types/statuscode.h>
 #include <ananas/_types/register.h>
 #include <ananas/_types/refcount.h>
+#include <ananas/_types/sigset.h>
 #include <ananas/_types/size.h>
 #include <ananas/_types/ssize.h>
 #include <ananas/_types/tick.h>
