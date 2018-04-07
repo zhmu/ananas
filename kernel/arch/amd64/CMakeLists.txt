@@ -7,6 +7,7 @@ add_sources(
 	interrupts.S
 	exception.cpp
 	reboot.cpp
+	usupport.S
 )
 
 if(OPTION_SMP)

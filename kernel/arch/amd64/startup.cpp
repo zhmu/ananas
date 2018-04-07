@@ -49,6 +49,9 @@ extern void* syscall_handler;
 /* CPU clock speed, in MHz */
 int md_cpu_clock_mhz = 0;
 
+Page* usupport_page;
+void* usupport;
+
 extern "C" void __run_global_ctors();
 
 namespace {
@@ -570,6 +573,17 @@ smp_ap_startup(struct X86_CPU* cpu)
 }
 #endif
 
+void
+usupport_init()
+{
+	usupport = page_alloc_length_mapped(PAGE_SIZE, usupport_page, VM_FLAG_READ | VM_FLAG_WRITE);
+	memset(usupport, 0xf4 /* hlt */, PAGE_SIZE);
+
+	extern char usupport_start, usupport_end;
+	KASSERT(&usupport_end - &usupport_start < PAGE_SIZE, "usupport too large");
+	memcpy(usupport, &usupport_start, &usupport_end - &usupport_start);
+}
+
 extern "C" void
 md_startup(const struct BOOTINFO* bootinfo_ptr)
 {
@@ -655,6 +669,9 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 
 	// Initialize the PIT
 	x86_pit_init();
+
+	// Prepare the userland support page
+	usupport_init();
 
 	/*
 	 * Enable interrupts. We do this right before the machine-independant code

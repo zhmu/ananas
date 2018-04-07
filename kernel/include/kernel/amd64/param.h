@@ -15,6 +15,9 @@
 /* Virtual address of the per-thread stack */
 #define USERLAND_STACK_ADDR	0x80000
 
+/* Virtual address of the shared userland support page */
+#define USERLAND_SUPPORT_ADDR	0x7e000
+
 /* Temporary mapping address size */
 #define TEMP_USERLAND_SIZE	PAGE_SIZE
 
