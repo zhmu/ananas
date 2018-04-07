@@ -26,6 +26,7 @@ add_sources(
 	reaper.cpp
 	resourceset.cpp
 	scheduler.cpp
+	signal.cpp
 	syscall.cpp
 	thread.cpp
 	time.cpp

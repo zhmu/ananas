@@ -13,6 +13,7 @@ add_sources(
 	readlink.cpp
 	rename.cpp
 	seek.cpp
+	signal.cpp
 	stat.cpp
 	support.cpp
 	unlink.cpp

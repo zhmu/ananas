@@ -6,6 +6,7 @@
 #include "kernel/handle.h"
 #include "kernel/page.h"
 #include "kernel/schedule.h" // for SchedulerPriv
+#include "kernel/signal.h" // for ThreadSpecificData
 #include "kernel/vfs/generic.h"
 #include "kernel-md/thread.h"
 
@@ -38,6 +39,7 @@ struct Thread : public util::List<Thread>::NodePtr {
 #define THREAD_FLAG_REAPING	0x0010	/* Thread will be reaped (destroyed by idle thread) */
 #define THREAD_FLAG_MALLOC	0x0020	/* Thread is kmalloc()'ed */
 #define THREAD_FLAG_TIMEOUT	0x0040	/* Timeout field is valid */
+#define THREAD_FLAG_SIGPENDING	0x0080	/* Signal is pending */
 #define THREAD_FLAG_KTHREAD	0x8000	/* Kernel thread */
 
 	struct STACKFRAME* t_frame;
@@ -67,6 +69,8 @@ struct Thread : public util::List<Thread>::NodePtr {
 
 	/* Scheduler specific information */
 	SchedulerPriv		t_sched_priv;
+
+	signal::ThreadSpecificData t_sigdata;
 };
 
 typedef util::List<Thread> ThreadList;
