@@ -7,17 +7,17 @@
 #include "kernel/process.h"
 #include "kernel/pcpu.h"
 #include "kernel/result.h"
+#include "kernel/signal.h"
 #include "kernel/thread.h"
 #include "kernel/vm.h"
 #include "kernel/vmspace.h"
 #include "kernel/x86/exceptions.h"
 #include "kernel-md/frame.h"
 #include "kernel-md/interrupts.h"
+#include "kernel-md/param.h"
 #include "kernel-md/vm.h"
 #include "../sys/syscall.h"
 #include "options.h"
-
-Result core_dump(Thread* t, struct STACKFRAME* sf);
 
 namespace {
 
@@ -101,12 +101,11 @@ exception_generic(struct STACKFRAME* sf)
 	}
 
 	if (userland) {
-		/* A thread was naughty. Kill it XXX we should send the signal instead */
-		Thread* cur_thread = PCPU_GET(curthread);
-		auto result = core_dump(cur_thread, sf);
-		kprintf(">> core dump %d\n", result.AsStatusCode());
-		thread_exit(THREAD_MAKE_EXITCODE(THREAD_TERM_SIGNAL, map_trapno_to_signal(sf->sf_trapno)));
-		/* NOTREACHED */
+		// An userland thread misbehaved - send the signal; we'll fall out of the
+		// handler and the thread should be able to catch the signal or we'll invoke
+		// the default action
+		signal::QueueSignal(*PCPU_GET(curthread), map_trapno_to_signal(sf->sf_trapno));
+		return;
 	}
 
 #ifdef OPTION_GDB
@@ -179,6 +178,78 @@ amd64_syscall(struct STACKFRAME* sf)
 	sa.arg5 = sf->sf_r8;
 	/*sa.arg6 = sf->sf_r9;*/
 	sf->sf_rax = syscall(&sa);
+}
+
+Result core_dump(Thread* t, struct STACKFRAME*);
+
+Result
+md_core_dump(Thread& t)
+{
+	// Find the userland rsp
+	size_t sf_offset = KERNEL_STACK_SIZE - sizeof(struct STACKFRAME);
+	auto sf = reinterpret_cast<struct STACKFRAME*>((char*)t.md_kstack + sf_offset);
+	return core_dump(&t, sf);
+}
+
+extern "C" void*
+md_invoke_signal(struct STACKFRAME* sf)
+{
+	Thread* thread = PCPU_GET(curthread);
+	siginfo_t si;
+	signal::Action* act = signal::DequeueSignal(*thread, si);
+	if (act == nullptr)
+		return nullptr;
+	KASSERT(act->sa_handler != SIG_IGN, "attempt to handle ignored signal %d", si.si_signo);
+	if (act->sa_handler == SIG_DFL) {
+		signal::HandleDefaultSignalAction(si);
+		return nullptr;
+	}
+
+	// Create a copy of the original stackframe - this is used by md_sigreturn()
+	// to restore the complete context
+	sf->sf_rsp -= sizeof(struct STACKFRAME);
+	auto sf_copy = reinterpret_cast<struct STACKFRAME*>(sf->sf_rsp);
+	memcpy(sf_copy, sf, sizeof(struct STACKFRAME));
+	sf_copy->sf_rsp += sizeof(struct STACKFRAME);
+
+	// Create the siginfo structure
+	sf->sf_rsp -= sizeof(siginfo_t);
+	auto siginfo = reinterpret_cast<siginfo_t*>(sf->sf_rsp);
+	*siginfo = si;
+
+	// Fake a return call
+	sf->sf_rsp -= sizeof(register_t);
+	auto retaddr = reinterpret_cast<register_t*>(sf->sf_rsp);
+	*retaddr = USERLAND_SUPPORT_ADDR;
+
+	// Create a stackframe structure to invoke the signal handler
+	sf->sf_rsp -= sizeof(struct STACKFRAME);
+	auto sf_handler = reinterpret_cast<struct STACKFRAME*>(sf->sf_rsp);
+	memcpy(sf_handler, sf, sizeof(struct STACKFRAME));
+	kprintf("sf_copy %p siginfo %p retaddr %p sf_handler=%p\n", sf_copy, siginfo, retaddr, sf_handler);
+	kprintf("sizeof()s = %d, %d, %d\n", (int)sizeof(siginfo_t), (int)sizeof(register_t), (int)sizeof(struct STACKFRAME));
+	// We always call the function as if it's a sigaction; an ordinary handler
+	// should just ignore the extra arguments
+	sf_handler->sf_rdi = siginfo->si_signo; // signum
+	sf_handler->sf_rsi = (addr_t)siginfo; // siginfo_t
+	sf_handler->sf_rdx = 0; // void*
+	sf_handler->sf_rip = (addr_t)act->sa_handler;
+	sf_handler->sf_rsp += sizeof(struct STACKFRAME);
+	return sf_handler;
+}
+
+void
+sys_sigreturn(Thread* t, int)
+{
+	// Find the userland rsp
+	size_t sf_offset = KERNEL_STACK_SIZE - sizeof(struct STACKFRAME);
+	auto sf = reinterpret_cast<struct STACKFRAME*>((char*)t->md_kstack + sf_offset);
+	/* XXX check sf->sf_rsp */
+	auto sf_orig = reinterpret_cast<struct STACKFRAME*>((char*)sf->sf_rsp + sizeof(siginfo_t));
+	/* XXX check sf_orig */
+
+	kprintf("%s: t=%p, rsp=%p sf_orig=%p\n", __func__, t, sf->sf_rsp, sf_orig);
+	memcpy(sf, sf_orig, sizeof(struct STACKFRAME));
 }
 
 /* vim:set ts=2 sw=2: */

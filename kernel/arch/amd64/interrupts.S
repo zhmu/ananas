@@ -17,6 +17,8 @@
 #include "options.h"
 #include "asmsyms.h"
 
+#define THREAD_FLAG_SIGPENDING 0x80 // XXX this is in thread.h
+
 #define SAVE_REGISTERS \
 	movq	%rax, SF_RAX(%rsp); \
 	movq	%rbx, SF_RBX(%rsp); \
@@ -92,6 +94,26 @@ do_exception:
 	movq	%rsp, %rdi
 	call	exception
 
+do_return_check_sig:
+	movq	%gs:(PCPU_CURTHREAD), %rax
+	testl	$THREAD_FLAG_SIGPENDING, T_FLAGS(%rax)
+	jz	do_return
+
+do_return_signal:
+	/*
+	 * XXX IS THIS CORRECT - we (may?) need interrupts enabled as the
+	 * signal stuff is protected by a spinlock and this panics if
+	 * interrupts are off. Maybe that check does not make sense in
+	 * the SMP case?
+	 */
+	sti	/* XXX IS THIS CORRECT?!?! */
+	movq	%rsp, %rdi
+	call	md_invoke_signal
+	orq	%rax, %rax
+	jz	do_return
+
+	movq	%rax, %rsp
+
 do_return:
 	/* Restore %gs if needed */
 	cmpl	$GDT_SEL_KERNEL_CODE, SF_CS(%rsp)
@@ -129,7 +151,7 @@ do_irq:
 	movq	%rsp, %rdi
 	call	interrupt_handler
 
-	jmp	do_return
+	jmp	do_return_check_sig
 
 /* Now we just need to list the exception handlers */
 EXCEPTION_WITHOUT_ERRCODE(0)
@@ -236,11 +258,17 @@ syscall_return:
 	testl	$THREAD_MDFLAG_FULLRESTORE, T_MDFLAGS(%rax)
 	jz	1f
 
-	/* Do a full register restore */
+	/*
+	 * Do a full register restore - this only happens after things like exec()
+	 * so we do not need to check for pending signal here
+	 */
 	andl	$~THREAD_MDFLAG_FULLRESTORE, T_MDFLAGS(%rax)
 	jmp	do_return
 
-1:
+1:	/* If we need to invoke a signal handler, do so... */
+	testl	$THREAD_FLAG_SIGPENDING, T_FLAGS(%rax)
+	jnz	do_return_signal
+
 	movq	SF_RAX(%rsp), %rax	/* return value */
 	movq	SF_RFLAGS(%rsp), %r11	/* original rflags */
 	movq	SF_RIP(%rsp), %rcx	/* original %rip */

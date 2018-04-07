@@ -8,5 +8,13 @@
  * in libc and such.
  */
 usupport_start:
+	/*
+	 * sigret trampoline is made available to userspace to avoid any ABI
+	 * requirements.
+	 */
+	movq	$30, %rax	/* XXX should be from syscalls.h */
+	syscall
+	/* NOTREACHED */
+
 	nop
 usupport_end:
