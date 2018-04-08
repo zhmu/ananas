@@ -5,6 +5,11 @@
 #include <ananas/util/list.h>
 #include "kernel/lock.h"
 
+namespace process
+{
+class ProcessGroup;
+}
+
 namespace signal
 {
 
@@ -139,6 +144,7 @@ struct ThreadSpecificData
 
 Result QueueSignal(Thread& t, int signo);
 Result QueueSignal(Thread& t, const siginfo_t& siginfo);
+Result QueueSignal(process::ProcessGroup& pg, const siginfo_t& si);
 Action* DequeueSignal(Thread& t, siginfo_t& si);
 void HandleDefaultSignalAction(const siginfo_t& si);
 

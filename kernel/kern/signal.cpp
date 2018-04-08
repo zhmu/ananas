@@ -2,6 +2,7 @@
 #include <ananas/errno.h>
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"
+#include "kernel/processgroup.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/trace.h"
@@ -80,9 +81,14 @@ QueueSignal(Thread& t, const siginfo_t& siginfo)
 {
 	if (!detail::IsSigalNumberValid(siginfo.si_signo))
 		return RESULT_MAKE_FAILURE(EINVAL);
-	auto& tsd = t.t_sigdata;
-	SpinlockGuard sg(tsd.tsd_lock);
-	tsd.tsd_pending.push_back(*new PendingSignal(siginfo));
+
+	auto newSignal = new PendingSignal(siginfo);
+
+	{
+		auto& tsd = t.t_sigdata;
+		SpinlockGuard sg(tsd.tsd_lock);
+		tsd.tsd_pending.push_back(*newSignal);
+	}
 
 	t.t_flags |= THREAD_FLAG_SIGPENDING;	// XXX this needs a lock?
 	return Result::Success();
@@ -94,6 +100,20 @@ QueueSignal(Thread& t, int signo)
 	siginfo_t si{};
 	si.si_signo = signo;
 	return QueueSignal(t, si);
+}
+
+Result
+QueueSignal(process::ProcessGroup& pg, const siginfo_t& si)
+{
+	pg.pg_mutex.AssertLocked();
+	for(auto& p: pg.pg_members) {
+		if (p.p_mainthread == nullptr)
+			continue; // XXX we should deliver to all threads in the process
+		if (auto result = QueueSignal(*p.p_mainthread, si); result.IsFailure())
+			return result;
+	}
+
+	return Result::Success();
 }
 
 Action*

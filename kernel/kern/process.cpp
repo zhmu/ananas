@@ -8,6 +8,7 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/process.h"
+#include "kernel/processgroup.h"
 #include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
@@ -111,6 +112,8 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 		parent->Unlock();
 	}
 
+	process::InitializeProcessGroup(*p, parent);
+
 	/* Finally, add the process to all processes */
 	{
 		MutexGuard g(process::process_mtx);
@@ -161,6 +164,8 @@ process_destroy(Process& p)
 	/* Free all handles */
 	for(unsigned int n = 0; n < PROCESS_MAX_HANDLES; n++)
 		handle_free_byindex(p, n);
+
+	process::AbandonProcessGroup(p);
 
 	/* Clean the process's vmspace up - this will remove all non-essential mappings */
 	vmspace_cleanup(*p.p_vmspace);

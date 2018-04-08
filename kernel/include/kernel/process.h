@@ -38,13 +38,23 @@ struct ChildrenNode
 	}
 };
 
+template<typename T>
+struct GroupNode
+{
+	static typename util::List<T>::Node& Get(T& t) {
+		return t.p_NodeGroup;
+	}
+};
+
 template<typename T> using ProcessAllNodeAccessor = typename util::List<T>::template nodeptr_accessor<AllNode<T> >;
 template<typename T> using ProcessChildrenNodeAccessor = typename util::List<T>::template nodeptr_accessor<ChildrenNode<T> >;
+template<typename T> using ProcessGroupNodeAccessor = typename util::List<T>::template nodeptr_accessor<GroupNode<T> >;
 
-}
+} // namespace internal
 
 typedef util::List<::Process, internal::ProcessAllNodeAccessor<::Process> > ChildrenList;
 typedef util::List<::Process, internal::ProcessChildrenNodeAccessor<::Process> > ProcessList;
+typedef util::List<::Process, internal::ProcessGroupNodeAccessor<::Process> > GroupMemberList;
 
 // Callbacks so we can organise things when needed
 typedef Result (*process_callback_t)(Process& proc);
@@ -54,8 +64,9 @@ struct Callback : util::List<Callback>::NodePtr {
 };
 typedef util::List<Callback> CallbackList;
 
-} // namespace process
+struct ProcessGroup;
 
+} // namespace process
 
 struct Process {
 	void Lock()
@@ -88,8 +99,12 @@ struct Process {
 
 	process::ChildrenList	p_children;	// List of this process' children
 
+	process::ProcessGroup*	p_group = nullptr;
+
+	// Node pointers to maintain membership of several lists
 	util::List<Process>::Node p_NodeAll;
 	util::List<Process>::Node p_NodeChildren;
+	util::List<Process>::Node p_NodeGroup;
 
 private:
 	Mutex p_lock{"plock"};	/* Locks the process */
