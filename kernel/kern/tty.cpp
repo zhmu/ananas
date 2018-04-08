@@ -13,8 +13,11 @@
 #include "kernel/driver.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/pcpu.h"
+#include "kernel/processgroup.h"
 #include "kernel/queue.h"
 #include "kernel/result.h"
+#include "kernel/signal.h"
 #include "kernel/thread.h"
 #include "kernel/trace.h"
 
@@ -28,6 +31,21 @@ TRACE_SETUP;
 #define MAX_INPUT	256
 
 namespace {
+
+void DeliverSignal(int signo)
+{
+	/*
+	 * XXX for now, we'll assume everything needs to go to the thread group of
+	 * pid 1. This must not be hardcoded!
+	 */
+	siginfo_t si{};
+	si.si_signo = signo;
+
+	auto pg = process::FindProcessGroupByIDAndLock(1 /* XXX */);
+	KASSERT(pg != nullptr, "pgid 1 not found??");
+	signal::QueueSignal(*pg, si);
+	pg->pg_mutex.Unlock();
+}
 
 class TTY : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations
 {
@@ -96,13 +114,15 @@ TTY::TTY(const Ananas::CreateDeviceProperties& cdp)
 	for (int i = 0; i < NCCS; i++)
 		tty_termios.c_cc[i] = _POSIX_VDISABLE;
 #define CTRL(x) ((x) - 'A' + 1)
+	tty_termios.c_cc[VINTR] = CTRL('C');
 	tty_termios.c_cc[VEOF] = CTRL('D');
 	tty_termios.c_cc[VKILL] = CTRL('U');
 	tty_termios.c_cc[VERASE] = CTRL('H');
+	tty_termios.c_cc[VSUSP] = CTRL('Z');
 #undef CTRL
 	tty_termios.c_iflag = ICRNL | ICANON;
 	tty_termios.c_oflag = OPOST | ONLCR;
-	tty_termios.c_lflag = ECHO | ECHOE;
+	tty_termios.c_lflag = ECHO | ECHOE | ISIG;
 	tty_termios.c_cflag = CREAD;
 }
 
@@ -259,6 +279,22 @@ TTY::ProcessInput()
 		else if ((tty_termios.c_iflag & ICRNL) && byte == CR)
 			byte = NL;
 
+		/* Handle things that need to raise signals */
+		if (tty_termios.c_lflag & ISIG) {
+			if (byte == tty_termios.c_cc[VINTR]) {
+				DeliverSignal(SIGINT);
+				continue;
+			}
+			if (byte == tty_termios.c_cc[VQUIT]) {
+				DeliverSignal(SIGQUIT);
+				continue;
+			}
+			if (byte == tty_termios.c_cc[VSUSP]) {
+				DeliverSignal(SIGTSTP);
+				continue;
+			}
+		}
+
 		/* Handle backspace */
 		if ((tty_termios.c_iflag & ICANON) && byte == tty_termios.c_cc[VERASE]) {
 			if (tty_in_readpos != tty_in_writepos) {
@@ -267,6 +303,16 @@ TTY::ProcessInput()
 					tty_in_writepos--;
 				else
 					tty_in_writepos = MAX_INPUT - 1;
+			}
+		} else if ((tty_termios.c_iflag & ICANON) && byte == tty_termios.c_cc[VKILL]) {
+			// Kil the entire line
+			while (tty_in_readpos != tty_in_writepos) {
+				/* Still a charachter available which wasn't read. Nuke it */
+				if (tty_in_writepos > 0)
+					tty_in_writepos--;
+				else
+					tty_in_writepos = MAX_INPUT - 1;
+				TTY::HandleEcho(8); // XXX will this always work?
 			}
 		} else {
 			/* Store the charachter! */
