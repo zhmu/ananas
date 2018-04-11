@@ -20,6 +20,7 @@
 #include "kernel/signal.h"
 #include "kernel/thread.h"
 #include "kernel/trace.h"
+#include "kernel/dev/kbdmux.h"
 
 TRACE_SETUP;
 
@@ -47,7 +48,7 @@ void DeliverSignal(int signo)
 	pg->pg_mutex.Unlock();
 }
 
-class TTY : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations
+class TTY : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations, private keyboard_mux::IKeyboardConsumer
 {
 public:
 	TTY(const Ananas::CreateDeviceProperties& cdp);
@@ -66,8 +67,10 @@ public:
 	Result Attach() override;
 	Result Detach() override;
 
-	Result	Write(const void* data, size_t& len, off_t offset) override;
+	Result Write(const void* data, size_t& len, off_t offset) override;
 	Result Read(void* buf, size_t& len, off_t offset) override;
+
+	void OnCharacter(int ch) override;
 
 	/*
 	 * This is crude, but we'll need a queue for all TTY devices so that
@@ -103,10 +106,6 @@ QUEUE_DEFINE_BEGIN(TTY_QUEUE, TTY)
 	Spinlock tq_lock;
 QUEUE_DEFINE_END
 
-static Thread tty_thread;
-static struct TTY_QUEUE tty_queue;
-static Semaphore tty_sem{0};
-
 TTY::TTY(const Ananas::CreateDeviceProperties& cdp)
 	: Device(cdp)
 {
@@ -129,18 +128,14 @@ TTY::TTY(const Ananas::CreateDeviceProperties& cdp)
 Result
 TTY::Attach()
 {
-	// Hook our device to the TTY queue so that we handle it in our thread
-	SpinlockGuard g(tty_queue.tq_lock);
-	QUEUE_ADD_TAIL(&tty_queue, this);
-
+	keyboard_mux::RegisterConsumer(*this);
 	return Result::Success();
 }
 
 Result
 TTY::Detach()
 {
-	panic("remove from queue");
-
+	keyboard_mux::UnregisterConsumer(*this);
 	return Result::Success();
 }
 
@@ -253,96 +248,67 @@ TTY::HandleEcho(unsigned char byte)
 }
 
 void
-TTY::ProcessInput()
+TTY::OnCharacter(int ch)
 {
-	/*
-	 * This will be called once data is available from our input device; we need
-	 * to queue it up.
-	 */
-	while (1) {
-		KASSERT(tty_input_dev != NULL, "woke up without input device?");
+	// If we are out of buffer space, just eat the charachter XXX possibly unnecessary for VERASE */
+	if ((tty_in_writepos + 1) % MAX_INPUT == tty_in_readpos)
+		return;
 
-		unsigned char byte;
-		size_t len = sizeof(byte);
-		if (Result result = tty_input_dev->GetCharDeviceOperations()->Read(static_cast<void*>(&byte), len, 0); result.IsFailure() || len == 0)
-			break;
+	/* Handle CR/NL transformations */
+	if ((tty_termios.c_iflag & INLCR) && ch == NL)
+		ch = CR;
+	else if ((tty_termios.c_iflag & IGNCR) && ch == CR)
+		return;
+	else if ((tty_termios.c_iflag & ICRNL) && ch == CR)
+		ch = NL;
 
-		/* If we are out of buffer space, just eat the charachter XXX possibly unnecessary for VERASE */
-		if ((tty_in_writepos + 1) % MAX_INPUT == tty_in_readpos)
-			continue;
-
-		/* Handle CR/NL transformations */
-		if ((tty_termios.c_iflag & INLCR) && byte == NL)
-			byte = CR;
-		else if ((tty_termios.c_iflag & IGNCR) && byte == CR)
-			continue;
-		else if ((tty_termios.c_iflag & ICRNL) && byte == CR)
-			byte = NL;
-
-		/* Handle things that need to raise signals */
-		if (tty_termios.c_lflag & ISIG) {
-			if (byte == tty_termios.c_cc[VINTR]) {
-				DeliverSignal(SIGINT);
-				continue;
-			}
-			if (byte == tty_termios.c_cc[VQUIT]) {
-				DeliverSignal(SIGQUIT);
-				continue;
-			}
-			if (byte == tty_termios.c_cc[VSUSP]) {
-				DeliverSignal(SIGTSTP);
-				continue;
-			}
+	/* Handle things that need to raise signals */
+	if (tty_termios.c_lflag & ISIG) {
+		if (ch == tty_termios.c_cc[VINTR]) {
+			DeliverSignal(SIGINT);
+			return;
 		}
-
-		/* Handle backspace */
-		if ((tty_termios.c_iflag & ICANON) && byte == tty_termios.c_cc[VERASE]) {
-			if (tty_in_readpos != tty_in_writepos) {
-				/* Still a charachter available which wasn't read. Nuke it */
-				if (tty_in_writepos > 0)
-					tty_in_writepos--;
-				else
-					tty_in_writepos = MAX_INPUT - 1;
-			}
-		} else if ((tty_termios.c_iflag & ICANON) && byte == tty_termios.c_cc[VKILL]) {
-			// Kil the entire line
-			while (tty_in_readpos != tty_in_writepos) {
-				/* Still a charachter available which wasn't read. Nuke it */
-				if (tty_in_writepos > 0)
-					tty_in_writepos--;
-				else
-					tty_in_writepos = MAX_INPUT - 1;
-				TTY::HandleEcho(8); // XXX will this always work?
-			}
-		} else {
-			/* Store the charachter! */
-			tty_input_queue[tty_in_writepos] = byte;
-			tty_in_writepos = (tty_in_writepos + 1) % MAX_INPUT;
+		if (ch == tty_termios.c_cc[VQUIT]) {
+			DeliverSignal(SIGQUIT);
+			return;
 		}
-
-		/* Handle writing the charachter, if needed (and we can do so) */
-		if (tty_output_dev != NULL)
-			HandleEcho(byte);
+		if (ch == tty_termios.c_cc[VSUSP]) {
+			DeliverSignal(SIGTSTP);
+			return;
+		}
 	}
+
+	/* Handle backspace */
+	if ((tty_termios.c_iflag & ICANON) && ch == tty_termios.c_cc[VERASE]) {
+		if (tty_in_readpos != tty_in_writepos) {
+			/* Still a charachter available which wasn't read. Nuke it */
+			if (tty_in_writepos > 0)
+				tty_in_writepos--;
+			else
+				tty_in_writepos = MAX_INPUT - 1;
+		}
+	} else if ((tty_termios.c_iflag & ICANON) && ch == tty_termios.c_cc[VKILL]) {
+		// Kil the entire line
+		while (tty_in_readpos != tty_in_writepos) {
+			/* Still a charachter available which wasn't read. Nuke it */
+			if (tty_in_writepos > 0)
+				tty_in_writepos--;
+			else
+				tty_in_writepos = MAX_INPUT - 1;
+			TTY::HandleEcho(8); // XXX will this always work?
+		}
+	} else {
+		/* Store the charachter! */
+		tty_input_queue[tty_in_writepos] = ch;
+		tty_in_writepos = (tty_in_writepos + 1) % MAX_INPUT;
+	}
+
+	/* Handle writing the charachter, if needed (and we can do so) */
+	if (tty_output_dev != NULL)
+		HandleEcho(ch);
 
 	/* If we have waiters, awaken them */
 	d_Waiters.Signal();
-}
-
-static void
-tty_thread_func(void* ptr)
-{
-	while(1) {
-		tty_sem.Wait();
-
-		{
-			SpinlockGuard g(tty_queue.tq_lock);
-			KASSERT(!QUEUE_EMPTY(&tty_queue), "woken up without tty's?");
-			QUEUE_FOREACH(&tty_queue, tty, TTY) {
-				tty->ProcessInput();
-			}
-		}
-	}
 }
 
 struct TTY_Driver : public Ananas::Driver
@@ -393,32 +359,5 @@ tty_get_outputdev(Ananas::Device* dev)
 	auto tty = reinterpret_cast<TTY*>(dev);
 	return tty != nullptr ? tty->tty_output_dev : nullptr;
 }
-
-void
-tty_signal_data()
-{
-	tty_sem.Signal();
-}
-
-static Result
-tty_preinit()
-{
-	/* Initialize the queue of all tty's */
-	QUEUE_INIT(&tty_queue);
-	return Result::Success();
-}
-
-INIT_FUNCTION(tty_preinit, SUBSYSTEM_CONSOLE, ORDER_SECOND);
-
-static Result
-tty_init()
-{
-	/* Launch our kernel thread */
-	kthread_init(tty_thread, "tty", tty_thread_func, NULL);
-	thread_resume(tty_thread);
-	return Result::Success();
-}
-
-INIT_FUNCTION(tty_init, SUBSYSTEM_TTY, ORDER_ANY);
 
 /* vim:set ts=2 sw=2: */
