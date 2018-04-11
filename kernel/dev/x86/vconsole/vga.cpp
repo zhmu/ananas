@@ -1,5 +1,5 @@
 #include <ananas/types.h>
-#include "kernel/console-driver.h"
+#include "kernel/driver.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
@@ -9,7 +9,7 @@
 #include "kernel/trace.h"
 #include "kernel/x86/io.h"
 
-#include "../../lib/teken/teken.h"
+#include "../../../lib/teken/teken.h"
 
 /* Console height */
 #define VGA_HEIGHT 25
@@ -61,8 +61,7 @@ struct VGA : public Ananas::Device, private Ananas::IDeviceOperations, private A
 	Result Attach() override;
 	Result Detach() override;
 	Result Write(const void* buffer, size_t& len, off_t offset) override;
-
-	uint32_t vga_io;
+uint32_t vga_io;
 	uint16_t* vga_video_mem;
 	Pixel* vga_buffer;
 	uint8_t vga_attr;
@@ -285,30 +284,26 @@ VGA::Write(const void* buffer, size_t& len, off_t offset)
 	return Result::Success();
 }
 
-struct VGA_Driver : public Ananas::ConsoleDriver
+// We'll attach to the vconsole, who may instantiate us
+struct VGA_Driver : public Ananas::Driver
 {
 	VGA_Driver()
-	 : ConsoleDriver("vga", 100, CONSOLE_FLAG_OUT)
+	 : Driver("vga")
 	{
 	}
 
 	const char* GetBussesToProbeOn() const override
 	{
-		return "corebus";
-	}
-
-	Ananas::Device* ProbeDevice() override
-	{
-		/* XXX Look at the BIOS to see if there is any VGA at all */
-		Ananas::ResourceSet resourceSet;
-		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_Memory, 0xb8000, 128 * 1024));
-		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IO, 0x3c0, 32));
-		return new VGA(Ananas::CreateDeviceProperties(resourceSet));
+		return "vconsole";
 	}
 
 	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
 	{
-		return new VGA(cdp);
+		// We assume there is always VGA available
+		Ananas::ResourceSet resourceSet;
+		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_Memory, 0xb8000, 128 * 1024));
+		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IO, 0x3c0, 32));
+		return new VGA(Ananas::CreateDeviceProperties(resourceSet));
 	}
 };
 
