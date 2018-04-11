@@ -128,7 +128,7 @@ USBKeyboard::OnPipeCallback(Ananas::USB::Pipe& pipe)
 		const uint8_t* map = is_shift ? usb_keymap_shift : usb_keymap;
 		uint8_t ch = map[key];
 		if (ch != 0)
-			kbdmux_on_input(ch);
+			keyboard_mux::OnCharacter(ch);
 	}
 
 	/* Reschedule the pipe for future updates */

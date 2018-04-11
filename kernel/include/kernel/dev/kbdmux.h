@@ -1,8 +1,20 @@
 #ifndef __ANANAS_DEV_KBDMUX_H__
 #define __ANANAS_DEV_KBDMUX_H__
 
-#include <ananas/types.h>
+#include <ananas/util/list.h>
 
-void kbdmux_on_input(uint8_t ch);
+namespace keyboard_mux {
+
+class IKeyboardConsumer : public util::List<IKeyboardConsumer>::NodePtr
+{
+public:
+	virtual void OnCharacter(int ch) = 0;
+};
+
+void RegisterConsumer(IKeyboardConsumer& consumer);
+void UnregisterConsumer(IKeyboardConsumer& consumer);
+void OnCharacter(int ch);
+
+}
 
 #endif /* __ANANAS_DEV_KBDMUX_H__ */

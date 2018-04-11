@@ -166,7 +166,7 @@ ATKeyboard::OnIRQ()
 
 		// Add the character to the input queue, if we have anything
 		if (ch != 0)
-			kbdmux_on_input(ch);
+			keyboard_mux::OnCharacter(ch);
 	}
 }
 
