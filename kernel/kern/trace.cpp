@@ -8,7 +8,7 @@
 
 #define TRACE_PRINTF_BUFSIZE 256
 
-uint32_t trace_subsystem_mask[TRACE_SUBSYSTEM_LAST];
+uint32_t trace_subsystem_mask[TRACE_SUBSYSTEM_LAST + 1];
 
 void
 tracef(int fileid, const char* func, const char* fmt, ...)

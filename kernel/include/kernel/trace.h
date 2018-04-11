@@ -47,7 +47,7 @@
 #define TRACE_SUBSYSTEM_MACHDEP	7			/* Machine dependent */
 #define TRACE_SUBSYSTEM_USB	8			/* USB stack */
 #define TRACE_SUBSYSTEM_VM	9			/* VM */
-#define TRACE_SUBSYSTEM_LAST	(TRACE_SUBSYSTEM_MACHDEP)
+#define TRACE_SUBSYSTEM_LAST	(TRACE_SUBSYSTEM_VM)
 
 /* Available tracelevels */
 #define TRACE_LEVEL_FUNC	0x0001			/* Function call tracing */
