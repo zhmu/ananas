@@ -66,9 +66,11 @@ SIO::OnIRQ()
 	sio_buffer[sio_buffer_writepos] = ch;
 	sio_buffer_writepos = (sio_buffer_writepos + 1) % SIO_BUFFER_SIZE;
 
+#if 0
 	/* XXX signal consumers - this is a hack */
 	if (console_tty != NULL && tty_get_inputdev(console_tty) == this)
 		tty_signal_data();
+#endif
 }
 
 Result
