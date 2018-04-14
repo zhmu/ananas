@@ -15,6 +15,8 @@ TRACE_SETUP;
 
 namespace {
 
+using Key = keyboard_mux::Key;
+
 namespace scancode {
 constexpr uint8_t Escape = 0x01;
 constexpr uint8_t Control = 0x1d; // right-control has 0xe0 prefix
@@ -152,20 +154,22 @@ ATKeyboard::OnIRQ()
 			md_reboot();
 
 		// Look up the scancode
-		const int ch = [this](int scancode) {
+		auto key = [this](int scancode) {
 			if (kbd_flags & flag::Control) {
 				uint8_t ch = atkbd_keymap[scancode];
-				if (ch >= 'a' && ch <= 'z')
-					return (ch - 'a') + 1; // control-a -> 1, etc
-				return 0;
+				if (ch != 0)
+					return Key(Key::Type::Control, ch);
+				return Key();
 			}
 
-			return static_cast<int>(((kbd_flags & flag::Shift) ? atkbd_keymap_shift : atkbd_keymap)[scancode]);
+			auto ch = static_cast<int>(((kbd_flags & flag::Shift) ? atkbd_keymap_shift : atkbd_keymap)[scancode]);
+			if (ch == 0)
+				return Key();
+			return Key(Key::Type::Character, ch);
 		}(scancode);
 
-		// Add the character to the input queue, if we have anything
-		if (ch != 0)
-			keyboard_mux::OnCharacter(ch);
+		if (key.IsValid())
+			keyboard_mux::OnKey(key);
 	}
 }
 

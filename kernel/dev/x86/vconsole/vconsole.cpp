@@ -31,7 +31,7 @@ struct VConsole : public Ananas::Device, private Ananas::IDeviceOperations, priv
 	Result Read(void* buf, size_t& len, off_t offset) override;
 	Result Write(const void* buf, size_t& len, off_t offset) override;
 
-	void OnCharacter(int ch) override;
+	void OnKey(const keyboard_mux::Key& key) override;
 
 private:
 	constexpr static size_t NumberOfVTTYs = 1;
@@ -87,10 +87,22 @@ VConsole::Write(const void* buf, size_t& len, off_t offset)
 }
 
 void
-VConsole::OnCharacter(int in)
+VConsole::OnKey(const keyboard_mux::Key& key)
 {
-	char ch = in;
-	activeVTTY->OnInput(&ch, 1);
+	char ch = key.ch;
+	switch(key.type) {
+		case keyboard_mux::Key::Type::Character:
+			activeVTTY->OnInput(&ch, 1);
+			break;
+		case keyboard_mux::Key::Type::Control:
+			if (ch >= 'a' && ch <= 'z') {
+				ch = (ch - 'a') + 1; // control-a => 1, etc
+				activeVTTY->OnInput(&ch, 1);
+			}
+			break;
+		default:
+			break;
+	}
 }
 
 struct VConsole_Driver : public Ananas::ConsoleDriver
