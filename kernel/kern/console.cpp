@@ -1,5 +1,6 @@
 #include "kernel/console.h"
 #include "kernel/console-driver.h"
+#include "kernel/cmdline.h"
 #include "kernel/debug-console.h"
 #include "kernel/device.h"
 #include "kernel/mm.h"
@@ -32,11 +33,27 @@ static int console_backlog_pos = 0;
 static int console_backlog_overrun = 0;
 static Mutex mtx_console("console");
 
-/* If set, display the driver list before attaching */
-#define VERBOSE_LIST 0
+namespace {
 
-static Result
-console_init()
+bool
+console_attach(Ananas::ConsoleDriver& consoleDriver)
+{
+	/*
+	 * See if this devices probes. Note that we don't provide any resources
+	 * here - devices that require them can't be used as console devices.
+	 */
+	Ananas::Device* dev = Ananas::DeviceManager::internal::ProbeConsole(consoleDriver);
+	if (dev == nullptr)
+		return false; // likely not present
+	if (auto result = Ananas::DeviceManager::AttachSingle(*dev); result.IsFailure())
+		return false; // too bad; this driver won't work
+
+	console_tty = dev;
+	return true;
+}
+
+bool
+console_probe(const char* driverFilter = nullptr)
 {
 	Ananas::DriverList& drivers = Ananas::DriverManager::internal::GetDriverList();
 	for(auto& driver: drivers) {
@@ -44,33 +61,37 @@ console_init()
 		if (consoleDriver == nullptr)
 			continue; // not a console driver, skip
 
-		/*
-		 * See if this devices probes. Note that we don't provide any resources
-		 * here - devices that require them can't be used as console devices.
-		 */
-		Ananas::Device* dev = Ananas::DeviceManager::internal::ProbeConsole(*consoleDriver);
-		if (dev == nullptr)
-			continue; // likely not present
-		if (auto result = Ananas::DeviceManager::AttachSingle(*dev); result.IsFailure()) {
-			// Too bad; this driver won't work
-			delete dev;
-			continue;
-		}
+		if (driverFilter != nullptr && strcmp(consoleDriver->d_Name, driverFilter) != 0)
+			continue; // doesn't match filter
 
-		/* We have liftoff! */
-		console_tty = dev;
-		break;
+		if (console_attach(*consoleDriver))
+			return true;
 	}
 
-	/* Initialize the backlog; we use it to queue messages once the mutex is hold */
+	return false;
+}
+
+Result
+console_init()
+{
+	{
+		const char* console_override = cmdline_get_string("console");
+		if (console_override == nullptr || !console_probe(console_override)) {
+			// Either no filter or filtered driver doesn't work - try them all
+			console_probe();
+		}
+	}
+
+	// Initialize the backlog; we use it to queue messages once the mutex is hold
 	console_backlog = new char[CONSOLE_BACKLOG_SIZE];
 	console_backlog_pos = 0;
 
-	/* Initialize the console print mutex and start using it */
+	// Initialize the console print mutex and start using it
 	console_mutex_inuse++;
-
 	return Result::Success();
 }
+
+} // unnamed namespace
 
 INIT_FUNCTION(console_init, SUBSYSTEM_CONSOLE, ORDER_MIDDLE);
 
