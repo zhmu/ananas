@@ -1,32 +1,60 @@
 #include <ananas/types.h>
+#include <ananas/util/array.h>
 #include "kernel/console-driver.h"
 #include "kernel/device.h"
 #include "kernel/dev/kbdmux.h"
 #include "kernel/dev/tty.h"
 #include "kernel/lib.h"
+#include "vga.h"
+#include "vtty.h"
 
 namespace {
 
-struct VConsole : public TTY, private keyboard_mux::IKeyboardConsumer
+struct VConsole : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations, private keyboard_mux::IKeyboardConsumer
 {
-	using TTY::TTY;
+	using Device::Device;
 	virtual ~VConsole() = default;
+
+	IDeviceOperations& GetDeviceOperations() override
+	{
+		return *this;
+	}
+
+	ICharDeviceOperations* GetCharDeviceOperations() override
+	{
+		return this;
+	}
 
 	Result Attach() override;
 	Result Detach() override;
-	Result Print(const char* buffer, size_t len) override;
+
+	Result Read(void* buf, size_t& len, off_t offset) override;
+	Result Write(const void* buf, size_t& len, off_t offset) override;
 
 	void OnCharacter(int ch) override;
 
-	Device* v_VGA = nullptr;
+private:
+	constexpr static size_t NumberOfVTTYs = 1;
+	util::array<VTTY*, NumberOfVTTYs> vttys;
+
+	IVideo* v_Video = nullptr;
+	VTTY* activeVTTY = nullptr;
 };
 
 Result
 VConsole::Attach()
 {
 	// XXX we assume vga is always available
-	v_VGA = Ananas::DeviceManager::AttachChild(*this, d_ResourceSet);
-	KASSERT(v_VGA != nullptr, "no vga attached?");
+	v_Video = new VGA;
+	KASSERT(v_Video != nullptr, "no video attached?");
+
+	for(auto& vtty: vttys) {
+		Ananas::CreateDeviceProperties cdp(*this, Ananas::ResourceSet());
+		vtty = new VTTY(cdp, *v_Video);
+		if (auto result = vtty->Attach(); result.IsFailure())
+			panic("cannot attach vtty!?");
+	}
+	activeVTTY = vttys.front();
 
 	keyboard_mux::RegisterConsumer(*this);
 	return Result::Success();
@@ -36,22 +64,33 @@ Result
 VConsole::Detach()
 {
 	panic("TODO");
+
+	for(auto& vtty: vttys) {
+		if (auto result = vtty->Detach(); result.IsFailure())
+			panic("cannot detach vtty!?");
+	}
 	keyboard_mux::UnregisterConsumer(*this);
+	delete v_Video;
 	return Result::Success();
 }
 
 Result
-VConsole::Print(const char* buffer, size_t len)
+VConsole::Read(void* buf, size_t& len, off_t offset)
 {
-	size_t size = len;
-	return v_VGA->GetCharDeviceOperations()->Write(buffer, size, 0);
+	return activeVTTY->Read(buf, len, offset);
+}
+
+Result
+VConsole::Write(const void* buf, size_t& len, off_t offset)
+{
+	return activeVTTY->Write(buf, len, offset);
 }
 
 void
 VConsole::OnCharacter(int in)
 {
 	char ch = in;
-	OnInput(&ch, 1);
+	activeVTTY->OnInput(&ch, 1);
 }
 
 struct VConsole_Driver : public Ananas::ConsoleDriver
