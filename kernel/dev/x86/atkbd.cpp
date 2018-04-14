@@ -8,7 +8,6 @@
 #include "kernel/reboot.h"
 #include "kernel/result.h"
 #include "kernel/trace.h"
-#include "kernel/tty.h"
 #include "kernel/x86/io.h"
 #include "options.h"
 

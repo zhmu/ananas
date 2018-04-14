@@ -16,8 +16,8 @@ namespace Ananas {
 class ConsoleDriver : public Driver
 {
 public:
-	ConsoleDriver(const char* name, int priority, int flags)
-	 : Driver(name, priority), c_Flags(flags)
+	ConsoleDriver(const char* name, int priority)
+	 : Driver(name, priority)
 	{
 	}
 	virtual ~ConsoleDriver() = default;
@@ -28,11 +28,6 @@ public:
 	}
 
 	virtual Device* ProbeDevice() = 0;
-
-#define CONSOLE_FLAG_IN		0x0001
-#define CONSOLE_FLAG_OUT	0x0002
-#define CONSOLE_FLAG_INOUT	(CONSOLE_FLAG_IN | CONSOLE_FLAG_OUT)
-	int c_Flags;
 };
 
 } // namespace Ananas

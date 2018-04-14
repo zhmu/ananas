@@ -6,7 +6,6 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/tty.h"
 #include "kernel/vfs/mount.h" // for vfs_abandon_device()
 #include "kernel/vm.h"
 #include "options.h"
@@ -193,8 +192,9 @@ AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet)
  * Attaches children on a given bus - assumes the bus is already set up. May
  * attach multiple devices or none at all.
  *
- * XXX contains hacks for the input/output console device stuff (skips
- * attaching them, as they are already at the point this is run)
+ * Note that no special care is done to prevent double attachment of the
+ * console (which is already set up at this point) - it is up to the device
+ * to handle this and prevent attaching.
  */
 void
 AttachBus(Device& bus)
@@ -203,31 +203,10 @@ AttachBus(Device& bus)
 	if (driverList.empty())
 		return;
 
-	/*
-	 * Fetch TTY devices; we need them to report the device that is already
-	 * attached at this point.
-	 */
-	Ananas::Device* input_dev = tty_get_inputdev(console_tty);
-	Ananas::Device* output_dev = tty_get_outputdev(console_tty);
 	for(auto it = driverList.begin(); it != driverList.end(); /* nothing */) {
 		Driver& d = *it; ++it;
 		if (!d.MustProbeOnBus(bus))
 			continue; /* bus cannot contain this device */
-
-		/*
-		 * If we found the driver for the in- or output driver, display it (they are
-		 * already attached). XXX we will skip any extra units here
-		 */
-		if (input_dev != NULL && strcmp(input_dev->d_Name, d.d_Name) == 0) {
-			input_dev->d_Parent = &bus;
-			PrintAttachment(*input_dev);
-			continue;
-		}
-		if (output_dev != NULL && strcmp(output_dev->d_Name, d.d_Name) == 0) {
-			output_dev->d_Parent = &bus;
-			PrintAttachment(*output_dev);
-			continue;
-		}
 
 		Ananas::ResourceSet resourceSet; // TODO
 

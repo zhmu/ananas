@@ -6,7 +6,6 @@
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/result.h"
-#include "kernel/tty.h"
 #include "options.h"
 
 namespace Ananas {
@@ -39,24 +38,15 @@ static Mutex mtx_console("console");
 static Result
 console_init()
 {
-
-	Ananas::Device* input_dev = nullptr;
-	Ananas::Device* output_dev = nullptr;
 	Ananas::DriverList& drivers = Ananas::DriverManager::internal::GetDriverList();
 	for(auto& driver: drivers) {
 		Ananas::ConsoleDriver* consoleDriver = driver.GetConsoleDriver();
 		if (consoleDriver == nullptr)
 			continue; // not a console driver, skip
 
-		/* Skip any driver that is already provided for */
-		if (((consoleDriver->c_Flags & CONSOLE_FLAG_IN ) == 0 || input_dev  != nullptr) &&
-		    ((consoleDriver->c_Flags & CONSOLE_FLAG_OUT) == 0 || output_dev != nullptr))
-			continue;
-
 		/*
-		 * OK, see if this devices probes. Note that we don't provide any
-		 * resources here - XXX devices that require them can't be used as
-		 * console devices currently.
+		 * See if this devices probes. Note that we don't provide any resources
+		 * here - devices that require them can't be used as console devices.
 		 */
 		Ananas::Device* dev = Ananas::DeviceManager::internal::ProbeConsole(*consoleDriver);
 		if (dev == nullptr)
@@ -68,14 +58,9 @@ console_init()
 		}
 
 		/* We have liftoff! */
-		if ((consoleDriver->c_Flags & CONSOLE_FLAG_IN) && input_dev == nullptr)
-			input_dev = dev;
-		if ((consoleDriver->c_Flags & CONSOLE_FLAG_OUT) && output_dev == nullptr)
-			output_dev = dev;
+		console_tty = dev;
+		break;
 	}
-
-	if (input_dev != nullptr || output_dev != nullptr)
-		console_tty = tty_alloc(input_dev, output_dev);
 
 	/* Initialize the backlog; we use it to queue messages once the mutex is hold */
 	console_backlog = new char[CONSOLE_BACKLOG_SIZE];

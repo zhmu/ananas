@@ -1,26 +1,22 @@
 #include <ananas/types.h>
 #include "kernel/console-driver.h"
 #include "kernel/device.h"
+#include "kernel/dev/kbdmux.h"
+#include "kernel/dev/tty.h"
 #include "kernel/lib.h"
 
 namespace {
 
-struct VConsole : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations
+struct VConsole : public TTY, private keyboard_mux::IKeyboardConsumer
 {
-	using Device::Device;
+	using TTY::TTY;
 	virtual ~VConsole() = default;
-
-	IDeviceOperations& GetDeviceOperations() override {
-		return *this;
-	}
-
-	ICharDeviceOperations* GetCharDeviceOperations() override {
-		return this;
-	}
 
 	Result Attach() override;
 	Result Detach() override;
-	Result Write(const void* buffer, size_t& len, off_t offset) override;
+	Result Print(const char* buffer, size_t len) override;
+
+	void OnCharacter(int ch) override;
 
 	Device* v_VGA = nullptr;
 };
@@ -31,6 +27,8 @@ VConsole::Attach()
 	// XXX we assume vga is always available
 	v_VGA = Ananas::DeviceManager::AttachChild(*this, d_ResourceSet);
 	KASSERT(v_VGA != nullptr, "no vga attached?");
+
+	keyboard_mux::RegisterConsumer(*this);
 	return Result::Success();
 }
 
@@ -38,19 +36,28 @@ Result
 VConsole::Detach()
 {
 	panic("TODO");
+	keyboard_mux::UnregisterConsumer(*this);
 	return Result::Success();
 }
 
 Result
-VConsole::Write(const void* buffer, size_t& len, off_t offset)
+VConsole::Print(const char* buffer, size_t len)
 {
-	return v_VGA->GetCharDeviceOperations()->Write(buffer, len, offset);
+	size_t size = len;
+	return v_VGA->GetCharDeviceOperations()->Write(buffer, size, 0);
+}
+
+void
+VConsole::OnCharacter(int in)
+{
+	char ch = in;
+	OnInput(&ch, 1);
 }
 
 struct VConsole_Driver : public Ananas::ConsoleDriver
 {
 	VConsole_Driver()
-	 : ConsoleDriver("vconsole", 100, CONSOLE_FLAG_INOUT)
+	 : ConsoleDriver("vconsole", 100)
 	{
 	}
 

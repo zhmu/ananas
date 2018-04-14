@@ -6,7 +6,6 @@
 #include "kernel/mm.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/tty.h"
 #include "options.h" // for ARCHITECTURE
 
 /* If set, display the entire init tree before launching it */
