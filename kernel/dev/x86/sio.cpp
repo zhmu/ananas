@@ -1,16 +1,12 @@
-#include "kernel/console.h"
 #include "kernel/console-driver.h"
-#include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/irq.h"
 #include "kernel/lib.h"
-#include "kernel/mm.h"
 #include "kernel/result.h"
 #include "kernel/trace.h"
+#include "kernel/dev/tty.h"
 #include "kernel/x86/io.h"
 #include "kernel/x86/sio.h"
-
-#define SIO_BUFFER_SIZE	16
 
 TRACE_SETUP;
 
@@ -19,27 +15,16 @@ namespace {
 // XXX This is a horrible kludge to prevent attaching the console SIO twice...
 bool s_IsConsole = false;
 
-class SIO : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations
+class SIO : public TTY
 {
 public:
-	using Device::Device;
+	using TTY::TTY;
 	virtual ~SIO() = default;
-
-	IDeviceOperations& GetDeviceOperations() override
-	{
-		return *this;
-	}
-
-	ICharDeviceOperations* GetCharDeviceOperations() override
-	{
-		return this;
-	}
 
 	Result Attach() override;
 	Result Detach() override;
 
-	Result Read(void* data, size_t& len, off_t offset) override;
-	Result Write(const void* data, size_t& len, off_t offset) override;
+	Result Print(const char* buffer, size_t len) override;
 
 private:
 	void OnIRQ();
@@ -52,24 +37,14 @@ private:
 	}
 
 	uint32_t sio_port;
-	/* Incoming data buffer */
-	uint8_t sio_buffer[SIO_BUFFER_SIZE];
-	uint8_t sio_buffer_readpos;
-	uint8_t sio_buffer_writepos;
 };
 
 void
 SIO::OnIRQ()
 {
-	uint8_t ch = inb(sio_port + SIO_REG_DATA);
-	sio_buffer[sio_buffer_writepos] = ch;
-	sio_buffer_writepos = (sio_buffer_writepos + 1) % SIO_BUFFER_SIZE;
+	char ch = inb(sio_port + SIO_REG_DATA);
 
-#if 0
-	/* XXX signal consumers - this is a hack */
-	if (console_tty != NULL && tty_get_inputdev(console_tty) == this)
-		tty_signal_data();
-#endif
+	OnInput(&ch, 1);
 }
 
 Result
@@ -108,32 +83,13 @@ SIO::Detach()
 }
 
 Result
-SIO::Write(const void* data, size_t& len, off_t offset)
+SIO::Print(const char* buffer, size_t len)
 {
-	const char* ch = (const char*)data;
-
-	for (size_t n = 0; n < len; n++, ch++) {
+	for(/* nothing */; len > 0; buffer++, len--) {
 		while ((inb(sio_port + SIO_REG_LSR) & 0x20) == 0)
 			/* nothing */;
-		outb(sio_port + SIO_REG_DATA, *ch);
+		outb(sio_port + SIO_REG_DATA, *buffer);
 	}
-	return Result::Success();
-}
-
-Result
-SIO::Read(void* data, size_t& len, off_t offset)
-{
-	size_t returned = 0, left = len;
-	char* buf = (char*)data;
-
-	while (left-- > 0) {
-		if (sio_buffer_readpos == sio_buffer_writepos)
-			break;
-
-		buf[returned++] = sio_buffer[sio_buffer_readpos];
-		sio_buffer_readpos = (sio_buffer_readpos + 1) % SIO_BUFFER_SIZE;
-	}
-	len = returned;
 	return Result::Success();
 }
 
