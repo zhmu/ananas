@@ -27,11 +27,11 @@ UnregisterConsumer(IKeyboardConsumer& consumer)
 }
 
 void
-OnKey(const Key& key)
+OnKey(const Key& key, int modifiers)
 {
 	MutexGuard g(mutex);
 	for(auto& consumer: consumers)
-		consumer.OnKey(key);
+		consumer.OnKey(key, modifiers);
 }
 
 } // namespace keyboard_mux
