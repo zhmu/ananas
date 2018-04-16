@@ -1,45 +1,9 @@
-#include <ananas/types.h>
-#include <ananas/util/array.h>
 #include "kernel/console-driver.h"
-#include "kernel/device.h"
-#include "kernel/dev/kbdmux.h"
 #include "kernel/dev/tty.h"
 #include "kernel/lib.h"
+#include "vconsole.h"
 #include "vga.h"
 #include "vtty.h"
-
-namespace {
-
-struct VConsole : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations, private keyboard_mux::IKeyboardConsumer
-{
-	using Device::Device;
-	virtual ~VConsole() = default;
-
-	IDeviceOperations& GetDeviceOperations() override
-	{
-		return *this;
-	}
-
-	ICharDeviceOperations* GetCharDeviceOperations() override
-	{
-		return this;
-	}
-
-	Result Attach() override;
-	Result Detach() override;
-
-	Result Read(void* buf, size_t& len, off_t offset) override;
-	Result Write(const void* buf, size_t& len, off_t offset) override;
-
-	void OnKey(const keyboard_mux::Key& key) override;
-
-private:
-	constexpr static size_t NumberOfVTTYs = 1;
-	util::array<VTTY*, NumberOfVTTYs> vttys;
-
-	IVideo* v_Video = nullptr;
-	VTTY* activeVTTY = nullptr;
-};
 
 Result
 VConsole::Attach()
@@ -50,11 +14,12 @@ VConsole::Attach()
 
 	for(auto& vtty: vttys) {
 		Ananas::CreateDeviceProperties cdp(*this, Ananas::ResourceSet());
-		vtty = new VTTY(cdp, *v_Video);
-		if (auto result = vtty->Attach(); result.IsFailure())
-			panic("cannot attach vtty!?");
+		vtty = static_cast<VTTY*>(Ananas::DeviceManager::CreateDevice("vtty", Ananas::CreateDeviceProperties(*this, Ananas::ResourceSet())));
+		if (auto result = Ananas::DeviceManager::AttachSingle(*vtty); result.IsFailure())
+			panic("cannot attach vtty (%d)", result.AsStatusCode());
 	}
 	activeVTTY = vttys.front();
+	activeVTTY->Activate();
 
 	keyboard_mux::RegisterConsumer(*this);
 	return Result::Success();
@@ -67,7 +32,7 @@ VConsole::Detach()
 
 	for(auto& vtty: vttys) {
 		if (auto result = vtty->Detach(); result.IsFailure())
-			panic("cannot detach vtty!?");
+			panic("cannot detach vtty (%d)", result.AsStatusCode());
 	}
 	keyboard_mux::UnregisterConsumer(*this);
 	delete v_Video;
@@ -87,17 +52,27 @@ VConsole::Write(const void* buf, size_t& len, off_t offset)
 }
 
 void
-VConsole::OnKey(const keyboard_mux::Key& key)
+VConsole::OnKey(const keyboard_mux::Key& key, int modifiers)
 {
 	char ch = key.ch;
 	switch(key.type) {
 		case keyboard_mux::Key::Type::Character:
+			if (modifiers & keyboard_mux::modifier::Control) {
+				if (ch >= 'a' && ch <= 'z')
+					ch = (ch - 'a') + 1; // control-a => 1, etc
+				else
+					break; // swallow the key
+			}
 			activeVTTY->OnInput(&ch, 1);
 			break;
-		case keyboard_mux::Key::Type::Control:
-			if (ch >= 'a' && ch <= 'z') {
-				ch = (ch - 'a') + 1; // control-a => 1, etc
-				activeVTTY->OnInput(&ch, 1);
+		case keyboard_mux::Key::Type::Special:
+			if (key.ch >= keyboard_mux::code::F1 && key.ch <= keyboard_mux::code::F12) {
+				int desiredVTTY = key.ch - keyboard_mux::code::F1;
+				if (desiredVTTY < vttys.size()) {
+					activeVTTY->Deactivate();
+					activeVTTY = vttys[desiredVTTY];
+					activeVTTY->Activate();
+				}
 			}
 			break;
 		default:
@@ -127,8 +102,6 @@ struct VConsole_Driver : public Ananas::ConsoleDriver
 		return nullptr; // we expect to be probed
 	}
 };
-
-} // unnamed namespace
 
 REGISTER_DRIVER(VConsole_Driver)
 

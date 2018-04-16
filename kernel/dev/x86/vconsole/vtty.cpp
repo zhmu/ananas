@@ -1,3 +1,5 @@
+#include "kernel/driver.h"
+#include "vconsole.h"
 #include "vtty.h"
 #include "ivideo.h"
 
@@ -23,7 +25,8 @@ term_putchar(void *s, const teken_pos_t* p, teken_char_t c, const teken_attr_t* 
 	auto& vtty = *static_cast<VTTY*>(s);
 	auto& pixel = vtty.PixelAt(p->tp_col, p->tp_row);
 	pixel = IVideo::Pixel(c, *a);
-	vtty.GetVideo().PutPixel(p->tp_col, p->tp_row, pixel);
+	if (vtty.IsActive())
+		vtty.GetVideo().PutPixel(p->tp_col, p->tp_row, pixel);
 }
 
 void
@@ -40,9 +43,10 @@ term_fill(void* s, const teken_rect_t* r, teken_char_t c, const teken_attr_t* a)
 void
 term_copy(void* s, const teken_rect_t* r, const teken_pos_t* p)
 {
-	auto place_pixel = [&](void* s, const teken_pos_t& d) {
+	auto place_pixel = [](void* s, const teken_pos_t& d) {
 		auto& vtty = *static_cast<VTTY*>(s);
-		vtty.GetVideo().PutPixel(d.tp_col, d.tp_row, vtty.PixelAt(d.tp_col, d.tp_row));
+		if (vtty.IsActive())
+			vtty.GetVideo().PutPixel(d.tp_col, d.tp_row, vtty.PixelAt(d.tp_col, d.tp_row));
 	};
 
 	/*
@@ -134,8 +138,8 @@ teken_funcs_t tf = {
 
 } // unnamed namespace
 
-VTTY::VTTY(const Ananas::CreateDeviceProperties& cdp, IVideo& video)
-	: TTY(cdp), v_video(video)
+VTTY::VTTY(const Ananas::CreateDeviceProperties& cdp)
+	: TTY(cdp), v_video(static_cast<VConsole*>(cdp.cdp_Parent)->GetVideo())
 {
 }
 
@@ -166,5 +170,51 @@ VTTY::Print(const char* buffer, size_t len)
 	teken_input(&v_teken, buffer, len);
 	return Result::Success();
 }
+
+void
+VTTY::Activate()
+{
+	if (v_active)
+		return;
+	v_active = true;
+
+	// Restore screen contents - XXX This can be done much more efficient
+	for (int y = 0; y < v_video.GetHeight(); y++)
+		for (int x = 0; x < v_video.GetWidth(); x++)
+			v_video.PutPixel(x, y, PixelAt(x, y));
+}
+
+void
+VTTY::Deactivate()
+{
+	if (!v_active)
+		return;
+	v_active = false;
+}
+
+namespace {
+
+struct VTTY_Driver : public Ananas::Driver
+{
+	VTTY_Driver()
+	 : Driver("vtty")
+	{
+	}
+
+	const char* GetBussesToProbeOn() const override
+	{
+		// We are created directly by vconsole
+		return nullptr;
+	}
+
+	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	{
+		return new VTTY(cdp);
+	}
+};
+
+} // unnamed namespace
+
+REGISTER_DRIVER(VTTY_Driver)
 
 /* vim:set ts=2 sw=2: */

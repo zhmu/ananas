@@ -10,7 +10,7 @@ class IVideo;
 class VTTY : public TTY
 {
 public:
-	VTTY(const Ananas::CreateDeviceProperties& cdp, IVideo& video);
+	VTTY(const Ananas::CreateDeviceProperties& cdp);
 
 	Result Attach() override;
 	Result Detach() override;
@@ -26,10 +26,19 @@ public:
 		return v_buffer[y * v_video.GetWidth() + x];
 	}
 
+	bool IsActive() const
+	{
+		return v_active;
+	}
+
+	void Activate();
+	void Deactivate();
+
 private:
 	Mutex v_mutex{"vtty_mutex"};
 	IVideo& v_video;
 	IVideo::Pixel* v_buffer;
+	bool v_active = false;
 	teken_t v_teken;
 };
 
