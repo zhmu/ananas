@@ -70,13 +70,13 @@ void SetTime(const struct tm& tm)
 
 void SetTime(const struct timespec& ts)
 {
-	SpinlockGuard g(time_lock);
+	SpinlockUnpremptibleGuard g(time_lock);
 	time_current = ts;
 }
 
 struct timespec GetTime()
 {
-	SpinlockGuard g(time_lock);
+	SpinlockUnpremptibleGuard g(time_lock);
 	return time_current;
 }
 
