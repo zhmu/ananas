@@ -175,12 +175,6 @@ process_destroy(Process& p)
 		MutexGuard g(process::process_mtx);
 		process::process_all.remove(p);
 	}
-
-	/*
-	 * Unmap the process information; no one can query it at this point as the
-	 * process itself will not run anymore.
-	 */
-	kmem_unmap(p.p_info, sizeof(struct PROCINFO));
 }
 
 void
