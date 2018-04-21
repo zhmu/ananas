@@ -95,7 +95,7 @@ vmpage_alloc(VMArea* va, INode* inode, off_t offset, int flags)
 
   vp->Lock();
   if (va != nullptr)
-	va->va_pages.push_back(*vp);
+    va->va_pages.push_back(*vp);
   return *vp;
 }
 
@@ -183,16 +183,17 @@ vmpage_promote(VMSpace& vs, VMArea& va, VMPage& vp)
   /*
    * Multiple scenario's here:
    *
-   * (1) We hold the last reference to to the source page
+   * (1) We hold the last reference to the source page
    *     This means we can re-use the page it contains and free the source.
-   * (2) The source page still have >1 reference
+   * (2) The source page still has >1 reference
    *     We need to copy the contents to a fresh new page
    */
 	VMPage* new_vp = &vp;
   if (vp_source.vp_refcount == 1) {
     /*
      * (1) We hold the only reference. However, this is tricky because there may be
-     *     a linked page in between.
+     *     a linked page in between (vp != vp_source), which means we can
+     *     grab the page from vp_source and put it in vp (vp_source will be destroyed)
      */
     if (&vp != &vp_source) {
       DPRINTF("%d: vmpage_promote(): vp %p, last user %p @ %p -> stealing page %p\n", get_pid(), &vp_source, &vp, vp.vp_vaddr, vp_source.vp_page);
@@ -212,19 +213,16 @@ vmpage_promote(VMSpace& vs, VMArea& va, VMPage& vp)
   } else /* vp_source.vp_refcount > 1 */ {
     /* (2) - multiple references, need to make a copy */
     if (&vp_source == &vp) {
-      // We have the original page - must allocate a new one, as we can't touch this one
+      // We have the original page - must allocate a new one, as we can't touch this one (it is used
+      // by other refs we cannot touch)
       new_vp = &vmpage_create_private(&va, vp_source.vp_flags | VM_PAGE_FLAG_PRIVATE);
       new_vp->vp_vaddr = vp_source.vp_vaddr;
-
-      // Remove the original source from the vmarea
-      vp_source.vp_vmarea->va_pages.remove(vp_source);
-      vp_source.vp_vmarea = nullptr;
 
       DPRINTF("%d: vmpage_promote(): made new vp %p page %p for %p @ %p\n", get_pid(), new_vp, new_vp->vp_page, &vp_source, new_vp->vp_vaddr);
     } else /* &vp_source != &vp */ {
       KASSERT((vp.vp_flags & VM_PAGE_FLAG_LINK) != 0, "destination vp not linked?");
 
-      // We need t allocate a new page for the destination and hook it up
+      // We need to allocate a new backing page for the destination and hook it up
       vp.vp_page = page_alloc_single();
       KASSERT(vp.vp_page != nullptr, "out of pages");
       vp.vp_flags &= ~VM_PAGE_FLAG_LINK;
