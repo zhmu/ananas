@@ -91,6 +91,11 @@ icache_purge_old_entries()
 		if (fs->fs_fsops->discard_inode != NULL)
 			fs->fs_fsops->discard_inode(inode);
 
+		// Free pages belonging on the inode
+		for(auto& vp: inode.i_pages)
+			vmpage_deref(vp);
+		inode.i_pages.clear();
+
 		inode.i_refcount = -1; // in case someone tries to use it
 		inode.i_privdata = nullptr;
 		inode.i_flags |= INODE_FLAG_GONE;
