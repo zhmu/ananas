@@ -55,7 +55,7 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 
 	/* Create the process's vmspace */
 	if (auto result = vmspace_create(p->p_vmspace); result.IsFailure()) {
-		kfree(p);
+		delete p;
 		return result;
 	}
 	VMSpace& vs = *p->p_vmspace;
@@ -125,7 +125,7 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 
 fail:
 	vmspace_destroy(*p->p_vmspace);
-	kfree(p);
+	delete p;
 	return result;
 }
 
@@ -167,8 +167,8 @@ process_destroy(Process& p)
 
 	process::AbandonProcessGroup(p);
 
-	/* Clean the process's vmspace up - this will remove all non-essential mappings */
-	vmspace_cleanup(*p.p_vmspace);
+	// Process is gone - destroy any memory mappings held by it
+	vmspace_destroy(*p.p_vmspace);
 
 	/* Remove the process from the all-process list */
 	{

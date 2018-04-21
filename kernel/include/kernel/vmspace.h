@@ -82,7 +82,6 @@ private:
 
 addr_t vmspace_determine_va(VMSpace& vs, size_t len);
 Result vmspace_create(VMSpace*& vs);
-void vmspace_cleanup(VMSpace& vs); /* frees all mappings, but not MD-things */
 void vmspace_destroy(VMSpace& vs);
 Result vmspace_mapto(VMSpace& vs, addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
 Result vmspace_mapto_dentry(VMSpace& vs, addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags, VMArea*& va_out);

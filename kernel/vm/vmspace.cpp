@@ -58,7 +58,7 @@ vmspace_create(VMSpace*& vmspace)
 	return Result::Success();
 }
 
-void
+static void
 vmspace_cleanup(VMSpace& vs)
 {
 	/* Cleanup only removes all mapped areas */
