@@ -19,6 +19,7 @@ struct DirectoryEntry root_entries[] = {
 	{ "dev", make_inum(SS_Device, 0, Devices::subRoot) },
 	{ "devices", make_inum(SS_Device, 0, Devices::subDevices) },
 	{ "drivers", make_inum(SS_Device, 0, Devices::subDrivers) },
+	{ "kernel", make_inum(SS_Kernel, 0, Devices::subRoot) },
 	{ NULL,  0 }
 };
 

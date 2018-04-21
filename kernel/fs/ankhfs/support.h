@@ -13,6 +13,7 @@ enum SubSystem {
 	SS_Proc,
 	SS_FileSystem,
 	SS_Device,
+	SS_Kernel,
 	SS_Last // do not use
 };
 
