@@ -15,9 +15,6 @@ struct PCPU {
 	int nested_irq;				/* number of nested IRQ functions */
 };
 
-/* Retrieve the size of the machine-dependant structure */
-size_t md_pcpu_get_privdata_length();
-
 /* Introduce a per-cpu structure */
 void pcpu_init(struct PCPU* pcpu);
 

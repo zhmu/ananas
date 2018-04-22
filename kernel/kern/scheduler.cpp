@@ -16,6 +16,7 @@
 #include "kernel/thread.h"
 #include "kernel/time.h"
 #include "kernel-md/interrupts.h"
+#include "kernel-md/md.h"
 #include "kernel-md/vm.h"
 #include "options.h"
 
@@ -270,12 +271,12 @@ schedule()
 	spl_scheduler.Unlock();
 
 	if (curthread != &newthread) {
-		Thread& prev = md_thread_switch(newthread, *curthread);
+		Thread& prev = md::thread::SwitchTo(newthread, *curthread);
 		scheduler_release(&prev);
 	}
 
 	/* Re-enable interrupts if they were */
-	md_interrupts_restore(state);
+	md::interrupts::Restore(state);
 }
 
 void
@@ -289,13 +290,12 @@ scheduler_launch()
 	 * appropriate code/stack switching bits. All we need to do is set up the
 	 * scheduler enough so that it accepts our idle thread.
 	 */
-	md_interrupts_disable();
+	md::interrupts::Disable();
 	PCPU_SET(curthread, idlethread);
 
 	/* Run it */
 	scheduler_active++;
-
-	md_interrupts_enable();
+	md::interrupts::Enable();
 }
 
 void

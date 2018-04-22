@@ -259,7 +259,7 @@ irq_handler(unsigned int no)
 	 * occurs, it'll just expand the current context - and if interrupts come
 	 * quickly enough, we'll run out of stack and crash 'n burn.
 	 */
-	md_interrupts_disable();
+	md::interrupts::Disable();
 
 	/* Acknowledge the interrupt once the handler is done */
 	is->Acknowledge(no - is->is_first);

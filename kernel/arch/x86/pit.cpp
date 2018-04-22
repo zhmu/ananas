@@ -48,7 +48,7 @@ uint32_t
 x86_pit_calc_cpuspeed_mhz()
 {
 	/* Ensure the interrupt flag is enabled; otherwise this code never stops */
-	KASSERT(md_interrupts_save(), "interrupts must be enabled");
+	KASSERT(md::interrupts::Save(), "interrupts must be enabled");
 
 	/*
 	 * Interrupts are there, this means we can use the tick count to

@@ -77,8 +77,8 @@ ATRTC::Attach()
 
 	/* RTC isn't updating - we have some amount of time to read it */
 	{
-		register_t state = md_interrupts_save();
-		md_interrupts_disable();
+		register_t state = md::interrupts::Save();
+		md::interrupts::Disable();
 		tm.tm_year = BCDToU8(ReadRegister(reg_year));
 		tm.tm_mon = BCDToU8(ReadRegister(reg_month));
 		tm.tm_mday = BCDToU8(ReadRegister(reg_day));
@@ -88,7 +88,7 @@ ATRTC::Attach()
 		tm.tm_year += 1900;
 		if (tm.tm_year < 1980)
 			tm.tm_year += 100; // start at 2000 for years < 1980
-		md_interrupts_restore(state);
+		md::interrupts::Restore(state);
 	}
 	Ananas::Time::SetTime(tm);
 

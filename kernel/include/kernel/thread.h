@@ -79,13 +79,6 @@ typedef util::List<Thread> ThreadList;
 #define THREAD_WANT_RESCHEDULE(t) ((t)->t_flags & THREAD_FLAG_RESCHEDULE)
 #define THREAD_IS_KTHREAD(t) ((t)->t_flags & THREAD_FLAG_KTHREAD)
 
-/* Machine-dependant callback to initialize a thread */
-Result md_thread_init(Thread& thread, int flags);
-void md_kthread_init(Thread& thread, kthread_func_t func, void* arg);
-
-/* Machine-dependant callback to free thread data */
-void md_thread_free(Thread& thread);
-
 Result kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg);
 
 #define THREAD_ALLOC_DEFAULT	0	/* Nothing special */
@@ -96,17 +89,7 @@ void thread_ref(Thread& t);
 void thread_deref(Thread& t);
 void thread_set_name(Thread& t, const char* name);
 
-Thread& md_thread_switch(Thread& new_thread, Thread& old_thread);
 void idle_thread(void*);
-
-void md_thread_set_entrypoint(Thread& thread, addr_t entry);
-void md_thread_set_argument(Thread& thread, addr_t arg);
-void* md_thread_map(Thread& thread, void* to, void* from, size_t length, int flags);
-Result thread_unmap(Thread& t, addr_t virt, size_t len);
-void* md_map_thread_memory(Thread& thread, void* ptr, size_t length, int write);
-void md_thread_clone(Thread& t, Thread& parent, register_t retval);
-Result md_thread_unmap(Thread& thread, addr_t virt, size_t length);
-void md_setup_post_exec(Thread& thread, addr_t exec_addr, register_t exec_arg);
 
 void thread_suspend(Thread& t);
 void thread_resume(Thread& t);

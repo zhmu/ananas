@@ -7,6 +7,7 @@
 #include "kernel/thread.h"
 #include "kernel/time.h"
 #include "kernel/vfs/core.h"
+#include "kernel-md/md.h"
 #include "options.h"
 
 namespace {
@@ -36,6 +37,8 @@ userinit_func(void*)
 	while(true) {
 		if (auto result = vfs_mount(rootfs, "/", rootfs_type, NULL); result.IsSuccess())
 			break;
+		else
+			kprintf(" failure %d, retrying...", result.AsStatusCode());
 
 		delay(1000); // XXX we really need a sleep mechanism here
 	}
@@ -88,7 +91,7 @@ userinit_func(void*)
 	register_t exec_arg;
 	if (auto result = exec_load(*proc->p_vmspace, *file.f_dentry, &exec_addr, &exec_arg); result.IsSuccess()) {
 		kprintf(" ok\n");
-		md_setup_post_exec(*t, exec_addr, exec_arg);
+		md::thread::SetupPostExec(*t, exec_addr, exec_arg);
 		thread_resume(*t);
 	} else {
 		kprintf(" fail - error %i\n", result.AsStatusCode());

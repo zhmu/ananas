@@ -27,7 +27,6 @@ TRACE_SETUP;
 /* Application Processor's entry point and end */
 extern "C" void *__ap_entry, *__ap_entry_end;
 
-void md_remove_low_mappings();
 void smp_destroy_ap_pagetable();
 
 struct X86_SMP_CONFIG smp_config;
@@ -77,10 +76,9 @@ smp_ipi_schedule(Ananas::Device*, void* context)
 IRQResult
 smp_ipi_panic(Ananas::Device*, void* context)
 {
-	md_interrupts_disable();
-	while (1) {
-		__asm("hlt");
-	}
+	md::interrupts::Disable();
+	while (1)
+		md::interrupts::Relax();
 
 	/* NOTREACHED */
 	return IRQResult::IR_Processed;
@@ -319,7 +317,7 @@ mp_ap_startup(uint32_t lapic_id)
 	__asm("lock incl (num_smp_launched)");
 
 	/* Enable interrupts and become the idle thread; this doesn't return */
-	md_interrupts_enable();
+	md::interrupts::Enable();
 	idle_thread(nullptr);
 }
 

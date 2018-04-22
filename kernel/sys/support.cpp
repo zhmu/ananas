@@ -6,6 +6,7 @@
 #include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
+#include "kernel-md/md.h"
 
 TRACE_SETUP;
 
@@ -34,7 +35,7 @@ syscall_get_file(Thread& t, handleindex_t hindex, struct VFS_FILE** out)
 Result
 syscall_map_string(Thread& t, const void* ptr, const char** out)
 {
-	auto x = static_cast<const char*>(md_map_thread_memory(t, (void*)ptr, PAGE_SIZE, VM_FLAG_READ));
+	auto x = static_cast<const char*>(md::thread::MapThreadMemory(t, (void*)ptr, PAGE_SIZE, VM_FLAG_READ));
 	if (x == NULL)
 		return RESULT_MAKE_FAILURE(EFAULT);
 
@@ -51,7 +52,7 @@ syscall_map_string(Thread& t, const void* ptr, const char** out)
 Result
 syscall_map_buffer(Thread& t, const void* ptr, size_t len, int flags, void** out)
 {
-	void* x = md_map_thread_memory(t, (void*)ptr, len, flags);
+	void* x = md::thread::MapThreadMemory(t, (void*)ptr, len, flags);
 	if (x == NULL)
 	return RESULT_MAKE_FAILURE(EFAULT);
 
@@ -62,7 +63,7 @@ syscall_map_buffer(Thread& t, const void* ptr, size_t len, int flags, void** out
 Result
 syscall_fetch_size(Thread& t, const void* ptr, size_t* out)
 {
-	auto s = static_cast<size_t*>(md_map_thread_memory(t, (void*)ptr, sizeof(size_t), VM_FLAG_READ));
+	auto s = static_cast<size_t*>(md::thread::MapThreadMemory(t, (void*)ptr, sizeof(size_t), VM_FLAG_READ));
 	if (s == NULL)
 		return RESULT_MAKE_FAILURE(EFAULT);
 
@@ -73,7 +74,7 @@ syscall_fetch_size(Thread& t, const void* ptr, size_t* out)
 Result
 syscall_set_size(Thread& t, void* ptr, size_t len)
 {
-	auto s = static_cast<size_t*>(md_map_thread_memory(t, (void*)ptr, sizeof(size_t), VM_FLAG_WRITE));
+	auto s = static_cast<size_t*>(md::thread::MapThreadMemory(t, (void*)ptr, sizeof(size_t), VM_FLAG_WRITE));
 	if (s == NULL)
 		return RESULT_MAKE_FAILURE(EFAULT);
 
@@ -84,7 +85,7 @@ syscall_set_size(Thread& t, void* ptr, size_t len)
 Result
 syscall_set_handleindex(Thread& t, handleindex_t* ptr, handleindex_t index)
 {
-	auto p = static_cast<handleindex_t*>(md_map_thread_memory(t, (void*)ptr, sizeof(handleindex_t), VM_FLAG_WRITE));
+	auto p = static_cast<handleindex_t*>(md::thread::MapThreadMemory(t, (void*)ptr, sizeof(handleindex_t), VM_FLAG_WRITE));
 	if (p == NULL)
 		return RESULT_MAKE_FAILURE(EFAULT);
 
@@ -95,7 +96,7 @@ syscall_set_handleindex(Thread& t, handleindex_t* ptr, handleindex_t index)
 Result
 syscall_fetch_offset(Thread& t, const void* ptr, off_t* out)
 {
-	auto o = static_cast<off_t*>(md_map_thread_memory(t, (void*)ptr, sizeof(off_t), VM_FLAG_READ));
+	auto o = static_cast<off_t*>(md::thread::MapThreadMemory(t, (void*)ptr, sizeof(off_t), VM_FLAG_READ));
 	if (o == NULL)
 		return RESULT_MAKE_FAILURE(EFAULT);
 
@@ -106,7 +107,7 @@ syscall_fetch_offset(Thread& t, const void* ptr, off_t* out)
 Result
 syscall_set_offset(Thread& t, void* ptr, off_t len)
 {
-	auto o = static_cast<size_t*>(md_map_thread_memory(t, (void*)ptr, sizeof(size_t), VM_FLAG_WRITE));
+	auto o = static_cast<size_t*>(md::thread::MapThreadMemory(t, (void*)ptr, sizeof(size_t), VM_FLAG_WRITE));
 	if (o == NULL)
 		return RESULT_MAKE_FAILURE(EFAULT);
 

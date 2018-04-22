@@ -1,9 +1,11 @@
 #include <ananas/types.h>
 #include "kernel/lib.h"
-#include "kernel/reboot.h"
+#include "kernel-md/md.h"
+
+namespace md {
 
 void
-md_reboot()
+Reboot()
 {
 	/*
 	 * We attempt to trigger a reboot by clearing the IDT and forcing an
@@ -21,5 +23,7 @@ md_reboot()
 	for(;;) /* nothing, in case we survive */ ;
 	/* NOTREACHED */
 }
+
+} // namespace md
 
 /* vim:set ts=2 sw=2: */

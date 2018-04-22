@@ -14,7 +14,7 @@ void
 _panic(const char* file, const char* func, int line, const char* fmt, ...)
 {
 	va_list ap;
-	md_interrupts_disable();
+	md::interrupts::Disable();
 
 #ifdef OPTION_SMP
 	/*
@@ -29,7 +29,7 @@ _panic(const char* file, const char* func, int line, const char* fmt, ...)
 	 * clue what's going on instead of making it worse.
 	 */
 	if (atomic_read(&kdb_panicing) == (int)(addr_t)&_panic) {
-		md_interrupts_disable();
+		md::interrupts::Disable();
 		kprintf("double panic: %s:%u (%s) - dying!\n", file, line, func);
 		for(;;);
 	}

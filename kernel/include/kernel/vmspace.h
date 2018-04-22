@@ -92,8 +92,4 @@ Result vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags);
 void vmspace_area_free(VMSpace& vs, VMArea& va);
 void vmspace_dump(VMSpace& vs);
 
-/* MD initialization/cleanup bits */
-Result md_vmspace_init(VMSpace& vs);
-void md_vmspace_destroy(VMSpace& vs);
-
 #endif /* ANANAS_VMSPACE_H */

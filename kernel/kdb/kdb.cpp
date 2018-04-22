@@ -196,7 +196,7 @@ kdb_enter(const char* why)
 		return;
 
 	/* Kill interrupts */
-	int ints = md_interrupts_save_and_disable();
+	int ints = md::interrupts::SaveAndDisable();
 
 #ifdef OPTION_SMP
 	/* XXX We can't recover from this! */
@@ -349,7 +349,7 @@ kdb_enter(const char* why)
 
 	/* Stop console redirection and restore interrupts */
 	console_tty = old_console_tty;
-	md_interrupts_restore(ints);
+	md::interrupts::Restore(ints);
 }
 
 void

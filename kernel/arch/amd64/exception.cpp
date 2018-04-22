@@ -14,6 +14,7 @@
 #include "kernel/x86/exceptions.h"
 #include "kernel-md/frame.h"
 #include "kernel-md/interrupts.h"
+#include "kernel-md/md.h"
 #include "kernel-md/param.h"
 #include "kernel-md/vm.h"
 #include "../sys/syscall.h"
@@ -123,7 +124,7 @@ exception_pf(struct STACKFRAME* sf)
 
 	/* If interrupts were on, re-enable them - the fault addres is safe now */
 	if (sf->sf_rflags & 0x200)
-		md_interrupts_enable();
+		md::interrupts::Enable();
 
 	int flags = 0;
 	if (sf->sf_errnum & EXC_PF_FLAG_RW)

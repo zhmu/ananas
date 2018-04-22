@@ -10,7 +10,7 @@
 #include "kernel/vfs/types.h"
 #include "kernel/vm.h"
 #include "kernel-md/param.h" // for THREAD_INITIAL_MAPPING_ADDR
-#include "kernel-md/vm.h" // for md_{,un}map_pages()
+#include "kernel-md/md.h"
 
 TRACE_SETUP;
 
@@ -51,7 +51,7 @@ vmspace_create(VMSpace*& vmspace)
 	vs->vs_next_mapping = THREAD_INITIAL_MAPPING_ADDR;
 
 	RESULT_PROPAGATE_FAILURE(
-		md_vmspace_init(*vs)
+		md::vmspace::Init(*vs)
 	);
 
 	vmspace = vs;
@@ -80,7 +80,7 @@ vmspace_destroy(VMSpace& vs)
 		/* XXX should we unmap the page here? the vmspace shouldn't be active... */
 		page_free(p);
 	}
-	md_vmspace_destroy(vs);
+	md::vmspace::Destroy(vs);
 	delete &vs;
 }
 
@@ -162,7 +162,7 @@ vmspace_mapto(VMSpace& vs, addr_t virt, size_t len /* bytes */, uint32_t flags, 
 	va_out = va;
 
 	/* Provide a mapping for the pages */
-	md_map_pages(&vs, va->va_virt, 0, BytesToPages(len), 0); //(flags & VM_FLAG_FAULT) ? 0 : flags);
+	md::vm::MapPages(&vs, va->va_virt, 0, BytesToPages(len), 0); //(flags & VM_FLAG_FAULT) ? 0 : flags);
 	return Result::Success();
 }
 

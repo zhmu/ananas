@@ -5,13 +5,18 @@
 #include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel/vmspace.h"
+#include "kernel-md/md.h"
 #include "kernel-md/param.h"
 #include "kernel-md/vm.h"
 
 TRACE_SETUP;
 
+extern Page* usupport_page;
+
+namespace md::vmspace {
+
 Result
-md_vmspace_init(VMSpace& vs)
+Init(VMSpace& vs)
 {
 	Page* pagedir_page;
 	vs.vs_md_pagedir = static_cast<uint64_t*>(page_alloc_single_mapped(pagedir_page, VM_FLAG_READ | VM_FLAG_WRITE));
@@ -21,15 +26,16 @@ md_vmspace_init(VMSpace& vs)
 
 	/* Map the kernel pages in there */
 	memset(vs.vs_md_pagedir, 0, PAGE_SIZE);
-	md_map_kernel(vs);
+	md::vm::MapKernelSpace(vs);
 
 	// Map the userland support page
-	extern Page* usupport_page;
-	md_map_pages(&vs, USERLAND_SUPPORT_ADDR, page_get_paddr(*usupport_page), 1, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_EXECUTE);
+	md::vm::MapPages(&vs, USERLAND_SUPPORT_ADDR, page_get_paddr(*usupport_page), 1, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_EXECUTE);
 	return Result::Success();
 }
 
 void
-md_vmspace_destroy(VMSpace& vs)
+Destroy(VMSpace& vs)
 {
 }
+
+} // namespace md::vmspace

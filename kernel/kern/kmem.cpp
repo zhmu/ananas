@@ -33,6 +33,7 @@
 #include "kernel/page.h"
 #include "kernel/result.h"
 #include "kernel/vm.h"
+#include "kernel-md/md.h"
 #include "kernel-md/vm.h"
 #include "options.h"
 
@@ -61,7 +62,7 @@ kmem_map(addr_t phys, size_t length, int flags)
 	   (flags & VM_FLAG_FORCEMAP) == 0) {
 		addr_t va = PTOKV(pa);
 		KMEM_DEBUG("kmem_map(): doing direct map: pa=%p va=%p size=%d\n", pa, va, size);
-		md_kmap(pa, va, size, flags);
+		md::vm::MapKernel(pa, va, size, flags);
 		return (void*)(va + offset);
 	}
 
@@ -138,7 +139,7 @@ kmem_map(addr_t phys, size_t length, int flags)
 	/* Now perform the actual mapping and we're set */
 	KMEM_DEBUG(">>> DID outside kmem map: pa=%p virt=%p size=%d\n", pa, virt, size);
 
-	md_kmap(pa, virt, size, flags);
+	md::vm::MapKernel(pa, virt, size, flags);
 	return (void*)(virt + offset);
 }
 
@@ -155,7 +156,7 @@ kmem_unmap(void* virt, size_t length)
 		KMEM_DEBUG("kmem_unmap(): direct removed: virt=%p len=%d (range %p-%p)\n", virt, length,
 		 PA_TO_DIRECT_VA(KMEM_DIRECT_PA_START), PA_TO_DIRECT_VA(KMEM_DIRECT_PA_END));
 
-		md_kunmap(va, size);
+		md::vm::UnmapKernel(va, size);
 		return;
 	}
 
@@ -181,7 +182,7 @@ kmem_unmap(void* virt, size_t length)
 		}
 		kmem_lock.Unlock();
 
-		md_kunmap(va, size);
+		md::vm::UnmapKernel(va, size);
 		return;
 	}
 	kmem_lock.Unlock();

@@ -19,8 +19,10 @@ extern "C" {
 void thread_trampoline();
 }
 
+namespace md::thread {
+
 Result
-md_thread_init(Thread& t, int flags)
+InitUserlandThread(Thread& t, int flags)
 {
 	/* Create a stack if we aren't cloning - otherwise, we'll just copy the parent's stack instead */
 	Process* proc = t.t_process;
@@ -65,7 +67,7 @@ md_thread_init(Thread& t, int flags)
 }
 
 void
-md_kthread_init(Thread& t, kthread_func_t kfunc, void* arg)
+InitKernelThread(Thread& t, kthread_func_t kfunc, void* arg)
 {
 	/*
 	 * Kernel threads share the kernel pagemap and thus need to map the kernel
@@ -95,7 +97,7 @@ md_kthread_init(Thread& t, kthread_func_t kfunc, void* arg)
 }
 
 void
-md_thread_free(Thread& t)
+Free(Thread& t)
 {
 	KASSERT(THREAD_IS_ZOMBIE(&t), "cannot free non-zombie thread");
   KASSERT(PCPU_GET(curthread) != &t, "cannot free current thread");
@@ -110,9 +112,9 @@ md_thread_free(Thread& t)
 }
 
 Thread&
-md_thread_switch(Thread& new_thread, Thread& old_thread)
+SwitchTo(Thread& new_thread, Thread& old_thread)
 {
-	KASSERT(md_interrupts_save() == 0, "interrupts must be disabled");
+	KASSERT(md::interrupts::Save() == 0, "interrupts must be disabled");
 	KASSERT(!THREAD_IS_ZOMBIE(&new_thread), "cannot switch to a zombie thread");
 	KASSERT(&new_thread != &old_thread, "switching to self?");
 	KASSERT(THREAD_IS_ACTIVE(&new_thread), "new thread isn't running?");
@@ -161,25 +163,25 @@ md_thread_switch(Thread& new_thread, Thread& old_thread)
 }
 
 void*
-md_map_thread_memory(Thread& thread, void* ptr, size_t length, int write)
+MapThreadMemory(Thread& thread, void* ptr, size_t length, int write)
 {
 	return ptr;
 }
 
 void
-md_thread_set_entrypoint(Thread& thread, addr_t entry)
+SetEntryPoint(Thread& thread, addr_t entry)
 {
 	thread.t_frame->sf_rip = entry;
 }
 
 void
-md_thread_set_argument(Thread& thread, addr_t arg)
+SetArgument(Thread& thread, addr_t arg)
 {
 	thread.t_frame->sf_rdi = arg;
 }
 
 void
-md_thread_clone(Thread& t, Thread& parent, register_t retval)
+Clone(Thread& t, Thread& parent, register_t retval)
 {
 	KASSERT(PCPU_GET(curthread) == &parent, "must clone active thread");
 
@@ -210,7 +212,7 @@ md_thread_clone(Thread& t, Thread& parent, register_t retval)
 }
 
 void
-md_setup_post_exec(Thread& t, addr_t exec_addr, register_t exec_arg)
+SetupPostExec(Thread& t, addr_t exec_addr, register_t exec_arg)
 {
 	struct STACKFRAME* sf = t.t_frame;
 	sf->sf_rip = exec_addr;
@@ -221,5 +223,7 @@ md_setup_post_exec(Thread& t, addr_t exec_addr, register_t exec_arg)
 	t.md_rsp = (addr_t)sf;
 	t.md_rip = (addr_t)&thread_trampoline;
 }
+
+} // namespace md::thread
 
 /* vim:set ts=2 sw=2: */

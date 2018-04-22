@@ -7,7 +7,8 @@
 #include "kernel/vmspace.h"
 #include "kernel/vfs/types.h"
 #include "kernel/vm.h"
-#include "kernel-md/vm.h" // for md_{,un}map_pages()
+#include "kernel-md/md.h"
+#include "kernel-md/vm.h"
 
 #define DEBUG 0
 
@@ -407,7 +408,7 @@ vmpage_map(VMSpace& vs, VMArea& va, VMPage& vp)
 	if (vp.vp_flags & VM_PAGE_FLAG_COW)
 		flags &= ~VM_FLAG_WRITE;
 	Page* p = vmpage_get_page(vp);
-	md_map_pages(&vs, vp.vp_vaddr, page_get_paddr(*p), 1, flags);
+	md::vm::MapPages(&vs, vp.vp_vaddr, page_get_paddr(*p), 1, flags);
 }
 
 void
@@ -415,7 +416,7 @@ vmpage_zero(VMSpace& vs, VMPage& vp)
 {
 	// Clear the page XXX This is unfortunate, we should have a supply of pre-zeroed pages
 	Page* p = vmpage_get_page(vp);
-	md_map_pages(&vs, vp.vp_vaddr, page_get_paddr(*p), 1, VM_FLAG_READ | VM_FLAG_WRITE);
+	md::vm::MapPages(&vs, vp.vp_vaddr, page_get_paddr(*p), 1, VM_FLAG_READ | VM_FLAG_WRITE);
 	memset((void*)vp.vp_vaddr, 0, PAGE_SIZE);
 }
 

@@ -17,10 +17,4 @@
 /* Force a specific mapping to be made */
 #define VM_FLAG_FORCEMAP	 (1 << 16)
 
-/* Maps a piece of memory for kernel use */
-void md_kmap(addr_t phys, addr_t virt, size_t num_pages, int flags);
-
-/* Unmaps a piece of kernel memory */
-void md_kunmap(addr_t virt, size_t num_pages);
-
 #endif /* __VM_H__ */

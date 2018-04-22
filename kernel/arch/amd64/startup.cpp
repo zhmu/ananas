@@ -677,7 +677,7 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 	 * Enable interrupts. We do this right before the machine-independant code
 	 * because it will allow us to rely on interrupts when probing devices etc.
 	 */
-	md_interrupts_enable();
+	md::interrupts::Enable();
 
 	// Find out how quick the CPU is; this requires interrupts and will be needed for delay()
 	md_cpu_clock_mhz = x86_pit_calc_cpuspeed_mhz();

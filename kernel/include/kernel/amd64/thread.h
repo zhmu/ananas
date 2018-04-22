@@ -81,9 +81,6 @@ struct FPUREGS {
 	void*		md_stack; \
 	void*		md_kstack;
 
-#define md_cpu_relax() \
-	__asm __volatile("hlt")
-
 #endif
 
 #define THREAD_MDFLAG_FULLRESTORE 0x0001 /* Perform a full register restore upon return */

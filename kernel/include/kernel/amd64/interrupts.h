@@ -1,52 +1,60 @@
-#ifndef __AMD64_INTERRUPTS_H__
-#define __AMD64_INTERRUPTS_H__
+#pragma once
 
 #define MAX_IRQS 256
 
-static inline void md_interrupts_enable()
+namespace md {
+namespace interrupts {
+
+static inline void Enable()
 {
 	__asm __volatile("sti");
 }
 
-static inline void md_interrupts_disable()
+static inline void Disable()
 {
 	__asm __volatile("cli");
 }
 
-static inline void md_interrupts_restore(int enabled)
+static inline void Restore(int enabled)
 {
 	__asm __volatile(
-		/* get eflags in %edx */
+		// get flags in %rdx
 		"pushfq\n"
 		"popq %%rdx\n"
-		/* mask interrupt flag and re-enable flag if needed */
+		// mask interrupt flag and re-enable flag if needed
 		"andq $~0x200, %%rdx\n"
 		"orl %0, %%edx\n"
-		/* activate new eflags */
+		// activate new flags
 		"pushq %%rdx\n"
 		"popfq\n"
 	: : "a" (enabled) : "%rdx");
 }
 
-static inline int md_interrupts_save()
+static inline int Save()
 {
 	int r;
 	__asm __volatile(
-		/* get eflags */
+		// get flags
 		"pushfq\n"
 		"popq %%rdx\n"
-		/* but only the interrupt flag */
+		// but only the interrupt flag
 		"andq $0x200, %%rdx\n"
 		"movl %%edx, %0"
 	: "=r" (r) : : "%rdx");
 	return r;
 }
 
-static inline int md_interrupts_save_and_disable()
+static inline int SaveAndDisable()
 {
-	int status = md_interrupts_save();
-	md_interrupts_disable();
+	int status = Save();
+	Disable();
 	return status;
 }
 
-#endif /* __AMD64_INTERRUPTS_H__ */
+static inline void Relax()
+{
+	__asm __volatile("hlt");
+}
+
+} // namespace interrupt
+} // namespace md

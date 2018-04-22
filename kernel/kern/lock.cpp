@@ -11,7 +11,7 @@ void
 Spinlock::Lock()
 {
 	if (scheduler_activated())
-		KASSERT(md_interrupts_save(), "interrups must be enabled");
+		KASSERT(md::interrupts::Save(), "interrupts must be enabled");
 
 	for(;;) {
 		while(atomic_read(&sl_var) != 0)
@@ -36,16 +36,16 @@ Spinlock::Spinlock()
 register_t
 Spinlock::LockUnpremptible()
 {
-	register_t state = md_interrupts_save();
+	register_t state = md::interrupts::Save();
 
 	for(;;) {
 		while(atomic_read(&sl_var) != 0)
 			/* spin */ ;
-		md_interrupts_disable();
+		md::interrupts::Disable();
 		if (atomic_xchg(&sl_var, 1) == 0)
 			break;
 		/* Lock failed; restore interrupts and try again */
-		md_interrupts_restore(state);
+		md::interrupts::Restore(state);
 	}
 	return state;
 }
@@ -54,7 +54,7 @@ void
 Spinlock::UnlockUnpremptible(register_t state)
 {
 	Unlock();
-	md_interrupts_restore(state);
+	md::interrupts::Restore(state);
 }
 
 Mutex::Mutex(const char* name)

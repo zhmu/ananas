@@ -9,6 +9,7 @@
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vmspace.h"
+#include "kernel-md/md.h"
 
 TRACE_SETUP;
 
@@ -117,7 +118,7 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 	vmspace_destroy(*vmspace);
 
 	/* Now force a full return into the new thread state */
-	md_setup_post_exec(*t, exec_addr, exec_arg);
+	md::thread::SetupPostExec(*t, exec_addr, exec_arg);
 	return Result::Success();
 
 fail:

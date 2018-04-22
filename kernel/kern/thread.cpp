@@ -30,6 +30,8 @@
 #include "kernel/trace.h"
 #include "kernel/thread.h"
 #include "kernel/vm.h"
+#include "kernel-md/interrupts.h"
+#include "kernel-md/md.h"
 #include "options.h"
 
 TRACE_SETUP;
@@ -54,8 +56,8 @@ thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
 	t->t_affinity = THREAD_AFFINITY_ANY;
 
 	/* Ask machine-dependant bits to initialize our thread data */
-	md_thread_init(*t, flags);
-	md_thread_set_argument(*t, p.p_info_va);
+	md::thread::InitUserlandThread(*t, flags);
+	md::thread::SetArgument(*t, p.p_info_va);
 
 	/* If we don't yet have a main thread, this thread will become the main */
 	if (p.p_mainthread == NULL)
@@ -89,7 +91,7 @@ kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg)
 	thread_set_name(t, name);
 
 	/* Initialize MD-specifics */
-	md_kthread_init(t, func, arg);
+	md::thread::InitKernelThread(t, func, arg);
 
 	/* Initialize scheduler-specific parts */
 	scheduler_init_thread(t);
@@ -133,7 +135,7 @@ thread_destroy(Thread& t)
 	KASSERT(THREAD_IS_ZOMBIE(&t), "thread_destroy() on a non-zombie thread");
 
 	/* Free the machine-dependant bits */
-	md_thread_free(t);
+	md::thread::Free(t);
 
 	/* Unreference the associated process */
 	if (t.t_process != nullptr)
@@ -307,7 +309,7 @@ thread_clone(Process& proc, Thread*& out_thread)
 	 * result of a system call, so we want to influence the
 	 * return value.
 	 */
-	md_thread_clone(*t, *curthread, RESULT_MAKE_FAILURE(EEXIST).AsStatusCode());
+	md::thread::Clone(*t, *curthread, RESULT_MAKE_FAILURE(EEXIST).AsStatusCode());
 
 	/* Thread is ready to rock */
 	out_thread = t;
@@ -348,7 +350,7 @@ void
 idle_thread(void*)
 {
 	while(1) {
-		md_cpu_relax();
+		md::interrupts::Relax();
 	}
 }
 
