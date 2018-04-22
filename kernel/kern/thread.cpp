@@ -195,12 +195,18 @@ thread_deref(Thread& t)
 		t.t_flags |= THREAD_FLAG_REAPING;
 		t.t_refcount++;
 
-		/* Assign the thread to the reaper queue */
+		// Remove the thread from all threads queue
 		{
 			SpinlockGuard g(spl_threadqueue);
 			allThreads.remove(t);
 		}
-		reaper_enqueue(t);
+
+		/*
+		 * Ask the reaper to nuke the thread if it was a kernel thread; userland
+		 * stuff gets terminated using the wait() family of functions.
+		 */
+		if (t.t_flags & THREAD_FLAG_KTHREAD)
+			reaper_enqueue(t);
 		return;
 	}
 

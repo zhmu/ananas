@@ -10,6 +10,7 @@
 #include "kernel/process.h"
 #include "kernel/processgroup.h"
 #include "kernel/result.h"
+#include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel/vmspace.h"
@@ -218,9 +219,17 @@ process_wait_and_lock(Process& parent, int flags, Process*& p_out)
 		for(auto& child: parent.p_children) {
 			child.Lock();
 			if (child.p_state == PROCESS_STATE_ZOMBIE) {
-				/* Found one; remove it from the parent's list */
+				// Found one; remove it from the parent's list
 				parent.p_children.remove(child);
 				parent.Unlock();
+
+				/*
+				 * Deref the main thread; this should kill it as there is nothing else
+				 * left.
+				 */
+				KASSERT(child.p_mainthread != nullptr, "zombie child without main thread?");
+				KASSERT(child.p_mainthread->t_refcount == 1, "zombie child main thread still has %d refs", child.p_mainthread->t_refcount);
+				thread_deref(*child.p_mainthread);
 
 				/* Note that we give our ref to the caller! */
 				p_out = &child;
