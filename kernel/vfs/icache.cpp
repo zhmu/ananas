@@ -93,7 +93,7 @@ icache_purge_old_entries()
 
 		// Free pages belonging on the inode
 		for(auto& vp: inode.i_pages)
-			vmpage_deref(vp);
+			vp.Deref();
 		inode.i_pages.clear();
 
 		inode.i_refcount = -1; // in case someone tries to use it

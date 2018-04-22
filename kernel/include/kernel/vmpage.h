@@ -39,6 +39,37 @@ struct VMPage : util::List<VMPage>::NodePtr {
 	INode* vp_inode;
 	off_t vp_offset;
 
+	void Ref();
+	void Deref();
+	Page* GetPage();
+
+	/*
+	 * Copies a (piece of) vp_src to vp_dst:
+	 *
+	 *        len
+	 *         /
+	 * +-------+------+
+	 * |XXXXXXX|??????|
+	 * +-------+------+
+	 *         |
+	 *         v
+	 * +-------+---+
+	 * |XXXXXXX|000|
+	 * +-------+---+
+	 *         ^    \
+	 *        len    PAGE_SIZE
+	 *
+	 *
+	 * X = bytes to be copied, 0 = bytes set to zero, ? = don't care - note that
+	 * thus the vp_dst page is always completely filled.
+	 */
+	void CopyExtended(VMPage& vp_dst, size_t len);
+
+	void Copy(VMPage& vp_dst)
+	{
+	  CopyExtended(vp_dst, PAGE_SIZE);
+	}
+
 	void Lock() {
 		vp_mtx.Lock();
 	}
@@ -57,14 +88,10 @@ private:
 
 typedef util::List<VMPage> VMPageList;
 
-void vmpage_ref(VMPage& vmpage);
-void vmpage_deref(VMPage& vmpage);
-
 VMPage* vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs);
 VMPage* vmpage_lookup_vaddr_locked(VMArea& va, addr_t vaddr);
 VMPage& vmpage_create_shared(INode& inode, off_t offs, int flags);
 VMPage& vmpage_create_private(VMArea* va, int flags);
-Page* vmpage_get_page(VMPage& vp);
 
 VMPage& vmpage_clone(VMSpace& vs, VMArea& va_source, VMArea& va_dest, VMPage& vp);
 VMPage& vmpage_link(VMArea& va, VMPage& vp);
@@ -73,33 +100,5 @@ void vmpage_zero(VMSpace& vs, VMPage& vp);
 VMPage& vmpage_promote(VMSpace& vs, VMArea& va, VMPage& vp);
 
 void vmpage_dump(const VMPage& vp, const char* prefix);
-
-/*
- * Copies a (piece of) vp_src to vp_dst:
- *
- *        len
- *         /
- * +-------+------+
- * |XXXXXXX|??????|
- * +-------+------+
- *         |
- *         v
- * +-------+---+
- * |XXXXXXX|000|
- * +-------+---+
- *         ^    \
- *        len    PAGE_SIZE
- *
- *
- * X = bytes to be copied, 0 = bytes set to zero, ? = don't care - note that
- * thus the vp_dst page is always completely filled.
- */
-void vmpage_copy_extended(VMPage& vp_src, VMPage& vp_dst, size_t len);
-
-static inline void
-vmpage_copy(VMPage& vp_src, VMPage& vp_dst)
-{
-  vmpage_copy_extended(vp_src, vp_dst, PAGE_SIZE);
-}
 
 #endif // ANANAS_VM_PAGE_H

@@ -163,7 +163,7 @@ vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags)
 					size_t copy_len = va.va_dlength - read_off; // this is size-left after where we read
 					if (copy_len > PAGE_SIZE)
 						copy_len = PAGE_SIZE;
-					vmpage_copy_extended(vmpage, *new_vp, copy_len);
+					vmpage.CopyExtended(*new_vp, copy_len);
 				}
 				vmpage.Unlock();
 

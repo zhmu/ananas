@@ -263,7 +263,7 @@ vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags)
 		// Copy the area page-wise
 		for(auto& vp: va_src.va_pages) {
 			vp.Lock();
-			KASSERT(vmpage_get_page(vp)->p_order == 0, "unexpected %d order page here", vmpage_get_page(vp)->p_order);
+			KASSERT(vp.GetPage()->p_order == 0, "unexpected %d order page here", vp.GetPage()->p_order);
 
 			// Create a clone of the data; it is up to the vmpage how to do this (it may go for COW)
 			VMPage& new_vp = vmpage_clone(vs_source, va_src, *va_dst, vp);
@@ -308,7 +308,7 @@ vmspace_area_free(VMSpace& vs, VMArea& va)
 	for (auto it = va.va_pages.begin(); it != va.va_pages.end(); /* nothing */) {
 		VMPage& vp = *it; ++it;
 		vp.Lock();
-		vmpage_deref(vp);
+		vp.Deref();
 	}
 	delete &va;
 }

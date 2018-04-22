@@ -46,7 +46,7 @@ vmpage_free(VMPage& vmpage)
   if (vmpage.vp_flags & VM_PAGE_FLAG_LINK) {
     if (vmpage.vp_link != nullptr) {
       vmpage.vp_link->Lock();
-      vmpage_deref(*vmpage.vp_link);
+      vmpage.vp_link->Deref();
     }
   } else {
     if (vmpage.vp_page != nullptr)
@@ -127,7 +127,7 @@ vmpage_link(VMArea& va, VMPage& vp)
   VMPage& vp_source = vmpage_resolve_locked(vp);
 
   // Increase source refcount as we will be linked towards it
-  vmpage_ref(vp_source);
+  vp_source.Ref();
 
   int flags = VM_PAGE_FLAG_LINK;
   if (vp_source.vp_flags & VM_PAGE_FLAG_READONLY)
@@ -145,15 +145,15 @@ vmpage_link(VMArea& va, VMPage& vp)
 }
 
 void
-vmpage_copy_extended(VMPage& vp_src, VMPage& vp_dst, size_t len)
+VMPage::CopyExtended(VMPage& vp_dst, size_t len)
 {
-  vp_src.AssertLocked();
+  AssertLocked();
   vp_dst.AssertLocked();
-  KASSERT(&vp_src != &vp_dst, "copying same vmpage %p", &vp_src);
+  KASSERT(this != &vp_dst, "copying same vmpage %p", this);
   KASSERT(len <= PAGE_SIZE, "copying more than a page");
 
-  Page* p_src = vmpage_get_page(vp_src);
-  Page* p_dst = vmpage_get_page(vp_dst);
+  auto p_src = GetPage();
+  auto p_dst = vp_dst.GetPage();
   KASSERT(p_src != p_dst, "copying same page %p", p_src);
 
   auto src = static_cast<char*>(kmem_map(p_src->GetPhysicalAddress(), PAGE_SIZE, VM_FLAG_READ));
@@ -203,7 +203,7 @@ vmpage_promote(VMSpace& vs, VMArea& va, VMPage& vp)
       vp_source.vp_page = nullptr;
 
       // ... which we can now destroy
-      vmpage_deref(vp_source);
+      vp_source.Deref();
 
       // We're no longer linked, either
       vp.vp_flags &= ~VM_PAGE_FLAG_LINK;
@@ -233,8 +233,8 @@ vmpage_promote(VMSpace& vs, VMArea& va, VMPage& vp)
     }
 
     // Copy the data over and throw away the source; this never deletes it
-    vmpage_copy(vp_source, *new_vp);
-    vmpage_deref(vp_source);
+    vp_source.Copy(*new_vp);
+    vp_source.Deref();
   }
 
   // Our page is no longer COW, but it is private. Note that we never unlock vp here
@@ -243,24 +243,24 @@ vmpage_promote(VMSpace& vs, VMArea& va, VMPage& vp)
 }
 
 void
-vmpage_ref(VMPage& vmpage)
+VMPage::Ref()
 {
-  vmpage.AssertLocked();
-  ++vmpage.vp_refcount;
+  AssertLocked();
+  ++vp_refcount;
 }
 
 void
-vmpage_deref(VMPage& vmpage)
+VMPage::Deref()
 {
-  vmpage.AssertLocked();
+  AssertLocked();
 
-  KASSERT(vmpage.vp_refcount > 0, "invalid refcount %d", vmpage.vp_refcount);
-  if (--vmpage.vp_refcount > 0) {
-    vmpage.Unlock();
+  KASSERT(vp_refcount > 0, "invalid refcount %d", vp_refcount);
+  if (--vp_refcount > 0) {
+    Unlock();
     return;
   }
 
-  vmpage_free(vmpage);
+  vmpage_free(*this);
 }
 
 VMPage*
@@ -332,7 +332,7 @@ vmpage_clone(VMSpace& vs, VMArea& va_source, VMArea& va_dest, VMPage& vp_orig)
   if (va_source.va_flags & VM_FLAG_MD) {
     vp_dst = &vmpage_create_private(&va_dest, vp_source.vp_flags | VM_PAGE_FLAG_PRIVATE);
     vp_dst->vp_vaddr = vp_source.vp_vaddr;
-    vmpage_copy(vp_source, *vp_dst);
+    vp_source.Copy(*vp_dst);
   } else if (vp_source.vp_flags & VM_PAGE_FLAG_READONLY) {
     // (1) If the source is read-only, we can always share it
     vp_dst = &vmpage_link(va_dest, vp_source);
@@ -349,9 +349,9 @@ vmpage_clone(VMSpace& vs, VMArea& va_source, VMArea& va_dest, VMPage& vp_orig)
 }
 
 Page*
-vmpage_get_page(VMPage& v)
+VMPage::GetPage()
 {
-	VMPage* vp = &v;
+	VMPage* vp = this;
   if (vp->vp_flags & VM_PAGE_FLAG_LINK) {
     vp = vp->vp_link;
     KASSERT((vp->vp_flags & VM_PAGE_FLAG_LINK) == 0, "link to a linked page");
@@ -407,7 +407,7 @@ vmpage_map(VMSpace& vs, VMArea& va, VMPage& vp)
 	// Map COW pages as unwritable so we'll fault on a write
 	if (vp.vp_flags & VM_PAGE_FLAG_COW)
 		flags &= ~VM_FLAG_WRITE;
-	Page* p = vmpage_get_page(vp);
+	Page* p = vp.GetPage();
 	md::vm::MapPages(&vs, vp.vp_vaddr, p->GetPhysicalAddress(), 1, flags);
 }
 
@@ -415,7 +415,7 @@ void
 vmpage_zero(VMSpace& vs, VMPage& vp)
 {
 	// Clear the page XXX This is unfortunate, we should have a supply of pre-zeroed pages
-	Page* p = vmpage_get_page(vp);
+	Page* p = vp.GetPage();
 	md::vm::MapPages(&vs, vp.vp_vaddr, p->GetPhysicalAddress(), 1, VM_FLAG_READ | VM_FLAG_WRITE);
 	memset((void*)vp.vp_vaddr, 0, PAGE_SIZE);
 }

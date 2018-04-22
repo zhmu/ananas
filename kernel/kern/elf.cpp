@@ -273,7 +273,7 @@ elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 		// Now assign a page to there and map it into the vmspae
 		VMPage& vp = vmpage_create_private(va, VM_PAGE_FLAG_PRIVATE | VM_PAGE_FLAG_READONLY);
 		vp.vp_vaddr = ELFINFO_BASE;
-		auto elf_info = static_cast<struct ANANAS_ELF_INFO*>(kmem_map(vmpage_get_page(vp)->GetPhysicalAddress(), sizeof(struct ANANAS_ELF_INFO), VM_FLAG_READ | VM_FLAG_WRITE));
+		auto elf_info = static_cast<struct ANANAS_ELF_INFO*>(kmem_map(vp.GetPage()->GetPhysicalAddress(), sizeof(struct ANANAS_ELF_INFO), VM_FLAG_READ | VM_FLAG_WRITE));
 		vmpage_map(vs, *va, vp);
 		vp.Unlock();
 
