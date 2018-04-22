@@ -229,7 +229,7 @@ process_wait_and_lock(Process& parent, int flags, Process*& p_out)
 				 */
 				KASSERT(child.p_mainthread != nullptr, "zombie child without main thread?");
 				KASSERT(child.p_mainthread->t_refcount == 1, "zombie child main thread still has %d refs", child.p_mainthread->t_refcount);
-				thread_deref(*child.p_mainthread);
+				child.p_mainthread->Deref();
 
 				/* Note that we give our ref to the caller! */
 				p_out = &child;

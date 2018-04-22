@@ -98,7 +98,7 @@ scheduler_add_thread(Thread& t)
 	SCHED_KPRINTF("%s: t=%p\n", __func__, &t);
 	SpinlockUnpremptibleGuard g(spl_scheduler);
 
-	KASSERT(THREAD_IS_SUSPENDED(&t), "adding non-suspended thread %p", &t);
+	KASSERT(t.IsSuspended(), "adding non-suspended thread %p", &t);
 	SCHED_ASSERT(scheduler_is_on_queue(sched_runqueue, t) == 0, "adding thread %p already on runqueue", &t);
 	SCHED_ASSERT(scheduler_is_on_queue(sched_sleepqueue, t) == 1, "adding thread %p not on sleepqueue", &t);
 	/* Remove the thread from the sleepqueue ... */
@@ -119,7 +119,7 @@ scheduler_remove_thread(Thread& t)
 	SCHED_KPRINTF("%s: t=%p\n", __func__, &t);
 	SpinlockUnpremptibleGuard g(spl_scheduler);
 
-	KASSERT(!THREAD_IS_SUSPENDED(&t), "removing suspended thread %p", &t);
+	KASSERT(!t.IsSuspended(), "removing suspended thread %p", &t);
 	SCHED_ASSERT(scheduler_is_on_queue(sched_sleepqueue, t) == 0, "removing thread already on sleepqueue");
 	SCHED_ASSERT(scheduler_is_on_queue(sched_runqueue, t) == 1, "removing thread not on runqueue");
 	/* Remove the thread from the runqueue ... */
@@ -228,7 +228,7 @@ schedule()
 		if (sp.sp_thread->t_affinity != THREAD_AFFINITY_ANY &&
 			  sp.sp_thread->t_affinity != cpuid)
 			continue;
-		if (THREAD_IS_ACTIVE(sp.sp_thread) && sp.sp_thread != curthread)
+		if (sp.sp_thread->IsActive() && sp.sp_thread != curthread)
 			continue;
 		next_sched = &sp;
 		break;
@@ -237,8 +237,8 @@ schedule()
 
 	/* Sanity checks */
 	Thread& newthread = *next_sched->sp_thread;
-	KASSERT(!THREAD_IS_SUSPENDED(&newthread), "activating suspended thread %p", &newthread);
-	KASSERT(&newthread == curthread || !THREAD_IS_ACTIVE(&newthread), "activating active thread %p", &newthread);
+	KASSERT(!newthread.IsSuspended(), "activating suspended thread %p", &newthread);
+	KASSERT(&newthread == curthread || !newthread.IsActive(), "activating active thread %p", &newthread);
 	SCHED_ASSERT(scheduler_is_on_queue(sched_runqueue, newthread) == 1, "scheduling thread not on runqueue (?)");
 	SCHED_ASSERT(scheduler_is_on_queue(sched_sleepqueue, newthread) == 0, "scheduling thread on sleepqueue");
 
@@ -253,7 +253,7 @@ schedule()
 	 * We must also take care not to re-add zombie threads; these must not be
 	 * re-added to either scheduler queue.
 	 */
-	if (!THREAD_IS_SUSPENDED(curthread) && !THREAD_IS_ZOMBIE(curthread)) {
+	if (!curthread->IsSuspended() && !curthread->IsZombie()) {
 		SCHED_KPRINTF("%s[%d]: removing t=%p from runqueue\n", __func__, cpuid, curthread);
 		sched_runqueue.remove(curthread->t_sched_priv);
 		SCHED_KPRINTF("%s[%d]: re-adding t=%p\n", __func__, cpuid, curthread);

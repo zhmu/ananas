@@ -110,7 +110,7 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 	 * access argv after the vmspace_clone() so best do it here)
 	 */
 	if (argv != nullptr && argv[0] != nullptr)
-		thread_set_name(*t, argv[0]);
+		t->SetName(argv[0]);
 
 	/* Copy the new vmspace to the destination */
 	result = vmspace_clone(*vmspace, *proc.p_vmspace, VMSPACE_CLONE_EXEC);

@@ -33,7 +33,7 @@ reaper_reap(void* context)
 			t = &reaper_list.front();
 			reaper_list.pop_front();
 		}
-		thread_deref(*t);
+		t->Deref();
 	}
 }
 
@@ -41,7 +41,7 @@ Result
 start_reaper()
 {
 	kthread_init(reaper_thread, "reaper", &reaper_reap, NULL);
-	thread_resume(reaper_thread);
+	reaper_thread.Resume();
 	return Result::Success();
 }
 

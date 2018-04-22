@@ -99,7 +99,7 @@ InitKernelThread(Thread& t, kthread_func_t kfunc, void* arg)
 void
 Free(Thread& t)
 {
-	KASSERT(THREAD_IS_ZOMBIE(&t), "cannot free non-zombie thread");
+	KASSERT(t.IsZombie(), "cannot free non-zombie thread");
   KASSERT(PCPU_GET(curthread) != &t, "cannot free current thread");
 
 	/*
@@ -115,9 +115,9 @@ Thread&
 SwitchTo(Thread& new_thread, Thread& old_thread)
 {
 	KASSERT(md::interrupts::Save() == 0, "interrupts must be disabled");
-	KASSERT(!THREAD_IS_ZOMBIE(&new_thread), "cannot switch to a zombie thread");
+	KASSERT(!new_thread.IsZombie(), "cannot switch to a zombie thread");
 	KASSERT(&new_thread != &old_thread, "switching to self?");
-	KASSERT(THREAD_IS_ACTIVE(&new_thread), "new thread isn't running?");
+	KASSERT(new_thread.IsActive(), "new thread isn't running?");
 
 	/*
 	 * Activate the corresponding kernel stack in the TSS and for the syscall

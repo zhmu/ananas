@@ -32,7 +32,7 @@ sys_clone(Thread* t, int flags, pid_t* out_pid)
 	*out_pid = new_proc->p_pid;
 
 	/* Resume the cloned thread - it'll have a different return value from ours */
-	thread_resume(*new_thread);
+	new_thread->Resume();
 
 	TRACE(SYSCALL, FUNC, "t=%p, success, new pid=%u", t, *out_pid);
 	return Result::Success();

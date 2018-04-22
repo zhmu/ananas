@@ -201,7 +201,7 @@ InitializeTransfer()
 {
 	/* Create a kernel thread to handle USB completed messages */
 	kthread_init(usbtransfer_thread, "usb-transfer", &transfer_thread, NULL);
-	thread_resume(usbtransfer_thread);
+	usbtransfer_thread.Resume();
 	return Result::Success();
 }
 

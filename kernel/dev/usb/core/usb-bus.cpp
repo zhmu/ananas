@@ -208,7 +208,7 @@ InitializeBus()
 	 * since we can only attach one at the same time.
 	 */
 	kthread_init(usbbus_thread, "usbbus", &usb_bus_thread, NULL);
-	thread_resume(usbbus_thread);
+	usbbus_thread.Resume();
 	return Result::Success();
 }
 

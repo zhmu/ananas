@@ -49,7 +49,7 @@ thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
 	t->t_process = &p;
 	t->t_flags = THREAD_FLAG_MALLOC;
 	t->t_refcount = 1; /* caller */
-	thread_set_name(*t, name);
+	t->SetName(name);
 
 	/* Set up CPU affinity and priority */
 	t->t_priority = THREAD_PRIORITY_DEFAULT;
@@ -88,7 +88,7 @@ kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg)
 	t.t_refcount = 1;
 	t.t_priority = THREAD_PRIORITY_DEFAULT;
 	t.t_affinity = THREAD_AFFINITY_ANY;
-	thread_set_name(t, name);
+	t.SetName(name);
 
 	/* Initialize MD-specifics */
 	md::thread::InitKernelThread(t, func, arg);
@@ -120,7 +120,7 @@ thread_cleanup(Thread& t)
 	 * already be set at this point - note that handle_wait() will do additional
 	 * checks to ensure the thread is truly gone.
 	 */
-	thread_signal_waiters(t);
+	t.SignalWaiters();
 }
 
 /*
@@ -132,7 +132,7 @@ static void
 thread_destroy(Thread& t)
 {
 	KASSERT(PCPU_GET(curthread) != &t, "thread_destroy() on current thread");
-	KASSERT(THREAD_IS_ZOMBIE(&t), "thread_destroy() on a non-zombie thread");
+	KASSERT(t.IsZombie(), "thread_destroy() on a non-zombie thread");
 
 	/* Free the machine-dependant bits */
 	md::thread::Free(t);
@@ -155,21 +155,21 @@ thread_destroy(Thread& t)
 }
 
 void
-thread_ref(Thread& t)
+Thread::Ref()
 {
-	KASSERT(t.t_refcount > 0, "reffing thread with invalid refcount %d", t.t_refcount);
-	++t.t_refcount;
+	KASSERT(t_refcount > 0, "reffing thread with invalid refcount %d", t_refcount);
+	++t_refcount;
 }
 
 void
-thread_deref(Thread& t)
+Thread::Deref()
 {
-	KASSERT(t.t_refcount > 0, "dereffing thread with invalid refcount %d", t.t_refcount);
+	KASSERT(t_refcount > 0, "dereffing thread with invalid refcount %d", t_refcount);
 
 	/*
 	 * Thread cleanup is quite involved - we need to take the following into account:
 	 *
-	 * 1) A thread itself calling thread_deref() can demote the thread to zombie-state
+	 * 1) A thread itself calling Deref() can demote the thread to zombie-state
 	 *    This is because the owner decides to stop the thread, which means we can free
 	 *    most associated resources.
 	 * 2) The new refcount would become 0
@@ -179,12 +179,12 @@ thread_deref(Thread& t)
 	 *    2b) Otherwise, we can destroy 't' and be done.
 	 * 3) Otherwise, the refcount > 0 and we must let the thread live.
 	 */
-	int is_self = PCPU_GET(curthread) == &t;
-	if (is_self && !THREAD_IS_ZOMBIE(&t)) {
+	int is_self = PCPU_GET(curthread) == this;
+	if (is_self && !IsZombie()) {
 		/* (1) - we can free most associated thread resources */
-		thread_cleanup(t);
+		thread_cleanup(*this);
 	}
-	if (--t.t_refcount > 0) {
+	if (--t_refcount > 0) {
 		/* (3) - refcount isn't yet zero so nothing to destroy */
 		return;
 	}
@@ -192,39 +192,39 @@ thread_deref(Thread& t)
 	if (is_self) {
 		/*
 		 * (2a) - mark the thread as reaping, and increment the refcount
-		 *        so that we can just thread_deref() it
+		 *        so that we can just Deref() it
 		 */
-		t.t_flags |= THREAD_FLAG_REAPING;
-		t.t_refcount++;
+		t_flags |= THREAD_FLAG_REAPING;
+		t_refcount++;
 
 		// Remove the thread from all threads queue
 		{
 			SpinlockGuard g(spl_threadqueue);
-			allThreads.remove(t);
+			allThreads.remove(*this);
 		}
 
 		/*
 		 * Ask the reaper to nuke the thread if it was a kernel thread; userland
 		 * stuff gets terminated using the wait() family of functions.
 		 */
-		if (t.t_flags & THREAD_FLAG_KTHREAD)
-			reaper_enqueue(t);
+		if (t_flags & THREAD_FLAG_KTHREAD)
+			reaper_enqueue(*this);
 		return;
 	}
 
 	/* (2b) Final ref - let's get rid of it */
-	if (!THREAD_IS_ZOMBIE(&t))
-		thread_cleanup(t);
-	thread_destroy(t);
+	if (!IsZombie())
+		thread_cleanup(*this);
+	thread_destroy(*this);
 }
 
 void
-thread_suspend(Thread& t)
+Thread::Suspend()
 {
-	TRACE(THREAD, FUNC, "t=%p", &t);
-	KASSERT(!THREAD_IS_SUSPENDED(&t), "suspending suspended thread %p", &t);
-	KASSERT(&t != PCPU_GET(idlethread), "suspending idle thread");
-	scheduler_remove_thread(t);
+	TRACE(THREAD, FUNC, "t=%p", this);
+	KASSERT(!IsSuspended(), "suspending suspended thread %p", this);
+	KASSERT(this != PCPU_GET(idlethread), "suspending idle thread");
+	scheduler_remove_thread(*this);
 }
 
 void
@@ -233,14 +233,14 @@ thread_sleep(tick_t num_ticks)
 	Thread* t = PCPU_GET(curthread);
 	t->t_timeout = Ananas::Time::GetTicks() + num_ticks;
 	t->t_flags |= THREAD_FLAG_TIMEOUT;
-	thread_suspend(*t);
+	t->Suspend();
 	schedule();
 }
 
 void
-thread_resume(Thread& t)
+Thread::Resume()
 {
-	TRACE(THREAD, FUNC, "t=%p", &t);
+	TRACE(THREAD, FUNC, "t=%p", this);
 
 	/*
 	 * In early startup (when we're not actually scheduling things), the idle
@@ -248,11 +248,11 @@ thread_resume(Thread& t)
 	 * and ready - however, it will silently ignore all suspend actions which
 	 * we need to catch here.
 	 */
-	if (!THREAD_IS_SUSPENDED(&t)) {
-		KASSERT(!scheduler_activated(), "resuming nonsuspended thread %p", &t);
+	if (!IsSuspended()) {
+		KASSERT(!scheduler_activated(), "resuming nonsuspended thread %p", this);
 		return;
 	}
-	scheduler_add_thread(t);
+	scheduler_add_thread(*this);
 }
 
 void
@@ -261,7 +261,7 @@ thread_exit(int exitcode)
 	Thread* thread = PCPU_GET(curthread);
 	TRACE(THREAD, FUNC, "t=%p, exitcode=%u", thread, exitcode);
 	KASSERT(thread != NULL, "thread_exit() without thread");
-	KASSERT(!THREAD_IS_ZOMBIE(thread), "exiting zombie thread");
+	KASSERT(!thread->IsZombie(), "exiting zombie thread");
 
 	/* Store the result code; thread_free() will mark the thread as terminating */
 	thread->t_terminate_info = exitcode;
@@ -272,9 +272,9 @@ thread_exit(int exitcode)
 
 	/*
 	 * Dereference our own thread handle; this will cause a transition to
-	 * zombie-state - we are invoking case (1a) of thread_deref() here.
+	 * zombie-state - we are invoking case (1a) of Deref() here.
 	 */
-	thread_deref(*thread);
+	thread->Deref();
 
 	/* Ask the scheduler to exit the thread */
 	scheduler_exit_thread(*thread);
@@ -282,15 +282,15 @@ thread_exit(int exitcode)
 }
 
 void
-thread_set_name(Thread& t, const char* name)
+Thread::SetName(const char* name)
 {
-	if (t.t_flags & THREAD_FLAG_KTHREAD) {
+	if (t_flags & THREAD_FLAG_KTHREAD) {
 		/* Surround kernel thread names by [ ] to clearly identify them */
-		snprintf(t.t_name, THREAD_MAX_NAME_LEN, "[%s]", name);
+		snprintf(t_name, THREAD_MAX_NAME_LEN, "[%s]", name);
 	} else {
-		strncpy(t.t_name, name, THREAD_MAX_NAME_LEN);
+		strncpy(t_name, name, THREAD_MAX_NAME_LEN);
 	}
-	t.t_name[THREAD_MAX_NAME_LEN] = '\0';
+	t_name[THREAD_MAX_NAME_LEN] = '\0';
 }
 
 Result
@@ -321,29 +321,29 @@ struct ThreadWaiter : util::List<ThreadWaiter>::NodePtr {
 };
 
 void
-thread_signal_waiters(Thread& t)
+Thread::SignalWaiters()
 {
-	SpinlockGuard g(t.t_lock);
-	while(!t.t_waitqueue.empty()) {
-		auto& tw = t.t_waitqueue.front();
-		t.t_waitqueue.pop_front();
+	SpinlockGuard g(t_lock);
+	while(!t_waitqueue.empty()) {
+		auto& tw = t_waitqueue.front();
+		t_waitqueue.pop_front();
 
 		tw.tw_sem.Signal();
 	}
 }
 
 void
-thread_wait(Thread& t)
+Thread::Wait()
 {
 	ThreadWaiter tw;
 
 	{
-		SpinlockGuard g(t.t_lock);
-		t.t_waitqueue.push_back(tw);
+		SpinlockGuard g(t_lock);
+		t_waitqueue.push_back(tw);
 	}
 
 	tw.tw_sem.Wait();
-	/* 'tw' will be removed by thread_signal_waiters() */
+	/* 'tw' will be removed by SignalWaiters() */
 }
 
 void

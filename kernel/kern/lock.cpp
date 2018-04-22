@@ -124,7 +124,7 @@ Semaphore::Signal()
 		SemaphoreWaiter& sw = sem_wq.front();
 		sem_wq.pop_front();
 		sw.sw_signalled = 1;
-		thread_resume(*sw.sw_thread);
+		sw.sw_thread->Resume();
 		wokeup_priority = sw.sw_thread->t_priority;
 		/* No need to adjust sem_count since the unblocked waiter won't touch it */
 	} else {
@@ -156,7 +156,7 @@ Semaphore::WaitAndLock()
 	/*
 	 * No more units; we have to wait  - just create a waiter and wait until we
 	 * get signalled. We will assume the idle thread never gets here, and
-	 * dies in thread_suspend() if we do.
+	 * dies in Suspend() if we do.
 	 */
 	Thread* curthread = PCPU_GET(curthread);
 
@@ -165,7 +165,7 @@ Semaphore::WaitAndLock()
 	sw.sw_signalled = 0;
 	sem_wq.push_back(sw);
 	do {
-		thread_suspend(*curthread);
+		curthread->Suspend();
 		/* Let go of the lock, but keep interrupts disabled */
 		sem_lock.Unlock();
 		schedule();

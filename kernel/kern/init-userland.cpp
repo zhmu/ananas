@@ -92,7 +92,7 @@ userinit_func(void*)
 	if (auto result = exec_load(*proc->p_vmspace, *file.f_dentry, &exec_addr, &exec_arg); result.IsSuccess()) {
 		kprintf(" ok\n");
 		md::thread::SetupPostExec(*t, exec_addr, exec_arg);
-		thread_resume(*t);
+		t->Resume();
 	} else {
 		kprintf(" fail - error %i\n", result.AsStatusCode());
 	}
@@ -106,7 +106,7 @@ Result
 init_userland()
 {
 	kthread_init(userinit_thread, "user-init", &userinit_func, nullptr);
-	thread_resume(userinit_thread);
+	userinit_thread.Resume();
 	return Result::Success();
 }
 

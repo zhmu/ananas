@@ -105,7 +105,7 @@ mi_startup()
 	volatile int done = 0;
 	Thread init_thread;
 	kthread_init(init_thread, "init", init_thread_func, (void*)&done);
-	thread_resume(init_thread);
+	init_thread.Resume();
 
 	/* Activate the scheduler - it is time */
 	scheduler_launch();

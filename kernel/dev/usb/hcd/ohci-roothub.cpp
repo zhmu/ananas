@@ -447,7 +447,7 @@ RootHub::Initialize()
 	 * and we don't know the USB device either.
 	 */
 	kthread_init(rh_pollthread, "oroothub", &ThreadWrapper, this);
-	thread_resume(rh_pollthread);
+	rh_pollthread.Resume();
 	return Result::Success();
 }
 

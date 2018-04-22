@@ -23,6 +23,16 @@ struct ThreadWaiter;
 typedef util::List<ThreadWaiter> ThreadWaiterList;
 
 struct Thread : public util::List<Thread>::NodePtr {
+	void Ref();
+	void Deref();
+	void SetName(const char* name);
+
+	void Suspend();
+	void Resume();
+
+	void SignalWaiters();
+	void Wait();
+
 	/* Machine-dependant data - must be first */
 	MD_THREAD_FIELDS
 
@@ -68,16 +78,35 @@ struct Thread : public util::List<Thread>::NodePtr {
 	SchedulerPriv		t_sched_priv;
 
 	signal::ThreadSpecificData t_sigdata;
+
+	bool IsActive() const
+	{
+		return (t_flags & THREAD_FLAG_ACTIVE) != 0;
+	}
+
+	bool IsSuspended() const
+	{
+		return (t_flags & THREAD_FLAG_SUSPENDED) != 0;
+	}
+
+	bool IsZombie() const
+	{
+		return (t_flags & THREAD_FLAG_ZOMBIE) != 0;
+	}
+
+	bool IsRescheduling() const
+	{
+		return (t_flags & THREAD_FLAG_RESCHEDULE) != 0;
+	}
+
+	bool IsKernel() const
+	{
+		return (t_flags & THREAD_FLAG_KTHREAD) != 0;
+	}
+
 };
 
 typedef util::List<Thread> ThreadList;
-
-/* Macro's to facilitate flag checking */
-#define THREAD_IS_ACTIVE(t) ((t)->t_flags & THREAD_FLAG_ACTIVE)
-#define THREAD_IS_SUSPENDED(t) ((t)->t_flags & THREAD_FLAG_SUSPENDED)
-#define THREAD_IS_ZOMBIE(t) ((t)->t_flags & THREAD_FLAG_ZOMBIE)
-#define THREAD_WANT_RESCHEDULE(t) ((t)->t_flags & THREAD_FLAG_RESCHEDULE)
-#define THREAD_IS_KTHREAD(t) ((t)->t_flags & THREAD_FLAG_KTHREAD)
 
 Result kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg);
 
@@ -85,20 +114,12 @@ Result kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg)
 #define THREAD_ALLOC_CLONE	1	/* Thread is created for cloning */
 
 Result thread_alloc(Process& p, Thread*& dest, const char* name, int flags);
-void thread_ref(Thread& t);
-void thread_deref(Thread& t);
-void thread_set_name(Thread& t, const char* name);
 
 void idle_thread(void*);
 
-void thread_suspend(Thread& t);
-void thread_resume(Thread& t);
 void thread_sleep(tick_t num_ticks);
 void thread_exit(int exitcode);
 void thread_dump(int num_args, char** arg);
 Result thread_clone(Process& proc, Thread*& dest);
-
-void thread_signal_waiters(Thread& t);
-void thread_wait(Thread& t);
 
 #endif
