@@ -106,19 +106,22 @@ struct Process {
 	util::List<Process>::Node p_NodeChildren;
 	util::List<Process>::Node p_NodeGroup;
 
+	void Ref();
+	void Deref();
+	void Exit(int status);
+
+	Result SetArguments(const char* args, size_t args_len);
+	Result SetEnvironment(const char* env, size_t env_len);
+	Result Clone(int flags, Process*& out_p);
+
+	Result WaitAndLock(int flags, Process*& p_out);
+
 private:
 	Mutex p_lock{"plock"};	/* Locks the process */
 };
 
 Result process_alloc(Process* parent, Process*& dest);
 
-void process_ref(Process& p);
-void process_deref(Process& p);
-void process_exit(Process& p, int status);
-Result process_set_args(Process& p, const char* args, size_t args_len);
-Result process_set_environment(Process& p, const char* env, size_t env_len);
-Result process_clone(Process& p, int flags, Process*& out_p);
-Result process_wait_and_lock(Process& p, int flags, Process*& p_out);
 Process* process_lookup_by_id_and_ref(pid_t pid);
 
 /*

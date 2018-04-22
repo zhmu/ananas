@@ -45,7 +45,7 @@ thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
 	/* First off, allocate the thread itself */
 	auto t = new Thread;
 	memset(t, 0, sizeof(Thread));
-	process_ref(p);
+	p.Ref();
 	t->t_process = &p;
 	t->t_flags = THREAD_FLAG_MALLOC;
 	t->t_refcount = 1; /* caller */
@@ -139,7 +139,7 @@ thread_destroy(Thread& t)
 
 	/* Unreference the associated process */
 	if (t.t_process != nullptr)
-		process_deref(*t.t_process);
+		t.t_process->Deref();
 	t.t_process = nullptr;
 
 	/* If we aren't reaping the thread, remove it from our thread queue; it'll be gone soon */
@@ -268,7 +268,7 @@ thread_exit(int exitcode)
 
 	/* If we are the process' main thread, mark it as exiting */
 	if (thread->t_process != nullptr && thread->t_process->p_mainthread == thread)
-		process_exit(*thread->t_process, exitcode);
+		thread->t_process->Exit(exitcode);
 
 	/*
 	 * Dereference our own thread handle; this will cause a transition to

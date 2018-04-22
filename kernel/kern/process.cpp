@@ -83,7 +83,7 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 	p->p_info->pi_size = sizeof(struct PROCINFO);
 	p->p_info->pi_pid = p->p_pid;
 	if (parent != nullptr)
-		process_set_environment(*p, parent->p_info->pi_env, PROCINFO_ENV_LENGTH - 1);
+		p->SetEnvironment(parent->p_info->pi_env, PROCINFO_ENV_LENGTH - 1);
 
 	// Clone the parent's handles
 	if (parent != nullptr) {
@@ -137,16 +137,16 @@ process_alloc(Process* parent, Process*& dest)
 }
 
 Result
-process_clone(Process& p, int flags, Process*& out_p)
+Process::Clone(int flags, Process*& out_p)
 {
 	Process* newp;
 	RESULT_PROPAGATE_FAILURE(
-		process_alloc_ex(&p, newp, 0)
+		process_alloc_ex(this, newp, 0)
 	);
 
 	/* Duplicate the vmspace - this should leave the private mappings alone */
-	if (auto result = p.p_vmspace->Clone(*newp->p_vmspace, 0); result.IsFailure()) {
-		process_deref(*newp);
+	if (auto result = p_vmspace->Clone(*newp->p_vmspace, 0); result.IsFailure()) {
+		newp->Deref();
 		return result;
 	}
 
@@ -179,34 +179,35 @@ process_destroy(Process& p)
 }
 
 void
-process_ref(Process& p)
+Process::Ref()
 {
-	KASSERT(p.p_refcount > 0, "reffing process with invalid refcount %d", p.p_refcount);
-	++p.p_refcount;
+	KASSERT(p_refcount > 0, "reffing process with invalid refcount %d", p_refcount);
+	++p_refcount;
 }
 
 void
-process_deref(Process& p)
+Process::Deref()
 {
-	KASSERT(p.p_refcount > 0, "dereffing process with invalid refcount %d", p.p_refcount);
+	KASSERT(p_refcount > 0, "dereffing process with invalid refcount %d", p_refcount);
 
-	if (--p.p_refcount == 0)
-		process_destroy(p);
+	if (--p_refcount == 0)
+		process_destroy(*this);
 }
 
 void
-process_exit(Process& p, int status)
+Process::Exit(int status)
 {
-	p.Lock();
-	p.p_state = PROCESS_STATE_ZOMBIE;
-	p.p_exit_status = status;
-	p.Unlock();
+	{
+		MutexGuard g(p_lock);
+		p_state = PROCESS_STATE_ZOMBIE;
+		p_exit_status = status;
+	}
 
 	process::process_sleep_sem.Signal();
 }
 
 Result
-process_wait_and_lock(Process& parent, int flags, Process*& p_out)
+Process::WaitAndLock(int flags, Process*& p_out)
 {
 	if (flags != 0)
 		return RESULT_MAKE_FAILURE(EINVAL);
@@ -215,13 +216,13 @@ process_wait_and_lock(Process& parent, int flags, Process*& p_out)
 	 *     semaphore to wake anything up once a process has exited.
 	 */
 	for(;;) {
-		parent.Lock();
-		for(auto& child: parent.p_children) {
+		Lock();
+		for(auto& child: p_children) {
 			child.Lock();
 			if (child.p_state == PROCESS_STATE_ZOMBIE) {
 				// Found one; remove it from the parent's list
-				parent.p_children.remove(child);
-				parent.Unlock();
+				p_children.remove(child);
+				Unlock();
 
 				/*
 				 * Deref the main thread; this should kill it as there is nothing else
@@ -237,7 +238,7 @@ process_wait_and_lock(Process& parent, int flags, Process*& p_out)
 			}
 			child.Unlock();
 		}
-		parent.Unlock();
+		Unlock();
 
 		/* Nothing good yet; sleep on it */
 		process::process_sleep_sem.Wait();
@@ -247,26 +248,26 @@ process_wait_and_lock(Process& parent, int flags, Process*& p_out)
 }
 
 Result
-process_set_args(Process& p, const char* args, size_t args_len)
+Process::SetArguments(const char* args, size_t args_len)
 {
 	if (args_len >= (PROCINFO_ARGS_LENGTH - 1))
 		args_len = PROCINFO_ARGS_LENGTH - 1;
 	for (unsigned int i = 0; i < args_len; i++)
 		if(args[i] == '\0' && args[i + 1] == '\0') {
-			memcpy(p.p_info->pi_args, args, i + 2 /* terminating \0\0 */);
+			memcpy(p_info->pi_args, args, i + 2 /* terminating \0\0 */);
 			return Result::Success();
 		}
 	return RESULT_MAKE_FAILURE(EINVAL);
 }
 
 Result
-process_set_environment(Process& p, const char* env, size_t env_len)
+Process::SetEnvironment(const char* env, size_t env_len)
 {
 	if (env_len >= (PROCINFO_ENV_LENGTH - 1))
 		env_len = PROCINFO_ENV_LENGTH - 1;
 	for (unsigned int i = 0; i < env_len; i++)
 		if(env[i] == '\0' && env[i + 1] == '\0') {
-			memcpy(p.p_info->pi_env, env, i + 2 /* terminating \0\0 */);
+			memcpy(p_info->pi_env, env, i + 2 /* terminating \0\0 */);
 			return Result::Success();
 		}
 
@@ -286,7 +287,7 @@ process_lookup_by_id_and_ref(pid_t pid)
 		}
 
 		// Process found; get a ref and return it
-		process_ref(p);
+		p.Ref();
 		p.Unlock();
 		return &p;
 	}

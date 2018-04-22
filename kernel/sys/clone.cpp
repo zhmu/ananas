@@ -20,13 +20,13 @@ sys_clone(Thread* t, int flags, pid_t* out_pid)
 	/* First, make a copy of the process; this inherits all files and such */
 	Process* new_proc;
 	RESULT_PROPAGATE_FAILURE(
-		process_clone(proc, 0, new_proc)
+		proc.Clone(0, new_proc)
 	);
 
 	/* Now clone the handle to the new process */
 	Thread* new_thread;
 	if (auto result = thread_clone(*new_proc, new_thread); result.IsFailure()) {
-		process_deref(*new_proc);
+		new_proc->Deref();
 		return result;
 	}
 	*out_pid = new_proc->p_pid;

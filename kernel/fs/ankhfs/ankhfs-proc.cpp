@@ -118,7 +118,7 @@ public:
 			}
 		}
 		result[sizeof(result) - 1] = '\0';
-		process_deref(*p);
+		p->Deref();
 		return AnkhFS::HandleRead(file, buf, len, result);
 	}
 };

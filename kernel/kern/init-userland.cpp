@@ -68,7 +68,7 @@ userinit_func(void*)
 	Thread* t;
 	{
 		Result result = thread_alloc(*proc, t, "init", THREAD_ALLOC_DEFAULT);
-		process_deref(*proc); /* 't' should have a ref, we don't need it anymore */
+		proc->Deref(); /* 't' should have a ref, we don't need it anymore */
 		if (result.IsFailure()) {
 			kprintf("couldn't create thread, %i\n", result.AsStatusCode());
 			thread_exit(0);
@@ -84,8 +84,8 @@ userinit_func(void*)
 
 	const char args[] = "init\0\0";
 	const char env[] = "OS=Ananas\0USER=root\0\0";
-	process_set_args(*proc, args, sizeof(args));
-	process_set_environment(*proc, env, sizeof(env));
+	proc->SetArguments(args, sizeof(args));
+	proc->SetEnvironment(env, sizeof(env));
 
 	addr_t exec_addr;
 	register_t exec_arg;

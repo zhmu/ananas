@@ -13,7 +13,7 @@ sys_waitpid(Thread* t, pid_t* pid, int* stat_loc, int options)
 
 	Process* p;
 	RESULT_PROPAGATE_FAILURE(
-		process_wait_and_lock(*t->t_process, options, p)
+		t->t_process->WaitAndLock(options, p)
 	);
 
 	*pid = p->p_pid;
@@ -22,7 +22,7 @@ sys_waitpid(Thread* t, pid_t* pid, int* stat_loc, int options)
 	p->Unlock();
 
 	/* Give up our refence to the zombie child; this should destroy it */
-	process_deref(*p);
+	p->Deref();
 
 	return Result::Success();
 }

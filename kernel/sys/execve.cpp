@@ -40,9 +40,9 @@ set_proc_attribute(Process& process, enum SET_PROC_ATTR attr, const char** list)
 
 	switch(attr) {
 		case A_Args:
-			return process_set_args(process, buf, pos);
+			return process.SetArguments(buf, pos);
 		case A_Env:
-			return process_set_environment(process, buf, pos);
+			return process.SetEnvironment(buf, pos);
 		default:
 			panic("unexpected attribute %d", attr);
 	}
