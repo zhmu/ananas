@@ -29,7 +29,7 @@ InitUserlandThread(Thread& t, int flags)
 	if ((flags & THREAD_ALLOC_CLONE) == 0) {
 		VMArea* va;
 		RESULT_PROPAGATE_FAILURE(
-			vmspace_mapto(*proc->p_vmspace, USERLAND_STACK_ADDR, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_FAULT | VM_FLAG_MD, va)
+			proc->p_vmspace->MapTo(USERLAND_STACK_ADDR, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_FAULT | VM_FLAG_MD, va)
 		);
 	}
 

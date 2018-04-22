@@ -113,7 +113,7 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 		t->SetName(argv[0]);
 
 	/* Copy the new vmspace to the destination */
-	result = vmspace_clone(*vmspace, *proc.p_vmspace, VMSPACE_CLONE_EXEC);
+	result = vmspace->Clone(*proc.p_vmspace, VMSPACE_CLONE_EXEC);
 	KASSERT(result.IsSuccess(), "unable to clone exec vmspace: %d", result.AsStatusCode());
 	vmspace_destroy(*vmspace);
 

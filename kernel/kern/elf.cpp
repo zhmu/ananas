@@ -96,7 +96,7 @@ elf64_load_ph(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase)
 
 	// First step is to map the dentry-backed data
 	RESULT_PROPAGATE_FAILURE(
-		vmspace_mapto_dentry(vs, rbase + virt_begin, virt_end - virt_begin, dentry, doffset, filesz, flags, va)
+		vs.MapToDentry(rbase + virt_begin, virt_end - virt_begin, dentry, doffset, filesz, flags, va)
 	);
 	if (phdr.p_filesz == phdr.p_memsz)
 		return Result::Success();
@@ -106,7 +106,7 @@ elf64_load_ph(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase)
 	addr_t v_extra_len = ROUND_UP(phdr.p_vaddr + phdr.p_memsz - v_extra, PAGE_SIZE);
 	if (v_extra_len == 0)
 		return Result::Success();
-	return vmspace_mapto(vs, rbase + v_extra, v_extra_len, flags, va);
+	return vs.MapTo(rbase + v_extra, v_extra_len, flags, va);
 }
 
 static Result
@@ -253,7 +253,7 @@ elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 		{
 			size_t phdr_len = ehdr.e_phnum * ehdr.e_phentsize;
 			RESULT_PROPAGATE_FAILURE(
-				vmspace_mapto_dentry(vs, PHDR_BASE, phdr_len, dentry, ehdr.e_phoff & ~(PAGE_SIZE - 1), phdr_len, VM_FLAG_READ | VM_FLAG_USER, va_phdr)
+				vs.MapToDentry(PHDR_BASE, phdr_len, dentry, ehdr.e_phoff & ~(PAGE_SIZE - 1), phdr_len, VM_FLAG_READ | VM_FLAG_USER, va_phdr)
 			);
 		}
 
@@ -266,7 +266,7 @@ elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 		// Create a mapping for the ELF information
 		VMArea* va;
 		RESULT_PROPAGATE_FAILURE(
-			vmspace_mapto(vs, ELFINFO_BASE, sizeof(struct ANANAS_ELF_INFO), VM_FLAG_READ | VM_FLAG_USER, va)
+			vs.MapTo(ELFINFO_BASE, sizeof(struct ANANAS_ELF_INFO), VM_FLAG_READ | VM_FLAG_USER, va)
 		);
 		*exec_arg = va->va_virt;
 

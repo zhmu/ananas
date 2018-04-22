@@ -63,7 +63,7 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 
 	// Map a process info structure so everything beloning to this process can use it
 	VMArea* va;
-	auto result = vmspace_map(vs, sizeof(struct PROCINFO), VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_NO_CLONE, va);
+	auto result = vs.Map(sizeof(struct PROCINFO), VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_NO_CLONE, va);
 	if (result.IsFailure())
 		goto fail;
 	p->p_info_va = va->va_virt;
@@ -145,7 +145,7 @@ process_clone(Process& p, int flags, Process*& out_p)
 	);
 
 	/* Duplicate the vmspace - this should leave the private mappings alone */
-	if (auto result = vmspace_clone(*p.p_vmspace, *newp->p_vmspace, 0); result.IsFailure()) {
+	if (auto result = p.p_vmspace->Clone(*newp->p_vmspace, 0); result.IsFailure()) {
 		process_deref(*newp);
 		return result;
 	}
@@ -333,14 +333,12 @@ INIT_FUNCTION(process_init, SUBSYSTEM_PROCESS, ORDER_FIRST);
 
 #ifdef OPTION_KDB
 
-void vmspace_dump(VMSpace&);
-
 KDB_COMMAND(ps, "[s:flags]", "Displays all processes")
 {
 	MutexGuard g(process::process_mtx);
 	for(auto& p: process::process_all) {
 		kprintf("process %d (%p): state %d\n", p.p_pid, &p, p.p_state);
-		vmspace_dump(*p.p_vmspace);
+		p.p_vmspace->Dump();
 	}
 }
 

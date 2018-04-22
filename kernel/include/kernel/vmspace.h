@@ -74,6 +74,15 @@ struct VMSpace {
 
 	MD_VMSPACE_FIELDS
 
+	Result MapTo(addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
+	Result MapToDentry(addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags, VMArea*& va_out);
+	Result Map(size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
+	Result Clone(VMSpace& vs_dest, int flags);
+	void Dump();
+
+	// XXX Should not be public
+	void FreeArea(VMArea& va);
+
 private:
 	Mutex vs_mutex{"vmspace"}; /* protects all fields and sub-areas */
 };
@@ -83,13 +92,7 @@ private:
 addr_t vmspace_determine_va(VMSpace& vs, size_t len);
 Result vmspace_create(VMSpace*& vs);
 void vmspace_destroy(VMSpace& vs);
-Result vmspace_mapto(VMSpace& vs, addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
-Result vmspace_mapto_dentry(VMSpace& vs, addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags, VMArea*& va_out);
-Result vmspace_map(VMSpace& vs, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
-Result vmspace_area_resize(VMSpace& vs, VMArea& va, size_t new_length /* in bytes */);
+
 Result vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags);
-Result vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags);
-void vmspace_area_free(VMSpace& vs, VMArea& va);
-void vmspace_dump(VMSpace& vs);
 
 #endif /* ANANAS_VMSPACE_H */

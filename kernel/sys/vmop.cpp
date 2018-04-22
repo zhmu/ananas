@@ -50,11 +50,11 @@ sys_vmop_map(Thread* curthread, struct VMOP_OPTIONS* vo)
 			return RESULT_MAKE_FAILURE(EBADF);
 
 		RESULT_PROPAGATE_FAILURE(
-			vmspace_mapto_dentry(vs, dest_addr, vo->vo_len, *dentry, vo->vo_offset, vo->vo_len, vm_flags, va)
+			vs.MapToDentry(dest_addr, vo->vo_len, *dentry, vo->vo_offset, vo->vo_len, vm_flags, va)
 		);
 	} else {
 		RESULT_PROPAGATE_FAILURE(
-			vmspace_mapto(vs, dest_addr, vo->vo_len, vm_flags, va)
+			vs.MapTo(dest_addr, vo->vo_len, vm_flags, va)
 		);
 	}
 

@@ -64,7 +64,7 @@ vmspace_cleanup(VMSpace& vs)
 	/* Cleanup only removes all mapped areas */
 	while(!vs.vs_areas.empty()) {
 		VMArea& va = vs.vs_areas.front();
-		vmspace_area_free(vs, va);
+		vs.FreeArea(va);
 	}
 }
 
@@ -102,7 +102,7 @@ vmspace_free_range(VMSpace& vs, addr_t virt, size_t len)
 
 		// Okay, we can alter this va to exclude our mapping. If it matches 1-to-1, just throw it away
 		if (virt == va.va_virt && len == va.va_len) {
-			vmspace_area_free(vs, va);
+			vs.FreeArea(va);
 			return true;
 		}
 
@@ -137,13 +137,13 @@ vmspace_free_range(VMSpace& vs, addr_t virt, size_t len)
 }
 
 Result
-vmspace_mapto(VMSpace& vs, addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out)
+VMSpace::MapTo(addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out)
 {
 	if (len == 0)
 		return RESULT_MAKE_FAILURE(EINVAL);
 
 	// If the virtual address space is already in use, we need to break it up
-	if (!vmspace_free_range(vs, virt, len))
+	if (!vmspace_free_range(*this, virt, len))
 		return RESULT_MAKE_FAILURE(ENOSPC);
 
 	auto va = new VMArea;
@@ -157,17 +157,17 @@ vmspace_mapto(VMSpace& vs, addr_t virt, size_t len /* bytes */, uint32_t flags, 
 	va->va_virt = virt;
 	va->va_len = len;
 	va->va_flags = flags;
-	vs.vs_areas.push_back(*va);
-	TRACE(VM, INFO, "vmspace_mapto(): vs=%p, va=%p, virt=%p, flags=0x%x", &vs, va, virt, flags);
+	vs_areas.push_back(*va);
+	TRACE(VM, INFO, "vmspace_mapto(): vs=%p, va=%p, virt=%p, flags=0x%x", this, va, virt, flags);
 	va_out = va;
 
 	/* Provide a mapping for the pages */
-	md::vm::MapPages(&vs, va->va_virt, 0, BytesToPages(len), 0); //(flags & VM_FLAG_FAULT) ? 0 : flags);
+	md::vm::MapPages(this, va->va_virt, 0, BytesToPages(len), 0); //(flags & VM_FLAG_FAULT) ? 0 : flags);
 	return Result::Success();
 }
 
 Result
-vmspace_mapto_dentry(VMSpace& vs, addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags, VMArea*& va_out)
+VMSpace::MapToDentry(addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags, VMArea*& va_out)
 {
 	// Ensure the range we are mapping does not exceed the inode; if this is the case, we silently truncate
 	if (doffset + vlength > dentry.d_inode->i_sb.st_size) {
@@ -177,7 +177,7 @@ vmspace_mapto_dentry(VMSpace& vs, addr_t virt, size_t vlength, DEntry& dentry, o
 	KASSERT((doffset & (PAGE_SIZE - 1)) == 0, "offset %d not page-aligned", doffset);
 
 	RESULT_PROPAGATE_FAILURE(
-		vmspace_mapto(vs, virt, vlength, flags | VM_FLAG_FAULT, va_out)
+		MapTo(virt, vlength, flags | VM_FLAG_FAULT, va_out)
 	);
 
 	dentry_ref(dentry);
@@ -188,9 +188,9 @@ vmspace_mapto_dentry(VMSpace& vs, addr_t virt, size_t vlength, DEntry& dentry, o
 }
 
 Result
-vmspace_map(VMSpace& vs, size_t len /* bytes */, uint32_t flags, VMArea*& va_out)
+VMSpace::Map(size_t len /* bytes */, uint32_t flags, VMArea*& va_out)
 {
-	return vmspace_mapto(vs, vmspace_determine_va(vs, len), len, flags, va_out);
+	return MapTo(vmspace_determine_va(*this, len), len, flags, va_out);
 }
 
 /*
@@ -225,9 +225,9 @@ vmspace_clone_area_must_copy(const VMArea& va, int flags)
 }
 
 Result
-vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags)
+VMSpace::Clone(VMSpace& vs_dest, int flags)
 {
-	TRACE(VM, INFO, "vmspace_clone(): source=%p dest=%p flags=%x", &vs_source, &vs_dest, flags);
+	TRACE(VM, INFO, "vmspace_clone(): source=%p dest=%p flags=%x", this, &vs_dest, flags);
 
 	/*
 	 * First, clean up the destination area's mappings - this ensures we'll
@@ -240,17 +240,17 @@ vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags)
 		VMArea& va = *it; ++it;
 		if (!vmspace_clone_area_must_free(va, flags))
 			continue;
-		vmspace_area_free(vs_dest, va);
+		vs_dest.FreeArea(va);
 	}
 
 	/* Now copy everything over that isn't private */
-	for(auto& va_src: vs_source.vs_areas) {
+	for(auto& va_src: vs_areas) {
 		if (!vmspace_clone_area_must_copy(va_src, flags))
 			continue;
 
 		VMArea* va_dst;
 		RESULT_PROPAGATE_FAILURE(
-			vmspace_mapto(vs_dest, va_src.va_virt, va_src.va_len, va_src.va_flags, va_dst)
+			vs_dest.MapTo(va_src.va_virt, va_src.va_len, va_src.va_flags, va_dst)
 		);
 		if (va_src.va_dentry != nullptr) {
 			// Backed by an inode; copy the necessary fields over
@@ -266,7 +266,7 @@ vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags)
 			KASSERT(vp.GetPage()->p_order == 0, "unexpected %d order page here", vp.GetPage()->p_order);
 
 			// Create a clone of the data; it is up to the vmpage how to do this (it may go for COW)
-			VMPage& new_vp = vmpage_clone(vs_source, va_src, *va_dst, vp);
+			VMPage& new_vp = vmpage_clone(*this, va_src, *va_dst, vp);
 
 			// Map the page into the cloned vmspace
 			vmpage_map(vs_dest, *va_dst, new_vp);
@@ -291,9 +291,9 @@ vmspace_clone(VMSpace& vs_source, VMSpace& vs_dest, int flags)
 }
 
 void
-vmspace_area_free(VMSpace& vs, VMArea& va)
+VMSpace::FreeArea(VMArea& va)
 {
-	vs.vs_areas.remove(va);
+	vs_areas.remove(va);
 
 	/* Free any backing dentry, if we have one */
 	if (va.va_dentry != nullptr)
@@ -314,9 +314,9 @@ vmspace_area_free(VMSpace& vs, VMArea& va)
 }
 
 void
-vmspace_dump(VMSpace& vs)
+VMSpace::Dump()
 {
-	for(auto& va: vs.vs_areas) {
+	for(auto& va: vs_areas) {
 		kprintf("  area %p: %p..%p flags %c%c%c%c%c%c%c%c\n",
 		 &va, va.va_virt, va.va_virt + va.va_len - 1,
 		 (va.va_flags & VM_FLAG_READ) ? 'r' : '.',
