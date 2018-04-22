@@ -29,7 +29,7 @@ Init(VMSpace& vs)
 	md::vm::MapKernelSpace(vs);
 
 	// Map the userland support page
-	md::vm::MapPages(&vs, USERLAND_SUPPORT_ADDR, page_get_paddr(*usupport_page), 1, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_EXECUTE);
+	md::vm::MapPages(&vs, USERLAND_SUPPORT_ADDR, usupport_page->GetPhysicalAddress(), 1, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_EXECUTE);
 	return Result::Success();
 }
 

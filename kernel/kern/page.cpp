@@ -17,10 +17,10 @@
 
 static PageZoneList zones;
 
-static inline void
-page_assert_sane(Page& p)
+void
+Page::AssertSane() const
 {
-	KASSERT(p.p_order >= 0 && p.p_order < PAGE_NUM_ORDERS, "corrupt page %p", &p);
+	KASSERT(p_order >= 0 && p_order < PAGE_NUM_ORDERS, "corrupt page %p", this);
 }
 
 static inline int
@@ -102,7 +102,7 @@ page_free_index(PageZone& z, unsigned int order, unsigned int index)
 void
 page_free(Page& p)
 {
-	page_assert_sane(p);
+	p.AssertSane();
 
 	PageZone& z = *p.p_zone;
 	page_free_index(z, p.p_order, &p - z.z_base);
@@ -211,13 +211,12 @@ page_zone_add(addr_t base, size_t length)
 }
 
 addr_t
-page_get_paddr(Page& p)
+Page::GetPhysicalAddress() const
 {
-	page_assert_sane(p);
+	AssertSane();
 
-	PageZone& z = *p.p_zone;
-	unsigned int index = &p - z.z_base;
-	return z.z_phys_addr + index * PAGE_SIZE;
+	const auto index = this - p_zone->z_base;
+	return p_zone->z_phys_addr + index * PAGE_SIZE;
 }
 
 Page*
@@ -243,7 +242,7 @@ page_alloc_order_mapped(int order, Page*& p, int vm_flags)
 	p = page_alloc_order(order);
 	if (p == nullptr)
 		return nullptr;
-	return kmem_map(page_get_paddr(*p), PAGE_SIZE << order, vm_flags);
+	return kmem_map(p->GetPhysicalAddress(), PAGE_SIZE << order, vm_flags);
 }
 
 Page*

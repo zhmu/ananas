@@ -544,7 +544,7 @@ smp_init_ap_pagetable()
 	 */
 	void* ptr = page_alloc_length_mapped(3 * PAGE_SIZE, smp_ap_pages, VM_FLAG_READ | VM_FLAG_WRITE);
 
-	addr_t pa = page_get_paddr(*smp_ap_pages);
+	addr_t pa = smp_ap_pages->GetPhysicalAddress();
 	uint64_t* pml4 = static_cast<uint64_t*>(ptr);
 	uint64_t* pdpe = reinterpret_cast<uint64_t*>(static_cast<char*>(ptr) + PAGE_SIZE);
 	uint64_t* pde = reinterpret_cast<uint64_t*>(static_cast<char*>(ptr) + PAGE_SIZE * 2);

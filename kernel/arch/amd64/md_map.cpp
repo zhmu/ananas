@@ -31,7 +31,7 @@ get_nextpage(VMSpace* vs, uint64_t page_flags)
 		vs->vs_pages.push_back(*p);
 
 	/* Map this page in kernel-space XXX How do we clean it up? */
-	addr_t phys = page_get_paddr(*p);
+	addr_t phys = p->GetPhysicalAddress();
 	void* va = kmem_map(phys, PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 	memset(va, 0, PAGE_SIZE);
 	return phys | page_flags;

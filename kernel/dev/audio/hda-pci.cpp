@@ -216,7 +216,7 @@ HDAPCIDevice::OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context*
 	for (int n = 0; n < num_pages; n++, bdl++, sp++) {
 		/* XXX use dma system here */
 		sp->sp_ptr = page_alloc_single_mapped(sp->sp_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
-		bdl->bdl_addr = page_get_paddr(*sp->sp_page);
+		bdl->bdl_addr = sp->sp_page->GetPhysicalAddress();
 		bdl->bdl_length = PAGE_SIZE;
 		// XXX only give IRQ on each buffer half
 		bdl->bdl_flags = (n == (num_pages/ 2) || n == (num_pages - 1) ? BDL_FLAG_IOC : 0);
@@ -226,7 +226,7 @@ HDAPCIDevice::OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context*
 	HDA_WRITE_4(HDA_REG_xSDnCBL(ss), num_pages * PAGE_SIZE);
 	HDA_WRITE_4(HDA_REG_xSDnLVI(ss), num_pages - 1);
 	HDA_WRITE_2(HDA_REG_xSDnFMT(ss), fmt);
-	HDA_WRITE_4(HDA_REG_xSDnBDPL(ss), page_get_paddr(*s->s_bdl_page));
+	HDA_WRITE_4(HDA_REG_xSDnBDPL(ss), s->s_bdl_page->GetPhysicalAddress());
 	HDA_WRITE_4(HDA_REG_xSDnBDPU(ss), 0); // XXX
 
 	/* Set the stream status up - we don't set the RUN bit just yet */
@@ -429,7 +429,7 @@ HDAPCIDevice::Attach()
 	static_assert(PAGE_SIZE >= 4096, "tiny page size?");
 	hda_corb = static_cast<uint32_t*>(page_alloc_single_mapped(hda_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE));
 	hda_rirb = (uint64_t*)((char*)hda_corb + 1024);
-	addr_t corb_paddr = page_get_paddr(*hda_page);
+	addr_t corb_paddr = hda_page->GetPhysicalAddress();
 	memset(hda_corb, 0, PAGE_SIZE);
 
 	/* Set up the CORB buffer; this is used to transfer commands to a codec */

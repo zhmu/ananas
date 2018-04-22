@@ -10,6 +10,12 @@ struct PageZone;
 
 struct Page : util::List<Page>::NodePtr
 {
+	// Performs basic checks to ensure validity of the page
+	void AssertSane() const;
+
+	// Retrieves the physical address
+	addr_t GetPhysicalAddress() const;
+
 	/* Page order */
 	unsigned int p_order;
 
@@ -55,9 +61,6 @@ inline static Page* page_alloc_single() {
 	return page_alloc_order(0);
 }
 void page_free(Page& p);
-
-/* Retrieves the physical address of page p */
-addr_t page_get_paddr(Page& p);
 
 /* Allocates 2^order pages and maps it to kernel memory using vm_flags */
 void* page_alloc_order_mapped(int order, Page*& p, int vm_flags);

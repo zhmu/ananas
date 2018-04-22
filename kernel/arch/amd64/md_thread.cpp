@@ -39,7 +39,7 @@ InitUserlandThread(Thread& t, int flags)
 	 * and overflow.
 	 */
 	t.md_kstack_page = page_alloc_length(KERNEL_STACK_SIZE + PAGE_SIZE);
-	t.md_kstack = kmem_map(page_get_paddr(*t.md_kstack_page) + PAGE_SIZE, KERNEL_STACK_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
+	t.md_kstack = kmem_map(t.md_kstack_page->GetPhysicalAddress() + PAGE_SIZE, KERNEL_STACK_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 
 	/* Set up a stackframe so that we can return to the kernel code */
 	struct STACKFRAME* sf = (struct STACKFRAME*)((addr_t)t.md_kstack + KERNEL_STACK_SIZE - sizeof(*sf));
@@ -75,7 +75,7 @@ InitKernelThread(Thread& t, kthread_func_t kfunc, void* arg)
 	 * no kernelthread ever runs userland code.
 	 */
 	t.md_kstack_page = page_alloc_length(KERNEL_STACK_SIZE + PAGE_SIZE);
-	t.md_kstack = kmem_map(page_get_paddr(*t.md_kstack_page) + PAGE_SIZE, KERNEL_STACK_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
+	t.md_kstack = kmem_map(t.md_kstack_page->GetPhysicalAddress() + PAGE_SIZE, KERNEL_STACK_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
 	t.t_md_flags = THREAD_MDFLAG_FULLRESTORE;
 
 	/* Set up a stackframe so that we can return to the kernel code */

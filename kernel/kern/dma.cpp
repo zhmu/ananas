@@ -134,7 +134,7 @@ dma_buf_alloc(dma_tag_t tag, dma_size_t size, dma_buf_t* buf)
 			result = RESULT_MAKE_FAILURE(ENOMEM);
 			break;
 		}
-		s->s_phys = page_get_paddr(*s->s_page);
+		s->s_phys = s->s_page->GetPhysicalAddress();
 	}
 
 	if (result.IsSuccess())
