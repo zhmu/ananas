@@ -62,7 +62,7 @@ class RootHub;
 
 } // namespace OHCI
 
-class OHCI_HCD : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IUSBDeviceOperations
+class OHCI_HCD : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IUSBDeviceOperations, private irq::IHandler
 {
 public:
 	using Device::Device;
@@ -112,14 +112,7 @@ private:
 	OHCI::HCD_ED* AllocateED();
 	OHCI::HCD_ED* SetupED(Transfer& xfer);
 
-	void OnIRQ();
-
-	static IRQResult IRQWrapper(Ananas::Device* device, void* context)
-	{
-		auto ohci = static_cast<OHCI_HCD*>(device);
-		ohci->OnIRQ();
-		return IRQResult::IR_Processed;
-	}
+	irq::IRQResult OnIRQ() override;
 
 	dma_buf_t ohci_hcca_buf;
 	OHCI_HCCA* ohci_hcca = nullptr;

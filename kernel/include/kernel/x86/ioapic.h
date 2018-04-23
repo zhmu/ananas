@@ -31,7 +31,7 @@
 #define DELMOD_INIT		(5 << 8)	/* INIT IPI */
 #define DELMOD_EXTINT		(7 << 8)	/* External int, must be edge */
 
-struct X86_IOAPIC : IRQSource
+struct X86_IOAPIC : irq::IRQSource
 {
 	X86_IOAPIC();
 

@@ -15,7 +15,7 @@ namespace {
 // XXX This is a horrible kludge to prevent attaching the console SIO twice...
 bool s_IsConsole = false;
 
-class SIO : public TTY
+class SIO : public TTY, private irq::IHandler
 {
 public:
 	using TTY::TTY;
@@ -27,24 +27,18 @@ public:
 	Result Print(const char* buffer, size_t len) override;
 
 private:
-	void OnIRQ();
-
-	static IRQResult IRQWrapper(Ananas::Device* device, void* context)
-	{
-		auto sio = static_cast<SIO*>(device);
-		sio->OnIRQ();
-		return IRQResult::IR_Processed;
-	}
+	irq::IRQResult OnIRQ() override;
 
 	uint32_t sio_port;
 };
 
-void
+irq::IRQResult
 SIO::OnIRQ()
 {
 	char ch = inb(sio_port + SIO_REG_DATA);
 
 	OnInput(&ch, 1);
+	return irq::IRQResult::Processed;
 }
 
 Result
@@ -59,7 +53,7 @@ SIO::Attach()
 
 	/* SIO is so simple that a plain ISR will do */
 	RESULT_PROPAGATE_FAILURE(
-		irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_ISR, NULL)
+		irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_ISR, *this)
 	);
 
 	/*

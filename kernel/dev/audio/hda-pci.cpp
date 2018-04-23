@@ -32,7 +32,7 @@ TRACE_SETUP;
 namespace Ananas {
 namespace HDA {
 
-class HDAPCIDevice : public Ananas::Device, private Ananas::IDeviceOperations, private IHDAFunctions
+class HDAPCIDevice : public Ananas::Device, private Ananas::IDeviceOperations, private IHDAFunctions, private irq::IHandler
 {
 public:
 	using Device::Device;
@@ -56,14 +56,7 @@ public:
 	void* GetStreamDataPointer(Context context, int page) override;
 
 private:
-	void OnIRQ();
-
-	static IRQResult IRQWrapper(Ananas::Device* device, void* context)
-	{
-		auto hdapci = static_cast<HDAPCIDevice*>(device);
-		hdapci->OnIRQ();
-		return IRQResult::IR_Processed;
-	}
+	irq::IRQResult OnIRQ() override;
 
 	addr_t hda_addr;
 	int hda_iss, hda_oss, hda_bss;	/* stream counts, per type */
@@ -79,7 +72,7 @@ private:
 	HDADevice* hda_device;
 };
 
-void
+irq::IRQResult
 HDAPCIDevice::OnIRQ()
 {
 	uint32_t sts = HDA_READ_4(HDA_REG_INTSTS);
@@ -101,6 +94,7 @@ HDAPCIDevice::OnIRQ()
 		HDA_WRITE_1(HDA_REG_xSDnSTS(s->s_ss), HDA_READ_1(HDA_REG_xSDnSTS(s->s_ss)) | HDA_SDnSTS_BCIS);
 		hda_device->OnStreamIRQ(s);
 	}
+	return irq::IRQResult::Processed;
 }
 
 Result
@@ -368,7 +362,7 @@ HDAPCIDevice::Attach()
 	hda_addr = (addr_t)res_io;
 
 	RESULT_PROPAGATE_FAILURE(
-		irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_DEFAULT, nullptr)
+		irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this)
 	);
 
 	/* Enable busmastering; all communication is done by DMA */

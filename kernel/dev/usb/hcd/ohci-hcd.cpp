@@ -249,7 +249,7 @@ OHCI_HCD::Dump()
 	}
 }
 
-void
+irq::IRQResult
 OHCI_HCD::OnIRQ()
 {
 	/*
@@ -268,7 +268,7 @@ OHCI_HCD::OnIRQ()
 	}
 	if (is == 0) {
 		/* Not my interrupt; ignore */
-		return; // XXX we should return that we ignored it
+		return irq::IRQResult::Ignored;
 	}
 
 	if (is & OHCI_IS_WDH) {
@@ -347,6 +347,7 @@ OHCI_HCD::OnIRQ()
 		Printf("disabling excessive interrupts %x", is);
 		ohci_Resources.Write4(OHCI_HCINTERRUPTDISABLE, is);
 	}
+	return irq::IRQResult::Processed;
 }
 
 OHCI::HCD_TD*
@@ -720,7 +721,7 @@ OHCI_HCD::Attach()
 
 	/* Set up the interrupt handler */
 	RESULT_PROPAGATE_FAILURE(
-		irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_DEFAULT, NULL)
+		irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this)
 	);
 
 	/* Initialize the structures */

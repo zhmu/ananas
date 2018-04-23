@@ -12,95 +12,22 @@
 
 TRACE_SETUP;
 
-static struct IRQ irq[MAX_IRQS];
-static IRQSourceList irq_sources;
-static Spinlock spl_irq;
+namespace irq {
 
-/* Number of stray IRQ's that occur before reporting stops */
-#define IRQ_MAX_STRAY_COUNT 10
+namespace {
 
-void
-irqsource_register(IRQSource& source)
+util::array<IRQ, MAX_IRQS> irqList;
+IRQSourceList irqSources;
+Spinlock spl_irq;
+
+// Number of stray IRQ's that occur before reporting stops
+constexpr inline int maxStrayCount = 10;
+
+// Must be called with spl_irq held
+IRQSource*
+FindSource(unsigned int num)
 {
-	SpinlockUnpremptibleGuard g(spl_irq);
-
-	/* Ensure no bogus ranges are being registered */
-	KASSERT(source.is_count >= 1, "must register at least one irq");
-	KASSERT(source.is_first + source.is_count < MAX_IRQS, "can't register beyond MAX_IRQS range");
-
-	/* Ensure there will not be an overlap */
-	for(auto& is: irq_sources) {
-		KASSERT(source.is_first + source.is_count < is.is_first || is.is_first + is.is_count < source.is_first, "overlap in interrupt ranges (have %u-%u, attempt to add %u-%u)", is.is_first, is.is_first + is.is_count, source.is_first, source.is_first + source.is_count);
-	}
-	irq_sources.push_back(source);
-
-	/* Hook all IRQ's to this source - this saves having to look things up later */
-	for(unsigned int n = 0; n < source.is_count; n++) {
-		struct IRQ* i = &irq[source.is_first + n];
-		i->i_source = &source;
-		/* Also a good time to initialize the semaphore */
-	}
-}
-
-void
-irqsource_unregister(IRQSource& source)
-{
-	SpinlockUnpremptibleGuard g(spl_irq);
-
-	KASSERT(!irq_sources.empty(), "no irq sources registered");
-	/* Ensure our source is registered */
-	int matches = 0;
-	for(const auto& is: irq_sources) {
-		if (&is != &source)
-			continue;
-		matches++;
-	}
-	KASSERT(matches == 1, "irq source not registered");
-
-	/* Walk through the IRQ's and ensure they do not use this source anymore */
-	for (int i = 0; i < MAX_IRQS; i++) {
-		if (irq[i].i_source != &source)
-			continue;
-		irq[i].i_source = NULL;
-		for (int n = 0; n < IRQ_MAX_HANDLERS; n++)
-			KASSERT(irq[i].i_handler[n].h_func == NULL, "irq %u still registered to this source", i);
-	}
-
-	irq_sources.remove(source);
-}
-
-static void
-ithread(void* context)
-{
-	unsigned int no = (unsigned int)(uintptr_t)context;
-	KASSERT(no < MAX_IRQS, "ithread for impossible irq %u", no);
-
-	struct IRQ* i = &irq[no];
-	struct IRQSource* is = i->i_source;
-	KASSERT(is != NULL, "ithread for irq %u without source fired", no);
-
-	while(1) {
-		i->i_semaphore.Wait();
-
-		/* XXX We do need a lock here */
-		struct IRQ_HANDLER* handler = &i->i_handler[0];
-		for (unsigned int slot = 0; slot < IRQ_MAX_HANDLERS; slot++, handler++) {
-			if (handler->h_func == NULL || (handler->h_flags & IRQ_HANDLER_FLAG_SKIP))
-				continue;
-			if (handler->h_flags & IRQ_HANDLER_FLAG_THREAD)
-				handler->h_func(handler->h_device, handler->h_context);
-		}
-
-		/* Unmask the IRQ, we can handle it again now that the IST is done */
-		is->Unmask(no - is->is_first);
-	}
-}
-
-/* Must be called with spl_irq held */
-static IRQSource*
-irqsource_find(unsigned int num)
-{
-	for(auto& is: irq_sources) {
+	for(auto& is: irqSources) {
 		if (num < is.is_first || num >= is.is_first + is.is_count)
 			continue;
 		return &is;
@@ -108,77 +35,159 @@ irqsource_find(unsigned int num)
 	return nullptr;
 }
 
-Result
-irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, void* context)
+// Must be called with spl_irq held
+IRQHandler*
+FindFreeHandlerSlot(IRQ& i)
 {
-	if (no >= MAX_IRQS)
+	for (auto& handler: i.i_handler) {
+		if (handler.h_handler == nullptr)
+			return &handler;
+	}
+	return nullptr;
+}
+
+} // unnamed namespace
+
+void
+RegisterSource(IRQSource& source)
+{
+	SpinlockUnpremptibleGuard g(spl_irq);
+
+	/* Ensure no bogus ranges are being registered */
+	KASSERT(source.is_count >= 1, "must register at least one irq");
+	KASSERT(source.is_first + source.is_count < irqList.size(), "can't register beyond irqList range");
+
+	/* Ensure there will not be an overlap */
+	for(auto& is: irqSources) {
+		KASSERT(source.is_first + source.is_count < is.is_first || is.is_first + is.is_count < source.is_first, "overlap in interrupt ranges (have %u-%u, attempt to add %u-%u)", is.is_first, is.is_first + is.is_count, source.is_first, source.is_first + source.is_count);
+	}
+	irqSources.push_back(source);
+
+	/* Hook all IRQ's to this source - this saves having to look things up later */
+	for(unsigned int n = 0; n < source.is_count; n++) {
+		auto& i = irqList[source.is_first + n];
+		i.i_source = &source;
+	}
+}
+
+void
+UnregisterSource(IRQSource& source)
+{
+	SpinlockUnpremptibleGuard g(spl_irq);
+
+	KASSERT(!irqSources.empty(), "no irq sources registered");
+	/* Ensure our source is registered */
+	int matches = 0;
+	for(const auto& is: irqSources) {
+		if (&is != &source)
+			continue;
+		matches++;
+	}
+	KASSERT(matches == 1, "irq source not registered");
+
+	/* Walk through the IRQ's and ensure they do not use this source anymore */
+	int num = 0;
+	for (auto& i: irqList) {
+		if (i.i_source != &source) {
+			num++;
+			continue;
+		}
+		i.i_source = nullptr;
+		for (const auto& handler: i.i_handler)
+			KASSERT(handler.h_handler == nullptr, "irq %u still registered to this source", num);
+		num++;
+	}
+
+	irqSources.remove(source);
+}
+
+static void
+ithread(void* context)
+{
+	unsigned int no = (unsigned int)(uintptr_t)context;
+	KASSERT(no < irqList.size(), "ithread for impossible irq %u", no);
+
+	auto& i = irqList[no];
+	auto is = i.i_source;
+	KASSERT(is != nullptr, "ithread for irq %u without source fired", no);
+
+	while(1) {
+		i.i_semaphore.Wait();
+
+		/* XXX We do need a lock here */
+		for (auto& handler: i.i_handler) {
+			if (handler.h_handler == nullptr || (handler.h_flags & IRQ_HANDLER_FLAG_SKIP))
+				continue;
+			if (handler.h_flags & IRQ_HANDLER_FLAG_THREAD)
+				handler.h_handler->OnIRQ(); // XXX Maybe we should care about the return code here
+		}
+
+		/* Unmask the IRQ, we can handle it again now that the IST is done */
+		is->Unmask(no - is->is_first);
+	}
+}
+
+Result
+Register(unsigned int no, Ananas::Device* dev, int type, IHandler& irqHandler)
+{
+	if (no >= irqList.size())
 		return RESULT_MAKE_FAILURE(ERANGE);
 
+	// Note that we can't use SpinlockUnpremptibleGuard here as we may need to
+	// release and re-acquire the lock
 	auto state = spl_irq.LockUnpremptible();
 
 	/*
 	 * Look up the interrupt source; if we can't find it, it means this interrupt will
 	 * never fire so we should refuse to register it.
 	 */
-	IRQSource* is = irqsource_find(no);
-	if (is == NULL) {
+	IRQSource* is = FindSource(no);
+	if (is == nullptr) {
 		spl_irq.UnlockUnpremptible(state);
 		return RESULT_MAKE_FAILURE(ENODEV);
 	}
 
-	struct IRQ* i = &irq[no];
-	i->i_source = is;
+	auto& i = irqList[no];
+	i.i_source = is;
 
-	/* Locate a free slot for the handler */
-	int slot = 0;
-	for (/* nothing */; i->i_handler[slot].h_func != NULL && slot < IRQ_MAX_HANDLERS; slot++)
-		/* nothing */;
-	if (slot == IRQ_MAX_HANDLERS) {
+	// Locate a free slot for the handler
+	IRQHandler* handler = FindFreeHandlerSlot(i);
+	if (handler == nullptr) {
+		// XXX does it matter that we set i_source before?
 		spl_irq.UnlockUnpremptible(state);
 		return RESULT_MAKE_FAILURE(EEXIST);
 	}
 
-	/* Found one, hook it up */
-	struct IRQ_HANDLER* handler = &i->i_handler[slot];
+	// Found one, hook it up
 	handler->h_device = dev;
-	handler->h_func = func;
-	handler->h_context = context;
+	handler->h_handler = &irqHandler;
 	handler->h_flags = 0;
 	if (type != IRQ_TYPE_ISR)
 		handler->h_flags |= IRQ_FLAG_THREAD;
 
-	/*
-	 * See if we need to create an IST; we can't call kthread_init() in a
-	 * spinlock because it allocates memory. To cope, we do the following:
-	 *
-	 *  (1) Register the handler, but mark it as IRQ_HANDLER_FLAG_SKIP to avoid calling it
-	 *  (2) Release the lock
-	 *  (3) Create the IST
-	 *  (4) Acquire the lock
-	 *  (5)d Ad IRQ_FLAG_THREAD to the IRQ, and remove IRQ_HANDLER_FLAG_SKIP from the handler
-	 */
-	int create_thread = (i->i_flags & IRQ_HANDLER_FLAG_THREAD) == 0 && (handler->h_flags & IRQ_FLAG_THREAD);
-	if (create_thread)
-		handler->h_flags |= IRQ_HANDLER_FLAG_SKIP; /* (1) */
+	// If we need to create the IST, do so here
+	if ((i.i_flags & IRQ_HANDLER_FLAG_THREAD) == 0 && (handler->h_flags & IRQ_FLAG_THREAD)) {
+		// Register the handler, but mark it as IRQ_HANDLER_FLAG_SKIP to avoid calling it
+		handler->h_flags |= IRQ_HANDLER_FLAG_SKIP;
 
-	if (create_thread) {
-		spl_irq.UnlockUnpremptible(state); /* (2) */
+		// Release lock as we can't kthread_init() with it
+		spl_irq.UnlockUnpremptible(state);
 
-		/* (3) Create the thread */
+		// (3) Create the thread
 		char thread_name[PAGE_SIZE];
 		snprintf(thread_name, sizeof(thread_name) - 1, "irq-%d", no);
 		thread_name[sizeof(thread_name) - 1] = '\0';
-		kthread_init(i->i_thread, thread_name, &ithread, (void*)(uintptr_t)no);
-		i->i_thread.Resume();
+		kthread_init(i.i_thread, thread_name, &ithread, (void*)(uintptr_t)no);
+		i.i_thread.Resume();
 
-		/* XXX we should set a decent priority here */
+		// XXX we should set a decent priority here
 
-		/* (4) Re-acquire the lock */
+		// (4) Re-acquire the lock
 		state = spl_irq.LockUnpremptible();
 
-		/* (5) Remove the IRQ_SKIP flag, add IRQ_FLAG_THREAD  */
+		// (5) Remove the IRQ_SKIP flag, add IRQ_FLAG_THREAD so it will be serviced correctly
 		handler->h_flags &= ~IRQ_HANDLER_FLAG_SKIP;
-		i->i_flags |= IRQ_FLAG_THREAD;
+		i.i_flags |= IRQ_FLAG_THREAD;
 	}
 
 	spl_irq.UnlockUnpremptible(state);
@@ -186,71 +195,68 @@ irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, voi
 }
 
 void
-irq_unregister(unsigned int no, Ananas::Device* dev, irqfunc_t func, void* context)
+Unregister(unsigned int no, Ananas::Device* dev, IHandler& irqHandler)
 {
-	KASSERT(no < MAX_IRQS, "interrupt %u out of range", no);
+	KASSERT(no < irqList.size(), "interrupt %u out of range", no);
 
 	SpinlockUnpremptibleGuard g(spl_irq);
-	struct IRQ* i = &irq[no];
-	KASSERT(i->i_source != NULL, "interrupt %u has no source", no);
+	auto& i = irqList[no];
+	KASSERT(i.i_source != nullptr, "interrupt %u has no source", no);
 
-	int matches = 0;
-	for (int slot = 0; slot < IRQ_MAX_HANDLERS; slot++) {
-		struct IRQ_HANDLER* handler = &i->i_handler[slot];
-		if (handler->h_device != dev || handler->h_func != func || handler->h_context != context)
+	bool isUnregistered = false;
+	for(auto& handler: i.i_handler) {
+		if (handler.h_device != dev || handler.h_handler != &irqHandler)
 			continue;
 
 		/* Found a match; unregister it */
-		handler->h_device = NULL;
-		handler->h_func = NULL;
-		handler->h_context = NULL;
-		handler->h_flags = 0;
-		matches++;
+		handler.h_device = nullptr;
+		handler.h_handler = nullptr;
+		handler.h_flags = 0;
+		isUnregistered = true;
 	}
 
-	KASSERT(matches > 0, "interrupt %u not registered", no);
+	KASSERT(isUnregistered, "interrupt %u not registered", no);
 }
 
 void
-irq_handler(unsigned int no)
+InvokeHandler(unsigned int no)
 {
 	int cpuid = PCPU_GET(cpuid);
-	struct IRQ* i = &irq[no];
-	i->i_count++;
+	auto& i = irqList[no];
+	i.i_count++;
 
-	KASSERT(no < MAX_IRQS, "irq_handler: (CPU %u) impossible irq %u fired", cpuid, no);
-	IRQSource* is = i->i_source;
-	KASSERT(is != NULL, "irq_handler(): irq %u without source fired", no);
+	KASSERT(no < irqList.size(), "irq_handler: (CPU %u) impossible irq %u fired", cpuid, no);
+	IRQSource* is = i.i_source;
+	KASSERT(is != nullptr, "irq_handler(): irq %u without source fired", no);
 
 	/*
 	 * Try all handlers one by one until we have one that works - if we find a handler that is to be
 	 * call from the IST, flag so we don't do that multiple times.
 	 */
-	int awake_thread = 0, handled = 0;
-	struct IRQ_HANDLER* handler = &i->i_handler[0];
-	for (unsigned int slot = 0; slot < IRQ_MAX_HANDLERS; slot++, handler++) {
-		if (handler->h_func == NULL || (handler->h_flags & IRQ_HANDLER_FLAG_SKIP))
+	bool awake_thread = false, handled = false;
+	for (auto& handler: i.i_handler) {
+		if (handler.h_handler == nullptr || (handler.h_flags & IRQ_HANDLER_FLAG_SKIP))
 			continue;
-		if ((handler->h_flags & IRQ_HANDLER_FLAG_THREAD) == 0) {
-			/* plain old ISR */
-			if (handler->h_func(handler->h_device, handler->h_context) == IRQResult::IR_Processed)
-				handled++;
+		if ((handler.h_flags & IRQ_HANDLER_FLAG_THREAD) == 0) {
+			// Plain old ISR
+			if (handler.h_handler->OnIRQ() == IRQResult::Processed)
+				handled = true;
 		} else {
-			awake_thread = 1; /* need to invoke the IST */
+			awake_thread = true; // need to invoke the IST
 		}
 	}
 
 	if (awake_thread) {
-		/* Mask the interrupt source; the ithread will unmask it once done */
+		// Mask the interrupt source; the ithread will unmask it once done
 		is->Mask(no - is->is_first);
 
-		/* Awake the interrupt thread */
-		i->i_semaphore.Signal();
-	} else if (!handled && i->i_straycount < IRQ_MAX_STRAY_COUNT) {
-		/* If they IRQ wasn't handled, it is stray */
-		kprintf("irq_handler(): (CPU %u) stray irq %u, ignored\n", cpuid, no);
-		if (++i->i_straycount == IRQ_MAX_STRAY_COUNT)
-			kprintf("irq_handler(): not reporting stray irq %u anymore\n", no);
+		// Awake the interrupt thread
+		i.i_semaphore.Signal();
+	} else if (!handled && i.i_straycount < maxStrayCount) {
+		// If they IRQ wasn't handled, it is stray
+		kprintf("(CPU %u) Stray irq %u, ignored\n", cpuid, no);
+		if (++i.i_straycount == maxStrayCount)
+			kprintf("Not reporting stray irq %u anymore\n", no);
 	}
 
 	/*
@@ -261,7 +267,7 @@ irq_handler(unsigned int no)
 	 */
 	md::interrupts::Disable();
 
-	/* Acknowledge the interrupt once the handler is done */
+	// Acknowledge the interrupt once the handler is done
 	is->Acknowledge(no - is->is_first);
 
 	/*
@@ -274,37 +280,39 @@ irq_handler(unsigned int no)
 	irq_nestcount--;
 	PCPU_SET(nested_irq, irq_nestcount);
 
-	/* If the IRQ handler resulted in a reschedule of the current thread, handle it */
+	// If the IRQ handler resulted in a reschedule of the current thread, handle it
 	Thread* curthread = PCPU_GET(curthread);
 	if (irq_nestcount == 0 && curthread->IsRescheduling())
 		schedule();
 }
+
+} // namespace irq
 
 #ifdef OPTION_KDB
 KDB_COMMAND(irq, NULL, "Display IRQ status")
 {
 	/* Note: no need to grab locks as the debugger runs with interrupts disabled */
 	kprintf("Registered IRQ sources:\n");
-	for(const auto& is: irq_sources) {
+	for(const auto& is: irq::irqSources) {
 		kprintf(" IRQ %d..%d\n", is.is_first, is.is_first + is.is_count);
 	}
 
 	kprintf("IRQ handlers:\n");
-	for (unsigned int no = 0; no < MAX_IRQS; no++) {
-		struct IRQ* i = &irq[no];
+	int no = 0;
+	for(auto& i: irq::irqList) {
 		int banner = 0;
-		for (int slot = 0; slot < IRQ_MAX_HANDLERS; slot++) {
-			struct IRQ_HANDLER* handler = &i->i_handler[slot];
-			if (handler->h_func == NULL)
+		for(auto& handler: i.i_handler) {
+			if (handler.h_handler == nullptr)
 				continue;
 			if (!banner) {
-				kprintf(" IRQ %d flags %x count %u stray %d\n", no, i->i_flags, i->i_count, i->i_straycount);
+				kprintf(" IRQ %d flags %x count %u stray %d\n", no, i.i_flags, i.i_count, i.i_straycount);
 				banner = 1;
 			}
-			kprintf("  device '%s' handler %p flags %x\n", (handler->h_device != NULL) ? handler->h_device->d_Name : "<none>", handler->h_func, handler->h_flags);
+			kprintf("  device '%s' handler %p flags %x\n", (handler.h_device != nullptr) ? handler.h_device->d_Name : "<none>", handler.h_handler, handler.h_flags);
 		}
-		if (!banner && (i->i_flags != 0 || i->i_count > 0 || i->i_straycount > 0))
-			kprintf(" IRQ %d flags %x count %u stray %d\n", no, i->i_flags, i->i_count, i->i_straycount);
+		if (!banner && (i.i_flags != 0 || i.i_count > 0 || i.i_straycount > 0))
+			kprintf(" IRQ %d flags %x count %u stray %d\n", no, i.i_flags, i.i_count, i.i_straycount);
+		no++;
 	}
 }
 #endif

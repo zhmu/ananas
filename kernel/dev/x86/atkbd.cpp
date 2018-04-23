@@ -175,7 +175,7 @@ constexpr util::array<KeyMap, 128> keymap = {
 	/* 7f */ KeyMap{ Key{ KeyType::Invalid,      0 }, Key{ KeyType::Character,    0 } },
 };
 
-class ATKeyboard : public Ananas::Device, private Ananas::IDeviceOperations
+class ATKeyboard : public Ananas::Device, private Ananas::IDeviceOperations, private irq::IHandler
 {
 public:
 	using Device::Device;
@@ -190,21 +190,14 @@ public:
 	Result Detach() override;
 
 private:
-	void OnIRQ();
-
-	static IRQResult IRQWrapper(Ananas::Device* device, void* context)
-	{
-		auto atkbd = static_cast<ATKeyboard*>(device);
-		atkbd->OnIRQ();
-		return IRQResult::IR_Processed;
-	}
+	irq::IRQResult OnIRQ() override;
 
 private:
 	int kbd_ioport;
 	int	kbd_modifiers = 0;
 };
 
-void
+irq::IRQResult
 ATKeyboard::OnIRQ()
 {
 	while(inb(kbd_ioport + port::Status) & port::StatusOutputFull) {
@@ -264,6 +257,7 @@ ATKeyboard::OnIRQ()
 		if (key.IsValid())
 			keyboard_mux::OnKey(key, kbd_modifiers);
 	}
+	return irq::IRQResult::Processed;
 }
 
 Result
@@ -278,7 +272,7 @@ ATKeyboard::Attach()
 	kbd_ioport = (uintptr_t)res_io;
 
 	RESULT_PROPAGATE_FAILURE(
-		irq_register((uintptr_t)res_irq, this, IRQWrapper, IRQ_TYPE_DEFAULT, NULL)
+		irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this)
 	);
 
 	/*

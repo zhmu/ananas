@@ -69,7 +69,7 @@ private:
 	Spinlock p_lock;
 };
 
-class AHCIDevice : public Ananas::Device, private Ananas::IDeviceOperations
+class AHCIDevice : public Ananas::Device, private Ananas::IDeviceOperations, private irq::IHandler
 {
 	friend class Port;
 public:
@@ -95,15 +95,7 @@ protected:
 		return *(volatile uint32_t*)(ap_addr + reg);
 	}
 
-	void OnIRQ();
-
-	static IRQResult IRQWrapper(Ananas::Device* device, void* context)
-	{
-		auto ahci = static_cast<AHCIDevice*>(device);
-		ahci->OnIRQ();
-		return IRQResult::IR_Processed;
-	}
-
+	irq::IRQResult OnIRQ() override;
 
 	Result ResetPort(Port& p);
 

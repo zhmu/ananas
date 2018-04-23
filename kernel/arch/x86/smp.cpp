@@ -37,7 +37,7 @@ extern "C" volatile int num_smp_launched = 1; /* BSP is always launched */
 
 namespace {
 
-struct IPISource : IRQSource
+struct IPISource : irq::IRQSource
 {
 	IPISource();
 
@@ -64,25 +64,30 @@ void IPISource::Acknowledge(int no)
 	X86_IOAPIC::AcknowledgeAll();
 }
 
-IRQResult
-smp_ipi_schedule(Ananas::Device*, void* context)
+struct IPISchedulerHandler : irq::IHandler
 {
-	/* Flip the reschedule flag of the current thread; this makes the IRQ reschedule us as needed */
-	Thread* curthread = PCPU_GET(curthread);
-	curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
-	return IRQResult::IR_Processed;
-}
+	irq::IRQResult OnIRQ() override
+	{
+		/* Flip the reschedule flag of the current thread; this makes the IRQ reschedule us as needed */
+		Thread* curthread = PCPU_GET(curthread);
+		curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
+		return irq::IRQResult::Processed;
+	}
+} ipiSchedulerHandler;
 
-IRQResult
-smp_ipi_panic(Ananas::Device*, void* context)
+struct IPIPanicHandler : irq::IHandler
 {
-	md::interrupts::Disable();
-	while (1)
-		md::interrupts::Relax();
+	irq::IRQResult OnIRQ() override
+	{
+		md::interrupts::Disable();
+		while (1)
+			md::interrupts::Relax();
 
-	/* NOTREACHED */
-	return IRQResult::IR_Processed;
-}
+		/* NOTREACHED */
+		return irq::IRQResult::Processed;
+	}
+
+} ipiPanicHandler;
 
 } // unnamed namespace
 
@@ -225,10 +230,10 @@ smp_init()
 	 * Register an interrupt source for the IPI's; they appear as normal
  	 * interrupts and this lets us process them as such.
 	 */
-	irqsource_register(ipi_source);
-	if (auto result = irq_register(SMP_IPI_PANIC, NULL, smp_ipi_panic, IRQ_TYPE_IPI, NULL); result.IsFailure())
+	irq::RegisterSource(ipi_source);
+	if (auto result = irq::Register(SMP_IPI_PANIC, NULL, IRQ_TYPE_IPI, ipiPanicHandler); result.IsFailure())
 		panic("can't register ipi");
-	if (auto result = irq_register(SMP_IPI_SCHEDULE, NULL, smp_ipi_schedule, IRQ_TYPE_IPI, NULL); result.IsFailure())
+	if (auto result = irq::Register(SMP_IPI_SCHEDULE, NULL, IRQ_TYPE_IPI, ipiSchedulerHandler); result.IsFailure())
 		panic("can't register ipi");
 
 	/*

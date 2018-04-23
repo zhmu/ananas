@@ -9,19 +9,17 @@
 #include "kernel/x86/pcihb.h"
 #include "../acpica/acpi.h"
 
-struct ACPI_IRQ_INFO {
+struct ACPI_IRQ_INFO : irq::IHandler {
 	ACPI_OSD_HANDLER i_handler;
 	void* i_context;
-};
 
-static IRQResult
-acpi_irq_wrapper(Ananas::Device*, void* context)
-{
-	struct ACPI_IRQ_INFO* info = static_cast<ACPI_IRQ_INFO*>(context);
-	if (info->i_handler(info->i_context) == ACPI_INTERRUPT_HANDLED)
-		return IRQResult::IR_Processed;
-	return IRQResult::IR_Ignored;
-}
+	irq::IRQResult OnIRQ() override
+	{
+		if (i_handler(i_context) == ACPI_INTERRUPT_HANDLED)
+			return irq::IRQResult::Processed;
+		return irq::IRQResult::Ignored;
+	}
+};
 
 ACPI_STATUS
 AcpiOsInstallInterruptHandler(UINT32 InterruptLevel, ACPI_OSD_HANDLER Handler, void* Context)
@@ -30,7 +28,7 @@ AcpiOsInstallInterruptHandler(UINT32 InterruptLevel, ACPI_OSD_HANDLER Handler, v
 	info->i_handler = Handler;
 	info->i_context = Context;
 
-	if (auto result = irq_register(InterruptLevel, NULL, acpi_irq_wrapper, IRQ_TYPE_DEFAULT, info); result.IsFailure()) {
+	if (auto result = irq::Register(InterruptLevel, NULL, IRQ_TYPE_DEFAULT, *info); result.IsFailure()) {
 		kfree(info);
 		return AE_BAD_PARAMETER;
 	}

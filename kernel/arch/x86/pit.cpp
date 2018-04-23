@@ -12,14 +12,21 @@
 #define TIMER_FREQ 1193182
 
 extern int md_cpu_clock_mhz;
-static uint64_t tsc_boot_time;
 
-static IRQResult
-x86_pit_irq(Ananas::Device*, void*)
+namespace {
+
+uint64_t tsc_boot_time;
+
+struct PITIRQHandler : irq::IHandler
 {
-	Ananas::Time::OnTick();
-	return IRQResult::IR_Processed;
-}
+	irq::IRQResult OnIRQ() override
+	{
+			Ananas::Time::OnTick();
+			return irq::IRQResult::Processed;
+	}
+} pitIRQHandler;
+
+} // unnamed namespace
 
 /*
  * Obtains the number of milliseconds that have passed since boot. Because we
@@ -40,7 +47,7 @@ x86_pit_init()
 	outb(PIT_MODE_CMD, PIT_CH_CHAN0 | PIT_MODE_3 | PIT_ACCESS_BOTH);
 	outb(PIT_CH0_DATA, (count & 0xff));
 	outb(PIT_CH0_DATA, (count >> 8));
-	if (auto result = irq_register(IRQ_PIT, NULL, x86_pit_irq, IRQ_TYPE_TIMER, NULL); result.IsFailure())
+	if (auto result = irq::Register(IRQ_PIT, NULL, IRQ_TYPE_TIMER, pitIRQHandler); result.IsFailure())
 		panic("cannot register pit irq (%d)", result.AsStatusCode());
 }
 

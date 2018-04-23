@@ -1,7 +1,9 @@
 #ifndef __IRQ_H__
 #define __IRQ_H__
 
+#include <ananas/types.h>
 #include <ananas/util/list.h>
+#include <ananas/util/array.h>
 #include "kernel/thread.h"
 
 namespace Ananas {
@@ -9,14 +11,18 @@ class Device;
 }
 class Result;
 
+namespace irq {
+
 /* Return values for the IRQ handler */
 enum class IRQResult {
-	IR_Ignored,
-	IR_Processed
+	Ignored,
+	Processed
 };
 
-/* Prototype of an IRQ handler function */
-typedef IRQResult (*irqfunc_t)(Ananas::Device*, void*);
+class IHandler {
+public:
+	virtual IRQResult OnIRQ() = 0;
+};
 
 /*
  * Describes an IRQ source; this is generally an interrupt controller - every
@@ -48,11 +54,10 @@ typedef util::List<IRQSource> IRQSourceList;
 #define IRQ_MAX_HANDLERS 4
 
 /* Single IRQ handler */
-struct IRQ_HANDLER {
-	Ananas::Device*		h_device;
-	void*			h_context;
-	irqfunc_t		h_func;
-	unsigned int		h_flags;
+struct IRQHandler {
+	Ananas::Device*		h_device = nullptr;
+	IHandler*		h_handler = nullptr;
+	unsigned int		h_flags = 0;
 #define IRQ_HANDLER_FLAG_THREAD	(1 << 0)	/* invoke the handler from the IST */
 #define IRQ_HANDLER_FLAG_SKIP	(1 << 1)	/* (internal use only) do not invoke the handler */
 };
@@ -62,7 +67,7 @@ struct IRQ_HANDLER {
  */
 struct IRQ {
 	IRQSource*		i_source;
-	struct IRQ_HANDLER	i_handler[IRQ_MAX_HANDLERS];
+	util::array<IRQHandler, IRQ_MAX_HANDLERS> i_handler;
 	unsigned int		i_count;
 	unsigned int		i_straycount;
 	unsigned int		i_flags;
@@ -75,17 +80,19 @@ struct IRQ {
  * Note: on registering or removing an IRQ source, all interrupts are expected
  * to be masked.
  */
-void irqsource_register(IRQSource& source);
-void irqsource_unregister(IRQSource& source);
+void RegisterSource(IRQSource& source);
+void UnregisterSource(IRQSource& source);
 
 #define IRQ_TYPE_DEFAULT	IRQ_TYPE_IST
 #define IRQ_TYPE_IST		0 /* use an IST to launch the handler */
 #define IRQ_TYPE_ISR		1 /* do not launch the handler from a thread */
 #define IRQ_TYPE_IPI		IRQ_TYPE_ISR
 #define IRQ_TYPE_TIMER		IRQ_TYPE_ISR
-Result irq_register(unsigned int no, Ananas::Device* dev, irqfunc_t func, int type, void* context);
-void irq_unregister(unsigned int no, Ananas::Device* dev, irqfunc_t func, void* context);
-void irq_handler(unsigned int no);
-void irq_dump();
+Result Register(unsigned int no, Ananas::Device* dev, int type, IHandler& irqHandler);
+void Unregister(unsigned int no, Ananas::Device* dev, IHandler& irqHandler);
+void InvokeHandler(unsigned int no);
+void Dump();
+
+} // namespace irq
 
 #endif /* __IRQ_H__ */

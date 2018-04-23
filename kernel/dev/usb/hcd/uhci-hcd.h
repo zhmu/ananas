@@ -60,7 +60,7 @@ private:
 
 } // namespace UHCI
 
-class UHCI_HCD : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IUSBDeviceOperations
+class UHCI_HCD : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IUSBDeviceOperations, private irq::IHandler
 {
 public:
 	using Device::Device;
@@ -94,14 +94,7 @@ protected:
 	Result ScheduleInterruptTransfer(Transfer& xfer);
 
 	void Dump();
-	void OnIRQ();
-
-	static IRQResult IRQWrapper(Ananas::Device* device, void* context)
-	{
-		auto uhci_hcd = static_cast<UHCI_HCD*>(device);
-		uhci_hcd->OnIRQ();
-		return IRQResult::IR_Processed;
-	}
+	irq::IRQResult OnIRQ() override;
 
 private:
 	dma_buf_t uhci_framelist_buf;

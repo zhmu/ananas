@@ -61,7 +61,7 @@ X86_IOAPIC::Initialize(uint8_t id, addr_t addr, int base_irq)
 	// Fetch IOAPIC version register; this contains the number of interrupts supported
 	is_count = (Read(IOAPICVER) >> 16) & 0xff;
 
-	irqsource_register(*this);
+	irq::RegisterSource(*this);
 }
 
 /* vim:set ts=2 sw=2: */

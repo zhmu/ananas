@@ -33,7 +33,7 @@ x86_pic_wire()
 #undef IO_WAIT
 }
 
-struct PIC: IRQSource
+struct PIC : irq::IRQSource
 {
 	PIC();
 
@@ -90,7 +90,7 @@ x86_pic_init()
 	x86_pic_wire();
 
 	/* Register the PIC as interrupt source */
-	irqsource_register(pic);
+	irq::RegisterSource(pic);
 }
 
 void

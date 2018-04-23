@@ -265,7 +265,7 @@ UHCI_HCD::Dump()
 	}
 }
 
-void
+irq::IRQResult
 UHCI_HCD::OnIRQ()
 {
 	int stat = uhci_Resources.Read2(UHCI_REG_USBSTS);
@@ -315,6 +315,7 @@ UHCI_HCD::OnIRQ()
 			// XXX Where will will we free si ?
 		}
 	}
+	return irq::IRQResult::Processed;
 }
 
 Result
@@ -593,7 +594,7 @@ UHCI_HCD::Attach()
 
 	/* Hook up our interrupt handler and get it going */
 	RESULT_PROPAGATE_FAILURE(
-		irq_register((uintptr_t)res_irq, this, &IRQWrapper, IRQ_TYPE_DEFAULT, NULL)
+		irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this)
 	);
 	uhci_Resources.Write2(UHCI_REG_USBINTR, UHCI_USBINTR_SPI | UHCI_USBINTR_IOC | UHCI_USBINTR_RI | UHCI_USBINTR_TOCRC);
 	delay(10);

@@ -21,7 +21,7 @@ TRACE_SETUP;
 namespace Ananas {
 namespace AHCI {
 
-void
+irq::IRQResult
 AHCIDevice::OnIRQ()
 {
 	uint32_t is = Read(AHCI_REG_IS);
@@ -49,6 +49,7 @@ AHCIDevice::OnIRQ()
 		}
 	}
 	Write(AHCI_REG_IS, is);
+	return irq::IRQResult::Processed;
 }
 
 Result
@@ -179,7 +180,7 @@ AHCIDevice::Attach()
 	ap_ncs = AHCI_CAP_NCS(cap) + 1;
 
 	RESULT_PROPAGATE_FAILURE(
-		irq_register((int)(uintptr_t)res_irq, this, IRQWrapper, IRQ_TYPE_DEFAULT, NULL)
+		irq::Register((int)(uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this)
 	);
 
 	/* Force all ports into idle mode */

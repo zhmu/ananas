@@ -164,7 +164,7 @@ exception(struct STACKFRAME* sf)
 extern "C" void
 interrupt_handler(struct STACKFRAME* sf)
 {
-	irq_handler(sf->sf_trapno);
+	irq::InvokeHandler(sf->sf_trapno);
 }
 
 extern "C" void
