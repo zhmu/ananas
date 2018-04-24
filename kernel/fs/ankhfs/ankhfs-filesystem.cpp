@@ -86,6 +86,16 @@ public:
 
 		return AnkhFS::HandleRead(file, buf, len, result);
 	}
+
+	Result HandleOpen(VFS_FILE& file, Process* p) override
+	{
+		return Result::Success();
+	}
+
+	Result HandleClose(VFS_FILE& file, Process* p) override
+	{
+		return Result::Success();
+	}
 };
 
 } // unnamed namespace

@@ -41,6 +41,24 @@ ankhfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 }
 
 Result
+ankhfs_open(VFS_FILE& file, Process* p)
+{
+	auto subSystem = GetSubSystemFromInode(*file.f_dentry->d_inode);
+	if (subSystem == nullptr)
+		return RESULT_MAKE_FAILURE(EIO);
+	return subSystem->HandleOpen(file, p);
+}
+
+Result
+ankhfs_close(VFS_FILE& file, Process* p)
+{
+	auto subSystem = GetSubSystemFromInode(*file.f_dentry->d_inode);
+	if (subSystem == nullptr)
+		return RESULT_MAKE_FAILURE(EIO);
+	return subSystem->HandleClose(file, p);
+}
+
+Result
 ankhfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 {
 	auto subSystem = GetSubSystemFromInode(*file->f_dentry->d_inode);
@@ -57,7 +75,9 @@ struct VFS_INODE_OPS ankhfs_file_ops = {
 };
 
 struct VFS_INODE_OPS ankhfs_dev_ops = {
-	.read = ankhfs_read
+	.read = ankhfs_read,
+	.open = ankhfs_open,
+	.close = ankhfs_close
 };
 
 struct VFS_INODE_OPS ankhfs_dir_ops = {

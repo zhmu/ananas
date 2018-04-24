@@ -41,6 +41,16 @@ public:
 	{
 		return RESULT_MAKE_FAILURE(EOPNOTSUPP); // XXX would this be expected from a read?
 	}
+
+	Result HandleOpen(VFS_FILE& file, Process* p) override
+	{
+		return Result::Success();
+	}
+
+	Result HandleClose(VFS_FILE& file, Process* p) override
+	{
+		return Result::Success();
+	}
 };
 
 } // unnamed namespace
