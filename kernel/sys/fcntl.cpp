@@ -25,9 +25,9 @@ sys_fcntl(Thread* t, handleindex_t hindex, int cmd, const void* in, void* out)
 
 	switch(cmd) {
 		case F_DUPFD: {
-			int min_fd = (int)(uintptr_t)out;
+			int min_fd = (int)(uintptr_t)in;
 			struct HANDLE* handle_out;
-			handleindex_t hidx_out;
+			handleindex_t hidx_out = -1;
 			RESULT_PROPAGATE_FAILURE(
 				handle_clone(process, hindex, NULL, process, &handle_out, min_fd, &hidx_out)
 			);
