@@ -224,7 +224,7 @@ elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 		// We need to use an interpreter to load this
 		struct VFS_FILE interp_file;
 		// Note that the nullptr requires interp to be absolute
-		if (auto result = vfs_open(interp, nullptr, &interp_file); result.IsFailure()) {
+		if (auto result = vfs_open(nullptr, interp, nullptr, &interp_file); result.IsFailure()) {
 			kprintf("unable to load ELF interpreter '%s': %d\n", interp, result.AsStatusCode());
 			kfree(interp);
 			return result;
@@ -236,7 +236,7 @@ elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 		addr_t interp_entry;
 		{
 			auto result = elf64_load_file(vs, *interp_file.f_dentry, interp_rbase, &interp_entry);
-			vfs_close(&interp_file); // we don't need it anymore
+			vfs_close(nullptr, &interp_file); // we don't need it anymore
 			if (result.IsFailure())
 				return result;
 		}

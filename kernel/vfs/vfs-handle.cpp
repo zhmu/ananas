@@ -83,17 +83,14 @@ vfshandle_open(Thread* t, handleindex_t index, struct HANDLE* handle, const char
 
 	/* And open the path */
 	TRACE(SYSCALL, INFO, "opening path '%s'", path);
-	return vfs_open(path, proc.p_cwd, &handle->h_data.d_vfs_file);
+	return vfs_open(&proc, path, proc.p_cwd, &handle->h_data.d_vfs_file);
 }
 
 static Result
 vfshandle_free(Process& proc, struct HANDLE* handle)
 {
-	/* If we have a backing dentry, dereference it - this will free it if needed */
-	DEntry* dentry = handle->h_data.d_vfs_file.f_dentry;
-	if (dentry != nullptr)
-		dentry_deref(*dentry);
-	return Result::Success();
+	auto& file = handle->h_data.d_vfs_file;
+	return vfs_close(&proc, &file);
 }
 
 static Result

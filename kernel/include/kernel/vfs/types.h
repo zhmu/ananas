@@ -11,6 +11,7 @@ namespace Ananas {
 class Device;
 };
 struct DEntry;
+struct Process;
 struct VFS_MOUNTED_FS;
 struct VFS_INODE_OPS;
 struct VFS_FILESYSTEM_OPS;
@@ -183,6 +184,16 @@ struct VFS_INODE_OPS {
 	 * Follows a symbolic link.
 	 */
 	Result (*follow_link)(INode& inode, DEntry& base, DEntry*& result);
+
+	/*
+	 * Called when a file was opened
+	 */
+	Result (*open)(VFS_FILE& file, Process* p);
+
+	/*
+	 * Called when a file was closed
+	 */
+	Result (*close)(VFS_FILE& file, Process* p);
 };
 
 /*

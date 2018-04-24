@@ -29,7 +29,7 @@ vfs_make_file(struct VFS_FILE* file, DEntry& dentry)
 }
 
 Result
-vfs_open(const char* fname, DEntry* cwd, struct VFS_FILE* out, int lookup_flags)
+vfs_open(Process* p, const char* fname, DEntry* cwd, struct VFS_FILE* out, int lookup_flags)
 {
 	DEntry* dentry;
 	RESULT_PROPAGATE_FAILURE(
@@ -37,14 +37,31 @@ vfs_open(const char* fname, DEntry* cwd, struct VFS_FILE* out, int lookup_flags)
 	);
 
 	vfs_make_file(out, *dentry);
+	KASSERT(dentry->d_inode != nullptr, "open without inode?");
+	KASSERT(dentry->d_inode->i_iops != nullptr, "open without inode ops?");
+	if (dentry->d_inode->i_iops->open != nullptr) {
+		if (auto result = dentry->d_inode->i_iops->open(*out, p); result.IsFailure()) {
+			dentry_deref(*dentry);
+			return result;
+		}
+	}
 	return Result::Success();
 }
 
 Result
-vfs_close(struct VFS_FILE* file)
+vfs_close(Process* p, struct VFS_FILE* file)
 {
-	if(file->f_dentry != nullptr)
-		dentry_deref(*file->f_dentry);
+	if(file->f_dentry != nullptr) {
+		auto dentry = file->f_dentry;
+		// No need to check i_iops here, vfs_open() already does this
+		if (dentry->d_inode != nullptr && dentry->d_inode->i_iops->close != nullptr) {
+			if (auto result = dentry->d_inode->i_iops->close(*file, p); result.IsFailure()) {
+				dentry_deref(*dentry);
+				return result;
+			}
+		}
+		dentry_deref(*dentry);
+	}
 	file->f_dentry = nullptr;
 	file->f_device = nullptr;
 	return Result::Success();

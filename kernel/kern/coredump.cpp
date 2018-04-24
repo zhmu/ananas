@@ -473,5 +473,5 @@ core_dump(Thread* t, struct STACKFRAME* sf)
 
 	kprintf("core_dump: pre-close: offs=%d\n", (int)f.f_offset);
 
-	return vfs_close(&f);
+	return vfs_close(proc, &f);
 }

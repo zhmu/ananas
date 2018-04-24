@@ -77,7 +77,7 @@ userinit_func(void*)
 
 	kprintf("- Lauching init from %s...", init_path);
 	struct VFS_FILE file;
-	if (auto result = vfs_open(init_path, proc->p_cwd, &file); result.IsFailure()) {
+	if (auto result = vfs_open(proc, init_path, proc->p_cwd, &file); result.IsFailure()) {
 		kprintf("couldn't open init executable, %i\n", result.AsStatusCode());
 		thread_exit(0);
 	}
@@ -96,7 +96,7 @@ userinit_func(void*)
 	} else {
 		kprintf(" fail - error %i\n", result.AsStatusCode());
 	}
-	vfs_close(&file);
+	vfs_close(proc, &file);
 	thread_exit(0);
 }
 

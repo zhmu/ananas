@@ -16,10 +16,10 @@ sys_rename(Thread* t, const char* oldpath, const char* newpath)
 
 	struct VFS_FILE file;
 	RESULT_PROPAGATE_FAILURE(
-		vfs_open(oldpath, cwd, &file)
+		vfs_open(&proc, oldpath, cwd, &file)
 	);
 
 	auto result = vfs_rename(&file, cwd, newpath);
-	vfs_close(&file);
+	vfs_close(&proc, &file);
 	return result;
 }

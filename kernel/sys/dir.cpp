@@ -35,14 +35,14 @@ sys_chdir(Thread* t, const char* path)
 
 	struct VFS_FILE file;
 	RESULT_PROPAGATE_FAILURE(
-		vfs_open(path, cwd, &file)
+		vfs_open(&proc, path, cwd, &file)
 	);
 
 	/* XXX Check if file has a directory */
 
 	// Open succeeded - now update the cwd
 	auto result = SetCWD(proc, file);
-	vfs_close(&file);
+	vfs_close(&proc, &file);
 	return result;
 }
 

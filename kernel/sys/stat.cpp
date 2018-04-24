@@ -47,11 +47,11 @@ do_stat(Thread* t, const char* path, struct stat* buf, int lookup_flags)
 
 	struct VFS_FILE file;
 	RESULT_PROPAGATE_FAILURE(
-		vfs_open(path, proc.p_cwd, &file, lookup_flags)
+		vfs_open(&proc, path, proc.p_cwd, &file, lookup_flags)
 	);
 
 	auto result = fill_stat_buf(&file, buf);
-	vfs_close(&file);
+	vfs_close(&proc, &file);
 	return result;
 }
 

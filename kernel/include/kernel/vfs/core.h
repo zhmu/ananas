@@ -10,6 +10,7 @@ struct VFS_MOUNTED_FS;
 struct VFS_INODE_OPS;
 struct VFS_FILESYSTEM_OPS;
 struct INode;
+struct Procss;
 class Result;
 
 Result vfs_mount(const char* from, const char* to, const char* type, void* options);
@@ -41,8 +42,8 @@ Result vfs_lookup(DEntry* parent, DEntry*& destentry, const char* dentry, int fl
 bool vfs_is_filesystem_sane(struct VFS_MOUNTED_FS* fs);
 
 /* Higher-level interface */
-Result vfs_open(const char* fname, DEntry* cwd, struct VFS_FILE* file, int lookup_flags = VFS_LOOKUP_FLAG_DEFAULT);
-Result vfs_close(struct VFS_FILE* file);
+Result vfs_open(Process* p, const char* fname, DEntry* cwd, struct VFS_FILE* file, int lookup_flags = VFS_LOOKUP_FLAG_DEFAULT);
+Result vfs_close(Process* p, struct VFS_FILE* file);
 Result vfs_read(struct VFS_FILE* file, void* buf, size_t* len);
 Result vfs_write(struct VFS_FILE* file, const void* buf, size_t* len);
 Result vfs_seek(struct VFS_FILE* file, off_t offset);

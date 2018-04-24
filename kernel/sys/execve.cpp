@@ -57,16 +57,16 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 	/* First step is to open the file */
 	struct VFS_FILE file;
 	RESULT_PROPAGATE_FAILURE(
-		vfs_open(path, proc.p_cwd, &file)
+		vfs_open(&proc, path, proc.p_cwd, &file)
 	);
 
 	/*
-	 * Add a ref to the dentry; we'll be throwing away 'f' soon but we need to
+	 * Add a ref to the dentry; we'll be throwing away 'file' soon but we need to
 	 * keep the backing item intact.
 	 */
 	DEntry& dentry = *file.f_dentry;
 	dentry_ref(dentry);
-	vfs_close(&file);
+	vfs_close(&proc, &file);
 
 	/* XXX Do we inherit correctly here? */
 	if (argv != NULL) {
