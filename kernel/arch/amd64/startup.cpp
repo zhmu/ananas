@@ -599,6 +599,10 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 	 */
 	setup_cpu((addr_t)&gdt, (addr_t)&bsp_pcpu);
 
+	// Run the constructor list; we can at least handle exceptions and such here,
+	// but there's no new/delete yet so do not allocate things from constructors!
+	__run_global_ctors();
+
 	/*
 	 * Process the boot information passed by the multiboot stub; this ensures
 	 * it cannot be overwritten and tells us where available memory for our
@@ -611,10 +615,6 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 
 	// Initialize our memory mappings
 	setup_memory(avail);
-
-	// Run the constructor list; we have sane memory at this point (but no kmalloc/new!) so don't
-	// allocate things from constructors!
-	__run_global_ctors();
 
 	/* Initialize the handles; this is needed by the per-CPU code as it initialize threads */
 	handle_init();
