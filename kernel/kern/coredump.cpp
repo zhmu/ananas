@@ -17,6 +17,7 @@
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 
+#include "kernel/vmarea.h"
 #include "kernel/vmspace.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"

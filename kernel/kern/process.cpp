@@ -13,6 +13,7 @@
 #include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
+#include "kernel/vmarea.h"
 #include "kernel/vmspace.h"
 #include "options.h"
 
@@ -71,10 +72,9 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 	// Now hook the process info structure up to it
 	{
 		// XXX we should have a separate vmpage_create_...() for this that sets vp_vaddr
-		VMPage& vp = vmpage_create_private(va, 0);
-		vp.vp_vaddr = va->va_virt;
+		VMPage& vp = va->AllocatePrivatePage(va->va_virt, 0);
 		p->p_info = static_cast<struct PROCINFO*>(kmem_map(vp.GetPage()->GetPhysicalAddress(), sizeof(struct PROCINFO), VM_FLAG_READ | VM_FLAG_WRITE));
-		vmpage_map(vs, *va, vp);
+		vp.Map(vs, *va);
 		vp.Unlock();
 	}
 

@@ -135,7 +135,7 @@ exception_pf(struct STACKFRAME* sf)
 	// Let the VM code deal with the fault
 	Thread* curthread = PCPU_GET(curthread);
 	if (curthread != NULL && curthread->t_process != NULL) {
-		if (auto result = vmspace_handle_fault(*curthread->t_process->p_vmspace, fault_addr, flags); result.IsSuccess())
+		if (auto result = curthread->t_process->p_vmspace->HandleFault(fault_addr, flags); result.IsSuccess())
 			return; /* fault handeled */
 	}
 

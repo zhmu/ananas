@@ -7,6 +7,7 @@
 #include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
+#include "kernel/vmarea.h"
 #include "kernel/vmspace.h"
 #include "kernel/vfs/dentry.h"
 #include "syscall.h"
@@ -34,7 +35,7 @@ sys_vmop_map(Thread* curthread, struct VMOP_OPTIONS* vo)
 	VMSpace& vs = *curthread->t_process->p_vmspace;
 	addr_t dest_addr = reinterpret_cast<addr_t>(vo->vo_addr);
 	if ((vo->vo_flags & VMOP_FLAG_FIXED) == 0)
-		dest_addr = vmspace_determine_va(vs, vo->vo_len);
+		dest_addr = vs.ReserveAdressRange(vo->vo_len);
 
 	VMArea* va;
 	if (vo->vo_flags & VMOP_FLAG_HANDLE) {

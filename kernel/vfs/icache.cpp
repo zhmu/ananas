@@ -314,7 +314,7 @@ vfs_dump_inode(INode& inode)
 	kprintf("  size    = %u\n", (uint32_t)sb->st_size); /* XXX for now */
 	kprintf("  blksize = %u\n", sb->st_blksize);
 	for(const auto& vp: inode.i_pages) {
-		vmpage_dump(vp, "    ");
+		vp.Dump("    ");
 	}
 }
 

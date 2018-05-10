@@ -4,6 +4,7 @@
 #include "kernel/lib.h"
 #include "kernel/result.h"
 #include "kernel/trace.h"
+#include "kernel/vmarea.h"
 #include "kernel/vmspace.h"
 #include "kernel/vmpage.h"
 #include "kernel/vfs/core.h"
@@ -85,13 +86,13 @@ vmspace_get_dentry_backed_page(VMArea& va, off_t read_off)
 } // unnamed namespace
 
 Result
-vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags)
+VMSpace::HandleFault(addr_t virt, int flags)
 {
-	TRACE(VM, INFO, "vmspace_handle_fault(): vs=%p, virt=%p, flags=0x%x", &vs, virt, flags);
-	//kprintf("vmspace_handle_fault(): vs=%p, virt=%p, flags=0x%x\n", vs, virt, flags);
+	TRACE(VM, INFO, "HandleFault(): vs=%p, virt=%p, flags=0x%x", this, virt, flags);
+	//kprintf("HandleFault(): vs=%p, virt=%p, flags=0x%x\n", vs, virt, flags);
 
 	// Walk through the areas one by one
-	for(auto& va: vs.vs_areas) {
+	for(auto& va: vs_areas) {
 		if (!(virt >= va.va_virt && (virt < (va.va_virt + va.va_len))))
 			continue;
 
@@ -99,12 +100,13 @@ vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags)
 		KASSERT((va.va_flags & VM_FLAG_FAULT) != 0, "unexpected pagefault in area %p, virt=%p, len=%d, flags 0x%x", &va, va.va_virt, va.va_len, va.va_flags);
 
 		// See if we have this page mapped
-		VMPage* vp = vmpage_lookup_vaddr_locked(va, virt & ~(PAGE_SIZE - 1));
+		VMPage* vp = va.LookupVAddrAndLock(virt & ~(PAGE_SIZE - 1));
 		if (vp != nullptr) {
 			if ((flags & VM_FLAG_WRITE) && (vp->vp_flags & VM_PAGE_FLAG_COW)) {
 				// Promote our copy to a writable page and update the mapping
-				vp = &vmpage_promote(vs, va, *vp);
-				vmpage_map(vs, va, *vp);
+				KASSERT((vp->vp_flags & VM_PAGE_FLAG_READONLY) == 0, "cowing r/o page");
+				vp = &va.PromotePage(*vp);
+				vp->Map(*this, va);
 				vp->Unlock();
 				return Result::Success();
 			}
@@ -153,11 +155,14 @@ vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags)
 				can_reuse_page_1on1 &= (read_off + PAGE_SIZE) <= va.va_dlength;
 				// ... and we have a page-aligned offset
 				can_reuse_page_1on1 &= (va.va_doffset & (PAGE_SIZE - 1)) == 0;
-				if (can_reuse_page_1on1 && (va.va_flags & VM_FLAG_PRIVATE) == 0) {
-					new_vp = &vmpage_link(va, vmpage);
+				if (can_reuse_page_1on1) {
+					// Just clone the page - note that we do not have a source vmspace as the page
+					// came from the inode (XXX CHECK THIS!)
+					new_vp = &vmpage_clone(nullptr, *this, va, va, vmpage);
+					new_vp->vp_vaddr = virt & ~(PAGE_SIZE - 1);
 				} else {
 					// Cannot re-use; create a new VM page, with appropriate flags based on the va
-					new_vp = &vmpage_create_private(&va, VM_PAGE_FLAG_PRIVATE | vmspace_page_flags_from_va(va));
+					new_vp = &va.AllocatePrivatePage(virt & ~(PAGE_SIZE - 1), VM_PAGE_FLAG_PRIVATE | vmspace_page_flags_from_va(va));
 
 					// Now copy the parts of the dentry-backed page
 					size_t copy_len = va.va_dlength - read_off; // this is size-left after where we read
@@ -167,24 +172,21 @@ vmspace_handle_fault(VMSpace& vs, addr_t virt, int flags)
 				}
 				vmpage.Unlock();
 
-				new_vp->vp_vaddr = virt & ~(PAGE_SIZE - 1);
-
 				// Finally, update the permissions and we are done
-				vmpage_map(vs, va, *new_vp);
+				new_vp->Map(*this, va);
 				new_vp->Unlock();
 				return Result::Success();
 			}
 		}
 
 		// We need a new VM page here; this is an anonymous mapping which we need to back
-		VMPage& new_vp = vmpage_create_private(&va, VM_PAGE_FLAG_PRIVATE);
-		new_vp.vp_vaddr = virt & ~(PAGE_SIZE - 1);
+		VMPage& new_vp = va.AllocatePrivatePage(virt & ~(PAGE_SIZE - 1), VM_PAGE_FLAG_PRIVATE);
 
 		// Ensure the page cleaned so we don't leak any information
-		vmpage_zero(vs, new_vp);
+		new_vp.Zero(*this);
 
 		// And now (re)map the page for the caller
-		vmpage_map(vs, va, new_vp);
+		new_vp.Map(*this, va);
 		new_vp.Unlock();
 		return Result::Success();
 	}

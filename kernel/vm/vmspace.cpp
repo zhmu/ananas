@@ -4,6 +4,7 @@
 #include "kernel/mm.h"
 #include "kernel/result.h"
 #include "kernel/trace.h"
+#include "kernel/vmarea.h"
 #include "kernel/vmpage.h"
 #include "kernel/vmspace.h"
 #include "kernel/vfs/dentry.h"
@@ -33,14 +34,14 @@ addr_t RoundUp(addr_t addr)
 } // unnamed namespace
 
 addr_t
-vmspace_determine_va(VMSpace& vs, size_t len)
+VMSpace::ReserveAdressRange(size_t len)
 {
 	/*
 	 * XXX This is a bit of a kludge - besides, we currently never re-use old
 	 * addresses which may get ugly.
 	 */
-	addr_t virt = vs.vs_next_mapping;
-	vs.vs_next_mapping = RoundUp(vs.vs_next_mapping + len);
+	addr_t virt = vs_next_mapping;
+	vs_next_mapping = RoundUp(vs_next_mapping + len);
 	return virt;
 }
 
@@ -143,20 +144,18 @@ VMSpace::MapTo(addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_
 		return RESULT_MAKE_FAILURE(EINVAL);
 
 	// If the virtual address space is already in use, we need to break it up
-	if (!vmspace_free_range(*this, virt, len))
+	if (!vmspace_free_range(*this, virt, len)) {
+		kprintf("range %p..%p not free!!\n", virt, virt + len);
+		Dump();
 		return RESULT_MAKE_FAILURE(ENOSPC);
-
-	auto va = new VMArea;
+	}
 
 	/*
 	 * XXX We should ask the VM for some kind of reservation if the
 	 * THREAD_MAP_ALLOC flag is set; now we'll just assume that the
 	 * memory is there...
 	 */
-	va->va_pages.clear();
-	va->va_virt = virt;
-	va->va_len = len;
-	va->va_flags = flags;
+	auto va = new VMArea(*this, virt, len, flags);
 	vs_areas.push_back(*va);
 	TRACE(VM, INFO, "vmspace_mapto(): vs=%p, va=%p, virt=%p, flags=0x%x", this, va, virt, flags);
 	va_out = va;
@@ -190,7 +189,8 @@ VMSpace::MapToDentry(addr_t virt, size_t vlength, DEntry& dentry, off_t doffset,
 Result
 VMSpace::Map(size_t len /* bytes */, uint32_t flags, VMArea*& va_out)
 {
-	return MapTo(vmspace_determine_va(*this, len), len, flags, va_out);
+	const auto va = ReserveAdressRange(len);
+	return MapTo(va, len, flags, va_out);
 }
 
 /*
@@ -266,10 +266,10 @@ VMSpace::Clone(VMSpace& vs_dest, int flags)
 			KASSERT(vp.GetPage()->p_order == 0, "unexpected %d order page here", vp.GetPage()->p_order);
 
 			// Create a clone of the data; it is up to the vmpage how to do this (it may go for COW)
-			VMPage& new_vp = vmpage_clone(*this, va_src, *va_dst, vp);
+			VMPage& new_vp = vmpage_clone(this, vs_dest, va_src, *va_dst, vp);
 
 			// Map the page into the cloned vmspace
-			vmpage_map(vs_dest, *va_dst, new_vp);
+			new_vp.Map(vs_dest, *va_dst);
 			new_vp.Unlock();
 			vp.Unlock();
 		}
@@ -308,6 +308,8 @@ VMSpace::FreeArea(VMArea& va)
 	for (auto it = va.va_pages.begin(); it != va.va_pages.end(); /* nothing */) {
 		VMPage& vp = *it; ++it;
 		vp.Lock();
+		KASSERT(vp.vp_vmarea == &va, "wrong vmarea");
+		vp.vp_vmarea = nullptr;
 		vp.Deref();
 	}
 	delete &va;
@@ -329,7 +331,7 @@ VMSpace::Dump()
 		 (va.va_flags & VM_FLAG_MD) ? 'm' : '.');
 		kprintf("    pages:\n");
 		for(auto& vp: va.va_pages) {
-			vmpage_dump(vp, "      ");
+			vp.Dump("      ");
 		}
 	}
 }

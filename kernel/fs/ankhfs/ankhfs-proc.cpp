@@ -9,6 +9,7 @@
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/generic.h"
 #include "kernel/vm.h"
+#include "kernel/vmarea.h"
 #include "kernel/vmspace.h"
 #include "proc.h"
 #include "support.h"
