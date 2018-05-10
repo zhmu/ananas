@@ -26,6 +26,11 @@ typedef _PDCLIB_size_t size_t;
 #define _IOLBF 2
 #define _IONBF 4
 
+#ifndef _PDCLIB_OFF_T_DEFINED
+#define _PDCLIB_OFF_T_DEFINED _PDCLIB_OFF_T_DEFINED
+typedef _PDCLIB_off off_t;
+#endif
+
 /* The following are platform-dependant, and defined in _PDCLIB_config.h. */
 typedef _PDCLIB_fpos_t fpos_t;
 typedef _PDCLIB_file_t FILE;
@@ -781,6 +786,9 @@ int fgetpos( FILE * _PDCLIB_restrict stream, fpos_t * _PDCLIB_restrict pos ) _PD
 */
 int fseek( FILE * stream, long int offset, int whence ) _PDCLIB_nothrow;
 
+/* Same as fseek() but using off_t as offset */
+int fseeko( FILE * stream, off_t offset, int whence ) _PDCLIB_nothrow;
+
 /* Set the position indicator (and, where appropriate the mbstate_t status
    object) for the given stream to the given pos object (created by an earlier
    call to fgetpos() on the same file).
@@ -801,6 +809,9 @@ int fsetpos( FILE * stream, const fpos_t * pos ) _PDCLIB_nothrow;
    TODO: Implementation-defined errno setting for ftell().
 */
 long int ftell( FILE * stream ) _PDCLIB_nothrow;
+
+/* ftello() is the same as ftell() but returns an off_t */
+off_t ftello( FILE * stream ) _PDCLIB_nothrow;
 
 /* Equivalent to (void)fseek( stream, 0L, SEEK_SET ), except that the error
    indicator for the stream is also cleared.

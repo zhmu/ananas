@@ -156,6 +156,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/funlockfile.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/rename.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/ftell.c
+	${CMAKE_CURRENT_SOURCE_DIR}/stdio/ftello.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/fputs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/_PDCLIB_prepwrite.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/vsscanf.c
@@ -165,6 +166,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/freopen.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/sprintf.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/fseek.c
+	${CMAKE_CURRENT_SOURCE_DIR}/stdio/fseeko.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/fwrite.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/scanf.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/fscanf.c

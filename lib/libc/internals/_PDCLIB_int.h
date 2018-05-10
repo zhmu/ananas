@@ -382,6 +382,8 @@ typedef struct _PDCLIB_fpos
     _PDCLIB_mbstate_t    mbs;    /* Multibyte parsing state */
 } _PDCLIB_fpos_t;
 
+typedef _PDCLIB_int64_t _PDCLIB_off_t;
+
 typedef struct _PDCLIB_fileops  _PDCLIB_fileops_t;
 typedef union  _PDCLIB_fd       _PDCLIB_fd_t;
 typedef struct _PDCLIB_file     _PDCLIB_file_t; // Rename to _PDCLIB_FILE?

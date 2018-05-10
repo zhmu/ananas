@@ -152,6 +152,9 @@ struct _PDCLIB_lldiv_t
 #define _PDCLIB_sig_atomic int
 #define _PDCLIB_SIG_ATOMIC INT
 
+/* Offset within any file - must be signed */
+#define _PDCLIB_off long
+
 /* Object type whose alignment is as great as supported by implementation
    in all contexts.
 */

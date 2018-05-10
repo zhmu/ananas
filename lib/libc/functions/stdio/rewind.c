@@ -10,7 +10,7 @@
 void _PDCLIB_rewind_unlocked( FILE * stream )
 {
     stream->status &= ~ _PDCLIB_ERRORFLAG;
-    _PDCLIB_fseek_unlocked( stream, 0L, SEEK_SET );
+    _PDCLIB_fseeko_unlocked( stream, 0L, SEEK_SET );
 }
 
 void rewind_unlocked( FILE * stream )

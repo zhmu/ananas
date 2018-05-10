@@ -10,6 +10,11 @@
 #include "_PDCLIB_int.h"
 #include "_PDCLIB_threadconfig.h"
 
+#ifndef _PDCLIB_OFF_T_DEFINED
+#define _PDCLIB_OFF_T_DEFINED _PDCLIB_OFF_T_DEFINED
+typedef _PDCLIB_off off_t;
+#endif
+
 /* Flags for representing mode (see fopen()). Note these must fit the same
    status field as the _IO?BF flags in <stdio.h> and the internal flags below.
 */
@@ -276,8 +281,8 @@ char *_PDCLIB_fgets_unlocked(char *s, int n, struct _PDCLIB_file *stream) _PDCLI
 int _PDCLIB_fputs_unlocked(const char *s, struct _PDCLIB_file *stream) _PDCLIB_nothrow;
 int _PDCLIB_fgetpos_unlocked( struct _PDCLIB_file * _PDCLIB_restrict stream, _PDCLIB_fpos_t * _PDCLIB_restrict pos ) _PDCLIB_nothrow;
 int _PDCLIB_fsetpos_unlocked( struct _PDCLIB_file * stream, const _PDCLIB_fpos_t * pos ) _PDCLIB_nothrow;
-long int _PDCLIB_ftell_unlocked( struct _PDCLIB_file * stream ) _PDCLIB_nothrow;
-int _PDCLIB_fseek_unlocked( struct _PDCLIB_file * stream, long int offset, int whence ) _PDCLIB_nothrow;
+off_t _PDCLIB_ftello_unlocked( struct _PDCLIB_file * stream ) _PDCLIB_nothrow;
+int _PDCLIB_fseeko_unlocked( struct _PDCLIB_file * stream, off_t offset, int whence ) _PDCLIB_nothrow;
 void _PDCLIB_rewind_unlocked( struct _PDCLIB_file * stream ) _PDCLIB_nothrow;
 
 int _PDCLIB_puts_unlocked( const char * s ) _PDCLIB_nothrow;

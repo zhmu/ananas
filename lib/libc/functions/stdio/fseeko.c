@@ -7,9 +7,8 @@
 #include <stdio.h>
 #include "_PDCLIB_io.h"
 
-int _PDCLIB_fseek_unlocked( FILE * stream, long loffset, int whence )
+int _PDCLIB_fseeko_unlocked( FILE * stream, off_t offset, int whence )
 {
-    _PDCLIB_int64_t offset = loffset;
     if ( stream->status & _PDCLIB_FWRITE )
     {
         if ( _PDCLIB_flushbuffer( stream ) == EOF )
@@ -32,15 +31,15 @@ int _PDCLIB_fseek_unlocked( FILE * stream, long loffset, int whence )
     return ( _PDCLIB_seek( stream, offset, whence ) != EOF ) ? 0 : EOF;
 }
 
-int fseek_unlocked( FILE * stream, long loffset, int whence )
+int fseeko_unlocked( FILE * stream, off_t loffset, int whence )
 {
-    return _PDCLIB_fseek_unlocked( stream, loffset, whence );
+    return _PDCLIB_fseeko_unlocked( stream, loffset, whence );
 }
 
-int fseek( FILE * stream, long loffset, int whence )
+int fseeko( FILE * stream, off_t loffset, int whence )
 {
     _PDCLIB_flockfile( stream );
-    int r = _PDCLIB_fseek_unlocked( stream, loffset, whence );
+    int r = _PDCLIB_fseeko_unlocked( stream, loffset, whence );
     _PDCLIB_funlockfile( stream );
     return r;
 }
