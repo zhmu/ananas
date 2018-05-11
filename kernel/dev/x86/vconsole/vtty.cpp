@@ -16,7 +16,8 @@ void
 term_cursor(void* s, const teken_pos_t* p)
 {
 	auto& vtty = *static_cast<VTTY*>(s);
-	vtty.GetVideo().SetCursor(p->tp_col, p->tp_row);
+	if (vtty.IsActive())
+		vtty.GetVideo().SetCursor(p->tp_col, p->tp_row);
 }
 
 void
