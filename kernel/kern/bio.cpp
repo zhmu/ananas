@@ -5,6 +5,7 @@
 #include "kernel/lock.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
+#include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "options.h"
 
@@ -72,12 +73,15 @@ bio_init()
 
 INIT_FUNCTION(bio_init, SUBSYSTEM_BIO, ORDER_FIRST);
 
+// This will only be called whenever we're not actually *scheduling* the BIO
 static void
 bio_waitcomplete(BIO& bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", &bio);
 	while((bio.flags & BIO_FLAG_PENDING) != 0) {
-		bio.sem.Wait();
+		// XXX For now, just wait a tiny bit and try again. We cannot actually wait for the event
+		// as it is a semaphore and only signalled *once*, so we'll deadlock multiple waiters.
+		thread_sleep(10);
 	}
 }
 
@@ -86,7 +90,9 @@ bio_waitdirty(BIO& bio)
 {
 	TRACE(BIO, FUNC, "bio=%p", &bio);
 	while((bio.flags & BIO_FLAG_DIRTY) != 0) {
-		bio.sem.Wait();
+		// XXX For now, just wait a tiny bit and try again. We cannot actually wait for the event
+		// as it is a semaphore and only signalled *once*, so we'll deadlock multiple waiters.
+		thread_sleep(10);
 	}
 }
 
@@ -324,8 +330,10 @@ bio_get(Ananas::Device* device, blocknr_t block, size_t len, int flags)
 		return bio;
 	}
 
-	/* ... and wait until we have something to report... */
-	bio_waitcomplete(*bio);
+	/* ... and wait until we have something to report... XXX This needs a timeout */
+	while((bio->flags & BIO_FLAG_PENDING) != 0) {
+		bio->sem.Wait();
+	}
 	TRACE(BIO, INFO, "dev=%p, block=%u, len=%u ==> new block %p", device, (int)block, len, bio);
 	return bio;
 }
