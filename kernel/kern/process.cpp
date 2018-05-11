@@ -31,7 +31,6 @@ ProcessList process_all;
 
 namespace {
 
-Semaphore process_sleep_sem(0);
 pid_t process_curpid = -1;
 
 pid_t AllocateProcessID()
@@ -203,7 +202,8 @@ Process::Exit(int status)
 		p_exit_status = status;
 	}
 
-	process::process_sleep_sem.Signal();
+	// Signal parent in case it is waiting for a child to exit
+	p_parent->p_child_wait.Signal();
 }
 
 Result
@@ -211,10 +211,10 @@ Process::WaitAndLock(int flags, Process*& p_out)
 {
 	if (flags != 0)
 		return RESULT_MAKE_FAILURE(EINVAL);
-	/*
-	 * XXX We aren't going for efficiency here - thus we use a single
-	 *     semaphore to wake anything up once a process has exited.
-	 */
+
+	// Every process has a semaphore used to wait for children XXX This will
+	// still give problems if multiple threads in the same parent are waiting for
+	// children!
 	for(;;) {
 		Lock();
 		for(auto& child: p_children) {
@@ -241,7 +241,7 @@ Process::WaitAndLock(int flags, Process*& p_out)
 		Unlock();
 
 		/* Nothing good yet; sleep on it */
-		process::process_sleep_sem.Wait();
+		p_child_wait.Wait();
 	}
 
 	/* NOTREACHED */

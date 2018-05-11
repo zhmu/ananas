@@ -118,6 +118,7 @@ struct Process {
 
 private:
 	Mutex p_lock{"plock"};	/* Locks the process */
+	Semaphore p_child_wait{0};
 };
 
 Result process_alloc(Process* parent, Process*& dest);
