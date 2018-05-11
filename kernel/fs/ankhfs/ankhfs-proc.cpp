@@ -30,10 +30,12 @@ namespace {
 
 constexpr unsigned int subName = 1;
 constexpr unsigned int subVmSpace = 2;
+constexpr unsigned int subState = 3;
 
 struct DirectoryEntry proc_entries[] = {
 	{ "name", make_inum(SS_Proc, 0, subName) },
 	{ "vmspace", make_inum(SS_Proc, 0, subVmSpace) },
+	{ "state", make_inum(SS_Proc, 0, subState) },
 	{ NULL, 0 }
 };
 
@@ -115,6 +117,12 @@ public:
 						r += strlen(r);
 					}
 				}
+				break;
+			}
+			case subState: {
+				// No need to lock the parent, the child should have Ref'ed it
+				snprintf(result, sizeof(result), "%d %d\n",
+				 p->p_state, p->p_parent != nullptr ? p->p_parent->p_pid : 0);
 				break;
 			}
 		}
