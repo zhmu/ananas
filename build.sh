@@ -38,7 +38,7 @@ build_external()
 
 usage()
 {
-	echo "usage: build.sh [-hc] [-abekp]"
+	echo "usage: build.sh [-hc] [-abekps]"
 	echo ""
 	echo " -h        this help"
 	echo " -c        clean temporary directories beforehand"
@@ -48,6 +48,7 @@ usage()
 	echo " -e        build externals (dash, coreutils)"
 	echo " -k        build kernel (mb-stub, kernel)"
 	echo " -p        build c++ support (libunwind, libc++abi, libc++)"
+	echo " -s        build system utilities (init, ps, ...)"
 }
 
 TARGET="x86_64-ananas-elf"
@@ -68,6 +69,7 @@ BOOTSTRAP=0
 KERNEL=0
 EXTERNALS=0
 CPLUSPLUS=0
+SYSUTILS=0
 while [ "$1" != "" ]; do
 	P="$1"
 	case "$P" in
@@ -95,6 +97,9 @@ while [ "$1" != "" ]; do
 			;;
 		-p)
 			CPLUSPLUS=1
+			;;
+		-s)
+			SYSUTILS=1
 			;;
 		*)
 			echo "unexpect parameter '$P'"
@@ -212,4 +217,10 @@ if [ "$CPLUSPLUS" -ne 0 ]; then
 	# libcxx
 	CMAKE_ARGS_EXTRA="-DCMAKE_CROSSCOMPILING=True -DLIBCXX_CXX_ABI=libcxxabi -DLIBCXX_CXX_ABI_INCLUDE_PATHS=${ROOT}/external/llvm/projects/libcxxabi/include -DLIBCXX_ENABLE_THREADS:BOOL=OFF -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY=NO -DLIBCXX_STANDARD_VER=c++17"
 	build libcxx external/llvm/projects/libcxx
+fi
+
+if [ "$SYSUTILS" -ne 0 ]; then
+	CMAKE_ARGS="${CMAKE_ARGS_BASE} -DCMAKE_INSTALL_PREFIX=${OUTDIR}"
+
+	build sysutils sysutils
 fi

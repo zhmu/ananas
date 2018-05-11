@@ -1,0 +1,5 @@
+# device        command                 $TERM   flags
+vtty0		"/usr/libexec/getty"	xterm	on
+vtty1		"/usr/libexec/getty"	xterm	on
+vtty2		"/usr/libexec/getty"	xterm	on
+vtty3		"/usr/libexec/getty"	xterm	on
