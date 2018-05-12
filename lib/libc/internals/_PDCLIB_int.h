@@ -15,6 +15,10 @@
 #include "_PDCLIB_config.h"
 #include "_PDCLIB_aux.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* null pointer constant */
 #define _PDCLIB_NULL 0
 
@@ -413,5 +417,9 @@ struct _PDCLIB_status_t
     };
     _PDCLIB_va_list  arg;    /* argument stack                               */
 };
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif
