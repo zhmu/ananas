@@ -6,6 +6,21 @@
 # XXX This should be integrated in a single CMakeLists.txt at some point;
 #     however, as we build and install things like libc, this is nontrivial.
 #
+# Some careful points of detail, search for the [...] for their implementation:
+#
+# [lld] We force LLVM LLD as linker in several places; the reason is that this
+#       always uses .ctors/.dtors instead of the (admittingly more modern)
+#       .initarray - we only support for former, and
+#
+# [ld] We force GNU LD as a linker during the bootstrapping phase - we cannot
+#      (yet) build the kernel as it has specific ldscript needs
+#      TODO: it is to be checked if this still holds
+#
+# [ar] If you set CMAKE_..._TARGET, CMake tries to be helpful by
+#      looking for ${CMAKE_..._TARGET}-ar which it cannot find and will just
+#      silenty try to invoke CMAKE_AR-NOTFOUND. We specifically look for
+#      llvm-ar to avoid this.
+#
 
 # build an internal cmake project using cmake and ninja
 build()
@@ -27,7 +42,7 @@ build_external()
 
 	echo "*** Configuring ${srcpath}"
 	cd ${ROOT}/external/${srcpath}
-	CC="x86_64-ananas-elf-clang" CFLAGS="--sysroot ${OUTDIR} -DJOBS=0" ./configure --host=x86_64-ananas-elf --prefix=/
+	CC="clang" CFLAGS="--target=${TARGET} --sysroot ${OUTDIR} -DJOBS=0" ./configure --host=x86_64-ananas-elf --prefix=/
 
 	echo "*** Building ${srcpath}"
 	make
@@ -52,16 +67,19 @@ usage()
 }
 
 TARGET="x86_64-ananas-elf"
-OUTDIR="/tmp/ananas-build"
-WORKDIR="/tmp/ananas-work"
+OUTDIR="/tmp/ananas-build-new"
+WORKDIR="/tmp/ananas-work-new"
 ROOT=`pwd`
 
 # see if the clang compiler is sensible - we try to invoke it
-X=`${TARGET}-clang -v 2>&1`
+X=`clang -v 2>&1`
 if [ $? -ne 0 ]; then
-	echo "cannot invoke ${TARGET}-clang - is your path set correctly?"
+	echo "cannot invoke clang - is your path set correctly?"
 	exit 1
 fi
+
+# XXX we should do some preliminary tests to see how sane this clang is
+# (i.e. is it modern enough for our uses)
 
 # cheap commandline parser, inspired by https://gist.github.com/jehiah/855086
 CLEAN=0
@@ -82,6 +100,7 @@ while [ "$1" != "" ]; do
 			KERNEL=1
 			EXTERNALS=1
 			CPLUSPLUS=1
+			SYSUTILS=1
 			;;
 		-b)
 			BOOTSTRAP=1
@@ -116,8 +135,8 @@ set +e
 # clean up the output and work directories
 if [ "$CLEAN" -ne 0 ]; then
 	rm -rf ${OUTDIR} ${WORKDIR}
-	mkdir -p ${OUTDIR} ${WORKDIR}
 fi
+mkdir -p ${OUTDIR} ${WORKDIR}
 
 CMAKE_ARGS_EXTRA=""
 TOOLCHAIN_TXT="${OUTDIR}/toolchain.txt"
@@ -127,20 +146,24 @@ if [ "$BOOTSTRAP" -ne 0 ]; then
 	cat > ${TOOLCHAIN_TXT} <<END
 	set(CMAKE_SYSTEM_NAME Linux)
 
-	set(triple ${TARGET})
-
 	set(CMAKE_SYSROOT ${OUTDIR})
 
 	# Force the compiler instead of letting CMake detect it - the reason is that
 	# we will not have an usable environment when we begin (we are constructing it
 	# on the fly)
+	set(CMAKE_WARN_DEPRECATED OFF)
 	include(CMakeForceCompiler)
-	CMAKE_FORCE_C_COMPILER(\${triple}-clang GNU)
-	CMAKE_FORCE_CXX_COMPILER(\${triple}-clang GNU)
+	CMAKE_FORCE_C_COMPILER(clang GNU)
+	CMAKE_FORCE_CXX_COMPILER(clang GNU)
 
 	set(CMAKE_ASM_COMPILER \${CMAKE_C_COMPILER})
+	set(CMAKE_C_FLAGS "--target=${TARGET}" CACHE STRING "" FORCE)
+	set(CMAKE_CXX_FLAGS "--target=${TARGET}" CACHE STRING "" FORCE)
 
-	set(CMAKE_LD_LINKER ld)
+	# [lld] Force lld as linker for shared libraries, but [ld] not for anything else
+	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld" CACHE STRING "Linker flags" FORCE)
+
+	# [ld] Note that we expect CMAKE_LINKER to be 'ld' for now... I ought to check if this is needed
 END
 
 	CMAKE_ARGS="-GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=${OUTDIR} -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_TXT}"
@@ -166,9 +189,16 @@ set(CMAKE_SYSROOT ${OUTDIR})
 # cannot detect this by itself?
 set(CMAKE_ASM_COMPILER \${CMAKE_C_COMPILER})
 
-set(CMAKE_C_COMPILER \${triple}-clang)
+# [ar] Force llvm-ar to be used
+find_program(CMAKE_AR NAMES llvm-ar)
+
+# [lld] force LLVM lld to be used
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld" CACHE STRING "Linker flags" FORCE)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld" CACHE STRING "Linker flags" FORCE)
+
+set(CMAKE_C_COMPILER clang)
 set(CMAKE_C_COMPILER_TARGET \${triple})
-set(CMAKE_CXX_COMPILER \${triple}-clang)
+set(CMAKE_CXX_COMPILER clang)
 set(CMAKE_CXX_COMPILER_TARGET \${triple})
 END
 
@@ -217,8 +247,8 @@ if [ "$CPLUSPLUS" -ne 0 ]; then
 	# libcxx
 	CMAKE_ARGS_EXTRA="-DCMAKE_CROSSCOMPILING=True -DLIBCXX_CXX_ABI=libcxxabi -DLIBCXX_CXX_ABI_INCLUDE_PATHS=${ROOT}/external/llvm/projects/libcxxabi/include -DLIBCXX_ENABLE_THREADS:BOOL=OFF -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY=NO -DLIBCXX_STANDARD_VER=c++17"
 	build libcxx external/llvm/projects/libcxx
-fi
 
+fi
 if [ "$SYSUTILS" -ne 0 ]; then
 	CMAKE_ARGS="${CMAKE_ARGS_BASE} -DCMAKE_INSTALL_PREFIX=${OUTDIR}"
 

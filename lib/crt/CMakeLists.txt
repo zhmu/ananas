@@ -24,7 +24,7 @@ build_object(crtn amd64/crtn.S)
 # crt0 consists of the common crt0 stuff + the platform specific bits; we merge them here
 add_custom_target(crt0.o ALL
 	DEPENDS crt0-common crt0S
-	COMMAND ${CMAKE_LD_LINKER} -r -o ${CMAKE_CURRENT_BINARY_DIR}/crt0.o $<TARGET_OBJECTS:crt0-common> $<TARGET_OBJECTS:crt0S>
+	COMMAND ${CMAKE_LINKER} -r -o ${CMAKE_CURRENT_BINARY_DIR}/crt0.o $<TARGET_OBJECTS:crt0-common> $<TARGET_OBJECTS:crt0S>
 )
 
 install(FILES
