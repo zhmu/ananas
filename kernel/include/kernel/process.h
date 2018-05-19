@@ -2,6 +2,7 @@
 #define __PROCESS_H__
 
 #include <ananas/limits.h>
+#include <ananas/util/array.h>
 #include <ananas/util/list.h>
 #include "kernel/lock.h"
 
@@ -9,6 +10,7 @@ struct DEntry;
 struct PROCINFO;
 class Result;
 
+struct FD;
 struct Thread;
 class VMSpace;
 
@@ -93,7 +95,7 @@ struct Process {
 
 	Thread* p_mainthread = nullptr;		/* Main thread */
 
-	struct HANDLE* p_handle[PROCESS_MAX_HANDLES] = {0};	/* Handles */
+	util::array<FD*, PROCESS_MAX_DESCRIPTORS> p_fd = {0};	/* Descriptors */
 
 	DEntry*	p_cwd = nullptr;		/* Current path */
 

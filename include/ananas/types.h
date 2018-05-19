@@ -17,7 +17,7 @@
 #include <ananas/_types/uid.h>
 #include <ananas/_types/gid.h>
 #include <ananas/_types/mode.h>
-#include <ananas/_types/handle.h>
+#include <ananas/_types/fdindex.h>
 #include <ananas/_types/id.h>
 #include <ananas/_types/ino.h>
 #include <ananas/_types/off.h>

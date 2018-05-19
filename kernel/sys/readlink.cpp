@@ -1,6 +1,6 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
-#include "kernel/handle.h"
+#include "kernel/fd.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
@@ -8,8 +8,6 @@
 #include "kernel/vfs/core.h"
 #include "kernel/vm.h"
 #include "syscall.h"
-
-#include "kernel/lib.h"
 
 TRACE_SETUP;
 

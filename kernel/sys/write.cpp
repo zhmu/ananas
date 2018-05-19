@@ -1,6 +1,6 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
-#include "kernel/handle.h"
+#include "kernel/fd.h"
 #include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
@@ -9,14 +9,13 @@
 TRACE_SETUP;
 
 Result
-sys_write(Thread* t, handleindex_t hindex, const void* buf, size_t* len)
+sys_write(Thread* t, fdindex_t hindex, const void* buf, size_t* len)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, hindex=%u, buf=%p, len=%p", t, hindex, buf, len);
 
-	/* Get the handle */
-	struct HANDLE* h;
+	FD* fd;
 	RESULT_PROPAGATE_FAILURE(
-		syscall_get_handle(*t, hindex, &h)
+		syscall_get_fd(*t, FD_TYPE_ANY, hindex, fd)
 	);
 
 	/* Fetch the size operand */
@@ -32,9 +31,9 @@ sys_write(Thread* t, handleindex_t hindex, const void* buf, size_t* len)
 	);
 
 	/* And write data from to it */
-	if (h->h_hops->hop_write != NULL) {
+	if (fd->fd_ops->d_write != NULL) {
 		RESULT_PROPAGATE_FAILURE(
-			h->h_hops->hop_write(t, hindex, h, buf, &size)
+			fd->fd_ops->d_write(t, hindex, *fd, buf, &size)
 		);
 	} else {
 		return RESULT_MAKE_FAILURE(EINVAL);

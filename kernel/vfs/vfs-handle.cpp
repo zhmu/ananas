@@ -3,7 +3,7 @@
 #include <ananas/flags.h>
 #include <ananas/handle-options.h>
 #include "kernel/bio.h"
-#include "kernel/handle.h"
+#include "kernel/fd.h"
 #include "kernel/init.h"
 #include "kernel/lib.h"
 #include "kernel/process.h"
@@ -16,44 +16,43 @@
 TRACE_SETUP;
 
 static Result
-vfshandle_get_file(struct HANDLE* handle, struct VFS_FILE** out)
+vfshandle_get_file(FD& fd, struct VFS_FILE*& out)
 {
-	if (handle->h_type != HANDLE_TYPE_FILE)
+	if (fd.fd_type != FD_TYPE_FILE)
 		return RESULT_MAKE_FAILURE(EBADF);
 
-	struct VFS_FILE* file = &((struct HANDLE*)handle)->h_data.d_vfs_file;
-	if (file->f_dentry == NULL && file->f_device == NULL)
+	struct VFS_FILE* file = &fd.fd_data.d_vfs_file;
+	if (file->f_dentry == nullptr && file->f_device == nullptr)
 		return RESULT_MAKE_FAILURE(EBADF);
 
-	*out = file;
+	out = file;
 	return Result::Success();
 }
 
 Result
-vfshandle_read(Thread* t, handleindex_t index, struct HANDLE* handle, void* buffer, size_t* size)
+vfshandle_read(Thread* t, fdindex_t index, FD& fd, void* buffer, size_t* size)
 {
 	struct VFS_FILE* file;
-
 	RESULT_PROPAGATE_FAILURE(
-		vfshandle_get_file(handle, &file)
+		vfshandle_get_file(fd, file)
 	);
 
 	return vfs_read(file, buffer, size);
 }
 
 Result
-vfshandle_write(Thread* t, handleindex_t index, struct HANDLE* handle, const void* buffer, size_t* size)
+vfshandle_write(Thread* t, fdindex_t index, FD& fd, const void* buffer, size_t* size)
 {
 	struct VFS_FILE* file;
 	RESULT_PROPAGATE_FAILURE(
-		vfshandle_get_file(handle, &file)
+		vfshandle_get_file(fd, file)
 	);
 
 	return vfs_write(file, buffer, size);
 }
 
 static Result
-vfshandle_open(Thread* t, handleindex_t index, struct HANDLE* handle, const char* path, int flags, int mode)
+vfshandle_open(Thread* t, fdindex_t index, FD& fd, const char* path, int flags, int mode)
 {
 	Process& proc = *t->t_process;
 
@@ -64,7 +63,7 @@ vfshandle_open(Thread* t, handleindex_t index, struct HANDLE* handle, const char
 	 */
 	if (flags & O_CREAT) {
 		/* Attempt to create the new file - if this works, we're all set */
-		Result result = vfs_create(proc.p_cwd, &handle->h_data.d_vfs_file, path, mode);
+		Result result = vfs_create(proc.p_cwd, &fd.fd_data.d_vfs_file, path, mode);
 		if (result.IsSuccess())
 			return result;
 
@@ -83,33 +82,33 @@ vfshandle_open(Thread* t, handleindex_t index, struct HANDLE* handle, const char
 
 	/* And open the path */
 	TRACE(SYSCALL, INFO, "opening path '%s'", path);
-	return vfs_open(&proc, path, proc.p_cwd, &handle->h_data.d_vfs_file);
+	return vfs_open(&proc, path, proc.p_cwd, &fd.fd_data.d_vfs_file);
 }
 
 static Result
-vfshandle_free(Process& proc, struct HANDLE* handle)
+vfshandle_free(Process& proc, FD& fd)
 {
-	auto& file = handle->h_data.d_vfs_file;
+	auto& file = fd.fd_data.d_vfs_file;
 	return vfs_close(&proc, &file);
 }
 
 static Result
-vfshandle_unlink(Thread* t, handleindex_t index, struct HANDLE* handle)
+vfshandle_unlink(Thread* t, fdindex_t index, FD& fd)
 {
 	struct VFS_FILE* file;
 	RESULT_PROPAGATE_FAILURE(
-		vfshandle_get_file(handle, &file)
+		vfshandle_get_file(fd, file)
 	);
 
 	return vfs_unlink(file);
 }
 
 static Result
-vfshandle_clone(Process& p_in, handleindex_t index_in, struct HANDLE* handle_in, struct CLONE_OPTIONS* opts, Process& proc_out, struct HANDLE** handle_out, handleindex_t index_out_min, handleindex_t* index_out)
+vfshandle_clone(Process& p_in, fdindex_t index_in, FD& fd_in, struct CLONE_OPTIONS* opts, Process& proc_out, FD*& fd_out, fdindex_t index_out_min, fdindex_t& index_out)
 {
 	struct VFS_FILE* file;
 	RESULT_PROPAGATE_FAILURE(
-		vfshandle_get_file(handle_in, &file)
+		vfshandle_get_file(fd_in, file)
 	);
 
 	/*
@@ -122,17 +121,17 @@ vfshandle_clone(Process& p_in, handleindex_t index_in, struct HANDLE* handle_in,
 		dentry_ref(*dentry);
 
 	/* Now, just ordinarely clone the handle */
-	return handle_clone_generic(handle_in, proc_out, handle_out, index_out_min, index_out);
+	return fd::CloneGeneric(fd_in, proc_out, fd_out, index_out_min, index_out);
 }
 
-struct HANDLE_OPS vfs_hops = {
-	.hop_read = vfshandle_read,
-	.hop_write = vfshandle_write,
-	.hop_open = vfshandle_open,
-	.hop_free = vfshandle_free,
-	.hop_unlink = vfshandle_unlink,
-	.hop_clone = vfshandle_clone,
+static struct FDOperations vfs_ops = {
+	.d_read = vfshandle_read,
+	.d_write = vfshandle_write,
+	.d_open = vfshandle_open,
+	.d_free = vfshandle_free,
+	.d_unlink = vfshandle_unlink,
+	.d_clone = vfshandle_clone,
 };
-HANDLE_TYPE(HANDLE_TYPE_FILE, "file", vfs_hops);
+FD_TYPE(FD_TYPE_FILE, "file", vfs_ops);
 
 /* vim:set ts=2 sw=2: */

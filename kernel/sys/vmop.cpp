@@ -2,6 +2,7 @@
 #include <ananas/errno.h>
 #include <ananas/syscalls.h>
 #include <ananas/syscall-vmops.h>
+#include "kernel/fd.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
@@ -38,15 +39,13 @@ sys_vmop_map(Thread* curthread, struct VMOP_OPTIONS* vo)
 		dest_addr = vs.ReserveAdressRange(vo->vo_len);
 
 	VMArea* va;
-	if (vo->vo_flags & VMOP_FLAG_HANDLE) {
-		struct HANDLE* h;
+	if (vo->vo_flags & VMOP_FLAG_FD) {
+		FD* fd;
 		RESULT_PROPAGATE_FAILURE(
-			syscall_get_handle(*curthread, vo->vo_handle, &h)
+			syscall_get_fd(*curthread, FD_TYPE_FILE, vo->vo_fd, fd)
 		);
 
-		if (h->h_type != HANDLE_TYPE_FILE)
-			return RESULT_MAKE_FAILURE(EBADF);
-		DEntry* dentry = h->h_data.d_vfs_file.f_dentry;
+		DEntry* dentry = fd->fd_data.d_vfs_file.f_dentry;
 		if (dentry == nullptr)
 			return RESULT_MAKE_FAILURE(EBADF);
 

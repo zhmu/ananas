@@ -1,7 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
 #include <ananas/procinfo.h>
-#include "kernel/handle.h"
+#include "kernel/fd.h"
 #include "kernel/init.h"
 #include "kernel/kdb.h"
 #include "kernel/kmem.h"
@@ -84,18 +84,18 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 	if (parent != nullptr)
 		p->SetEnvironment(parent->p_info->pi_env, PROCINFO_ENV_LENGTH - 1);
 
-	// Clone the parent's handles
+	// Clone the parent's descriptors
 	if (parent != nullptr) {
-		for (unsigned int n = 0; n < PROCESS_MAX_HANDLES; n++) {
-			if (parent->p_handle[n] == nullptr)
+		for (unsigned int n = 0; n < parent->p_fd.size(); n++) {
+			if (parent->p_fd[n] == nullptr)
 				continue;
 
-			struct HANDLE* handle;
-			handleindex_t out;
-			result = handle_clone(*parent, n, nullptr, *p, &handle, n, &out);
+			FD* fd_out;
+			fdindex_t index_out;
+			result = fd::Clone(*parent, n, nullptr, *p, fd_out, n, index_out);
 			if (result.IsFailure())
 				goto fail;
-			KASSERT(n == out, "cloned handle %d to new handle %d", n, out);
+			KASSERT(n == index_out, "cloned fd %d to new fd %d", n, index_out);
 		}
 	}
 	/* Run all process initialization callbacks */
@@ -161,9 +161,13 @@ process_destroy(Process& p)
 		pc.pc_func(p);
 	}
 
-	/* Free all handles */
-	for(unsigned int n = 0; n < PROCESS_MAX_HANDLES; n++)
-		handle_free_byindex(p, n);
+	/* Free all descriptors */
+	for (auto& d: p.p_fd) {
+		if (d == nullptr)
+			continue;
+		d->Close();
+		d = nullptr;
+	}
 
 	process::AbandonProcessGroup(p);
 

@@ -4,6 +4,7 @@
 #include <ananas/signal.h>
 #include <ananas/util/list.h>
 #include "kernel/lock.h"
+#include "kernel/result.h"
 
 namespace process
 {

@@ -3,6 +3,7 @@
 #include <ananas/procinfo.h>
 #include <ananas/syscall-vmops.h>
 #include <sys/mman.h> // for PROT_...
+#include <sys/stat.h>
 
 extern "C" {
 #include <ananas/syscalls.h>
@@ -50,6 +51,12 @@ lseek(int fd, off_t offset, int whence)
 	return sys_seek(fd, &new_offset, whence) == ananas_statuscode_success() ? new_offset : -1;
 }
 
+int
+fstat(int fd, struct stat* sb)
+{
+	return sys_fstat(fd, sb) == ananas_statuscode_success() ? 0 : -1;
+}
+
 void
 exit(int status)
 {
@@ -82,8 +89,8 @@ mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset)
 		vo.vo_flags |= VMOP_FLAG_FIXED;
 
 	if (fd != -1) {
-		vo.vo_flags |= VMOP_FLAG_HANDLE;
-		vo.vo_handle = fd;
+		vo.vo_flags |= VMOP_FLAG_FD;
+		vo.vo_fd = fd;
 	}
 	vo.vo_offset = offset;
 

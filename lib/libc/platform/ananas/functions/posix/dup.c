@@ -6,7 +6,7 @@
 int
 dup(int fildes)
 {
-	handleindex_t out;
+	fdindex_t out;
 	statuscode_t status = sys_dupfd(fildes, 0, &out);
 	if (status != ananas_statuscode_success())
 		return map_statuscode(status);

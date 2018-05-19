@@ -4,10 +4,10 @@
 #include <loader/module.h>
 #include <machine/param.h>
 #include "kernel/cmdline.h"
+#include "kernel/fd.h"
 #include "kernel/init.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
-#include "kernel/handle.h"
 #include "kernel/page.h"
 #include "kernel/pcpu.h"
 #include "kernel/result.h"
@@ -616,8 +616,8 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 	// Initialize our memory mappings
 	setup_memory(avail);
 
-	/* Initialize the handles; this is needed by the per-CPU code as it initialize threads */
-	handle_init();
+	// Initialize the handles; this is needed by the per-CPU code as it initialize threads XXX Is this still true?
+	fd::Initialize();
 
 	// Initialize the commandline arguments, if we have any
 	cmdline_init(boot_args, bootinfo->bi_args_size);

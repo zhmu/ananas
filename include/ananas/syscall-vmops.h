@@ -19,7 +19,7 @@ typedef enum {
 #define VMOP_FLAG_PRIVATE	0x0010
 
 /* If set, vo_handle / vo_offset will back the mapping */
-#define VMOP_FLAG_HANDLE	0x0020
+#define VMOP_FLAG_FD		0x0020
 
 /* If set, force mapping to be placed here */
 #define VMOP_FLAG_FIXED		0x0040
@@ -35,8 +35,8 @@ struct VMOP_OPTIONS {
 	/* Flags to use */
 	int		vo_flags;
 
-	/* Backing handle/offset - only if VMOP_FLAG_HANDLE is used */
-	handleindex_t	vo_handle;
+	/* Backing handle/offset - only if VMOP_FLAG_FD is used */
+	fdindex_t	vo_fd;
 	off_t		vo_offset;
 };
 

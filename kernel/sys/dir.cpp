@@ -1,5 +1,6 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
+#include "kernel/fd.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
@@ -47,21 +48,17 @@ sys_chdir(Thread* t, const char* path)
 }
 
 Result
-sys_fchdir(Thread* t, handleindex_t index)
+sys_fchdir(Thread* t, fdindex_t index)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, index=%d'", t, index);
 	Process& proc = *t->t_process;
 
-	/* Get the handle */
-	struct HANDLE* h;
+	FD* fd;
 	RESULT_PROPAGATE_FAILURE(
-		syscall_get_handle(*t, index, &h)
+		syscall_get_fd(*t, FD_TYPE_FILE, index, fd)
 	);
 
-	if (h->h_type != HANDLE_TYPE_FILE)
-		return RESULT_MAKE_FAILURE(EBADF);
-
-	return SetCWD(proc, h->h_data.d_vfs_file);
+	return SetCWD(proc, fd->fd_data.d_vfs_file);
 }
 
 Result

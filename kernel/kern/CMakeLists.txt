@@ -13,7 +13,7 @@ add_sources(
 	drivermanager.cpp
 	elf.cpp
 	exec.cpp
-	handle.cpp
+	fd.cpp
 	init-userland.cpp
 	init.cpp
 	irq.cpp

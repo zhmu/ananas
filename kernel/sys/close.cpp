@@ -1,5 +1,5 @@
 #include <ananas/types.h>
-#include "kernel/handle.h"
+#include "kernel/fd.h"
 #include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
@@ -8,16 +8,16 @@
 TRACE_SETUP;
 
 Result
-sys_close(Thread* t, handleindex_t hindex)
+sys_close(Thread* t, fdindex_t index)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, hindex=%p", t, hindex);
+	TRACE(SYSCALL, FUNC, "t %p, fd %d", t, index);
 
-	struct HANDLE* h;
+	FD* fd;
 	RESULT_PROPAGATE_FAILURE(
-		syscall_get_handle(*t, hindex, &h)
+		syscall_get_fd(*t, FD_TYPE_ANY, index, fd)
 	);
 	RESULT_PROPAGATE_FAILURE(
-		handle_free(h)
+		fd->Close()
 	);
 
 	TRACE(SYSCALL, INFO, "t=%p, success", t);

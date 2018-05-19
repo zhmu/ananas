@@ -29,11 +29,11 @@ void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offset)
 		vo.vo_flags |= VMOP_FLAG_SHARED;
 
 	if (flags & MAP_ANONYMOUS) {
-		vo.vo_handle = -1;
+		vo.vo_fd = -1;
 		vo.vo_offset = 0;
 	} else {
-		vo.vo_flags |= VMOP_FLAG_HANDLE;
-		vo.vo_handle = fd;
+		vo.vo_flags |= VMOP_FLAG_FD;
+		vo.vo_fd = fd;
 		vo.vo_offset = offset;
 	}
 

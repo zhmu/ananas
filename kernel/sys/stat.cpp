@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
 #include "kernel/device.h"
+#include "kernel/fd.h"
 #include "kernel/lib.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
@@ -72,19 +73,16 @@ sys_lstat(Thread* t, const char* path, struct stat* buf)
 }
 
 Result
-sys_fstat(Thread* t, handleindex_t hindex, struct stat* buf)
+sys_fstat(Thread* t, fdindex_t hindex, struct stat* buf)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, hindex=%d, buf=%p", t, hindex, buf);
 
 	/* Get the handle */
-	struct HANDLE* h;
+	FD* fd;
 	RESULT_PROPAGATE_FAILURE(
-		syscall_get_handle(*t, hindex, &h)
+		syscall_get_fd(*t, FD_TYPE_FILE, hindex, fd)
 	);
 
-	if (h->h_type != HANDLE_TYPE_FILE)
-		return RESULT_MAKE_FAILURE(EBADF);
-
-        VFS_FILE* file = &h->h_data.d_vfs_file;
+        VFS_FILE* file = &fd->fd_data.d_vfs_file;
 	return fill_stat_buf(file, buf);
 }

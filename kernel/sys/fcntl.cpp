@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
 #include <ananas/flags.h>
+#include "kernel/fd.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/trace.h"
@@ -9,29 +10,26 @@
 TRACE_SETUP;
 
 Result
-sys_fcntl(Thread* t, handleindex_t hindex, int cmd, const void* in, void* out)
+sys_fcntl(Thread* t, fdindex_t hindex, int cmd, const void* in, void* out)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, hindex=%d cmd=%d", t, hindex, cmd);
 	Process& process = *t->t_process;
 
 	/* Get the handle */
-	struct HANDLE* h;
+	FD* fd;
 	RESULT_PROPAGATE_FAILURE(
-		syscall_get_handle(*t, hindex, &h)
+		syscall_get_fd(*t, FD_TYPE_ANY, hindex, fd)
 	);
-
-	if (h->h_type != HANDLE_TYPE_FILE)
-		return RESULT_MAKE_FAILURE(EBADF);
 
 	switch(cmd) {
 		case F_DUPFD: {
 			int min_fd = (int)(uintptr_t)in;
-			struct HANDLE* handle_out;
-			handleindex_t hidx_out = -1;
+			FD* fd_out;
+			fdindex_t idx_out = -1;
 			RESULT_PROPAGATE_FAILURE(
-				handle_clone(process, hindex, NULL, process, &handle_out, min_fd, &hidx_out)
+				fd::Clone(process, hindex, nullptr, process, fd_out, min_fd, idx_out)
 			);
-			*(int*)out = hidx_out;
+			*(int*)out = idx_out;
 			break;
 		}
 		case F_GETFD:

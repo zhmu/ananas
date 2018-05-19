@@ -3,23 +3,23 @@
 # <number> { prototype }
 #
 0 { void exit(int exitcode); }
-1 { Result read(handleindex_t index, void* buf, size_t* len); }
-2 { Result write(handleindex_t index, const void* buf, size_t* len); }
-3 { Result open(const char* path, int flags, int mode, handleindex_t* out); }
-4 { Result close(handleindex_t handle); }
+1 { Result read(fdindex_t fd, void* buf, size_t* len); }
+2 { Result write(fdindex_t fd, const void* buf, size_t* len); }
+3 { Result open(const char* path, int flags, int mode, fdindex_t* out); }
+4 { Result close(fdindex_t fd); }
 5 { Result unlink(const char* path); }
-6 { Result seek(handleindex_t handle, off_t* offset, int whence); }
+6 { Result seek(fdindex_t fd, off_t* offset, int whence); }
 7 { Result clone(int flags, pid_t* out); }
 8 { Result waitpid(pid_t* pid, int* stat_loc, int options); }
 9 { Result execve(const char* path, const char** argv, const char** envp); }
 10 { Result vmop(struct VMOP_OPTIONS* opts); }
-11 { Result dupfd(handleindex_t index, int flags, handleindex_t* out); }
+11 { Result dupfd(fdindex_t fd, int flags, fdindex_t* out); }
 12 { Result rename(const char* oldpath, const char* newpath); }
 13 { Result stat(const char* path, struct stat* buf); }
 14 { Result chdir(const char* path); }
-15 { Result fstat(handleindex_t index, struct stat* buf); }
-16 { Result fchdir(handleindex_t index); }
-17 { Result fcntl(handleindex_t index, int cmd, const void* in, void* out); }
+15 { Result fstat(fdindex_t index, struct stat* buf); }
+16 { Result fchdir(fdindex_t index); }
+17 { Result fcntl(fdindex_t index, int cmd, const void* in, void* out); }
 18 { Result link(const char* oldpath, const char* newpath); }
 19 { Result utime(const char* path, const struct utimbuf* times); }
 20 { Result clock_settime(clockid_t id, const struct timespec* tp); }

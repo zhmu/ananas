@@ -2,5 +2,5 @@
 
 int getdtablesize()
 {
-	return PROCESS_MAX_HANDLES;
+	return PROCESS_MAX_DESCRIPTORS;
 }

@@ -1,6 +1,6 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
-#include "kernel/handle.h"
+#include "kernel/fd.h"
 #include "kernel/lib.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
@@ -11,20 +11,20 @@
 TRACE_SETUP;
 
 Result
-syscall_get_handle(Thread& t, handleindex_t hindex, struct HANDLE** out)
+syscall_get_fd(Thread& t, int type, fdindex_t index, FD*& fd)
 {
-	return handle_lookup(*t.t_process, hindex, HANDLE_TYPE_ANY, out);
+	return fd::Lookup(*t.t_process, index, type, fd);
 }
 
 Result
-syscall_get_file(Thread& t, handleindex_t hindex, struct VFS_FILE** out)
+syscall_get_file(Thread& t, fdindex_t index, struct VFS_FILE** out)
 {
-	struct HANDLE* handle;
+	FD* fd;
 	RESULT_PROPAGATE_FAILURE(
-		handle_lookup(*t.t_process, hindex, HANDLE_TYPE_ANY, &handle)
+		fd::Lookup(*t.t_process, index, FD_TYPE_FILE, fd)
 	);
 
-	struct VFS_FILE* file = &((struct HANDLE*)handle)->h_data.d_vfs_file;
+	struct VFS_FILE* file = &fd->fd_data.d_vfs_file;
 	if (file->f_dentry == NULL && file->f_device == NULL)
 		return RESULT_MAKE_FAILURE(EBADF);
 
@@ -83,9 +83,9 @@ syscall_set_size(Thread& t, void* ptr, size_t len)
 }
 
 Result
-syscall_set_handleindex(Thread& t, handleindex_t* ptr, handleindex_t index)
+syscall_set_handleindex(Thread& t, fdindex_t* ptr, fdindex_t index)
 {
-	auto p = static_cast<handleindex_t*>(md::thread::MapThreadMemory(t, (void*)ptr, sizeof(handleindex_t), VM_FLAG_WRITE));
+	auto p = static_cast<fdindex_t*>(md::thread::MapThreadMemory(t, (void*)ptr, sizeof(fdindex_t), VM_FLAG_WRITE));
 	if (p == NULL)
 		return RESULT_MAKE_FAILURE(EFAULT);
 

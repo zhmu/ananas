@@ -3,7 +3,6 @@
 
 #include <ananas/types.h>
 #include <ananas/util/list.h>
-#include "kernel/handle.h"
 #include "kernel/page.h"
 #include "kernel/schedule.h" // for SchedulerPriv
 #include "kernel/signal.h" // for ThreadSpecificData
