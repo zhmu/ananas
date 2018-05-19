@@ -152,6 +152,11 @@ public:
 	{
 		return Result::Success();
 	}
+
+	Result HandleReadLink(INode& inode, void* buf, size_t* len) override
+	{
+		return RESULT_MAKE_FAILURE(EIO);
+	}
 };
 
 } // unnamed namespace

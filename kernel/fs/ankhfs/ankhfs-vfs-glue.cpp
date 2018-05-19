@@ -41,6 +41,15 @@ ankhfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 }
 
 Result
+ankhfs_readlink(INode& inode, char* buffer, size_t* buflen)
+{
+	auto subSystem = GetSubSystemFromInode(inode);
+	if (subSystem == nullptr)
+		return RESULT_MAKE_FAILURE(EIO);
+	return subSystem->HandleReadLink(inode, buffer, buflen);
+}
+
+Result
 ankhfs_open(VFS_FILE& file, Process* p)
 {
 	auto subSystem = GetSubSystemFromInode(*file.f_dentry->d_inode);
@@ -72,6 +81,10 @@ struct VFS_INODE_OPS ankhfs_no_ops = {
 
 struct VFS_INODE_OPS ankhfs_file_ops = {
 	.read = ankhfs_read
+};
+
+struct VFS_INODE_OPS ankhfs_link_ops = {
+	.read_link = ankhfs_readlink
 };
 
 struct VFS_INODE_OPS ankhfs_dev_ops = {
@@ -128,6 +141,8 @@ ankhfs_read_inode(INode& inode, ino_t inum)
 		inode.i_iops = &ankhfs_dir_ops;
 	} else if (S_ISREG(inode.i_sb.st_mode))
 		inode.i_iops = &ankhfs_file_ops;
+	else if (S_ISLNK(inode.i_sb.st_mode))
+		inode.i_iops = &ankhfs_link_ops;
 	else if (S_ISCHR(inode.i_sb.st_mode) || S_ISBLK(inode.i_sb.st_mode))
 		inode.i_iops = &ankhfs_dev_ops;
 	else

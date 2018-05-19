@@ -2,6 +2,7 @@
 #include <ananas/errno.h>
 #include <ananas/procinfo.h>
 #include "kernel/lib.h"
+#include "kernel/fd.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/trace.h"
@@ -31,11 +32,14 @@ namespace {
 constexpr unsigned int subName = 1;
 constexpr unsigned int subVmSpace = 2;
 constexpr unsigned int subState = 3;
+constexpr unsigned int subFdDir = 4;
+constexpr unsigned int subFdEntry = 5;
 
 struct DirectoryEntry proc_entries[] = {
 	{ "name", make_inum(SS_Proc, 0, subName) },
 	{ "vmspace", make_inum(SS_Proc, 0, subVmSpace) },
 	{ "state", make_inum(SS_Proc, 0, subState) },
+	{ "fd", make_inum(SS_Proc, 0, subFdDir) },
 	{ NULL, 0 }
 };
 
@@ -63,6 +67,47 @@ HandleReadDir_Proc_Root(struct VFS_FILE* file, void* dirents, size_t* len)
 	return HandleReadDir(file, dirents, len, entryFetcher);
 }
 
+Result
+HandleReadDir_Proc_Fd(struct VFS_FILE* file, void* dirents, size_t* len)
+{
+	struct FetchFdEntry : IReadDirCallback {
+		FetchFdEntry(Process& process)
+		 : currentProcess(process)
+		{
+		}
+
+		bool FetchNextEntry(char* entry, size_t maxLength, ino_t& inum) override {
+			while (currentFd < PROCESS_MAX_DESCRIPTORS) {
+				auto& fd = currentProcess.p_fd[currentFd];
+				if (fd != nullptr) {
+					snprintf(entry, maxLength, "%d", static_cast<int>(currentFd));
+					inum = make_inum(SS_Proc, currentProcess.p_pid, subFdEntry + currentFd);
+					++currentFd;
+					return true;
+				}
+				++currentFd;
+			}
+			return false;
+		}
+
+		int currentFd = 0;
+		Process& currentProcess;
+	};
+
+	// Fetch the process
+	ino_t inum = file->f_dentry->d_inode->i_inum;
+	pid_t pid = static_cast<pid_t>(inum_to_id(inum));
+	Process* p = process_lookup_by_id_and_ref(pid);
+	if (p == nullptr)
+		return RESULT_MAKE_FAILURE(EIO);
+
+	// Fill the directory with one item per active file descriptor
+	FetchFdEntry entryFetcher(*p);
+	auto result = HandleReadDir(file, dirents, len, entryFetcher);
+	p->Deref();
+	return result;
+}
+
 class ProcSubSystem : public IAnkhSubSystem
 {
 public:
@@ -74,17 +119,47 @@ public:
 		if (inum_to_id(inum) == 0)
 			return HandleReadDir_Proc_Root(file, dirents, len);
 
+		if (inum_to_sub(inum) == subFdDir)
+				return HandleReadDir_Proc_Fd(file, dirents, len);
+
 		return AnkhFS::HandleReadDir(file, dirents, len, proc_entries[0], inum_to_id(inum));
 	}
 
 	Result FillInode(INode& inode, ino_t inum) override
 	{
-		if (inum_to_sub(inum) == 0) {
+		auto sub = inum_to_sub(inum);
+		if (sub == 0 || sub == subFdDir) {
 			inode.i_sb.st_mode |= S_IFDIR;
+		} else if (sub >= subFdEntry && sub <= subFdEntry + PROCESS_MAX_DESCRIPTORS) {
+			inode.i_sb.st_mode |= S_IFLNK;
 		} else {
 			inode.i_sb.st_mode |= S_IFREG;
 		}
 		return Result::Success();
+	}
+
+	Result HandleReadLink(INode& inode, void* buf, size_t* len) override
+	{
+		auto sub = inum_to_sub(inode.i_inum);
+		if (sub >= subFdEntry && sub <= subFdEntry + PROCESS_MAX_DESCRIPTORS) {
+			auto pid = static_cast<pid_t>(inum_to_id(inode.i_inum));
+			Process* p = process_lookup_by_id_and_ref(pid);
+			if (p == nullptr)
+				return RESULT_MAKE_FAILURE(EIO);
+
+			Result result = RESULT_MAKE_FAILURE(EIO);
+			auto fd = p->p_fd[sub - subFdEntry]; // XXX we need to lock this
+			if (fd != nullptr && fd->fd_type == FD_TYPE_FILE && fd->fd_data.d_vfs_file.f_dentry != nullptr) {
+				auto len_needed = dentry_construct_path(static_cast<char*>(buf), *len, *fd->fd_data.d_vfs_file.f_dentry);
+				if (len_needed < *len)
+					*len = len_needed;
+				result = Result::Success();
+			}
+			p->Deref();
+			return result;
+		}
+
+		return RESULT_MAKE_FAILURE(EIO);
 	}
 
 	Result HandleRead(struct VFS_FILE* file, void* buf, size_t* len) override
