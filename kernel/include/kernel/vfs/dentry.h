@@ -4,7 +4,6 @@
 #include <ananas/util/list.h>
 #include <ananas/types.h>
 
-#define DCACHE_ITEMS_PER_FS	32
 #define DCACHE_MAX_NAME_LEN	255
 
 struct VFS_MOUNTED_FS;
@@ -20,8 +19,6 @@ struct DEntry : util::List<DEntry>::NodePtr {
 #define DENTRY_FLAG_ROOT			0x0002		/* Root dentry; must not be removed */
 	char	d_entry[DCACHE_MAX_NAME_LEN] = {};/* Entry name */
 };
-
-typedef util::List<DEntry> DEntryList;
 
 DEntry& dcache_create_root_dentry(struct VFS_MOUNTED_FS* fs);
 

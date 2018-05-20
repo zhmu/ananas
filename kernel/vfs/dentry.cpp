@@ -26,8 +26,11 @@ TRACE_SETUP;
 namespace {
 
 Mutex dcache_mtx{"dcache"};
-DEntryList dcache_inuse;
-DEntryList dcache_free;
+util::List<DEntry> dcache_inuse;
+util::List<DEntry> dcache_free;
+
+constexpr size_t initialCacheItems = 32;
+constexpr size_t growCacheIncrement = 2;
 
 inline void dcache_lock()
 {
@@ -39,60 +42,62 @@ inline void dcache_unlock()
 	dcache_mtx.Unlock();
 }
 
-inline void dcache_assert_locked()
+void
+GrowCache(size_t numberOfItems)
 {
-	dcache_mtx.AssertLocked();
+	for (size_t i = 0; i < numberOfItems; i++)
+		dcache_free.push_back(*new DEntry);
 }
+
 
 Result
 dcache_init()
 {
 	/*
-	 * Make an empty cache; we allocate one big pool and set up pointers to the
-	 * items as necessary.
+	 * Make an initial empty cache; we allocate one big pool and set up pointers to the
+	 * items as necessary. We may choose to shrink/expand this pool later on.
 	 */
-	{
-		auto dentry = new DEntry[DCACHE_ITEMS_PER_FS];
-		for (int i = 0; i < DCACHE_ITEMS_PER_FS; i++, dentry++)
-			dcache_free.push_back(*dentry);
-	}
-
+	GrowCache(initialCacheItems);
 	return Result::Success();
 }
 
-DEntry*
-dcache_find_entry_to_use()
+DEntry&
+FindEntryToUse()
 {
-	dcache_assert_locked();
+	dcache_mtx.AssertLocked();
 
-	if (!dcache_free.empty()) {
-			DEntry& d = dcache_free.front();
-			dcache_free.pop_front();
-			return &d;
-	}
-
-	/*
-	 * Our dcache is ordered from old-to-new, so we'll start at the back and
-	 * take anything which has no refs and isn't a root dentry.
-	 */
-	for(auto it = dcache_inuse.rbegin(); it != dcache_inuse.rend(); /* nothing */) {
-		auto& d = *it; ++it;
-		if (d.d_refcount == 0 && (d.d_flags & DENTRY_FLAG_ROOT) == 0) {
-			// This dentry should be good to use - remove any backing inode it has,
-			// as we will overwrite it
-			if (d.d_inode != nullptr) {
-				vfs_deref_inode(*d.d_inode);
-				d.d_inode = nullptr;
-			}
-
-			dcache_inuse.remove(d);
-			return &d;
+	while(true) {
+		if (!dcache_free.empty()) {
+				DEntry& d = dcache_free.front();
+				dcache_free.pop_front();
+				return d;
 		}
+
+		/*
+		 * Our dcache is ordered from old-to-new, so we'll start at the back and
+		 * take anything which has no refs and isn't a root dentry.
+		 */
+		for(auto it = dcache_inuse.rbegin(); it != dcache_inuse.rend(); /* nothing */) {
+			auto& d = *it; ++it;
+			if (d.d_refcount == 0 && (d.d_flags & DENTRY_FLAG_ROOT) == 0) {
+				// This dentry should be good to use - remove any backing inode it has,
+				// as we will overwrite it
+				if (d.d_inode != nullptr) {
+					vfs_deref_inode(*d.d_inode);
+					d.d_inode = nullptr;
+				}
+
+				dcache_inuse.remove(d);
+				return d;
+			}
+		}
+
+		// Still nothing - grow the cache and try again
+		GrowCache(growCacheIncrement);
 	}
 
-	return nullptr;
+	// NOTREACHED
 }
-
 
 } // unnamed namespace
 
@@ -101,20 +106,18 @@ static void dentry_deref_locked(DEntry& de);
 DEntry&
 dcache_create_root_dentry(struct VFS_MOUNTED_FS* fs)
 {
-	dcache_lock();
+	MutexGuard g(dcache_mtx);
 
-	DEntry* d = dcache_find_entry_to_use();
-	KASSERT(d != nullptr, "out of dentries"); // XXX deal with this
+	DEntry& d = FindEntryToUse();
 
-	d->d_fs = fs;
-	d->d_refcount = 1; /* filesystem itself */
-	d->d_inode = NULL; /* supplied by the file system */
-	d->d_flags = DENTRY_FLAG_ROOT;
-	strcpy(d->d_entry, "/");
-	dcache_inuse.push_front(*d);
+	d.d_fs = fs;
+	d.d_refcount = 1; /* filesystem itself */
+	d.d_inode = NULL; /* supplied by the file system */
+	d.d_flags = DENTRY_FLAG_ROOT;
+	strcpy(d.d_entry, "/");
+	dcache_inuse.push_front(d);
 
-	dcache_unlock();
-	return *d;
+	return d;
 }
 
 /*
@@ -167,36 +170,30 @@ dcache_lookup(DEntry& parent, const char* entry)
 		return &d;
 	}
 
-	// Item was not found; try to get one from the freelist
-	DEntry* d = nullptr;
-	while(d == nullptr) {
-		/* We are out of dcache entries; we should remove some of the older entries */
-		d = dcache_find_entry_to_use();
-		/* XXX we should be able to cope with the next condition, somehow */
-		KASSERT(d != nullptr, "dcache full");
-	}
+	// Item was not found; need to make a new one
+	DEntry& d = FindEntryToUse();
 
-	/* Add an explicit ref to the parent dentry; it will be referenced by our new dentry */
+	// Add an explicit ref to the parent dentry; it will be referenced by our new dentry */
 	dentry_ref(parent);
 
 	/* Initialize the item */
-	memset(d, 0, sizeof *d);
-	d->d_fs = parent.d_fs;
-	d->d_refcount = 1; // the caller
-	d->d_parent = &parent;
-	d->d_inode = NULL;
-	d->d_flags = 0;
-	strcpy(d->d_entry, entry);
-	dcache_inuse.push_front(*d);
+	memset(&d, 0, sizeof(d)); // XXX Is this really necessary?
+	d.d_fs = parent.d_fs;
+	d.d_refcount = 1; // the caller
+	d.d_parent = &parent;
+	d.d_inode = NULL;
+	d.d_flags = 0;
+	strcpy(d.d_entry, entry);
+	dcache_inuse.push_front(d);
 	dcache_unlock();
-	TRACE(VFS, INFO, "cache miss: parent=%p, entry='%s' => d=%p", &parent, entry, d);
-	return d;
+	TRACE(VFS, INFO, "cache miss: parent=%p, entry='%s' => d=%p", &parent, entry, &d);
+	return &d;
 }
 
 void
 dcache_purge_old_entries()
 {
-	dcache_lock();
+	MutexGuard g(dcache_mtx);
 	for(auto it = dcache_inuse.begin(); it != dcache_inuse.end(); /* nothing */) {
 		auto& d = *it; ++it;
 		if (d.d_refcount > 0 || (d.d_flags & DENTRY_FLAG_ROOT))
@@ -211,7 +208,6 @@ dcache_purge_old_entries()
 		dcache_inuse.remove(d);
 		dcache_free.push_front(d);
 	}
-	dcache_unlock();
 }
 
 void
@@ -261,27 +257,19 @@ dentry_deref_locked(DEntry& d)
 void
 dentry_unlink(DEntry& de)
 {
-	dcache_lock();
+	MutexGuard g(dcache_mtx);
+
 	de.d_flags |= DENTRY_FLAG_NEGATIVE;
 	if (de.d_inode != nullptr)
 		vfs_deref_inode(*de.d_inode);
   de.d_inode = nullptr;
-	dcache_unlock();
 }
 
 void
 dentry_deref(DEntry& de)
 {
-	dcache_lock();
+	MutexGuard g(dcache_mtx);
 	dentry_deref_locked(de);
-	dcache_unlock();
-}
-
-void
-dcache_purge()
-{
-	dcache_lock();
-	dcache_unlock();
 }
 
 size_t
