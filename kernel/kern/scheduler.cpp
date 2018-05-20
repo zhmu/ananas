@@ -174,8 +174,7 @@ scheduler_exit_thread(Thread& t)
 	/* Let go of the scheduler lock but leave interrupts disabled */
 	spl_scheduler.Unlock();
 
-	/* Force a reschedule - won't return */
-	schedule();
+	// Note: we expect the caller to clean up and reschedule() !
 }
 
 extern "C" void

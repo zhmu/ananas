@@ -200,13 +200,16 @@ Process::Deref()
 void
 Process::Exit(int status)
 {
-	{
-		MutexGuard g(p_lock);
-		p_state = PROCESS_STATE_ZOMBIE;
-		p_exit_status = status;
-	}
+	// Note that the lock must be held, to prevent a race between Exit() and
+	// WaitAndLock()
+	p_lock.AssertLocked();
+	p_state = PROCESS_STATE_ZOMBIE;
+	p_exit_status = status;
+}
 
-	// Signal parent in case it is waiting for a child to exit
+void
+Process::SignalExit()
+{
 	p_parent->p_child_wait.Signal();
 }
 

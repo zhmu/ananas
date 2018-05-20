@@ -105,15 +105,14 @@ kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg)
 }
 
 /*
- * thread_cleanup() migrates a thread to zombie-state; this is generally just
- * informing everyone about the thread's demise.
+ * thread_cleanup() informs everyone about the thread's demise.
  */
 static void
 thread_cleanup(Thread& t)
 {
 	Process* p = t.t_process;
-	KASSERT((t.t_flags & THREAD_FLAG_ZOMBIE) == 0, "cleaning up zombie thread %p", &t);
-	KASSERT((t.t_flags & THREAD_FLAG_KTHREAD) != 0 || p != nullptr, "thread without process");
+	KASSERT(!t.IsZombie(), "cleaning up zombie thread %p", &t);
+	KASSERT(t.IsKernel() || p != nullptr, "thread without process");
 
 	/*
 	 * Signal anyone waiting on the thread; the terminate information should
@@ -207,7 +206,7 @@ Thread::Deref()
 		 * Ask the reaper to nuke the thread if it was a kernel thread; userland
 		 * stuff gets terminated using the wait() family of functions.
 		 */
-		if (t_flags & THREAD_FLAG_KTHREAD)
+		if (IsKernel())
 			reaper_enqueue(*this);
 		return;
 	}
@@ -263,12 +262,19 @@ thread_exit(int exitcode)
 	KASSERT(thread != NULL, "thread_exit() without thread");
 	KASSERT(!thread->IsZombie(), "exiting zombie thread");
 
-	/* Store the result code; thread_free() will mark the thread as terminating */
+	// Store the result code; thread_free() will mark the thread as terminating
 	thread->t_terminate_info = exitcode;
 
-	/* If we are the process' main thread, mark it as exiting */
-	if (thread->t_process != nullptr && thread->t_process->p_mainthread == thread)
-		thread->t_process->Exit(exitcode);
+	// Grab the process lock; this ensures WaitAndLock() will be blocked until the
+	// thread is completely forgotten by the scheduler
+	Process* p = thread->t_process;
+	if (p != nullptr) {
+		p->Lock();
+
+		// If we are the process' main thread, mark it as exiting
+		if (p->p_mainthread == thread)
+			p->Exit(exitcode);
+	}
 
 	/*
 	 * Dereference our own thread handle; this will cause a transition to
@@ -276,15 +282,22 @@ thread_exit(int exitcode)
 	 */
 	thread->Deref();
 
-	/* Ask the scheduler to exit the thread */
+	// Ask the scheduler to exit the thread; this returns with interrupts disabled
 	scheduler_exit_thread(*thread);
+	if (thread->t_process != nullptr) {
+		// Signal parent in case it is waiting for a child to exit
+		p->SignalExit();
+		thread->t_process->Unlock();
+	}
+
+	schedule();
 	/* NOTREACHED */
 }
 
 void
 Thread::SetName(const char* name)
 {
-	if (t_flags & THREAD_FLAG_KTHREAD) {
+	if (IsKernel()) {
 		/* Surround kernel thread names by [ ] to clearly identify them */
 		snprintf(t_name, THREAD_MAX_NAME_LEN, "[%s]", name);
 	} else {

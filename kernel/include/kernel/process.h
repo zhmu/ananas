@@ -111,6 +111,7 @@ struct Process {
 	void Ref();
 	void Deref();
 	void Exit(int status);
+	void SignalExit();
 
 	Result SetArguments(const char* args, size_t args_len);
 	Result SetEnvironment(const char* env, size_t env_len);
