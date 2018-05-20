@@ -21,13 +21,12 @@ TRACE_SETUP;
 
 namespace {
 
-#define ICACHE_ITEMS 32
-
-typedef util::List<INode> INodeList;
+constexpr size_t initialCacheItems = 32;
+constexpr size_t growCacheIncrement = 2;
 
 Mutex icache_mtx{"icache"};
-INodeList icache_inuse;
-INodeList icache_free;
+util::List<INode> icache_inuse;
+util::List<INode> icache_free;
 
 inline void icache_lock()
 {
@@ -44,23 +43,22 @@ inline void icache_assert_locked()
 	icache_mtx.AssertLocked();
 }
 
+void
+GrowCache(size_t numberOfItems)
+{
+	for (size_t i = 0; i < numberOfItems; i++)
+		icache_free.push_back(*new INode);
+}
+
 Result
 icache_init()
 {
-	// Allocate inodes - we can set up some basic information here
-	// XXX we could use a slab allocator for this
-	{
-		auto inode = new INode[ICACHE_ITEMS];
-		for (int i = 0; i < ICACHE_ITEMS; i++, inode++) {
-			icache_free.push_back(*inode);
-		}
-	}
-
+	GrowCache(initialCacheItems);
 	return Result::Success();
 }
 
-void
-icache_purge_old_entries()
+bool
+PurgeEntries()
 {
 	icache_assert_locked();
 	icache_unlock();
@@ -71,6 +69,7 @@ icache_purge_old_entries()
 	 */
 	dcache_purge_old_entries();
 
+	int num_purged = 0;
 	icache_lock();
 	for(auto rit = icache_inuse.rbegin(); rit != icache_inuse.rend(); /* nothing */) {
 		auto& inode = *rit; ++rit;
@@ -104,7 +103,10 @@ icache_purge_old_entries()
 		// Move the inode to the freelist as we can re-use it again
 		icache_inuse.remove(inode);
 		icache_free.push_back(inode);
+		num_purged++;
 	}
+
+	return num_purged > 0;
 }
 
 INode&
@@ -120,14 +122,12 @@ icache_find_item_to_use()
 			return inode;
 		}
 
-		/* Freelist is empty; we need to sacrifice an item from the cache */
-		icache_purge_old_entries();
+		// Freelist is empty; we need to sacrifice an item from the cache
+		if (PurgeEntries())
+			continue;
 
-		/*
-		 * XXX next condition is too harsh - we should wait until we have an
-		 *     available inode here...
-		 */
-		KASSERT(!icache_free.empty(), "icache still full after purge??");
+		// Nothing available; allocate some extra items
+		GrowCache(growCacheIncrement);
 	}
 
 	// NOTREACHED
@@ -147,7 +147,7 @@ vfs_deref_inode(INode& inode)
 	inode.Unlock();
 
   // Never free the backing inode here - we don't have to! We will get rid of
-  // it once we need a fresh inode (icache_purge_old_entries() does this)
+  // it once we need a fresh inode (PurgeEntries() does this)
 }
 
 void
