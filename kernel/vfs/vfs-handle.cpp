@@ -15,7 +15,9 @@
 
 TRACE_SETUP;
 
-static Result
+namespace {
+
+Result
 vfshandle_get_file(FD& fd, struct VFS_FILE*& out)
 {
 	if (fd.fd_type != FD_TYPE_FILE)
@@ -33,9 +35,8 @@ Result
 vfshandle_read(Thread* t, fdindex_t index, FD& fd, void* buffer, size_t* size)
 {
 	struct VFS_FILE* file;
-	RESULT_PROPAGATE_FAILURE(
-		vfshandle_get_file(fd, file)
-	);
+	if (auto result = vfshandle_get_file(fd, file); result.IsFailure())
+		return result;
 
 	return vfs_read(file, buffer, size);
 }
@@ -44,14 +45,13 @@ Result
 vfshandle_write(Thread* t, fdindex_t index, FD& fd, const void* buffer, size_t* size)
 {
 	struct VFS_FILE* file;
-	RESULT_PROPAGATE_FAILURE(
-		vfshandle_get_file(fd, file)
-	);
+	if (auto result = vfshandle_get_file(fd, file); result.IsFailure())
+		return result;
 
 	return vfs_write(file, buffer, size);
 }
 
-static Result
+Result
 vfshandle_open(Thread* t, fdindex_t index, FD& fd, const char* path, int flags, int mode)
 {
 	Process& proc = *t->t_process;
@@ -85,31 +85,29 @@ vfshandle_open(Thread* t, fdindex_t index, FD& fd, const char* path, int flags, 
 	return vfs_open(&proc, path, proc.p_cwd, &fd.fd_data.d_vfs_file);
 }
 
-static Result
+Result
 vfshandle_free(Process& proc, FD& fd)
 {
 	auto& file = fd.fd_data.d_vfs_file;
 	return vfs_close(&proc, &file);
 }
 
-static Result
+Result
 vfshandle_unlink(Thread* t, fdindex_t index, FD& fd)
 {
 	struct VFS_FILE* file;
-	RESULT_PROPAGATE_FAILURE(
-		vfshandle_get_file(fd, file)
-	);
+	if (auto result = vfshandle_get_file(fd, file); result.IsFailure())
+		return result;
 
 	return vfs_unlink(file);
 }
 
-static Result
+Result
 vfshandle_clone(Process& p_in, fdindex_t index_in, FD& fd_in, struct CLONE_OPTIONS* opts, Process& proc_out, FD*& fd_out, fdindex_t index_out_min, fdindex_t& index_out)
 {
 	struct VFS_FILE* file;
-	RESULT_PROPAGATE_FAILURE(
-		vfshandle_get_file(fd_in, file)
-	);
+	if (auto result = vfshandle_get_file(fd_in, file); result.IsFailure())
+		return result;
 
 	/*
 	 * If the handle has a backing dentry reference, we have to increase it's
@@ -124,14 +122,27 @@ vfshandle_clone(Process& p_in, fdindex_t index_in, FD& fd_in, struct CLONE_OPTIO
 	return fd::CloneGeneric(fd_in, proc_out, fd_out, index_out_min, index_out);
 }
 
-static struct FDOperations vfs_ops = {
+Result
+vfshandle_ioctl(Thread* t, fdindex_t fdindex, FD& fd, unsigned long request, void* args[])
+{
+	struct VFS_FILE* file;
+	if (auto result = vfshandle_get_file(fd, file); result.IsFailure())
+		return result;
+	return vfs_ioctl(t->t_process, file, request, args);
+}
+
+struct FDOperations vfs_ops = {
 	.d_read = vfshandle_read,
 	.d_write = vfshandle_write,
 	.d_open = vfshandle_open,
 	.d_free = vfshandle_free,
 	.d_unlink = vfshandle_unlink,
 	.d_clone = vfshandle_clone,
+	.d_ioctl = vfshandle_ioctl,
 };
+
+} // unnamed namespace
+
 FD_TYPE(FD_TYPE_FILE, "file", vfs_ops);
 
 /* vim:set ts=2 sw=2: */

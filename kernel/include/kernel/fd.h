@@ -37,6 +37,7 @@ typedef Result (*fd_open_fn)(Thread* thread, fdindex_t index, FD& fd, const char
 typedef Result (*fd_free_fn)(Process& proc, FD& fd);
 typedef Result (*fd_unlink_fn)(Thread* thread, fdindex_t index, FD& fd);
 typedef Result (*fd_clone_fn)(Process& proc_in, fdindex_t index, FD& fd_in, struct CLONE_OPTIONS* opts, Process& proc_out, FD*& fd_out, fdindex_t index_out_min, fdindex_t& index_out);
+typedef Result (*fd_ioctl_fn)(Thread* thread, fdindex_t index, FD& fd, unsigned long request, void* args[]);
 
 struct FDOperations {
 	fd_read_fn d_read;
@@ -45,6 +46,7 @@ struct FDOperations {
 	fd_free_fn d_free;
 	fd_unlink_fn d_unlink;
 	fd_clone_fn d_clone;
+	fd_ioctl_fn d_ioctl;
 };
 
 /* Registration of descriptor types */

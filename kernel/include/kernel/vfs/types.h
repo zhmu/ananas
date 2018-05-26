@@ -155,6 +155,11 @@ struct VFS_INODE_OPS {
 	Result (*write)(struct VFS_FILE* file, const void* buf, size_t* len);
 
 	/*
+	 * ioctl(), or the big bag of 'other stuff'.
+	 */
+	Result (*ioctl)(struct VFS_FILE* file, unsigned int op, void* args[]);
+
+	/*
 	 * Creates a new entry in the directory. On success, calls
 	 * dentry_set_inode() to fill out the entry's inode.
 	 */

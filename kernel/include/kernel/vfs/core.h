@@ -51,6 +51,7 @@ Result vfs_create(DEntry* parent, struct VFS_FILE* destfile, const char* dentry,
 Result vfs_grow(struct VFS_FILE* file, off_t size);
 Result vfs_unlink(struct VFS_FILE* file);
 Result vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest);
+Result vfs_ioctl(Process* p, struct VFS_FILE* file, unsigned long request, void* args[]);
 
 /* Filesystem specific functions */
 size_t vfs_filldirent(void** dirents, size_t* size, ino_t inum, const char* name, int namelen);

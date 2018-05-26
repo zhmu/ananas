@@ -34,11 +34,6 @@ public:
 	void DebugDump() override
 	{
 	}
-
-	Result DeviceControl(Process& proc, unsigned int op, void* buffer, size_t len) override
-	{
-		return RESULT_MAKE_FAILURE(EINVAL);
-	}
 };
 
 Result

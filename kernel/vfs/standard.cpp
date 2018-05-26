@@ -113,6 +113,20 @@ vfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 }
 
 Result
+vfs_ioctl(Process* p, struct VFS_FILE* file, unsigned long request, void* args[])
+{
+	KASSERT(file->f_dentry != NULL || file->f_device != NULL, "vfs_ioctl on nonbacked file");
+	if (file->f_device != NULL) {
+		// Device
+		if (file->f_device == nullptr)
+			return RESULT_MAKE_FAILURE(EINVAL);
+		return file->f_device->GetDeviceOperations().IOControl(p, request, args);
+	}
+
+	return RESULT_MAKE_FAILURE(EINVAL);
+}
+
+Result
 vfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
 {
 	KASSERT(file->f_dentry != NULL || file->f_device != NULL, "vfs_write on nonbacked file");

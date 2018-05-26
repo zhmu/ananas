@@ -33,3 +33,4 @@
 28 { Result sigsuspend(const sigset_t* sigmask); }
 29 { Result kill(pid_t pid, int sig); }
 30 { void sigreturn(int dummy); }
+31 { Result ioctl(fdindex_t fd, unsigned long op, void* arg1, void* arg2, void* arg3); }

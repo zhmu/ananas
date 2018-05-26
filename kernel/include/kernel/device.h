@@ -63,7 +63,7 @@ public:
 	virtual Result Detach() = 0;
 	virtual void DebugDump() { }
 
-	virtual Result DeviceControl(Process& proc, unsigned int op, void* buffer, size_t len)
+	virtual Result IOControl(Process* proc, unsigned long request, void* args[])
 	{
 		return Result::FromErrNo(EINVAL);
 	}
