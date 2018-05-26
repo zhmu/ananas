@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
 #include <ananas/procinfo.h>
+#include <ananas/util/utility.h>
 #include "kernel/fd.h"
 #include "kernel/init.h"
 #include "kernel/kdb.h"
@@ -230,7 +231,7 @@ Process::SignalExit()
 }
 
 Result
-Process::WaitAndLock(int flags, Process*& p_out)
+Process::WaitAndLock(int flags, util::locked<Process>& p_out)
 {
 	if (flags != 0)
 		return RESULT_MAKE_FAILURE(EINVAL);
@@ -256,8 +257,7 @@ Process::WaitAndLock(int flags, Process*& p_out)
 				child.p_mainthread->Deref();
 
 				// Note that this transfers the parents reference to the caller!
-				child.p_lock.AssertLocked();
-				p_out = &child;
+				p_out = util::locked<Process>(child);
 				return Result::Success();
 			}
 			child.Unlock();

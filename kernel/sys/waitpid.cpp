@@ -11,17 +11,20 @@ sys_waitpid(Thread* t, pid_t* pid, int* stat_loc, int options)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, pid=%d stat_loc=%p options=%d", t, pid, stat_loc, options);
 
-	Process* p;
+	util::locked<Process> proc;
 	RESULT_PROPAGATE_FAILURE(
-		t->t_process->WaitAndLock(options, p)
+		t->t_process->WaitAndLock(options, proc)
 	);
 
-	*pid = p->p_pid;
+	*pid = proc->p_pid;
 	if (stat_loc != nullptr)
-		*stat_loc = p->p_exit_status;
+		*stat_loc = proc->p_exit_status;
 
-	/* Give up the parent's reference to the zombie child; this should destroy it */
-	p->RemoveReference();
+	// Give up the parent's reference to the zombie child; this should destroy it
+	{
+		Process* p = proc.Extract();
+		p->RemoveReference();
+	}
 
 	return Result::Success();
 }

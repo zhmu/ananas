@@ -4,6 +4,7 @@
 #include <ananas/limits.h>
 #include <ananas/util/array.h>
 #include <ananas/util/list.h>
+#include <ananas/util/locked.h>
 #include <ananas/util/refcounted.h>
 #include "kernel/lock.h"
 
@@ -74,6 +75,11 @@ struct ProcessGroup;
 struct Process final : util::refcounted<Process> {
 	~Process();
 
+	void AssertLocked()
+	{
+		p_lock.AssertLocked();
+	}
+
 	void Lock()
 	{
 		p_lock.Lock();
@@ -120,7 +126,7 @@ struct Process final : util::refcounted<Process> {
 	Result SetEnvironment(const char* env, size_t env_len);
 	Result Clone(int flags, Process*& out_p);
 
-	Result WaitAndLock(int flags, Process*& p_out); // transfers reference to caller!
+	Result WaitAndLock(int flags, util::locked<Process>& p_out); // transfers reference to caller!
 
 private:
 	Mutex p_lock{"plock"};	/* Locks the process */
