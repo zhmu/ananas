@@ -153,6 +153,11 @@ public:
 		return Result::Success();
 	}
 
+	Result HandleIOControl(struct VFS_FILE* file, unsigned int op, void* args[]) override
+	{
+		return RESULT_MAKE_FAILURE(EIO);
+	}
+
 	Result HandleReadLink(INode& inode, void* buf, size_t* len) override
 	{
 		return RESULT_MAKE_FAILURE(EIO);

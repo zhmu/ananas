@@ -41,6 +41,15 @@ ankhfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 }
 
 Result
+ankhfs_ioctl(struct VFS_FILE* file, unsigned int op, void* args[])
+{
+	auto subSystem = GetSubSystemFromInode(*file->f_dentry->d_inode);
+	if (subSystem == nullptr)
+		return RESULT_MAKE_FAILURE(EIO);
+	return subSystem->HandleIOControl(file, op, args);
+}
+
+Result
 ankhfs_readlink(INode& inode, char* buffer, size_t* buflen)
 {
 	auto subSystem = GetSubSystemFromInode(inode);
@@ -80,7 +89,8 @@ struct VFS_INODE_OPS ankhfs_no_ops = {
 };
 
 struct VFS_INODE_OPS ankhfs_file_ops = {
-	.read = ankhfs_read
+	.read = ankhfs_read,
+	.ioctl = ankhfs_ioctl
 };
 
 struct VFS_INODE_OPS ankhfs_link_ops = {

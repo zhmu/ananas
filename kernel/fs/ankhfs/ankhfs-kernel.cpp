@@ -65,6 +65,11 @@ public:
 		return AnkhFS::HandleRead(file, buf, len, result);
 	}
 
+	Result HandleIOControl(struct VFS_FILE* file, unsigned int op, void* args[]) override
+	{
+		return RESULT_MAKE_FAILURE(EIO);
+	}
+
 	Result HandleOpen(VFS_FILE& file, Process* p) override
 	{
 		return Result::Success();

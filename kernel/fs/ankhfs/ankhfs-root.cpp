@@ -39,7 +39,12 @@ public:
 
 	Result HandleRead(struct VFS_FILE* file, void* buf, size_t* len) override
 	{
-		return RESULT_MAKE_FAILURE(EOPNOTSUPP); // XXX would this be expected from a read?
+		return RESULT_MAKE_FAILURE(EIO);
+	}
+
+	Result HandleIOControl(struct VFS_FILE* file, unsigned int op, void* args[]) override
+	{
+		return RESULT_MAKE_FAILURE(EIO);
 	}
 
 	Result HandleOpen(VFS_FILE& file, Process* p) override
