@@ -15,6 +15,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/_PDCLIB/_PDCLIB_stdinit.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/_PDCLIB/_PDCLIB_freepages.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/_PDCLIB/_PDCLIB_rename.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/ioctl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/fork.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/raise.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/getcwd.c
