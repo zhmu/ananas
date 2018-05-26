@@ -16,7 +16,7 @@ struct PROCINFO* s_ProcInfo;
 extern "C" int
 open(const char* path, int flags, ...)
 {
-	handleindex_t index;
+	fdindex_t index;
 	return sys_open(path, flags, 0, &index) == ananas_statuscode_success() ? index : -1;
 }
 
