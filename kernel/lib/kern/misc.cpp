@@ -1,3 +1,4 @@
+#include <ananas/util/atomic.h>
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/schedule.h"
@@ -5,10 +6,14 @@
 #ifdef OPTION_SMP
 #include "kernel/x86/smp.h" // XXX
 #endif
-#include "kernel-md/atomic.h"
 #include "kernel-md/interrupts.h"
 
-static atomic_t kdb_panicing;
+namespace {
+
+constexpr addr_t kdb_no_panic = 0;
+util::atomic<addr_t> kdb_panicing{kdb_no_panic};
+
+}
 
 void
 _panic(const char* file, const char* func, int line, const char* fmt, ...)
@@ -26,14 +31,15 @@ _panic(const char* file, const char* func, int line, const char* fmt, ...)
 
 	/*
 	 * Do our best to detect double panics; this will at least give more of a
-	 * clue what's going on instead of making it worse.
+	 * clue what's going on instead of making it worse. Note that we use the
+	 * strong compare/exchange here as we do not want to deal with retries.
 	 */
-	if (atomic_read(&kdb_panicing) == (int)(addr_t)&_panic) {
-		md::interrupts::Disable();
+	addr_t expected = kdb_no_panic;
+	if (!kdb_panicing.compare_exchange_strong(expected, reinterpret_cast<addr_t>(&_panic))) {
 		kprintf("double panic: %s:%u (%s) - dying!\n", file, line, func);
-		for(;;);
+		for(;;)
+			/* nothing */;
 	}
-	atomic_set(&kdb_panicing, (int)(addr_t)&_panic);
 
 	/* disable the scheduler - this ensures any extra BSP's will not run threads either */
 	scheduler_deactivate();

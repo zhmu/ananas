@@ -7,30 +7,37 @@
 #include "kernel/thread.h"
 #include "kernel-md/interrupts.h"
 
+namespace {
+namespace spinlock {
+constexpr int locked = 1;
+constexpr int unlocked = 0;
+} // namespace spinlock
+
+} // unnamed namespace
+
 void
 Spinlock::Lock()
 {
 	if (scheduler_activated())
 		KASSERT(md::interrupts::Save(), "interrupts must be enabled");
 
-	for(;;) {
-		while(atomic_read(&sl_var) != 0)
-			/* spin */ ;
-		if (atomic_xchg(&sl_var, 1) == 0)
-			break;
+	while(true) {
+		int expected = spinlock::unlocked;
+		if (sl_var.compare_exchange_weak(expected, spinlock::locked))
+			return;
 	}
 }
 
 void
 Spinlock::Unlock()
 {
-	if (atomic_xchg(&sl_var, 0) == 0)
+	if (sl_var.exchange(spinlock::unlocked) != spinlock::locked)
 		panic("spinlock %p was not locked", this);
 }
 
 Spinlock::Spinlock()
+	: sl_var(spinlock::unlocked)
 {
-	atomic_set(&sl_var, 0);
 }
 
 register_t
@@ -39,10 +46,11 @@ Spinlock::LockUnpremptible()
 	register_t state = md::interrupts::Save();
 
 	for(;;) {
-		while(atomic_read(&sl_var) != 0)
+		while(sl_var.load() != spinlock::unlocked)
 			/* spin */ ;
 		md::interrupts::Disable();
-		if (atomic_xchg(&sl_var, 1) == 0)
+		int expected = spinlock::unlocked;
+		if (sl_var.compare_exchange_weak(expected, spinlock::locked))
 			break;
 		/* Lock failed; restore interrupts and try again */
 		md::interrupts::Restore(state);

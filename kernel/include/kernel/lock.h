@@ -2,8 +2,8 @@
 #define __LOCK_H__
 
 #include <ananas/types.h>
+#include <ananas/util/atomic.h>
 #include <ananas/util/list.h>
-#include "kernel-md/atomic.h"
 
 struct Thread;
 
@@ -28,7 +28,7 @@ public:
 	void UnlockUnpremptible(register_t state);
 
 private:
-	atomic_t sl_var;
+	util::atomic<int> sl_var;
 };
 
 namespace detail {
