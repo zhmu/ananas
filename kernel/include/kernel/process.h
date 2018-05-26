@@ -4,6 +4,7 @@
 #include <ananas/limits.h>
 #include <ananas/util/array.h>
 #include <ananas/util/list.h>
+#include <ananas/util/refcounted.h>
 #include "kernel/lock.h"
 
 struct DEntry;
@@ -70,7 +71,9 @@ struct ProcessGroup;
 
 } // namespace process
 
-struct Process {
+struct Process final : util::refcounted<Process> {
+	~Process();
+
 	void Lock()
 	{
 		p_lock.Lock();
@@ -82,7 +85,6 @@ struct Process {
 	}
 
 	unsigned int p_state = 0;	/* Process state */
-	refcount_t p_refcount = 0;		/* Reference count of the process, >0 */
 
 	pid_t	p_pid = 0;/* Process ID */
 	int	p_exit_status = 0;	/* Exit status / code */
@@ -108,16 +110,17 @@ struct Process {
 	util::List<Process>::Node p_NodeChildren;
 	util::List<Process>::Node p_NodeGroup;
 
-	void Ref();
-	void Deref();
 	void Exit(int status);
 	void SignalExit();
+
+	void RegisterThread(Thread& t);
+	void UnregisterThread(Thread& t);
 
 	Result SetArguments(const char* args, size_t args_len);
 	Result SetEnvironment(const char* env, size_t env_len);
 	Result Clone(int flags, Process*& out_p);
 
-	Result WaitAndLock(int flags, Process*& p_out);
+	Result WaitAndLock(int flags, Process*& p_out); // transfers reference to caller!
 
 private:
 	Mutex p_lock{"plock"};	/* Locks the process */
@@ -126,7 +129,7 @@ private:
 
 Result process_alloc(Process* parent, Process*& dest);
 
-Process* process_lookup_by_id_and_ref(pid_t pid);
+Process* process_lookup_by_id_and_lock(pid_t pid);
 
 /*
  * Process callback functions are provided so that modules can take action upon

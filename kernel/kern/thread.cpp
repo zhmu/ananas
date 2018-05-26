@@ -45,8 +45,7 @@ thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
 	/* First off, allocate the thread itself */
 	auto t = new Thread;
 	memset(t, 0, sizeof(Thread));
-	p.Ref();
-	t->t_process = &p;
+	p.RegisterThread(*t);
 	t->t_flags = THREAD_FLAG_MALLOC;
 	t->t_refcount = 1; /* caller */
 	t->SetName(name);
@@ -136,10 +135,9 @@ thread_destroy(Thread& t)
 	/* Free the machine-dependant bits */
 	md::thread::Free(t);
 
-	/* Unreference the associated process */
+	// Unregister ourselves with the owning process
 	if (t.t_process != nullptr)
-		t.t_process->Deref();
-	t.t_process = nullptr;
+		t.t_process->UnregisterThread(t);
 
 	/* If we aren't reaping the thread, remove it from our thread queue; it'll be gone soon */
 	if ((t.t_flags & THREAD_FLAG_REAPING) == 0) {

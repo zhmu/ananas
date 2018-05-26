@@ -46,11 +46,10 @@ pid_t AllocateProcessID()
 } // namespace process
 
 static Result
-process_alloc_ex(Process* parent, Process*& dest, int flags)
+process_alloc_ex(Process* parent, Process*& dest)
 {
 	auto p = new Process;
 	p->p_parent = parent; /* XXX should we take a ref here? */
-	p->p_refcount = 1; /* caller */
 	p->p_state = PROCESS_STATE_ACTIVE;
 	p->p_pid = process::AllocateProcessID();
 
@@ -70,7 +69,6 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 
 	// Now hook the process info structure up to it
 	{
-		// XXX we should have a separate vmpage_create_...() for this that sets vp_vaddr
 		VMPage& vp = va->AllocatePrivatePage(va->va_virt, 0);
 		p->p_info = static_cast<struct PROCINFO*>(kmem_map(vp.GetPage()->GetPhysicalAddress(), sizeof(struct PROCINFO), VM_FLAG_READ | VM_FLAG_WRITE));
 		vp.Map(vs, *va);
@@ -114,6 +112,10 @@ process_alloc_ex(Process* parent, Process*& dest, int flags)
 
 	process::InitializeProcessGroup(*p, parent);
 
+	// Grab the process right before adding it to the list to ensure
+	// no one can modify it while it is being set up
+	p->Lock();
+
 	/* Finally, add the process to all processes */
 	{
 		MutexGuard g(process::process_mtx);
@@ -132,7 +134,7 @@ fail:
 Result
 process_alloc(Process* parent, Process*& dest)
 {
-	return process_alloc_ex(parent, dest, 0);
+	return process_alloc_ex(parent, dest);
 }
 
 Result
@@ -140,12 +142,12 @@ Process::Clone(int flags, Process*& out_p)
 {
 	Process* newp;
 	RESULT_PROPAGATE_FAILURE(
-		process_alloc_ex(this, newp, 0)
+		process_alloc_ex(this, newp)
 	);
 
 	/* Duplicate the vmspace - this should leave the private mappings alone */
 	if (auto result = p_vmspace->Clone(*newp->p_vmspace, 0); result.IsFailure()) {
-		newp->Deref();
+		newp->RemoveReference(); // destroys the process
 		return result;
 	}
 
@@ -153,48 +155,62 @@ Process::Clone(int flags, Process*& out_p)
 	return Result::Success();
 }
 
-static void
-process_destroy(Process& p)
+Process::~Process()
 {
-	/* Run all process exit callbacks */
+	// XXX This is crude: we need to drop the lock because Fd::Close() may lock/unlock the
+	// process. This needs extra thought.
+	p_lock.AssertLocked();
+	Unlock();
+
+	// Run all process exit callbacks
 	for(auto& pc: process_callbacks_exit) {
-		pc.pc_func(p);
+		pc.pc_func(*this);
 	}
 
-	/* Free all descriptors */
-	for (auto& d: p.p_fd) {
+	// Free all descriptors
+	for (auto& d: p_fd) {
 		if (d == nullptr)
 			continue;
 		d->Close();
 		d = nullptr;
 	}
 
-	process::AbandonProcessGroup(p);
+	process::AbandonProcessGroup(*this);
 
 	// Process is gone - destroy any memory mappings held by it
-	vmspace_destroy(*p.p_vmspace);
+	vmspace_destroy(*p_vmspace);
 
-	/* Remove the process from the all-process list */
+	// Remove the process from the all-process list
 	{
 		MutexGuard g(process::process_mtx);
-		process::process_all.remove(p);
+		process::process_all.remove(*this);
 	}
 }
 
 void
-Process::Ref()
+Process::RegisterThread(Thread& t)
 {
-	KASSERT(p_refcount > 0, "reffing process with invalid refcount %d", p_refcount);
-	++p_refcount;
+	KASSERT(t.t_process == nullptr, "thread %p already registered to process %p (we are %p)", &t, t.t_process, this);
+	AddReference();
+
+	p_lock.AssertLocked();
+	t.t_process = this;
+	if (p_mainthread == nullptr)
+		p_mainthread = &t;
 }
 
 void
-Process::Deref()
+Process::UnregisterThread(Thread& t)
 {
-	KASSERT(p_refcount > 0, "dereffing process with invalid refcount %d", p_refcount);
+	KASSERT(t.t_process == this, "thread %p does not belongs to process %p, not %p!", &t, t.t_process, this);
+	RemoveReference();
 
-	if (--p_refcount == 0)
-		process_destroy(*this);
+	// There must be at least one more reference to the process if the last
+	// thread dies: whoever calls wait()
+	p_lock.AssertLocked();
+	t.t_process = nullptr;
+	if (p_mainthread == &t)
+		p_mainthread = nullptr;
 }
 
 void
@@ -233,13 +249,14 @@ Process::WaitAndLock(int flags, Process*& p_out)
 
 				/*
 				 * Deref the main thread; this should kill it as there is nothing else
-				 * left.
+				 * left (all other references are gone by this point, as it is a zombie)
 				 */
 				KASSERT(child.p_mainthread != nullptr, "zombie child without main thread?");
 				KASSERT(child.p_mainthread->t_refcount == 1, "zombie child main thread still has %d refs", child.p_mainthread->t_refcount);
 				child.p_mainthread->Deref();
 
-				/* Note that we give our ref to the caller! */
+				// Note that this transfers the parents reference to the caller!
+				child.p_lock.AssertLocked();
 				p_out = &child;
 				return Result::Success();
 			}
@@ -282,7 +299,7 @@ Process::SetEnvironment(const char* env, size_t env_len)
 }
 
 Process*
-process_lookup_by_id_and_ref(pid_t pid)
+process_lookup_by_id_and_lock(pid_t pid)
 {
 	MutexGuard g(process::process_mtx);
 
@@ -292,10 +309,6 @@ process_lookup_by_id_and_ref(pid_t pid)
 			p.Unlock();
 			continue;
 		}
-
-		// Process found; get a ref and return it
-		p.Ref();
-		p.Unlock();
 		return &p;
 	}
 	return nullptr;

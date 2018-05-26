@@ -97,14 +97,14 @@ HandleReadDir_Proc_Fd(struct VFS_FILE* file, void* dirents, size_t* len)
 	// Fetch the process
 	ino_t inum = file->f_dentry->d_inode->i_inum;
 	pid_t pid = static_cast<pid_t>(inum_to_id(inum));
-	Process* p = process_lookup_by_id_and_ref(pid);
+	Process* p = process_lookup_by_id_and_lock(pid);
 	if (p == nullptr)
 		return RESULT_MAKE_FAILURE(EIO);
 
 	// Fill the directory with one item per active file descriptor
 	FetchFdEntry entryFetcher(*p);
 	auto result = HandleReadDir(file, dirents, len, entryFetcher);
-	p->Deref();
+	p->Unlock();
 	return result;
 }
 
@@ -143,7 +143,7 @@ public:
 		auto sub = inum_to_sub(inode.i_inum);
 		if (sub >= subFdEntry && sub <= subFdEntry + PROCESS_MAX_DESCRIPTORS) {
 			auto pid = static_cast<pid_t>(inum_to_id(inode.i_inum));
-			Process* p = process_lookup_by_id_and_ref(pid);
+			Process* p = process_lookup_by_id_and_lock(pid);
 			if (p == nullptr)
 				return RESULT_MAKE_FAILURE(EIO);
 
@@ -155,7 +155,7 @@ public:
 					*len = len_needed;
 				result = Result::Success();
 			}
-			p->Deref();
+			p->Unlock();
 			return result;
 		}
 
@@ -167,7 +167,7 @@ public:
 		ino_t inum = file->f_dentry->d_inode->i_inum;
 
 		pid_t pid = static_cast<pid_t>(inum_to_id(inum));
-		Process* p = process_lookup_by_id_and_ref(pid);
+		Process* p = process_lookup_by_id_and_lock(pid);
 		if (p == nullptr)
 			return RESULT_MAKE_FAILURE(EIO);
 
@@ -202,7 +202,7 @@ public:
 			}
 		}
 		result[sizeof(result) - 1] = '\0';
-		p->Deref();
+		p->Unlock();
 		return AnkhFS::HandleRead(file, buf, len, result);
 	}
 

@@ -19,10 +19,9 @@ sys_waitpid(Thread* t, pid_t* pid, int* stat_loc, int options)
 	*pid = p->p_pid;
 	if (stat_loc != nullptr)
 		*stat_loc = p->p_exit_status;
-	p->Unlock();
 
-	/* Give up our refence to the zombie child; this should destroy it */
-	p->Deref();
+	/* Give up the parent's reference to the zombie child; this should destroy it */
+	p->RemoveReference();
 
 	return Result::Success();
 }

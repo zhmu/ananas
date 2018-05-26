@@ -22,14 +22,16 @@ sys_clone(Thread* t, int flags, pid_t* out_pid)
 	RESULT_PROPAGATE_FAILURE(
 		proc.Clone(0, new_proc)
 	);
+	// new_proc is locked here and has a single ref
 
 	/* Now clone the handle to the new process */
 	Thread* new_thread;
 	if (auto result = thread_clone(*new_proc, new_thread); result.IsFailure()) {
-		new_proc->Deref();
+		new_proc->RemoveReference(); // destroys it
 		return result;
 	}
 	*out_pid = new_proc->p_pid;
+	new_proc->Unlock();
 
 	/* Resume the cloned thread - it'll have a different return value from ours */
 	new_thread->Resume();

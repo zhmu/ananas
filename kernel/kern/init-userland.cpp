@@ -54,21 +54,20 @@ userinit_func(void*)
 
 	// Now it makes sense to try to load init
 	const char* init_path = cmdline_get_string("init");
-	if (init_path == NULL || init_path[0] == '\0') {
-		kprintf("'init' option not specified, not starting init\n");
-		thread_exit(0);
-	}
+	if (init_path == nullptr)
+		init_path = "/sbin/init";
 
 	Process* proc;
-	if (auto result = process_alloc(NULL, proc); result.IsFailure()) {
+	if (auto result = process_alloc(nullptr, proc); result.IsFailure()) {
 		kprintf("couldn't create process, %i\n", result.AsStatusCode());
 		thread_exit(0);
 	}
+	// Note: proc is locked at this point and has a single ref
 
 	Thread* t;
 	{
 		Result result = thread_alloc(*proc, t, "init", THREAD_ALLOC_DEFAULT);
-		proc->Deref(); /* 't' should have a ref, we don't need it anymore */
+		proc->Unlock();
 		if (result.IsFailure()) {
 			kprintf("couldn't create thread, %i\n", result.AsStatusCode());
 			thread_exit(0);
