@@ -12,8 +12,17 @@
 TRACE_SETUP;
 
 struct BIOBucket {
-	Spinlock b_Lock;
 	BIOBucketList b_List;
+
+	void Lock() {
+		b_Lock.Lock();
+	}
+
+	void Unlock() {
+		b_Lock.Unlock();
+	}
+
+	Spinlock b_Lock;
 };
 
 static BIOChainList bio_freelist;
@@ -43,10 +52,8 @@ bio_init()
 	bio_data = bio_bitmap + bio_bitmap_size + bio_bitmap_slack;
 
 	/* Clear the BIO bucket chain */
-	for (unsigned int i = 0; i < BIO_BUCKET_SIZE; i++) {
-		new(&bio_bucket[i].b_Lock) Spinlock;
-		bio_bucket[i].b_List.clear();
-	}
+	for (unsigned int i = 0; i < BIO_BUCKET_SIZE; i++)
+		new(&bio_bucket[i]) BIOBucket;
 
 	/* Initialize bio buffers and hook them up to the freelist */
 	struct BIO* bios = new BIO[BIO_NUM_BUFFERS];
@@ -153,10 +160,10 @@ bio_cleanup()
 		bio_bitmap[n / 8] &= ~(1 << (n % 8));
 	}
 	/* Finally, remove the block from the bucket chain */
-	unsigned int bucket_num = bio.block % BIO_BUCKET_SIZE;
-	SpinlockGuard spbu(bio_bucket[bucket_num].b_Lock);
-	KASSERT(!bio_bucket[bucket_num].b_List.empty(), "bio bucket %u is empty", bucket_num);
-	bio_bucket[bucket_num].b_List.remove(bio);
+	auto& bucket = bio_bucket[bio.block % BIO_BUCKET_SIZE];
+	SpinlockGuard spbu(bucket.b_Lock);
+	KASSERT(!bucket.b_List.empty(), "bio bucket %p is empty", &bucket);
+	bucket.b_List.remove(bio);
 
 	/*
 	 * Clear the bio info; it's available again for use (but set it as pending as
@@ -176,13 +183,12 @@ bio_get_buffer(Ananas::Device* device, blocknr_t block, size_t len)
 	TRACE(BIO, FUNC, "dev=%p, block=%u, len=%u", device, (int)block, len);
 	KASSERT((len % BIO_SECTOR_SIZE) == 0, "length %u not a multiple of bio sector size", len);
 
-	/* First of all, lock the corresponding queue */
-	unsigned int bucket_num = block % BIO_BUCKET_SIZE;
+	auto& bucket = bio_bucket[block % BIO_BUCKET_SIZE];
 bio_restart:
-	bio_bucket[bucket_num].b_Lock.Lock();
+	bucket.Lock();
 
 	/* See if we can find the block in the bucket queue; if so, we can just return it */
-	for(auto& bio: bio_bucket[bucket_num].b_List) {
+	for(auto& bio: bucket.b_List) {
 		if (bio.device != device || bio.block != block)
 			continue;
 
@@ -199,7 +205,7 @@ bio_restart:
 			bio_usedlist.push_front(bio);
 		}
 
-		bio_bucket[bucket_num].b_Lock.Unlock();
+		bucket.Unlock();
 		KASSERT(bio.length == len, "bio item found with length %u, requested length %u", bio.length, len); /* XXX should avoid... somehow */
 
 		/*
@@ -228,7 +234,7 @@ bio_restart:
 	if (bio == nullptr) {
 		/* No bio's available; clean up some */
 		spl_bio_lists.Unlock();
-		bio_bucket[bucket_num].b_Lock.Unlock();
+		bucket.Unlock();
 		bio_cleanup();
 		goto bio_restart;
 	}
@@ -256,9 +262,9 @@ bio_restartdata:
 	if (chain_length != num_blocks) {
 		/* No bio data available; clean up some */
 		spl_bio_bitmap.Unlock();
-		bio_bucket[bucket_num].b_Lock.Unlock();
+		bucket.Unlock();
 		bio_cleanup();
-		bio_bucket[bucket_num].b_Lock.Lock();
+		bucket.Lock();
 		goto bio_restartdata;
 	}
 	/* Walk back the number of blocks we need to allocate, we know they are free */
@@ -271,8 +277,8 @@ bio_restartdata:
 	spl_bio_bitmap.Unlock();
 
 	/* Hook the request to the corresponding bucket */
-	bio_bucket[bucket_num].b_List.push_front(*bio);
-	bio_bucket[bucket_num].b_Lock.Unlock();
+	bucket.b_List.push_front(*bio);
+	bucket.Unlock();
 
 	/*
 	 * Throw away any flags the buffer has (as this is a new request, we can't
