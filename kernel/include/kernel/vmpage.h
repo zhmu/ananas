@@ -3,6 +3,7 @@
 
 #include <ananas/types.h>
 #include <ananas/util/list.h>
+#include <ananas/util/locked.h>
 #include <machine/param.h>
 #include "kernel/lock.h"
 
@@ -108,9 +109,9 @@ VMPage& Allocate(VMArea& va, INode* inode, off_t offset, int flags);
 
 } // namespace vmspace
 
-VMPage* vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs);
-VMPage& vmpage_create_shared(INode& inode, off_t offs, int flags);
+util::locked<VMPage> vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs);
+util::locked<VMPage> vmpage_create_shared(INode& inode, off_t offs, int flags);
 
-VMPage& vmpage_clone(VMSpace* vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va_dest, VMPage& vp);
+VMPage& vmpage_clone(VMSpace* vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va_dest, util::locked<VMPage>& vp_orig);
 
 #endif // ANANAS_VM_PAGE_H

@@ -1,5 +1,6 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
+#include <ananas/util/utility.h>
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
 #include "kernel/result.h"
@@ -46,19 +47,19 @@ vmspace_page_flags_from_va(const VMArea& va)
 	return flags;
 }
 
-VMPage&
+util::locked<VMPage>
 vmspace_get_dentry_backed_page(VMArea& va, off_t read_off)
 {
 	// First, try to lookup the page; if we already have it, no need to read it
-	VMPage* vmpage = vmpage_lookup_locked(va, *va.va_dentry->d_inode, read_off);
-	if (vmpage == nullptr) {
+	util::locked<VMPage> vmpage = vmpage_lookup_locked(va, *va.va_dentry->d_inode, read_off);
+	if (!vmpage) {
 		// Page not found - we need to allocate one. This is always a shared mapping, which we'll copy if needed
-		vmpage = &vmpage_create_shared(*va.va_dentry->d_inode, read_off, VM_PAGE_FLAG_PENDING | vmspace_page_flags_from_va(va));
+		vmpage = vmpage_create_shared(*va.va_dentry->d_inode, read_off, VM_PAGE_FLAG_PENDING | vmspace_page_flags_from_va(va));
 	}
 	// vmpage will be locked at this point!
 
 	if ((vmpage->vp_flags & VM_PAGE_FLAG_PENDING) == 0)
-		return *vmpage;
+		return vmpage;
 
 	// Read the page - note that we hold the vmpage lock while doing this
 	Page* p;
@@ -80,7 +81,7 @@ vmspace_get_dentry_backed_page(VMArea& va, off_t read_off)
 	// Update the vm page to contain our new address
 	vmpage->vp_page = p;
 	vmpage->vp_flags &= ~VM_PAGE_FLAG_PENDING;
-	return *vmpage;
+	return vmpage;
 }
 
 } // unnamed namespace
@@ -144,8 +145,7 @@ VMSpace::HandleFault(addr_t virt, int flags)
 			if (read_off < va.va_dlength) {
 				// At least (part of) the page is to be read from the backing dentry -
 				// this means we want the entire page
-				VMPage& vmpage = vmspace_get_dentry_backed_page(va, read_off + va.va_doffset);
-				// vmpage is locked at this point
+				util::locked<VMPage> vmpage = vmspace_get_dentry_backed_page(va, read_off + va.va_doffset);
 
 				// If the mapping is page-aligned and read-only or shared, we can re-use the
 				// mapping and avoid the entire copy
@@ -168,7 +168,7 @@ VMSpace::HandleFault(addr_t virt, int flags)
 					size_t copy_len = va.va_dlength - read_off; // this is size-left after where we read
 					if (copy_len > PAGE_SIZE)
 						copy_len = PAGE_SIZE;
-					vmpage.CopyExtended(*new_vp, copy_len);
+					vmpage->CopyExtended(*new_vp, copy_len);
 				}
 				vmpage.Unlock();
 

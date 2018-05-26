@@ -155,7 +155,7 @@ VMPage::Zero(VMSpace& vs)
 	memset((void*)vp_vaddr, 0, PAGE_SIZE);
 }
 
-VMPage*
+util::locked<VMPage>
 vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs)
 {
   /*
@@ -167,7 +167,7 @@ vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs)
       continue;
 
     vmpage.Lock();
-    return &vmpage;
+    return util::locked<VMPage>(vmpage);
   }
 
   // Try all inode-private pages
@@ -179,19 +179,18 @@ vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs)
 
     vmpage.Lock(); // XXX is this order wise?
     inode.Unlock();
-    return &vmpage;
+    return util::locked<VMPage>(vmpage);
   }
 	inode.Unlock();
 
   // Nothing was found
-  return nullptr;
+  return util::locked<VMPage>();
 }
 
 VMPage&
-vmpage_clone(VMSpace* vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va_dest, VMPage& vp_orig)
+vmpage_clone(VMSpace* vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va_dest, util::locked<VMPage>& vp_orig)
 {
-  vp_orig.AssertLocked();
-  KASSERT(vs_source == nullptr || &va_source == vp_orig.vp_vmarea, "area mismatch");
+  KASSERT(vs_source == nullptr || &va_source == vp_orig->vp_vmarea, "area mismatch");
 
   /*
    * Cloning a page may results in different scenarios:
@@ -201,10 +200,10 @@ vmpage_clone(VMSpace* vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va
    *    This consists of marking the original page as read-only.
    * 3) We need to duplicate the source page
    */
-  auto& vp_source = [](VMPage& vp) -> VMPage& {
-		auto& vp_resolved = vp.Resolve();
-		if (&vp_resolved == &vp)
-			return vp;
+  auto& vp_source = [](util::locked<VMPage>& vp) -> VMPage& {
+		auto& vp_resolved = vp->Resolve();
+		if (&vp_resolved == &*vp)
+			return *vp;
 		vp_resolved.Lock();
 		return vp_resolved;
 	}(vp_orig);
@@ -223,7 +222,7 @@ vmpage_clone(VMSpace* vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va
     vp_dst = &vp_source.Link(va_dest);
   } else {
     // (2) Clone the page using COW
-		KASSERT(&vp_source == &vp_orig, "foo");
+		KASSERT(&vp_source == &*vp_orig, "foo");
 		KASSERT(vs_source == nullptr || vs_source != &vs_dest, "cloning to same vmspace");
 		KASSERT(vs_source == nullptr || &va_source != &va_dest, "cloning to same vmarea");
 		vp_source.AssertLocked();
@@ -250,7 +249,7 @@ vmpage_clone(VMSpace* vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va
   }
 
 	// Unlock the original page
-  if (&vp_orig != &vp_source)
+  if (&*vp_orig != &vp_source)
     vp_source.Unlock();
   return *vp_dst;
 }
@@ -285,7 +284,7 @@ VMPage::AssertNotLinked()
   KASSERT((vp_flags & VM_PAGE_FLAG_LINK) == 0, "vmpage %p is linked", this);
 }
 
-VMPage&
+util::locked<VMPage>
 vmpage_create_shared(INode& inode, off_t offs, int flags)
 {
   VMPage& new_page = *new VMPage(nullptr, &inode, offs, flags);
@@ -303,13 +302,13 @@ vmpage_create_shared(INode& inode, off_t offs, int flags)
 
     // And throw the new page away, we won't need it
     new_page.Deref();
-    return vmpage;
+    return util::locked<VMPage>(vmpage);
   }
 
   // Not yet present; add the new page and return it
 	inode.i_pages.push_back(new_page);
   inode.Unlock();
-  return new_page;
+  return util::locked<VMPage>(new_page);
 }
 
 void
