@@ -16,13 +16,46 @@ namespace Ananas {
 namespace HDA {
 
 struct PlayContext {
+	PlayContext(IHDAFunctions& hda_funcs, int buffer_len_in_pages)
+	 : hdaFunctions(hda_funcs)
+	{
+			pc_buffer_length = buffer_len_in_pages * PAGE_SIZE;
+			pc_play_buf = static_cast<uint8_t*>(kmalloc(pc_buffer_length));
+			memset(pc_play_buf, 0x80, pc_buffer_length);
+	}
+
+	~PlayContext()
+	{
+		if (auto result = Stop(); result.IsFailure())
+			panic("cannot deal with failure %d here!", result.AsStatusCode());
+
+		for (int n = 0; n < pc_num_contexts; n++) {
+			if (auto result = hdaFunctions.CloseStream(pc_contexts[n]); result.IsFailure())
+				panic("cannot deal with failure %d here!", result.AsStatusCode());
+		}
+		kfree(pc_play_buf);
+	}
+
+	Result Start()
+	{
+		return hdaFunctions.StartStreams(pc_num_contexts, pc_contexts);
+	}
+
+	Result Stop()
+	{
+		return hdaFunctions.StopStreams(pc_num_contexts, pc_contexts);
+	}
+
 	unsigned int pc_buffer_length;
 	unsigned int pc_buffer_filled = 0;
 	unsigned int pc_stream_offset = 0;
 	unsigned int pc_cur_buffer = 0;
+	IHDAFunctions::Context pc_contexts[10] = {}; // XXX why 10
+	int pc_num_contexts = 0;
 	uint8_t* pc_play_buf = nullptr;
 	Mutex pc_mutex{"play"};
 	Semaphore pc_semaphore{1};
+	IHDAFunctions& hdaFunctions;
 };
 
 RoutingPlan::~RoutingPlan()
@@ -160,6 +193,10 @@ HDADevice::IOControl(Process* proc, unsigned long req, void* args[])
 			if (ss->ss_buffer_length != 64)
 				return RESULT_MAKE_FAILURE(EINVAL);
 
+			// Only allow a single play context
+			if (hda_pc != nullptr)
+				return RESULT_MAKE_FAILURE(EPERM);
+
 			AFG* afg = hda_afg;
 			if (afg == NULL || afg->afg_outputs.empty())
 				return RESULT_MAKE_FAILURE(EIO); // XXX could this happen?
@@ -180,8 +217,8 @@ HDADevice::IOControl(Process* proc, unsigned long req, void* args[])
 			if (auto result = RouteOutput(*afg, o->o_channels, *o, &rp); result.IsFailure())
 				return result;
 
-			IHDAFunctions::Context contexts[10]; /* XXX */
-			int num_contexts = 0;
+			// Set up the play context; we'll be filling out streams shortly
+			hda_pc = new PlayContext(*hdaFunctions, ss->ss_buffer_length);
 
 			int tag = 1; // XXX Why?
 			for (int n = 0; n < rp->rp_num_nodes; n++) {
@@ -216,27 +253,48 @@ HDADevice::IOControl(Process* proc, unsigned long req, void* args[])
 						*ptr++ = 0x80;
 					}
 				}
-				contexts[num_contexts++] = ctx;
+				hda_pc->pc_contexts[hda_pc->pc_num_contexts++] = ctx;
 				tag++;
 			}
 
-			// All seems well; set up the play context before playing things so we can handle an IRQ
-			// should it happen to come in between
-			hda_pc = new PlayContext;
-			hda_pc->pc_buffer_length = ss->ss_buffer_length * PAGE_SIZE;
-			hda_pc->pc_play_buf = static_cast<uint8_t*>(kmalloc(hda_pc->pc_buffer_length));
-			memset(hda_pc->pc_play_buf, 0x80, hda_pc->pc_buffer_length);
-
 			// Let there be sound!
-			if (auto result = hdaFunctions->StartStreams(num_contexts, contexts); result.IsFailure()) {
+			if (auto result = hda_pc->Start(); result.IsFailure()) {
 				delete hda_pc;
 				hda_pc = nullptr;
 				return result;
 			}
 			return Result::Success();
 		}
+
+		case IOCTL_SOUND_STOP: {
+			if (hda_pc == nullptr)
+				return RESULT_MAKE_FAILURE(EPERM);
+
+			delete hda_pc;
+			hda_pc = nullptr;
+			return Result::Success();
+		}
 	}
 	return RESULT_MAKE_FAILURE(EIO);
+}
+
+Result
+HDADevice::Open(Process* proc)
+{
+	// If we have a play context, reject the open
+	if (hda_pc != nullptr)
+		return RESULT_MAKE_FAILURE(EPERM);
+
+	return Result::Success();
+}
+
+Result
+HDADevice::Close(Process* proc)
+{
+	// Kill the play context; it belongs to whoever opened us
+	delete hda_pc;
+	hda_pc = nullptr;
+	return Result::Success();
 }
 
 namespace {

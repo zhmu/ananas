@@ -5,6 +5,7 @@
 // format is needed
 
 #define IOCTL_SOUND_START	1
+#define IOCTL_SOUND_STOP	2
 
 #define SOUND_RATE_48KHZ 	1	// 48.0kHz
 #define SOUND_FORMAT_16S	1	// 16-bit signed

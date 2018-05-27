@@ -453,6 +453,9 @@ public:
 	Result Write(const void* buffer, size_t& len, off_t offset) override;
 	Result Read(void* buffer, size_t& len, off_t offset) override;
 
+	Result Open(Process* proc) override;
+	Result Close(Process* proc) override;
+
 protected:
 	Result AttachNode(int cad, int nodeid);
 	Result FillAWConnectionList(Node_AW& aw);
