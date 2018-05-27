@@ -538,7 +538,6 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
  */
 #include <machine/param.h>
 #include "kernel/lib.h"
-#include "kernel/page.h"
 #include "kernel/vm.h"
 
 #define HAVE_MORECORE 0
@@ -1700,25 +1699,11 @@ unsigned char _BitScanReverse(unsigned long *index, unsigned long mask);
 */
 #define MMAP_FLAGS           (MAP_PRIVATE)
 
-static void*
-ananas_get_memory(size_t len)
-{
-	Page* p;
-	void* v = page_alloc_length_mapped(len, p, VM_FLAG_READ | VM_FLAG_WRITE);
-	KASSERT(v != NULL, "out of memory allocating %u bytes", len);
-	/* XXX We should store 'p' in a list so we can find it when freeing stuff */
-	return v;
-}
+void* dlmalloc_get_memory(size_t len);
+int dlmalloc_free_memory(void* ptr, size_t len);
 
-static int
-ananas_free_memory(void* ptr, size_t len)
-{
-	panic("ananas_free_memory");
-	return -1; /* failure */
-}
-
-#define MMAP_DEFAULT(s)  ananas_get_memory(s)
-#define MUNMAP(a, s)  ananas_free_memory((a), (s))
+#define MMAP_DEFAULT(s)  dlmalloc_get_memory(s)
+#define MUNMAP(a, s)  dlmalloc_free_memory((a), (s))
 
 #endif /* MAP_ANONYMOUS */
 
