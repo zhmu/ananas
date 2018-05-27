@@ -63,6 +63,16 @@ public:
 	virtual Result Detach() = 0;
 	virtual void DebugDump() { }
 
+	virtual Result Open(Process* proc)
+	{
+		return Result::Success();
+	}
+
+	virtual Result Close(Process* proc)
+	{
+		return Result::Success();
+	}
+
 	virtual Result IOControl(Process* proc, unsigned long request, void* args[])
 	{
 		return Result::FromErrNo(EINVAL);

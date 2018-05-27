@@ -144,12 +144,22 @@ public:
 		if (device == nullptr)
 			return RESULT_MAKE_FAILURE(EIO);
 
+		if (auto result = device->GetDeviceOperations().Open(p); result.IsFailure())
+			return result;
+
 		file.f_device = device; // XXX we should refcount this
 		return Result::Success();
 	}
 
 	Result HandleClose(VFS_FILE& file, Process* p) override
 	{
+		auto inum = file.f_dentry->d_inode->i_inum;
+		dev_t devno = static_cast<dev_t>(inum_to_id(inum));
+		Device* device = DeviceManager::FindDevice(devno);
+		if (device != nullptr) {
+			if (auto result = device->GetDeviceOperations().Close(p); result.IsFailure())
+				return result;
+		}
 		return Result::Success();
 	}
 
