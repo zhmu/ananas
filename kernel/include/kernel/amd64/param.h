@@ -34,4 +34,4 @@
 #define THREAD_STACK_SIZE	0x8000
 
 /* First thread mapping virtual address */
-#define THREAD_INITIAL_MAPPING_ADDR	1048576
+#define THREAD_INITIAL_MAPPING_ADDR	10485760
