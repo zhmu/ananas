@@ -10,6 +10,8 @@ class Result;
 namespace Ananas {
 namespace HDA {
 
+struct PlayContext;
+
 #define HDA_DEBUG(fmt, ...) \
 	device_printf(dev, fmt, __VA_ARGS__)
 
@@ -421,7 +423,7 @@ public:
 	Node_AW** rp_node = nullptr;
 };
 
-class HDADevice : public Ananas::Device, private Ananas::IDeviceOperations
+class HDADevice : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations
 {
 public:
 	using Device::Device;
@@ -430,6 +432,11 @@ public:
 	IDeviceOperations& GetDeviceOperations() override
 	{
 		return *this;
+	}
+
+	ICharDeviceOperations* GetCharDeviceOperations() override
+	{
+		return this;
 	}
 
 	void SetHDAFunctions(IHDAFunctions& hdafunctions)
@@ -441,6 +448,10 @@ public:
 	Result Detach() override;
 
 	void OnStreamIRQ(IHDAFunctions::Context ctx);
+	Result IOControl(Process* proc, unsigned long req, void* buffer[]) override;
+
+	Result Write(const void* buffer, size_t& len, off_t offset) override;
+	Result Read(void* buffer, size_t& len, off_t offset) override;
 
 protected:
 	Result AttachNode(int cad, int nodeid);
@@ -462,6 +473,7 @@ private:
 	IHDAFunctions* hdaFunctions = nullptr;
 
 	AFG* hda_afg;	/* XXX we support at most 1 AFG per device */
+	PlayContext* hda_pc = nullptr;
 };
 
 
