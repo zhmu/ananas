@@ -100,13 +100,13 @@ sys_kill(Thread* t, pid_t pid, int sig)
 		// Send to all processes whose process group ID is equal to ours (pid==0) or |pid| (pid<0)
 		int dest_pgid = pid == 0 ? process.p_group->pg_id : -pid;
 
-		auto pg = process::FindProcessGroupByIDAndLock(dest_pgid);
-		if (pg == nullptr)
+		auto pg = process::FindProcessGroupByID(dest_pgid);
+		if (!pg)
 			return RESULT_MAKE_FAILURE(ESRCH);
 
 		if (sig != 0)
 			signal::QueueSignal(*pg, si);
-		pg->pg_mutex.Unlock();
+		pg.Unlock();
 	} else /* pid > 0 */ {
 		auto p = process_lookup_by_id_and_lock(pid);
 		if (p == nullptr)

@@ -8,6 +8,7 @@ add_sources(
 	exit.cpp
 	fcntl.cpp
 	ioctl.cpp
+	job.cpp
 	link.cpp
 	open.cpp
 	read.cpp

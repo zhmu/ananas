@@ -1,4 +1,5 @@
 #include <ananas/types.h>
+#include <sys/tty.h>
 #include "kernel/dev/tty.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
@@ -15,25 +16,6 @@ TRACE_SETUP;
 /* Newline char - cannot be modified using c_cc */
 #define NL '\n'
 #define CR 0xd
-
-namespace {
-
-void DeliverSignal(int signo)
-{
-	/*
-	 * XXX for now, we'll assume everything needs to go to the thread group of
-	 * pid 1. This must not be hardcoded!
-	 */
-	siginfo_t si{};
-	si.si_signo = signo;
-
-	auto pg = process::FindProcessGroupByIDAndLock(1 /* XXX */);
-	KASSERT(pg != nullptr, "pgid 1 not found??");
-	signal::QueueSignal(*pg, si);
-	pg->pg_mutex.Unlock();
-}
-
-} // unnamed namespace
 
 TTY::TTY(const Ananas::CreateDeviceProperties& cdp)
 	: Device(cdp)
@@ -54,6 +36,12 @@ TTY::TTY(const Ananas::CreateDeviceProperties& cdp)
 	tty_termios.c_cflag = CREAD;
 }
 
+TTY::~TTY()
+{
+	if (tty_foreground_pg != nullptr)
+		tty_foreground_pg->RemoveReference();
+}
+
 Result
 TTY::Read(void* buf, size_t& len, off_t offset)
 {
@@ -72,7 +60,7 @@ TTY::Read(void* buf, size_t& len, off_t offset)
 			/*
 			 * Buffer is empty - schedule the thread for a wakeup once we have data.
 			  */
-			d_Waiters.Wait();
+			tty_waiters.Wait();
 			continue;
 		}
 
@@ -102,7 +90,7 @@ TTY::Read(void* buf, size_t& len, off_t offset)
 #undef CHAR_AT
 		if (n == in_len) {
 			/* Line is not complete - try again later */
-			d_Waiters.Wait();
+			tty_waiters.Wait();
 			continue;
 		}
 
@@ -206,7 +194,7 @@ TTY::OnInput(const char* buffer, size_t len)
 					tty_in_writepos = tty_input_queue.size() - 1;
 			}
 		} else if ((tty_termios.c_iflag & ICANON) && ch == tty_termios.c_cc[VKILL]) {
-			// Kil the entire line
+			// Kill the entire line
 			while (tty_in_readpos != tty_in_writepos) {
 				/* Still a charachter available which wasn't read. Nuke it */
 				if (tty_in_writepos > 0)
@@ -225,10 +213,74 @@ TTY::OnInput(const char* buffer, size_t len)
 		HandleEcho(ch);
 
 		/* If we have waiters, awaken them */
-		d_Waiters.Signal();
+		tty_waiters.Signal();
 	}
 
 	return Result::Success();
+}
+
+Result
+TTY::Open(Process* p)
+{
+	return Result::Success();
+}
+
+Result
+TTY::Close(Process* p)
+{
+	// XXX how do we handle us disappearing?
+	return Result::Success();
+}
+
+Result
+TTY::IOControl(Process* proc, unsigned long req, void* buffer[])
+{
+	KASSERT(proc->p_group != nullptr, "no group");
+	auto& session = proc->p_group->pg_session;
+
+	switch(req) {
+		case TIOCSCTTY: { // Set controlling tty
+			if (tty_session != nullptr && tty_session != &session) {
+				// TTY already belongs to a different session; reject
+				return RESULT_MAKE_FAILURE(EPERM);
+			}
+			tty_session = &session; // XXX locking
+
+			{
+				MutexGuard g(session.s_mutex);
+				session.s_control_tty = this; // XXX how do we handle us disappearing?
+			}
+			return Result::Success();
+		}
+		case TIOCSPGRP: { // Set foreground process group
+			auto pgid = reinterpret_cast<pid_t>(buffer[0]);
+			auto pg = process::FindProcessGroupByID(pgid);
+			if (!pg)
+					return RESULT_MAKE_FAILURE(EPERM);
+ 			if (&pg->pg_session != &session) {
+					pg.Unlock();
+					return RESULT_MAKE_FAILURE(EPERM); // process group outside our session
+			}
+
+			// TODO are we the ctty?
+			pg->AddReference();
+			tty_foreground_pg = &*pg;
+			pg->Unlock();
+			return Result::Success();
+		}
+	}
+
+	return RESULT_MAKE_FAILURE(EINVAL);
+}
+
+void TTY::DeliverSignal(int signo)
+{
+	if (tty_foreground_pg == nullptr)
+		return;
+
+	siginfo_t si{};
+	si.si_signo = signo;
+	signal::QueueSignal(*tty_foreground_pg, si);
 }
 
 /* vim:set ts=2 sw=2: */

@@ -105,7 +105,7 @@ QueueSignal(Thread& t, int signo)
 Result
 QueueSignal(process::ProcessGroup& pg, const siginfo_t& si)
 {
-	pg.pg_mutex.AssertLocked();
+	pg.AssertLocked();
 	for(auto& p: pg.pg_members) {
 		if (p.p_mainthread == nullptr)
 			continue; // XXX we should deliver to all threads in the process

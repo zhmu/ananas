@@ -5,12 +5,18 @@
 #include <ananas/util/array.h>
 #include <termios.h>
 #include "kernel/device.h"
+#include "kernel/lock.h"
+
+namespace process {
+struct ProcessGroup;
+struct Session;
+} // namespace process
 
 class TTY : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations
 {
 public:
 	TTY(const Ananas::CreateDeviceProperties& cdp);
-	virtual ~TTY() = default;
+	virtual ~TTY();
 
 	IDeviceOperations& GetDeviceOperations() override
 	{
@@ -22,6 +28,10 @@ public:
 		return this;
 	}
 
+	Result Open(Process* p) override;
+	Result Close(Process* p) override;
+	Result IOControl(Process* proc, unsigned long req, void* buffer[]) override;
+
 	Result Read(void* buf, size_t& len, off_t offset) override;
 	Result Write(const void* buffer, size_t& len, off_t offset) override;
 
@@ -31,6 +41,8 @@ protected:
 	virtual Result Print(const char* buffer, size_t len) = 0;
 
 private:
+	void DeliverSignal(int signo);
+
 	static constexpr size_t InputQueueSize = 256;
 
 	void PutChar(unsigned char ch);
@@ -40,6 +52,10 @@ private:
 	util::array<char, InputQueueSize> tty_input_queue;
 	unsigned int tty_in_writepos = 0;
 	unsigned int tty_in_readpos = 0;
+
+	process::Session* tty_session = nullptr; // session we belong to
+	process::ProcessGroup* tty_foreground_pg = nullptr; // foreground process group
+	Semaphore tty_waiters{1};
 };
 
 #endif /* ANANAS_DEV_TTY_H */

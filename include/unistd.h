@@ -64,6 +64,10 @@ int	unlink(const char* path);
 int	chown(const char* path, uid_t owner, gid_t group);
 unsigned sleep(unsigned seconds);
 
+int	setsid();
+int	setpgid(pid_t pid, pid_t pgid);
+pid_t	getpgrp();
+
 char*	getcwd(char* buf, size_t size);
 ssize_t	readlink(const char* path, char* buf, size_t bufsize);
 

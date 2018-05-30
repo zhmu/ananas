@@ -34,3 +34,6 @@
 29 { Result kill(pid_t pid, int sig); }
 30 { void sigreturn(int dummy); }
 31 { Result ioctl(fdindex_t fd, unsigned long op, void* arg1, void* arg2, void* arg3); }
+32 { Result getpgrp(pid_t* pgid); }
+33 { Result setpgid(pid_t pid, pid_t pgid); }
+34 { Result setsid(int dummy); }

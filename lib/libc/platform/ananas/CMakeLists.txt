@@ -59,6 +59,9 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/wait.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/open.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/fcntl.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/setpgid.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/getpgrp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/setsid.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/kill.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/sigaction.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/signal.c
@@ -76,7 +79,6 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/chown.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/umask.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/pipe.c
-	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/setpgid.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/select.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/getrlimit.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/chmod.c
