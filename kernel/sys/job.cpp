@@ -23,8 +23,32 @@ Result
 sys_setpgid(Thread* t, pid_t pid, pid_t pgid)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, pid=%d pgid=%d", t, pid, pgid);
-	// TODO implement this
-	return RESULT_MAKE_FAILURE(EPERM);
+
+	if (pid == 0)
+		pid = t->t_process->p_pid;
+	if (pgid == 0)
+		pgid = t->t_process->p_group->pg_id;
+
+	if (pid != t->t_process->p_pid)
+		return RESULT_MAKE_FAILURE(EPERM); // XXX for now
+
+	auto process = process_lookup_by_id_and_lock(pid);
+	if (process == nullptr)
+		return RESULT_MAKE_FAILURE(ESRCH);
+
+	auto pg = process::FindProcessGroupByID(pgid);
+	if (!pg) {
+		process->Unlock();
+		return RESULT_MAKE_FAILURE(ESRCH);
+	}
+
+	// XXX pg must be self or of child...
+
+	process::SetProcessGroup(*process, pg);
+
+	process->Unlock();
+	pg.Unlock();
+	return Result::Success();
 }
 
 Result

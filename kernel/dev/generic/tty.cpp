@@ -263,8 +263,14 @@ TTY::IOControl(Process* proc, unsigned long req, void* buffer[])
 
 			// TODO are we the ctty?
 			SetForegroundProcessGroup(&*pg);
-			pg->Unlock();
+			pg.Unlock();
 			return Result::Success();
+		}
+		case TIOCGPGRP: { // Get foreground process group
+			if (tty_foreground_pg != nullptr)
+				return Result::Success(tty_foreground_pg->pg_id);
+			// XXX Otherwise, return some value >=1 that is not an existing process group ID
+			return RESULT_MAKE_FAILURE(ENOTTY);
 		}
 	}
 

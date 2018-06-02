@@ -50,6 +50,7 @@ typedef util::List<ProcessGroup> ProcessGroupList;
 void InitializeProcessGroup(Process& process, Process* parent);
 void AbandonProcessGroup(Process& process);
 util::locked<ProcessGroup> FindProcessGroupByID(pid_t pgid);
+void SetProcessGroup(Process& process, util::locked<ProcessGroup>& new_pg);
 
 } // namespace process
 

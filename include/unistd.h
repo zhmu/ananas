@@ -97,6 +97,9 @@ int getdtablesize();
 
 int pipe(int fildes[2]);
 
+pid_t tcgetpgrp(int fildes);
+int tcsetpgrp(int fildes, pid_t pgid_id);
+
 __END_DECLS
 
 #endif /* __UNISTD_H__ */

@@ -123,6 +123,18 @@ AbandonProcessGroup(Process& process)
 	DetachFromCurrentProcessGroup(process);
 }
 
+void
+SetProcessGroup(Process& process, util::locked<ProcessGroup>& new_pg)
+{
+	process.AssertLocked();
+	if (process.p_group == &*new_pg)
+		return; // nothing to change
+
+	AbandonProcessGroup(process);
+	new_pg->pg_members.push_back(process);
+	process.p_group = &*new_pg;
+}
+
 } // namespace process
 
 /* vim:set ts=2 sw=2: */
