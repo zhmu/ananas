@@ -41,7 +41,6 @@ constexpr int StatusOutputFull = 1;
 struct KeyMap {
 	Key standard;
 	Key shift;
-	Key control;
 };
 
 constexpr util::array<KeyMap, 128> keymap = {
@@ -246,7 +245,7 @@ ATKeyboard::OnIRQ()
 		const auto& key = [](int scancode, int modifiers) {
 			const auto& km = keymap[scancode];
 			if (modifiers & modifier::Control)
-				return km.control;
+				return km.standard;
 
 			if (modifiers & modifier::Shift)
 				return km.shift;
