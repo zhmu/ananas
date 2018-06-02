@@ -32,5 +32,4 @@ add_sources(
 	thread.cpp
 	time.cpp
 	trace.cpp
-	tty.cpp
 )
