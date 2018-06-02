@@ -38,8 +38,7 @@ TTY::TTY(const Ananas::CreateDeviceProperties& cdp)
 
 TTY::~TTY()
 {
-	if (tty_foreground_pg != nullptr)
-		tty_foreground_pg->RemoveReference();
+	SetForegroundProcessGroup(nullptr);
 }
 
 Result
@@ -244,6 +243,7 @@ TTY::IOControl(Process* proc, unsigned long req, void* buffer[])
 				return RESULT_MAKE_FAILURE(EPERM);
 			}
 			tty_session = &session; // XXX locking
+			SetForegroundProcessGroup(proc->p_group);
 
 			{
 				MutexGuard g(session.s_mutex);
@@ -262,8 +262,7 @@ TTY::IOControl(Process* proc, unsigned long req, void* buffer[])
 			}
 
 			// TODO are we the ctty?
-			pg->AddReference();
-			tty_foreground_pg = &*pg;
+			SetForegroundProcessGroup(&*pg);
 			pg->Unlock();
 			return Result::Success();
 		}
@@ -279,7 +278,18 @@ void TTY::DeliverSignal(int signo)
 
 	siginfo_t si{};
 	si.si_signo = signo;
+	tty_foreground_pg->Lock();
 	signal::QueueSignal(*tty_foreground_pg, si);
+	tty_foreground_pg->Unlock();
+}
+
+void TTY::SetForegroundProcessGroup(process::ProcessGroup* pg)
+{
+	if (tty_foreground_pg != nullptr)
+		tty_foreground_pg->RemoveReference();
+	if (pg != nullptr)
+		pg->AddReference();
+	tty_foreground_pg = pg;
 }
 
 /* vim:set ts=2 sw=2: */

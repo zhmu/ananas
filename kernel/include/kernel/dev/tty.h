@@ -42,6 +42,7 @@ protected:
 
 private:
 	void DeliverSignal(int signo);
+	void SetForegroundProcessGroup(process::ProcessGroup* pg);
 
 	static constexpr size_t InputQueueSize = 256;
 
