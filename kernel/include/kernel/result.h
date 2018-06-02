@@ -6,11 +6,16 @@
 class Result {
 public:
 	explicit Result(unsigned int fileid, unsigned int lineno, unsigned int errno)
-	 : r_StatusCode(ananas_statuscode_make(fileid, lineno, errno)) {
+	 : r_StatusCode(ananas_statuscode_make_failure(fileid, lineno, errno)) {
+	}
+
+	explicit Result(unsigned int value)
+	 : r_StatusCode(ananas_statuscode_make_success(value))
+	{
 	}
 
 	bool IsSuccess() const {
-		return r_StatusCode == 0;
+		return ananas_statuscode_is_success(r_StatusCode);
 	}
 
 	bool IsFailure() const {
@@ -25,8 +30,12 @@ public:
 		return r_StatusCode;
 	}
 
-	static Result Success() {
-		return Result(0, 0, 0);
+	statuscode_t AsValue() const {
+		return r_StatusCode;
+	}
+
+	static Result Success(unsigned int value = 0) {
+		return Result(value);
 	}
 
 	static Result FromErrNo(unsigned int errno) {

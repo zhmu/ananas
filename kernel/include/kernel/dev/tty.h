@@ -32,8 +32,8 @@ public:
 	Result Close(Process* p) override;
 	Result IOControl(Process* proc, unsigned long req, void* buffer[]) override;
 
-	Result Read(void* buf, size_t& len, off_t offset) override;
-	Result Write(const void* buffer, size_t& len, off_t offset) override;
+	Result Read(void* buf, size_t len, off_t offset) override;
+	Result Write(const void* buffer, size_t len, off_t offset) override;
 
 	Result OnInput(const char* buffer, size_t len);
 

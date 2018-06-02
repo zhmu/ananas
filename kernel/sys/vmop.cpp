@@ -64,30 +64,30 @@ sys_vmop_map(Thread* curthread, struct VMOP_OPTIONS* vo)
 }
 
 static Result
-sys_vmop_unmap(ARG_CURTHREAD struct VMOP_OPTIONS* vo)
+sys_vmop_unmap(Thread* t, struct VMOP_OPTIONS* vo)
 {
 	/* XXX implement me */
 	return RESULT_MAKE_FAILURE(EINVAL);
 }
 
 Result
-sys_vmop(ARG_CURTHREAD struct VMOP_OPTIONS* opts)
+sys_vmop(Thread* t, struct VMOP_OPTIONS* opts)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, opts=%p", curthread, opts);
+	TRACE(SYSCALL, FUNC, "t=%p, opts=%p", t, opts);
 
 	/* Obtain options */
 	struct VMOP_OPTIONS* vmop_opts;
 	RESULT_PROPAGATE_FAILURE(
-		syscall_map_buffer(*curthread, opts, sizeof(*vmop_opts), VM_FLAG_READ | VM_FLAG_WRITE, (void**)&vmop_opts)
+		syscall_map_buffer(*t, opts, sizeof(*vmop_opts), VM_FLAG_READ | VM_FLAG_WRITE, (void**)&vmop_opts)
 	);
 	if (vmop_opts->vo_size != sizeof(*vmop_opts))
 		return RESULT_MAKE_FAILURE(EINVAL);
 
 	switch(vmop_opts->vo_op) {
 		case OP_MAP:
-			return sys_vmop_map(curthread, vmop_opts);
+			return sys_vmop_map(t, vmop_opts);
 		case OP_UNMAP:
-			return sys_vmop_unmap(curthread, vmop_opts);
+			return sys_vmop_unmap(t, vmop_opts);
 		default:
 			return RESULT_MAKE_FAILURE(EINVAL);
 	}

@@ -139,12 +139,13 @@ ext2_determine_indirect(INode& inode, blocknr_t& block_in, int& level, blocknr_t
  * contains X * X blocks, so we can store X * X * X = 16777216 blocks.
  */
 static Result
-ext2_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int create)
+ext2_block_map(INode& inode, blocknr_t block_in, blocknr_t& block_out, bool create)
 {
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	auto privdata = (struct EXT2_FS_PRIVDATA*)fs->fs_privdata;
 	auto in_privdata = static_cast<struct EXT2_INODE_PRIVDATA*>(inode.i_privdata);
 	auto orig_block_in = block_in;
+	KASSERT(!create, "ext2: readonly filesystem");
 
 	/*
 	 * We need to figure out whether we have to look up the block in the single,
@@ -159,7 +160,7 @@ ext2_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int creat
 
 	/* (a) Direct blocks are easy */
 	if (block_in < 12) {
-		*block_out = in_privdata->block[block_in];
+		block_out = in_privdata->block[block_in];
 		return Result::Success();
 	}
 
@@ -193,26 +194,26 @@ ext2_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int creat
 		bio_free(*bio);
 	} while(--level >= 0);
 
-	*block_out = indirect;
+	block_out = indirect;
 
 	return Result::Success();
 }
 
 static Result
-ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
+ext2_readdir(struct VFS_FILE* file, void* dirents, size_t len)
 {
 	INode& inode = *file->f_dentry->d_inode;
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	blocknr_t blocknum = (blocknr_t)file->f_offset / (blocknr_t)fs->fs_block_size;
 	uint32_t offset = file->f_offset % fs->fs_block_size;
-	size_t written = 0, left = *len;
+	size_t written = 0, left = len;
 
 	BIO* bio = nullptr;
 	blocknr_t curblock = 0;
 	while(left > 0) {
 		blocknr_t block;
 		RESULT_PROPAGATE_FAILURE(
-			ext2_block_map(inode, blocknum, &block, 0)
+			ext2_block_map(inode, blocknum, block, false)
 		);
 		if (block == 0) {
 			/*
@@ -244,12 +245,13 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			 * Inode number values of zero indicate the entry is not used; this entry
 			 * works and we mustreturn it.
 			 */
-			int filled = vfs_filldirent(&dirents, &left, inum, (const char*)ext2de->name, ext2de->name_len);
+			size_t filled = vfs_filldirent(&dirents, left, inum, (const char*)ext2de->name, ext2de->name_len);
 			if (!filled) {
 				/* out of space! */
 				break;
 			}
 			written += filled;
+			left -= filled;
 		}
 
 		/*
@@ -265,8 +267,7 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	}
 	if (bio != nullptr)
 		bio_free(*bio);
-	*len = written;
-	return Result::Success();
+	return Result::Success(written);
 }
 
 static struct VFS_INODE_OPS ext2_file_ops = {
@@ -280,17 +281,18 @@ static struct VFS_INODE_OPS ext2_dir_ops = {
 };
 
 static Result
-ext2_read_link(INode& inode, char* buffer, size_t* buflen)
+ext2_read_link(INode& inode, char* buffer, size_t buflen)
 {
 	auto in_privdata = static_cast<struct EXT2_INODE_PRIVDATA*>(inode.i_privdata);
 
 	// XXX i_block[] may be byte-swapped - how to deal with this?
-	KASSERT(*buflen > 0, "empty buffer?");
-	buffer[*buflen - 1] = '\0';
-	if (*buflen > 60)
-		*buflen = 60;
-	memcpy(buffer, in_privdata->block, *buflen);
-	return Result::Success();
+	size_t len = buflen;
+	KASSERT(len > 0, "empty buffer?");
+	buffer[len - 1] = '\0';
+	if (len > 60)
+		 len = 60;
+	memcpy(buffer, in_privdata->block, len);
+	return Result::Success(len);
 }
 
 static struct VFS_INODE_OPS ext2_symlink_ops = {

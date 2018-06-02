@@ -320,7 +320,7 @@ thread_clone(Process& proc, Thread*& out_thread)
 	 * result of a system call, so we want to influence the
 	 * return value.
 	 */
-	md::thread::Clone(*t, *curthread, RESULT_MAKE_FAILURE(EEXIST).AsStatusCode());
+	md::thread::Clone(*t, *curthread, 0 /* child gets exit code zero */);
 
 	/* Thread is ready to rock */
 	out_thread = t;

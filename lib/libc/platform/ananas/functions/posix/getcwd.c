@@ -6,7 +6,7 @@
 char* getcwd(char* buf, size_t size)
 {
 	statuscode_t status = sys_getcwd(buf, size);
-	if (status == ananas_statuscode_success())
+	if (ananas_statuscode_is_success(status))
 		return buf;
 
 	map_statuscode(status);

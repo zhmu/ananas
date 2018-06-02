@@ -31,7 +31,7 @@ namespace AnkhFS {
 namespace {
 
 Result
-HandleReadDir_Device(struct VFS_FILE* file, void* dirents, size_t* len)
+HandleReadDir_Device(struct VFS_FILE* file, void* dirents, size_t len)
 {
 	struct FetchEntry : IReadDirCallback {
 		bool FetchNextEntry(char* entry, size_t maxLength, ino_t& inum) override {
@@ -61,7 +61,7 @@ HandleReadDir_Device(struct VFS_FILE* file, void* dirents, size_t* len)
 class DeviceSubSystem : public IAnkhSubSystem
 {
 public:
-	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len) override
+	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len) override
 	{
 		return HandleReadDir_Device(file, dirents, len);
 	}
@@ -94,7 +94,7 @@ public:
 		return Result::Success();
 	}
 
-	Result HandleRead(struct VFS_FILE* file, void* buf, size_t* len) override
+	Result HandleRead(struct VFS_FILE* file, void* buf, size_t len) override
 	{
 		ino_t inum = file->f_dentry->d_inode->i_inum;
 
@@ -163,12 +163,12 @@ public:
 		return Result::Success();
 	}
 
-	Result HandleIOControl(struct VFS_FILE* file, unsigned int op, void* args[]) override
+	Result HandleIOControl(struct VFS_FILE* file, unsigned long op, void* args[]) override
 	{
 		return RESULT_MAKE_FAILURE(EIO);
 	}
 
-	Result HandleReadLink(INode& inode, void* buf, size_t* len) override
+	Result HandleReadLink(INode& inode, void* buf, size_t len) override
 	{
 		return RESULT_MAKE_FAILURE(EIO);
 	}

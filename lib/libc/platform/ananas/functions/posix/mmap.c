@@ -38,7 +38,7 @@ void* mmap(void* ptr, size_t len, int prot, int flags, int fd, off_t offset)
 	}
 
 	statuscode_t status = sys_vmop(&vo);
-	if (status != ananas_statuscode_success()) {
+	if (ananas_statuscode_is_failure(status)) {
 		errno = ananas_statuscode_extract_errno(status);
 		return MAP_FAILED;
 	}

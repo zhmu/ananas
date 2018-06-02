@@ -162,14 +162,14 @@ iso9660_discard_inode(INode& inode)
 }
 
 static Result
-iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
+iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t len)
 {
 	INode& inode = *file->f_dentry->d_inode;
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	auto privdata = static_cast<struct ISO9660_INODE_PRIVDATA*>(inode.i_privdata);
 	blocknr_t block = privdata->lba + file->f_offset / fs->fs_block_size;
 	uint32_t offset = file->f_offset % fs->fs_block_size;
-	size_t written = 0, left = *len;
+	size_t written = 0, left = len;
 
 	BIO* bio = NULL;
 	blocknr_t curblock = 0;
@@ -218,12 +218,13 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			}
 
 			ino_t inum = (ino_t)curblock << 16 | offset;
-			int filled = vfs_filldirent(&dirents, &left, inum, (const char*)iso9660de->de_filename, iso9660de->de_filename_len);
+			size_t filled = vfs_filldirent(&dirents, left, inum, (const char*)iso9660de->de_filename, iso9660de->de_filename_len);
 			if (!filled) {
 				/* out of space! */
 				break;
 			}
 			written += filled;
+			left -= filled;
 		}
 
 		/*
@@ -239,19 +240,18 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	}
 	if (bio != NULL)
 		bio_free(*bio);
-	*len = written;
-	return Result::Success();
+	return Result::Success(written);
 }
 
 static Result
-iso9660_read(struct VFS_FILE* file, void* buf, size_t* len)
+iso9660_read(struct VFS_FILE* file, void* buf, size_t len)
 {
 	INode& inode = *file->f_dentry->d_inode;
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	auto privdata = static_cast<struct ISO9660_INODE_PRIVDATA*>(inode.i_privdata);
 	blocknr_t blocknum = (blocknr_t)file->f_offset / fs->fs_block_size;
 	uint32_t offset = file->f_offset % fs->fs_block_size;
-	size_t numread = 0, left = *len;
+	size_t numread = 0, left = len;
 
 	/* Normalize len so that it cannot expand beyond the file size */
 	if (file->f_offset + left > inode.i_sb.st_size)
@@ -279,8 +279,7 @@ iso9660_read(struct VFS_FILE* file, void* buf, size_t* len)
 		blocknum++;
 	}
 
-	*len = numread;
-	return Result::Success();
+	return Result::Success(numread);
 }
 
 namespace {

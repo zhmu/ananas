@@ -26,7 +26,7 @@ struct DirectoryEntry root_entries[] = {
 class RootProcSubSystem : public IAnkhSubSystem
 {
 public:
-	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len) override
+	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len) override
 	{
 		return AnkhFS::HandleReadDir(file, dirents, len, root_entries[0]);
 	}
@@ -37,12 +37,12 @@ public:
 		return Result::Success();
 	}
 
-	Result HandleRead(struct VFS_FILE* file, void* buf, size_t* len) override
+	Result HandleRead(struct VFS_FILE* file, void* buf, size_t len) override
 	{
 		return RESULT_MAKE_FAILURE(EIO);
 	}
 
-	Result HandleIOControl(struct VFS_FILE* file, unsigned int op, void* args[]) override
+	Result HandleIOControl(struct VFS_FILE* file, unsigned long op, void* args[]) override
 	{
 		return RESULT_MAKE_FAILURE(EIO);
 	}
@@ -57,7 +57,7 @@ public:
 		return Result::Success();
 	}
 
-	Result HandleReadLink(INode& inode, void* buf, size_t* len) override
+	Result HandleReadLink(INode& inode, void* buf, size_t len) override
 	{
 		return RESULT_MAKE_FAILURE(EIO);
 	}

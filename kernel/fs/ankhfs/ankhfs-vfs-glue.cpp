@@ -32,7 +32,7 @@ IAnkhSubSystem* GetSubSystemFromInode(INode& inode)
 }
 
 Result
-ankhfs_read(struct VFS_FILE* file, void* buf, size_t* len)
+ankhfs_read(struct VFS_FILE* file, void* buf, size_t len)
 {
 	auto subSystem = GetSubSystemFromInode(*file->f_dentry->d_inode);
 	if (subSystem == nullptr)
@@ -41,7 +41,7 @@ ankhfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 }
 
 Result
-ankhfs_ioctl(struct VFS_FILE* file, unsigned int op, void* args[])
+ankhfs_ioctl(struct VFS_FILE* file, unsigned long op, void* args[])
 {
 	auto subSystem = GetSubSystemFromInode(*file->f_dentry->d_inode);
 	if (subSystem == nullptr)
@@ -50,7 +50,7 @@ ankhfs_ioctl(struct VFS_FILE* file, unsigned int op, void* args[])
 }
 
 Result
-ankhfs_readlink(INode& inode, char* buffer, size_t* buflen)
+ankhfs_readlink(INode& inode, char* buffer, size_t buflen)
 {
 	auto subSystem = GetSubSystemFromInode(inode);
 	if (subSystem == nullptr)
@@ -77,7 +77,7 @@ ankhfs_close(VFS_FILE& file, Process* p)
 }
 
 Result
-ankhfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
+ankhfs_readdir(struct VFS_FILE* file, void* dirents, size_t len)
 {
 	auto subSystem = GetSubSystemFromInode(*file->f_dentry->d_inode);
 	if (subSystem == nullptr)

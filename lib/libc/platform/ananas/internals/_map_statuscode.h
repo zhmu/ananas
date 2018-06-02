@@ -7,12 +7,12 @@
 static inline int
 map_statuscode(statuscode_t status)
 {
-	if (status != ananas_statuscode_success()) {
+	if (ananas_statuscode_is_failure(status)) {
 		errno = ananas_statuscode_extract_errno(status);
 		return -1;
 	}
 
-	return 0;
+	return ananas_statuscode_extract_value(status);
 }
 
 #endif /* _MAP_STATUSCODE_H_ */

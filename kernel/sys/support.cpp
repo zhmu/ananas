@@ -61,28 +61,6 @@ syscall_map_buffer(Thread& t, const void* ptr, size_t len, int flags, void** out
 }
 
 Result
-syscall_fetch_size(Thread& t, const void* ptr, size_t* out)
-{
-	auto s = static_cast<size_t*>(md::thread::MapThreadMemory(t, (void*)ptr, sizeof(size_t), VM_FLAG_READ));
-	if (s == NULL)
-		return RESULT_MAKE_FAILURE(EFAULT);
-
-	*out = *s;
-	return Result::Success();
-}
-
-Result
-syscall_set_size(Thread& t, void* ptr, size_t len)
-{
-	auto s = static_cast<size_t*>(md::thread::MapThreadMemory(t, (void*)ptr, sizeof(size_t), VM_FLAG_WRITE));
-	if (s == NULL)
-		return RESULT_MAKE_FAILURE(EFAULT);
-
-	*s = len;
-	return Result::Success();
-}
-
-Result
 syscall_set_handleindex(Thread& t, fdindex_t* ptr, fdindex_t index)
 {
 	auto p = static_cast<fdindex_t*>(md::thread::MapThreadMemory(t, (void*)ptr, sizeof(fdindex_t), VM_FLAG_WRITE));

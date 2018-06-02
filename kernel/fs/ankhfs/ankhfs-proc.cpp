@@ -44,7 +44,7 @@ struct DirectoryEntry proc_entries[] = {
 };
 
 Result
-HandleReadDir_Proc_Root(struct VFS_FILE* file, void* dirents, size_t* len)
+HandleReadDir_Proc_Root(struct VFS_FILE* file, void* dirents, size_t len)
 {
 	struct FetchEntry : IReadDirCallback {
 		bool FetchNextEntry(char* entry, size_t maxLength, ino_t& inum) override {
@@ -68,7 +68,7 @@ HandleReadDir_Proc_Root(struct VFS_FILE* file, void* dirents, size_t* len)
 }
 
 Result
-HandleReadDir_Proc_Fd(struct VFS_FILE* file, void* dirents, size_t* len)
+HandleReadDir_Proc_Fd(struct VFS_FILE* file, void* dirents, size_t len)
 {
 	struct FetchFdEntry : IReadDirCallback {
 		FetchFdEntry(Process& process)
@@ -111,7 +111,7 @@ HandleReadDir_Proc_Fd(struct VFS_FILE* file, void* dirents, size_t* len)
 class ProcSubSystem : public IAnkhSubSystem
 {
 public:
-	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len) override
+	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len) override
 	{
 		INode& inode = *file->f_dentry->d_inode;
 		ino_t inum = inode.i_inum;
@@ -138,7 +138,7 @@ public:
 		return Result::Success();
 	}
 
-	Result HandleReadLink(INode& inode, void* buf, size_t* len) override
+	Result HandleReadLink(INode& inode, void* buf, size_t len) override
 	{
 		auto sub = inum_to_sub(inode.i_inum);
 		if (sub >= subFdEntry && sub <= subFdEntry + PROCESS_MAX_DESCRIPTORS) {
@@ -150,10 +150,10 @@ public:
 			Result result = RESULT_MAKE_FAILURE(EIO);
 			auto fd = p->p_fd[sub - subFdEntry]; // XXX we need to lock this
 			if (fd != nullptr && fd->fd_type == FD_TYPE_FILE && fd->fd_data.d_vfs_file.f_dentry != nullptr) {
-				auto len_needed = dentry_construct_path(static_cast<char*>(buf), *len, *fd->fd_data.d_vfs_file.f_dentry);
-				if (len_needed < *len)
-					*len = len_needed;
-				result = Result::Success();
+				auto len_needed = dentry_construct_path(static_cast<char*>(buf), len, *fd->fd_data.d_vfs_file.f_dentry);
+				if (len_needed < len)
+					len = len_needed;
+				result = Result::Success(len);
 			}
 			p->Unlock();
 			return result;
@@ -162,7 +162,7 @@ public:
 		return RESULT_MAKE_FAILURE(EIO);
 	}
 
-	Result HandleRead(struct VFS_FILE* file, void* buf, size_t* len) override
+	Result HandleRead(struct VFS_FILE* file, void* buf, size_t len) override
 	{
 		ino_t inum = file->f_dentry->d_inode->i_inum;
 
@@ -206,7 +206,7 @@ public:
 		return AnkhFS::HandleRead(file, buf, len, result);
 	}
 
-	Result HandleIOControl(struct VFS_FILE* file, unsigned int op, void* args[]) override
+	Result HandleIOControl(struct VFS_FILE* file, unsigned long op, void* args[]) override
 	{
 		return RESULT_MAKE_FAILURE(EIO);
 	}

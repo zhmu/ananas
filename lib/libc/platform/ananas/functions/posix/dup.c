@@ -6,12 +6,11 @@
 int
 dup(int fildes)
 {
-	fdindex_t out;
-	statuscode_t status = sys_dupfd(fildes, 0, &out);
-	if (status != ananas_statuscode_success())
+	statuscode_t status = sys_dup(fildes);
+	if (ananas_statuscode_is_failure(status))
 		return map_statuscode(status);
 
-	return out;
+	return ananas_statuscode_extract_value(status);
 }
 
 /* vim:set ts=2 sw=2: */

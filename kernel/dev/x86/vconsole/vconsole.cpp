@@ -40,13 +40,13 @@ VConsole::Detach()
 }
 
 Result
-VConsole::Read(void* buf, size_t& len, off_t offset)
+VConsole::Read(void* buf, size_t len, off_t offset)
 {
 	return activeVTTY->Read(buf, len, offset);
 }
 
 Result
-VConsole::Write(const void* buf, size_t& len, off_t offset)
+VConsole::Write(const void* buf, size_t len, off_t offset)
 {
 	return activeVTTY->Write(buf, len, offset);
 }

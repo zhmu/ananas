@@ -9,42 +9,29 @@
 TRACE_SETUP;
 
 Result
-sys_read(Thread* t, fdindex_t hindex, void* buf, size_t* len)
+sys_read(Thread* t, fdindex_t hindex, void* buf, size_t len)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, hindex=%u, buf=%p, len=%p", t, hindex, buf, len);
+	TRACE(SYSCALL, FUNC, "t=%p, hindex=%u, buf=%p, len=%d", t, hindex, buf, len);
 
 	FD* fd;
 	RESULT_PROPAGATE_FAILURE(
 		syscall_get_fd(*t, FD_TYPE_ANY, hindex, fd)
 	);
 
-	/* Fetch the size operand */
-	size_t size;
-	RESULT_PROPAGATE_FAILURE(
-		syscall_fetch_size(*t, len, &size)
-	);
-
-	/* Attempt to map the buffer write-only */
+	// Attempt to map the buffer write-only
 	void* buffer;
 	RESULT_PROPAGATE_FAILURE(
-		syscall_map_buffer(*t, buf, size, VM_FLAG_WRITE, &buffer)
+		syscall_map_buffer(*t, buf, len, VM_FLAG_WRITE, &buffer)
 	);
 
-	/* And read data to it */
-	if (fd->fd_ops->d_read != nullptr) {
-		RESULT_PROPAGATE_FAILURE(
-			fd->fd_ops->d_read(t, hindex, *fd, buf, &size)
-		);
-	} else {
+	// And read data to it
+	if (fd->fd_ops->d_read == nullptr)
 		return RESULT_MAKE_FAILURE(EINVAL);
-	}
 
-	/* Finally, inform the user of the length read - the read went OK */
-	RESULT_PROPAGATE_FAILURE(
-		syscall_set_size(*t, len, size)
-	);
+	auto result = fd->fd_ops->d_read(t, hindex, *fd, buf, len);
+	if (result.IsFailure())
+		return result;
 
-	TRACE(SYSCALL, FUNC, "t=%p, success: size=%u", t, size);
-	return Result::Success();
+	TRACE(SYSCALL, FUNC, "t=%p, success: size %d", t, result.AsStatusCode());
+	return result;
 }
-

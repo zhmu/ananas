@@ -16,45 +16,42 @@ struct PROCINFO* s_ProcInfo;
 extern "C" int
 open(const char* path, int flags, ...)
 {
-	fdindex_t index;
-	return sys_open(path, flags, 0, &index) == ananas_statuscode_success() ? index : -1;
+	statuscode_t result = sys_open(path, flags, 0);
+	return ananas_statuscode_is_success(result) ? ananas_statuscode_extract_value(result) : -1;
 }
 
 extern "C" int
 close(int fd)
 {
-	return sys_close(fd) == ananas_statuscode_success() ? 0 : -1;
+	return ananas_statuscode_is_success(sys_close(fd)) ? 0 : -1;
 }
 
 ssize_t
 read(int fd, void* buf, size_t count)
 {
-	size_t len = count;
-	if (sys_read(fd, buf, &len) != ananas_statuscode_success())
-		return -1;
-	return len;
+	statuscode_t result = sys_read(fd, buf, count);
+	return ananas_statuscode_is_success(result) ? ananas_statuscode_extract_value(result) : -1;
 }
 
 ssize_t
 write(int fd, const void* buf, size_t count)
 {
-	size_t len = count;
-	if (sys_write(fd, buf, &len) != ananas_statuscode_success())
-		return -1;
-	return len;
+	statuscode_t result = sys_write(fd, buf, count);
+	return ananas_statuscode_is_success(result) ? ananas_statuscode_extract_value(result) : -1;
 }
 
 off_t
 lseek(int fd, off_t offset, int whence)
 {
 	off_t new_offset = offset;
-	return sys_seek(fd, &new_offset, whence) == ananas_statuscode_success() ? new_offset : -1;
+	statuscode_t result = sys_seek(fd, &new_offset, whence);
+	return ananas_statuscode_is_success(result) ? new_offset : -1;
 }
 
 int
 fstat(int fd, struct stat* sb)
 {
-	return sys_fstat(fd, sb) == ananas_statuscode_success() ? 0 : -1;
+	return ananas_statuscode_is_success(sys_fstat(fd, sb)) ? 0 : -1;
 }
 
 void
@@ -94,7 +91,7 @@ mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset)
 	}
 	vo.vo_offset = offset;
 
-	return sys_vmop(&vo) == ananas_statuscode_success() ? static_cast<void*>(vo.vo_addr) : reinterpret_cast<void*>(-1);
+	return ananas_statuscode_is_success(sys_vmop(&vo)) ? static_cast<void*>(vo.vo_addr) : reinterpret_cast<void*>(-1);
 }
 
 int
@@ -108,7 +105,7 @@ munmap(void* addr, size_t length)
 	vo.vo_addr = addr;
 	vo.vo_len = length;
 
-	return sys_vmop(&vo) == ananas_statuscode_success() ? 0 : -1;
+	return ananas_statuscode_is_success(sys_vmop(&vo)) ? 0 : -1;
 }
 
 size_t

@@ -9,7 +9,7 @@
 TRACE_SETUP;
 
 Result
-sys_open(Thread* t, const char* path, int flags, int mode, fdindex_t* out)
+sys_open(Thread* t, const char* path, int flags, int mode)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, path='%s', flags=%d, mode=%o", t, path, flags, mode);
 	Process& proc = *t->t_process;
@@ -30,10 +30,10 @@ sys_open(Thread* t, const char* path, int flags, int mode, fdindex_t* out)
 		result = fd->fd_ops->d_open(t, index_out, *fd, path, flags, mode);
 
 	if (result.IsFailure()) {
+		TRACE(SYSCALL, FUNC, "t=%p, error %u", t, result.AsStatusCode());
 		fd->Close();
 		return result;
 	}
-	*out = index_out;
 	TRACE(SYSCALL, FUNC, "t=%p, success, hindex=%u", t, index_out);
-	return result;
+	return Result::Success(index_out);
 }

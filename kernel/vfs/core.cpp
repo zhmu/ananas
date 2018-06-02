@@ -41,16 +41,15 @@ vfs_bget(struct VFS_MOUNTED_FS* fs, blocknr_t block, struct BIO** bio, int flags
 }
 
 size_t
-vfs_filldirent(void** dirents, size_t* size, ino_t inum, const char* name, int namelen)
+vfs_filldirent(void** dirents, size_t left, ino_t inum, const char* name, int namelen)
 {
 	/*
 	 * First of all, ensure we have sufficient space. Note that we use the fact
 	 * that de_name is only a single byte; we count it as the \0 byte.
 	 */
 	int de_length = sizeof(struct VFS_DIRENT) + namelen;
-	if (*size < de_length)
+	if (left < de_length)
 		return 0;
-	*size -= de_length;
 
 	struct VFS_DIRENT* de = (struct VFS_DIRENT*)*dirents;
 	*dirents = static_cast<void*>(static_cast<char*>(*dirents) + de_length);

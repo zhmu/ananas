@@ -7,9 +7,6 @@
 
 int fcntl(int fildes, int cmd, ...)
 {
-	statuscode_t status;
-	void* out;
-
 	va_list va;
 	va_start(va, cmd);
 
@@ -18,12 +15,10 @@ int fcntl(int fildes, int cmd, ...)
 		case F_SETFD:
 		case F_SETFL:
 		case F_GETFD:
-		case F_GETFL:
-			status = sys_fcntl(fildes, cmd, (void*)(uintptr_t)va_arg(va, int), &out);
-			if (status != ananas_statuscode_success())
-				return map_statuscode(status);
-
-			return (int)(uintptr_t)out;
+		case F_GETFL: {
+			statuscode_t status = sys_fcntl(fildes, cmd, (void*)(uintptr_t)va_arg(va, int), NULL);
+			return map_statuscode(status);
+		}
 		default:
 			errno = EINVAL;
 			return -1;

@@ -8,9 +8,9 @@
 TRACE_SETUP;
 
 Result
-sys_clone(Thread* t, int flags, pid_t* out_pid)
+sys_clone(Thread* t, int flags)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, flags=0x%x, out_pid=%p", t, flags, out_pid);
+	TRACE(SYSCALL, FUNC, "t=%p, flags=0x%x", t, flags);
 	Process& proc = *t->t_process;
 
 	/* XXX Future improvement so we can do vfork() and such */
@@ -30,14 +30,14 @@ sys_clone(Thread* t, int flags, pid_t* out_pid)
 		new_proc->RemoveReference(); // destroys it
 		return result;
 	}
-	*out_pid = new_proc->p_pid;
+	auto new_pid = new_proc->p_pid;
 	new_proc->Unlock();
 
 	/* Resume the cloned thread - it'll have a different return value from ours */
 	new_thread->Resume();
 
-	TRACE(SYSCALL, FUNC, "t=%p, success, new pid=%u", t, *out_pid);
-	return Result::Success();
+	TRACE(SYSCALL, FUNC, "t=%p, success, new pid=%u", t, new_pid);
+	return Result::Success(new_pid);
 }
 
 /* vim:set ts=2 sw=2: */

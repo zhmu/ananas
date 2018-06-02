@@ -132,7 +132,7 @@ HDADevice::Detach()
 }
 
 Result
-HDADevice::Write(const void* buffer, size_t& len, off_t offset)
+HDADevice::Write(const void* buffer, size_t len, off_t offset)
 {
 	if (hda_pc == nullptr)
 		return RESULT_MAKE_FAILURE(EIO);
@@ -166,12 +166,11 @@ HDADevice::Write(const void* buffer, size_t& len, off_t offset)
 	}
 	pc.pc_mutex.Unlock();
 
-	len = written;
-	return Result::Success();
+	return Result::Success(written);
 }
 
 Result
-HDADevice::Read(void* buffer, size_t& len, off_t offset)
+HDADevice::Read(void* buffer, size_t len, off_t offset)
 {
 	// No recording support yet
 	return RESULT_MAKE_FAILURE(EIO);

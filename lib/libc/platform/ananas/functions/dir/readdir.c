@@ -21,13 +21,12 @@ readdir(DIR* dirp)
 
 		if (dirp->d_cur_pos == 0) {
 			/* Buffer is empty; must re-read */
-			size_t len = dirp->d_buf_size;
-			statuscode_t status = sys_read(dirp->d_fd, dirp->d_buffer, &len);
-			if (status != ananas_statuscode_success()) {
+			statuscode_t status = sys_read(dirp->d_fd, dirp->d_buffer, dirp->d_buf_size);
+			if (ananas_statuscode_is_failure(status)) {
 				errno = ananas_statuscode_extract_errno(status);
 				return NULL;
 			}
-			dirp->d_buf_filled = len;
+			dirp->d_buf_filled = ananas_statuscode_extract_value(status);
 
 			if (dirp->d_buf_filled == 0) {
 				/* out of entries */

@@ -38,10 +38,10 @@ vfs_generic_lookup(DEntry& parent, INode*& destinode, const char* dentry)
 		if (!vfs_is_filesystem_sane(parent_inode.i_fs))
 			return RESULT_MAKE_FAILURE(EIO);
 
-		size_t buf_len = sizeof(buf);
-		RESULT_PROPAGATE_FAILURE(
-			vfs_read(&dirf, buf, &buf_len)
-		);
+		auto result = vfs_read(&dirf, buf, sizeof(buf));
+		if (result.IsFailure())
+			return result;
+		auto buf_len = result.AsValue();
 		if (buf_len == 0)
 			return RESULT_MAKE_FAILURE(ENOENT);
 
@@ -64,12 +64,12 @@ vfs_generic_lookup(DEntry& parent, INode*& destinode, const char* dentry)
 }
 
 Result
-vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
+vfs_generic_read(struct VFS_FILE* file, void* buf, size_t len)
 {
 	INode& inode = *file->f_dentry->d_inode;
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	size_t read = 0;
-	size_t left = *len;
+	size_t left = len;
 	BIO* bio = nullptr;
 
 	KASSERT(inode.i_iops->block_map != NULL, "called without block_map implementation");
@@ -87,7 +87,7 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 		/* Figure out which block to use next */
 		blocknr_t want_block;
 		RESULT_PROPAGATE_FAILURE(
-			inode.i_iops->block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), &want_block, 0)
+			inode.i_iops->block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), want_block, false)
 		);
 
 		/* Grab the next block if necessary */
@@ -115,17 +115,16 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t* len)
 	}
 	if (bio != nullptr)
 		bio_free(*bio);
-	*len = read;
-	return Result::Success();
+	return Result::Success(read);
 }
 
 Result
-vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
+vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t len)
 {
 	INode& inode = *file->f_dentry->d_inode;
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	size_t written = 0;
-	size_t left = *len;
+	size_t left = len;
 	BIO* bio = nullptr;
 
 	KASSERT(inode.i_iops->block_map != NULL, "called without block_map implementation");
@@ -133,10 +132,8 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 	int inode_dirty = 0;
 	blocknr_t cur_block = 0;
 	while(left > 0) {
-		int create = 0;
 		blocknr_t logical_block = file->f_offset / (blocknr_t)fs->fs_block_size;
-		if (logical_block >= inode.i_sb.st_blocks /* XXX is this correct with sparse files? */)
-			create++;
+		bool create = logical_block >= inode.i_sb.st_blocks; // XXX is this correct with sparse files?
 
 		if (!vfs_is_filesystem_sane(inode.i_fs))
 			return RESULT_MAKE_FAILURE(EIO);
@@ -144,7 +141,7 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 		/* Figure out which block to use next */
 		blocknr_t want_block;
 		RESULT_PROPAGATE_FAILURE(
-			inode.i_iops->block_map(inode, logical_block, &want_block, create)
+			inode.i_iops->block_map(inode, logical_block, want_block, create)
 		);
 
 		/* Calculate how much we have to put in the block */
@@ -186,27 +183,26 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t* len)
 	}
 	if (bio != nullptr)
 		bio_free(*bio);
-	*len = written;
 
 	if (inode_dirty)
 		vfs_set_inode_dirty(inode);
-	return Result::Success();
+	return Result::Success(written);
 }
 
 Result
-vfs_generic_follow_link(INode& inode, DEntry& base, DEntry*& result)
+vfs_generic_follow_link(INode& inode, DEntry& base, DEntry*& followed)
 {
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 
 	char buf[1024]; // XXX
-	size_t buflen = sizeof(buf);
-	RESULT_PROPAGATE_FAILURE(
-		inode.i_iops->read_link(inode, buf, &buflen)
-	);
+	auto result = inode.i_iops->read_link(inode, buf, sizeof(buf));
+	if (result.IsFailure())
+		return result;
+	auto buflen = result.AsValue();
 	if (buflen > 0)
 		buf[buflen - 1] = '\0';
 
-	return vfs_lookup(base.d_parent, result, buf);
+	return vfs_lookup(base.d_parent, followed, buf);
 }
 
 /* vim:set ts=2 sw=2: */

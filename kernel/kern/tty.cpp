@@ -43,7 +43,7 @@ TTY::~TTY()
 }
 
 Result
-TTY::Read(void* buf, size_t& len, off_t offset)
+TTY::Read(void* buf, size_t len, off_t offset)
 {
 	auto data = static_cast<char*>(buf);
 
@@ -103,8 +103,7 @@ TTY::Read(void* buf, size_t& len, off_t offset)
 			tty_in_readpos = (tty_in_readpos + 1) % tty_input_queue.size();
 			num_read++; num_left--;
 		}
-		len = num_read;
-		return Result::Success();
+		return Result::Success(num_read);
 	}
 
 	/* NOTREACHED */
@@ -141,13 +140,13 @@ TTY::HandleEcho(unsigned char byte)
 }
 
 Result
-TTY::Write(const void* buffer, size_t& len, off_t offset)
+TTY::Write(const void* buffer, size_t len, off_t offset)
 {
 	size_t left = len;
 	for (auto ptr = static_cast<const char*>(buffer); left > 0; ptr++, left--) {
 		TTY::HandleEcho(*ptr);
 	}
-	return Result::Success();
+	return Result::Success(len);
 }
 
 Result

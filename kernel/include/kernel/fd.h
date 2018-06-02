@@ -31,8 +31,8 @@ struct FD : util::List<FD>::NodePtr {
 
 // Descriptor operations map almost directly to the syscalls invoked on them.
 struct CLONE_OPTIONS;
-typedef Result (*fd_read_fn)(Thread* thread, fdindex_t index, FD& fd, void* buf, size_t* len);
-typedef Result (*fd_write_fn)(Thread* thread, fdindex_t index, FD& fd, const void* buf, size_t* len);
+typedef Result (*fd_read_fn)(Thread* thread, fdindex_t index, FD& fd, void* buf, size_t len);
+typedef Result (*fd_write_fn)(Thread* thread, fdindex_t index, FD& fd, const void* buf, size_t len);
 typedef Result (*fd_open_fn)(Thread* thread, fdindex_t index, FD& fd, const char* path, int flags, int mode);
 typedef Result (*fd_free_fn)(Process& proc, FD& fd);
 typedef Result (*fd_unlink_fn)(Thread* thread, fdindex_t index, FD& fd);

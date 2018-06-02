@@ -32,7 +32,7 @@ vfshandle_get_file(FD& fd, struct VFS_FILE*& out)
 }
 
 Result
-vfshandle_read(Thread* t, fdindex_t index, FD& fd, void* buffer, size_t* size)
+vfshandle_read(Thread* t, fdindex_t index, FD& fd, void* buffer, size_t size)
 {
 	struct VFS_FILE* file;
 	if (auto result = vfshandle_get_file(fd, file); result.IsFailure())
@@ -42,7 +42,7 @@ vfshandle_read(Thread* t, fdindex_t index, FD& fd, void* buffer, size_t* size)
 }
 
 Result
-vfshandle_write(Thread* t, fdindex_t index, FD& fd, const void* buffer, size_t* size)
+vfshandle_write(Thread* t, fdindex_t index, FD& fd, const void* buffer, size_t size)
 {
 	struct VFS_FILE* file;
 	if (auto result = vfshandle_get_file(fd, file); result.IsFailure())

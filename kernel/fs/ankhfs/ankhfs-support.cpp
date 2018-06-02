@@ -9,9 +9,9 @@ namespace Ananas {
 namespace AnkhFS {
 
 Result
-HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len, IReadDirCallback& callback)
+HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len, IReadDirCallback& callback)
 {
-	size_t written = 0, left = *len;
+	size_t written = 0, left = len;
 
 	int cur_offset = 0;
 	char entry[64]; // XXX
@@ -23,19 +23,19 @@ HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len, IReadDirCallbac
 		if(skip)
 			continue;
 
-		int filled = vfs_filldirent(&dirents, &left, inum, entry, entry_length);
+		auto filled = vfs_filldirent(&dirents, left, inum, entry, entry_length);
 		if(!filled)
 			break; // out of space
 		file->f_offset += filled;
 		written += filled;
+		left -= filled;
 	}
 
-	*len = written;
-	return Result::Success();
+	return Result::Success(written);
 }
 
 Result
-HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len, const DirectoryEntry& firstEntry, unsigned int id)
+HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len, const DirectoryEntry& firstEntry, unsigned int id)
 {
 	struct FetchDirectoryEntry : IReadDirCallback {
 		FetchDirectoryEntry(const DirectoryEntry& de, int id)
@@ -62,22 +62,19 @@ HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len, const Directory
 }
 
 Result
-HandleRead(struct VFS_FILE* file, void* buf, size_t* len, const char* data)
+HandleRead(struct VFS_FILE* file, void* buf, size_t len, const char* data)
 {
 	size_t dataLength = strlen(data);
-	if (file->f_offset >= dataLength) {
-		*len = 0;
-		return Result::Success();
-	}
+	if (file->f_offset >= dataLength)
+		return Result::Success(0);
 
 	size_t left = dataLength - file->f_offset;
-	if (left > *len)
-		left = *len;
+	if (left > len)
+		left = len;
 	memcpy(buf, &data[file->f_offset], left);
 
-	*len = left;
 	file->f_offset += left;
-	return Result::Success();
+	return Result::Success(left);
 }
 
 } // namespace AnkhFS

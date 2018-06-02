@@ -28,7 +28,7 @@ struct DirectoryEntry fs_entries[] = {
 class KernelSubSystem : public IAnkhSubSystem
 {
 public:
-	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t* len) override
+	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len) override
 	{
 		return AnkhFS::HandleReadDir(file, dirents, len, fs_entries[0]);
 	}
@@ -42,7 +42,7 @@ public:
 		return Result::Success();
 	}
 
-	Result HandleRead(struct VFS_FILE* file, void* buf, size_t* len) override
+	Result HandleRead(struct VFS_FILE* file, void* buf, size_t len) override
 	{
 		char result[256]; // XXX
 		strcpy(result, "???");
@@ -65,7 +65,7 @@ public:
 		return AnkhFS::HandleRead(file, buf, len, result);
 	}
 
-	Result HandleIOControl(struct VFS_FILE* file, unsigned int op, void* args[]) override
+	Result HandleIOControl(struct VFS_FILE* file, unsigned long op, void* args[]) override
 	{
 		return RESULT_MAKE_FAILURE(EIO);
 	}
@@ -80,7 +80,7 @@ public:
 		return Result::Success();
 	}
 
-	Result HandleReadLink(INode& inode, void* buf, size_t* len) override
+	Result HandleReadLink(INode& inode, void* buf, size_t len) override
 	{
 		return RESULT_MAKE_FAILURE(EIO);
 	}

@@ -5,11 +5,6 @@
 
 pid_t waitpid(pid_t pid, int* stat_loc, int options)
 {
-	pid_t p = pid;
-
-	statuscode_t status = sys_waitpid(&p, stat_loc, options);
-	if (status != ananas_statuscode_success()) {
-		return (pid_t)map_statuscode(status);
-	}
-	return p;
+	statuscode_t status = sys_waitpid(pid, stat_loc, options);
+	return map_statuscode(status);
 }

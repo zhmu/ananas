@@ -27,13 +27,13 @@ read_data(DEntry& dentry, void* buf, off_t offset, size_t len)
 		vfs_seek(&f, offset)
 	);
 
-	size_t amount = len;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_read(&f, buf, &amount)
-	);
+	auto result = vfs_read(&f, buf, len);
+	if (result.IsFailure())
+		return result;
 
-	if (amount != len)
-		return RESULT_MAKE_FAILURE(ERANGE);
+	auto numread = result.AsValue();
+	if (numread != len)
+		return RESULT_MAKE_FAILURE(EIO);
 	return Result::Success();
 }
 

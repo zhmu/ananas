@@ -129,7 +129,7 @@ struct VFS_INODE_OPS {
 	 * Reads directory entries. Must set length to amount of data filled on
 	 * success.
 	 */
-	Result (*readdir)(struct VFS_FILE* file, void* buf, size_t* length);
+	Result (*readdir)(struct VFS_FILE* file, void* buf, size_t length);
 
 	/*
 	 * Looks up an entry within a directory, updates 'destinode' on success.
@@ -140,24 +140,24 @@ struct VFS_INODE_OPS {
 	 * Maps the inode's given block number to a block device's block
 	 * number. A new block is to be allocated if create is non-zero.
 	 */
-	Result (*block_map)(INode& inode, blocknr_t block_in, blocknr_t* block_out, int create);
+	Result (*block_map)(INode& inode, blocknr_t block_in, blocknr_t& block_out, bool create);
 
 	/*
 	 * Reads inode data to a buffer, up to len bytes. Must update len on success
 	 * with the amount of data read.
 	 */
-	Result (*read)(struct VFS_FILE* file, void* buf, size_t* len);
+	Result (*read)(struct VFS_FILE* file, void* buf, size_t len);
 
 	/*
 	 * Writes inode data from a buffer, up to len bytes. Must update len on success
 	 * wit hthe amount of data written.
 	 */
-	Result (*write)(struct VFS_FILE* file, const void* buf, size_t* len);
+	Result (*write)(struct VFS_FILE* file, const void* buf, size_t len);
 
 	/*
 	 * ioctl(), or the big bag of 'other stuff'.
 	 */
-	Result (*ioctl)(struct VFS_FILE* file, unsigned int op, void* args[]);
+	Result (*ioctl)(struct VFS_FILE* file, unsigned long op, void* args[]);
 
 	/*
 	 * Creates a new entry in the directory. On success, calls
@@ -183,7 +183,7 @@ struct VFS_INODE_OPS {
 	/*
 	 * Read the content of a symlink.
 	 */
-	Result (*read_link)(INode& inode, char* buffer, size_t* buflen);
+	Result (*read_link)(INode& inode, char* buffer, size_t buflen);
 
 	/*
 	 * Follows a symbolic link.

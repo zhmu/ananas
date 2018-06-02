@@ -5,9 +5,6 @@
 
 ssize_t write(int fd, const void* buf, size_t len)
 {
-	statuscode_t status = sys_write(fd, buf, &len);
-	if (status != ananas_statuscode_success())
-		return (size_t)map_statuscode(status);
-
-	return len;
+	statuscode_t status = sys_write(fd, buf, len);
+	return map_statuscode(status);
 }

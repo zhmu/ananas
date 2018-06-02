@@ -368,9 +368,8 @@ elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
 		ehdr.e_phentsize = sizeof(Elf64_Phdr);
 		ehdr.e_phnum = num_phent;
 
-		size_t len = sizeof(ehdr);
 		RESULT_PROPAGATE_FAILURE(
-			vfs_write(f, &ehdr, &len)
+			vfs_write(f, &ehdr, sizeof(ehdr))
 		);
 	}
 
@@ -387,9 +386,8 @@ elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
 		phdr.p_memsz = note_len;
 		phdr.p_flags = PF_R;
 
-		size_t len = sizeof(phdr);
 		RESULT_PROPAGATE_FAILURE(
-			vfs_write(f, &phdr, &len)
+			vfs_write(f, &phdr, sizeof(phdr))
 		);
 	}
 
@@ -416,9 +414,8 @@ elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
 			if (vp.vp_flags & VM_FLAG_EXECUTE)
 				phdr.p_flags |= PF_X;
 
-			size_t len = sizeof(phdr);
 			RESULT_PROPAGATE_FAILURE(
-				vfs_write(f, &phdr, &len)
+				vfs_write(f, &phdr, sizeof(phdr))
 			);
 
 			ph_index++;
@@ -427,25 +424,23 @@ elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
 
 	// Write the note data
 	RESULT_PROPAGATE_FAILURE(
-		vfs_write(f, note, &note_len)
+		vfs_write(f, note, note_len)
 	);
 
 	// Align to PAGE_SIZE
 	if (f->f_offset & (PAGE_SIZE - 1)) {
 		memset(note, 0, PAGE_SIZE);
 		size_t note_slack = PAGE_SIZE -  f->f_offset & (PAGE_SIZE - 1);
-		kprintf("note slack %d\n", note_slack);
 		RESULT_PROPAGATE_FAILURE(
-			vfs_write(f, note, &note_slack)
+			vfs_write(f, note, note_slack)
 		);
 	}
 
 	// Store the page content
 	for(auto& va: vs->vs_areas) {
 		for(auto& vp: va.va_pages) {
-			size_t len = PAGE_SIZE;
 			RESULT_PROPAGATE_FAILURE(
-				vfs_write(f, reinterpret_cast<void*>(vp.vp_vaddr), &len)
+				vfs_write(f, reinterpret_cast<void*>(vp.vp_vaddr), PAGE_SIZE)
 			);
 		}
 	}

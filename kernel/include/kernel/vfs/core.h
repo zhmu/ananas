@@ -44,8 +44,8 @@ bool vfs_is_filesystem_sane(struct VFS_MOUNTED_FS* fs);
 /* Higher-level interface */
 Result vfs_open(Process* p, const char* fname, DEntry* cwd, struct VFS_FILE* file, int lookup_flags = VFS_LOOKUP_FLAG_DEFAULT);
 Result vfs_close(Process* p, struct VFS_FILE* file);
-Result vfs_read(struct VFS_FILE* file, void* buf, size_t* len);
-Result vfs_write(struct VFS_FILE* file, const void* buf, size_t* len);
+Result vfs_read(struct VFS_FILE* file, void* buf, size_t len);
+Result vfs_write(struct VFS_FILE* file, const void* buf, size_t len);
 Result vfs_seek(struct VFS_FILE* file, off_t offset);
 Result vfs_create(DEntry* parent, struct VFS_FILE* destfile, const char* dentry, int mode);
 Result vfs_grow(struct VFS_FILE* file, off_t size);
@@ -54,6 +54,6 @@ Result vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest);
 Result vfs_ioctl(Process* p, struct VFS_FILE* file, unsigned long request, void* args[]);
 
 /* Filesystem specific functions */
-size_t vfs_filldirent(void** dirents, size_t* size, ino_t inum, const char* name, int namelen);
+size_t vfs_filldirent(void** dirents, size_t size, ino_t inum, const char* name, int namelen);
 
 #endif /* __ANANAS_VFS_CORE_H__ */

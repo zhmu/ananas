@@ -5,10 +5,6 @@
 
 pid_t getpgrp()
 {
-	pid_t pgid;
-	statuscode_t status = sys_getpgrp(&pgid);
-	if (status == ananas_statuscode_success())
-		return pgid;
-
+	statuscode_t status = sys_getpgrp();
 	return map_statuscode(status);
 }

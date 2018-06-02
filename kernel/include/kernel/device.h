@@ -81,12 +81,12 @@ public:
 
 class ICharDeviceOperations {
 public:
-	virtual Result Write(const void* buffer, size_t& len, off_t offset)
+	virtual Result Write(const void* buffer, size_t len, off_t offset)
 	{
 		return Result::FromErrNo(EINVAL);
 	}
 
-	virtual Result Read(void* buffer, size_t& len, off_t offset)
+	virtual Result Read(void* buffer, size_t len, off_t offset)
 	{
 		return Result::FromErrNo(EINVAL);
 	}

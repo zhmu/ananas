@@ -99,12 +99,12 @@ fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename)
 }
 
 Result
-fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
+fat_readdir(struct VFS_FILE* file, void* dirents, size_t len)
 {
 	INode& inode = *file->f_dentry->d_inode;
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	size_t written = 0;
-	size_t left = *len;
+	size_t left = len;
 	char cur_filename[128]; /* currently assembled filename */
 	off_t full_filename_offset = file->f_offset;
 	BIO* bio = nullptr;
@@ -115,7 +115,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	while(left > 0) {
 		/* Obtain the current directory block data */
 		blocknr_t want_block;
-		Result result = fat_block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
+		Result result = fat_block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), want_block, 0);
 		if (result.IsFailure()) {
 			if (result.AsErrno() == ERANGE)
 				break;
@@ -158,7 +158,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 
 		/* And hand it to the fill function */
 		ino_t inum = cur_block << 16 | cur_offs;
-		int filled = vfs_filldirent(&dirents, &left, inum, cur_filename, strlen(cur_filename));
+		auto filled = vfs_filldirent(&dirents, left, inum, cur_filename, strlen(cur_filename));
 		if (!filled) {
 			/*
 			 * Out of space - we need to restore the offset of the LFN chain. This must
@@ -170,6 +170,8 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 			break;
 		}
 		written += filled;
+		left -= filled;
+
 		/*
 		 * Store the next offset; this is where our next filename starts (which
 	 	 * does not have to fit in the destination buffer, so we'll have to
@@ -182,8 +184,7 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 	}
 	if (bio != nullptr)
 		bio_free(*bio);
-	*len = written;
-	return Result::Success();
+	return Result::Success(written);
 }
 
 /*
@@ -247,7 +248,7 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
 	while(1) {
 		/* Obtain the current directory block data */
 		blocknr_t want_block;
-		Result result = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
+		Result result = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), want_block, 0);
 		if (result.IsFailure()) {
 			if (result.AsErrno() == ERANGE) {
 				/* We've hit an end-of-file - this means we'll have to enlarge the directory */
@@ -336,7 +337,7 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
 		/* Fetch/allocate the desired block */
 		blocknr_t want_block;
 		RESULT_PROPAGATE_FAILURE(
-			fat_block_map(dir, (current_filename_offset / (blocknr_t)fs->fs_block_size), &want_block, (cur_lfn_chain < 0))
+			fat_block_map(dir, (current_filename_offset / (blocknr_t)fs->fs_block_size), want_block, (cur_lfn_chain < 0))
 		);
 		if (want_block != cur_block) {
 			bio_free(*bio);
@@ -398,7 +399,7 @@ fat_remove_directory_entry(INode& dir, const char* dentry)
 	while(1) {
 		/* Obtain the current directory block data */
 		blocknr_t want_block;
-		Result result = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
+		Result result = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), want_block, 0);
 		if (result.IsFailure()) {
 			if (result.AsErrno() == ERANGE) {
 				/* We've hit an end-of-file */
@@ -455,7 +456,7 @@ fat_remove_directory_entry(INode& dir, const char* dentry)
 		for(/* nothing */; chain_length > 0; chain_length--) {
 			/* Obtain the current directory block data */
 			blocknr_t want_block;
-			Result result = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), &want_block, 0);
+			Result result = fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), want_block, 0);
 			if (result.IsFailure()) {
 				if (result.AsErrno() == ERANGE) {
 					/* We've hit an end-of-file */

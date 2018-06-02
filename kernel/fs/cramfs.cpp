@@ -63,14 +63,14 @@ struct CRAMFS_PRIVDATA {
 };
 
 static Result
-cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
+cramfs_read(struct VFS_FILE* file, void* buf, size_t len)
 {
 	INode& inode = *file->f_dentry->d_inode;
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	struct CRAMFS_PRIVDATA* fs_privdata = (struct CRAMFS_PRIVDATA*)fs->fs_privdata;
 	struct CRAMFS_INODE_PRIVDATA* i_privdata = (struct CRAMFS_INODE_PRIVDATA*)inode.i_privdata;
 
-	size_t total = 0, toread = *len;
+	size_t total = 0, toread = len;
 	while (toread > 0) {
 		uint32_t page_index = file->f_offset / CRAMFS_PAGE_SIZE;
 		int cur_block = -1;
@@ -137,17 +137,16 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 		toread -= copy_chunk;
 	}
 
-	*len = total;
-	return Result::Success();
+	return Result::Success(total);
 }
 
 static Result
-cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
+cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t len)
 {
 	INode& inode = *file->f_dentry->d_inode;
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
 	struct CRAMFS_INODE_PRIVDATA* i_privdata = (struct CRAMFS_INODE_PRIVDATA*)inode.i_privdata;
-	size_t written = 0, toread = *len;
+	size_t written = 0, toread = len;
 
 	uint32_t cur_offset = i_privdata->offset + file->f_offset;
 	uint32_t left = inode.i_sb.st_size - file->f_offset;
@@ -216,12 +215,13 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		 &cram_inode->in_namelen_offset);
 
 		/* And hand it to the fill function */
-		int filled = vfs_filldirent(&dirents, &toread, cur_offset, ((char*)(cram_inode + 1)), real_name_len);
+		auto filled = vfs_filldirent(&dirents, toread, cur_offset, ((char*)(cram_inode + 1)), real_name_len);
 		if (!filled) {
 			/* out of space! */
 			break;
 		}
 		written += filled;
+		toread -= filled;
 
 		cur_offset += entry_len;
 		file->f_offset += entry_len;
@@ -232,8 +232,7 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t* len)
 		bio_free(*bio);
 
 	CRAMFS_DEBUG_READDIR("cramfs_readdir(): done, returning %u bytes\n", written);
-	*len = written;
-	return Result::Success();
+	return Result::Success(written);
 }
 
 static struct VFS_INODE_OPS cramfs_file_ops = {

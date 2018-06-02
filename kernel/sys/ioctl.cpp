@@ -18,14 +18,14 @@ sys_ioctl(Thread* t, fdindex_t fdindex, unsigned long req, void* arg1, void* arg
 		syscall_get_fd(*t, FD_TYPE_ANY, fdindex, fd)
 	);
 
-	if (fd->fd_ops->d_ioctl != nullptr) {
-		void* args[] = { arg1, arg2, arg3 };
-		if (auto result = fd->fd_ops->d_ioctl(t, fdindex, *fd, req, args); result.IsFailure())
-			return result;
-	} else {
+	if (fd->fd_ops->d_ioctl == nullptr)
 		return RESULT_MAKE_FAILURE(EINVAL);
-	}
 
-	TRACE(SYSCALL, FUNC, "t=%p, success", t);
-	return Result::Success();
+	void* args[] = { arg1, arg2, arg3 };
+	auto result = fd->fd_ops->d_ioctl(t, fdindex, *fd, req, args);
+	if (result.IsFailure())
+		return result;
+
+	TRACE(SYSCALL, FUNC, "t=%p, success (%d)", t, result.AsStatusCode());
+	return result;
 }

@@ -3,17 +3,17 @@
 # <number> { prototype }
 #
 0 { void exit(int exitcode); }
-1 { Result read(fdindex_t fd, void* buf, size_t* len); }
-2 { Result write(fdindex_t fd, const void* buf, size_t* len); }
-3 { Result open(const char* path, int flags, int mode, fdindex_t* out); }
+1 { Result read(fdindex_t fd, void* buf, size_t len); }
+2 { Result write(fdindex_t fd, const void* buf, size_t len); }
+3 { Result open(const char* path, int flags, int mode); }
 4 { Result close(fdindex_t fd); }
 5 { Result unlink(const char* path); }
 6 { Result seek(fdindex_t fd, off_t* offset, int whence); }
-7 { Result clone(int flags, pid_t* out); }
-8 { Result waitpid(pid_t* pid, int* stat_loc, int options); }
+7 { Result clone(int flags); }
+8 { Result waitpid(pid_t pid, int* stat_loc, int options); }
 9 { Result execve(const char* path, const char** argv, const char** envp); }
 10 { Result vmop(struct VMOP_OPTIONS* opts); }
-11 { Result dupfd(fdindex_t fd, int flags, fdindex_t* out); }
+11 { Result dup(fdindex_t fd); }
 12 { Result rename(const char* oldpath, const char* newpath); }
 13 { Result stat(const char* path, struct stat* buf); }
 14 { Result chdir(const char* path); }
@@ -25,7 +25,7 @@
 20 { Result clock_settime(clockid_t id, const struct timespec* tp); }
 21 { Result clock_gettime(clockid_t id, struct timespec* tp); }
 22 { Result clock_getres(clockid_t id, struct timespec* res); }
-23 { Result readlink(const char* path, char* buffer, size_t* bufsize); }
+23 { Result readlink(const char* path, char* buffer, size_t bufsize); }
 24 { Result lstat(const char* path, struct stat* buf); }
 25 { Result getcwd(char* buf, size_t buflen); }
 26 { Result sigaction(int sig, const struct sigaction* act, struct sigaction* oact); }
@@ -34,6 +34,7 @@
 29 { Result kill(pid_t pid, int sig); }
 30 { void sigreturn(int dummy); }
 31 { Result ioctl(fdindex_t fd, unsigned long op, void* arg1, void* arg2, void* arg3); }
-32 { Result getpgrp(pid_t* pgid); }
+32 { Result getpgrp(); }
 33 { Result setpgid(pid_t pid, pid_t pgid); }
-34 { Result setsid(int dummy); }
+34 { Result setsid(); }
+35 { Result dup2(fdindex_t fd, fdindex_t newindex); }

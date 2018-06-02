@@ -32,8 +32,8 @@ struct VConsole : public Ananas::Device, private Ananas::IDeviceOperations, priv
 	Result Attach() override;
 	Result Detach() override;
 
-	Result Read(void* buf, size_t& len, off_t offset) override;
-	Result Write(const void* buf, size_t& len, off_t offset) override;
+	Result Read(void* buf, size_t len, off_t offset) override;
+	Result Write(const void* buf, size_t len, off_t offset) override;
 
 	void OnKey(const keyboard_mux::Key& key, int modifier) override;
 

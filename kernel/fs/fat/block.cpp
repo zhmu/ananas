@@ -407,7 +407,7 @@ fat_truncate_clusterchain(INode& inode)
  * multiple of a cluster size)
  */
 Result
-fat_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int create)
+fat_block_map(INode& inode, blocknr_t block_in, blocknr_t& block_out, bool create)
 {
 	auto privdata = static_cast<struct FAT_INODE_PRIVDATA*>(inode.i_privdata);
 	struct VFS_MOUNTED_FS* fs = inode.i_fs;
@@ -444,7 +444,7 @@ fat_block_map(INode& inode, blocknr_t block_in, blocknr_t* block_out, int create
 		want_block += block_in % fs_privdata->sectors_per_cluster;
 	}
 
-	*block_out = want_block;
+	block_out = want_block;
 	return Result::Success();
 }
 

@@ -7,7 +7,7 @@
 TRACE_SETUP;
 
 Result
-sys_waitpid(Thread* t, pid_t* pid, int* stat_loc, int options)
+sys_waitpid(Thread* t, pid_t pid, int* stat_loc, int options)
 {
 	TRACE(SYSCALL, FUNC, "t=%p, pid=%d stat_loc=%p options=%d", t, pid, stat_loc, options);
 
@@ -16,7 +16,7 @@ sys_waitpid(Thread* t, pid_t* pid, int* stat_loc, int options)
 		t->t_process->WaitAndLock(options, proc)
 	);
 
-	*pid = proc->p_pid;
+	auto child_pid = proc->p_pid;
 	if (stat_loc != nullptr)
 		*stat_loc = proc->p_exit_status;
 
@@ -26,7 +26,7 @@ sys_waitpid(Thread* t, pid_t* pid, int* stat_loc, int options)
 		p->RemoveReference();
 	}
 
-	return Result::Success();
+	return Result::Success(child_pid);
 }
 
 /* vim:set ts=2 sw=2: */

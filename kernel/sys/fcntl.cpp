@@ -29,32 +29,23 @@ sys_fcntl(Thread* t, fdindex_t hindex, int cmd, const void* in, void* out)
 			RESULT_PROPAGATE_FAILURE(
 				fd::Clone(process, hindex, nullptr, process, fd_out, min_fd, idx_out)
 			);
-			*(int*)out = idx_out;
-			break;
+			return Result::Success(idx_out);
 		}
 		case F_GETFD:
 			/* TODO */
-			*(int*)out = 0;
-			break;
+			return Result::Success(0);
 		case F_GETFL:
 			/* TODO */
-			*(int*)out = 0;
-			break;
+			return Result::Success(0);
 		case F_SETFD: {
-			int fd = (int)(uintptr_t)out;
-			/* TODO */
-			(void)fd;
-			break;
+			return RESULT_MAKE_FAILURE(EPERM);
 		}
 		case F_SETFL: {
-			int fl = (int)(uintptr_t)out;
-			/* TODO */
-			(void)fl;
-			break;
+			return RESULT_MAKE_FAILURE(EPERM);
 		}
 		default:
 			return RESULT_MAKE_FAILURE(EINVAL);
 	}
 
-	return Result::Success();
+	// NOTREACHED
 }

@@ -35,7 +35,6 @@ vfs_open(Process* p, const char* fname, DEntry* cwd, struct VFS_FILE* out, int l
 	RESULT_PROPAGATE_FAILURE(
 		vfs_lookup(cwd, dentry, fname, lookup_flags)
 	);
-
 	vfs_make_file(out, *dentry);
 	KASSERT(dentry->d_inode != nullptr, "open without inode?");
 	KASSERT(dentry->d_inode->i_iops != nullptr, "open without inode ops?");
@@ -68,7 +67,7 @@ vfs_close(Process* p, struct VFS_FILE* file)
 }
 
 Result
-vfs_read(struct VFS_FILE* file, void* buf, size_t* len)
+vfs_read(struct VFS_FILE* file, void* buf, size_t len)
 {
 	KASSERT(file->f_dentry != NULL || file->f_device != NULL, "vfs_read on nonbacked file");
 	if (file->f_device != NULL) {
@@ -76,7 +75,7 @@ vfs_read(struct VFS_FILE* file, void* buf, size_t* len)
 		if (file->f_device->GetCharDeviceOperations() == NULL)
 			return RESULT_MAKE_FAILURE(EINVAL);
 		else {
-			return file->f_device->GetCharDeviceOperations()->Read(buf, *len, 0);
+			return file->f_device->GetCharDeviceOperations()->Read(buf, len, 0);
 		}
 	}
 
@@ -127,7 +126,7 @@ vfs_ioctl(Process* p, struct VFS_FILE* file, unsigned long request, void* args[]
 }
 
 Result
-vfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
+vfs_write(struct VFS_FILE* file, const void* buf, size_t len)
 {
 	KASSERT(file->f_dentry != NULL || file->f_device != NULL, "vfs_write on nonbacked file");
 	if (file->f_device != NULL) {
@@ -135,7 +134,7 @@ vfs_write(struct VFS_FILE* file, const void* buf, size_t* len)
 		if (file->f_device == NULL || file->f_device->GetCharDeviceOperations() == NULL)
 			return RESULT_MAKE_FAILURE(EINVAL);
 		else
-			return file->f_device->GetCharDeviceOperations()->Write(buf, *len, 0);
+			return file->f_device->GetCharDeviceOperations()->Write(buf, len, 0);
 	}
 
 	INode* inode = file->f_dentry->d_inode;
@@ -381,7 +380,7 @@ vfs_lookup(DEntry* parent, DEntry*& destentry, const char* dentry, int flags)
 	Result result = vfs_lookup_internal(parent, dentry, destentry, final, flags);
 	if (result.IsSuccess()) {
 #if VFS_DEBUG_LOOKUP
-		kprintf("vfs_lookup(): parent=%p,dentry='%s' okay -> dentry %p\n", parent, dentry, *destentry);
+		kprintf("vfs_lookup(): parent=%p,dentry='%s' okay -> dentry %p\n", parent, dentry, destentry);
 #endif
 		return result;
 	}
@@ -472,9 +471,8 @@ vfs_grow(struct VFS_FILE* file, off_t size)
 	file->f_offset = inode->i_sb.st_size;
 	while (inode->i_sb.st_size < size) {
 		size_t chunklen = (size - inode->i_sb.st_size) > sizeof(buffer) ? sizeof(buffer) : size - inode->i_sb.st_size;
-		size_t len = chunklen;
 		RESULT_PROPAGATE_FAILURE(
-			vfs_write(file, buffer, &len)
+			vfs_write(file, buffer, chunklen)
 		);
 	}
 	file->f_offset = cur_offset;

@@ -10,13 +10,13 @@
 TRACE_SETUP;
 
 Result
-sys_getpgrp(Thread* t, pid_t* pgid)
+sys_getpgrp(Thread* t)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, pgid=%p", t, pgid);
+	TRACE(SYSCALL, FUNC, "t=%p", t);
 	Process& process = *t->t_process;
 
-	*pgid = process.p_group->pg_id;
-	return Result::Success();
+	auto pgid = process.p_group->pg_id;
+	return Result::Success(pgid);
 }
 
 Result
@@ -28,7 +28,7 @@ sys_setpgid(Thread* t, pid_t pid, pid_t pgid)
 }
 
 Result
-sys_setsid(Thread* t, int dummy)
+sys_setsid(Thread* t)
 {
 	TRACE(SYSCALL, FUNC, "t=%p", t);
 	Process& process = *t->t_process;
