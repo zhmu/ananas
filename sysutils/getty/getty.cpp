@@ -8,6 +8,8 @@
 #include <fcntl.h>
 #include <iostream>
 #include <unistd.h>
+#include <sys/tty.h>
+#include <sys/ioctl.h>
 #include "common/paths.h"
 
 int
@@ -32,7 +34,11 @@ main(int argc, char* argv[])
 	}
 	close(fd);
 
-	// XXX Start session etc
+	// Start session and become controlling terminal
+	if (setsid() < 0)
+		perror("setsid");
+	if (ioctl(STDIN_FILENO, TIOCSCTTY) < 0)
+		perror("ioctl");
 
 	// OK, now run the shell (or login later on)
 	{
