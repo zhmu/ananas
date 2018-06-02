@@ -245,8 +245,8 @@ md_invoke_signal(struct STACKFRAME* sf)
 	return sf_handler;
 }
 
-void
-sys_sigreturn(Thread* t, int)
+Result
+sys_sigreturn(Thread* t)
 {
 	// Find the userland rsp
 	size_t sf_offset = KERNEL_STACK_SIZE - sizeof(struct STACKFRAME);
@@ -263,6 +263,11 @@ sys_sigreturn(Thread* t, int)
 	kprintf("%s: t=%p, rsp=%p sf_orig=%p\n", __func__, t, sf->sf_rsp, sf_orig);
 #endif
 	memcpy(sf, sf_orig, sizeof(struct STACKFRAME));
+
+	// Ensure we return the previous return value of whatever we interrupted;
+	// whatever signal handler we ran will likely have thrashed the value, so
+	// we need to reload it
+	return Result(sf->sf_rax, true);
 }
 
 /* vim:set ts=2 sw=2: */

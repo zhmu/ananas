@@ -14,6 +14,13 @@ public:
 	{
 	}
 
+	explicit Result(unsigned int value, bool)
+	 : r_StatusCode(value)
+	{
+		// This version is used to copy a status code; used only by signals to
+		// avoid messing up the interrupted result
+	}
+
 	bool IsSuccess() const {
 		return ananas_statuscode_is_success(r_StatusCode);
 	}
