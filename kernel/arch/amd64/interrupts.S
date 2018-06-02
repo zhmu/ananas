@@ -99,14 +99,20 @@ do_return_check_sig:
 	testl	$THREAD_FLAG_SIGPENDING, T_FLAGS(%rax)
 	jz	do_return
 
+	/*
+	 * If we are not returning to userland, skip trying to handle signals;
+	 * we must only change the stackframe on a kernel->user transition.
+	 */
+	cmpl	$GDT_SEL_KERNEL_CODE, SF_CS(%rsp)
+	je	do_return
+
 do_return_signal:
 	/*
-	 * XXX IS THIS CORRECT - we (may?) need interrupts enabled as the
-	 * signal stuff is protected by a spinlock and this panics if
-	 * interrupts are off. Maybe that check does not make sense in
-	 * the SMP case?
+	 * Enable interrupts here - the signal code may grab locks. This is safe,
+	 * as we only get here during a transition to userland so any nested
+	 * interrupts do not end up here.
 	 */
-	sti	/* XXX IS THIS CORRECT?!?! */
+	sti
 	movq	%rsp, %rdi
 	call	md_invoke_signal
 	orq	%rax, %rax

@@ -20,6 +20,8 @@
 #include "../sys/syscall.h"
 #include "options.h"
 
+#define SIGNAL_DEBUG 0
+
 namespace {
 
 int
@@ -195,6 +197,8 @@ md_core_dump(Thread& t)
 extern "C" void*
 md_invoke_signal(struct STACKFRAME* sf)
 {
+	KASSERT(sf->sf_rsp < KMEM_DIRECT_VA_START, "stack not in userland");
+
 	Thread* thread = PCPU_GET(curthread);
 	siginfo_t si;
 	signal::Action* act = signal::DequeueSignal(*thread, si);
@@ -227,8 +231,10 @@ md_invoke_signal(struct STACKFRAME* sf)
 	sf->sf_rsp -= sizeof(struct STACKFRAME);
 	auto sf_handler = reinterpret_cast<struct STACKFRAME*>(sf->sf_rsp);
 	memcpy(sf_handler, sf, sizeof(struct STACKFRAME));
+#if SIGNAL_DEBUG
 	kprintf("sf_copy %p siginfo %p retaddr %p sf_handler=%p\n", sf_copy, siginfo, retaddr, sf_handler);
 	kprintf("sizeof()s = %d, %d, %d\n", (int)sizeof(siginfo_t), (int)sizeof(register_t), (int)sizeof(struct STACKFRAME));
+#endif
 	// We always call the function as if it's a sigaction; an ordinary handler
 	// should just ignore the extra arguments
 	sf_handler->sf_rdi = siginfo->si_signo; // signum
@@ -245,11 +251,17 @@ sys_sigreturn(Thread* t, int)
 	// Find the userland rsp
 	size_t sf_offset = KERNEL_STACK_SIZE - sizeof(struct STACKFRAME);
 	auto sf = reinterpret_cast<struct STACKFRAME*>((char*)t->md_kstack + sf_offset);
+#if SIGNAL_DEBUG
+	kprintf("sys_sigreturn: t %p, md_kstack %p, sf_offset %d => sf %p\n", t, t->md_kstack, sf_offset, sf);
+	kprintf("sys_sigreturn: sf_rsp %p\n", sf->sf_rsp);
+#endif
 	/* XXX check sf->sf_rsp */
 	auto sf_orig = reinterpret_cast<struct STACKFRAME*>((char*)sf->sf_rsp + sizeof(siginfo_t));
 	/* XXX check sf_orig */
 
+#if SIGNAL_DEBUG
 	kprintf("%s: t=%p, rsp=%p sf_orig=%p\n", __func__, t, sf->sf_rsp, sf_orig);
+#endif
 	memcpy(sf, sf_orig, sizeof(struct STACKFRAME));
 }
 
