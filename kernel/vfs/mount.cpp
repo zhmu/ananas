@@ -54,7 +54,7 @@ vfs_get_availmountpoint()
 }
 
 Result
-vfs_mount(const char* from, const char* to, const char* type, void* options)
+vfs_mount(const char* from, const char* to, const char* type)
 {
 	/*
 	 * Attempt to locate the filesystem type; so we know what to call to mount

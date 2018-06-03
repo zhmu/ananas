@@ -13,8 +13,6 @@ struct INode;
 struct Procss;
 class Result;
 
-Result vfs_mount(const char* from, const char* to, const char* type, void* options);
-
 /* Low-level interface */
 /*
  * Obtains an inode for a given FSOP. The destination inode will have a reference count of

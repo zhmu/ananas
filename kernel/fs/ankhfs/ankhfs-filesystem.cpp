@@ -67,10 +67,14 @@ public:
 					struct VFS_MOUNTED_FS* fs = &Ananas::VFS::mountedfs[n];
 					if ((fs->fs_flags & VFS_FLAG_INUSE) == 0)
 						continue;
-				 const char* device = "none";
-					if (fs->fs_device != nullptr)
-						device = fs->fs_device->d_Name;
-				  snprintf(r, sizeof(result) - (r - result), "%s %s %x\n", fs->fs_mountpoint, device, fs->fs_flags);
+					if (fs->fs_flags & VFS_FLAG_ABANDONED)
+						continue;
+					if (fs->fs_device != nullptr) {
+						auto& device = *fs->fs_device;
+						snprintf(r, sizeof(result) - (r - result), "%s %s%d %d\n", fs->fs_mountpoint, device.d_Name, device.d_Unit, fs->fs_flags);
+					} else {
+						snprintf(r, sizeof(result) - (r - result), "%s none %d\n", fs->fs_mountpoint, fs->fs_flags);
+					}
 					r += strlen(r);
 				}
 				break;

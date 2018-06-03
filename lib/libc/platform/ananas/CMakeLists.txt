@@ -15,6 +15,11 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/_PDCLIB/_PDCLIB_stdinit.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/_PDCLIB/_PDCLIB_freepages.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/_PDCLIB/_PDCLIB_rename.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/bsd/mount.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/bsd/unmount.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/bsd/getmntinfo.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/bsd/statfs.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/bsd/fstatfs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/ioctl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/fork.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/raise.c
@@ -100,8 +105,6 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdio/tmpfile.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdio/remove.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdio/_PDCLIB_fileops.c
-	${CMAKE_CURRENT_SOURCE_DIR}/functions/bsd/unimplemented/statfs.c
-	${CMAKE_CURRENT_SOURCE_DIR}/functions/bsd/unimplemented/getmntinfo.c
 	${CMAKE_CURRENT_SOURCE_DIR}/ananas/init.c
 	PARENT_SCOPE
 )

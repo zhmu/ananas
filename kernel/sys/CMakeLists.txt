@@ -7,6 +7,7 @@ add_sources(
 	execve.cpp
 	exit.cpp
 	fcntl.cpp
+	fs.cpp
 	ioctl.cpp
 	job.cpp
 	link.cpp

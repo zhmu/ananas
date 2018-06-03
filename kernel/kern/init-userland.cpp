@@ -7,6 +7,7 @@
 #include "kernel/thread.h"
 #include "kernel/time.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/mount.h"
 #include "kernel-md/md.h"
 #include "options.h"
 
@@ -35,7 +36,7 @@ userinit_func(void*)
 
 	kprintf("- Mounting / (type %s) from %s...", rootfs_type, rootfs);
 	while(true) {
-		if (auto result = vfs_mount(rootfs, "/", rootfs_type, NULL); result.IsSuccess())
+		if (auto result = vfs_mount(rootfs, "/", rootfs_type); result.IsSuccess())
 			break;
 		else
 			kprintf(" failure %d, retrying...", result.AsStatusCode());
@@ -46,7 +47,7 @@ userinit_func(void*)
 
 #ifdef FS_ANKHFS
 	kprintf("- Mounting /ankh...");
-	if (auto result = vfs_mount(nullptr, "/ankh", "ankhfs", nullptr); result.IsSuccess())
+	if (auto result = vfs_mount(nullptr, "/ankh", "ankhfs"); result.IsSuccess())
 		kprintf(" success\n");
 	else
 		kprintf(" error %d\n", result.AsStatusCode());

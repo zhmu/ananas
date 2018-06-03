@@ -38,3 +38,7 @@
 33 { Result setpgid(pid_t pid, pid_t pgid); }
 34 { Result setsid(); }
 35 { Result dup2(fdindex_t fd, fdindex_t newindex); }
+36 { Result mount(const char* type, const char* source, const char* dir, int flags); }
+37 { Result unmount(const char* dir, int flags); }
+38 { Result statfs(const char* path, struct statfs* buf); }
+39 { Result fstatfs(fdindex_t fd, struct statfs* buf); }

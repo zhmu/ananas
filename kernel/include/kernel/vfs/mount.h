@@ -14,7 +14,7 @@ void vfs_init_mount();
 Result vfs_register_filesystem(VFSFileSystem& fs);
 Result vfs_unregister_filesystem(VFSFileSystem& fs);
 
-Result vfs_mount(const char* from, const char* to, const char* type, void* options);
+Result vfs_mount(const char* from, const char* to, const char* type);
 Result vfs_unmount(const char* path);
 
 void vfs_abandon_device(Ananas::Device& device);
