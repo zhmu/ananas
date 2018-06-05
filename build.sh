@@ -21,6 +21,11 @@
 #      silenty try to invoke CMAKE_AR-NOTFOUND. We specifically look for
 #      llvm-ar to avoid this.
 #
+# [cxx] Initially, we set the C++ compiler to 'clang' so that linking C++
+#       examples does not fail due to us missing libc++.so and others. Once
+#       these are build, we reset the CXX compiler to 'clang++' so we don't
+#       have to explicitely mention C++ libraries.
+#
 
 # build an internal cmake project using cmake and ninja
 build()
@@ -42,7 +47,7 @@ build_external()
 
 	echo "*** Configuring ${srcpath}"
 	cd ${ROOT}/external/${srcpath}
-	CC="clang" CFLAGS="--target=${TARGET} --sysroot ${OUTDIR} -DJOBS=0" ./configure --host=x86_64-ananas-elf --prefix=/
+	CC="${CLANG_D}" CFLAGS="--target=${TARGET} --sysroot ${OUTDIR} -DJOBS=0" ./configure --host=x86_64-ananas-elf --prefix=/
 
 	echo "*** Building ${srcpath}"
 	make
@@ -70,11 +75,15 @@ TARGET="x86_64-ananas-elf"
 OUTDIR="/tmp/ananas-build-new"
 WORKDIR="/tmp/ananas-work-new"
 ROOT=`pwd`
+CLANG='clang'
+CLANGXX='clang++'
+CLANG_D="${CLANG}"
+CLANGXX_D="${CLANGXX}"
 
 # see if the clang compiler is sensible - we try to invoke it
-X=`clang -v 2>&1`
+X=`${CLANG} -v 2>&1`
 if [ $? -ne 0 ]; then
-	echo "cannot invoke clang - is your path set correctly?"
+	echo "cannot invoke '$CLANG' - is your path set correctly?"
 	exit 1
 fi
 
@@ -153,8 +162,8 @@ if [ "$BOOTSTRAP" -ne 0 ]; then
 	# on the fly)
 	set(CMAKE_WARN_DEPRECATED OFF)
 	include(CMakeForceCompiler)
-	CMAKE_FORCE_C_COMPILER(clang GNU)
-	CMAKE_FORCE_CXX_COMPILER(clang GNU)
+	CMAKE_FORCE_C_COMPILER(${CLANG} GNU)
+	CMAKE_FORCE_CXX_COMPILER(${CLANGXX} GNU)
 
 	set(CMAKE_ASM_COMPILER \${CMAKE_C_COMPILER})
 	set(CMAKE_C_FLAGS "--target=${TARGET}" CACHE STRING "" FORCE)
@@ -177,7 +186,7 @@ END
 	build crt lib/crt
 	build libm lib/libm
 
-	# at this point, we should have a fully functional C build environment - replace the bogus toolchain.txt
+	# at this point, we should have a fully functional *C* build environment - replace the bogus toolchain.txt
 	# by something sensible to reflect this. If CMake rejects our compiler, we have a problem
 	cat > ${TOOLCHAIN_TXT} <<END
 set(CMAKE_SYSTEM_NAME Linux)
@@ -196,9 +205,10 @@ find_program(CMAKE_AR NAMES llvm-ar)
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld" CACHE STRING "Linker flags" FORCE)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld" CACHE STRING "Linker flags" FORCE)
 
-set(CMAKE_C_COMPILER clang)
+set(CMAKE_C_COMPILER ${CLANG_D})
 set(CMAKE_C_COMPILER_TARGET \${triple})
-set(CMAKE_CXX_COMPILER clang)
+# [cxx] do not yet use clang++ here, we will not yet have all libraries necessary
+set(CMAKE_CXX_COMPILER ${CLANG_D})
 set(CMAKE_CXX_COMPILER_TARGET \${triple})
 END
 
@@ -248,7 +258,32 @@ if [ "$CPLUSPLUS" -ne 0 ]; then
 	CMAKE_ARGS_EXTRA="-DCMAKE_CROSSCOMPILING=True -DLIBCXX_CXX_ABI=libcxxabi -DLIBCXX_CXX_ABI_INCLUDE_PATHS=${ROOT}/external/llvm/projects/libcxxabi/include -DLIBCXX_ENABLE_THREADS:BOOL=OFF -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY=NO -DLIBCXX_STANDARD_VER=c++17"
 	build libcxx external/llvm/projects/libcxx
 
+	# at this point, we should have a fully functional C/C++ build environment - replace C-only bogus toolchain.txt
+	# by something sensible to reflect this. If CMake rejects our compiler, we have a problem
+	cat > ${TOOLCHAIN_TXT} <<END
+set(CMAKE_SYSTEM_NAME Linux)
+
+set(triple ${TARGET})
+set(CMAKE_SYSROOT ${OUTDIR})
+
+# ensure we'll have something to assemble things - for whatever reason, CMake
+# cannot detect this by itself?
+set(CMAKE_ASM_COMPILER \${CMAKE_C_COMPILER})
+
+# [ar] Force llvm-ar to be used
+find_program(CMAKE_AR NAMES llvm-ar)
+
+# [lld] force LLVM lld to be used
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld" CACHE STRING "Linker flags" FORCE)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld" CACHE STRING "Linker flags" FORCE)
+
+set(CMAKE_C_COMPILER ${CLANG_D})
+set(CMAKE_C_COMPILER_TARGET \${triple})
+set(CMAKE_CXX_COMPILER ${CLANGXX_D})
+set(CMAKE_CXX_COMPILER_TARGET \${triple})
+END
 fi
+
 if [ "$SYSUTILS" -ne 0 ]; then
 	CMAKE_ARGS="${CMAKE_ARGS_BASE} -DCMAKE_INSTALL_PREFIX=${OUTDIR}"
 
