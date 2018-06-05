@@ -54,6 +54,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/atexit.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/getprogname.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/setprogname.c
+	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/wctomb.c
 	${CMAKE_CURRENT_SOURCE_DIR}/_PDCLIB/_PDCLIB_strtox_prelim.c
 	${CMAKE_CURRENT_SOURCE_DIR}/_PDCLIB/_PDCLIB_atomax.c
 	${CMAKE_CURRENT_SOURCE_DIR}/_PDCLIB/_PDCLIB_digits.c
@@ -103,6 +104,8 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/ctype/isalnum.c
 	${CMAKE_CURRENT_SOURCE_DIR}/ctype/isascii.c
 	${CMAKE_CURRENT_SOURCE_DIR}/ctype/isprint.c
+	${CMAKE_CURRENT_SOURCE_DIR}/wchar/btowc.c
+	${CMAKE_CURRENT_SOURCE_DIR}/wchar/mbrlen.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wcstold.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wcstoll.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wcscspn.c
@@ -117,6 +120,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wcsxfrm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wcscmp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/unimplemented/mbsnrtowcs.c
+	${CMAKE_CURRENT_SOURCE_DIR}/wchar/unimplemented/mbsrtowcs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/unimplemented/swprintf.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/unimplemented/wcsnrtombs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wcschr.c
@@ -133,9 +137,11 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wcrtomb.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wcsncmp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wcscat.c
+	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wctob.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/mbsinit.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/mbrtowc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wmemcpy.c
+	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wmemset.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/clearerr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/fopen.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdio/putc.c
