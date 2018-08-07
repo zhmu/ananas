@@ -102,6 +102,14 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/dir/opendir.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/dir/rewinddir.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/dir/readdir.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/sched/sched_setparam.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/sched/sched_getscheduler.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/sched/sched_get_priority_max.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/sched/sched_setscheduler.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/sched/sched_getparam.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/sched/sched_get_priority_min.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/sched/sched_rr_get_interval.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/sched/sched_yield.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdio/fileno.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdio/_PDCLIB_open.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdio/fdopen.c
