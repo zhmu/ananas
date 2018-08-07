@@ -256,10 +256,8 @@ uintmax_t strtoumax( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restri
    the potentially larger type.
 */
 /* TODO: Not _PDCLIB_nothrow? */
-/*
-intmax_t wcstoimax( const _PDCLIB_wchar_t * _PDCLIB_restrict nptr, _PDCLIB_wchar_t * * _PDCLIB_restrict endptr, int base );
-uintmax_t wcstoumax( const _PDCLIB_wchar_t * _PDCLIB_restrict nptr, _PDCLIB_wchar_t * * _PDCLIB_restrict endptr, int base );
-*/
+intmax_t wcstoimax( const _PDCLIB_wchar_t * _PDCLIB_restrict nptr, _PDCLIB_wchar_t * * _PDCLIB_restrict endptr, int base ) _PDCLIB_nothrow;
+uintmax_t wcstoumax( const _PDCLIB_wchar_t * _PDCLIB_restrict nptr, _PDCLIB_wchar_t * * _PDCLIB_restrict endptr, int base ) _PDCLIB_nothrow;
 
 #ifdef __cplusplus
 }

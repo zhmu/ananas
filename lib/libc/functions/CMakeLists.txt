@@ -207,6 +207,8 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/inttypes/imaxabs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/inttypes/imaxdiv.c
 	${CMAKE_CURRENT_SOURCE_DIR}/inttypes/strtoimax.c
+	${CMAKE_CURRENT_SOURCE_DIR}/inttypes/wcstoimax.c
+	${CMAKE_CURRENT_SOURCE_DIR}/inttypes/wcstoumax.c
 	${CMAKE_CURRENT_SOURCE_DIR}/uchar/_PDCLIB_c16slen.c
 	${CMAKE_CURRENT_SOURCE_DIR}/uchar/c32rtomb.c
 	${CMAKE_CURRENT_SOURCE_DIR}/uchar/mbrtoc16.c
