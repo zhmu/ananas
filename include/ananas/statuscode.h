@@ -18,7 +18,7 @@ static inline unsigned int ananas_statuscode_extract_line(statuscode_t n) {
 }
 
 static inline unsigned int ananas_statuscode_extract_fileid(statuscode_t n) {
-	return (n >> 20) & 0x7ff;
+	return (n >> 20) & 0x1ff;
 }
 
 static inline unsigned int ananas_statuscode_extract_value(statuscode_t n) {
