@@ -67,3 +67,15 @@ sys_setsid(Thread* t)
 	process::InitializeProcessGroup(process, nullptr);
 	return Result::Success();
 }
+
+Result
+sys_getsid(Thread* t, pid_t pid)
+{
+	TRACE(SYSCALL, FUNC, "t=%p, pid=%d", t, pid);
+
+	if (pid != 0)
+		return RESULT_MAKE_FAILURE(EPERM); // XXX maybe be more lenient here
+
+	Process& process = *t->t_process;
+	return Result(process.p_group->pg_session.s_sid);
+}

@@ -65,6 +65,7 @@ int	chown(const char* path, uid_t owner, gid_t group);
 unsigned sleep(unsigned seconds);
 
 int	setsid();
+int	getsid(pid_t pid);
 int	setpgid(pid_t pid, pid_t pgid);
 pid_t	getpgrp();
 

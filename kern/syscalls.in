@@ -42,3 +42,4 @@
 37 { Result unmount(const char* dir, int flags); }
 38 { Result statfs(const char* path, struct statfs* buf); }
 39 { Result fstatfs(fdindex_t fd, struct statfs* buf); }
+41 { Result getsid(pid_t pid); }
