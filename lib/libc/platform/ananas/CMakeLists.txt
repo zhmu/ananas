@@ -7,6 +7,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/time/unimplemented/tzset.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/time/clock_getres.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/time/clock_gettime.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/time/nanosleep.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/utime/utime.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdlib/getenv.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdlib/system.c

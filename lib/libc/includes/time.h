@@ -83,6 +83,8 @@ struct tm* gmtime(const time_t* timer);
 struct tm* localtime_r(const time_t* timer, struct tm* tm);
 struct tm* localtime(const time_t* timer);
 
+int nanosleep(const struct timespec* rqtp, struct timespec* rmtp);
+
 #ifdef __cplusplus
 }
 #endif

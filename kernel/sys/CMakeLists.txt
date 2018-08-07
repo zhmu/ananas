@@ -17,6 +17,7 @@ add_sources(
 	rename.cpp
 	seek.cpp
 	signal.cpp
+	sleep.cpp
 	stat.cpp
 	support.cpp
 	unlink.cpp
