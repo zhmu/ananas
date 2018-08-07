@@ -179,6 +179,7 @@ void * memset( void * s, int c, size_t n ) _PDCLIB_nothrow;
    TODO: PDCLib does not yet support locales.
 */
 char * strerror( int errnum ) _PDCLIB_nothrow;
+int strerror_r( int errnum, char* strerrbuf, size_t buflen ) _PDCLIB_nothrow;
 
 /* Returns the length of the string s (excluding terminating '\0').
 */

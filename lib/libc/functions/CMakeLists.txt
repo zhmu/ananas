@@ -230,6 +230,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/string/strtok.c
 	${CMAKE_CURRENT_SOURCE_DIR}/string/strcspn.c
 	${CMAKE_CURRENT_SOURCE_DIR}/string/strerror.c
+	${CMAKE_CURRENT_SOURCE_DIR}/string/strerror_r.c
 	${CMAKE_CURRENT_SOURCE_DIR}/string/strncpy.c
 	${CMAKE_CURRENT_SOURCE_DIR}/string/strcoll.c
 	${CMAKE_CURRENT_SOURCE_DIR}/string/strchr.c
