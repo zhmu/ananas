@@ -69,6 +69,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/setsid.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/tcgetpgrp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/tcsetpgrp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/gethostname.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/kill.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/sigaction.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/signal.c

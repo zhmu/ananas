@@ -10,6 +10,7 @@
 #include "kernel/vfs/mount.h"
 #include "device.h"
 #include "filesystem.h"
+#include "network.h"
 #include "kernel.h"
 #include "proc.h"
 #include "root.h"
@@ -119,6 +120,7 @@ ankhfs_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	subSystems[static_cast<size_t>(SubSystem::SS_FileSystem)] = &GetFileSystemSubSystem();
 	subSystems[static_cast<size_t>(SubSystem::SS_Device)] = &GetDeviceSubSystem();
 	subSystems[static_cast<size_t>(SubSystem::SS_Kernel)] = &GetKernelSubSystem();
+	subSystems[static_cast<size_t>(SubSystem::SS_Network)] = &GetNetworkSubSystem();
 
 	auto result = vfs_get_inode(fs, make_inum(SS_Root, 0, 0), root_inode);
 	KASSERT(result.IsSuccess(), "cannot get root inode of synthetic filesystem (%d)", result.AsStatusCode());

@@ -7,4 +7,7 @@
 /* Maximum length of a path */
 #define PATH_MAX 256
 
+/* Host name */
+#define HOST_NAME_MAX 64
+
 #endif /* ANANAS_LIMITS_H */

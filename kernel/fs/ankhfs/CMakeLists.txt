@@ -1,6 +1,7 @@
 if(FS_ANKHFS)
 	add_sources(
 		ankhfs-kernel.cpp
+		ankhfs-network.cpp
 		ankhfs-root.cpp
 		ankhfs-proc.cpp
 		ankhfs-support.cpp

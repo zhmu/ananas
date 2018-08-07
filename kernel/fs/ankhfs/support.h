@@ -14,6 +14,7 @@ enum SubSystem {
 	SS_FileSystem,
 	SS_Device,
 	SS_Kernel,
+	SS_Network,
 	SS_Last // do not use
 };
 
