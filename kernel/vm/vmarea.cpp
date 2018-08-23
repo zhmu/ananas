@@ -3,7 +3,6 @@
 #include "kernel/page.h"
 #include "kernel/lib.h"
 
-#include "../stash/vm-debug.cpp"
 #include "kernel/vmspace.h"
 
 #define DPRINTF(...)
