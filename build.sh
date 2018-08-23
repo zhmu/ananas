@@ -45,6 +45,12 @@ build_external()
 {
 	srcpath=$1
 
+	if [ ! -f "${ROOT}/external/${srcpath}/configure" ]; then
+		echo "*** Autotool-ing ${srcpath}"
+		cd ${ROOT}/external/${srcpath}
+		autoreconf -if
+	fi
+
 	echo "*** Configuring ${srcpath}"
 	cd ${ROOT}/external/${srcpath}
 	CC="${CLANG_D}" CFLAGS="--target=${TARGET} --sysroot ${OUTDIR} -DJOBS=0" ./configure --host=x86_64-ananas-elf --prefix=/
