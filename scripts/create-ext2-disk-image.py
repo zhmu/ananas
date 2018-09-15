@@ -2,15 +2,17 @@
 
 import math
 import os
+import shutil
 import subprocess
 import sys
 
 root_img = 'root.img' # temporary, will be removed after use
 boot_img = 'boot.img' # temporary, will be removed after use
-root_size_mb = 64 # XXX hardcoded for now (FIXME)
+root_size_mb = None # None to autodetect
 boot_size_mb = None # None to autodetect
 kernel_fname = 'kernel'
 kernel_cmdline = 'root=ext2:slice0'
+root_skipped_files = [ kernel_fname, 'toolchain.txt' ]
 
 SECTOR_SIZE = 512
 
@@ -27,6 +29,40 @@ def get_offset_to_next_partition(p):
 def run_command(cmd):
 	subprocess.run(cmd, check=True)
 
+def build_root_image(img, size_mb, root_path):
+	# create a temporary copy, with only the stuff we need
+	temp_dir = 'root_tmp'
+	temp_size_kb = 0
+	for r, dirs, files in os.walk(root_path):
+		prefix = os.path.relpath(r, root_path)
+		dest_path = os.path.join(temp_dir, prefix)
+		if not os.path.isdir(dest_path):
+			os.makedirs(dest_path)
+		for f in files:
+			if f not in root_skipped_files:
+				src_file = os.path.join(r, f)
+				shutil.copy(src_file, dest_path)
+				temp_size_kb += math.ceil(os.path.getsize(src_file) / 1024) # round up
+
+	# if we do not have a size given, yield what we calculated
+	if not size_mb:
+		size_mb = math.ceil(temp_size_kb / 1024)
+		size_mb += 4 # 4MB slack for ext2 structures etc
+
+	# create the raw image; it needs to have the correct length
+	create_empty_image(img, mb_to_sectors(size_mb))
+
+	# now build a filesystem and conveniently fill it with our stuff
+	cmd = [ 'mkfs.ext2', ]
+	cmd += [ '-i', '8192' ] # inode block size
+	cmd += [ '-L', 'root' ] # label
+	cmd += [ '-d', temp_dir ]
+	cmd += [ img ]
+	run_command(cmd)
+
+	shutil.rmtree(temp_dir)
+	return size_mb
+
 if len(sys.argv) not in [ 3, 4 ]:
 	print('usage: %s disk.img path [syslinux_root]' % sys.argv[0])
 	print()
@@ -39,16 +75,8 @@ syslinux_root = None
 if len(sys.argv) > 3:
 	syslinux_root = sys.argv[3]
 
-# create the raw image; it needs to have the correct length
-create_empty_image(root_img, mb_to_sectors(root_size_mb))
-
-# now build a filesystem and conveniently fill it with our stuff
-cmd = [ 'mkfs.ext2', ]
-cmd += [ '-i', '8192' ] # inode block size
-cmd += [ '-L', 'root' ] # label
-cmd += [ '-d', source_path ]
-cmd += [ root_img  ]
-run_command(cmd)
+# create the root image itself
+root_size_mb = build_root_image(root_img, root_size_mb, source_path)
 
 # construct the partition map; we need this to determine the length of the
 # disk image
@@ -100,7 +128,7 @@ if syslinux_root:
 cmd = [ 'parted', '-s', disk_img, 'mklabel', 'msdos' ]
 run_command(cmd)
 for n, p in enumerate(partitions):
-	cmd = [ 'parted', '-s', disk_img, 'unit', 's', 'mkpart', 'primary', p['type'], str(int(p['offset'])), str(int(p['offset'] + p['length'])) ]
+	cmd = [ 'parted', '-s', disk_img, 'unit', 's', 'mkpart', 'primary', p['type'], str(p['offset']), str(p['offset'] + p['length']) ]
 	run_command(cmd)
 	if p['boot']:
 		cmd = [ 'parted', '-s', disk_img, 'set', str(n + 1), 'boot', 'on' ]
@@ -130,5 +158,7 @@ with open(disk_img, 'r+b') as img:
 			img.seek(0)
 			img.write(mbr)
 
-# throw away the root image; no longer need it
+# throw away the root/boot images; no longer need it
 os.unlink(root_img)
+if syslinux_root:
+	os.unlink(boot_img)
