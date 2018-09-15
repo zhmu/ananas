@@ -12,6 +12,9 @@ SECTOR_SIZE = 512
 def mb_to_sectors(n):
 	return (n * 1024 * 1024) / SECTOR_SIZE
 
+def run_command(cmd):
+	subprocess.run(cmd, check=True)
+
 if len(sys.argv) != 3:
 	print('usage: %s disk.img path' % sys.argv[0])
 	print()
@@ -30,7 +33,7 @@ cmd += [ '-i', '8192' ] # inode block size
 cmd += [ '-L', 'root' ] # label
 cmd += [ '-d', source_path ]
 cmd += [ root_img  ]
-subprocess.run(cmd)
+run_command(cmd)
 
 # construct the partition map; we need this to determine the length of the
 # disk image
@@ -44,10 +47,10 @@ with open(disk_img, 'wb') as f:
 	os.ftruncate(f.fileno(), image_length_in_sectors * SECTOR_SIZE)
 
 cmd = [ 'parted', '-s', disk_img, 'mklabel', 'msdos' ]
-subprocess.run(cmd)
+run_command(cmd)
 for start, length, _ in partitions:
 	cmd = [ 'parted', '-s', disk_img, 'unit', 's', 'mkpart', 'primary', 'ext2', str(start), str(length) ]
-	subprocess.run(cmd)
+	run_command(cmd)
 
 # copy the root image into the disk image
 with open(disk_img, 'r+b') as img:
