@@ -13,6 +13,7 @@ boot_size_mb = None # None to autodetect
 kernel_fname = 'kernel'
 kernel_cmdline = 'root=ext2:slice0'
 root_skipped_files = [ kernel_fname, 'toolchain.txt' ]
+syslinux_mbr_file = os.path.join('/', 'usr', 'lib', 'syslinux', 'mbr', 'mbr.bin')
 
 SECTOR_SIZE = 512
 
@@ -63,17 +64,16 @@ def build_root_image(img, size_mb, root_path):
 	shutil.rmtree(temp_dir)
 	return size_mb
 
-if len(sys.argv) not in [ 3, 4 ]:
-	print('usage: %s disk.img path [syslinux_root]' % sys.argv[0])
+if len(sys.argv) != 3:
+	print('usage: %s disk.img path' % sys.argv[0])
 	print()
 	print('This will create a disk image in disk.img with the content from path')
-	print('If [syslinux_root] is set, the image will be bootable')
 	quit(1)
 
 disk_img, source_path = sys.argv[1:3]
-syslinux_root = None
-if len(sys.argv) > 3:
-	syslinux_root = sys.argv[3]
+have_syslinux = os.path.isfile(syslinux_mbr_file)
+if not have_syslinux:
+    print('Warning: syslinux does not seem to be installed - image will not be bootable!')
 
 # create the root image itself
 root_size_mb = build_root_image(root_img, root_size_mb, source_path)
@@ -83,7 +83,7 @@ root_size_mb = build_root_image(root_img, root_size_mb, source_path)
 next_offset = 64 # XXX seems like a reasonable default
 partitions = [ { 'offset': next_offset, 'length': mb_to_sectors(root_size_mb), 'image': root_img, 'type': 'ext2', 'boot': False } ]
 next_offset = get_offset_to_next_partition(partitions[-1]) + 1
-if syslinux_root:
+if have_syslinux:
 	if not boot_size_mb:
 		# determine the boot partition size - we'll use the kernel as a baseline plus 1MB
 		boot_size_mb = int(math.ceil(os.path.getsize(os.path.join(source_path, kernel_fname)) / (1024 * 1024))) + 1
@@ -94,7 +94,7 @@ image_length_in_sectors = get_offset_to_next_partition(partitions[-1])
 # create the raw disk; we'll use the raw image size as a baseline and
 # append suitable slack
 create_empty_image(disk_img, image_length_in_sectors + 1)
-if syslinux_root:
+if have_syslinux:
 	# throw away the boot image as mkfs.fat utterly refuses to overwrite it
 	if os.path.exists(boot_img):
 		os.unlink(boot_img)
@@ -116,13 +116,14 @@ if syslinux_root:
 		f.write('APPEND %s %s\n' % (kernel_fname, kernel_cmdline))
 
 	# copy kernel and other stuff
-	syslinux_usr_share = os.path.join(syslinux_root, 'usr', 'share', 'syslinux')
-	for f in [ os.path.join(syslinux_usr_share, 'mboot.c32'), os.path.join(syslinux_usr_share, 'libcom32.c32'), os.path.join(source_path, kernel_fname), 'syslinux.cfg' ]:
+	syslinux_modules = os.path.join('/', 'usr', 'lib', 'syslinux', 'modules', 'bios')
+	for f in [ os.path.join(syslinux_modules, 'mboot.c32'), os.path.join(syslinux_modules, 'libcom32.c32'), os.path.join(source_path, kernel_fname), 'syslinux.cfg' ]:
 		cmd = [ 'mcopy', '-i', boot_img, f, '::/' ]
 		run_command(cmd)
+	os.unlink('syslinux.cfg')
 
 	# put syslinux on there
-	cmd = [ os.path.join(syslinux_root, 'usr', 'bin', 'syslinux'), boot_img ]
+	cmd = [ 'syslinux', boot_img ]
 	run_command(cmd)
 
 cmd = [ 'parted', '-s', disk_img, 'mklabel', 'msdos' ]
@@ -151,14 +152,14 @@ with open(disk_img, 'r+b') as img:
 					break
 				img.write(buf)
 
-	if syslinux_root:
+	if have_syslinux:
 		# place the syslinux MBR onto the disk
-		with open(os.path.join(syslinux_root, 'usr', 'share', 'syslinux', 'mbr.bin'), 'rb') as mbrf:
+		with open(syslinux_mbr_file, 'rb') as mbrf:
 			mbr = mbrf.read()
 			img.seek(0)
 			img.write(mbr)
 
 # throw away the root/boot images; no longer need it
 os.unlink(root_img)
-if syslinux_root:
+if have_syslinux:
 	os.unlink(boot_img)
