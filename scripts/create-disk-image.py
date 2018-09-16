@@ -42,8 +42,12 @@ def build_root_image(img, size_mb, root_path):
 		for f in files:
 			if f not in root_skipped_files:
 				src_file = os.path.join(r, f)
-				shutil.copy(src_file, dest_path)
-				temp_size_kb += math.ceil(os.path.getsize(src_file) / 1024) # round up
+				if os.path.islink(src_file):
+					os.symlink(os.readlink(src_file), os.path.join(dest_path, f))
+					temp_size_kb += 1
+				else:
+					shutil.copy(src_file, dest_path)
+					temp_size_kb += math.ceil(os.path.getsize(src_file) / 1024) # round up
 
 	# if we do not have a size given, yield what we calculated
 	if not size_mb:
