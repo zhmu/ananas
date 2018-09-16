@@ -64,11 +64,13 @@ build_external()
 
 usage()
 {
-	echo "usage: build.sh [-hc] [-abekps] [-i disk.img]"
+	echo "usage: build.sh [-hc] [-abekps] [-o path] [-w path] [-i disk.img]"
 	echo ""
 	echo " -h             this help"
 	echo " -c             clean temporary directories beforehand"
 	echo ""
+	echo " -o path        use path as output directory (default: $OUTDIR)"
+	echo " -w path        use path as work directory (default: $WORKDIR)"
 	echo " -i disk.img    create disk image"
 	echo ""
 	echo " -a             build everything"
@@ -137,6 +139,14 @@ while [ "$1" != "" ]; do
 			;;
 		-s)
 			SYSUTILS=1
+			;;
+		-o)
+			shift
+			OUTDIR=$1
+			;;
+		-w)
+			shift
+			WORKDIR=$1
 			;;
 		-i)
 			shift
