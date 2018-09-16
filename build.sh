@@ -64,17 +64,19 @@ build_external()
 
 usage()
 {
-	echo "usage: build.sh [-hc] [-abekps]"
+	echo "usage: build.sh [-hc] [-abekps] [-i disk.img]"
 	echo ""
-	echo " -h        this help"
-	echo " -c        clean temporary directories beforehand"
+	echo " -h             this help"
+	echo " -c             clean temporary directories beforehand"
 	echo ""
-	echo " -a        build everything"
-	echo " -b        bootstrap (include, libsyscall, libc, libm, rtld)"
-	echo " -e        build externals (dash, coreutils)"
-	echo " -k        build kernel (mb-stub, kernel)"
-	echo " -p        build c++ support (libunwind, libc++abi, libc++)"
-	echo " -s        build system utilities (init, ps, ...)"
+	echo " -i disk.img    create disk image"
+	echo ""
+	echo " -a             build everything"
+	echo " -b             bootstrap (include, libsyscall, libc, libm, rtld)"
+	echo " -e             build externals (dash, coreutils)"
+	echo " -k             build kernel (mb-stub, kernel)"
+	echo " -p             build c++ support (libunwind, libc++abi, libc++)"
+	echo " -s             build system utilities (init, ps, ...)"
 }
 
 TARGET="x86_64-ananas-elf"
@@ -85,6 +87,7 @@ CLANG='clang'
 CLANGXX='clang++'
 CLANG_D="${CLANG}"
 CLANGXX_D="${CLANGXX}"
+IMAGE=""
 
 # see if the clang compiler is sensible - we try to invoke it
 X=`${CLANG} -v 2>&1`
@@ -134,6 +137,10 @@ while [ "$1" != "" ]; do
 			;;
 		-s)
 			SYSUTILS=1
+			;;
+		-i)
+			shift
+			IMAGE=$1
 			;;
 		*)
 			echo "unexpect parameter '$P'"
@@ -294,4 +301,10 @@ if [ "$SYSUTILS" -ne 0 ]; then
 	CMAKE_ARGS="${CMAKE_ARGS_BASE} -DCMAKE_INSTALL_PREFIX=${OUTDIR}"
 
 	build sysutils sysutils
+fi
+
+if [ ! -z "$IMAGE" ]; then
+	echo "*** Creating disk image ${IMAGE}"
+	cd ${ROOT}
+	scripts/create-disk-image.py ${IMAGE} ${OUTDIR}
 fi
