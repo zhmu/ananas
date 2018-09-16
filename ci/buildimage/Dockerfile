@@ -1,28 +1,22 @@
-FROM clang-debian8:staging
+FROM clang-debian9:staging
 
 MAINTAINER Rink Springer <rink@rink.nu>
 
 RUN	apt-get update && apt-get upgrade -y
 
 # we need python for libcxx, auto* for dash/coreutils, coreutils needs gettext,
-# autopoint and texinfo, dash wants gcc so that it can build 'mknodes' and
-# such
-RUN	apt-get install --no-install-recommends -y ninja-build gnupg wget \
-	gettext autopoint texinfo autoconf automake make python \
-	gcc
+# autopoint and texinfo, dash want to build C code so that it can build
+# 'mknodes' and such (we install build-essential and gcc for that)
+# we use python3 for all our scripts, so add that
+# parted, dosfstools and syslinux is needed to build bootable images
+RUN	apt-get install --no-install-recommends -y ninja-build wget \
+	gettext autopoint texinfo autoconf automake make python python3 \
+	gcc build-essential parted dosfstools syslinux syslinux-common
 
-# Import public key required for verifying signature of cmake download.
-RUN gpg --keyserver hkp://pgp.mit.edu --recv 0x2D2CEF1034921684
-
-# Download, verify and install a more recent CMake; Debian 8 has a
-# very old version
-RUN mkdir /tmp/cmake-install && cd /tmp/cmake-install && \
-    wget "https://cmake.org/files/v3.12/cmake-3.12.1-SHA-256.txt.asc" && \
-    wget "https://cmake.org/files/v3.12/cmake-3.12.1-SHA-256.txt" && \
-    gpg --verify cmake-3.12.1-SHA-256.txt.asc cmake-3.12.1-SHA-256.txt && \
-    wget "https://cmake.org/files/v3.12/cmake-3.12.1-Linux-x86_64.tar.gz" && \
-    ( grep "cmake-3.12.1-Linux-x86_64.tar.gz" cmake-3.12.1-SHA-256.txt | \
-      sha256sum -c - ) && \
-    tar xzf cmake-3.12.1-Linux-x86_64.tar.gz -C /usr/local --strip-components=1 && \
-    cd / && rm -rf /tmp/cmake-install
-
+# Compile CMake ourselves; the version provided in stretch is too old for us
+RUN	mkdir /tmp/cmake-build && cd /tmp/cmake-build && \
+	wget "https://cmake.org/files/v3.12/cmake-3.12.2.tar.gz" && \
+	tar xzf cmake-3.12.2.tar.gz && \
+	cd cmake-3.12.2 && ./bootstrap -- -DCMAKE_BUILD_TYPE:STRING=Release && \
+	make -j16 && make install && \
+	cd / && rm -rf /tmp/cmake-build
