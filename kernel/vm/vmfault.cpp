@@ -156,8 +156,9 @@ VMSpace::HandleFault(addr_t virt, int flags)
 				// ... and we have a page-aligned offset
 				can_reuse_page_1on1 &= (va.va_doffset & (PAGE_SIZE - 1)) == 0;
 				if (can_reuse_page_1on1) {
-					// Just clone the page - note that we do not have a source vmspace as the page
-					// came from the inode (XXX CHECK THIS!)
+					// Just clone the page; it could both be an inode-backed page (if
+					// this is a private COW) or vmspace-backed if we are COW-ing from a
+					// parent
 					new_vp = &vmpage_clone(nullptr, *this, va, va, vmpage);
 					new_vp->vp_vaddr = virt & ~(PAGE_SIZE - 1);
 				} else {

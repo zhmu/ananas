@@ -221,19 +221,20 @@ vmpage_clone(VMSpace* vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va
     // (1) If the source is read-only, we can always share it
     vp_dst = &vp_source.Link(va_dest);
   } else {
-    // (2) Clone the page using COW
-		KASSERT(&vp_source == &*vp_orig, "foo");
+    // (2) Clone the page using COW; note that vp_orig may be a linked page
 		KASSERT(vs_source == nullptr || vs_source != &vs_dest, "cloning to same vmspace");
 		KASSERT(vs_source == nullptr || &va_source != &va_dest, "cloning to same vmarea");
 		vp_source.AssertLocked();
 		KASSERT((vp_source.vp_flags & VM_PAGE_FLAG_LINK) == 0, "cow'ing linked page");
 
-		// Mark the source page as COW and update the mapping - this makes it read-only
-		vp_source.vp_flags |= VM_PAGE_FLAG_COW;
-		vp_source.vp_flags &= ~VM_PAGE_FLAG_PROMOTED;
-		KASSERT((vp_source.vp_flags & VM_PAGE_FLAG_READONLY) == 0, "cowing r/o page");
+		// Mark the source page as COW and update the mapping - this makes it
+		// read-only. Note tha we must do this for the *original* page, not a
+		// possibly linked page
+		vp_orig->vp_flags |= VM_PAGE_FLAG_COW;
+		vp_orig->vp_flags &= ~VM_PAGE_FLAG_PROMOTED;
+		KASSERT((vp_orig->vp_flags & VM_PAGE_FLAG_READONLY) == 0, "cowing r/o page");
 		if (vs_source != nullptr)
-			vp_source.Map(*vs_source, va_source);
+			vp_orig->Map(*vs_source, va_source);
 
 		if (true) {
 			// Return a link to the page, but do mark it as COW as well
@@ -329,7 +330,7 @@ VMPage::Dump(const char* prefix) const
   if (vp_page != nullptr)
     kprintf(" page %p phys %p order %d", vp_page, vp_page->GetPhysicalAddress(), vp_page->p_order);
 	if (vp_inode != nullptr)
-		kprintf(" inode %p offset %d", vp_inode, (int)vp_offset);
+		kprintf(" inode %d offset %d", (int)vp_inode->i_inum, (int)vp_offset);
   kprintf("\n");
 }
 
