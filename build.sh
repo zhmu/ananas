@@ -271,15 +271,15 @@ if [ "$CPLUSPLUS" -ne 0 ]; then
 	CMAKE_ARGS="${CMAKE_ARGS} -DLLVM_PATH=${ROOT}/external/llvm"
 
 	# libunwind
-	CMAKE_ARGS_EXTRA="-DLLVM_ENABLE_LIBCXX:BOOL=ON -DLIBUNWIND_ENABLE_THREADS:BOOL=OFF"
+	CMAKE_ARGS_EXTRA="-DLLVM_ENABLE_LIBCXX:BOOL=ON"
 	build libunwind external/llvm/projects/libunwind
 
 	# libcxxabi
-	CMAKE_ARGS_EXTRA="-DLIBCXXABI_LIBCXX_PATH=${ROOT}/external/llvm/projects/libcxxabi -DLLVM_ENABLE_LIBCXX:BOOL=ON -DLIBCXXABI_ENABLE_THREADS:BOOL=OFF -DLIBCXXABI_USE_LLVM_UNWINDER=YES"
+	CMAKE_ARGS_EXTRA="-DLIBCXXABI_LIBCXX_PATH=${ROOT}/external/llvm/projects/libcxxabi -DLLVM_ENABLE_LIBCXX:BOOL=ON -DLIBCXXABI_USE_LLVM_UNWINDER=YES"
 	build libcxxabi external/llvm/projects/libcxxabi
 
 	# libcxx
-	CMAKE_ARGS_EXTRA="-DCMAKE_CROSSCOMPILING=True -DLIBCXX_CXX_ABI=libcxxabi -DLIBCXX_CXX_ABI_INCLUDE_PATHS=${ROOT}/external/llvm/projects/libcxxabi/include -DLIBCXX_ENABLE_THREADS:BOOL=OFF -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY=NO -DLIBCXX_STANDARD_VER=c++17"
+	CMAKE_ARGS_EXTRA="-DCMAKE_CROSSCOMPILING=True -DLIBCXX_CXX_ABI=libcxxabi -DLIBCXX_CXX_ABI_INCLUDE_PATHS=${ROOT}/external/llvm/projects/libcxxabi/include -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY=NO -DLIBCXX_STANDARD_VER=c++17"
 	build libcxx external/llvm/projects/libcxx
 
 	# at this point, we should have a fully functional C/C++ build environment - replace C-only bogus toolchain.txt
