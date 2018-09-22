@@ -27,6 +27,7 @@
 #include <ananas/_types/blksize.h>
 #include <ananas/_types/blkcnt.h>
 #include <ananas/_types/blocknr.h>
+#include <ananas/_types/pthread.h>
 #include <ananas/_types/statuscode.h>
 #include <ananas/_types/register.h>
 #include <ananas/_types/refcount.h>

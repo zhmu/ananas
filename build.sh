@@ -204,10 +204,11 @@ END
 	build include include
 	build libsyscall lib/libsyscall
 
-	# build libc, crt and libm
+	# build libraries
 	build libc lib/libc
 	build crt lib/crt
 	build libm lib/libm
+	build pthread lib/pthread
 
 	# at this point, we should have a fully functional *C* build environment - replace the bogus toolchain.txt
 	# by something sensible to reflect this. If CMake rejects our compiler, we have a problem
