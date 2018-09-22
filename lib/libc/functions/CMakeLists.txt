@@ -24,6 +24,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/time/timespec_get.c
 	${CMAKE_CURRENT_SOURCE_DIR}/time/localtime.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/abs.c
+	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/cxa.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/mbtowc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/strtol.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/ldiv.c
