@@ -1,6 +1,7 @@
 #include <ananas/types.h>
 #include <ananas/procinfo.h>
 #include <ananas/elfinfo.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <machine/param.h> // for PAGE_SIZE
@@ -13,6 +14,8 @@
 
 extern "C" Elf_Dyn* rtld_dynamic();
 extern "C" Elf_Addr rtld_bind_trampoline();
+
+#define SYMDEF_FLAG_SKIP_REF_OBJ 1
 
 namespace
 {
@@ -39,11 +42,11 @@ AllocateObject(const char* name)
 	return obj;
 }
 
-Object*
-FindLibraryByName(const char* name)
+template<typename Func> Object*
+FindLibrary(Func func)
 {
 	for(auto& obj: s_Objects) {
-		if (strcmp(obj.o_name, name) == 0)
+		if (func(obj))
 			return &obj;
 	}
 	return nullptr;
@@ -194,7 +197,7 @@ linkmap_add(Object& obj)
 
 } // unnamed namespace
 
-bool find_symdef(Object& ref_obj, Elf_Addr ref_symnum, bool skip_ref_obj, Object*& def_obj, Elf_Sym*& def_sym);
+bool find_symdef(Object& ref_obj, Elf_Addr ref_symnum, int flags, Object*& def_obj, Elf_Sym*& def_sym);
 const char* sym_getname(const Object& obj, unsigned int symnum);
 
 void
@@ -307,7 +310,7 @@ process_relocations_rela(Object& obj)
 				uint32_t symnum = ELF_R_SYM(rela.r_info);
 				Object* def_obj;
 				Elf_Sym* def_sym;
-				if (!find_symdef(obj, symnum, false, def_obj, def_sym))
+				if (!find_symdef(obj, symnum, 0, def_obj, def_sym))
 					die("%s: symbol '%s' not found", obj.o_name, sym_getname(obj, symnum));
 				sym_addr = def_obj->o_reloc_base + def_sym->st_value;
 				break;
@@ -326,6 +329,12 @@ process_relocations_rela(Object& obj)
 				v64 = sym_addr;
 				break;
 			}
+#if 0
+			case R_X86_64_DTPMOD64: {
+				// v64 += tlsindex;
+				break;
+			}
+#endif
 			case R_X86_64_COPY:
 				// Do not resolve COPY relocations here; these must be deferred until we have all
 				// objects in place
@@ -378,7 +387,7 @@ process_relocations_copy(Object& obj)
 		uint32_t symnum = ELF_R_SYM(rela.r_info);
 		Object* def_obj;
 		Elf_Sym* def_sym;
-		if (!find_symdef(obj, symnum, true, def_obj, def_sym))
+		if (!find_symdef(obj, symnum, SYMDEF_FLAG_SKIP_REF_OBJ, def_obj, def_sym))
 			die("%s: symbol '%s' not found", obj.o_name, sym_getname(obj, symnum));
 
 		auto src_ptr = reinterpret_cast<char*>(def_obj->o_reloc_base + def_sym->st_value);
@@ -481,10 +490,11 @@ sym_getname(const Object& obj, unsigned int symnum)
 // ref_... is the reference to the symbol we need to look up; on success,
 // def_... will contain the definition of the symbol
 bool
-find_symdef(Object& ref_obj, Elf_Addr ref_symnum, bool skip_ref_obj, Object*& def_obj, Elf_Sym*& def_sym)
+find_symdef(Object& ref_obj, Elf_Addr ref_symnum, int flags, Object*& def_obj, Elf_Sym*& def_sym)
 {
 	Elf_Sym& ref_sym = ref_obj.o_symtab[ref_symnum];
 	const char* ref_name = ref_obj.o_strtab + ref_sym.st_name;
+	const bool skip_ref_obj = (flags & SYMDEF_FLAG_SKIP_REF_OBJ) != 0;
 
 	// If this symbol is local, we can use it as-is
 	if(ELF_ST_BIND(ref_sym.st_info) == STB_LOCAL) {
@@ -497,7 +507,9 @@ find_symdef(Object& ref_obj, Elf_Addr ref_symnum, bool skip_ref_obj, Object*& de
 	uint32_t hash = CalculateHash(ref_name);
 	def_obj = nullptr;
 	def_sym = nullptr;
-	for (const auto& entry: ref_obj.o_lookup_scope) {
+	auto lookupIt = ref_obj.o_lookup_scope.begin();
+	for(/* nothing */; lookupIt != ref_obj.o_lookup_scope.end(); lookupIt++) {
+		auto& entry = *lookupIt;
 		auto& obj = *entry.ol_object;
 		if (obj.o_sysv_bucket == nullptr)
 			continue;
@@ -566,14 +578,14 @@ open_library(const char* name, char* path)
 static bool
 elf_verify_header(const Elf_Ehdr& ehdr)
 {
-	/* Perform basic ELF checks; must be statically-linked executable */
+	// Perform basic ELF checks: header magic and version
 	if (ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != ELFMAG1 ||
 	    ehdr.e_ident[EI_MAG2] != ELFMAG2 || ehdr.e_ident[EI_MAG3] != ELFMAG3)
 		return false;
 	if (ehdr.e_ident[EI_VERSION] != EV_CURRENT)
 		return false;
 
-	/* XXX This specifically checks for amd64 at the moment */
+	// XXX This specifically checks for amd64 at the moment
 	if (ehdr.e_ident[EI_CLASS] != ELFCLASS64)
 		return false;
 	if (ehdr.e_ident[EI_DATA] != ELFDATA2LSB)
@@ -711,7 +723,13 @@ map_object(int fd, const char* name)
 
 	munmap(first, PAGE_SIZE);
 
+	struct stat sb;
+	if (fstat(fd, &sb) < 0)
+		die("%s: cannot fstat() %d", name, fd); // XXX shouldn't happen
+
 	Object* obj = AllocateObject(name);
+	obj->o_dev = sb.st_dev;
+	obj->o_inum = sb.st_ino;
 	obj->o_reloc_base = base;
 	obj->o_phdr = reinterpret_cast<const Elf_Phdr*>(static_cast<char*>(first) + ehdr.e_phoff);
 	obj->o_phdr_num = ehdr.e_phnum;
@@ -838,6 +856,7 @@ rtld(void* procinfo, struct ANANAS_ELF_INFO* ei, addr_t* exit_func)
 	process_phdr(*main_obj);
 	setup_got(*main_obj);
 
+	// Hook the main program and the LDSO to the linker map */
 	linkmap_add(*main_obj);
 	linkmap_add(*s_Objects.begin());
 
@@ -848,8 +867,7 @@ rtld(void* procinfo, struct ANANAS_ELF_INFO* ei, addr_t* exit_func)
 	 * Walk through all objects and process their needed parts. We use the
 	 * fact that things are added in-order to s_Objects here.
 	 *
-	 * Do not use _SAFE here, we want to re-evaluate the next object every
-	 * loop iteration.
+	 * Note that s_Objects will change while we are walking through this list!
 	 */
 	for(auto& obj: s_Objects) {
 		for(auto& needed: obj.o_needed) {
@@ -859,9 +877,14 @@ rtld(void* procinfo, struct ANANAS_ELF_INFO* ei, addr_t* exit_func)
 			if (fd < 0)
 				die("unable to open library '%s', aborting\n", name);
 
-			// XXX we should check whether fd points to something we already know,
-			// but we'd need fstat() for that...
-			Object* found_obj = FindLibraryByName(path);
+			struct stat sb;
+			if (fstat(fd, &sb) < 0)
+				die("unable to stat library '%s', aborting\n", name); // XXX shouldn't happen
+
+			// Skip libraries we already have
+			Object* found_obj = FindLibrary([&] (const Object& o) {
+				return o.o_dev == sb.st_dev && o.o_inum == sb.st_ino;
+			});
 			if (found_obj != nullptr) {
 				close(fd);
 				if (found_obj == &obj)
@@ -870,11 +893,13 @@ rtld(void* procinfo, struct ANANAS_ELF_INFO* ei, addr_t* exit_func)
 				continue;
 			}
 
-
+			// New library; load it - this also adds it to s_Objects, which we
+			// will pick up in a future iteration
 			Object* new_obj = map_object(fd, path);
 			if (new_obj == nullptr)
 				die("cannot load library '%s', aborting\n", name);
 			needed.n_object = new_obj;
+			close(fd);
 		}
 	}
 

@@ -34,6 +34,8 @@ struct Object : public util::List<Object>::NodePtr
 	Elf_Rela* o_jmp_rela;
 	size_t o_plt_rel_sz;
 
+	dev_t o_dev;
+	ino_t o_inum;
 	const char* o_name;
 	bool o_main;
 
