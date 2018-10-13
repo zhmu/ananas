@@ -44,3 +44,9 @@
 39 { Result fstatfs(fdindex_t fd, struct statfs* buf); }
 40 { Result nanosleep(const struct timespec* rqtp, struct timespec* rmtp); }
 41 { Result getsid(pid_t pid); }
+42 { Result getuid(); }
+43 { Result geteuid(); }
+44 { Result getgid(); }
+45 { Result getegid(); }
+46 { Result getpid(); }
+47 { Result getppid(); }

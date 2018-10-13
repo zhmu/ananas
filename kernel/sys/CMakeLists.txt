@@ -12,6 +12,7 @@ add_sources(
 	job.cpp
 	link.cpp
 	open.cpp
+	process.cpp
 	read.cpp
 	readlink.cpp
 	rename.cpp
