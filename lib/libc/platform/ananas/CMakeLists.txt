@@ -116,7 +116,6 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdio/tmpfile.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdio/remove.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdio/_PDCLIB_fileops.c
-	${CMAKE_CURRENT_SOURCE_DIR}/ananas/init.c
 	PARENT_SCOPE
 )
 
