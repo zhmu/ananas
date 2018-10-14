@@ -1,6 +1,4 @@
 #include <ananas/types.h>
-#include <ananas/procinfo.h>
-#include <ananas/elfinfo.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -21,11 +19,13 @@ namespace
 {
 
 bool debug = false;
+bool summary = false;
 struct r_debug r_debugstate;
 const char* ld_library_path = nullptr;
 const char* ld_default_path = "/lib:/usr/lib";
 
 #define dbg(...) (debug ? (void)printf(__VA_ARGS__) : (void)0)
+#define sum(...) (summary ? (void)printf(__VA_ARGS__) : (void)0)
 
 // List of all objects loaded
 Objects s_Objects;
@@ -205,6 +205,7 @@ parse_dynamic(Object& obj)
 {
 	auto dyn = obj.o_dynamic;
 	for(/* nothing */; dyn->d_tag != DT_NULL; dyn++) {
+		dbg("%s: dyn tag %d\n", obj.o_name, dyn->d_tag);
 		switch(dyn->d_tag) {
 			case DT_STRTAB:
 				obj.o_strtab = reinterpret_cast<const char*>(obj.o_reloc_base + dyn->d_un.d_ptr);
@@ -682,6 +683,7 @@ map_object(int fd, const char* name)
 	addr_t base = reinterpret_cast<addr_t>(mmap(reinterpret_cast<void*>(v_start), v_end - v_start, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0));
 	if (base == (addr_t)-1)
 		die("%s: unable to allocate range %p-%p", name, v_start, v_end);
+	sum("%s: loaded at %p-%p\n", name, base, base + (v_end - v_start));
 	dbg("%s: reserved %p-%p\n", name, base, base + (v_end - v_start));
 
 	// Now walk through the program headers and actually map them
@@ -834,25 +836,62 @@ int dl_iterate_phdr(int (*callback)(struct dl_phdr_info* info, size_t size, void
 
 extern "C"
 Elf_Addr
-rtld(void* procinfo, struct ANANAS_ELF_INFO* ei, addr_t* exit_func)
+rtld(register_t* stk, addr_t* exit_func)
 {
+	uint64_t ei_interpreter_base;
+	uint64_t ei_phdr;
+	uint64_t ei_phdr_entries;
+	uint64_t ei_entry;
+	auto stk_orig = stk;
+	{
+		dbg("init stk %p\n", stk);
+		auto argc = *stk++;
+		stk++; // progname
+		while (argc--)
+			stk++; // skip argc
+		stk++; // skip null
+		while(*stk != 0)
+			stk++; // skip envp
+		stk++; // skip null
+		dbg("stk %p\n", stk);
+		for (auto auxv = reinterpret_cast<const Elf_Auxv*>(stk); auxv->a_type != AT_NULL; auxv++) {
+			dbg("auxv tag %d\n", auxv->a_type);
+			switch(auxv->a_type) {
+				case AT_BASE:
+					ei_interpreter_base = reinterpret_cast<addr_t>(auxv->a_un.a_ptr);
+					break;
+				case AT_PHDR:
+					ei_phdr = reinterpret_cast<addr_t>(auxv->a_un.a_ptr);
+					break;
+				case AT_PHENT:
+					ei_phdr_entries = auxv->a_un.a_val;
+					break;
+				case AT_ENTRY:
+					ei_entry= reinterpret_cast<addr_t>(auxv->a_un.a_ptr);
+					break;
+				default:
+					dbg("unrecognized auxv type %d val %p\n", auxv->a_type, auxv->a_un.a_val);
+			}
+		}
+	}
+
 	/*
 	 * We are a dynamic executable, which means the kernel just chose a
 	 * virtual address to place us. We have to adjust our dynamic
 	 * relocations to match - we have been loaded at ei_interpreter_base.
 	 */
-	rtld_relocate(ei->ei_interpreter_base);
+	rtld_relocate(ei_interpreter_base);
 
 	// Get access to the command line and environment; we need this to
 	// find our program name and any LD_... settings
-	InitializeProcessInfo(procinfo);
+	InitializeFromStack(stk_orig);
 	debug |= IsEnvironmentVariableSet("LD_DEBUG");
 
 	// Now, locate our executable and process it
 	auto main_obj = AllocateObject(GetProgName());
 	main_obj->o_main = true;
-	main_obj->o_phdr = reinterpret_cast<const Elf_Phdr*>(ei->ei_phdr);
-	main_obj->o_phdr_num = ei->ei_phdr_entries;
+	main_obj->o_phdr = reinterpret_cast<const Elf_Phdr*>(ei_phdr);
+	main_obj->o_phdr_num = ei_phdr_entries;
 	process_phdr(*main_obj);
 	setup_got(*main_obj);
 
@@ -937,7 +976,7 @@ rtld(void* procinfo, struct ANANAS_ELF_INFO* ei, addr_t* exit_func)
 	 * gets cleaned up (we don't need anything we allocated locally here,
 	 * so best get rid of it so our executable starts with a clean slate)
 	 */
-	dbg("transferring control to %p\n", ei->ei_entry);
+	dbg("transferring control to %p\n", ei_entry);
 	*exit_func = reinterpret_cast<addr_t>(&run_fini_funcs);
-	return ei->ei_entry;
+	return ei_entry;
 }

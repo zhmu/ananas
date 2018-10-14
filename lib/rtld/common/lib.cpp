@@ -1,6 +1,5 @@
 #include "lib.h"
 #include <ananas/statuscode.h>
-#include <ananas/procinfo.h>
 #include <ananas/syscall-vmops.h>
 #include <sys/mman.h> // for PROT_...
 #include <sys/stat.h>
@@ -10,7 +9,8 @@ extern "C" {
 }
 
 namespace {
-struct PROCINFO* s_ProcInfo;
+const char* s_ProgName = nullptr;
+char** s_Envp = nullptr;
 }
 
 extern "C" int
@@ -244,31 +244,34 @@ operator delete(void* p) throw()
 }
 
 void
-InitializeProcessInfo(void* procinfo)
+InitializeFromStack(register_t* stk)
 {
-	s_ProcInfo = static_cast<struct PROCINFO*>(procinfo);
-	if (s_ProcInfo->pi_size < sizeof(struct PROCINFO))
-		die("invalid procinfo length");
+	auto argc = *stk++;
+	s_ProgName = reinterpret_cast<char*>(*stk);
+	while (argc--)
+		stk++; // skip argc
+	stk++; // skip 0
+	s_Envp = reinterpret_cast<char**>(stk);
 }
 
 const char*
 GetProgName()
 {
-	return s_ProcInfo->pi_args;
+	return s_ProgName;
 }
 
 char*
 getenv(const char* name)
 {
-	char* ptr = s_ProcInfo->pi_env;
-	while (*ptr != '\0') {
-		char* p = strchr(ptr, '=');
+	char** ptr = s_Envp;
+	while (*ptr != nullptr) {
+		char* p = strchr(*ptr, '=');
 		if (p == nullptr)
 			return nullptr; // corrupt environment
-		if (strncmp(ptr, name, p - ptr) == 0)
+		if (strncmp(*ptr, name, p - *ptr) == 0)
 			return p + 1;
 
-		ptr += strlen(ptr) + 1;
+		ptr++;
 	}
 
 	return nullptr;

@@ -36,7 +36,7 @@ void exit(int status);
 int printf(const char* fmt, ...);
 int sprintf(char* str, const char* fmt, ...);
 
-void InitializeProcessInfo(void* procinfo);
+void InitializeFromStack(register_t* stk);
 const char* GetProgName();
 char* getenv(const char* name);
 

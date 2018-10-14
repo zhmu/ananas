@@ -7,20 +7,13 @@ entry:
 	xorq	%rbp,%rbp
 
 	/*
-	 * Invoke the dynamic linker; it expectes the procinfo structure as the
-	 * first argument (%rdi), elf_info as second argument (%rsi) and a pointer
-	 * as the third argument (%rdx) will it will fill out with a cleanup
-	 * function we need to invoke using atexit().
-	 *
-	 * The kernel provides %rsi/%rdi for us, so we just take some stack for the
-	 * cleanup function.
+	 * Invoke the dynamic linker; we expect the stack to be laid out as
+	 * stated in Figure 3.9 of the AMD64 ELF ABI.
 	 */
+	movq	%rsp, %rdi
 	subq	$8, %rsp
-	movq	%rsp, %rdx	/* pointer to cleanup address */
-
-	pushq	%rdi
+	movq	%rsp, %rsi	/* pointer to cleanup address */
 	call	rtld
-	popq	%rdi
 
 	/*
 	 * We expect to end up in crt0-common.c/__start which will register
