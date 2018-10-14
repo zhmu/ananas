@@ -355,7 +355,7 @@ ELF64Loader::PrepareForExecute(VMSpace& vs, Thread& t, void* aa, const char* arg
 	auto proc = t.t_process;
 
 	VMArea* va;
-	vs.MapTo(USERLAND_STACK_ADDR, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_FAULT | VM_FLAG_MD, va);
+	vs.MapTo(USERLAND_STACK_ADDR, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_FAULT, va);
 
 	// Pre-fault the first page so that we can put stuff in it
 	constexpr auto stack_end = USERLAND_STACK_ADDR + THREAD_STACK_SIZE;

@@ -13,6 +13,44 @@
 
 TRACE_SETUP;
 
+struct Arguments
+{
+	Arguments(const char** argp)
+	{
+		// Calculate the number of arguments and length
+		int argc = 1 /* terminating nullptr */ ;
+		size_t bytes_needed = 0;
+		for (auto p = argp; *p != nullptr; p++) {
+			bytes_needed += strlen(*p) + 1 /* terminating \0 */ ;
+			argc++;
+		}
+
+		// Now allocate the data
+		a_args = new char[bytes_needed + sizeof(char*) * argc];
+		auto entry_ptr = reinterpret_cast<char**>(a_args);
+		char* data_ptr = &a_args[sizeof(char*) * argc];
+		for (auto p = argp; *p != nullptr; p++) {
+			*entry_ptr++ = data_ptr;
+			strcpy(data_ptr, *p);
+			data_ptr += strlen(*p) + 1 /* terminating \0 */;
+		}
+		*entry_ptr = nullptr;
+	}
+
+	~Arguments()
+	{
+		delete[] a_args;
+	}
+
+	const char** GetArgs() const
+	{
+		return reinterpret_cast<const char**>(a_args);
+	}
+
+private:
+	char* a_args;
+};
+
 Result
 sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 {
@@ -41,6 +79,10 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 		return RESULT_MAKE_FAILURE(ENOEXEC);
 	}
 
+	// Prepare a copy of argv/envp - the next step will throw all mappings away
+	Arguments copyArgv(argv);
+	Arguments copyEnv(envp);
+
 	// Grab the vmspace of the process and clean it; this should only leave the
 	// kernel stack, which we're currently using - any other mappings are gone
 	auto& vmspace = *proc.p_vmspace;
@@ -61,7 +103,7 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 	 * Loading went okay; we can now set the new thread name (we won't be able to
 	 * access argv after the vmspace_clone() so best do it here)
 	 */
-	exec->PrepareForExecute(vmspace, *t, auxargs, argv, envp);
+	exec->PrepareForExecute(vmspace, *t, auxargs, copyArgv.GetArgs(), copyEnv.GetArgs());
 	dentry_deref(dentry);
 	return Result::Success();
 }
