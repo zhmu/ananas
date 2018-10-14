@@ -25,7 +25,7 @@ Result Unmap(Thread& t, addr_t virt, size_t len);
 void* MapThreadMemory(Thread& thread, void* ptr, size_t length, int write);
 void Clone(Thread& t, Thread& parent, register_t retval);
 Result Unmap(Thread& thread, addr_t virt, size_t length);
-void SetupPostExec(Thread& thread, addr_t exec_addr, register_t exec_arg);
+void SetupPostExec(Thread& thread, addr_t exec_addr, addr_t stack_addr);
 
 } // namespace thread
 

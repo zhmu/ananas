@@ -24,14 +24,7 @@ namespace md::thread {
 Result
 InitUserlandThread(Thread& t, int flags)
 {
-	/* Create a stack if we aren't cloning - otherwise, we'll just copy the parent's stack instead */
 	Process* proc = t.t_process;
-	if ((flags & THREAD_ALLOC_CLONE) == 0) {
-		VMArea* va;
-		RESULT_PROPAGATE_FAILURE(
-			proc->p_vmspace->MapTo(USERLAND_STACK_ADDR, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_FAULT | VM_FLAG_MD, va)
-		);
-	}
 
 	/*
 	 * Create the kernel stack for this thread; we'll grab a few pages for this
@@ -49,8 +42,6 @@ InitUserlandThread(Thread& t, int flags)
 	sf->sf_cs = GDT_SEL_USER_CODE + 3;
 	sf->sf_ss = GDT_SEL_USER_DATA + 3;
 	sf->sf_rflags = 0x200; /* IF */
-	/* note that md_thread_set_entrypoint() / md_thread_set_argument() should be called! */
-	sf->sf_rsp = ((addr_t)USERLAND_STACK_ADDR + THREAD_STACK_SIZE);
 
 	/* Fill out our MD fields */
 	t.md_cr3 = KVTOP((addr_t)proc->p_vmspace->vs_md_pagedir);
@@ -72,7 +63,7 @@ InitKernelThread(Thread& t, kthread_func_t kfunc, void* arg)
 	/*
 	 * Kernel threads share the kernel pagemap and thus need to map the kernel
 	 * stack. We do not differentiate between kernel and userland stacks as
-	 * no kernelthread ever runs userland code.
+	 * no kernel thread ever runs userland code.
 	 */
 	t.md_kstack_page = page_alloc_length(KERNEL_STACK_SIZE + PAGE_SIZE);
 	t.md_kstack = kmem_map(t.md_kstack_page->GetPhysicalAddress() + PAGE_SIZE, KERNEL_STACK_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
@@ -212,12 +203,11 @@ Clone(Thread& t, Thread& parent, register_t retval)
 }
 
 void
-SetupPostExec(Thread& t, addr_t exec_addr, register_t exec_arg)
+SetupPostExec(Thread& t, addr_t exec_addr, addr_t stack_addr)
 {
 	struct STACKFRAME* sf = t.t_frame;
 	sf->sf_rip = exec_addr;
-	sf->sf_rdi = t.t_process->p_info_va;
-	sf->sf_rsi = exec_arg;
+	sf->sf_rsp = stack_addr;
 
 	t.t_md_flags |= THREAD_MDFLAG_FULLRESTORE;
 	t.md_rsp = (addr_t)sf;
