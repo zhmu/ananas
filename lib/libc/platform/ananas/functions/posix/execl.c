@@ -39,7 +39,7 @@ int execl(const char *path, const char* arg0, ...)
 	args[pos] = NULL;
 	va_end(va);
 
-	execve(path, (char* const*)args, NULL);
+	execve(path, (char* const*)args, environ);
 
 	/* If we got here, execve() failed (and set errno) and we must clean up after ourselves */
 	free(args);
