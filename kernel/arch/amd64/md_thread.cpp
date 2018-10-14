@@ -160,18 +160,6 @@ MapThreadMemory(Thread& thread, void* ptr, size_t length, int write)
 }
 
 void
-SetEntryPoint(Thread& thread, addr_t entry)
-{
-	thread.t_frame->sf_rip = entry;
-}
-
-void
-SetArgument(Thread& thread, addr_t arg)
-{
-	thread.t_frame->sf_rdi = arg;
-}
-
-void
 Clone(Thread& t, Thread& parent, register_t retval)
 {
 	KASSERT(PCPU_GET(curthread) == &parent, "must clone active thread");

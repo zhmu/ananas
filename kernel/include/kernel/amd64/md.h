@@ -18,8 +18,6 @@ void Free(Thread& thread);
 
 Thread& SwitchTo(Thread& new_thread, Thread& old_thread);
 
-void SetEntryPoint(Thread& thread, addr_t entry);
-void SetArgument(Thread& thread, addr_t arg);
 void* Map(Thread& thread, void* to, void* from, size_t length, int flags);
 Result Unmap(Thread& t, addr_t virt, size_t len);
 void* MapThreadMemory(Thread& thread, void* ptr, size_t length, int write);

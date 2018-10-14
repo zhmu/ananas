@@ -1,5 +1,4 @@
 #include <ananas/types.h>
-#include <ananas/procinfo.h>
 #include <machine/param.h>
 #include "kernel/gdb.h"
 #include "kernel/irq.h"

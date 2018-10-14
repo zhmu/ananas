@@ -19,9 +19,8 @@ sys_clone(Thread* t, int flags)
 
 	/* First, make a copy of the process; this inherits all files and such */
 	Process* new_proc;
-	RESULT_PROPAGATE_FAILURE(
-		proc.Clone(0, new_proc)
-	);
+	if (auto result = proc.Clone(new_proc); result.IsFailure())
+		return result;
 	// new_proc is locked here and has a single ref
 
 	/* Now clone the handle to the new process */

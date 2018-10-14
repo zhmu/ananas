@@ -9,7 +9,6 @@
 #include "kernel/lock.h"
 
 struct DEntry;
-struct PROCINFO;
 class Result;
 
 struct FD;
@@ -98,9 +97,6 @@ struct Process final : util::refcounted<Process> {
 	Process* 	p_parent = nullptr;	/* Parent process, if any */
 	VMSpace*	p_vmspace = nullptr;	/* Process memory space */
 
-	struct PROCINFO* p_info = nullptr; 	/* Process startup information */
-	addr_t p_info_va = 0;
-
 	Thread* p_mainthread = nullptr;		/* Main thread */
 
 	util::array<FD*, PROCESS_MAX_DESCRIPTORS> p_fd = {0};	/* Descriptors */
@@ -122,9 +118,7 @@ struct Process final : util::refcounted<Process> {
 	void RegisterThread(Thread& t);
 	void UnregisterThread(Thread& t);
 
-	Result SetArguments(const char* args, size_t args_len);
-	Result SetEnvironment(const char* env, size_t env_len);
-	Result Clone(int flags, Process*& out_p);
+	Result Clone(Process*& out_p);
 
 	Result WaitAndLock(int flags, util::locked<Process>& p_out); // transfers reference to caller!
 

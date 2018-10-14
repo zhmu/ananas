@@ -1,6 +1,5 @@
 #include <ananas/errno.h>
 #include <ananas/syscalls.h>
-#include <ananas/procinfo.h>
 #include "kernel/exec.h"
 #include "kernel/lib.h"
 #include "kernel/process.h"

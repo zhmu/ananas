@@ -16,7 +16,6 @@
  * All transitions are managed by scheduler.c.
  */
 #include <ananas/types.h>
-#include <ananas/procinfo.h>
 #include "kernel/device.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
@@ -56,7 +55,6 @@ thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
 
 	/* Ask machine-dependant bits to initialize our thread data */
 	md::thread::InitUserlandThread(*t, flags);
-	md::thread::SetArgument(*t, p.p_info_va);
 
 	/* If we don't yet have a main thread, this thread will become the main */
 	if (p.p_mainthread == NULL)

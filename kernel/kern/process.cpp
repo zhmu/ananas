@@ -1,6 +1,5 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
-#include <ananas/procinfo.h>
 #include <ananas/util/utility.h>
 #include "kernel/fd.h"
 #include "kernel/init.h"
@@ -55,33 +54,12 @@ process_alloc_ex(Process* parent, Process*& dest)
 	p->p_pid = process::AllocateProcessID();
 
 	/* Create the process's vmspace */
-	if (auto result = vmspace_create(p->p_vmspace); result.IsFailure()) {
+	auto result = vmspace_create(p->p_vmspace);
+	if (result.IsFailure()) {
 		delete p;
 		return result;
 	}
 	VMSpace& vs = *p->p_vmspace;
-
-	// Map a process info structure so everything beloning to this process can use it
-	VMArea* va;
-	auto result = vs.Map(sizeof(struct PROCINFO), VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_NO_CLONE, va);
-	if (result.IsFailure())
-		goto fail;
-	p->p_info_va = va->va_virt;
-
-	// Now hook the process info structure up to it
-	{
-		VMPage& vp = va->AllocatePrivatePage(va->va_virt, 0);
-		p->p_info = static_cast<struct PROCINFO*>(kmem_map(vp.GetPage()->GetPhysicalAddress(), sizeof(struct PROCINFO), VM_FLAG_READ | VM_FLAG_WRITE));
-		vp.Map(vs, *va);
-		vp.Unlock();
-	}
-
-	/* Initialize process information structure */
-	memset(p->p_info, 0, sizeof(struct PROCINFO));
-	p->p_info->pi_size = sizeof(struct PROCINFO);
-	p->p_info->pi_pid = p->p_pid;
-	if (parent != nullptr)
-		p->SetEnvironment(parent->p_info->pi_env, PROCINFO_ENV_LENGTH - 1);
 
 	// Clone the parent's descriptors
 	if (parent != nullptr) {
@@ -139,7 +117,7 @@ process_alloc(Process* parent, Process*& dest)
 }
 
 Result
-Process::Clone(int flags, Process*& out_p)
+Process::Clone(Process*& out_p)
 {
 	Process* newp;
 	RESULT_PROPAGATE_FAILURE(
@@ -269,33 +247,6 @@ Process::WaitAndLock(int flags, util::locked<Process>& p_out)
 	}
 
 	/* NOTREACHED */
-}
-
-Result
-Process::SetArguments(const char* args, size_t args_len)
-{
-	if (args_len >= (PROCINFO_ARGS_LENGTH - 1))
-		args_len = PROCINFO_ARGS_LENGTH - 1;
-	for (unsigned int i = 0; i < args_len; i++)
-		if(args[i] == '\0' && args[i + 1] == '\0') {
-			memcpy(p_info->pi_args, args, i + 2 /* terminating \0\0 */);
-			return Result::Success();
-		}
-	return RESULT_MAKE_FAILURE(EINVAL);
-}
-
-Result
-Process::SetEnvironment(const char* env, size_t env_len)
-{
-	if (env_len >= (PROCINFO_ENV_LENGTH - 1))
-		env_len = PROCINFO_ENV_LENGTH - 1;
-	for (unsigned int i = 0; i < env_len; i++)
-		if(env[i] == '\0' && env[i + 1] == '\0') {
-			memcpy(p_info->pi_env, env, i + 2 /* terminating \0\0 */);
-			return Result::Success();
-		}
-
-	return RESULT_MAKE_FAILURE(EINVAL);
 }
 
 Process*

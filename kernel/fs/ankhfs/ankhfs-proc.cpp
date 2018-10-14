@@ -1,6 +1,5 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
-#include <ananas/procinfo.h>
 #include "kernel/lib.h"
 #include "kernel/fd.h"
 #include "kernel/process.h"
@@ -175,8 +174,8 @@ public:
 		strcpy(result, "???");
 		switch(inum_to_sub(inum)) {
 			case subName: {
-				if (p->p_info != nullptr)
-					strncpy(result, p->p_info->pi_args, sizeof(result));
+				// XXX TODO how do we know this?
+				strncpy(result, "???", sizeof(result));
 				break;
 			}
 			case subVmSpace: {

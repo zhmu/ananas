@@ -1,5 +1,4 @@
 #include <ananas/types.h>
-#include <ananas/procinfo.h>
 #include "kernel/console.h"
 #include "kernel/fd.h"
 #include "kernel/init.h"
