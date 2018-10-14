@@ -219,16 +219,11 @@ VMSpace::Clone(VMSpace& vs_dest)
 	 */
 	for(auto it = vs_dest.vs_areas.begin(); it != vs_dest.vs_areas.end(); /* nothing */) {
 		VMArea& va = *it; ++it;
-		if (va.va_flags & VM_FLAG_NO_CLONE)
-			continue;
 		vs_dest.FreeArea(va);
 	}
 
 	/* Now copy everything over that isn't private */
 	for(auto& va_src: vs_areas) {
-		if (va_src.va_flags & VM_FLAG_NO_CLONE)
-			continue;
-
 		VMArea* va_dst;
 		RESULT_PROPAGATE_FAILURE(
 			vs_dest.MapTo(va_src.va_virt, va_src.va_len, va_src.va_flags, va_dst)
@@ -301,7 +296,7 @@ void
 VMSpace::Dump()
 {
 	for(auto& va: vs_areas) {
-		kprintf("  area %p: %p..%p flags %c%c%c%c%c%c%c%c\n",
+		kprintf("  area %p: %p..%p flags %c%c%c%c%c%c%c\n",
 		 &va, va.va_virt, va.va_virt + va.va_len - 1,
 		 (va.va_flags & VM_FLAG_READ) ? 'r' : '.',
 		 (va.va_flags & VM_FLAG_WRITE) ? 'w' : '.',
@@ -309,7 +304,6 @@ VMSpace::Dump()
 		 (va.va_flags & VM_FLAG_KERNEL) ? 'k' : '.',
 		 (va.va_flags & VM_FLAG_USER) ? 'u' : '.',
 		 (va.va_flags & VM_FLAG_PRIVATE) ? 'p' : '.',
-		 (va.va_flags & VM_FLAG_NO_CLONE) ? 'n' : '.',
 		 (va.va_flags & VM_FLAG_MD) ? 'm' : '.');
 		kprintf("    pages:\n");
 		for(auto& vp: va.va_pages) {

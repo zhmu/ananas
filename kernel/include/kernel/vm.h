@@ -10,8 +10,7 @@
 #define VM_FLAG_USER       (1 << 4)
 #define VM_FLAG_DEVICE     (1 << 5)
 #define VM_FLAG_PRIVATE    (1 << 6)  /* Do not share mapping (used for inodes) */
-#define VM_FLAG_NO_CLONE   (1 << 7)  /* Do not clone mapping */
-#define VM_FLAG_FAULT      (1 << 8)  /* Force faults */
+#define VM_FLAG_FAULT      (1 << 7)  /* Force faults */
 #define VM_FLAG_MD         (1 << 15) /* Machine dependent mapping */
 
 /* Force a specific mapping to be made */
