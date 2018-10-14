@@ -1,8 +1,7 @@
 #ifndef __ANANAS_USB_HUB_H__
 #define __ANANAS_USB_HUB_H__
 
-namespace Ananas {
-namespace USB {
+namespace usb {
 
 struct HUB_PORT_STATUS {
 	uint16_t	ps_portstatus;
@@ -21,7 +20,7 @@ struct HUB_PORT_STATUS {
 #define HUB_PORTCHANGE_RESET		(1 << 4)		/* Reset complete */
 };
 
-class Hub : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IUSBHubDeviceOperations, private IPipeCallback
+class Hub : public Device, private IDeviceOperations, private IUSBHubDeviceOperations, private IPipeCallback
 {
 	class Port;
 public:
@@ -68,7 +67,6 @@ private:
 	Port**	h_Port = nullptr;
 };
 
-} // namespace USB
-} // namespace Ananas
+} // namespace usb
 
 #endif /* __ANANAS_USB_HUB_H__ */

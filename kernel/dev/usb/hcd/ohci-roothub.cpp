@@ -21,9 +21,8 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace USB {
-namespace OHCI {
+namespace usb {
+namespace ohci {
 namespace {
 
 #if 0
@@ -451,8 +450,7 @@ RootHub::Initialize()
 	return Result::Success();
 }
 
-} // namespace OHCI
-} // namespace USB
-} // namespace Ananas
+} // namespace ohci
+} // namespace usb
 
 /* vim:set ts=2 sw=2: */

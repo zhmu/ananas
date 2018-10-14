@@ -21,8 +21,7 @@ struct tm {
 
 void delay(int ms);
 
-namespace Ananas {
-namespace Time {
+namespace time {
 
 unsigned int GetPeriodicyInHz();
 
@@ -46,7 +45,6 @@ void SetTime(const struct tm& tm);
 void SetTime(const struct timespec& ts);
 struct timespec GetTime();
 
-} // namespace Time
-} // namespace Ananas
+} // namespace time
 
 #endif /* __ANANAS_TIME_H__ */

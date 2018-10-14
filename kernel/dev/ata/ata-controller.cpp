@@ -17,8 +17,7 @@ TRACE_SETUP;
 
 #define ATA_FREELIST_LENGTH 16
 
-namespace Ananas {
-namespace ATA {
+namespace ata {
 
 void
 ATAController::OnIRQ()
@@ -396,10 +395,10 @@ ATAController::Attach()
 	// Grab our resources
 	int irq;
 	{
-		void* res_io1 = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IO, 16, 0);
-		void* res_io2 = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IO, 16, 1);
-		void* res_io3 = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IO, 16, 2);
-		void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
+		void* res_io1 = d_ResourceSet.AllocateResource(Resource::RT_IO, 16, 0);
+		void* res_io2 = d_ResourceSet.AllocateResource(Resource::RT_IO, 16, 1);
+		void* res_io3 = d_ResourceSet.AllocateResource(Resource::RT_IO, 16, 2);
+		void* res_irq = d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
 		if (res_io1 == nullptr || res_io2 == nullptr || res_io3 == nullptr || res_irq == nullptr)
 			return RESULT_MAKE_FAILURE(ENODEV);
 		ata_io = (uint32_t)(uintptr_t)res_io1;
@@ -435,14 +434,14 @@ ATAController::Attach()
 		if (!cmd)
 			continue;
 
-		Ananas::ResourceSet resourceSet;
-		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_ChildNum, unit, 0));
+		ResourceSet resourceSet;
+		resourceSet.AddResource(Resource(Resource::RT_ChildNum, unit, 0));
 
-		Ananas::Device* sub_device = nullptr;
+		Device* sub_device = nullptr;
 		if (cmd == ATA_CMD_IDENTIFY) {
-			sub_device = Ananas::DeviceManager::CreateDevice("atadisk", Ananas::CreateDeviceProperties(*this, resourceSet));
+			sub_device = device_manager::CreateDevice("atadisk", CreateDeviceProperties(*this, resourceSet));
 			if (sub_device != nullptr)
-				static_cast<Ananas::ATA::ATADisk*>(sub_device)->SetIdentify(identify);
+				static_cast<ATA::ATADisk*>(sub_device)->SetIdentify(identify);
 		} else if (cmd == ATA_CMD_IDENTIFY_PACKET) {
 			/*
 			 * We found something that replied to ATAPI. First of all, do a sanity
@@ -457,9 +456,9 @@ ATAController::Attach()
 			uint8_t dev_type = (general_cfg >> 8) & 0x1f;
 			switch (dev_type) {
 				case ATA_TYPE_CDROM:
-					sub_device = Ananas::DeviceManager::CreateDevice("atacd", Ananas::CreateDeviceProperties(*this, resourceSet));
+					sub_device = device_manager::CreateDevice("atacd", CreateDeviceProperties(*this, resourceSet));
 					if (sub_device != nullptr)
-						static_cast<Ananas::ATA::ATACD*>(sub_device)->SetIdentify(identify);
+						static_cast<ATA::ATACD*>(sub_device)->SetIdentify(identify);
 					break;
 				default:
 					Printf("detected unsupported device as unit %u, ignored", unit);
@@ -469,7 +468,7 @@ ATAController::Attach()
 		if (sub_device == nullptr)
 			continue;
 
-		Ananas::DeviceManager::AttachSingle(*sub_device);
+		device_manager::AttachSingle(*sub_device);
 	}
 
 	return Result::Success();
@@ -484,7 +483,7 @@ ATAController::Detach()
 
 namespace {
 
-struct ATAController_Driver : public Ananas::Driver
+struct ATAController_Driver : public Driver
 {
 	ATAController_Driver()
 	 : Driver("atacontroller")
@@ -496,7 +495,7 @@ struct ATAController_Driver : public Ananas::Driver
 		return nullptr; // instantiated by atapci
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
 		return new ATAController(cdp);
 	}
@@ -506,8 +505,7 @@ struct ATAController_Driver : public Ananas::Driver
 
 REGISTER_DRIVER(ATAController_Driver)
 
-} // namespace ATA
-} // namespace Ananas
+} // namespace ata
 
 
 /* vim:set ts=2 sw=2: */

@@ -18,8 +18,7 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace AnkhFS {
+namespace ankhfs {
 namespace {
 
 IAnkhSubSystem* subSystems[static_cast<size_t>(SubSystem::SS_Last)];
@@ -185,5 +184,4 @@ INIT_FUNCTION(ankhfs_init, SUBSYSTEM_VFS, ORDER_MIDDLE);
 EXIT_FUNCTION(ankhfs_exit);
 
 } // unnamed namespace
-} // namespace AnkhFS
-} // namespace Ananas
+} // namespace ankhfs

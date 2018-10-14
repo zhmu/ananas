@@ -8,10 +8,10 @@
 
 namespace {
 
-class Slice : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IBIODeviceOperations
+class Slice : public Device, private IDeviceOperations, private IBIODeviceOperations
 {
 public:
-	Slice(const Ananas::CreateDeviceProperties& cdp)
+	Slice(const CreateDeviceProperties& cdp)
 	 : Device(cdp)
 	{
 	}
@@ -68,7 +68,7 @@ Slice::WriteBIO(struct BIO& bio)
 	return d_Parent->GetBIODeviceOperations()->WriteBIO(bio);
 }
 
-struct Slice_Driver : public Ananas::Driver
+struct Slice_Driver : public Driver
 {
 	Slice_Driver()
 	 : Driver("slice")
@@ -80,7 +80,7 @@ struct Slice_Driver : public Ananas::Driver
 		return nullptr; // instantiated by disk_mbr
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
 		return new Slice(cdp);
 	}
@@ -90,14 +90,14 @@ struct Slice_Driver : public Ananas::Driver
 
 REGISTER_DRIVER(Slice_Driver)
 
-Ananas::Device*
-slice_create(Ananas::Device* parent, blocknr_t begin, blocknr_t length)
+Device*
+slice_create(Device* parent, blocknr_t begin, blocknr_t length)
 {
-	auto slice = static_cast<Slice*>(Ananas::DeviceManager::CreateDevice("slice", Ananas::CreateDeviceProperties(*parent, Ananas::ResourceSet())));
+	auto slice = static_cast<Slice*>(device_manager::CreateDevice("slice", CreateDeviceProperties(*parent, ResourceSet())));
 	if (slice != nullptr) {
 		slice->SetFirstBlock(begin);
 		slice->SetLength(length);
-		if (auto result = Ananas::DeviceManager::AttachSingle(*slice); result.IsFailure()) {
+		if (auto result = device_manager::AttachSingle(*slice); result.IsFailure()) {
 			delete slice;
 			slice = nullptr;
 		}

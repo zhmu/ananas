@@ -25,8 +25,7 @@
 #include "usb-bus.h"
 #include "usb-device.h"
 
-namespace Ananas {
-namespace USB {
+namespace usb {
 
 typedef util::List<Bus> BusList;
 
@@ -182,7 +181,7 @@ usb_bus_thread(void* unused)
 
 namespace {
 
-struct USBBus_Driver : public Ananas::Driver
+struct USBBus_Driver : public Driver
 {
 	USBBus_Driver()
 	 : Driver("usbbus")
@@ -194,7 +193,7 @@ struct USBBus_Driver : public Ananas::Driver
 		return "ohci,uhci";
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
 		return new Bus(cdp);
 	}
@@ -218,7 +217,6 @@ REGISTER_DRIVER(USBBus_Driver)
 
 INIT_FUNCTION(InitializeBus, SUBSYSTEM_DEVICE, ORDER_FIRST);
 
-} // namespace USB
-} // namespace Ananas
+} // namespace usb
 
 /* vim:set ts=2 sw=2: */

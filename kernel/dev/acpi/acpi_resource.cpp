@@ -3,10 +3,8 @@
 #include "acpi_resource.h"
 #include "kernel/device.h"
 
-using Resource = Ananas::Resource;
-
 ACPI_STATUS
-acpi_process_resources(ACPI_HANDLE ObjHandle, Ananas::ResourceSet& resourceSet)
+acpi_process_resources(ACPI_HANDLE ObjHandle, ResourceSet& resourceSet)
 {
 	/* Fetch device information; we need the hardware ID */
 	ACPI_DEVICE_INFO* Info;

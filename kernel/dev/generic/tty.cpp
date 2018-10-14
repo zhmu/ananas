@@ -17,7 +17,7 @@ TRACE_SETUP;
 #define NL '\n'
 #define CR 0xd
 
-TTY::TTY(const Ananas::CreateDeviceProperties& cdp)
+TTY::TTY(const CreateDeviceProperties& cdp)
 	: Device(cdp)
 {
 	/* Use sensible defaults for the termios structure */

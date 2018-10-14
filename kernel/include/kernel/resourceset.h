@@ -3,8 +3,6 @@
 
 #include <ananas/types.h>
 
-namespace Ananas {
-
 struct Resource {
 	enum Type {
 		RT_Unused,
@@ -51,9 +49,5 @@ public:
 private:
 	Resource rs_Resource[rs_MaxEntries];
 };
-
-
-} // namespace Ananas
-
 
 #endif /* __ANANAS_RESOURCE_H__ */

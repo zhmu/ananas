@@ -10,7 +10,7 @@ class IVideo;
 class VTTY : public TTY
 {
 public:
-	VTTY(const Ananas::CreateDeviceProperties& cdp);
+	VTTY(const CreateDeviceProperties& cdp);
 
 	Result Attach() override;
 	Result Detach() override;

@@ -130,7 +130,7 @@ scheduler_remove_thread(Thread& t)
 		bool inserted = false;
 		for(auto& s: sched_sleepqueue) {
 			Thread* st = s.sp_thread;
-			if ((st->t_flags & THREAD_FLAG_TIMEOUT) && Ananas::Time::IsTickBefore(st->t_timeout, t.t_timeout))
+			if ((st->t_flags & THREAD_FLAG_TIMEOUT) && time::IsTickBefore(st->t_timeout, t.t_timeout))
 				continue; /* st wakes up earlier than we do */
 			sched_sleepqueue.insert(s, t.t_sched_priv);
 			inserted = true;
@@ -209,7 +209,7 @@ schedule()
 	 */
 	if (!sched_sleepqueue.empty()) {
 		Thread* t = sched_sleepqueue.front().sp_thread;
-		if ((t->t_flags & THREAD_FLAG_TIMEOUT) && Ananas::Time::IsTickAfter(Ananas::Time::GetTicks(), t->t_timeout)) {
+		if ((t->t_flags & THREAD_FLAG_TIMEOUT) && time::IsTickAfter(time::GetTicks(), t->t_timeout)) {
 			/* Remove the thread from the sleepqueue ... */
 			sched_sleepqueue.remove(t->t_sched_priv);
 			/* ... and add it to the runqueue ... */

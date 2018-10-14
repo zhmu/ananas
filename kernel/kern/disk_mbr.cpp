@@ -5,9 +5,9 @@
 #include "slice.h"
 
 int
-mbr_process(Ananas::Device* device, struct BIO* bio)
+mbr_process(Device* device, struct BIO* bio)
 {
-	struct MBR* mbr = (struct MBR*)BIO_DATA(bio);
+	auto mbr = reinterpret_cast<struct MBR*>(BIO_DATA(bio));
 	static_assert(sizeof(struct MBR) == 512, "MBR structure out of size");
 
 	/* First of all, check the MBR signature. If this does not match, reject it */
@@ -15,7 +15,7 @@ mbr_process(Ananas::Device* device, struct BIO* bio)
 		return 0;
 
 	for (int n = 0; n < MBR_NUM_ENTRIES; n++) {
-		struct MBR_ENTRY* entry = &mbr->entry[n];
+		auto entry = &mbr->entry[n];
 		/* Skip any entry with an invalid bootable flag or an ID of zero */
 		if (entry->bootable != 0 && entry->bootable != 0x80)
 			continue;

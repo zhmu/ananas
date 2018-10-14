@@ -13,15 +13,14 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace ATA {
+namespace ata {
 
 namespace {
 
-void EnqueueAndStart(Ananas::Device* parent, ATA_REQUEST_ITEM& item)
+void EnqueueAndStart(Device* parent, ATA_REQUEST_ITEM& item)
 {
   // XXX this is a hack
-  auto atacl = static_cast<Ananas::ATA::ATAController*>(parent);
+  auto atacl = static_cast<ata::ATAController*>(parent);
   atacl->Enqueue(&item);
   atacl->Start();
 }
@@ -31,7 +30,7 @@ void EnqueueAndStart(Ananas::Device* parent, ATA_REQUEST_ITEM& item)
 Result
 ATACD::Attach()
 {
-	ata_unit = (int)(uintptr_t)d_ResourceSet.AllocateResource(Ananas::Resource::RT_ChildNum, 0);
+	ata_unit = (int)(uintptr_t)d_ResourceSet.AllocateResource(Resource::RT_ChildNum, 0);
 
 	Printf("<%s>", ata_identify.model);
 
@@ -76,7 +75,7 @@ ATACD::WriteBIO(struct BIO& bio)
 	return RESULT_MAKE_FAILURE(EROFS);
 }
 
-struct ATACD_Driver : public Ananas::Driver
+struct ATACD_Driver : public Driver
 {
 	ATACD_Driver()
 	: Driver("atacd")
@@ -88,7 +87,7 @@ struct ATACD_Driver : public Ananas::Driver
 		return nullptr; // instantiated by ata-pci
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
 		return new ATACD(cdp);
 	}
@@ -96,7 +95,6 @@ struct ATACD_Driver : public Ananas::Driver
 
 REGISTER_DRIVER(ATACD_Driver)
 
-} // namespace ATA
-} // namespace Ananas
+} // namespace ata
 
 /* vim:set ts=2 sw=2: */

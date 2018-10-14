@@ -44,8 +44,8 @@ SIO::OnIRQ()
 Result
 SIO::Attach()
 {
-	void* res_io = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IO, 7);
-	void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
+	void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 7);
+	void* res_irq = d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
 		return RESULT_MAKE_FAILURE(ENODEV);
 
@@ -86,7 +86,7 @@ SIO::Print(const char* buffer, size_t len)
 	return Result::Success();
 }
 
-struct SIO_Driver : public Ananas::ConsoleDriver
+struct SIO_Driver : public ConsoleDriver
 {
 	SIO_Driver()
 	 : ConsoleDriver("sio", 200)
@@ -98,24 +98,24 @@ struct SIO_Driver : public Ananas::ConsoleDriver
 		return "acpi";
 	}
 
-	Ananas::Device* ProbeDevice() override
+	Device* ProbeDevice() override
 	{
 		if (s_IsConsole)
 			return nullptr;
 
 		s_IsConsole = true;
-		Ananas::ResourceSet resourceSet;
-		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IO, 0x3f8, 7));
-		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IRQ, 4, 0));
-		return new SIO(Ananas::CreateDeviceProperties(resourceSet));
+		ResourceSet resourceSet;
+		resourceSet.AddResource(Resource(Resource::RT_IO, 0x3f8, 7));
+		resourceSet.AddResource(Resource(Resource::RT_IRQ, 4, 0));
+		return new SIO(CreateDeviceProperties(resourceSet));
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
 		if (s_IsConsole)
 			return nullptr;
 
-		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PNP_ID, 0);
+		auto res = cdp.cdp_ResourceSet.GetResource(Resource::RT_PNP_ID, 0);
 		if (res != NULL && res->r_Base == 0x0501) /* PNP0501: 16550A-compatible COM port */
 			return new SIO(cdp);
 		return nullptr;

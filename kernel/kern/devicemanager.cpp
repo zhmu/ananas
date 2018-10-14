@@ -10,15 +10,11 @@
 #include "kernel/vm.h"
 #include "options.h"
 
-namespace Ananas {
+namespace driver_manager::internal {
+DriverList& GetDriverList();
+} // namespace driver_manager::internal
 
-namespace DriverManager {
-namespace internal {
-Ananas::DriverList& GetDriverList();
-} // namespace internal
-} // namespace DriverManager
-
-namespace DeviceManager {
+namespace device_manager {
 
 namespace {
 
@@ -159,10 +155,10 @@ Detach(Device& device)
  * one wins). Succeeds if a driver accepted the device, in which case the
  * device name and unit will be updated.
  */
-Ananas::Device*
-AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet)
+Device*
+AttachChild(Device& bus, const ResourceSet& resourceSet)
 {
-	auto& driverList = Ananas::DriverManager::internal::GetDriverList();
+	auto& driverList = driver_manager::internal::GetDriverList();
 	if (driverList.empty())
 		return nullptr;
 
@@ -197,7 +193,7 @@ AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet)
 void
 AttachBus(Device& bus)
 {
-	auto& driverList = Ananas::DriverManager::internal::GetDriverList();
+	auto& driverList = driver_manager::internal::GetDriverList();
 	if (driverList.empty())
 		return;
 
@@ -206,7 +202,7 @@ AttachBus(Device& bus)
 		if (!d.MustProbeOnBus(bus))
 			continue; /* bus cannot contain this device */
 
-		Ananas::ResourceSet resourceSet; // TODO
+		ResourceSet resourceSet; // TODO
 
 		// See if the driver accepts our resource set
 		Device* device = internal::InstantiateDevice(d, CreateDeviceProperties(bus, resourceSet));
@@ -248,9 +244,9 @@ FindDevice(dev_t dev)
 }
 
 Device*
-CreateDevice(const char* driver, const Ananas::CreateDeviceProperties& cdp)
+CreateDevice(const char* driver, const CreateDeviceProperties& cdp)
 {
-	auto& driverList = Ananas::DriverManager::internal::GetDriverList();
+	auto& driverList = driver_manager::internal::GetDriverList();
 	for(auto it = driverList.begin(); it != driverList.end(); /* nothing */) {
 		Driver& d = *it; ++it;
 		if (strcmp(d.d_Name, driver) == 0)
@@ -260,16 +256,14 @@ CreateDevice(const char* driver, const Ananas::CreateDeviceProperties& cdp)
 	return nullptr;
 }
 
-} // namespace DeviceManager
-
-} // namespace Ananas
+} // namespace device_manager
 
 #ifdef OPTION_KDB
 static int
-print_devices(Ananas::Device* parent, int indent)
+print_devices(Device* parent, int indent)
 {
 	int count = 0;
-	for(auto& dev: Ananas::DeviceManager::internal::deviceList) {
+	for(auto& dev: device_manager::internal::deviceList) {
 		if (dev.d_Parent != parent)
 			continue;
 		for (int n = 0; n < indent; n++)
@@ -287,7 +281,7 @@ KDB_COMMAND(devices, NULL, "Displays a list of all devices")
 
 	/* See if we have printed everything; if not, our structure is wrong and we should fix this */
 	int n = 0;
-	for(auto& dev: Ananas::DeviceManager::internal::deviceList) {
+	for(auto& dev: device_manager::internal::deviceList) {
 		n++;
 	}
 	if (n != count)
@@ -296,7 +290,7 @@ KDB_COMMAND(devices, NULL, "Displays a list of all devices")
 
 KDB_COMMAND(devdump, "s:devname", "Displays debugging dump of a device")
 {
-	auto dev = Ananas::DeviceManager::FindDevice(arg[1].a_u.u_string);
+	auto dev = device_manager::FindDevice(arg[1].a_u.u_string);
 	if (dev == nullptr) {
 		kprintf("device not found\n");
 		return;

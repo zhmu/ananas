@@ -13,8 +13,7 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace VFS {
+namespace vfs {
 namespace {
 const size_t Max_Mounted_FS = 16;
 } // unnamed namespace
@@ -30,21 +29,20 @@ size_t GetMaxMountedFilesystems()
 	return Max_Mounted_FS;
 }
 
-} // namespace VFS
-} // namespace Ananas
+} // namespace vfs
 
 void
 vfs_init_mount()
 {
-	memset(Ananas::VFS::mountedfs, 0, sizeof(Ananas::VFS::mountedfs));
+	memset(vfs::mountedfs, 0, sizeof(vfs::mountedfs));
 }
 
 static struct VFS_MOUNTED_FS*
 vfs_get_availmountpoint()
 {
-	SpinlockGuard g(Ananas::VFS::spl_mountedfs);
-	for (unsigned int n = 0; n < Ananas::VFS::Max_Mounted_FS; n++) {
-		struct VFS_MOUNTED_FS* fs = &Ananas::VFS::mountedfs[n];
+	SpinlockGuard g(vfs::spl_mountedfs);
+	for (unsigned int n = 0; n < vfs::Max_Mounted_FS; n++) {
+		struct VFS_MOUNTED_FS* fs = &vfs::mountedfs[n];
 		if ((fs->fs_flags & VFS_FLAG_INUSE) == 0) {
 			fs->fs_flags |= VFS_FLAG_INUSE;
 			return fs;
@@ -62,8 +60,8 @@ vfs_mount(const char* from, const char* to, const char* type)
 	 */
 	struct VFS_FILESYSTEM_OPS* fsops = NULL;
 	{
-		SpinlockGuard g(Ananas::VFS::spl_fstypes);
-		for(auto& curfs: Ananas::VFS::fstypes) {
+		SpinlockGuard g(vfs::spl_fstypes);
+		for(auto& curfs: vfs::fstypes) {
 			if (strcmp(curfs.fs_name, type) == 0) {
 				/* Match */
 				fsops = curfs.fs_fsops;
@@ -75,9 +73,9 @@ vfs_mount(const char* from, const char* to, const char* type)
 		return RESULT_MAKE_FAILURE(EINVAL);
 
 	/* Locate the device to mount from */
-	Ananas::Device* dev = NULL;
+	Device* dev = NULL;
 	if (from != NULL) {
-		dev = Ananas::DeviceManager::FindDevice(from);
+		dev = device_manager::FindDevice(from);
 		if (dev == NULL)
 			return RESULT_MAKE_FAILURE(ENODEV);
 	}
@@ -120,12 +118,12 @@ vfs_mount(const char* from, const char* to, const char* type)
 }
 
 void
-vfs_abandon_device(Ananas::Device& device)
+vfs_abandon_device(Device& device)
 {
-	SpinlockGuard g(Ananas::VFS::spl_mountedfs);
+	SpinlockGuard g(vfs::spl_mountedfs);
 
-	for (unsigned int n = 0; n < Ananas::VFS::Max_Mounted_FS; n++) {
-		struct VFS_MOUNTED_FS* fs = &Ananas::VFS::mountedfs[n];
+	for (unsigned int n = 0; n < vfs::Max_Mounted_FS; n++) {
+		struct VFS_MOUNTED_FS* fs = &vfs::mountedfs[n];
 		if ((fs->fs_flags & VFS_FLAG_INUSE) == 0 || (fs->fs_flags & VFS_FLAG_ABANDONED) || fs->fs_device != &device)
 			continue;
 
@@ -145,10 +143,10 @@ vfs_unmount(const char* path)
 {
 	panic("fix me");
 
-	SpinlockGuard g(Ananas::VFS::spl_mountedfs);
+	SpinlockGuard g(vfs::spl_mountedfs);
 
-	for (unsigned int n = 0; n < Ananas::VFS::Max_Mounted_FS; n++) {
-		struct VFS_MOUNTED_FS* fs = &Ananas::VFS::mountedfs[n];
+	for (unsigned int n = 0; n < vfs::Max_Mounted_FS; n++) {
+		struct VFS_MOUNTED_FS* fs = &vfs::mountedfs[n];
 		if ((fs->fs_flags & VFS_FLAG_INUSE) && (fs->fs_mountpoint != NULL) && (strcmp(fs->fs_mountpoint, path) == 0)) {
 			/* Got it; disown it immediately. XXX What about pending inodes etc? */
 			fs->fs_mountpoint = NULL;
@@ -163,11 +161,11 @@ vfs_unmount(const char* path)
 struct VFS_MOUNTED_FS*
 vfs_get_rootfs()
 {
-	SpinlockGuard g(Ananas::VFS::spl_mountedfs);
+	SpinlockGuard g(vfs::spl_mountedfs);
 
 	/* XXX the root fs should have a flag marking it as such */
-	for (unsigned int n = 0; n < Ananas::VFS::Max_Mounted_FS; n++) {
-		struct VFS_MOUNTED_FS* fs = &Ananas::VFS::mountedfs[n];
+	for (unsigned int n = 0; n < vfs::Max_Mounted_FS; n++) {
+		struct VFS_MOUNTED_FS* fs = &vfs::mountedfs[n];
 		if ((fs->fs_flags & VFS_FLAG_INUSE) && (fs->fs_mountpoint != NULL) && (strcmp(fs->fs_mountpoint, "/") == 0))
 			return fs;
 	}
@@ -177,10 +175,10 @@ vfs_get_rootfs()
 Result
 vfs_register_filesystem(VFSFileSystem& fs)
 {
-	SpinlockGuard g(Ananas::VFS::spl_fstypes);
+	SpinlockGuard g(vfs::spl_fstypes);
 
 	/* Ensure the filesystem is not already registered */
-	for(auto& curfs: Ananas::VFS::fstypes) {
+	for(auto& curfs: vfs::fstypes) {
 		if (strcmp(curfs.fs_name, fs.fs_name) == 0) {
 			/* Duplicate filesystem type; refuse to register */
 			return RESULT_MAKE_FAILURE(EEXIST);
@@ -188,26 +186,26 @@ vfs_register_filesystem(VFSFileSystem& fs)
 	}
 
 	/* Filesystem is clear; hook it up */
-	Ananas::VFS::fstypes.push_back(fs);
+	vfs::fstypes.push_back(fs);
 	return Result::Success();
 }
 
 Result
 vfs_unregister_filesystem(VFSFileSystem& fs)
 {
-	SpinlockGuard g(Ananas::VFS::spl_fstypes);
+	SpinlockGuard g(vfs::spl_fstypes);
 
-	Ananas::VFS::fstypes.remove(fs);
+	vfs::fstypes.remove(fs);
 	return Result::Success();
 }
 
 #ifdef OPTION_KDB
 KDB_COMMAND(mounts, NULL, "Shows current mounts")
 {
-	SpinlockGuard g(Ananas::VFS::spl_fstypes);
+	SpinlockGuard g(vfs::spl_fstypes);
 
-	for (unsigned int n = 0; n < Ananas::VFS::Max_Mounted_FS; n++) {
-		struct VFS_MOUNTED_FS* fs = &Ananas::VFS::mountedfs[n];
+	for (unsigned int n = 0; n < vfs::Max_Mounted_FS; n++) {
+		struct VFS_MOUNTED_FS* fs = &vfs::mountedfs[n];
 		if ((fs->fs_flags & VFS_FLAG_INUSE) == 0)
 			continue;
 		kprintf(">> vfs=%p, flags=0x%x, mountpoint='%s'\n", fs, fs->fs_flags, fs->fs_mountpoint);

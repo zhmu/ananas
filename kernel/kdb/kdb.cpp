@@ -204,7 +204,7 @@ kdb_enter(const char* why)
 #endif
 
 	/* Redirect console to ourselves */
-	Ananas::Device* old_console_tty = console_tty;
+	Device* old_console_tty = console_tty;
 	console_tty = NULL;
 
 	kprintf("kdb_enter(): %s\n", why);

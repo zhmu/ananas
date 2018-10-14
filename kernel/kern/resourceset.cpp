@@ -3,8 +3,6 @@
 #include "kernel/resourceset.h"
 #include "kernel/vm.h"
 
-namespace Ananas {
-
 const Resource*
 ResourceSet::GetResource(const Resource::Type& type, size_t index) const
 {
@@ -81,7 +79,5 @@ ResourceSet::Print() const
 		kprintf(" ");
 	}
 }
-
-} // namespace Ananas
 
 /* vim:set ts=2 sw=2: */

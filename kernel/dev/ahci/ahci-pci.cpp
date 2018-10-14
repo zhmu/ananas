@@ -18,8 +18,7 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace AHCI {
+namespace ahci {
 
 irq::IRQResult
 AHCIDevice::OnIRQ()
@@ -123,8 +122,8 @@ AHCIDevice::ResetPort(Port& p)
 Result
 AHCIDevice::Attach()
 {
-	char* res_mem = static_cast<char*>(d_ResourceSet.AllocateResource(Ananas::Resource::RT_Memory, 4096));
-	void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
+	char* res_mem = static_cast<char*>(d_ResourceSet.AllocateResource(Resource::RT_Memory, 4096));
+	void* res_irq = d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
 	if (res_mem == NULL || res_irq == NULL)
 		return RESULT_MAKE_FAILURE(ENODEV);
 
@@ -224,9 +223,9 @@ AHCIDevice::Attach()
 
 		// Make the device here; we'll initialize part of it shortly. Do not call
 		// attachSingle() as we need interrupts for that, which we can't handle yet
-		Ananas::ResourceSet resourceSet;
-		resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_ChildNum, n, 0));
-		Port* p = static_cast<Port*>(Ananas::DeviceManager::CreateDevice("ahci-port", Ananas::CreateDeviceProperties(*this, resourceSet)));
+		ResourceSet resourceSet;
+		resourceSet.AddResource(Resource(Resource::RT_ChildNum, n, 0));
+		Port* p = static_cast<Port*>(device_manager::CreateDevice("ahci-port", CreateDeviceProperties(*this, resourceSet)));
 		KASSERT(p != nullptr, "unable to create port?");
 		ap_port[idx] = p;
 		idx++;
@@ -290,7 +289,7 @@ AHCIDevice::Attach()
 		Port* p = ap_port[idx++];
 
 		// Attach the port; things like disks will be attached on top of it
-		Ananas::DeviceManager::AttachSingle(*p); /* XXX check error */
+		device_manager::AttachSingle(*p); /* XXX check error */
 	}
 
 	return Result::Success();
@@ -303,12 +302,11 @@ AHCIDevice::Detach()
 	return Result::Success();
 }
 
-} // namespace AHCI
-} // namespace Ananas
+} // namespace ahci
 
 namespace {
 
-struct AHCI_PCI_Driver : public Ananas::Driver
+struct AHCI_PCI_Driver : public Driver
 {
 	AHCI_PCI_Driver()
 	 : Driver("ahcipci")
@@ -320,9 +318,9 @@ struct AHCI_PCI_Driver : public Ananas::Driver
 		return "pcibus";
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
-		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
+		auto res = cdp.cdp_ResourceSet.GetResource(Resource::RT_PCI_ClassRev, 0);
 		if (res == NULL)
 			return nullptr;
 		uint32_t classrev = res->r_Base;
@@ -330,21 +328,21 @@ struct AHCI_PCI_Driver : public Ananas::Driver
 		/* Anything AHCI will do */
 		if (PCI_CLASS(classrev) == PCI_CLASS_STORAGE && PCI_SUBCLASS(classrev) == PCI_SUBCLASS_SATA &&
 				PCI_REVISION(classrev) == 1 /* AHCI */)
-			return new Ananas::AHCI::AHCIDevice(cdp);
+			return new ahci::AHCIDevice(cdp);
 
 		/* And some specific devices which pre-date this schema */
-		res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_VendorID, 0);
+		res = cdp.cdp_ResourceSet.GetResource(Resource::RT_PCI_VendorID, 0);
 		uint32_t vendor = res->r_Base;
-		res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_DeviceID, 0);
+		res = cdp.cdp_ResourceSet.GetResource(Resource::RT_PCI_DeviceID, 0);
 		uint32_t device = res->r_Base;
 		if (vendor == 0x8086 && device == 0x2922) /* Intel ICH9, like what is in QEMU */
-			return new Ananas::AHCI::AHCIDevice(cdp);
+			return new ahci::AHCIDevice(cdp);
 		if (vendor == 0x8086 && device == 0x2829) /* Intel ICH8M, like what is in VirtualBox */
-			return new Ananas::AHCI::AHCIDevice(cdp);
+			return new ahci::AHCIDevice(cdp);
 		if (vendor == 0x10de && device == 0x7f4) /* NForce 630i SATA */
-			return new Ananas::AHCI::AHCIDevice(cdp);
+			return new ahci::AHCIDevice(cdp);
 		if (vendor == 0x1039 && device == 0x1185) /* SiS AHCI Controller (0106) */
-			return new Ananas::AHCI::AHCIDevice(cdp);
+			return new ahci::AHCIDevice(cdp);
 		return nullptr;
 	}
 };

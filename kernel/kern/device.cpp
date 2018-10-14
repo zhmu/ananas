@@ -2,13 +2,9 @@
 #include "kernel/device.h"
 #include "kernel/lib.h"
 
-namespace Ananas {
-
-namespace DeviceManager {
-namespace internal {
+namespace device_manager::internal {
 void OnDeviceDestruction(Device&);
-} // namespace internal
-} // namespace DeviceManager
+} // namespace devicemanager::internal
 
 Device::Device()
 	: d_Parent(this)
@@ -23,7 +19,7 @@ Device::Device(const CreateDeviceProperties& cdp)
 
 Device::~Device()
 {
-	DeviceManager::internal::OnDeviceDestruction(*this);
+	device_manager::internal::OnDeviceDestruction(*this);
 }
 
 void Device::Printf(const char* fmt, ...) const
@@ -42,5 +38,3 @@ void Device::Printf(const char* fmt, ...) const
 
 	console_putstring(buf);
 }
-
-} // namespace Ananas

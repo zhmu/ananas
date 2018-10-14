@@ -14,8 +14,7 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace USB {
+namespace usb {
 
 USBDevice::USBDevice(Bus& bus, Hub* hub, int hub_port, int flags)
 	: ud_bus(bus), ud_hub(hub), ud_port(hub_port), ud_flags(flags)
@@ -176,9 +175,9 @@ USBDevice::Attach()
 	}
 
 	/* Now, we'll have to hook up some driver... */
-	Ananas::ResourceSet resourceSet;
-	resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_USB_Device, reinterpret_cast<Ananas::Resource::Base>(this), 0));
-	ud_device = Ananas::DeviceManager::AttachChild(ud_bus, resourceSet);
+	ResourceSet resourceSet;
+	resourceSet.AddResource(Resource(Resource::RT_USB_Device, reinterpret_cast<Resource::Base>(this), 0));
+	ud_device = device_manager::AttachChild(ud_bus, resourceSet);
 	KASSERT(ud_device != nullptr, "unable to find USB device to attach?");
 
 	return Result::Success();
@@ -200,7 +199,7 @@ USBDevice::Detach()
 
 	// Ask the device to clean up after itself
 	if (ud_device != nullptr) {
-		if (auto result = DeviceManager::Detach(*ud_device); result.IsFailure())
+		if (auto result = device_manager::Detach(*ud_device); result.IsFailure())
 			return result;
 		ud_device = nullptr;
 	}
@@ -328,7 +327,6 @@ USBDevice::PerformControlTransfer(int req, int recipient, int type, int value, i
 	return Result::Success();
 }
 
-} // namespace USB
-} // namespace Ananas
+} // namespace usb
 
 /* vim:set ts=2 sw=2: */

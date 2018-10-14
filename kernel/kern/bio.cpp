@@ -178,7 +178,7 @@ bio_cleanup()
  * allocate a new one as required.
  */
 static BIO*
-bio_get_buffer(Ananas::Device* device, blocknr_t block, size_t len)
+bio_get_buffer(Device* device, blocknr_t block, size_t len)
 {
 	TRACE(BIO, FUNC, "dev=%p, block=%u, len=%u", device, (int)block, len);
 	KASSERT((len % BIO_SECTOR_SIZE) == 0, "length %u not a multiple of bio sector size", len);
@@ -305,7 +305,7 @@ bio_free(BIO& bio)
 }
 
 struct BIO*
-bio_get(Ananas::Device* device, blocknr_t block, size_t len, int flags)
+bio_get(Device* device, blocknr_t block, size_t len, int flags)
 {
 	struct BIO* bio = bio_get_buffer(device, block, len);
 	if (flags & BIO_READ_NODATA) {

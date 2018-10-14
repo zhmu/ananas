@@ -7,7 +7,7 @@
 
 namespace {
 
-class PCIBus : public Ananas::Device, private Ananas::IDeviceOperations
+class PCIBus : public Device, private IDeviceOperations
 {
 public:
 	using Device::Device;
@@ -26,7 +26,7 @@ public:
 Result
 PCIBus::Attach()
 {
-	auto busResource = d_ResourceSet.GetResource(Ananas::Resource::RT_PCI_Bus, 0);
+	auto busResource = d_ResourceSet.GetResource(Resource::RT_PCI_Bus, 0);
 	KASSERT(busResource != nullptr, "called without a PCI bus resource");
 
 	unsigned int busno = busResource->r_Base;
@@ -55,13 +55,13 @@ PCIBus::Attach()
 			uint32_t class_revision = pci_read_config(busno, devno, funcno, PCI_REG_CLASSREVISION, 32);
 
 			// Collect the PCI resources
-			Ananas::ResourceSet resourceSet;
-			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_Bus, busno, 0));
-			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_Device, devno, 0));
-			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_Function, funcno, 0));
-			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_VendorID, dev_vendor & 0xffff, 0));
-			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_DeviceID, dev_vendor >> 16, 0));
-			resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_PCI_ClassRev, class_revision, 0));
+			ResourceSet resourceSet;
+			resourceSet.AddResource(Resource(Resource::RT_PCI_Bus, busno, 0));
+			resourceSet.AddResource(Resource(Resource::RT_PCI_Device, devno, 0));
+			resourceSet.AddResource(Resource(Resource::RT_PCI_Function, funcno, 0));
+			resourceSet.AddResource(Resource(Resource::RT_PCI_VendorID, dev_vendor & 0xffff, 0));
+			resourceSet.AddResource(Resource(Resource::RT_PCI_DeviceID, dev_vendor >> 16, 0));
+			resourceSet.AddResource(Resource(Resource::RT_PCI_ClassRev, class_revision, 0));
 
 			/* Walk through the BAR registers */
 			for (unsigned int bar = PCI_REG_BAR0; bar <= PCI_REG_BAR5; bar += 4) {
@@ -92,7 +92,7 @@ PCIBus::Attach()
 					len = 0xfffffffc & len;
 					if (mmio != 0 && len != 0) {
 						len = (len & ~(len - 1)) - 1;
-						resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IO, mmio, len));
+						resourceSet.AddResource(Resource(Resource::RT_IO, mmio, len));
 					}
 				} else {
 					/* memory space */
@@ -100,7 +100,7 @@ PCIBus::Attach()
 					len = 0xfffffff0 & len;
 					if (mem != 0 && len != 0) {
 						len = (len & ~(len - 1)) - 1;
-						resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_Memory, mem, len));
+						resourceSet.AddResource(Resource(Resource::RT_Memory, mem, len));
 					}
 				}
 			}
@@ -108,10 +108,10 @@ PCIBus::Attach()
 			/* Fetch the IRQ line, if any */
 			uint32_t irq = pci_read_config(busno, devno, funcno, PCI_REG_INTERRUPT, 32) & 0xff;
 			if (irq != 0 && irq != 0xff)
-				resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IRQ, irq, 0));
+				resourceSet.AddResource(Resource(Resource::RT_IRQ, irq, 0));
 
 			/* Attempt to attach this new child device */
-			if (Ananas::DeviceManager::AttachChild(*this, resourceSet) != nullptr)
+			if (device_manager::AttachChild(*this, resourceSet) != nullptr)
 				continue;
 #if 0
 			Printf("no match for vendor 0x%x device 0x%x class %u, device ignored",
@@ -128,7 +128,7 @@ PCIBus::Detach()
 	return Result::Success();
 }
 
-struct PCIBus_Driver : public Ananas::Driver
+struct PCIBus_Driver : public Driver
 {
 	PCIBus_Driver()
 	 : Driver("pcibus")
@@ -140,7 +140,7 @@ struct PCIBus_Driver : public Ananas::Driver
 		return nullptr;
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
 		return new PCIBus(cdp);
 	}

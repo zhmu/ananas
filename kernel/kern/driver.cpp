@@ -3,8 +3,6 @@
 #include "kernel/driver.h"
 #include "kernel/lib.h"
 
-namespace Ananas {
-
 bool Driver::MustProbeOnBus(const Device& bus) const
 {
 	const char* ptr = GetBussesToProbeOn();
@@ -29,7 +27,5 @@ bool Driver::MustProbeOnBus(const Device& bus) const
 	}
 	return false;
 }
-
-} // namespace Ananas
 
 /* vim:set ts=2 sw=2: */

@@ -13,15 +13,14 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace ATA {
+namespace ata {
 
 namespace {
 
-void EnqueueAndStart(Ananas::Device* parent, ATA_REQUEST_ITEM& item)
+void EnqueueAndStart(Device* parent, ATA_REQUEST_ITEM& item)
 {
   // XXX this is a hack
-  auto atacl = static_cast<Ananas::ATA::ATAController*>(parent);
+  auto atacl = static_cast<ata::ATAController*>(parent);
   atacl->Enqueue(&item);
   atacl->Start();
 }
@@ -31,7 +30,7 @@ void EnqueueAndStart(Ananas::Device* parent, ATA_REQUEST_ITEM& item)
 Result
 ATADisk::Attach()
 {
-	disk_unit = (int)(uintptr_t)d_ResourceSet.AllocateResource(Ananas::Resource::RT_ChildNum, 0);
+	disk_unit = (int)(uintptr_t)d_ResourceSet.AllocateResource(Resource::RT_ChildNum, 0);
 
 	/* Calculate the length of the disk */
 	disk_size = ATA_GET_DWORD(disk_identify.lba_sectors);
@@ -115,7 +114,7 @@ ATADisk::WriteBIO(struct BIO& bio)
 
 namespace {
 
-struct ATADisk_Driver : public Ananas::Driver
+struct ATADisk_Driver : public Driver
 {
 	ATADisk_Driver()
 	: Driver("atadisk")
@@ -127,7 +126,7 @@ struct ATADisk_Driver : public Ananas::Driver
 		return nullptr; // instantiated by ata-pci
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
 		return new ATADisk(cdp);
 	}
@@ -137,7 +136,6 @@ struct ATADisk_Driver : public Ananas::Driver
 
 REGISTER_DRIVER(ATADisk_Driver)
 
-} // namespace ATA
-} // namespace Ananas
+} // namespace ata
 
 /* vim:set ts=2 sw=2: */

@@ -7,9 +7,7 @@
 #include "kernel/lock.h"
 #include "kernel/vmpage.h"
 
-namespace Ananas {
 class Device;
-};
 struct DEntry;
 struct Process;
 struct VFS_MOUNTED_FS;
@@ -62,7 +60,7 @@ struct VFS_FILE {
 	 * useful when resolving the item back to a path)
 	 */
 	DEntry*			f_dentry;
-	Ananas::Device*		f_device;
+	Device*			f_device;
 };
 
 /*
@@ -74,7 +72,7 @@ struct VFS_FILE {
  */
 struct VFS_MOUNTED_FS {
 	Spinlock	fs_spinlock;		/* Protects fields marked with (F) */
-	Ananas::Device*	fs_device;		/* (F) Device where the filesystem lives */
+	Device*		fs_device;		/* (F) Device where the filesystem lives */
 	unsigned int	fs_flags;		/* (F) Filesystem flags */
 #define VFS_FLAG_INUSE    0x0001		/* Filesystem entry is in use */
 #define VFS_FLAG_READONLY 0x0002		/* Filesystem is readonly */

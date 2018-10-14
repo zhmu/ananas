@@ -12,10 +12,9 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace AHCI {
+namespace ahci {
 
-Port::Port(const Ananas::CreateDeviceProperties& cdp)
+Port::Port(const CreateDeviceProperties& cdp)
 	: Device(cdp), p_device(static_cast<AHCIDevice&>(*cdp.cdp_Parent))
 {
 	p_request_in_use = 0;
@@ -93,9 +92,9 @@ Port::Attach()
 		pr->pr_ct = static_cast<struct AHCI_PCI_CT*>(dma_buf_get_segment(pr->pr_dmabuf_ct, 0)->s_virt);
 	}
 
-	Ananas::Device* sub_device = nullptr;
-	Ananas::ResourceSet sub_resourceSet;
-	sub_resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_ChildNum, 0, 0));
+	Device* sub_device = nullptr;
+	ResourceSet sub_resourceSet;
+	sub_resourceSet.AddResource(Resource(Resource::RT_ChildNum, 0, 0));
 
 	uint32_t sig = p_device.Read(AHCI_REG_PxSIG(n));
 	switch(sig) {
@@ -103,7 +102,7 @@ Port::Attach()
 			Printf("port #%d contains packet-device, todo", n);
 			break;
 		case SATA_SIG_ATA:
-			sub_device = Ananas::DeviceManager::CreateDevice("satadisk", Ananas::CreateDeviceProperties(*this, sub_resourceSet));
+			sub_device = device_manager::CreateDevice("satadisk", CreateDeviceProperties(*this, sub_resourceSet));
 			break;
 		default:
 			Printf("port #%d contains unrecognized signature %x, ignoring", n, sig);
@@ -117,7 +116,7 @@ Port::Attach()
 		 * Got a driver for this; attach it as a child to us - the port will take
 		 * care of this like command queueing.
 		 */
-		Ananas::DeviceManager::AttachSingle(*sub_device);
+		device_manager::AttachSingle(*sub_device);
 	}
 	return Result::Success();
 }
@@ -227,12 +226,11 @@ Port::Start()
 	DUMP_PORT_STATE(p_num);
 }
 
-} // namespace AHCI
-} // namespace Ananas
+} // namespace ahci
 
 namespace {
 
-struct AHCI_Port_Driver : public Ananas::Driver
+struct AHCI_Port_Driver : public Driver
 {
 	AHCI_Port_Driver()
 	 : Driver("ahci-port")
@@ -244,9 +242,9 @@ struct AHCI_Port_Driver : public Ananas::Driver
 		return nullptr; // created by ahci-pci for every port detected
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
-		return new Ananas::AHCI::Port(cdp);
+		return new ahci::Port(cdp);
 	}
 };
 

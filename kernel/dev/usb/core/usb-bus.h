@@ -4,11 +4,9 @@
 #include <ananas/util/list.h>
 #include "kernel/device.h"
 
-namespace Ananas {
-
 class Device;
 
-namespace USB {
+namespace usb {
 
 class USBDevice;
 class Hub;
@@ -17,7 +15,7 @@ typedef util::List<USBDevice> USBDeviceList;
 /*
  * Single USB bus - directly connected to a HCD.
  */
-class Bus : public Ananas::Device, private Ananas::IDeviceOperations, public util::List<Bus>::NodePtr
+class Bus : public Device, private IDeviceOperations, public util::List<Bus>::NodePtr
 {
 public:
 	using Device::Device;
@@ -64,7 +62,6 @@ private:
 
 void ScheduleAttach(USBDevice& usb_dev);
 
-} // namespace USB
-} // namespace Ananas
+} // namespace usb
 
 #endif /* __ANANAS_USB_BUS_H__ */

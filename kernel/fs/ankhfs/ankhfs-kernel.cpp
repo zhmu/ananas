@@ -13,9 +13,7 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-
-namespace AnkhFS {
+namespace ankhfs {
 namespace {
 
 constexpr unsigned int subMemory = 1;
@@ -30,7 +28,7 @@ class KernelSubSystem : public IAnkhSubSystem
 public:
 	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len) override
 	{
-		return AnkhFS::HandleReadDir(file, dirents, len, fs_entries[0]);
+		return ankhfs::HandleReadDir(file, dirents, len, fs_entries[0]);
 	}
 
 	Result FillInode(INode& inode, ino_t inum) override
@@ -62,7 +60,7 @@ public:
 			}
 		}
 
-		return AnkhFS::HandleRead(file, buf, len, result);
+		return ankhfs::HandleRead(file, buf, len, result);
 	}
 
 	Result HandleIOControl(struct VFS_FILE* file, unsigned long op, void* args[]) override
@@ -94,7 +92,6 @@ IAnkhSubSystem& GetKernelSubSystem()
 	return kernelSubSystem;
 }
 
-} // namespace AnkhFS
-} // namespace Ananas
+} // namespace ankhfs
 
 /* vim:set ts=2 sw=2: */

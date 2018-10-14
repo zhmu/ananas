@@ -7,8 +7,7 @@
 
 class Result;
 
-namespace Ananas {
-namespace HDA {
+namespace hda {
 
 struct PlayContext;
 
@@ -423,7 +422,7 @@ public:
 	Node_AW** rp_node = nullptr;
 };
 
-class HDADevice : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations
+class HDADevice : public Device, private IDeviceOperations, private ICharDeviceOperations
 {
 public:
 	using Device::Device;
@@ -499,7 +498,6 @@ extern const char* const PinConnectionTypeString[];
 extern const char* const PinColorString[];
 #endif
 
-} // namespace HDA
-} // namespace Ananas
+} // namespace hda
 
 #endif /* __ANANAS_HDA_H__ */

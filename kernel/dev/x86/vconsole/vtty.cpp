@@ -139,7 +139,7 @@ teken_funcs_t tf = {
 
 } // unnamed namespace
 
-VTTY::VTTY(const Ananas::CreateDeviceProperties& cdp)
+VTTY::VTTY(const CreateDeviceProperties& cdp)
 	: TTY(cdp), v_video(static_cast<VConsole*>(cdp.cdp_Parent)->GetVideo())
 {
 }
@@ -195,7 +195,7 @@ VTTY::Deactivate()
 
 namespace {
 
-struct VTTY_Driver : public Ananas::Driver
+struct VTTY_Driver : public Driver
 {
 	VTTY_Driver()
 	 : Driver("vtty")
@@ -208,7 +208,7 @@ struct VTTY_Driver : public Ananas::Driver
 		return nullptr;
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
 		return new VTTY(cdp);
 	}

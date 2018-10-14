@@ -4,9 +4,7 @@
 #include <ananas/types.h>
 #include "kernel-md/dma.h"
 
-namespace Ananas {
 class Device;
-}
 class Result;
 
 #define DMA_ADDR_MAX_32BIT ((dma_addr_t)0xFFFFFFFF)
@@ -43,7 +41,7 @@ struct DMA_BUFFER_SEGMENT {
  * max_segs: Maximum number of segments supported by the device
  * max_seg_size: Maximum number of bytes per segment supported
  */
-Result dma_tag_create(dma_tag_t parent, Ananas::Device& dev, dma_tag_t* tag, int alignment, dma_addr_t min_addr, dma_addr_t max_addr, unsigned int max_segs, dma_size_t max_seg_size);
+Result dma_tag_create(dma_tag_t parent, Device& dev, dma_tag_t* tag, int alignment, dma_addr_t min_addr, dma_addr_t max_addr, unsigned int max_segs, dma_size_t max_seg_size);
 
 /* Destroys a given DMA tag */
 Result dma_tag_destroy(dma_tag_t tag);

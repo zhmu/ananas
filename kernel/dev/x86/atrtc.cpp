@@ -29,7 +29,7 @@ BCDToU8(uint8_t bcd)
 	return (bcd & 0x0f) + (bcd >> 4) * 10;
 }
 
-class ATRTC : public Ananas::Device, private Ananas::IDeviceOperations
+class ATRTC : public Device, private IDeviceOperations
 {
 public:
 	using Device::Device;
@@ -62,7 +62,7 @@ ATRTC::ReadRegister(int reg)
 Result
 ATRTC::Attach()
 {
-	void* res_io = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IO, 2);
+	void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 2);
 	if (res_io == NULL)
 		return RESULT_MAKE_FAILURE(ENODEV);
 
@@ -90,7 +90,7 @@ ATRTC::Attach()
 			tm.tm_year += 100; // start at 2000 for years < 1980
 		md::interrupts::Restore(state);
 	}
-	Ananas::Time::SetTime(tm);
+	time::SetTime(tm);
 
 #if RTC_DEBUG
 	Printf("date: %04d/%02d/%02d", tm.tm_year, tm.tm_mon, tm.tm_mday);
@@ -107,7 +107,7 @@ ATRTC::Detach()
 	return Result::Success();
 }
 
-struct ATRTC_Driver : public Ananas::Driver
+struct ATRTC_Driver : public Driver
 {
 	ATRTC_Driver()
 	 : Driver("atrtc")
@@ -119,9 +119,9 @@ struct ATRTC_Driver : public Ananas::Driver
 		return "acpi";
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
-		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PNP_ID, 0);
+		auto res = cdp.cdp_ResourceSet.GetResource(Resource::RT_PNP_ID, 0);
 		if (res != NULL && res->r_Base == 0x0b00) /* PNP0B00: AT real-time clock */
 			return new ATRTC(cdp);
 		return nullptr;

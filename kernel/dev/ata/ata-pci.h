@@ -4,10 +4,9 @@
 #include "kernel/device.h"
 #include "ata.h"
 
-namespace Ananas {
-namespace ATA {
+namespace ata {
 
-class ATAPCI : public Ananas::Device, private Ananas::IDeviceOperations
+class ATAPCI : public Device, private IDeviceOperations
 {
 public:
 	using Device::Device;
@@ -22,7 +21,6 @@ public:
 	Result Detach() override;
 };
 
-} // namespace ATA
-} // namespace Ananas
+} // namespace ata
 
 #endif // ANANAS_ATA_PCI_H

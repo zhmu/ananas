@@ -28,11 +28,9 @@ struct MBR {
 } __attribute__((packed));
 
 #ifdef KERNEL
-namespace Ananas {
 class Device;
-}
 
-int mbr_process(Ananas::Device* dev, struct BIO* bio);
+int mbr_process(Device* dev, struct BIO* bio);
 #endif
 
 #endif /* __MBR_H__ */

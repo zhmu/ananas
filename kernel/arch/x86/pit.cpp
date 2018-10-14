@@ -21,7 +21,7 @@ struct PITIRQHandler : irq::IHandler
 {
 	irq::IRQResult OnIRQ() override
 	{
-			Ananas::Time::OnTick();
+			time::OnTick();
 			return irq::IRQResult::Processed;
 	}
 } pitIRQHandler;
@@ -43,7 +43,7 @@ x86_get_ms_since_boot()
 void
 x86_pit_init()
 {
-	uint16_t count = TIMER_FREQ / Ananas::Time::GetPeriodicyInHz();
+	uint16_t count = TIMER_FREQ / time::GetPeriodicyInHz();
 	outb(PIT_MODE_CMD, PIT_CH_CHAN0 | PIT_MODE_3 | PIT_ACCESS_BOTH);
 	outb(PIT_CH0_DATA, (count & 0xff));
 	outb(PIT_CH0_DATA, (count >> 8));
@@ -66,17 +66,17 @@ x86_pit_calc_cpuspeed_mhz()
 	 *  So to figure out the number of Hz's the CPU is, we'll have
 	 *  (current-base)*HZ;
 	 */
-	uint32_t tickcount = Ananas::Time::GetTicks();
-	while (Ananas::Time::GetTicks() == tickcount)
+	uint32_t tickcount = time::GetTicks();
+	while (time::GetTicks() == tickcount)
 		/* wait for next tick */ ;
 	tickcount += 2;
 	uint64_t tsc_base = rdtsc();
-	while (Ananas::Time::GetTicks() < tickcount)
+	while (time::GetTicks() < tickcount)
 		/* wait for yet another tick */ ;
 	uint64_t tsc_current = rdtsc();
 	/* We use the tsc_current value as the boot time */
 	tsc_boot_time = tsc_current;
-	return ((tsc_current - tsc_base) * Ananas::Time::GetPeriodicyInHz()) / 1000000;
+	return ((tsc_current - tsc_base) * time::GetPeriodicyInHz()) / 1000000;
 }
 
 void

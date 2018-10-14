@@ -6,10 +6,8 @@
 #define UHCI_FRAMELIST_LEN	(4096 / 4)
 #define UHCI_NUM_INTERRUPT_QH	6 /* 1, 2, 4, 8, 16, 32ms queues */
 
-namespace Ananas {
-namespace USB {
-
-namespace UHCI {
+namespace usb {
+namespace uhci {
 
 struct HCD_ScheduledItem;
 
@@ -58,9 +56,9 @@ private:
 	uint32_t res_io;
 };
 
-} // namespace UHCI
+} // namespace uhci
 
-class UHCI_HCD : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IUSBDeviceOperations, private irq::IHandler
+class UHCI_HCD : public Device, private IDeviceOperations, private IUSBDeviceOperations, private irq::IHandler
 {
 public:
 	using Device::Device;
@@ -79,16 +77,16 @@ public:
 	Result Attach() override;
 	Result Detach() override;
 
-	UHCI::HCD_TD* AllocateTD();
-	UHCI::HCD_QH* AllocateQH();
-	void FreeQH(UHCI::HCD_QH* qh);
+	uhci::HCD_TD* AllocateTD();
+	uhci::HCD_QH* AllocateQH();
+	void FreeQH(uhci::HCD_QH* qh);
 
 protected:
 	Result SetupTransfer(Transfer& xfer) override;
 	Result TearDownTransfer(Transfer& xfer) override;
 	Result CancelTransfer(Transfer& xfer) override;
 	Result ScheduleTransfer(Transfer& xfer) override;
-	void SetRootHub(USB::USBDevice& dev) override;
+	void SetRootHub(usb::USBDevice& dev) override;
 
 	Result ScheduleControlTransfer(Transfer& xfer);
 	Result ScheduleInterruptTransfer(Transfer& xfer);
@@ -100,21 +98,20 @@ private:
 	dma_buf_t uhci_framelist_buf;
 	uint32_t* uhci_framelist;
 
-	UHCI::HCD_Resources uhci_Resources;
-	UHCI::RootHub* uhci_RootHub = nullptr;
+	uhci::HCD_Resources uhci_Resources;
+	uhci::RootHub* uhci_RootHub = nullptr;
 
 	/* Start of frame value */
 	uint32_t uhci_sof_modify;
 	/* Interrupt/control/bulk QH's */
-	struct UHCI::HCD_QH* uhci_qh_interrupt[UHCI_NUM_INTERRUPT_QH];
-	struct UHCI::HCD_QH* uhci_qh_ls_control;
-	struct UHCI::HCD_QH* uhci_qh_fs_control;
-	struct UHCI::HCD_QH* uhci_qh_bulk;
+	struct uhci::HCD_QH* uhci_qh_interrupt[UHCI_NUM_INTERRUPT_QH];
+	struct uhci::HCD_QH* uhci_qh_ls_control;
+	struct uhci::HCD_QH* uhci_qh_fs_control;
+	struct uhci::HCD_QH* uhci_qh_bulk;
 	/* Currently scheduled items */
-	UHCI::HCD_ScheduledItemList uhci_scheduled_items;
+	uhci::HCD_ScheduledItemList uhci_scheduled_items;
 };
 
-} // namespace USB
-} // namespace Ananas
+} // namespace usb
 
 #endif /* __UHCI_HCD_H__ */

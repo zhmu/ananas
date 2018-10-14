@@ -4,10 +4,9 @@
 #include "kernel/dev/ata.h"
 #include "kernel/device.h"
 
-namespace Ananas {
-namespace ATA {
+namespace ata {
 
-class ATADisk : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IBIODeviceOperations
+class ATADisk : public Device, private IDeviceOperations, private IBIODeviceOperations
 {
 public:
 	using Device::Device;
@@ -42,7 +41,6 @@ private:
 #define ATADISK_FLAG_DMA	(1 << 0)
 };
 
-} // namespace ATA
-} // namespace Ananas
+} // namespace ata 
 
 #endif // ANANAS_ATA_DISK_H

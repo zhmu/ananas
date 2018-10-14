@@ -13,9 +13,9 @@ VConsole::Attach()
 	KASSERT(v_Video != nullptr, "no video attached?");
 
 	for(auto& vtty: vttys) {
-		Ananas::CreateDeviceProperties cdp(*this, Ananas::ResourceSet());
-		vtty = static_cast<VTTY*>(Ananas::DeviceManager::CreateDevice("vtty", Ananas::CreateDeviceProperties(*this, Ananas::ResourceSet())));
-		if (auto result = Ananas::DeviceManager::AttachSingle(*vtty); result.IsFailure())
+		CreateDeviceProperties cdp(*this, ResourceSet());
+		vtty = static_cast<VTTY*>(device_manager::CreateDevice("vtty", CreateDeviceProperties(*this, ResourceSet())));
+		if (auto result = device_manager::AttachSingle(*vtty); result.IsFailure())
 			panic("cannot attach vtty (%d)", result.AsStatusCode());
 	}
 	activeVTTY = vttys.front();
@@ -80,7 +80,7 @@ VConsole::OnKey(const keyboard_mux::Key& key, int modifiers)
 	}
 }
 
-struct VConsole_Driver : public Ananas::ConsoleDriver
+struct VConsole_Driver : public ConsoleDriver
 {
 	VConsole_Driver()
 	 : ConsoleDriver("vconsole", 100)
@@ -92,12 +92,12 @@ struct VConsole_Driver : public Ananas::ConsoleDriver
 		return "corebus";
 	}
 
-	Ananas::Device* ProbeDevice() override
+	Device* ProbeDevice() override
 	{
-		return new VConsole(Ananas::ResourceSet());
+		return new VConsole(ResourceSet());
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
 		return nullptr; // we expect to be probed
 	}

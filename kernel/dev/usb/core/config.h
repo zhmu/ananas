@@ -3,14 +3,12 @@
 
 class Result;
 
-namespace Ananas {
-namespace USB {
+namespace usb {
 
 class Interface;
 
 Result ParseConfiguration(Interface* usb_if, int& usb_num_if, void* data, int datalen);
 
-} // namespace USB
-} // namespace Ananas
+} // namespace usb
 
 #endif

@@ -10,11 +10,11 @@
 VGA::VGA()
 {
 	// XXX This is a quite ugly
-	Ananas::ResourceSet resourceSet;
-	resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_Memory, 0xb8000, 128 * 1024));
-	resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_IO, 0x3c0, 32));
-	void* mem = resourceSet.AllocateResource(Ananas::Resource::RT_Memory, 0x7fff);
-	void* res = resourceSet.AllocateResource(Ananas::Resource::RT_IO, 0x1f);
+	ResourceSet resourceSet;
+	resourceSet.AddResource(Resource(Resource::RT_Memory, 0xb8000, 128 * 1024));
+	resourceSet.AddResource(Resource(Resource::RT_IO, 0x3c0, 32));
+	void* mem = resourceSet.AllocateResource(Resource::RT_Memory, 0x7fff);
+	void* res = resourceSet.AllocateResource(Resource::RT_IO, 0x1f);
 	KASSERT(mem != nullptr && res != nullptr, "no resources?");
 
 	vga_io        = (uintptr_t)res;

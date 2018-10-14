@@ -23,7 +23,7 @@ struct DMA_TAG {
 	refcount_t t_refcount;
 
 	/* Device we belong to */
-	Ananas::Device* t_dev;
+	Device* t_dev;
 
 	/* Alignment to use, or zero for anything */
 	int t_alignment;
@@ -50,7 +50,7 @@ struct DMA_BUFFER {
 };
 
 Result
-dma_tag_create(dma_tag_t parent, Ananas::Device& dev, dma_tag_t* tag, int alignment, dma_addr_t min_addr, dma_addr_t max_addr, unsigned int max_segs, dma_size_t max_seg_size)
+dma_tag_create(dma_tag_t parent, Device& dev, dma_tag_t* tag, int alignment, dma_addr_t min_addr, dma_addr_t max_addr, unsigned int max_segs, dma_size_t max_seg_size)
 {
 	KASSERT(max_segs > 0, "invalid segment count %u", max_segs);
 	KASSERT(max_seg_size > 0, "invalid maximum segment size %u", max_seg_size);

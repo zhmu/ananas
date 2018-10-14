@@ -6,19 +6,17 @@
 
 class Result;
 
-namespace Ananas {
-
 struct CreateDeviceProperties;
 class Device;
 class Driver;
 class ConsoleDriver;
 
-namespace DriverManager {
+namespace driver_manager {
 
 Result Register(Driver& driver);
 Result Unregister(const char* name);
 
-} // namespace DriverManager
+} // namespace driver_manager
 
 /*
  * Driver has three main purposes:
@@ -35,7 +33,7 @@ public:
 	}
 	virtual ~Driver() = default;
 
-	virtual Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) = 0;
+	virtual Device* CreateDevice(const CreateDeviceProperties& cdp) = 0;
 	virtual const char* GetBussesToProbeOn() const = 0;
 
 	virtual ConsoleDriver* GetConsoleDriver()
@@ -56,17 +54,15 @@ typedef util::List<Driver> DriverList;
 // XXX The Unregister-part is a bit clumsy...
 #define REGISTER_DRIVER(name) \
 	static Result register_driver_##name() { \
-		return Ananas::DriverManager::Register(*new name); \
+		return driver_manager::Register(*new name); \
 	} \
 	static Result unregister_driver_##name() { \
-		Ananas::Driver* d = new name; \
-		auto result = Ananas::DriverManager::Unregister(d->d_Name); \
+		Driver* d = new name; \
+		auto result = driver_manager::Unregister(d->d_Name); \
 		delete d; \
 		return result; \
 	} \
 	INIT_FUNCTION(register_driver_##name, SUBSYSTEM_DRIVER, ORDER_MIDDLE); \
 	EXIT_FUNCTION(unregister_driver_##name);
-
-} // namespace Ananas
 
 #endif /* __DRIVER_H__ */

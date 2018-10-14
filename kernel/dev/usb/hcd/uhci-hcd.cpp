@@ -40,10 +40,8 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace USB {
-
-namespace UHCI {
+namespace usb {
+namespace uhci {
 
 // HCD_{TD,QH} must start with an UHCI{TD,QH} struct - this is what the HCD
 // hardware uses! This means we cannot inherit from NodePtr
@@ -192,29 +190,29 @@ CreateDataTDs(UHCI_HCD& hcd, addr_t data, size_t size, int max_packet_size, int 
 
 } // unnamed namespace
 
-} // namespace UHCI
+} // namespace uhci
 
-UHCI::HCD_TD*
+uhci::HCD_TD*
 UHCI_HCD::AllocateTD()
 {
 	dma_buf_t buf;
-	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct UHCI::HCD_TD), &buf); result.IsFailure())
+	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct uhci::HCD_TD), &buf); result.IsFailure())
 		return nullptr;
 
-	auto td = static_cast<struct UHCI::HCD_TD*>(dma_buf_get_segment(buf, 0)->s_virt);
-	memset(td, 0, sizeof(struct UHCI::HCD_TD));
+	auto td = static_cast<struct uhci::HCD_TD*>(dma_buf_get_segment(buf, 0)->s_virt);
+	memset(td, 0, sizeof(struct uhci::HCD_TD));
 	td->td_buf = buf;
 	return td;
 }
 
-UHCI::HCD_QH*
+uhci::HCD_QH*
 UHCI_HCD::AllocateQH()
 {
 	dma_buf_t buf;
-	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct UHCI::HCD_QH), &buf); result.IsFailure())
+	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct uhci::HCD_QH), &buf); result.IsFailure())
 		return nullptr;
 
-	auto qh = static_cast<struct UHCI::HCD_QH*>(dma_buf_get_segment(buf, 0)->s_virt);
+	auto qh = static_cast<struct uhci::HCD_QH*>(dma_buf_get_segment(buf, 0)->s_virt);
 	qh->qh_buf = buf;
 	qh->qh_first_td = NULL;
 	qh->qh_next_qh = NULL;
@@ -235,7 +233,7 @@ uhci_free_td(device_t dev, struct HCD_TD* td)
 #endif
 
 void
-UHCI_HCD::FreeQH(UHCI::HCD_QH* qh)
+UHCI_HCD::FreeQH(uhci::HCD_QH* qh)
 {
 	dma_buf_free(qh->qh_buf);
 }
@@ -261,7 +259,7 @@ UHCI_HCD::Dump()
 	// XXX we should look up the HCD_QH to use
 	for (int n = 0; n < UHCI_NUM_INTERRUPT_QH; n++) {
 		kprintf("> %d ms\n", 1 << n);
-		UHCI::DumpQH(uhci_qh_interrupt[n]);
+		uhci::DumpQH(uhci_qh_interrupt[n]);
 	}
 }
 
@@ -307,7 +305,7 @@ UHCI_HCD::OnIRQ()
 			uhci_scheduled_items.remove(si);
 
 			/* Walk through the chain to calculate the length and see if something gave an error */
-			if (!UHCI::VerifyChainAndCalculateLength(si.si_td, &si.si_xfer->t_result_length))
+			if (!uhci::VerifyChainAndCalculateLength(si.si_td, &si.si_xfer->t_result_length))
 				si.si_xfer->t_flags |= TRANSFER_FLAG_ERROR;
 
 			/* Finally, give hand the transfer back to the USB stack */
@@ -326,7 +324,7 @@ UHCI_HCD::SetupTransfer(Transfer& xfer)
 	 * only create the TD's in uhci_schedule_transfer() as we won't know the length
 	 * beforehand.
 	 */
-	UHCI::HCD_QH* qh = AllocateQH();
+	uhci::HCD_QH* qh = AllocateQH();
 	xfer.t_hcd = qh;
 	return Result::Success();
 }
@@ -336,7 +334,7 @@ UHCI_HCD::TearDownTransfer(Transfer& xfer)
 {
 	if (xfer.t_hcd != nullptr) {
 		/* XXX We should ensure it's no longer in use */
-		FreeQH(static_cast<struct UHCI::HCD_QH*>(xfer.t_hcd));
+		FreeQH(static_cast<struct uhci::HCD_QH*>(xfer.t_hcd));
 	}
 
 	xfer.t_hcd = nullptr;
@@ -390,23 +388,23 @@ UHCI_HCD::ScheduleControlTransfer(Transfer& xfer)
 	 * order so that we can hook them together immediately (order is very
 	 * important as they will be filled from first to last)
 	 */
-	UHCI::HCD_TD* next_setup_ptr;
+	uhci::HCD_TD* next_setup_ptr;
 	if (xfer.t_flags & TRANSFER_FLAG_DATA) {
-		next_setup_ptr = UHCI::CreateDataTDs(*this, KVTOP((addr_t)&xfer.t_data[0]) /* XXX64 */, xfer.t_length, xfer.t_device.ud_max_packet_sz0, isread ? TD_PID_IN : TD_PID_OUT, ls, token_addr, td_handshake, nullptr);
+		next_setup_ptr = uhci::CreateDataTDs(*this, KVTOP((addr_t)&xfer.t_data[0]) /* XXX64 */, xfer.t_length, xfer.t_device.ud_max_packet_sz0, isread ? TD_PID_IN : TD_PID_OUT, ls, token_addr, td_handshake, nullptr);
 	} else {
 		next_setup_ptr = td_handshake;
 	}
 
 	/* Create the SETUP stage packet (SETUP + DATA0) */
 	auto td_setup = AllocateTD();
-	td_setup->td_td.td_linkptr = TO_REG32(TD_LINKPTR_VF | UHCI::GetPhysicalAddress(next_setup_ptr));
+	td_setup->td_td.td_linkptr = TO_REG32(TD_LINKPTR_VF | uhci::GetPhysicalAddress(next_setup_ptr));
 	td_setup->td_td.td_status = TO_REG32(ls | TD_STATUS_ACTIVE | TD_STATUS_INTONERR(3));
 	td_setup->td_td.td_token = TO_REG32(TD_TOKEN_MAXLEN(sizeof(struct USB_CONTROL_REQUEST)) | token_addr | TD_TOKEN_PID(TD_PID_SETUP));
 	td_setup->td_td.td_buffer = KVTOP((addr_t)&xfer.t_control_req); /* XXX64 TODO */
 	td_setup->td_next = next_setup_ptr;
 
 	/* Schedule an item; this will cause the IRQ to handle our request - XXX needs lock */
-	auto si = new UHCI::HCD_ScheduledItem;
+	auto si = new uhci::HCD_ScheduledItem;
 	si->si_td = td_setup;
 	si->si_xfer = &xfer;
 	uhci_scheduled_items.push_back(*si);
@@ -415,7 +413,7 @@ UHCI_HCD::ScheduleControlTransfer(Transfer& xfer)
 	/* XXX we should add to the chain not overwrite !!! */
 	/* XXX Is this even safe? */
 	uhci_qh_ls_control->qh_first_td = td_setup;
-	uhci_qh_ls_control->qh_qh.qh_elementptr = TO_REG32(UHCI::GetPhysicalAddress(td_setup));
+	uhci_qh_ls_control->qh_qh.qh_elementptr = TO_REG32(uhci::GetPhysicalAddress(td_setup));
 
 	//uhci_dump(dev);
 	return Result::Success();
@@ -429,14 +427,14 @@ UHCI_HCD::ScheduleInterruptTransfer(Transfer& xfer)
 	uint32_t token_addr = TD_TOKEN_ENDPOINT(xfer.t_endpoint) | TD_TOKEN_ADDRESS(xfer.t_address);
 	int isread = xfer.t_flags & TRANSFER_FLAG_READ;
 
-	UHCI::HCD_TD* last_td;
-	auto td_chain = UHCI::CreateDataTDs(*this, KVTOP((addr_t)&xfer.t_data[0]) /* XXX64 */, xfer.t_length, xfer.t_device.ud_max_packet_sz0, isread ? TD_PID_IN : TD_PID_OUT, ls, token_addr, nullptr, &last_td);
+	uhci::HCD_TD* last_td;
+	auto td_chain = uhci::CreateDataTDs(*this, KVTOP((addr_t)&xfer.t_data[0]) /* XXX64 */, xfer.t_length, xfer.t_device.ud_max_packet_sz0, isread ? TD_PID_IN : TD_PID_OUT, ls, token_addr, nullptr, &last_td);
 
 	last_td->td_td.td_status |= TD_STATUS_IOC;
 	td_chain->td_td.td_token &= ~TD_TOKEN_DATA; /* XXX */
 
 	/* Schedule an item; this will cause the IRQ to handle our request - XXX needs lock */
-	auto si = new UHCI::HCD_ScheduledItem;
+	auto si = new uhci::HCD_ScheduledItem;
 	si->si_td = td_chain;
 	si->si_xfer = &xfer;
 	uhci_scheduled_items.push_back(*si);
@@ -445,7 +443,7 @@ UHCI_HCD::ScheduleInterruptTransfer(Transfer& xfer)
 	/* XXX we should add to the chain not overwrite !!! */
 	int index = 0;
 	uhci_qh_interrupt[index]->qh_first_td = td_chain;
-	uhci_qh_interrupt[index]->qh_qh.qh_elementptr = TO_REG32(UHCI::GetPhysicalAddress(td_chain));
+	uhci_qh_interrupt[index]->qh_qh.qh_elementptr = TO_REG32(uhci::GetPhysicalAddress(td_chain));
 
 	return Result::Success();
 }
@@ -487,8 +485,8 @@ UHCI_HCD::Attach()
 	 */
 	pci_write_cfg(*this, UHCI_PCI_LEGSUPP, UHCI_LEGSUPP_PIRQEN, 16);
 
-	void* res_io = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IO, 16);
-	void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
+	void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 16);
+	void* res_irq = d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
 		return RESULT_MAKE_FAILURE(ENODEV);
 
@@ -496,7 +494,7 @@ UHCI_HCD::Attach()
 	if (auto result = dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE); result.IsFailure())
 		return result;
 
-	uhci_Resources = UHCI::HCD_Resources((uint32_t)(uintptr_t)res_io);
+	uhci_Resources = uhci::HCD_Resources((uint32_t)(uintptr_t)res_io);
 
 	/* Allocate the frame list; this will be programmed right into the controller */
 	if (auto result = dma_buf_alloc(d_DMA_tag, 4096, &uhci_framelist_buf); result.IsFailure())
@@ -520,7 +518,7 @@ UHCI_HCD::Attach()
 	uhci_qh_bulk = AllocateQH();
 
 #define UHCI_LINK_QH(qh, next_qh) \
-	(qh)->qh_qh.qh_headptr = TO_REG32(QH_PTR_QH | UHCI::GetPhysicalAddress((next_qh))); \
+	(qh)->qh_qh.qh_headptr = TO_REG32(QH_PTR_QH | uhci::GetPhysicalAddress((next_qh))); \
 	(qh)->qh_next_qh = (next_qh)
 
 	for (unsigned int n = UHCI_NUM_INTERRUPT_QH - 1; n > 0; n--) {
@@ -546,7 +544,7 @@ UHCI_HCD::Attach()
 			case 8: index = 4; break; /* 16ms */
 			case 16: index = 5; break; /* 32ms */
 		}
-		uhci_framelist[i] = TO_REG32(TD_LINKPTR_QH | UHCI::GetPhysicalAddress(uhci_qh_interrupt[index]));
+		uhci_framelist[i] = TO_REG32(TD_LINKPTR_QH | uhci::GetPhysicalAddress(uhci_qh_interrupt[index]));
 	}
 
 	/*
@@ -607,16 +605,16 @@ UHCI_HCD::Detach()
 }
 
 void
-UHCI_HCD::SetRootHub(USB::USBDevice& dev)
+UHCI_HCD::SetRootHub(usb::USBDevice& dev)
 {
-	uhci_RootHub = new UHCI::RootHub(uhci_Resources, dev);
+	uhci_RootHub = new uhci::RootHub(uhci_Resources, dev);
 	Result result = uhci_RootHub->Initialize();
 	(void)result; // XXX allow this function to fail
 }
 
 namespace {
 
-struct UHCI_Driver : public Ananas::Driver
+struct UHCI_Driver : public Driver
 {
 	UHCI_Driver()
 	 : Driver("uhci")
@@ -628,9 +626,9 @@ struct UHCI_Driver : public Ananas::Driver
 		return "pcibus";
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
-		auto class_res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
+		auto class_res = cdp.cdp_ResourceSet.GetResource(Resource::RT_PCI_ClassRev, 0);
 		if (class_res == nullptr) /* XXX it's a bug if this happens */
 			return nullptr;
 		uint32_t classrev = class_res->r_Base;
@@ -646,7 +644,6 @@ struct UHCI_Driver : public Ananas::Driver
 
 REGISTER_DRIVER(UHCI_Driver)
 
-} // namespace USB
-} // namespace Ananas
+} // namespace usb
 
 /* vim:set ts=2 sw=2: */

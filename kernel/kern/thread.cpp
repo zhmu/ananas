@@ -226,7 +226,7 @@ void
 thread_sleep(tick_t num_ticks)
 {
 	Thread* t = PCPU_GET(curthread);
-	t->t_timeout = Ananas::Time::GetTicks() + num_ticks;
+	t->t_timeout = time::GetTicks() + num_ticks;
 	t->t_flags |= THREAD_FLAG_TIMEOUT;
 	t->Suspend();
 	schedule();

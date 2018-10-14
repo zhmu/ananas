@@ -14,11 +14,13 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
+namespace network {
 
 char hostname[HOST_NAME_MAX] = "unknown"; // XXX This doesn't really belong here
 
-namespace AnkhFS {
+} // namespace network
+
+namespace ankhfs {
 namespace {
 
 constexpr unsigned int subHostname = 1;
@@ -33,7 +35,7 @@ class NetworkSubSystem : public IAnkhSubSystem
 public:
 	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len) override
 	{
-		return AnkhFS::HandleReadDir(file, dirents, len, fs_entries[0]);
+		return ankhfs::HandleReadDir(file, dirents, len, fs_entries[0]);
 	}
 
 	Result FillInode(INode& inode, ino_t inum) override
@@ -54,12 +56,12 @@ public:
 		switch(inum_to_sub(inum)) {
 			case subHostname: {
 				char* r = result;
-				snprintf(r, sizeof(result) - (r - result), "%s\n", hostname);
+				snprintf(r, sizeof(result) - (r - result), "%s\n", network::hostname);
 				break;
 			}
 		}
 
-		return AnkhFS::HandleRead(file, buf, len, result);
+		return ankhfs::HandleRead(file, buf, len, result);
 	}
 
 	Result HandleIOControl(struct VFS_FILE* file, unsigned long op, void* args[]) override
@@ -91,7 +93,6 @@ IAnkhSubSystem& GetNetworkSubSystem()
 	return networkSubSystem;
 }
 
-} // namespace AnkhFS
-} // namespace Ananas
+} // namespace ankhfs
 
 /* vim:set ts=2 sw=2: */

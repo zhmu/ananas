@@ -12,8 +12,7 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace VFS {
+namespace vfs {
 size_t GetMaxMountedFilesystems();
 extern Spinlock spl_mountedfs;
 extern struct VFS_MOUNTED_FS mountedfs[];
@@ -21,9 +20,9 @@ extern struct VFS_MOUNTED_FS mountedfs[];
 extern Spinlock spl_fstypes;
 extern VFSFileSystemList fstypes;
 
-} // namespace VFS
+} // namespace vfs
 
-namespace AnkhFS {
+namespace ankhfs {
 namespace {
 
 constexpr unsigned int subMounts = 1;
@@ -40,7 +39,7 @@ class FileSystemSubSystem : public IAnkhSubSystem
 public:
 	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len) override
 	{
-		return AnkhFS::HandleReadDir(file, dirents, len, fs_entries[0]);
+		return ankhfs::HandleReadDir(file, dirents, len, fs_entries[0]);
 	}
 
 	Result FillInode(INode& inode, ino_t inum) override
@@ -60,11 +59,11 @@ public:
 		ino_t inum = file->f_dentry->d_inode->i_inum;
 		switch(inum_to_sub(inum)) {
 			case subMounts: {
-				SpinlockGuard g(Ananas::VFS::spl_mountedfs);
+				SpinlockGuard g(vfs::spl_mountedfs);
 
 				char* r = result;
-				for (unsigned int n = 0; n < Ananas::VFS::GetMaxMountedFilesystems(); n++) {
-					struct VFS_MOUNTED_FS* fs = &Ananas::VFS::mountedfs[n];
+				for (unsigned int n = 0; n < vfs::GetMaxMountedFilesystems(); n++) {
+					struct VFS_MOUNTED_FS* fs = &vfs::mountedfs[n];
 					if ((fs->fs_flags & VFS_FLAG_INUSE) == 0)
 						continue;
 					if (fs->fs_flags & VFS_FLAG_ABANDONED)
@@ -80,10 +79,10 @@ public:
 				break;
 			}
 			case subFileSystems: {
-				SpinlockGuard g(Ananas::VFS::spl_fstypes);
+				SpinlockGuard g(vfs::spl_fstypes);
 
 				char* r = result;
-				for(auto& curfs: Ananas::VFS::fstypes) {
+				for(auto& curfs: vfs::fstypes) {
 				  snprintf(r, sizeof(result) - (r - result), "%s\n", curfs.fs_name);
 					r += strlen(r);
 				}
@@ -91,7 +90,7 @@ public:
 			}
 		}
 
-		return AnkhFS::HandleRead(file, buf, len, result);
+		return ankhfs::HandleRead(file, buf, len, result);
 	}
 
 	Result HandleOpen(VFS_FILE& file, Process* p) override
@@ -123,7 +122,6 @@ IAnkhSubSystem& GetFileSystemSubSystem()
 	return fileSystemSubSystem;
 }
 
-} // namespace AnkhFS
-} // namespace Ananas
+} // namespace ankhfs
 
 /* vim:set ts=2 sw=2: */

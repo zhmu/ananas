@@ -12,7 +12,7 @@
 
 TRACE_SETUP;
 
-using Direction = Ananas::ISCSIDeviceOperations::Direction;
+using Direction = ISCSIDeviceOperations::Direction;
 
 namespace {
 
@@ -52,7 +52,7 @@ DumpSenseData(const struct SCSI_FIXED_SENSE_DATA& sd)
 	 sd.sd_field_replace_code);
 }
 
-class SCSIDisk : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IBIODeviceOperations
+class SCSIDisk : public Device, private IDeviceOperations, private IBIODeviceOperations
 {
 public:
 	using Device::Device;
@@ -180,7 +180,7 @@ SCSIDisk::WriteBIO(struct BIO& bio)
 	return RESULT_MAKE_FAILURE(EROFS);
 }
 
-struct SCSIDisk_Driver : public Ananas::Driver
+struct SCSIDisk_Driver : public Driver
 {
 	SCSIDisk_Driver()
 	 : Driver("scsidisk")
@@ -192,7 +192,7 @@ struct SCSIDisk_Driver : public Ananas::Driver
 		return nullptr; // instantiated by whoever needs it
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
 		return new SCSIDisk(cdp);
 	}

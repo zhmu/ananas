@@ -2,17 +2,15 @@
 #include "kernel/lib.h"
 #include "kernel/result.h"
 
-namespace Ananas {
-
-namespace DriverManager {
+namespace driver_manager {
 
 namespace {
-static Ananas::DriverList driverList; /* XXX not locked yet */
+static DriverList driverList; /* XXX not locked yet */
 } // unnamed namespace
 
 namespace internal {
 
-Ananas::DriverList& GetDriverList()
+DriverList& GetDriverList()
 {
 	return driverList;
 }
@@ -47,7 +45,6 @@ Result Unregister(const char* name)
 	return Result::Success();
 }
 
-} // namespace DriverManager
-} // namespace Ananas
+} // namespace drivermanager
 
 /* vim:set ts=2 sw=2: */

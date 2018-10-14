@@ -12,21 +12,16 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace DeviceManager {
-namespace internal {
+namespace device_manager::internal {
 extern Spinlock spl_devicequeue;
 extern device::DeviceList deviceList;
-} // namespace internal
-} // namespace DeviceManager
+} // namespace device_manager::internal
 
-namespace DriverManager {
-namespace internal {
-Ananas::DriverList& GetDriverList();
-} // namespace internal
-} // namespace DriverManager
+namespace driver_manager::internal {
+DriverList& GetDriverList();
+} // namespace driver_manager::internal
 
-namespace AnkhFS {
+namespace ankhfs {
 
 namespace {
 
@@ -38,9 +33,9 @@ HandleReadDir_Device(struct VFS_FILE* file, void* dirents, size_t len)
 			// XXX we should lock the device here
 
 			// Skip anything that isn't a char/block device - we can do nothing with those
-			while (currentDevice != DeviceManager::internal::deviceList.end() && currentDevice->GetCharDeviceOperations() == nullptr && currentDevice->GetBIODeviceOperations() == nullptr)
+			while (currentDevice != device_manager::internal::deviceList.end() && currentDevice->GetCharDeviceOperations() == nullptr && currentDevice->GetBIODeviceOperations() == nullptr)
 				++currentDevice;
-			if (currentDevice == DeviceManager::internal::deviceList.end())
+			if (currentDevice == device_manager::internal::deviceList.end())
 				return false;
 
 			snprintf(entry, maxLength, "%s%d", currentDevice->d_Name, currentDevice->d_Unit);
@@ -49,11 +44,11 @@ HandleReadDir_Device(struct VFS_FILE* file, void* dirents, size_t len)
 			return true;
 		}
 
-		device::DeviceList::iterator currentDevice = DeviceManager::internal::deviceList.begin();
+		device::DeviceList::iterator currentDevice = device_manager::internal::deviceList.begin();
 	};
 
 	// Fill the root directory with one entry per device
-	SpinlockGuard g(DeviceManager::internal::spl_devicequeue);
+	SpinlockGuard g(device_manager::internal::spl_devicequeue);
 	FetchEntry entryFetcher;
 	return HandleReadDir(file, dirents, len, entryFetcher);
 }
@@ -71,18 +66,18 @@ public:
 		// Special-case the non-device entries; we can't look them up
 		if (inum_to_id(inum) == 0) {
 			switch(inum_to_sub(inum)) {
-				case Devices::subRoot:
+				case devices::subRoot:
 					inode.i_sb.st_mode |= S_IFDIR;
 					return Result::Success();
-				case Devices::subDevices:
-				case Devices::subDrivers:
+				case devices::subDevices:
+				case devices::subDrivers:
 					inode.i_sb.st_mode |= S_IFREG;
 					return Result::Success();
 			}
 		}
 
 		dev_t devno = static_cast<dev_t>(inum_to_id(inum));
-		Device* device = DeviceManager::FindDevice(devno);
+		Device* device = device_manager::FindDevice(devno);
 		if (device == nullptr)
 			return RESULT_MAKE_FAILURE(EIO);
 
@@ -103,11 +98,11 @@ public:
 			char result[1024]; // XXX
 			strcpy(result, "???");
 			switch(inum_to_sub(inum)) {
-				case Devices::subDevices: {
-					SpinlockGuard g(DeviceManager::internal::spl_devicequeue);
+				case devices::subDevices: {
+					SpinlockGuard g(device_manager::internal::spl_devicequeue);
 
 					char* r = result;
-					for(auto& device: DeviceManager::internal::deviceList) {
+					for(auto& device: device_manager::internal::deviceList) {
 						snprintf(r, sizeof(result) - (r - result), "%s %d %d %c%c%c%c%c\n",
 						 device.d_Name, device.d_Major, device.d_Unit,
 						 device.GetBIODeviceOperations() != nullptr ? 'b' : '.',
@@ -119,9 +114,9 @@ public:
 					}
 					break;
 				}
-				case Devices::subDrivers: {
+				case devices::subDrivers: {
 					char* r = result;
-					auto& driverList = Ananas::DriverManager::internal::GetDriverList();
+					auto& driverList = driver_manager::internal::GetDriverList();
 					for(auto& d: driverList) {
 						snprintf(r, sizeof(result) - (r - result), "%s %d %d %d\n",
 						 d.d_Name, d.d_Priority, d.d_Major, d.d_CurrentUnit);
@@ -130,7 +125,7 @@ public:
 					break;
 				}
 			}
-			return AnkhFS::HandleRead(file, buf, len, result);
+			return ankhfs::HandleRead(file, buf, len, result);
 		}
 
 		return RESULT_MAKE_FAILURE(EIO);
@@ -140,7 +135,7 @@ public:
 	{
 		auto inum = file.f_dentry->d_inode->i_inum;
 		dev_t devno = static_cast<dev_t>(inum_to_id(inum));
-		Device* device = DeviceManager::FindDevice(devno);
+		Device* device = device_manager::FindDevice(devno);
 		if (device == nullptr)
 			return RESULT_MAKE_FAILURE(EIO);
 
@@ -155,7 +150,7 @@ public:
 	{
 		auto inum = file.f_dentry->d_inode->i_inum;
 		dev_t devno = static_cast<dev_t>(inum_to_id(inum));
-		Device* device = DeviceManager::FindDevice(devno);
+		Device* device = device_manager::FindDevice(devno);
 		if (device != nullptr) {
 			if (auto result = device->GetDeviceOperations().Close(p); result.IsFailure())
 				return result;
@@ -182,7 +177,6 @@ IAnkhSubSystem& GetDeviceSubSystem()
 	return deviceSubSystem;
 }
 
-} // namespace AnkhFS
-} // namespace Ananas
+} // namespace ankhfs
 
 /* vim:set ts=2 sw=2: */

@@ -11,7 +11,7 @@ TRACE_SETUP;
 
 namespace {
 
-struct ACPI : public Ananas::Device, private Ananas::IDeviceOperations
+struct ACPI : public Device, private IDeviceOperations
 {
 	using Device::Device;
 
@@ -43,10 +43,10 @@ ACPI::AttachDevice(ACPI_HANDLE ObjHandle, UINT32 Level, void* Context, void** Re
 	auto& acpi = *static_cast<ACPI*>(Context);
 
 	/* Fetch the device resources... */
-	Ananas::ResourceSet resourceSet;
+	ResourceSet resourceSet;
 	if (ACPI_SUCCESS(acpi_process_resources(ObjHandle, resourceSet))) {
 		/* ... and see if we can attach something to these resources */
-		Ananas::DeviceManager::AttachChild(acpi, resourceSet);
+		device_manager::AttachChild(acpi, resourceSet);
 	}
 
 	return AE_OK;
@@ -96,14 +96,14 @@ ACPI::Detach()
 	return Result::Success();
 }
 
-class ACPIDriver : public Ananas::Driver
+class ACPIDriver : public Driver
 {
 public:
 	ACPIDriver();
 	virtual ~ACPIDriver() = default;
 
   const char* GetBussesToProbeOn() const override;
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override;
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override;
 
 };
 
@@ -117,7 +117,7 @@ const char* ACPIDriver::GetBussesToProbeOn() const
 	return "corebus";
 }
 
-Ananas::Device* ACPIDriver::CreateDevice(const Ananas::CreateDeviceProperties& cdp)
+Device* ACPIDriver::CreateDevice(const CreateDeviceProperties& cdp)
 {
 	/*
 	 * XXX This means we'll end up finding the root pointer twice if it exists

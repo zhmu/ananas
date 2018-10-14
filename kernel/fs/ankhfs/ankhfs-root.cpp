@@ -9,18 +9,17 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace AnkhFS {
+namespace ankhfs {
 namespace {
 
 struct DirectoryEntry root_entries[] = {
 	{ "proc", make_inum(SS_Proc, 0, 0) },
 	{ "fs", make_inum(SS_FileSystem, 0, 0) },
-	{ "dev", make_inum(SS_Device, 0, Devices::subRoot) },
-	{ "devices", make_inum(SS_Device, 0, Devices::subDevices) },
-	{ "drivers", make_inum(SS_Device, 0, Devices::subDrivers) },
-	{ "kernel", make_inum(SS_Kernel, 0, Devices::subRoot) },
-	{ "network", make_inum(SS_Network, 0, Devices::subRoot) },
+	{ "dev", make_inum(SS_Device, 0, devices::subRoot) },
+	{ "devices", make_inum(SS_Device, 0, devices::subDevices) },
+	{ "drivers", make_inum(SS_Device, 0, devices::subDrivers) },
+	{ "kernel", make_inum(SS_Kernel, 0, devices::subRoot) },
+	{ "network", make_inum(SS_Network, 0, devices::subRoot) },
 	{ NULL,  0 }
 };
 
@@ -29,7 +28,7 @@ class RootProcSubSystem : public IAnkhSubSystem
 public:
 	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len) override
 	{
-		return AnkhFS::HandleReadDir(file, dirents, len, root_entries[0]);
+		return ankhfs::HandleReadDir(file, dirents, len, root_entries[0]);
 	}
 
 	Result FillInode(INode& inode, ino_t inum) override
@@ -72,7 +71,6 @@ IAnkhSubSystem& GetRootSubSystem()
 	return rootProcSubSystem;
 }
 
-} // namespace AnkhFS
-} // namespace Ananas
+} // namespace ankhfs
 
 /* vim:set ts=2 sw=2: */

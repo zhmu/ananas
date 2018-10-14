@@ -13,15 +13,13 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace VFS {
+namespace vfs {
 
 extern Spinlock spl_mountedfs;
 extern struct VFS_MOUNTED_FS mountedfs[];
 size_t GetMaxMountedFilesystems();
 
-} // namespace VFS
-} // namespace Ananas
+} // namespace vfs
 
 namespace {
 
@@ -29,8 +27,8 @@ struct VFS_MOUNTED_FS* FindFS(const char* path)
 {
 	// XXX This is not correct; the first filesystem we find may not be the most accurate
 	size_t path_len = strlen(path);
-	for (unsigned int n = 0; n < Ananas::VFS::GetMaxMountedFilesystems(); n++) {
-		auto& fs = Ananas::VFS::mountedfs[n];
+	for (unsigned int n = 0; n < vfs::GetMaxMountedFilesystems(); n++) {
+		auto& fs = vfs::mountedfs[n];
 		if (strncmp(fs.fs_mountpoint, path, path_len) == 0) {
 			if (fs.fs_mountpoint[path_len] == '\0' || fs.fs_mountpoint[path_len] == '/')
 				return &fs;
@@ -62,7 +60,7 @@ sys_statfs(Thread* t, const char* path, struct statfs* buf)
 
 	// XXX we should realpath path() first - or let userland deal with that?
 
-	SpinlockGuard g(Ananas::VFS::spl_mountedfs);
+	SpinlockGuard g(vfs::spl_mountedfs);
 	auto fs = FindFS(path);
 	if (fs == nullptr)
 		return RESULT_MAKE_FAILURE(ENOENT);

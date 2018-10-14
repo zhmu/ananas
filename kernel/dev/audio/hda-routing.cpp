@@ -7,8 +7,7 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace HDA {
+namespace hda {
 
 /*
  * Given audio group 'afg' on device 'dev', this will route 'channels'-channel
@@ -222,7 +221,6 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 	return Result::Success();
 }
 
-} // namespace HDA
-} // namespace Ananas
+} // namespace hda
 
 /* vim:set ts=2 sw=2: */

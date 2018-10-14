@@ -5,8 +5,7 @@
 
 class Result;
 
-namespace Ananas {
-namespace USB {
+namespace usb {
 
 // Internal stuff so we can work with pending and completed lists
 namespace internal {
@@ -100,7 +99,6 @@ Transfer* AllocateTransfer(USBDevice& dev, int type, int flags, int endpt, size_
 void FreeTransfer(Transfer& xfer);
 void FreeTransfer_Locked(Transfer& xfer);
 
-} // namespace USB
-} // namespace Ananas
+} // namespace usb
 
 #endif /* __ANANAS_USB_TRANSFER_H__ */

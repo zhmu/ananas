@@ -6,10 +6,9 @@
 #include "kernel/device.h"
 #include "ata.h"
 
-namespace Ananas {
-namespace ATA {
+namespace ata {
 
-class ATAController : public Ananas::Device, private Ananas::IDeviceOperations
+class ATAController : public Device, private IDeviceOperations
 {
 public:
 	using Device::Device;
@@ -29,7 +28,7 @@ public:
 protected:
 	void OnIRQ();
 
-	static irqresult_t IRQWrapper(Ananas::Device* device, void* context)
+	static irqresult_t IRQWrapper(Device* device, void* context)
 	{
 		auto ata = static_cast<ATAController*>(device);
 		ata->OnIRQ();
@@ -54,7 +53,6 @@ private:
 	struct ATAPCI_PRDT ata_prdt[ATA_PCI_NUMPRDT] __attribute__((aligned(4)));
 };
 
-} // namespace ATA
-} // namespace Ananas
+} // namespace ata
 
 #endif // ANANAS_ATA_CONTROLLER_H

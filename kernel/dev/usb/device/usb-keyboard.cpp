@@ -61,7 +61,7 @@ uint8_t usb_keymap_shift[128] = {
 #define MODIFIER_RIGHT_ALT (1 << 6)
 #define MODIFIER_RIGHT_GUI (1 << 7)
 
-class USBKeyboard : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::USB::IPipeCallback
+class USBKeyboard : public Device, private IDeviceOperations, private usb::IPipeCallback
 {
 public:
 	using Device::Device;
@@ -76,17 +76,17 @@ public:
 	Result Detach() override;
 
 protected:
-	void OnPipeCallback(Ananas::USB::Pipe& pipe) override;
+	void OnPipeCallback(usb::Pipe& pipe) override;
 
 private:
-	Ananas::USB::USBDevice* uk_Device = nullptr;
-	Ananas::USB::Pipe* uk_Pipe = nullptr;
+	usb::USBDevice* uk_Device = nullptr;
+	usb::Pipe* uk_Pipe = nullptr;
 };
 
 Result
 USBKeyboard::Attach()
 {
-	uk_Device = static_cast<Ananas::USB::USBDevice*>(d_ResourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
+	uk_Device = static_cast<usb::USBDevice*>(d_ResourceSet.AllocateResource(Resource::RT_USB_Device, 0));
 
 	if (auto result = uk_Device->AllocatePipe(0, TRANSFER_TYPE_INTERRUPT, EP_DIR_IN, 0, *this, uk_Pipe); result.IsFailure()) {
 		Printf("endpoint 0 not interrupt/in");
@@ -109,9 +109,9 @@ USBKeyboard::Detach()
 }
 
 void
-USBKeyboard::OnPipeCallback(Ananas::USB::Pipe& pipe)
+USBKeyboard::OnPipeCallback(usb::Pipe& pipe)
 {
-	Ananas::USB::Transfer& xfer = pipe.p_xfer;
+	usb::Transfer& xfer = pipe.p_xfer;
 
 	if (xfer.t_flags & TRANSFER_FLAG_ERROR)
 		return;
@@ -135,7 +135,7 @@ USBKeyboard::OnPipeCallback(Ananas::USB::Pipe& pipe)
 	uk_Pipe->Start();
 }
 
-struct USBKeyboard_Driver : public Ananas::Driver
+struct USBKeyboard_Driver : public Driver
 {
 	USBKeyboard_Driver()
 	 : Driver("usbkeyboard")
@@ -147,15 +147,15 @@ struct USBKeyboard_Driver : public Ananas::Driver
 		return "usbbus";
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
-		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_USB_Device, 0);
+		auto res = cdp.cdp_ResourceSet.GetResource(Resource::RT_USB_Device, 0);
 		if (res == nullptr)
 			return nullptr;
 
-		auto usb_dev = static_cast<Ananas::USB::USBDevice*>(reinterpret_cast<void*>(res->r_Base));
+		auto usb_dev = static_cast<usb::USBDevice*>(reinterpret_cast<void*>(res->r_Base));
 
-		Ananas::USB::Interface& iface = usb_dev->ud_interface[usb_dev->ud_cur_interface];
+		auto& iface = usb_dev->ud_interface[usb_dev->ud_cur_interface];
 		if (iface.if_class == USB_IF_CLASS_HID && iface.if_subclass == 1 /* boot interface */ && iface.if_protocol == 1 /* keyboard */)
 			return new USBKeyboard(cdp);
 		return nullptr;

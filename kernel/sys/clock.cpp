@@ -25,7 +25,7 @@ sys_clock_gettime(Thread* t, int id, struct timespec* tp)
 		case CLOCK_MONOTONIC:
 			break;
 		case CLOCK_REALTIME: {
-			*tp = Ananas::Time::GetTime();
+			*tp = time::GetTime();
 			return Result::Success();
 		}
 		case CLOCK_SECONDS:

@@ -15,9 +15,7 @@ typedef struct PROBE* probe_t;
 struct BIO;
 struct Process;
 
-namespace Ananas {
 class Device;
-}
 
 namespace device {
 
@@ -45,14 +43,12 @@ template<typename T> using DeviceChildrenNodeAccessor = typename util::List<T>::
 
 } // namespace internal
 
-typedef util::List<::Ananas::Device, internal::DeviceAllNodeAccessor<::Ananas::Device> > ChildrenList;
-typedef util::List<::Ananas::Device, internal::DeviceChildrenNodeAccessor<::Ananas::Device> > DeviceList;
+typedef util::List<::Device, internal::DeviceAllNodeAccessor<::Device> > ChildrenList;
+typedef util::List<::Device, internal::DeviceChildrenNodeAccessor<::Device> > DeviceList;
 
 } // namespace device
 
-namespace Ananas {
-
-namespace USB {
+namespace usb {
 class USBDevice;
 class Transfer;
 }
@@ -100,11 +96,11 @@ public:
 
 class IUSBDeviceOperations {
 public:
-	virtual Result SetupTransfer(USB::Transfer&) = 0;
-	virtual Result ScheduleTransfer(USB::Transfer&) = 0;
-	virtual Result CancelTransfer(USB::Transfer&) = 0;
-	virtual Result TearDownTransfer(USB::Transfer&) = 0;
-	virtual void SetRootHub(USB::USBDevice&) = 0;
+	virtual Result SetupTransfer(usb::Transfer&) = 0;
+	virtual Result ScheduleTransfer(usb::Transfer&) = 0;
+	virtual Result CancelTransfer(usb::Transfer&) = 0;
+	virtual Result TearDownTransfer(usb::Transfer&) = 0;
+	virtual void SetRootHub(usb::USBDevice&) = 0;
 };
 
 class IUSBHubDeviceOperations {
@@ -125,18 +121,18 @@ public:
 
 struct CreateDeviceProperties
 {
-	CreateDeviceProperties(Ananas::Device& parent, const Ananas::ResourceSet& resourceSet)
+	CreateDeviceProperties(Device& parent, const ResourceSet& resourceSet)
 	 : cdp_Parent(&parent), cdp_ResourceSet(resourceSet)
 	{
 	}
 
-	CreateDeviceProperties(const Ananas::ResourceSet& resourceSet)
+	CreateDeviceProperties(const ResourceSet& resourceSet)
 	 : cdp_ResourceSet(resourceSet)
 	{
 	}
 
-	Ananas::Device* cdp_Parent = nullptr;
-	Ananas::ResourceSet cdp_ResourceSet;
+	Device* cdp_Parent = nullptr;
+	ResourceSet cdp_ResourceSet;
 };
 
 class Device {
@@ -172,23 +168,21 @@ public:
 };
 
 // Create device function, used while probing
-typedef Device* (*CreateDeviceFunc)(const Ananas::CreateDeviceProperties& cdp);
+typedef Device* (*CreateDeviceFunc)(const CreateDeviceProperties& cdp);
 
-namespace DeviceManager {
+namespace device_manager {
 
 using DeviceList = ::device::DeviceList;
 
 Result AttachSingle(Device& device);
 Result Detach(Device& device);
-Device* AttachChild(Device& bus, const Ananas::ResourceSet& resourceSet);
+Device* AttachChild(Device& bus, const ResourceSet& resourceSet);
 void AttachBus(Device& bus);
 Device* FindDevice(const char* name);
 Device* FindDevice(dev_t dev);
-Device* CreateDevice(const char* driver, const Ananas::CreateDeviceProperties& cdp);
+Device* CreateDevice(const char* driver, const CreateDeviceProperties& cdp);
 
-} // namespace DeviceManager
-
-} // namespace Ananas
+} // namespace device_manager
 
 // Device-specific resource management; assigns the resource to the device
 void* operator new(size_t len, device_t dev) throw();

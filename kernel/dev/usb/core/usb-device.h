@@ -5,11 +5,9 @@
 #include "usb-core.h"
 #include "usb-transfer.h"
 
-namespace Ananas {
-
 class Device;
 
-namespace USB {
+namespace usb {
 
 class Bus;
 class Hub;
@@ -111,7 +109,6 @@ private:
 #define USB_DEVICE_FLAG_LOW_SPEED (1 << 0)
 #define USB_DEVICE_FLAG_ROOT_HUB (1 << 31)
 
-} // namespace USB
-} // namespace Ananas
+} // namespace usb
 
 #endif /* __ANANAS_USB_DEVICE_H__ */

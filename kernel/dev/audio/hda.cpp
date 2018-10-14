@@ -12,8 +12,7 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace HDA {
+namespace hda {
 
 struct PlayContext {
 	PlayContext(IHDAFunctions& hda_funcs, int buffer_len_in_pages)
@@ -293,7 +292,7 @@ HDADevice::Close(Process* proc)
 
 namespace {
 
-struct HDA_Driver : public Ananas::Driver
+struct HDA_Driver : public Driver
 {
 	HDA_Driver()
 	 : Driver("hda")
@@ -305,7 +304,7 @@ struct HDA_Driver : public Ananas::Driver
 		return nullptr; // created by hda-pci
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
 		return new HDADevice(cdp);
 	}
@@ -315,7 +314,6 @@ struct HDA_Driver : public Ananas::Driver
 
 REGISTER_DRIVER(HDA_Driver)
 
-} // namespace HDA
-} // namespace Ananas
+} // namespace hda
 
 /* vim:set ts=2 sw=2: */

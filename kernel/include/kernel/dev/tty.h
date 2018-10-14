@@ -12,10 +12,10 @@ struct ProcessGroup;
 struct Session;
 } // namespace process
 
-class TTY : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations
+class TTY : public Device, private IDeviceOperations, private ICharDeviceOperations
 {
 public:
-	TTY(const Ananas::CreateDeviceProperties& cdp);
+	TTY(const CreateDeviceProperties& cdp);
 	virtual ~TTY();
 
 	IDeviceOperations& GetDeviceOperations() override

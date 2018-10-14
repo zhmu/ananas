@@ -42,10 +42,8 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace USB {
-
-namespace OHCI {
+namespace usb {
+namespace ohci {
 
 // HCD_[ET]D must start with an OHCI_[ET]D struct - this is what the HCD
 // hardware uses! This means we cannot inherit from NodePtr
@@ -146,7 +144,7 @@ void
 FreeED(HCD_ED* ed)
 {
 	for (HCD_TD* td = ed->ed_headtd; td != nullptr; /* nothing */) {
-		OHCI::HCD_TD* next_td = td->td_next;
+		ohci::HCD_TD* next_td = td->td_next;
 		FreeTD(td);
 		td = next_td;
 	}
@@ -182,7 +180,7 @@ EnqueueED(HCD_ED& parent, HCD_ED& ed)
 void
 FreeTDsFromTransfer(Transfer& xfer)
 {
-	auto ed = static_cast<struct OHCI::HCD_ED*>(xfer.t_hcd);
+	auto ed = static_cast<struct ohci::HCD_ED*>(xfer.t_hcd);
 	if (ed == nullptr)
 		return; /* nothing to free */
 
@@ -198,7 +196,7 @@ FreeTDsFromTransfer(Transfer& xfer)
 	ed->ed_headtd = nullptr;
 }
 
-} // namespace OHCI
+} // namespace ohci
 
 void
 OHCI_HCD::Dump()
@@ -229,23 +227,23 @@ OHCI_HCD::Dump()
 		ohci_Resources.Read4(OHCI_HCRHPORTSTATUSx + 8));
 
 	kprintf("** dumping control chain\n");
-	OHCI::DumpEDChain(ohci_control_ed);
+	ohci::DumpEDChain(ohci_control_ed);
 
 	kprintf("** dumping bulk chain\n");
-	OHCI::DumpEDChain(ohci_bulk_ed);
+	ohci::DumpEDChain(ohci_bulk_ed);
 
 	if (!ohci_active_eds.empty()) {
 		kprintf("** dumping active EDs\n");
 		for(auto& ed: ohci_active_eds) {
 			kprintf("ed %p -> xfer %p\n", &ed, ed.ed_xfer);
-			OHCI::DumpED(ed);
+			ohci::DumpED(ed);
 		}
 	}
 
 	kprintf("** periodic list\n");
 	for (unsigned int n = 0; n < OHCI_NUM_ED_LISTS; n++) {
 		kprintf("> %d ms list\n", 1 << n);
-		OHCI::DumpEDChain(ohci_interrupt_ed[n]);
+		ohci::DumpEDChain(ohci_interrupt_ed[n]);
 	}
 }
 
@@ -293,7 +291,7 @@ OHCI_HCD::OnIRQ()
 				/* Walk through all TD's and determine the length plus the status */
 				size_t transferred = 0;
 				int status = OHCI_TD_CC_NOERROR;
-				for (struct OHCI::HCD_TD* td = ed.ed_headtd; td != nullptr; td = td->td_next) {
+				for (struct ohci::HCD_TD* td = ed.ed_headtd; td != nullptr; td = td->td_next) {
 					if (td->td_td.td_cbp == 0)
 						transferred += td->td_length; /* full TD */
 					else
@@ -350,33 +348,33 @@ OHCI_HCD::OnIRQ()
 	return irq::IRQResult::Processed;
 }
 
-OHCI::HCD_TD*
+ohci::HCD_TD*
 OHCI_HCD::AllocateTD()
 {
 	dma_buf_t buf;
-	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct OHCI::HCD_TD), &buf); result.IsFailure())
+	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct ohci::HCD_TD), &buf); result.IsFailure())
 		return nullptr;
 
-	auto td = static_cast<struct OHCI::HCD_TD*>(dma_buf_get_segment(buf, 0)->s_virt);
-	memset(td, 0, sizeof(struct OHCI::HCD_TD));
+	auto td = static_cast<struct ohci::HCD_TD*>(dma_buf_get_segment(buf, 0)->s_virt);
+	memset(td, 0, sizeof(struct ohci::HCD_TD));
 	td->td_buf = buf;
 	return td;
 }
 
-OHCI::HCD_ED*
+ohci::HCD_ED*
 OHCI_HCD::AllocateED()
 {
 	dma_buf_t buf;
-	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct OHCI::HCD_ED), &buf); result.IsFailure())
+	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct ohci::HCD_ED), &buf); result.IsFailure())
 		return nullptr;
 
-	auto ed = static_cast<struct OHCI::HCD_ED*>(dma_buf_get_segment(buf, 0)->s_virt);
-	memset(ed, 0, sizeof(struct OHCI::HCD_ED));
+	auto ed = static_cast<struct ohci::HCD_ED*>(dma_buf_get_segment(buf, 0)->s_virt);
+	memset(ed, 0, sizeof(struct ohci::HCD_ED));
 	ed->ed_buf = buf;
 	return ed;
 }
 
-OHCI::HCD_ED*
+ohci::HCD_ED*
 OHCI_HCD::SetupED(Transfer& xfer)
 {
 	USBDevice& usb_dev = xfer.t_device;
@@ -390,7 +388,7 @@ OHCI_HCD::SetupED(Transfer& xfer)
 		return nullptr;
 
 	/* Construct an endpoint descriptor for this device */
-	OHCI::HCD_ED* ed = AllocateED();
+	ohci::HCD_ED* ed = AllocateED();
 	KASSERT(ed != nullptr, "out of memory when allocating ed");
 	ed->ed_xfer = &xfer;
 	ed->ed_ed.ed_flags =
@@ -412,14 +410,14 @@ OHCI_HCD::SetupED(Transfer& xfer)
 	/* Finally, hook it up to the correct queue */
 	switch(xfer.t_type) {
 		case TRANSFER_TYPE_CONTROL:
-			OHCI::EnqueueED(*ohci_control_ed, *ed);
+			ohci::EnqueueED(*ohci_control_ed, *ed);
 			break;
 		case TRANSFER_TYPE_BULK:
-			OHCI::EnqueueED(*ohci_bulk_ed, *ed);
+			ohci::EnqueueED(*ohci_bulk_ed, *ed);
 			break;
 		case TRANSFER_TYPE_INTERRUPT: {
 			int ed_list = 0; /* XXX */
-			OHCI::EnqueueED(*ohci_interrupt_ed[ed_list], *ed);
+			ohci::EnqueueED(*ohci_interrupt_ed[ed_list], *ed);
 			break;
 		}
 		default:
@@ -442,7 +440,7 @@ OHCI_HCD::SetupTransfer(Transfer& xfer)
 	 * need the ED anyway and creating it here ensures we won't have to re-do all
 	 * that work when we're doing re-scheduling transfers.
 	 */
-	OHCI::HCD_ED* ed = SetupED(xfer);
+	ohci::HCD_ED* ed = SetupED(xfer);
 	xfer.t_hcd = ed;
 
 	/* Hook the ED to the queue; it won't do anything yet */
@@ -458,7 +456,7 @@ OHCI_HCD::TearDownTransfer(Transfer& xfer)
 	auto& usb_dev = xfer.t_device;
 	usb_dev.AssertLocked();
 
-	auto ed = static_cast<OHCI::HCD_ED*>(xfer.t_hcd);
+	auto ed = static_cast<ohci::HCD_ED*>(xfer.t_hcd);
 	if (ed == nullptr)
 		return Result::Success();
 
@@ -486,15 +484,15 @@ OHCI_HCD::TearDownTransfer(Transfer& xfer)
 void
 OHCI_HCD::CreateTDs(Transfer& xfer)
 {
-	auto ed = static_cast<struct OHCI::HCD_ED*>(xfer.t_hcd);
+	auto ed = static_cast<struct ohci::HCD_ED*>(xfer.t_hcd);
 	bool is_read = (xfer.t_flags & TRANSFER_FLAG_READ) != 0;
 
 	KASSERT(ed != nullptr, "ohci_create_tds() without ed?");
 	KASSERT(ed->ed_headtd == nullptr, "ohci_create_tds() with TD's");
 
 	/* Construct the SETUP/HANDSHAKE transfer descriptors, if it's a control transfer */
-	OHCI::HCD_TD* td_setup = nullptr;
-	OHCI::HCD_TD* td_handshake = nullptr;
+	ohci::HCD_TD* td_setup = nullptr;
+	ohci::HCD_TD* td_handshake = nullptr;
 	if (xfer.t_type == TRANSFER_TYPE_CONTROL) {
 		/* Control messages have fixed DATA0/1 types */
 		td_setup = AllocateTD();
@@ -513,7 +511,7 @@ OHCI_HCD::CreateTDs(Transfer& xfer)
 	}
 
 	/* Construct the DATA transfer descriptor */
-	OHCI::HCD_TD* td_data = nullptr;
+	ohci::HCD_TD* td_data = nullptr;
 	if (xfer.t_flags & TRANSFER_FLAG_DATA) {
 		td_data = AllocateTD();
 		/*
@@ -531,7 +529,7 @@ OHCI_HCD::CreateTDs(Transfer& xfer)
 	}
 
 	/* Build the chain of TD's */
-	OHCI::HCD_TD* td_head = nullptr;
+	ohci::HCD_TD* td_head = nullptr;
 	switch(xfer.t_type) {
 		case TRANSFER_TYPE_CONTROL:
 			/* Control transfer: setup -> (data) -> handshake -> tail */
@@ -607,7 +605,7 @@ OHCI_HCD::ScheduleTransfer(Transfer& xfer)
 		return ohci_RootHub->HandleTransfer(xfer);
 
 	/* XXX We should re-cycle them instead... */
-	OHCI::FreeTDsFromTransfer(xfer);
+	ohci::FreeTDsFromTransfer(xfer);
 
 	/*
 	 * Create the TD's that make up this transfer - this'll hook them to the ED
@@ -645,7 +643,7 @@ OHCI_HCD::CancelTransfer(Transfer& xfer)
 	}
 
 	/* XXX we should see if we're still running it */
-	OHCI::FreeTDsFromTransfer(xfer);
+	ohci::FreeTDsFromTransfer(xfer);
 
 	return Result::Success();
 }
@@ -665,7 +663,7 @@ OHCI_HCD::Setup()
 	 * also in every 2*X ms.
 	 */
 	for (unsigned int n = 0; n < OHCI_NUM_ED_LISTS; n++) {
-		OHCI::HCD_ED* ed = AllocateED();
+		ohci::HCD_ED* ed = AllocateED();
 		KASSERT(ed != nullptr, "out of eds");
 		ohci_interrupt_ed[n] = ed;
 		ed->ed_ed.ed_flags = OHCI_ED_K;
@@ -697,8 +695,8 @@ OHCI_HCD::Setup()
 Result
 OHCI_HCD::Attach()
 {
-	void* res_mem = d_ResourceSet.AllocateResource(Ananas::Resource::RT_Memory, 4096);
-	void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
+	void* res_mem = d_ResourceSet.AllocateResource(Resource::RT_Memory, 4096);
+	void* res_irq = d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
 
 	if (res_mem == nullptr || res_irq == nullptr)
 		return RESULT_MAKE_FAILURE(ENODEV);
@@ -715,7 +713,7 @@ OHCI_HCD::Attach()
 	if (auto result = dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, 1, DMA_SEGS_MAX_SIZE); result.IsFailure())
 		return result;
 
-	ohci_Resources = OHCI::HCD_Resources(static_cast<uint8_t*>(res_mem));
+	ohci_Resources = ohci::HCD_Resources(static_cast<uint8_t*>(res_mem));
 
 	/* Set up the interrupt handler */
 	if (auto result = irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this); result.IsFailure())
@@ -758,8 +756,8 @@ OHCI_HCD::Attach()
 
 	/* ohci_Resources.Write addresses of our buffers */
 	ohci_Resources.Write4(OHCI_HCHCCA, dma_buf_get_segment(ohci_hcca_buf, 0)->s_phys);
-	ohci_Resources.Write4(OHCI_HCCONTROLHEADED, OHCI::GetPhysicalAddress(*ohci_control_ed));
-	ohci_Resources.Write4(OHCI_HCBULKHEADED, OHCI::GetPhysicalAddress(*ohci_bulk_ed));
+	ohci_Resources.Write4(OHCI_HCCONTROLHEADED, ohci::GetPhysicalAddress(*ohci_control_ed));
+	ohci_Resources.Write4(OHCI_HCBULKHEADED, ohci::GetPhysicalAddress(*ohci_bulk_ed));
 
 	/* Enable interrupts */
 	ohci_Resources.Write4(OHCI_HCINTERRUPTDISABLE,
@@ -803,17 +801,17 @@ OHCI_HCD::Detach()
 }
 
 void
-OHCI_HCD::SetRootHub(USB::USBDevice& dev)
+OHCI_HCD::SetRootHub(usb::USBDevice& dev)
 {
 	KASSERT(ohci_RootHub == nullptr, "roothub is already set");
-	ohci_RootHub = new OHCI::RootHub(ohci_Resources, dev);
+	ohci_RootHub = new ohci::RootHub(ohci_Resources, dev);
 	auto result = ohci_RootHub->Initialize();
 	(void)result; // XXX check error
 }
 
 namespace {
 
-struct OHCI_Driver : public Ananas::Driver
+struct OHCI_Driver : public Driver
 {
 	OHCI_Driver()
 	 : Driver("ohci")
@@ -825,9 +823,9 @@ struct OHCI_Driver : public Ananas::Driver
 		return "pcibus";
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
-		auto class_res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_ClassRev, 0);
+		auto class_res = cdp.cdp_ResourceSet.GetResource(Resource::RT_PCI_ClassRev, 0);
 		if (class_res == nullptr) /* XXX it's a bug if this happens */
 			return nullptr;
 		uint32_t classrev = class_res->r_Base;
@@ -843,7 +841,6 @@ struct OHCI_Driver : public Ananas::Driver
 
 REGISTER_DRIVER(OHCI_Driver)
 
-} // namespace USB
-} // namespace Ananas
+} // namespace usb
 
 /* vim:set ts=2 sw=2: */

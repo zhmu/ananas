@@ -12,8 +12,7 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace USB {
+namespace usb {
 namespace {
 
 template<typename T> bool
@@ -106,7 +105,6 @@ ParseConfiguration(Interface* usb_if, int& usb_num_if, void* data, int datalen)
 	return Result::Success();
 }
 
-} // namespace Ananas
-} // namespace USB
+} // namespace usb
 
 /* vim:set ts=2 sw=2: */

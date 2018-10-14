@@ -18,8 +18,7 @@
 # define DPRINTF(...)
 #endif
 
-namespace Ananas {
-namespace USB {
+namespace usb {
 
 namespace {
 
@@ -209,7 +208,6 @@ InitializeTransfer()
 
 INIT_FUNCTION(InitializeTransfer, SUBSYSTEM_DEVICE, ORDER_FIRST);
 
-} // namespace USB
-} // namespace Ananas
+} // namespace usb
 
 /* vim:set ts=2 sw=2: */

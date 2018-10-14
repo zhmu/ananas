@@ -5,10 +5,9 @@
 #include "kernel/dev/ata.h"
 #include "ata.h"
 
-namespace Ananas {
-namespace ATA {
+namespace ata {
 
-class ATACD : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IBIODeviceOperations
+class ATACD : public Device, private IDeviceOperations, private IBIODeviceOperations
 {
 public:
 	using Device::Device;
@@ -40,7 +39,6 @@ private:
 	ATA_IDENTIFY ata_identify;
 };
 
-} // namespace ATA
-} // namespace Ananas
+} // namespace ata
 
 #endif // ANANAS_ATA_CD_H

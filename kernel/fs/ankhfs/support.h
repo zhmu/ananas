@@ -5,8 +5,7 @@
 
 struct INode;
 
-namespace Ananas {
-namespace AnkhFS {
+namespace ankhfs {
 
 enum SubSystem {
 	SS_Root,
@@ -67,7 +66,6 @@ Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len, IReadDirC
 Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len, const DirectoryEntry& firstEntry, unsigned int id = 0);
 Result HandleRead(struct VFS_FILE* file, void* buf, size_t len, const char* data);
 
-} // namespace AnkhFS
-} // namespace Ananas
+} // namespace ankhfs
 
 #endif // ANANAS_ANKFS_SUPPORT_H

@@ -29,10 +29,9 @@ TRACE_SETUP;
 #define HDA_READ_1(reg) \
 	(*(volatile uint8_t*)(hda_addr + reg))
 
-namespace Ananas {
-namespace HDA {
+namespace hda {
 
-class HDAPCIDevice : public Ananas::Device, private Ananas::IDeviceOperations, private IHDAFunctions, private irq::IHandler
+class HDAPCIDevice : public Device, private IDeviceOperations, private IHDAFunctions, private irq::IHandler
 {
 public:
 	using Device::Device;
@@ -354,8 +353,8 @@ HDAPCIDevice::GetStreamDataPointer(void* context, int page)
 Result
 HDAPCIDevice::Attach()
 {
-	void* res_io = d_ResourceSet.AllocateResource(Ananas::Resource::RT_Memory, 4096);
-	void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
+	void* res_io = d_ResourceSet.AllocateResource(Resource::RT_Memory, 4096);
+	void* res_irq = d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
 		return RESULT_MAKE_FAILURE(ENODEV);
 
@@ -465,11 +464,11 @@ HDAPCIDevice::Attach()
 	HDA_WRITE_1(HDA_REG_RIRBCTL, HDA_READ_1(HDA_REG_RIRBCTL) | (HDA_RIRBCTL_RIRBDMAEN /* | HDA_RIRBCTL_RINTCTL */));
 
 	// Hook up the HDA device on top of us
-	hda_device = static_cast<Ananas::HDA::HDADevice*>(Ananas::DeviceManager::CreateDevice("hda", Ananas::CreateDeviceProperties(*this, Ananas::ResourceSet())));
+	hda_device = static_cast<hda::HDADevice*>(device_manager::CreateDevice("hda", CreateDeviceProperties(*this, ResourceSet())));
 	KASSERT(hda_device != nullptr, "unable to create hda device");
 	hda_device->SetHDAFunctions(*this);
 
-	if (auto result = Ananas::DeviceManager::AttachSingle(*hda_device); result.IsFailure()) {
+	if (auto result = device_manager::AttachSingle(*hda_device); result.IsFailure()) {
 		/* XXX we should clean up the tree thus far */
 		page_free(*hda_page);
 		return result;
@@ -487,7 +486,7 @@ HDAPCIDevice::Detach()
 
 namespace {
 
-struct HDAPCI_Driver : public Ananas::Driver
+struct HDAPCI_Driver : public Driver
 {
 	HDAPCI_Driver()
 	 : Driver("hda-pci")
@@ -499,14 +498,14 @@ struct HDAPCI_Driver : public Ananas::Driver
 		return "pcibus";
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
-		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_VendorID, 0);
+		auto res = cdp.cdp_ResourceSet.GetResource(Resource::RT_PCI_VendorID, 0);
 		if(res == nullptr)
 			return nullptr; // XXX this should be fixed; attach_bus will try the entire attach-cycle without PCI resources
 
 		uint32_t vendor = res->r_Base;
-		res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PCI_DeviceID, 0);
+		res = cdp.cdp_ResourceSet.GetResource(Resource::RT_PCI_DeviceID, 0);
 		uint32_t device = res->r_Base;
 		if (vendor == 0x8086 && device == 0x2668) /* intel hda in QEMU */
 			return new HDAPCIDevice(cdp);
@@ -522,7 +521,6 @@ struct HDAPCI_Driver : public Ananas::Driver
 
 REGISTER_DRIVER(HDAPCI_Driver)
 
-} // namespace HDA
-} // namespace Ananas
+} // namespace hda
 
 /* vim:set ts=2 sw=2: */

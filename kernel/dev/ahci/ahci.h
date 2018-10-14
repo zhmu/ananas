@@ -14,8 +14,7 @@
 #define AHCI_DPRINTF(...) (void)0
 #endif
 
-namespace Ananas {
-namespace AHCI {
+namespace ahci {
 
 struct AHCI_PCI_CT;
 
@@ -27,9 +26,9 @@ struct Request {
 	struct AHCI_PCI_CT*	pr_ct;
 };
 
-class Port final : public Ananas::Device, private Ananas::IDeviceOperations {
+class Port final : public Device, private IDeviceOperations {
 public:
-	Port(const Ananas::CreateDeviceProperties& cdp);
+	Port(const CreateDeviceProperties& cdp);
 	virtual ~Port() = default;
 
 	IDeviceOperations& GetDeviceOperations() override
@@ -69,7 +68,7 @@ private:
 	Spinlock p_lock;
 };
 
-class AHCIDevice : public Ananas::Device, private Ananas::IDeviceOperations, private irq::IHandler
+class AHCIDevice : public Device, private IDeviceOperations, private irq::IHandler
 {
 	friend class Port;
 public:
@@ -109,7 +108,6 @@ private:
 	Port** ap_port;
 };
 
-} // namespace AHCI
-} // namespace Ananas
+} // namespace ahci
 
 #endif // __ANANAS_AHCI2_H__

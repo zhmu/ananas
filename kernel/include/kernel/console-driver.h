@@ -3,8 +3,6 @@
 
 #include "driver.h"
 
-namespace Ananas {
-
 /*
  * Console drivers are 'special' as they will be probed during early boot and
  * skipped afterwards.
@@ -29,7 +27,5 @@ public:
 
 	virtual Device* ProbeDevice() = 0;
 };
-
-} // namespace Ananas
 
 #endif /* __CONSOLEDRIVER_H__ */

@@ -9,7 +9,7 @@
 
 namespace {
 
-class USBGeneric : public Ananas::Device, private Ananas::IDeviceOperations
+class USBGeneric : public Device, private IDeviceOperations
 {
 public:
 	using Device::Device;
@@ -24,13 +24,13 @@ public:
 	Result Detach() override;
 
 private:
-	Ananas::USB::USBDevice* ug_Device;
+	usb::USBDevice* ug_Device;
 };
 
 Result
 USBGeneric::Attach()
 {
-	ug_Device = static_cast<Ananas::USB::USBDevice*>(d_ResourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
+	ug_Device = static_cast<usb::USBDevice*>(d_ResourceSet.AllocateResource(Resource::RT_USB_Device, 0));
 	return Result::Success();
 }
 
@@ -40,7 +40,7 @@ USBGeneric::Detach()
 	return Result::Success();
 }
 
-struct USBGeneric_Driver : public Ananas::Driver
+struct USBGeneric_Driver : public Driver
 {
 	USBGeneric_Driver()
 	 : Driver("usbgeneric", 1000000)
@@ -55,10 +55,10 @@ struct USBGeneric_Driver : public Ananas::Driver
 		return "usbbus";
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
 		// We accept any USB device
-		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_USB_Device, 0);
+		auto res = cdp.cdp_ResourceSet.GetResource(Resource::RT_USB_Device, 0);
 		if (res == nullptr)
 			return nullptr;
 

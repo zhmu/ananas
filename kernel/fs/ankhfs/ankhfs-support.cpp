@@ -5,8 +5,7 @@
 #include "kernel/vfs/generic.h"
 #include "support.h"
 
-namespace Ananas {
-namespace AnkhFS {
+namespace ankhfs {
 
 Result
 HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len, IReadDirCallback& callback)
@@ -77,7 +76,6 @@ HandleRead(struct VFS_FILE* file, void* buf, size_t len, const char* data)
 	return Result::Success(left);
 }
 
-} // namespace AnkhFS
-} // namespace Ananas
+} // namespace ankhfs
 
 /* vim:set ts=2 sw=2: */

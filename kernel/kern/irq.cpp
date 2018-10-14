@@ -128,7 +128,7 @@ ithread(void* context)
 }
 
 Result
-Register(unsigned int no, Ananas::Device* dev, int type, IHandler& irqHandler)
+Register(unsigned int no, Device* dev, int type, IHandler& irqHandler)
 {
 	if (no >= irqList.size())
 		return RESULT_MAKE_FAILURE(ERANGE);
@@ -195,7 +195,7 @@ Register(unsigned int no, Ananas::Device* dev, int type, IHandler& irqHandler)
 }
 
 void
-Unregister(unsigned int no, Ananas::Device* dev, IHandler& irqHandler)
+Unregister(unsigned int no, Device* dev, IHandler& irqHandler)
 {
 	KASSERT(no < irqList.size(), "interrupt %u out of range", no);
 

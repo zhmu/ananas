@@ -3,9 +3,7 @@
 
 #include <ananas/types.h>
 
-namespace Ananas {
 class Device;
-}
 
 class Result;
 struct VFSFileSystem;
@@ -17,7 +15,7 @@ Result vfs_unregister_filesystem(VFSFileSystem& fs);
 Result vfs_mount(const char* from, const char* to, const char* type);
 Result vfs_unmount(const char* path);
 
-void vfs_abandon_device(Ananas::Device& device);
+void vfs_abandon_device(Device& device);
 
 struct VFS_MOUNTED_FS* vfs_get_rootfs();
 

@@ -8,9 +8,7 @@
 
 #include "kernel/lib.h"
 
-namespace Ananas {
-
-namespace Time {
+namespace time {
 
 namespace {
 
@@ -116,7 +114,6 @@ OnTick()
 
 }
 
-} // namespace Time
-} // namespace Ananas
+} // namespace time
 
 /* vim:set ts=2 sw=2: */

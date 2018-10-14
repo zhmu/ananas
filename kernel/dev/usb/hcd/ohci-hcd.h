@@ -8,13 +8,12 @@
 
 #define OHCI_NUM_ED_LISTS 6 /* 1, 2, 4, 8, 16 and 32ms list */
 
-namespace Ananas {
-namespace USB {
+namespace usb {
 
 class Transfer;
 class USBDevice;
 
-namespace OHCI {
+namespace ohci {
 
 struct HCD_TD;
 struct HCD_ED;
@@ -60,9 +59,9 @@ private:
 
 class RootHub;
 
-} // namespace OHCI
+} // namespace ohci
 
-class OHCI_HCD : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IUSBDeviceOperations, private irq::IHandler
+class OHCI_HCD : public Device, private IDeviceOperations, private IUSBDeviceOperations, private irq::IHandler
 {
 public:
 	using Device::Device;
@@ -89,7 +88,7 @@ public:
 	Result TearDownTransfer(Transfer& xfer) override;
 	Result ScheduleTransfer(Transfer& xfer) override;
 	Result CancelTransfer(Transfer& xfer) override;
-	void SetRootHub(USB::USBDevice& dev) override;
+	void SetRootHub(usb::USBDevice& dev) override;
 
 protected:
 	void Dump();
@@ -108,25 +107,24 @@ private:
 		ohci_mtx.Unlock();
 	}
 
-	OHCI::HCD_TD* AllocateTD();
-	OHCI::HCD_ED* AllocateED();
-	OHCI::HCD_ED* SetupED(Transfer& xfer);
+	ohci::HCD_TD* AllocateTD();
+	ohci::HCD_ED* AllocateED();
+	ohci::HCD_ED* SetupED(Transfer& xfer);
 
 	irq::IRQResult OnIRQ() override;
 
 	dma_buf_t ohci_hcca_buf;
 	OHCI_HCCA* ohci_hcca = nullptr;
-	OHCI::HCD_ED* ohci_interrupt_ed[OHCI_NUM_ED_LISTS];
-	OHCI::HCD_ED* ohci_control_ed = nullptr;
-	OHCI::HCD_ED* ohci_bulk_ed = nullptr;
-	OHCI::HCDEDList ohci_active_eds;
+	ohci::HCD_ED* ohci_interrupt_ed[OHCI_NUM_ED_LISTS];
+	ohci::HCD_ED* ohci_control_ed = nullptr;
+	ohci::HCD_ED* ohci_bulk_ed = nullptr;
+	ohci::HCDEDList ohci_active_eds;
 	Mutex ohci_mtx{"ohci"};
 
-	OHCI::HCD_Resources ohci_Resources;
-	OHCI::RootHub* ohci_RootHub = nullptr;
+	ohci::HCD_Resources ohci_Resources;
+	ohci::RootHub* ohci_RootHub = nullptr;
 };
 
-} // namespace USB
-} // namespace Ananas
+} // namespace usb
 
 #endif /* __ANANAS_OHCI_HCD_H__ */

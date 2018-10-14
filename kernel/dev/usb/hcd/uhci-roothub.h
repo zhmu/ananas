@@ -1,14 +1,13 @@
 #ifndef __UHCI_HUB_H__
 #define __UHCI_HUB_H__
 
-namespace Ananas {
-namespace USB {
+namespace usb {
 
 class Transfer;
 class USBDevice;
 class HCD_Resources;
 
-namespace UHCI {
+namespace uhci {
 
 class RootHub {
 public:
@@ -38,8 +37,7 @@ private:
 	struct Thread rh_pollthread;
 };
 
-} // namespace UHCI
-} // namespace USB
-} // namespace Ananas
+} // namespace uhci
+} // namespace usb
 
 #endif /* __UHCI_HUB_H__ */

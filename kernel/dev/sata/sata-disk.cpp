@@ -17,7 +17,7 @@ TRACE_SETUP;
 
 namespace {
 
-class SATADisk : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::IBIODeviceOperations
+class SATADisk : public Device, private IDeviceOperations, private IBIODeviceOperations
 {
 public:
 	using Device::Device;
@@ -53,7 +53,7 @@ void
 SATADisk::Execute(struct SATA_REQUEST& sr)
 {
 	// XXX this is a hack
-	auto p = static_cast<Ananas::AHCI::Port*>(d_Parent);
+	auto p = static_cast<ahci::Port*>(d_Parent);
 	p->Enqueue(&sr);
 	p->Start();
 #if 0
@@ -157,7 +157,7 @@ SATADisk::WriteBIO(BIO& bio)
 	return Result::Success();
 }
 
-struct SATADisk_Driver : public Ananas::Driver
+struct SATADisk_Driver : public Driver
 {
 	SATADisk_Driver()
 	 : Driver("satadisk")
@@ -169,7 +169,7 @@ struct SATADisk_Driver : public Ananas::Driver
 		return nullptr; // instantiated by ahci-port
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
 		return new SATADisk(cdp);
 	}

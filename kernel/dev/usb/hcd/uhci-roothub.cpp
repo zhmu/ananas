@@ -22,9 +22,8 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace USB {
-namespace UHCI {
+namespace usb {
+namespace uhci {
 
 #if 0
 # define DPRINTF kprintf
@@ -448,8 +447,7 @@ RootHub::Initialize()
 	return Result::Success();
 }
 
-} // namespace UHCIRootHub
-} // namespace USB
-} // namespace Ananas
+} // namespace uhci
+} // namespace usb
 
 /* vim:set ts=2 sw=2: */

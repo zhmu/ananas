@@ -6,9 +6,7 @@
 #include <ananas/util/array.h>
 #include "kernel/thread.h"
 
-namespace Ananas {
 class Device;
-}
 class Result;
 
 namespace irq {
@@ -55,7 +53,7 @@ typedef util::List<IRQSource> IRQSourceList;
 
 /* Single IRQ handler */
 struct IRQHandler {
-	Ananas::Device*		h_device = nullptr;
+	Device*			h_device = nullptr;
 	IHandler*		h_handler = nullptr;
 	unsigned int		h_flags = 0;
 #define IRQ_HANDLER_FLAG_THREAD	(1 << 0)	/* invoke the handler from the IST */
@@ -88,8 +86,8 @@ void UnregisterSource(IRQSource& source);
 #define IRQ_TYPE_ISR		1 /* do not launch the handler from a thread */
 #define IRQ_TYPE_IPI		IRQ_TYPE_ISR
 #define IRQ_TYPE_TIMER		IRQ_TYPE_ISR
-Result Register(unsigned int no, Ananas::Device* dev, int type, IHandler& irqHandler);
-void Unregister(unsigned int no, Ananas::Device* dev, IHandler& irqHandler);
+Result Register(unsigned int no, Device* dev, int type, IHandler& irqHandler);
+void Unregister(unsigned int no, Device* dev, IHandler& irqHandler);
 void InvokeHandler(unsigned int no);
 void Dump();
 

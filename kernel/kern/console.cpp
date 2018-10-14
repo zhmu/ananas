@@ -9,20 +9,14 @@
 #include "kernel/result.h"
 #include "options.h"
 
-namespace Ananas {
-namespace DriverManager {
-namespace internal {
-Ananas::DriverList& GetDriverList();
-} // namespace internal
-} // namespace DriverManager
-namespace DeviceManager {
-namespace internal {
+namespace driver_manager::internal {
+DriverList& GetDriverList();
+} // namespace driver_manager::internal
+namespace device_manager::internal {
 Device* ProbeConsole(ConsoleDriver& driver);
-} // namespace internal
-} // namespace DeviceManager
-} // namespace Ananas
+} // namespace device_manager::internal
 
-Ananas::Device* console_tty = nullptr;
+Device* console_tty = nullptr;
 
 #define CONSOLE_BACKLOG_SIZE 1024
 
@@ -36,16 +30,16 @@ static Mutex mtx_console("console");
 namespace {
 
 bool
-console_attach(Ananas::ConsoleDriver& consoleDriver)
+console_attach(ConsoleDriver& consoleDriver)
 {
 	/*
 	 * See if this devices probes. Note that we don't provide any resources
 	 * here - devices that require them can't be used as console devices.
 	 */
-	Ananas::Device* dev = Ananas::DeviceManager::internal::ProbeConsole(consoleDriver);
+	Device* dev = device_manager::internal::ProbeConsole(consoleDriver);
 	if (dev == nullptr)
 		return false; // likely not present
-	if (auto result = Ananas::DeviceManager::AttachSingle(*dev); result.IsFailure())
+	if (auto result = device_manager::AttachSingle(*dev); result.IsFailure())
 		return false; // too bad; this driver won't work
 
 	console_tty = dev;
@@ -55,9 +49,9 @@ console_attach(Ananas::ConsoleDriver& consoleDriver)
 bool
 console_probe(const char* driverFilter = nullptr)
 {
-	Ananas::DriverList& drivers = Ananas::DriverManager::internal::GetDriverList();
+	auto& drivers = driver_manager::internal::GetDriverList();
 	for(auto& driver: drivers) {
-		Ananas::ConsoleDriver* consoleDriver = driver.GetConsoleDriver();
+		ConsoleDriver* consoleDriver = driver.GetConsoleDriver();
 		if (consoleDriver == nullptr)
 			continue; // not a console driver, skip
 

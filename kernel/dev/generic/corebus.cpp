@@ -8,7 +8,7 @@ TRACE_SETUP;
 
 namespace {
 
-class CoreBus : public Ananas::Device, private Ananas::IDeviceOperations
+class CoreBus : public Device, private IDeviceOperations
 {
 public:
 	CoreBus()
@@ -39,7 +39,7 @@ public:
 Result
 Initialize()
 {
-	return Ananas::DeviceManager::AttachSingle(*new CoreBus);
+	return device_manager::AttachSingle(*new CoreBus);
 }
 
 INIT_FUNCTION(Initialize, SUBSYSTEM_DEVICE, ORDER_LAST);

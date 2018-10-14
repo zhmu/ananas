@@ -3,19 +3,17 @@
 
 #include <ananas/types.h>
 
-namespace Ananas {
-namespace AnkhFS {
-namespace Devices {
+namespace ankhfs {
+namespace devices {
 constexpr int subRoot = 0;
 constexpr int subDevices = 1;
 constexpr int subDrivers = 2;
-} // namespace Devices
+} // namespace devices
 
 class IAnkhSubSystem;
 
 IAnkhSubSystem& GetDeviceSubSystem();
 
-} // namespace AnkhFS
-} // namespace Ananas
+} // namespace ankhfs
 
 #endif // ANANAS_ANKFS_DEVICE_H

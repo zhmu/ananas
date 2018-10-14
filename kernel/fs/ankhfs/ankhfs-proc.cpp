@@ -23,8 +23,7 @@ extern process::ProcessList process_all;
 
 } // namespace process
 
-namespace Ananas {
-namespace AnkhFS {
+namespace ankhfs {
 
 namespace {
 
@@ -121,7 +120,7 @@ public:
 		if (inum_to_sub(inum) == subFdDir)
 				return HandleReadDir_Proc_Fd(file, dirents, len);
 
-		return AnkhFS::HandleReadDir(file, dirents, len, proc_entries[0], inum_to_id(inum));
+		return ankhfs::HandleReadDir(file, dirents, len, proc_entries[0], inum_to_id(inum));
 	}
 
 	Result FillInode(INode& inode, ino_t inum) override
@@ -202,7 +201,7 @@ public:
 		}
 		result[sizeof(result) - 1] = '\0';
 		p->Unlock();
-		return AnkhFS::HandleRead(file, buf, len, result);
+		return ankhfs::HandleRead(file, buf, len, result);
 	}
 
 	Result HandleIOControl(struct VFS_FILE* file, unsigned long op, void* args[]) override
@@ -229,7 +228,6 @@ IAnkhSubSystem& GetProcSubSystem()
 	return procSubSystem;
 }
 
-} // namespace AnkhFS
-} // namespace Ananas
+} // namespace ankhfs
 
 /* vim:set ts=2 sw=2: */

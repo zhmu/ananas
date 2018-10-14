@@ -174,7 +174,7 @@ constexpr util::array<KeyMap, 128> keymap = {
 	/* 7f */ KeyMap{ Key{ KeyType::Invalid,      0 }, Key{ KeyType::Character,    0 } },
 };
 
-class ATKeyboard : public Ananas::Device, private Ananas::IDeviceOperations, private irq::IHandler
+class ATKeyboard : public Device, private IDeviceOperations, private irq::IHandler
 {
 public:
 	using Device::Device;
@@ -262,8 +262,8 @@ ATKeyboard::OnIRQ()
 Result
 ATKeyboard::Attach()
 {
-	void* res_io = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IO, 7);
-	void* res_irq = d_ResourceSet.AllocateResource(Ananas::Resource::RT_IRQ, 0);
+	void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 7);
+	void* res_irq = d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
 	if (res_io == NULL || res_irq == NULL)
 		return RESULT_MAKE_FAILURE(ENODEV);
 
@@ -288,7 +288,7 @@ ATKeyboard::Detach()
 	return Result::Success();
 }
 
-struct ATKeyboard_Driver : public Ananas::Driver
+struct ATKeyboard_Driver : public Driver
 {
 	ATKeyboard_Driver()
 	 : Driver("atkbd")
@@ -300,9 +300,9 @@ struct ATKeyboard_Driver : public Ananas::Driver
 		return "acpi";
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
-	auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PNP_ID, 0);
+	auto res = cdp.cdp_ResourceSet.GetResource(Resource::RT_PNP_ID, 0);
 	if (res != NULL && res->r_Base == 0x0303) /* PNP0303: IBM Enhanced (101/102-key, PS/2 mouse support) */
 		return new ATKeyboard(cdp);
 	return nullptr;

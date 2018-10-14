@@ -7,8 +7,7 @@
 
 TRACE_SETUP;
 
-namespace Ananas {
-namespace HDA {
+namespace hda {
 
 #if HDA_VERBOSE
 const char* const PinConnectivityString[] = { "jack", "none", "fixed", "both" };
@@ -576,7 +575,6 @@ HDADevice::AttachNode(int cad, int nodeid)
 	return Result::Success();
 }
 
-} // namespace HDA
-} // namespace Ananas
+} // namespace hda
 
 /* vim:set ts=2 sw=2: */

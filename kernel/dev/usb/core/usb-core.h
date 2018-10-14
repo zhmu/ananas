@@ -12,8 +12,7 @@
 #define USB_MAX_INTERFACES	8
 #define USB_MAX_DATALEN		1024
 
-namespace Ananas {
-namespace USB {
+namespace usb {
 
 /*
  * A standard USB endpoint.
@@ -57,7 +56,6 @@ class Transfer;
 
 typedef void (*usb_xfer_callback_t)(Transfer&);
 
-} // namespace USB
-} // namespace Ananas
+} // namespace usb
 
 #endif /* __ANANAS_USB_CORE_H__ */

@@ -13,8 +13,7 @@
 #include "../core/usb-transfer.h"
 #include "usb-hub.h"
 
-namespace Ananas {
-namespace USB {
+namespace usb {
 
 #if 0
 # define DPRINTF Printf
@@ -211,7 +210,7 @@ Hub::HandleExplore()
 Result
 Hub::Attach()
 {
-	h_Device = static_cast<USBDevice*>(d_ResourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
+	h_Device = static_cast<USBDevice*>(d_ResourceSet.AllocateResource(Resource::RT_USB_Device, 0));
 
 	/* Obtain the hub descriptor */
 	struct USB_DESCR_HUB hd;
@@ -267,7 +266,7 @@ Hub::Detach()
 
 namespace {
 
-struct USBHub_Driver : public Ananas::Driver
+struct USBHub_Driver : public Driver
 {
 	USBHub_Driver()
 	 : Driver("usbhub")
@@ -279,9 +278,9 @@ struct USBHub_Driver : public Ananas::Driver
 		return "usbbus";
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
-		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_USB_Device, 0);
+		auto res = cdp.cdp_ResourceSet.GetResource(Resource::RT_USB_Device, 0);
 		if (res == nullptr)
 			return nullptr;
 		auto usb_dev = static_cast<USBDevice*>(reinterpret_cast<void*>(res->r_Base));
@@ -297,7 +296,6 @@ struct USBHub_Driver : public Ananas::Driver
 
 REGISTER_DRIVER(USBHub_Driver)
 
-} // namespace USB
-} // namespace Ananas
+} // namespace usb
 
 /* vim:set ts=2 sw=2: */

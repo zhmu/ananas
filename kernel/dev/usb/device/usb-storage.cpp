@@ -63,34 +63,34 @@ DumpCBW(USBSTORAGE_CBW& cbw)
 
 class USBStorage;
 
-struct StorageDevice_PipeInCallbackWrapper : public Ananas::USB::IPipeCallback
+struct StorageDevice_PipeInCallbackWrapper : public usb::IPipeCallback
 {
 	StorageDevice_PipeInCallbackWrapper(USBStorage& device)
 	 : pi_Device(device)
 	{
 	}
 
-	void OnPipeCallback(Ananas::USB::Pipe& pipe) override;
+	void OnPipeCallback(usb::Pipe& pipe) override;
 
 	USBStorage& pi_Device;
 };
 
-struct StorageDevice_PipeOutCallbackWrapper : public Ananas::USB::IPipeCallback
+struct StorageDevice_PipeOutCallbackWrapper : public usb::IPipeCallback
 {
 	StorageDevice_PipeOutCallbackWrapper(USBStorage& device)
 	 : pi_Device(device)
 	{
 	}
 
-	void OnPipeCallback(Ananas::USB::Pipe& pipe) override;
+	void OnPipeCallback(usb::Pipe& pipe) override;
 
 	USBStorage& pi_Device;
 };
 
-class USBStorage : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ISCSIDeviceOperations
+class USBStorage : public Device, private IDeviceOperations, private ISCSIDeviceOperations
 {
 public:
-	USBStorage(const Ananas::CreateDeviceProperties& cdp);
+	USBStorage(const CreateDeviceProperties& cdp);
 	virtual ~USBStorage() = default;
 
 	IDeviceOperations& GetDeviceOperations() override
@@ -123,9 +123,9 @@ private:
 		us_mutex.Unlock();
 	}
 
-	Ananas::USB::USBDevice* us_Device = nullptr;
-	Ananas::USB::Pipe* us_BulkIn = nullptr;
-	Ananas::USB::Pipe* us_BulkOut = nullptr;
+	usb::USBDevice* us_Device = nullptr;
+	usb::Pipe* us_BulkIn = nullptr;
+	usb::Pipe* us_BulkOut = nullptr;
 
 	StorageDevice_PipeInCallbackWrapper us_PipeInCallback;
 	StorageDevice_PipeOutCallbackWrapper us_PipeOutCallback;
@@ -144,17 +144,17 @@ private:
 	Semaphore us_signal_sem{0};
 };
 
-void StorageDevice_PipeInCallbackWrapper::OnPipeCallback(Ananas::USB::Pipe& pipe)
+void StorageDevice_PipeInCallbackWrapper::OnPipeCallback(usb::Pipe& pipe)
 {
 	pi_Device.OnPipeInCallback();
 }
 
-void StorageDevice_PipeOutCallbackWrapper::OnPipeCallback(Ananas::USB::Pipe& pipe)
+void StorageDevice_PipeOutCallbackWrapper::OnPipeCallback(usb::Pipe& pipe)
 {
 	pi_Device.OnPipeOutCallback();
 }
 
-USBStorage::USBStorage(const Ananas::CreateDeviceProperties& cdp)
+USBStorage::USBStorage(const CreateDeviceProperties& cdp)
 	: Device(cdp), us_PipeInCallback(*this), us_PipeOutCallback(*this)
 {
 }
@@ -232,7 +232,7 @@ USBStorage::PerformSCSIRequest(int lun, Direction dir, const void* cb, size_t cb
 void
 USBStorage::OnPipeInCallback()
 {
-	Ananas::USB::Transfer& xfer = us_BulkIn->p_xfer;
+	auto& xfer = us_BulkIn->p_xfer;
 
 	DPRINTF("usbstorage_in_callback! -> flags %x len %d", xfer.t_flags, xfer.t_result_length);
 
@@ -279,7 +279,7 @@ USBStorage::OnPipeInCallback()
 void
 USBStorage::OnPipeOutCallback()
 {
-	Ananas::USB::Transfer& xfer = us_BulkOut->p_xfer;
+	auto& xfer = us_BulkOut->p_xfer;
 	(void)xfer;
 
 	DPRINTF("usbstorage_out_callback! -> len %d", xfer.t_result_length);
@@ -290,7 +290,7 @@ USBStorage::OnPipeOutCallback()
 Result
 USBStorage::Attach()
 {
-	us_Device = static_cast<Ananas::USB::USBDevice*>(d_ResourceSet.AllocateResource(Ananas::Resource::RT_USB_Device, 0));
+	us_Device = static_cast<usb::USBDevice*>(d_ResourceSet.AllocateResource(Resource::RT_USB_Device, 0));
 
 	/*
 	 * Determine the max LUN of the device - note that devices do not have to support this,
@@ -326,13 +326,13 @@ USBStorage::Attach()
 	// Now create SCSI disks for all LUN's here
 	for (unsigned int lun = 0; lun <= us_max_lun; lun++)
 	{
-		Ananas::ResourceSet sub_resourceSet;
-		sub_resourceSet.AddResource(Ananas::Resource(Ananas::Resource::RT_ChildNum, lun, 0));
+		ResourceSet sub_resourceSet;
+		sub_resourceSet.AddResource(Resource(Resource::RT_ChildNum, lun, 0));
 
-		Ananas::Device* sub_device = Ananas::DeviceManager::CreateDevice("scsidisk", Ananas::CreateDeviceProperties(*this, sub_resourceSet));
+		Device* sub_device = device_manager::CreateDevice("scsidisk", CreateDeviceProperties(*this, sub_resourceSet));
 		if (sub_device == nullptr)
 			continue;
-		Ananas::DeviceManager::AttachSingle(*sub_device);
+		device_manager::AttachSingle(*sub_device);
 	}
 
 	return Result::Success();
@@ -354,7 +354,7 @@ USBStorage::Detach()
 	return Result::Success();
 }
 
-struct USBStorage_Driver : public Ananas::Driver
+struct USBStorage_Driver : public Driver
 {
 	USBStorage_Driver()
 	 : Driver("usbstorage")
@@ -366,15 +366,15 @@ struct USBStorage_Driver : public Ananas::Driver
 		return "usbbus";
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
-		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_USB_Device, 0);
+		auto res = cdp.cdp_ResourceSet.GetResource(Resource::RT_USB_Device, 0);
 		if (res == nullptr)
 			return nullptr;
 
-		auto usb_dev = static_cast<Ananas::USB::USBDevice*>(reinterpret_cast<void*>(res->r_Base));
+		auto usb_dev = static_cast<usb::USBDevice*>(reinterpret_cast<void*>(res->r_Base));
 
-		Ananas::USB::Interface& iface = usb_dev->ud_interface[usb_dev->ud_cur_interface];
+		auto& iface = usb_dev->ud_interface[usb_dev->ud_cur_interface];
 		if (iface.if_class == USB_IF_CLASS_STORAGE && iface.if_protocol == USB_IF_PROTOCOL_BULKONLY)
 			return new USBStorage(cdp);
 		return nullptr;

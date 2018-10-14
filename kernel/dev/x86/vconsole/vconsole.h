@@ -9,7 +9,7 @@
 class IVideo;
 class VTTY;
 
-struct VConsole : public Ananas::Device, private Ananas::IDeviceOperations, private Ananas::ICharDeviceOperations, private keyboard_mux::IKeyboardConsumer
+struct VConsole : public Device, private IDeviceOperations, private ICharDeviceOperations, private keyboard_mux::IKeyboardConsumer
 {
 	using Device::Device;
 	virtual ~VConsole() = default;

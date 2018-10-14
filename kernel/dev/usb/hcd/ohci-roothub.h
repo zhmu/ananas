@@ -1,13 +1,12 @@
 #ifndef __OHCI_ROOTHUB_H__
 #define __OHCI_ROOTHUB_H__
 
-namespace Ananas {
-namespace USB {
+namespace usb {
 
 class Transfer;
 class USBDevice;
 
-namespace OHCI {
+namespace ohci {
 
 class HCD_Resources;
 
@@ -39,8 +38,7 @@ private:
 	bool rh_pending_changes = true;
 };
 
-} // namespace OHCI
-} // namespace USB
-} // namespace Ananas
+} // namespace ohci
+} // namespace usb
 
 #endif /* __OHCI_ROOTHUB_H__ */

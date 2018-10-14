@@ -7,7 +7,7 @@
 
 namespace {
 
-struct ACPI_PCIHB : public Ananas::Device, private Ananas::IDeviceOperations
+struct ACPI_PCIHB : public Device, private IDeviceOperations
 {
 	using Device::Device;
 
@@ -27,7 +27,7 @@ struct ACPI_PCIHB : public Ananas::Device, private Ananas::IDeviceOperations
 	}
 };
 
-struct ACPI_PCIHB_Driver : public Ananas::Driver
+struct ACPI_PCIHB_Driver : public Driver
 {
 	ACPI_PCIHB_Driver()
 	 : Driver("acpi-pcihb")
@@ -39,9 +39,9 @@ struct ACPI_PCIHB_Driver : public Ananas::Driver
 		return "acpi";
 	}
 
-	Ananas::Device* CreateDevice(const Ananas::CreateDeviceProperties& cdp) override
+	Device* CreateDevice(const CreateDeviceProperties& cdp) override
 	{
-		auto res = cdp.cdp_ResourceSet.GetResource(Ananas::Resource::RT_PNP_ID, 0);
+		auto res = cdp.cdp_ResourceSet.GetResource(Resource::RT_PNP_ID, 0);
 		if (res != NULL && res->r_Base == 0x0a03 /* PNP0A03: PCI Bus */)
 			return new ACPI_PCIHB(cdp);
 		return nullptr;
