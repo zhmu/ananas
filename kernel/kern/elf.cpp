@@ -2,18 +2,21 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
 #include <ananas/elf.h>
-#include <ananas/elfinfo.h>
 #include "kernel/exec.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
+#include "kernel/process.h"
+#include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "kernel/vmarea.h"
 #include "kernel/vmspace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/types.h"
 #include "kernel/vm.h"
+#include "kernel-md/md.h"
+#include "kernel-md/param.h"
 
 TRACE_SETUP;
 
@@ -21,9 +24,33 @@ TRACE_SETUP;
 //     virtual address space (vmspace should be extended for dynamic mappings)
 #define INTERPRETER_BASE 0xf000000
 #define PHDR_BASE 0xd0000000
-#define ELFINFO_BASE 0xe000000
 
-addr_t last_exec_addr;
+namespace
+{
+
+template<typename T>
+void place(addr_t& ptr, const T& data, size_t n)
+{
+		memcpy(reinterpret_cast<void*>(ptr), &data, n);
+		ptr += n;
+}
+
+template<typename T>
+void place(addr_t& ptr, const T& data)
+{
+	place(ptr, data, sizeof(data));
+}
+
+size_t CalculateVectorStorageInBytes(const char* p[], size_t& num_entries)
+{
+	size_t n = 0;
+	num_entries = 0;
+	for (/* nothing */; *p != nullptr; p++) {
+		n += strlen(*p) + 1 /* terminating \0 */;
+		num_entries++;
+	}
+	return n;
+}
 
 static Result
 read_data(DEntry& dentry, void* buf, off_t offset, size_t len)
@@ -46,9 +73,30 @@ read_data(DEntry& dentry, void* buf, off_t offset, size_t len)
 	return Result::Success();
 }
 
-#ifdef __amd64__
-static Result
-elf64_load_ph(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase)
+} // unnamed namespace
+
+struct ELF64Loader : IExecutor
+{
+	struct AuxArgs
+	{
+		addr_t	aa_interpreter_base = 0;
+		addr_t	aa_phdr = 0;
+		size_t	aa_phdr_entries = 0;
+		addr_t	aa_entry = 0;
+		addr_t	aa_rip = 0;
+	};
+
+	Result Load(VMSpace& vs, DEntry& dentry, void*& auxargs) override;
+	Result PrepareForExecute(VMSpace& vs, Thread& t, void* auxargs, const char* argv[], const char* envp[]) override;
+
+private:
+	Result LoadPH(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase) const;
+	Result CheckHeader(const Elf64_Ehdr& ehdr) const;
+	Result LoadFile(VMSpace& vs, DEntry& dentry, addr_t rbase, addr_t& exec_addr) const;
+} elf64Loader;
+
+Result
+ELF64Loader::LoadPH(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase) const
 {
 	/* Construct the flags for the actual mapping */
 	unsigned int flags = VM_FLAG_FAULT | VM_FLAG_USER;
@@ -84,7 +132,6 @@ elf64_load_ph(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase)
 	 *           /             |
 	 *       virt_begin    ROUND_UP(v_addr + filesz)
 	 */
-	VMArea* va;
 	addr_t virt_begin = ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE);
 	addr_t virt_end   = ROUND_UP((phdr.p_vaddr + phdr.p_filesz), PAGE_SIZE);
 	addr_t virt_extra = phdr.p_vaddr - virt_begin;
@@ -96,6 +143,7 @@ elf64_load_ph(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase)
 	}
 
 	// First step is to map the dentry-backed data
+	VMArea* va;
 	RESULT_PROPAGATE_FAILURE(
 		vs.MapToDentry(rbase + virt_begin, virt_end - virt_begin, dentry, doffset, filesz, flags, va)
 	);
@@ -110,8 +158,8 @@ elf64_load_ph(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase)
 	return vs.MapTo(rbase + v_extra, v_extra_len, flags, va);
 }
 
-static Result
-elf64_check_header(const Elf64_Ehdr& ehdr)
+Result
+ELF64Loader::CheckHeader(const Elf64_Ehdr& ehdr) const
 {
 	/* Perform basic ELF checks; must be statically-linked executable */
 	if (ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != ELFMAG1 ||
@@ -137,8 +185,8 @@ elf64_check_header(const Elf64_Ehdr& ehdr)
 	return Result::Success();
 }
 
-static Result
-elf64_load_file(VMSpace& vs, DEntry& dentry, addr_t rbase, addr_t* exec_addr)
+Result
+ELF64Loader::LoadFile(VMSpace& vs, DEntry& dentry, addr_t rbase, addr_t& exec_addr) const
 {
 	Elf64_Ehdr ehdr;
 
@@ -147,7 +195,7 @@ elf64_load_file(VMSpace& vs, DEntry& dentry, addr_t rbase, addr_t* exec_addr)
 	);
 
 	RESULT_PROPAGATE_FAILURE(
-		elf64_check_header(ehdr)
+		CheckHeader(ehdr)
 	);
 
 	/* Process all program headers one by one */
@@ -160,23 +208,21 @@ elf64_load_file(VMSpace& vs, DEntry& dentry, addr_t rbase, addr_t* exec_addr)
 			continue;
 
 		RESULT_PROPAGATE_FAILURE(
-			elf64_load_ph(vs, dentry, phdr, rbase)
+			LoadPH(vs, dentry, phdr, rbase)
 		);
 	}
 
-	*exec_addr = ehdr.e_entry;
-	last_exec_addr = *exec_addr;
+	exec_addr = ehdr.e_entry;
 	return Result::Success();
 }
 
-static Result
-elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
+Result
+ELF64Loader::Load(VMSpace& vs, DEntry& dentry, void*& aa)
 {
-	*exec_arg = 0;
-
 	// Load the file - this checks the ELF header as well
+	addr_t exec_addr;
 	RESULT_PROPAGATE_FAILURE(
-		elf64_load_file(vs, dentry, 0, exec_addr)
+		LoadFile(vs, dentry, 0, exec_addr)
 	);
 
 	// Fetch the ELF header (again - this could be nicer...)
@@ -212,14 +258,17 @@ elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 				// Read the interpreter from disk
 				interp = static_cast<char*>(kmalloc(phdr.p_filesz + 1));
 				interp[phdr.p_filesz] = '\0';
-
-				RESULT_PROPAGATE_FAILURE(
-					read_data(dentry, interp, phdr.p_offset, phdr.p_filesz)
-				); // XXX leaks interp
-				break;
+				if (auto result = read_data(dentry, interp, phdr.p_offset, phdr.p_filesz); result.IsFailure()) {
+					kfree(interp);
+					return result;
+				}
 			}
 		}
-	 }
+	}
+
+	// Initialize auxiliary arguments; these will be passed using the auxv mechanism
+	auto auxargs = new AuxArgs;
+	auxargs->aa_entry = exec_addr;
 
 	if (interp != nullptr) {
 		// We need to use an interpreter to load this
@@ -236,7 +285,7 @@ elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 		addr_t interp_rbase = INTERPRETER_BASE;
 		addr_t interp_entry;
 		{
-			auto result = elf64_load_file(vs, *interp_file.f_dentry, interp_rbase, &interp_entry);
+			auto result = LoadFile(vs, *interp_file.f_dentry, interp_rbase, interp_entry);
 			vfs_close(nullptr, &interp_file); // we don't need it anymore
 			if (result.IsFailure())
 				return result;
@@ -258,42 +307,122 @@ elf64_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg)
 			);
 		}
 
-		/*
-		 * As we have a binary with an interpreter, prepare the information
-		 * structure. Ideally, we should place this on the stack somewhere
-		 * as it's no longer relevant once the loader finished, yet...
-		 */
+		// Add auxiliary arguments for dynamic executables
+		auxargs->aa_interpreter_base = interp_rbase;
+		auxargs->aa_phdr = va_phdr->va_virt + (ehdr.e_phoff & (PAGE_SIZE - 1));
+		auxargs->aa_phdr_entries = ehdr.e_phnum;
 
-		// Create a mapping for the ELF information
-		VMArea* va;
-		RESULT_PROPAGATE_FAILURE(
-			vs.MapTo(ELFINFO_BASE, sizeof(struct ANANAS_ELF_INFO), VM_FLAG_READ | VM_FLAG_USER, va)
-		);
-		*exec_arg = va->va_virt;
-
-		// Now assign a page to there and map it into the vmspae
-		VMPage& vp = va->AllocatePrivatePage(ELFINFO_BASE, VM_PAGE_FLAG_PRIVATE | VM_PAGE_FLAG_READONLY);
-		auto elf_info = static_cast<struct ANANAS_ELF_INFO*>(kmem_map(vp.GetPage()->GetPhysicalAddress(), sizeof(struct ANANAS_ELF_INFO), VM_FLAG_READ | VM_FLAG_WRITE));
-		vp.Map(vs, *va);
-		vp.Unlock();
-
-		// And fill it out
-		memset(elf_info, 0, PAGE_SIZE);
-		elf_info->ei_size = sizeof(*elf_info);
-		elf_info->ei_interpreter_base = interp_rbase;
-		elf_info->ei_entry = *exec_addr;
-		elf_info->ei_phdr = va_phdr->va_virt + (ehdr.e_phoff & (PAGE_SIZE - 1));
-		elf_info->ei_phdr_entries = ehdr.e_phnum;
-		kmem_unmap(elf_info, sizeof(struct ANANAS_ELF_INFO));
-
-		// Override the load address
-		*exec_addr = interp_entry + interp_rbase;
+		// Invoke the interpreter instead of the executable; it can use AT_ENTRY to
+		// determine the executable entry point
+		auxargs->aa_rip = interp_entry + interp_rbase;
+	} else {
+		// Directly invoke the static executable; no interpreter present
+		auxargs->aa_rip = exec_addr;
 	}
 
+	aa = static_cast<void*>(auxargs);
 	return Result::Success();
 }
 
-EXECUTABLE_FORMAT("elf64", elf64_load);
-#endif /* __amd64__ */
+Result
+ELF64Loader::PrepareForExecute(VMSpace& vs, Thread& t, void* aa, const char* argv[], const char* envp[])
+{
+	auto auxargs = static_cast<AuxArgs*>(aa);
+
+	/*
+	 * Allocate userland stack here - there are a few reasons to do that here:
+	 *
+	 * (1) We can look at the ELF file to check what kind of stack we need to
+	 *     allocate (execute-allowed or not, etc)
+	 * (2) All mappings have been made, so we can pick a nice spot.
+	 * (3) This will only be called for userland programs, so we can avoid the
+	 *     hairy details of stacks in the common Thread code.
+	 * (4) We'll be needing write access to the stack anyway to fill it with
+	 *     auxv.
+	 * (5) We do not have to special-case the userland stack for cloning/exec.
+	 */
+	auto proc = t.t_process;
+
+	VMArea* va;
+	vs.MapTo(USERLAND_STACK_ADDR, THREAD_STACK_SIZE, VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_FAULT | VM_FLAG_MD, va);
+
+	// Pre-fault the first page so that we can put stuff in it
+	constexpr auto stack_end = USERLAND_STACK_ADDR + THREAD_STACK_SIZE;
+	VMPage& stack_vp = va->AllocatePrivatePage(stack_end - PAGE_SIZE, VM_PAGE_FLAG_PRIVATE);
+	stack_vp.Map(vs, *va);
+
+	/*
+	 * Calculate the amount of space we need; the ELF ABI specifies the stack to
+	 * be laid out as follows:
+	 *
+   * padding_bytes_needed + 0              ends at stack_end
+   * data_bytes_needed    + <data>         contains strings for argv/envp
+   *                      + AT_NULL
+   *                      | auxv[...
+	 * record_bytes_needed  | 0
+   *                      | envp[...]
+	 *                      | 0
+	 *                      | argv[...]      <=== %rsp(8)
+	 *                      + argc           <=== %rsp(0)
+	 *
+	 */
+	constexpr size_t num_auxv_entries = 5;
+	size_t argc, envc;
+	const size_t data_bytes_needed = CalculateVectorStorageInBytes(argv, argc) + CalculateVectorStorageInBytes(envp, envc);
+	const size_t record_bytes_needed =
+	 (1 /* argc */ + argc + 1 /* terminating null */ + envc + 1 /* terminating null */) * sizeof(register_t) +
+	 num_auxv_entries * sizeof(Elf_Auxv);
+	const size_t padding_bytes_needed = (data_bytes_needed % 8 > 0) ? 8 - (data_bytes_needed % 8) : 0;
+	const size_t bytes_needed = record_bytes_needed + data_bytes_needed + padding_bytes_needed;
+	KASSERT(bytes_needed < PAGE_SIZE, "TODO deal with more >1 page here!");
+
+	// Allocate a backing page for the userland stack and fill it
+	{
+		auto p = static_cast<char*>(kmem_map(stack_vp.GetPage()->GetPhysicalAddress(), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE));
+		memset(p, 0, PAGE_SIZE);
+		{
+			addr_t stack_ptr = reinterpret_cast<addr_t>(p) + PAGE_SIZE - bytes_needed;
+			register_t stack_data_ptr = stack_end - data_bytes_needed - padding_bytes_needed;
+
+			place(stack_ptr, static_cast<register_t>(argc));
+			for (size_t n = 0; n < argc; n++) {
+				place(stack_ptr, stack_data_ptr);
+				stack_data_ptr += strlen(argv[n]) + 1 /* terminating \0 */;
+			}
+			place(stack_ptr, static_cast<register_t>(0));
+			for (size_t n = 0; n < envc; n++) {
+				place(stack_ptr, stack_data_ptr);
+				stack_data_ptr += strlen(envp[n]) + 1 /* terminating \0 */;
+			}
+			place(stack_ptr, static_cast<register_t>(0));
+
+			// Note: the amount of items here must correspond with num_auxv_entries !
+			place(stack_ptr, Elf_Auxv{AT_ENTRY, static_cast<long>(auxargs->aa_entry)});
+			place(stack_ptr, Elf_Auxv{AT_BASE, static_cast<long>(auxargs->aa_interpreter_base)});
+			place(stack_ptr, Elf_Auxv{AT_PHDR, static_cast<long>(auxargs->aa_phdr)});
+			place(stack_ptr, Elf_Auxv{AT_PHENT, static_cast<long>(auxargs->aa_phdr_entries)});
+			place(stack_ptr, Elf_Auxv{AT_NULL, 0});
+
+			for (size_t n = 0; n < argc; n++) {
+				place(stack_ptr, *argv[n], strlen(argv[n]) + 1 /* terminating \0 */);
+			}
+			for (size_t n = 0; n < envc; n++) {
+				place(stack_ptr, *envp[n], strlen(envp[n]) + 1 /* terminating \0 */);
+			}
+			place(stack_ptr, static_cast<register_t>(0), padding_bytes_needed); // padding
+
+			KASSERT(stack_ptr == reinterpret_cast<addr_t>(p) + PAGE_SIZE, "did not fill entire userland stack; ptr %p != end %p\n", stack_ptr, reinterpret_cast<addr_t>(p) + PAGE_SIZE);
+		}
+		kmem_unmap(p, PAGE_SIZE);
+	}
+
+	md::thread::SetupPostExec(t, auxargs->aa_rip, stack_end - bytes_needed);
+
+	stack_vp.Unlock();
+	delete auxargs;
+	return Result::Success();
+}
+
+EXECUTABLE_FORMAT("elf64", elf64Loader);
 
 /* vim:set ts=2 sw=2: */
