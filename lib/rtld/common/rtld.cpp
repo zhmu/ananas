@@ -223,10 +223,10 @@ parse_dynamic(Object& obj)
 				obj.o_rela_sz = dyn->d_un.d_val;
 				break;
 			case DT_RELAENT:
-				obj.o_rela_ent = dyn->d_un.d_val;
+				assert(dyn->d_un.d_val == sizeof(Elf_Rela));
 				break;
 			case DT_SYMENT:
-				obj.o_symtab_sz = dyn->d_un.d_val;
+				assert(dyn->d_un.d_val == sizeof(Elf_Sym));
 				break;
 			case DT_PLTGOT:
 				obj.o_plt_got = reinterpret_cast<Elf_Addr*>(obj.o_reloc_base + dyn->d_un.d_ptr);
@@ -298,7 +298,7 @@ process_relocations_rela(Object& obj)
 	dbg("%s: process_relocations_rela()\n", obj.o_name);
 	char* rela_ptr = obj.o_rela;
 	char* rela_end = rela_ptr + obj.o_rela_sz;
-	for (/* nothing */; rela_ptr < rela_end; rela_ptr += obj.o_rela_ent) {
+	for (/* nothing */; rela_ptr < rela_end; rela_ptr += sizeof(Elf_Rela)) {
 		auto& rela = *reinterpret_cast<Elf_Rela*>(rela_ptr);
 		auto& v64 = *reinterpret_cast<uint64_t*>(obj.o_reloc_base + rela.r_offset);
 		int r_type = ELF_R_TYPE(rela.r_info);
@@ -353,7 +353,7 @@ process_relocations_plt(Object& obj)
 {
 	char* rela_ptr = (char*)obj.o_jmp_rela;
 	char* rela_end = rela_ptr + obj.o_plt_rel_sz;
-	for (/* nothing */; rela_ptr < rela_end; rela_ptr += obj.o_rela_ent) {
+	for (/* nothing */; rela_ptr < rela_end; rela_ptr += sizeof(Elf_Rela)) {
 		auto& rela = *reinterpret_cast<Elf_Rela*>(rela_ptr);
 		auto& v64 = *reinterpret_cast<uint64_t*>(obj.o_reloc_base + rela.r_offset);
 		switch(ELF_R_TYPE(rela.r_info)) {
@@ -380,7 +380,7 @@ process_relocations_copy(Object& obj)
 	dbg("process_relocations_copy for '%s'\n", obj.o_name);
 	char* rela_ptr = obj.o_rela;
 	char* rela_end = rela_ptr + obj.o_rela_sz;
-	for (/* nothing */; rela_ptr < rela_end; rela_ptr += obj.o_rela_ent) {
+	for (/* nothing */; rela_ptr < rela_end; rela_ptr += sizeof(Elf_Rela)) {
 		auto& rela = *reinterpret_cast<Elf_Rela*>(rela_ptr);
 		if (ELF_R_TYPE(rela.r_info) != R_X86_64_COPY)
 			continue;
