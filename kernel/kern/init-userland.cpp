@@ -87,7 +87,7 @@ userinit_func(void*)
 	dentry_ref(dentry);
 	vfs_close(proc, &file);
 
-	auto exec = exec_prepare(*file.f_dentry);
+	auto exec = exec_prepare(dentry);
 	if (exec != nullptr) {
 		void* auxargs;
 		auto& vmspace = *proc->p_vmspace;
