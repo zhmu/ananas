@@ -23,7 +23,7 @@
 #include "kernel/mm.h"
 #include "kernel/vm.h"
 
-extern addr_t last_exec_addr;
+static addr_t last_exec_addr = 0; // TODO
 
 struct elf64_linux_siginfo
 {

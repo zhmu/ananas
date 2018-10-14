@@ -7,16 +7,21 @@
 
 struct DEntry;
 class Result;
+class Thread;
 class VMSpace;
 
-typedef Result(*exec_handler_t)(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg);
+struct IExecutor
+{
+	virtual Result Load(VMSpace& vs, DEntry& dentry, void*& auxargs) = 0;
+	virtual Result PrepareForExecute(VMSpace& vs, Thread& t, void* auxargs, const char* argv[], const char* envp[]) = 0;
+};
 
 /*
  * Define an executable format.
  */
 struct ExecFormat : util::List<ExecFormat>::NodePtr {
-	ExecFormat(const char* id, exec_handler_t handler)
-	 : ef_identifier(id), ef_handler(handler)
+	ExecFormat(const char* id, IExecutor& executor)
+	 : ef_identifier(id), ef_executor(executor)
 	{
 	}
 
@@ -24,11 +29,11 @@ struct ExecFormat : util::List<ExecFormat>::NodePtr {
 	const char*	ef_identifier;
 
 	/* Function handling the execution */
-	exec_handler_t	ef_handler;
+	IExecutor&	ef_executor;
 };
 
 #define EXECUTABLE_FORMAT(id, handler) \
-	static ExecFormat execfmt_##handler(id, &handler); \
+	static ExecFormat execfmt_##handler(id, handler); \
 	static Result register_##handler() { \
 		return exec_register_format(execfmt_##handler); \
 	}; \
@@ -38,7 +43,7 @@ struct ExecFormat : util::List<ExecFormat>::NodePtr {
 	INIT_FUNCTION(register_##handler, SUBSYSTEM_THREAD, ORDER_MIDDLE); \
 	EXIT_FUNCTION(unregister_##handler);
 
-Result exec_load(VMSpace& vs, DEntry& dentry, addr_t* exec_addr, register_t* exec_arg);
+Result exec_load(VMSpace& vs, DEntry& dentry, IExecutor*& executor, void*& auxargs);
 Result exec_register_format(ExecFormat& ef);
 Result exec_unregister_format(ExecFormat& ef);
 

@@ -86,12 +86,15 @@ userinit_func(void*)
 	const char env[] = "OS=Ananas\0USER=root\0\0";
 	proc->SetArguments(args, sizeof(args));
 	proc->SetEnvironment(env, sizeof(env));
+	proc->p_parent = proc; // XXX init is its own parent
 
-	addr_t exec_addr;
-	register_t exec_arg;
-	if (auto result = exec_load(*proc->p_vmspace, *file.f_dentry, &exec_addr, &exec_arg); result.IsSuccess()) {
+	IExecutor* exec;
+	void* auxargs;
+	if (auto result = exec_load(*proc->p_vmspace, *file.f_dentry, exec, auxargs); result.IsSuccess()) {
 		kprintf(" ok\n");
-		md::thread::SetupPostExec(*t, exec_addr, exec_arg);
+		const char* argv[] = { "init", nullptr };
+		const char* envp[] = { "OS=Ananas", "USER=root", nullptr };
+		exec->PrepareForExecute(*proc->p_vmspace, *t, auxargs, argv, envp);
 		t->Resume();
 	} else {
 		kprintf(" fail - error %i\n", result.AsStatusCode());
