@@ -7,6 +7,7 @@
 #include "kernel/thread.h"
 #include "kernel/time.h"
 #include "kernel/vfs/core.h"
+#include "kernel/vfs/dentry.h"
 #include "kernel/vfs/mount.h"
 #include "kernel-md/md.h"
 #include "options.h"
@@ -64,6 +65,7 @@ userinit_func(void*)
 		thread_exit(0);
 	}
 	// Note: proc is locked at this point and has a single ref
+	proc->p_parent = proc; // XXX init is its own parent
 
 	Thread* t;
 	{
@@ -81,25 +83,28 @@ userinit_func(void*)
 		kprintf("couldn't open init executable, %i\n", result.AsStatusCode());
 		thread_exit(0);
 	}
-
-	const char args[] = "init\0\0";
-	const char env[] = "OS=Ananas\0USER=root\0\0";
-	proc->SetArguments(args, sizeof(args));
-	proc->SetEnvironment(env, sizeof(env));
-	proc->p_parent = proc; // XXX init is its own parent
-
-	IExecutor* exec;
-	void* auxargs;
-	if (auto result = exec_load(*proc->p_vmspace, *file.f_dentry, exec, auxargs); result.IsSuccess()) {
-		kprintf(" ok\n");
-		const char* argv[] = { "init", nullptr };
-		const char* envp[] = { "OS=Ananas", "USER=root", nullptr };
-		exec->PrepareForExecute(*proc->p_vmspace, *t, auxargs, argv, envp);
-		t->Resume();
-	} else {
-		kprintf(" fail - error %i\n", result.AsStatusCode());
-	}
+	DEntry& dentry = *file.f_dentry;
+	dentry_ref(dentry);
 	vfs_close(proc, &file);
+
+	auto exec = exec_prepare(*file.f_dentry);
+	if (exec != nullptr) {
+		void* auxargs;
+		auto& vmspace = *proc->p_vmspace;
+		if (auto result = exec->Load(vmspace, dentry, auxargs); result.IsSuccess()) {
+			kprintf(" ok\n");
+			const char* argv[] = { "init", nullptr };
+			const char* envp[] = { "OS=Ananas", "USER=root", nullptr };
+			exec->PrepareForExecute(vmspace, *t, auxargs, argv, envp);
+			t->Resume();
+		} else {
+			kprintf(" fail - error %i\n", result.AsStatusCode());
+		}
+	} else {
+		kprintf(" fail - not an executable\n");
+	}
+
+	dentry_deref(dentry);
 	thread_exit(0);
 }
 

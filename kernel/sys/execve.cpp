@@ -1,3 +1,4 @@
+#include <ananas/errno.h>
 #include <ananas/syscalls.h>
 #include <ananas/procinfo.h>
 #include "kernel/exec.h"
@@ -33,45 +34,37 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 	dentry_ref(dentry);
 	vfs_close(&proc, &file);
 
-	/*
-	 * Create a new vmspace to execute in; if the exec() works, we'll use it to
-	 * override our current vmspace.
-	 */
-	VMSpace* vmspace = NULL;
-	Result result = vmspace_create(vmspace);
-	if (result.IsFailure()) {
+	// Prepare the executable; this verifies whether we have a shot at executing
+	// this file.
+	auto exec = exec_prepare(dentry);
+	if (exec == nullptr) {
 		dentry_deref(dentry);
-		goto fail;
+		return RESULT_MAKE_FAILURE(ENOEXEC);
 	}
 
+	// Grab the vmspace of the process and clean it; this should only leave the
+	// kernel stack, which we're currently using - any other mappings are gone
+	auto& vmspace = *proc.p_vmspace;
+	vmspace.PrepareForExecute();
+
 	/*
-	 * Attempt to load the executable; if this fails, we won't have destroyed
-	 * anything we cannot free. Note that we can free our dentry ref because
-	 * exec_load() manages that all by itself.
+	 * Attempt to load the executable; if this fails, our vmspace will be in some
+	 * inconsistent state and we have no choice but to destroy the process.
 	 */
-	IExecutor* exec;
 	void* auxargs;
-	result = exec_load(*vmspace, dentry, exec, auxargs);
-	dentry_deref(dentry);
-	if (result.IsFailure())
-		goto fail;
+	if (auto result = exec->Load(vmspace, dentry, auxargs); result.IsFailure()) {
+		panic("TODO deal with exec load failures");
+		dentry_deref(dentry);
+		return result;
+	}
 
 	/*
 	 * Loading went okay; we can now set the new thread name (we won't be able to
 	 * access argv after the vmspace_clone() so best do it here)
 	 */
-	exec->PrepareForExecute(*vmspace, *t, auxargs, argv, envp);
-
-	/* Copy the new vmspace to the destination */
-	result = vmspace->Clone(*proc.p_vmspace, VMSPACE_CLONE_EXEC);
-	KASSERT(result.IsSuccess(), "unable to clone exec vmspace: %d", result.AsStatusCode());
-	vmspace_destroy(*vmspace);
+	exec->PrepareForExecute(vmspace, *t, auxargs, argv, envp);
+	dentry_deref(dentry);
 	return Result::Success();
-
-fail:
-	if (vmspace != nullptr)
-		vmspace_destroy(*vmspace);
-	return result;
 }
 
 /* vim:set ts=2 sw=2: */

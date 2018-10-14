@@ -46,11 +46,13 @@ struct VMSpace {
 	Result MapTo(addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
 	Result MapToDentry(addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags, VMArea*& va_out);
 	Result Map(size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
-	Result Clone(VMSpace& vs_dest, int flags);
+	Result Clone(VMSpace& vs_dest);
 	void Dump();
 
 	addr_t ReserveAdressRange(size_t len);
 	Result HandleFault(addr_t virt, int flags);
+
+	void PrepareForExecute();
 
 	// XXX Should not be public
 	void FreeArea(VMArea& va);
@@ -58,8 +60,6 @@ struct VMSpace {
 private:
 	Mutex vs_mutex{"vmspace"}; /* protects all fields and sub-areas */
 };
-
-#define VMSPACE_CLONE_EXEC 1
 
 Result vmspace_create(VMSpace*& vs);
 void vmspace_destroy(VMSpace& vs);

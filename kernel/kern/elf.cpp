@@ -73,9 +73,40 @@ read_data(DEntry& dentry, void* buf, off_t offset, size_t len)
 	return Result::Success();
 }
 
+static Result
+LoadEhdr(DEntry& dentry, Elf64_Ehdr& ehdr)
+{
+	RESULT_PROPAGATE_FAILURE(
+		read_data(dentry, &ehdr, 0, sizeof(ehdr))
+	);
+
+	// Perform basic ELF checks: check magic/version
+	if (ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != ELFMAG1 ||
+	    ehdr.e_ident[EI_MAG2] != ELFMAG2 || ehdr.e_ident[EI_MAG3] != ELFMAG3)
+		return RESULT_MAKE_FAILURE(ENOEXEC);
+	if (ehdr.e_ident[EI_VERSION] != EV_CURRENT)
+		return RESULT_MAKE_FAILURE(ENOEXEC);
+
+	// XXX This specifically checks for amd64 at the moment
+	if (ehdr.e_ident[EI_CLASS] != ELFCLASS64)
+		return RESULT_MAKE_FAILURE(ENOEXEC);
+	if (ehdr.e_ident[EI_DATA] != ELFDATA2LSB)
+		return RESULT_MAKE_FAILURE(ENOEXEC);
+	if (ehdr.e_machine != EM_X86_64)
+		return RESULT_MAKE_FAILURE(ENOEXEC);
+
+	// There must be something to load
+	if (ehdr.e_phnum == 0)
+		return RESULT_MAKE_FAILURE(ENOEXEC);
+	if (ehdr.e_phentsize < sizeof(Elf64_Phdr))
+		return RESULT_MAKE_FAILURE(ENOEXEC);
+
+	return Result::Success();
+}
+
 } // unnamed namespace
 
-struct ELF64Loader : IExecutor
+struct ELF64Loader final : IExecutor
 {
 	struct AuxArgs
 	{
@@ -86,13 +117,13 @@ struct ELF64Loader : IExecutor
 		addr_t	aa_rip = 0;
 	};
 
+	Result Verify(DEntry& dentry) override;
 	Result Load(VMSpace& vs, DEntry& dentry, void*& auxargs) override;
 	Result PrepareForExecute(VMSpace& vs, Thread& t, void* auxargs, const char* argv[], const char* envp[]) override;
 
 private:
 	Result LoadPH(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase) const;
-	Result CheckHeader(const Elf64_Ehdr& ehdr) const;
-	Result LoadFile(VMSpace& vs, DEntry& dentry, addr_t rbase, addr_t& exec_addr) const;
+	Result LoadFile(VMSpace& vs, DEntry& dentry, const Elf64_Ehdr& ehdr, addr_t rbase, addr_t& exec_addr) const;
 } elf64Loader;
 
 Result
@@ -159,45 +190,8 @@ ELF64Loader::LoadPH(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t 
 }
 
 Result
-ELF64Loader::CheckHeader(const Elf64_Ehdr& ehdr) const
+ELF64Loader::LoadFile(VMSpace& vs, DEntry& dentry, const Elf64_Ehdr& ehdr, addr_t rbase, addr_t& exec_addr) const
 {
-	/* Perform basic ELF checks; must be statically-linked executable */
-	if (ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != ELFMAG1 ||
-	    ehdr.e_ident[EI_MAG2] != ELFMAG2 || ehdr.e_ident[EI_MAG3] != ELFMAG3)
-		return RESULT_MAKE_FAILURE(ENOEXEC);
-	if (ehdr.e_ident[EI_VERSION] != EV_CURRENT)
-		return RESULT_MAKE_FAILURE(ENOEXEC);
-
-	/* XXX This specifically checks for amd64 at the moment */
-	if (ehdr.e_ident[EI_CLASS] != ELFCLASS64)
-		return RESULT_MAKE_FAILURE(ENOEXEC);
-	if (ehdr.e_ident[EI_DATA] != ELFDATA2LSB)
-		return RESULT_MAKE_FAILURE(ENOEXEC);
-	if (ehdr.e_machine != EM_X86_64)
-		return RESULT_MAKE_FAILURE(ENOEXEC);
-
-	/* We only support static binaries here, so reject anything without a program table */
-	if (ehdr.e_phnum == 0)
-		return RESULT_MAKE_FAILURE(ENOEXEC);
-	if (ehdr.e_phentsize < sizeof(Elf64_Phdr))
-		return RESULT_MAKE_FAILURE(ENOEXEC);
-
-	return Result::Success();
-}
-
-Result
-ELF64Loader::LoadFile(VMSpace& vs, DEntry& dentry, addr_t rbase, addr_t& exec_addr) const
-{
-	Elf64_Ehdr ehdr;
-
-	RESULT_PROPAGATE_FAILURE(
-		read_data(dentry, &ehdr, 0, sizeof(ehdr))
-	);
-
-	RESULT_PROPAGATE_FAILURE(
-		CheckHeader(ehdr)
-	);
-
 	/* Process all program headers one by one */
 	for (unsigned int i = 0; i < ehdr.e_phnum; i++) {
 		Elf64_Phdr phdr;
@@ -217,23 +211,33 @@ ELF64Loader::LoadFile(VMSpace& vs, DEntry& dentry, addr_t rbase, addr_t& exec_ad
 }
 
 Result
-ELF64Loader::Load(VMSpace& vs, DEntry& dentry, void*& aa)
+ELF64Loader::Verify(DEntry& dentry)
 {
-	// Load the file - this checks the ELF header as well
-	addr_t exec_addr;
-	RESULT_PROPAGATE_FAILURE(
-		LoadFile(vs, dentry, 0, exec_addr)
-	);
-
 	// Fetch the ELF header (again - this could be nicer...)
 	Elf64_Ehdr ehdr;
-	RESULT_PROPAGATE_FAILURE(
-		read_data(dentry, &ehdr, 0, sizeof(ehdr))
-	);
+	if (auto result = LoadEhdr(dentry, ehdr); result.IsFailure())
+		return result;
 
 	// Only accept executables here
 	if (ehdr.e_type != ET_EXEC)
 		return RESULT_MAKE_FAILURE(ENOEXEC);
+
+	return Result::Success();
+}
+
+Result
+ELF64Loader::Load(VMSpace& vs, DEntry& dentry, void*& aa)
+{
+	// Fetch the ELF header (again - this could be nicer...)
+	Elf64_Ehdr ehdr;
+	if (auto result = LoadEhdr(dentry, ehdr); result.IsFailure())
+		return result;
+
+	// Load the file
+	addr_t exec_addr;
+	RESULT_PROPAGATE_FAILURE(
+		LoadFile(vs, dentry, ehdr, 0, exec_addr)
+	);
 
 	// This went okay - see if there any other interesting headers here
 	char* interp = nullptr;
@@ -281,11 +285,18 @@ ELF64Loader::Load(VMSpace& vs, DEntry& dentry, void*& aa)
 		}
 		kfree(interp);
 
+		// Load/verify the header
+		Elf64_Ehdr interp_ehdr;
+		if (auto result = LoadEhdr(*interp_file.f_dentry, interp_ehdr); result.IsFailure()) {
+			vfs_close(nullptr, &interp_file); // we don't need it anymore
+			return result;
+		}
+
 		// Load the interpreter ELF file
 		addr_t interp_rbase = INTERPRETER_BASE;
 		addr_t interp_entry;
 		{
-			auto result = LoadFile(vs, *interp_file.f_dentry, interp_rbase, interp_entry);
+			auto result = LoadFile(vs, *interp_file.f_dentry, interp_ehdr, interp_rbase, interp_entry);
 			vfs_close(nullptr, &interp_file); // we don't need it anymore
 			if (result.IsFailure())
 				return result;

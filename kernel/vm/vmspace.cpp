@@ -193,41 +193,22 @@ VMSpace::Map(size_t len /* bytes */, uint32_t flags, VMArea*& va_out)
 	return MapTo(va, len, flags, va_out);
 }
 
-/*
- * vmspace_clone() is used for two scenarios:
- *
- * (1) fork() uses it to copy the parent's vmspace to a new child
- * (2) exec() uses it to fill the current vmspace with the new one
- *
- * In the first case, we just need to make things as identical as possible; yet
- * for (2), the destination vmspace will not have MD-specific data as no
- * threads were ever created in it.
- *
- * As the caller knows this information, we'll let the decision rest in the
- * hands of the caller - if we are cloning for exec(), we'll clone MD-fields.
- */
-static inline int
-vmspace_clone_area_must_free(const VMArea& va, int flags)
+void
+VMSpace::PrepareForExecute()
 {
-	/* Scenario (2) does not free MD-specific parts */
-	if ((flags & VMSPACE_CLONE_EXEC) && (va.va_flags & VM_FLAG_MD))
-		return 0;
-	return (va.va_flags & VM_FLAG_NO_CLONE) == 0;
-}
-
-static inline int
-vmspace_clone_area_must_copy(const VMArea& va, int flags)
-{
-	/* Scenario (2) does copy MD-specific parts */
-	if ((flags & VMSPACE_CLONE_EXEC) && (va.va_flags & VM_FLAG_MD))
-		return 1;
-	return (va.va_flags & VM_FLAG_NO_CLONE) == 0;
+	// Throw all non-MD mappings away - this should only leave the kernel stack in place
+	for(auto it = vs_areas.begin(); it != vs_areas.end(); /* nothing */) {
+		VMArea& va = *it; ++it;
+		if (va.va_flags & VM_FLAG_MD)
+			continue;
+		FreeArea(va);
+	}
 }
 
 Result
-VMSpace::Clone(VMSpace& vs_dest, int flags)
+VMSpace::Clone(VMSpace& vs_dest)
 {
-	TRACE(VM, INFO, "vmspace_clone(): source=%p dest=%p flags=%x", this, &vs_dest, flags);
+	TRACE(VM, INFO, "vmspace_clone(): source=%p dest=%p", this, &vs_dest);
 
 	/*
 	 * First, clean up the destination area's mappings - this ensures we'll
@@ -238,14 +219,14 @@ VMSpace::Clone(VMSpace& vs_dest, int flags)
 	 */
 	for(auto it = vs_dest.vs_areas.begin(); it != vs_dest.vs_areas.end(); /* nothing */) {
 		VMArea& va = *it; ++it;
-		if (!vmspace_clone_area_must_free(va, flags))
+		if (va.va_flags & VM_FLAG_NO_CLONE)
 			continue;
 		vs_dest.FreeArea(va);
 	}
 
 	/* Now copy everything over that isn't private */
 	for(auto& va_src: vs_areas) {
-		if (!vmspace_clone_area_must_copy(va_src, flags))
+		if (va_src.va_flags & VM_FLAG_NO_CLONE)
 			continue;
 
 		VMArea* va_dst;

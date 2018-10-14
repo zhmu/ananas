@@ -1,4 +1,3 @@
-#include <ananas/errno.h>
 #include "kernel/exec.h"
 #include "kernel/lib.h"
 #include "kernel/init.h"
@@ -10,8 +9,8 @@ TRACE_SETUP;
 
 static util::List<ExecFormat> exec_formats; /* XXX do we need to lock this? */
 
-Result
-exec_load(VMSpace& vs, DEntry& dentry, IExecutor*& executor, void*& auxargs)
+IExecutor*
+exec_prepare(DEntry& dentry)
 {
 	// Start by taking an extra ref to the dentry; this is the ref which we'll hand over
 	// to the handler, if all goes well
@@ -19,18 +18,17 @@ exec_load(VMSpace& vs, DEntry& dentry, IExecutor*& executor, void*& auxargs)
 
 	for(auto& ef: exec_formats) {
 		/* See if we can execute this... */
-		if (Result result = ef.ef_executor.Load(vs, dentry, auxargs); result.IsFailure()) {
+		if (Result result = ef.ef_executor.Verify(dentry); result.IsFailure()) {
 			/* Execute failed; try the next one */
 			continue;
 		}
 
-		executor = &ef.ef_executor;
-		return Result::Success();
+		return &ef.ef_executor;
 	}
 
 	/* Nothing worked... return our ref */
 	dentry_deref(dentry);
-	return RESULT_MAKE_FAILURE(ENOEXEC);
+	return nullptr;
 }
 
 Result

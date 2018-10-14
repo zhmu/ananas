@@ -147,7 +147,7 @@ Process::Clone(int flags, Process*& out_p)
 	);
 
 	/* Duplicate the vmspace - this should leave the private mappings alone */
-	if (auto result = p_vmspace->Clone(*newp->p_vmspace, 0); result.IsFailure()) {
+	if (auto result = p_vmspace->Clone(*newp->p_vmspace); result.IsFailure()) {
 		newp->RemoveReference(); // destroys the process
 		return result;
 	}

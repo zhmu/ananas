@@ -12,6 +12,7 @@ class VMSpace;
 
 struct IExecutor
 {
+	virtual Result Verify(DEntry& dentry) = 0;
 	virtual Result Load(VMSpace& vs, DEntry& dentry, void*& auxargs) = 0;
 	virtual Result PrepareForExecute(VMSpace& vs, Thread& t, void* auxargs, const char* argv[], const char* envp[]) = 0;
 };
@@ -43,7 +44,7 @@ struct ExecFormat : util::List<ExecFormat>::NodePtr {
 	INIT_FUNCTION(register_##handler, SUBSYSTEM_THREAD, ORDER_MIDDLE); \
 	EXIT_FUNCTION(unregister_##handler);
 
-Result exec_load(VMSpace& vs, DEntry& dentry, IExecutor*& executor, void*& auxargs);
+IExecutor* exec_prepare(DEntry& dentry);
 Result exec_register_format(ExecFormat& ef);
 Result exec_unregister_format(ExecFormat& ef);
 
