@@ -217,10 +217,11 @@ parse_dynamic(Object& obj)
 				obj.o_symtab = reinterpret_cast<Elf_Sym*>(obj.o_reloc_base + dyn->d_un.d_ptr);
 				break;
 			case DT_RELA:
-				obj.o_rela = reinterpret_cast<char*>(obj.o_reloc_base + dyn->d_un.d_ptr);
+				obj.o_rela = reinterpret_cast<Elf_Rela*>(obj.o_reloc_base + dyn->d_un.d_ptr);
 				break;
 			case DT_RELASZ:
-				obj.o_rela_sz = dyn->d_un.d_val;
+				assert(dyn->d_un.d_val % sizeof(Elf_Rela) == 0);
+				obj.o_rela_count = dyn->d_un.d_val / sizeof(Elf_Rela);
 				break;
 			case DT_RELAENT:
 				assert(dyn->d_un.d_val == sizeof(Elf_Rela));
@@ -240,7 +241,8 @@ parse_dynamic(Object& obj)
 				assert(dyn->d_un.d_val == DT_RELA);
 				break;
 			case DT_PLTRELSZ:
-				obj.o_plt_rel_sz = dyn->d_un.d_val;
+				assert(dyn->d_un.d_val % sizeof(Elf_Rela) == 0);
+				obj.o_plt_rel_count = dyn->d_un.d_val / sizeof(Elf_Rela);
 				break;
 			case DT_REL:
 			case DT_RELSZ:
@@ -280,8 +282,10 @@ parse_dynamic(Object& obj)
 				break;
 			case DT_INIT_ARRAY:
 				die("%s: DT_INIT_ARRAY unsupported", obj.o_name);
+				break;
 			case DT_FINI_ARRAY:
 				die("%s: DT_FINI_ARRAY unsupported", obj.o_name);
+				break;
 			case DT_NULL:
 				break;
 #if 0
@@ -296,19 +300,17 @@ void
 process_relocations_rela(Object& obj)
 {
 	dbg("%s: process_relocations_rela()\n", obj.o_name);
-	char* rela_ptr = obj.o_rela;
-	char* rela_end = rela_ptr + obj.o_rela_sz;
-	for (/* nothing */; rela_ptr < rela_end; rela_ptr += sizeof(Elf_Rela)) {
-		auto& rela = *reinterpret_cast<Elf_Rela*>(rela_ptr);
-		auto& v64 = *reinterpret_cast<uint64_t*>(obj.o_reloc_base + rela.r_offset);
-		int r_type = ELF_R_TYPE(rela.r_info);
+	auto rela = obj.o_rela;
+	for (size_t n = 0; n < obj.o_rela_count; n++, rela++) {
+		auto& v64 = *reinterpret_cast<uint64_t*>(obj.o_reloc_base + rela->r_offset);
+		int r_type = ELF_R_TYPE(rela->r_info);
 
 		// First phase: look up for the type where we need to do so
 		Elf_Addr sym_addr = 0;
 		switch (r_type) {
 			case R_X86_64_64:
 			case R_X86_64_GLOB_DAT: {
-				uint32_t symnum = ELF_R_SYM(rela.r_info);
+				uint32_t symnum = ELF_R_SYM(rela->r_info);
 				Object* def_obj;
 				Elf_Sym* def_sym;
 				if (!find_symdef(obj, symnum, 0, def_obj, def_sym))
@@ -321,10 +323,10 @@ process_relocations_rela(Object& obj)
 		// Second phase: fill out values
 		switch (r_type) {
 			case R_X86_64_64:
-				v64 = sym_addr + rela.r_addend;
+				v64 = sym_addr + rela->r_addend;
 				break;
 			case R_X86_64_RELATIVE:
-				v64 = obj.o_reloc_base + rela.r_addend;
+				v64 = obj.o_reloc_base + rela->r_addend;
 				break;
 			case R_X86_64_GLOB_DAT: {
 				v64 = sym_addr;
@@ -343,7 +345,8 @@ process_relocations_rela(Object& obj)
 					die("%s: unexpected copy relocation", obj.o_name);
 				break;
 			default:
-				die("%s: unsupported rela type %d (offset %x info %d add %x)", obj.o_name, r_type, rela.r_offset, rela.r_info, rela.r_addend);
+				printf("offs %p (base %p) r_type %x sym_addr %p\n", rela, obj.o_rela, r_type, sym_addr);
+				die("%s: unsupported rela type %d (offset %x info %d add %x)", obj.o_name, r_type, rela->r_offset, rela->r_info, rela->r_addend);
 		}
 	}
 }
@@ -351,17 +354,15 @@ process_relocations_rela(Object& obj)
 void
 process_relocations_plt(Object& obj)
 {
-	char* rela_ptr = (char*)obj.o_jmp_rela;
-	char* rela_end = rela_ptr + obj.o_plt_rel_sz;
-	for (/* nothing */; rela_ptr < rela_end; rela_ptr += sizeof(Elf_Rela)) {
-		auto& rela = *reinterpret_cast<Elf_Rela*>(rela_ptr);
-		auto& v64 = *reinterpret_cast<uint64_t*>(obj.o_reloc_base + rela.r_offset);
-		switch(ELF_R_TYPE(rela.r_info)) {
+	auto rela = obj.o_jmp_rela;
+	for (size_t n = 0; n < obj.o_plt_rel_count; n++, rela++) {
+		auto& v64 = *reinterpret_cast<uint64_t*>(obj.o_reloc_base + rela->r_offset);
+		switch(ELF_R_TYPE(rela->r_info)) {
 			case R_X86_64_JUMP_SLOT:
 				v64 += obj.o_reloc_base;
 				break;
 			default:
-				die("%s: unsuppored rela type %d in got", obj.o_name, ELF_R_TYPE(rela.r_info));
+				die("%s: unsuppored rela type %d in got", obj.o_name, ELF_R_TYPE(rela->r_info));
 		}
 	}
 }
@@ -378,21 +379,19 @@ process_relocations_copy(Object& obj)
 	 * symbol values we intend to fill)
 	 */
 	dbg("process_relocations_copy for '%s'\n", obj.o_name);
-	char* rela_ptr = obj.o_rela;
-	char* rela_end = rela_ptr + obj.o_rela_sz;
-	for (/* nothing */; rela_ptr < rela_end; rela_ptr += sizeof(Elf_Rela)) {
-		auto& rela = *reinterpret_cast<Elf_Rela*>(rela_ptr);
-		if (ELF_R_TYPE(rela.r_info) != R_X86_64_COPY)
+	auto rela = obj.o_rela;
+	for (size_t n = 0; n < obj.o_rela_count; n++, rela++) {
+		if (ELF_R_TYPE(rela->r_info) != R_X86_64_COPY)
 			continue;
 
-		uint32_t symnum = ELF_R_SYM(rela.r_info);
+		uint32_t symnum = ELF_R_SYM(rela->r_info);
 		Object* def_obj;
 		Elf_Sym* def_sym;
 		if (!find_symdef(obj, symnum, SYMDEF_FLAG_SKIP_REF_OBJ, def_obj, def_sym))
 			die("%s: symbol '%s' not found", obj.o_name, sym_getname(obj, symnum));
 
 		auto src_ptr = reinterpret_cast<char*>(def_obj->o_reloc_base + def_sym->st_value);
-		auto dst_ptr = reinterpret_cast<char*>(obj.o_reloc_base + rela.r_offset);
+		auto dst_ptr = reinterpret_cast<char*>(obj.o_reloc_base + rela->r_offset);
 		dbg("copy(): %p -> %p (sz=%d)\n", src_ptr, dst_ptr, def_sym->st_size);
 		memcpy(dst_ptr, src_ptr, def_sym->st_size);
 	}

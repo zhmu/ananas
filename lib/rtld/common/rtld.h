@@ -26,11 +26,11 @@ struct Object : public util::List<Object>::NodePtr
 	const char* o_strtab;
 	size_t o_strtab_sz;
 	Elf_Sym* o_symtab;
-	char* o_rela;
-	size_t o_rela_sz;
+	Elf_Rela* o_rela;
+	size_t o_rela_count;
 	Elf_Addr* o_plt_got;
 	Elf_Rela* o_jmp_rela;
-	size_t o_plt_rel_sz;
+	size_t o_plt_rel_count;
 
 	dev_t o_dev;
 	ino_t o_inum;
