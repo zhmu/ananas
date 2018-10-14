@@ -149,9 +149,8 @@ try_cache: ; /* dummy ; to keep gcc happy */
 		uint32_t offset;
 		fat_make_cluster_block_offset(fs, cur_cluster, &sector_num, &offset);
 		BIO* bio;
-		RESULT_PROPAGATE_FAILURE(
-			vfs_bread(fs, sector_num, &bio)
-		);
+		if (auto result = vfs_bread(fs, sector_num, &bio); result.IsFailure())
+			return result;
 
 		/* Grab the value from the FAT */
 		switch (fs_privdata->fat_type) {
@@ -196,9 +195,8 @@ fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, uint32_t cluste
 
 	/* Fetch the FAT data */
 	BIO* bio;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_bread(fs, sector_num, &bio)
-	);
+	if (auto result = vfs_bread(fs, sector_num, &bio); result.IsFailure())
+		return result;
 
 	switch (fs_privdata->fat_type) {
 		case 16:
@@ -251,9 +249,8 @@ fat_claim_avail_cluster(struct VFS_MOUNTED_FS* fs, uint32_t* cluster_out)
 		if (want_block != cur_block || bio == NULL) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			RESULT_PROPAGATE_FAILURE(
-				vfs_bread(fs, want_block, &bio)
-			);
+			if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
+				return result;
 			cur_block = want_block;
 		}
 
@@ -317,9 +314,8 @@ fat_append_cluster(INode& inode, uint32_t* cluster_out)
 
 	/* Obtain the next cluster - this will also mark it as being in use */
 	uint32_t new_cluster = 0;
-	RESULT_PROPAGATE_FAILURE(
-		fat_claim_avail_cluster(fs, &new_cluster)
-	);
+	if (auto result = fat_claim_avail_cluster(fs, &new_cluster); result.IsFailure())
+		return result;
 
 	/* If the file didn't have any clusters before, it sure does now */
 	if (privdata->first_cluster == 0) {
@@ -327,9 +323,8 @@ fat_append_cluster(INode& inode, uint32_t* cluster_out)
 		vfs_set_inode_dirty(inode);
 	} else {
 		/* Append this cluster to the file chain */
-		RESULT_PROPAGATE_FAILURE(
-			fat_set_cluster(fs, last_cluster, new_cluster)
-		); /* XXX leaks clusterno */
+		if (auto result = fat_set_cluster(fs, last_cluster, new_cluster); result.IsFailure())
+			return result; // XXX leaks clusterno
 	}
 	*cluster_out = new_cluster;
 
@@ -429,11 +424,10 @@ fat_block_map(INode& inode, blocknr_t block_in, blocknr_t& block_out, bool creat
 		if (result.IsFailure() && result.AsErrno() == ERANGE) {
 			/* end of the chain */
 			if (!create) {
-				return result ;
+				return result;
 			}
-			RESULT_PROPAGATE_FAILURE(
-				fat_append_cluster(inode, &cluster)
-			);
+			if (auto result = fat_append_cluster(inode, &cluster); result.IsFailure())
+				return result;
 		} else if (result.IsSuccess()) {
 			KASSERT(create == 0, "request to create block that already exists (blocknum=%u, cluster=%u)", (int)(block_in / fs_privdata->sectors_per_cluster), cluster);
 		} else {
@@ -514,9 +508,8 @@ fat_update_infosector(struct VFS_MOUNTED_FS* fs)
 		return Result::Success();
 
 	BIO* bio;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_bread(fs, fs_privdata->infosector_num, &bio)
-	);
+	if (auto result = vfs_bread(fs, fs_privdata->infosector_num, &bio); result.IsFailure())
+		return result;
 
 	/*
 	 * We don't do any verification (this should have been done upon mount time)

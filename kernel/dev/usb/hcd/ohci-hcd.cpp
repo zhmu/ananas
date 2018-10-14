@@ -654,9 +654,8 @@ Result
 OHCI_HCD::Setup()
 {
 	/* Allocate and initialize the HCCA structure */
-	RESULT_PROPAGATE_FAILURE(
-		dma_buf_alloc(d_DMA_tag, sizeof(struct OHCI_HCCA), &ohci_hcca_buf)
-	);
+	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct OHCI_HCCA), &ohci_hcca_buf); result.IsFailure())
+		return result;
 	ohci_hcca = static_cast<struct OHCI_HCCA*>(dma_buf_get_segment(ohci_hcca_buf, 0)->s_virt);
 	memset(ohci_hcca, 0, sizeof(struct OHCI_HCCA));
 
@@ -713,21 +712,18 @@ OHCI_HCD::Attach()
 	}
 
 	/* Allocate DMA tags */
-	RESULT_PROPAGATE_FAILURE(
-		dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, 1, DMA_SEGS_MAX_SIZE)
-	);
+	if (auto result = dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, 1, DMA_SEGS_MAX_SIZE); result.IsFailure())
+		return result;
 
 	ohci_Resources = OHCI::HCD_Resources(static_cast<uint8_t*>(res_mem));
 
 	/* Set up the interrupt handler */
-	RESULT_PROPAGATE_FAILURE(
-		irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this)
-	);
+	if (auto result = irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this); result.IsFailure())
+		return result;
 
 	/* Initialize the structures */
-	RESULT_PROPAGATE_FAILURE(
-		Setup()
-	);
+	if (auto result = Setup(); result.IsFailure())
+		return result;
 
 	if (ohci_Resources.Read4(OHCI_HCCONTROL) & OHCI_CONTROL_IR) {
 		/* Controller is in SMM mode - we need to ask it to stop doing that */

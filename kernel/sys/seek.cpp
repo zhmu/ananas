@@ -14,9 +14,8 @@ Result
 sys_seek(Thread* t, fdindex_t hindex, off_t* offset, int whence)
 {
 	FD* fd;
-	RESULT_PROPAGATE_FAILURE(
-		syscall_get_fd(*t, FD_TYPE_FILE, hindex, fd)
-	);
+	if (auto result = syscall_get_fd(*t, FD_TYPE_FILE, hindex, fd); result.IsFailure())
+		return result;
 
         struct VFS_FILE* file = &fd->fd_data.d_vfs_file;
 	if (file->f_dentry == NULL)
@@ -41,9 +40,8 @@ sys_seek(Thread* t, fdindex_t hindex, off_t* offset, int whence)
 		return RESULT_MAKE_FAILURE(ERANGE);
 	if (new_offset > file->f_dentry->d_inode->i_sb.st_size) {
 		/* File needs to be grown to accommodate for this offset */
-		RESULT_PROPAGATE_FAILURE(
-			vfs_grow(file, new_offset)
-		);
+		if (auto result = vfs_grow(file, new_offset); result.IsFailure())
+			return result;
 	}
 	file->f_offset = new_offset;
 	*offset = new_offset;

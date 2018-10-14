@@ -20,9 +20,8 @@ Result
 syscall_get_file(Thread& t, fdindex_t index, struct VFS_FILE** out)
 {
 	FD* fd;
-	RESULT_PROPAGATE_FAILURE(
-		fd::Lookup(*t.t_process, index, FD_TYPE_FILE, fd)
-	);
+	if (auto result = fd::Lookup(*t.t_process, index, FD_TYPE_FILE, fd); result.IsFailure())
+		return result;
 
 	struct VFS_FILE* file = &fd->fd_data.d_vfs_file;
 	if (file->f_dentry == NULL && file->f_device == NULL)

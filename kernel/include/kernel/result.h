@@ -56,8 +56,4 @@ private:
 #define RESULT_MAKE_FAILURE(errno) \
 	Result(TRACE_FILE_ID, __LINE__, (errno))
 
-#define RESULT_PROPAGATE_FAILURE(r) \
-	if (auto result_ = (r); result_.IsFailure()) \
-		return result_
-
 #endif // __ANANAS_RESULT_H__

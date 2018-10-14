@@ -124,9 +124,8 @@ fat_readdir(struct VFS_FILE* file, void* dirents, size_t len)
 		if (want_block != cur_block || bio == nullptr) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			RESULT_PROPAGATE_FAILURE(
-				vfs_bread(fs, want_block, &bio)
-			);
+			if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
+				return result;
 			cur_block = want_block;
 		}
 
@@ -260,9 +259,8 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
 		if (want_block != cur_block || bio == NULL) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			RESULT_PROPAGATE_FAILURE(
-				vfs_bread(fs, want_block, &bio)
-			);
+			if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
+				return result;
 			cur_block = want_block;
 		}
 
@@ -336,14 +334,12 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
 	for(int cur_entry_idx = 0; cur_entry_idx < chain_needed; cur_entry_idx++) {
 		/* Fetch/allocate the desired block */
 		blocknr_t want_block;
-		RESULT_PROPAGATE_FAILURE(
-			fat_block_map(dir, (current_filename_offset / (blocknr_t)fs->fs_block_size), want_block, (cur_lfn_chain < 0))
-		);
+		if (auto result = fat_block_map(dir, (current_filename_offset / (blocknr_t)fs->fs_block_size), want_block, (cur_lfn_chain < 0)); result.IsFailure())
+			return result;
 		if (want_block != cur_block) {
 			bio_free(*bio);
-			RESULT_PROPAGATE_FAILURE(
-				vfs_bread(fs, want_block, &bio)
-			);
+			if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
+				return result;
 			cur_block = want_block;
 		}
 
@@ -410,9 +406,8 @@ fat_remove_directory_entry(INode& dir, const char* dentry)
 		if (want_block != cur_block || bio == NULL) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			RESULT_PROPAGATE_FAILURE(
-				vfs_bread(fs, want_block, &bio)
-			);
+			if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
+				return result;
 			cur_block = want_block;
 		}
 
@@ -467,9 +462,8 @@ fat_remove_directory_entry(INode& dir, const char* dentry)
 			if (want_block != cur_block || bio == nullptr) {
 				if (bio != nullptr)
 					bio_free(*bio);
-				RESULT_PROPAGATE_FAILURE(
-					vfs_bread(fs, want_block, &bio)
-				);
+				if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
+					return result;
 				cur_block = want_block;
 			}
 
@@ -499,15 +493,13 @@ fat_create(INode& dir, DEntry* de, int mode)
 
 	/* Hook the new file to the directory */
 	ino_t inum;
-	RESULT_PROPAGATE_FAILURE(
-		fat_add_directory_entry(dir, de->d_entry, &fentry, &inum)
-	);
+	if (auto result = fat_add_directory_entry(dir, de->d_entry, &fentry, &inum); result.IsFailure())
+		return result;
 
 	/* And obtain it */
 	INode* inode;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_get_inode(dir.i_fs, inum, inode)
-	);
+	if (auto result = vfs_get_inode(dir.i_fs, inum, inode); result.IsFailure())
+		return result;
 
 	/* Almost done - hook it to the dentry */
 	dcache_set_inode(*de, *inode);
@@ -526,9 +518,8 @@ fat_unlink(INode& dir, DEntry& de)
 	 * itself will go.
 	 */
 	KASSERT(de.d_inode->i_sb.st_nlink > 0, "removing entry '%s' with invalid link %d", de.d_entry, de.d_inode->i_sb.st_nlink);
-	RESULT_PROPAGATE_FAILURE(
-		fat_remove_directory_entry(dir, de.d_entry)
-	);
+	if (auto result = fat_remove_directory_entry(dir, de.d_entry); result.IsFailure())
+		return result;
 
 	/*
 	 * All is well; decrement the nlink field - if it reaches zero, the file
@@ -557,9 +548,8 @@ fat_rename(INode& old_dir, DEntry& old_dentry, INode& new_dir, DEntry& new_dentr
 	fentry.fe_attributes = FAT_ATTRIBUTE_ARCHIVE; /* XXX we should copy the old entry */
 
 	ino_t inum;
-	RESULT_PROPAGATE_FAILURE(
-		fat_add_directory_entry(new_dir, new_dentry.d_entry, &fentry, &inum)
-	);
+	if (auto result = fat_add_directory_entry(new_dir, new_dentry.d_entry, &fentry, &inum); result.IsFailure())
+		return result;
 
 	/* And fetch the new inode */
 	INode* inode;

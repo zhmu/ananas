@@ -217,9 +217,8 @@ Hub::Attach()
 	struct USB_DESCR_HUB hd;
 	{
 		size_t len = sizeof(hd);
-		RESULT_PROPAGATE_FAILURE(
-			h_Device->PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_CLASS, USB_REQUEST_MAKE(USB_DESCR_TYPE_HUB, 0), 0, &hd, &len, false)
-		);
+		if (auto result = h_Device->PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_CLASS, USB_REQUEST_MAKE(USB_DESCR_TYPE_HUB, 0), 0, &hd, &len, false); result.IsFailure())
+			return result;
 	}
 
 	h_NumPorts = hd.hd_numports;

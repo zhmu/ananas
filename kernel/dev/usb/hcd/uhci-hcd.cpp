@@ -493,16 +493,14 @@ UHCI_HCD::Attach()
 		return RESULT_MAKE_FAILURE(ENODEV);
 
 	/* Create DMA tags; we need these to do DMA */
-	RESULT_PROPAGATE_FAILURE(
-		dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE)
-	);
+	if (auto result = dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE); result.IsFailure())
+		return result;
 
 	uhci_Resources = UHCI::HCD_Resources((uint32_t)(uintptr_t)res_io);
 
 	/* Allocate the frame list; this will be programmed right into the controller */
-	RESULT_PROPAGATE_FAILURE(
-		dma_buf_alloc(d_DMA_tag, 4096, &uhci_framelist_buf)
-	);
+	if (auto result = dma_buf_alloc(d_DMA_tag, 4096, &uhci_framelist_buf); result.IsFailure())
+		return result;
 	uhci_framelist = static_cast<uint32_t*>(dma_buf_get_segment(uhci_framelist_buf, 0)->s_virt);
 	KASSERT((((addr_t)uhci_framelist) & 0x3ff) == 0, "framelist misaligned");
 
@@ -593,9 +591,8 @@ UHCI_HCD::Attach()
 	}
 
 	/* Hook up our interrupt handler and get it going */
-	RESULT_PROPAGATE_FAILURE(
-		irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this)
-	);
+	if (auto result = irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this); result.IsFailure())
+		return result;
 	uhci_Resources.Write2(UHCI_REG_USBINTR, UHCI_USBINTR_SPI | UHCI_USBINTR_IOC | UHCI_USBINTR_RI | UHCI_USBINTR_TOCRC);
 	delay(10);
 

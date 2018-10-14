@@ -14,9 +14,8 @@ sys_ioctl(Thread* t, fdindex_t fdindex, unsigned long req, void* arg1, void* arg
 	TRACE(SYSCALL, FUNC, "t=%p, fd=%u, req=%p", t, fdindex, req);
 
 	FD* fd;
-	RESULT_PROPAGATE_FAILURE(
-		syscall_get_fd(*t, FD_TYPE_ANY, fdindex, fd)
-	);
+	if (auto result = syscall_get_fd(*t, FD_TYPE_ANY, fdindex, fd); result.IsFailure())
+		return result;
 
 	if (fd->fd_ops->d_ioctl == nullptr)
 		return RESULT_MAKE_FAILURE(EINVAL);

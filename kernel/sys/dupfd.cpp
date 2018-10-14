@@ -18,9 +18,8 @@ sys_dup(Thread* t, fdindex_t index)
 
 	FD* fd_out;
 	fdindex_t index_out;
-	RESULT_PROPAGATE_FAILURE(
-		fd::Clone(process, index, nullptr, process, fd_out, 0, index_out)
-	);
+	if (auto result = fd::Clone(process, index, nullptr, process, fd_out, 0, index_out); result.IsFailure())
+		return result;
 
 	return Result::Success(index_out);
 }
@@ -38,9 +37,8 @@ sys_dup2(Thread* t, fdindex_t index, fdindex_t newindex)
 
 	FD* fd_out;
 	fdindex_t index_out;
-	RESULT_PROPAGATE_FAILURE(
-		fd::Clone(process, index, nullptr, process, fd_out, newindex, index_out)
-	);
+	if (auto result = fd::Clone(process, index, nullptr, process, fd_out, newindex, index_out); result.IsFailure())
+		return result;
 
 	return Result::Success(index_out);
 }

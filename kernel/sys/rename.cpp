@@ -15,9 +15,8 @@ sys_rename(Thread* t, const char* oldpath, const char* newpath)
 	DEntry* cwd = proc.p_cwd;
 
 	struct VFS_FILE file;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_open(&proc, oldpath, cwd, &file)
-	);
+	if (auto result = vfs_open(&proc, oldpath, cwd, &file); result.IsFailure())
+		return result;
 
 	auto result = vfs_rename(&file, cwd, newpath);
 	vfs_close(&proc, &file);

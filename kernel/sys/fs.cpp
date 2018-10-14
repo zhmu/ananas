@@ -78,9 +78,8 @@ sys_fstatfs(Thread* t, fdindex_t hindex, struct statfs* buf)
 
 	/* Get the handle */
 	FD* fd;
-	RESULT_PROPAGATE_FAILURE(
-		syscall_get_fd(*t, FD_TYPE_FILE, hindex, fd)
-	);
+	if (auto result = syscall_get_fd(*t, FD_TYPE_FILE, hindex, fd); result.IsFailure())
+		return result;
 
 	auto* dentry = fd->fd_data.d_vfs_file.f_dentry;
 	if (dentry == nullptr)

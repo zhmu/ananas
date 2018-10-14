@@ -182,9 +182,8 @@ ext2_block_map(INode& inode, blocknr_t block_in, blocknr_t& block_out, bool crea
 	do {
 		// Read the indirect block
 		BIO* bio;
-		RESULT_PROPAGATE_FAILURE(
-			vfs_bread(fs, indirect, &bio)
-		);
+		if (auto result = vfs_bread(fs, indirect, &bio); result.IsFailure())
+			return result;
 		// Extract the next block to read
 		indirect = [&]() {
 			const auto blocks = reinterpret_cast<uint32_t*>(static_cast<char*>(BIO_DATA(bio)));
@@ -212,9 +211,8 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t len)
 	blocknr_t curblock = 0;
 	while(left > 0) {
 		blocknr_t block;
-		RESULT_PROPAGATE_FAILURE(
-			ext2_block_map(inode, blocknum, block, false)
-		);
+		if (auto result = ext2_block_map(inode, blocknum, block, false); result.IsFailure())
+			return result;
 		if (block == 0) {
 			/*
 			 * We've run out of blocks. Need to stop here.
@@ -224,9 +222,8 @@ ext2_readdir(struct VFS_FILE* file, void* dirents, size_t len)
 		if(curblock != block) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			RESULT_PROPAGATE_FAILURE(
-				vfs_bread(fs, block, &bio)
-			);
+			if (auto result = vfs_bread(fs, block, &bio); result.IsFailure())
+				return result;
 			curblock = block;
 		}
 
@@ -330,9 +327,8 @@ ext2_read_inode(INode& inode, ino_t inum)
 
 	/* Fetch the block and make a pointer to the inode */
 	BIO* bio;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_bread(fs, block, &bio)
-	);
+	if (auto result = vfs_bread(fs, block, &bio); result.IsFailure())
+		return result;
 	unsigned int idx = (iindex * privdata->sb.s_inode_size) % fs->fs_block_size;
 	auto ext2inode = reinterpret_cast<struct EXT2_INODE*>(static_cast<char*>(BIO_DATA(bio)) + idx);
 
@@ -389,9 +385,8 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	/* Default to 1KB blocksize and fetch the superblock */
 	BIO* bio;
 	fs->fs_block_size = 1024;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_bread(fs, 1, &bio)
-	);
+	if (auto result = vfs_bread(fs, 1, &bio); result.IsFailure())
+		return result;
 
 	/* See if something ext2-y lives here */
 	struct EXT2_SUPERBLOCK* sb = (struct EXT2_SUPERBLOCK*)BIO_DATA(bio);

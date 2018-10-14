@@ -47,9 +47,8 @@ do_stat(Thread* t, const char* path, struct stat* buf, int lookup_flags)
 	Process& proc = *t->t_process;
 
 	struct VFS_FILE file;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_open(&proc, path, proc.p_cwd, &file, lookup_flags)
-	);
+	if (auto result = vfs_open(&proc, path, proc.p_cwd, &file, lookup_flags); result.IsFailure())
+		return result;
 
 	auto result = fill_stat_buf(&file, buf);
 	vfs_close(&proc, &file);
@@ -79,9 +78,8 @@ sys_fstat(Thread* t, fdindex_t hindex, struct stat* buf)
 
 	/* Get the handle */
 	FD* fd;
-	RESULT_PROPAGATE_FAILURE(
-		syscall_get_fd(*t, FD_TYPE_FILE, hindex, fd)
-	);
+	if (auto result = syscall_get_fd(*t, FD_TYPE_FILE, hindex, fd); result.IsFailure())
+		return result;
 
         VFS_FILE* file = &fd->fd_data.d_vfs_file;
 	return fill_stat_buf(file, buf);

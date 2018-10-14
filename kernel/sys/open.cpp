@@ -17,9 +17,8 @@ sys_open(Thread* t, const char* path, int flags, int mode)
 	/* Obtain a new handle */
 	FD* fd;
 	fdindex_t index_out;
-	RESULT_PROPAGATE_FAILURE(
-		fd::Allocate(FD_TYPE_FILE, proc, 0, fd, index_out)
-	);
+	if (auto result = fd::Allocate(FD_TYPE_FILE, proc, 0, fd, index_out); result.IsFailure())
+		return result;
 
 	/*
 	 * Ask the handle to open the resource - if there isn't an open operation, we

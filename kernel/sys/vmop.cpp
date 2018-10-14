@@ -41,21 +41,18 @@ sys_vmop_map(Thread* curthread, struct VMOP_OPTIONS* vo)
 	VMArea* va;
 	if (vo->vo_flags & VMOP_FLAG_FD) {
 		FD* fd;
-		RESULT_PROPAGATE_FAILURE(
-			syscall_get_fd(*curthread, FD_TYPE_FILE, vo->vo_fd, fd)
-		);
+		if (auto result = syscall_get_fd(*curthread, FD_TYPE_FILE, vo->vo_fd, fd); result.IsFailure())
+			return result;
 
 		DEntry* dentry = fd->fd_data.d_vfs_file.f_dentry;
 		if (dentry == nullptr)
 			return RESULT_MAKE_FAILURE(EBADF);
 
-		RESULT_PROPAGATE_FAILURE(
-			vs.MapToDentry(dest_addr, vo->vo_len, *dentry, vo->vo_offset, vo->vo_len, vm_flags, va)
-		);
+		if (auto result = vs.MapToDentry(dest_addr, vo->vo_len, *dentry, vo->vo_offset, vo->vo_len, vm_flags, va); result.IsFailure())
+			return result;
 	} else {
-		RESULT_PROPAGATE_FAILURE(
-			vs.MapTo(dest_addr, vo->vo_len, vm_flags, va)
-		);
+		if (auto result = vs.MapTo(dest_addr, vo->vo_len, vm_flags, va); result.IsFailure())
+			return result;
 	}
 
 	vo->vo_addr = (void*)va->va_virt;
@@ -77,9 +74,8 @@ sys_vmop(Thread* t, struct VMOP_OPTIONS* opts)
 
 	/* Obtain options */
 	struct VMOP_OPTIONS* vmop_opts;
-	RESULT_PROPAGATE_FAILURE(
-		syscall_map_buffer(*t, opts, sizeof(*vmop_opts), VM_FLAG_READ | VM_FLAG_WRITE, (void**)&vmop_opts)
-	);
+	if (auto result = syscall_map_buffer(*t, opts, sizeof(*vmop_opts), VM_FLAG_READ | VM_FLAG_WRITE, (void**)&vmop_opts); result.IsFailure())
+		return result;
 	if (vmop_opts->vo_size != sizeof(*vmop_opts))
 		return RESULT_MAKE_FAILURE(EINVAL);
 

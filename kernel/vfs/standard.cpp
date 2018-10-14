@@ -32,9 +32,8 @@ Result
 vfs_open(Process* p, const char* fname, DEntry* cwd, struct VFS_FILE* out, int lookup_flags)
 {
 	DEntry* dentry;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_lookup(cwd, dentry, fname, lookup_flags)
-	);
+	if (auto result = vfs_lookup(cwd, dentry, fname, lookup_flags); result.IsFailure())
+		return result;
 	vfs_make_file(out, *dentry);
 	KASSERT(dentry->d_inode != nullptr, "open without inode?");
 	KASSERT(dentry->d_inode->i_iops != nullptr, "open without inode ops?");
@@ -471,9 +470,8 @@ vfs_grow(struct VFS_FILE* file, off_t size)
 	file->f_offset = inode->i_sb.st_size;
 	while (inode->i_sb.st_size < size) {
 		size_t chunklen = (size - inode->i_sb.st_size) > sizeof(buffer) ? sizeof(buffer) : size - inode->i_sb.st_size;
-		RESULT_PROPAGATE_FAILURE(
-			vfs_write(file, buffer, chunklen)
-		);
+		if (auto result = vfs_write(file, buffer, chunklen); result.IsFailure())
+			return result;
 	}
 	file->f_offset = cur_offset;
 	return Result::Success();
@@ -496,9 +494,8 @@ vfs_unlink(struct VFS_FILE* file)
 	if (!vfs_is_filesystem_sane(inode.i_fs))
 		return RESULT_MAKE_FAILURE(EIO);
 
-	RESULT_PROPAGATE_FAILURE(
-		inode.i_iops->unlink(inode, *file->f_dentry)
-	);
+	if (auto result = inode.i_iops->unlink(inode, *file->f_dentry); result.IsFailure())
+		return result;
 
 	/*
 	 * Inform the dentry cache; the unlink operation should have removed it

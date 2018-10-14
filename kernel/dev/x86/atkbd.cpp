@@ -270,9 +270,8 @@ ATKeyboard::Attach()
 	// Initialize private data; must be done before the interrupt is registered
 	kbd_ioport = (uintptr_t)res_io;
 
-	RESULT_PROPAGATE_FAILURE(
-		irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this)
-	);
+	if (auto result = irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this); result.IsFailure())
+		return result;
 
 	/*
 	 * Ensure the keyboard's input buffer is empty; this will cause it to

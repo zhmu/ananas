@@ -14,15 +14,13 @@ sys_write(Thread* t, fdindex_t hindex, const void* buf, size_t len)
 	TRACE(SYSCALL, FUNC, "t=%p, hindex=%u, buf=%p, len=%d", t, hindex, buf, len);
 
 	FD* fd;
-	RESULT_PROPAGATE_FAILURE(
-		syscall_get_fd(*t, FD_TYPE_ANY, hindex, fd)
-	);
+	if (auto result = syscall_get_fd(*t, FD_TYPE_ANY, hindex, fd); result.IsFailure())
+		return result;
 
 	// Attempt to map the buffer readonly
 	void* buffer;
-	RESULT_PROPAGATE_FAILURE(
-		syscall_map_buffer(*t, buf, len, VM_FLAG_READ, &buffer)
-	);
+	if (auto result = syscall_map_buffer(*t, buf, len, VM_FLAG_READ, &buffer); result.IsFailure())
+		return result;
 
 	// And write data from to it
 	if (fd->fd_ops->d_write == NULL)

@@ -52,9 +52,8 @@ SIO::Attach()
 	sio_port = (uint32_t)(uintptr_t)res_io;
 
 	/* SIO is so simple that a plain ISR will do */
-	RESULT_PROPAGATE_FAILURE(
-		irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_ISR, *this)
-	);
+	if (auto result = irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_ISR, *this); result.IsFailure())
+		return result;
 
 	/*
 	 * Wire up the serial port for sensible defaults.

@@ -12,9 +12,8 @@ sys_waitpid(Thread* t, pid_t pid, int* stat_loc, int options)
 	TRACE(SYSCALL, FUNC, "t=%p, pid=%d stat_loc=%p options=%d", t, pid, stat_loc, options);
 
 	util::locked<Process> proc;
-	RESULT_PROPAGATE_FAILURE(
-		t->t_process->WaitAndLock(options, proc)
-	);
+	if (auto result = t->t_process->WaitAndLock(options, proc); result.IsFailure())
+		return result;
 
 	auto child_pid = proc->p_pid;
 	if (stat_loc != nullptr)

@@ -59,9 +59,8 @@ fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	/* Fill out a sector size and grab the first block */
 	BIO* bio;
 	fs->fs_block_size = BIO_SECTOR_SIZE;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_bread(fs, 0, &bio)
-	);
+	if (auto result = vfs_bread(fs, 0, &bio); result.IsFailure())
+		return result;
 
 	/* Parse what we just read */
 	struct FAT_BPB* bpb = (struct FAT_BPB*)BIO_DATA(bio);

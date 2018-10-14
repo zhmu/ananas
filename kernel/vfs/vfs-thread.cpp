@@ -27,21 +27,18 @@ vfs_init_process(Process& proc)
 		/* Initialize stdin/out/error, so they'll get handle index 0, 1, 2 */
 		FD* stdin_fd;
 		fdindex_t idx;
-		RESULT_PROPAGATE_FAILURE(
-			fd::Allocate(FD_TYPE_FILE, proc, 0, stdin_fd, idx)
-		);
+		if (auto result = fd::Allocate(FD_TYPE_FILE, proc, 0, stdin_fd, idx); result.IsFailure())
+			return result;
 		KASSERT(idx == 0, "stdin index mismatch (%d)", idx);
 
 		FD* stdout_fd;
-		RESULT_PROPAGATE_FAILURE(
-			fd::Allocate(FD_TYPE_FILE, proc, 0, stdout_fd, idx)
-		);
+		if (auto result = fd::Allocate(FD_TYPE_FILE, proc, 0, stdout_fd, idx); result.IsFailure())
+			return result;
 		KASSERT(idx == 1, "stdout index mismatch (%d)", idx);
 
 		FD* stderr_fd;
-		RESULT_PROPAGATE_FAILURE(
-			fd::Allocate(FD_TYPE_FILE, proc, 0, stderr_fd, idx)
-		);
+		if (auto result = fd::Allocate(FD_TYPE_FILE, proc, 0, stderr_fd, idx); result.IsFailure())
+			return result;
 		KASSERT(idx == 2, "stderr index mismatch (%d)", idx);
 
 		// Hook the new handles to the console
@@ -50,9 +47,8 @@ vfs_init_process(Process& proc)
 		stderr_fd->fd_data.d_vfs_file.f_device = console_tty;
 
 		/* Use / as current path - by the time we create processes, we should have a workable VFS */
-		RESULT_PROPAGATE_FAILURE(
-			vfs_lookup(NULL, proc.p_cwd, "/")
-		);
+		if (auto result = vfs_lookup(NULL, proc.p_cwd, "/"); result.IsFailure())
+			return result;
 	}
 
 	return Result::Success();

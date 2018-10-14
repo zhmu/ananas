@@ -51,9 +51,8 @@ vmspace_create(VMSpace*& vmspace)
 	auto vs = new VMSpace;
 	vs->vs_next_mapping = THREAD_INITIAL_MAPPING_ADDR;
 
-	RESULT_PROPAGATE_FAILURE(
-		md::vmspace::Init(*vs)
-	);
+	if (auto result = md::vmspace::Init(*vs); result.IsFailure())
+		return result;
 
 	vmspace = vs;
 	return Result::Success();
@@ -175,9 +174,8 @@ VMSpace::MapToDentry(addr_t virt, size_t vlength, DEntry& dentry, off_t doffset,
 
 	KASSERT((doffset & (PAGE_SIZE - 1)) == 0, "offset %d not page-aligned", doffset);
 
-	RESULT_PROPAGATE_FAILURE(
-		MapTo(virt, vlength, flags | VM_FLAG_FAULT, va_out)
-	);
+	if (auto result = MapTo(virt, vlength, flags | VM_FLAG_FAULT, va_out); result.IsFailure())
+		return result;
 
 	dentry_ref(dentry);
 	va_out->va_dentry = &dentry;
@@ -225,9 +223,8 @@ VMSpace::Clone(VMSpace& vs_dest)
 	/* Now copy everything over that isn't private */
 	for(auto& va_src: vs_areas) {
 		VMArea* va_dst;
-		RESULT_PROPAGATE_FAILURE(
-			vs_dest.MapTo(va_src.va_virt, va_src.va_len, va_src.va_flags, va_dst)
-		);
+		if (auto result = vs_dest.MapTo(va_src.va_virt, va_src.va_len, va_src.va_flags, va_dst); result.IsFailure())
+			return result;
 		if (va_src.va_dentry != nullptr) {
 			// Backed by an inode; copy the necessary fields over
 			va_dst->va_doffset = va_src.va_doffset;

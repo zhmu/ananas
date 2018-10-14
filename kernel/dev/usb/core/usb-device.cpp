@@ -44,9 +44,8 @@ USBDevice::Attach()
 	 * Note that usb_hub can be NULL if we're attaching the root hub itself.
 	 */
 	if (ud_hub != nullptr) {
-		RESULT_PROPAGATE_FAILURE(
-			ud_hub->ResetPort(ud_port)
-		);
+		if (auto result = ud_hub->ResetPort(ud_port); result.IsFailure())
+			return result;
 	}
 
 	/*
@@ -55,9 +54,8 @@ USBDevice::Attach()
 	 */
 	{
 		size_t len = 8;
-		RESULT_PROPAGATE_FAILURE(
-			PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_DEVICE, 0), 0, &ud_descr_device, &len, false)
-		);
+		if (auto result = PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_DEVICE, 0), 0, &ud_descr_device, &len, false); result.IsFailure())
+			return result;
 
 		TRACE(USB, INFO,
 		 "got partial device descriptor: len=%u, type=%u, version=%u, class=%u, subclass=%u, protocol=%u, maxsize=%u",
@@ -78,9 +76,8 @@ USBDevice::Attach()
 		}
 
 		/* Assign the device a logical address */
-		RESULT_PROPAGATE_FAILURE(
-			PerformControlTransfer(USB_CONTROL_REQUEST_SET_ADDRESS, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, dev_address, 0, NULL, NULL, true)
-		);
+		if (auto result = PerformControlTransfer(USB_CONTROL_REQUEST_SET_ADDRESS, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, dev_address, 0, NULL, NULL, true); result.IsFailure())
+			return result;
 
 		/*
 		 * Address configured - we could attach more things in parallel from now on,
@@ -93,9 +90,8 @@ USBDevice::Attach()
 	/* Now, obtain the entire device descriptor */
 	{
 		size_t len = sizeof(ud_descr_device);
-		RESULT_PROPAGATE_FAILURE(
-			PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_DEVICE, 0), 0, &ud_descr_device, &len, false)
-		);
+		if (auto result = PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_DEVICE, 0), 0, &ud_descr_device, &len, false); result.IsFailure())
+			return result;
 
 		TRACE(USB, INFO,
 		 "got full device descriptor: len=%u, type=%u, version=%u, class=%u, subclass=%u, protocol=%u, maxsize=%u, vendor=%u, product=%u numconfigs=%u",
@@ -108,9 +104,8 @@ USBDevice::Attach()
 		/* Obtain the language ID of this device */
 		struct USB_DESCR_STRING s;
 		size_t len = 4  /* just the first language */ ;
-		RESULT_PROPAGATE_FAILURE(
-			PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, 0), 0, &s, &len, false)
-		);
+		if (auto result = PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, 0), 0, &s, &len, false); result.IsFailure())
+			return result;
 
 		/* Retrieved string language code */
 		uint16_t langid = s.u.str_langid[0];
@@ -118,9 +113,8 @@ USBDevice::Attach()
 
 		/* Time to fetch strings; this must be done in two steps: length and content */
 		len = 4 /* length only */ ;
-		RESULT_PROPAGATE_FAILURE(
-			PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, ud_descr_device.dev_productidx), langid, &s, &len, false)
-		);
+		if (auto result = PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, ud_descr_device.dev_productidx), langid, &s, &len, false); result.IsFailure())
+			return result;
 
 		/* Retrieved string length */
 		TRACE(USB, INFO, "got string length=%u", s.str_length);
@@ -130,9 +124,8 @@ USBDevice::Attach()
 		auto s_full = reinterpret_cast<struct USB_DESCR_STRING*>(tmp);
 		len = s.str_length;
 		KASSERT(len < sizeof(tmp), "very large string descriptor %u", s.str_length);
-		RESULT_PROPAGATE_FAILURE(
-			PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, ud_descr_device.dev_productidx), langid, s_full, &len, false)
-		);
+		if (auto result = PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_STRING, ud_descr_device.dev_productidx), langid, s_full, &len, false); result.IsFailure())
+			return result;
 
 		kprintf("product <");
 		for (int i = 0; i < s_full->str_length / 2; i++) {
@@ -149,9 +142,8 @@ USBDevice::Attach()
 	{
 		struct USB_DESCR_CONFIG c;
 		size_t len = sizeof(c);
-		RESULT_PROPAGATE_FAILURE(
-			PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_CONFIG, 0), 0, &c, &len, false)
-		);
+		if (auto result = PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_CONFIG, 0), 0, &c, &len, false); result.IsFailure())
+			return result;
 
 		/* Retrieved partial config descriptor */
 		TRACE(USB, INFO,
@@ -164,22 +156,19 @@ USBDevice::Attach()
 		auto c_full = reinterpret_cast<struct USB_DESCR_CONFIG*>(tmp);
 		len = c.cfg_totallen;
 		KASSERT(len < sizeof(tmp), "very large configuration descriptor %u", c.cfg_totallen);
-		RESULT_PROPAGATE_FAILURE(
-			PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_CONFIG, 0), 0, c_full, &len, false)
-		);
+		if (auto result = PerformControlTransfer(USB_CONTROL_REQUEST_GET_DESC, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, USB_REQUEST_MAKE(USB_DESCR_TYPE_CONFIG, 0), 0, c_full, &len, false); result.IsFailure())
+			return result;
 
 		/* Retrieved full device descriptor */
 		TRACE(USB, INFO, "got full config descriptor");
 
 		/* Handle the configuration */
-		RESULT_PROPAGATE_FAILURE(
-			ParseConfiguration(ud_interface, ud_num_interfaces, c_full, c.cfg_totallen)
-		);
+		if (auto result = ParseConfiguration(ud_interface, ud_num_interfaces, c_full, c.cfg_totallen); result.IsFailure())
+			return result;
 
 		/* For now, we'll just activate the very first configuration */
-		RESULT_PROPAGATE_FAILURE(
-			PerformControlTransfer(USB_CONTROL_REQUEST_SET_CONFIGURATION, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, c_full->cfg_identifier, 0, NULL, NULL, true)
-		);
+		if (auto result = PerformControlTransfer(USB_CONTROL_REQUEST_SET_CONFIGURATION, USB_CONTROL_RECIPIENT_DEVICE, USB_CONTROL_TYPE_STANDARD, c_full->cfg_identifier, 0, NULL, NULL, true); result.IsFailure())
+			return result;
 
 		/* Configuration activated */
 		TRACE(USB, INFO, "configuration activated");
@@ -211,9 +200,8 @@ USBDevice::Detach()
 
 	// Ask the device to clean up after itself
 	if (ud_device != nullptr) {
-		RESULT_PROPAGATE_FAILURE(
-			DeviceManager::Detach(*ud_device)
-		);
+		if (auto result = DeviceManager::Detach(*ud_device); result.IsFailure())
+			return result;
 		ud_device = nullptr;
 	}
 

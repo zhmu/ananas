@@ -368,9 +368,8 @@ elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
 		ehdr.e_phentsize = sizeof(Elf64_Phdr);
 		ehdr.e_phnum = num_phent;
 
-		RESULT_PROPAGATE_FAILURE(
-			vfs_write(f, &ehdr, sizeof(ehdr))
-		);
+		if (auto result = vfs_write(f, &ehdr, sizeof(ehdr)); result.IsFailure())
+			return result;
 	}
 
 	// Write NOTE phdr as the first program header
@@ -386,9 +385,8 @@ elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
 		phdr.p_memsz = note_len;
 		phdr.p_flags = PF_R;
 
-		RESULT_PROPAGATE_FAILURE(
-			vfs_write(f, &phdr, sizeof(phdr))
-		);
+		if (auto result = vfs_write(f, &phdr, sizeof(phdr)); result.IsFailure())
+			return result;
 	}
 
 	// Store the other program header
@@ -414,34 +412,30 @@ elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
 			if (vp.vp_flags & VM_FLAG_EXECUTE)
 				phdr.p_flags |= PF_X;
 
-			RESULT_PROPAGATE_FAILURE(
-				vfs_write(f, &phdr, sizeof(phdr))
-			);
+			if (auto result = vfs_write(f, &phdr, sizeof(phdr)); result.IsFailure())
+				return result;
 
 			ph_index++;
 		}
 	}
 
 	// Write the note data
-	RESULT_PROPAGATE_FAILURE(
-		vfs_write(f, note, note_len)
-	);
+	if (auto result = vfs_write(f, note, note_len); result.IsFailure())
+		return result;
 
 	// Align to PAGE_SIZE
 	if (f->f_offset & (PAGE_SIZE - 1)) {
 		memset(note, 0, PAGE_SIZE);
 		size_t note_slack = PAGE_SIZE -  f->f_offset & (PAGE_SIZE - 1);
-		RESULT_PROPAGATE_FAILURE(
-			vfs_write(f, note, note_slack)
-		);
+		if (auto result = vfs_write(f, note, note_slack); result.IsFailure())
+			return result;
 	}
 
 	// Store the page content
 	for(auto& va: vs->vs_areas) {
 		for(auto& vp: va.va_pages) {
-			RESULT_PROPAGATE_FAILURE(
-				vfs_write(f, reinterpret_cast<void*>(vp.vp_vaddr), PAGE_SIZE)
-			);
+			if (auto result = vfs_write(f, reinterpret_cast<void*>(vp.vp_vaddr), PAGE_SIZE); result.IsFailure())
+				return result;
 		}
 	}
 
@@ -459,13 +453,11 @@ core_dump(Thread* t, struct STACKFRAME* sf)
 	mode_t mode = 0600;
 
 	struct VFS_FILE f;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_create(proc->p_cwd, &f, path, mode)
-	);
+	if (auto result = vfs_create(proc->p_cwd, &f, path, mode); result.IsFailure())
+		return result;
 
-	RESULT_PROPAGATE_FAILURE(
-		elf64_coredump(t, sf, &f)
-	);
+	if (auto result = elf64_coredump(t, sf, &f); result.IsFailure())
+		return result;
 
 	kprintf("core_dump: pre-close: offs=%d\n", (int)f.f_offset);
 

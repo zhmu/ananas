@@ -20,15 +20,13 @@ sys_readlink(Thread* t, const char* path, char* buf, size_t buflen)
 
 	// Attempt to map the buffer write-only
 	void* buffer;
-	RESULT_PROPAGATE_FAILURE(
-		syscall_map_buffer(*t, buf, buflen, VM_FLAG_WRITE, &buffer)
-	);
+	if (auto result = syscall_map_buffer(*t, buf, buflen, VM_FLAG_WRITE, &buffer); result.IsFailure())
+		return result;
 
 	// Open the link
 	struct VFS_FILE file;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_open(&proc, path, cwd, &file, VFS_LOOKUP_FLAG_NO_FOLLOW)
-	);
+	if (auto result = vfs_open(&proc, path, cwd, &file, VFS_LOOKUP_FLAG_NO_FOLLOW); result.IsFailure())
+		return result;
 
 	// And copy the contents
 	auto result = vfs_read(&file, buf, buflen);

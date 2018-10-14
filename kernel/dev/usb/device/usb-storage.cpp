@@ -212,7 +212,8 @@ USBStorage::PerformSCSIRequest(int lun, Direction dir, const void* cb, size_t cb
 
 	/* Now we wait for the signal ... */
 	us_signal_sem.WaitAndDrain();
-	RESULT_PROPAGATE_FAILURE(r);
+	if (r.IsFailure())
+		return r;
 
 	/* See if the CSW makes sense */
 	if (csw.d_csw_signature != USBSTORAGE_CSW_SIGNATURE)

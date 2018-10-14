@@ -59,9 +59,8 @@ sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 
 	/* First step is to open the file */
 	struct VFS_FILE file;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_open(&proc, path, proc.p_cwd, &file)
-	);
+	if (auto result = vfs_open(&proc, path, proc.p_cwd, &file); result.IsFailure())
+		return result;
 
 	/*
 	 * Add a ref to the dentry; we'll be throwing away 'file' soon but we need to

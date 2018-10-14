@@ -113,9 +113,8 @@ AttachSingle(Device& device)
 	if (device.d_Parent != nullptr)
 		PrintAttachment(device);
 
-	RESULT_PROPAGATE_FAILURE(
-		device.GetDeviceOperations().Attach()
-	);
+	if (auto result = device.GetDeviceOperations().Attach(); result.IsFailure())
+		return result;
 
 	/* Hook the device up to the tree */
 	internal::Register(device);
@@ -145,9 +144,8 @@ Detach(Device& device)
 	}
 
 	// XXX I wonder how realistic this is - failing to detach (what can we do?)
-	RESULT_PROPAGATE_FAILURE(
-		device.GetDeviceOperations().Detach()
-	);
+	if (auto result = device.GetDeviceOperations().Detach(); result.IsFailure())
+		return result;
 
 	device.Printf("detached");
 

@@ -23,9 +23,8 @@ read_data(DEntry& dentry, void* buf, off_t offset, size_t len)
 	memset(&f, 0, sizeof(f));
 	f.f_dentry = &dentry;
 
-	RESULT_PROPAGATE_FAILURE(
-		vfs_seek(&f, offset)
-	);
+	if (auto result = vfs_seek(&f, offset); result.IsFailure())
+		return result;
 
 	auto result = vfs_read(&f, buf, len);
 	if (result.IsFailure())

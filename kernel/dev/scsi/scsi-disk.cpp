@@ -93,9 +93,8 @@ SCSIDisk::Attach()
 	inq_cmd.c_code = SCSI_CMD_INQUIRY_6;
 
 	size_t reply_len = sizeof(inq_reply);
-	RESULT_PROPAGATE_FAILURE(
-		HandleRequest(0, Direction::D_In, &inq_cmd, sizeof(inq_cmd), &inq_reply, &reply_len)
-	);
+	if (auto result = HandleRequest(0, Direction::D_In, &inq_cmd, sizeof(inq_cmd), &inq_reply, &reply_len); result.IsFailure())
+		return result;
 
 	/*
 	 * We expect the device to be unavailable (as it's just reset) - we'll issue
@@ -124,9 +123,8 @@ SCSIDisk::Attach()
 	cap_cmd.c_code = SCSI_CMD_READ_CAPACITY_10;
 	struct SCSI_READ_CAPACITY_10_REPLY cap_reply;
 	reply_len = sizeof(cap_reply);
-	RESULT_PROPAGATE_FAILURE(
-		HandleRequest(0, Direction::D_In, &cap_cmd, sizeof(cap_cmd), &cap_reply, &reply_len)
-	);
+	if (auto result = HandleRequest(0, Direction::D_In, &cap_cmd, sizeof(cap_cmd), &cap_reply, &reply_len); result.IsFailure())
+		return result;
 	uint32_t num_lba = betoh32(cap_reply.r_lba);
 	uint32_t block_len = betoh32(cap_reply.r_block_length);
 
@@ -168,9 +166,8 @@ SCSIDisk::ReadBIO(struct BIO& bio)
 	r_cmd.c_lba = htobe32(bio.io_block);
 	r_cmd.c_transfer_len = htobe16(bio.length / 512);
 	size_t reply_len = bio.length;
-	RESULT_PROPAGATE_FAILURE(
-		HandleRequest(0, Direction::D_In, &r_cmd, sizeof(r_cmd), BIO_DATA(&bio), &reply_len)
-	);
+	if (auto result = HandleRequest(0, Direction::D_In, &r_cmd, sizeof(r_cmd), BIO_DATA(&bio), &reply_len); result.IsFailure())
+		return result;
 
 	bio_set_available(bio);
 	return Result::Success();

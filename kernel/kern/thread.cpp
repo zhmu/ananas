@@ -309,9 +309,8 @@ thread_clone(Process& proc, Thread*& out_thread)
 	Thread* curthread = PCPU_GET(curthread);
 
 	Thread* t;
-	RESULT_PROPAGATE_FAILURE(
-		thread_alloc(proc, t, curthread->t_name, THREAD_ALLOC_CLONE)
-	);
+	if (auto result = thread_alloc(proc, t, curthread->t_name, THREAD_ALLOC_CLONE); result.IsFailure())
+		return result;
 
 	/*
 	 * Must copy the thread state over; note that this is the

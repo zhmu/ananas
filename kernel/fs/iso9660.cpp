@@ -62,9 +62,8 @@ iso9660_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	/* Obtain the primary volume descriptor; it contains vital information */
 	fs->fs_block_size = 2048;
 	BIO* bio;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_bread(fs, 4, &bio)
-	);
+	if (auto result = vfs_bread(fs, 4, &bio); result.IsFailure())
+		return result;
 
 	/* Verify the primary volume descriptor */
 	struct ISO9660_PRIMARY_VOLUME_DESCR* pvd = (struct ISO9660_PRIMARY_VOLUME_DESCR*)BIO_DATA(bio);
@@ -117,9 +116,8 @@ iso9660_read_inode(INode& inode, ino_t inum)
 
 	/* Grab the block containing the inode */
 	BIO* bio;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_bread(inode.i_fs, block, &bio)
-	);
+	if (auto result = vfs_bread(inode.i_fs, block, &bio); result.IsFailure())
+		return result;
 
 	/* Convert the inode */
 	auto iso9660_de = reinterpret_cast<struct ISO9660_DIRECTORY_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + offset);
@@ -183,9 +181,8 @@ iso9660_readdir(struct VFS_FILE* file, void* dirents, size_t len)
 		if(curblock != block) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			RESULT_PROPAGATE_FAILURE(
-				vfs_bread(fs, block, &bio)
-			);
+			if (auto result = vfs_bread(fs, block, &bio); result.IsFailure())
+				return result;
 			curblock = block;
 		}
 
@@ -260,9 +257,8 @@ iso9660_read(struct VFS_FILE* file, void* buf, size_t len)
 	while(left > 0) {
 		/* Fetch the block */
 		BIO* bio;
-		RESULT_PROPAGATE_FAILURE(
-			vfs_bread(fs, privdata->lba + blocknum, &bio)
-		);
+		if (auto result = vfs_bread(fs, privdata->lba + blocknum, &bio); result.IsFailure())
+			return result;
 
 		/* Copy what we can so far */
 		size_t chunklen = (fs->fs_block_size < left ? fs->fs_block_size : left);

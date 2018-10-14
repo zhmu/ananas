@@ -35,9 +35,8 @@ sys_chdir(Thread* t, const char* path)
 	DEntry* cwd = proc.p_cwd;
 
 	struct VFS_FILE file;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_open(&proc, path, cwd, &file)
-	);
+	if (auto result = vfs_open(&proc, path, cwd, &file); result.IsFailure())
+		return result;
 
 	/* XXX Check if file has a directory */
 
@@ -54,9 +53,8 @@ sys_fchdir(Thread* t, fdindex_t index)
 	Process& proc = *t->t_process;
 
 	FD* fd;
-	RESULT_PROPAGATE_FAILURE(
-		syscall_get_fd(*t, FD_TYPE_FILE, index, fd)
-	);
+	if (auto result = syscall_get_fd(*t, FD_TYPE_FILE, index, fd); result.IsFailure())
+		return result;
 
 	return SetCWD(proc, fd->fd_data.d_vfs_file);
 }

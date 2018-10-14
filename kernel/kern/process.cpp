@@ -120,9 +120,8 @@ Result
 Process::Clone(Process*& out_p)
 {
 	Process* newp;
-	RESULT_PROPAGATE_FAILURE(
-		process_alloc_ex(this, newp)
-	);
+	if (auto result = process_alloc_ex(this, newp); result.IsFailure())
+		return result;
 
 	/* Duplicate the vmspace - this should leave the private mappings alone */
 	if (auto result = p_vmspace->Clone(*newp->p_vmspace); result.IsFailure()) {

@@ -361,9 +361,8 @@ HDAPCIDevice::Attach()
 
 	hda_addr = (addr_t)res_io;
 
-	RESULT_PROPAGATE_FAILURE(
-		irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this)
-	);
+	if (auto result = irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this); result.IsFailure())
+		return result;
 
 	/* Enable busmastering; all communication is done by DMA */
 	pci_enable_busmaster(*this, 1);

@@ -144,9 +144,8 @@ ankhfs_read_inode(INode& inode, ino_t inum)
 	if (subSystem == nullptr)
 		return RESULT_MAKE_FAILURE(EIO);
 
-	RESULT_PROPAGATE_FAILURE(
-		subSystem->FillInode(inode, inum)
-	);
+	if (auto result = subSystem->FillInode(inode, inum); result.IsFailure())
+		return result;
 
 	if (S_ISDIR(inode.i_sb.st_mode)) {
 		inode.i_sb.st_mode |= 0111;

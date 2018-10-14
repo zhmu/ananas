@@ -116,9 +116,8 @@ HDADevice::Attach()
 			continue; // no codec on this address
 
 		/* Attach the root node - it will recurse to subnodes if needed */
-		RESULT_PROPAGATE_FAILURE(
-			AttachNode(cad, 0)
-		);
+		if (auto result = AttachNode(cad, 0); result.IsFailure())
+			return result;
 	}
 
 	return Result::Success();
@@ -232,18 +231,14 @@ HDADevice::IOControl(Process* proc, unsigned long req, void* args[])
 
 				// Set stream format: 48.0Hz, 16-bit stereo
 				int stream_fmt = STREAM_TYPE_PCM | STREAM_BASE_48_0 | STREAM_MULT_x1 | STREAM_DIV_1 | STREAM_BITS_16 | STREAM_CHANNELS(1);
-				{
-					RESULT_PROPAGATE_FAILURE(
-						hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_CONV_FORMAT, stream_fmt)), &r, NULL)
-					);
-				}
+				if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_CONV_FORMAT, stream_fmt)), &r, NULL); result.IsFailure())
+					return result;
 
 				// open a stream to play things
 				IHDAFunctions::Context ctx;
 				int num_pages = ss->ss_buffer_length;
-				RESULT_PROPAGATE_FAILURE(
-					hdaFunctions->OpenStream(tag, HDF_DIR_OUT, stream_fmt, num_pages, &ctx)
-				);
+				if (auto result = hdaFunctions->OpenStream(tag, HDF_DIR_OUT, stream_fmt, num_pages, &ctx); result.IsFailure())
+					return result;
 
 				// Fill the stream with silence
 				for (unsigned int n = 0; n < num_pages; n++) {

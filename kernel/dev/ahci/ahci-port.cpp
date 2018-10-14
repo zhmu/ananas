@@ -88,9 +88,8 @@ Port::Attach()
 	/* Initialize the DMA buffers for requests */
 	for(unsigned int n = 0; n < 32; n++) {
 		Request* pr = &p_request[n];
-		RESULT_PROPAGATE_FAILURE(
-			dma_buf_alloc(p_device.d_DMA_tag, sizeof(struct AHCI_PCI_CT), &pr->pr_dmabuf_ct)
-		);
+		if (auto result = dma_buf_alloc(p_device.d_DMA_tag, sizeof(struct AHCI_PCI_CT), &pr->pr_dmabuf_ct); result.IsFailure())
+			return result;
 		pr->pr_ct = static_cast<struct AHCI_PCI_CT*>(dma_buf_get_segment(pr->pr_dmabuf_ct, 0)->s_virt);
 	}
 

@@ -86,17 +86,15 @@ vfs_generic_read(struct VFS_FILE* file, void* buf, size_t len)
 
 		/* Figure out which block to use next */
 		blocknr_t want_block;
-		RESULT_PROPAGATE_FAILURE(
-			inode.i_iops->block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), want_block, false)
-		);
+		if (auto result = inode.i_iops->block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), want_block, false); result.IsFailure())
+			return result;
 
 		/* Grab the next block if necessary */
 		if (cur_block != want_block || bio == NULL) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			RESULT_PROPAGATE_FAILURE(
-				vfs_bread(fs, want_block, &bio)
-			);
+			if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
+				return result;
 			cur_block = want_block;
 		}
 
@@ -140,9 +138,8 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t len)
 
 		/* Figure out which block to use next */
 		blocknr_t want_block;
-		RESULT_PROPAGATE_FAILURE(
-			inode.i_iops->block_map(inode, logical_block, want_block, create)
-		);
+		if (auto result = inode.i_iops->block_map(inode, logical_block, want_block, create); result.IsFailure())
+			return result;
 
 		/* Calculate how much we have to put in the block */
 		off_t cur_offset = file->f_offset % (blocknr_t)fs->fs_block_size;
@@ -155,9 +152,8 @@ vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t len)
 			if (bio != nullptr)
 				bio_free(*bio);
 			/* Only read the block if it's a new one or we're not replacing everything */
-			RESULT_PROPAGATE_FAILURE(
-				vfs_bget(fs, want_block, &bio, (create || chunk_len == fs->fs_block_size) ? BIO_READ_NODATA : 0)
-			);
+			if (auto result = vfs_bget(fs, want_block, &bio, (create || chunk_len == fs->fs_block_size) ? BIO_READ_NODATA : 0); result.IsFailure())
+				return result;
 			cur_block = want_block;
 		}
 

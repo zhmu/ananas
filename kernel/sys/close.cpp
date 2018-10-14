@@ -13,12 +13,10 @@ sys_close(Thread* t, fdindex_t index)
 	TRACE(SYSCALL, FUNC, "t %p, fd %d", t, index);
 
 	FD* fd;
-	RESULT_PROPAGATE_FAILURE(
-		syscall_get_fd(*t, FD_TYPE_ANY, index, fd)
-	);
-	RESULT_PROPAGATE_FAILURE(
-		fd->Close()
-	);
+	if (auto result = syscall_get_fd(*t, FD_TYPE_ANY, index, fd); result.IsFailure())
+		return result;
+	if (auto result = fd->Close(); result.IsFailure())
+		return result;
 
 	TRACE(SYSCALL, INFO, "t=%p, success", t);
 	return Result::Success();

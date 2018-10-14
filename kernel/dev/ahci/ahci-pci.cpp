@@ -172,16 +172,14 @@ AHCIDevice::Attach()
 	ap_num_ports = num_ports;
 
 	/* Create DMA tags; we need those to do DMA */
-	RESULT_PROPAGATE_FAILURE(
-		dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE)
-	);
+	if (auto result = dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE); result.IsFailure())
+		return result;
 
 	uint32_t cap = Read(AHCI_REG_CAP);
 	ap_ncs = AHCI_CAP_NCS(cap) + 1;
 
-	RESULT_PROPAGATE_FAILURE(
-		irq::Register((int)(uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this)
-	);
+	if (auto result = irq::Register((int)(uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this); result.IsFailure())
+		return result;
 
 	/* Force all ports into idle mode */
 	int need_wait = 0;
@@ -234,12 +232,10 @@ AHCIDevice::Attach()
 		idx++;
 
 		/* Create DMA-able memory buffers for the command list and RFIS */
-		RESULT_PROPAGATE_FAILURE(
-			dma_buf_alloc(d_DMA_tag, 1024, &p->p_dmabuf_cl)
-		);
-		RESULT_PROPAGATE_FAILURE(
-			dma_buf_alloc(d_DMA_tag, 256, &p->p_dmabuf_rfis)
-		);
+		if (auto result = dma_buf_alloc(d_DMA_tag, 1024, &p->p_dmabuf_cl); result.IsFailure())
+			return result;
+		if (auto result = dma_buf_alloc(d_DMA_tag, 256, &p->p_dmabuf_rfis); result.IsFailure())
+			return result;
 
 		p->p_cle = static_cast<struct AHCI_PCI_CLE*>(dma_buf_get_segment(p->p_dmabuf_cl, 0)->s_virt);
 		p->p_rfis = static_cast<struct AHCI_PCI_RFIS*>(dma_buf_get_segment(p->p_dmabuf_rfis, 0)->s_virt);

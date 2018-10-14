@@ -102,9 +102,9 @@ fat_read_inode(INode& inode, ino_t inum)
 	uint32_t offset = inum & 0xffff;
 	KASSERT(offset <= fs->fs_block_size - sizeof(struct FAT_ENTRY), "inode offset %u out of range", offset);
 	BIO* bio;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_bread(fs, block, &bio)
-	);
+	if (auto result = vfs_bread(fs, block, &bio); result.IsFailure())
+		return result;
+
 	/* Fill out the inode details */
 	auto fentry = reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + offset);
 	fat_fill_inode(inode, inum, fentry);
@@ -126,9 +126,8 @@ fat_write_inode(INode& inode)
 	uint32_t offset = inum & 0xffff;
 	KASSERT(offset <= fs->fs_block_size - sizeof(struct FAT_ENTRY), "inode offset %u out of range", offset);
 	BIO* bio;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_bread(fs, block, &bio)
-	);
+	if (auto result = vfs_bread(fs, block, &bio); result.IsFailure())
+		return result;
 
 	/* Fill out the inode details */
 	auto fentry = reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + offset);
@@ -139,9 +138,8 @@ fat_write_inode(INode& inode)
 
 	/* If the inode has run out of references, we must free the clusters it occupied */
 	if (inode.i_sb.st_nlink == 0) {
-		RESULT_PROPAGATE_FAILURE(
-			fat_truncate_clusterchain(inode)
-		); /* XXX Should this be fatal? */
+		if (auto result = fat_truncate_clusterchain(inode); result.IsFailure())
+			return result; // XXX Should this be fatal?
 	}
 
 	/* And off it goes */

@@ -59,9 +59,8 @@ read_data(DEntry& dentry, void* buf, off_t offset, size_t len)
 	memset(&f, 0, sizeof(f));
 	f.f_dentry = &dentry;
 
-	RESULT_PROPAGATE_FAILURE(
-		vfs_seek(&f, offset)
-	);
+	if (auto result = vfs_seek(&f, offset); result.IsFailure())
+		return result;
 
 	Result result = vfs_read(&f, buf, len);
 	if (result.IsFailure())
@@ -76,9 +75,8 @@ read_data(DEntry& dentry, void* buf, off_t offset, size_t len)
 static Result
 LoadEhdr(DEntry& dentry, Elf64_Ehdr& ehdr)
 {
-	RESULT_PROPAGATE_FAILURE(
-		read_data(dentry, &ehdr, 0, sizeof(ehdr))
-	);
+	if (auto result = read_data(dentry, &ehdr, 0, sizeof(ehdr)); result.IsFailure())
+		return result;
 
 	// Perform basic ELF checks: check magic/version
 	if (ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != ELFMAG1 ||
@@ -175,9 +173,8 @@ ELF64Loader::LoadPH(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t 
 
 	// First step is to map the dentry-backed data
 	VMArea* va;
-	RESULT_PROPAGATE_FAILURE(
-		vs.MapToDentry(rbase + virt_begin, virt_end - virt_begin, dentry, doffset, filesz, flags, va)
-	);
+	if (auto result = vs.MapToDentry(rbase + virt_begin, virt_end - virt_begin, dentry, doffset, filesz, flags, va); result.IsFailure())
+		return result;
 	if (phdr.p_filesz == phdr.p_memsz)
 		return Result::Success();
 
@@ -195,15 +192,13 @@ ELF64Loader::LoadFile(VMSpace& vs, DEntry& dentry, const Elf64_Ehdr& ehdr, addr_
 	/* Process all program headers one by one */
 	for (unsigned int i = 0; i < ehdr.e_phnum; i++) {
 		Elf64_Phdr phdr;
-		RESULT_PROPAGATE_FAILURE(
-			read_data(dentry, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr))
-		);
+		if (auto result = read_data(dentry, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr)); result.IsFailure())
+			return result;
 		if(phdr.p_type != PT_LOAD)
 			continue;
 
-		RESULT_PROPAGATE_FAILURE(
-			LoadPH(vs, dentry, phdr, rbase)
-		);
+		if (auto result = LoadPH(vs, dentry, phdr, rbase); result.IsFailure())
+			return result;
 	}
 
 	exec_addr = ehdr.e_entry;
@@ -235,17 +230,15 @@ ELF64Loader::Load(VMSpace& vs, DEntry& dentry, void*& aa)
 
 	// Load the file
 	addr_t exec_addr;
-	RESULT_PROPAGATE_FAILURE(
-		LoadFile(vs, dentry, ehdr, 0, exec_addr)
-	);
+	if (auto result = LoadFile(vs, dentry, ehdr, 0, exec_addr); result.IsFailure())
+		return result;
 
 	// This went okay - see if there any other interesting headers here
 	char* interp = nullptr;
 	for (unsigned int i = 0; i < ehdr.e_phnum; i++) {
 		Elf64_Phdr phdr;
-		RESULT_PROPAGATE_FAILURE(
-			read_data(dentry, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr))
-		);
+		if (auto result = read_data(dentry, &phdr, ehdr.e_phoff + i * ehdr.e_phentsize, sizeof(phdr)); result.IsFailure())
+			return result;
 		switch(phdr.p_type) {
 			case PT_INTERP: {
 				if (interp != nullptr) {
@@ -313,9 +306,8 @@ ELF64Loader::Load(VMSpace& vs, DEntry& dentry, void*& aa)
 		VMArea* va_phdr;
 		{
 			size_t phdr_len = ehdr.e_phnum * ehdr.e_phentsize;
-			RESULT_PROPAGATE_FAILURE(
-				vs.MapToDentry(PHDR_BASE, phdr_len, dentry, ehdr.e_phoff & ~(PAGE_SIZE - 1), phdr_len, VM_FLAG_READ | VM_FLAG_USER, va_phdr)
-			);
+			if (auto result = vs.MapToDentry(PHDR_BASE, phdr_len, dentry, ehdr.e_phoff & ~(PAGE_SIZE - 1), phdr_len, VM_FLAG_READ | VM_FLAG_USER, va_phdr); result.IsFailure())
+				return result;
 		}
 
 		// Add auxiliary arguments for dynamic executables

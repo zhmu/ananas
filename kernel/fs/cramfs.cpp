@@ -78,9 +78,8 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t len)
 
 		/* Calculate the compressed data offset of this page */
 		cur_block = (i_privdata->offset + page_index * sizeof(uint32_t)) / fs->fs_block_size;
-		RESULT_PROPAGATE_FAILURE(
-			vfs_bread(fs, cur_block, &bio)
-		);
+		if (auto result = vfs_bread(fs, cur_block, &bio); result.IsFailure())
+			return result;
 		uint32_t next_offset = *(uint32_t*)(static_cast<char*>(BIO_DATA(bio)) + (i_privdata->offset + page_index * sizeof(uint32_t)) % fs->fs_block_size);
 		bio_free(*bio);
 
@@ -89,9 +88,8 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t len)
 			/* Now, fetch the offset of the previous page; this gives us the length of the compressed chunk */
 			int prev_block = (i_privdata->offset + (page_index - 1) * sizeof(uint32_t)) / fs->fs_block_size;
 			if (cur_block != prev_block) {
-				RESULT_PROPAGATE_FAILURE(
-					vfs_bread(fs, prev_block, &bio)
-				);
+				if (auto result = vfs_bread(fs, prev_block, &bio); result.IsFailure())
+					return result;
 			}
 			start_offset = *(uint32_t*)(static_cast<char*>(BIO_DATA(bio)) + (i_privdata->offset + (page_index - 1) * sizeof(uint32_t)) % fs->fs_block_size);
 		} else {
@@ -106,9 +104,8 @@ cramfs_read(struct VFS_FILE* file, void* buf, size_t len)
 		uint32_t buf_pos = 0;
 		while(buf_pos < left) {
 			cur_block = (start_offset + buf_pos) / fs->fs_block_size;
-			RESULT_PROPAGATE_FAILURE(
-				vfs_bread(fs, cur_block, &bio)
-			);
+			if (auto result = vfs_bread(fs, cur_block, &bio); result.IsFailure())
+				return result;
 			int piece_len = fs->fs_block_size - ((start_offset + buf_pos) % fs->fs_block_size);
 			if (piece_len > left)
 				piece_len = left;
@@ -169,9 +166,8 @@ cramfs_readdir(struct VFS_FILE* file, void* dirents, size_t len)
 		if (new_block != cur_block) {
 			if (bio != nullptr)
 				bio_free(*bio);
-			RESULT_PROPAGATE_FAILURE(
-				vfs_bread(fs, new_block, &bio)
-			);
+			if (auto result = vfs_bread(fs, new_block, &bio); result.IsFailure())
+				return result;
 			cur_block = new_block;
 		}
 
@@ -278,9 +274,8 @@ cramfs_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 
 	/* Fetch the first sector; we use it to validate the filesystem */
 	struct BIO* bio;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_bread(fs, 0, &bio)
-	);
+	if (auto result =	vfs_bread(fs, 0, &bio); result.IsFailure())
+		return result;
 	auto sb = static_cast<struct CRAMFS_SUPERBLOCK*>(BIO_DATA(bio));
 	if (CRAMFS_TO_LE32(sb->c_magic) != CRAMFS_MAGIC) {
 		bio_free(*bio);
@@ -321,9 +316,8 @@ cramfs_read_inode(INode& inode, ino_t inum)
 	 */
 	uint32_t offset = inum;
 	struct BIO* bio;
-	RESULT_PROPAGATE_FAILURE(
-		vfs_bread(fs, offset / fs->fs_block_size, &bio)
-	);
+	if (auto result = vfs_bread(fs, offset / fs->fs_block_size, &bio); result.IsFailure())
+		return result;
 	auto cram_inode = reinterpret_cast<struct CRAMFS_INODE*>(static_cast<char*>(BIO_DATA(bio)) + offset % fs->fs_block_size);
 	cramfs_convert_inode(offset, cram_inode, inode);
 	bio_free(*bio);

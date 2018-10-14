@@ -415,9 +415,8 @@ ATAController::Attach()
 	if (inb(ata_io + ATA_REG_STATUS) == 0xff)
 		return RESULT_MAKE_FAILURE(ENODEV);
 
-	RESULT_PROPAGATE_FAILURE(
-		irq_register(irq, this, IRQWrapper, IRQ_TYPE_DEFAULT, NULL)
-	);
+	if (auto result = irq_register(irq, this, IRQWrapper, IRQ_TYPE_DEFAULT, NULL); result.IsFailure())
+		return result;
 
 	/* Initialize a freelist of request items */
 	QUEUE_INIT(&freelist);
