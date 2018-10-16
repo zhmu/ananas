@@ -122,7 +122,7 @@ FreeTransfer(Transfer& xfer)
 {
 	auto& usb_dev = xfer.t_device;
 
-	DPRINTF("usbtransfer_free: xfer=%x type %d\n", xfer, xfer->t_type);
+	DPRINTF("usbtransfer_free: xfer=%x type %d\n", &xfer, xfer->t_type);
 	usb_dev.Lock();
 	FreeTransfer_Locked(xfer);
 	usb_dev.Unlock();
@@ -136,7 +136,7 @@ Transfer::Complete_Locked()
 
 	/* Transfer is complete, so we can remove the pending flag */
 	t_flags &= ~TRANSFER_FLAG_PENDING;
-	t_device.ud_transfers.push_back(*this);
+	t_device.ud_transfers.remove(*this);
 
 	/*
 	 * This is generally called from interrupt context, so schedule a worker to
