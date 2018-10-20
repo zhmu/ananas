@@ -55,6 +55,9 @@ build_external()
 	cd ${ROOT}/external/${srcpath}
 	CC="${CLANG_D}" CFLAGS="--target=${TARGET} --sysroot ${OUTDIR} -DJOBS=0" ./configure --host=x86_64-ananas-elf --prefix=/
 
+	echo "*** Cleaning ${srcpath}"
+	make clean
+
 	echo "*** Building ${srcpath}"
 	make
 
