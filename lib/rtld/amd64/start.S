@@ -8,10 +8,13 @@ entry:
 
 	/*
 	 * Invoke the dynamic linker; we expect the stack to be laid out as
-	 * stated in Figure 3.9 of the AMD64 ELF ABI.
+	 * stated in Figure 3.9 of the AMD64 ELF ABI (relative to %rdi)
+	 *
+	 * The use of %rdi (the first function argument) prevents having to fix
+	 * up %rsp so that %rsp-8 is 16-byte aligned as required by the ABI.
 	 */
-	movq	%rsp, %rdi
 	subq	$8, %rsp
+	mov	%rdi, %r12	/* store userland argument pointer */
 	movq	%rsp, %rsi	/* pointer to cleanup address */
 	call	rtld
 
@@ -20,13 +23,19 @@ entry:
 	 * the cleanup pointer for us - take the value from the stack.
 	 */
 	popq	%rsi
+	movq	%r12, %rdi	/* restore userland arguments */
 	jmp	*%rax
 
 	.globl	rtld_bind_trampoline
 	.type		rtld_bind_trampoline,@function
 
 rtld_bind_trampoline:
-	nop
+	/*
+	 * Once we enter here, the stack is misaligned (alignof(%rsp+8) != 16);
+	 * because of the 'pushq $pltentry; jmpq .plt'. We fix this by simply doing
+	 * a 'pushfq', the results of which we'll discard.
+	 */
+	pushfq
 
 	/*
 	 * We are entered with [object] and [reloff] on the stack, the latter is the
@@ -37,16 +46,16 @@ rtld_bind_trampoline:
 	 *
 	 * Stack layout is the following:
 	 *
-	 * obj		0x48
-	 * reloff	0x40
-	 * %rax		0x38
-	 * %rsi		0x30
-	 * %rdi		0x28
-	 * %rbx		0x20
-	 * %rcx		0x18
-	 * %rdx		0x10
-	 * %r8		0x08
-	 * %r9		0x00
+	 * obj		0x50
+	 * reloff	0x48
+	 * %rax		0x40
+	 * %rsi		0x38
+	 * %rdi		0x30
+	 * %rbx		0x28
+	 * %rcx		0x20
+	 * %rdx		0x18
+	 * %r8		0x10
+	 * %r9		0x08
 	 */
 	pushq		%rax
 	pushq		%rsi
@@ -58,15 +67,15 @@ rtld_bind_trampoline:
 	pushq		%r9
 
 	/* Grab arguments from stack and invoke rtld_bind() */
-	movq		0x40(%rsp),%rdi	/* obj */
-	movq		0x48(%rsp),%rsi	/* reloff */
+	movq		0x48(%rsp),%rdi	/* obj */
+	movq		0x50(%rsp),%rsi	/* reloff */
 	call		rtld_bind
 
 	/*
 	 * Resulting address is in %rax; overwrite reloff with the address so we can
 	 * return to it without kludging registers
 	 */
-	movq		%rax,0x48(%rsp)
+	movq		%rax,0x50(%rsp)
 
 	popq		%r9
 	popq		%r8
@@ -77,8 +86,8 @@ rtld_bind_trampoline:
 	popq		%rsi
 	popq		%rax
 
-	/* Discard obj; reloff is overwritten with address so we ret to it */
-	addq		$8,%rsp
+	/* Discard obj/flags; reloff is overwritten with address so we ret to it */
+	leaq		16(%rsp),%rsp
 	ret
 
 #

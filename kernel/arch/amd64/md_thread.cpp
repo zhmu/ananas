@@ -195,7 +195,11 @@ SetupPostExec(Thread& t, addr_t exec_addr, addr_t stack_addr)
 {
 	struct STACKFRAME* sf = t.t_frame;
 	sf->sf_rip = exec_addr;
-	sf->sf_rsp = stack_addr;
+	// x86_64 ELF ABI states that %rsp-8 needs to be 16-byte aligned; we'll
+	// pass the original stack pointer containing the userland arguments
+	// as %rdi which is the first function argument
+	sf->sf_rsp = ((stack_addr - 8) & ~15) + 8;
+	sf->sf_rdi = stack_addr;
 
 	t.t_md_flags |= THREAD_MDFLAG_FULLRESTORE;
 	t.md_rsp = (addr_t)sf;
