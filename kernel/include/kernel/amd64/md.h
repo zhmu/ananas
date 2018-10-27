@@ -53,6 +53,7 @@ void Destroy(VMSpace& vs);
 
 } // namespace vmspace
 
+void PowerDown();
 void Reboot();
 
 } // namespace md
