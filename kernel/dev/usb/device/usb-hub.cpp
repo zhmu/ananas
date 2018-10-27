@@ -4,6 +4,7 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
+#include "kernel/thread.h"
 #include "kernel/time.h"
 #include "kernel/trace.h"
 #include "../core/config.h"
@@ -85,7 +86,7 @@ Hub::ResetPort(int n)
 	struct HUB_PORT_STATUS ps;
 	int timeout = 10; /* XXX */
 	while(timeout > 0) {
-		thread_delay_ms(100); // XXX Is this required?
+		thread_sleep_ms(100); // XXX Is this required?
 
 		/* See if the device is correctly reset */
 		size_t len = sizeof(ps);
@@ -238,7 +239,7 @@ Hub::Attach()
 		h_Port[n]->p_flags = HUB_PORT_FLAG_UPDATED;
 
 		/* Wait until the power is good */
-		thread_delay_ms(hd.hd_poweron2good * 2 + 10 /* slack */);
+		thread_sleep_ms(hd.hd_poweron2good * 2 + 10 /* slack */);
 	}
 
 	/* Initialization went well; hook up the interrupt pipe so that we may receive updates */
