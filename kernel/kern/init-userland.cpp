@@ -42,7 +42,7 @@ userinit_func(void*)
 		else
 			kprintf(" failure %d, retrying...", result.AsStatusCode());
 
-		delay(1000); // XXX we really need a sleep mechanism here
+		thread_sleep_ms(1000); // 1 second
 	}
 	kprintf(" ok\n");
 

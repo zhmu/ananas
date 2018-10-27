@@ -116,7 +116,7 @@ Result thread_alloc(Process& p, Thread*& dest, const char* name, int flags);
 
 void idle_thread(void*);
 
-void thread_sleep(tick_t num_ticks);
+void thread_sleep_ms(unsigned int ms);
 void thread_exit(int exitcode);
 void thread_dump(int num_args, char** arg);
 Result thread_clone(Process& proc, Thread*& dest);

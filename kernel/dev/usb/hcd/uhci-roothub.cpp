@@ -399,11 +399,8 @@ RootHub::Thread()
 	while (1) {
 		UpdateStatus();
 
-		/* XXX we need some sensible sleep mechanism */
-		for (int n = 0; n < 100; n++) {
-			delay(10);
-			reschedule();
-		}
+		// Every second should be enough here...
+		thread_sleep_ms(1000);
 	}
 }
 

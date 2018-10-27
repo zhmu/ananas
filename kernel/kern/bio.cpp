@@ -88,7 +88,7 @@ bio_waitcomplete(BIO& bio)
 	while((bio.flags & BIO_FLAG_PENDING) != 0) {
 		// XXX For now, just wait a tiny bit and try again. We cannot actually wait for the event
 		// as it is a semaphore and only signalled *once*, so we'll deadlock multiple waiters.
-		thread_sleep(10);
+		thread_sleep_ms(1);
 	}
 }
 
@@ -99,7 +99,7 @@ bio_waitdirty(BIO& bio)
 	while((bio.flags & BIO_FLAG_DIRTY) != 0) {
 		// XXX For now, just wait a tiny bit and try again. We cannot actually wait for the event
 		// as it is a semaphore and only signalled *once*, so we'll deadlock multiple waiters.
-		thread_sleep(10);
+		thread_sleep_ms(1);
 	}
 }
 

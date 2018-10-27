@@ -223,8 +223,13 @@ Thread::Suspend()
 }
 
 void
-thread_sleep(tick_t num_ticks)
+thread_sleep_ms(unsigned int ms)
 {
+	unsigned int msPerTick = 1000 / time::GetPeriodicyInHz();
+	tick_t num_ticks = ms / msPerTick;
+	if (num_ticks == 0)
+		num_ticks = 1; // delay at least one tick
+
 	Thread* t = PCPU_GET(curthread);
 	t->t_timeout = time::GetTicks() + num_ticks;
 	t->t_flags |= THREAD_FLAG_TIMEOUT;

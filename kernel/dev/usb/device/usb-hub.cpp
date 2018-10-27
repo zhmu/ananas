@@ -85,7 +85,7 @@ Hub::ResetPort(int n)
 	struct HUB_PORT_STATUS ps;
 	int timeout = 10; /* XXX */
 	while(timeout > 0) {
-		delay(100);
+		thread_delay_ms(100); // XXX Is this required?
 
 		/* See if the device is correctly reset */
 		size_t len = sizeof(ps);
@@ -238,7 +238,7 @@ Hub::Attach()
 		h_Port[n]->p_flags = HUB_PORT_FLAG_UPDATED;
 
 		/* Wait until the power is good */
-		delay(hd.hd_poweron2good * 2 + 10 /* slack */);
+		thread_delay_ms(hd.hd_poweron2good * 2 + 10 /* slack */);
 	}
 
 	/* Initialization went well; hook up the interrupt pipe so that we may receive updates */
