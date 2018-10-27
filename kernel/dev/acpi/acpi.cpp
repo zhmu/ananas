@@ -4,6 +4,7 @@
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/result.h"
+#include "kernel/shutdown.h"
 #include "kernel/trace.h"
 #include "kernel/x86/acpi.h"
 
@@ -23,6 +24,14 @@ struct ACPI : public Device, private IDeviceOperations
 
 	Result Attach() override;
 	Result Detach() override;
+
+	void OnPowerButtonEvent();
+
+	static UINT32 PowerButtonEventWrapper(void* context)
+	{
+		reinterpret_cast<ACPI*>(context)->OnPowerButtonEvent();
+		return ACPI_INTERRUPT_HANDLED;
+	}
 };
 
 ACPI_STATUS
@@ -82,10 +91,21 @@ ACPI::Attach()
 	if (ACPI_FAILURE(status))
 		return RESULT_MAKE_FAILURE(ENODEV);
 
+	// Initialize power button callback
+	if ((AcpiGbl_FADT.Flags & ACPI_FADT_POWER_BUTTON) == 0) {
+		AcpiClearEvent(ACPI_EVENT_POWER_BUTTON);
+		AcpiInstallFixedEventHandler(ACPI_EVENT_POWER_BUTTON, &PowerButtonEventWrapper, this);
+	}
+
 	/*
 	 * Now enumerate through all ACPI devices and see what we can find.
 	 */
 	AcpiWalkNamespace(ACPI_TYPE_ANY, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX, AttachDevice, NULL, this, NULL);
+
+	//
+	status = AcpiUpdateAllGpes();
+	if (ACPI_FAILURE(status))
+		Printf("could not update all GPEs: %s", AcpiFormatException(status));
 
 	return Result::Success();
 }
@@ -94,6 +114,13 @@ Result
 ACPI::Detach()
 {
 	return Result::Success();
+}
+
+void
+ACPI::OnPowerButtonEvent()
+{
+	Printf("power button pressed");
+	shutdown::RequestShutdown(shutdown::ShutdownType::PowerDown);
 }
 
 class ACPIDriver : public Driver
