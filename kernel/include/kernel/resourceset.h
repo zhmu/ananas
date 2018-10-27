@@ -19,7 +19,8 @@ struct Resource {
 		RT_PCI_Device,
 		RT_PCI_Function,
 		RT_PCI_ClassRev,
-		/* Pnp id - used by acpi */
+		// ACPI-specific resources
+		RT_ACPI_HANDLE,
 		RT_PNP_ID,
 		/* USB-specific */
 		RT_USB_Device,

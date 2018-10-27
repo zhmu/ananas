@@ -11,6 +11,9 @@ acpi_process_resources(ACPI_HANDLE ObjHandle, ResourceSet& resourceSet)
 	if (ACPI_FAILURE(AcpiGetObjectInfo (ObjHandle, &Info)))
 		return AE_OK;
 
+	// Publish the ACPI handle
+	resourceSet.AddResource(Resource(Resource::RT_ACPI_HANDLE, reinterpret_cast<Resource::Base>(ObjHandle), 0));
+
 	/* If we have a PNP hardware ID, store it */
 	if (Info->HardwareId.String != NULL && Info->HardwareId.Length >= ACPI_EISAID_STRING_SIZE &&
 	    strncmp(Info->HardwareId.String, "PNP", 3) == 0) {
@@ -25,8 +28,11 @@ acpi_process_resources(ACPI_HANDLE ObjHandle, ResourceSet& resourceSet)
 	ACPI_BUFFER buf;
 	buf.Length = ACPI_ALLOCATE_BUFFER;
 	ACPI_STATUS status = AcpiGetCurrentResources(ObjHandle, &buf);
-	if (ACPI_FAILURE(status))
+	if (ACPI_FAILURE(status)) {
+		if (status == AE_NOT_FOUND)
+			return AE_OK;
 		return status;
+	}
 
 	/* Now, process the resources */
 	char* end = (char*)buf.Pointer + buf.Length;
@@ -61,7 +67,7 @@ acpi_process_resources(ACPI_HANDLE ObjHandle, ResourceSet& resourceSet)
 				break;
 		}
 	}
-	
+
 	AcpiOsFree(buf.Pointer);
 	return AE_OK;
 }
