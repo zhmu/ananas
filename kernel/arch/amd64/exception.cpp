@@ -169,6 +169,13 @@ interrupt_handler(struct STACKFRAME* sf)
 }
 
 extern "C" void
+lapic_interrupt_handler(struct STACKFRAME* sf)
+{
+	// XXX This assumes we have a static mapping from IRQ n -> IDT n+32. Is that always correct?
+	irq::InvokeHandler(sf->sf_trapno - 32);
+}
+
+extern "C" void
 amd64_syscall(struct STACKFRAME* sf)
 {
 	struct SYSCALL_ARGS sa;

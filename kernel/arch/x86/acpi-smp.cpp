@@ -12,28 +12,21 @@
 #include "../../dev/acpi/acpi.h"
 #include "../../dev/acpi/acpica/acpi.h"
 
+#include "kernel-md/macro.h"
+
 TRACE_SETUP;
 
 extern struct X86_SMP_CONFIG smp_config;
+extern "C" char* lapic_base = nullptr;
 
 /*
  * Maps one page of memory from physical address phys and returns the
  * destination address va, guaranteeing that 'va = PTOKV(phys)'.
- *
- * Note that on i386, this implies that phys must be >=KERNBASE.
  */
 template<typename T> static T
 map_device(addr_t phys)
 {
-	void* va;
-	unsigned int vm_flags = VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE;
-#ifdef __amd64__
-	va = kmem_map(phys, 1, vm_flags);
-#else
-	va = (void*)phys;
-	md_kmap(phys, (addr_t)va, 1, vm_flags);
-#endif
-	return static_cast<T>(va);
+	return static_cast<T>(kmem_map(phys, 1, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE));
 }
 
 Result
@@ -48,7 +41,7 @@ acpi_smp_init(int* bsp_apic_id)
 	 * current CPU, so just asking would be enough.
 	 */
 	KASSERT(madt->Address == LAPIC_BASE, "lapic base unsupported");
-	char* lapic_base = map_device<char*>(madt->Address);
+	lapic_base = map_device<char*>(madt->Address);
 	KASSERT((addr_t)lapic_base == PTOKV(madt->Address), "mis-mapped lapic (%p != %p)", lapic_base, PTOKV(madt->Address));
 	/* Fetch our local APIC ID, we need to program it shortly */
 	*bsp_apic_id = (*(volatile uint32_t*)(lapic_base + LAPIC_ID)) >> 24;
@@ -61,6 +54,8 @@ acpi_smp_init(int* bsp_apic_id)
 	*(volatile uint32_t*)(lapic_base + LAPIC_TPR) &= ~0xff;
 	/* Finally, enable the APIC */
 	*(volatile uint32_t*)(lapic_base + LAPIC_SVR) |= LAPIC_SVR_APIC_EN;
+
+	// TODO: enable lapic using msr 0x1b just in case
 
 	/* First of all, walk through the MADT and just count everything */
 	for (ACPI_SUBTABLE_HEADER* sub = reinterpret_cast<ACPI_SUBTABLE_HEADER*>(madt + 1);

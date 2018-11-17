@@ -91,14 +91,6 @@ struct IPIPanicHandler : irq::IHandler
 
 } // unnamed namespace
 
-static void
-delay(int n) {
-	while (n-- > 0) {
-		int x = 1000;
-		while (x--);
-	}
-}
-
 uint32_t
 get_num_cpus()
 {
@@ -182,15 +174,13 @@ smp_init()
 	 * The AP's start in real mode, so we need to provide them with a stub so
 	 * they can run in protected mode. This stub must be located in the lower
 	 * 1MB (which is why it is allocated as soon as possible in smp_prepare())
-	 *
-	 * i386: Note that the low memory mappings will not be removed in the SMP
-	 *       case, so that the AP's can correctly switch to protected mode and
-	 *       enable paging.  Once this is all done, the mapping can safely be removed.
 	 */
-	KASSERT(ap_page != NULL, "smp_prepare() not called");
-	void* ap_code = kmem_map(ap_page->GetPhysicalAddress(), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_EXECUTE);
-	memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
-	kmem_unmap(ap_code, PAGE_SIZE);
+	{
+		KASSERT(ap_page != nullptr, "smp_prepare() not called");
+		void* ap_code = kmem_map(ap_page->GetPhysicalAddress(), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_EXECUTE);
+		memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
+		kmem_unmap(ap_code, PAGE_SIZE);
+	}
 
 	int bsp_apic_id;
 	if (auto result = acpi_smp_init(&bsp_apic_id); result.IsFailure()) {
@@ -253,6 +243,13 @@ static Result
 smp_launch()
 {
 	can_smp_launch++;
+
+	constexpr auto delay = [](int n) {
+		while (n-- > 0) {
+			int x = 1000;
+			while (x--);
+		}
+	};
 
 	/*
 	 * Broadcast INIT-SIPI-SIPI-IPI to all AP's; this will wake them up and cause

@@ -375,23 +375,10 @@ setup_descriptors()
 	IDT_SET_ENTRY(17, SEG_TGATE_TYPE, 0, exception17);
 	IDT_SET_ENTRY(18, SEG_TGATE_TYPE, 0, exception18);
 	IDT_SET_ENTRY(19, SEG_TGATE_TYPE, 0, exception19);
-	/* Use interrupt gates for IRQ's so that we can keep track of the nesting */
-	IDT_SET_ENTRY(32, SEG_IGATE_TYPE, 0, irq0);
-	IDT_SET_ENTRY(33, SEG_IGATE_TYPE, 0, irq1);
-	IDT_SET_ENTRY(34, SEG_IGATE_TYPE, 0, irq2);
-	IDT_SET_ENTRY(35, SEG_IGATE_TYPE, 0, irq3);
-	IDT_SET_ENTRY(36, SEG_IGATE_TYPE, 0, irq4);
-	IDT_SET_ENTRY(37, SEG_IGATE_TYPE, 0, irq5);
-	IDT_SET_ENTRY(38, SEG_IGATE_TYPE, 0, irq6);
-	IDT_SET_ENTRY(39, SEG_IGATE_TYPE, 0, irq7);
-	IDT_SET_ENTRY(40, SEG_IGATE_TYPE, 0, irq8);
-	IDT_SET_ENTRY(41, SEG_IGATE_TYPE, 0, irq9);
-	IDT_SET_ENTRY(42, SEG_IGATE_TYPE, 0, irq10);
-	IDT_SET_ENTRY(43, SEG_IGATE_TYPE, 0, irq11);
-	IDT_SET_ENTRY(44, SEG_IGATE_TYPE, 0, irq12);
-	IDT_SET_ENTRY(45, SEG_IGATE_TYPE, 0, irq13);
-	IDT_SET_ENTRY(46, SEG_IGATE_TYPE, 0, irq14);
-	IDT_SET_ENTRY(47, SEG_IGATE_TYPE, 0, irq15);
+	// Use interrupt gates for IRQ's so that we can keep track of the nesting
+	for (int n = 0; n < 16; n++) {
+		IDT_SET_ENTRY((32 + n), SEG_IGATE_TYPE, 0, lapic_irq_range_1);
+	}
 
 #ifdef OPTION_SMP
 	IDT_SET_ENTRY(SMP_IPI_SCHEDULE, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, ipi_schedule);
@@ -465,7 +452,7 @@ setup_cpu(addr_t gdt, addr_t pcpu)
 	/* Enable FPU use; the kernel will save/restore it as needed */
 	write_cr4(read_cr4() | 0x600); /* OSFXSR | OSXMMEXCPT */
 
-	// Enable No-Execute Enable bit XXX we should check to ensure it is supported
+	// Enable No-Execute Enable bit
 	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | MSR_EFER_NXE);
 
 	// Enable the write-protect bit; this ensures kernel-code can't write to readonly pages
@@ -644,23 +631,13 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
   // Do ACPI pre-initialization; this prepares for parsing SMP tables
 	acpi_init();
 
-#ifdef OPTION_SMP
 	/*
 	 * Initialize the SMP parts - as x86 SMP relies on an APIC, we do this here
 	 * to prevent problems due to devices registering interrupts.
 	 */
-	if (auto result = smp_init(); result.IsSuccess()) {
-		smp_init_ap_pagetable();
-	} else
-#endif
-	{
-		/*
-		 * In the uniprocessor case, or when SMP initialization fails, we'll only
-		 * have a single PIC. Initialize it here, this will also register it as an
-		 * interrupt source.
-		 */
-		x86_pic_init();
-	}
+	if (auto result = smp_init(); result.IsFailure())
+		panic("TODO");
+	smp_init_ap_pagetable();
 
 	// Initialize the PIT
 	x86_pit_init();

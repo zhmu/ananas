@@ -6,13 +6,15 @@
 .globl exception6, exception7, exception8, exception9, exception10, exception11
 .globl exception12, exception13, exception14, exception16, exception17
 .globl exception18, exception19
-.globl irq0, irq1, irq2, irq3, irq4, irq5, irq6, irq7, irq8, irq9, irq10
-.globl irq11, irq12, irq13, irq14, irq15, syscall_handler
+.globl syscall_handler
 .globl thread_trampoline
+.globl lapic_irq_range_1, lapic_irq_range_2, lapic_irq_range_3, lapic_irq_range_4
+.globl lapic_irq_range_5, lapic_irq_range_6, lapic_irq_range_7
 
 #include "kernel-md/vm.h"
 #include "kernel-md/macro.h"
 #include "kernel-md/thread.h"
+#include "kernel/x86/apic.h"
 #include "kernel/x86/smp.h"
 #include "options.h"
 #include "asmsyms.h"
@@ -79,6 +81,53 @@ irq ## n: \
 	movq	$0, SF_ERRNUM(%rsp); \
 	jmp	do_irq
 
+/*
+ * We only have 7 APIC_ISR_HANDLER's; each will service a block of 32
+ * interrupts (the first would correspond to vector 0..31 and these are
+ * reserved for exceptions, so we directly handle them using EXCEPTION...).
+ *
+ * The reason for this check is that it  prevents having a lot of extra code,
+ * as we can simply check the LAPIC ISR register for the first set bit and
+ * dispatch that interrupt.
+ */
+#define APIC_IRQ_RANGE_HANDLER(n) \
+lapic_irq_range_ ## n: \
+	subq	$SF_RIP, %rsp; \
+	SAVE_REGISTERS \
+	\
+	/* If we didn't come from the kernel, swap the %gs register */ \
+	cmpl	$GDT_SEL_KERNEL_CODE, SF_CS(%rsp); \
+	je	1f; \
+	\
+	swapgs; \
+	\
+1:	/* Increment the nested IRQ count */ \
+	incl	%gs:(PCPU_NESTEDIRQ); \
+	\
+	/* Restore the interrupt flag */ \
+	movq	SF_RFLAGS(%rsp), %rax; \
+	testq	$0x200, %rax; \
+	jz	1f; \
+	\
+	sti; \
+	\
+1:	movq	lapic_base, %rdx; \
+	/* Read ISR field; */ \
+	movl	(LAPIC_ISR + 16 * n)(%rdx), %eax; \
+	bsrl	%eax, %eax; \
+	jz	lapic_no_irq_pending; \
+	\
+	/* Call the interrupt handler! */ \
+	addq	$(32 * n), %rax; \
+	movq	%rax, SF_TRAPNO(%rsp); \
+	movq	%rsp, %rdi; \
+	call	lapic_interrupt_handler; \
+	jmp	do_return_check_sig
+
+lapic_no_irq_pending:
+	decl	%gs:(PCPU_NESTEDIRQ)
+	jmp	do_return_check_sig
+
 do_exception:
 	SAVE_REGISTERS
 
@@ -144,7 +193,7 @@ do_irq:
 	swapgs
 
 1:	/* Increment the nested IRQ count */
-	incq	%gs:(PCPU_NESTEDIRQ)
+	incl	%gs:(PCPU_NESTEDIRQ)
 
 	/* Restore the interrupt flag */
 	movq	SF_RFLAGS(%rsp), %rax
@@ -180,23 +229,14 @@ EXCEPTION_WITH_ERRCODE(17)
 EXCEPTION_WITHOUT_ERRCODE(18)
 EXCEPTION_WITHOUT_ERRCODE(19)
 
-/* And the interrupts */
-IRQ_HANDLER(0)
-IRQ_HANDLER(1)
-IRQ_HANDLER(2)
-IRQ_HANDLER(3)
-IRQ_HANDLER(4)
-IRQ_HANDLER(5)
-IRQ_HANDLER(6)
-IRQ_HANDLER(7)
-IRQ_HANDLER(8)
-IRQ_HANDLER(9)
-IRQ_HANDLER(10)
-IRQ_HANDLER(11)
-IRQ_HANDLER(12)
-IRQ_HANDLER(13)
-IRQ_HANDLER(14)
-IRQ_HANDLER(15)
+/* And the APIC interrupts handlers */
+APIC_IRQ_RANGE_HANDLER(1)
+APIC_IRQ_RANGE_HANDLER(2)
+APIC_IRQ_RANGE_HANDLER(3)
+APIC_IRQ_RANGE_HANDLER(4)
+APIC_IRQ_RANGE_HANDLER(5)
+APIC_IRQ_RANGE_HANDLER(6)
+APIC_IRQ_RANGE_HANDLER(7)
 
 #ifdef OPTION_SMP
 .globl	irq_spurious, ipi_schedule, ipi_panic
