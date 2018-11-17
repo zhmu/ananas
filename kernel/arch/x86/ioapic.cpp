@@ -60,6 +60,13 @@ X86_IOAPIC::Initialize(uint8_t id, addr_t addr, int base_irq)
 	is_first = base_irq;
 	// Fetch IOAPIC version register; this contains the number of interrupts supported
 	is_count = (Read(IOAPICVER) >> 16) & 0xff;
+	// Program the IOAPIC ID; some BIOS'es do not do this
+	Write(IOAPICID, ioa_id << 24);
+
+	// Start by masking everything so we don't get any spurious interrupts we are
+	// not ready for
+	for(int n = 0; n < is_count; n++)
+		Mask(n);
 
 	irq::RegisterSource(*this);
 }
