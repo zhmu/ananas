@@ -1,6 +1,7 @@
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
+#include "kernel/irq.h"
 #include "kernel/result.h"
 #include "kernel/trace.h"
 
@@ -8,7 +9,7 @@ TRACE_SETUP;
 
 namespace {
 
-class CoreBus : public Device, private IDeviceOperations
+class CoreBus : public Device, private IDeviceOperations, private IBusOperations
 {
 public:
 	CoreBus()
@@ -18,6 +19,10 @@ public:
 	}
 
 	IDeviceOperations& GetDeviceOperations() override {
+		return *this;
+	}
+
+	IBusOperations& GetBusDeviceOperations() override {
 		return *this;
 	}
 
@@ -31,8 +36,13 @@ public:
 		return Result::Success();
 	}
 
-	void DebugDump() override
+	Result AllocateIRQ(Device& device, int index, irq::IHandler& handler) override
 	{
+		void* res_irq = device.d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
+		if (res_irq == NULL)
+			return RESULT_MAKE_FAILURE(ENODEV);
+
+		return irq::Register((int)(uintptr_t)res_irq, &device, IRQ_TYPE_DEFAULT, handler);
 	}
 };
 

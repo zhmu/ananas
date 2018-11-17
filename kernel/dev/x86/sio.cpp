@@ -45,14 +45,11 @@ Result
 SIO::Attach()
 {
 	void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 7);
-	void* res_irq = d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
-	if (res_io == NULL || res_irq == NULL)
+	if (res_io == nullptr)
 		return RESULT_MAKE_FAILURE(ENODEV);
 
 	sio_port = (uint32_t)(uintptr_t)res_io;
-
-	/* SIO is so simple that a plain ISR will do */
-	if (auto result = irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_ISR, *this); result.IsFailure())
+	if (auto result = GetBusDeviceOperations().AllocateIRQ(*this, 0, *this); result.IsFailure())
 		return result;
 
 	/*

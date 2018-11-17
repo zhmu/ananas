@@ -486,8 +486,7 @@ UHCI_HCD::Attach()
 	pci_write_cfg(*this, UHCI_PCI_LEGSUPP, UHCI_LEGSUPP_PIRQEN, 16);
 
 	void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 16);
-	void* res_irq = d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
-	if (res_io == NULL || res_irq == NULL)
+	if (res_io == nullptr)
 		return RESULT_MAKE_FAILURE(ENODEV);
 
 	/* Create DMA tags; we need these to do DMA */
@@ -589,7 +588,7 @@ UHCI_HCD::Attach()
 	}
 
 	/* Hook up our interrupt handler and get it going */
-	if (auto result = irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this); result.IsFailure())
+	if (auto result = GetBusDeviceOperations().AllocateIRQ(*this, 0, *this); result.IsFailure())
 		return result;
 	uhci_Resources.Write2(UHCI_REG_USBINTR, UHCI_USBINTR_SPI | UHCI_USBINTR_IOC | UHCI_USBINTR_RI | UHCI_USBINTR_TOCRC);
 	delay(10);

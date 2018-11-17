@@ -123,8 +123,7 @@ Result
 AHCIDevice::Attach()
 {
 	char* res_mem = static_cast<char*>(d_ResourceSet.AllocateResource(Resource::RT_Memory, 4096));
-	void* res_irq = d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
-	if (res_mem == NULL || res_irq == NULL)
+	if (res_mem == nullptr)
 		return RESULT_MAKE_FAILURE(ENODEV);
 
 	/* Enable busmastering; all communication is done by DMA */
@@ -177,7 +176,7 @@ AHCIDevice::Attach()
 	uint32_t cap = Read(AHCI_REG_CAP);
 	ap_ncs = AHCI_CAP_NCS(cap) + 1;
 
-	if (auto result = irq::Register((int)(uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this); result.IsFailure())
+	if (auto result = GetBusDeviceOperations().AllocateIRQ(*this, 0, *this); result.IsFailure())
 		return result;
 
 	/* Force all ports into idle mode */
@@ -342,6 +341,8 @@ struct AHCI_PCI_Driver : public Driver
 		if (vendor == 0x10de && device == 0x7f4) /* NForce 630i SATA */
 			return new ahci::AHCIDevice(cdp);
 		if (vendor == 0x1039 && device == 0x1185) /* SiS AHCI Controller (0106) */
+			return new ahci::AHCIDevice(cdp);
+		if (vendor == 0x1022 && device == 0x7801) /* AMD FCH SATA Controller */
 			return new ahci::AHCIDevice(cdp);
 		return nullptr;
 	}

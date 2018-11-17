@@ -696,9 +696,7 @@ Result
 OHCI_HCD::Attach()
 {
 	void* res_mem = d_ResourceSet.AllocateResource(Resource::RT_Memory, 4096);
-	void* res_irq = d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
-
-	if (res_mem == nullptr || res_irq == nullptr)
+	if (res_mem == nullptr)
 		return RESULT_MAKE_FAILURE(ENODEV);
 	pci_enable_busmaster(*this, 1);
 
@@ -716,7 +714,7 @@ OHCI_HCD::Attach()
 	ohci_Resources = ohci::HCD_Resources(static_cast<uint8_t*>(res_mem));
 
 	/* Set up the interrupt handler */
-	if (auto result = irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this); result.IsFailure())
+	if (auto result = GetBusDeviceOperations().AllocateIRQ(*this, 0, *this); result.IsFailure())
 		return result;
 
 	/* Initialize the structures */
@@ -731,7 +729,7 @@ OHCI_HCD::Attach()
 			n--; /* XXX kludge; should use a real timeout mechanism */
 		if (n == 0) {
 			Printf("stuck in smm, giving up");
-		return RESULT_MAKE_FAILURE(ENODEV);
+			return RESULT_MAKE_FAILURE(ENODEV);
 		}
 	}
 

@@ -17,6 +17,10 @@ struct Process;
 
 class Device;
 
+namespace irq {
+class IHandler;
+};
+
 namespace device {
 
 // Internal stuff so we can work with children and all nodes
@@ -119,6 +123,12 @@ public:
 	virtual Result PerformSCSIRequest(int lun, Direction dir, const void* cb, size_t cb_len, void* result, size_t* result_len) = 0;
 };
 
+class IBusOperations
+{
+public:
+	virtual Result AllocateIRQ(Device& device, int index, irq::IHandler& handler) = 0;
+};
+
 struct CreateDeviceProperties
 {
 	CreateDeviceProperties(Device& parent, const ResourceSet& resourceSet)
@@ -148,6 +158,7 @@ public:
 	virtual IUSBDeviceOperations* GetUSBDeviceOperations() { return nullptr; }
 	virtual IUSBHubDeviceOperations* GetUSBHubDeviceOperations() { return nullptr; }
 	virtual ISCSIDeviceOperations* GetSCSIDeviceOperations() { return nullptr; }
+	virtual IBusOperations& GetBusDeviceOperations();
 
 	void Printf(const char* fmt, ...) const;
 

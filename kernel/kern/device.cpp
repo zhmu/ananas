@@ -38,3 +38,9 @@ void Device::Printf(const char* fmt, ...) const
 
 	console_putstring(buf);
 }
+
+IBusOperations& Device::GetBusDeviceOperations()
+{
+	KASSERT(d_Parent != nullptr, "no parent bus for device %s%d", d_Name, d_Unit);
+	return d_Parent->GetBusDeviceOperations();
+}

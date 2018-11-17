@@ -217,7 +217,7 @@ HDAPCIDevice::OpenStream(int tag, int dir, uint16_t fmt, int num_pages, Context*
 
 	/* All set; time to set the stream itself up */
 	HDA_WRITE_4(HDA_REG_xSDnCBL(ss), num_pages * PAGE_SIZE);
-	HDA_WRITE_4(HDA_REG_xSDnLVI(ss), num_pages - 1);
+	HDA_WRITE_2(HDA_REG_xSDnLVI(ss), num_pages - 1);
 	HDA_WRITE_2(HDA_REG_xSDnFMT(ss), fmt);
 	HDA_WRITE_4(HDA_REG_xSDnBDPL(ss), s->s_bdl_page->GetPhysicalAddress());
 	HDA_WRITE_4(HDA_REG_xSDnBDPU(ss), 0); // XXX
@@ -280,6 +280,7 @@ HDAPCIDevice::StartStreams(int num, Context* context)
 	s = (struct HDA_PCI_STREAM**)context;
 	for (int n = 0; n < num; n++, s++) {
 		uint32_t ctl = HDA_READ_4(HDA_REG_xSDnCTL((*s)->s_ss));
+		kprintf("%d -> %x\n", (*s)->s_ss, ctl | HDA_SDnCTL_RUN);
 		HDA_WRITE_4(HDA_REG_xSDnCTL((*s)->s_ss), ctl | HDA_SDnCTL_RUN);
 	}
 
@@ -354,13 +355,12 @@ Result
 HDAPCIDevice::Attach()
 {
 	void* res_io = d_ResourceSet.AllocateResource(Resource::RT_Memory, 4096);
-	void* res_irq = d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
-	if (res_io == NULL || res_irq == NULL)
+	if (res_io == nullptr)
 		return RESULT_MAKE_FAILURE(ENODEV);
 
 	hda_addr = (addr_t)res_io;
 
-	if (auto result = irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this); result.IsFailure())
+	if (auto result = GetBusDeviceOperations().AllocateIRQ(*this, 0, *this); result.IsFailure())
 		return result;
 
 	/* Enable busmastering; all communication is done by DMA */
@@ -510,6 +510,8 @@ struct HDAPCI_Driver : public Driver
 		if (vendor == 0x8086 && device == 0x2668) /* intel hda in QEMU */
 			return new HDAPCIDevice(cdp);
 		if (vendor == 0x10de && device == 0x7fc) /* nvidia MCP73 HDA */
+			return new HDAPCIDevice(cdp);
+		if (vendor == 0x1022 && device == 0x780d) /* AMD FCH Azalia Controller */
 			return new HDAPCIDevice(cdp);
 		if (vendor == 0x1039 && device == 0x7502) /* SiS 966 */
 			return new HDAPCIDevice(cdp);

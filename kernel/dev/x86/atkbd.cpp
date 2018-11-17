@@ -263,14 +263,12 @@ Result
 ATKeyboard::Attach()
 {
 	void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 7);
-	void* res_irq = d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
-	if (res_io == NULL || res_irq == NULL)
+	if (res_io == nullptr)
 		return RESULT_MAKE_FAILURE(ENODEV);
 
 	// Initialize private data; must be done before the interrupt is registered
 	kbd_ioport = (uintptr_t)res_io;
-
-	if (auto result = irq::Register((uintptr_t)res_irq, this, IRQ_TYPE_DEFAULT, *this); result.IsFailure())
+	if (auto result = GetBusDeviceOperations().AllocateIRQ(*this, 0, *this); result.IsFailure())
 		return result;
 
 	/*
