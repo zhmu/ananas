@@ -119,14 +119,17 @@ mp_stub64:
 	 * because the PCPU field tells us the idle thread's stack pointer,
 	 * which we need to set before we can actually call C code.
 	 */
-	movq	$smp_config, %rbp
-	movl	SMP_NUM_CPUS(%rbp), %ecx
-	movq	SMP_CPU_OFFSET(%rbp), %rbp
+	movq	x86_cpus, %rbp
 
-1:	cmpl	SMP_CPU_LAPICID(%rbp), %edi
+1:	movl	SMP_CPU_LAPICID(%rbp), %eax
+	cmpl	%eax, %edi
 	je	2f
+
 	addq	$SMP_CPU_SIZE, %rbp
-	loop	1b
+
+	/* -1 is uninitialized lapic id, marks end of the array */
+	cmpl	$-1, %eax
+	jne	1b
 
 	/* Our CPU wasn't found... now what? We ought to panic... */
 	hlt

@@ -23,7 +23,6 @@
 #include "kernel-md/param.h"
 #include "kernel-md/vm.h"
 #include "kernel-md/thread.h"
-#include "options.h"
 
 /* Pointer to the page directory level 4 */
 uint64_t* kernel_pagedir;
@@ -318,7 +317,6 @@ setup_memory(addr_t& avail)
 		}
 		page_zone_add(p->addr, p->len);
 
-#ifdef OPTION_SMP
 		/*
 		 * In the SMP case, ensure we'll prepare allocating memory for the SMP structures
 		 * right after we have memory to do so - we can't bootstrap from memory >1MB
@@ -326,7 +324,6 @@ setup_memory(addr_t& avail)
 		 */
 		if (n == 0)
 			smp_prepare();
-#endif
 	}
 }
 
@@ -380,11 +377,9 @@ setup_descriptors()
 		IDT_SET_ENTRY((32 + n), SEG_IGATE_TYPE, 0, lapic_irq_range_1);
 	}
 
-#ifdef OPTION_SMP
 	IDT_SET_ENTRY(SMP_IPI_SCHEDULE, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, ipi_schedule);
 	IDT_SET_ENTRY(SMP_IPI_PANIC,    SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, ipi_panic);
 	IDT_SET_ENTRY(0xff,             SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, irq_spurious);
-#endif
 
 	/*
 	 * Initialize the kernel TSS; we just need so set up separate stacks here.
@@ -517,48 +512,11 @@ setup_bootinfo(const struct BOOTINFO* bootinfo_ptr, addr_t& avail, char*& boot_a
 	avail = (addr_t)((addr_t)avail | (PAGE_SIZE - 1)) + 1;
 }
 
-#ifdef OPTION_SMP
-Page* smp_ap_pages;
-addr_t smp_ap_pagedir;
-
-static void
-smp_init_ap_pagetable()
-{
-	/*
-	 * When booting the AP's, we need to have identity-mapped memory - and this
-	 * does not exist in our normal pages. It's actually easier just to construct
-	 * pagetables similar to what the multiboot stub uses to get us to long mode.
-	 */
-	void* ptr = page_alloc_length_mapped(3 * PAGE_SIZE, smp_ap_pages, VM_FLAG_READ | VM_FLAG_WRITE);
-
-	addr_t pa = smp_ap_pages->GetPhysicalAddress();
-	uint64_t* pml4 = static_cast<uint64_t*>(ptr);
-	uint64_t* pdpe = reinterpret_cast<uint64_t*>(static_cast<char*>(ptr) + PAGE_SIZE);
-	uint64_t* pde = reinterpret_cast<uint64_t*>(static_cast<char*>(ptr) + PAGE_SIZE * 2);
-	for (unsigned int n = 0; n < 512; n++) {
-		pde[n] = (uint64_t)((addr_t)(n << 21) | PE_PS | PE_RW | PE_P);
-		pdpe[n] = (uint64_t)((addr_t)(pa + PAGE_SIZE * 2) | PE_RW | PE_P);
-		pml4[n] = (uint64_t)((addr_t)(pa + PAGE_SIZE) | PE_RW | PE_P);
-  }
-
-	smp_ap_pagedir = pa;
-}
-
-void
-smp_destroy_ap_pagetable()
-{
-	if (smp_ap_pages != nullptr)
-		page_free(*smp_ap_pages);
-	smp_ap_pages = NULL;
-	smp_ap_pagedir = 0;
-}
-
 extern "C" void
 smp_ap_startup(struct X86_CPU* cpu)
 {
-	setup_cpu((addr_t)cpu->gdt, (addr_t)cpu->pcpu);
+	setup_cpu((addr_t)cpu->cpu_gdt, (addr_t)cpu->cpu_pcpu);
 }
-#endif
 
 void
 usupport_init()
@@ -635,9 +593,7 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 	 * Initialize the SMP parts - as x86 SMP relies on an APIC, we do this here
 	 * to prevent problems due to devices registering interrupts.
 	 */
-	if (auto result = smp_init(); result.IsFailure())
-		panic("TODO");
-	smp_init_ap_pagetable();
+	smp_init();
 
 	// Initialize the PIT
 	x86_pit_init();

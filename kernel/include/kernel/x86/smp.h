@@ -8,51 +8,28 @@
 
 #ifndef ASM
 struct X86_CPU {
-	/* NOTE: order is important - refer to mp_stub.S */
-	int		lapic_id;	/* Local APIC ID */
-	char*		stack;		/* CPU stack */
-#ifdef __amd64__
-	void*		pcpu;		/* PCPU pointer */
-#endif
-	char*		gdt;		/* Global Descriptor Table */
-	char*		tss;		/* Task State Segment */
-};
-
-struct X86_BUS {
-	int		id;
-	int		type;
-#define BUS_TYPE_UNKNOWN	0
-#define BUS_TYPE_ISA		1
+	int		cpu_lapic_id = -1;	/* Local APIC ID */
+	char*		cpu_stack = nullptr;	/* CPU stack */
+	void*		cpu_pcpu = nullptr;	/* PCPU pointer */
+	char*		cpu_gdt = nullptr;	/* Global Descriptor Table */
+	char*		cpu_tss = nullptr;	/* Task State Segment */
 };
 
 struct X86_INTERRUPT {
-	int                 source_no;
-	int                 dest_no;
-	int                 polarity;
+	int                 int_source_no;
+	int                 int_dest_no;
+	int                 int_polarity;
 #define INTERRUPT_POLARITY_LOW	1
 #define INTERRUPT_POLARITY_HIGH	2
-	int                 trigger;
+	int                 int_trigger;
 #define INTERRUPT_TRIGGER_EDGE	1
 #define INTERRUPT_TRIGGER_LEVEL	2
-	struct X86_IOAPIC* ioapic;
-	struct X86_BUS*    bus;
-};
-
-struct X86_SMP_CONFIG {
-	int cfg_num_ioapics;
-	int cfg_num_cpus;
-	int cfg_num_ints;
-	int cfg_num_busses;
-	struct X86_CPU* cfg_cpu;
-	struct X86_IOAPIC* cfg_ioapic;
-	struct X86_INTERRUPT* cfg_int;
-	struct X86_BUS* cfg_bus;
+	struct X86_IOAPIC* int_ioapic;
 };
 
 class Result;
 
-Result smp_init();
-uint32_t get_num_cpus();
+void smp_init();
 
 void smp_prepare();
 void smp_prepare_config(struct X86_SMP_CONFIG* cfg);
