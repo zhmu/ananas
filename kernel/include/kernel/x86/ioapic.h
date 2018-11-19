@@ -2,6 +2,7 @@
 #define __X86_IOAPIC_H__
 
 #include "kernel/irq.h"
+#include <ananas/util/vector.h>
 
 #define IOREGSEL		0x00000000	/* I/O Register Select */
 #define IOWIN			0x00000010	/* I/O Window */
@@ -31,25 +32,41 @@
 #define DELMOD_INIT		(5 << 8)	/* INIT IPI */
 #define DELMOD_EXTINT		(7 << 8)	/* External int, must be edge */
 
-struct X86_IOAPIC : irq::IRQSource
+struct X86_IOAPIC final : irq::IRQSource
 {
-	X86_IOAPIC();
+	X86_IOAPIC(uint8_t id, addr_t addr, int base_irq);
 
-	void		Write(uint32_t reg, uint32_t val);
-	uint32_t	Read(uint32_t reg);
+	int GetFirstInterruptNumber() const override;
+	int GetInterruptCount() const override;
+	void Mask(int no) override;
+	void Unmask(int no) override;
+	void Acknowledge(int no) override;
+	static void AcknowledgeAll();
 
-	void		Mask(int no) override;
-	void		Unmask(int no) override;
-	void		Acknowledge(int no) override;
-	static void	AcknowledgeAll();
+	enum class Polarity {
+		Low,
+		High
+	};
 
-	void		Initialize(uint8_t id, addr_t addr, int base_irq);
+	enum class TriggerLevel {
+		Level,
+		Edge
+	};
+
+	void SetupPin(int pin, int dest_irq, Polarity polarity, TriggerLevel triggerLevel, int dest_apic_id);
 
 private:
-	uint8_t		ioa_id = 0;
-	addr_t		ioa_addr = 0;
-};
+	void WriteRegister(uint32_t reg, uint32_t val);
+	uint32_t ReadRegister(uint32_t reg);
 
-void ioapic_register(struct X86_IOAPIC* ioapic, int base);
+	addr_t		ioa_addr;
+	int		ioa_irq_base;
+
+	struct Pin
+	{
+		bool	p_masked = true;
+	};
+	util::vector<Pin>	ioa_pins;
+};
 
 #endif /* __X86_IOAPIC_H__ */

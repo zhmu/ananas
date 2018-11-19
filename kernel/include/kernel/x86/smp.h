@@ -7,24 +7,13 @@
 #define SMP_IPI_SCHEDULE	0xf2	/* IPI used to trigger re-schedule */
 
 #ifndef ASM
+
 struct X86_CPU {
 	int		cpu_lapic_id = -1;	/* Local APIC ID */
 	char*		cpu_stack = nullptr;	/* CPU stack */
 	void*		cpu_pcpu = nullptr;	/* PCPU pointer */
 	char*		cpu_gdt = nullptr;	/* Global Descriptor Table */
 	char*		cpu_tss = nullptr;	/* Task State Segment */
-};
-
-struct X86_INTERRUPT {
-	int                 int_source_no;
-	int                 int_dest_no;
-	int                 int_polarity;
-#define INTERRUPT_POLARITY_LOW	1
-#define INTERRUPT_POLARITY_HIGH	2
-	int                 int_trigger;
-#define INTERRUPT_TRIGGER_EDGE	1
-#define INTERRUPT_TRIGGER_LEVEL	2
-	struct X86_IOAPIC* int_ioapic;
 };
 
 class Result;

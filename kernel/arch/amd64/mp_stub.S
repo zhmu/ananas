@@ -14,7 +14,6 @@
 
 /* Extended Feature Register and flags */
 #define	MSR_EFER	 0xc0000080
-#define	EFER_SCE	(1 << 0)
 #define	EFER_LME	(1 << 8)
 #define	EFER_NXE	(1 << 11)
 

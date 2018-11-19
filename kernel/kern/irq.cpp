@@ -28,7 +28,7 @@ IRQSource*
 FindSource(unsigned int num)
 {
 	for(auto& is: irqSources) {
-		if (num < is.is_first || num >= is.is_first + is.is_count)
+		if (num < is.GetFirstInterruptNumber() || num >= is.GetFirstInterruptNumber() + is.GetInterruptCount())
 			continue;
 		return &is;
 	}
@@ -54,18 +54,22 @@ RegisterSource(IRQSource& source)
 	SpinlockUnpremptibleGuard g(spl_irq);
 
 	/* Ensure no bogus ranges are being registered */
-	KASSERT(source.is_count >= 1, "must register at least one irq");
-	KASSERT(source.is_first + source.is_count < irqList.size(), "can't register beyond irqList range");
+	const auto source_irq_first = source.GetFirstInterruptNumber();
+	const auto source_irq_count = source.GetInterruptCount();
+	KASSERT(source_irq_count >= 1, "must register at least one irq");
+	KASSERT(source_irq_first + source_irq_count < irqList.size(), "can't register beyond irqList range");
 
 	/* Ensure there will not be an overlap */
 	for(auto& is: irqSources) {
-		KASSERT(source.is_first + source.is_count < is.is_first || is.is_first + is.is_count < source.is_first, "overlap in interrupt ranges (have %u-%u, attempt to add %u-%u)", is.is_first, is.is_first + is.is_count, source.is_first, source.is_first + source.is_count);
+		const auto is_irq_first = is.GetFirstInterruptNumber();
+		const auto is_irq_count = is.GetInterruptCount();
+		KASSERT(source_irq_first + source_irq_count < is_irq_first || is_irq_first + is_irq_count < source_irq_first, "overlap in interrupt ranges (have %u-%u, attempt to add %u-%u)", is_irq_first, is_irq_first + is_irq_count, source_irq_first, source_irq_first + source_irq_count);
 	}
 	irqSources.push_back(source);
 
 	/* Hook all IRQ's to this source - this saves having to look things up later */
-	for(unsigned int n = 0; n < source.is_count; n++) {
-		auto& i = irqList[source.is_first + n];
+	for(unsigned int n = 0; n < source_irq_count; n++) {
+		auto& i = irqList[source_irq_first + n];
 		i.i_source = &source;
 	}
 }
@@ -123,7 +127,7 @@ ithread(void* context)
 		}
 
 		/* Unmask the IRQ, we can handle it again now that the IST is done */
-		is->Unmask(no - is->is_first);
+		is->Unmask(no - is->GetFirstInterruptNumber());
 	}
 }
 
@@ -248,7 +252,7 @@ InvokeHandler(unsigned int no)
 
 	if (awake_thread) {
 		// Mask the interrupt source; the ithread will unmask it once done
-		is->Mask(no - is->is_first);
+		is->Mask(no - is->GetFirstInterruptNumber());
 
 		// Awake the interrupt thread
 		i.i_semaphore.Signal();
@@ -268,7 +272,7 @@ InvokeHandler(unsigned int no)
 	md::interrupts::Disable();
 
 	// Acknowledge the interrupt once the handler is done
-	is->Acknowledge(no - is->is_first);
+	is->Acknowledge(no - is->GetFirstInterruptNumber());
 
 	/*
 	 * Decrement the IRQ nesting counter; interrupts are disabled, so it's safe
@@ -294,7 +298,7 @@ KDB_COMMAND(irq, NULL, "Display IRQ status")
 	/* Note: no need to grab locks as the debugger runs with interrupts disabled */
 	kprintf("Registered IRQ sources:\n");
 	for(const auto& is: irq::irqSources) {
-		kprintf(" IRQ %d..%d\n", is.is_first, is.is_first + is.is_count);
+		kprintf(" IRQ %d..%d\n", is.GetFirstInterruptNumber(), is.GetFirstInterruptNumber() + is.GetInterruptCount());
 	}
 
 	kprintf("IRQ handlers:\n");

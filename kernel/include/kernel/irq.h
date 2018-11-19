@@ -25,26 +25,21 @@ public:
 /*
  * Describes an IRQ source; this is generally an interrupt controller - every
  * source is responsible for a number of interrupts; these will be numbered
- * [ is_first .. is_first + is_count ]. Callbacks are always issued using the
- * relative interrupt number, i.e. using [ 0 .. is_count ].
+ * [ first .. first + count ], where 'first = GetFirstInterruptNumber()' and
+ * 'count = GetInterruptCount()'. Callbacks are always issued using the
+ * relative interrupt number, i.e. using [ 0 .. count ].
  */
 struct IRQSource : util::List<IRQSource>::NodePtr
 {
-	IRQSource(unsigned int first, unsigned int count)
-	 : is_first(first), is_count(count)
-	{
-	}
-
-	/* First interrupt number handled */
-	unsigned int	is_first;
-	/* Number of interrupts handled */
-	unsigned int	is_count;
-
-	/* Mask a given interrupt */
+	// Retrieve the first interrupt handled
+	virtual int	GetFirstInterruptNumber() const = 0;
+	// Retrieve the number of interrupts handled
+	virtual int	GetInterruptCount() const = 0;
+	// Mask a given interrupt
 	virtual void	Mask(int) = 0;
-	/* Unmask a given interrupt */
+	// Unmask a given interrupt
 	virtual void	Unmask(int) = 0;
-	/* Acknowledge a given interrupt */
+	// Acknowledge a given interrupt
 	virtual void	Acknowledge(int) = 0;
 };
 typedef util::List<IRQSource> IRQSourceList;

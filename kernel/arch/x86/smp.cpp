@@ -38,22 +38,48 @@ addr_t smp_ap_pagedir;
 
 namespace {
 
+template<typename Func>
+void WalkMADT(const ACPI_TABLE_MADT* madt, Func func)
+{
+	auto sub = reinterpret_cast<const ACPI_SUBTABLE_HEADER*>(madt + 1 /* skip BSP */);
+	while (sub < reinterpret_cast<const ACPI_SUBTABLE_HEADER*>((char*)madt + madt->Header.Length)) {
+		func(sub);
+		sub = reinterpret_cast<const ACPI_SUBTABLE_HEADER*>((char*)sub + sub->Length);
+	}
+}
+
+template<typename Container>
+X86_IOAPIC*
+FindIOAPICForISAPins(Container& container)
+{
+	for(auto ioapic: container) {
+		if (ioapic->GetFirstInterruptNumber() == 0 && ioapic->GetInterruptCount() >= 15)
+			return ioapic;
+	}
+	return nullptr;
+}
+
 Page* ap_page = nullptr;
 volatile int can_smp_launch = 0;
 int num_cpus = 0;
 
-struct IPISource : irq::IRQSource
+struct IPISource final : irq::IRQSource
 {
-	IPISource();
-
+	int GetFirstInterruptNumber() const override;
+	int GetInterruptCount() const override;
 	void Mask(int no) override;
 	void Unmask(int no) override;
 	void Acknowledge(int no) override;
 } ipi_source;
 
-IPISource::IPISource()
-	: IRQSource(SMP_IPI_FIRST, SMP_IPI_COUNT)
+int IPISource::GetFirstInterruptNumber() const
 {
+	return SMP_IPI_FIRST;
+}
+
+int IPISource::GetInterruptCount() const
+{
+	return SMP_IPI_COUNT;
 }
 
 void IPISource::Mask(int no)
@@ -101,29 +127,6 @@ map_device(addr_t phys)
 
 Page* smp_ap_pages;
 
-static void
-smp_init_ap_pagetable()
-{
-	/*
-	 * When booting the AP's, we need to have identity-mapped memory - and this
-	 * does not exist in our normal pages. It's actually easier just to construct
-	 * pagetables similar to what the multiboot stub uses to get us to long mode.
-	 */
-	void* ptr = page_alloc_length_mapped(3 * PAGE_SIZE, smp_ap_pages, VM_FLAG_READ | VM_FLAG_WRITE);
-
-	addr_t pa = smp_ap_pages->GetPhysicalAddress();
-	uint64_t* pml4 = static_cast<uint64_t*>(ptr);
-	uint64_t* pdpe = reinterpret_cast<uint64_t*>(static_cast<char*>(ptr) + PAGE_SIZE);
-	uint64_t* pde = reinterpret_cast<uint64_t*>(static_cast<char*>(ptr) + PAGE_SIZE * 2);
-	for (unsigned int n = 0; n < 512; n++) {
-		pde[n] = (uint64_t)((addr_t)(n << 21) | PE_PS | PE_RW | PE_P);
-		pdpe[n] = (uint64_t)((addr_t)(pa + PAGE_SIZE * 2) | PE_RW | PE_P);
-		pml4[n] = (uint64_t)((addr_t)(pa + PAGE_SIZE) | PE_RW | PE_P);
-  }
-
-	smp_ap_pagedir = pa;
-}
-
 void
 smp_destroy_ap_pagetable()
 {
@@ -134,7 +137,7 @@ smp_destroy_ap_pagetable()
 }
 
 void
-smp_init_cpus()
+InitializeCPUs()
 {
 	/* Prepare the CPU structure. CPU #0 is always the BSP */
 	x86_cpus = new X86_CPU[num_cpus + 1];
@@ -176,6 +179,131 @@ smp_init_cpus()
 	}
 }
 
+void InitializeLAPIC(int lapic_id)
+{
+	// Reset destination format to flat mode
+	*reinterpret_cast<volatile uint32_t*>(lapic_base + LAPIC_DF) = 0xffffffff;
+	// Ensure we are the logical destination of our local APIC
+	auto v = reinterpret_cast<volatile uint32_t*>(lapic_base + LAPIC_LD);
+	*v = (*v & 0x00ffffff) | 1 << (lapic_id + 24);
+	// Clear Task Priority register; this enables all LAPIC interrupts
+	*reinterpret_cast<volatile uint32_t*>(lapic_base + LAPIC_TPR) &= ~0xff;
+	/* Finally, enable the APIC */
+	*reinterpret_cast<volatile uint32_t*>(lapic_base + LAPIC_SVR) |= LAPIC_SVR_APIC_EN;
+
+	// TODO: enable lapic using msr 0x1b just in case
+}
+
+int InitializeLAPICForBSP(const ACPI_TABLE_MADT* madt)
+{
+	KASSERT(madt->Address == LAPIC_BASE, "lapic base unsupported");
+	lapic_base = map_device<char*>(madt->Address);
+	KASSERT((addr_t)lapic_base == PTOKV(madt->Address), "mis-mapped lapic (%p != %p)", lapic_base, PTOKV(madt->Address));
+	/* Fetch our local APIC ID, we need to program it shortly */
+	int bsp_apic_id = (*reinterpret_cast<volatile uint32_t*>(lapic_base + LAPIC_ID)) >> 24;
+
+	InitializeLAPIC(bsp_apic_id);
+	return bsp_apic_id;
+}
+
+void InitializeIdentifyMappedPagetableForAPs()
+{
+	/*
+	 * When booting the AP's, we need to have identity-mapped memory - and this
+	 * does not exist in our normal pages. It's actually easier just to construct
+	 * pagetables similar to what the multiboot stub uses to get us to long mode.
+	 *
+	 * Note that we can't use the kernel pagetable as it will not map the memory
+	 * from where we are running at that point (maybe worth FIXME?)
+	 */
+	void* ptr = page_alloc_length_mapped(3 * PAGE_SIZE, smp_ap_pages, VM_FLAG_READ | VM_FLAG_WRITE);
+
+	addr_t pa = smp_ap_pages->GetPhysicalAddress();
+	uint64_t* pml4 = static_cast<uint64_t*>(ptr);
+	uint64_t* pdpe = reinterpret_cast<uint64_t*>(static_cast<char*>(ptr) + PAGE_SIZE);
+	uint64_t* pde = reinterpret_cast<uint64_t*>(static_cast<char*>(ptr) + PAGE_SIZE * 2);
+	for (unsigned int n = 0; n < 512; n++) {
+		pde[n] = (uint64_t)((addr_t)(n << 21) | PE_PS | PE_RW | PE_P);
+		pdpe[n] = (uint64_t)((addr_t)(pa + PAGE_SIZE * 2) | PE_RW | PE_P);
+		pml4[n] = (uint64_t)((addr_t)(pa + PAGE_SIZE) | PE_RW | PE_P);
+  }
+
+	smp_ap_pagedir = pa;
+}
+
+void MapISAInterrupts(const ACPI_TABLE_MADT* madt, X86_IOAPIC& isa_ioapic, int bsp_apic_id)
+{
+	struct ISA_INTERRUPT {
+		int i_source;
+		int i_dest;
+		X86_IOAPIC::Polarity i_polarity;
+		X86_IOAPIC::TriggerLevel i_triggerlevel;
+	};
+
+	// Identity-map all interrupts; the MADT only contains explicit overrides
+	util::array<ISA_INTERRUPT, 16> isa_interrupts;
+	for(size_t n = 0; n < 16; n++) {
+		isa_interrupts[n].i_source = n;
+		isa_interrupts[n].i_dest = n;
+	}
+
+	// Third walk, handle ISA interrupt overrides
+	WalkMADT(madt, [&](auto sub)
+	{
+		if (sub->Type != ACPI_MADT_TYPE_INTERRUPT_OVERRIDE)
+			return;
+		auto io = reinterpret_cast<const ACPI_MADT_INTERRUPT_OVERRIDE*>(sub);
+		kprintf("intoverride, SourceIrq=%u globalirq=%u flags=%x\n", io->SourceIrq, io->GlobalIrq, io->IntiFlags);
+		KASSERT(io->SourceIrq < isa_interrupts.size(), "interrupt override out of range");
+
+		auto& isa_interrupt = isa_interrupts[io->SourceIrq];
+		isa_interrupt.i_source = io->SourceIrq;
+		isa_interrupt.i_dest = io->GlobalIrq;
+		switch(io->IntiFlags & ACPI_MADT_POLARITY_MASK) {
+			default:
+			case ACPI_MADT_POLARITY_CONFORMS:
+				isa_interrupt.i_polarity = (io->SourceIrq == AcpiGbl_FADT.SciInterrupt) ? X86_IOAPIC::Polarity::Low : X86_IOAPIC::Polarity::High;
+				break;
+			case ACPI_MADT_POLARITY_ACTIVE_HIGH:
+				isa_interrupt.i_polarity = X86_IOAPIC::Polarity::High;
+				break;
+			case ACPI_MADT_POLARITY_ACTIVE_LOW:
+				isa_interrupt.i_polarity = X86_IOAPIC::Polarity::Low;
+				break;
+		}
+		switch(io->IntiFlags & ACPI_MADT_TRIGGER_MASK) {
+			default:
+			case ACPI_MADT_TRIGGER_CONFORMS:
+				isa_interrupt.i_triggerlevel = (io->SourceIrq == AcpiGbl_FADT.SciInterrupt) ? X86_IOAPIC::TriggerLevel::Level : X86_IOAPIC::TriggerLevel::Edge;
+				break;
+			case ACPI_MADT_TRIGGER_EDGE:
+				isa_interrupt.i_triggerlevel = X86_IOAPIC::TriggerLevel::Edge;
+				break;
+			case ACPI_MADT_TRIGGER_LEVEL:
+				isa_interrupt.i_triggerlevel = X86_IOAPIC::TriggerLevel::Level;
+				break;
+		}
+
+		/*
+		 * Disable the identity mapping of this IRQ - this prevents entries from
+		 * being overwritten.
+		 */
+		if(io->GlobalIrq != io->SourceIrq)
+			isa_interrupts[io->GlobalIrq].i_dest = -1;
+	});
+
+	// Wire ISA interrupts to the corresponding I/O APIC
+	for(const auto& isa_interrupt: isa_interrupts) {
+#if SMP_DEBUG
+		kprintf("ISA: source=%u, dest=%u\n", isa_interrupt.i_source, isa_interrupt.i_dest);
+#endif
+		if (isa_interrupt.i_dest < 0)
+			continue;
+
+		isa_ioapic.SetupPin(isa_interrupt.i_dest, isa_interrupt.i_source + 0x20, isa_interrupt.i_polarity, isa_interrupt.i_triggerlevel, bsp_apic_id);
+	}
+}
+
 } // unnamed namespace
 
 /*
@@ -188,7 +316,6 @@ smp_prepare()
 	ap_page = page_alloc_single();
 	KASSERT(ap_page->GetPhysicalAddress() < 0x100000, "ap code must be below 1MB"); /* XXX crude */
 }
-
 
 /*
  * Called on the Boot Strap Processor, in order to prepare the system for
@@ -219,180 +346,76 @@ smp_init()
 	 * The MADT doesn't tell us which CPU is the BSP, but we do know it is our
 	 * current CPU, so just asking would be enough.
 	 */
-	KASSERT(madt->Address == LAPIC_BASE, "lapic base unsupported");
-	lapic_base = map_device<char*>(madt->Address);
-	KASSERT((addr_t)lapic_base == PTOKV(madt->Address), "mis-mapped lapic (%p != %p)", lapic_base, PTOKV(madt->Address));
-	/* Fetch our local APIC ID, we need to program it shortly */
-	int bsp_apic_id = (*(volatile uint32_t*)(lapic_base + LAPIC_ID)) >> 24;
-	/* Reset destination format to flat mode */
-	*(volatile uint32_t*)(lapic_base + LAPIC_DF) = 0xffffffff;
-	/* Ensure we are the logical destination of our local APIC */
-	volatile uint32_t* v = (volatile uint32_t*)(lapic_base + LAPIC_LD);
-	*v = (*v & 0x00ffffff) | 1 << (bsp_apic_id + 24);
-	/* Clear Task Priority register; this enables all LAPIC interrupts */
-	*(volatile uint32_t*)(lapic_base + LAPIC_TPR) &= ~0xff;
-	/* Finally, enable the APIC */
-	*(volatile uint32_t*)(lapic_base + LAPIC_SVR) |= LAPIC_SVR_APIC_EN;
+	int bsp_apic_id = InitializeLAPICForBSP(madt);
 
-	// TODO: enable lapic using msr 0x1b just in case
-
-	/* First of all, walk through the MADT and just count everything */
+	// First walk, count CPU's
 	num_cpus = 0;
-	int num_ioapics = 0;
-	for (auto sub = reinterpret_cast<ACPI_SUBTABLE_HEADER*>(madt + 1 /* skip BSP */);
-	     sub < reinterpret_cast<ACPI_SUBTABLE_HEADER*>((char*)madt + madt->Header.Length);
-	    sub = reinterpret_cast<ACPI_SUBTABLE_HEADER*>((char*)sub + sub->Length)) {
-		switch(sub->Type) {
-			case ACPI_MADT_TYPE_LOCAL_APIC: {
-				ACPI_MADT_LOCAL_APIC* lapic = (ACPI_MADT_LOCAL_APIC*)sub;
-				if (lapic->LapicFlags & ACPI_MADT_ENABLED)
-					num_cpus++;
-				break;
-			}
-			case ACPI_MADT_TYPE_IO_APIC:
-				num_ioapics++;
-				break;
-		}
-	}
-
-	/*
-	 * ACPI interrupt overrides will only list exceptions; this means we'll
-	 * have to pre-allocate all ISA interrupts and let the overrides
-	 * alter them.
-	 */
-	int num_ints = 16;
+	WalkMADT(madt, [&](auto sub)
+	{
+		if (sub->Type != ACPI_MADT_TYPE_LOCAL_APIC)
+			return;
+		auto lapic = reinterpret_cast<const ACPI_MADT_LOCAL_APIC*>(sub);
+		if (lapic->LapicFlags & ACPI_MADT_ENABLED)
+			num_cpus++;
+	});
 
 	// Allocate tables for the resources we found
-	smp_init_cpus();
-	auto x86_ioapics = new X86_IOAPIC[num_ioapics];
-	auto x86_interrupts = new X86_INTERRUPT[num_ints];
+	InitializeCPUs();
 
-	/* Identity-map all interrupts */
-	for (int n = 0; n < num_ints; n++) {
-		struct X86_INTERRUPT* interrupt = &x86_interrupts[n];
-		interrupt->int_source_no = n;
-		interrupt->int_dest_no = n;
-		interrupt->int_ioapic = &x86_ioapics[0]; // XXX
+	// Second walk, map CPU's and IOAPIC's
+	util::vector<X86_IOAPIC*> x86_ioapics;
+	{
+		int cur_cpu = 0;
+		WalkMADT(madt, [&](auto sub)
+		{
+			switch(sub->Type) {
+				case ACPI_MADT_TYPE_LOCAL_APIC: {
+					auto lapic = reinterpret_cast<const ACPI_MADT_LOCAL_APIC*>(sub);
+					kprintf("lapic, acpi id=%u apicid=%u\n", lapic->ProcessorId, lapic->Id);
+					if ((lapic->LapicFlags & ACPI_MADT_ENABLED) == 0)
+						return; /* skip disabled CPU's */
+
+					// Fill out the LAPIC ID for each CPU; mp_stub.S will use this to
+					// identify the CPU and switch to the correct stck
+					auto cpu = &x86_cpus[cur_cpu];
+					cpu->cpu_lapic_id = lapic->Id;
+					cur_cpu++;
+					break;
+				}
+				case ACPI_MADT_TYPE_IO_APIC: {
+					ACPI_MADT_IO_APIC* apic = (ACPI_MADT_IO_APIC*)sub;
+					kprintf("ioapic, Id=%x addr=%x base=%u\n", apic->Id, apic->Address, apic->GlobalIrqBase);
+
+					// Create the associated I/O APIC and hook it up
+					auto ioapic = new X86_IOAPIC(apic->Id, reinterpret_cast<addr_t>(map_device<void*>(apic->Address)), apic->GlobalIrqBase);
+					x86_ioapics.push_back(ioapic);
+					break;
+				}
+			}
+		});
 	}
 
-	int cur_cpu = 0, cur_ioapic = 0;
-	for (ACPI_SUBTABLE_HEADER* sub = reinterpret_cast<ACPI_SUBTABLE_HEADER*>(madt + 1);
-	     sub < (ACPI_SUBTABLE_HEADER*)((char*)madt + madt->Header.Length);
-	    sub = (ACPI_SUBTABLE_HEADER*)((char*)sub + sub->Length)) {
-		switch(sub->Type) {
-			case ACPI_MADT_TYPE_LOCAL_APIC: {
-				ACPI_MADT_LOCAL_APIC* lapic = (ACPI_MADT_LOCAL_APIC*)sub;
-				kprintf("lapic, acpi id=%u apicid=%u\n", lapic->ProcessorId, lapic->Id);
-				if ((lapic->LapicFlags & ACPI_MADT_ENABLED) == 0)
-					continue; /* skip disabled CPU's */
-
-				struct X86_CPU* cpu = &x86_cpus[cur_cpu];
-				cpu->cpu_lapic_id = lapic->Id;
-				cur_cpu++;
-				break;
-			}
-			case ACPI_MADT_TYPE_IO_APIC: {
-				ACPI_MADT_IO_APIC* apic = (ACPI_MADT_IO_APIC*)sub;
-				kprintf("ioapic, Id=%x addr=%x base=%u\n", apic->Id, apic->Address, apic->GlobalIrqBase);
-
-				/* Map the IOAPIC memory; the hairy details are in map_device() */
-				void* ioapic_base = map_device<void*>(apic->Address);
-
-				/* Create the associated I/O APIC and hook it up */
-				struct X86_IOAPIC* ioapic = &x86_ioapics[cur_ioapic];
-				ioapic->Initialize(apic->Id, reinterpret_cast<addr_t>(ioapic_base), apic->GlobalIrqBase);
-				cur_ioapic++;
-				break;
-			}
-			case ACPI_MADT_TYPE_INTERRUPT_OVERRIDE: {
-				ACPI_MADT_INTERRUPT_OVERRIDE* io = (ACPI_MADT_INTERRUPT_OVERRIDE*)sub;
-				kprintf("intoverride, bus=%u SourceIrq=%u globalirq=%u flags=%x\n", io->Bus, io->SourceIrq, io->GlobalIrq, io->IntiFlags);
-				KASSERT(io->SourceIrq < num_ints, "interrupt override out of range");
-
-				struct X86_INTERRUPT* interrupt = &x86_interrupts[io->SourceIrq];
-				interrupt->int_source_no = io->SourceIrq;
-				interrupt->int_dest_no = io->GlobalIrq;
-				switch(io->IntiFlags & ACPI_MADT_POLARITY_MASK) {
-					default:
-					case ACPI_MADT_POLARITY_CONFORMS:
-						if (io->SourceIrq == AcpiGbl_FADT.SciInterrupt)
-							interrupt->int_polarity = INTERRUPT_POLARITY_LOW;
-						else
-							interrupt->int_polarity = INTERRUPT_POLARITY_HIGH;
-						break;
-					case ACPI_MADT_POLARITY_ACTIVE_HIGH:
-						interrupt->int_polarity = INTERRUPT_POLARITY_HIGH;
-						break;
-					case ACPI_MADT_POLARITY_ACTIVE_LOW:
-						interrupt->int_polarity = INTERRUPT_POLARITY_LOW;
-						break;
-				}
-				switch(io->IntiFlags & ACPI_MADT_TRIGGER_MASK) {
-					default:
-					case ACPI_MADT_TRIGGER_CONFORMS:
-						if (io->SourceIrq == AcpiGbl_FADT.SciInterrupt)
-							interrupt->int_trigger = INTERRUPT_TRIGGER_LEVEL;
-						else
-							interrupt->int_trigger = INTERRUPT_TRIGGER_EDGE;
-						break;
-					case ACPI_MADT_TRIGGER_EDGE:
-						interrupt->int_trigger = INTERRUPT_TRIGGER_EDGE;
-						break;
-					case ACPI_MADT_TRIGGER_LEVEL:
-						interrupt->int_trigger = INTERRUPT_TRIGGER_LEVEL;
-						break;
-				}
-
-				/*
-				 * Disable the identity mapping of this IRQ - this prevents entries from
-			 	 * being overwritten.
-				 */
-				if(io->GlobalIrq != io->SourceIrq) {
-					interrupt = &x86_interrupts[io->GlobalIrq];
-					interrupt->int_ioapic = nullptr;
-				}
-				break;
-			}
-		}
-	}
-
-	/* Program the I/O APIC - we currently just wire all ISA interrupts */
-	for (int i = 0; i < num_ints; i++) {
-		struct X86_INTERRUPT* interrupt = &x86_interrupts[i];
-#if SMP_DEBUG
-		kprintf("int %u: source=%u, dest=%u, apic=%p\n",
-		 i, interrupt->int_source_no, interrupt->int_dest_no, interrupt->int_ioapic);
-#endif
-
-		if (interrupt->int_ioapic == NULL)
-			continue;
-		if (interrupt->int_dest_no < 0)
-			continue;
-
-		/* XXX For now, route all interrupts to the BSP */
-		uint32_t reg = IOREDTBL + (interrupt->int_dest_no * 2);
-		uint64_t val = DESTMOD_PHYSICAL | DELMOD_FIXED | (interrupt->int_source_no + 0x20);
-		if (interrupt->int_polarity == INTERRUPT_POLARITY_LOW)
-			val |= INTPOL;
-		if (interrupt->int_trigger == INTERRUPT_TRIGGER_LEVEL)
-			val |= TRIGGER_LEVEL;
-		interrupt->int_ioapic->Write(reg, val);
-		interrupt->int_ioapic->Write(reg + 1, bsp_apic_id << 24);
+	// Map all ISA interrupts to the BSP
+	{
+		auto isa_ioapic = FindIOAPICForISAPins(x86_ioapics);
+		KASSERT(isa_ioapic != nullptr, "no suitable IOAPIC found for ISA interrupts");
+		MapISAInterrupts(madt, *isa_ioapic, bsp_apic_id);
 	}
 
 	/*
 	 * Register an interrupt source for the IPI's; they appear as normal
- 	 * interrupts and this lets us process them as such.
+	 * interrupts and this lets us process them as such.
 	 */
 	irq::RegisterSource(ipi_source);
 	if (auto result = irq::Register(SMP_IPI_PANIC, NULL, IRQ_TYPE_IPI, ipiPanicHandler); result.IsFailure())
 		panic("can't register ipi");
 	if (auto result = irq::Register(SMP_IPI_SCHEDULE, NULL, IRQ_TYPE_IPI, ipiSchedulerHandler); result.IsFailure())
 		panic("can't register ipi");
+	for (auto& ioapic: x86_ioapics) {
+			irq::RegisterSource(*ioapic);
+	}
 
-	smp_init_ap_pagetable();
-	//delete[] x86_ioapics;
-	//delete[] x86_interrupts;
+	InitializeIdentifyMappedPagetableForAPs();
 }
 
 /*
@@ -459,15 +482,7 @@ mp_ap_startup(uint32_t lapic_id)
   PCPU_SET(curthread, idlethread);
   scheduler_add_thread(*idlethread);
 
-	/* Reset destination format to flat mode */
-	*(volatile uint32_t*)(lapic_base + LAPIC_DF) = 0xffffffff;
-	/* Ensure we are the logical destination of our local APIC */
-	volatile uint32_t* v = (volatile uint32_t*)(lapic_base + LAPIC_LD);
-	*v = (*v & 0x00ffffff) | 1 << (lapic_id + 24);
-	/* Clear Task Priority register; this enables all LAPIC interrupts */
-	*(volatile uint32_t*)(lapic_base + LAPIC_TPR) &= ~0xff;
-	/* Finally, enable the APIC */
-	*(volatile uint32_t*)(lapic_base + LAPIC_SVR) |= LAPIC_SVR_APIC_EN;
+	InitializeLAPIC(lapic_id);
 
 	/* Wait for it ... */
 	while (!can_smp_launch)
