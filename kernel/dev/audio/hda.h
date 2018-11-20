@@ -136,7 +136,7 @@ struct PlayContext;
 # define  HDA_CODEC_PINCONTROL_OUTENABLE	(1 << 6)
 # define  HDA_CODEC_PINCONTROL_INENABLE		(1 << 5)
 # define  HDA_CODEC_PINCONTROL_VREFEN(x)	(x)
-#define HDA_CODEC_CMD_GETPINCONTROL	0x707
+#define HDA_CODEC_CMD_GETPINCONTROL	0xf07
 
 #define HDA_CODEC_CMD_SET_CONV_FORMAT	0x2
 #define HDA_CODEC_CMD_GET_CONV_FORMAT	0xa
@@ -206,6 +206,12 @@ struct PlayContext;
 #define  HDA_CODEC_CFGDEFAULT_DEFAULT_ASSOCIATION(x)	(((x) >> 4) & 15)
 #define  HDA_CODEC_CFGDEFAULT_SEQUENCE(x)		((x) & 15)
 
+#define HDA_CODEC_CMD_GETPOWERSTATE	0xf05
+#define HDA_CODEC_CMD_SETPOWERSTATE	0x705
+
+#define HDA_CODEC_CMD_GETVOLUMEKNOBCONTROL	0xf0f
+#define HDA_CODEC_CMD_SETVOLUMEKNOBCONTROL	0x70f
+
 #define HDA_RESP_EX_CODEC_ADDR(x)		((x) & 15)
 #define HDA_RESP_EX_CODEC_UNSOLICITED(x)	(((x) >> 4) & 1)
 
@@ -256,6 +262,7 @@ enum HDANodeType {
 	NT_AudioIn,
 	NT_AudioMixer,
 	NT_AudioSelector,
+	NT_VolumeKnob,
 	NT_VendorDefined
 };
 
@@ -315,7 +322,7 @@ public:
 
 	uint32_t aw_caps;		/* Audio widget capabilities */
 	int aw_num_conn = 0;		/* Number of connections */
-	Node_AW** aw_conn = nullptr;	/* Connection list */
+	Node_AW** aw_conn = nullptr;	/* Input connection list */
 };
 
 class Node_Pin : public Node_AW
@@ -383,6 +390,16 @@ public:
 	HDANodeType GetType() const override
 	{
 		return NT_VendorDefined;
+	}
+};
+
+class Node_VolumeKnob : public Node_AW
+{
+public:
+	using Node_AW::Node_AW;
+	HDANodeType GetType() const override
+	{
+		return NT_VolumeKnob;
 	}
 };
 
@@ -462,11 +479,11 @@ protected:
 	Result AttachWidget_AudioIn(Node_AudioIn& ai);
 	Result AttachWidget_AudioMixer(Node_AudioMixer& am);
 	Result AttachWidget_AudioSelector(Node_AudioSelector& as);
+	Result AttachWidget_VolumeKnob(Node_VolumeKnob& vk);
 	Result AttachWidget_VendorDefined(Node_VendorDefined& vd);
 	Result AttachWidget_PinComplex(Node_Pin& p);
 	Result AttachNode_AFG(AFG& afg);
-	Result AttachMultiPin_Render(AFG& afg, int association, int num_pins);
-	Result AttachSinglePin_Render(AFG& afg, int association);
+	Result AttachPin_Render(AFG& afg, int association, int num_pins);
 	Result AttachAFG(AFG& afg);
 
 	Result RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp);

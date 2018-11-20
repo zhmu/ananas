@@ -202,7 +202,7 @@ HDADevice::IOControl(Process* proc, unsigned long req, void* args[])
 			// but VirtualBox dies if we try to use 2 channels only for a 7.1-channel output...
 			auto o = [](AFG& afg, SOUND_START_ARGS& ss) -> Output* {
 				for(auto& ao: afg.afg_outputs) {
-					if (ao.o_channels == ss.ss_channels)
+					if (ao.o_channels >= ss.ss_channels)
 						return &ao;
 				}
 				return nullptr;
@@ -210,9 +210,25 @@ HDADevice::IOControl(Process* proc, unsigned long req, void* args[])
 			if (o == nullptr)
 				return RESULT_MAKE_FAILURE(EIO);
 
+#if 0
+			kprintf(">> routing to output pins");
+			for (int n = 0; n < o->o_pingroup->pg_count; n++) {
+				Node_Pin* output_pin = o->o_pingroup->pg_pin[n];
+				kprintf(" %x", output_pin->n_address.na_nid);
+			}
+			kprintf("\n");
+#endif
+
 			RoutingPlan* rp;
-			if (auto result = RouteOutput(*afg, o->o_channels, *o, &rp); result.IsFailure())
+			if (auto result = RouteOutput(*afg, ss->ss_channels, *o, &rp); result.IsFailure())
 				return result;
+
+#if 0
+			kprintf("routed %d channel(s) to %d-channel output ->", ss->ss_channels, o->o_channels);
+			for (int i = 0; i < rp->rp_num_nodes; i++)
+				kprintf(" %x", rp->rp_node[i]->n_address.na_nid);
+			kprintf("\n");
+#endif
 
 			// Set up the play context; we'll be filling out streams shortly
 			hda_pc = new PlayContext(*hdaFunctions, ss->ss_buffer_length);

@@ -69,6 +69,13 @@ HDADevice::AttachWidget_AudioOut(Node_AudioOut& ao)
 	if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_PCM)), &ao.ao_pcm, NULL); result.IsFailure())
 		return result;
 
+	// Set power state to D0; XXX maybe we should only do this when actually playing things
+	{
+		uint32_t r;
+		if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETPOWERSTATE, 0)), &r, NULL); result.IsFailure())
+			return result;
+	}
+
 	/* Use the AFG's default if the widget doesn't specify any */
 	if (ao.ao_pcm == 0)
 		ao.ao_pcm = hda_afg->afg_pcm;
@@ -105,11 +112,21 @@ HDADevice::AttachWidget_AudioMixer(Node_AudioMixer& am)
 Result
 HDADevice::AttachWidget_AudioSelector(Node_AudioSelector& as)
 {
-	if (auto result = FillAWConnectionList(as); result.IsFailure())
-		return result;
-	kprintf("hda_attach_widget_audioselector: TODO\n");
+	// XXX We should read the amplifier capabilities here
+	return FillAWConnectionList(as);
+}
 
-	return Result::Success();
+Result
+HDADevice::AttachWidget_VolumeKnob(Node_VolumeKnob& vk)
+{
+	uint32_t r;
+	if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(vk, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETVOLUMEKNOBCONTROL, 0)), &r, NULL); result.IsFailure())
+		return result;
+
+	Printf("volume knob level %d", r);
+
+	// XXX We should read the amplifier capabilities here
+	return FillAWConnectionList(vk);
 }
 
 Result
@@ -135,6 +152,13 @@ HDADevice::AttachNode_AFG(AFG& afg)
 {
 	int cad = afg.afg_cad;
 	int nid = afg.afg_nid;
+
+	// Set power state to D0 XXX maybe we should only do this when actually playing things
+	{
+		uint32_t r;
+		if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETPOWERSTATE, 0)), &r, NULL); result.IsFailure())
+			return result;
+	}
 
 	/* Fetch the default parameters; these are used if the subnodes don't supply them */
 	uint32_t r;
@@ -178,6 +202,11 @@ HDADevice::AttachNode_AFG(AFG& afg)
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_PINCOMPLEX: {
 				aw = new Node_Pin(nodeAddress, aw_caps);
 				result = AttachWidget_PinComplex(static_cast<Node_Pin&>(*aw));
+				break;
+			}
+			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_VOLUMEKNOB: {
+				aw = new Node_VolumeKnob(nodeAddress, aw_caps);
+				result = AttachWidget_VolumeKnob(static_cast<Node_VolumeKnob&>(*aw));
 				break;
 			}
 			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_VENDORDEFINED: {
@@ -391,7 +420,7 @@ DumpAFG(AFG& afg)
 #endif /* HDA_VERBOSE */
 
 Result
-HDADevice::AttachMultiPin_Render(AFG& afg, int association, int num_pins)
+HDADevice::AttachPin_Render(AFG& afg, int association, int num_pins)
 {
 	auto pg = new PinGroup;
 	pg->pg_pin = new Node_Pin*[num_pins];
@@ -438,9 +467,11 @@ HDADevice::AttachMultiPin_Render(AFG& afg, int association, int num_pins)
 	 */
 	RoutingPlan* rp;
 	if (auto result = RouteOutput(afg, num_channels, *o, &rp); result.IsFailure()) {
+		// Cannot establish a routing plan to here -> ignore it
 		delete pg;
 		delete o;
-		return result;
+		kprintf("unable to route %d channel output, ignoring\n", num_channels);
+		return Result::Success();
 	}
 
 	/*
@@ -459,16 +490,11 @@ HDADevice::AttachMultiPin_Render(AFG& afg, int association, int num_pins)
 		else
 			o->o_pcm_output &= ao.ao_pcm; /* combine what the next output has */
 	}
+
 	delete rp;
 
 	afg.afg_outputs.push_back(*o);
 	return Result::Success();
-}
-
-Result
-HDADevice::AttachSinglePin_Render(AFG& afg, int association)
-{
-	return AttachMultiPin_Render(afg, association, 1);
 }
 
 Result
@@ -479,7 +505,6 @@ HDADevice::AttachAFG(AFG& afg)
 
 	/* Walk through all associations and see what we have got there */
 	for (unsigned int association = 1; association < 15; association++) {
-		int total_pins = 0;
 		int num_input = 0, num_output = 0;
 		for(auto& aw: afg.afg_nodes) {
 			if (aw.GetType() != NT_Pin)
@@ -488,39 +513,21 @@ HDADevice::AttachAFG(AFG& afg)
 			if (HDA_CODEC_CFGDEFAULT_DEFAULT_ASSOCIATION(p.p_cfg) != association)
 				continue;
 
-			total_pins++;
 			if (HDA_CODEC_PINCAP_INPUT(p.p_cap))
 				num_input++;
 			if (HDA_CODEC_PINCAP_OUTPUT(p.p_cap))
 				num_output++;
 		}
-
-		/* Skip any association without any pins; those only clutter things up */
-		if (total_pins == 0)
+		if (num_input == 0 && num_output == 0)
 			continue;
 
-		HDA_VPRINTF("association %d has %d pin(s), %d input(s), %d output(s)",
-		 association, total_pins, num_input, num_output);
+		HDA_VPRINTF("association %d has %d input(s), %d output(s)",
+		 association, num_input, num_output);
 
-		if (total_pins == num_output) {
-			if (total_pins > 1) {
-				/* Multi-pin rendering device */
-				if (auto result = AttachMultiPin_Render(afg, association, total_pins); result.IsFailure())
-					return result;
-			} else /* total_pins == 1 */ {
-				/* Single-pin rendering device */
-				if (auto result = AttachSinglePin_Render(afg, association); result.IsFailure())
-					return result;
-			}
-		}
-
-		if (total_pins == num_input) {
-			if (total_pins > 1) {
-				/* Multi-pin capture device TODO */
-			} else /* total_pins == 1 */ {
-				/* Single-pin capture device TODO */
-			}
-		}
+		// XXX We only support outputs here
+		if (num_output > 0)
+			if (auto result = AttachPin_Render(afg, association, num_output); result.IsFailure())
+				return result;
 	}
 
 	return Result::Success();

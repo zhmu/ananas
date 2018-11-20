@@ -9,6 +9,110 @@ TRACE_SETUP;
 
 namespace hda {
 
+namespace {
+
+Result ConfigureInputAmplifiers(IHDAFunctions& hdaFunctions, Node_AW& aw, int input_idx)
+{
+	// Set input amplifiers - enable 'index_idx', mute everything else
+	for (int index = 0; index < aw.aw_num_conn; index++) {
+		uint32_t payload = HDA_CODEC_AMP_GAINMUTE_INPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_INDEX(index);
+		if (index == input_idx)
+			payload |= HDA_CODEC_AMP_GAINMUTE_GAIN(30);
+		else
+			payload |= HDA_CODEC_AMP_GAINMUTE_MUTE;
+		uint32_t r;
+		if (auto result = hdaFunctions.IssueVerb(HDA_MAKE_VERB_NODE(aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE, payload)), &r, nullptr); result.IsFailure())
+			return result;
+	}
+	return Result::Success();
+}
+
+bool IsAWNodeUsedInRoutingPlan(RoutingPlan& rp, Node_AW& aw)
+{
+	bool found = false;
+	for (int i = 0; !found && i < rp.rp_num_nodes; i++)
+		found = &aw == rp.rp_node[i];
+	return found;
+}
+
+Result
+RouteNodeToAudioOut(IHDAFunctions& hdaFunctions, Node_AW& cur_aw, RoutingPlan& rp)
+{
+	// Hook the input up to the list
+	rp.rp_node[rp.rp_num_nodes++] = &cur_aw;
+	if (cur_aw.GetType() == NT_AudioOut) {
+		/*
+		 * We've reached an 'audio out'; this is the end of the line as we
+		 * can feed our audio output into.
+		 */
+		// Set output gain - XXX does the node support this?
+		uint32_t r;
+		if (auto result = hdaFunctions.IssueVerb(HDA_MAKE_VERB_NODE(cur_aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE, HDA_CODEC_AMP_GAINMUTE_OUTPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(30))), &r, NULL); result.IsFailure())
+				return result;
+
+		return Result::Success();
+	}
+
+	if (cur_aw.GetType() == NT_AudioMixer) {
+		// Audio mixers take >1 inputs and a single output
+		for (int in_idx = 0; in_idx < cur_aw.aw_num_conn; in_idx++) {
+			auto& next_aw = *cur_aw.aw_conn[in_idx];
+			if(next_aw.GetType() != NT_AudioOut && next_aw.GetType() != NT_AudioSelector)
+				continue; // We can only connect audio output/selectors here
+			if (IsAWNodeUsedInRoutingPlan(rp, next_aw))
+				continue; // Already routed; we need another one
+
+			// Okay, this mixer connects to an unused node; connect this input to our mixer node
+			if (auto result = ConfigureInputAmplifiers(hdaFunctions, cur_aw, in_idx); result.IsFailure())
+				return result;
+
+			// Set output gain
+			uint32_t r;
+			if (auto result = hdaFunctions.IssueVerb(HDA_MAKE_VERB_NODE(cur_aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE, HDA_CODEC_AMP_GAINMUTE_OUTPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(60))), &r, NULL); result.IsFailure())
+				return result;
+
+			// Mixer was routed; we need to continue routing
+			return RouteNodeToAudioOut(hdaFunctions, next_aw, rp);
+		}
+		kprintf("TODO: ended up at nid 0x%x which we can't route to an audio-out/selector - aborting", cur_aw.n_address.na_nid);
+		return RESULT_MAKE_FAILURE(ENOSPC); // XXX makes no sense?
+	}
+
+	if (cur_aw.GetType() == NT_AudioSelector) {
+		// Audio selectors allow one input to be chosen out of multiple
+		for (int in_idx = 0; in_idx < cur_aw.aw_num_conn; in_idx++) {
+			auto& next_aw = *cur_aw.aw_conn[in_idx];
+			if(next_aw.GetType() != NT_AudioOut && next_aw.GetType() != NT_AudioSelector)
+				continue; // We can only connect audio output/selectors here
+			if (IsAWNodeUsedInRoutingPlan(rp, next_aw))
+				continue; // Already routed; we need another one
+
+			// Set the input of the audio selector to whatever node providing input for us
+			uint32_t r;
+			if (auto result = hdaFunctions.IssueVerb(HDA_MAKE_VERB_NODE(cur_aw, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETCONNSELECT, in_idx)), &r, NULL); result.IsFailure())
+				return result;
+
+			uint32_t payload = HDA_CODEC_AMP_GAINMUTE_INPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(60) | HDA_CODEC_AMP_GAINMUTE_INDEX(in_idx);
+			if (auto result = hdaFunctions.IssueVerb(HDA_MAKE_VERB_NODE(cur_aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE, payload)), &r, nullptr); result.IsFailure())
+				return result;
+
+			// Set output gain - XXX does the node support this?
+			if (auto result = hdaFunctions.IssueVerb(HDA_MAKE_VERB_NODE(cur_aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE, HDA_CODEC_AMP_GAINMUTE_OUTPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(60))), &r, NULL); result.IsFailure())
+				return result;
+
+			// Selector was routed; continue
+			return RouteNodeToAudioOut(hdaFunctions, next_aw, rp);
+		}
+		kprintf("TODO: ended up at nid 0x%x which we can't route to an audio-out/selector - aborting", cur_aw.n_address.na_nid);
+		return RESULT_MAKE_FAILURE(ENOSPC); // XXX makes no sense?
+	}
+
+	kprintf("TODO: ended up at unsupported node nid 0x%x type 0x%d - aborting", cur_aw.n_address.na_nid, cur_aw.GetType());
+	return RESULT_MAKE_FAILURE(ENOSPC); // XXX makes no sense?
+}
+
+} // unnamed namespace
+
 /*
  * Given audio group 'afg' on device 'dev', this will route 'channels'-channel
  * output to output 'o'. On success, returns the kmalloc()'ed routing plan.
@@ -16,8 +120,6 @@ namespace hda {
 Result
 HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 {
-	HDA_VPRINTF("routing %d channel(s) to %d-channel output", channels, o.o_channels);
-
 	/*
 	 * We walk through the pins for this output in order; a stereo-pin can handle
 	 * 2 channels, otherwise we'll deduct 1 channel as we go along. This ensures
@@ -63,7 +165,7 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 		 * connected to here - we care only about mixers and outputs XXX we should
 		 * consider selectors too
 		 */
-		HDA_VPRINTF("will use %d-channel output %s-%s", ch_count, 
+		HDA_VPRINTF("will use %d-channel output %s-%s", ch_count,
 		 ResolveLocationToString(HDA_CODEC_CFGDEFAULT_LOCATION(output_pin->p_cfg)),
 		 PinColorString[HDA_CODEC_CFGDEFAULT_COLOR(output_pin->p_cfg)]);
 		if (output_pin->aw_num_conn == 0) {
@@ -78,20 +180,17 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 		 * is acceptable.
 		 */
 		Result result(RESULT_MAKE_FAILURE(ENOSPC)); // XXX does this make sense
-		for(int pin_in_idx  = 0; pin_in_idx < output_pin->aw_num_conn; pin_in_idx++) {
+		for(int pin_in_idx = 0; pin_in_idx < output_pin->aw_num_conn; pin_in_idx++) {
 			/* pin_in_aw is the node connected to output_pin's input index pin_in_idx */
 			Node_AW* pin_in_aw = output_pin->aw_conn[pin_in_idx];
 
 			/* First see if we have already routed this item */
-			int found = 0;
-			for (int i = 0; !found && i < (*rp)->rp_num_nodes; i++)
-				found = (*rp)->rp_node[i] == pin_in_aw;
-			if (found)
+			if (IsAWNodeUsedInRoutingPlan(**rp, *pin_in_aw))
 				continue;
 
 			/* Enable output on this pin */
 			uint32_t r;
-			result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*output_pin, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETPINCONTROL, 
+			result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*output_pin, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETPINCONTROL,
 			 HDA_CODEC_PINCONTROL_HENABLE | HDA_CODEC_PINCONTROL_OUTENABLE
 			)), &r, NULL);
 			if (result.IsFailure())
@@ -113,96 +212,9 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 			 * Pin is routed to use input pin_in_aw; we must now configure it and
 			 * whatever hooks to it.
 			 */
-			Node_AW* cur_aw = pin_in_aw;
-			while(cur_aw != nullptr && result.IsSuccess()) {
-				/* Hook the input up to the list */
-				(*rp)->rp_node[(*rp)->rp_num_nodes++] = cur_aw;
-				switch(cur_aw->GetType()) {
-					case NT_AudioOut:
-						/*
-						 * We've reached an 'audio out'; this is the end of the line as we
-						 * can feed our audio output into.
-						 */
-						HDA_VPRINTF("routed audio output nid 0x%x to pin 0x%x", cur_aw->n_address.na_nid, output_pin->n_address.na_nid);
-
-						/* Nothing to route anymore */
-						cur_aw = nullptr;
-						break;
-					case NT_AudioMixer: {
-						/*
-						 * Audio mixers take >1 inputs and a single output; We'll repeat
-						 * the trick to locate a sensible input.
-						 *
-						 * XXX This may be a bit too short-circuit; basically, this expects
-						 *     audio mixers to have at least a single audio output
-						 *     connected to them.
-					 	 */
-						Node_AW* mixer_in = NULL;
-						for (int m = 0; m < cur_aw->aw_num_conn; m++) {
-							Node_AW* aw = cur_aw->aw_conn[m];
-							if(aw->GetType() != NT_AudioOut)
-								continue;
-
-							/* Found an audio output in 'aw'; see if it is already in use */
-							bool found = false;
-							for (int i = 0; !found && i < (*rp)->rp_num_nodes; i++)
-								found = aw == (*rp)->rp_node[i];
-							if(found)
-								continue; /* Already routed; we need another one */
-
-							/* Okay, this mixer connects to an unused audio output; set up the mixer first */
-
-							/* Set input amplifiers - allow index 'm' */
-							result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
-							 HDA_CODEC_AMP_GAINMUTE_INPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(60) |
-							 HDA_CODEC_AMP_GAINMUTE_INDEX(m)
-							)), &r, NULL);
-							/* Loop below checks result for us */
-
-							/* Set input amplifiers - mute everything not 'm' */
-							for (int i = 0; result.IsSuccess() && i < aw->aw_num_conn; i++)
-								if (i != m)
-									result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
-									 HDA_CODEC_AMP_GAINMUTE_INPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_MUTE |
-									 HDA_CODEC_AMP_GAINMUTE_INDEX(i)
-									)), &r, NULL);
-							if (result.IsFailure())
-								break;
-
-							/* Set output gain */
-							result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
-							 HDA_CODEC_AMP_GAINMUTE_OUTPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(60)
-							)), &r, NULL);
-							if (result.IsFailure())
-								break;
-
-							/* We've set up this mixer correctly */
-							mixer_in = aw;
-							break;
-						}
-						if (mixer_in == NULL) {
-							Printf("TODO: when routing pin nid 0x%x, ended up at audio mixer nid 0x%x which we can't route to an audioout - aborting",
-							 output_pin->n_address.na_nid, cur_aw->n_address.na_nid);
-							result = RESULT_MAKE_FAILURE(ENOSPC); // XXX makes no sense?
-						}
-
-						/* Mixer was routed; we need to continue routing */
-						cur_aw = mixer_in;
-						break;
-					}
-					default:
-						Printf("TODO: when routing pin nid 0x%x, ended up at unsupported node nid 0x%x type 0x%d - aborting",
-						 output_pin->n_address.na_nid, cur_aw->n_address.na_nid, cur_aw->GetType());
-						result = RESULT_MAKE_FAILURE(ENOSPC); // XXX makes no sense?
-						break;
-				}
-			}
-
-			/*
-			 * If we are here, either err isn't happy or we've run out of pins to
-			 * route and have completed this pin's path.
-			 */
-			break;
+			result = RouteNodeToAudioOut(*hdaFunctions, *pin_in_aw, **rp);
+			if (result.IsFailure())
+				break;
 		}
 
 		if (result.IsFailure()) {
@@ -210,13 +222,6 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 			return result;
 		}
 	}
-
-#if HDA_VERBOSE
-	kprintf("routed %d channel(s) to %d-channel output ->", channels, o.o_channels);
-	for (int i = 0; i < (*rp)->rp_num_nodes; i++)
-		kprintf(" %x", (*rp)->rp_node[i]->n_address.na_nid);
-	kprintf("\n");
-#endif
 
 	return Result::Success();
 }
