@@ -70,6 +70,8 @@ void RequestShutdown(ShutdownType type)
 	KASSERT(type != ShutdownType::Unknown, "requested unknown shutdown");
 
 	// XXX Maybe we need some locking here
+	if (IsShuttingDown())
+		return;
 	shutdownType = type;
 	shutdown_thread.Resume();
 }
@@ -88,6 +90,6 @@ init_shutdown()
 
 } // unnamed namespace
 
-INIT_FUNCTION(init_shutdown, SUBSYSTEM_SCHEDULER, ORDER_LAST);
+INIT_FUNCTION(init_shutdown, SUBSYSTEM_THREAD, ORDER_MIDDLE);
 
 /* vim:set ts=2 sw=2: */
