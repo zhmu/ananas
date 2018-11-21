@@ -639,9 +639,9 @@ struct UHCI_Driver : public Driver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<UHCI_Driver> registerDriver;
 
-REGISTER_DRIVER(UHCI_Driver)
+} // unnamed namespace
 
 } // namespace usb
 

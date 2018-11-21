@@ -293,10 +293,9 @@ struct USBHub_Driver : public Driver
 	}
 };
 
+const RegisterDriver<USBHub_Driver> registerDriver;
+
 } // unnamed namespace
-
-REGISTER_DRIVER(USBHub_Driver)
-
 } // namespace usb
 
 /* vim:set ts=2 sw=2: */

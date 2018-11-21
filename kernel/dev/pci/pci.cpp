@@ -71,9 +71,9 @@ struct PCI_Driver : public Driver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<PCI_Driver> registerDriver;
 
-REGISTER_DRIVER(PCI_Driver)
+} // unnamed namespace
 
 void
 pci_write_cfg(Device& device, uint32_t reg, uint32_t val, int size)

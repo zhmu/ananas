@@ -519,10 +519,9 @@ struct HDAPCI_Driver : public Driver
 	}
 };
 
+const RegisterDriver<HDAPCI_Driver> registerDriver;
+
 } // unnamed namespace
-
-REGISTER_DRIVER(HDAPCI_Driver)
-
 } // namespace hda
 
 /* vim:set ts=2 sw=2: */

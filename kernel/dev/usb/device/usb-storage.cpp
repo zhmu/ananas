@@ -381,8 +381,8 @@ struct USBStorage_Driver : public Driver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<USBStorage_Driver> registerDriver;
 
-REGISTER_DRIVER(USBStorage_Driver)
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

@@ -107,8 +107,9 @@ PCIBus::Attach()
 
 			/* Fetch the IRQ line, if any */
 			uint32_t irq = pci_read_config(busno, devno, funcno, PCI_REG_INTERRUPT, 32) & 0xff;
-			if (irq != 0 && irq != 0xff)
+			if (irq != 0 && irq != 0xff) {
 				resourceSet.AddResource(Resource(Resource::RT_IRQ, irq, 0));
+			}
 
 			/* Attempt to attach this new child device */
 			if (device_manager::AttachChild(*this, resourceSet) != nullptr)
@@ -146,8 +147,8 @@ struct PCIBus_Driver : public Driver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<PCIBus_Driver> registerDriver;
 
-REGISTER_DRIVER(PCIBus_Driver)
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

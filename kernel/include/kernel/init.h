@@ -1,74 +1,57 @@
 #ifndef __INIT_H__
 #define __INIT_H__
 
-#include "kernel/list.h"
+#include <ananas/types.h>
+#include <ananas/util/list.h>
 
-class Result;
+namespace init {
 
-typedef Result (*init_func_t)();
-typedef Result (*exit_func_t)();
-
-enum INIT_SUBSYSTEM {
-	SUBSYSTEM_MODULE	= 0x0080000,
-	/* Everything above here cannot be used by modules */
-	SUBSYSTEM_HANDLE	= 0x0100000,
-	SUBSYSTEM_KDB		= 0x0110000,
-	SUBSYSTEM_DRIVER	= 0x0118000,
-	SUBSYSTEM_CONSOLE	= 0x0120000,
-	/* After this point, there is a console */
-	SUBSYSTEM_PROCESS	= 0x01f0000,
-	SUBSYSTEM_THREAD	= 0x0200000,
-	SUBSYSTEM_SMP		= 0x0210000,
-	SUBSYSTEM_WAITQUEUE	= 0x0220000,
-	SUBSYSTEM_TTY		= 0x0230000,
-	SUBSYSTEM_BIO		= 0x0240000,
-	SUBSYSTEM_DEVICE	= 0x0250000,
-	SUBSYSTEM_VFS		= 0x0260000,
-	SUBSYSTEM_SCHEDULER	= 0xf000000,
-	/* Do not use the last subsystem */
-	SUBSYSTEM_LAST		= 0xfffffff
+enum class SubSystem {
+	Handle = 0x0100000,
+	KDB = 0x0110000,
+	Driver = 0x0118000,
+	Console = 0x0120000,
+	// After this point, there is a console
+	Process	= 0x01f0000,
+	Thread	= 0x0200000,
+	SMP = 0x0210000,
+	TTY = 0x0220000,
+	BIO = 0x0230000,
+	Device = 0x0240000,
+	VFS = 0x0250000,
+	Scheduler = 0xf000000,
+	Last = 0xfffffff // Do not use the last subsystem */
 };
 
-enum INIT_ORDER {
-	ORDER_FIRST		= 0x0000001,
-	ORDER_SECOND		= 0x0000002,
-	ORDER_MIDDLE		= 0x4000000,
-	ORDER_ANY		= 0x8000000,
-	ORDER_LAST		= 0xfffffff
+enum class Order {
+	First = 0x0000001,
+	Second = 0x0000002,
+	Middle = 0x4000000,
+	Any = 0x8000000,
+	Last = 0xfffffff
 };
 
-struct INIT_FUNC {
-	init_func_t		if_func;
-	enum INIT_SUBSYSTEM	if_subsystem;
-	enum INIT_ORDER		if_order;
+struct OnInit;
+
+namespace internal {
+void Register(OnInit& onInit);
+}
+
+struct OnInit : util::List<OnInit>::NodePtr
+{
+	template<typename Func>
+	OnInit(init::SubSystem subsystem, init::Order order, Func fn)
+	 : oi_subsystem(subsystem), oi_order(order), oi_func(fn)
+	{
+		init::internal::Register(*this);
+	}
+
+	init::SubSystem oi_subsystem;
+	init::Order oi_order;
+	void (*oi_func)();
 };
 
-struct EXIT_FUNC {
-	exit_func_t	ef_func;
-};
-
-/*
- * Defines an initialization function; these will be placed in a specific ELF
- * section so that any file can add functions as it requires; during
- * initalization, they will be started.
- *
- */
-#define INIT_FUNCTION(fn,subsys,order) \
-	static struct INIT_FUNC if_##fn = { \
-		.if_func = fn, \
-		.if_subsystem = subsys, \
-		.if_order = order \
-	}; \
-	extern "C" void * const __if_include_##fn __attribute__((section("initfuncs"))) __attribute__((unused)) = &if_##fn
-
-/*
- * Defines an exit function; currently only used for modules.
- */
-#define EXIT_FUNCTION(fn) \
-	static struct EXIT_FUNC ef_##fn = { \
-		.ef_func = fn \
-	}; \
-	extern "C" void * __ef_include_##fn __attribute__((section("exitfuncs")))  __attribute__((unused)) = &ef_##fn
+} // namespace init
 
 void mi_startup();
 

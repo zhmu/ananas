@@ -168,20 +168,10 @@ struct VFS_FILESYSTEM_OPS fsops_ankhfs = {
 
 struct VFSFileSystem fs_ankhfs("ankhfs", &fsops_ankhfs);
 
-Result
-ankhfs_init()
+const init::OnInit registerAnkhFS(init::SubSystem::VFS, init::Order::Middle, []()
 {
-	return vfs_register_filesystem(fs_ankhfs);
-}
-
-Result
-ankhfs_exit()
-{
-	return vfs_unregister_filesystem(fs_ankhfs);
-}
-
-INIT_FUNCTION(ankhfs_init, SUBSYSTEM_VFS, ORDER_MIDDLE);
-EXIT_FUNCTION(ankhfs_exit);
+	vfs_register_filesystem(fs_ankhfs);
+});
 
 } // unnamed namespace
 } // namespace ankhfs

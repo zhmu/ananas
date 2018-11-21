@@ -287,8 +287,8 @@ struct USBKeyboard_Driver : public Driver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<USBKeyboard_Driver> registerDriver;
 
-REGISTER_DRIVER(USBKeyboard_Driver)
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

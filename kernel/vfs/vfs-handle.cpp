@@ -141,8 +141,13 @@ struct FDOperations vfs_ops = {
 	.d_ioctl = vfshandle_ioctl,
 };
 
-} // unnamed namespace
+// TODO It would be nice if we could make this more generic
+const init::OnInit registerFDType(init::SubSystem::Handle, init::Order::Second, []()
+{
+	static FDType ft("file", FD_TYPE_FILE, vfs_ops);
+	fd::RegisterType(ft);
+});
 
-FD_TYPE(FD_TYPE_FILE, "file", vfs_ops);
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

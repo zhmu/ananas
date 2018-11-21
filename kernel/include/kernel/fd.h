@@ -3,6 +3,7 @@
 
 #include <ananas/util/list.h>
 #include "kernel/lock.h"
+#include "kernel/init.h"
 #include "kernel/vfs/types.h"
 
 #define FD_TYPE_ANY	-1
@@ -74,18 +75,5 @@ void RegisterType(FDType& ft);
 void UnregisterType(FDType& ft);
 
 }
-
-#define FD_TYPE(id, name, ops) \
-	static FDType ft_##id(name, id, ops); \
-	static Result register_##id() { \
-		fd::RegisterType(ft_##id); \
-		return Result::Success(); \
-	}; \
-	static Result unregister_##id() { \
-		fd::UnregisterType(ft_##id); \
-		return Result::Success(); \
-	}; \
-	INIT_FUNCTION(register_##id, SUBSYSTEM_HANDLE, ORDER_SECOND); \
-	EXIT_FUNCTION(unregister_##id)
 
 #endif /* FD_H */

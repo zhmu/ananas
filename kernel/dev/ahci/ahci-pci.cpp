@@ -348,8 +348,8 @@ struct AHCI_PCI_Driver : public Driver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<AHCI_PCI_Driver> registerDriver;
 
-REGISTER_DRIVER(AHCI_PCI_Driver)
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

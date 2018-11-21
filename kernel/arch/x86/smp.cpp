@@ -421,8 +421,7 @@ smp_init()
 /*
  * Called on the Boot Strap Processor, in order to fully launch the AP's.
  */
-static Result
-smp_launch()
+const init::OnInit initSMPLaunch(init::SubSystem::Scheduler, init::Order::Middle, []()
 {
 	can_smp_launch++;
 
@@ -452,11 +451,7 @@ smp_launch()
 	/* All done - we can throw away the AP code and mappings */
 	page_free(*ap_page);
 	smp_destroy_ap_pagetable();
-
-	return Result::Success();
-}
-
-INIT_FUNCTION(smp_launch, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);
+});
 
 void
 smp_panic_others()

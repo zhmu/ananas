@@ -326,10 +326,9 @@ struct HDA_Driver : public Driver
 	}
 };
 
+const RegisterDriver<HDA_Driver> registerDriver;
+
 } // unnamed namespace
-
-REGISTER_DRIVER(HDA_Driver)
-
 } // namespace hda
 
 /* vim:set ts=2 sw=2: */

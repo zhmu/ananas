@@ -49,20 +49,14 @@ public:
 	int d_CurrentUnit = 0;
 };
 
-typedef util::List<Driver> DriverList;
+template<typename T>
+struct RegisterDriver : init::OnInit
+{
+	RegisterDriver() : OnInit(init::SubSystem::Driver, init::Order::Middle, []() {
+		driver_manager::Register(*new T);
+	}) { }
+};
 
-// XXX The Unregister-part is a bit clumsy...
-#define REGISTER_DRIVER(name) \
-	static Result register_driver_##name() { \
-		return driver_manager::Register(*new name); \
-	} \
-	static Result unregister_driver_##name() { \
-		Driver* d = new name; \
-		auto result = driver_manager::Unregister(d->d_Name); \
-		delete d; \
-		return result; \
-	} \
-	INIT_FUNCTION(register_driver_##name, SUBSYSTEM_DRIVER, ORDER_MIDDLE); \
-	EXIT_FUNCTION(unregister_driver_##name);
+typedef util::List<Driver> DriverList;
 
 #endif /* __DRIVER_H__ */

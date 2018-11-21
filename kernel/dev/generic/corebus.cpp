@@ -46,13 +46,10 @@ public:
 	}
 };
 
-Result
-Initialize()
+const init::OnInit attachCoreBus(init::SubSystem::Device, init::Order::Last, []()
 {
-	return device_manager::AttachSingle(*new CoreBus);
-}
-
-INIT_FUNCTION(Initialize, SUBSYSTEM_DEVICE, ORDER_LAST);
+	device_manager::AttachSingle(*new CoreBus);
+});
 
 } // unnamed namespace
 

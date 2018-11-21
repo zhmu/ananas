@@ -65,8 +65,7 @@ console_probe(const char* driverFilter = nullptr)
 	return false;
 }
 
-Result
-console_init()
+const init::OnInit initConsole(init::SubSystem::Console, init::Order::Middle, []()
 {
 	{
 		const char* console_override = cmdline_get_string("console");
@@ -82,18 +81,16 @@ console_init()
 
 	// Initialize the console print mutex and start using it
 	console_mutex_inuse++;
-	return Result::Success();
-}
+});
 
 } // unnamed namespace
-
-INIT_FUNCTION(console_init, SUBSYSTEM_CONSOLE, ORDER_MIDDLE);
 
 void
 console_putchar(int c)
 {
 #ifdef OPTION_DEBUG_CONSOLE
 	debugcon_putch(c);
+	return;
 #endif /* OPTION_DEBUG_CONSOLE */
 	if (console_tty == NULL)
 		return;
@@ -113,6 +110,7 @@ console_puts(const char* s)
 void
 console_putstring(const char* s)
 {
+#if 0
 	if (console_mutex_inuse && !mtx_console.TryLock()) {
 		SpinlockUnpremptibleGuard g(console_backlog_lock);
 
@@ -131,9 +129,10 @@ console_putstring(const char* s)
 		}
 		return;
 	}
-
+#endif
 	console_puts(s);
 
+#if 0
 	/* See if there's anything in the backlog that we can print */
 	if (console_backlog_pos > 0) {
 		SpinlockUnpremptibleGuard g(console_backlog_lock);
@@ -148,6 +147,7 @@ console_putstring(const char* s)
 
 	if (console_mutex_inuse)
 		mtx_console.Unlock();
+#endif
 }
 
 uint8_t

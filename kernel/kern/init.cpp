@@ -10,62 +10,83 @@
 #include "options.h" // for ARCHITECTURE
 
 /* If set, display the entire init tree before launching it */
-#undef VERBOSE_INIT
+#define VERBOSE_INIT 0
 
-extern void* __initfuncs_begin;
-extern void* __initfuncs_end;
+extern int md_cpu_clock_mhz;
 
-static void
+namespace init {
+namespace {
+util::List<OnInit> initFunctions;
+} // unnamed namespace
+
+namespace internal {
+void Register(OnInit& onInit)
+{
+	initFunctions.push_back(onInit);
+}
+} // namespace internal
+
+namespace {
+void
 run_init()
 {
-	/*
-	 * Create a shadow copy of the init function chain; this is done so that we
-	 * can sort it.
-	 */
-	size_t init_static_func_len  = (addr_t)&__initfuncs_end - (addr_t)&__initfuncs_begin;
-	struct INIT_FUNC** ifn_chain = static_cast<struct INIT_FUNC**>(kmalloc(init_static_func_len));
-	memcpy(ifn_chain, (void*)&__initfuncs_begin, init_static_func_len);
+	using namespace detail;
 
-	/* Sort the init functions chain; we use a simple bubble sort to do so */
-	int num_init_funcs = init_static_func_len / sizeof(struct INIT_FUNC*);
-	for (int i = 0; i < num_init_funcs; i++)
-		for (int j = num_init_funcs - 1; j > i; j--) {
-			struct INIT_FUNC* a = ifn_chain[j];
-			struct INIT_FUNC* b = ifn_chain[j - 1];
-			if ((a->if_subsystem > b->if_subsystem) ||
-			    (a->if_subsystem >= b->if_subsystem &&
-			     a->if_order >= b->if_order))
+	// Count the number of init functions and make a pointer list of them; we'll
+	// sort this pointer list
+	const size_t initFunctionCount = []() {
+		size_t n = 0;
+		for(auto& ifn: initFunctions) {
+			n++;
+		}
+		return n;
+	}();
+
+	auto initFunctionChain = new OnInit*[initFunctionCount + 1];
+	{
+		size_t n = 0;
+		for(auto& ifn: initFunctions) {
+			initFunctionChain[n] = &ifn;
+			n++;
+		}
+		initFunctionChain[n] = nullptr;
+	}
+
+	// Sort the init functions chain; we use a simple bubble sort to do so
+	for (int i = 0; i < initFunctionCount; i++)
+		for (int j = initFunctionCount - 1; j > i; j--) {
+			auto a = initFunctionChain[j];
+			auto b = initFunctionChain[j - 1];
+			if ((a->oi_subsystem > b->oi_subsystem) ||
+			    (a->oi_subsystem >= b->oi_subsystem &&
+			     a->oi_order >= b->oi_order))
 				continue;
-			struct INIT_FUNC swap;
-			swap = *a;
-			*a = *b;
-			*b = swap;
+			initFunctionChain[j] = b;
+			initFunctionChain[j - 1] = a;
 		}
 
-#ifdef VERBOSE_INIT
+#if VERBOSE_INIT
 	kprintf("Init tree\n");
-	struct INIT_FUNC** c = (struct INIT_FUNC**)ifn_chain;
-	for (int n = 0; n < num_init_funcs; n++, c++) {
+	for (int n = 0; n < initFunctionCount; n++) {
+		const auto& ifn = *initFunctionChain[n];
 		kprintf("initfunc %u -> %p (subsys %x, order %x)\n", n,
-		 (*c)->if_func, (*c)->if_subsystem, (*c)->if_order);
+		 ifn.oi_func, static_cast<int>(ifn.oi_subsystem), static_cast<int>(ifn.oi_order));
 	}
 #endif
 
 	/* Execute all init functions in order except the final one */
-	struct INIT_FUNC** ifn = (struct INIT_FUNC**)ifn_chain;
-	for (int i = 0; i < num_init_funcs - 1; i++, ifn++)
-		(*ifn)->if_func();
+	for (int n = 0; n < initFunctionCount - 1; n++)
+		initFunctionChain[n]->oi_func();
 
 	/* Throw away the init function chain; it served its purpose */
-	struct INIT_FUNC* ifunc = *ifn;
-	kfree(ifn_chain);
+	auto finalInitFuntion = initFunctionChain[initFunctionCount - 1];
+	delete[] initFunctionChain;
 
 	/* Call the final init function; it shouldn't return */
-	ifunc->if_func();
+	finalInitFuntion->oi_func();
 }
 
-static Result
-hello_world()
+const init::OnInit helloWorld(init::SubSystem::Scheduler, init::Order::Last, []()
 {
 	/* Show a startup banner */
 	kprintf("Ananas/%s - %s %s\n", ARCHITECTURE, __DATE__, __TIME__);
@@ -73,16 +94,11 @@ hello_world()
 	page_get_stats(&total_pages, &avail_pages);
 	kprintf("Memory: %uKB available / %uKB total\n", avail_pages * (PAGE_SIZE / 1024), total_pages * (PAGE_SIZE / 1024));
 #if defined(__amd64__)
-	extern int md_cpu_clock_mhz;
 	kprintf("CPU: %u MHz\n", md_cpu_clock_mhz);
 #endif
+});
 
-	return Result::Success();
-}
-
-INIT_FUNCTION(hello_world, SUBSYSTEM_CONSOLE, ORDER_LAST);
-
-static void
+void
 init_thread_func(void* done)
 {
 	run_init();
@@ -92,6 +108,9 @@ init_thread_func(void* done)
 	thread_exit(0);
 	/* NOTREACHED */
 }
+
+} // unnamed namespace
+} // namespace init
 
 void
 mi_startup()
@@ -104,14 +123,14 @@ mi_startup()
 	 */
 	volatile int done = 0;
 	Thread init_thread;
-	kthread_init(init_thread, "init", init_thread_func, (void*)&done);
+	kthread_init(init_thread, "init", &init::init_thread_func, (void*)&done);
 	init_thread.Resume();
 
 	/* Activate the scheduler - it is time */
 	scheduler_launch();
 
 	/*
-	 *  Okay, for time being this will be the idle thread - we must not sleep, as
+	 * Okay, for time being this will be the idle thread - we must not sleep, as
 	 * we are the idle thread
 	 */
 	while(!done) {

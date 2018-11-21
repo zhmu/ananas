@@ -12,15 +12,6 @@
 
 TRACE_SETUP;
 
-static Result
-vfs_init()
-{
-	vfs_init_mount();
-	return Result::Success();
-}
-
-INIT_FUNCTION(vfs_init, SUBSYSTEM_VFS, ORDER_FIRST);
-
 bool
 vfs_is_filesystem_sane(struct VFS_MOUNTED_FS* fs)
 {

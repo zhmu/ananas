@@ -175,8 +175,8 @@ struct SATADisk_Driver : public Driver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<SATADisk_Driver> registerDriver;
 
-REGISTER_DRIVER(SATADisk_Driver)
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

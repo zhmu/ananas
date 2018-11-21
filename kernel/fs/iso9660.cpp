@@ -297,21 +297,11 @@ struct VFS_FILESYSTEM_OPS fsops_iso9660 = {
 
 struct VFSFileSystem fs_iso9660("iso9660", &fsops_iso9660);
 
+const init::OnInit registerISO9660FS(init::SubSystem::VFS, init::Order::Middle, []()
+{
+	vfs_register_filesystem(fs_iso9660);
+});
+
 } // unnamed namespace
-
-Result
-iso9660_init()
-{
-	return vfs_register_filesystem(fs_iso9660);
-}
-
-static Result
-iso9660_exit()
-{
-	return vfs_unregister_filesystem(fs_iso9660);
-}
-
-INIT_FUNCTION(iso9660_init, SUBSYSTEM_VFS, ORDER_MIDDLE);
-EXIT_FUNCTION(iso9660_exit);
 
 /* vim:set ts=2 sw=2: */

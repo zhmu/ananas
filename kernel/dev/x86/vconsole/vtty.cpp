@@ -214,8 +214,8 @@ struct VTTY_Driver : public Driver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<VTTY_Driver> registerDriver;
 
-REGISTER_DRIVER(VTTY_Driver)
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

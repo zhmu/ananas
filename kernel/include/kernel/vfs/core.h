@@ -54,4 +54,7 @@ Result vfs_ioctl(Process* p, struct VFS_FILE* file, unsigned long request, void*
 /* Filesystem specific functions */
 size_t vfs_filldirent(void** dirents, size_t size, ino_t inum, const char* name, int namelen);
 
+Result vfs_init_process(Process& proc);
+void vfs_exit_process(Process& proc);
+
 #endif /* __ANANAS_VFS_CORE_H__ */

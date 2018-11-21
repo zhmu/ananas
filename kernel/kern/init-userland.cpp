@@ -110,16 +110,12 @@ userinit_func(void*)
 
 Thread userinit_thread;
 
-Result
-init_userland()
+const init::OnInit initUserlandInit(init::SubSystem::Scheduler, init::Order::Last, []()
 {
 	kthread_init(userinit_thread, "user-init", &userinit_func, nullptr);
 	userinit_thread.Resume();
-	return Result::Success();
-}
+});
 
 } // unnamed namespace
-
-INIT_FUNCTION(init_userland, SUBSYSTEM_SCHEDULER, ORDER_LAST);
 
 /* vim:set ts=2 sw=2: */

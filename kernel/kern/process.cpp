@@ -15,14 +15,12 @@
 #include "kernel/vm.h"
 #include "kernel/vmarea.h"
 #include "kernel/vmspace.h"
+#include "kernel/vfs/core.h" // for vfs_{init,exit}_process
 #include "options.h"
 
 TRACE_SETUP;
 
 /* XXX These should be locked */
-
-static process::CallbackList process_callbacks_init;
-static process::CallbackList process_callbacks_exit;
 
 namespace process {
 
@@ -31,7 +29,7 @@ ProcessList process_all;
 
 namespace {
 
-pid_t process_curpid = -1;
+pid_t process_curpid = 1;
 
 pid_t AllocateProcessID()
 {
@@ -75,12 +73,11 @@ process_alloc_ex(Process* parent, Process*& dest)
 			KASSERT(n == index_out, "cloned fd %d to new fd %d", n, index_out);
 		}
 	}
+
 	/* Run all process initialization callbacks */
-	for(auto& pc: process_callbacks_init) {
-		result = pc.pc_func(*p);
-		if (result.IsFailure())
-			goto fail;
-	}
+	result = vfs_init_process(*p);
+	if (result.IsFailure())
+		goto fail;
 
 	/* Grab the parent's lock and insert the child */
 	if (parent != nullptr) {
@@ -141,9 +138,7 @@ Process::~Process()
 	Unlock();
 
 	// Run all process exit callbacks
-	for(auto& pc: process_callbacks_exit) {
-		pc.pc_func(*this);
-	}
+	vfs_exit_process(*this);
 
 	// Free all descriptors
 	for (auto& d: p_fd) {
@@ -263,44 +258,6 @@ process_lookup_by_id_and_lock(pid_t pid)
 	}
 	return nullptr;
 }
-
-Result
-process_register_init_func(process::Callback& fn)
-{
-	process_callbacks_init.push_back(fn);
-	return Result::Success();
-}
-
-Result
-process_register_exit_func(process::Callback& fn)
-{
-	process_callbacks_exit.push_back(fn);
-	return Result::Success();
-}
-
-Result
-process_unregister_init_func(process::Callback& fn)
-{
-	process_callbacks_init.remove(fn);
-	return Result::Success();
-}
-
-Result
-process_unregister_exit_func(process::Callback& fn)
-{
-	process_callbacks_exit.remove(fn);
-	return Result::Success();
-}
-
-static Result
-process_init()
-{
-	process::process_curpid = 1;
-
-	return Result::Success();
-}
-
-INIT_FUNCTION(process_init, SUBSYSTEM_PROCESS, ORDER_FIRST);
 
 #ifdef OPTION_KDB
 

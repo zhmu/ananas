@@ -37,13 +37,11 @@ reaper_reap(void* context)
 	}
 }
 
-Result
-start_reaper()
+const init::OnInit initReaper(init::SubSystem::Scheduler, init::Order::Middle, []()
 {
 	kthread_init(reaper_thread, "reaper", &reaper_reap, NULL);
 	reaper_thread.Resume();
-	return Result::Success();
-}
+});
 
 } // unnamed namespace
 
@@ -57,5 +55,3 @@ reaper_enqueue(Thread& t)
 
 	reaper_sem.Signal();
 }
-
-INIT_FUNCTION(start_reaper, SUBSYSTEM_SCHEDULER, ORDER_MIDDLE);

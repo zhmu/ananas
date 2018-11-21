@@ -835,10 +835,9 @@ struct OHCI_Driver : public Driver
 	}
 };
 
+const RegisterDriver<OHCI_Driver> registerDriver;
+
 } // unnamed namespace
-
-REGISTER_DRIVER(OHCI_Driver)
-
 } // namespace usb
 
 /* vim:set ts=2 sw=2: */

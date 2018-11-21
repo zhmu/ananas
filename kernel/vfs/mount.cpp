@@ -31,12 +31,6 @@ size_t GetMaxMountedFilesystems()
 
 } // namespace vfs
 
-void
-vfs_init_mount()
-{
-	memset(vfs::mountedfs, 0, sizeof(vfs::mountedfs));
-}
-
 static struct VFS_MOUNTED_FS*
 vfs_get_availmountpoint()
 {

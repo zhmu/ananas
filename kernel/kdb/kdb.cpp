@@ -134,15 +134,6 @@ KDB_COMMAND(exit, NULL, "Leaves the debugger")
 	kdb_active = 0;
 }
 
-static Result
-kdb_init()
-{
-	/* XXX We should sort the entries here */
-	return Result::Success();
-}
-
-INIT_FUNCTION(kdb_init, SUBSYSTEM_KDB, ORDER_LAST);
-
 static int
 kdb_get_line(char* line, int max_len)
 {

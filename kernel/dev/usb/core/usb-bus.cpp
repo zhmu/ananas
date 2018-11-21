@@ -199,8 +199,7 @@ struct USBBus_Driver : public Driver
 	}
 };
 
-Result
-InitializeBus()
+const init::OnInit initializeUSBBus(init::SubSystem::Device, init::Order::First, []()
 {
 	/*
 	 * Create a kernel thread to handle USB device attachments. We use a thread for this
@@ -208,15 +207,11 @@ InitializeBus()
 	 */
 	kthread_init(usbbus_thread, "usbbus", &usb_bus_thread, NULL);
 	usbbus_thread.Resume();
-	return Result::Success();
-}
+});
+
+const RegisterDriver<USBBus_Driver> registerDriver;
 
 } // unnamed namespace
-
-REGISTER_DRIVER(USBBus_Driver)
-
-INIT_FUNCTION(InitializeBus, SUBSYSTEM_DEVICE, ORDER_FIRST);
-
 } // namespace usb
 
 /* vim:set ts=2 sw=2: */

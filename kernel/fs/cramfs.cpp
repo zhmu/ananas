@@ -44,6 +44,8 @@
 
 TRACE_SETUP;
 
+namespace {
+
 #define CRAMFS_DEBUG_READDIR(x...)
 
 #define CRAMFS_PAGE_SIZE 4096
@@ -339,28 +341,20 @@ cramfs_discard_inode(INode& inode)
 	kfree(inode.i_privdata);
 }
 
-static struct VFS_FILESYSTEM_OPS fsops_cramfs = {
+struct VFS_FILESYSTEM_OPS fsops_cramfs = {
 	.mount = cramfs_mount,
 	.prepare_inode = cramfs_prepare_inode,
 	.discard_inode = cramfs_discard_inode,
 	.read_inode = cramfs_read_inode
 };
 
-static VFSFileSystem fs_cramfs("cramfs", &fsops_cramfs);
+VFSFileSystem fs_cramfs("cramfs", &fsops_cramfs);
 
-Result
-cramfs_init()
+const init::OnInit registerCramFS(init::SubSystem::VFS, init::Order::Middle, []()
 {
-	return vfs_register_filesystem(fs_cramfs);
-}
+	vfs_register_filesystem(fs_cramfs);
+});
 
-static Result
-cramfs_exit()
-{
-	return vfs_unregister_filesystem(fs_cramfs);
-}
-
-INIT_FUNCTION(cramfs_init, SUBSYSTEM_VFS, ORDER_MIDDLE);
-EXIT_FUNCTION(cramfs_exit);
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

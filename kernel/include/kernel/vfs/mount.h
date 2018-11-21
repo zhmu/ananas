@@ -8,7 +8,6 @@ class Device;
 class Result;
 struct VFSFileSystem;
 
-void vfs_init_mount();
 Result vfs_register_filesystem(VFSFileSystem& fs);
 Result vfs_unregister_filesystem(VFSFileSystem& fs);
 

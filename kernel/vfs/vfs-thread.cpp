@@ -11,7 +11,7 @@
 
 TRACE_SETUP;
 
-static Result
+Result
 vfs_init_process(Process& proc)
 {
 	TRACE(THREAD, INFO, "proc=%p", &proc);
@@ -54,7 +54,7 @@ vfs_init_process(Process& proc)
 	return Result::Success();
 }
 
-static Result
+void
 vfs_exit_process(Process& proc)
 {
 	TRACE(THREAD, INFO, "proc=%p", &proc);
@@ -63,11 +63,6 @@ vfs_exit_process(Process& proc)
 		dentry_deref(*proc.p_cwd);
 		proc.p_cwd = nullptr;
 	}
-
-	return Result::Success();
 }
-
-REGISTER_PROCESS_INIT_FUNC(vfs_init_process);
-REGISTER_PROCESS_EXIT_FUNC(vfs_exit_process);
 
 /* vim:set ts=2 sw=2: */

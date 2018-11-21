@@ -12,16 +12,6 @@ SECTIONS {
 	.data : {
 		*(.data)
 		*(.data*)
-		/*
-		 * Init/exit definitions after the r/w data; we need to sort
-		 * them and thus be able to write them.
-		 */
-		__initfuncs_begin = ALIGN(8);
-		*(initfuncs)
-		__initfuncs_end = .;
-		__exitfuncs_begin = ALIGN(8);
-		*(exitfuncs)
-		__exitfuncs_end = .;
 		. = ALIGN(4096);
 	}
 	.bss : {

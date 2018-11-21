@@ -80,6 +80,8 @@ VConsole::OnKey(const keyboard_mux::Key& key, int modifiers)
 	}
 }
 
+namespace {
+
 struct VConsole_Driver : public ConsoleDriver
 {
 	VConsole_Driver()
@@ -103,6 +105,8 @@ struct VConsole_Driver : public ConsoleDriver
 	}
 };
 
-REGISTER_DRIVER(VConsole_Driver)
+const RegisterDriver<VConsole_Driver> registerDriver;
+
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

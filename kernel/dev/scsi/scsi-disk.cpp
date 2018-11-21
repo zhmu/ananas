@@ -198,8 +198,8 @@ struct SCSIDisk_Driver : public Driver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<SCSIDisk_Driver> registerDriver;
 
-REGISTER_DRIVER(SCSIDisk_Driver)
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

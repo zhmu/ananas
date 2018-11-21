@@ -72,17 +72,17 @@ struct VFS_FILE {
  */
 struct VFS_MOUNTED_FS {
 	Spinlock	fs_spinlock;		/* Protects fields marked with (F) */
-	Device*		fs_device;		/* (F) Device where the filesystem lives */
-	unsigned int	fs_flags;		/* (F) Filesystem flags */
+	Device*		fs_device = nullptr;	/* (F) Device where the filesystem lives */
+	unsigned int	fs_flags = 0;		/* (F) Filesystem flags */
 #define VFS_FLAG_INUSE    0x0001		/* Filesystem entry is in use */
 #define VFS_FLAG_READONLY 0x0002		/* Filesystem is readonly */
 #define VFS_FLAG_ABANDONED	0x0004		/* Filesystem is no longer available */
-	const char*	fs_mountpoint;		/* (R) Mount point */
-	uint32_t	fs_block_size;		/* (R) Block size */
-	void*		fs_privdata;		/* (R) Private filesystem data */
+	const char*	fs_mountpoint = nullptr;	/* (R) Mount point */
+	uint32_t	fs_block_size = 0;		/* (R) Block size */
+	void*		fs_privdata = nullptr;	/* (R) Private filesystem data */
 
-	struct VFS_FILESYSTEM_OPS* fs_fsops;		/* (R) Filesystem operations */
-	DEntry* fs_root_dentry;				/* (R) Filesystem's root dentry */
+	struct VFS_FILESYSTEM_OPS* fs_fsops = nullptr;	/* (R) Filesystem operations */
+	DEntry* fs_root_dentry = nullptr;		/* (R) Filesystem's root dentry */
 };
 
 /*

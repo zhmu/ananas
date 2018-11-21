@@ -66,8 +66,8 @@ struct USBGeneric_Driver : public Driver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<USBGeneric_Driver> registerDriver;
 
-REGISTER_DRIVER(USBGeneric_Driver)
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

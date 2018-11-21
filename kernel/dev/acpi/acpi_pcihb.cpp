@@ -48,8 +48,8 @@ struct ACPI_PCIHB_Driver : public Driver
 	}
 };
 
-} // namespace
+const RegisterDriver<ACPI_PCIHB_Driver> registerDriver;
 
-REGISTER_DRIVER(ACPI_PCIHB_Driver)
+} // namespace
 
 /* vim:set ts=2 sw=2: */

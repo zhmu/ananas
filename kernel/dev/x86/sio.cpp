@@ -119,8 +119,8 @@ struct SIO_Driver : public ConsoleDriver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<SIO_Driver> registerDriver;
 
-REGISTER_DRIVER(SIO_Driver)
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

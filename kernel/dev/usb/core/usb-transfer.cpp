@@ -195,19 +195,14 @@ transfer_thread(void* arg)
 	}
 }
 
-Result
-InitializeTransfer()
+const init::OnInit initLaunch(init::SubSystem::Device, init::Order::First, []()
 {
 	/* Create a kernel thread to handle USB completed messages */
 	kthread_init(usbtransfer_thread, "usb-transfer", &transfer_thread, NULL);
 	usbtransfer_thread.Resume();
-	return Result::Success();
-}
+});
 
 } // unnamed namespace
-
-INIT_FUNCTION(InitializeTransfer, SUBSYSTEM_DEVICE, ORDER_FIRST);
-
 } // namespace usb
 
 /* vim:set ts=2 sw=2: */

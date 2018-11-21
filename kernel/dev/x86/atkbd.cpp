@@ -307,8 +307,8 @@ struct ATKeyboard_Driver : public Driver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<ATKeyboard_Driver> registerDriver;
 
-REGISTER_DRIVER(ATKeyboard_Driver)
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

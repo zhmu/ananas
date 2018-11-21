@@ -156,7 +156,7 @@ Device* ACPIDriver::CreateDevice(const CreateDeviceProperties& cdp)
 	return new ACPI(cdp);
 }
 
-REGISTER_DRIVER(ACPIDriver);
+const RegisterDriver<ACPIDriver> registerDriver;
 
 } // unnamed namespace
 

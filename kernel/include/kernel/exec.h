@@ -21,31 +21,26 @@ struct IExecutor
  * Define an executable format.
  */
 struct ExecFormat : util::List<ExecFormat>::NodePtr {
-	ExecFormat(const char* id, IExecutor& executor)
-	 : ef_identifier(id), ef_executor(executor)
+	ExecFormat(IExecutor& executor)
+	 : ef_executor(executor)
 	{
 	}
-
-	/* Human-readable identifier */
-	const char*	ef_identifier;
 
 	/* Function handling the execution */
 	IExecutor&	ef_executor;
 };
 
-#define EXECUTABLE_FORMAT(id, handler) \
-	static ExecFormat execfmt_##handler(id, handler); \
-	static Result register_##handler() { \
-		return exec_register_format(execfmt_##handler); \
-	}; \
-	static Result unregister_##handler() { \
-		return exec_unregister_format(execfmt_##handler); \
-	}; \
-	INIT_FUNCTION(register_##handler, SUBSYSTEM_THREAD, ORDER_MIDDLE); \
-	EXIT_FUNCTION(unregister_##handler);
-
+void exec_register_format(ExecFormat& ef);
 IExecutor* exec_prepare(DEntry& dentry);
-Result exec_register_format(ExecFormat& ef);
-Result exec_unregister_format(ExecFormat& ef);
+
+template<typename T>
+struct RegisterExecutableFormat : init::OnInit
+{
+	RegisterExecutableFormat() : OnInit(init::SubSystem::Thread, init::Order::Middle, []() {
+		static T executor;
+		static ExecFormat execFormat(executor);
+		exec_register_format(execFormat);
+	}) { }
+};
 
 #endif /* __ANANAS_EXEC_H__ */

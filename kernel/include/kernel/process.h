@@ -131,36 +131,4 @@ Result process_alloc(Process* parent, Process*& dest);
 
 Process* process_lookup_by_id_and_lock(pid_t pid);
 
-/*
- * Process callback functions are provided so that modules can take action upon
- * creating or destroying of processes.
- */
-
-Result process_register_init_func(process::Callback& pc);
-Result process_register_exit_func(process::Callback& pc);
-Result process_unregister_init_func(process::Callback& pc);
-Result process_unregister_exit_func(process::Callback& pc);
-
-#define REGISTER_PROCESS_INIT_FUNC(fn) \
-	static process::Callback cb_init_##fn(fn); \
-	static Result register_##fn() { \
-		return process_register_init_func(cb_init_##fn); \
-	} \
-	static Result unregister_##fn() { \
-		return process_unregister_init_func(cb_init_##fn); \
-	} \
-	INIT_FUNCTION(register_##fn, SUBSYSTEM_THREAD, ORDER_FIRST); \
-	EXIT_FUNCTION(unregister_##fn)
-
-#define REGISTER_PROCESS_EXIT_FUNC(fn) \
-	static process::Callback cb_exit_##fn(fn); \
-	static Result register_##fn() { \
-		return process_register_exit_func(cb_exit_##fn); \
-	} \
-	static Result unregister_##fn() { \
-		return process_unregister_exit_func(cb_exit_##fn); \
-	} \
-	INIT_FUNCTION(register_##fn, SUBSYSTEM_THREAD, ORDER_FIRST); \
-	EXIT_FUNCTION(unregister_##fn)
-
 #endif /* __PROCESS_H__ */

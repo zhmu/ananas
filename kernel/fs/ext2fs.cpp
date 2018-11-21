@@ -41,6 +41,8 @@ TRACE_SETUP;
 #define EXT2_TO_LE16(x) (x)
 #define EXT2_TO_LE32(x) (x)
 
+namespace {
+
 struct EXT2_FS_PRIVDATA {
 	struct EXT2_SUPERBLOCK sb;
 
@@ -456,28 +458,20 @@ ext2_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	return Result::Success();
 }
 
-static struct VFS_FILESYSTEM_OPS fsops_ext2 = {
+struct VFS_FILESYSTEM_OPS fsops_ext2 = {
 	.mount = ext2_mount,
 	.prepare_inode = ext2_prepare_inode,
 	.discard_inode = ext2_discard_inode,
 	.read_inode = ext2_read_inode
 };
 
-static VFSFileSystem fs_ext2("ext2", &fsops_ext2);
+VFSFileSystem fs_ext2("ext2", &fsops_ext2);
 
-Result
-ext2_init()
+const init::OnInit registerExt2FS(init::SubSystem::VFS, init::Order::Middle, []()
 {
-	return vfs_register_filesystem(fs_ext2);
-}
+	vfs_register_filesystem(fs_ext2);
+});
 
-static Result
-ext2_exit()
-{
-	return vfs_unregister_filesystem(fs_ext2);
-}
-
-INIT_FUNCTION(ext2_init, SUBSYSTEM_VFS, ORDER_MIDDLE);
-EXIT_FUNCTION(ext2_exit);
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

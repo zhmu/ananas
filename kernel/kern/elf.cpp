@@ -122,7 +122,7 @@ struct ELF64Loader final : IExecutor
 private:
 	Result LoadPH(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase) const;
 	Result LoadFile(VMSpace& vs, DEntry& dentry, const Elf64_Ehdr& ehdr, addr_t rbase, addr_t& exec_addr) const;
-} elf64Loader;
+};
 
 Result
 ELF64Loader::LoadPH(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase) const
@@ -426,6 +426,6 @@ ELF64Loader::PrepareForExecute(VMSpace& vs, Thread& t, void* aa, const char* arg
 	return Result::Success();
 }
 
-EXECUTABLE_FORMAT("elf64", elf64Loader);
+static const RegisterExecutableFormat<ELF64Loader> registerELF64;
 
 /* vim:set ts=2 sw=2: */

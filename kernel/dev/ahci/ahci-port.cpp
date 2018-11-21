@@ -248,8 +248,8 @@ struct AHCI_Port_Driver : public Driver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<AHCI_Port_Driver> registerDriver;
 
-REGISTER_DRIVER(AHCI_Port_Driver)
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

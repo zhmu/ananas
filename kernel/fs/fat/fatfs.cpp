@@ -164,7 +164,9 @@ fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 	return Result::Success();
 }
 
-static struct VFS_FILESYSTEM_OPS fsops_fat = {
+namespace {
+
+struct VFS_FILESYSTEM_OPS fsops_fat = {
 	.mount = fat_mount,
 	.prepare_inode = fat_prepare_inode,
 	.discard_inode = fat_discard_inode,
@@ -172,21 +174,13 @@ static struct VFS_FILESYSTEM_OPS fsops_fat = {
 	.write_inode = fat_write_inode
 };
 
-static VFSFileSystem fs_fat("fatfs", &fsops_fat);
+VFSFileSystem fs_fat("fatfs", &fsops_fat);
 
-Result
-fatfs_init()
+const init::OnInit registerFATFS(init::SubSystem::VFS, init::Order::Middle, []()
 {
-	return vfs_register_filesystem(fs_fat);
-}
+	vfs_register_filesystem(fs_fat);
+});
 
-static Result
-fatfs_exit()
-{
-	return vfs_unregister_filesystem(fs_fat);
-}
-
-INIT_FUNCTION(fatfs_init, SUBSYSTEM_VFS, ORDER_MIDDLE);
-EXIT_FUNCTION(fatfs_exit);
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

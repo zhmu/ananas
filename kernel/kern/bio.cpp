@@ -35,8 +35,7 @@ static uint8_t* bio_data = NULL;
 static Spinlock spl_bio_lists;
 static Spinlock spl_bio_bitmap;
 
-static Result
-bio_init()
+const init::OnInit initBIO(init::SubSystem::BIO, init::Order::First, []()
 {
 	/*
 	 * Allocate the BIO data buffers. Note that we allocate a BIO_SECTOR_SIZE - 1
@@ -68,17 +67,14 @@ bio_init()
 	memset(bio_bitmap, 0, bio_bitmap_size);
 	if (((BIO_DATA_SIZE / BIO_SECTOR_SIZE) & 7) != 0) {
 		/*
-	 	 * This means the bitmap size is not a multiple of a byte; we need to set
+		 * This means the bitmap size is not a multiple of a byte; we need to set
 		 * the trailing bits to prevent buffers from being allocated that do not
 		 * exist.
-	 	 */
+		 */
 		for (int n = (BIO_DATA_SIZE / BIO_SECTOR_SIZE) & 7; n < 8; n++)
 			bio_bitmap[bio_bitmap_size] |= (1 << n);
 	}
-	return Result::Success();
-}
-
-INIT_FUNCTION(bio_init, SUBSYSTEM_BIO, ORDER_FIRST);
+});
 
 // This will only be called whenever we're not actually *scheduling* the BIO
 static void

@@ -7,7 +7,9 @@
 
 TRACE_SETUP;
 
-static util::List<ExecFormat> exec_formats; /* XXX do we need to lock this? */
+namespace {
+util::List<ExecFormat> exec_formats;
+}
 
 IExecutor*
 exec_prepare(DEntry& dentry)
@@ -31,18 +33,10 @@ exec_prepare(DEntry& dentry)
 	return nullptr;
 }
 
-Result
+void
 exec_register_format(ExecFormat& ef)
 {
 	exec_formats.push_back(ef);
-	return Result::Success();
-}
-
-Result
-exec_unregister_format(ExecFormat& ef)
-{
-	exec_formats.remove(ef);
-	return Result::Success();
 }
 
 /* vim:set ts=2 sw=2: */

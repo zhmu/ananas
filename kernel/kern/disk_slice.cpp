@@ -86,9 +86,9 @@ struct Slice_Driver : public Driver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<Slice_Driver> registerDriver;
 
-REGISTER_DRIVER(Slice_Driver)
+} // unnamed namespace
 
 Device*
 slice_create(Device* parent, blocknr_t begin, blocknr_t length)

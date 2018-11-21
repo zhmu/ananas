@@ -128,8 +128,8 @@ struct ATRTC_Driver : public Driver
 	}
 };
 
-} // unnamed namespace
+const RegisterDriver<ATRTC_Driver> registerDriver;
 
-REGISTER_DRIVER(ATRTC_Driver)
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

@@ -44,6 +44,7 @@ void kdb_enter(const char* why);
 void kdb_panic();
 Result kdb_register_command(KDBCommand& cmd);
 
+#if 0
 #define KDB_COMMAND(CMD, ARGS, HELP) \
 	static kdb_func_t kdb_func_ ## CMD; \
 	static KDBCommand kdb_cmd_ ## CMD(#CMD, (ARGS), (HELP), &kdb_func_##CMD); \
@@ -51,6 +52,10 @@ Result kdb_register_command(KDBCommand& cmd);
 		return kdb_register_command(kdb_cmd_ ## CMD); \
 	} \
 	INIT_FUNCTION(kdb_add_ ## CMD , SUBSYSTEM_KDB, ORDER_MIDDLE); \
+	static void kdb_func_ ## CMD(int num_args, struct KDB_ARG arg[])
+#endif
+
+#define KDB_COMMAND(CMD, ARGS, HELP) \
 	static void kdb_func_ ## CMD(int num_args, struct KDB_ARG arg[])
 
 #endif /* __ANANAS_KDB_H__ */

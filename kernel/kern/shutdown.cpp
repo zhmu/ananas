@@ -80,16 +80,12 @@ void RequestShutdown(ShutdownType type)
 
 namespace {
 
-Result
-init_shutdown()
+const init::OnInit initShutdown(init::SubSystem::Thread, init::Order::Middle, []()
 {
 	using namespace shutdown;
 	kthread_init(shutdown_thread, "shutdown", &PerformShutdown, nullptr);
-	return Result::Success();
-}
+});
 
 } // unnamed namespace
-
-INIT_FUNCTION(init_shutdown, SUBSYSTEM_THREAD, ORDER_MIDDLE);
 
 /* vim:set ts=2 sw=2: */

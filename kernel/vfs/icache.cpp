@@ -50,13 +50,6 @@ GrowCache(size_t numberOfItems)
 		icache_free.push_back(*new INode);
 }
 
-Result
-icache_init()
-{
-	GrowCache(initialCacheItems);
-	return Result::Success();
-}
-
 bool
 PurgeEntries()
 {
@@ -332,6 +325,17 @@ KDB_COMMAND(icache, NULL, "Show inode cache")
 }
 #endif
 
-INIT_FUNCTION(icache_init, SUBSYSTEM_VFS, ORDER_FIRST);
+namespace {
+
+const init::OnInit initInodeCache(init::SubSystem::VFS, init::Order::First, []()
+{
+	/*
+	 * Make an initial empty cache; we allocate one big pool and set up pointers to the
+	 * items as necessary. We may choose to shrink/expand this pool later on.
+	 */
+	GrowCache(initialCacheItems);
+});
+
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

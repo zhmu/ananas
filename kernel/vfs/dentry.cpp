@@ -50,17 +50,6 @@ GrowCache(size_t numberOfItems)
 }
 
 
-Result
-dcache_init()
-{
-	/*
-	 * Make an initial empty cache; we allocate one big pool and set up pointers to the
-	 * items as necessary. We may choose to shrink/expand this pool later on.
-	 */
-	GrowCache(initialCacheItems);
-	return Result::Success();
-}
-
 DEntry&
 FindEntryToUse()
 {
@@ -335,6 +324,17 @@ KDB_COMMAND(dcache, NULL, "Show dentry cache")
 }
 #endif
 
-INIT_FUNCTION(dcache_init, SUBSYSTEM_VFS, ORDER_FIRST);
+namespace {
+
+const init::OnInit initDEntryCache(init::SubSystem::VFS, init::Order::First, []()
+{
+	/*
+	 * Make an initial empty cache; we allocate one big pool and set up pointers to the
+	 * items as necessary. We may choose to shrink/expand this pool later on.
+	 */
+	GrowCache(initialCacheItems);
+});
+
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */
