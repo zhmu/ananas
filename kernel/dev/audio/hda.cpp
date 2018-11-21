@@ -5,6 +5,7 @@
 #include "kernel/result.h"
 #include "kernel/trace.h"
 #include "hda.h"
+#include "verb.h"
 
 #include <sys/sound.h>
 #include <machine/param.h>
@@ -241,12 +242,12 @@ HDADevice::IOControl(Process* proc, unsigned long req, void* args[])
 
 				// Hook streams up
 				uint32_t r;
-				if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETCONVCONTROL, HDA_CODEC_CONVCONTROL_STREAM(tag) | HDA_CODEC_CONVCONTROL_CHANNEL(0))), &r, NULL); result.IsFailure())
+				if (auto result = hdaFunctions->IssueVerb(ao.MakeVerb(verb::MakePayload(verb::SetConvControl, verb::conv_control::Stream(tag) | verb::conv_control::Channel(0))), &r, NULL); result.IsFailure())
 					return result;
 
 				// Set stream format: 48.0Hz, 16-bit stereo
 				int stream_fmt = STREAM_TYPE_PCM | STREAM_BASE_48_0 | STREAM_MULT_x1 | STREAM_DIV_1 | STREAM_BITS_16 | STREAM_CHANNELS(1);
-				if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_CONV_FORMAT, stream_fmt)), &r, NULL); result.IsFailure())
+				if (auto result = hdaFunctions->IssueVerb(ao.MakeVerb(verb::MakePayload(verb::SetConvFormat, stream_fmt)), &r, NULL); result.IsFailure())
 					return result;
 
 				// open a stream to play things

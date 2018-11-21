@@ -280,7 +280,6 @@ HDAPCIDevice::StartStreams(int num, Context* context)
 	s = (struct HDA_PCI_STREAM**)context;
 	for (int n = 0; n < num; n++, s++) {
 		uint32_t ctl = HDA_READ_4(HDA_REG_xSDnCTL((*s)->s_ss));
-		kprintf("%d -> %x\n", (*s)->s_ss, ctl | HDA_SDnCTL_RUN);
 		HDA_WRITE_4(HDA_REG_xSDnCTL((*s)->s_ss), ctl | HDA_SDnCTL_RUN);
 	}
 

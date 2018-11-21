@@ -4,6 +4,7 @@
 #include "kernel/result.h"
 #include "kernel/trace.h"
 #include "hda.h"
+#include "verb.h"
 
 TRACE_SETUP;
 
@@ -15,13 +16,14 @@ Result ConfigureInputAmplifiers(IHDAFunctions& hdaFunctions, Node_AW& aw, int in
 {
 	// Set input amplifiers - enable 'index_idx', mute everything else
 	for (int index = 0; index < aw.aw_num_conn; index++) {
-		uint32_t payload = HDA_CODEC_AMP_GAINMUTE_INPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_INDEX(index);
+		using namespace verb::amp_gain_mute;
+		uint32_t payload = Input | Left | Right | Index(index);
 		if (index == input_idx)
-			payload |= HDA_CODEC_AMP_GAINMUTE_GAIN(30);
+			payload |= Gain(30);
 		else
-			payload |= HDA_CODEC_AMP_GAINMUTE_MUTE;
+			payload |= Mute;
 		uint32_t r;
-		if (auto result = hdaFunctions.IssueVerb(HDA_MAKE_VERB_NODE(aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE, payload)), &r, nullptr); result.IsFailure())
+		if (auto result = hdaFunctions.IssueVerb(aw.MakeVerb(verb::MakePayload(verb::SetAmpGainMute, payload)), &r, nullptr); result.IsFailure())
 			return result;
 	}
 	return Result::Success();
@@ -47,7 +49,8 @@ RouteNodeToAudioOut(IHDAFunctions& hdaFunctions, Node_AW& cur_aw, RoutingPlan& r
 		 */
 		// Set output gain - XXX does the node support this?
 		uint32_t r;
-		if (auto result = hdaFunctions.IssueVerb(HDA_MAKE_VERB_NODE(cur_aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE, HDA_CODEC_AMP_GAINMUTE_OUTPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(30))), &r, NULL); result.IsFailure())
+		using namespace verb::amp_gain_mute;
+		if (auto result = hdaFunctions.IssueVerb(cur_aw.MakeVerb(verb::MakePayload(verb::SetAmpGainMute, verb::amp_gain_mute::Output | Left | Right | Gain(30))), &r, NULL); result.IsFailure())
 				return result;
 
 		return Result::Success();
@@ -67,9 +70,12 @@ RouteNodeToAudioOut(IHDAFunctions& hdaFunctions, Node_AW& cur_aw, RoutingPlan& r
 				return result;
 
 			// Set output gain
-			uint32_t r;
-			if (auto result = hdaFunctions.IssueVerb(HDA_MAKE_VERB_NODE(cur_aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE, HDA_CODEC_AMP_GAINMUTE_OUTPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(60))), &r, NULL); result.IsFailure())
-				return result;
+			{
+				uint32_t r;
+				using namespace verb::amp_gain_mute;
+				if (auto result = hdaFunctions.IssueVerb(cur_aw.MakeVerb(verb::MakePayload(verb::SetAmpGainMute, verb::amp_gain_mute::Output | Left | Right | Gain(60))), &r, NULL); result.IsFailure())
+					return result;
+			}
 
 			// Mixer was routed; we need to continue routing
 			return RouteNodeToAudioOut(hdaFunctions, next_aw, rp);
@@ -89,16 +95,22 @@ RouteNodeToAudioOut(IHDAFunctions& hdaFunctions, Node_AW& cur_aw, RoutingPlan& r
 
 			// Set the input of the audio selector to whatever node providing input for us
 			uint32_t r;
-			if (auto result = hdaFunctions.IssueVerb(HDA_MAKE_VERB_NODE(cur_aw, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETCONNSELECT, in_idx)), &r, NULL); result.IsFailure())
+			if (auto result = hdaFunctions.IssueVerb(cur_aw.MakeVerb(verb::MakePayload(verb::SetConnSelect, in_idx)), &r, NULL); result.IsFailure())
 				return result;
 
-			uint32_t payload = HDA_CODEC_AMP_GAINMUTE_INPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(60) | HDA_CODEC_AMP_GAINMUTE_INDEX(in_idx);
-			if (auto result = hdaFunctions.IssueVerb(HDA_MAKE_VERB_NODE(cur_aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE, payload)), &r, nullptr); result.IsFailure())
+			const auto payload = [](int in_idx) {
+				using namespace verb::amp_gain_mute;
+				return Input | Left | Right | Gain(60) | Index(in_idx);
+			}(in_idx);
+			if (auto result = hdaFunctions.IssueVerb(cur_aw.MakeVerb(verb::MakePayload(verb::SetAmpGainMute, payload)), &r, nullptr); result.IsFailure())
 				return result;
 
 			// Set output gain - XXX does the node support this?
-			if (auto result = hdaFunctions.IssueVerb(HDA_MAKE_VERB_NODE(cur_aw, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE, HDA_CODEC_AMP_GAINMUTE_OUTPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(60))), &r, NULL); result.IsFailure())
-				return result;
+			{
+				using namespace verb::amp_gain_mute;
+				if (auto result = hdaFunctions.IssueVerb(cur_aw.MakeVerb(verb::MakePayload(verb::SetAmpGainMute, verb::amp_gain_mute::Output | Left | Right | Gain(60))), &r, NULL); result.IsFailure())
+					return result;
+			}
 
 			// Selector was routed; continue
 			return RouteNodeToAudioOut(hdaFunctions, next_aw, rp);
@@ -157,7 +169,7 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 	int channels_left = channels;
 	for (int n = 0; channels_left > 0 && n < o.o_pingroup->pg_count; n++) {
 		Node_Pin* output_pin = o.o_pingroup->pg_pin[n];
-		int ch_count = HDA_PARAM_AW_CAPS_CHANCOUNTLSB(output_pin->aw_caps) + 1; /* XXX ext */
+		int ch_count = verb::param::aw_caps::ChanCountLSB(output_pin->aw_caps) + 1; /* XXX ext */
 		channels_left -= ch_count;
 
 		/*
@@ -166,8 +178,8 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 		 * consider selectors too
 		 */
 		HDA_VPRINTF("will use %d-channel output %s-%s", ch_count,
-		 ResolveLocationToString(HDA_CODEC_CFGDEFAULT_LOCATION(output_pin->p_cfg)),
-		 PinColorString[HDA_CODEC_CFGDEFAULT_COLOR(output_pin->p_cfg)]);
+		 ResolveLocationToString(verb::cfg_default::Location(output_pin->p_cfg)),
+		 PinColorString[verb::cfg_default::Color(output_pin->p_cfg)]);
 		if (output_pin->aw_num_conn == 0) {
 			delete *rp;
 			Printf("unable to route from cad %d nid %d; it has no outputs",
@@ -190,23 +202,29 @@ HDADevice::RouteOutput(AFG& afg, int channels, Output& o, RoutingPlan** rp)
 
 			/* Enable output on this pin */
 			uint32_t r;
-			result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*output_pin, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETPINCONTROL,
-			 HDA_CODEC_PINCONTROL_HENABLE | HDA_CODEC_PINCONTROL_OUTENABLE
-			)), &r, NULL);
-			if (result.IsFailure())
-				break;
+			{
+				using namespace verb::pin_control;
+				result = hdaFunctions->IssueVerb(output_pin->MakeVerb(verb::MakePayload(verb::SetPinControl,
+				 HEnable | OutEnable
+				)), &r, NULL);
+				if (result.IsFailure())
+					break;
+			}
 
 			/* Set input to what we found that should work */
-			result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*output_pin, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETCONNSELECT, pin_in_idx)), &r, NULL);
+			result = hdaFunctions->IssueVerb(output_pin->MakeVerb(verb::MakePayload(verb::SetConnSelect, pin_in_idx)), &r, NULL);
 			if (result.IsFailure())
 				break;
 
 			/* Set output gain XXX We should check if the pin supports this */
-			result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(*output_pin, HDA_MAKE_PAYLOAD_ID4(HDA_CODEC_CMD_SET_AMP_GAINMUTE,
-			 HDA_CODEC_AMP_GAINMUTE_OUTPUT | HDA_CODEC_AMP_GAINMUTE_LEFT | HDA_CODEC_AMP_GAINMUTE_RIGHT | HDA_CODEC_AMP_GAINMUTE_GAIN(60)
-			)), &r, NULL);
-			if (result.IsFailure())
-				break;
+			{
+				using namespace verb::amp_gain_mute;
+				result = hdaFunctions->IssueVerb(output_pin->MakeVerb(verb::MakePayload(verb::SetAmpGainMute,
+				 verb::amp_gain_mute::Output | Left | Right | Gain(60)
+				)), &r, NULL);
+				if (result.IsFailure())
+					break;
+			}
 
 			/*
 			 * Pin is routed to use input pin_in_aw; we must now configure it and

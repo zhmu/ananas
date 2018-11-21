@@ -4,6 +4,7 @@
 #include "kernel/result.h"
 #include "kernel/trace.h"
 #include "hda.h"
+#include "verb.h"
 
 TRACE_SETUP;
 
@@ -27,14 +28,14 @@ const char* const PinColorString[] = {
 Result
 HDADevice::FillAWConnectionList(Node_AW& aw)
 {
-	if (!HDA_PARAM_AW_CAPS_CONNLIST(aw.aw_caps))
+	if (!verb::param::aw_caps::ConnList(aw.aw_caps))
 		return Result::Success();
 
 	uint32_t r;
-	if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(aw, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_CONLISTLEN)), &r, NULL); result.IsFailure())
+	if (auto result = hdaFunctions->IssueVerb(aw.MakeVerb(verb::MakePayload(verb::GetParam, verb::param::ConListLen)), &r, NULL); result.IsFailure())
 		return result;
-	int cl_len = HDA_CODEC_PARAM_CONLISTLEN_LENGTH(r);
-	if (HDA_CODEC_PARAM_CONLISTLEN_LONGFORM(r)) {
+	int cl_len = verb::param::con_list_len::Length(r);
+	if (verb::param::con_list_len::LongForm(r)) {
 		Printf("unsupported long nentry form!");
 		return RESULT_MAKE_FAILURE(ENODEV);
 	}
@@ -44,7 +45,7 @@ HDADevice::FillAWConnectionList(Node_AW& aw)
 	aw.aw_conn = new Node_AW*[cl_len];
 
 	for (int idx = 0; idx < cl_len; idx += 4) {
-		if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(aw, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETCONNLISTENTRY, idx)), &r, NULL); result.IsFailure())
+		if (auto result = hdaFunctions->IssueVerb(aw.MakeVerb(verb::MakePayload(verb::GetConnListEntry, idx)), &r, NULL); result.IsFailure())
 			return result;
 
 		for (int n = 0; n < 4; n++) {
@@ -66,13 +67,13 @@ HDADevice::FillAWConnectionList(Node_AW& aw)
 Result
 HDADevice::AttachWidget_AudioOut(Node_AudioOut& ao)
 {
-	if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_PCM)), &ao.ao_pcm, NULL); result.IsFailure())
+	if (auto result = hdaFunctions->IssueVerb(ao.MakeVerb(verb::MakePayload(verb::GetParam, verb::param::PCM)), &ao.ao_pcm, NULL); result.IsFailure())
 		return result;
 
 	// Set power state to D0; XXX maybe we should only do this when actually playing things
 	{
 		uint32_t r;
-		if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(ao, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETPOWERSTATE, 0)), &r, NULL); result.IsFailure())
+		if (auto result = hdaFunctions->IssueVerb(ao.MakeVerb(verb::MakePayload(verb::SetPowerState, 0)), &r, NULL); result.IsFailure())
 			return result;
 	}
 
@@ -96,13 +97,13 @@ HDADevice::AttachWidget_AudioMixer(Node_AudioMixer& am)
 	am.am_ampcap_in = 0;
 	am.am_ampcap_out = 0;
 
-	if (HDA_PARAM_AW_CAPS_INAMPPRESENT(aw_caps)) {
-		if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(am, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_AMPCAP_IN)), &am.am_ampcap_in, NULL); result.IsFailure())
+	if (verb::param::aw_caps::InAmpPresent(aw_caps)) {
+		if (auto result = hdaFunctions->IssueVerb(am.MakeVerb(verb::MakePayload(verb::GetParam, verb::param::AmpCap_In)), &am.am_ampcap_in, NULL); result.IsFailure())
 			return result;
 	}
 
-	if (HDA_PARAM_AW_CAPS_OUTAMPPRESENT(aw_caps)) {
-		if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(am, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_AMPCAP_OUT)), &am.am_ampcap_out, NULL); result.IsFailure())
+	if (verb::param::aw_caps::OutAmpPresent(aw_caps)) {
+		if (auto result = hdaFunctions->IssueVerb(am.MakeVerb(verb::MakePayload(verb::GetParam, verb::param::AmpCap_Out)), &am.am_ampcap_out, NULL); result.IsFailure())
 			return result;
 	}
 
@@ -120,7 +121,7 @@ Result
 HDADevice::AttachWidget_VolumeKnob(Node_VolumeKnob& vk)
 {
 	uint32_t r;
-	if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(vk, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETVOLUMEKNOBCONTROL, 0)), &r, NULL); result.IsFailure())
+	if (auto result = hdaFunctions->IssueVerb(vk.MakeVerb(verb::MakePayload(verb::GetVolumeKnobControl, 0)), &r, NULL); result.IsFailure())
 		return result;
 
 	Printf("volume knob level %d", r);
@@ -138,10 +139,10 @@ HDADevice::AttachWidget_VendorDefined(Node_VendorDefined& vd)
 Result
 HDADevice::AttachWidget_PinComplex(Node_Pin& p)
 {
-	if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(p, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_PINCAP)), &p.p_cap, NULL); result.IsFailure())
+	if (auto result = hdaFunctions->IssueVerb(p.MakeVerb(verb::MakePayload(verb::GetParam, verb::param::PinCap)), &p.p_cap, NULL); result.IsFailure())
 		return result;
 
-	if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB_NODE(p, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETCFGDEFAULT, 0)), &p.p_cfg, NULL); result.IsFailure())
+	if (auto result = hdaFunctions->IssueVerb(p.MakeVerb(verb::MakePayload(verb::GetCfgDefault, 0)), &p.p_cfg, NULL); result.IsFailure())
 		return result;
 
 	return FillAWConnectionList(p);
@@ -156,72 +157,68 @@ HDADevice::AttachNode_AFG(AFG& afg)
 	// Set power state to D0 XXX maybe we should only do this when actually playing things
 	{
 		uint32_t r;
-		if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_SETPOWERSTATE, 0)), &r, NULL); result.IsFailure())
+		if (auto result = hdaFunctions->IssueVerb(verb::Make(cad, nid, verb::MakePayload(verb::SetPowerState, 0)), &r, NULL); result.IsFailure())
 			return result;
 	}
 
 	/* Fetch the default parameters; these are used if the subnodes don't supply them */
 	uint32_t r;
-	if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_PCM)), &afg.afg_pcm, NULL); result.IsFailure())
+	if (auto result = hdaFunctions->IssueVerb(verb::Make(cad, nid, verb::MakePayload(verb::GetParam, verb::param::PCM)), &afg.afg_pcm, NULL); result.IsFailure())
 		return result;
 
 	/* Again, audio subnodes have even more subnodes... query it here */
-	if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_SUBNODECOUNT)), &r, NULL); result.IsFailure())
+	if (auto result = hdaFunctions->IssueVerb(verb::Make(cad, nid, verb::MakePayload(verb::GetParam, verb::param::SubNodeCount)), &r, NULL); result.IsFailure())
 		return result;
-	int sn_addr = HDA_PARAM_SUBNODECOUNT_START(r);
-	int sn_total = HDA_PARAM_SUBNODECOUNT_TOTAL(r);
+	const int sn_addr = verb::param::sub_node_count::Start(r);
+	const int sn_total = verb::param::sub_node_count::Total(r);
 	//HDA_DEBUG("hda_attach_node_afg(): codec %d nodeid=%x -> sn_addr %x sn_total %d", cad, nodeid, sn_addr, sn_total);
 
 	for (unsigned int sn = 0; sn < sn_total; sn++) {
 		/* Obtain the audio widget capabilities of this node; this tells us what it is */
 		int nid = sn_addr + sn;
 		uint32_t aw_caps;
-		if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_AW_CAPS)), &aw_caps, NULL); result.IsFailure())
+		if (auto result = hdaFunctions->IssueVerb(verb::Make(cad, nid, verb::MakePayload(verb::GetParam, verb::param::AWCaps)), &aw_caps, NULL); result.IsFailure())
 			return result;
 
 		Node_AW* aw = nullptr;
 		NodeAddress nodeAddress(cad, nid);
 		Result result = Result::Success();
-		switch(HDA_PARAM_AW_CAPS_TYPE(aw_caps)) {
-			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_OUT:
+		switch(verb::param::aw_caps::Type(aw_caps)) {
+			case verb::param::aw_caps::type::AudioOut:
 				aw = new Node_AudioOut(nodeAddress, aw_caps);
 				result = AttachWidget_AudioOut(static_cast<Node_AudioOut&>(*aw));
 				break;
-			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_IN:
+			case verb::param::aw_caps::type::AudioIn:
 				aw = new Node_AudioIn(nodeAddress, aw_caps);
 				result = AttachWidget_AudioIn(static_cast<Node_AudioIn&>(*aw));
 				break;
-			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_MIXER:
+			case verb::param::aw_caps::type::AudioMixer:
 				aw = new Node_AudioMixer(nodeAddress, aw_caps);
 				result = AttachWidget_AudioMixer(static_cast<Node_AudioMixer&>(*aw));
 				break;
-			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_SELECTOR:
+			case verb::param::aw_caps::type::AudioSelector:
 				aw = new Node_AudioSelector(nodeAddress, aw_caps);
 				result = AttachWidget_AudioSelector(static_cast<Node_AudioSelector&>(*aw));
 				break;
-			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_PINCOMPLEX: {
+			case verb::param::aw_caps::type::AudioPinComplex:
 				aw = new Node_Pin(nodeAddress, aw_caps);
 				result = AttachWidget_PinComplex(static_cast<Node_Pin&>(*aw));
 				break;
-			}
-			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_VOLUMEKNOB: {
+			case verb::param::aw_caps::type::AudioVolumeKnob:
 				aw = new Node_VolumeKnob(nodeAddress, aw_caps);
 				result = AttachWidget_VolumeKnob(static_cast<Node_VolumeKnob&>(*aw));
 				break;
-			}
-			case HDA_PARAM_AW_CAPS_TYPE_AUDIO_VENDORDEFINED: {
+			case verb::param::aw_caps::type::AudioVendorDefined:
 				aw = new Node_VendorDefined(nodeAddress, aw_caps);
 				result = AttachWidget_VendorDefined(static_cast<Node_VendorDefined&>(*aw));
 				break;
-			}
 			default:
-				Printf("ignored cad=%d nid=%d awtype=%d", cad, nid, HDA_PARAM_AW_CAPS_TYPE(aw_caps));
+				Printf("ignored cad=%d nid=%d awtype=%d", cad, nid, verb::param::aw_caps::Type(aw_caps));
 				break;
 		}
 
 		if (result.IsSuccess() && aw != nullptr)
 			afg.afg_nodes.push_back(*aw);
-#undef HDA_AWNODE_INIT
 	}
 
 	/*
@@ -315,82 +312,85 @@ DumpAFG(AFG& afg)
 			case NT_Pin: {
 				auto& p = static_cast<Node_Pin&>(aw);
 				kprintf(" [");
-				if (HDA_CODEC_PINCAP_HBR(p.p_cap))
+				if (verb::param::pin_cap::HBR(p.p_cap))
 					kprintf(" hbr");
-				if (HDA_CODEC_PINCAP_DP(p.p_cap))
+				if (verb::param::pin_cap::DP(p.p_cap))
 					kprintf(" dp");
-				if (HDA_CODEC_PINCAP_EAPD(p.p_cap))
+				if (verb::param::pin_cap::EAPD(p.p_cap))
 					kprintf(" eapd");
-				if (HDA_CODEC_PINCAP_VREF_CONTROL(p.p_cap))
+				if (verb::param::pin_cap::VRefControl(p.p_cap))
 					kprintf(" vref-control");
-				if (HDA_CODEC_PINCAP_HDMI(p.p_cap))
+				if (verb::param::pin_cap::HDMI(p.p_cap))
 					kprintf(" hdmi");
-				if (HDA_CODEC_PINCAP_BALANCED_IO(p.p_cap))
+				if (verb::param::pin_cap::BalancedIO(p.p_cap))
 					kprintf(" balanced-io");
-				if (HDA_CODEC_PINCAP_INPUT(p.p_cap))
+				if (verb::param::pin_cap::Input(p.p_cap))
 					kprintf(" input");
-				if (HDA_CODEC_PINCAP_OUTPUT(p.p_cap))
+				if (verb::param::pin_cap::Output(p.p_cap))
 					kprintf(" output");
-				if (HDA_CODEC_PINCAP_HEADPHONE(p.p_cap))
+				if (verb::param::pin_cap::Headphone(p.p_cap))
 					kprintf(" headphone");
-				if (HDA_CODEC_PINCAP_PRESENCE(p.p_cap))
+				if (verb::param::pin_cap::Presence(p.p_cap))
 					kprintf(" presence");
-				if (HDA_CODEC_PINCAP_TRIGGER(p.p_cap))
+				if (verb::param::pin_cap::Trigger(p.p_cap))
 					kprintf(" trigger");
-				if (HDA_CODEC_PINCAP_IMPEDANCE(p.p_cap))
+				if (verb::param::pin_cap::Impedance(p.p_cap))
 					kprintf(" impedance");
 
-				kprintf(" ] %s %s %s (%s) %s default-ass/seq %d/%d",
-				 ResolveLocationToString(HDA_CODEC_CFGDEFAULT_LOCATION(p.p_cfg)),
-				 PinConnectionTypeString[HDA_CODEC_CFGDEFAULT_CONNECTION_TYPE(p.p_cfg)],
-				 PinConnectivityString[HDA_CODEC_CFGDEFAULT_PORTCONNECTIVITY(p.p_cfg)],
-				 PinColorString[HDA_CODEC_CFGDEFAULT_COLOR(p.p_cfg)],
-				 PinDefaultDeviceString[HDA_CODEC_CFGDEFAULT_DEFAULTDEVICE(p.p_cfg)],
-				 HDA_CODEC_CFGDEFAULT_DEFAULT_ASSOCIATION(p.p_cfg),
-				 HDA_CODEC_CFGDEFAULT_SEQUENCE(p.p_cfg));
+				{
+					using namespace verb::cfg_default;
+					kprintf(" ] %s %s %s (%s) %s default-ass/seq %d/%d",
+					 ResolveLocationToString(Location(p.p_cfg)),
+					 PinConnectionTypeString[ConnectionType(p.p_cfg)],
+					 PinConnectivityString[PortConnectivity(p.p_cfg)],
+					 PinColorString[Color(p.p_cfg)],
+					 PinDefaultDeviceString[DefaultDevice(p.p_cfg)],
+					 DefaultAssociation(p.p_cfg),
+					 Sequence(p.p_cfg));
+				}
 				break;
 			}
 			case NT_AudioOut: {
 				auto& ao = static_cast<Node_AudioOut&>(aw);
 
+				using namespace verb::param::pcm;
 				kprintf(" formats [");
-				if (HDA_CODEC_PARAM_PCM_B32(ao.ao_pcm))
+				if (B32(ao.ao_pcm))
 					kprintf(" 32-bit");
-				if (HDA_CODEC_PARAM_PCM_B24(ao.ao_pcm))
+				if (B24(ao.ao_pcm))
 					kprintf(" 24-bit");
-				if (HDA_CODEC_PARAM_PCM_B20(ao.ao_pcm))
+				if (B20(ao.ao_pcm))
 					kprintf(" 20-bit");
-				if (HDA_CODEC_PARAM_PCM_B16(ao.ao_pcm))
+				if (B16(ao.ao_pcm))
 					kprintf(" 16-bit");
-				if (HDA_CODEC_PARAM_PCM_B8(ao.ao_pcm))
+				if (B8(ao.ao_pcm))
 					kprintf(" 8-bit");
 				kprintf(" ] rate [");
-				if (HDA_CODEC_PARAM_PCM_R_8_0(ao.ao_pcm))
+				if (R8_0(ao.ao_pcm))
 					kprintf(" 8.0kHz");
-				if (HDA_CODEC_PARAM_PCM_R_11_025(ao.ao_pcm))
+				if (R11_025(ao.ao_pcm))
 					kprintf(" 11.025kHz");
-				if (HDA_CODEC_PARAM_PCM_R_16_0(ao.ao_pcm))
+				if (R16_0(ao.ao_pcm))
 					kprintf(" 16.0kHz");
-				if (HDA_CODEC_PARAM_PCM_R_22_05(ao.ao_pcm))
+				if (R22_05(ao.ao_pcm))
 					kprintf(" 22.05kHz");
-				if (HDA_CODEC_PARAM_PCM_R_32_0(ao.ao_pcm))
+				if (R32_0(ao.ao_pcm))
 					kprintf(" 32.0kHz");
-				if (HDA_CODEC_PARAM_PCM_R_44_1(ao.ao_pcm))
+				if (R44_1(ao.ao_pcm))
 					kprintf(" 44.1kHz");
-				if (HDA_CODEC_PARAM_PCM_R_48_0(ao.ao_pcm))
+				if (R48_0(ao.ao_pcm))
 					kprintf(" 48.0kHz");
-				if (HDA_CODEC_PARAM_PCM_R_88_2(ao.ao_pcm))
+				if (R88_2(ao.ao_pcm))
 					kprintf(" 88.2kHz");
-				if (HDA_CODEC_PARAM_PCM_R_96_0(ao.ao_pcm))
+				if (R96_0(ao.ao_pcm))
 					kprintf(" 96.0kHz");
-				if (HDA_CODEC_PARAM_PCM_R_176_4(ao.ao_pcm))
+				if (R176_4(ao.ao_pcm))
 					kprintf(" 172.4kHz");
-				if (HDA_CODEC_PARAM_PCM_R_192_0(ao.ao_pcm))
+				if (R192_0(ao.ao_pcm))
 					kprintf(" 192.0kHz");
-				if (HDA_CODEC_PARAM_PCM_R_384_0(ao.ao_pcm))
+				if (R384_0(ao.ao_pcm))
 					kprintf(" 384.0kHz");
 				kprintf(" ]");
-
 			}
 			default:
 				break;
@@ -411,8 +411,8 @@ DumpAFG(AFG& afg)
 		for (int n = 0; n < o.o_pingroup->pg_count; n++) {
 			Node_Pin* p = o.o_pingroup->pg_pin[n];
 			kprintf(" %s-%s",
-			 ResolveLocationToString(HDA_CODEC_CFGDEFAULT_LOCATION(p->p_cfg)),
-			 PinColorString[HDA_CODEC_CFGDEFAULT_COLOR(p->p_cfg)]);
+			 ResolveLocationToString(verb::cfg_default::Location(p->p_cfg)),
+			 PinColorString[verb::cfg_default::Color(p->p_cfg)]);
 		}
 		kprintf("\n");
 	}
@@ -434,13 +434,13 @@ HDADevice::AttachPin_Render(AFG& afg, int association, int num_pins)
 			if (aw.GetType() != NT_Pin)
 				continue;
 			auto& p = static_cast<Node_Pin&>(aw);
-			if (HDA_CODEC_CFGDEFAULT_DEFAULT_ASSOCIATION(p.p_cfg) != association)
+			if (verb::cfg_default::DefaultAssociation(p.p_cfg) != association)
 				continue;
-			if (HDA_CODEC_CFGDEFAULT_SEQUENCE(p.p_cfg) != seq)
+			if (verb::cfg_default::Sequence(p.p_cfg) != seq)
 				continue;
 			found_pin = &p;
 
-			int ch_count = HDA_PARAM_AW_CAPS_CHANCOUNTLSB(p.aw_caps) + 1; /* XXX ext */
+			int ch_count = verb::param::aw_caps::ChanCountLSB(p.aw_caps) + 1; /* XXX ext */
 			num_channels += ch_count;
 			break;
 		}
@@ -510,12 +510,12 @@ HDADevice::AttachAFG(AFG& afg)
 			if (aw.GetType() != NT_Pin)
 				continue;
 			auto& p = static_cast<Node_Pin&>(aw);
-			if (HDA_CODEC_CFGDEFAULT_DEFAULT_ASSOCIATION(p.p_cfg) != association)
+			if (verb::cfg_default::DefaultAssociation(p.p_cfg) != association)
 				continue;
 
-			if (HDA_CODEC_PINCAP_INPUT(p.p_cap))
+			if (verb::param::pin_cap::Input(p.p_cap))
 				num_input++;
-			if (HDA_CODEC_PINCAP_OUTPUT(p.p_cap))
+			if (verb::param::pin_cap::Output(p.p_cap))
 				num_output++;
 		}
 		if (num_input == 0 && num_output == 0)
@@ -541,19 +541,19 @@ HDADevice::AttachNode(int cad, int nodeid)
 	 * need to dive into the subnodes.
 	 */
 	uint32_t r;
-	if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nodeid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_SUBNODECOUNT)), &r, NULL); result.IsFailure())
+	if (auto result = hdaFunctions->IssueVerb(verb::Make(cad, nodeid, verb::MakePayload(verb::GetParam, verb::param::SubNodeCount)), &r, NULL); result.IsFailure())
 		return result;
-	int sn_addr = HDA_PARAM_SUBNODECOUNT_START(r);
-	int sn_total = HDA_PARAM_SUBNODECOUNT_TOTAL(r);
+	const int sn_addr = verb::param::sub_node_count::Start(r);
+	const int sn_total = verb::param::sub_node_count::Total(r);
 
 	/* Now dive deeper and see what the subnodes can do */
 	hda_afg = NULL;
 	for (unsigned int sn = 0; sn < sn_total; sn++) {
 		int nid = sn_addr + sn;
-		if (auto result = hdaFunctions->IssueVerb(HDA_MAKE_VERB(cad, nid, HDA_MAKE_PAYLOAD_ID12(HDA_CODEC_CMD_GETPARAM, HDA_CODEC_PARAM_FGT)), &r, NULL); result.IsFailure())
+		if (auto result = hdaFunctions->IssueVerb(verb::Make(cad, nid, verb::MakePayload(verb::GetParam, verb::param::FGT)), &r, NULL); result.IsFailure())
 			return result;
-		int fgt_type = HDA_PARAM_FGT_NODETYPE(r);
-		if (fgt_type != HDA_PARAM_FGT_NODETYPE_AUDIO)
+		int fgt_type = verb::param::fgt::NodeType(r);
+		if (fgt_type != verb::param::fgt::node_type::Audio)
 			continue; /* we don't care about non-audio types */
 
 		if (hda_afg != NULL) {
