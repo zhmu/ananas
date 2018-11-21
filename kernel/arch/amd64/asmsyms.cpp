@@ -52,6 +52,6 @@ ASM_SYMBOL(SYSARG_ARG5,	offsetof(struct SYSCALL_ARGS, arg5));
 ASM_SYMBOL(SYSARG_SIZE,	sizeof(struct SYSCALL_ARGS));
 
 ASM_SYMBOL(SMP_CPU_SIZE,	sizeof(struct X86_CPU));
-ASM_SYMBOL(SMP_CPU_LAPICID,	offsetof(struct X86_CPU, lapic_id));
-ASM_SYMBOL(SMP_CPU_PCPU,	offsetof(struct X86_CPU, pcpu));
-ASM_SYMBOL(SMP_CPU_STACK,	offsetof(struct X86_CPU, stack));
+ASM_SYMBOL(SMP_CPU_LAPICID,	offsetof(struct X86_CPU, cpu_lapic_id));
+ASM_SYMBOL(SMP_CPU_PCPU,	offsetof(struct X86_CPU, cpu_pcpu));
+ASM_SYMBOL(SMP_CPU_STACK,	offsetof(struct X86_CPU, cpu_stack));
