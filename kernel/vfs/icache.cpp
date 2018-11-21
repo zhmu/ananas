@@ -312,7 +312,7 @@ vfs_dump_inode(INode& inode)
 }
 
 #ifdef OPTION_KDB
-KDB_COMMAND(icache, NULL, "Show inode cache")
+const kdb::RegisterCommand kdbICache("icache", "Show inode cache", [](int, const kdb::Argument*)
 {
 	int n = 0;
 	for(auto& inode: icache_inuse) {
@@ -322,7 +322,7 @@ KDB_COMMAND(icache, NULL, "Show inode cache")
 		n++;
 	}
 	kprintf("Inode cache contains %u entries\n", n);
-}
+});
 #endif
 
 namespace {

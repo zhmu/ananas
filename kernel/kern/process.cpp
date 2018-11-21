@@ -260,16 +260,14 @@ process_lookup_by_id_and_lock(pid_t pid)
 }
 
 #ifdef OPTION_KDB
-
-KDB_COMMAND(ps, "[s:flags]", "Displays all processes")
+const kdb::RegisterCommand kdbPs("ps", "Display all processes", [](int, const kdb::Argument*)
 {
 	MutexGuard g(process::process_mtx);
 	for(auto& p: process::process_all) {
 		kprintf("process %d (%p): state %d\n", p.p_pid, &p, p.p_state);
 		p.p_vmspace->Dump();
 	}
-}
-
+});
 #endif // OPTION_KDB
 
 /* vim:set ts=2 sw=2: */

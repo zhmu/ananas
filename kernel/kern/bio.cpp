@@ -365,7 +365,7 @@ bio_set_dirty(BIO& bio)
 }
 
 #ifdef OPTION_KDB
-KDB_COMMAND(bio, NULL, "Display I/O buffers")
+const kdb::RegisterCommand kdbBio("bio", "Display I/O buffers", [](int, const kdb::Argument*)
 {
 	kprintf("bio dump\n");
 
@@ -420,7 +420,7 @@ KDB_COMMAND(bio, NULL, "Display I/O buffers")
 	kprintf(" %u available (%u total)\n", databuf_avail, BIO_DATA_SIZE / BIO_SECTOR_SIZE);
 
 	KASSERT(databuf_avail <= (BIO_DATA_SIZE / BIO_SECTOR_SIZE), "more bio data available than total");
-}
+});
 #endif /* KDB */
 
 /* vim:set ts=2 sw=2: */

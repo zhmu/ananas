@@ -288,12 +288,12 @@ page_dump(PageZone& z)
 	}
 }
 
-KDB_COMMAND(pages, NULL, "Display page zones")
+const kdb::RegisterCommand kdbPages("pages", "Display page zones", [](int, const kdb::Argument*)
 {
 	for(auto& z: zones) {
 		page_dump(z);
 	}
-}
+});
 #endif
 
 /* vim:set ts=2 sw=2: */

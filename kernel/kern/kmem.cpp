@@ -222,7 +222,7 @@ kmem_get_phys(void* virt)
 }
 
 #ifdef OPTION_KDB
-KDB_COMMAND(kmappings, NULL, "Display kernel memory mappings")
+const kdb::RegisterCommand kdbKMappings("kmappings", "Display kernel memory mappings", [](int, const kdb::Argument*)
 {
 	if (kmem_mappings == NULL)
 		return;
@@ -235,7 +235,7 @@ KDB_COMMAND(kmappings, NULL, "Display kernel memory mappings")
 		kprintf("mapping: va %p-%p pa %p-%p\n",
 		 kmm->kmm_virt, kmm->kmm_virt + len - 1, kmm->kmm_phys, kmm->kmm_phys + len - 1);
 	}
-}
+});
 #endif
 
 /* vim:set ts=2 sw=2: */

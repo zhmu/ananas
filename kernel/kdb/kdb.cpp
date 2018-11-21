@@ -1,4 +1,6 @@
 #include <ananas/errno.h>
+#include <ananas/types.h>
+#include <ananas/util/array.h>
 #include "kernel/console.h"
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
@@ -16,16 +18,20 @@
 
 TRACE_SETUP;
 
-static util::List<KDBCommand> kdb_commands;
+namespace kdb {
 
-#define KDB_MAX_LINE 128
-#define KDB_MAX_ARGS 16
+namespace {
+util::List<detail::KDBCommand> commands;
 
-static int kdb_active = 0;
-Thread* kdb_curthread = nullptr;
+constexpr size_t MaxLineLength = 128;
+constexpr size_t MaxArguments = 16;
 
-static kdb_arg_type_t
-kdb_resolve_argtype(const char* q)
+int IsActive = 0;
+} // unnamed namespace
+
+namespace detail {
+namespace {
+kdb_arg_type_t ResolveArgumentType(const char* q)
 {
 	switch(q[0]) {
 		case 's':
@@ -39,13 +45,114 @@ kdb_resolve_argtype(const char* q)
 	}
 }
 
-Result
-kdb_register_command(KDBCommand& cmd)
+template<typename Commands, typename Args>
+KDBCommand* FindCommand(Commands& commands, Args& arg)
 {
-	if(cmd.cmd_command == nullptr) {
-		kprintf("kdb_register_command: BAD %p, ", &cmd.cmd_command);
-		kprintf("%p, '%s'\n", &cmd, cmd.cmd_command);
+	for(auto& cmd: commands) {
+		if (strcmp(arg[0].a_u.u_string, cmd.cmd_command) != 0)
+			continue;
+
+		return &cmd;
 	}
+	return nullptr;
+}
+
+template<typename Args>
+bool ValidateArguments(const KDBCommand& kcmd, int num_arg, Args& arg)
+{
+	if (kcmd.cmd_args == nullptr) {
+		if (num_arg != 1) {
+			kprintf("command takes no arguments, yet %d given\n", num_arg - 1);
+			return false;
+		}
+		return true;
+	}
+
+	/*
+	 * Arguments are either 'type:description' or '[type:description]' - this
+	 * is enforced by kdb_register_command() so we can be much less strict here.
+	 */
+	int cur_arg = 1;
+	for (const char* a = kcmd.cmd_args; *a != '\0'; /* nothing */) {
+		auto ka = &arg[cur_arg];
+		int optional = 0;
+
+		const char* next = strchr(a, ' ');
+		if (next == nullptr)
+			next = strchr(a, '\0');
+		if (*a == '[') {
+			a++; /* skip [ */
+			optional++;
+			next = strchr(a, ']') + 1; /* skip ] */
+		}
+
+		const char* argname = a + 2; /* skip type: */
+		if (cur_arg >= num_arg) {
+			/* We need more arguments than there are */
+			if (optional) {
+				/* Not a problem; this argument is optional (and any remaining will be, too!) */
+				break;
+			}
+
+			kprintf("Insufficient arguments; expecting '%s'\n", argname); /* XXX stop after end */
+			return false;
+		}
+
+		auto t = detail::ResolveArgumentType(a);
+		const char* s = ka->a_u.u_string;
+		switch(t) {
+			case T_NUMBER: {
+				char* ptr;
+				unsigned long u = strtoul(s, &ptr, 0);
+				if (*ptr != '\0') {
+					kprintf("Argument '%s' is not numeric (got '%s')\n", argname /* XXX stop after end */, s);
+					return false;
+				}
+				ka->a_type = T_NUMBER;
+				ka->a_u.u_value = u;
+				break;
+			}
+			case T_BOOL: {
+				int v = 0;
+				if (strcmp(s, "1") == 0 || strcmp(s, "on") == 0 || strcmp(s, "yes") == 0 || strcmp(s, "true") == 0) {
+					v = 1;
+				} else if (strcmp(s, "0") == 0 || strcmp(s, "off") == 0 || strcmp(s, "no") == 0 || strcmp(s, "false") == 0) {
+					v = 0;
+				} else {
+					kprintf("Argument '%s' is not a boolean (got '%s')\n", argname /* XXX stop after end */, s);
+					return false;
+				}
+				ka->a_type = T_BOOL;
+				ka->a_u.u_value = v;
+				break;
+			}
+			case T_STRING:
+			default:
+				/* Nothing to do; it's already this */
+				break;
+		}
+
+		/* Go to the next argument */
+		a = next;
+		while (*a == ' ')
+			a++;
+		cur_arg++;
+	}
+
+	if (num_arg > cur_arg) {
+		kprintf("Too many arguments (command takes %d argument(s), yet %d given)\n", cur_arg - 1, num_arg - 1);
+		return false;
+	}
+
+	return true;
+}
+
+} // unnamed namespace
+
+void AddCommand(KDBCommand& cmd)
+{
+	kprintf("AddCommand: cmd '%s'\n", cmd.cmd_command);
+	KASSERT(cmd.cmd_command != nullptr, "bad command");
 
 	if (cmd.cmd_args != NULL) {
 		/*
@@ -66,33 +173,28 @@ kdb_register_command(KDBCommand& cmd)
 			if (*a == '[') {
 				const char* p = strchr(a, ']');
 				if (p == NULL || p >= end) {
-					kprintf("KDB: command '%s' rejected, end of argument not found (%s)\n", cmd.cmd_command, a);
-					return RESULT_MAKE_FAILURE(EINVAL);
+					panic("KDB: command '%s' rejected, end of argument not found (%s)\n", cmd.cmd_command, a);
 				}
 				a++; /* skip [ */
 				end = p + 1; /* skip ] */
 				have_opt++;
 			} else {
 				if (have_opt) {
-					kprintf("KDB: command '%s' rejected, required arguments after optional ones (%s)\n", cmd.cmd_command, a);
-					return RESULT_MAKE_FAILURE(EINVAL);
+					panic("KDB: command '%s' rejected, required arguments after optional ones (%s)\n", cmd.cmd_command, a);
 				}
 			}
 
 			const char* split = strchr(a, ':');
 			if (split == NULL || split >= end) {
-				kprintf("KDB: command '%s' rejected, type/description split not found\n", cmd.cmd_command);
-				return RESULT_MAKE_FAILURE(EINVAL);
+				panic("KDB: command '%s' rejected, type/description split not found\n", cmd.cmd_command);
 			}
 
 			if (split - a != 1) {
-				kprintf("KDB: command '%s' rejected, expected a single type char, got '%s'\n", cmd.cmd_command, a);
-				return RESULT_MAKE_FAILURE(EINVAL);
+				panic("KDB: command '%s' rejected, expected a single type char, got '%s'\n", cmd.cmd_command, a);
 			}
 
-			if (kdb_resolve_argtype(a) == T_INVALID) {
-				kprintf("KDB: command '%s' rejected, invalid type '%s'\n", cmd.cmd_command, a);
-				return RESULT_MAKE_FAILURE(EINVAL);
+			if (ResolveArgumentType(a) == T_INVALID) {
+				panic("KDB: command '%s' rejected, invalid type '%s'\n", cmd.cmd_command, a);
 			}
 
 			/* Skip this command and go to the next, ignoring extra spaces */
@@ -101,38 +203,35 @@ kdb_register_command(KDBCommand& cmd)
 				a++;
 		}
 	}
-	kdb_commands.push_back(cmd);
-	return Result::Success();
+	commands.push_back(cmd);
 }
 
-KDB_COMMAND(help, NULL, "Displays this help")
+template<typename Args>
+int DissectArguments(char* line, Args& arg)
 {
-	/*
-	 * First step is to determine the maximum command and argument lengths for
-	 * pretty printing
-	 */
-	int max_cmd_len = 0, max_args_len = 0;
-	for(auto& cmd: kdb_commands) {
-		if (strlen(cmd.cmd_command) > max_cmd_len)
-			max_cmd_len = strlen(cmd.cmd_command);
-		if (cmd.cmd_args != nullptr && strlen(cmd.cmd_args) > max_args_len)
-			max_args_len = strlen(cmd.cmd_args);
+	int num_arg = 0;
+	char* cur_line = line;
+	while(1) {
+		arg[num_arg].a_type = T_STRING;
+		arg[num_arg].a_u.u_string = cur_line;
+		num_arg++;
+		if (num_arg >= arg.size()) {
+			kprintf("ignoring excessive arguments\n");
+			break;
+		}
+		char* argend = strchr(cur_line, ' ');
+		if (argend == NULL)
+			break;
+		/* isolate the argument here */
+		*argend++ = '\0';
+		while (*argend == ' ')
+			argend++;
+		cur_line = argend;
 	}
-
-	/* Now off to print! */
-	for(auto& cmd: kdb_commands) {
-		kprintf("%s", cmd.cmd_command);
-		kprintf(" %s", (cmd.cmd_args != NULL) ? cmd.cmd_args : "");
-		for (int n = (cmd.cmd_args != NULL ? strlen(cmd.cmd_args) : 0) + strlen(cmd.cmd_command); n < (max_cmd_len + 1 + max_cmd_len + 1); n++)
-			kprintf(" ");
-		kprintf("%s\n", cmd.cmd_help);
-	}
+	return num_arg;
 }
 
-KDB_COMMAND(exit, NULL, "Leaves the debugger")
-{
-	kdb_active = 0;
-}
+} // namespace detail
 
 static int
 kdb_get_line(char* line, int max_len)
@@ -171,7 +270,7 @@ kdb_get_line(char* line, int max_len)
 
 	/* NOTREACHED */
 #else
-	size_t len = KDB_MAX_LINE;
+	size_t len = max_len;
 	auto result = device_read(console_tty, line, &len, 0);
 	KASSERT(result.IsSuccess(), "tty read failed with error %i", result.AsStatusCode());
 	KASSERT(len > 0, "tty read returned without data");
@@ -181,9 +280,9 @@ kdb_get_line(char* line, int max_len)
 }
 
 void
-kdb_enter(const char* why)
+Enter(const char* why)
 {
-	if (kdb_active++ > 0)
+	if (IsActive++ > 0)
 		return;
 
 	/* Kill interrupts */
@@ -201,9 +300,9 @@ kdb_enter(const char* why)
 	kprintf("kdb_enter(): %s\n", why);
 
 	/* loop for commands */
-	while(kdb_active) {
+	while(IsActive) {
 		kprintf("kdb> ");
-		char line[KDB_MAX_LINE + 1];
+		char line[MaxLineLength + 1];
 		int len = kdb_get_line(line, sizeof(line));
 
 		/* Kill trailing newline */
@@ -211,131 +310,18 @@ kdb_enter(const char* why)
 			line[len - 1] = '\0';
 
 		/* Dissect the line; initially, we parse all arguments as strings */
-		char* cur_line = line;
-		unsigned int num_arg = 0;
-		struct KDB_ARG arg[KDB_MAX_ARGS];
-		while(1) {
-			arg[num_arg].a_type = T_STRING;
-			arg[num_arg].a_u.u_string = cur_line;
-			num_arg++;
-			if (num_arg >= KDB_MAX_ARGS) {
-				kprintf("ignoring excessive arguments\n");
-				break;
-			}
-			char* argend = strchr(cur_line, ' ');
-			if (argend == NULL)
-				break;
-			/* isolate the argument here */
-			*argend++ = '\0';
-			while (*argend == ' ')
-				argend++;
-			cur_line = argend;
-		}
+		util::array<Argument, MaxArguments> arg;
+		unsigned int num_arg = detail::DissectArguments(line, arg);
 
 		/* Locate the command */
-		KDBCommand* kcmd = nullptr;
-		for(auto& cmd: kdb_commands) {
-			if (strcmp(arg[0].a_u.u_string, cmd.cmd_command) != 0)
-				continue;
-			kprintf("[%s][%s][%s][%p]\n", cmd.cmd_command, cmd.cmd_args, cmd.cmd_help, cmd.cmd_func);
-
-			kcmd = &cmd;
-			break;
-		}
+		const auto kcmd = detail::FindCommand(commands, arg);
 		if (kcmd == nullptr) {
 			kprintf("unknown command - try 'help'\n");
 			continue;
 		}
 
-		/* We know which command it is; now we have to process the arguments, if any */
-		if (kcmd->cmd_args != NULL) {
-			/*
-			 * Arguments are either 'type:description' or '[type:description]' - this
-			 * is enforced by kdb_register_command() so we can be much less strict here.
-			 */
-			int cur_arg = 1;
-			for (const char* a = kcmd->cmd_args; *a != '\0' && kcmd != NULL; /* nothing */) {
-				struct KDB_ARG* ka = &arg[cur_arg];
-				int optional = 0;
-
-				const char* next = strchr(a, ' ');
-				if (next == nullptr)
-					next = strchr(a, '\0');
-				if (*a == '[') {
-					a++; /* skip [ */
-					optional++;
-					next = strchr(a, ']') + 1; /* skip ] */
-				}
-
-				const char* argname = a + 2; /* skip type: */
-				if (cur_arg >= num_arg) {
-					/* We need more arguments than there are */
-					if (optional) {
-						/* Not a problem; this argument is optional (and any remaining will be, too!) */
-						break;
-					}
-
-					kprintf("Insufficient arguments; expecting '%s'\n", argname); /* XXX stop after end */
-					kcmd = NULL;
-					break;
-				}
-
-				kdb_arg_type_t t = kdb_resolve_argtype(a);
-				const char* s = ka->a_u.u_string;
-				switch(t) {
-					case T_NUMBER: {
-						char* ptr;
-						unsigned long u = strtoul(s, &ptr, 0);
-						if (*ptr != '\0') {
-							kprintf("Argument '%s' is not numeric (got '%s')\n", argname /* XXX stop after end */, s);
-							kcmd = NULL;
-						}
-						ka->a_type = T_NUMBER;
-						ka->a_u.u_value = u;
-						break;
-					}
-					case T_BOOL: {
-						int v = 0;
-						if (strcmp(s, "1") == 0 || strcmp(s, "on") == 0 || strcmp(s, "yes") == 0 || strcmp(s, "true") == 0) {
-							v = 1;
-						} else if (strcmp(s, "0") == 0 || strcmp(s, "off") == 0 || strcmp(s, "no") == 0 || strcmp(s, "false") == 0) {
-							v = 0;
-						} else {
-							kprintf("Argument '%s' is not a boolean (got '%s')\n", argname /* XXX stop after end */, s);
-							kcmd = NULL;
-						}
-						ka->a_type = T_BOOL;
-						ka->a_u.u_value = v;
-						break;
-					}
-					case T_STRING:
-						/* Nothing to do; it's already this */
-						break;
-					default:
-						/* Can't get here */
-						break;
-				}
-
-				/* Go to the next argument */
-				a = next;
-				while (*a == ' ')
-					a++;
-				cur_arg++;
-			}
-
-			if (num_arg > cur_arg) {
-				kprintf("Too many arguments (command takes %d argument(s), yet %d given)\n", cur_arg - 1, num_arg - 1);
-				kcmd = NULL;
-			}
-		} else {
-			if (num_arg != 1) {
-				kprintf("command takes no arguments, yet %d given\n", num_arg - 1);
-				continue;
-			}
-		}
-
-		if (kcmd != NULL) /* may be reset to ease error handling */
-			kcmd->cmd_func(num_arg, arg);
+		if (detail::ValidateArguments(*kcmd, num_arg, arg))
+			kcmd->cmd_func(num_arg, arg.__data /* XXX */);
 	}
 
 	/* Stop console redirection and restore interrupts */
@@ -344,10 +330,44 @@ kdb_enter(const char* why)
 }
 
 void
-kdb_panic()
+OnPanic()
 {
-	kdb_curthread = PCPU_GET(curthread);
-	kdb_enter("panic");
+	Enter("panic");
 }
+
+} // namespace kdb
+
+namespace {
+
+const kdb::RegisterCommand kdbHelp("help", "Displays this help", [](int, const kdb::Argument*)
+{
+	/*
+	 * First step is to determine the maximum command and argument lengths for
+	 * pretty printing
+	 */
+	int max_cmd_len = 0, max_args_len = 0;
+	for(auto& cmd: kdb::commands) {
+		if (strlen(cmd.cmd_command) > max_cmd_len)
+			max_cmd_len = strlen(cmd.cmd_command);
+		if (cmd.cmd_args != nullptr && strlen(cmd.cmd_args) > max_args_len)
+			max_args_len = strlen(cmd.cmd_args);
+	}
+
+	/* Now off to print! */
+	for(auto& cmd: kdb::commands) {
+		kprintf("%s", cmd.cmd_command);
+		kprintf(" %s", (cmd.cmd_args != NULL) ? cmd.cmd_args : "");
+		for (int n = (cmd.cmd_args != NULL ? strlen(cmd.cmd_args) : 0) + strlen(cmd.cmd_command); n < (max_cmd_len + 1 + max_cmd_len + 1); n++)
+			kprintf(" ");
+		kprintf("%s\n", cmd.cmd_help);
+	}
+});
+
+const kdb::RegisterCommand kdbExit("exit", "Leaves the debugger", [](int, const kdb::Argument*)
+{
+	kdb::IsActive = 0;
+});
+
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

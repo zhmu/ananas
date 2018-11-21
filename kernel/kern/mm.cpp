@@ -193,7 +193,7 @@ kmem_chunk_reserve(addr_t chunk_start, addr_t chunk_end, addr_t reserved_start, 
 }
 
 #ifdef OPTION_KDB
-KDB_COMMAND(malloc, NULL, "Display malloc chunks")
+const kdb::RegisterCommand kdbMalloc("malloc", "Display malloc chunks", [](int, const kdb::Argument*)
 {
 	MutexGuard g(mtx_mm);
 
@@ -208,7 +208,7 @@ KDB_COMMAND(malloc, NULL, "Display malloc chunks")
 		total_len += mc.mc_len;
 	}
 	kprintf("Total amount of memory used by malloc(): %d KB\n", total_len / 1024);
-}
+});
 #endif
 
 /* vim:set ts=2 sw=2: */

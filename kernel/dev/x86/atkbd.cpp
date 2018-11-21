@@ -231,11 +231,11 @@ ATKeyboard::OnIRQ()
 
 #ifdef OPTION_KDB
 		if ((kbd_modifiers == (modifier::Control | modifier::Shift)) && scancode == scancode::Escape) {
-			kdb_enter("keyboard sequence");
+			kdb::Enter("keyboard sequence");
 			continue;
 		}
 		if (kbd_modifiers == modifier::Control && scancode == scancode::Tilde)
-			panic("forced by kdb");
+			panic("forced by keyboard");
 #endif
 
 		if (kbd_modifiers == (modifier::Control | modifier::Alt) && scancode == scancode::Delete)

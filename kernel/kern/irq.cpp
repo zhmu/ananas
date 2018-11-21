@@ -293,7 +293,7 @@ InvokeHandler(unsigned int no)
 } // namespace irq
 
 #ifdef OPTION_KDB
-KDB_COMMAND(irq, NULL, "Display IRQ status")
+const kdb::RegisterCommand kdbIRQ("irq", "Display IRQ status", [](int, const kdb::Argument*)
 {
 	/* Note: no need to grab locks as the debugger runs with interrupts disabled */
 	kprintf("Registered IRQ sources:\n");
@@ -318,7 +318,7 @@ KDB_COMMAND(irq, NULL, "Display IRQ status")
 			kprintf(" IRQ %d flags %x count %u stray %d\n", no, i.i_flags, i.i_count, i.i_straycount);
 		no++;
 	}
-}
+});
 #endif
 
 /* vim:set ts=2 sw=2: */

@@ -307,7 +307,7 @@ dentry_construct_path(char* dest, size_t n, DEntry& dentry)
 
 
 #ifdef OPTION_KDB
-KDB_COMMAND(dcache, NULL, "Show dentry cache")
+const kdb::RegisterCommand kdbDCache("dcache", "Show dentry cache", [](int, const kdb::Argument*)
 {
 	/* XXX Don't lock; this is for debugging purposes only */
 	int n = 0;
@@ -321,7 +321,7 @@ KDB_COMMAND(dcache, NULL, "Show dentry cache")
 		n++;
 	}
 	kprintf("dentry cache contains %u entries\n", n);
-}
+});
 #endif
 
 namespace {

@@ -5,7 +5,9 @@
 #include "kernel/result.h"
 #include "kernel-md/md.h"
 
-KDB_COMMAND(bootinfo, NULL, "Display boot info")
+namespace {
+
+const kdb::RegisterCommand kdbBootinfo("bootinfo", "Display boot info", [](int, const kdb::Argument*)
 {
 	if (bootinfo == NULL) {
 		kprintf("no bootinfo supplied by loader\n");
@@ -16,11 +18,13 @@ KDB_COMMAND(bootinfo, NULL, "Display boot info")
 	kprintf("memorymap location: %x - %x\n",
 	 bootinfo->bi_memory_map_addr,
 	 bootinfo->bi_memory_map_addr + bootinfo->bi_memory_map_size);
-}
+});
 
-KDB_COMMAND(reboot, NULL, "Force a reboot")
+const kdb::RegisterCommand kdbReboot("reboot", "Force a reboot", [](int, const kdb::Argument*)
 {
 	md::Reboot();
-}
+});
+
+} // unnamed namespace
 
 /* vim:set ts=2 sw=2: */

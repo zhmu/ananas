@@ -275,7 +275,7 @@ print_devices(Device* parent, int indent)
 	return count;
 }
 
-KDB_COMMAND(devices, NULL, "Displays a list of all devices")
+const kdb::RegisterCommand kdbDevices("devices", "Displays a list of all devices", [](int, const kdb::Argument*)
 {
 	int count = print_devices(NULL, 0);
 
@@ -286,9 +286,9 @@ KDB_COMMAND(devices, NULL, "Displays a list of all devices")
 	}
 	if (n != count)
 		kprintf("Warning: %d extra device(s) unreachable by walking the device chain!\n", n - count);
-}
+});
 
-KDB_COMMAND(devdump, "s:devname", "Displays debugging dump of a device")
+const kdb::RegisterCommand kdbDevDump("devdump", "s:devname", "Displays a list of all devices", [](int, const kdb::Argument* arg)
 {
 	auto dev = device_manager::FindDevice(arg[1].a_u.u_string);
 	if (dev == nullptr) {
@@ -297,7 +297,7 @@ KDB_COMMAND(devdump, "s:devname", "Displays debugging dump of a device")
 	}
 
 	dev->GetDeviceOperations().DebugDump();
-}
+});
 #endif
 
 /* vim:set ts=2 sw=2: */

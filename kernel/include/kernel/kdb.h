@@ -4,7 +4,7 @@
 #include <ananas/util/list.h>
 #include "kernel/init.h"
 
-class Result;
+namespace kdb {
 
 enum KDB_ARG_TYPE {
 	T_INVALID, /* internal use only */
@@ -17,7 +17,7 @@ typedef enum KDB_ARG_TYPE kdb_arg_type_t;
 /*
  * An argument as passed to the command's backing function.
  */
-struct KDB_ARG {
+struct Argument {
 	kdb_arg_type_t a_type;
 	union {
 		const char* u_string;
@@ -25,8 +25,10 @@ struct KDB_ARG {
 	} a_u;
 };
 
+namespace detail {
+
 /* Callback function for a given command */
-typedef void kdb_func_t(int num_args, struct KDB_ARG args[]);
+typedef void kdb_func_t(int num_args, const Argument args[]);
 
 /* KDB command itself */
 struct KDBCommand : util::List<KDBCommand>::NodePtr {
@@ -40,22 +42,30 @@ struct KDBCommand : util::List<KDBCommand>::NodePtr {
 	kdb_func_t* cmd_func;
 };
 
-void kdb_enter(const char* why);
-void kdb_panic();
-Result kdb_register_command(KDBCommand& cmd);
+void AddCommand(KDBCommand& cmd);
 
-#if 0
-#define KDB_COMMAND(CMD, ARGS, HELP) \
-	static kdb_func_t kdb_func_ ## CMD; \
-	static KDBCommand kdb_cmd_ ## CMD(#CMD, (ARGS), (HELP), &kdb_func_##CMD); \
-	static Result kdb_add_ ## CMD() { \
-		return kdb_register_command(kdb_cmd_ ## CMD); \
-	} \
-	INIT_FUNCTION(kdb_add_ ## CMD , SUBSYSTEM_KDB, ORDER_MIDDLE); \
-	static void kdb_func_ ## CMD(int num_args, struct KDB_ARG arg[])
-#endif
+} // namespace detail
 
-#define KDB_COMMAND(CMD, ARGS, HELP) \
-	static void kdb_func_ ## CMD(int num_args, struct KDB_ARG arg[])
+struct RegisterCommand
+{
+	template<typename Func>
+	RegisterCommand(const char* cmd, const char* args, const char* help, Func fn)
+	{
+		static detail::KDBCommand c(cmd, args, help, fn);
+		detail::AddCommand(c);
+	}
+
+	template<typename Func>
+	RegisterCommand(const char* cmd, const char* help, Func fn)
+	{
+		static detail::KDBCommand c(cmd, nullptr, help, fn);
+		detail::AddCommand(c);
+	}
+};
+
+void Enter(const char* why);
+void OnPanic();
+
+} // namespace kdb
 
 #endif /* __ANANAS_KDB_H__ */

@@ -56,7 +56,7 @@ _panic(const char* file, const char* func, int line, const char* fmt, ...)
 #endif
 
 #ifdef OPTION_KDB
-	kdb_panic();
+	kdb::OnPanic();
 #endif
 	for(;;);
 }

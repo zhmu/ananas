@@ -316,7 +316,7 @@ scheduler_activated()
 }
 
 #ifdef OPTION_KDB
-KDB_COMMAND(scheduler, NULL, "Display scheduler status")
+const kdb::RegisterCommand kdbScheduler("scheduler", "Display scheduler status", [](int, const kdb::Argument*)
 {
 	kprintf("runqueue\n");
 	if (!sched_runqueue.empty()) {
@@ -334,7 +334,7 @@ KDB_COMMAND(scheduler, NULL, "Display scheduler status")
 	} else {
 		kprintf("(empty)\n");
 	}
-}
+});
 #endif /* OPTION_KDB */
 
 /* vim:set ts=2 sw=2: */

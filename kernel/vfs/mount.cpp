@@ -194,7 +194,7 @@ vfs_unregister_filesystem(VFSFileSystem& fs)
 }
 
 #ifdef OPTION_KDB
-KDB_COMMAND(mounts, NULL, "Shows current mounts")
+const kdb::RegisterCommand kdbMounts("mounts", "Show current mounts", [](int, const kdb::Argument*)
 {
 	SpinlockGuard g(vfs::spl_fstypes);
 
@@ -204,7 +204,7 @@ KDB_COMMAND(mounts, NULL, "Shows current mounts")
 			continue;
 		kprintf(">> vfs=%p, flags=0x%x, mountpoint='%s'\n", fs, fs->fs_flags, fs->fs_mountpoint);
 	}
-}
+});
 #endif /* KDB */
 
 /* vim:set ts=2 sw=2: */
