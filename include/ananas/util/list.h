@@ -32,46 +32,46 @@ struct base_list_iterator
 {
 	typedef list_type<T, Accessor> ListType;
 
-	base_list_iterator(const ListType& list, T* p)
+	constexpr base_list_iterator(const ListType& list, T* p)
 	 : i_List(list), i_Ptr(p)
 	{
 	}
 
-	base_list_iterator& operator++() {
+	constexpr base_list_iterator& operator++() {
 		Advance::Next(i_List, i_Ptr);
 		return *this;
 	}
 
-	base_list_iterator operator++(int) {
+	constexpr base_list_iterator operator++(int) {
 		auto s(*this);
 		Advance::Next(i_List, i_Ptr);
 		return s;
 	}
 
-	base_list_iterator& operator--() {
+	constexpr base_list_iterator& operator--() {
 		Advance::Prev(i_List, i_Ptr);
 		return *this;
 	}
 
-	base_list_iterator operator--(int) {
+	constexpr base_list_iterator operator--(int) {
 		auto s(*this);
 		Advance::Prev(i_List, i_Ptr);
 		return s;
 	}
 
-	T* operator->() const {
+	constexpr T* operator->() const {
 		return i_Ptr;
 	}
 
-	T& operator*() const {
+	constexpr T& operator*() const {
 		return *operator->();
 	}
 
-	bool operator==(const base_list_iterator& rhs) const {
+	constexpr bool operator==(const base_list_iterator& rhs) const {
 		return i_Ptr == rhs.i_Ptr && &i_List == &rhs.i_List;
 	}
 
-	bool operator!=(const base_list_iterator& rhs) const {
+	constexpr bool operator!=(const base_list_iterator& rhs) const {
 		return !(*this == rhs);
 	}
 
@@ -85,7 +85,7 @@ struct forward_advance
 {
 	typedef list_type<T, Accessor> ListType;
 
-	static void Next(const ListType& list, T*& p)
+	static constexpr void Next(const ListType& list, T*& p)
 	{
 		if (p == nullptr)
 			p = list.l_Head;
@@ -93,7 +93,7 @@ struct forward_advance
 			p = Accessor::Next(*p);
 	}
 
-	static void Prev(const ListType& list, T*& p)
+	static constexpr void Prev(const ListType& list, T*& p)
 	{
 		if (p == nullptr)
 			p = list.l_Tail;
@@ -107,12 +107,12 @@ struct backward_advance
 {
 	typedef list_type<T, Accessor> ListType;
 
-	static void Next(const ListType& list, T*& p)
+	static constexpr void Next(const ListType& list, T*& p)
 	{
 		forward_advance<T, Accessor>::Prev(list, p);
 	}
 
-	static void Prev(const ListType& list, T*& p)
+	static constexpr void Prev(const ListType& list, T*& p)
 	{
 		forward_advance<T, Accessor>::Next(list, p);
 	}
@@ -124,11 +124,11 @@ template<typename T, typename Accessor> using list_reverse_iterator = base_list_
 template<typename T, typename NodeGetter>
 struct nodeptr_accessor
 {
-	static T*& Prev(T& t) {
+	static constexpr T*& Prev(T& t) {
 		return NodeGetter::Get(t).p_Prev;
 	}
 
-	static T*& Next(T& t) {
+	static constexpr T*& Next(T& t) {
 		return NodeGetter::Get(t).p_Next;
 	}
 };
@@ -137,7 +137,7 @@ struct nodeptr_accessor
 template<typename T>
 struct GetDerivedNodePtr
 {
-	static list_node<T>& Get(T& t) {
+	static constexpr list_node<T>& Get(T& t) {
 		return t.np_NodePtr;
 	}
 };
@@ -173,7 +173,7 @@ struct List
 	typedef typename detail::list_reverse_iterator<T, Accessor> reverse_iterator;
 	template<typename NodeGetter> using nodeptr_accessor = detail::nodeptr_accessor<T, NodeGetter>;
 
-	void push_back(T& item)
+	constexpr void push_back(T& item)
 	{
 		Accessor::Next(item) = nullptr;
 		if (l_Head == nullptr) {
@@ -186,7 +186,7 @@ struct List
 		l_Tail = &item;
 	}
 
-	void push_front(T& item)
+	constexpr void push_front(T& item)
 	{
 		Accessor::Prev(item) = nullptr;
 		if (l_Head == nullptr) {
@@ -199,21 +199,21 @@ struct List
 		l_Head = &item;
 	}
 
-	void pop_front()
+	constexpr void pop_front()
 	{
 		l_Head = Accessor::Next(*l_Head);
 		if (l_Head != nullptr)
 			Accessor::Prev(*l_Head) = nullptr;
 	}
 
-	void pop_back()
+	constexpr void pop_back()
 	{
 		l_Tail = Accessor::Prev(*l_Tail);
 		if (l_Tail != nullptr)
 			Accessor::Next(*l_Tail) = nullptr;
 	}
 
-	void insert(T& pos, T& item)
+	constexpr void insert(T& pos, T& item)
 	{
 		// Inserts before pos in the list
 		if (Accessor::Prev(pos) != nullptr)
@@ -225,7 +225,7 @@ struct List
 			l_Head = &item;
 	}
 
-	void remove(T& item)
+	constexpr void remove(T& item)
 	{
 		if (Accessor::Prev(item) != nullptr)
 			Accessor::Next(*Accessor::Prev(item)) = Accessor::Next(item);
@@ -237,38 +237,38 @@ struct List
 			l_Tail = Accessor::Prev(item);
 	}
 
-	void clear()
+	constexpr void clear()
 	{
 		l_Head = nullptr;
 		l_Tail = nullptr;
 	}
 
-	bool empty() const
+	constexpr bool empty() const
 	{
 		return l_Head == nullptr;
 	}
 
-	T& front()
+	constexpr T& front()
 	{
 		return *l_Head;
 	}
 
-	const T& front() const
+	constexpr const T& front() const
 	{
 		return *l_Head;
 	}
 
-	T& back()
+	constexpr T& back()
 	{
 		return *l_Tail;
 	}
 
-	const T& back() const
+	constexpr const T& back() const
 	{
 		return *l_Tail;
 	}
 
-	List()
+	constexpr List()
 	 : l_Head(nullptr), l_Tail(nullptr)
 	{
 	}
@@ -278,22 +278,22 @@ struct List
 	List& operator=(const List&) = delete;
 	List& operator=(List&&) = delete;
 
-	iterator begin()
+	constexpr iterator begin()
 	{
 		return iterator(*this, l_Head);
 	}
 
-	reverse_iterator rbegin()
+	constexpr reverse_iterator rbegin()
 	{
 		return reverse_iterator(*this, l_Tail);
 	}
 
-	iterator end()
+	constexpr iterator end()
 	{
 		return iterator(*this, nullptr);
 	}
 
-	reverse_iterator rend()
+	constexpr reverse_iterator rend()
 	{
 		return reverse_iterator(*this, nullptr);
 	}
