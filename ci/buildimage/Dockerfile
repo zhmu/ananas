@@ -20,3 +20,14 @@ RUN	mkdir /tmp/cmake-build && cd /tmp/cmake-build && \
 	cd cmake-3.12.2 && ./bootstrap -- -DCMAKE_BUILD_TYPE:STRING=Release && \
 	make -j16 && make install && \
 	cd / && rm -rf /tmp/cmake-build
+
+# Create an unprivileged build user; we expect that the uid/gid matches the
+# work directory on the host system (inspired by
+# https://gist.github.com/alkrauss48/2dd9f9d84ed6ebff9240ccfa49a80662)
+RUN	groupadd -g 1000 -r build && \
+	useradd -r -u 1000 -g build -d /home/build -s /sbin/nologin -c "Build user" build
+
+ENV	home=/home/build
+
+# Run things as this user
+USER	build
