@@ -85,9 +85,9 @@ usage()
 }
 
 TARGET="x86_64-ananas-elf"
-OUTDIR="/tmp/ananas-build-new"
-WORKDIR="/tmp/ananas-work-new"
 ROOT=`pwd`
+OUTDIR="${ROOT}/build/output"
+WORKDIR="${ROOT}/build/work"
 CLANG='clang'
 CLANGXX='clang++'
 CLANG_D="${CLANG}"
