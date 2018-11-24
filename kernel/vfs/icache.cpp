@@ -252,7 +252,7 @@ vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode)
 			break;
 		TRACE(VFS, WARN, "inode is already pending, waiting...");
 		/* XXX There should be a wakeup signal of some kind */
-		reschedule();
+		scheduler::Schedule();
 	}
 	KASSERT(inode->i_fs == fs, "wtf?");
 

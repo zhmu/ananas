@@ -13,7 +13,7 @@
  *          v
  *       [(gone)]
  *
- * All transitions are managed by scheduler.c.
+ * All transitions are managed by scheduler.cpp.
  */
 #include <ananas/types.h>
 #include "kernel/device.h"
@@ -61,7 +61,7 @@ thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
 		p.p_mainthread = t;
 
 	/* Initialize scheduler-specific parts */
-	scheduler_init_thread(*t);
+	scheduler::InitThread(*t);
 
 	/* Add the thread to the thread queue */
 	{
@@ -91,7 +91,7 @@ kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg)
 	md::thread::InitKernelThread(t, func, arg);
 
 	/* Initialize scheduler-specific parts */
-	scheduler_init_thread(t);
+	scheduler::InitThread(t);
 
 	/* Add the thread to the thread queue */
 	{
@@ -219,7 +219,7 @@ Thread::Suspend()
 	TRACE(THREAD, FUNC, "t=%p", this);
 	KASSERT(!IsSuspended(), "suspending suspended thread %p", this);
 	KASSERT(this != PCPU_GET(idlethread), "suspending idle thread");
-	scheduler_remove_thread(*this);
+	scheduler::RemoveThread(*this);
 }
 
 void
@@ -234,7 +234,7 @@ thread_sleep_ms(unsigned int ms)
 	t->t_timeout = time::GetTicks() + num_ticks;
 	t->t_flags |= THREAD_FLAG_TIMEOUT;
 	t->Suspend();
-	schedule();
+	scheduler::Schedule();
 }
 
 void
@@ -249,10 +249,10 @@ Thread::Resume()
 	 * we need to catch here.
 	 */
 	if (!IsSuspended()) {
-		KASSERT(!scheduler_activated(), "resuming nonsuspended thread %p", this);
+		KASSERT(!scheduler::IsActive(), "resuming nonsuspended thread %p", this);
 		return;
 	}
-	scheduler_add_thread(*this);
+	scheduler::AddThread(*this);
 }
 
 void
@@ -284,14 +284,14 @@ thread_exit(int exitcode)
 	thread->Deref();
 
 	// Ask the scheduler to exit the thread; this returns with interrupts disabled
-	scheduler_exit_thread(*thread);
+	scheduler::ExitThread(*thread);
 	if (thread->t_process != nullptr) {
 		// Signal parent in case it is waiting for a child to exit
 		p->SignalExit();
 		thread->t_process->Unlock();
 	}
 
-	schedule();
+	scheduler::Schedule();
 	/* NOTREACHED */
 }
 

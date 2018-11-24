@@ -308,7 +308,7 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
 				break;
 			TRACE(VFS, WARN, "dentry item is already pending, waiting...");
 			/* XXX There should be a wakeup signal of some kind */
-			reschedule();
+			scheduler::Schedule();
 		}
 #if VFS_DEBUG_LOOKUP
 		kprintf("partial lookup for %p:'%s' -> dentry %p (flags %u)", curdentry, next_lookup, dentry, dentry->d_flags);
