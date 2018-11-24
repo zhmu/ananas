@@ -86,7 +86,7 @@ run_init()
 	finalInitFuntion->oi_func();
 }
 
-const init::OnInit helloWorld(init::SubSystem::Scheduler, init::Order::Last, []()
+const init::OnInit helloWorld(init::SubSystem::Console, init::Order::Last, []()
 {
 	/* Show a startup banner */
 	kprintf("Ananas/%s - %s %s\n", ARCHITECTURE, __DATE__, __TIME__);
