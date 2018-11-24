@@ -90,7 +90,6 @@ console_putchar(int c)
 {
 #ifdef OPTION_DEBUG_CONSOLE
 	debugcon_putch(c);
-	return;
 #endif /* OPTION_DEBUG_CONSOLE */
 	if (console_tty == NULL)
 		return;
