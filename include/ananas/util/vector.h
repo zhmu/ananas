@@ -3,6 +3,11 @@
 
 #include "utility.h"
 
+#ifdef __Ananas__
+#include "kernel/cdefs.h"
+extern "C" void* memcpy(void* dst, const void* src, size_t n) __nonnull;
+#endif
+
 namespace util {
 
 template<typename T> struct vector;
