@@ -20,63 +20,62 @@
 #define __ANANAS_TRACE_H__
 
 #include <ananas/types.h>
+#include <ananas/util/array.h>
 
 #ifdef KERNEL
-# ifndef MODULE
 # define TRACE_SETUP \
 	static const char __trace_filename[]  __attribute__((section(".tracenames"))) = __FILE__; \
 	static addr_t __trace_id  __attribute__((section(".traceids"))) = (addr_t)&__trace_filename;
 #  define TRACE_FILE_ID \
 	(((addr_t)&__trace_id - (addr_t)&__traceid_begin) / sizeof(addr_t) + 1)
-# else
-#  define TRACE_FILE_ID 255
-#  define TRACE_SETUP
-# endif
 #else
 #  define TRACE_FILE_ID 0
 #endif
 
-/* Available subsystem trace types */
-#define TRACE_SUBSYSTEM_DEBUG   0			/* Plain debugging */
-#define TRACE_SUBSYSTEM_VFS     1			/* VFS layer */
-#define TRACE_SUBSYSTEM_THREAD	2			/* Threads framework */
-#define TRACE_SUBSYSTEM_EXEC	3			/* Execution  */
-#define TRACE_SUBSYSTEM_BIO	4			/* Block I/O layer */
-#define TRACE_SUBSYSTEM_HANDLE	5			/* Handle framework */
-#define TRACE_SUBSYSTEM_SYSCALL	6			/* System calls */
-#define TRACE_SUBSYSTEM_MACHDEP	7			/* Machine dependent */
-#define TRACE_SUBSYSTEM_USB	8			/* USB stack */
-#define TRACE_SUBSYSTEM_VM	9			/* VM */
-#define TRACE_SUBSYSTEM_LAST	(TRACE_SUBSYSTEM_VM)
-
-/* Available tracelevels */
-#define TRACE_LEVEL_FUNC	0x0001			/* Function call tracing */
-#define TRACE_LEVEL_ERROR	0x0002			/* Error report */
-#define TRACE_LEVEL_INFO	0x0004			/* Information */
-#define TRACE_LEVEL_WARN	0x0008			/* Warning */
-#define TRACE_LEVEL_ALL		0xffff			/* Everything */
-
-#define TRACE_IS_ENABLED(s, l) \
-	(trace_subsystem_mask[TRACE_SUBSYSTEM_##s] & TRACE_LEVEL_##l)
-
-#define TRACE_DO(x...) \
-	tracef(TRACE_FILE_ID, __func__, x)
-	
-#define TRACE(s,l,x...)	 \
-	if (TRACE_IS_ENABLED(s, l)) \
-		TRACE_DO(x)
-
-#define TRACE_DEV(s,l,dev,fmt,...) \
-	TRACE(s,l, "%s%u: " fmt, dev->name, dev->unit, ## __VA_ARGS__)
-
-#define TRACE_ENABLE(s,l) \
-	trace_subsystem_mask[TRACE_SUBSYSTEM_##s] |= TRACE_LEVEL_##l
-
-#define TRACE_DISABLE(s,l) \
-	trace_subsystem_mask[TRACE_SUBSYSTEM_##s] &= ~TRACE_LEVEL_##l
-		
 extern void *__traceid_begin, *__traceid_end;
-extern uint32_t trace_subsystem_mask[];
+
+namespace trace {
+
+// Available subsystem trace types
+enum class SubSystem {
+	DEBUG = 0,			/* Plain debugging */
+	VFS = 1,			/* VFS layer */
+	THREAD = 2,			/* Threads framework */
+	EXEC = 3,			/* Execution  */
+	BIO = 4,			/* Block I/O layer */
+	HANDLE = 5,			/* Handle framework */
+	SYSCALL = 6,			/* System calls */
+	MACHDEP = 7,			/* Machine dependent */
+	USB = 8,			/* USB stack */
+	VM = 9,				/* VM */
+	_Last = VM
+};
+
+// Available tracelevels
+namespace level {
+	static constexpr int FUNC = 0x0001;		/* Function call tracing */
+	static constexpr int ERROR = 0x0002;		/* Error report */
+	static constexpr int INFO = 0x0004;		/* Information */
+	static constexpr int WARN = 0x0008;		/* Warning */
+	static constexpr int ALL = 0xffff;		/* Everything */
+}
+
+#define TRACE(SUBSYSTEM,LEVEL,EXPR...) \
+	(IsEnabled(trace::SubSystem::SUBSYSTEM, trace::level::LEVEL)) ? trace::detail::tracef(TRACE_FILE_ID, __func__, EXPR) : (void)0
+
+namespace detail {
+extern util::array<uint32_t, static_cast<int>(trace::SubSystem::_Last)> subsystem_mask;
 void tracef(int fileid, const char* func, const char* fmt, ...);
+} // namespace detail
+
+constexpr inline bool IsEnabled(SubSystem ss, int level)
+{
+	return (detail::subsystem_mask[static_cast<int>(ss)] & level) != 0;
+}
+
+void Enable(SubSystem ss, int level);
+void Disable(SubSystem ss, int level);
+
+} // namespace trace
 
 #endif /* __ANANAS_TRACE_H__ */
