@@ -134,7 +134,7 @@ try_cache: ; /* dummy ; to keep gcc happy */
 	if (ci != NULL && create == 0) {
 		while (ci->f_nextcluster == 0) {
 			kprintf("fat_get_cluster(): pending cluster found, waiting...\n");
-			reschedule();
+			scheduler::Schedule();
 		}
 		if (ci->f_nextcluster == -1)
 			return RESULT_MAKE_FAILURE(ERANGE);

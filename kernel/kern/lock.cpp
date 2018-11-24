@@ -18,7 +18,7 @@ constexpr int unlocked = 0;
 void
 Spinlock::Lock()
 {
-	if (scheduler_activated())
+	if (scheduler::IsActive())
 		KASSERT(md::interrupts::Save(), "interrupts must be enabled");
 
 	while(true) {
@@ -176,7 +176,7 @@ Semaphore::WaitAndLock()
 		curthread->Suspend();
 		/* Let go of the lock, but keep interrupts disabled */
 		sem_lock.Unlock();
-		schedule();
+		scheduler::Schedule();
 		sem_lock.LockUnpremptible();
 	} while (sw.sw_signalled == 0);
 

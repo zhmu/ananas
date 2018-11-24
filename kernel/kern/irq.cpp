@@ -287,7 +287,7 @@ InvokeHandler(unsigned int no)
 	// If the IRQ handler resulted in a reschedule of the current thread, handle it
 	Thread* curthread = PCPU_GET(curthread);
 	if (irq_nestcount == 0 && curthread->IsRescheduling())
-		schedule();
+		scheduler::Schedule();
 }
 
 } // namespace irq

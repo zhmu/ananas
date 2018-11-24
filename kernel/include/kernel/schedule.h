@@ -10,26 +10,19 @@ struct SchedulerPriv : util::List<SchedulerPriv>::NodePtr {
 };
 typedef util::List<SchedulerPriv> SchedulerPrivList;
 
-void scheduler_add(Thread& t);
-void scheduler_remove(Thread& t);
+namespace scheduler {
 
-void schedule();
-#define reschedule schedule
-void scheduler_activate();
-void scheduler_deactivate();
-int scheduler_activated();
-void scheduler_launch();
+void InitThread(Thread& t);
+void AddThread(Thread& t);
+void RemoveThread(Thread& t);
+void ExitThread(Thread& t);
 
-/* Initializes the scheduler-specific part for a given thread */
-void scheduler_init_thread(Thread& t);
+void Schedule();
+void Launch();
 
-/* Register a thread for scheduling */
-void scheduler_add_thread(Thread& t);
+void Deactivate();
+bool IsActive();
 
-/* Unregister a thread for scheduling */
-void scheduler_remove_thread(Thread& t);
-
-/* Exits a thread - removes it from the runqueue in a safe manner */
-void scheduler_exit_thread(Thread& t);
+} // namespace scheduler
 
 #endif /* __SCHEDULE_H__ */

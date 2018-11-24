@@ -28,22 +28,28 @@
 #define DEBUG_SCHEDULER
 #define SCHED_KPRINTF(...)
 
-static int scheduler_active = 0;
+namespace scheduler {
+namespace {
 
-static Spinlock spl_scheduler;
+bool isActive = false;
+
+using SchedLock = Spinlock;
+using SchedLockGuard = SpinlockUnpremptibleGuard;
+
+static SchedLock schedLock;
 static SchedulerPrivList sched_runqueue;
 static SchedulerPrivList sched_sleepqueue;
 
 #ifdef DEBUG_SCHEDULER
-static int
-scheduler_is_on_queue(SchedulerPrivList& q, Thread& t)
+bool
+IsThreadOnQueue(SchedulerPrivList& q, Thread& t)
 {
 	int n = 0;
 	for(auto& s: q) {
 		if (s.sp_thread == &t)
 			n++;
 	}
-	return n;
+	return n > 0;
 }
 #define SCHED_ASSERT(x,...) KASSERT((x), __VA_ARGS__)
 #else
@@ -51,7 +57,74 @@ scheduler_is_on_queue(SchedulerPrivList& q, Thread& t)
 #endif
 
 void
-scheduler_init_thread(Thread& t)
+AddThreadLocked(Thread& t)
+{
+	KASSERT(IsThreadOnQueue(sched_runqueue, t) == 0, "adding thread on runq?");
+	KASSERT(IsThreadOnQueue(sched_sleepqueue, t) == 0, "adding thread on sleepq?");
+
+	/*
+	 * Add it to the runqueue - note that we must preserve order here
+	 * because the threads must be sorted in order of priority
+	 * XXX Note that this is O(n) - we can do better
+	 */
+	bool inserted = false;
+	for(auto& s: sched_runqueue) {
+		KASSERT(s.sp_thread != &t, "thread %p already in runqueue", &t);
+		if (s.sp_thread->t_priority <= t.t_priority)
+			continue;
+
+		/* Found a thread with a lower priority; we can insert it here */
+		sched_runqueue.insert(s, t.t_sched_priv);
+		inserted = true;
+		break;
+	}
+	if (!inserted)
+		sched_runqueue.push_back(t.t_sched_priv);
+}
+
+void
+WakeupSleepingThreads()
+{
+	// Note: must be called with schedLock held
+	if (sched_sleepqueue.empty())
+		return;
+
+	Thread* t = sched_sleepqueue.front().sp_thread;
+	if ((t->t_flags & THREAD_FLAG_TIMEOUT) && time::IsTickAfter(time::GetTicks(), t->t_timeout)) {
+		/* Remove the thread from the sleepqueue ... */
+		sched_sleepqueue.remove(t->t_sched_priv);
+		/* ... and add it to the runqueue ... */
+		AddThreadLocked(*t);
+		/* ... finally, remove the flags - it's no longer suspended now */
+		t->t_flags &= ~(THREAD_FLAG_TIMEOUT | THREAD_FLAG_SUSPENDED);
+	}
+}
+
+Thread&
+PickNextThreadToSchedule(Thread* curthread, int cpuid)
+{
+	// Note: must be called with schedLock held
+	KASSERT(!sched_runqueue.empty(), "runqueue cannot be empty");
+	SchedulerPriv* next_sched = NULL;
+	for(auto& sp: sched_runqueue) {
+		/* Skip the thread if we can't schedule it here */
+		if (sp.sp_thread->t_affinity != THREAD_AFFINITY_ANY &&
+			  sp.sp_thread->t_affinity != cpuid)
+			continue;
+		if (sp.sp_thread->IsActive() && sp.sp_thread != curthread)
+			continue;
+		next_sched = &sp;
+		break;
+	}
+
+	KASSERT(next_sched != nullptr, "nothing on the runqueue for cpu %u", cpuid);
+	return *next_sched->sp_thread;
+}
+
+} // unnamed namespace
+
+void
+InitThread(Thread& t)
 {
 	/* Hook up our private scheduling entity */
 	t.t_sched_priv.sp_thread = &t;
@@ -60,51 +133,27 @@ scheduler_init_thread(Thread& t)
 	t.t_flags |= THREAD_FLAG_SUSPENDED;
 
 	/* Hook the thread to our sleepqueue */
-	SpinlockUnpremptibleGuard g(spl_scheduler);
-	KASSERT(scheduler_is_on_queue(sched_runqueue, t) == 0, "new thread is already on runq?");
-	KASSERT(scheduler_is_on_queue(sched_sleepqueue, t) == 0, "new thread is already on sleepq?");
-	sched_sleepqueue.push_back(t.t_sched_priv);
-}
-
-static void
-scheduler_add_thread_locked(Thread& t)
-{
-	KASSERT(scheduler_is_on_queue(sched_runqueue, t) == 0, "adding thread on runq?");
-	KASSERT(scheduler_is_on_queue(sched_sleepqueue, t) == 0, "adding thread on sleepq?");
-
-	/*
-	 * Add it to the runqueue - note that we must preserve order here
-	 * because the threads must be sorted in order of priority
-	 * XXX Note that this is O(n) - we can do better
-	 */
-	int inserted = 0;
-	for(auto& s: sched_runqueue) {
-		KASSERT(s.sp_thread != &t, "thread %p already in runqueue", &t);
-		if (s.sp_thread->t_priority <= t.t_priority)
-			continue;
-
-		/* Found a thread with a lower priority; we can insert it here */
-		sched_runqueue.insert(s, t.t_sched_priv);
-		inserted++;
-		break;
+	{
+		SchedLockGuard g(schedLock);
+		KASSERT(IsThreadOnQueue(sched_runqueue, t) == 0, "new thread is already on runq?");
+		KASSERT(IsThreadOnQueue(sched_sleepqueue, t) == 0, "new thread is already on sleepq?");
+		sched_sleepqueue.push_back(t.t_sched_priv);
 	}
-	if (!inserted)
-		sched_runqueue.push_back(t.t_sched_priv);
 }
 
 void
-scheduler_add_thread(Thread& t)
+AddThread(Thread& t)
 {
 	SCHED_KPRINTF("%s: t=%p\n", __func__, &t);
-	SpinlockUnpremptibleGuard g(spl_scheduler);
+	SchedLockGuard g(schedLock);
 
 	KASSERT(t.IsSuspended(), "adding non-suspended thread %p", &t);
-	SCHED_ASSERT(scheduler_is_on_queue(sched_runqueue, t) == 0, "adding thread %p already on runqueue", &t);
-	SCHED_ASSERT(scheduler_is_on_queue(sched_sleepqueue, t) == 1, "adding thread %p not on sleepqueue", &t);
+	SCHED_ASSERT(IsThreadOnQueue(sched_runqueue, t) == 0, "adding thread %p already on runqueue", &t);
+	SCHED_ASSERT(IsThreadOnQueue(sched_sleepqueue, t) == 1, "adding thread %p not on sleepqueue", &t);
 	/* Remove the thread from the sleepqueue ... */
 	sched_sleepqueue.remove(t.t_sched_priv);
 	/* ... and add it to the runqueue ... */
-	scheduler_add_thread_locked(t);
+	AddThreadLocked(t);
 	/*
 	 * ... and finally, update the flags: we must do this in the scheduler lock because
 	 *     no one else is allowed to touch the thread while we're moving it. Note that we
@@ -114,14 +163,14 @@ scheduler_add_thread(Thread& t)
 }
 
 void
-scheduler_remove_thread(Thread& t)
+RemoveThread(Thread& t)
 {
 	SCHED_KPRINTF("%s: t=%p\n", __func__, &t);
-	SpinlockUnpremptibleGuard g(spl_scheduler);
+	SchedLockGuard g(schedLock);
 
 	KASSERT(!t.IsSuspended(), "removing suspended thread %p", &t);
-	SCHED_ASSERT(scheduler_is_on_queue(sched_sleepqueue, t) == 0, "removing thread already on sleepqueue");
-	SCHED_ASSERT(scheduler_is_on_queue(sched_runqueue, t) == 1, "removing thread not on runqueue");
+	SCHED_ASSERT(IsThreadOnQueue(sched_sleepqueue, t) == 0, "removing thread already on sleepqueue");
+	SCHED_ASSERT(IsThreadOnQueue(sched_runqueue, t) == 1, "removing thread not on runqueue");
 	/* Remove the thread from the runqueue ... */
 	sched_runqueue.remove(t.t_sched_priv);
 	/* ... add it to the sleepqueue ... */
@@ -150,17 +199,17 @@ scheduler_remove_thread(Thread& t)
 }
 
 void
-scheduler_exit_thread(Thread& t)
+ExitThread(Thread& t)
 {
 	/*
 	 * Note that interrupts must be disabled - this is important because we are about to
 	 * remove the thread from the schedulers runqueue, and it will not be re-added again.
 	 * Thus, if a context switch would occur, the final exiting code will not be run.
 	 */
-	spl_scheduler.LockUnpremptible();
+	schedLock.LockUnpremptible();
 
-	SCHED_ASSERT(scheduler_is_on_queue(sched_runqueue, t) == 1, "exiting thread already not on sleepqueue");
-	SCHED_ASSERT(scheduler_is_on_queue(sched_sleepqueue, t) == 0, "exiting thread on runqueue");
+	SCHED_ASSERT(IsThreadOnQueue(sched_runqueue, t) == 1, "exiting thread already not on sleepqueue");
+	SCHED_ASSERT(IsThreadOnQueue(sched_sleepqueue, t) == 0, "exiting thread on runqueue");
 	/* Thread seems sane; remove it from the runqueue */
 	sched_runqueue.remove(t.t_sched_priv);
 	/*
@@ -172,7 +221,7 @@ scheduler_exit_thread(Thread& t)
 	 */
 	t.t_flags |= THREAD_FLAG_ZOMBIE;
 	/* Let go of the scheduler lock but leave interrupts disabled */
-	spl_scheduler.Unlock();
+	schedLock.Unlock();
 
 	// Note: we expect the caller to clean up and reschedule() !
 }
@@ -186,7 +235,7 @@ scheduler_release(Thread* old)
 }
 
 void
-schedule()
+Schedule()
 {
 	Thread* curthread = PCPU_GET(curthread);
 	int cpuid = PCPU_GET(cpuid);
@@ -198,48 +247,25 @@ schedule()
 	 * enabled - this happens in interrupt context, which needs to clean up
 	 * before another interrupt can be handled.
 	 */
-	auto state = spl_scheduler.LockUnpremptible();
+	auto state = schedLock.LockUnpremptible();
 
-	/* Cancel any rescheduling as we are about to schedule here */
+	// Cancel any rescheduling as we are about to schedule here
 	curthread->t_flags &= ~THREAD_FLAG_RESCHEDULE;
 
 	/*
 	 * See if the first item on the sleepqueue is worth waking up; we'll only
 	 * look at the first item as we expect them to be added in a sorted way.
 	 */
-	if (!sched_sleepqueue.empty()) {
-		Thread* t = sched_sleepqueue.front().sp_thread;
-		if ((t->t_flags & THREAD_FLAG_TIMEOUT) && time::IsTickAfter(time::GetTicks(), t->t_timeout)) {
-			/* Remove the thread from the sleepqueue ... */
-			sched_sleepqueue.remove(t->t_sched_priv);
-			/* ... and add it to the runqueue ... */
-			scheduler_add_thread_locked(*t);
-			/* ... finally, remove the flags - it's no longer suspended now */
-			t->t_flags &= ~(THREAD_FLAG_TIMEOUT | THREAD_FLAG_SUSPENDED);
-		}
-	}
+	WakeupSleepingThreads();
 
-	/* Pick the next thread to schedule */
-	KASSERT(!sched_runqueue.empty(), "runqueue cannot be empty");
-	SchedulerPriv* next_sched = NULL;
-	for(auto& sp: sched_runqueue) {
-		/* Skip the thread if we can't schedule it here */
-		if (sp.sp_thread->t_affinity != THREAD_AFFINITY_ANY &&
-			  sp.sp_thread->t_affinity != cpuid)
-			continue;
-		if (sp.sp_thread->IsActive() && sp.sp_thread != curthread)
-			continue;
-		next_sched = &sp;
-		break;
-	}
-	KASSERT(next_sched != nullptr, "nothing on the runqueue for cpu %u", cpuid);
+	// Pick the next thread to schedule
+	auto& newthread = PickNextThreadToSchedule(curthread, cpuid);
 
-	/* Sanity checks */
-	Thread& newthread = *next_sched->sp_thread;
+	// Sanity checks
 	KASSERT(!newthread.IsSuspended(), "activating suspended thread %p", &newthread);
 	KASSERT(&newthread == curthread || !newthread.IsActive(), "activating active thread %p", &newthread);
-	SCHED_ASSERT(scheduler_is_on_queue(sched_runqueue, newthread) == 1, "scheduling thread not on runqueue (?)");
-	SCHED_ASSERT(scheduler_is_on_queue(sched_sleepqueue, newthread) == 0, "scheduling thread on sleepqueue");
+	SCHED_ASSERT(IsThreadOnQueue(sched_runqueue, newthread) == 1, "scheduling thread not on runqueue (?)");
+	SCHED_ASSERT(IsThreadOnQueue(sched_sleepqueue, newthread) == 0, "scheduling thread on sleepqueue");
 
 	SCHED_KPRINTF("%s[%d]: newthread=%p curthread=%p\n", __func__, cpuid, &newthread, curthread);
 
@@ -256,7 +282,7 @@ schedule()
 		SCHED_KPRINTF("%s[%d]: removing t=%p from runqueue\n", __func__, cpuid, curthread);
 		sched_runqueue.remove(curthread->t_sched_priv);
 		SCHED_KPRINTF("%s[%d]: re-adding t=%p\n", __func__, cpuid, curthread);
-		scheduler_add_thread_locked(*curthread);
+		AddThreadLocked(*curthread);
 	}
 
 	/*
@@ -266,20 +292,20 @@ schedule()
 	newthread.t_flags |= THREAD_FLAG_ACTIVE;
 	PCPU_SET(curthread, &newthread);
 
-	/* Now unlock the scheduler lock but do _not_ enable interrupts */
-	spl_scheduler.Unlock();
+	// Now unlock the scheduler lock but do _not_ enable interrupts
+	schedLock.Unlock();
 
 	if (curthread != &newthread) {
 		Thread& prev = md::thread::SwitchTo(newthread, *curthread);
 		scheduler_release(&prev);
 	}
 
-	/* Re-enable interrupts if they were */
+	// Re-enable interrupts if they were
 	md::interrupts::Restore(state);
 }
 
 void
-scheduler_launch()
+Launch()
 {
 	Thread* idlethread = PCPU_GET(idlethread);
 	KASSERT(PCPU_GET(curthread) == idlethread, "idle thread not correct");
@@ -293,31 +319,28 @@ scheduler_launch()
 	PCPU_SET(curthread, idlethread);
 
 	/* Run it */
-	scheduler_active++;
+	isActive = true;
 	md::interrupts::Enable();
 }
 
 void
-scheduler_activate()
+Deactivate()
 {
-	scheduler_active++;
+	isActive = false;
 }
 
-void
-scheduler_deactivate()
+bool
+IsActive()
 {
-	scheduler_active--;
+	return isActive;
 }
 
-int
-scheduler_activated()
-{
-	return scheduler_active;
-}
+} // namespace scheduler
 
 #ifdef OPTION_KDB
 const kdb::RegisterCommand kdbScheduler("scheduler", "Display scheduler status", [](int, const kdb::Argument*)
 {
+	using namespace scheduler;
 	kprintf("runqueue\n");
 	if (!sched_runqueue.empty()) {
 		for(auto& s: sched_runqueue) {

@@ -127,7 +127,7 @@ mi_startup()
 	init_thread.Resume();
 
 	/* Activate the scheduler - it is time */
-	scheduler_launch();
+	scheduler::Launch();
 
 	/*
 	 * Okay, for time being this will be the idle thread - we must not sleep, as
