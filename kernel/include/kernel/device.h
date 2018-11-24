@@ -19,7 +19,11 @@ class Device;
 
 namespace irq {
 class IHandler;
-};
+}
+
+namespace dma {
+class Tag;
+}
 
 namespace device {
 
@@ -172,7 +176,7 @@ public:
 	unsigned int d_Major = -1;
 	unsigned int d_Unit = -1;
 	ResourceSet d_ResourceSet;
-	dma_tag_t d_DMA_tag = nullptr;
+	dma::Tag* d_DMA_tag = nullptr;
 
 	Device(const Device&) = delete;
 	Device& operator=(const Device&) = delete;

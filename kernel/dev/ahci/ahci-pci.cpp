@@ -170,8 +170,10 @@ AHCIDevice::Attach()
 	ap_num_ports = num_ports;
 
 	/* Create DMA tags; we need those to do DMA */
-	if (auto result = dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE); result.IsFailure())
-		return result;
+	{
+		using namespace dma::limits;
+		d_DMA_tag = dma::CreateTag(d_Parent->d_DMA_tag, anyAlignment, minAddr, max32BitAddr, 1, maxSegmentSize);
+	}
 
 	uint32_t cap = Read(AHCI_REG_CAP);
 	ap_ncs = AHCI_CAP_NCS(cap) + 1;
@@ -230,20 +232,20 @@ AHCIDevice::Attach()
 		idx++;
 
 		/* Create DMA-able memory buffers for the command list and RFIS */
-		if (auto result = dma_buf_alloc(d_DMA_tag, 1024, &p->p_dmabuf_cl); result.IsFailure())
+		if (auto result = d_DMA_tag->AllocateBuffer(1024, p->p_dmabuf_cl); result.IsFailure())
 			return result;
-		if (auto result = dma_buf_alloc(d_DMA_tag, 256, &p->p_dmabuf_rfis); result.IsFailure())
+		if (auto result = d_DMA_tag->AllocateBuffer(256, p->p_dmabuf_rfis); result.IsFailure())
 			return result;
 
-		p->p_cle = static_cast<struct AHCI_PCI_CLE*>(dma_buf_get_segment(p->p_dmabuf_cl, 0)->s_virt);
-		p->p_rfis = static_cast<struct AHCI_PCI_RFIS*>(dma_buf_get_segment(p->p_dmabuf_rfis, 0)->s_virt);
+		p->p_cle = static_cast<struct AHCI_PCI_CLE*>(p->p_dmabuf_cl->GetSegments().front().s_virt);
+		p->p_rfis = static_cast<struct AHCI_PCI_RFIS*>(p->p_dmabuf_rfis->GetSegments().front().s_virt);
 		p->p_num = n;
 
 		/* Program our command list and FIS buffer addresses */
-		uint64_t addr_cl = dma_buf_get_segment(p->p_dmabuf_cl, 0)->s_phys;
+		uint64_t addr_cl = p->p_dmabuf_cl->GetSegments().front().s_phys;
 		Write(AHCI_REG_PxCLB(n), addr_cl & 0xffffffff);
 		Write(AHCI_REG_PxCLBU(n), addr_cl >> 32);
-		uint64_t addr_rfis = dma_buf_get_segment(p->p_dmabuf_rfis, 0)->s_phys;
+		uint64_t addr_rfis = p->p_dmabuf_rfis->GetSegments().front().s_phys;
 		Write(AHCI_REG_PxFB(n), addr_rfis & 0xffffffff);
 		Write(AHCI_REG_PxFBU(n), addr_rfis >> 32);
 		AHCI_DPRINTF("## port %d command list at %p rfis at %p",  n, addr_cl, addr_rfis);

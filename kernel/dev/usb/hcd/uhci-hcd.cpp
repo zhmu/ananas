@@ -47,7 +47,7 @@ namespace uhci {
 // hardware uses! This means we cannot inherit from NodePtr
 struct HCD_TD {
 	struct UHCI_TD td_td;
-	dma_buf_t td_buf;
+	dma::Buffer* td_buf = nullptr;
 
 	struct HCD_TD* td_next;
 };
@@ -56,7 +56,7 @@ struct HCD_QH {
 	struct UHCI_QH qh_qh;
 	struct HCD_TD* qh_first_td;
 	struct HCD_QH* qh_next_qh;
-	dma_buf_t qh_buf;
+	dma::Buffer* qh_buf = nullptr;
 
 	util::List<HCD_QH>::Node np_NodePtr;
 };
@@ -73,13 +73,13 @@ GetPhysicalAddress(HCD_TD* td)
 {
 	if (td == nullptr)
 		return TD_LINKPTR_T;
-	return dma_buf_get_segment(td->td_buf, 0)->s_phys;
+	return td->td_buf->GetSegments().front().s_phys;
 }
 
 addr_t
 GetPhysicalAddress(HCD_QH* qh)
 {
-	return dma_buf_get_segment(qh->qh_buf, 0)->s_phys;
+	return qh->qh_buf->GetSegments().front().s_phys;
 }
 
 void
@@ -195,25 +195,25 @@ CreateDataTDs(UHCI_HCD& hcd, addr_t data, size_t size, int max_packet_size, int 
 uhci::HCD_TD*
 UHCI_HCD::AllocateTD()
 {
-	dma_buf_t buf;
-	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct uhci::HCD_TD), &buf); result.IsFailure())
+	dma::Buffer* dma_buffer;
+	if (auto result = d_DMA_tag->AllocateBuffer(sizeof(struct uhci::HCD_TD), dma_buffer); result.IsFailure())
 		return nullptr;
 
-	auto td = static_cast<struct uhci::HCD_TD*>(dma_buf_get_segment(buf, 0)->s_virt);
+	auto td = static_cast<struct uhci::HCD_TD*>(dma_buffer->GetSegments().front().s_virt);
 	memset(td, 0, sizeof(struct uhci::HCD_TD));
-	td->td_buf = buf;
+	td->td_buf = dma_buffer;
 	return td;
 }
 
 uhci::HCD_QH*
 UHCI_HCD::AllocateQH()
 {
-	dma_buf_t buf;
-	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct uhci::HCD_QH), &buf); result.IsFailure())
+	dma::Buffer* dma_buffer;
+	if (auto result = d_DMA_tag->AllocateBuffer(sizeof(struct uhci::HCD_QH), dma_buffer); result.IsFailure())
 		return nullptr;
 
-	auto qh = static_cast<struct uhci::HCD_QH*>(dma_buf_get_segment(buf, 0)->s_virt);
-	qh->qh_buf = buf;
+	auto qh = static_cast<struct uhci::HCD_QH*>(dma_buffer->GetSegments().front().s_virt);
+	qh->qh_buf = dma_buffer;
 	qh->qh_first_td = NULL;
 	qh->qh_next_qh = NULL;
 
@@ -235,7 +235,8 @@ uhci_free_td(device_t dev, struct HCD_TD* td)
 void
 UHCI_HCD::FreeQH(uhci::HCD_QH* qh)
 {
-	dma_buf_free(qh->qh_buf);
+	delete qh->qh_buf;
+	qh->qh_buf = nullptr;
 }
 
 void
@@ -490,15 +491,17 @@ UHCI_HCD::Attach()
 		return RESULT_MAKE_FAILURE(ENODEV);
 
 	/* Create DMA tags; we need these to do DMA */
-	if (auto result = dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, DMA_SEGS_MAX_ANY, DMA_SEGS_MAX_SIZE); result.IsFailure())
-		return result;
+	{
+		using namespace dma::limits;
+		d_DMA_tag = dma::CreateTag(d_Parent->d_DMA_tag, anyAlignment, minAddr, max32BitAddr, 1, maxSegmentSize);
+	}
 
 	uhci_Resources = uhci::HCD_Resources((uint32_t)(uintptr_t)res_io);
 
 	/* Allocate the frame list; this will be programmed right into the controller */
-	if (auto result = dma_buf_alloc(d_DMA_tag, 4096, &uhci_framelist_buf); result.IsFailure())
+	if (auto result = d_DMA_tag->AllocateBuffer(4096, uhci_framelist_buf); result.IsFailure())
 		return result;
-	uhci_framelist = static_cast<uint32_t*>(dma_buf_get_segment(uhci_framelist_buf, 0)->s_virt);
+	uhci_framelist = static_cast<uint32_t*>(uhci_framelist_buf->GetSegments().front().s_virt);
 	KASSERT((((addr_t)uhci_framelist) & 0x3ff) == 0, "framelist misaligned");
 
 	/* Disable interrupts; we don't want the messing along */
@@ -577,7 +580,7 @@ UHCI_HCD::Attach()
 	 */
 	uhci_Resources.Write2(UHCI_REG_FRNUM, 0);
 	uhci_Resources.Write2(UHCI_REG_SOF, uhci_sof_modify);
-	uhci_Resources.Write4(UHCI_REG_FLBASEADD, TO_REG32(dma_buf_get_segment(uhci_framelist_buf, 0)->s_phys));
+	uhci_Resources.Write4(UHCI_REG_FLBASEADD, TO_REG32(uhci_framelist_buf->GetSegments().front().s_phys));
 
 	/* Tell the USB controller to start pumping frames */
 	uhci_Resources.Write2(UHCI_REG_USBCMD, UHCI_USBCMD_MAXP | UHCI_USBCMD_RS);

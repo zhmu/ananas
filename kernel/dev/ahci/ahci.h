@@ -2,7 +2,6 @@
 #define __ANANAS_AHCI2_H__
 
 #include "kernel/dev/sata.h"
-#include "kernel/dma.h"
 #include "kernel/irq.h"
 
 #define AHCI_DEBUG 0
@@ -14,6 +13,10 @@
 #define AHCI_DPRINTF(...) (void)0
 #endif
 
+namespace dma {
+class Buffer;
+}
+
 namespace ahci {
 
 struct AHCI_PCI_CT;
@@ -22,8 +25,8 @@ class AHCIDevice;
 
 struct Request {
 	struct SATA_REQUEST	pr_request;
-	dma_buf_t pr_dmabuf_ct;
-	struct AHCI_PCI_CT*	pr_ct;
+	dma::Buffer*		pr_dmabuf_ct = nullptr;
+	struct AHCI_PCI_CT*	pr_ct = nullptr;
 };
 
 class Port final : public Device, private IDeviceOperations {
@@ -44,8 +47,8 @@ public:
 
 	AHCIDevice& p_device;		/* [RO] Device we belong to */
 	int p_num;			/* [RO] Port number */
-	dma_buf_t p_dmabuf_cl;		/* [RO] DMA buffer for command list */
-	dma_buf_t p_dmabuf_rfis;	/* [RO] DMA buffer for RFIS */
+	dma::Buffer* p_dmabuf_cl = nullptr;	/* [RO] DMA buffer for command list */
+	dma::Buffer* p_dmabuf_rfis = nullptr;	/* [RO] DMA buffer for RFIS */
 
 	struct AHCI_PCI_CLE* p_cle;
 	struct AHCI_PCI_RFIS* p_rfis;

@@ -2,77 +2,103 @@
 #define __ANANAS_DMA_H__
 
 #include <ananas/types.h>
+#include <ananas/util/vector.h>
 #include "kernel-md/dma.h"
 
 class Device;
+struct Page;
 class Result;
 
-#define DMA_ADDR_MAX_32BIT ((dma_addr_t)0xFFFFFFFF)
-#define DMA_ADDR_MAX_ANY ((dma_addr_t)~0)
-#define DMA_SEGS_MAX_ANY ((unsigned int)~0)
-#define DMA_SEGS_MAX_SIZE ((dma_size_t)~0)
+namespace dma {
+namespace detail {
+struct Impl;
+}
 
-/* DMA tag; contains information how a given device needs DMA to work */
-/* DMA buffer: contains a list of segments with data */
-/* DMA buffer segment: contains a page to DMA from/to */
+namespace limits {
+constexpr auto minAddr = static_cast<dma_addr_t>(0);
+constexpr auto maxAddr = static_cast<dma_addr_t>(~0);
+constexpr auto max32BitAddr = static_cast<dma_addr_t>(0xffffffff);
+constexpr auto maxSegments = static_cast<int>(~0);
+constexpr auto maxSegmentSize = static_cast<dma_size_t>(~0);
+constexpr auto anyAlignment = static_cast<int>(1);
+}
 
-typedef enum {
-	DMA_SYNC_IN,
-	DMA_SYNC_OUT
-} DMA_SYNC_TYPE;
+enum class Sync {
+	In,
+	Out
+};
 
-struct Page;
-
-struct DMA_BUFFER_SEGMENT {
+struct BufferSegment final
+{
 	Page* s_page;
 	void* s_virt;
 	dma_addr_t s_phys;
 };
 
-/*
- * Creates a tag for a given device; this tag is used to perform DMA.
- *
- * parent: DMA tag of parent device
- * dev: Device to use the DMA tag for (and its children)
- * tag: On return, tag to use for these DMA properties
- * alignment: Alignment restrictions on the DMA buffer, in bytes
- * min_addr: Minimum address supported by the device
- * max_addr: Maximum address supported by the device
- * max_segs: Maximum number of segments supported by the device
- * max_seg_size: Maximum number of bytes per segment supported
- */
-Result dma_tag_create(dma_tag_t parent, Device& dev, dma_tag_t* tag, int alignment, dma_addr_t min_addr, dma_addr_t max_addr, unsigned int max_segs, dma_size_t max_seg_size);
+class Buffer;
+class Tag;
+typedef Result (*dma_load_func_t)(void* ctx, BufferSegment* s, int num_segs);
 
-/* Destroys a given DMA tag */
-Result dma_tag_destroy(dma_tag_t tag);
+class Buffer final
+{
+	friend class Tag;
+public:
+	~Buffer();
 
-/*
- * Allocates a buffer intended for DMA to a given device.
- *
- * tag: DMA tag in use by the device
- */
-Result dma_buf_alloc(dma_tag_t tag, dma_size_t size, dma_buf_t* buf);
+	// Synchronise a DMA buffer prior to transmitting/post receiving data
+	void Synchronise(Sync type);
 
-/*
- * Frees a buffer
- */
-void dma_buf_free(dma_buf_t buf);
+	// Retrieve a given buffer's segments
+	util::vector<BufferSegment>& GetSegments() { return db_seg; }
 
-/* Synchronize a DMA buffer prior to transmitting/post receiving data */
-void dma_buf_sync(dma_buf_t buf, DMA_SYNC_TYPE type);
+	// Loads a given buffer to DMA-able addresses for the device */
+	Result Load(void* data, dma_size_t size, dma_load_func_t load, void* load_arg, int flags);
 
-/* Retrieves the number of segments for a given buffer */
-unsigned int dma_buf_get_segments(dma_buf_t buf);
+	/* Loads a BIO buffer to DMA-able addresses for the device */
+	Result LoadBIO(struct BIO* bio, dma_load_func_t load, void* load_arg, int flags);
 
-/* Retrieve a given buffer's segment */
-dma_buf_seg_t dma_buf_get_segment(dma_buf_t buf, unsigned int n);
+private:
+	Buffer(Tag& tag, dma_size_t size, dma_size_t seg_size, size_t num_segs);
 
-typedef Result (*dma_load_func_t)(void* ctx, struct DMA_BUFFER_SEGMENT* s, int num_segs);
+	Tag& db_tag;
+	dma_size_t db_size;
+	dma_size_t db_seg_size;
+	util::vector<BufferSegment> db_seg;
+};
 
-/* Loads a given buffer to DMA-able addresses for the device */
-Result dma_buf_load(dma_buf_t buf, void* data, dma_size_t size, dma_load_func_t load, void* load_arg, int flags);
+class Tag final
+{
+	friend class detail::Impl;
+	friend class Buffer;
+public:
+	// Allocates a buffer intended for DMA to a given device.
+	Result AllocateBuffer(dma_size_t size, Buffer*& buf);
 
-/* Loads a BIO buffer to DMA-able addresses for the device */
-Result dma_buf_load_bio(dma_buf_t buf, struct BIO* bio, dma_load_func_t load, void* load_arg, int flags);
+private:
+	// Parent tag, if any
+	Tag* t_parent = nullptr;
+
+	// Number of references to this tag
+	refcount_t t_refcount;
+
+	// Alignment to use, or zero for anything
+	int t_alignment = 0;
+
+	// Minimum/maximum address DMA-able
+	dma_addr_t t_min_addr, t_max_addr;
+
+	// Maximum number of segments supported per transaction
+	int t_max_segs;
+
+	// Maximum size per segment
+	dma_size_t t_max_seg_size;
+
+	Tag(Tag* parent, int alignment, dma_addr_t min_addr, dma_addr_t max_addr, int max_segs, dma_size_t max_seg_size);
+	void Release();
+};
+
+Tag* CreateTag(Tag* parent, int alignment, dma_addr_t min_addr, dma_addr_t max_addr, unsigned int max_segs, dma_size_t max_seg_size);
+
+} // namespace dma
 
 #endif /* __ANANAS_DMA_H__ */

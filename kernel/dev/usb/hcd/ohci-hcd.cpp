@@ -49,7 +49,7 @@ namespace ohci {
 // hardware uses! This means we cannot inherit from NodePtr
 struct HCD_TD {
 	struct OHCI_TD td_td;
-	dma_buf_t td_buf;
+	dma::Buffer* td_buf = nullptr;
 	uint32_t td_length;
 
 	struct HCD_TD* td_next;
@@ -63,7 +63,7 @@ struct HCD_ED {
 	/* Virtual addresses of the ED chain */
 	struct HCD_ED* ed_preved;
 	struct HCD_ED* ed_nexted;
-	dma_buf_t ed_buf;
+	dma::Buffer* ed_buf = nullptr;
 	Transfer* ed_xfer;
 
 	/* Active queue fields; used by ohci_irq() to check all active transfers */
@@ -73,13 +73,13 @@ struct HCD_ED {
 inline uint32_t
 GetPhysicalAddress(HCD_TD& td)
 {
-	return dma_buf_get_segment(td.td_buf, 0)->s_phys;
+	return td.td_buf->GetSegments().front().s_phys;
 }
 
 inline uint32_t
 GetPhysicalAddress(HCD_ED& ed)
 {
-	return dma_buf_get_segment(ed.ed_buf, 0)->s_phys;
+	return ed.ed_buf->GetSegments().front().s_phys;
 }
 
 void
@@ -137,7 +137,8 @@ DumpEDChain(HCD_ED* ed)
 void
 FreeTD(HCD_TD* td)
 {
-	dma_buf_free(td->td_buf);
+	delete td->td_buf;
+	td->td_buf = nullptr;
 }
 
 void
@@ -149,7 +150,8 @@ FreeED(HCD_ED* ed)
 		td = next_td;
 	}
 
-	dma_buf_free(ed->ed_buf);
+	delete ed->ed_buf;
+	ed->ed_buf = nullptr;
 }
 
 void
@@ -351,26 +353,26 @@ OHCI_HCD::OnIRQ()
 ohci::HCD_TD*
 OHCI_HCD::AllocateTD()
 {
-	dma_buf_t buf;
-	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct ohci::HCD_TD), &buf); result.IsFailure())
+	dma::Buffer* dma_buffer;
+	if (auto result = d_DMA_tag->AllocateBuffer(sizeof(struct ohci::HCD_TD), dma_buffer); result.IsFailure())
 		return nullptr;
 
-	auto td = static_cast<struct ohci::HCD_TD*>(dma_buf_get_segment(buf, 0)->s_virt);
+	auto td = static_cast<struct ohci::HCD_TD*>(dma_buffer->GetSegments().front().s_virt);
 	memset(td, 0, sizeof(struct ohci::HCD_TD));
-	td->td_buf = buf;
+	td->td_buf = dma_buffer;
 	return td;
 }
 
 ohci::HCD_ED*
 OHCI_HCD::AllocateED()
 {
-	dma_buf_t buf;
-	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct ohci::HCD_ED), &buf); result.IsFailure())
+	dma::Buffer* dma_buffer;
+	if (auto result = d_DMA_tag->AllocateBuffer(sizeof(struct ohci::HCD_ED), dma_buffer); result.IsFailure())
 		return nullptr;
 
-	auto ed = static_cast<struct ohci::HCD_ED*>(dma_buf_get_segment(buf, 0)->s_virt);
+	auto ed = static_cast<struct ohci::HCD_ED*>(dma_buffer->GetSegments().front().s_virt);
 	memset(ed, 0, sizeof(struct ohci::HCD_ED));
-	ed->ed_buf = buf;
+	ed->ed_buf = dma_buffer;
 	return ed;
 }
 
@@ -652,9 +654,9 @@ Result
 OHCI_HCD::Setup()
 {
 	/* Allocate and initialize the HCCA structure */
-	if (auto result = dma_buf_alloc(d_DMA_tag, sizeof(struct OHCI_HCCA), &ohci_hcca_buf); result.IsFailure())
+	if (auto result = d_DMA_tag->AllocateBuffer(sizeof(struct OHCI_HCCA), ohci_hcca_buf); result.IsFailure())
 		return result;
-	ohci_hcca = static_cast<struct OHCI_HCCA*>(dma_buf_get_segment(ohci_hcca_buf, 0)->s_virt);
+	ohci_hcca = static_cast<struct OHCI_HCCA*>(ohci_hcca_buf->GetSegments().front().s_virt);
 	memset(ohci_hcca, 0, sizeof(struct OHCI_HCCA));
 
 	/*
@@ -668,7 +670,7 @@ OHCI_HCD::Setup()
 		ohci_interrupt_ed[n] = ed;
 		ed->ed_ed.ed_flags = OHCI_ED_K;
 		if (n > 0)
-			ed->ed_ed.ed_nexted = dma_buf_get_segment(ohci_interrupt_ed[n - 1]->ed_buf, 0)->s_phys;
+			ed->ed_ed.ed_nexted = ohci_interrupt_ed[n - 1]->ed_buf->GetSegments().front().s_phys;
 		else
 			ed->ed_ed.ed_nexted = 0;
 	}
@@ -679,7 +681,7 @@ OHCI_HCD::Setup()
 		0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 5
 	};
 	for (unsigned int n = 0; n < 32; n++) {
-		ohci_hcca->hcca_inttable[n] = dma_buf_get_segment(ohci_interrupt_ed[tables[n]]->ed_buf, 0)->s_phys;
+		ohci_hcca->hcca_inttable[n] = ohci_interrupt_ed[tables[n]]->ed_buf->GetSegments().front().s_phys;
 	}
 
 	/* Allocate a control/bulk transfer ED */
@@ -708,8 +710,10 @@ OHCI_HCD::Attach()
 	}
 
 	/* Allocate DMA tags */
-	if (auto result = dma_tag_create(d_Parent->d_DMA_tag, *this, &d_DMA_tag, 1, 0, DMA_ADDR_MAX_32BIT, 1, DMA_SEGS_MAX_SIZE); result.IsFailure())
-		return result;
+	{
+		using namespace dma::limits;
+		d_DMA_tag = dma::CreateTag(d_Parent->d_DMA_tag, anyAlignment, minAddr, max32BitAddr, 1, maxSegmentSize);
+	}
 
 	ohci_Resources = ohci::HCD_Resources(static_cast<uint8_t*>(res_mem));
 
@@ -753,7 +757,7 @@ OHCI_HCD::Attach()
 	/* Now in USBSUSPEND state -> we have 2ms to continue */
 
 	/* ohci_Resources.Write addresses of our buffers */
-	ohci_Resources.Write4(OHCI_HCHCCA, dma_buf_get_segment(ohci_hcca_buf, 0)->s_phys);
+	ohci_Resources.Write4(OHCI_HCHCCA, ohci_hcca_buf->GetSegments().front().s_phys);
 	ohci_Resources.Write4(OHCI_HCCONTROLHEADED, ohci::GetPhysicalAddress(*ohci_control_ed));
 	ohci_Resources.Write4(OHCI_HCBULKHEADED, ohci::GetPhysicalAddress(*ohci_bulk_ed));
 

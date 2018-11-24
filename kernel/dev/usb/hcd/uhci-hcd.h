@@ -6,6 +6,10 @@
 #define UHCI_FRAMELIST_LEN	(4096 / 4)
 #define UHCI_NUM_INTERRUPT_QH	6 /* 1, 2, 4, 8, 16, 32ms queues */
 
+namespace dma {
+class Buffer;
+}
+
 namespace usb {
 namespace uhci {
 
@@ -95,7 +99,7 @@ protected:
 	irq::IRQResult OnIRQ() override;
 
 private:
-	dma_buf_t uhci_framelist_buf;
+	dma::Buffer* uhci_framelist_buf = nullptr;
 	uint32_t* uhci_framelist;
 
 	uhci::HCD_Resources uhci_Resources;

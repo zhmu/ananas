@@ -2,6 +2,7 @@
 #include "kernel/bio.h"
 #include "kernel/dev/sata.h"
 #include "kernel/device.h"
+#include "kernel/dma.h"
 #include "kernel/driver.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
@@ -87,9 +88,9 @@ Port::Attach()
 	/* Initialize the DMA buffers for requests */
 	for(unsigned int n = 0; n < 32; n++) {
 		Request* pr = &p_request[n];
-		if (auto result = dma_buf_alloc(p_device.d_DMA_tag, sizeof(struct AHCI_PCI_CT), &pr->pr_dmabuf_ct); result.IsFailure())
+		if (auto result = p_device.d_DMA_tag->AllocateBuffer(sizeof(struct AHCI_PCI_CT), pr->pr_dmabuf_ct); result.IsFailure())
 			return result;
-		pr->pr_ct = static_cast<struct AHCI_PCI_CT*>(dma_buf_get_segment(pr->pr_dmabuf_ct, 0)->s_virt);
+		pr->pr_ct = static_cast<struct AHCI_PCI_CT*>(pr->pr_dmabuf_ct->GetSegments().front().s_virt);
 	}
 
 	Device* sub_device = nullptr;
@@ -198,11 +199,11 @@ Port::Start()
 		ct->ct_prd[0].prde_dw3 = AHCI_PRDE_DW3_DBC(sr->sr_count - 1);
 		/* XXX handle atapi */
 		memcpy(&ct->ct_cfis[0], &sr->sr_fis.fis_h2d, sizeof(struct SATA_FIS_H2D));
-		dma_buf_sync(pr->pr_dmabuf_ct, DMA_SYNC_OUT);
+		pr->pr_dmabuf_ct->Synchronise(dma::Sync::Out);
 
 		/* Set up the command list entry and hook it to this table */
 		struct AHCI_PCI_CLE* cle = &p_cle[i];
-		uint64_t addr_ct = dma_buf_get_segment(pr->pr_dmabuf_ct, 0)->s_phys;
+		uint64_t addr_ct = pr->pr_dmabuf_ct->GetSegments().front().s_phys;
 		memset(cle, 0, sizeof(struct AHCI_PCI_CLE));
 		cle->cle_dw0 =
 		 AHCI_CLE_DW0_PRDTL(1) |
@@ -213,7 +214,7 @@ Port::Start()
 		cle->cle_dw1 = 0;
 		cle->cle_dw2 = AHCI_CLE_DW2_CTBA(addr_ct & 0xffffffff);
 		cle->cle_dw3 = AHCI_CLE_DW3_CTBAU(addr_ct >> 32);
-		dma_buf_sync(p_dmabuf_cl, DMA_SYNC_OUT);
+		p_dmabuf_cl->Synchronise(dma::Sync::Out);
 
 		/* Transmit the command */
 		p_request_active |= 1 << i;

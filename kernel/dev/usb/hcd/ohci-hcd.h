@@ -3,10 +3,13 @@
 
 #include <ananas/types.h>
 #include "kernel/device.h"
-#include "kernel/dma.h"
 #include "kernel/irq.h"
 
 #define OHCI_NUM_ED_LISTS 6 /* 1, 2, 4, 8, 16 and 32ms list */
+
+namespace dma {
+class Buffer;
+}
 
 namespace usb {
 
@@ -113,7 +116,7 @@ private:
 
 	irq::IRQResult OnIRQ() override;
 
-	dma_buf_t ohci_hcca_buf;
+	dma::Buffer* ohci_hcca_buf = nullptr;
 	OHCI_HCCA* ohci_hcca = nullptr;
 	ohci::HCD_ED* ohci_interrupt_ed[OHCI_NUM_ED_LISTS];
 	ohci::HCD_ED* ohci_control_ed = nullptr;
