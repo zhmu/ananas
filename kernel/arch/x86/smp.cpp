@@ -36,6 +36,7 @@ extern void* gdt;
 
 addr_t smp_ap_pagedir;
 
+namespace smp {
 namespace {
 
 template<typename Func>
@@ -128,7 +129,7 @@ map_device(addr_t phys)
 Page* smp_ap_pages;
 
 void
-smp_destroy_ap_pagetable()
+DestroyAPPageTable()
 {
 	if (smp_ap_pages != nullptr)
 		page_free(*smp_ap_pages);
@@ -311,7 +312,7 @@ void MapISAInterrupts(const ACPI_TABLE_MADT* madt, X86_IOAPIC& isa_ioapic, int b
  * have enough lower memory.
  */
 void
-smp_prepare()
+Prepare()
 {
 	ap_page = page_alloc_single();
 	KASSERT(ap_page->GetPhysicalAddress() < 0x100000, "ap code must be below 1MB"); /* XXX crude */
@@ -322,15 +323,15 @@ smp_prepare()
  * multiprocessing.
  */
 void
-smp_init()
+Init()
 {
 	/*
 	 * The AP's start in real mode, so we need to provide them with a stub so
 	 * they can run in protected mode. This stub must be located in the lower
-	 * 1MB (which is why it is allocated as soon as possible in smp_prepare())
+	 * 1MB (which is why it is allocated as soon as possible in Prepare())
 	 */
 	{
-		KASSERT(ap_page != nullptr, "smp_prepare() not called");
+		KASSERT(ap_page != nullptr, "Prepare() not called");
 		void* ap_code = kmem_map(ap_page->GetPhysicalAddress(), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_EXECUTE);
 		memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
 		kmem_unmap(ap_code, PAGE_SIZE);
@@ -450,21 +451,23 @@ const init::OnInit initSMPLaunch(init::SubSystem::Scheduler, init::Order::Middle
 
 	/* All done - we can throw away the AP code and mappings */
 	page_free(*ap_page);
-	smp_destroy_ap_pagetable();
+	DestroyAPPageTable();
 });
 
 void
-smp_panic_others()
+PanicOthers()
 {
 	if (num_smp_launched > 1)
 		*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_FIXED | SMP_IPI_PANIC;
 }
 
 void
-smp_broadcast_schedule()
+BroadcastSchedule()
 {
 	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_INC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_FIXED | SMP_IPI_SCHEDULE;
 }
+
+} // namespace smp
 
 /*
  * Called by mp_stub.S for every Application Processor. Should not return.
@@ -477,10 +480,10 @@ mp_ap_startup(uint32_t lapic_id)
   PCPU_SET(curthread, idlethread);
   scheduler::AddThread(*idlethread);
 
-	InitializeLAPIC(lapic_id);
+	smp::InitializeLAPIC(lapic_id);
 
 	/* Wait for it ... */
-	while (!can_smp_launch)
+	while (!smp::can_smp_launch)
 		/* nothing */ ;
 
 	/* We're up and running! Increment the launched count */

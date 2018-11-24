@@ -3,9 +3,7 @@
 #include "kernel/lib.h"
 #include "kernel/schedule.h"
 #include "options.h"
-#ifdef OPTION_SMP
 #include "kernel/x86/smp.h" // XXX
-#endif
 #include "kernel-md/interrupts.h"
 
 namespace {
@@ -21,13 +19,11 @@ _panic(const char* file, const char* func, int line, const char* fmt, ...)
 	va_list ap;
 	md::interrupts::Disable();
 
-#ifdef OPTION_SMP
 	/*
 	 * Ensure our other CPU's do not continue - we do not want to make things
 	 * worse.
 	 */
-	smp_panic_others();
-#endif
+	smp::PanicOthers();
 
 	/*
 	 * Do our best to detect double panics; this will at least give more of a
@@ -42,7 +38,7 @@ _panic(const char* file, const char* func, int line, const char* fmt, ...)
 	}
 
 	/* disable the scheduler - this ensures any extra BSP's will not run threads either */
-	scheduler_deactivate();
+	scheduler::Deactivate();
 
 	kprintf("panic in %s:%u (%s): ", file, line, func);
 

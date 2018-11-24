@@ -98,20 +98,10 @@ OnTick()
 		}
 	}
 
-	if (!scheduler_activated())
+	if (!scheduler::IsActive())
 		return;
 
-#ifdef OPTION_SMP
-	smp_broadcast_schedule();
-#else
-	/*
-	 * Timeslice is up -> next thread please; we can implement this
-	 * by simply setting the 'want to reschedule' flag.
-	 */
-	Thread* curthread = PCPU_GET(curthread);
-	curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
-#endif
-
+	smp::BroadcastSchedule();
 }
 
 } // namespace time

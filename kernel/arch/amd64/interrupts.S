@@ -238,7 +238,6 @@ APIC_IRQ_RANGE_HANDLER(5)
 APIC_IRQ_RANGE_HANDLER(6)
 APIC_IRQ_RANGE_HANDLER(7)
 
-#ifdef OPTION_SMP
 .globl	irq_spurious, ipi_schedule, ipi_panic
 irq_spurious:
 	iretq
@@ -248,7 +247,6 @@ ipi_schedule:
 
 ipi_panic:
 	IRQ_HANDLER(SMP_IPI_PANIC)
-#endif
 
 /*
  * System call handler - will be called using SYSCALL; only %cs/%ss will be set

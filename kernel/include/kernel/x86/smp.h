@@ -18,12 +18,12 @@ struct X86_CPU {
 
 class Result;
 
-void smp_init();
-
-void smp_prepare();
-void smp_prepare_config(struct X86_SMP_CONFIG* cfg);
-void smp_panic_others();
-void smp_broadcast_schedule();
+namespace smp {
+void Init();
+void Prepare();
+void PanicOthers();
+void BroadcastSchedule();
+} // namespace smp
 #endif
 
 #endif /* __X86_SMP_H__ */

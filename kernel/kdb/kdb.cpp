@@ -11,9 +11,7 @@
 #ifdef OPTION_DEBUG_CONSOLE
 #include "kernel/debug-console.h"
 #endif
-#ifdef OPTION_SMP
 #include "kernel/x86/smp.h"
-#endif
 #include "kernel-md/interrupts.h"
 
 TRACE_SETUP;
@@ -288,10 +286,8 @@ Enter(const char* why)
 	/* Kill interrupts */
 	int ints = md::interrupts::SaveAndDisable();
 
-#ifdef OPTION_SMP
-	/* XXX We can't recover from this! */
-	smp_panic_others();
-#endif
+	// XXX We can't recover from this - so we can't ever leave the debugger...
+	smp::PanicOthers();
 
 	/* Redirect console to ourselves */
 	Device* old_console_tty = console_tty;

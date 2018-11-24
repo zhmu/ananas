@@ -323,7 +323,7 @@ setup_memory(addr_t& avail)
 		 * and this is a handy, though crude way to avoid it.
 		 */
 		if (n == 0)
-			smp_prepare();
+			smp::Prepare();
 	}
 }
 
@@ -593,7 +593,7 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 	 * Initialize the SMP parts - as x86 SMP relies on an APIC, we do this here
 	 * to prevent problems due to devices registering interrupts.
 	 */
-	smp_init();
+	smp::Init();
 
 	// Initialize the PIT
 	x86_pit_init();
