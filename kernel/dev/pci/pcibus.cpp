@@ -39,11 +39,11 @@ PCIBus::Attach()
 		 * Fetch the header-type; this is used to figure out whether this is an
  		 * ordinary PCI device or not
 		 */
-		unsigned int max_func = 0;
+		unsigned int max_func = 1;
 		if (pci_read_config(busno, devno, 0, PCI_REG_HEADERTIMER, 32) & PCI_HEADER_MULTI)
 			max_func = PCI_MAX_FUNCS;
 
-		for (unsigned int funcno = 0; funcno <= max_func; funcno++) {
+		for (unsigned int funcno = 0; funcno < max_func; funcno++) {
 			dev_vendor = pci_read_config(busno, devno, funcno, PCI_REG_DEVICEVENDOR, 32);
 			if ((uint32_t)(dev_vendor & 0xffff) == PCI_NOVENDOR)
 				continue; /* nothing here */
