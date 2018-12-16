@@ -43,6 +43,15 @@ struct X86_IOAPIC final : irq::IRQSource
 	void Acknowledge(int no) override;
 	static void AcknowledgeAll();
 
+	enum class DeliveryMode {
+		Fixed,
+		LowestPriority,
+		SMI,
+		NMI,
+		INIT,
+		ExtInt
+	};
+
 	enum class Polarity {
 		Low,
 		High
@@ -53,19 +62,31 @@ struct X86_IOAPIC final : irq::IRQSource
 		Edge
 	};
 
-	void SetupPin(int pin, int dest_irq, Polarity polarity, TriggerLevel triggerLevel, int dest_apic_id);
+	void ConfigurePin(int pinNumber, int dest_vector, int dest_cpu, DeliveryMode deliverymode, Polarity polarity, TriggerLevel triggerLevel);
+	void ApplyConfiguration();
+	void DumpConfiguration();
 
 private:
 	void WriteRegister(uint32_t reg, uint32_t val);
 	uint32_t ReadRegister(uint32_t reg);
 
 	addr_t		ioa_addr;
+	int		ioa_id;
 	int		ioa_irq_base;
 
 	struct Pin
 	{
+		int	p_pin;
+		int	p_vector;
+		int	p_cpu;			// Note: APIC ID
 		bool	p_masked = true;
+		DeliveryMode	p_deliverymode;
+		Polarity	p_polarity;
+		TriggerLevel	p_triggerlevel;
 	};
+	Pin& FindPinByVector(int vector);
+	void ApplyPin(const Pin& pin);
+
 	util::vector<Pin>	ioa_pins;
 };
 

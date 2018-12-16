@@ -373,7 +373,8 @@ setup_descriptors()
 	IDT_SET_ENTRY(18, SEG_TGATE_TYPE, 0, exception18);
 	IDT_SET_ENTRY(19, SEG_TGATE_TYPE, 0, exception19);
 	// Use interrupt gates for IRQ's so that we can keep track of the nesting
-	for (int n = 0; n < 16; n++) {
+	// XXX We only map IRQ0..31 here; we should map everything or do things on-demand...
+	for (int n = 0; n < 32; n++) {
 		IDT_SET_ENTRY((32 + n), SEG_IGATE_TYPE, 0, lapic_irq_range_1);
 	}
 

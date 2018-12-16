@@ -1,5 +1,6 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
+#include <ananas/util/algorithm.h>
 #include "kernel/init.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
@@ -39,6 +40,9 @@ addr_t smp_ap_pagedir;
 namespace smp {
 namespace {
 
+constexpr size_t numberOfISAInterrupts = 16;
+constexpr int irqVectorBase = 32;
+
 template<typename Func>
 void WalkMADT(const ACPI_TABLE_MADT* madt, Func func)
 {
@@ -47,17 +51,6 @@ void WalkMADT(const ACPI_TABLE_MADT* madt, Func func)
 		func(sub);
 		sub = reinterpret_cast<const ACPI_SUBTABLE_HEADER*>((char*)sub + sub->Length);
 	}
-}
-
-template<typename Container>
-X86_IOAPIC*
-FindIOAPICForISAPins(Container& container)
-{
-	for(auto ioapic: container) {
-		if (ioapic->GetFirstInterruptNumber() == 0 && ioapic->GetInterruptCount() >= 15)
-			return ioapic;
-	}
-	return nullptr;
 }
 
 Page* ap_page = nullptr;
@@ -242,10 +235,13 @@ void MapISAInterrupts(const ACPI_TABLE_MADT* madt, X86_IOAPIC& isa_ioapic, int b
 	};
 
 	// Identity-map all interrupts; the MADT only contains explicit overrides
-	util::array<ISA_INTERRUPT, 16> isa_interrupts;
-	for(size_t n = 0; n < 16; n++) {
+	util::array<ISA_INTERRUPT, numberOfISAInterrupts> isa_interrupts;
+	for(size_t n = 0; n < isa_interrupts.size(); n++) {
 		isa_interrupts[n].i_source = n;
 		isa_interrupts[n].i_dest = n;
+		// ISA interrupts are active-hi, edge-triggered
+		isa_interrupts[n].i_polarity = X86_IOAPIC::Polarity::High;
+		isa_interrupts[n].i_triggerlevel = X86_IOAPIC::TriggerLevel::Edge;
 	}
 
 	// Third walk, handle ISA interrupt overrides
@@ -293,15 +289,21 @@ void MapISAInterrupts(const ACPI_TABLE_MADT* madt, X86_IOAPIC& isa_ioapic, int b
 			isa_interrupts[io->GlobalIrq].i_dest = -1;
 	});
 
+	/*
+	 * Map the first vector as ExtInt, also known as the 'virtual interrupt
+	 * wire'. We always keep it masked.
+	 */
+	isa_ioapic.ConfigurePin(0, 0, bsp_apic_id, X86_IOAPIC::DeliveryMode::ExtInt, X86_IOAPIC::Polarity::High, X86_IOAPIC::TriggerLevel::Edge);
+
 	// Wire ISA interrupts to the corresponding I/O APIC
 	for(const auto& isa_interrupt: isa_interrupts) {
-#if SMP_DEBUG
-		kprintf("ISA: source=%u, dest=%u\n", isa_interrupt.i_source, isa_interrupt.i_dest);
-#endif
 		if (isa_interrupt.i_dest < 0)
 			continue;
 
-		isa_ioapic.SetupPin(isa_interrupt.i_dest, isa_interrupt.i_source + 0x20, isa_interrupt.i_polarity, isa_interrupt.i_triggerlevel, bsp_apic_id);
+#if SMP_DEBUG
+		kprintf("ISA: source=%u, dest=%u\n", isa_interrupt.i_source, isa_interrupt.i_dest);
+#endif
+		isa_ioapic.ConfigurePin(isa_interrupt.i_dest, isa_interrupt.i_source + irqVectorBase, bsp_apic_id, X86_IOAPIC::DeliveryMode::Fixed, isa_interrupt.i_polarity, isa_interrupt.i_triggerlevel);
 	}
 }
 
@@ -398,9 +400,23 @@ Init()
 
 	// Map all ISA interrupts to the BSP
 	{
-		auto isa_ioapic = FindIOAPICForISAPins(x86_ioapics);
-		KASSERT(isa_ioapic != nullptr, "no suitable IOAPIC found for ISA interrupts");
+		auto it = util::find_if(x86_ioapics, [](const X86_IOAPIC* ioapic) {
+			return ioapic->GetFirstInterruptNumber() == 0 && ioapic->GetInterruptCount() >= 15;
+		});
+		KASSERT(*it != nullptr, "no suitable IOAPIC found for ISA interrupts");
+		auto isa_ioapic = *it;
 		MapISAInterrupts(madt, *isa_ioapic, bsp_apic_id);
+	}
+
+	// Wire everything else as PCI interrupts
+	for(auto& ioapic: x86_ioapics) {
+		for (int vector = ioapic->GetFirstInterruptNumber(); vector < ioapic->GetFirstInterruptNumber() + ioapic->GetInterruptCount(); vector++) {
+			if (vector < numberOfISAInterrupts)
+				continue;
+
+			kprintf("ioapic: routing pin %d -> irq %d\n", vector, vector + irqVectorBase);
+			ioapic->ConfigurePin(vector, vector + irqVectorBase, bsp_apic_id, X86_IOAPIC::DeliveryMode::Fixed, X86_IOAPIC::Polarity::Low, X86_IOAPIC::TriggerLevel::Level);
+		}
 	}
 
 	/*
@@ -413,7 +429,9 @@ Init()
 	if (auto result = irq::Register(SMP_IPI_SCHEDULE, NULL, IRQ_TYPE_IPI, ipiSchedulerHandler); result.IsFailure())
 		panic("can't register ipi");
 	for (auto& ioapic: x86_ioapics) {
-			irq::RegisterSource(*ioapic);
+		ioapic->DumpConfiguration();
+		ioapic->ApplyConfiguration();
+		irq::RegisterSource(*ioapic);
 	}
 
 	InitializeIdentifyMappedPagetableForAPs();

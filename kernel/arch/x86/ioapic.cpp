@@ -1,10 +1,17 @@
+#include <ananas/util/algorithm.h>
 #include "kernel/x86/apic.h"
 #include "kernel/x86/ioapic.h"
 #include "kernel-md/vm.h"
 #include "kernel/lib.h"
 
+namespace {
+
+constexpr int numberOfISAVectors = 16;
+
+} // unnamed namespace
+
 X86_IOAPIC::X86_IOAPIC(uint8_t id, addr_t addr, int base_irq)
-	: ioa_addr(addr), ioa_irq_base(base_irq)
+	: ioa_addr(addr), ioa_id(id), ioa_irq_base(base_irq)
 {
 	// Program the IOAPIC ID; some BIOS'es do not do this
 	WriteRegister(IOAPICID, id << 24);
@@ -13,10 +20,14 @@ X86_IOAPIC::X86_IOAPIC(uint8_t id, addr_t addr, int base_irq)
 	int irq_count = (ReadRegister(IOAPICVER) >> 16) & 0xff;
 	ioa_pins.resize(irq_count);
 
-	// Start by masking everything so we don't get any spurious interrupts we are
-	// not ready for
-	for(size_t n = 0; n < ioa_pins.size(); n++)
-		Mask(n);
+	// Initially, come up with some sane defaults which mask everything
+	for(size_t pinNumber = 0; pinNumber < ioa_pins.size(); pinNumber++) {
+		auto& pin = ioa_pins[pinNumber];
+		pin.p_pin = pinNumber;
+		pin.p_vector = ioa_irq_base + pinNumber;
+		pin.p_deliverymode = DeliveryMode::Fixed;
+		pin.p_masked = true;
+	}
 }
 
 int X86_IOAPIC::GetFirstInterruptNumber() const
@@ -46,7 +57,11 @@ X86_IOAPIC::ReadRegister(uint32_t reg)
 void
 X86_IOAPIC::Mask(int no)
 {
-	uint32_t reg = IOREDTBL + no * 2;
+	KASSERT(no >= 0 && no < static_cast<int>(ioa_pins.size()), "masking out-of-bounds irq %d", no);
+	auto& pin = FindPinByVector(0x20 + no);
+	pin.p_masked = true;
+
+	uint32_t reg = IOREDTBL + pin.p_pin * 2;
 	*reinterpret_cast<volatile uint32_t*>(ioa_addr + IOREGSEL) = reg & 0xff;
 	*reinterpret_cast<volatile uint32_t*>(ioa_addr + IOWIN) |= MASKED;
 }
@@ -54,7 +69,11 @@ X86_IOAPIC::Mask(int no)
 void
 X86_IOAPIC::Unmask(int no)
 {
-	uint32_t reg = IOREDTBL + no * 2;
+	KASSERT(no >= 0 && no < static_cast<int>(ioa_pins.size()), "unmasking out-of-bounds irq %d", no);
+	auto& pin = FindPinByVector(0x20 + no);
+	pin.p_masked = false;
+
+	uint32_t reg = IOREDTBL + pin.p_pin * 2;
 	*reinterpret_cast<volatile uint32_t*>(ioa_addr + IOREGSEL) = reg & 0xff;
 	*reinterpret_cast<volatile uint32_t*>(ioa_addr + IOWIN) &= ~MASKED;
 }
@@ -72,17 +91,128 @@ X86_IOAPIC::Acknowledge(int no)
 }
 
 void
-X86_IOAPIC::SetupPin(int pin, int dest_irq, Polarity polarity, TriggerLevel triggerLevel, int dest_apic_id)
+X86_IOAPIC::ConfigurePin(int pinNumber, int dest_vector, int dest_cpu, DeliveryMode deliverymode, Polarity polarity, TriggerLevel triggerLevel)
 {
-	KASSERT(dest_irq >= 0x10 && dest_irq <= 0xff, "invalid interrupt destination irq %d", dest_irq);
-	uint32_t reg = IOREDTBL + (pin * 2);
-	uint64_t val = DESTMOD_PHYSICAL | DELMOD_FIXED | dest_irq;
-	if (polarity == Polarity::Low)
-		val |= INTPOL;
-	if (triggerLevel == TriggerLevel::Level)
-		val |= TRIGGER_LEVEL;
-	WriteRegister(reg, val);
-	WriteRegister(reg + 1, dest_apic_id << 24);
+	KASSERT(pinNumber >= 0 && pinNumber < ioa_pins.size(), "invalid pin %d", pinNumber);
+
+	auto& pin = ioa_pins[pinNumber];
+	pin.p_vector = dest_vector;
+	pin.p_cpu = dest_cpu;
+	pin.p_deliverymode = deliverymode;
+	pin.p_polarity = polarity;
+	pin.p_triggerlevel = triggerLevel;
 }
+
+void
+X86_IOAPIC::ApplyPin(const X86_IOAPIC::Pin& pin)
+{
+	uint64_t low = DESTMOD_PHYSICAL;
+	switch(pin.p_deliverymode) {
+		default:
+		case DeliveryMode::Fixed:
+			low |= DELMOD_FIXED | pin.p_vector;
+			break;
+		case DeliveryMode::LowestPriority:
+			low |= DELMOD_LOWPRIO;
+			break;
+		case DeliveryMode::SMI:
+			low |= DELMOD_SMI;
+			break;
+		case DeliveryMode::NMI:
+			low |= DELMOD_NMI;
+			break;
+		case DeliveryMode::INIT:
+			low |= DELMOD_INIT;
+			break;
+		case DeliveryMode::ExtInt:
+			low |= DELMOD_EXTINT;
+			break;
+	}
+	low |= (pin.p_polarity == Polarity::Low) ? INTPOL : 0;
+	low |= (pin.p_triggerlevel == TriggerLevel::Level) ? TRIGGER_LEVEL : TRIGGER_EDGE;
+	if (pin.p_masked)
+		low |= MASKED;
+	uint64_t high = pin.p_cpu << 24;
+
+	uint32_t reg = IOREDTBL + (pin.p_pin * 2);
+	WriteRegister(reg, low);
+	WriteRegister(reg + 1, high);
+}
+
+void
+X86_IOAPIC::ApplyConfiguration()
+{
+	util::for_each(ioa_pins, [this](const Pin& pin) {
+		ApplyPin(pin);
+	});
+}
+
+void
+X86_IOAPIC::DumpConfiguration()
+{
+	constexpr auto resolveDeliveryMode = [](DeliveryMode dm) {
+		switch(dm) {
+			case DeliveryMode::Fixed:
+				return "FIXED";
+			case DeliveryMode::LowestPriority:
+				return "LPRIO";
+			case DeliveryMode::SMI:
+				return "SMI";
+			case DeliveryMode::NMI:
+				return "NMI";
+			case DeliveryMode::INIT:
+				return "INIT";
+			case DeliveryMode::ExtInt:
+				return "EXTINT";
+			default:
+				return "???";
+		}
+	};
+	constexpr auto resolvePolarity = [](Polarity polarity) {
+		switch(polarity) {
+			case Polarity::Low:
+				return "lo";
+			case Polarity::High:
+				return "hi";
+			default:
+				return "???";
+		}
+	};
+	constexpr auto resolveTriggerLevel = [](TriggerLevel triggerlevel) {
+		switch(triggerlevel) {
+			case TriggerLevel::Level:
+				return "level";
+			case TriggerLevel::Edge:
+				return "edge";
+			default:
+				return "???";
+		}
+	};
+
+	kprintf("ioapic id %d: addr %p base %d\n", ioa_id, ioa_addr, ioa_irq_base);
+	kprintf("pin vector cpu masked   mode pol trigger\n");
+	for(const auto& pin: ioa_pins) {
+		kprintf("%3d    %3d  %2d     %c  %6s %3s %s\n",
+		 pin.p_pin, pin.p_vector, pin.p_cpu, pin.p_masked ? 'Y' : '-',
+		 resolveDeliveryMode(pin.p_deliverymode),
+		 resolvePolarity(pin.p_polarity),
+		 resolveTriggerLevel(pin.p_triggerlevel));
+	}
+}
+
+X86_IOAPIC::Pin&
+X86_IOAPIC::FindPinByVector(int vector)
+{
+	auto it = util::find_if(ioa_pins, [vector](const Pin& pin) {
+		return pin.p_vector == vector;
+	});
+	if (it ==ioa_pins.end()) {
+		kprintf("vector %d not found!!\n", vector);
+		DumpConfiguration();
+	}
+	KASSERT(it != ioa_pins.end(), "vector %d not found", vector);
+	return *it;
+}
+
 
 /* vim:set ts=2 sw=2: */

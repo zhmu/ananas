@@ -1,3 +1,4 @@
+#include <ananas/util/algorithm.h>
 #include <machine/param.h>
 #include <ananas/types.h>
 #include "kernel/device.h"
@@ -27,23 +28,20 @@ constexpr inline int maxStrayCount = 10;
 IRQSource*
 FindSource(unsigned int num)
 {
-	for(auto& is: irqSources) {
-		if (num < is.GetFirstInterruptNumber() || num >= is.GetFirstInterruptNumber() + is.GetInterruptCount())
-			continue;
-		return &is;
-	}
-	return nullptr;
+	auto it = util::find_if(irqSources, [&](const IRQSource& is) {
+		return num >= is.GetFirstInterruptNumber() && num <= is.GetFirstInterruptNumber() + is.GetInterruptCount();
+	});
+	return it != irqSources.end() ? &*it : nullptr;
 }
 
 // Must be called with spl_irq held
 IRQHandler*
-FindFreeHandlerSlot(IRQ& i)
+FindFreeHandlerSlot(IRQ& irq)
 {
-	for (auto& handler: i.i_handler) {
-		if (handler.h_handler == nullptr)
-			return &handler;
-	}
-	return nullptr;
+	auto it = util::find_if(irq.i_handler, [](const IRQHandler& ih) {
+		return ih.h_handler == nullptr;
+	});
+	return it != irq.i_handler.end() ? &*it : nullptr;
 }
 
 } // unnamed namespace
@@ -195,6 +193,9 @@ Register(unsigned int no, Device* dev, int type, IHandler& irqHandler)
 	}
 
 	spl_irq.UnlockUnpremptible(state);
+
+	// Unmask the interrupt; the caller shouldn't worry about this
+	is->Unmask(no - is->GetFirstInterruptNumber());
 	return Result::Success();
 }
 
@@ -220,6 +221,8 @@ Unregister(unsigned int no, Device* dev, IHandler& irqHandler)
 	}
 
 	KASSERT(isUnregistered, "interrupt %u not registered", no);
+
+	// XXX We should mask the interrupt, if it has no consumers left
 }
 
 void
