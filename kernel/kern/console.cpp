@@ -109,7 +109,6 @@ console_puts(const char* s)
 void
 console_putstring(const char* s)
 {
-#if 0
 	if (console_mutex_inuse && !mtx_console.TryLock()) {
 		SpinlockUnpremptibleGuard g(console_backlog_lock);
 
@@ -128,10 +127,8 @@ console_putstring(const char* s)
 		}
 		return;
 	}
-#endif
 	console_puts(s);
 
-#if 0
 	/* See if there's anything in the backlog that we can print */
 	if (console_backlog_pos > 0) {
 		SpinlockUnpremptibleGuard g(console_backlog_lock);
@@ -146,7 +143,6 @@ console_putstring(const char* s)
 
 	if (console_mutex_inuse)
 		mtx_console.Unlock();
-#endif
 }
 
 uint8_t
