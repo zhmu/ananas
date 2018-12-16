@@ -97,6 +97,20 @@ ACPI::Attach()
 		AcpiInstallFixedEventHandler(ACPI_EVENT_POWER_BUTTON, &PowerButtonEventWrapper, this);
 	}
 
+	// Inform ACPI of our interrupt model - we'll assume the presence of an APIC here
+	{
+		constexpr int pic_Mode_APIC = 1;
+		ACPI_OBJECT obj;
+		obj.Type = ACPI_TYPE_INTEGER;
+		obj.Integer.Value = pic_Mode_APIC;
+
+		ACPI_OBJECT_LIST objectList;
+		objectList.Count = 1;
+		objectList.Pointer = &obj;
+
+		AcpiEvaluateObject(ACPI_ROOT_OBJECT, const_cast<char*>("_PIC"), &objectList, nullptr);
+	}
+
 	/*
 	 * Now enumerate through all ACPI devices and see what we can find.
 	 */
