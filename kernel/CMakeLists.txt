@@ -62,7 +62,6 @@ set(FS_ANKHFS 1)
 set(FS_CRAMFS 1)
 set(FS_EXT2 1)
 set(FS_FAT 1)
-set(FS_ISO9660 1)
 
 #
 add_subdirectory(arch)
