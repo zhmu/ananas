@@ -42,7 +42,6 @@ endfunction()
 set(OPTION_KDB 1)
 set(OPTION_GDB 1)
 set(OPTION_DEBUG_CONSOLE 1)
-set(OPTION_ZLIB 1)
 
 set(DEVICE_AHCI 1)
 set(DEVICE_ATA 1)
@@ -59,7 +58,6 @@ set(DEVICE_USB 1)
 set(DEVICE_VCONSOLE 1)
 
 set(FS_ANKHFS 1)
-set(FS_CRAMFS 1)
 set(FS_EXT2 1)
 set(FS_FAT 1)
 
