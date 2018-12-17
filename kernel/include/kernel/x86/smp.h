@@ -4,7 +4,7 @@
 #define SMP_IPI_FIRST		0xf0
 #define SMP_IPI_COUNT		4
 #define SMP_IPI_PANIC		0xf0	/* IPI used to trigger panic situation on other CPU's */
-#define SMP_IPI_SCHEDULE	0xf2	/* IPI used to trigger re-schedule */
+#define SMP_IPI_PERIODIC	0xf1	/* periodic cpu-local timer interrupt */
 
 #ifndef ASM
 
@@ -22,7 +22,8 @@ namespace smp {
 void Init();
 void Prepare();
 void PanicOthers();
-void BroadcastSchedule();
+void InitTimer();
+
 } // namespace smp
 #endif
 

@@ -6,13 +6,12 @@
 #include "kernel/mm.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
+#include "kernel/x86/pit.h"
 #include "kernel-md/interrupts.h"
 #include "options.h" // for ARCHITECTURE
 
 /* If set, display the entire init tree before launching it */
 #define VERBOSE_INIT 0
-
-extern int md_cpu_clock_mhz;
 
 namespace init {
 namespace {
@@ -93,9 +92,7 @@ const init::OnInit helloWorld(init::SubSystem::Console, init::Order::Last, []()
 	unsigned int total_pages, avail_pages;
 	page_get_stats(&total_pages, &avail_pages);
 	kprintf("Memory: %uKB available / %uKB total\n", avail_pages * (PAGE_SIZE / 1024), total_pages * (PAGE_SIZE / 1024));
-#if defined(__amd64__)
-	kprintf("CPU: %u MHz\n", md_cpu_clock_mhz);
-#endif
+	kprintf("CPU: %u MHz\n", x86_get_cpu_frequency());
 });
 
 void

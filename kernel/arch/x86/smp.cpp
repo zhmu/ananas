@@ -9,6 +9,7 @@
 #include "kernel/result.h"
 #include "kernel/schedule.h"
 #include "kernel/thread.h"
+#include "kernel/time.h"
 #include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel/x86/io.h"
@@ -36,12 +37,24 @@ extern "C" volatile int num_smp_launched = 1; /* BSP is always launched */
 extern void* gdt;
 
 addr_t smp_ap_pagedir;
+int lapic_freq = -1;
 
 namespace smp {
 namespace {
 
+constexpr uint32_t maxLAPICTimerCount = 0xffffffff;
 constexpr size_t numberOfISAInterrupts = 16;
 constexpr int irqVectorBase = 32;
+
+inline void WriteLAPIC(int reg, uint32_t val)
+{
+	*(reinterpret_cast<volatile uint32_t*>(lapic_base + reg)) = val;
+}
+
+inline uint32_t ReadLAPIC(int reg)
+{
+	return *(reinterpret_cast<volatile uint32_t*>(lapic_base + reg));
+}
 
 template<typename Func>
 void WalkMADT(const ACPI_TABLE_MADT* madt, Func func)
@@ -89,16 +102,21 @@ void IPISource::Acknowledge(int no)
 	X86_IOAPIC::AcknowledgeAll();
 }
 
-struct IPISchedulerHandler : irq::IHandler
+struct IPIPeriodicHandler : irq::IHandler
 {
 	irq::IRQResult OnIRQ() override
 	{
-		/* Flip the reschedule flag of the current thread; this makes the IRQ reschedule us as needed */
+		// If we are the BSP, advance time by one tick
+		int cpuid = PCPU_GET(cpuid);
+		if (cpuid == 0)
+			time::OnTick();
+
+		// Flip the reschedule flag of the current thread; this makes the IRQ reschedule us as needed
 		Thread* curthread = PCPU_GET(curthread);
 		curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
 		return irq::IRQResult::Processed;
 	}
-} ipiSchedulerHandler;
+} ipiPeriodicHandler;
 
 struct IPIPanicHandler : irq::IHandler
 {
@@ -176,7 +194,7 @@ InitializeCPUs()
 void InitializeLAPIC(int lapic_id)
 {
 	// Reset destination format to flat mode
-	*reinterpret_cast<volatile uint32_t*>(lapic_base + LAPIC_DF) = 0xffffffff;
+	WriteLAPIC(LAPIC_DF, 0xffffffff);
 	// Ensure we are the logical destination of our local APIC
 	auto v = reinterpret_cast<volatile uint32_t*>(lapic_base + LAPIC_LD);
 	*v = (*v & 0x00ffffff) | 1 << (lapic_id + 24);
@@ -194,7 +212,7 @@ int InitializeLAPICForBSP(const ACPI_TABLE_MADT* madt)
 	lapic_base = map_device<char*>(madt->Address);
 	KASSERT((addr_t)lapic_base == PTOKV(madt->Address), "mis-mapped lapic (%p != %p)", lapic_base, PTOKV(madt->Address));
 	/* Fetch our local APIC ID, we need to program it shortly */
-	int bsp_apic_id = (*reinterpret_cast<volatile uint32_t*>(lapic_base + LAPIC_ID)) >> 24;
+	int bsp_apic_id = ReadLAPIC(LAPIC_ID) >> 24;
 
 	InitializeLAPIC(bsp_apic_id);
 	return bsp_apic_id;
@@ -305,6 +323,32 @@ void MapISAInterrupts(const ACPI_TABLE_MADT* madt, X86_IOAPIC& isa_ioapic, int b
 #endif
 		isa_ioapic.ConfigurePin(isa_interrupt.i_dest, isa_interrupt.i_source + irqVectorBase, bsp_apic_id, X86_IOAPIC::DeliveryMode::Fixed, isa_interrupt.i_polarity, isa_interrupt.i_triggerlevel);
 	}
+}
+
+void SetLAPICTimerDivisor(int divisor)
+{
+	const int dv = [](int divisor) {
+		switch(divisor) {
+			case 1: return LAPIC_LVT_DV_1;
+			case 2: return LAPIC_LVT_DV_2;
+			case 4: return LAPIC_LVT_DV_4;
+			case 8: return LAPIC_LVT_DV_8;
+			case 16: return LAPIC_LVT_DV_16;
+			case 32: return LAPIC_LVT_DV_32;
+			case 64: return LAPIC_LVT_DV_64;
+			case 128: return LAPIC_LVT_DV_128;
+			default: panic("unsupported divisor %d", divisor);
+		}
+	}(divisor);
+
+	WriteLAPIC(LAPIC_LVT_DCR, dv);
+}
+
+void StartLAPICPeriodicTimer()
+{
+	const auto count = lapic_freq / time::GetPeriodicyInHz();
+	WriteLAPIC(LAPIC_LVT_TR, LAPIC_LVT_TM_PERIODIC | SMP_IPI_PERIODIC);
+	WriteLAPIC(LAPIC_LVT_ICR, count);
 }
 
 } // unnamed namespace
@@ -426,7 +470,7 @@ Init()
 	irq::RegisterSource(ipi_source);
 	if (auto result = irq::Register(SMP_IPI_PANIC, NULL, IRQ_TYPE_IPI, ipiPanicHandler); result.IsFailure())
 		panic("can't register ipi");
-	if (auto result = irq::Register(SMP_IPI_SCHEDULE, NULL, IRQ_TYPE_IPI, ipiSchedulerHandler); result.IsFailure())
+	if (auto result = irq::Register(SMP_IPI_PERIODIC, NULL, IRQ_TYPE_IPI, ipiPeriodicHandler); result.IsFailure())
 		panic("can't register ipi");
 	for (auto& ioapic: x86_ioapics) {
 		ioapic->DumpConfiguration();
@@ -456,11 +500,11 @@ const init::OnInit initSMPLaunch(init::SubSystem::Scheduler, init::Order::Middle
 	 * them to run the AP entry code.
 	 */
 	const auto ap_addr = ap_page->GetPhysicalAddress();
-	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_INIT;
+	WriteLAPIC(LAPIC_ICR_LO, LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_INIT);
 	delay(10);
-	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | ap_addr >> 12;
+	WriteLAPIC(LAPIC_ICR_LO, LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | ap_addr >> 12);
 	delay(200);
-	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | ap_addr >> 12;
+	WriteLAPIC(LAPIC_ICR_LO, LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_SIPI | ap_addr >> 12);
 	delay(200);
 
 	kprintf("SMP: %d CPU(s) found, waiting for %d CPU(s)\n", num_cpus, num_cpus - num_smp_launched);
@@ -476,13 +520,30 @@ void
 PanicOthers()
 {
 	if (num_smp_launched > 1)
-		*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_FIXED | SMP_IPI_PANIC;
+		WriteLAPIC(LAPIC_ICR_LO, LAPIC_ICR_DEST_ALL_EXC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_FIXED | SMP_IPI_PANIC);
 }
 
-void
-BroadcastSchedule()
+void InitTimer()
 {
-	*((volatile uint32_t*)(lapic_base + LAPIC_ICR_LO)) = LAPIC_ICR_DEST_ALL_INC_SELF | LAPIC_ICR_LEVEL_ASSERT | LAPIC_ICR_DELIVERY_FIXED | SMP_IPI_SCHEDULE;
+	/*
+	 * First step is to calibrate the LAPIC's frequency - this is CPU/bus speed
+	 * dependant. We scale the divisor from 2..128 so that we cover all available
+	 * CPU ranges (inspired by FreeBSD)
+	 */
+	int divisor = 2;
+	for (/* nothing */; divisor <= 128; divisor *= 2) {
+		SetLAPICTimerDivisor(divisor);
+		WriteLAPIC(LAPIC_LVT_TR, LAPIC_LVT_TM_ONESHOT | LAPIC_LVT_M);
+		WriteLAPIC(LAPIC_LVT_ICR, maxLAPICTimerCount);
+		delay(1000);
+		lapic_freq = maxLAPICTimerCount - ReadLAPIC(LAPIC_LVT_CCR);
+		if (lapic_freq != maxLAPICTimerCount)
+			break;
+	}
+	if (divisor > 128)
+		panic("lapic divisor too large");
+	kprintf("lapic: divisor %d, frequency %d Hz\n", divisor, lapic_freq);
+	StartLAPICPeriodicTimer();
 }
 
 } // namespace smp
@@ -499,6 +560,7 @@ mp_ap_startup(uint32_t lapic_id)
   scheduler::AddThread(*idlethread);
 
 	smp::InitializeLAPIC(lapic_id);
+	smp::StartLAPICPeriodicTimer();
 
 	/* Wait for it ... */
 	while (!smp::can_smp_launch)

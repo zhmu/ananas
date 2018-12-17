@@ -20,7 +20,13 @@
 # define PIT_MODE_5		(5 << 1)	/* Mode 5: hardware triggered strobe */
 # define PIT_MODE_BCD		(1 << 0)	/* BCD mode */
 
-void x86_pit_init();
-uint32_t x86_pit_calc_cpuspeed_mhz();
+#define PIT_KBD_B_CTRL 0x61		/* Keyboard controller port B */
+#define  PIT_KBD_B_MASK1	0xfd
+#define  PIT_KBD_B_MASK2	0xfe
+#define  PIT_KBD_B_T2GATE	(1 << 0)	/* Timer 2 gate to speaker enable */
+#define  PIT_KBD_B_T2OUTPUT	(1 << 5)	/* Timer 2 output */
+
+void x86_pit_calc_cpuspeed_mhz();
+int x86_get_cpu_frequency();
 
 #endif /* __X86_PIT_H__ */

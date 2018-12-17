@@ -37,6 +37,10 @@
 #define  LAPIC_ICR_DEST_ALL_EXC_SELF	(3 << 18)	/* All excluding self */
 #define LAPIC_ICR_HI	0x0310
 #define LAPIC_LVT_TR	0x0320		/* LVT Timer Register */
+# define LAPIC_LVT_TM_ONESHOT		0
+# define LAPIC_LVT_TM_PERIODIC		(1 << 17)
+# define LAPIC_LVT_M			(1 << 16)	/* Masked */
+# define LAPIC_LVT_DS			(1 << 12)	/* Delivery Status */
 #define LAPIC_LVT_TSR	0x0330		/* LVT Thermal Sensor Register */
 #define LAPIC_LVT_PMCR	0x0340		/* LVT Performance Monitoring Counters Register */
 #define LAPIC_LVT_LINT0	0x0350		/* LVT LINT0 Register */
@@ -45,5 +49,13 @@
 #define LAPIC_LVT_ICR	0x0380		/* LVT Initial Count Register (Timer) */
 #define LAPIC_LVT_CCR	0x0390		/* LVT Current Count Register (Timer) */
 #define LAPIC_LVT_DCR	0x03e0		/* LVT Divide Confiration Register (Timer) */
+ #define LAPIC_LVT_DV_2		0x0		/* Divide by 2 */
+ #define LAPIC_LVT_DV_4		0x1		/* Divide by 4 */
+ #define LAPIC_LVT_DV_8		0x2		/* Divide by 8 */
+ #define LAPIC_LVT_DV_16	0x3		/* Divide by 16 */
+ #define LAPIC_LVT_DV_32	0x8		/* Divide by 32 */
+ #define LAPIC_LVT_DV_64	0x9		/* Divide by 64 */
+ #define LAPIC_LVT_DV_128	0xa		/* Divide by 128 */
+ #define LAPIC_LVT_DV_1		0xb		/* Divide by 1 */
 
 #endif /* __X86_APIC_H__ */

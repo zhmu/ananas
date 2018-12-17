@@ -97,11 +97,6 @@ OnTick()
 			time_current.tv_nsec -= 1000000000;
 		}
 	}
-
-	if (!scheduler::IsActive())
-		return;
-
-	smp::BroadcastSchedule();
 }
 
 } // namespace time

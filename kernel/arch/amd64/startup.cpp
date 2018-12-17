@@ -45,9 +45,6 @@ struct BOOTINFO* bootinfo = NULL;
 extern "C" void *__entry, *__end, *__rodata_end;
 extern void* syscall_handler;
 
-/* CPU clock speed, in MHz */
-int md_cpu_clock_mhz = 0;
-
 Page* usupport_page;
 void* usupport;
 
@@ -378,7 +375,7 @@ setup_descriptors()
 		IDT_SET_ENTRY((32 + n), SEG_IGATE_TYPE, 0, lapic_irq_range_1);
 	}
 
-	IDT_SET_ENTRY(SMP_IPI_SCHEDULE, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, ipi_schedule);
+	IDT_SET_ENTRY(SMP_IPI_PERIODIC,	SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, ipi_periodic);
 	IDT_SET_ENTRY(SMP_IPI_PANIC,    SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, ipi_panic);
 	IDT_SET_ENTRY(0xff,             SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, irq_spurious);
 
@@ -539,6 +536,9 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 	// Ask the PIC to mask everything; we'll initialize when we are ready
 	x86_pic_mask_all();
 
+	// Find out how quick the CPU is; this allows us to use delay()
+	x86_pit_calc_cpuspeed_mhz();
+
 	/*
 	 * Wire the CPU for operation; this actually sets up more things than we can
 	 * handle at the moment, but we'll cope with this soon.
@@ -596,9 +596,6 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 	 */
 	smp::Init();
 
-	// Initialize the PIT
-	x86_pit_init();
-
 	// Prepare the userland support page
 	usupport_init();
 
@@ -608,8 +605,7 @@ md_startup(const struct BOOTINFO* bootinfo_ptr)
 	 */
 	md::interrupts::Enable();
 
-	// Find out how quick the CPU is; this requires interrupts and will be needed for delay()
-	md_cpu_clock_mhz = x86_pit_calc_cpuspeed_mhz();
+	smp::InitTimer();
 
 	// All done - it's up to the machine-independant code now
 	mi_startup();
