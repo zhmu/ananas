@@ -149,7 +149,6 @@ bool ValidateArguments(const KDBCommand& kcmd, int num_arg, Args& arg)
 
 void AddCommand(KDBCommand& cmd)
 {
-	kprintf("AddCommand: cmd '%s'\n", cmd.cmd_command);
 	KASSERT(cmd.cmd_command != nullptr, "bad command");
 
 	if (cmd.cmd_args != NULL) {
