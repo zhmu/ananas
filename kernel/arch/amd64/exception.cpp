@@ -10,7 +10,7 @@
 #include "kernel/thread.h"
 #include "kernel/vm.h"
 #include "kernel/vmspace.h"
-#include "kernel/x86/exceptions.h"
+#include "kernel-md/exceptions.h"
 #include "kernel-md/frame.h"
 #include "kernel-md/interrupts.h"
 #include "kernel-md/md.h"
@@ -22,6 +22,18 @@
 #define SIGNAL_DEBUG 0
 
 namespace {
+
+constexpr util::array<const char*, 20> exceptionNames{
+	"Divide Error", "Debug Exception", "NMI", "Breakpoint Exception",
+	"Overflow Exception", "BOUND Range Exceeded Exception",
+	"Invalid Opcode", "Device Not Available", "Double Fault",
+	"Coprocessor Segment Overrun", "Invalid TSS Exception",
+	"Segment Not Present", "Stack Fault Exception",
+	"General Protection Fault", "Page Fault Exception",
+	"15", "x87 FPU Floating-Point Error",
+	"Alignment Check Exception", "Machine Check Exception",
+	"SIMD Floating Point Exception"
+};
 
 int
 map_trapno_to_signal(int trapno)
@@ -78,7 +90,7 @@ exception_nm(struct STACKFRAME* sf)
 void
 exception_generic(struct STACKFRAME* sf)
 {
-	const char* descr = x86_exception_name(sf->sf_trapno);
+	const char* descr = sf->sf_trapno >= 0 && sf->sf_trapno < exceptionNames.size() ? exceptionNames[sf->sf_trapno] : "???";
 	int userland = (sf->sf_cs & 3) == SEG_DPL_USER;
 
 	kprintf("(CPU %u) %s exception: %s (%u) at cs:rip = %x:%p\n",

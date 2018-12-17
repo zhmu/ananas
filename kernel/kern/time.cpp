@@ -4,9 +4,6 @@
 #include "kernel/pcpu.h"
 #include "kernel/schedule.h"
 #include "kernel/thread.h"
-#include "kernel/x86/smp.h" // XXX
-
-#include "kernel/lib.h"
 
 namespace time {
 

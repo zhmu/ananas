@@ -4,7 +4,7 @@
 #include "kernel/result.h"
 #include "kernel/time.h"
 #include "kernel/trace.h"
-#include "kernel/x86/io.h"
+#include "kernel-md/io.h"
 #include "kernel/lib.h"
 #include "kernel-md/interrupts.h"
 

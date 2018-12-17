@@ -28,7 +28,7 @@
 #include "kernel/result.h"
 #include "kernel/time.h"
 #include "kernel/trace.h"
-#include "kernel/x86/io.h"
+#include "kernel-md/io.h"
 #include "kernel-md/vm.h" // XXX for KVTOP, which should be removed
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"

@@ -1,6 +1,6 @@
 #include "kernel/irq.h"
-#include "kernel/x86/io.h"
-#include "kernel/x86/pic.h"
+#include "kernel-md/io.h"
+#include "kernel-md/pic.h"
 
 void
 x86_pic_mask_all()

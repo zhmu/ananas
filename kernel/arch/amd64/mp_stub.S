@@ -1,6 +1,6 @@
 .text
 
-#include "kernel/x86/apic.h"
+#include "kernel-md/lapic.h"
 #include "kernel-md/vm.h"
 #include "kernel-md/macro.h"
 #include "kernel-md/param.h"

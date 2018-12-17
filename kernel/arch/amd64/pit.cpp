@@ -3,8 +3,8 @@
 #include "kernel/pcpu.h"
 #include "kernel/result.h"
 #include "kernel/time.h"
-#include "kernel/x86/io.h"
-#include "kernel/x86/pit.h"
+#include "kernel-md/io.h"
+#include "kernel-md/pit.h"
 #include "kernel-md/interrupts.h"
 #include "options.h"
 

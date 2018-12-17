@@ -14,15 +14,15 @@
 #include "kernel/thread.h"
 #include "kernel/mm.h"
 #include "kernel/vm.h"
-#include "kernel/x86/acpi.h"
-#include "kernel/x86/pic.h"
-#include "kernel/x86/pit.h"
-#include "kernel/x86/smp.h"
+#include "kernel-md/acpi.h"
 #include "kernel-md/macro.h"
 #include "kernel-md/interrupts.h"
 #include "kernel-md/param.h"
-#include "kernel-md/vm.h"
+#include "kernel-md/pic.h"
+#include "kernel-md/pit.h"
+#include "kernel-md/smp.h"
 #include "kernel-md/thread.h"
+#include "kernel-md/vm.h"
 
 /* Pointer to the page directory level 4 */
 uint64_t* kernel_pagedir;

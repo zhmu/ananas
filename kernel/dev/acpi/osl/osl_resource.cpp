@@ -5,8 +5,8 @@
 #include "kernel/lib.h"
 #include "kernel/result.h"
 #include "kernel/vm.h"
-#include "kernel/x86/io.h"
-#include "kernel/x86/pcihb.h"
+#include "kernel-md/io.h"
+#include "kernel-md/pcihb.h"
 #include "../acpica/acpi.h"
 
 struct ACPI_IRQ_INFO : irq::IHandler {

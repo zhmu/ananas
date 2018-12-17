@@ -1,5 +1,5 @@
 #include <ananas/types.h>
-#include "kernel/x86/io.h"
+#include "kernel-md/io.h"
 #include "kernel/device.h"
 #include "kernel/lib.h"
 #include "vga.h"

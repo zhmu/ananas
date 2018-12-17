@@ -3,8 +3,8 @@
 #include "kernel/driver.h"
 #include "kernel/result.h"
 #include "kernel/lib.h"
-#include "kernel/x86/io.h"
-#include "kernel/x86/pcihb.h"
+#include "kernel-md/io.h"
+#include "kernel-md/pcihb.h"
 
 namespace {
 

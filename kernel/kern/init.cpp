@@ -6,7 +6,7 @@
 #include "kernel/mm.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/x86/pit.h"
+#include "kernel-md/pit.h"
 #include "kernel-md/interrupts.h"
 #include "options.h" // for ARCHITECTURE
 
@@ -112,12 +112,8 @@ init_thread_func(void* done)
 void
 mi_startup()
 {
-	/*
-	 * Create a thread to handle the init functions; this will allow us to
-	 * sleep whenever we want, as there is always the idle thread to pick up the
-	 * cycles for us (note that this code is run as the init thread and such it
-	 * must never sleep)
-	 */
+	// Create a thread to actually perform initialisation - mi_startup() will eventually
+	// become the idle thread and must thus never sleep
 	volatile int done = 0;
 	Thread init_thread;
 	kthread_init(init_thread, "init", &init::init_thread_func, (void*)&done);

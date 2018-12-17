@@ -6,7 +6,7 @@
 #include "kernel/result.h"
 #include "kernel/shutdown.h"
 #include "kernel/trace.h"
-#include "kernel/x86/acpi.h"
+#include "kernel-md/acpi.h"
 
 TRACE_SETUP;
 

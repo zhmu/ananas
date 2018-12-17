@@ -5,8 +5,8 @@
 #include "kernel/result.h"
 #include "kernel/trace.h"
 #include "kernel/dev/tty.h"
-#include "kernel/x86/io.h"
-#include "kernel/x86/sio.h"
+#include "kernel-md/io.h"
+#include "kernel-md/sio.h"
 
 TRACE_SETUP;
 

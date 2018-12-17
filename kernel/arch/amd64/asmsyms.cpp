@@ -1,10 +1,10 @@
 #include <ananas/types.h>
-#include "kernel/x86/smp.h"
 #include "kernel/asmsymbols.h"
 #include "kernel/pcpu.h"
 #include "kernel/thread.h"
 #include "kernel-md/frame.h"
 #include "kernel-md/pcpu.h"
+#include "kernel-md/smp.h"
 #include "kernel-md/thread.h"
 #include "../sys/syscall.h"
 

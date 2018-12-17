@@ -3,7 +3,7 @@
 #include "kernel/lib.h"
 #include "kernel/schedule.h"
 #include "options.h"
-#include "kernel/x86/smp.h" // XXX
+#include "kernel-md/smp.h" // XXX
 #include "kernel-md/interrupts.h"
 
 namespace {

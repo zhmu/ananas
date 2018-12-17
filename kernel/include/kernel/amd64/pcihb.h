@@ -2,7 +2,7 @@
 #define __ANANAS_X86_PCIHB_H__
 
 #include <ananas/types.h>
-#include "kernel/x86/io.h"
+#include "kernel-md/io.h"
 #include "kernel/lib.h"
 
 /* We use PCI configuration mechanism 1 as that is most commonly supported */

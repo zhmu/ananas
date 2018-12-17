@@ -11,7 +11,7 @@
 #ifdef OPTION_DEBUG_CONSOLE
 #include "kernel/debug-console.h"
 #endif
-#include "kernel/x86/smp.h"
+#include "kernel-md/smp.h"
 #include "kernel-md/interrupts.h"
 
 TRACE_SETUP;

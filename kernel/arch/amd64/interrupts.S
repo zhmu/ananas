@@ -14,8 +14,8 @@
 #include "kernel-md/vm.h"
 #include "kernel-md/macro.h"
 #include "kernel-md/thread.h"
-#include "kernel/x86/apic.h"
-#include "kernel/x86/smp.h"
+#include "kernel-md/lapic.h"
+#include "kernel-md/smp.h"
 #include "options.h"
 #include "asmsyms.h"
 

@@ -10,7 +10,7 @@
 #include "kernel/thread.h"
 #include "kernel/time.h"
 #include "kernel/trace.h"
-#include "kernel/x86/io.h"
+#include "kernel-md/io.h"
 #include "../core/descriptor.h"
 #include "../core/usb-bus.h"
 #include "../core/usb-core.h"
