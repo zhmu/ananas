@@ -4,17 +4,17 @@
 TEST(stdlib, ldiv)
 {
     {
-        ldiv_t result = ldiv( 5, 2 );
+        ldiv_t result = ldiv(5, 2);
         EXPECT_EQ(2, result.quot);
         EXPECT_EQ(1, result.rem);
     }
     {
-        ldiv_t result = ldiv( -5, 2 );
+        ldiv_t result = ldiv(-5, 2);
         EXPECT_EQ(-2, result.quot);
         EXPECT_EQ(-1, result.rem);
     }
     {
-        ldiv_t result = ldiv( 5, -2 );
+        ldiv_t result = ldiv(5, -2);
         EXPECT_EQ(-2, result.quot);
         EXPECT_EQ(1, result.rem);
     }

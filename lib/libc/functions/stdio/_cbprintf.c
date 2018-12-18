@@ -10,15 +10,12 @@
 
 // Testing covered by printf.cpp
 int _cbprintf(
-    void * p,
-    size_t (*cb)( void*, const char*, size_t ),
-    const char * _PDCLIB_restrict format,
-    ...)
+    void* p, size_t (*cb)(void*, const char*, size_t), const char* _PDCLIB_restrict format, ...)
 {
     int rc;
     va_list ap;
-    va_start( ap, format );
-    rc = _vcbprintf( p, cb, format, ap );
-    va_end( ap );
+    va_start(ap, format);
+    rc = _vcbprintf(p, cb, format, ap);
+    va_end(ap);
     return rc;
 }

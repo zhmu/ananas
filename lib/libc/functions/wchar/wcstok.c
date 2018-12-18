@@ -6,22 +6,18 @@
 
 #include <wchar.h>
 
-wchar_t * wcstok( wchar_t * _PDCLIB_restrict s1,
-                  const wchar_t * _PDCLIB_restrict s2,
-                  wchar_t ** _PDCLIB_restrict ptr )
+wchar_t* wcstok(
+    wchar_t* _PDCLIB_restrict s1, const wchar_t* _PDCLIB_restrict s2,
+    wchar_t** _PDCLIB_restrict ptr)
 {
-    const wchar_t * p = s2;
+    const wchar_t* p = s2;
 
-    if ( s1 != NULL )
-    {
+    if (s1 != NULL) {
         /* new string */
         *ptr = s1;
-    }
-    else
-    {
+    } else {
         /* old string continued */
-        if ( *ptr == NULL )
-        {
+        if (*ptr == NULL) {
             /* No old string, no new string, nothing to do */
             return NULL;
         }
@@ -29,10 +25,8 @@ wchar_t * wcstok( wchar_t * _PDCLIB_restrict s1,
     }
 
     /* skipping leading s2 characters */
-    while ( *p && *s1 )
-    {
-        if ( *s1 == *p )
-        {
+    while (*p && *s1) {
+        if (*s1 == *p) {
             /* found seperator; skip and start over */
             ++s1;
             p = s2;
@@ -41,21 +35,17 @@ wchar_t * wcstok( wchar_t * _PDCLIB_restrict s1,
         ++p;
     }
 
-    if ( ! *s1 )
-    {
+    if (!*s1) {
         /* no more to parse */
-        return ( *ptr = NULL );
+        return (*ptr = NULL);
     }
 
     /* skipping non-s2 characters */
     *ptr = s1;
-    while ( **ptr )
-    {
+    while (**ptr) {
         p = s2;
-        while ( *p )
-        {
-            if ( **ptr == *p++ )
-            {
+        while (*p) {
+            if (**ptr == *p++) {
                 /* found seperator; overwrite with '\0', position *ptr, return */
                 *(*ptr)++ = L'\0';
                 return s1;

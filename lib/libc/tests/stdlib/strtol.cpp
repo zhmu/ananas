@@ -5,7 +5,7 @@
 
 TEST(stdlib, strtol)
 {
-    char * endptr;
+    char* endptr;
     /* this, to base 36, overflows even a 256 bit integer */
     const char overflow[] = "-ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ_";
     /* tricky border case */
@@ -24,7 +24,7 @@ TEST(stdlib, strtol)
     /* proper autodetecting of hexadecimal, uppercase 'X' */
     EXPECT_EQ(161, strtol("0Xa1", NULL, 0));
     /* proper handling of border case: 0x followed by non-hexdigit */
-    EXPECT_EQ(0, strtol( tricky, &endptr, 0));
+    EXPECT_EQ(0, strtol(tricky, &endptr, 0));
     EXPECT_EQ(tricky + 2, endptr);
     /* proper handling of border case: 0 followed by non-octdigit */
     EXPECT_EQ(0, strtol(tricky, &endptr, 8));
@@ -32,7 +32,7 @@ TEST(stdlib, strtol)
     /* errno should still be 0 */
     EXPECT_EQ(0, errno);
     /* overflowing subject sequence must still return proper endptr */
-    EXPECT_EQ(LONG_MIN, strtol( overflow, &endptr, 36));
+    EXPECT_EQ(LONG_MIN, strtol(overflow, &endptr, 36));
     EXPECT_EQ(ERANGE, errno);
     EXPECT_EQ(53, endptr - overflow);
     /* same for positive */
@@ -46,7 +46,7 @@ TEST(stdlib, strtol)
     EXPECT_EQ(0, strtol(overflow, &endptr, 10));
     EXPECT_EQ(overflow, endptr);
     endptr = NULL;
-    EXPECT_EQ(0, strtol( overflow, &endptr, 0));
+    EXPECT_EQ(0, strtol(overflow, &endptr, 0));
     EXPECT_EQ(overflow, endptr);
     /* TODO: These tests assume two-complement, but conversion should work */
     /* for one-complement and signed magnitude just as well. Anyone having */

@@ -5,6 +5,6 @@
 
 int sigprocmask(int how, const sigset_t* set, sigset_t* oset)
 {
-	statuscode_t status = sys_sigprocmask(how, set, oset);
-	return map_statuscode(status);
+    statuscode_t status = sys_sigprocmask(how, set, oset);
+    return map_statuscode(status);
 }

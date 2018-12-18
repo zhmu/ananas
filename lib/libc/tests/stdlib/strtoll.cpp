@@ -4,7 +4,7 @@
 
 TEST(stdlib, strtoll)
 {
-    char * endptr;
+    char* endptr;
     /* this, to base 36, overflows even a 256 bit integer */
     const char overflow[] = "-ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ_";
     /* tricky border case */
@@ -15,7 +15,7 @@ TEST(stdlib, strtoll)
     /* proper detecting of default base 10 */
     EXPECT_EQ(456, strtoll("456", NULL, 0));
     /* proper functioning to smaller base */
-    EXPECT_EQ(12, strtoll( "14", NULL, 8));
+    EXPECT_EQ(12, strtoll("14", NULL, 8));
     /* proper autodetecting of octal */
     EXPECT_EQ(14, strtoll("016", NULL, 0));
     /* proper autodetecting of hexadecimal, lowercase 'x' */
@@ -58,7 +58,7 @@ TEST(stdlib, strtoll)
     EXPECT_EQ(LLONG_MAX, strtoll("9223372036854775808", NULL, 0));
     EXPECT_EQ(ERANGE, errno);
     errno = 0;
-    EXPECT_EQ((long long)0x8000000000000001, strtoll( "-9223372036854775807", NULL, 0));
+    EXPECT_EQ((long long)0x8000000000000001, strtoll("-9223372036854775807", NULL, 0));
     EXPECT_EQ(0, errno);
     EXPECT_EQ(LLONG_MIN, strtoll("-9223372036854775808", NULL, 0));
     EXPECT_EQ(0, errno);
@@ -67,12 +67,16 @@ TEST(stdlib, strtoll)
     /* TODO: test "odd" overflow, i.e. base is not power of two */
 #elif LLONG_MAX >> 126 == 1
     /* testing "even" overflow, i.e. base is power of two */
-    EXPECT_EQ(0x7fffffffffffffffffffffffffffffff, strtoll("170141183460469231731687303715884105728", NULL, 0));
+    EXPECT_EQ(
+        0x7fffffffffffffffffffffffffffffff,
+        strtoll("170141183460469231731687303715884105728", NULL, 0));
     EXPECT_EQ(0, errno);
     EXPECT_EQ(LLONG_MAX, strtoll("170141183460469231731687303715884105729", NULL, 0));
     EXPECT_EQ(ERANGE, errno);
     errno = 0;
-    EXPECT_EQ(-0x80000000000000000000000000000001, strtoll("-170141183460469231731687303715884105728", NULL, 0));
+    EXPECT_EQ(
+        -0x80000000000000000000000000000001,
+        strtoll("-170141183460469231731687303715884105728", NULL, 0));
     EXPECT_EQ(0, errno);
     EXPECT_EQ(LLONG_MIN, strtoll("-170141183460469231731687303715884105729", NULL, 0));
     EXPECT_EQ(0, errno);

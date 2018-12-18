@@ -8,20 +8,18 @@
 #include <stdarg.h>
 #include "_PDCLIB_io.h"
 
-int _PDCLIB_vscanf_unlocked( const char * _PDCLIB_restrict format,
-                             _PDCLIB_va_list arg )
+int _PDCLIB_vscanf_unlocked(const char* _PDCLIB_restrict format, _PDCLIB_va_list arg)
 {
-    return _PDCLIB_vfscanf_unlocked( stdin, format, arg );
+    return _PDCLIB_vfscanf_unlocked(stdin, format, arg);
 }
 
-int vscanf_unlocked( const char * _PDCLIB_restrict format,
-                     _PDCLIB_va_list arg )
+int vscanf_unlocked(const char* _PDCLIB_restrict format, _PDCLIB_va_list arg)
 {
     return _PDCLIB_vscanf_unlocked(format, arg);
 }
 
 // Testing covered by scanf.cpp
-int vscanf( const char * _PDCLIB_restrict format, _PDCLIB_va_list arg )
+int vscanf(const char* _PDCLIB_restrict format, _PDCLIB_va_list arg)
 {
-    return vfscanf( stdin, format, arg );
+    return vfscanf(stdin, format, arg);
 }

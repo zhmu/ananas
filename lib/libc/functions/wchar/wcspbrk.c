@@ -6,18 +6,15 @@
 
 #include <wchar.h>
 
-wchar_t * wcspbrk( const wchar_t * s1, const wchar_t * s2 )
+wchar_t* wcspbrk(const wchar_t* s1, const wchar_t* s2)
 {
-    const wchar_t * p1 = s1;
-    const wchar_t * p2;
-    while ( *p1 )
-    {
+    const wchar_t* p1 = s1;
+    const wchar_t* p2;
+    while (*p1) {
         p2 = s2;
-        while ( *p2 )
-        {
-            if ( *p1 == *p2++ )
-            {
-                return (wchar_t *) p1;
+        while (*p2) {
+            if (*p1 == *p2++) {
+                return (wchar_t*)p1;
             }
         }
         ++p1;

@@ -4,8 +4,8 @@
 
 float sqrtf(float x)
 {
-	__asm__ ("sqebr %0, %1" : "=f"(x) : "f"(x));
-	return x;
+    __asm__("sqebr %0, %1" : "=f"(x) : "f"(x));
+    return x;
 }
 
 #else

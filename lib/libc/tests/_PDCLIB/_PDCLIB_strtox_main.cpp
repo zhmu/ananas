@@ -7,7 +7,7 @@
 #ifdef _PDCLIB_C_VERSION
 TEST(_PDCLIB, _PDCLIB_strtox_prelim)
 {
-    const char * p;
+    const char* p;
     char test[] = "123_";
     char fail[] = "xxx";
     char sign = '-';

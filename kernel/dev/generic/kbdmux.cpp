@@ -2,37 +2,34 @@
 #include "kernel/lib.h"
 #include "kernel/dev/kbdmux.h"
 
-namespace keyboard_mux {
-
-namespace {
-
-Mutex mutex{"kbdmutex"};
-
-util::List<IKeyboardConsumer> consumers;
-
-} // unnamed namespace
-
-void
-RegisterConsumer(IKeyboardConsumer& consumer)
+namespace keyboard_mux
 {
-	MutexGuard g(mutex);
-	consumers.push_back(consumer);
-}
+    namespace
+    {
+        Mutex mutex{"kbdmutex"};
 
-void
-UnregisterConsumer(IKeyboardConsumer& consumer)
-{
-	MutexGuard g(mutex);
-	consumers.remove(consumer);
-}
+        util::List<IKeyboardConsumer> consumers;
 
-void
-OnKey(const Key& key, int modifiers)
-{
-	MutexGuard g(mutex);
-	for(auto& consumer: consumers)
-		consumer.OnKey(key, modifiers);
-}
+    } // unnamed namespace
+
+    void RegisterConsumer(IKeyboardConsumer& consumer)
+    {
+        MutexGuard g(mutex);
+        consumers.push_back(consumer);
+    }
+
+    void UnregisterConsumer(IKeyboardConsumer& consumer)
+    {
+        MutexGuard g(mutex);
+        consumers.remove(consumer);
+    }
+
+    void OnKey(const Key& key, int modifiers)
+    {
+        MutexGuard g(mutex);
+        for (auto& consumer : consumers)
+            consumer.OnKey(key, modifiers);
+    }
 
 } // namespace keyboard_mux
 

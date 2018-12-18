@@ -4,8 +4,8 @@
 
 double floor(double x)
 {
-	__asm__ ("frim %0, %1" : "=d"(x) : "d"(x));
-	return x;
+    __asm__("frim %0, %1" : "=d"(x) : "d"(x));
+    return x;
 }
 
 #else

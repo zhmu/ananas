@@ -6,7 +6,4 @@
 
 #include <stdlib.h>
 
-void srand( unsigned int seed )
-{
-    _PDCLIB_seed = seed;
-}
+void srand(unsigned int seed) { _PDCLIB_seed = seed; }

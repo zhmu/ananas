@@ -5,6 +5,6 @@
 
 pid_t fork()
 {
-	statuscode_t status = sys_clone(0);
-	return map_statuscode(status);
+    statuscode_t status = sys_clone(0);
+    return map_statuscode(status);
 }

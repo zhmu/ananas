@@ -6,17 +6,14 @@
 
 #include <wchar.h>
 
-size_t wcscspn( const wchar_t * s1, const wchar_t * s2 )
+size_t wcscspn(const wchar_t* s1, const wchar_t* s2)
 {
     size_t len = 0;
-    const wchar_t * p;
-    while ( s1[len] )
-    {
+    const wchar_t* p;
+    while (s1[len]) {
         p = s2;
-        while ( *p )
-        {
-            if ( s1[len] == *p++ )
-            {
+        while (*p) {
+            if (s1[len] == *p++) {
                 return len;
             }
         }

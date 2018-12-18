@@ -4,8 +4,8 @@
 
 double rint(double x)
 {
-	__asm__ ("fidbr %0, 0, %1" : "=f"(x) : "f"(x));
-	return x;
+    __asm__("fidbr %0, 0, %1" : "=f"(x) : "f"(x));
+    return x;
 }
 
 #else

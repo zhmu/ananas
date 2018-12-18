@@ -8,20 +8,14 @@
 #include "_PDCLIB_io.h"
 
 /* Testing covered by clearerr(). */
-int _PDCLIB_feof_unlocked( FILE * stream )
-{
-    return stream->status & _PDCLIB_EOFFLAG;
-}
+int _PDCLIB_feof_unlocked(FILE* stream) { return stream->status & _PDCLIB_EOFFLAG; }
 
-int feof_unlocked( FILE * stream )
-{
-    return _PDCLIB_feof_unlocked( stream );
-}
+int feof_unlocked(FILE* stream) { return _PDCLIB_feof_unlocked(stream); }
 
-int feof( FILE * stream )
+int feof(FILE* stream)
 {
-    _PDCLIB_flockfile( stream );
-    int eof = _PDCLIB_feof_unlocked( stream );
-    _PDCLIB_funlockfile( stream );
+    _PDCLIB_flockfile(stream);
+    int eof = _PDCLIB_feof_unlocked(stream);
+    _PDCLIB_funlockfile(stream);
     return eof;
 }

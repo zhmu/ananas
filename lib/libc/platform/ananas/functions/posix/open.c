@@ -7,13 +7,13 @@
 
 int open(const char* filename, int mode, ...)
 {
-	int perm = 0;
-	if (mode & O_CREAT) {
-		va_list va;
-		va_start(va, mode);
-		perm = va_arg(va, unsigned int);
-		va_end(va);
-	}
-	statuscode_t status = sys_open(filename, mode, perm);
-	return map_statuscode(status);
+    int perm = 0;
+    if (mode & O_CREAT) {
+        va_list va;
+        va_start(va, mode);
+        perm = va_arg(va, unsigned int);
+        va_end(va);
+    }
+    statuscode_t status = sys_open(filename, mode, perm);
+    return map_statuscode(status);
 }

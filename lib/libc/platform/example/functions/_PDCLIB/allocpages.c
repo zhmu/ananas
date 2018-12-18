@@ -5,14 +5,14 @@
 */
 
 /* This is a stub implementation of _PDCLIB_allocpages
-*/
+ */
 
 #include <stdint.h>
 #include <stddef.h>
 #include "_PDCLIB_glue.h"
 #include <errno.h>
 
-void * _PDCLIB_allocpages( size_t n )
+void* _PDCLIB_allocpages(size_t n)
 {
     errno = ENOTSUP;
     return NULL;
@@ -21,9 +21,6 @@ void * _PDCLIB_allocpages( size_t n )
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif

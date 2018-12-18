@@ -5,6 +5,6 @@
 
 int clock_gettime(clockid_t id, struct timespec* ts)
 {
-	statuscode_t status = sys_clock_gettime(id, ts);
-	return map_statuscode(status);
+    statuscode_t status = sys_clock_gettime(id, ts);
+    return map_statuscode(status);
 }

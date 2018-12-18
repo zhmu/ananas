@@ -3,14 +3,14 @@
 #include <threads.h>
 #include <stdlib.h>
 
-extern struct _PDCLIB_tss * _PDCLIB_tss_first;
-void tss_delete( tss_t key )
+extern struct _PDCLIB_tss* _PDCLIB_tss_first;
+void tss_delete(tss_t key)
 {
-    struct _PDCLIB_tss * prev = NULL;
-    struct _PDCLIB_tss * cur  = _PDCLIB_tss_first;
-    while(cur) {
-        if(cur == key) {
-            if(prev) {
+    struct _PDCLIB_tss* prev = NULL;
+    struct _PDCLIB_tss* cur = _PDCLIB_tss_first;
+    while (cur) {
+        if (cur == key) {
+            if (prev) {
                 prev->_Next = key->_Next;
             } else {
                 _PDCLIB_tss_first = key->_Next;
@@ -31,9 +31,6 @@ void tss_delete( tss_t key )
 #include "_PDCLIB_test.h"
 
 /* Tested in tss_get.c */
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif

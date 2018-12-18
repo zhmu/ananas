@@ -29,25 +29,25 @@ struct VMSpace;
  *
  */
 struct VMArea : util::List<VMArea>::NodePtr {
-	VMArea(VMSpace& vs, addr_t virt, size_t len, int flags)
-	 : va_vs(vs), va_virt(virt), va_len(len), va_flags(flags)
-	{
-	}
+    VMArea(VMSpace& vs, addr_t virt, size_t len, int flags)
+        : va_vs(vs), va_virt(virt), va_len(len), va_flags(flags)
+    {
+    }
 
-	VMSpace& va_vs;
+    VMSpace& va_vs;
 
-	VMPage* LookupVAddrAndLock(addr_t vaddr);
-	VMPage& AllocatePrivatePage(addr_t vaddr, int flags);
-	VMPage& PromotePage(VMPage& vp);
+    VMPage* LookupVAddrAndLock(addr_t vaddr);
+    VMPage& AllocatePrivatePage(addr_t vaddr, int flags);
+    VMPage& PromotePage(VMPage& vp);
 
-	unsigned int		va_flags = 0;		/* flags, combination of VM_FLAG_... */
-	addr_t			va_virt = 0;		/* userland address */
-	size_t			va_len = 0;		/* length */
-	util::List<VMPage>	va_pages;		/* backing pages */
-	/* dentry-specific mapping fields */
-	DEntry* 		va_dentry = nullptr;	/* backing dentry, if any */
-	off_t			va_doffset = 0;		/* dentry offset */
-	size_t			va_dlength = 0;		/* dentry length */
+    unsigned int va_flags = 0;   /* flags, combination of VM_FLAG_... */
+    addr_t va_virt = 0;          /* userland address */
+    size_t va_len = 0;           /* length */
+    util::List<VMPage> va_pages; /* backing pages */
+    /* dentry-specific mapping fields */
+    DEntry* va_dentry = nullptr; /* backing dentry, if any */
+    off_t va_doffset = 0;        /* dentry offset */
+    size_t va_dlength = 0;       /* dentry length */
 };
 typedef util::List<VMArea> VMAreaList;
 

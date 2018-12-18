@@ -1,5 +1,3 @@
 #include <pwd.h>
 
-void setpwent()
-{
-}
+void setpwent() {}

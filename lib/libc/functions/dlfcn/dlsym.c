@@ -3,7 +3,4 @@
 
 #pragma weak dlsym
 
-void* dlsym(void* handle, const char* name)
-{
-	return NULL;
-}
+void* dlsym(void* handle, const char* name) { return NULL; }

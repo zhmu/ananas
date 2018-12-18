@@ -1,8 +1,7 @@
 #include <dirent.h>
 
-long
-telldir(DIR* dirp)
+long telldir(DIR* dirp)
 {
-	/* XXX todo */
-	return 0L;
+    /* XXX todo */
+    return 0L;
 }

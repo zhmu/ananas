@@ -7,7 +7,4 @@
 #include <wctype.h>
 #include "_PDCLIB_locale.h"
 
-int iswgraph( wint_t wc )
-{
-    return iswctype( wc, _PDCLIB_CTYPE_GRAPH );
-}
+int iswgraph(wint_t wc) { return iswctype(wc, _PDCLIB_CTYPE_GRAPH); }

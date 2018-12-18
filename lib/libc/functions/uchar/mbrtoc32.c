@@ -12,25 +12,21 @@
 #include "_PDCLIB_locale.h"
 
 size_t mbrtoc32_l(
-    char32_t    *restrict   pc32,
-    const char  *restrict   s,
-    size_t                  n,
-    mbstate_t   *restrict   ps,
-    locale_t     restrict   l
-)
+    char32_t* restrict pc32, const char* restrict s, size_t n, mbstate_t* restrict ps,
+    locale_t restrict l)
 {
     size_t dstlen = 1;
     size_t nr = n;
 
-    if(l->_Codec->__mbstoc32s(&pc32, &dstlen, &s, &nr, ps)) {
+    if (l->_Codec->__mbstoc32s(&pc32, &dstlen, &s, &nr, ps)) {
         // Successful conversion
-        if(dstlen == 0) {
+        if (dstlen == 0) {
             // A character was output
-            if(nr == n) {
+            if (nr == n) {
                 // The output character resulted entirely from stored state
                 // With UTF-32, this shouldn't be possible?
-                return (size_t) -3;
-            } else if(pc32[-1] == 0) { // TODO: pc32 can be NULL if s=""
+                return (size_t)-3;
+            } else if (pc32[-1] == 0) { // TODO: pc32 can be NULL if s=""
                 // Was null character
                 return 0;
             } else {
@@ -39,21 +35,16 @@ size_t mbrtoc32_l(
             }
         } else {
             assert(nr == 0 && "Must have processed whole input");
-            return (size_t) -2;
+            return (size_t)-2;
         }
     } else {
         // Failed conversion
         errno = EILSEQ;
-        return (size_t) -1;
+        return (size_t)-1;
     }
 }
 
-size_t mbrtoc32(
-    char32_t    *restrict   pc32,
-    const char  *restrict   s,
-    size_t                  n,
-    mbstate_t   *restrict   ps
-)
+size_t mbrtoc32(char32_t* restrict pc32, const char* restrict s, size_t n, mbstate_t* restrict ps)
 {
     return mbrtoc32_l(pc32, s, n, ps, _PDCLIB_threadlocale());
 }

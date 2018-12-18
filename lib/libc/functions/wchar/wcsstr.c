@@ -6,21 +6,18 @@
 
 #include <wchar.h>
 
-wchar_t * wcsstr( const wchar_t * s1, const wchar_t * s2 )
+wchar_t* wcsstr(const wchar_t* s1, const wchar_t* s2)
 {
-    const wchar_t * p1 = s1;
-    const wchar_t * p2;
-    while ( *s1 )
-    {
+    const wchar_t* p1 = s1;
+    const wchar_t* p2;
+    while (*s1) {
         p2 = s2;
-        while ( *p2 && ( *p1 == *p2 ) )
-        {
+        while (*p2 && (*p1 == *p2)) {
             ++p1;
             ++p2;
         }
-        if ( ! *p2 )
-        {
-            return (wchar_t *) s1;
+        if (!*p2) {
+            return (wchar_t*)s1;
         }
         ++s1;
         p1 = s1;

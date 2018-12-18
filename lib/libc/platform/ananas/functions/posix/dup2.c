@@ -4,11 +4,10 @@
 #include <unistd.h>
 #include "_map_statuscode.h"
 
-int
-dup2(int fildes, int fildes2)
+int dup2(int fildes, int fildes2)
 {
-	statuscode_t status = sys_dup2(fildes, fildes2);
-	return map_statuscode(status);
+    statuscode_t status = sys_dup2(fildes, fildes2);
+    return map_statuscode(status);
 }
 
 /* vim:set ts=2 sw=2: */

@@ -8,13 +8,13 @@
 #include <stdio_ext.h>
 #include "_PDCLIB_io.h"
 
-void __fpurge( FILE * stream)
+void __fpurge(FILE* stream)
 {
-    _PDCLIB_flockfile( stream );
+    _PDCLIB_flockfile(stream);
     stream->bufidx = 0;
 #ifdef _PDCLIB_NEED_EOL_TRANSLATION
     stream->bufnlexp = 0;
 #endif
     stream->ungetidx = 0;
-    _PDCLIB_funlockfile( stream );
+    _PDCLIB_funlockfile(stream);
 }

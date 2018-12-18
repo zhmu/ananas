@@ -3,5 +3,5 @@
 
 int pthread_sigmask(int how, const sigset_t* set, sigset_t* oset)
 {
-	return sigprocmask(how, set, oset);
+    return sigprocmask(how, set, oset);
 }

@@ -25,193 +25,180 @@
 #include "usb-bus.h"
 #include "usb-device.h"
 
-namespace usb {
-
-typedef util::List<Bus> BusList;
-
-namespace {
-Thread usbbus_thread;
-Semaphore usbbus_semaphore(0);
-USBDeviceList usbbus_pendingqueue;
-Spinlock usbbus_spl_pendingqueue; /* protects usbbus_pendingqueue */
-BusList usbbus_busses;
-Mutex usbbus_mutex("usbbus"); /* protects usbbus_busses */
-} // unnamed namespace
-
-void
-ScheduleAttach(USBDevice& usb_dev)
+namespace usb
 {
-	/* Add the device to our queue */
-	{
-		SpinlockGuard g(usbbus_spl_pendingqueue);
-		usbbus_pendingqueue.push_back(usb_dev);
-	}
+    typedef util::List<Bus> BusList;
 
-	/* Wake up our thread */
-	usbbus_semaphore.Signal();
-}
+    namespace
+    {
+        Thread usbbus_thread;
+        Semaphore usbbus_semaphore(0);
+        USBDeviceList usbbus_pendingqueue;
+        Spinlock usbbus_spl_pendingqueue; /* protects usbbus_pendingqueue */
+        BusList usbbus_busses;
+        Mutex usbbus_mutex("usbbus"); /* protects usbbus_busses */
+    }                                 // unnamed namespace
 
-Result
-Bus::Attach()
-{
-	bus_NeedsExplore = true;
+    void ScheduleAttach(USBDevice& usb_dev)
+    {
+        /* Add the device to our queue */
+        {
+            SpinlockGuard g(usbbus_spl_pendingqueue);
+            usbbus_pendingqueue.push_back(usb_dev);
+        }
 
-	/*
-	 * Create the root hub device; it will handle all our children - the HCD may
-	 * need to know about this as the root hub may be polling...
-	  */
-	auto roothub = new USBDevice(*this, nullptr, 0, USB_DEVICE_FLAG_ROOT_HUB);
-	d_Parent->GetUSBDeviceOperations()->SetRootHub(*roothub);
-	ScheduleAttach(*roothub);
+        /* Wake up our thread */
+        usbbus_semaphore.Signal();
+    }
 
-	/* Register ourselves within the big bus list */
-	{
-		MutexGuard g(usbbus_mutex);
-		usbbus_busses.push_back(*this);
-	}
-	return Result::Success();
-}
+    Result Bus::Attach()
+    {
+        bus_NeedsExplore = true;
 
-Result
-Bus::Detach()
-{
-	panic("detach");
-	return Result::Success();
-}
+        /*
+         * Create the root hub device; it will handle all our children - the HCD may
+         * need to know about this as the root hub may be polling...
+         */
+        auto roothub = new USBDevice(*this, nullptr, 0, USB_DEVICE_FLAG_ROOT_HUB);
+        d_Parent->GetUSBDeviceOperations()->SetRootHub(*roothub);
+        ScheduleAttach(*roothub);
 
-int
-Bus::AllocateAddress()
-{
-	/* XXX crude */
-	static int cur_addr = 1;
-	return cur_addr++;
-}
+        /* Register ourselves within the big bus list */
+        {
+            MutexGuard g(usbbus_mutex);
+            usbbus_busses.push_back(*this);
+        }
+        return Result::Success();
+    }
 
-void
-Bus::ScheduleExplore()
-{
-	Lock();
-	bus_NeedsExplore = true;
-	Unlock();
+    Result Bus::Detach()
+    {
+        panic("detach");
+        return Result::Success();
+    }
 
-	usbbus_semaphore.Signal();
-}
+    int Bus::AllocateAddress()
+    {
+        /* XXX crude */
+        static int cur_addr = 1;
+        return cur_addr++;
+    }
 
-/* Must be called with lock held! */
-void
-Bus::Explore()
-{
-	AssertLocked();
-	bus_NeedsExplore = false;
+    void Bus::ScheduleExplore()
+    {
+        Lock();
+        bus_NeedsExplore = true;
+        Unlock();
 
-	for(auto& usb_dev: bus_devices) {
-		Device* dev = usb_dev.ud_device;
-		if (dev->GetUSBHubDeviceOperations() != nullptr)
-			dev->GetUSBHubDeviceOperations()->HandleExplore();
-	}
-}
+        usbbus_semaphore.Signal();
+    }
 
-/* Must be called with lock held! */
-Result
-Bus::DetachHub(Hub& hub)
-{
-	AssertLocked();
+    /* Must be called with lock held! */
+    void Bus::Explore()
+    {
+        AssertLocked();
+        bus_NeedsExplore = false;
 
-	for(auto it = bus_devices.begin(); it != bus_devices.end(); /* nothing */) {
-		auto& usb_dev = *it; ++it;
-		if (usb_dev.ud_hub != &hub)
-			continue;
+        for (auto& usb_dev : bus_devices) {
+            Device* dev = usb_dev.ud_device;
+            if (dev->GetUSBHubDeviceOperations() != nullptr)
+                dev->GetUSBHubDeviceOperations()->HandleExplore();
+        }
+    }
 
-		Result err = usb_dev.Detach();
-		(void)err; // XXX what to do in this case?
-	}
+    /* Must be called with lock held! */
+    Result Bus::DetachHub(Hub& hub)
+    {
+        AssertLocked();
 
-	return Result::Success();
-}
+        for (auto it = bus_devices.begin(); it != bus_devices.end(); /* nothing */) {
+            auto& usb_dev = *it;
+            ++it;
+            if (usb_dev.ud_hub != &hub)
+                continue;
 
-static void
-usb_bus_thread(void* unused)
-{
-	/* Note that this thread is used for _all_ USB busses */
-	while(1) {
-		/* Wait until we have to wake up... */
-		usbbus_semaphore.Wait();
+            Result err = usb_dev.Detach();
+            (void)err; // XXX what to do in this case?
+        }
 
-		while(1) {
-			/*
-			 * See if any USB busses need to be explored; we do this first because
-			 * exploring may trigger new devices to attach or old ones to remove.
-			 */
-			{
-				MutexGuard g(usbbus_mutex);
-				for(auto& bus: usbbus_busses) {
-					bus.Lock();
-					if (bus.bus_NeedsExplore)
-						bus.Explore();
-					bus.Unlock();
-				}
-			}
+        return Result::Success();
+    }
 
-			/* Handle attaching devices */
-			USBDevice* usb_dev;
-			{
-				SpinlockGuard g(usbbus_spl_pendingqueue);
-				if (usbbus_pendingqueue.empty())
-					break;
-				usb_dev = &usbbus_pendingqueue.front();
-				usbbus_pendingqueue.pop_front();
-			}
+    static void usb_bus_thread(void* unused)
+    {
+        /* Note that this thread is used for _all_ USB busses */
+        while (1) {
+            /* Wait until we have to wake up... */
+            usbbus_semaphore.Wait();
 
-			/*
-			 * Note that attaching will block until completed, which is intentional
-			 * as it ensures we will never attach more than one device in the system
-			 * at any given time.
-			 */
-			Result result = usb_dev->Attach();
-			KASSERT(result.IsSuccess(), "cannot yet deal with failures %d", result.AsStatusCode());
+            while (1) {
+                /*
+                 * See if any USB busses need to be explored; we do this first because
+                 * exploring may trigger new devices to attach or old ones to remove.
+                 */
+                {
+                    MutexGuard g(usbbus_mutex);
+                    for (auto& bus : usbbus_busses) {
+                        bus.Lock();
+                        if (bus.bus_NeedsExplore)
+                            bus.Explore();
+                        bus.Unlock();
+                    }
+                }
 
-			/* This worked; hook the device to the bus' device list */
-			Bus& bus = usb_dev->ud_bus;
-			bus.Lock();
-			bus.bus_devices.push_back(*usb_dev);
-			bus.Unlock();
-		}
-	}
-}
+                /* Handle attaching devices */
+                USBDevice* usb_dev;
+                {
+                    SpinlockGuard g(usbbus_spl_pendingqueue);
+                    if (usbbus_pendingqueue.empty())
+                        break;
+                    usb_dev = &usbbus_pendingqueue.front();
+                    usbbus_pendingqueue.pop_front();
+                }
 
-namespace {
+                /*
+                 * Note that attaching will block until completed, which is intentional
+                 * as it ensures we will never attach more than one device in the system
+                 * at any given time.
+                 */
+                Result result = usb_dev->Attach();
+                KASSERT(
+                    result.IsSuccess(), "cannot yet deal with failures %d", result.AsStatusCode());
 
-struct USBBus_Driver : public Driver
-{
-	USBBus_Driver()
-	 : Driver("usbbus")
-	{
-	}
+                /* This worked; hook the device to the bus' device list */
+                Bus& bus = usb_dev->ud_bus;
+                bus.Lock();
+                bus.bus_devices.push_back(*usb_dev);
+                bus.Unlock();
+            }
+        }
+    }
 
-	const char* GetBussesToProbeOn() const override
-	{
-		return "ohci,uhci";
-	}
+    namespace
+    {
+        struct USBBus_Driver : public Driver {
+            USBBus_Driver() : Driver("usbbus") {}
 
-	Device* CreateDevice(const CreateDeviceProperties& cdp) override
-	{
-		return new Bus(cdp);
-	}
-};
+            const char* GetBussesToProbeOn() const override { return "ohci,uhci"; }
 
-const init::OnInit initializeUSBBus(init::SubSystem::Device, init::Order::First, []()
-{
-	/*
-	 * Create a kernel thread to handle USB device attachments. We use a thread for this
-	 * since we can only attach one at the same time.
-	 */
-	kthread_init(usbbus_thread, "usbbus", &usb_bus_thread, NULL);
-	usbbus_thread.Resume();
-});
+            Device* CreateDevice(const CreateDeviceProperties& cdp) override
+            {
+                return new Bus(cdp);
+            }
+        };
 
-const RegisterDriver<USBBus_Driver> registerDriver;
+        const init::OnInit initializeUSBBus(init::SubSystem::Device, init::Order::First, []() {
+            /*
+             * Create a kernel thread to handle USB device attachments. We use a thread for this
+             * since we can only attach one at the same time.
+             */
+            kthread_init(usbbus_thread, "usbbus", &usb_bus_thread, NULL);
+            usbbus_thread.Resume();
+        });
 
-} // unnamed namespace
+        const RegisterDriver<USBBus_Driver> registerDriver;
+
+    } // unnamed namespace
 } // namespace usb
 
 /* vim:set ts=2 sw=2: */

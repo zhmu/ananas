@@ -33,11 +33,11 @@
 /* Abnormal termination / abort() */
 #define SIGABRT 6
 /* Arithmetic exception / division by zero / overflow */
-#define SIGFPE  8
+#define SIGFPE 8
 /* Illegal instruction */
-#define SIGILL  4
+#define SIGILL 4
 /* Interactive attention signal */
-#define SIGINT  2
+#define SIGINT 2
 /* Invalid memory access */
 #define SIGSEGV 11
 /* Termination request */
@@ -47,9 +47,9 @@
    a valid signal handler function. (They are used as special arguments to
    signal().) Again, these are the values used by Linux.
 */
-#define SIG_DFL (void (*)( int ))0
-#define SIG_ERR (void (*)( int ))-1
-#define SIG_IGN (void (*)( int ))1
+#define SIG_DFL (void (*)(int))0
+#define SIG_ERR (void (*)(int)) - 1
+#define SIG_IGN (void (*)(int))1
 
 typedef _PDCLIB_sig_atomic sig_atomic_t;
 
@@ -69,7 +69,7 @@ typedef _PDCLIB_sig_atomic sig_atomic_t;
    SIG_DFL for all handlers.) If the request cannot be honored, SIG_ERR is
    returned and errno is set to an unspecified positive value.
 */
-void (*signal( int sig, void (*func)( int ) ) )( int );
+void (*signal(int sig, void (*func)(int)))(int);
 
 /* Raises the given signal (executing the registered signal handler with the
    given signal number as parameter).
@@ -78,7 +78,6 @@ void (*signal( int sig, void (*func)( int ) ) )( int );
    handler (i.e., a second signal before the signal handler re-registers itself
    or SIG_IGN will end the program).
    Returns zero if successful, nonzero otherwise. */
-int raise( int sig );
+int raise(int sig);
 
 #endif
-

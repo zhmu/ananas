@@ -7,30 +7,26 @@
 #include <stdio.h>
 #include "_PDCLIB_io.h"
 
-int _PDCLIB_fgetc_unlocked( FILE * stream )
+int _PDCLIB_fgetc_unlocked(FILE* stream)
 {
-    if ( _PDCLIB_prepread( stream ) == EOF )
-    {
+    if (_PDCLIB_prepread(stream) == EOF) {
         return EOF;
     }
 
     char c;
 
-    size_t n = _PDCLIB_getchars( &c, 1, EOF, stream );
+    size_t n = _PDCLIB_getchars(&c, 1, EOF, stream);
 
-    return n == 0 ? EOF : (unsigned char) c;
+    return n == 0 ? EOF : (unsigned char)c;
 }
 
-int fgetc_unlocked( FILE * stream )
-{
-    return _PDCLIB_fgetc_unlocked( stream );
-}
+int fgetc_unlocked(FILE* stream) { return _PDCLIB_fgetc_unlocked(stream); }
 
 // Testing covered by ftell.cpp
-int fgetc( FILE * stream )
+int fgetc(FILE* stream)
 {
-    _PDCLIB_flockfile( stream );
-    int c = _PDCLIB_fgetc_unlocked( stream );
-    _PDCLIB_funlockfile( stream );
+    _PDCLIB_flockfile(stream);
+    int c = _PDCLIB_fgetc_unlocked(stream);
+    _PDCLIB_funlockfile(stream);
     return c;
 }

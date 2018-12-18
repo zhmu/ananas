@@ -29,8 +29,8 @@ extern "C" {
 #endif
 
 /* Functions _NOT_ tagged noreturn as this hampers debugging */
-void _PDCLIB_assert99( char const * const, char const * const, char const * const );
-void _PDCLIB_assert89( char const * const );
+void _PDCLIB_assert99(char const* const, char const* const, char const* const);
+void _PDCLIB_assert89(char const* const);
 
 #ifdef __cplusplus
 }
@@ -40,7 +40,7 @@ void _PDCLIB_assert89( char const * const );
 #if _PDCLIB_C_VERSION >= 2011
 #define static_assert _Static_assert
 #else
-#define static_assert( e, m )
+#define static_assert(e, m)
 #endif
 #endif /* static_assert */
 
@@ -50,27 +50,26 @@ void _PDCLIB_assert89( char const * const );
 #undef assert
 
 #ifdef NDEBUG
-#define assert( ignore ) ( (void) 0 )
+#define assert(ignore) ((void)0)
 #elif _PDCLIB_C_MIN(99)
-#define assert(expression) \
-    do { if(!(expression)) { \
-        _PDCLIB_assert99("Assertion failed: " _PDCLIB_symbol2string(expression)\
-                         ", function ", __func__, \
-                         ", file " __FILE__ \
-                         ", line " _PDCLIB_symbol2string( __LINE__ ) \
-                         "." _PDCLIB_endl ); \
-        _PDCLIB_UNREACHABLE; \
-      } \
-    } while(0)
+#define assert(expression)                                                                      \
+    do {                                                                                        \
+        if (!(expression)) {                                                                    \
+            _PDCLIB_assert99(                                                                   \
+                "Assertion failed: " _PDCLIB_symbol2string(expression) ", function ", __func__, \
+                ", file " __FILE__ ", line " _PDCLIB_symbol2string(__LINE__) "." _PDCLIB_endl); \
+            _PDCLIB_UNREACHABLE;                                                                \
+        }                                                                                       \
+    } while (0)
 
 #else
-#define assert(expression) \
-    do { if(!(expression)) { \
-        _PDCLIB_assert89("Assertion failed: " _PDCLIB_symbol2string(expression)\
-                         ", file " __FILE__ \
-                         ", line " _PDCLIB_symbol2string( __LINE__ ) \
-                         "." _PDCLIB_endl ); \
-        _PDCLIB_UNREACHABLE; \
-      } \
-    } while(0)
+#define assert(expression)                                                               \
+    do {                                                                                 \
+        if (!(expression)) {                                                             \
+            _PDCLIB_assert89("Assertion failed: " _PDCLIB_symbol2string(                 \
+                expression) ", file " __FILE__                                           \
+                            ", line " _PDCLIB_symbol2string(__LINE__) "." _PDCLIB_endl); \
+            _PDCLIB_UNREACHABLE;                                                         \
+        }                                                                                \
+    } while (0)
 #endif

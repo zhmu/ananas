@@ -2,10 +2,7 @@
 #include <threads.h>
 #include <pthread.h>
 
-void *tss_get(tss_t key)
-{
-    return pthread_getspecific(key);
-}
+void* tss_get(tss_t key) { return pthread_getspecific(key); }
 #endif
 
 #ifdef TEST
@@ -16,7 +13,7 @@ static tss_t key;
 static char v;
 #endif
 
-int main( void )
+int main(void)
 {
 #ifndef REGTEST
     TESTCASE(tss_create(&key, NULL) == thrd_success);

@@ -14,11 +14,11 @@
  */
 #define ASM_SYM_PAD 0x10000 /* To prevent arrays of size 0 from being generated */
 
-#define ASM_SYMBOL(x, y) \
-	unsigned char sym_ ## x ## _0[(((uint64_t)(y)      ) & 0xffff) + ASM_SYM_PAD]; \
-	unsigned char sym_ ## x ## _1[(((uint64_t)(y) >> 16) & 0xffff) + ASM_SYM_PAD]; \
-	unsigned char sym_ ## x ## _2[(((uint64_t)(y) >> 32) & 0xffff) + ASM_SYM_PAD]; \
-	unsigned char sym_ ## x ## _3[(((uint64_t)(y) >> 48) & 0xffff) + ASM_SYM_PAD];
+#define ASM_SYMBOL(x, y)                                                       \
+    unsigned char sym_##x##_0[(((uint64_t)(y)) & 0xffff) + ASM_SYM_PAD];       \
+    unsigned char sym_##x##_1[(((uint64_t)(y) >> 16) & 0xffff) + ASM_SYM_PAD]; \
+    unsigned char sym_##x##_2[(((uint64_t)(y) >> 32) & 0xffff) + ASM_SYM_PAD]; \
+    unsigned char sym_##x##_3[(((uint64_t)(y) >> 48) & 0xffff) + ASM_SYM_PAD];
 
 #ifndef offsetof
 #define offsetof __builtin_offsetof /* XXX should be in a cdefs.h file */

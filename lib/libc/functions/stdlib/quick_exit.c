@@ -16,14 +16,13 @@
 */
 #define NUMBER_OF_SLOTS 40
 
-void (*_PDCLIB_quickexitstack[ NUMBER_OF_SLOTS ])( void ) = { 0 };
+void (*_PDCLIB_quickexitstack[NUMBER_OF_SLOTS])(void) = {0};
 size_t _PDCLIB_quickexitptr = NUMBER_OF_SLOTS;
 
-void quick_exit( int status )
+void quick_exit(int status)
 {
-    while ( _PDCLIB_quickexitptr < NUMBER_OF_SLOTS )
-    {
-        _PDCLIB_quickexitstack[ _PDCLIB_quickexitptr++ ]();
+    while (_PDCLIB_quickexitptr < NUMBER_OF_SLOTS) {
+        _PDCLIB_quickexitstack[_PDCLIB_quickexitptr++]();
     }
-    _Exit( status );
+    _Exit(status);
 }

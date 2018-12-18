@@ -6,61 +6,49 @@
 
 class Device;
 
-namespace usb {
-
-class USBDevice;
-class Hub;
-typedef util::List<USBDevice> USBDeviceList;
-
-/*
- * Single USB bus - directly connected to a HCD.
- */
-class Bus : public Device, private IDeviceOperations, public util::List<Bus>::NodePtr
+namespace usb
 {
-public:
-	using Device::Device;
-	virtual ~Bus() = default;
+    class USBDevice;
+    class Hub;
+    typedef util::List<USBDevice> USBDeviceList;
 
-	IDeviceOperations& GetDeviceOperations() override
-	{
-		return *this;
-	}
+    /*
+     * Single USB bus - directly connected to a HCD.
+     */
+    class Bus : public Device, private IDeviceOperations, public util::List<Bus>::NodePtr
+    {
+      public:
+        using Device::Device;
+        virtual ~Bus() = default;
 
-	Result Attach() override;
-	Result Detach() override;
+        IDeviceOperations& GetDeviceOperations() override { return *this; }
 
-	bool bus_NeedsExplore = false;
+        Result Attach() override;
+        Result Detach() override;
 
-	/* List of all USB devices on this bus */
-	USBDeviceList bus_devices;
+        bool bus_NeedsExplore = false;
 
-	int AllocateAddress();
+        /* List of all USB devices on this bus */
+        USBDeviceList bus_devices;
 
-	void ScheduleExplore();
-	void Explore();
-	Result DetachHub(Hub& hub);
+        int AllocateAddress();
 
-	void Lock()
-	{
-		bus_mutex.Lock();
-	}
+        void ScheduleExplore();
+        void Explore();
+        Result DetachHub(Hub& hub);
 
-	void Unlock()
-	{
-		bus_mutex.Unlock();
-	}
+        void Lock() { bus_mutex.Lock(); }
 
-	void AssertLocked()
-	{
-		bus_mutex.AssertLocked();
-	}
+        void Unlock() { bus_mutex.Unlock(); }
 
-private:
-	/* Mutex protecting the bus */
-	Mutex bus_mutex{"usbbus"};
-};
+        void AssertLocked() { bus_mutex.AssertLocked(); }
 
-void ScheduleAttach(USBDevice& usb_dev);
+      private:
+        /* Mutex protecting the bus */
+        Mutex bus_mutex{"usbbus"};
+    };
+
+    void ScheduleAttach(USBDevice& usb_dev);
 
 } // namespace usb
 

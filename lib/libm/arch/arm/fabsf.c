@@ -4,8 +4,8 @@
 
 float fabsf(float x)
 {
-	__asm__ ("vabs.f32 %0, %1" : "=t"(x) : "t"(x));
-	return x;
+    __asm__("vabs.f32 %0, %1" : "=t"(x) : "t"(x));
+    return x;
 }
 
 #else

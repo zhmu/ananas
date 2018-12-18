@@ -9,27 +9,25 @@
 
 TRACE_SETUP;
 
-static Result
-perform_syscall(Thread* curthread, struct SYSCALL_ARGS* a)
+static Result perform_syscall(Thread* curthread, struct SYSCALL_ARGS* a)
 {
-	switch(a->number) {
+    switch (a->number) {
 #include "_gen/syscalls.inc.h"
-		default:
-			kprintf("warning: unsupported syscall %u\n", a->number);
-			return RESULT_MAKE_FAILURE(ENOSYS);
-	}
+        default:
+            kprintf("warning: unsupported syscall %u\n", a->number);
+            return RESULT_MAKE_FAILURE(ENOSYS);
+    }
 }
 
-register_t
-syscall(struct SYSCALL_ARGS* a)
+register_t syscall(struct SYSCALL_ARGS* a)
 {
-	Thread* curthread = PCPU_GET(curthread);
+    Thread* curthread = PCPU_GET(curthread);
 
-	Result result = perform_syscall(curthread, a);
+    Result result = perform_syscall(curthread, a);
 
-	if (result.IsFailure())
-		TRACE(SYSCALL, WARN, "result=%u", result.AsStatusCode());
-	return result.AsStatusCode();
+    if (result.IsFailure())
+        TRACE(SYSCALL, WARN, "result=%u", result.AsStatusCode());
+    return result.AsStatusCode();
 }
 
 /* vim:set ts=2 sw=2: */

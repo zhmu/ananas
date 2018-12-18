@@ -6,7 +6,7 @@ TEST(wchar, wcstok)
     // MinGW at least has a very nonconforming (different signature!) variety
     // of wcstok
     wchar_t s[] = L"_a_bc__d_";
-    wchar_t* state  = NULL;
+    wchar_t* state = NULL;
 
     EXPECT_EQ(&s[1], wcstok(s, L"_", &state));
     EXPECT_EQ(L'a', s[1]);
@@ -21,7 +21,7 @@ TEST(wchar, wcstok)
     EXPECT_EQ(L'd', s[7]);
     EXPECT_EQ(L'\0', s[8]);
     EXPECT_EQ(NULL, wcstok(NULL, L"_", &state));
-    wcscpy( s, L"ab_cd" );
+    wcscpy(s, L"ab_cd");
     EXPECT_EQ(&s[0], wcstok(s, L"_", &state));
     EXPECT_EQ(L'a', s[0]);
     EXPECT_EQ(L'b', s[1]);
@@ -30,5 +30,5 @@ TEST(wchar, wcstok)
     EXPECT_EQ(L'c', s[3]);
     EXPECT_EQ(L'd', s[4]);
     EXPECT_EQ(L'\0', s[5]);
-	EXPECT_EQ(NULL, wcstok(NULL, L"_", &state));
+    EXPECT_EQ(NULL, wcstok(NULL, L"_", &state));
 }

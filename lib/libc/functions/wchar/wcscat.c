@@ -6,14 +6,14 @@
 
 #include <wchar.h>
 
-wchar_t * wcscat( wchar_t * _PDCLIB_restrict s1,
-                  const wchar_t * _PDCLIB_restrict s2 )
+wchar_t* wcscat(wchar_t* _PDCLIB_restrict s1, const wchar_t* _PDCLIB_restrict s2)
 {
-    wchar_t * rc = s1;
-    if ( *s1 )
-    {
-        while ( *++s1 );
+    wchar_t* rc = s1;
+    if (*s1) {
+        while (*++s1)
+            ;
     }
-    while ( (*s1++ = *s2++) );
+    while ((*s1++ = *s2++))
+        ;
     return rc;
 }

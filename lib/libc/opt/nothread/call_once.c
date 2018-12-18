@@ -1,12 +1,12 @@
 #ifndef REGTEST
 #include <threads.h>
 
-void _PDCLIB_call_once(_PDCLIB_once_flag *flag, void (*func)(void))
+void _PDCLIB_call_once(_PDCLIB_once_flag* flag, void (*func)(void))
 {
-	if(!_PDCLIB_ONCE_FLAG_IS_DONE(flag)) {
-		func();
-		*flag = 1;
-	}
+    if (!_PDCLIB_ONCE_FLAG_IS_DONE(flag)) {
+        func();
+        *flag = 1;
+    }
 }
 #endif
 
@@ -17,13 +17,10 @@ void _PDCLIB_call_once(_PDCLIB_once_flag *flag, void (*func)(void))
 static int count = 0;
 static once_flag once = ONCE_FLAG_INIT;
 
-static void do_once(void)
-{
-    count++;
-}
+static void do_once(void) { count++; }
 #endif
 
-int main( void )
+int main(void)
 {
 #ifndef REGTEST
     TESTCASE(count == 0);

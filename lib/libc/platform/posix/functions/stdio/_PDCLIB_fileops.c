@@ -13,11 +13,10 @@
 #include <unistd.h>
 typedef int64_t off_t;
 
-static bool readf( _PDCLIB_fd_t fd, void * buf, size_t length,
-                   size_t * numBytesRead )
+static bool readf(_PDCLIB_fd_t fd, void* buf, size_t length, size_t* numBytesRead)
 {
     ssize_t res = read(fd.sval, buf, length);
-    if(res == -1) {
+    if (res == -1) {
         return false;
     } else {
         *numBytesRead = res;
@@ -25,11 +24,10 @@ static bool readf( _PDCLIB_fd_t fd, void * buf, size_t length,
     }
 }
 
-static bool writef( _PDCLIB_fd_t fd, const void * buf, size_t length,
-                   size_t * numBytesWritten )
+static bool writef(_PDCLIB_fd_t fd, const void* buf, size_t length, size_t* numBytesWritten)
 {
     ssize_t res = write(fd.sval, buf, length);
-    if(res == -1) {
+    if (res == -1) {
         return false;
     } else {
         *numBytesWritten = res;
@@ -39,11 +37,10 @@ static bool writef( _PDCLIB_fd_t fd, const void * buf, size_t length,
 
 /* Note: Assumes being compiled with an OFF64 programming model */
 
-static bool seekf( _PDCLIB_fd_t fd, int_fast64_t offset, int whence,
-    int_fast64_t* newPos )
+static bool seekf(_PDCLIB_fd_t fd, int_fast64_t offset, int whence, int_fast64_t* newPos)
 {
-    off_t npos = lseek( fd.sval, offset, whence );
-    if( npos == -1 ) {
+    off_t npos = lseek(fd.sval, offset, whence);
+    if (npos == -1) {
         return false;
     } else {
         *newPos = npos;
@@ -51,15 +48,12 @@ static bool seekf( _PDCLIB_fd_t fd, int_fast64_t offset, int whence,
     }
 }
 
-static void closef( _PDCLIB_fd_t self )
-{
-    close( self.sval );
-}
+static void closef(_PDCLIB_fd_t self) { close(self.sval); }
 
 const _PDCLIB_fileops_t _PDCLIB_fileops = {
-    .read  = readf,
+    .read = readf,
     .write = writef,
-    .seek  = seekf,
+    .seek = seekf,
     .close = closef,
 };
 
@@ -68,7 +62,7 @@ const _PDCLIB_fileops_t _PDCLIB_fileops = {
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
+int main(void)
 {
     // Tested by stdio test cases
     return TEST_RESULTS;

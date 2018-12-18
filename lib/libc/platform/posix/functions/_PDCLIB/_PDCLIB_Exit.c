@@ -13,24 +13,21 @@
 #ifndef REGTEST
 #include "_PDCLIB_glue.h"
 
-extern void _exit( int status ) _PDCLIB_noreturn;
+extern void _exit(int status) _PDCLIB_noreturn;
 
-void _PDCLIB_Exit( int status )
-{
-    _exit( status );
-}
+void _PDCLIB_Exit(int status) { _exit(status); }
 
 #endif
 
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
+int main(void)
 {
 #ifndef REGTEST
     int UNEXPECTED_RETURN = 0;
-    _PDCLIB_Exit( 0 );
-    TESTCASE( UNEXPECTED_RETURN );
+    _PDCLIB_Exit(0);
+    TESTCASE(UNEXPECTED_RETURN);
 #endif
     return TEST_RESULTS;
 }

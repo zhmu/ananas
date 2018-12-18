@@ -25,7 +25,13 @@
 /* qsort() in <stdlib.h> requires a function that swaps two memory areas.     */
 /* Below is a naive implementation that can be improved significantly for     */
 /* specific platforms, e.g. by swapping int instead of char.                  */
-#define _PDCLIB_memswp( i, j, size ) char tmp; do { tmp = *i; *i++ = *j; *j++ = tmp; } while ( --size );
+#define _PDCLIB_memswp(i, j, size) \
+    char tmp;                      \
+    do {                           \
+        tmp = *i;                  \
+        *i++ = *j;                 \
+        *j++ = tmp;                \
+    } while (--size);
 
 /* -------------------------------------------------------------------------- */
 /* Integers                                                                   */
@@ -45,8 +51,8 @@
 /* Width of the integer types short, int, long, and long long, in bytes.      */
 /* SHRT == 2, INT >= SHRT, LONG >= INT >= 4, LLONG >= LONG - check your       */
 /* compiler manuals.                                                          */
-#define _PDCLIB_SHRT_BYTES  2
-#define _PDCLIB_INT_BYTES   4
+#define _PDCLIB_SHRT_BYTES 2
+#define _PDCLIB_INT_BYTES 4
 #if defined(_LP64) || defined(__ILP64__)
 #define _PDCLIB_LONG_BYTES 8
 #else
@@ -63,20 +69,17 @@
 /* the return structure in any way to fit the hardware. That is why those     */
 /* structs can be configured here.                                            */
 
-struct _PDCLIB_div_t
-{
+struct _PDCLIB_div_t {
     int quot;
     int rem;
 };
 
-struct _PDCLIB_ldiv_t
-{
+struct _PDCLIB_ldiv_t {
     long int quot;
     long int rem;
 };
 
-struct _PDCLIB_lldiv_t
-{
+struct _PDCLIB_lldiv_t {
     long long int quot;
     long long int rem;
 };
@@ -180,7 +183,7 @@ struct _PDCLIB_lldiv_t
    as at least one value that does not correspond to any member of the
    extended character set (WEOF).
 */
-#define _PDCLIB_wint  int
+#define _PDCLIB_wint int
 
 #define _PDCLIB_intptr long
 #define _PDCLIB_INTPTR LONG
@@ -195,8 +198,7 @@ struct _PDCLIB_lldiv_t
 /* <inttypes.h> defines imaxdiv(), which is equivalent to the div() function  */
 /* family (see further above) with intmax_t as basis.                         */
 
-struct _PDCLIB_imaxdiv_t
-{
+struct _PDCLIB_imaxdiv_t {
     _PDCLIB_intmax quot;
     _PDCLIB_intmax rem;
 };
@@ -279,8 +281,8 @@ struct _PDCLIB_imaxdiv_t
  *    DOUBLE:   IEEE 754 double precision (64-bit)
  *    EXTENDED: IEEE 754 extended precision (80-bit, as x87)
  */
-#define _PDCLIB_FLOAT_TYPE   SINGLE
-#define _PDCLIB_DOUBLE_TYPE  DOUBLE
+#define _PDCLIB_FLOAT_TYPE SINGLE
+#define _PDCLIB_DOUBLE_TYPE DOUBLE
 #define _PDCLIB_LDOUBLE_TYPE EXTENDED
 
 /* -------------------------------------------------------------------------- */
@@ -298,9 +300,9 @@ struct _PDCLIB_imaxdiv_t
    most compilers.
 */
 #ifdef __GNUC__
-#define _PDCLIB_offsetof( type, member ) __builtin_offsetof( type, member )
+#define _PDCLIB_offsetof(type, member) __builtin_offsetof(type, member)
 #else
-#define _PDCLIB_offsetof( type, member ) ( (size_t) &( ( (type *) 0 )->member ) )
+#define _PDCLIB_offsetof(type, member) ((size_t) & (((type*)0)->member))
 #endif
 
 /* Variable Length Parameter List Handling (<stdarg.h>)
@@ -311,18 +313,20 @@ struct _PDCLIB_imaxdiv_t
 
 #ifdef __GNUC__
 typedef __builtin_va_list _PDCLIB_va_list;
-#define _PDCLIB_va_arg( ap, type ) (__builtin_va_arg( (ap), type ))
-#define _PDCLIB_va_copy( dest, src ) (__builtin_va_copy( (dest), (src) ))
-#define _PDCLIB_va_end( ap ) (__builtin_va_end( ap ) )
-#define _PDCLIB_va_start( ap, parmN ) (__builtin_va_start( (ap), (parmN) ))
-#elif (defined(__i386__) || defined(__i386) || defined(_M_IX86)) && !(defined(__amd64__) || defined(__x86_64__) || defined(_M_AMD64))
+#define _PDCLIB_va_arg(ap, type) (__builtin_va_arg((ap), type))
+#define _PDCLIB_va_copy(dest, src) (__builtin_va_copy((dest), (src)))
+#define _PDCLIB_va_end(ap) (__builtin_va_end(ap))
+#define _PDCLIB_va_start(ap, parmN) (__builtin_va_start((ap), (parmN)))
+#elif (defined(__i386__) || defined(__i386) || defined(_M_IX86)) && \
+    !(defined(__amd64__) || defined(__x86_64__) || defined(_M_AMD64))
 /* Internal helper macro. va_round is not part of <stdarg.h>. */
-#define _PDCLIB_va_round( type ) ( (sizeof(type) + sizeof(void *) - 1) & ~(sizeof(void *) - 1) )
-typedef char * _PDCLIB_va_list;
-#define _PDCLIB_va_arg( ap, type ) ( (ap) += (_PDCLIB_va_round(type)), ( *(type*) ( (ap) - (_PDCLIB_va_round(type)) ) ) )
-#define _PDCLIB_va_copy( dest, src ) ( (dest) = (src), (void)0 )
-#define _PDCLIB_va_end( ap ) ( (ap) = (void *)0, (void)0 )
-#define _PDCLIB_va_start( ap, parmN ) ( (ap) = (char *) &parmN + ( _PDCLIB_va_round(parmN) ), (void)0 )
+#define _PDCLIB_va_round(type) ((sizeof(type) + sizeof(void*) - 1) & ~(sizeof(void*) - 1))
+typedef char* _PDCLIB_va_list;
+#define _PDCLIB_va_arg(ap, type) \
+    ((ap) += (_PDCLIB_va_round(type)), (*(type*)((ap) - (_PDCLIB_va_round(type)))))
+#define _PDCLIB_va_copy(dest, src) ((dest) = (src), (void)0)
+#define _PDCLIB_va_end(ap) ((ap) = (void*)0, (void)0)
+#define _PDCLIB_va_start(ap, parmN) ((ap) = (char*)&parmN + (_PDCLIB_va_round(parmN)), (void)0)
 #else
 #error Compiler/Architecture support please
 #endif
@@ -342,9 +346,9 @@ typedef char * _PDCLIB_va_list;
 */
 #define _PDCLIB_MALLOC_PAGESIZE 4096
 #define _PDCLIB_MALLOC_ALIGN 16
-#define _PDCLIB_MALLOC_GRANULARITY 64*1024
-#define _PDCLIB_MALLOC_TRIM_THRESHOLD 2*1024*1024
-#define _PDCLIB_MALLOC_MMAP_THRESHOLD 256*1024
+#define _PDCLIB_MALLOC_GRANULARITY 64 * 1024
+#define _PDCLIB_MALLOC_TRIM_THRESHOLD 2 * 1024 * 1024
+#define _PDCLIB_MALLOC_MMAP_THRESHOLD 256 * 1024
 #define _PDCLIB_MALLOC_RELEASE_CHECK_RATE 4095
 
 /* TODO: Better document these */
@@ -425,84 +429,84 @@ typedef char * _PDCLIB_va_list;
 */
 
 /* These values were taken from Linux, gcc 4.8. */
-#define _PDCLIB_E2BIG              7
-#define _PDCLIB_EACCES            13
-#define _PDCLIB_EADDRINUSE        98
-#define _PDCLIB_EADDRNOTAVAIL     99
-#define _PDCLIB_EAFNOSUPPORT      97
-#define _PDCLIB_EAGAIN            11
-#define _PDCLIB_EALREADY         114
-#define _PDCLIB_EBADF              9
-#define _PDCLIB_EBADMSG           74
-#define _PDCLIB_EBUSY             16
-#define _PDCLIB_ECANCELED        125
-#define _PDCLIB_ECHILD            10
-#define _PDCLIB_ECONNABORTED     103
-#define _PDCLIB_ECONNREFUSED     111
-#define _PDCLIB_ECONNRESET       104
-#define _PDCLIB_EDEADLK           35
-#define _PDCLIB_EDESTADDRREQ      89
-#define _PDCLIB_EDOM              33
-#define _PDCLIB_EEXIST            17
-#define _PDCLIB_EFAULT            14
-#define _PDCLIB_EFBIG             27
-#define _PDCLIB_EHOSTUNREACH     113
-#define _PDCLIB_EIDRM             43
-#define _PDCLIB_EILSEQ            84
-#define _PDCLIB_EINPROGRESS      115
-#define _PDCLIB_EINTR              4
-#define _PDCLIB_EINVAL            22
-#define _PDCLIB_EIO                5
-#define _PDCLIB_EISCONN          106
-#define _PDCLIB_EISDIR            21
-#define _PDCLIB_ELOOP             40
-#define _PDCLIB_EMFILE            24
-#define _PDCLIB_EMLINK            31
-#define _PDCLIB_EMSGSIZE          90
-#define _PDCLIB_ENAMETOOLONG      36
-#define _PDCLIB_ENETDOWN         100
-#define _PDCLIB_ENETRESET        102
-#define _PDCLIB_ENETUNREACH      101
-#define _PDCLIB_ENFILE            23
-#define _PDCLIB_ENOBUFS          105
-#define _PDCLIB_ENODATA           61
-#define _PDCLIB_ENODEV            19
-#define _PDCLIB_ENOENT             2
-#define _PDCLIB_ENOEXEC            8
-#define _PDCLIB_ENOLCK            37
-#define _PDCLIB_ENOLINK           67
-#define _PDCLIB_ENOMEM            12
-#define _PDCLIB_ENOMSG            42
-#define _PDCLIB_ENOPROTOOPT       92
-#define _PDCLIB_ENOSPC            28
-#define _PDCLIB_ENOSR             63
-#define _PDCLIB_ENOSTR            60
-#define _PDCLIB_ENOSYS            38
-#define _PDCLIB_ENOTCONN         107
-#define _PDCLIB_ENOTDIR           20
-#define _PDCLIB_ENOTEMPTY         39
-#define _PDCLIB_ENOTRECOVERABLE  131
-#define _PDCLIB_ENOTSOCK          88
-#define _PDCLIB_ENOTSUP           95
-#define _PDCLIB_ENOTTY            25
-#define _PDCLIB_ENXIO              6
-#define _PDCLIB_EOPNOTSUPP        95
-#define _PDCLIB_EOVERFLOW         75
-#define _PDCLIB_EOWNERDEAD       130
-#define _PDCLIB_EPERM              1
-#define _PDCLIB_EPIPE             32
-#define _PDCLIB_EPROTO            71
-#define _PDCLIB_EPROTONOSUPPORT   93
-#define _PDCLIB_EPROTOTYPE        91
-#define _PDCLIB_ERANGE            34
-#define _PDCLIB_EROFS             30
-#define _PDCLIB_ESPIPE            29
-#define _PDCLIB_ESRCH              3
-#define _PDCLIB_ETIME             62
-#define _PDCLIB_ETIMEDOUT        110
-#define _PDCLIB_ETXTBSY           26
-#define _PDCLIB_EWOULDBLOCK       11
-#define _PDCLIB_EXDEV             18
+#define _PDCLIB_E2BIG 7
+#define _PDCLIB_EACCES 13
+#define _PDCLIB_EADDRINUSE 98
+#define _PDCLIB_EADDRNOTAVAIL 99
+#define _PDCLIB_EAFNOSUPPORT 97
+#define _PDCLIB_EAGAIN 11
+#define _PDCLIB_EALREADY 114
+#define _PDCLIB_EBADF 9
+#define _PDCLIB_EBADMSG 74
+#define _PDCLIB_EBUSY 16
+#define _PDCLIB_ECANCELED 125
+#define _PDCLIB_ECHILD 10
+#define _PDCLIB_ECONNABORTED 103
+#define _PDCLIB_ECONNREFUSED 111
+#define _PDCLIB_ECONNRESET 104
+#define _PDCLIB_EDEADLK 35
+#define _PDCLIB_EDESTADDRREQ 89
+#define _PDCLIB_EDOM 33
+#define _PDCLIB_EEXIST 17
+#define _PDCLIB_EFAULT 14
+#define _PDCLIB_EFBIG 27
+#define _PDCLIB_EHOSTUNREACH 113
+#define _PDCLIB_EIDRM 43
+#define _PDCLIB_EILSEQ 84
+#define _PDCLIB_EINPROGRESS 115
+#define _PDCLIB_EINTR 4
+#define _PDCLIB_EINVAL 22
+#define _PDCLIB_EIO 5
+#define _PDCLIB_EISCONN 106
+#define _PDCLIB_EISDIR 21
+#define _PDCLIB_ELOOP 40
+#define _PDCLIB_EMFILE 24
+#define _PDCLIB_EMLINK 31
+#define _PDCLIB_EMSGSIZE 90
+#define _PDCLIB_ENAMETOOLONG 36
+#define _PDCLIB_ENETDOWN 100
+#define _PDCLIB_ENETRESET 102
+#define _PDCLIB_ENETUNREACH 101
+#define _PDCLIB_ENFILE 23
+#define _PDCLIB_ENOBUFS 105
+#define _PDCLIB_ENODATA 61
+#define _PDCLIB_ENODEV 19
+#define _PDCLIB_ENOENT 2
+#define _PDCLIB_ENOEXEC 8
+#define _PDCLIB_ENOLCK 37
+#define _PDCLIB_ENOLINK 67
+#define _PDCLIB_ENOMEM 12
+#define _PDCLIB_ENOMSG 42
+#define _PDCLIB_ENOPROTOOPT 92
+#define _PDCLIB_ENOSPC 28
+#define _PDCLIB_ENOSR 63
+#define _PDCLIB_ENOSTR 60
+#define _PDCLIB_ENOSYS 38
+#define _PDCLIB_ENOTCONN 107
+#define _PDCLIB_ENOTDIR 20
+#define _PDCLIB_ENOTEMPTY 39
+#define _PDCLIB_ENOTRECOVERABLE 131
+#define _PDCLIB_ENOTSOCK 88
+#define _PDCLIB_ENOTSUP 95
+#define _PDCLIB_ENOTTY 25
+#define _PDCLIB_ENXIO 6
+#define _PDCLIB_EOPNOTSUPP 95
+#define _PDCLIB_EOVERFLOW 75
+#define _PDCLIB_EOWNERDEAD 130
+#define _PDCLIB_EPERM 1
+#define _PDCLIB_EPIPE 32
+#define _PDCLIB_EPROTO 71
+#define _PDCLIB_EPROTONOSUPPORT 93
+#define _PDCLIB_EPROTOTYPE 91
+#define _PDCLIB_ERANGE 34
+#define _PDCLIB_EROFS 30
+#define _PDCLIB_ESPIPE 29
+#define _PDCLIB_ESRCH 3
+#define _PDCLIB_ETIME 62
+#define _PDCLIB_ETIMEDOUT 110
+#define _PDCLIB_ETXTBSY 26
+#define _PDCLIB_EWOULDBLOCK 11
+#define _PDCLIB_EXDEV 18
 
 /* This is used to set the size of the array in struct lconv (<locale.h>)     */
 /* holding the error messages for the strerror() and perror() fuctions. If    */

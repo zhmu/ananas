@@ -11,12 +11,11 @@
 #include <errno.h>
 #include <windows.h>
 
-void _PDCLIB_w32errno( void );
-int _PDCLIB_rename( const char * old, const char * new )
+void _PDCLIB_w32errno(void);
+int _PDCLIB_rename(const char* old, const char* new)
 {
-
     BOOL ok = MoveFile(old, new);
-    if(!ok) {
+    if (!ok) {
         _PDCLIB_w32errno();
     }
     return !ok;
@@ -29,9 +28,6 @@ int _PDCLIB_rename( const char * old, const char * new )
 
 #include <stdlib.h>
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif

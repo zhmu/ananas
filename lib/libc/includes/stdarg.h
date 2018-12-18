@@ -15,10 +15,10 @@ extern "C" {
 
 typedef _PDCLIB_va_list va_list;
 
-#define va_arg( ap, type )    _PDCLIB_va_arg( ap, type )
-#define va_copy( dest, src )  _PDCLIB_va_copy( dest, src )
-#define va_end( ap )          _PDCLIB_va_end( ap )
-#define va_start( ap, parmN ) _PDCLIB_va_start( ap, parmN )
+#define va_arg(ap, type) _PDCLIB_va_arg(ap, type)
+#define va_copy(dest, src) _PDCLIB_va_copy(dest, src)
+#define va_end(ap) _PDCLIB_va_end(ap)
+#define va_start(ap, parmN) _PDCLIB_va_start(ap, parmN)
 
 #ifdef __cplusplus
 }

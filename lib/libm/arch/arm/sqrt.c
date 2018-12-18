@@ -4,8 +4,8 @@
 
 double sqrt(double x)
 {
-	__asm__ ("vsqrt.f64 %P0, %P1" : "=w"(x) : "w"(x));
-	return x;
+    __asm__("vsqrt.f64 %P0, %P1" : "=w"(x) : "w"(x));
+    return x;
 }
 
 #else

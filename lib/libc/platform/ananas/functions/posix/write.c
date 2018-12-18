@@ -5,6 +5,6 @@
 
 ssize_t write(int fd, const void* buf, size_t len)
 {
-	statuscode_t status = sys_write(fd, buf, len);
-	return map_statuscode(status);
+    statuscode_t status = sys_write(fd, buf, len);
+    return map_statuscode(status);
 }

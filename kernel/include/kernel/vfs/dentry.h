@@ -4,20 +4,20 @@
 #include <ananas/util/list.h>
 #include <ananas/types.h>
 
-#define DCACHE_MAX_NAME_LEN	255
+#define DCACHE_MAX_NAME_LEN 255
 
 struct VFS_MOUNTED_FS;
 struct INode;
 
 struct DEntry : util::List<DEntry>::NodePtr {
-	refcount_t d_refcount{};		/* Reference count, >0 */
-	struct VFS_MOUNTED_FS* d_fs = nullptr;
-	DEntry* d_parent = nullptr;		/* Parent directory entry */
-	INode*	d_inode = nullptr;		/* Backing entry inode, or NULL */
-	uint32_t d_flags = 0;			/* Item flags */
-#define DENTRY_FLAG_NEGATIVE	0x0001		/* Negative entry; does not exist */
-#define DENTRY_FLAG_ROOT			0x0002		/* Root dentry; must not be removed */
-	char	d_entry[DCACHE_MAX_NAME_LEN] = {};/* Entry name */
+    refcount_t d_refcount{}; /* Reference count, >0 */
+    struct VFS_MOUNTED_FS* d_fs = nullptr;
+    DEntry* d_parent = nullptr;             /* Parent directory entry */
+    INode* d_inode = nullptr;               /* Backing entry inode, or NULL */
+    uint32_t d_flags = 0;                   /* Item flags */
+#define DENTRY_FLAG_NEGATIVE 0x0001         /* Negative entry; does not exist */
+#define DENTRY_FLAG_ROOT 0x0002             /* Root dentry; must not be removed */
+    char d_entry[DCACHE_MAX_NAME_LEN] = {}; /* Entry name */
 };
 
 DEntry& dcache_create_root_dentry(struct VFS_MOUNTED_FS* fs);

@@ -7,12 +7,10 @@ TRACE_SETUP;
 
 struct Thread;
 
-Result
-sys_unlink(Thread* t, const char* path)
+Result sys_unlink(Thread* t, const char* path)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, path='%s'", t, path);
+    TRACE(SYSCALL, FUNC, "t=%p, path='%s'", t, path);
 
-	/* TODO */
-	return RESULT_MAKE_FAILURE(EIO);
+    /* TODO */
+    return RESULT_MAKE_FAILURE(EIO);
 }
-

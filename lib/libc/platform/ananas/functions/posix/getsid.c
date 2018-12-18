@@ -5,6 +5,6 @@
 
 int getsid(pid_t pid)
 {
-	statuscode_t status = sys_getsid(pid);
-	return map_statuscode(status);
+    statuscode_t status = sys_getsid(pid);
+    return map_statuscode(status);
 }

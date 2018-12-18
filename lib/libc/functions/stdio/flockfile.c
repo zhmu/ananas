@@ -11,9 +11,9 @@
 #include <stdlib.h>
 
 // Not tested here - tested by other stdio test drivers
-void _PDCLIB_flockfile( FILE * file )
+void _PDCLIB_flockfile(FILE* file)
 {
-    if( mtx_lock( &file->lock ) != thrd_success ) {
+    if (mtx_lock(&file->lock) != thrd_success) {
         abort();
     }
 }

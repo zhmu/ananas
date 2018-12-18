@@ -20,84 +20,68 @@
 /* FIXME: one too many flags to work on a 16-bit machine, join some (e.g. the
           width flags) into a combined field.
 */
-#define E_minus    (1<<0)
-#define E_plus     (1<<1)
-#define E_alt      (1<<2)
-#define E_space    (1<<3)
-#define E_zero     (1<<4)
-#define E_done     (1<<5)
+#define E_minus (1 << 0)
+#define E_plus (1 << 1)
+#define E_alt (1 << 2)
+#define E_space (1 << 3)
+#define E_zero (1 << 4)
+#define E_done (1 << 5)
 
-#define E_char     (1<<6)
-#define E_short    (1<<7)
-#define E_long     (1<<8)
-#define E_llong    (1<<9)
-#define E_intmax   (1<<10)
-#define E_size     (1<<11)
-#define E_ptrdiff  (1<<12)
-#define E_intptr   (1<<13)
+#define E_char (1 << 6)
+#define E_short (1 << 7)
+#define E_long (1 << 8)
+#define E_llong (1 << 9)
+#define E_intmax (1 << 10)
+#define E_size (1 << 11)
+#define E_ptrdiff (1 << 12)
+#define E_intptr (1 << 13)
 
-#define E_ldouble  (1<<14)
+#define E_ldouble (1 << 14)
 
-#define E_lower    (1<<15)
-#define E_unsigned (1<<16)
+#define E_lower (1 << 15)
+#define E_unsigned (1 << 16)
 
-#define E_TYPES (E_char | E_short | E_long | E_llong | E_intmax \
-                | E_size | E_ptrdiff | E_intptr)
+#define E_TYPES (E_char | E_short | E_long | E_llong | E_intmax | E_size | E_ptrdiff | E_intptr)
 
 /* returns true if callback-based output succeeded; else false */
-static inline bool cbout(
-    struct _PDCLIB_status_t * status,
-    const void * buf,
-    size_t size )
+static inline bool cbout(struct _PDCLIB_status_t* status, const void* buf, size_t size)
 {
-    size_t rv = status->write( status->ctx, buf, size );
-    status->i       += rv;
+    size_t rv = status->write(status->ctx, buf, size);
+    status->i += rv;
     status->current += rv;
     return rv == size;
 }
 
 /* repeated output of a single character */
-static inline bool cbrept(
-    struct _PDCLIB_status_t * status,
-    char c,
-    size_t times )
+static inline bool cbrept(struct _PDCLIB_status_t* status, char c, size_t times)
 {
-    if ( sizeof(size_t) == 8 && CHAR_BIT == 8)
-    {
+    if (sizeof(size_t) == 8 && CHAR_BIT == 8) {
         uint64_t spread = UINT64_C(0x0101010101010101) * c;
-        while ( times )
-        {
+        while (times) {
             size_t n = times > 8 ? 8 : times;
-            if ( !cbout( status, &spread, n ) )
+            if (!cbout(status, &spread, n))
                 return false;
             times -= n;
         }
         return true;
-    }
-    else if ( sizeof(size_t) == 4  && CHAR_BIT == 8)
-    {
+    } else if (sizeof(size_t) == 4 && CHAR_BIT == 8) {
         uint32_t spread = UINT32_C(0x01010101) * c;
-        while ( times )
-        {
+        while (times) {
             size_t n = times > 4 ? 4 : times;
-            if ( !cbout( status, &spread, n ) )
+            if (!cbout(status, &spread, n))
                 return false;
             times -= n;
         }
         return true;
-    }
-    else
-    {
-        while ( times )
-        {
-            if ( !cbout( status, &c, 1) )
+    } else {
+        while (times) {
+            if (!cbout(status, &c, 1))
                 return false;
             times--;
         }
         return true;
     }
 }
-
 
 /* Maximum number of output characters =
  *   number of bits in (u)intmax_t / number of bits per character in smallest
@@ -109,25 +93,19 @@ static inline bool cbrept(
  */
 static const size_t maxIntLen = sizeof(intmax_t) * CHAR_BIT / 3 + 1;
 
-static bool int2base( uintmax_t value, struct _PDCLIB_status_t * status )
+static bool int2base(uintmax_t value, struct _PDCLIB_status_t* status)
 {
     char sign = 0;
-    if ( ! ( status->flags & E_unsigned ) )
-    {
-        intmax_t signval = (intmax_t) value;
+    if (!(status->flags & E_unsigned)) {
+        intmax_t signval = (intmax_t)value;
         bool negative = signval < 0;
         value = signval < 0 ? -signval : signval;
 
-        if ( negative )
-        {
+        if (negative) {
             sign = '-';
-        }
-        else if ( status->flags & E_plus )
-        {
+        } else if (status->flags & E_plus) {
             sign = '+';
-        }
-        else if (status->flags & E_space )
-        {
+        } else if (status->flags & E_space) {
             sign = ' ';
         }
     }
@@ -137,56 +115,54 @@ static bool int2base( uintmax_t value, struct _PDCLIB_status_t * status )
     // them from their own stupidity?
     size_t bufLen = (status->width > maxIntLen ? status->width : maxIntLen) + 2;
     char outbuf[bufLen];
-    char * outend = outbuf + bufLen;
+    char* outend = outbuf + bufLen;
     int written = 0;
 
     // Build up our output string - backwards
     {
-        const char * digits = (status->flags & E_lower) ?
-                                _PDCLIB_digits : _PDCLIB_Xdigits;
+        const char* digits = (status->flags & E_lower) ? _PDCLIB_digits : _PDCLIB_Xdigits;
         uintmax_t remaining = value;
-        if(status->prec != 0 || remaining != 0) do {
-            uintmax_t digit = remaining % status->base;
-            remaining /= status->base;
+        if (status->prec != 0 || remaining != 0)
+            do {
+                uintmax_t digit = remaining % status->base;
+                remaining /= status->base;
 
-            outend[-++written] = digits[digit];
-        } while(remaining != 0);
+                outend[-++written] = digits[digit];
+            } while (remaining != 0);
     }
 
     // Pad field out to the precision specification
-    while( (long) written < status->prec ) outend[-++written] = '0';
+    while ((long)written < status->prec)
+        outend[-++written] = '0';
 
     // If a field width specified, and zero padding was requested, then pad to
     // the field width
     unsigned padding = 0;
-    if ( ( ! ( status->flags & E_minus ) ) && ( status->flags & E_zero ) )
-    {
-        while( written < (int) status->width )
-        {
+    if ((!(status->flags & E_minus)) && (status->flags & E_zero)) {
+        while (written < (int)status->width) {
             outend[-++written] = '0';
             padding++;
         }
     }
 
     // Prefixes
-    if ( sign != 0 )
-    {
-        if ( padding == 0 ) written++;
+    if (sign != 0) {
+        if (padding == 0)
+            written++;
         outend[-written] = sign;
-    }
-    else if ( status->flags & E_alt )
-    {
-        switch ( status->base )
-        {
+    } else if (status->flags & E_alt) {
+        switch (status->base) {
             case 8:
-                if ( outend[-written] != '0' ) outend[-++written] = '0';
+                if (outend[-written] != '0')
+                    outend[-++written] = '0';
                 break;
             case 16:
                 // No prefix if zero
-                if ( value == 0 ) break;
+                if (value == 0)
+                    break;
 
                 written += padding < 2 ? 2 - padding : 0;
-                outend[-written    ] = '0';
+                outend[-written] = '0';
                 outend[-written + 1] = (status->flags & E_lower) ? 'x' : 'X';
                 break;
             default:
@@ -195,77 +171,73 @@ static bool int2base( uintmax_t value, struct _PDCLIB_status_t * status )
     }
 
     // Space padding to field width
-    if ( ! ( status->flags & ( E_minus | E_zero ) ) )
-    {
-        while( written < (int) status->width ) outend[-++written] = ' ';
+    if (!(status->flags & (E_minus | E_zero))) {
+        while (written < (int)status->width)
+            outend[-++written] = ' ';
     }
 
     // Write output
-    return cbout( status, outend - written, written );
+    return cbout(status, outend - written, written);
 }
 
 /* print a string. returns false if an I/O error occured */
-static bool printstr( const char * str, struct _PDCLIB_status_t * status )
+static bool printstr(const char* str, struct _PDCLIB_status_t* status)
 {
-    size_t len = status->prec >= 0 ? strnlen( str, status-> prec)
-                                   : strlen(str);
+    size_t len = status->prec >= 0 ? strnlen(str, status->prec) : strlen(str);
 
-    if ( status->width == 0 || status->flags & E_minus )
-    {
+    if (status->width == 0 || status->flags & E_minus) {
         // Simple case or left justification
-        if ( status->prec > 0 )
-        {
-            len = (unsigned) status->prec < len ? (unsigned)  status->prec : len;
+        if (status->prec > 0) {
+            len = (unsigned)status->prec < len ? (unsigned)status->prec : len;
         }
 
-        if ( !cbout( status, str, len ) )
+        if (!cbout(status, str, len))
             return false;
 
         /* right padding */
-        if ( status->width > status->current ) {
+        if (status->width > status->current) {
             len = status->width - status->current;
 
-            if ( !cbrept( status, ' ', len ) )
+            if (!cbrept(status, ' ', len))
                 return false;
         }
     } else {
         // Right justification
 
-        if ( status->width > len ) {
+        if (status->width > len) {
             size_t padding = status->width - len;
 
-            if ( !cbrept( status, ' ', padding ))
+            if (!cbrept(status, ' ', padding))
                 return false;
         }
 
-        if ( !cbout( status, str, len ) )
+        if (!cbout(status, str, len))
             return false;
     }
 
     return true;
 }
 
-static bool printchar( char chr, struct _PDCLIB_status_t * status )
+static bool printchar(char chr, struct _PDCLIB_status_t* status)
 {
-    if( ! ( status->flags & E_minus ) )
-    {
+    if (!(status->flags & E_minus)) {
         // Right justification
-        if ( status-> width ) {
+        if (status->width) {
             size_t justification = status->width - status->current - 1;
-            if ( !cbrept( status, ' ', justification ))
+            if (!cbrept(status, ' ', justification))
                 return false;
         }
 
-        if ( !cbout( status, &chr, 1 ))
+        if (!cbout(status, &chr, 1))
             return false;
     } else {
         // Left justification
 
-        if ( !cbout( status, &chr, 1 ))
+        if (!cbout(status, &chr, 1))
             return false;
 
-        if ( status->width > status->current ) {
-            if ( !cbrept( status, ' ', status->width - status->current ) )
+        if (status->width > status->current) {
+            if (!cbrept(status, ' ', status->width - status->current))
                 return false;
         }
     }
@@ -274,29 +246,26 @@ static bool printchar( char chr, struct _PDCLIB_status_t * status )
 }
 
 // Testing covered by printf.cpp
-int _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status )
+int _PDCLIB_print(const char* spec, struct _PDCLIB_status_t* status)
 {
-    const char * orig_spec = spec;
-    if ( *(++spec) == '%' )
-    {
+    const char* orig_spec = spec;
+    if (*(++spec) == '%') {
         /* %% -> print single '%' */
-        if ( !cbout(status, spec, 1) )
+        if (!cbout(status, spec, 1))
             return -1;
         ++spec;
         return (spec - orig_spec);
     }
     /* Initializing status structure */
     status->flags = 0;
-    status->base  = 0;
-    status->current  = 0;
+    status->base = 0;
+    status->current = 0;
     status->width = 0;
-    status->prec  = EOF;
+    status->prec = EOF;
 
     /* First come 0..n flags */
-    do
-    {
-        switch ( *spec )
-        {
+    do {
+        switch (*spec) {
             case '-':
                 /* left-aligned output */
                 status->flags |= E_minus;
@@ -327,49 +296,39 @@ int _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status )
                 status->flags |= E_done;
                 break;
         }
-    } while ( ! ( status->flags & E_done ) );
+    } while (!(status->flags & E_done));
 
     /* Optional field width */
-    if ( *spec == '*' )
-    {
+    if (*spec == '*') {
         /* Retrieve width value from argument stack */
-        int width = va_arg( status->arg, int );
-        if ( width < 0 )
-        {
+        int width = va_arg(status->arg, int);
+        if (width < 0) {
             status->flags |= E_minus;
-            status->width = abs( width );
-        }
-        else
-        {
+            status->width = abs(width);
+        } else {
             status->width = width;
         }
         ++spec;
-    }
-    else
-    {
+    } else {
         /* If a width is given, strtol() will return its value. If not given,
            strtol() will return zero. In both cases, endptr will point to the
            rest of the conversion specifier - just what we need.
         */
-        status->width = (int)strtol( spec, (char**)&spec, 10 );
+        status->width = (int)strtol(spec, (char**)&spec, 10);
     }
 
     /* Optional precision */
-    if ( *spec == '.' )
-    {
+    if (*spec == '.') {
         ++spec;
-        if ( *spec == '*' )
-        {
+        if (*spec == '*') {
             /* Retrieve precision value from argument stack. A negative value
                is as if no precision is given - as precision is initalized to
                EOF (negative), there is no need for testing for negative here.
             */
-            status->prec = va_arg( status->arg, int );
+            status->prec = va_arg(status->arg, int);
             ++spec;
-        }
-        else
-        {
-            status->prec = (int)strtol( spec, (char**) &spec, 10 );
+        } else {
+            status->prec = (int)strtol(spec, (char**)&spec, 10);
         }
         /* Having a precision cancels out any zero flag. */
         status->flags &= ~E_zero;
@@ -380,30 +339,23 @@ int _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status )
        there has been no length modifier (or step ahead another character if it
        has been "hh" or "ll").
     */
-    switch ( *(spec++) )
-    {
+    switch (*(spec++)) {
         case 'h':
-            if ( *spec == 'h' )
-            {
+            if (*spec == 'h') {
                 /* hh -> char */
                 status->flags |= E_char;
                 ++spec;
-            }
-            else
-            {
+            } else {
                 /* h -> short */
                 status->flags |= E_short;
             }
             break;
         case 'l':
-            if ( *spec == 'l' )
-            {
+            if (*spec == 'l') {
                 /* ll -> long long */
                 status->flags |= E_llong;
                 ++spec;
-            }
-            else
-            {
+            } else {
                 /* k -> long */
                 status->flags |= E_long;
             }
@@ -430,8 +382,7 @@ int _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status )
     }
 
     /* Conversion specifier */
-    switch ( *spec )
-    {
+    switch (*spec) {
         case 'd':
             /* FALLTHROUGH */
         case 'i':
@@ -447,7 +398,7 @@ int _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status )
             break;
         case 'x':
             status->base = 16;
-            status->flags |= ( E_lower | E_unsigned );
+            status->flags |= (E_lower | E_unsigned);
             break;
         case 'X':
             status->base = 16;
@@ -465,118 +416,110 @@ int _PDCLIB_print( const char * spec, struct _PDCLIB_status_t * status )
             break;
         case 'c':
             /* TODO: wide chars. */
-            if ( !printchar( va_arg( status->arg, int ), status ) )
+            if (!printchar(va_arg(status->arg, int), status))
                 return -1;
             ++spec;
             return (spec - orig_spec);
         case 's':
             /* TODO: wide chars. */
             {
-                char * s = va_arg( status->arg, char * );
-                if ( !printstr( s, status ) )
+                char* s = va_arg(status->arg, char*);
+                if (!printstr(s, status))
                     return -1;
                 ++spec;
                 return (spec - orig_spec);
             }
         case 'p':
             status->base = 16;
-            status->flags |= ( E_lower | E_unsigned | E_alt | E_intptr );
+            status->flags |= (E_lower | E_unsigned | E_alt | E_intptr);
             break;
-        case 'n':
-           {
-               int * val = va_arg( status->arg, int * );
-               *val = status->i;
-               ++spec;
-               return (spec - orig_spec);
-           }
+        case 'n': {
+            int* val = va_arg(status->arg, int*);
+            *val = status->i;
+            ++spec;
+            return (spec - orig_spec);
+        }
         default:
             /* No conversion specifier. Bad conversion. */
             return 0;
     }
     /* Do the actual output based on our findings */
-    if ( status->base != 0 )
-    {
+    if (status->base != 0) {
         /* Integer conversions */
         /* TODO: Check for invalid flag combinations. */
-        if ( status->flags & E_unsigned )
-        {
+        if (status->flags & E_unsigned) {
             /* TODO: Marking the default case _PDCLIB_UNREACHABLE breaks %ju test driver? */
             uintmax_t value = 0;
-            switch ( status->flags & E_TYPES )
-            {
+            switch (status->flags & E_TYPES) {
                 case E_char:
-                    value = (uintmax_t)(unsigned char)va_arg( status->arg, int );
+                    value = (uintmax_t)(unsigned char)va_arg(status->arg, int);
                     break;
                 case E_short:
-                    value = (uintmax_t)(unsigned short)va_arg( status->arg, int );
+                    value = (uintmax_t)(unsigned short)va_arg(status->arg, int);
                     break;
                 case 0:
-                    value = (uintmax_t)va_arg( status->arg, unsigned int );
+                    value = (uintmax_t)va_arg(status->arg, unsigned int);
                     break;
                 case E_long:
-                    value = (uintmax_t)va_arg( status->arg, unsigned long );
+                    value = (uintmax_t)va_arg(status->arg, unsigned long);
                     break;
                 case E_llong:
-                    value = (uintmax_t)va_arg( status->arg, unsigned long long );
+                    value = (uintmax_t)va_arg(status->arg, unsigned long long);
                     break;
                 case E_size:
-                    value = (uintmax_t)va_arg( status->arg, size_t );
+                    value = (uintmax_t)va_arg(status->arg, size_t);
                     break;
                 case E_intptr:
-                    value = (uintmax_t)va_arg( status->arg, uintptr_t );
+                    value = (uintmax_t)va_arg(status->arg, uintptr_t);
                     break;
                 case E_ptrdiff:
-                    value = (uintmax_t)va_arg( status->arg, ptrdiff_t );
+                    value = (uintmax_t)va_arg(status->arg, ptrdiff_t);
                     break;
                 case E_intmax:
-                    value = va_arg( status->arg, uintmax_t );
+                    value = va_arg(status->arg, uintmax_t);
             }
-            if ( !int2base( value, status ) )
+            if (!int2base(value, status))
                 return -1;
-        }
-        else
-        {
+        } else {
             intmax_t value = 0;
-            switch ( status->flags & E_TYPES )
-            {
+            switch (status->flags & E_TYPES) {
                 case E_char:
-                    value = (intmax_t)(char)va_arg( status->arg, int );
+                    value = (intmax_t)(char)va_arg(status->arg, int);
                     break;
                 case E_short:
-                    value = (intmax_t)(short)va_arg( status->arg, int );
+                    value = (intmax_t)(short)va_arg(status->arg, int);
                     break;
                 case 0:
-                    value = (intmax_t)va_arg( status->arg, int );
+                    value = (intmax_t)va_arg(status->arg, int);
                     break;
                 case E_long:
-                    value = (intmax_t)va_arg( status->arg, long );
+                    value = (intmax_t)va_arg(status->arg, long);
                     break;
                 case E_llong:
-                    value = (intmax_t)va_arg( status->arg, long long );
+                    value = (intmax_t)va_arg(status->arg, long long);
                     break;
                 case E_size:
-                    value = (intmax_t)va_arg( status->arg, size_t );
+                    value = (intmax_t)va_arg(status->arg, size_t);
                     break;
                 case E_intptr:
-                    value = (intmax_t)va_arg( status->arg, intptr_t );
+                    value = (intmax_t)va_arg(status->arg, intptr_t);
                     break;
                 case E_ptrdiff:
-                    value = (intmax_t)va_arg( status->arg, ptrdiff_t );
+                    value = (intmax_t)va_arg(status->arg, ptrdiff_t);
                     break;
                 case E_intmax:
-                    value = va_arg( status->arg, intmax_t );
+                    value = va_arg(status->arg, intmax_t);
                     break;
                 default:
                     _PDCLIB_UNREACHABLE;
             }
 
-            if (!int2base( value, status ) )
+            if (!int2base(value, status))
                 return -1;
         }
 
-        if ( status->flags & E_minus && status->current < status->width )
-        {
-            if (!cbrept( status, ' ', status->width - status->current ))
+        if (status->flags & E_minus && status->current < status->width) {
+            if (!cbrept(status, ' ', status->width - status->current))
                 return -1;
         }
     }

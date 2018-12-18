@@ -13,196 +13,187 @@
 #include "usb-transfer.h"
 
 #if 0
-# define DPRINTF kprintf
+#define DPRINTF kprintf
 #else
-# define DPRINTF(...)
+#define DPRINTF(...)
 #endif
 
-namespace usb {
-
-namespace {
-
-Thread usbtransfer_thread;
-Semaphore usbtransfer_sem(0);
-CompletedTransferList usbtransfer_complete;
-Spinlock usbtransfer_lock;
-
-inline Device&
-usbtransfer_get_hcd_device(Transfer& xfer)
+namespace usb
 {
-	/* All USB_DEVICE's are on usbbusX; the bus' parent is the HCD to use */
-	return *xfer.t_device.ud_bus.d_Parent;
-}
+    namespace
+    {
+        Thread usbtransfer_thread;
+        Semaphore usbtransfer_sem(0);
+        CompletedTransferList usbtransfer_complete;
+        Spinlock usbtransfer_lock;
 
-Result
-SetupTransfer(Transfer& xfer)
-{
-	auto& hcd_dev = usbtransfer_get_hcd_device(xfer);
-	KASSERT(hcd_dev.GetUSBDeviceOperations() != NULL, "transferring without usb transfer");
-	return hcd_dev.GetUSBDeviceOperations()->SetupTransfer(xfer);
-}
+        inline Device& usbtransfer_get_hcd_device(Transfer& xfer)
+        {
+            /* All USB_DEVICE's are on usbbusX; the bus' parent is the HCD to use */
+            return *xfer.t_device.ud_bus.d_Parent;
+        }
 
-} // unnamed namespace
+        Result SetupTransfer(Transfer& xfer)
+        {
+            auto& hcd_dev = usbtransfer_get_hcd_device(xfer);
+            KASSERT(hcd_dev.GetUSBDeviceOperations() != NULL, "transferring without usb transfer");
+            return hcd_dev.GetUSBDeviceOperations()->SetupTransfer(xfer);
+        }
 
-Transfer*
-AllocateTransfer(USBDevice& usb_dev, int type, int flags, int endpt, size_t maxlen)
-{
-	auto usb_xfer = new Transfer(usb_dev, type, flags);
-	DPRINTF("usbtransfer_alloc: xfer=%x type %d\n", usb_xfer, type);
-	usb_xfer->t_length = maxlen; /* transfer buffer length */
-	usb_xfer->t_address = usb_dev.ud_address;
-	usb_xfer->t_endpoint = endpt;
+    } // unnamed namespace
 
-	if (auto result = SetupTransfer(*usb_xfer); result.IsFailure()) {
-		kfree(usb_xfer);
-		return nullptr;
-	}
-	return usb_xfer;
-}
+    Transfer* AllocateTransfer(USBDevice& usb_dev, int type, int flags, int endpt, size_t maxlen)
+    {
+        auto usb_xfer = new Transfer(usb_dev, type, flags);
+        DPRINTF("usbtransfer_alloc: xfer=%x type %d\n", usb_xfer, type);
+        usb_xfer->t_length = maxlen; /* transfer buffer length */
+        usb_xfer->t_address = usb_dev.ud_address;
+        usb_xfer->t_endpoint = endpt;
 
-Result
-Transfer::Schedule()
-{
-	/* All USB_DEVICE's are on usbbusX; the bus' parent is the HCD to use */
-	auto& hcd_dev = usbtransfer_get_hcd_device(*this);
+        if (auto result = SetupTransfer(*usb_xfer); result.IsFailure()) {
+            kfree(usb_xfer);
+            return nullptr;
+        }
+        return usb_xfer;
+    }
 
-	/* Schedule the transfer; we are responsible for locking here */
-	t_device.Lock();
-	Result err = hcd_dev.GetUSBDeviceOperations()->ScheduleTransfer(*this);
-	t_device.Unlock();
-	return err;
-}
+    Result Transfer::Schedule()
+    {
+        /* All USB_DEVICE's are on usbbusX; the bus' parent is the HCD to use */
+        auto& hcd_dev = usbtransfer_get_hcd_device(*this);
 
-Result
-Transfer::Cancel_Locked()
-{
-	auto& hcd_dev = usbtransfer_get_hcd_device(*this);
-	t_device.AssertLocked();
+        /* Schedule the transfer; we are responsible for locking here */
+        t_device.Lock();
+        Result err = hcd_dev.GetUSBDeviceOperations()->ScheduleTransfer(*this);
+        t_device.Unlock();
+        return err;
+    }
 
-	// We have to ensure the transfer isn't in the completed queue; this would cause it to be re-scheduled,
-	// which we must avoid XXX We already have the device lock here - is that wise?
-	{
-		SpinlockGuard g(usbtransfer_lock);
-		for(auto& xfer: usbtransfer_complete){
-			if (&xfer != this)
-				continue;
+    Result Transfer::Cancel_Locked()
+    {
+        auto& hcd_dev = usbtransfer_get_hcd_device(*this);
+        t_device.AssertLocked();
 
-			usbtransfer_complete.remove(*this);
-			break;
-		}
-	}
+        // We have to ensure the transfer isn't in the completed queue; this would cause it to be
+        // re-scheduled, which we must avoid XXX We already have the device lock here - is that
+        // wise?
+        {
+            SpinlockGuard g(usbtransfer_lock);
+            for (auto& xfer : usbtransfer_complete) {
+                if (&xfer != this)
+                    continue;
 
-	// XXX how do we know the transfer thread wasn't handling _this_ completed transfer by here?
-	return hcd_dev.GetUSBDeviceOperations()->CancelTransfer(*this);
-}
+                usbtransfer_complete.remove(*this);
+                break;
+            }
+        }
 
-Result
-Transfer::Cancel()
-{
-	t_device.Lock();
-	Result err = Cancel_Locked();
-	t_device.Unlock();
-	return err;
-}
+        // XXX how do we know the transfer thread wasn't handling _this_ completed transfer by here?
+        return hcd_dev.GetUSBDeviceOperations()->CancelTransfer(*this);
+    }
 
-void
-FreeTransfer_Locked(Transfer& xfer)
-{
-	auto& usb_dev = xfer.t_device;
-	auto& hcd_dev = usbtransfer_get_hcd_device(xfer);
-	usb_dev.AssertLocked();
+    Result Transfer::Cancel()
+    {
+        t_device.Lock();
+        Result err = Cancel_Locked();
+        t_device.Unlock();
+        return err;
+    }
 
-	xfer.Cancel_Locked();
-	hcd_dev.GetUSBDeviceOperations()->TearDownTransfer(xfer);
-	delete &xfer;
-}
+    void FreeTransfer_Locked(Transfer& xfer)
+    {
+        auto& usb_dev = xfer.t_device;
+        auto& hcd_dev = usbtransfer_get_hcd_device(xfer);
+        usb_dev.AssertLocked();
 
-void
-FreeTransfer(Transfer& xfer)
-{
-	auto& usb_dev = xfer.t_device;
+        xfer.Cancel_Locked();
+        hcd_dev.GetUSBDeviceOperations()->TearDownTransfer(xfer);
+        delete &xfer;
+    }
 
-	DPRINTF("usbtransfer_free: xfer=%x type %d\n", &xfer, xfer->t_type);
-	usb_dev.Lock();
-	FreeTransfer_Locked(xfer);
-	usb_dev.Unlock();
-}
+    void FreeTransfer(Transfer& xfer)
+    {
+        auto& usb_dev = xfer.t_device;
 
-void
-Transfer::Complete_Locked()
-{
-	t_device.AssertLocked();
-	KASSERT(t_flags & TRANSFER_FLAG_PENDING, "completing transfer that isn't pending");
+        DPRINTF("usbtransfer_free: xfer=%x type %d\n", &xfer, xfer->t_type);
+        usb_dev.Lock();
+        FreeTransfer_Locked(xfer);
+        usb_dev.Unlock();
+    }
 
-	/* Transfer is complete, so we can remove the pending flag */
-	t_flags &= ~TRANSFER_FLAG_PENDING;
-	t_device.ud_transfers.remove(*this);
+    void Transfer::Complete_Locked()
+    {
+        t_device.AssertLocked();
+        KASSERT(t_flags & TRANSFER_FLAG_PENDING, "completing transfer that isn't pending");
 
-	/*
-	 * This is generally called from interrupt context, so schedule a worker to
-	 * process the transfer; if the transfer doesn't have a callback function,
-	 * assume we'll just have to signal its semaphore.
-	 */
-	if (t_callback != nullptr) {
-		{
-			SpinlockGuard g(usbtransfer_lock);
-			usbtransfer_complete.push_back(*this);
-		}
+        /* Transfer is complete, so we can remove the pending flag */
+        t_flags &= ~TRANSFER_FLAG_PENDING;
+        t_device.ud_transfers.remove(*this);
 
-		usbtransfer_sem.Signal();
-	} else {
-		t_semaphore.Signal();
-	}
-}
+        /*
+         * This is generally called from interrupt context, so schedule a worker to
+         * process the transfer; if the transfer doesn't have a callback function,
+         * assume we'll just have to signal its semaphore.
+         */
+        if (t_callback != nullptr) {
+            {
+                SpinlockGuard g(usbtransfer_lock);
+                usbtransfer_complete.push_back(*this);
+            }
 
-void
-Transfer::Complete()
-{
-	t_device.Lock();
-	Complete_Locked();
-	t_device.Unlock();
-}
+            usbtransfer_sem.Signal();
+        } else {
+            t_semaphore.Signal();
+        }
+    }
 
-namespace {
+    void Transfer::Complete()
+    {
+        t_device.Lock();
+        Complete_Locked();
+        t_device.Unlock();
+    }
 
-void
-transfer_thread(void* arg)
-{
-	while(1) {
-		/* Wait until there's something to report */
-		usbtransfer_sem.Wait();
+    namespace
+    {
+        void transfer_thread(void* arg)
+        {
+            while (1) {
+                /* Wait until there's something to report */
+                usbtransfer_sem.Wait();
 
-		/* Fetch an entry from the queue */
-		while (1) {
-			Transfer* xfer;
-			{
-				SpinlockGuard g(usbtransfer_lock);
-				if(usbtransfer_complete.empty())
-					break;
-				xfer = &usbtransfer_complete.front();
-				usbtransfer_complete.pop_front();
-			}
+                /* Fetch an entry from the queue */
+                while (1) {
+                    Transfer* xfer;
+                    {
+                        SpinlockGuard g(usbtransfer_lock);
+                        if (usbtransfer_complete.empty())
+                            break;
+                        xfer = &usbtransfer_complete.front();
+                        usbtransfer_complete.pop_front();
+                    }
 
-			/* And handle it */
-			KASSERT(xfer->t_callback != nullptr, "xfer %p in completed list without callback?", xfer);
-			xfer->t_callback(*xfer);
+                    /* And handle it */
+                    KASSERT(
+                        xfer->t_callback != nullptr, "xfer %p in completed list without callback?",
+                        xfer);
+                    xfer->t_callback(*xfer);
 
-			/*
-			 * At this point, xfer may be freed, resubmitted or simply left lingering for
-			 * the caller - we can't touch it at this point.
-			 */
-		}
-	}
-}
+                    /*
+                     * At this point, xfer may be freed, resubmitted or simply left lingering for
+                     * the caller - we can't touch it at this point.
+                     */
+                }
+            }
+        }
 
-const init::OnInit initLaunch(init::SubSystem::Device, init::Order::First, []()
-{
-	/* Create a kernel thread to handle USB completed messages */
-	kthread_init(usbtransfer_thread, "usb-transfer", &transfer_thread, NULL);
-	usbtransfer_thread.Resume();
-});
+        const init::OnInit initLaunch(init::SubSystem::Device, init::Order::First, []() {
+            /* Create a kernel thread to handle USB completed messages */
+            kthread_init(usbtransfer_thread, "usb-transfer", &transfer_thread, NULL);
+            usbtransfer_thread.Resume();
+        });
 
-} // unnamed namespace
+    } // unnamed namespace
 } // namespace usb
 
 /* vim:set ts=2 sw=2: */

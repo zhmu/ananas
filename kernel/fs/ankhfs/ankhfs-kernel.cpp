@@ -13,84 +13,78 @@
 
 TRACE_SETUP;
 
-namespace ankhfs {
-namespace {
-
-constexpr unsigned int subMemory = 1;
-
-struct DirectoryEntry fs_entries[] = {
-	{ "memory", make_inum(SS_Kernel, 0, subMemory)  },
-	{ NULL, 0 }
-};
-
-class KernelSubSystem : public IAnkhSubSystem
+namespace ankhfs
 {
-public:
-	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len) override
-	{
-		return ankhfs::HandleReadDir(file, dirents, len, fs_entries[0]);
-	}
+    namespace
+    {
+        constexpr unsigned int subMemory = 1;
 
-	Result FillInode(INode& inode, ino_t inum) override
-	{
-		if (inum_to_sub(inum) == 0)
-			inode.i_sb.st_mode |= S_IFDIR;
-		else
-			inode.i_sb.st_mode |= S_IFREG;
-		return Result::Success();
-	}
+        struct DirectoryEntry fs_entries[] = {{"memory", make_inum(SS_Kernel, 0, subMemory)},
+                                              {NULL, 0}};
 
-	Result HandleRead(struct VFS_FILE* file, void* buf, size_t len) override
-	{
-		char result[256]; // XXX
-		strcpy(result, "???");
+        class KernelSubSystem : public IAnkhSubSystem
+        {
+          public:
+            Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len) override
+            {
+                return ankhfs::HandleReadDir(file, dirents, len, fs_entries[0]);
+            }
 
-		ino_t inum = file->f_dentry->d_inode->i_inum;
-		switch(inum_to_sub(inum)) {
-			case subMemory: {
-				unsigned int total_pages, avail_pages;
-				page_get_stats(&total_pages, &avail_pages);
+            Result FillInode(INode& inode, ino_t inum) override
+            {
+                if (inum_to_sub(inum) == 0)
+                    inode.i_sb.st_mode |= S_IFDIR;
+                else
+                    inode.i_sb.st_mode |= S_IFREG;
+                return Result::Success();
+            }
 
-				char* r = result;
-				snprintf(r, sizeof(result) - (r - result), "total_pages %d\n", total_pages);
-				r += strlen(r);
-				snprintf(r, sizeof(result) - (r - result), "available_pages %d\n", avail_pages);
-				r += strlen(r);
-				break;
-			}
-		}
+            Result HandleRead(struct VFS_FILE* file, void* buf, size_t len) override
+            {
+                char result[256]; // XXX
+                strcpy(result, "???");
 
-		return ankhfs::HandleRead(file, buf, len, result);
-	}
+                ino_t inum = file->f_dentry->d_inode->i_inum;
+                switch (inum_to_sub(inum)) {
+                    case subMemory: {
+                        unsigned int total_pages, avail_pages;
+                        page_get_stats(&total_pages, &avail_pages);
 
-	Result HandleIOControl(struct VFS_FILE* file, unsigned long op, void* args[]) override
-	{
-		return RESULT_MAKE_FAILURE(EIO);
-	}
+                        char* r = result;
+                        snprintf(r, sizeof(result) - (r - result), "total_pages %d\n", total_pages);
+                        r += strlen(r);
+                        snprintf(
+                            r, sizeof(result) - (r - result), "available_pages %d\n", avail_pages);
+                        r += strlen(r);
+                        break;
+                    }
+                }
 
-	Result HandleOpen(VFS_FILE& file, Process* p) override
-	{
-		return Result::Success();
-	}
+                return ankhfs::HandleRead(file, buf, len, result);
+            }
 
-	Result HandleClose(VFS_FILE& file, Process* p) override
-	{
-		return Result::Success();
-	}
+            Result HandleIOControl(struct VFS_FILE* file, unsigned long op, void* args[]) override
+            {
+                return RESULT_MAKE_FAILURE(EIO);
+            }
 
-	Result HandleReadLink(INode& inode, void* buf, size_t len) override
-	{
-		return RESULT_MAKE_FAILURE(EIO);
-	}
-};
+            Result HandleOpen(VFS_FILE& file, Process* p) override { return Result::Success(); }
 
-} // unnamed namespace
+            Result HandleClose(VFS_FILE& file, Process* p) override { return Result::Success(); }
 
-IAnkhSubSystem& GetKernelSubSystem()
-{
-	static KernelSubSystem kernelSubSystem;
-	return kernelSubSystem;
-}
+            Result HandleReadLink(INode& inode, void* buf, size_t len) override
+            {
+                return RESULT_MAKE_FAILURE(EIO);
+            }
+        };
+
+    } // unnamed namespace
+
+    IAnkhSubSystem& GetKernelSubSystem()
+    {
+        static KernelSubSystem kernelSubSystem;
+        return kernelSubSystem;
+    }
 
 } // namespace ankhfs
 

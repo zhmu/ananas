@@ -14,84 +14,77 @@
 
 TRACE_SETUP;
 
-namespace network {
-
-char hostname[HOST_NAME_MAX] = "unknown"; // XXX This doesn't really belong here
+namespace network
+{
+    char hostname[HOST_NAME_MAX] = "unknown"; // XXX This doesn't really belong here
 
 } // namespace network
 
-namespace ankhfs {
-namespace {
-
-constexpr unsigned int subHostname = 1;
-
-struct DirectoryEntry fs_entries[] = {
-	{ "hostname", make_inum(SS_Network, 0, subHostname)  },
-	{ NULL, 0 }
-};
-
-class NetworkSubSystem : public IAnkhSubSystem
+namespace ankhfs
 {
-public:
-	Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len) override
-	{
-		return ankhfs::HandleReadDir(file, dirents, len, fs_entries[0]);
-	}
+    namespace
+    {
+        constexpr unsigned int subHostname = 1;
 
-	Result FillInode(INode& inode, ino_t inum) override
-	{
-		if (inum_to_sub(inum) == 0)
-			inode.i_sb.st_mode |= S_IFDIR;
-		else
-			inode.i_sb.st_mode |= S_IFREG;
-		return Result::Success();
-	}
+        struct DirectoryEntry fs_entries[] = {{"hostname", make_inum(SS_Network, 0, subHostname)},
+                                              {NULL, 0}};
 
-	Result HandleRead(struct VFS_FILE* file, void* buf, size_t len) override
-	{
-		char result[256]; // XXX
-		strcpy(result, "???");
+        class NetworkSubSystem : public IAnkhSubSystem
+        {
+          public:
+            Result HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len) override
+            {
+                return ankhfs::HandleReadDir(file, dirents, len, fs_entries[0]);
+            }
 
-		ino_t inum = file->f_dentry->d_inode->i_inum;
-		switch(inum_to_sub(inum)) {
-			case subHostname: {
-				char* r = result;
-				snprintf(r, sizeof(result) - (r - result), "%s\n", network::hostname);
-				break;
-			}
-		}
+            Result FillInode(INode& inode, ino_t inum) override
+            {
+                if (inum_to_sub(inum) == 0)
+                    inode.i_sb.st_mode |= S_IFDIR;
+                else
+                    inode.i_sb.st_mode |= S_IFREG;
+                return Result::Success();
+            }
 
-		return ankhfs::HandleRead(file, buf, len, result);
-	}
+            Result HandleRead(struct VFS_FILE* file, void* buf, size_t len) override
+            {
+                char result[256]; // XXX
+                strcpy(result, "???");
 
-	Result HandleIOControl(struct VFS_FILE* file, unsigned long op, void* args[]) override
-	{
-		return RESULT_MAKE_FAILURE(EIO);
-	}
+                ino_t inum = file->f_dentry->d_inode->i_inum;
+                switch (inum_to_sub(inum)) {
+                    case subHostname: {
+                        char* r = result;
+                        snprintf(r, sizeof(result) - (r - result), "%s\n", network::hostname);
+                        break;
+                    }
+                }
 
-	Result HandleOpen(VFS_FILE& file, Process* p) override
-	{
-		return Result::Success();
-	}
+                return ankhfs::HandleRead(file, buf, len, result);
+            }
 
-	Result HandleClose(VFS_FILE& file, Process* p) override
-	{
-		return Result::Success();
-	}
+            Result HandleIOControl(struct VFS_FILE* file, unsigned long op, void* args[]) override
+            {
+                return RESULT_MAKE_FAILURE(EIO);
+            }
 
-	Result HandleReadLink(INode& inode, void* buf, size_t len) override
-	{
-		return RESULT_MAKE_FAILURE(EIO);
-	}
-};
+            Result HandleOpen(VFS_FILE& file, Process* p) override { return Result::Success(); }
 
-} // unnamed namespace
+            Result HandleClose(VFS_FILE& file, Process* p) override { return Result::Success(); }
 
-IAnkhSubSystem& GetNetworkSubSystem()
-{
-	static NetworkSubSystem networkSubSystem;
-	return networkSubSystem;
-}
+            Result HandleReadLink(INode& inode, void* buf, size_t len) override
+            {
+                return RESULT_MAKE_FAILURE(EIO);
+            }
+        };
+
+    } // unnamed namespace
+
+    IAnkhSubSystem& GetNetworkSubSystem()
+    {
+        static NetworkSubSystem networkSubSystem;
+        return networkSubSystem;
+    }
 
 } // namespace ankhfs
 

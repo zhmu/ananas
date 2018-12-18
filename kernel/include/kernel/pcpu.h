@@ -8,11 +8,11 @@ struct Thread;
 
 /* Per-CPU information pointer */
 struct PCPU {
-	MD_PCPU_FIELDS				/* Machine-dependant data */
-	uint32_t cpuid;				/* CPU ID */
-	Thread* curthread;			/* current thread */
-	Thread* idlethread;			/* idle thread */
-	int nested_irq;				/* number of nested IRQ functions */
+    MD_PCPU_FIELDS      /* Machine-dependant data */
+        uint32_t cpuid; /* CPU ID */
+    Thread* curthread;  /* current thread */
+    Thread* idlethread; /* idle thread */
+    int nested_irq;     /* number of nested IRQ functions */
 };
 
 /* Introduce a per-cpu structure */

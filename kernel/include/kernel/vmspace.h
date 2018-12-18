@@ -15,50 +15,42 @@ class Result;
  * VM space describes a thread's complete overview of memory.
  */
 struct VMSpace {
+    void Lock() { vs_mutex.Lock(); }
 
-	void Lock()
-	{
-		vs_mutex.Lock();
-	}
+    void Unlock() { vs_mutex.Unlock(); }
 
-	void Unlock()
-	{
-		vs_mutex.Unlock();
-	}
+    void AssertLocked() { vs_mutex.AssertLocked(); }
 
-	void AssertLocked()
-	{
-		vs_mutex.AssertLocked();
-	}
+    util::List<VMArea> vs_areas;
 
-	util::List<VMArea> vs_areas;
+    /*
+     * Contains pages allocated to the space that aren't part of a mapping; this
+     * is mainly used to store MD-dependant things like pagetables.
+     */
+    PageList vs_pages;
 
-	/*
-	 * Contains pages allocated to the space that aren't part of a mapping; this
-	 * is mainly used to store MD-dependant things like pagetables.
-	 */
-	PageList		vs_pages;
+    addr_t vs_next_mapping; /* address of next mapping */
 
-	addr_t			vs_next_mapping;	/* address of next mapping */
+    MD_VMSPACE_FIELDS
 
-	MD_VMSPACE_FIELDS
+    Result MapTo(addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
+    Result MapToDentry(
+        addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags,
+        VMArea*& va_out);
+    Result Map(size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
+    Result Clone(VMSpace& vs_dest);
+    void Dump();
 
-	Result MapTo(addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
-	Result MapToDentry(addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags, VMArea*& va_out);
-	Result Map(size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
-	Result Clone(VMSpace& vs_dest);
-	void Dump();
+    addr_t ReserveAdressRange(size_t len);
+    Result HandleFault(addr_t virt, int flags);
 
-	addr_t ReserveAdressRange(size_t len);
-	Result HandleFault(addr_t virt, int flags);
+    void PrepareForExecute();
 
-	void PrepareForExecute();
+    // XXX Should not be public
+    void FreeArea(VMArea& va);
 
-	// XXX Should not be public
-	void FreeArea(VMArea& va);
-
-private:
-	Mutex vs_mutex{"vmspace"}; /* protects all fields and sub-areas */
+  private:
+    Mutex vs_mutex{"vmspace"}; /* protects all fields and sub-areas */
 };
 
 Result vmspace_create(VMSpace*& vs);

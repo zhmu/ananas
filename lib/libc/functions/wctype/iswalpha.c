@@ -7,7 +7,4 @@
 #include <wctype.h>
 #include "_PDCLIB_locale.h"
 
-int iswalpha( wint_t wc )
-{
-    return iswctype( wc, _PDCLIB_CTYPE_ALPHA );
-}
+int iswalpha(wint_t wc) { return iswctype(wc, _PDCLIB_CTYPE_ALPHA); }

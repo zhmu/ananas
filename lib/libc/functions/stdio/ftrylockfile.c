@@ -10,10 +10,10 @@
 #include <stdlib.h>
 #include "_PDCLIB_io.h"
 
-int _PDCLIB_ftrylockfile( FILE * file )
+int _PDCLIB_ftrylockfile(FILE* file)
 {
-    int res = mtx_trylock( &file->lock );
-    switch(res) {
+    int res = mtx_trylock(&file->lock);
+    switch (res) {
         case thrd_success:
             return 0;
         case thrd_busy:

@@ -10,38 +10,30 @@
 #include "_PDCLIB_io.h"
 #include "_PDCLIB_glue.h"
 
-size_t _PDCLIB_fwrite_unlocked( const void *restrict vptr,
-               size_t size, size_t nmemb,
-               FILE * _PDCLIB_restrict stream )
+size_t _PDCLIB_fwrite_unlocked(
+    const void* restrict vptr, size_t size, size_t nmemb, FILE* _PDCLIB_restrict stream)
 {
-    if ( _PDCLIB_prepwrite( stream ) == EOF )
-    {
+    if (_PDCLIB_prepwrite(stream) == EOF) {
         return 0;
     }
 
-    const char *restrict ptr = vptr;
+    const char* restrict ptr = vptr;
     size_t nmemb_i;
-    for ( nmemb_i = 0; nmemb_i < nmemb; ++nmemb_i )
-    {
-        for ( size_t size_i = 0; size_i < size; ++size_i )
-        {
-            char c = ptr[ nmemb_i * size + size_i ];
-            stream->buffer[ stream->bufidx++ ] = c;
+    for (nmemb_i = 0; nmemb_i < nmemb; ++nmemb_i) {
+        for (size_t size_i = 0; size_i < size; ++size_i) {
+            char c = ptr[nmemb_i * size + size_i];
+            stream->buffer[stream->bufidx++] = c;
 
-            if ( stream->bufidx == stream->bufsize || ( c == '\n' && stream->status & _IOLBF ) )
-            {
-                if ( _PDCLIB_flushbuffer( stream ) == EOF )
-                {
+            if (stream->bufidx == stream->bufsize || (c == '\n' && stream->status & _IOLBF)) {
+                if (_PDCLIB_flushbuffer(stream) == EOF) {
                     /* Returning number of objects completely buffered */
                     return nmemb_i;
                 }
             }
         }
 
-        if ( stream->status & _IONBF )
-        {
-            if ( _PDCLIB_flushbuffer( stream ) == EOF )
-            {
+        if (stream->status & _IONBF) {
+            if (_PDCLIB_flushbuffer(stream) == EOF) {
                 /* Returning number of objects completely buffered */
                 return nmemb_i;
             }
@@ -50,20 +42,18 @@ size_t _PDCLIB_fwrite_unlocked( const void *restrict vptr,
     return nmemb_i;
 }
 
-size_t fwrite_unlocked( const void * _PDCLIB_restrict ptr,
-                        size_t size, size_t nmemb,
-                        FILE * _PDCLIB_restrict stream )
+size_t fwrite_unlocked(
+    const void* _PDCLIB_restrict ptr, size_t size, size_t nmemb, FILE* _PDCLIB_restrict stream)
 {
-    return _PDCLIB_fwrite_unlocked( ptr, size, nmemb, stream );
+    return _PDCLIB_fwrite_unlocked(ptr, size, nmemb, stream);
 }
 
 // Testing covered by fread.cpp
-size_t fwrite( const void * _PDCLIB_restrict ptr,
-               size_t size, size_t nmemb,
-               FILE * _PDCLIB_restrict stream )
+size_t
+fwrite(const void* _PDCLIB_restrict ptr, size_t size, size_t nmemb, FILE* _PDCLIB_restrict stream)
 {
-    _PDCLIB_flockfile( stream );
-    size_t r = _PDCLIB_fwrite_unlocked( ptr, size, nmemb, stream );
-    _PDCLIB_funlockfile( stream );
+    _PDCLIB_flockfile(stream);
+    size_t r = _PDCLIB_fwrite_unlocked(ptr, size, nmemb, stream);
+    _PDCLIB_funlockfile(stream);
     return r;
 }

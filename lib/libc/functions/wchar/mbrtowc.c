@@ -20,23 +20,19 @@ typedef char32_t uc_t;
 #endif
 
 static size_t mbrtowc_l(
-    wchar_t    *restrict    pwc,
-    const char *restrict    s,
-    size_t                  n,
-    mbstate_t  *restrict    ps,
-    locale_t    restrict    l
-)
+    wchar_t* restrict pwc, const char* restrict s, size_t n, mbstate_t* restrict ps,
+    locale_t restrict l)
 {
     size_t res;
 
-    if(s == NULL) {
+    if (s == NULL) {
         s = "";
         n = 1;
     }
 
-    if(ps->_PendState == _PendPrefix) {
+    if (ps->_PendState == _PendPrefix) {
         res = _PDCLIB_mbrtocwc_l((uc_t*)pwc, &ps->_PendChar, 1, ps, l);
-        switch(res) {
+        switch (res) {
             case 0:
                 // Converted the NUL character
                 ps->_PendState = _PendClear;
@@ -47,32 +43,31 @@ static size_t mbrtowc_l(
                 ps->_PendChar = *s;
                 return 1;
 
-            case (size_t) -1:
+            case (size_t)-1:
                 // Illegal sequence. mbrtocwc has already set errno.
-                return (size_t) -1;
+                return (size_t)-1;
 
-            case (size_t) -3:
+            case (size_t)-3:
                 assert(!"Codec had buffered two characters");
                 _PDCLIB_UNREACHABLE;
                 return 0;
 
-            case (size_t) -2:
+            case (size_t)-2:
                 // Incomplete character, continue
                 break;
         }
     }
 
     // _PendClear state
-    if (s[0] == '\0')
-    {
+    if (s[0] == '\0') {
         /* XXX Is this correct? */
         return 0;
     }
     res = _PDCLIB_mbrtocwc_l((uc_t*)pwc, s, n, ps, l);
-    switch(res) {
-        case (size_t) -3:
+    switch (res) {
+        case (size_t)-3:
             // Converted entirely from internal state
-            ps->_PendChar  = *s;
+            ps->_PendChar = *s;
             ps->_PendState = _PendPrefix;
             return 1;
         default:
@@ -80,12 +75,7 @@ static size_t mbrtowc_l(
     }
 }
 
-size_t mbrtowc(
-    wchar_t *restrict pwc,
-    const char *restrict s,
-    size_t n,
-    mbstate_t *restrict ps
-)
+size_t mbrtowc(wchar_t* restrict pwc, const char* restrict s, size_t n, mbstate_t* restrict ps)
 {
     static mbstate_t st;
     return mbrtowc_l(pwc, s, n, ps ? ps : &st, _PDCLIB_threadlocale());

@@ -6,85 +6,85 @@
 #include "kernel-md/md.h"
 #include "kernel-md/interrupts.h"
 
-namespace shutdown {
-namespace {
-
-Thread shutdown_thread;
-ShutdownType shutdownType = ShutdownType::Unknown;
-
-constexpr int shutdownDelayInSeconds = 1;
-
-void PerformShutdown(void*) __noreturn;
-
-void PerformShutdown(void*)
+namespace shutdown
 {
-	const char* shutdownTypeText = [](ShutdownType st) {
-		switch(st) {
-			case ShutdownType::Halt:
-				return "halt";
-			case ShutdownType::Reboot:
-				return "reboot";
-			case ShutdownType::PowerDown:
-				return "powerdown";
-			default:
-				panic("unknown shutdown type");
-		}
-	}(shutdownType);
+    namespace
+    {
+        Thread shutdown_thread;
+        ShutdownType shutdownType = ShutdownType::Unknown;
 
-	// XXX Kill processes, etc
+        constexpr int shutdownDelayInSeconds = 1;
 
-	kprintf("Performing %s in %d second(s)...\n", shutdownTypeText, shutdownDelayInSeconds);
-	thread_sleep_ms(shutdownDelayInSeconds * 1000);
+        void PerformShutdown(void*) __noreturn;
 
-	// XXX Unmount filesystems, etc
+        void PerformShutdown(void*)
+        {
+            const char* shutdownTypeText = [](ShutdownType st) {
+                switch (st) {
+                    case ShutdownType::Halt:
+                        return "halt";
+                    case ShutdownType::Reboot:
+                        return "reboot";
+                    case ShutdownType::PowerDown:
+                        return "powerdown";
+                    default:
+                        panic("unknown shutdown type");
+                }
+            }(shutdownType);
 
-	kprintf("Performing %s NOW!\n", shutdownTypeText);
-	switch(shutdownType) {
-		case ShutdownType::Reboot:
-			md::Reboot();
-			break;
-		case ShutdownType::PowerDown:
-			md::PowerDown();
-			break;
-		case ShutdownType::Halt:
-		default:
-			break;
-	}
+            // XXX Kill processes, etc
 
-	// If we survived any of that, hang
-	md::interrupts::Disable();
-	for(;;)
-		md::interrupts::Relax();
-	// NOTREACHED
-}
+            kprintf("Performing %s in %d second(s)...\n", shutdownTypeText, shutdownDelayInSeconds);
+            thread_sleep_ms(shutdownDelayInSeconds * 1000);
 
-} // unnamed namespace
+            // XXX Unmount filesystems, etc
 
-bool IsShuttingDown()
-{
-	return shutdownType != ShutdownType::Unknown && !shutdown_thread.IsSuspended();
-}
+            kprintf("Performing %s NOW!\n", shutdownTypeText);
+            switch (shutdownType) {
+                case ShutdownType::Reboot:
+                    md::Reboot();
+                    break;
+                case ShutdownType::PowerDown:
+                    md::PowerDown();
+                    break;
+                case ShutdownType::Halt:
+                default:
+                    break;
+            }
 
-void RequestShutdown(ShutdownType type)
-{
-	KASSERT(type != ShutdownType::Unknown, "requested unknown shutdown");
+            // If we survived any of that, hang
+            md::interrupts::Disable();
+            for (;;)
+                md::interrupts::Relax();
+            // NOTREACHED
+        }
 
-	// XXX Maybe we need some locking here
-	if (IsShuttingDown())
-		return;
-	shutdownType = type;
-	shutdown_thread.Resume();
-}
+    } // unnamed namespace
+
+    bool IsShuttingDown()
+    {
+        return shutdownType != ShutdownType::Unknown && !shutdown_thread.IsSuspended();
+    }
+
+    void RequestShutdown(ShutdownType type)
+    {
+        KASSERT(type != ShutdownType::Unknown, "requested unknown shutdown");
+
+        // XXX Maybe we need some locking here
+        if (IsShuttingDown())
+            return;
+        shutdownType = type;
+        shutdown_thread.Resume();
+    }
 
 } // namespace shutdown
 
-namespace {
-
-const init::OnInit initShutdown(init::SubSystem::Thread, init::Order::Middle, []()
+namespace
 {
-	using namespace shutdown;
-	kthread_init(shutdown_thread, "shutdown", &PerformShutdown, nullptr);
-});
+    const init::OnInit initShutdown(init::SubSystem::Thread, init::Order::Middle, []() {
+        using namespace shutdown;
+        kthread_init(shutdown_thread, "shutdown", &PerformShutdown, nullptr);
+    });
 
 } // unnamed namespace
 

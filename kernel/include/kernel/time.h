@@ -8,42 +8,36 @@
 #define CLOCK_SECONDS 2
 
 struct tm {
-	int	tm_sec;
-	int	tm_min;
-	int	tm_hour;
-	int	tm_mday;
-	int	tm_mon;
-	int	tm_year;
-	int	tm_wday;
-	int	tm_yday;
-	int	tm_isdst;
+    int tm_sec;
+    int tm_min;
+    int tm_hour;
+    int tm_mday;
+    int tm_mon;
+    int tm_year;
+    int tm_wday;
+    int tm_yday;
+    int tm_isdst;
 };
 
 void delay(int ms);
 
-namespace time {
-
-unsigned int GetPeriodicyInHz();
-
-void OnTick();
-tick_t GetTicks();
-
-/*
- * Tick counter comparison functions.
- */
-inline bool IsTickBefore(tick_t a, tick_t b)
+namespace time
 {
-	return ((int64_t)b - (int64_t)a) > 0;
-}
+    unsigned int GetPeriodicyInHz();
 
-inline bool IsTickAfter(tick_t a, tick_t b)
-{
-	return IsTickBefore(b, a);
-}
+    void OnTick();
+    tick_t GetTicks();
 
-void SetTime(const struct tm& tm);
-void SetTime(const struct timespec& ts);
-struct timespec GetTime();
+    /*
+     * Tick counter comparison functions.
+     */
+    inline bool IsTickBefore(tick_t a, tick_t b) { return ((int64_t)b - (int64_t)a) > 0; }
+
+    inline bool IsTickAfter(tick_t a, tick_t b) { return IsTickBefore(b, a); }
+
+    void SetTime(const struct tm& tm);
+    void SetTime(const struct timespec& ts);
+    struct timespec GetTime();
 
 } // namespace time
 

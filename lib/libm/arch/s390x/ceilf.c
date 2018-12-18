@@ -4,8 +4,8 @@
 
 float ceilf(float x)
 {
-	__asm__ ("fiebra %0, 6, %1, 4" : "=f"(x) : "f"(x));
-	return x;
+    __asm__("fiebra %0, 6, %1, 4" : "=f"(x) : "f"(x));
+    return x;
 }
 
 #else

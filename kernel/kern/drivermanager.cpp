@@ -2,49 +2,47 @@
 #include "kernel/lib.h"
 #include "kernel/result.h"
 
-namespace driver_manager {
-
-namespace {
-static DriverList driverList; /* XXX not locked yet */
-} // unnamed namespace
-
-namespace internal {
-
-DriverList& GetDriverList()
+namespace driver_manager
 {
-	return driverList;
-}
+    namespace
+    {
+        static DriverList driverList; /* XXX not locked yet */
+    }                                 // unnamed namespace
 
-} // namespace internal
+    namespace internal
+    {
+        DriverList& GetDriverList() { return driverList; }
 
-Result Register(Driver& driver)
-{
-	// Insert the driver in-place - we want to keep the driver list sorted on
-	// priority as this simplifies things (we can just look for the first driver
-	// that matches)
-	for(auto& d: driverList) {
-		if (d.d_Priority < driver.d_Priority)
-			continue;
-		driverList.insert(d, driver);
-		return Result::Success();
-	}
+    } // namespace internal
 
-	driverList.push_back(driver);
-	return Result::Success();
-}
+    Result Register(Driver& driver)
+    {
+        // Insert the driver in-place - we want to keep the driver list sorted on
+        // priority as this simplifies things (we can just look for the first driver
+        // that matches)
+        for (auto& d : driverList) {
+            if (d.d_Priority < driver.d_Priority)
+                continue;
+            driverList.insert(d, driver);
+            return Result::Success();
+        }
 
-Result Unregister(const char* name)
-{
-	for(auto& d: driverList) {
-		if (strcmp(d.d_Name, name) != 0)
-			continue;
+        driverList.push_back(driver);
+        return Result::Success();
+    }
 
-		driverList.remove(d);
-		return Result::Success();
-	}
-	return Result::Success();
-}
+    Result Unregister(const char* name)
+    {
+        for (auto& d : driverList) {
+            if (strcmp(d.d_Name, name) != 0)
+                continue;
 
-} // namespace drivermanager
+            driverList.remove(d);
+            return Result::Success();
+        }
+        return Result::Success();
+    }
+
+} // namespace driver_manager
 
 /* vim:set ts=2 sw=2: */

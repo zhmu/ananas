@@ -4,6 +4,6 @@
 
 int stat(const char* path, struct stat* buf)
 {
-	statuscode_t status = sys_stat(path, buf);
-	return map_statuscode(status);
+    statuscode_t status = sys_stat(path, buf);
+    return map_statuscode(status);
 }

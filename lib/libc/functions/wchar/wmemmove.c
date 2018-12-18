@@ -6,22 +6,17 @@
 
 #include <wchar.h>
 
-wchar_t * wmemmove( wchar_t * dest, const wchar_t * src, size_t n )
+wchar_t* wmemmove(wchar_t* dest, const wchar_t* src, size_t n)
 {
     wchar_t* rv = dest;
-    if ( dest <= src )
-    {
-        while ( n-- )
-        {
+    if (dest <= src) {
+        while (n--) {
             *dest++ = *src++;
         }
-    }
-    else
-    {
+    } else {
         src += n;
         dest += n;
-        while ( n-- )
-        {
+        while (n--) {
             *--dest = *--src;
         }
     }

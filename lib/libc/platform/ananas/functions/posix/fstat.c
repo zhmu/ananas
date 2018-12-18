@@ -6,6 +6,6 @@
 
 int fstat(int fd, struct stat* buf)
 {
-	statuscode_t status = sys_fstat(fd, buf);
-	return map_statuscode(status);
+    statuscode_t status = sys_fstat(fd, buf);
+    return map_statuscode(status);
 }

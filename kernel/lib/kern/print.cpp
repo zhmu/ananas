@@ -4,258 +4,248 @@
 #include "kernel/lock.h"
 #include "kernel/device.h"
 
-static const char hextab_hi[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
-static const char hextab_lo[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+static const char hextab_hi[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                                   '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+static const char hextab_lo[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                                   '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
 
 /* Define this to a buffer size to keep kprintf()'s from getting interleaved */
 #define PRINTF_BUFFER_SIZE 256
 
-int
-puts(const char* s)
+int puts(const char* s)
 {
-	while(*s)
-		console_putchar(*s++);
-	return 0; /* can't fail */
+    while (*s)
+        console_putchar(*s++);
+    return 0; /* can't fail */
 }
 
-static void
-putint(void(*putch)(void*, int), void* v, int base, const char* tab, int min_field_len, char pad, uintmax_t n)
+static void putint(
+    void (*putch)(void*, int), void* v, int base, const char* tab, int min_field_len, char pad,
+    uintmax_t n)
 {
-	/*
-	 * Note that 1234 is just 1*10^3 + 2*10^2 + 3*10^1 + 4*10^0 =
-	 * 1000 + 200 + 30 + 4. This means we have to figure out the highest power p
-	 * of 10 first (p=3 in this case) and then print 'n divide. The digit we
-	 * need to print is n % 10^p, so 1234 % 10^3 = 1, 234 % 10^2 = 2 etc)
-	 */
-	uintmax_t divisor = 1;
-	unsigned int p = 0, digits = 1;
-	for (uintmax_t i = n; i >= base; i /= base, p++, divisor *= base, digits++);
-	/* Now that we know the length, deal with the padding */
-	for (unsigned int i = digits; i < min_field_len; i++)
-		putch(v, pad);
-	/* Write values from n/(p^base) .. n/1 */
-	for (unsigned int i = 0; i <= p; i++, divisor /= base) {
-		putch(v, tab[(n / divisor) % base]);
-	}
+    /*
+     * Note that 1234 is just 1*10^3 + 2*10^2 + 3*10^1 + 4*10^0 =
+     * 1000 + 200 + 30 + 4. This means we have to figure out the highest power p
+     * of 10 first (p=3 in this case) and then print 'n divide. The digit we
+     * need to print is n % 10^p, so 1234 % 10^3 = 1, 234 % 10^2 = 2 etc)
+     */
+    uintmax_t divisor = 1;
+    unsigned int p = 0, digits = 1;
+    for (uintmax_t i = n; i >= base; i /= base, p++, divisor *= base, digits++)
+        ;
+    /* Now that we know the length, deal with the padding */
+    for (unsigned int i = digits; i < min_field_len; i++)
+        putch(v, pad);
+    /* Write values from n/(p^base) .. n/1 */
+    for (unsigned int i = 0; i <= p; i++, divisor /= base) {
+        putch(v, tab[(n / divisor) % base]);
+    }
 }
 
-static void
-putstr(void(*putch)(void*, int), void* v, int min_field_len, unsigned int precision, char pad, const char* s)
+static void putstr(
+    void (*putch)(void*, int), void* v, int min_field_len, unsigned int precision, char pad,
+    const char* s)
 {
-	for (unsigned int i = strlen(s); i < min_field_len; i++)
-		putch(v, pad);
-	while (*s && precision-- > 0)
-		putch(v, *s++);
+    for (unsigned int i = strlen(s); i < min_field_len; i++)
+        putch(v, pad);
+    while (*s && precision-- > 0)
+        putch(v, *s++);
 }
 
-static void
-vapprintf(const char* fmt, void(*putch)(void*, int), void* v, va_list ap)
+static void vapprintf(const char* fmt, void (*putch)(void*, int), void* v, va_list ap)
 {
-	const char* s;
-	uintmax_t n;
+    const char* s;
+    uintmax_t n;
 
-	while(*fmt) {
-		if (*fmt != '%') {
-			putch(v, *fmt++);
-			continue;
-		}
+    while (*fmt) {
+        if (*fmt != '%') {
+            putch(v, *fmt++);
+            continue;
+        }
 
-		/* formatted output */
-		fmt++;
+        /* formatted output */
+        fmt++;
 
-		unsigned int min_field_width = 0;
-		unsigned int precision = 0;
-		char padding = ' ';
+        unsigned int min_field_width = 0;
+        unsigned int precision = 0;
+        char padding = ' ';
 
-		/* Try to handle flags */
-		switch(*fmt) {
-			case '#': /* Alternate form */
-				fmt++;
-				break;
-			case '0': /* Zero padding */
-				padding = '0';
-				fmt++;
-				break;
-			case '-': /* Negative field length */
-				fmt++;
-				break;
-			case ' ': /* Blank left */
-				fmt++;
-				break;
-			case '+': /* Sign */
-				fmt++;
-				break;
-			case '\'': /* Decimal */
-				fmt++;
-				break;
-		}
+        /* Try to handle flags */
+        switch (*fmt) {
+            case '#': /* Alternate form */
+                fmt++;
+                break;
+            case '0': /* Zero padding */
+                padding = '0';
+                fmt++;
+                break;
+            case '-': /* Negative field length */
+                fmt++;
+                break;
+            case ' ': /* Blank left */
+                fmt++;
+                break;
+            case '+': /* Sign */
+                fmt++;
+                break;
+            case '\'': /* Decimal */
+                fmt++;
+                break;
+        }
 
 #define DIGIT(x) ((x) >= '0' && (x) <= '9')
-		/* Handle minimum width */
-		while (DIGIT(*fmt)) {
-			min_field_width *= 10;
-			min_field_width += (*fmt - '0');
-			fmt++;
-		}
+        /* Handle minimum width */
+        while (DIGIT(*fmt)) {
+            min_field_width *= 10;
+            min_field_width += (*fmt - '0');
+            fmt++;
+        }
 
-		/* Precision */
-		if (*fmt == '.') {
-			fmt++;
-			while (DIGIT(*fmt)) {
-				precision *= 10;
-				precision += (*fmt - '0');
-				fmt++;
-			}
-		}
+        /* Precision */
+        if (*fmt == '.') {
+            fmt++;
+            while (DIGIT(*fmt)) {
+                precision *= 10;
+                precision += (*fmt - '0');
+                fmt++;
+            }
+        }
 
-		switch(*fmt) {
-			case 's': /* string */
-				s = va_arg(ap, const char*);
-				if (s == NULL)
-					s = "(null)";
-				if (!precision) precision = (unsigned int)-1;
-				putstr(putch, v, min_field_width, precision, padding, s);
-				break;
-			case 'c': /* char (upcast to unsigned int) */
-				n = va_arg(ap, unsigned int);
-				putch(v, n);
-				break;
-			case 'x': /* hex int */
-				n = va_arg(ap, unsigned int);
-				putint(putch, v, 16, hextab_lo, min_field_width, padding, n);
-				break;
-			case 'X': /* hex int XXX assumed 32 bit */
-				n = va_arg(ap, unsigned int);
-				putint(putch, v, 16, hextab_hi, min_field_width, padding, n);
-				break;
-			case 'u': /* unsigned integer */
-				n = va_arg(ap, unsigned int);
-				putint(putch, v, 10, hextab_lo, min_field_width, padding, n);
-				break;
-			case 'o': /* octal */
-				n = va_arg(ap, unsigned int);
-				putint(putch, v, 8, hextab_lo, min_field_width, padding, n);
-				break;
-			case 'd': /* signal decimal */
-			case 'i': /* signal integer */
-			{
-				int i = va_arg(ap, int);
-				if (i < 0) {
-					/* Negative: flip the sign, show the line */
-					i = -i;
-					putch(v, '-');
-				}
-				putint(putch, v, 10, hextab_lo, min_field_width, padding, i);
-				break;
-			}
-			case 'p': /* pointer */
-				n = (uintmax_t)(addr_t)va_arg(ap, void*);
-				putint(putch, v, 16, hextab_lo, min_field_width, padding, n);
-				break;
-			default: /* unknown, just print it */
-				putch(v, '%');
-				putch(v, *fmt);
-				break;
-		}
-		fmt++;
-	}
+        switch (*fmt) {
+            case 's': /* string */
+                s = va_arg(ap, const char*);
+                if (s == NULL)
+                    s = "(null)";
+                if (!precision)
+                    precision = (unsigned int)-1;
+                putstr(putch, v, min_field_width, precision, padding, s);
+                break;
+            case 'c': /* char (upcast to unsigned int) */
+                n = va_arg(ap, unsigned int);
+                putch(v, n);
+                break;
+            case 'x': /* hex int */
+                n = va_arg(ap, unsigned int);
+                putint(putch, v, 16, hextab_lo, min_field_width, padding, n);
+                break;
+            case 'X': /* hex int XXX assumed 32 bit */
+                n = va_arg(ap, unsigned int);
+                putint(putch, v, 16, hextab_hi, min_field_width, padding, n);
+                break;
+            case 'u': /* unsigned integer */
+                n = va_arg(ap, unsigned int);
+                putint(putch, v, 10, hextab_lo, min_field_width, padding, n);
+                break;
+            case 'o': /* octal */
+                n = va_arg(ap, unsigned int);
+                putint(putch, v, 8, hextab_lo, min_field_width, padding, n);
+                break;
+            case 'd': /* signal decimal */
+            case 'i': /* signal integer */
+            {
+                int i = va_arg(ap, int);
+                if (i < 0) {
+                    /* Negative: flip the sign, show the line */
+                    i = -i;
+                    putch(v, '-');
+                }
+                putint(putch, v, 10, hextab_lo, min_field_width, padding, i);
+                break;
+            }
+            case 'p': /* pointer */
+                n = (uintmax_t)(addr_t)va_arg(ap, void*);
+                putint(putch, v, 16, hextab_lo, min_field_width, padding, n);
+                break;
+            default: /* unknown, just print it */
+                putch(v, '%');
+                putch(v, *fmt);
+                break;
+        }
+        fmt++;
+    }
 }
 
-static void
-kprintf_putch(void* v, int c)
+static void kprintf_putch(void* v, int c) { console_putchar(c); }
+
+void vaprintf(const char* fmt, va_list ap) { vapprintf(fmt, kprintf_putch, NULL, ap); }
+
+static void sprintf_add(void* v, int c)
 {
-	console_putchar(c);
+    char** string = (char**)v;
+    **string = c;
+    (*string)++;
 }
 
-void
-vaprintf(const char* fmt, va_list ap)
+int sprintf(char* str, const char* fmt, ...)
 {
-	vapprintf(fmt, kprintf_putch, NULL, ap);
-}
+    va_list ap;
+    char* source = str;
 
-static void
-sprintf_add(void* v, int c)
-{
-	char** string = (char**)v;
-	**string = c;
-	(*string)++;
-}
+    va_start(ap, fmt);
+    vapprintf(fmt, sprintf_add, &str, ap);
+    va_end(ap);
+    sprintf_add(&str, 0);
 
-int
-sprintf(char* str, const char* fmt, ...)
-{
-	va_list ap;
-	char* source = str;
-
-	va_start(ap, fmt);
-	vapprintf(fmt, sprintf_add, &str, ap);
-	va_end(ap);
-	sprintf_add(&str, 0);
-
-	return str - source;
+    return str - source;
 }
 
 struct SNPRINTF_CTX {
-	char* buf;
-	int cur_len;
-	size_t left;
+    char* buf;
+    int cur_len;
+    size_t left;
 };
 
-static void
-snprintf_add(void* v, int c)
+static void snprintf_add(void* v, int c)
 {
-	auto ctx = static_cast<struct SNPRINTF_CTX*>(v);
-	if (ctx->left == 0)
-		return;
+    auto ctx = static_cast<struct SNPRINTF_CTX*>(v);
+    if (ctx->left == 0)
+        return;
 
-	*ctx->buf = c;
-	ctx->buf++;
-	ctx->cur_len++;
-	ctx->left--;
+    *ctx->buf = c;
+    ctx->buf++;
+    ctx->cur_len++;
+    ctx->left--;
 }
 
-int
-vsnprintf(char* str, size_t len, const char* fmt, va_list ap)
+int vsnprintf(char* str, size_t len, const char* fmt, va_list ap)
 {
-	struct SNPRINTF_CTX ctx;
+    struct SNPRINTF_CTX ctx;
 
-	ctx.buf = str;
-	ctx.cur_len = 0;
-	ctx.left = len;
+    ctx.buf = str;
+    ctx.cur_len = 0;
+    ctx.left = len;
 
-	vapprintf(fmt, snprintf_add, &ctx, ap);
-	snprintf_add(&ctx, 0); /* terminating \0 */
+    vapprintf(fmt, snprintf_add, &ctx, ap);
+    snprintf_add(&ctx, 0); /* terminating \0 */
 
-	return ctx.cur_len - 1 /* minus \0 byte */;
+    return ctx.cur_len - 1 /* minus \0 byte */;
 }
 
-int
-snprintf(char* str, size_t len, const char* fmt, ...)
+int snprintf(char* str, size_t len, const char* fmt, ...)
 {
-	va_list ap;
-	va_start(ap, fmt);
-	int n = vsnprintf(str, len, fmt, ap);
-	va_end(ap);
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vsnprintf(str, len, fmt, ap);
+    va_end(ap);
 
-	return n;
+    return n;
 }
 
-void
-kprintf(const char* fmt, ...)
+void kprintf(const char* fmt, ...)
 {
-	va_list ap;
+    va_list ap;
 
-	va_start(ap, fmt);
+    va_start(ap, fmt);
 #ifdef PRINTF_BUFFER_SIZE
-	char buf[PRINTF_BUFFER_SIZE];
+    char buf[PRINTF_BUFFER_SIZE];
 
-	vsnprintf(buf, sizeof(buf), fmt, ap);
-	buf[sizeof(buf) - 1] = '\0';
-	console_putstring(buf);
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    buf[sizeof(buf) - 1] = '\0';
+    console_putstring(buf);
 #else
-	vaprintf(fmt, ap);
+    vaprintf(fmt, ap);
 #endif
-	va_end(ap);
+    va_end(ap);
 }
 
 /* vim:set ts=2 sw=2: */

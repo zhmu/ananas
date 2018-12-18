@@ -2,7 +2,4 @@
 
 #pragma weak dlclose
 
-int dlclose(void* handle)
-{
-	return -1;
-}
+int dlclose(void* handle) { return -1; }

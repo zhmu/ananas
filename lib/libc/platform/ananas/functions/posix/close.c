@@ -5,6 +5,6 @@
 
 int close(int fd)
 {
-	statuscode_t status = sys_close(fd);
-	return map_statuscode(status);
+    statuscode_t status = sys_close(fd);
+    return map_statuscode(status);
 }

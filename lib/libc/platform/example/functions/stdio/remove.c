@@ -5,7 +5,7 @@
 */
 
 /* This is an example implementation of remove() fit for use with POSIX kernels.
-*/
+ */
 
 #include <stdio.h>
 
@@ -14,9 +14,9 @@
 #include <string.h>
 #include <errno.h>
 
-extern struct _PDCLIB_file_t * _PDCLIB_filelist;
+extern struct _PDCLIB_file_t* _PDCLIB_filelist;
 
-int remove( const char * pathname )
+int remove(const char* pathname)
 {
     errno = ENOTSUP;
     return 1;
@@ -27,11 +27,10 @@ int remove( const char * pathname )
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
+int main(void)
 {
     /* Testing covered by ftell.c (and several others) */
     return TEST_RESULTS;
 }
 
 #endif
-

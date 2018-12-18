@@ -8,12 +8,12 @@
 #define _PDCLIB_ISO646_H _PDCLIB_ISO646_H
 
 #ifndef __cplusplus
-#define and &&
+#define and&&
 #define and_eq &=
-#define bitand &
+#define bitand&
 #define bitor |
-#define compl ~
-#define not !
+#define compl~
+#define not!
 #define not_eq !=
 #define or ||
 #define or_eq |=

@@ -6,14 +6,11 @@
 
 #include <stdio.h>
 
-void setbuf( FILE * _PDCLIB_restrict stream, char * _PDCLIB_restrict buf )
+void setbuf(FILE* _PDCLIB_restrict stream, char* _PDCLIB_restrict buf)
 {
-    if ( buf == NULL )
-    {
-        setvbuf( stream, buf, _IONBF, BUFSIZ );
-    }
-    else
-    {
-        setvbuf( stream, buf, _IOFBF, BUFSIZ );
+    if (buf == NULL) {
+        setvbuf(stream, buf, _IONBF, BUFSIZ);
+    } else {
+        setvbuf(stream, buf, _IOFBF, BUFSIZ);
     }
 }

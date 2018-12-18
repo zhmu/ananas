@@ -25,14 +25,13 @@ typedef _PDCLIB_size_t size_t;
 #define NULL _PDCLIB_NULL
 #endif
 
-typedef _PDCLIB_time_t  time_t;
+typedef _PDCLIB_time_t time_t;
 typedef _PDCLIB_clock_t clock_t;
 
 #define CLOCKS_PER_SEC _PDCLIB_CLOCKS_PER_SEC
 #define TIME_UTC _PDCLIB_TIME_UTC
 
-struct tm
-{
+struct tm {
     int tm_sec;   /* 0-60 */
     int tm_min;   /* 0-59 */
     int tm_hour;  /* 0-23 */
@@ -49,26 +48,28 @@ struct tm
    Returns -1 if the value cannot be represented in the return type or is
    not available.
 */
-clock_t clock( void ) _PDCLIB_nothrow;
+clock_t clock(void) _PDCLIB_nothrow;
 
 /* Returns the difference between two calendar times in seconds. */
-double difftime( time_t time1, time_t time0 ) _PDCLIB_nothrow;
+double difftime(time_t time1, time_t time0) _PDCLIB_nothrow;
 
-time_t mktime( struct tm * timeptr ) _PDCLIB_nothrow;
+time_t mktime(struct tm* timeptr) _PDCLIB_nothrow;
 
-time_t time( time_t * timer ) _PDCLIB_nothrow;
+time_t time(time_t* timer) _PDCLIB_nothrow;
 
-int timespec_get( struct timespec * ts, int base ) _PDCLIB_nothrow;
+int timespec_get(struct timespec* ts, int base) _PDCLIB_nothrow;
 
-char * asctime( const struct tm * timeptr ) _PDCLIB_nothrow;
+char* asctime(const struct tm* timeptr) _PDCLIB_nothrow;
 
-char * ctime( const time_t * timer ) _PDCLIB_nothrow;
+char* ctime(const time_t* timer) _PDCLIB_nothrow;
 
-struct tm * gmtime( const time_t * timer ) _PDCLIB_nothrow;
+struct tm* gmtime(const time_t* timer) _PDCLIB_nothrow;
 
-struct tm * localtime( const time_t * timer ) _PDCLIB_nothrow;
+struct tm* localtime(const time_t* timer) _PDCLIB_nothrow;
 
-size_t strftime( char * _PDCLIB_restrict s, size_t maxsize, const char * _PDCLIB_restrict format, const struct tm * _PDCLIB_restrict timeptr );
+size_t strftime(
+    char* _PDCLIB_restrict s, size_t maxsize, const char* _PDCLIB_restrict format,
+    const struct tm* _PDCLIB_restrict timeptr);
 
 #define CLOCK_MONOTONIC 0
 #define CLOCK_REALTIME 1

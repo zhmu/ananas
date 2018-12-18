@@ -5,7 +5,7 @@
 #ifdef _PDCLIB_C_VERSION
 TEST(stdio, clearerr)
 {
-    FILE * fh = tmpfile();
+    FILE* fh = tmpfile();
     ASSERT_NE(nullptr, fh);
 
     /* Flags should be clear */

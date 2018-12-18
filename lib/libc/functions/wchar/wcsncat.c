@@ -6,21 +6,16 @@
 
 #include <wchar.h>
 
-wchar_t * wcsncat( wchar_t * _PDCLIB_restrict s1,
-                   const wchar_t * _PDCLIB_restrict s2,
-                   size_t n )
+wchar_t* wcsncat(wchar_t* _PDCLIB_restrict s1, const wchar_t* _PDCLIB_restrict s2, size_t n)
 {
-    wchar_t * rc = s1;
-    while ( *s1 )
-    {
+    wchar_t* rc = s1;
+    while (*s1) {
         ++s1;
     }
-    while ( n && ( *s1++ = *s2++ ) )
-    {
+    while (n && (*s1++ = *s2++)) {
         --n;
     }
-    if ( n == 0 )
-    {
+    if (n == 0) {
         *s1 = '\0';
     }
     return rc;

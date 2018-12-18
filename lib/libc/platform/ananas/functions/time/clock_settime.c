@@ -5,6 +5,6 @@
 
 int clock_settime(clockid_t id, const struct timespec* ts)
 {
-	statuscode_t status = sys_clock_settime(id, ts);
-	return map_statuscode(status);
+    statuscode_t status = sys_clock_settime(id, ts);
+    return map_statuscode(status);
 }

@@ -3,11 +3,11 @@
 
 class Result;
 
-namespace usb {
+namespace usb
+{
+    class Interface;
 
-class Interface;
-
-Result ParseConfiguration(Interface* usb_if, int& usb_num_if, void* data, int datalen);
+    Result ParseConfiguration(Interface* usb_if, int& usb_num_if, void* data, int datalen);
 
 } // namespace usb
 

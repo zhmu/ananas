@@ -2,8 +2,4 @@
 
 #pragma weak dladdr
 
-int
-dladdr(const void* addr, Dl_info* info)
-{
-	return 0;
-}
+int dladdr(const void* addr, Dl_info* info) { return 0; }

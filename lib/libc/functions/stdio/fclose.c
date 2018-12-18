@@ -10,56 +10,46 @@
 #include <threads.h>
 #include "_PDCLIB_io.h"
 
-extern FILE * _PDCLIB_filelist;
+extern FILE* _PDCLIB_filelist;
 
-int fclose( FILE * stream )
+int fclose(FILE* stream)
 {
-    FILE * current = _PDCLIB_filelist;
-    FILE * previous = NULL;
+    FILE* current = _PDCLIB_filelist;
+    FILE* previous = NULL;
     /* Checking that the FILE handle is actually one we had opened before. */
-    while ( current != NULL )
-    {
-        if ( stream == current )
-        {
+    while (current != NULL) {
+        if (stream == current) {
             /* Flush buffer */
-            if ( stream->status & _PDCLIB_FWRITE )
-            {
-                if ( _PDCLIB_flushbuffer( stream ) == EOF )
-                {
+            if (stream->status & _PDCLIB_FWRITE) {
+                if (_PDCLIB_flushbuffer(stream) == EOF) {
                     /* Flush failed, errno already set */
                     return EOF;
                 }
             }
 
             /* Release mutex*/
-            mtx_destroy( &stream->lock );
+            mtx_destroy(&stream->lock);
 
             /* Close handle */
             stream->ops->close(stream->handle);
 
             /* Remove stream from list */
-            if ( previous != NULL )
-            {
+            if (previous != NULL) {
                 previous->next = stream->next;
-            }
-            else
-            {
+            } else {
                 _PDCLIB_filelist = stream->next;
             }
             /* Delete tmpfile() */
-            if ( stream->status & _PDCLIB_DELONCLOSE )
-            {
-                remove( stream->filename );
+            if (stream->status & _PDCLIB_DELONCLOSE) {
+                remove(stream->filename);
             }
             /* Free user buffer (SetVBuf allocated) */
-            if ( stream->status & _PDCLIB_FREEBUFFER )
-            {
-                free( stream->buffer );
+            if (stream->status & _PDCLIB_FREEBUFFER) {
+                free(stream->buffer);
             }
             /* Free stream */
-            if ( ! ( stream->status & _PDCLIB_STATIC ) )
-            {
-                free( stream );
+            if (!(stream->status & _PDCLIB_STATIC)) {
+                free(stream);
             }
             return 0;
         }

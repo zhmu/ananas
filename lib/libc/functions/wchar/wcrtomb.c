@@ -28,11 +28,7 @@ static size_t wcrtomb_l(
 }
 #endif
 
-size_t wcrtomb(
-    char        *restrict   s, 
-    wchar_t                 wc,
-    mbstate_t   *restrict   ps
-)
+size_t wcrtomb(char* restrict s, wchar_t wc, mbstate_t* restrict ps)
 {
     static mbstate_t st;
     return _PDCLIB_cwcrtomb(s, wc, ps ? ps : &st);

@@ -4,8 +4,8 @@
 
 double nearbyint(double x)
 {
-	__asm__ ("fidbra %0, 0, %1, 4" : "=f"(x) : "f"(x));
-	return x;
+    __asm__("fidbra %0, 0, %1, 4" : "=f"(x) : "f"(x));
+    return x;
 }
 
 #else

@@ -7,7 +7,4 @@
 #include <locale.h>
 #include "_PDCLIB_locale.h"
 
-struct lconv * localeconv( void )
-{
-    return &_PDCLIB_threadlocale()->_Conv;
-}
+struct lconv* localeconv(void) { return &_PDCLIB_threadlocale()->_Conv; }

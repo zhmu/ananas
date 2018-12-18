@@ -7,18 +7,17 @@
 
 TRACE_SETUP;
 
-Result
-sys_rename(Thread* t, const char* oldpath, const char* newpath)
+Result sys_rename(Thread* t, const char* oldpath, const char* newpath)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, oldpath='%s' newpath='%s'", t, oldpath, newpath);
-	Process& proc = *t->t_process;
-	DEntry* cwd = proc.p_cwd;
+    TRACE(SYSCALL, FUNC, "t=%p, oldpath='%s' newpath='%s'", t, oldpath, newpath);
+    Process& proc = *t->t_process;
+    DEntry* cwd = proc.p_cwd;
 
-	struct VFS_FILE file;
-	if (auto result = vfs_open(&proc, oldpath, cwd, &file); result.IsFailure())
-		return result;
+    struct VFS_FILE file;
+    if (auto result = vfs_open(&proc, oldpath, cwd, &file); result.IsFailure())
+        return result;
 
-	auto result = vfs_rename(&file, cwd, newpath);
-	vfs_close(&proc, &file);
-	return result;
+    auto result = vfs_rename(&file, cwd, newpath);
+    vfs_close(&proc, &file);
+    return result;
 }

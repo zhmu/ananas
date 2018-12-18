@@ -3,11 +3,11 @@
 
 #include <ananas/types.h>
 
-namespace ankhfs {
+namespace ankhfs
+{
+    class IAnkhSubSystem;
 
-class IAnkhSubSystem;
-
-IAnkhSubSystem& GetFileSystemSubSystem();
+    IAnkhSubSystem& GetFileSystemSubSystem();
 
 } // namespace ankhfs
 

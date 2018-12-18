@@ -27,7 +27,13 @@
 /* qsort() in <stdlib.h> requires a function that swaps two memory areas.     */
 /* Below is a naive implementation that can be improved significantly for     */
 /* specific platforms, e.g. by swapping int instead of char.                  */
-#define _PDCLIB_memswp( i, j, size ) char tmp; do { tmp = *i; *i++ = *j; *j++ = tmp; } while ( --size );
+#define _PDCLIB_memswp(i, j, size) \
+    char tmp;                      \
+    do {                           \
+        tmp = *i;                  \
+        *i++ = *j;                 \
+        *j++ = tmp;                \
+    } while (--size);
 
 /* -------------------------------------------------------------------------- */
 /* Integers                                                                   */
@@ -47,8 +53,8 @@
 /* Width of the integer types short, int, long, and long long, in bytes.      */
 /* SHRT == 2, INT >= SHRT, LONG >= INT >= 4, LLONG >= LONG - check your       */
 /* compiler manuals.                                                          */
-#define _PDCLIB_SHRT_BYTES  2
-#define _PDCLIB_INT_BYTES   4
+#define _PDCLIB_SHRT_BYTES 2
+#define _PDCLIB_INT_BYTES 4
 #if defined(_LP64) || defined(__ILP64__)
 #define _PDCLIB_LONG_BYTES 8
 #else
@@ -65,20 +71,17 @@
 /* the return structure in any way to fit the hardware. That is why those     */
 /* structs can be configured here.                                            */
 
-struct _PDCLIB_div_t
-{
+struct _PDCLIB_div_t {
     int quot;
     int rem;
 };
 
-struct _PDCLIB_ldiv_t
-{
+struct _PDCLIB_ldiv_t {
     long int quot;
     long int rem;
 };
 
-struct _PDCLIB_lldiv_t
-{
+struct _PDCLIB_lldiv_t {
     long long int quot;
     long long int rem;
 };
@@ -180,7 +183,7 @@ struct _PDCLIB_lldiv_t
    as at least one value that does not correspond to any member of the
    extended character set (WEOF).
 */
-#define _PDCLIB_wint  int
+#define _PDCLIB_wint int
 
 #define _PDCLIB_intptr long
 #define _PDCLIB_INTPTR LONG
@@ -195,8 +198,7 @@ struct _PDCLIB_lldiv_t
 /* <inttypes.h> defines imaxdiv(), which is equivalent to the div() function  */
 /* family (see further above) with intmax_t as basis.                         */
 
-struct _PDCLIB_imaxdiv_t
-{
+struct _PDCLIB_imaxdiv_t {
     _PDCLIB_intmax quot;
     _PDCLIB_intmax rem;
 };
@@ -279,8 +281,8 @@ struct _PDCLIB_imaxdiv_t
  *    DOUBLE:   IEEE 754 double precision (64-bit)
  *    EXTENDED: IEEE 754 extended precision (80-bit, as x87)
  */
-#define _PDCLIB_FLOAT_TYPE   SINGLE
-#define _PDCLIB_DOUBLE_TYPE  DOUBLE
+#define _PDCLIB_FLOAT_TYPE SINGLE
+#define _PDCLIB_DOUBLE_TYPE DOUBLE
 #define _PDCLIB_LDOUBLE_TYPE EXTENDED
 
 /* -------------------------------------------------------------------------- */
@@ -297,7 +299,7 @@ struct _PDCLIB_imaxdiv_t
    takes the address of member. This is undefined behaviour but should work on
    most compilers.
 */
-#define _PDCLIB_offsetof( type, member ) __builtin_offsetof( type, member )
+#define _PDCLIB_offsetof(type, member) __builtin_offsetof(type, member)
 
 /* Variable Length Parameter List Handling (<stdarg.h>)
    The macros defined by <stdarg.h> are highly dependent on the calling
@@ -306,10 +308,10 @@ struct _PDCLIB_imaxdiv_t
 */
 
 typedef __builtin_va_list _PDCLIB_va_list;
-#define _PDCLIB_va_arg( ap, type ) (__builtin_va_arg( (ap), type ))
-#define _PDCLIB_va_copy( dest, src ) (__builtin_va_copy( (dest), (src) ))
-#define _PDCLIB_va_end( ap ) (__builtin_va_end( ap ) )
-#define _PDCLIB_va_start( ap, parmN ) (__builtin_va_start( (ap), (parmN) ))
+#define _PDCLIB_va_arg(ap, type) (__builtin_va_arg((ap), type))
+#define _PDCLIB_va_copy(dest, src) (__builtin_va_copy((dest), (src)))
+#define _PDCLIB_va_end(ap) (__builtin_va_end(ap))
+#define _PDCLIB_va_start(ap, parmN) (__builtin_va_start((ap), (parmN)))
 
 /* -------------------------------------------------------------------------- */
 /* OS "glue", part 1                                                          */
@@ -326,9 +328,9 @@ typedef __builtin_va_list _PDCLIB_va_list;
 */
 #define _PDCLIB_MALLOC_PAGESIZE 4096
 #define _PDCLIB_MALLOC_ALIGN 16
-#define _PDCLIB_MALLOC_GRANULARITY 64*1024
-#define _PDCLIB_MALLOC_TRIM_THRESHOLD 2*1024*1024
-#define _PDCLIB_MALLOC_MMAP_THRESHOLD 256*1024
+#define _PDCLIB_MALLOC_GRANULARITY 64 * 1024
+#define _PDCLIB_MALLOC_TRIM_THRESHOLD 2 * 1024 * 1024
+#define _PDCLIB_MALLOC_MMAP_THRESHOLD 256 * 1024
 #define _PDCLIB_MALLOC_RELEASE_CHECK_RATE 4095
 
 /* TODO: Better document these */
@@ -385,6 +387,6 @@ typedef __builtin_va_list _PDCLIB_va_list;
 /* you change this value because you are using additional errno values, you   */
 /* *HAVE* to provide appropriate error messages for *ALL* locales.            */
 /* Needs to be one higher than the highest errno value above.                 */
-#define _PDCLIB_ERRNO_MAX (ELAST+1)
+#define _PDCLIB_ERRNO_MAX (ELAST + 1)
 
 #endif

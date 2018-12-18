@@ -3,9 +3,8 @@
 #include <signal.h>
 #include "_map_statuscode.h"
 
-int
-kill(pid_t pid, int sig)
+int kill(pid_t pid, int sig)
 {
-	statuscode_t status = sys_kill(pid, sig);
-	return map_statuscode(status);
+    statuscode_t status = sys_kill(pid, sig);
+    return map_statuscode(status);
 }

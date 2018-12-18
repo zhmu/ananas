@@ -6,10 +6,9 @@
 
 TRACE_SETUP;
 
-Result
-sys_nanosleep(Thread* t, const struct timespec* rqtp, struct timespec* rmtp)
+Result sys_nanosleep(Thread* t, const struct timespec* rqtp, struct timespec* rmtp)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, rqtp=%p, rmtp%p", t, rqtp, rmtp);
+    TRACE(SYSCALL, FUNC, "t=%p, rqtp=%p, rmtp%p", t, rqtp, rmtp);
 
-	return RESULT_MAKE_FAILURE(EINVAL); // TODO
+    return RESULT_MAKE_FAILURE(EINVAL); // TODO
 }

@@ -7,7 +7,7 @@
 #include <wchar.h>
 
 /* See notes on wcscoll. */
-size_t wcsxfrm( wchar_t * _PDCLIB_restrict s1, const wchar_t * _PDCLIB_restrict s2, size_t n )
+size_t wcsxfrm(wchar_t* _PDCLIB_restrict s1, const wchar_t* _PDCLIB_restrict s2, size_t n)
 {
     wcsncpy(s1, s2, n);
     return wcslen(s2);

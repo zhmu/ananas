@@ -14,10 +14,10 @@
  * difference is that %rcx is used by syscall/sysret, so we must pass that
  * variable in %r10.
  */
-#define SYSCALL(x) 			\
-	__asm(				\
-		"movq	%%rcx, %%r10\n"	\
-		"syscall\n"		\
-	: : "a" (x));
+#define SYSCALL(x)              \
+    __asm("movq	%%rcx, %%r10\n" \
+          "syscall\n"           \
+          :                     \
+          : "a"(x));
 
 #endif /* __MD_SYSCALL_H__ */

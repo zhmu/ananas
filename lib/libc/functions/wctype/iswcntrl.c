@@ -7,7 +7,4 @@
 #include <wctype.h>
 #include "_PDCLIB_locale.h"
 
-int iswcntrl( wint_t wc )
-{
-    return iswctype( wc, _PDCLIB_CTYPE_CNTRL );
-}
+int iswcntrl(wint_t wc) { return iswctype(wc, _PDCLIB_CTYPE_CNTRL); }

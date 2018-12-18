@@ -4,8 +4,8 @@
 #include <ananas/types.h>
 
 struct SYSCALL_ARGS {
-	register_t	number;
-	register_t	arg1, arg2, arg3, arg4, arg5;
+    register_t number;
+    register_t arg1, arg2, arg3, arg4, arg5;
 };
 
 class Result;

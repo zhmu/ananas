@@ -1,44 +1,42 @@
 #ifndef __OHCI_ROOTHUB_H__
 #define __OHCI_ROOTHUB_H__
 
-namespace usb {
+namespace usb
+{
+    class Transfer;
+    class USBDevice;
 
-class Transfer;
-class USBDevice;
+    namespace ohci
+    {
+        class HCD_Resources;
 
-namespace ohci {
+        class RootHub
+        {
+          public:
+            RootHub(HCD_Resources& hcdResources, USBDevice& usbDevice);
+            Result Initialize();
 
-class HCD_Resources;
+            void SetUSBDevice(USBDevice& usbDevice);
+            Result HandleTransfer(Transfer& xfer);
+            void OnIRQ();
 
-class RootHub {
-public:
-	RootHub(HCD_Resources& hcdResources, USBDevice& usbDevice);
-	Result Initialize();
+          protected:
+            Result ControlTransfer(Transfer& xfer);
+            void ProcessInterruptTransfers();
+            static void ThreadWrapper(void* context) { (static_cast<RootHub*>(context))->Thread(); }
+            void Thread();
 
-	void SetUSBDevice(USBDevice& usbDevice);
-	Result HandleTransfer(Transfer& xfer);
-	void OnIRQ();
+          private:
+            HCD_Resources& rh_Resources;
+            USBDevice& rh_Device;
 
-protected:
-	Result ControlTransfer(Transfer& xfer);
-	void ProcessInterruptTransfers();
-	static void ThreadWrapper(void* context)
-	{
-		(static_cast<RootHub*>(context))->Thread();
-	}
-	void Thread();
+            int rh_numports;
+            Semaphore rh_semaphore{0};
+            struct Thread rh_pollthread;
+            bool rh_pending_changes = true;
+        };
 
-private:
-	HCD_Resources& rh_Resources;
-	USBDevice& rh_Device;
-
-	int rh_numports;
-	Semaphore rh_semaphore{0};
-	struct Thread rh_pollthread;
-	bool rh_pending_changes = true;
-};
-
-} // namespace ohci
+    } // namespace ohci
 } // namespace usb
 
 #endif /* __OHCI_ROOTHUB_H__ */

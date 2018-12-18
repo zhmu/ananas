@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 #include <stdio.h>
 
-static char const testfile[]="testing/testfile";
+static char const testfile[] = "testing/testfile";
 
 TEST(stdio, fgets)
 {
-    char const * gets_test = "foo\nbar\0baz\nweenie";
+    char const* gets_test = "foo\nbar\0baz\nweenie";
     char buffer[10];
 
     FILE* fh = fopen(testfile, "wb+");

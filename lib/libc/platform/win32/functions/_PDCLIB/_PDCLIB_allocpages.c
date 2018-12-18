@@ -5,7 +5,7 @@
 */
 
 /* This is a stub implementation of _PDCLIB_allocpages
-*/
+ */
 
 #ifndef REGTEST
 #include <stdint.h>
@@ -16,11 +16,10 @@
 
 void _PDCLIB_w32errno(void);
 
-void * _PDCLIB_allocpages( size_t n )
+void* _PDCLIB_allocpages(size_t n)
 {
-    void * rv = VirtualAlloc(NULL, n * _PDCLIB_MALLOC_PAGESIZE, MEM_COMMIT,
-        PAGE_READWRITE);
-    if(!rv) {
+    void* rv = VirtualAlloc(NULL, n * _PDCLIB_MALLOC_PAGESIZE, MEM_COMMIT, PAGE_READWRITE);
+    if (!rv) {
         _PDCLIB_w32errno();
     }
     return rv;
@@ -30,9 +29,6 @@ void * _PDCLIB_allocpages( size_t n )
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif

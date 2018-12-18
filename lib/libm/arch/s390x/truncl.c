@@ -4,8 +4,8 @@
 
 long double truncl(long double x)
 {
-	__asm__ ("fixbra %0, 5, %1, 4" : "=f"(x) : "f"(x));
-	return x;
+    __asm__("fixbra %0, 5, %1, 4" : "=f"(x) : "f"(x));
+    return x;
 }
 
 #else

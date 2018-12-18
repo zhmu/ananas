@@ -11,7 +11,7 @@ TEST(stdio, ftell)
        fgetc fflush rewind fputc ungetc fseek
        flushbuffer seek fillbuffer prepread prepwrite
     */
-    FILE * fh = tmpfile();
+    FILE* fh = tmpfile();
     ASSERT_NE(nullptr, fh);
 
     auto buffer = static_cast<char*>(malloc(4));

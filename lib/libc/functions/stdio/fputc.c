@@ -11,34 +11,29 @@
    Returns c if successful, EOF otherwise.
    If a write error occurs, the error indicator of the stream is set.
 */
-int _PDCLIB_fputc_unlocked( int c, FILE * stream )
+int _PDCLIB_fputc_unlocked(int c, FILE* stream)
 {
-    if ( _PDCLIB_prepwrite( stream ) == EOF )
-    {
+    if (_PDCLIB_prepwrite(stream) == EOF) {
         return EOF;
     }
     stream->buffer[stream->bufidx++] = (char)c;
-    if ( ( stream->bufidx == stream->bufsize )                   /* _IOFBF */
-           || ( ( stream->status & _IOLBF ) && ( (char)c == '\n' ) ) /* _IOLBF */
-           || ( stream->status & _IONBF )                        /* _IONBF */
-    )
-    {
+    if ((stream->bufidx == stream->bufsize)                 /* _IOFBF */
+        || ((stream->status & _IOLBF) && ((char)c == '\n')) /* _IOLBF */
+        || (stream->status & _IONBF)                        /* _IONBF */
+    ) {
         /* buffer filled, unbuffered stream, or end-of-line. */
-        return ( _PDCLIB_flushbuffer( stream ) == 0 ) ? c : EOF;
+        return (_PDCLIB_flushbuffer(stream) == 0) ? c : EOF;
     }
     return c;
 }
 
-int fputc_unlocked( int c, FILE * stream )
-{
-    return _PDCLIB_fputc_unlocked( c, stream );
-}
+int fputc_unlocked(int c, FILE* stream) { return _PDCLIB_fputc_unlocked(c, stream); }
 
 // Testing covered by ftell.cpp
-int fputc( int c, FILE * stream )
+int fputc(int c, FILE* stream)
 {
-    _PDCLIB_flockfile( stream );
-    int r = _PDCLIB_fputc_unlocked( c, stream );
-    _PDCLIB_funlockfile( stream );
+    _PDCLIB_flockfile(stream);
+    int r = _PDCLIB_fputc_unlocked(c, stream);
+    _PDCLIB_funlockfile(stream);
     return r;
 }

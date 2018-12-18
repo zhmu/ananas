@@ -8,13 +8,13 @@
 #include <string.h>
 #include "_PDCLIB_locale.h"
 
-wctrans_t wctrans( const char * property )
+wctrans_t wctrans(const char* property)
 {
-    if(!property) {
+    if (!property) {
         return 0;
-    } else if(strcmp(property, "tolower") == 0) {
+    } else if (strcmp(property, "tolower") == 0) {
         return _PDCLIB_WCTRANS_TOLOWER;
-    } else if(strcmp(property, "toupper") == 0) {
+    } else if (strcmp(property, "toupper") == 0) {
         return _PDCLIB_WCTRANS_TOUPPER;
     } else {
         return 0;

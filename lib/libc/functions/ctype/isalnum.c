@@ -7,7 +7,7 @@
 #include <ctype.h>
 #include "_PDCLIB_locale.h"
 
-int isalnum( int c )
+int isalnum(int c)
 {
-    return ( _PDCLIB_threadlocale()->_CType[c].flags & ( _PDCLIB_CTYPE_ALPHA | _PDCLIB_CTYPE_DIGIT ) );
+    return (_PDCLIB_threadlocale()->_CType[c].flags & (_PDCLIB_CTYPE_ALPHA | _PDCLIB_CTYPE_DIGIT));
 }

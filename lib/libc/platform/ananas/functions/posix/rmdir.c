@@ -5,6 +5,6 @@
 
 int rmdir(const char* path)
 {
-	statuscode_t status = sys_unlink(path);
-	return map_statuscode(status);
+    statuscode_t status = sys_unlink(path);
+    return map_statuscode(status);
 }

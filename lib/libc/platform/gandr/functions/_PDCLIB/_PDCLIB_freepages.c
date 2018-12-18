@@ -5,7 +5,7 @@
 */
 
 /* This is a stub implementation of _PDCLIB_allocpages
-*/
+ */
 
 #include <stdint.h>
 #include <stddef.h>
@@ -13,10 +13,10 @@
 #include <errno.h>
 #include <gd_bal.h>
 
-void _PDCLIB_freepages( void * p, size_t n )
+void _PDCLIB_freepages(void* p, size_t n)
 {
     int rv = 0;
-    if((rv = gd_free_pages( p, n ))) {
+    if ((rv = gd_free_pages(p, n))) {
         perror("_PDCLIB_freepages");
         abort();
     }
@@ -25,9 +25,6 @@ void _PDCLIB_freepages( void * p, size_t n )
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif

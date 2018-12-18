@@ -4,22 +4,19 @@
 #include "kernel/device.h"
 #include "ata.h"
 
-namespace ata {
-
-class ATAPCI : public Device, private IDeviceOperations
+namespace ata
 {
-public:
-	using Device::Device;
-	virtual ~ATAPCI() = default;
+    class ATAPCI : public Device, private IDeviceOperations
+    {
+      public:
+        using Device::Device;
+        virtual ~ATAPCI() = default;
 
-	IDeviceOperations& GetDeviceOperations() override
-	{
-		return *this;
-	}
+        IDeviceOperations& GetDeviceOperations() override { return *this; }
 
-	Result Attach() override;
-	Result Detach() override;
-};
+        Result Attach() override;
+        Result Detach() override;
+    };
 
 } // namespace ata
 

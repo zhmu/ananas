@@ -4,8 +4,8 @@
 
 double floor(double x)
 {
-	__asm__ ("fidbra %0, 7, %1, 4" : "=f"(x) : "f"(x));
-	return x;
+    __asm__("fidbra %0, 7, %1, 4" : "=f"(x) : "f"(x));
+    return x;
 }
 
 #else

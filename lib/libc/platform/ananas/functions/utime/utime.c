@@ -5,6 +5,6 @@
 
 int utime(const char* path, const struct utimbuf* times)
 {
-	statuscode_t status = sys_utime(path, times);
-	return map_statuscode(status);
+    statuscode_t status = sys_utime(path, times);
+    return map_statuscode(status);
 }

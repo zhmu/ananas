@@ -3,6 +3,6 @@
 
 int pthread_once(pthread_once_t* once_control, void (*init_routine)(void))
 {
-	errno = ENOSYS;
-	return -1;
+    errno = ENOSYS;
+    return -1;
 }

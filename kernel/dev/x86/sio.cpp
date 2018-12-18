@@ -10,116 +10,105 @@
 
 TRACE_SETUP;
 
-namespace {
-
-// XXX This is a horrible kludge to prevent attaching the console SIO twice...
-bool s_IsConsole = false;
-
-class SIO : public TTY, private irq::IHandler
+namespace
 {
-public:
-	using TTY::TTY;
-	virtual ~SIO() = default;
+    // XXX This is a horrible kludge to prevent attaching the console SIO twice...
+    bool s_IsConsole = false;
 
-	Result Attach() override;
-	Result Detach() override;
+    class SIO : public TTY, private irq::IHandler
+    {
+      public:
+        using TTY::TTY;
+        virtual ~SIO() = default;
 
-	Result Print(const char* buffer, size_t len) override;
+        Result Attach() override;
+        Result Detach() override;
 
-private:
-	irq::IRQResult OnIRQ() override;
+        Result Print(const char* buffer, size_t len) override;
 
-	uint32_t sio_port;
-};
+      private:
+        irq::IRQResult OnIRQ() override;
 
-irq::IRQResult
-SIO::OnIRQ()
-{
-	char ch = inb(sio_port + SIO_REG_DATA);
+        uint32_t sio_port;
+    };
 
-	OnInput(&ch, 1);
-	return irq::IRQResult::Processed;
-}
+    irq::IRQResult SIO::OnIRQ()
+    {
+        char ch = inb(sio_port + SIO_REG_DATA);
 
-Result
-SIO::Attach()
-{
-	void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 7);
-	if (res_io == nullptr)
-		return RESULT_MAKE_FAILURE(ENODEV);
+        OnInput(&ch, 1);
+        return irq::IRQResult::Processed;
+    }
 
-	sio_port = (uint32_t)(uintptr_t)res_io;
-	if (auto result = GetBusDeviceOperations().AllocateIRQ(*this, 0, *this); result.IsFailure())
-		return result;
+    Result SIO::Attach()
+    {
+        void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 7);
+        if (res_io == nullptr)
+            return RESULT_MAKE_FAILURE(ENODEV);
 
-	/*
-	 * Wire up the serial port for sensible defaults.
-	 */
-	outb(sio_port + SIO_REG_IER, 0);			/* Disables interrupts */
-	outb(sio_port + SIO_REG_LCR, 0x80);	/* Enable DLAB */
-	outb(sio_port + SIO_REG_DATA, 0xc);	/* Divisor low byte (9600 baud) */
-	outb(sio_port + SIO_REG_IER,  0);		/* Divisor hi byte */
-	outb(sio_port + SIO_REG_LCR, 3);			/* 8N1 */
-	outb(sio_port + SIO_REG_FIFO, 0xc7);	/* Enable/clear FIFO (14 bytes) */
-	outb(sio_port + SIO_REG_IER, 0x01);	/* Enable interrupts (recv only) */
-	return Result::Success();
-}
+        sio_port = (uint32_t)(uintptr_t)res_io;
+        if (auto result = GetBusDeviceOperations().AllocateIRQ(*this, 0, *this); result.IsFailure())
+            return result;
 
-Result
-SIO::Detach()
-{
-	panic("TODO");
-	return Result::Success();
-}
+        /*
+         * Wire up the serial port for sensible defaults.
+         */
+        outb(sio_port + SIO_REG_IER, 0);     /* Disables interrupts */
+        outb(sio_port + SIO_REG_LCR, 0x80);  /* Enable DLAB */
+        outb(sio_port + SIO_REG_DATA, 0xc);  /* Divisor low byte (9600 baud) */
+        outb(sio_port + SIO_REG_IER, 0);     /* Divisor hi byte */
+        outb(sio_port + SIO_REG_LCR, 3);     /* 8N1 */
+        outb(sio_port + SIO_REG_FIFO, 0xc7); /* Enable/clear FIFO (14 bytes) */
+        outb(sio_port + SIO_REG_IER, 0x01);  /* Enable interrupts (recv only) */
+        return Result::Success();
+    }
 
-Result
-SIO::Print(const char* buffer, size_t len)
-{
-	for(/* nothing */; len > 0; buffer++, len--) {
-		while ((inb(sio_port + SIO_REG_LSR) & 0x20) == 0)
-			/* nothing */;
-		outb(sio_port + SIO_REG_DATA, *buffer);
-	}
-	return Result::Success();
-}
+    Result SIO::Detach()
+    {
+        panic("TODO");
+        return Result::Success();
+    }
 
-struct SIO_Driver : public ConsoleDriver
-{
-	SIO_Driver()
-	 : ConsoleDriver("sio", 200)
-	{
-	}
+    Result SIO::Print(const char* buffer, size_t len)
+    {
+        for (/* nothing */; len > 0; buffer++, len--) {
+            while ((inb(sio_port + SIO_REG_LSR) & 0x20) == 0)
+                /* nothing */;
+            outb(sio_port + SIO_REG_DATA, *buffer);
+        }
+        return Result::Success();
+    }
 
-	const char* GetBussesToProbeOn() const override
-	{
-		return "acpi";
-	}
+    struct SIO_Driver : public ConsoleDriver {
+        SIO_Driver() : ConsoleDriver("sio", 200) {}
 
-	Device* ProbeDevice() override
-	{
-		if (s_IsConsole)
-			return nullptr;
+        const char* GetBussesToProbeOn() const override { return "acpi"; }
 
-		s_IsConsole = true;
-		ResourceSet resourceSet;
-		resourceSet.AddResource(Resource(Resource::RT_IO, 0x3f8, 7));
-		resourceSet.AddResource(Resource(Resource::RT_IRQ, 4, 0));
-		return new SIO(CreateDeviceProperties(resourceSet));
-	}
+        Device* ProbeDevice() override
+        {
+            if (s_IsConsole)
+                return nullptr;
 
-	Device* CreateDevice(const CreateDeviceProperties& cdp) override
-	{
-		if (s_IsConsole)
-			return nullptr;
+            s_IsConsole = true;
+            ResourceSet resourceSet;
+            resourceSet.AddResource(Resource(Resource::RT_IO, 0x3f8, 7));
+            resourceSet.AddResource(Resource(Resource::RT_IRQ, 4, 0));
+            return new SIO(CreateDeviceProperties(resourceSet));
+        }
 
-		auto res = cdp.cdp_ResourceSet.GetResource(Resource::RT_PNP_ID, 0);
-		if (res != NULL && res->r_Base == 0x0501) /* PNP0501: 16550A-compatible COM port */
-			return new SIO(cdp);
-		return nullptr;
-	}
-};
+        Device* CreateDevice(const CreateDeviceProperties& cdp) override
+        {
+            if (s_IsConsole)
+                return nullptr;
 
-const RegisterDriver<SIO_Driver> registerDriver;
+            auto res = cdp.cdp_ResourceSet.GetResource(Resource::RT_PNP_ID, 0);
+            if (res != NULL && res->r_Base == 0x0501) /* PNP0501: 16550A-compatible COM port */
+                return new SIO(cdp);
+            return nullptr;
+        }
+    };
+
+    const RegisterDriver<SIO_Driver> registerDriver;
 
 } // unnamed namespace
 

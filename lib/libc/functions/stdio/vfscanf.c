@@ -9,9 +9,8 @@
 #include <ctype.h>
 #include "_PDCLIB_io.h"
 
-int _PDCLIB_vfscanf_unlocked( FILE * _PDCLIB_restrict stream,
-                      const char * _PDCLIB_restrict format,
-                      va_list arg )
+int _PDCLIB_vfscanf_unlocked(
+    FILE* _PDCLIB_restrict stream, const char* _PDCLIB_restrict format, va_list arg)
 {
     /* TODO: This function should interpret format as multibyte characters.  */
     struct _PDCLIB_status_t status;
@@ -24,80 +23,61 @@ int _PDCLIB_vfscanf_unlocked( FILE * _PDCLIB_restrict stream,
     status.width = 0;
     status.prec = 0;
     status.stream = stream;
-    va_copy( status.arg, arg );
+    va_copy(status.arg, arg);
 
-    while ( *format != '\0' )
-    {
-        const char * rc;
-        if ( ( *format != '%' ) || ( ( rc = _PDCLIB_scan( format, &status ) ) == format ) )
-        {
+    while (*format != '\0') {
+        const char* rc;
+        if ((*format != '%') || ((rc = _PDCLIB_scan(format, &status)) == format)) {
             int c;
             /* No conversion specifier, match verbatim */
-            if ( isspace( *format ) )
-            {
+            if (isspace(*format)) {
                 /* Whitespace char in format string: Skip all whitespaces */
                 /* No whitespaces in input does not result in matching error */
-                while ( isspace( c = getc( stream ) ) )
-                {
+                while (isspace(c = getc(stream))) {
                     ++status.i;
                 }
-                if ( ! feof( stream ) )
-                {
-                    _PDCLIB_ungetc_unlocked( c, stream );
+                if (!feof(stream)) {
+                    _PDCLIB_ungetc_unlocked(c, stream);
                 }
-            }
-            else
-            {
+            } else {
                 /* Non-whitespace char in format string: Match verbatim */
-                if ( ( ( c = _PDCLIB_getc_unlocked( stream ) ) != *format ) || feof( stream ) )
-                {
+                if (((c = _PDCLIB_getc_unlocked(stream)) != *format) || feof(stream)) {
                     /* Matching error */
-                    if ( ! feof( stream ) && ! ferror( stream ) )
-                    {
-                        _PDCLIB_ungetc_unlocked( c, stream );
-                    }
-                    else if ( status.n == 0 )
-                    {
+                    if (!feof(stream) && !ferror(stream)) {
+                        _PDCLIB_ungetc_unlocked(c, stream);
+                    } else if (status.n == 0) {
                         return EOF;
                     }
                     return status.n;
-                }
-                else
-                {
+                } else {
                     ++status.i;
                 }
             }
             ++format;
-        }
-        else
-        {
+        } else {
             /* NULL return code indicates matching error */
-            if ( rc == NULL )
-            {
+            if (rc == NULL) {
                 break;
             }
             /* Continue parsing after conversion specifier */
             format = rc;
         }
     }
-    va_end( status.arg );
+    va_end(status.arg);
     return status.n;
 }
 
-int vfscanf_unlocked( FILE * _PDCLIB_restrict stream,
-                      const char * _PDCLIB_restrict format,
-                      va_list arg )
+int vfscanf_unlocked(
+    FILE* _PDCLIB_restrict stream, const char* _PDCLIB_restrict format, va_list arg)
 {
-    return _PDCLIB_vfscanf_unlocked( stream, format, arg );
+    return _PDCLIB_vfscanf_unlocked(stream, format, arg);
 }
 
 // Testing covered by scanf.cpp
-int vfscanf( FILE * _PDCLIB_restrict stream,
-             const char * _PDCLIB_restrict format,
-             va_list arg )
+int vfscanf(FILE* _PDCLIB_restrict stream, const char* _PDCLIB_restrict format, va_list arg)
 {
-    _PDCLIB_flockfile( stream );
-    int r = _PDCLIB_vfscanf_unlocked( stream, format, arg );
-    _PDCLIB_funlockfile( stream );
+    _PDCLIB_flockfile(stream);
+    int r = _PDCLIB_vfscanf_unlocked(stream, format, arg);
+    _PDCLIB_funlockfile(stream);
     return r;
 }

@@ -23,7 +23,7 @@ int sigismember(const sigset_t* set, int signo);
 sig_t signal(int sig, sig_t func);
 
 /* BSD extensions */
-#define NSIG		(_SIGLAST+1)
+#define NSIG (_SIGLAST + 1)
 extern const char* const sys_siglist[NSIG];
 
 __END_DECLS

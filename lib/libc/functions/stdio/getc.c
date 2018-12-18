@@ -7,18 +7,9 @@
 #include <stdio.h>
 #include "_PDCLIB_io.h"
 
-int _PDCLIB_getc_unlocked( FILE * stream )
-{
-    return _PDCLIB_fgetc_unlocked( stream );
-}
+int _PDCLIB_getc_unlocked(FILE* stream) { return _PDCLIB_fgetc_unlocked(stream); }
 
-int getc_unlocked( FILE * stream )
-{
-    return _PDCLIB_getc_unlocked( stream );
-}
+int getc_unlocked(FILE* stream) { return _PDCLIB_getc_unlocked(stream); }
 
 // Testing covered by ftell.cpp
-int getc( FILE * stream )
-{
-    return fgetc( stream );
-}
+int getc(FILE* stream) { return fgetc(stream); }

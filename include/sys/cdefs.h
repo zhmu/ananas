@@ -10,5 +10,4 @@
 #define __END_DECLS
 #endif
 
-
 #endif /* SYS_CDEFS_H */

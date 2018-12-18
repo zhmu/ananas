@@ -7,133 +7,123 @@
 
 TRACE_SETUP;
 
-namespace process {
-
-extern Mutex process_mtx; // also used to protect processgrouplist
-ProcessGroupList s_processgroups;
-
-namespace {
-
-pid_t cursid = 1;
-
-util::locked<ProcessGroup> CreateProcessGroup(Session& session, pid_t pgid)
+namespace process
 {
-	auto pg = new ProcessGroup(session, pgid);
-	pg->Lock();
+    extern Mutex process_mtx; // also used to protect processgrouplist
+    ProcessGroupList s_processgroups;
 
-	{
-		MutexGuard g(process_mtx);
-		s_processgroups.push_back(*pg);
-	}
-	return util::locked<ProcessGroup>(*pg);
-}
+    namespace
+    {
+        pid_t cursid = 1;
 
-void DetachFromCurrentProcessGroup(Process& process)
-{
-	if (process.p_group == nullptr)
-		return; // nothing to detach from
+        util::locked<ProcessGroup> CreateProcessGroup(Session& session, pid_t pgid)
+        {
+            auto pg = new ProcessGroup(session, pgid);
+            pg->Lock();
 
-	ProcessGroup& pg = *process.p_group;
-	process.p_group = nullptr;
+            {
+                MutexGuard g(process_mtx);
+                s_processgroups.push_back(*pg);
+            }
+            return util::locked<ProcessGroup>(*pg);
+        }
 
-	{
-		pg.Lock();
-		pg.pg_members.remove(process);
-		pg.Unlock();
-	}
-	pg.RemoveReference();
-}
+        void DetachFromCurrentProcessGroup(Process& process)
+        {
+            if (process.p_group == nullptr)
+                return; // nothing to detach from
 
-} // unnamed namespace
+            ProcessGroup& pg = *process.p_group;
+            process.p_group = nullptr;
 
-Session::Session(pid_t sid)
-	: s_sid(sid)
-{
-}
+            {
+                pg.Lock();
+                pg.pg_members.remove(process);
+                pg.Unlock();
+            }
+            pg.RemoveReference();
+        }
 
-ProcessGroup::ProcessGroup(Session& session, pid_t pgid)
-	 : pg_session(session), pg_id(pgid)
-{
-	pg_session.AddReference();
-}
+    } // unnamed namespace
 
-ProcessGroup::~ProcessGroup()
-{
-	{
-		MutexGuard g(process_mtx);
-		s_processgroups.remove(*this);
-	}
-	pg_session.RemoveReference();
-}
+    Session::Session(pid_t sid) : s_sid(sid) {}
 
-Session* AllocateSession(Process& process)
-{
-	const pid_t newSessionID = []{
-		MutexGuard g(process_mtx);
-		return cursid++;
-	}();
+    ProcessGroup::ProcessGroup(Session& session, pid_t pgid) : pg_session(session), pg_id(pgid)
+    {
+        pg_session.AddReference();
+    }
 
-	auto session = new Session(newSessionID);
-	session->s_leader = &process;
-	return session;
-}
+    ProcessGroup::~ProcessGroup()
+    {
+        {
+            MutexGuard g(process_mtx);
+            s_processgroups.remove(*this);
+        }
+        pg_session.RemoveReference();
+    }
 
-util::locked<ProcessGroup> FindProcessGroupByID(pid_t pgid)
-{
-	MutexGuard g(process_mtx);
-	for(auto& pg: s_processgroups) {
-		if (pg.pg_id != pgid)
-			continue;
-		pg.Lock();
-		return util::locked<ProcessGroup>(pg);
-	}
+    Session* AllocateSession(Process& process)
+    {
+        const pid_t newSessionID = [] {
+            MutexGuard g(process_mtx);
+            return cursid++;
+        }();
 
-	return util::locked<ProcessGroup>();
-}
+        auto session = new Session(newSessionID);
+        session->s_leader = &process;
+        return session;
+    }
 
-void
-InitializeProcessGroup(Process& process, Process* parent)
-{
-	auto pg = [&]() {
-		if (parent != nullptr) {
-			// Inherit the group of parent
-			auto pg = parent->p_group;
-			pg->AddReference();
-			pg->Lock();
-			return util::locked<ProcessGroup>(*pg);
-		} else {
-			// Create new session with a single process group
-			auto session = process::AllocateSession(process);
-			auto pg = CreateProcessGroup(*session, process.p_pid);
-			session->RemoveReference();
-			return pg;
-		}
-	}();
+    util::locked<ProcessGroup> FindProcessGroupByID(pid_t pgid)
+    {
+        MutexGuard g(process_mtx);
+        for (auto& pg : s_processgroups) {
+            if (pg.pg_id != pgid)
+                continue;
+            pg.Lock();
+            return util::locked<ProcessGroup>(pg);
+        }
 
-	pg->pg_members.push_back(process);
+        return util::locked<ProcessGroup>();
+    }
 
-	// XXX lock process
-	process.p_group = &*pg;
-	pg.Unlock();
-}
+    void InitializeProcessGroup(Process& process, Process* parent)
+    {
+        auto pg = [&]() {
+            if (parent != nullptr) {
+                // Inherit the group of parent
+                auto pg = parent->p_group;
+                pg->AddReference();
+                pg->Lock();
+                return util::locked<ProcessGroup>(*pg);
+            } else {
+                // Create new session with a single process group
+                auto session = process::AllocateSession(process);
+                auto pg = CreateProcessGroup(*session, process.p_pid);
+                session->RemoveReference();
+                return pg;
+            }
+        }();
 
-void
-AbandonProcessGroup(Process& process)
-{
-	DetachFromCurrentProcessGroup(process);
-}
+        pg->pg_members.push_back(process);
 
-void
-SetProcessGroup(Process& process, util::locked<ProcessGroup>& new_pg)
-{
-	process.AssertLocked();
-	if (process.p_group == &*new_pg)
-		return; // nothing to change
+        // XXX lock process
+        process.p_group = &*pg;
+        pg.Unlock();
+    }
 
-	AbandonProcessGroup(process);
-	new_pg->pg_members.push_back(process);
-	process.p_group = &*new_pg;
-}
+    void AbandonProcessGroup(Process& process) { DetachFromCurrentProcessGroup(process); }
+
+    void SetProcessGroup(Process& process, util::locked<ProcessGroup>& new_pg)
+    {
+        process.AssertLocked();
+        if (process.p_group == &*new_pg)
+            return; // nothing to change
+
+        AbandonProcessGroup(process);
+        new_pg->pg_members.push_back(process);
+        process.p_group = &*new_pg;
+    }
 
 } // namespace process
 

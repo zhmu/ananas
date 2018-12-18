@@ -5,7 +5,7 @@
 */
 
 /* This is a stub implementation of _PDCLIB_allocpages
-*/
+ */
 
 #include <stdint.h>
 #include <stddef.h>
@@ -13,18 +13,12 @@
 #ifndef REGTEST
 #include "_PDCLIB_glue.h"
 
-void _PDCLIB_freepages( void * p, size_t n )
-{
-    return;
-}
+void _PDCLIB_freepages(void* p, size_t n) { return; }
 #endif
 
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif

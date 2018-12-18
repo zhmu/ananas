@@ -5,7 +5,7 @@
 
 TEST(stdlib, strtoul)
 {
-    char * endptr;
+    char* endptr;
     /* this, to base 36, overflows even a 256 bit integer */
     const char overflow[] = "-ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ_";
     /* tricky border case */
@@ -16,7 +16,7 @@ TEST(stdlib, strtoul)
     /* proper detecting of default base 10 */
     EXPECT_EQ(456, strtoul("456", NULL, 0));
     /* proper functioning to smaller base */
-    EXPECT_EQ(12, strtoul( "14", NULL, 8));
+    EXPECT_EQ(12, strtoul("14", NULL, 8));
     /* proper autodetecting of octal */
     EXPECT_EQ(14, strtoul("016", NULL, 0));
     /* proper autodetecting of hexadecimal, lowercase 'x' */
@@ -73,5 +73,4 @@ TEST(stdlib, strtoul)
 #else
 #error Unsupported width of 'long' (neither 32 nor 64 bit).
 #endif
-
 }

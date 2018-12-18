@@ -11,13 +11,13 @@
    the PDCLib flags FREAD, FWRITE, FAPPEND, FRW (read-write) and FBIN (binary
    mode).
 */
-unsigned int _PDCLIB_filemode( char const * const mode )
+unsigned int _PDCLIB_filemode(char const* const mode)
 {
-    if(!mode) return 0;
+    if (!mode)
+        return 0;
 
     unsigned rc = 0;
-    switch ( mode[0] )
-    {
+    switch (mode[0]) {
         case 'r':
             rc |= _PDCLIB_FREAD;
             break;
@@ -31,16 +31,16 @@ unsigned int _PDCLIB_filemode( char const * const mode )
             /* Other than read, write, or append - invalid */
             return 0;
     }
-    for ( size_t i = 1; i < 4; ++i )
-    {
-        switch ( mode[i] )
-        {
+    for (size_t i = 1; i < 4; ++i) {
+        switch (mode[i]) {
             case '+':
-                if ( rc & _PDCLIB_FRW ) return 0; /* Duplicates are invalid */
+                if (rc & _PDCLIB_FRW)
+                    return 0; /* Duplicates are invalid */
                 rc |= _PDCLIB_FRW;
                 break;
             case 'b':
-                if ( rc & _PDCLIB_FBIN ) return 0; /* Duplicates are invalid */
+                if (rc & _PDCLIB_FBIN)
+                    return 0; /* Duplicates are invalid */
                 rc |= _PDCLIB_FBIN;
                 break;
             case '\0':

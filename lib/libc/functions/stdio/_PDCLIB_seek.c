@@ -10,12 +10,10 @@
 #include "_PDCLIB_io.h"
 
 /* Testing covered by ftell.c */
-int_fast64_t _PDCLIB_seek( FILE * stream,
-                           int_fast64_t offset,
-                           int whence )
+int_fast64_t _PDCLIB_seek(FILE* stream, int_fast64_t offset, int whence)
 {
     int_fast64_t newPos;
-    if(!stream->ops->seek(stream->handle, offset, whence, &newPos)) {
+    if (!stream->ops->seek(stream->handle, offset, whence, &newPos)) {
         return EOF;
     }
 

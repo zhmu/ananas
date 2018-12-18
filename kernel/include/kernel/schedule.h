@@ -6,22 +6,22 @@
 struct Thread;
 
 struct SchedulerPriv : util::List<SchedulerPriv>::NodePtr {
-	Thread* sp_thread;	/* Backreference to the thread */
+    Thread* sp_thread; /* Backreference to the thread */
 };
 typedef util::List<SchedulerPriv> SchedulerPrivList;
 
-namespace scheduler {
+namespace scheduler
+{
+    void InitThread(Thread& t);
+    void AddThread(Thread& t);
+    void RemoveThread(Thread& t);
+    void ExitThread(Thread& t);
 
-void InitThread(Thread& t);
-void AddThread(Thread& t);
-void RemoveThread(Thread& t);
-void ExitThread(Thread& t);
+    void Schedule();
+    void Launch();
 
-void Schedule();
-void Launch();
-
-void Deactivate();
-bool IsActive();
+    void Deactivate();
+    bool IsActive();
 
 } // namespace scheduler
 

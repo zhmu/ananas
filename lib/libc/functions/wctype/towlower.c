@@ -7,18 +7,14 @@
 #include <wctype.h>
 #include "_PDCLIB_locale.h"
 
-wint_t _PDCLIB_towlower_l( wint_t wc, locale_t l )
+wint_t _PDCLIB_towlower_l(wint_t wc, locale_t l)
 {
-    wint_t uwc = _PDCLIB_unpackwint( wc );
-    _PDCLIB_wcinfo_t *info = _PDCLIB_wcgetinfo( l, uwc );
-    if( info )
-    {
+    wint_t uwc = _PDCLIB_unpackwint(wc);
+    _PDCLIB_wcinfo_t* info = _PDCLIB_wcgetinfo(l, uwc);
+    if (info) {
         uwc += info->lower_delta;
     }
     return uwc;
 }
 
-wint_t towlower( wint_t wc )
-{
-    return _PDCLIB_towlower_l( wc, _PDCLIB_threadlocale() );
-}
+wint_t towlower(wint_t wc) { return _PDCLIB_towlower_l(wc, _PDCLIB_threadlocale()); }

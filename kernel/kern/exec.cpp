@@ -7,36 +7,32 @@
 
 TRACE_SETUP;
 
-namespace {
-util::List<ExecFormat> exec_formats;
-}
-
-IExecutor*
-exec_prepare(DEntry& dentry)
+namespace
 {
-	// Start by taking an extra ref to the dentry; this is the ref which we'll hand over
-	// to the handler, if all goes well
-	dentry_ref(dentry);
-
-	for(auto& ef: exec_formats) {
-		/* See if we can execute this... */
-		if (Result result = ef.ef_executor.Verify(dentry); result.IsFailure()) {
-			/* Execute failed; try the next one */
-			continue;
-		}
-
-		return &ef.ef_executor;
-	}
-
-	/* Nothing worked... return our ref */
-	dentry_deref(dentry);
-	return nullptr;
+    util::List<ExecFormat> exec_formats;
 }
 
-void
-exec_register_format(ExecFormat& ef)
+IExecutor* exec_prepare(DEntry& dentry)
 {
-	exec_formats.push_back(ef);
+    // Start by taking an extra ref to the dentry; this is the ref which we'll hand over
+    // to the handler, if all goes well
+    dentry_ref(dentry);
+
+    for (auto& ef : exec_formats) {
+        /* See if we can execute this... */
+        if (Result result = ef.ef_executor.Verify(dentry); result.IsFailure()) {
+            /* Execute failed; try the next one */
+            continue;
+        }
+
+        return &ef.ef_executor;
+    }
+
+    /* Nothing worked... return our ref */
+    dentry_deref(dentry);
+    return nullptr;
 }
+
+void exec_register_format(ExecFormat& ef) { exec_formats.push_back(ef); }
 
 /* vim:set ts=2 sw=2: */

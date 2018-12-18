@@ -6,13 +6,10 @@
 
 #include <wchar.h>
 
-wchar_t * wmemcpy( wchar_t * _PDCLIB_restrict dest,
-                   const wchar_t * _PDCLIB_restrict src,
-                   size_t n )
+wchar_t* wmemcpy(wchar_t* _PDCLIB_restrict dest, const wchar_t* _PDCLIB_restrict src, size_t n)
 {
     wchar_t* rv = dest;
-    while ( n-- )
-    {
+    while (n--) {
         *dest++ = *src++;
     }
     return rv;

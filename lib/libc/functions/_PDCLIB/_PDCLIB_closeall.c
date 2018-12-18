@@ -7,16 +7,15 @@
 #include <stdio.h>
 #include "_PDCLIB_io.h"
 
-extern _PDCLIB_file_t * _PDCLIB_filelist;
+extern _PDCLIB_file_t* _PDCLIB_filelist;
 
-void _PDCLIB_closeall( void )
+void _PDCLIB_closeall(void)
 {
-    _PDCLIB_file_t * stream = _PDCLIB_filelist;
-    _PDCLIB_file_t * next;
-    while ( stream != NULL )
-    {
+    _PDCLIB_file_t* stream = _PDCLIB_filelist;
+    _PDCLIB_file_t* next;
+    while (stream != NULL) {
         next = stream->next;
-        fclose( stream );
+        fclose(stream);
         stream = next;
     }
 }

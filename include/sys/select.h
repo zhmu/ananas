@@ -7,7 +7,7 @@
 struct timeval;
 
 typedef struct {
-	long fds_bits;
+    long fds_bits;
 } fd_set;
 
 __BEGIN_DECLS

@@ -23,7 +23,7 @@ typedef _PDCLIB_size_t size_t;
 #ifndef __cplusplus
 #ifndef _PDCLIB_WCHAR_T_DEFINED
 #define _PDCLIB_WCHAR_T_DEFINED _PDCLIB_WCHAR_T_DEFINED
-typedef _PDCLIB_wchar_t   wchar_t;
+typedef _PDCLIB_wchar_t wchar_t;
 #endif
 #endif
 
@@ -31,7 +31,7 @@ typedef _PDCLIB_wchar_t   wchar_t;
 #define NULL _PDCLIB_NULL
 #endif
 
-#define offsetof( type, member ) _PDCLIB_offsetof( type, member )
+#define offsetof(type, member) _PDCLIB_offsetof(type, member)
 
 #ifdef __cplusplus
 }

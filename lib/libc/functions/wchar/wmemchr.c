@@ -6,13 +6,11 @@
 
 #include <wchar.h>
 
-wchar_t * wmemchr( const wchar_t * p, wchar_t c, size_t n )
+wchar_t* wmemchr(const wchar_t* p, wchar_t c, size_t n)
 {
-    while ( n-- )
-    {
-        if ( *p == c )
-        {
-            return (wchar_t*) p;
+    while (n--) {
+        if (*p == c) {
+            return (wchar_t*)p;
         }
         ++p;
     }

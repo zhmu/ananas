@@ -22,13 +22,11 @@
 
 #ifndef static_assert
 #define STATIC_ASSERT3(line, cond, msg) \
-	typedef char __unused static_assert_failure_in_line_##line[(cond) ? 1 : -1]
+    typedef char __unused static_assert_failure_in_line_##line[(cond) ? 1 : -1]
 
-#define STATIC_ASSERT2(line, cond, msg) \
-	STATIC_ASSERT3(line, cond, msg)
+#define STATIC_ASSERT2(line, cond, msg) STATIC_ASSERT3(line, cond, msg)
 
-#define static_assert(cond, msg) \
-	STATIC_ASSERT2(__LINE__, (cond), (msg))
+#define static_assert(cond, msg) STATIC_ASSERT2(__LINE__, (cond), (msg))
 #endif
 
 /* Creates a string of x => "x" */

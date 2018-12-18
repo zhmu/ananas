@@ -11,35 +11,26 @@
 #include "_PDCLIB_encoding.h"
 #include "_PDCLIB_locale.h"
 
-size_t c32rtomb_l(
-    char        *restrict   s,
-    char32_t                c32,
-    mbstate_t   *restrict   ps,
-    locale_t     restrict   l
-)
+size_t c32rtomb_l(char* restrict s, char32_t c32, mbstate_t* restrict ps, locale_t restrict l)
 {
     char buf[s ? 0 : MB_CUR_MAX];
-    s =      s ? s : buf;
+    s = s ? s : buf;
 
-    const char32_t *restrict psrc = &c32;
-    size_t srcsz  = 1;
-    size_t dstsz  = MB_CUR_MAX;
+    const char32_t* restrict psrc = &c32;
+    size_t srcsz = 1;
+    size_t dstsz = MB_CUR_MAX;
     size_t dstrem = dstsz;
 
-    if(l->_Codec->__c32stombs(&s, &dstrem, &psrc, &srcsz, ps)) {
+    if (l->_Codec->__c32stombs(&s, &dstrem, &psrc, &srcsz, ps)) {
         // Successful conversion
         return dstsz - dstrem;
     } else {
         errno = EILSEQ;
-        return (size_t) -1;
+        return (size_t)-1;
     }
 }
 
-size_t c32rtomb(
-    char        *restrict   s,
-    char32_t                c32,
-    mbstate_t   *restrict   ps
-)
+size_t c32rtomb(char* restrict s, char32_t c32, mbstate_t* restrict ps)
 {
     return c32rtomb_l(s, c32, ps, _PDCLIB_threadlocale());
 }

@@ -5,7 +5,7 @@
 */
 
 /* This is a stub implementation of _PDCLIB_allocpages
-*/
+ */
 
 #ifndef REGTEST
 #include <errno.h>
@@ -17,30 +17,38 @@ void _PDCLIB_w32errno(void);
 void _PDCLIB_w32errno(void)
 {
     // Not exhaustive
-    switch(GetLastError()) {
+    switch (GetLastError()) {
         case ERROR_SUCCESS:
             return;
         case ERROR_FILE_NOT_FOUND:
         case ERROR_PATH_NOT_FOUND:
         case ERROR_INVALID_DRIVE:
-            errno = ENOENT; break;
+            errno = ENOENT;
+            break;
         case ERROR_TOO_MANY_OPEN_FILES:
-            errno = EMFILE; break;
+            errno = EMFILE;
+            break;
         case ERROR_ACCESS_DENIED:
         case ERROR_WRITE_PROTECT:
-            errno = EPERM; break;
+            errno = EPERM;
+            break;
         case ERROR_INVALID_HANDLE:
-            errno = EBADF; break;
+            errno = EBADF;
+            break;
         case ERROR_NOT_ENOUGH_MEMORY:
         case ERROR_OUTOFMEMORY:
-            errno = ENOMEM; break;
+            errno = ENOMEM;
+            break;
         case ERROR_NOT_READY:
-            errno = EAGAIN; break;
+            errno = EAGAIN;
+            break;
         case ERROR_BAD_LENGTH:
-            errno = EINVAL; break;
+            errno = EINVAL;
+            break;
         default:
             // TODO: reconsider what to use here?
-            errno = ENOSYS; break;
+            errno = ENOSYS;
+            break;
     }
 }
 
@@ -49,9 +57,6 @@ void _PDCLIB_w32errno(void)
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif

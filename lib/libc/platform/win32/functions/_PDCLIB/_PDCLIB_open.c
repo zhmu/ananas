@@ -5,7 +5,7 @@
 */
 
 /* This is a stub implementation of open.
-*/
+ */
 
 #include <stdio.h>
 #include <errno.h>
@@ -17,49 +17,48 @@
 extern const _PDCLIB_fileops_t _PDCLIB_fileops;
 
 void _PDCLIB_w32errno(void);
-bool _PDCLIB_open( _PDCLIB_fd_t * pFd, const _PDCLIB_fileops_t ** pOps,
-                   char const * const filename, unsigned int mode )
+bool _PDCLIB_open(
+    _PDCLIB_fd_t* pFd, const _PDCLIB_fileops_t** pOps, char const* const filename,
+    unsigned int mode)
 {
     DWORD desiredAccess;
     DWORD creationDisposition;
 
-    switch(mode & ( _PDCLIB_FREAD | _PDCLIB_FWRITE | _PDCLIB_FAPPEND 
-                    | _PDCLIB_FRW ))
-    {
-    case _PDCLIB_FREAD: /* "r" */
-        desiredAccess = GENERIC_READ;
-        creationDisposition = OPEN_EXISTING;
-        break;
-    case _PDCLIB_FWRITE: /* "w" */
-        desiredAccess = GENERIC_WRITE;
-        creationDisposition = CREATE_ALWAYS;
-        break;
-    case _PDCLIB_FAPPEND: /* "a" */
-        desiredAccess = GENERIC_WRITE;
-        creationDisposition = OPEN_ALWAYS;
-        break;
-    case _PDCLIB_FREAD | _PDCLIB_FRW: /* "r+" */
-        desiredAccess = GENERIC_READ | GENERIC_WRITE;
-        creationDisposition = OPEN_EXISTING;
-        break;
-    case _PDCLIB_FWRITE | _PDCLIB_FRW: /* "w+" */
-        desiredAccess = GENERIC_WRITE | GENERIC_READ;
-        creationDisposition = CREATE_ALWAYS;
-        break;
-    case _PDCLIB_FAPPEND | _PDCLIB_FRW: /* "a+" */
-        desiredAccess = GENERIC_WRITE | GENERIC_READ;
-        creationDisposition = OPEN_ALWAYS;
-        break;
-    default: /* Invalid mode */
-        errno = EINVAL;
-        return false;
+    switch (mode & (_PDCLIB_FREAD | _PDCLIB_FWRITE | _PDCLIB_FAPPEND | _PDCLIB_FRW)) {
+        case _PDCLIB_FREAD: /* "r" */
+            desiredAccess = GENERIC_READ;
+            creationDisposition = OPEN_EXISTING;
+            break;
+        case _PDCLIB_FWRITE: /* "w" */
+            desiredAccess = GENERIC_WRITE;
+            creationDisposition = CREATE_ALWAYS;
+            break;
+        case _PDCLIB_FAPPEND: /* "a" */
+            desiredAccess = GENERIC_WRITE;
+            creationDisposition = OPEN_ALWAYS;
+            break;
+        case _PDCLIB_FREAD | _PDCLIB_FRW: /* "r+" */
+            desiredAccess = GENERIC_READ | GENERIC_WRITE;
+            creationDisposition = OPEN_EXISTING;
+            break;
+        case _PDCLIB_FWRITE | _PDCLIB_FRW: /* "w+" */
+            desiredAccess = GENERIC_WRITE | GENERIC_READ;
+            creationDisposition = CREATE_ALWAYS;
+            break;
+        case _PDCLIB_FAPPEND | _PDCLIB_FRW: /* "a+" */
+            desiredAccess = GENERIC_WRITE | GENERIC_READ;
+            creationDisposition = OPEN_ALWAYS;
+            break;
+        default: /* Invalid mode */
+            errno = EINVAL;
+            return false;
     }
 
-    HANDLE fd = CreateFileA(filename, desiredAccess, 
-        FILE_SHARE_READ | FILE_SHARE_DELETE,
-        NULL, creationDisposition, FILE_ATTRIBUTE_NORMAL, NULL);
+    HANDLE fd = CreateFileA(
+        filename, desiredAccess, FILE_SHARE_READ | FILE_SHARE_DELETE, NULL, creationDisposition,
+        FILE_ATTRIBUTE_NORMAL, NULL);
 
-    if(fd == INVALID_HANDLE_VALUE) {
+    if (fd == INVALID_HANDLE_VALUE) {
 #if 0
         DWORD dw = GetLastError();
         char* msgBuf;
@@ -79,11 +78,11 @@ bool _PDCLIB_open( _PDCLIB_fd_t * pFd, const _PDCLIB_fileops_t ** pOps,
         return false;
     }
 
-    if(mode & _PDCLIB_FAPPEND) {
+    if (mode & _PDCLIB_FAPPEND) {
         LARGE_INTEGER offs;
         offs.QuadPart = 0;
         BOOL ok = SetFilePointerEx(fd, offs, NULL, FILE_END);
-        if(!ok) {
+        if (!ok) {
             _PDCLIB_w32errno();
             CloseHandle(fd);
             return false;
@@ -103,10 +102,6 @@ bool _PDCLIB_open( _PDCLIB_fd_t * pFd, const _PDCLIB_fileops_t ** pOps,
 #include <stdlib.h>
 #include <string.h>
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif
-

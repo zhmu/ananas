@@ -10,9 +10,7 @@
 #include "_PDCLIB_io.h"
 
 // Testing covered by scanf.cpp
-int vsscanf( const char * _PDCLIB_restrict s,
-             const char * _PDCLIB_restrict format,
-             va_list arg )
+int vsscanf(const char* _PDCLIB_restrict s, const char* _PDCLIB_restrict format, va_list arg)
 {
     /* TODO: This function should interpret format as multibyte characters.  */
     struct _PDCLIB_status_t status;
@@ -21,56 +19,42 @@ int vsscanf( const char * _PDCLIB_restrict s,
     status.n = 0;
     status.i = 0;
     status.current = 0;
-    status.s = (char *) s;
+    status.s = (char*)s;
     status.width = 0;
     status.prec = 0;
     status.stream = NULL;
-    va_copy( status.arg, arg );
+    va_copy(status.arg, arg);
 
-    while ( *format != '\0' )
-    {
-        const char * rc;
-        if ( ( *format != '%' ) || ( ( rc = _PDCLIB_scan( format, &status ) ) == format ) )
-        {
+    while (*format != '\0') {
+        const char* rc;
+        if ((*format != '%') || ((rc = _PDCLIB_scan(format, &status)) == format)) {
             /* No conversion specifier, match verbatim */
-            if ( isspace( *format ) )
-            {
+            if (isspace(*format)) {
                 /* Whitespace char in format string: Skip all whitespaces */
                 /* No whitespaces in input do not result in matching error */
-                while ( isspace( *status.s ) )
-                {
+                while (isspace(*status.s)) {
                     ++status.s;
                     ++status.i;
                 }
-            }
-            else
-            {
+            } else {
                 /* Non-whitespace char in format string: Match verbatim */
-                if ( *status.s != *format )
-                {
-                    if ( *status.s == '\0' && status.n == 0 )
-                    {
+                if (*status.s != *format) {
+                    if (*status.s == '\0' && status.n == 0) {
                         /* Early input error */
                         return EOF;
                     }
                     /* Matching error */
                     return status.n;
-                }
-                else
-                {
+                } else {
                     ++status.s;
                     ++status.i;
                 }
             }
             ++format;
-        }
-        else
-        {
+        } else {
             /* NULL return code indicates error */
-            if ( rc == NULL )
-            {
-                if ( ( *status.s == '\n' ) && ( status.n == 0 ) )
-                {
+            if (rc == NULL) {
+                if ((*status.s == '\n') && (status.n == 0)) {
                     status.n = EOF;
                 }
                 break;
@@ -79,6 +63,6 @@ int vsscanf( const char * _PDCLIB_restrict s,
             format = rc;
         }
     }
-    va_end( status.arg );
+    va_end(status.arg);
     return status.n;
 }

@@ -5,76 +5,74 @@
 #include "kernel/vfs/generic.h"
 #include "support.h"
 
-namespace ankhfs {
-
-Result
-HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len, IReadDirCallback& callback)
+namespace ankhfs
 {
-	size_t written = 0, left = len;
+    Result
+    HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len, IReadDirCallback& callback)
+    {
+        size_t written = 0, left = len;
 
-	int cur_offset = 0;
-	char entry[64]; // XXX
-	ino_t inum;
-	while(callback.FetchNextEntry(entry, sizeof(entry), inum)) {
-		size_t entry_length = strlen(entry);
-		bool skip = cur_offset < file->f_offset;
-		cur_offset += sizeof(struct VFS_DIRENT) + entry_length;
-		if(skip)
-			continue;
+        int cur_offset = 0;
+        char entry[64]; // XXX
+        ino_t inum;
+        while (callback.FetchNextEntry(entry, sizeof(entry), inum)) {
+            size_t entry_length = strlen(entry);
+            bool skip = cur_offset < file->f_offset;
+            cur_offset += sizeof(struct VFS_DIRENT) + entry_length;
+            if (skip)
+                continue;
 
-		auto filled = vfs_filldirent(&dirents, left, inum, entry, entry_length);
-		if(!filled)
-			break; // out of space
-		file->f_offset += filled;
-		written += filled;
-		left -= filled;
-	}
+            auto filled = vfs_filldirent(&dirents, left, inum, entry, entry_length);
+            if (!filled)
+                break; // out of space
+            file->f_offset += filled;
+            written += filled;
+            left -= filled;
+        }
 
-	return Result::Success(written);
-}
+        return Result::Success(written);
+    }
 
-Result
-HandleReadDir(struct VFS_FILE* file, void* dirents, size_t len, const DirectoryEntry& firstEntry, unsigned int id)
-{
-	struct FetchDirectoryEntry : IReadDirCallback {
-		FetchDirectoryEntry(const DirectoryEntry& de, int id)
-			: currentEntry(&de), newId(id)
-		{
-		}
+    Result HandleReadDir(
+        struct VFS_FILE* file, void* dirents, size_t len, const DirectoryEntry& firstEntry,
+        unsigned int id)
+    {
+        struct FetchDirectoryEntry : IReadDirCallback {
+            FetchDirectoryEntry(const DirectoryEntry& de, int id) : currentEntry(&de), newId(id) {}
 
-		bool FetchNextEntry(char* entry, size_t maxLength, ino_t& inum) override {
-			if (currentEntry->de_name == nullptr)
-				return false;
-			strncpy(entry, currentEntry->de_name, maxLength);
-			inum = currentEntry->de_inum;
-			inum |= make_inum(static_cast<SubSystem>(0), newId, 0);
-			currentEntry++;
-			return true;
-		}
+            bool FetchNextEntry(char* entry, size_t maxLength, ino_t& inum) override
+            {
+                if (currentEntry->de_name == nullptr)
+                    return false;
+                strncpy(entry, currentEntry->de_name, maxLength);
+                inum = currentEntry->de_inum;
+                inum |= make_inum(static_cast<SubSystem>(0), newId, 0);
+                currentEntry++;
+                return true;
+            }
 
-		const DirectoryEntry* currentEntry;
-		unsigned int newId;
-	};
+            const DirectoryEntry* currentEntry;
+            unsigned int newId;
+        };
 
-	FetchDirectoryEntry fetcher(firstEntry, id);
-	return HandleReadDir(file, dirents, len, fetcher);
-}
+        FetchDirectoryEntry fetcher(firstEntry, id);
+        return HandleReadDir(file, dirents, len, fetcher);
+    }
 
-Result
-HandleRead(struct VFS_FILE* file, void* buf, size_t len, const char* data)
-{
-	size_t dataLength = strlen(data);
-	if (file->f_offset >= dataLength)
-		return Result::Success(0);
+    Result HandleRead(struct VFS_FILE* file, void* buf, size_t len, const char* data)
+    {
+        size_t dataLength = strlen(data);
+        if (file->f_offset >= dataLength)
+            return Result::Success(0);
 
-	size_t left = dataLength - file->f_offset;
-	if (left > len)
-		left = len;
-	memcpy(buf, &data[file->f_offset], left);
+        size_t left = dataLength - file->f_offset;
+        if (left > len)
+            left = len;
+        memcpy(buf, &data[file->f_offset], left);
 
-	file->f_offset += left;
-	return Result::Success(left);
-}
+        file->f_offset += left;
+        return Result::Success(left);
+    }
 
 } // namespace ankhfs
 

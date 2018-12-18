@@ -5,7 +5,6 @@
 
 int sigaction(int sig, const struct sigaction* act, struct sigaction* oact)
 {
-	statuscode_t status = sys_sigaction(sig, act, oact);
-	return map_statuscode(status);
+    statuscode_t status = sys_sigaction(sig, act, oact);
+    return map_statuscode(status);
 }
-

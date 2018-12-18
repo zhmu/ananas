@@ -7,14 +7,13 @@
 #include <string.h>
 #include "_PDCLIB_locale.h"
 
-int strcoll( const char * s1, const char * s2 )
+int strcoll(const char* s1, const char* s2)
 {
-    const _PDCLIB_ctype_t * ctype = _PDCLIB_threadlocale()->_CType;
+    const _PDCLIB_ctype_t* ctype = _PDCLIB_threadlocale()->_CType;
 
-    while ( ( *s1 ) && ( ctype[(unsigned char)*s1].collation == ctype[(unsigned char)*s2].collation ) )
-    {
+    while ((*s1) && (ctype[(unsigned char)*s1].collation == ctype[(unsigned char)*s2].collation)) {
         ++s1;
         ++s2;
     }
-    return ( ctype[(unsigned char)*s1].collation == ctype[(unsigned char)*s2].collation );
+    return (ctype[(unsigned char)*s1].collation == ctype[(unsigned char)*s2].collation);
 }

@@ -10,10 +10,10 @@
 #include <errno.h>
 #include <gd_bal.h>
 
-void * _PDCLIB_allocpages( size_t n )
+void* _PDCLIB_allocpages(size_t n)
 {
-    void *p = NULL;
-    int rv = gd_alloc_pages( gd_loader_data, &p, n );
+    void* p = NULL;
+    int rv = gd_alloc_pages(gd_loader_data, &p, n);
 
     if (rv) {
         errno = rv;
@@ -26,9 +26,6 @@ void * _PDCLIB_allocpages( size_t n )
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif

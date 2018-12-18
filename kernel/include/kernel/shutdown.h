@@ -1,17 +1,12 @@
 #ifndef __SHUTDOWN_H__
 #define __SHUTDOWN_H__
 
-namespace shutdown {
+namespace shutdown
+{
+    enum class ShutdownType { Unknown, Halt, Reboot, PowerDown };
 
-enum class ShutdownType {
-	Unknown,
-	Halt,
-	Reboot,
-	PowerDown
-};
-
-bool IsShuttingDown();
-void RequestShutdown(ShutdownType type);
+    bool IsShuttingDown();
+    void RequestShutdown(ShutdownType type);
 
 } // namespace shutdown
 

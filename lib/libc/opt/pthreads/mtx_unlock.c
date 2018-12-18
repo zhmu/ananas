@@ -2,9 +2,9 @@
 #include <threads.h>
 #include <pthread.h>
 
-int mtx_unlock(mtx_t *mtx)
+int mtx_unlock(mtx_t* mtx)
 {
-    if(pthread_mutex_unlock(mtx) == 0)
+    if (pthread_mutex_unlock(mtx) == 0)
         return thrd_success;
     return thrd_error;
 }
@@ -13,9 +13,6 @@ int mtx_unlock(mtx_t *mtx)
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif

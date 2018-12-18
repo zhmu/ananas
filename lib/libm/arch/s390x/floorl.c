@@ -4,8 +4,8 @@
 
 long double floorl(long double x)
 {
-	__asm__ ("fixbra %0, 7, %1, 4" : "=f"(x) : "f"(x));
-	return x;
+    __asm__("fixbra %0, 7, %1, 4" : "=f"(x) : "f"(x));
+    return x;
 }
 
 #else

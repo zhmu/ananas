@@ -4,8 +4,8 @@
 TEST(string, strndup)
 {
     /* Missing on Windows. Maybe use conditionals? */
-    const char *teststr  = "Hello, world";
-    const char *teststr2 = "\xFE\x8C\n";
+    const char* teststr = "Hello, world";
+    const char* teststr2 = "\xFE\x8C\n";
 
     {
         char* testres = strndup(teststr, 5);

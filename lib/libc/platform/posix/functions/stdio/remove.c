@@ -5,7 +5,7 @@
 */
 
 /* This is an example implementation of remove() fit for use with POSIX kernels.
-*/
+ */
 
 #include <stdio.h>
 
@@ -13,22 +13,20 @@
 #include "_PDCLIB_io.h"
 #include <string.h>
 
-extern FILE * _PDCLIB_filelist;
+extern FILE* _PDCLIB_filelist;
 
-extern int unlink( const char * pathname );
+extern int unlink(const char* pathname);
 
-int remove( const char * pathname )
+int remove(const char* pathname)
 {
-    FILE * current = _PDCLIB_filelist;
-    while ( current != NULL )
-    {
-        if ( ( current->filename != NULL ) && ( strcmp( current->filename, pathname ) == 0 ) )
-        {
+    FILE* current = _PDCLIB_filelist;
+    while (current != NULL) {
+        if ((current->filename != NULL) && (strcmp(current->filename, pathname) == 0)) {
             return EOF;
         }
         current = current->next;
     }
-    return unlink( pathname );
+    return unlink(pathname);
 }
 
 #endif
@@ -36,11 +34,10 @@ int remove( const char * pathname )
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
+int main(void)
 {
     /* Testing covered by ftell.c (and several others) */
     return TEST_RESULTS;
 }
 
 #endif
-

@@ -6,10 +6,9 @@
 
 TRACE_SETUP;
 
-Result
-sys_utime(Thread* t, const char* path, const struct utimbuf* times)
+Result sys_utime(Thread* t, const char* path, const struct utimbuf* times)
 {
-	TRACE(SYSCALL, FUNC, "t=%p, path='%s' times=%p", t, path, times);
+    TRACE(SYSCALL, FUNC, "t=%p, path='%s' times=%p", t, path, times);
 
-	return RESULT_MAKE_FAILURE(EACCES); // TODO: implement me
+    return RESULT_MAKE_FAILURE(EACCES); // TODO: implement me
 }

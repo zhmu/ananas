@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <limits.h>
 
-static char const testfile[]="testing/testfile";
+static char const testfile[] = "testing/testfile";
 
 TEST(stdio, perror)
 {

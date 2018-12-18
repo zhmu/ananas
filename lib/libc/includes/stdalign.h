@@ -14,4 +14,3 @@
 #define __alignof_is_defined 1
 
 #endif
-

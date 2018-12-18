@@ -8,13 +8,13 @@
 #include <string.h>
 #include <stdlib.h>
 
-char *strdup(const char *s)
+char* strdup(const char* s)
 {
     char* ns = NULL;
-    if(s) {
+    if (s) {
         size_t len = strlen(s) + 1;
         ns = malloc(len);
-        if(ns)
+        if (ns)
             strncpy(ns, s, len);
     }
     return ns;

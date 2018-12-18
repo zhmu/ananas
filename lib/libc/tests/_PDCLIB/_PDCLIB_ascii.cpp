@@ -10,11 +10,11 @@ TEST(_PDCLIB, _PDCLIB_ascii)
 
     char32_t c32out[5];
 
-    char32_t *c32ptr = &c32out[0];
-    size_t    c32rem = 5;
-    char     *chrptr = (char*) &abcde[0];
-    size_t    chrrem = 5;
-    mbstate_t mbs = { 0 };
+    char32_t* c32ptr = &c32out[0];
+    size_t c32rem = 5;
+    char* chrptr = (char*)&abcde[0];
+    size_t chrrem = 5;
+    mbstate_t mbs = {0};
 
     EXPECT_TRUE(asciitoc32(&c32ptr, &c32rem, &chrptr, &chrrem, &mbs));
     EXPECT_EQ(0, c32rem);

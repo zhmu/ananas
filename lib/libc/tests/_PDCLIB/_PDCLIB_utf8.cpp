@@ -5,16 +5,18 @@
 TEST(_PDCLIB, _PDCLIB_utf8)
 {
     // Valid conversion & back
-    static const char* input = "abcde" "\xDF\xBF" "\xEF\xBF\xBF"
+    static const char* input = "abcde"
+                               "\xDF\xBF"
+                               "\xEF\xBF\xBF"
                                "\xF4\x8F\xBF\xBF";
 
     char32_t c32out[8];
 
-    char32_t   *c32ptr = &c32out[0];
-    size_t      c32rem = 8;
-    const char *chrptr = (char*) &input[0];
-    size_t      chrrem = strlen(input);
-    mbstate_t   mbs = { 0 };
+    char32_t* c32ptr = &c32out[0];
+    size_t c32rem = 8;
+    const char* chrptr = (char*)&input[0];
+    size_t chrrem = strlen(input);
+    mbstate_t mbs = {0};
 
     EXPECT_TRUE(utf8toc32(&c32ptr, &c32rem, &chrptr, &chrrem, &mbs));
     EXPECT_EQ(0, c32rem);

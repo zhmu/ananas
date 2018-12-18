@@ -1,14 +1,14 @@
 #include <gtest/gtest.h>
 #include <stdio.h>
 
-static char const testfile[]="testing/testfile";
+static char const testfile[] = "testing/testfile";
 
 TEST(stdio, puts)
 {
     int fd_stdout = dup(STDOUT_FILENO);
     ASSERT_GT(fd_stdout, -1);
 
-    char const * message = "SUCCESS testing puts()";
+    char const* message = "SUCCESS testing puts()";
     char buffer[23];
     buffer[22] = 'x';
 

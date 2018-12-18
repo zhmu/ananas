@@ -5,6 +5,6 @@
 
 int setsid()
 {
-	statuscode_t status = sys_setsid(0);
-	return map_statuscode(status);
+    statuscode_t status = sys_setsid(0);
+    return map_statuscode(status);
 }

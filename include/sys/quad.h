@@ -35,7 +35,7 @@
  */
 
 #ifndef _LIBKERN_QUAD_H_
-#define	_LIBKERN_QUAD_H_
+#define _LIBKERN_QUAD_H_
 
 /*
  * Quad arithmetic.
@@ -55,21 +55,21 @@
 
 #include <sys/cdefs.h>
 #include <sys/types.h>
-#include <machine/param.h>	/* for ..._ENDIAN */
+#include <machine/param.h> /* for ..._ENDIAN */
 #include <limits.h>
 
 /* XXXPORTABILITY does not belong here */
-typedef uint64_t	u_quad_t;
-typedef int64_t		quad_t;
+typedef uint64_t u_quad_t;
+typedef int64_t quad_t;
 
 #ifdef LITTLE_ENDIAN
-# define _QUAD_HIGHWORD	1
-# define _QUAD_LOWWORD	0
+#define _QUAD_HIGHWORD 1
+#define _QUAD_LOWWORD 0
 #elif defined(BIG_ENDIAN)
-# define _QUAD_HIGHWORD	0
-# define _QUAD_LOWWORD	1
+#define _QUAD_HIGHWORD 0
+#define _QUAD_LOWWORD 1
 #else
-# error What is your endianness?
+#error What is your endianness?
 #endif
 
 /*
@@ -77,26 +77,26 @@ typedef int64_t		quad_t;
  * one or more of the following formats.
  */
 union uu {
-	quad_t	q;		/* as a (signed) quad */
-	quad_t	uq;		/* as an unsigned quad */
-	long	sl[2];		/* as two signed longs */
-	u_long	ul[2];		/* as two unsigned longs */
+    quad_t q;     /* as a (signed) quad */
+    quad_t uq;    /* as an unsigned quad */
+    long sl[2];   /* as two signed longs */
+    u_long ul[2]; /* as two unsigned longs */
 };
 
 /*
  * Define high and low longwords.
  */
-#define	H		_QUAD_HIGHWORD
-#define	L		_QUAD_LOWWORD
+#define H _QUAD_HIGHWORD
+#define L _QUAD_LOWWORD
 
 /*
  * Total number of bits in a quad_t and in the pieces that make it up.
  * These are used for shifting, and also below for halfword extraction
  * and assembly.
  */
-#define	QUAD_BITS	(sizeof(quad_t) * CHAR_BIT)
-#define	LONG_BITS	(sizeof(long) * CHAR_BIT)
-#define	HALF_BITS	(sizeof(long) * CHAR_BIT / 2)
+#define QUAD_BITS (sizeof(quad_t) * CHAR_BIT)
+#define LONG_BITS (sizeof(long) * CHAR_BIT)
+#define HALF_BITS (sizeof(long) * CHAR_BIT / 2)
 
 /*
  * Extract high and low shortwords from longword, and move low shortword of
@@ -107,20 +107,20 @@ union uu {
  * and lower halves, and to reassemble a product as a quad_t, shifted left
  * (sizeof(long)*CHAR_BIT/2).
  */
-#define	HHALF(x)	((x) >> HALF_BITS)
-#define	LHALF(x)	((x) & ((1 << HALF_BITS) - 1))
-#define	LHUP(x)		((x) << HALF_BITS)
+#define HHALF(x) ((x) >> HALF_BITS)
+#define LHALF(x) ((x) & ((1 << HALF_BITS) - 1))
+#define LHUP(x) ((x) << HALF_BITS)
 
-typedef unsigned int	qshift_t;
+typedef unsigned int qshift_t;
 
-quad_t		__ashldi3(quad_t, qshift_t);
-quad_t		__ashrdi3(quad_t, qshift_t);
-quad_t		__divdi3(quad_t a, quad_t b);
-quad_t		__lshrdi3(quad_t, qshift_t);
-quad_t		__moddi3(quad_t a, quad_t b);
-u_quad_t	__qdivrem(u_quad_t u, u_quad_t v, u_quad_t *rem);
-u_quad_t	__udivdi3(u_quad_t a, u_quad_t b);
-u_quad_t	__umoddi3(u_quad_t a, u_quad_t b);
-int		__ucmpdi2(u_quad_t a, u_quad_t b);
+quad_t __ashldi3(quad_t, qshift_t);
+quad_t __ashrdi3(quad_t, qshift_t);
+quad_t __divdi3(quad_t a, quad_t b);
+quad_t __lshrdi3(quad_t, qshift_t);
+quad_t __moddi3(quad_t a, quad_t b);
+u_quad_t __qdivrem(u_quad_t u, u_quad_t v, u_quad_t* rem);
+u_quad_t __udivdi3(u_quad_t a, u_quad_t b);
+u_quad_t __umoddi3(u_quad_t a, u_quad_t b);
+int __ucmpdi2(u_quad_t a, u_quad_t b);
 
 #endif /* !_LIBKERN_QUAD_H_ */

@@ -6,7 +6,4 @@
 
 #include <stdlib.h>
 
-int atoi( const char * s )
-{
-    return (int) _PDCLIB_atomax( s );
-}
+int atoi(const char* s) { return (int)_PDCLIB_atomax(s); }

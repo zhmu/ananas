@@ -5,6 +5,6 @@
 
 int nanosleep(const struct timespec* rqtp, struct timespec* rmtp)
 {
-	statuscode_t status = sys_nanosleep(rqtp, rmtp);
-	return map_statuscode(status);
+    statuscode_t status = sys_nanosleep(rqtp, rmtp);
+    return map_statuscode(status);
 }

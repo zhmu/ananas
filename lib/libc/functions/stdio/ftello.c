@@ -10,12 +10,11 @@
 #include <errno.h>
 #include "_PDCLIB_io.h"
 
-off_t _PDCLIB_ftello_unlocked( FILE * stream )
+off_t _PDCLIB_ftello_unlocked(FILE* stream)
 {
-    off_t off64 = _PDCLIB_ftell64_unlocked( stream );
+    off_t off64 = _PDCLIB_ftell64_unlocked(stream);
 
-    if ( off64 > LONG_MAX )
-    {
+    if (off64 > LONG_MAX) {
         /* integer overflow */
         errno = ERANGE;
         return -1;
@@ -23,15 +22,12 @@ off_t _PDCLIB_ftello_unlocked( FILE * stream )
     return off64;
 }
 
-off_t ftello_unlocked( FILE * stream )
-{
-    return _PDCLIB_ftello_unlocked( stream );
-}
+off_t ftello_unlocked(FILE* stream) { return _PDCLIB_ftello_unlocked(stream); }
 
-off_t ftello( FILE * stream )
+off_t ftello(FILE* stream)
 {
-    _PDCLIB_flockfile( stream );
-    off_t off = _PDCLIB_ftello_unlocked( stream );
-    _PDCLIB_funlockfile( stream );
+    _PDCLIB_flockfile(stream);
+    off_t off = _PDCLIB_ftello_unlocked(stream);
+    _PDCLIB_funlockfile(stream);
     return off;
 }

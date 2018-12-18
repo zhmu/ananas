@@ -7,24 +7,19 @@
 #include <string.h>
 
 #pragma weak strlcpy = _PDCLIB_strlcpy
-size_t _PDCLIB_strlcpy(
-    char *restrict dst,
-    const char *restrict src,
-    size_t dstsize);
+size_t _PDCLIB_strlcpy(char* restrict dst, const char* restrict src, size_t dstsize);
 
-size_t _PDCLIB_strlcpy(
-    char *restrict dst,
-    const char *restrict src,
-    size_t dstsize)
+size_t _PDCLIB_strlcpy(char* restrict dst, const char* restrict src, size_t dstsize)
 {
     size_t needed = 0;
-    while(needed < dstsize && (dst[needed] = src[needed]))
+    while (needed < dstsize && (dst[needed] = src[needed]))
         needed++;
 
-    while(src[needed++]);
+    while (src[needed++])
+        ;
 
     if (needed > dstsize && dstsize)
-      dst[dstsize - 1] = 0;
+        dst[dstsize - 1] = 0;
 
     return needed;
 }

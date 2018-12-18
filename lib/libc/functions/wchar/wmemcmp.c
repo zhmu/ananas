@@ -6,12 +6,10 @@
 
 #include <wchar.h>
 
-int wmemcmp( const wchar_t * p1, const wchar_t * p2, size_t n )
+int wmemcmp(const wchar_t* p1, const wchar_t* p2, size_t n)
 {
-    while ( n-- )
-    {
-        if ( *p1 != *p2 )
-        {
+    while (n--) {
+        if (*p1 != *p2) {
             return *p1 - *p2;
         }
         ++p1;

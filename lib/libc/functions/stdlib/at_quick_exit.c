@@ -6,18 +6,15 @@
 
 #include <stdlib.h>
 
-extern void (*_PDCLIB_quickexitstack[])( void );
+extern void (*_PDCLIB_quickexitstack[])(void);
 extern size_t _PDCLIB_quickexitptr;
 
-int at_quick_exit( void (*func)( void ) )
+int at_quick_exit(void (*func)(void))
 {
-    if ( _PDCLIB_quickexitptr == 0 )
-    {
+    if (_PDCLIB_quickexitptr == 0) {
         return -1;
-    }
-    else
-    {
-        _PDCLIB_quickexitstack[ --_PDCLIB_quickexitptr ] = func;
+    } else {
+        _PDCLIB_quickexitstack[--_PDCLIB_quickexitptr] = func;
         return 0;
     }
 }

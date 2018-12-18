@@ -6,15 +6,15 @@
 #if INT_MAX >> 15 == 1
 
 #define UINT_DIG 5
-#define INT_DIG  5
+#define INT_DIG 5
 #define INT_DIG_LESS1 "4"
 #define INT_DIG_PLUS1 "6"
 #define INT_DIG_PLUS2 "7"
 #define INT_HEXDIG "FFF"
 #define INT_hexdig "fff"
 #define INT_OCTDIG "177777"
-#define INT_MAX_DEZ_STR  "32767"
-#define INT_MIN_DEZ_STR  "32768"
+#define INT_MAX_DEZ_STR "32767"
+#define INT_MIN_DEZ_STR "32768"
 #define UINT_MAX_DEZ_STR "65535"
 #define INT_MAX_OCT_STR
 #define INT_MIN_OCT_STR
@@ -26,15 +26,15 @@
 #elif UINT_MAX >> 31 == 1
 
 #define UINT_DIG 10
-#define INT_DIG  10
+#define INT_DIG 10
 #define INT_DIG_LESS1 "9"
 #define INT_DIG_PLUS1 "11"
 #define INT_DIG_PLUS2 "12"
 #define INT_HEXDIG "FFFFFFF"
 #define INT_hexdig "fffffff"
 #define INT_OCTDIG "37777777777"
-#define INT_MAX_DEZ_STR  "2147483647"
-#define INT_MIN_DEZ_STR  "2147483648"
+#define INT_MAX_DEZ_STR "2147483647"
+#define INT_MIN_DEZ_STR "2147483648"
 #define UINT_MAX_DEZ_STR "4294967295"
 #define INT_MAX_OCT_STR
 #define INT_MIN_OCT_STR
@@ -46,15 +46,15 @@
 #elif UINT_MAX >> 63 == 1
 
 #define UINT_DIG 20
-#define INT_DIG  19
+#define INT_DIG 19
 #define INT_DIG_LESS1 "18"
 #define INT_DIG_PLUS1 "20"
 #define INT_DIG_PLUS2 "21"
 #define INT_HEXDIG "FFFFFFFFFFFFFFF"
 #define INT_hexdig "fffffffffffffff"
 #define INT_OCTDIG "1777777777777777777777"
-#define INT_MAX_DEZ_STR   "9223372036854775807"
-#define INT_MIN_DEZ_STR   "9223372036854775808"
+#define INT_MAX_DEZ_STR "9223372036854775807"
+#define INT_MIN_DEZ_STR "9223372036854775808"
 #define UINT_MAX_DEZ_STR "18446744073709551615"
 #define INT_MAX_OCT_STR
 #define INT_MIN_OCT_STR
@@ -70,11 +70,12 @@
 #endif
 
 #if 0
-#define SCANF_TEST(expected_rc, input_string, ...) do { \
-        int actual_rc; \
+#define SCANF_TEST(expected_rc, input_string, ...)         \
+    do {                                                   \
+        int actual_rc;                                     \
         prepareSource(input_string, sizeof(input_string)); \
-        actual_rc = testscanf(source, __VA_ARGS__); \
-        EXPECT_EQ(expected_rc, actual_rc); \
+        actual_rc = testscanf(source, __VA_ARGS__);        \
+        EXPECT_EQ(expected_rc, actual_rc);                 \
     } while (0)
 #endif
 
@@ -83,22 +84,24 @@
 #define testfile "/tmp/z"
 
 #if 0
-#define SCANF_TEST(expected_rc, input_string, ...) do { \
-        int input_len = strlen(input_string) + 1; \
-        rewind(source); \
+#define SCANF_TEST(expected_rc, input_string, ...)  \
+    do {                                            \
+        int input_len = strlen(input_string) + 1;   \
+        rewind(source);                             \
         fwrite(input_string, 1, input_len, source); \
-        rewind(source); \
-        int actual_rc = scanf(__VA_ARGS__); \
-        EXPECT_EQ(expected_rc, actual_rc) ; \
-    } while(0)
+        rewind(source);                             \
+        int actual_rc = scanf(__VA_ARGS__);         \
+        EXPECT_EQ(expected_rc, actual_rc);          \
+    } while (0)
 #endif
 
-template<typename P, typename T> void PerformTests(P prepare, T test)
+template<typename P, typename T>
+void PerformTests(P prepare, T test)
 {
     char buffer[100];
     int i;
     unsigned int u;
-    int * p;
+    int* p;
 
     auto SCANF_TEST = [&](int expected_rc, const char* input_string, auto... args) {
         prepare(input_string);
@@ -197,16 +200,18 @@ TEST(stdio, scanf)
     FILE* source = freopen(testfile, "wb+", stdin);
     ASSERT_NE(nullptr, source);
 
-    PerformTests([&](const char* input_string) {
-        // prepare - fileio
-        int input_len = strlen(input_string) + 1;
-        rewind(source);
-        fwrite(input_string, 1, input_len, source);
-        rewind(source);
-    }, [&](auto... args) {
-        // test
-        return scanf(args...);
-    });
+    PerformTests(
+        [&](const char* input_string) {
+            // prepare - fileio
+            int input_len = strlen(input_string) + 1;
+            rewind(source);
+            fwrite(input_string, 1, input_len, source);
+            rewind(source);
+        },
+        [&](auto... args) {
+            // test
+            return scanf(args...);
+        });
 
     fclose(source);
 
@@ -217,17 +222,18 @@ TEST(stdio, sscanf)
 {
     char source[100];
 
-    PerformTests([&](const char* input_string) {
-        // prepare - string
-        memcpy(source, input_string, strlen(input_string) + 1);
-    }, [&](auto... args) {
-        // test
-        return sscanf(source, args...);
-    });
+    PerformTests(
+        [&](const char* input_string) {
+            // prepare - string
+            memcpy(source, input_string, strlen(input_string) + 1);
+        },
+        [&](auto... args) {
+            // test
+            return sscanf(source, args...);
+        });
 }
 
-static int
-vsscanf_wrapper(const char* input, const char* format, ...)
+static int vsscanf_wrapper(const char* input, const char* format, ...)
 {
     va_list ap;
     va_start(ap, format);
@@ -240,13 +246,15 @@ TEST(stdio, vsscanf)
 {
     char source[100];
 
-    PerformTests([&](const char* input_string) {
-        // prepare - string
-        memcpy(source, input_string, strlen(input_string) + 1);
-    }, [&](auto... args) {
-        // test
-        return vsscanf_wrapper(source, args...);
-    });
+    PerformTests(
+        [&](const char* input_string) {
+            // prepare - string
+            memcpy(source, input_string, strlen(input_string) + 1);
+        },
+        [&](auto... args) {
+            // test
+            return vsscanf_wrapper(source, args...);
+        });
 }
 
 TEST(stdio, fscanf)
@@ -254,22 +262,23 @@ TEST(stdio, fscanf)
     FILE* source = tmpfile();
     ASSERT_NE(nullptr, source);
 
-    PerformTests([&](const char* input_string) {
-        // prepare - fileio
-        int input_len = strlen(input_string) + 1;
-        rewind(source);
-        fwrite(input_string, 1, input_len, source);
-        rewind(source);
-    }, [&](auto... args) {
-        // test
-        return fscanf(source, args...);
-    });
+    PerformTests(
+        [&](const char* input_string) {
+            // prepare - fileio
+            int input_len = strlen(input_string) + 1;
+            rewind(source);
+            fwrite(input_string, 1, input_len, source);
+            rewind(source);
+        },
+        [&](auto... args) {
+            // test
+            return fscanf(source, args...);
+        });
 
     fclose(source);
 }
 
-static int
-vscanf_wrapper(FILE* stream, const char* format, ...)
+static int vscanf_wrapper(FILE* stream, const char* format, ...)
 {
     va_list arg;
     va_start(arg, format);
@@ -286,15 +295,15 @@ TEST(stdio, vscanf)
     FILE* source = freopen(testfile, "wb+", stdin);
     ASSERT_NE(nullptr, source);
 
-    PerformTests([&](const char* input_string) {
-        // prepare - fileio
-        int input_len = strlen(input_string) + 1;
-        rewind(source);
-        fwrite(input_string, 1, input_len, source);
-        rewind(source);
-    }, [&](auto... args) {
-        return vscanf_wrapper(source, args...);
-    });
+    PerformTests(
+        [&](const char* input_string) {
+            // prepare - fileio
+            int input_len = strlen(input_string) + 1;
+            rewind(source);
+            fwrite(input_string, 1, input_len, source);
+            rewind(source);
+        },
+        [&](auto... args) { return vscanf_wrapper(source, args...); });
 
     fclose(source);
     remove(testfile);
@@ -302,8 +311,7 @@ TEST(stdio, vscanf)
     stdin = fdopen(fd_stdin, "w");
 }
 
-static int
-vfscanf_wrapper(FILE* stream, const char* format, ...)
+static int vfscanf_wrapper(FILE* stream, const char* format, ...)
 {
     va_list arg;
     va_start(arg, format);
@@ -317,31 +325,32 @@ TEST(stdio, vfscanf)
     FILE* source = tmpfile();
     ASSERT_NE(nullptr, source);
 
-    PerformTests([&](const char* input_string) {
-        // prepare - fileio
-        int input_len = strlen(input_string) + 1;
-        rewind(source);
-        fwrite(input_string, 1, input_len, source);
-        rewind(source);
-    }, [&](auto... args) {
-        // test
-        return vfscanf_wrapper(source, args...);
-    });
+    PerformTests(
+        [&](const char* input_string) {
+            // prepare - fileio
+            int input_len = strlen(input_string) + 1;
+            rewind(source);
+            fwrite(input_string, 1, input_len, source);
+            rewind(source);
+        },
+        [&](auto... args) {
+            // test
+            return vfscanf_wrapper(source, args...);
+        });
 
     fclose(source);
 }
 
 #ifdef _PDCLIB_C_VERSION
-static int pdclib_scan_wrapper(char const * s, char const * format, ...)
+static int pdclib_scan_wrapper(char const* s, char const* format, ...)
 {
     struct _PDCLIB_status_t status;
     status.n = 0;
     status.i = 0;
-    status.s = (char *)s;
+    status.s = (char*)s;
     status.stream = NULL;
     va_start(status.arg, format);
-    if (*(_PDCLIB_scan(format, &status)) != '\0')
-    {
+    if (*(_PDCLIB_scan(format, &status)) != '\0') {
         printf("_PDCLIB_scan() did not return end-of-specifier on '%s'.\n", format);
         ++TEST_RESULTS;
     }
@@ -353,12 +362,14 @@ TEST(stdio, pdclib_scan)
 {
     char source[100];
 
-    PerformTests([&](const char* input_string) {
-        // prepare - string
-        memcpy(source, input_string, strlen(input_string) + 1);
-    }, [&](auto... args) {
-        // test
-        return pdclib_scan_wrapper(source, args...);
-    });
+    PerformTests(
+        [&](const char* input_string) {
+            // prepare - string
+            memcpy(source, input_string, strlen(input_string) + 1);
+        },
+        [&](auto... args) {
+            // test
+            return pdclib_scan_wrapper(source, args...);
+        });
 }
 #endif

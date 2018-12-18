@@ -3,9 +3,8 @@
 #include <unistd.h>
 #include "_map_statuscode.h"
 
-gid_t
-getegid()
+gid_t getegid()
 {
-	statuscode_t status = sys_getegid();
-	return map_statuscode(status);
+    statuscode_t status = sys_getegid();
+    return map_statuscode(status);
 }

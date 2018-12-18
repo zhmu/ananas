@@ -14,19 +14,13 @@
 #include <sys/mman.h>
 #include "_PDCLIB_glue.h"
 
-void _PDCLIB_freepages( void * p, size_t n )
-{
-    munmap( p, n * _PDCLIB_MALLOC_PAGESIZE );
-}
+void _PDCLIB_freepages(void* p, size_t n) { munmap(p, n * _PDCLIB_MALLOC_PAGESIZE); }
 
 #endif
 
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif

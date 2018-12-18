@@ -7,10 +7,11 @@
 #include <wchar.h>
 #include <stddef.h>
 
-wchar_t *wcschr(const wchar_t * haystack, wchar_t needle)
+wchar_t* wcschr(const wchar_t* haystack, wchar_t needle)
 {
-    while(*haystack) {
-        if(*haystack == needle) return (wchar_t*) haystack;
+    while (*haystack) {
+        if (*haystack == needle)
+            return (wchar_t*)haystack;
         haystack++;
     }
     return NULL;

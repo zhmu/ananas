@@ -10,10 +10,10 @@
 #include <stdlib.h>
 #include "_PDCLIB_io.h"
 
-void _PDCLIB_funlockfile( FILE * file )
+void _PDCLIB_funlockfile(FILE* file)
 {
-    int res = mtx_unlock( &file->lock );
-    switch(res) {
+    int res = mtx_unlock(&file->lock);
+    switch (res) {
         case thrd_success:
             return;
 

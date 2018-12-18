@@ -9,12 +9,12 @@
 #include "_PDCLIB_io.h"
 
 // Testing covered by ftell.cpp
-int _PDCLIB_prepwrite( FILE * stream )
+int _PDCLIB_prepwrite(FILE* stream)
 {
-    if ( ( stream->bufidx < stream->bufend ) || ( stream->ungetidx > 0 ) ||
-         ( stream->status & ( _PDCLIB_FREAD | _PDCLIB_ERRORFLAG | _PDCLIB_WIDESTREAM | _PDCLIB_EOFFLAG ) ) ||
-         ! ( stream->status & ( _PDCLIB_FWRITE | _PDCLIB_FAPPEND | _PDCLIB_FRW ) ) )
-    {
+    if ((stream->bufidx < stream->bufend) || (stream->ungetidx > 0) ||
+        (stream->status &
+         (_PDCLIB_FREAD | _PDCLIB_ERRORFLAG | _PDCLIB_WIDESTREAM | _PDCLIB_EOFFLAG)) ||
+        !(stream->status & (_PDCLIB_FWRITE | _PDCLIB_FAPPEND | _PDCLIB_FRW))) {
         /* Function called on illegal (e.g. input) stream.
            See the comments on implementation-defined errno values in
            <_PDCLIB_config.h>.

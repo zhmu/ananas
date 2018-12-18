@@ -8,12 +8,12 @@
 #include <string.h>
 #include <stdlib.h>
 
-char *strndup( const char * s, size_t len )
+char* strndup(const char* s, size_t len)
 {
     char* ns = NULL;
-    if(s) {
+    if (s) {
         ns = malloc(len + 1);
-        if(ns) {
+        if (ns) {
             ns[len] = 0;
             // strncpy to be pedantic about modification in multithreaded
             // applications

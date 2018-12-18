@@ -4,8 +4,8 @@
 
 float nearbyintf(float x)
 {
-	__asm__ ("fiebra %0, 0, %1, 4" : "=f"(x) : "f"(x));
-	return x;
+    __asm__("fiebra %0, 0, %1, 4" : "=f"(x) : "f"(x));
+    return x;
 }
 
 #else

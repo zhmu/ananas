@@ -6,15 +6,15 @@
 #include <sys/cdefs.h>
 
 struct timeval {
-	time_t		tv_sec;
-	suseconds_t	tv_usec;
+    time_t tv_sec;
+    suseconds_t tv_usec;
 };
 
 #include <sys/select.h>
 
 struct itimerval {
-	struct timeval	it_interval;
-	struct timeval	it_value;
+    struct timeval it_interval;
+    struct timeval it_value;
 };
 
 __BEGIN_DECLS

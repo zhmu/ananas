@@ -8,20 +8,18 @@
 #include <string.h>
 #include "_PDCLIB_glue.h"
 
-extern _PDCLIB_file_t * _PDCLIB_filelist;
+extern _PDCLIB_file_t* _PDCLIB_filelist;
 
-int rename(const char * old, const char * new)
+int rename(const char* old, const char* new)
 {
     // XXXRS Is this actually required?
-    FILE * current = _PDCLIB_filelist;
-    while ( current != NULL )
-    {
-        if ( ( current->filename != NULL ) && ( strcmp( current->filename, old ) == 0 ) )
-        {
+    FILE* current = _PDCLIB_filelist;
+    while (current != NULL) {
+        if ((current->filename != NULL) && (strcmp(current->filename, old) == 0)) {
             /* File of that name currently open. Do not rename. */
             return -1;
         }
         current = current->next;
     }
-    return _PDCLIB_rename( old, new );
+    return _PDCLIB_rename(old, new);
 }

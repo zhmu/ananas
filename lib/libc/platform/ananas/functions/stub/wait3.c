@@ -6,8 +6,8 @@
 
 pid_t wait3(int* status, int options, struct rusage* rusage)
 {
-	/* XXX we don't support rusage yet */
-	if (rusage != NULL)
-		memset(rusage, 0, sizeof(struct rusage));
-	return waitpid(0, status, options);
+    /* XXX we don't support rusage yet */
+    if (rusage != NULL)
+        memset(rusage, 0, sizeof(struct rusage));
+    return waitpid(0, status, options);
 }

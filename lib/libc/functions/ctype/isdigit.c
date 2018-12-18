@@ -7,7 +7,4 @@
 #include <ctype.h>
 #include "_PDCLIB_locale.h"
 
-int isdigit( int c )
-{
-    return ( _PDCLIB_threadlocale()->_CType[c].flags & _PDCLIB_CTYPE_DIGIT );
-}
+int isdigit(int c) { return (_PDCLIB_threadlocale()->_CType[c].flags & _PDCLIB_CTYPE_DIGIT); }

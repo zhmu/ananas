@@ -4,6 +4,6 @@
 
 int ftruncate(int fd, off_t length)
 {
-	TODO;
-	return -1;
+    TODO;
+    return -1;
 }

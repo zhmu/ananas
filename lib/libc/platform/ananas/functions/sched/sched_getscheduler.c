@@ -1,9 +1,8 @@
 #include <sched.h>
 #include <errno.h>
 
-int
-sched_getscheduler(pid_t pid)
+int sched_getscheduler(pid_t pid)
 {
-	errno = ENOSYS;
-	return -1;
+    errno = ENOSYS;
+    return -1;
 }

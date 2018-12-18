@@ -1,7 +1,8 @@
 #include <gtest/gtest.h>
 #include <stdio.h>
 
-static char const teststring[] = "1234567890\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\n";
+static char const teststring[] =
+    "1234567890\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\n";
 
 TEST(stdio, fseek)
 {
@@ -11,7 +12,7 @@ TEST(stdio, fseek)
     size_t teststring_len = strlen(teststring);
     /* General functionality */
     EXPECT_EQ(0, fseek(fh, -1, SEEK_END));
-    EXPECT_EQ(teststring_len - 1,  (size_t)ftell(fh));
+    EXPECT_EQ(teststring_len - 1, (size_t)ftell(fh));
     EXPECT_EQ(0, fseek(fh, 0, SEEK_END));
     EXPECT_EQ(teststring_len, (size_t)ftell(fh));
     EXPECT_EQ(0, fseek(fh, 0, SEEK_SET));

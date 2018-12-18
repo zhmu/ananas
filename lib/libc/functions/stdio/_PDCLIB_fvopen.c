@@ -11,20 +11,16 @@
 #include "_PDCLIB_glue.h"
 #include "_PDCLIB_io.h"
 
-extern FILE * _PDCLIB_filelist;
+extern FILE* _PDCLIB_filelist;
 
 // Testing covered by fopen.cpp
-FILE * _PDCLIB_fvopen(
-    _PDCLIB_fd_t                                    fd,
-    const _PDCLIB_fileops_t    *_PDCLIB_restrict    ops,
-    int                                             mode,
-    const char                  *_PDCLIB_restrict   filename
-)
+FILE* _PDCLIB_fvopen(
+    _PDCLIB_fd_t fd, const _PDCLIB_fileops_t* _PDCLIB_restrict ops, int mode,
+    const char* _PDCLIB_restrict filename)
 {
     size_t filename_len;
-    FILE * rc;
-    if ( mode == NULL )
-    {
+    FILE* rc;
+    if (mode == NULL) {
         /* Mode invalid */
         return NULL;
     }
@@ -35,27 +31,27 @@ FILE * _PDCLIB_fvopen(
        * data buffer.
        Data buffer comes last because it might change in size ( setvbuf() ).
     */
-    filename_len = filename ? strlen( filename ) + 1 : 1;
-    if ( ( rc = calloc( 1, sizeof( FILE ) + _PDCLIB_UNGETCBUFSIZE + filename_len + BUFSIZ ) ) == NULL )
-    {
+    filename_len = filename ? strlen(filename) + 1 : 1;
+    if ((rc = calloc(1, sizeof(FILE) + _PDCLIB_UNGETCBUFSIZE + filename_len + BUFSIZ)) == NULL) {
         /* no memory */
         return NULL;
     }
 
-    if(mtx_init(&rc->lock, mtx_recursive) != thrd_success) {
+    if (mtx_init(&rc->lock, mtx_recursive) != thrd_success) {
         free(rc);
         return NULL;
     }
 
     rc->status = mode;
-    rc->ops    = ops;
+    rc->ops = ops;
     rc->handle = fd;
     /* Setting pointers into the memory block allocated above */
-    rc->ungetbuf = (unsigned char *)rc + sizeof( FILE );
-    rc->filename = (char *)rc->ungetbuf + _PDCLIB_UNGETCBUFSIZE;
-    rc->buffer   = rc->filename + filename_len;
+    rc->ungetbuf = (unsigned char*)rc + sizeof(FILE);
+    rc->filename = (char*)rc->ungetbuf + _PDCLIB_UNGETCBUFSIZE;
+    rc->buffer = rc->filename + filename_len;
     /* Copying filename to FILE structure */
-    if(filename) strcpy( rc->filename, filename );
+    if (filename)
+        strcpy(rc->filename, filename);
     /* Initializing the rest of the structure */
     rc->bufsize = BUFSIZ;
     rc->bufidx = 0;

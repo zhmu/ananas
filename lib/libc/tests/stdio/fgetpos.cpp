@@ -1,13 +1,14 @@
 #include <gtest/gtest.h>
 #include <stdio.h>
 
-static char const teststring[] = "1234567890\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\n";
+static char const teststring[] =
+    "1234567890\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz\n";
 
 TEST(stdio, fgetpos)
 {
     size_t teststring_len = strlen(teststring);
 
-    FILE * fh = tmpfile();
+    FILE* fh = tmpfile();
     ASSERT_NE(nullptr, fh);
 
     fpos_t pos1, pos2;

@@ -5,19 +5,16 @@
 #include "kernel/cdefs.h"
 
 #define KASSERT(x, msg, args...) \
-	if (!(x)) \
-		_panic(__FILE__, __func__, __LINE__, msg, ## args)
+    if (!(x))                    \
+    _panic(__FILE__, __func__, __LINE__, msg, ##args)
 
-#define panic(msg, args...) \
-		_panic(__FILE__, __func__, __LINE__, msg, ##args)
+#define panic(msg, args...) _panic(__FILE__, __func__, __LINE__, msg, ##args)
 
 /* Rounds up 'n' to a multiple of 'mult' */
-#define ROUND_UP(n, mult) \
-	(((n) % (mult) == 0) ? (n) : (n) + ((mult) - (n) % (mult)))
+#define ROUND_UP(n, mult) (((n) % (mult) == 0) ? (n) : (n) + ((mult) - (n) % (mult)))
 
 /* Rounds down 'n' to a multiple of 'mult' */
-#define ROUND_DOWN(n, mult) \
-	(((n) % (mult) == 0) ? (n) : (n) - (n) % (mult))
+#define ROUND_DOWN(n, mult) (((n) % (mult) == 0) ? (n) : (n) - (n) % (mult))
 
 #ifdef __cplusplus
 // Placement new declaration
@@ -36,8 +33,8 @@ int snprintf(char* str, size_t len, const char* fmt, ...);
 char* strdup(const char* s) __nonnull;
 
 char* strcpy(char* dst, const char* src) __nonnull;
-int   strcmp(const char* s1, const char* s2) __nonnull;
-int   strncmp(const char* s1, const char* s2, size_t n) __nonnull;
+int strcmp(const char* s1, const char* s2) __nonnull;
+int strncmp(const char* s1, const char* s2, size_t n) __nonnull;
 char* strchr(const char* s, int c) __nonnull;
 char* strrchr(const char* s, int c) __nonnull;
 size_t strlen(const char* s) __nonnull;

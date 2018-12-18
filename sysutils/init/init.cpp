@@ -25,81 +25,74 @@
 #include "common/util.h"
 #include "ttys.h"
 
-namespace {
-
-std::vector<TTY> ttys;
-
-bool
-ParseTTYs()
+namespace
 {
-	std::ifstream ifs(paths::ttys, std::ifstream::in);
-	for(std::string s; std::getline(ifs, s); /* nothing */) {
-		if (s.empty() || s[0] == '#')
-			continue;
+    std::vector<TTY> ttys;
 
-		TTY m;
-		if (!m.Parse(s))
-			continue;
+    bool ParseTTYs()
+    {
+        std::ifstream ifs(paths::ttys, std::ifstream::in);
+        for (std::string s; std::getline(ifs, s); /* nothing */) {
+            if (s.empty() || s[0] == '#')
+                continue;
 
-		ttys.push_back(m);
-	}
+            TTY m;
+            if (!m.Parse(s))
+                continue;
 
-	return !ttys.empty();
-}
+            ttys.push_back(m);
+        }
 
-void
-runRcScript()
-{
-	// If the rc file does not exist, do not bother at all
-	if (access(paths::rc.c_str(), R_OK) < 0 && errno == ENOENT)
-		return;
+        return !ttys.empty();
+    }
 
-	pid_t p = fork();
-	if (p == 0) {
-		// XXX for now, we'll explicitly ask /bin/sh to invoke rc for us...
-		char* const argv[] = {
-			strdup(paths::sh.c_str()),
-			strdup(paths::rc.c_str()),
-			nullptr
-		};
-		exit(execv(paths::sh.c_str(), argv));
-	}
+    void runRcScript()
+    {
+        // If the rc file does not exist, do not bother at all
+        if (access(paths::rc.c_str(), R_OK) < 0 && errno == ENOENT)
+            return;
 
-	int wstatus;
-	if (wait(&wstatus) < 0)
-		return; // XXX what can we do here?
+        pid_t p = fork();
+        if (p == 0) {
+            // XXX for now, we'll explicitly ask /bin/sh to invoke rc for us...
+            char* const argv[] = {strdup(paths::sh.c_str()), strdup(paths::rc.c_str()), nullptr};
+            exit(execv(paths::sh.c_str(), argv));
+        }
 
-	if (WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 0)
-		return; // all is okay
+        int wstatus;
+        if (wait(&wstatus) < 0)
+            return; // XXX what can we do here?
 
-	std::cerr << paths::rc << " exited uncleanly!\n";
-	// TODO go to single user mode?
-}
+        if (WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 0)
+            return; // all is okay
+
+        std::cerr << paths::rc << " exited uncleanly!\n";
+        // TODO go to single user mode?
+    }
 
 } // unnamed namespace
 
-int
-main()
+int main()
 {
-	// Do not terminate ourselves once things go
-	signal(SIGCHLD, SIG_IGN);
+    // Do not terminate ourselves once things go
+    signal(SIGCHLD, SIG_IGN);
 
-	// [rc]
-	runRcScript();
+    // [rc]
+    runRcScript();
 
-	// [ttys]
-	if (!ParseTTYs()) {
-		std::cerr << "no entries found in " << paths::ttys << " - assuming no ttys wanted\n";
-	}
+    // [ttys]
+    if (!ParseTTYs()) {
+        std::cerr << "no entries found in " << paths::ttys << " - assuming no ttys wanted\n";
+    }
 
-	while(true) {
-		// See if all our TTY's are still okay
-		for(auto& tty: ttys)
-			tty.Poll();
+    while (true) {
+        // See if all our TTY's are still okay
+        for (auto& tty : ttys)
+            tty.Poll();
 
-		// Wait until stuff terminates
-		wait(nullptr);
-	}
+        // Wait until stuff terminates
+        wait(nullptr);
+    }
 
-	return 0;
+    return 0;
 }

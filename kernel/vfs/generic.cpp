@@ -13,192 +13,196 @@ TRACE_SETUP;
 
 #define VFS_DEBUG_LOOKUP 0
 
-Result
-vfs_generic_lookup(DEntry& parent, INode*& destinode, const char* dentry)
+Result vfs_generic_lookup(DEntry& parent, INode*& destinode, const char* dentry)
 {
-	char buf[1024]; /* XXX */
+    char buf[1024]; /* XXX */
 
 #if VFS_DEBUG_LOOKUP
-	kprintf("vfs_generic_lookup(); parent=%p dentry='%s'\n", &parent, dentry);
+    kprintf("vfs_generic_lookup(); parent=%p dentry='%s'\n", &parent, dentry);
 #endif
 
-	/*
-	 * XXX This is a very naive implementation which does not use the
-	 * possible directory index.
-	 */
-	INode& parent_inode = *parent.d_inode;
-	KASSERT(S_ISDIR(parent_inode.i_sb.st_mode), "supplied inode is not a directory");
+    /*
+     * XXX This is a very naive implementation which does not use the
+     * possible directory index.
+     */
+    INode& parent_inode = *parent.d_inode;
+    KASSERT(S_ISDIR(parent_inode.i_sb.st_mode), "supplied inode is not a directory");
 
-	/* Rewind the directory back; we'll be traversing it from front to back */
-	struct VFS_FILE dirf;
-	memset(&dirf, 0, sizeof(dirf));
-	dirf.f_offset = 0;
-	dirf.f_dentry = &parent;
-	while (1) {
-		if (!vfs_is_filesystem_sane(parent_inode.i_fs))
-			return RESULT_MAKE_FAILURE(EIO);
+    /* Rewind the directory back; we'll be traversing it from front to back */
+    struct VFS_FILE dirf;
+    memset(&dirf, 0, sizeof(dirf));
+    dirf.f_offset = 0;
+    dirf.f_dentry = &parent;
+    while (1) {
+        if (!vfs_is_filesystem_sane(parent_inode.i_fs))
+            return RESULT_MAKE_FAILURE(EIO);
 
-		auto result = vfs_read(&dirf, buf, sizeof(buf));
-		if (result.IsFailure())
-			return result;
-		auto buf_len = result.AsValue();
-		if (buf_len == 0)
-			return RESULT_MAKE_FAILURE(ENOENT);
+        auto result = vfs_read(&dirf, buf, sizeof(buf));
+        if (result.IsFailure())
+            return result;
+        auto buf_len = result.AsValue();
+        if (buf_len == 0)
+            return RESULT_MAKE_FAILURE(ENOENT);
 
-		char* cur_ptr = buf;
-		while (buf_len > 0) {
-			struct VFS_DIRENT* de = (struct VFS_DIRENT*)cur_ptr;
-			buf_len -= DE_LENGTH(de); cur_ptr += DE_LENGTH(de);
+        char* cur_ptr = buf;
+        while (buf_len > 0) {
+            struct VFS_DIRENT* de = (struct VFS_DIRENT*)cur_ptr;
+            buf_len -= DE_LENGTH(de);
+            cur_ptr += DE_LENGTH(de);
 
 #ifdef DEBUG_VFS_LOOKUP
-			kprintf("vfs_generic_lookup('%s'): comparing with '%s'\n", dentry, de->de_name);
+            kprintf("vfs_generic_lookup('%s'): comparing with '%s'\n", dentry, de->de_name);
 #endif
 
-			if (strcmp(de->de_name, dentry) != 0)
-				continue;
+            if (strcmp(de->de_name, dentry) != 0)
+                continue;
 
-			/* Found it! */
-			return vfs_get_inode(parent_inode.i_fs, de->de_inum, destinode);
-		}
-	}
+            /* Found it! */
+            return vfs_get_inode(parent_inode.i_fs, de->de_inum, destinode);
+        }
+    }
 }
 
-Result
-vfs_generic_read(struct VFS_FILE* file, void* buf, size_t len)
+Result vfs_generic_read(struct VFS_FILE* file, void* buf, size_t len)
 {
-	INode& inode = *file->f_dentry->d_inode;
-	struct VFS_MOUNTED_FS* fs = inode.i_fs;
-	size_t read = 0;
-	size_t left = len;
-	BIO* bio = nullptr;
+    INode& inode = *file->f_dentry->d_inode;
+    struct VFS_MOUNTED_FS* fs = inode.i_fs;
+    size_t read = 0;
+    size_t left = len;
+    BIO* bio = nullptr;
 
-	KASSERT(inode.i_iops->block_map != NULL, "called without block_map implementation");
+    KASSERT(inode.i_iops->block_map != NULL, "called without block_map implementation");
 
-	/* Adjust left so that we don't attempt to read beyond the end of the file */
-	if ((inode.i_sb.st_size - file->f_offset) < left) {
-		left = inode.i_sb.st_size - file->f_offset;
-	}
+    /* Adjust left so that we don't attempt to read beyond the end of the file */
+    if ((inode.i_sb.st_size - file->f_offset) < left) {
+        left = inode.i_sb.st_size - file->f_offset;
+    }
 
-	blocknr_t cur_block = 0;
-	while(left > 0) {
-		if (!vfs_is_filesystem_sane(inode.i_fs))
-			return RESULT_MAKE_FAILURE(EIO);
+    blocknr_t cur_block = 0;
+    while (left > 0) {
+        if (!vfs_is_filesystem_sane(inode.i_fs))
+            return RESULT_MAKE_FAILURE(EIO);
 
-		/* Figure out which block to use next */
-		blocknr_t want_block;
-		if (auto result = inode.i_iops->block_map(inode, (file->f_offset / (blocknr_t)fs->fs_block_size), want_block, false); result.IsFailure())
-			return result;
+        /* Figure out which block to use next */
+        blocknr_t want_block;
+        if (auto result = inode.i_iops->block_map(
+                inode, (file->f_offset / (blocknr_t)fs->fs_block_size), want_block, false);
+            result.IsFailure())
+            return result;
 
-		/* Grab the next block if necessary */
-		if (cur_block != want_block || bio == NULL) {
-			if (bio != nullptr)
-				bio_free(*bio);
-			if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
-				return result;
-			cur_block = want_block;
-		}
+        /* Grab the next block if necessary */
+        if (cur_block != want_block || bio == NULL) {
+            if (bio != nullptr)
+                bio_free(*bio);
+            if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
+                return result;
+            cur_block = want_block;
+        }
 
-		/* Copy as much from the current entry as we can */
-		off_t cur_offset = file->f_offset % (blocknr_t)fs->fs_block_size;
-		int chunk_len = fs->fs_block_size - cur_offset;
-		if (chunk_len > left)
-			chunk_len = left;
-		KASSERT(chunk_len > 0, "attempt to handle empty chunk");
-		memcpy(buf, (void*)(static_cast<char*>(BIO_DATA(bio)) + cur_offset), chunk_len);
+        /* Copy as much from the current entry as we can */
+        off_t cur_offset = file->f_offset % (blocknr_t)fs->fs_block_size;
+        int chunk_len = fs->fs_block_size - cur_offset;
+        if (chunk_len > left)
+            chunk_len = left;
+        KASSERT(chunk_len > 0, "attempt to handle empty chunk");
+        memcpy(buf, (void*)(static_cast<char*>(BIO_DATA(bio)) + cur_offset), chunk_len);
 
-		read += chunk_len;
-		buf = static_cast<void*>(static_cast<char*>(buf) + chunk_len);
-		left -= chunk_len;
-		file->f_offset += chunk_len;
-	}
-	if (bio != nullptr)
-		bio_free(*bio);
-	return Result::Success(read);
+        read += chunk_len;
+        buf = static_cast<void*>(static_cast<char*>(buf) + chunk_len);
+        left -= chunk_len;
+        file->f_offset += chunk_len;
+    }
+    if (bio != nullptr)
+        bio_free(*bio);
+    return Result::Success(read);
 }
 
-Result
-vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t len)
+Result vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t len)
 {
-	INode& inode = *file->f_dentry->d_inode;
-	struct VFS_MOUNTED_FS* fs = inode.i_fs;
-	size_t written = 0;
-	size_t left = len;
-	BIO* bio = nullptr;
+    INode& inode = *file->f_dentry->d_inode;
+    struct VFS_MOUNTED_FS* fs = inode.i_fs;
+    size_t written = 0;
+    size_t left = len;
+    BIO* bio = nullptr;
 
-	KASSERT(inode.i_iops->block_map != NULL, "called without block_map implementation");
+    KASSERT(inode.i_iops->block_map != NULL, "called without block_map implementation");
 
-	int inode_dirty = 0;
-	blocknr_t cur_block = 0;
-	while(left > 0) {
-		blocknr_t logical_block = file->f_offset / (blocknr_t)fs->fs_block_size;
-		bool create = logical_block >= inode.i_sb.st_blocks; // XXX is this correct with sparse files?
+    int inode_dirty = 0;
+    blocknr_t cur_block = 0;
+    while (left > 0) {
+        blocknr_t logical_block = file->f_offset / (blocknr_t)fs->fs_block_size;
+        bool create =
+            logical_block >= inode.i_sb.st_blocks; // XXX is this correct with sparse files?
 
-		if (!vfs_is_filesystem_sane(inode.i_fs))
-			return RESULT_MAKE_FAILURE(EIO);
+        if (!vfs_is_filesystem_sane(inode.i_fs))
+            return RESULT_MAKE_FAILURE(EIO);
 
-		/* Figure out which block to use next */
-		blocknr_t want_block;
-		if (auto result = inode.i_iops->block_map(inode, logical_block, want_block, create); result.IsFailure())
-			return result;
+        /* Figure out which block to use next */
+        blocknr_t want_block;
+        if (auto result = inode.i_iops->block_map(inode, logical_block, want_block, create);
+            result.IsFailure())
+            return result;
 
-		/* Calculate how much we have to put in the block */
-		off_t cur_offset = file->f_offset % (blocknr_t)fs->fs_block_size;
-		int chunk_len = fs->fs_block_size - cur_offset;
-		if (chunk_len > left)
-			chunk_len = left;
+        /* Calculate how much we have to put in the block */
+        off_t cur_offset = file->f_offset % (blocknr_t)fs->fs_block_size;
+        int chunk_len = fs->fs_block_size - cur_offset;
+        if (chunk_len > left)
+            chunk_len = left;
 
-		/* Grab the next block if necessary */
-		if (cur_block != want_block || bio == NULL) {
-			if (bio != nullptr)
-				bio_free(*bio);
-			/* Only read the block if it's a new one or we're not replacing everything */
-			if (auto result = vfs_bget(fs, want_block, &bio, (create || chunk_len == fs->fs_block_size) ? BIO_READ_NODATA : 0); result.IsFailure())
-				return result;
-			cur_block = want_block;
-		}
+        /* Grab the next block if necessary */
+        if (cur_block != want_block || bio == NULL) {
+            if (bio != nullptr)
+                bio_free(*bio);
+            /* Only read the block if it's a new one or we're not replacing everything */
+            if (auto result = vfs_bget(
+                    fs, want_block, &bio,
+                    (create || chunk_len == fs->fs_block_size) ? BIO_READ_NODATA : 0);
+                result.IsFailure())
+                return result;
+            cur_block = want_block;
+        }
 
-		/* Copy as much to the block as we can */
-		KASSERT(chunk_len > 0, "attempt to handle empty chunk");
-		memcpy((void*)(static_cast<char*>(BIO_DATA(bio)) + cur_offset), buf, chunk_len);
-		bio_set_dirty(*bio);
+        /* Copy as much to the block as we can */
+        KASSERT(chunk_len > 0, "attempt to handle empty chunk");
+        memcpy((void*)(static_cast<char*>(BIO_DATA(bio)) + cur_offset), buf, chunk_len);
+        bio_set_dirty(*bio);
 
-		/* Update the offsets and sizes */
-		written += chunk_len;
-		buf = static_cast<const void*>(static_cast<const char*>(buf) + chunk_len);
-		left -= chunk_len;
-		file->f_offset += chunk_len;
+        /* Update the offsets and sizes */
+        written += chunk_len;
+        buf = static_cast<const void*>(static_cast<const char*>(buf) + chunk_len);
+        left -= chunk_len;
+        file->f_offset += chunk_len;
 
-		/*
-		 * If we had to create a new block or we'd have to write beyond the current
-		 * inode's size, enlarge the inode and mark it as dirty.
-		 */
-		if (create || file->f_offset > inode.i_sb.st_size) {
-			inode.i_sb.st_size = file->f_offset;
-			inode_dirty++;
-		}
-	}
-	if (bio != nullptr)
-		bio_free(*bio);
+        /*
+         * If we had to create a new block or we'd have to write beyond the current
+         * inode's size, enlarge the inode and mark it as dirty.
+         */
+        if (create || file->f_offset > inode.i_sb.st_size) {
+            inode.i_sb.st_size = file->f_offset;
+            inode_dirty++;
+        }
+    }
+    if (bio != nullptr)
+        bio_free(*bio);
 
-	if (inode_dirty)
-		vfs_set_inode_dirty(inode);
-	return Result::Success(written);
+    if (inode_dirty)
+        vfs_set_inode_dirty(inode);
+    return Result::Success(written);
 }
 
-Result
-vfs_generic_follow_link(INode& inode, DEntry& base, DEntry*& followed)
+Result vfs_generic_follow_link(INode& inode, DEntry& base, DEntry*& followed)
 {
-	struct VFS_MOUNTED_FS* fs = inode.i_fs;
+    struct VFS_MOUNTED_FS* fs = inode.i_fs;
 
-	char buf[1024]; // XXX
-	auto result = inode.i_iops->read_link(inode, buf, sizeof(buf));
-	if (result.IsFailure())
-		return result;
-	auto buflen = result.AsValue();
-	if (buflen > 0)
-		buf[buflen - 1] = '\0';
+    char buf[1024]; // XXX
+    auto result = inode.i_iops->read_link(inode, buf, sizeof(buf));
+    if (result.IsFailure())
+        return result;
+    auto buflen = result.AsValue();
+    if (buflen > 0)
+        buf[buflen - 1] = '\0';
 
-	return vfs_lookup(base.d_parent, followed, buf);
+    return vfs_lookup(base.d_parent, followed, buf);
 }
 
 /* vim:set ts=2 sw=2: */

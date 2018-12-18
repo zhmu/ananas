@@ -6,9 +6,10 @@
 
 #include <uchar.h>
 
-size_t _PDCLIB_c32slen( const char32_t * str )
+size_t _PDCLIB_c32slen(const char32_t* str)
 {
     size_t n = 0;
-    while(*(str++)) n++;
+    while (*(str++))
+        n++;
     return n;
 }

@@ -7,19 +7,13 @@
 #include <stdlib.h>
 
 /* This is a stub implementation of getenv
-*/
+ */
 
-int system( const char * string )
-{
-    return -1;
-}
+int system(const char* string) { return -1; }
 
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif

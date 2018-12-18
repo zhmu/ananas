@@ -6,16 +6,15 @@
 
 #include <string.h>
 
-char * strrchr( const char * s, int c )
+char* strrchr(const char* s, int c)
 {
     size_t i = 0;
-    while ( s[i++] );
-    do
-    {
-        if ( s[--i] == (char) c )
-        {
-            return (char *) s + i;
+    while (s[i++])
+        ;
+    do {
+        if (s[--i] == (char)c) {
+            return (char*)s + i;
         }
-    } while ( i );
+    } while (i);
     return NULL;
 }

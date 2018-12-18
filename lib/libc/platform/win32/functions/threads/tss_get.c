@@ -2,10 +2,7 @@
 #include <threads.h>
 #include <windows.h>
 
-void *tss_get(tss_t key)
-{
-    return TlsGetValue(key->_Key);
-}
+void* tss_get(tss_t key) { return TlsGetValue(key->_Key); }
 #endif
 
 #ifdef TEST
@@ -18,7 +15,7 @@ static char v;
 
 // Todo: make a thread and test destruction!
 
-int main( void )
+int main(void)
 {
 #ifndef REGTEST
     TESTCASE(tss_create(&key, NULL) == thrd_success);

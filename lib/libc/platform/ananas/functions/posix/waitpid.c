@@ -5,6 +5,6 @@
 
 pid_t waitpid(pid_t pid, int* stat_loc, int options)
 {
-	statuscode_t status = sys_waitpid(pid, stat_loc, options);
-	return map_statuscode(status);
+    statuscode_t status = sys_waitpid(pid, stat_loc, options);
+    return map_statuscode(status);
 }

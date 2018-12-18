@@ -2,45 +2,39 @@
 #include "kernel/device.h"
 #include "kernel/lib.h"
 
-namespace device_manager::internal {
-void OnDeviceDestruction(Device&);
-} // namespace devicemanager::internal
-
-Device::Device()
-	: d_Parent(this)
+namespace device_manager::internal
 {
-}
+    void OnDeviceDestruction(Device&);
+} // namespace device_manager::internal
+
+Device::Device() : d_Parent(this) {}
 
 Device::Device(const CreateDeviceProperties& cdp)
-	: d_Parent(cdp.cdp_Parent),
-	  d_ResourceSet(cdp.cdp_ResourceSet)
+    : d_Parent(cdp.cdp_Parent), d_ResourceSet(cdp.cdp_ResourceSet)
 {
 }
 
-Device::~Device()
-{
-	device_manager::internal::OnDeviceDestruction(*this);
-}
+Device::~Device() { device_manager::internal::OnDeviceDestruction(*this); }
 
 void Device::Printf(const char* fmt, ...) const
 {
 #define DEVICE_PRINTF_BUFSIZE 256
-	char buf[DEVICE_PRINTF_BUFSIZE];
+    char buf[DEVICE_PRINTF_BUFSIZE];
 
-	snprintf(buf, sizeof(buf), "%s%u: ", d_Name, d_Unit);
+    snprintf(buf, sizeof(buf), "%s%u: ", d_Name, d_Unit);
 
-	va_list va;
-	va_start(va, fmt);
-	vsnprintf(buf + strlen(buf), sizeof(buf) - strlen(buf) - 2, fmt, va);
-	buf[sizeof(buf) - 2] = '\0';
-	strcat(buf, "\n");
-	va_end(va);
+    va_list va;
+    va_start(va, fmt);
+    vsnprintf(buf + strlen(buf), sizeof(buf) - strlen(buf) - 2, fmt, va);
+    buf[sizeof(buf) - 2] = '\0';
+    strcat(buf, "\n");
+    va_end(va);
 
-	console_putstring(buf);
+    console_putstring(buf);
 }
 
 IBusOperations& Device::GetBusDeviceOperations()
 {
-	KASSERT(d_Parent != nullptr, "no parent bus for device %s%d", d_Name, d_Unit);
-	return d_Parent->GetBusDeviceOperations();
+    KASSERT(d_Parent != nullptr, "no parent bus for device %s%d", d_Name, d_Unit);
+    return d_Parent->GetBusDeviceOperations();
 }

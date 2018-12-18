@@ -5,7 +5,7 @@
 */
 
 /* This is a stub implementation of _PDCLIB_Exit
-*/
+ */
 
 #include <stdlib.h>
 
@@ -13,9 +13,10 @@
 #include "_PDCLIB_glue.h"
 #include <errno.h>
 
-void _PDCLIB_Exit( int status )
+void _PDCLIB_Exit(int status)
 {
-    for(;;);
+    for (;;)
+        ;
 }
 
 #endif
@@ -23,11 +24,11 @@ void _PDCLIB_Exit( int status )
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
+int main(void)
 {
     int UNEXPECTED_RETURN = 0;
-    _PDCLIB_Exit( 0 );
-    TESTCASE( UNEXPECTED_RETURN );
+    _PDCLIB_Exit(0);
+    TESTCASE(UNEXPECTED_RETURN);
     return TEST_RESULTS;
 }
 

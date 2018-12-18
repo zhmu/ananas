@@ -3,118 +3,99 @@
 
 #include "kernel/irq.h"
 
-#define UHCI_FRAMELIST_LEN	(4096 / 4)
-#define UHCI_NUM_INTERRUPT_QH	6 /* 1, 2, 4, 8, 16, 32ms queues */
+#define UHCI_FRAMELIST_LEN (4096 / 4)
+#define UHCI_NUM_INTERRUPT_QH 6 /* 1, 2, 4, 8, 16, 32ms queues */
 
-namespace dma {
-class Buffer;
+namespace dma
+{
+    class Buffer;
 }
 
-namespace usb {
-namespace uhci {
-
-struct HCD_ScheduledItem;
-
-typedef util::List<HCD_ScheduledItem> HCD_ScheduledItemList;
-
-struct HCD_TD;
-struct HCD_QH;
-
-class RootHub;
-
-class HCD_Resources
+namespace usb
 {
-public:
-	HCD_Resources()
-	 : res_io(0)
-	{
-	}
+    namespace uhci
+    {
+        struct HCD_ScheduledItem;
 
-	HCD_Resources(uint32_t io)
-	 : res_io(io)
-	{
-	}
+        typedef util::List<HCD_ScheduledItem> HCD_ScheduledItemList;
 
-	inline uint16_t Read2(int reg)
-	{
-		return inw(res_io + reg);
-	}
+        struct HCD_TD;
+        struct HCD_QH;
 
-	inline uint32_t Read4(int reg)
-	{
-		return inl(res_io + reg);
-	}
+        class RootHub;
 
-	inline void Write2(int reg, uint16_t value)
-	{
-		outw(res_io + reg, value);
-	}
+        class HCD_Resources
+        {
+          public:
+            HCD_Resources() : res_io(0) {}
 
-	inline void Write4(int reg, uint32_t value)
-	{
-		outl(res_io + reg, value);
-	}
+            HCD_Resources(uint32_t io) : res_io(io) {}
 
-private:
-	/* I/O port */
-	uint32_t res_io;
-};
+            inline uint16_t Read2(int reg) { return inw(res_io + reg); }
 
-} // namespace uhci
+            inline uint32_t Read4(int reg) { return inl(res_io + reg); }
 
-class UHCI_HCD : public Device, private IDeviceOperations, private IUSBDeviceOperations, private irq::IHandler
-{
-public:
-	using Device::Device;
-	virtual ~UHCI_HCD() = default;
+            inline void Write2(int reg, uint16_t value) { outw(res_io + reg, value); }
 
-	IDeviceOperations& GetDeviceOperations() override
-	{
-		return *this;
-	}
+            inline void Write4(int reg, uint32_t value) { outl(res_io + reg, value); }
 
-	IUSBDeviceOperations* GetUSBDeviceOperations() override
-	{
-		return this;
-	}
+          private:
+            /* I/O port */
+            uint32_t res_io;
+        };
 
-	Result Attach() override;
-	Result Detach() override;
+    } // namespace uhci
 
-	uhci::HCD_TD* AllocateTD();
-	uhci::HCD_QH* AllocateQH();
-	void FreeQH(uhci::HCD_QH* qh);
+    class UHCI_HCD : public Device,
+                     private IDeviceOperations,
+                     private IUSBDeviceOperations,
+                     private irq::IHandler
+    {
+      public:
+        using Device::Device;
+        virtual ~UHCI_HCD() = default;
 
-protected:
-	Result SetupTransfer(Transfer& xfer) override;
-	Result TearDownTransfer(Transfer& xfer) override;
-	Result CancelTransfer(Transfer& xfer) override;
-	Result ScheduleTransfer(Transfer& xfer) override;
-	void SetRootHub(usb::USBDevice& dev) override;
+        IDeviceOperations& GetDeviceOperations() override { return *this; }
 
-	Result ScheduleControlTransfer(Transfer& xfer);
-	Result ScheduleInterruptTransfer(Transfer& xfer);
+        IUSBDeviceOperations* GetUSBDeviceOperations() override { return this; }
 
-	void Dump();
-	irq::IRQResult OnIRQ() override;
+        Result Attach() override;
+        Result Detach() override;
 
-private:
-	dma::Buffer* uhci_framelist_buf = nullptr;
-	uint32_t* uhci_framelist;
+        uhci::HCD_TD* AllocateTD();
+        uhci::HCD_QH* AllocateQH();
+        void FreeQH(uhci::HCD_QH* qh);
 
-	uhci::HCD_Resources uhci_Resources;
-	uhci::RootHub* uhci_RootHub = nullptr;
+      protected:
+        Result SetupTransfer(Transfer& xfer) override;
+        Result TearDownTransfer(Transfer& xfer) override;
+        Result CancelTransfer(Transfer& xfer) override;
+        Result ScheduleTransfer(Transfer& xfer) override;
+        void SetRootHub(usb::USBDevice& dev) override;
 
-	/* Start of frame value */
-	uint32_t uhci_sof_modify;
-	/* Interrupt/control/bulk QH's */
-	struct uhci::HCD_QH* uhci_qh_interrupt[UHCI_NUM_INTERRUPT_QH];
-	struct uhci::HCD_QH* uhci_qh_ls_control;
-	struct uhci::HCD_QH* uhci_qh_fs_control;
-	struct uhci::HCD_QH* uhci_qh_bulk;
-	/* Currently scheduled items */
-	uhci::HCD_ScheduledItemList uhci_scheduled_items;
-};
+        Result ScheduleControlTransfer(Transfer& xfer);
+        Result ScheduleInterruptTransfer(Transfer& xfer);
+
+        void Dump();
+        irq::IRQResult OnIRQ() override;
+
+      private:
+        dma::Buffer* uhci_framelist_buf = nullptr;
+        uint32_t* uhci_framelist;
+
+        uhci::HCD_Resources uhci_Resources;
+        uhci::RootHub* uhci_RootHub = nullptr;
+
+        /* Start of frame value */
+        uint32_t uhci_sof_modify;
+        /* Interrupt/control/bulk QH's */
+        struct uhci::HCD_QH* uhci_qh_interrupt[UHCI_NUM_INTERRUPT_QH];
+        struct uhci::HCD_QH* uhci_qh_ls_control;
+        struct uhci::HCD_QH* uhci_qh_fs_control;
+        struct uhci::HCD_QH* uhci_qh_bulk;
+        /* Currently scheduled items */
+        uhci::HCD_ScheduledItemList uhci_scheduled_items;
+    };
 
 } // namespace usb
 

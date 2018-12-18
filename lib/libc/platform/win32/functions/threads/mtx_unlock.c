@@ -2,17 +2,17 @@
 #include <threads.h>
 #include <windows.h>
 
-extern void _PDCLIB_w32errno( void );
-int mtx_unlock(mtx_t *mtx)
+extern void _PDCLIB_w32errno(void);
+int mtx_unlock(mtx_t* mtx)
 {
-    if(mtx->_NestCount) {
+    if (mtx->_NestCount) {
         mtx->_NestCount--;
         return thrd_success;
     }
 
     mtx->_ThreadId = 0;
     DWORD rv = SetEvent(mtx->_WaitEvHandle);
-    if(rv == 0) {
+    if (rv == 0) {
         _PDCLIB_w32errno();
         return thrd_error;
     }
@@ -23,9 +23,6 @@ int mtx_unlock(mtx_t *mtx)
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif

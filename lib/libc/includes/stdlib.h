@@ -39,10 +39,11 @@ typedef _PDCLIB_wchar_t wchar_t;
 
 /* TODO: atof(), strtof(), strtod(), strtold() */
 
-double atof( const char * nptr ) _PDCLIB_nothrow;
-double strtod( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restrict endptr ) _PDCLIB_nothrow;
-float strtof( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restrict endptr ) _PDCLIB_nothrow;
-long double strtold( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restrict endptr ) _PDCLIB_nothrow;
+double atof(const char* nptr) _PDCLIB_nothrow;
+double strtod(const char* _PDCLIB_restrict nptr, char** _PDCLIB_restrict endptr) _PDCLIB_nothrow;
+float strtof(const char* _PDCLIB_restrict nptr, char** _PDCLIB_restrict endptr) _PDCLIB_nothrow;
+long double
+strtold(const char* _PDCLIB_restrict nptr, char** _PDCLIB_restrict endptr) _PDCLIB_nothrow;
 
 /* Seperate the character array nptr into three parts: A (possibly empty)
    sequence of whitespace characters, a character representation of an integer
@@ -66,10 +67,14 @@ long double strtold( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restri
 /* There is strtoimax() and strtoumax() in <inttypes.h> operating on intmax_t /
    uintmax_t, if the long long versions do not suit your needs.
 */
-long int strtol( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restrict endptr, int base ) _PDCLIB_nothrow;
-long long int strtoll( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restrict endptr, int base ) _PDCLIB_nothrow;
-unsigned long int strtoul( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restrict endptr, int base ) _PDCLIB_nothrow;
-unsigned long long int strtoull( const char * _PDCLIB_restrict nptr, char * * _PDCLIB_restrict endptr, int base ) _PDCLIB_nothrow;
+long int
+strtol(const char* _PDCLIB_restrict nptr, char** _PDCLIB_restrict endptr, int base) _PDCLIB_nothrow;
+long long int strtoll(const char* _PDCLIB_restrict nptr, char** _PDCLIB_restrict endptr, int base)
+    _PDCLIB_nothrow;
+unsigned long int strtoul(
+    const char* _PDCLIB_restrict nptr, char** _PDCLIB_restrict endptr, int base) _PDCLIB_nothrow;
+unsigned long long int strtoull(
+    const char* _PDCLIB_restrict nptr, char** _PDCLIB_restrict endptr, int base) _PDCLIB_nothrow;
 
 /* These functions are the equivalent of (int)strtol( nptr, NULL, 10 ),
    strtol( nptr, NULL, 10 ) and strtoll(nptr, NULL, 10 ) respectively, with the
@@ -79,9 +84,9 @@ unsigned long long int strtoull( const char * _PDCLIB_restrict nptr, char * * _P
    provides a simpler atox() function that saves a couple of tests and simply
    continues with the conversion in case of overflow.)
 */
-int atoi( const char * nptr ) _PDCLIB_nothrow;
-long int atol( const char * nptr ) _PDCLIB_nothrow;
-long long int atoll( const char * nptr ) _PDCLIB_nothrow;
+int atoi(const char* nptr) _PDCLIB_nothrow;
+long int atol(const char* nptr) _PDCLIB_nothrow;
+long long int atoll(const char* nptr) _PDCLIB_nothrow;
 
 /* Pseudo-random sequence generation functions */
 
@@ -94,12 +99,12 @@ extern unsigned long int _PDCLIB_seed;
    (PDCLib uses the implementation suggested by the standard document, which is
    next = next * 1103515245 + 12345; return (unsigned int)(next/65536) % 32768;)
 */
-int rand( void ) _PDCLIB_nothrow;
+int rand(void) _PDCLIB_nothrow;
 
 /* Initialize a new pseudo-random sequence with the starting seed. Same seeds
    result in the same pseudo-random sequence. The default seed is 1.
 */
-void srand( unsigned int seed ) _PDCLIB_nothrow;
+void srand(unsigned int seed) _PDCLIB_nothrow;
 
 /* Memory management functions */
 
@@ -107,7 +112,7 @@ void srand( unsigned int seed ) _PDCLIB_nothrow;
    satisfied, return NULL. Otherwise, return a pointer to the allocated
    memory. Memory contents are undefined.
 */
-void * malloc( size_t size ) _PDCLIB_nothrow;
+void* malloc(size_t size) _PDCLIB_nothrow;
 
 /* dlmalloc declares this for us */
 int posix_memalign(void**, size_t, size_t) _PDCLIB_nothrow;
@@ -117,21 +122,21 @@ int posix_memalign(void**, size_t, size_t) _PDCLIB_nothrow;
    satisfied, return NULL. Otherwise, return a pointer to the allocated
    memory.
 */
-void * calloc( size_t nmemb, size_t size ) _PDCLIB_nothrow;
+void* calloc(size_t nmemb, size_t size) _PDCLIB_nothrow;
 
 /* Allocate a chunk of memory of given size, with specified alignment (which
    must be a power of two; if it is not, the next greater power of two is
    used). If request could not be satisfied, return NULL. Otherwise, return
    a pointer to the allocated memory.
 */
-void * aligned_alloc( size_t alignment, size_t size ) _PDCLIB_nothrow;
+void* aligned_alloc(size_t alignment, size_t size) _PDCLIB_nothrow;
 
 /* De-allocate a chunk of heap memory previously allocated using malloc(),
    calloc(), or realloc(), and pointed to by ptr. If ptr does not match a
    pointer previously returned by the mentioned allocation functions, or
    free() has already been called for this ptr, behaviour is undefined.
 */
-void free( void * ptr ) _PDCLIB_nothrow;
+void free(void* ptr) _PDCLIB_nothrow;
 
 /* Resize a chunk of memory previously allocated with malloc() and pointed to
    by ptr to the given size (which might be larger or smaller than the original
@@ -142,7 +147,7 @@ void free( void * ptr ) _PDCLIB_nothrow;
    memory beyond the original size is undefined. If ptr is NULL, realloc()
    behaves like malloc().
 */
-void * realloc( void * ptr, size_t size ) _PDCLIB_nothrow;
+void* realloc(void* ptr, size_t size) _PDCLIB_nothrow;
 
 /* Communication with the environment */
 
@@ -162,21 +167,21 @@ void * realloc( void * ptr, size_t size ) _PDCLIB_nothrow;
    temporary files before exiting with EXIT_FAILURE.
    abort() does not return.
 */
-_PDCLIB_noreturn void abort( void ) _PDCLIB_nothrow;
+_PDCLIB_noreturn void abort(void) _PDCLIB_nothrow;
 
 /* Register a function that will be called on exit(), or when main() returns.
    At least 32 functions can be registered this way, and will be called in
    reverse order of registration (last-in, first-out).
    Returns zero if registration is successfull, nonzero if it failed.
 */
-int atexit( void (*func)( void ) ) _PDCLIB_nothrow;
+int atexit(void (*func)(void)) _PDCLIB_nothrow;
 
 /* Register a function that will be called on quick_exit(), or when main() returns.
    At least 32 functions can be registered this way, and will be called in
    reverse order of registration (last-in, first-out).
    Returns zero if registration is successfull, nonzero if it failed.
 */
-int at_quick_exit( void (*func)( void ) ) _PDCLIB_nothrow;
+int at_quick_exit(void (*func)(void)) _PDCLIB_nothrow;
 
 /* Normal process termination. Functions registered by atexit() (see above) are
    called, streams flushed, files closed and temporary files removed before the
@@ -184,7 +189,7 @@ int at_quick_exit( void (*func)( void ) ) _PDCLIB_nothrow;
    and EXIT_FAILURE above.)
    exit() does not return.
 */
-_PDCLIB_noreturn void exit( int status ) _PDCLIB_nothrow;
+_PDCLIB_noreturn void exit(int status) _PDCLIB_nothrow;
 
 /* Normal process termination. Functions registered by atexit() (see above) are
    NOT CALLED. This implementation DOES flush streams, close files and removes
@@ -192,14 +197,14 @@ _PDCLIB_noreturn void exit( int status ) _PDCLIB_nothrow;
    comment for EXIT_SUCCESS and EXIT_FAILURE above.)
    _Exit() does not return.
 */
-_PDCLIB_noreturn void _Exit( int status ) _PDCLIB_nothrow;
+_PDCLIB_noreturn void _Exit(int status) _PDCLIB_nothrow;
 
 /* Quick process termination. Functions registered by at_quick_exit() (see
    above) are called, and the process terminated. No functions registered
    with atexit() (see above) or signal handlers are called.
    quick_exit() does not return.
 */
-_PDCLIB_noreturn void quick_exit( int status );
+_PDCLIB_noreturn void quick_exit(int status);
 
 /* Search an environment-provided key-value map for the given key name, and
    return a pointer to the associated value string (or NULL if key name cannot
@@ -208,14 +213,14 @@ _PDCLIB_noreturn void quick_exit( int status );
    Details on the provided keys and how to set / change them are determined by
    the hosting OS and its glue function.
 */
-char * getenv( const char * name ) _PDCLIB_nothrow;
+char* getenv(const char* name) _PDCLIB_nothrow;
 
 /* If string is a NULL pointer, system() returns nonzero if a command processor
    is available, and zero otherwise. If string is not a NULL pointer, it is
    passed to the command processor. If system() returns, it does so with a
    value that is determined by the hosting OS and its glue function.
 */
-int system( const char * string ) _PDCLIB_nothrow;
+int system(const char* string) _PDCLIB_nothrow;
 
 /* Searching and sorting */
 
@@ -231,7 +236,9 @@ int system( const char * string ) _PDCLIB_nothrow;
 
    ** May throw **
 */
-void * bsearch( const void * key, const void * base, size_t nmemb, size_t size, int (*compar)( const void *, const void * ) );
+void* bsearch(
+    const void* key, const void* base, size_t nmemb, size_t size,
+    int (*compar)(const void*, const void*));
 
 /* Do a quicksort on an array with a given base pointer, which consists of
    nmemb elements that are of the given size each. To compare two elements from
@@ -243,7 +250,7 @@ void * bsearch( const void * key, const void * base, size_t nmemb, size_t size, 
 
    ** May throw **
 */
-void qsort( void * base, size_t nmemb, size_t size, int (*compar)( const void *, const void * ) );
+void qsort(void* base, size_t nmemb, size_t size, int (*compar)(const void*, const void*));
 
 /* Integer arithmetic functions */
 
@@ -251,25 +258,25 @@ void qsort( void * base, size_t nmemb, size_t size, int (*compar)( const void *,
    complement's notation (most modern CPUs), the largest negative value cannot
    be represented as positive value. In this case, behaviour is unspecified.
 */
-int abs( int j ) _PDCLIB_nothrow;
-long int labs( long int j ) _PDCLIB_nothrow;
-long long int llabs( long long int j ) _PDCLIB_nothrow;
+int abs(int j) _PDCLIB_nothrow;
+long int labs(long int j) _PDCLIB_nothrow;
+long long int llabs(long long int j) _PDCLIB_nothrow;
 
 /* These structures each have a member quot and a member rem, of type int (for
    div_t), long int (for ldiv_t) and long long it (for lldiv_t) respectively.
    The order of the members is platform-defined to allow the div() functions
    below to be implemented efficiently.
 */
-typedef struct _PDCLIB_div_t     div_t;
-typedef struct _PDCLIB_ldiv_t   ldiv_t;
+typedef struct _PDCLIB_div_t div_t;
+typedef struct _PDCLIB_ldiv_t ldiv_t;
 typedef struct _PDCLIB_lldiv_t lldiv_t;
 
 /* Return quotient (quot) and remainder (rem) of an integer division in one of
    the structs above.
 */
-div_t div( int numer, int denom ) _PDCLIB_nothrow;
-ldiv_t ldiv( long int numer, long int denom ) _PDCLIB_nothrow;
-lldiv_t lldiv( long long int numer, long long int denom ) _PDCLIB_nothrow;
+div_t div(int numer, int denom) _PDCLIB_nothrow;
+ldiv_t ldiv(long int numer, long int denom) _PDCLIB_nothrow;
+lldiv_t lldiv(long long int numer, long long int denom) _PDCLIB_nothrow;
 
 /* Multibyte / wide character conversion functions */
 
@@ -287,7 +294,7 @@ lldiv_t lldiv( long long int numer, long long int denom ) _PDCLIB_nothrow;
    If s is a null pointer, returns nonzero if multibyte encodings in the
    current locale are stateful, and zero otherwise.
 */
-int mblen( const char * s, size_t n );
+int mblen(const char* s, size_t n);
 
 /* If s is not a null pointer, and the next n bytes (maximum) form a valid
    multibyte character sequence (possibly including shift sequences), the
@@ -301,7 +308,7 @@ int mblen( const char * s, size_t n );
    If s is a null pointer, returns nonzero if multibyte encodings in the
    current locale are stateful, and zero otherwise.
 */
-int mbtowc( wchar_t * _PDCLIB_restrict pwc, const char * _PDCLIB_restrict s, size_t n );
+int mbtowc(wchar_t* _PDCLIB_restrict pwc, const char* _PDCLIB_restrict s, size_t n);
 
 /* Converts the wide character wc into the corresponding multibyte character
    sequence (including shift sequences). If s is not a null pointer, the
@@ -315,7 +322,7 @@ int mbtowc( wchar_t * _PDCLIB_restrict pwc, const char * _PDCLIB_restrict s, siz
    If s is a null pointer, returns nonzero if multibyte encodings in the
    current locale are stateful, and zero otherwise.
 */
-int wctomb( char * s, wchar_t wc );
+int wctomb(char* s, wchar_t wc);
 
 /* Convert a sequence of multibyte characters beginning in the initial shift
    state from the array pointed to by s into the corresponding wide character
@@ -329,7 +336,7 @@ int wctomb( char * s, wchar_t wc );
    a terminating null wide character, if any. (Target string will not be
    null terminated if the return value equals n.)
 */
-size_t mbstowcs( wchar_t * _PDCLIB_restrict pwcs, const char * _PDCLIB_restrict s, size_t n );
+size_t mbstowcs(wchar_t* _PDCLIB_restrict pwcs, const char* _PDCLIB_restrict s, size_t n);
 
 /* Convert a sequence of wide characters from the array pointed to by pwcs
    into a sequence of corresponding multibyte characters, beginning in the
@@ -344,7 +351,7 @@ size_t mbstowcs( wchar_t * _PDCLIB_restrict pwcs, const char * _PDCLIB_restrict 
    if any. (Target string will not be null terminated if the return value
    equals n.)
 */
-size_t wcstombs( char * _PDCLIB_restrict s, const wchar_t * _PDCLIB_restrict pwcs, size_t n );
+size_t wcstombs(char* _PDCLIB_restrict s, const wchar_t* _PDCLIB_restrict pwcs, size_t n);
 
 #ifdef __cplusplus
 }

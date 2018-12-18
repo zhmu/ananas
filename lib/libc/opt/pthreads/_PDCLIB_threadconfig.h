@@ -13,7 +13,10 @@
 #define _PDCLIB_TSS_T __darwin_pthread_key_t
 
 typedef __darwin_pthread_once_t _PDCLIB_once_flag;
-#define _PDCLIB_ONCE_FLAG_INIT {_PTHREAD_ONCE_SIG_init, {0}}
+#define _PDCLIB_ONCE_FLAG_INIT        \
+    {                                 \
+        _PTHREAD_ONCE_SIG_init, { 0 } \
+    }
 
 #else
 /* Just include pthread.h */

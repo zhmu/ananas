@@ -26,5 +26,4 @@ void vfs_set_inode_dirty(INode& inode);
 /* Internal interface only */
 void vfs_dump_inode(INode& inode);
 
-
 #endif /* __ANANAS_ICACHE_H__ */

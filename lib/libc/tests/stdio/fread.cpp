@@ -3,11 +3,11 @@
 
 TEST(stdio, fread)
 {
-    char const * message = "Testing fwrite()...\n";
+    char const* message = "Testing fwrite()...\n";
     char buffer[21];
     buffer[20] = 'x';
 
-    FILE * fh = tmpfile();
+    FILE* fh = tmpfile();
     ASSERT_NE(nullptr, fh);
     /* fwrite() / readback */
     EXPECT_EQ(20, fwrite(message, 1, 20, fh));

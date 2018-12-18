@@ -5,6 +5,6 @@
 
 ssize_t read(int fd, void* buf, size_t len)
 {
-	statuscode_t status = sys_read(fd, buf, len);
-	return map_statuscode(status);
+    statuscode_t status = sys_read(fd, buf, len);
+    return map_statuscode(status);
 }

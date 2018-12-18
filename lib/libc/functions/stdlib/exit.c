@@ -8,8 +8,8 @@
 
 extern void __cxa_finalize(void*);
 
-void exit( int status )
+void exit(int status)
 {
     __cxa_finalize(NULL);
-    _Exit( status );
+    _Exit(status);
 }

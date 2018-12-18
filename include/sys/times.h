@@ -4,13 +4,11 @@
 #include <ananas/types.h>
 #include <sys/cdefs.h>
 
-
-
 struct tms {
-	clock_t tms_utime;
-	clock_t tms_stime;
-	clock_t tms_cutime;
-	clock_t tms_cstime;
+    clock_t tms_utime;
+    clock_t tms_stime;
+    clock_t tms_cutime;
+    clock_t tms_cstime;
 };
 
 __BEGIN_DECLS

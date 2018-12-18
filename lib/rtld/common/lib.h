@@ -6,11 +6,13 @@
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 
-#define assert(x) \
-	(!(x) ? panic("RTLD ASSERTION FAILED: "#x) : (void)0)
+#define assert(x) (!(x) ? panic("RTLD ASSERTION FAILED: " #x) : (void)0)
 
-#define die(x...) \
-	do { printf(x); exit(-1); } while(0)
+#define die(x...)  \
+    do {           \
+        printf(x); \
+        exit(-1);  \
+    } while (0)
 
 ssize_t write(int fd, const void* buf, size_t count);
 void panic(const char* msg);

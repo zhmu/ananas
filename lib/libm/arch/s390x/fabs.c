@@ -4,8 +4,8 @@
 
 double fabs(double x)
 {
-	__asm__ ("lpdbr %0, %1" : "=f"(x) : "f"(x));
-	return x;
+    __asm__("lpdbr %0, %1" : "=f"(x) : "f"(x));
+    return x;
 }
 
 #else

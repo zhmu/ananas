@@ -13,12 +13,12 @@
 
 int fileno(FILE* stream)
 {
-	if (stream == NULL) {
-		errno = EBADF;
-		return -1;
-	}
+    if (stream == NULL) {
+        errno = EBADF;
+        return -1;
+    }
 
-	return stream->handle.sval;
+    return stream->handle.sval;
 }
 
 #endif

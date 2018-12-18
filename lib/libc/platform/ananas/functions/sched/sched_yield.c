@@ -1,9 +1,8 @@
 #include <sched.h>
 #include <errno.h>
 
-int
-sched_yield()
+int sched_yield()
 {
-	// No errors are defined, so just act as if we did anything
-	return 0;
+    // No errors are defined, so just act as if we did anything
+    return 0;
 }

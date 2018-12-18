@@ -7,7 +7,4 @@
 #include <wctype.h>
 #include "_PDCLIB_locale.h"
 
-int iswprint( wint_t wc )
-{
-    return iswctype( wc, _PDCLIB_CTYPE_GRAPH | _PDCLIB_CTYPE_SPACE );
-}
+int iswprint(wint_t wc) { return iswctype(wc, _PDCLIB_CTYPE_GRAPH | _PDCLIB_CTYPE_SPACE); }

@@ -9,19 +9,15 @@
 #include "_PDCLIB_locale.h"
 
 /* TODO: Doing this via a static array is not the way to do it. */
-void perror( const char * s )
+void perror(const char* s)
 {
-    if ( ( s != NULL ) && ( s[0] != '\n' ) )
-    {
-        fprintf( stderr, "%s: ", s );
+    if ((s != NULL) && (s[0] != '\n')) {
+        fprintf(stderr, "%s: ", s);
     }
-    if ( errno >= _PDCLIB_ERRNO_MAX )
-    {
-        fprintf( stderr, "Unknown error\n" );
-    }
-    else
-    {
-        fprintf( stderr, "%s\n", _PDCLIB_threadlocale()->_ErrnoStr[errno] );
+    if (errno >= _PDCLIB_ERRNO_MAX) {
+        fprintf(stderr, "Unknown error\n");
+    } else {
+        fprintf(stderr, "%s\n", _PDCLIB_threadlocale()->_ErrnoStr[errno]);
     }
     return;
 }

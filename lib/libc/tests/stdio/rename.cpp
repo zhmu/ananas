@@ -3,8 +3,8 @@
 
 #define BUFFERSIZE 500
 
-static char const testfile1[]="testing/testfile1";
-static char const testfile2[]="testing/testfile2";
+static char const testfile1[] = "testing/testfile1";
+static char const testfile2[] = "testing/testfile2";
 
 TEST(stdio, rename)
 {

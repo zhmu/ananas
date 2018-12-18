@@ -4,8 +4,8 @@
 
 double ceil(double x)
 {
-	__asm__ ("frip %0, %1" : "=d"(x) : "d"(x));
-	return x;
+    __asm__("frip %0, %1" : "=d"(x) : "d"(x));
+    return x;
 }
 
 #else

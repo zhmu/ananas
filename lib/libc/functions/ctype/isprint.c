@@ -7,7 +7,7 @@
 #include <ctype.h>
 #include "_PDCLIB_locale.h"
 
-int isprint( int c )
+int isprint(int c)
 {
-    return ( _PDCLIB_threadlocale()->_CType[c].flags & _PDCLIB_CTYPE_GRAPH ) || ( c == ' ' );
+    return (_PDCLIB_threadlocale()->_CType[c].flags & _PDCLIB_CTYPE_GRAPH) || (c == ' ');
 }

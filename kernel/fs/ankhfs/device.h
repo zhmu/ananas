@@ -3,16 +3,18 @@
 
 #include <ananas/types.h>
 
-namespace ankhfs {
-namespace devices {
-constexpr int subRoot = 0;
-constexpr int subDevices = 1;
-constexpr int subDrivers = 2;
-} // namespace devices
+namespace ankhfs
+{
+    namespace devices
+    {
+        constexpr int subRoot = 0;
+        constexpr int subDevices = 1;
+        constexpr int subDrivers = 2;
+    } // namespace devices
 
-class IAnkhSubSystem;
+    class IAnkhSubSystem;
 
-IAnkhSubSystem& GetDeviceSubSystem();
+    IAnkhSubSystem& GetDeviceSubSystem();
 
 } // namespace ankhfs
 

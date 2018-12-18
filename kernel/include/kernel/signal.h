@@ -8,146 +8,111 @@
 
 namespace process
 {
-class ProcessGroup;
+    class ProcessGroup;
 }
 
 namespace signal
 {
+    namespace detail
+    {
+        inline constexpr bool IsSigalNumberValid(int signo)
+        {
+            return signo >= 1 && signo < _SIGLAST;
+        }
 
-namespace detail
-{
+        inline constexpr unsigned int GetSignalNumberMask(int signo) { return 1 << (signo - 1); }
 
-inline constexpr bool IsSigalNumberValid(int signo)
-{
-	return signo >= 1 && signo < _SIGLAST;
-}
+    } // namespace detail
 
-inline constexpr unsigned int GetSignalNumberMask(int signo)
-{
-	return 1 << (signo - 1);
-}
+    // Encapsulates sigset_t - must be in sync with libc's sigset.c
+    class Set
+    {
+      public:
+        Set() { set.sig[0] = 0; }
 
-} // namespace detail
+        Set(const sigset_t& ss) : set(ss) {}
 
-// Encapsulates sigset_t - must be in sync with libc's sigset.c
-class Set
-{
-public:
-	Set()
-	{
-		set.sig[0] = 0;
-	}
+        bool Contains(int signo) const
+        {
+            return (set.sig[0] & detail::GetSignalNumberMask(signo)) != 0;
+        }
 
-	Set(const sigset_t& ss)
-		: set(ss)
-	{
-	}
+        void Add(int signo) { set.sig[0] |= detail::GetSignalNumberMask(signo); }
 
-	bool Contains(int signo) const
-	{
-		return (set.sig[0] & detail::GetSignalNumberMask(signo)) != 0;
-	}
+        void Add(const Set& s) { set.sig[0] |= s.set.sig[0]; }
 
-	void Add(int signo)
-	{
-		set.sig[0] |= detail::GetSignalNumberMask(signo);
-	}
+        void Remove(int signo) { set.sig[0] &= ~detail::GetSignalNumberMask(signo); }
 
-	void Add(const Set& s)
-	{
-		set.sig[0] |= s.set.sig[0];
-	}
+        void Remove(const Set& s) { set.sig[0] &= ~s.set.sig[0]; }
 
-	void Remove(int signo)
-	{
-		set.sig[0] &= ~detail::GetSignalNumberMask(signo);
-	}
+        bool IsEmpty() const { return set.sig[0] == 0; }
 
-	void Remove(const Set& s)
-	{
-		set.sig[0] &= ~s.set.sig[0];
-	}
+        const sigset_t& AsSigset() const { return set; }
 
-	bool IsEmpty() const
-	{
-		return set.sig[0] == 0;
-	}
+      private:
+        sigset_t set;
+    };
 
-	const sigset_t& AsSigset() const
-	{
-		return set;
-	}
+    // Encapsulates sigaction
+    class Action
+    {
+      public:
+        Action() = default;
+        Action(const sigaction& sa) : sa_mask(sa.sa_mask), sa_flags(sa.sa_flags)
+        {
+            if (sa.sa_flags & SA_SIGINFO)
+                sa_handler = reinterpret_cast<Handler>(sa.sa_sigaction);
+            else
+                sa_handler = reinterpret_cast<Handler>(sa.sa_handler);
+        }
 
-private:
-	sigset_t set;
-};
+        bool IsIgnored() const { return sa_handler == SIG_IGN; }
 
-// Encapsulates sigaction
-class Action
-{
-public:
-	Action() = default;
-	Action(const sigaction& sa)
-		: sa_mask(sa.sa_mask),
-		  sa_flags(sa.sa_flags)
-	{
-		if (sa.sa_flags & SA_SIGINFO)
-			sa_handler = reinterpret_cast<Handler>(sa.sa_sigaction);
-		else
-			sa_handler = reinterpret_cast<Handler>(sa.sa_handler);
-	}
+        sigaction AsSigaction() const
+        {
+            sigaction sa{};
+            sa.sa_mask = sa_mask.AsSigset();
+            sa.sa_flags = sa_flags;
+            if (sa_flags & SA_SIGINFO)
+                sa.sa_sigaction = reinterpret_cast<void (*)(int, siginfo_t*, void*)>(sa_handler);
+            else
+                sa.sa_handler = sa_handler;
+            return sa;
+        }
 
-	bool IsIgnored() const
-	{
-		return sa_handler == SIG_IGN;
-	}
+        using Handler = void (*)(int);
+        Handler sa_handler = nullptr;
+        Set sa_mask;
+        int sa_flags = 0;
+    };
 
-	sigaction AsSigaction() const
-	{
-		sigaction sa{};
-		sa.sa_mask = sa_mask.AsSigset();
-		sa.sa_flags = sa_flags;
-		if (sa_flags & SA_SIGINFO)
-			sa.sa_sigaction = reinterpret_cast<void(*)(int, siginfo_t*, void*)>(sa_handler);
-		else
-			sa.sa_handler = sa_handler;
-		return sa;
-	}
+    class PendingSignal;
 
-	using Handler = void(*)(int);
-	Handler sa_handler = nullptr;
-	Set sa_mask;
-	int sa_flags = 0;
-};
+    struct ThreadSpecificData {
+        Spinlock tsd_lock;
 
-class PendingSignal;
+        /* Pending signals (waiting to be delivered) */
+        util::List<PendingSignal> tsd_pending;
 
-struct ThreadSpecificData
-{
-	Spinlock		tsd_lock;
+        /* Masked signals */
+        Set tsd_mask;
 
-	/* Pending signals (waiting to be delivered) */
-	util::List<PendingSignal>	tsd_pending;
+        /* Signal handlers */
+        Action tsd_action[_SIGLAST];
 
-	/* Masked signals */
-	Set	tsd_mask;
+        Action* GetSignalAction(int sig)
+        {
+            if (!detail::IsSigalNumberValid(sig))
+                return nullptr;
+            return &tsd_action[sig - 1];
+        }
+    };
 
-	/* Signal handlers */
-	Action	tsd_action[_SIGLAST];
-
-	Action* GetSignalAction(int sig)
-	{
-		if (!detail::IsSigalNumberValid(sig))
-			return nullptr;
-		return &tsd_action[sig - 1];
-	}
-};
-
-Result QueueSignal(Thread& t, int signo);
-Result QueueSignal(Thread& t, const siginfo_t& siginfo);
-Result QueueSignal(process::ProcessGroup& pg, const siginfo_t& si);
-Action* DequeueSignal(Thread& t, siginfo_t& si);
-void HandleDefaultSignalAction(const siginfo_t& si);
+    Result QueueSignal(Thread& t, int signo);
+    Result QueueSignal(Thread& t, const siginfo_t& siginfo);
+    Result QueueSignal(process::ProcessGroup& pg, const siginfo_t& si);
+    Action* DequeueSignal(Thread& t, siginfo_t& si);
+    void HandleDefaultSignalAction(const siginfo_t& si);
 
 } // namespace signal
 

@@ -9,14 +9,13 @@
 #include "_PDCLIB_io.h"
 
 // Testing covered by ftell.cpp
-int _PDCLIB_fillbuffer( FILE * stream )
+int _PDCLIB_fillbuffer(FILE* stream)
 {
     size_t bytesRead;
-    bool ok = stream->ops->read( stream->handle, stream->buffer, stream->bufsize,
-                        &bytesRead);
+    bool ok = stream->ops->read(stream->handle, stream->buffer, stream->bufsize, &bytesRead);
 
-    if( ok ) {
-        if( bytesRead == 0 ) {
+    if (ok) {
+        if (bytesRead == 0) {
             stream->status |= _PDCLIB_EOFFLAG;
             return EOF;
         }

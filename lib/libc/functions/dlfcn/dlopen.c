@@ -3,7 +3,4 @@
 
 #pragma weak dlopen
 
-void* dlopen(const char* file, int mode)
-{
-	return NULL;
-}
+void* dlopen(const char* file, int mode) { return NULL; }

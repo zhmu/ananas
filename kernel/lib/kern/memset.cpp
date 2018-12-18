@@ -9,42 +9,41 @@
  */
 #undef NAIVE_IMPLEMENTATION
 
-void*
-memset(void* b, int c, size_t len)
+void* memset(void* b, int c, size_t len)
 {
 #ifdef NAIVE_IMPLEMENTATION
-	char* ptr = (char*)b;
-	while (len--) {
-		*ptr++ = c;
-	}
+    char* ptr = (char*)b;
+    while (len--) {
+        *ptr++ = c;
+    }
 #else
-	void* d = b;
+    void* d = b;
 
-	/* Sets sz bytes of variable type T-sized data */
-#define DO_SET(T, sz, v) \
-		do { \
-			size_t x = (size_t)sz; \
-			while (x >= sizeof(T)) { \
-				*(T*)d = (T)v; \
-				x -= sizeof(T); \
-				d = static_cast<void*>(static_cast<char*>(d) + sizeof(T)); \
-				len -= sizeof(T);  \
-			} \
-		} while(0)
+    /* Sets sz bytes of variable type T-sized data */
+#define DO_SET(T, sz, v)                                               \
+    do {                                                               \
+        size_t x = (size_t)sz;                                         \
+        while (x >= sizeof(T)) {                                       \
+            *(T*)d = (T)v;                                             \
+            x -= sizeof(T);                                            \
+            d = static_cast<void*>(static_cast<char*>(d) + sizeof(T)); \
+            len -= sizeof(T);                                          \
+        }                                                              \
+    } while (0)
 
-	/* First of all, attempt to align to 32-bit boundary */
-	if (len >= 4 && ((addr_t)b & 3))
-		DO_SET(uint8_t, len & 3, c);
+    /* First of all, attempt to align to 32-bit boundary */
+    if (len >= 4 && ((addr_t)b & 3))
+        DO_SET(uint8_t, len & 3, c);
 
-	/* Attempt to set everything using 4 bytes at a time */
-	DO_SET(uint32_t, len, ((uint32_t)c << 24 | (uint32_t)c << 16 | (uint32_t)c << 8 | (uint32_t)c));
+    /* Attempt to set everything using 4 bytes at a time */
+    DO_SET(uint32_t, len, ((uint32_t)c << 24 | (uint32_t)c << 16 | (uint32_t)c << 8 | (uint32_t)c));
 
-	/* Handle the leftovers */
-	DO_SET(uint8_t, len, c);
+    /* Handle the leftovers */
+    DO_SET(uint8_t, len, c);
 
 #undef DO_SET
 #endif
-	return b;
+    return b;
 }
 
 /* vim:set ts=2 sw=2: */

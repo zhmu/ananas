@@ -8,22 +8,22 @@
 #include <stdio.h>
 #include "_PDCLIB_glue.h"
 
-void _Exit( int status )
+void _Exit(int status)
 {
     /* TODO: Flush and close open streams. Remove tmpfile() files. Make this
        called on process termination automatically.
     */
-    _PDCLIB_Exit( status );
+    _PDCLIB_Exit(status);
 }
 
 #ifdef TEST_TODO // TODO how to test on gtest?
 #include "_PDCLIB_test.h"
 
-int main( void )
+int main(void)
 {
     int UNEXPECTED_RETURN = 0;
-    _Exit( 0 );
-    TESTCASE( UNEXPECTED_RETURN );
+    _Exit(0);
+    TESTCASE(UNEXPECTED_RETURN);
     return TEST_RESULTS;
 }
 

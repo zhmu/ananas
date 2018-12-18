@@ -6,13 +6,10 @@
 
 #include <wchar.h>
 
-wchar_t *wcsncpy( wchar_t * _PDCLIB_restrict s1,
-                  const wchar_t * _PDCLIB_restrict s2,
-                  size_t n )
+wchar_t* wcsncpy(wchar_t* _PDCLIB_restrict s1, const wchar_t* _PDCLIB_restrict s2, size_t n)
 {
-    wchar_t * rc = s1;
-    while ( ( n > 0 ) && ( *s1++ = *s2++ ) )
-    {
+    wchar_t* rc = s1;
+    while ((n > 0) && (*s1++ = *s2++)) {
         /* Cannot do "n--" in the conditional as size_t is unsigned and we have
            to check it again for >0 in the next loop below, so we must not risk
            underflow.
@@ -20,8 +17,7 @@ wchar_t *wcsncpy( wchar_t * _PDCLIB_restrict s1,
         --n;
     }
     /* Checking against 1 as we missed the last --n in the loop above. */
-    while ( n-- > 1 )
-    {
+    while (n-- > 1) {
         *s1++ = '\0';
     }
     return rc;

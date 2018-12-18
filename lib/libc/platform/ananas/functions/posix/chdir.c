@@ -5,6 +5,6 @@
 
 int chdir(const char* path)
 {
-	statuscode_t status = sys_chdir(path);
-	return map_statuscode(status);
+    statuscode_t status = sys_chdir(path);
+    return map_statuscode(status);
 }

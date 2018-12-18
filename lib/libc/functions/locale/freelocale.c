@@ -8,9 +8,9 @@
 #include "_PDCLIB_locale.h"
 #include <assert.h>
 
-void freelocale( locale_t newloc )
+void freelocale(locale_t newloc)
 {
-    if( newloc != NULL ) {
-        assert( ! "Not implemented" );
+    if (newloc != NULL) {
+        assert(!"Not implemented");
     }
 }

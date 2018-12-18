@@ -11,7 +11,7 @@
 extern "C" {
 #endif
 
-void _PDCLIB_initclocale( locale_t l );
+void _PDCLIB_initclocale(locale_t l);
 
 #ifdef __cplusplus
 }

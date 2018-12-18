@@ -4,11 +4,11 @@
 
 long lroundf(float x)
 {
-	long n;
-	__asm__ (
-		"xsrdpi %1, %1\n"
-		"fctid %0, %1\n" : "=d"(n), "+f"(x));
-	return n;
+    long n;
+    __asm__("xsrdpi %1, %1\n"
+            "fctid %0, %1\n"
+            : "=d"(n), "+f"(x));
+    return n;
 }
 
 #else

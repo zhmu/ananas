@@ -5,10 +5,10 @@
 
 char* getcwd(char* buf, size_t size)
 {
-	statuscode_t status = sys_getcwd(buf, size);
-	if (ananas_statuscode_is_success(status))
-		return buf;
+    statuscode_t status = sys_getcwd(buf, size);
+    if (ananas_statuscode_is_success(status))
+        return buf;
 
-	map_statuscode(status);
-	return NULL;
+    map_statuscode(status);
+    return NULL;
 }

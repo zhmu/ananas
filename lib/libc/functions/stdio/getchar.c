@@ -8,17 +8,8 @@
 #include "_PDCLIB_io.h"
 
 // Testing covered by ftell.c
-int _PDCLIB_getchar_unlocked( void )
-{
-    return _PDCLIB_fgetc_unlocked( stdin );
-}
+int _PDCLIB_getchar_unlocked(void) { return _PDCLIB_fgetc_unlocked(stdin); }
 
-int getchar_unlocked( void )
-{
-	return _PDCLIB_getchar_unlocked( );
-}
+int getchar_unlocked(void) { return _PDCLIB_getchar_unlocked(); }
 
-int getchar( void )
-{
-    return fgetc( stdin );
-}
+int getchar(void) { return fgetc(stdin); }

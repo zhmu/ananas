@@ -7,7 +7,4 @@
 #include <wctype.h>
 #include "_PDCLIB_locale.h"
 
-int iswalnum( wint_t wc )
-{
-    return iswctype( wc, _PDCLIB_CTYPE_ALPHA | _PDCLIB_CTYPE_DIGIT );
-}
+int iswalnum(wint_t wc) { return iswctype(wc, _PDCLIB_CTYPE_ALPHA | _PDCLIB_CTYPE_DIGIT); }

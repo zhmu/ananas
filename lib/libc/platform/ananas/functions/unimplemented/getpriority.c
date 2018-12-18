@@ -3,6 +3,6 @@
 
 int getpriority(int which, id_t who)
 {
-	TODO;
-	return -1;
+    TODO;
+    return -1;
 }

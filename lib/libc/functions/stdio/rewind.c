@@ -7,19 +7,16 @@
 #include <stdio.h>
 #include "_PDCLIB_io.h"
 
-void _PDCLIB_rewind_unlocked( FILE * stream )
+void _PDCLIB_rewind_unlocked(FILE* stream)
 {
-    stream->status &= ~ _PDCLIB_ERRORFLAG;
-    _PDCLIB_fseeko_unlocked( stream, 0L, SEEK_SET );
+    stream->status &= ~_PDCLIB_ERRORFLAG;
+    _PDCLIB_fseeko_unlocked(stream, 0L, SEEK_SET);
 }
 
-void rewind_unlocked( FILE * stream )
-{
-    _PDCLIB_rewind_unlocked(stream);
-}
+void rewind_unlocked(FILE* stream) { _PDCLIB_rewind_unlocked(stream); }
 
 // Testing covered by ftell.cpp
-void rewind( FILE * stream )
+void rewind(FILE* stream)
 {
     _PDCLIB_flockfile(stream);
     _PDCLIB_rewind_unlocked(stream);

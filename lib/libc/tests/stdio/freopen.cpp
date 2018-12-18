@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 #include <stdio.h>
 
-static char const testfile1[]="testing/testfile1";
-static char const testfile2[]="testing/testfile2";
+static char const testfile1[] = "testing/testfile1";
+static char const testfile2[] = "testing/testfile2";
 
 TEST(stdio, freopen)
 {
@@ -11,7 +11,7 @@ TEST(stdio, freopen)
     int fd_stdout = dup(STDOUT_FILENO);
     ASSERT_GT(fd_stdout, -1);
 
-    FILE * fin = fopen(testfile1, "wb+");
+    FILE* fin = fopen(testfile1, "wb+");
     ASSERT_NE(nullptr, fin);
     EXPECT_EQ('x', fputc('x', fin));
     EXPECT_EQ(0, fclose(fin));
@@ -20,7 +20,7 @@ TEST(stdio, freopen)
     ASSERT_NE(nullptr, fin);
     EXPECT_EQ('x', getchar());
 
-    FILE* fout = freopen( testfile2, "wb+", stdout);
+    FILE* fout = freopen(testfile2, "wb+", stdout);
     ASSERT_NE(nullptr, fout);
     EXPECT_EQ('x', putchar('x'));
     rewind(fout);

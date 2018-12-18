@@ -14,7 +14,7 @@
 extern "C" {
 #endif
 
-extern int * _PDCLIB_errno_func( void );
+extern int* _PDCLIB_errno_func(void);
 #define errno (*_PDCLIB_errno_func())
 
 #ifdef __cplusplus

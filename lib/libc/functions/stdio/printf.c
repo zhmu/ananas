@@ -8,32 +8,32 @@
 #include <stdarg.h>
 #include "_PDCLIB_io.h"
 
-int printf( const char * _PDCLIB_restrict format, ... )
+int printf(const char* _PDCLIB_restrict format, ...)
 {
     int rc;
     va_list ap;
-    va_start( ap, format );
-    rc = vfprintf( stdout, format, ap );
-    va_end( ap );
+    va_start(ap, format);
+    rc = vfprintf(stdout, format, ap);
+    va_end(ap);
     return rc;
 }
 
-int _PDCLIB_printf_unlocked( const char * _PDCLIB_restrict format, ... )
+int _PDCLIB_printf_unlocked(const char* _PDCLIB_restrict format, ...)
 {
     int rc;
     va_list ap;
-    va_start( ap, format );
-    rc = _PDCLIB_vfprintf_unlocked( stdout, format, ap );
-    va_end( ap );
+    va_start(ap, format);
+    rc = _PDCLIB_vfprintf_unlocked(stdout, format, ap);
+    va_end(ap);
     return rc;
 }
 
-int printf_unlocked( const char * _PDCLIB_restrict format, ... )
+int printf_unlocked(const char* _PDCLIB_restrict format, ...)
 {
     int rc;
     va_list ap;
-    va_start( ap, format );
-    rc = _PDCLIB_vfprintf_unlocked( stdout, format, ap );
-    va_end( ap );
+    va_start(ap, format);
+    rc = _PDCLIB_vfprintf_unlocked(stdout, format, ap);
+    va_end(ap);
     return rc;
 }

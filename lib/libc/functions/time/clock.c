@@ -6,7 +6,7 @@
 
 #include <time.h>
 
-clock_t clock( void )
+clock_t clock(void)
 {
     /* TODO: Placeholder implementation (valid but useless) */
     return -1;

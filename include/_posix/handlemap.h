@@ -3,19 +3,19 @@
 
 #include <ananas/types.h>
 
-#define HANDLEMAP_SIZE	16
+#define HANDLEMAP_SIZE 16
 
 struct HANDLEMAP_ENTRY {
-#define HANDLEMAP_TYPE_ANY	-1	/* used for deref */
-#define HANDLEMAP_TYPE_UNUSED	0
-#define HANDLEMAP_TYPE_FD	1	/* file descriptor */
-#define HANDLEMAP_TYPE_PID	2	/* process id */
-#define HANDLEMAP_TYPE_PIPE	3	/* pipe */
-	int	hm_type;
-#define HANDLEMAP_FLAG_PIPE_OUT	1	/* pipe flag: output */
-#define HANDLEMAP_FLAG_PIPE_IN  2	/* pipe flag: input */
-	int	hm_flags;
-	void*	hm_handle;
+#define HANDLEMAP_TYPE_ANY -1 /* used for deref */
+#define HANDLEMAP_TYPE_UNUSED 0
+#define HANDLEMAP_TYPE_FD 1   /* file descriptor */
+#define HANDLEMAP_TYPE_PID 2  /* process id */
+#define HANDLEMAP_TYPE_PIPE 3 /* pipe */
+    int hm_type;
+#define HANDLEMAP_FLAG_PIPE_OUT 1 /* pipe flag: output */
+#define HANDLEMAP_FLAG_PIPE_IN 2  /* pipe flag: input */
+    int hm_flags;
+    void* hm_handle;
 };
 
 struct stat;
@@ -27,11 +27,11 @@ typedef off_t (*handlemap_seek_fn)(int idx, void* handle, off_t offset, int when
 typedef int (*handlemap_stat_fn)(int idx, void* handle, struct stat* buf);
 
 struct HANDLEMAP_OPS {
-	handlemap_read_fn hop_read;
-	handlemap_write_fn hop_write;
-	handlemap_close_fn hop_close;
-	handlemap_seek_fn hop_seek;
-	handlemap_stat_fn hop_stat;
+    handlemap_read_fn hop_read;
+    handlemap_write_fn hop_write;
+    handlemap_close_fn hop_close;
+    handlemap_seek_fn hop_seek;
+    handlemap_stat_fn hop_stat;
 };
 
 struct THREADINFO;

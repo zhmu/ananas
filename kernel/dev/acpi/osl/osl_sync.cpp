@@ -6,71 +6,63 @@
 ACPI_STATUS
 AcpiOsCreateSemaphore(UINT32 MaxUnits, UINT32 InitialUnits, ACPI_SEMAPHORE* OutHandle)
 {
-	auto sem = new Semaphore(MaxUnits);
-	if (sem == NULL)
-		return AE_NO_MEMORY;
+    auto sem = new Semaphore(MaxUnits);
+    if (sem == NULL)
+        return AE_NO_MEMORY;
 
-	while (InitialUnits > MaxUnits) {
-		sem->Wait();
-		InitialUnits--;
-	}
-	*OutHandle = sem;
-	return AE_OK;
+    while (InitialUnits > MaxUnits) {
+        sem->Wait();
+        InitialUnits--;
+    }
+    *OutHandle = sem;
+    return AE_OK;
 }
 
 ACPI_STATUS
 AcpiOsDeleteSemaphore(ACPI_SEMAPHORE Handle)
 {
-	if (Handle == NULL)
-		return AE_BAD_PARAMETER;
-	delete Handle;
-	return AE_OK;
+    if (Handle == NULL)
+        return AE_BAD_PARAMETER;
+    delete Handle;
+    return AE_OK;
 }
 
 ACPI_STATUS
 AcpiOsWaitSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units, UINT16 Timeout)
 {
-	KASSERT(Units == 1, "unsupported number of units");
-	/*KASSERT(Timeout == -1, "unsupported timout value");*/
-	if (Handle == NULL)
-		return AE_BAD_PARAMETER;
-	Handle->Wait();
-	return AE_OK;
+    KASSERT(Units == 1, "unsupported number of units");
+    /*KASSERT(Timeout == -1, "unsupported timout value");*/
+    if (Handle == NULL)
+        return AE_BAD_PARAMETER;
+    Handle->Wait();
+    return AE_OK;
 }
 
 ACPI_STATUS
 AcpiOsSignalSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units)
 {
-	KASSERT(Units == 1, "unsupported number of units");
-	if (Handle == NULL)
-		return AE_BAD_PARAMETER;
-	Handle->Signal();
-	return AE_OK;
+    KASSERT(Units == 1, "unsupported number of units");
+    if (Handle == NULL)
+        return AE_BAD_PARAMETER;
+    Handle->Signal();
+    return AE_OK;
 }
 
 ACPI_STATUS
 AcpiOsCreateLock(ACPI_SPINLOCK* OutHandle)
 {
-	*OutHandle = new Spinlock;
-	return *OutHandle != nullptr ? AE_OK : AE_NO_MEMORY;
+    *OutHandle = new Spinlock;
+    return *OutHandle != nullptr ? AE_OK : AE_NO_MEMORY;
 }
 
-void
-AcpiOsDeleteLock(ACPI_SPINLOCK Handle)
-{
-	delete Handle;
-}
+void AcpiOsDeleteLock(ACPI_SPINLOCK Handle) { delete Handle; }
 
 ACPI_CPU_FLAGS
-AcpiOsAcquireLock(ACPI_SPINLOCK Handle)
-{
-	return Handle->LockUnpremptible();
-}
+AcpiOsAcquireLock(ACPI_SPINLOCK Handle) { return Handle->LockUnpremptible(); }
 
-void
-AcpiOsReleaseLock(ACPI_SPINLOCK Handle, ACPI_CPU_FLAGS Flags)
+void AcpiOsReleaseLock(ACPI_SPINLOCK Handle, ACPI_CPU_FLAGS Flags)
 {
-	Handle->UnlockUnpremptible(Flags);
+    Handle->UnlockUnpremptible(Flags);
 }
 
 /* vim:set ts=2 sw=2: */

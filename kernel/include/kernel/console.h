@@ -11,5 +11,4 @@ uint8_t console_getchar();
 
 extern Device* console_tty;
 
-
 #endif /* __CONSOLE_H__ */

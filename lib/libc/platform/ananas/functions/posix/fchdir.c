@@ -5,6 +5,6 @@
 
 int fchdir(int fd)
 {
-	statuscode_t status = sys_fchdir(fd);
-	return map_statuscode(status);
+    statuscode_t status = sys_fchdir(fd);
+    return map_statuscode(status);
 }

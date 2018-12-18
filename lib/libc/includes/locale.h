@@ -32,50 +32,49 @@ extern "C" {
    3 - sign immediately precedes symbol
    4 - sign immediately succeeds symbol
 */
-struct lconv
-{
-    char * decimal_point;      /* decimal point character                     */
-    char * thousands_sep;      /* character for seperating groups of digits   */
-    char * grouping;           /* string indicating the size of digit groups  */
-    char * mon_decimal_point;  /* decimal point for monetary quantities       */
-    char * mon_thousands_sep;  /* thousands_sep for monetary quantities       */
-    char * mon_grouping;       /* grouping for monetary quantities            */
-    char * positive_sign;      /* string indicating nonnegative mty. qty.     */
-    char * negative_sign;      /* string indicating negative mty. qty.        */
-    char * currency_symbol;    /* local currency symbol (e.g. '$')            */
-    char * int_curr_symbol;    /* international currency symbol (e.g. "USD"   */
-    char frac_digits;          /* fractional digits in local monetary qty.    */
-    char p_cs_precedes;        /* if currency_symbol precedes positive qty.   */
-    char n_cs_precedes;        /* if currency_symbol precedes negative qty.   */
-    char p_sep_by_space;       /* if it is seperated by space from pos. qty.  */
-    char n_sep_by_space;       /* if it is seperated by space from neg. qty.  */
-    char p_sign_posn;          /* positioning of positive_sign for mon. qty.  */
-    char n_sign_posn;          /* positioning of negative_sign for mon. qty.  */
-    char int_frac_digits;      /* Same as above, for international format     */
-    char int_p_cs_precedes;    /* Same as above, for international format     */
-    char int_n_cs_precedes;    /* Same as above, for international format     */
-    char int_p_sep_by_space;   /* Same as above, for international format     */
-    char int_n_sep_by_space;   /* Same as above, for international format     */
-    char int_p_sign_posn;      /* Same as above, for international format     */
-    char int_n_sign_posn;      /* Same as above, for international format     */
+struct lconv {
+    char* decimal_point;     /* decimal point character                     */
+    char* thousands_sep;     /* character for seperating groups of digits   */
+    char* grouping;          /* string indicating the size of digit groups  */
+    char* mon_decimal_point; /* decimal point for monetary quantities       */
+    char* mon_thousands_sep; /* thousands_sep for monetary quantities       */
+    char* mon_grouping;      /* grouping for monetary quantities            */
+    char* positive_sign;     /* string indicating nonnegative mty. qty.     */
+    char* negative_sign;     /* string indicating negative mty. qty.        */
+    char* currency_symbol;   /* local currency symbol (e.g. '$')            */
+    char* int_curr_symbol;   /* international currency symbol (e.g. "USD"   */
+    char frac_digits;        /* fractional digits in local monetary qty.    */
+    char p_cs_precedes;      /* if currency_symbol precedes positive qty.   */
+    char n_cs_precedes;      /* if currency_symbol precedes negative qty.   */
+    char p_sep_by_space;     /* if it is seperated by space from pos. qty.  */
+    char n_sep_by_space;     /* if it is seperated by space from neg. qty.  */
+    char p_sign_posn;        /* positioning of positive_sign for mon. qty.  */
+    char n_sign_posn;        /* positioning of negative_sign for mon. qty.  */
+    char int_frac_digits;    /* Same as above, for international format     */
+    char int_p_cs_precedes;  /* Same as above, for international format     */
+    char int_n_cs_precedes;  /* Same as above, for international format     */
+    char int_p_sep_by_space; /* Same as above, for international format     */
+    char int_n_sep_by_space; /* Same as above, for international format     */
+    char int_p_sign_posn;    /* Same as above, for international format     */
+    char int_n_sign_posn;    /* Same as above, for international format     */
 };
 
 /* First arguments to setlocale().
    TODO: Beware, values might change before v0.6 is released.
 */
 /* Entire locale */
-#define LC_ALL      -1
+#define LC_ALL -1
 /* Collation (strcoll(), strxfrm()) */
-#define LC_COLLATE  0
+#define LC_COLLATE 0
 /* Character types (<ctype.h>) */
-#define LC_CTYPE    1
+#define LC_CTYPE 1
 /* Monetary formatting (as returned by localeconv) */
 #define LC_MONETARY 2
 /* Decimal-point character (for printf() / scanf() functions), string
    conversions, nonmonetary formatting as returned by localeconv              */
-#define LC_NUMERIC  3
+#define LC_NUMERIC 3
 /* Time formats (strftime(), wcsftime()) */
-#define LC_TIME     4
+#define LC_TIME 4
 /* Messages */
 #define LC_MESSAGES 5
 
@@ -87,25 +86,26 @@ struct lconv
    Otherwise, returns a pointer to a string associated with the specified
    category for the new locale.
 */
-char * setlocale( int category, const char * locale ) _PDCLIB_nothrow;
+char* setlocale(int category, const char* locale) _PDCLIB_nothrow;
 
 /* Returns a struct lconv initialized to the values appropriate for the current
    locale setting.
 */
-struct lconv * localeconv( void ) _PDCLIB_nothrow;
+struct lconv* localeconv(void) _PDCLIB_nothrow;
 
 #if _PDCLIB_POSIX_MIN(2008)
 
 #if defined(_PDCLIB_LOCALE_METHOD) || defined(_PDCLIB_BUILD)
 
-#define LC_COLLATE_MASK  (1 << LC_COLLATE)
-#define LC_CTYPE_MASK    (1 << LC_CTYPE)
+#define LC_COLLATE_MASK (1 << LC_COLLATE)
+#define LC_CTYPE_MASK (1 << LC_CTYPE)
 #define LC_MONETARY_MASK (1 << LC_MONETARY)
-#define LC_NUMERIC_MASK  (1 << LC_NUMERIC)
-#define LC_TIME_MASK     (1 << LC_TIME)
+#define LC_NUMERIC_MASK (1 << LC_NUMERIC)
+#define LC_TIME_MASK (1 << LC_TIME)
 #define LC_MESSAGES_MASK (1 << LC_MESSAGES)
-#define LC_ALL_MASK      (LC_COLLATE_MASK | LC_CTYPE_MASK | LC_MONETARY_MASK | \
-                          LC_NUMERIC_MASK | LC_TIME_MASK | LC_MESSAGES_MASK)
+#define LC_ALL_MASK                                                                        \
+    (LC_COLLATE_MASK | LC_CTYPE_MASK | LC_MONETARY_MASK | LC_NUMERIC_MASK | LC_TIME_MASK | \
+     LC_MESSAGES_MASK)
 
 /* POSIX locale type */
 typedef _PDCLIB_locale_t locale_t;
@@ -114,7 +114,7 @@ typedef _PDCLIB_locale_t locale_t;
 extern struct _PDCLIB_locale _PDCLIB_global_locale;
 #define LC_GLOBAL_LOCALE (&_PDCLIB_global_locale)
 
-locale_t newlocale(int category_mask, const char *locale, locale_t base);
+locale_t newlocale(int category_mask, const char* locale, locale_t base);
 
 /* Set the thread locale to newlocale
  *
@@ -127,13 +127,13 @@ locale_t newlocale(int category_mask, const char *locale, locale_t base);
  * Returns the previous thread locale. If the thread had no previous locale,
  * returns the global locale.
  */
-locale_t uselocale( locale_t newlocale );
+locale_t uselocale(locale_t newlocale);
 
 /* Returns a copy of loc */
-locale_t duplocale( locale_t loc );
+locale_t duplocale(locale_t loc);
 
 /* Frees the passed locale object */
-void freelocale( locale_t loc );
+void freelocale(locale_t loc);
 #endif
 
 #endif

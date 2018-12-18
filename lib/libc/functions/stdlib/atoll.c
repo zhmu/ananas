@@ -6,7 +6,4 @@
 
 #include <stdlib.h>
 
-long long int atoll( const char * s )
-{
-    return (long long int) _PDCLIB_atomax( s );
-}
+long long int atoll(const char* s) { return (long long int)_PDCLIB_atomax(s); }

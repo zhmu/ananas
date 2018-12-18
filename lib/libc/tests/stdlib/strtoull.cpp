@@ -5,7 +5,7 @@
 
 TEST(stdlib, strtoull)
 {
-    char * endptr;
+    char* endptr;
     /* this, to base 36, overflows even a 256 bit integer */
     const char overflow[] = "-ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ_";
     /* tricky border case */
@@ -16,7 +16,7 @@ TEST(stdlib, strtoull)
     /* proper detecting of default base 10 */
     EXPECT_EQ(456, strtoull("456", NULL, 0));
     /* proper functioning to smaller base */
-    EXPECT_EQ(12, strtoull( "14", NULL, 8));
+    EXPECT_EQ(12, strtoull("14", NULL, 8));
     /* proper autodetecting of octal */
     EXPECT_EQ(14, strtoull("016", NULL, 0));
     /* proper autodetecting of hexadecimal, lowercase 'x' */

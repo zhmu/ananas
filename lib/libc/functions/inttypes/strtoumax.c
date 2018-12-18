@@ -9,13 +9,17 @@
 #include <stddef.h>
 
 // Testing covered by strtomax.cpp
-uintmax_t strtoumax( const char * _PDCLIB_restrict nptr, char ** _PDCLIB_restrict endptr, int base )
+uintmax_t strtoumax(const char* _PDCLIB_restrict nptr, char** _PDCLIB_restrict endptr, int base)
 {
     uintmax_t rc;
     char sign = '+';
-    const char * p = _PDCLIB_strtox_prelim( nptr, &sign, &base );
-    if ( base < 2 || base > 36 ) return 0;
-    rc = _PDCLIB_strtox_main( &p, (unsigned)base, (uintmax_t)UINTMAX_MAX, (uintmax_t)( UINTMAX_MAX / base ), (int)( UINTMAX_MAX % base ), &sign );
-    if ( endptr != NULL ) *endptr = ( p != NULL ) ? (char *) p : (char *) nptr;
-    return ( sign == '+' ) ? rc : -rc;
+    const char* p = _PDCLIB_strtox_prelim(nptr, &sign, &base);
+    if (base < 2 || base > 36)
+        return 0;
+    rc = _PDCLIB_strtox_main(
+        &p, (unsigned)base, (uintmax_t)UINTMAX_MAX, (uintmax_t)(UINTMAX_MAX / base),
+        (int)(UINTMAX_MAX % base), &sign);
+    if (endptr != NULL)
+        *endptr = (p != NULL) ? (char*)p : (char*)nptr;
+    return (sign == '+') ? rc : -rc;
 }

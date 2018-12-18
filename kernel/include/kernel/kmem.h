@@ -7,10 +7,10 @@
  * Per-mapping information structure.
  */
 struct KMEM_MAPPING {
-	addr_t kmm_virt;		/* virtual address */
-	addr_t kmm_phys;		/* physical address */
-	size_t kmm_size;		/* size, in bytes */
-	int kmm_flags;			/* flags */
+    addr_t kmm_virt; /* virtual address */
+    addr_t kmm_phys; /* physical address */
+    size_t kmm_size; /* size, in bytes */
+    int kmm_flags;   /* flags */
 };
 
 void* kmem_map(addr_t phys, size_t length, int flags);

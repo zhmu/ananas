@@ -7,7 +7,4 @@
 #include <locale.h>
 #include "_PDCLIB_locale.h"
 
-char * setlocale( int category, const char * locale )
-{
-    return NULL;
-}
+char* setlocale(int category, const char* locale) { return NULL; }

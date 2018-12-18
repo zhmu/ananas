@@ -7,29 +7,25 @@
 #include <string.h>
 
 #pragma weak strlcat = _PDCLIB_strlcat
-size_t _PDCLIB_strlcat(
-   char *restrict dst,
-   const char *restrict src,
-   size_t dstsize);
+size_t _PDCLIB_strlcat(char* restrict dst, const char* restrict src, size_t dstsize);
 
-size_t _PDCLIB_strlcat(
-   char *restrict dst,
-   const char *restrict src,
-   size_t dstsize)
+size_t _PDCLIB_strlcat(char* restrict dst, const char* restrict src, size_t dstsize)
 {
     size_t needed = 0;
     size_t j = 0;
 
-    while(dst[needed]) needed++;
+    while (dst[needed])
+        needed++;
 
-    while(needed < dstsize && (dst[needed] = src[j]))
+    while (needed < dstsize && (dst[needed] = src[j]))
         needed++, j++;
 
-    while(src[j++]) needed++;
+    while (src[j++])
+        needed++;
     needed++;
 
     if (needed > dstsize && dstsize)
-      dst[dstsize - 1] = 0;
+        dst[dstsize - 1] = 0;
 
     return needed;
 }

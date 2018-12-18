@@ -29,50 +29,49 @@ extern "C" {
 /* A system call that terminates the calling process, returning a given status
    to the environment.
 */
-_PDCLIB_noreturn void _PDCLIB_Exit( int status );
+_PDCLIB_noreturn void _PDCLIB_Exit(int status);
 
-/* A system call which allocates n pages of memory and returns a pointer to 
+/* A system call which allocates n pages of memory and returns a pointer to
    them. On failure, returns NULL
 */
-void * _PDCLIB_allocpages( size_t n );
+void* _PDCLIB_allocpages(size_t n);
 
 /* A system call which frees the n pages of memory pointed to by p */
-void _PDCLIB_freepages( void * p, size_t n );
+void _PDCLIB_freepages(void* p, size_t n);
 
 #ifdef _PDCLIB_HAVE_REALLOCPAGES
 /* A system call which attempts to reallocate the group of \p on pages starting
-   at \p p, resizing the chunk to be \p nn pages long. If \p mayMove is true, 
-   then then the group of pages may move; otherwise, if the group cannot be 
+   at \p p, resizing the chunk to be \p nn pages long. If \p mayMove is true,
+   then then the group of pages may move; otherwise, if the group cannot be
    resized in its current position, failure must be reported.
 
-   On failure, returns NULL; on success, returns the address of the group of 
+   On failure, returns NULL; on success, returns the address of the group of
    pages (if mayMove == false, then this must be equal to \p p)
 */
-void * _PDCLIB_reallocpages( void* p, size_t on, size_t nn, bool mayMove);
+void* _PDCLIB_reallocpages(void* p, size_t on, size_t nn, bool mayMove);
 #endif
 
 /* stdio.h */
 
-/* Open the file with the given name and mode. Return the file descriptor in 
+/* Open the file with the given name and mode. Return the file descriptor in
  * *fd and a pointer to the operations structure in **ops on success.
  *
  * Return true on success and false on failure.
  */
-bool _PDCLIB_open( 
-   _PDCLIB_fd_t* fd, const _PDCLIB_fileops_t** ops,
-   char const * filename, unsigned int mode );
+bool _PDCLIB_open(
+    _PDCLIB_fd_t* fd, const _PDCLIB_fileops_t** ops, char const* filename, unsigned int mode);
 
 /* A system call that removes a file identified by name. Return zero on success,
    non-zero otherwise.
 */
-int _PDCLIB_remove( const char * filename );
+int _PDCLIB_remove(const char* filename);
 
 /* A system call that renames a file from given old name to given new name.
    Return zero on success, non-zero otherwise. In case of failure, the file
    must still be accessible by old name. Any handling of open files etc. is
    done by standard rename() already.
 */
-int _PDCLIB_rename( const char * old, const char * newn);
+int _PDCLIB_rename(const char* old, const char* newn);
 
 #ifdef __cplusplus
 }

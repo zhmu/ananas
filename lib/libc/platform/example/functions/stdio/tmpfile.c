@@ -12,8 +12,8 @@
 #include "_PDCLIB_glue.h"
 
 /* This is a stub implementation of tmpfile
-*/
-FILE* tmpfile( void )
+ */
+FILE* tmpfile(void)
 {
     errno = ENOTSUP;
     return NULL;
@@ -25,10 +25,6 @@ FILE* tmpfile( void )
 #include "_PDCLIB_test.h"
 #include <string.h>
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif
-

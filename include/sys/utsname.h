@@ -10,12 +10,12 @@
 #define UTSNAME_VERSION_LEN 16
 
 struct utsname {
-	char	sysname[UTSNAME_SYSNAME_LEN];
-	char	nodename[UTSNAME_NODENAME_LEN];
-	char	release[UTSNAME_RELEASE_LEN];
-	char	machine[UTSNAME_MACHINE_LEN];
-	/* fields below here are extensions */
-	char	version[UTSNAME_VERSION_LEN];
+    char sysname[UTSNAME_SYSNAME_LEN];
+    char nodename[UTSNAME_NODENAME_LEN];
+    char release[UTSNAME_RELEASE_LEN];
+    char machine[UTSNAME_MACHINE_LEN];
+    /* fields below here are extensions */
+    char version[UTSNAME_VERSION_LEN];
 };
 
 __BEGIN_DECLS

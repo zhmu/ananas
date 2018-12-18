@@ -7,10 +7,10 @@
 #include <stdlib.h>
 #include <signal.h>
 
-void abort( void )
+void abort(void)
 {
-    raise( SIGABRT );
-    exit( EXIT_FAILURE );
+    raise(SIGABRT);
+    exit(EXIT_FAILURE);
 }
 
 #ifdef TEST_TODO // XXX How to test this in gtest?
@@ -18,17 +18,14 @@ void abort( void )
 
 #include <stdio.h>
 
-static void aborthandler( int sig )
-{
-    exit( 0 );
-}
+static void aborthandler(int sig) { exit(0); }
 
-int main( void )
+int main(void)
 {
     int UNEXPECTED_RETURN_FROM_ABORT = 0;
-    TESTCASE( signal( SIGABRT, &aborthandler ) != SIG_ERR );
+    TESTCASE(signal(SIGABRT, &aborthandler) != SIG_ERR);
     abort();
-    TESTCASE( UNEXPECTED_RETURN_FROM_ABORT );
+    TESTCASE(UNEXPECTED_RETURN_FROM_ABORT);
     return TEST_RESULTS;
 }
 

@@ -3,25 +3,21 @@
 
 struct BOOTINFO;
 
-enum MODULE_TYPE {
-	MOD_KERNEL,
-	MOD_MODULE,
-	MOD_RAMDISK
-};
+enum MODULE_TYPE { MOD_KERNEL, MOD_MODULE, MOD_RAMDISK };
 
 struct LOADER_MODULE {
-	int		mod_bits;		/* number of bits, 0 if nothing loaded */
-	enum MODULE_TYPE mod_type;		/* module type */
-	uint64_t	mod_entry;		/* entry point (virtual) */
-	uint64_t	mod_start_addr;		/* first address (virtual) */
-	uint64_t	mod_end_addr;		/* last address (virtual) */
-	uint64_t	mod_phys_start_addr;	/* first address (physical) */
-	uint64_t	mod_phys_end_addr;	/* last address (physical) */
-	uint64_t	mod_symtab_addr;	/* symbol table address (physical) */
-	uint64_t	mod_symtab_size;	/* symbol table length */
-	uint64_t	mod_strtab_addr;	/* string table address (physical) */
-	uint64_t	mod_strtab_size;	/* string table length */
-	struct LOADER_MODULE*	mod_next;	/* pointer to next module */
+    int mod_bits;                   /* number of bits, 0 if nothing loaded */
+    enum MODULE_TYPE mod_type;      /* module type */
+    uint64_t mod_entry;             /* entry point (virtual) */
+    uint64_t mod_start_addr;        /* first address (virtual) */
+    uint64_t mod_end_addr;          /* last address (virtual) */
+    uint64_t mod_phys_start_addr;   /* first address (physical) */
+    uint64_t mod_phys_end_addr;     /* last address (physical) */
+    uint64_t mod_symtab_addr;       /* symbol table address (physical) */
+    uint64_t mod_symtab_size;       /* symbol table length */
+    uint64_t mod_strtab_addr;       /* string table address (physical) */
+    uint64_t mod_strtab_size;       /* string table length */
+    struct LOADER_MODULE* mod_next; /* pointer to next module */
 };
 
 #ifndef KERNEL

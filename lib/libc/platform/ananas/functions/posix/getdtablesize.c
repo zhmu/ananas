@@ -1,6 +1,3 @@
 #include <ananas/limits.h>
 
-int getdtablesize()
-{
-	return PROCESS_MAX_DESCRIPTORS;
-}
+int getdtablesize() { return PROCESS_MAX_DESCRIPTORS; }

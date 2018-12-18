@@ -15,18 +15,17 @@ extern void _init(void) __hidden;
 extern void* _DYNAMIC;
 #pragma weak _DYNAMIC
 
-void
-__start(unsigned long* stk, void (*cleanup)() /* provided by rtld-elf */)
+void __start(unsigned long* stk, void (*cleanup)() /* provided by rtld-elf */)
 {
-	int argc = *stk++;
-	char** argv = (char**)stk;
-	stk += argc + 1 /* terminating null */ ;
-	environ = (char**)stk++;
-	void* auxv = stk;
-	if (&_DYNAMIC != NULL)
-		atexit(cleanup);
-	atexit(_fini);
-	_init();
+    int argc = *stk++;
+    char** argv = (char**)stk;
+    stk += argc + 1 /* terminating null */;
+    environ = (char**)stk++;
+    void* auxv = stk;
+    if (&_DYNAMIC != NULL)
+        atexit(cleanup);
+    atexit(_fini);
+    _init();
 
-	exit(main(argc, argv, environ));
+    exit(main(argc, argv, environ));
 }

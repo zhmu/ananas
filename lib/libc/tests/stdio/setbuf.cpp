@@ -16,8 +16,7 @@ TEST(stdio, setbuf)
         setbuf(fh, buffer);
         EXPECT_EQ(buffer, fh->buffer);
         EXPECT_EQ(BUFSIZ, fh->bufsize);
-        EXPECT_EQ(_IOFBF, (fh->status & ( _IOFBF | _IONBF | _IOLBF));
-        EXPECT_EQ(0, fclose(fh)));
+        EXPECT_EQ(_IOFBF, (fh->status & (_IOFBF | _IONBF | _IOLBF)); EXPECT_EQ(0, fclose(fh)));
     }
     /* not buffered */
     {

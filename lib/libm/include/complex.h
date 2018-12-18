@@ -7,9 +7,9 @@ extern "C" {
 
 #define complex _Complex
 #ifdef __GNUC__
-#define _Complex_I (__extension__ (0.0f+1.0fi))
+#define _Complex_I (__extension__(0.0f + 1.0fi))
 #else
-#define _Complex_I (0.0f+1.0fi)
+#define _Complex_I (0.0f + 1.0fi)
 #endif
 #define I _Complex_I
 
@@ -102,8 +102,12 @@ float crealf(float complex);
 long double creall(long double complex);
 
 #ifndef __cplusplus
-#define __CIMAG(x, t) \
-	(+(union { _Complex t __z; t __xy[2]; }){(_Complex t)(x)}.__xy[1])
+#define __CIMAG(x, t)     \
+    (+(union {            \
+          _Complex t __z; \
+          t __xy[2];      \
+      }){(_Complex t)(x)} \
+          .__xy[1])
 
 #define creal(x) ((double)(x))
 #define crealf(x) ((float)(x))
@@ -116,9 +120,9 @@ long double creall(long double complex);
 
 #if __STDC_VERSION__ >= 201112L
 #if defined(_Imaginary_I)
-#define __CMPLX(x, y, t) ((t)(x) + _Imaginary_I*(t)(y))
+#define __CMPLX(x, y, t) ((t)(x) + _Imaginary_I * (t)(y))
 #elif defined(__clang__)
-#define __CMPLX(x, y, t) (+(_Complex t){ (t)(x), (t)(y) })
+#define __CMPLX(x, y, t) (+(_Complex t){(t)(x), (t)(y)})
 #else
 #define __CMPLX(x, y, t) (__builtin_complex((t)(x), (t)(y)))
 #endif

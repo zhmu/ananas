@@ -9,7 +9,7 @@
 #include <limits.h>
 #include "_PDCLIB_io.h"
 
-uint_fast64_t _PDCLIB_ftell64_unlocked( FILE * stream )
+uint_fast64_t _PDCLIB_ftell64_unlocked(FILE* stream)
 {
     /* ftell() must take into account:
        - the actual *physical* offset of the file, i.e. the offset as recognized
@@ -28,18 +28,19 @@ uint_fast64_t _PDCLIB_ftell64_unlocked( FILE * stream )
     */
 
     /* ungetc on a stream at offset==0 will cause an overflow to UINT64_MAX.
-     * C99/C11 says that the return value of ftell in this case is 
+     * C99/C11 says that the return value of ftell in this case is
      * "indeterminate"
      */
 
-    return ( stream->pos.offset - ( ( (int)stream->bufend - (int)stream->bufidx ) + (int)stream->ungetidx ) );
+    return (
+        stream->pos.offset - (((int)stream->bufend - (int)stream->bufidx) + (int)stream->ungetidx));
 }
 
 // Testing covered by ftell.cpp
-uint_fast64_t _PDCLIB_ftell64( FILE * stream )
+uint_fast64_t _PDCLIB_ftell64(FILE* stream)
 {
-  _PDCLIB_flockfile( stream );
-  uint_fast64_t pos = _PDCLIB_ftell64_unlocked( stream );
-  _PDCLIB_funlockfile( stream );
-  return pos;
+    _PDCLIB_flockfile(stream);
+    uint_fast64_t pos = _PDCLIB_ftell64_unlocked(stream);
+    _PDCLIB_funlockfile(stream);
+    return pos;
 }

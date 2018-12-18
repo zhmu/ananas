@@ -1,5 +1,3 @@
 #include <grp.h>
 
-void setgrent()
-{
-}
+void setgrent() {}

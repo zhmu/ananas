@@ -6,11 +6,10 @@
 
 #include <wchar.h>
 
-wchar_t *wcscpy( wchar_t * _PDCLIB_restrict dest,
-                 const wchar_t * _PDCLIB_restrict src)
+wchar_t* wcscpy(wchar_t* _PDCLIB_restrict dest, const wchar_t* _PDCLIB_restrict src)
 {
-    wchar_t * rv = dest;
-    while(*src) {
+    wchar_t* rv = dest;
+    while (*src) {
         *(dest++) = *(src++);
     }
 

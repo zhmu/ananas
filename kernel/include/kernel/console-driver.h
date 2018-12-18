@@ -13,19 +13,13 @@
  */
 class ConsoleDriver : public Driver
 {
-public:
-	ConsoleDriver(const char* name, int priority)
-	 : Driver(name, priority)
-	{
-	}
-	virtual ~ConsoleDriver() = default;
+  public:
+    ConsoleDriver(const char* name, int priority) : Driver(name, priority) {}
+    virtual ~ConsoleDriver() = default;
 
-	ConsoleDriver* GetConsoleDriver() override
-	{
-		return this;
-	}
+    ConsoleDriver* GetConsoleDriver() override { return this; }
 
-	virtual Device* ProbeDevice() = 0;
+    virtual Device* ProbeDevice() = 0;
 };
 
 #endif /* __CONSOLEDRIVER_H__ */

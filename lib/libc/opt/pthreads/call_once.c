@@ -2,10 +2,7 @@
 #include <threads.h>
 #include <pthread.h>
 
-void call_once(once_flag *flag, void (*func)(void))
-{
-    pthread_once(flag, func);
-}
+void call_once(once_flag* flag, void (*func)(void)) { pthread_once(flag, func); }
 #endif
 
 #ifdef TEST
@@ -15,13 +12,10 @@ void call_once(once_flag *flag, void (*func)(void))
 static int count = 0;
 static once_flag once = ONCE_FLAG_INIT;
 
-static void do_once(void)
-{
-    count++;
-}
+static void do_once(void) { count++; }
 #endif
 
-int main( void )
+int main(void)
 {
 #ifndef REGTEST
     TESTCASE(count == 0);

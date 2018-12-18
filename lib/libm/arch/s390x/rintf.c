@@ -4,8 +4,8 @@
 
 float rintf(float x)
 {
-	__asm__ ("fiebr %0, 0, %1" : "=f"(x) : "f"(x));
-	return x;
+    __asm__("fiebr %0, 0, %1" : "=f"(x) : "f"(x));
+    return x;
 }
 
 #else

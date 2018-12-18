@@ -1,6 +1,6 @@
 /****************************************************************************
 
-		THIS SOFTWARE IS NOT COPYRIGHTED
+                THIS SOFTWARE IS NOT COPYRIGHTED
 
    HP offers the following for use in the public domain.  HP makes no
    warranty with regard to the software or it's performance and the
@@ -80,242 +80,231 @@
 #include "kernel-md/frame.h"
 #include "kernel-md/gdb-support.h"
 
-namespace {
-
-
-inline int getDebugChar()
+namespace
 {
-  while(true) {
-    int ch = debugcon_getch();
-    if (ch != 0)
-      return ch;
-  }
-}
+    inline int getDebugChar()
+    {
+        while (true) {
+            int ch = debugcon_getch();
+            if (ch != 0)
+                return ch;
+        }
+    }
 
-inline void putDebugChar(int ch)
-{
-  debugcon_putch(ch);
-}
+    inline void putDebugChar(int ch) { debugcon_putch(ch); }
 
 /************************************************************************/
 /* BUFMAX defines the maximum number of characters in inbound/outbound buffers*/
 /* at least NUMREGBYTES*2 are needed for register packets */
 #define BUFMAX 400
 
-static const char hexchars[]="0123456789abcdef";
+    static const char hexchars[] = "0123456789abcdef";
 
-int
-parse_hexDigit(char ch)
-{
-  if (ch >= '0' && ch <= '9')
-    return ch - '0';
-  if (ch >= 'a' && ch <= 'z')
-    ch -= 0x20; // make uppercase
-  if (ch >= 'A' && ch <= 'F')
-    return ch - 'A' + 10;
-  return -1;
-}
-
-/* scan for the sequence $<data>#<checksum>     */
-
-char*
-gdb_read_packet()
-{
-  static uint8_t buffer[BUFMAX];
-  while (true) {
-    // wait around for the start character, ignore all other characters
-    while (getDebugChar () != '$')
-      /* nothing */ ;
-
-retry:
-    // Now, read until a # or end of buffer is found 
-    uint8_t checksum = 0;
-    int count = 0;
-    while (count < BUFMAX - 1) {
-      uint8_t ch = getDebugChar();
-      if (ch == '$')
-        goto retry;
-      if (ch == '#')
-        break;
-      // XXX we should do escaping here
-      checksum += ch;
-      buffer[count] = ch;
-      count++;
+    int parse_hexDigit(char ch)
+    {
+        if (ch >= '0' && ch <= '9')
+            return ch - '0';
+        if (ch >= 'a' && ch <= 'z')
+            ch -= 0x20; // make uppercase
+        if (ch >= 'A' && ch <= 'F')
+            return ch - 'A' + 10;
+        return -1;
     }
-    buffer[count] = 0;
 
-    // Fetch the checksum
-    uint8_t ch = getDebugChar ();
-    uint8_t xmitcsum = parse_hexDigit(ch) << 4;
-    ch = getDebugChar ();
-    xmitcsum += parse_hexDigit(ch);
-    if (checksum != xmitcsum) {
-      putDebugChar ('-');	/* failed checksum */
-    } else {
-      putDebugChar ('+');	/* successful transfer */
-      return (char*)&buffer[0];
-	  }
-  }
+    /* scan for the sequence $<data>#<checksum>     */
 
-  // NOTREACHED
-}
+    char* gdb_read_packet()
+    {
+        static uint8_t buffer[BUFMAX];
+        while (true) {
+            // wait around for the start character, ignore all other characters
+            while (getDebugChar() != '$')
+                /* nothing */;
 
-// send the packet in buffer - waits until positive acknowledgement
-void
-gdb_send_packet(unsigned char* buffer)
-{
-  /*  $<packet info>#<checksum>.  */
-  do {
-      putDebugChar ('$');
-      uint8_t checksum = 0;
-      int count = 0;
-      while (uint8_t ch = buffer[count]) {
-        putDebugChar(ch);
-        checksum += ch;
-        count++;
-      }
+        retry:
+            // Now, read until a # or end of buffer is found
+            uint8_t checksum = 0;
+            int count = 0;
+            while (count < BUFMAX - 1) {
+                uint8_t ch = getDebugChar();
+                if (ch == '$')
+                    goto retry;
+                if (ch == '#')
+                    break;
+                // XXX we should do escaping here
+                checksum += ch;
+                buffer[count] = ch;
+                count++;
+            }
+            buffer[count] = 0;
 
-      putDebugChar('#');
-      putDebugChar(hexchars[checksum >> 4]);
-      putDebugChar(hexchars[checksum % 16]);
-  } while (getDebugChar () != '+');
-}
+            // Fetch the checksum
+            uint8_t ch = getDebugChar();
+            uint8_t xmitcsum = parse_hexDigit(ch) << 4;
+            ch = getDebugChar();
+            xmitcsum += parse_hexDigit(ch);
+            if (checksum != xmitcsum) {
+                putDebugChar('-'); /* failed checksum */
+            } else {
+                putDebugChar('+'); /* successful transfer */
+                return (char*)&buffer[0];
+            }
+        }
 
-char*
-mem2hex(char* mem, char* buf, size_t count, bool& faulted)
-{
-  for (size_t i = 0; i < count; i++) {
-    uint8_t ch = *(uint8_t*)mem++;
-    *buf++ = hexchars[ch >> 4];
-    *buf++ = hexchars[ch % 16];
-  }
-  *buf = 0;
-
-  faulted = false; // TODO: implement this sensibly
-  return buf;
-}
-
-char*
-reg2hex(struct STACKFRAME* sf, int regnum, char* buf)
-{
-  void* reg = gdb_md_get_register(sf, regnum);
-  size_t size = gdb_md_get_register_size(regnum);
-
-  if (reg == NULL) {
-    while(size-- > 0) {
-      *buf++ = 'x';
-      *buf++ = 'x';
+        // NOTREACHED
     }
-    return buf;
-  }
 
-  bool dummy;
-  return mem2hex((char*)reg, buf, size, dummy);
-}
+    // send the packet in buffer - waits until positive acknowledgement
+    void gdb_send_packet(unsigned char* buffer)
+    {
+        /*  $<packet info>#<checksum>.  */
+        do {
+            putDebugChar('$');
+            uint8_t checksum = 0;
+            int count = 0;
+            while (uint8_t ch = buffer[count]) {
+                putDebugChar(ch);
+                checksum += ch;
+                count++;
+            }
 
-void
-hex2mem(char* buf, char* mem, size_t count)
-{
-  for (size_t i = 0; i < count; i++) {
-    uint8_t ch = parse_hexDigit(*buf++) << 4;
-    ch |= parse_hexDigit(*buf++);
-    *mem++ = ch; // TODO deal with faults
-  }
-}
+            putDebugChar('#');
+            putDebugChar(hexchars[checksum >> 4]);
+            putDebugChar(hexchars[checksum % 16]);
+        } while (getDebugChar() != '+');
+    }
 
-int
-parse_hex(char*& ptr, register_t& result)
-{
-  int n = 0;
+    char* mem2hex(char* mem, char* buf, size_t count, bool& faulted)
+    {
+        for (size_t i = 0; i < count; i++) {
+            uint8_t ch = *(uint8_t*)mem++;
+            *buf++ = hexchars[ch >> 4];
+            *buf++ = hexchars[ch % 16];
+        }
+        *buf = 0;
 
-  result = 0;
-  while (*ptr != '\0') {
-    int nibble = parse_hexDigit(*ptr);
-    if (nibble < 0)
-      break;
-	  result = (result << 4) | nibble;
-	  n++, ptr++;
-  }
+        faulted = false; // TODO: implement this sensibly
+        return buf;
+    }
 
-  return n;
-}
+    char* reg2hex(struct STACKFRAME* sf, int regnum, char* buf)
+    {
+        void* reg = gdb_md_get_register(sf, regnum);
+        size_t size = gdb_md_get_register_size(regnum);
+
+        if (reg == NULL) {
+            while (size-- > 0) {
+                *buf++ = 'x';
+                *buf++ = 'x';
+            }
+            return buf;
+        }
+
+        bool dummy;
+        return mem2hex((char*)reg, buf, size, dummy);
+    }
+
+    void hex2mem(char* buf, char* mem, size_t count)
+    {
+        for (size_t i = 0; i < count; i++) {
+            uint8_t ch = parse_hexDigit(*buf++) << 4;
+            ch |= parse_hexDigit(*buf++);
+            *mem++ = ch; // TODO deal with faults
+        }
+    }
+
+    int parse_hex(char*& ptr, register_t& result)
+    {
+        int n = 0;
+
+        result = 0;
+        while (*ptr != '\0') {
+            int nibble = parse_hexDigit(*ptr);
+            if (nibble < 0)
+                break;
+            result = (result << 4) | nibble;
+            n++, ptr++;
+        }
+
+        return n;
+    }
 
 } // unnamed namespace
 
-void
-gdb_handle_exception(struct STACKFRAME* sf)
+void gdb_handle_exception(struct STACKFRAME* sf)
 {
-  static char reply[BUFMAX];
+    static char reply[BUFMAX];
 
-  // Reply to host that an exception has occurred
-  int sigval = gdb_md_map_signal(sf);
-  {
-    char* ptr = reply;
+    // Reply to host that an exception has occurred
+    int sigval = gdb_md_map_signal(sf);
+    {
+        char* ptr = reply;
 
-    *ptr++ = 'T';			/* notify gdb with signo, PC, FP and SP */
-    *ptr++ = hexchars[sigval >> 4];
-    *ptr++ = hexchars[sigval & 0xf];
+        *ptr++ = 'T'; /* notify gdb with signo, PC, FP and SP */
+        *ptr++ = hexchars[sigval >> 4];
+        *ptr++ = hexchars[sigval & 0xf];
 
-    *ptr++ = hexchars[GDB_REG_PC >> 4]; 
-    *ptr++ = hexchars[GDB_REG_PC & 0xf]; 
-    *ptr++ = ':';
-    ptr = reg2hex(sf, GDB_REG_PC, ptr);
-    *ptr++ = ';';
-    *ptr = '\0';
+        *ptr++ = hexchars[GDB_REG_PC >> 4];
+        *ptr++ = hexchars[GDB_REG_PC & 0xf];
+        *ptr++ = ':';
+        ptr = reg2hex(sf, GDB_REG_PC, ptr);
+        *ptr++ = ';';
+        *ptr = '\0';
 
-    gdb_send_packet((unsigned char*)reply);
-  }
-
-  while (true) {
-    reply[0] = 0;
-    char* ptr = gdb_read_packet();
-
-    switch (*ptr++) {
-      case '?':
-        reply[0] = 'S';
-        reply[1] = hexchars[sigval >> 4];
-        reply[2] = hexchars[sigval % 16];
-        reply[3] = 0;
-        break;
-      case 'g':	{ /* return the value of the CPU registers */
-        ptr = reply;
-        for (int n = 0; n < GDB_NUMREGS; n++) {
-          ptr = reg2hex(sf, n, ptr);
-        }
-        break;
-      }
-      case 'G': // set the value of the CPU registers
-        strcpy (reply, "E01");
-        break;
-      case 'P':	// set the value of a single CPU register
-        strcpy (reply, "E01");
-        break;
-      case 'm': { // mAAAA,LLLL  Read LLLL bytes at address AAAA
-        register_t addr, length;
-        if (parse_hex(ptr, addr) && *ptr++ == ',' && parse_hex(ptr, length)) {
-            bool faulted;
-            mem2hex ((char*) addr, reply, length, faulted);
-            if (faulted)
-              strcpy (reply, "E03");
-        } else {
-          strcpy(reply, "E01");
-        }
-        break;
-      }
-      case 'M': { /* MAA..AA,LLLL: Write LLLL bytes at address AA.AA return OK */
-        /* TRY TO READ '%x,%x:'.  IF SUCCEED, SET PTR = 0 */
-        register_t addr, length;
-        if (parse_hex(ptr, addr) && *(ptr++) == ',' && parse_hex(ptr, length) && *(ptr++) == ':') {
-          hex2mem (ptr, (char *) addr, length); // XXX could fault
-          // strcpy (reply, "E03"); // on fault
-          strcpy (reply, "OK");
-        } else {
-          strcpy (reply, "E02");
-        }
-        break;
-      }
+        gdb_send_packet((unsigned char*)reply);
     }
 
-    gdb_send_packet((unsigned char*)reply);
-  }
+    while (true) {
+        reply[0] = 0;
+        char* ptr = gdb_read_packet();
+
+        switch (*ptr++) {
+            case '?':
+                reply[0] = 'S';
+                reply[1] = hexchars[sigval >> 4];
+                reply[2] = hexchars[sigval % 16];
+                reply[3] = 0;
+                break;
+            case 'g': { /* return the value of the CPU registers */
+                ptr = reply;
+                for (int n = 0; n < GDB_NUMREGS; n++) {
+                    ptr = reg2hex(sf, n, ptr);
+                }
+                break;
+            }
+            case 'G': // set the value of the CPU registers
+                strcpy(reply, "E01");
+                break;
+            case 'P': // set the value of a single CPU register
+                strcpy(reply, "E01");
+                break;
+            case 'm': { // mAAAA,LLLL  Read LLLL bytes at address AAAA
+                register_t addr, length;
+                if (parse_hex(ptr, addr) && *ptr++ == ',' && parse_hex(ptr, length)) {
+                    bool faulted;
+                    mem2hex((char*)addr, reply, length, faulted);
+                    if (faulted)
+                        strcpy(reply, "E03");
+                } else {
+                    strcpy(reply, "E01");
+                }
+                break;
+            }
+            case 'M': { /* MAA..AA,LLLL: Write LLLL bytes at address AA.AA return OK */
+                /* TRY TO READ '%x,%x:'.  IF SUCCEED, SET PTR = 0 */
+                register_t addr, length;
+                if (parse_hex(ptr, addr) && *(ptr++) == ',' && parse_hex(ptr, length) &&
+                    *(ptr++) == ':') {
+                    hex2mem(ptr, (char*)addr, length); // XXX could fault
+                    // strcpy (reply, "E03"); // on fault
+                    strcpy(reply, "OK");
+                } else {
+                    strcpy(reply, "E02");
+                }
+                break;
+            }
+        }
+
+        gdb_send_packet((unsigned char*)reply);
+    }
 }

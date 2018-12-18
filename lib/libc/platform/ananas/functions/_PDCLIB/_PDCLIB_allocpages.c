@@ -21,13 +21,12 @@
 #define MAP_ANON MAP_ANOYNMOUS
 #endif
 
-void * _PDCLIB_allocpages( size_t n )
+void* _PDCLIB_allocpages(size_t n)
 {
-    void *addr = mmap(
-        NULL, n * _PDCLIB_MALLOC_PAGESIZE, PROT_READ | PROT_WRITE,
-        MAP_ANON | MAP_PRIVATE, -1, 0);
+    void* addr = mmap(
+        NULL, n * _PDCLIB_MALLOC_PAGESIZE, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
 
-    if(addr != MAP_FAILED) {
+    if (addr != MAP_FAILED) {
         return addr;
     } else {
         return NULL;
@@ -39,9 +38,6 @@ void * _PDCLIB_allocpages( size_t n )
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif

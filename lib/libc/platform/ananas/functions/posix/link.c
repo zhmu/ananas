@@ -5,6 +5,6 @@
 
 int link(const char* oldpath, const char* newpath)
 {
-	statuscode_t status = sys_link(oldpath, newpath);
-	return map_statuscode(status);
+    statuscode_t status = sys_link(oldpath, newpath);
+    return map_statuscode(status);
 }

@@ -5,7 +5,6 @@
 
 int sigsuspend(const sigset_t* sigmask)
 {
-	statuscode_t status = sys_sigsuspend(sigmask);
-	return map_statuscode(status);
+    statuscode_t status = sys_sigsuspend(sigmask);
+    return map_statuscode(status);
 }
-

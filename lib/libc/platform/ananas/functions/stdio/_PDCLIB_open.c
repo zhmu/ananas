@@ -9,16 +9,13 @@
 #include "_PDCLIB_io.h"
 #include <fcntl.h>
 
-
 extern const _PDCLIB_fileops_t _PDCLIB_fileops;
 
 bool _PDCLIB_open(
-   _PDCLIB_fd_t* fd, const _PDCLIB_fileops_t** ops,
-   char const * filename, unsigned int mode )
+    _PDCLIB_fd_t* fd, const _PDCLIB_fileops_t** ops, char const* filename, unsigned int mode)
 {
     int osmode;
-    switch ( mode & ( _PDCLIB_FREAD | _PDCLIB_FWRITE | _PDCLIB_FAPPEND | _PDCLIB_FRW ) )
-    {
+    switch (mode & (_PDCLIB_FREAD | _PDCLIB_FWRITE | _PDCLIB_FAPPEND | _PDCLIB_FRW)) {
         case _PDCLIB_FREAD: /* "r" */
             osmode = O_RDONLY;
             break;
@@ -42,7 +39,7 @@ bool _PDCLIB_open(
     }
 
     fd->sval = open(filename, osmode, 0664);
-    if(fd->sval == -1) {
+    if (fd->sval == -1) {
         return false;
     }
 
@@ -54,9 +51,6 @@ bool _PDCLIB_open(
 #ifdef TEST
 #include "_PDCLIB_test.h"
 
-int main( void )
-{
-    return TEST_RESULTS;
-}
+int main(void) { return TEST_RESULTS; }
 
 #endif

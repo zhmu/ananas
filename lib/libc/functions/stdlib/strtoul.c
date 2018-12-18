@@ -8,13 +8,17 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-unsigned long int strtoul( const char * s, char ** endptr, int base )
+unsigned long int strtoul(const char* s, char** endptr, int base)
 {
     unsigned long int rc;
     char sign = '+';
-    const char * p = _PDCLIB_strtox_prelim( s, &sign, &base );
-    if ( base < 2 || base > 36 ) return 0;
-    rc = (unsigned long int)_PDCLIB_strtox_main( &p, (unsigned)base, (uintmax_t)ULONG_MAX, (uintmax_t)( ULONG_MAX / base ), (int)( ULONG_MAX % base ), &sign );
-    if ( endptr != NULL ) *endptr = ( p != NULL ) ? (char *) p : (char *) s;
-    return ( sign == '+' ) ? rc : -rc;
+    const char* p = _PDCLIB_strtox_prelim(s, &sign, &base);
+    if (base < 2 || base > 36)
+        return 0;
+    rc = (unsigned long int)_PDCLIB_strtox_main(
+        &p, (unsigned)base, (uintmax_t)ULONG_MAX, (uintmax_t)(ULONG_MAX / base),
+        (int)(ULONG_MAX % base), &sign);
+    if (endptr != NULL)
+        *endptr = (p != NULL) ? (char*)p : (char*)s;
+    return (sign == '+') ? rc : -rc;
 }

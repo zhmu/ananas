@@ -5,6 +5,6 @@
 
 pid_t getpgrp()
 {
-	statuscode_t status = sys_getpgrp();
-	return map_statuscode(status);
+    statuscode_t status = sys_getpgrp();
+    return map_statuscode(status);
 }

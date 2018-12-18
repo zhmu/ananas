@@ -8,13 +8,13 @@
 #include "_PDCLIB_locale.h"
 
 #ifdef _PDCLIB_LOCALE_METHOD
-locale_t uselocale( locale_t newloc )
+locale_t uselocale(locale_t newloc)
 {
     locale_t oldloc = _PDCLIB_threadlocale();
 
-    if(newloc == LC_GLOBAL_LOCALE) {
+    if (newloc == LC_GLOBAL_LOCALE) {
         _PDCLIB_setthreadlocale(NULL);
-    } else if(newloc != NULL) {
+    } else if (newloc != NULL) {
         _PDCLIB_setthreadlocale(newloc);
     }
 
