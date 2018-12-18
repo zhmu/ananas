@@ -63,12 +63,15 @@ License
 ========
 
 Unless otherwise indicated, the |ananas| kernel, userland and accompanying
-libraries and scripts are distributed using the :ref:`beer-ware` license.
+libraries and scripts are distributed using the :ref:`zlib` license.
+
+Previous versions were licensed as 'beer-ware'. In late 2018, the decision was
+made to use the better known Zlib license to avoid confusion.
 
 The |ananas| C library is a fork of `PDCLIB
 <https://rootdirectory.ddns.net/dokuwiki/doku.php?id=pdclib:start>`_, which is
-licensed as *public domain*. All modifications are licensed as
-:ref:`beer-ware`.
+licensed as *public domain*. All modifications are licensed using the
+:ref:`zlib` license.
 
 External code, such as the LLVM/Clang suite, the math library *libm*, GNU
 autotools and *dash* are licensed using their own terms.
@@ -76,9 +79,9 @@ autotools and *dash* are licensed using their own terms.
 This documentation is licensed under a `Creative Commons Attribution 2.0
 Generic License <https://creativecommons.org/licenses/by/2.0/>`_.
 
-.. _beer-ware:
+.. _zlib:
 
-Beer-ware
-----------
+Zlib license
+-------------
 
 .. literalinclude:: ../LICENSE

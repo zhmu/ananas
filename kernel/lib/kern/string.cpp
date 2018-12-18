@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 
@@ -147,5 +153,3 @@ char* strncpy(char* dst, const char* src, size_t n)
     }
     return dst;
 }
-
-/* vim:set ts=2 sw=2: */

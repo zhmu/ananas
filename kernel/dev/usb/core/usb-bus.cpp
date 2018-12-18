@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 /*
  * The usbbus is the root of all USB devices; it is connected directly to the
  * HCD driver device, and takes care of things like device attachment, power
@@ -200,5 +206,3 @@ namespace usb
 
     } // unnamed namespace
 } // namespace usb
-
-/* vim:set ts=2 sw=2: */

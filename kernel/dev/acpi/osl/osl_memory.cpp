@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <machine/param.h>
 #include "../acpica/acpi.h"
 #include "kernel/kmem.h"
@@ -113,5 +119,3 @@ void AcpiOsUnmapMemory(void* LogicalAddress, ACPI_SIZE Length)
 void* AcpiOsAllocate(ACPI_SIZE Size) { return kmalloc(Size); }
 
 void AcpiOsFree(void* Memory) { kfree(Memory); }
-
-/* vim:set ts=2 sw=2: */

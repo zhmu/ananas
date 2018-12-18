@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include "kernel/bio.h"
 #include "kernel/device.h"
 #include "kernel/kdb.h"
@@ -413,5 +419,3 @@ const kdb::RegisterCommand kdbBio("bio", "Display I/O buffers", [](int, const kd
         databuf_avail <= (BIO_DATA_SIZE / BIO_SECTOR_SIZE), "more bio data available than total");
 });
 #endif /* KDB */
-
-/* vim:set ts=2 sw=2: */

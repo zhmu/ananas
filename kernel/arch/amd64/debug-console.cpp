@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include "kernel-md/io.h"
 #include "kernel-md/sio.h"
 #include "kernel/debug-console.h"
@@ -28,5 +34,3 @@ int debugcon_getch()
         return 0;
     return inb(DEBUGCON_IO + SIO_REG_DATA);
 }
-
-/* vim:set ts=2 sw=2: */

@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include "amd64.h"
 #include "io.h"
 #include "lib.h"
@@ -56,5 +62,3 @@ void amd64_exec(uint64_t entry, struct BOOTINFO* bootinfo)
     extern void amd64_launch(uint64_t entry, void*, void*) __attribute__((noreturn));
     amd64_launch(entry, pml4, bootinfo);
 }
-
-/* vim:set ts=2 sw=2: */

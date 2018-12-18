@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/syscalls.h>
 #include <ananas/handle-options.h>
 #include <ananas/errno.h>
@@ -42,5 +48,3 @@ Result sys_dup2(Thread* t, fdindex_t index, fdindex_t newindex)
 
     return Result::Success(index_out);
 }
-
-/* vim:set ts=2 sw=2: */

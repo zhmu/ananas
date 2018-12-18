@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include "kernel-md/io.h"
 #include "kernel/device.h"
@@ -57,5 +63,3 @@ void VGA::SetCursor(int x, int y)
     WriteCRTC(0xe, offs >> 8);
     WriteCRTC(0xf, offs & 0xff);
 }
-
-/* vim:set ts=2 sw=2: */

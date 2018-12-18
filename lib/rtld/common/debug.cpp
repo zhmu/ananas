@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include <stdarg.h>
 #include "lib.h"
@@ -116,5 +122,3 @@ int sprintf(char* str, const char* fmt, ...)
 
     return str - source;
 }
-
-/* vim:set ts=2 sw=2: */

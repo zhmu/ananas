@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include "kernel/dev/sata.h"
 #include "kernel/lib.h"
@@ -25,5 +31,3 @@ void sata_fis_h2d_make_cmd_lba48(
     h2d->h2d_dw2_cyl_lo_exp = (lba >> 32) & 0xff;
     h2d->h2d_dw2_cyl_hi_exp = (lba >> 40) & 0xff;
 }
-
-/* vim:set ts=2 sw=2: */

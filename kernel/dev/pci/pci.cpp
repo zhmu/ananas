@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include "kernel/dev/pci.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
@@ -89,5 +95,3 @@ void pci_enable_busmaster(Device& device, bool on)
         cmd &= ~PCI_CMD_BM;
     pci_write_cfg(device, PCI_REG_STATUSCOMMAND, cmd, 32);
 }
-
-/* vim:set ts=2 sw=2: */

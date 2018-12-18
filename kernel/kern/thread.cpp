@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 /*
  * Threads have a current state which is contained in t_flags; possible
  * transitions are:
@@ -352,5 +358,3 @@ void idle_thread(void*)
         md::interrupts::Relax();
     }
 }
-
-/* vim:set ts=2 sw=2: */

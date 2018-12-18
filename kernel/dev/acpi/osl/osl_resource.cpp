@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include "kernel/device.h"
 #include "kernel/irq.h"
 #include "kernel/kmem.h"
@@ -144,5 +150,3 @@ AcpiOsWritePciConfiguration(ACPI_PCI_ID* PciId, UINT32 Register, UINT64 Value, U
     pci_write_config(PciId->Bus, PciId->Device, PciId->Function, Register, Value, Width);
     return AE_OK;
 }
-
-/* vim:set ts=2 sw=2: */

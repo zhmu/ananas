@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 // SUMMARY:mmap()-ing more than file size silently truncates
 // PROVIDE-FILE: "mmap-4.txt" "ABCD"
 

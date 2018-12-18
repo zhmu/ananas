@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include <ananas/errno.h>
 #include <ananas/util/utility.h>
@@ -205,5 +211,3 @@ Result VMSpace::HandleFault(addr_t virt, int flags)
 
     return RESULT_MAKE_FAILURE(EFAULT);
 }
-
-/* vim:set ts=2 sw=2: */

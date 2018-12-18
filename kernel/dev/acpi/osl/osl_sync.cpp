@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/mm.h"
@@ -64,5 +70,3 @@ void AcpiOsReleaseLock(ACPI_SPINLOCK Handle, ACPI_CPU_FLAGS Flags)
 {
     Handle->UnlockUnpremptible(Flags);
 }
-
-/* vim:set ts=2 sw=2: */

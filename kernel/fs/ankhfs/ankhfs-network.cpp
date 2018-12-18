@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include <ananas/limits.h>
 #include "kernel/device.h"
@@ -87,5 +93,3 @@ namespace ankhfs
     }
 
 } // namespace ankhfs
-
-/* vim:set ts=2 sw=2: */

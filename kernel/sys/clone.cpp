@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/syscalls.h>
 #include <ananas/errno.h>
 #include "kernel/process.h"
@@ -37,5 +43,3 @@ Result sys_clone(Thread* t, int flags)
     TRACE(SYSCALL, FUNC, "t=%p, success, new pid=%u", t, new_pid);
     return Result::Success(new_pid);
 }
-
-/* vim:set ts=2 sw=2: */

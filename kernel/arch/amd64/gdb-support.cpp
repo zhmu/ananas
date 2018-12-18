@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include "kernel-md/frame.h"
 
@@ -77,5 +83,3 @@ int gdb_md_map_signal(struct STACKFRAME* sf)
             return 7;
     }
 }
-
-/* vim:set ts=2 sw=2: */

@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include <ananas/errno.h>
 #include "kernel/bio.h"
@@ -600,5 +606,3 @@ struct VFS_INODE_OPS fat_dir_ops = {
     .unlink = fat_unlink,
     .rename = fat_rename,
 };
-
-/* vim:set ts=2 sw=2: */

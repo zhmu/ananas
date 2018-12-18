@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include <machine/param.h>
 #include "kernel/gdb.h"
@@ -292,5 +298,3 @@ Result sys_sigreturn(Thread* t)
     // we need to reload it
     return Result(sf->sf_rax, true);
 }
-
-/* vim:set ts=2 sw=2: */

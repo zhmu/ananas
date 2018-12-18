@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/syscalls.h>
 #include "kernel/process.h"
 #include "kernel/result.h"
@@ -26,5 +32,3 @@ Result sys_waitpid(Thread* t, pid_t pid, int* stat_loc, int options)
 
     return Result::Success(child_pid);
 }
-
-/* vim:set ts=2 sw=2: */

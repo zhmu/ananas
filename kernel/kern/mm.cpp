@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include "kernel/lib.h"
 #include "kernel/kdb.h"
@@ -188,5 +194,3 @@ const kdb::RegisterCommand
         kprintf("Total amount of memory used by malloc(): %d KB\n", total_len / 1024);
     });
 #endif
-
-/* vim:set ts=2 sw=2: */

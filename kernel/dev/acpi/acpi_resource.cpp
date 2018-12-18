@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include "acpica/acpi.h"
 #include "acpi.h"
 #include "acpi_resource.h"
@@ -83,5 +89,3 @@ acpi_process_resources(ACPI_HANDLE ObjHandle, ResourceSet& resourceSet)
     AcpiOsFree(buf.Pointer);
     return AE_OK;
 }
-
-/* vim:set ts=2 sw=2: */

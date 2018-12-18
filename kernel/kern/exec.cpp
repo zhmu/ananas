@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include "kernel/exec.h"
 #include "kernel/lib.h"
 #include "kernel/init.h"
@@ -34,5 +40,3 @@ IExecutor* exec_prepare(DEntry& dentry)
 }
 
 void exec_register_format(ExecFormat& ef) { exec_formats.push_back(ef); }
-
-/* vim:set ts=2 sw=2: */

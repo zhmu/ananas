@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include "kernel/console-driver.h"
 #include "kernel/driver.h"
 #include "kernel/irq.h"
@@ -111,5 +117,3 @@ namespace
     const RegisterDriver<SIO_Driver> registerDriver;
 
 } // unnamed namespace
-
-/* vim:set ts=2 sw=2: */

@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/util/algorithm.h>
 #include "kernel-md/ioapic.h"
 #include "kernel-md/lapic.h"
@@ -188,5 +194,3 @@ X86_IOAPIC::Pin& X86_IOAPIC::FindPinByVector(int vector)
     KASSERT(it != ioa_pins.end(), "vector %d not found", vector);
     return *it;
 }
-
-/* vim:set ts=2 sw=2: */

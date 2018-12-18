@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 /*
  * This contains the scheduler; it has two queues: a runqueue (containing all
  * threads that can run) and a sleepqueue (threads which cannot run). The
@@ -353,5 +359,3 @@ const kdb::RegisterCommand
         }
     });
 #endif /* OPTION_KDB */
-
-/* vim:set ts=2 sw=2: */

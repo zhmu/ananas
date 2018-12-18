@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include "kernel/console.h"
 #include "kernel/console-driver.h"
 #include "kernel/cmdline.h"
@@ -156,5 +162,3 @@ uint8_t console_getchar()
         return 0;
     return c;
 }
-
-/* vim:set ts=2 sw=2: */

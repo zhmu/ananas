@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include "kernel/driver.h"
 #include "kernel/lib.h"
 #include "kernel/result.h"
@@ -44,5 +50,3 @@ namespace driver_manager
     }
 
 } // namespace driver_manager
-
-/* vim:set ts=2 sw=2: */

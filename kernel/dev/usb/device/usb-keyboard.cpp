@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include <ananas/util/array.h>
 #include "kernel/dev/kbdmux.h"
@@ -282,5 +288,3 @@ namespace
     const RegisterDriver<USBKeyboard_Driver> registerDriver;
 
 } // unnamed namespace
-
-/* vim:set ts=2 sw=2: */

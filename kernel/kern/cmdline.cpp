@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include <ananas/bootinfo.h>
 #include "kernel/cmdline.h"
@@ -55,5 +61,3 @@ const char* cmdline_get_string(const char* key)
 
     return NULL; /* not found */
 }
-
-/* vim:set ts=2 sw=2: */

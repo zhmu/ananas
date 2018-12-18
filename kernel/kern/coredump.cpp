@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 /*
  * XXX This file is an incredible hack - it will write a Linux-like coredump
  *     that is 'good enough' to use in GDB, but lldb is much more picky and

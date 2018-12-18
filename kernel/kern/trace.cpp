@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include "kernel/console.h"
 #include "kernel/lib.h"
@@ -47,5 +53,3 @@ namespace trace
     void Disable(SubSystem ss, int mask) { detail::subsystem_mask[static_cast<int>(ss)] |= ~mask; }
 
 } // namespace trace
-
-/* vim:set ts=2 sw=2: */

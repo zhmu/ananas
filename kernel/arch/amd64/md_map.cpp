@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include <machine/param.h>
 #include "kernel/kmem.h"
@@ -159,5 +165,3 @@ namespace md::vm
     }
 
 } // namespace md::vm
-
-/* vim:set ts=2 sw=2: */

@@ -1,4 +1,10 @@
 /*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
+/*-
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
  *

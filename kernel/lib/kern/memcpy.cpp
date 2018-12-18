@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include "kernel/lib.h"
 
@@ -48,5 +54,3 @@ void* memcpy(void* dst, const void* src, size_t len)
 #endif
     return dst;
 }
-
-/* vim:set ts=2 sw=2: */

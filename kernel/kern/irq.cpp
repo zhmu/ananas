@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/util/algorithm.h>
 #include <machine/param.h>
 #include <ananas/types.h>
@@ -330,5 +336,3 @@ const kdb::RegisterCommand kdbIRQ("irq", "Display IRQ status", [](int, const kdb
     }
 });
 #endif
-
-/* vim:set ts=2 sw=2: */

@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include "kernel/irq.h"
 #include "kernel-md/io.h"
 #include "kernel-md/pic.h"
@@ -39,5 +45,3 @@ void x86_pic_mask_all()
     outb(PIC1_DATA, 0xff);
     outb(PIC2_DATA, 0xff);
 }
-
-/* vim:set ts=2 sw=2: */

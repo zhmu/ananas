@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 // SUMMARY:Child inherits mappings
 // PROVIDE-FILE: "mmap-5.txt" "ABCD"
 

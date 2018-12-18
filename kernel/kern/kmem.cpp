@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 /*
  * This code will handle kernel memory mappings. As the kernel has a limited
  * amount of virtual addresses (KVA), this code will handle the mapping of
@@ -237,5 +243,3 @@ const kdb::RegisterCommand
         }
     });
 #endif
-
-/* vim:set ts=2 sw=2: */

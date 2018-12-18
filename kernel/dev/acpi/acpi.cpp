@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include "acpica/acpi.h"
 #include "acpi.h"
 #include "acpi_resource.h"
@@ -167,5 +173,3 @@ void acpi_init()
      */
     AcpiInitializeTables(NULL, 2, TRUE);
 }
-
-/* vim:set ts=2 sw=2: */

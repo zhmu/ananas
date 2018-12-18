@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 /*
  * Ananas ext2fs filesystem driver.
  *
@@ -459,5 +465,3 @@ ext2_dump_inode(struct EXT2_INODE* inode)
     });
 
 } // unnamed namespace
-
-/* vim:set ts=2 sw=2: */

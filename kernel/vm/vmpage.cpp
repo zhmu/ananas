@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
@@ -325,5 +331,3 @@ void VMPage::Dump(const char* prefix) const
         kprintf(" inode %d offset %d", (int)vp_inode->i_inum, (int)vp_offset);
     kprintf("\n");
 }
-
-/* vim:set ts=2 sw=2: */

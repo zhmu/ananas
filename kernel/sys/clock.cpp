@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include <ananas/errno.h>
 #include <ananas/syscalls.h>
@@ -37,5 +43,3 @@ Result sys_clock_getres(Thread* t, int id, struct timespec* res)
     TRACE(SYSCALL, FUNC, "t=%p, id=%d", t, id);
     return RESULT_MAKE_FAILURE(EINVAL);
 }
-
-/* vim:set ts=2 sw=2: */

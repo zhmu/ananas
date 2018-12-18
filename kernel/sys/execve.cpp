@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/errno.h>
 #include <ananas/syscalls.h>
 #include "kernel/exec.h"
@@ -98,5 +104,3 @@ Result sys_execve(Thread* t, const char* path, const char** argv, const char** e
     dentry_deref(dentry);
     return Result::Success();
 }
-
-/* vim:set ts=2 sw=2: */

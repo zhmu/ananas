@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include "kernel/bio.h"
 #include "kernel/device.h"
@@ -74,5 +80,3 @@ Device* slice_create(Device* parent, blocknr_t begin, blocknr_t length)
     }
     return slice;
 }
-
-/* vim:set ts=2 sw=2: */

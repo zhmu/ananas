@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include "kernel/bio.h"
 #include "kernel/lib.h"
@@ -149,5 +155,3 @@ Result fat_write_inode(INode& inode)
 
 struct VFS_INODE_OPS fat_inode_ops = {
     .read = vfs_generic_read, .write = vfs_generic_write, .block_map = fat_block_map};
-
-/* vim:set ts=2 sw=2: */

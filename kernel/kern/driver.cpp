@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/types.h>
 #include "kernel/device.h"
 #include "kernel/driver.h"
@@ -27,5 +33,3 @@ bool Driver::MustProbeOnBus(const Device& bus) const
     }
     return false;
 }
-
-/* vim:set ts=2 sw=2: */

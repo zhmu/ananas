@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/util/atomic.h>
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
@@ -71,5 +77,3 @@ extern "C" void __cxa_guard_release(__int64_t* guard_object)
     // XXX We ought to actually lock stuff here
     *guard_object = 0;
 }
-
-/* vim:set ts=2 sw=2: */
