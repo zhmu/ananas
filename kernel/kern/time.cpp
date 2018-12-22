@@ -19,6 +19,7 @@ namespace time
         //     from atomic add/subtract/compare...
         Spinlock time_lock;
         tick_t ticks = 0;
+        struct timespec time_boot;
         struct timespec time_current;
 
         // DateToSerialDayNumber() is inspired by
@@ -49,6 +50,14 @@ namespace time
             ts.tv_nsec = 0;
         }
 
+        void AddTick(struct timespec& ts)
+        {
+            ts.tv_nsec += 1000000000 / GetPeriodicyInHz();
+            while (ts.tv_nsec >= 1000000000) {
+                ts.tv_sec++;
+                ts.tv_nsec -= 1000000000;
+            }
+        }
     } // unnamed namespace
 
     unsigned int GetPeriodicyInHz()
@@ -82,6 +91,12 @@ namespace time
         return time_current;
     }
 
+    struct timespec GetTimeSinceBoot()
+    {
+        SpinlockUnpremptibleGuard g(time_lock);
+        return time_boot;
+    }
+
     void OnTick()
     {
         // This should only be called in the boot CPU
@@ -94,11 +109,8 @@ namespace time
             // Update the timestamp - XXX we should synchronise every now and then with
             // the RTC. XXX we can use the TSC to get a much more accurate value than
             // this
-            time_current.tv_nsec += 1000000000 / GetPeriodicyInHz();
-            while (time_current.tv_nsec >= 1000000000) {
-                time_current.tv_sec++;
-                time_current.tv_nsec -= 1000000000;
-            }
+            AddTick(time_boot);
+            AddTick(time_current);
         }
     }
 

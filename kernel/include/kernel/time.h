@@ -44,6 +44,7 @@ namespace time
     void SetTime(const struct tm& tm);
     void SetTime(const struct timespec& ts);
     struct timespec GetTime();
+    struct timespec GetTimeSinceBoot();
 
 } // namespace time
 

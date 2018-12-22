@@ -26,8 +26,10 @@ Result sys_clock_gettime(Thread* t, int id, struct timespec* tp)
 {
     TRACE(SYSCALL, FUNC, "t=%p, id=%d", t, id);
     switch (id) {
-        case CLOCK_MONOTONIC:
-            break;
+        case CLOCK_MONOTONIC: {
+            *tp = time::GetTimeSinceBoot();
+            return Result::Success();
+        }
         case CLOCK_REALTIME: {
             *tp = time::GetTime();
             return Result::Success();
