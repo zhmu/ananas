@@ -9,13 +9,31 @@
 #include "kernel/driver.h"
 #include "kernel/lib.h"
 
+namespace {
+
+size_t GetDeviceNameLengthToMatch(const Device& device)
+{
+    constexpr auto isDigit = [](char ch) {
+        return ch >= '0' && ch <= '9';
+    };
+
+    // Cut off the unit number, if any
+    size_t n = strlen(device.d_Name);
+    while (n > 0 && isDigit(device.d_Name[n - 1]))
+        n--;
+    return n;
+}
+
+} // unnamed namespace
+
+
 bool Driver::MustProbeOnBus(const Device& bus) const
 {
     const char* ptr = GetBussesToProbeOn();
     if (ptr == nullptr)
         return false;
 
-    size_t bus_name_len = strlen(bus.d_Name);
+    auto bus_name_len = GetDeviceNameLengthToMatch(bus);
     while (*ptr != '\0') {
         const char* next = strchr(ptr, ',');
         if (next == NULL)

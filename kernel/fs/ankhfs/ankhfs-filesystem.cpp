@@ -78,8 +78,8 @@ namespace ankhfs
                             if (fs->fs_device != nullptr) {
                                 auto& device = *fs->fs_device;
                                 snprintf(
-                                    r, sizeof(result) - (r - result), "%s %s%d %d\n",
-                                    fs->fs_mountpoint, device.d_Name, device.d_Unit, fs->fs_flags);
+                                    r, sizeof(result) - (r - result), "%s %s %d\n",
+                                    fs->fs_mountpoint, device.d_Name, fs->fs_flags);
                             } else {
                                 snprintf(
                                     r, sizeof(result) - (r - result), "%s none %d\n",

@@ -30,9 +30,7 @@ namespace device_manager
         void PrintAttachment(Device& device)
         {
             KASSERT(device.d_Parent != NULL, "can't print device which doesn't have a parent bus");
-            kprintf(
-                "%s%u on %s%u ", device.d_Name, device.d_Unit, device.d_Parent->d_Name,
-                device.d_Parent->d_Unit);
+            kprintf("%s on %s ", device.d_Name, device.d_Parent->d_Name);
             device.d_ResourceSet.Print();
             kprintf("\n");
         }
@@ -78,13 +76,13 @@ namespace device_manager
         {
             // XXX we need locking for currentunit / major / currentMajor
             if (driver.d_Major == 0)
-                driver.d_Major = currentMajor++;
+                driver.d_Major = AllocateMajor();
 
             Device* device = driver.CreateDevice(cdp);
             if (device != nullptr) {
-                strcpy(device->d_Name, driver.d_Name);
                 device->d_Major = driver.d_Major;
                 device->d_Unit = driver.d_CurrentUnit++;
+                sprintf(device->d_Name, "%s%d", driver.d_Name, device->d_Unit);
             }
             return device;
         }
@@ -97,16 +95,22 @@ namespace device_manager
 
             // XXX duplication, locking etc
             if (driver.d_Major == 0)
-                driver.d_Major = currentMajor++;
-            strcpy(device->d_Name, driver.d_Name);
+                driver.d_Major = AllocateMajor();
             device->d_Major = driver.d_Major;
             device->d_Unit = driver.d_CurrentUnit++;
+            sprintf(device->d_Name, "%s%d", driver.d_Name, device->d_Unit);
             return device;
         }
 
         void DeinstantiateDevice(Device& device) { delete &device; }
 
     } // namespace internal
+
+    int AllocateMajor()
+    {
+        // XXX locking, etc
+        return currentMajor++;
+    }
 
     Result AttachSingle(Device& device)
     {
@@ -228,14 +232,9 @@ namespace device_manager
 
     Device* FindDevice(const char* name)
     {
-        char* ptr = (char*)name;
-        while (*ptr != '\0' && (*ptr < '0' || *ptr > '9'))
-            ptr++;
-        int unit = (*ptr != '\0') ? strtoul(ptr, NULL, 10) : 0;
-
         SpinlockGuard g(internal::spl_devicequeue);
         for (auto& device : internal::deviceList) {
-            if (strncmp(device.d_Name, name, ptr - name) == 0 && device.d_Unit == unit)
+            if (strcmp(device.d_Name, name) == 0)
                 return &device;
         }
         return nullptr;

@@ -190,6 +190,7 @@ namespace device_manager
 {
     using DeviceList = ::device::DeviceList;
 
+    int AllocateMajor();
     Result AttachSingle(Device& device);
     Result Detach(Device& device);
     Device* AttachChild(Device& bus, const ResourceSet& resourceSet);

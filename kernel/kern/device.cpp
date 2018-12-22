@@ -27,7 +27,7 @@ void Device::Printf(const char* fmt, ...) const
 #define DEVICE_PRINTF_BUFSIZE 256
     char buf[DEVICE_PRINTF_BUFSIZE];
 
-    snprintf(buf, sizeof(buf), "%s%u: ", d_Name, d_Unit);
+    snprintf(buf, sizeof(buf), "%s: ", d_Name);
 
     va_list va;
     va_start(va, fmt);
@@ -41,6 +41,6 @@ void Device::Printf(const char* fmt, ...) const
 
 IBusOperations& Device::GetBusDeviceOperations()
 {
-    KASSERT(d_Parent != nullptr, "no parent bus for device %s%d", d_Name, d_Unit);
+    KASSERT(d_Parent != nullptr, "no parent bus for device %s", d_Name);
     return d_Parent->GetBusDeviceOperations();
 }

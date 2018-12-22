@@ -20,8 +20,9 @@ namespace
       public:
         CoreBus()
         {
-            strcpy(d_Name, "corebus");
+            d_Major = device_manager::AllocateMajor();
             d_Unit = 0;
+            strcpy(d_Name, "corebus");
         }
 
         IDeviceOperations& GetDeviceOperations() override { return *this; }

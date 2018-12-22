@@ -49,7 +49,7 @@ namespace ankhfs
                         return false;
 
                     snprintf(
-                        entry, maxLength, "%s%d", currentDevice->d_Name, currentDevice->d_Unit);
+                        entry, maxLength, "%s", currentDevice->d_Name);
                     inum = make_inum(
                         SS_Device, makedev(currentDevice->d_Major, currentDevice->d_Unit), 0);
                     ++currentDevice;
