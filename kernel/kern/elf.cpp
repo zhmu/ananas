@@ -439,6 +439,7 @@ Result ELF64Loader::PrepareForExecute(
         kmem_unmap(p, PAGE_SIZE);
     }
 
+    t.SetName(argv[0]);
     md::thread::SetupPostExec(t, auxargs->aa_rip, stack_end - bytes_needed);
 
     stack_vp.Unlock();

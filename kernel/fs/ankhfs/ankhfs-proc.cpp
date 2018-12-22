@@ -10,6 +10,7 @@
 #include "kernel/fd.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
+#include "kernel/thread.h"
 #include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
@@ -176,8 +177,8 @@ namespace ankhfs
                 strcpy(result, "???");
                 switch (inum_to_sub(inum)) {
                     case subName: {
-                        // XXX TODO how do we know this?
-                        strncpy(result, "???", sizeof(result));
+                        if (p->p_mainthread != nullptr)
+                            strncpy(result, p->p_mainthread->t_name, sizeof(result));
                         break;
                     }
                     case subVmSpace: {
