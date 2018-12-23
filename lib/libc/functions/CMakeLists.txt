@@ -89,6 +89,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/_dlmalloc/dlmalloc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/dlfcn/dladdr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/dlfcn/dlclose.c
+	${CMAKE_CURRENT_SOURCE_DIR}/dlfcn/dlerror.c
 	${CMAKE_CURRENT_SOURCE_DIR}/dlfcn/dlsym.c
 	${CMAKE_CURRENT_SOURCE_DIR}/dlfcn/dlopen.c
 	${CMAKE_CURRENT_SOURCE_DIR}/ctype/tolower.c
