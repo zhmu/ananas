@@ -52,7 +52,7 @@ namespace
         strncpy(buf->f_mntonname, vfs.fs_mountpoint, MNAMELEN);
         if (vfs.fs_device != nullptr) {
             const auto& device = *vfs.fs_device;
-            snprintf(buf->f_mntfromname, MNAMELEN, "%s%d", device.d_Name, device.d_Unit);
+            snprintf(buf->f_mntfromname, MNAMELEN, "%s", device.d_Name);
         }
         // XXX fill out the rest of the fields
     }
