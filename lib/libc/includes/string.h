@@ -206,6 +206,8 @@ size_t strlcat(char* _PDCLIB_restrict _Dst, const char* _PDCLIB_restrict _Src, s
     _PDCLIB_nothrow;
 #endif
 
+char* strsignal(int signum);
+
 #ifdef __cplusplus
 }
 #endif

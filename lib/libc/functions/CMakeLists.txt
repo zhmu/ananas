@@ -18,9 +18,11 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/wctype/iswprint.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wctype/iswctype.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wctype/iswspace.c
+	${CMAKE_CURRENT_SOURCE_DIR}/time/asctime.c
 	${CMAKE_CURRENT_SOURCE_DIR}/time/gmtime.c
 	${CMAKE_CURRENT_SOURCE_DIR}/time/strftime.c
 	${CMAKE_CURRENT_SOURCE_DIR}/time/clock.c
+	${CMAKE_CURRENT_SOURCE_DIR}/time/ctime.c
 	${CMAKE_CURRENT_SOURCE_DIR}/time/timespec_get.c
 	${CMAKE_CURRENT_SOURCE_DIR}/time/localtime.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/abs.c
@@ -223,6 +225,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/string/strdup.c
 	${CMAKE_CURRENT_SOURCE_DIR}/string/strndup.c
 	${CMAKE_CURRENT_SOURCE_DIR}/string/strncasecmp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/string/strsignal.c
 	${CMAKE_CURRENT_SOURCE_DIR}/string/strstr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/string/strncmp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/string/strspn.c
