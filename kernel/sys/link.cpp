@@ -19,3 +19,10 @@ Result sys_link(Thread* t, const char* oldpath, const char* newpath)
 
     return RESULT_MAKE_FAILURE(EPERM); // until we implement this
 }
+
+Result sys_symlink(Thread* t, const char* oldpath, const char* newpath)
+{
+    TRACE(SYSCALL, FUNC, "t=%p, oldpath='%s' newpath='%s'", t, oldpath, newpath);
+
+    return RESULT_MAKE_FAILURE(EPERM); // until we implement this
+}

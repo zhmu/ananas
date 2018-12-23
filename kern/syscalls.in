@@ -50,3 +50,4 @@
 45 { Result getegid(); }
 46 { Result getpid(); }
 47 { Result getppid(); }
+48 { Result symlink(const char* oldpath, const char* newpath); }
