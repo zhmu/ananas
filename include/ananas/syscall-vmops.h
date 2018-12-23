@@ -13,6 +13,9 @@ typedef enum {
 
     /* Removes a mapping - only va_addr/va_len are used */
     OP_UNMAP,
+
+    /* Change permissions of a mapping - only va_addr/va_len/va_flags are used */
+    OP_CHANGE_ACCESS
 } VMOP_OPERATION;
 
 /* Permissions, can be combined */

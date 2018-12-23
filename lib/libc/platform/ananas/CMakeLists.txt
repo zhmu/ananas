@@ -49,8 +49,10 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/lseek.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/getuid.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/readlink.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/symlink.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/waitpid.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/mmap.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/mprotect.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/write.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/dup.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/dup2.c
