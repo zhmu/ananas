@@ -215,6 +215,10 @@ _PDCLIB_noreturn void quick_exit(int status);
 */
 char* getenv(const char* name) _PDCLIB_nothrow;
 
+int setenv(const char* envname, const char* envval, int overwrite);
+int putenv(char* s);
+int unsetenv(const char* envname);
+
 /* If string is a NULL pointer, system() returns nonzero if a command processor
    is available, and zero otherwise. If string is not a NULL pointer, it is
    passed to the command processor. If system() returns, it does so with a
@@ -352,6 +356,8 @@ size_t mbstowcs(wchar_t* _PDCLIB_restrict pwcs, const char* _PDCLIB_restrict s, 
    equals n.)
 */
 size_t wcstombs(char* _PDCLIB_restrict s, const wchar_t* _PDCLIB_restrict pwcs, size_t n);
+
+char* realpath(const char* file_name, char* _PDCLIB_restrict resolved_name);
 
 #ifdef __cplusplus
 }

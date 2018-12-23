@@ -40,6 +40,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/atoi.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/strtoll.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/strtof.c
+	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/unimplemented/realpath.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/unimplemented/mbstowcs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/unimplemented/wcstombs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/stdlib/lldiv.c

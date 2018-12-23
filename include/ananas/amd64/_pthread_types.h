@@ -7,44 +7,47 @@
 #ifndef PTHREAD_AMD64_H
 #define PTHREAD_AMD64_H
 
-struct pthread_attr_md {
+#include <ananas/limits.h>
+
+struct pthread_attr {
     int unused;
 };
 
-struct pthread_cond_md {
+struct pthread_cond {
     int unused;
 };
 
-struct pthread_condattr_md {
+struct pthread_condattr {
     int unused;
 };
 
-struct pthread_key_md {
+struct pthread_key {
     int unused;
 };
 
-struct pthread_mutex_md {
+struct pthread_mutex {
     int unused;
 };
 
-struct pthread_mutexattr_md {
+struct pthread_mutexattr {
     int unused;
 };
 
-struct pthread_once_md {
+struct pthread_once {
     int unused;
 };
 
-struct pthread_rwlock_md {
+struct pthread_rwlock {
     int unused;
 };
 
-struct pthread_rwlockattr_md {
+struct pthread_rwlockattr {
     int unused;
 };
 
-struct pthread_md {
-    int unused;
+struct pthread {
+    // Thread Specific Data
+    void* tsd[PTHREAD_KEYS_MAX];
 };
 
 #endif // PTHREAD_AMD64_H
