@@ -16,6 +16,10 @@ extern char** environ;
 
 char* getenv(const char* name)
 {
+    // XXX This is a hack until I fix rtld so that environ is always properly initialized...
+    if (environ == NULL)
+        return NULL;
+
     size_t len = strlen(name);
     size_t index = 0;
     while (environ[index] != NULL) {

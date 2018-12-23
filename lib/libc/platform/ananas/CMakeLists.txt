@@ -10,7 +10,10 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/time/nanosleep.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/utime/utime.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdlib/getenv.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdlib/putenv.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdlib/setenv.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdlib/system.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdlib/unsetenv.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/_PDCLIB/_PDCLIB_Exit.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/_PDCLIB/_PDCLIB_allocpages.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/_PDCLIB/_PDCLIB_stdinit.c
