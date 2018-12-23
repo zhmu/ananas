@@ -91,6 +91,8 @@ void* malloc(size_t nbytes)
 /* free: put block ap in free list */
 void free(void* ap)
 {
+    if (ap == NULL)
+        return;
     Header* bp = static_cast<Header*>(ap) - 1;
 
     /* point to block header */
