@@ -38,4 +38,6 @@
 #define UINT_MAX _PDCLIB_UINT_MAX
 #define ULONG_MAX _PDCLIB_ULONG_MAX
 
+#define PTHREAD_KEYS_MAX 128
+
 #endif

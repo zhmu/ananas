@@ -6,6 +6,7 @@
  */
 #include <unistd.h>
 #include <machine/param.h>
+#include <limits.h>
 
 long sysconf(int name)
 {
@@ -14,6 +15,8 @@ long sysconf(int name)
             return PAGE_SIZE;
         case _SC_CLK_TCK:
             return 1; /* TODO */
+        case _SC_ARG_MAX:
+            return _POSIX_ARG_MAX;
         default:
             return -1;
     }
