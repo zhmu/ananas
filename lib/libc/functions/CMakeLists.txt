@@ -250,5 +250,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/string/memset.c
 	${CMAKE_CURRENT_SOURCE_DIR}/string/strcmp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/string/strlcat.c
+	${CMAKE_CURRENT_SOURCE_DIR}/libgen/basename.c
+	${CMAKE_CURRENT_SOURCE_DIR}/libgen/dirname.c
 	PARENT_SCOPE
 )
