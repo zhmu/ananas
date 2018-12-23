@@ -7,8 +7,13 @@
 #include <pthread.h>
 #include <errno.h>
 
+// XXX This is not thread-aware at all at this point
 int pthread_once(pthread_once_t* once_control, void (*init_routine)(void))
 {
-    errno = ENOSYS;
-    return -1;
+    if (*once_control != PTHREAD_ONCE_INIT)
+        return 0; // already done
+
+    init_routine();
+    (*once_control)++;
+    return 0;
 }
