@@ -12,6 +12,9 @@
 #define MNT_RDONLY 0x0001 /* read only */
 #define MNT_NOWAIT 0x0002
 
+/* BSD extensions */
+#define MNT_LOCAL  0x1000 /* local volume */
+
 #define MFSNAMELEN 16 /* length of type name including \0 */
 #define MNAMELEN 88   /* name buffer length */
 

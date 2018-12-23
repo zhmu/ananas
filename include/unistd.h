@@ -96,7 +96,9 @@ extern char* optarg;
 extern char** environ;
 
 #define _SC_PAGESIZE 1000
+#define _SC_PAGE_SIZE _SC_PAGESIZE
 #define _SC_CLK_TCK 1001
+#define _SC_ARG_MAX 1002
 long sysconf(int name);
 
 /* legacy interfaces - should be nuked sometime */
@@ -108,6 +110,8 @@ pid_t tcgetpgrp(int fildes);
 int tcsetpgrp(int fildes, pid_t pgid_id);
 
 int gethostname(char* name, size_t namelen);
+
+int symlink(const char* path1, const char* path2);
 
 __END_DECLS
 

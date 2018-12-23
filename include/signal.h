@@ -28,6 +28,8 @@ int kill(pid_t pid, int sig);
 int sigismember(const sigset_t* set, int signo);
 sig_t signal(int sig, sig_t func);
 
+int pthread_sigmask(int how, const sigset_t* set, sigset_t* oset);
+
 /* BSD extensions */
 #define NSIG (_SIGLAST + 1)
 extern const char* const sys_siglist[NSIG];
