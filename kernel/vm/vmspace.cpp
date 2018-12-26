@@ -172,9 +172,9 @@ Result VMSpace::MapToDentry(
     VMArea*& va_out)
 {
     // Ensure the range we are mapping does not exceed the inode; if this is the case, we silently
-    // truncate
+    // truncate - but still up to a full page as we can't map anything less
     if (doffset + vlength > dentry.d_inode->i_sb.st_size) {
-        vlength = dentry.d_inode->i_sb.st_size - doffset;
+        vlength = RoundUp(dentry.d_inode->i_sb.st_size - doffset);
     }
 
     KASSERT((doffset & (PAGE_SIZE - 1)) == 0, "offset %d not page-aligned", doffset);
