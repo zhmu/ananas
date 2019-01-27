@@ -90,8 +90,6 @@ OUTDIR="${ROOT}/build/output"
 WORKDIR="${ROOT}/build/work"
 CLANG='clang'
 CLANGXX='clang++'
-CLANG_D="${CLANG}"
-CLANGXX_D="${CLANGXX}"
 IMAGE=""
 
 # see if the clang compiler is sensible - we try to invoke it
@@ -100,6 +98,13 @@ if [ $? -ne 0 ]; then
 	echo "cannot invoke '$CLANG' - is your path set correctly?"
 	exit 1
 fi
+
+# ensure we work with full paths here; clang within our sysroot causes
+# CMake it prefer it, which we must avoid
+CLANG=`which ${CLANG}`
+CLANGXX=`which ${CLANGXX}`
+CLANG_D="${CLANG}"
+CLANGXX_D="${CLANGXX}"
 
 # XXX we should do some preliminary tests to see how sane this clang is
 # (i.e. is it modern enough for our uses)
@@ -221,10 +226,6 @@ set(CMAKE_SYSTEM_NAME Linux)
 set(triple ${TARGET})
 set(CMAKE_SYSROOT ${OUTDIR})
 
-# ensure we'll have something to assemble things - for whatever reason, CMake
-# cannot detect this by itself?
-set(CMAKE_ASM_COMPILER \${CMAKE_C_COMPILER})
-
 # [ar] Force llvm-ar to be used
 find_program(CMAKE_AR NAMES llvm-ar)
 
@@ -237,6 +238,10 @@ set(CMAKE_C_COMPILER_TARGET \${triple})
 # [cxx] do not yet use clang++ here, we will not yet have all libraries necessary
 set(CMAKE_CXX_COMPILER ${CLANG_D})
 set(CMAKE_CXX_COMPILER_TARGET \${triple})
+
+# ensure we'll have something to assemble things - for whatever reason, CMake
+# cannot detect this by itself?
+set(CMAKE_ASM_COMPILER \${CMAKE_C_COMPILER})
 END
 
 fi
@@ -293,10 +298,6 @@ set(CMAKE_SYSTEM_NAME Linux)
 set(triple ${TARGET})
 set(CMAKE_SYSROOT ${OUTDIR})
 
-# ensure we'll have something to assemble things - for whatever reason, CMake
-# cannot detect this by itself?
-set(CMAKE_ASM_COMPILER \${CMAKE_C_COMPILER})
-
 # [ar] Force llvm-ar to be used
 find_program(CMAKE_AR NAMES llvm-ar)
 
@@ -308,6 +309,10 @@ set(CMAKE_C_COMPILER ${CLANG_D})
 set(CMAKE_C_COMPILER_TARGET \${triple})
 set(CMAKE_CXX_COMPILER ${CLANGXX_D})
 set(CMAKE_CXX_COMPILER_TARGET \${triple})
+
+# ensure we'll have something to assemble things - for whatever reason, CMake
+# cannot detect this by itself?
+set(CMAKE_ASM_COMPILER \${CMAKE_C_COMPILER})
 END
 fi
 
