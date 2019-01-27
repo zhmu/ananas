@@ -207,6 +207,7 @@ size_t strlcat(char* _PDCLIB_restrict _Dst, const char* _PDCLIB_restrict _Src, s
 #endif
 
 char* strsignal(int signum);
+char* strsep(char** stringp, const char* delim);
 
 #ifdef __cplusplus
 }
