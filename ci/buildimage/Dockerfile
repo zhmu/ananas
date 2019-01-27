@@ -1,4 +1,4 @@
-FROM clang-debian9:staging
+FROM ananas-llvm:latest
 
 MAINTAINER Rink Springer <rink@rink.nu>
 

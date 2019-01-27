@@ -50,7 +50,7 @@ executing the following commands:
 .. code-block:: console
 
    ~/ananas$ cd ci/llvm
-   ~/ananas/ci/llvm$ ./go.sh
+   ~/ananas/ci/llvm$ ./build.sh
 
 You can then proceed to build the ``ananas-build`` container as follows:
 

@@ -1,1 +1,0 @@
-./build_docker_image.sh --source debian9 --docker-repository clang-debian9 --docker-tag staging -p clang -p lld -i install -- -DLLVM_ENABLE_PROJECTS="clang;lld" -DLLVM_TARGETS_TO_BUILD=X86 -DCMAKE_BUILD_TYPE=Release -DBOOTSTRAP_CMAKE_BUILD_TYPE=Release -DCLANG_ENABLE_BOOTSTRAP=ON -DCLANG_BOOTSTRAP_TARGETS="install-clang;install-clang-headers"

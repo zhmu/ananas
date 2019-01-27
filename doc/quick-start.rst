@@ -25,7 +25,7 @@ As illustrated in :ref:`docker-containers`, execute the following commands:
 .. code-block:: console
 
    ~/ananas$ cd ci/llvm
-   ~/ananas/ci/llvm$ ./go.sh
+   ~/ananas/ci/llvm$ ./build.sh
    ~/ananas/ci/llvm$ cd ../buildimage
    ~/ananas/ci/buildimage$ docker build -t ananas-build .
 
