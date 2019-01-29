@@ -6,6 +6,7 @@
  */
 #include "kernel/shutdown.h"
 #include "kernel/cdefs.h"
+#include "kernel/bio.h"
 #include "kernel/lib.h"
 #include "kernel/init.h"
 #include "kernel/thread.h"
@@ -44,6 +45,9 @@ namespace shutdown
             thread_sleep_ms(shutdownDelayInSeconds * 1000);
 
             // XXX Unmount filesystems, etc
+            kprintf("Synchronising BIO's...");
+            bio_sync();
+            kprintf("done\n");
 
             kprintf("Performing %s NOW!\n", shutdownTypeText);
             switch (shutdownType) {

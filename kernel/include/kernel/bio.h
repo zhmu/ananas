@@ -90,5 +90,6 @@ static inline BIO* bio_read(Device* device, blocknr_t block, size_t len)
 BIO& bio_get_next(Device* device);
 void bio_free(BIO& bio);
 void bio_dump();
+void bio_sync();
 
 #endif /* __ANANAS_BIO_H__ */

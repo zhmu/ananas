@@ -4,6 +4,11 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
+
+/*
+ * TODO: This needs a definite rewrite - it is extremely messy and the locking
+ * is non-existent!
+ */
 #include "kernel/bio.h"
 #include "kernel/device.h"
 #include "kernel/kdb.h"
@@ -357,6 +362,27 @@ void bio_set_dirty(BIO& bio)
     TRACE(BIO, FUNC, "bio=%p", &bio);
     bio.flags |= BIO_FLAG_DIRTY;
     bio_flush(bio); /* XXX debug aid so that the image can be inspected */
+}
+
+static BIO* bio_steal_dirty()
+{
+    SpinlockGuard g(spl_bio_lists);
+    for (auto& bio : bio_usedlist) {
+        if ((bio.flags & BIO_FLAG_DIRTY) == 0)
+            continue;
+        bio_usedlist.remove(bio);
+        return &bio;
+    }
+    return nullptr;
+}
+
+void bio_sync()
+{
+    // XXX This is only intended to call when shutting down; we can't properly
+    // lock things as writing stuff tends to sleep
+    for (auto& bio : bio_usedlist) {
+        bio_flush(bio);
+    }
 }
 
 #ifdef OPTION_KDB
