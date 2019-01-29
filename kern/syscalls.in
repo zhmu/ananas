@@ -51,3 +51,4 @@
 46 { Result getpid(); }
 47 { Result getppid(); }
 48 { Result symlink(const char* oldpath, const char* newpath); }
+49 { Result reboot(int how); }
