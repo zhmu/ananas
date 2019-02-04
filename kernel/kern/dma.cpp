@@ -170,7 +170,7 @@ namespace dma
 
     Result Buffer::LoadBIO(struct BIO* bio, dma_load_func_t load, void* load_arg, int flags)
     {
-        return Load(BIO_DATA(bio), bio->length, load, load_arg, flags);
+        return Load(bio->Data(), bio->b_length, load, load_arg, flags);
     }
 
 } // namespace dma

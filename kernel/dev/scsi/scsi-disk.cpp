@@ -142,12 +142,12 @@ namespace
         Printf(
             "vendor <%s> product <%s> size %d MB", vid, pid, num_lba / ((1024 * 1024) / block_len));
 
-        struct BIO* bio = bio_read(this, 0, BIO_SECTOR_SIZE);
-        if (BIO_IS_ERROR(bio))
-            return RESULT_MAKE_FAILURE(EIO); /* XXX should get error from bio */
+        BIO* bio;
+        if (auto result = bread(this, 0, BIO_SECTOR_SIZE, bio); result.IsFailure())
+            return result;
 
         mbr_process(this, bio);
-        bio_free(*bio);
+        bio->Release();
 
         return Result::Success();
     }
@@ -156,8 +156,8 @@ namespace
 
     Result SCSIDisk::ReadBIO(struct BIO& bio)
     {
-        KASSERT(bio.length > 0, "invalid length");
-        KASSERT(bio.length % 512 == 0, "invalid length"); /* XXX */
+        KASSERT(bio.b_length > 0, "invalid length");
+        KASSERT(bio.b_length % 512 == 0, "invalid length"); /* XXX */
 
         // XXX we could schedule things here, but seeing that this is only for USB
         // there is no real benefit right now
@@ -165,15 +165,15 @@ namespace
         struct SCSI_READ_10_CMD r_cmd;
         memset(&r_cmd, 0, sizeof r_cmd);
         r_cmd.c_code = SCSI_CMD_READ_10;
-        r_cmd.c_lba = htobe32(bio.io_block);
-        r_cmd.c_transfer_len = htobe16(bio.length / 512);
-        size_t reply_len = bio.length;
+        r_cmd.c_lba = htobe32(bio.b_ioblock);
+        r_cmd.c_transfer_len = htobe16(bio.b_length / 512);
+        size_t reply_len = bio.b_length;
         if (auto result = HandleRequest(
-                0, Direction::D_In, &r_cmd, sizeof(r_cmd), BIO_DATA(&bio), &reply_len);
+                0, Direction::D_In, &r_cmd, sizeof(r_cmd), bio.Data(), &reply_len);
             result.IsFailure())
             return result;
 
-        bio_set_available(bio);
+        bio.Done();
         return Result::Success();
     }
 

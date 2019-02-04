@@ -1,7 +1,7 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2019 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
 #ifndef __ANANAS_BIO_H__
@@ -10,26 +10,15 @@
 #include <ananas/types.h>
 #include <ananas/util/list.h>
 #include "kernel/lock.h"
-
-/* Number of buckets used to hash a block number to */
-#define BIO_BUCKET_SIZE 16
-
-/* Number of BIO buffers available */
-#define BIO_NUM_BUFFERS 1024
-
-/* Amount of data available for BIO data, in bytes */
-#define BIO_DATA_SIZE (512 * 1024)
+#include "kernel/result.h"
 
 /* Size of a sector; any BIO block must be a multiple of this */
 #define BIO_SECTOR_SIZE 512
 
-#define BIO_IS_DIRTY(bio) ((bio)->flags & BIO_FLAG_DIRTY)
-#define BIO_IS_READ(bio) ((bio)->flags & BIO_FLAG_READ)
-#define BIO_IS_WRITE(bio) ((bio)->flags & BIO_FLAG_WRITE)
-#define BIO_IS_ERROR(bio) ((bio)->flags & BIO_FLAG_ERROR)
-#define BIO_DATA(bio) ((bio)->data)
-
 class Device;
+struct INode;
+
+namespace bio {
 
 // Internal stuff so we can work with children and all nodes
 namespace internal
@@ -51,45 +40,48 @@ namespace internal
 
 } // namespace internal
 
+} // namespace bio
+
 struct BIO;
-typedef util::List<BIO, internal::BIOBucketNodeAccessor<BIO>> BIOBucketList;
-typedef util::List<BIO, internal::BIOChainNodeAccessor<BIO>> BIOChainList;
+typedef util::List<BIO, bio::internal::BIOBucketNodeAccessor<BIO>> BIOBucketList;
+typedef util::List<BIO, bio::internal::BIOChainNodeAccessor<BIO>> BIOChainList;
 
 /*
- * A basic I/O buffer, the root of all I/O requests.
+ * A basic I/O buffer, the root of all I/O requests. Locking is special here
+ * as there are different users. We have:
+ *
+ * [b] Buffer owner, whoever holds CFLAG_BUSY
+ * [c] Cache lock, mtx_cache
+ * [o] Object mutex
  */
 struct BIO {
-    uint32_t flags;
-#define BIO_FLAG_PENDING 0x0001 /* Block is pending read */
-#define BIO_FLAG_DIRTY 0x0002   /* I/O needs to be written */
-#define BIO_FLAG_ERROR 0x8000   /* Request failed */
-    Device* device;             /* Device I/O'ing from */
-    blocknr_t block;            /* Block number to I/O */
-    blocknr_t io_block;         /* Translated block number to I/O */
-    unsigned int length;        /* Length in bytes (<= PAGE_SIZE, so int will do) */
-    void* data;                 /* Pointer to BIO data */
-    Semaphore sem{1};           /* Semaphore for this BIO */
+    int b_cflags = 0;             // [c] Flags, protected by mtx_cache
+    int b_oflags = 0;             // [o] Flags, protected by objlock
+    Device* b_device = nullptr;   // [b] Device I/O'ing from
+    blocknr_t b_block = 0;        // [b] Block number to I/O
+    blocknr_t b_ioblock = 0;      // [b] Translated block number to I/O
+    unsigned int b_length = 0;    // [b] Length in bytes
+    void* b_data = nullptr;       // [b] Pointer to BIO data */
+    Result b_status = Result::Success(); // [b] Last status
+    Mutex* b_objlock = nullptr;   // [o] Associated lock
 
     util::List<BIO>::Node b_NodeBucket /* Bucket list */;
     util::List<BIO>::Node b_NodeChain; /* Chain list */
+
+    void* Data()
+    {
+        return b_data;
+    }
+
+    void Release(); // brelse()
+    Result Write(); // brwrite()
+    Result Wait(); // biowait()
+    void Done(); // biodone()
 };
 
-/* Flags of BIO_READ */
-#define BIO_READ_NODATA 0x0001 /* Caller is not interested in the data */
+Result bread(Device* device, blocknr_t block, size_t len, BIO*& result);
+Result bwrite(BIO& bio);
 
-void bio_set_error(BIO& bio);
-void bio_set_available(BIO& bio);
-void bio_set_dirty(BIO& bio);
-BIO* bio_get(Device* device, blocknr_t block, size_t len, int flags);
-
-static inline BIO* bio_read(Device* device, blocknr_t block, size_t len)
-{
-    return bio_get(device, block, len, 0);
-}
-
-BIO& bio_get_next(Device* device);
-void bio_free(BIO& bio);
-void bio_dump();
-void bio_sync();
+void bsync();
 
 #endif /* __ANANAS_BIO_H__ */

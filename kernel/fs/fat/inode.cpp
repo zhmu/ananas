@@ -110,9 +110,9 @@ Result fat_read_inode(INode& inode, ino_t inum)
         return result;
 
     /* Fill out the inode details */
-    auto fentry = reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + offset);
+    auto fentry = reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(bio->Data()) + offset);
     fat_fill_inode(inode, inum, fentry);
-    bio_free(*bio);
+    bio->Release();
     return Result::Success();
 }
 
@@ -135,7 +135,7 @@ Result fat_write_inode(INode& inode)
         return result;
 
     /* Fill out the inode details */
-    auto fentry = reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + offset);
+    auto fentry = reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(bio->Data()) + offset);
     FAT_TO_LE32(fentry->fe_size, inode.i_sb.st_size);
     FAT_TO_LE16(fentry->fe_cluster_lo, privdata->first_cluster & 0xffff);
     if (fs_privdata->fat_type == 32)
@@ -143,14 +143,14 @@ Result fat_write_inode(INode& inode)
 
     /* If the inode has run out of references, we must free the clusters it occupied */
     if (inode.i_sb.st_nlink == 0) {
-        if (auto result = fat_truncate_clusterchain(inode); result.IsFailure())
+        if (auto result = fat_truncate_clusterchain(inode); result.IsFailure()) {
+            bio->Release();
             return result; // XXX Should this be fatal?
+        }
     }
 
     /* And off it goes */
-    bio_set_dirty(*bio);
-    bio_free(*bio);
-    return Result::Success(); /* XXX How should we deal with errors? */
+    return bio->Write();
 }
 
 struct VFS_INODE_OPS fat_inode_ops = {

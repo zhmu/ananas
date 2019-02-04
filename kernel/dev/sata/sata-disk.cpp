@@ -104,12 +104,12 @@ namespace
          * Read the first sector and pass it to the MBR code; this is crude
          * and does not really belong here.
          */
-        BIO* bio = bio_read(this, 0, BIO_SECTOR_SIZE);
-        if (BIO_IS_ERROR(bio))
-            return RESULT_MAKE_FAILURE(EIO); /* XXX should get error from bio */
+        BIO* bio;
+        if (auto result = bread(this, 0, BIO_SECTOR_SIZE, bio); result.IsFailure())
+            return result;
 
         mbr_process(this, bio);
-        bio_free(*bio);
+        bio->Release();
         return Result::Success();
     }
 
@@ -117,16 +117,16 @@ namespace
 
     Result SATADisk::ReadBIO(BIO& bio)
     {
-        KASSERT(bio.length > 0, "invalid length");
-        KASSERT(bio.length % 512 == 0, "invalid length"); /* XXX */
+        KASSERT(bio.b_length > 0, "invalid length");
+        KASSERT(bio.b_length % 512 == 0, "invalid length"); /* XXX */
 
         struct SATA_REQUEST sr;
         memset(&sr, 0, sizeof(sr));
         /* XXX  we shouldn't always use lba-48 */
         sata_fis_h2d_make_cmd_lba48(
-            &sr.sr_fis.fis_h2d, ATA_CMD_DMA_READ_EXT, bio.io_block, bio.length / BIO_SECTOR_SIZE);
+            &sr.sr_fis.fis_h2d, ATA_CMD_DMA_READ_EXT, bio.b_ioblock, bio.b_length / BIO_SECTOR_SIZE);
         sr.sr_fis_length = 20;
-        sr.sr_count = bio.length;
+        sr.sr_count = bio.b_length;
         sr.sr_bio = &bio;
         sr.sr_flags = SATA_REQUEST_FLAG_READ;
         Execute(sr);
@@ -139,9 +139,9 @@ namespace
         memset(&sr, 0, sizeof(sr));
         /* XXX  we shouldn't always use lba-48 */
         sata_fis_h2d_make_cmd_lba48(
-            &sr.sr_fis.fis_h2d, ATA_CMD_DMA_WRITE_EXT, bio.io_block, bio.length / BIO_SECTOR_SIZE);
+            &sr.sr_fis.fis_h2d, ATA_CMD_DMA_WRITE_EXT, bio.b_ioblock, bio.b_length / BIO_SECTOR_SIZE);
         sr.sr_fis_length = 20;
-        sr.sr_count = bio.length;
+        sr.sr_count = bio.b_length;
         sr.sr_bio = &bio;
         sr.sr_flags = SATA_REQUEST_FLAG_WRITE;
         Execute(sr);

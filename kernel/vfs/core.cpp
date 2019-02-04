@@ -24,16 +24,16 @@ bool vfs_is_filesystem_sane(struct VFS_MOUNTED_FS* fs)
     return (fs->fs_flags & VFS_FLAG_ABANDONED) == 0;
 }
 
-Result vfs_bget(struct VFS_MOUNTED_FS* fs, blocknr_t block, struct BIO** bio, int flags)
+Result vfs_bread(struct VFS_MOUNTED_FS* fs, blocknr_t block, struct BIO** bio)
 {
     if (!vfs_is_filesystem_sane(fs))
         return RESULT_MAKE_FAILURE(EIO);
 
-    *bio = bio_get(
-        fs->fs_device, block * (fs->fs_block_size / BIO_SECTOR_SIZE), fs->fs_block_size, flags);
-    if (*bio == NULL)
-        return RESULT_MAKE_FAILURE(EIO);
-    return Result::Success();
+    BIO* bio2;
+    if (auto result = bread(fs->fs_device, block * (fs->fs_block_size / BIO_SECTOR_SIZE), fs->fs_block_size, bio2); result.IsFailure())
+        return result;
+    *bio = bio2;
+    return bio2->b_status;
 }
 
 size_t vfs_filldirent(void** dirents, size_t left, ino_t inum, const char* name, int namelen)

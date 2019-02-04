@@ -54,7 +54,7 @@ fat_dump_entry(struct FAT_ENTRY* fentry)
  * Used to construct a FAT filename. Returns zero if the filename is not
  * complete.
  */
-static int fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename)
+static int fat_construct_filename(FAT_ENTRY& fentry, char* fat_filename)
 {
 #define ADD_CHAR(c)              \
     do {                         \
@@ -63,8 +63,8 @@ static int fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename)
     } while (0)
 
     int pos = 0;
-    if (fentry->fe_attributes == FAT_ATTRIBUTE_LFN) {
-        struct FAT_ENTRY_LFN* lfnentry = (struct FAT_ENTRY_LFN*)fentry;
+    if (fentry.fe_attributes == FAT_ATTRIBUTE_LFN) {
+        struct FAT_ENTRY_LFN* lfnentry = (struct FAT_ENTRY_LFN*)&fentry;
 
         /* LFN entries needn't be sequential, so fill them out as they pass by */
         pos = ((lfnentry->lfn_order & ~LFN_ORDER_LAST) - 1) * 13;
@@ -89,7 +89,7 @@ static int fat_construct_filename(struct FAT_ENTRY* fentry, char* fat_filename)
 
     /* Convert the filename bits */
     for (int i = 0; i < 11; i++) {
-        unsigned char ch = fentry->fe_filename[i];
+        unsigned char ch = fentry.fe_filename[i];
         if (ch == 0x20)
             continue;
         if (i == 8) /* insert a '.' after the first 8 chars */
@@ -112,11 +112,8 @@ Result fat_readdir(struct VFS_FILE* file, void* dirents, size_t len)
     size_t left = len;
     char cur_filename[128]; /* currently assembled filename */
     off_t full_filename_offset = file->f_offset;
-    BIO* bio = nullptr;
 
     memset(cur_filename, 0, sizeof(cur_filename));
-
-    blocknr_t cur_block = (blocknr_t)-1;
     while (left > 0) {
         /* Obtain the current directory block data */
         blocknr_t want_block;
@@ -127,24 +124,23 @@ Result fat_readdir(struct VFS_FILE* file, void* dirents, size_t len)
                 break;
             return result;
         }
-        if (want_block != cur_block || bio == nullptr) {
-            if (bio != nullptr)
-                bio_free(*bio);
-            if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
-                return result;
-            cur_block = want_block;
-        }
+
+        BIO* bio;
+        if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
+            return result;
 
         uint32_t cur_offs = file->f_offset % fs->fs_block_size;
         file->f_offset += sizeof(struct FAT_ENTRY);
         auto fentry =
-            reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + cur_offs);
-        if (fentry->fe_filename[0] == '\0') {
+            *reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(bio->Data()) + cur_offs);
+        bio->Release();
+
+        if (fentry.fe_filename[0] == '\0') {
             /* First charachter is nul - this means there are no more entries to come */
             break;
         }
 
-        if (fentry->fe_filename[0] == 0xe5) {
+        if (fentry.fe_filename[0] == 0xe5) {
             /* Deleted file; we'll skip it */
             continue;
         }
@@ -159,11 +155,12 @@ Result fat_readdir(struct VFS_FILE* file, void* dirents, size_t len)
          * If this is a volume entry, ignore it (but do this after the LFN has been handled
          * because these will always have the volume bit set)
          */
-        if (fentry->fe_attributes & FAT_ATTRIBUTE_VOLUMEID)
+        if (fentry.fe_attributes & FAT_ATTRIBUTE_VOLUMEID) {
             continue;
+        }
 
         /* And hand it to the fill function */
-        ino_t inum = cur_block << 16 | cur_offs;
+        ino_t inum = want_block << 16 | cur_offs;
         auto filled = vfs_filldirent(&dirents, left, inum, cur_filename, strlen(cur_filename));
         if (!filled) {
             /*
@@ -188,8 +185,6 @@ Result fat_readdir(struct VFS_FILE* file, void* dirents, size_t len)
         /* Start over from the next filename */
         memset(cur_filename, 0, sizeof(cur_filename));
     }
-    if (bio != nullptr)
-        bio_free(*bio);
     return Result::Success(written);
 }
 
@@ -235,7 +230,6 @@ static Result
 fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry, ino_t* inum)
 {
     struct VFS_MOUNTED_FS* fs = dir.i_fs;
-    BIO* bio = nullptr;
 
     /*
      * Calculate the number of entries we need; each LFN entry stores 13 characters,
@@ -246,7 +240,6 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
     if (dentry != NULL)
         chain_needed += (strlen(dentry) + 12) / 13;
 
-    blocknr_t cur_block = (blocknr_t)-1;
     uint32_t current_filename_offset = (uint32_t)-1;
     int cur_lfn_chain = 0;
     uint32_t cur_dir_offset = 0;
@@ -263,24 +256,21 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
             }
             return result;
         }
-        if (want_block != cur_block || bio == NULL) {
-            if (bio != nullptr)
-                bio_free(*bio);
-            if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
-                return result;
-            cur_block = want_block;
-        }
+        BIO* bio;
+        if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
+            return result;
 
         /* See what this block's entry is all about */
         uint32_t cur_offs = cur_dir_offset % fs->fs_block_size;
-        auto fentry =
-            reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + cur_offs);
+        const auto fentry =
+            reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(bio->Data()) + cur_offs);
         if (fentry->fe_filename[0] == '\0') {
             /*
              * First charachter is nul - this means there are no more entries to come
              * and we can just write our entry here. Note that we assume there are no
              * orphanaged LFN entries before here, which is conform the VFAT spec.
              */
+            bio->Release();
             current_filename_offset = cur_dir_offset;
             cur_lfn_chain = 0;
             break;
@@ -294,6 +284,7 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
             if (cur_lfn_chain++ == 0)
                 current_filename_offset = cur_dir_offset;
             cur_dir_offset += sizeof(struct FAT_ENTRY);
+            bio->Release();
             continue;
         }
 
@@ -302,6 +293,7 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
              * Entry here is deleted; this should come at the end of a LFN chain. If there
              * is no chain, the check above will fail regardless and we skip this entry.
              */
+            bio->Release();
             break;
         }
 
@@ -311,6 +303,7 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
         current_filename_offset = cur_dir_offset;
         cur_lfn_chain = 0;
         cur_dir_offset += sizeof(struct FAT_ENTRY);
+        bio->Release();
     }
 
     /*
@@ -341,23 +334,20 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
     int filename_len = strlen(dentry);
     for (int cur_entry_idx = 0; cur_entry_idx < chain_needed; cur_entry_idx++) {
         /* Fetch/allocate the desired block */
-        blocknr_t want_block;
+        blocknr_t cur_block;
         if (auto result = fat_block_map(
-                dir, (current_filename_offset / (blocknr_t)fs->fs_block_size), want_block,
+                dir, (current_filename_offset / (blocknr_t)fs->fs_block_size), cur_block,
                 (cur_lfn_chain < 0));
             result.IsFailure())
             return result;
-        if (want_block != cur_block) {
-            bio_free(*bio);
-            if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
-                return result;
-            cur_block = want_block;
-        }
+        BIO* bio;
+        if (auto result = vfs_bread(fs, cur_block, &bio); result.IsFailure())
+            return result;
 
         /* Fill out the FAT entry */
         uint32_t cur_offs = current_filename_offset % fs->fs_block_size;
         auto nentry =
-            reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + cur_offs);
+            reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(bio->Data()) + cur_offs);
         if (cur_entry_idx == chain_needed - 1) {
             /* Final FAT entry; this contains the shortname */
             memcpy(nentry, fentry, sizeof(*nentry));
@@ -383,11 +373,10 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
                 lfn->lfn_name_3[i * 2] = dentry[13 * cur_entry_idx + 11 + i];
         }
 
-        bio_set_dirty(*bio);
+        bio->Write();
         current_filename_offset += sizeof(struct FAT_ENTRY);
     }
 
-    bio_free(*bio);
     return Result::Success();
 }
 
@@ -405,9 +394,9 @@ static Result fat_remove_directory_entry(INode& dir, const char* dentry)
     int chain_length = 0;
     while (1) {
         /* Obtain the current directory block data */
-        blocknr_t want_block;
+        blocknr_t cur_block;
         Result result =
-            fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), want_block, 0);
+            fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), cur_block, 0);
         if (result.IsFailure()) {
             if (result.AsErrno() == ERANGE) {
                 /* We've hit an end-of-file */
@@ -415,36 +404,39 @@ static Result fat_remove_directory_entry(INode& dir, const char* dentry)
             }
             return result;
         }
-        if (want_block != cur_block || bio == NULL) {
-            if (bio != nullptr)
-                bio_free(*bio);
-            if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
-                return result;
-            cur_block = want_block;
-        }
+        BIO* bio;
+        if (auto result = vfs_bread(fs, cur_block, &bio); result.IsFailure())
+            return result;
 
         /* See what this block's entry is all about */
         uint32_t cur_offs = cur_dir_offset % fs->fs_block_size;
         cur_dir_offset += sizeof(struct FAT_ENTRY);
         auto fentry =
-            reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + cur_offs);
-        if (fentry->fe_filename[0] == '\0')
+            reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(bio->Data()) + cur_offs);
+        if (fentry->fe_filename[0] == '\0') {
+            bio->Release();
             break; /* final entry; bail out */
+        }
         if (fentry->fe_filename[0] == 0xe5) {
             chain_length = 0;
+            bio->Release();
             continue; /* no entry or unused entry; skip it */
         }
 
         /* Convert the filename bits */
         chain_length++;
-        if (!fat_construct_filename(fentry, cur_filename)) {
+        if (!fat_construct_filename(*fentry, cur_filename)) {
             /* This is part of a long file entry name - get more */
+            bio->Release();
             continue;
         }
 
         /* XXX skip a volume label; we'll assume it cannot be removed */
-        if (fentry->fe_attributes & FAT_ATTRIBUTE_VOLUMEID)
+        if (fentry->fe_attributes & FAT_ATTRIBUTE_VOLUMEID) {
+            bio->Release();
             continue;
+        }
+        bio->Release();
 
         /* Okay, if the file matches what we intended to remove, we have a winner */
         if (strcmp(cur_filename, dentry) != 0) {
@@ -465,9 +457,9 @@ static Result fat_remove_directory_entry(INode& dir, const char* dentry)
 
         for (/* nothing */; chain_length > 0; chain_length--) {
             /* Obtain the current directory block data */
-            blocknr_t want_block;
+            blocknr_t cur_block;
             Result result =
-                fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), want_block, 0);
+                fat_block_map(dir, (cur_dir_offset / (blocknr_t)fs->fs_block_size), cur_block, 0);
             if (result.IsFailure()) {
                 if (result.AsErrno() == ERANGE) {
                     /* We've hit an end-of-file */
@@ -475,29 +467,21 @@ static Result fat_remove_directory_entry(INode& dir, const char* dentry)
                 }
                 return result;
             }
-            if (want_block != cur_block || bio == nullptr) {
-                if (bio != nullptr)
-                    bio_free(*bio);
-                if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
-                    return result;
-                cur_block = want_block;
-            }
+            BIO* bio;
+            if (auto result = vfs_bread(fs, cur_block, &bio); result.IsFailure())
+                return result;
 
             /* Update the FAT entry here; the file name is removed */
             uint32_t cur_offs = cur_dir_offset % fs->fs_block_size;
             cur_dir_offset += sizeof(struct FAT_ENTRY);
             auto fentry =
-                reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(BIO_DATA(bio)) + cur_offs);
+                reinterpret_cast<struct FAT_ENTRY*>(static_cast<char*>(bio->Data()) + cur_offs);
             fentry->fe_filename[0] = 0xe5; /* deleted */
-
-            bio_set_dirty(*bio);
+            bio->Write();
         }
         result = Result::Success();
         break;
     }
-
-    if (bio != nullptr)
-        bio_free(*bio);
     return result;
 }
 

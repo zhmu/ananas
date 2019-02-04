@@ -1,16 +1,26 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2019 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
 
 /*
- * TODO: This needs a definite rewrite - it is extremely messy and the locking
- * is non-existent!
+ * I/O buffer cache. This is greatly influenced by NetBSD's implementation,
+ * which in turn is inspired by the original UNIX implementation as specified
+ * in "The Design Of The Unix Operating System" by Maurice J. Bach.
+ *
+ * A few things to note:
+ * - BIO's are always in a bucket queue, and may or may not be on the freelist
+ *   (this is in line with [Bach])
+ * - There are three locks (details are in the header file)
+ * - b_objlock is intended to become the INode lock
+ *   Currently, this is yet to be implemented
+ * - We do not have a relation to INode's yet
  */
 #include "kernel/bio.h"
 #include "kernel/device.h"
+#include "kernel/pcpu.h"
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/lock.h"
@@ -18,29 +28,233 @@
 #include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/trace.h"
+#include "kernel/vfs/types.h"
 #include "options.h"
 
 TRACE_SETUP;
 
-struct BIOBucket {
-    BIOBucketList b_List;
+namespace
+{
+    // Amount of data available for BIO data, in bytes
+    constexpr int DataSize = 512 * 1024;
 
-    void Lock() { b_Lock.Lock(); }
+    // Number of buckets used to hash a block number to
+    constexpr int NumberOfBuckets = 16;
 
-    void Unlock() { b_Lock.Unlock(); }
+    // Number of BIO buffers available
+    constexpr int NumberOfBuffers = 1024;
 
-    Spinlock b_Lock;
-};
+    constexpr unsigned int BucketForBlock(blocknr_t block) { return block % NumberOfBuckets; }
 
-static BIOChainList bio_freelist;
-static BIOChainList bio_usedlist;
-static BIOBucket bio_bucket[BIO_BUCKET_SIZE];
-static unsigned int bio_bitmap_size;
-static uint8_t* bio_bitmap = NULL;
-static uint8_t* bio_data = NULL;
+    constexpr unsigned int BucketForBIO(const BIO& bio) { return BucketForBlock(bio.b_block); }
 
-static Spinlock spl_bio_lists;
-static Spinlock spl_bio_bitmap;
+    BIOChainList bio_freelist;
+    util::array<BIOBucketList, NumberOfBuckets> bio_bucket;
+    unsigned int bio_bitmap_size;
+    uint8_t* bio_bitmap = NULL;
+    uint8_t* bio_data = NULL;
+
+    Mutex mtx_cache{"biocache"};
+    Mutex mtx_buffer{"biobuf"};
+
+    namespace cflag
+    {
+        constexpr int Busy = (1 << 0);    // Also known as locked
+        constexpr int Invalid = (1 << 1); // Data is invalid
+    }                                     // namespace cflag
+
+    namespace oflag
+    {
+        constexpr int Done(1 << 0); // I/O completed
+    }
+
+    bool AllocateData(BIO& bio, size_t len)
+    {
+        mtx_cache.AssertLocked();
+
+        // Find available data blocks in the bio data pool
+        unsigned int chain_length = 0, cur_data_block = 0;
+        unsigned int num_blocks = len / BIO_SECTOR_SIZE;
+        for (; cur_data_block < bio_bitmap_size * 8; cur_data_block++) {
+            if (bio_bitmap[cur_data_block / 8] & (1 << (cur_data_block % 8))) {
+                // Data block isn't available - try again
+                chain_length = 0;
+                continue;
+            }
+
+            // Item is available; stop if we have enough blocks
+            if (chain_length == num_blocks)
+                break;
+            chain_length++;
+        }
+        if (chain_length != num_blocks) {
+            // No bio data available; clean up some and retry
+            return false;
+        }
+
+        // Walk back the number of blocks we need to allocate, we know they are free
+        cur_data_block -= chain_length;
+
+        // Mark the blocks as in use
+        for (unsigned int n = cur_data_block; n < cur_data_block + num_blocks; n++) {
+            bio_bitmap[n / 8] |= (1 << (n % 8));
+        }
+
+        // Hook them to the bio
+        bio.b_data = bio_data + (cur_data_block * BIO_SECTOR_SIZE);
+        return true;
+    }
+
+    void FreeData(BIO& bio)
+    {
+        mtx_cache.AssertLocked();
+        if (bio.b_data == nullptr)
+            return; // already freed
+
+        unsigned int bio_data_block =
+            (static_cast<uint8_t*>(bio.Data()) - static_cast<uint8_t*>(bio_data)) / BIO_SECTOR_SIZE;
+        for (unsigned int n = bio_data_block; n < bio_data_block + (bio.b_length / BIO_SECTOR_SIZE);
+             n++) {
+            KASSERT((bio_bitmap[n / 8] & (1 << (n % 8))) != 0, "data block %u not assigned", n);
+            bio_bitmap[n / 8] &= ~(1 << (n % 8));
+        }
+        bio.b_data = nullptr;
+        bio.b_length = 0;
+    }
+
+    BIO* GetNewBuffer()
+    {
+        mtx_cache.AssertLocked();
+
+        if (bio_freelist.empty())
+            return nullptr;
+
+        auto& bio = bio_freelist.front();
+        bio_freelist.pop_front();
+
+        bio.b_cflags = cflag::Busy;
+        bio.b_oflags = 0;
+        bio.b_status = Result::Success();
+        bio.b_objlock = &mtx_buffer;
+        return &bio;
+    }
+
+    void CleanupBIO(BIO& bio)
+    {
+        mtx_cache.AssertLocked();
+
+        FreeData(bio);
+        bio.b_cflags |= cflag::Busy | cflag::Invalid;
+        mtx_cache.Unlock();
+        bio.Release();
+        mtx_cache.Lock();
+    }
+
+    void CleanupBuffers()
+    {
+        mtx_cache.AssertLocked();
+
+        // Grab the first thing from the free list that contains data
+        for (auto& bio : bio_freelist) {
+            if (bio.b_data == nullptr) {
+                continue;
+            }
+
+            bio_freelist.remove(bio);
+            CleanupBIO(bio);
+            return;
+        }
+        kprintf("CleanupBIO: nothing to clean\n");
+    }
+
+    BIO* incore(Device* device, blocknr_t block)
+    {
+        mtx_cache.AssertLocked();
+
+        // See if we can find the block in the bucket queue; if so, we can just return it
+        auto& bucket = bio_bucket[BucketForBlock(block)];
+        for (auto& bio : bucket) {
+            if (bio.b_device != device || bio.b_block != block)
+                continue;
+
+            if (bio.b_cflags & cflag::Invalid)
+                continue; // never return blocks with invalid data
+
+            return &bio;
+        }
+
+        return nullptr;
+    }
+
+    /*
+     * Return a given bio buffer. This will use any cached item if possible, or
+     * allocate a new one as required (Bach, p44). The resulting BIO is always
+     * locked (BUSY)
+     */
+    BIO& getblk(Device* device, blocknr_t block, size_t len)
+    {
+        TRACE(BIO, FUNC, "dev=%p, block=%u, len=%u", device, (int)block, len);
+        KASSERT((len % BIO_SECTOR_SIZE) == 0, "length %u not a multiple of bio sector size", len);
+
+    bio_restart:
+        mtx_cache.Lock();
+        if (auto bio = incore(device, block); bio != nullptr) {
+            // Block found in the cache
+            KASSERT(
+                bio->b_length == len, "bio item found with length %u, requested length %u",
+                bio->b_length, len); /* XXX should avoid... somehow */
+            KASSERT(bio->b_data != nullptr, "bio in cache without data");
+
+            if (bio->b_cflags & cflag::Busy) {
+                mtx_cache.Unlock();
+                bio->Wait();
+                goto bio_restart;
+            }
+            bio->b_cflags |= cflag::Busy;
+
+            // The bio was not busy, so it must be on the freelist - claim it
+            // from there so that active bio's are never freed
+            bio_freelist.remove(*bio);
+            mtx_cache.Unlock();
+            return *bio;
+        }
+
+        // Block is not on the bucket queue
+        BIO* newBio = GetNewBuffer();
+        if (newBio == nullptr) {
+            mtx_cache.Unlock();
+            // No bio's available; wait until anything becomes free
+            kprintf("getblk: TODO: sleep(event any buffer becomes free)\n");
+            goto bio_restart;
+        }
+        BIO& bio = *newBio;
+
+        // Remove buffer from old queue
+        bio_bucket[BucketForBIO(bio)].remove(bio);
+
+        // Arrange storage
+        if (bio.b_data == nullptr || bio.b_length != len) {
+            FreeData(bio);
+            while (!AllocateData(bio, len)) {
+                // Out of data buffers; make room and retry
+                CleanupBuffers();
+            }
+        }
+
+        // Set up the bio; flags are filled out by GetNewBuffer()
+        bio.b_device = device;
+        bio.b_block = block;
+        bio.b_ioblock = block;
+        bio.b_length = len;
+
+        // Put buffer on corresponding queue
+        bio_bucket[BucketForBIO(bio)].push_front(bio);
+        mtx_cache.Unlock();
+        TRACE(BIO, INFO, "returning new bio=%p", &bio);
+        return bio;
+    }
+
+} // unnamed namespace
 
 const init::OnInit initBIO(init::SubSystem::BIO, init::Order::First, []() {
     /*
@@ -49,21 +263,21 @@ const init::OnInit initBIO(init::SubSystem::BIO, init::Order::First, []() {
      * bitmap at the beginning to prevent it from being messed with by faulty
      * drivers; and this will ensure it to be adequately aligned as a nice bonus.
      */
-    bio_bitmap_size = ((BIO_DATA_SIZE / BIO_SECTOR_SIZE) + 7) / 8; /* in bytes */
+    bio_bitmap_size = ((DataSize / BIO_SECTOR_SIZE) + 7) / 8; /* in bytes */
     int bio_bitmap_slack = 0;
     if ((bio_bitmap_size & (BIO_SECTOR_SIZE - 1)) > 0)
         bio_bitmap_slack = BIO_SECTOR_SIZE - (bio_bitmap_size % BIO_SECTOR_SIZE);
-    bio_bitmap = new uint8_t[BIO_DATA_SIZE + bio_bitmap_size + bio_bitmap_slack];
+    bio_bitmap = new uint8_t[DataSize + bio_bitmap_size + bio_bitmap_slack];
     bio_data = bio_bitmap + bio_bitmap_size + bio_bitmap_slack;
 
-    /* Clear the BIO bucket chain */
-    for (unsigned int i = 0; i < BIO_BUCKET_SIZE; i++)
-        new (&bio_bucket[i]) BIOBucket;
-
-    /* Initialize bio buffers and hook them up to the freelist */
-    struct BIO* bios = new BIO[BIO_NUM_BUFFERS];
-    for (unsigned int i = 0; i < BIO_NUM_BUFFERS; i++, bios++) {
-        bio_freelist.push_back(*bios);
+    // Initialize bio buffers and hook them up to the freelist/queue
+    {
+        struct BIO* bios = new BIO[NumberOfBuffers];
+        for (unsigned int i = 0; i < NumberOfBuffers; i++, bios++) {
+            BIO& bio = *bios;
+            bio_freelist.push_back(bio);
+            bio_bucket[BucketForBIO(bio)].push_back(bio);
+        }
     }
 
     /*
@@ -71,345 +285,153 @@ const init::OnInit initBIO(init::SubSystem::BIO, init::Order::First, []() {
      * in the slack section, they cannot be used.
      */
     memset(bio_bitmap, 0, bio_bitmap_size);
-    if (((BIO_DATA_SIZE / BIO_SECTOR_SIZE) & 7) != 0) {
+    if (((DataSize / BIO_SECTOR_SIZE) & 7) != 0) {
         /*
          * This means the bitmap size is not a multiple of a byte; we need to set
          * the trailing bits to prevent buffers from being allocated that do not
          * exist.
          */
-        for (int n = (BIO_DATA_SIZE / BIO_SECTOR_SIZE) & 7; n < 8; n++)
+        for (int n = (DataSize / BIO_SECTOR_SIZE) & 7; n < 8; n++)
             bio_bitmap[bio_bitmap_size] |= (1 << n);
     }
 });
 
-// This will only be called whenever we're not actually *scheduling* the BIO
-static void bio_waitcomplete(BIO& bio)
+Result BIO::Wait()
 {
-    TRACE(BIO, FUNC, "bio=%p", &bio);
-    while ((bio.flags & BIO_FLAG_PENDING) != 0) {
-        // XXX For now, just wait a tiny bit and try again. We cannot actually wait for the event
-        // as it is a semaphore and only signalled *once*, so we'll deadlock multiple waiters.
-        thread_sleep_ms(1);
-    }
-}
+    TRACE(BIO, FUNC, "bio=%p", this);
 
-static void bio_waitdirty(BIO& bio)
-{
-    TRACE(BIO, FUNC, "bio=%p", &bio);
-    while ((bio.flags & BIO_FLAG_DIRTY) != 0) {
-        // XXX For now, just wait a tiny bit and try again. We cannot actually wait for the event
-        // as it is a semaphore and only signalled *once*, so we'll deadlock multiple waiters.
+    b_objlock->Lock();
+    while ((b_oflags & oflag::Done) == 0) {
+        /* TODO: wait on cv */
+        b_objlock->Unlock();
         thread_sleep_ms(1);
+        b_objlock->Lock();
     }
+    b_objlock->Unlock();
+
+    return b_status;
 }
 
 /*
- * Called to queue a bio to storage; called with list lock held.
+ * Called by BIO consumers when they are done with a bio buffer - brelse()
  */
-static void bio_flush(BIO& bio)
+void BIO::Release()
 {
-    TRACE(BIO, FUNC, "bio=%p", &bio);
+    TRACE(BIO, FUNC, "bio=%p", this);
+    KASSERT((b_cflags & cflag::Busy) != 0, "release on non-busy bio %p", this);
 
-    /* If the bio isn't dirty, we needn't write it so just return */
-    if ((bio.flags & BIO_FLAG_DIRTY) == 0)
-        return;
+    // TODO: wake up event: waiting for any buffer to become free
 
-    TRACE(BIO, INFO, "bio %p (lba %u) is dirty, flushing", &bio, (uint32_t)bio.io_block);
+    // If the I/O operation failed, mark the data as invalid
+    {
+        MutexGuard g(mtx_cache);
+        if (b_status.IsFailure())
+            b_cflags |= cflag::Invalid;
 
-    if (auto result = bio.device->GetBIODeviceOperations()->WriteBIO(bio); result.IsFailure()) {
-        kprintf("bio_flush(): device_write() failed, %i\n", result.AsStatusCode());
-        bio_set_error(bio);
+        if (b_cflags & cflag::Invalid) {
+            bio_freelist.push_front(*this);
+        } else {
+            bio_freelist.push_back(*this);
+        }
+        b_cflags &= ~cflag::Busy;
+    }
+
+    // TODO: wake up event: waiting for this buffer to become free
+    TRACE(BIO, FUNC, "bio=%p DONE", this);
+}
+
+Result bread(Device* device, blocknr_t block, size_t len, BIO*& result)
+{
+    BIO& bio = getblk(device, block, len);
+
+    if ((bio.b_oflags & oflag::Done) == 0) {
+        // Kick the device; we want it to read
+        if (auto result = device->GetBIODeviceOperations()->ReadBIO(bio); result.IsFailure()) {
+            kprintf("bio_read(): device_read() failed, %i\n", result.AsStatusCode());
+            return result;
+        }
+    }
+
+    // Sleep on event: disk read completed
+    bio.Wait();
+    TRACE(BIO, INFO, "dev=%p, block=%u, len=%u ==> new block %p", device, (int)block, len, &bio);
+    result = &bio;
+    return bio.b_status;
+}
+
+Result bwrite(BIO& bio)
+{
+    panic("bwrite");
+    // TODO: Initiate disk write
+    if (/* TODO: synchronous */ true) {
+    } else if (/* TODO: marked for delayed write */ false) {
+        // TODO: mark buffer to put at head of free list
+    }
+}
+
+void BIO::Done()
+{
+    TRACE(BIO, FUNC, "bio=%p", this);
+
+    b_objlock->Lock();
+    KASSERT((b_oflags & oflag::Done) == 0, "bio %p already done", this);
+    b_oflags |= oflag::Done;
+
+    bool async = false;
+    if (async) {
+        b_objlock->Unlock();
+        Release();
     } else {
-        /* Wait until we have something to report... */
-        bio_waitdirty(bio);
-        /*
-         * We're all set - the block I/O driver is responsible for clearing the dirty flag if
-         * necessary
-         */
+        // TODO: Wake up writer in Wait()
+        b_objlock->Unlock();
     }
 }
 
-static void bio_cleanup()
+Result BIO::Write()
 {
-    TRACE(BIO, FUNC, "called");
+    KASSERT((b_cflags & cflag::Busy) != 0, "buffer not busy");
 
-    SpinlockGuard g(spl_bio_lists);
-    KASSERT(!bio_usedlist.empty(), "usedlist is empty");
-
-    /* Grab the final entry and remove it from the list */
-    BIO& bio = bio_usedlist.back();
-    bio_usedlist.pop_back();
-
-    bio_flush(bio);
-
-    /* Add it to the freelist */
-    bio_freelist.push_back(bio);
-
-    KASSERT(
-        bio.data != NULL, "to-remove bio %p has no data (fl %x, block %x, len %x)", &bio, bio.flags,
-        (int)bio.block, bio.length);
-    /*
-     * OK, now we need to nuke the data bio points to; this must be done within
-     * the lists spinlock because it must not be allocated by someone else.
-     */
-    SpinlockGuard sgb(spl_bio_bitmap);
-    unsigned int bio_data_block =
-        (static_cast<uint8_t*>(bio.data) - static_cast<uint8_t*>(bio_data)) / BIO_SECTOR_SIZE;
-    for (unsigned int n = bio_data_block; n < bio_data_block + (bio.length / BIO_SECTOR_SIZE);
-         n++) {
-        KASSERT((bio_bitmap[n / 8] & (1 << (n % 8))) != 0, "data block %u not assigned", n);
-        bio_bitmap[n / 8] &= ~(1 << (n % 8));
+    // Update request: set as write and not done yet
+    b_status = Result::Success();
+    {
+        MutexGuard g(*b_objlock);
+        b_oflags &= ~oflag::Done;
     }
-    /* Finally, remove the block from the bucket chain */
-    auto& bucket = bio_bucket[bio.block % BIO_BUCKET_SIZE];
-    SpinlockGuard spbu(bucket.b_Lock);
-    KASSERT(!bucket.b_List.empty(), "bio bucket %p is empty", &bucket);
-    bucket.b_List.remove(bio);
 
-    /*
-     * Clear the bio info; it's available again for use (but set it as pending as
-     * the data it's not yet available)
-     */
-    bio.flags = BIO_FLAG_PENDING;
-    bio.data = nullptr;
+    // Initiate disk write XXX This should not fail
+    {
+        auto result = b_device->GetBIODeviceOperations()->WriteBIO(*this);
+        KASSERT(result.IsSuccess(), "writebio failed?! %d", result.AsStatusCode());
+    }
+
+    // Wait for the result XXX sync only
+    auto result = Wait();
+    Release();
+    return result;
 }
 
-/*
- * Return a given bio buffer. This will use any cached item if possible, or
- * allocate a new one as required.
- */
-static BIO* bio_get_buffer(Device* device, blocknr_t block, size_t len)
+void bsync()
 {
-    TRACE(BIO, FUNC, "dev=%p, block=%u, len=%u", device, (int)block, len);
-    KASSERT((len % BIO_SECTOR_SIZE) == 0, "length %u not a multiple of bio sector size", len);
-
-    auto& bucket = bio_bucket[block % BIO_BUCKET_SIZE];
-bio_restart:
-    bucket.Lock();
-
-    /* See if we can find the block in the bucket queue; if so, we can just return it */
-    for (auto& bio : bucket.b_List) {
-        if (bio.device != device || bio.block != block)
-            continue;
-
-        /*
-         * This is the block we need; we must move it in front of the used queue to
-         * prevent it from being nuked.
-         */
-        {
-            SpinlockGuard g(spl_bio_lists);
-            KASSERT(!bio_usedlist.empty(), "usedlist is empty");
-            /* Remove ourselves from the chain... */
-            bio_usedlist.remove(bio);
-            /* ...and prepend us at the beginning */
-            bio_usedlist.push_front(bio);
-        }
-
-        bucket.Unlock();
-        KASSERT(
-            bio.length == len, "bio item found with length %u, requested length %u", bio.length,
-            len); /* XXX should avoid... somehow */
-
-        /*
-         * We have already found the I/O buffer in the cache; however, if two
-         * threads request the same block at roughly the same time, one will
-         * be stuck waiting for it to be read and the other will end up here.
-         *
-         * To prevent this, we'll have to wait until the BIO buffer is no
-         * longer pending, as this ensures it will have been read.
-         *
-         * XXX What about the NODATA flag?
-         */
-        bio_waitcomplete(bio);
-        TRACE(BIO, INFO, "returning cached bio=%p", &bio);
-        return &bio;
-    }
-
-    /* Grab a bio from the head of the freelist */
-    spl_bio_lists.Lock();
-    BIO* bio = nullptr;
-    if (!bio_freelist.empty()) {
-        bio = &bio_freelist.front();
-        bio_freelist.pop_front();
-    }
-
-    if (bio == nullptr) {
-        /* No bio's available; clean up some */
-        spl_bio_lists.Unlock();
-        bucket.Unlock();
-        bio_cleanup();
-        goto bio_restart;
-    }
-
-    /* And add it to the used list */
-    bio_usedlist.push_front(*bio);
-    spl_bio_lists.Unlock();
-
-    /* Find available data blocks in the bio data pool */
-bio_restartdata:
-    spl_bio_bitmap.Lock();
-    unsigned int chain_length = 0, cur_data_block = 0;
-    unsigned int num_blocks = len / BIO_SECTOR_SIZE;
-    for (; cur_data_block < bio_bitmap_size * 8; cur_data_block++) {
-        if (bio_bitmap[cur_data_block / 8] & (1 << (cur_data_block % 8))) {
-            /* Data block isn't available - try again */
-            chain_length = 0;
-            continue;
-        }
-
-        if (chain_length == num_blocks)
-            break;
-        chain_length++;
-    }
-    if (chain_length != num_blocks) {
-        /* No bio data available; clean up some */
-        spl_bio_bitmap.Unlock();
-        bucket.Unlock();
-        bio_cleanup();
-        bucket.Lock();
-        goto bio_restartdata;
-    }
-    /* Walk back the number of blocks we need to allocate, we know they are free */
-    cur_data_block -= chain_length;
-
-    /* Mark the blocks as in use */
-    for (unsigned int n = cur_data_block; n < cur_data_block + num_blocks; n++) {
-        bio_bitmap[n / 8] |= (1 << (n % 8));
-    }
-    spl_bio_bitmap.Unlock();
-
-    /* Hook the request to the corresponding bucket */
-    bucket.b_List.push_front(*bio);
-    bucket.Unlock();
-
-    /*
-     * Throw away any flags the buffer has (as this is a new request, we can't
-     * anything more sensible yet) - note that we need to set the pending flag
-     * because the data isn't ready yet.
-     */
-    bio->flags = BIO_FLAG_PENDING;
-    bio->device = device;
-    bio->block = block;
-    bio->io_block = block;
-    bio->length = len;
-    bio->data = bio_data + (cur_data_block * BIO_SECTOR_SIZE);
-    TRACE(BIO, INFO, "returning new bio=%p", bio);
-    return bio;
-}
-
-/*
- * Called by BIO consumers when they are done with a bio buffer.
- */
-void bio_free(BIO& bio) { TRACE(BIO, FUNC, "bio=%p", &bio); }
-
-struct BIO* bio_get(Device* device, blocknr_t block, size_t len, int flags)
-{
-    struct BIO* bio = bio_get_buffer(device, block, len);
-    if (flags & BIO_READ_NODATA) {
-        /*
-         * The requester doesn't want the actual data; this means we needn't
-         * schedule the read or even bother to check whether it's pending
-         * or not; we just return the bio constructed above without it
-         * being pending - caller is likely to destroy any data in it
-         * either way.
-         */
-        bio->flags &= ~BIO_FLAG_PENDING;
-        return bio;
-    }
-
-    /*
-     * If we have a block that is not pending, we can just return it. Note that
-     * dirty blocks are never pending.
-     */
-    if ((bio->flags & BIO_FLAG_PENDING) == 0) {
-        TRACE(
-            BIO, INFO, "dev=%p, block=%u, len=%u ==> cached block %p", device, (int)block, len,
-            bio);
-        return bio;
-    }
-
-    /* kick the device; we want it to read */
-    if (auto result = device->GetBIODeviceOperations()->ReadBIO(*bio); result.IsFailure()) {
-        kprintf("bio_read(): device_read() failed, %i\n", result.AsStatusCode());
-        bio_set_error(*bio);
-        return bio;
-    }
-
-    /* ... and wait until we have something to report... XXX This needs a timeout */
-    while ((bio->flags & BIO_FLAG_PENDING) != 0) {
-        bio->sem.Wait();
-    }
-    TRACE(BIO, INFO, "dev=%p, block=%u, len=%u ==> new block %p", device, (int)block, len, bio);
-    return bio;
-}
-
-void bio_set_error(BIO& bio)
-{
-    TRACE(BIO, FUNC, "bio=%p", &bio);
-    bio.flags = (bio.flags & ~BIO_FLAG_PENDING) | BIO_FLAG_ERROR;
-    bio.sem.Signal();
-}
-
-void bio_set_available(BIO& bio)
-{
-    TRACE(BIO, FUNC, "bio=%p", &bio);
-    bio.flags &= ~BIO_FLAG_PENDING;
-    bio.sem.Signal();
-}
-
-void bio_set_dirty(BIO& bio)
-{
-    TRACE(BIO, FUNC, "bio=%p", &bio);
-    bio.flags |= BIO_FLAG_DIRTY;
-    bio_flush(bio); /* XXX debug aid so that the image can be inspected */
-}
-
-static BIO* bio_steal_dirty()
-{
-    SpinlockGuard g(spl_bio_lists);
-    for (auto& bio : bio_usedlist) {
-        if ((bio.flags & BIO_FLAG_DIRTY) == 0)
-            continue;
-        bio_usedlist.remove(bio);
-        return &bio;
-    }
-    return nullptr;
-}
-
-void bio_sync()
-{
-    // XXX This is only intended to call when shutting down; we can't properly
-    // lock things as writing stuff tends to sleep
-    for (auto& bio : bio_usedlist) {
-        bio_flush(bio);
-    }
+    // TODO - we do everything sync now so this does not matter
 }
 
 #ifdef OPTION_KDB
 const kdb::RegisterCommand kdbBio("bio", "Display I/O buffers", [](int, const kdb::Argument*) {
     kprintf("bio dump\n");
 
-    unsigned int freelist_avail = 0, usedlist_used = 0;
-    {
-        SpinlockGuard g(spl_bio_lists);
-        for (auto& bio : bio_freelist)
-            freelist_avail++;
-        for (auto& bio : bio_usedlist)
-            usedlist_used++;
+    unsigned int freelist_avail = 0;
+    for (auto& bio : bio_freelist) {
+        freelist_avail++;
     }
-    kprintf(
-        "lists: %u bio's used, %u bio's free, %u total\n", usedlist_used, freelist_avail,
-        BIO_NUM_BUFFERS);
-    KASSERT(freelist_avail + usedlist_used == BIO_NUM_BUFFERS, "chain length does not add up");
+    kprintf("lists: %u total, %u bio's free\n", NumberOfBuffers, freelist_avail);
 
     kprintf("buckets:");
-    for (unsigned int bucket_num = 0; bucket_num < BIO_BUCKET_SIZE; bucket_num++) {
+    for (unsigned int bucket_num = 0; bucket_num < NumberOfBuckets; bucket_num++) {
         kprintf("%u =>", bucket_num);
         {
-            SpinlockGuard g(bio_bucket[bucket_num].b_Lock);
-            if (!bio_bucket[bucket_num].b_List.empty()) {
-                for (auto& bio : bio_bucket[bucket_num].b_List)
-                    kprintf(" %p (%u)", &bio, bio.block);
+            if (!bio_bucket[bucket_num].empty()) {
+                for (auto& bio : bio_bucket[bucket_num])
+                    kprintf(" %u(%d)", bio.b_block, bio.b_cflags);
             } else {
                 kprintf(" (empty)");
             }
@@ -418,9 +440,8 @@ const kdb::RegisterCommand kdbBio("bio", "Display I/O buffers", [](int, const kd
     }
 
     unsigned int databuf_avail = 0;
-    kprintf("data buffers:");
+    kprintf("data buffers in use:");
     {
-        SpinlockGuard g(spl_bio_bitmap);
         int current = -1;
         for (unsigned int i = 0; i < bio_bitmap_size * 8; i++) {
             if ((bio_bitmap[i / 8] & (1 << (i % 8))) != 0) {
@@ -439,9 +460,6 @@ const kdb::RegisterCommand kdbBio("bio", "Display I/O buffers", [](int, const kd
         if (current != -1)
             kprintf("-%u\n", bio_bitmap_size * 8);
     }
-    kprintf(" %u available (%u total)\n", databuf_avail, BIO_DATA_SIZE / BIO_SECTOR_SIZE);
-
-    KASSERT(
-        databuf_avail <= (BIO_DATA_SIZE / BIO_SECTOR_SIZE), "more bio data available than total");
+    kprintf(", available: %u out of %u total\n", databuf_avail, DataSize / BIO_SECTOR_SIZE);
 });
 #endif /* KDB */

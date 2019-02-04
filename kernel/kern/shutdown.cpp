@@ -46,7 +46,7 @@ namespace shutdown
 
             // XXX Unmount filesystems, etc
             kprintf("Synchronising BIO's...");
-            bio_sync();
+            bsync();
             kprintf("done\n");
 
             kprintf("Performing %s NOW!\n", shutdownTypeText);

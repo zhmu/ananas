@@ -12,7 +12,7 @@
 
 int mbr_process(Device* device, struct BIO* bio)
 {
-    auto mbr = reinterpret_cast<struct MBR*>(BIO_DATA(bio));
+    auto mbr = reinterpret_cast<struct MBR*>(bio->Data());
     static_assert(sizeof(struct MBR) == 512, "MBR structure out of size");
 
     /* First of all, check the MBR signature. If this does not match, reject it */

@@ -68,7 +68,9 @@ static Result fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
         return result;
 
     /* Parse what we just read */
-    struct FAT_BPB* bpb = (struct FAT_BPB*)BIO_DATA(bio);
+    auto bpb = *reinterpret_cast<struct FAT_BPB*>(bio->Data());
+    bio->Release();
+
     auto privdata = new FAT_FS_PRIVDATA;
     memset(privdata, 0, sizeof(struct FAT_FS_PRIVDATA));
     fs->fs_privdata = privdata; /* immediately, this is used by other functions */
@@ -80,25 +82,25 @@ static Result fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
         return RESULT_MAKE_FAILURE(ENODEV); \
     } while (0)
 
-    privdata->sector_size = FAT_FROM_LE16(bpb->bpb_bytespersector);
+    privdata->sector_size = FAT_FROM_LE16(bpb.bpb_bytespersector);
     if (privdata->sector_size < 512)
         FAT_ABORT("sectorsize must be at least 512 (is %u)", privdata->sector_size);
     int log2_cluster_size = 0;
-    for (int i = bpb->bpb_sectorspercluster; i > 1; i >>= 1, log2_cluster_size++)
+    for (int i = bpb.bpb_sectorspercluster; i > 1; i >>= 1, log2_cluster_size++)
         ;
-    if ((1 << log2_cluster_size) != bpb->bpb_sectorspercluster)
+    if ((1 << log2_cluster_size) != bpb.bpb_sectorspercluster)
         FAT_ABORT("clustersize isn't a power of 2");
-    privdata->sectors_per_cluster = bpb->bpb_sectorspercluster;
-    privdata->reserved_sectors = FAT_FROM_LE16(bpb->bpb_num_reserved);
+    privdata->sectors_per_cluster = bpb.bpb_sectorspercluster;
+    privdata->reserved_sectors = FAT_FROM_LE16(bpb.bpb_num_reserved);
     if (privdata->reserved_sectors == 0)
         FAT_ABORT("no reserved sectors");
-    privdata->num_fats = bpb->bpb_num_fats;
+    privdata->num_fats = bpb.bpb_num_fats;
     if (privdata->num_fats == 0)
         FAT_ABORT("no fats on disk");
-    uint16_t num_rootdir_entries = FAT_FROM_LE16(bpb->bpb_num_root_entries);
-    uint32_t num_sectors = FAT_FROM_LE16(bpb->bpb_num_sectors);
+    uint16_t num_rootdir_entries = FAT_FROM_LE16(bpb.bpb_num_root_entries);
+    uint32_t num_sectors = FAT_FROM_LE16(bpb.bpb_num_sectors);
     if (num_sectors == 0)
-        num_sectors = FAT_FROM_LE32(bpb->bpb_large_num_sectors);
+        num_sectors = FAT_FROM_LE32(bpb.bpb_large_num_sectors);
     if (num_sectors == 0)
         FAT_ABORT("no sectors on disk?");
 
@@ -108,9 +110,9 @@ static Result fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
     privdata->num_rootdir_sectors =
         ((sizeof(struct FAT_ENTRY) * num_rootdir_entries) + (privdata->sector_size - 1)) /
         privdata->sector_size;
-    privdata->num_fat_sectors = FAT_FROM_LE16(bpb->bpb_sectors_per_fat);
+    privdata->num_fat_sectors = FAT_FROM_LE16(bpb.bpb_sectors_per_fat);
     if (privdata->num_fat_sectors == 0)
-        privdata->num_fat_sectors = FAT_FROM_LE32(bpb->epb.fat32.epb_sectors_per_fat);
+        privdata->num_fat_sectors = FAT_FROM_LE32(bpb.epb.fat32.epb_sectors_per_fat);
     privdata->first_rootdir_sector =
         privdata->reserved_sectors + (privdata->num_fats * privdata->num_fat_sectors);
     privdata->first_data_sector = privdata->first_rootdir_sector + privdata->num_rootdir_sectors;
@@ -122,7 +124,7 @@ static Result fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
         privdata->fat_type = 16;
     } else {
         privdata->fat_type = 32;
-        privdata->first_rootdir_sector = FAT_FROM_LE32(bpb->epb.fat32.epb_root_cluster);
+        privdata->first_rootdir_sector = FAT_FROM_LE32(bpb.epb.fat32.epb_root_cluster);
     }
 #ifdef DEBUG_FAT
     kprintf(
@@ -144,12 +146,12 @@ static Result fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
     /* If we are using FAT32, there should be an 'info sector' with some (cached) information */
     privdata->num_avail_clusters = (uint32_t)-1;
     if (privdata->fat_type == 32) {
-        uint16_t fsinfo_sector = FAT_FROM_LE16(bpb->epb.fat32.epb_fsinfo_sector);
+        uint16_t fsinfo_sector = FAT_FROM_LE16(bpb.epb.fat32.epb_fsinfo_sector);
         if (fsinfo_sector >= 1 && fsinfo_sector < num_sectors) {
             /* Looks sane; read it */
             BIO* bio;
             if (auto result = vfs_bread(fs, fsinfo_sector, &bio); result.IsSuccess()) {
-                struct FAT_FAT32_FSINFO* fsi = (struct FAT_FAT32_FSINFO*)BIO_DATA(bio);
+                auto fsi = reinterpret_cast<struct FAT_FAT32_FSINFO*>(bio->Data());
                 if (FAT_FROM_LE32(fsi->fsi_signature1) == FAT_FSINFO_SIGNATURE1 &&
                     FAT_FROM_LE32(fsi->fsi_signature2) == FAT_FSINFO_SIGNATURE2) {
                     /* File system information seems valid; use it, if sane */
@@ -163,7 +165,7 @@ static Result fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
                     /* We have an info sector we should update */
                     privdata->infosector_num = fsinfo_sector;
                 }
-                bio_free(*bio);
+                bio->Release();
             }
         }
     }

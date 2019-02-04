@@ -41,13 +41,13 @@ namespace
 
     Result Slice::ReadBIO(struct BIO& bio)
     {
-        bio.io_block = bio.block + slice_first_block;
+        bio.b_ioblock = bio.b_block + slice_first_block;
         return d_Parent->GetBIODeviceOperations()->ReadBIO(bio);
     }
 
     Result Slice::WriteBIO(struct BIO& bio)
     {
-        bio.io_block = bio.block + slice_first_block;
+        bio.b_ioblock = bio.b_block + slice_first_block;
         return d_Parent->GetBIODeviceOperations()->WriteBIO(bio);
     }
 

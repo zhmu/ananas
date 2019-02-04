@@ -29,15 +29,7 @@ Result vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode);
 /*
  * Retrieves a given block for the given filesystem to a bio.
  */
-Result vfs_bget(struct VFS_MOUNTED_FS* fs, blocknr_t block, struct BIO** bio, int flags);
-
-/*
- * Reads a block for the given filesystem to bio.
- */
-static inline Result vfs_bread(struct VFS_MOUNTED_FS* fs, blocknr_t block, struct BIO** bio)
-{
-    return vfs_bget(fs, block, bio, 0);
-}
+Result vfs_bread(struct VFS_MOUNTED_FS* fs, blocknr_t block, struct BIO** bio);
 
 #define VFS_LOOKUP_FLAG_DEFAULT 0
 #define VFS_LOOKUP_FLAG_NO_FOLLOW 1

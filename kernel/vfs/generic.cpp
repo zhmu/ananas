@@ -75,7 +75,6 @@ Result vfs_generic_read(struct VFS_FILE* file, void* buf, size_t len)
     struct VFS_MOUNTED_FS* fs = inode.i_fs;
     size_t read = 0;
     size_t left = len;
-    BIO* bio = nullptr;
 
     KASSERT(inode.i_iops->block_map != NULL, "called without block_map implementation");
 
@@ -84,26 +83,21 @@ Result vfs_generic_read(struct VFS_FILE* file, void* buf, size_t len)
         left = inode.i_sb.st_size - file->f_offset;
     }
 
-    blocknr_t cur_block = 0;
     while (left > 0) {
         if (!vfs_is_filesystem_sane(inode.i_fs))
             return RESULT_MAKE_FAILURE(EIO);
 
         /* Figure out which block to use next */
-        blocknr_t want_block;
+        blocknr_t cur_block;
         if (auto result = inode.i_iops->block_map(
-                inode, (file->f_offset / (blocknr_t)fs->fs_block_size), want_block, false);
+                inode, (file->f_offset / (blocknr_t)fs->fs_block_size), cur_block, false);
             result.IsFailure())
             return result;
 
-        /* Grab the next block if necessary */
-        if (cur_block != want_block || bio == NULL) {
-            if (bio != nullptr)
-                bio_free(*bio);
-            if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
-                return result;
-            cur_block = want_block;
-        }
+        // Grab the block
+        BIO* bio;
+        if (auto result = vfs_bread(fs, cur_block, &bio); result.IsFailure())
+            return result;
 
         /* Copy as much from the current entry as we can */
         off_t cur_offset = file->f_offset % (blocknr_t)fs->fs_block_size;
@@ -111,15 +105,14 @@ Result vfs_generic_read(struct VFS_FILE* file, void* buf, size_t len)
         if (chunk_len > left)
             chunk_len = left;
         KASSERT(chunk_len > 0, "attempt to handle empty chunk");
-        memcpy(buf, (void*)(static_cast<char*>(BIO_DATA(bio)) + cur_offset), chunk_len);
+        memcpy(buf, (void*)(static_cast<char*>(bio->Data()) + cur_offset), chunk_len);
+        bio->Release();
 
         read += chunk_len;
         buf = static_cast<void*>(static_cast<char*>(buf) + chunk_len);
         left -= chunk_len;
         file->f_offset += chunk_len;
     }
-    if (bio != nullptr)
-        bio_free(*bio);
     return Result::Success(read);
 }
 
@@ -134,7 +127,6 @@ Result vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t len)
     KASSERT(inode.i_iops->block_map != NULL, "called without block_map implementation");
 
     int inode_dirty = 0;
-    blocknr_t cur_block = 0;
     while (left > 0) {
         blocknr_t logical_block = file->f_offset / (blocknr_t)fs->fs_block_size;
         bool create =
@@ -143,9 +135,9 @@ Result vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t len)
         if (!vfs_is_filesystem_sane(inode.i_fs))
             return RESULT_MAKE_FAILURE(EIO);
 
-        /* Figure out which block to use next */
-        blocknr_t want_block;
-        if (auto result = inode.i_iops->block_map(inode, logical_block, want_block, create);
+        // Figure out which block to use next
+        blocknr_t cur_block;
+        if (auto result = inode.i_iops->block_map(inode, logical_block, cur_block, create);
             result.IsFailure())
             return result;
 
@@ -155,23 +147,16 @@ Result vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t len)
         if (chunk_len > left)
             chunk_len = left;
 
-        /* Grab the next block if necessary */
-        if (cur_block != want_block || bio == NULL) {
-            if (bio != nullptr)
-                bio_free(*bio);
-            /* Only read the block if it's a new one or we're not replacing everything */
-            if (auto result = vfs_bget(
-                    fs, want_block, &bio,
-                    (create || chunk_len == fs->fs_block_size) ? BIO_READ_NODATA : 0);
-                result.IsFailure())
-                return result;
-            cur_block = want_block;
-        }
+        // Grab the next block
+        /* TODO Only read the block if it's a new one or we're not replacing everything
+         * If (create || chunk_len == fs->fs_block_size), we don't _need_ the data... */
+        if (auto result = vfs_bread(fs, cur_block, &bio); result.IsFailure())
+            return result;
 
         /* Copy as much to the block as we can */
         KASSERT(chunk_len > 0, "attempt to handle empty chunk");
-        memcpy((void*)(static_cast<char*>(BIO_DATA(bio)) + cur_offset), buf, chunk_len);
-        bio_set_dirty(*bio);
+        memcpy((void*)(static_cast<char*>(bio->Data()) + cur_offset), buf, chunk_len);
+        bio->Write();
 
         /* Update the offsets and sizes */
         written += chunk_len;
@@ -188,8 +173,6 @@ Result vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t len)
             inode_dirty++;
         }
     }
-    if (bio != nullptr)
-        bio_free(*bio);
 
     if (inode_dirty)
         vfs_set_inode_dirty(inode);

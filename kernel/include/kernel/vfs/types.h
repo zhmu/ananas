@@ -45,7 +45,6 @@ struct INode : util::List<INode>::NodePtr {
 
     void Unlock() { i_mutex.Unlock(); }
 
-  private:
     Mutex i_mutex{"inode"}; /* Mutex protecting inode */
 };
 

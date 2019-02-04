@@ -57,9 +57,7 @@ namespace ahci
             if (sr->sr_semaphore != nullptr)
                 sr->sr_semaphore->Signal();
             if (sr->sr_bio != nullptr) {
-                if (sr->sr_flags & SATA_REQUEST_FLAG_WRITE)
-                    sr->sr_bio->flags &= ~BIO_FLAG_DIRTY;
-                bio_set_available(*sr->sr_bio);
+                sr->sr_bio->Done();
             }
 
             /* This request is no longer active nor valid */
@@ -191,7 +189,7 @@ namespace ahci
             if (sr->sr_buffer != NULL)
                 data_ptr = kmem_get_phys(sr->sr_buffer);
             else
-                data_ptr = kmem_get_phys(BIO_DATA(sr->sr_bio));
+                data_ptr = kmem_get_phys(sr->sr_bio->Data());
 
             /* Construct the command table; it will always have 1 PRD entry */
             struct AHCI_PCI_CT* ct = pr->pr_ct;

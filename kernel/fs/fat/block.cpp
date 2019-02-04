@@ -162,18 +162,18 @@ try_cache:; /* dummy ; to keep gcc happy */
         /* Grab the value from the FAT */
         switch (fs_privdata->fat_type) {
             case 16:
-                cur_cluster = FAT_FROM_LE16((char*)(static_cast<char*>(BIO_DATA(bio)) + offset));
+                cur_cluster = FAT_FROM_LE16((char*)(static_cast<char*>(bio->Data()) + offset));
                 if (cur_cluster >= 0xfff8)
                     cur_cluster = 0;
                 break;
             case 32: /* actually FAT-28... */
                 cur_cluster =
-                    FAT_FROM_LE32((char*)(static_cast<char*>(BIO_DATA(bio)) + offset)) & 0xfffffff;
+                    FAT_FROM_LE32((char*)(static_cast<char*>(bio->Data()) + offset)) & 0xfffffff;
                 if (cur_cluster >= 0xffffff8)
                     cur_cluster = 0;
                 break;
         }
-        bio_free(*bio);
+        bio->Release();
         if (cur_cluster != 0)
             *cluster_out = cur_cluster;
     }
@@ -207,16 +207,15 @@ static Result fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, u
 
     switch (fs_privdata->fat_type) {
         case 16:
-            FAT_TO_LE16((char*)(static_cast<char*>(BIO_DATA(bio)) + offset), cluster_val);
+            FAT_TO_LE16((char*)(static_cast<char*>(bio->Data()) + offset), cluster_val);
             break;
         case 32: /* actually FAT-28... */
-            FAT_TO_LE32((char*)(static_cast<char*>(BIO_DATA(bio)) + offset), cluster_val);
+            FAT_TO_LE32((char*)(static_cast<char*>(bio->Data()) + offset), cluster_val);
             break;
         default:
             panic("unsuported fat type");
     }
 
-    bio_set_dirty(*bio);
 
     /* Sync all other FAT tables as well */
     for (int i = 1; i < fs_privdata->num_fats; i++) {
@@ -224,15 +223,14 @@ static Result fat_set_cluster(struct VFS_MOUNTED_FS* fs, uint32_t cluster_num, u
         BIO* bio2;
         if (auto result = vfs_bread(fs, sector_num, &bio2); result.IsFailure()) {
             /* XXX we should free the cluster */
-            bio_free(*bio);
+            bio->Release();
             kprintf("fat_set_cluster(): XXX leaking cluster %u\n", sector_num);
             return result;
         }
-        memcpy(BIO_DATA(bio2), static_cast<char*>(BIO_DATA(bio)), fs_privdata->sector_size);
-        bio_set_dirty(*bio2);
-        bio_free(*bio2);
+        memcpy(bio2->Data(), bio->Data(), fs_privdata->sector_size);
+        bio2->Write();
     }
-    bio_free(*bio);
+    bio->Write();
 
     return Result::Success();
 }
@@ -245,47 +243,43 @@ static Result fat_claim_avail_cluster(struct VFS_MOUNTED_FS* fs, uint32_t* clust
     auto fs_privdata = static_cast<struct FAT_FS_PRIVDATA*>(fs->fs_privdata);
 
     /* XXX We do a dumb find-first on the filesystem for now */
-    blocknr_t cur_block = (blocknr_t)-1;
-    BIO* bio = nullptr;
     for (uint32_t clusterno = fs_privdata->next_avail_cluster;
          clusterno < fs_privdata->total_clusters; clusterno++) {
         /* Obtain the FAT block, if necessary */
         uint32_t offset;
-        blocknr_t want_block;
-        fat_make_cluster_block_offset(fs, clusterno, &want_block, &offset);
-        if (want_block != cur_block || bio == NULL) {
-            if (bio != nullptr)
-                bio_free(*bio);
-            if (auto result = vfs_bread(fs, want_block, &bio); result.IsFailure())
-                return result;
-            cur_block = want_block;
-        }
+        blocknr_t cur_block;
+        fat_make_cluster_block_offset(fs, clusterno, &cur_block, &offset);
+
+        BIO* bio;
+        if (auto result = vfs_bread(fs, cur_block, &bio); result.IsFailure())
+            return result;
 
         /* Obtain the cluster value */
         uint32_t val = -1;
         switch (fs_privdata->fat_type) {
             case 16:
-                val = FAT_FROM_LE16((char*)(static_cast<char*>(BIO_DATA(bio)) + offset));
+                val = FAT_FROM_LE16((char*)(static_cast<char*>(bio->Data()) + offset));
                 if (val == 0) { /* available cluster? */
                     /* Yes; claim it */
-                    FAT_TO_LE16((char*)(static_cast<char*>(BIO_DATA(bio)) + offset), 0xfff8);
+                    FAT_TO_LE16((char*)(static_cast<char*>(bio->Data()) + offset), 0xfff8);
                 }
                 break;
             case 32: /* actually FAT-28... */
                 val =
-                    FAT_FROM_LE32((char*)(static_cast<char*>(BIO_DATA(bio)) + offset)) & 0xfffffff;
+                    FAT_FROM_LE32((char*)(static_cast<char*>(bio->Data()) + offset)) & 0xfffffff;
                 if (val == 0) { /* available cluster? */
                     /* Yes; claim it */
-                    FAT_TO_LE32((char*)(static_cast<char*>(BIO_DATA(bio)) + offset), 0xffffff8);
+                    FAT_TO_LE32((char*)(static_cast<char*>(bio->Data()) + offset), 0xffffff8);
                 }
                 break;
         }
-        if (val != 0)
+        if (val != 0) {
+            bio->Release();
             continue;
+        }
 
         /* OK; this one is available (and we just claimed it) - flush the FAT entry */
-        bio_set_dirty(*bio);
-        bio_free(*bio);
+        bio->Write();
 
         /* XXX should update second fat */
         *cluster_out = clusterno;
@@ -531,11 +525,10 @@ Result fat_update_infosector(struct VFS_MOUNTED_FS* fs)
      * and just put whatever values we currently have in there, if they are
      * valid.
      */
-    struct FAT_FAT32_FSINFO* fsi = (struct FAT_FAT32_FSINFO*)static_cast<char*>(BIO_DATA(bio));
+    auto fsi = reinterpret_cast<struct FAT_FAT32_FSINFO*>(bio->Data());
     FAT_TO_LE32(fsi->fsi_next_free, fs_privdata->next_avail_cluster);
     FAT_TO_LE32(fsi->fsi_free_count, fs_privdata->num_avail_clusters);
-    bio_set_dirty(*bio); /* XXX even if we updated nothing? */
-    bio_free(*bio);
+    bio->Write(); /* XXX even if we updated nothing? */
 
     return Result::Success();
 }

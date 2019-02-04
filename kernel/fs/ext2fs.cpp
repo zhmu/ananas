@@ -188,11 +188,11 @@ ext2_dump_inode(struct EXT2_INODE* inode)
                 return result;
             // Extract the next block to read
             indirect = [&]() {
-                const auto blocks = reinterpret_cast<uint32_t*>(static_cast<char*>(BIO_DATA(bio)));
+                const auto blocks = reinterpret_cast<uint32_t*>(static_cast<char*>(bio->Data()));
                 int blockIndex = (block_in >> (block_shift * level)) % (fs->fs_block_size / 4);
                 return EXT2_TO_LE32(blocks[blockIndex]);
             }();
-            bio_free(*bio);
+            bio->Release();
         } while (--level >= 0);
 
         block_out = indirect;
@@ -208,25 +208,20 @@ ext2_dump_inode(struct EXT2_INODE* inode)
         uint32_t offset = file->f_offset % fs->fs_block_size;
         size_t written = 0, left = len;
 
-        BIO* bio = nullptr;
-        blocknr_t curblock = 0;
         while (left > 0) {
-            blocknr_t block;
-            if (auto result = ext2_block_map(inode, blocknum, block, false); result.IsFailure())
+            blocknr_t cur_block;
+            if (auto result = ext2_block_map(inode, blocknum, cur_block, false); result.IsFailure())
                 return result;
-            if (block == 0) {
+            if (cur_block == 0) {
                 /*
                  * We've run out of blocks. Need to stop here.
                  */
                 break;
             }
-            if (curblock != block) {
-                if (bio != nullptr)
-                    bio_free(*bio);
-                if (auto result = vfs_bread(fs, block, &bio); result.IsFailure())
-                    return result;
-                curblock = block;
-            }
+
+            BIO* bio;
+            if (auto result = vfs_bread(fs, cur_block, &bio); result.IsFailure())
+                return result;
 
             /*
              * ext2 directories contain variable-length records, which is why we have
@@ -237,7 +232,7 @@ ext2_dump_inode(struct EXT2_INODE* inode)
              * specification.
              */
             auto ext2de =
-                reinterpret_cast<struct EXT2_DIRENTRY*>(static_cast<char*>(BIO_DATA(bio)) + offset);
+                reinterpret_cast<struct EXT2_DIRENTRY*>(static_cast<char*>(bio->Data()) + offset);
             uint32_t inum = EXT2_TO_LE32(ext2de->inode);
             if (inum > 0) {
                 /*
@@ -248,6 +243,7 @@ ext2_dump_inode(struct EXT2_INODE* inode)
                     &dirents, left, inum, (const char*)ext2de->name, ext2de->name_len);
                 if (!filled) {
                     /* out of space! */
+                    bio->Release();
                     break;
                 }
                 written += filled;
@@ -264,9 +260,9 @@ ext2_dump_inode(struct EXT2_INODE* inode)
                 offset -= fs->fs_block_size;
                 blocknum++;
             }
+
+            bio->Release();
         }
-        if (bio != nullptr)
-            bio_free(*bio);
         return Result::Success(written);
     }
 
@@ -326,7 +322,7 @@ ext2_dump_inode(struct EXT2_INODE* inode)
             return result;
         unsigned int idx = (iindex * privdata->sb.s_inode_size) % fs->fs_block_size;
         auto ext2inode =
-            reinterpret_cast<struct EXT2_INODE*>(static_cast<char*>(BIO_DATA(bio)) + idx);
+            reinterpret_cast<struct EXT2_INODE*>(static_cast<char*>(bio->Data()) + idx);
 
         /* Fill the stat buffer with date */
         inode.i_sb.st_ino = inum;
@@ -361,16 +357,16 @@ ext2_dump_inode(struct EXT2_INODE* inode)
                 // XXX For now
                 if (EXT2_TO_LE32(ext2inode->i_blocks) != 0) {
                     kprintf("ext2: symlink inode %d has blocks, unsupported yet!\n", (int)inum);
-                    bio_free(*bio);
+                    bio->Release();
                     return RESULT_MAKE_FAILURE(EPERM);
                 }
                 inode.i_iops = &ext2_symlink_ops;
                 break;
             default:
-                bio_free(*bio);
+                bio->Release();
                 return RESULT_MAKE_FAILURE(EPERM);
         }
-        bio_free(*bio);
+        bio->Release();
 
         return Result::Success();
     }
@@ -384,10 +380,10 @@ ext2_dump_inode(struct EXT2_INODE* inode)
             return result;
 
         /* See if something ext2-y lives here */
-        struct EXT2_SUPERBLOCK* sb = (struct EXT2_SUPERBLOCK*)BIO_DATA(bio);
+        auto sb = reinterpret_cast<struct EXT2_SUPERBLOCK*>(bio->Data());
         ext2_conv_superblock(sb);
         if (sb->s_magic != EXT2_SUPER_MAGIC) {
-            bio_free(*bio);
+            bio->Release();
             return RESULT_MAKE_FAILURE(ENODEV);
         }
 
@@ -410,7 +406,7 @@ ext2_dump_inode(struct EXT2_INODE* inode)
         fs->fs_block_size = 1024L << sb->s_log_block_size;
 
         /* Free the superblock */
-        bio_free(*bio);
+        bio->Release();
 
         /*
          * Read the block group descriptor table; we use the fact that this table
@@ -430,9 +426,9 @@ ext2_dump_inode(struct EXT2_INODE* inode)
             }
             memcpy(
                 (void*)(privdata->blockgroup + n),
-                (void*)(static_cast<char*>(BIO_DATA(bio)) + ((n * sizeof(struct EXT2_BLOCKGROUP)) % fs->fs_block_size)),
+                (void*)(static_cast<char*>(bio->Data()) + ((n * sizeof(struct EXT2_BLOCKGROUP)) % fs->fs_block_size)),
                 sizeof(struct EXT2_BLOCKGROUP));
-            bio_free(*bio);
+            bio->Release();
         }
 
 #if 0
