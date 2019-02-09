@@ -29,7 +29,7 @@ namespace usb
     namespace
     {
         Thread usbtransfer_thread;
-        Semaphore usbtransfer_sem(0);
+        Semaphore usbtransfer_sem("usbxfer-sem", 0);
         CompletedTransferList usbtransfer_complete;
         Spinlock usbtransfer_lock;
 

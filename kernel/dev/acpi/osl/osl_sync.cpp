@@ -12,7 +12,7 @@
 ACPI_STATUS
 AcpiOsCreateSemaphore(UINT32 MaxUnits, UINT32 InitialUnits, ACPI_SEMAPHORE* OutHandle)
 {
-    auto sem = new Semaphore(MaxUnits);
+    auto sem = new Semaphore("acpi", MaxUnits);
     if (sem == NULL)
         return AE_NO_MEMORY;
 

@@ -22,7 +22,7 @@ namespace
 {
     Spinlock spl_reaper;
     ThreadList reaper_list;
-    Semaphore reaper_sem{0};
+    Semaphore reaper_sem{"reaper", 0};
     Thread reaper_thread;
 
     static void reaper_reap(void* context)

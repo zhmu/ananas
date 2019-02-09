@@ -129,7 +129,7 @@ DumpCBW(USBSTORAGE_CBW& cbw)
         struct USBSTORAGE_CSW* us_csw_ptr = nullptr;
 
         /* Signalled when the CSW is received */
-        Semaphore us_signal_sem{0};
+        Semaphore us_signal_sem{"usbstorage-signal", 0};
     };
 
     void StorageDevice_PipeInCallbackWrapper::OnPipeCallback(usb::Pipe& pipe)

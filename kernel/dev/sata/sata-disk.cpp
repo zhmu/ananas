@@ -67,7 +67,7 @@ namespace
          * know anything else though, so we'll have to issue an IDENTIFY command to
          * get down to the details.
          */
-        Semaphore sem(0);
+        Semaphore sem{"sata-identify", 0};
 
         struct SATA_REQUEST sr;
         memset(&sr, 0, sizeof(sr));

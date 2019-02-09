@@ -325,7 +325,7 @@ Result thread_clone(Process& proc, Thread*& out_thread)
 }
 
 struct ThreadWaiter : util::List<ThreadWaiter>::NodePtr {
-    Semaphore tw_sem{0};
+    Semaphore tw_sem{"thread-waiter", 0};
 };
 
 void Thread::SignalWaiters()

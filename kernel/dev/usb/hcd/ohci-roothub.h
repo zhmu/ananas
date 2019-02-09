@@ -37,7 +37,7 @@ namespace usb
             USBDevice& rh_Device;
 
             int rh_numports;
-            Semaphore rh_semaphore{0};
+            Semaphore rh_semaphore{"rh-sem", 0};
             struct Thread rh_pollthread;
             bool rh_pending_changes = true;
         };

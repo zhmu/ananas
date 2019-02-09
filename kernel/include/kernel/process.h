@@ -118,7 +118,7 @@ struct Process final : util::refcounted<Process> {
 
   private:
     Mutex p_lock{"plock"}; /* Locks the process */
-    Semaphore p_child_wait{0};
+    Semaphore p_child_wait{"pchildwait", 0};
 };
 
 Result process_alloc(Process* parent, Process*& dest);

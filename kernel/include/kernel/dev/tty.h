@@ -57,7 +57,7 @@ class TTY : public Device, private IDeviceOperations, private ICharDeviceOperati
 
     process::Session* tty_session = nullptr;            // session we belong to
     process::ProcessGroup* tty_foreground_pg = nullptr; // foreground process group
-    Semaphore tty_waiters{1};
+    Semaphore tty_waiters{"tty", 1};
 };
 
 #endif /* ANANAS_DEV_TTY_H */

@@ -53,7 +53,7 @@ namespace hda
         int pc_num_contexts = 0;
         uint8_t* pc_play_buf = nullptr;
         Mutex pc_mutex{"play"};
-        Semaphore pc_semaphore{1};
+        Semaphore pc_semaphore{"playsem", 1};
         IHDAFunctions& hdaFunctions;
     };
 

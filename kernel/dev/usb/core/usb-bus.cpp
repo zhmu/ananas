@@ -38,7 +38,7 @@ namespace usb
     namespace
     {
         Thread usbbus_thread;
-        Semaphore usbbus_semaphore(0);
+        Semaphore usbbus_semaphore("usbbus-sem", 0);
         USBDeviceList usbbus_pendingqueue;
         Spinlock usbbus_spl_pendingqueue; /* protects usbbus_pendingqueue */
         BusList usbbus_busses;
