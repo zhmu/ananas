@@ -1,7 +1,7 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2019 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
 #ifndef __LOCK_H__
@@ -10,6 +10,7 @@
 #include <ananas/types.h>
 #include <ananas/util/atomic.h>
 #include <ananas/util/list.h>
+#include "kernel/sleepqueue.h"
 
 struct Thread;
 
@@ -33,6 +34,9 @@ class Spinlock final
     // Unpremptible spinlocks disable the interrupt flag while they are active
     register_t LockUnpremptible();
     void UnlockUnpremptible(register_t state);
+
+    void AssertLocked();
+    void AssertUnlocked();
 
   private:
     util::atomic<int> sl_var;
@@ -75,13 +79,6 @@ class SpinlockUnpremptibleGuard final
     register_t sug_State;
 };
 
-struct SemaphoreWaiter final : util::List<SemaphoreWaiter>::NodePtr {
-    Thread* sw_thread;
-    int sw_signalled;
-};
-
-typedef util::List<SemaphoreWaiter> SemaphoreWaiterList;
-
 /*
  * Semaphores are sleepable locks which guard an amount of units of a
  * particular resource.
@@ -89,7 +86,7 @@ typedef util::List<SemaphoreWaiter> SemaphoreWaiterList;
 class Semaphore final
 {
   public:
-    Semaphore(int count);
+    Semaphore(const char* name, int count);
     Semaphore(const Semaphore&) = delete;
     Semaphore& operator=(const Semaphore&) = delete;
 
@@ -98,12 +95,9 @@ class Semaphore final
     bool TryWait();
     void WaitAndDrain();
 
-    register_t WaitAndLock();
-
   private:
-    Spinlock sem_lock;
-    unsigned int sem_count;
-    SemaphoreWaiterList sem_wq;
+    util::atomic<int> sem_count;
+    SleepQueue sem_sleepq;
 };
 
 /*
@@ -126,8 +120,8 @@ struct Mutex final {
 
   private:
     const char* mtx_name;
-    Thread* mtx_owner = nullptr;
-    Semaphore mtx_sem{1};
+    util::atomic<Thread*> mtx_owner{nullptr};
+    SleepQueue mtx_sleepq;
 };
 
 using SpinlockGuard = detail::LockGuard<Spinlock>;

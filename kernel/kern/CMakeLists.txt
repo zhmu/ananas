@@ -29,6 +29,7 @@ add_sources(
 	scheduler.cpp
 	shutdown.cpp
 	signal.cpp
+    sleepqueue.cpp
 	syscall.cpp
 	thread.cpp
 	time.cpp

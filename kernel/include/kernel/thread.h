@@ -10,13 +10,13 @@
 #include <ananas/types.h>
 #include <ananas/util/list.h>
 #include "kernel/page.h"
-#include "kernel/schedule.h" // for SchedulerPriv
-#include "kernel/signal.h"   // for ThreadSpecificData
+#include "kernel/schedule.h"   // for SchedulerPriv
+#include "kernel/sleepqueue.h" // for sleep_queue::Waiter
+#include "kernel/signal.h"     // for ThreadSpecificData
 #include "kernel/vfs/generic.h"
 #include "kernel-md/thread.h"
 
 typedef void (*kthread_func_t)(void*);
-struct VM_SPACE;
 struct STACKFRAME;
 struct Process;
 class Result;
@@ -93,6 +93,10 @@ struct Thread : public util::List<Thread>::NodePtr {
     bool IsRescheduling() const { return (t_flags & THREAD_FLAG_RESCHEDULE) != 0; }
 
     bool IsKernel() const { return (t_flags & THREAD_FLAG_KTHREAD) != 0; }
+
+    // Used for threads on the sleepqueue
+    util::List<Thread>::Node t_sqchain;
+    sleep_queue::Waiter t_sqwaiter;
 };
 
 typedef util::List<Thread> ThreadList;
