@@ -2,6 +2,7 @@ add_sources(
 	bio.cpp
 	cmdline.cpp
 	console.cpp
+	condvar.cpp
 	coredump.cpp
 	device.cpp
 	devicemanager.cpp
