@@ -57,6 +57,8 @@ namespace
     Mutex mtx_cache{"biocache"};
     Mutex mtx_buffer{"biobuf"};
 
+    ConditionVariable cv_buffer_needed{"bioneeded"};
+
     namespace cflag
     {
         constexpr int Busy = (1 << 0);    // Also known as locked
@@ -196,8 +198,8 @@ namespace
         TRACE(BIO, FUNC, "dev=%p, block=%u, len=%u", device, (int)block, len);
         KASSERT((len % BIO_SECTOR_SIZE) == 0, "length %u not a multiple of bio sector size", len);
 
-    bio_restart:
         mtx_cache.Lock();
+    bio_restart:
         if (auto bio = incore(device, block); bio != nullptr) {
             // Block found in the cache
             KASSERT(
@@ -206,8 +208,8 @@ namespace
             KASSERT(bio->b_data != nullptr, "bio in cache without data");
 
             if (bio->b_cflags & cflag::Busy) {
-                mtx_cache.Unlock();
-                bio->Wait();
+                // Bio is busy - wait until the owner calls Release()
+                bio->b_cv_busy.Wait(mtx_cache);
                 goto bio_restart;
             }
             bio->b_cflags |= cflag::Busy;
@@ -222,9 +224,8 @@ namespace
         // Block is not on the bucket queue
         BIO* newBio = GetNewBuffer();
         if (newBio == nullptr) {
-            mtx_cache.Unlock();
-            // No bio's available; wait until anything becomes free
-            kprintf("getblk: TODO: sleep(event any buffer becomes free)\n");
+            // No bio's available; wait until anything becomes free XXX timeout?
+            cv_buffer_needed.Wait(mtx_cache);
             goto bio_restart;
         }
         BIO& bio = *newBio;
@@ -302,10 +303,7 @@ Result BIO::Wait()
 
     b_objlock->Lock();
     while ((b_oflags & oflag::Done) == 0) {
-        /* TODO: wait on cv */
-        b_objlock->Unlock();
-        thread_sleep_ms(1);
-        b_objlock->Lock();
+        b_cv_done.Wait(*b_objlock);
     }
     b_objlock->Unlock();
 
@@ -320,7 +318,8 @@ void BIO::Release()
     TRACE(BIO, FUNC, "bio=%p", this);
     KASSERT((b_cflags & cflag::Busy) != 0, "release on non-busy bio %p", this);
 
-    // TODO: wake up event: waiting for any buffer to become free
+    // Wake up event: waiting for any buffer to become free
+    cv_buffer_needed.Signal();
 
     // If the I/O operation failed, mark the data as invalid
     {
@@ -336,7 +335,8 @@ void BIO::Release()
         b_cflags &= ~cflag::Busy;
     }
 
-    // TODO: wake up event: waiting for this buffer to become free
+    // Wake up event: waiting for this buffer to become free
+    b_cv_busy.Broadcast();
     TRACE(BIO, FUNC, "bio=%p DONE", this);
 }
 
@@ -382,8 +382,8 @@ void BIO::Done()
         b_objlock->Unlock();
         Release();
     } else {
-        // TODO: Wake up writer in Wait()
         b_objlock->Unlock();
+        b_cv_done.Broadcast();
     }
 }
 
