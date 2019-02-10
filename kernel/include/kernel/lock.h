@@ -92,7 +92,6 @@ struct Mutex final {
     void AssertUnlocked();
 
   private:
-    const char* mtx_name;
     util::atomic<Thread*> mtx_owner{nullptr};
     SleepQueue mtx_sleepq;
 };
