@@ -14,8 +14,6 @@
 namespace
 {
     // XXX We use a single lock for all sleepqueues on the system
-    Spinlock sq_lock;
-
     void WakeupWaiter(sleep_queue::Waiter& waiter)
     {
         Thread* curthread = PCPU_GET(curthread);

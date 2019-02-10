@@ -9,6 +9,7 @@
 
 #include <ananas/types.h>
 #include <ananas/util/list.h>
+#include "kernel/spinlock.h"
 
 struct Mutex;
 struct SleepQueue;
@@ -59,6 +60,7 @@ struct SleepQueue {
 
   private:
     const char* sq_name;
+    Spinlock sq_lock;
     sleep_queue::SleepQueueThreadList sq_sleepers;
 };
 
