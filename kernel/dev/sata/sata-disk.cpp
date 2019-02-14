@@ -36,8 +36,8 @@ namespace
         Result Attach() override;
         Result Detach() override;
 
-        Result ReadBIO(BIO& bio) override;
-        Result WriteBIO(BIO& bio) override;
+        void ReadBIO(BIO& bio) override;
+        void WriteBIO(BIO& bio) override;
 
         void Execute(struct SATA_REQUEST& sr);
 
@@ -115,7 +115,7 @@ namespace
 
     Result SATADisk::Detach() { return Result::Success(); }
 
-    Result SATADisk::ReadBIO(BIO& bio)
+    void SATADisk::ReadBIO(BIO& bio)
     {
         KASSERT(bio.b_length > 0, "invalid length");
         KASSERT(bio.b_length % 512 == 0, "invalid length"); /* XXX */
@@ -124,28 +124,28 @@ namespace
         memset(&sr, 0, sizeof(sr));
         /* XXX  we shouldn't always use lba-48 */
         sata_fis_h2d_make_cmd_lba48(
-            &sr.sr_fis.fis_h2d, ATA_CMD_DMA_READ_EXT, bio.b_ioblock, bio.b_length / BIO_SECTOR_SIZE);
+            &sr.sr_fis.fis_h2d, ATA_CMD_DMA_READ_EXT, bio.b_ioblock,
+            bio.b_length / BIO_SECTOR_SIZE);
         sr.sr_fis_length = 20;
         sr.sr_count = bio.b_length;
         sr.sr_bio = &bio;
         sr.sr_flags = SATA_REQUEST_FLAG_READ;
         Execute(sr);
-        return Result::Success();
     }
 
-    Result SATADisk::WriteBIO(BIO& bio)
+    void SATADisk::WriteBIO(BIO& bio)
     {
         struct SATA_REQUEST sr;
         memset(&sr, 0, sizeof(sr));
         /* XXX  we shouldn't always use lba-48 */
         sata_fis_h2d_make_cmd_lba48(
-            &sr.sr_fis.fis_h2d, ATA_CMD_DMA_WRITE_EXT, bio.b_ioblock, bio.b_length / BIO_SECTOR_SIZE);
+            &sr.sr_fis.fis_h2d, ATA_CMD_DMA_WRITE_EXT, bio.b_ioblock,
+            bio.b_length / BIO_SECTOR_SIZE);
         sr.sr_fis_length = 20;
         sr.sr_count = bio.b_length;
         sr.sr_bio = &bio;
         sr.sr_flags = SATA_REQUEST_FLAG_WRITE;
         Execute(sr);
-        return Result::Success();
     }
 
     struct SATADisk_Driver : public Driver {

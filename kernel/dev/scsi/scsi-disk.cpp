@@ -73,8 +73,8 @@ namespace
         Result Attach() override;
         Result Detach() override;
 
-        Result ReadBIO(struct BIO& bio) override;
-        Result WriteBIO(struct BIO& bio) override;
+        void ReadBIO(BIO& bio) override;
+        void WriteBIO(BIO& bio) override;
     };
 
     Result SCSIDisk::HandleRequest(
@@ -154,7 +154,7 @@ namespace
 
     Result SCSIDisk::Detach() { return Result::Success(); }
 
-    Result SCSIDisk::ReadBIO(struct BIO& bio)
+    void SCSIDisk::ReadBIO(struct BIO& bio)
     {
         KASSERT(bio.b_length > 0, "invalid length");
         KASSERT(bio.b_length % 512 == 0, "invalid length"); /* XXX */
@@ -168,19 +168,16 @@ namespace
         r_cmd.c_lba = htobe32(bio.b_ioblock);
         r_cmd.c_transfer_len = htobe16(bio.b_length / 512);
         size_t reply_len = bio.b_length;
-        if (auto result = HandleRequest(
-                0, Direction::D_In, &r_cmd, sizeof(r_cmd), bio.Data(), &reply_len);
-            result.IsFailure())
-            return result;
-
-        bio.Done();
-        return Result::Success();
+        auto result =
+            HandleRequest(0, Direction::D_In, &r_cmd, sizeof(r_cmd), bio.Data(), &reply_len);
+        bio.Done(result);
     }
 
-    Result SCSIDisk::WriteBIO(struct BIO& bio)
+    void SCSIDisk::WriteBIO(struct BIO& bio)
     {
         // XXX Not yet implemented
-        return RESULT_MAKE_FAILURE(EROFS);
+        Printf("TODO: implement write support");
+        bio.Done(RESULT_MAKE_FAILURE(EIO));
     }
 
     struct SCSIDisk_Driver : public Driver {

@@ -25,8 +25,8 @@ namespace ata
         Result Attach() override;
         Result Detach() override;
 
-        Result ReadBIO(struct BIO& bio) override;
-        Result WriteBIO(struct BIO& bio) override;
+        Result ReadBIO(BIO& bio) override;
+        Result WriteBIO(BIO& bio) override;
 
         void SetIdentify(const ATA_IDENTIFY& identify) { disk_identify = identify; }
 

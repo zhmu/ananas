@@ -75,10 +75,10 @@ struct BIO {
 
     void* Data() { return b_data; }
 
-    void Release(); // brelse()
-    Result Write(); // brwrite()
-    Result Wait();  // biowait()
-    void Done();    // biodone()
+    void Release();    // brelse()
+    Result Write();    // brwrite()
+    Result Wait();     // biowait()
+    void Done(Result); // biodone()
 };
 
 Result bread(Device* device, blocknr_t block, size_t len, BIO*& result);

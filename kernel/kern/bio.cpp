@@ -346,10 +346,7 @@ Result bread(Device* device, blocknr_t block, size_t len, BIO*& result)
 
     if ((bio.b_oflags & oflag::Done) == 0) {
         // Kick the device; we want it to read
-        if (auto result = device->GetBIODeviceOperations()->ReadBIO(bio); result.IsFailure()) {
-            kprintf("bio_read(): device_read() failed, %i\n", result.AsStatusCode());
-            return result;
-        }
+        device->GetBIODeviceOperations()->ReadBIO(bio);
     }
 
     // Sleep on event: disk read completed
@@ -359,23 +356,14 @@ Result bread(Device* device, blocknr_t block, size_t len, BIO*& result)
     return bio.b_status;
 }
 
-Result bwrite(BIO& bio)
-{
-    panic("bwrite");
-    // TODO: Initiate disk write
-    if (/* TODO: synchronous */ true) {
-    } else if (/* TODO: marked for delayed write */ false) {
-        // TODO: mark buffer to put at head of free list
-    }
-}
-
-void BIO::Done()
+void BIO::Done(Result status)
 {
     TRACE(BIO, FUNC, "bio=%p", this);
 
     b_objlock->Lock();
     KASSERT((b_oflags & oflag::Done) == 0, "bio %p already done", this);
     b_oflags |= oflag::Done;
+    b_status = status;
 
     bool async = false;
     if (async) {
@@ -398,11 +386,8 @@ Result BIO::Write()
         b_oflags &= ~oflag::Done;
     }
 
-    // Initiate disk write XXX This should not fail
-    {
-        auto result = b_device->GetBIODeviceOperations()->WriteBIO(*this);
-        KASSERT(result.IsSuccess(), "writebio failed?! %d", result.AsStatusCode());
-    }
+    // Initiate disk write
+    b_device->GetBIODeviceOperations()->WriteBIO(*this);
 
     // Wait for the result XXX sync only
     auto result = Wait();

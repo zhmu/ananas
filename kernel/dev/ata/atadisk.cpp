@@ -70,7 +70,7 @@ namespace ata
         return Result::Success();
     }
 
-    Result ATADisk::ReadBIO(struct BIO& bio)
+    void ATADisk::ReadBIO(BIO& bio)
     {
         struct ATA_REQUEST_ITEM item;
         KASSERT(bio.length > 0, "invalid length");
@@ -86,11 +86,9 @@ namespace ata
         if (disk_flags & ATADISK_FLAG_DMA)
             item.flags |= ATA_ITEM_FLAG_DMA;
         EnqueueAndStart(d_Parent, item);
-
-        return Result::Success();
     }
 
-    Result ATADisk::WriteBIO(struct BIO& bio)
+    void ATADisk::WriteBIO(BIO& bio)
     {
         struct ATA_REQUEST_ITEM item;
         KASSERT(bio.length > 0, "invalid length");
@@ -108,8 +106,6 @@ namespace ata
             item.flags |= ATA_ITEM_FLAG_DMA;
 #endif
         EnqueueAndStart(d_Parent, item);
-
-        return Result::Success();
     }
 
     namespace

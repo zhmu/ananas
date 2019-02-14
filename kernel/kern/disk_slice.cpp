@@ -31,24 +31,24 @@ namespace
 
         Result Detach() override { return Result::Success(); }
 
-        Result ReadBIO(struct BIO& bio) override;
-        Result WriteBIO(struct BIO& bio) override;
+        void ReadBIO(BIO& bio) override;
+        void WriteBIO(BIO& bio) override;
 
       private:
         blocknr_t slice_first_block = 0;
         blocknr_t slice_length = 0;
     };
 
-    Result Slice::ReadBIO(struct BIO& bio)
+    void Slice::ReadBIO(BIO& bio)
     {
         bio.b_ioblock = bio.b_block + slice_first_block;
-        return d_Parent->GetBIODeviceOperations()->ReadBIO(bio);
+        d_Parent->GetBIODeviceOperations()->ReadBIO(bio);
     }
 
-    Result Slice::WriteBIO(struct BIO& bio)
+    void Slice::WriteBIO(BIO& bio)
     {
         bio.b_ioblock = bio.b_block + slice_first_block;
-        return d_Parent->GetBIODeviceOperations()->WriteBIO(bio);
+        d_Parent->GetBIODeviceOperations()->WriteBIO(bio);
     }
 
     struct Slice_Driver : public Driver {

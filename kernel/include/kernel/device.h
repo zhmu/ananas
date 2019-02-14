@@ -101,8 +101,8 @@ class ICharDeviceOperations
 class IBIODeviceOperations
 {
   public:
-    virtual Result ReadBIO(struct BIO& bio) = 0;
-    virtual Result WriteBIO(struct BIO& bio) = 0;
+    virtual void ReadBIO(struct BIO& bio) = 0;
+    virtual void WriteBIO(struct BIO& bio) = 0;
 };
 
 class IUSBDeviceOperations

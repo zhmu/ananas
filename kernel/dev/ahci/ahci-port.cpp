@@ -57,7 +57,8 @@ namespace ahci
             if (sr->sr_semaphore != nullptr)
                 sr->sr_semaphore->Signal();
             if (sr->sr_bio != nullptr) {
-                sr->sr_bio->Done();
+                auto result = Result::Success(); // XXX is this always the case?
+                sr->sr_bio->Done(result);
             }
 
             /* This request is no longer active nor valid */
