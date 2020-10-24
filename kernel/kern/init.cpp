@@ -16,14 +16,30 @@
 #include "kernel-md/interrupts.h"
 #include "options.h" // for ARCHITECTURE
 
-/* If set, display the entire init tree before launching it */
-#define VERBOSE_INIT 0
-
 namespace init
 {
     namespace
     {
+        // Display the entire init list before launching it
+        constexpr bool verboseInit = false;
+
         util::List<OnInit> initFunctions;
+
+        void SortInitFunctions(size_t initFunctionCount, OnInit** initFunctionChain)
+        {
+            // Uses bubble sort
+            for (int i = 0; i < initFunctionCount; i++) {
+                for (int j = initFunctionCount - 1; j > i; j--) {
+                    auto a = initFunctionChain[j];
+                    auto b = initFunctionChain[j - 1];
+                    if ((a->oi_subsystem > b->oi_subsystem) ||
+                        (a->oi_subsystem >= b->oi_subsystem && a->oi_order >= b->oi_order))
+                        continue;
+                    initFunctionChain[j] = b;
+                    initFunctionChain[j - 1] = a;
+                }
+            }
+        }
     } // unnamed namespace
 
     namespace internal
@@ -56,39 +72,27 @@ namespace init
                 }
                 initFunctionChain[n] = nullptr;
             }
+            SortInitFunctions(initFunctionCount, initFunctionChain);
 
-            // Sort the init functions chain; we use a simple bubble sort to do so
-            for (int i = 0; i < initFunctionCount; i++)
-                for (int j = initFunctionCount - 1; j > i; j--) {
-                    auto a = initFunctionChain[j];
-                    auto b = initFunctionChain[j - 1];
-                    if ((a->oi_subsystem > b->oi_subsystem) ||
-                        (a->oi_subsystem >= b->oi_subsystem && a->oi_order >= b->oi_order))
-                        continue;
-                    initFunctionChain[j] = b;
-                    initFunctionChain[j - 1] = a;
+            if constexpr (verboseInit) {
+                kprintf("Init functions\n");
+                for (int n = 0; n < initFunctionCount; n++) {
+                    const auto& ifn = *initFunctionChain[n];
+                    kprintf(
+                        "initfunc %u -> %p (subsys %x, order %x)\n", n, ifn.oi_func,
+                        static_cast<int>(ifn.oi_subsystem), static_cast<int>(ifn.oi_order));
                 }
-
-#if VERBOSE_INIT
-            kprintf("Init tree\n");
-            for (int n = 0; n < initFunctionCount; n++) {
-                const auto& ifn = *initFunctionChain[n];
-                kprintf(
-                    "initfunc %u -> %p (subsys %x, order %x)\n", n, ifn.oi_func,
-                    static_cast<int>(ifn.oi_subsystem), static_cast<int>(ifn.oi_order));
             }
-#endif
 
-            /* Execute all init functions in order except the final one */
+            // Execute all init functions in order except the final one
             for (int n = 0; n < initFunctionCount - 1; n++)
                 initFunctionChain[n]->oi_func();
 
-            /* Throw away the init function chain; it served its purpose */
-            auto finalInitFuntion = initFunctionChain[initFunctionCount - 1];
+            // Throw away the init function chain; it served its purpose
+            auto finalInitFunction = initFunctionChain[initFunctionCount - 1];
             delete[] initFunctionChain;
 
-            /* Call the final init function; it shouldn't return */
-            finalInitFuntion->oi_func();
+            finalInitFunction->oi_func();
         }
 
         const init::OnInit helloWorld(init::SubSystem::Console, init::Order::Last, []() {
@@ -107,7 +111,7 @@ namespace init
             run_init();
 
             /* All done - signal and exit - the reaper will clean up this thread */
-            *(volatile int*)done = 1;
+            *static_cast<volatile bool*>(done) = true;
             thread_exit(0);
             /* NOTREACHED */
         }
@@ -119,7 +123,7 @@ void mi_startup()
 {
     // Create a thread to actually perform initialisation - mi_startup() will eventually
     // become the idle thread and must thus never sleep
-    volatile int done = 0;
+    volatile bool done = false;
     Thread init_thread;
     kthread_init(init_thread, "init", &init::init_thread_func, (void*)&done);
     init_thread.Resume();

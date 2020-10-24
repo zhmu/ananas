@@ -38,8 +38,8 @@ namespace sleep_queue
 
     struct Sleeper;
 
-    typedef util::List<Thread, sleep_queue::internal::ThreadChainNodeAccessor<Thread>>
-        SleepQueueThreadList;
+    using SleepQueueThreadList =
+        util::List<Thread, sleep_queue::internal::ThreadChainNodeAccessor<Thread>>;
 } // namespace sleep_queue
 
 struct SleepQueue {

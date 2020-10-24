@@ -56,5 +56,4 @@ pci_write_config(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, uint32
     }
 }
 
-
 #endif /* __ANANAS_X86_PCIHB_H__ */

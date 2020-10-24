@@ -218,7 +218,7 @@ void Thread::Suspend()
     TRACE(THREAD, FUNC, "t=%p", this);
     KASSERT(!IsSuspended(), "suspending suspended thread %p", this);
     KASSERT(this != PCPU_GET(idlethread), "suspending idle thread");
-    scheduler::RemoveThread(*this);
+    scheduler::SuspendThread(*this);
 }
 
 void thread_sleep_ms(unsigned int ms)
@@ -239,17 +239,7 @@ void Thread::Resume()
 {
     TRACE(THREAD, FUNC, "t=%p", this);
 
-    /*
-     * In early startup (when we're not actually scheduling things), the idle
-     * thread is running which takes care of actually getting things initialized
-     * and ready - however, it will silently ignore all suspend actions which
-     * we need to catch here.
-     */
-    if (!IsSuspended()) {
-        KASSERT(!scheduler::IsActive(), "resuming nonsuspended thread %p", this);
-        return;
-    }
-    scheduler::AddThread(*this);
+    scheduler::ResumeThread(*this);
 }
 
 void thread_exit(int exitcode)

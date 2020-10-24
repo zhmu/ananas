@@ -594,7 +594,7 @@ extern "C" void md_startup(const struct BOOTINFO* bootinfo_ptr)
      */
     __asm __volatile("movq %0, %%rsp\n" : : "r"(bsp_pcpu.idlethread->md_rsp));
     PCPU_SET(curthread, bsp_pcpu.idlethread);
-    scheduler::AddThread(*bsp_pcpu.idlethread);
+    scheduler::ResumeThread(*bsp_pcpu.idlethread);
 
     // Do ACPI pre-initialization; this prepares for parsing SMP tables
     acpi_init();

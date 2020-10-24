@@ -19,8 +19,8 @@ typedef util::List<SchedulerPriv> SchedulerPrivList;
 namespace scheduler
 {
     void InitThread(Thread& t);
-    void AddThread(Thread& t);
-    void RemoveThread(Thread& t);
+    void ResumeThread(Thread& t);
+    void SuspendThread(Thread& t);
     void ExitThread(Thread& t);
 
     void Schedule();

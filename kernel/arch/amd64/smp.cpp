@@ -589,7 +589,7 @@ extern "C" void mp_ap_startup(uint32_t lapic_id)
     /* Switch to our idle thread */
     Thread* idlethread = PCPU_GET(idlethread);
     PCPU_SET(curthread, idlethread);
-    scheduler::AddThread(*idlethread);
+    scheduler::ResumeThread(*idlethread);
 
     smp::InitializeLAPIC(lapic_id);
     smp::StartLAPICPeriodicTimer();
