@@ -603,7 +603,7 @@ extern "C" void md_startup(const struct BOOTINFO* bootinfo_ptr)
      * Initialize the SMP parts - as x86 SMP relies on an APIC, we do this here
      * to prevent problems due to devices registering interrupts.
      */
-    smp::Init();
+    smp::Init(bsp_pcpu);
 
     // Prepare the userland support page
     usupport_init();

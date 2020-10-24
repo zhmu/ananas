@@ -8,10 +8,12 @@
 #include <ananas/errno.h>
 #include <ananas/util/algorithm.h>
 #include "kernel/init.h"
+#include "kernel/kdb.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/pcpu.h"
+#include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/schedule.h"
 #include "kernel/thread.h"
@@ -140,18 +142,18 @@ namespace smp
             smp_ap_pagedir = 0;
         }
 
-        void InitializeCPUs()
+        void InitializeCPUs(struct PCPU& bsp_pcpu)
         {
             /* Prepare the CPU structure. CPU #0 is always the BSP */
             x86_cpus = new X86_CPU[num_cpus + 1];
             for (int n = 0; n < num_cpus; n++) {
                 struct X86_CPU* cpu = &x86_cpus[n];
 
-                /*
-                 * Note that we don't need to allocate anything extra for the BSP.
-                 */
-                if (n == 0)
+                // Only set up the BSP PCPU field for easy reference
+                if (n == 0) {
+                    cpu->cpu_pcpu = &bsp_pcpu;
                     continue;
+                }
 
                 /*
                  * Allocate one buffer and place all necessary administration in there.
@@ -383,7 +385,7 @@ namespace smp
      * Called on the Boot Strap Processor, in order to prepare the system for
      * multiprocessing.
      */
-    void Init()
+    void Init(struct PCPU& bsp_pcpu)
     {
         /*
          * The AP's start in real mode, so we need to provide them with a stub so
@@ -423,7 +425,7 @@ namespace smp
         });
 
         // Allocate tables for the resources we found
-        InitializeCPUs();
+        InitializeCPUs(bsp_pcpu);
 
         // Second walk, map CPU's and IOAPIC's
         util::vector<X86_IOAPIC*> x86_ioapics;
@@ -605,3 +607,26 @@ extern "C" void mp_ap_startup(uint32_t lapic_id)
     md::interrupts::Enable();
     idle_thread(nullptr);
 }
+
+#ifdef OPTION_KDB
+namespace {
+
+const kdb::RegisterCommand
+    kdbCPU("cpu", "Display CPU status", [](int, const kdb::Argument*) {
+        kprintf("cpu\n");
+        for (int n = 0; n < smp::num_cpus; ++n) {
+            auto& cpu = x86_cpus[n];
+            struct PCPU* pcpu = static_cast<struct PCPU*>(cpu.cpu_pcpu);
+            kprintf(" cpu %d: cpuid %d curthread %p nested_irq %d\n", n,  pcpu->cpuid, pcpu->curthread, pcpu->nested_irq);
+            if (auto t = pcpu->curthread; t) {
+                kprintf("  thread '%s'", t->t_name);
+                if (auto p = t->t_process; p) {
+                    kprintf(" process pid %d\n", p->p_pid);
+                }
+                kprintf("\n");
+            }
+        }
+    });
+
+}
+#endif /* OPTION_KDB */

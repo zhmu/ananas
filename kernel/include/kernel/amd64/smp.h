@@ -22,11 +22,11 @@ struct X86_CPU {
     char* cpu_tss = nullptr;   /* Task State Segment */
 };
 
-class Result;
+struct PCPU;
 
 namespace smp
 {
-    void Init();
+    void Init(struct PCPU&);
     void Prepare();
     void PanicOthers();
     void InitTimer();
