@@ -31,8 +31,9 @@ namespace scheduler
 {
     namespace
     {
-        // If set, ensure scheduler invariants hold. These really hurt performance
-        constexpr bool isProveActive = true;
+        // If set, ensure scheduler invariants hold. These really hurt performance and tend to hide
+        // races, so best to keep them disabled by default
+        constexpr bool isProveActive = false;
         bool isActive = false;
 
         using SchedLock = Spinlock;
