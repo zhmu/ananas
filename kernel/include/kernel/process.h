@@ -109,8 +109,8 @@ struct Process final : util::refcounted<Process> {
     void Exit(int status);
     void SignalExit();
 
-    void RegisterThread(Thread& t);
-    void UnregisterThread(Thread& t);
+    void AddThread(Thread& t);
+    void RemoveThread(Thread& t);
 
     Result Clone(Process*& out_p);
 

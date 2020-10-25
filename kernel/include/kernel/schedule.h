@@ -11,11 +11,6 @@
 
 struct Thread;
 
-struct SchedulerPriv : util::List<SchedulerPriv>::NodePtr {
-    Thread* sp_thread; /* Backreference to the thread */
-};
-typedef util::List<SchedulerPriv> SchedulerPrivList;
-
 namespace scheduler
 {
     void InitThread(Thread& t);

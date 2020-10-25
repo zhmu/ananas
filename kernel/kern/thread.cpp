@@ -41,16 +41,19 @@
 
 TRACE_SETUP;
 
-static Spinlock spl_threadqueue;
-static ThreadList allThreads;
+namespace {
+Spinlock spl_threadqueue;
+thread::AllThreadsList allThreads;
+}
 
 Result thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
 {
     /* First off, allocate the thread itself */
     auto t = new Thread;
     memset(t, 0, sizeof(Thread));
-    p.RegisterThread(*t);
-    t->t_flags = THREAD_FLAG_MALLOC;
+    p.AddThread(*t);
+    t->t_sched_flags = 0;
+    t->t_flags = THREAD_FLAG_ALLOC;
     t->t_refcount = 1; /* caller */
     t->SetName(name);
 
@@ -85,6 +88,7 @@ Result kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg)
      * vmspace and the like.
      */
     memset(&t, 0, sizeof(Thread));
+    t.t_sched_flags = 0;
     t.t_flags = THREAD_FLAG_KTHREAD;
     t.t_refcount = 1;
     t.t_priority = THREAD_PRIORITY_DEFAULT;
@@ -127,30 +131,33 @@ static void thread_cleanup(Thread& t)
  * will not be valid after calling this function and thus this can only be
  * called from a different thread)
  */
-static void thread_destroy(Thread& t)
+void Thread::Destroy()
 {
-    KASSERT(PCPU_GET(curthread) != &t, "thread_destroy() on current thread");
-    KASSERT(t.IsZombie(), "thread_destroy() on a non-zombie thread");
+    KASSERT(PCPU_GET(curthread) != this, "thread_destroy() on current thread");
+    KASSERT(IsZombie(), "thread_destroy() on a non-zombie thread");
 
     /* Free the machine-dependant bits */
-    md::thread::Free(t);
+    md::thread::Free(*this);
 
     // Unregister ourselves with the owning process
-    if (t.t_process != nullptr)
-        t.t_process->UnregisterThread(t);
-
-    /* If we aren't reaping the thread, remove it from our thread queue; it'll be gone soon */
-    if ((t.t_flags & THREAD_FLAG_REAPING) == 0) {
-        SpinlockGuard g(spl_threadqueue);
-        allThreads.remove(t);
+    if (t_process != nullptr) {
+        t_process->RemoveThread(*this);
     }
 
-    if (t.t_flags & THREAD_FLAG_MALLOC)
-        delete &t;
+    /* If we aren't reaping the thread, remove it from our thread queue; it'll be gone soon */
+    KASSERT((t_flags & THREAD_FLAG_REAPING) == 0, "delete-ing with reaper?");
+    {
+        SpinlockGuard g(spl_threadqueue);
+        allThreads.remove(*this);
+    }
+
+    if (t_flags & THREAD_FLAG_ALLOC)
+        delete this;
     else
-        memset(&t, 0, sizeof(Thread));
+        panic("TODO delete non-alloced threads");
 }
 
+#if 0
 void Thread::Ref()
 {
     KASSERT(t_refcount > 0, "reffing thread with invalid refcount %d", t_refcount);
@@ -174,16 +181,14 @@ void Thread::Deref()
      *    2b) Otherwise, we can destroy 't' and be done.
      * 3) Otherwise, the refcount > 0 and we must let the thread live.
      */
-    int is_self = PCPU_GET(curthread) == this;
-    if (is_self && !IsZombie()) {
-        /* (1) - we can free most associated thread resources */
-        thread_cleanup(*this);
-    }
+    const bool is_self = PCPU_GET(curthread) == this;
+    KASSERT(!is_self, "deref self?");
     if (--t_refcount > 0) {
         /* (3) - refcount isn't yet zero so nothing to destroy */
         return;
     }
 
+#if 0
     if (is_self) {
         /*
          * (2a) - mark the thread as reaping, and increment the refcount
@@ -206,12 +211,14 @@ void Thread::Deref()
             reaper_enqueue(*this);
         return;
     }
+#endif
 
     /* (2b) Final ref - let's get rid of it */
     if (!IsZombie())
         thread_cleanup(*this);
     thread_destroy(*this);
 }
+#endif
 
 void Thread::Suspend()
 {
@@ -242,39 +249,32 @@ void Thread::Resume()
     scheduler::ResumeThread(*this);
 }
 
-void thread_exit(int exitcode)
+void Thread::Terminate(int exitcode)
 {
-    Thread* thread = PCPU_GET(curthread);
-    TRACE(THREAD, FUNC, "t=%p, exitcode=%u", thread, exitcode);
-    KASSERT(thread != NULL, "thread_exit() without thread");
-    KASSERT(!thread->IsZombie(), "exiting zombie thread");
+    KASSERT(this == PCPU_GET(curthread), "terminate not on current thread");
+    KASSERT(!IsZombie(), "exiting zombie thread");
 
-    // Store the result code; thread_free() will mark the thread as terminating
-    thread->t_terminate_info = exitcode;
-
-    // Grab the process lock; this ensures WaitAndLock() will be blocked until the
-    // thread is completely forgotten by the scheduler
-    Process* p = thread->t_process;
+    Process* p = t_process;
     if (p != nullptr) {
+        // Grab the process lock; this ensures WaitAndLock() will be blocked until the
+        // thread is completely forgotten by the scheduler
         p->Lock();
 
         // If we are the process' main thread, mark it as exiting
-        if (p->p_mainthread == thread)
+        if (p->p_mainthread == this)
             p->Exit(exitcode);
     }
 
-    /*
-     * Dereference our own thread handle; this will cause a transition to
-     * zombie-state - we are invoking case (1a) of Deref() here.
-     */
-    thread->Deref();
+    // ...
+    thread_cleanup(*this);
+    --t_refcount;
 
-    // Ask the scheduler to exit the thread; this returns with interrupts disabled
-    scheduler::ExitThread(*thread);
-    if (thread->t_process != nullptr) {
+    // Ask the scheduler to exit the thread (this transitions to zombie-state)
+    scheduler::ExitThread(*this);
+    if (p != nullptr) {
         // Signal parent in case it is waiting for a child to exit
         p->SignalExit();
-        thread->t_process->Unlock();
+        p->Unlock();
     }
 
     scheduler::Schedule();

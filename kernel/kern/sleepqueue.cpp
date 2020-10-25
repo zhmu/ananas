@@ -5,15 +5,16 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <ananas/types.h>
+#include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"
 #include "kernel/sleepqueue.h"
 #include "kernel/thread.h"
 #include "kernel-md/interrupts.h"
+#include "options.h"
 
 namespace
 {
-    // XXX We use a single lock for all sleepqueues on the system
     void WakeupWaiter(sleep_queue::Waiter& waiter)
     {
         Thread* curthread = PCPU_GET(curthread);
@@ -24,36 +25,35 @@ namespace
         if (curthread->t_priority < waiter.w_thread->t_priority)
             curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
     }
-
 } // unnamed namespace
 
 SleepQueue::SleepQueue(const char* name) : sq_name(name) {}
 
-bool SleepQueue::WakeupOne()
+sleep_queue::Waiter* SleepQueue::DequeueWaiter()
 {
     SpinlockUnpremptibleGuard g(sq_lock);
     if (sq_sleepers.empty())
-        return false;
+        return NULL;
 
-    // Fetch the first sleeper and remove it from the list
     auto& t = sq_sleepers.front();
     sq_sleepers.pop_front();
 
-    // XXX we could drop the lock here
-    WakeupWaiter(t.t_sqwaiter);
+    return &t.t_sqwaiter;
+}
+
+bool SleepQueue::WakeupOne()
+{
+    auto waiter = DequeueWaiter();
+    if (!waiter) return false;
+
+    WakeupWaiter(*waiter);
     return true;
 }
 
 void SleepQueue::WakeupAll()
 {
-    SpinlockUnpremptibleGuard g(sq_lock);
-
-    while (!sq_sleepers.empty()) {
-        auto& t = sq_sleepers.front();
-        sq_sleepers.pop_front();
-
-        WakeupWaiter(t.t_sqwaiter);
-    }
+    while(WakeupOne())
+        ;
 }
 
 sleep_queue::Sleeper SleepQueue::PrepareToSleep()
@@ -78,7 +78,7 @@ void SleepQueue::Sleep(register_t state)
     auto& sqwaiter = curthread->t_sqwaiter;
 
     sq_lock.AssertLocked();
-    KASSERT(HaveSleepers(), "attempting sleep without preparing?");
+    KASSERT(!sq_sleepers.empty(), "attempting sleep without preparing?");
     while (true) {
         KASSERT(sqwaiter.w_sq == this, "corrupt waiter");
         if (sqwaiter.w_signalled) {
@@ -104,11 +104,14 @@ void SleepQueue::Unsleep(register_t state)
     auto& sqwaiter = curthread->t_sqwaiter;
 
     sq_lock.AssertLocked();
-    KASSERT(HaveSleepers(), "attempting unsleep without preparing?");
     for (auto& t : sq_sleepers) {
         if (&t != curthread)
             continue;
         sq_sleepers.remove(t);
+        if (sqwaiter.w_signalled) {
+            // XXX not sure if this can happen, but no chances for now...
+            panic("about to remove already signalled waiter");
+        }
         sqwaiter = sleep_queue::Waiter();
         sq_lock.UnlockUnpremptible(state); // restores interrupts
         return;
@@ -117,4 +120,22 @@ void SleepQueue::Unsleep(register_t state)
     panic("unsleep called but caller did not prepare");
 }
 
-bool SleepQueue::HaveSleepers() const { return !sq_sleepers.empty(); }
+#ifdef OPTION_KDB
+struct sleep_queue::KDB
+{
+    KDB(SleepQueue& sq)
+    {
+        kprintf("name '%s'\n", sq.GetName());
+        for(auto& t: sq.sq_sleepers) {
+            auto& w = t.t_sqwaiter;
+            kprintf("   sleeper thread %p: w_thread %p w_sq %p signalled %d\n", &t, w.w_thread, w.w_sq, w.w_signalled);
+        }
+    }
+};
+
+const kdb::RegisterCommand
+    kdbScheduler("sleepq", "i:pointer", "Display sleepqueue status", [](int, const kdb::Argument* arg) {
+        SleepQueue& sq = *reinterpret_cast<SleepQueue*>(arg[1].a_u.u_value);
+        sleep_queue::KDB kdb{sq};
+    });
+#endif /* OPTION_KDB */

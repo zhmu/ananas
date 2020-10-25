@@ -21,10 +21,11 @@
 namespace
 {
     Spinlock spl_reaper;
-    ThreadList reaper_list;
+    //ThreadList reaper_list;
     Semaphore reaper_sem{"reaper", 0};
     Thread reaper_thread;
 
+#if 0
     static void reaper_reap(void* context)
     {
         while (1) {
@@ -38,7 +39,8 @@ namespace
                 t = &reaper_list.front();
                 reaper_list.pop_front();
             }
-            t->Deref();
+            panic("need to reap %p ?!", t);
+            //t->Deref();
         }
     }
 
@@ -46,15 +48,19 @@ namespace
         kthread_init(reaper_thread, "reaper", &reaper_reap, NULL);
         reaper_thread.Resume();
     });
+#endif
 
 } // unnamed namespace
 
 void reaper_enqueue(Thread& t)
 {
+#if 0
     {
         SpinlockGuard g(spl_reaper);
         reaper_list.push_back(t);
     }
 
     reaper_sem.Signal();
+#endif
+    panic("reaper_enqueue");
 }

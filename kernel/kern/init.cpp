@@ -10,6 +10,7 @@
 #include "kernel/init.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/pcpu.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel-md/pit.h"
@@ -110,9 +111,10 @@ namespace init
         {
             run_init();
 
-            /* All done - signal and exit - the reaper will clean up this thread */
+            // All done - signal and exit - the reaper will clean up this thread
             *static_cast<volatile bool*>(done) = true;
-            thread_exit(0);
+            auto cur_thread = PCPU_GET(curthread);
+            cur_thread->Terminate(0);
             /* NOTREACHED */
         }
 

@@ -159,32 +159,32 @@ Process::~Process()
     }
 }
 
-void Process::RegisterThread(Thread& t)
+void Process::AddThread(Thread& t)
 {
     KASSERT(
         t.t_process == nullptr, "thread %p already registered to process %p (we are %p)", &t,
         t.t_process, this);
+    KASSERT(p_mainthread == nullptr, "process %d already has thread %p", p_pid, p_mainthread);
     AddReference();
 
     p_lock.AssertLocked();
     t.t_process = this;
-    if (p_mainthread == nullptr)
-        p_mainthread = &t;
+    p_mainthread = &t;
 }
 
-void Process::UnregisterThread(Thread& t)
+void Process::RemoveThread(Thread& t)
 {
     KASSERT(
         t.t_process == this, "thread %p does not belongs to process %p, not %p!", &t, t.t_process,
         this);
+    KASSERT(p_mainthread == &t, "process %d thread is not %p but %p", p_pid, &t, p_mainthread);
     RemoveReference();
 
     // There must be at least one more reference to the process if the last
     // thread dies: whoever calls wait()
     p_lock.AssertLocked();
     t.t_process = nullptr;
-    if (p_mainthread == &t)
-        p_mainthread = nullptr;
+    p_mainthread = nullptr;
 }
 
 void Process::Exit(int status)
@@ -203,41 +203,37 @@ Result Process::WaitAndLock(int flags, util::locked<Process>& p_out)
     if (flags != 0)
         return RESULT_MAKE_FAILURE(EINVAL);
 
-    // Every process has a semaphore used to wait for children XXX This will
-    // still give problems if multiple threads in the same parent are waiting for
-    // children!
+    // Wait for the first zombie child of this process
     for (;;) {
         Lock();
         for (auto& child : p_children) {
             child.Lock();
-            if (child.p_state == PROCESS_STATE_ZOMBIE) {
-                // Found one; remove it from the parent's list
-                p_children.remove(child);
-                Unlock();
-
-                /*
-                 * Deref the main thread; this should kill it as there is nothing else
-                 * left (all other references are gone by this point, as it is a zombie)
-                 */
-                KASSERT(child.p_mainthread != nullptr, "zombie child without main thread?");
-                KASSERT(
-                    child.p_mainthread->t_refcount == 1,
-                    "zombie child main thread still has %d refs", child.p_mainthread->t_refcount);
-                child.p_mainthread->Deref();
-
-                // Note that this transfers the parents reference to the caller!
-                p_out = util::locked<Process>(child);
-                return Result::Success();
+            if (child.p_state != PROCESS_STATE_ZOMBIE) {
+                child.Unlock();
+                continue;
             }
-            child.Unlock();
+
+            // Found one; remove it from the parent's list
+            p_children.remove(child);
+            Unlock();
+
+            // Destroy the thread owned by the process
+            auto t = child.p_mainthread;
+            KASSERT(t != nullptr, "zombie child without main thread?");
+            KASSERT(t->IsZombie(), "process zombie without zombie threads?");
+            KASSERT(t->t_refcount == 0, "zombie child thread still has %d refs", t->t_refcount);
+            t->Destroy();
+
+            // Note that this transfers the parents reference to the caller!
+            p_out = util::locked<Process>(child);
+            return Result::Success();
         }
         Unlock();
 
-        /* Nothing good yet; sleep on it */
+        // Nothing good yet; sleep on it
         p_child_wait.Wait();
     }
-
-    /* NOTREACHED */
+    // NOTREACHED
 }
 
 Process* process_lookup_by_id_and_lock(pid_t pid)
@@ -260,7 +256,10 @@ const kdb::RegisterCommand kdbPs("ps", "Display all processes", [](int, const kd
     MutexGuard g(process::process_mtx);
     for (auto& p : process::process_all) {
         kprintf("process %d (%p): state %d\n", p.p_pid, &p, p.p_state);
-        p.p_vmspace->Dump();
+        if (auto t = p.p_mainthread; t != nullptr) {
+            kprintf("  thread %p flags 0x%x\n", t, t->t_flags);
+        }
+        //p.p_vmspace->Dump();
     }
 });
 #endif // OPTION_KDB

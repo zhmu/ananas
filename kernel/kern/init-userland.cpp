@@ -20,20 +20,22 @@
 
 namespace
 {
-    void userinit_func(void*)
+    void userinit_func(void* arg)
     {
+        auto& thread = *static_cast<Thread*>(arg);
+
         /* We expect root=type:device here */
         const char* rootfs_arg = cmdline_get_string("root");
         if (rootfs_arg == NULL) {
             kprintf("'root' option not specified, not mounting a root filesystem\n");
-            thread_exit(0);
+            thread.Terminate(0);
         }
 
         char rootfs_type[64];
         const char* p = strchr(rootfs_arg, ':');
         if (p == NULL) {
             kprintf("cannot parse 'root' - expected type:device\n");
-            thread_exit(0);
+            thread.Terminate(0);
         }
 
         memcpy(rootfs_type, rootfs_arg, p - rootfs_arg);
@@ -67,7 +69,7 @@ namespace
         Process* proc;
         if (auto result = process_alloc(nullptr, proc); result.IsFailure()) {
             kprintf("couldn't create process, %i\n", result.AsStatusCode());
-            thread_exit(0);
+            thread.Terminate(0);
         }
         // Note: proc is locked at this point and has a single ref
         proc->p_parent = proc; // XXX init is its own parent
@@ -78,7 +80,7 @@ namespace
             proc->Unlock();
             if (result.IsFailure()) {
                 kprintf("couldn't create thread, %i\n", result.AsStatusCode());
-                thread_exit(0);
+                thread.Terminate(0);
             }
         }
 
@@ -86,7 +88,7 @@ namespace
         struct VFS_FILE file;
         if (auto result = vfs_open(proc, init_path, proc->p_cwd, &file); result.IsFailure()) {
             kprintf("couldn't open init executable, %i\n", result.AsStatusCode());
-            thread_exit(0);
+            thread.Terminate(0);
         }
         DEntry& dentry = *file.f_dentry;
         dentry_ref(dentry);
@@ -110,13 +112,13 @@ namespace
         }
 
         dentry_deref(dentry);
-        thread_exit(0);
+        thread.Terminate(0);
     }
 
     Thread userinit_thread;
 
     const init::OnInit initUserlandInit(init::SubSystem::Scheduler, init::Order::Last, []() {
-        kthread_init(userinit_thread, "user-init", &userinit_func, nullptr);
+        kthread_init(userinit_thread, "user-init", &userinit_func, &userinit_thread);
         userinit_thread.Resume();
     });
 
