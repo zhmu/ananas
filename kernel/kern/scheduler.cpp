@@ -206,6 +206,8 @@ namespace scheduler
 
     extern "C" void scheduler_release(Thread* old)
     {
+        SchedLockGuard g(schedLock);
+
         /* Release the old thread; it is now safe to schedule it elsewhere */
         SCHED_KPRINTF("old[%p] -active\n", old);
         old->t_sched_flags &= ~THREAD_SCHED_ACTIVE;
