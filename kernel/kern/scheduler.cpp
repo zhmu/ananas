@@ -27,18 +27,12 @@
 #include "kernel-md/vm.h"
 #include "options.h"
 
-/*
- * The next define adds specific debugger assertions that may incur a
- * significant performance penalty - these assertions are named
- * SCHED_ASSERT.
- */
-#define DEBUG_SCHEDULER
-#define SCHED_KPRINTF(...)
-
 namespace scheduler
 {
     namespace
     {
+        // If set, ensure scheduler invariants hold. These really hurt performance
+        constexpr bool isProveActive = true;
         bool isActive = false;
 
         using SchedLock = Spinlock;
@@ -48,25 +42,48 @@ namespace scheduler
         thread::SchedulerThreadList sched_runqueue;
         thread::SchedulerThreadList sched_sleepqueue;
 
-#ifdef DEBUG_SCHEDULER
-        bool IsThreadOnQueue(thread::SchedulerThreadList& q, Thread& t)
+        struct NotOnAnyQueue {
+            constexpr static inline bool onRunQueue = false;
+            constexpr static inline bool onSleepQueue = false;
+        };
+        struct OnlyOnRunQueue {
+            constexpr static inline bool onRunQueue = true;
+            constexpr static inline bool onSleepQueue = false;
+        };
+        struct OnlyOnSleepQueue {
+            constexpr static inline bool onRunQueue = false;
+            constexpr static inline bool onSleepQueue = true;
+        };
+
+        // Must be called with schedLock held
+        template<typename What>
+        void Prove(Thread& t)
         {
-            for (auto& s : q) {
-                if (&s == &t)
-                    return true;
-            }
-            return false;
+            if constexpr (!isProveActive)
+                return;
+
+            const auto onQueue = [](auto& q, auto& t) {
+                for (auto& s : q) {
+                    if (&s == &t)
+                        return true;
+                }
+                return false;
+            };
+
+            const auto onRunQueue = onQueue(sched_runqueue, t);
+            const auto onSleepQueue = onQueue(sched_sleepqueue, t);
+            if (onRunQueue == What::onRunQueue && onSleepQueue == What::onSleepQueue)
+                return;
+            panic(
+                "prove failed: expected onRunQueue %d, onSleepQueue %d but got onRunQueue %d "
+                "onSleepQueue %d",
+                What::onRunQueue, What::onSleepQueue, onRunQueue, onSleepQueue);
         }
-#define SCHED_ASSERT(x, ...) KASSERT((x), __VA_ARGS__)
-#else
-#define SCHED_ASSERT(x, ...)
-#endif
 
         // Must be called with schedLock held
         void AddThreadToRunQueue(Thread& t)
         {
-            KASSERT(!IsThreadOnQueue(sched_runqueue, t), "adding thread on runq?");
-            KASSERT(!IsThreadOnQueue(sched_sleepqueue, t), "adding thread on sleepq?");
+            Prove<NotOnAnyQueue>(t);
 
             for (auto& s : sched_runqueue) {
                 KASSERT(&s != &t, "thread %p already in runqueue", &t);
@@ -86,8 +103,10 @@ namespace scheduler
                 return;
 
             Thread& t = sched_sleepqueue.front();
-            if ((t.t_flags & THREAD_FLAG_TIMEOUT) == 0) return;
-            if (time::IsTickBefore(time::GetTicks(), t.t_timeout)) return;
+            if ((t.t_flags & THREAD_FLAG_TIMEOUT) == 0)
+                return;
+            if (time::IsTickBefore(time::GetTicks(), t.t_timeout))
+                return;
 
             sched_sleepqueue.remove(t);
             AddThreadToRunQueue(t);
@@ -100,8 +119,7 @@ namespace scheduler
         {
             KASSERT(!sched_runqueue.empty(), "runqueue cannot be empty");
             for (auto& t : sched_runqueue) {
-                if (t.t_affinity != THREAD_AFFINITY_ANY &&
-                    t.t_affinity != cpuid)
+                if (t.t_affinity != THREAD_AFFINITY_ANY && t.t_affinity != cpuid)
                     continue; // not possible on this CPU
                 if (t.IsActive() && &t != curthread)
                     continue;
@@ -131,8 +149,7 @@ namespace scheduler
     {
         {
             SchedLockGuard g(schedLock);
-            KASSERT(!IsThreadOnQueue(sched_runqueue, t), "new thread is already on runq?");
-            KASSERT(!IsThreadOnQueue(sched_sleepqueue, t), "new thread is already on sleepq?");
+            Prove<NotOnAnyQueue>(t);
 
             // New threads are initially suspended
             t.t_sched_flags = THREAD_SCHED_SUSPENDED;
@@ -142,7 +159,6 @@ namespace scheduler
 
     void ResumeThread(Thread& t)
     {
-        SCHED_KPRINTF("%s: t=%p\n", __func__, &t);
         SchedLockGuard g(schedLock);
 
         // XXX This condition is likely obsoleted...
@@ -150,10 +166,7 @@ namespace scheduler
             panic("resuming nonsuspended thread %p", &t);
 
         KASSERT(t.IsSuspended(), "adding non-suspended thread %p", &t);
-        SCHED_ASSERT(
-            !IsThreadOnQueue(sched_runqueue, t), "adding thread %p already on runqueue", &t);
-        SCHED_ASSERT(
-            IsThreadOnQueue(sched_sleepqueue, t), "adding thread %p not on sleepqueue", &t);
+        Prove<OnlyOnSleepQueue>(t);
 
         sched_sleepqueue.remove(t);
         AddThreadToRunQueue(t);
@@ -163,13 +176,10 @@ namespace scheduler
 
     void SuspendThread(Thread& t)
     {
-        SCHED_KPRINTF("%s: t=%p\n", __func__, &t);
         SchedLockGuard g(schedLock);
 
         KASSERT(!t.IsSuspended(), "suspending thread %p that is already suspended", &t);
-        SCHED_ASSERT(
-            !IsThreadOnQueue(sched_sleepqueue, t), "removing thread already on sleepqueue");
-        SCHED_ASSERT(IsThreadOnQueue(sched_runqueue, t), "removing thread not on runqueue");
+        Prove<OnlyOnRunQueue>(t);
 
         sched_runqueue.remove(t);
         AddThreadToSleepQueue(t);
@@ -185,11 +195,9 @@ namespace scheduler
          */
         schedLock.LockUnpremptible();
 
-        SCHED_ASSERT(
-            IsThreadOnQueue(sched_runqueue, t), "exiting thread already not on sleepqueue");
-        SCHED_ASSERT(!IsThreadOnQueue(sched_sleepqueue, t), "exiting thread on runqueue");
-        /* Thread seems sane; remove it from the runqueue */
+        Prove<OnlyOnRunQueue>(t);
         sched_runqueue.remove(t);
+
         /*
          * Turn the thread into a zombie; we'll soon be letting go of the scheduler lock, but all
          * resources are gone and the thread can be destroyed from now on - interrupts are disabled,
@@ -209,7 +217,6 @@ namespace scheduler
         SchedLockGuard g(schedLock);
 
         /* Release the old thread; it is now safe to schedule it elsewhere */
-        SCHED_KPRINTF("old[%p] -active\n", old);
         old->t_sched_flags &= ~THREAD_SCHED_ACTIVE;
     }
 
@@ -218,7 +225,6 @@ namespace scheduler
         Thread* curthread = PCPU_GET(curthread);
         const int cpuid = PCPU_GET(cpuid);
         KASSERT(curthread != NULL, "no current thread active");
-        SCHED_KPRINTF("schedule(): cpu=%u curthread=%p\n", cpuid, curthread);
 
         /*
          * Grab the scheduler lock and disable interrupts; note that they need not be
@@ -244,14 +250,7 @@ namespace scheduler
         KASSERT(
             &newthread == curthread || !newthread.IsActive(), "activating active thread %p",
             &newthread);
-        SCHED_ASSERT(
-            IsThreadOnQueue(sched_runqueue, newthread),
-            "scheduling thread not on runqueue (?)");
-        SCHED_ASSERT(
-            !IsThreadOnQueue(sched_sleepqueue, newthread), "scheduling thread on sleepqueue");
-
-        SCHED_KPRINTF(
-            "%s[%d]: newthread=%p curthread=%p\n", __func__, cpuid, &newthread, curthread);
+        Prove<OnlyOnRunQueue>(newthread);
 
         /*
          * If the current thread is not suspended, this means it got interrupted
@@ -263,9 +262,7 @@ namespace scheduler
          * re-added to either scheduler queue.
          */
         if (!curthread->IsSuspended() && !curthread->IsZombie()) {
-            SCHED_KPRINTF("%s[%d]: removing t=%p from runqueue\n", __func__, cpuid, curthread);
             sched_runqueue.remove(*curthread);
-            SCHED_KPRINTF("%s[%d]: re-adding t=%p\n", __func__, cpuid, curthread);
             AddThreadToRunQueue(*curthread);
         }
 
@@ -313,18 +310,23 @@ namespace scheduler
 } // namespace scheduler
 
 #ifdef OPTION_KDB
-namespace {
+namespace
+{
     void kdbPrintThread(Thread& t)
     {
-        kprintf("  thread %p '%s' sched_flags %d flags 0x%x\n", &t, t.t_name, t.t_sched_flags, t.t_flags);
+        kprintf(
+            "  thread %p '%s' sched_flags %d flags 0x%x\n", &t, t.t_name, t.t_sched_flags,
+            t.t_flags);
         if (auto p = t.t_process; p) {
             kprintf("    process %d state %d\n", p->p_pid, p->p_state);
         }
         if (auto& w = t.t_sqwaiter; w.w_sq) {
-            kprintf("    sleepqueue %p '%s' thread %p signalled %d\n",  w.w_sq, w.w_sq->GetName(), w.w_thread, w.w_signalled);
+            kprintf(
+                "    sleepqueue %p '%s' thread %p signalled %d\n", w.w_sq, w.w_sq->GetName(),
+                w.w_thread, w.w_signalled);
         }
     }
-}
+} // namespace
 
 const kdb::RegisterCommand
     kdbScheduler("scheduler", "Display scheduler status", [](int, const kdb::Argument*) {
