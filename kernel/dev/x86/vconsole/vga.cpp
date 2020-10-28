@@ -50,14 +50,14 @@ void VGA::WriteCRTC(uint8_t reg, uint8_t val)
     outb(vga_io + 0x15, val);
 }
 
-void VGA::PutPixel(int x, int y, const Pixel& px)
+void VGA::PutPixel(VTTY&, int x, int y, const Pixel& px)
 {
     *(volatile uint16_t*)(vga_video_mem + y * VGA_WIDTH + x) =
         (uint16_t)(teken_256to8(px.p_a.ta_fgcolor) + 8 * teken_256to8(px.p_a.ta_bgcolor)) << 8 |
         px.p_c;
 }
 
-void VGA::SetCursor(int x, int y)
+void VGA::SetCursor(VTTY&, int x, int y)
 {
     uint32_t offs = x + y * VGA_WIDTH;
     WriteCRTC(0xe, offs >> 8);

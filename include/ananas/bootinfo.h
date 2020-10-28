@@ -36,13 +36,6 @@ struct BOOTINFO {
 };
 #endif
 
-/*
- * Magic values so the kernel knows it's being launched with a sensible boot
- * info parameter.
- */
-#define BOOTINFO_MAGIC_1 0x52505753
-#define BOOTINFO_MAGIC_2 0x62303074
-
 #if defined(KERNEL) && !defined(ASM)
 /* To be supplied by the MD-code */
 extern struct BOOTINFO* bootinfo;

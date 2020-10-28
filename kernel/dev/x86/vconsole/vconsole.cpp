@@ -7,14 +7,19 @@
 #include "kernel/console-driver.h"
 #include "kernel/dev/tty.h"
 #include "kernel/lib.h"
+#include "framebuffer.h"
 #include "vconsole.h"
 #include "vga.h"
 #include "vtty.h"
 
 Result VConsole::Attach()
 {
-    // XXX we assume vga is always available
-    v_Video = new VGA;
+    v_Video = nullptr;
+    if (Framebuffer::IsUsable()) {
+        v_Video = new Framebuffer;
+    } else {
+        v_Video = new VGA; // XXX may not be available
+    }
     KASSERT(v_Video != nullptr, "no video attached?");
 
     for (auto& vtty : vttys) {

@@ -15,8 +15,8 @@ __start:
 
 .align 8
 
-/* boot flags: need 4kb alignment, memory info. provide offsets */
-#define BOOT_FLAGS ((1 << 0) | (1 << 1) | (1 << 16))
+/* boot flags: need 4kb alignment, memory info, video mode, provide offsets */
+#define BOOT_FLAGS ((1 << 0) | (1 << 1) | (1 << 2) | (1 << 16))
 
 header:
     .long   0x1badb002  /* magic */
@@ -24,9 +24,13 @@ header:
     .long   -(0x1badb002 + BOOT_FLAGS)  /* checksum */
     .long   header      /* header address */
     .long   __start     /* load addr */
-    .long   0       /* load end address (everything) */
-    .long   0       /* bss end address */
+    .long   0           /* load end address (everything) */
+    .long   0           /* bss end address */
     .long   __start     /* entry address */
+    .long   0           /* linear graphics */
+    .long   1024        /* width */
+    .long   768         /* height */
+    .long   32          /* bits per pixel */
 
 entry:
     /* Obtain some stack we can use for the time being */

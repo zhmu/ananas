@@ -44,7 +44,7 @@ struct MULTIBOOT {
     /* 80 */ uint16_t mb_vbe_mode;
     /* 82 */ uint16_t mb_vbe_interface_seg;
     /* 84 */ uint16_t mb_vbe_interface_off;
-    /* 86 */ uint32_t mb_vbe_interface_len;
+    /* 86 */ uint16_t mb_vbe_interface_len;
 } __attribute__((packed));
 
 struct MULTIBOOT_MMAP {

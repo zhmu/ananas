@@ -18,8 +18,8 @@ class VGA : public IVideo
     int GetHeight() override;
     int GetWidth() override;
 
-    void SetCursor(int x, int y) override;
-    void PutPixel(int x, int y, const Pixel& pixel) override;
+    void SetCursor(VTTY&, int x, int y) override;
+    void PutPixel(VTTY&, int x, int y, const Pixel& pixel) override;
 
   private:
     void WriteCRTC(uint8_t reg, uint8_t val);

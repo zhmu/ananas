@@ -9,6 +9,8 @@
 
 #include "../../../lib/teken/teken.h"
 
+class VTTY;
+
 class IVideo
 {
   public:
@@ -25,8 +27,8 @@ class IVideo
     virtual int GetHeight() = 0;
     virtual int GetWidth() = 0;
 
-    virtual void SetCursor(int x, int y) = 0;
-    virtual void PutPixel(int x, int y, const Pixel& pixel) = 0;
+    virtual void SetCursor(VTTY&, int x, int y) = 0;
+    virtual void PutPixel(VTTY&, int x, int y, const Pixel& pixel) = 0;
 };
 
 #endif /* ANANAS_VCONSOLE_IVIDEO_H */

@@ -97,6 +97,19 @@ struct BOOTINFO* create_bootinfo(const struct RELOCATE_INFO* ri_kernel, const st
         bootinfo->bi_args = (bi_addr_t)args;
     }
 
+    if (mb->mb_flags & MULTIBOOT_FLAG_VBE) {
+        uint8_t* mode_info = (uint8_t*)mb->mb_vbe_mode_info;
+        uint16_t width = *(uint16_t*)(mode_info + 0x12);
+        uint16_t height = *(uint16_t*)(mode_info + 0x14);
+        uint8_t bpp = *(uint8_t*)(mode_info + 0x19);
+        uint32_t fb = *(uint32_t*)(mode_info + 0x28);
+
+        bootinfo->bi_video_xres = width;
+        bootinfo->bi_video_yres = height;
+        bootinfo->bi_video_bpp = bpp;
+        bootinfo->bi_video_framebuffer = fb;
+    }
+
 #undef ALLOC
     return bootinfo;
 }

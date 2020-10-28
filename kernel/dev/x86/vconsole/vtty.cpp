@@ -20,7 +20,7 @@ namespace
     {
         auto& vtty = *static_cast<VTTY*>(s);
         if (vtty.IsActive())
-            vtty.GetVideo().SetCursor(p->tp_col, p->tp_row);
+            vtty.GetVideo().SetCursor(vtty, p->tp_col, p->tp_row);
     }
 
     void term_putchar(void* s, const teken_pos_t* p, teken_char_t c, const teken_attr_t* a)
@@ -29,7 +29,7 @@ namespace
         auto& pixel = vtty.PixelAt(p->tp_col, p->tp_row);
         pixel = IVideo::Pixel(c, *a);
         if (vtty.IsActive())
-            vtty.GetVideo().PutPixel(p->tp_col, p->tp_row, pixel);
+            vtty.GetVideo().PutPixel(vtty, p->tp_col, p->tp_row, pixel);
     }
 
     void term_fill(void* s, const teken_rect_t* r, teken_char_t c, const teken_attr_t* a)
@@ -47,7 +47,8 @@ namespace
         auto place_pixel = [](void* s, const teken_pos_t& d) {
             auto& vtty = *static_cast<VTTY*>(s);
             if (vtty.IsActive())
-                vtty.GetVideo().PutPixel(d.tp_col, d.tp_row, vtty.PixelAt(d.tp_col, d.tp_row));
+                vtty.GetVideo().PutPixel(
+                    vtty, d.tp_col, d.tp_row, vtty.PixelAt(d.tp_col, d.tp_row));
         };
 
         /*
@@ -174,7 +175,7 @@ void VTTY::Activate()
     // Restore screen contents - XXX This can be done much more efficient
     for (int y = 0; y < v_video.GetHeight(); y++)
         for (int x = 0; x < v_video.GetWidth(); x++)
-            v_video.PutPixel(x, y, PixelAt(x, y));
+            v_video.PutPixel(*this, x, y, PixelAt(x, y));
 }
 
 void VTTY::Deactivate()
