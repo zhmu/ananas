@@ -39,7 +39,7 @@ namespace util
 
         template<typename T, typename Accessor, typename Advance>
         struct base_list_iterator {
-            typedef list_type<T, Accessor> ListType;
+            using ListType = list_type<T, Accessor>;
 
             base_list_iterator(const ListType& list, T* p) : i_List(list), i_Ptr(p) {}
 
@@ -87,7 +87,7 @@ namespace util
 
         template<typename T, typename Accessor>
         struct forward_advance {
-            typedef list_type<T, Accessor> ListType;
+            using ListType = list_type<T, Accessor>;
 
             static void Next(const ListType& list, T*& p)
             {
@@ -108,7 +108,7 @@ namespace util
 
         template<typename T, typename Accessor>
         struct backward_advance {
-            typedef list_type<T, Accessor> ListType;
+            using ListType = list_type<T, Accessor>;
 
             static void Next(const ListType& list, T*& p)
             {
@@ -161,14 +161,14 @@ namespace util
         friend class detail::forward_advance<T, Accessor>;
         friend class detail::backward_advance<T, Accessor>;
 
-        typedef typename detail::list_node<T> Node;
+        using Node = typename detail::list_node<T>;
 
         struct NodePtr {
             detail::list_node<T> np_NodePtr;
         };
 
-        typedef typename detail::list_iterator<T, Accessor> iterator;
-        typedef typename detail::list_reverse_iterator<T, Accessor> reverse_iterator;
+        using iterator = typename detail::list_iterator<T, Accessor>;
+        using reverse_iterator = typename detail::list_reverse_iterator<T, Accessor>;
         template<typename NodeGetter>
         using nodeptr_accessor = detail::nodeptr_accessor<T, NodeGetter>;
 
@@ -212,16 +212,16 @@ namespace util
                 Accessor::Next(*l_Tail) = nullptr;
         }
 
+        // Inserts before pos in the list
         void insert(T& pos, T& item)
         {
-            // Inserts before pos in the list
-            if (Accessor::Prev(pos) != nullptr)
-                Accessor::Next(*Accessor::Prev(pos)) = &item;
+            if (auto pos_prev = Accessor::Prev(pos); pos_prev)
+                Accessor::Next(*pos_prev) = &item;
+            else
+                l_Head = &item;
             Accessor::Next(item) = &pos;
             Accessor::Prev(item) = Accessor::Prev(pos);
             Accessor::Prev(pos) = &item;
-            if (l_Head == &pos)
-                l_Head = &item;
         }
 
         void remove(T& item)

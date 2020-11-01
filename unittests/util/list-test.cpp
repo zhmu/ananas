@@ -44,7 +44,6 @@ TEST(List, push_back)
 TEST(List, push_front)
 {
     Entry e1(1), e2(2), e3(3);
-
     util::List<Entry> l;
     l.push_front(e1);
     EXPECT_FALSE(l.empty());
@@ -198,6 +197,34 @@ TEST(List, reverse_iterator)
     EXPECT_EQ(2, (rit++)->value);
     EXPECT_EQ(1, (rit++)->value);
     EXPECT_EQ(l.rend(), rit);
+}
+
+TEST(List, insert)
+{
+    Entry e1(1), e2(2), e3(3);
+
+    util::List<Entry> l;
+    l.push_back(e3);
+    l.insert(e3, e1);
+    {
+        auto it = l.begin();
+        EXPECT_EQ(1, it->value);
+        ++it;
+        EXPECT_EQ(3, it->value);
+        ++it;
+        EXPECT_EQ(l.end(), it);
+    }
+    l.insert(e3, e2);
+    {
+        auto it = l.begin();
+        EXPECT_EQ(1, it->value);
+        ++it;
+        EXPECT_EQ(2, it->value);
+        ++it;
+        EXPECT_EQ(3, it->value);
+        ++it;
+        EXPECT_EQ(l.end(), it);
+    }
 }
 
 template<typename T>
