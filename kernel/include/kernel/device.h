@@ -82,6 +82,11 @@ class IDeviceOperations
     {
         return Result::FromErrNo(EINVAL);
     }
+
+    virtual Result DetermineDevicePhysicalAddres(addr_t& physAddress, size_t& length, int& mapFlags)
+    {
+        return Result::FromErrNo(EINVAL);
+    }
 };
 
 class ICharDeviceOperations

@@ -139,7 +139,9 @@ static bool vmspace_free_range(VMSpace& vs, addr_t virt, size_t len)
     return true;
 }
 
-Result VMSpace::MapTo(addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out)
+Result VMSpace::Map(
+    const addr_t virt, const addr_t phys, const size_t len /* bytes */, const uint32_t areaFlags,
+    const uint32_t mapFlags, VMArea*& va_out)
 {
     if (len == 0)
         return RESULT_MAKE_FAILURE(EINVAL);
@@ -156,15 +158,20 @@ Result VMSpace::MapTo(addr_t virt, size_t len /* bytes */, uint32_t flags, VMAre
      * THREAD_MAP_ALLOC flag is set; now we'll just assume that the
      * memory is there...
      */
-    auto va = new VMArea(*this, virt, len, flags);
+    auto va = new VMArea(*this, virt, len, areaFlags);
     vs_areas.push_back(*va);
-    TRACE(VM, INFO, "vmspace_mapto(): vs=%p, va=%p, virt=%p, flags=0x%x", this, va, virt, flags);
+    TRACE(
+        VM, INFO, "vmspace_mapto(): vs=%p, va=%p, virt=%p, flags=0x%x", this, va, virt, areaFlags);
     va_out = va;
 
     /* Provide a mapping for the pages */
-    md::vm::MapPages(
-        this, va->va_virt, 0, BytesToPages(len), 0); //(flags & VM_FLAG_FAULT) ? 0 : flags);
+    md::vm::MapPages(this, va->va_virt, phys, BytesToPages(len), mapFlags);
     return Result::Success();
+}
+
+Result VMSpace::MapTo(addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out)
+{
+    return Map(virt, 0, len, flags, 0, va_out);
 }
 
 Result VMSpace::MapToDentry(

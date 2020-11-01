@@ -39,6 +39,7 @@ struct VMSpace {
 
     MD_VMSPACE_FIELDS
 
+    Result Map(addr_t virt, addr_t phys, size_t len /* bytes */, uint32_t areaFlags, uint32_t mapFlags, VMArea*& va_out);
     Result MapTo(addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
     Result MapToDentry(
         addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags,
