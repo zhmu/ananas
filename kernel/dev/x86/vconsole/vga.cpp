@@ -8,7 +8,10 @@
 #include "kernel-md/io.h"
 #include "kernel/device.h"
 #include "kernel/lib.h"
+#include "kernel/trace.h"
 #include "vga.h"
+
+TRACE_SETUP;
 
 #define VGA_HEIGHT 25
 #define VGA_WIDTH 80
@@ -62,4 +65,14 @@ void VGA::SetCursor(VTTY&, int x, int y)
     uint32_t offs = x + y * VGA_WIDTH;
     WriteCRTC(0xe, offs >> 8);
     WriteCRTC(0xf, offs & 0xff);
+}
+
+Result VGA::IOControl(Process* proc, unsigned long req, void* buffer[])
+{
+    return RESULT_MAKE_FAILURE(EINVAL);
+}
+
+Result VGA::DetermineDevicePhysicalAddres(addr_t& physAddress, size_t& length, int& mapFlags)
+{
+    return RESULT_MAKE_FAILURE(EINVAL);
 }

@@ -21,6 +21,10 @@ class VGA : public IVideo
     void SetCursor(VTTY&, int x, int y) override;
     void PutPixel(VTTY&, int x, int y, const Pixel& pixel) override;
 
+    Result IOControl(Process* proc, unsigned long req, void* buffer[]) override;
+    Result
+    DetermineDevicePhysicalAddres(addr_t& physAddress, size_t& length, int& mapFlags) override;
+
   private:
     void WriteCRTC(uint8_t reg, uint8_t val);
 

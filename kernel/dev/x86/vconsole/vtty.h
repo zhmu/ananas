@@ -27,6 +27,10 @@ class VTTY : public TTY
 
     IVideo::Pixel& PixelAt(int x, int y) { return v_buffer[y * v_video.GetWidth() + x]; }
 
+    Result IOControl(Process* proc, unsigned long req, void* buffer[]) override;
+    Result
+    DetermineDevicePhysicalAddres(addr_t& physAddress, size_t& length, int& mapFlags) override;
+
     bool IsActive() const { return v_active; }
 
     void Activate();

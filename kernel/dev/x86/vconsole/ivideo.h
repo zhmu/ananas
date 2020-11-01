@@ -29,6 +29,10 @@ class IVideo
 
     virtual void SetCursor(VTTY&, int x, int y) = 0;
     virtual void PutPixel(VTTY&, int x, int y, const Pixel& pixel) = 0;
+
+    virtual Result IOControl(Process* proc, unsigned long req, void* buffer[]) = 0;
+    virtual Result
+    DetermineDevicePhysicalAddres(addr_t& physAddress, size_t& length, int& mapFlags) = 0;
 };
 
 #endif /* ANANAS_VCONSOLE_IVIDEO_H */

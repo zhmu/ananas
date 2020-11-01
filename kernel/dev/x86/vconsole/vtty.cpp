@@ -185,6 +185,21 @@ void VTTY::Deactivate()
     v_active = false;
 }
 
+Result VTTY::IOControl(Process* proc, unsigned long req, void* buffer[])
+{
+    if (auto result = v_video.IOControl(proc, req, buffer); result.IsSuccess())
+        return result;
+    return TTY::IOControl(proc, req, buffer);
+}
+
+Result VTTY::DetermineDevicePhysicalAddres(addr_t& physAddress, size_t& length, int& mapFlags)
+{
+    if (auto result = v_video.DetermineDevicePhysicalAddres(physAddress, length, mapFlags);
+        result.IsSuccess())
+        return result;
+    return TTY::DetermineDevicePhysicalAddres(physAddress, length, mapFlags);
+}
+
 namespace
 {
     struct VTTY_Driver : public Driver {
