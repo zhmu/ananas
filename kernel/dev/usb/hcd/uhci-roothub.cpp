@@ -445,8 +445,10 @@ namespace usb
             }
 
             /* Create a kernel thread to monitor status updates and process requests */
-            kthread_init(rh_pollthread, "uroothub", &ThreadWrapper, this);
-            rh_pollthread.Resume();
+            if (auto result = kthread_alloc("uroothub", &ThreadWrapper, this, rh_pollthread);
+                result.IsFailure())
+                panic("cannot create uroothub thread");
+            rh_pollthread->Resume();
             return Result::Success();
         }
 

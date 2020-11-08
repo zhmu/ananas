@@ -434,8 +434,10 @@ namespace usb
              * that from oroothub_init() because the usbbus doesn't exist at that point
              * and we don't know the USB device either.
              */
-            kthread_init(rh_pollthread, "oroothub", &ThreadWrapper, this);
-            rh_pollthread.Resume();
+            if (auto result = kthread_alloc("oroothub", &ThreadWrapper, this, rh_pollthread);
+                result.IsFailure())
+                panic("cannot create oroothub thread");
+            rh_pollthread->Resume();
             return Result::Success();
         }
 

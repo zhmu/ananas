@@ -28,7 +28,7 @@ namespace usb
 {
     namespace
     {
-        Thread usbtransfer_thread;
+        Thread* usbtransfer_thread{};
         Semaphore usbtransfer_sem("usbxfer-sem", 0);
         CompletedTransferList usbtransfer_complete;
         Spinlock usbtransfer_lock;
@@ -195,8 +195,11 @@ namespace usb
 
         const init::OnInit initLaunch(init::SubSystem::Device, init::Order::First, []() {
             /* Create a kernel thread to handle USB completed messages */
-            kthread_init(usbtransfer_thread, "usb-transfer", &transfer_thread, NULL);
-            usbtransfer_thread.Resume();
+            if (auto result =
+                    kthread_alloc("usb-transfer", &transfer_thread, NULL, usbtransfer_thread);
+                result.IsFailure())
+                panic("cannot create usb transfer thread");
+            usbtransfer_thread->Resume();
         });
 
     } // unnamed namespace

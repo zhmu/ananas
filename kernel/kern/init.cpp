@@ -126,9 +126,11 @@ void mi_startup()
     // Create a thread to actually perform initialisation - mi_startup() will eventually
     // become the idle thread and must thus never sleep
     volatile bool done = false;
-    Thread init_thread;
-    kthread_init(init_thread, "init", &init::init_thread_func, (void*)&done);
-    init_thread.Resume();
+    Thread* init_thread{};
+    if (auto result = kthread_alloc("init", &init::init_thread_func, (void*)&done, init_thread);
+        result.IsFailure())
+        panic("cannot create init thread");
+    init_thread->Resume();
 
     /* Activate the scheduler - it is time */
     scheduler::Launch();

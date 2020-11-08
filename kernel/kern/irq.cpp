@@ -187,8 +187,12 @@ namespace irq
             char thread_name[PAGE_SIZE];
             snprintf(thread_name, sizeof(thread_name) - 1, "irq-%d", no);
             thread_name[sizeof(thread_name) - 1] = '\0';
-            kthread_init(i.i_thread, thread_name, &ithread, (void*)(uintptr_t)no);
-            i.i_thread.Resume();
+            if (auto result =
+                    kthread_alloc(thread_name, &ithread, (void*)(uintptr_t)no, i.i_thread);
+                result.IsFailure())
+                panic("cannot create irq thread");
+
+            i.i_thread->Resume();
 
             // XXX we should set a decent priority here
 

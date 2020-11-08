@@ -68,7 +68,7 @@ namespace irq
         unsigned int i_straycount;
         unsigned int i_flags;
 #define IRQ_FLAG_THREAD (1 << 0) /* execute this handler from a thread */
-        Thread i_thread;
+        Thread* i_thread{};
         Semaphore i_semaphore{"isem", 0};
     };
 

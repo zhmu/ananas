@@ -13,7 +13,7 @@
 #include "kernel/schedule.h"
 #include "kernel/sleepqueue.h" // for sleep_queue::Waiter
 #include "kernel/thread_fwd.h"
-#include "kernel/signal.h"     // for ThreadSpecificData
+#include "kernel/signal.h" // for ThreadSpecificData
 #include "kernel/vfs/generic.h"
 #include "kernel-md/thread.h"
 
@@ -33,7 +33,7 @@ struct Thread {
     void SetName(const char* name);
 
     void Terminate(int); // must be called on curthread
-    void Destroy(); // must not be called on curthread
+    void Destroy();      // must not be called on curthread
 
     void Suspend();
     void Resume();
@@ -51,16 +51,15 @@ struct Thread {
 
     // Scheduler flags are protected by sched_lock
     unsigned int t_sched_flags;
-#define THREAD_SCHED_ACTIVE 0x0001     /* Thread is active on some CPU (curthread==this) */
-#define THREAD_SCHED_SUSPENDED 0x0002  /* Thread is currently suspended */
+#define THREAD_SCHED_ACTIVE 0x0001    /* Thread is active on some CPU (curthread==this) */
+#define THREAD_SCHED_SUSPENDED 0x0002 /* Thread is currently suspended */
 
     unsigned int t_flags;
 #define THREAD_FLAG_ZOMBIE 0x0004     /* Thread has no more resources */
 #define THREAD_FLAG_RESCHEDULE 0x0008 /* Thread desires a reschedule */
 #define THREAD_FLAG_REAPING 0x0010    /* Thread will be reaped (destroyed by idle thread) */
-#define THREAD_FLAG_ALLOC 0x0020      /* Thread is thread_alloc()'ed */
-#define THREAD_FLAG_TIMEOUT 0x0040    /* Timeout field is valid */
-#define THREAD_FLAG_SIGPENDING 0x0080 /* Signal is pending */
+#define THREAD_FLAG_TIMEOUT 0x0020    /* Timeout field is valid */
+#define THREAD_FLAG_SIGPENDING 0x0040 /* Signal is pending */
 #define THREAD_FLAG_KTHREAD 0x8000    /* Kernel thread */
 
     struct STACKFRAME* t_frame;
@@ -104,7 +103,7 @@ struct Thread {
     sleep_queue::Waiter t_sqwaiter;
 };
 
-Result kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg);
+Result kthread_alloc(const char* name, kthread_func_t func, void* arg, Thread*& dest);
 
 #define THREAD_ALLOC_DEFAULT 0 /* Nothing special */
 #define THREAD_ALLOC_CLONE 1   /* Thread is created for cloning */

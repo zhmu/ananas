@@ -17,7 +17,7 @@ namespace shutdown
 {
     namespace
     {
-        Thread shutdown_thread;
+        Thread* shutdown_thread{};
         ShutdownType shutdownType = ShutdownType::Unknown;
 
         constexpr int shutdownDelayInSeconds = 1;
@@ -73,7 +73,7 @@ namespace shutdown
 
     bool IsShuttingDown()
     {
-        return shutdownType != ShutdownType::Unknown && !shutdown_thread.IsSuspended();
+        return shutdownType != ShutdownType::Unknown && !shutdown_thread->IsSuspended();
     }
 
     void RequestShutdown(ShutdownType type)
@@ -84,7 +84,7 @@ namespace shutdown
         if (IsShuttingDown())
             return;
         shutdownType = type;
-        shutdown_thread.Resume();
+        shutdown_thread->Resume();
     }
 
 } // namespace shutdown
@@ -93,7 +93,9 @@ namespace
 {
     const init::OnInit initShutdown(init::SubSystem::Thread, init::Order::Middle, []() {
         using namespace shutdown;
-        kthread_init(shutdown_thread, "shutdown", &PerformShutdown, nullptr);
+        if (auto result = kthread_alloc("shutdown", &PerformShutdown, NULL, shutdown_thread);
+            result.IsFailure())
+            panic("cannot create shutdown thread");
     });
 
 } // unnamed namespace

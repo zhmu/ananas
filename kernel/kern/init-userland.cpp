@@ -20,9 +20,11 @@
 
 namespace
 {
-    void userinit_func(void* arg)
+    Thread* userinit_thread{};
+
+    void userinit_func(void*)
     {
-        auto& thread = *static_cast<Thread*>(arg);
+        auto& thread = *userinit_thread;
 
         /* We expect root=type:device here */
         const char* rootfs_arg = cmdline_get_string("root");
@@ -115,11 +117,11 @@ namespace
         thread.Terminate(0);
     }
 
-    Thread userinit_thread;
-
     const init::OnInit initUserlandInit(init::SubSystem::Scheduler, init::Order::Last, []() {
-        kthread_init(userinit_thread, "user-init", &userinit_func, &userinit_thread);
-        userinit_thread.Resume();
+        if (auto result = kthread_alloc("user-init", &userinit_func, NULL, userinit_thread);
+            result.IsFailure())
+            panic("cannot create userinit thread");
+        userinit_thread->Resume();
     });
 
 } // unnamed namespace

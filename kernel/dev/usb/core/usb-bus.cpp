@@ -37,7 +37,7 @@ namespace usb
 
     namespace
     {
-        Thread usbbus_thread;
+        Thread* usbbus_thread{};
         Semaphore usbbus_semaphore("usbbus-sem", 0);
         USBDeviceList usbbus_pendingqueue;
         Spinlock usbbus_spl_pendingqueue; /* protects usbbus_pendingqueue */
@@ -198,8 +198,10 @@ namespace usb
              * Create a kernel thread to handle USB device attachments. We use a thread for this
              * since we can only attach one at the same time.
              */
-            kthread_init(usbbus_thread, "usbbus", &usb_bus_thread, NULL);
-            usbbus_thread.Resume();
+            if (auto result = kthread_alloc("usbbus", &usb_bus_thread, NULL, usbbus_thread);
+                result.IsFailure())
+                panic("cannot create usbbus thread");
+            usbbus_thread->Resume();
         });
 
         const RegisterDriver<USBBus_Driver> registerDriver;

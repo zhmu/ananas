@@ -41,10 +41,11 @@
 
 TRACE_SETUP;
 
-namespace {
-Spinlock spl_threadqueue;
-thread::AllThreadsList allThreads;
-}
+namespace
+{
+    Spinlock spl_threadqueue;
+    thread::AllThreadsList allThreads;
+} // namespace
 
 Result thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
 {
@@ -53,7 +54,7 @@ Result thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
     memset(t, 0, sizeof(Thread));
     p.AddThread(*t);
     t->t_sched_flags = 0;
-    t->t_flags = THREAD_FLAG_ALLOC;
+    t->t_flags = 0;
     t->t_refcount = 1; /* caller */
     t->SetName(name);
 
@@ -81,31 +82,34 @@ Result thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
     return Result::Success();
 }
 
-Result kthread_init(Thread& t, const char* name, kthread_func_t func, void* arg)
+Result kthread_alloc(const char* name, kthread_func_t func, void* arg, Thread*& dest)
 {
     /*
      * Kernel threads do not have an associated process, and thus no handles,
      * vmspace and the like.
      */
-    memset(&t, 0, sizeof(Thread));
-    t.t_sched_flags = 0;
-    t.t_flags = THREAD_FLAG_KTHREAD;
-    t.t_refcount = 1;
-    t.t_priority = THREAD_PRIORITY_DEFAULT;
-    t.t_affinity = THREAD_AFFINITY_ANY;
-    t.SetName(name);
+    auto t = new Thread;
+    memset(t, 0, sizeof(Thread));
+    t->t_sched_flags = 0;
+    t->t_flags = THREAD_FLAG_KTHREAD;
+    t->t_refcount = 1;
+    t->t_priority = THREAD_PRIORITY_DEFAULT;
+    t->t_affinity = THREAD_AFFINITY_ANY;
+    t->SetName(name);
 
     /* Initialize MD-specifics */
-    md::thread::InitKernelThread(t, func, arg);
+    md::thread::InitKernelThread(*t, func, arg);
 
     /* Initialize scheduler-specific parts */
-    scheduler::InitThread(t);
+    scheduler::InitThread(*t);
 
     /* Add the thread to the thread queue */
     {
         SpinlockGuard g(spl_threadqueue);
-        allThreads.push_back(t);
+        allThreads.push_back(*t);
     }
+
+    dest = t;
     return Result::Success();
 }
 
@@ -151,10 +155,7 @@ void Thread::Destroy()
         allThreads.remove(*this);
     }
 
-    if (t_flags & THREAD_FLAG_ALLOC)
-        delete this;
-    else
-        panic("TODO delete non-alloced threads");
+    delete this;
 }
 
 #if 0

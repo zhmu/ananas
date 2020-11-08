@@ -38,7 +38,7 @@ namespace usb
 
             unsigned int rh_numports = 0;
             bool rh_c_portreset = false;
-            struct Thread rh_pollthread;
+            struct Thread* rh_pollthread{};
         };
 
     } // namespace uhci
