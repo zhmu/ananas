@@ -18,11 +18,12 @@ namespace
     void WakeupWaiter(sleep_queue::Waiter& waiter)
     {
         Thread* curthread = PCPU_GET(curthread);
+        auto w_thread = waiter.w_thread;
 
         waiter.w_signalled = true;
-        waiter.w_thread->Resume();
+        w_thread->Resume();
 
-        if (curthread->t_priority < waiter.w_thread->t_priority)
+        if (curthread->t_priority < w_thread->t_priority)
             curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
     }
 } // unnamed namespace
