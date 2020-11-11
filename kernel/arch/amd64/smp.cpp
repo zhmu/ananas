@@ -42,7 +42,7 @@ struct X86_CPU* x86_cpus;
 
 extern "C" char* lapic_base = nullptr;
 extern "C" volatile int num_smp_launched = 1; /* BSP is always launched */
-extern void* gdt;
+extern void* bsp_gdt;
 
 addr_t smp_ap_pagedir;
 int lapic_freq = -1;
@@ -165,10 +165,10 @@ namespace smp
                     static_cast<char*>(kmalloc(gdtSize + sizeof(struct TSS) + sizeof(struct PCPU)));
                 {
                     cpu->cpu_gdt = buf;
-                    memcpy(cpu->cpu_gdt, &gdt, gdtSize);
+                    memcpy(cpu->cpu_gdt, &bsp_gdt, gdtSize);
                 }
                 auto tss = reinterpret_cast<struct TSS*>(buf + gdtSize);
-                memset(tss, 0, sizeof(struct TSS));
+                memset(tss, 0, sizeof(TSS));
                 GDT_SET_TSS64(cpu->cpu_gdt, GDT_SEL_TASK, 0, (addr_t)tss, sizeof(struct TSS));
                 cpu->cpu_tss = (char*)tss;
 

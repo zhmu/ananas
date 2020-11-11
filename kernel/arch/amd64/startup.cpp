@@ -34,7 +34,7 @@
 uint64_t* kernel_pagedir;
 
 /* Global Descriptor Table */
-uint8_t gdt[GDT_NUM_ENTRIES * 16];
+uint8_t bsp_gdt[GDT_NUM_ENTRIES * 16];
 
 /* Interrupt Descriptor Table */
 uint8_t idt[IDT_NUM_ENTRIES * 16];
@@ -42,14 +42,14 @@ uint8_t idt[IDT_NUM_ENTRIES * 16];
 /* Boot CPU pcpu structure */
 static struct PCPU bsp_pcpu;
 
-/* TSS used by the kernel */
-struct TSS kernel_tss;
+static TSS bsp_tss;
 
 /* Bootinfo as supplied by the loader, or NULL */
 struct BOOTINFO* bootinfo = NULL;
 
 extern "C" void *__entry, *__end, *__rodata_end;
 extern void* syscall_handler;
+extern void* bootstrap_stack;
 
 Page* usupport_page;
 void* usupport;
@@ -344,6 +344,12 @@ namespace
         }
     }
 
+    void InitializeTSS(TSS& tss)
+    {
+        memset(&tss, 0, sizeof(struct TSS));
+        tss.ist1 = (addr_t)&bootstrap_stack; // emergency stack for double fault handler
+    }
+
 } // unnamed namespace
 
 static void setup_descriptors()
@@ -352,12 +358,12 @@ static void setup_descriptors()
      * Initialize a new Global Descriptor Table; we shouldn't trust what the
      * loader gives us and we'll need things like a TSS.
      */
-    memset(gdt, 0, sizeof(gdt));
-    GDT_SET_CODE64(gdt, GDT_SEL_KERNEL_CODE, SEG_DPL_SUPERVISOR);
-    GDT_SET_DATA64(gdt, GDT_SEL_KERNEL_DATA, SEG_DPL_SUPERVISOR);
-    GDT_SET_CODE64(gdt, GDT_SEL_USER_CODE, SEG_DPL_USER);
-    GDT_SET_DATA64(gdt, GDT_SEL_USER_DATA, SEG_DPL_USER);
-    GDT_SET_TSS64(gdt, GDT_SEL_TASK, 0, (addr_t)&kernel_tss, sizeof(struct TSS));
+    memset(bsp_gdt, 0, sizeof(bsp_gdt));
+    GDT_SET_CODE64(bsp_gdt, GDT_SEL_KERNEL_CODE, SEG_DPL_SUPERVISOR);
+    GDT_SET_DATA64(bsp_gdt, GDT_SEL_KERNEL_DATA, SEG_DPL_SUPERVISOR);
+    GDT_SET_CODE64(bsp_gdt, GDT_SEL_USER_CODE, SEG_DPL_USER);
+    GDT_SET_DATA64(bsp_gdt, GDT_SEL_USER_DATA, SEG_DPL_USER);
+    GDT_SET_TSS64(bsp_gdt, GDT_SEL_TASK, 0, (addr_t)&bsp_tss, sizeof(struct TSS));
 
     /*
      * Construct the IDT; this ensures we can handle exceptions, which is useful
@@ -397,17 +403,12 @@ static void setup_descriptors()
     IDT_SET_ENTRY(SMP_IPI_PERIODIC, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, ipi_periodic);
     IDT_SET_ENTRY(SMP_IPI_PANIC, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, ipi_panic);
     IDT_SET_ENTRY(0xff, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, irq_spurious);
-
-    /*
-     * Initialize the kernel TSS; we just need so set up separate stacks here.
-     */
-    memset(&kernel_tss, 0, sizeof(struct TSS));
-    extern void* bootstrap_stack;
-    kernel_tss.ist1 = (addr_t)&bootstrap_stack;
 }
 
-static void setup_cpu(addr_t gdt, addr_t pcpu)
+static void setup_cpu(addr_t gdt, addr_t pcpu, TSS& tss)
 {
+    InitializeTSS(tss);
+
     /* Load IDT */
     MAKE_RREGISTER(idtr, idt, (IDT_NUM_ENTRIES * 16) - 1);
     __asm __volatile("lidt (%%rax)\n" : : "a"(&idtr));
@@ -525,10 +526,10 @@ static void setup_bootinfo(const struct BOOTINFO* bootinfo_ptr, addr_t& avail, c
 
 extern "C" void smp_ap_startup(struct X86_CPU* cpu)
 {
-    setup_cpu((addr_t)cpu->cpu_gdt, (addr_t)cpu->cpu_pcpu);
+    setup_cpu((addr_t)cpu->cpu_gdt, (addr_t)cpu->cpu_pcpu, *reinterpret_cast<TSS*>(cpu->cpu_tss));
 }
 
-void usupport_init()
+static void usupport_init()
 {
     usupport = page_alloc_length_mapped(PAGE_SIZE, usupport_page, VM_FLAG_READ | VM_FLAG_WRITE);
     memset(usupport, 0xf4 /* hlt */, PAGE_SIZE);
@@ -549,11 +550,8 @@ extern "C" void md_startup(const struct BOOTINFO* bootinfo_ptr)
     // Find out how quick the CPU is; this allows us to use delay()
     x86_pit_calc_cpuspeed_mhz();
 
-    /*
-     * Wire the CPU for operation; this actually sets up more things than we can
-     * handle at the moment, but we'll cope with this soon.
-     */
-    setup_cpu((addr_t)&gdt, (addr_t)&bsp_pcpu);
+    // Wire up the CPU; this ensures exceptions can be handled properly
+    setup_cpu((addr_t)&bsp_gdt, (addr_t)&bsp_pcpu, bsp_tss);
 
     // Run the constructor list; we can at least handle exceptions and such here,
     // but there's no new/delete yet so do not allocate things from constructors!
@@ -585,7 +583,7 @@ extern "C" void md_startup(const struct BOOTINFO* bootinfo_ptr)
      */
     memset(&bsp_pcpu, 0, sizeof(bsp_pcpu));
     pcpu_init(&bsp_pcpu);
-    bsp_pcpu.tss = (addr_t)&kernel_tss;
+    bsp_pcpu.tss = (addr_t)&bsp_tss;
 
     /*
      * Switch to the idle thread - the reason we do it here is because it removes the
