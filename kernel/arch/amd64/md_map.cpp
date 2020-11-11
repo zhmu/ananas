@@ -110,8 +110,8 @@ namespace md::vm
 
     void UnmapPages(VMSpace* vs, addr_t virt, size_t num_pages)
     {
-        Thread* curthread = PCPU_GET(curthread);
-        int is_cur_vmspace = curthread->t_process != NULL && curthread->t_process->p_vmspace == vs;
+        auto& curThread = thread::GetCurrent();
+        int is_cur_vmspace = curThread.t_process != NULL && curThread.t_process->p_vmspace == vs;
 
         /* XXX we don't yet strip off bits 52-63 yet */
         uint64_t* pagedir = (vs != NULL) ? vs->vs_md_pagedir : kernel_pagedir;

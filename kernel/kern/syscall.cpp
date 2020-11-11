@@ -11,6 +11,7 @@
 #include "kernel/pcpu.h"
 #include "kernel/result.h"
 #include "kernel/trace.h"
+#include "kernel/thread.h"
 #include "../sys/syscall.h"
 
 TRACE_SETUP;
@@ -27,9 +28,9 @@ static Result perform_syscall(Thread* curthread, struct SYSCALL_ARGS* a)
 
 register_t syscall(struct SYSCALL_ARGS* a)
 {
-    Thread* curthread = PCPU_GET(curthread);
+    auto& curThread = thread::GetCurrent();
 
-    Result result = perform_syscall(curthread, a);
+    Result result = perform_syscall(&curThread, a);
 
     if (result.IsFailure())
         TRACE(SYSCALL, WARN, "result=%u", result.AsStatusCode());

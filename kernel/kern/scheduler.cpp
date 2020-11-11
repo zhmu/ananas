@@ -116,13 +116,13 @@ namespace scheduler
         }
 
         // Must be called with schedLock held
-        Thread& PickNextThreadToSchedule(Thread* curthread, const int cpuid)
+        Thread& PickNextThreadToSchedule(Thread& curThread, const int cpuid)
         {
             KASSERT(!sched_runqueue.empty(), "runqueue cannot be empty");
             for (auto& t : sched_runqueue) {
                 if (t.t_affinity != THREAD_AFFINITY_ANY && t.t_affinity != cpuid)
                     continue; // not possible on this CPU
-                if (t.IsActive() && &t != curthread)
+                if (t.IsActive() && &t != &curThread)
                     continue;
                 return t;
             }
@@ -223,9 +223,8 @@ namespace scheduler
 
     void Schedule()
     {
-        Thread* curthread = PCPU_GET(curthread);
+        auto& curThread = thread::GetCurrent();
         const int cpuid = PCPU_GET(cpuid);
-        KASSERT(curthread != NULL, "no current thread active");
 
         /*
          * Grab the scheduler lock and disable interrupts; note that they need not be
@@ -235,7 +234,7 @@ namespace scheduler
         auto state = schedLock.LockUnpremptible();
 
         // Cancel any rescheduling as we are about to schedule here
-        curthread->t_flags &= ~THREAD_FLAG_RESCHEDULE;
+        curThread.t_flags &= ~THREAD_FLAG_RESCHEDULE;
 
         /*
          * See if the first item on the sleepqueue is worth waking up; we'll only
@@ -244,14 +243,14 @@ namespace scheduler
         WakeupSleepingThreads();
 
         // Pick the next thread to schedule
-        auto& newthread = PickNextThreadToSchedule(curthread, cpuid);
+        auto& newThread = PickNextThreadToSchedule(curThread, cpuid);
 
         // Sanity checks
-        KASSERT(!newthread.IsSuspended(), "activating suspended thread %p", &newthread);
+        KASSERT(!newThread.IsSuspended(), "activating suspended thread %p", &newThread);
         KASSERT(
-            &newthread == curthread || !newthread.IsActive(), "activating active thread %p",
-            &newthread);
-        Prove<OnlyOnRunQueue>(newthread);
+            &newThread == &curThread || !newThread.IsActive(), "activating active thread %p",
+            &newThread);
+        Prove<OnlyOnRunQueue>(newThread);
 
         /*
          * If the current thread is not suspended, this means it got interrupted
@@ -262,23 +261,23 @@ namespace scheduler
          * We must also take care not to re-add zombie threads; these must not be
          * re-added to either scheduler queue.
          */
-        if (!curthread->IsSuspended() && !curthread->IsZombie()) {
-            sched_runqueue.remove(*curthread);
-            AddThreadToRunQueue(*curthread);
+        if (!curThread.IsSuspended() && !curThread.IsZombie()) {
+            sched_runqueue.remove(curThread);
+            AddThreadToRunQueue(curThread);
         }
 
         /*
          * Schedule our new thread; by marking it as active, it will not be picked up by another
          * CPU.
          */
-        newthread.t_sched_flags |= THREAD_SCHED_ACTIVE;
-        PCPU_SET(curthread, &newthread);
+        newThread.t_sched_flags |= THREAD_SCHED_ACTIVE;
+        PCPU_SET(curthread, &newThread);
 
         // Now unlock the scheduler lock but do _not_ enable interrupts
         schedLock.Unlock();
 
-        if (curthread != &newthread) {
-            Thread& prev = md::thread::SwitchTo(newthread, *curthread);
+        if (&curThread != &newThread) {
+            auto& prev = md::thread::SwitchTo(newThread, curThread);
             scheduler_release(&prev);
         }
 
@@ -289,7 +288,7 @@ namespace scheduler
     void Launch()
     {
         Thread* idlethread = PCPU_GET(idlethread);
-        KASSERT(PCPU_GET(curthread) == idlethread, "idle thread not correct");
+        KASSERT(&thread::GetCurrent() == idlethread, "idle thread not correct");
 
         /*
          * Activate the idle thread; the MD startup code should have done the

@@ -7,10 +7,11 @@
 #include "kernel/lib.h"
 #include "kernel/time.h"
 #include "kernel/pcpu.h"
+#include "kernel/thread.h"
 #include "../acpica/acpi.h"
 
 ACPI_THREAD_ID
-AcpiOsGetThreadId() { return (ACPI_THREAD_ID)(uintptr_t)PCPU_GET(curthread); }
+AcpiOsGetThreadId() { return (ACPI_THREAD_ID)(uintptr_t)&thread::GetCurrent(); }
 
 ACPI_STATUS
 AcpiOsExecute(ACPI_EXECUTE_TYPE Type, ACPI_OSD_EXEC_CALLBACK Function, void* Context)

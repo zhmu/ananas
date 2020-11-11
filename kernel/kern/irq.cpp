@@ -298,8 +298,8 @@ namespace irq
         PCPU_SET(nested_irq, irq_nestcount);
 
         // If the IRQ handler resulted in a reschedule of the current thread, handle it
-        Thread* curthread = PCPU_GET(curthread);
-        if (irq_nestcount == 0 && curthread->IsRescheduling())
+        auto& curThread = thread::GetCurrent();
+        if (irq_nestcount == 0 && curThread.IsRescheduling())
             scheduler::Schedule();
     }
 

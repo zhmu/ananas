@@ -87,6 +87,8 @@ struct FPUREGS {
     void* md_stack;                                         \
     void* md_kstack;
 
+extern "C" Thread* md_GetCurrentThread();
+
 #endif
 
 #define THREAD_MDFLAG_FULLRESTORE 0x0001 /* Perform a full register restore upon return */

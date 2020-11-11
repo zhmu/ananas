@@ -20,6 +20,10 @@
 #include "kernel-md/vm.h"
 #include "../sys/syscall.h"
 
+#include "kernel/kdb.h"
+
+#include "kernel-md/md.h"
+
 extern void* kernel_pagedir;
 extern "C" {
 void thread_trampoline();
@@ -100,7 +104,7 @@ namespace md::thread
     void Free(Thread& t)
     {
         KASSERT(t.IsZombie(), "cannot free non-zombie thread");
-        KASSERT(PCPU_GET(curthread) != &t, "cannot free current thread");
+        KASSERT(&::thread::GetCurrent() != &t, "cannot free current thread");
 
         /*
          * We only have to throw away the stack; everything else is part of
@@ -163,7 +167,7 @@ namespace md::thread
 
     void Clone(Thread& t, Thread& parent, register_t retval)
     {
-        KASSERT(PCPU_GET(curthread) == &parent, "must clone active thread");
+        KASSERT(&::thread::GetCurrent() == &parent, "must clone active thread");
 
         /* Restore the thread's own page directory */
         t.md_cr3 = KVTOP((addr_t)t.t_process->p_vmspace->vs_md_pagedir);
@@ -207,5 +211,14 @@ namespace md::thread
         t.md_rsp = (addr_t)sf;
         t.md_rip = (addr_t)&thread_trampoline;
     }
-
 } // namespace md::thread
+
+extern "C" Thread* md_GetCurrentThread()
+{
+    #if 0
+    uint64_t rsp;
+    __asm __volatile("movq %%rsp, %0" : "=r" (rsp));
+    return reinterpret_cast<Thread*>(rsp & (KERNEL_STACK_SIZE - 1));
+    #endif
+    return PCPU_GET(curthread);
+}

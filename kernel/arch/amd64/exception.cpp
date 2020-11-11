@@ -84,9 +84,8 @@ namespace
          * an FPU access is made while the task-switched-flag is set. We will
          * obtain the FPU state and bind it to the thread.
          */
-        Thread* thread = PCPU_GET(curthread);
-        KASSERT(thread != NULL, "curthread is NULL");
-        PCPU_SET(fpu_context, &thread->md_fpu_ctx);
+        Thread& curThread = thread::GetCurrent();
+        PCPU_SET(fpu_context, &curThread.md_fpu_ctx);
 
         /*
          * Clear the task-switched-flag; this is what triggered this exception in
@@ -97,7 +96,7 @@ namespace
         __asm("clts\n"
               "frstor (%%rax)\n"
               :
-              : "a"(&thread->md_fpu_ctx));
+              : "a"(&curThread.md_fpu_ctx));
     }
 
     void exception_generic(struct STACKFRAME* sf)
@@ -112,10 +111,10 @@ namespace
             userland ? "user land" : "kernel", descr, sf->sf_trapno, sf->sf_cs, sf->sf_rip);
 
         if (userland) {
-            Thread* cur_thread = PCPU_GET(curthread);
+            Thread& curThread = thread::GetCurrent();
             kprintf(
-                "name='%s' pid=%d\n", cur_thread->t_name,
-                cur_thread->t_process != NULL ? (int)cur_thread->t_process->p_pid : -1);
+                "name='%s' pid=%d\n", curThread.t_name,
+                curThread.t_process != NULL ? static_cast<int>(curThread.t_process->p_pid) : -1);
         }
 
         kprintf("rax=%p rbx=%p rcx=%p rdx=%p\n", sf->sf_rax, sf->sf_rbx, sf->sf_rcx, sf->sf_rdx);
@@ -134,7 +133,7 @@ namespace
             // An userland thread misbehaved - send the signal; we'll fall out of the
             // handler and the thread should be able to catch the signal or we'll invoke
             // the default action
-            signal::QueueSignal(*PCPU_GET(curthread), map_trapno_to_signal(sf->sf_trapno));
+            signal::QueueSignal(thread::GetCurrent(), map_trapno_to_signal(sf->sf_trapno));
             return;
         }
 
@@ -161,9 +160,8 @@ namespace
             flags |= VM_FLAG_READ;
 
         // Let the VM code deal with the fault
-        Thread* curthread = PCPU_GET(curthread);
-        if (curthread != NULL && curthread->t_process != NULL) {
-            if (auto result = curthread->t_process->p_vmspace->HandleFault(fault_addr, flags);
+        if (auto process = thread::GetCurrent().t_process; process) {
+            if (auto result = process->p_vmspace->HandleFault(fault_addr, flags);
                 result.IsSuccess())
                 return; /* fault handeled */
         }
@@ -224,9 +222,9 @@ extern "C" void* md_invoke_signal(struct STACKFRAME* sf)
 {
     KASSERT(sf->sf_rsp < KMEM_DIRECT_VA_START, "stack not in userland");
 
-    Thread* thread = PCPU_GET(curthread);
+    auto& curThread = thread::GetCurrent();
     siginfo_t si;
-    signal::Action* act = signal::DequeueSignal(*thread, si);
+    signal::Action* act = signal::DequeueSignal(curThread, si);
     if (act == nullptr)
         return nullptr;
     KASSERT(act->sa_handler != SIG_IGN, "attempt to handle ignored signal %d", si.si_signo);

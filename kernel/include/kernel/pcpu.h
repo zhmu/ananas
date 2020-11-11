@@ -15,7 +15,7 @@ struct Thread;
 /* Per-CPU information pointer */
 struct PCPU {
     MD_PCPU_FIELDS      /* Machine-dependant data */
-        uint32_t cpuid; /* CPU ID */
+    uint32_t cpuid;     /* CPU ID */
     Thread* curthread;  /* current thread */
     Thread* idlethread; /* idle thread */
     int nested_irq;     /* number of nested IRQ functions */
@@ -23,8 +23,5 @@ struct PCPU {
 
 /* Introduce a per-cpu structure */
 void pcpu_init(struct PCPU* pcpu);
-
-/* Get the current thread */
-#define PCPU_CURTHREAD() PCPU_GET(curthread)
 
 #endif /* __PCPU_H__ */

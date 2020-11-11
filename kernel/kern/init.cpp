@@ -113,8 +113,8 @@ namespace init
 
             // All done - signal and exit - the reaper will clean up this thread
             *static_cast<volatile bool*>(done) = true;
-            auto cur_thread = PCPU_GET(curthread);
-            cur_thread->Terminate(0);
+            auto& curThread = thread::GetCurrent();
+            curThread.Terminate(0);
             /* NOTREACHED */
         }
 

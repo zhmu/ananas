@@ -116,4 +116,8 @@ void thread_sleep_ms(unsigned int ms);
 void thread_dump(int num_args, char** arg);
 Result thread_clone(Process& proc, Thread*& dest);
 
+namespace thread {
+    Thread& GetCurrent();
+}
+
 #endif

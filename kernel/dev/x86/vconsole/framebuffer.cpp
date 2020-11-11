@@ -93,7 +93,6 @@ void Framebuffer::SetCursor(VTTY& vtty, int x, int y)
 
 Result Framebuffer::IOControl(Process* proc, unsigned long req, void* buffer[])
 {
-    auto curthread = PCPU_GET(curthread);
     switch (req) {
         case TIOFB_GET_INFO: {
             auto fb_info = static_cast<ananas_fb_info*>(buffer[0]); // XXX userland check

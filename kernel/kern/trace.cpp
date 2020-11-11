@@ -26,9 +26,9 @@ namespace trace
         {
             char buf[BufSize];
             {
-                Thread* curthread = PCPU_GET(curthread);
-                const char* tname = curthread->t_name;
-                const auto pid = curthread->t_process != NULL ? curthread->t_process->p_pid : -1;
+                auto& curThread = thread::GetCurrent();
+                const char* tname = curThread.t_name;
+                const auto pid = curThread.t_process != NULL ? curThread.t_process->p_pid : -1;
 
                 const auto timestamp = x86_get_ms_since_boot();
                 snprintf(

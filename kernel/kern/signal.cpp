@@ -149,15 +149,15 @@ namespace signal
 
     void HandleDefaultSignalAction(const siginfo_t& si)
     {
-        Thread* cur_thread = PCPU_GET(curthread);
+        auto& curThread = thread::GetCurrent();
         switch (defaultActionForSignal[si.si_signo - 1]) {
             case DefaultAction::TerminateWithCore: {
-                auto result = md_core_dump(*cur_thread);
+                auto result = md_core_dump(curThread);
                 kprintf(">> core dump %d\n", result.AsStatusCode());
                 // FALLTHROUGH
             }
             case DefaultAction::Terminate:
-                cur_thread->Terminate(THREAD_MAKE_EXITCODE(THREAD_TERM_SIGNAL, si.si_signo));
+                curThread.Terminate(THREAD_MAKE_EXITCODE(THREAD_TERM_SIGNAL, si.si_signo));
                 // NOTREACHED
             case DefaultAction::Stop:
                 kprintf("TODO: Stop\n");

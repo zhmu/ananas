@@ -106,10 +106,10 @@ namespace smp
                 if (cpuid == 0)
                     time::OnTick();
 
-                // Flip the reschedule flag of the current thread; this makes the IRQ reschedule us
+                // Set the reschedule flag of the current thread; this makes the IRQ reschedule us
                 // as needed
-                Thread* curthread = PCPU_GET(curthread);
-                curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
+                auto& curThread = thread::GetCurrent();
+                curThread.t_flags |= THREAD_FLAG_RESCHEDULE;
                 return irq::IRQResult::Processed;
             }
         } ipiPeriodicHandler;

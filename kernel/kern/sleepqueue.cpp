@@ -17,14 +17,14 @@ namespace
 {
     void WakeupWaiter(sleep_queue::Waiter& waiter)
     {
-        Thread* curthread = PCPU_GET(curthread);
-        auto w_thread = waiter.w_thread;
+        auto& curThread = thread::GetCurrent();
+        auto& waitingThread = *waiter.w_thread;
 
         waiter.w_signalled = true;
-        w_thread->Resume();
+        waitingThread.Resume();
 
-        if (curthread->t_priority < w_thread->t_priority)
-            curthread->t_flags |= THREAD_FLAG_RESCHEDULE;
+        if (curThread.t_priority < waitingThread.t_priority)
+            curThread.t_flags |= THREAD_FLAG_RESCHEDULE;
     }
 } // unnamed namespace
 
@@ -59,24 +59,24 @@ void SleepQueue::WakeupAll()
 
 sleep_queue::Sleeper SleepQueue::PrepareToSleep()
 {
-    Thread* curthread = PCPU_GET(curthread);
+    auto& curThread = thread::GetCurrent();
 
     auto state = sq_lock.LockUnpremptible();
     KASSERT(
-        curthread->t_sqwaiter.w_sq == nullptr, "sleeping thread %p that is already sleeping",
-        curthread);
-    curthread->t_sqwaiter = sleep_queue::Waiter{curthread, this};
+        curThread.t_sqwaiter.w_sq == nullptr, "sleeping thread %p that is already sleeping",
+        &curThread);
+    curThread.t_sqwaiter = sleep_queue::Waiter{&curThread, this};
 
     // XXX Maybe we ought to keep the sq_sleepers list sorted?
-    sq_sleepers.push_back(*curthread);
+    sq_sleepers.push_back(curThread);
 
     return sleep_queue::Sleeper{*this, state};
 }
 
 void SleepQueue::Sleep(register_t state)
 {
-    Thread* curthread = PCPU_GET(curthread);
-    auto& sqwaiter = curthread->t_sqwaiter;
+    auto& curThread = thread::GetCurrent();
+    auto& sqwaiter = curThread.t_sqwaiter;
 
     sq_lock.AssertLocked();
     KASSERT(!sq_sleepers.empty(), "attempting sleep without preparing?");
@@ -88,7 +88,7 @@ void SleepQueue::Sleep(register_t state)
             sq_lock.UnlockUnpremptible(state); // restores interrupts
             return;
         }
-        curthread->Suspend();
+        curThread.Suspend();
         sq_lock.Unlock(); // note: keeps interrupts disabled
         scheduler::Schedule();
 
@@ -101,12 +101,12 @@ void SleepQueue::Sleep(register_t state)
 
 void SleepQueue::Unsleep(register_t state)
 {
-    Thread* curthread = PCPU_GET(curthread);
-    auto& sqwaiter = curthread->t_sqwaiter;
+    auto& curThread = thread::GetCurrent();
+    auto& sqwaiter = curThread.t_sqwaiter;
 
     sq_lock.AssertLocked();
     for (auto& t : sq_sleepers) {
-        if (&t != curthread)
+        if (&t != &curThread)
             continue;
         sq_sleepers.remove(t);
         if (sqwaiter.w_signalled) {

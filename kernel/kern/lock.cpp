@@ -99,21 +99,21 @@ void Mutex::Lock()
 
 bool Mutex::TryLock()
 {
-    auto curthread = PCPU_GET(curthread);
+    auto curThread = &thread::GetCurrent();
     Thread* expected{nullptr};
-    return mtx_owner.compare_exchange_strong(expected, curthread);
+    return mtx_owner.compare_exchange_strong(expected, curThread);
 }
 
 void Mutex::Unlock()
 {
-    KASSERT(mtx_owner == PCPU_GET(curthread), "unlocking mutex %p which isn't owned", this);
+    KASSERT(mtx_owner == &thread::GetCurrent(), "unlocking mutex %p which isn't owned", this);
     mtx_owner = nullptr;
     mtx_sleepq.WakeupOne();
 }
 
 void Mutex::AssertLocked()
 {
-    if (mtx_owner != PCPU_GET(curthread))
+    if (mtx_owner != &thread::GetCurrent())
         panic("mutex '%s' not held by current thread", mtx_sleepq.GetName());
 }
 

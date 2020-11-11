@@ -137,7 +137,7 @@ static void thread_cleanup(Thread& t)
  */
 void Thread::Destroy()
 {
-    KASSERT(PCPU_GET(curthread) != this, "thread_destroy() on current thread");
+    KASSERT(&thread::GetCurrent() != this, "thread_destroy() on current thread");
     KASSERT(IsZombie(), "thread_destroy() on a non-zombie thread");
 
     /* Free the machine-dependant bits */
@@ -182,7 +182,7 @@ void Thread::Deref()
      *    2b) Otherwise, we can destroy 't' and be done.
      * 3) Otherwise, the refcount > 0 and we must let the thread live.
      */
-    const bool is_self = PCPU_GET(curthread) == this;
+    const bool is_self = &thread::GetCurrent() == this;
     KASSERT(!is_self, "deref self?");
     if (--t_refcount > 0) {
         /* (3) - refcount isn't yet zero so nothing to destroy */
@@ -236,10 +236,10 @@ void thread_sleep_ms(unsigned int ms)
     if (num_ticks == 0)
         num_ticks = 1; // delay at least one tick
 
-    Thread* t = PCPU_GET(curthread);
-    t->t_timeout = time::GetTicks() + num_ticks;
-    t->t_flags |= THREAD_FLAG_TIMEOUT;
-    t->Suspend();
+    auto& curThread = thread::GetCurrent();
+    curThread.t_timeout = time::GetTicks() + num_ticks;
+    curThread.t_flags |= THREAD_FLAG_TIMEOUT;
+    curThread.Suspend();
     scheduler::Schedule();
 }
 
@@ -252,7 +252,7 @@ void Thread::Resume()
 
 void Thread::Terminate(int exitcode)
 {
-    KASSERT(this == PCPU_GET(curthread), "terminate not on current thread");
+    KASSERT(this == &thread::GetCurrent(), "terminate not on current thread");
     KASSERT(!IsZombie(), "exiting zombie thread");
 
     Process* p = t_process;
@@ -296,10 +296,10 @@ void Thread::SetName(const char* name)
 Result thread_clone(Process& proc, Thread*& out_thread)
 {
     TRACE(THREAD, FUNC, "proc=%p", &proc);
-    Thread* curthread = PCPU_GET(curthread);
+    auto& curthread = thread::GetCurrent();
 
     Thread* t;
-    if (auto result = thread_alloc(proc, t, curthread->t_name, THREAD_ALLOC_CLONE);
+    if (auto result = thread_alloc(proc, t, curThread.t_name, THREAD_ALLOC_CLONE);
         result.IsFailure())
         return result;
 
@@ -308,7 +308,7 @@ Result thread_clone(Process& proc, Thread*& out_thread)
      * result of a system call, so we want to influence the
      * return value.
      */
-    md::thread::Clone(*t, *curthread, 0 /* child gets exit code zero */);
+    md::thread::Clone(*t, curThread, 0 /* child gets exit code zero */);
 
     /* Thread is ready to rock */
     out_thread = t;
@@ -348,4 +348,8 @@ void idle_thread(void*)
     while (1) {
         md::interrupts::Relax();
     }
+}
+
+namespace thread {
+    Thread& GetCurrent() { return *md_GetCurrentThread(); }
 }
