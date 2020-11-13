@@ -57,6 +57,7 @@ namespace md
         }
 
         static inline void Relax() { __asm __volatile("hlt"); }
+        static inline void Pause() { __asm __volatile("pause"); }
 
     } // namespace interrupts
 } // namespace md

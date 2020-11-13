@@ -22,8 +22,6 @@
 
 #include "kernel/kdb.h"
 
-#include "kernel-md/md.h"
-
 extern void* kernel_pagedir;
 extern "C" {
 void thread_trampoline();

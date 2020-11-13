@@ -140,6 +140,10 @@ void Thread::Destroy()
     KASSERT(&thread::GetCurrent() != this, "thread_destroy() on current thread");
     KASSERT(IsZombie(), "thread_destroy() on a non-zombie thread");
 
+    // Wait until the thread is released by the scheduler
+    while(IsActive())
+        md::interrupts::Pause();
+
     /* Free the machine-dependant bits */
     md::thread::Free(*this);
 
@@ -157,69 +161,6 @@ void Thread::Destroy()
 
     delete this;
 }
-
-#if 0
-void Thread::Ref()
-{
-    KASSERT(t_refcount > 0, "reffing thread with invalid refcount %d", t_refcount);
-    ++t_refcount;
-}
-
-void Thread::Deref()
-{
-    KASSERT(t_refcount > 0, "dereffing thread with invalid refcount %d", t_refcount);
-
-    /*
-     * Thread cleanup is quite involved - we need to take the following into account:
-     *
-     * 1) A thread itself calling Deref() can demote the thread to zombie-state
-     *    This is because the owner decides to stop the thread, which means we can free
-     *    most associated resources.
-     * 2) The new refcount would become 0
-     *    We can go to zombie-state if we aren't already. However:
-     *    2a) If curthread == 't', we can't destroy because we are using the
-     *        threads stack. We'll postpone destruction to another thread.
-     *    2b) Otherwise, we can destroy 't' and be done.
-     * 3) Otherwise, the refcount > 0 and we must let the thread live.
-     */
-    const bool is_self = &thread::GetCurrent() == this;
-    KASSERT(!is_self, "deref self?");
-    if (--t_refcount > 0) {
-        /* (3) - refcount isn't yet zero so nothing to destroy */
-        return;
-    }
-
-#if 0
-    if (is_self) {
-        /*
-         * (2a) - mark the thread as reaping, and increment the refcount
-         *        so that we can just Deref() it
-         */
-        t_flags |= THREAD_FLAG_REAPING;
-        t_refcount++;
-
-        // Remove the thread from all threads queue
-        {
-            SpinlockGuard g(spl_threadqueue);
-            allThreads.remove(*this);
-        }
-
-        /*
-         * Ask the reaper to nuke the thread if it was a kernel thread; userland
-         * stuff gets terminated using the wait() family of functions.
-         */
-        if (IsKernel())
-            reaper_enqueue(*this);
-        return;
-    }
-#endif
-
-    /* (2b) Final ref - let's get rid of it */
-    if (!IsZombie())
-        thread_cleanup(*this);
-    thread_destroy(*this);
-}
-#endif
 
 void Thread::Suspend()
 {
@@ -296,7 +237,7 @@ void Thread::SetName(const char* name)
 Result thread_clone(Process& proc, Thread*& out_thread)
 {
     TRACE(THREAD, FUNC, "proc=%p", &proc);
-    auto& curthread = thread::GetCurrent();
+    auto& curThread = thread::GetCurrent();
 
     Thread* t;
     if (auto result = thread_alloc(proc, t, curThread.t_name, THREAD_ALLOC_CLONE);
