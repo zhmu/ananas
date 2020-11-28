@@ -169,7 +169,7 @@ namespace smp
                 }
                 auto tss = reinterpret_cast<struct TSS*>(buf + gdtSize);
                 memset(tss, 0, sizeof(TSS));
-                GDT_SET_TSS64(cpu->cpu_gdt, GDT_SEL_TASK, 0, (addr_t)tss, sizeof(struct TSS));
+                SetGDTEntryTSS(cpu->cpu_gdt, GDT_SEL_TASK, 0, reinterpret_cast<addr_t>(tss), sizeof(struct TSS));
                 cpu->cpu_tss = (char*)tss;
 
                 /* Initialize per-CPU data */

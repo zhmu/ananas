@@ -47,6 +47,31 @@ extern "C" void *__entry, *__end, *__rodata_end;
 extern void* syscall_handler;
 extern void* bootstrap_stack;
 
+extern void* exception0;
+extern void* exception1;
+extern void* exception2;
+extern void* exception3;
+extern void* exception4;
+extern void* exception5;
+extern void* exception6;
+extern void* exception7;
+extern void* exception8;
+extern void* exception9;
+extern void* exception10;
+extern void* exception11;
+extern void* exception12;
+extern void* exception13;
+extern void* exception14;
+extern void* exception15;
+extern void* exception16;
+extern void* exception17;
+extern void* exception18;
+extern void* exception19;
+extern void* lapic_irq_range_1;
+extern void* ipi_periodic;
+extern void* ipi_panic;
+extern void* irq_spurious;
+
 Page* usupport_page;
 void* usupport;
 
@@ -109,7 +134,7 @@ namespace
      * only accurate if the memory is mapped at address zero (it doesn't consider crossing
      * boundaries)
      */
-    inline void calculate_num_pages_required(
+    void calculate_num_pages_required(
         size_t mem_size, unsigned int& num_pages_needed, unsigned int& length_in_pages)
     {
         /* Number of level-4 page-table entries required; these map bits 63..39 */
@@ -350,63 +375,63 @@ static void setup_descriptors()
      * loader gives us and we'll need things like a TSS.
      */
     memset(bsp_gdt, 0, sizeof(bsp_gdt));
-    GDT_SET_CODE64(bsp_gdt, GDT_SEL_KERNEL_CODE, SEG_DPL_SUPERVISOR);
-    GDT_SET_DATA64(bsp_gdt, GDT_SEL_KERNEL_DATA, SEG_DPL_SUPERVISOR);
-    GDT_SET_CODE64(bsp_gdt, GDT_SEL_USER_CODE, SEG_DPL_USER);
-    GDT_SET_DATA64(bsp_gdt, GDT_SEL_USER_DATA, SEG_DPL_USER);
-    GDT_SET_TSS64(bsp_gdt, GDT_SEL_TASK, 0, (addr_t)&bsp_tss, sizeof(struct TSS));
+    SetGDTEntry(bsp_gdt, GDT_SEL_KERNEL_CODE, SEG_DPL_SUPERVISOR, GDTEntryType::Code);
+    SetGDTEntry(bsp_gdt, GDT_SEL_KERNEL_DATA, SEG_DPL_SUPERVISOR, GDTEntryType::Data);
+    SetGDTEntry(bsp_gdt, GDT_SEL_USER_CODE, SEG_DPL_USER, GDTEntryType::Code);
+    SetGDTEntry(bsp_gdt, GDT_SEL_USER_DATA, SEG_DPL_USER, GDTEntryType::Data);
+    SetGDTEntryTSS(bsp_gdt, GDT_SEL_TASK, 0, (addr_t)&bsp_tss, sizeof(struct TSS));
 
     /*
      * Construct the IDT; this ensures we can handle exceptions, which is useful
      * and we'll want to have as soon as possible.
      */
     memset(idt, 0, sizeof(idt));
-    IDT_SET_ENTRY(0, SEG_TGATE_TYPE, 0, exception0);
-    IDT_SET_ENTRY(1, SEG_TGATE_TYPE, 0, exception1);
-    IDT_SET_ENTRY(2, SEG_TGATE_TYPE, 0, exception2);
-    IDT_SET_ENTRY(3, SEG_TGATE_TYPE, 0, exception3);
-    IDT_SET_ENTRY(4, SEG_TGATE_TYPE, 0, exception4);
-    IDT_SET_ENTRY(5, SEG_TGATE_TYPE, 0, exception5);
-    IDT_SET_ENTRY(6, SEG_TGATE_TYPE, 0, exception6);
-    IDT_SET_ENTRY(7, SEG_TGATE_TYPE, 0, exception7);
-    IDT_SET_ENTRY(8, SEG_TGATE_TYPE, 1, exception8); /* use IST1 for double fault */
-    IDT_SET_ENTRY(9, SEG_TGATE_TYPE, 0, exception9);
-    IDT_SET_ENTRY(10, SEG_TGATE_TYPE, 0, exception10);
-    IDT_SET_ENTRY(11, SEG_TGATE_TYPE, 0, exception11);
-    IDT_SET_ENTRY(12, SEG_TGATE_TYPE, 0, exception12);
-    IDT_SET_ENTRY(13, SEG_TGATE_TYPE, 0, exception13);
+    SetIDTEntry(idt, 0, SEG_TGATE_TYPE, 0, &exception0);
+    SetIDTEntry(idt, 1, SEG_TGATE_TYPE, 0, &exception1);
+    SetIDTEntry(idt, 2, SEG_TGATE_TYPE, 0, &exception2);
+    SetIDTEntry(idt, 3, SEG_TGATE_TYPE, 0, &exception3);
+    SetIDTEntry(idt, 4, SEG_TGATE_TYPE, 0, &exception4);
+    SetIDTEntry(idt, 5, SEG_TGATE_TYPE, 0, &exception5);
+    SetIDTEntry(idt, 6, SEG_TGATE_TYPE, 0, &exception6);
+    SetIDTEntry(idt, 7, SEG_TGATE_TYPE, 0, &exception7);
+    SetIDTEntry(idt, 8, SEG_TGATE_TYPE, 1, &exception8); /* use IST1 for double fault */
+    SetIDTEntry(idt, 9, SEG_TGATE_TYPE, 0, &exception9);
+    SetIDTEntry(idt, 10, SEG_TGATE_TYPE, 0, &exception10);
+    SetIDTEntry(idt, 11, SEG_TGATE_TYPE, 0, &exception11);
+    SetIDTEntry(idt, 12, SEG_TGATE_TYPE, 0, &exception12);
+    SetIDTEntry(idt, 13, SEG_TGATE_TYPE, 0, &exception13);
     /*
      * Page fault must disable interrupts to ensure %cr2 (fault address) will not
      * be overwritten; it will re-enable the interrupt flag when it's safe to do
      * so.
      */
-    IDT_SET_ENTRY(14, SEG_IGATE_TYPE, 0, exception14);
-    IDT_SET_ENTRY(16, SEG_TGATE_TYPE, 0, exception16);
-    IDT_SET_ENTRY(17, SEG_TGATE_TYPE, 0, exception17);
-    IDT_SET_ENTRY(18, SEG_TGATE_TYPE, 0, exception18);
-    IDT_SET_ENTRY(19, SEG_TGATE_TYPE, 0, exception19);
+    SetIDTEntry(idt, 14, SEG_IGATE_TYPE, 0, &exception14);
+    SetIDTEntry(idt, 16, SEG_TGATE_TYPE, 0, &exception16);
+    SetIDTEntry(idt, 17, SEG_TGATE_TYPE, 0, &exception17);
+    SetIDTEntry(idt, 18, SEG_TGATE_TYPE, 0, &exception18);
+    SetIDTEntry(idt, 19, SEG_TGATE_TYPE, 0, &exception19);
     // Use interrupt gates for IRQ's so that we can keep track of the nesting
     // XXX We only map IRQ0..31 here; we should map everything or do things on-demand...
     for (int n = 0; n < 32; n++) {
-        IDT_SET_ENTRY((32 + n), SEG_IGATE_TYPE, 0, lapic_irq_range_1);
+        SetIDTEntry(idt, (32 + n), SEG_IGATE_TYPE, 0, &lapic_irq_range_1);
     }
 
-    IDT_SET_ENTRY(SMP_IPI_PERIODIC, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, ipi_periodic);
-    IDT_SET_ENTRY(SMP_IPI_PANIC, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, ipi_panic);
-    IDT_SET_ENTRY(0xff, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, irq_spurious);
+    SetIDTEntry(idt, SMP_IPI_PERIODIC, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, &ipi_periodic);
+    SetIDTEntry(idt, SMP_IPI_PANIC, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, &ipi_panic);
+    SetIDTEntry(idt, 0xff, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, &irq_spurious);
 }
 
 static void setup_cpu(addr_t gdt, addr_t pcpu, TSS& tss)
 {
     InitializeTSS(tss);
 
-    /* Load IDT */
-    MAKE_RREGISTER(idtr, idt, (IDT_NUM_ENTRIES * 16) - 1);
-    __asm __volatile("lidt (%%rax)\n" : : "a"(&idtr));
+    const auto idtr = MakeRegister(idt, IDT_NUM_ENTRIES * 16);
+    const auto gdtr = MakeRegister(gdt, GDT_LENGTH);
+    __asm __volatile("" : : : "memory");
 
-    /* Load GDT and re-load all segment register */
-    MAKE_RREGISTER(gdtr, gdt, GDT_LENGTH - 1);
-    __asm("lgdt (%%rax)\n"
+    /* Load IDT, GDT and re-load all segment register */
+    __asm __volatile("lidt (%%rax)\n" : : "a"(&idtr));
+    __asm __volatile("lgdt (%%rax)\n"
           "mov %%cx, %%ds\n"
           "mov %%cx, %%es\n"
           "mov %%cx, %%fs\n"

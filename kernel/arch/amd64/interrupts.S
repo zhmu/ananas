@@ -18,7 +18,6 @@
 .globl lapic_irq_range_5, lapic_irq_range_6, lapic_irq_range_7
 
 #include "kernel-md/vm.h"
-#include "kernel-md/macro.h"
 #include "kernel-md/thread.h"
 #include "kernel-md/lapic.h"
 #include "kernel-md/smp.h"
