@@ -266,8 +266,7 @@ ext2_dump_inode(struct EXT2_INODE* inode)
         return Result::Success(written);
     }
 
-    static struct VFS_INODE_OPS ext2_file_ops = {.read = vfs_generic_read,
-                                                 .block_map = ext2_block_map};
+    static struct VFS_INODE_OPS ext2_file_ops = {.block_map = ext2_block_map, .read = vfs_generic_read,};
 
     static struct VFS_INODE_OPS ext2_dir_ops = {.readdir = ext2_readdir,
                                                 .lookup = vfs_generic_lookup};

@@ -154,4 +154,4 @@ Result fat_write_inode(INode& inode)
 }
 
 struct VFS_INODE_OPS fat_inode_ops = {
-    .read = vfs_generic_read, .write = vfs_generic_write, .block_map = fat_block_map};
+    .block_map = fat_block_map, .read = vfs_generic_read, .write = vfs_generic_write };

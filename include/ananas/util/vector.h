@@ -11,6 +11,7 @@
 
 #ifdef __Ananas__
 #include "kernel/cdefs.h"
+#include "kernel/mm.h"
 extern "C" void* memcpy(void* dst, const void* src, size_t n) __nonnull;
 #endif
 
