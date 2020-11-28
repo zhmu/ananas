@@ -7,7 +7,7 @@
 #ifndef __MULTIBOOT_H__
 #define __MULTIBOOT_H__
 
-#include "types.h"
+#include <ananas/types.h>
 
 /* As outlined in
  * https://www.gnu.org/software/grub/manual/multiboot/multiboot.html#Boot-information-format */

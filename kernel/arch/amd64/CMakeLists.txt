@@ -22,3 +22,5 @@ endif()
 if(OPTION_DEBUG_CONSOLE)
 	add_sources(debug-console.cpp)
 endif()
+
+add_subdirectory(loader)

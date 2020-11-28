@@ -59,6 +59,6 @@ namespace init
 
 } // namespace init
 
-void mi_startup();
+extern "C" void mi_startup();
 
 #endif /* __INIT_H__ */

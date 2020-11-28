@@ -1,0 +1,21 @@
+OUTPUT_ARCH(i386)
+OUTPUT_FORMAT("binary")
+ENTRY(__entry)
+SECTIONS {
+    /* Locate at 16MB */
+    .text 0x1000000 : {
+            text = .;
+            *(.text)
+            *(.text*)
+            *(.rodata)
+            *(.rodata*)
+            *(.data)
+            *(.bss)
+            *(COMMON)
+    }
+    __end = . ;
+
+    /DISCARD/ : {
+            *(.eh_frame)
+    }
+}

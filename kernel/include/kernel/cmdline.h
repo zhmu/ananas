@@ -7,9 +7,7 @@
 #ifndef __ANANAS_CMDLINE_H__
 #define __ANANAS_CMDLINE_H__
 
-#include <ananas/types.h>
-
-void cmdline_init(char* bootargs, size_t bootargs_len);
+void cmdline_init(char* bootargs);
 const char* cmdline_get_string(const char* key);
 
 #endif /* __ANANAS_CMDLINE_H__ */

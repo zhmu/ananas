@@ -5,8 +5,6 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <ananas/types.h>
-#include <ananas/bootinfo.h>
-#include <ananas/x86/smap.h>
 #include <loader/module.h>
 #include <machine/param.h>
 #include "kernel/cmdline.h"
@@ -22,6 +20,7 @@
 #include "kernel/vm.h"
 #include "kernel-md/acpi.h"
 #include "kernel-md/macro.h"
+#include "kernel-md/multiboot.h"
 #include "kernel-md/interrupts.h"
 #include "kernel-md/param.h"
 #include "kernel-md/pic.h"
@@ -44,15 +43,16 @@ static struct PCPU bsp_pcpu;
 
 static TSS bsp_tss;
 
-/* Bootinfo as supplied by the loader, or NULL */
-struct BOOTINFO* bootinfo = NULL;
-
 extern "C" void *__entry, *__end, *__rodata_end;
 extern void* syscall_handler;
 extern void* bootstrap_stack;
 
 Page* usupport_page;
 void* usupport;
+
+int video_resolution_width{};
+int video_resolution_height{};
+addr_t video_framebuffer{};
 
 extern "C" void __run_global_ctors();
 
@@ -126,8 +126,8 @@ namespace
 
     void setup_paging(addr_t& avail, addr_t mem_end, size_t kernel_size)
     {
-#define KMAP_KVA_START KMEM_DIRECT_VA_START
-#define KMAP_KVA_END KMEM_DYNAMIC_VA_END
+        constexpr auto KMAP_KVA_START = KMEM_DIRECT_VA_START;
+        constexpr auto KMAP_KVA_END = KMEM_DYNAMIC_VA_END;
         addr_t avail_start = avail;
 
         /*
@@ -254,16 +254,16 @@ namespace
         kprintf(">>> *kernel_pagedir = %p\n", *kernel_pagedir);
     }
 
-    void setup_memory(addr_t& avail)
+    void setup_memory(const struct MULTIBOOT& multiboot, addr_t& avail)
     {
-        /*
-         * Figure out where the kernel is in physical memory; we must exclude it from
-         * the memory maps.
-         */
-        addr_t kernel_from = ((addr_t)&__entry - KERNBASE) & ~(PAGE_SIZE - 1);
-        addr_t kernel_to = avail;
+        const addr_t kernel_phys_start = ((addr_t)&__entry - KERNBASE) & ~(PAGE_SIZE - 1);
+        const addr_t kernel_phys_end = (avail | (PAGE_SIZE - 1)) + 1;
+        kprintf(
+            "setup_memory(): kernel physical memory: %p .. %p\n", kernel_phys_start,
+            kernel_phys_end);
+        avail = kernel_phys_end;
 
-        /* Now build the memory chunk list */
+        // Convert multiboot memory map to chunks, excluding the kernel space
         constexpr size_t max_chunks = 32;
         struct PHYSMEM_CHUNK {
             addr_t addr, len;
@@ -271,68 +271,59 @@ namespace
         int phys_chunk_index = 0;
 
         addr_t mem_end = 0;
-        struct SMAP_ENTRY* smap_entry =
-            reinterpret_cast<struct SMAP_ENTRY*>((uintptr_t)bootinfo->bi_memory_map_addr);
-        for (int i = 0; i < bootinfo->bi_memory_map_size / sizeof(struct SMAP_ENTRY);
-             i++, smap_entry++) {
-            if (smap_entry->type != SMAP_TYPE_MEMORY)
+        addr_t mem_size = 0;
+        const auto mm_end =
+            reinterpret_cast<const char*>(multiboot.mb_mmap_addr + multiboot.mb_mmap_length);
+        for (auto mm_ptr = reinterpret_cast<const char*>(multiboot.mb_mmap_addr);
+             mm_ptr < mm_end && phys_chunk_index < max_chunks;) {
+            const auto mm = reinterpret_cast<const MULTIBOOT_MMAP*>(mm_ptr);
+            mm_ptr += mm->mm_entry_len + sizeof(uint32_t); // entry_len doesn't include size field
+            if (mm->mm_type != MULTIBOOT_MMAP_AVAIL)
                 continue;
 
-            /* This piece of memory is available; add it */
-            addr_t base = (addr_t)smap_entry->base_hi << 32 | smap_entry->base_lo;
-            size_t len = (size_t)smap_entry->len_hi << 32 | smap_entry->len_lo;
-            base = (base + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-            len &= ~(PAGE_SIZE - 1);
+            // This piece of memory is available; add it
+            auto base = static_cast<uint64_t>(mm->mm_base_hi) << 32 | mm->mm_base_lo;
+            auto length = static_cast<uint64_t>(mm->mm_len_hi) << 32 | mm->mm_len_lo;
 
-            /* See if this chunk collides with our kernel; if it does, add it in 0 .. 2 slices */
-            constexpr size_t max_slices = 2;
-            addr_t start[max_slices], end[max_slices];
-            kmem_chunk_reserve(base, base + len, kernel_from, kernel_to, &start[0], &end[0]);
-            for (unsigned int n = 0; n < max_slices; n++) {
-                KASSERT(
-                    start[n] <= end[n] && end[n] >= start[n], "invalid start/end pair %p/%p",
-                    start[n], end[n]);
-                if (start[n] == end[n])
-                    continue;
-                // XXX We should check to make sure we don't go beyond phys_... here
-                phys_chunk[phys_chunk_index].addr = start[n];
-                phys_chunk[phys_chunk_index].len = end[n] - start[n];
-                if (mem_end < end[n])
-                    mem_end = end[n];
-                phys_chunk_index++;
+            // Assume the kernel always starts at the memory chunk; if it does,
+            // shift it
+            if (base == kernel_phys_start) {
+                length = (base + length) - kernel_phys_end;
+                base = kernel_phys_end;
+                kprintf(
+                    "reserved kernel memory: %p .. %p (%d KB)\n", kernel_phys_start,
+                    kernel_phys_end, (kernel_phys_end - kernel_phys_start) / 1024);
             }
-#undef MAX_SLICES
-        }
-        KASSERT(phys_chunk_index > 0, "no physical memory chunks");
 
-        // Dump the physical memory layout as far as we know it
-        size_t mem_size = 0;
-        kprintf("physical memory dump: %d chunk(s)\n", phys_chunk_index);
-        for (int n = 0; n < phys_chunk_index; n++) {
-            struct PHYSMEM_CHUNK* p = &phys_chunk[n];
             kprintf(
-                "  chunk %d: %016p-%016p (%u KB)\n", n, p->addr, p->addr + p->len - 1,
-                p->len / 1024);
-            mem_size += p->len / 1024;
+                "physical memory chunk: %p .. %p (%d KB)\n", base, base + length - 1,
+                (length / 1024));
+            if (phys_chunk_index == max_chunks)
+                continue;
+            phys_chunk[phys_chunk_index] = {base, length};
+            ++phys_chunk_index;
+            if (mem_end < base + length)
+                mem_end = base + length;
+            mem_size += length;
         }
-        kprintf("total physical memory present: %d MB\n", mem_size / 1024);
+        kprintf("setup_paging(): total memory available: %d KB\n", mem_size / 1024);
 
         uint64_t prev_avail = avail;
-        setup_paging(avail, mem_end, kernel_to - kernel_from);
+        setup_paging(avail, mem_end, kernel_phys_end - kernel_phys_start);
 
-        /*
-         * Now add the physical chunks of memory. Note that phys_chunk[] isn't up-to-date
-         * anymore as it will contain things we have used for the page tables - this
-         * is why we store prev_avail: it's always at the start of a chunk, and we can
-         * just update the chunk as needed.
-         */
+        // All memory is accessible; register with the zone allocator
         for (int n = 0; n < phys_chunk_index; n++) {
-            struct PHYSMEM_CHUNK* p = &phys_chunk[n];
-            if (p->addr == prev_avail) {
-                p->addr = avail;
-                p->len -= avail - prev_avail;
+            auto& p = phys_chunk[n];
+            if (p.addr == prev_avail) {
+                // The zone shrank as we needed some memory from it for the
+                // pages: adjust here
+                p.addr = avail;
+                p.len -= avail - prev_avail;
+                kprintf(
+                    "setup_memory(): reserved %d KB of memory due to setup_paging()\n",
+                    (avail - prev_avail) / 1024);
             }
-            page_zone_add(p->addr, p->len);
+            page_zone_add(p.addr, p.len);
 
             /*
              * In the SMP case, ensure we'll prepare allocating memory for the SMP structures
@@ -467,61 +458,27 @@ static void setup_cpu(addr_t gdt, addr_t pcpu, TSS& tss)
     write_cr0(read_cr0() | CR0_WP);
 }
 
-static void setup_bootinfo(const struct BOOTINFO* bootinfo_ptr, addr_t& avail, char*& boot_args)
+static void setup_multiboot(const struct MULTIBOOT& multiboot, addr_t& avail, char*& boot_args)
 {
-    /*
-     * Now that most low-level stuff is sanely set up, see what the loader gave
-     * us: we should have a bootinfo structure containing a lot of useful
-     * information. We need it to bootstrap the VM and initialize the memory
-     * manager.
-     *
-     * Note that this implicitely assumes that the bootinfo memory is mapped -
-     * indeed, we'll assume that the entire 1GB memory space is mapped. This
-     * makes setting up our page tables much easier as we'll always have enough
-     * space to store them.
-     */
-    KASSERT(bootinfo_ptr != nullptr, "no bootinfo provided");
-    KASSERT(bootinfo_ptr->bi_size >= sizeof(struct BOOTINFO), "bootinfo size mismatch");
-
-    /*
-     * Determine how much memory we have; we need this in order to pre-allocate
-     * our page tables.
-     */
-    if (bootinfo_ptr->bi_memory_map_addr == (addr_t)NULL || bootinfo_ptr->bi_memory_map_size == 0 ||
-        (bootinfo_ptr->bi_memory_map_size % sizeof(struct SMAP_ENTRY)) != 0)
-        panic("going nowhere without a memory map");
-
-    /*
-     * The loader tells us how large the kernel is; we use pages directly after
-     * the kernel. Note that this doesn't have to be aligned, so we ensure it is.
-     */
-    avail = (addr_t)(((struct LOADER_MODULE*)(addr_t)bootinfo_ptr->bi_modules)->mod_phys_end_addr);
-    if (avail & (PAGE_SIZE - 1))
-        avail = (avail | (PAGE_SIZE - 1)) + 1;
-    kprintf(">> avail %p __entry %p __end %p\n", avail, &__entry, &__end);
-
-    /*
-     * Move the bootinfo structure directly at the available space, directly
-     * after the kernel - we consider it as part of the kernel. This simplifies
-     * mapping it, and ensures we won't accidently overwrite it.
-     */
-    bootinfo = reinterpret_cast<struct BOOTINFO*>(KERNBASE | avail);
-    avail += sizeof(*bootinfo);
-
-    memset(bootinfo, 0, sizeof(*bootinfo));
-    memcpy(bootinfo, bootinfo_ptr, bootinfo_ptr->bi_size);
-
-    // Append the arguments directly after, if we have any
-    if (bootinfo_ptr->bi_args != 0) {
+    avail = reinterpret_cast<addr_t>(&__end) - KERNBASE;
+    if (multiboot.mb_flags & MULTIBOOT_FLAG_CMDLINE) {
+        // Copy boot arguments
+        const auto mb_cmdline = reinterpret_cast<const char*>(multiboot.mb_cmdline);
+        const auto mb_cmdline_len = strlen(mb_cmdline) + 1 /* \0 */;
         boot_args = reinterpret_cast<char*>(KERNBASE | avail);
-        avail += bootinfo_ptr->bi_args_size;
-        memcpy(
-            boot_args, reinterpret_cast<void*>(bootinfo_ptr->bi_args), bootinfo_ptr->bi_args_size);
+        avail += mb_cmdline_len;
+        memcpy(boot_args, mb_cmdline, mb_cmdline_len);
     }
 
-    // Ensure the available pointer is still page-aligned, as we'll be creating
-    // pagetables there
-    avail = (addr_t)((addr_t)avail | (PAGE_SIZE - 1)) + 1;
+    if (multiboot.mb_flags & MULTIBOOT_FLAG_VBE) {
+        const auto mode_info = reinterpret_cast<uint8_t*>(multiboot.mb_vbe_mode_info);
+        const auto bpp = *reinterpret_cast<uint8_t*>(mode_info + 0x19);
+        if (bpp == 32) {
+            video_resolution_width = *reinterpret_cast<uint16_t*>(mode_info + 0x12);
+            video_resolution_height = *reinterpret_cast<uint16_t*>(mode_info + 0x14);
+            video_framebuffer = *reinterpret_cast<uint32_t*>(mode_info + 0x28);
+        }
+    }
 }
 
 extern "C" void smp_ap_startup(struct X86_CPU* cpu)
@@ -539,7 +496,7 @@ static void usupport_init()
     memcpy(usupport, &usupport_start, &usupport_end - &usupport_start);
 }
 
-extern "C" void md_startup(const struct BOOTINFO* bootinfo_ptr)
+extern "C" void md_startup(const struct MULTIBOOT* multiboot)
 {
     // Create a sane GDT/IDT so we can handle extensions and such soon
     setup_descriptors();
@@ -564,18 +521,17 @@ extern "C" void md_startup(const struct BOOTINFO* bootinfo_ptr)
      */
     addr_t avail;
     char* boot_args;
-    setup_bootinfo(bootinfo_ptr, avail, boot_args);
-    kprintf("avail = %p\n", avail);
+    setup_multiboot(*multiboot, avail, boot_args);
 
     // Initialize our memory mappings
-    setup_memory(avail);
+    setup_memory(*multiboot, avail);
 
     // Initialize the handles; this is needed by the per-CPU code as it initialize threads XXX Is
     // this still true?
     fd::Initialize();
 
     // Initialize the commandline arguments, if we have any
-    cmdline_init(boot_args, bootinfo->bi_args_size);
+    cmdline_init(boot_args);
 
     /*
      * Initialize the per-CPU thread; this needs a working memory allocator, so that is why
@@ -585,11 +541,7 @@ extern "C" void md_startup(const struct BOOTINFO* bootinfo_ptr)
     pcpu_init(&bsp_pcpu);
     bsp_pcpu.tss = (addr_t)&bsp_tss;
 
-    /*
-     * Switch to the idle thread - the reason we do it here is because it removes the
-     * curthread==NULL case and it will has a larger stack than our bootstrap stack. The
-     * bootstrap stack is re-used as double fault stack.
-     */
+    // Switch stack to idle thread; we'll re-use the bootstrap stack for double faults
     __asm __volatile("movq %0, %%rsp\n" : : "r"(bsp_pcpu.idlethread->md_rsp));
     PCPU_SET(curthread, bsp_pcpu.idlethread);
     scheduler::ResumeThread(*bsp_pcpu.idlethread);
@@ -614,7 +566,8 @@ extern "C" void md_startup(const struct BOOTINFO* bootinfo_ptr)
 
     smp::InitTimer();
 
-    // All done - it's up to the machine-independant code now
-    mi_startup();
+    // All done - it's up to the machine-independant code now. Force a jump to
+    // prevent the stack frame from being adjusted
+    __asm __volatile("jmp mi_startup\n");
     /* NOTREACHED */
 }

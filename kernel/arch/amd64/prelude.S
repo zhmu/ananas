@@ -10,6 +10,7 @@
     .quad   -1
 
 .text
+    jmp __entry
 
 .globl __run_global_ctors
 .type __run_global_ctors,@function

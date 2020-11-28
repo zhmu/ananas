@@ -4,7 +4,6 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <ananas/types.h>
-#include <ananas/bootinfo.h>
 #include <ananas/x86/fb.h>
 #include "kernel/device.h"
 #include "kernel/lib.h"
@@ -20,6 +19,10 @@
 
 #include "font.inc"
 
+extern int video_resolution_width;
+extern int video_resolution_height;
+extern addr_t video_framebuffer;
+
 TRACE_SETUP;
 
 namespace font = unscii16;
@@ -33,20 +36,19 @@ namespace
 
 Framebuffer::Framebuffer()
 {
-    const auto fbSize =
-        bootinfo->bi_video_xres * bootinfo->bi_video_yres * (bootinfo->bi_video_bpp / 8);
+    const auto fbSize = video_resolution_width * video_resolution_height * sizeof(uint32_t);
     void* fbMem = kmem_map(
-        bootinfo->bi_video_framebuffer, fbSize, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
+        video_framebuffer, fbSize, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
     KASSERT(fbMem != nullptr, "cannot map framebuffer?");
 
-    fb_height = bootinfo->bi_video_yres;
-    fb_width = bootinfo->bi_video_xres;
+    fb_height = video_resolution_height;
+    fb_width = video_resolution_width;
     fb_video_mem = static_cast<uint32_t*>(fbMem);
 }
 
 bool Framebuffer::IsUsable()
 {
-    return bootinfo->bi_video_framebuffer != 0 && bootinfo->bi_video_bpp == supportedBpp;
+    return video_framebuffer != 0;
 }
 
 int Framebuffer::GetHeight() { return fb_height / font::charHeight; }
@@ -116,6 +118,6 @@ Framebuffer::DetermineDevicePhysicalAddres(addr_t& physAddress, size_t& length, 
     if (length > fbSize)
         length = fbSize;
 
-    physAddress = bootinfo->bi_video_framebuffer;
+    physAddress = video_framebuffer;
     return Result::Success();
 }

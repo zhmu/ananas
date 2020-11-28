@@ -79,7 +79,7 @@ usage()
 	echo " -a             build everything"
 	echo " -b             bootstrap (include, libsyscall, libc, libm, rtld)"
 	echo " -e             build externals (dash, coreutils)"
-	echo " -k             build kernel (mb-stub, kernel)"
+	echo " -k             build kernel"
 	echo " -p             build c++ support (libunwind, libc++abi, libc++)"
 	echo " -s             build system utilities (init, ps, ...)"
 }
@@ -255,10 +255,6 @@ if [ "$BOOTSTRAP" -ne 0 ]; then
 fi
 
 if [ "$KERNEL" -ne 0 ]; then
-	# build the multiboot stub so we can make something bootable
-	build multiboot-stub multiboot-stub
-
-	# build the kernel
 	build kernel kernel
 fi
 

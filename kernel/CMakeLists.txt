@@ -78,15 +78,24 @@ set(SOURCES ${SOURCES} include/_gen/syscalls.h include/_gen/syscalls.inc.h)
 add_executable(kernel_elf arch/amd64/prelude.S ${SOURCES} arch/amd64/postlude.S )
 set_target_properties(kernel_elf PROPERTIES OUTPUT_NAME "kernel.elf")
 
+add_custom_command(
+    OUTPUT kernel.bin
+    COMMENT "Converting kernel ELF to binary"
+    DEPENDS kernel_elf
+    COMMAND objcopy -O binary $<TARGET_FILE:kernel_elf> ${CMAKE_CURRENT_BINARY_DIR}/kernel.bin
+)
+add_custom_target(kernel_bin DEPENDS kernel.bin)
+
 # add a custom target that combines the multiboot stub to get a bootable kernel
 # XXX this will only work on unix-like systems
 add_custom_command(
 	OUTPUT kernel
-	COMMENT "Creating kernel binary"
-	DEPENDS kernel_elf
-	COMMAND cat ${CMAKE_SYSROOT}/lib/mbstub.bin ${CMAKE_CURRENT_BINARY_DIR}/kernel.elf > ${CMAKE_CURRENT_BINARY_DIR}/kernel
+    COMMENT "Merging kernel binary with multiboot loader"
+	DEPENDS multiboot kernel.bin
+	COMMAND cat $<TARGET_FILE:multiboot> ${CMAKE_CURRENT_BINARY_DIR}/kernel.bin > ${CMAKE_CURRENT_BINARY_DIR}/kernel
 )
-add_custom_target(kernel_bin ALL DEPENDS kernel)
+
+add_custom_target(kernel_mb ALL DEPENDS kernel)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/kernel DESTINATION .)
 
 # prepare our include directories: we make a symlink to avoid unnecessary
