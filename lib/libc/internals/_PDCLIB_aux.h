@@ -32,8 +32,10 @@
 #define _PDCLIB_C_VERSION 1999
 #elif __STDC_VERSION__ == 201112L
 #define _PDCLIB_C_VERSION 2011
+#elif __STDC_VERSION__ == 201710L
+#define _PDCLIB_C_VERSION 2017
 #else
-#error Unsupported _ _STDC_VERSION_ _ (__STDC_VERSION__) (supported: ISO/IEC 9899:1990, 9899/AMD1:1995, 9899:1999, 9899:2011).
+#error Unsupported _ _STDC_VERSION_ _ (__STDC_VERSION__) (supported: ISO/IEC 9899:1990, 9899/AMD1:1995, 9899:1999, 9899:2011, 9899:2017).
 #endif
 
 #if !defined(__cplusplus) || defined(_PDCLIB_CXX_VERSION)
@@ -45,8 +47,10 @@
 #define _PDCLIB_CXX_VERSION 2014
 #elif __cplusplus == 201703L
 #define _PDCLIB_CXX_VERSION 2017
+#elif __cplusplus == 202002L
+#define _PDCLIB_CXX_VERSION 2020
 #else
-#error Unsupported _ _cplusplus (__cplusplus) (supported: ISO/IEC 14882:1997, ISO/IEC 14882{2011,2014,2017}).
+#error Unsupported _ _cplusplus (__cplusplus) (supported: ISO/IEC 14882:1997, ISO/IEC 14882{2011,2014,2017,2020}).
 #endif
 /* TODO: Do we want this? */
 #if _PDCLIB_C_VERSION < 2011
