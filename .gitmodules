@@ -10,3 +10,18 @@
 [submodule "external/musl"]
 	path = external/musl
 	url = https://github.com/zhmu/ananas-musl.git
+[submodule "external/gcc"]
+	path = external/gcc
+	url = https://github.com/zhmu/ananas-gcc
+[submodule "external/binutils-gdb"]
+	path = external/binutils-gdb
+	url = https://github.com/zhmu/ananas-binutils-gdb
+[submodule "external/gmp"]
+	path = external/gmp
+	url = https://github.com/zhmu/ananas-gmp.git
+[submodule "external/mpc"]
+	path = external/mpc
+	url = https://github.com/zhmu/ananas-mpc.git
+[submodule "external/mpfr"]
+	path = external/mpfr
+	url = https://github.com/zhmu/ananas-mpfr.git
