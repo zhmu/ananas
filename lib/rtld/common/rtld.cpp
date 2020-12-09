@@ -32,6 +32,10 @@ namespace
 #define dbg(...) (debug ? (void)printf(__VA_ARGS__) : (void)0)
 #define sum(...) (summary ? (void)printf(__VA_ARGS__) : (void)0)
 
+    int main_argc;
+    char** main_argv;
+    char** main_envp;
+
     // List of all objects loaded
     Objects s_Objects;
     ObjectList s_InitList;
@@ -269,10 +273,16 @@ void parse_dynamic(Object& obj)
                 dyn->d_un.d_ptr = (addr_t)&r_debugstate;
                 break;
             case DT_INIT_ARRAY:
-                die("%s: DT_INIT_ARRAY unsupported", obj.o_name);
+                obj.o_init_array = obj.o_reloc_base + dyn->d_un.d_ptr;
                 break;
             case DT_FINI_ARRAY:
-                die("%s: DT_FINI_ARRAY unsupported", obj.o_name);
+                obj.o_fini_array = obj.o_reloc_base + dyn->d_un.d_ptr;
+                break;
+            case DT_INIT_ARRAYSZ:
+                obj.o_init_array_size = dyn->d_un.d_val / sizeof(Elf_Addr);
+                break;
+            case DT_FINI_ARRAYSZ:
+                obj.o_fini_array_size = dyn->d_un.d_val / sizeof(Elf_Addr);
                 break;
             case DT_NULL:
                 break;
@@ -688,8 +698,8 @@ Object* map_object(int fd, const char* name)
             // outside of the scope
             addr_t v_extra = round_up_page(phdr->p_vaddr + phdr->p_filesz);
             addr_t v_extra_len = round_up_page(phdr->p_vaddr + phdr->p_memsz - v_extra);
-            dbg("%s: mapping zero data to %p..%p\n", name, base + v_extra,
-                base + v_extra + v_extra_len);
+            dbg("%s: mapping zero data to %p..%p flags %x prot %x\n", name, base + v_extra,
+                base + v_extra + v_extra_len, flags, prot);
             p = reinterpret_cast<addr_t>(
                 mmap(reinterpret_cast<void*>(base + v_extra), v_extra_len, prot, flags, -1, 0));
             if (p == (addr_t)-1)
@@ -775,6 +785,16 @@ void run_init_funcs()
         Object& o = *ole.ol_object;
         typedef void (*FuncPtr)();
         ((FuncPtr)(o.o_init))();
+
+        auto init_array = reinterpret_cast<Elf_Addr*>(o.o_init_array);
+        if (init_array) {
+            for (int n = 0; n < o.o_init_array_size; ++n) {
+                using InitFn = void (*)(int, char**, char**);
+                auto initFn = reinterpret_cast<InitFn>(init_array[n]);
+                dbg("%s: calling initfn %d: %p\n", o.o_name, n, initFn);
+                initFn(main_argc, main_argv, main_envp);
+            }
+        }
     }
 }
 
@@ -782,6 +802,17 @@ void run_fini_funcs()
 {
     for (const auto& ole : s_FiniList) {
         Object& o = *ole.ol_object;
+
+        auto fini_array = reinterpret_cast<Elf_Addr*>(o.o_fini_array);
+        if (fini_array) {
+            for (int n = 0; n < o.o_fini_array_size; ++n) {
+                using FiniFn = void (*)();
+                auto finiFn = reinterpret_cast<FiniFn>(fini_array[n]);
+                dbg("%s: calling finifn %d: %p\n", o.o_name, n, finiFn);
+                finiFn();
+            }
+        }
+
         typedef void (*FuncPtr)();
         ((FuncPtr)(o.o_fini))();
     }
@@ -814,11 +845,13 @@ extern "C" Elf_Addr rtld(register_t* stk, addr_t* exit_func)
     auto stk_orig = stk;
     {
         dbg("init stk %p\n", stk);
-        auto argc = *stk++;
+        main_argc = *stk++;
         stk++; // progname
-        while (argc--)
-            stk++; // skip argc
+        main_argv = reinterpret_cast<char**>(stk);
+        for (auto argc = main_argc; argc > 0; --argc)
+            stk++; // skip args
         stk++;     // skip null
+        main_envp = reinterpret_cast<char**>(stk);
         while (*stk != 0)
             stk++; // skip envp
         stk++;     // skip null

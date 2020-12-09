@@ -42,6 +42,10 @@ struct Object : public util::List<Object>::NodePtr {
 
     Elf_Addr o_init;
     Elf_Addr o_fini;
+    Elf_Addr o_init_array;
+    Elf_Addr o_init_array_size;
+    Elf_Addr o_fini_array;
+    Elf_Addr o_fini_array_size;
 
     const Elf_Phdr* o_phdr;
     Elf_Half o_phdr_num;

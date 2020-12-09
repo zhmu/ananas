@@ -26,7 +26,7 @@ namespace
     typedef union header Header;
 
     constexpr size_t s_MinUnits = PAGE_SIZE / sizeof(header);
-    Header s_Base = {.h_next = nullptr, .h_size = 0}; /* empty list to get started */
+    Header s_Base = {}; /* empty list to get started */
     Header* s_Free = nullptr;                         /* start of free list */
 
     char* get_memory(size_t bytes)
