@@ -179,19 +179,17 @@ namespace ankhfs
                         break;
                     }
                     case subVmSpace: {
-                        if (p->p_vmspace != nullptr) {
-                            // XXX shouldn't we lock something here?'
-                            char* r = result;
-                            for (const auto& va : p->p_vmspace->vs_areas) {
-                                snprintf(
-                                    r, sizeof(result) - (r - result), "%p %p %c%c%c\n",
-                                    reinterpret_cast<void*>(va.va_virt),
-                                    reinterpret_cast<void*>(va.va_len),
-                                    (va.va_flags & VM_FLAG_READ) ? 'r' : '-',
-                                    (va.va_flags & VM_FLAG_WRITE) ? 'w' : '-',
-                                    (va.va_flags & VM_FLAG_EXECUTE) ? 'x' : '-');
-                                r += strlen(r);
-                            }
+                        // XXX shouldn't we lock something here?'
+                        char* r = result;
+                        for (const auto& va : p->p_vmspace.vs_areas) {
+                            snprintf(
+                                r, sizeof(result) - (r - result), "%p %p %c%c%c\n",
+                                reinterpret_cast<void*>(va.va_virt),
+                                reinterpret_cast<void*>(va.va_len),
+                                (va.va_flags & VM_FLAG_READ) ? 'r' : '-',
+                                (va.va_flags & VM_FLAG_WRITE) ? 'w' : '-',
+                                (va.va_flags & VM_FLAG_EXECUTE) ? 'x' : '-');
+                            r += strlen(r);
                         }
                         break;
                     }

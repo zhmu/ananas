@@ -75,6 +75,7 @@ namespace process
 } // namespace process
 
 struct Process final : util::refcounted<Process> {
+    Process(VMSpace&);
     ~Process();
 
     void AssertLocked() { p_lock.AssertLocked(); }
@@ -89,7 +90,7 @@ struct Process final : util::refcounted<Process> {
     int p_exit_status = 0; /* Exit status / code */
 
     Process* p_parent = nullptr;  /* Parent process, if any */
-    VMSpace* p_vmspace = nullptr; /* Process memory space */
+    VMSpace& p_vmspace; /* Process memory space */
 
     Thread* p_mainthread = nullptr; /* Main thread */
 

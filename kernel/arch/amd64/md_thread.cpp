@@ -54,7 +54,7 @@ namespace md::thread
         sf->sf_rflags = 0x200; /* IF */
 
         /* Fill out our MD fields */
-        t.md_cr3 = KVTOP(reinterpret_cast<addr_t>(proc.p_vmspace->vs_md_pagedir));
+        t.md_cr3 = KVTOP(reinterpret_cast<addr_t>(proc.p_vmspace.vs_md_pagedir));
         t.md_rsp = reinterpret_cast<addr_t>(sf);
         t.md_rsp0 = reinterpret_cast<addr_t>(t.md_kstack) + KERNEL_STACK_SIZE;
         t.md_rip = reinterpret_cast<addr_t>(&thread_trampoline);
@@ -168,7 +168,7 @@ namespace md::thread
         KASSERT(&::thread::GetCurrent() == &parent, "must clone active thread");
 
         /* Restore the thread's own page directory */
-        t.md_cr3 = KVTOP(reinterpret_cast<addr_t>(t.t_process.p_vmspace->vs_md_pagedir));
+        t.md_cr3 = KVTOP(reinterpret_cast<addr_t>(t.t_process.p_vmspace.vs_md_pagedir));
 
         /*
          * We need to copy the the stack frame so we can return return safely to the

@@ -78,7 +78,7 @@ Result sys_execve(Thread* t, const char* path, const char** argv, const char** e
 
     // Grab the vmspace of the process and clean it; this should only leave the
     // kernel stack, which we're currently using - any other mappings are gone
-    auto& vmspace = *proc.p_vmspace;
+    auto& vmspace = proc.p_vmspace;
     vmspace.PrepareForExecute();
 
     /*

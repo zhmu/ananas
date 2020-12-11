@@ -157,7 +157,7 @@ void elf64_add_note(char*& cur, const char* name, size_t contentLen, uint32_t ty
 Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
 {
     auto& proc = t->t_process;
-    auto vs = proc.p_vmspace;
+    auto& vs = proc.p_vmspace;
 
     /*
      * Create the NOTE section; this is the most important as is contains context
@@ -299,7 +299,7 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
     // Count mapped files and length of names
     size_t file_count = 0;
     size_t total_len = 2 * 8;
-    for (auto& va : vs->vs_areas) {
+    for (const auto& va : vs.vs_areas) {
         if (va.va_dentry == nullptr)
             continue;
 
@@ -320,7 +320,7 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
     cur += sizeof(uint64_t);
 
     uint64_t* p = reinterpret_cast<uint64_t*>(cur);
-    for (auto& va : vs->vs_areas) {
+    for (const auto& va : vs.vs_areas) {
         if (va.va_dentry == nullptr)
             continue;
         *p++ = va.va_virt;             // start
@@ -330,7 +330,7 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
         *p++ = va.va_doffset / PAGE_SIZE; // offset
     }
     cur = reinterpret_cast<char*>(p);
-    for (auto& va : vs->vs_areas) {
+    for (const auto& va : vs.vs_areas) {
         if (va.va_dentry == nullptr)
             continue;
         size_t plen = dentry_construct_path(cur, 1024 /* XXX */, *va.va_dentry);
@@ -348,7 +348,7 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
      * what is zero, what can be merged etc.
      */
     size_t num_phent = 1; // PT_NOTE
-    for (auto& va : vs->vs_areas) {
+    for (auto& va : vs.vs_areas) {
         for (auto& vp : va.va_pages) {
             num_phent++;
         }
@@ -398,7 +398,7 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
     addr_t ph_begin = sizeof(Elf64_Ehdr) + sizeof(Elf64_Phdr) * num_phent + note_len;
     ph_begin = (ph_begin | (PAGE_SIZE - 1)) + 1;
     size_t ph_index = 0;
-    for (auto& va : vs->vs_areas) {
+    for (auto& va : vs.vs_areas) {
         for (auto& vp : va.va_pages) {
             Elf64_Phdr phdr;
 
@@ -437,7 +437,7 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
     }
 
     // Store the page content
-    for (auto& va : vs->vs_areas) {
+    for (auto& va : vs.vs_areas) {
         for (auto& vp : va.va_pages) {
             if (auto result = vfs_write(f, reinterpret_cast<void*>(vp.vp_vaddr), PAGE_SIZE);
                 result.IsFailure())

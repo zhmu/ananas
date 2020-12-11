@@ -47,11 +47,10 @@ namespace process
     {
         KASSERT(process_kernel == nullptr, "process already initialised");
 
-        process_kernel = new Process;
+        process_kernel = new Process(kernel_vmspace);
         process_kernel->p_parent = process_kernel;
         process_kernel->p_state = PROCESS_STATE_ACTIVE;
         process_kernel->p_pid = 0;
-        process_kernel->p_vmspace = &kernel_vmspace;
 
         {
             MutexGuard g(process::process_mtx);
@@ -70,18 +69,14 @@ namespace process
 
 static Result process_alloc_ex(Process* parent, Process*& dest)
 {
-    auto p = new Process;
+    VMSpace* vmspace;
+    if (const auto result = vmspace_create(vmspace); result.IsFailure())
+        return result;
+
+    auto p = new Process(*vmspace);
     p->p_parent = parent; /* XXX should we take a ref here? */
     p->p_state = PROCESS_STATE_ACTIVE;
     p->p_pid = process::AllocateProcessID();
-
-    /* Create the process's vmspace */
-    auto result = vmspace_create(p->p_vmspace);
-    if (result.IsFailure()) {
-        delete p;
-        return result;
-    }
-    VMSpace& vs = *p->p_vmspace;
 
     // Clone the parent's descriptors
     if (parent != nullptr) {
@@ -91,17 +86,19 @@ static Result process_alloc_ex(Process* parent, Process*& dest)
 
             FD* fd_out;
             fdindex_t index_out;
-            result = fd::Clone(*parent, n, nullptr, *p, fd_out, n, index_out);
-            if (result.IsFailure())
-                goto fail;
+            if (const auto result = fd::Clone(*parent, n, nullptr, *p, fd_out, n, index_out); result.IsFailure()) {
+                delete p;
+                return result;
+            }
             KASSERT(n == index_out, "cloned fd %d to new fd %d", n, index_out);
         }
     }
 
     /* Run all process initialization callbacks */
-    result = vfs_init_process(*p);
-    if (result.IsFailure())
-        goto fail;
+    if (const auto result = vfs_init_process(*p); result.IsFailure()) {
+        delete p;
+        return result;
+    }
 
     /* Grab the parent's lock and insert the child */
     if (parent != nullptr) {
@@ -124,11 +121,6 @@ static Result process_alloc_ex(Process* parent, Process*& dest)
 
     dest = p;
     return Result::Success();
-
-fail:
-    vmspace_destroy(*p->p_vmspace);
-    delete p;
-    return result;
 }
 
 Result process_alloc(Process* parent, Process*& dest) { return process_alloc_ex(parent, dest); }
@@ -136,17 +128,22 @@ Result process_alloc(Process* parent, Process*& dest) { return process_alloc_ex(
 Result Process::Clone(Process*& out_p)
 {
     Process* newp;
-    if (auto result = process_alloc_ex(this, newp); result.IsFailure())
+    if (const auto result = process_alloc_ex(this, newp); result.IsFailure())
         return result;
 
     /* Duplicate the vmspace - this should leave the private mappings alone */
-    if (auto result = p_vmspace->Clone(*newp->p_vmspace); result.IsFailure()) {
+    if (const auto result = p_vmspace.Clone(newp->p_vmspace); result.IsFailure()) {
         newp->RemoveReference(); // destroys the process
         return result;
     }
 
     out_p = newp;
     return Result::Success();
+}
+
+Process::Process(VMSpace& vs)
+    : p_vmspace(vs)
+{
 }
 
 Process::~Process()
@@ -170,7 +167,7 @@ Process::~Process()
     process::AbandonProcessGroup(*this);
 
     // Process is gone - destroy any memory mappings held by it
-    vmspace_destroy(*p_vmspace);
+    vmspace_destroy(p_vmspace);
 
     // Remove the process from the all-process list
     {

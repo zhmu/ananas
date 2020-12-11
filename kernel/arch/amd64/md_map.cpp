@@ -107,7 +107,7 @@ namespace md::vm
 
     void UnmapPages(VMSpace& vs, addr_t virt, size_t num_pages)
     {
-        const bool is_cur_vmspace = thread::GetCurrent().t_process.p_vmspace == &vs;
+        const bool is_cur_vmspace = &thread::GetCurrent().t_process.p_vmspace == &vs;
 
         /* XXX we don't yet strip off bits 52-63 yet */
         auto pagedir = vs.vs_md_pagedir;

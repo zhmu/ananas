@@ -99,7 +99,7 @@ namespace
         auto exec = exec_prepare(dentry);
         if (exec != nullptr) {
             void* auxargs;
-            auto& vmspace = *proc->p_vmspace;
+            auto& vmspace = proc->p_vmspace;
             if (auto result = exec->Load(vmspace, dentry, auxargs); result.IsSuccess()) {
                 kprintf(" ok\n");
                 const char* argv[] = {"init", nullptr};
