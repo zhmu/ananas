@@ -29,6 +29,8 @@ struct ThreadWaiter;
 typedef util::List<ThreadWaiter> ThreadWaiterList;
 
 struct Thread {
+    Thread(Process& process);
+
     void SetName(const char* name);
 
     void Terminate(int); // must be called on curthread
@@ -44,16 +46,16 @@ struct Thread {
     MD_THREAD_FIELDS
 
     Spinlock t_lock;                      /* Lock protecting the thread data */
-    char t_name[THREAD_MAX_NAME_LEN + 1]; /* Thread name */
+    char t_name[THREAD_MAX_NAME_LEN + 1] = {}; /* Thread name */
 
-    refcount_t t_refcount; /* Reference count of the thread, >0 */
+    refcount_t t_refcount{}; /* Reference count of the thread, >0 */
 
     // Scheduler flags are protected by sched_lock
-    unsigned int t_sched_flags;
+    unsigned int t_sched_flags{};
 #define THREAD_SCHED_ACTIVE 0x0001    /* Thread is active on some CPU (curthread==this) */
 #define THREAD_SCHED_SUSPENDED 0x0002 /* Thread is currently suspended */
 
-    unsigned int t_flags;
+    unsigned int t_flags{};
 #define THREAD_FLAG_ZOMBIE 0x0004     /* Thread has no more resources */
 #define THREAD_FLAG_RESCHEDULE 0x0008 /* Thread desires a reschedule */
 #define THREAD_FLAG_REAPING 0x0010    /* Thread will be reaped (destroyed by idle thread) */
@@ -61,19 +63,19 @@ struct Thread {
 #define THREAD_FLAG_SIGPENDING 0x0040 /* Signal is pending */
 #define THREAD_FLAG_KTHREAD 0x8000    /* Kernel thread */
 
-    struct STACKFRAME* t_frame;
-    unsigned int t_md_flags;
+    struct STACKFRAME* t_frame{};
+    unsigned int t_md_flags{};
 
 #define THREAD_MAKE_EXITCODE(a, b) (((a) << 24) | ((b)&0x00ffffff))
 #define THREAD_TERM_SYSCALL 0 /* euthanasia */
 #define THREAD_TERM_SIGNAL 1  /* terminated by signal */
 
-    Process* t_process; /* associated process */
+    Process& t_process; /* associated process */
 
-    int t_priority; /* priority (0 highest) */
+    int t_priority{}; /* priority (0 highest) */
 #define THREAD_PRIORITY_DEFAULT 200
 #define THREAD_PRIORITY_IDLE 255
-    int t_affinity; /* thread CPU */
+    int t_affinity{}; /* thread CPU */
 #define THREAD_AFFINITY_ANY -1
 
     util::List<Thread>::Node t_NodeAllThreads;
@@ -83,7 +85,7 @@ struct Thread {
     ThreadWaiterList t_waitqueue;
 
     /* Timeout, when it expires the thread will be scheduled in */
-    tick_t t_timeout;
+    tick_t t_timeout{};
 
     signal::ThreadSpecificData t_sigdata;
 

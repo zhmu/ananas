@@ -14,7 +14,7 @@
 
 Result sys_fcntl(Thread* t, fdindex_t hindex, int cmd, const void* in, void* out)
 {
-    Process& process = *t->t_process;
+    Process& process = t->t_process;
 
     /* Get the handle */
     FD* fd;

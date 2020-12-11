@@ -68,7 +68,7 @@ namespace
         if (vo->vo_flags & VMOP_FLAG_PRIVATE)
             vm_flags |= VM_FLAG_PRIVATE;
 
-        VMSpace& vs = *curthread->t_process->p_vmspace;
+        VMSpace& vs = *curthread->t_process.p_vmspace;
         addr_t dest_addr = reinterpret_cast<addr_t>(vo->vo_addr);
         if ((vo->vo_flags & VMOP_FLAG_FIXED) == 0)
             dest_addr = vs.ReserveAdressRange(vo->vo_len);

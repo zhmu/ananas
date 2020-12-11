@@ -77,7 +77,7 @@ Result sys_sigsuspend(Thread* t, const sigset_t* sigmask)
 
 Result sys_kill(Thread* t, pid_t pid, int sig)
 {
-    Process& process = *t->t_process;
+    Process& process = t->t_process;
     if (pid == -1) {
         // Send to all processes where we have permission to send to (excluding system processed)
         return Result::Failure(EPERM); // TODO

@@ -15,13 +15,13 @@
 
 Result syscall_get_fd(Thread& t, int type, fdindex_t index, FD*& fd)
 {
-    return fd::Lookup(*t.t_process, index, type, fd);
+    return fd::Lookup(t.t_process, index, type, fd);
 }
 
 Result syscall_get_file(Thread& t, fdindex_t index, struct VFS_FILE** out)
 {
     FD* fd;
-    if (auto result = fd::Lookup(*t.t_process, index, FD_TYPE_FILE, fd); result.IsFailure())
+    if (auto result = fd::Lookup(t.t_process, index, FD_TYPE_FILE, fd); result.IsFailure())
         return result;
 
     struct VFS_FILE* file = &fd->fd_data.d_vfs_file;

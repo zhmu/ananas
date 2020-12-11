@@ -354,8 +354,6 @@ Result ELF64Loader::PrepareForExecute(
      *     auxv.
      * (5) We do not have to special-case the userland stack for cloning/exec.
      */
-    auto proc = t.t_process;
-
     VMArea* va;
     vs.MapTo(
         USERLAND_STACK_ADDR, THREAD_STACK_SIZE,

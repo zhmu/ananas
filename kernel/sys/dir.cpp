@@ -31,7 +31,7 @@ namespace
 
 Result sys_chdir(Thread* t, const char* path)
 {
-    Process& proc = *t->t_process;
+    Process& proc = t->t_process;
     DEntry* cwd = proc.p_cwd;
 
     struct VFS_FILE file;
@@ -48,7 +48,7 @@ Result sys_chdir(Thread* t, const char* path)
 
 Result sys_fchdir(Thread* t, fdindex_t index)
 {
-    Process& proc = *t->t_process;
+    Process& proc = t->t_process;
 
     FD* fd;
     if (auto result = syscall_get_fd(*t, FD_TYPE_FILE, index, fd); result.IsFailure())
@@ -59,7 +59,7 @@ Result sys_fchdir(Thread* t, fdindex_t index)
 
 Result sys_getcwd(Thread* t, char* buf, size_t size)
 {
-    Process& proc = *t->t_process;
+    Process& proc = t->t_process;
     DEntry& cwd = *proc.p_cwd;
 
     if (size == 0)

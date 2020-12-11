@@ -181,29 +181,21 @@ Process::~Process()
 
 void Process::AddThread(Thread& t)
 {
-    KASSERT(
-        t.t_process == nullptr, "thread %p already registered to process %p (we are %p)", &t,
-        t.t_process, this);
     KASSERT(p_mainthread == nullptr, "process %d already has thread %p", p_pid, p_mainthread);
     AddReference();
 
     p_lock.AssertLocked();
-    t.t_process = this;
     p_mainthread = &t;
 }
 
 void Process::RemoveThread(Thread& t)
 {
-    KASSERT(
-        t.t_process == this, "thread %p does not belongs to process %p, not %p!", &t, t.t_process,
-        this);
     KASSERT(p_mainthread == &t, "process %d thread is not %p but %p", p_pid, &t, p_mainthread);
     RemoveReference();
 
     // There must be at least one more reference to the process if the last
     // thread dies: whoever calls wait()
     p_lock.AssertLocked();
-    t.t_process = nullptr;
     p_mainthread = nullptr;
 }
 

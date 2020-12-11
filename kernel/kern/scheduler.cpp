@@ -317,9 +317,7 @@ namespace
         kprintf(
             "  thread %p '%s' sched_flags %d flags 0x%x\n", &t, t.t_name, t.t_sched_flags,
             t.t_flags);
-        if (auto p = t.t_process; p) {
-            kprintf("    process %d state %d\n", p->p_pid, p->p_state);
-        }
+        kprintf("    process %d state %d\n", t.t_process.p_pid, t.t_process.p_state);
         if (auto& w = t.t_sqwaiter; w.w_sq) {
             kprintf(
                 "    sleepqueue %p '%s' thread %p signalled %d\n", w.w_sq, w.w_sq->GetName(),

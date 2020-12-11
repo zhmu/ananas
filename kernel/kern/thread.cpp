@@ -47,8 +47,7 @@ namespace
 Result thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
 {
     /* First off, allocate the thread itself */
-    auto t = new Thread;
-    memset(t, 0, sizeof(Thread));
+    auto t = new Thread(p);
     p.AddThread(*t);
     t->t_sched_flags = 0;
     t->t_flags = 0;
@@ -85,14 +84,12 @@ Result kthread_alloc(const char* name, kthread_func_t func, void* arg, Thread*& 
      * Kernel threads do not have an associated process, and thus no handles,
      * vmspace and the like.
      */
-    auto t = new Thread;
-    memset(t, 0, sizeof(Thread));
+    auto t = new Thread(process::GetKernelProcess());
     t->t_sched_flags = 0;
     t->t_flags = THREAD_FLAG_KTHREAD;
     t->t_refcount = 1;
     t->t_priority = THREAD_PRIORITY_DEFAULT;
     t->t_affinity = THREAD_AFFINITY_ANY;
-    t->t_process = &process::GetKernelProcess();
     t->SetName(name);
 
     /* Initialize MD-specifics */
@@ -116,9 +113,7 @@ Result kthread_alloc(const char* name, kthread_func_t func, void* arg, Thread*& 
  */
 static void thread_cleanup(Thread& t)
 {
-    Process* p = t.t_process;
     KASSERT(!t.IsZombie(), "cleaning up zombie thread %p", &t);
-    KASSERT(t.IsKernel() || p != nullptr, "thread without process");
 
     /*
      * Signal anyone waiting on the thread; the terminate information should
@@ -126,6 +121,11 @@ static void thread_cleanup(Thread& t)
      * checks to ensure the thread is truly gone.
      */
     t.SignalWaiters();
+}
+
+Thread::Thread(Process& process)
+    : t_process(process)
+{
 }
 
 /*
@@ -146,7 +146,7 @@ void Thread::Destroy()
     md::thread::Free(*this);
 
     // Unregister ourselves with the owning process
-    t_process->RemoveThread(*this);
+    t_process.RemoveThread(*this);
 
     /* If we aren't reaping the thread, remove it from our thread queue; it'll be gone soon */
     KASSERT((t_flags & THREAD_FLAG_REAPING) == 0, "delete-ing with reaper?");
@@ -191,11 +191,11 @@ void Thread::Terminate(int exitcode)
 
     // Grab the process lock; this ensures WaitAndLock() will be blocked until the
     // thread is completely forgotten by the scheduler
-    t_process->Lock();
+    t_process.Lock();
 
     // If we are the process' main thread, mark it as exiting
-    if (t_process->p_mainthread == this) {
-        t_process->Exit(exitcode);
+    if (t_process.p_mainthread == this) {
+        t_process.Exit(exitcode);
     }
 
     // ...
@@ -206,8 +206,8 @@ void Thread::Terminate(int exitcode)
     scheduler::ExitThread(*this);
 
     // Signal parent in case it is waiting for a child to exit
-    t_process->SignalExit();
-    t_process->Unlock();
+    t_process.SignalExit();
+    t_process.Unlock();
 
     scheduler::Schedule();
     /* NOTREACHED */

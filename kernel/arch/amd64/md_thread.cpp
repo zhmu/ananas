@@ -31,7 +31,7 @@ namespace md::thread
 {
     Result InitUserlandThread(Thread& t, int flags)
     {
-        Process* proc = t.t_process;
+        auto& proc = t.t_process;
 
         /*
          * Create the kernel stack for this thread; we'll grab a few pages for this
@@ -54,10 +54,10 @@ namespace md::thread
         sf->sf_rflags = 0x200; /* IF */
 
         /* Fill out our MD fields */
-        t.md_cr3 = KVTOP((addr_t)proc->p_vmspace->vs_md_pagedir);
-        t.md_rsp = (addr_t)sf;
-        t.md_rsp0 = (addr_t)t.md_kstack + KERNEL_STACK_SIZE;
-        t.md_rip = (addr_t)&thread_trampoline;
+        t.md_cr3 = KVTOP(reinterpret_cast<addr_t>(proc.p_vmspace->vs_md_pagedir));
+        t.md_rsp = reinterpret_cast<addr_t>(sf);
+        t.md_rsp0 = reinterpret_cast<addr_t>(t.md_kstack) + KERNEL_STACK_SIZE;
+        t.md_rip = reinterpret_cast<addr_t>(&thread_trampoline);
         t.t_frame = sf;
 
         /* Initialize FPU state similar to what finit would do */
@@ -168,7 +168,7 @@ namespace md::thread
         KASSERT(&::thread::GetCurrent() == &parent, "must clone active thread");
 
         /* Restore the thread's own page directory */
-        t.md_cr3 = KVTOP((addr_t)t.t_process->p_vmspace->vs_md_pagedir);
+        t.md_cr3 = KVTOP(reinterpret_cast<addr_t>(t.t_process.p_vmspace->vs_md_pagedir));
 
         /*
          * We need to copy the the stack frame so we can return return safely to the

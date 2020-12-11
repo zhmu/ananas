@@ -612,9 +612,7 @@ const kdb::RegisterCommand
             kprintf(" cpu %d: cpuid %d curthread %p nested_irq %d\n", n,  pcpu->cpuid, pcpu->curthread, pcpu->nested_irq);
             if (auto t = pcpu->curthread; t) {
                 kprintf("  thread '%s'", t->t_name);
-                if (auto p = t->t_process; p) {
-                    kprintf(" process pid %d\n", p->p_pid);
-                }
+                kprintf(" process pid %d\n", t->t_process.p_pid);
                 kprintf("\n");
             }
         }

@@ -16,7 +16,7 @@
 
 Result sys_readlink(Thread* t, const char* path, char* buf, size_t buflen)
 {
-    Process& proc = *t->t_process;
+    Process& proc = t->t_process;
     DEntry* cwd = proc.p_cwd;
 
     // Attempt to map the buffer write-only

@@ -53,7 +53,7 @@ namespace
 
     Result vfshandle_open(Thread* t, fdindex_t index, FD& fd, const char* path, int flags, int mode)
     {
-        Process& proc = *t->t_process;
+        Process& proc = t->t_process;
 
         /*
          * If we could try to create the file, do so - if this fails, we'll attempt
@@ -125,7 +125,7 @@ namespace
         struct VFS_FILE* file;
         if (auto result = vfshandle_get_file(fd, file); result.IsFailure())
             return result;
-        return vfs_ioctl(t->t_process, file, request, args);
+        return vfs_ioctl(&t->t_process, file, request, args);
     }
 
     struct FDOperations vfs_ops = {

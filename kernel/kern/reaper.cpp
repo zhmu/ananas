@@ -18,49 +18,7 @@
 #include "kernel/result.h"
 #include "kernel/thread.h"
 
-namespace
-{
-    Spinlock spl_reaper;
-    //ThreadList reaper_list;
-    Semaphore reaper_sem{"reaper", 0};
-    Thread reaper_thread;
-
-#if 0
-    static void reaper_reap(void* context)
-    {
-        while (1) {
-            reaper_sem.Wait();
-
-            /* Fetch the item to reap from the queue */
-            Thread* t;
-            {
-                SpinlockGuard g(spl_reaper);
-                KASSERT(!reaper_list.empty(), "reaper woke up with empty queue?");
-                t = &reaper_list.front();
-                reaper_list.pop_front();
-            }
-            panic("need to reap %p ?!", t);
-            //t->Deref();
-        }
-    }
-
-    const init::OnInit initReaper(init::SubSystem::Scheduler, init::Order::Middle, []() {
-        kthread_init(reaper_thread, "reaper", &reaper_reap, NULL);
-        reaper_thread.Resume();
-    });
-#endif
-
-} // unnamed namespace
-
 void reaper_enqueue(Thread& t)
 {
-#if 0
-    {
-        SpinlockGuard g(spl_reaper);
-        reaper_list.push_back(t);
-    }
-
-    reaper_sem.Signal();
-#endif
     panic("reaper_enqueue");
 }

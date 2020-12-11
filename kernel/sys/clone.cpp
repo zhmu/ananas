@@ -12,7 +12,7 @@
 
 Result sys_clone(Thread* t, int flags)
 {
-    Process& proc = *t->t_process;
+    Process& proc = t->t_process;
 
     /* XXX Future improvement so we can do vfork() and such */
     if (flags != 0)

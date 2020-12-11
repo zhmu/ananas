@@ -12,7 +12,7 @@
 
 Result sys_rename(Thread* t, const char* oldpath, const char* newpath)
 {
-    Process& proc = *t->t_process;
+    Process& proc = t->t_process;
     DEntry* cwd = proc.p_cwd;
 
     struct VFS_FILE file;

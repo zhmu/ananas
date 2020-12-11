@@ -14,7 +14,7 @@
 
 Result sys_getpgrp(Thread* t)
 {
-    Process& process = *t->t_process;
+    Process& process = t->t_process;
 
     auto pgid = process.p_group->pg_id;
     return Result::Success(pgid);
@@ -23,11 +23,11 @@ Result sys_getpgrp(Thread* t)
 Result sys_setpgid(Thread* t, pid_t pid, pid_t pgid)
 {
     if (pid == 0)
-        pid = t->t_process->p_pid;
+        pid = t->t_process.p_pid;
     if (pgid == 0)
-        pgid = t->t_process->p_group->pg_id;
+        pgid = t->t_process.p_group->pg_id;
 
-    if (pid != t->t_process->p_pid)
+    if (pid != t->t_process.p_pid)
         return Result::Failure(EPERM); // XXX for now
 
     auto process = process_lookup_by_id_and_lock(pid);
@@ -51,7 +51,7 @@ Result sys_setpgid(Thread* t, pid_t pid, pid_t pgid)
 
 Result sys_setsid(Thread* t)
 {
-    Process& process = *t->t_process;
+    Process& process = t->t_process;
 
     // Reject if we already are a group leader
     if (process.p_group->pg_session.s_leader == &process)
@@ -69,6 +69,6 @@ Result sys_getsid(Thread* t, pid_t pid)
     if (pid != 0)
         return Result::Failure(EPERM); // XXX maybe be more lenient here
 
-    Process& process = *t->t_process;
+    Process& process = t->t_process;
     return Result(process.p_group->pg_session.s_sid);
 }

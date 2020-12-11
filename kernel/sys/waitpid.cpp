@@ -12,7 +12,7 @@
 Result sys_waitpid(Thread* t, pid_t pid, int* stat_loc, int options)
 {
     util::locked<Process> proc;
-    if (auto result = t->t_process->WaitAndLock(options, proc); result.IsFailure())
+    if (auto result = t->t_process.WaitAndLock(options, proc); result.IsFailure())
         return result;
 
     auto child_pid = proc->p_pid;

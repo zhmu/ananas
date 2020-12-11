@@ -114,7 +114,7 @@ namespace
             Thread& curThread = thread::GetCurrent();
             kprintf(
                 "name='%s' pid=%d\n", curThread.t_name,
-                curThread.t_process != NULL ? static_cast<int>(curThread.t_process->p_pid) : -1);
+                static_cast<int>(curThread.t_process.p_pid));
         }
 
         kprintf("rax=%p rbx=%p rcx=%p rdx=%p\n", sf->sf_rax, sf->sf_rbx, sf->sf_rcx, sf->sf_rdx);
@@ -160,11 +160,10 @@ namespace
             flags |= VM_FLAG_READ;
 
         // Let the VM code deal with the fault
-        if (auto process = thread::GetCurrent().t_process; process) {
-            if (auto result = process->p_vmspace->HandleFault(fault_addr, flags);
-                result.IsSuccess())
-                return; /* fault handeled */
-        }
+        auto& process = thread::GetCurrent().t_process;
+        if (auto result = process.p_vmspace->HandleFault(fault_addr, flags);
+            result.IsSuccess())
+            return; /* fault handeled */
 
         // Couldn't be handled; chain through
         exception_generic(sf);

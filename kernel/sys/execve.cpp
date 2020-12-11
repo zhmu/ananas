@@ -49,7 +49,7 @@ struct Arguments {
 
 Result sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 {
-    Process& proc = *t->t_process;
+    Process& proc = t->t_process;
 
     /* First step is to open the file */
     struct VFS_FILE file;

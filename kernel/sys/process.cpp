@@ -13,17 +13,17 @@
 
 Result sys_getpid(Thread* t)
 {
-    Process& process = *t->t_process;
+    Process& process = t->t_process;
 
-    auto pid = process.p_pid;
+    const auto pid = process.p_pid;
     return Result::Success(pid);
 }
 
 Result sys_getppid(Thread* t)
 {
-    Process& process = *t->t_process->p_parent;
+    Process& process = *t->t_process.p_parent;
 
-    auto ppid = process.p_pid;
+    const auto ppid = process.p_pid;
     return Result::Success(ppid);
 }
 

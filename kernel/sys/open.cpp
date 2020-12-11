@@ -14,7 +14,7 @@
 
 Result sys_open(Thread* t, const char* path, int flags, int mode)
 {
-    Process& proc = *t->t_process;
+    Process& proc = t->t_process;
 
     /* Obtain a new handle */
     FD* fd;

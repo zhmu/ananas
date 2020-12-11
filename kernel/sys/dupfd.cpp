@@ -14,7 +14,7 @@
 
 Result sys_dup(Thread* t, fdindex_t index)
 {
-    Process& process = *t->t_process;
+    Process& process = t->t_process;
 
     FD* fd_out;
     fdindex_t index_out;
@@ -27,7 +27,7 @@ Result sys_dup(Thread* t, fdindex_t index)
 
 Result sys_dup2(Thread* t, fdindex_t index, fdindex_t newindex)
 {
-    Process& process = *t->t_process;
+    Process& process = t->t_process;
     if (newindex >= PROCESS_MAX_DESCRIPTORS)
         return Result::Failure(EINVAL);
 

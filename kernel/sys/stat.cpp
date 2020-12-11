@@ -44,7 +44,7 @@ namespace
 
     Result do_stat(Thread* t, const char* path, struct stat* buf, int lookup_flags)
     {
-        Process& proc = *t->t_process;
+        Process& proc = t->t_process;
 
         struct VFS_FILE file;
         if (auto result = vfs_open(&proc, path, proc.p_cwd, &file, lookup_flags);

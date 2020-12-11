@@ -156,8 +156,8 @@ void elf64_add_note(char*& cur, const char* name, size_t contentLen, uint32_t ty
 
 Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
 {
-    auto proc = t->t_process;
-    auto vs = proc->p_vmspace;
+    auto& proc = t->t_process;
+    auto vs = proc.p_vmspace;
 
     /*
      * Create the NOTE section; this is the most important as is contains context
@@ -196,7 +196,7 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
         cur += sizeof(*prps);
 
         memset(prps, 0, sizeof(*prps));
-        prps->pr_pid = proc->p_pid;
+        prps->pr_pid = proc.p_pid;
         strcpy(prps->pr_fname, "./m");
     }
 
@@ -261,7 +261,7 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
         cur += sizeof(*prs);
 
         memset(prs, 0, sizeof(*prs));
-        prs->pr_pid = proc->p_pid;
+        prs->pr_pid = proc.p_pid;
         prs->pr_reg.rax = sf->sf_rax;
         prs->pr_reg.rbx = sf->sf_rbx;
         prs->pr_reg.rcx = sf->sf_rcx;
@@ -452,13 +452,13 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
 
 Result core_dump(Thread* t, struct STACKFRAME* sf)
 {
-    Process* proc = t->t_process;
+    Process& proc = t->t_process;
 
     const char* path = "/dump/core";
     mode_t mode = 0600;
 
     struct VFS_FILE f;
-    if (auto result = vfs_create(proc->p_cwd, &f, path, mode); result.IsFailure())
+    if (auto result = vfs_create(proc.p_cwd, &f, path, mode); result.IsFailure())
         return result;
 
     if (auto result = elf64_coredump(t, sf, &f); result.IsFailure())
@@ -466,5 +466,5 @@ Result core_dump(Thread* t, struct STACKFRAME* sf)
 
     kprintf("core_dump: pre-close: offs=%d\n", (int)f.f_offset);
 
-    return vfs_close(proc, &f);
+    return vfs_close(&proc, &f);
 }
