@@ -32,7 +32,7 @@ void* memset(void* b, int c, size_t len) __nonnull;
 void vaprintf(const char* fmt, va_list ap);
 int vsnprintf(char* str, size_t len, const char* fmt, va_list ap);
 void kprintf(const char* fmt, ...);
-void _panic(const char* file, const char* func, int line, const char* fmt, ...) __noreturn;
+[[noreturn]] void _panic(const char* file, const char* func, int line, const char* fmt, ...);
 int sprintf(char* str, const char* fmt, ...);
 int snprintf(char* str, size_t len, const char* fmt, ...);
 char* strdup(const char* s) __nonnull;

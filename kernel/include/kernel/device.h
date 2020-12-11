@@ -13,10 +13,6 @@
 #include "kernel/result.h"
 #include "kernel/resourceset.h"
 
-typedef struct DEVICE* device_t;
-typedef struct DRIVER* driver_t;
-typedef struct PROBE* probe_t;
-
 struct BIO;
 struct Process;
 
@@ -204,9 +200,3 @@ namespace device_manager
     Device* CreateDevice(const char* driver, const CreateDeviceProperties& cdp);
 
 } // namespace device_manager
-
-// Device-specific resource management; assigns the resource to the device
-void* operator new(size_t len, device_t dev) throw();
-void operator delete(void* p, device_t dev) throw();
-void* operator new[](size_t len, device_t dev) throw();
-void operator delete[](void* p, device_t dev) throw();

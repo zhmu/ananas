@@ -1534,6 +1534,8 @@ extern void*     sbrk(ptrdiff_t);
 
 /* Ananas assert */
 #undef assert
+#define __STRINGIFY2(x) #x
+#define STRINGIFY(x) __STRINGIFY2(x)
 #define assert(x) KASSERT(x, STRINGIFY(x))
 
 /* Declarations for locking */

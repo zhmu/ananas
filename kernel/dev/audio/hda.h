@@ -236,7 +236,6 @@ namespace hda
         PlayContext* hda_pc = nullptr;
     };
 
-    void hda_stream_irq(device_t dev, void* ctx);
 /* If true, we'll dump the entire HDA codec setup on attach */
 #define HDA_VERBOSE 1
 

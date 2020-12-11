@@ -229,14 +229,6 @@ namespace usb
         return qh;
     }
 
-#if 0
-static void	
-uhci_free_td(device_t dev, struct HCD_TD* td)
-{
-	dma_buf_free(td->td_buf);
-}
-#endif
-
     void UHCI_HCD::FreeQH(uhci::HCD_QH* qh)
     {
         delete qh->qh_buf;

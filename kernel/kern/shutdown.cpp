@@ -22,7 +22,7 @@ namespace shutdown
 
         constexpr int shutdownDelayInSeconds = 1;
 
-        void PerformShutdown(void*) __noreturn;
+        [[noreturn]] void PerformShutdown(void*);
 
         void PerformShutdown(void*)
         {
