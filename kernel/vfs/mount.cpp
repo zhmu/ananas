@@ -11,13 +11,10 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/icache.h"
 #include "options.h"
-
-TRACE_SETUP;
 
 namespace vfs
 {
@@ -89,7 +86,6 @@ Result vfs_mount(const char* from, const char* to, const char* type)
         memset(fs, 0, sizeof(*fs));
         return result;
     }
-    TRACE(VFS, INFO, "to='%s',fs=%p,rootinode=%p", to, fs, root_inode);
 
     KASSERT(root_inode != NULL, "successful mount without a root inode");
     KASSERT(S_ISDIR(root_inode->i_sb.st_mode), "root inode isn't a directory");

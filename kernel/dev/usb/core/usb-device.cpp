@@ -10,15 +10,12 @@
 #include "kernel/list.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "config.h"
 #include "usb-bus.h"
 #include "usb-core.h"
 #include "usb-device.h"
 #include "usb-transfer.h"
 #include "../device/usb-hub.h"
-
-TRACE_SETUP;
 
 namespace usb
 {
@@ -65,14 +62,6 @@ namespace usb
                 result.IsFailure())
                 return result;
 
-            TRACE(
-                USB, INFO,
-                "got partial device descriptor: len=%u, type=%u, version=%u, class=%u, "
-                "subclass=%u, protocol=%u, maxsize=%u",
-                ud_descr_device.dev_length, ud_descr_device.dev_type, ud_descr_device.dev_version,
-                ud_descr_device.dev_class, ud_descr_device.dev_subclass,
-                ud_descr_device.dev_protocol, ud_descr_device.dev_maxsize0);
-
             // Store the maximum endpoint 0 packet size
             ud_max_packet_sz0 = ud_descr_device.dev_maxsize0;
         }
@@ -98,7 +87,6 @@ namespace usb
              * but this only complicates things, so let's not go there...
              */
             ud_address = dev_address;
-            TRACE(USB, INFO, "logical address is %u", ud_address);
         }
 
         /* Now, obtain the entire device descriptor */
@@ -110,16 +98,6 @@ namespace usb
                     &ud_descr_device, &len, false);
                 result.IsFailure())
                 return result;
-
-            TRACE(
-                USB, INFO,
-                "got full device descriptor: len=%u, type=%u, version=%u, class=%u, subclass=%u, "
-                "protocol=%u, maxsize=%u, vendor=%u, product=%u numconfigs=%u",
-                ud_descr_device.dev_length, ud_descr_device.dev_type, ud_descr_device.dev_version,
-                ud_descr_device.dev_class, ud_descr_device.dev_subclass,
-                ud_descr_device.dev_protocol, ud_descr_device.dev_maxsize0,
-                ud_descr_device.dev_vendor, ud_descr_device.dev_product,
-                ud_descr_device.dev_num_configs);
         }
 
         {
@@ -135,7 +113,6 @@ namespace usb
 
             /* Retrieved string language code */
             uint16_t langid = s.u.str_langid[0];
-            TRACE(USB, INFO, "got language code, first is %u", langid);
 
             /* Time to fetch strings; this must be done in two steps: length and content */
             len = 4 /* length only */;
@@ -148,7 +125,6 @@ namespace usb
                 return result;
 
             /* Retrieved string length */
-            TRACE(USB, INFO, "got string length=%u", s.str_length);
 
             /* Fetch the entire string this time */
             char tmp[1024]; /* XXX */
@@ -185,14 +161,6 @@ namespace usb
                 result.IsFailure())
                 return result;
 
-            /* Retrieved partial config descriptor */
-            TRACE(
-                USB, INFO,
-                "got partial config descriptor: len=%u, num_interfaces=%u, id=%u, stringidx=%u, "
-                "attrs=%u, maxpower=%u, total=%u",
-                c.cfg_length, c.cfg_numinterfaces, c.cfg_identifier, c.cfg_stringidx, c.cfg_attrs,
-                c.cfg_maxpower, c.cfg_totallen);
-
             /* Fetch the full descriptor */
             char tmp[1024]; /* XXX */
             auto c_full = reinterpret_cast<struct USB_DESCR_CONFIG*>(tmp);
@@ -204,9 +172,6 @@ namespace usb
                     c_full, &len, false);
                 result.IsFailure())
                 return result;
-
-            /* Retrieved full device descriptor */
-            TRACE(USB, INFO, "got full config descriptor");
 
             /* Handle the configuration */
             if (auto result =
@@ -222,7 +187,6 @@ namespace usb
                 return result;
 
             /* Configuration activated */
-            TRACE(USB, INFO, "configuration activated");
             ud_cur_interface = 0;
         }
 

@@ -10,16 +10,12 @@
 #include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vm.h"
 #include "syscall.h"
 
-TRACE_SETUP;
-
 Result sys_readlink(Thread* t, const char* path, char* buf, size_t buflen)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, path='%p'", t, path);
     Process& proc = *t->t_process;
     DEntry* cwd = proc.p_cwd;
 
@@ -41,6 +37,5 @@ Result sys_readlink(Thread* t, const char* path, char* buf, size_t buflen)
     if (result.IsFailure())
         return result;
 
-    TRACE(SYSCALL, FUNC, "t=%p, success: size=%u", t, result.AsStatusCode());
     return result;
 }

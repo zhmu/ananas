@@ -14,7 +14,6 @@
 #include "kernel/result.h"
 #include "kernel/time.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "kernel-md/io.h"
 #include "../core/descriptor.h"
 #include "../core/usb-core.h"
@@ -24,8 +23,6 @@
 #include "ohci-reg.h"
 #include "ohci-hcd.h"
 #include "ohci-roothub.h"
-
-TRACE_SETUP;
 
 namespace usb
 {

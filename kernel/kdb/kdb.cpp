@@ -12,15 +12,12 @@
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "options.h"
 #ifdef OPTION_DEBUG_CONSOLE
 #include "kernel/debug-console.h"
 #endif
 #include "kernel-md/smp.h"
 #include "kernel-md/interrupts.h"
-
-TRACE_SETUP;
 
 namespace kdb
 {

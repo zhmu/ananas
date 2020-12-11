@@ -10,15 +10,12 @@
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/vmarea.h"
 #include "kernel/vmspace.h"
 #include "kernel/vmpage.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vm.h"
-
-TRACE_SETUP;
 
 namespace
 {
@@ -94,7 +91,6 @@ namespace
 
 Result VMSpace::HandleFault(addr_t virt, int flags)
 {
-    TRACE(VM, INFO, "HandleFault(): vs=%p, virt=%p, flags=0x%x", this, virt, flags);
     // kprintf("HandleFault(): vs=%p, virt=%p, flags=0x%x\n", vs, virt, flags);
 
     // Walk through the areas one by one

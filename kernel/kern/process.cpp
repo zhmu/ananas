@@ -17,14 +17,11 @@
 #include "kernel/processgroup.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel/vmarea.h"
 #include "kernel/vmspace.h"
 #include "kernel/vfs/core.h" // for vfs_{init,exit}_process
 #include "options.h"
-
-TRACE_SETUP;
 
 /* XXX These should be locked */
 

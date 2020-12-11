@@ -11,7 +11,6 @@
 #include "kernel/process.h"
 #include "kernel/kmem.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel/vmspace.h"
 #include "framebuffer.h"
@@ -22,8 +21,6 @@
 extern int video_resolution_width;
 extern int video_resolution_height;
 extern addr_t video_framebuffer;
-
-TRACE_SETUP;
 
 namespace font = unscii16;
 

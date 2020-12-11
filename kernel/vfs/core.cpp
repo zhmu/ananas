@@ -11,12 +11,9 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/types.h"
 #include "kernel/vfs/mount.h"
 #include "kernel/vfs/icache.h"
-
-TRACE_SETUP;
 
 bool vfs_is_filesystem_sane(struct VFS_MOUNTED_FS* fs)
 {

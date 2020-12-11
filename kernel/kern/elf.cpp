@@ -15,7 +15,6 @@
 #include "kernel/result.h"
 #include "kernel/process.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "kernel/vmarea.h"
 #include "kernel/vmspace.h"
 #include "kernel/vfs/core.h"
@@ -23,8 +22,6 @@
 #include "kernel/vm.h"
 #include "kernel-md/md.h"
 #include "kernel-md/param.h"
-
-TRACE_SETUP;
 
 // XXX The next constants are a kludge - we need to have a nicer mechanism to allocate
 //     virtual address space (vmspace should be extended for dynamic mappings)

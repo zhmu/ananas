@@ -294,5 +294,5 @@ Result sys_sigreturn(Thread* t)
     // Ensure we return the previous return value of whatever we interrupted;
     // whatever signal handler we ran will likely have thrashed the value, so
     // we need to reload it
-    return Result(sf->sf_rax, true);
+    return Result(sf->sf_rax);
 }

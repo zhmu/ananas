@@ -9,7 +9,6 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/vmarea.h"
 #include "kernel/vmpage.h"
 #include "kernel/vmspace.h"
@@ -18,8 +17,6 @@
 #include "kernel/vm.h"
 #include "kernel-md/param.h" // for THREAD_INITIAL_MAPPING_ADDR
 #include "kernel-md/md.h"
-
-TRACE_SETUP;
 
 namespace
 {
@@ -160,8 +157,6 @@ Result VMSpace::Map(
      */
     auto va = new VMArea(*this, virt, len, areaFlags);
     vs_areas.push_back(*va);
-    TRACE(
-        VM, INFO, "vmspace_mapto(): vs=%p, va=%p, virt=%p, flags=0x%x", this, va, virt, areaFlags);
     va_out = va;
 
     /* Provide a mapping for the pages */
@@ -216,8 +211,6 @@ void VMSpace::PrepareForExecute()
 
 Result VMSpace::Clone(VMSpace& vs_dest)
 {
-    TRACE(VM, INFO, "vmspace_clone(): source=%p dest=%p", this, &vs_dest);
-
     /*
      * First, clean up the destination area's mappings - this ensures we'll
      * overwrite them with our own. Note that we'll leave private mappings alone.

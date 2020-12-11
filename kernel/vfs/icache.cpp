@@ -12,14 +12,11 @@
 #include "kernel/mm.h"
 #include "kernel/result.h"
 #include "kernel/schedule.h" // XXX
-#include "kernel/trace.h"
 #include "kernel/vmpage.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/icache.h"
 #include "options.h"
-
-TRACE_SETUP;
 
 #define INODE_ASSERT_SANE(i)                                       \
     KASSERT((i).i_refcount > 0, "referencing inode with no refs"); \
@@ -125,7 +122,6 @@ namespace
 
 void vfs_deref_inode(INode& inode)
 {
-    TRACE(VFS, FUNC, "inode=%p,cur refcount=%u", &inode, inode.i_refcount);
     INODE_ASSERT_SANE(inode);
 
     inode.Lock();
@@ -141,7 +137,6 @@ void vfs_deref_inode(INode& inode)
 
 void vfs_ref_inode(INode& inode)
 {
-    TRACE(VFS, FUNC, "inode=%p,cur refcount=%u", &inode, inode.i_refcount);
     INODE_ASSERT_SANE(inode);
 
     inode.Lock();
@@ -204,13 +199,11 @@ static INode* icache_lookup_locked(struct VFS_MOUNTED_FS* fs, ino_t inum)
         icache_inuse.remove(inode);
         icache_inuse.push_front(inode);
         icache_unlock();
-        TRACE(VFS, INFO, "cache hit: fs=%p, inum=%lx => inode=%p", fs, inum, &inode);
         return &inode;
     }
 
     /* Fetch a new item and place it at the head; it's most recently used after all */
     auto& inode = icache_find_item_to_use();
-    TRACE(VFS, INFO, "cache miss: fs=%p, inum=%lx => inode=%p", fs, inum, &inode);
     icache_inuse.push_front(inode);
 
     // Fill out some basic information
@@ -231,8 +224,6 @@ static INode* icache_lookup_locked(struct VFS_MOUNTED_FS* fs, ino_t inum)
  */
 Result vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode)
 {
-    TRACE(VFS, FUNC, "fs=%p, inum=%lx", fs, inum);
-
     /*
      * Wait until we obtain a cache spot - this waits for pending inodes to be
      * finished up. By ensuring we fill the cache we ensure the inode can only
@@ -243,7 +234,6 @@ Result vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode)
         inode = icache_lookup_locked(fs, inum);
         if (inode != nullptr)
             break;
-        TRACE(VFS, WARN, "inode is already pending, waiting...");
         /* XXX There should be a wakeup signal of some kind */
         scheduler::Schedule();
     }
@@ -253,7 +243,6 @@ Result vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode)
         /* Already have the inode cached -> return it (refcount will already be incremented) */
         inode->Unlock();
         destinode = inode;
-        TRACE(VFS, INFO, "cache hit: fs=%p, inum=%lx => inode=%p", fs, inum, inode);
         return Result::Success();
     }
 
@@ -282,7 +271,6 @@ Result vfs_get_inode(struct VFS_MOUNTED_FS* fs, ino_t inum, INode*& destinode)
 
     // Inode is complete
     KASSERT(inode->i_refcount == 1, "fresh inode refcount incorrect");
-    TRACE(VFS, INFO, "cache miss: fs=%p, inum=%lx => inode=%p", fs, inum, inode);
     inode->i_flags &= ~INODE_FLAG_PENDING;
     inode->Unlock();
     destinode = inode;

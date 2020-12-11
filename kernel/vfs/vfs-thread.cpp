@@ -11,16 +11,11 @@
 #include "kernel/lib.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 
-TRACE_SETUP;
-
 Result vfs_init_process(Process& proc)
 {
-    TRACE(THREAD, INFO, "proc=%p", &proc);
-
     /* If there is a parent, try to clone it's parent handles */
     Process* parent = proc.p_parent;
     if (parent != nullptr) {
@@ -61,8 +56,6 @@ Result vfs_init_process(Process& proc)
 
 void vfs_exit_process(Process& proc)
 {
-    TRACE(THREAD, INFO, "proc=%p", &proc);
-
     if (proc.p_cwd != nullptr) {
         dentry_deref(*proc.p_cwd);
         proc.p_cwd = nullptr;

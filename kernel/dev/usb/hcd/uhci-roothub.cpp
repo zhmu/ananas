@@ -15,7 +15,6 @@
 #include "kernel/schedule.h" // XXX
 #include "kernel/thread.h"
 #include "kernel/time.h"
-#include "kernel/trace.h"
 #include "kernel-md/io.h"
 #include "../core/descriptor.h"
 #include "../core/usb-bus.h"
@@ -25,8 +24,6 @@
 #include "uhci-reg.h"
 #include "uhci-hcd.h"
 #include "uhci-roothub.h"
-
-TRACE_SETUP;
 
 namespace usb
 {

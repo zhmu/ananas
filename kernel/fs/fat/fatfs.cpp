@@ -42,7 +42,6 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/generic.h"
 #include "kernel/vfs/mount.h"
@@ -53,8 +52,6 @@
 #include "fatfs.h"
 
 #undef DEBUG_FAT
-
-TRACE_SETUP;
 
 static Result fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
 {

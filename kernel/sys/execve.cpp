@@ -11,13 +11,10 @@
 #include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vmspace.h"
 #include "kernel-md/md.h"
-
-TRACE_SETUP;
 
 struct Arguments {
     Arguments(const char** argp)
@@ -52,7 +49,6 @@ struct Arguments {
 
 Result sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, path='%s'", t, path);
     Process& proc = *t->t_process;
 
     /* First step is to open the file */

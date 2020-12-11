@@ -27,11 +27,9 @@
 #include "kernel/mm.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/types.h"
+#include <ananas/util/array.h>
 #include "options.h"
-
-TRACE_SETUP;
 
 namespace
 {
@@ -195,7 +193,6 @@ namespace
      */
     BIO& getblk(Device* device, blocknr_t block, size_t len)
     {
-        TRACE(BIO, FUNC, "dev=%p, block=%u, len=%u", device, (int)block, len);
         KASSERT((len % BIO_SECTOR_SIZE) == 0, "length %u not a multiple of bio sector size", len);
 
         mtx_cache.Lock();
@@ -251,7 +248,6 @@ namespace
         // Put buffer on corresponding queue
         bio_bucket[BucketForBIO(bio)].push_front(bio);
         mtx_cache.Unlock();
-        TRACE(BIO, INFO, "returning new bio=%p", &bio);
         return bio;
     }
 
@@ -299,7 +295,6 @@ const init::OnInit initBIO(init::SubSystem::BIO, init::Order::First, []() {
 
 Result BIO::Wait()
 {
-    TRACE(BIO, FUNC, "bio=%p", this);
 
     b_objlock->Lock();
     while ((b_oflags & oflag::Done) == 0) {
@@ -315,7 +310,6 @@ Result BIO::Wait()
  */
 void BIO::Release()
 {
-    TRACE(BIO, FUNC, "bio=%p", this);
     KASSERT((b_cflags & cflag::Busy) != 0, "release on non-busy bio %p", this);
 
     // Wake up event: waiting for any buffer to become free
@@ -337,7 +331,6 @@ void BIO::Release()
 
     // Wake up event: waiting for this buffer to become free
     b_cv_busy.Broadcast();
-    TRACE(BIO, FUNC, "bio=%p DONE", this);
 }
 
 Result bread(Device* device, blocknr_t block, size_t len, BIO*& result)
@@ -351,15 +344,12 @@ Result bread(Device* device, blocknr_t block, size_t len, BIO*& result)
 
     // Sleep on event: disk read completed
     bio.Wait();
-    TRACE(BIO, INFO, "dev=%p, block=%u, len=%u ==> new block %p", device, (int)block, len, &bio);
     result = &bio;
     return bio.b_status;
 }
 
 void BIO::Done(Result status)
 {
-    TRACE(BIO, FUNC, "bio=%p", this);
-
     b_objlock->Lock();
     KASSERT((b_oflags & oflag::Done) == 0, "bio %p already done", this);
     b_oflags |= oflag::Done;

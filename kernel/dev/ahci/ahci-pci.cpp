@@ -15,14 +15,11 @@
 #include "kernel/mm.h"
 #include "kernel/result.h"
 #include "kernel/time.h"
-#include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel-md/dma.h"
 #include "kernel-md/vm.h"
 #include "ahci.h"
 #include "ahci-pci.h"
-
-TRACE_SETUP;
 
 namespace ahci
 {

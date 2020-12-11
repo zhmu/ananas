@@ -15,11 +15,8 @@
 #include "kernel/mbr.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 
 #include "../ahci/ahci.h" // XXX
-
-TRACE_SETUP;
 
 namespace
 {

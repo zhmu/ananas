@@ -13,10 +13,7 @@
 #include "kernel/mbr.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "scsi.h"
-
-TRACE_SETUP;
 
 using Direction = ISCSIDeviceOperations::Direction;
 

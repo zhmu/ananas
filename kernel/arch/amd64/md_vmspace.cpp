@@ -8,14 +8,11 @@
 #include <ananas/errno.h>
 #include "kernel/lib.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel/vmspace.h"
 #include "kernel-md/md.h"
 #include "kernel-md/param.h"
 #include "kernel-md/vm.h"
-
-TRACE_SETUP;
 
 extern Page* usupport_page;
 

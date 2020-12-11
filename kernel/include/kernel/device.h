@@ -80,12 +80,12 @@ class IDeviceOperations
 
     virtual Result IOControl(Process* proc, unsigned long request, void* args[])
     {
-        return Result::FromErrNo(EINVAL);
+        return Result::Failure(EINVAL);
     }
 
     virtual Result DetermineDevicePhysicalAddres(addr_t& physAddress, size_t& length, int& mapFlags)
     {
-        return Result::FromErrNo(EINVAL);
+        return Result::Failure(EINVAL);
     }
 };
 
@@ -94,12 +94,12 @@ class ICharDeviceOperations
   public:
     virtual Result Write(const void* buffer, size_t len, off_t offset)
     {
-        return Result::FromErrNo(EINVAL);
+        return Result::Failure(EINVAL);
     }
 
     virtual Result Read(void* buffer, size_t len, off_t offset)
     {
-        return Result::FromErrNo(EINVAL);
+        return Result::Failure(EINVAL);
     }
 };
 

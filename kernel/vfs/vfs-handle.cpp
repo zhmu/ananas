@@ -15,11 +15,8 @@
 #include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
-
-TRACE_SETUP;
 
 namespace
 {
@@ -83,7 +80,6 @@ namespace
         /* XXX do something more with mode / open */
 
         /* And open the path */
-        TRACE(SYSCALL, INFO, "opening path '%s'", path);
         return vfs_open(&proc, path, proc.p_cwd, &fd.fd_data.d_vfs_file);
     }
 

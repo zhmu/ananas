@@ -32,14 +32,11 @@
 #include "kernel/result.h"
 #include "kernel/schedule.h"
 #include "kernel/time.h"
-#include "kernel/trace.h"
 #include "kernel/thread.h"
 #include "kernel/vm.h"
 #include "kernel-md/interrupts.h"
 #include "kernel-md/md.h"
 #include "options.h"
-
-TRACE_SETUP;
 
 namespace
 {
@@ -164,7 +161,6 @@ void Thread::Destroy()
 
 void Thread::Suspend()
 {
-    TRACE(THREAD, FUNC, "t=%p", this);
     KASSERT(!IsSuspended(), "suspending suspended thread %p", this);
     KASSERT(this != PCPU_GET(idlethread), "suspending idle thread");
     scheduler::SuspendThread(*this);
@@ -186,8 +182,6 @@ void thread_sleep_ms(unsigned int ms)
 
 void Thread::Resume()
 {
-    TRACE(THREAD, FUNC, "t=%p", this);
-
     scheduler::ResumeThread(*this);
 }
 
@@ -236,7 +230,6 @@ void Thread::SetName(const char* name)
 
 Result thread_clone(Process& proc, Thread*& out_thread)
 {
-    TRACE(THREAD, FUNC, "proc=%p", &proc);
     auto& curThread = thread::GetCurrent();
 
     Thread* t;

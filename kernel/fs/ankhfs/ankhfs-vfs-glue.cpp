@@ -9,7 +9,6 @@
 #include "kernel/init.h"
 #include "kernel/lib.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/generic.h"
@@ -21,8 +20,6 @@
 #include "proc.h"
 #include "root.h"
 #include "support.h"
-
-TRACE_SETUP;
 
 namespace ankhfs
 {

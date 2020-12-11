@@ -8,10 +8,7 @@
 #include <ananas/errno.h>
 #include "kernel/processgroup.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/lib.h"
-
-TRACE_SETUP;
 
 namespace process
 {

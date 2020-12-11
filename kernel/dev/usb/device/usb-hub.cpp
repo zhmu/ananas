@@ -12,7 +12,6 @@
 #include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/time.h"
-#include "kernel/trace.h"
 #include "../core/config.h"
 #include "../core/usb-bus.h"
 #include "../core/usb-core.h"
@@ -27,8 +26,6 @@ namespace usb
 #else
 #define DPRINTF(...)
 #endif
-
-    TRACE_SETUP;
 
     Hub::~Hub()
     {

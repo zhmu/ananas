@@ -8,14 +8,9 @@
 #include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
-
-TRACE_SETUP;
 
 Result sys_waitpid(Thread* t, pid_t pid, int* stat_loc, int options)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, pid=%d stat_loc=%p options=%d", t, pid, stat_loc, options);
-
     util::locked<Process> proc;
     if (auto result = t->t_process->WaitAndLock(options, proc); result.IsFailure())
         return result;

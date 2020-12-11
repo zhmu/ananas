@@ -15,11 +15,8 @@
 #include "kernel/mm.h"
 #include "kernel/page.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel-md/dma.h"
-
-TRACE_SETUP;
 
 namespace dma
 {

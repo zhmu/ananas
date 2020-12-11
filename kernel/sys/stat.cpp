@@ -12,12 +12,9 @@
 #include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "syscall.h"
-
-TRACE_SETUP;
 
 namespace
 {
@@ -63,20 +60,16 @@ namespace
 
 Result sys_stat(Thread* t, const char* path, struct stat* buf)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, path='%s' buf=%p", t, path, buf);
     return do_stat(t, path, buf, VFS_LOOKUP_FLAG_DEFAULT);
 }
 
 Result sys_lstat(Thread* t, const char* path, struct stat* buf)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, path='%s' buf=%p", t, path, buf);
     return do_stat(t, path, buf, VFS_LOOKUP_FLAG_NO_FOLLOW);
 }
 
 Result sys_fstat(Thread* t, fdindex_t hindex, struct stat* buf)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, hindex=%d, buf=%p", t, hindex, buf);
-
     /* Get the handle */
     FD* fd;
     if (auto result = syscall_get_fd(*t, FD_TYPE_FILE, hindex, fd); result.IsFailure())

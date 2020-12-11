@@ -10,12 +10,9 @@
 #include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "syscall.h"
-
-TRACE_SETUP;
 
 namespace
 {
@@ -34,7 +31,6 @@ namespace
 
 Result sys_chdir(Thread* t, const char* path)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, path='%s'", t, path);
     Process& proc = *t->t_process;
     DEntry* cwd = proc.p_cwd;
 
@@ -52,7 +48,6 @@ Result sys_chdir(Thread* t, const char* path)
 
 Result sys_fchdir(Thread* t, fdindex_t index)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, index=%d'", t, index);
     Process& proc = *t->t_process;
 
     FD* fd;
@@ -64,7 +59,6 @@ Result sys_fchdir(Thread* t, fdindex_t index)
 
 Result sys_getcwd(Thread* t, char* buf, size_t size)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, buf=%p, size=%d", t, buf, size);
     Process& proc = *t->t_process;
     DEntry& cwd = *proc.p_cwd;
 

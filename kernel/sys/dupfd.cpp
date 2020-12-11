@@ -11,14 +11,9 @@
 #include "kernel/fd.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
-
-TRACE_SETUP;
 
 Result sys_dup(Thread* t, fdindex_t index)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, index=%d", t, index);
-
     Process& process = *t->t_process;
 
     FD* fd_out;
@@ -32,8 +27,6 @@ Result sys_dup(Thread* t, fdindex_t index)
 
 Result sys_dup2(Thread* t, fdindex_t index, fdindex_t newindex)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, index=%d, newindex=%d", t, index, newindex);
-
     Process& process = *t->t_process;
     if (newindex >= PROCESS_MAX_DESCRIPTORS)
         return RESULT_MAKE_FAILURE(EINVAL);

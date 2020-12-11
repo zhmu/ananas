@@ -10,14 +10,10 @@
 #include "kernel/thread.h"
 #include "kernel/process.h"
 #include "kernel/processgroup.h"
-#include "kernel/trace.h"
 #include "syscall.h"
-
-TRACE_SETUP;
 
 Result sys_getpgrp(Thread* t)
 {
-    TRACE(SYSCALL, FUNC, "t=%p", t);
     Process& process = *t->t_process;
 
     auto pgid = process.p_group->pg_id;
@@ -26,8 +22,6 @@ Result sys_getpgrp(Thread* t)
 
 Result sys_setpgid(Thread* t, pid_t pid, pid_t pgid)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, pid=%d pgid=%d", t, pid, pgid);
-
     if (pid == 0)
         pid = t->t_process->p_pid;
     if (pgid == 0)
@@ -57,7 +51,6 @@ Result sys_setpgid(Thread* t, pid_t pid, pid_t pgid)
 
 Result sys_setsid(Thread* t)
 {
-    TRACE(SYSCALL, FUNC, "t=%p", t);
     Process& process = *t->t_process;
 
     // Reject if we already are a group leader
@@ -73,8 +66,6 @@ Result sys_setsid(Thread* t)
 
 Result sys_getsid(Thread* t, pid_t pid)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, pid=%d", t, pid);
-
     if (pid != 0)
         return RESULT_MAKE_FAILURE(EPERM); // XXX maybe be more lenient here
 

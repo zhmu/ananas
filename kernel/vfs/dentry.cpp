@@ -20,14 +20,11 @@
 #include "kernel/lock.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/types.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/mount.h"
 #include "kernel/vfs/icache.h"
 #include "options.h"
-
-TRACE_SETUP;
 
 namespace
 {
@@ -119,8 +116,6 @@ DEntry& dcache_create_root_dentry(struct VFS_MOUNTED_FS* fs)
  */
 DEntry* dcache_lookup(DEntry& parent, const char* entry)
 {
-    TRACE(VFS, FUNC, "parent=%p, entry='%s'", &parent, entry);
-
     dcache_lock();
 
     /*
@@ -151,9 +146,6 @@ DEntry* dcache_lookup(DEntry& parent, const char* entry)
         dcache_inuse.remove(d);
         dcache_inuse.push_front(d);
         dcache_unlock();
-        TRACE(
-            VFS, INFO, "cache hit: parent=%p, entry='%s' => d=%p, d.inode=%p", &parent, entry, &d,
-            d.d_inode);
         return &d;
     }
 
@@ -173,7 +165,6 @@ DEntry* dcache_lookup(DEntry& parent, const char* entry)
     strcpy(d.d_entry, entry);
     dcache_inuse.push_front(d);
     dcache_unlock();
-    TRACE(VFS, INFO, "cache miss: parent=%p, entry='%s' => d=%p", &parent, entry, &d);
     return &d;
 }
 

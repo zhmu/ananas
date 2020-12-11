@@ -14,12 +14,9 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel-md/io.h"
 #include "kernel-md/md.h"
 #include "options.h"
-
-TRACE_SETUP;
 
 namespace
 {

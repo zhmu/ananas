@@ -11,13 +11,10 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel-md/io.h"
 #include "ata.h"
 #include "ata-controller.h"
 #include "ata-pci.h"
-
-TRACE_SETUP;
 
 #define ATA_FREELIST_LENGTH 16
 

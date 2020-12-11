@@ -9,14 +9,11 @@
 #include "kernel/lock.h"
 #include "kernel/result.h"
 #include "kernel/time.h"
-#include "kernel/trace.h"
 #include "kernel-md/io.h"
 #include "kernel/lib.h"
 #include "kernel-md/interrupts.h"
 
 #define RTC_DEBUG 0
-
-TRACE_SETUP;
 
 namespace
 {

@@ -9,15 +9,12 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "hda.h"
 #include "verb.h"
 
 #include <sys/sound.h>
 #include <machine/param.h>
 #include "hda-pci.h" // XXX
-
-TRACE_SETUP;
 
 namespace hda
 {

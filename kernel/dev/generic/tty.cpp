@@ -15,9 +15,6 @@
 #include "kernel/result.h"
 #include "kernel/signal.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
-
-TRACE_SETUP;
 
 /* Newline char - cannot be modified using c_cc */
 #define NL '\n'

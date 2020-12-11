@@ -13,14 +13,11 @@
 #include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel/vmarea.h"
 #include "kernel/vmspace.h"
 #include "kernel/vfs/dentry.h"
 #include "syscall.h"
-
-TRACE_SETUP;
 
 namespace
 {
@@ -101,8 +98,6 @@ namespace
 
 Result sys_vmop(Thread* t, struct VMOP_OPTIONS* opts)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, opts=%p", t, opts);
-
     /* Obtain options */
     struct VMOP_OPTIONS* vmop_opts;
     if (auto result = syscall_map_buffer(

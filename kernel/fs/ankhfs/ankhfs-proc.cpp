@@ -11,7 +11,6 @@
 #include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/generic.h"
@@ -20,8 +19,6 @@
 #include "kernel/vmspace.h"
 #include "proc.h"
 #include "support.h"
-
-TRACE_SETUP;
 
 namespace process
 {

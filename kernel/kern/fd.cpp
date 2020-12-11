@@ -14,9 +14,6 @@
 #include "kernel/lock.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
-
-TRACE_SETUP;
 
 namespace fd
 {
@@ -91,7 +88,6 @@ namespace fd
 
         fd_out = &fd;
         index_out = n;
-        TRACE(HANDLE, INFO, "process %p, type %u => fd %p, index %u", &proc, type, &fd, n);
         return Result::Success();
     }
 

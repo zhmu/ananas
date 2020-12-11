@@ -10,12 +10,9 @@
 #include "kernel/process.h"
 #include "kernel/processgroup.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "syscall.h"
 
 #include "kernel/lib.h"
-
-TRACE_SETUP;
 
 namespace
 {
@@ -29,8 +26,6 @@ namespace
 
 Result sys_sigaction(Thread* t, int sig, const struct sigaction* act, struct sigaction* oact)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, sig=%d act=%p oact=%p", t, sig, act, oact);
-
     auto& tsd = t->t_sigdata;
     SpinlockGuard sg(tsd.tsd_lock);
     auto sact = tsd.GetSignalAction(sig);
@@ -51,8 +46,6 @@ Result sys_sigaction(Thread* t, int sig, const struct sigaction* act, struct sig
 
 Result sys_sigprocmask(Thread* t, int how, const sigset_t* set, sigset_t* oset)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, how=%d set=%p oset=%p", t, how, set, oset);
-
     auto& tsd = t->t_sigdata;
     SpinlockGuard sg(tsd.tsd_lock);
 
@@ -78,15 +71,12 @@ Result sys_sigprocmask(Thread* t, int how, const sigset_t* set, sigset_t* oset)
 
 Result sys_sigsuspend(Thread* t, const sigset_t* sigmask)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, sigmask=%p", t, sigmask);
     kprintf("%s: TODO t=%p, sigmask=%p\n", __func__, t, sigmask);
     return RESULT_MAKE_FAILURE(EPERM);
 }
 
 Result sys_kill(Thread* t, pid_t pid, int sig)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, pid=%d sig=%d", t, pid, sig);
-
     Process& process = *t->t_process;
     if (pid == -1) {
         // Send to all processes where we have permission to send to (excluding system processed)

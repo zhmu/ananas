@@ -11,13 +11,10 @@
 #include "kernel/mbr.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel-md/io.h"
 #include "ata.h"
 #include "atadisk.h"
 #include "ata-controller.h"
-
-TRACE_SETUP;
 
 namespace ata
 {

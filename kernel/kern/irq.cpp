@@ -13,11 +13,8 @@
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel-md/interrupts.h"
 #include "options.h"
-
-TRACE_SETUP;
 
 namespace irq
 {

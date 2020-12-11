@@ -15,12 +15,9 @@
 #include "kernel/page.h"
 #include "kernel/result.h"
 #include "kernel/time.h"
-#include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "hda.h"
 #include "hda-pci.h"
-
-TRACE_SETUP;
 
 #define HDA_WRITE_4(reg, val) *(volatile uint32_t*)(hda_addr + reg) = (val)
 #define HDA_READ_4(reg) (*(volatile uint32_t*)(hda_addr + reg))

@@ -13,11 +13,8 @@
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "ahci.h"
 #include "ahci-pci.h"
-
-TRACE_SETUP;
 
 namespace ahci
 {

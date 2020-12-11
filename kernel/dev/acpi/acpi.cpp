@@ -11,10 +11,7 @@
 #include "kernel/driver.h"
 #include "kernel/result.h"
 #include "kernel/shutdown.h"
-#include "kernel/trace.h"
 #include "kernel-md/acpi.h"
-
-TRACE_SETUP;
 
 namespace
 {

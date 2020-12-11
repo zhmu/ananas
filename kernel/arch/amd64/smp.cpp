@@ -18,7 +18,6 @@
 #include "kernel/schedule.h"
 #include "kernel/thread.h"
 #include "kernel/time.h"
-#include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel-md/io.h"
 #include "kernel-md/acpi.h"
@@ -33,8 +32,6 @@
 #include "../../dev/acpi/acpica/acpi.h"
 
 #define SMP_DEBUG 0
-
-TRACE_SETUP;
 
 /* Application Processor's entry point and end */
 extern "C" void *__ap_entry, *__ap_entry_end;

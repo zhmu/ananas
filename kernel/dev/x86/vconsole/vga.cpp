@@ -8,10 +8,7 @@
 #include "kernel-md/io.h"
 #include "kernel/device.h"
 #include "kernel/lib.h"
-#include "kernel/trace.h"
 #include "vga.h"
-
-TRACE_SETUP;
 
 #define VGA_HEIGHT 25
 #define VGA_WIDTH 80

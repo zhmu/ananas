@@ -8,12 +8,9 @@
 #include <ananas/errno.h>
 #include "kernel/lib.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/types.h"
 #include "device.h"
 #include "support.h"
-
-TRACE_SETUP;
 
 namespace ankhfs
 {

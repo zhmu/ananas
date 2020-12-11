@@ -11,9 +11,6 @@
 #include "kernel/processgroup.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
-
-TRACE_SETUP;
 
 Result md_core_dump(Thread& t);
 

@@ -9,7 +9,6 @@
 #include "kernel/bio.h"
 #include "kernel/lib.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/types.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
@@ -19,8 +18,6 @@
 #include "dir.h"
 #include "fat.h"
 #include "fatfs.h"
-
-TRACE_SETUP;
 
 #if 0
 static void

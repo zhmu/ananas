@@ -9,14 +9,11 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "usb-core.h"
 #include "usb-device.h"
 #include "usb-transfer.h"
 #include "config.h"
 #include "descriptor.h"
-
-TRACE_SETUP;
 
 namespace usb
 {
@@ -57,11 +54,6 @@ namespace usb
             if (!LookupDescriptorByType(ptr, left, USB_DESCR_TYPE_INTERFACE, iface))
                 return RESULT_MAKE_FAILURE(EINVAL);
 
-            TRACE(
-                USB, INFO, "interface%u: class=%u, subclass=%u, protocol=%u, %u endpoint(s)",
-                iface->if_number, iface->if_class, iface->if_subclass, iface->if_protocol,
-                iface->if_numendpoints);
-
             /* Create the USB interface */
             Interface* usb_iface = &usb_if[usb_num_if++]; // XXX range check!
             usb_iface->if_class = iface->if_class;
@@ -73,12 +65,6 @@ namespace usb
                 struct USB_DESCR_ENDPOINT* ep;
                 if (!LookupDescriptorByType(ptr, left, USB_DESCR_TYPE_ENDPOINT, ep))
                     return RESULT_MAKE_FAILURE(EINVAL);
-
-                TRACE(
-                    USB, INFO, "endpoint %u: addr=%s:%u, attr=%u, type=%u, maxpacketsz=%u", epnum,
-                    (ep->ep_addr & USB_EP_ADDR_IN) ? "in" : "out", USB_EP_ADDR(ep->ep_addr),
-                    USB_PE_ATTR_TYPE(ep->ep_attr), USB_PE_ATTR_TYPE(ep->ep_attr),
-                    ep->ep_maxpacketsz);
 
                 /* Resolve the endpoint type to our own */
                 int type = -1;

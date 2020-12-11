@@ -33,7 +33,6 @@
 #include "kernel/mm.h"
 #include "kernel/result.h"
 #include "kernel/time.h"
-#include "kernel/trace.h"
 #include "kernel-md/io.h"
 #include "kernel-md/vm.h" // XXX for KVTOP, which should be removed
 #include "../core/usb-core.h"
@@ -43,8 +42,6 @@
 #include "uhci-hcd.h"
 #include "uhci-roothub.h"
 #include "uhci-reg.h"
-
-TRACE_SETUP;
 
 namespace usb
 {

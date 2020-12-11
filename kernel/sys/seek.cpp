@@ -9,12 +9,9 @@
 #include <ananas/handle-options.h>
 #include "kernel/fd.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "syscall.h"
-
-TRACE_SETUP;
 
 Result sys_seek(Thread* t, fdindex_t hindex, off_t* offset, int whence)
 {

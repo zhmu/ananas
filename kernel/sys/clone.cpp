@@ -9,13 +9,9 @@
 #include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
-
-TRACE_SETUP;
 
 Result sys_clone(Thread* t, int flags)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, flags=0x%x", t, flags);
     Process& proc = *t->t_process;
 
     /* XXX Future improvement so we can do vfork() and such */
@@ -39,7 +35,5 @@ Result sys_clone(Thread* t, int flags)
 
     /* Resume the cloned thread - it'll have a different return value from ours */
     new_thread->Resume();
-
-    TRACE(SYSCALL, FUNC, "t=%p, success, new pid=%u", t, new_pid);
     return Result::Success(new_pid);
 }

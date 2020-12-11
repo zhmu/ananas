@@ -12,14 +12,11 @@
 #include "kernel/lock.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"
 #include "../core/usb-transfer.h"
 #include "../core/config.h"
 #include "../../scsi/scsi.h" // XXX kludge
-
-TRACE_SETUP;
 
 #if 0
 #define DPRINTF Printf

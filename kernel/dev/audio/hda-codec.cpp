@@ -8,11 +8,8 @@
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "hda.h"
 #include "verb.h"
-
-TRACE_SETUP;
 
 namespace hda
 {

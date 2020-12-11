@@ -21,14 +21,6 @@ SECTIONS {
 		. = ALIGN(4096);
 	}
 	__end = . ;
-	__traceid_begin = .;
-	.traceids : {
-		*(.traceids)
-	}
-	__traceid_end = .;
-	.tracenames : {
-		*(.tracenames)
-	}
 	/DISCARD/ : {
 		*(.eh_frame)
 	}

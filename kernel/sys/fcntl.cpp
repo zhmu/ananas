@@ -10,14 +10,10 @@
 #include "kernel/fd.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "syscall.h"
-
-TRACE_SETUP;
 
 Result sys_fcntl(Thread* t, fdindex_t hindex, int cmd, const void* in, void* out)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, hindex=%d cmd=%d", t, hindex, cmd);
     Process& process = *t->t_process;
 
     /* Get the handle */

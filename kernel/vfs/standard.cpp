@@ -11,13 +11,10 @@
 #include "kernel/mm.h"
 #include "kernel/result.h"
 #include "kernel/schedule.h" // XXX
-#include "kernel/trace.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/generic.h"
 #include "kernel/vfs/mount.h"
-
-TRACE_SETUP;
 
 #define VFS_DEBUG_LOOKUP 0
 #define VFS_MAX_SYMLINK_LOOPS 20
@@ -305,7 +302,6 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
             dentry = dcache_lookup(*curdentry, next_lookup);
             if (dentry != nullptr)
                 break;
-            TRACE(VFS, WARN, "dentry item is already pending, waiting...");
             /* XXX There should be a wakeup signal of some kind */
             scheduler::Schedule();
         }
@@ -320,9 +316,6 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
             /* Entry is in the cache as a negative entry; this means we can't find it */
             dentry_deref(*curdentry); /* release parent, we are done with it */
             KASSERT(dentry->d_inode == NULL, "negative lookup with inode?");
-            TRACE(
-                VFS, INFO, "bailing, found negative dentry for '%s', curdentry %p -> %p",
-                next_lookup, curdentry, dentry);
             return RESULT_MAKE_FAILURE(ENOENT);
         }
 
@@ -338,7 +331,6 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
          * attached to it; we need to read it.
          */
         INode* inode;
-        TRACE(VFS, INFO, "performing lookup from %p:'%s'", curdentry, next_lookup);
         Result result = curdentry->d_inode->i_iops->lookup(*curdentry, inode, next_lookup);
         dentry_deref(*curdentry); /* we no longer need it */
         if (result.IsSuccess()) {
@@ -349,7 +341,6 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
             dentry->d_inode = inode;
         } else {
             /* Lookup failed; make the entry cache negative */
-            TRACE(VFS, INFO, "making negative dentry for %p:%s\n", curdentry, next_lookup);
             dentry->d_flags |= DENTRY_FLAG_NEGATIVE;
             /* No need to touch ditem; it'll be set already to the new dentry (and we can get to the
              * parent from there) */

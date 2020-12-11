@@ -9,15 +9,10 @@
 #include <ananas/reboot.h>
 #include "kernel/result.h"
 #include "kernel/shutdown.h"
-#include "kernel/trace.h"
 #include "syscall.h"
-
-TRACE_SETUP;
 
 Result sys_reboot(Thread* t, int how)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, how=%d", t, how);
-
     shutdown::ShutdownType type;
     switch (how) {
         case ANANAS_REBOOT_HALT:

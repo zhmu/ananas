@@ -13,11 +13,8 @@
 #include "kernel/fd.h"
 #include "kernel/lib.h"
 #include "kernel/result.h"
-#include "kernel/trace.h"
 #include "kernel/lock.h"
 #include "syscall.h"
-
-TRACE_SETUP;
 
 namespace vfs
 {
@@ -61,8 +58,6 @@ namespace
 
 Result sys_statfs(Thread* t, const char* path, struct statfs* buf)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, path='%s', buf=%p", t, path, buf);
-
     // XXX we should realpath path() first - or let userland deal with that?
 
     SpinlockGuard g(vfs::spl_mountedfs);
@@ -76,8 +71,6 @@ Result sys_statfs(Thread* t, const char* path, struct statfs* buf)
 
 Result sys_fstatfs(Thread* t, fdindex_t hindex, struct statfs* buf)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, hindex=%d, buf=%p", t, hindex, buf);
-
     /* Get the handle */
     FD* fd;
     if (auto result = syscall_get_fd(*t, FD_TYPE_FILE, hindex, fd); result.IsFailure())
@@ -93,14 +86,10 @@ Result sys_fstatfs(Thread* t, fdindex_t hindex, struct statfs* buf)
 
 Result sys_mount(Thread* t, const char* type, const char* source, const char* dir, int flags)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, type=%s source=%s dir=%s flags=%d", t, type, source, dir, flags);
-
     return vfs_mount(source, dir, type);
 }
 
 Result sys_unmount(Thread* t, const char* dir, int flags)
 {
-    TRACE(SYSCALL, FUNC, "t=%p, dir=%s flags=%d", t, dir, flags);
-
     return vfs_unmount(dir);
 }

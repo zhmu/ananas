@@ -11,7 +11,6 @@
 #include "kernel/lock.h"
 #include "kernel/result.h"
 #include "kernel/schedule.h" // XXX
-#include "kernel/trace.h"
 #include "kernel/vfs/types.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/generic.h"
@@ -19,8 +18,6 @@
 #include "block.h"
 #include "fat.h"
 #include "fatfs.h"
-
-TRACE_SETUP;
 
 static inline blocknr_t fat_cluster_to_sector(struct VFS_MOUNTED_FS* fs, uint32_t cluster)
 {

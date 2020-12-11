@@ -10,11 +10,8 @@
 #include "kernel/lib.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
-#include "kernel/trace.h"
 #include "kernel/vm.h"
 #include "kernel-md/md.h"
-
-TRACE_SETUP;
 
 Result syscall_get_fd(Thread& t, int type, fdindex_t index, FD*& fd)
 {
