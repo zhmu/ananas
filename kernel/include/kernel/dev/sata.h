@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_SATA_H__
-#define __ANANAS_SATA_H__
+#pragma once
 
 #include <ananas/types.h>
 
@@ -64,5 +63,3 @@ struct SATA_REQUEST {
 void sata_fis_h2d_make_cmd(struct SATA_FIS_H2D* h2d, uint8_t cmd);
 void sata_fis_h2d_make_cmd_lba48(
     struct SATA_FIS_H2D* h2d, uint8_t cmd, uint64_t lba, uint32_t count);
-
-#endif /* __ANANAS_SATA_H__ */

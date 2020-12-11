@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __AMD64_PCPU_H__
-#define __AMD64_PCPU_H__
+#pragma once
 
 /* amd64-specific per-cpu structure */
 #define MD_PCPU_FIELDS                                                     \
@@ -47,5 +46,3 @@
         p = (val);                                                                         \
         __asm __volatile("mov %1,%%gs:%0" : "=m"(*(uint32_t*)PCPU_OFFSET(name)) : "r"(p)); \
     } while (0)
-
-#endif /* __AMD64_PCPU_H__ */

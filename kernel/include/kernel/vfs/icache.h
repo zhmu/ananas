@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_ICACHE_H__
-#define __ANANAS_ICACHE_H__
+#pragma once
 
 #include <ananas/types.h>
 #include "kernel/list.h"
@@ -31,5 +30,3 @@ void vfs_set_inode_dirty(INode& inode);
 
 /* Internal interface only */
 void vfs_dump_inode(INode& inode);
-
-#endif /* __ANANAS_ICACHE_H__ */

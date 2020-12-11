@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __X86_SMP_H__
-#define __X86_SMP_H__
+#pragma once
 
 #define SMP_IPI_FIRST 0xf0
 #define SMP_IPI_COUNT 4
@@ -33,5 +32,3 @@ namespace smp
 
 } // namespace smp
 #endif
-
-#endif /* __X86_SMP_H__ */

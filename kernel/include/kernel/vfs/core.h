@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_VFS_CORE_H__
-#define __ANANAS_VFS_CORE_H__
+#pragma once
 
 #include <ananas/types.h>
 #include "kernel/vfs/types.h"
@@ -57,5 +56,3 @@ size_t vfs_filldirent(void** dirents, size_t size, ino_t inum, const char* name,
 
 Result vfs_init_process(Process& proc);
 void vfs_exit_process(Process& proc);
-
-#endif /* __ANANAS_VFS_CORE_H__ */

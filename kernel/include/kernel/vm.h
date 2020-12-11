@@ -4,10 +4,9 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
+#pragma once
 
-#ifndef __VM_H__
-#define __VM_H__
+#include <ananas/types.h>
 
 #define VM_FLAG_READ (1 << 0)
 #define VM_FLAG_WRITE (1 << 1)
@@ -21,5 +20,3 @@
 
 /* Force a specific mapping to be made */
 #define VM_FLAG_FORCEMAP (1 << 16)
-
-#endif /* __VM_H__ */

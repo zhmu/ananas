@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __AMD64_VM_H__
-#define __AMD64_VM_H__
+#pragma once
 
 #include <ananas/types.h>
 
@@ -117,5 +116,3 @@
 #define GDT_SEL_USER_CODE 0x20
 #define GDT_SEL_TASK 0x28
 #define GDT_LENGTH (GDT_SEL_TASK + 0x10)
-
-#endif /* __AMD64_VM_H__ */

@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_DMA_H__
-#define __ANANAS_DMA_H__
+#pragma once
 
 #include <ananas/types.h>
 #include <ananas/util/vector.h>
@@ -110,5 +109,3 @@ namespace dma
         dma_size_t max_seg_size);
 
 } // namespace dma
-
-#endif /* __ANANAS_DMA_H__ */

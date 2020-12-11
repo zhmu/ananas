@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __MULTIBOOT_H__
-#define __MULTIBOOT_H__
+#pragma once
 
 #include <ananas/types.h>
 
@@ -56,5 +55,3 @@ struct MULTIBOOT_MMAP {
     uint32_t mm_type;
 #define MULTIBOOT_MMAP_AVAIL 1
 } __attribute__((packed));
-
-#endif /* __MULTIBOOT_H__ */

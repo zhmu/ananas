@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __X86_APIC_H__
-#define __X86_APIC_H__
+#pragma once
 
 #define LAPIC_BASE 0xfee00000
 #define LAPIC_SIZE PAGE_SIZE
@@ -63,5 +62,3 @@
 #define LAPIC_LVT_DV_64 0x9    /* Divide by 64 */
 #define LAPIC_LVT_DV_128 0xa   /* Divide by 128 */
 #define LAPIC_LVT_DV_1 0xb     /* Divide by 1 */
-
-#endif /* __X86_APIC_H__ */

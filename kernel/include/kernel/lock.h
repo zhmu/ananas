@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2019 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __LOCK_H__
-#define __LOCK_H__
+#pragma once
 
 #include <ananas/types.h>
 #include <ananas/util/atomic.h>
@@ -98,5 +97,3 @@ struct Mutex final {
 
 using SpinlockGuard = detail::LockGuard<Spinlock>;
 using MutexGuard = detail::LockGuard<Mutex>;
-
-#endif /* __LOCK_H__ */

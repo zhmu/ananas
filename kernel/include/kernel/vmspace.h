@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef ANANAS_VMSPACE_H
-#define ANANAS_VMSPACE_H
+#pragma once
 
 #include <ananas/types.h>
 #include <ananas/util/list.h>
@@ -62,5 +61,3 @@ struct VMSpace {
 
 Result vmspace_create(VMSpace*& vs);
 void vmspace_destroy(VMSpace& vs);
-
-#endif /* ANANAS_VMSPACE_H */

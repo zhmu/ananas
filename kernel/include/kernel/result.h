@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_RESULT_H__
-#define __ANANAS_RESULT_H__
+#pragma once
 
 #include <ananas/statuscode.h>
 
@@ -30,5 +29,3 @@ class Result
   private:
     statuscode_t r_StatusCode;
 };
-
-#endif // __ANANAS_RESULT_H__

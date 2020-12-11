@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2020 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __TCB_H__
-#define __TCB_H__
+#pragma once
 
 #include "kernel/thread.h"
 #include "kernel-md/thread.h"
@@ -18,5 +17,3 @@ struct ThreadControlBlock {
 
     Thread* thread() { return u.thread; }
 };
-
-#endif

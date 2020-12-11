@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_ATA_H__
-#define __ANANAS_ATA_H__
+#pragma once
 
 #define ATA_CMD_READ_SECTORS 0x20  /* 28 bit PIO */
 #define ATA_CMD_DMA_READ_EXT 0x25  /* 48 bit DMA */
@@ -235,5 +234,3 @@ struct ATA_IDENTIFY {
 #define ATA_GET_QWORD(x) (((uint64_t)ATA_GET_DWORD(x + 4) << 32) | ((uint64_t)(ATA_GET_DWORD(x))))
 
 #define SECTOR_SIZE 512 /* XXX */
-
-#endif // __ANANAS_ATA_H__

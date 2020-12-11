@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_ENDIAN_H__
-#define __ANANAS_ENDIAN_H__
+#pragma once
 
 #include "kernel-md/param.h" /* for ..._ENDIAN */
 
@@ -35,5 +34,3 @@ static inline uint32_t htobe32(uint16_t v) { return BIG_OR_LITTLE(v, _swap32(v))
 static inline uint16_t betoh16(uint16_t v) { return BIG_OR_LITTLE(v, _swap16(v)); }
 
 static inline uint32_t betoh32(uint32_t v) { return BIG_OR_LITTLE(v, _swap32(v)); }
-
-#endif /* __ANANAS_ENDIAN_H__ */

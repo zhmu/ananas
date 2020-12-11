@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2019 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __SPINLOCK_H__
-#define __SPINLOCK_H__
+#pragma once
 
 #include <ananas/types.h>
 #include <ananas/util/atomic.h>
@@ -37,5 +36,3 @@ class Spinlock final
   private:
     util::atomic<int> sl_var;
 };
-
-#endif // __SPINLOCK_H__

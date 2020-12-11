@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __PROCESS_H__
-#define __PROCESS_H__
+#pragma once
 
 #include <ananas/limits.h>
 #include <ananas/util/array.h>
@@ -124,5 +123,3 @@ struct Process final : util::refcounted<Process> {
 Result process_alloc(Process* parent, Process*& dest);
 
 Process* process_lookup_by_id_and_lock(pid_t pid);
-
-#endif /* __PROCESS_H__ */

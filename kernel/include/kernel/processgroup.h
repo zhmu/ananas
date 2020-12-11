@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __PROCESSGROUP_H__
-#define __PROCESSGROUP_H__
+#pragma once
 
 #include "kernel/process.h"
 #include <ananas/util/refcounted.h>
@@ -48,5 +47,3 @@ namespace process
     void SetProcessGroup(Process& process, util::locked<ProcessGroup>& new_pg);
 
 } // namespace process
-
-#endif /* __PROCESSGROUP_H__ */

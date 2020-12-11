@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ASM_SYMS_H__
-#define __ASM_SYMS_H__
+#pragma once
 
 /*
  * This macro defines each symbol S to sym_S_N, for N = 0..3. The idea is that
@@ -29,5 +28,3 @@
 #ifndef offsetof
 #define offsetof __builtin_offsetof /* XXX should be in a cdefs.h file */
 #endif
-
-#endif /* __ASM_SYMS_H__ */

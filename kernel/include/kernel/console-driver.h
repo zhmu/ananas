@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __CONSOLEDRIVER_H__
-#define __CONSOLEDRIVER_H__
+#pragma once
 
 #include "driver.h"
 
@@ -27,5 +26,3 @@ class ConsoleDriver : public Driver
 
     virtual Device* ProbeDevice() = 0;
 };
-
-#endif /* __CONSOLEDRIVER_H__ */

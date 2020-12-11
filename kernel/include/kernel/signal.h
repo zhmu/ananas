@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __KERNEL_SIGNAL_H__
-#define __KERNEL_SIGNAL_H__
+#pragma once
 
 #include <ananas/signal.h>
 #include <ananas/util/list.h>
@@ -121,5 +120,3 @@ namespace signal
     void HandleDefaultSignalAction(const siginfo_t& si);
 
 } // namespace signal
-
-#endif /* __KERNEL_SIGNAL_H__ */

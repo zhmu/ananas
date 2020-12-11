@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __THREAD_FWD_H__
-#define __THREAD_FWD_H__
+#pragma once
 
 #include <ananas/types.h>
 #include <ananas/util/list.h>
@@ -47,6 +46,3 @@ namespace thread {
     using SchedulerThreadList = util::List<Thread, thread::internal::ThreadSchedulerNodeAccessor<Thread>>;
     using SleepQueueThreadList = util::List<Thread, thread::internal::ThreadSleepQueueChainNodeAccessor<Thread>>;
 }
-
-
-#endif

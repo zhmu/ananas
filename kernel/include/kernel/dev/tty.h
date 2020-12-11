@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef ANANAS_DEV_TTY_H
-#define ANANAS_DEV_TTY_H
+#pragma once
 
 #include <ananas/types.h>
 #include <ananas/util/array.h>
@@ -60,5 +59,3 @@ class TTY : public Device, private IDeviceOperations, private ICharDeviceOperati
     process::ProcessGroup* tty_foreground_pg = nullptr; // foreground process group
     Semaphore tty_waiters{"tty", 1};
 };
-
-#endif /* ANANAS_DEV_TTY_H */

@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __DEVICE_H__
-#define __DEVICE_H__
+#pragma once
 
 #include <ananas/types.h>
 #include <ananas/errno.h>
@@ -211,5 +210,3 @@ void* operator new(size_t len, device_t dev) throw();
 void operator delete(void* p, device_t dev) throw();
 void* operator new[](size_t len, device_t dev) throw();
 void operator delete[](void* p, device_t dev) throw();
-
-#endif /* __DEVICE_H__ */

@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __AMD64_THREAD_H__
-#define __AMD64_THREAD_H__
+#pragma once
 
 #ifndef ASM
 
@@ -92,5 +91,3 @@ extern "C" Thread* md_GetCurrentThread();
 #endif
 
 #define THREAD_MDFLAG_FULLRESTORE 0x0001 /* Perform a full register restore upon return */
-
-#endif /* __AMD64_THREAD_H__ */

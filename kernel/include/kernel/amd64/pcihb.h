@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_X86_PCIHB_H__
-#define __ANANAS_X86_PCIHB_H__
+#pragma once
 
 #include <ananas/types.h>
 #include "kernel-md/io.h"
@@ -55,5 +54,3 @@ pci_write_config(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, uint32
             panic("unsupported width %u", width);
     }
 }
-
-#endif /* __ANANAS_X86_PCIHB_H__ */

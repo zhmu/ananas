@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_DENTRY_H__
-#define __ANANAS_DENTRY_H__
+#pragma once
 
 #include <ananas/util/list.h>
 #include <ananas/types.h>
@@ -44,5 +43,3 @@ void dentry_unlink(DEntry& d);
 
 /* Creates the full path to a dentry - it is always zero-terminated */
 size_t dentry_construct_path(char* dest, size_t n, DEntry& dentry);
-
-#endif /*  __ANANAS_DENTRY_H__ */

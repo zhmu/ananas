@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef ANANAS_VM_PAGE_H
-#define ANANAS_VM_PAGE_H
+#pragma once
 
 #include <ananas/types.h>
 #include <ananas/util/list.h>
@@ -114,5 +113,3 @@ util::locked<VMPage> vmpage_create_shared(INode& inode, off_t offs, int flags);
 VMPage& vmpage_clone(
     VMSpace* vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va_dest,
     util::locked<VMPage>& vp_orig);
-
-#endif // ANANAS_VM_PAGE_H

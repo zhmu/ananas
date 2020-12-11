@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __DRIVER_H__
-#define __DRIVER_H__
+#pragma once
 
 #include <ananas/util/list.h>
 #include "kernel/init.h"
@@ -61,5 +60,3 @@ struct RegisterDriver : init::OnInit {
 };
 
 typedef util::List<Driver> DriverList;
-
-#endif /* __DRIVER_H__ */

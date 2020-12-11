@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __X86_PIC_H__
-#define __X86_PIC_H__
+#pragma once
 
 /* i386 PIC1/2 registers and locations */
 #define PIC1_BASE 0x20
@@ -29,5 +28,3 @@
 
 void x86_pic_init();
 void x86_pic_mask_all();
-
-#endif /* __X86_PIC_H__ */

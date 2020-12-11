@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2019 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_BIO_H__
-#define __ANANAS_BIO_H__
+#pragma once
 
 #include <ananas/types.h>
 #include <ananas/util/list.h>
@@ -14,7 +13,7 @@
 #include "kernel/result.h"
 
 /* Size of a sector; any BIO block must be a multiple of this */
-#define BIO_SECTOR_SIZE 512
+static constexpr inline unsigned int BIO_SECTOR_SIZE = 512;
 
 class Device;
 struct INode;
@@ -85,5 +84,3 @@ Result bread(Device* device, blocknr_t block, size_t len, BIO*& result);
 Result bwrite(BIO& bio);
 
 void bsync();
-
-#endif /* __ANANAS_BIO_H__ */

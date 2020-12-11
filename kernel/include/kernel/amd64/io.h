@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __X86_IO_H__
-#define __X86_IO_H__
+#pragma once
 
 #include <sys/types.h>
 
@@ -56,5 +55,3 @@ static inline uint64_t rdtsc()
                      : "rdx");
     return v;
 }
-
-#endif /* __X86_IO_H__ */

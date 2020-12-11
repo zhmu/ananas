@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_CDEFS_H__
-#define __ANANAS_CDEFS_H__
+#pragma once
 
 #ifndef __GNUC__
 #error Only definitions for gcc are available
@@ -53,5 +52,3 @@
 #define va_start __builtin_va_start
 #define va_end __builtin_va_end
 #define va_list __builtin_va_list
-
-#endif /* __ANANAS_CDEFS_H__ */

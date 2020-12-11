@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef ANANAS_VMAREA_H
-#define ANANAS_VMAREA_H
+#pragma once
 
 #include <ananas/types.h>
 #include <ananas/util/list.h>
@@ -56,5 +55,3 @@ struct VMArea : util::List<VMArea>::NodePtr {
     size_t va_dlength = 0;       /* dentry length */
 };
 typedef util::List<VMArea> VMAreaList;
-
-#endif /* ANANAS_VMAREA_H */

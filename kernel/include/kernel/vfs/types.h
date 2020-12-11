@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_VFS_TYPES_H__
-#define __ANANAS_VFS_TYPES_H__
+#pragma once
 
 #include <ananas/stat.h> /* for 'struct stat' */
 #include <ananas/dirent.h>
@@ -214,5 +213,3 @@ struct VFSFileSystem : util::List<VFSFileSystem>::NodePtr {
 };
 
 typedef util::List<VFSFileSystem> VFSFileSystemList;
-
-#endif /* __ANANAS_VFS_TYPES_H__ */

@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2019 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef ANANAS_CONDITIONVARIABLE_H
-#define ANANAS_CONDITIONVARIABLE_H
+#pragma once
 
 #include "kernel/sleepqueue.h"
 
@@ -19,8 +18,6 @@ struct ConditionVariable {
 
     void Wait(Mutex& mutex);
 
-  private:
+private:
     SleepQueue cv_sleepq;
 };
-
-#endif // ANANAS_CONDITIONVARIABLE_H

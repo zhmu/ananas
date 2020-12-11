@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __BUS_PCI_H__
-#define __BUS_PCI_H__
+#pragma once
 
 #include <ananas/types.h>
 
@@ -119,5 +118,3 @@ class Device;
 void pci_write_cfg(Device& dev, uint32_t reg, uint32_t val, int size);
 uint32_t pci_read_cfg(Device& dev, uint32_t reg, int size);
 void pci_enable_busmaster(Device& dev, bool on);
-
-#endif /* __BUS_PCI_H__ */

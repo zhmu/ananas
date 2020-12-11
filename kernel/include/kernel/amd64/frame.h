@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __AMD64_FRAME_H__
-#define __AMD64_FRAME_H__
+#pragma once
 
 #include <ananas/types.h>
 
@@ -36,5 +35,3 @@ struct STACKFRAME {
     register_t sf_rsp;
     register_t sf_ss;
 };
-
-#endif /* __AMD64_FRAME_H__ */

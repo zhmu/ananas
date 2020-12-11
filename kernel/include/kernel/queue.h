@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_QUEUE_H__
-#define __ANANAS_QUEUE_H__
+#pragma once
 
 /*
  * A queue is a singly-linked structure; obtaining/removing the head takes
@@ -57,5 +56,3 @@
 
 #define QUEUE_FOREACH(q, it, TYPE) \
     for (TYPE * (it) = QUEUE_HEAD(q); (it) != NULL; (it) = QUEUE_NEXT(it))
-
-#endif /* __ANANAS_QUEUE_H__ */

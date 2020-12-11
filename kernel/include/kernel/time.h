@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_TIME_H__
-#define __ANANAS_TIME_H__
+#pragma once
 
 #include <ananas/types.h>
 
@@ -47,5 +46,3 @@ namespace time
     struct timespec GetTimeSinceBoot();
 
 } // namespace time
-
-#endif /* __ANANAS_TIME_H__ */

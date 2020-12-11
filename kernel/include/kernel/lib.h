@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __LIBKERN_H__
-#define __LIBKERN_H__
+#pragma once
 
 #include <ananas/types.h>
 #include "kernel/cdefs.h"
@@ -58,5 +57,3 @@ unsigned long strtoul(const char* ptr, char** endptr, int base);
 #ifdef __cplusplus
 } // extern "C"
 #endif
-
-#endif /* __LIBKERN_H__ */

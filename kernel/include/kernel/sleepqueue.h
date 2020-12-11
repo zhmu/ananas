@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2019 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef ANANAS_SLEEPQUEUE_H
-#define ANANAS_SLEEPQUEUE_H
+#pragma once
 
 #include <ananas/types.h>
 #include <ananas/util/list.h>
@@ -67,5 +66,3 @@ namespace sleep_queue
         register_t sl_state;
     };
 } // namespace sleep_queue
-
-#endif /* ANANAS_SLEEPQUEUE_H */

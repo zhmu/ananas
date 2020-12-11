@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_DEV_KBDMUX_H__
-#define __ANANAS_DEV_KBDMUX_H__
+#pragma once
 
 #include <ananas/util/list.h>
 
@@ -63,5 +62,3 @@ namespace keyboard_mux
     void OnKey(const Key& key, int modifiers);
 
 } // namespace keyboard_mux
-
-#endif /* __ANANAS_DEV_KBDMUX_H__ */

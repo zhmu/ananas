@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __X86_EXCEPTIONS_H__
-#define __X86_EXCEPTIONS_H__
+#pragma once
 
 #define EXC_DE 0                /* Division by zero */
 #define EXC_DB 1                /* Debug exception */
@@ -28,5 +27,3 @@
 #define EXC_AC 17               /* Alignment Check Exception */
 #define EXC_MC 18               /* Machine Check Exception */
 #define EXC_XF 19               /* SIMD Floating-Point Exception */
-
-#endif /* __X86_EXCEPTIONS_H__ */

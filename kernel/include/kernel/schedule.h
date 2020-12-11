@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __SCHEDULE_H__
-#define __SCHEDULE_H__
+#pragma once
 
 #include <ananas/util/list.h>
 
@@ -25,5 +24,3 @@ namespace scheduler
     bool IsActive();
 
 } // namespace scheduler
-
-#endif /* __SCHEDULE_H__ */

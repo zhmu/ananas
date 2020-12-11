@@ -4,10 +4,9 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
+#pragma once
 
-#ifndef __MBR_H__
-#define __MBR_H__
+#include <ananas/types.h>
 
 struct BIO;
 
@@ -38,5 +37,3 @@ class Device;
 
 int mbr_process(Device* dev, struct BIO* bio);
 #endif
-
-#endif /* __MBR_H__ */

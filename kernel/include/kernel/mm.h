@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __MM_H__
-#define __MM_H__
+#pragma once
 
 #include <ananas/types.h>
 #include "kernel/cdefs.h"
@@ -28,5 +27,3 @@ inline void* operator new[](size_t len, void* p) noexcept { return p; }
 inline void operator delete(void*, void*) noexcept {}
 inline void operator delete[](void*, void*) noexcept {}
 #endif
-
-#endif /* __MM_H__ */

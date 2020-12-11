@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_PAGE_H__
-#define __ANANAS_PAGE_H__
+#pragma once
 
 #include <ananas/util/list.h>
 #include "kernel/lock.h"
@@ -81,5 +80,3 @@ void* page_alloc_length_mapped(size_t length, struct Page*& p, int vm_flags);
 
 /* Retrieve the page statistics */
 void page_get_stats(unsigned int* total_pages, unsigned int* avail_pages);
-
-#endif /* __ANANAS_PAGE_H__ */

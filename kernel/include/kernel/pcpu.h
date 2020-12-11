@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __PCPU_H__
-#define __PCPU_H__
+#pragma once
 
 #include <ananas/types.h>
 #include "kernel-md/pcpu.h"
@@ -23,5 +22,3 @@ struct PCPU {
 
 /* Introduce a per-cpu structure */
 void pcpu_init(struct PCPU* pcpu);
-
-#endif /* __PCPU_H__ */

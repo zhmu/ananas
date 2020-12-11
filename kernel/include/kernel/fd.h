@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef FD_H
-#define FD_H
+#pragma once
 
 #include <ananas/util/list.h>
 #include "kernel/lock.h"
@@ -88,5 +87,3 @@ namespace fd
     void UnregisterType(FDType& ft);
 
 } // namespace fd
-
-#endif /* FD_H */

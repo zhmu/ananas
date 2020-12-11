@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_KMEM_H__
-#define __ANANAS_KMEM_H__
+#pragma once
 
 #include <ananas/types.h>
 
@@ -22,5 +21,3 @@ struct KMEM_MAPPING {
 void* kmem_map(addr_t phys, size_t length, int flags);
 void kmem_unmap(void* virt, size_t length);
 addr_t kmem_get_phys(void* virt);
-
-#endif /* __ANANAS_KMEM_H__ */

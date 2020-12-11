@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_LIST_H__
-#define __ANANAS_LIST_H__
+#pragma once
 
 /*
  * This implements a standard doubly-linked list structure; obtaining/removing
@@ -159,5 +158,3 @@
 #define LIST_FOREACH_REVERSE(q, it, TYPE) LIST_FOREACH_REVERSE_IP(q, li, it, TYPE)
 
 #define LIST_FOREACH_REVERSE_SAFE(q, it, TYPE) LIST_FOREACH_REVERSE_SAFE_IP(q, li, it, TYPE)
-
-#endif /* __ANANAS_LIST_H__ */

@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __AMD64_MACRO_H__
-#define __AMD64_MACRO_H__
+#pragma once
 
 #include "kernel-md/vm.h"
 
@@ -141,5 +140,3 @@ static inline uint64_t read_cr4()
 }
 
 static inline void write_cr4(uint64_t val) { __asm __volatile("movq %0, %%cr4\n" : : "a"(val)); }
-
-#endif /* __AMD64_MACRO_H__ */

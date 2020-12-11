@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __X86_PIT_H__
-#define __X86_PIT_H__
+#pragma once
 
 #define PIT_CH0_DATA 0x40          /* Channel 0 data port */
 #define PIT_CH1_DATA 0x41          /* Channel 1 data port */
@@ -34,5 +33,3 @@
 
 void x86_pit_calc_cpuspeed_mhz();
 int x86_get_cpu_frequency();
-
-#endif /* __X86_PIT_H__ */
