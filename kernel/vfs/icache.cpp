@@ -18,10 +18,6 @@
 #include "kernel/vfs/icache.h"
 #include "options.h"
 
-#define INODE_ASSERT_SANE(i)                                       \
-    KASSERT((i).i_refcount > 0, "referencing inode with no refs"); \
-    KASSERT(((i).i_flags & INODE_FLAG_GONE) == 0, "referencing gone inode");
-
 namespace
 {
     constexpr size_t initialCacheItems = 32;
@@ -36,6 +32,11 @@ namespace
     inline void icache_unlock() { icache_mtx.Unlock(); }
 
     inline void icache_assert_locked() { icache_mtx.AssertLocked(); }
+    inline void inode_assert_sane(INode& i)
+    {
+        KASSERT(i.i_refcount > 0, "referencing inode with no refs");
+        KASSERT((i.i_flags & INODE_FLAG_GONE) == 0, "referencing gone inode");
+    }
 
     void GrowCache(size_t numberOfItems)
     {
@@ -122,7 +123,7 @@ namespace
 
 void vfs_deref_inode(INode& inode)
 {
-    INODE_ASSERT_SANE(inode);
+    inode_assert_sane(inode);
 
     inode.Lock();
     KASSERT(
@@ -137,7 +138,7 @@ void vfs_deref_inode(INode& inode)
 
 void vfs_ref_inode(INode& inode)
 {
-    INODE_ASSERT_SANE(inode);
+    inode_assert_sane(inode);
 
     inode.Lock();
     KASSERT(inode.i_refcount > 0, "referencing a dead inode");

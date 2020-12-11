@@ -11,8 +11,8 @@
 #include "kernel/list.h"
 #include "descriptor.h"
 
-/* XXX This is ugly */
-#define TO_REG32(x) (x)
+// XXX For now, don't support anything where we need to change endianness
+template<typename T> constexpr uint32_t TO_REG32(T x) { return x; }
 
 #define USB_MAX_ENDPOINTS 16
 #define USB_MAX_INTERFACES 8

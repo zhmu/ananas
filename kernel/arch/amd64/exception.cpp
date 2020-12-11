@@ -25,7 +25,7 @@
 #include "../sys/syscall.h"
 #include "options.h"
 
-#define SIGNAL_DEBUG 0
+inline constexpr auto signalDebug = false;
 
 namespace
 {
@@ -254,13 +254,13 @@ extern "C" void* md_invoke_signal(struct STACKFRAME* sf)
     sf->sf_rsp -= sizeof(struct STACKFRAME);
     auto sf_handler = reinterpret_cast<struct STACKFRAME*>(sf->sf_rsp);
     memcpy(sf_handler, sf, sizeof(struct STACKFRAME));
-#if SIGNAL_DEBUG
-    kprintf(
-        "sf_copy %p siginfo %p retaddr %p sf_handler=%p\n", sf_copy, siginfo, retaddr, sf_handler);
-    kprintf(
-        "sizeof()s = %d, %d, %d\n", (int)sizeof(siginfo_t), (int)sizeof(register_t),
-        (int)sizeof(struct STACKFRAME));
-#endif
+    if constexpr (signalDebug) {
+        kprintf(
+            "sf_copy %p siginfo %p retaddr %p sf_handler=%p\n", sf_copy, siginfo, retaddr, sf_handler);
+        kprintf(
+            "sizeof()s = %d, %d, %d\n", (int)sizeof(siginfo_t), (int)sizeof(register_t),
+            (int)sizeof(struct STACKFRAME));
+    }
     // We always call the function as if it's a sigaction; an ordinary handler
     // should just ignore the extra arguments
     sf_handler->sf_rdi = siginfo->si_signo; // signum
@@ -276,19 +276,19 @@ Result sys_sigreturn(Thread* t)
     // Find the userland rsp
     size_t sf_offset = KERNEL_STACK_SIZE - sizeof(struct STACKFRAME);
     auto sf = reinterpret_cast<struct STACKFRAME*>((char*)t->md_kstack + sf_offset);
-#if SIGNAL_DEBUG
-    kprintf(
-        "sys_sigreturn: t %p, md_kstack %p, sf_offset %d => sf %p\n", t, t->md_kstack, sf_offset,
-        sf);
-    kprintf("sys_sigreturn: sf_rsp %p\n", sf->sf_rsp);
-#endif
+    if constexpr (signalDebug) {
+        kprintf(
+            "sys_sigreturn: t %p, md_kstack %p, sf_offset %d => sf %p\n", t, t->md_kstack, sf_offset,
+            sf);
+        kprintf("sys_sigreturn: sf_rsp %p\n", sf->sf_rsp);
+    }
     /* XXX check sf->sf_rsp */
     auto sf_orig = reinterpret_cast<struct STACKFRAME*>((char*)sf->sf_rsp + sizeof(siginfo_t));
     /* XXX check sf_orig */
 
-#if SIGNAL_DEBUG
-    kprintf("%s: t=%p, rsp=%p sf_orig=%p\n", __func__, t, sf->sf_rsp, sf_orig);
-#endif
+    if constexpr (signalDebug) {
+        kprintf("%s: t=%p, rsp=%p sf_orig=%p\n", __func__, t, sf->sf_rsp, sf_orig);
+    }
     memcpy(sf, sf_orig, sizeof(struct STACKFRAME));
 
     // Ensure we return the previous return value of whatever we interrupted;

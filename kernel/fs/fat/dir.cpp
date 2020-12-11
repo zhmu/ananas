@@ -19,47 +19,16 @@
 #include "fat.h"
 #include "fatfs.h"
 
-#if 0
-static void
-fat_dump_entry(struct FAT_ENTRY* fentry)
-{
-	if (fentry->fe_attributes == FAT_ATTRIBUTE_LFN) {
-		struct FAT_ENTRY_LFN* lfnentry = (struct FAT_ENTRY_LFN*)fentry;
-		kprintf("lfilename  '");
-		for (int i = 0; i < 5; i++)
-			kprintf("%c", lfnentry->lfn_name_1[i * 2]);
-		for (int i = 0; i < 6; i++)
-			kprintf("%c", lfnentry->lfn_name_2[i * 2]);
-		for (int i = 0; i < 2; i++)
-			kprintf("%c", lfnentry->lfn_name_3[i * 2]);
-		kprintf("' order %u\n", lfnentry->lfn_order);
-	} else {
-		kprintf("filename   '");
-		for(int i = 0; i < 11; i++)
-			kprintf("%c", fentry->fe_filename[i]);
-		kprintf("'\n");
-		kprintf("attributes 0x%x\n", fentry->fe_attributes);
-		uint32_t cluster = FAT_FROM_LE16(fentry->fe_cluster_lo);
-		cluster |= FAT_FROM_LE16(fentry->fe_cluster_hi) << 16; /* XXX FAT32 only */
-		kprintf("cluster    %u\n", cluster);
-		kprintf("size       %u\n", FAT_FROM_LE32(fentry->fe_size));
-	}
-}
-#endif
+namespace {
 
-/*
- * Used to construct a FAT filename. Returns zero if the filename is not
- * complete.
- */
-static int fat_construct_filename(FAT_ENTRY& fentry, char* fat_filename)
+// Returns true if the filename is complete
+bool fat_construct_filename(FAT_ENTRY& fentry, char* fat_filename)
 {
-#define ADD_CHAR(c)              \
-    do {                         \
-        fat_filename[pos] = (c); \
-        pos++;                   \
-    } while (0)
-
     int pos = 0;
+    const auto addChar = [&](int c) {
+        fat_filename[pos] = c;
+        ++pos;
+    };
     if (fentry.fe_attributes == FAT_ATTRIBUTE_LFN) {
         struct FAT_ENTRY_LFN* lfnentry = (struct FAT_ENTRY_LFN*)&fentry;
 
@@ -69,12 +38,12 @@ static int fat_construct_filename(FAT_ENTRY& fentry, char* fat_filename)
         /* LFN XXX should we bother about the checksum? */
         /* XXX we throw away the upper 8 bits */
         for (int i = 0; i < 5; i++)
-            ADD_CHAR(lfnentry->lfn_name_1[i * 2]);
+            addChar(lfnentry->lfn_name_1[i * 2]);
         for (int i = 0; i < 6; i++)
-            ADD_CHAR(lfnentry->lfn_name_2[i * 2]);
+            addChar(lfnentry->lfn_name_2[i * 2]);
         for (int i = 0; i < 2; i++)
-            ADD_CHAR(lfnentry->lfn_name_3[i * 2]);
-        return 0;
+            addChar(lfnentry->lfn_name_3[i * 2]);
+        return false;
     }
 
     /*
@@ -82,23 +51,21 @@ static int fat_construct_filename(FAT_ENTRY& fentry, char* fat_filename)
      * ignore the old 8.3 filename.
      */
     if (fat_filename[0] != '\0')
-        return 1;
+        return true;
 
     /* Convert the filename bits */
     for (int i = 0; i < 11; i++) {
-        unsigned char ch = fentry.fe_filename[i];
+        auto ch = fentry.fe_filename[i];
         if (ch == 0x20)
             continue;
         if (i == 8) /* insert a '.' after the first 8 chars */
-            ADD_CHAR('.');
+            addChar('.');
         if (ch == 0x05) /* kanjii allows 0xe5 in filenames, so convert */
             ch = 0xe5;
-        ADD_CHAR(ch);
+        addChar(ch);
     }
 
-#undef ADD_CHAR
-
-    return 1;
+    return true;
 }
 
 Result fat_readdir(struct VFS_FILE* file, void* dirents, size_t len)
@@ -189,7 +156,7 @@ Result fat_readdir(struct VFS_FILE* file, void* dirents, size_t len)
  * Construct the 8.3-FAT notation for a given shortname and calculates the
  * checksum while doing so.
  */
-static uint8_t fat_sanitize_83_name(const char* fname, char* shortname)
+uint8_t fat_sanitize_83_name(const char* fname, char* shortname)
 {
     /* First, convert the filename to 8.3 form */
     int shortname_idx = 0;
@@ -223,8 +190,7 @@ static uint8_t fat_sanitize_83_name(const char* fname, char* shortname)
  * size cannot be >4GB anyway (MS docs claim most implementations use an
  * uint16_t!) - so relying on large FAT directories would be most unwise anyway.
  */
-static Result
-fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry, ino_t* inum)
+Result fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry, ino_t* inum)
 {
     struct VFS_MOUNTED_FS* fs = dir.i_fs;
 
@@ -377,7 +343,7 @@ fat_add_directory_entry(INode& dir, const char* dentry, struct FAT_ENTRY* fentry
     return Result::Success();
 }
 
-static Result fat_remove_directory_entry(INode& dir, const char* dentry)
+Result fat_remove_directory_entry(INode& dir, const char* dentry)
 {
     struct VFS_MOUNTED_FS* fs = dir.i_fs;
     BIO* bio = nullptr;
@@ -482,7 +448,7 @@ static Result fat_remove_directory_entry(INode& dir, const char* dentry)
     return result;
 }
 
-static Result fat_create(INode& dir, DEntry* de, int mode)
+Result fat_create(INode& dir, DEntry* de, int mode)
 {
     struct FAT_ENTRY fentry;
     memset(&fentry, 0, sizeof(fentry));
@@ -503,7 +469,7 @@ static Result fat_create(INode& dir, DEntry* de, int mode)
     return Result::Success();
 }
 
-static Result fat_unlink(INode& dir, DEntry& de)
+Result fat_unlink(INode& dir, DEntry& de)
 {
     /* Sanity checks first: we must have a backing inode */
     if (de.d_inode == NULL || de.d_flags & DENTRY_FLAG_NEGATIVE)
@@ -528,7 +494,7 @@ static Result fat_unlink(INode& dir, DEntry& de)
     return Result::Success();
 }
 
-static Result fat_rename(INode& old_dir, DEntry& old_dentry, INode& new_dir, DEntry& new_dentry)
+Result fat_rename(INode& old_dir, DEntry& old_dentry, INode& new_dir, DEntry& new_dentry)
 {
     KASSERT(!S_ISDIR(old_dentry.d_inode->i_sb.st_mode), "FIXME directory");
 
@@ -578,6 +544,8 @@ static Result fat_rename(INode& old_dir, DEntry& old_dentry, INode& new_dir, DEn
     dcache_set_inode(old_dentry, *inode);
     dcache_set_inode(new_dentry, *inode);
     return Result::Success();
+}
+
 }
 
 struct VFS_INODE_OPS fat_dir_ops = {

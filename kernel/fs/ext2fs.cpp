@@ -41,8 +41,8 @@
 #include "kernel/vfs/mount.h"
 #include "ext2.h"
 
-#define EXT2_TO_LE16(x) (x)
-#define EXT2_TO_LE32(x) (x)
+template<typename Value> constexpr Value EXT2_TO_LE16(Value v) { return v; }
+template<typename Value> constexpr Value EXT2_TO_LE32(Value v) { return v; }
 
 namespace
 {

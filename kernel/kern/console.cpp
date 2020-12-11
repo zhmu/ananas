@@ -26,17 +26,16 @@ namespace device_manager::internal
 
 Device* console_tty = nullptr;
 
-#define CONSOLE_BACKLOG_SIZE 1024
+namespace {
+    constexpr inline auto backlogSize = 1024;
 
-static int console_mutex_inuse = 0;
-static Spinlock console_backlog_lock;
-static char* console_backlog;
-static int console_backlog_pos = 0;
-static int console_backlog_overrun = 0;
-static Mutex mtx_console("console");
+    int console_mutex_inuse = 0;
+    Spinlock console_backlog_lock;
+    char* console_backlog;
+    int console_backlog_pos = 0;
+    int console_backlog_overrun = 0;
+    Mutex mtx_console("console");
 
-namespace
-{
     bool console_attach(ConsoleDriver& consoleDriver)
     {
         /*
@@ -81,7 +80,7 @@ namespace
         }
 
         // Initialize the backlog; we use it to queue messages once the mutex is hold
-        console_backlog = new char[CONSOLE_BACKLOG_SIZE];
+        console_backlog = new char[backlogSize];
         console_backlog_pos = 0;
 
         // Initialize the console print mutex and start using it
@@ -119,7 +118,7 @@ void console_putstring(const char* s)
          * back log and wait for it to be picked up later.
          */
         int len = strlen(s);
-        if (console_backlog_pos + len < CONSOLE_BACKLOG_SIZE) {
+        if (console_backlog_pos + len < backlogSize) {
             /* Fits! */
             strcpy(&console_backlog[console_backlog_pos], s);
             console_backlog_pos += len;

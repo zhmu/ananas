@@ -14,29 +14,43 @@
  * special, fixed place and has a limited number of entries. FAT32
  * just uses a normal cluster as FAT16 do for subdirectories.
  */
-#define FAT_ROOTINODE_INUM 0xfffffffe
+static inline constexpr uint32_t FAT_ROOTINODE_INUM = 0xfffffffe;
 
-#define FAT_FROM_LE16(x) (((uint8_t*)(x))[0] | (((uint8_t*)(x))[1] << 8))
-#define FAT_FROM_LE32(x)                                                           \
-    (((uint8_t*)(x))[0] | (((uint8_t*)(x))[1] << 8) | (((uint8_t*)(x))[2] << 16) | \
-     (((uint8_t*)(x))[3] << 24))
+template<typename T>
+uint16_t FAT_FROM_LE16(const T* x)
+{
+    auto p = reinterpret_cast<const uint8_t*>(x);
+    return static_cast<uint16_t>(p[0]) | (static_cast<uint16_t>(p[1]) << 8);
+}
 
-#define FAT_TO_LE16(x, y)                       \
-    do {                                        \
-        ((uint8_t*)(x))[0] = (y)&0xff;          \
-        ((uint8_t*)(x))[1] = ((y) >> 8) & 0xff; \
-    } while (0)
+template<typename T>
+uint32_t FAT_FROM_LE32(const T* x)
+{
+    auto p = reinterpret_cast<const uint8_t*>(x);
+    return static_cast<uint32_t>(x[0]) | (static_cast<uint32_t>(x[1]) << 8) |
+           (static_cast<uint32_t>(x[2]) << 16) | static_cast<uint32_t>(x[3] << 24);
+}
 
-#define FAT_TO_LE32(x, y)                        \
-    do {                                         \
-        ((uint8_t*)(x))[0] = (y)&0xff;           \
-        ((uint8_t*)(x))[1] = ((y) >> 8) & 0xff;  \
-        ((uint8_t*)(x))[2] = ((y) >> 16) & 0xff; \
-        ((uint8_t*)(x))[3] = ((y) >> 24) & 0xff; \
-    } while (0)
+template<typename T>
+void FAT_TO_LE16(T* out, const uint16_t v)
+{
+    auto p = reinterpret_cast<uint8_t*>(out);
+    p[0] = v & 0xff;
+    p[1] = (v >> 8) & 0xff;
+}
+
+template<typename T>
+void FAT_TO_LE32(T* out, const uint32_t v)
+{
+    auto p = reinterpret_cast<uint8_t*>(out);
+    p[0] = v & 0xff;
+    p[1] = (v >> 8) & 0xff;
+    p[2] = (v >> 16) & 0xff;
+    p[3] = (v >> 24) & 0xff;
+}
 
 /* Number of cache items per filesystem */
-#define FAT_NUM_CACHEITEMS 1000
+static inline constexpr auto FAT_NUM_CACHEITEMS = 1000;
 
 struct FAT_CLUSTER_CACHEITEM {
     uint32_t f_clusterno;

@@ -8,7 +8,7 @@
 #include "kernel-md/sio.h"
 #include "kernel/debug-console.h"
 
-#define DEBUGCON_IO 0x3f8 /* COM1 */
+static inline constexpr auto DEBUGCON_IO = 0x3f8; /* COM1 */
 
 void debugcon_init()
 {

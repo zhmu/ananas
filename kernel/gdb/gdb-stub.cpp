@@ -96,7 +96,7 @@ namespace
 /************************************************************************/
 /* BUFMAX defines the maximum number of characters in inbound/outbound buffers*/
 /* at least NUMREGBYTES*2 are needed for register packets */
-#define BUFMAX 400
+    constexpr auto BUFMAX = 400;
 
     static const char hexchars[] = "0123456789abcdef";
 

@@ -25,8 +25,10 @@
 
 // XXX The next constants are a kludge - we need to have a nicer mechanism to allocate
 //     virtual address space (vmspace should be extended for dynamic mappings)
-#define INTERPRETER_BASE 0xf000000
-#define PHDR_BASE 0xd0000000
+namespace {
+    inline constexpr addr_t INTERPRETER_BASE = 0xf000000;
+    inline constexpr addr_t PHDR_BASE = 0xd0000000;
+}
 
 namespace
 {

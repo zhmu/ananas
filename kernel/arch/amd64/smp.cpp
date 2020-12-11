@@ -31,8 +31,6 @@
 #include "options.h"
 #include "../../dev/acpi/acpica/acpi.h"
 
-#define SMP_DEBUG 0
-
 /* Application Processor's entry point and end */
 extern "C" void *__ap_entry, *__ap_entry_end;
 struct X86_CPU* x86_cpus;
@@ -320,9 +318,6 @@ namespace smp
                 if (isa_interrupt.i_dest < 0)
                     continue;
 
-#if SMP_DEBUG
-                kprintf("ISA: source=%u, dest=%u\n", isa_interrupt.i_source, isa_interrupt.i_dest);
-#endif
                 isa_ioapic.ConfigurePin(
                     isa_interrupt.i_dest, isa_interrupt.i_source + irqVectorBase, bsp_apic_id,
                     X86_IOAPIC::DeliveryMode::Fixed, isa_interrupt.i_polarity,

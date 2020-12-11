@@ -7,47 +7,28 @@
 #include <ananas/types.h>
 #include "kernel/lib.h"
 
-/*
- * The naive implementation is easy but slow; we can do much better by
- * attempting to copy 32-bit chunks in a single go every time - this results in
- * a massive speedup (we choose 32-bit chunks because most CPU's seem to like
- * that)
- */
-#undef NAIVE_IMPLEMENTATION
-
-void* memset(void* b, int c, size_t len)
+template<typename T>
+size_t Fill(void*& d, size_t sz, T v)
 {
-#ifdef NAIVE_IMPLEMENTATION
-    char* ptr = (char*)b;
-    while (len--) {
-        *ptr++ = c;
-    }
-#else
-    void* d = b;
+    auto ptr = reinterpret_cast<T*>(d);
+    for (uint64_t n = 0; n < sz / sizeof(T); ++n, ++ptr)
+        *ptr = v;
+    d = reinterpret_cast<void*>(ptr);
+    return (sz / sizeof(T)) * sizeof(T);
+}
 
-    /* Sets sz bytes of variable type T-sized data */
-#define DO_SET(T, sz, v)                                               \
-    do {                                                               \
-        size_t x = (size_t)sz;                                         \
-        while (x >= sizeof(T)) {                                       \
-            *(T*)d = (T)v;                                             \
-            x -= sizeof(T);                                            \
-            d = static_cast<void*>(static_cast<char*>(d) + sizeof(T)); \
-            len -= sizeof(T);                                          \
-        }                                                              \
-    } while (0)
+void* memset(void* p, int c, size_t len)
+{
+    // Optimised by aligning to a 32-bit address and doing 32-bit operations
+    // while possible
+    auto dest = p;
 
-    /* First of all, attempt to align to 32-bit boundary */
-    if (len >= 4 && ((addr_t)b & 3))
-        DO_SET(uint8_t, len & 3, c);
+    if (len >= 4 && (reinterpret_cast<uint64_t>(dest) & 3))
+        len -= Fill(dest, len & 3, static_cast<uint8_t>(c));
+    const uint32_t c32 = static_cast<uint32_t>(c) << 24 | static_cast<uint32_t>(c) << 16 |
+                         static_cast<uint32_t>(c) << 8 | static_cast<uint32_t>(c);
+    len -= Fill(dest, len, c32);
+    Fill(dest, len, static_cast<uint8_t>(c));
 
-    /* Attempt to set everything using 4 bytes at a time */
-    DO_SET(uint32_t, len, ((uint32_t)c << 24 | (uint32_t)c << 16 | (uint32_t)c << 8 | (uint32_t)c));
-
-    /* Handle the leftovers */
-    DO_SET(uint8_t, len, c);
-
-#undef DO_SET
-#endif
-    return b;
+    return p;
 }

@@ -16,8 +16,10 @@
 #include "kernel/vfs/generic.h"
 #include "kernel/vfs/mount.h"
 
-#define VFS_DEBUG_LOOKUP 0
-#define VFS_MAX_SYMLINK_LOOPS 20
+namespace {
+    constexpr inline auto vfsDebugLookup = false;
+    constexpr inline auto maxSymlinkLoops = 20;
+}
 
 static void vfs_make_file(struct VFS_FILE* file, DEntry& dentry)
 {
@@ -164,7 +166,7 @@ Result vfs_seek(struct VFS_FILE* file, off_t offset)
 static Result vfs_follow_symlink(DEntry*& curdentry)
 {
     int symlink_loops = 0;
-    while (S_ISLNK(curdentry->d_inode->i_sb.st_mode) && symlink_loops < VFS_MAX_SYMLINK_LOOPS) {
+    while (S_ISLNK(curdentry->d_inode->i_sb.st_mode) && symlink_loops < maxSymlinkLoops) {
         INode& inode = *curdentry->d_inode;
         DEntry* followed_dentry;
         auto result = inode.i_iops->follow_link(inode, *curdentry, followed_dentry);
@@ -176,7 +178,7 @@ static Result vfs_follow_symlink(DEntry*& curdentry)
         symlink_loops++;
     }
 
-    if (symlink_loops == VFS_MAX_SYMLINK_LOOPS) {
+    if (symlink_loops == maxSymlinkLoops) {
         dentry_deref(*curdentry);
         return Result::Failure(ELOOP);
     }
@@ -196,13 +198,13 @@ static Result
 vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& final, int flags)
 {
     char tmp[VFS_MAX_NAME_LEN + 1];
-#if VFS_DEBUG_LOOKUP
-    kprintf(
-        "vfs_lookup_internal((): curdentry=(%p,inode %p,mode %x, entry='%s'), name=%s\n", curdentry,
-        curdentry != NULL ? curdentry->d_inode : NULL,
-        (curdentry != NULL && curdentry->d_inode != NULL) ? curdentry->d_inode->i_sb.st_mode : 0,
-        curdentry != NULL ? curdentry->d_entry : "-", name);
-#endif
+    if constexpr (vfsDebugLookup) {
+        kprintf(
+            "vfs_lookup_internal((): curdentry=(%p,inode %p,mode %x, entry='%s'), name=%s\n", curdentry,
+            curdentry != NULL ? curdentry->d_inode : NULL,
+            (curdentry != NULL && curdentry->d_inode != NULL) ? curdentry->d_inode->i_sb.st_mode : 0,
+            curdentry != NULL ? curdentry->d_entry : "-", name);
+    }
 
     /* Start with a clean slate */
     final = false;
@@ -305,11 +307,11 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
             /* XXX There should be a wakeup signal of some kind */
             scheduler::Schedule();
         }
-#if VFS_DEBUG_LOOKUP
-        kprintf(
-            "partial lookup for %p:'%s' -> dentry %p (flags %u)", curdentry, next_lookup, dentry,
-            dentry->d_flags);
-#endif
+        if constexpr (vfsDebugLookup) {
+            kprintf(
+                "partial lookup for %p:'%s' -> dentry %p (flags %u)", curdentry, next_lookup, dentry,
+                dentry->d_flags);
+        }
         ditem = dentry;
 
         if (dentry->d_flags & DENTRY_FLAG_NEGATIVE) {
@@ -372,10 +374,10 @@ Result vfs_lookup(DEntry* parent, DEntry*& destentry, const char* dentry, int fl
     bool final;
     Result result = vfs_lookup_internal(parent, dentry, destentry, final, flags);
     if (result.IsSuccess()) {
-#if VFS_DEBUG_LOOKUP
-        kprintf(
-            "vfs_lookup(): parent=%p,dentry='%s' okay -> dentry %p\n", parent, dentry, destentry);
-#endif
+        if constexpr (vfsDebugLookup) {
+            kprintf(
+                "vfs_lookup(): parent=%p,dentry='%s' okay -> dentry %p\n", parent, dentry, destentry);
+        }
         return result;
     }
 

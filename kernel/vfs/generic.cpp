@@ -14,15 +14,9 @@
 #include "kernel/vfs/generic.h"
 #include "kernel/vfs/icache.h"
 
-#define VFS_DEBUG_LOOKUP 0
-
 Result vfs_generic_lookup(DEntry& parent, INode*& destinode, const char* dentry)
 {
     char buf[1024]; /* XXX */
-
-#if VFS_DEBUG_LOOKUP
-    kprintf("vfs_generic_lookup(); parent=%p dentry='%s'\n", &parent, dentry);
-#endif
 
     /*
      * XXX This is a very naive implementation which does not use the

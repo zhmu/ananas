@@ -44,8 +44,8 @@ namespace md::vm
 
         inline uint64_t* pt_resolve_addr(uint64_t entry)
         {
-#define ADDR_MASK 0xffffffffff000 /* bits 12 .. 51 */
-            return (uint64_t*)(KMEM_DIRECT_VA_START + (entry & ADDR_MASK));
+            constexpr addr_t addressMask = 0xffffffffff000; // bits 12 .. 51
+            return (uint64_t*)(KMEM_DIRECT_VA_START + (entry & addressMask));
         }
 
     } // unnamed namespace
