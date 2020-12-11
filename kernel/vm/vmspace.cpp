@@ -20,6 +20,8 @@
 
 namespace
 {
+    constexpr auto debugVASplit = false;
+
     size_t BytesToPages(size_t len) { return (len + PAGE_SIZE - 1) / PAGE_SIZE; }
 
     addr_t RoundUp(addr_t addr)
@@ -80,6 +82,14 @@ void vmspace_destroy(VMSpace& vs)
     delete &vs;
 }
 
+namespace {
+    constexpr bool IsPageInRange(const VMPage& vp, const addr_t virt, const size_t len)
+    {
+        const auto pageAddr = vp.vp_vaddr;
+        return pageAddr >= virt && (pageAddr + PAGE_SIZE) < (virt + len);
+    }
+}
+
 static bool vmspace_free_range(VMSpace& vs, addr_t virt, size_t len)
 {
     for (auto& va : vs.vs_areas) {
@@ -127,9 +137,62 @@ static bool vmspace_free_range(VMSpace& vs, addr_t virt, size_t len)
         }
 
         // XXX we need to cover the other use cases here as well (range at end, range in the middle)
-        panic(
-            "implement me! virt=%p..%p, va=%p..%p", virt, virt + len, va.va_virt,
-            va.va_virt + va.va_len);
+        const auto va_start_1 = va.va_virt;
+        const auto va_len_1 = virt - va.va_virt;
+        const auto va_start_2 = virt + len;
+        const auto va_len_2 = (va.va_virt + va.va_len) - (virt + len);
+        if constexpr (debugVASplit) {
+            kprintf("va_1 = %p .. %p (len %p)\n", va_start_1, va_start_1 + va_len_1, va_len_1);
+            kprintf("va_2 = %p .. %p (len %p)\n", va_start_2, va_start_2 + va_len_2, va_len_2);
+        }
+
+        // Move all pages that belong to VA. Free all that belong to the new range
+        auto newVA = new VMArea(vs, va_start_2, va_len_2, va.va_flags);
+        for (auto it = va.va_pages.begin(); it != va.va_pages.end(); /* nothing */) {
+            VMPage& vp = *it;
+            ++it;
+
+            if (IsPageInRange(vp, va_start_2, va_len_2)) {
+                if constexpr (debugVASplit) {
+                    kprintf("moving page %p to range 2\n", vp.vp_vaddr);
+                }
+                newVA->va_pages.push_back(vp);
+                continue;
+            }
+            if (IsPageInRange(vp, virt, len)) {
+                va.va_pages.remove(vp);
+                if constexpr (debugVASplit) {
+                    kprintf("freeing page %p\n", vp.vp_vaddr);
+                }
+                continue;
+            }
+            KASSERT(IsPageInRange(vp, va_start_1, va_len_1), "huh %p", vp.vp_vaddr);
+        }
+
+        if (va.va_dentry != nullptr) {
+            newVA->va_dentry = va.va_dentry;
+            dentry_ref(*newVA->va_dentry);
+
+            if constexpr (debugVASplit) {
+                kprintf("adjusting va1 len %p -> %p\n",
+                    va.va_dlength, va.va_dlength - (va.va_len - va_len_1));
+            }
+            va.va_dlength -= (va.va_len - va_len_1);
+            if (va.va_dlength < 0) va.va_dlength = 0;
+            if constexpr (debugVASplit) {
+                kprintf("va1 doffset %p dlen %d\n", va.va_doffset, va.va_dlength);
+            }
+
+            newVA->va_doffset = va.va_doffset + (va_start_2 - va_start_1);
+            newVA->va_dlength = va.va_dlength - (va_start_2 - va_start_1);
+
+            if constexpr (debugVASplit) {
+                kprintf("va2 doffset %p dlen %d\n", newVA->va_doffset, newVA->va_dlength);
+            }
+        }
+        va.va_virt = va_start_1;
+        va.va_len = va_len_1;
+        return true;
     }
 
     // No ranges match; this is okay
