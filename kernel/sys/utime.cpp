@@ -11,5 +11,5 @@
 
 Result sys_utime(Thread* t, const char* path, const struct utimbuf* times)
 {
-    return RESULT_MAKE_FAILURE(EACCES); // TODO: implement me
+    return Result::Failure(EACCES); // TODO: implement me
 }

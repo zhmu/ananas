@@ -16,7 +16,7 @@ Result sys_clone(Thread* t, int flags)
 
     /* XXX Future improvement so we can do vfork() and such */
     if (flags != 0)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     /* First, make a copy of the process; this inherits all files and such */
     Process* new_proc;

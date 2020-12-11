@@ -198,7 +198,7 @@ void Process::SignalExit() { p_parent->p_child_wait.Signal(); }
 Result Process::WaitAndLock(int flags, util::locked<Process>& p_out)
 {
     if (flags != 0)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     // Wait for the first zombie child of this process
     for (;;) {

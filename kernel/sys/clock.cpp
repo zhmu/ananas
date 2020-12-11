@@ -15,7 +15,7 @@
 Result sys_clock_settime(Thread* t, int id, const struct timespec* tp)
 {
     // XXX We don't support setting the time just yet
-    return RESULT_MAKE_FAILURE(EINVAL);
+    return Result::Failure(EINVAL);
 }
 
 Result sys_clock_gettime(Thread* t, int id, struct timespec* tp)
@@ -32,10 +32,10 @@ Result sys_clock_gettime(Thread* t, int id, struct timespec* tp)
         case CLOCK_SECONDS:
             break;
     }
-    return RESULT_MAKE_FAILURE(EINVAL);
+    return Result::Failure(EINVAL);
 }
 
 Result sys_clock_getres(Thread* t, int id, struct timespec* res)
 {
-    return RESULT_MAKE_FAILURE(EINVAL);
+    return Result::Failure(EINVAL);
 }

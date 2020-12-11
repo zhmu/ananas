@@ -36,7 +36,7 @@ namespace
             buf->st_blksize = PAGE_SIZE; // XXX
         } else {
             // What's this?
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
         }
 
         return Result::Success();

@@ -21,7 +21,7 @@ Result sys_seek(Thread* t, fdindex_t hindex, off_t* offset, int whence)
 
     struct VFS_FILE* file = &fd->fd_data.d_vfs_file;
     if (file->f_dentry == NULL)
-        return RESULT_MAKE_FAILURE(EINVAL); /* XXX maybe re-think this for devices */
+        return Result::Failure(EINVAL); /* XXX maybe re-think this for devices */
 
     /* Update the offset */
     off_t new_offset;
@@ -36,10 +36,10 @@ Result sys_seek(Thread* t, fdindex_t hindex, off_t* offset, int whence)
             new_offset = file->f_dentry->d_inode->i_sb.st_size - *offset;
             break;
         default:
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
     }
     if (new_offset < 0)
-        return RESULT_MAKE_FAILURE(ERANGE);
+        return Result::Failure(ERANGE);
     if (new_offset > file->f_dentry->d_inode->i_sb.st_size) {
         /* File needs to be grown to accommodate for this offset */
         if (auto result = vfs_grow(file, new_offset); result.IsFailure())

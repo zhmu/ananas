@@ -385,7 +385,7 @@ static Result fat_remove_directory_entry(INode& dir, const char* dentry)
     char cur_filename[128]; /* currently assembled filename */
     memset(cur_filename, 0, sizeof(cur_filename));
 
-    Result result = RESULT_MAKE_FAILURE(ENOENT);
+    Result result = Result::Failure(ENOENT);
     blocknr_t cur_block = (blocknr_t)-1;
     uint32_t cur_dir_offset = 0;
     int chain_length = 0;
@@ -507,7 +507,7 @@ static Result fat_unlink(INode& dir, DEntry& de)
 {
     /* Sanity checks first: we must have a backing inode */
     if (de.d_inode == NULL || de.d_flags & DENTRY_FLAG_NEGATIVE)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     /*
      * We must remove this item from the directory it is in - the nlink field determines when the

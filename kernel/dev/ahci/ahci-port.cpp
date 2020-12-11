@@ -77,12 +77,12 @@ namespace ahci
         uint32_t tfd = p_device.Read(AHCI_REG_PxTFD(n));
         if ((tfd & (AHCI_PxTFD_STS_BSY | AHCI_PxTFD_STS_DRQ)) != 0) {
             AHCI_DPRINTF("skipping port #%d; bsy/drq active (%x)", n, tfd);
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
         uint32_t sts = p_device.Read(AHCI_REG_PxSSTS(n));
         if (AHCI_PxSSTS_DETD(sts) != AHCI_DETD_DEV_PHY) {
             AHCI_DPRINTF("skipping port #%d; no device/phy (%x)", n, tfd);
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
 
         /* Initialize the DMA buffers for requests */

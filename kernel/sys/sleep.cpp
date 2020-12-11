@@ -11,5 +11,5 @@
 
 Result sys_nanosleep(Thread* t, const struct timespec* rqtp, struct timespec* rmtp)
 {
-    return RESULT_MAKE_FAILURE(EINVAL); // TODO
+    return Result::Failure(EINVAL); // TODO
 }

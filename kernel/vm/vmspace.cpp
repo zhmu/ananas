@@ -141,13 +141,13 @@ Result VMSpace::Map(
     const uint32_t mapFlags, VMArea*& va_out)
 {
     if (len == 0)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     // If the virtual address space is already in use, we need to break it up
     if (!vmspace_free_range(*this, virt, len)) {
         kprintf("range %p..%p not free!!\n", virt, virt + len);
         Dump();
-        return RESULT_MAKE_FAILURE(ENOSPC);
+        return Result::Failure(ENOSPC);
     }
 
     /*

@@ -30,7 +30,7 @@ Result sys_sigaction(Thread* t, int sig, const struct sigaction* act, struct sig
     SpinlockGuard sg(tsd.tsd_lock);
     auto sact = tsd.GetSignalAction(sig);
     if (sact == nullptr)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     if (oact != nullptr)
         *oact = sact->AsSigaction(); // XXX check pointer
@@ -63,7 +63,7 @@ Result sys_sigprocmask(Thread* t, int how, const sigset_t* set, sigset_t* oset)
             tsd.tsd_mask.Remove(*set);
             break;
         default:
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
     }
     SanitizeSignalMask(tsd.tsd_mask);
     return Result::Success();
@@ -72,7 +72,7 @@ Result sys_sigprocmask(Thread* t, int how, const sigset_t* set, sigset_t* oset)
 Result sys_sigsuspend(Thread* t, const sigset_t* sigmask)
 {
     kprintf("%s: TODO t=%p, sigmask=%p\n", __func__, t, sigmask);
-    return RESULT_MAKE_FAILURE(EPERM);
+    return Result::Failure(EPERM);
 }
 
 Result sys_kill(Thread* t, pid_t pid, int sig)
@@ -80,7 +80,7 @@ Result sys_kill(Thread* t, pid_t pid, int sig)
     Process& process = *t->t_process;
     if (pid == -1) {
         // Send to all processes where we have permission to send to (excluding system processed)
-        return RESULT_MAKE_FAILURE(EPERM); // TODO
+        return Result::Failure(EPERM); // TODO
     }
 
     siginfo_t si{};
@@ -93,7 +93,7 @@ Result sys_kill(Thread* t, pid_t pid, int sig)
 
         auto pg = process::FindProcessGroupByID(dest_pgid);
         if (!pg)
-            return RESULT_MAKE_FAILURE(ESRCH);
+            return Result::Failure(ESRCH);
 
         if (sig != 0)
             signal::QueueSignal(*pg, si);
@@ -101,7 +101,7 @@ Result sys_kill(Thread* t, pid_t pid, int sig)
     } else /* pid > 0 */ {
         auto p = process_lookup_by_id_and_lock(pid);
         if (p == nullptr)
-            return RESULT_MAKE_FAILURE(ESRCH);
+            return Result::Failure(ESRCH);
 
         if (sig != 0)
             signal::QueueSignal(*p->p_mainthread, si);

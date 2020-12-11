@@ -68,27 +68,27 @@ namespace
         /* Initialize ACPI subsystem */
         status = AcpiInitializeSubsystem();
         if (ACPI_FAILURE(status))
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
 
         /* Initialize tablde manager and fetch all tables */
         status = AcpiInitializeTables(NULL, 16, FALSE);
         if (ACPI_FAILURE(status))
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
 
         /* Create ACPI namespace from ACPI tables */
         status = AcpiLoadTables();
         if (ACPI_FAILURE(status))
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
 
         /* Enable ACPI hardware */
         status = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
         if (ACPI_FAILURE(status))
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
 
         /* Complete ACPI namespace object initialization */
         status = AcpiInitializeObjects(ACPI_FULL_INITIALIZATION);
         if (ACPI_FAILURE(status))
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
 
         // Initialize power button callback
         if ((AcpiGbl_FADT.Flags & ACPI_FADT_POWER_BUTTON) == 0) {

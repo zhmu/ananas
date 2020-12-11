@@ -119,7 +119,7 @@ namespace usb
         }
         if (timeout == 0) {
             Printf("timeout resetting port %d", n);
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
 
         DPRINTF("%s: port %d: reset completed; clearing c_reset", __func__, n);

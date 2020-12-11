@@ -64,20 +64,20 @@ Result vfs_mount(const char* from, const char* to, const char* type)
         }
     }
     if (fsops == NULL)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     /* Locate the device to mount from */
     Device* dev = NULL;
     if (from != NULL) {
         dev = device_manager::FindDevice(from);
         if (dev == NULL)
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
     }
 
     /* Locate an available mountpoint and hook it up */
     struct VFS_MOUNTED_FS* fs = vfs_get_availmountpoint();
     if (fs == NULL)
-        return RESULT_MAKE_FAILURE(ENXIO); // XXX silly error
+        return Result::Failure(ENXIO); // XXX silly error
     fs->fs_device = dev;
     fs->fs_fsops = fsops;
 
@@ -152,7 +152,7 @@ Result vfs_unmount(const char* path)
             return Result::Success();
         }
     }
-    return RESULT_MAKE_FAILURE(ENOENT);
+    return Result::Failure(ENOENT);
 }
 
 struct VFS_MOUNTED_FS* vfs_get_rootfs()
@@ -177,7 +177,7 @@ Result vfs_register_filesystem(VFSFileSystem& fs)
     for (auto& curfs : vfs::fstypes) {
         if (strcmp(curfs.fs_name, fs.fs_name) == 0) {
             /* Duplicate filesystem type; refuse to register */
-            return RESULT_MAKE_FAILURE(EEXIST);
+            return Result::Failure(EEXIST);
         }
     }
 

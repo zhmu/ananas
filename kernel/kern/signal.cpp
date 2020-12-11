@@ -73,7 +73,7 @@ namespace signal
     Result QueueSignal(Thread& t, const siginfo_t& siginfo)
     {
         if (!detail::IsSigalNumberValid(siginfo.si_signo))
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
 
         auto newSignal = new PendingSignal(siginfo);
 

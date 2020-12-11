@@ -66,10 +66,10 @@ void VGA::SetCursor(VTTY&, int x, int y)
 
 Result VGA::IOControl(Process* proc, unsigned long req, void* buffer[])
 {
-    return RESULT_MAKE_FAILURE(EINVAL);
+    return Result::Failure(EINVAL);
 }
 
 Result VGA::DetermineDevicePhysicalAddres(addr_t& physAddress, size_t& length, int& mapFlags)
 {
-    return RESULT_MAKE_FAILURE(EINVAL);
+    return Result::Failure(EINVAL);
 }

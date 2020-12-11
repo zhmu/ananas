@@ -45,7 +45,7 @@ namespace hda
         int cl_len = verb::param::con_list_len::Length(r);
         if (verb::param::con_list_len::LongForm(r)) {
             Printf("unsupported long nentry form!");
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
 
         aw.aw_num_conn = cl_len;
@@ -267,7 +267,7 @@ namespace hda
                     Printf(
                         "cad %d nid %d lists connection nid %d, but not found - aborting",
                         aw.n_address.na_cad, aw.n_address.na_nid, nid);
-                    return RESULT_MAKE_FAILURE(ENODEV);
+                    return Result::Failure(ENODEV);
                 }
                 aw.aw_conn[n] = aw_found;
             }
@@ -502,7 +502,7 @@ namespace hda
         /* Make sure we have found all pins (this may be paranoid) */
         if (pg->pg_count != num_pins) {
             delete pg;
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
 
         /* Construct the output provider */
@@ -550,7 +550,7 @@ namespace hda
     Result HDADevice::AttachAFG(AFG& afg)
     {
         if (afg.afg_nodes.empty())
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
 
         /* Walk through all associations and see what we have got there */
         for (unsigned int association = 1; association < 15; association++) {

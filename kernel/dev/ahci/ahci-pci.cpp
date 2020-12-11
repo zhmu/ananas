@@ -73,7 +73,7 @@ namespace ahci
         }
         if (port_delay == 0) {
             Printf("port #%d not responding; no device?", n);
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
 
         /*
@@ -92,7 +92,7 @@ namespace ahci
         }
         if (port_delay == 0) {
             Printf("port #%d doesn't go to dev/phy", n);
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
 
         /* Now wait for a bit until the port's BSY flag drops */
@@ -124,7 +124,7 @@ namespace ahci
         char* res_mem =
             static_cast<char*>(d_ResourceSet.AllocateResource(Resource::RT_Memory, 4096));
         if (res_mem == nullptr)
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
 
         /* Enable busmastering; all communication is done by DMA */
         pci_enable_busmaster(*this, 1);
@@ -148,7 +148,7 @@ namespace ahci
         }
         if (reset_wait == 0) {
             Printf("controller never leaves reset, giving up");
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
         /* Re-enable AHCI mode; this is part of what is reset */
         *(volatile uint32_t*)(res_mem + AHCI_REG_GHC) |= AHCI_GHC_AE;
@@ -215,7 +215,7 @@ namespace ahci
             if (!ok) {
                 /* XXX we can and should recover from this */
                 Printf("not all ports reset correctly");
-                return RESULT_MAKE_FAILURE(ENODEV);
+                return Result::Failure(ENODEV);
             }
         }
 

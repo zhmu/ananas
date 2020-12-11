@@ -39,7 +39,7 @@ namespace ankhfs
         {
             auto subSystem = GetSubSystemFromInode(*file->f_dentry->d_inode);
             if (subSystem == nullptr)
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
             return subSystem->HandleRead(file, buf, len);
         }
 
@@ -47,7 +47,7 @@ namespace ankhfs
         {
             auto subSystem = GetSubSystemFromInode(*file->f_dentry->d_inode);
             if (subSystem == nullptr)
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
             return subSystem->HandleIOControl(file, op, args);
         }
 
@@ -55,7 +55,7 @@ namespace ankhfs
         {
             auto subSystem = GetSubSystemFromInode(inode);
             if (subSystem == nullptr)
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
             return subSystem->HandleReadLink(inode, buffer, buflen);
         }
 
@@ -63,7 +63,7 @@ namespace ankhfs
         {
             auto subSystem = GetSubSystemFromInode(*file.f_dentry->d_inode);
             if (subSystem == nullptr)
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
             return subSystem->HandleOpen(file, p);
         }
 
@@ -71,7 +71,7 @@ namespace ankhfs
         {
             auto subSystem = GetSubSystemFromInode(*file.f_dentry->d_inode);
             if (subSystem == nullptr)
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
             return subSystem->HandleClose(file, p);
         }
 
@@ -79,7 +79,7 @@ namespace ankhfs
         {
             auto subSystem = GetSubSystemFromInode(*file->f_dentry->d_inode);
             if (subSystem == nullptr)
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
             return subSystem->HandleReadDir(file, dirents, len);
         }
 
@@ -128,7 +128,7 @@ namespace ankhfs
             inode.i_sb.st_size = 0;
             auto subSystem = GetSubSystemFromInode(inode);
             if (subSystem == nullptr)
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
 
             if (auto result = subSystem->FillInode(inode, inum); result.IsFailure())
                 return result;

@@ -107,12 +107,12 @@ namespace ankhfs
 
             Result HandleIOControl(struct VFS_FILE* file, unsigned long op, void* args[]) override
             {
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
             }
 
             Result HandleReadLink(INode& inode, void* buf, size_t len) override
             {
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
             }
         };
 

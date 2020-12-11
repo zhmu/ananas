@@ -52,7 +52,7 @@ namespace fd
             }
         }
         if (dtype == nullptr)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
 
         // Grab a descriptor from the free list
         FD& fd = []() -> FD& {
@@ -94,7 +94,7 @@ namespace fd
     Result Lookup(Process& proc, fdindex_t index, int type, FD*& fd_out)
     {
         if (index < 0 || index >= proc.p_fd.size())
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
 
         // Obtain the descriptor XXX How do we ensure it won't get freed after this? Should we ref
         // it?
@@ -108,13 +108,13 @@ namespace fd
         // Ensure descriptor exists - we don't verify ownership: it _is_ in the process' descriptor
         // table...
         if (fd == nullptr)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
         // Verify the type...
         if (type != FD_TYPE_ANY && fd->fd_type != type)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
         // ... yet unused descriptors are never valid */
         if (fd->fd_type == FD_TYPE_UNUSED)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
         fd_out = fd;
         return Result::Success();
     }
@@ -151,7 +151,7 @@ namespace fd
         if (fd_in->fd_ops->d_clone != NULL)
             return fd_in->fd_ops->d_clone(
                 proc_in, index_in, *fd_in, opts, proc_out, fd_out, index_out_min, index_out);
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
     }
 
     void RegisterType(FDType& ft)

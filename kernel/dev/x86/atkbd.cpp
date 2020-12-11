@@ -266,7 +266,7 @@ namespace
     {
         void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 7);
         if (res_io == nullptr)
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
 
         // Initialize private data; must be done before the interrupt is registered
         kbd_ioport = (uintptr_t)res_io;

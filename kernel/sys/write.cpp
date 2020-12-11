@@ -24,6 +24,6 @@ Result sys_write(Thread* t, fdindex_t hindex, const void* buf, size_t len)
 
     // And write data from to it
     if (fd->fd_ops->d_write == NULL)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
     return fd->fd_ops->d_write(t, hindex, *fd, buf, len);
 }

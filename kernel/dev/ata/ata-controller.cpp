@@ -399,7 +399,7 @@ namespace ata
             void* res_irq = d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
             if (res_io1 == nullptr || res_io2 == nullptr || res_io3 == nullptr ||
                 res_irq == nullptr)
-                return RESULT_MAKE_FAILURE(ENODEV);
+                return Result::Failure(ENODEV);
             ata_io = (uint32_t)(uintptr_t)res_io1;
             ata_io_alt = (uint32_t)(uintptr_t)res_io2;
             ata_dma_io = (uint32_t)(uintptr_t)res_io3;
@@ -411,7 +411,7 @@ namespace ata
 
         /* Ensure there's something living at the I/O addresses */
         if (inb(ata_io + ATA_REG_STATUS) == 0xff)
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
 
         if (auto result = irq_register(irq, this, IRQWrapper, IRQ_TYPE_DEFAULT, NULL);
             result.IsFailure())

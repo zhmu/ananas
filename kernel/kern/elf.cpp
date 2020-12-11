@@ -69,7 +69,7 @@ namespace
 
         size_t numread = result.AsValue();
         if (numread != len)
-            return RESULT_MAKE_FAILURE(EIO);
+            return Result::Failure(EIO);
         return Result::Success();
     }
 
@@ -81,23 +81,23 @@ namespace
         // Perform basic ELF checks: check magic/version
         if (ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != ELFMAG1 ||
             ehdr.e_ident[EI_MAG2] != ELFMAG2 || ehdr.e_ident[EI_MAG3] != ELFMAG3)
-            return RESULT_MAKE_FAILURE(ENOEXEC);
+            return Result::Failure(ENOEXEC);
         if (ehdr.e_ident[EI_VERSION] != EV_CURRENT)
-            return RESULT_MAKE_FAILURE(ENOEXEC);
+            return Result::Failure(ENOEXEC);
 
         // XXX This specifically checks for amd64 at the moment
         if (ehdr.e_ident[EI_CLASS] != ELFCLASS64)
-            return RESULT_MAKE_FAILURE(ENOEXEC);
+            return Result::Failure(ENOEXEC);
         if (ehdr.e_ident[EI_DATA] != ELFDATA2LSB)
-            return RESULT_MAKE_FAILURE(ENOEXEC);
+            return Result::Failure(ENOEXEC);
         if (ehdr.e_machine != EM_X86_64)
-            return RESULT_MAKE_FAILURE(ENOEXEC);
+            return Result::Failure(ENOEXEC);
 
         // There must be something to load
         if (ehdr.e_phnum == 0)
-            return RESULT_MAKE_FAILURE(ENOEXEC);
+            return Result::Failure(ENOEXEC);
         if (ehdr.e_phentsize < sizeof(Elf64_Phdr))
-            return RESULT_MAKE_FAILURE(ENOEXEC);
+            return Result::Failure(ENOEXEC);
 
         return Result::Success();
     }
@@ -167,7 +167,7 @@ Result ELF64Loader::LoadPH(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, 
     size_t filesz = phdr.p_filesz + virt_extra;
     if (doffset & (PAGE_SIZE - 1)) {
         kprintf("elf64_load_ph: refusing to map offset %d not a page-multiple\n", doffset);
-        return RESULT_MAKE_FAILURE(ENOEXEC);
+        return Result::Failure(ENOEXEC);
     }
 
     // First step is to map the dentry-backed data
@@ -217,7 +217,7 @@ Result ELF64Loader::Verify(DEntry& dentry)
 
     // Only accept executables here
     if (ehdr.e_type != ET_EXEC)
-        return RESULT_MAKE_FAILURE(ENOEXEC);
+        return Result::Failure(ENOEXEC);
 
     return Result::Success();
 }
@@ -247,12 +247,12 @@ Result ELF64Loader::Load(VMSpace& vs, DEntry& dentry, void*& aa)
                 if (interp != nullptr) {
                     kfree(interp);
                     kprintf("elf64_load: multiple interp headers\n");
-                    return RESULT_MAKE_FAILURE(ENOEXEC);
+                    return Result::Failure(ENOEXEC);
                 }
 
                 if (phdr.p_filesz >= PAGE_SIZE) {
                     kprintf("elf64_load: interp too large\n");
-                    return RESULT_MAKE_FAILURE(ENOEXEC);
+                    return Result::Failure(ENOEXEC);
                 }
 
                 // Read the interpreter from disk

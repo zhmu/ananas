@@ -69,7 +69,7 @@ Result sys_execve(Thread* t, const char* path, const char** argv, const char** e
     auto exec = exec_prepare(dentry);
     if (exec == nullptr) {
         dentry_deref(dentry);
-        return RESULT_MAKE_FAILURE(ENOEXEC);
+        return Result::Failure(ENOEXEC);
     }
 
     // Prepare a copy of argv/envp - the next step will throw all mappings away

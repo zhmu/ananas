@@ -189,7 +189,7 @@ DumpCBW(USBSTORAGE_CBW& cbw)
         us_output_buffer = result;
         us_output_filled = 0;
         us_output_len = (result_len != NULL) ? *result_len : 0;
-        Result r = RESULT_MAKE_FAILURE(EIO);
+        Result r = Result::Failure(EIO);
         us_result_ptr = &r;
         us_csw_ptr = &csw;
         /* Now, submit the request */
@@ -206,12 +206,12 @@ DumpCBW(USBSTORAGE_CBW& cbw)
 
         /* See if the CSW makes sense */
         if (csw.d_csw_signature != USBSTORAGE_CSW_SIGNATURE)
-            return RESULT_MAKE_FAILURE(EIO);
+            return Result::Failure(EIO);
         if (csw.d_csw_tag != cbw.d_cbw_tag)
-            return RESULT_MAKE_FAILURE(EIO);
+            return Result::Failure(EIO);
         if (csw.d_csw_status != USBSTORAGE_CSW_STATUS_GOOD) {
             DPRINTF("device rejected request: %d", csw.d_csw_status);
-            return RESULT_MAKE_FAILURE(EIO);
+            return Result::Failure(EIO);
         }
 
         return Result::Success();
@@ -248,7 +248,7 @@ DumpCBW(USBSTORAGE_CBW& cbw)
             if (len != sizeof(struct USBSTORAGE_CSW)) {
                 Printf(
                     "invalid csw length (expected %d got %d)", sizeof(struct USBSTORAGE_CSW), len);
-                *us_result_ptr = RESULT_MAKE_FAILURE(EIO);
+                *us_result_ptr = Result::Failure(EIO);
             } else {
                 memcpy(us_csw_ptr, &xfer.t_data[0], len);
                 *us_result_ptr = Result::Success();

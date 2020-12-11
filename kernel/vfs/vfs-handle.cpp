@@ -23,11 +23,11 @@ namespace
     Result vfshandle_get_file(FD& fd, struct VFS_FILE*& out)
     {
         if (fd.fd_type != FD_TYPE_FILE)
-            return RESULT_MAKE_FAILURE(EBADF);
+            return Result::Failure(EBADF);
 
         struct VFS_FILE* file = &fd.fd_data.d_vfs_file;
         if (file->f_dentry == nullptr && file->f_device == nullptr)
-            return RESULT_MAKE_FAILURE(EBADF);
+            return Result::Failure(EBADF);
 
         out = file;
         return Result::Success();

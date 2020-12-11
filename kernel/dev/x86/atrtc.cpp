@@ -58,7 +58,7 @@ namespace
     {
         void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 2);
         if (res_io == NULL)
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
 
         atrtc_ioport = (uintptr_t)res_io;
 

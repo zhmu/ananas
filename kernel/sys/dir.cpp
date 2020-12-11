@@ -63,11 +63,11 @@ Result sys_getcwd(Thread* t, char* buf, size_t size)
     DEntry& cwd = *proc.p_cwd;
 
     if (size == 0)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     size_t pathLen = dentry_construct_path(NULL, 0, cwd);
     if (size < pathLen + 1)
-        return RESULT_MAKE_FAILURE(ERANGE);
+        return Result::Failure(ERANGE);
 
     dentry_construct_path(buf, size, cwd);
     return Result::Success();

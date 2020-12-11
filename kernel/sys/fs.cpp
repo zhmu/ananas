@@ -63,7 +63,7 @@ Result sys_statfs(Thread* t, const char* path, struct statfs* buf)
     SpinlockGuard g(vfs::spl_mountedfs);
     auto fs = FindFS(path);
     if (fs == nullptr)
-        return RESULT_MAKE_FAILURE(ENOENT);
+        return Result::Failure(ENOENT);
 
     FillStat(*fs, buf);
     return Result::Success();
@@ -78,7 +78,7 @@ Result sys_fstatfs(Thread* t, fdindex_t hindex, struct statfs* buf)
 
     auto* dentry = fd->fd_data.d_vfs_file.f_dentry;
     if (dentry == nullptr)
-        return RESULT_MAKE_FAILURE(EBADF);
+        return Result::Failure(EBADF);
 
     FillStat(*dentry->d_fs, buf);
     return Result::Success();

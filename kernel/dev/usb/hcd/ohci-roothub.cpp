@@ -117,7 +117,7 @@ namespace usb
         Result RootHub::ControlTransfer(Transfer& xfer)
         {
             struct USB_CONTROL_REQUEST* req = &xfer.t_control_req;
-            Result result = RESULT_MAKE_FAILURE(EINVAL);
+            Result result = Result::Failure(EINVAL);
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
@@ -248,7 +248,7 @@ namespace usb
                                 }
                                 if (n == 0) {
                                     kprintf("oroothub: port %u not responding to reset", n);
-                                    result = RESULT_MAKE_FAILURE(ENODEV);
+                                    result = Result::Failure(ENODEV);
                                 }
                                 break;
                             }
@@ -262,7 +262,7 @@ namespace usb
                                 rh_Resources.Write4(port, OHCI_RHPS_PPS);
                                 break;
                             default:
-                                result = RESULT_MAKE_FAILURE(EINVAL);
+                                result = Result::Failure(EINVAL);
                                 break;
                         }
                     }
@@ -312,14 +312,14 @@ namespace usb
                                 rh_Resources.Write4(port, OHCI_RHPS_OCIC);
                                 break;
                             default:
-                                result = RESULT_MAKE_FAILURE(EINVAL);
+                                result = Result::Failure(EINVAL);
                                 break;
                         }
                     }
                     break;
                 }
                 default:
-                    result = RESULT_MAKE_FAILURE(EINVAL);
+                    result = Result::Failure(EINVAL);
                     break;
             }
 
@@ -423,7 +423,7 @@ namespace usb
             rh_numports = OHCI_RHDA_NDP(rhda);
             if (rh_numports < 1 || rh_numports > 15) {
                 kprintf("oroothub: invalid number of %d port(s) present", rh_numports);
-                return RESULT_MAKE_FAILURE(ENODEV);
+                return Result::Failure(ENODEV);
             }
 
             /*

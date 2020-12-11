@@ -34,7 +34,7 @@ namespace
         {
             void* res_irq = device.d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
             if (res_irq == NULL)
-                return RESULT_MAKE_FAILURE(ENODEV);
+                return Result::Failure(ENODEV);
 
             return irq::Register((int)(uintptr_t)res_irq, &device, IRQ_TYPE_DEFAULT, handler);
         }

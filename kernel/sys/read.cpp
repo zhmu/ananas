@@ -24,7 +24,7 @@ Result sys_read(Thread* t, fdindex_t hindex, void* buf, size_t len)
 
     // And read data to it
     if (fd->fd_ops->d_read == nullptr)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     return fd->fd_ops->d_read(t, hindex, *fd, buf, len);
 }

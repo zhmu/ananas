@@ -54,7 +54,7 @@ namespace ata
          */
         struct BIO* bio = bio_read(this, 0, BIO_SECTOR_SIZE);
         if (BIO_IS_ERROR(bio))
-            return RESULT_MAKE_FAILURE(EIO); /* XXX should get error from bio */
+            return Result::Failure(EIO); /* XXX should get error from bio */
 
         mbr_process(this, bio);
         bio_free(bio);

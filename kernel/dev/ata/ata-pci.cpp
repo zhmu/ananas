@@ -28,7 +28,7 @@ namespace ata
         // Grab the PCI DMA I/O port, it is the same for all PCI IDE controllers
         void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 16);
         if (res_io == NULL)
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         uint32_t atapci_dma_io = (uint32_t)(uintptr_t)res_io;
 
         /* XXX This is crude - but PCI/APCI do not seem to advertise these addresses? */

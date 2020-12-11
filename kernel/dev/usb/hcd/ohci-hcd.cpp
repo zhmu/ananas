@@ -671,14 +671,14 @@ namespace usb
     {
         void* res_mem = d_ResourceSet.AllocateResource(Resource::RT_Memory, 4096);
         if (res_mem == nullptr)
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         pci_enable_busmaster(*this, 1);
 
         /* See if the revision makes sense; if not, we can't attach to this */
         uint32_t rev = *(volatile uint32_t*)((char*)res_mem + OHCI_HCREVISION);
         if (OHCI_REVISION(rev) != 0x10) {
             Printf("unsupported revision 0x%x", OHCI_REVISION(rev));
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
 
         /* Allocate DMA tags */
@@ -706,7 +706,7 @@ namespace usb
                 n--; /* XXX kludge; should use a real timeout mechanism */
             if (n == 0) {
                 Printf("stuck in smm, giving up");
-                return RESULT_MAKE_FAILURE(ENODEV);
+                return Result::Failure(ENODEV);
             }
         }
 
@@ -725,7 +725,7 @@ namespace usb
         }
         if (n == 0) {
             Printf("stuck in reset, giving up");
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
         /* Now in USBSUSPEND state -> we have 2ms to continue */
 

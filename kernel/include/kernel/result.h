@@ -31,6 +31,4 @@ class Result
     statuscode_t r_StatusCode;
 };
 
-#define RESULT_MAKE_FAILURE(errno) Result::Failure(errno)
-
 #endif // __ANANAS_RESULT_H__

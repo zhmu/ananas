@@ -28,16 +28,16 @@ Result sys_setpgid(Thread* t, pid_t pid, pid_t pgid)
         pgid = t->t_process->p_group->pg_id;
 
     if (pid != t->t_process->p_pid)
-        return RESULT_MAKE_FAILURE(EPERM); // XXX for now
+        return Result::Failure(EPERM); // XXX for now
 
     auto process = process_lookup_by_id_and_lock(pid);
     if (process == nullptr)
-        return RESULT_MAKE_FAILURE(ESRCH);
+        return Result::Failure(ESRCH);
 
     auto pg = process::FindProcessGroupByID(pgid);
     if (!pg) {
         process->Unlock();
-        return RESULT_MAKE_FAILURE(ESRCH);
+        return Result::Failure(ESRCH);
     }
 
     // XXX pg must be self or of child...
@@ -55,7 +55,7 @@ Result sys_setsid(Thread* t)
 
     // Reject if we already are a group leader
     if (process.p_group->pg_session.s_leader == &process)
-        return RESULT_MAKE_FAILURE(EPERM);
+        return Result::Failure(EPERM);
 
     // Exit out current process group and start a new one; this creates a new session.
     // which is what we want
@@ -67,7 +67,7 @@ Result sys_setsid(Thread* t)
 Result sys_getsid(Thread* t, pid_t pid)
 {
     if (pid != 0)
-        return RESULT_MAKE_FAILURE(EPERM); // XXX maybe be more lenient here
+        return Result::Failure(EPERM); // XXX maybe be more lenient here
 
     Process& process = *t->t_process;
     return Result(process.p_group->pg_session.s_sid);

@@ -127,7 +127,7 @@ namespace hda
         }
         if (timeout == 0) {
             Printf("issued verb %x -> timeout", verb);
-            return RESULT_MAKE_FAILURE(ENODEV); /* or another silly error code */
+            return Result::Failure(ENODEV); /* or another silly error code */
             ;
         }
 
@@ -188,7 +188,7 @@ namespace hda
         }
 
         if (ss < 0)
-            return RESULT_MAKE_FAILURE(ENOSPC); // XXX does this make sense?
+            return Result::Failure(ENOSPC); // XXX does this make sense?
 
         /* Claim the stream# */
         hda_ss_avail &= ~(1 << ss);
@@ -352,7 +352,7 @@ namespace hda
     {
         void* res_io = d_ResourceSet.AllocateResource(Resource::RT_Memory, 4096);
         if (res_io == nullptr)
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
 
         hda_addr = (addr_t)res_io;
 
@@ -376,7 +376,7 @@ namespace hda
             delay(1);
         if (timeout == 0) {
             Printf("still stuck in reset, giving up");
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
         /* XXX WAKEEN ... ? */
 
@@ -390,7 +390,7 @@ namespace hda
         if (hda_oss == 0) {
             Printf(
                 "no output stream support; perhaps FIXME by implementing bss? for now, aborting");
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
         int num_streams = hda_iss + hda_oss + hda_bss;
         hda_stream = new HDA_PCI_STREAM*[num_streams];
@@ -434,7 +434,7 @@ namespace hda
             corb_size_val = HDA_CORBSIZE_CORBSIZE_2E;
         } else {
             Printf("corb size invalid?! corbsize=%x", x);
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
         HDA_WRITE_1(HDA_REG_CORBSIZE, (x & ~HDA_CORBSIZE_CORBSIZE_MASK) | corb_size_val);
         HDA_WRITE_4(HDA_REG_CORBL, (uint32_t)(corb_paddr & 0xffffffff));
@@ -454,7 +454,7 @@ namespace hda
             corb_size_val = HDA_RIRBSIZE_RIRBSIZE_2E;
         } else {
             Printf("rirb size invalid?! rirbsize=%x", x);
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
         HDA_WRITE_1(HDA_REG_RIRBSIZE, (x & ~HDA_RIRBSIZE_RIRBSIZE_MASK) | rirb_size_val);
         HDA_WRITE_4(HDA_REG_RIRBL, (uint32_t)((corb_paddr + 1024) & 0xffffffff));

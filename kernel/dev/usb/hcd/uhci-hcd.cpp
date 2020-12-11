@@ -502,7 +502,7 @@ uhci_free_td(device_t dev, struct HCD_TD* td)
 
         void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 16);
         if (res_io == nullptr)
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
 
         /* Create DMA tags; we need these to do DMA */
         {
@@ -614,7 +614,7 @@ uhci_free_td(device_t dev, struct HCD_TD* td)
         delay(10);
         if (uhci_Resources.Read2(UHCI_REG_USBSTS) & UHCI_USBSTS_HCHALTED) {
             Printf("controller does not start");
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
 
         /* Hook up our interrupt handler and get it going */

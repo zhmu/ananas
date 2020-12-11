@@ -89,7 +89,7 @@ namespace ankhfs
                 dev_t devno = static_cast<dev_t>(inum_to_id(inum));
                 Device* device = device_manager::FindDevice(devno);
                 if (device == nullptr)
-                    return RESULT_MAKE_FAILURE(EIO);
+                    return Result::Failure(EIO);
 
                 if (device->GetCharDeviceOperations() != nullptr) {
                     inode.i_sb.st_mode |= S_IFCHR;
@@ -140,7 +140,7 @@ namespace ankhfs
                     return ankhfs::HandleRead(file, buf, len, result);
                 }
 
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
             }
 
             Result HandleOpen(VFS_FILE& file, Process* p) override
@@ -149,7 +149,7 @@ namespace ankhfs
                 dev_t devno = static_cast<dev_t>(inum_to_id(inum));
                 Device* device = device_manager::FindDevice(devno);
                 if (device == nullptr)
-                    return RESULT_MAKE_FAILURE(EIO);
+                    return Result::Failure(EIO);
 
                 if (auto result = device->GetDeviceOperations().Open(p); result.IsFailure())
                     return result;
@@ -172,12 +172,12 @@ namespace ankhfs
 
             Result HandleIOControl(struct VFS_FILE* file, unsigned long op, void* args[]) override
             {
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
             }
 
             Result HandleReadLink(INode& inode, void* buf, size_t len) override
             {
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
             }
         };
 

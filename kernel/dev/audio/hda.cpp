@@ -99,7 +99,7 @@ namespace hda
         uint16_t codec_mask = hdaFunctions->GetAndClearStateChange();
         if (codec_mask == 0) {
             Printf("no codecs present, aborting attach");
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
 
         for (unsigned int cad = 0; cad <= 15; cad++) {
@@ -123,7 +123,7 @@ namespace hda
     Result HDADevice::Write(const void* buffer, size_t len, off_t offset)
     {
         if (hda_pc == nullptr)
-            return RESULT_MAKE_FAILURE(EIO);
+            return Result::Failure(EIO);
         auto& pc = *hda_pc;
 
         // Copy buffer content to what we will play
@@ -160,7 +160,7 @@ namespace hda
     Result HDADevice::Read(void* buffer, size_t len, off_t offset)
     {
         // No recording support yet
-        return RESULT_MAKE_FAILURE(EIO);
+        return Result::Failure(EIO);
     }
 
     Result HDADevice::IOControl(Process* proc, unsigned long req, void* args[])
@@ -170,21 +170,21 @@ namespace hda
                 auto ss = (SOUND_START_ARGS*)args[0]; // XXX userland check
                 // For now, we only support a very limited subset...
                 if (ss->ss_rate != SOUND_RATE_48KHZ)
-                    return RESULT_MAKE_FAILURE(EINVAL);
+                    return Result::Failure(EINVAL);
                 if (ss->ss_format != SOUND_FORMAT_16S)
-                    return RESULT_MAKE_FAILURE(EINVAL);
+                    return Result::Failure(EINVAL);
                 if (ss->ss_channels != 2)
-                    return RESULT_MAKE_FAILURE(EINVAL);
+                    return Result::Failure(EINVAL);
                 if (ss->ss_buffer_length != 64)
-                    return RESULT_MAKE_FAILURE(EINVAL);
+                    return Result::Failure(EINVAL);
 
                 // Only allow a single play context
                 if (hda_pc != nullptr)
-                    return RESULT_MAKE_FAILURE(EPERM);
+                    return Result::Failure(EPERM);
 
                 AFG* afg = hda_afg;
                 if (afg == NULL || afg->afg_outputs.empty())
-                    return RESULT_MAKE_FAILURE(EIO); // XXX could this happen?
+                    return Result::Failure(EIO); // XXX could this happen?
 
                 // XXX Look for a precisely N-channel output. This should not be necessary,
                 // but VirtualBox dies if we try to use 2 channels only for a 7.1-channel output...
@@ -196,7 +196,7 @@ namespace hda
                     return nullptr;
                 }(*afg, *ss);
                 if (o == nullptr)
-                    return RESULT_MAKE_FAILURE(EIO);
+                    return Result::Failure(EIO);
 
 #if 0
 			kprintf(">> routing to output pins");
@@ -277,21 +277,21 @@ namespace hda
 
             case IOCTL_SOUND_STOP: {
                 if (hda_pc == nullptr)
-                    return RESULT_MAKE_FAILURE(EPERM);
+                    return Result::Failure(EPERM);
 
                 delete hda_pc;
                 hda_pc = nullptr;
                 return Result::Success();
             }
         }
-        return RESULT_MAKE_FAILURE(EIO);
+        return Result::Failure(EIO);
     }
 
     Result HDADevice::Open(Process* proc)
     {
         // If we have a play context, reject the open
         if (hda_pc != nullptr)
-            return RESULT_MAKE_FAILURE(EPERM);
+            return Result::Failure(EPERM);
 
         return Result::Success();
     }

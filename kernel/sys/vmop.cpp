@@ -32,7 +32,7 @@ namespace
         }
         if (auto device = fd->fd_data.d_vfs_file.f_device; device) {
             if (device == nullptr)
-                return RESULT_MAKE_FAILURE(EINVAL);
+                return Result::Failure(EINVAL);
             size_t length = vo->vo_len;
             vm_flags &= ~(VM_FLAG_FAULT | VM_FLAG_EXECUTE);
             addr_t physAddress;
@@ -48,15 +48,15 @@ namespace
                 dest_addr, vo->vo_len, *dentry, vo->vo_offset, vo->vo_len, vm_flags, va);
         }
 
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
     }
 
     Result sys_vmop_map(Thread* curthread, struct VMOP_OPTIONS* vo)
     {
         if (vo->vo_len == 0)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
         if ((vo->vo_flags & (VMOP_FLAG_PRIVATE | VMOP_FLAG_SHARED)) == 0)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
 
         int vm_flags = VM_FLAG_USER | VM_FLAG_FAULT;
         if (vo->vo_flags & VMOP_FLAG_READ)
@@ -91,7 +91,7 @@ namespace
     Result sys_vmop_unmap(Thread* t, struct VMOP_OPTIONS* vo)
     {
         /* XXX implement me */
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
     }
 
 } // namespace
@@ -105,7 +105,7 @@ Result sys_vmop(Thread* t, struct VMOP_OPTIONS* opts)
         result.IsFailure())
         return result;
     if (vmop_opts->vo_size != sizeof(*vmop_opts))
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     switch (vmop_opts->vo_op) {
         case OP_MAP:
@@ -113,7 +113,7 @@ Result sys_vmop(Thread* t, struct VMOP_OPTIONS* opts)
         case OP_UNMAP:
             return sys_vmop_unmap(t, vmop_opts);
         default:
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
     }
 
     /* NOTREACHED */

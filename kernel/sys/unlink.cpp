@@ -13,5 +13,5 @@ struct Thread;
 Result sys_unlink(Thread* t, const char* path)
 {
     /* TODO */
-    return RESULT_MAKE_FAILURE(EIO);
+    return Result::Failure(EIO);
 }

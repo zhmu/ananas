@@ -19,7 +19,7 @@ sys_ioctl(Thread* t, fdindex_t fdindex, unsigned long req, void* arg1, void* arg
         return result;
 
     if (fd->fd_ops->d_ioctl == nullptr)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     void* args[] = {arg1, arg2, arg3};
     return fd->fd_ops->d_ioctl(t, fdindex, *fd, req, args);

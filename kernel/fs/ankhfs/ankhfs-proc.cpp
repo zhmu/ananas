@@ -96,7 +96,7 @@ namespace ankhfs
             pid_t pid = static_cast<pid_t>(inum_to_id(inum));
             Process* p = process_lookup_by_id_and_lock(pid);
             if (p == nullptr)
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
 
             // Fill the directory with one item per active file descriptor
             FetchFdEntry entryFetcher(*p);
@@ -142,9 +142,9 @@ namespace ankhfs
                     auto pid = static_cast<pid_t>(inum_to_id(inode.i_inum));
                     Process* p = process_lookup_by_id_and_lock(pid);
                     if (p == nullptr)
-                        return RESULT_MAKE_FAILURE(EIO);
+                        return Result::Failure(EIO);
 
-                    Result result = RESULT_MAKE_FAILURE(EIO);
+                    Result result = Result::Failure(EIO);
                     auto fd = p->p_fd[sub - subFdEntry]; // XXX we need to lock this
                     if (fd != nullptr && fd->fd_type == FD_TYPE_FILE &&
                         fd->fd_data.d_vfs_file.f_dentry != nullptr) {
@@ -158,7 +158,7 @@ namespace ankhfs
                     return result;
                 }
 
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
             }
 
             Result HandleRead(struct VFS_FILE* file, void* buf, size_t len) override
@@ -168,7 +168,7 @@ namespace ankhfs
                 pid_t pid = static_cast<pid_t>(inum_to_id(inum));
                 Process* p = process_lookup_by_id_and_lock(pid);
                 if (p == nullptr)
-                    return RESULT_MAKE_FAILURE(EIO);
+                    return Result::Failure(EIO);
 
                 char result[256]; // XXX
                 strcpy(result, "???");
@@ -210,7 +210,7 @@ namespace ankhfs
 
             Result HandleIOControl(struct VFS_FILE* file, unsigned long op, void* args[]) override
             {
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
             }
 
             Result HandleOpen(VFS_FILE& file, Process* p) override { return Result::Success(); }

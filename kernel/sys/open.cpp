@@ -26,7 +26,7 @@ Result sys_open(Thread* t, const char* path, int flags, int mode)
      * Ask the handle to open the resource - if there isn't an open operation, we
      * assume this handle type cannot be opened using a syscall.
      */
-    Result result = RESULT_MAKE_FAILURE(EINVAL);
+    Result result = Result::Failure(EINVAL);
     if (fd->fd_ops->d_open != NULL)
         result = fd->fd_ops->d_open(t, index_out, *fd, path, flags, mode);
 

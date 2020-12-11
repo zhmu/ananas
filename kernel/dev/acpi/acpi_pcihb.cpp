@@ -41,7 +41,7 @@ namespace
         {
             auto res = d_ResourceSet.GetResource(Resource::RT_ACPI_HANDLE, 0);
             if (res == nullptr)
-                return RESULT_MAKE_FAILURE(EIO);
+                return Result::Failure(EIO);
             auto acpiHandle = static_cast<ACPI_HANDLE*>(reinterpret_cast<void*>(res->r_Base));
 
             // Grab the PCI Routing Table (PRT); on-board devices tend to have their
@@ -68,12 +68,12 @@ namespace
             int interrupt = 0;
             interrupt = LookupPCIInterrupt(deviceNum, index);
             if (interrupt < 0)
-                return RESULT_MAKE_FAILURE(ENODEV);
+                return Result::Failure(ENODEV);
 
             if (interrupt == 0) {
                 auto res_irqno = device.d_ResourceSet.GetResource(Resource::RT_IRQ, 0);
                 if (res_irqno == nullptr)
-                    return RESULT_MAKE_FAILURE(ENODEV);
+                    return Result::Failure(ENODEV);
                 interrupt = res_irqno->r_Base;
             }
 

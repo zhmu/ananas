@@ -25,7 +25,7 @@ Result sys_reboot(Thread* t, int how)
             type = shutdown::ShutdownType::PowerDown;
             break;
         default:
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
     }
     shutdown::RequestShutdown(type);
     return Result::Success();

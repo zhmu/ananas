@@ -71,7 +71,7 @@ Result vfs_read(struct VFS_FILE* file, void* buf, size_t len)
     if (file->f_device != NULL) {
         /* Device */
         if (file->f_device->GetCharDeviceOperations() == NULL)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
         else {
             return file->f_device->GetCharDeviceOperations()->Read(buf, len, 0);
         }
@@ -79,34 +79,34 @@ Result vfs_read(struct VFS_FILE* file, void* buf, size_t len)
 
     INode* inode = file->f_dentry->d_inode;
     if (inode == NULL || inode->i_iops == NULL)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     if (!vfs_is_filesystem_sane(inode->i_fs))
-        return RESULT_MAKE_FAILURE(EIO);
+        return Result::Failure(EIO);
 
     if (S_ISLNK(inode->i_sb.st_mode)) {
         // Symbolic link
         if (inode->i_iops->read_link == NULL)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
         return inode->i_iops->read_link(*inode, static_cast<char*>(buf), len);
     }
 
     if (S_ISREG(inode->i_sb.st_mode)) {
         /* Regular file */
         if (inode->i_iops->read == NULL)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
         return inode->i_iops->read(file, buf, len);
     }
 
     if (S_ISDIR(inode->i_sb.st_mode)) {
         // Directory
         if (inode->i_iops->readdir == NULL)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
         return inode->i_iops->readdir(file, buf, len);
     }
 
     // What's this?
-    return RESULT_MAKE_FAILURE(EINVAL);
+    return Result::Failure(EINVAL);
 }
 
 Result vfs_ioctl(Process* p, struct VFS_FILE* file, unsigned long request, void* args[])
@@ -115,11 +115,11 @@ Result vfs_ioctl(Process* p, struct VFS_FILE* file, unsigned long request, void*
     if (file->f_device != NULL) {
         // Device
         if (file->f_device == nullptr)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
         return file->f_device->GetDeviceOperations().IOControl(p, request, args);
     }
 
-    return RESULT_MAKE_FAILURE(EINVAL);
+    return Result::Failure(EINVAL);
 }
 
 Result vfs_write(struct VFS_FILE* file, const void* buf, size_t len)
@@ -128,35 +128,35 @@ Result vfs_write(struct VFS_FILE* file, const void* buf, size_t len)
     if (file->f_device != NULL) {
         /* Device */
         if (file->f_device == NULL || file->f_device->GetCharDeviceOperations() == NULL)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
         else
             return file->f_device->GetCharDeviceOperations()->Write(buf, len, 0);
     }
 
     INode* inode = file->f_dentry->d_inode;
     if (inode == NULL || inode->i_iops == NULL)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     if (S_ISDIR(inode->i_sb.st_mode)) {
         /* Directory */
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
     }
 
     if (!vfs_is_filesystem_sane(inode->i_fs))
-        return RESULT_MAKE_FAILURE(EIO);
+        return Result::Failure(EIO);
 
     /* Regular file */
     if (inode->i_iops->write == NULL)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
     return inode->i_iops->write(file, buf, len);
 }
 
 Result vfs_seek(struct VFS_FILE* file, off_t offset)
 {
     if (file->f_dentry == NULL || file->f_dentry->d_inode == NULL)
-        return RESULT_MAKE_FAILURE(EBADF);
+        return Result::Failure(EBADF);
     if (offset > file->f_dentry->d_inode->i_sb.st_size)
-        return RESULT_MAKE_FAILURE(ERANGE);
+        return Result::Failure(ERANGE);
     file->f_offset = offset;
     return Result::Success();
 }
@@ -178,7 +178,7 @@ static Result vfs_follow_symlink(DEntry*& curdentry)
 
     if (symlink_loops == VFS_MAX_SYMLINK_LOOPS) {
         dentry_deref(*curdentry);
-        return RESULT_MAKE_FAILURE(ELOOP);
+        return Result::Failure(ELOOP);
     }
     return Result::Success();
 }
@@ -216,7 +216,7 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
         struct VFS_MOUNTED_FS* fs = vfs_get_rootfs();
         if (fs == NULL)
             /* If there is no root filesystem, nothing to do */
-            return RESULT_MAKE_FAILURE(ENOENT);
+            return Result::Failure(ENOENT);
         if (*name == '/')
             name++;
 
@@ -266,7 +266,7 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
         // Ensure the dentry points to something still sane
         if (!vfs_is_filesystem_sane(curdentry->d_fs)) {
             dentry_deref(*curdentry); /* let go of the ref; we are done with it */
-            return RESULT_MAKE_FAILURE(EIO);
+            return Result::Failure(EIO);
         }
 
         /*
@@ -289,7 +289,7 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
          */
         if (S_ISDIR(curdentry->d_inode->i_sb.st_mode) == 0) {
             dentry_deref(*curdentry); /* let go of the ref; we are done with it */
-            return RESULT_MAKE_FAILURE(ENOENT);
+            return Result::Failure(ENOENT);
         }
 
         /*
@@ -316,7 +316,7 @@ vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& f
             /* Entry is in the cache as a negative entry; this means we can't find it */
             dentry_deref(*curdentry); /* release parent, we are done with it */
             KASSERT(dentry->d_inode == NULL, "negative lookup with inode?");
-            return RESULT_MAKE_FAILURE(ENOENT);
+            return Result::Failure(ENOENT);
         }
 
         /* If the entry has a backing inode, we are done and can look up the next part */
@@ -403,7 +403,7 @@ Result vfs_create(DEntry* parent, struct VFS_FILE* file, const char* dentry, int
             KASSERT(de->d_inode != NULL, "successful lookup without inode");
             dentry_deref(*de);
             /* Update the error code */
-            result = RESULT_MAKE_FAILURE(EEXIST);
+            result = Result::Failure(EEXIST);
         }
         return result;
     }
@@ -428,10 +428,10 @@ Result vfs_create(DEntry* parent, struct VFS_FILE* file, const char* dentry, int
 
     /* If the filesystem can't create inodes, assume the operation is faulty */
     if (parentinode->i_iops->create == NULL)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     if (!vfs_is_filesystem_sane(parentinode->i_fs))
-        return RESULT_MAKE_FAILURE(EIO);
+        return Result::Failure(EIO);
 
     /* Dear filesystem, create a new inode for us */
     result = parentinode->i_iops->create(*parentinode, de, mode);
@@ -454,7 +454,7 @@ Result vfs_grow(struct VFS_FILE* file, off_t size)
     KASSERT(inode->i_sb.st_size < size, "no need to grow");
 
     if (!vfs_is_filesystem_sane(inode->i_fs))
-        return RESULT_MAKE_FAILURE(EIO);
+        return Result::Failure(EIO);
 
     /* Allocate a dummy buffer with the file data */
     char buffer[128];
@@ -481,14 +481,14 @@ Result vfs_unlink(struct VFS_FILE* file)
     /* Unlink is relative to the parent; so we'll need to obtain it */
     DEntry* parent = file->f_dentry->d_parent;
     if (parent == NULL || parent->d_inode == NULL)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     INode& inode = *parent->d_inode;
     if (inode.i_iops->unlink == NULL)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     if (!vfs_is_filesystem_sane(inode.i_fs))
-        return RESULT_MAKE_FAILURE(EIO);
+        return Result::Failure(EIO);
 
     if (auto result = inode.i_iops->unlink(inode, *file->f_dentry); result.IsFailure())
         return result;
@@ -512,7 +512,7 @@ Result vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest)
     DEntry* parent_dentry = file->f_dentry->d_parent;
     if (parent_dentry == NULL || parent_dentry->d_inode == NULL ||
         parent_dentry->d_inode->i_iops->rename == NULL)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     /*
      * Look up the new location; we need a dentry to the new location for this to
@@ -531,7 +531,7 @@ Result vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest)
             KASSERT(de->d_inode != NULL, "successful lookup without inode");
             dentry_deref(*de);
             /* Update the error code */
-            result = RESULT_MAKE_FAILURE(EEXIST);
+            result = Result::Failure(EEXIST);
         }
         return result;
     }
@@ -555,7 +555,7 @@ Result vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest)
     INode* dest_inode = de->d_parent->d_inode;
     if (parent_inode->i_fs != dest_inode->i_fs) {
         dentry_deref(*de);
-        return RESULT_MAKE_FAILURE(EXDEV);
+        return Result::Failure(EXDEV);
     }
 
     /* All seems to be in order; ask the filesystem to deal with the change */

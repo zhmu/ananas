@@ -24,7 +24,7 @@ bool vfs_is_filesystem_sane(struct VFS_MOUNTED_FS* fs)
 Result vfs_bread(struct VFS_MOUNTED_FS* fs, blocknr_t block, struct BIO** bio)
 {
     if (!vfs_is_filesystem_sane(fs))
-        return RESULT_MAKE_FAILURE(EIO);
+        return Result::Failure(EIO);
 
     BIO* bio2;
     if (auto result = bread(fs->fs_device, block * (fs->fs_block_size / BIO_SECTOR_SIZE), fs->fs_block_size, bio2); result.IsFailure())

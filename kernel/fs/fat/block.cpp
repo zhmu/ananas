@@ -141,7 +141,7 @@ try_cache:; /* dummy ; to keep gcc happy */
             scheduler::Schedule();
         }
         if (ci->f_nextcluster == -1)
-            return RESULT_MAKE_FAILURE(ERANGE);
+            return Result::Failure(ERANGE);
         *cluster_out = ci->f_nextcluster;
         return Result::Success();
     }
@@ -181,7 +181,7 @@ try_cache:; /* dummy ; to keep gcc happy */
     } else {
         if (ci != NULL)
             ci->f_nextcluster = -1;
-        return RESULT_MAKE_FAILURE(ERANGE);
+        return Result::Failure(ERANGE);
     }
 }
 
@@ -284,7 +284,7 @@ static Result fat_claim_avail_cluster(struct VFS_MOUNTED_FS* fs, uint32_t* clust
     }
 
     /* Out of available clusters */
-    return RESULT_MAKE_FAILURE(ENOSPC);
+    return Result::Failure(ENOSPC);
 }
 
 /*
@@ -419,7 +419,7 @@ Result fat_block_map(INode& inode, blocknr_t block_in, blocknr_t& block_out, boo
         want_block = fs_privdata->first_rootdir_sector + block_in;
         if (block_in >= (fs_privdata->num_rootdir_sectors * fs_privdata->sector_size))
             /* Cannot expand the root directory */
-            return RESULT_MAKE_FAILURE(ERANGE);
+            return Result::Failure(ERANGE);
     } else {
         uint32_t cluster;
         Result result = fat_get_cluster(

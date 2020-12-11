@@ -19,7 +19,7 @@ static Result perform_syscall(Thread* curthread, struct SYSCALL_ARGS* a)
 #include "_gen/syscalls.inc.h"
         default:
             kprintf("warning: unsupported syscall %u\n", a->number);
-            return RESULT_MAKE_FAILURE(ENOSYS);
+            return Result::Failure(ENOSYS);
     }
 }
 

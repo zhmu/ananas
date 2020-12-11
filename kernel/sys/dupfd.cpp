@@ -29,7 +29,7 @@ Result sys_dup2(Thread* t, fdindex_t index, fdindex_t newindex)
 {
     Process& process = *t->t_process;
     if (newindex >= PROCESS_MAX_DESCRIPTORS)
-        return RESULT_MAKE_FAILURE(EINVAL);
+        return Result::Failure(EINVAL);
 
     sys_close(t, newindex); // Ensure it is available; not an error if this fails
 

@@ -96,7 +96,7 @@ Result Framebuffer::IOControl(Process* proc, unsigned long req, void* buffer[])
         case TIOFB_GET_INFO: {
             auto fb_info = static_cast<ananas_fb_info*>(buffer[0]); // XXX userland check
             if (fb_info == NULL || fb_info->fb_size != sizeof(*fb_info))
-                return RESULT_MAKE_FAILURE(EINVAL);
+                return Result::Failure(EINVAL);
 
             fb_info->fb_height = fb_height;
             fb_info->fb_width = fb_width;
@@ -105,7 +105,7 @@ Result Framebuffer::IOControl(Process* proc, unsigned long req, void* buffer[])
         }
     }
 
-    return RESULT_MAKE_FAILURE(EINVAL);
+    return Result::Failure(EINVAL);
 }
 
 Result

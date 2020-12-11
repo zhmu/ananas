@@ -43,7 +43,7 @@ namespace usb
     {
         auto cfg = static_cast<struct USB_DESCR_CONFIG*>(data);
         if (cfg->cfg_type != USB_DESCR_TYPE_CONFIG)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
 
         /* Walk over all interfaces */
         char* ptr = static_cast<char*>(data) + cfg->cfg_length;
@@ -52,7 +52,7 @@ namespace usb
             /* Find the interface */
             struct USB_DESCR_INTERFACE* iface;
             if (!LookupDescriptorByType(ptr, left, USB_DESCR_TYPE_INTERFACE, iface))
-                return RESULT_MAKE_FAILURE(EINVAL);
+                return Result::Failure(EINVAL);
 
             /* Create the USB interface */
             Interface* usb_iface = &usb_if[usb_num_if++]; // XXX range check!
@@ -64,7 +64,7 @@ namespace usb
             for (int epnum = 0; epnum < iface->if_numendpoints; epnum++) {
                 struct USB_DESCR_ENDPOINT* ep;
                 if (!LookupDescriptorByType(ptr, left, USB_DESCR_TYPE_ENDPOINT, ep))
-                    return RESULT_MAKE_FAILURE(EINVAL);
+                    return Result::Failure(EINVAL);
 
                 /* Resolve the endpoint type to our own */
                 int type = -1;

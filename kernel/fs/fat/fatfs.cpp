@@ -72,11 +72,11 @@ static Result fat_mount(struct VFS_MOUNTED_FS* fs, INode*& root_inode)
     memset(privdata, 0, sizeof(struct FAT_FS_PRIVDATA));
     fs->fs_privdata = privdata; /* immediately, this is used by other functions */
 
-#define FAT_ABORT(x...)                     \
-    do {                                    \
-        kfree(privdata);                    \
-        kprintf(x);                         \
-        return RESULT_MAKE_FAILURE(ENODEV); \
+#define FAT_ABORT(x...)                 \
+    do {                                \
+        kfree(privdata);                \
+        kprintf(x);                     \
+        return Result::Failure(ENODEV); \
     } while (0)
 
     privdata->sector_size = FAT_FROM_LE16(bpb.bpb_bytespersector);

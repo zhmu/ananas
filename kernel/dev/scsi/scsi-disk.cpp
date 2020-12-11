@@ -174,7 +174,7 @@ namespace
     {
         // XXX Not yet implemented
         Printf("TODO: implement write support");
-        bio.Done(RESULT_MAKE_FAILURE(EIO));
+        bio.Done(Result::Failure(EIO));
     }
 
     struct SCSIDisk_Driver : public Driver {

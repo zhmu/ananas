@@ -38,13 +38,13 @@ Result sys_fcntl(Thread* t, fdindex_t hindex, int cmd, const void* in, void* out
             /* TODO */
             return Result::Success(0);
         case F_SETFD: {
-            return RESULT_MAKE_FAILURE(EPERM);
+            return Result::Failure(EPERM);
         }
         case F_SETFL: {
-            return RESULT_MAKE_FAILURE(EPERM);
+            return Result::Failure(EPERM);
         }
         default:
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
     }
 
     // NOTREACHED

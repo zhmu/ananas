@@ -38,14 +38,14 @@ Result vfs_generic_lookup(DEntry& parent, INode*& destinode, const char* dentry)
     dirf.f_dentry = &parent;
     while (1) {
         if (!vfs_is_filesystem_sane(parent_inode.i_fs))
-            return RESULT_MAKE_FAILURE(EIO);
+            return Result::Failure(EIO);
 
         auto result = vfs_read(&dirf, buf, sizeof(buf));
         if (result.IsFailure())
             return result;
         auto buf_len = result.AsValue();
         if (buf_len == 0)
-            return RESULT_MAKE_FAILURE(ENOENT);
+            return Result::Failure(ENOENT);
 
         char* cur_ptr = buf;
         while (buf_len > 0) {
@@ -82,7 +82,7 @@ Result vfs_generic_read(struct VFS_FILE* file, void* buf, size_t len)
 
     while (left > 0) {
         if (!vfs_is_filesystem_sane(inode.i_fs))
-            return RESULT_MAKE_FAILURE(EIO);
+            return Result::Failure(EIO);
 
         /* Figure out which block to use next */
         blocknr_t cur_block;
@@ -130,7 +130,7 @@ Result vfs_generic_write(struct VFS_FILE* file, const void* buf, size_t len)
             logical_block >= inode.i_sb.st_blocks; // XXX is this correct with sparse files?
 
         if (!vfs_is_filesystem_sane(inode.i_fs))
-            return RESULT_MAKE_FAILURE(EIO);
+            return Result::Failure(EIO);
 
         // Figure out which block to use next
         blocknr_t cur_block;

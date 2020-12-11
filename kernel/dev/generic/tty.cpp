@@ -153,7 +153,7 @@ Result TTY::OnInput(const char* buffer, size_t len)
         // If we are out of buffer space, just eat the charachter XXX possibly unnecessary for
         // VERASE */
         if ((tty_in_writepos + 1) % tty_input_queue.size() == tty_in_readpos)
-            return RESULT_MAKE_FAILURE(ENOSPC);
+            return Result::Failure(ENOSPC);
 
         /* Handle CR/NL transformations */
         if ((tty_termios.c_iflag & INLCR) && ch == NL)
@@ -231,7 +231,7 @@ Result TTY::IOControl(Process* proc, unsigned long req, void* buffer[])
         case TIOCSCTTY: { // Set controlling tty
             if (tty_session != nullptr && tty_session != &session) {
                 // TTY already belongs to a different session; reject
-                return RESULT_MAKE_FAILURE(EPERM);
+                return Result::Failure(EPERM);
             }
             tty_session = &session; // XXX locking
             SetForegroundProcessGroup(proc->p_group);
@@ -246,10 +246,10 @@ Result TTY::IOControl(Process* proc, unsigned long req, void* buffer[])
             auto pgid = reinterpret_cast<pid_t>(buffer[0]);
             auto pg = process::FindProcessGroupByID(pgid);
             if (!pg)
-                return RESULT_MAKE_FAILURE(EPERM);
+                return Result::Failure(EPERM);
             if (&pg->pg_session != &session) {
                 pg.Unlock();
-                return RESULT_MAKE_FAILURE(EPERM); // process group outside our session
+                return Result::Failure(EPERM); // process group outside our session
             }
 
             // TODO are we the ctty?
@@ -261,11 +261,11 @@ Result TTY::IOControl(Process* proc, unsigned long req, void* buffer[])
             if (tty_foreground_pg != nullptr)
                 return Result::Success(tty_foreground_pg->pg_id);
             // XXX Otherwise, return some value >=1 that is not an existing process group ID
-            return RESULT_MAKE_FAILURE(ENOTTY);
+            return Result::Failure(ENOTTY);
         }
     }
 
-    return RESULT_MAKE_FAILURE(EINVAL);
+    return Result::Failure(EINVAL);
 }
 
 void TTY::DeliverSignal(int signo)

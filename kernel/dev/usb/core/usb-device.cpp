@@ -72,7 +72,7 @@ namespace usb
             int dev_address = ud_bus.AllocateAddress();
             if (dev_address <= 0) {
                 kprintf("out of addresses, aborting attachment!\n");
-                return RESULT_MAKE_FAILURE(ENODEV); // XXX maybe not the best error to give
+                return Result::Failure(ENODEV); // XXX maybe not the best error to give
             }
 
             /* Assign the device a logical address */
@@ -253,11 +253,11 @@ namespace usb
 
         Interface& uif = ud_interface[ud_cur_interface];
         if (num < 0 || num >= uif.if_num_endpoints)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
 
         Endpoint& ep = uif.if_endpoint[num];
         if (ep.ep_type != type || ep.ep_dir != dir)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
 
         if (maxlen == 0)
             maxlen = ep.ep_maxpacketsize;
@@ -328,7 +328,7 @@ namespace usb
         xfer->t_semaphore.WaitAndDrain();
         if (xfer->t_flags & TRANSFER_FLAG_ERROR) {
             FreeTransfer(*xfer);
-            return RESULT_MAKE_FAILURE(EIO);
+            return Result::Failure(EIO);
         }
 
         if (buf != nullptr && len != nullptr) {

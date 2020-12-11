@@ -12,10 +12,10 @@ struct Thread;
 
 Result sys_link(Thread* t, const char* oldpath, const char* newpath)
 {
-    return RESULT_MAKE_FAILURE(EPERM); // until we implement this
+    return Result::Failure(EPERM); // until we implement this
 }
 
 Result sys_symlink(Thread* t, const char* oldpath, const char* newpath)
 {
-    return RESULT_MAKE_FAILURE(EPERM); // until we implement this
+    return Result::Failure(EPERM); // until we implement this
 }

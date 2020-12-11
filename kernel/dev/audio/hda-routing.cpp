@@ -100,7 +100,7 @@ namespace hda
                     "TODO: ended up at nid 0x%x which we can't route to an audio-out/selector - "
                     "aborting",
                     cur_aw.n_address.na_nid);
-                return RESULT_MAKE_FAILURE(ENOSPC); // XXX makes no sense?
+                return Result::Failure(ENOSPC); // XXX makes no sense?
             }
 
             if (cur_aw.GetType() == NT_AudioSelector) {
@@ -149,13 +149,13 @@ namespace hda
                     "TODO: ended up at nid 0x%x which we can't route to an audio-out/selector - "
                     "aborting",
                     cur_aw.n_address.na_nid);
-                return RESULT_MAKE_FAILURE(ENOSPC); // XXX makes no sense?
+                return Result::Failure(ENOSPC); // XXX makes no sense?
             }
 
             kprintf(
                 "TODO: ended up at unsupported node nid 0x%x type 0x%d - aborting",
                 cur_aw.n_address.na_nid, cur_aw.GetType());
-            return RESULT_MAKE_FAILURE(ENOSPC); // XXX makes no sense?
+            return Result::Failure(ENOSPC); // XXX makes no sense?
         }
 
     } // unnamed namespace
@@ -221,14 +221,14 @@ namespace hda
                 Printf(
                     "unable to route from cad %d nid %d; it has no outputs",
                     output_pin->n_address.na_cad, output_pin->n_address.na_nid);
-                return RESULT_MAKE_FAILURE(ENOSPC); // XXX does this make sense?
+                return Result::Failure(ENOSPC); // XXX does this make sense?
             }
 
             /*
              * Walk through this pin's input list and start routing the very first item we see that
              * is acceptable.
              */
-            Result result(RESULT_MAKE_FAILURE(ENOSPC)); // XXX does this make sense
+            Result result(Result::Failure(ENOSPC)); // XXX does this make sense
             for (int pin_in_idx = 0; pin_in_idx < output_pin->aw_num_conn; pin_in_idx++) {
                 /* pin_in_aw is the node connected to output_pin's input index pin_in_idx */
                 Node_AW* pin_in_aw = output_pin->aw_conn[pin_in_idx];

@@ -69,7 +69,7 @@ namespace ata
         return Result::Success();
     }
 
-    Result ATACD::WriteBIO(struct BIO& bio) { return RESULT_MAKE_FAILURE(EROFS); }
+    Result ATACD::WriteBIO(struct BIO& bio) { return Result::Failure(EROFS); }
 
     struct ATACD_Driver : public Driver {
         ATACD_Driver() : Driver("atacd") {}

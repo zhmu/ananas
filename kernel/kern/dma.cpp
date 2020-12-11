@@ -101,9 +101,9 @@ namespace dma
             seg_size = size / num_segs; /* XXX is this correct? */
         }
         if (num_segs > t_max_segs)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
         if (seg_size > t_max_seg_size)
-            return RESULT_MAKE_FAILURE(EINVAL);
+            return Result::Failure(EINVAL);
 
         /* Allocate the buffer itself... */
         auto b = new Buffer(*this, size, seg_size, num_segs);
@@ -116,7 +116,7 @@ namespace dma
             s.s_virt = page_alloc_length_mapped(
                 seg_size, s.s_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
             if (s.s_virt == NULL) {
-                result = RESULT_MAKE_FAILURE(ENOMEM);
+                result = Result::Failure(ENOMEM);
                 break;
             }
             s.s_phys = s.s_page->GetPhysicalAddress();

@@ -47,7 +47,7 @@ namespace
     {
         void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 7);
         if (res_io == nullptr)
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
 
         sio_port = (uint32_t)(uintptr_t)res_io;
         if (auto result = GetBusDeviceOperations().AllocateIRQ(*this, 0, *this); result.IsFailure())

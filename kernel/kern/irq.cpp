@@ -138,7 +138,7 @@ namespace irq
     Result Register(unsigned int no, Device* dev, int type, IHandler& irqHandler)
     {
         if (no >= irqList.size())
-            return RESULT_MAKE_FAILURE(ERANGE);
+            return Result::Failure(ERANGE);
 
         // Note that we can't use SpinlockUnpremptibleGuard here as we may need to
         // release and re-acquire the lock
@@ -151,7 +151,7 @@ namespace irq
         IRQSource* is = FindSource(no);
         if (is == nullptr) {
             spl_irq.UnlockUnpremptible(state);
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
 
         auto& i = irqList[no];
@@ -162,7 +162,7 @@ namespace irq
         if (handler == nullptr) {
             // XXX does it matter that we set i_source before?
             spl_irq.UnlockUnpremptible(state);
-            return RESULT_MAKE_FAILURE(EEXIST);
+            return Result::Failure(EEXIST);
         }
 
         // Found one, hook it up

@@ -118,7 +118,7 @@ namespace usb
         Result RootHub::ControlTransfer(Transfer& xfer)
         {
             struct USB_CONTROL_REQUEST* req = &xfer.t_control_req;
-            Result result = RESULT_MAKE_FAILURE(EINVAL);
+            Result result = Result::Failure(EINVAL);
 
 #define MASK(x) ((x) & (UHCI_PORTSC_SUSP | UHCI_PORTSC_RESET | UHCI_PORTSC_RD | UHCI_PORTSC_PORTEN))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -283,7 +283,7 @@ namespace usb
                                 }
                                 if (n == 0) {
                                     kprintf("port %u not responding to reset", n);
-                                    result = RESULT_MAKE_FAILURE(ENODEV);
+                                    result = Result::Failure(ENODEV);
                                 } else {
                                     /* Used to emulate 'port reset changed'-bit */
                                     rh_c_portreset = true;
@@ -308,7 +308,7 @@ namespace usb
                                 /* No-op, power is always enabled for us */
                                 break;
                             default:
-                                result = RESULT_MAKE_FAILURE(EINVAL);
+                                result = Result::Failure(EINVAL);
                                 break;
                         }
                     }
@@ -345,14 +345,14 @@ namespace usb
                                     reg, MASK(rh_Resources.Read2(reg)) | UHCI_PORTSC_PECHANGE);
                                 break;
                             default:
-                                result = RESULT_MAKE_FAILURE(EINVAL);
+                                result = Result::Failure(EINVAL);
                                 break;
                         }
                     }
                     break;
                 }
                 default:
-                    result = RESULT_MAKE_FAILURE(EINVAL);
+                    result = Result::Failure(EINVAL);
                     break;
             }
 
@@ -438,7 +438,7 @@ namespace usb
             }
             if (rh_numports > 7) {
                 kprintf("detected excessive %d usb ports; aborting", rh_numports);
-                return RESULT_MAKE_FAILURE(ENODEV);
+                return Result::Failure(ENODEV);
             }
 
             /* Create a kernel thread to monitor status updates and process requests */

@@ -34,7 +34,7 @@ namespace
 
         auto numread = result.AsValue();
         if (numread != len)
-            return RESULT_MAKE_FAILURE(EIO);
+            return Result::Failure(EIO);
         return Result::Success();
     }
 
@@ -119,7 +119,7 @@ Result VMSpace::HandleFault(addr_t virt, int flags)
 
             // Page is already mapped, but not COW. Bad, reject
             vp->Unlock();
-            return RESULT_MAKE_FAILURE(EFAULT);
+            return Result::Failure(EFAULT);
         }
 
         // XXX we expect va_doffset to be page-aligned here (i.e. we can always use a page directly)
@@ -205,5 +205,5 @@ Result VMSpace::HandleFault(addr_t virt, int flags)
         return Result::Success();
     }
 
-    return RESULT_MAKE_FAILURE(EFAULT);
+    return Result::Failure(EFAULT);
 }

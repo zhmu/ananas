@@ -167,7 +167,7 @@ ext2_dump_inode(struct EXT2_INODE* inode)
         int level;
         blocknr_t indirect;
         if (!ext2_determine_indirect(inode, block_in, level, indirect))
-            return RESULT_MAKE_FAILURE(ERANGE);
+            return Result::Failure(ERANGE);
 
         /*
          * A 1KB block has spots for 1024/4 = 256 indirect block numbers; this
@@ -354,13 +354,13 @@ ext2_dump_inode(struct EXT2_INODE* inode)
                 if (EXT2_TO_LE32(ext2inode->i_blocks) != 0) {
                     kprintf("ext2: symlink inode %d has blocks, unsupported yet!\n", (int)inum);
                     bio->Release();
-                    return RESULT_MAKE_FAILURE(EPERM);
+                    return Result::Failure(EPERM);
                 }
                 inode.i_iops = &ext2_symlink_ops;
                 break;
             default:
                 bio->Release();
-                return RESULT_MAKE_FAILURE(EPERM);
+                return Result::Failure(EPERM);
         }
         bio->Release();
 
@@ -380,7 +380,7 @@ ext2_dump_inode(struct EXT2_INODE* inode)
         ext2_conv_superblock(sb);
         if (sb->s_magic != EXT2_SUPER_MAGIC) {
             bio->Release();
-            return RESULT_MAKE_FAILURE(ENODEV);
+            return Result::Failure(ENODEV);
         }
 
         /* Fill out some fields with the defaults for very old ext2 filesystems */
