@@ -223,7 +223,7 @@ Result VMSpace::Map(
     va_out = va;
 
     /* Provide a mapping for the pages */
-    md::vm::MapPages(this, va->va_virt, phys, BytesToPages(len), mapFlags);
+    md::vm::MapPages(*this, va->va_virt, phys, BytesToPages(len), mapFlags);
     return Result::Success();
 }
 

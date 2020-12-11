@@ -114,7 +114,8 @@ mp_stub64:
      * Activate the real kernel pagetables - we need to throw the top 32
      * bits away as they are relocated as well.
      */
-    movq    kernel_pagedir, %rax
+    movq    $(kernel_vmspace + VMSPACE_MD_PAGEDIR), %rax
+    movq    (%rax), %rax
     movl    %eax, %eax
     movq    %rax, %cr3
 

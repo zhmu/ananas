@@ -46,10 +46,10 @@ namespace md
 
         // Maps 'num_pages' at physical address 'phys' to virtual address 'virt' for vmspace 'vs'
         // with flags 'flags'
-        void MapPages(VMSpace* vs, addr_t virt, addr_t phys, size_t num_pages, int flags);
+        void MapPages(VMSpace& vs, addr_t virt, addr_t phys, size_t num_pages, int flags);
 
         // Unmaps 'num_pages' at virtual address virt for vmspace 'vs'
-        void UnmapPages(VMSpace* vs, addr_t virt, size_t num_pages);
+        void UnmapPages(VMSpace& vs, addr_t virt, size_t num_pages);
 
     } // namespace vm
 

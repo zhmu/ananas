@@ -16,15 +16,12 @@
 #include "kernel/vmspace.h"
 #include "kernel-md/vm.h"
 
-extern uint64_t* kernel_pagedir;
-
 namespace md::vm
 {
     namespace
     {
-        addr_t get_nextpage(VMSpace* vs, uint64_t page_flags)
+        auto get_nextpage(VMSpace& vs, uint64_t page_flags)
         {
-            KASSERT(vs != NULL, "unmapped page while mapping kernel pages?");
             Page* p = page_alloc_single();
             KASSERT(p != NULL, "out of pages");
 
@@ -33,7 +30,7 @@ namespace md::vm
              * administer it there so we can free it once the thread is freed.
              */
             if ((page_flags & PE_C_G) == 0)
-                vs->vs_pages.push_back(*p);
+                vs.vs_pages.push_back(*p);
 
             /* Map this page in kernel-space XXX How do we clean it up? */
             addr_t phys = p->GetPhysicalAddress();
@@ -50,7 +47,7 @@ namespace md::vm
 
     } // unnamed namespace
 
-    void MapPages(VMSpace* vs, addr_t virt, addr_t phys, size_t num_pages, int flags)
+    void MapPages(VMSpace& vs, addr_t virt, addr_t phys, size_t num_pages, int flags)
     {
         /* Flags for the mapped pages themselves */
         uint64_t pt_flags = 0;
@@ -69,7 +66,7 @@ namespace md::vm
         uint64_t pd_flags = PE_US | PE_P | PE_RW;
 
         /* XXX we don't yet strip off bits 52-63 yet */
-        uint64_t* pagedir = (vs != NULL) ? vs->vs_md_pagedir : kernel_pagedir;
+        auto pagedir = vs.vs_md_pagedir;
         while (num_pages--) {
             if (pagedir[(virt >> 39) & 0x1ff] == 0) {
                 pagedir[(virt >> 39) & 0x1ff] = get_nextpage(vs, pd_flags);
@@ -108,31 +105,30 @@ namespace md::vm
         }
     }
 
-    void UnmapPages(VMSpace* vs, addr_t virt, size_t num_pages)
+    void UnmapPages(VMSpace& vs, addr_t virt, size_t num_pages)
     {
-        auto& curThread = thread::GetCurrent();
-        int is_cur_vmspace = curThread.t_process != NULL && curThread.t_process->p_vmspace == vs;
+        const bool is_cur_vmspace = thread::GetCurrent().t_process->p_vmspace == &vs;
 
         /* XXX we don't yet strip off bits 52-63 yet */
-        uint64_t* pagedir = (vs != NULL) ? vs->vs_md_pagedir : kernel_pagedir;
+        auto pagedir = vs.vs_md_pagedir;
         while (num_pages--) {
             if (pagedir[(virt >> 39) & 0x1ff] == 0) {
                 panic(
-                    "vs=%p, virt=%p -> l1 not mapped (%p)", vs, virt,
+                    "vs=%p, virt=%p -> l1 not mapped (%p)", &vs, virt,
                     pagedir[(virt >> 39) & 0x1ff]);
             }
 
             uint64_t* pdpe = pt_resolve_addr(pagedir[(virt >> 39) & 0x1ff]);
             if (pdpe[(virt >> 30) & 0x1ff] == 0) {
                 panic(
-                    "vs=%p, virt=%p -> l2 not mapped (%p)", vs, virt,
+                    "vs=%p, virt=%p -> l2 not mapped (%p)", &vs, virt,
                     pagedir[(virt >> 30) & 0x1ff]);
             }
 
             uint64_t* pde = pt_resolve_addr(pdpe[(virt >> 30) & 0x1ff]);
             if (pde[(virt >> 21) & 0x1ff] == 0) {
                 panic(
-                    "vs=%p, virt=%p -> l3 not mapped (%p)", vs, virt,
+                    "vs=%p, virt=%p -> l3 not mapped (%p)", &vs, virt,
                     pagedir[(virt >> 21) & 0x1ff]);
             }
 
@@ -153,15 +149,15 @@ namespace md::vm
 
     void MapKernel(addr_t phys, addr_t virt, size_t num_pages, int flags)
     {
-        MapPages(NULL, virt, phys, num_pages, flags);
+        MapPages(kernel_vmspace, virt, phys, num_pages, flags);
     }
 
-    void UnmapKernel(addr_t virt, size_t num_pages) { UnmapPages(NULL, virt, num_pages); }
+    void UnmapKernel(addr_t virt, size_t num_pages) { UnmapPages(kernel_vmspace, virt, num_pages); }
 
     void MapKernelSpace(VMSpace& vs)
     {
         /* We can just copy the entire kernel pagemap over; it's shared with everything else */
-        memcpy(vs.vs_md_pagedir, kernel_pagedir, PAGE_SIZE);
+        memcpy(vs.vs_md_pagedir, kernel_vmspace.vs_md_pagedir, PAGE_SIZE);
     }
 
 } // namespace md::vm

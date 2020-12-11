@@ -144,7 +144,7 @@ void VMPage::Map(VMSpace& vs, VMArea& va)
         flags &= ~VM_FLAG_WRITE;
     const Page* p = GetPage();
 
-    md::vm::MapPages(&vs, vp_vaddr, p->GetPhysicalAddress(), 1, flags);
+    md::vm::MapPages(vs, vp_vaddr, p->GetPhysicalAddress(), 1, flags);
 }
 
 void VMPage::Zero(VMSpace& vs)
@@ -153,7 +153,7 @@ void VMPage::Zero(VMSpace& vs)
 
     // Clear the page XXX This is unfortunate, we should have a supply of pre-zeroed pages
     Page* p = GetPage();
-    md::vm::MapPages(&vs, vp_vaddr, p->GetPhysicalAddress(), 1, VM_FLAG_READ | VM_FLAG_WRITE);
+    md::vm::MapPages(vs, vp_vaddr, p->GetPhysicalAddress(), 1, VM_FLAG_READ | VM_FLAG_WRITE);
     // XXX We should check if vs is the current vmspace; otherwise the memset will fail
     memset((void*)vp_vaddr, 0, PAGE_SIZE);
 }

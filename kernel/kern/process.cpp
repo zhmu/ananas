@@ -29,10 +29,11 @@ namespace process
 {
     Mutex process_mtx("process");
     ProcessList process_all;
+    Process* process_kernel;
 
     namespace
     {
-        pid_t process_curpid = 1;
+        pid_t process_curpid = 0;
 
         pid_t AllocateProcessID()
         {
@@ -40,8 +41,30 @@ namespace process
             MutexGuard g(process_mtx);
             return process_curpid++;
         }
-
     } // unnamed namespace
+
+    void Initialize()
+    {
+        KASSERT(process_kernel == nullptr, "process already initialised");
+
+        process_kernel = new Process;
+        process_kernel->p_parent = process_kernel;
+        process_kernel->p_state = PROCESS_STATE_ACTIVE;
+        process_kernel->p_pid = 0;
+        process_kernel->p_vmspace = &kernel_vmspace;
+
+        {
+            MutexGuard g(process::process_mtx);
+            process::process_all.push_back(*process_kernel);
+            process_curpid = 1;
+        }
+    }
+
+    Process& GetKernelProcess()
+    {
+        KASSERT(process_kernel != nullptr, "processes not initialised");
+        return *process_kernel;
+    }
 
 } // namespace process
 

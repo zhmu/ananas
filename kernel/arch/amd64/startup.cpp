@@ -14,10 +14,12 @@
 #include "kernel/lib.h"
 #include "kernel/page.h"
 #include "kernel/pcpu.h"
+#include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/mm.h"
 #include "kernel/vm.h"
+#include "kernel/vmspace.h"
 #include "kernel-md/acpi.h"
 #include "kernel-md/macro.h"
 #include "kernel-md/multiboot.h"
@@ -29,8 +31,8 @@
 #include "kernel-md/thread.h"
 #include "kernel-md/vm.h"
 
-/* Pointer to the page directory level 4 */
-uint64_t* kernel_pagedir;
+// Kernel virtual memory space
+VMSpace kernel_vmspace;
 
 /* Global Descriptor Table */
 uint8_t bsp_gdt[GDT_NUM_ENTRIES * 16];
@@ -99,7 +101,7 @@ namespace
      */
     template<typename T>
     void
-    map_kernel_pages(addr_t phys, addr_t virt, unsigned int num_pages, addr_t& avail, T get_flags)
+    map_kernel_pages(uint64_t* kernel_pagedir, addr_t phys, addr_t virt, unsigned int num_pages, addr_t& avail, T get_flags)
     {
         static constexpr uint64_t addr_mask = 0xffffffffff000; /* bits 12 .. 51 */
 
@@ -149,7 +151,7 @@ namespace
         length_in_pages = num_pte;
     }
 
-    void setup_paging(addr_t& avail, addr_t mem_end, size_t kernel_size)
+    auto setup_paging(addr_t& avail, addr_t mem_end, size_t kernel_size)
     {
         constexpr auto KMAP_KVA_START = KMEM_DIRECT_VA_START;
         constexpr auto KMAP_KVA_END = KMEM_DYNAMIC_VA_END;
@@ -183,7 +185,7 @@ namespace
         addr_t kva_pages = (addr_t)bootstrap_get_pages(avail, kva_pages_needed);
 
         /* Finally, allocate the kernel pagedir itself */
-        kernel_pagedir = (uint64_t*)bootstrap_get_pages(avail, 1);
+        auto kernel_pagedir = static_cast<uint64_t*>(bootstrap_get_pages(avail, 1));
         kprintf(">>> kernel_pagedir = %p\n", kernel_pagedir);
 
         /*
@@ -224,6 +226,7 @@ namespace
          */
         addr_t kva_avail_ptr = (addr_t)kva_pages;
         map_kernel_pages(
+            kernel_pagedir,
             0, KMAP_KVA_START, kva_size_in_pages, kva_avail_ptr, [&](addr_t phys, addr_t virt) {
                 uint64_t flags = 0;
                 if (phys >= avail_start && phys <= avail)
@@ -241,6 +244,7 @@ namespace
 
         addr_t kernel_avail_ptr = (addr_t)kernel_pages;
         map_kernel_pages(
+            kernel_pagedir,
             kernel_addr & 0x00ffffff, kernel_addr, kernel_size_in_pages, kernel_avail_ptr,
             [&](addr_t phys, addr_t virt) {
                 uint64_t flags = PE_G | PE_P;
@@ -256,6 +260,7 @@ namespace
         /* And map the dynamic KVA pages */
         addr_t dyn_kva_avail_ptr = dyn_kva_pages;
         map_kernel_pages(
+            kernel_pagedir,
             0, KMEM_DYNAMIC_VA_START, dyn_kva_size_in_pages, dyn_kva_avail_ptr,
             [](addr_t phys, addr_t virt) {
                 // We just setup space for mappings; not the actual mappings themselves
@@ -277,6 +282,7 @@ namespace
         kernel_pagedir = (uint64_t*)PTOKV((addr_t)kernel_pagedir);
         kprintf(">>> kernel_pagedir = %p\n", kernel_pagedir);
         kprintf(">>> *kernel_pagedir = %p\n", *kernel_pagedir);
+        return kernel_pagedir;
     }
 
     void setup_memory(const struct MULTIBOOT& multiboot, addr_t& avail)
@@ -334,7 +340,7 @@ namespace
         kprintf("setup_paging(): total memory available: %d KB\n", mem_size / 1024);
 
         uint64_t prev_avail = avail;
-        setup_paging(avail, mem_end, kernel_phys_end - kernel_phys_start);
+        kernel_vmspace.vs_md_pagedir = setup_paging(avail, mem_end, kernel_phys_end - kernel_phys_start);
 
         // All memory is accessible; register with the zone allocator
         for (int n = 0; n < phys_chunk_index; n++) {
@@ -557,6 +563,9 @@ extern "C" void md_startup(const struct MULTIBOOT* multiboot)
 
     // Initialize the commandline arguments, if we have any
     cmdline_init(boot_args);
+
+    // Create kernel process; must be done before we can create threads
+    process::Initialize();
 
     /*
      * Initialize the per-CPU thread; this needs a working memory allocator, so that is why

@@ -33,7 +33,7 @@ namespace md::vmspace
 
         // Map the userland support page
         md::vm::MapPages(
-            &vs, USERLAND_SUPPORT_ADDR, usupport_page->GetPhysicalAddress(), 1,
+            vs, USERLAND_SUPPORT_ADDR, usupport_page->GetPhysicalAddress(), 1,
             VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_EXECUTE);
         return Result::Success();
     }

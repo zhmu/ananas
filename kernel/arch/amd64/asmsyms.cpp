@@ -8,6 +8,7 @@
 #include "kernel/asmsymbols.h"
 #include "kernel/pcpu.h"
 #include "kernel/thread.h"
+#include "kernel/vmspace.h"
 #include "kernel-md/frame.h"
 #include "kernel-md/pcpu.h"
 #include "kernel-md/smp.h"
@@ -61,3 +62,5 @@ ASM_SYMBOL(SMP_CPU_SIZE, sizeof(struct X86_CPU));
 ASM_SYMBOL(SMP_CPU_LAPICID, offsetof(struct X86_CPU, cpu_lapic_id));
 ASM_SYMBOL(SMP_CPU_PCPU, offsetof(struct X86_CPU, cpu_pcpu));
 ASM_SYMBOL(SMP_CPU_STACK, offsetof(struct X86_CPU, cpu_stack));
+
+ASM_SYMBOL(VMSPACE_MD_PAGEDIR, offsetof(VMSpace, vs_md_pagedir))

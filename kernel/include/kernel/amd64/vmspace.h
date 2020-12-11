@@ -7,3 +7,7 @@
 #pragma once
 
 #define MD_VMSPACE_FIELDS uint64_t* vs_md_pagedir;
+
+struct VMSpace;
+
+extern VMSpace kernel_vmspace;

@@ -92,6 +92,7 @@ Result kthread_alloc(const char* name, kthread_func_t func, void* arg, Thread*& 
     t->t_refcount = 1;
     t->t_priority = THREAD_PRIORITY_DEFAULT;
     t->t_affinity = THREAD_AFFINITY_ANY;
+    t->t_process = &process::GetKernelProcess();
     t->SetName(name);
 
     /* Initialize MD-specifics */
@@ -145,9 +146,7 @@ void Thread::Destroy()
     md::thread::Free(*this);
 
     // Unregister ourselves with the owning process
-    if (t_process != nullptr) {
-        t_process->RemoveThread(*this);
-    }
+    t_process->RemoveThread(*this);
 
     /* If we aren't reaping the thread, remove it from our thread queue; it'll be gone soon */
     KASSERT((t_flags & THREAD_FLAG_REAPING) == 0, "delete-ing with reaper?");
@@ -190,15 +189,13 @@ void Thread::Terminate(int exitcode)
     KASSERT(this == &thread::GetCurrent(), "terminate not on current thread");
     KASSERT(!IsZombie(), "exiting zombie thread");
 
-    Process* p = t_process;
-    if (p != nullptr) {
-        // Grab the process lock; this ensures WaitAndLock() will be blocked until the
-        // thread is completely forgotten by the scheduler
-        p->Lock();
+    // Grab the process lock; this ensures WaitAndLock() will be blocked until the
+    // thread is completely forgotten by the scheduler
+    t_process->Lock();
 
-        // If we are the process' main thread, mark it as exiting
-        if (p->p_mainthread == this)
-            p->Exit(exitcode);
+    // If we are the process' main thread, mark it as exiting
+    if (t_process->p_mainthread == this) {
+        t_process->Exit(exitcode);
     }
 
     // ...
@@ -207,11 +204,10 @@ void Thread::Terminate(int exitcode)
 
     // Ask the scheduler to exit the thread (this transitions to zombie-state)
     scheduler::ExitThread(*this);
-    if (p != nullptr) {
-        // Signal parent in case it is waiting for a child to exit
-        p->SignalExit();
-        p->Unlock();
-    }
+
+    // Signal parent in case it is waiting for a child to exit
+    t_process->SignalExit();
+    t_process->Unlock();
 
     scheduler::Schedule();
     /* NOTREACHED */

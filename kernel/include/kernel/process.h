@@ -57,9 +57,9 @@ namespace process
 
     } // namespace internal
 
-    typedef util::List<::Process, internal::ProcessAllNodeAccessor<::Process>> ChildrenList;
-    typedef util::List<::Process, internal::ProcessChildrenNodeAccessor<::Process>> ProcessList;
-    typedef util::List<::Process, internal::ProcessGroupNodeAccessor<::Process>> GroupMemberList;
+    using ChildrenList = util::List<::Process, internal::ProcessAllNodeAccessor<::Process>>;
+    using ProcessList = util::List<::Process, internal::ProcessChildrenNodeAccessor<::Process>>;
+    using GroupMemberList = util::List<::Process, internal::ProcessGroupNodeAccessor<::Process>>;
 
     // Callbacks so we can organise things when needed
     typedef Result (*process_callback_t)(Process& proc);
@@ -67,10 +67,11 @@ namespace process
         Callback(process_callback_t func) : pc_func(func) {}
         process_callback_t pc_func;
     };
-    typedef util::List<Callback> CallbackList;
+    using CallbackList = util::List<Callback>;
 
     struct ProcessGroup;
-
+    void Initialize();
+    Process& GetKernelProcess();
 } // namespace process
 
 struct Process final : util::refcounted<Process> {
