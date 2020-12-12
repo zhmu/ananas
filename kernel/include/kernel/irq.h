@@ -20,7 +20,7 @@ namespace irq
     enum class IRQResult { Ignored, Processed };
 
     // IST's use a dedicated thread to schedule the handlers; ISR's run immediately
-    enum class HandlerType { IST, ISR };
+    enum class HandlerType { Unhandled, NotYet, IST, ISR };
     namespace type {
         static inline constexpr auto Default = HandlerType::IST;
         static inline constexpr auto IPI = HandlerType::ISR;
@@ -54,27 +54,22 @@ namespace irq
     };
     typedef util::List<IRQSource> IRQSourceList;
 
-#define IRQ_MAX_HANDLERS 4
-
     /* Single IRQ handler */
     struct IRQHandler {
         Device* h_device = nullptr;
         IHandler* h_handler = nullptr;
-        unsigned int h_flags = 0;
-#define IRQ_HANDLER_FLAG_THREAD (1 << 0) /* invoke the handler from the IST */
-#define IRQ_HANDLER_FLAG_SKIP (1 << 1)   /* (internal use only) do not invoke the handler */
+        HandlerType h_type{HandlerType::Unhandled};
     };
 
     /*
      * Describes an IRQ in machine-independant context.
      */
+    static inline constexpr int MaxHandlersPerIRQ = 4;
     struct IRQ {
-        IRQSource* i_source;
-        util::array<IRQHandler, IRQ_MAX_HANDLERS> i_handler;
-        unsigned int i_count;
-        unsigned int i_straycount;
-        unsigned int i_flags;
-#define IRQ_FLAG_THREAD (1 << 0) /* execute this handler from a thread */
+        IRQSource* i_source{};
+        util::array<IRQHandler, MaxHandlersPerIRQ> i_handler{};
+        unsigned int i_count{};
+        unsigned int i_straycount{};
         Thread* i_thread{};
         Semaphore i_semaphore{"isem", 0};
     };
