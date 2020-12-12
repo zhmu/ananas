@@ -135,7 +135,7 @@ namespace irq
         }
     }
 
-    Result Register(unsigned int no, Device* dev, int type, IHandler& irqHandler)
+    Result Register(unsigned int no, Device* dev, HandlerType type, IHandler& irqHandler)
     {
         if (no >= irqList.size())
             return Result::Failure(ERANGE);
@@ -169,11 +169,11 @@ namespace irq
         handler->h_device = dev;
         handler->h_handler = &irqHandler;
         handler->h_flags = 0;
-        if (type != IRQ_TYPE_ISR)
+        if (type != irq::HandlerType::ISR)
             handler->h_flags |= IRQ_FLAG_THREAD;
 
         // If we need to create the IST, do so here
-        if ((i.i_flags & IRQ_HANDLER_FLAG_THREAD) == 0 && (handler->h_flags & IRQ_FLAG_THREAD)) {
+        if (!i.i_thread && (handler->h_flags & IRQ_FLAG_THREAD)) {
             // Register the handler, but mark it as IRQ_HANDLER_FLAG_SKIP to avoid calling it
             handler->h_flags |= IRQ_HANDLER_FLAG_SKIP;
 
@@ -198,7 +198,6 @@ namespace irq
 
             // (5) Remove the IRQ_SKIP flag, add IRQ_FLAG_THREAD so it will be serviced correctly
             handler->h_flags &= ~IRQ_HANDLER_FLAG_SKIP;
-            i.i_flags |= IRQ_FLAG_THREAD;
         }
 
         spl_irq.UnlockUnpremptible(state);
@@ -321,7 +320,7 @@ const kdb::RegisterCommand kdbIRQ("irq", "Display IRQ status", [](int, const kdb
                 continue;
             if (!banner) {
                 kprintf(
-                    " IRQ %d flags %x count %u stray %d\n", no, i.i_flags, i.i_count,
+                    " IRQ %d count %u stray %d\n", no, i.i_count,
                     i.i_straycount);
                 banner = 1;
             }
@@ -330,9 +329,9 @@ const kdb::RegisterCommand kdbIRQ("irq", "Display IRQ status", [](int, const kdb
                 (handler.h_device != nullptr) ? handler.h_device->d_Name : "<none>",
                 handler.h_handler, handler.h_flags);
         }
-        if (!banner && (i.i_flags != 0 || i.i_count > 0 || i.i_straycount > 0))
+        if (!banner && (i.i_count > 0 || i.i_straycount > 0))
             kprintf(
-                " IRQ %d flags %x count %u stray %d\n", no, i.i_flags, i.i_count, i.i_straycount);
+                " IRQ %d count %u stray %d\n", no, i.i_count, i.i_straycount);
         no++;
     }
 });

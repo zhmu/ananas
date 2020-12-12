@@ -485,10 +485,10 @@ namespace smp
          * interrupts and this lets us process them as such.
          */
         irq::RegisterSource(ipi_source);
-        if (auto result = irq::Register(SMP_IPI_PANIC, NULL, IRQ_TYPE_IPI, ipiPanicHandler);
+        if (auto result = irq::Register(SMP_IPI_PANIC, NULL, irq::type::IPI, ipiPanicHandler);
             result.IsFailure())
             panic("can't register ipi");
-        if (auto result = irq::Register(SMP_IPI_PERIODIC, NULL, IRQ_TYPE_IPI, ipiPeriodicHandler);
+        if (auto result = irq::Register(SMP_IPI_PERIODIC, NULL, irq::type::IPI, ipiPeriodicHandler);
             result.IsFailure())
             panic("can't register ipi");
         for (auto& ioapic : x86_ioapics) {

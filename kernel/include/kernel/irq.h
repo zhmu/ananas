@@ -19,6 +19,14 @@ namespace irq
     /* Return values for the IRQ handler */
     enum class IRQResult { Ignored, Processed };
 
+    // IST's use a dedicated thread to schedule the handlers; ISR's run immediately
+    enum class HandlerType { IST, ISR };
+    namespace type {
+        static inline constexpr auto Default = HandlerType::IST;
+        static inline constexpr auto IPI = HandlerType::ISR;
+        static inline constexpr auto Timer =  HandlerType::ISR;
+    }
+
     class IHandler
     {
       public:
@@ -78,12 +86,7 @@ namespace irq
     void RegisterSource(IRQSource& source);
     void UnregisterSource(IRQSource& source);
 
-#define IRQ_TYPE_DEFAULT IRQ_TYPE_IST
-#define IRQ_TYPE_IST 0 /* use an IST to launch the handler */
-#define IRQ_TYPE_ISR 1 /* do not launch the handler from a thread */
-#define IRQ_TYPE_IPI IRQ_TYPE_ISR
-#define IRQ_TYPE_TIMER IRQ_TYPE_ISR
-    Result Register(unsigned int no, Device* dev, int type, IHandler& irqHandler);
+    Result Register(unsigned int no, Device* dev, HandlerType type, IHandler& irqHandler);
     void Unregister(unsigned int no, Device* dev, IHandler& irqHandler);
     void InvokeHandler(unsigned int no);
     void Dump();

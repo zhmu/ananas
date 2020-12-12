@@ -34,7 +34,7 @@ AcpiOsInstallInterruptHandler(UINT32 InterruptLevel, ACPI_OSD_HANDLER Handler, v
     info->i_handler = Handler;
     info->i_context = Context;
 
-    if (auto result = irq::Register(InterruptLevel, NULL, IRQ_TYPE_DEFAULT, *info);
+    if (auto result = irq::Register(InterruptLevel, NULL, irq::type::Default, *info);
         result.IsFailure()) {
         kfree(info);
         return AE_BAD_PARAMETER;

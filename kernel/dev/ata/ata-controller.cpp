@@ -413,7 +413,7 @@ namespace ata
         if (inb(ata_io + ATA_REG_STATUS) == 0xff)
             return Result::Failure(ENODEV);
 
-        if (auto result = irq_register(irq, this, IRQWrapper, IRQ_TYPE_DEFAULT, NULL);
+        if (auto result = irq_register(irq, this, IRQWrapper, irq::type::Default, NULL);
             result.IsFailure())
             return result;
 

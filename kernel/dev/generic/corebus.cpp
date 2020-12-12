@@ -36,7 +36,7 @@ namespace
             if (res_irq == NULL)
                 return Result::Failure(ENODEV);
 
-            return irq::Register((int)(uintptr_t)res_irq, &device, IRQ_TYPE_DEFAULT, handler);
+            return irq::Register((int)(uintptr_t)res_irq, &device, irq::type::Default, handler);
         }
     };
 

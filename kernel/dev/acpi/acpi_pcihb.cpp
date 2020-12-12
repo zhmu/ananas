@@ -81,7 +81,7 @@ namespace
                 interrupt++;
 
             Printf("assigning IRQ %d for device %s", interrupt, device.d_Name);
-            return irq::Register(interrupt, &device, IRQ_TYPE_DEFAULT, handler);
+            return irq::Register(interrupt, &device, irq::type::Default, handler);
         }
 
         int LookupPCIInterrupt(int deviceNumber, int pin) const
