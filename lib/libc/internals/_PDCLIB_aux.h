@@ -47,7 +47,7 @@
 #define _PDCLIB_CXX_VERSION 2014
 #elif __cplusplus == 201703L
 #define _PDCLIB_CXX_VERSION 2017
-#elif __cplusplus == 202002L
+#elif __cplusplus == 201709L /* gnu++20 */ ||__cplusplus == 202002L /* c++20 */
 #define _PDCLIB_CXX_VERSION 2020
 #else
 #error Unsupported _ _cplusplus (__cplusplus) (supported: ISO/IEC 14882:1997, ISO/IEC 14882{2011,2014,2017,2020}).

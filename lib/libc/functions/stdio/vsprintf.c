@@ -11,5 +11,6 @@
 // Testing covered by printf.cpp
 int vsprintf(char* _PDCLIB_restrict s, const char* _PDCLIB_restrict format, va_list arg)
 {
+#pragma GCC diagnostic ignored "-Wformat-truncation"
     return vsnprintf(s, SIZE_MAX, format, arg); /* TODO: Replace with a non-checking call */
 }

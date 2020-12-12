@@ -10,7 +10,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I${CMAKE_SOURCE_DIR}/../../include") # for 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I${CMAKE_SOURCE_DIR}/platform/ananas/includes -I${CMAKE_SOURCE_DIR}/platform/ananas/internals")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I${CMAKE_SOURCE_DIR}/opt/${PDCLIB_THREADLIB}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-builtin-requires-header")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-builtin-declaration-mismatch")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostdlib")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 

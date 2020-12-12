@@ -311,6 +311,9 @@ extern char _PDCLIB_Xdigits[];
 /* -------------------------------------------------------------------------- */
 
 #if _PDCLIB_C_VERSION >= 2011
+#ifdef __cplusplus
+#define _Static_assert static_assert
+#endif
 _Static_assert(sizeof(short) == _PDCLIB_SHRT_BYTES, "Compiler disagrees on _PDCLIB_SHRT_BYTES.");
 _Static_assert(sizeof(int) == _PDCLIB_INT_BYTES, "Compiler disagrees on _PDCLIB_INT_BYTES.");
 _Static_assert(sizeof(long) == _PDCLIB_LONG_BYTES, "Compiler disagrees on _PDCLIB_LONG_BYTES.");
@@ -327,13 +330,16 @@ _Static_assert(sizeof(void*) == sizeof(_PDCLIB_intptr), "Compiler disagrees on _
 _Static_assert(
     sizeof(&_PDCLIB_digits[1] - &_PDCLIB_digits[0]) == sizeof(_PDCLIB_ptrdiff),
     "Compiler disagrees on _PDCLIB_ptrdiff.");
+#ifdef __cplusplus
+#undef _Static_assert
+#endif
 #endif
 
 /* -------------------------------------------------------------------------- */
 /* locale / wchar / uchar                                                     */
 /* -------------------------------------------------------------------------- */
 
-#ifndef __cplusplus
+#if !defined(__cplusplus) || __cplusplus < 201103L
 typedef _PDCLIB_uint16_t _PDCLIB_char16_t;
 typedef _PDCLIB_uint32_t _PDCLIB_char32_t;
 #else

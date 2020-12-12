@@ -13,7 +13,7 @@
 #ifndef REGTEST
 #include "_PDCLIB_glue.h"
 
-extern void _exit(int status) _PDCLIB_noreturn;
+extern void _exit(int status);
 
 void _PDCLIB_Exit(int status) { _exit(status); }
 

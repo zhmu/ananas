@@ -11,6 +11,7 @@
 char* strndup(const char* s, size_t len)
 {
     char* ns = NULL;
+#pragma GCC diagnostic ignored "-Wnonnull-compare"
     if (s) {
         ns = malloc(len + 1);
         if (ns) {
