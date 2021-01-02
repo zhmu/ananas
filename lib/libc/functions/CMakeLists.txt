@@ -110,7 +110,9 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/ctype/isascii.c
 	${CMAKE_CURRENT_SOURCE_DIR}/ctype/isprint.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/btowc.c
+	${CMAKE_CURRENT_SOURCE_DIR}/wchar/getwc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/mbrlen.c
+	${CMAKE_CURRENT_SOURCE_DIR}/wchar/putwc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wcstold.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wcstoll.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wcscspn.c
@@ -127,6 +129,8 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/unimplemented/mbsnrtowcs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/unimplemented/mbsrtowcs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/unimplemented/swprintf.c
+	${CMAKE_CURRENT_SOURCE_DIR}/wchar/unimplemented/ungetwc.c
+	${CMAKE_CURRENT_SOURCE_DIR}/wchar/unimplemented/wcsftime.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/unimplemented/wcsnrtombs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wcschr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wchar/wmemcmp.c
