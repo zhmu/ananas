@@ -103,6 +103,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/ftruncate.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/telldir.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/mkdir.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/sleep.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/dir/closedir.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/dir/opendir.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/dir/rewinddir.c
