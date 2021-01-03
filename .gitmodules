@@ -4,9 +4,6 @@
 [submodule "external/coreutils"]
 	path = external/coreutils
 	url = https://github.com/zhmu/ananas-coreutils.git
-[submodule "external/llvm"]
-	path = external/llvm
-	url = https://github.com/zhmu/ananas-llvm.git
 [submodule "external/musl"]
 	path = external/musl
 	url = https://github.com/zhmu/ananas-musl.git
