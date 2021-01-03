@@ -5,6 +5,6 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #ifndef __SOCKLEN_T_DEFINED
-typedef __size_t socklen_t;
+typedef __SIZE_TYPE__ socklen_t;
 #define __SOCKLEN_T_DEFINED
 #endif

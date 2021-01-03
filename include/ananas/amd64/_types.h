@@ -23,7 +23,6 @@ typedef __int64_t __intmax_t;
 typedef __uint64_t __uintmax_t;
 
 typedef __uint64_t __addr_t;
-typedef __uint64_t __size_t;
 typedef __int64_t __ssize_t;
 typedef __int64_t __register_t;
 
