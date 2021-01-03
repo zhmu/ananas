@@ -431,9 +431,6 @@ void process_phdr(Object& obj)
                 obj.o_dynamic = reinterpret_cast<Elf_Dyn*>(obj.o_reloc_base + phdr->p_vaddr);
                 parse_dynamic(obj);
                 break;
-            case PT_NOTE:
-                // XXX We should parse the .note here ...
-                break;
 #if 0
 		default:
 			printf("process_phdr(): unrecognized type %d\n", phdr->p_type);
@@ -598,14 +595,16 @@ static bool elf_verify_header(const Elf_Ehdr& ehdr)
     return true;
 }
 
-static inline addr_t round_down_page(addr_t addr) { return addr & ~(PAGE_SIZE - 1); }
+template<typename T>
+T round_down_page(T value) { return value & ~(PAGE_SIZE - 1); }
 
-static inline addr_t round_up_page(addr_t addr)
+template<typename T>
+T round_up_page(T value)
 {
-    if ((addr & (PAGE_SIZE - 1)) == 0)
-        return addr;
+    if ((value & (PAGE_SIZE - 1)) == 0)
+        return value;
 
-    return (addr | (PAGE_SIZE - 1)) + 1;
+    return (value | (PAGE_SIZE - 1)) + 1;
 }
 
 static inline int elf_prot_from_phdr(const Elf_Phdr& phdr)
@@ -676,37 +675,54 @@ Object* map_object(int fd, const char* name)
             if (phdr->p_type != PT_LOAD)
                 continue;
 
-            addr_t v_base = round_down_page(phdr->p_vaddr);
-            addr_t v_len = round_up_page(phdr->p_filesz);
-            off_t offset = round_down_page(phdr->p_offset);
-            int prot = elf_prot_from_phdr(*phdr);
-            int flags = elf_flags_from_phdr(*phdr) | MAP_FIXED;
+            const auto offset = round_down_page(phdr->p_offset);
+            const auto prot = elf_prot_from_phdr(*phdr);
+            const auto flags = elf_flags_from_phdr(*phdr) | MAP_FIXED;
 
-            dbg("%s: remapping %p-%p from offset %d v_len %d\n", name, base + v_base,
-                (base + v_base + v_len) - 1, static_cast<int>(offset), v_len);
+            const auto v_file_base = base + round_down_page(phdr->p_vaddr);
+            const auto v_file_len = round_up_page(phdr->p_filesz);
+
+            sum("%s: remapping %p-%p from offset %d v_file_len %d\n", name, v_file_base,
+                (v_file_base + v_file_len) - 1, static_cast<int>(offset), v_file_len);
             addr_t p = reinterpret_cast<addr_t>(
-                mmap(reinterpret_cast<void*>(base + v_base), v_len, prot, flags, fd, offset));
+                mmap(reinterpret_cast<void*>(v_file_base), v_file_len, prot, flags, fd, offset));
             if (p == (addr_t)-1)
-                die("%s: unable to map %p-%p", name, base + v_base, base + v_base + v_end);
+                die("%s: unable to map %p-%p", name, v_file_base, v_file_base + v_end);
 
             if (phdr->p_filesz >= phdr->p_memsz)
                 continue;
 
-            // The kernel will silent truncate the request if we
-            // extend more than a partial page - to avoid this, add
-            // an extra mapping covering the parts that fall
-            // outside of the scope
-            addr_t v_extra = round_up_page(phdr->p_vaddr + phdr->p_filesz);
-            addr_t v_extra_len = round_up_page(phdr->p_vaddr + phdr->p_memsz - v_extra);
-            dbg("%s: mapping zero data to %p..%p flags %x prot %x\n", name, base + v_extra,
-                base + v_extra + v_extra_len, flags, prot);
-            p = reinterpret_cast<addr_t>(
-                mmap(reinterpret_cast<void*>(base + v_extra), v_extra_len, prot, flags, -1, 0));
-            if (p == (addr_t)-1)
-                die("%s: unable to map %p-%p", name, base + v_extra, base + v_extra + v_extra_len);
+            // Handle last few bytes beyond p_filesz so they'll contain zero
+            {
+                const auto final_file_byte = base + phdr->p_vaddr + phdr->p_filesz;
+                const auto final_file_page = round_down_page(final_file_byte);
+                const auto final_file_page_end = round_up_page(final_file_byte);
+                if (final_file_byte != final_file_page_end) {
+                    sum("%s: clearing part of final page %p..%p\n", name, final_file_byte, final_file_page_end);
+                    const bool must_make_writable = (prot & PROT_WRITE) == 0;
+                    if (must_make_writable && mprotect(reinterpret_cast<void*>(final_file_page), PAGE_SIZE, prot | PROT_WRITE) < 0)
+                        die("%s: cannot make final data page writable", name);
 
-            // Zero out everything beyond what is file-mapped XXX cope with read-only mappings here
-            // XXX the kernel should do this
+                    memset(reinterpret_cast<void*>(final_file_byte), 0, final_file_page_end - final_file_byte);
+                    if (must_make_writable && mprotect(reinterpret_cast<void*>(final_file_page), PAGE_SIZE, prot) < 0)
+                        die("%s: cannot make final data page readonly", name);
+                }
+            }
+
+            // Take care of the mapping beyond the file
+            const auto v_extra_base = base + round_up_page(phdr->p_vaddr + phdr->p_filesz);
+            const auto v_extra_len = round_up_page(phdr->p_memsz - phdr->p_filesz);
+            sum("%s: mapping zero data to %p..%p flags %x prot %x\n", name, v_extra_base,
+                v_extra_base + v_extra_len, flags, prot);
+            if (v_extra_len == 0)
+                continue;
+            p = reinterpret_cast<addr_t>(
+                mmap(reinterpret_cast<void*>(v_extra_base), v_extra_len, prot, flags, -1, 0));
+            if (p == (addr_t)-1)
+                die("%s: unable to map %p-%p", name, v_extra_base, v_extra_base + v_extra_len);
+
+            // Zero out everything beyond what is file-mapped
+            // XXX the kernel should do this. XXX check if it does?
             memset(reinterpret_cast<void*>(p), 0, v_extra_len);
         }
     }

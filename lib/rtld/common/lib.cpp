@@ -54,6 +54,18 @@ int fstat(int fd, struct stat* sb)
 
 void exit(int status) { sys_exit(status); }
 
+inline int prot_to_flags(int prot)
+{
+    int flags = 0;
+    if (prot & PROT_READ)
+        flags |= VMOP_FLAG_READ;
+    if (prot & PROT_WRITE)
+        flags |= VMOP_FLAG_WRITE;
+    if (prot & PROT_EXEC)
+        flags |= VMOP_FLAG_EXECUTE;
+    return flags;
+}
+
 void* mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
     struct VMOP_OPTIONS vo;
@@ -63,13 +75,7 @@ void* mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset)
     vo.vo_op = OP_MAP;
     vo.vo_addr = addr;
     vo.vo_len = length;
-    vo.vo_flags = 0;
-    if (prot & PROT_READ)
-        vo.vo_flags |= VMOP_FLAG_READ;
-    if (prot & PROT_WRITE)
-        vo.vo_flags |= VMOP_FLAG_WRITE;
-    if (prot & PROT_EXEC)
-        vo.vo_flags |= VMOP_FLAG_EXECUTE;
+    vo.vo_flags = prot_to_flags(prot);
 
     if (flags & MAP_PRIVATE)
         vo.vo_flags |= VMOP_FLAG_PRIVATE;
@@ -97,6 +103,20 @@ int munmap(void* addr, size_t length)
     vo.vo_op = OP_UNMAP;
     vo.vo_addr = addr;
     vo.vo_len = length;
+
+    return ananas_statuscode_is_success(sys_vmop(&vo)) ? 0 : -1;
+}
+
+int mprotect(void* addr, size_t len, int prot)
+{
+    struct VMOP_OPTIONS vo;
+
+    memset(&vo, 0, sizeof(vo));
+    vo.vo_size = sizeof(vo);
+    vo.vo_op = OP_CHANGE_ACCESS;
+    vo.vo_addr = addr;
+    vo.vo_len = len;
+    vo.vo_flags = prot_to_flags(prot);
 
     return ananas_statuscode_is_success(sys_vmop(&vo)) ? 0 : -1;
 }
