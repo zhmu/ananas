@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <sys/tty.h>
 #include <sys/ioctl.h>
+#include <cstring>
 #include "common/paths.h"
 
 int main(int argc, char* argv[])

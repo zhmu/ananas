@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/mount.h>
+#include <cstring>
 
 namespace
 {
