@@ -26,23 +26,23 @@ struct pthread_key {
 };
 
 struct pthread_mutex {
-    int unused;
+    int m_type;
+    int m_value;
+    int m_num_recursive_locked;
 };
 
 struct pthread_mutexattr {
-    int unused;
-};
-
-struct pthread_once {
-    int unused;
+    int ma_type;
+    int ma_protocol;
+    int ma_pshared;
 };
 
 struct pthread_rwlock {
-    int unused;
+    struct pthread_mutex* rw_mutex;
 };
 
 struct pthread_rwlockattr {
-    int unused;
+    int rwla_pshared;
 };
 
 struct pthread {
