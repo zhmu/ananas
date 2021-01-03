@@ -36,6 +36,12 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=builder /opt/toolchain/ /opt/toolchain/
 
+# ensure the configured sysroot is available in our target container
+RUN  ln -sf /work/build/output /opt/sysroot
+
+# ensure our PATH is properly set up
+RUN  echo 'export PATH=/opt/toolchain/bin:$PATH' >> /etc/bash.bashrc
+
 RUN  groupadd -g 1000 -r build && \
      useradd -r -u 1000 -g build -d /home/build -s /bin/bash -d /home/build -c "Build user" build
 ENV  home=/home/build
