@@ -8,12 +8,14 @@ import sys
 
 root_img = 'root.img' # temporary, will be removed after use
 boot_img = 'boot.img' # temporary, will be removed after use
-root_size_mb = None # None to autodetect
-boot_size_mb = None # None to autodetect
+default_root_size_mb = None # None to autodetect
+default_boot_size_mb = None # None to autodetect
 kernel_fname = 'kernel'
 kernel_cmdline = 'root=ext2:slice0'
 root_skipped_files = [ kernel_fname, 'toolchain.txt' ]
 syslinux_mbr_file = os.path.join('/', 'usr', 'lib', 'syslinux', 'mbr', 'mbr.bin')
+strip_binary = "/opt/toolchain/bin/x86_64-elf-ananas-strip"
+#strip_binary = "/usr/local/bin/llvm-strip"
 
 SECTOR_SIZE = 512
 
@@ -43,10 +45,22 @@ def build_root_image(img, size_mb, root_path):
 			if f not in root_skipped_files:
 				src_file = os.path.join(r, f)
 				if os.path.islink(src_file):
-					os.symlink(os.readlink(src_file), os.path.join(dest_path, f))
+					try:
+						os.symlink(os.readlink(src_file), os.path.join(dest_path, f))
+					except FileExistsError:
+						pass # assume it's the same
 					temp_size_kb += 1
 				else:
-					shutil.copy(src_file, dest_path)
+					if os.access(src_file, os.X_OK):
+						try:
+							cmd = [ strip_binary ]
+							cmd += [ '-o', os.path.join(dest_path, f), src_file ]
+							run_command(cmd)
+						except subprocess.CalledProcessError:
+							# assume it can't be stripped
+							shutil.copy(src_file, dest_path)
+					else:
+						shutil.copy(src_file, dest_path)
 					temp_size_kb += math.ceil(os.path.getsize(src_file) / 1024) # round up
 
 	# if we do not have a size given, yield what we calculated
@@ -68,102 +82,107 @@ def build_root_image(img, size_mb, root_path):
 	shutil.rmtree(temp_dir)
 	return size_mb
 
-if len(sys.argv) != 3:
-	print('usage: %s disk.img path' % sys.argv[0])
-	print()
-	print('This will create a disk image in disk.img with the content from path')
-	quit(1)
+def create_image(disk_img, source_path):
+    have_syslinux = os.path.isfile(syslinux_mbr_file)
+    if not have_syslinux:
+        print('Warning: syslinux does not seem to be installed - image will not be bootable!')
 
-disk_img, source_path = sys.argv[1:3]
-have_syslinux = os.path.isfile(syslinux_mbr_file)
-if not have_syslinux:
-    print('Warning: syslinux does not seem to be installed - image will not be bootable!')
+    # create the root image itself
+    root_size_mb = build_root_image(root_img, default_root_size_mb, source_path)
 
-# create the root image itself
-root_size_mb = build_root_image(root_img, root_size_mb, source_path)
+    # construct the partition map; we need this to determine the length of the
+    # disk image
+    next_offset = 64 # XXX seems like a reasonable default
+    partitions = [ { 'offset': next_offset, 'length': mb_to_sectors(root_size_mb), 'image': root_img, 'type': 'ext2', 'boot': False } ]
+    next_offset = get_offset_to_next_partition(partitions[-1]) + 1
+    if have_syslinux:
+        boot_size_mb = default_boot_size_mb
+        if not boot_size_mb:
+            # determine the boot partition size - we'll use the kernel as a baseline plus 1MB
+            boot_size_mb = int(math.ceil(os.path.getsize(os.path.join(source_path, kernel_fname)) / (1024 * 1024))) + 1
+        partitions.append({ 'offset': next_offset, 'length': mb_to_sectors(boot_size_mb), 'image': boot_img, 'type': 'fat32', 'boot': True })
 
-# construct the partition map; we need this to determine the length of the
-# disk image
-next_offset = 64 # XXX seems like a reasonable default
-partitions = [ { 'offset': next_offset, 'length': mb_to_sectors(root_size_mb), 'image': root_img, 'type': 'ext2', 'boot': False } ]
-next_offset = get_offset_to_next_partition(partitions[-1]) + 1
-if have_syslinux:
-	if not boot_size_mb:
-		# determine the boot partition size - we'll use the kernel as a baseline plus 1MB
-		boot_size_mb = int(math.ceil(os.path.getsize(os.path.join(source_path, kernel_fname)) / (1024 * 1024))) + 1
-	partitions.append({ 'offset': next_offset, 'length': mb_to_sectors(boot_size_mb), 'image': boot_img, 'type': 'fat32', 'boot': True })
+    image_length_in_sectors = get_offset_to_next_partition(partitions[-1])
 
-image_length_in_sectors = get_offset_to_next_partition(partitions[-1])
+    # create the raw disk; we'll use the raw image size as a baseline and
+    # append suitable slack
+    create_empty_image(disk_img, image_length_in_sectors + 1)
+    if have_syslinux:
+        # throw away the boot image as mkfs.fat utterly refuses to overwrite it
+        if os.path.exists(boot_img):
+            os.unlink(boot_img)
 
-# create the raw disk; we'll use the raw image size as a baseline and
-# append suitable slack
-create_empty_image(disk_img, image_length_in_sectors + 1)
-if have_syslinux:
-	# throw away the boot image as mkfs.fat utterly refuses to overwrite it
-	if os.path.exists(boot_img):
-		os.unlink(boot_img)
+        # build a filesystem for the boot image
+        cmd = [ 'mkfs.fat', '-C' ]
+        cmd += [ '-n', 'BOOT' ] # label
+        cmd += [ '-S', '512' ] # sector size
+        cmd += [ boot_img ]
+        cmd += [ str(boot_size_mb * 1024) ]
+        run_command(cmd)
 
-	# build a filesystem for the boot image
-	cmd = [ 'mkfs.fat', '-C' ]
-	cmd += [ '-n', 'BOOT' ] # label
-	cmd += [ '-S', '512' ] # sector size
-	cmd += [ boot_img ]
-	cmd += [ str(boot_size_mb * 1024) ]
-	run_command(cmd)
+        # create a configuration file; this uses the multiboot-module to load our kernel
+        with open('syslinux.cfg', 'wt') as f:
+            f.write('PROMPT 0\n')
+            f.write('DEFAULT ananas\n')
+            f.write('LABEL ananas\n')
+            f.write('KERNEL mboot.c32\n')
+            f.write('APPEND %s %s\n' % (kernel_fname, kernel_cmdline))
 
-	# create a configuration file; this uses the multiboot-module to load our kernel
-	with open('syslinux.cfg', 'wt') as f:
-		f.write('PROMPT 0\n')
-		f.write('DEFAULT ananas\n')
-		f.write('LABEL ananas\n')
-		f.write('KERNEL mboot.c32\n')
-		f.write('APPEND %s %s\n' % (kernel_fname, kernel_cmdline))
+        # copy kernel and other stuff
+        syslinux_modules = os.path.join('/', 'usr', 'lib', 'syslinux', 'modules', 'bios')
+        for f in [ os.path.join(syslinux_modules, 'mboot.c32'), os.path.join(syslinux_modules, 'libcom32.c32'), os.path.join(source_path, kernel_fname), 'syslinux.cfg' ]:
+            cmd = [ 'mcopy', '-i', boot_img, f, '::/' ]
+            run_command(cmd)
+        os.unlink('syslinux.cfg')
 
-	# copy kernel and other stuff
-	syslinux_modules = os.path.join('/', 'usr', 'lib', 'syslinux', 'modules', 'bios')
-	for f in [ os.path.join(syslinux_modules, 'mboot.c32'), os.path.join(syslinux_modules, 'libcom32.c32'), os.path.join(source_path, kernel_fname), 'syslinux.cfg' ]:
-		cmd = [ 'mcopy', '-i', boot_img, f, '::/' ]
-		run_command(cmd)
-	os.unlink('syslinux.cfg')
+        # put syslinux on there
+        cmd = [ 'syslinux', boot_img ]
+        run_command(cmd)
 
-	# put syslinux on there
-	cmd = [ 'syslinux', boot_img ]
-	run_command(cmd)
+    cmd = [ 'parted', '-s', disk_img, 'mklabel', 'msdos' ]
+    run_command(cmd)
+    for n, p in enumerate(partitions):
+        cmd = [ 'parted', '-s', disk_img, 'unit', 's', 'mkpart', 'primary', p['type'], str(p['offset']), str(p['offset'] + p['length']) ]
+        run_command(cmd)
+        if p['boot']:
+            cmd = [ 'parted', '-s', disk_img, 'set', str(n + 1), 'boot', 'on' ]
+            run_command(cmd)
 
-cmd = [ 'parted', '-s', disk_img, 'mklabel', 'msdos' ]
-run_command(cmd)
-for n, p in enumerate(partitions):
-	cmd = [ 'parted', '-s', disk_img, 'unit', 's', 'mkpart', 'primary', p['type'], str(p['offset']), str(p['offset'] + p['length']) ]
-	run_command(cmd)
-	if p['boot']:
-		cmd = [ 'parted', '-s', disk_img, 'set', str(n + 1), 'boot', 'on' ]
-		run_command(cmd)
+    # copy the images into the disk image
+    with open(disk_img, 'r+b') as img:
+        for p in partitions:
+            with open(p['image'], 'rb') as src:
+                src.seek(0, 2)
+                source_len = src.tell()
+                src.seek(0)
+                if source_len != p['length'] * SECTOR_SIZE:
+                    raise Exception('source image length mismatch')
 
-# copy the images into the disk image
-with open(disk_img, 'r+b') as img:
-	for p in partitions:
-		with open(p['image'], 'rb') as src:
-			src.seek(0, 2)
-			source_len = src.tell()
-			src.seek(0)
-			if source_len != p['length'] * SECTOR_SIZE:
-				raise Exception('source image length mismatch')
+                img.seek(p['offset'] * SECTOR_SIZE)
+                while True:
+                    buf = src.read(4096)
+                    if not buf:
+                        break
+                    img.write(buf)
 
-			img.seek(p['offset'] * SECTOR_SIZE)
-			while True:
-				buf = src.read(4096)
-				if not buf:
-					break
-				img.write(buf)
+        if have_syslinux:
+            # place the syslinux MBR onto the disk
+            with open(syslinux_mbr_file, 'rb') as mbrf:
+                mbr = mbrf.read()
+                img.seek(0)
+                img.write(mbr)
 
-	if have_syslinux:
-		# place the syslinux MBR onto the disk
-		with open(syslinux_mbr_file, 'rb') as mbrf:
-			mbr = mbrf.read()
-			img.seek(0)
-			img.write(mbr)
+    # throw away the root/boot images; no longer need it
+    os.unlink(root_img)
+    if have_syslinux:
+        os.unlink(boot_img)
 
-# throw away the root/boot images; no longer need it
-os.unlink(root_img)
-if have_syslinux:
-	os.unlink(boot_img)
+if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        print('usage: %s disk.img path' % sys.argv[0])
+        print()
+        print('This will create a disk image in disk.img with the content from path')
+        quit(1)
+
+    disk_img, source_path = sys.argv[1:3]
+    create_image(disk_img, source_path)
