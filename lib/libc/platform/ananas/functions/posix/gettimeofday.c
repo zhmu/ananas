@@ -5,11 +5,21 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <sys/time.h>
+#include <errno.h>
 #include <time.h>
 
 int gettimeofday(struct timeval* tp, void* tz)
 {
-    tp->tv_sec = time(0);
-    tp->tv_usec = 0;
+    if (tz != NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    struct timespec ts;
+    if (clock_gettime(CLOCK_REALTIME, &ts) < 0)
+        return -1;
+
+    tp->tv_sec = ts.tv_sec;
+    tp->tv_usec = ts.tv_nsec / 1000;
     return 0;
 }
