@@ -15,6 +15,8 @@
 #include "kernel-md/thread.h"
 #include "../sys/syscall.h"
 
+#pragma GCC diagnostic ignored "-Winvalid-offsetof"
+
 ASM_SYMBOL(SF_TRAPNO, offsetof(struct STACKFRAME, sf_trapno));
 ASM_SYMBOL(SF_RAX, offsetof(struct STACKFRAME, sf_rax));
 ASM_SYMBOL(SF_RBX, offsetof(struct STACKFRAME, sf_rbx));

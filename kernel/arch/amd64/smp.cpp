@@ -35,8 +35,10 @@
 extern "C" void *__ap_entry, *__ap_entry_end;
 struct X86_CPU* x86_cpus;
 
-extern "C" char* lapic_base = nullptr;
-extern "C" volatile int num_smp_launched = 1; /* BSP is always launched */
+extern "C" {
+    char* lapic_base = nullptr;
+    volatile int num_smp_launched = 1; /* BSP is always launched */
+}
 extern void* bsp_gdt;
 
 addr_t smp_ap_pagedir;

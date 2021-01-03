@@ -1,7 +1,7 @@
 project(kernel ASM C CXX)
 cmake_minimum_required(VERSION 3.9)
 
-set(COMMON_FLAGS "${COMMON_FLAGS} -fno-rtti -fno-exceptions")
+set(COMMON_FLAGS "")
 # ensure we don't drag in external things
 set(COMMON_FLAGS "${COMMON_FLAGS} -fno-builtin -nostdlib -nostdinc")
 set(COMMON_FLAGS "${COMMON_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/../include") # for global includes
@@ -16,8 +16,8 @@ set(COMMON_FLAGS "${COMMON_FLAGS} -mno-red-zone -mno-sse -fno-stack-protector")
 set(COMMON_FLAGS "${COMMON_FLAGS} -O2 -g")
 
 set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -DASM ${COMMON_FLAGS}")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 ${COMMON_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 ${COMMON_FLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -Wno-attributes ${COMMON_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17  -fno-rtti -fno-exceptions ${COMMON_FLAGS}")
 
 set(CMAKE_CXX_LINK_EXECUTABLE "ld <CMAKE_CXX_LINK_FLAGS> <LINK_FLAGS> <OBJECTS>  -o <TARGET> <LINK_LIBRARIES>")
 set(CMAKE_CXX_LINK_FLAGS "-b elf64-x86-64 -T ${CMAKE_CURRENT_SOURCE_DIR}/conf/ld.amd64 -nostdlib -nodefaultlibs")
@@ -139,9 +139,10 @@ build_object(asmsyms.o arch/amd64/asmsyms.cpp "")
 add_custom_command(
 	OUTPUT include/asmsyms.h
 	COMMAND ${CMAKE_SOURCE_DIR}/tools/gen_asmsyms.sh nm awk ${CMAKE_CURRENT_BINARY_DIR}/asmsyms.o > include/asmsyms.h
-	DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/asmsyms.o
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/asmsyms.o
 )
 add_custom_target(asmsyms_h DEPENDS include/asmsyms.h)
+add_dependencies(asmsyms_h machine_types_h)
 add_dependencies(kernel_elf asmsyms_h)
 
 # XXX this should be done automatically

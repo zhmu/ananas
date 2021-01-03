@@ -19,14 +19,15 @@ using Direction = ISCSIDeviceOperations::Direction;
 
 namespace
 {
-    void copy_string(char* dest, int dest_len, const uint8_t* src, int src_len)
+    template<typename T, size_t dest_len>
+    void copy_string(T (&dest)[dest_len], const uint8_t* src, int src_len)
     {
-        /* First step is to copy with \0-termination */
-        memcpy(dest, src, src_len > dest_len ? dest_len : src_len);
-        dest[dest_len] = '\0';
+        // First step is to copy with \0-termination
+        memcpy(dest, src, src_len >= dest_len ? dest_len - 1 : src_len);
+        dest[dest_len - 1] = '\0';
 
-        /* Remove any trailing whitespace and \0-terminate */
-        int n = dest_len - 1;
+        // Remove any trailing whitespace and \0-terminate
+        auto n = dest_len - 1;
         while (n > 0 && (dest[n] == '\0' || dest[n] == ' '))
             n--;
         dest[n] = '\0';
@@ -134,8 +135,8 @@ namespace
 
         /* Now print some nice information */
         char vid[9], pid[17];
-        copy_string(vid, sizeof(vid), inq_reply.r_vendor_id, sizeof(inq_reply.r_vendor_id));
-        copy_string(pid, sizeof(pid), inq_reply.r_product_id, sizeof(inq_reply.r_product_id));
+        copy_string(vid, inq_reply.r_vendor_id, sizeof(inq_reply.r_vendor_id));
+        copy_string(pid, inq_reply.r_product_id, sizeof(inq_reply.r_product_id));
         Printf(
             "vendor <%s> product <%s> size %d MB", vid, pid, num_lba / ((1024 * 1024) / block_len));
 
