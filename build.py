@@ -70,6 +70,10 @@ def build_using_cmake(conf, project_name, src_path):
 def build_using_configure_and_make(conf, project_name, src_path, configure_args, build_target='', install_target='install', extra_cflags=''):
     work_dir = os.path.join(conf['workdir'], project_name)
     full_src_path = os.path.join(conf['root'], src_path)
+    logging.info('running autoreconf for %s in %s' % (project_name, full_src_path))
+    autoreconf = [ 'autoreconf', '-if' ]
+    subprocess.run(autoreconf, cwd=full_src_path)
+
     logging.info('building %s from %s' % (project_name, full_src_path))
     if not os.path.isdir(work_dir):
         os.makedirs(work_dir)
