@@ -21,5 +21,6 @@ for p in binutils-gdb gcc gmp mpc mpfr; do
 done
 cp -r ${ROOT}/conf/settings.sh ${BUILD_DIR}/work
 cp -r ${ROOT}/ci/toolchain/build-toolchain.sh ${BUILD_DIR}/work
+cp -r ${ROOT}/ci/toolchain/*.py ${BUILD_DIR}/work
 
 docker build -t ananas-toolchain:latest -f ${BUILD_DIR}/Dockerfile ${BUILD_DIR}

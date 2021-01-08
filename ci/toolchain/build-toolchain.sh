@@ -53,3 +53,7 @@ make install-gcc
 # confuse us (this needs proper fixing - the issue is that the created limits.h
 # will not properly provide _MAX defines which fails the coreutils build)
 rm -rf ${TOOLCHAINDIR}/lib/gcc/${TARGET}/${GCC_VERSION}/include-fixed
+
+# path the autotools config.sub to recognize our OS; it will be installed in
+# the target image and allow us just to run autoconf to replace the original one
+/work/patch-config-sub.py /usr/share/misc/config.sub /opt/files/config.sub

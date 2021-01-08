@@ -11,13 +11,14 @@ ENV home=/home/build
 # install gcc/binutils/etc
 RUN apt-get update && \
     apt-get install -y --no-install-recommends build-essential ninja-build cmake texinfo bison \
-            flex automake && \
+            flex automake python3 && \
     rm -rf /var/lib/apt/lists/*
 
 ADD --chown=build:build work /work
 
 # update permissions so we can build as non-root
 RUN mkdir -p /opt/toolchain && chown build:build /opt/toolchain
+RUN mkdir -p /opt/files && chown build:build /opt/files
 
 # step 2: build the toolchain
 USER build
@@ -35,12 +36,16 @@ RUN apt-get update && \
         flex && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=builder /opt/toolchain/ /opt/toolchain/
+COPY --from=builder /opt/files/ /opt/files/
 
 # ensure the configured sysroot is available in our target container
 RUN  ln -sf /work/build/output /opt/sysroot
 
 # ensure our PATH is properly set up
 RUN  echo 'export PATH=/opt/toolchain/bin:$PATH' >> /etc/bash.bashrc
+
+# replace config.sub with our patched one
+RUN  rm -f /usr/share/misc/config.sub && ln -sf /opt/files/config.sub /usr/share/misc/config.sub
 
 RUN  groupadd -g 1000 -r build && \
      useradd -r -u 1000 -g build -d /home/build -s /bin/bash -d /home/build -c "Build user" build
