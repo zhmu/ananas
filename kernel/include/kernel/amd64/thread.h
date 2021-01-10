@@ -74,6 +74,7 @@ struct FPUREGS {
     uint8_t _res6[16];
     uint8_t _res7[16];
 } __attribute__((packed));
+static_assert(sizeof(FPUREGS) == 512);
 
 /* amd64-specific thread details */
 #define MD_THREAD_FIELDS                                    \
@@ -82,7 +83,7 @@ struct FPUREGS {
     register_t md_rip;                                      \
     register_t md_cr3;                                      \
     Page* md_kstack_page;                                   \
-    struct FPUREGS md_fpu_ctx __attribute__((aligned(16))); \
+    FPUREGS md_fpu_ctx __attribute__((aligned(16)));        \
     void* md_stack;                                         \
     void* md_kstack;
 

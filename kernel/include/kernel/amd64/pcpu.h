@@ -15,13 +15,7 @@
      */                                                                    \
     addr_t syscall_rsp;                                                    \
     addr_t rsp0;                                                           \
-    addr_t tss;                                                            \
-    /*                                                                     \
-     * fpu_context is used to refer to the struct that holds the current   \
-     * FPU context, or NULL if there is none. Being non-NULL means the     \
-     * current thread is using the FPU and thus the context must be saved. \
-     */                                                                    \
-    void* fpu_context;
+    addr_t tss;
 
 #define PCPU_TYPE(x) __typeof(((struct PCPU*)0)->x)
 

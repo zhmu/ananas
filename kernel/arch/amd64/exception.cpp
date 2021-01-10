@@ -77,28 +77,6 @@ namespace
         }
     }
 
-    void exception_nm(struct STACKFRAME* sf)
-    {
-        /*
-         * This is the Device Not Available-exception, which will be triggered if
-         * an FPU access is made while the task-switched-flag is set. We will
-         * obtain the FPU state and bind it to the thread.
-         */
-        Thread& curThread = thread::GetCurrent();
-        PCPU_SET(fpu_context, &curThread.md_fpu_ctx);
-
-        /*
-         * Clear the task-switched-flag; this is what triggered this exception in
-         * the first place. Afterwards, we can safely restore the FPU context and
-         * continue. The next instruction will no longer cause an exception, and
-         * the new context will be saved by the scheduler IRQ.
-         */
-        __asm("clts\n"
-              "frstor (%%rax)\n"
-              :
-              : "a"(&curThread.md_fpu_ctx));
-    }
-
     void exception_generic(struct STACKFRAME* sf)
     {
         const char* descr = sf->sf_trapno >= 0 && sf->sf_trapno < exceptionNames.size()
@@ -174,9 +152,6 @@ namespace
 extern "C" void exception(struct STACKFRAME* sf)
 {
     switch (sf->sf_trapno) {
-        case EXC_NM:
-            exception_nm(sf);
-            return;
         case EXC_PF:
             exception_pf(sf);
             return;

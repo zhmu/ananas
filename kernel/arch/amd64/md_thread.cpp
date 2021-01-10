@@ -124,11 +124,18 @@ namespace md::thread
          * Activate the corresponding kernel stack in the TSS and for the syscall
          * handler - we don't know how the thread is going to jump to kernel mode.
          */
-        struct TSS* tss = (struct TSS*)PCPU_GET(tss);
+        auto tss = reinterpret_cast<TSS*>(PCPU_GET(tss));
         tss->rsp0 = new_thread.md_rsp0;
         PCPU_SET(rsp0, new_thread.md_rsp0);
 
-        /* Activate the new_thread thread's page tables */
+        // Switch FPU context
+        __asm __volatile(
+            "fxsave (%0)\n"
+            "fxrstor (%1)\n"
+             : : "r" (&old_thread.md_fpu_ctx),
+                 "r" (&new_thread.md_fpu_ctx));
+
+        // Activate the new_thread thread's page tables
         __asm __volatile("movq %0, %%cr3" : : "r"(new_thread.md_cr3));
 
         /*
