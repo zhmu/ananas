@@ -25,7 +25,6 @@ add_sources(
 	pcpu.cpp
 	process.cpp
 	processgroup.cpp
-	reaper.cpp
 	resourceset.cpp
 	scheduler.cpp
 	shutdown.cpp

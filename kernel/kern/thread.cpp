@@ -28,7 +28,6 @@
 #include "kernel/mm.h"
 #include "kernel/pcpu.h"
 #include "kernel/process.h"
-#include "kernel/reaper.h"
 #include "kernel/result.h"
 #include "kernel/schedule.h"
 #include "kernel/time.h"
@@ -147,9 +146,6 @@ void Thread::Destroy()
 
     // Unregister ourselves with the owning process
     t_process.RemoveThread(*this);
-
-    /* If we aren't reaping the thread, remove it from our thread queue; it'll be gone soon */
-    KASSERT((t_flags & THREAD_FLAG_REAPING) == 0, "delete-ing with reaper?");
     {
         SpinlockGuard g(spl_threadqueue);
         allThreads.remove(*this);

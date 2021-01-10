@@ -58,7 +58,6 @@ struct Thread {
     unsigned int t_flags{};
 #define THREAD_FLAG_ZOMBIE 0x0004     /* Thread has no more resources */
 #define THREAD_FLAG_RESCHEDULE 0x0008 /* Thread desires a reschedule */
-#define THREAD_FLAG_REAPING 0x0010    /* Thread will be reaped (destroyed by idle thread) */
 #define THREAD_FLAG_TIMEOUT 0x0020    /* Timeout field is valid */
 #define THREAD_FLAG_SIGPENDING 0x0040 /* Signal is pending */
 #define THREAD_FLAG_KTHREAD 0x8000    /* Kernel thread */

@@ -111,7 +111,6 @@ namespace init
         {
             run_init();
 
-            // All done - signal and exit - the reaper will clean up this thread
             *static_cast<volatile bool*>(done) = true;
             auto& curThread = thread::GetCurrent();
             curThread.Terminate(0);
