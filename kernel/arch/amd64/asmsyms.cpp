@@ -41,6 +41,7 @@ ASM_SYMBOL(SF_CS, offsetof(struct STACKFRAME, sf_cs));
 ASM_SYMBOL(SF_DS, offsetof(struct STACKFRAME, sf_ds));
 ASM_SYMBOL(SF_ES, offsetof(struct STACKFRAME, sf_es));
 ASM_SYMBOL(SF_SS, offsetof(struct STACKFRAME, sf_ss));
+ASM_SYMBOL(SF_FPU, offsetof(struct STACKFRAME, sf_fpu));
 ASM_SYMBOL(SF_SIZE, sizeof(struct STACKFRAME));
 
 ASM_SYMBOL(T_FRAME, offsetof(Thread, t_frame));

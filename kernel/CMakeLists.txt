@@ -11,7 +11,7 @@ set(COMMON_FLAGS "${COMMON_FLAGS} -DKERNEL")
 
 # machine-dependent flags
 set(COMMON_FLAGS "${COMMON_FLAGS} -m64 -march=athlon64 -mcmodel=large")
-set(COMMON_FLAGS "${COMMON_FLAGS} -mno-red-zone -mno-sse -fno-stack-protector")
+set(COMMON_FLAGS "${COMMON_FLAGS} -mno-red-zone -fno-stack-protector")
 
 set(COMMON_FLAGS "${COMMON_FLAGS} -O2 -g")
 
