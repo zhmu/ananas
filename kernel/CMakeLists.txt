@@ -9,6 +9,11 @@ set(COMMON_FLAGS "${COMMON_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/include") # for 
 set(COMMON_FLAGS "${COMMON_FLAGS} -I${CMAKE_CURRENT_BINARY_DIR}/include")
 set(COMMON_FLAGS "${COMMON_FLAGS} -DKERNEL")
 
+# c++ stl
+set(COMMON_FLAGS "${COMMON_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/include/kernel-stl")
+set(COMMON_FLAGS "${COMMON_FLAGS} -I/opt/sysroot/usr/include/c++/11.0.0")
+set(COMMON_FLAGS "${COMMON_FLAGS} -I/opt/sysroot/usr/include/c++/11.0.0/x86_64-elf-ananas")
+
 # machine-dependent flags
 set(COMMON_FLAGS "${COMMON_FLAGS} -m64 -march=athlon64 -mcmodel=large")
 set(COMMON_FLAGS "${COMMON_FLAGS} -mno-red-zone -fno-stack-protector")

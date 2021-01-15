@@ -1,0 +1,7 @@
+#pragma once
+
+// Forward declare things on which libstdc++-v3 might depend. These are not
+// implemented for now, so their use will result in a linker error
+namespace std {
+    int rand();
+}
