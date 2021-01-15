@@ -28,6 +28,7 @@ void* operator new(size_t, void*) throw();
 extern "C" {
 #endif
 void* memcpy(void* dst, const void* src, size_t len) __nonnull;
+void* memmove(void* dst, const void* src, size_t len);
 void* memset(void* b, int c, size_t len) __nonnull;
 void vaprintf(const char* fmt, va_list ap);
 int vsnprintf(char* str, size_t len, const char* fmt, va_list ap);
@@ -50,9 +51,6 @@ char* strncpy(char* dst, const char* src, size_t n) __nonnull;
 int memcmp(const void* s1, const void* s2, size_t len) __nonnull;
 
 unsigned long strtoul(const char* ptr, char** endptr, int base);
-
-/* Crude, but our memcpy() should be able to handle overlapping regions */
-#define memmove memcpy
 
 #ifdef __cplusplus
 } // extern "C"
