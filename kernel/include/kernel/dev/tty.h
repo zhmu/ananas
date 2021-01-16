@@ -7,10 +7,10 @@
 #pragma once
 
 #include <ananas/types.h>
-#include <ananas/util/array.h>
 #include <termios.h>
 #include "kernel/device.h"
 #include "kernel/lock.h"
+#include <array>
 
 namespace process
 {
@@ -51,7 +51,7 @@ class TTY : public Device, private IDeviceOperations, private ICharDeviceOperati
     void HandleEcho(unsigned char byte);
 
     struct termios tty_termios;
-    util::array<char, InputQueueSize> tty_input_queue;
+    std::array<char, InputQueueSize> tty_input_queue;
     unsigned int tty_in_writepos = 0;
     unsigned int tty_in_readpos = 0;
 

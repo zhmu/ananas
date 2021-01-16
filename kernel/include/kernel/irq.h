@@ -7,9 +7,10 @@
 #pragma once
 
 #include <ananas/types.h>
-#include <ananas/util/list.h>
-#include <ananas/util/array.h>
 #include "kernel/thread.h"
+
+#include <array>
+#include <list>
 
 class Device;
 class Result;
@@ -40,7 +41,7 @@ namespace irq
      * 'count = GetInterruptCount()'. Callbacks are always issued using the
      * relative interrupt number, i.e. using [ 0 .. count ].
      */
-    struct IRQSource : util::List<IRQSource>::NodePtr {
+    struct IRQSource {
         // Retrieve the first interrupt handled
         virtual int GetFirstInterruptNumber() const = 0;
         // Retrieve the number of interrupts handled
@@ -52,7 +53,7 @@ namespace irq
         // Acknowledge a given interrupt
         virtual void Acknowledge(int) = 0;
     };
-    typedef util::List<IRQSource> IRQSourceList;
+    using IRQSourceList = std::list<IRQSource*>;
 
     /* Single IRQ handler */
     struct IRQHandler {
@@ -67,7 +68,7 @@ namespace irq
     static inline constexpr int MaxHandlersPerIRQ = 4;
     struct IRQ {
         IRQSource* i_source{};
-        util::array<IRQHandler, MaxHandlersPerIRQ> i_handler{};
+        std::array<IRQHandler, MaxHandlersPerIRQ> i_handler{};
         unsigned int i_count{};
         unsigned int i_straycount{};
         Thread* i_thread{};

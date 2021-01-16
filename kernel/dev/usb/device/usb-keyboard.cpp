@@ -5,7 +5,6 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <ananas/types.h>
-#include <ananas/util/array.h>
 #include "kernel/dev/kbdmux.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
@@ -16,6 +15,7 @@
 #include "../core/usb-core.h"
 #include "../core/usb-device.h"
 #include "../core/usb-transfer.h"
+#include <array>
 
 namespace
 {
@@ -43,7 +43,7 @@ namespace
     };
 
     // As outlined in USB HID Usage Tables 1.12, chapter 10
-    constexpr util::array<KeyMap, 128> keymap{
+    constexpr std::array keymap{
         /* 00 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
         /* 01 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
         /* 02 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},

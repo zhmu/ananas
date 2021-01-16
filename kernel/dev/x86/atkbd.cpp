@@ -5,7 +5,6 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <ananas/types.h>
-#include <ananas/util/array.h>
 #include "kernel/dev/kbdmux.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
@@ -17,6 +16,7 @@
 #include "kernel-md/io.h"
 #include "kernel-md/md.h"
 #include "options.h"
+#include <array>
 
 namespace
 {
@@ -48,7 +48,7 @@ namespace
         Key shift;
     };
 
-    constexpr util::array<KeyMap, 128> keymap = {
+    constexpr std::array keymap = {
         /* 00 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
         /* 01 */ KeyMap{Key{KeyType::Character, 0x1b}, Key{KeyType::Character, 0x1b}},
         /* 02 */ KeyMap{Key{KeyType::Character, '1'}, Key{KeyType::Character, '!'}},

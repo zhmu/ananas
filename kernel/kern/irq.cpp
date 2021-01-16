@@ -4,7 +4,6 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/util/algorithm.h>
 #include <machine/param.h>
 #include <ananas/types.h>
 #include "kernel/device.h"
@@ -16,11 +15,14 @@
 #include "kernel-md/interrupts.h"
 #include "options.h"
 
+#include <algorithm>
+#include <array>
+
 namespace irq
 {
     namespace
     {
-        util::array<IRQ, MAX_IRQS> irqList;
+        std::array<IRQ, MAX_IRQS> irqList;
         IRQSourceList irqSources;
         Spinlock spl_irq;
 
@@ -30,18 +32,20 @@ namespace irq
         // Must be called with spl_irq held
         IRQSource* FindSource(unsigned int num)
         {
-            auto it = util::find_if(irqSources, [&](const IRQSource& is) {
-                return num >= is.GetFirstInterruptNumber() &&
-                       num <= is.GetFirstInterruptNumber() + is.GetInterruptCount();
+            auto it = std::find_if(irqSources.cbegin(), irqSources.cend(), [&](auto* is) {
+                return num >= is->GetFirstInterruptNumber() &&
+                       num <= is->GetFirstInterruptNumber() + is->GetInterruptCount();
             });
-            return it != irqSources.end() ? &*it : nullptr;
+            return it != irqSources.end() ? *it : nullptr;
         }
 
         // Must be called with spl_irq held
         IRQHandler* FindFreeHandlerSlot(IRQ& irq)
         {
-            auto it = util::find_if(
-                irq.i_handler, [](const auto& ih) { return ih.h_type == HandlerType::Unhandled; });
+            auto it = std::find_if(
+                irq.i_handler.begin(),
+                irq.i_handler.end(),
+                [](const auto& ih) { return ih.h_type == HandlerType::Unhandled; });
             return it != irq.i_handler.end() ? &*it : nullptr;
         }
 
@@ -61,15 +65,15 @@ namespace irq
 
         /* Ensure there will not be an overlap */
         for (auto& is : irqSources) {
-            const auto is_irq_first = is.GetFirstInterruptNumber();
-            const auto is_irq_count = is.GetInterruptCount();
+            const auto is_irq_first = is->GetFirstInterruptNumber();
+            const auto is_irq_count = is->GetInterruptCount();
             KASSERT(
                 source_irq_first + source_irq_count < is_irq_first ||
                     is_irq_first + is_irq_count < source_irq_first,
                 "overlap in interrupt ranges (have %u-%u, attempt to add %u-%u)", is_irq_first,
                 is_irq_first + is_irq_count, source_irq_first, source_irq_first + source_irq_count);
         }
-        irqSources.push_back(source);
+        irqSources.push_back(&source);
 
         /* Hook all IRQ's to this source - this saves having to look things up later */
         for (unsigned int n = 0; n < source_irq_count; n++) {
@@ -85,8 +89,8 @@ namespace irq
         KASSERT(!irqSources.empty(), "no irq sources registered");
         /* Ensure our source is registered */
         int matches = 0;
-        for (const auto& is : irqSources) {
-            if (&is != &source)
+        for (auto is : irqSources) {
+            if (is != &source)
                 continue;
             matches++;
         }
@@ -106,7 +110,7 @@ namespace irq
             num++;
         }
 
-        irqSources.remove(source);
+        irqSources.remove(&source);
     }
 
     namespace {
@@ -295,8 +299,8 @@ const kdb::RegisterCommand kdbIRQ("irq", "Display IRQ status", [](int, const kdb
     kprintf("Registered IRQ sources:\n");
     for (const auto& is : irq::irqSources) {
         kprintf(
-            " IRQ %d..%d\n", is.GetFirstInterruptNumber(),
-            is.GetFirstInterruptNumber() + is.GetInterruptCount());
+            " IRQ %d..%d\n", is->GetFirstInterruptNumber(),
+            is->GetFirstInterruptNumber() + is->GetInterruptCount());
     }
 
     kprintf("IRQ handlers:\n");

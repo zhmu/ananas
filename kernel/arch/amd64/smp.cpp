@@ -6,7 +6,6 @@
  */
 #include <ananas/types.h>
 #include <ananas/errno.h>
-#include <ananas/util/algorithm.h>
 #include "kernel/init.h"
 #include "kernel/kdb.h"
 #include "kernel/kmem.h"
@@ -30,6 +29,9 @@
 #include "kernel-md/vm.h"
 #include "options.h"
 #include "../../dev/acpi/acpica/acpi.h"
+#include <algorithm>
+#include <array>
+#include <vector>
 
 /* Application Processor's entry point and end */
 extern "C" void *__ap_entry, *__ap_entry_end;
@@ -248,7 +250,7 @@ namespace smp
             };
 
             // Identity-map all interrupts; the MADT only contains explicit overrides
-            util::array<ISA_INTERRUPT, numberOfISAInterrupts> isa_interrupts;
+            std::array<ISA_INTERRUPT, numberOfISAInterrupts> isa_interrupts;
             for (size_t n = 0; n < isa_interrupts.size(); n++) {
                 isa_interrupts[n].i_source = n;
                 isa_interrupts[n].i_dest = n;
@@ -422,7 +424,7 @@ namespace smp
         InitializeCPUs(bsp_pcpu);
 
         // Second walk, map CPU's and IOAPIC's
-        util::vector<X86_IOAPIC*> x86_ioapics;
+        std::vector<X86_IOAPIC*> x86_ioapics;
         {
             int cur_cpu = 0;
             WalkMADT(madt, [&](auto sub) {
@@ -459,10 +461,10 @@ namespace smp
 
         // Map all ISA interrupts to the BSP
         {
-            auto it = util::find_if(x86_ioapics, [](const X86_IOAPIC* ioapic) {
+            auto it = std::find_if(x86_ioapics.begin(), x86_ioapics.end(), [](const X86_IOAPIC* ioapic) {
                 return ioapic->GetFirstInterruptNumber() == 0 && ioapic->GetInterruptCount() >= 15;
             });
-            KASSERT(*it != nullptr, "no suitable IOAPIC found for ISA interrupts");
+            KASSERT(it != x86_ioapics.end(), "no suitable IOAPIC found for ISA interrupts");
             auto isa_ioapic = *it;
             MapISAInterrupts(madt, *isa_ioapic, bsp_apic_id);
         }

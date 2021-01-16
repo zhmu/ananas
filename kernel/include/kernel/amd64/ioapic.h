@@ -7,7 +7,7 @@
 #pragma once
 
 #include "kernel/irq.h"
-#include <ananas/util/vector.h>
+#include <vector>
 
 #define IOREGSEL 0x00000000 /* I/O Register Select */
 #define IOWIN 0x00000010    /* I/O Window */
@@ -79,5 +79,5 @@ struct X86_IOAPIC final : irq::IRQSource {
     Pin& FindPinByVector(int vector);
     void ApplyPin(const Pin& pin);
 
-    util::vector<Pin> ioa_pins;
+    std::vector<Pin> ioa_pins;
 };

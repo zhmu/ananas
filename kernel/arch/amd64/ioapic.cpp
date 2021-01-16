@@ -4,11 +4,11 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/util/algorithm.h>
 #include "kernel-md/ioapic.h"
 #include "kernel-md/lapic.h"
 #include "kernel-md/vm.h"
 #include "kernel/lib.h"
+#include <algorithm>
 
 namespace
 {
@@ -130,7 +130,8 @@ void X86_IOAPIC::ApplyPin(const X86_IOAPIC::Pin& pin)
 
 void X86_IOAPIC::ApplyConfiguration()
 {
-    util::for_each(ioa_pins, [this](const Pin& pin) { ApplyPin(pin); });
+    for(const auto& pin: ioa_pins)
+        ApplyPin(pin);
 }
 
 void X86_IOAPIC::DumpConfiguration()
@@ -186,7 +187,7 @@ void X86_IOAPIC::DumpConfiguration()
 
 X86_IOAPIC::Pin& X86_IOAPIC::FindPinByVector(int vector)
 {
-    auto it = util::find_if(ioa_pins, [vector](const Pin& pin) { return pin.p_vector == vector; });
+    auto it = std::find_if(ioa_pins.begin(), ioa_pins.end(), [&](const Pin& pin) { return pin.p_vector == vector; });
     if (it == ioa_pins.end()) {
         kprintf("vector %d not found!!\n", vector);
         DumpConfiguration();

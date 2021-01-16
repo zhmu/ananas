@@ -12,4 +12,5 @@ namespace std
 {
     void __throw_bad_array_new_length() { panic("__throw_bad_array_new_length"); }
     void __throw_bad_alloc() { panic("__throw_bad_alloc"); }
+    void __throw_length_error(const char* s) { panic("__throw_length_error: %s", s); }
 }

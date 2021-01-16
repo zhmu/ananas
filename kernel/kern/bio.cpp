@@ -28,8 +28,8 @@
 #include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/vfs/types.h"
-#include <ananas/util/array.h>
 #include "options.h"
+#include <array>
 
 namespace
 {
@@ -47,7 +47,7 @@ namespace
     constexpr unsigned int BucketForBIO(const BIO& bio) { return BucketForBlock(bio.b_block); }
 
     BIOChainList bio_freelist;
-    util::array<BIOBucketList, NumberOfBuckets> bio_bucket;
+    std::array<BIOBucketList, NumberOfBuckets> bio_bucket;
     unsigned int bio_bitmap_size;
     uint8_t* bio_bitmap = NULL;
     uint8_t* bio_data = NULL;
