@@ -6,7 +6,6 @@
  */
 #include <ananas/types.h>
 #include <ananas/errno.h>
-#include <ananas/util/utility.h>
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
 #include "kernel/result.h"

@@ -7,7 +7,7 @@
 #ifndef ANANAS_UTIL_VECTOR_H
 #define ANANAS_UTIL_VECTOR_H
 
-#include "utility.h"
+#include <utility>
 
 #ifdef __Ananas__
 #include "kernel/cdefs.h"
@@ -190,7 +190,7 @@ namespace util
         constexpr void emplace_back(value_type&& val)
         {
             reserve(v_Size + 1);
-            new (&v_Items[v_Size]) value_type(util::move(val));
+            new (&v_Items[v_Size]) value_type(std::move(val));
             v_Size++;
         }
 
