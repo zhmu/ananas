@@ -8,4 +8,4 @@ More information is available at [my website](https://rink.nu/projects/ananas.ht
 
 ## Getting started
 
-In order to try Ananas or get hacking on it, you will need a Linux environment (I use Debian) with appropriate development tools (`sudo apt-get install build-essential` is a good start), Git, and a lot of spare time. Details instructions are in the doc/ folder, with [getting-started.txt](doc/getting-started.txt) being a good start.
+In order to try Ananas or get hacking on it, you will need a Linux environment (I use Debian) with appropriate development tools (`sudo apt-get install build-essential` is a good start), Git, and a lot of spare time. Details instructions are in the doc/ folder, with [getting-started.rxt](doc/getting-started.rxt) being a good start.
