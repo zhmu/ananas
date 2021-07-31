@@ -16,7 +16,6 @@
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/mount.h"
 #include "kernel-md/md.h"
-#include "options.h"
 
 namespace
 {
@@ -54,14 +53,6 @@ namespace
             thread_sleep_ms(1000); // 1 second
         }
         kprintf(" ok\n");
-
-#ifdef FS_ANKHFS
-        kprintf("- Mounting /ankh...");
-        if (auto result = vfs_mount(nullptr, "/ankh", "ankhfs"); result.IsSuccess())
-            kprintf(" success\n");
-        else
-            kprintf(" error %d\n", result.AsStatusCode());
-#endif
 
         // Now it makes sense to try to load init
         const char* init_path = cmdline_get_string("init");

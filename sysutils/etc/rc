@@ -1,1 +1,2 @@
 echo "Welcome to the \033[1;33mAnanas\033[0m operating system!"
+mount -t ankhfs none /ankh
