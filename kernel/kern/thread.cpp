@@ -35,7 +35,6 @@
 #include "kernel/vm.h"
 #include "kernel-md/interrupts.h"
 #include "kernel-md/md.h"
-#include "options.h"
 
 namespace
 {

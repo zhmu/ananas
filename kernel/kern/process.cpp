@@ -21,7 +21,6 @@
 #include "kernel/vmarea.h"
 #include "kernel/vmspace.h"
 #include "kernel/vfs/core.h" // for vfs_{init,exit}_process
-#include "options.h"
 
 /* XXX These should be locked */
 
@@ -260,7 +259,6 @@ Process* process_lookup_by_id_and_lock(pid_t pid)
     return nullptr;
 }
 
-#ifdef OPTION_KDB
 const kdb::RegisterCommand kdbPs("ps", "Display all processes", [](int, const kdb::Argument*) {
     MutexGuard g(process::process_mtx);
     for (auto& p : process::process_all) {
@@ -271,4 +269,3 @@ const kdb::RegisterCommand kdbPs("ps", "Display all processes", [](int, const kd
         //p.p_vmspace->Dump();
     }
 });
-#endif // OPTION_KDB

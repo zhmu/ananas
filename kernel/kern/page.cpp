@@ -12,7 +12,6 @@
 #include "kernel/page.h"
 #include "kernel/result.h"
 #include "kernel/vm.h"
-#include "options.h"
 
 #undef PAGE_DEBUG
 
@@ -263,7 +262,6 @@ void page_get_stats(unsigned int* total_pages, unsigned int* avail_pages)
     }
 }
 
-#ifdef OPTION_KDB
 static void page_dump(PageZone& z)
 {
     kprintf(
@@ -284,4 +282,3 @@ const kdb::RegisterCommand kdbPages("pages", "Display page zones", [](int, const
         page_dump(z);
     }
 });
-#endif

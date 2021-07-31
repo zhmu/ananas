@@ -16,7 +16,6 @@
 #include "kernel/result.h"
 #include "kernel-md/io.h"
 #include "kernel-md/md.h"
-#include "options.h"
 
 namespace
 {
@@ -230,15 +229,16 @@ namespace
             if (isReleased)
                 continue; // ignore released keys
 
-#ifdef OPTION_KDB
+            // Control-Shift-Escape causes us to drop in KDB
             if ((kbd_modifiers == (modifier::Control | modifier::Shift)) &&
                 scancode == scancode::Escape) {
                 kdb::Enter("keyboard sequence");
                 continue;
             }
+
+            // Control-` / Control-~ triggers a panic
             if (kbd_modifiers == modifier::Control && scancode == scancode::Tilde)
                 panic("forced by keyboard");
-#endif
 
             if (kbd_modifiers == (modifier::Control | modifier::Alt) &&
                 scancode == scancode::Delete)

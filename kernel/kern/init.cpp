@@ -15,7 +15,12 @@
 #include "kernel/thread.h"
 #include "kernel-md/pit.h"
 #include "kernel-md/interrupts.h"
-#include "options.h" // for ARCHITECTURE
+
+#ifdef __x86_64__
+#define ARCHITECTURE "amd64"
+#else
+#error Unrecognized architecture
+#endif
 
 namespace init
 {

@@ -24,7 +24,6 @@
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/mount.h"
 #include "kernel/vfs/icache.h"
-#include "options.h"
 
 namespace
 {
@@ -288,7 +287,6 @@ size_t dentry_construct_path(char* dest, size_t n, DEntry& dentry)
     return len;
 }
 
-#ifdef OPTION_KDB
 const kdb::RegisterCommand kdbDCache("dcache", "Show dentry cache", [](int, const kdb::Argument*) {
     /* XXX Don't lock; this is for debugging purposes only */
     int n = 0;
@@ -303,7 +301,6 @@ const kdb::RegisterCommand kdbDCache("dcache", "Show dentry cache", [](int, cons
     }
     kprintf("dentry cache contains %u entries\n", n);
 });
-#endif
 
 namespace
 {

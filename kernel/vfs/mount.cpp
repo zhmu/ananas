@@ -14,7 +14,6 @@
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/icache.h"
-#include "options.h"
 
 namespace vfs
 {
@@ -194,7 +193,6 @@ Result vfs_unregister_filesystem(VFSFileSystem& fs)
     return Result::Success();
 }
 
-#ifdef OPTION_KDB
 const kdb::RegisterCommand
     kdbMounts("mounts", "Show current mounts", [](int, const kdb::Argument*) {
         SpinlockGuard g(vfs::spl_fstypes);
@@ -207,4 +205,3 @@ const kdb::RegisterCommand
                 ">> vfs=%p, flags=0x%x, mountpoint='%s'\n", fs, fs->fs_flags, fs->fs_mountpoint);
         }
     });
-#endif /* KDB */

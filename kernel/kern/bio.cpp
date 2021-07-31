@@ -29,7 +29,6 @@
 #include "kernel/thread.h"
 #include "kernel/vfs/types.h"
 #include <ananas/util/array.h>
-#include "options.h"
 
 namespace
 {
@@ -390,7 +389,6 @@ void bsync()
     // TODO - we do everything sync now so this does not matter
 }
 
-#ifdef OPTION_KDB
 const kdb::RegisterCommand kdbBio("bio", "Display I/O buffers", [](int, const kdb::Argument*) {
     kprintf("bio dump\n");
 
@@ -437,4 +435,3 @@ const kdb::RegisterCommand kdbBio("bio", "Display I/O buffers", [](int, const kd
     }
     kprintf(", available: %u out of %u total\n", databuf_avail, DataSize / BIO_SECTOR_SIZE);
 });
-#endif /* KDB */

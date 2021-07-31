@@ -15,7 +15,6 @@
 #include "kernel/vm.h"
 #include "kernel-md/vm.h"
 #include "kernel-md/param.h" // for PAGE_SIZE
-#include "options.h"
 
 namespace
 {
@@ -120,7 +119,6 @@ int dlmalloc_free_memory(void* ptr, size_t len)
     return -1; /* failure */
 }
 
-#ifdef OPTION_KDB
 const kdb::RegisterCommand
     kdbMalloc("malloc", "Display malloc chunks", [](int, const kdb::Argument*) {
         MutexGuard g(mtx_mm);
@@ -138,4 +136,3 @@ const kdb::RegisterCommand
         }
         kprintf("Total amount of memory used by malloc(): %d KB\n", total_len / 1024);
     });
-#endif

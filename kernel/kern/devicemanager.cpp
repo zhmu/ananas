@@ -14,7 +14,6 @@
 #include "kernel/result.h"
 #include "kernel/vfs/mount.h" // for vfs_abandon_device()
 #include "kernel/vm.h"
-#include "options.h"
 
 namespace driver_manager::internal
 {
@@ -266,7 +265,6 @@ namespace device_manager
 
 } // namespace device_manager
 
-#ifdef OPTION_KDB
 static int print_devices(Device* parent, int indent)
 {
     int count = 0;
@@ -307,4 +305,3 @@ const kdb::RegisterCommand kdbDevDump(
 
         dev->GetDeviceOperations().DebugDump();
     });
-#endif

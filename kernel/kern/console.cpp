@@ -13,7 +13,6 @@
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/result.h"
-#include "options.h"
 
 namespace driver_manager::internal
 {
@@ -91,9 +90,7 @@ namespace {
 
 void console_putchar(int c)
 {
-#ifdef OPTION_DEBUG_CONSOLE
     debugcon_putch(c);
-#endif /* OPTION_DEBUG_CONSOLE */
     if (console_tty == NULL)
         return;
     uint8_t ch = c; // cannot cast due to endianness!
@@ -147,11 +144,9 @@ void console_putstring(const char* s)
 
 uint8_t console_getchar()
 {
-#ifdef OPTION_DEBUG_CONSOLE
     int ch = debugcon_getch();
     if (ch != 0)
         return ch;
-#endif /* OPTION_DEBUG_CONSOLE */
     if (console_tty == nullptr)
         return 0;
     uint8_t c = 0;

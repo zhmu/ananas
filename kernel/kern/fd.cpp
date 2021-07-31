@@ -6,7 +6,6 @@
  */
 #include <ananas/types.h>
 #include <ananas/errno.h>
-#include "options.h"
 #include "kernel/fd.h"
 #include "kernel/kdb.h"
 #include "kernel/lib.h"

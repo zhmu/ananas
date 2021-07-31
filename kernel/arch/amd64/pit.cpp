@@ -12,7 +12,6 @@
 #include "kernel-md/io.h"
 #include "kernel-md/pit.h"
 #include "kernel-md/interrupts.h"
-#include "options.h"
 
 namespace
 {

@@ -14,7 +14,6 @@
 #include "kernel/pcpu.h"
 #include "kernel/result.h"
 #include "kernel-md/interrupts.h"
-#include "options.h"
 
 namespace irq
 {
@@ -289,7 +288,6 @@ namespace irq
 
 } // namespace irq
 
-#ifdef OPTION_KDB
 const kdb::RegisterCommand kdbIRQ("irq", "Display IRQ status", [](int, const kdb::Argument*) {
     /* Note: no need to grab locks as the debugger runs with interrupts disabled */
     kprintf("Registered IRQ sources:\n");
@@ -323,4 +321,3 @@ const kdb::RegisterCommand kdbIRQ("irq", "Display IRQ status", [](int, const kdb
         no++;
     }
 });
-#endif

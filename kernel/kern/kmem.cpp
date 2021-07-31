@@ -41,7 +41,6 @@
 #include "kernel/vm.h"
 #include "kernel-md/md.h"
 #include "kernel-md/vm.h"
-#include "options.h"
 
 namespace {
     constexpr inline auto kmemDebug = false;
@@ -239,7 +238,6 @@ addr_t kmem_get_phys(void* virt)
     panic("kmem_get_phys(): va=%p not mapped", va);
 }
 
-#ifdef OPTION_KDB
 const kdb::RegisterCommand
     kdbKMappings("kmappings", "Display kernel memory mappings", [](int, const kdb::Argument*) {
         if (kmem_mappings == NULL)
@@ -255,4 +253,3 @@ const kdb::RegisterCommand
                 kmm->kmm_phys, kmm->kmm_phys + len - 1);
         }
     });
-#endif

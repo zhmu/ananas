@@ -8,7 +8,6 @@
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/schedule.h"
-#include "options.h"
 #include "kernel-md/smp.h" // XXX
 #include "kernel-md/interrupts.h"
 
@@ -52,13 +51,11 @@ void _panic(const char* file, const char* func, int line, const char* fmt, ...)
     va_end(ap);
     kprintf("\n");
 
-#ifdef OPTION_GDB
-    __asm("ud2");
-#endif
+    // TODO If GDB is attached, we'd want to raise an exception so we are
+    // dropped in the debugger
+    //__asm("ud2");
 
-#ifdef OPTION_KDB
     kdb::OnPanic();
-#endif
     for (;;)
         ;
 }

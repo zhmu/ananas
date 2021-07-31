@@ -16,7 +16,6 @@
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/icache.h"
-#include "options.h"
 
 namespace
 {
@@ -292,7 +291,6 @@ void vfs_dump_inode(INode& inode)
     }
 }
 
-#ifdef OPTION_KDB
 const kdb::RegisterCommand kdbICache("icache", "Show inode cache", [](int, const kdb::Argument*) {
     int n = 0;
     for (auto& inode : icache_inuse) {
@@ -303,7 +301,6 @@ const kdb::RegisterCommand kdbICache("icache", "Show inode cache", [](int, const
     }
     kprintf("Inode cache contains %u entries\n", n);
 });
-#endif
 
 namespace
 {

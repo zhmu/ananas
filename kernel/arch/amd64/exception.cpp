@@ -23,7 +23,6 @@
 #include "kernel-md/param.h"
 #include "kernel-md/vm.h"
 #include "../sys/syscall.h"
-#include "options.h"
 
 inline constexpr auto signalDebug = false;
 
@@ -115,9 +114,8 @@ namespace
             return;
         }
 
-#ifdef OPTION_GDB
-        gdb_handle_exception(sf);
-#endif
+        // If GDB is enabled, we ought to forward the exception
+        //gdb_handle_exception(sf);
         panic("kernel exception");
     }
 

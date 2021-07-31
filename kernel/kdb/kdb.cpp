@@ -12,10 +12,7 @@
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"
 #include "kernel/result.h"
-#include "options.h"
-#ifdef OPTION_DEBUG_CONSOLE
 #include "kernel/debug-console.h"
-#endif
 #include "kernel-md/smp.h"
 #include "kernel-md/interrupts.h"
 
@@ -260,7 +257,6 @@ namespace kdb
 
     static int kdb_get_line(char* line, int max_len)
     {
-#ifdef OPTION_DEBUG_CONSOLE
         /* Poor man's console input... */
         int cur_pos = 0;
         while (1) {
@@ -293,14 +289,6 @@ namespace kdb
         }
 
         /* NOTREACHED */
-#else
-        size_t len = max_len;
-        auto result = device_read(console_tty, line, &len, 0);
-        KASSERT(result.IsSuccess(), "tty read failed with error %i", result.AsStatusCode());
-        KASSERT(len > 0, "tty read returned without data");
-        line[len] = '\0';
-        return len;
-#endif
     }
 
     void Enter(const char* why)

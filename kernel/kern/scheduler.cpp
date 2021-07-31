@@ -25,7 +25,6 @@
 #include "kernel-md/interrupts.h"
 #include "kernel-md/md.h"
 #include "kernel-md/vm.h"
-#include "options.h"
 
 namespace scheduler
 {
@@ -309,7 +308,6 @@ namespace scheduler
 
 } // namespace scheduler
 
-#ifdef OPTION_KDB
 namespace
 {
     void kdbPrintThread(Thread& t)
@@ -337,4 +335,3 @@ const kdb::RegisterCommand
             kdbPrintThread(s);
         }
     });
-#endif /* OPTION_KDB */

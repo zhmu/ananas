@@ -11,7 +11,6 @@
 #include "kernel/sleepqueue.h"
 #include "kernel/thread.h"
 #include "kernel-md/interrupts.h"
-#include "options.h"
 
 namespace
 {
@@ -121,7 +120,6 @@ void SleepQueue::Unsleep(register_t state)
     panic("unsleep called but caller did not prepare");
 }
 
-#ifdef OPTION_KDB
 struct sleep_queue::KDB
 {
     KDB(SleepQueue& sq)
@@ -139,4 +137,3 @@ const kdb::RegisterCommand
         SleepQueue& sq = *reinterpret_cast<SleepQueue*>(arg[1].a_u.u_value);
         sleep_queue::KDB kdb{sq};
     });
-#endif /* OPTION_KDB */

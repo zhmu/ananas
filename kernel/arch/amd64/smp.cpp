@@ -28,7 +28,6 @@
 #include "kernel-md/macro.h"
 #include "kernel-md/param.h"
 #include "kernel-md/vm.h"
-#include "options.h"
 #include "../../dev/acpi/acpica/acpi.h"
 
 /* Application Processor's entry point and end */
@@ -602,7 +601,6 @@ extern "C" void mp_ap_startup(uint32_t lapic_id)
     idle_thread(nullptr);
 }
 
-#ifdef OPTION_KDB
 namespace {
 
 const kdb::RegisterCommand
@@ -621,4 +619,3 @@ const kdb::RegisterCommand
     });
 
 }
-#endif /* OPTION_KDB */
