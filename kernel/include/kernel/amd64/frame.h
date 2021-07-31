@@ -27,7 +27,6 @@ struct STACKFRAME {
     uint64_t sf_r15;
     uint16_t sf_ds;
     uint16_t sf_es;
-    char     sf_fpu[512] __attribute__((aligned(16)));
     /* Set by the hardware */
     register_t sf_errnum;
     register_t sf_rip;

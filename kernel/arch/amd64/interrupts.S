@@ -42,17 +42,13 @@
     movq    %r12, SF_R12(%rsp); \
     movq    %r13, SF_R13(%rsp); \
     movq    %r14, SF_R14(%rsp); \
-    movq    %r15, SF_R15(%rsp); \
-    leaq    SF_FPU(%rsp), %rax; \
-    fxsave  (%rax); \
+    movq    %r15, SF_R15(%rsp);
     movw    %ds, %ax; \
     movw    %ax, SF_DS(%rsp); \
     movw    %es, %ax; \
     movw    %ax, SF_ES(%rsp); \
 
 #define RESTORE_REGISTERS \
-    leaq    SF_FPU(%rsp), %rax; \
-    fxrstor (%rax); \
     movq    SF_RAX(%rsp), %rax; \
     movq    SF_RBX(%rsp), %rbx; \
     movq    SF_RCX(%rsp), %rcx; \
