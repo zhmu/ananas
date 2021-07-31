@@ -66,7 +66,7 @@ namespace
         // Now it makes sense to try to load init
         const char* init_path = cmdline_get_string("init");
         if (init_path == nullptr)
-            init_path = "/bin/sh";
+            init_path = "/sbin/init";
 
         Process* proc;
         if (auto result = process_alloc(nullptr, proc); result.IsFailure()) {
