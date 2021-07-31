@@ -21,7 +21,8 @@ Contents:
    quick-start
    intro
    status
-   getting-started
+   build
+   run
    hacking
    todo
 
