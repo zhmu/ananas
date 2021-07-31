@@ -38,29 +38,6 @@ function(add_sources)
 	endforeach()
 endfunction()
 
-# XXX for now, hardcode all the options
-set(OPTION_KDB 1)
-set(OPTION_GDB 1)
-set(OPTION_DEBUG_CONSOLE 1)
-
-set(DEVICE_AHCI 1)
-set(DEVICE_ATA 1)
-set(DEVICE_ATKBD 1)
-set(DEVICE_ATRTC 1)
-set(DEVICE_HDA 1)
-set(DEVICE_OHCI 1)
-set(DEVICE_PCI 1)
-set(DEVICE_SATA 1)
-set(DEVICE_SCSI 1)
-set(DEVICE_SIO 1)
-set(DEVICE_UHCI 1)
-set(DEVICE_USB 1)
-set(DEVICE_VCONSOLE 1)
-
-set(FS_ANKHFS 1)
-set(FS_EXT2 1)
-set(FS_FAT 1)
-
 #
 add_subdirectory(arch)
 add_subdirectory(dev)
@@ -144,11 +121,3 @@ add_custom_command(
 add_custom_target(asmsyms_h DEPENDS include/asmsyms.h)
 add_dependencies(asmsyms_h machine_types_h)
 add_dependencies(kernel_elf asmsyms_h)
-
-# XXX this should be done automatically
-set(OPT_H ${CMAKE_CURRENT_BINARY_DIR}/include/options.h)
-file(WRITE  ${OPT_H} "#define ARCHITECTURE \"amd64\"\n")
-file(APPEND ${OPT_H} "#define OPTION_DEBUG_CONSOLE\n")
-file(APPEND ${OPT_H} "#define OPTION_ANKHFS\n")
-file(APPEND ${OPT_H} "#define OPTION_KDB\n")
-file(APPEND ${OPT_H} "#define FS_ANKHFS\n")

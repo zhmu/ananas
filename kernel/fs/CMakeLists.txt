@@ -1,6 +1,4 @@
-if(FS_EXT2)
-	add_sources(ext2fs.cpp)
-endif()
+add_sources(ext2fs.cpp)
 
 add_subdirectory(fat)
 add_subdirectory(ankhfs)

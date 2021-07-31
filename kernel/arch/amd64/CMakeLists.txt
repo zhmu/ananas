@@ -15,12 +15,7 @@ add_sources(
 	smp.cpp
 )
 
-if(OPTION_GDB)
-	add_sources(gdb-support.cpp)
-endif()
-
-if(OPTION_DEBUG_CONSOLE)
-	add_sources(debug-console.cpp)
-endif()
+add_sources(gdb-support.cpp)
+add_sources(debug-console.cpp)
 
 add_subdirectory(loader)
