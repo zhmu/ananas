@@ -110,24 +110,6 @@ def build_libgcc(conf, project_name, src_path):
     logging.debug('installing %s' % project_name)
     subprocess.run([ 'make', 'install-target-libgcc' ], cwd=work_dir)
 
-def build_libstdcxx_old(conf, project_name, src_path):
-    work_dir = os.path.join(conf['workdir'], project_name)
-    full_src_path = os.path.join(conf['root'], src_path)
-    logging.info('building %s from %s' % (project_name, full_src_path))
-    if not os.path.isdir(work_dir):
-        os.makedirs(work_dir)
-
-    env = os.environ
-    env['CFLAGS'] = '--sysroot=' + conf['sysrootdir']
-
-    configure = [ os.path.join(full_src_path, 'configure'),  "--host=" + conf["target"], "--target=" + conf["target"], "--prefix=" + os.path.join(conf["sysrootdir"], "usr") ]
-    logging.debug('running %s' % configure)
-    subprocess.run(configure, cwd=work_dir, env=env)
-    logging.debug('building %s' % project_name)
-    subprocess.run([ 'make', '-j' + conf['makejobs'] ], cwd=work_dir, env=env)
-    logging.debug('installing %s' % project_name)
-    subprocess.run([ 'make', 'install' ], cwd=work_dir, env=env)
-
 def build_libstdcxx(conf, project_name, src_path):
     work_dir = os.path.join(conf['workdir'], project_name)
     full_src_path = os.path.join(conf['root'], src_path)
