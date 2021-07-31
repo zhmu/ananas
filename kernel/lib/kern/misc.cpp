@@ -62,3 +62,18 @@ void _panic(const char* file, const char* func, int line, const char* fmt, ...)
     for (;;)
         ;
 }
+
+extern "C" void __cxa_pure_virtual() { panic("pure virtual call"); }
+
+extern "C" int __cxa_guard_acquire(__int64_t* guard_object)
+{
+    // XXX We ought to actually lock stuff here
+    auto initialized = reinterpret_cast<char*>(guard_object);
+    return *initialized == 0;
+}
+
+extern "C" void __cxa_guard_release(__int64_t* guard_object)
+{
+    // XXX We ought to actually lock stuff here
+    *guard_object = 0;
+}
