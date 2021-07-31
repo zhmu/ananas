@@ -6,6 +6,7 @@
  */
 #include <ananas/errno.h>
 #include <ananas/types.h>
+#include <ananas/util/array.h>
 #include "kernel/console.h"
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
@@ -17,7 +18,6 @@
 #endif
 #include "kernel-md/smp.h"
 #include "kernel-md/interrupts.h"
-#include <array>
 
 namespace kdb
 {
@@ -331,7 +331,7 @@ namespace kdb
                 line[len - 1] = '\0';
 
             /* Dissect the line; initially, we parse all arguments as strings */
-            std::array<Argument, MaxArguments> arg;
+            util::array<Argument, MaxArguments> arg;
             unsigned int num_arg = detail::DissectArguments(line, arg);
 
             /* Locate the command */
@@ -342,7 +342,7 @@ namespace kdb
             }
 
             if (detail::ValidateArguments(*kcmd, num_arg, arg))
-                kcmd->cmd_func(num_arg, &arg[0]);
+                kcmd->cmd_func(num_arg, arg.__data /* XXX */);
         }
 
         /* Stop console redirection and restore interrupts */

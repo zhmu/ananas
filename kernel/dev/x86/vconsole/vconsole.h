@@ -8,9 +8,9 @@
 #define ANANAS_VCONSOLE_H
 
 #include <ananas/types.h>
+#include <ananas/util/array.h>
 #include "kernel/device.h"
 #include "kernel/dev/kbdmux.h"
-#include <array>
 
 class IVideo;
 class VTTY;
@@ -38,7 +38,7 @@ struct VConsole : public Device,
 
   private:
     constexpr static size_t NumberOfVTTYs = 4;
-    std::array<VTTY*, NumberOfVTTYs> vttys;
+    util::array<VTTY*, NumberOfVTTYs> vttys;
 
     IVideo* v_Video = nullptr;
     VTTY* activeVTTY = nullptr;

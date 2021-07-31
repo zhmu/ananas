@@ -7,8 +7,8 @@
 #pragma once
 
 #include <ananas/types.h>
+#include <ananas/util/vector.h>
 #include "kernel-md/dma.h"
-#include <vector>
 
 class Device;
 struct Page;
@@ -54,7 +54,7 @@ namespace dma
         void Synchronise(Sync type);
 
         // Retrieve a given buffer's segments
-        std::vector<BufferSegment>& GetSegments() { return db_seg; }
+        util::vector<BufferSegment>& GetSegments() { return db_seg; }
 
         // Loads a given buffer to DMA-able addresses for the device */
         Result Load(void* data, dma_size_t size, dma_load_func_t load, void* load_arg, int flags);
@@ -68,7 +68,7 @@ namespace dma
         Tag& db_tag;
         dma_size_t db_size;
         dma_size_t db_seg_size;
-        std::vector<BufferSegment> db_seg;
+        util::vector<BufferSegment> db_seg;
     };
 
     class Tag final

@@ -7,11 +7,11 @@
 #pragma once
 
 #include <ananas/limits.h>
+#include <ananas/util/array.h>
 #include <ananas/util/list.h>
 #include <ananas/util/locked.h>
 #include <ananas/util/refcounted.h>
 #include "kernel/lock.h"
-#include <array>
 
 struct DEntry;
 class Result;
@@ -94,7 +94,7 @@ struct Process final : util::refcounted<Process> {
 
     Thread* p_mainthread = nullptr; /* Main thread */
 
-    std::array<FD*, PROCESS_MAX_DESCRIPTORS> p_fd = {nullptr}; /* Descriptors */
+    util::array<FD*, PROCESS_MAX_DESCRIPTORS> p_fd = {0}; /* Descriptors */
 
     DEntry* p_cwd = nullptr; /* Current path */
 

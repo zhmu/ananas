@@ -29,26 +29,26 @@ inline constexpr auto signalDebug = false;
 
 namespace
 {
-    constexpr std::array<const char*, 20> exceptionNames{"Divide Error",
-                                                         "Debug Exception",
-                                                         "NMI",
-                                                         "Breakpoint Exception",
-                                                         "Overflow Exception",
-                                                         "BOUND Range Exceeded Exception",
-                                                         "Invalid Opcode",
-                                                         "Device Not Available",
-                                                         "Double Fault",
-                                                         "Coprocessor Segment Overrun",
-                                                         "Invalid TSS Exception",
-                                                         "Segment Not Present",
-                                                         "Stack Fault Exception",
-                                                         "General Protection Fault",
-                                                         "Page Fault Exception",
-                                                         "15",
-                                                         "x87 FPU Floating-Point Error",
-                                                         "Alignment Check Exception",
-                                                         "Machine Check Exception",
-                                                         "SIMD Floating Point Exception"};
+    constexpr util::array<const char*, 20> exceptionNames{"Divide Error",
+                                                          "Debug Exception",
+                                                          "NMI",
+                                                          "Breakpoint Exception",
+                                                          "Overflow Exception",
+                                                          "BOUND Range Exceeded Exception",
+                                                          "Invalid Opcode",
+                                                          "Device Not Available",
+                                                          "Double Fault",
+                                                          "Coprocessor Segment Overrun",
+                                                          "Invalid TSS Exception",
+                                                          "Segment Not Present",
+                                                          "Stack Fault Exception",
+                                                          "General Protection Fault",
+                                                          "Page Fault Exception",
+                                                          "15",
+                                                          "x87 FPU Floating-Point Error",
+                                                          "Alignment Check Exception",
+                                                          "Machine Check Exception",
+                                                          "SIMD Floating Point Exception"};
 
     int map_trapno_to_signal(int trapno)
     {
