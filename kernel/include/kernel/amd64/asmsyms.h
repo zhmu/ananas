@@ -51,5 +51,8 @@
 #define T_FRAME     0x278
 #define T_MDFLAGS   0x280
 
+// Thread flags
+#define T_FLAG_SIGPENDING 0x40
+
 // Vmspace struct
 #define VMSPACE_MD_PAGEDIR 0x28

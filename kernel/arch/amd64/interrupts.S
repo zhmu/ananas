@@ -23,8 +23,6 @@
 #include "kernel-md/smp.h"
 #include "kernel-md/asmsyms.h"
 
-#define THREAD_FLAG_SIGPENDING 0x80 // XXX this is in thread.h
-
 #define SAVE_REGISTERS \
     movq    %rax, SF_RAX(%rsp); \
     movq    %rbx, SF_RBX(%rsp); \
@@ -149,7 +147,7 @@ do_exception:
 
 do_return_check_sig:
     movq    %gs:(PCPU_CURTHREAD), %rax
-    testl   $THREAD_FLAG_SIGPENDING, T_FLAGS(%rax)
+    testl   $T_FLAG_SIGPENDING, T_FLAGS(%rax)
     jz  do_return
 
     /*
@@ -314,7 +312,7 @@ syscall_return:
     jmp do_return
 
 1:  /* If we need to invoke a signal handler, do so... */
-    testl   $THREAD_FLAG_SIGPENDING, T_FLAGS(%rax)
+    testl   $T_FLAG_SIGPENDING, T_FLAGS(%rax)
     jnz do_return_signal
 
     movq    SF_RAX(%rsp), %rax  /* return value */

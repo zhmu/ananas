@@ -49,6 +49,8 @@ static_assert(T_FRAME == offsetof(Thread, t_frame));
 static_assert(T_FLAGS == offsetof(Thread, t_flags));
 static_assert(T_MDFLAGS == offsetof(Thread, t_md_flags));
 
+static_assert(T_FLAG_SIGPENDING == THREAD_FLAG_SIGPENDING);
+
 static_assert(PCPU_CURTHREAD == offsetof(struct PCPU, curthread));
 static_assert(PCPU_NESTEDIRQ == offsetof(struct PCPU, nested_irq));
 static_assert(PCPU_SYSCALLRSP == offsetof(struct PCPU, syscall_rsp));
