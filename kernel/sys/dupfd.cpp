@@ -9,12 +9,12 @@
 #include <ananas/errno.h>
 #include <ananas/limits.h>
 #include "kernel/fd.h"
+#include "kernel/process.h"
 #include "kernel/result.h"
-#include "kernel/thread.h"
 
 Result sys_dup(const fdindex_t index)
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
 
     FD* fd_out;
     fdindex_t index_out;
@@ -27,7 +27,7 @@ Result sys_dup(const fdindex_t index)
 
 Result sys_dup2(const fdindex_t index, const fdindex_t newindex)
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
     if (newindex >= PROCESS_MAX_DESCRIPTORS)
         return Result::Failure(EINVAL);
 

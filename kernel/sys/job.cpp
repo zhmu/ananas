@@ -7,21 +7,20 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
 #include "kernel/result.h"
-#include "kernel/thread.h"
 #include "kernel/process.h"
 #include "kernel/processgroup.h"
 #include "syscall.h"
 
 Result sys_getpgrp()
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
     const auto pgid = proc.p_group->pg_id;
     return Result::Success(pgid);
 }
 
 Result sys_setpgid(pid_t pid, pid_t pgid)
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
     if (pid == 0)
         pid = proc.p_pid;
     if (pgid == 0)
@@ -51,7 +50,7 @@ Result sys_setpgid(pid_t pid, pid_t pgid)
 
 Result sys_setsid()
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
 
     // Reject if we already are a group leader
     if (proc.p_group->pg_session.s_leader == &proc)
@@ -69,6 +68,6 @@ Result sys_getsid(const pid_t pid)
     if (pid != 0)
         return Result::Failure(EPERM); // XXX maybe be more lenient here
 
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
     return Result(proc.p_group->pg_session.s_sid);
 }

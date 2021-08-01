@@ -8,8 +8,8 @@
 #include <ananas/errno.h>
 #include "kernel/result.h"
 #include "kernel/process.h"
-#include "kernel/processgroup.h"
 #include "kernel/thread.h"
+#include "kernel/processgroup.h"
 #include "syscall.h"
 
 #include "kernel/lib.h"
@@ -79,7 +79,7 @@ Result sys_sigsuspend(const sigset_t* sigmask)
 
 Result sys_kill(const pid_t pid, const int sig)
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
     if (pid == -1) {
         // Send to all processes where we have permission to send to (excluding system processed)
         return Result::Failure(EPERM); // TODO

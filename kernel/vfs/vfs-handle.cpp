@@ -14,7 +14,6 @@
 #include "kernel/lib.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
-#include "kernel/thread.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 
@@ -53,7 +52,7 @@ namespace
 
     Result vfshandle_open(const fdindex_t index, FD& fd, const char* path, const int flags, const int mode)
     {
-        Process& proc = thread::GetCurrent().t_process;
+        auto& proc = process::GetCurrent();
 
         /*
          * If we could try to create the file, do so - if this fails, we'll attempt
@@ -125,8 +124,8 @@ namespace
         struct VFS_FILE* file;
         if (auto result = vfshandle_get_file(fd, file); result.IsFailure())
             return result;
-        auto& t = thread::GetCurrent();
-        return vfs_ioctl(&t.t_process, file, request, args);
+        auto& proc = process::GetCurrent();
+        return vfs_ioctl(&proc, file, request, args);
     }
 
     struct FDOperations vfs_ops = {

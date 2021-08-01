@@ -51,7 +51,7 @@ struct Arguments {
 
 Result sys_execve(const char* path, const char** argv, const char** envp)
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
 
     /* First step is to open the file */
     struct VFS_FILE file;

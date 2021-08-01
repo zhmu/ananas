@@ -7,12 +7,11 @@
 #include <ananas/types.h>
 #include "kernel/process.h"
 #include "kernel/result.h"
-#include "kernel/thread.h"
 #include "kernel/vfs/core.h"
 
 Result sys_rename(const char* oldpath, const char* newpath)
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
     DEntry* cwd = proc.p_cwd;
 
     struct VFS_FILE file;

@@ -64,6 +64,11 @@ namespace process
         return *process_kernel;
     }
 
+    Process& GetCurrent()
+    {
+        auto& t = thread::GetCurrent();
+        return t.t_process;
+    }
 } // namespace process
 
 static Result process_alloc_ex(Process* parent, Process*& dest)

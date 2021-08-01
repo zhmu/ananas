@@ -9,7 +9,6 @@
 #include "kernel/fd.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
-#include "kernel/thread.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "syscall.h"
@@ -31,7 +30,7 @@ namespace
 
 Result sys_chdir(const char* path)
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
     DEntry* cwd = proc.p_cwd;
 
     struct VFS_FILE file;
@@ -48,7 +47,7 @@ Result sys_chdir(const char* path)
 
 Result sys_fchdir(const fdindex_t index)
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
 
     FD* fd;
     if (auto result = syscall_get_fd(FD_TYPE_FILE, index, fd); result.IsFailure())
@@ -59,7 +58,7 @@ Result sys_fchdir(const fdindex_t index)
 
 Result sys_getcwd(char* buf, const size_t size)
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
     DEntry& cwd = *proc.p_cwd;
 
     if (size == 0)

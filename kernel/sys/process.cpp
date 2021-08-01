@@ -7,13 +7,12 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
 #include "kernel/result.h"
-#include "kernel/thread.h"
 #include "kernel/process.h"
 #include "syscall.h"
 
 Result sys_getpid()
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
 
     const auto pid = proc.p_pid;
     return Result::Success(pid);
@@ -21,7 +20,7 @@ Result sys_getpid()
 
 Result sys_getppid()
 {
-    Process& proc = *thread::GetCurrent().t_process.p_parent;
+    auto& proc = process::GetCurrent();
 
     const auto ppid = proc.p_pid;
     return Result::Success(ppid);

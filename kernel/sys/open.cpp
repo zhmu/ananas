@@ -9,11 +9,11 @@
 #include <ananas/flags.h>
 #include "kernel/fd.h"
 #include "kernel/result.h"
-#include "kernel/thread.h"
+#include "kernel/process.h"
 
 Result sys_open(const char* path, int flags, int mode)
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
 
     /* Obtain a new handle */
     FD* fd;

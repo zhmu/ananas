@@ -12,7 +12,7 @@
 
 Result sys_clone(const int flags)
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
 
     /* XXX Future improvement so we can do vfork() and such */
     if (flags != 0)

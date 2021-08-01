@@ -9,14 +9,13 @@
 #include "kernel/fd.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
-#include "kernel/thread.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vm.h"
 #include "syscall.h"
 
 Result sys_readlink(const char* path, char* buf, const size_t buflen)
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
     DEntry* cwd = proc.p_cwd;
 
     // Attempt to map the buffer write-only

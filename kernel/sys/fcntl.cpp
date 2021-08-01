@@ -8,13 +8,13 @@
 #include <ananas/errno.h>
 #include <ananas/flags.h>
 #include "kernel/fd.h"
+#include "kernel/process.h"
 #include "kernel/result.h"
-#include "kernel/thread.h"
 #include "syscall.h"
 
 Result sys_fcntl(const fdindex_t hindex, const int cmd, const void* in, void* out)
 {
-    Process& proc = thread::GetCurrent().t_process;
+    auto& proc = process::GetCurrent();
 
     /* Get the handle */
     FD* fd;

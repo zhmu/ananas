@@ -44,7 +44,7 @@ namespace
 
     Result do_stat(const char* path, struct stat* buf, int lookup_flags)
     {
-        Process& proc = thread::GetCurrent().t_process;
+        auto& proc = process::GetCurrent();
 
         struct VFS_FILE file;
         if (auto result = vfs_open(&proc, path, proc.p_cwd, &file, lookup_flags);

@@ -136,7 +136,7 @@ namespace
             flags |= VM_FLAG_READ;
 
         // Let the VM code deal with the fault
-        auto& process = thread::GetCurrent().t_process;
+        auto& process = process::GetCurrent();
         if (const auto result = process.p_vmspace.HandleFault(fault_addr, flags);
             result.IsSuccess())
             return; /* fault handeled */

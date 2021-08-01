@@ -72,6 +72,7 @@ namespace process
     struct ProcessGroup;
     void Initialize();
     Process& GetKernelProcess();
+    Process& GetCurrent();
 } // namespace process
 
 struct Process final : util::refcounted<Process> {
