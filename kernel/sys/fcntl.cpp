@@ -18,7 +18,7 @@ Result sys_fcntl(Thread* t, fdindex_t hindex, int cmd, const void* in, void* out
 
     /* Get the handle */
     FD* fd;
-    if (auto result = syscall_get_fd(*t, FD_TYPE_ANY, hindex, fd); result.IsFailure())
+    if (auto result = syscall_get_fd(FD_TYPE_ANY, hindex, fd); result.IsFailure())
         return result;
 
     switch (cmd) {

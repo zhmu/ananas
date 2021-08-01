@@ -13,13 +13,15 @@
 #include "kernel/vm.h"
 #include "kernel-md/md.h"
 
-Result syscall_get_fd(Thread& t, int type, fdindex_t index, FD*& fd)
+Result syscall_get_fd(int type, fdindex_t index, FD*& fd)
 {
+    auto& t = thread::GetCurrent();
     return fd::Lookup(t.t_process, index, type, fd);
 }
 
-Result syscall_get_file(Thread& t, fdindex_t index, struct VFS_FILE** out)
+Result syscall_get_file(fdindex_t index, struct VFS_FILE** out)
 {
+    auto& t = thread::GetCurrent();
     FD* fd;
     if (auto result = fd::Lookup(t.t_process, index, FD_TYPE_FILE, fd); result.IsFailure())
         return result;
@@ -32,8 +34,9 @@ Result syscall_get_file(Thread& t, fdindex_t index, struct VFS_FILE** out)
     return Result::Success();
 }
 
-Result syscall_map_string(Thread& t, const void* ptr, const char** out)
+Result syscall_map_string(const void* ptr, const char** out)
 {
+    auto& t = thread::GetCurrent();
     auto x = static_cast<const char*>(
         md::thread::MapThreadMemory(t, (void*)ptr, PAGE_SIZE, VM_FLAG_READ));
     if (x == NULL)
@@ -49,8 +52,9 @@ Result syscall_map_string(Thread& t, const void* ptr, const char** out)
     return Result::Failure(EFAULT);
 }
 
-Result syscall_map_buffer(Thread& t, const void* ptr, size_t len, int flags, void** out)
+Result syscall_map_buffer(const void* ptr, size_t len, int flags, void** out)
 {
+    auto& t = thread::GetCurrent();
     void* x = md::thread::MapThreadMemory(t, (void*)ptr, len, flags);
     if (x == NULL)
         return Result::Failure(EFAULT);
@@ -59,8 +63,9 @@ Result syscall_map_buffer(Thread& t, const void* ptr, size_t len, int flags, voi
     return Result::Success();
 }
 
-Result syscall_set_handleindex(Thread& t, fdindex_t* ptr, fdindex_t index)
+Result syscall_set_handleindex(fdindex_t* ptr, fdindex_t index)
 {
+    auto& t = thread::GetCurrent();
     auto p = static_cast<fdindex_t*>(
         md::thread::MapThreadMemory(t, (void*)ptr, sizeof(fdindex_t), VM_FLAG_WRITE));
     if (p == NULL)
@@ -70,8 +75,9 @@ Result syscall_set_handleindex(Thread& t, fdindex_t* ptr, fdindex_t index)
     return Result::Success();
 }
 
-Result syscall_fetch_offset(Thread& t, const void* ptr, off_t* out)
+Result syscall_fetch_offset(const void* ptr, off_t* out)
 {
+    auto& t = thread::GetCurrent();
     auto o = static_cast<off_t*>(
         md::thread::MapThreadMemory(t, (void*)ptr, sizeof(off_t), VM_FLAG_READ));
     if (o == NULL)
@@ -81,8 +87,9 @@ Result syscall_fetch_offset(Thread& t, const void* ptr, off_t* out)
     return Result::Success();
 }
 
-Result syscall_set_offset(Thread& t, void* ptr, off_t len)
+Result syscall_set_offset(void* ptr, off_t len)
 {
+    auto& t = thread::GetCurrent();
     auto o = static_cast<size_t*>(
         md::thread::MapThreadMemory(t, (void*)ptr, sizeof(size_t), VM_FLAG_WRITE));
     if (o == NULL)

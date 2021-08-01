@@ -14,12 +14,12 @@
 Result sys_write(Thread* t, fdindex_t hindex, const void* buf, size_t len)
 {
     FD* fd;
-    if (auto result = syscall_get_fd(*t, FD_TYPE_ANY, hindex, fd); result.IsFailure())
+    if (auto result = syscall_get_fd(FD_TYPE_ANY, hindex, fd); result.IsFailure())
         return result;
 
     // Attempt to map the buffer readonly
     void* buffer;
-    if (auto result = syscall_map_buffer(*t, buf, len, VM_FLAG_READ, &buffer); result.IsFailure())
+    if (auto result = syscall_map_buffer(buf, len, VM_FLAG_READ, &buffer); result.IsFailure())
         return result;
 
     // And write data from to it

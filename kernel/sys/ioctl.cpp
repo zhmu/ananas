@@ -15,7 +15,7 @@ Result
 sys_ioctl(Thread* t, fdindex_t fdindex, unsigned long req, void* arg1, void* arg2, void* arg3)
 {
     FD* fd;
-    if (auto result = syscall_get_fd(*t, FD_TYPE_ANY, fdindex, fd); result.IsFailure())
+    if (auto result = syscall_get_fd(FD_TYPE_ANY, fdindex, fd); result.IsFailure())
         return result;
 
     if (fd->fd_ops->d_ioctl == nullptr)

@@ -73,7 +73,7 @@ Result sys_fstatfs(Thread* t, fdindex_t hindex, struct statfs* buf)
 {
     /* Get the handle */
     FD* fd;
-    if (auto result = syscall_get_fd(*t, FD_TYPE_FILE, hindex, fd); result.IsFailure())
+    if (auto result = syscall_get_fd(FD_TYPE_FILE, hindex, fd); result.IsFailure())
         return result;
 
     auto* dentry = fd->fd_data.d_vfs_file.f_dentry;

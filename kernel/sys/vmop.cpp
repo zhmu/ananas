@@ -26,7 +26,7 @@ namespace
         VMArea*& va)
     {
         FD* fd;
-        if (auto result = syscall_get_fd(*curthread, FD_TYPE_FILE, vo->vo_fd, fd);
+        if (auto result = syscall_get_fd(FD_TYPE_FILE, vo->vo_fd, fd);
             result.IsFailure()) {
             return result;
         }
@@ -101,7 +101,7 @@ Result sys_vmop(Thread* t, struct VMOP_OPTIONS* opts)
     /* Obtain options */
     struct VMOP_OPTIONS* vmop_opts;
     if (auto result = syscall_map_buffer(
-            *t, opts, sizeof(*vmop_opts), VM_FLAG_READ | VM_FLAG_WRITE, (void**)&vmop_opts);
+            opts, sizeof(*vmop_opts), VM_FLAG_READ | VM_FLAG_WRITE, (void**)&vmop_opts);
         result.IsFailure())
         return result;
     if (vmop_opts->vo_size != sizeof(*vmop_opts))

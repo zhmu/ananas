@@ -14,7 +14,7 @@
 Result sys_close(Thread* t, fdindex_t index)
 {
     FD* fd;
-    if (auto result = syscall_get_fd(*t, FD_TYPE_ANY, index, fd); result.IsFailure())
+    if (auto result = syscall_get_fd(FD_TYPE_ANY, index, fd); result.IsFailure())
         return result;
     if (auto result = fd->Close(); result.IsFailure())
         return result;

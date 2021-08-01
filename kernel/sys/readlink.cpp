@@ -21,7 +21,7 @@ Result sys_readlink(Thread* t, const char* path, char* buf, size_t buflen)
 
     // Attempt to map the buffer write-only
     void* buffer;
-    if (auto result = syscall_map_buffer(*t, buf, buflen, VM_FLAG_WRITE, &buffer);
+    if (auto result = syscall_map_buffer(buf, buflen, VM_FLAG_WRITE, &buffer);
         result.IsFailure())
         return result;
 

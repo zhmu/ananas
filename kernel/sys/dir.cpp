@@ -51,7 +51,7 @@ Result sys_fchdir(Thread* t, fdindex_t index)
     Process& proc = t->t_process;
 
     FD* fd;
-    if (auto result = syscall_get_fd(*t, FD_TYPE_FILE, index, fd); result.IsFailure())
+    if (auto result = syscall_get_fd(FD_TYPE_FILE, index, fd); result.IsFailure())
         return result;
 
     return SetCWD(proc, fd->fd_data.d_vfs_file);

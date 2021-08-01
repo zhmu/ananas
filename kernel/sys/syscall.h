@@ -21,11 +21,11 @@ struct Thread;
 
 register_t syscall(struct SYSCALL_ARGS* args);
 
-Result syscall_get_fd(Thread& t, int type, fdindex_t index, FD*& fd_out);
-Result syscall_get_file(Thread& t, fdindex_t index, struct VFS_FILE** out);
-Result syscall_map_string(Thread& t, const void* ptr, const char** out);
-Result syscall_map_buffer(Thread& t, const void* ptr, size_t len, int flags, void** out);
-Result syscall_fetch_offset(Thread& t, const void* ptr, off_t* out);
-Result syscall_set_offset(Thread& t, void* ptr, off_t len);
+Result syscall_get_fd(int type, fdindex_t index, FD*& fd_out);
+Result syscall_get_file(fdindex_t index, struct VFS_FILE** out);
+Result syscall_map_string(const void* ptr, const char** out);
+Result syscall_map_buffer(const void* ptr, size_t len, int flags, void** out);
+Result syscall_fetch_offset(const void* ptr, off_t* out);
+Result syscall_set_offset(void* ptr, off_t len);
 
 #endif /* __SYSCALL_H__ */
