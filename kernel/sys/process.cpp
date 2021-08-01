@@ -11,41 +11,41 @@
 #include "kernel/process.h"
 #include "syscall.h"
 
-Result sys_getpid(Thread* t)
+Result sys_getpid()
 {
-    Process& process = t->t_process;
+    Process& proc = thread::GetCurrent().t_process;
 
-    const auto pid = process.p_pid;
+    const auto pid = proc.p_pid;
     return Result::Success(pid);
 }
 
-Result sys_getppid(Thread* t)
+Result sys_getppid()
 {
-    Process& process = *t->t_process.p_parent;
+    Process& proc = *thread::GetCurrent().t_process.p_parent;
 
-    const auto ppid = process.p_pid;
+    const auto ppid = proc.p_pid;
     return Result::Success(ppid);
 }
 
-Result sys_getuid(Thread* t)
+Result sys_getuid()
 {
     auto uid = 0; // TODO
     return Result::Success(uid);
 }
 
-Result sys_geteuid(Thread* t)
+Result sys_geteuid()
 {
     auto euid = 0; // TODO
     return Result::Success(euid);
 }
 
-Result sys_getgid(Thread* t)
+Result sys_getgid()
 {
     auto gid = 0; // TODO
     return Result::Success(gid);
 }
 
-Result sys_getegid(Thread* t)
+Result sys_getegid()
 {
     auto egid = 0; // TODO
     return Result::Success(egid);

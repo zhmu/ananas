@@ -9,7 +9,7 @@
 #include "kernel/result.h"
 #include "syscall.h"
 
-Result sys_nanosleep(Thread* t, const struct timespec* rqtp, struct timespec* rmtp)
+Result sys_nanosleep(const struct timespec* rqtp, struct timespec* rmtp)
 {
     return Result::Failure(EINVAL); // TODO
 }

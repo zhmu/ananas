@@ -14,9 +14,9 @@
 #include "kernel/vm.h"
 #include "syscall.h"
 
-Result sys_readlink(Thread* t, const char* path, char* buf, size_t buflen)
+Result sys_readlink(const char* path, char* buf, const size_t buflen)
 {
-    Process& proc = t->t_process;
+    Process& proc = thread::GetCurrent().t_process;
     DEntry* cwd = proc.p_cwd;
 
     // Attempt to map the buffer write-only
@@ -34,8 +34,5 @@ Result sys_readlink(Thread* t, const char* path, char* buf, size_t buflen)
     // And copy the contents
     auto result = vfs_read(&file, buf, buflen);
     vfs_close(&proc, &file);
-    if (result.IsFailure())
-        return result;
-
     return result;
 }

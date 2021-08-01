@@ -10,8 +10,7 @@
 #include "kernel/vm.h"
 #include "syscall.h"
 
-
-Result sys_close(Thread* t, fdindex_t index)
+Result sys_close(const fdindex_t index)
 {
     FD* fd;
     if (auto result = syscall_get_fd(FD_TYPE_ANY, index, fd); result.IsFailure())

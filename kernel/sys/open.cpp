@@ -12,9 +12,9 @@
 #include "kernel/thread.h"
 
 
-Result sys_open(Thread* t, const char* path, int flags, int mode)
+Result sys_open(const char* path, int flags, int mode)
 {
-    Process& proc = t->t_process;
+    Process& proc = thread::GetCurrent().t_process;
 
     /* Obtain a new handle */
     FD* fd;
@@ -27,8 +27,10 @@ Result sys_open(Thread* t, const char* path, int flags, int mode)
      * assume this handle type cannot be opened using a syscall.
      */
     Result result = Result::Failure(EINVAL);
-    if (fd->fd_ops->d_open != NULL)
-        result = fd->fd_ops->d_open(t, index_out, *fd, path, flags, mode);
+    if (fd->fd_ops->d_open != NULL) {
+        auto& t = thread::GetCurrent();
+        result = fd->fd_ops->d_open(&t, index_out, *fd, path, flags, mode);
+    }
 
     if (result.IsFailure()) {
         fd->Close();

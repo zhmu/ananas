@@ -11,7 +11,7 @@
 #include "kernel/shutdown.h"
 #include "syscall.h"
 
-Result sys_reboot(Thread* t, int how)
+Result sys_reboot(const int how)
 {
     shutdown::ShutdownType type;
     switch (how) {

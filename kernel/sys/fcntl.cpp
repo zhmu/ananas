@@ -12,9 +12,9 @@
 #include "kernel/thread.h"
 #include "syscall.h"
 
-Result sys_fcntl(Thread* t, fdindex_t hindex, int cmd, const void* in, void* out)
+Result sys_fcntl(const fdindex_t hindex, const int cmd, const void* in, void* out)
 {
-    Process& process = t->t_process;
+    Process& proc = thread::GetCurrent().t_process;
 
     /* Get the handle */
     FD* fd;
@@ -26,7 +26,7 @@ Result sys_fcntl(Thread* t, fdindex_t hindex, int cmd, const void* in, void* out
             int min_fd = (int)(uintptr_t)in;
             FD* fd_out;
             fdindex_t idx_out = -1;
-            if (auto result = fd::Clone(process, hindex, nullptr, process, fd_out, min_fd, idx_out);
+            if (auto result = fd::Clone(proc, hindex, nullptr, proc, fd_out, min_fd, idx_out);
                 result.IsFailure())
                 return result;
             return Result::Success(idx_out);

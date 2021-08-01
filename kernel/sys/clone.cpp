@@ -10,9 +10,9 @@
 #include "kernel/result.h"
 #include "kernel/thread.h"
 
-Result sys_clone(Thread* t, int flags)
+Result sys_clone(const int flags)
 {
-    Process& proc = t->t_process;
+    Process& proc = thread::GetCurrent().t_process;
 
     /* XXX Future improvement so we can do vfork() and such */
     if (flags != 0)

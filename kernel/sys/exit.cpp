@@ -6,7 +6,8 @@
  */
 #include "kernel/thread.h"
 
-void sys_exit(Thread* t, int exitcode)
+void sys_exit(int exitcode)
 {
-    t->Terminate(THREAD_MAKE_EXITCODE(THREAD_TERM_SYSCALL, exitcode));
+    auto& t = thread::GetCurrent();
+    t.Terminate(THREAD_MAKE_EXITCODE(THREAD_TERM_SYSCALL, exitcode));
 }

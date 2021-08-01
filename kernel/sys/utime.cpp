@@ -9,7 +9,7 @@
 #include <ananas/syscalls.h>
 #include "kernel/result.h"
 
-Result sys_utime(Thread* t, const char* path, const struct utimbuf* times)
+Result sys_utime(const char* path, const struct utimbuf* times)
 {
     return Result::Failure(EACCES); // TODO: implement me
 }

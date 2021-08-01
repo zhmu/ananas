@@ -12,13 +12,13 @@
 
 #include "kernel/lib.h"
 
-Result sys_clock_settime(Thread* t, int id, const struct timespec* tp)
+Result sys_clock_settime(const int id, const struct timespec* tp)
 {
     // XXX We don't support setting the time just yet
     return Result::Failure(EINVAL);
 }
 
-Result sys_clock_gettime(Thread* t, int id, struct timespec* tp)
+Result sys_clock_gettime(const int id, struct timespec* tp)
 {
     switch (id) {
         case CLOCK_MONOTONIC: {
@@ -35,7 +35,7 @@ Result sys_clock_gettime(Thread* t, int id, struct timespec* tp)
     return Result::Failure(EINVAL);
 }
 
-Result sys_clock_getres(Thread* t, int id, struct timespec* res)
+Result sys_clock_getres(const int id, struct timespec* res)
 {
     return Result::Failure(EINVAL);
 }

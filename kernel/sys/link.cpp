@@ -8,14 +8,12 @@
 #include <ananas/errno.h>
 #include "kernel/result.h"
 
-struct Thread;
-
-Result sys_link(Thread* t, const char* oldpath, const char* newpath)
+Result sys_link(const char* oldpath, const char* newpath)
 {
     return Result::Failure(EPERM); // until we implement this
 }
 
-Result sys_symlink(Thread* t, const char* oldpath, const char* newpath)
+Result sys_symlink(const char* oldpath, const char* newpath)
 {
     return Result::Failure(EPERM); // until we implement this
 }

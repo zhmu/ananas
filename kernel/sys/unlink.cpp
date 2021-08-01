@@ -8,9 +8,7 @@
 #include <ananas/errno.h>
 #include "kernel/result.h"
 
-struct Thread;
-
-Result sys_unlink(Thread* t, const char* path)
+Result sys_unlink(const char* path)
 {
     /* TODO */
     return Result::Failure(EIO);

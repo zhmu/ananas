@@ -24,9 +24,10 @@ namespace
 
 } // namespace
 
-Result sys_sigaction(Thread* t, int sig, const struct sigaction* act, struct sigaction* oact)
+Result sys_sigaction(const int sig, const struct sigaction* act, struct sigaction* oact)
 {
-    auto& tsd = t->t_sigdata;
+    auto& t = thread::GetCurrent();
+    auto& tsd = t.t_sigdata;
     SpinlockGuard sg(tsd.tsd_lock);
     auto sact = tsd.GetSignalAction(sig);
     if (sact == nullptr)
@@ -44,9 +45,10 @@ Result sys_sigaction(Thread* t, int sig, const struct sigaction* act, struct sig
     return Result::Success();
 }
 
-Result sys_sigprocmask(Thread* t, int how, const sigset_t* set, sigset_t* oset)
+Result sys_sigprocmask(const int how, const sigset_t* set, sigset_t* oset)
 {
-    auto& tsd = t->t_sigdata;
+    auto& t = thread::GetCurrent();
+    auto& tsd = t.t_sigdata;
     SpinlockGuard sg(tsd.tsd_lock);
 
     if (oset != nullptr)
@@ -69,15 +71,15 @@ Result sys_sigprocmask(Thread* t, int how, const sigset_t* set, sigset_t* oset)
     return Result::Success();
 }
 
-Result sys_sigsuspend(Thread* t, const sigset_t* sigmask)
+Result sys_sigsuspend(const sigset_t* sigmask)
 {
-    kprintf("%s: TODO t=%p, sigmask=%p\n", __func__, t, sigmask);
+    kprintf("%s: TODO, sigmask=%p\n", __func__, sigmask);
     return Result::Failure(EPERM);
 }
 
-Result sys_kill(Thread* t, pid_t pid, int sig)
+Result sys_kill(const pid_t pid, const int sig)
 {
-    Process& process = t->t_process;
+    Process& proc = thread::GetCurrent().t_process;
     if (pid == -1) {
         // Send to all processes where we have permission to send to (excluding system processed)
         return Result::Failure(EPERM); // TODO
@@ -85,11 +87,11 @@ Result sys_kill(Thread* t, pid_t pid, int sig)
 
     siginfo_t si{};
     si.si_signo = sig;
-    si.si_pid = process.p_pid;
+    si.si_pid = proc.p_pid;
 
     if (pid <= 0) {
         // Send to all processes whose process group ID is equal to ours (pid==0) or |pid| (pid<0)
-        int dest_pgid = pid == 0 ? process.p_group->pg_id : -pid;
+        int dest_pgid = pid == 0 ? proc.p_group->pg_id : -pid;
 
         auto pg = process::FindProcessGroupByID(dest_pgid);
         if (!pg)

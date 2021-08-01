@@ -8,10 +8,11 @@
 #include <ananas/errno.h>
 #include "kernel/fd.h"
 #include "kernel/result.h"
+#include "kernel/thread.h"
 #include "kernel/vm.h"
 #include "syscall.h"
 
-Result sys_read(Thread* t, fdindex_t hindex, void* buf, size_t len)
+Result sys_read(const fdindex_t hindex, void* buf, const size_t len)
 {
     FD* fd;
     if (auto result = syscall_get_fd(FD_TYPE_ANY, hindex, fd); result.IsFailure())
@@ -26,5 +27,6 @@ Result sys_read(Thread* t, fdindex_t hindex, void* buf, size_t len)
     if (fd->fd_ops->d_read == nullptr)
         return Result::Failure(EINVAL);
 
-    return fd->fd_ops->d_read(t, hindex, *fd, buf, len);
+    auto& t = thread::GetCurrent();
+    return fd->fd_ops->d_read(&t, hindex, *fd, buf, len);
 }

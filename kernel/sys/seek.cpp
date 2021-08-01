@@ -13,7 +13,7 @@
 #include "kernel/vfs/dentry.h"
 #include "syscall.h"
 
-Result sys_seek(Thread* t, fdindex_t hindex, off_t* offset, int whence)
+Result sys_seek(const fdindex_t hindex, off_t* offset, const int whence)
 {
     FD* fd;
     if (auto result = syscall_get_fd(FD_TYPE_FILE, hindex, fd); result.IsFailure())

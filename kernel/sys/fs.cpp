@@ -56,7 +56,7 @@ namespace
 
 } // unnamed namespace
 
-Result sys_statfs(Thread* t, const char* path, struct statfs* buf)
+Result sys_statfs(const char* path, struct statfs* buf)
 {
     // XXX we should realpath path() first - or let userland deal with that?
 
@@ -69,7 +69,7 @@ Result sys_statfs(Thread* t, const char* path, struct statfs* buf)
     return Result::Success();
 }
 
-Result sys_fstatfs(Thread* t, fdindex_t hindex, struct statfs* buf)
+Result sys_fstatfs(const fdindex_t hindex, struct statfs* buf)
 {
     /* Get the handle */
     FD* fd;
@@ -84,12 +84,12 @@ Result sys_fstatfs(Thread* t, fdindex_t hindex, struct statfs* buf)
     return Result::Success();
 }
 
-Result sys_mount(Thread* t, const char* type, const char* source, const char* dir, int flags)
+Result sys_mount(const char* type, const char* source, const char* dir, int flags)
 {
     return vfs_mount(source, dir, type);
 }
 
-Result sys_unmount(Thread* t, const char* dir, int flags)
+Result sys_unmount(const char* dir, const int flags)
 {
     return vfs_unmount(dir);
 }

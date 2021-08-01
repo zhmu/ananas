@@ -43,13 +43,15 @@ struct Arguments {
 
     const char** GetArgs() const { return reinterpret_cast<const char**>(a_args); }
 
+    Arguments(const Arguments&) = delete;
+    Arguments& operator=(const Arguments&) = delete;
   private:
     char* a_args;
 };
 
-Result sys_execve(Thread* t, const char* path, const char** argv, const char** envp)
+Result sys_execve(const char* path, const char** argv, const char** envp)
 {
-    Process& proc = t->t_process;
+    Process& proc = thread::GetCurrent().t_process;
 
     /* First step is to open the file */
     struct VFS_FILE file;
@@ -96,7 +98,8 @@ Result sys_execve(Thread* t, const char* path, const char** argv, const char** e
      * Loading went okay; we can now set the new thread name (we won't be able to
      * access argv after the vmspace_clone() so best do it here)
      */
-    exec->PrepareForExecute(vmspace, *t, auxargs, copyArgv.GetArgs(), copyEnv.GetArgs());
+    auto& t = thread::GetCurrent();
+    exec->PrepareForExecute(vmspace, t, auxargs, copyArgv.GetArgs(), copyEnv.GetArgs());
     dentry_deref(dentry);
     return Result::Success();
 }

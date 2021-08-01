@@ -22,7 +22,7 @@
 namespace
 {
     Result sys_vmop_map_fd(
-        Thread* curthread, struct VMOP_OPTIONS* vo, VMSpace& vs, int vm_flags, addr_t dest_addr,
+        struct VMOP_OPTIONS* vo, VMSpace& vs, int vm_flags, addr_t dest_addr,
         VMArea*& va)
     {
         FD* fd;
@@ -51,7 +51,7 @@ namespace
         return Result::Failure(EINVAL);
     }
 
-    Result sys_vmop_map(Thread* curthread, struct VMOP_OPTIONS* vo)
+    Result sys_vmop_map(struct VMOP_OPTIONS* vo)
     {
         if (vo->vo_len == 0)
             return Result::Failure(EINVAL);
@@ -68,14 +68,14 @@ namespace
         if (vo->vo_flags & VMOP_FLAG_PRIVATE)
             vm_flags |= VM_FLAG_PRIVATE;
 
-        VMSpace& vs = curthread->t_process.p_vmspace;
+        VMSpace& vs = thread::GetCurrent().t_process.p_vmspace;
         addr_t dest_addr = reinterpret_cast<addr_t>(vo->vo_addr);
         if ((vo->vo_flags & VMOP_FLAG_FIXED) == 0)
             dest_addr = vs.ReserveAdressRange(vo->vo_len);
 
         VMArea* va;
         if (vo->vo_flags & VMOP_FLAG_FD) {
-            if (auto result = sys_vmop_map_fd(curthread, vo, vs, vm_flags, dest_addr, va);
+            if (auto result = sys_vmop_map_fd(vo, vs, vm_flags, dest_addr, va);
                 result.IsFailure())
                 return result;
         } else {
@@ -88,7 +88,7 @@ namespace
         return Result::Success();
     }
 
-    Result sys_vmop_unmap(Thread* t, struct VMOP_OPTIONS* vo)
+    Result sys_vmop_unmap(struct VMOP_OPTIONS* vo)
     {
         /* XXX implement me */
         return Result::Failure(EINVAL);
@@ -96,7 +96,7 @@ namespace
 
 } // namespace
 
-Result sys_vmop(Thread* t, struct VMOP_OPTIONS* opts)
+Result sys_vmop(struct VMOP_OPTIONS* opts)
 {
     /* Obtain options */
     struct VMOP_OPTIONS* vmop_opts;
@@ -109,9 +109,9 @@ Result sys_vmop(Thread* t, struct VMOP_OPTIONS* opts)
 
     switch (vmop_opts->vo_op) {
         case OP_MAP:
-            return sys_vmop_map(t, vmop_opts);
+            return sys_vmop_map(vmop_opts);
         case OP_UNMAP:
-            return sys_vmop_unmap(t, vmop_opts);
+            return sys_vmop_unmap(vmop_opts);
         default:
             return Result::Failure(EINVAL);
     }

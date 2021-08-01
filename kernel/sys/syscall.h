@@ -17,7 +17,6 @@ struct SYSCALL_ARGS {
 class Result;
 struct FD;
 struct VFS_FILE;
-struct Thread;
 
 register_t syscall(struct SYSCALL_ARGS* args);
 

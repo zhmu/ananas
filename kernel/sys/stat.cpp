@@ -42,9 +42,9 @@ namespace
         return Result::Success();
     }
 
-    Result do_stat(Thread* t, const char* path, struct stat* buf, int lookup_flags)
+    Result do_stat(const char* path, struct stat* buf, int lookup_flags)
     {
-        Process& proc = t->t_process;
+        Process& proc = thread::GetCurrent().t_process;
 
         struct VFS_FILE file;
         if (auto result = vfs_open(&proc, path, proc.p_cwd, &file, lookup_flags);
@@ -58,17 +58,17 @@ namespace
 
 } // unnamed namespace
 
-Result sys_stat(Thread* t, const char* path, struct stat* buf)
+Result sys_stat(const char* path, struct stat* buf)
 {
-    return do_stat(t, path, buf, VFS_LOOKUP_FLAG_DEFAULT);
+    return do_stat(path, buf, VFS_LOOKUP_FLAG_DEFAULT);
 }
 
-Result sys_lstat(Thread* t, const char* path, struct stat* buf)
+Result sys_lstat(const char* path, struct stat* buf)
 {
-    return do_stat(t, path, buf, VFS_LOOKUP_FLAG_NO_FOLLOW);
+    return do_stat(path, buf, VFS_LOOKUP_FLAG_NO_FOLLOW);
 }
 
-Result sys_fstat(Thread* t, fdindex_t hindex, struct stat* buf)
+Result sys_fstat(const fdindex_t hindex, struct stat* buf)
 {
     /* Get the handle */
     FD* fd;

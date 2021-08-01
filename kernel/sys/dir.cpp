@@ -29,9 +29,9 @@ namespace
 
 } // unnamed namespace
 
-Result sys_chdir(Thread* t, const char* path)
+Result sys_chdir(const char* path)
 {
-    Process& proc = t->t_process;
+    Process& proc = thread::GetCurrent().t_process;
     DEntry* cwd = proc.p_cwd;
 
     struct VFS_FILE file;
@@ -46,9 +46,9 @@ Result sys_chdir(Thread* t, const char* path)
     return result;
 }
 
-Result sys_fchdir(Thread* t, fdindex_t index)
+Result sys_fchdir(const fdindex_t index)
 {
-    Process& proc = t->t_process;
+    Process& proc = thread::GetCurrent().t_process;
 
     FD* fd;
     if (auto result = syscall_get_fd(FD_TYPE_FILE, index, fd); result.IsFailure())
@@ -57,9 +57,9 @@ Result sys_fchdir(Thread* t, fdindex_t index)
     return SetCWD(proc, fd->fd_data.d_vfs_file);
 }
 
-Result sys_getcwd(Thread* t, char* buf, size_t size)
+Result sys_getcwd(char* buf, const size_t size)
 {
-    Process& proc = t->t_process;
+    Process& proc = thread::GetCurrent().t_process;
     DEntry& cwd = *proc.p_cwd;
 
     if (size == 0)

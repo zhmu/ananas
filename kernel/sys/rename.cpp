@@ -10,9 +10,9 @@
 #include "kernel/thread.h"
 #include "kernel/vfs/core.h"
 
-Result sys_rename(Thread* t, const char* oldpath, const char* newpath)
+Result sys_rename(const char* oldpath, const char* newpath)
 {
-    Process& proc = t->t_process;
+    Process& proc = thread::GetCurrent().t_process;
     DEntry* cwd = proc.p_cwd;
 
     struct VFS_FILE file;

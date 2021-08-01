@@ -243,14 +243,16 @@ extern "C" void* md_invoke_signal(struct STACKFRAME* sf)
     return sf_handler;
 }
 
-Result sys_sigreturn(Thread* t)
+Result sys_sigreturn()
 {
+    auto& t = thread::GetCurrent();
+
     // Find the userland rsp
     size_t sf_offset = KERNEL_STACK_SIZE - sizeof(struct STACKFRAME);
-    auto sf = reinterpret_cast<struct STACKFRAME*>((char*)t->md_kstack + sf_offset);
+    auto sf = reinterpret_cast<struct STACKFRAME*>((char*)t.md_kstack + sf_offset);
     if constexpr (signalDebug) {
         kprintf(
-            "sys_sigreturn: t %p, md_kstack %p, sf_offset %d => sf %p\n", t, t->md_kstack, sf_offset,
+            "sys_sigreturn: t %p, md_kstack %p, sf_offset %d => sf %p\n", &t, t.md_kstack, sf_offset,
             sf);
         kprintf("sys_sigreturn: sf_rsp %p\n", sf->sf_rsp);
     }
@@ -259,7 +261,7 @@ Result sys_sigreturn(Thread* t)
     /* XXX check sf_orig */
 
     if constexpr (signalDebug) {
-        kprintf("%s: t=%p, rsp=%p sf_orig=%p\n", __func__, t, sf->sf_rsp, sf_orig);
+        kprintf("%s: t=%p, rsp=%p sf_orig=%p\n", __func__, &t, sf->sf_rsp, sf_orig);
     }
     memcpy(sf, sf_orig, sizeof(struct STACKFRAME));
 
