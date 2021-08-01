@@ -1,5 +1,6 @@
 add_sources(
 	stub.S
+    asmsyms.cpp
 	md_map.cpp
 	md_thread.cpp
 	md_vmspace.cpp

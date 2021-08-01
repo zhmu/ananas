@@ -21,7 +21,7 @@
 #include "kernel-md/thread.h"
 #include "kernel-md/lapic.h"
 #include "kernel-md/smp.h"
-#include "asmsyms.h"
+#include "kernel-md/asmsyms.h"
 
 #define THREAD_FLAG_SIGPENDING 0x80 // XXX this is in thread.h
 

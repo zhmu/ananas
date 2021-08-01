@@ -108,16 +108,3 @@ add_custom_command(
 	COMMAND ${KERN_PATH}/gen_syscalls.sh ${KERN_PATH}/syscalls.in /dev/null /dev/null ${CMAKE_BINARY_DIR}/include/_gen/syscalls.inc.h
 	DEPENDS ${KERN_PATH}/syscalls.in
 )
-
-# generate asmsyms.h; this is needed to look up offsets within structs from
-# assembler files, which is sure a lot better than having to maintain them
-# ourselves
-build_object(asmsyms.o arch/amd64/asmsyms.cpp "")
-add_custom_command(
-	OUTPUT include/asmsyms.h
-	COMMAND ${CMAKE_SOURCE_DIR}/tools/gen_asmsyms.sh nm awk ${CMAKE_CURRENT_BINARY_DIR}/asmsyms.o > include/asmsyms.h
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/asmsyms.o
-)
-add_custom_target(asmsyms_h DEPENDS include/asmsyms.h)
-add_dependencies(asmsyms_h machine_types_h)
-add_dependencies(kernel_elf asmsyms_h)

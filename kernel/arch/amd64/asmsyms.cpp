@@ -9,6 +9,7 @@
 #include "kernel/pcpu.h"
 #include "kernel/thread.h"
 #include "kernel/vmspace.h"
+#include "kernel-md/asmsyms.h"
 #include "kernel-md/frame.h"
 #include "kernel-md/pcpu.h"
 #include "kernel-md/smp.h"
@@ -17,52 +18,53 @@
 
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 
-ASM_SYMBOL(SF_TRAPNO, offsetof(struct STACKFRAME, sf_trapno));
-ASM_SYMBOL(SF_RAX, offsetof(struct STACKFRAME, sf_rax));
-ASM_SYMBOL(SF_RBX, offsetof(struct STACKFRAME, sf_rbx));
-ASM_SYMBOL(SF_RCX, offsetof(struct STACKFRAME, sf_rcx));
-ASM_SYMBOL(SF_RDX, offsetof(struct STACKFRAME, sf_rdx));
-ASM_SYMBOL(SF_RBP, offsetof(struct STACKFRAME, sf_rbp));
-ASM_SYMBOL(SF_RSI, offsetof(struct STACKFRAME, sf_rsi));
-ASM_SYMBOL(SF_RDI, offsetof(struct STACKFRAME, sf_rdi));
-ASM_SYMBOL(SF_RSP, offsetof(struct STACKFRAME, sf_rsp));
-ASM_SYMBOL(SF_R8, offsetof(struct STACKFRAME, sf_r8));
-ASM_SYMBOL(SF_R9, offsetof(struct STACKFRAME, sf_r9));
-ASM_SYMBOL(SF_R10, offsetof(struct STACKFRAME, sf_r10));
-ASM_SYMBOL(SF_R11, offsetof(struct STACKFRAME, sf_r11));
-ASM_SYMBOL(SF_R12, offsetof(struct STACKFRAME, sf_r12));
-ASM_SYMBOL(SF_R13, offsetof(struct STACKFRAME, sf_r13));
-ASM_SYMBOL(SF_R14, offsetof(struct STACKFRAME, sf_r14));
-ASM_SYMBOL(SF_R15, offsetof(struct STACKFRAME, sf_r15));
-ASM_SYMBOL(SF_ERRNUM, offsetof(struct STACKFRAME, sf_errnum));
-ASM_SYMBOL(SF_RFLAGS, offsetof(struct STACKFRAME, sf_rflags));
-ASM_SYMBOL(SF_RIP, offsetof(struct STACKFRAME, sf_rip));
-ASM_SYMBOL(SF_CS, offsetof(struct STACKFRAME, sf_cs));
-ASM_SYMBOL(SF_DS, offsetof(struct STACKFRAME, sf_ds));
-ASM_SYMBOL(SF_ES, offsetof(struct STACKFRAME, sf_es));
-ASM_SYMBOL(SF_SS, offsetof(struct STACKFRAME, sf_ss));
-ASM_SYMBOL(SF_SIZE, sizeof(struct STACKFRAME));
+// Verify that whatever is in asmsyms.h matches with reality
+static_assert(SF_TRAPNO == offsetof(struct STACKFRAME, sf_trapno));
+static_assert(SF_RAX == offsetof(struct STACKFRAME, sf_rax));
+static_assert(SF_RBX == offsetof(struct STACKFRAME, sf_rbx));
+static_assert(SF_RCX == offsetof(struct STACKFRAME, sf_rcx));
+static_assert(SF_RDX == offsetof(struct STACKFRAME, sf_rdx));
+static_assert(SF_RBP == offsetof(struct STACKFRAME, sf_rbp));
+static_assert(SF_RSI == offsetof(struct STACKFRAME, sf_rsi));
+static_assert(SF_RDI == offsetof(struct STACKFRAME, sf_rdi));
+static_assert(SF_RSP == offsetof(struct STACKFRAME, sf_rsp));
+static_assert(SF_R8 == offsetof(struct STACKFRAME, sf_r8));
+static_assert(SF_R9 == offsetof(struct STACKFRAME, sf_r9));
+static_assert(SF_R10 == offsetof(struct STACKFRAME, sf_r10));
+static_assert(SF_R11 == offsetof(struct STACKFRAME, sf_r11));
+static_assert(SF_R12 == offsetof(struct STACKFRAME, sf_r12));
+static_assert(SF_R13 == offsetof(struct STACKFRAME, sf_r13));
+static_assert(SF_R14 == offsetof(struct STACKFRAME, sf_r14));
+static_assert(SF_R15 == offsetof(struct STACKFRAME, sf_r15));
+static_assert(SF_ERRNUM == offsetof(struct STACKFRAME, sf_errnum));
+static_assert(SF_RFLAGS == offsetof(struct STACKFRAME, sf_rflags));
+static_assert(SF_RIP == offsetof(struct STACKFRAME, sf_rip));
+static_assert(SF_CS == offsetof(struct STACKFRAME, sf_cs));
+static_assert(SF_DS == offsetof(struct STACKFRAME, sf_ds));
+static_assert(SF_ES == offsetof(struct STACKFRAME, sf_es));
+static_assert(SF_SS == offsetof(struct STACKFRAME, sf_ss));
+static_assert(SF_SIZE == sizeof(struct STACKFRAME));
 
-ASM_SYMBOL(T_FRAME, offsetof(Thread, t_frame));
-ASM_SYMBOL(T_FLAGS, offsetof(Thread, t_flags));
-ASM_SYMBOL(T_MDFLAGS, offsetof(Thread, t_md_flags));
+static_assert(T_FRAME == offsetof(Thread, t_frame));
+static_assert(T_FLAGS == offsetof(Thread, t_flags));
+static_assert(T_MDFLAGS == offsetof(Thread, t_md_flags));
 
-ASM_SYMBOL(PCPU_CURTHREAD, offsetof(struct PCPU, curthread));
-ASM_SYMBOL(PCPU_NESTEDIRQ, offsetof(struct PCPU, nested_irq));
-ASM_SYMBOL(PCPU_SYSCALLRSP, offsetof(struct PCPU, syscall_rsp));
-ASM_SYMBOL(PCPU_RSP0, offsetof(struct PCPU, rsp0));
+static_assert(PCPU_CURTHREAD == offsetof(struct PCPU, curthread));
+static_assert(PCPU_NESTEDIRQ == offsetof(struct PCPU, nested_irq));
+static_assert(PCPU_SYSCALLRSP == offsetof(struct PCPU, syscall_rsp));
+static_assert(PCPU_RSP0 == offsetof(struct PCPU, rsp0));
 
-ASM_SYMBOL(SYSARG_NUM, offsetof(struct SYSCALL_ARGS, number));
-ASM_SYMBOL(SYSARG_ARG1, offsetof(struct SYSCALL_ARGS, arg1));
-ASM_SYMBOL(SYSARG_ARG2, offsetof(struct SYSCALL_ARGS, arg2));
-ASM_SYMBOL(SYSARG_ARG3, offsetof(struct SYSCALL_ARGS, arg3));
-ASM_SYMBOL(SYSARG_ARG4, offsetof(struct SYSCALL_ARGS, arg4));
-ASM_SYMBOL(SYSARG_ARG5, offsetof(struct SYSCALL_ARGS, arg5));
-ASM_SYMBOL(SYSARG_SIZE, sizeof(struct SYSCALL_ARGS));
+static_assert(SYSARG_NUM == offsetof(struct SYSCALL_ARGS, number));
+static_assert(SYSARG_ARG1 == offsetof(struct SYSCALL_ARGS, arg1));
+static_assert(SYSARG_ARG2 == offsetof(struct SYSCALL_ARGS, arg2));
+static_assert(SYSARG_ARG3 == offsetof(struct SYSCALL_ARGS, arg3));
+static_assert(SYSARG_ARG4 == offsetof(struct SYSCALL_ARGS, arg4));
+static_assert(SYSARG_ARG5 == offsetof(struct SYSCALL_ARGS, arg5));
+static_assert(SYSARG_SIZE == sizeof(struct SYSCALL_ARGS));
 
-ASM_SYMBOL(SMP_CPU_SIZE, sizeof(struct X86_CPU));
-ASM_SYMBOL(SMP_CPU_LAPICID, offsetof(struct X86_CPU, cpu_lapic_id));
-ASM_SYMBOL(SMP_CPU_PCPU, offsetof(struct X86_CPU, cpu_pcpu));
-ASM_SYMBOL(SMP_CPU_STACK, offsetof(struct X86_CPU, cpu_stack));
+static_assert(SMP_CPU_SIZE == sizeof(struct X86_CPU));
+static_assert(SMP_CPU_LAPICID == offsetof(struct X86_CPU, cpu_lapic_id));
+static_assert(SMP_CPU_PCPU == offsetof(struct X86_CPU, cpu_pcpu));
+static_assert(SMP_CPU_STACK == offsetof(struct X86_CPU, cpu_stack));
 
-ASM_SYMBOL(VMSPACE_MD_PAGEDIR, offsetof(VMSpace, vs_md_pagedir))
+static_assert(VMSPACE_MD_PAGEDIR == offsetof(VMSpace, vs_md_pagedir));

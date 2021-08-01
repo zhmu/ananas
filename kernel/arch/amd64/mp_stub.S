@@ -9,7 +9,7 @@
 #include "kernel-md/lapic.h"
 #include "kernel-md/vm.h"
 #include "kernel-md/param.h"
-#include "asmsyms.h"
+#include "kernel-md/asmsyms.h"
 
 .globl __ap_entry, __ap_entry_end
 
