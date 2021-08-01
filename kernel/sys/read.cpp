@@ -8,7 +8,6 @@
 #include <ananas/errno.h>
 #include "kernel/fd.h"
 #include "kernel/result.h"
-#include "kernel/thread.h"
 #include "kernel/vm.h"
 #include "syscall.h"
 
@@ -27,6 +26,5 @@ Result sys_read(const fdindex_t hindex, void* buf, const size_t len)
     if (fd->fd_ops->d_read == nullptr)
         return Result::Failure(EINVAL);
 
-    auto& t = thread::GetCurrent();
-    return fd->fd_ops->d_read(&t, hindex, *fd, buf, len);
+    return fd->fd_ops->d_read(hindex, *fd, buf, len);
 }

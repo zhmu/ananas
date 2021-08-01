@@ -33,7 +33,7 @@ namespace
         return Result::Success();
     }
 
-    Result vfshandle_read(Thread* t, fdindex_t index, FD& fd, void* buffer, size_t size)
+    Result vfshandle_read(const fdindex_t index, FD& fd, void* buffer, const size_t size)
     {
         struct VFS_FILE* file;
         if (auto result = vfshandle_get_file(fd, file); result.IsFailure())
@@ -42,7 +42,7 @@ namespace
         return vfs_read(file, buffer, size);
     }
 
-    Result vfshandle_write(Thread* t, fdindex_t index, FD& fd, const void* buffer, size_t size)
+    Result vfshandle_write(const fdindex_t index, FD& fd, const void* buffer, const size_t size)
     {
         struct VFS_FILE* file;
         if (auto result = vfshandle_get_file(fd, file); result.IsFailure())
@@ -51,9 +51,9 @@ namespace
         return vfs_write(file, buffer, size);
     }
 
-    Result vfshandle_open(Thread* t, fdindex_t index, FD& fd, const char* path, int flags, int mode)
+    Result vfshandle_open(const fdindex_t index, FD& fd, const char* path, const int flags, const int mode)
     {
-        Process& proc = t->t_process;
+        Process& proc = thread::GetCurrent().t_process;
 
         /*
          * If we could try to create the file, do so - if this fails, we'll attempt
@@ -89,7 +89,7 @@ namespace
         return vfs_close(&proc, &file);
     }
 
-    Result vfshandle_unlink(Thread* t, fdindex_t index, FD& fd)
+    Result vfshandle_unlink(const fdindex_t index, FD& fd)
     {
         struct VFS_FILE* file;
         if (auto result = vfshandle_get_file(fd, file); result.IsFailure())
@@ -120,12 +120,13 @@ namespace
     }
 
     Result
-    vfshandle_ioctl(Thread* t, fdindex_t fdindex, FD& fd, unsigned long request, void* args[])
+    vfshandle_ioctl(fdindex_t fdindex, FD& fd, unsigned long request, void* args[])
     {
         struct VFS_FILE* file;
         if (auto result = vfshandle_get_file(fd, file); result.IsFailure())
             return result;
-        return vfs_ioctl(&t->t_process, file, request, args);
+        auto& t = thread::GetCurrent();
+        return vfs_ioctl(&t.t_process, file, request, args);
     }
 
     struct FDOperations vfs_ops = {

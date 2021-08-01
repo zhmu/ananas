@@ -23,6 +23,5 @@ sys_ioctl(const fdindex_t fdindex, const unsigned long req, void* arg1, void* ar
         return Result::Failure(EINVAL);
 
     void* args[] = {arg1, arg2, arg3};
-    auto& t = thread::GetCurrent();
-    return fd->fd_ops->d_ioctl(&t, fdindex, *fd, req, args);
+    return fd->fd_ops->d_ioctl(fdindex, *fd, req, args);
 }

@@ -16,7 +16,6 @@
 #define FD_TYPE_FILE 1
 
 struct Process;
-struct Thread;
 struct FDOperations;
 class Result;
 
@@ -37,17 +36,16 @@ struct FD : util::List<FD>::NodePtr {
 
 // Descriptor operations map almost directly to the syscalls invoked on them.
 struct CLONE_OPTIONS;
-typedef Result (*fd_read_fn)(Thread* thread, fdindex_t index, FD& fd, void* buf, size_t len);
-typedef Result (*fd_write_fn)(Thread* thread, fdindex_t index, FD& fd, const void* buf, size_t len);
-typedef Result (*fd_open_fn)(
-    Thread* thread, fdindex_t index, FD& fd, const char* path, int flags, int mode);
+typedef Result (*fd_read_fn)(fdindex_t index, FD& fd, void* buf, size_t len);
+typedef Result (*fd_write_fn)(fdindex_t index, FD& fd, const void* buf, size_t len);
+typedef Result (*fd_open_fn)(fdindex_t index, FD& fd, const char* path, int flags, int mode);
 typedef Result (*fd_free_fn)(Process& proc, FD& fd);
-typedef Result (*fd_unlink_fn)(Thread* thread, fdindex_t index, FD& fd);
+typedef Result (*fd_unlink_fn)(fdindex_t index, FD& fd);
 typedef Result (*fd_clone_fn)(
     Process& proc_in, fdindex_t index, FD& fd_in, struct CLONE_OPTIONS* opts, Process& proc_out,
     FD*& fd_out, fdindex_t index_out_min, fdindex_t& index_out);
 typedef Result (*fd_ioctl_fn)(
-    Thread* thread, fdindex_t index, FD& fd, unsigned long request, void* args[]);
+    fdindex_t index, FD& fd, unsigned long request, void* args[]);
 
 struct FDOperations {
     fd_read_fn d_read;
