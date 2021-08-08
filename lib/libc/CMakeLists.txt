@@ -23,6 +23,7 @@ add_subdirectory(platform/ananas/arch/amd64)
 add_subdirectory(functions)
 add_subdirectory(includes)
 add_subdirectory(internals)
+add_subdirectory(pthread)
 
 set(BUILD_SOURCES ${SOURCES})
 add_library(c SHARED ${BUILD_SOURCES})

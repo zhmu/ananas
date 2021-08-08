@@ -11,10 +11,6 @@ add_subdirectory(src)
 add_subdirectory(include)
 
 add_library(pthread SHARED ${SOURCES})
-target_link_libraries(pthread syscall)
-target_link_libraries(pthread c)
+target_link_libraries(pthread -nostdlib)
 
 install(TARGETS pthread DESTINATION usr/lib)
-install(FILES ${HEADERS}
-	DESTINATION usr/include
-)
