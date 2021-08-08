@@ -171,13 +171,13 @@ namespace util
 
         constexpr iterator insert(iterator position, const value_type& val)
         {
+            reserve(v_Capacity + 1);
             if (position == end()) {
-                reserve(v_Capacity + 1);
                 position = iterator(*this, size());
             } else {
                 memmove(
                     &v_Items[position.i_pos + 1], &v_Items[position.i_pos],
-                    size() - position.i_pos);
+                    (size() - position.i_pos) * sizeof(value_type));
             }
 
             *position = val;

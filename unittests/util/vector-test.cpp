@@ -129,7 +129,19 @@ TEST(Vector, resize)
     }
 }
 
-TEST(Vector, insert)
+TEST(Vector, InsertNewItems)
+{
+    util::vector<int> v;
+    v.insert(v.begin(), 1);
+    v.insert(v.begin(), 2);
+    v.insert(v.begin(), 3);
+    ASSERT_EQ(3, v.size());
+    EXPECT_EQ(3, v[0]);
+    EXPECT_EQ(2, v[1]);
+    EXPECT_EQ(1, v[2]);
+}
+
+TEST(Vector, InsertWithExistingItems)
 {
     util::vector<int> v;
     v.resize(3);
