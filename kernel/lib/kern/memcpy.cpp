@@ -31,9 +31,3 @@ void* memcpy(void* dst, const void* src, size_t len)
     Copy<uint8_t>(dst, src, len);
     return ret;
 }
-
-void* memmove(void* dst, const void* src, size_t len)
-{
-    // Our memcpy() should be able to handle overlapping regions... ?
-    return memcpy(dst, src, len);
-}
