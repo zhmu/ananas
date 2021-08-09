@@ -9,6 +9,8 @@ add_executable(tests
     locked-test.cpp
     refcounted-test.cpp
     vector-test.cpp
+    interval-test.cpp
+    intervalmap-test.cpp
 )
 target_compile_features(tests PRIVATE cxx_std_20)
 target_link_libraries(tests gtest gtest_main)
