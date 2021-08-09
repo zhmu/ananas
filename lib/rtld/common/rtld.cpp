@@ -680,7 +680,11 @@ Object* map_object(int fd, const char* name)
             const auto flags = elf_flags_from_phdr(*phdr) | MAP_FIXED;
 
             const auto v_file_base = base + round_down_page(phdr->p_vaddr);
-            const auto v_file_len = round_up_page(phdr->p_filesz);
+            const auto v_file_len = [&] {
+                auto file_sz = phdr->p_filesz;
+                file_sz += phdr->p_vaddr - round_down_page(phdr->p_vaddr);
+                return round_up_page(file_sz);
+            }();
 
             sum("%s: remapping %p-%p from offset %d v_file_len %d\n", name, v_file_base,
                 (v_file_base + v_file_len) - 1, static_cast<int>(offset), v_file_len);
