@@ -10,4 +10,4 @@
 
 struct VMSpace;
 
-extern VMSpace kernel_vmspace;
+extern VMSpace* kernel_vmspace;

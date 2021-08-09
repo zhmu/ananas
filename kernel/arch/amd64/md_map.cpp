@@ -150,15 +150,15 @@ namespace md::vm
 
     void MapKernel(addr_t phys, addr_t virt, size_t num_pages, int flags)
     {
-        MapPages(kernel_vmspace, virt, phys, num_pages, flags);
+        MapPages(*kernel_vmspace, virt, phys, num_pages, flags);
     }
 
-    void UnmapKernel(addr_t virt, size_t num_pages) { UnmapPages(kernel_vmspace, virt, num_pages); }
+    void UnmapKernel(addr_t virt, size_t num_pages) { UnmapPages(*kernel_vmspace, virt, num_pages); }
 
     void MapKernelSpace(VMSpace& vs)
     {
         /* We can just copy the entire kernel pagemap over; it's shared with everything else */
-        memcpy(vs.vs_md_pagedir, kernel_vmspace.vs_md_pagedir, PAGE_SIZE);
+        memcpy(vs.vs_md_pagedir, kernel_vmspace->vs_md_pagedir, PAGE_SIZE);
     }
 
 } // namespace md::vm

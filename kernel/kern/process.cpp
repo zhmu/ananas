@@ -46,7 +46,7 @@ namespace process
     {
         KASSERT(process_kernel == nullptr, "process already initialised");
 
-        process_kernel = new Process(kernel_vmspace);
+        process_kernel = new Process(*kernel_vmspace);
         process_kernel->p_parent = process_kernel;
         process_kernel->p_state = PROCESS_STATE_ACTIVE;
         process_kernel->p_pid = 0;

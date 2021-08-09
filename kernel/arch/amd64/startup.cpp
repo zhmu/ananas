@@ -32,7 +32,8 @@
 #include "kernel-md/vm.h"
 
 // Kernel virtual memory space
-VMSpace kernel_vmspace;
+static char kernel_vmspace_storage[sizeof(VMSpace)];
+VMSpace* kernel_vmspace = reinterpret_cast<VMSpace*>(&kernel_vmspace_storage);
 
 /* Global Descriptor Table */
 uint8_t bsp_gdt[GDT_NUM_ENTRIES * 16];
@@ -340,7 +341,8 @@ namespace
         kprintf("setup_paging(): total memory available: %d KB\n", mem_size / 1024);
 
         uint64_t prev_avail = avail;
-        kernel_vmspace.vs_md_pagedir = setup_paging(avail, mem_end, kernel_phys_end - kernel_phys_start);
+        new (kernel_vmspace) VMSpace;
+        kernel_vmspace->vs_md_pagedir = setup_paging(avail, mem_end, kernel_phys_end - kernel_phys_start);
 
         // All memory is accessible; register with the zone allocator
         for (int n = 0; n < phys_chunk_index; n++) {

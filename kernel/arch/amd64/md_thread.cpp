@@ -94,7 +94,7 @@ namespace md::thread
         sf->sf_rsp = ((addr_t)t.md_kstack + KERNEL_STACK_SIZE - 16);
 
         /* Set up the thread context */
-        t.md_cr3 = KVTOP((addr_t)kernel_vmspace.vs_md_pagedir);
+        t.md_cr3 = KVTOP((addr_t)kernel_vmspace->vs_md_pagedir);
         t.md_rsp = (addr_t)sf;
         t.md_rip = (addr_t)&thread_trampoline;
     }
