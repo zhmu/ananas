@@ -299,11 +299,11 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
     // Count mapped files and length of names
     size_t file_count = 0;
     size_t total_len = 2 * 8;
-    for (const auto& va : vs.vs_areas) {
-        if (va.va_dentry == nullptr)
+    for (auto& [ interval, va ] : vs.vs_areamap) {
+        if (va->va_dentry == nullptr)
             continue;
 
-        size_t plen = dentry_construct_path(NULL, 0, *va.va_dentry);
+        size_t plen = dentry_construct_path(NULL, 0, *va->va_dentry);
         file_count++;
         total_len += 3 * 8 + plen + 1;
     }
@@ -320,20 +320,20 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
     cur += sizeof(uint64_t);
 
     uint64_t* p = reinterpret_cast<uint64_t*>(cur);
-    for (const auto& va : vs.vs_areas) {
-        if (va.va_dentry == nullptr)
+    for (auto& [ interval, va ] : vs.vs_areamap) {
+        if (va->va_dentry == nullptr)
             continue;
-        *p++ = va.va_virt;             // start
-        *p++ = va.va_virt + va.va_len; // end
-        if ((va.va_doffset % PAGE_SIZE) != 0)
-            kprintf("UNALIGNED DOFFSET %x\n", (int)va.va_doffset);
-        *p++ = va.va_doffset / PAGE_SIZE; // offset
+        *p++ = va->va_virt;             // start
+        *p++ = va->va_virt + va->va_len; // end
+        if ((va->va_doffset % PAGE_SIZE) != 0)
+            kprintf("UNALIGNED DOFFSET %x\n", (int)va->va_doffset);
+        *p++ = va->va_doffset / PAGE_SIZE; // offset
     }
     cur = reinterpret_cast<char*>(p);
-    for (const auto& va : vs.vs_areas) {
-        if (va.va_dentry == nullptr)
+    for (auto& [ interval, va ] : vs.vs_areamap) {
+        if (va->va_dentry == nullptr)
             continue;
-        size_t plen = dentry_construct_path(cur, 1024 /* XXX */, *va.va_dentry);
+        size_t plen = dentry_construct_path(cur, 1024 /* XXX */, *va->va_dentry);
         cur += plen;
         *cur++ = '\0';
     }
@@ -348,8 +348,8 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
      * what is zero, what can be merged etc.
      */
     size_t num_phent = 1; // PT_NOTE
-    for (auto& va : vs.vs_areas) {
-        for (auto& vp : va.va_pages) {
+    for (auto& [ interval, va ] : vs.vs_areamap) {
+        for (auto& vp : va->va_pages) {
             num_phent++;
         }
     }
@@ -398,8 +398,8 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
     addr_t ph_begin = sizeof(Elf64_Ehdr) + sizeof(Elf64_Phdr) * num_phent + note_len;
     ph_begin = (ph_begin | (PAGE_SIZE - 1)) + 1;
     size_t ph_index = 0;
-    for (auto& va : vs.vs_areas) {
-        for (auto& vp : va.va_pages) {
+    for (auto& [ interval, va ] : vs.vs_areamap) {
+        for (auto& vp : va->va_pages) {
             Elf64_Phdr phdr;
 
             memset(&phdr, 0, sizeof(phdr));
@@ -437,8 +437,8 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
     }
 
     // Store the page content
-    for (auto& va : vs.vs_areas) {
-        for (auto& vp : va.va_pages) {
+    for (auto& [ interval, va ] : vs.vs_areamap) {
+        for (auto& vp : va->va_pages) {
             if (auto result = vfs_write(f, reinterpret_cast<void*>(vp.vp_vaddr), PAGE_SIZE);
                 result.IsFailure())
                 return result;

@@ -181,14 +181,14 @@ namespace ankhfs
                     case subVmSpace: {
                         // XXX shouldn't we lock something here?'
                         char* r = result;
-                        for (const auto& va : p->p_vmspace.vs_areas) {
+                        for (const auto& [ interval, va ] : p->p_vmspace.vs_areamap) {
                             snprintf(
                                 r, sizeof(result) - (r - result), "%p %p %c%c%c\n",
-                                reinterpret_cast<void*>(va.va_virt),
-                                reinterpret_cast<void*>(va.va_len),
-                                (va.va_flags & VM_FLAG_READ) ? 'r' : '-',
-                                (va.va_flags & VM_FLAG_WRITE) ? 'w' : '-',
-                                (va.va_flags & VM_FLAG_EXECUTE) ? 'x' : '-');
+                                reinterpret_cast<void*>(va->va_virt),
+                                reinterpret_cast<void*>(va->va_len),
+                                (va->va_flags & VM_FLAG_READ) ? 'r' : '-',
+                                (va->va_flags & VM_FLAG_WRITE) ? 'w' : '-',
+                                (va->va_flags & VM_FLAG_EXECUTE) ? 'x' : '-');
                             r += strlen(r);
                         }
                         break;

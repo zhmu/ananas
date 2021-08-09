@@ -55,4 +55,4 @@
 #define T_FLAG_SIGPENDING 0x40
 
 // Vmspace struct
-#define VMSPACE_MD_PAGEDIR 0x28
+#define VMSPACE_MD_PAGEDIR 0x0

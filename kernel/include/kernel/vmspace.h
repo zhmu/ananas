@@ -8,6 +8,7 @@
 
 #include <ananas/types.h>
 #include <ananas/util/list.h>
+#include <ananas/util/interval_map.h>
 #include "kernel/page.h"
 #include "kernel/vmpage.h"
 #include "kernel-md/vmspace.h"
@@ -20,13 +21,15 @@ class Result;
  * VM space describes a thread's complete overview of memory.
  */
 struct VMSpace {
+    MD_VMSPACE_FIELDS
+
     void Lock() { vs_mutex.Lock(); }
 
     void Unlock() { vs_mutex.Unlock(); }
 
     void AssertLocked() { vs_mutex.AssertLocked(); }
 
-    util::List<VMArea> vs_areas;
+    util::interval_map<addr_t, VMArea*> vs_areamap;
 
     /*
      * Contains pages allocated to the space that aren't part of a mapping; this
@@ -35,8 +38,6 @@ struct VMSpace {
     PageList vs_pages;
 
     addr_t vs_next_mapping; /* address of next mapping */
-
-    MD_VMSPACE_FIELDS
 
     Result Map(addr_t virt, addr_t phys, size_t len /* bytes */, uint32_t areaFlags, uint32_t mapFlags, VMArea*& va_out);
     Result MapTo(addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);

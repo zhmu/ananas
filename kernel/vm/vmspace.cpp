@@ -20,7 +20,7 @@
 
 namespace
 {
-    constexpr auto debugVASplit = false;
+    constexpr auto debugVASplit = true;
 
     size_t BytesToPages(size_t len) { return (len + PAGE_SIZE - 1) / PAGE_SIZE; }
 
@@ -60,9 +60,9 @@ Result vmspace_create(VMSpace*& vmspace)
 static void vmspace_cleanup(VMSpace& vs)
 {
     /* Cleanup only removes all mapped areas */
-    while (!vs.vs_areas.empty()) {
-        VMArea& va = vs.vs_areas.front();
-        vs.FreeArea(va);
+    while (!vs.vs_areamap.empty()) {
+        auto va = (*vs.vs_areamap.begin()).value;
+        vs.FreeArea(*va);
     }
 }
 
@@ -83,119 +83,114 @@ void vmspace_destroy(VMSpace& vs)
 }
 
 namespace {
+    using AddrInterval = util::interval<addr_t>;
+
     constexpr bool IsPageInRange(const VMPage& vp, const addr_t virt, const size_t len)
     {
         const auto pageAddr = vp.vp_vaddr;
         return pageAddr >= virt && (pageAddr + PAGE_SIZE) < (virt + len);
     }
+
+    void MigratePagesToNewVA(VMArea& va, const AddrInterval& interval, VMArea& newVA)
+    {
+        for (auto it = va.va_pages.begin(); it != va.va_pages.end(); /* nothing */) {
+            auto& vp = *it;
+            ++it;
+
+            if (!IsPageInRange(vp, interval.begin, interval.end - interval.begin))
+                continue;
+
+            va.va_pages.remove(vp);
+            vp.vp_vmarea = &newVA;
+            newVA.va_pages.push_back(vp);
+        }
+    }
+
+    void UpdateFileMappingOffset(VMArea& va, VMArea& newVA, const AddrInterval& vaInterval, const AddrInterval& newInterval)
+    {
+        if (va.va_dentry == nullptr)
+            return; // no mapping, nothing to do
+        newVA.va_dentry = va.va_dentry;
+        dentry_ref(*newVA.va_dentry);
+
+        kprintf("UpdateFileMappingOffset: vaInterval %p..%p doffset %p dlength %p\n",
+            vaInterval.begin, vaInterval.end,
+            va.va_doffset, va.va_dlength);
+
+        const auto delta = newInterval.begin - vaInterval.begin;
+        newVA.va_doffset = va.va_doffset + delta;
+        newVA.va_dlength = va.va_dlength - delta;
+
+        kprintf("UpdateFileMappingOffset: new va %p..%p ==> doffset %p dlength %p\n",
+            newInterval.begin, newInterval.end, newVA.va_doffset, newVA.va_dlength);
+    }
+
+    auto MakeInterval(addr_t begin, addr_t end)
+    {
+        if (end < begin) return AddrInterval{};
+        return AddrInterval{begin, end};
+    }
 }
+
+void DumpVMSpace(VMSpace& vmspace);
 
 static bool vmspace_free_range(VMSpace& vs, addr_t virt, size_t len)
 {
-    for (auto& va : vs.vs_areas) {
-        /*
-         * To keep things simple, we will only break up mappings if they occur
-         * completely within a single - this avoids complicated merging logic.
-         */
-        if (virt >= va.va_virt + va.va_len || virt + len <= va.va_virt)
+    const AddrInterval range_to_free{ virt, virt + len };
+
+    for (auto [ vaInterval, va ]: vs.vs_areamap) {
+        if (vaInterval == range_to_free) {
+            // Interval matches as-if with what to free; this is easy
+            vs.FreeArea(*va);
+            return true;
+        }
+
+        // See if there is any overlap
+        const auto overlap = vaInterval.overlap(range_to_free);
+        if (overlap.empty())
             continue; // not within our area, skip
 
-        // See if this range extends before or beyond our va - if that is the case, we
-        // will reject it
-        if (virt < va.va_virt || virt + len > va.va_virt + va.va_len)
-            return false;
+#if 0
+        kprintf("vmspace_free_range: entry %p..%p, overlap %p..%p\n",
+         vaInterval.begin, vaInterval.end, overlap.begin, overlap.end);
+        DumpVMSpace(vs);
+        kprintf("current status dumped, now freeing...\n");
+#endif
 
-        // Okay, we can alter this va to exclude our mapping. If it matches 1-to-1, just throw it
-        // away
-        if (virt == va.va_virt && len == va.va_len) {
-            vs.FreeArea(va);
-            return true;
+        // Disconnect the matching va; this allows us to insert the new ranges
+        vs.vs_areamap.remove(va);
+
+        // Determine the new intervals if we'd free this range
+        const auto interval_1 = MakeInterval(vaInterval.begin, overlap.begin);
+        const auto interval_2 = MakeInterval(overlap.end, vaInterval.end);
+
+        auto migrateToNewRange = [&](const auto& newInterval) {
+            auto newVA = new VMArea(vs, newInterval.begin, newInterval.end - newInterval.begin, va->va_flags);
+            MigratePagesToNewVA(*va, newInterval, *newVA);
+            UpdateFileMappingOffset(*va, *newVA, vaInterval, newInterval);
+            vs.vs_areamap.insert(newInterval, newVA);
+        };
+
+        if (!interval_1.empty()) {
+            //kprintf("vmspace_free_range: new interval 1 %p..%p\n", interval_1.begin, interval_1.end);
+            migrateToNewRange(interval_1);
+        }
+        if (!interval_2.empty()) {
+            //kprintf("vmspace_free_range: new interval 2 %p..%p\n", interval_2.begin, interval_2.end);
+            migrateToNewRange(interval_2);
         }
 
-        // Not a full match; maybe at the start?
-        if (virt == va.va_virt) {
-            // Shift the entire range, but ensure we'll honor page-boundaries
-            va.va_virt = RoundUp(va.va_virt + len);
-            va.va_len = RoundUp(va.va_len - len);
-            if (va.va_dentry != nullptr) {
-                // Backed by an inode; correct the offsets
-                va.va_doffset += len;
-                if (va.va_dlength >= len)
-                    va.va_dlength -= len;
-                else
-                    va.va_dlength = 0;
-                KASSERT(
-                    (va.va_doffset & (PAGE_SIZE - 1)) == 0, "doffset %x not page-aligned",
-                    (int)va.va_doffset);
-            }
-
-            // Make sure we will have space for our next mapping XXX
-            addr_t next_addr = va.va_virt + va.va_len;
-            if (vs.vs_next_mapping < next_addr)
-                vs.vs_next_mapping = next_addr;
-            return true;
-        }
-
-        // XXX we need to cover the other use cases here as well (range at end, range in the middle)
-        const auto va_start_1 = va.va_virt;
-        const auto va_len_1 = virt - va.va_virt;
-        const auto va_start_2 = virt + len;
-        const auto va_len_2 = (va.va_virt + va.va_len) - (virt + len);
-        if constexpr (debugVASplit) {
-            kprintf("va_1 = %p .. %p (len %p)\n", va_start_1, va_start_1 + va_len_1, va_len_1);
-            kprintf("va_2 = %p .. %p (len %p)\n", va_start_2, va_start_2 + va_len_2, va_len_2);
-        }
-
-        // Move all pages that belong to VA. Free all that belong to the new range
-        auto newVA = new VMArea(vs, va_start_2, va_len_2, va.va_flags);
-        for (auto it = va.va_pages.begin(); it != va.va_pages.end(); /* nothing */) {
-            VMPage& vp = *it;
-            ++it;
-
-            if (IsPageInRange(vp, va_start_2, va_len_2)) {
-                if constexpr (debugVASplit) {
-                    kprintf("moving page %p to range 2\n", vp.vp_vaddr);
-                }
-                newVA->va_pages.push_back(vp);
-                continue;
-            }
-            if (IsPageInRange(vp, virt, len)) {
-                va.va_pages.remove(vp);
-                if constexpr (debugVASplit) {
-                    kprintf("freeing page %p\n", vp.vp_vaddr);
-                }
-                continue;
-            }
-            KASSERT(IsPageInRange(vp, va_start_1, va_len_1), "huh %p", vp.vp_vaddr);
-        }
-
-        if (va.va_dentry != nullptr) {
-            newVA->va_dentry = va.va_dentry;
-            dentry_ref(*newVA->va_dentry);
-
-            if constexpr (debugVASplit) {
-                kprintf("adjusting va1 len %p -> %p\n",
-                    va.va_dlength, va.va_dlength - (va.va_len - va_len_1));
-            }
-            va.va_dlength -= (va.va_len - va_len_1);
-            if (va.va_dlength < 0) va.va_dlength = 0;
-            if constexpr (debugVASplit) {
-                kprintf("va1 doffset %p dlen %d\n", va.va_doffset, va.va_dlength);
-            }
-
-            newVA->va_doffset = va.va_doffset + (va_start_2 - va_start_1);
-            newVA->va_dlength = va.va_dlength - (va_start_2 - va_start_1);
-
-            if constexpr (debugVASplit) {
-                kprintf("va2 doffset %p dlen %d\n", newVA->va_doffset, newVA->va_dlength);
-            }
-        }
-        va.va_virt = va_start_1;
-        va.va_len = va_len_1;
+        // Throw the old va away, we've split it up as needed
+        delete va;
+#if 0
+        kprintf("post free of %p..%p\n", range_to_free.begin, range_to_free.end);
+        DumpVMSpace(vs);
+#endif
         return true;
     }
 
     // No ranges match; this is okay
+    //kprintf("nothing to free, did nothing\n");
     return true;
 }
 
@@ -209,7 +204,7 @@ Result VMSpace::Map(
     // If the virtual address space is already in use, we need to break it up
     if (!vmspace_free_range(*this, virt, len)) {
         kprintf("range %p..%p not free!!\n", virt, virt + len);
-        Dump();
+        panic("huh");
         return Result::Failure(ENOSPC);
     }
 
@@ -219,7 +214,8 @@ Result VMSpace::Map(
      * memory is there...
      */
     auto va = new VMArea(*this, virt, len, areaFlags);
-    vs_areas.push_back(*va);
+    //kprintf("Map: adding new vmspace for %p..%p -> %p, pre\n", virt, virt+len, va);
+    vs_areamap.insert({ virt, virt + len }, va);
     va_out = va;
 
     /* Provide a mapping for the pages */
@@ -263,12 +259,14 @@ Result VMSpace::Map(size_t len /* bytes */, uint32_t flags, VMArea*& va_out)
 void VMSpace::PrepareForExecute()
 {
     // Throw all non-MD mappings away - this should only leave the kernel stack in place
-    for (auto it = vs_areas.begin(); it != vs_areas.end(); /* nothing */) {
-        VMArea& va = *it;
-        ++it;
-        if (va.va_flags & VM_FLAG_MD)
+    for (auto it = vs_areamap.begin(); it != vs_areamap.end(); /* nothing */) {
+        auto& va = *(it->value);
+        if (va.va_flags & VM_FLAG_MD) {
+            ++it;
             continue;
+        }
         FreeArea(va);
+        it = vs_areamap.begin();
     }
 }
 
@@ -277,32 +275,25 @@ Result VMSpace::Clone(VMSpace& vs_dest)
     /*
      * First, clean up the destination area's mappings - this ensures we'll
      * overwrite them with our own. Note that we'll leave private mappings alone.
-     *
-     * Note that this changes vs_areas while we are iterating through it, so we
-     * need to increment the iterator beforehand!
      */
-    for (auto it = vs_dest.vs_areas.begin(); it != vs_dest.vs_areas.end(); /* nothing */) {
-        VMArea& va = *it;
-        ++it;
-        vs_dest.FreeArea(va);
-    }
+    vmspace_cleanup(vs_dest);
 
     /* Now copy everything over that isn't private */
-    for (auto& va_src : vs_areas) {
+    for (auto& [interval, va_src ]: vs_areamap) {
         VMArea* va_dst;
-        if (auto result = vs_dest.MapTo(va_src.va_virt, va_src.va_len, va_src.va_flags, va_dst);
+        if (auto result = vs_dest.MapTo(va_src->va_virt, va_src->va_len, va_src->va_flags, va_dst);
             result.IsFailure())
             return result;
-        if (va_src.va_dentry != nullptr) {
+        if (va_src->va_dentry != nullptr) {
             // Backed by an inode; copy the necessary fields over
-            va_dst->va_doffset = va_src.va_doffset;
-            va_dst->va_dlength = va_src.va_dlength;
-            va_dst->va_dentry = va_src.va_dentry;
+            va_dst->va_doffset = va_src->va_doffset;
+            va_dst->va_dlength = va_src->va_dlength;
+            va_dst->va_dentry = va_src->va_dentry;
             dentry_ref(*va_dst->va_dentry);
         }
 
         // Copy the area page-wise
-        for (auto& p : va_src.va_pages) {
+        for (auto& p : va_src->va_pages) {
             p.Lock();
             util::locked<VMPage> vp(p);
             KASSERT(
@@ -310,7 +301,7 @@ Result VMSpace::Clone(VMSpace& vs_dest)
                 vp->GetPage()->p_order);
 
             // Create a clone of the data; it is up to the vmpage how to do this (it may go for COW)
-            VMPage& new_vp = vmpage_clone(this, vs_dest, va_src, *va_dst, vp);
+            VMPage& new_vp = vmpage_clone(this, vs_dest, *va_src, *va_dst, vp);
 
             // Map the page into the cloned vmspace
             new_vp.Map(vs_dest, *va_dst);
@@ -325,8 +316,8 @@ Result VMSpace::Clone(VMSpace& vs_dest)
      * now.
      */
     vs_dest.vs_next_mapping = 0;
-    for (auto& va : vs_dest.vs_areas) {
-        addr_t next = RoundUp(va.va_virt + va.va_len);
+    for (auto& [ interval, va  ]: vs_dest.vs_areamap) {
+        addr_t next = RoundUp(va->va_virt + va->va_len);
         if (vs_dest.vs_next_mapping < next)
             vs_dest.vs_next_mapping = next;
     }
@@ -336,7 +327,7 @@ Result VMSpace::Clone(VMSpace& vs_dest)
 
 void VMSpace::FreeArea(VMArea& va)
 {
-    vs_areas.remove(va);
+    vs_areamap.remove(&va);
 
     /* Free any backing dentry, if we have one */
     if (va.va_dentry != nullptr)
@@ -351,6 +342,7 @@ void VMSpace::FreeArea(VMArea& va)
     for (auto it = va.va_pages.begin(); it != va.va_pages.end(); /* nothing */) {
         VMPage& vp = *it;
         ++it;
+
         vp.Lock();
         KASSERT(vp.vp_vmarea == &va, "wrong vmarea");
         vp.vp_vmarea = nullptr;
@@ -361,15 +353,15 @@ void VMSpace::FreeArea(VMArea& va)
 
 void VMSpace::Dump()
 {
-    for (auto& va : vs_areas) {
+    for (auto& [ interval, va ]: vs_areamap) {
         kprintf(
-            "  area %p: %p..%p flags %c%c%c%c%c%c%c\n", &va, va.va_virt, va.va_virt + va.va_len - 1,
-            (va.va_flags & VM_FLAG_READ) ? 'r' : '.', (va.va_flags & VM_FLAG_WRITE) ? 'w' : '.',
-            (va.va_flags & VM_FLAG_EXECUTE) ? 'x' : '.', (va.va_flags & VM_FLAG_KERNEL) ? 'k' : '.',
-            (va.va_flags & VM_FLAG_USER) ? 'u' : '.', (va.va_flags & VM_FLAG_PRIVATE) ? 'p' : '.',
-            (va.va_flags & VM_FLAG_MD) ? 'm' : '.');
+            "  area %p: %p..%p flags %c%c%c%c%c%c%c\n", &va, va->va_virt, va->va_virt + va->va_len - 1,
+            (va->va_flags & VM_FLAG_READ) ? 'r' : '.', (va->va_flags & VM_FLAG_WRITE) ? 'w' : '.',
+            (va->va_flags & VM_FLAG_EXECUTE) ? 'x' : '.', (va->va_flags & VM_FLAG_KERNEL) ? 'k' : '.',
+            (va->va_flags & VM_FLAG_USER) ? 'u' : '.', (va->va_flags & VM_FLAG_PRIVATE) ? 'p' : '.',
+            (va->va_flags & VM_FLAG_MD) ? 'm' : '.');
         kprintf("    pages:\n");
-        for (auto& vp : va.va_pages) {
+        for (auto& vp : va->va_pages) {
             vp.Dump("      ");
         }
     }
