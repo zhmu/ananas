@@ -5,10 +5,13 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <gtest/gtest.h>
-#include "../../include/ananas/util/vector.h"
 
-//#include <vector>
-// namespace util = std;
+#if 1
+#include "../../include/ananas/util/vector.h"
+#else
+#include <vector>
+namespace util = std;
+#endif
 
 TEST(Vector, empty)
 {
@@ -99,6 +102,26 @@ TEST(Vector, erase)
         EXPECT_EQ(1, v.front());
         EXPECT_EQ(2, v.back());
     }
+}
+
+TEST(Vector, ErasingAnItemsMultipleTimesWorks)
+{
+    // 1, 2, ..., 9
+    util::vector<int> v;
+    for (int n = 0; n < 10; ++n)
+        v.push_back(n);
+
+    // Remove 0 .. 5
+    for(int n = 0; n < 5; ++n)
+        v.erase(v.begin(), v.begin() + 1);
+
+    // 0, 6, 7, 8, 9
+    ASSERT_EQ(5, v.size());
+    EXPECT_EQ(5, v[0]);
+    EXPECT_EQ(6, v[1]);
+    EXPECT_EQ(7, v[2]);
+    EXPECT_EQ(8, v[3]);
+    EXPECT_EQ(9, v[4]);
 }
 
 TEST(Vector, resize)

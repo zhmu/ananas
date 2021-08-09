@@ -171,7 +171,7 @@ namespace util
 
         constexpr iterator insert(iterator position, const value_type& val)
         {
-            reserve(v_Capacity + 1);
+            reserve(v_Size + 1);
             if (position == end()) {
                 position = iterator(*this, size());
             } else {
@@ -210,7 +210,7 @@ namespace util
                 return first;
             }
 
-            memmove(&v_Items[first.i_pos], &v_Items[last.i_pos], sizeof(value_type) * count);
+            memmove(&v_Items[first.i_pos], &v_Items[last.i_pos], sizeof(value_type) * (v_Size - last.i_pos));
             v_Size -= count;
             return first;
         }
