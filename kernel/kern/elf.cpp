@@ -165,8 +165,8 @@ Result ELF64Loader::LoadPH(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, 
     addr_t virt_begin = ROUND_DOWN(phdr.p_vaddr, PAGE_SIZE);
     addr_t virt_end = ROUND_UP((phdr.p_vaddr + phdr.p_filesz), PAGE_SIZE);
     addr_t virt_extra = phdr.p_vaddr - virt_begin;
-    addr_t doffset = phdr.p_offset - virt_extra;
-    size_t filesz = phdr.p_filesz + virt_extra;
+    off_t doffset = phdr.p_offset - virt_extra;
+    off_t filesz = phdr.p_filesz + virt_extra;
     if (doffset & (PAGE_SIZE - 1)) {
         kprintf("elf64_load_ph: refusing to map offset %d not a page-multiple\n", doffset);
         return Result::Failure(ENOEXEC);
@@ -175,7 +175,8 @@ Result ELF64Loader::LoadPH(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, 
     // First step is to map the dentry-backed data
     VMArea* va;
     if (auto result = vs.MapToDentry(
-            rbase + virt_begin, virt_end - virt_begin, dentry, doffset, filesz, flags, va);
+            VAInterval{ rbase + virt_begin, rbase + virt_end }, dentry,
+            DEntryInterval{ doffset, doffset + filesz }, flags, va);
         result.IsFailure())
         return result;
     if (phdr.p_filesz == phdr.p_memsz)
@@ -186,7 +187,7 @@ Result ELF64Loader::LoadPH(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, 
     addr_t v_extra_len = ROUND_UP(phdr.p_vaddr + phdr.p_memsz - v_extra, PAGE_SIZE);
     if (v_extra_len == 0)
         return Result::Success();
-    return vs.MapTo(rbase + v_extra, v_extra_len, flags, va);
+    return vs.MapTo(VAInterval{ rbase + v_extra, rbase + v_extra + v_extra_len }, flags, va);
 }
 
 Result ELF64Loader::LoadFile(
@@ -312,9 +313,12 @@ Result ELF64Loader::Load(VMSpace& vs, DEntry& dentry, void*& aa)
          */
         VMArea* va_phdr;
         {
-            size_t phdr_len = ehdr.e_phnum * ehdr.e_phentsize;
+            const off_t phdrOffset = ehdr.e_phoff & ~(PAGE_SIZE - 1);
+            const off_t phdr_len = ehdr.e_phnum * ehdr.e_phentsize;
             if (auto result = vs.MapToDentry(
-                    PHDR_BASE, phdr_len, dentry, ehdr.e_phoff & ~(PAGE_SIZE - 1), phdr_len,
+                    VAInterval{ PHDR_BASE, PHDR_BASE + phdr_len },
+                    dentry,
+                    DEntryInterval{ phdrOffset, phdrOffset + phdr_len },
                     VM_FLAG_READ | VM_FLAG_USER, va_phdr);
                 result.IsFailure())
                 return result;
@@ -356,7 +360,7 @@ Result ELF64Loader::PrepareForExecute(
      */
     VMArea* va;
     vs.MapTo(
-        USERLAND_STACK_ADDR, THREAD_STACK_SIZE,
+        VAInterval{ USERLAND_STACK_ADDR, USERLAND_STACK_ADDR + THREAD_STACK_SIZE },
         VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_FAULT, va);
 
     // Pre-fault the first page so that we can put stuff in it

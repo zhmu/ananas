@@ -17,6 +17,9 @@ struct DEntry;
 struct VMArea;
 class Result;
 
+using VAInterval = util::interval<addr_t>;
+using DEntryInterval = util::interval<off_t>;
+
 /*
  * VM space describes a thread's complete overview of memory.
  */
@@ -39,10 +42,10 @@ struct VMSpace {
 
     addr_t vs_next_mapping; /* address of next mapping */
 
-    Result Map(addr_t virt, addr_t phys, size_t len /* bytes */, uint32_t areaFlags, uint32_t mapFlags, VMArea*& va_out);
-    Result MapTo(addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
+    Result Map(const VAInterval&, addr_t phys, uint32_t areaFlags, uint32_t mapFlags, VMArea*& va_out);
+    Result MapTo(const VAInterval&, uint32_t flags, VMArea*& va_out);
     Result MapToDentry(
-        addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags,
+        const VAInterval&, DEntry& dentry, const DEntryInterval&, int flags,
         VMArea*& va_out);
     Result Map(size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
     Result Clone(VMSpace& vs_dest);

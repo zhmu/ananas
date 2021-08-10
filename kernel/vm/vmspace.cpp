@@ -134,15 +134,13 @@ namespace {
 
 void DumpVMSpace(VMSpace& vmspace);
 
-static bool vmspace_free_range(VMSpace& vs, addr_t virt, size_t len)
+static void vmspace_free_range(VMSpace& vs, const VAInterval& range_to_free)
 {
-    const AddrInterval range_to_free{ virt, virt + len };
-
     for (auto [ vaInterval, va ]: vs.vs_areamap) {
         if (vaInterval == range_to_free) {
             // Interval matches as-if with what to free; this is easy
             vs.FreeArea(*va);
-            return true;
+            return;
         }
 
         // See if there is any overlap
@@ -186,74 +184,68 @@ static bool vmspace_free_range(VMSpace& vs, addr_t virt, size_t len)
         kprintf("post free of %p..%p\n", range_to_free.begin, range_to_free.end);
         DumpVMSpace(vs);
 #endif
-        return true;
+        return;
     }
-
-    // No ranges match; this is okay
-    //kprintf("nothing to free, did nothing\n");
-    return true;
 }
 
 Result VMSpace::Map(
-    const addr_t virt, const addr_t phys, const size_t len /* bytes */, const uint32_t areaFlags,
+    const VAInterval& vaInterval, const addr_t phys, const uint32_t areaFlags,
     const uint32_t mapFlags, VMArea*& va_out)
 {
-    if (len == 0)
+    if (vaInterval.empty())
         return Result::Failure(EINVAL);
 
-    // If the virtual address space is already in use, we need to break it up
-    if (!vmspace_free_range(*this, virt, len)) {
-        kprintf("range %p..%p not free!!\n", virt, virt + len);
-        panic("huh");
-        return Result::Failure(ENOSPC);
-    }
+    // Make sure the range is unused
+    vmspace_free_range(*this, vaInterval);
 
     /*
      * XXX We should ask the VM for some kind of reservation if the
      * THREAD_MAP_ALLOC flag is set; now we'll just assume that the
      * memory is there...
      */
-    auto va = new VMArea(*this, virt, len, areaFlags);
+    auto va = new VMArea(*this, vaInterval.begin, vaInterval.end - vaInterval.begin, areaFlags);
     //kprintf("Map: adding new vmspace for %p..%p -> %p, pre\n", virt, virt+len, va);
-    vs_areamap.insert({ virt, virt + len }, va);
+    vs_areamap.insert(vaInterval, va);
     va_out = va;
 
     /* Provide a mapping for the pages */
-    md::vm::MapPages(*this, va->va_virt, phys, BytesToPages(len), mapFlags);
+    md::vm::MapPages(*this, va->va_virt, phys, BytesToPages(vaInterval.length()), mapFlags);
     return Result::Success();
 }
 
-Result VMSpace::MapTo(addr_t virt, size_t len /* bytes */, uint32_t flags, VMArea*& va_out)
+Result VMSpace::MapTo(const VAInterval& vaInterval, uint32_t flags, VMArea*& va_out)
 {
-    return Map(virt, 0, len, flags, 0, va_out);
+    return Map(vaInterval, 0, flags, 0, va_out);
 }
 
 Result VMSpace::MapToDentry(
-    addr_t virt, size_t vlength, DEntry& dentry, off_t doffset, size_t dlength, int flags,
+    const VAInterval& va, DEntry& dentry, const DEntryInterval& de, int flags,
     VMArea*& va_out)
 {
     // Ensure the range we are mapping does not exceed the inode; if this is the case, we silently
     // truncate - but still up to a full page as we can't map anything less
-    if (doffset + vlength > dentry.d_inode->i_sb.st_size) {
-        vlength = RoundUp(dentry.d_inode->i_sb.st_size - doffset);
+    VAInterval vaInterval{ va };
+    if (de.begin + vaInterval.length() > dentry.d_inode->i_sb.st_size) {
+        vaInterval.end = vaInterval.begin + RoundUp(dentry.d_inode->i_sb.st_size - de.begin);
     }
 
-    KASSERT((doffset & (PAGE_SIZE - 1)) == 0, "offset %d not page-aligned", doffset);
+    KASSERT((de.begin & (PAGE_SIZE - 1)) == 0, "offset %d not page-aligned", de.begin);
 
-    if (auto result = MapTo(virt, vlength, flags | VM_FLAG_FAULT, va_out); result.IsFailure())
+    if (auto result = MapTo(vaInterval, flags | VM_FLAG_FAULT, va_out); result.IsFailure())
         return result;
 
     dentry_ref(dentry);
     va_out->va_dentry = &dentry;
-    va_out->va_doffset = doffset;
-    va_out->va_dlength = dlength;
+    va_out->va_doffset = de.begin;
+    va_out->va_dlength = de.length();
     return Result::Success();
 }
 
 Result VMSpace::Map(size_t len /* bytes */, uint32_t flags, VMArea*& va_out)
 {
-    const auto va = ReserveAdressRange(len);
-    return MapTo(va, len, flags, va_out);
+    const auto va_begin = ReserveAdressRange(len);
+    const auto va_end = va_begin + len;
+    return MapTo(VAInterval{ va_begin, va_end }, flags, va_out);
 }
 
 void VMSpace::PrepareForExecute()
@@ -279,9 +271,9 @@ Result VMSpace::Clone(VMSpace& vs_dest)
     vmspace_cleanup(vs_dest);
 
     /* Now copy everything over that isn't private */
-    for (auto& [interval, va_src ]: vs_areamap) {
+    for (auto& [srcInterval, va_src ]: vs_areamap) {
         VMArea* va_dst;
-        if (auto result = vs_dest.MapTo(va_src->va_virt, va_src->va_len, va_src->va_flags, va_dst);
+        if (auto result = vs_dest.MapTo(srcInterval, va_src->va_flags, va_dst);
             result.IsFailure())
             return result;
         if (va_src->va_dentry != nullptr) {

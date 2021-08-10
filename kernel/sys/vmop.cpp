@@ -40,12 +40,17 @@ namespace
                     physAddress, length, vm_flags);
                 result.IsFailure())
                 return result;
-            return vs.Map(dest_addr, physAddress, length, vm_flags, vm_flags, va);
+            return vs.Map(VAInterval{ dest_addr, dest_addr + length }, physAddress, vm_flags, vm_flags, va);
         }
 
         if (auto dentry = fd->fd_data.d_vfs_file.f_dentry; dentry) {
+            const DEntryInterval deInterval{
+                static_cast<off_t>(vo->vo_offset),
+                static_cast<off_t>(vo->vo_offset + vo->vo_len)
+            };
             return vs.MapToDentry(
-                dest_addr, vo->vo_len, *dentry, vo->vo_offset, vo->vo_len, vm_flags, va);
+                VAInterval{ dest_addr, dest_addr + vo->vo_len },
+                *dentry, deInterval, vm_flags, va);
         }
 
         return Result::Failure(EINVAL);
@@ -79,7 +84,7 @@ namespace
                 result.IsFailure())
                 return result;
         } else {
-            if (auto result = vs.MapTo(dest_addr, vo->vo_len, vm_flags, va); result.IsFailure())
+            if (auto result = vs.MapTo(VAInterval{ dest_addr, dest_addr + vo->vo_len }, vm_flags, va); result.IsFailure())
                 return result;
         }
 
