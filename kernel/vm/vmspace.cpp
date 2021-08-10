@@ -38,19 +38,13 @@ namespace
         }
     }
 
-    constexpr bool IsPageInRange(const VMPage& vp, const addr_t virt, const size_t len)
-    {
-        const auto pageAddr = vp.vp_vaddr;
-        return pageAddr >= virt && (pageAddr + PAGE_SIZE) < (virt + len);
-    }
-
     void MigratePagesToNewVA(VMArea& va, const VAInterval& interval, VMArea& newVA)
     {
         for (auto it = va.va_pages.begin(); it != va.va_pages.end(); /* nothing */) {
             auto& vp = *it;
             ++it;
 
-            if (!IsPageInRange(vp, interval.begin, interval.end - interval.begin))
+            if (!interval.contains(vp.vp_vaddr))
                 continue;
 
             va.va_pages.remove(vp);
