@@ -20,11 +20,9 @@
 
 namespace
 {
-    constexpr auto debugVASplit = true;
-
     size_t BytesToPages(size_t len) { return (len + PAGE_SIZE - 1) / PAGE_SIZE; }
 
-    addr_t RoundUp(addr_t addr)
+    addr_t RoundUpToPage(addr_t addr)
     {
         if ((addr & (PAGE_SIZE - 1)) == 0)
             return addr;
@@ -32,58 +30,13 @@ namespace
         return (addr | (PAGE_SIZE - 1)) + 1;
     }
 
-} // unnamed namespace
-
-addr_t VMSpace::ReserveAdressRange(size_t len)
-{
-    /*
-     * XXX This is a bit of a kludge - besides, we currently never re-use old
-     * addresses which may get ugly.
-     */
-    addr_t virt = vs_next_mapping;
-    vs_next_mapping = RoundUp(vs_next_mapping + len);
-    return virt;
-}
-
-Result vmspace_create(VMSpace*& vmspace)
-{
-    auto vs = new VMSpace;
-    vs->vs_next_mapping = THREAD_INITIAL_MAPPING_ADDR;
-
-    if (auto result = md::vmspace::Init(*vs); result.IsFailure())
-        return result;
-
-    vmspace = vs;
-    return Result::Success();
-}
-
-static void vmspace_cleanup(VMSpace& vs)
-{
-    /* Cleanup only removes all mapped areas */
-    while (!vs.vs_areamap.empty()) {
-        auto va = (*vs.vs_areamap.begin()).value;
-        vs.FreeArea(*va);
+    void FreeAllAreas(VMSpace& vs)
+    {
+        while (!vs.vs_areamap.empty()) {
+            auto va = (*vs.vs_areamap.begin()).value;
+            vs.FreeArea(*va);
+        }
     }
-}
-
-void vmspace_destroy(VMSpace& vs)
-{
-    /* Ensure all mapped areas are gone (can't hurt if this is already done) */
-    vmspace_cleanup(vs);
-
-    /* Remove the vmspace-specific mappings - these are generally MD */
-    for (auto it = vs.vs_pages.begin(); it != vs.vs_pages.end(); /* nothing */) {
-        auto& p = *it;
-        ++it;
-        /* XXX should we unmap the page here? the vmspace shouldn't be active... */
-        page_free(p);
-    }
-    md::vmspace::Destroy(vs);
-    delete &vs;
-}
-
-namespace {
-    using AddrInterval = util::interval<addr_t>;
 
     constexpr bool IsPageInRange(const VMPage& vp, const addr_t virt, const size_t len)
     {
@@ -91,7 +44,7 @@ namespace {
         return pageAddr >= virt && (pageAddr + PAGE_SIZE) < (virt + len);
     }
 
-    void MigratePagesToNewVA(VMArea& va, const AddrInterval& interval, VMArea& newVA)
+    void MigratePagesToNewVA(VMArea& va, const VAInterval& interval, VMArea& newVA)
     {
         for (auto it = va.va_pages.begin(); it != va.va_pages.end(); /* nothing */) {
             auto& vp = *it;
@@ -106,7 +59,7 @@ namespace {
         }
     }
 
-    void UpdateFileMappingOffset(VMArea& va, VMArea& newVA, const AddrInterval& vaInterval, const AddrInterval& newInterval)
+    void UpdateFileMappingOffset(VMArea& va, VMArea& newVA, const VAInterval& vaInterval, const VAInterval& newInterval)
     {
         if (va.va_dentry == nullptr)
             return; // no mapping, nothing to do
@@ -125,67 +78,84 @@ namespace {
             newInterval.begin, newInterval.end, newVA.va_doffset, newVA.va_dlength);
     }
 
-    auto MakeInterval(addr_t begin, addr_t end)
+    void FreeRange(VMSpace& vs, const VAInterval& range_to_free)
     {
-        if (end < begin) return AddrInterval{};
-        return AddrInterval{begin, end};
-    }
-}
+        for (auto [ vaInterval, va ]: vs.vs_areamap) {
+            if (vaInterval == range_to_free) {
+                // Interval matches as-if with what to free; this is easy
+                vs.FreeArea(*va);
+                return;
+            }
 
-void DumpVMSpace(VMSpace& vmspace);
+            // See if there is any overlap
+            const auto overlap = vaInterval.overlap(range_to_free);
+            if (overlap.empty())
+                continue; // not within our area, skip
 
-static void vmspace_free_range(VMSpace& vs, const VAInterval& range_to_free)
-{
-    for (auto [ vaInterval, va ]: vs.vs_areamap) {
-        if (vaInterval == range_to_free) {
-            // Interval matches as-if with what to free; this is easy
-            vs.FreeArea(*va);
+            // Disconnect the matching va; this allows us to insert the new ranges
+            vs.vs_areamap.remove(va);
+
+            // Determine the new intervals if we'd free this range
+            const auto interval_1 = VAInterval{ vaInterval.begin, overlap.begin };
+            const auto interval_2 = VAInterval{ overlap.end, vaInterval.end };
+
+            auto migrateToNewRange = [&](const auto& newInterval) {
+                auto newVA = new VMArea(vs, newInterval.begin, newInterval.end - newInterval.begin, va->va_flags);
+                MigratePagesToNewVA(*va, newInterval, *newVA);
+                UpdateFileMappingOffset(*va, *newVA, vaInterval, newInterval);
+                vs.vs_areamap.insert(newInterval, newVA);
+            };
+
+            if (!interval_1.empty()) {
+                migrateToNewRange(interval_1);
+            }
+            if (!interval_2.empty()) {
+                migrateToNewRange(interval_2);
+            }
+
+            // Throw the old va away, we've split it up as needed
+            delete va;
             return;
         }
-
-        // See if there is any overlap
-        const auto overlap = vaInterval.overlap(range_to_free);
-        if (overlap.empty())
-            continue; // not within our area, skip
-
-#if 0
-        kprintf("vmspace_free_range: entry %p..%p, overlap %p..%p\n",
-         vaInterval.begin, vaInterval.end, overlap.begin, overlap.end);
-        DumpVMSpace(vs);
-        kprintf("current status dumped, now freeing...\n");
-#endif
-
-        // Disconnect the matching va; this allows us to insert the new ranges
-        vs.vs_areamap.remove(va);
-
-        // Determine the new intervals if we'd free this range
-        const auto interval_1 = MakeInterval(vaInterval.begin, overlap.begin);
-        const auto interval_2 = MakeInterval(overlap.end, vaInterval.end);
-
-        auto migrateToNewRange = [&](const auto& newInterval) {
-            auto newVA = new VMArea(vs, newInterval.begin, newInterval.end - newInterval.begin, va->va_flags);
-            MigratePagesToNewVA(*va, newInterval, *newVA);
-            UpdateFileMappingOffset(*va, *newVA, vaInterval, newInterval);
-            vs.vs_areamap.insert(newInterval, newVA);
-        };
-
-        if (!interval_1.empty()) {
-            //kprintf("vmspace_free_range: new interval 1 %p..%p\n", interval_1.begin, interval_1.end);
-            migrateToNewRange(interval_1);
-        }
-        if (!interval_2.empty()) {
-            //kprintf("vmspace_free_range: new interval 2 %p..%p\n", interval_2.begin, interval_2.end);
-            migrateToNewRange(interval_2);
-        }
-
-        // Throw the old va away, we've split it up as needed
-        delete va;
-#if 0
-        kprintf("post free of %p..%p\n", range_to_free.begin, range_to_free.end);
-        DumpVMSpace(vs);
-#endif
-        return;
     }
+} // unnamed namespace
+
+addr_t VMSpace::ReserveAdressRange(size_t len)
+{
+    /*
+     * XXX This is a bit of a kludge - besides, we currently never re-use old
+     * addresses which may get ugly.
+     */
+    addr_t virt = vs_next_mapping;
+    vs_next_mapping = RoundUpToPage(vs_next_mapping + len);
+    return virt;
+}
+
+Result vmspace_create(VMSpace*& vmspace)
+{
+    auto vs = new VMSpace;
+    vs->vs_next_mapping = THREAD_INITIAL_MAPPING_ADDR;
+
+    if (auto result = md::vmspace::Init(*vs); result.IsFailure())
+        return result;
+
+    vmspace = vs;
+    return Result::Success();
+}
+
+void vmspace_destroy(VMSpace& vs)
+{
+    FreeAllAreas(vs);
+
+    /* Remove the vmspace-specific mappings - these are generally MD */
+    for (auto it = vs.vs_pages.begin(); it != vs.vs_pages.end(); /* nothing */) {
+        auto& p = *it;
+        ++it;
+        /* XXX should we unmap the page here? the vmspace shouldn't be active... */
+        page_free(p);
+    }
+    md::vmspace::Destroy(vs);
+    delete &vs;
 }
 
 Result VMSpace::Map(
@@ -196,7 +166,7 @@ Result VMSpace::Map(
         return Result::Failure(EINVAL);
 
     // Make sure the range is unused
-    vmspace_free_range(*this, vaInterval);
+    FreeRange(*this, vaInterval);
 
     /*
      * XXX We should ask the VM for some kind of reservation if the
@@ -226,7 +196,7 @@ Result VMSpace::MapToDentry(
     // truncate - but still up to a full page as we can't map anything less
     VAInterval vaInterval{ va };
     if (de.begin + vaInterval.length() > dentry.d_inode->i_sb.st_size) {
-        vaInterval.end = vaInterval.begin + RoundUp(dentry.d_inode->i_sb.st_size - de.begin);
+        vaInterval.end = vaInterval.begin + RoundUpToPage(dentry.d_inode->i_sb.st_size - de.begin);
     }
 
     KASSERT((de.begin & (PAGE_SIZE - 1)) == 0, "offset %d not page-aligned", de.begin);
@@ -264,11 +234,7 @@ void VMSpace::PrepareForExecute()
 
 Result VMSpace::Clone(VMSpace& vs_dest)
 {
-    /*
-     * First, clean up the destination area's mappings - this ensures we'll
-     * overwrite them with our own. Note that we'll leave private mappings alone.
-     */
-    vmspace_cleanup(vs_dest);
+    FreeAllAreas(vs_dest);
 
     /* Now copy everything over that isn't private */
     for (auto& [srcInterval, va_src ]: vs_areamap) {
@@ -309,7 +275,7 @@ Result VMSpace::Clone(VMSpace& vs_dest)
      */
     vs_dest.vs_next_mapping = 0;
     for (auto& [ interval, va  ]: vs_dest.vs_areamap) {
-        addr_t next = RoundUp(va->va_virt + va->va_len);
+        addr_t next = RoundUpToPage(va->va_virt + va->va_len);
         if (vs_dest.vs_next_mapping < next)
             vs_dest.vs_next_mapping = next;
     }
