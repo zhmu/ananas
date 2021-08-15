@@ -25,6 +25,7 @@
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/mm.h"
+#include "kernel/pool.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/vfs/types.h"
@@ -32,24 +33,22 @@
 
 namespace
 {
-    // Amount of data available for BIO data, in bytes
-    constexpr int DataSize = 512 * 1024;
-
     // Number of buckets used to hash a block number to
     constexpr int NumberOfBuckets = 16;
 
     // Number of BIO buffers available
     constexpr int NumberOfBuffers = 1024;
 
+    // Number of BIO pools, from BIO_SECTOR_SIZE upwards
+    inline constexpr auto NumberOfPools = 2;
+
     constexpr unsigned int BucketForBlock(blocknr_t block) { return block % NumberOfBuckets; }
 
     constexpr unsigned int BucketForBIO(const BIO& bio) { return BucketForBlock(bio.b_block); }
 
     BIOChainList bio_freelist;
+    util::array<pool::Pool*, NumberOfPools> bio_pool;
     util::array<BIOBucketList, NumberOfBuckets> bio_bucket;
-    unsigned int bio_bitmap_size;
-    uint8_t* bio_bitmap = NULL;
-    uint8_t* bio_data = NULL;
 
     Mutex mtx_cache{"biocache"};
     Mutex mtx_buffer{"biobuf"};
@@ -67,40 +66,33 @@ namespace
         constexpr int Done(1 << 0); // I/O completed
     }
 
+    constexpr auto Calculate2Log(size_t n)
+    {
+        size_t result{};
+        --n;
+        for(; n > 0; n /= 2, ++result)
+            ;
+        return result;
+    }
+
+    constexpr auto bioSectorSize2log = Calculate2Log(BIO_SECTOR_SIZE);
+
+    auto& GetPoolForLength(size_t len)
+    {
+        size_t index = Calculate2Log(len);
+        index -= bioSectorSize2log;
+
+        KASSERT(index < bio_pool.size(), "invalid index %d", index);
+        return *bio_pool[index];
+    }
+
     bool AllocateData(BIO& bio, size_t len)
     {
         mtx_cache.AssertLocked();
 
-        // Find available data blocks in the bio data pool
-        unsigned int chain_length = 0, cur_data_block = 0;
-        unsigned int num_blocks = len / BIO_SECTOR_SIZE;
-        for (; cur_data_block < bio_bitmap_size * 8; cur_data_block++) {
-            if (bio_bitmap[cur_data_block / 8] & (1 << (cur_data_block % 8))) {
-                // Data block isn't available - try again
-                chain_length = 0;
-                continue;
-            }
-
-            // Item is available; stop if we have enough blocks
-            if (chain_length == num_blocks)
-                break;
-            chain_length++;
-        }
-        if (chain_length != num_blocks) {
-            // No bio data available; clean up some and retry
-            return false;
-        }
-
-        // Walk back the number of blocks we need to allocate, we know they are free
-        cur_data_block -= chain_length;
-
-        // Mark the blocks as in use
-        for (unsigned int n = cur_data_block; n < cur_data_block + num_blocks; n++) {
-            bio_bitmap[n / 8] |= (1 << (n % 8));
-        }
-
-        // Hook them to the bio
-        bio.b_data = bio_data + (cur_data_block * BIO_SECTOR_SIZE);
+        auto& pool = GetPoolForLength(len);
+        bio.b_data = pool.AllocateItem();
+        bio.b_length = len;
         return true;
     }
 
@@ -110,13 +102,8 @@ namespace
         if (bio.b_data == nullptr)
             return; // already freed
 
-        unsigned int bio_data_block =
-            (static_cast<uint8_t*>(bio.Data()) - static_cast<uint8_t*>(bio_data)) / BIO_SECTOR_SIZE;
-        for (unsigned int n = bio_data_block; n < bio_data_block + (bio.b_length / BIO_SECTOR_SIZE);
-             n++) {
-            KASSERT((bio_bitmap[n / 8] & (1 << (n % 8))) != 0, "data block %u not assigned", n);
-            bio_bitmap[n / 8] &= ~(1 << (n % 8));
-        }
+        auto& pool = GetPoolForLength(bio.b_length);
+        pool.FreeItem(bio.b_data);
         bio.b_data = nullptr;
         bio.b_length = 0;
     }
@@ -242,7 +229,7 @@ namespace
         bio.b_device = device;
         bio.b_block = block;
         bio.b_ioblock = block;
-        bio.b_length = len;
+        // bio.b_length is filled out by AllocateData()
 
         // Put buffer on corresponding queue
         bio_bucket[BucketForBIO(bio)].push_front(bio);
@@ -253,18 +240,16 @@ namespace
 } // unnamed namespace
 
 const init::OnInit initBIO(init::SubSystem::BIO, init::Order::First, []() {
-    /*
-     * Allocate the BIO data buffers. Note that we allocate a BIO_SECTOR_SIZE - 1
-     * more than needed if necessary - this is because we want to keep the data
-     * bitmap at the beginning to prevent it from being messed with by faulty
-     * drivers; and this will ensure it to be adequately aligned as a nice bonus.
-     */
-    bio_bitmap_size = ((DataSize / BIO_SECTOR_SIZE) + 7) / 8; /* in bytes */
-    int bio_bitmap_slack = 0;
-    if ((bio_bitmap_size & (BIO_SECTOR_SIZE - 1)) > 0)
-        bio_bitmap_slack = BIO_SECTOR_SIZE - (bio_bitmap_size % BIO_SECTOR_SIZE);
-    bio_bitmap = new uint8_t[DataSize + bio_bitmap_size + bio_bitmap_slack];
-    bio_data = bio_bitmap + bio_bitmap_size + bio_bitmap_slack;
+    // Allocate pools
+    {
+        size_t poolSize = BIO_SECTOR_SIZE;
+        for(size_t n = 0; n < NumberOfPools; ++n) {
+            char name[32];
+            sprintf(name, "bio%db", poolSize);
+            bio_pool[n] = new pool::Pool(name, poolSize);
+            poolSize *= 2;
+        }
+    }
 
     // Initialize bio buffers and hook them up to the freelist/queue
     {
@@ -274,21 +259,6 @@ const init::OnInit initBIO(init::SubSystem::BIO, init::Order::First, []() {
             bio_freelist.push_back(bio);
             bio_bucket[BucketForBIO(bio)].push_back(bio);
         }
-    }
-
-    /*
-     * Construct the BIO bitmap; we need to mark all items as clear except those
-     * in the slack section, they cannot be used.
-     */
-    memset(bio_bitmap, 0, bio_bitmap_size);
-    if (((DataSize / BIO_SECTOR_SIZE) & 7) != 0) {
-        /*
-         * This means the bitmap size is not a multiple of a byte; we need to set
-         * the trailing bits to prevent buffers from being allocated that do not
-         * exist.
-         */
-        for (int n = (DataSize / BIO_SECTOR_SIZE) & 7; n < 8; n++)
-            bio_bitmap[bio_bitmap_size] |= (1 << n);
     }
 });
 
@@ -411,27 +381,4 @@ const kdb::RegisterCommand kdbBio("bio", "Display I/O buffers", [](int, const kd
             kprintf("\n");
         }
     }
-
-    unsigned int databuf_avail = 0;
-    kprintf("data buffers in use:");
-    {
-        int current = -1;
-        for (unsigned int i = 0; i < bio_bitmap_size * 8; i++) {
-            if ((bio_bitmap[i / 8] & (1 << (i % 8))) != 0) {
-                /* This entry is used; need to show it */
-                if (current == -1)
-                    kprintf(" %u", i);
-                current = i;
-                continue;
-            }
-            if (current != -1) {
-                kprintf("-%u", i);
-                current = -1;
-            }
-            databuf_avail++;
-        }
-        if (current != -1)
-            kprintf("-%u\n", bio_bitmap_size * 8);
-    }
-    kprintf(", available: %u out of %u total\n", databuf_avail, DataSize / BIO_SECTOR_SIZE);
 });
