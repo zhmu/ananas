@@ -33,4 +33,5 @@ add_sources(
 	syscall.cpp
 	thread.cpp
 	time.cpp
+    pool.cpp
 )
