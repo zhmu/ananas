@@ -13,6 +13,11 @@
 
 #define DPRINTF(...)
 
+VMArea::~VMArea()
+{
+    KASSERT(va_pages.empty(), "destroyed while still owning pages");
+}
+
 VMPage* VMArea::LookupVAddrAndLock(addr_t vaddr)
 {
     for (auto& vmpage : va_pages) {

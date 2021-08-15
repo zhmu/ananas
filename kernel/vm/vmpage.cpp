@@ -17,6 +17,9 @@
 #include "kernel-md/md.h"
 #include "kernel-md/vm.h"
 
+#include "kernel/thread.h"
+#include "kernel/process.h"
+
 #define DPRINTF(...)
 
 namespace vmpage
@@ -24,7 +27,6 @@ namespace vmpage
     VMPage& Allocate(VMArea& va, INode* inode, off_t offset, int flags)
     {
         auto vp = new VMPage(&va, inode, offset, flags);
-
         vp->Lock();
         KASSERT((vp->vp_flags & VM_PAGE_FLAG_PRIVATE) != 0, "dafuq");
         va.va_pages.push_back(*vp);

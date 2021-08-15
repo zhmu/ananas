@@ -108,7 +108,7 @@ namespace
             }
 
             // Throw the old va away, we've split it up as needed
-            delete va;
+            vs.FreeArea(*va);
             return;
         }
     }
@@ -279,21 +279,18 @@ Result VMSpace::Clone(VMSpace& vs_dest)
 
 void VMSpace::FreeArea(VMArea& va)
 {
+    // The area does not have to be in the map when this is called by FreeRange(),
+    // so do not check the result
     vs_areamap.remove(&va);
 
     /* Free any backing dentry, if we have one */
     if (va.va_dentry != nullptr)
         dentry_deref(*va.va_dentry);
 
-    /*
-     * If the pages were allocated, we need to free them one by one
-     *
-     * Note that this changes va_pages while we are iterating through it, so we
-     * need to increment the iterator beforehand!
-     */
-    for (auto it = va.va_pages.begin(); it != va.va_pages.end(); /* nothing */) {
-        VMPage& vp = *it;
-        ++it;
+    // Free all pages owned by this VA
+    while(!va.va_pages.empty()) {
+        VMPage& vp = va.va_pages.front();
+        va.va_pages.pop_front();
 
         vp.Lock();
         KASSERT(vp.vp_vmarea == &va, "wrong vmarea");

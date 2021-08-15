@@ -226,7 +226,5 @@ Result VMSpace::HandleFault(addr_t virt, int flags)
         return Result::Success();
     }
 
-    kprintf("BOEHOE\n");
-    DumpVMSpace(*this);
     return Result::Failure(EFAULT);
 }

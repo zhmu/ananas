@@ -39,6 +39,8 @@ struct VMArea : util::List<VMArea>::NodePtr {
     {
     }
 
+    ~VMArea();
+
     VMSpace& va_vs;
 
     VMPage* LookupVAddrAndLock(addr_t vaddr);
