@@ -17,6 +17,10 @@ namespace util
         value_type begin{};
         value_type end{};
 
+        constexpr auto length() const {
+            return end - begin;
+        }
+
         constexpr auto empty() const {
             return begin == end;
         }
