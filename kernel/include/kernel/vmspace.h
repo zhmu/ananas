@@ -35,10 +35,10 @@ struct VMSpace {
     util::interval_map<addr_t, VMArea*> vs_areamap;
 
     /*
-     * Contains pages allocated to the space that aren't part of a mapping; this
-     * is mainly used to store MD-dependant things like pagetables.
+     * Pages allocated to the space that aren't part of a mapping: used for
+     * MD-dependant things like pagetables.
      */
-    PageList vs_pages;
+    PageList vs_md_pages;
 
     addr_t vs_next_mapping; /* address of next mapping */
 
@@ -55,9 +55,6 @@ struct VMSpace {
     Result HandleFault(addr_t virt, int flags);
 
     void PrepareForExecute();
-
-    // XXX Should not be public
-    void FreeArea(VMArea& va);
 
   private:
     Mutex vs_mutex{"vmspace"}; /* protects all fields and sub-areas */

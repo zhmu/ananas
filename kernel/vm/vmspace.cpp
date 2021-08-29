@@ -30,26 +30,44 @@ namespace
         return (addr | (PAGE_SIZE - 1)) + 1;
     }
 
+    void FreeArea(VMArea& va)
+    {
+        /* Free any backing dentry, if we have one */
+        if (va.va_dentry != nullptr)
+            dentry_deref(*va.va_dentry);
+
+        // Free all pages owned by this VA
+        for(auto vp: va.va_pages) {
+            vp->Lock();
+            KASSERT(vp->vp_vmarea == &va, "wrong vmarea (expected %p got %p)", &va, vp->vp_vmarea);
+            vp->vp_vmarea = nullptr;
+            vp->Deref();
+        }
+        va.va_pages.clear();
+        delete &va;
+    }
+
+
     void FreeAllAreas(VMSpace& vs)
     {
-        while (!vs.vs_areamap.empty()) {
-            auto va = (*vs.vs_areamap.begin()).value;
-            vs.FreeArea(*va);
+        for (auto [ vaInterval, va ]: vs.vs_areamap) {
+            FreeArea(*va);
         }
+        vs.vs_areamap.clear();
     }
 
     void MigratePagesToNewVA(VMArea& va, const VAInterval& interval, VMArea& newVA)
     {
         for (auto it = va.va_pages.begin(); it != va.va_pages.end(); /* nothing */) {
-            auto& vp = *it;
-            ++it;
-
-            if (!interval.contains(vp.vp_vaddr))
+            auto& vp = **it;
+            if (!interval.contains(vp.vp_vaddr)) {
+                ++it;
                 continue;
+            }
 
-            va.va_pages.remove(vp);
+            it = va.va_pages.erase(it);
             vp.vp_vmarea = &newVA;
-            newVA.va_pages.push_back(vp);
+            newVA.va_pages.push_back(&vp);
         }
     }
 
@@ -77,7 +95,8 @@ namespace
         for (auto [ vaInterval, va ]: vs.vs_areamap) {
             if (vaInterval == range_to_free) {
                 // Interval matches as-if with what to free; this is easy
-                vs.FreeArea(*va);
+                vs.vs_areamap.remove(va);
+                FreeArea(*va);
                 return;
             }
 
@@ -108,7 +127,7 @@ namespace
             }
 
             // Throw the old va away, we've split it up as needed
-            vs.FreeArea(*va);
+            FreeArea(*va);
             return;
         }
     }
@@ -141,12 +160,12 @@ void vmspace_destroy(VMSpace& vs)
 {
     FreeAllAreas(vs);
 
-    /* Remove the vmspace-specific mappings - these are generally MD */
-    for (auto it = vs.vs_pages.begin(); it != vs.vs_pages.end(); /* nothing */) {
-        auto& p = *it;
-        ++it;
-        /* XXX should we unmap the page here? the vmspace shouldn't be active... */
-        page_free(p);
+    KASSERT(&vs != &process::GetCurrent().p_vmspace, "destroying active vmspace");
+    while(!vs.vs_md_pages.empty()) {
+        auto& page = vs.vs_md_pages.front();
+        vs.vs_md_pages.pop_front();
+
+        page_free(page);
     }
     md::vmspace::Destroy(vs);
     delete &vs;
@@ -168,7 +187,7 @@ Result VMSpace::Map(
      * memory is there...
      */
     auto va = new VMArea(*this, vaInterval.begin, vaInterval.end - vaInterval.begin, areaFlags);
-    //kprintf("Map: adding new vmspace for %p..%p -> %p, pre\n", virt, virt+len, va);
+
     vs_areamap.insert(vaInterval, va);
     va_out = va;
 
@@ -221,6 +240,7 @@ void VMSpace::PrepareForExecute()
             ++it;
             continue;
         }
+        vs_areamap.remove(&va);
         FreeArea(va);
         it = vs_areamap.begin();
     }
@@ -245,9 +265,9 @@ Result VMSpace::Clone(VMSpace& vs_dest)
         }
 
         // Copy the area page-wise
-        for (auto& p : va_src->va_pages) {
-            p.Lock();
-            util::locked<VMPage> vp(p);
+        for (auto p : va_src->va_pages) {
+            p->Lock();
+            util::locked<VMPage> vp(*p);
             KASSERT(
                 vp->GetPage()->p_order == 0, "unexpected %d order page here",
                 vp->GetPage()->p_order);
@@ -277,29 +297,6 @@ Result VMSpace::Clone(VMSpace& vs_dest)
     return Result::Success();
 }
 
-void VMSpace::FreeArea(VMArea& va)
-{
-    // The area does not have to be in the map when this is called by FreeRange(),
-    // so do not check the result
-    vs_areamap.remove(&va);
-
-    /* Free any backing dentry, if we have one */
-    if (va.va_dentry != nullptr)
-        dentry_deref(*va.va_dentry);
-
-    // Free all pages owned by this VA
-    while(!va.va_pages.empty()) {
-        VMPage& vp = va.va_pages.front();
-        va.va_pages.pop_front();
-
-        vp.Lock();
-        KASSERT(vp.vp_vmarea == &va, "wrong vmarea");
-        vp.vp_vmarea = nullptr;
-        vp.Deref();
-    }
-    delete &va;
-}
-
 void VMSpace::Dump()
 {
     for (auto& [ interval, va ]: vs_areamap) {
@@ -310,8 +307,8 @@ void VMSpace::Dump()
             (va->va_flags & VM_FLAG_USER) ? 'u' : '.', (va->va_flags & VM_FLAG_PRIVATE) ? 'p' : '.',
             (va->va_flags & VM_FLAG_MD) ? 'm' : '.');
         kprintf("    pages:\n");
-        for (auto& vp : va->va_pages) {
-            vp.Dump("      ");
+        for (auto vp : va->va_pages) {
+            vp->Dump("      ");
         }
     }
 }

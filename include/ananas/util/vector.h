@@ -218,6 +218,17 @@ namespace util
 
         constexpr iterator erase(iterator pos) { return erase(pos, pos + 1); }
 
+        constexpr void remove(const value_type& val)
+        {
+            for(auto it = begin(); it != end(); /* nothing */) {
+                if (*it != val) {
+                    ++it;
+                    continue;
+                }
+                it = erase(it);
+            }
+        }
+
       private:
         T* v_Items = nullptr;
         size_t v_Capacity = 0;

@@ -25,7 +25,7 @@ namespace md::vmspace
             page_alloc_single_mapped(pagedir_page, VM_FLAG_READ | VM_FLAG_WRITE));
         if (vs.vs_md_pagedir == nullptr)
             return Result::Failure(ENOMEM);
-        vs.vs_pages.push_back(*pagedir_page);
+        vs.vs_md_pages.push_back(*pagedir_page);
 
         /* Map the kernel pages in there */
         memset(vs.vs_md_pagedir, 0, PAGE_SIZE);

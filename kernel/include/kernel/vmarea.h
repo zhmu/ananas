@@ -8,6 +8,7 @@
 
 #include <ananas/types.h>
 #include <ananas/util/list.h>
+#include <ananas/util/vector.h>
 
 struct DEntry;
 struct VMPage;
@@ -50,7 +51,7 @@ struct VMArea : util::List<VMArea>::NodePtr {
     unsigned int va_flags = 0;   /* flags, combination of VM_FLAG_... */
     addr_t va_virt = 0;          /* userland address */
     size_t va_len = 0;           /* length */
-    util::List<VMPage> va_pages; /* backing pages */
+    util::vector<VMPage*> va_pages; /* backing pages */
     /* dentry-specific mapping fields */
     DEntry* va_dentry = nullptr; /* backing dentry, if any */
     off_t va_doffset = 0;        /* dentry offset */

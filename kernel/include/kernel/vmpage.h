@@ -18,8 +18,7 @@ struct Page;
 #define VM_PAGE_FLAG_READONLY (1 << 1) /* page cannot be modified */
 #define VM_PAGE_FLAG_COW (1 << 2)      /* page must be copied on write */
 #define VM_PAGE_FLAG_PENDING (1 << 3)  /* page is pending a read */
-#define VM_PAGE_FLAG_LINK (1 << 4)     /* link to another page */
-#define VM_PAGE_FLAG_PROMOTED (1 << 5) /* XXX this is for debugging only */
+#define VM_PAGE_FLAG_PROMOTED (1 << 4) /* XXX this is for debugging only */
 
 class VMArea;
 class VMSpace;
@@ -88,7 +87,6 @@ struct VMPage : util::List<VMPage>::NodePtr {
 
     void AssertLocked();
 
-    void AssertNotLinked();
     VMPage& Link(VMArea& va_dest);
 
     void Map(VMSpace& vs, VMArea& va);
@@ -103,7 +101,7 @@ typedef util::List<VMPage> VMPageList;
 
 namespace vmpage
 {
-    VMPage& Allocate(VMArea& va, INode* inode, off_t offset, int flags);
+    VMPage& AllocatePrivate(VMArea& va, int flags);
 
 } // namespace vmpage
 

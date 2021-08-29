@@ -101,6 +101,11 @@ namespace util
             return iterator{&i_entries, n};
         }
 
+        void clear()
+        {
+            i_entries.clear();
+        }
+
     private:
         vector<entry> i_entries;
     };

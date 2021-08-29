@@ -24,16 +24,24 @@
 
 namespace vmpage
 {
-    VMPage& Allocate(VMArea& va, INode* inode, off_t offset, int flags)
+    VMPage& AllocatePrivate(VMArea& va, int flags)
     {
-        auto vp = new VMPage(&va, inode, offset, flags);
+        auto vp = new VMPage(&va, nullptr, 0, flags | VM_PAGE_FLAG_PRIVATE);
         vp->Lock();
-        KASSERT((vp->vp_flags & VM_PAGE_FLAG_PRIVATE) != 0, "dafuq");
-        va.va_pages.push_back(*vp);
+        va.va_pages.push_back(vp);
         return *vp;
     }
-
 } // namespace vmpage
+
+namespace
+{
+    VMPage& AllocateShared(INode& inode, off_t offs, int flags)
+    {
+        auto vp = new VMPage(nullptr, &inode, offs, flags);
+        vp->Lock();
+        return *vp;
+    }
+}
 
 VMPage::~VMPage()
 {
@@ -42,29 +50,20 @@ VMPage::~VMPage()
 
     // If we are hooked to a vmarea, unlink us
     if (vp_vmarea != nullptr)
-        vp_vmarea->va_pages.remove(*this);
+        vp_vmarea->va_pages.remove(this);
 
     // Note that we do not hold any references to the inode (the inode owns us)
-    if (vp_flags & VM_PAGE_FLAG_LINK) {
-        if (vp_link != nullptr) {
-            vp_link->Lock();
-            vp_link->Deref();
-        }
-    } else {
-        if (vp_page != nullptr)
-            page_free(*vp_page);
-    }
+    if (vp_page != nullptr)
+        page_free(*vp_page);
 }
 
 void VMPage::AssertLocked()
 {
     vp_mtx.AssertLocked();
     KASSERT(vp_refcount > 0, "%p invalid refcount %d", this, vp_refcount);
-    KASSERT(
-        ((vp_flags & VM_PAGE_FLAG_LINK) == 0) || ((vp_link->vp_flags & VM_PAGE_FLAG_LINK) == 0),
-        "%p links to linked page %p", this, vp_link);
 }
 
+#if 0
 VMPage& VMPage::Link(VMArea& va)
 {
     AssertLocked();
@@ -85,6 +84,7 @@ VMPage& VMPage::Link(VMArea& va)
         flags |= VM_PAGE_FLAG_READONLY;
 
     auto& vp_new = vmpage::Allocate(va, vp_source.vp_inode, vp_source.vp_offset, flags);
+    //kprintf("VMPage: creating linked page %p (--> %p) in vmarea %p\n", &vp_new, &vp_source, &va);
     vp_new.vp_link = &vp_source;
     vp_new.vp_vaddr = vp_source.vp_vaddr;
 
@@ -92,6 +92,7 @@ VMPage& VMPage::Link(VMArea& va)
         vp_source.Unlock();
     return vp_new;
 }
+#endif
 
 void VMPage::CopyExtended(VMPage& vp_dst, size_t len)
 {
@@ -144,8 +145,8 @@ void VMPage::Map(VMSpace& vs, VMArea& va)
     // Map COW pages as unwritable so we'll fault on a write
     if (vp_flags & VM_PAGE_FLAG_COW)
         flags &= ~VM_FLAG_WRITE;
-    const Page* p = GetPage();
 
+    const Page* p = GetPage();
     md::vm::MapPages(vs, vp_vaddr, p->GetPhysicalAddress(), 1, flags);
 }
 
@@ -166,12 +167,12 @@ util::locked<VMPage> vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs)
      * First step is to see if we can locate this page for the given vmspace - the private mappings
      * are stored there and override global ones.
      */
-    for (auto& vmpage : va.va_pages) {
-        if (vmpage.vp_inode != &inode || vmpage.vp_offset != offs)
+    for (auto vmpage : va.va_pages) {
+        if (vmpage->vp_inode != &inode || vmpage->vp_offset != offs)
             continue;
 
-        vmpage.Lock();
-        return util::locked<VMPage>(vmpage);
+        vmpage->Lock();
+        return util::locked<VMPage>(*vmpage);
     }
 
     // Try all inode-private pages
@@ -191,11 +192,12 @@ util::locked<VMPage> vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs)
     return util::locked<VMPage>();
 }
 
+// Used for VMSpace::Clone (fork) and HandleFault()
 VMPage& vmpage_clone(
     VMSpace* vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va_dest,
-    util::locked<VMPage>& vp_orig)
+    util::locked<VMPage>& vp_source)
 {
-    KASSERT(vs_source == nullptr || &va_source == vp_orig->vp_vmarea, "area mismatch");
+    KASSERT(vs_source == nullptr || &va_source == vp_source->vp_vmarea, "area mismatch");
 
     /*
      * Cloning a page may results in different scenarios:
@@ -205,26 +207,19 @@ VMPage& vmpage_clone(
      *    This consists of marking the original page as read-only.
      * 3) We need to duplicate the source page
      */
-    auto& vp_source = [](util::locked<VMPage>& vp) -> VMPage& {
-        auto& vp_resolved = vp->Resolve();
-        if (&vp_resolved == &*vp)
-            return *vp;
-        vp_resolved.Lock();
-        return vp_resolved;
-    }(vp_orig);
-    // both vp_source and vp_orig will be locked here
-    KASSERT((vp_source.vp_flags & VM_PAGE_FLAG_PENDING) == 0, "trying to clone a pending page");
-    KASSERT((vp_source.vp_flags & VM_PAGE_FLAG_LINK) == 0, "trying to clone a link page");
+    KASSERT((vp_source->vp_flags & VM_PAGE_FLAG_PENDING) == 0, "trying to clone a pending page");
 
     // (3) If this is a MD-specific page, just duplicate it - we don't want to share things like
     // pagetables and the like
     VMPage* vp_dst;
-    if (va_source.va_flags & VM_FLAG_MD) {
-        vp_dst = &va_dest.AllocatePrivatePage(vp_source.vp_vaddr, vp_source.vp_flags);
-        vp_source.Copy(*vp_dst);
-    } else if (vp_source.vp_flags & VM_PAGE_FLAG_READONLY) {
-        // (1) If the source is read-only, we can always share it
-        vp_dst = &vp_source.Link(va_dest);
+    if (true) { //va_source.va_flags & VM_FLAG_MD) {
+        vp_dst = &va_dest.AllocatePrivatePage(vp_source->vp_vaddr, vp_source->vp_flags);
+        vp_source->Copy(*vp_dst);
+#if 0
+    } else if (vp_source->vp_flags & VM_PAGE_FLAG_READONLY) {
+        // 
+        vp_source->Ref();
+        vp_dst = *vp_source;
     } else {
         // (2) Clone the page using COW; note that vp_orig may be a linked page
         KASSERT(vs_source == nullptr || vs_source != &vs_dest, "cloning to same vmspace");
@@ -241,56 +236,32 @@ VMPage& vmpage_clone(
         if (vs_source != nullptr)
             vp_orig->Map(*vs_source, va_source);
 
-        if (true) {
-            // Return a link to the page, but do mark it as COW as well
-            vp_dst = &vp_source.Link(va_dest);
-            vp_dst->vp_flags |= VM_PAGE_FLAG_COW;
-            KASSERT((vp_dst->vp_flags & VM_PAGE_FLAG_READONLY) == 0, "cowing r/o page");
-            vp_dst->vp_vaddr = vp_source.vp_vaddr;
-        } else {
-            // This can be used to bypass COW and force a copy
-            vp_dst = &va_dest.AllocatePrivatePage(vp_source.vp_vaddr, vp_source.vp_flags);
-            vp_source.Copy(*vp_dst);
-        }
+        // Return a link to the page, but do mark it as COW as well
+        vp_dst = &vp_source.Link(va_dest);
+        vp_dst->vp_flags |= VM_PAGE_FLAG_COW;
+        KASSERT((vp_dst->vp_flags & VM_PAGE_FLAG_READONLY) == 0, "cowing r/o page");
+        vp_dst->vp_vaddr = vp_source.vp_vaddr;
+#endif
     }
 
-    // Unlock the original page
-    if (&*vp_orig != &vp_source)
-        vp_source.Unlock();
     return *vp_dst;
 }
 
 Page* VMPage::GetPage()
 {
-    VMPage* vp = this;
-    if (vp->vp_flags & VM_PAGE_FLAG_LINK) {
-        vp = vp->vp_link;
-    }
-
-    return vp->vp_page;
+    return vp_page;
 }
 
 VMPage& VMPage::Resolve()
 {
-    VMPage* vp = this;
-    KASSERT(vp->vp_refcount > 0, "invalid refcount %d", vp_refcount);
-    if (vp->vp_flags & VM_PAGE_FLAG_LINK) {
-        vp = vp->vp_link;
-        KASSERT(vp->vp_refcount > 0, "invalid refcount for %p (%d)", vp, vp_refcount);
-        KASSERT((vp->vp_flags & VM_PAGE_FLAG_LINK) == 0, "%p links to a linked page %p", this, vp);
-    }
-    return *vp;
+    KASSERT(vp_refcount > 0, "invalid refcount %d", vp_refcount);
+    return *this;
 }
 
-void VMPage::AssertNotLinked()
-{
-    KASSERT((vp_flags & VM_PAGE_FLAG_LINK) == 0, "vmpage %p is linked", this);
-}
-
+// Shared VMPages belong to an inode and not a vmspace!
 util::locked<VMPage> vmpage_create_shared(INode& inode, off_t offs, int flags)
 {
-    VMPage& new_page = *new VMPage(nullptr, &inode, offs, flags);
-    new_page.Lock();
+    VMPage& new_page = AllocateShared(inode, offs, flags);
 
     // Hook the vm page to the inode
     inode.Lock();
@@ -321,11 +292,6 @@ void VMPage::Dump(const char* prefix) const
         (vp_flags & VM_PAGE_FLAG_READONLY) ? "ro" : "rw",
         (vp_flags & VM_PAGE_FLAG_COW) ? "cow" : "---",
         (vp_flags & VM_PAGE_FLAG_PENDING) ? 'p' : '.');
-    if (vp_flags & VM_PAGE_FLAG_LINK) {
-        kprintf(" -> ");
-        vp_link->Dump("");
-        return;
-    }
     if (vp_page != nullptr)
         kprintf(
             " page %p phys %p order %d", vp_page, vp_page->GetPhysicalAddress(), vp_page->p_order);

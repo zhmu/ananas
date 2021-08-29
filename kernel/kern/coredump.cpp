@@ -349,7 +349,7 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
      */
     size_t num_phent = 1; // PT_NOTE
     for (auto& [ interval, va ] : vs.vs_areamap) {
-        for (auto& vp : va->va_pages) {
+        for (auto vp : va->va_pages) {
             num_phent++;
         }
     }
@@ -399,22 +399,22 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
     ph_begin = (ph_begin | (PAGE_SIZE - 1)) + 1;
     size_t ph_index = 0;
     for (auto& [ interval, va ] : vs.vs_areamap) {
-        for (auto& vp : va->va_pages) {
+        for (auto vp : va->va_pages) {
             Elf64_Phdr phdr;
 
             memset(&phdr, 0, sizeof(phdr));
             phdr.p_type = PT_LOAD;
             phdr.p_offset = ph_begin + ph_index * PAGE_SIZE;
-            phdr.p_vaddr = vp.vp_vaddr;
+            phdr.p_vaddr = vp->vp_vaddr;
             phdr.p_filesz = PAGE_SIZE;
             phdr.p_align = PAGE_SIZE;
             phdr.p_memsz = PAGE_SIZE;
             phdr.p_flags = 0;
-            if (vp.vp_flags & VM_FLAG_READ)
+            if (vp->vp_flags & VM_FLAG_READ)
                 phdr.p_flags |= PF_R;
-            if (vp.vp_flags & VM_FLAG_WRITE)
+            if (vp->vp_flags & VM_FLAG_WRITE)
                 phdr.p_flags |= PF_W;
-            if (vp.vp_flags & VM_FLAG_EXECUTE)
+            if (vp->vp_flags & VM_FLAG_EXECUTE)
                 phdr.p_flags |= PF_X;
 
             if (auto result = vfs_write(f, &phdr, sizeof(phdr)); result.IsFailure())
@@ -438,8 +438,8 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
 
     // Store the page content
     for (auto& [ interval, va ] : vs.vs_areamap) {
-        for (auto& vp : va->va_pages) {
-            if (auto result = vfs_write(f, reinterpret_cast<void*>(vp.vp_vaddr), PAGE_SIZE);
+        for (auto vp : va->va_pages) {
+            if (auto result = vfs_write(f, reinterpret_cast<void*>(vp->vp_vaddr), PAGE_SIZE);
                 result.IsFailure())
                 return result;
         }

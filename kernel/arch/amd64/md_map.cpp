@@ -30,7 +30,7 @@ namespace md::vm
              * administer it there so we can free it once the thread is freed.
              */
             if ((page_flags & PE_C_G) == 0)
-                vs.vs_pages.push_back(*p);
+                vs.vs_md_pages.push_back(*p);
 
             /* Map this page in kernel-space XXX How do we clean it up? */
             addr_t phys = p->GetPhysicalAddress();
