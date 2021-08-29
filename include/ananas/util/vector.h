@@ -163,6 +163,7 @@ namespace util
             auto newItems = new value_type[n];
             if (v_Items != nullptr)
                 memcpy(newItems, v_Items, sizeof(value_type) * v_Size);
+            delete[] v_Items;
             v_Items = newItems;
             for (auto i = v_Capacity; i < n; i++)
                 new (&v_Items[i]) value_type();
