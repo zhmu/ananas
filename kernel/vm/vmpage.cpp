@@ -17,21 +17,11 @@
 #include "kernel-md/md.h"
 #include "kernel-md/vm.h"
 
-namespace vmpage
-{
-    VMPage& AllocatePrivate(VMArea& va, int flags)
-    {
-        auto vp = new VMPage(&va, nullptr, 0, flags | vmpage::flag::Private);
-        vp->Lock();
-        return *vp;
-    }
-} // namespace vmpage
-
 namespace
 {
     VMPage& AllocateShared(INode& inode, off_t offs, int flags)
     {
-        auto vp = new VMPage(nullptr, &inode, offs, flags);
+        auto vp = new VMPage(inode, offs, flags);
         vp->Lock();
         return *vp;
     }
@@ -41,17 +31,6 @@ VMPage::~VMPage()
 {
     vp_mtx.AssertLocked();
     KASSERT(vp_refcount == 0, "freeing page with refcount %d", vp_refcount);
-
-    // If we are hooked to a vmarea, unlink us
-    if (vp_vmarea != nullptr) {
-        for(size_t n = 0; n < vp_vmarea->va_pages.size(); ++n) {
-            auto& p = vp_vmarea->va_pages[n];
-            if (p == this) {
-                panic("~VMPage: page %p still part of vmarea\n");
-                p = nullptr;
-            }
-        }
-    }
 
     // Note that we do not hold any references to the inode (the inode owns us)
     if (vp_page != nullptr)
@@ -105,11 +84,10 @@ void VMPage::Deref()
     delete this;
 }
 
-void VMPage::Map(addr_t virt)
+void VMPage::Map(VMArea& va, addr_t virt)
 {
     AssertLocked();
-    auto& va = *vp_vmarea;
-    auto& vs = vp_vmarea->va_vs;
+    auto& vs = va.va_vs;
 
     int flags = va.va_flags;
     // Map COW pages as unwritable so we'll fault on a write
@@ -120,10 +98,9 @@ void VMPage::Map(addr_t virt)
     md::vm::MapPages(vs, virt, p->GetPhysicalAddress(), 1, flags);
 }
 
-void VMPage::Zero(addr_t virt)
+void VMPage::Zero(VMArea& va, addr_t virt)
 {
-    auto& va = *vp_vmarea;
-    auto& vs = vp_vmarea->va_vs;
+    auto& vs = va.va_vs;
     KASSERT(vs.IsCurrent(), "zero outside active vmspace");
 
     // Clear the page XXX This is unfortunate, we should have a supply of pre-zeroed pages
@@ -168,8 +145,6 @@ VMPage& vmpage_clone(
     VMSpace& vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va_dest,
     util::locked<VMPage>& vp_source)
 {
-    KASSERT(&va_source == vp_source->vp_vmarea, "area mismatch");
-
     KASSERT((vp_source->vp_flags & vmpage::flag::Pending) == 0, "trying to clone a pending page");
 
     // Always copy MD-specific pages - these tend to be modified sooner or
@@ -198,17 +173,6 @@ VMPage& vmpage_clone_dentry_page(VMSpace& vs_dest, VMArea& va, util::locked<VMPa
     auto vp_dst = &va.AllocatePrivatePage(vmpage->vp_flags | vmpage::flag::Promoted);
     vmpage->Copy(*vp_dst);
     return *vp_dst;
-}
-
-Page* VMPage::GetPage()
-{
-    return vp_page;
-}
-
-VMPage& VMPage::Resolve()
-{
-    KASSERT(vp_refcount > 0, "invalid refcount %d", vp_refcount);
-    return *this;
 }
 
 // Shared VMPages belong to an inode and not a vmspace!

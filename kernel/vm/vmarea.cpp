@@ -43,12 +43,13 @@ VMPage& VMArea::AllocatePrivatePage(int flags)
 {
     KASSERT((flags & vmpage::flag::Pending) == 0, "allocating pending page here?");
 
-    auto& new_page = vmpage::AllocatePrivate(*this, flags);
+    auto new_page = new VMPage(flags | vmpage::flag::Private);
+    new_page->Lock();
 
     // Hook a page to here as well, as the caller needs it anyway
-    new_page.vp_page = page_alloc_single();
-    KASSERT(new_page.vp_page != nullptr, "out of pages");
-    return new_page;
+    new_page->vp_page = page_alloc_single();
+    KASSERT(new_page->vp_page != nullptr, "out of pages");
+    return *new_page;
 }
 
 // Promote a COW page to a new writable page; returns the new page to use
@@ -57,7 +58,6 @@ VMPage& VMArea::PromotePage(VMPage& vp)
     kprintf("VMPage::PromotePage: vp %p\n", &vp);
 
     KASSERT((va_flags & vmarea::flag::COW) != 0, "attempt to promote in non-COW area");
-    KASSERT(vp.vp_vmarea == this, "wrong vmarea");
 
     vp.AssertLocked();
     KASSERT((vp.vp_flags & vmpage::flag::ReadOnly) == 0, "cowing r/o page");

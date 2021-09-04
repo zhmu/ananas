@@ -53,7 +53,7 @@ namespace
         auto& vp = va.va_pages[page_index];
         if (vp) vp->Deref();
         vp = &vmpage;
-        vmpage.Map(virt);
+        vmpage.Map(va, virt);
     }
 
     util::locked<VMPage> vmspace_get_dentry_backed_page(VMArea& va, off_t read_off)
@@ -224,7 +224,7 @@ Result VMSpace::HandleFault(addr_t virt, const int fault_flags)
         // We need a new VM page here; this is an anonymous mapping which we need to back
         //kprintf("VMFault: new zeroed page for %p\n", alignedVirt);
         auto& new_vp = va->AllocatePrivatePage(vmpage::flag::Private);
-        new_vp.Zero(alignedVirt);
+        new_vp.Zero(*va, alignedVirt);
         AssignPageToVirtualAddress(*va, interval, alignedVirt, new_vp);
         new_vp.Unlock();
         return Result::Success();

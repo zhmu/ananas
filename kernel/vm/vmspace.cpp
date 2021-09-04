@@ -41,8 +41,6 @@ namespace
         for(auto vp: va.va_pages) {
             if (vp == nullptr) continue;
             vp->Lock();
-            KASSERT(vp->vp_vmarea == &va, "wrong vmarea (expected %p got %p)", &va, vp->vp_vmarea);
-            vp->vp_vmarea = nullptr;
             vp->Deref();
         }
         va.va_pages.clear();
@@ -68,7 +66,6 @@ namespace
             }
 
             newVA.va_pages[(currentVa - newVA.va_virt) / PAGE_SIZE] = vp;
-            vp->vp_vmarea = &newVA;
             vp = nullptr;
         }
     }
@@ -287,7 +284,7 @@ Result VMSpace::Clone(VMSpace& vs_dest)
             va_dst->va_pages[page_index] = &new_vp;
 
             // Map the page into the cloned vmspace
-            new_vp.Map(currentVa);
+            new_vp.Map(*va_dst, currentVa);
             new_vp.Unlock();
             vp.Unlock();
         }

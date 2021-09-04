@@ -370,7 +370,7 @@ Result ELF64Loader::PrepareForExecute(
     const auto page_index = (stack_page_virt - USERLAND_STACK_ADDR) / PAGE_SIZE;
     KASSERT(page_index < va->va_pages.size(), "oeps %d %d", page_index, va->va_pages.size());
     va->va_pages[page_index] = &stack_vp;
-    stack_vp.Map(stack_end - PAGE_SIZE);
+    stack_vp.Map(*va, stack_end - PAGE_SIZE);
 
     /*
      * Calculate the amount of space we need; the ELF ABI specifies the stack to

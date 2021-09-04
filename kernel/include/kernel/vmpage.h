@@ -26,29 +26,29 @@ class VMSpace;
 struct INode;
 
 struct VMPage final {
-    VMPage(VMArea* va, INode* inode, off_t offset, int flags)
-        : vp_vmarea(va), vp_inode(inode), vp_offset(offset), vp_flags(flags), vp_page(nullptr)
+    VMPage(INode& inode, off_t offset, int flags)
+        : vp_inode(&inode), vp_offset(offset), vp_flags(flags)
     {
-        vp_refcount = 1; // instantiator
     }
-    ~VMPage();
 
-    VMArea* vp_vmarea;
+    VMPage(int flags)
+        : vp_flags(flags)
+    {
+    }
 
     int vp_flags;
-    refcount_t vp_refcount;
+    refcount_t vp_refcount = 1; // instantiator
 
     /* Backing page */
-    Page* vp_page;
+    Page* vp_page = nullptr;
 
     /* Backing inode and offset */
-    INode* vp_inode;
-    off_t vp_offset;
+    INode* vp_inode = nullptr;
+    off_t vp_offset{};
 
     void Ref();
     void Deref();
-    Page* GetPage();
-    VMPage& Resolve();
+    Page* GetPage() { return vp_page; }
 
     /*
      * Copies a (piece of) vp_src to vp_dst:
@@ -80,21 +80,14 @@ struct VMPage final {
 
     void AssertLocked();
 
-    VMPage& Link(VMArea& va_dest);
-
-    void Map(addr_t virt);
-    void Zero(addr_t virt);
+    void Map(VMArea&, addr_t virt);
+    void Zero(VMArea&, addr_t virt);
     void Dump(const char* prefix) const;
 
   private:
+    ~VMPage();
     Mutex vp_mtx{"vmpage"};
 };
-
-namespace vmpage
-{
-    VMPage& AllocatePrivate(VMArea& va, int flags);
-
-} // namespace vmpage
 
 util::locked<VMPage> vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs);
 util::locked<VMPage> vmpage_create_shared(INode& inode, off_t offs, int flags);
