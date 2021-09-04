@@ -8,6 +8,7 @@
 
 #include <ananas/stat.h> /* for 'struct stat' */
 #include <ananas/dirent.h>
+#include <ananas/util/vector.h>
 #include "kernel/list.h"
 #include "kernel/lock.h"
 #include "kernel/vmpage.h"
@@ -38,7 +39,7 @@ struct INode : util::List<INode>::NodePtr {
     void* i_privdata;            /* Filesystem-specific data */
     ino_t i_inum;                /* Inode number */
 
-    VMPageList i_pages; /* Backing VM pages, if any */
+    util::vector<VMPage*> i_pages; // Backing VM pages, if any
 
     void Lock() { i_mutex.Lock(); }
 

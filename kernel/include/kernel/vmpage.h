@@ -14,17 +14,18 @@
 
 struct Page;
 
-#define VM_PAGE_FLAG_PRIVATE (1 << 0)  /* page is private to the process */
-#define VM_PAGE_FLAG_READONLY (1 << 1) /* page cannot be modified */
-#define VM_PAGE_FLAG_COW (1 << 2)      /* page must be copied on write */
-#define VM_PAGE_FLAG_PENDING (1 << 3)  /* page is pending a read */
-#define VM_PAGE_FLAG_PROMOTED (1 << 4) /* XXX this is for debugging only */
+namespace vmpage::flag {
+    inline constexpr auto Private = (1 << 0);  // Page is private to the process
+    inline constexpr auto ReadOnly = (1 << 1); // Page cannot be modified
+    inline constexpr auto Pending = (1 << 2); // Page is pending a read
+    inline constexpr auto Promoted = (1 << 3); // XXX this is for debugging only
+}
 
 class VMArea;
 class VMSpace;
 struct INode;
 
-struct VMPage : util::List<VMPage>::NodePtr {
+struct VMPage final {
     VMPage(VMArea* va, INode* inode, off_t offset, int flags)
         : vp_vmarea(va), vp_inode(inode), vp_offset(offset), vp_flags(flags), vp_page(nullptr)
     {
@@ -37,16 +38,8 @@ struct VMPage : util::List<VMPage>::NodePtr {
     int vp_flags;
     refcount_t vp_refcount;
 
-    union {
-        /* Backing page, if any */
-        Page* vp_page;
-
-        /* Source page */
-        VMPage* vp_link;
-    };
-
-    /* Virtual address mapped to */
-    addr_t vp_vaddr = 0;
+    /* Backing page */
+    Page* vp_page;
 
     /* Backing inode and offset */
     INode* vp_inode;
@@ -89,15 +82,13 @@ struct VMPage : util::List<VMPage>::NodePtr {
 
     VMPage& Link(VMArea& va_dest);
 
-    void Map(VMSpace& vs, VMArea& va);
-    void Zero(VMSpace& vs);
+    void Map(addr_t virt);
+    void Zero(addr_t virt);
     void Dump(const char* prefix) const;
 
   private:
     Mutex vp_mtx{"vmpage"};
 };
-
-typedef util::List<VMPage> VMPageList;
 
 namespace vmpage
 {
@@ -109,5 +100,7 @@ util::locked<VMPage> vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs);
 util::locked<VMPage> vmpage_create_shared(INode& inode, off_t offs, int flags);
 
 VMPage& vmpage_clone(
-    VMSpace* vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va_dest,
+    VMSpace& vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va_dest,
     util::locked<VMPage>& vp_orig);
+
+VMPage& vmpage_clone_dentry_page(VMSpace& vs_dest, VMArea& va, util::locked<VMPage>& vmpage);

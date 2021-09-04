@@ -11,83 +11,71 @@
 
 #include "kernel/vmspace.h"
 
-#define DPRINTF(...)
+VMArea::VMArea(VMSpace& vs, addr_t virt, size_t len, int flags)
+    : va_vs(vs), va_virt(virt), va_len(len), va_flags(flags)
+{
+    const auto numberOfPages = (len + PAGE_SIZE - 1) / PAGE_SIZE;
+    va_pages.resize(numberOfPages);
+}
 
 VMArea::~VMArea()
 {
-    KASSERT(va_pages.empty(), "destroyed while still owning pages");
+    size_t n{};
+    for(auto vp: va_pages) {
+        if (vp != nullptr) ++n;
+    }
+    KASSERT(n == 0, "vmarea destroyed while still holding %d page(s)", n);
 }
 
 VMPage* VMArea::LookupVAddrAndLock(addr_t vaddr)
 {
-    for (auto vmpage : va_pages) {
-        if (vmpage->vp_vaddr != vaddr)
-            continue;
+    if (vaddr < va_virt) return nullptr;
+    if (vaddr >= va_virt + va_len) return nullptr;
 
-        vmpage->Lock();
-        return vmpage;
-    }
+    auto& vmpage = va_pages[(vaddr - va_virt) / PAGE_SIZE];
+    if (vmpage == nullptr) return nullptr;
 
-    // Nothing was found
-    return nullptr;
+    vmpage->Lock();
+    return vmpage;
 }
 
-VMPage& VMArea::AllocatePrivatePage(addr_t va, int flags)
+VMPage& VMArea::AllocatePrivatePage(int flags)
 {
-    KASSERT((flags & VM_PAGE_FLAG_COW) == 0, "allocating cow page here?");
-    KASSERT((flags & VM_PAGE_FLAG_PENDING) == 0, "allocating pending page here?");
+    KASSERT((flags & vmpage::flag::Pending) == 0, "allocating pending page here?");
 
     auto& new_page = vmpage::AllocatePrivate(*this, flags);
 
     // Hook a page to here as well, as the caller needs it anyway
-    new_page.vp_vaddr = va;
     new_page.vp_page = page_alloc_single();
     KASSERT(new_page.vp_page != nullptr, "out of pages");
     return new_page;
 }
 
+// Promote a COW page to a new writable page; returns the new page to use
 VMPage& VMArea::PromotePage(VMPage& vp)
 {
+    kprintf("VMPage::PromotePage: vp %p\n", &vp);
+
+    KASSERT((va_flags & vmarea::flag::COW) != 0, "attempt to promote in non-COW area");
     KASSERT(vp.vp_vmarea == this, "wrong vmarea");
 
-    // This promotes a COW page to a new writable page
     vp.AssertLocked();
-    KASSERT((vp.vp_flags & VM_PAGE_FLAG_COW) != 0, "attempt to promote non-COW page");
-    KASSERT((vp.vp_flags & VM_PAGE_FLAG_READONLY) == 0, "cowing r/o page");
-    KASSERT((vp.vp_flags & VM_PAGE_FLAG_PROMOTED) == 0, "promoting promoted page %p", &vp);
-    KASSERT(vp.vp_refcount > 0, "invalid refcount of vp");
+    KASSERT((vp.vp_flags & vmpage::flag::ReadOnly) == 0, "cowing r/o page");
+    KASSERT((vp.vp_flags & vmpage::flag::Promoted) == 0, "promoting promoted page %p", &vp);
 
-    /*
-     * No linked page in between - we now either:
-     * (a) [refcount==1] Need to just mark the current page as non-COW, as it is the last one
-     * (b) [refcount>1]  Allocate a new page, copying the current data to it
-     */
     if (vp.vp_refcount == 1) {
-        // (a) We *are* the source page! We can just use it
-        DPRINTF(
-            "vmpage_promote(): vp %p, we are the last page - using it! (page %p @ %p)\n", &vp,
-            vp.vp_page, vp.vp_vaddr);
-        vp.vp_flags = (vp.vp_flags & ~VM_PAGE_FLAG_COW) | VM_PAGE_FLAG_PRIVATE;
+        // Only a single reference - we can make this page writable since no one
+        // else is using it
+        vp.vp_flags |= vmpage::flag::Private;
         return vp;
     }
 
-    // (b) We have the original page - must allocate a new one, as we can't
-    // touch this one (it is used by other refs we cannot touch)
-    auto& new_vp = AllocatePrivatePage(vp.vp_vaddr, vp.vp_flags & ~VM_PAGE_FLAG_COW);
-    DPRINTF(
-        "vmpage_promote(): made new vp %p page %p for %p @ %p\n", &new_vp, new_vp.vp_page, &vp,
-        new_vp.vp_vaddr);
-    new_vp.vp_flags |= VM_PAGE_FLAG_PROMOTED;
+    // Page has other users - make a copy for the caller (which is no longer
+    // read-only)
+    auto& new_vp = AllocatePrivatePage(vp.vp_flags);
+    new_vp.vp_flags |= vmpage::flag::Promoted;
 
     vp.Copy(new_vp);
-
-    /*
-     * Sever the connection to the vmarea; we have made a copy of the page
-     * itself, so it no longer belongs there. This prevents it from being
-     * shared during a clone and such.
-     */
-    va_pages.remove(&vp);
-    vp.vp_vmarea = nullptr;
     vp.Deref();
     return new_vp;
 }

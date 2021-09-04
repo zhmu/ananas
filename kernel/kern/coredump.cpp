@@ -324,6 +324,7 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
         if (va->va_dentry == nullptr)
             continue;
         *p++ = va->va_virt;             // start
+
         *p++ = va->va_virt + va->va_len; // end
         if ((va->va_doffset % PAGE_SIZE) != 0)
             kprintf("UNALIGNED DOFFSET %x\n", (int)va->va_doffset);
@@ -399,13 +400,16 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
     ph_begin = (ph_begin | (PAGE_SIZE - 1)) + 1;
     size_t ph_index = 0;
     for (auto& [ interval, va ] : vs.vs_areamap) {
-        for (auto vp : va->va_pages) {
+        size_t page_index = 0;
+        for(size_t page_index = 0; page_index < va->va_pages.size(); ++page_index) {
+            auto vp = va->va_pages[page_index];
+            if (vp == nullptr) continue;
             Elf64_Phdr phdr;
 
             memset(&phdr, 0, sizeof(phdr));
             phdr.p_type = PT_LOAD;
             phdr.p_offset = ph_begin + ph_index * PAGE_SIZE;
-            phdr.p_vaddr = vp->vp_vaddr;
+            phdr.p_vaddr = interval.begin + page_index * PAGE_SIZE;
             phdr.p_filesz = PAGE_SIZE;
             phdr.p_align = PAGE_SIZE;
             phdr.p_memsz = PAGE_SIZE;
@@ -420,7 +424,7 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
             if (auto result = vfs_write(f, &phdr, sizeof(phdr)); result.IsFailure())
                 return result;
 
-            ph_index++;
+            ++ph_index;
         }
     }
 
@@ -438,8 +442,10 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
 
     // Store the page content
     for (auto& [ interval, va ] : vs.vs_areamap) {
-        for (auto vp : va->va_pages) {
-            if (auto result = vfs_write(f, reinterpret_cast<void*>(vp->vp_vaddr), PAGE_SIZE);
+        size_t page_index = 0;
+        for(size_t page_index = 0; page_index < va->va_pages.size(); ++page_index) {
+            auto vp = va->va_pages[page_index];
+            if (auto result = vfs_write(f, reinterpret_cast<void*>(interval.begin + page_index * PAGE_SIZE), PAGE_SIZE);
                 result.IsFailure())
                 return result;
         }

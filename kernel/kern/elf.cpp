@@ -365,8 +365,12 @@ Result ELF64Loader::PrepareForExecute(
 
     // Pre-fault the first page so that we can put stuff in it
     constexpr auto stack_end = USERLAND_STACK_ADDR + THREAD_STACK_SIZE;
-    VMPage& stack_vp = va->AllocatePrivatePage(stack_end - PAGE_SIZE, VM_PAGE_FLAG_PRIVATE);
-    stack_vp.Map(vs, *va);
+    constexpr auto stack_page_virt = stack_end - PAGE_SIZE;
+    VMPage& stack_vp = va->AllocatePrivatePage(vmpage::flag::Private);
+    const auto page_index = (stack_page_virt - USERLAND_STACK_ADDR) / PAGE_SIZE;
+    KASSERT(page_index < va->va_pages.size(), "oeps %d %d", page_index, va->va_pages.size());
+    va->va_pages[page_index] = &stack_vp;
+    stack_vp.Map(stack_end - PAGE_SIZE);
 
     /*
      * Calculate the amount of space we need; the ELF ABI specifies the stack to

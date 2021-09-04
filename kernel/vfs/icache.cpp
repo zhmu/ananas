@@ -77,8 +77,8 @@ namespace
                 fs->fs_fsops->discard_inode(inode);
 
             // Free pages belonging on the inode
-            for (auto& vp : inode.i_pages)
-                vp.Deref();
+            for (auto vp : inode.i_pages)
+                vp->Deref();
             inode.i_pages.clear();
 
             inode.i_refcount = -1; // in case someone tries to use it
@@ -286,8 +286,8 @@ void vfs_dump_inode(INode& inode)
     kprintf("  uid/gid = %u:%u\n", sb->st_uid, sb->st_gid);
     kprintf("  size    = %u\n", (uint32_t)sb->st_size); /* XXX for now */
     kprintf("  blksize = %u\n", sb->st_blksize);
-    for (const auto& vp : inode.i_pages) {
-        vp.Dump("    ");
+    for (auto vp : inode.i_pages) {
+        vp->Dump("    ");
     }
 }
 

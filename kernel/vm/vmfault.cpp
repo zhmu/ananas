@@ -42,9 +42,18 @@ namespace
     {
         int flags = 0;
         if ((va.va_flags & (VM_FLAG_READ | VM_FLAG_WRITE)) == VM_FLAG_READ) {
-            flags |= VM_PAGE_FLAG_READONLY;
+            flags |= vmpage::flag::ReadOnly;
         }
         return flags;
+    }
+
+    void AssignPageToVirtualAddress(VMArea& va, const VAInterval& interval, const addr_t virt, VMPage& vmpage)
+    {
+        const auto page_index = (virt - interval.begin) / PAGE_SIZE;
+        auto& vp = va.va_pages[page_index];
+        if (vp) vp->Deref();
+        vp = &vmpage;
+        vmpage.Map(virt);
     }
 
     util::locked<VMPage> vmspace_get_dentry_backed_page(VMArea& va, off_t read_off)
@@ -56,11 +65,11 @@ namespace
             // we'll copy if needed
             vmpage = vmpage_create_shared(
                 *va.va_dentry->d_inode, read_off,
-                VM_PAGE_FLAG_PENDING | vmspace_page_flags_from_va(va));
+                vmpage::flag::Pending | vmspace_page_flags_from_va(va));
         }
         // vmpage will be locked at this point!
 
-        if ((vmpage->vp_flags & VM_PAGE_FLAG_PENDING) == 0)
+        if ((vmpage->vp_flags & vmpage::flag::Pending) == 0)
             return vmpage;
 
         // Read the page - note that we hold the vmpage lock while doing this
@@ -83,7 +92,7 @@ namespace
 
         // Update the vm page to contain our new address
         vmpage->vp_page = p;
-        vmpage->vp_flags &= ~VM_PAGE_FLAG_PENDING;
+        vmpage->vp_flags &= ~vmpage::flag::Pending;
         return vmpage;
     }
 } // unnamed namespace
@@ -110,9 +119,9 @@ void DumpVMSpace(VMSpace& vmspace)
     kprintf("dump end\n");
 }
 
-Result VMSpace::HandleFault(addr_t virt, int flags)
+Result VMSpace::HandleFault(addr_t virt, const int fault_flags)
 {
-    //kprintf("HandleFault(): vs=%p, virt=%p, flags=0x%x\n", this, virt, flags);
+    //kprintf(">> HandleFault(): vs=%p, virt=%p, flags=0x%x\n", this, virt, fault_flags);
 
     // Walk through the areas one by one
     for (auto& [interval, va ] : vs_areamap) {
@@ -127,13 +136,14 @@ Result VMSpace::HandleFault(addr_t virt, int flags)
             va->va_len, va->va_flags);
 
         // See if we have this page mapped
-        VMPage* vp = va->LookupVAddrAndLock(virt & ~(PAGE_SIZE - 1));
+        const auto alignedVirt = virt & ~(PAGE_SIZE - 1);
+        VMPage* vp = va->LookupVAddrAndLock(alignedVirt);
         if (vp != nullptr) {
-            if ((flags & VM_FLAG_WRITE) && (vp->vp_flags & VM_PAGE_FLAG_COW)) {
+            if ((fault_flags & VM_FLAG_WRITE) && (va->va_flags & vmarea::flag::COW)) {
                 // Promote our copy to a writable page and update the mapping
-                KASSERT((vp->vp_flags & VM_PAGE_FLAG_READONLY) == 0, "cowing r/o page");
+                KASSERT((vp->vp_flags & vmpage::flag::ReadOnly) == 0, "cowing r/o page");
                 vp = &va->PromotePage(*vp);
-                vp->Map(*this, *va);
+                AssignPageToVirtualAddress(*va, interval, alignedVirt, *vp);
                 vp->Unlock();
                 return Result::Success();
             }
@@ -170,8 +180,7 @@ Result VMSpace::HandleFault(addr_t virt, int flags)
              *                   \
              *                    va_dlength
              */
-            off_t read_off = (virt & ~(PAGE_SIZE - 1)) -
-                             va->va_virt; // offset in area, still needs va_doffset added
+            const auto read_off = alignedVirt - va->va_virt; // offset in area, still needs va_doffset added
             if (read_off < va->va_dlength) {
                 // At least (part of) the page is to be read from the backing dentry -
                 // this means we want the entire page
@@ -190,13 +199,11 @@ Result VMSpace::HandleFault(addr_t virt, int flags)
                     // Just clone the page; it could both be an inode-backed page (if
                     // this is a private COW) or vmspace-backed if we are COW-ing from a
                     // parent
-                    new_vp = &vmpage_clone(nullptr, *this, *va, *va, vmpage);
-                    new_vp->vp_vaddr = virt & ~(PAGE_SIZE - 1);
+                    new_vp = &vmpage_clone_dentry_page(*this, *va, vmpage);
                 } else {
                     // Cannot re-use; create a new VM page, with appropriate flags based on the va
                     new_vp = &va->AllocatePrivatePage(
-                        virt & ~(PAGE_SIZE - 1),
-                        VM_PAGE_FLAG_PRIVATE | vmspace_page_flags_from_va(*va));
+                        vmpage::flag::Private | vmspace_page_flags_from_va(*va));
 
                     // Now copy the parts of the dentry-backed page
                     size_t copy_len =
@@ -205,23 +212,20 @@ Result VMSpace::HandleFault(addr_t virt, int flags)
                         copy_len = PAGE_SIZE;
                     vmpage->CopyExtended(*new_vp, copy_len);
                 }
-                vmpage.Unlock();
+                if (new_vp != &*vmpage)
+                    vmpage.Unlock();
 
-                // Finally, update the permissions and we are done
-                new_vp->Map(*this, *va);
+                AssignPageToVirtualAddress(*va, interval, alignedVirt, *new_vp);
                 new_vp->Unlock();
                 return Result::Success();
             }
         }
 
         // We need a new VM page here; this is an anonymous mapping which we need to back
-        auto& new_vp = va->AllocatePrivatePage(virt & ~(PAGE_SIZE - 1), VM_PAGE_FLAG_PRIVATE);
-
-        // Ensure the page cleaned so we don't leak any information
-        new_vp.Zero(*this);
-
-        // And now (re)map the page for the caller
-        new_vp.Map(*this, *va);
+        //kprintf("VMFault: new zeroed page for %p\n", alignedVirt);
+        auto& new_vp = va->AllocatePrivatePage(vmpage::flag::Private);
+        new_vp.Zero(alignedVirt);
+        AssignPageToVirtualAddress(*va, interval, alignedVirt, new_vp);
         new_vp.Unlock();
         return Result::Success();
     }

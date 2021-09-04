@@ -50,6 +50,7 @@ struct VMSpace {
     Result Map(size_t len /* bytes */, uint32_t flags, VMArea*& va_out);
     Result Clone(VMSpace& vs_dest);
     void Dump();
+    bool IsCurrent() const;
 
     addr_t ReserveAdressRange(size_t len);
     Result HandleFault(addr_t virt, int flags);

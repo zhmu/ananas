@@ -8,6 +8,7 @@
 #include <ananas/errno.h>
 #include "kernel/lib.h"
 #include "kernel/mm.h"
+#include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/vmarea.h"
 #include "kernel/vmpage.h"
@@ -38,6 +39,7 @@ namespace
 
         // Free all pages owned by this VA
         for(auto vp: va.va_pages) {
+            if (vp == nullptr) continue;
             vp->Lock();
             KASSERT(vp->vp_vmarea == &va, "wrong vmarea (expected %p got %p)", &va, vp->vp_vmarea);
             vp->vp_vmarea = nullptr;
@@ -58,16 +60,16 @@ namespace
 
     void MigratePagesToNewVA(VMArea& va, const VAInterval& interval, VMArea& newVA)
     {
-        for (auto it = va.va_pages.begin(); it != va.va_pages.end(); /* nothing */) {
-            auto& vp = **it;
-            if (!interval.contains(vp.vp_vaddr)) {
-                ++it;
+        addr_t currentVa = interval.begin;
+        for(size_t page_index = 0; page_index < va.va_pages.size(); ++page_index, currentVa += PAGE_SIZE) {
+            auto& vp = va.va_pages[page_index];
+            if (vp == nullptr || !interval.contains(currentVa)) {
                 continue;
             }
 
-            it = va.va_pages.erase(it);
-            vp.vp_vmarea = &newVA;
-            newVA.va_pages.push_back(&vp);
+            newVA.va_pages[(currentVa - newVA.va_virt) / PAGE_SIZE] = vp;
+            vp->vp_vmarea = &newVA;
+            vp = nullptr;
         }
     }
 
@@ -160,7 +162,7 @@ void vmspace_destroy(VMSpace& vs)
 {
     FreeAllAreas(vs);
 
-    KASSERT(&vs != &process::GetCurrent().p_vmspace, "destroying active vmspace");
+    KASSERT(!vs.IsCurrent(), "destroying active vmspace");
     while(!vs.vs_md_pages.empty()) {
         auto& page = vs.vs_md_pages.front();
         vs.vs_md_pages.pop_front();
@@ -253,6 +255,7 @@ Result VMSpace::Clone(VMSpace& vs_dest)
     /* Now copy everything over that isn't private */
     for (auto& [srcInterval, va_src ]: vs_areamap) {
         VMArea* va_dst;
+        //kprintf("VMArea Clone: cloning %p..%p\n", srcInterval.begin, srcInterval.end);
         if (auto result = vs_dest.MapTo(srcInterval, va_src->va_flags, va_dst);
             result.IsFailure())
             return result;
@@ -265,7 +268,13 @@ Result VMSpace::Clone(VMSpace& vs_dest)
         }
 
         // Copy the area page-wise
-        for (auto p : va_src->va_pages) {
+        KASSERT(va_src->va_pages.size() == va_dst->va_pages.size(), "oops");
+        //kprintf("Cloning va_src of %d pages\n", va_src->va_pages.size());
+        auto currentVa = srcInterval.begin;
+        for(size_t page_index = 0; page_index < va_src->va_pages.size(); ++page_index, currentVa += PAGE_SIZE) {
+            auto p = va_src->va_pages[page_index];
+            if (p == nullptr) continue;
+
             p->Lock();
             util::locked<VMPage> vp(*p);
             KASSERT(
@@ -273,10 +282,12 @@ Result VMSpace::Clone(VMSpace& vs_dest)
                 vp->GetPage()->p_order);
 
             // Create a clone of the data; it is up to the vmpage how to do this (it may go for COW)
-            VMPage& new_vp = vmpage_clone(this, vs_dest, *va_src, *va_dst, vp);
+            //kprintf("Clone: cloning virt %p\n", currentVa);
+            VMPage& new_vp = vmpage_clone(*this, vs_dest, *va_src, *va_dst, vp);
+            va_dst->va_pages[page_index] = &new_vp;
 
             // Map the page into the cloned vmspace
-            new_vp.Map(vs_dest, *va_dst);
+            new_vp.Map(currentVa);
             new_vp.Unlock();
             vp.Unlock();
         }
@@ -311,4 +322,9 @@ void VMSpace::Dump()
             vp->Dump("      ");
         }
     }
+}
+
+bool VMSpace::IsCurrent() const
+{
+    return &process::GetCurrent().p_vmspace == this;
 }
