@@ -27,6 +27,22 @@ namespace
     }
 }
 
+namespace vmpage
+{
+    VMPage& AllocatePrivatePage(int flags)
+    {
+        KASSERT((flags & vmpage::flag::Pending) == 0, "allocating pending page here?");
+
+        auto new_page = new VMPage(flags | vmpage::flag::Private);
+        new_page->Lock();
+
+        // Hook a page to here as well, as the caller needs it anyway
+        new_page->vp_page = page_alloc_single();
+        KASSERT(new_page->vp_page != nullptr, "out of pages");
+        return *new_page;
+    }
+}
+
 VMPage::~VMPage()
 {
     vp_mtx.AssertLocked();
@@ -150,7 +166,7 @@ VMPage& vmpage_clone(
     // Always copy MD-specific pages - these tend to be modified sooner or
     // later
     if ((va_source.va_flags & VM_FLAG_MD) != 0 || true) {
-        auto vp_dst = &va_dest.AllocatePrivatePage(vp_source->vp_flags);
+        auto vp_dst = &vmpage::AllocatePrivatePage(vp_source->vp_flags);
         vp_source->Copy(*vp_dst);
         return *vp_dst;
     }
@@ -170,7 +186,7 @@ VMPage& vmpage_clone_dentry_page(VMSpace& vs_dest, VMArea& va, util::locked<VMPa
     }
 #endif
 
-    auto vp_dst = &va.AllocatePrivatePage(vmpage->vp_flags | vmpage::flag::Promoted);
+    auto vp_dst = &vmpage::AllocatePrivatePage(vmpage->vp_flags | vmpage::flag::Promoted);
     vmpage->Copy(*vp_dst);
     return *vp_dst;
 }
@@ -199,6 +215,26 @@ util::locked<VMPage> vmpage_create_shared(INode& inode, off_t offs, int flags)
     inode.i_pages.push_back(&new_page);
     inode.Unlock();
     return util::locked<VMPage>(new_page);
+}
+
+VMPage& VMPage::Promote()
+{
+    AssertLocked();
+    KASSERT((vp_flags & vmpage::flag::ReadOnly) == 0, "cowing r/o page");
+    KASSERT((vp_flags & vmpage::flag::Promoted) == 0, "promoting promoted page %p", this);
+
+    if (vp_refcount == 1) {
+        // Only a single reference - we can make this page writable since no one
+        // else is using it
+        vp_flags |= vmpage::flag::Private;
+        return *this;
+    }
+
+    // Page has other users - make a copy for the caller (which is no longer
+    // read-only)
+    auto& new_vp = vmpage::AllocatePrivatePage(vp_flags);
+    Copy(new_vp);
+    return new_vp;
 }
 
 void VMPage::Dump(const char* prefix) const

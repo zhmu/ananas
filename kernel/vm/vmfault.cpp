@@ -142,9 +142,10 @@ Result VMSpace::HandleFault(addr_t virt, const int fault_flags)
             if ((fault_flags & VM_FLAG_WRITE) && (va->va_flags & vmarea::flag::COW)) {
                 // Promote our copy to a writable page and update the mapping
                 KASSERT((vp->vp_flags & vmpage::flag::ReadOnly) == 0, "cowing r/o page");
-                vp = &va->PromotePage(*vp);
-                AssignPageToVirtualAddress(*va, interval, alignedVirt, *vp);
-                vp->Unlock();
+                auto& new_vp = vp->Promote();
+                if (&new_vp != vp) vp->Unlock();
+                AssignPageToVirtualAddress(*va, interval, alignedVirt, new_vp);
+                new_vp.Unlock();
                 return Result::Success();
             }
 
@@ -202,7 +203,7 @@ Result VMSpace::HandleFault(addr_t virt, const int fault_flags)
                     new_vp = &vmpage_clone_dentry_page(*this, *va, vmpage);
                 } else {
                     // Cannot re-use; create a new VM page, with appropriate flags based on the va
-                    new_vp = &va->AllocatePrivatePage(
+                    new_vp = &vmpage::AllocatePrivatePage(
                         vmpage::flag::Private | vmspace_page_flags_from_va(*va));
 
                     // Now copy the parts of the dentry-backed page
@@ -223,7 +224,7 @@ Result VMSpace::HandleFault(addr_t virt, const int fault_flags)
 
         // We need a new VM page here; this is an anonymous mapping which we need to back
         //kprintf("VMFault: new zeroed page for %p\n", alignedVirt);
-        auto& new_vp = va->AllocatePrivatePage(vmpage::flag::Private);
+        auto& new_vp = vmpage::AllocatePrivatePage(vmpage::flag::Private);
         new_vp.Zero(*va, alignedVirt);
         AssignPageToVirtualAddress(*va, interval, alignedVirt, new_vp);
         new_vp.Unlock();

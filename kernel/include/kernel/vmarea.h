@@ -45,8 +45,6 @@ struct VMArea final : util::List<VMArea>::NodePtr {
     ~VMArea();
 
     VMPage* LookupVAddrAndLock(addr_t vaddr);
-    VMPage& AllocatePrivatePage(int flags);
-    VMPage& PromotePage(VMPage& vp);
 
     VMSpace& va_vs;
     const unsigned int va_flags;    // flags, combination of VM_FLAG_...

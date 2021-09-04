@@ -37,7 +37,6 @@ struct VMPage final {
     }
 
     int vp_flags;
-    refcount_t vp_refcount = 1; // instantiator
 
     /* Backing page */
     Page* vp_page = nullptr;
@@ -49,6 +48,9 @@ struct VMPage final {
     void Ref();
     void Deref();
     Page* GetPage() { return vp_page; }
+
+    // Promote a COW page to a new writable page; returns the (new) page to use
+    VMPage& Promote();
 
     /*
      * Copies a (piece of) vp_src to vp_dst:
@@ -86,8 +88,15 @@ struct VMPage final {
 
   private:
     ~VMPage();
+
     Mutex vp_mtx{"vmpage"};
+    refcount_t vp_refcount = 1; // instantiator
 };
+
+namespace vmpage
+{
+    VMPage& AllocatePrivatePage(int flags);
+}
 
 util::locked<VMPage> vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs);
 util::locked<VMPage> vmpage_create_shared(INode& inode, off_t offs, int flags);
