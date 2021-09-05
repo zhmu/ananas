@@ -366,7 +366,7 @@ Result ELF64Loader::PrepareForExecute(
     // Pre-fault the first page so that we can put stuff in it
     constexpr auto stack_end = USERLAND_STACK_ADDR + THREAD_STACK_SIZE;
     constexpr auto stack_page_virt = stack_end - PAGE_SIZE;
-    auto& stack_vp = vmpage::AllocatePrivatePage(vmpage::flag::Private);
+    auto& stack_vp = vmpage::Allocate(0);
     const auto page_index = (stack_page_virt - USERLAND_STACK_ADDR) / PAGE_SIZE;
     KASSERT(page_index < va->va_pages.size(), "oeps %d %d", page_index, va->va_pages.size());
     va->va_pages[page_index] = &stack_vp;

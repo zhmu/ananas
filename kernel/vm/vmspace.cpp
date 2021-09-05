@@ -113,17 +113,6 @@ namespace
             return;
         }
     }
-
-    bool IsDEntryCOWAllowed(const int flags)
-    {
-        return false;
-        if ((flags & VM_FLAG_USER) == 0) return false;
-        if ((flags & VM_FLAG_WRITE) == 0) return false;
-        if ((flags & VM_FLAG_DEVICE) == 0) return false;
-        if ((flags & VM_FLAG_MD) == 0) return false;
-        return true;
-    }
-
 } // unnamed namespace
 
 addr_t VMSpace::ReserveAdressRange(size_t len)
@@ -207,10 +196,6 @@ Result VMSpace::MapToDentry(
 
     KASSERT((de.begin & (PAGE_SIZE - 1)) == 0, "offset %d not page-aligned", de.begin);
 
-    if (IsDEntryCOWAllowed(flags)) {
-        flags |= vmarea::flag::COW;
-        kprintf("MapToDentry: using COW for %p..%p\n", vaInterval.begin, vaInterval.end);
-    }
     if (auto result = MapTo(vaInterval, flags, va_out); result.IsFailure())
         return result;
 
@@ -273,7 +258,7 @@ Result VMSpace::Clone(VMSpace& vs_dest)
                 vp->GetPage()->p_order == 0, "unexpected %d order page here",
                 vp->GetPage()->p_order);
 
-            auto& new_vp = vp->Clone(*va_src, currentVa);
+            auto& new_vp = vp->Clone(*this, *va_src, currentVa);
             va_dst->va_pages[page_index] = &new_vp;
 
             // Map the page into the cloned vmspace

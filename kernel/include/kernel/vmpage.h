@@ -15,10 +15,8 @@
 struct Page;
 
 namespace vmpage::flag {
-    inline constexpr auto Private = (1 << 0);  // Page is private to the process
-    inline constexpr auto ReadOnly = (1 << 1); // Page cannot be modified
-    inline constexpr auto Pending = (1 << 2); // Page is pending a read
-    inline constexpr auto Promoted = (1 << 3); // Page is explicitly writable (used for COW)
+    inline constexpr auto Pending = (1 << 0); // Page is pending a read
+    inline constexpr auto Promoted = (1 << 1); // Page is writable (used for COW)
 }
 
 class VMArea;
@@ -81,7 +79,7 @@ struct VMPage final {
     void Zero(VMSpace&, VMArea&, addr_t virt);
     void Dump(const char* prefix) const;
 
-    VMPage& Clone(VMArea& va_source, addr_t virt);
+    VMPage& Clone(VMSpace&, VMArea& va_source, addr_t virt);
     VMPage& Duplicate();
 
   private:
@@ -93,7 +91,7 @@ struct VMPage final {
 
 namespace vmpage
 {
-    VMPage& AllocatePrivatePage(int flags);
+    VMPage& Allocate(int flags);
 
     util::locked<VMPage> LookupOrCreateINodePage(INode& inode, off_t offs, int flags);
 }

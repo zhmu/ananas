@@ -21,11 +21,11 @@
 
 namespace vmpage
 {
-    VMPage& AllocatePrivatePage(int flags)
+    VMPage& Allocate(int flags)
     {
         KASSERT((flags & vmpage::flag::Pending) == 0, "allocating pending page here?");
 
-        auto new_page = new VMPage(flags | vmpage::flag::Private);
+        auto new_page = new VMPage(flags);
         new_page->Lock();
 
         // Hook a page to here as well, as the caller needs it anyway
@@ -117,9 +117,8 @@ void VMPage::Map(VMSpace& vs, VMArea& va, addr_t virt)
 {
     AssertLocked();
 
-    // Map COW pages as unwritable so we'll fault on a write
     auto flags = va.va_flags;
-    if ((va.va_flags & vmarea::flag::COW) != 0 && (vp_flags & vmpage::flag::Promoted) == 0)
+    if ((vp_flags & vmpage::flag::Promoted) == 0)
         flags &= ~VM_FLAG_WRITE;
 
     const Page* p = GetPage();
@@ -136,7 +135,7 @@ void VMPage::Zero(VMSpace& vs, VMArea& va, addr_t virt)
     memset((void*)virt, 0, PAGE_SIZE);
 }
 
-VMPage& VMPage::Clone(VMArea& va_source, addr_t virt)
+VMPage& VMPage::Clone(VMSpace& vs, VMArea& va_source, addr_t virt)
 {
     KASSERT((vp_flags & vmpage::flag::Pending) == 0, "trying to clone a pending page");
 
@@ -146,7 +145,7 @@ VMPage& VMPage::Clone(VMArea& va_source, addr_t virt)
 
     // Always copy MD-specific pages; don't want pagefaults in kernel stack
     if (IsVAFlagSet(VM_FLAG_MD)) {
-        auto vp_dst = &vmpage::AllocatePrivatePage(vp_flags);
+        auto vp_dst = &vmpage::Allocate(vp_flags);
         Copy(*vp_dst);
         return *vp_dst;
     }
@@ -159,28 +158,28 @@ VMPage& VMPage::Clone(VMArea& va_source, addr_t virt)
 
 #if 0
     // Make the source COW and force the mapping to be updated
-    KASSERT((vp_flags & vmpage::flag::Promoted) == 0, "cow-ing promoted page %p??", virt);
-    kprintf("vmpage_clone %d: making %p cow\n", process::GetCurrent().p_pid, virt);
-    va_source.va_flags |= vmarea::flag::COW;
-    Map(va_source, virt);
-
+    kprintf("vmpage_clone %d: making %p virt %p cow\n", process::GetCurrent().p_pid, this, virt);
+    //KASSERT((vp_flags & vmpage::flag::Promoted) == 0, "cow-ing promoted page %p??", virt);
+    if ((vp_flags & vmpage::flag::Promoted) != 0) {
+        kprintf("demoting page %p for virt %p\n", this, virt);
+        vp_flags &= ~vmpage::flag::Promoted;
+        Map(vs, va_source, virt);
+    }
     Ref();
     return *this;
-
+#else
     // XXX for now make a copy
-    kprintf("TODO doing copy now for %p..%p\n", va_source.va_virt, va_source.va_virt + va_source.va_len);
-#endif
-
-    auto vp_dst = &vmpage::AllocatePrivatePage(vp_flags);
+    auto vp_dst = &vmpage::Allocate(vp_flags);
     Copy(*vp_dst);
     return *vp_dst;
+#endif
 }
 
 VMPage& VMPage::Duplicate()
 {
     KASSERT((vp_flags & vmpage::flag::Pending) == 0, "trying to duplicate a pending page");
 
-    auto vp_dst = &vmpage::AllocatePrivatePage(vp_flags | vmpage::flag::Promoted);
+    auto vp_dst = &vmpage::Allocate(vp_flags | vmpage::flag::Promoted);
     Copy(*vp_dst);
     return *vp_dst;
 }
@@ -188,14 +187,13 @@ VMPage& VMPage::Duplicate()
 VMPage& VMPage::Promote()
 {
     AssertLocked();
-    KASSERT((vp_flags & vmpage::flag::ReadOnly) == 0, "cowing r/o page");
     KASSERT((vp_flags & vmpage::flag::Promoted) == 0, "promoting promoted page %p", this);
 
-    if (vp_refcount == 1 && (vp_flags & vmpage::flag::Private) == 0) {
+    if (vp_refcount == 1) {
         // Only a single reference - we can make this page writable since no one
         // else is using it
         kprintf("Promote %d/%p: making it writable\n", process::GetCurrent().p_pid, this);
-        vp_flags |= vmpage::flag::Private | vmpage::flag::Promoted;
+        vp_flags |= vmpage::flag::Promoted;
         return *this;
     }
 
@@ -208,9 +206,7 @@ VMPage& VMPage::Promote()
 void VMPage::Dump(const char* prefix) const
 {
     kprintf(
-        "%s%p: refcount %d flags %s/%s/%c offset %d", prefix, this, vp_refcount,
-        (vp_flags & vmpage::flag::Private) ? "prv" : "pub",
-        (vp_flags & vmpage::flag::ReadOnly) ? "ro" : "rw",
+        "%s%p: refcount %d flags %c offset %d", prefix, this, vp_refcount,
         (vp_flags & vmpage::flag::Pending) ? 'p' : '.',
         static_cast<int>(vp_offset));
     if (vp_page != nullptr)

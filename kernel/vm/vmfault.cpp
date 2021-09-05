@@ -40,15 +40,6 @@ namespace
         return Result::Success();
     }
 
-    int DeterminePageFlagsFromVMArea(const VMArea& va)
-    {
-        int flags = 0;
-        if ((va.va_flags & (VM_FLAG_READ | VM_FLAG_WRITE)) == VM_FLAG_READ) {
-            flags |= vmpage::flag::ReadOnly;
-        }
-        return flags;
-    }
-
     void AssignPageToVirtualAddress(VMSpace& vs, VMArea& va, const VAInterval& interval, const addr_t virt, VMPage& vmpage)
     {
         const auto page_index = (virt - interval.begin) / PAGE_SIZE;
@@ -65,7 +56,7 @@ namespace
     {
         auto vmpage = vmpage::LookupOrCreateINodePage(
                 *va.va_dentry->d_inode, read_off,
-                vmpage::flag::Pending | DeterminePageFlagsFromVMArea(va));
+                vmpage::flag::Pending);
         if ((vmpage->vp_flags & vmpage::flag::Pending) == 0)
             return vmpage;
 
@@ -100,7 +91,7 @@ namespace
         return new_vp;
     }
 
-    bool HandleDEntryBackedFault(VMSpace& vs, VMArea& va, const VAInterval& interval, const addr_t alignedVirt)
+    VMPage* HandleDEntryBackedFault(VMSpace& vs, VMArea& va, const VAInterval& interval, const addr_t alignedVirt)
     {
         /*
          * The way dentries are mapped to virtual address is:
@@ -122,7 +113,7 @@ namespace
          */
         const auto read_off = alignedVirt - va.va_virt; // offset in area, still needs va_doffset added
         if (read_off >= va.va_dlength)
-            return false; // outside of dentry; must be zero-filled
+            return nullptr; // outside of dentry; must be zero-filled
 
         // At least (part of) the page is to be read from the backing dentry -
         // this means we want the entire page
@@ -143,8 +134,7 @@ namespace
             new_vp = &vmpage->Duplicate();
         } else {
             // Cannot re-use; create a new VM page, with appropriate flags based on the va
-            new_vp = &vmpage::AllocatePrivatePage(
-                vmpage::flag::Private | DeterminePageFlagsFromVMArea(va));
+            new_vp = &vmpage::Allocate(0);
 
             // Now copy the parts of the dentry-backed page
             size_t copy_len =
@@ -154,10 +144,7 @@ namespace
             vmpage->CopyExtended(*new_vp, copy_len);
         }
         vmpage.Unlock();
-
-        AssignPageToVirtualAddress(vs, va, interval, alignedVirt, *new_vp);
-        new_vp->Unlock();
-        return true;
+        return new_vp;
     }
 } // unnamed namespace
 
@@ -195,12 +182,17 @@ Result VMSpace::HandleFault(addr_t virt, const int fault_flags)
         // See if we have this page mapped
         const auto alignedVirt = virt & ~(PAGE_SIZE - 1);
         if (auto vp = va->LookupVAddrAndLock(alignedVirt); vp != nullptr) {
-            if ((fault_flags & VM_FLAG_WRITE) && (va->va_flags & vmarea::flag::COW)) {
+            if ((fault_flags & VM_FLAG_WRITE) != 0 && (va->va_flags & VM_FLAG_WRITE) != 0) {
                 // Write to a COW page; promote the page and re-map it
-                KASSERT((vp->vp_flags & vmpage::flag::ReadOnly) == 0, "cowing r/o page");
-
-                kprintf("%d: promoting page for %p\n", process::GetCurrent().p_pid, alignedVirt);
+#if 1
+                kprintf("%d: promoting page %p for %p\n", process::GetCurrent().p_pid, vp, alignedVirt);
                 auto& new_vp = PromotePage(*vp);
+#else
+                auto& new_vp = *vp;
+                kprintf("%d: adjusting write permissions on page for %p\n", process::GetCurrent().p_pid, alignedVirt);
+                vp->vp_flags |= vmpage::flag::Promoted;
+#endif
+
                 AssignPageToVirtualAddress(*this, *va, interval, alignedVirt, new_vp);
                 new_vp.Unlock();
                 return Result::Success();
@@ -220,14 +212,18 @@ Result VMSpace::HandleFault(addr_t virt, const int fault_flags)
 
         // If there is a dentry attached here, perhaps we may find what we need in the corresponding
         // inode
-        if (va->va_dentry != nullptr && HandleDEntryBackedFault(*this, *va, interval, alignedVirt))
-            return Result::Success();
+        VMPage* new_vp = nullptr;
+        if (va->va_dentry != nullptr) {
+            new_vp = HandleDEntryBackedFault(*this, *va, interval, alignedVirt);
+        }
+        if (new_vp == nullptr) {
+            // We need a new VM page here; this is an anonymous mapping which we need to back
+            new_vp = &vmpage::Allocate(0);
+            new_vp->Zero(*this, *va, alignedVirt);
+        }
 
-        // We need a new VM page here; this is an anonymous mapping which we need to back
-        auto& new_vp = vmpage::AllocatePrivatePage(vmpage::flag::Private);
-        new_vp.Zero(*this, *va, alignedVirt);
-        AssignPageToVirtualAddress(*this, *va, interval, alignedVirt, new_vp);
-        new_vp.Unlock();
+        AssignPageToVirtualAddress(*this, *va, interval, alignedVirt, *new_vp);
+        new_vp->Unlock();
         return Result::Success();
     }
 

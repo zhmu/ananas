@@ -17,7 +17,6 @@ struct VMSpace;
 // Note: these flags are shared with VM_FLAG_...
 namespace vmarea::flag
 {
-    inline constexpr auto COW = (1 << 17); // pages must be copied on write
 }
 
 /*
