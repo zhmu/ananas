@@ -198,7 +198,7 @@ namespace hda
             sizeof(struct HDA_PCI_STREAM) + sizeof(struct HDA_PCI_STREAM_PAGE) * num_pages));
         s->s_ss = ss;
         s->s_bdl = static_cast<struct HDA_PCI_BDL_ENTRY*>(
-            page_alloc_single_mapped(s->s_bdl_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE));
+            page_alloc_single_mapped(s->s_bdl_page, vm::flag::Read | vm::flag::Write | vm::flag::Device));
         s->s_num_pages = num_pages;
         hda_stream[ss] = s;
         *context = s;
@@ -209,7 +209,7 @@ namespace hda
         for (int n = 0; n < num_pages; n++, bdl++, sp++) {
             /* XXX use dma system here */
             sp->sp_ptr = page_alloc_single_mapped(
-                sp->sp_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
+                sp->sp_page, vm::flag::Read | vm::flag::Write | vm::flag::Device);
             bdl->bdl_addr = sp->sp_page->GetPhysicalAddress();
             bdl->bdl_length = PAGE_SIZE;
             // XXX only give IRQ on each buffer half
@@ -415,7 +415,7 @@ namespace hda
          */
         static_assert(PAGE_SIZE >= 4096, "tiny page size?");
         hda_corb = static_cast<uint32_t*>(
-            page_alloc_single_mapped(hda_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE));
+            page_alloc_single_mapped(hda_page, vm::flag::Read | vm::flag::Write | vm::flag::Device));
         hda_rirb = (uint64_t*)((char*)hda_corb + 1024);
         addr_t corb_paddr = hda_page->GetPhysicalAddress();
         memset(hda_corb, 0, PAGE_SIZE);

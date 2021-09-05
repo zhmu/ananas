@@ -35,7 +35,7 @@ Framebuffer::Framebuffer()
 {
     const auto fbSize = video_resolution_width * video_resolution_height * sizeof(uint32_t);
     void* fbMem = kmem_map(
-        video_framebuffer, fbSize, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
+        video_framebuffer, fbSize, vm::flag::Read | vm::flag::Write | vm::flag::Device);
     KASSERT(fbMem != nullptr, "cannot map framebuffer?");
 
     fb_height = video_resolution_height;

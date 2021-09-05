@@ -186,9 +186,9 @@ namespace ankhfs
                                 r, sizeof(result) - (r - result), "%p %p %c%c%c\n",
                                 reinterpret_cast<void*>(va->va_virt),
                                 reinterpret_cast<void*>(va->va_len),
-                                (va->va_flags & VM_FLAG_READ) ? 'r' : '-',
-                                (va->va_flags & VM_FLAG_WRITE) ? 'w' : '-',
-                                (va->va_flags & VM_FLAG_EXECUTE) ? 'x' : '-');
+                                (va->va_flags & vm::flag::Read) ? 'r' : '-',
+                                (va->va_flags & vm::flag::Write) ? 'w' : '-',
+                                (va->va_flags & vm::flag::Execute) ? 'x' : '-');
                             r += strlen(r);
                         }
                         break;

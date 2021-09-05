@@ -62,7 +62,7 @@ namespace
 
         // Read the page - note that we hold the vmpage lock while doing this
         Page* p;
-        void* page = page_alloc_single_mapped(p, VM_FLAG_READ | VM_FLAG_WRITE);
+        void* page = page_alloc_single_mapped(p, vm::flag::Read | vm::flag::Write);
         KASSERT(p != nullptr, "out of memory"); // XXX handle this
 
         size_t read_length = PAGE_SIZE;
@@ -159,9 +159,9 @@ void DumpVMSpace(VMSpace& vmspace)
             interval.end,
             reinterpret_cast<void*>(va->va_virt),
             reinterpret_cast<void*>(va->va_virt + va->va_len - 1),
-            (va->va_flags & VM_FLAG_READ) ? 'r' : '-',
-            (va->va_flags & VM_FLAG_WRITE) ? 'w' : '-',
-            (va->va_flags & VM_FLAG_EXECUTE) ? 'x' : '-');
+            (va->va_flags & vm::flag::Read) ? 'r' : '-',
+            (va->va_flags & vm::flag::Write) ? 'w' : '-',
+            (va->va_flags & vm::flag::Execute) ? 'x' : '-');
         if (prev == interval.begin) {
             panic("DUP");
         }
@@ -182,7 +182,7 @@ Result VMSpace::HandleFault(addr_t virt, const int fault_flags)
         // See if we have this page mapped
         const auto alignedVirt = virt & ~(PAGE_SIZE - 1);
         if (auto vp = va->LookupVAddrAndLock(alignedVirt); vp != nullptr) {
-            if ((fault_flags & VM_FLAG_WRITE) != 0 && (va->va_flags & VM_FLAG_WRITE) != 0) {
+            if ((fault_flags & vm::flag::Write) != 0 && (va->va_flags & vm::flag::Write) != 0) {
                 // Write to a COW page; promote the page and re-map it
 #if 1
                 kprintf("%d: promoting page %p for %p\n", process::GetCurrent().p_pid, vp, alignedVirt);

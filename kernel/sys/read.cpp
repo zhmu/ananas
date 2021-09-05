@@ -19,7 +19,7 @@ Result sys_read(const fdindex_t hindex, void* buf, const size_t len)
 
     // Attempt to map the buffer write-only
     void* buffer;
-    if (auto result = syscall_map_buffer(buf, len, VM_FLAG_WRITE, &buffer); result.IsFailure())
+    if (auto result = syscall_map_buffer(buf, len, vm::flag::Write, &buffer); result.IsFailure())
         return result;
 
     // And read data to it

@@ -521,7 +521,7 @@ extern "C" void smp_ap_startup(struct X86_CPU* cpu)
 
 static void usupport_init()
 {
-    usupport = page_alloc_length_mapped(PAGE_SIZE, usupport_page, VM_FLAG_READ | VM_FLAG_WRITE);
+    usupport = page_alloc_length_mapped(PAGE_SIZE, usupport_page, vm::flag::Read | vm::flag::Write);
     memset(usupport, 0xf4 /* hlt */, PAGE_SIZE);
 
     extern char usupport_start, usupport_end;

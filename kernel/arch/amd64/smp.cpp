@@ -125,7 +125,7 @@ namespace smp
         template<typename T>
         static T map_device(addr_t phys)
         {
-            return static_cast<T>(kmem_map(phys, 1, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE));
+            return static_cast<T>(kmem_map(phys, 1, vm::flag::Read | vm::flag::Write | vm::flag::Device));
         }
 
         Page* smp_ap_pages;
@@ -222,7 +222,7 @@ namespace smp
              * from where we are running at that point (maybe worth FIXME?)
              */
             void* ptr =
-                page_alloc_length_mapped(3 * PAGE_SIZE, smp_ap_pages, VM_FLAG_READ | VM_FLAG_WRITE);
+                page_alloc_length_mapped(3 * PAGE_SIZE, smp_ap_pages, vm::flag::Read | vm::flag::Write);
 
             addr_t pa = smp_ap_pages->GetPhysicalAddress();
             uint64_t* pml4 = static_cast<uint64_t*>(ptr);
@@ -389,7 +389,7 @@ namespace smp
             KASSERT(ap_page != nullptr, "Prepare() not called");
             void* ap_code = kmem_map(
                 ap_page->GetPhysicalAddress(), PAGE_SIZE,
-                VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_EXECUTE);
+                vm::flag::Read | vm::flag::Write | vm::flag::Execute);
             memcpy(ap_code, &__ap_entry, (addr_t)&__ap_entry_end - (addr_t)&__ap_entry);
             kmem_unmap(ap_code, PAGE_SIZE);
         }

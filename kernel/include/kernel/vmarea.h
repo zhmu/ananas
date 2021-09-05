@@ -14,7 +14,7 @@ struct DEntry;
 struct VMPage;
 struct VMSpace;
 
-// Note: these flags are shared with VM_FLAG_...
+// Note: these flags are shared with vm::flag::...
 namespace vmarea::flag
 {
 }
@@ -45,7 +45,7 @@ struct VMArea final : util::List<VMArea>::NodePtr {
 
     VMPage* LookupVAddrAndLock(addr_t vaddr);
 
-    unsigned int va_flags;          // flags, combination of VM_FLAG_...
+    unsigned int va_flags;          // flags
     const addr_t va_virt;           // userland address
     const size_t va_len;            // length
     util::vector<VMPage*> va_pages; // backing pages

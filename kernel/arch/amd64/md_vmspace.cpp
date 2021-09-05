@@ -16,13 +16,15 @@
 
 extern Page* usupport_page;
 
+namespace vm_flag = vm::flag;
+
 namespace md::vmspace
 {
     Result Init(VMSpace& vs)
     {
         Page* pagedir_page;
         vs.vs_md_pagedir = static_cast<uint64_t*>(
-            page_alloc_single_mapped(pagedir_page, VM_FLAG_READ | VM_FLAG_WRITE));
+            page_alloc_single_mapped(pagedir_page, vm_flag::Read | vm_flag::Write));
         if (vs.vs_md_pagedir == nullptr)
             return Result::Failure(ENOMEM);
         vs.vs_md_pages.push_back(*pagedir_page);
@@ -34,7 +36,7 @@ namespace md::vmspace
         // Map the userland support page
         md::vm::MapPages(
             vs, USERLAND_SUPPORT_ADDR, usupport_page->GetPhysicalAddress(), 1,
-            VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_EXECUTE);
+            vm_flag::User | vm_flag::Read | vm_flag::Execute);
         return Result::Success();
     }
 

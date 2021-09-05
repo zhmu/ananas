@@ -41,7 +41,7 @@ namespace md::thread
         t.md_kstack_page = page_alloc_length(KERNEL_STACK_SIZE + PAGE_SIZE);
         t.md_kstack = kmem_map(
             t.md_kstack_page->GetPhysicalAddress() + PAGE_SIZE, KERNEL_STACK_SIZE,
-            VM_FLAG_READ | VM_FLAG_WRITE);
+            vm::flag::Read | vm::flag::Write);
 
         /* Set up a stackframe so that we can return to the kernel code */
         struct STACKFRAME* sf =
@@ -77,7 +77,7 @@ namespace md::thread
         t.md_kstack_page = page_alloc_length(KERNEL_STACK_SIZE + PAGE_SIZE);
         t.md_kstack = kmem_map(
             t.md_kstack_page->GetPhysicalAddress() + PAGE_SIZE, KERNEL_STACK_SIZE,
-            VM_FLAG_READ | VM_FLAG_WRITE);
+            vm::flag::Read | vm::flag::Write);
         t.t_md_flags = THREAD_MDFLAG_FULLRESTORE;
 
         /* Set up a stackframe so that we can return to the kernel code */

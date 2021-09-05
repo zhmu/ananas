@@ -33,7 +33,7 @@ namespace
         if (auto device = fd->fd_data.d_vfs_file.f_device; device) {
             if (device == nullptr)
                 return Result::Failure(EINVAL);
-            if ((vm_flags & VM_FLAG_EXECUTE) != 0)
+            if ((vm_flags & vm::flag::Execute) != 0)
                 return Result::Failure(EPERM);
             size_t length = vo->vo_len;
             addr_t physAddress;
@@ -64,15 +64,15 @@ namespace
         if ((vo->vo_flags & (VMOP_FLAG_PRIVATE | VMOP_FLAG_SHARED)) == 0)
             return Result::Failure(EINVAL);
 
-        int vm_flags = VM_FLAG_USER;
+        int vm_flags = vm::flag::User;
         if (vo->vo_flags & VMOP_FLAG_READ)
-            vm_flags |= VM_FLAG_READ;
+            vm_flags |= vm::flag::Read;
         if (vo->vo_flags & VMOP_FLAG_WRITE)
-            vm_flags |= VM_FLAG_WRITE;
+            vm_flags |= vm::flag::Write;
         if (vo->vo_flags & VMOP_FLAG_EXECUTE)
-            vm_flags |= VM_FLAG_EXECUTE;
+            vm_flags |= vm::flag::Execute;
         if (vo->vo_flags & VMOP_FLAG_PRIVATE)
-            vm_flags |= VM_FLAG_PRIVATE;
+            vm_flags |= vm::flag::Private;
 
         VMSpace& vs = process::GetCurrent().p_vmspace;
         addr_t dest_addr = reinterpret_cast<addr_t>(vo->vo_addr);
@@ -107,7 +107,7 @@ Result sys_vmop(struct VMOP_OPTIONS* opts)
     /* Obtain options */
     struct VMOP_OPTIONS* vmop_opts;
     if (auto result = syscall_map_buffer(
-            opts, sizeof(*vmop_opts), VM_FLAG_READ | VM_FLAG_WRITE, (void**)&vmop_opts);
+            opts, sizeof(*vmop_opts), vm::flag::Read | vm::flag::Write, (void**)&vmop_opts);
         result.IsFailure())
         return result;
     if (vmop_opts->vo_size != sizeof(*vmop_opts))

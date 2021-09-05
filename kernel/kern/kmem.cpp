@@ -65,7 +65,7 @@ void* kmem_map(addr_t phys, size_t length, int flags)
      * First step is to see if we can directly map this; if this is the case,
      * there is no need to allocate a specific mapping.
      */
-    if (pa >= KMEM_DIRECT_PA_START && pa < KMEM_DIRECT_PA_END && (flags & VM_FLAG_FORCEMAP) == 0) {
+    if (pa >= KMEM_DIRECT_PA_START && pa < KMEM_DIRECT_PA_END && (flags & vm::flag::Force) == 0) {
         addr_t va = PTOKV(pa);
         if constexpr (kmemDebug) {
             kprintf("kmem_map(): doing direct map: pa=%p va=%p size=%d\n", pa, va, size);
@@ -82,7 +82,7 @@ void* kmem_map(addr_t phys, size_t length, int flags)
          * XXX We just hope that this won't happen for now
          */
         kmem_mappings = static_cast<struct KMEM_MAPPING*>(
-            page_alloc_single_mapped(kmem_page, VM_FLAG_READ | VM_FLAG_WRITE));
+            page_alloc_single_mapped(kmem_page, vm::flag::Read | vm::flag::Write));
         memset(kmem_mappings, 0, PAGE_SIZE);
     }
 

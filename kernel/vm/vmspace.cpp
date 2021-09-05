@@ -218,7 +218,7 @@ void VMSpace::PrepareForExecute()
     // Throw all non-MD mappings away - this should only leave the kernel stack in place
     for (auto it = vs_areamap.begin(); it != vs_areamap.end(); /* nothing */) {
         auto va = it->value;
-        if (va->va_flags & VM_FLAG_MD) {
+        if (va->va_flags & vm::flag::MD) {
             ++it;
             continue;
         }
@@ -288,10 +288,10 @@ void VMSpace::Dump()
     for (auto& [ interval, va ]: vs_areamap) {
         kprintf(
             "  area %p: %p..%p flags %c%c%c%c%c%c%c\n", &va, va->va_virt, va->va_virt + va->va_len - 1,
-            (va->va_flags & VM_FLAG_READ) ? 'r' : '.', (va->va_flags & VM_FLAG_WRITE) ? 'w' : '.',
-            (va->va_flags & VM_FLAG_EXECUTE) ? 'x' : '.', (va->va_flags & VM_FLAG_KERNEL) ? 'k' : '.',
-            (va->va_flags & VM_FLAG_USER) ? 'u' : '.', (va->va_flags & VM_FLAG_PRIVATE) ? 'p' : '.',
-            (va->va_flags & VM_FLAG_MD) ? 'm' : '.');
+            (va->va_flags & vm::flag::Read) ? 'r' : '.', (va->va_flags & vm::flag::Write) ? 'w' : '.',
+            (va->va_flags & vm::flag::Execute) ? 'x' : '.', (va->va_flags & vm::flag::Kernel) ? 'k' : '.',
+            (va->va_flags & vm::flag::User) ? 'u' : '.', (va->va_flags & vm::flag::Private) ? 'p' : '.',
+            (va->va_flags & vm::flag::MD) ? 'm' : '.');
         kprintf("    pages:\n");
         for (auto vp : va->va_pages) {
             vp->Dump("      ");

@@ -16,6 +16,8 @@
 #include "kernel/vmspace.h"
 #include "kernel-md/vm.h"
 
+namespace vm_flag = vm::flag;
+
 namespace md::vm
 {
     namespace
@@ -34,7 +36,7 @@ namespace md::vm
 
             /* Map this page in kernel-space XXX How do we clean it up? */
             addr_t phys = p->GetPhysicalAddress();
-            void* va = kmem_map(phys, PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE);
+            void* va = kmem_map(phys, PAGE_SIZE, vm_flag::Read | vm_flag::Write);
             memset(va, 0, PAGE_SIZE);
             return phys | page_flags;
         }
@@ -51,15 +53,15 @@ namespace md::vm
     {
         /* Flags for the mapped pages themselves */
         uint64_t pt_flags = 0;
-        if (flags & VM_FLAG_READ)
+        if (flags & vm_flag::Read)
             pt_flags |= PE_P; /* XXX */
-        if (flags & VM_FLAG_USER)
+        if (flags & vm_flag::User)
             pt_flags |= PE_US;
-        if (flags & VM_FLAG_WRITE)
+        if (flags & vm_flag::Write)
             pt_flags |= PE_RW;
-        if (flags & VM_FLAG_DEVICE)
+        if (flags & vm_flag::Device)
             pt_flags |= PE_PCD | PE_PWT;
-        if ((flags & VM_FLAG_EXECUTE) == 0)
+        if ((flags & vm_flag::Execute) == 0)
             pt_flags |= PE_NX;
 
         /* Flags for the page-directory leading up to the mapped page */

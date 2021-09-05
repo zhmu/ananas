@@ -114,7 +114,7 @@ namespace dma
         for (unsigned int n = 0; result.IsSuccess() && n < num_segs; n++) {
             auto& s = b->db_seg[n];
             s.s_virt = page_alloc_length_mapped(
-                seg_size, s.s_page, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
+                seg_size, s.s_page, vm::flag::Read | vm::flag::Write | vm::flag::Device);
             if (s.s_virt == NULL) {
                 result = Result::Failure(ENOMEM);
                 break;

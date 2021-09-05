@@ -62,7 +62,7 @@ namespace pool
     void Pool::Grow()
     {
         Page* page{};
-        auto ptr = page_alloc_single_mapped(page, VM_FLAG_READ | VM_FLAG_WRITE);
+        auto ptr = page_alloc_single_mapped(page, vm::flag::Read | vm::flag::Write);
         KASSERT(page != nullptr, "deal with out of memory");
         p_AllocatedPages.push_back(*page);
 

@@ -20,7 +20,7 @@ Result sys_readlink(const char* path, char* buf, const size_t buflen)
 
     // Attempt to map the buffer write-only
     void* buffer;
-    if (auto result = syscall_map_buffer(buf, buflen, VM_FLAG_WRITE, &buffer);
+    if (auto result = syscall_map_buffer(buf, buflen, vm::flag::Write, &buffer);
         result.IsFailure())
         return result;
 

@@ -131,9 +131,9 @@ namespace
 
         int flags = 0;
         if (sf->sf_errnum & EXC_PF_FLAG_RW)
-            flags |= VM_FLAG_WRITE;
+            flags |= vm::flag::Write;
         else
-            flags |= VM_FLAG_READ;
+            flags |= vm::flag::Read;
 
         // Let the VM code deal with the fault
         auto& process = process::GetCurrent();

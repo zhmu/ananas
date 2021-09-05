@@ -53,7 +53,7 @@ AcpiOsRemoveInterruptHandler(UINT32 InterruptNumber, ACPI_OSD_HANDLER Handler)
 ACPI_STATUS
 AcpiOsReadMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64* Value, UINT32 Width)
 {
-    void* ptr = kmem_map(Address, Width, VM_FLAG_READ);
+    void* ptr = kmem_map(Address, Width, vm::flag::Read);
     if (ptr == NULL)
         return AE_BAD_ADDRESS;
     switch (Width) {
@@ -79,7 +79,7 @@ AcpiOsReadMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64* Value, UINT32 Width)
 ACPI_STATUS
 AcpiOsWriteMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 Value, UINT32 Width)
 {
-    void* ptr = kmem_map(Address, Width, VM_FLAG_WRITE);
+    void* ptr = kmem_map(Address, Width, vm::flag::Write);
     if (ptr == NULL)
         return AE_BAD_ADDRESS;
     switch (Width) {

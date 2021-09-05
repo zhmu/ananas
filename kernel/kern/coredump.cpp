@@ -414,11 +414,11 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
             phdr.p_align = PAGE_SIZE;
             phdr.p_memsz = PAGE_SIZE;
             phdr.p_flags = 0;
-            if (vp->vp_flags & VM_FLAG_READ)
+            if (vp->vp_flags & vm::flag::Read)
                 phdr.p_flags |= PF_R;
-            if (vp->vp_flags & VM_FLAG_WRITE)
+            if (vp->vp_flags & vm::flag::Write)
                 phdr.p_flags |= PF_W;
-            if (vp->vp_flags & VM_FLAG_EXECUTE)
+            if (vp->vp_flags & vm::flag::Execute)
                 phdr.p_flags |= PF_X;
 
             if (auto result = vfs_write(f, &phdr, sizeof(phdr)); result.IsFailure())

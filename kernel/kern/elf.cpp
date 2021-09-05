@@ -129,17 +129,18 @@ struct ELF64Loader final : IExecutor {
 Result ELF64Loader::LoadPH(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase) const
 {
     /* Construct the flags for the actual mapping */
-    unsigned int flags = VM_FLAG_USER;
+    unsigned int flags = vm::flag::User;
     if (phdr.p_flags & PF_R)
-        flags |= VM_FLAG_READ;
+        flags |= vm::flag::Read;
     if (phdr.p_flags & PF_W)
-        flags |= VM_FLAG_WRITE;
+        flags |= vm::flag::Write;
     if (phdr.p_flags & PF_X)
-        flags |= VM_FLAG_EXECUTE;
+        flags |= vm::flag::Execute;
 
-    // If this mapping is writable, do not share it
-    if (flags & VM_FLAG_WRITE)
-        flags |= VM_FLAG_PRIVATE;
+    // If this mapping is writable, do not share it - don't want changes to end
+    // up in the inode
+    if (flags & vm::flag::Write)
+        flags |= vm::flag::Private;
 
     /*
      * We can only map things at PAGE_SIZE offsets and these must start at some
@@ -319,7 +320,7 @@ Result ELF64Loader::Load(VMSpace& vs, DEntry& dentry, void*& aa)
                     VAInterval{ PHDR_BASE, PHDR_BASE + phdr_len },
                     dentry,
                     DEntryInterval{ phdrOffset, phdrOffset + phdr_len },
-                    VM_FLAG_READ | VM_FLAG_USER, va_phdr);
+                    vm::flag::Read | vm::flag::User, va_phdr);
                 result.IsFailure())
                 return result;
         }
@@ -361,7 +362,7 @@ Result ELF64Loader::PrepareForExecute(
     VMArea* va;
     vs.MapTo(
         VAInterval{ USERLAND_STACK_ADDR, USERLAND_STACK_ADDR + THREAD_STACK_SIZE },
-        VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_PRIVATE, va);
+        vm::flag::User | vm::flag::Read | vm::flag::Write | vm::flag::Private, va);
 
     // Pre-fault the first page so that we can put stuff in it
     constexpr auto stack_end = USERLAND_STACK_ADDR + THREAD_STACK_SIZE;
@@ -403,7 +404,7 @@ Result ELF64Loader::PrepareForExecute(
     // Allocate a backing page for the userland stack and fill it
     {
         auto p = static_cast<char*>(kmem_map(
-            stack_vp.GetPage()->GetPhysicalAddress(), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE));
+            stack_vp.GetPage()->GetPhysicalAddress(), PAGE_SIZE, vm::flag::Read | vm::flag::Write));
         memset(p, 0, PAGE_SIZE);
         {
             addr_t stack_ptr = reinterpret_cast<addr_t>(p) + PAGE_SIZE - bytes_needed;

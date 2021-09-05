@@ -70,14 +70,14 @@ void* dlmalloc_get_memory(size_t len)
     mtx_mm.AssertLocked();
 
     Page* p;
-    void* v = page_alloc_length_mapped(len, p, VM_FLAG_READ | VM_FLAG_WRITE);
+    void* v = page_alloc_length_mapped(len, p, vm::flag::Read | vm::flag::Write);
     KASSERT(v != NULL, "out of memory allocating %u bytes", len);
 
     // Grab memory for the page administration if we don't yet have anything
     if (mallocChunksTotal == 0) {
         mallocChunksTotal = PAGE_SIZE / sizeof(MallocChunk); // XXX rough guess
         mallocChunks = static_cast<MallocChunk*>(
-            page_alloc_length_mapped(PAGE_SIZE, mallocChunksPage, VM_FLAG_READ | VM_FLAG_WRITE));
+            page_alloc_length_mapped(PAGE_SIZE, mallocChunksPage, vm::flag::Read | vm::flag::Write));
         KASSERT(mallocChunks != nullptr, "unable to allocate");
 
         for (int n = 0; n < mallocChunksTotal; n++)

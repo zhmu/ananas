@@ -8,14 +8,15 @@
 
 #include <ananas/types.h>
 
-#define VM_FLAG_READ (1 << 0)
-#define VM_FLAG_WRITE (1 << 1)
-#define VM_FLAG_EXECUTE (1 << 2)
-#define VM_FLAG_KERNEL (1 << 3)
-#define VM_FLAG_USER (1 << 4)
-#define VM_FLAG_DEVICE (1 << 5)
-#define VM_FLAG_PRIVATE (1 << 6) /* Do not share mapping (used for inodes) */
-#define VM_FLAG_MD (1 << 15)     /* Machine dependent mapping */
-
-/* Force a specific mapping to be made */
-#define VM_FLAG_FORCEMAP (1 << 16)
+namespace vm::flag
+{
+    inline constexpr auto Read = (1 << 0); // read allowed
+    inline constexpr auto Write = (1 << 1); // write allowed
+    inline constexpr auto Execute = (1 << 2); // execute allowed
+    inline constexpr auto Kernel = (1 << 3); // kernel-mode mapping
+    inline constexpr auto User = (1 << 4); // user-mode mapping
+    inline constexpr auto Device = (1 << 5); // device mapping
+    inline constexpr auto Private = (1 << 6); // mapping not shared (used for inodes ??)
+    inline constexpr auto MD = (1 << 31); // machine-dependent mapping
+    inline constexpr auto Force = (1 << 30); // force mapping to be made
+}

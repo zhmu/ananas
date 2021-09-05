@@ -83,9 +83,9 @@ void VMPage::CopyExtended(VMPage& vp_dst, size_t len)
     auto p_dst = vp_dst.GetPage();
     KASSERT(p_src != p_dst, "copying same page %p", p_src);
 
-    auto src = static_cast<char*>(kmem_map(p_src->GetPhysicalAddress(), PAGE_SIZE, VM_FLAG_READ));
+    auto src = static_cast<char*>(kmem_map(p_src->GetPhysicalAddress(), PAGE_SIZE, vm::flag::Read));
     auto dst = static_cast<char*>(
-        kmem_map(p_dst->GetPhysicalAddress(), PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE));
+        kmem_map(p_dst->GetPhysicalAddress(), PAGE_SIZE, vm::flag::Read | vm::flag::Write));
 
     //kprintf("VMPage CopyExtended from %p --> %p, %d bytes\n", src, dst, len);
     memcpy(dst, src, len);
@@ -119,7 +119,7 @@ void VMPage::Map(VMSpace& vs, VMArea& va, addr_t virt)
 
     auto flags = va.va_flags;
     if ((vp_flags & vmpage::flag::Promoted) == 0)
-        flags &= ~VM_FLAG_WRITE;
+        flags &= ~vm::flag::Write;
 
     const Page* p = GetPage();
     md::vm::MapPages(vs, virt, p->GetPhysicalAddress(), 1, flags);
@@ -131,7 +131,7 @@ void VMPage::Zero(VMSpace& vs, VMArea& va, addr_t virt)
 
     // Clear the page XXX This is unfortunate, we should have a supply of pre-zeroed pages
     Page* p = GetPage();
-    md::vm::MapPages(vs, virt, p->GetPhysicalAddress(), 1, VM_FLAG_READ | VM_FLAG_WRITE);
+    md::vm::MapPages(vs, virt, p->GetPhysicalAddress(), 1, vm::flag::Read | vm::flag::Write);
     memset((void*)virt, 0, PAGE_SIZE);
 }
 
@@ -144,14 +144,14 @@ VMPage& VMPage::Clone(VMSpace& vs, VMArea& va_source, addr_t virt)
     };
 
     // Always copy MD-specific pages; don't want pagefaults in kernel stack
-    if (IsVAFlagSet(VM_FLAG_MD)) {
+    if (IsVAFlagSet(vm::flag::MD)) {
         auto vp_dst = &vmpage::Allocate(vp_flags);
         Copy(*vp_dst);
         return *vp_dst;
     }
 
     // If the source is public or non-writable, we can re-use it
-    if (!IsVAFlagSet(VM_FLAG_PRIVATE) || !IsVAFlagSet(VM_FLAG_WRITE)) {
+    if (!IsVAFlagSet(vm::flag::Private) || !IsVAFlagSet(vm::flag::Write)) {
         Ref();
         return *this;
     }

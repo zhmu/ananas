@@ -177,7 +177,7 @@ void page_zone_add(addr_t base, size_t length)
         num_pages, num_admin_pages);
 
     char* mem = static_cast<char*>(
-        kmem_map(base, num_admin_pages * PAGE_SIZE, VM_FLAG_READ | VM_FLAG_WRITE));
+        kmem_map(base, num_admin_pages * PAGE_SIZE, vm::flag::Read | vm::flag::Write));
 
     /* Initialize the page zone; initially, we'll just mark everything as allocated */
     PageZone& z = *reinterpret_cast<PageZone*>(mem);

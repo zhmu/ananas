@@ -33,7 +33,7 @@ void* ResourceSet::AllocateResource(
     switch (type) {
         case Resource::RT_Memory:
             return (void*)kmem_map(
-                res->r_Base, res->r_Length, VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_DEVICE);
+                res->r_Base, res->r_Length, vm::flag::Read | vm::flag::Write | vm::flag::Device);
         case Resource::RT_IO:
         case Resource::RT_ChildNum:
         case Resource::RT_IRQ:        // XXX should allocate, not just return
