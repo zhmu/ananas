@@ -18,7 +18,7 @@ namespace vmpage::flag {
     inline constexpr auto Private = (1 << 0);  // Page is private to the process
     inline constexpr auto ReadOnly = (1 << 1); // Page cannot be modified
     inline constexpr auto Pending = (1 << 2); // Page is pending a read
-    inline constexpr auto Promoted = (1 << 3); // XXX this is for debugging only
+    inline constexpr auto Promoted = (1 << 3); // Page is explicitly writable (used for COW)
 }
 
 class VMArea;
@@ -26,8 +26,8 @@ class VMSpace;
 struct INode;
 
 struct VMPage final {
-    VMPage(INode& inode, off_t offset, int flags)
-        : vp_inode(&inode), vp_offset(offset), vp_flags(flags)
+    VMPage(off_t offset, int flags)
+        : vp_offset(offset), vp_flags(flags)
     {
     }
 
@@ -37,13 +37,8 @@ struct VMPage final {
     }
 
     int vp_flags;
-
-    /* Backing page */
-    Page* vp_page = nullptr;
-
-    /* Backing inode and offset */
-    INode* vp_inode = nullptr;
-    off_t vp_offset{};
+    Page* vp_page = nullptr; // backing page
+    const off_t vp_offset{}; // offset within inode
 
     void Ref();
     void Deref();
@@ -82,9 +77,12 @@ struct VMPage final {
 
     void AssertLocked();
 
-    void Map(VMArea&, addr_t virt);
-    void Zero(VMArea&, addr_t virt);
+    void Map(VMSpace&, VMArea&, addr_t virt);
+    void Zero(VMSpace&, VMArea&, addr_t virt);
     void Dump(const char* prefix) const;
+
+    VMPage& Clone(VMArea& va_source, addr_t virt);
+    VMPage& Duplicate();
 
   private:
     ~VMPage();
@@ -96,13 +94,6 @@ struct VMPage final {
 namespace vmpage
 {
     VMPage& AllocatePrivatePage(int flags);
+
+    util::locked<VMPage> LookupOrCreateINodePage(INode& inode, off_t offs, int flags);
 }
-
-util::locked<VMPage> vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs);
-util::locked<VMPage> vmpage_create_shared(INode& inode, off_t offs, int flags);
-
-VMPage& vmpage_clone(
-    VMSpace& vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va_dest,
-    util::locked<VMPage>& vp_orig);
-
-VMPage& vmpage_clone_dentry_page(VMSpace& vs_dest, VMArea& va, util::locked<VMPage>& vmpage);

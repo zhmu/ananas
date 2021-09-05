@@ -129,7 +129,7 @@ struct ELF64Loader final : IExecutor {
 Result ELF64Loader::LoadPH(VMSpace& vs, DEntry& dentry, const Elf64_Phdr& phdr, addr_t rbase) const
 {
     /* Construct the flags for the actual mapping */
-    unsigned int flags = VM_FLAG_FAULT | VM_FLAG_USER;
+    unsigned int flags = VM_FLAG_USER;
     if (phdr.p_flags & PF_R)
         flags |= VM_FLAG_READ;
     if (phdr.p_flags & PF_W)
@@ -361,7 +361,7 @@ Result ELF64Loader::PrepareForExecute(
     VMArea* va;
     vs.MapTo(
         VAInterval{ USERLAND_STACK_ADDR, USERLAND_STACK_ADDR + THREAD_STACK_SIZE },
-        VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_FAULT, va);
+        VM_FLAG_USER | VM_FLAG_READ | VM_FLAG_WRITE | VM_FLAG_PRIVATE, va);
 
     // Pre-fault the first page so that we can put stuff in it
     constexpr auto stack_end = USERLAND_STACK_ADDR + THREAD_STACK_SIZE;
@@ -370,7 +370,7 @@ Result ELF64Loader::PrepareForExecute(
     const auto page_index = (stack_page_virt - USERLAND_STACK_ADDR) / PAGE_SIZE;
     KASSERT(page_index < va->va_pages.size(), "oeps %d %d", page_index, va->va_pages.size());
     va->va_pages[page_index] = &stack_vp;
-    stack_vp.Map(*va, stack_end - PAGE_SIZE);
+    stack_vp.Map(vs, *va, stack_end - PAGE_SIZE);
 
     /*
      * Calculate the amount of space we need; the ELF ABI specifies the stack to

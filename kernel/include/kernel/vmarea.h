@@ -41,13 +41,12 @@ namespace vmarea::flag
  *
  */
 struct VMArea final : util::List<VMArea>::NodePtr {
-    VMArea(VMSpace& vs, addr_t virt, size_t len, int flags);
+    VMArea(addr_t virt, size_t len, int flags);
     ~VMArea();
 
     VMPage* LookupVAddrAndLock(addr_t vaddr);
 
-    VMSpace& va_vs;
-    const unsigned int va_flags;    // flags, combination of VM_FLAG_...
+    unsigned int va_flags;          // flags, combination of VM_FLAG_...
     const addr_t va_virt;           // userland address
     const size_t va_len;            // length
     util::vector<VMPage*> va_pages; // backing pages

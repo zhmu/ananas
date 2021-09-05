@@ -31,27 +31,10 @@ namespace
         return (addr | (PAGE_SIZE - 1)) + 1;
     }
 
-    void FreeArea(VMArea& va)
-    {
-        /* Free any backing dentry, if we have one */
-        if (va.va_dentry != nullptr)
-            dentry_deref(*va.va_dentry);
-
-        // Free all pages owned by this VA
-        for(auto vp: va.va_pages) {
-            if (vp == nullptr) continue;
-            vp->Lock();
-            vp->Deref();
-        }
-        va.va_pages.clear();
-        delete &va;
-    }
-
-
     void FreeAllAreas(VMSpace& vs)
     {
         for (auto [ vaInterval, va ]: vs.vs_areamap) {
-            FreeArea(*va);
+            delete va;
         }
         vs.vs_areamap.clear();
     }
@@ -95,7 +78,7 @@ namespace
             if (vaInterval == range_to_free) {
                 // Interval matches as-if with what to free; this is easy
                 vs.vs_areamap.remove(va);
-                FreeArea(*va);
+                delete va;
                 return;
             }
 
@@ -112,7 +95,7 @@ namespace
             const auto interval_2 = VAInterval{ overlap.end, vaInterval.end };
 
             auto migrateToNewRange = [&](const auto& newInterval) {
-                auto newVA = new VMArea(vs, newInterval.begin, newInterval.end - newInterval.begin, va->va_flags);
+                auto newVA = new VMArea(newInterval.begin, newInterval.end - newInterval.begin, va->va_flags);
                 MigratePagesToNewVA(*va, newInterval, *newVA);
                 UpdateFileMappingOffset(*va, *newVA, vaInterval, newInterval);
                 vs.vs_areamap.insert(newInterval, newVA);
@@ -126,10 +109,21 @@ namespace
             }
 
             // Throw the old va away, we've split it up as needed
-            FreeArea(*va);
+            delete va;
             return;
         }
     }
+
+    bool IsDEntryCOWAllowed(const int flags)
+    {
+        return false;
+        if ((flags & VM_FLAG_USER) == 0) return false;
+        if ((flags & VM_FLAG_WRITE) == 0) return false;
+        if ((flags & VM_FLAG_DEVICE) == 0) return false;
+        if ((flags & VM_FLAG_MD) == 0) return false;
+        return true;
+    }
+
 } // unnamed namespace
 
 addr_t VMSpace::ReserveAdressRange(size_t len)
@@ -185,7 +179,7 @@ Result VMSpace::Map(
      * THREAD_MAP_ALLOC flag is set; now we'll just assume that the
      * memory is there...
      */
-    auto va = new VMArea(*this, vaInterval.begin, vaInterval.end - vaInterval.begin, areaFlags);
+    auto va = new VMArea(vaInterval.begin, vaInterval.end - vaInterval.begin, areaFlags);
 
     vs_areamap.insert(vaInterval, va);
     va_out = va;
@@ -213,7 +207,11 @@ Result VMSpace::MapToDentry(
 
     KASSERT((de.begin & (PAGE_SIZE - 1)) == 0, "offset %d not page-aligned", de.begin);
 
-    if (auto result = MapTo(vaInterval, flags | VM_FLAG_FAULT, va_out); result.IsFailure())
+    if (IsDEntryCOWAllowed(flags)) {
+        flags |= vmarea::flag::COW;
+        kprintf("MapToDentry: using COW for %p..%p\n", vaInterval.begin, vaInterval.end);
+    }
+    if (auto result = MapTo(vaInterval, flags, va_out); result.IsFailure())
         return result;
 
     dentry_ref(dentry);
@@ -234,13 +232,13 @@ void VMSpace::PrepareForExecute()
 {
     // Throw all non-MD mappings away - this should only leave the kernel stack in place
     for (auto it = vs_areamap.begin(); it != vs_areamap.end(); /* nothing */) {
-        auto& va = *(it->value);
-        if (va.va_flags & VM_FLAG_MD) {
+        auto va = it->value;
+        if (va->va_flags & VM_FLAG_MD) {
             ++it;
             continue;
         }
-        vs_areamap.remove(&va);
-        FreeArea(va);
+        vs_areamap.remove(va);
+        delete va;
         it = vs_areamap.begin();
     }
 }
@@ -252,7 +250,6 @@ Result VMSpace::Clone(VMSpace& vs_dest)
     /* Now copy everything over that isn't private */
     for (auto& [srcInterval, va_src ]: vs_areamap) {
         VMArea* va_dst;
-        //kprintf("VMArea Clone: cloning %p..%p\n", srcInterval.begin, srcInterval.end);
         if (auto result = vs_dest.MapTo(srcInterval, va_src->va_flags, va_dst);
             result.IsFailure())
             return result;
@@ -264,29 +261,25 @@ Result VMSpace::Clone(VMSpace& vs_dest)
             dentry_ref(*va_dst->va_dentry);
         }
 
-        // Copy the area page-wise
-        KASSERT(va_src->va_pages.size() == va_dst->va_pages.size(), "oops");
-        //kprintf("Cloning va_src of %d pages\n", va_src->va_pages.size());
+        // Clone the area page-wise
+        KASSERT(va_src->va_pages.size() == va_dst->va_pages.size(), "va_pages.size() mismatch");
         auto currentVa = srcInterval.begin;
         for(size_t page_index = 0; page_index < va_src->va_pages.size(); ++page_index, currentVa += PAGE_SIZE) {
-            auto p = va_src->va_pages[page_index];
-            if (p == nullptr) continue;
+            auto vp = va_src->va_pages[page_index];
+            if (vp == nullptr) continue;
 
-            p->Lock();
-            util::locked<VMPage> vp(*p);
+            vp->Lock();
             KASSERT(
                 vp->GetPage()->p_order == 0, "unexpected %d order page here",
                 vp->GetPage()->p_order);
 
-            // Create a clone of the data; it is up to the vmpage how to do this (it may go for COW)
-            //kprintf("Clone: cloning virt %p\n", currentVa);
-            VMPage& new_vp = vmpage_clone(*this, vs_dest, *va_src, *va_dst, vp);
+            auto& new_vp = vp->Clone(*va_src, currentVa);
             va_dst->va_pages[page_index] = &new_vp;
 
             // Map the page into the cloned vmspace
-            new_vp.Map(*va_dst, currentVa);
-            new_vp.Unlock();
-            vp.Unlock();
+            new_vp.Map(vs_dest, *va_dst, currentVa);
+            if (&new_vp != vp) new_vp.Unlock();
+            vp->Unlock();
         }
     }
 

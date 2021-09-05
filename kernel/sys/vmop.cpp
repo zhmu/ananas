@@ -33,8 +33,9 @@ namespace
         if (auto device = fd->fd_data.d_vfs_file.f_device; device) {
             if (device == nullptr)
                 return Result::Failure(EINVAL);
+            if ((vm_flags & VM_FLAG_EXECUTE) != 0)
+                return Result::Failure(EPERM);
             size_t length = vo->vo_len;
-            vm_flags &= ~(VM_FLAG_FAULT | VM_FLAG_EXECUTE);
             addr_t physAddress;
             if (auto result = device->GetDeviceOperations().DetermineDevicePhysicalAddres(
                     physAddress, length, vm_flags);
@@ -63,7 +64,7 @@ namespace
         if ((vo->vo_flags & (VMOP_FLAG_PRIVATE | VMOP_FLAG_SHARED)) == 0)
             return Result::Failure(EINVAL);
 
-        int vm_flags = VM_FLAG_USER | VM_FLAG_FAULT;
+        int vm_flags = VM_FLAG_USER;
         if (vo->vo_flags & VMOP_FLAG_READ)
             vm_flags |= VM_FLAG_READ;
         if (vo->vo_flags & VMOP_FLAG_WRITE)

@@ -17,15 +17,7 @@
 #include "kernel-md/md.h"
 #include "kernel-md/vm.h"
 
-namespace
-{
-    VMPage& AllocateShared(INode& inode, off_t offs, int flags)
-    {
-        auto vp = new VMPage(inode, offs, flags);
-        vp->Lock();
-        return *vp;
-    }
-}
+#include "kernel/process.h"
 
 namespace vmpage
 {
@@ -40,6 +32,27 @@ namespace vmpage
         new_page->vp_page = page_alloc_single();
         KASSERT(new_page->vp_page != nullptr, "out of pages");
         return *new_page;
+    }
+
+    util::locked<VMPage> LookupOrCreateINodePage(INode& inode, off_t offs, int flags)
+    {
+        inode.Lock();
+        for (auto vp: inode.i_pages) {
+            if (vp->vp_offset != offs)
+                continue;
+
+            // Page is already present; return it
+            vp->Lock();
+            inode.Unlock();
+            return util::locked<VMPage>(*vp);
+        }
+
+        // Not yet present; create a new page and return it
+        auto vp = new VMPage(offs, flags);
+        vp->Lock();
+        inode.i_pages.push_back(vp);
+        inode.Unlock();
+        return util::locked<VMPage>(*vp);
     }
 }
 
@@ -100,13 +113,12 @@ void VMPage::Deref()
     delete this;
 }
 
-void VMPage::Map(VMArea& va, addr_t virt)
+void VMPage::Map(VMSpace& vs, VMArea& va, addr_t virt)
 {
     AssertLocked();
-    auto& vs = va.va_vs;
 
-    int flags = va.va_flags;
     // Map COW pages as unwritable so we'll fault on a write
+    auto flags = va.va_flags;
     if ((va.va_flags & vmarea::flag::COW) != 0 && (vp_flags & vmpage::flag::Promoted) == 0)
         flags &= ~VM_FLAG_WRITE;
 
@@ -114,9 +126,8 @@ void VMPage::Map(VMArea& va, addr_t virt)
     md::vm::MapPages(vs, virt, p->GetPhysicalAddress(), 1, flags);
 }
 
-void VMPage::Zero(VMArea& va, addr_t virt)
+void VMPage::Zero(VMSpace& vs, VMArea& va, addr_t virt)
 {
-    auto& vs = va.va_vs;
     KASSERT(vs.IsCurrent(), "zero outside active vmspace");
 
     // Clear the page XXX This is unfortunate, we should have a supply of pre-zeroed pages
@@ -125,96 +136,53 @@ void VMPage::Zero(VMArea& va, addr_t virt)
     memset((void*)virt, 0, PAGE_SIZE);
 }
 
-util::locked<VMPage> vmpage_lookup_locked(VMArea& va, INode& inode, off_t offs)
+VMPage& VMPage::Clone(VMArea& va_source, addr_t virt)
 {
-    /*
-     * First step is to see if we can locate this page for the given vmspace - the private mappings
-     * are stored there and override global ones.
-     */
-    for (auto vmpage : va.va_pages) {
-        if (vmpage == nullptr || vmpage->vp_inode != &inode || vmpage->vp_offset != offs)
-            continue;
+    KASSERT((vp_flags & vmpage::flag::Pending) == 0, "trying to clone a pending page");
 
-        vmpage->Lock();
-        return util::locked<VMPage>(*vmpage);
-    }
+    const auto IsVAFlagSet = [&](int flag) {
+        return (va_source.va_flags & flag) != 0;
+    };
 
-    // Try all inode-private pages
-    inode.Lock();
-    for (auto vmpage : inode.i_pages) {
-        // We don't check vp_inode here as this is the per-inode list already
-        if (vmpage->vp_offset != offs)
-            continue;
-
-        vmpage->Lock(); // XXX is this order wise?
-        inode.Unlock();
-        return util::locked<VMPage>(*vmpage);
-    }
-    inode.Unlock();
-
-    // Nothing was found
-    return util::locked<VMPage>();
-}
-
-// Used for VMSpace::Clone (fork)
-VMPage& vmpage_clone(
-    VMSpace& vs_source, VMSpace& vs_dest, VMArea& va_source, VMArea& va_dest,
-    util::locked<VMPage>& vp_source)
-{
-    KASSERT((vp_source->vp_flags & vmpage::flag::Pending) == 0, "trying to clone a pending page");
-
-    // Always copy MD-specific pages - these tend to be modified sooner or
-    // later
-    if ((va_source.va_flags & VM_FLAG_MD) != 0 || true) {
-        auto vp_dst = &vmpage::AllocatePrivatePage(vp_source->vp_flags);
-        vp_source->Copy(*vp_dst);
+    // Always copy MD-specific pages; don't want pagefaults in kernel stack
+    if (IsVAFlagSet(VM_FLAG_MD)) {
+        auto vp_dst = &vmpage::AllocatePrivatePage(vp_flags);
+        Copy(*vp_dst);
         return *vp_dst;
     }
 
-    panic("TODO clone page");
-}
-
-// Used by HandleFault()
-VMPage& vmpage_clone_dentry_page(VMSpace& vs_dest, VMArea& va, util::locked<VMPage>& vmpage)
-{
-    KASSERT((vmpage->vp_flags & vmpage::flag::Pending) == 0, "trying to clone a pending page");
+    // If the source is public or non-writable, we can re-use it
+    if (!IsVAFlagSet(VM_FLAG_PRIVATE) || !IsVAFlagSet(VM_FLAG_WRITE)) {
+        Ref();
+        return *this;
+    }
 
 #if 0
-    if ((va.va_flags & VM_FLAG_WRITE) == 0) {
-        vmpage->Ref();
-        return *vmpage;
-    }
+    // Make the source COW and force the mapping to be updated
+    KASSERT((vp_flags & vmpage::flag::Promoted) == 0, "cow-ing promoted page %p??", virt);
+    kprintf("vmpage_clone %d: making %p cow\n", process::GetCurrent().p_pid, virt);
+    va_source.va_flags |= vmarea::flag::COW;
+    Map(va_source, virt);
+
+    Ref();
+    return *this;
+
+    // XXX for now make a copy
+    kprintf("TODO doing copy now for %p..%p\n", va_source.va_virt, va_source.va_virt + va_source.va_len);
 #endif
 
-    auto vp_dst = &vmpage::AllocatePrivatePage(vmpage->vp_flags | vmpage::flag::Promoted);
-    vmpage->Copy(*vp_dst);
+    auto vp_dst = &vmpage::AllocatePrivatePage(vp_flags);
+    Copy(*vp_dst);
     return *vp_dst;
 }
 
-// Shared VMPages belong to an inode and not a vmspace!
-util::locked<VMPage> vmpage_create_shared(INode& inode, off_t offs, int flags)
+VMPage& VMPage::Duplicate()
 {
-    VMPage& new_page = AllocateShared(inode, offs, flags);
+    KASSERT((vp_flags & vmpage::flag::Pending) == 0, "trying to duplicate a pending page");
 
-    // Hook the vm page to the inode
-    inode.Lock();
-    for (auto vmpage : inode.i_pages) {
-        if (vmpage->vp_offset != offs || vmpage == &new_page)
-            continue;
-
-        // Page is already present - return the one already in use
-        vmpage->Lock(); // XXX is this order wise?
-        inode.Unlock();
-
-        // And throw the new page away, we won't need it
-        new_page.Deref();
-        return util::locked<VMPage>(*vmpage);
-    }
-
-    // Not yet present; add the new page and return it
-    inode.i_pages.push_back(&new_page);
-    inode.Unlock();
-    return util::locked<VMPage>(new_page);
+    auto vp_dst = &vmpage::AllocatePrivatePage(vp_flags | vmpage::flag::Promoted);
+    Copy(*vp_dst);
+    return *vp_dst;
 }
 
 VMPage& VMPage::Promote()
@@ -223,31 +191,30 @@ VMPage& VMPage::Promote()
     KASSERT((vp_flags & vmpage::flag::ReadOnly) == 0, "cowing r/o page");
     KASSERT((vp_flags & vmpage::flag::Promoted) == 0, "promoting promoted page %p", this);
 
-    if (vp_refcount == 1) {
+    if (vp_refcount == 1 && (vp_flags & vmpage::flag::Private) == 0) {
         // Only a single reference - we can make this page writable since no one
         // else is using it
-        vp_flags |= vmpage::flag::Private;
+        kprintf("Promote %d/%p: making it writable\n", process::GetCurrent().p_pid, this);
+        vp_flags |= vmpage::flag::Private | vmpage::flag::Promoted;
         return *this;
     }
 
     // Page has other users - make a copy for the caller (which is no longer
     // read-only)
-    auto& new_vp = vmpage::AllocatePrivatePage(vp_flags);
-    Copy(new_vp);
-    return new_vp;
+    kprintf("Promote %d/%p: making a copy\n", process::GetCurrent().p_pid, this);
+    return Duplicate();
 }
 
 void VMPage::Dump(const char* prefix) const
 {
     kprintf(
-        "%s%p: refcount %d flags %s/%s/%c ", prefix, this, vp_refcount,
+        "%s%p: refcount %d flags %s/%s/%c offset %d", prefix, this, vp_refcount,
         (vp_flags & vmpage::flag::Private) ? "prv" : "pub",
         (vp_flags & vmpage::flag::ReadOnly) ? "ro" : "rw",
-        (vp_flags & vmpage::flag::Pending) ? 'p' : '.');
+        (vp_flags & vmpage::flag::Pending) ? 'p' : '.',
+        static_cast<int>(vp_offset));
     if (vp_page != nullptr)
         kprintf(
             " page %p phys %p order %d", vp_page, vp_page->GetPhysicalAddress(), vp_page->p_order);
-    if (vp_inode != nullptr)
-        kprintf(" inode %d offset %d", (int)vp_inode->i_inum, (int)vp_offset);
     kprintf("\n");
 }

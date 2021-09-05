@@ -8,11 +8,12 @@
 #include "kernel/vmarea.h"
 #include "kernel/page.h"
 #include "kernel/lib.h"
+#include "kernel/vfs/dentry.h"
 
 #include "kernel/vmspace.h"
 
-VMArea::VMArea(VMSpace& vs, addr_t virt, size_t len, int flags)
-    : va_vs(vs), va_virt(virt), va_len(len), va_flags(flags)
+VMArea::VMArea(addr_t virt, size_t len, int flags)
+    : va_virt(virt), va_len(len), va_flags(flags)
 {
     const auto numberOfPages = (len + PAGE_SIZE - 1) / PAGE_SIZE;
     va_pages.resize(numberOfPages);
@@ -20,11 +21,14 @@ VMArea::VMArea(VMSpace& vs, addr_t virt, size_t len, int flags)
 
 VMArea::~VMArea()
 {
-    size_t n{};
+    if (va_dentry != nullptr)
+        dentry_deref(*va_dentry);
+
     for(auto vp: va_pages) {
-        if (vp != nullptr) ++n;
+        if (vp == nullptr) continue;
+        vp->Lock();
+        vp->Deref();
     }
-    KASSERT(n == 0, "vmarea destroyed while still holding %d page(s)", n);
 }
 
 VMPage* VMArea::LookupVAddrAndLock(addr_t vaddr)
