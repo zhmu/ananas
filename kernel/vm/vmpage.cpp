@@ -87,7 +87,6 @@ void VMPage::CopyExtended(VMPage& vp_dst, size_t len)
     auto dst = static_cast<char*>(
         kmem_map(p_dst->GetPhysicalAddress(), PAGE_SIZE, vm::flag::Read | vm::flag::Write));
 
-    //kprintf("VMPage CopyExtended from %p --> %p, %d bytes\n", src, dst, len);
     memcpy(dst, src, len);
     if (len < PAGE_SIZE)
         memset(dst + len, 0, PAGE_SIZE - len); // zero-fill after the data to be copied
@@ -156,23 +155,13 @@ VMPage& VMPage::Clone(VMSpace& vs, VMArea& va_source, addr_t virt)
         return *this;
     }
 
-#if 0
     // Make the source COW and force the mapping to be updated
-    kprintf("vmpage_clone %d: making %p virt %p cow\n", process::GetCurrent().p_pid, this, virt);
-    //KASSERT((vp_flags & vmpage::flag::Promoted) == 0, "cow-ing promoted page %p??", virt);
     if ((vp_flags & vmpage::flag::Promoted) != 0) {
-        kprintf("demoting page %p for virt %p\n", this, virt);
         vp_flags &= ~vmpage::flag::Promoted;
         Map(vs, va_source, virt);
     }
     Ref();
     return *this;
-#else
-    // XXX for now make a copy
-    auto vp_dst = &vmpage::Allocate(vp_flags);
-    Copy(*vp_dst);
-    return *vp_dst;
-#endif
 }
 
 VMPage& VMPage::Duplicate()
@@ -192,14 +181,12 @@ VMPage& VMPage::Promote()
     if (vp_refcount == 1) {
         // Only a single reference - we can make this page writable since no one
         // else is using it
-        kprintf("Promote %d/%p: making it writable\n", process::GetCurrent().p_pid, this);
         vp_flags |= vmpage::flag::Promoted;
         return *this;
     }
 
     // Page has other users - make a copy for the caller (which is no longer
     // read-only)
-    kprintf("Promote %d/%p: making a copy\n", process::GetCurrent().p_pid, this);
     return Duplicate();
 }
 

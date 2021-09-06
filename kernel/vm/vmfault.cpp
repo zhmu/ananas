@@ -45,7 +45,7 @@ namespace
         const auto page_index = (virt - interval.begin) / PAGE_SIZE;
         auto& vp = va.va_pages[page_index];
         if (vp && vp != &vmpage) {
-            vp->Lock();
+            vp->AssertLocked();
             vp->Deref();
         }
         vp = &vmpage;
@@ -82,13 +82,6 @@ namespace
         vmpage->vp_page = p;
         vmpage->vp_flags &= ~vmpage::flag::Pending;
         return vmpage;
-    }
-
-    VMPage& PromotePage(VMPage& vp)
-    {
-        auto& new_vp = vp.Promote();
-        if (&new_vp != &vp) vp.Deref();
-        return new_vp;
     }
 
     VMPage* HandleDEntryBackedFault(VMSpace& vs, VMArea& va, const VAInterval& interval, const addr_t alignedVirt)
@@ -183,23 +176,15 @@ Result VMSpace::HandleFault(addr_t virt, const int fault_flags)
         const auto alignedVirt = virt & ~(PAGE_SIZE - 1);
         if (auto vp = va->LookupVAddrAndLock(alignedVirt); vp != nullptr) {
             if ((fault_flags & vm::flag::Write) != 0 && (va->va_flags & vm::flag::Write) != 0) {
-                // Write to a COW page; promote the page and re-map it
-#if 1
-                kprintf("%d: promoting page %p for %p\n", process::GetCurrent().p_pid, vp, alignedVirt);
-                auto& new_vp = PromotePage(*vp);
-#else
-                auto& new_vp = *vp;
-                kprintf("%d: adjusting write permissions on page for %p\n", process::GetCurrent().p_pid, alignedVirt);
-                vp->vp_flags |= vmpage::flag::Promoted;
-#endif
-
+                // Write to a COW page; promote the page and re-map it. If this changes the
+                // VMPage, AssignPageToVirtualAddress() will Deref() the old one
+                auto& new_vp = vp->Promote();
                 AssignPageToVirtualAddress(*this, *va, interval, alignedVirt, new_vp);
                 new_vp.Unlock();
                 return Result::Success();
             }
 
             // Page is already mapped, but not COW. Bad, reject
-            kprintf("write to non-cow, reject %p\n", alignedVirt);
             vp->Unlock();
             return Result::Failure(EFAULT);
         }
