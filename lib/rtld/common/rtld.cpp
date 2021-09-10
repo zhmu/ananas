@@ -858,15 +858,14 @@ dl_iterate_phdr(int (*callback)(struct dl_phdr_info* info, size_t size, void* da
 
 extern "C" Elf_Addr rtld(register_t* stk, addr_t* exit_func)
 {
-    uint64_t ei_interpreter_base;
-    uint64_t ei_phdr;
-    uint64_t ei_phdr_entries;
-    uint64_t ei_entry;
+    uint64_t ei_interpreter_base = 0;
+    uint64_t ei_phdr = 0;
+    uint64_t ei_phdr_entries = 0;
+    uint64_t ei_entry = 0;
     auto stk_orig = stk;
     {
         dbg("init stk %p\n", stk);
         main_argc = *stk++;
-        stk++; // progname
         main_argv = reinterpret_cast<char**>(stk);
         for (auto argc = main_argc; argc > 0; --argc)
             stk++; // skip args
@@ -902,6 +901,10 @@ extern "C" Elf_Addr rtld(register_t* stk, addr_t* exit_func)
      * virtual address to place us. We have to adjust our dynamic
      * relocations to match - we have been loaded at ei_interpreter_base.
      */
+    assert(ei_interpreter_base != 0);
+    assert(ei_entry != 0);
+    assert(ei_phdr != 0);
+    assert(ei_phdr_entries != 0);
     rtld_relocate(ei_interpreter_base);
 
     // Get access to the command line and environment; we need this to
