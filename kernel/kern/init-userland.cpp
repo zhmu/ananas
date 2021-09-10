@@ -17,9 +17,52 @@
 #include "kernel/vfs/mount.h"
 #include "kernel-md/md.h"
 
+#include "kernel-md/param.h"
+#include "kernel/vmspace.h"
+#include "kernel/vmarea.h"
+#include "kernel/kmem.h"
+#include "kernel/vm.h"
+
+extern "C" void* initcode;
+extern "C" void* initcode_end;
+
 namespace
 {
     Thread* userinit_thread{};
+
+    void FillInitThread(Thread& t)
+    {
+        auto& vs = t.t_process.p_vmspace;
+        constexpr addr_t userlandStackAddr = 0x10'000;
+        constexpr addr_t userlandCodeAddr = 0x100'000;
+
+        // Create stack
+        VMArea* vaStack;
+        vs.MapTo(
+            VAInterval{ userlandStackAddr, userlandStackAddr + PAGE_SIZE},
+            vm::flag::User | vm::flag::Read | vm::flag::Write | vm::flag::Private, vaStack);
+
+        // Create code
+        VMArea* vaCode;
+        vs.MapTo(
+            VAInterval{ userlandCodeAddr, userlandCodeAddr + PAGE_SIZE },
+            vm::flag::User | vm::flag::Read | vm::flag::Write | vm::flag::Private | vm::flag::Execute, vaCode);
+
+        // Map code in place
+        auto& code_vp = vmpage::Allocate(0);
+        vaCode->va_pages[0] = &code_vp;
+        code_vp.Map(vs, *vaCode, userlandCodeAddr);
+
+        // Put code in there
+        auto p = static_cast<char*>(kmem_map(
+            code_vp.GetPage()->GetPhysicalAddress(), PAGE_SIZE, vm::flag::Read | vm::flag::Write));
+        memcpy(p, &initcode, (addr_t)&initcode_end - (addr_t)&initcode);
+        kmem_unmap(p, PAGE_SIZE);
+        code_vp.Unlock();
+
+        t.SetName("init");
+        md::thread::SetupPostExec(t, userlandCodeAddr, userlandStackAddr + PAGE_SIZE);
+    }
 
     void userinit_func(void*)
     {
@@ -54,11 +97,6 @@ namespace
         }
         kprintf(" ok\n");
 
-        // Now it makes sense to try to load init
-        const char* init_path = cmdline_get_string("init");
-        if (init_path == nullptr)
-            init_path = "/sbin/init";
-
         Process* proc;
         if (auto result = process_alloc(nullptr, proc); result.IsFailure()) {
             kprintf("couldn't create process, %i\n", result.AsStatusCode());
@@ -77,34 +115,8 @@ namespace
             }
         }
 
-        kprintf("- Lauching init from %s...", init_path);
-        struct VFS_FILE file;
-        if (auto result = vfs_open(proc, init_path, proc->p_cwd, &file); result.IsFailure()) {
-            kprintf("couldn't open init executable, %i\n", result.AsStatusCode());
-            thread.Terminate(0);
-        }
-        DEntry& dentry = *file.f_dentry;
-        dentry_ref(dentry);
-        vfs_close(proc, &file);
-
-        auto exec = exec_prepare(dentry);
-        if (exec != nullptr) {
-            void* auxargs;
-            auto& vmspace = proc->p_vmspace;
-            if (auto result = exec->Load(vmspace, dentry, auxargs); result.IsSuccess()) {
-                kprintf(" ok\n");
-                const char* argv[] = {"init", nullptr};
-                const char* envp[] = {"OS=Ananas", "USER=root", nullptr};
-                exec->PrepareForExecute(vmspace, *t, auxargs, argv, envp);
-                t->Resume();
-            } else {
-                kprintf(" fail - error %i\n", result.AsStatusCode());
-            }
-        } else {
-            kprintf(" fail - not an executable\n");
-        }
-
-        dentry_deref(dentry);
+        FillInitThread(*t);
+        t->Resume();
         thread.Terminate(0);
     }
 

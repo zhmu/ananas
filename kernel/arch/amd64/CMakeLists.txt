@@ -9,6 +9,7 @@ add_sources(
 	interrupts.S
 	exception.cpp
 	reboot.cpp
+	uinit.S
 	usupport.S
 	ioapic.cpp
 	pic.cpp
