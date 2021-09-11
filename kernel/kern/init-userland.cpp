@@ -12,6 +12,7 @@
 #include "kernel/result.h"
 #include "kernel/thread.h"
 #include "kernel/time.h"
+#include "kernel/userland.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/mount.h"
@@ -20,7 +21,6 @@
 #include "kernel-md/param.h"
 #include "kernel/vmspace.h"
 #include "kernel/vmarea.h"
-#include "kernel/kmem.h"
 #include "kernel/vm.h"
 
 extern "C" void* initcode;
@@ -33,35 +33,23 @@ namespace
     void FillInitThread(Thread& t)
     {
         auto& vs = t.t_process.p_vmspace;
-        constexpr addr_t userlandStackAddr = 0x10'000;
+        const auto stackEnd = USERLAND_STACK_ADDR + THREAD_STACK_SIZE;
         constexpr addr_t userlandCodeAddr = 0x100'000;
 
         // Create stack
-        VMArea* vaStack;
-        vs.MapTo(
-            VAInterval{ userlandStackAddr, userlandStackAddr + PAGE_SIZE},
-            vm::flag::User | vm::flag::Read | vm::flag::Write | vm::flag::Private, vaStack);
+        auto& stack_vp = userland::CreateStack(vs, stackEnd);
+        auto p = userland::MapPageToKernel(code_vp);
+        stack_vp.Unlock();
 
         // Create code
-        VMArea* vaCode;
-        vs.MapTo(
-            VAInterval{ userlandCodeAddr, userlandCodeAddr + PAGE_SIZE },
-            vm::flag::User | vm::flag::Read | vm::flag::Write | vm::flag::Private | vm::flag::Execute, vaCode);
-
-        // Map code in place
-        auto& code_vp = vmpage::Allocate(0);
-        vaCode->va_pages[0] = &code_vp;
-        code_vp.Map(vs, *vaCode, userlandCodeAddr);
-
-        // Put code in there
-        auto p = static_cast<char*>(kmem_map(
-            code_vp.GetPage()->GetPhysicalAddress(), PAGE_SIZE, vm::flag::Read | vm::flag::Write));
+        auto& code_vp = userland::CreateCode(vs, userlandCodeAddr, PAGE_SIZE);
+        auto p = userland::MapPageToKernel(code_vp);
         memcpy(p, &initcode, (addr_t)&initcode_end - (addr_t)&initcode);
-        kmem_unmap(p, PAGE_SIZE);
+        userland::UnmapPage(p);
         code_vp.Unlock();
 
         t.SetName("init");
-        md::thread::SetupPostExec(t, userlandCodeAddr, userlandStackAddr + PAGE_SIZE);
+        md::thread::SetupPostExec(t, userlandCodeAddr, stackEnd);
     }
 
     void userinit_func(void*)

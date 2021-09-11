@@ -15,6 +15,7 @@
 #include "kernel/result.h"
 #include "kernel/process.h"
 #include "kernel/thread.h"
+#include "kernel/userland.h"
 #include "kernel/vmarea.h"
 #include "kernel/vmspace.h"
 #include "kernel/vfs/core.h"
@@ -292,35 +293,6 @@ namespace
         auxargs->aa_rip = interp_entry + interp_rbase;
         return Result::Success();
     }
-
-    /*
-     * Allocate userland stack here - there are a few reasons to do that here:
-     *
-     * (1) We can look at the ELF file to check what kind of stack we need to
-     *     allocate (execute-allowed or not, etc)
-     * (2) All mappings have been made, so we can pick a nice spot.
-     * (3) This will only be called for userland programs, so we can avoid the
-     *     hairy details of stacks in the common Thread code.
-     * (4) We'll be needing write access to the stack anyway to fill it with
-     *     auxv.
-     * (5) We do not have to special-case the userland stack for cloning/exec.
-     */
-    VMPage& CreateStack(VMSpace& vs, const addr_t stackEnd)
-    {
-        VMArea* va;
-        vs.MapTo(
-            VAInterval{ USERLAND_STACK_ADDR, stackEnd },
-            vm::flag::User | vm::flag::Read | vm::flag::Write | vm::flag::Private, va);
-
-        // Pre-fault the first page so that we can put stuff in it
-        auto stackPageVirt = stackEnd - PAGE_SIZE;
-        auto& stack_vp = vmpage::Allocate(0);
-        const auto page_index = (stackPageVirt  - USERLAND_STACK_ADDR) / PAGE_SIZE;
-        KASSERT(page_index < va->va_pages.size(), "oeps %d %d", page_index, va->va_pages.size());
-        va->va_pages[page_index] = &stack_vp;
-        stack_vp.Map(vs, *va, stackPageVirt);
-        return stack_vp;
-    }
 } // unnamed namespace
 
 struct ELF64Loader final : IExecutor {
@@ -384,7 +356,7 @@ Result ELF64Loader::PrepareForExecute(
     auto auxargs = static_cast<AuxArgs*>(aa);
 
     const auto stackEnd = USERLAND_STACK_ADDR + THREAD_STACK_SIZE;
-    auto& stack_vp = CreateStack(vs, stackEnd);
+    auto& stack_vp = userland::CreateStack(vs, stackEnd);
 
     /*
      * Calculate the amount of space we need; the ELF ABI specifies the stack to
