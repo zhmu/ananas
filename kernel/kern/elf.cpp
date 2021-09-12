@@ -33,30 +33,6 @@ namespace {
 
 namespace
 {
-    template<typename T>
-    void place(addr_t& ptr, const T& data, size_t n)
-    {
-        memcpy(reinterpret_cast<void*>(ptr), &data, n);
-        ptr += n;
-    }
-
-    template<typename T>
-    void place(addr_t& ptr, const T& data)
-    {
-        place(ptr, data, sizeof(data));
-    }
-
-    size_t CalculateVectorStorageInBytes(const char* p[], size_t& num_entries)
-    {
-        size_t n = 0;
-        num_entries = 0;
-        for (/* nothing */; *p != nullptr; p++) {
-            n += strlen(*p) + 1 /* terminating \0 */;
-            num_entries++;
-        }
-        return n;
-    }
-
     Result read_data(DEntry& dentry, void* buf, off_t offset, size_t len)
     {
         struct VFS_FILE f;
@@ -376,13 +352,13 @@ Result ELF64Loader::PrepareForExecute(
     constexpr size_t num_auxv_entries = 5;
     size_t argc, envc;
     const size_t data_bytes_needed =
-        CalculateVectorStorageInBytes(argv, argc) + CalculateVectorStorageInBytes(envp, envc);
+        userland::CalculateVectorStorageInBytes(argv, argc) +
+        userland::CalculateVectorStorageInBytes(envp, envc);
     const size_t record_bytes_needed =
         (1 /* argc */ + argc + 1 /* terminating null */ + envc + 1 /* terminating null */) *
             sizeof(register_t) +
         num_auxv_entries * sizeof(Elf_Auxv);
-    const size_t padding_bytes_needed =
-        (data_bytes_needed % 8 > 0) ? 8 - (data_bytes_needed % 8) : 0;
+    const size_t padding_bytes_needed = userland::CalculatePaddingBytesNeeded(data_bytes_needed);
     const size_t bytes_needed = record_bytes_needed + data_bytes_needed + padding_bytes_needed;
     KASSERT(bytes_needed < PAGE_SIZE, "TODO deal with more >1 page here!");
 
@@ -392,35 +368,36 @@ Result ELF64Loader::PrepareForExecute(
             stack_vp.GetPage()->GetPhysicalAddress(), PAGE_SIZE, vm::flag::Read | vm::flag::Write));
         memset(p, 0, PAGE_SIZE);
         {
+            using userland::Store;
             addr_t stack_ptr = reinterpret_cast<addr_t>(p) + PAGE_SIZE - bytes_needed;
             register_t stack_data_ptr = stackEnd - data_bytes_needed - padding_bytes_needed;
 
-            place(stack_ptr, static_cast<register_t>(argc));
+            Store(stack_ptr, static_cast<register_t>(argc));
             for (size_t n = 0; n < argc; n++) {
-                place(stack_ptr, stack_data_ptr);
+                Store(stack_ptr, stack_data_ptr);
                 stack_data_ptr += strlen(argv[n]) + 1 /* terminating \0 */;
             }
-            place(stack_ptr, static_cast<register_t>(0));
+            Store(stack_ptr, static_cast<register_t>(0));
             for (size_t n = 0; n < envc; n++) {
-                place(stack_ptr, stack_data_ptr);
+                Store(stack_ptr, stack_data_ptr);
                 stack_data_ptr += strlen(envp[n]) + 1 /* terminating \0 */;
             }
-            place(stack_ptr, static_cast<register_t>(0));
+            Store(stack_ptr, static_cast<register_t>(0));
 
             // Note: the amount of items here must correspond with num_auxv_entries !
-            place(stack_ptr, Elf_Auxv{AT_ENTRY, static_cast<long>(auxargs->aa_entry)});
-            place(stack_ptr, Elf_Auxv{AT_BASE, static_cast<long>(auxargs->aa_interpreter_base)});
-            place(stack_ptr, Elf_Auxv{AT_PHDR, static_cast<long>(auxargs->aa_phdr)});
-            place(stack_ptr, Elf_Auxv{AT_PHENT, static_cast<long>(auxargs->aa_phdr_entries)});
-            place(stack_ptr, Elf_Auxv{AT_NULL, 0});
+            Store(stack_ptr, Elf_Auxv{AT_ENTRY, static_cast<long>(auxargs->aa_entry)});
+            Store(stack_ptr, Elf_Auxv{AT_BASE, static_cast<long>(auxargs->aa_interpreter_base)});
+            Store(stack_ptr, Elf_Auxv{AT_PHDR, static_cast<long>(auxargs->aa_phdr)});
+            Store(stack_ptr, Elf_Auxv{AT_PHENT, static_cast<long>(auxargs->aa_phdr_entries)});
+            Store(stack_ptr, Elf_Auxv{AT_NULL, 0});
 
             for (size_t n = 0; n < argc; n++) {
-                place(stack_ptr, *argv[n], strlen(argv[n]) + 1 /* terminating \0 */);
+                Store(stack_ptr, *argv[n], strlen(argv[n]) + 1 /* terminating \0 */);
             }
             for (size_t n = 0; n < envc; n++) {
-                place(stack_ptr, *envp[n], strlen(envp[n]) + 1 /* terminating \0 */);
+                Store(stack_ptr, *envp[n], strlen(envp[n]) + 1 /* terminating \0 */);
             }
-            place(stack_ptr, static_cast<register_t>(0), padding_bytes_needed); // padding
+            Store(stack_ptr, static_cast<register_t>(0), padding_bytes_needed); // padding
 
             KASSERT(
                 stack_ptr == reinterpret_cast<addr_t>(p) + PAGE_SIZE,

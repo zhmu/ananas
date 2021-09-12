@@ -30,6 +30,42 @@ namespace
 {
     Thread* userinit_thread{};
 
+    const char* get_cmdline_or_default(const char* key, const char* dfault)
+    {
+        const auto result = cmdline_get_string(key);
+        if (result == nullptr) return dfault;
+        return result;
+    }
+
+    addr_t InitStack(void* p, addr_t stackEnd)
+    {
+        const auto init_arg = get_cmdline_or_default("init", "/sbin/init");
+        const auto rootfs_arg = get_cmdline_or_default("root", "");
+        const auto data_bytes_needed = strlen(init_arg) + 1 + strlen(rootfs_arg) + 1;
+        const auto record_bytes_needed = sizeof(register_t) * 2;
+        const size_t padding_bytes_needed = userland::CalculatePaddingBytesNeeded(data_bytes_needed);
+        const size_t bytes_needed = record_bytes_needed + data_bytes_needed + padding_bytes_needed;
+        KASSERT(bytes_needed < PAGE_SIZE, "TODO deal with more >1 page here!");
+
+        auto stack_ptr = reinterpret_cast<addr_t>(p) + PAGE_SIZE - bytes_needed;
+        auto stack_data_ptr = stackEnd - data_bytes_needed - padding_bytes_needed;
+
+        using userland::Store;
+        Store(stack_ptr, stack_data_ptr); /* &init_arg */
+        stack_data_ptr += strlen(init_arg) + 1 /* terminating \0 */;
+        Store(stack_ptr, stack_data_ptr); /* &rootfs_arg */
+        stack_data_ptr += strlen(rootfs_arg) + 1 /* terminating \0 */;
+
+        Store(stack_ptr, *init_arg, strlen(init_arg) + 1 /* terminating \0 */);
+        Store(stack_ptr, *rootfs_arg, strlen(rootfs_arg) + 1 /* terminating \0 */);
+        Store(stack_ptr, static_cast<register_t>(0), padding_bytes_needed); // padding
+        KASSERT(
+            stack_ptr == reinterpret_cast<addr_t>(p) + PAGE_SIZE,
+            "did not fill entire userland stack; ptr %p != end %p\n", stack_ptr,
+            reinterpret_cast<addr_t>(p) + PAGE_SIZE);
+        return stackEnd - bytes_needed;
+    }
+
     void FillInitThread(Thread& t)
     {
         auto& vs = t.t_process.p_vmspace;
@@ -37,19 +73,26 @@ namespace
         constexpr addr_t userlandCodeAddr = 0x100'000;
 
         // Create stack
-        auto& stack_vp = userland::CreateStack(vs, stackEnd);
-        auto p = userland::MapPageToKernel(code_vp);
-        stack_vp.Unlock();
+        const auto stack_ptr = [&] {
+            auto& stack_vp = userland::CreateStack(vs, stackEnd);
+            auto p = userland::MapPageToKernel(stack_vp);
+            auto stack_ptr = InitStack(p, stackEnd);
+            userland::UnmapPage(p);
+            stack_vp.Unlock();
+            return stack_ptr;
+        }();
 
         // Create code
-        auto& code_vp = userland::CreateCode(vs, userlandCodeAddr, PAGE_SIZE);
-        auto p = userland::MapPageToKernel(code_vp);
-        memcpy(p, &initcode, (addr_t)&initcode_end - (addr_t)&initcode);
-        userland::UnmapPage(p);
-        code_vp.Unlock();
+        {
+            auto& code_vp = userland::CreateCode(vs, userlandCodeAddr, PAGE_SIZE);
+            auto p = userland::MapPageToKernel(code_vp);
+            memcpy(p, &initcode, (addr_t)&initcode_end - (addr_t)&initcode);
+            userland::UnmapPage(p);
+            code_vp.Unlock();
+        }
 
         t.SetName("init");
-        md::thread::SetupPostExec(t, userlandCodeAddr, stackEnd);
+        md::thread::SetupPostExec(t, userlandCodeAddr, stack_ptr);
     }
 
     void userinit_func(void*)

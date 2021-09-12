@@ -57,4 +57,21 @@ namespace userland
     {
         kmem_unmap(p, PAGE_SIZE);
     }
+
+    size_t CalculateVectorStorageInBytes(const char* p[], size_t& num_entries)
+    {
+        size_t n = 0;
+        num_entries = 0;
+        for (/* nothing */; *p != nullptr; p++) {
+            n += strlen(*p) + 1 /* terminating \0 */;
+            num_entries++;
+        }
+        return n;
+    }
+
+    size_t CalculatePaddingBytesNeeded(size_t n)
+    {
+        constexpr auto alignment = 8;
+        return (n % alignment > 0) ? alignment - (n % alignment) : 0;
+    }
 }
