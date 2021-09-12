@@ -202,6 +202,8 @@ void Process::RemoveThread(Thread& t)
 
 void Process::Exit(int status)
 {
+    if (p_pid == 1) panic("terminating init!");
+
     // Note that the lock must be held, to prevent a race between Exit() and
     // WaitAndLock()
     p_lock.AssertLocked();
