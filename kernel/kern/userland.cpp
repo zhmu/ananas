@@ -38,7 +38,7 @@ namespace userland
         VMArea* vaCode;
         vs.MapTo(
             VAInterval{ virt, virt + len },
-            vm::flag::User | vm::flag::Read | vm::flag::Write | vm::flag::Private | vm::flag::Execute, vaCode);
+            vm::flag::User | vm::flag::Read | vm::flag::Private | vm::flag::Execute, vaCode);
 
         // Map code in place
         auto& code_vp = vmpage::Allocate(0);
