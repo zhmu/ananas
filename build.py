@@ -119,6 +119,13 @@ def build_libstdcxx(conf, project_name, src_path):
 
     env = os.environ
 
+    # provide a gthr-default.h for libstdc++; this is inspired by
+    # https://www.linuxfromscratch.org/lfs/view/stable/chapter07/gcc-libstdc++-pass2.html
+    logging.debug('preparing libstdcxx')
+    gthr_default_h = os.path.join(os.path.dirname(src_path), 'libgcc', 'gthr-default.h')
+    if not os.path.exists(gthr_default_h):
+        os.symlink('gthr-posix.h', gthr_default_h)
+
     configure = [ os.path.join(full_src_path, 'configure'),  "--host=" + conf["target"], "--target=" + conf["target"], "--prefix=" + os.path.join(conf["sysrootdir"], "usr") ]
     #configure = [ os.path.join(full_src_path, 'configure'),  "--host=" + conf["target"], "--target=" + conf["target"], "--prefix=" + os.path.join(conf["sysrootdir"], "usr"), "--with-sysroot=" + conf["sysrootdir"], "--enable-languages=c,c++" ]
     logging.debug('running %s' % configure)
@@ -226,6 +233,7 @@ if targets['bootstrap']:
         build_using_cmake(conf, 'include', 'include')
         build_using_cmake(conf, 'libsyscall', 'lib/libsyscall')
         build_using_cmake(conf, 'libc', 'lib/libc')
+        build_using_cmake(conf, 'libpthread', 'lib/pthread')
         build_using_cmake(conf, 'crt', 'lib/crt')
         build_libgcc(conf, 'libgcc', 'external/gcc')
 
@@ -233,7 +241,6 @@ if targets['bootstrap']:
         shutil.copy(os.path.join(conf['toolchaindir'], conf['target'], 'lib', 'libgcc_s.so'), os.path.join(conf['outdir'], 'usr', 'lib'))
 
         build_using_cmake(conf, 'libm', 'lib/libm')
-        build_using_cmake(conf, 'libpthread', 'lib/pthread')
 
     build_libstdcxx(conf, 'libstdcxx', 'external/gcc/libstdc++-v3')
     create_final_toolchain_file(conf['toolchain_txt'], conf)
