@@ -94,7 +94,6 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/chown.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/umask.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/pipe.c
-	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/select.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/getrlimit.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/chmod.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/getrusage.c
@@ -122,6 +121,17 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdio/tmpfile.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdio/remove.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdio/_PDCLIB_fileops.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/socket/accept.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/socket/bind.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/socket/connect.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/socket/listen.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/socket/select.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/socket/send.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/socket/socket.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/shm/shmat.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/shm/shmctl.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/shm/shmdt.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/shm/shmget.c
 	PARENT_SCOPE
 )
 

@@ -11,6 +11,7 @@
 #ifndef __SYS_SHM_H__
 #define __SYS_SHM_H__
 
+#include <sys/cdefs.h>
 #include <sys/ipc.h>
 
 #define IPC_STAT 1
@@ -20,9 +21,13 @@
 struct shmid_ds {
 };
 
+__BEGIN_DECLS
+
 void* shmat(int shmid, const void* shmaddr, int shmflg);
 int shmctl(int shmid, int cmd, struct shmid_ds* buf);
 int shmdt(const void* shmaddr);
 int shmget(key_t key, size_t size, int shmflg);
+
+__END_DECLS
 
 #endif /* __SYS_SHM_H__ */
