@@ -8,13 +8,8 @@
 #define __SYS_TIME_H__
 
 #include <sys/types.h>
-#include <ananas/_types/suseconds.h>
+#include <ananas/_types/timeval.h>
 #include <sys/cdefs.h>
-
-struct timeval {
-    time_t tv_sec;
-    suseconds_t tv_usec;
-};
 
 #include <sys/select.h>
 

@@ -52,3 +52,14 @@
 47 { Result getppid(); }
 48 { Result symlink(const char* oldpath, const char* newpath); }
 49 { Result reboot(int how); }
+50 { Result socket(int domain, int type, int protocol); }
+51 { Result accept(int socket, struct sockaddr* address, socklen_t* address_len); }
+52 { Result bind(int socket, const struct sockaddr* address, socklen_t address_len); }
+53 { Result connect(int socket, const struct sockaddr* address, socklen_t address_len); }
+54 { Result listen(int socket, int backlog); }
+55 { Result send(int socket, const void* buffer, size_t length, int flags); }
+56 { Result select(int nfds, fd_set* readfds, fd_set* writefds, fd_set* errorfds, struct timeval* timeout); }
+57 { Result shmat(int shmid, const void* shmaddr, int shmflg, void** out); }
+58 { Result shmctl(int shmid, int cmd, struct shmid_ds* buf); }
+59 { Result shmdt(const void* shmaddr); }
+60 { Result shmget(key_t key, size_t size, int shmflg); }

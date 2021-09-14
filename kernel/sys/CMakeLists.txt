@@ -27,4 +27,15 @@ add_sources(
 	vmop.cpp
 	waitpid.cpp
 	write.cpp
+    accept.cpp
+    bind.cpp
+    connect.cpp
+    listen.cpp
+    select.cpp
+    send.cpp
+    shmat.cpp
+    shmctl.cpp
+    shmdt.cpp
+    shmget.cpp
+    socket.cpp
 )

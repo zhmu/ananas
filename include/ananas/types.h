@@ -29,6 +29,7 @@
 #include <ananas/_types/off.h>
 #include <ananas/_types/nlink.h>
 #include <ananas/_types/dev.h>
+#include <ananas/_types/key.h>
 #include <ananas/_types/blksize.h>
 #include <ananas/_types/blkcnt.h>
 #include <ananas/_types/blocknr.h>

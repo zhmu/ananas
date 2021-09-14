@@ -7,6 +7,8 @@
 #include <ananas/types.h>
 #include <ananas/syscall-vmops.h>
 #include <ananas/stat.h>
+#include <ananas/_types/socklen.h>
+#include <ananas/_types/fdset.h>
 
 struct utimbuf;
 struct Thread;
