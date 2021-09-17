@@ -7,6 +7,7 @@
 #include "kernel/pool.h"
 #include "kernel/lib.h"
 #include "kernel/kdb.h"
+#include "kernel/mm.h"
 #include "kernel/vm.h"
 #include "kernel-md/param.h"
 

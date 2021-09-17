@@ -15,4 +15,5 @@ namespace paths
     const std::string sh = "/bin/sh";
     const std::string dev = "/dev/";
     const std::string proc = "/ankh/proc";
+    const std::string memory = "/ankh/kernel/memory";
 } // namespace paths
