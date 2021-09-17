@@ -351,6 +351,7 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
     size_t num_phent = 1; // PT_NOTE
     for (auto& [ interval, va ] : vs.vs_areamap) {
         for (auto vp : va->va_pages) {
+            if (vp == nullptr) continue;
             num_phent++;
         }
     }
@@ -445,6 +446,7 @@ Result elf64_coredump(Thread* t, struct STACKFRAME* sf, struct VFS_FILE* f)
         size_t page_index = 0;
         for(size_t page_index = 0; page_index < va->va_pages.size(); ++page_index) {
             auto vp = va->va_pages[page_index];
+            if (vp == nullptr) continue;
             if (auto result = vfs_write(f, reinterpret_cast<void*>(interval.begin + page_index * PAGE_SIZE), PAGE_SIZE);
                 result.IsFailure())
                 return result;
