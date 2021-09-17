@@ -170,6 +170,8 @@ parser.add_argument('-k', '--kernel', action='store_true',
                     help='build kernel')
 parser.add_argument('-s', '--sysutils', action='store_true',
                     help='build system utilities (init, ps, ...)')
+parser.add_argument('-w', '--awe', action='store_true',
+                    help='build window environment (awm, ...)')
 parser.add_argument('-i', '--image', help='build disk image')
 
 args = parser.parse_args()
@@ -218,6 +220,7 @@ targets = {
     'externals': args.externals,
     'kernel': args.kernel,
     'sysutils': args.sysutils,
+    'awe': args.awe,
     'image': args.image
 }
 if args.all:
@@ -261,6 +264,9 @@ if targets['sysutils']:
 
 if targets['kernel']:
     build_using_cmake(conf, 'kernel', 'kernel')
+
+if targets['awe']:
+    build_using_cmake(conf, 'awm', 'awe/awm')
 
 if targets['image']:
     print('image')
