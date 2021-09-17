@@ -303,3 +303,75 @@ TEST(Vector, assign)
         EXPECT_EQ(v[n], w[n]);
     }
 }
+
+TEST(Vector, RemoveDoesNothingWhenEmpty)
+{
+    util::vector<int> v;
+    v.remove(0);
+    ASSERT_TRUE(v.empty());
+}
+
+TEST(Vector, RemoveIgnoresNotMatchingElements)
+{
+    util::vector<int> v;
+    v.push_back(1);
+    v.remove(0);
+    ASSERT_EQ(1, v.size());
+    EXPECT_EQ(1, v.front());
+}
+
+TEST(Vector, RemoveRemovesSingleMatchingElements)
+{
+    util::vector<int> v;
+    v.push_back(1);
+    v.remove(1);
+    ASSERT_TRUE(v.empty());
+}
+
+TEST(Vector, RemoveRemovesMultipleMatchingElements)
+{
+    util::vector<int> v;
+    v.push_back(1);
+    v.push_back(1);
+    v.push_back(1);
+    v.remove(1);
+    ASSERT_TRUE(v.empty());
+}
+
+TEST(Vector, RemoveRemovesMultipleMatchingElementsAtTheFront)
+{
+    util::vector<int> v;
+    v.push_back(1);
+    v.push_back(1);
+    v.push_back(1);
+    v.push_back(2);
+    v.remove(1);
+    ASSERT_EQ(1, v.size());
+    EXPECT_EQ(2, v.front());
+}
+
+TEST(Vector, RemoveRemovesMultipleMatchingElementsAtTheBack)
+{
+    util::vector<int> v;
+    v.push_back(0);
+    v.push_back(1);
+    v.push_back(1);
+    v.remove(1);
+    ASSERT_EQ(1, v.size());
+    EXPECT_EQ(0, v.front());
+}
+
+TEST(Vector, RemoveRemovesWithInterleavingMatches)
+{
+    util::vector<int> v;
+    v.push_back(0);
+    v.push_back(1);
+    v.push_back(2);
+    v.push_back(1);
+    v.push_back(0);
+    v.remove(1);
+    ASSERT_EQ(3, v.size());
+    EXPECT_EQ(0, v[0]);
+    EXPECT_EQ(2, v[1]);
+    EXPECT_EQ(0, v[2]);
+}
