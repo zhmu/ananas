@@ -6,10 +6,23 @@
  */
 #include <ananas/types.h>
 #include <ananas/errno.h>
+#include <sys/socket.h>
+#include "kernel/fd.h"
 #include "kernel/result.h"
+#include "kernel/vm.h"
 #include "syscall.h"
 
-Result sys_send(int socket, const void* buffer, size_t length, int flags)
+Result sys_send(int socket, const void* buf, size_t length, int flags)
 {
-    return Result::Failure(EBADF);
+    FD* fd;
+    if (auto result = syscall_get_fd(FD_TYPE_SOCKET, socket, fd); result.IsFailure())
+        return result;
+
+    void* buffer;
+    if (auto result = syscall_map_buffer(buf, length, vm::flag::Read, &buffer); result.IsFailure())
+        return result;
+
+    if (fd->fd_ops->d_send == nullptr)
+        return Result::Failure(ENOTSOCK);
+    return fd->fd_ops->d_send(socket, *fd, buffer, length, flags);
 }

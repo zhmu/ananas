@@ -6,10 +6,17 @@
  */
 #include <ananas/types.h>
 #include <ananas/errno.h>
+#include "kernel/fd.h"
 #include "kernel/result.h"
 #include "syscall.h"
 
 Result sys_listen(int socket, int backlog)
 {
-    return Result::Failure(EBADF);
+    FD* fd;
+    if (auto result = syscall_get_fd(FD_TYPE_SOCKET, socket, fd); result.IsFailure())
+        return result;
+
+    if (fd->fd_ops->d_listen == nullptr)
+        return Result::Failure(ENOTSOCK);
+    return fd->fd_ops->d_listen(socket, *fd, backlog);
 }

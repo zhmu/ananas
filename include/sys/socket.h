@@ -13,9 +13,11 @@
 #include <ananas/_types/socklen.h>
 
 #define AF_INET 1
-#define AF_UNIX 2
+#define AF_LOCAL 2
 #define AF_UNDEFINED 3
 #define AF_INET6 4
+
+#define AF_UNIX AF_LOCAL
 
 #define SOCK_DGRAM 0
 #define SOCK_RAW 1

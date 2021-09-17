@@ -7,6 +7,8 @@
 #pragma once
 
 #include <ananas/util/list.h>
+#include <ananas/_types/socklen.h>
+#include <sys/select.h>
 #include "kernel/lock.h"
 #include "kernel/init.h"
 #include "kernel/vfs/types.h"
@@ -14,6 +16,7 @@
 #define FD_TYPE_ANY -1
 #define FD_TYPE_UNUSED 0
 #define FD_TYPE_FILE 1
+#define FD_TYPE_SOCKET 2
 
 struct Process;
 struct FDOperations;
@@ -47,6 +50,15 @@ typedef Result (*fd_clone_fn)(
 typedef Result (*fd_ioctl_fn)(
     fdindex_t index, FD& fd, unsigned long request, void* args[]);
 
+using fd_accept_fn = Result (*)(fdindex_t, FD& fd, struct sockaddr*, socklen_t*);
+using fd_bind_fn = Result (*)(fdindex_t, FD& fd, const struct sockaddr*, socklen_t);
+using fd_connect_fn = Result (*)(fdindex_t, FD& fd, const struct sockaddr*, socklen_t);
+using fd_listen_fn = Result (*)(fdindex_t, FD& fd, int);
+using fd_send_fn = Result (*)(fdindex_t, FD& fd, const void*, size_t, int);
+using fd_can_read_fn = bool (*)(fdindex_t, FD&);
+using fd_can_write_fn = bool (*)(fdindex_t, FD&);
+using fd_has_except_fn = bool (*)(fdindex_t, FD&);
+
 struct FDOperations {
     fd_read_fn d_read;
     fd_write_fn d_write;
@@ -55,6 +67,15 @@ struct FDOperations {
     fd_unlink_fn d_unlink;
     fd_clone_fn d_clone;
     fd_ioctl_fn d_ioctl;
+    // Socket-related
+    fd_accept_fn d_accept;
+    fd_bind_fn d_bind;
+    fd_connect_fn d_connect;
+    fd_listen_fn d_listen;
+    fd_send_fn d_send;
+    fd_can_read_fn d_can_read;
+    fd_can_write_fn d_can_write;
+    fd_has_except_fn d_has_except;
 };
 
 /* Registration of descriptor types */

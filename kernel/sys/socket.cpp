@@ -6,10 +6,17 @@
  */
 #include <ananas/types.h>
 #include <ananas/errno.h>
+#include <sys/socket.h>
 #include "kernel/result.h"
+#include "kernel/net/socket_local.h"
 #include "syscall.h"
+
+#include "kernel/lib.h"
 
 Result sys_socket(int domain, int type, int protocol)
 {
-    return Result::Failure(EINVAL);
+    if (domain != AF_UNIX || type != SOCK_STREAM || protocol != 0)
+        return Result::Failure(EINVAL);
+
+    return net::AllocateLocalSocket();
 }
