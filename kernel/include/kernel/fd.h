@@ -22,6 +22,8 @@ struct Process;
 struct FDOperations;
 class Result;
 
+namespace net { struct LocalSocket; }
+
 struct FD : util::List<FD>::NodePtr {
     int fd_type = 0;                      /* one of FD_TYPE_... */
     int fd_flags = 0;                     /* flags */
@@ -32,6 +34,7 @@ struct FD : util::List<FD>::NodePtr {
     // Descriptor-specific data
     union {
         struct VFS_FILE d_vfs_file;
+        net::LocalSocket* d_local_socket;
     } fd_data{};
 
     Result Close();
