@@ -114,4 +114,12 @@ namespace time
         }
     }
 
+    tick_t TimevalToTicks(const timeval& tv)
+    {
+        const auto hz = GetPeriodicyInHz();
+        const auto ticksPerMs = 1'000'000 / hz;
+        tick_t t = tv.tv_sec * hz;
+        t += tv.tv_usec / ticksPerMs;
+        return t;
+    }
 } // namespace time

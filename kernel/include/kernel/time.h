@@ -7,6 +7,7 @@
 #pragma once
 
 #include <ananas/types.h>
+#include <sys/time.h>
 
 #define CLOCK_MONOTONIC 0
 #define CLOCK_REALTIME 1
@@ -44,5 +45,7 @@ namespace time
     void SetTime(const struct timespec& ts);
     struct timespec GetTime();
     struct timespec GetTimeSinceBoot();
+
+    tick_t TimevalToTicks(const timeval& tv);
 
 } // namespace time
