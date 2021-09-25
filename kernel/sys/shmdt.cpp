@@ -7,9 +7,10 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
 #include "kernel/result.h"
+#include "kernel/shm.h"
 #include "syscall.h"
 
 Result sys_shmdt(const void* shmaddr)
 {
-    return Result::Failure(EBADF);
+    return shm::Unmap(shmaddr);
 }

@@ -35,4 +35,5 @@ add_sources(
 	time.cpp
     pool.cpp
     userland.cpp
+    shm.cpp
 )
