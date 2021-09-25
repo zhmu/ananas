@@ -118,4 +118,5 @@ Result thread_clone(Process& proc, Thread*& dest);
 
 namespace thread {
     Thread& GetCurrent();
+    void SleepUntilTick(const tick_t deadline);
 }

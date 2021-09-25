@@ -122,4 +122,13 @@ namespace time
         t += tv.tv_usec / ticksPerMs;
         return t;
     }
+
+    tick_t TimespecToTicks(const timespec& ts)
+    {
+        const auto hz = GetPeriodicyInHz();
+        const auto ticksPerNs = 1'000'000'000 / hz;
+        tick_t t = ts.tv_sec * hz;
+        t += ts.tv_nsec / ticksPerNs;
+        return t;
+    }
 } // namespace time

@@ -166,12 +166,7 @@ void thread_sleep_ms(unsigned int ms)
     tick_t num_ticks = ms / msPerTick;
     if (num_ticks == 0)
         num_ticks = 1; // delay at least one tick
-
-    auto& curThread = thread::GetCurrent();
-    curThread.t_timeout = time::GetTicks() + num_ticks;
-    curThread.t_flags |= THREAD_FLAG_TIMEOUT;
-    curThread.Suspend();
-    scheduler::Schedule();
+    thread::SleepUntilTick(time::GetTicks() + num_ticks);
 }
 
 void Thread::Resume()
@@ -277,4 +272,13 @@ void idle_thread(void*)
 
 namespace thread {
     Thread& GetCurrent() { return *md_GetCurrentThread(); }
+
+    void SleepUntilTick(const tick_t deadline)
+    {
+        auto& curThread = GetCurrent();
+        curThread.t_timeout = deadline;
+        curThread.t_flags |= THREAD_FLAG_TIMEOUT;
+        curThread.Suspend();
+        scheduler::Schedule();
+    }
 }

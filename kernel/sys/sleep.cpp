@@ -7,9 +7,16 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
 #include "kernel/result.h"
+#include "kernel/thread.h"
+#include "kernel/time.h"
 #include "syscall.h"
 
 Result sys_nanosleep(const struct timespec* rqtp, struct timespec* rmtp)
 {
-    return Result::Failure(EINVAL); // TODO
+    if (rqtp == nullptr) Result::Failure(EINVAL);
+    const auto deadline = time::GetTicks() + time::TimespecToTicks(*rqtp);
+
+    thread::SleepUntilTick(deadline);
+    if (rmtp != nullptr) *rmtp = {};
+    return Result::Success();
 }

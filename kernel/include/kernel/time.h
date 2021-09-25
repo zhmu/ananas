@@ -47,5 +47,6 @@ namespace time
     struct timespec GetTimeSinceBoot();
 
     tick_t TimevalToTicks(const timeval& tv);
+    tick_t TimespecToTicks(const timespec& ts);
 
 } // namespace time
