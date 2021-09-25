@@ -12,6 +12,7 @@
 #include <ananas/util/locked.h>
 #include <ananas/util/refcounted.h>
 #include "kernel/lock.h"
+#include "kernel/shm.h" // for ProcessSpecificData
 
 struct DEntry;
 class Result;
@@ -102,6 +103,7 @@ struct Process final : util::refcounted<Process> {
     process::ChildrenList p_children; // List of this process' children
 
     process::ProcessGroup* p_group = nullptr;
+    shm::ProcessSpecificData p_shm;
 
     // Node pointers to maintain membership of several lists
     util::List<Process>::Node p_NodeAll;

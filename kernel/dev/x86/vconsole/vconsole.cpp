@@ -23,7 +23,6 @@ Result VConsole::Attach()
     KASSERT(v_Video != nullptr, "no video attached?");
 
     for (auto& vtty : vttys) {
-        CreateDeviceProperties cdp(*this, ResourceSet());
         vtty = static_cast<VTTY*>(
             device_manager::CreateDevice("vtty", CreateDeviceProperties(*this, ResourceSet())));
         if (auto result = device_manager::AttachSingle(*vtty); result.IsFailure())

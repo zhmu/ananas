@@ -263,6 +263,14 @@ Result TTY::IOControl(Process* proc, unsigned long req, void* buffer[])
             // XXX Otherwise, return some value >=1 that is not an existing process group ID
             return Result::Failure(ENOTTY);
         }
+        case TIOGDNAME: { // Get device name
+            const auto p = static_cast<char*>(buffer[0]);
+            const auto len = reinterpret_cast<size_t>(buffer[1]);
+            const auto name_len = strlen(d_Name) + 1 /* \0 */;
+            if (name_len > len) return Result::Failure(ERANGE);
+            memcpy(p, d_Name, name_len);
+            return Result::Success();
+        }
     }
 
     return Result::Failure(EINVAL);

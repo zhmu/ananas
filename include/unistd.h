@@ -63,6 +63,7 @@ char* getlogin(void);
 unsigned alarm(unsigned seconds);
 int setpgid(pid_t pid, pid_t pgid);
 char* ttyname(int fildes);
+int ttyname_r(int fildes, char* name, size_t namesize);
 int setgid(gid_t gid);
 int setuid(uid_t uid);
 char* crypt(const char* key, const char* salt);
