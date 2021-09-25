@@ -38,4 +38,5 @@ add_sources(
     shmdt.cpp
     shmget.cpp
     socket.cpp
+    openpt.cpp
 )

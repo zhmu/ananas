@@ -63,3 +63,4 @@
 58 { Result shmctl(int shmid, int cmd, struct shmid_ds* buf); }
 59 { Result shmdt(const void* shmaddr); }
 60 { Result shmget(key_t key, size_t size, int shmflg); }
+61 { Result openpt(int flags); }
