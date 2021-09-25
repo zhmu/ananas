@@ -1,3 +1,9 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
 #include <ananas/errno.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -81,6 +87,16 @@ namespace net
             return n;
         }
 
+        size_t GetNumberOfBytesAvailable() const
+        {
+            if (ls_buffer_writepos == ls_buffer_readpos) return 0;
+
+            if (ls_buffer_readpos < ls_buffer_writepos)
+                return ls_buffer_writepos - ls_buffer_readpos;
+            else
+                return (SocketBufferSize - ls_buffer_readpos) + ls_buffer_writepos;
+        }
+
         size_t Read(void* buf, size_t len)
         {
             auto out = static_cast<uint8_t*>(buf);
@@ -121,13 +137,23 @@ namespace net
             if (auto result = GetLocalSocket(fd, ls); result.IsFailure())
                 return result;
 
-            //if (ls->ls_state != State::Connected)
-            //return Result::Success(0);
+            ls->ls_mutex.Lock();
+            if (ls->GetNumberOfBytesAvailable() == 0) {
+                if (ls->ls_state != State::Connected) {
+                    ls->ls_mutex.Unlock();
+                    return Result::Success(0);
+                }
 
-            MutexGuard g(ls->ls_mutex);
+                // TODO block until we have data
+                //kprintf("local_read: pid %d, ls %p, blocking...\n", process::GetCurrent().p_pid, ls);
+                ls->ls_cv_event.Wait(ls->ls_mutex);
+                //kprintf("local_read: blocking done, %d bytes available...\n", ls->GetNumberOfBytesAvailable());
+            }
+
             auto n = ls->Read(buf, len);
             //kprintf("local_read: pid %d fd %d ls %p -> %d bytes\n", process::GetCurrent().p_pid, index, ls, n);
             ls->ls_cv_event.Signal();
+            ls->ls_mutex.Unlock();
             return Result::Success(n);
         }
 
@@ -145,7 +171,7 @@ namespace net
 
             auto n = ep->Write(buf, len);
             //kprintf("local_write: pid %d fd %d ep %p -> %d bytes\n", process::GetCurrent().p_pid, index, ep, n);
-            ls->ls_cv_event.Signal();
+            ep->ls_cv_event.Signal();
             return Result::Success(n);
         }
 
@@ -310,14 +336,25 @@ namespace net
             return Result::Success();
         }
 
-        Result local_send(fdindex_t, FD& fd, const void*, size_t, int)
+        Result local_send(fdindex_t index, FD& fd, const void* buf, size_t len, int flags)
         {
             LocalSocket* ls;
             if (auto result = GetLocalSocket(fd, ls); result.IsFailure())
                 return result;
 
-            kprintf("TODO send\n");
-            return Result::Failure(EINVAL);
+            // XXX for now
+            if (flags != 0) return Result::Failure(EINVAL);
+
+            if (ls->ls_state != State::Connected)
+                return Result::Failure(EINVAL);
+
+            auto ep = ls->ls_endpoint;
+            MutexGuard g(ep->ls_mutex);
+
+            auto n = ep->Write(buf, len);
+            //kprintf("local_send: pid %d fd %d ep %p -> %d bytes\n", process::GetCurrent().p_pid, index, ep, n);
+            ep->ls_cv_event.Signal();
+            return Result::Success(n);
         }
 
         bool local_can_read(fdindex_t, FD& fd)
