@@ -63,16 +63,16 @@ def build_using_cmake(conf, project_name, src_path):
         os.makedirs(work_dir)
     cmake_args = [ '-GNinja', '-DCMAKE_BUILD_TYPE=Debug', '-DCMAKE_INSTALL_PREFIX=' + conf['outdir'], '-DCMAKE_TOOLCHAIN_FILE=' + conf['toolchain_txt'], full_src_path ]
     logging.debug('executing cmake in %s with args %s' % (work_dir, cmake_args))
-    subprocess.run([ 'cmake' ] + cmake_args, cwd=work_dir)
+    subprocess.run([ 'cmake' ] + cmake_args, cwd=work_dir, check=True)
     logging.debug('ninja build/install from %s' % work_dir)
-    subprocess.run([ 'ninja', 'install' ], cwd=work_dir)
+    subprocess.run([ 'ninja', 'install' ], cwd=work_dir, check=True)
 
 def build_using_configure_and_make(conf, project_name, src_path, configure_args, build_target='', install_target='install', extra_cflags=''):
     work_dir = os.path.join(conf['workdir'], project_name)
     full_src_path = os.path.join(conf['root'], src_path)
     logging.info('running autoreconf for %s in %s' % (project_name, full_src_path))
     autoreconf = [ 'autoreconf', '-if' ]
-    subprocess.run(autoreconf, cwd=full_src_path)
+    subprocess.run(autoreconf, cwd=full_src_path, check=True)
 
     logging.info('building %s from %s' % (project_name, full_src_path))
     if not os.path.isdir(work_dir):
@@ -86,14 +86,14 @@ def build_using_configure_and_make(conf, project_name, src_path, configure_args,
         'CFLAGS': '--sysroot ' + conf['sysrootdir'] + ' ' + extra_cflags
     })
     logging.debug('running %s' % configure)
-    subprocess.run(configure, cwd=work_dir, env=env)
+    subprocess.run(configure, cwd=work_dir, env=env, check=True)
     logging.debug('building %s' % project_name)
     make_cmd = [ 'make', '-j' + conf['makejobs'] ]
     if build_target:
         make_cmd += [ build_target ]
-    subprocess.run(make_cmd, cwd=work_dir, env=env)
+    subprocess.run(make_cmd, cwd=work_dir, env=env, check=True)
     logging.debug('installing %s' % project_name)
-    subprocess.run([ 'make', install_target, 'DESTDIR=' + conf['outdir'] ], cwd=work_dir, env=env)
+    subprocess.run([ 'make', install_target, 'DESTDIR=' + conf['outdir'] ], cwd=work_dir, env=env, check=True)
 
 def build_libgcc(conf, project_name, src_path):
     work_dir = os.path.join(conf['workdir'], project_name)
@@ -104,11 +104,11 @@ def build_libgcc(conf, project_name, src_path):
 
     configure = [ os.path.join(full_src_path, 'configure'),  "--target=" + conf["target"], "--disable-nls", "--without-headers", "--enable-languages=c", "--prefix=" + conf["toolchaindir"], "--with-gmp=" + conf["toolchaindir"], "--disable-libstdcxx", "--disable-build-with-cxx", "--disable-libssp", "--disable-libquadmath", "--with-sysroot=" + conf["sysrootdir"], "--with-gxx-include-dir=" + os.path.join(conf["sysrootdir"], "usr", "include" ,"c++", conf["gcc_version"]), "--without-static-standard-libraries" ]
     logging.debug('running %s' % configure)
-    subprocess.run(configure, cwd=work_dir)
+    subprocess.run(configure, cwd=work_dir, check=True)
     logging.debug('building %s' % project_name)
-    subprocess.run([ 'make', '-j' + conf['makejobs'], 'all-target-libgcc' ], cwd=work_dir)
+    subprocess.run([ 'make', '-j' + conf['makejobs'], 'all-target-libgcc' ], cwd=work_dir, check=True)
     logging.debug('installing %s' % project_name)
-    subprocess.run([ 'make', 'install-target-libgcc' ], cwd=work_dir)
+    subprocess.run([ 'make', 'install-target-libgcc' ], cwd=work_dir, check=True)
 
 def build_libstdcxx(conf, project_name, src_path):
     work_dir = os.path.join(conf['workdir'], project_name)
@@ -129,11 +129,11 @@ def build_libstdcxx(conf, project_name, src_path):
     configure = [ os.path.join(full_src_path, 'configure'),  "--host=" + conf["target"], "--target=" + conf["target"], "--prefix=" + os.path.join(conf["sysrootdir"], "usr") ]
     #configure = [ os.path.join(full_src_path, 'configure'),  "--host=" + conf["target"], "--target=" + conf["target"], "--prefix=" + os.path.join(conf["sysrootdir"], "usr"), "--with-sysroot=" + conf["sysrootdir"], "--enable-languages=c,c++" ]
     logging.debug('running %s' % configure)
-    subprocess.run(configure, cwd=work_dir, env=env)
+    subprocess.run(configure, cwd=work_dir, env=env, check=True)
     logging.debug('building %s' % project_name)
-    subprocess.run([ 'make', '-j' + conf['makejobs'] ], cwd=work_dir, env=env)
+    subprocess.run([ 'make', '-j' + conf['makejobs'] ], cwd=work_dir, env=env, check=True)
     logging.debug('installing %s' % project_name)
-    subprocess.run([ 'make', 'install' ], cwd=work_dir, env=env)
+    subprocess.run([ 'make', 'install' ], cwd=work_dir, env=env, check=True)
 
 def detect_number_of_processors():
     """Returns the number of CPU's detected in this system; defaults to one"""
@@ -151,7 +151,7 @@ def detect_number_of_processors():
 def verify_gcc(gcc):
     """Checks whether the supplied gcc is somewhat sane"""
     try:
-        subprocess.run([ gcc, "-v" ], stderr=subprocess.DEVNULL)
+        subprocess.run([ gcc, "-v" ], stderr=subprocess.DEVNULL, check=True)
         return True
     except:
         return False
