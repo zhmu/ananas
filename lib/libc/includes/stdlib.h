@@ -359,6 +359,12 @@ size_t wcstombs(char* _PDCLIB_restrict s, const wchar_t* _PDCLIB_restrict pwcs, 
 
 char* realpath(const char* file_name, char* _PDCLIB_restrict resolved_name);
 
+/* POSIX pseudo terminal support */
+int posix_openpt(int oflag);
+int grantpt(int fildes);
+int unlockpt(int fildes);
+char* ptsname(int fildes);
+
 #ifdef __cplusplus
 }
 #endif

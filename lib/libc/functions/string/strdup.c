@@ -16,7 +16,7 @@ char* strdup(const char* s)
         size_t len = strlen(s) + 1;
         ns = malloc(len);
         if (ns)
-            strncpy(ns, s, len);
+            memcpy(ns, s, len);
     }
     return ns;
 }

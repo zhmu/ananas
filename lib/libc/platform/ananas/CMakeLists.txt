@@ -1,6 +1,5 @@
 set(SOURCES
 	${SOURCES}
-	${CMAKE_CURRENT_SOURCE_DIR}/functions/stub/ttyname.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stub/wait3.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/time/clock_settime.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/time/time.c
@@ -14,6 +13,10 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdlib/setenv.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdlib/system.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdlib/unsetenv.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdlib/posix_openpt.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdlib/grantpt.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdlib/unlockpt.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/stdlib/ptsname.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/_PDCLIB/_PDCLIB_Exit.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/_PDCLIB/_PDCLIB_allocpages.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/_PDCLIB/_PDCLIB_stdinit.c
@@ -72,11 +75,14 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/fcntl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/setpgid.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/getpgrp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/isatty.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/setsid.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/tcgetpgrp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/tcsetpgrp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/gethostname.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/getsid.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/ttyname.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/posix/ttyname_r.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/kill.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/sigaction.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/signal/signal.c
@@ -89,7 +95,6 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/fchown.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/getgroups.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/alarm.c
-	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/isatty.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/setrlimit.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/chown.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/unimplemented/umask.c

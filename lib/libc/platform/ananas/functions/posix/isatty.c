@@ -6,9 +6,14 @@
  */
 #include <unistd.h>
 #include <_posix/todo.h>
+#include <sys/tty.h>
+#include <sys/ioctl.h>
 
 int isatty(int fildes)
 {
-    TODO;
-    return 1;
+    char s[32] = { 0 };
+    ioctl(fildes, TIOGDNAME, s, sizeof(s));
+    if (s[0] != '\0') return 1;
+    errno = ENOTTY;
+    return 0;
 }
