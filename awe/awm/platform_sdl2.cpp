@@ -1,6 +1,7 @@
 #include "platform_sdl2.h"
 #include <SDL.h>
 #include "pixelbuffer.h"
+#include "ipc.h"
 
 namespace
 {
@@ -11,12 +12,90 @@ namespace
     {
         return ev.button == SDL_BUTTON_LEFT ? event::Button::Left : event::Button::Right;
     }
+
+    int KeyToModifier(const SDL_Keycode& key)
+    {
+        switch(key) {
+            case SDLK_LCTRL: return ipc::keyModifiers::LeftControl;
+            case SDLK_LSHIFT: return ipc::keyModifiers::LeftShift;
+            case SDLK_LALT: return ipc::keyModifiers::LeftAlt;
+            case SDLK_LGUI: return ipc::keyModifiers::LeftGUI;
+            case SDLK_RCTRL: return ipc::keyModifiers::RightControl;
+            case SDLK_RSHIFT: return ipc::keyModifiers::RightShift;
+            case SDLK_RALT: return ipc::keyModifiers::RightAlt;
+            case SDLK_RGUI: return ipc::keyModifiers::RightGUI;
+        }
+        return 0;
+    }
+
+    std::pair<ipc::KeyCode, int> ConvertSdlKeycode(const SDL_Keycode& key)
+    {
+        using namespace ipc;
+        const auto ch = ((key & SDLK_SCANCODE_MASK) == 0) ? key : 0;
+        switch(key) {
+            case SDLK_a ... SDLK_z: return { static_cast<KeyCode>(static_cast<int>(KeyCode::A) - (key - SDLK_a)), ch };
+            case SDLK_0 ... SDLK_9: return { static_cast<KeyCode>(static_cast<int>(KeyCode::n0) - (key - SDLK_0)), ch };
+            case SDLK_F1 ... SDLK_F12: return { static_cast<KeyCode>(static_cast<int>(KeyCode::F1) - (key - SDLK_F1)), ch };
+            case SDLK_RETURN: return { KeyCode::Enter, '\r' };
+            case SDLK_ESCAPE: return { KeyCode::Escape, 27 };
+            case SDLK_SPACE: return { KeyCode::Space, ' ' };
+            case SDLK_TAB: return { KeyCode::Tab, '\t' };
+            case SDLK_LEFT: return { KeyCode::LeftArrow, 0 };
+            case SDLK_RIGHT: return { KeyCode::RightArrow, 0 };
+            case SDLK_UP: return { KeyCode::UpArrow, 0 };
+            case SDLK_DOWN: return { KeyCode::DownArrow, 0 };
+            case SDLK_LCTRL: return { KeyCode::LeftControl, 0 };
+            case SDLK_LSHIFT: return { KeyCode::LeftShift, 0 };
+            case SDLK_LALT: return { KeyCode::LeftAlt, 0 };
+            case SDLK_LGUI: return { KeyCode::LeftGUI, 0 };
+            case SDLK_RCTRL: return { KeyCode::RightControl, 0 };
+            case SDLK_RSHIFT: return { KeyCode::RightShift, 0 };
+            case SDLK_RALT: return { KeyCode::RightAlt, 0 };
+            case SDLK_RGUI: return { KeyCode::RightGUI, 0 };
+        }
+        return { KeyCode::Unknown, ch };
+    }
+
+    int ApplyModifiers(const int modifiers, int ch)
+    {
+        const auto shiftActive = modifiers & (ipc::keyModifiers::LeftShift | ipc::keyModifiers::RightShift) != 0;
+        const auto controlActive = modifiers & (ipc::keyModifiers::LeftControl | ipc::keyModifiers::RightControl) != 0;
+        if (shiftActive) {
+            switch (ch) {
+                case 'a' ... 'z': ch = toupper(ch); break;
+                case '`': ch = '~'; break;
+                case '1': ch = '!'; break;
+                case '2': ch = '@'; break;
+                case '3': ch = '#'; break;
+                case '4': ch = '$'; break;
+                case '5': ch = '%'; break;
+                case '6': ch = '^'; break;
+                case '7': ch = '&'; break;
+                case '8': ch = '*'; break;
+                case '9': ch = '('; break;
+                case '0': ch = ')'; break;
+                case '-': ch = '_'; break;
+                case '+': ch = '+'; break;
+                case '[': ch = '{'; break;
+                case ']': ch = '}'; break;
+                case '\\': ch = '|'; break;
+                case ';': ch = ':'; break;
+                case '"': ch = '\''; break;
+                case '/': ch = '?'; break;
+            }
+        }
+        if (controlActive) {
+            if (toupper(ch) >= 'A' && toupper(ch) <= 'Z') ch = (ch - 'A') + 1;
+        }
+        return ch;
+    }
 } // namespace
 
 struct Platform_SDL2::Impl {
     SDL_Window* window{};
     SDL_Renderer* renderer{};
     SDL_Texture* texture{};
+    int activeKeyModifiers{};
 
     Impl()
     {
@@ -37,7 +116,7 @@ struct Platform_SDL2::Impl {
 
     void Render(PixelBuffer& fb)
     {
-        SDL_UpdateTexture(texture, nullptr, fb.buffer.get(), fb.size.width * sizeof(PixelValue));
+        SDL_UpdateTexture(texture, nullptr, fb.buffer, fb.size.width * sizeof(PixelValue));
         SDL_RenderCopy(renderer, texture, NULL, NULL);
         SDL_RenderPresent(renderer);
     }
@@ -57,6 +136,20 @@ struct Platform_SDL2::Impl {
                                                 {ev.button.x, ev.button.y}};
                 case SDL_MOUSEMOTION:
                     return event::MouseMotion{{ev.motion.x, ev.motion.y}};
+                case SDL_KEYDOWN: {
+                    const auto key = ConvertSdlKeycode(ev.key.keysym.sym);
+                    const auto modifier = KeyToModifier(ev.key.keysym.sym);
+                    activeKeyModifiers |= modifier;
+                    const auto ch = ApplyModifiers(activeKeyModifiers, key.second);
+                    return event::KeyDown{key.first, activeKeyModifiers, ch};
+                }
+                case SDL_KEYUP: {
+                    const auto key = ConvertSdlKeycode(ev.key.keysym.sym);
+                    const auto modifier = KeyToModifier(ev.key.keysym.sym);
+                    activeKeyModifiers &= ~modifier;
+                    const auto ch = ApplyModifiers(activeKeyModifiers, key.second);
+                    return event::KeyUp{key.first, activeKeyModifiers, ch};
+                }
             }
         }
         return {};

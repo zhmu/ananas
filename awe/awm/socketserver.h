@@ -9,16 +9,18 @@ struct SocketClient;
 
 using FileDescriptor = int;
 using ProcessDataFunction = std::function<bool(FileDescriptor)>;
+using OnConnectionTerminated = std::function<void(FileDescriptor)>;
 
 class SocketServer final
 {
     ProcessDataFunction processData;
+    OnConnectionTerminated connectionLost;
 
     const FileDescriptor serverFd;
     std::vector<FileDescriptor> clients;
 
   public:
-    SocketServer(ProcessDataFunction, const char* path);
+    SocketServer(ProcessDataFunction, OnConnectionTerminated, const char* path);
     ~SocketServer();
 
     void Poll();

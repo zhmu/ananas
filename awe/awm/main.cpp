@@ -6,6 +6,7 @@
 #include <vector>
 #include <iostream>
 
+#include <signal.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -33,12 +34,12 @@ int main(int argc, char* argv[])
         WindowManager wm(std::make_unique<PlatformImpl>());
 
         {
-            auto w = std::make_unique<Window>(Point{20, 50}, Size{100, 150});
+            auto w = std::make_unique<Window>(Point{20, 50}, Size{100, 150}, 0);
             w->title = "Hello world";
             wm.windows.push_back(std::move(w));
         }
         {
-            auto w = std::make_unique<Window>(Point{250, 250}, Size{150, 200});
+            auto w = std::make_unique<Window>(Point{250, 250}, Size{150, 200}, 0);
             w->title = "Hi there";
             wm.windows.push_back(std::move(w));
         }
@@ -59,7 +60,7 @@ int main(int argc, char* argv[])
 
                     const auto size = Size{static_cast<int>(createWindow.width),
                                            static_cast<int>(createWindow.height)};
-                    auto& w = wm.CreateWindow(size);
+                    auto& w = wm.CreateWindow(size, fd);
 
                     ipc::CreateWindowReply reply;
                     reply.result = ipc::ResultCode::Success;
@@ -99,7 +100,17 @@ int main(int argc, char* argv[])
             return true;
         };
 
-        SocketServer server(std::move(processData), "/tmp/awewm");
+        auto connectionLost = [&](int fd) {
+            while(true) {
+                auto w = wm.FindWindowByFd(fd);
+                if (!w) break;
+                wm.DestroyWindow(*w);
+            }
+        };
+
+        SocketServer server(std::move(processData), std::move(connectionLost), "/tmp/awewm");
+
+        signal(SIGPIPE, SIG_IGN);
         while (true) {
             server.Poll();
             if (!wm.Run())

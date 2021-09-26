@@ -2,7 +2,13 @@
 
 PixelBuffer::PixelBuffer(Size size) : size(std::move(size))
 {
-    buffer = std::make_unique<PixelValue[]>(size.height * size.width);
+    storage = std::make_unique<PixelValue[]>(size.height * size.width);
+    buffer = storage.get();
+}
+
+PixelBuffer::PixelBuffer(PixelValue* p, Size size)
+    : buffer(p), size(std::move(size))
+{
 }
 
 void PixelBuffer::FilledRectangle(const struct Rectangle& r, const Colour& colour)

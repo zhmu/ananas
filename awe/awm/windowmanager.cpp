@@ -1,10 +1,12 @@
 #include "windowmanager.h"
 #include "types.h"
 #include "window.h"
+#include "ipc.h"
 
 #include <cassert>
 #include <cstring>
 #include <sys/shm.h>
+#include <sys/socket.h>
 
 #ifdef __Ananas__
 # define FONT_PATH "/usr/share/fonts"
@@ -16,17 +18,34 @@ struct WindowManager::EventProcessor {
     WindowManager& wm;
     bool quit{};
     Window* draggingWindow{};
+    Window* focusWindow{};
     Point previousPoint{};
 
     void operator()(const event::Quit&) { quit = true; }
 
+    void ChangeFocus(Window* newWindow)
+    {
+        if (focusWindow) {
+            focusWindow->focus = false;
+        }
+        focusWindow = newWindow;
+        if (focusWindow) {
+            focusWindow->focus = true;
+        }
+    }
+
     void operator()(const event::MouseButtonDown& ev)
     {
         if (ev.button == event::Button::Left) {
-            if (auto w = wm.FindWindowHeaderAt(ev.position); w) {
-                draggingWindow = w;
-                previousPoint = ev.position;
+            if (auto w = wm.FindWindowAt(ev.position); w) {
+                ChangeFocus(w);
+                if (w->HitsHeaderRectangle(ev.position)) {
+                    draggingWindow = w;
+                    previousPoint = ev.position;
+                }
                 return;
+            } else {
+                ChangeFocus(nullptr);
             }
         }
     }
@@ -44,6 +63,34 @@ struct WindowManager::EventProcessor {
             Point delta = ev.position - previousPoint;
             previousPoint = ev.position;
             draggingWindow->position = draggingWindow->position + delta;
+        }
+    }
+
+    void operator()(const event::KeyDown& ev)
+    {
+        if (focusWindow) {
+            ipc::Event event;
+            event.type = ipc::EventType::KeyDown;
+            event.handle = focusWindow->handle;
+            event.u.keyDown.key = ev.key;
+            event.u.keyDown.ch = ev.ch;
+            if (send(focusWindow->fd, &event, sizeof(event), 0) != sizeof(event)) {
+                printf("send error to fd %d\n", focusWindow->fd);
+            }
+        }
+    }
+
+    void operator()(const event::KeyUp& ev)
+    {
+        if (focusWindow) {
+            ipc::Event event;
+            event.type = ipc::EventType::KeyUp;
+            event.handle = focusWindow->handle;
+            event.u.keyDown.key = ev.key;
+            event.u.keyDown.ch = ev.ch;
+            if (send(focusWindow->fd, &event, sizeof(event), 0) != sizeof(event)) {
+                printf("send error to fd %d\n", focusWindow->fd);
+            }
         }
     }
 };
@@ -65,18 +112,18 @@ void WindowManager::Update()
     }
 }
 
-Window* WindowManager::FindWindowHeaderAt(const Point& p)
+Window* WindowManager::FindWindowAt(const Point& p)
 {
     for (auto& w : windows) {
-        if (w->HitsHeaderRectangle(p))
+        if (w->HitsRectangle(p))
             return w.get();
     }
     return nullptr;
 }
 
-Window& WindowManager::CreateWindow(const Size& size)
+Window& WindowManager::CreateWindow(const Size& size, int fd)
 {
-    auto w = std::make_unique<Window>(Point{100, 100}, size);
+    auto w = std::make_unique<Window>(Point{100, 100}, size, fd);
 
     const auto shmDataSize = size.width * size.height * sizeof(PixelValue);
     w->shmId = shmget(IPC_PRIVATE, shmDataSize, IPC_CREAT | 0600);
@@ -98,6 +145,13 @@ Window* WindowManager::FindWindowByHandle(const Handle handle)
     return it != windows.end() ? it->get() : nullptr;
 }
 
+Window* WindowManager::FindWindowByFd(const int fd)
+{
+    auto it = std::find_if(
+        windows.begin(), windows.end(), [&](const auto& w) { return w->fd == fd; });
+    return it != windows.end() ? it->get() : nullptr;
+}
+
 bool WindowManager::Run()
 {
     if (auto event = platform->Poll(); event) {
@@ -112,4 +166,13 @@ bool WindowManager::Run()
     }
 
     return !eventProcessor->quit;
+}
+
+void WindowManager::DestroyWindow(Window& w)
+{
+    auto it = std::find_if(windows.begin(), windows.end(), [&](auto& p) { return p.get() == &w; });
+    assert(it != windows.end());
+
+    windows.erase(it);
+    needUpdate = true;
 }

@@ -3,6 +3,7 @@
 #include <optional>
 #include <variant>
 #include "types.h"
+#include "ipc.h"
 
 struct PixelBuffer;
 
@@ -23,10 +24,20 @@ namespace event
     struct MouseMotion {
         Point position;
     };
+    struct KeyDown {
+        ipc::KeyCode key;
+        int mods;
+        int ch;
+    };
+    struct KeyUp {
+        ipc::KeyCode key;
+        int mods;
+        int ch;
+    };
 } // namespace event
 
 using Event =
-    std::variant<event::Quit, event::MouseButtonDown, event::MouseButtonUp, event::MouseMotion>;
+    std::variant<event::Quit, event::MouseButtonDown, event::MouseButtonUp, event::MouseMotion, event::KeyDown, event::KeyUp>;
 
 struct Platform {
     virtual ~Platform() = default;

@@ -5,9 +5,12 @@
 
 struct PixelBuffer {
     const Size size;
-    std::unique_ptr<PixelValue[]> buffer;
+    std::unique_ptr<PixelValue[]> storage;
+    PixelValue* buffer;
 
     explicit PixelBuffer(Size size);
+    PixelBuffer(PixelValue* ptr, Size size);
+
     void FilledRectangle(const struct Rectangle& r, const Colour& colour);
     const Size& GetSize() const { return size; }
 

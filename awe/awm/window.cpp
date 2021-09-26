@@ -18,8 +18,8 @@ namespace
     }
 } // namespace
 
-Window::Window(const Point& point, const Size& size)
-    : handle(GetNextWindowHandle()), position(point), clientSize(size)
+Window::Window(const Point& point, const Size& size, int fd)
+    : handle(GetNextWindowHandle()), position(point), clientSize(size), fd(fd)
 {
 }
 
@@ -34,6 +34,8 @@ Window::~Window()
 
 void Window::Draw(PixelBuffer& pb, font::Font& font, const Palette& palette)
 {
+    const auto& headerColour = focus ? palette.focusHeaderColour : palette.noFocusHeaderColour;
+
     const Rectangle frame{Point{position} - Point{borderWidth, headerHeight},
                           clientSize + Size{borderWidth, headerHeight}};
     pb.Rectangle(frame, palette.borderColour);
@@ -41,7 +43,7 @@ void Window::Draw(PixelBuffer& pb, font::Font& font, const Palette& palette)
     const Rectangle header{Point{position} - Point{0, headerHeight} +
                                Point{borderWidth, borderWidth},
                            Size{clientSize.width - borderWidth, headerHeight - borderWidth}};
-    pb.FilledRectangle(header, palette.headerColour);
+    pb.FilledRectangle(header, headerColour);
 
     const Rectangle client{Point{position}, clientSize};
     pb.FilledRectangle(client, palette.clientColour);
@@ -56,6 +58,12 @@ void Window::Draw(PixelBuffer& pb, font::Font& font, const Palette& palette)
                 clientSize.width * sizeof(PixelValue));
         }
     }
+}
+
+bool Window::HitsRectangle(const Point& pos) const
+{
+    const Rectangle windowRect{Point{position} - Point{0, headerHeight}, Size{clientSize} + Size{0, headerHeight}};
+    return In(windowRect, pos);
 }
 
 bool Window::HitsHeaderRectangle(const Point& pos) const

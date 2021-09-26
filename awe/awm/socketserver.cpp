@@ -5,8 +5,8 @@
 #include <unistd.h>
 #include <cstring>
 
-SocketServer::SocketServer(ProcessDataFunction processData, const char* path)
-    : processData(std::move(processData)), serverFd(socket(AF_UNIX, SOCK_STREAM, 0))
+SocketServer::SocketServer(ProcessDataFunction processData, OnConnectionTerminated connectionLost, const char* path)
+    : processData(std::move(processData)), connectionLost(std::move(connectionLost)), serverFd(socket(AF_UNIX, SOCK_STREAM, 0))
 {
     if (serverFd < 0)
         throw std::runtime_error("cannot create socket");
@@ -62,6 +62,7 @@ void SocketServer::Poll()
 
         if (!std::invoke(processData, clientFd)) {
             clients.erase(clientIterator);
+            connectionLost(clientFd);
         } else {
             ++clientIterator;
         }

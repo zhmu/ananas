@@ -11,7 +11,7 @@
 
 namespace font
 {
-    Font::Font(const char* path, const int fontSize) : fontSize(fontSize)
+    Font::Font(const char* path, const int fontSize)
     {
         int fd = open(path, O_RDONLY);
         if (fd < 0)
@@ -28,14 +28,15 @@ namespace font
         stbtt_InitFont(&fontInfo, data.get(), stbtt_GetFontOffsetForIndex(data.get(), 0));
         scale = stbtt_ScaleForPixelHeight(&fontInfo, fontSize);
         int ascent;
-        stbtt_GetFontVMetrics(&fontInfo, &ascent, 0, 0);
+        stbtt_GetFontVMetrics(&fontInfo, &ascent, NULL, NULL);
         baseline = static_cast<int>(ascent * scale);
 
         glyphs.resize(256);
     }
 
-    const Glyph& Font::GetGlyph(const int ch)
+    const Glyph& Font::GetGlyph(int ch)
     {
+        if (ch >= glyphs.size()) ch = '?'; // XXX
         auto& glyph = glyphs[ch];
         if (glyph.bitmap.empty()) {
             int h, w;
@@ -47,7 +48,7 @@ namespace font
             int advance, lsb;
             stbtt_GetCodepointHMetrics(&fontInfo, ch, &advance, &lsb);
 
-            glyph = Glyph{h, w, y0, advance, std::vector<uint8_t>(&bitmap[0], &bitmap[h * w])};
+            glyph = Glyph{h, w, y0, static_cast<int>(advance * scale), std::vector<uint8_t>(&bitmap[0], &bitmap[h * w])};
         }
         return glyph;
     }
@@ -70,7 +71,7 @@ namespace font
                     pb.PutPixel(renderPoint + Point{x, y}, scaledColour);
                 }
             }
-            current.x += glyph.advance * font.GetScale();
+            current.x += glyph.advance;
         }
     }
 

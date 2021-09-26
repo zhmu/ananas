@@ -22,7 +22,6 @@ namespace font
         stbtt_fontinfo fontInfo;
         float scale;
         int baseline;
-        const int fontSize;
         std::unique_ptr<unsigned char[]> data;
 
       public:

@@ -39,8 +39,7 @@ struct Platform_Ananas::Impl {
 
     void Render(PixelBuffer& pb)
     {
-        printf("render\n");
-        std::memcpy(fb, pb.buffer.get(), size.height * size.width * sizeof(PixelValue));
+        std::memcpy(fb, pb.buffer, size.height * size.width * sizeof(PixelValue));
     }
 
     std::optional<Event> Poll()

@@ -25,9 +25,12 @@ struct WindowManager final {
     ~WindowManager();
 
     void Update();
-    Window* FindWindowHeaderAt(const Point& p);
-    Window& CreateWindow(const Size& size);
+    Window* FindWindowAt(const Point& p);
+    Window& CreateWindow(const Size& size, int fd);
     Window* FindWindowByHandle(const Handle handle);
+    Window* FindWindowByFd(int fd);
+
+    void DestroyWindow(Window&);
 
     bool Run();
 };
