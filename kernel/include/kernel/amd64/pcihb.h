@@ -42,13 +42,13 @@ pci_write_config(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, uint32
     outl(PCI_CFG1_ADDR, pci_make_addr(bus, dev, func, reg));
     switch (width) {
         case 32:
-            outb(PCI_CFG1_DATA, value);
+            outl(PCI_CFG1_DATA, value);
             break;
         case 16:
             outw(PCI_CFG1_DATA, value);
             break;
         case 8:
-            outl(PCI_CFG1_DATA, value);
+            outb(PCI_CFG1_DATA, value);
             break;
         default:
             panic("unsupported width %u", width);
