@@ -267,6 +267,7 @@ if targets['kernel']:
 
 if targets['awe']:
     build_using_cmake(conf, 'awm', 'awe/awm')
+    build_using_cmake(conf, 'awterm', 'awe/awterm')
 
 if targets['image']:
     print('image')
