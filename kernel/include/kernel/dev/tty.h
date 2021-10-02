@@ -37,6 +37,7 @@ class TTY : public Device, private IDeviceOperations, private ICharDeviceOperati
     Result Write(const void* buffer, size_t len, off_t offset) override;
 
     Result OnInput(const char* buffer, size_t len);
+    virtual Result OnTerminalAttributes(const struct termios&);
 
   protected:
     virtual Result Print(const char* buffer, size_t len) = 0;

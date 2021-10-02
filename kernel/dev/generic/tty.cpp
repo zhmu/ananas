@@ -6,6 +6,7 @@
  */
 #include <ananas/types.h>
 #include <sys/tty.h>
+#include <termios.h>
 #include "kernel/dev/tty.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
@@ -271,6 +272,20 @@ Result TTY::IOControl(Process* proc, unsigned long req, void* buffer[])
             memcpy(p, d_Name, name_len);
             return Result::Success();
         }
+        case TIOCGETA: { // Get terminal attributes
+            auto p = static_cast<struct termios*>(buffer[0]);
+            memcpy(p, &tty_termios, sizeof(struct termios));
+            return Result::Success();
+        }
+        case TIOCSETA:
+        case TIOCSETW:
+        case TIOCSETWF: { // Set terminal attributes
+            auto p = static_cast<const struct termios*>(buffer[0]);
+            if (auto result = OnTerminalAttributes(*p); result.IsFailure())
+                return result;
+            memcpy(&tty_termios, p, sizeof(struct termios));
+            return Result::Success();
+        }
     }
 
     return Result::Failure(EINVAL);
@@ -295,4 +310,10 @@ void TTY::SetForegroundProcessGroup(process::ProcessGroup* pg)
     if (pg != nullptr)
         pg->AddReference();
     tty_foreground_pg = pg;
+}
+
+Result TTY::OnTerminalAttributes(const struct termios& tios)
+{
+    // TODO: check if these are valid
+    return Result::Success();
 }
