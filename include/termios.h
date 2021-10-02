@@ -7,6 +7,9 @@
 #ifndef __TERMIOS_H__
 #define __TERMIOS_H__
 
+#include <sys/types.h>
+#include <sys/cdefs.h>
+
 typedef uint32_t cc_t;
 typedef uint32_t speed_t;
 typedef uint32_t tcflag_t;
@@ -65,29 +68,29 @@ typedef uint32_t tcflag_t;
 #define B19200 19200
 #define B38400 38400
 
-/* Control modes */
-#define CSIZE 0x00000003   /* Size mask */
-#define CS5 0x00000000     /* 5 bits */
-#define CS6 0x00000001     /* 6 bits */
-#define CS7 0x00000002     /* 7 bits */
-#define CS8 0x00000003     /* 8 bits */
+/* Control modes (c_cflag) */
+#define CSIZE  0x00000003  /* Size mask */
+#define CS5    0x00000000  /* 5 bits */
+#define CS6    0x00000001  /* 6 bits */
+#define CS7    0x00000002  /* 7 bits */
+#define CS8    0x00000003  /* 8 bits */
 #define CSTOPB 0x00000004  /* Send two stop bits, else one */
-#define CREAD 0x00000008   /* Enable receiver */
-#define PARENTB 0x00000010 /* Parity enable */
+#define CREAD  0x00000008  /* Enable receiver */
+#define PARENB 0x00000010  /* Parity enable */
 #define PARODD 0x00000020  /* Odd parity, else even */
-#define HUPCL 0x00000040   /* Hang up on last close */
+#define HUPCL  0x00000040  /* Hang up on last close */
 #define CLOCAL 0x00000080  /* Ignore modem status lines */
 
-/* Local modes */
-#define ECHO 0x00000001   /* Enable echo */
-#define ECHOE 0x00000002  /* Echo erase charachter as error-correcting backspace */
-#define ECHOK 0x00000004  /* Echo KILL */
-#define ECHONL 0x00000008 /* Echo NL */
-#define ICANON 0x00000010 /* Canonical input (erase and kil processing) */
-#define IEXTEN 0x00000020 /* Enable extended input charachter processing */
-#define ISIG 0x00000040   /* Enable signals */
-#define NOFLSH 0x00000080 /* Disable flush after interrupt or quit */
-#define TOSTOP 0x00000100 /* Send SIGTTOU for background output*/
+/* Local modes (c_lflag) */
+#define ECHO   0x00000001  /* Enable echo */
+#define ECHOE  0x00000002  /* Echo erase charachter as error-correcting backspace */
+#define ECHOK  0x00000004  /* Echo KILL */
+#define ECHONL 0x00000008  /* Echo NL */
+#define ICANON 0x00000010  /* Canonical input (erase and kill processing) */
+#define IEXTEN 0x00000020  /* Enable extended input charachter processing */
+#define ISIG   0x00000040  /* Enable signals */
+#define NOFLSH 0x00000080  /* Disable flush after interrupt or quit */
+#define TOSTOP 0x00000100  /* Send SIGTTOU for background output*/
 
 struct termios {
     tcflag_t c_iflag; /* Input modes */
@@ -95,6 +98,39 @@ struct termios {
     tcflag_t c_cflag; /* Control modes */
     tcflag_t c_lflag; /* Local modes */
     cc_t c_cc[NCCS];  /* Control characters */
+    speed_t  c_ispeed; /* Input speed */
+    speed_t  c_ospeed; /* Output speed */
 };
+
+__BEGIN_DECLS
+
+#define TCSANOW 1
+#define TCSADRAIN 2
+#define TCSAFLUSH 3
+
+int tcgetattr(int fildes, struct termios* termios_p);
+int tcsetattr(int fildes, int optional_actions, const struct termios* termios_p);
+
+speed_t cfgetispeed(const struct termios* termios_p);
+speed_t cfgetospeed(const struct termios* termios_p);
+int cfsetispeed(struct termios* termios_p, speed_t speed);
+int cfsetospeed(struct termios* termios_p, speed_t speed);
+
+#define TCOOFF 1
+#define TCOON 2
+#define TCIOFF 3
+#define TCION 4
+
+int tcflow(int fildes, int action);
+
+#define TCIFLUSH 1
+#define TCOFLUSH 2
+#define TCIOFLUSH 3
+
+int tcflush(int fildes, int queue_selector);
+
+int tcsendbreak(int fildes, int duration);
+
+__END_DECLS
 
 #endif /* __TERMIOS_H__ */

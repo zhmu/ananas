@@ -137,6 +137,16 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/shm/shmctl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/shm/shmdt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/shm/shmget.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/termios/cfgetispeed.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/termios/cfgetospeed.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/termios/cfsetispeed.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/termios/cfsetospeed.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/termios/tcdrain.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/termios/tcflow.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/termios/tcflush.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/termios/tcgetattr.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/termios/tcsetattr.c
+	${CMAKE_CURRENT_SOURCE_DIR}/functions/termios/tcsendbreak.c
 	PARENT_SCOPE
 )
 
