@@ -317,3 +317,8 @@ Result TTY::OnTerminalAttributes(const struct termios& tios)
     // TODO: check if these are valid
     return Result::Success();
 }
+
+bool TTY::CanRead()
+{
+    return tty_in_readpos != tty_in_writepos;
+}
