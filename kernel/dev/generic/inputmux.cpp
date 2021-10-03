@@ -86,7 +86,7 @@ namespace input_mux
                         q_readpos = (q_readpos + 1) % event_queue.size();
                         mutex.Unlock();
 
-                        const auto chunk = len < sizeof(event) ? len : sizeof(len);
+                        const auto chunk = len < sizeof(event) ? len : sizeof(event);
                         memcpy(buf, &event, chunk);
                         return Result::Success(chunk);
                     }
