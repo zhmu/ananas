@@ -41,7 +41,7 @@ TTY::TTY(const CreateDeviceProperties& cdp) : Device(cdp)
 
 TTY::~TTY() { SetForegroundProcessGroup(nullptr); }
 
-Result TTY::Read(void* buf, size_t len, off_t offset)
+Result TTY::Read(VFS_FILE& file, void* buf, size_t len)
 {
     auto data = static_cast<char*>(buf);
 
@@ -137,7 +137,7 @@ void TTY::HandleEcho(unsigned char byte)
         PutChar(byte);
 }
 
-Result TTY::Write(const void* buffer, size_t len, off_t offset)
+Result TTY::Write(VFS_FILE& file, const void* buffer, size_t len)
 {
     size_t left = len;
     for (auto ptr = static_cast<const char*>(buffer); left > 0; ptr++, left--) {

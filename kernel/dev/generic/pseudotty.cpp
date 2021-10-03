@@ -34,7 +34,7 @@ namespace pseudotty
         return Result::Success();
     }
 
-    Result Master::Read(void* buf, size_t len, off_t offset)
+    Result Master::Read(VFS_FILE& file, void* buf, size_t len)
     {
         if (debugPTTY) kprintf("Master::read() len %d\n", len);
         auto data = static_cast<char*>(buf);
@@ -89,7 +89,7 @@ namespace pseudotty
         return Result::Success();
     }
 
-    Result Master::Write(const void* buffer, size_t len, off_t offset)
+    Result Master::Write(VFS_FILE& file, const void* buffer, size_t len)
     {
         KASSERT(pseudoTTY->p_slave != nullptr, "no slave?");
         return pseudoTTY->p_slave->OnInput(static_cast<const char*>(buffer), len);

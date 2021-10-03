@@ -120,7 +120,7 @@ namespace hda
         return Result::Success();
     }
 
-    Result HDADevice::Write(const void* buffer, size_t len, off_t offset)
+    Result HDADevice::Write(VFS_FILE& file, const void* buffer, size_t len)
     {
         if (hda_pc == nullptr)
             return Result::Failure(EIO);
@@ -157,7 +157,7 @@ namespace hda
         return Result::Success(written);
     }
 
-    Result HDADevice::Read(void* buffer, size_t len, off_t offset)
+    Result HDADevice::Read(VFS_FILE& file, void* buffer, size_t len)
     {
         // No recording support yet
         return Result::Failure(EIO);

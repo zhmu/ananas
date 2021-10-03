@@ -29,9 +29,9 @@ namespace
         Result Attach() override { return Result::Success(); }
         Result Detach() override { return Result::Success(); }
 
-        Result Read(void* buf, size_t len, off_t offset) override { return Result::Success(0); }
+        Result Read(VFS_FILE& file, void* buf, size_t len) override { return Result::Success(0); }
 
-        Result Write(const void* buffer, size_t len, off_t offset) override
+        Result Write(VFS_FILE& file, const void* buffer, size_t len) override
         {
             return Result::Success(len);
         }

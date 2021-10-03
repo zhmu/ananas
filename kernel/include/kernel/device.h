@@ -62,6 +62,8 @@ namespace usb
     class Transfer;
 } // namespace usb
 
+struct VFS_FILE;
+
 class IDeviceOperations
 {
   public:
@@ -87,12 +89,12 @@ class IDeviceOperations
 class ICharDeviceOperations
 {
   public:
-    virtual Result Write(const void* buffer, size_t len, off_t offset)
+    virtual Result Write(VFS_FILE& file, const void* buffer, size_t len)
     {
         return Result::Failure(EINVAL);
     }
 
-    virtual Result Read(void* buffer, size_t len, off_t offset)
+    virtual Result Read(VFS_FILE& file, void* buffer, size_t len)
     {
         return Result::Failure(EINVAL);
     }

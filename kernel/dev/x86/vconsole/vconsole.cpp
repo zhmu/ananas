@@ -49,14 +49,14 @@ Result VConsole::Detach()
     return Result::Success();
 }
 
-Result VConsole::Read(void* buf, size_t len, off_t offset)
+Result VConsole::Read(VFS_FILE& file, void* buf, size_t len)
 {
-    return activeVTTY->Read(buf, len, offset);
+    return activeVTTY->Read(file, buf, len);
 }
 
-Result VConsole::Write(const void* buf, size_t len, off_t offset)
+Result VConsole::Write(VFS_FILE& file, const void* buf, size_t len)
 {
-    return activeVTTY->Write(buf, len, offset);
+    return activeVTTY->Write(file, buf, len);
 }
 
 void VConsole::OnEvent(const AIMX_EVENT& event)

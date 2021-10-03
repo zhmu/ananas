@@ -77,7 +77,7 @@ namespace input_mux
                 return Result::Success();
             }
 
-            Result Read(void* buf, size_t len, off_t offset) override
+            Result Read(VFS_FILE& file, void* buf, size_t len) override
             {
                 mutex.Lock();
                 while(true) {
@@ -102,7 +102,7 @@ namespace input_mux
                 return q_readpos != q_writepos;
             }
 
-            Result Write(const void* buffer, size_t len, off_t offset) override
+            Result Write(VFS_FILE& file, const void* buffer, size_t len) override
             {
                 // Do not accept anything send to us just yet
                 return Result::Success(0);

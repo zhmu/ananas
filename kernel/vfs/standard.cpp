@@ -75,7 +75,7 @@ Result vfs_read(struct VFS_FILE* file, void* buf, size_t len)
         if (file->f_device->GetCharDeviceOperations() == NULL)
             return Result::Failure(EINVAL);
         else {
-            return file->f_device->GetCharDeviceOperations()->Read(buf, len, 0);
+            return file->f_device->GetCharDeviceOperations()->Read(*file, buf, len);
         }
     }
 
@@ -132,7 +132,7 @@ Result vfs_write(struct VFS_FILE* file, const void* buf, size_t len)
         if (file->f_device == NULL || file->f_device->GetCharDeviceOperations() == NULL)
             return Result::Failure(EINVAL);
         else
-            return file->f_device->GetCharDeviceOperations()->Write(buf, len, 0);
+            return file->f_device->GetCharDeviceOperations()->Write(*file, buf, len);
     }
 
     INode* inode = file->f_dentry->d_inode;

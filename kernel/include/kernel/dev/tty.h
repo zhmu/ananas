@@ -33,8 +33,8 @@ class TTY : public Device, private IDeviceOperations, private ICharDeviceOperati
     Result IOControl(Process* proc, unsigned long req, void* buffer[]) override;
     using IDeviceOperations::DetermineDevicePhysicalAddres;
 
-    Result Read(void* buf, size_t len, off_t offset) override;
-    Result Write(const void* buffer, size_t len, off_t offset) override;
+    Result Read(VFS_FILE& file, void* buf, size_t len) override;
+    Result Write(VFS_FILE& file, const void* buffer, size_t len) override;
     bool CanRead() override;
 
     Result OnInput(const char* buffer, size_t len);

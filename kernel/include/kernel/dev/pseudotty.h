@@ -34,8 +34,8 @@ namespace pseudotty {
 
         Result OnInput(const char* buffer, size_t len);
 
-        Result Read(void* buf, size_t len, off_t offset) override;
-        Result Write(const void* buffer, size_t len, off_t offset) override;
+        Result Read(VFS_FILE& file, void* buf, size_t len) override;
+        Result Write(VFS_FILE& file, const void* buffer, size_t len) override;
         bool CanRead() override;
 
         static constexpr size_t InputQueueSize = 256;

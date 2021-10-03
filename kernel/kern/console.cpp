@@ -13,6 +13,7 @@
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/result.h"
+#include "kernel/vfs/types.h"
 
 namespace driver_manager::internal
 {
@@ -34,6 +35,8 @@ namespace {
     int console_backlog_pos = 0;
     int console_backlog_overrun = 0;
     Mutex mtx_console("console");
+
+    VFS_FILE console_file{};
 
     bool console_attach(ConsoleDriver& consoleDriver)
     {
@@ -96,7 +99,7 @@ void console_putchar(int c)
     uint8_t ch = c; // cannot cast due to endianness!
     size_t len = sizeof(ch);
 
-    console_tty->GetCharDeviceOperations()->Write((const void*)&ch, len, 0);
+    console_tty->GetCharDeviceOperations()->Write(console_file, (const void*)&ch, len);
 }
 
 static void console_puts(const char* s)
@@ -151,7 +154,7 @@ uint8_t console_getchar()
         return 0;
     uint8_t c = 0;
     size_t len = sizeof(c);
-    if (auto result = console_tty->GetCharDeviceOperations()->Read((void*)&c, len, 0);
+    if (auto result = console_tty->GetCharDeviceOperations()->Read(console_file, (void*)&c, len);
         result.IsFailure())
         return 0;
     return c;

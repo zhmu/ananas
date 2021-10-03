@@ -207,8 +207,8 @@ namespace hda
         void OnStreamIRQ(IHDAFunctions::Context ctx);
         Result IOControl(Process* proc, unsigned long req, void* buffer[]) override;
 
-        Result Write(const void* buffer, size_t len, off_t offset) override;
-        Result Read(void* buffer, size_t len, off_t offset) override;
+        Result Write(VFS_FILE& file, const void* buffer, size_t len) override;
+        Result Read(VFS_FILE& file, void* buffer, size_t len) override;
 
         Result Open(Process* proc) override;
         Result Close(Process* proc) override;

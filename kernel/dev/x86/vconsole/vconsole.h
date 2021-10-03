@@ -31,8 +31,8 @@ struct VConsole : public Device,
     Result Attach() override;
     Result Detach() override;
 
-    Result Read(void* buf, size_t len, off_t offset) override;
-    Result Write(const void* buf, size_t len, off_t offset) override;
+    Result Read(VFS_FILE& file, void* buf, size_t len) override;
+    Result Write(VFS_FILE& file, const void* buf, size_t len) override;
 
     void OnEvent(const AIMX_EVENT&) override;
 
