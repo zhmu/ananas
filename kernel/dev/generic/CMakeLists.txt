@@ -3,4 +3,5 @@ add_sources(
 	inputmux.cpp
 	null.cpp
 	tty.cpp
+	pseudotty.cpp
 )
