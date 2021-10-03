@@ -38,7 +38,7 @@ namespace
         for(int n = 0; n < fdsLength * FD_BITS_PER_FDS; ++n) {
             if (!FD_ISSET(n, fds)) continue;
             FD* fd;
-            if (auto result = syscall_get_fd(FD_TYPE_SOCKET, n, fd); result.IsFailure())
+            if (auto result = syscall_get_fd(FD_TYPE_ANY, n, fd); result.IsFailure())
                 return result;
 
             switch(type) {

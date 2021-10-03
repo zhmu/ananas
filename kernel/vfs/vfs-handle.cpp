@@ -14,6 +14,7 @@
 #include "kernel/lib.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
+#include "kernel/device.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 
@@ -128,6 +129,26 @@ namespace
         return vfs_ioctl(&proc, file, request, args);
     }
 
+    namespace
+    {
+        bool vfshandle_can_read(fdindex_t, FD& fd)
+        {
+            struct VFS_FILE* file;
+            if (auto result = vfshandle_get_file(fd, file); result.IsFailure())
+                return false; // ???
+
+            if (auto device = file->f_device; device != nullptr) {
+                if (device->GetCharDeviceOperations() != nullptr)
+                    return device->GetCharDeviceOperations()->CanRead();
+            }
+
+            if (file->f_dentry != nullptr)
+                return true;
+
+            return false;
+        }
+    }
+
     struct FDOperations vfs_ops = {
         .d_read = vfshandle_read,
         .d_write = vfshandle_write,
@@ -136,6 +157,7 @@ namespace
         .d_unlink = vfshandle_unlink,
         .d_clone = vfshandle_clone,
         .d_ioctl = vfshandle_ioctl,
+        .d_can_read = vfshandle_can_read,
     };
 
     // TODO It would be nice if we could make this more generic

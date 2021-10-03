@@ -96,6 +96,11 @@ class ICharDeviceOperations
     {
         return Result::Failure(EINVAL);
     }
+
+    virtual bool CanRead()
+    {
+        return false;
+    }
 };
 
 class IBIODeviceOperations
