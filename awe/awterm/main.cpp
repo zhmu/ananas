@@ -19,6 +19,12 @@
 
 #include "teken.h"
 
+#ifdef __Ananas__
+# define FONT_PATH "/usr/share/fonts"
+#else
+# define FONT_PATH "../../awm/data"
+#endif
+
 namespace
 {
     namespace consts {
@@ -285,7 +291,7 @@ namespace
     bool font_init()
     {
         try {
-            s_Font = std::make_unique<font::Font>("../../awm/data/RobotoMono-Regular.ttf", consts::FontSize);
+            s_Font = std::make_unique<font::Font>(FONT_PATH "/RobotoMono-Regular.ttf", consts::FontSize);
             return true;
         } catch(std::exception& e) {
             fprintf(stderr, "exception: %s\n", e.what());
