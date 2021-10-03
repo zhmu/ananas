@@ -12,6 +12,8 @@
 #include "kernel/init.h"
 #include <ananas/util/array.h>
 #include <ananas/inputmux.h>
+#include <ananas/flags.h>
+#include "kernel/vfs/types.h"
 
 namespace input_mux
 {
@@ -89,6 +91,11 @@ namespace input_mux
                         const auto chunk = len < sizeof(event) ? len : sizeof(event);
                         memcpy(buf, &event, chunk);
                         return Result::Success(chunk);
+                    }
+
+                    if (file.f_flags & O_NONBLOCK) {
+                        mutex.Unlock();
+                        return Result::Failure(EAGAIN);
                     }
 
                     dataAvailable.Wait(mutex);

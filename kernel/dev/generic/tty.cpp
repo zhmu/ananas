@@ -5,6 +5,7 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <ananas/types.h>
+#include <ananas/flags.h>
 #include <sys/tty.h>
 #include <termios.h>
 #include "kernel/dev/tty.h"
@@ -16,6 +17,7 @@
 #include "kernel/result.h"
 #include "kernel/signal.h"
 #include "kernel/thread.h"
+#include "kernel/vfs/types.h"
 
 /* Newline char - cannot be modified using c_cc */
 #define NL '\n'
@@ -58,6 +60,7 @@ Result TTY::Read(VFS_FILE& file, void* buf, size_t len)
             /*
              * Buffer is empty - schedule the thread for a wakeup once we have data.
              */
+            if (file.f_flags & O_NONBLOCK) return Result::Failure(EAGAIN);
             tty_waiters.Wait();
             continue;
         }
