@@ -47,7 +47,7 @@ namespace
         auto& proc = process::GetCurrent();
 
         struct VFS_FILE file;
-        if (auto result = vfs_open(&proc, path, proc.p_cwd, &file, lookup_flags);
+        if (auto result = vfs_open(&proc, path, proc.p_cwd, 0, lookup_flags, &file);
             result.IsFailure())
             return result;
 

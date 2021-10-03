@@ -15,6 +15,7 @@
  */
 #include <ananas/types.h>
 #include <ananas/elf.h>
+#include <ananas/flags.h>
 #include "kernel/pcpu.h"
 #include "kernel/process.h"
 #include "kernel/thread.h"
@@ -466,7 +467,7 @@ Result core_dump(Thread* t, struct STACKFRAME* sf)
     mode_t mode = 0600;
 
     struct VFS_FILE f;
-    if (auto result = vfs_create(proc.p_cwd, &f, path, mode); result.IsFailure())
+    if (auto result = vfs_create(proc.p_cwd, path, O_RDWR, mode, &f); result.IsFailure())
         return result;
 
     if (auto result = elf64_coredump(t, sf, &f); result.IsFailure())

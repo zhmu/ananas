@@ -55,7 +55,7 @@ Result sys_execve(const char* path, const char** argv, const char** envp)
 
     /* First step is to open the file */
     struct VFS_FILE file;
-    if (auto result = vfs_open(&proc, path, proc.p_cwd, &file); result.IsFailure())
+    if (auto result = vfs_open(&proc, path, proc.p_cwd, 0, VFS_LOOKUP_FLAG_DEFAULT, &file); result.IsFailure())
         return result;
 
     /*

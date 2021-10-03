@@ -19,25 +19,26 @@
 namespace {
     constexpr inline auto vfsDebugLookup = false;
     constexpr inline auto maxSymlinkLoops = 20;
+
+    void MakeFile(struct VFS_FILE* file, int open_flags, DEntry& dentry)
+    {
+        memset(file, 0, sizeof(struct VFS_FILE));
+
+        INode& inode = *dentry.d_inode;
+        file->f_dentry = &dentry;
+        file->f_offset = 0;
+        file->f_flags = open_flags;
+        if (inode.i_iops->fill_file != NULL)
+            inode.i_iops->fill_file(inode, file);
+    }
 }
 
-static void vfs_make_file(struct VFS_FILE* file, DEntry& dentry)
-{
-    memset(file, 0, sizeof(struct VFS_FILE));
-
-    INode& inode = *dentry.d_inode;
-    file->f_dentry = &dentry;
-    file->f_offset = 0;
-    if (inode.i_iops->fill_file != NULL)
-        inode.i_iops->fill_file(inode, file);
-}
-
-Result vfs_open(Process* p, const char* fname, DEntry* cwd, struct VFS_FILE* out, int lookup_flags)
+Result vfs_open(Process* p, const char* fname, DEntry* cwd, int open_flags, int lookup_flags, struct VFS_FILE* out)
 {
     DEntry* dentry;
     if (auto result = vfs_lookup(cwd, dentry, fname, lookup_flags); result.IsFailure())
         return result;
-    vfs_make_file(out, *dentry);
+    MakeFile(out, open_flags, *dentry);
     KASSERT(dentry->d_inode != nullptr, "open without inode?");
     KASSERT(dentry->d_inode->i_iops != nullptr, "open without inode ops?");
     if (dentry->d_inode->i_iops->open != nullptr) {
@@ -390,7 +391,7 @@ Result vfs_lookup(DEntry* parent, DEntry*& destentry, const char* dentry, int fl
 /*
  * Creates a new inode in parent; sets 'file' to the destination on success.
  */
-Result vfs_create(DEntry* parent, struct VFS_FILE* file, const char* dentry, int mode)
+Result vfs_create(DEntry* parent, const char* dentry, int file_flags, int mode, struct VFS_FILE* file)
 {
     DEntry* de;
     bool final;
@@ -442,7 +443,7 @@ Result vfs_create(DEntry* parent, struct VFS_FILE* file, const char* dentry, int
         de->d_flags |= DENTRY_FLAG_NEGATIVE;
     } else {
         /* Success; report the inode we created */
-        vfs_make_file(file, *de);
+        MakeFile(file, file_flags, *de);
     }
     return result;
 }

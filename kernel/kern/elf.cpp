@@ -8,6 +8,7 @@
 #include <ananas/types.h>
 #include <ananas/errno.h>
 #include <ananas/elf.h>
+#include <ananas/flags.h>
 #include "kernel/exec.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
@@ -215,7 +216,7 @@ namespace
         // We need to use an interpreter to load this
         struct VFS_FILE interp_file;
         // Note that the nullptr requires interp to be absolute
-        if (auto result = vfs_open(nullptr, interp, nullptr, &interp_file); result.IsFailure()) {
+        if (auto result = vfs_open(nullptr, interp, nullptr, O_RDONLY, VFS_LOOKUP_FLAG_DEFAULT, &interp_file); result.IsFailure()) {
             kprintf("unable to load ELF interpreter '%s': %d\n", interp, result.AsStatusCode());
             return result;
         }

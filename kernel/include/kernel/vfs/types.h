@@ -54,6 +54,8 @@ struct INode : util::List<INode>::NodePtr {
  */
 struct VFS_FILE {
     off_t f_offset;
+    // O_...
+    int f_flags;
     /*
      * An opened file can have an inode or device as backend; we'll use the
      * dentry instead of the inode because we need its name when

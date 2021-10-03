@@ -6,6 +6,7 @@
  */
 #include <ananas/types.h>
 #include <ananas/errno.h>
+#include <ananas/flags.h>
 #include "kernel/fd.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
@@ -26,7 +27,7 @@ Result sys_readlink(const char* path, char* buf, const size_t buflen)
 
     // Open the link
     struct VFS_FILE file;
-    if (auto result = vfs_open(&proc, path, cwd, &file, VFS_LOOKUP_FLAG_NO_FOLLOW);
+    if (auto result = vfs_open(&proc, path, cwd, O_RDONLY, VFS_LOOKUP_FLAG_NO_FOLLOW, &file);
         result.IsFailure())
         return result;
 

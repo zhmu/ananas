@@ -62,7 +62,7 @@ namespace
          */
         if (flags & O_CREAT) {
             /* Attempt to create the new file - if this works, we're all set */
-            Result result = vfs_create(proc.p_cwd, &fd.fd_data.d_vfs_file, path, mode);
+            Result result = vfs_create(proc.p_cwd, path, flags, mode, &fd.fd_data.d_vfs_file);
             if (result.IsSuccess())
                 return result;
 
@@ -80,7 +80,7 @@ namespace
         /* XXX do something more with mode / open */
 
         /* And open the path */
-        return vfs_open(&proc, path, proc.p_cwd, &fd.fd_data.d_vfs_file);
+        return vfs_open(&proc, path, proc.p_cwd, flags, VFS_LOOKUP_FLAG_DEFAULT, &fd.fd_data.d_vfs_file);
     }
 
     Result vfshandle_free(Process& proc, FD& fd)

@@ -39,13 +39,14 @@ bool vfs_is_filesystem_sane(struct VFS_MOUNTED_FS* fs);
 
 /* Higher-level interface */
 Result vfs_open(
-    Process* p, const char* fname, DEntry* cwd, struct VFS_FILE* file,
-    int lookup_flags = VFS_LOOKUP_FLAG_DEFAULT);
+    Process* p, const char* fname, DEntry* cwd,
+    int open_flags, int lookup_flags,
+    struct VFS_FILE* file);
 Result vfs_close(Process* p, struct VFS_FILE* file);
 Result vfs_read(struct VFS_FILE* file, void* buf, size_t len);
 Result vfs_write(struct VFS_FILE* file, const void* buf, size_t len);
 Result vfs_seek(struct VFS_FILE* file, off_t offset);
-Result vfs_create(DEntry* parent, struct VFS_FILE* destfile, const char* dentry, int mode);
+Result vfs_create(DEntry* parent, const char* dentry, int flags, int mode, struct VFS_FILE* destfile);
 Result vfs_grow(struct VFS_FILE* file, off_t size);
 Result vfs_unlink(struct VFS_FILE* file);
 Result vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest);

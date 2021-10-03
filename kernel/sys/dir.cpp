@@ -34,7 +34,7 @@ Result sys_chdir(const char* path)
     DEntry* cwd = proc.p_cwd;
 
     struct VFS_FILE file;
-    if (auto result = vfs_open(&proc, path, cwd, &file); result.IsFailure())
+    if (auto result = vfs_open(&proc, path, cwd, 0, VFS_LOOKUP_FLAG_DEFAULT, &file); result.IsFailure())
         return result;
 
     /* XXX Check if file has a directory */
