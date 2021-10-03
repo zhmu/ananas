@@ -5,36 +5,40 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include "kernel/lock.h"
+#include "kernel/condvar.h"
 #include "kernel/lib.h"
-#include "kernel/dev/kbdmux.h"
+#include "kernel/device.h"
+#include "kernel/dev/inputmux.h"
+#include "kernel/init.h"
+#include <ananas/util/array.h>
+#include <ananas/inputmux.h>
 
-namespace keyboard_mux
+namespace input_mux
 {
     namespace
     {
-        Mutex mutex{"kbdmutex"};
+        Mutex mutex{"inputmux"};
 
-        util::List<IKeyboardConsumer> consumers;
+        util::List<IInputConsumer> consumers;
 
     } // unnamed namespace
 
-    void RegisterConsumer(IKeyboardConsumer& consumer)
+    void RegisterConsumer(IInputConsumer& consumer)
     {
         MutexGuard g(mutex);
         consumers.push_back(consumer);
     }
 
-    void UnregisterConsumer(IKeyboardConsumer& consumer)
+    void UnregisterConsumer(IInputConsumer& consumer)
     {
         MutexGuard g(mutex);
         consumers.remove(consumer);
     }
 
-    void OnKey(const Key& key, int modifiers)
+    void OnEvent(const AIMX_EVENT& event)
     {
         MutexGuard g(mutex);
         for (auto& consumer : consumers)
-            consumer.OnKey(key, modifiers);
+            consumer.OnEvent(event);
     }
-
-} // namespace keyboard_mux
+} // namespace input_mux

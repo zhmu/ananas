@@ -11,6 +11,7 @@
 #include "vconsole.h"
 #include "vga.h"
 #include "vtty.h"
+#include <ananas/inputmux.h>
 
 Result VConsole::Attach()
 {
@@ -31,7 +32,7 @@ Result VConsole::Attach()
     activeVTTY = vttys.front();
     activeVTTY->Activate();
 
-    keyboard_mux::RegisterConsumer(*this);
+    input_mux::RegisterConsumer(*this);
     return Result::Success();
 }
 
@@ -43,7 +44,7 @@ Result VConsole::Detach()
         if (auto result = vtty->Detach(); result.IsFailure())
             panic("cannot detach vtty (%d)", result.AsStatusCode());
     }
-    keyboard_mux::UnregisterConsumer(*this);
+    input_mux::UnregisterConsumer(*this);
     delete v_Video;
     return Result::Success();
 }
@@ -58,31 +59,33 @@ Result VConsole::Write(const void* buf, size_t len, off_t offset)
     return activeVTTY->Write(buf, len, offset);
 }
 
-void VConsole::OnKey(const keyboard_mux::Key& key, int modifiers)
+void VConsole::OnEvent(const AIMX_EVENT& event)
 {
-    char ch = key.ch;
-    switch (key.type) {
-        case keyboard_mux::Key::Type::Character:
-            if (modifiers & keyboard_mux::modifier::Control) {
-                if (ch >= 'a' && ch <= 'z')
-                    ch = (ch - 'a') + 1; // control-a => 1, etc
-                else
-                    break; // swallow the key
-            }
+    if (event.type != AIMX_EVENT_KEY_DOWN) return;
+    auto key = event.u.key_down.key;
+    auto modifiers = event.u.key_down.mods;
+
+    if (modifiers & (AIMX_MOD_LEFT_CONTROL | AIMX_MOD_RIGHT_CONTROL)) {
+        if (key >= 'a' && key <= 'z') {
+            char ch = (key - 'a') + 1; // control-a => 1, etc
             activeVTTY->OnInput(&ch, 1);
-            break;
-        case keyboard_mux::Key::Type::Special:
-            if (key.ch >= keyboard_mux::code::F1 && key.ch <= keyboard_mux::code::F12) {
-                int desiredVTTY = key.ch - keyboard_mux::code::F1;
-                if (desiredVTTY < vttys.size()) {
-                    activeVTTY->Deactivate();
-                    activeVTTY = vttys[desiredVTTY];
-                    activeVTTY->Activate();
-                }
-            }
-            break;
-        default:
-            break;
+        } else
+            return; // swallow the key
+    }
+
+    if (key >= AIMX_KEY_F1 && key <= AIMX_KEY_F12) {
+        const int desiredVTTY = key - AIMX_KEY_F1;
+        if (desiredVTTY < vttys.size()) {
+            activeVTTY->Deactivate();
+            activeVTTY = vttys[desiredVTTY];
+            activeVTTY->Activate();
+            return;
+        }
+    }
+
+    if (key > 0 && key < 128) {
+        char ch = key;
+        activeVTTY->OnInput(&ch, 1);
     }
 }
 

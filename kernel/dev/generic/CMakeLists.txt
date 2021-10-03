@@ -1,6 +1,6 @@
 add_sources(
 	corebus.cpp
-	kbdmux.cpp
+	inputmux.cpp
 	null.cpp
 	tty.cpp
 )

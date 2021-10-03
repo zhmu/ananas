@@ -10,7 +10,7 @@
 #include <ananas/types.h>
 #include <ananas/util/array.h>
 #include "kernel/device.h"
-#include "kernel/dev/kbdmux.h"
+#include "kernel/dev/inputmux.h"
 
 class IVideo;
 class VTTY;
@@ -18,7 +18,7 @@ class VTTY;
 struct VConsole : public Device,
                   private IDeviceOperations,
                   private ICharDeviceOperations,
-                  private keyboard_mux::IKeyboardConsumer {
+                  private input_mux::IInputConsumer {
     using Device::Device;
     virtual ~VConsole() = default;
 
@@ -34,7 +34,7 @@ struct VConsole : public Device,
     Result Read(void* buf, size_t len, off_t offset) override;
     Result Write(const void* buf, size_t len, off_t offset) override;
 
-    void OnKey(const keyboard_mux::Key& key, int modifier) override;
+    void OnEvent(const AIMX_EVENT&) override;
 
   private:
     constexpr static size_t NumberOfVTTYs = 4;

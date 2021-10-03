@@ -6,7 +6,8 @@
  */
 #include <ananas/types.h>
 #include <ananas/util/array.h>
-#include "kernel/dev/kbdmux.h"
+#include <ananas/inputmux.h>
+#include "kernel/dev/inputmux.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
@@ -19,11 +20,6 @@
 
 namespace
 {
-    using namespace keyboard_mux::code;
-    namespace modifier = keyboard_mux::modifier;
-    using Key = keyboard_mux::Key;
-    using KeyType = keyboard_mux::Key::Type;
-
     // Modifier byte is defined in HID 1.11 8.3
     namespace modifierByte
     {
@@ -38,140 +34,140 @@ namespace
     } // namespace modifierByte
 
     struct KeyMap {
-        Key standard;
-        Key shift;
+        AIMX_KEY_CODE standard;
+        AIMX_KEY_CODE shift;
     };
 
     // As outlined in USB HID Usage Tables 1.12, chapter 10
     constexpr util::array<KeyMap, 128> keymap{
-        /* 00 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 01 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 02 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 03 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 04 */ KeyMap{Key{KeyType::Character, 'a'}, Key{KeyType::Character, 'A'}},
-        /* 05 */ KeyMap{Key{KeyType::Character, 'b'}, Key{KeyType::Character, 'B'}},
-        /* 06 */ KeyMap{Key{KeyType::Character, 'c'}, Key{KeyType::Character, 'C'}},
-        /* 07 */ KeyMap{Key{KeyType::Character, 'd'}, Key{KeyType::Character, 'D'}},
-        /* 08 */ KeyMap{Key{KeyType::Character, 'e'}, Key{KeyType::Character, 'E'}},
-        /* 09 */ KeyMap{Key{KeyType::Character, 'f'}, Key{KeyType::Character, 'F'}},
-        /* 0a */ KeyMap{Key{KeyType::Character, 'g'}, Key{KeyType::Character, 'G'}},
-        /* 0b */ KeyMap{Key{KeyType::Character, 'h'}, Key{KeyType::Character, 'H'}},
-        /* 0c */ KeyMap{Key{KeyType::Character, 'i'}, Key{KeyType::Character, 'I'}},
-        /* 0d */ KeyMap{Key{KeyType::Character, 'j'}, Key{KeyType::Character, 'J'}},
-        /* 0e */ KeyMap{Key{KeyType::Character, 'k'}, Key{KeyType::Character, 'K'}},
-        /* 0f */ KeyMap{Key{KeyType::Character, 'l'}, Key{KeyType::Character, 'L'}},
-        /* 10 */ KeyMap{Key{KeyType::Character, 'm'}, Key{KeyType::Character, 'M'}},
-        /* 11 */ KeyMap{Key{KeyType::Character, 'n'}, Key{KeyType::Character, 'N'}},
-        /* 12 */ KeyMap{Key{KeyType::Character, 'o'}, Key{KeyType::Character, 'O'}},
-        /* 13 */ KeyMap{Key{KeyType::Character, 'p'}, Key{KeyType::Character, 'P'}},
-        /* 14 */ KeyMap{Key{KeyType::Character, 'q'}, Key{KeyType::Character, 'Q'}},
-        /* 15 */ KeyMap{Key{KeyType::Character, 'r'}, Key{KeyType::Character, 'R'}},
-        /* 16 */ KeyMap{Key{KeyType::Character, 's'}, Key{KeyType::Character, 'S'}},
-        /* 17 */ KeyMap{Key{KeyType::Character, 't'}, Key{KeyType::Character, 'T'}},
-        /* 18 */ KeyMap{Key{KeyType::Character, 'u'}, Key{KeyType::Character, 'U'}},
-        /* 19 */ KeyMap{Key{KeyType::Character, 'v'}, Key{KeyType::Character, 'V'}},
-        /* 1a */ KeyMap{Key{KeyType::Character, 'w'}, Key{KeyType::Character, 'W'}},
-        /* 1b */ KeyMap{Key{KeyType::Character, 'x'}, Key{KeyType::Character, 'X'}},
-        /* 1c */ KeyMap{Key{KeyType::Character, 'y'}, Key{KeyType::Character, 'Y'}},
-        /* 1d */ KeyMap{Key{KeyType::Character, 'z'}, Key{KeyType::Character, 'Z'}},
-        /* 1e */ KeyMap{Key{KeyType::Character, '1'}, Key{KeyType::Character, '!'}},
-        /* 1f */ KeyMap{Key{KeyType::Character, '2'}, Key{KeyType::Character, '@'}},
-        /* 20 */ KeyMap{Key{KeyType::Character, '3'}, Key{KeyType::Character, '#'}},
-        /* 21 */ KeyMap{Key{KeyType::Character, '4'}, Key{KeyType::Character, '$'}},
-        /* 22 */ KeyMap{Key{KeyType::Character, '5'}, Key{KeyType::Character, '%'}},
-        /* 23 */ KeyMap{Key{KeyType::Character, '6'}, Key{KeyType::Character, '^'}},
-        /* 24 */ KeyMap{Key{KeyType::Character, '7'}, Key{KeyType::Character, '&'}},
-        /* 25 */ KeyMap{Key{KeyType::Character, '8'}, Key{KeyType::Character, '*'}},
-        /* 26 */ KeyMap{Key{KeyType::Character, '9'}, Key{KeyType::Character, '('}},
-        /* 27 */ KeyMap{Key{KeyType::Character, '0'}, Key{KeyType::Character, ')'}},
-        /* 28 */ KeyMap{Key{KeyType::Character, 0x0d}, Key{KeyType::Character, 0x0d}},
-        /* 29 */ KeyMap{Key{KeyType::Character, 0x1b}, Key{KeyType::Character, 0x1b}},
-        /* 2a */ KeyMap{Key{KeyType::Character, 0x08}, Key{KeyType::Character, 0x08}},
-        /* 2b */ KeyMap{Key{KeyType::Character, 0x09}, Key{KeyType::Character, 0x09}},
-        /* 2c */ KeyMap{Key{KeyType::Character, ' '}, Key{KeyType::Character, ' '}},
-        /* 2d */ KeyMap{Key{KeyType::Character, '-'}, Key{KeyType::Character, '_'}},
-        /* 2e */ KeyMap{Key{KeyType::Character, '='}, Key{KeyType::Character, '+'}},
-        /* 2f */ KeyMap{Key{KeyType::Character, '['}, Key{KeyType::Character, '{'}},
-        /* 30 */ KeyMap{Key{KeyType::Character, ']'}, Key{KeyType::Character, '}'}},
-        /* 31 */ KeyMap{Key{KeyType::Character, '\\'}, Key{KeyType::Character, '|'}},
-        /* 32 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 33 */ KeyMap{Key{KeyType::Character, ';'}, Key{KeyType::Character, ':'}},
-        /* 34 */ KeyMap{Key{KeyType::Character, '\''}, Key{KeyType::Character, '"'}},
-        /* 35 */ KeyMap{Key{KeyType::Character, '`'}, Key{KeyType::Character, '~'}},
-        /* 36 */ KeyMap{Key{KeyType::Character, ','}, Key{KeyType::Character, '<'}},
-        /* 37 */ KeyMap{Key{KeyType::Character, '.'}, Key{KeyType::Character, '>'}},
-        /* 38 */ KeyMap{Key{KeyType::Character, '/'}, Key{KeyType::Character, '?'}},
-        /* 39 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 3a */ KeyMap{Key{KeyType::Special, F1}, Key{KeyType::Special, F1}},
-        /* 3b */ KeyMap{Key{KeyType::Special, F2}, Key{KeyType::Special, F2}},
-        /* 3c */ KeyMap{Key{KeyType::Special, F3}, Key{KeyType::Special, F3}},
-        /* 3d */ KeyMap{Key{KeyType::Special, F4}, Key{KeyType::Special, F4}},
-        /* 3e */ KeyMap{Key{KeyType::Special, F5}, Key{KeyType::Special, F5}},
-        /* 3f */ KeyMap{Key{KeyType::Special, F6}, Key{KeyType::Special, F6}},
-        /* 40 */ KeyMap{Key{KeyType::Special, F7}, Key{KeyType::Special, F7}},
-        /* 41 */ KeyMap{Key{KeyType::Special, F8}, Key{KeyType::Special, F8}},
-        /* 42 */ KeyMap{Key{KeyType::Special, F9}, Key{KeyType::Special, F9}},
-        /* 43 */ KeyMap{Key{KeyType::Special, F10}, Key{KeyType::Special, F10}},
-        /* 44 */ KeyMap{Key{KeyType::Special, F11}, Key{KeyType::Special, F11}},
-        /* 45 */ KeyMap{Key{KeyType::Special, F12}, Key{KeyType::Special, F12}},
-        /* 46 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 47 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 48 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 49 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 4a */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 4b */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 4c */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 4d */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 4e */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 4f */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 50 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 51 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 52 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 53 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 54 */ KeyMap{Key{KeyType::Character, '/'}, Key{KeyType::Character, '/'}},
-        /* 55 */ KeyMap{Key{KeyType::Character, '*'}, Key{KeyType::Character, '*'}},
-        /* 56 */ KeyMap{Key{KeyType::Character, '-'}, Key{KeyType::Character, '-'}},
-        /* 57 */ KeyMap{Key{KeyType::Character, '+'}, Key{KeyType::Character, '+'}},
-        /* 58 */ KeyMap{Key{KeyType::Character, 0x0d}, Key{KeyType::Character, 0x0d}},
-        /* 59 */ KeyMap{Key{KeyType::Character, '1'}, Key{KeyType::Character, '1'}},
-        /* 5a */ KeyMap{Key{KeyType::Character, '2'}, Key{KeyType::Character, '2'}},
-        /* 5b */ KeyMap{Key{KeyType::Character, '3'}, Key{KeyType::Character, '3'}},
-        /* 5c */ KeyMap{Key{KeyType::Character, '4'}, Key{KeyType::Character, '4'}},
-        /* 5d */ KeyMap{Key{KeyType::Character, '5'}, Key{KeyType::Character, '5'}},
-        /* 5e */ KeyMap{Key{KeyType::Character, '6'}, Key{KeyType::Character, '6'}},
-        /* 5f */ KeyMap{Key{KeyType::Character, '7'}, Key{KeyType::Character, '7'}},
-        /* 60 */ KeyMap{Key{KeyType::Character, '8'}, Key{KeyType::Character, '8'}},
-        /* 61 */ KeyMap{Key{KeyType::Character, '9'}, Key{KeyType::Character, '9'}},
-        /* 62 */ KeyMap{Key{KeyType::Character, '0'}, Key{KeyType::Character, '0'}},
-        /* 63 */ KeyMap{Key{KeyType::Character, '.'}, Key{KeyType::Character, '.'}},
-        /* 64 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 65 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 66 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 67 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 68 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 69 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 6a */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 6b */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 6c */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 6d */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 6e */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 6f */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 70 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 71 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 72 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 73 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 74 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 75 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 76 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 77 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 78 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 79 */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 7a */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 7b */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 7c */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 7d */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 7e */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
-        /* 7f */ KeyMap{Key{KeyType::Invalid, 0}, Key{KeyType::Invalid, 0}},
+        /* 00 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 01 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 02 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 03 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 04 */ KeyMap{AIMX_KEY_A,             AIMX_KEY_A},
+        /* 05 */ KeyMap{AIMX_KEY_B,             AIMX_KEY_B},
+        /* 06 */ KeyMap{AIMX_KEY_C,             AIMX_KEY_C},
+        /* 07 */ KeyMap{AIMX_KEY_D,             AIMX_KEY_D},
+        /* 08 */ KeyMap{AIMX_KEY_E,             AIMX_KEY_E},
+        /* 09 */ KeyMap{AIMX_KEY_F,             AIMX_KEY_F},
+        /* 0a */ KeyMap{AIMX_KEY_G,             AIMX_KEY_G},
+        /* 0b */ KeyMap{AIMX_KEY_H,             AIMX_KEY_H},
+        /* 0c */ KeyMap{AIMX_KEY_I,             AIMX_KEY_I},
+        /* 0d */ KeyMap{AIMX_KEY_J,             AIMX_KEY_J},
+        /* 0e */ KeyMap{AIMX_KEY_K,             AIMX_KEY_K},
+        /* 0f */ KeyMap{AIMX_KEY_L,             AIMX_KEY_L},
+        /* 10 */ KeyMap{AIMX_KEY_M,             AIMX_KEY_M},
+        /* 11 */ KeyMap{AIMX_KEY_N,             AIMX_KEY_N},
+        /* 12 */ KeyMap{AIMX_KEY_O,             AIMX_KEY_O},
+        /* 13 */ KeyMap{AIMX_KEY_P,             AIMX_KEY_P},
+        /* 14 */ KeyMap{AIMX_KEY_Q,             AIMX_KEY_Q},
+        /* 15 */ KeyMap{AIMX_KEY_R,             AIMX_KEY_R},
+        /* 16 */ KeyMap{AIMX_KEY_S,             AIMX_KEY_S},
+        /* 17 */ KeyMap{AIMX_KEY_T,             AIMX_KEY_T},
+        /* 18 */ KeyMap{AIMX_KEY_U,             AIMX_KEY_U},
+        /* 19 */ KeyMap{AIMX_KEY_V,             AIMX_KEY_V},
+        /* 1a */ KeyMap{AIMX_KEY_W,             AIMX_KEY_W},
+        /* 1b */ KeyMap{AIMX_KEY_X,             AIMX_KEY_X},
+        /* 1c */ KeyMap{AIMX_KEY_Y,             AIMX_KEY_Y},
+        /* 1d */ KeyMap{AIMX_KEY_Z,             AIMX_KEY_Z},
+        /* 1e */ KeyMap{'1',                    '!'},
+        /* 1f */ KeyMap{'2',                    '@'},
+        /* 20 */ KeyMap{'3',                    '#'},
+        /* 21 */ KeyMap{'4',                    '$'},
+        /* 22 */ KeyMap{'5',                    '%'},
+        /* 23 */ KeyMap{'6',                    '^'},
+        /* 24 */ KeyMap{'7',                    '&'},
+        /* 25 */ KeyMap{'8',                    '*'},
+        /* 26 */ KeyMap{'9',                    '('},
+        /* 27 */ KeyMap{'0',                    ')'},
+        /* 28 */ KeyMap{0x0d,                   0x0d},
+        /* 29 */ KeyMap{0x1b,                   0x1b},
+        /* 2a */ KeyMap{0x08,                   0x08},
+        /* 2b */ KeyMap{0x09,                   0x09},
+        /* 2c */ KeyMap{' ',                    ' '},
+        /* 2d */ KeyMap{'-',                    '_'},
+        /* 2e */ KeyMap{'=',                    '+'},
+        /* 2f */ KeyMap{'[',                    '{'},
+        /* 30 */ KeyMap{']',                    '}'},
+        /* 31 */ KeyMap{'\\',                   '|'},
+        /* 32 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 33 */ KeyMap{';',                    ':'},
+        /* 34 */ KeyMap{'\'',                   '"'},
+        /* 35 */ KeyMap{'`',                    '~'},
+        /* 36 */ KeyMap{',',                    '<'},
+        /* 37 */ KeyMap{'.',                    '>'},
+        /* 38 */ KeyMap{'/',                    '?'},
+        /* 39 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 3a */ KeyMap{AIMX_KEY_F1,            AIMX_KEY_F1},
+        /* 3b */ KeyMap{AIMX_KEY_F2,            AIMX_KEY_F2},
+        /* 3c */ KeyMap{AIMX_KEY_F3,            AIMX_KEY_F3},
+        /* 3d */ KeyMap{AIMX_KEY_F4,            AIMX_KEY_F4},
+        /* 3e */ KeyMap{AIMX_KEY_F5,            AIMX_KEY_F5},
+        /* 3f */ KeyMap{AIMX_KEY_F6,            AIMX_KEY_F6},
+        /* 40 */ KeyMap{AIMX_KEY_F7,            AIMX_KEY_F7},
+        /* 41 */ KeyMap{AIMX_KEY_F8,            AIMX_KEY_F8},
+        /* 42 */ KeyMap{AIMX_KEY_F9,            AIMX_KEY_F9},
+        /* 43 */ KeyMap{AIMX_KEY_F10,           AIMX_KEY_F10},
+        /* 44 */ KeyMap{AIMX_KEY_F11,           AIMX_KEY_F11},
+        /* 45 */ KeyMap{AIMX_KEY_F12,           AIMX_KEY_F12},
+        /* 46 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 47 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 48 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 49 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 4a */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 4b */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 4c */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 4d */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 4e */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 4f */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 50 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 51 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 52 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 53 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 54 */ KeyMap{'/',                    '/'},
+        /* 55 */ KeyMap{'*',                    '*'},
+        /* 56 */ KeyMap{'-',                    '-'},
+        /* 57 */ KeyMap{'+',                    '+'},
+        /* 58 */ KeyMap{0x0d,                   0x0d},
+        /* 59 */ KeyMap{'1',                    '1'},
+        /* 5a */ KeyMap{'2',                    '2'},
+        /* 5b */ KeyMap{'3',                    '3'},
+        /* 5c */ KeyMap{'4',                    '4'},
+        /* 5d */ KeyMap{'5',                    '5'},
+        /* 5e */ KeyMap{'6',                    '6'},
+        /* 5f */ KeyMap{'7',                    '7'},
+        /* 60 */ KeyMap{'8',                    '8'},
+        /* 61 */ KeyMap{'9',                    '9'},
+        /* 62 */ KeyMap{'0',                    '0'},
+        /* 63 */ KeyMap{'.',                    '.'},
+        /* 64 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 65 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 66 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 67 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 68 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 69 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 6a */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 6b */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 6c */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 6d */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 6e */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 6f */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 70 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 71 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 72 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 73 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 74 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 75 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 76 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 77 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 78 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 79 */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 7a */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 7b */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 7c */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 7d */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 7e */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
+        /* 7f */ KeyMap{AIMX_KEY_NONE,          AIMX_KEY_NONE},
     };
 
     class USBKeyboard : public Device, private IDeviceOperations, private usb::IPipeCallback
@@ -235,29 +231,42 @@ namespace
 
             const int modifiers = [](int d) {
                 int m = 0;
-                if (d & (modifierByte::LeftShift | modifierByte::RightShift))
-                    m |= modifier::Shift;
-                if (d & (modifierByte::LeftControl | modifierByte::RightControl))
-                    m |= modifier::Control;
-                if (d & (modifierByte::LeftAlt | modifierByte::RightAlt))
-                    m |= modifier::Alt;
+                if (d & modifierByte::LeftShift)
+                    m |= AIMX_MOD_LEFT_SHIFT;
+                if (d & modifierByte::RightShift)
+                    m |= AIMX_MOD_RIGHT_SHIFT;
+                if (d & modifierByte::LeftControl)
+                    m |= AIMX_MOD_LEFT_CONTROL;
+                if (d & modifierByte::LeftGui)
+                    m |= AIMX_MOD_LEFT_GUI;
+                if (d & modifierByte::RightShift)
+                    m |= AIMX_MOD_RIGHT_SHIFT;
+                if (d & modifierByte::RightShift)
+                    m |= AIMX_MOD_RIGHT_SHIFT;
+                if (d & modifierByte::RightControl)
+                    m |= AIMX_MOD_RIGHT_CONTROL;
+                if (d & modifierByte::RightGui)
+                    m |= AIMX_MOD_LEFT_GUI;
                 return m;
             }(xfer.t_data[0]);
 
             // Look up the scancode
             const auto& key = [](int scancode, int modifiers) {
                 const auto& km = keymap[scancode];
-                if (modifiers & modifier::Control)
+                if (modifiers & (AIMX_MOD_LEFT_CONTROL | AIMX_MOD_RIGHT_CONTROL))
                     return km.standard;
 
-                if (modifiers & modifier::Shift)
+                if (modifiers & (AIMX_MOD_LEFT_SHIFT | AIMX_MOD_RIGHT_SHIFT))
                     return km.shift;
 
                 return km.standard;
             }(scancode, modifiers);
 
-            if (key.IsValid())
-                keyboard_mux::OnKey(key, modifiers);
+            if (key != AIMX_KEY_NONE) {
+                // TODO Verify how to get specific down/up events here
+                input_mux::OnEvent({ AIMX_EVENT_KEY_DOWN, key });
+                input_mux::OnEvent({ AIMX_EVENT_KEY_UP, key });
+            }
         }
 
         /* Reschedule the pipe for future updates */
