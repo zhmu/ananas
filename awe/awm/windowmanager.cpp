@@ -21,7 +21,7 @@ struct WindowManager::EventProcessor {
     Window* focusWindow{};
     Point previousPoint{};
 
-    void operator()(const event::Quit&) { quit = true; }
+    bool operator()(const event::Quit&) { quit = true; return false; }
 
     void ChangeFocus(Window* newWindow)
     {
@@ -34,7 +34,7 @@ struct WindowManager::EventProcessor {
         }
     }
 
-    void operator()(const event::MouseButtonDown& ev)
+    bool operator()(const event::MouseButtonDown& ev)
     {
         if (ev.button == event::Button::Left) {
             if (auto w = wm.FindWindowAt(ev.position); w) {
@@ -43,30 +43,36 @@ struct WindowManager::EventProcessor {
                     draggingWindow = w;
                     previousPoint = ev.position;
                 }
-                return;
+                return true;
             } else {
                 ChangeFocus(nullptr);
+                return true;
             }
         }
+        return false;
     }
 
-    void operator()(const event::MouseButtonUp& ev)
+    bool operator()(const event::MouseButtonUp& ev)
     {
         if (ev.button == event::Button::Left) {
             draggingWindow = nullptr;
+            return true;
         }
+        return false;
     }
 
-    void operator()(const event::MouseMotion& ev)
+    bool operator()(const event::MouseMotion& ev)
     {
         if (draggingWindow) {
             Point delta = ev.position - previousPoint;
             previousPoint = ev.position;
             draggingWindow->position = draggingWindow->position + delta;
+            return true;
         }
+        return false;
     }
 
-    void operator()(const event::KeyDown& ev)
+    bool operator()(const event::KeyDown& ev)
     {
         if (focusWindow) {
             ipc::Event event;
@@ -78,9 +84,10 @@ struct WindowManager::EventProcessor {
                 printf("send error to fd %d\n", focusWindow->fd);
             }
         }
+        return false;
     }
 
-    void operator()(const event::KeyUp& ev)
+    bool operator()(const event::KeyUp& ev)
     {
         if (focusWindow) {
             ipc::Event event;
@@ -92,6 +99,7 @@ struct WindowManager::EventProcessor {
                 printf("send error to fd %d\n", focusWindow->fd);
             }
         }
+        return false;
     }
 };
 
@@ -135,6 +143,7 @@ Window& WindowManager::CreateWindow(const Size& size, int fd)
     memset(w->shmData, 0, shmDataSize);
 
     windows.push_back(std::move(w));
+    eventProcessor->ChangeFocus(windows.back().get()); // XXX annoying
     return *windows.back();
 }
 
@@ -152,11 +161,19 @@ Window* WindowManager::FindWindowByFd(const int fd)
     return it != windows.end() ? it->get() : nullptr;
 }
 
+void WindowManager::HandlePlatformEvents()
+{
+    while (true) {
+        const auto event = platform->Poll();
+        if (!event) break;
+        needUpdate = std::visit(*eventProcessor, *event) || needUpdate;
+    }
+}
+
 bool WindowManager::Run()
 {
-    if (auto event = platform->Poll(); event) {
-        std::visit(*eventProcessor, *event);
-        needUpdate = true;
+    if (platform->GetEventFd() < 0) {
+        HandlePlatformEvents();
     }
 
     if (needUpdate) {

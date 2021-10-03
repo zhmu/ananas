@@ -45,6 +45,11 @@ int main(int argc, char* argv[])
         }
 
         auto processData = [&](int fd) {
+            if (fd == wm.platform->GetEventFd()) {
+                wm.HandlePlatformEvents();
+                return true;
+            }
+
             ipc::Message m;
             const int numRead = read(fd, &m, sizeof(m));
             if (numRead <= 0)
@@ -109,6 +114,8 @@ int main(int argc, char* argv[])
         };
 
         SocketServer server(std::move(processData), std::move(connectionLost), "/tmp/awewm");
+        if (auto eventFd = wm.platform->GetEventFd(); eventFd >= 0)
+            server.AddClient(eventFd);
 
         signal(SIGPIPE, SIG_IGN);
         while (true) {

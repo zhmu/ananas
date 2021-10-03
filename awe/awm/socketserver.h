@@ -23,5 +23,6 @@ class SocketServer final
     SocketServer(ProcessDataFunction, OnConnectionTerminated, const char* path);
     ~SocketServer();
 
+    void AddClient(FileDescriptor fd);
     void Poll();
 };

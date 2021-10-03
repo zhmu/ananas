@@ -45,4 +45,6 @@ struct Platform {
     virtual Size GetSize() = 0;
     virtual void Render(PixelBuffer&) = 0;
     virtual std::optional<Event> Poll() = 0;
+
+    virtual int GetEventFd() const { return -1; }
 };

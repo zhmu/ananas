@@ -70,3 +70,8 @@ void SocketServer::Poll()
             break;
     }
 }
+
+void SocketServer::AddClient(const FileDescriptor fd)
+{
+    clients.push_back(fd);
+}

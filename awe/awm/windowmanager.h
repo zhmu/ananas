@@ -33,4 +33,5 @@ struct WindowManager final {
     void DestroyWindow(Window&);
 
     bool Run();
+    void HandlePlatformEvents();
 };

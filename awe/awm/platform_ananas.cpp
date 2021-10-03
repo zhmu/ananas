@@ -86,7 +86,7 @@ struct Platform_Ananas::Impl {
         consoleFd = open(tty, O_RDWR);
         if (consoleFd < 0) perror("open console");
 
-        inputFd = open("/dev/inputmux", O_RDONLY);
+        inputFd = open("/dev/inputmux", O_RDONLY | O_NONBLOCK);
         if (inputFd < 0) perror("open inputmux");
 
         struct ananas_fb_info fbi{};
@@ -119,17 +119,9 @@ struct Platform_Ananas::Impl {
 
     std::optional<Event> Poll()
     {
-        fd_set fds;
-        FD_ZERO(&fds);
-        FD_SET(inputFd, &fds);
-
-        struct timeval tv{};
-        if (select(inputFd + 1, &fds, nullptr, nullptr, &tv) <= 0) return {};
-        if (!FD_ISSET(inputFd, &fds)) return {};
-
         struct AIMX_EVENT event;
         const auto n = read(inputFd, &event, sizeof(event));
-        if (n != sizeof(event)) { printf("read error %d (%d) %d\n", n, sizeof(event), errno); return {}; }
+        if (n != sizeof(event)) return {};
 
         switch(event.type) {
             case AIMX_EVENT_KEY_DOWN: {
@@ -156,3 +148,5 @@ void Platform_Ananas::Render(PixelBuffer& fb) { return impl->Render(fb); }
 std::optional<Event> Platform_Ananas::Poll() { return impl->Poll(); }
 
 Size Platform_Ananas::GetSize() { return impl->size; }
+
+int Platform_Ananas::GetEventFd() const { return impl->inputFd; }
