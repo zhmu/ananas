@@ -94,6 +94,7 @@ typedef int AIMX_MODIFIERS;
 enum AIMX_EVENT_TYPE {
     AIMX_EVENT_KEY_DOWN,
     AIMX_EVENT_KEY_UP,
+    AIMX_EVENT_MOUSE,
 };
 
 struct AIMX_EVENT_KEY {
@@ -101,11 +102,22 @@ struct AIMX_EVENT_KEY {
     AIMX_MODIFIERS mods;
 };
 
+#define AIMX_BUTTON_LEFT (1 << 0)
+#define AIMX_BUTTON_RIGHT (1 << 1)
+#define AIMX_BUTTON_MIDDLE (1 << 2)
+
+struct AIMX_EVENT_MOUSE_INFO {
+    int button;
+    int delta_x;
+    int delta_y;
+};
+
 struct AIMX_EVENT {
     AIMX_EVENT_TYPE type;
     union {
         struct AIMX_EVENT_KEY key_down;
         struct AIMX_EVENT_KEY key_up;
+        struct AIMX_EVENT_MOUSE_INFO mouse;
     } u;
 };
 

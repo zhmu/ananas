@@ -13,6 +13,8 @@
 
 namespace
 {
+    const Colour mouseColour{ 255, 255, 0 };
+
     std::pair<ipc::KeyCode, int> ConvertKeycode(const AIMX_KEY_CODE key)
     {
         using namespace ipc;
@@ -76,6 +78,10 @@ struct Platform_Ananas::Impl {
     int inputFd{-1};
     Size size{};
     using PixelValue = uint32_t;
+    int mouseX{};
+    int mouseY{};
+    bool mouseLeftButton{};
+    bool mouseRightButton{};
     PixelValue* fb{};
 
     Impl()
@@ -115,6 +121,8 @@ struct Platform_Ananas::Impl {
     void Render(PixelBuffer& pb)
     {
         std::memcpy(fb, pb.buffer, size.height * size.width * sizeof(PixelValue));
+        PixelBuffer fbPb{fb, size};
+        fbPb.FilledRectangle(Rectangle{ mouseX, mouseY, { 10, 10 } }, mouseColour);
     }
 
     std::optional<Event> Poll()
@@ -133,6 +141,36 @@ struct Platform_Ananas::Impl {
                 const auto key = ConvertKeycode(event.u.key_up.key);
                 const auto modifier = ConvertModifiers(event.u.key_up.mods);
                 return event::KeyUp{key.first, modifier, key.second};
+            }
+            case AIMX_EVENT_MOUSE: {
+                const auto& mouse = event.u.mouse;
+                const auto currentLeftDown = (mouse.button & AIMX_BUTTON_LEFT) != 0;
+                const auto currentRightDown = (mouse.button & AIMX_BUTTON_RIGHT) != 0;
+
+                mouseX += mouse.delta_x;
+                mouseY += mouse.delta_y;
+                if (mouseX < 0) mouseX = 0;
+                if (mouseX >= size.width) mouseX = size.width - 1;
+                if (mouseY < 0) mouseY = 0;
+                if (mouseY >= size.height) mouseY = size.height - 1;
+
+                if (mouseLeftButton != currentLeftDown) {
+                    if (currentLeftDown) {
+                        mouseLeftButton = true;
+                        return event::MouseButtonDown{event::Button::Left, { mouseX, mouseY }};
+                    }
+                    mouseLeftButton = false;
+                    return event::MouseButtonUp{event::Button::Left, { mouseX, mouseY }};
+                }
+                if (mouseRightButton != currentRightDown) {
+                    if (currentRightDown) {
+                        mouseRightButton = true;
+                        return event::MouseButtonDown{event::Button::Right, { mouseX, mouseY }};
+                    }
+                    mouseRightButton = false;
+                    return event::MouseButtonUp{event::Button::Right, { mouseX, mouseY }};
+                }
+                return event::MouseMotion{ mouseX, mouseY };
             }
         }
         return {};
