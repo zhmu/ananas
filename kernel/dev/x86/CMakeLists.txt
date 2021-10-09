@@ -1,5 +1,5 @@
 add_sources(
-    atkbd.cpp
+    atinput.cpp
     atrtc.cpp
     sio.cpp
 )

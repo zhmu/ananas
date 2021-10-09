@@ -34,9 +34,41 @@ namespace
 
     namespace port
     {
-        constexpr int Status = 4;
-        constexpr int StatusOutputFull = 1;
+        constexpr int Output = 0x60; // Read Only
+        constexpr int Input = 0x60; // Write Only
+        constexpr int Command = 0x64; // Write Only
+        constexpr int Status = 0x64; // Read Only
     } // namespace port
+
+    namespace command
+    {
+        constexpr uint8_t ReadControllerCommandByte = 0x20;
+        constexpr uint8_t WriteControllerCommandByte = 0x60;
+        constexpr uint8_t EnableAuxiliaryDeviceInterface = 0xa8;
+        constexpr uint8_t DisableKeyboardInterface = 0xad;
+        constexpr uint8_t EnableKeyboardInterface = 0xae;
+        constexpr uint8_t WriteToAuxDevice = 0xd4;
+        constexpr uint8_t ResetAuxiliaryDevice = 0xff;
+    }
+
+    namespace status
+    {
+        constexpr uint8_t OutputBufferFull = (1 << 0);
+        constexpr uint8_t InputBufferFull = (1 << 1);
+        constexpr uint8_t AuxiliaryData = (1 << 5);
+    }
+
+    namespace mouse0
+    {
+        constexpr uint8_t LeftButton = (1 << 0);
+        constexpr uint8_t RightButton = (1 << 1);
+        constexpr uint8_t MiddleButton = (1 << 2);
+        constexpr uint8_t MustBeSet = (1 << 3);
+        constexpr uint8_t XNegated = (1 << 4);
+        constexpr uint8_t YNegated = (1 << 5);
+        constexpr uint8_t XOverflow = (1 << 6);
+        constexpr uint8_t YOverflow = (1 << 7);
+    }
 
     struct KeyMap {
         AIMX_KEY_CODE standard;
@@ -174,6 +206,46 @@ namespace
         /* 7f */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
     };
 
+    void WaitForReadFromOutput()
+    {
+        for(int n = 1'000'000; n > 0; --n) {
+            if ((inb(port::Status) & status::OutputBufferFull) != 0)
+                return;
+        }
+        kprintf("wait timeout inputBuffer 0\n");
+    }
+
+    void WaitForWriteToInput()
+    {
+        // Data should be written to the controller input buffer only if
+        // the input-buffer-full bit (1) in the controller status register
+        // (64) = 0
+        for(int n = 1'000'000; n > 0; --n) {
+            if ((inb(port::Status) & status::InputBufferFull) == 0)
+                return;
+        }
+        kprintf("wait timeout inputBuffer 1\n");
+    }
+
+    void SendCommand(uint8_t cmd)
+    {
+        WaitForWriteToInput();
+        outb(port::Command, cmd);
+    }
+
+    void WriteAux(uint8_t b)
+    {
+        SendCommand(command::WriteToAuxDevice);
+        WaitForWriteToInput();
+        outb(port::Input, b);
+    }
+
+    uint8_t ReadAux()
+    {
+        WaitForReadFromOutput();
+        return inb(port::Output);
+    }
+
     bool ProcessSpecialKeys(int scancode, int kbd_modifiers)
     {
         // Control-Shift-Escape causes us to drop in KDB
@@ -211,82 +283,154 @@ namespace
 
       private:
         irq::IRQResult OnIRQ() override;
+        void OnKeyboardIRQ(uint8_t scancode);
+        void OnAuxIRQ(uint8_t data);
 
       private:
-        int kbd_ioport;
+        Spinlock io_lock;
         int kbd_modifiers = 0;
+        int aux_state = 0;
+        util::array<uint8_t, 4> aux_byte;
     };
+
+    void ATKeyboard::OnKeyboardIRQ(uint8_t scancode)
+    {
+        const auto isReleased = (scancode & scancode::ReleasedBit) != 0;
+        scancode &= ~scancode::ReleasedBit;
+
+        // Handle setting control, alt, shift flags
+        {
+            auto setOrClearModifier = [&](int flag) {
+                if (isReleased)
+                    kbd_modifiers &= ~flag;
+                else
+                    kbd_modifiers |= flag;
+            };
+
+            switch (scancode) {
+                case scancode::LeftShift:
+                    setOrClearModifier(AIMX_MOD_LEFT_SHIFT);
+                    return;
+                case scancode::RightShift:
+                    setOrClearModifier(AIMX_MOD_RIGHT_SHIFT);
+                    return;
+                case scancode::Alt:
+                    setOrClearModifier(AIMX_MOD_LEFT_ALT);
+                    return;
+                case scancode::Control:
+                    setOrClearModifier(AIMX_MOD_LEFT_CONTROL);
+                    return;
+            }
+        }
+
+        if (!isReleased && ProcessSpecialKeys(scancode, kbd_modifiers))
+            return;
+
+        // Look up the scancode
+        const auto& key = [](int scancode, int modifiers) {
+            const auto& km = keymap[scancode];
+            if (modifiers & (AIMX_MOD_LEFT_CONTROL | AIMX_MOD_RIGHT_CONTROL))
+                return km.standard;
+
+            if (modifiers & (AIMX_MOD_LEFT_SHIFT | AIMX_MOD_RIGHT_SHIFT))
+                return km.shift;
+
+            return km.standard;
+        }(scancode, kbd_modifiers);
+
+        if (key != AIMX_KEY_NONE) {
+            input_mux::OnEvent({ isReleased ? AIMX_EVENT_KEY_UP : AIMX_EVENT_KEY_DOWN, key, kbd_modifiers });
+        }
+    }
+
+    void ATKeyboard::OnAuxIRQ(uint8_t data)
+    {
+        aux_byte[aux_state] = data;
+        if (++aux_state == 3) {
+            if (aux_byte[0] & mouse0::MustBeSet) {
+                auto x = static_cast<int>(aux_byte[1]);
+                auto y = static_cast<int>(aux_byte[2]);
+                if (aux_byte[0] & mouse0::XNegated) x = x - 256;
+                if (aux_byte[0] & mouse0::YNegated) y = y - 256;
+                if (aux_byte[0] & mouse0::XOverflow) x = 0;
+                if (aux_byte[0] & mouse0::YOverflow) y = 0;
+                int button = 0;
+                if (aux_byte[0] & mouse0::LeftButton) button |= AIMX_BUTTON_LEFT;
+                if (aux_byte[0] & mouse0::RightButton) button |= AIMX_BUTTON_RIGHT;
+                if (aux_byte[0] & mouse0::MiddleButton) button |= AIMX_BUTTON_MIDDLE;
+
+                AIMX_EVENT event{ AIMX_EVENT_MOUSE };
+                event.u.mouse = { button, x, -y };
+                input_mux::OnEvent(event);
+            }
+            aux_state = 0;
+        }
+    }
 
     irq::IRQResult ATKeyboard::OnIRQ()
     {
-        while (inb(kbd_ioport + port::Status) & port::StatusOutputFull) {
-            uint8_t scancode = inb(kbd_ioport);
-            const auto isReleased = (scancode & scancode::ReleasedBit) != 0;
-            scancode &= ~scancode::ReleasedBit;
-
-            // Handle setting control, alt, shift flags
-            {
-                auto setOrClearModifier = [&](int flag) {
-                    if (isReleased)
-                        kbd_modifiers &= ~flag;
-                    else
-                        kbd_modifiers |= flag;
-                };
-
-                switch (scancode) {
-                    case scancode::LeftShift:
-                        setOrClearModifier(AIMX_MOD_LEFT_SHIFT);
-                        continue;
-                    case scancode::RightShift:
-                        setOrClearModifier(AIMX_MOD_RIGHT_SHIFT);
-                        continue;
-                    case scancode::Alt:
-                        setOrClearModifier(AIMX_MOD_LEFT_ALT);
-                        continue;
-                    case scancode::Control:
-                        setOrClearModifier(AIMX_MOD_LEFT_CONTROL);
-                        continue;
-                }
+        while (true) {
+            const auto lockState = io_lock.LockUnpremptible();
+            const auto status = inb(port::Status);
+            if ((status & status::OutputBufferFull) == 0) {
+                io_lock.UnlockUnpremptible(lockState);
+                break;
             }
 
-            if (!isReleased && ProcessSpecialKeys(scancode, kbd_modifiers))
-                continue;
-
-            // Look up the scancode
-            const auto& key = [](int scancode, int modifiers) {
-                const auto& km = keymap[scancode];
-                if (modifiers & (AIMX_MOD_LEFT_CONTROL | AIMX_MOD_RIGHT_CONTROL))
-                    return km.standard;
-
-                if (modifiers & (AIMX_MOD_LEFT_SHIFT | AIMX_MOD_RIGHT_SHIFT))
-                    return km.shift;
-
-                return km.standard;
-            }(scancode, kbd_modifiers);
-
-            if (key != AIMX_KEY_NONE) {
-                input_mux::OnEvent({ isReleased ? AIMX_EVENT_KEY_UP : AIMX_EVENT_KEY_DOWN, key, kbd_modifiers });
-            }
+            const auto data = inb(port::Output);
+            io_lock.UnlockUnpremptible(lockState);
+            if (status & status::AuxiliaryData)
+                OnAuxIRQ(data);
+            else
+                OnKeyboardIRQ(data);
         }
+
         return irq::IRQResult::Processed;
     }
 
     Result ATKeyboard::Attach()
     {
-        void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 7);
+        auto res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 7);
         if (res_io == nullptr)
             return Result::Failure(ENODEV);
 
-        // Initialize private data; must be done before the interrupt is registered
-        kbd_ioport = (uintptr_t)res_io;
+        if (reinterpret_cast<uintptr_t>(res_io) != port::Input) {
+            Printf("I/O base %p does not match, aborting", res_io);
+            return Result::Failure(ENXIO);
+        }
+
+        // Grab IRQ1 for PS/2 keyboard interrupts
         if (auto result = GetBusDeviceOperations().AllocateIRQ(*this, 0, *this); result.IsFailure())
             return result;
+        // Grab IRQ12 for the PS/2 mouse interrupts
+        if (auto result = irq::Register(12, this, irq::type::Default, *this); result.IsFailure())
+            return result;
 
-        /*
-         * Ensure the keyboard's input buffer is empty; this will cause it to
-         * send IRQ's to us.
-         */
-        inb(kbd_ioport);
+        SpinlockGuard g(io_lock);
+        SendCommand(command::DisableKeyboardInterface);
+        SendCommand(command::EnableAuxiliaryDeviceInterface);
+        SendCommand(command::ResetAuxiliaryDevice);
+        SendCommand(command::ReadControllerCommandByte);
+
+        auto status = ReadAux();
+        status |= 2; // enable aux interrupt
+        SendCommand(command::WriteControllerCommandByte);
+        WaitForWriteToInput();
+        outb(port::Input, status);
+
+        // Use default settings
+        WriteAux(0xf6);
+        ReadAux();
+
+        // Enable mouse
+        WriteAux(0xf4);
+        ReadAux();
+
+        SendCommand(command::EnableKeyboardInterface);
+
+        // Drain output buffer
+        while (inb(port::Status) & status::OutputBufferFull)
+            inb(port::Output);
         return Result::Success();
     }
 
@@ -297,7 +441,7 @@ namespace
     }
 
     struct ATKeyboard_Driver : public Driver {
-        ATKeyboard_Driver() : Driver("atkbd") {}
+        ATKeyboard_Driver() : Driver("atinput") {}
 
         const char* GetBussesToProbeOn() const override { return "acpi"; }
 
