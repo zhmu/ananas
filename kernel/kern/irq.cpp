@@ -17,26 +17,22 @@
 
 namespace irq
 {
+    namespace flag
+    {
+        constexpr inline auto Pending = (1 << 0);
+        constexpr inline auto InProgress = (1 << 1);
+    }
+
     namespace
     {
         util::array<IRQ, MAX_IRQS> irqList;
         IRQSourceList irqSources;
-        Spinlock spl_irq;
+        Spinlock spl_irqSources;
 
         // Number of stray IRQ's that occur before reporting stops
         constexpr inline int maxStrayCount = 10;
 
-        // Must be called with spl_irq held
-        IRQSource* FindSource(unsigned int num)
-        {
-            auto it = util::find_if(irqSources, [&](const IRQSource& is) {
-                return num >= is.GetFirstInterruptNumber() &&
-                       num <= is.GetFirstInterruptNumber() + is.GetInterruptCount();
-            });
-            return it != irqSources.end() ? &*it : nullptr;
-        }
-
-        // Must be called with spl_irq held
+        // Must be called with irq.i_lock held
         IRQHandler* FindFreeHandlerSlot(IRQ& irq)
         {
             auto it = util::find_if(
@@ -44,11 +40,51 @@ namespace irq
             return it != irq.i_handler.end() ? &*it : nullptr;
         }
 
+        // Must be called with irq.i_lock held
+        void RunIRQHandlers(IRQ& irq, const int no, register_t& state)
+        {
+            while(true) {
+                bool awake_thread = false, handled = false;
+                for (const auto& handler : irq.i_handler) {
+                    switch(handler.h_type) {
+                        case HandlerType::ISR:
+                            irq.i_lock.UnlockUnpremptible(state);
+                            if (handler.h_handler->OnIRQ() == IRQResult::Processed)
+                                handled = true;
+                            state = irq.i_lock.LockUnpremptible();
+                            break;
+                        case HandlerType::IST:
+                            awake_thread = true; // need to invoke the IST
+                            break;
+                    }
+                }
+
+                if (awake_thread) {
+                    // Mask the interrupt source; the ithread will unmask it once done.
+                    // Note that edge-triggered interrupts cannot be masked and this
+                    // function will do nothing in such a case
+                    auto is = irq.i_source;
+                    is->Mask(no - is->GetFirstInterruptNumber());
+
+                    // Awake the interrupt thread
+                    irq.i_semaphore.Signal();
+                } else if (!handled) {
+                    kprintf("Stray irq %u on cpu %d, ignored\n", no, PCPU_GET(cpuid));
+                    if (++irq.i_straycount == maxStrayCount)
+                        kprintf("Not reporting stray irq %u anymore\n", no);
+                }
+
+                // If no other IRQ's riggered in the meantime, we are done
+                if ((irq.i_flags & flag::Pending) == 0)
+                    break;
+                irq.i_flags &= ~flag::Pending;
+            }
+        }
     } // unnamed namespace
 
     void RegisterSource(IRQSource& source)
     {
-        SpinlockUnpremptibleGuard g(spl_irq);
+        SpinlockUnpremptibleGuard g(spl_irqSources);
 
         /* Ensure no bogus ranges are being registered */
         const auto source_irq_first = source.GetFirstInterruptNumber();
@@ -79,7 +115,7 @@ namespace irq
 
     void UnregisterSource(IRQSource& source)
     {
-        SpinlockUnpremptibleGuard g(spl_irq);
+        SpinlockUnpremptibleGuard g(spl_irqSources);
 
         KASSERT(!irqSources.empty(), "no irq sources registered");
         /* Ensure our source is registered */
@@ -140,26 +176,15 @@ namespace irq
 
         // Note that we can't use SpinlockUnpremptibleGuard here as we may need to
         // release and re-acquire the lock
-        auto state = spl_irq.LockUnpremptible();
-
-        /*
-         * Look up the interrupt source; if we can't find it, it means this interrupt will
-         * never fire so we should refuse to register it.
-         */
-        IRQSource* is = FindSource(no);
-        if (is == nullptr) {
-            spl_irq.UnlockUnpremptible(state);
-            return Result::Failure(ENODEV);
-        }
-
         auto& i = irqList[no];
-        i.i_source = is;
+        auto state = i.i_lock.LockUnpremptible();
+        auto is = i.i_source;
+        KASSERT(is != nullptr, "irq %d does not have a source; cannot fire", no);
 
         // Locate a free slot for the handler
         IRQHandler* handler = FindFreeHandlerSlot(i);
         if (handler == nullptr) {
-            // XXX does it matter that we set i_source before?
-            spl_irq.UnlockUnpremptible(state);
+            i.i_lock.UnlockUnpremptible(state);
             return Result::Failure(EEXIST);
         }
 
@@ -170,7 +195,7 @@ namespace irq
         // If we need to create the IST, do so here
         if (!i.i_thread && type == irq::HandlerType::IST) {
             // Release lock as we can't kthread_init() with it
-            spl_irq.UnlockUnpremptible(state);
+            i.i_lock.UnlockUnpremptible(state);
 
             char thread_name[16];
             snprintf(thread_name, sizeof(thread_name) - 1, "irq-%d", no);
@@ -180,18 +205,18 @@ namespace irq
                 result.IsFailure())
                 panic("cannot create irq thread");
 
+            // XXX we should set a decent priority for the ithread
             i.i_thread->Resume();
 
-            // XXX we should set a decent priority here
-            state = spl_irq.LockUnpremptible();
+            state = i.i_lock.LockUnpremptible();
         }
 
         // Allow the handler to be executed now that it is properly set up
         handler->h_type = type;
-        spl_irq.UnlockUnpremptible(state);
 
         // Unmask the interrupt; the caller shouldn't worry about this
         is->Unmask(no - is->GetFirstInterruptNumber());
+        i.i_lock.UnlockUnpremptible(state);
         return Result::Success();
     }
 
@@ -199,8 +224,8 @@ namespace irq
     {
         KASSERT(no < irqList.size(), "interrupt %u out of range", no);
 
-        SpinlockUnpremptibleGuard g(spl_irq);
         auto& i = irqList[no];
+        SpinlockUnpremptibleGuard g(i.i_lock);
         KASSERT(i.i_source != nullptr, "interrupt %u has no source", no);
 
         bool isUnregistered = false;
@@ -222,53 +247,30 @@ namespace irq
 
     void InvokeHandler(unsigned int no)
     {
-        int cpuid = PCPU_GET(cpuid);
+        const auto cpuid = PCPU_GET(cpuid);
+        KASSERT(no < irqList.size(), "trying to handle out-of-range irq %u on cpu %d", cpuid, no, cpuid);
         auto& i = irqList[no];
-        i.i_count++;
 
-        KASSERT(no < irqList.size(), "irq_handler: (CPU %u) impossible irq %u fired", cpuid, no);
-        IRQSource* is = i.i_source;
-        KASSERT(is != nullptr, "irq_handler(): irq %u without source fired", no);
+        auto state = i.i_lock.LockUnpremptible();
+        auto is = i.i_source;
+        KASSERT(is != nullptr, "trying to handle irq %u without source", no);
 
-        /*
-         * Try all handlers one by one until we have one that works - if we find a handler that is
-         * to be call from the IST, flag so we don't do that multiple times.
-         */
-        bool awake_thread = false, handled = false;
-        for (const auto& handler : i.i_handler) {
-            switch(handler.h_type) {
-                case HandlerType::ISR:
-                    if (handler.h_handler->OnIRQ() == IRQResult::Processed)
-                        handled = true;
-                    break;
-                case HandlerType::IST:
-                    awake_thread = true; // need to invoke the IST
-                    break;
-            }
-        }
-
-        if (awake_thread) {
-            // Mask the interrupt source; the ithread will unmask it once done
-            is->Mask(no - is->GetFirstInterruptNumber());
-
-            // Awake the interrupt thread
-            i.i_semaphore.Signal();
-        } else if (!handled && i.i_straycount < maxStrayCount) {
-            kprintf("(CPU %u) Stray irq %u, ignored\n", cpuid, no);
-            if (++i.i_straycount == maxStrayCount)
-                kprintf("Not reporting stray irq %u anymore\n", no);
-        }
-
-        /*
-         * Disable interrupts; as we were handling an interrupt, this means we've
-         * been interrupted. We'll want to clean up, because if another interrupt
-         * occurs, it'll just expand the current context - and if interrupts come
-         * quickly enough, we'll run out of stack and crash 'n burn.
-         */
-        md::interrupts::Disable();
-
-        // Acknowledge the interrupt once the handler is done
+        // Acknowledge the IRQ and set it to 'pending'; this means we've
+        // seen an IRQ coming up and will deal with it
         is->Acknowledge(no - is->GetFirstInterruptNumber());
+        i.i_flags |= flag::Pending;
+        ++i.i_count;
+
+        if ((i.i_flags & flag::InProgress) == 0) {
+            // We are handling the IRQ for the first time; do it
+            i.i_flags &= ~flag::Pending;
+            i.i_flags |= flag::InProgress;
+
+            RunIRQHandlers(i, no, state);
+            i.i_flags &= ~flag::InProgress;
+        }
+
+        i.i_lock.UnlockUnpremptible(state);
 
         /*
          * Decrement the IRQ nesting counter; interrupts are disabled, so it's safe

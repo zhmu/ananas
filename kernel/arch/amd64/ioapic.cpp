@@ -56,6 +56,9 @@ void X86_IOAPIC::Mask(int no)
 {
     KASSERT(no >= 0 && no < static_cast<int>(ioa_pins.size()), "masking out-of-bounds irq %d", no);
     auto& pin = FindPinByVector(0x20 + no);
+    if (pin.p_triggerlevel == TriggerLevel::Edge)
+        return; // do not mask edge-triggered interrupts
+
     pin.p_masked = true;
 
     uint32_t reg = IOREDTBL + pin.p_pin * 2;
@@ -68,6 +71,7 @@ void X86_IOAPIC::Unmask(int no)
     KASSERT(
         no >= 0 && no < static_cast<int>(ioa_pins.size()), "unmasking out-of-bounds irq %d", no);
     auto& pin = FindPinByVector(0x20 + no);
+    if (!pin.p_masked) return;
     pin.p_masked = false;
 
     uint32_t reg = IOREDTBL + pin.p_pin * 2;

@@ -52,7 +52,7 @@ namespace irq
         // Acknowledge a given interrupt
         virtual void Acknowledge(int) = 0;
     };
-    typedef util::List<IRQSource> IRQSourceList;
+    using IRQSourceList = util::List<IRQSource>;
 
     /* Single IRQ handler */
     struct IRQHandler {
@@ -66,8 +66,10 @@ namespace irq
      */
     static inline constexpr int MaxHandlersPerIRQ = 4;
     struct IRQ {
+        Spinlock i_lock;
         IRQSource* i_source{};
         util::array<IRQHandler, MaxHandlersPerIRQ> i_handler{};
+        unsigned int i_flags{};
         unsigned int i_count{};
         unsigned int i_straycount{};
         Thread* i_thread{};
