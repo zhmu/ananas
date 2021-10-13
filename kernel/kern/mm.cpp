@@ -41,6 +41,11 @@ void* operator new(size_t len) { return kmalloc(len); }
 
 void* operator new[](size_t len) { return kmalloc(len); }
 
+void* operator new[](size_t size, const char* pName, int flags, unsigned debugFlags, const char* file, int line)
+{
+    return kmalloc(size);
+}
+
 void operator delete(void* p) noexcept { kfree(p); }
 void operator delete(void* p, size_t) noexcept { kfree(p); }
 

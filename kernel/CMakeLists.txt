@@ -39,6 +39,9 @@ function(add_sources)
 	endforeach()
 endfunction()
 
+add_subdirectory(../external/EABase eabase)
+add_subdirectory(../external/EASTL eastl)
+
 #
 add_subdirectory(arch)
 add_subdirectory(dev)
@@ -56,6 +59,7 @@ get_property(SOURCES GLOBAL PROPERTY SourceList)
 set(SOURCES ${SOURCES} include/_gen/syscalls.h include/_gen/syscalls.inc.h)
 add_executable(kernel_elf arch/amd64/prelude.S ${SOURCES} arch/amd64/postlude.S )
 set_target_properties(kernel_elf PROPERTIES OUTPUT_NAME "kernel.elf")
+target_link_libraries(kernel_elf EASTL)
 
 add_custom_command(
     OUTPUT kernel.bin
@@ -91,6 +95,10 @@ add_custom_target(machine_types_h ALL
 	${CMAKE_CURRENT_BINARY_DIR}/include/machine
 )
 add_dependencies(kernel_elf machine_types_h)
+
+# EABase / EAStl need this dependency too
+add_dependencies(EABase kernel_md_param_h)
+add_dependencies(EASTL kernel_md_param_h)
 
 # generate syscalls.h from the kern's syscalls.in - we don't care about
 # anything else so just write to /dev/null there
