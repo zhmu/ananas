@@ -89,8 +89,6 @@ namespace shm {
         VMArea* va;
         vs.Map({ virt, virt + length }, 0, flags, flags, va);
 
-        kprintf("shm %p id %d pid %d: mapping to %p\n", &sm, sm.shm_id, proc.p_pid, virt);
-
         addr_t mapVirt = virt;
         for(size_t n = 0; n < sm.shm_pages.size(); ++n) {
             auto& p = *sm.shm_pages[n];
@@ -116,7 +114,9 @@ namespace shm {
         auto& vs = proc.p_vmspace;
 
         MutexGuard g(mtx_shm);
-        for(auto& smm: proc.p_shm.shm_mappings) {
+        auto& mappings = proc.p_shm.shm_mappings;
+        for(auto it = mappings.begin(); it != mappings.end(); ++it) {
+            auto& smm = *it;
             if (smm.virt == reinterpret_cast<addr_t>(ptr)) {
                 auto& sm = *smm.sm;
                 for(auto p: sm.shm_pages) {
@@ -126,7 +126,7 @@ namespace shm {
 
                 sm.Deref();
                 vs.FreeArea(*smm.va);
-                proc.p_shm.shm_mappings.remove(smm);
+                mappings.erase(it);
                 return Result::Success();
             }
         }
