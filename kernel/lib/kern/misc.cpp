@@ -47,7 +47,7 @@ void _panic(const char* file, const char* func, int line, const char* fmt, ...)
     kprintf("panic in %s:%u (%s): ", file, line, func);
 
     va_start(ap, fmt);
-    vaprintf(fmt, ap);
+    vprintf(fmt, ap);
     va_end(ap);
     kprintf("\n");
 

@@ -1,13 +1,16 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
 #pragma once
 
 #include <ananas/types.h>
 #include "kernel/cdefs.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define KASSERT(x, msg, args...) \
     if (!(x))                    \
@@ -27,30 +30,9 @@ void* operator new(size_t, void*) throw();
 
 extern "C" {
 #endif
-void* memcpy(void* dst, const void* src, size_t len) __nonnull;
-void* memmove(void* dst, const void* src, size_t len);
-void* memset(void* b, int c, size_t len) __nonnull;
-void vaprintf(const char* fmt, va_list ap);
-int vsnprintf(char* str, size_t len, const char* fmt, va_list ap);
+
 void kprintf(const char* fmt, ...);
 [[noreturn]] void _panic(const char* file, const char* func, int line, const char* fmt, ...);
-int sprintf(char* str, const char* fmt, ...);
-int snprintf(char* str, size_t len, const char* fmt, ...);
-char* strdup(const char* s) __nonnull;
-
-char* strcpy(char* dst, const char* src) __nonnull;
-int strcmp(const char* s1, const char* s2) __nonnull;
-int strncmp(const char* s1, const char* s2, size_t n) __nonnull;
-char* strchr(const char* s, int c) __nonnull;
-char* strrchr(const char* s, int c) __nonnull;
-size_t strlen(const char* s) __nonnull;
-char* strcat(char* dst, const char* src) __nonnull;
-
-char* strncpy(char* dst, const char* src, size_t n) __nonnull;
-
-int memcmp(const void* s1, const void* s2, size_t len) __nonnull;
-
-unsigned long strtoul(const char* ptr, char** endptr, int base);
 
 #ifdef __cplusplus
 } // extern "C"

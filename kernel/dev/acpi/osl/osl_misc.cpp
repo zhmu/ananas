@@ -22,7 +22,7 @@ void ACPI_INTERNAL_VAR_XFACE AcpiOsPrintf(const char* Format, ...)
     va_end(va);
 }
 
-void AcpiOsVprintf(const char* Format, va_list Args) { vaprintf(Format, Args); }
+void AcpiOsVprintf(const char* Format, va_list Args) { vprintf(Format, Args); }
 
 UINT64
 AcpiOsGetTimer()

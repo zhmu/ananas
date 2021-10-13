@@ -6,6 +6,7 @@ set(COMMON_FLAGS "")
 set(COMMON_FLAGS "${COMMON_FLAGS} -fno-builtin -nostdlib -nostdinc")
 set(COMMON_FLAGS "${COMMON_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/../include") # for global includes
 set(COMMON_FLAGS "${COMMON_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/include") # for kernel/
+set(COMMON_FLAGS "${COMMON_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/include/stl")
 set(COMMON_FLAGS "${COMMON_FLAGS} -I${CMAKE_CURRENT_BINARY_DIR}/include")
 set(COMMON_FLAGS "${COMMON_FLAGS} -DKERNEL")
 

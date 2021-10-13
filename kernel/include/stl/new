@@ -1,0 +1,15 @@
+/*-
+ * SPDX-License-Identifier: Zlib
+ *
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
+ * For conditions of distribution and use, see LICENSE file
+ */
+#pragma once
+
+void* operator new(size_t len);
+void operator delete(void* p) noexcept;
+
+inline void* operator new(size_t len, void* p) noexcept { return p; }
+inline void* operator new[](size_t len, void* p) noexcept { return p; }
+inline void operator delete(void*, void*) noexcept {}
+inline void operator delete[](void*, void*) noexcept {}

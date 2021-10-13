@@ -1,5 +1,6 @@
 add_sources(
 	misc.cpp
+    memchr.cpp
 	memset.cpp
 	memcpy.cpp
 	memmove.cpp

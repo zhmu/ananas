@@ -173,7 +173,7 @@ static void vapprintf(const char* fmt, void (*putch)(void*, int), void* v, va_li
 
 static void kprintf_putch(void* v, int c) { console_putchar(c); }
 
-void vaprintf(const char* fmt, va_list ap) { vapprintf(fmt, kprintf_putch, NULL, ap); }
+void vprintf(const char* fmt, va_list ap) { vapprintf(fmt, kprintf_putch, NULL, ap); }
 
 static void sprintf_add(void* v, int c)
 {
@@ -249,7 +249,7 @@ void kprintf(const char* fmt, ...)
     buf[sizeof(buf) - 1] = '\0';
     console_putstring(buf);
 #else
-    vaprintf(fmt, ap);
+    vprintf(fmt, ap);
 #endif
     va_end(ap);
 }
