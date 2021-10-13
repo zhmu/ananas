@@ -22,3 +22,9 @@
 [submodule "external/mpfr"]
 	path = external/mpfr
 	url = https://github.com/zhmu/ananas-mpfr.git
+[submodule "external/EABase"]
+	path = external/EABase
+	url = https://github.com/zhmu/EABase.git
+[submodule "external/EASTL"]
+	path = external/EASTL
+	url = https://github.com/zhmu/EASTL.git
