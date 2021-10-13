@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <ananas/util/ring_buffer.h>
 #include "kernel/device.h"
 #include "kernel/dev/tty.h"
 
@@ -39,10 +40,9 @@ namespace pseudotty {
         bool CanRead() override;
 
         static constexpr size_t InputQueueSize = 256;
-        util::array<char, InputQueueSize> input_queue;
-        unsigned int in_writepos = 0;
-        unsigned int in_readpos = 0;
-        Semaphore waiters{"tty", 1};
+        util::ring_buffer<char, InputQueueSize> input_queue;
+        Semaphore reader_sem{"tty", 1};
+        Semaphore writer_sem{"tty", 1};
     };
 
     struct Slave : TTY

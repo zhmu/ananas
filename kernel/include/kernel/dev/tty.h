@@ -7,7 +7,7 @@
 #pragma once
 
 #include <ananas/types.h>
-#include <ananas/util/array.h>
+#include <ananas/util/ring_buffer.h>
 #include <termios.h>
 #include "kernel/device.h"
 #include "kernel/lock.h"
@@ -53,9 +53,7 @@ class TTY : public Device, private IDeviceOperations, private ICharDeviceOperati
     void HandleEcho(unsigned char byte);
 
     struct termios tty_termios;
-    util::array<char, InputQueueSize> tty_input_queue;
-    unsigned int tty_in_writepos = 0;
-    unsigned int tty_in_readpos = 0;
+    util::ring_buffer<char, InputQueueSize> tty_input_queue;
 
     process::Session* tty_session = nullptr;            // session we belong to
     process::ProcessGroup* tty_foreground_pg = nullptr; // foreground process group

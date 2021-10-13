@@ -13,6 +13,7 @@
 #include <ananas/util/array.h>
 #include <ananas/inputmux.h>
 #include <ananas/flags.h>
+#include <ananas/util/ring_buffer.h>
 #include "kernel/vfs/types.h"
 
 namespace input_mux
@@ -46,6 +47,8 @@ namespace input_mux
 
     namespace
     {
+        inline constexpr auto eventQueueSize = 32;
+
         class InputMux : public Device, IDeviceOperations, ICharDeviceOperations, IInputConsumer
         {
           public:
@@ -75,7 +78,7 @@ namespace input_mux
                 // Flush the queue on opens to avoid old stuff getting in the
                 // way. This assumes there's only a single consumer at a time
                 MutexGuard g(mutex);
-                q_readpos = q_writepos;
+                event_queue.clear();
                 return Result::Success();
             }
 
@@ -83,13 +86,13 @@ namespace input_mux
             {
                 mutex.Lock();
                 while(true) {
-                    if (q_readpos != q_writepos) {
-                        const auto event = event_queue[q_readpos];
-                        q_readpos = (q_readpos + 1) % event_queue.size();
-                        mutex.Unlock();
-
+                    if (!event_queue.empty()) {
+                        const auto& event = event_queue.front();
                         const auto chunk = len < sizeof(event) ? len : sizeof(event);
                         memcpy(buf, &event, chunk);
+                        event_queue.pop_front();
+                        mutex.Unlock();
+
                         return Result::Success(chunk);
                     }
 
@@ -106,7 +109,7 @@ namespace input_mux
             bool CanRead() override
             {
                 MutexGuard g(mutex);
-                return q_readpos != q_writepos;
+                return !event_queue.empty();
             }
 
             Result Write(VFS_FILE& file, const void* buffer, size_t len) override
@@ -118,16 +121,15 @@ namespace input_mux
             void OnEvent(const AIMX_EVENT& event) override
             {
                 MutexGuard g(mutex);
-                event_queue[q_writepos] = event;
-                q_writepos = (q_writepos + 1) % event_queue.size();
+                //kprintf("OnEvent %d / %d, empty %d full %d\n", (int)event_queue.size(), (int)event_queue.capacity(), !!event_queue.empty(), !!event_queue.full());
+                //if (event_queue.size() == 32) { kprintf("inputmux full!\n"); return;}
+                event_queue.push_back(event);
                 dataAvailable.Broadcast();
             }
 
             Mutex mutex;
             ConditionVariable dataAvailable;
-            util::array<AIMX_EVENT, 32> event_queue;
-            unsigned int q_writepos = 0;
-            unsigned int q_readpos = 0;
+            util::ring_buffer<AIMX_EVENT, eventQueueSize> event_queue;
         };
     }
 

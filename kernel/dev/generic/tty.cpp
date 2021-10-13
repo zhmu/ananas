@@ -56,7 +56,7 @@ Result TTY::Read(VFS_FILE& file, void* buf, size_t len)
             panic("XXX implement me: icanon off!");
         }
 
-        if (tty_in_readpos == tty_in_writepos) {
+        if (tty_input_queue.empty()) {
             /*
              * Buffer is empty - schedule the thread for a wakeup once we have data.
              */
@@ -69,26 +69,16 @@ Result TTY::Read(VFS_FILE& file, void* buf, size_t len)
          * A line is delimited by a newline NL, end-of-file char EOF or end-of-line
          * EOL char. We will have to scan our input buffer for any of these.
          */
-        int in_len;
-        if (tty_in_readpos < tty_in_writepos) {
-            in_len = tty_in_writepos - tty_in_readpos;
-        } else /* if (tty_in_readpos > tty_in_writepos) */ {
-            in_len = (tty_input_queue.size() - tty_in_writepos) + tty_in_readpos;
+        const auto in_len = tty_input_queue.size();
+        size_t n = 0;
+        for(const auto ch: tty_input_queue) {
+            if (ch == NL) break;
+            if (tty_termios.c_cc[VEOF] != _POSIX_VDISABLE && ch == tty_termios.c_cc[VEOF])
+                break;
+            if (tty_termios.c_cc[VEOL] != _POSIX_VDISABLE && ch == tty_termios.c_cc[VEOL])
+                break;
+            ++n;
         }
-
-        /* See if we can find a delimiter here */
-#define CHAR_AT(i) (tty_input_queue[(tty_in_readpos + i) % tty_input_queue.size()])
-        unsigned int n = 0;
-        while (n < in_len) {
-            if (CHAR_AT(n) == NL)
-                break;
-            if (tty_termios.c_cc[VEOF] != _POSIX_VDISABLE && CHAR_AT(n) == tty_termios.c_cc[VEOF])
-                break;
-            if (tty_termios.c_cc[VEOL] != _POSIX_VDISABLE && CHAR_AT(n) == tty_termios.c_cc[VEOL])
-                break;
-            n++;
-        }
-#undef CHAR_AT
         if (n == in_len) {
             /* Line is not complete - try again later */
             tty_waiters.Wait();
@@ -100,10 +90,9 @@ Result TTY::Read(VFS_FILE& file, void* buf, size_t len)
         if (num_left > in_len)
             num_left = in_len;
         while (num_left > 0) {
-            data[num_read] = tty_input_queue[tty_in_readpos];
-            tty_in_readpos = (tty_in_readpos + 1) % tty_input_queue.size();
-            num_read++;
-            num_left--;
+            data[num_read] = tty_input_queue.front();
+            tty_input_queue.pop_front();
+            ++num_read, --num_left;
         }
         return Result::Success(num_read);
     }
@@ -156,7 +145,7 @@ Result TTY::OnInput(const char* buffer, size_t len)
 
         // If we are out of buffer space, just eat the charachter XXX possibly unnecessary for
         // VERASE */
-        if ((tty_in_writepos + 1) % tty_input_queue.size() == tty_in_readpos)
+        if (tty_input_queue.full())
             return Result::Failure(ENOSPC);
 
         /* Handle CR/NL transformations */
@@ -183,29 +172,20 @@ Result TTY::OnInput(const char* buffer, size_t len)
             }
         }
 
-        /* Handle backspace */
-        if ((tty_termios.c_iflag & ICANON) && ch == tty_termios.c_cc[VERASE]) {
-            if (tty_in_readpos != tty_in_writepos) {
-                /* Still a charachter available which wasn't read. Nuke it */
-                if (tty_in_writepos > 0)
-                    tty_in_writepos--;
-                else
-                    tty_in_writepos = tty_input_queue.size() - 1;
-            }
-        } else if ((tty_termios.c_iflag & ICANON) && ch == tty_termios.c_cc[VKILL]) {
-            // Kill the entire line
-            while (tty_in_readpos != tty_in_writepos) {
-                /* Still a charachter available which wasn't read. Nuke it */
-                if (tty_in_writepos > 0)
-                    tty_in_writepos--;
-                else
-                    tty_in_writepos = tty_input_queue.size() - 1;
+        const auto canon = (tty_termios.c_iflag & ICANON) != 0;
+        if (canon && ch == tty_termios.c_cc[VERASE]) {
+            // Backspace
+            if (!tty_input_queue.empty())
+                tty_input_queue.pop_front();
+        } else if (canon && ch == tty_termios.c_cc[VKILL]) {
+            // Kill; echo a backspace per character
+            while (!tty_input_queue.empty()) {
+                tty_input_queue.pop_front();
                 TTY::HandleEcho(8); // XXX will this always work?
             }
         } else {
-            /* Store the charachter! */
-            tty_input_queue[tty_in_writepos] = ch;
-            tty_in_writepos = (tty_in_writepos + 1) % tty_input_queue.size();
+            // Store
+            tty_input_queue.push_back(ch);
         }
 
         // Handle writing the charachter, if needed
@@ -323,5 +303,5 @@ Result TTY::OnTerminalAttributes(const struct termios& tios)
 
 bool TTY::CanRead()
 {
-    return tty_in_readpos != tty_in_writepos;
+    return !tty_input_queue.empty();
 }

@@ -41,33 +41,34 @@ namespace pseudotty
         if (debugPTTY) kprintf("Master::read() len %d\n", len);
         auto data = static_cast<char*>(buf);
         while (1) {
-            if (in_readpos == in_writepos) {
+            if (input_queue.empty()) {
                 /*
                  * Buffer is empty - schedule the thread for a wakeup once we have data.
                  */
                 if (file.f_flags & O_NONBLOCK) return Result::Failure(EAGAIN);
-                waiters.Wait();
+                reader_sem.Wait();
                 continue;
             }
 
             // Copy the data over
             int num_read = 0;
             while (len > 0) {
-                if (in_readpos == in_writepos) break;
-                data[num_read] = input_queue[in_readpos];
+                if (input_queue.empty()) break;
+                data[num_read] = input_queue.front();
                 if (debugPTTY) kprintf("Master::Read(): [%c]\n", data[num_read]);
-                in_readpos = (in_readpos + 1) % input_queue.size();
+                input_queue.pop_front();
                 ++num_read;
                 --len;
             }
             if (debugPTTY) kprintf("Master::Read(): done, num_read %d\n", num_read);
+            writer_sem.Signal(); // bytes have been consumed
             return Result::Success(num_read);
         }
     }
 
     bool Master::CanRead()
     {
-        return in_readpos != in_writepos;
+        return !input_queue.empty();
     }
 
     Result Master::OnInput(const char* buffer, size_t len)
@@ -77,15 +78,16 @@ namespace pseudotty
             char ch = *buffer;
             if (debugPTTY) kprintf("Master::OnInput(): [%c]\n", ch);
 
-            if ((in_writepos + 1) % input_queue.size() == in_readpos)
-                return Result::Failure(ENOSPC);
+            if (input_queue.full()) {
+                // TODO how to handle nowait?!
+                if (debugPTTY) kprintf("Master::OnInput(): queue is full\n");
+                writer_sem.Wait();
+                continue;
+            }
 
-            // Store the charachter
-            input_queue[in_writepos] = ch;
-            in_writepos = (in_writepos + 1) % input_queue.size();
-
-            // ???
-            waiters.Signal();
+            // Store the charachter and trigger any readers
+            input_queue.push_back(ch);
+            reader_sem.Signal();
         }
 
         if (debugPTTY) kprintf("Master::OnInput(): done\n");
