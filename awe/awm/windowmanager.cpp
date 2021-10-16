@@ -1,7 +1,7 @@
 #include "windowmanager.h"
-#include "types.h"
+#include "awe/types.h"
+#include "awe/ipc.h"
 #include "window.h"
-#include "ipc.h"
 
 #include <cassert>
 #include <cstring>
@@ -19,7 +19,7 @@ struct WindowManager::EventProcessor {
     bool quit{};
     Window* draggingWindow{};
     Window* focusWindow{};
-    Point previousPoint{};
+    awe::Point previousPoint{};
 
     bool operator()(const event::Quit&) { quit = true; return false; }
 
@@ -64,19 +64,24 @@ struct WindowManager::EventProcessor {
     bool operator()(const event::MouseMotion& ev)
     {
         if (draggingWindow) {
-            Point delta = ev.position - previousPoint;
+            const auto delta = ev.position - previousPoint;
             previousPoint = ev.position;
             draggingWindow->position = draggingWindow->position + delta;
             return true;
         }
-        return false;
+        return true;
     }
 
     bool operator()(const event::KeyDown& ev)
     {
+        if (ev.key == awe::ipc::KeyCode::Tab && ev.mods == awe::ipc::keyModifiers::LeftAlt) {
+            wm.CycleFocus();
+            return true;
+        }
+
         if (focusWindow) {
-            ipc::Event event;
-            event.type = ipc::EventType::KeyDown;
+            awe::ipc::Event event;
+            event.type = awe::ipc::EventType::KeyDown;
             event.handle = focusWindow->handle;
             event.u.keyDown.key = ev.key;
             event.u.keyDown.ch = ev.ch;
@@ -90,8 +95,8 @@ struct WindowManager::EventProcessor {
     bool operator()(const event::KeyUp& ev)
     {
         if (focusWindow) {
-            ipc::Event event;
-            event.type = ipc::EventType::KeyUp;
+            awe::ipc::Event event;
+            event.type = awe::ipc::EventType::KeyUp;
             event.handle = focusWindow->handle;
             event.u.keyDown.key = ev.key;
             event.u.keyDown.ch = ev.ch;
@@ -114,13 +119,13 @@ WindowManager::~WindowManager() = default;
 
 void WindowManager::Update()
 {
-    pixelBuffer.FilledRectangle({{}, pixelBuffer.size}, palette.backgroundColour);
+    pixelBuffer.FilledRectangle({{}, pixelBuffer.GetSize()}, palette.backgroundColour);
     for (auto& w : windows) {
         w->Draw(pixelBuffer, font, palette);
     }
 }
 
-Window* WindowManager::FindWindowAt(const Point& p)
+Window* WindowManager::FindWindowAt(const awe::Point& p)
 {
     for (auto& w : windows) {
         if (w->HitsRectangle(p))
@@ -129,11 +134,11 @@ Window* WindowManager::FindWindowAt(const Point& p)
     return nullptr;
 }
 
-Window& WindowManager::CreateWindow(const Size& size, int fd)
+Window& WindowManager::CreateWindow(const awe::Size& size, int fd)
 {
-    auto w = std::make_unique<Window>(Point{100, 100}, size, fd);
+    auto w = std::make_unique<Window>(awe::Point{100, 100}, size, fd);
 
-    const auto shmDataSize = size.width * size.height * sizeof(PixelValue);
+    const auto shmDataSize = size.width * size.height * sizeof(awe::PixelValue);
     w->shmId = shmget(IPC_PRIVATE, shmDataSize, IPC_CREAT | 0600);
     assert(w->shmId >= 0);
 
@@ -147,7 +152,7 @@ Window& WindowManager::CreateWindow(const Size& size, int fd)
     return *windows.back();
 }
 
-Window* WindowManager::FindWindowByHandle(const Handle handle)
+Window* WindowManager::FindWindowByHandle(const awe::Handle handle)
 {
     auto it = std::find_if(
         windows.begin(), windows.end(), [&](const auto& w) { return w->handle == handle; });
@@ -192,4 +197,18 @@ void WindowManager::DestroyWindow(Window& w)
 
     windows.erase(it);
     needUpdate = true;
+}
+
+void WindowManager::CycleFocus()
+{
+    auto it = std::find_if(windows.begin(), windows.end(), [&](auto& p) { return p.get() == eventProcessor->focusWindow; });
+    if (it != windows.end()) {
+        ++it;
+        if (it == windows.end())
+            it = windows.begin();
+    } else {
+        it = windows.begin();
+    }
+
+    eventProcessor->ChangeFocus(it->get());
 }

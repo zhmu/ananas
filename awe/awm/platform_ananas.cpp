@@ -9,15 +9,15 @@
 #include <termios.h>
 #include <cstring>
 #include <ananas/inputmux.h>
-#include "pixelbuffer.h"
+#include "awe/pixelbuffer.h"
 
 namespace
 {
-    const Colour mouseColour{ 255, 255, 0 };
+    const awe::Colour mouseColour{ 255, 255, 0 };
 
-    std::pair<ipc::KeyCode, int> ConvertKeycode(const AIMX_KEY_CODE key)
+    std::pair<awe::ipc::KeyCode, int> ConvertKeycode(const AIMX_KEY_CODE key)
     {
-        using namespace ipc;
+        using namespace awe::ipc;
         const auto ch = (key >= 1 && key <= 127) ? key : 0;
         switch(key) {
             case AIMX_KEY_A ... AIMX_KEY_Z: return { static_cast<KeyCode>(static_cast<int>(KeyCode::A) - (key - AIMX_KEY_A)), ch };
@@ -45,6 +45,7 @@ namespace
 
     int ConvertModifiers(const AIMX_MODIFIERS mods)
     {
+        using namespace awe::ipc;
         int result = 0;
 
         auto mapModifier = [&](int aimxBit, int ipcBit) {
@@ -52,14 +53,14 @@ namespace
                 result |= ipcBit;
         };
 
-        mapModifier(AIMX_MOD_LEFT_CONTROL, ipc::keyModifiers::LeftControl);
-        mapModifier(AIMX_MOD_LEFT_SHIFT, ipc::keyModifiers::LeftShift);
-        mapModifier(AIMX_MOD_LEFT_ALT, ipc::keyModifiers::LeftAlt);
-        mapModifier(AIMX_MOD_LEFT_GUI, ipc::keyModifiers::LeftGUI);
-        mapModifier(AIMX_MOD_RIGHT_CONTROL, ipc::keyModifiers::RightControl);
-        mapModifier(AIMX_MOD_RIGHT_SHIFT, ipc::keyModifiers::RightShift);
-        mapModifier(AIMX_MOD_RIGHT_ALT, ipc::keyModifiers::RightAlt);
-        mapModifier(AIMX_MOD_RIGHT_GUI, ipc::keyModifiers::RightGUI);
+        mapModifier(AIMX_MOD_LEFT_CONTROL, keyModifiers::LeftControl);
+        mapModifier(AIMX_MOD_LEFT_SHIFT, keyModifiers::LeftShift);
+        mapModifier(AIMX_MOD_LEFT_ALT, keyModifiers::LeftAlt);
+        mapModifier(AIMX_MOD_LEFT_GUI, keyModifiers::LeftGUI);
+        mapModifier(AIMX_MOD_RIGHT_CONTROL, keyModifiers::RightControl);
+        mapModifier(AIMX_MOD_RIGHT_SHIFT, keyModifiers::RightShift);
+        mapModifier(AIMX_MOD_RIGHT_ALT, keyModifiers::RightAlt);
+        mapModifier(AIMX_MOD_RIGHT_GUI, keyModifiers::RightGUI);
         return result;
     }
 
@@ -76,7 +77,7 @@ namespace
 struct Platform_Ananas::Impl {
     int consoleFd{-1};
     int inputFd{-1};
-    Size size{};
+    awe::Size size{};
     using PixelValue = uint32_t;
     int mouseX{};
     int mouseY{};
@@ -118,11 +119,11 @@ struct Platform_Ananas::Impl {
         close(consoleFd);
     }
 
-    void Render(PixelBuffer& pb)
+    void Render(awe::PixelBuffer& pb)
     {
-        std::memcpy(fb, pb.buffer, size.height * size.width * sizeof(PixelValue));
-        PixelBuffer fbPb{fb, size};
-        fbPb.FilledRectangle(Rectangle{ mouseX, mouseY, { 10, 10 } }, mouseColour);
+        std::memcpy(fb, pb.GetBuffer(), size.height * size.width * sizeof(PixelValue));
+        awe::PixelBuffer fbPb{fb, size};
+        fbPb.FilledRectangle(awe::Rectangle{ mouseX, mouseY, { 10, 10 } }, mouseColour);
     }
 
     std::optional<Event> Poll()
@@ -181,10 +182,10 @@ Platform_Ananas::Platform_Ananas() : impl(std::make_unique<Impl>()) {}
 
 Platform_Ananas::~Platform_Ananas() = default;
 
-void Platform_Ananas::Render(PixelBuffer& fb) { return impl->Render(fb); }
+void Platform_Ananas::Render(awe::PixelBuffer& fb) { return impl->Render(fb); }
 
 std::optional<Event> Platform_Ananas::Poll() { return impl->Poll(); }
 
-Size Platform_Ananas::GetSize() { return impl->size; }
+awe::Size Platform_Ananas::GetSize() { return impl->size; }
 
 int Platform_Ananas::GetEventFd() const { return impl->inputFd; }

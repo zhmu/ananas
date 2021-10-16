@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.9)
 project(awm)
 
-add_definitions(-std=c++2a)
-add_executable(awm main.cpp font.cpp window.cpp windowmanager.cpp socketserver.cpp pixelbuffer.cpp)
+add_executable(awm main.cpp window.cpp windowmanager.cpp socketserver.cpp)
+target_link_libraries(awm awe)
 
 if(USE_SDL2)
 find_package(SDL2 REQUIRED)

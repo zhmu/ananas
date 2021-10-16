@@ -7,15 +7,14 @@
 #include <optional>
 
 #include <sys/time.h>
-#include <sys/un.h>
-#include <sys/socket.h>
-#include <sys/shm.h>
 #include <sys/wait.h>
 #include <signal.h>
 #include <unistd.h>
-#include "ipc.h"
-#include "font.h"
-#include "pixelbuffer.h"
+#include "awe/connection.h"
+#include "awe/font.h"
+#include "awe/ipc.h"
+#include "awe/pixelbuffer.h"
+#include "awe/window.h"
 
 #include "teken.h"
 
@@ -33,9 +32,9 @@ namespace
 
         constexpr inline auto FontSize = 18;
 
-        const Colour s_BackgroundColour{ 0, 0, 0 };
-        const Colour s_CursorColour{ 255, 255, 255 };
-        const Colour s_Colour{ 0, 255, 0 };
+        const awe::Colour s_BackgroundColour{ 0, 0, 0 };
+        const awe::Colour s_CursorColour{ 255, 255, 255 };
+        const awe::Colour s_Colour{ 0, 255, 0 };
     }
     constexpr inline teken_unit_t TekenNoValue = std::numeric_limits<teken_unit_t>::max();
 
@@ -45,8 +44,8 @@ namespace
 
     struct Terminal
     {
-        PixelBuffer& pixelBuffer;
-        font::Font& font;
+        awe::PixelBuffer& pixelBuffer;
+        awe::Font& font;
         struct Pixel {
             teken_char_t c;
             teken_attr_t a;
@@ -60,7 +59,7 @@ namespace
         {
             const auto x = cursor.tp_col * s_CharWidth;
             const auto y = cursor.tp_row * s_CharHeight;
-            const Point pt{ x, y };
+            const awe::Point pt{ x, y };
             pixelBuffer.FilledRectangle({ pt, { s_CharWidth, s_CharHeight } }, consts::s_CursorColour);
         }
 
@@ -90,9 +89,9 @@ namespace
             std::string_view sv{ &ch, 1 };
             const auto x = p->tp_col * s_CharWidth;
             const auto y = p->tp_row * s_CharHeight;
-            const Point pt{ x, y };
+            const awe::Point pt{ x, y };
             pixelBuffer.FilledRectangle({ pt, { s_CharWidth, s_CharHeight } }, consts::s_BackgroundColour);
-            font::DrawText(pixelBuffer, font, pt, consts::s_Colour, sv);
+            awe::font::DrawText(pixelBuffer, font, pt, consts::s_Colour, sv);
         }
 
         void Fill(const teken_rect_t* r, teken_char_t c, const teken_attr_t* a)
@@ -176,11 +175,9 @@ namespace
         .tf_respond = [](auto t, auto... a) { static_cast<Terminal*>(t)->Respond(a...); },
     };
 
-    int s_AweFD = -1;
-    ipc::Handle s_Handle;
-    uint32_t* s_Framebuffer;
-    std::unique_ptr<font::Font> s_Font;
-    std::unique_ptr<PixelBuffer> s_PixelBuffer;
+    std::unique_ptr<awe::Connection> s_AWE;
+    std::unique_ptr<awe::Window> s_Window;
+    std::unique_ptr<awe::Font> s_Font;
     teken_t s_Teken;
     std::unique_ptr<Terminal> s_Terminal;
     int s_MasterFD;
@@ -194,83 +191,14 @@ namespace
         const auto windowWidth = consts::TerminalWidth * s_CharWidth;
         const auto windowHeight = consts::TerminalHeight * s_CharHeight;
 
-        s_AweFD = socket(AF_UNIX, SOCK_STREAM, 0);
-        if (s_AweFD < 0) {
-            fprintf(stderr, "socket: %d\n", errno);
+        try {
+            s_AWE = std::make_unique<awe::Connection>();
+            s_Window = awe::window::Create(*s_AWE, awe::Size{ windowWidth, windowHeight }, "window");
+        } catch (std::exception& e) {
+            fprintf(stderr, "initialisation failed: %s\n", e.what());
             return false;
         }
 
-        sockaddr_un sun{};
-        sun.sun_family = AF_UNIX;
-        strcpy(sun.sun_path, "/tmp/awewm");
-        if (connect(s_AweFD, reinterpret_cast<sockaddr*>(&sun), sizeof(sun)) < 0) {
-            fprintf(stderr, "connect: %d\n", errno);
-            return false;
-        }
-
-        ipc::Message msgCreateWindow{ ipc::MessageType::CreateWindow };
-        msgCreateWindow.u.createWindow.height = windowHeight;
-        msgCreateWindow.u.createWindow.width = windowWidth;
-        strcpy(msgCreateWindow.u.createWindow.title, "window");
-        if (write(s_AweFD, &msgCreateWindow, sizeof(msgCreateWindow)) != sizeof(msgCreateWindow)) {
-            fprintf(stderr, "write: %d\n", errno);
-            return false;
-        }
-
-        ipc::CreateWindowReply reply;
-        if (read(s_AweFD, &reply, sizeof(reply)) != sizeof(reply)) {
-            fprintf(stderr, "read: %d\n", errno);
-            return false;
-        }
-
-        if (reply.result != ipc::ResultCode::Success) {
-            fprintf(stderr, "CreateWindow: %d", static_cast<int>(reply.result));
-            return false;
-        }
-        s_Handle = reply.handle;
-
-        s_Framebuffer = static_cast<uint32_t*>(shmat(reply.fbKey, NULL, 0));
-        if (s_Framebuffer == reinterpret_cast<void*>(-1)) {
-            fprintf(stderr, "shmat: %d\n", errno);
-            return false;
-        }
-        s_PixelBuffer = std::make_unique<PixelBuffer>(s_Framebuffer, Size{ windowWidth, windowHeight});
-
-        return true;
-    }
-
-    bool awm_set_title(const char* title)
-    {
-        ipc::Message msgSetWindowTitle{ ipc::MessageType::SetWindowTitle };
-        msgSetWindowTitle.u.setWindowTitle.handle = s_Handle;
-        strncpy(msgSetWindowTitle.u.setWindowTitle.title, title, sizeof(msgSetWindowTitle.u.setWindowTitle.title) - 1);
-        if (write(s_AweFD, &msgSetWindowTitle, sizeof(msgSetWindowTitle)) != sizeof(msgSetWindowTitle)) {
-            fprintf(stderr, "write: %d\n", errno);
-            return false;
-        }
-
-        ipc::GenericReply reply;
-        if (read(s_AweFD, &reply, sizeof(reply)) != sizeof(reply)) {
-            fprintf(stderr, "read: %d\n", errno);
-            return false;
-        }
-        return true;
-    }
-
-    bool awm_update()
-    {
-        ipc::Message msgUpdateWindow{ ipc::MessageType::UpdateWindow };
-        msgUpdateWindow.u.updateWindow.handle = s_Handle;
-        if (write(s_AweFD, &msgUpdateWindow, sizeof(msgUpdateWindow)) != sizeof(msgUpdateWindow)) {
-            fprintf(stderr, "write: %d\n", errno);
-            return false;
-        }
-
-        ipc::GenericReply reply;
-        if (read(s_AweFD, &reply, sizeof(reply)) != sizeof(reply)) {
-            fprintf(stderr, "read: %d\n", errno);
-            return false;
-        }
         return true;
     }
 
@@ -291,7 +219,7 @@ namespace
     bool font_init()
     {
         try {
-            s_Font = std::make_unique<font::Font>(FONT_PATH "/RobotoMono-Regular.ttf", consts::FontSize);
+            s_Font = std::make_unique<awe::Font>(FONT_PATH "/RobotoMono-Regular.ttf", consts::FontSize);
             return true;
         } catch(std::exception& e) {
             fprintf(stderr, "exception: %s\n", e.what());
@@ -301,7 +229,7 @@ namespace
 
     bool term_init()
     {
-        s_Terminal = std::make_unique<Terminal>(*s_PixelBuffer, *s_Font);
+        s_Terminal = std::make_unique<Terminal>(s_Window->GetPixelBuffer(), *s_Font);
 
         teken_init(&s_Teken, &tekenFuncs, s_Terminal.get());
         teken_pos_t tp;
@@ -309,20 +237,6 @@ namespace
         tp.tp_col = consts::TerminalWidth;
         teken_set_winsize(&s_Teken, &tp);
         return true;
-    }
-
-    std::optional<ipc::Event> ReadEvent()
-    {
-        ipc::Event event;
-        int left = sizeof(event);
-        auto p = reinterpret_cast<char*>(&event);
-        while(left > 0) {
-            auto n = read(s_AweFD, p, left);
-            if (n <= 0) return {};
-            p += n;
-            left -= n;
-        }
-        return event;
     }
 
     void run()
@@ -336,8 +250,9 @@ namespace
             };
 
             FD_ZERO(&fds);
+            const auto aweFD = s_AWE->GetFileDescriptor();
             add_fd(s_MasterFD);
-            add_fd(s_AweFD);
+            add_fd(aweFD);
             int n = select(nfds, &fds, nullptr, nullptr, nullptr);
             if (n <= 0) break;
 
@@ -348,13 +263,13 @@ namespace
                 if (len <= 0) break;
 
                 teken_input(&s_Teken, buf, len);
-                awm_update();
+                s_Window->Invalidate();
             }
 
-            if (FD_ISSET(s_AweFD, &fds)) {
-                if (auto event = ReadEvent(); event) {
+            if (FD_ISSET(aweFD, &fds)) {
+                if (auto event = s_AWE->ReadEvent(); event) {
                     switch(event->type) {
-                        case ipc::EventType::KeyDown: {
+                        case awe::ipc::EventType::KeyDown: {
                             const char ch = event->u.keyDown.ch;
                             if (ch != 0) write(s_MasterFD, &ch, 1);
                             break;
@@ -407,9 +322,8 @@ int main()
     if (!font_init()) return -1;
     if (!awm_init()) return -1;
     if (!term_init()) return -1;
-    awm_set_title("awterm");
-
-    awm_update();
+    s_Window->SetTitle("awterm");
+    s_Window->Invalidate();
 
     signal(SIGINT, sigint);
     run();

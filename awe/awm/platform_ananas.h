@@ -12,9 +12,9 @@ class Platform_Ananas : public Platform
     Platform_Ananas();
     virtual ~Platform_Ananas();
 
-    void Render(PixelBuffer& fb) override;
+    void Render(awe::PixelBuffer& fb) override;
     std::optional<Event> Poll() override;
-    Size GetSize() override;
+    awe::Size GetSize() override;
 
     int GetEventFd() const override;
 };

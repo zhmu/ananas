@@ -1,9 +1,12 @@
 #pragma once
 
-namespace ipc
+#include <cstdint>
+
+namespace awe::ipc
 {
     using Handle = uint32_t;
     using IPCKey = uint32_t;
+    using Coordinate = uint32_t;
 
     enum class MessageType : uint8_t {
         CreateWindow,
@@ -46,7 +49,7 @@ namespace ipc
         MessageType type;
         union {
             struct {
-                uint32_t height, width;
+                Coordinate height, width;
                 char title[64];
             } createWindow;
             struct DestroyWindow {
@@ -64,7 +67,7 @@ namespace ipc
 
     struct GenericReply {
         ResultCode result;
-    };
+    } __attribute__((packed));
 
     struct CreateWindowReply {
         ResultCode result;
@@ -86,4 +89,4 @@ namespace ipc
             } keyUp;
         } u;
     } __attribute__((packed));
-} // namespace ipc
+}

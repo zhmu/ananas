@@ -1,7 +1,7 @@
 #include "platform_sdl2.h"
 #include <SDL.h>
-#include "pixelbuffer.h"
-#include "ipc.h"
+#include "awe/pixelbuffer.h"
+#include "awe/ipc.h"
 
 namespace
 {
@@ -15,22 +15,23 @@ namespace
 
     int KeyToModifier(const SDL_Keycode& key)
     {
+        using namespace awe::ipc;
         switch(key) {
-            case SDLK_LCTRL: return ipc::keyModifiers::LeftControl;
-            case SDLK_LSHIFT: return ipc::keyModifiers::LeftShift;
-            case SDLK_LALT: return ipc::keyModifiers::LeftAlt;
-            case SDLK_LGUI: return ipc::keyModifiers::LeftGUI;
-            case SDLK_RCTRL: return ipc::keyModifiers::RightControl;
-            case SDLK_RSHIFT: return ipc::keyModifiers::RightShift;
-            case SDLK_RALT: return ipc::keyModifiers::RightAlt;
-            case SDLK_RGUI: return ipc::keyModifiers::RightGUI;
+            case SDLK_LCTRL: return keyModifiers::LeftControl;
+            case SDLK_LSHIFT: return keyModifiers::LeftShift;
+            case SDLK_LALT: return keyModifiers::LeftAlt;
+            case SDLK_LGUI: return keyModifiers::LeftGUI;
+            case SDLK_RCTRL: return keyModifiers::RightControl;
+            case SDLK_RSHIFT: return keyModifiers::RightShift;
+            case SDLK_RALT: return keyModifiers::RightAlt;
+            case SDLK_RGUI: return keyModifiers::RightGUI;
         }
         return 0;
     }
 
-    std::pair<ipc::KeyCode, int> ConvertSdlKeycode(const SDL_Keycode& key)
+    std::pair<awe::ipc::KeyCode, int> ConvertSdlKeycode(const SDL_Keycode& key)
     {
-        using namespace ipc;
+        using namespace awe::ipc;
         const auto ch = ((key & SDLK_SCANCODE_MASK) == 0) ? key : 0;
         switch(key) {
             case SDLK_a ... SDLK_z: return { static_cast<KeyCode>(static_cast<int>(KeyCode::A) - (key - SDLK_a)), ch };
@@ -58,8 +59,9 @@ namespace
 
     int ApplyModifiers(const int modifiers, int ch)
     {
-        const auto shiftActive = modifiers & (ipc::keyModifiers::LeftShift | ipc::keyModifiers::RightShift) != 0;
-        const auto controlActive = modifiers & (ipc::keyModifiers::LeftControl | ipc::keyModifiers::RightControl) != 0;
+        using namespace awe::ipc;
+        const auto shiftActive = modifiers & (keyModifiers::LeftShift | keyModifiers::RightShift) != 0;
+        const auto controlActive = modifiers & (keyModifiers::LeftControl | keyModifiers::RightControl) != 0;
         if (shiftActive) {
             switch (ch) {
                 case 'a' ... 'z': ch = toupper(ch); break;
@@ -114,7 +116,7 @@ struct Platform_SDL2::Impl {
         SDL_DestroyWindow(window);
     }
 
-    void Render(PixelBuffer& fb)
+    void Render(awe::PixelBuffer& fb)
     {
         SDL_UpdateTexture(texture, nullptr, fb.buffer, fb.size.width * sizeof(PixelValue));
         SDL_RenderCopy(renderer, texture, NULL, NULL);
@@ -160,8 +162,8 @@ Platform_SDL2::Platform_SDL2() : impl(std::make_unique<Impl>()) {}
 
 Platform_SDL2::~Platform_SDL2() = default;
 
-void Platform_SDL2::Render(PixelBuffer& fb) { return impl->Render(fb); }
+void Platform_SDL2::Render(awe::PixelBuffer& fb) { return impl->Render(fb); }
 
 std::optional<Event> Platform_SDL2::Poll() { return impl->Poll(); }
 
-Size Platform_SDL2::GetSize() { return size; }
+awe::Size Platform_SDL2::GetSize() { return size; }

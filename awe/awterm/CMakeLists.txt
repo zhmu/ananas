@@ -3,8 +3,7 @@ project(awterm)
 
 add_subdirectory(teken)
 
-add_definitions(-std=c++2a)
-add_executable(awterm main.cpp ../awm/font.cpp ../awm/pixelbuffer.cpp)
+add_executable(awterm main.cpp)
 target_include_directories(awterm PRIVATE ../awm)
-target_link_libraries(awterm PRIVATE teken)
+target_link_libraries(awterm PRIVATE awe teken)
 install(TARGETS awterm DESTINATION usr/bin)

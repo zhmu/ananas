@@ -2,10 +2,13 @@
 
 #include <optional>
 #include <variant>
-#include "types.h"
-#include "ipc.h"
+#include "awe/types.h"
+#include "awe/ipc.h"
 
-struct PixelBuffer;
+namespace awe
+{
+    class PixelBuffer;
+}
 
 namespace event
 {
@@ -15,22 +18,22 @@ namespace event
     };
     struct MouseButtonDown {
         Button button;
-        Point position;
+        awe::Point position;
     };
     struct MouseButtonUp {
         Button button;
-        Point position;
+        awe::Point position;
     };
     struct MouseMotion {
-        Point position;
+        awe::Point position;
     };
     struct KeyDown {
-        ipc::KeyCode key;
+        awe::ipc::KeyCode key;
         int mods;
         int ch;
     };
     struct KeyUp {
-        ipc::KeyCode key;
+        awe::ipc::KeyCode key;
         int mods;
         int ch;
     };
@@ -42,8 +45,8 @@ using Event =
 struct Platform {
     virtual ~Platform() = default;
 
-    virtual Size GetSize() = 0;
-    virtual void Render(PixelBuffer&) = 0;
+    virtual awe::Size GetSize() = 0;
+    virtual void Render(awe::PixelBuffer&) = 0;
     virtual std::optional<Event> Poll() = 0;
 
     virtual int GetEventFd() const { return -1; }

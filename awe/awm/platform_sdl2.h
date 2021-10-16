@@ -14,5 +14,5 @@ class Platform_SDL2 : public Platform
 
     void Render(PixelBuffer& fb) override;
     std::optional<Event> Poll() override;
-    Size GetSize() override;
+    awe::Size GetSize() override;
 };

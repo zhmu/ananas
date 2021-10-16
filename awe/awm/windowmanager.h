@@ -3,9 +3,9 @@
 #include <vector>
 #include <memory>
 
-#include "font.h"
+#include "awe/font.h"
+#include "awe/pixelbuffer.h"
 #include "palette.h"
-#include "pixelbuffer.h"
 #include "platform.h"
 
 class Window;
@@ -15,22 +15,23 @@ struct WindowManager final {
 
     std::vector<std::unique_ptr<Window>> windows;
     bool needUpdate{true};
-    PixelBuffer pixelBuffer;
+    awe::PixelBuffer pixelBuffer;
     std::unique_ptr<Platform> platform;
     std::unique_ptr<EventProcessor> eventProcessor;
     Palette palette;
-    font::Font font;
+    awe::Font font;
 
     WindowManager(std::unique_ptr<Platform> platform);
     ~WindowManager();
 
     void Update();
-    Window* FindWindowAt(const Point& p);
-    Window& CreateWindow(const Size& size, int fd);
-    Window* FindWindowByHandle(const Handle handle);
+    Window* FindWindowAt(const awe::Point& p);
+    Window& CreateWindow(const awe::Size& size, int fd);
+    Window* FindWindowByHandle(const awe::Handle handle);
     Window* FindWindowByFd(int fd);
 
     void DestroyWindow(Window&);
+    void CycleFocus();
 
     bool Run();
     void HandlePlatformEvents();
