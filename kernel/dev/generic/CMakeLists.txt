@@ -4,4 +4,5 @@ add_sources(
 	null.cpp
 	tty.cpp
 	pseudotty.cpp
+    debugconsole.cpp
 )
