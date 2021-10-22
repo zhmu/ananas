@@ -121,8 +121,6 @@ namespace input_mux
             void OnEvent(const AIMX_EVENT& event) override
             {
                 MutexGuard g(mutex);
-                //kprintf("OnEvent %d / %d, empty %d full %d\n", (int)event_queue.size(), (int)event_queue.capacity(), !!event_queue.empty(), !!event_queue.full());
-                //if (event_queue.size() == 32) { kprintf("inputmux full!\n"); return;}
                 event_queue.push_back(event);
                 dataAvailable.Broadcast();
             }

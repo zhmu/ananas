@@ -176,7 +176,7 @@ Result TTY::OnInput(const char* buffer, size_t len)
         if (canon && ch == tty_termios.c_cc[VERASE]) {
             // Backspace
             if (!tty_input_queue.empty())
-                tty_input_queue.pop_front();
+                tty_input_queue.pop_back();
         } else if (canon && ch == tty_termios.c_cc[VKILL]) {
             // Kill; echo a backspace per character
             while (!tty_input_queue.empty()) {
