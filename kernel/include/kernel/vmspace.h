@@ -56,6 +56,7 @@ struct VMSpace {
     Result HandleFault(addr_t virt, int flags);
 
     void PrepareForExecute();
+    void FreeArea(VMArea& va);
 
   private:
     Mutex vs_mutex{"vmspace"}; /* protects all fields and sub-areas */

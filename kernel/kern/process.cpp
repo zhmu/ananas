@@ -273,6 +273,6 @@ const kdb::RegisterCommand kdbPs("ps", "Display all processes", [](int, const kd
         if (auto t = p.p_mainthread; t != nullptr) {
             kprintf("  thread %p flags 0x%x\n", t, t->t_flags);
         }
-        //p.p_vmspace->Dump();
+        //p.p_vmspace.Dump();
     }
 });

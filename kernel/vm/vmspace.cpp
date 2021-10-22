@@ -226,12 +226,19 @@ void VMSpace::PrepareForExecute()
         delete va;
         it = vs_areamap.begin();
     }
+
+}
+
+void VMSpace::FreeArea(VMArea& va)
+{
+    const VAInterval interval{ va.va_virt, va.va_virt + va.va_len };
+    vs_areamap.remove(interval);
+    delete &va;
 }
 
 Result VMSpace::Clone(VMSpace& vs_dest)
 {
     FreeAllAreas(vs_dest);
-
     /* Now copy everything over that isn't private */
     for (auto& [srcInterval, va_src ]: vs_areamap) {
         VMArea* va_dst;
@@ -294,7 +301,7 @@ void VMSpace::Dump()
             (va->va_flags & vm::flag::MD) ? 'm' : '.');
         kprintf("    pages:\n");
         for (auto vp : va->va_pages) {
-            vp->Dump("      ");
+            if (vp != nullptr) vp->Dump("      ");
         }
     }
 }

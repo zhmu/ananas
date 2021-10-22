@@ -84,7 +84,7 @@ namespace
         return vmpage;
     }
 
-    VMPage* HandleDEntryBackedFault(VMSpace& vs, VMArea& va, const VAInterval& interval, const addr_t alignedVirt)
+    VMPage* HandleDEntryBackedFault(VMSpace& vs, VMArea& va, const VAInterval& interval, const bool isWriteFault, const addr_t alignedVirt)
     {
         /*
          * The way dentries are mapped to virtual address is:
@@ -121,10 +121,19 @@ namespace
             (va.va_doffset & (PAGE_SIZE - 1)) == 0;
         VMPage* new_vp;
         if (can_reuse_page_as_is) {
-            // Just clone the page; it could both be an inode-backed page (if
-            // this is a private COW) or vmspace-backed if we are COW-ing from a
-            // parent
-            new_vp = &vmpage->Duplicate();
+            // Page can be re-used as-is. If this is a private mapping and we are writing to it,
+            // it means we need to copy it, otherwise we can use it as-is
+            const auto isPrivateMapping = (va.va_flags & vm::flag::Private) != 0;
+            if (isPrivateMapping && isWriteFault) {
+                new_vp = &vmpage->Duplicate();
+            } else {
+                // TODO Support read faults to public mapping here...
+                KASSERT(!isWriteFault, "not yet");
+                KASSERT((vmpage->vp_flags & vmpage::flag::Promoted) == 0, "cannot share promoted dentry page %p", &vmpage);
+                new_vp = vmpage.Extract();
+                new_vp->Ref();
+                return new_vp;
+            }
         } else {
             // Cannot re-use; create a new VM page, with appropriate flags based on the va
             new_vp = &vmpage::Allocate(0);
@@ -163,54 +172,54 @@ void DumpVMSpace(VMSpace& vmspace)
     kprintf("dump end\n");
 }
 
-Result VMSpace::HandleFault(addr_t virt, const int fault_flags)
+Result VMSpace::HandleFault(const addr_t virt, const int fault_flags)
 {
+    const auto isWriteFault = (fault_flags & vm::flag::Write) != 0;
     //kprintf(">> HandleFault(): vs=%p, virt=%p, flags=0x%x\n", this, virt, fault_flags);
 
-    // Walk through the areas one by one
-    for (auto& [interval, va ] : vs_areamap) {
-        if (!(virt >= va->va_virt && (virt < (va->va_virt + va->va_len))))
-            continue;
+    // Look up the fault address in the area map
+    auto it = vs_areamap.find_by_value(virt);
+    if (it == vs_areamap.end()) return Result::Failure(EFAULT);
 
-        // See if we have this page mapped
-        const auto alignedVirt = virt & ~(PAGE_SIZE - 1);
-        if (auto vp = va->LookupVAddrAndLock(alignedVirt); vp != nullptr) {
-            if ((fault_flags & vm::flag::Write) != 0 && (va->va_flags & vm::flag::Write) != 0) {
-                // Write to a COW page; promote the page and re-map it. If this changes the
-                // VMPage, AssignPageToVirtualAddress() will Deref() the old one
-                auto& new_vp = vp->Promote();
-                AssignPageToVirtualAddress(*this, *va, interval, alignedVirt, new_vp);
-                new_vp.Unlock();
-                return Result::Success();
-            }
+    auto& interval = it->interval;
+    auto& va = it->value;
 
-            // Page is already mapped, but not COW. Bad, reject
-            vp->Unlock();
-            return Result::Failure(EFAULT);
+    // See if we have this page mapped
+    const auto alignedVirt = virt & ~(PAGE_SIZE - 1);
+    if (auto vp = va->LookupVAddrAndLock(alignedVirt); vp != nullptr) {
+        if (isWriteFault && (va->va_flags & vm::flag::Write) != 0) {
+            // Write to a COW page; promote the page and re-map it. If this changes the
+            // VMPage, AssignPageToVirtualAddress() will Deref() the old one
+            auto& new_vp = vp->Promote();
+            AssignPageToVirtualAddress(*this, *va, interval, alignedVirt, new_vp);
+            new_vp.Unlock();
+            return Result::Success();
         }
 
-        // XXX we expect va_doffset to be page-aligned here (i.e. we can always use a page directly)
-        // this needs to be enforced when making mappings!
-        KASSERT(
-            (va->va_doffset & (PAGE_SIZE - 1)) == 0, "doffset %x not page-aligned",
-            (int)va->va_doffset);
-
-        // If there is a dentry attached here, perhaps we may find what we need in the corresponding
-        // inode
-        VMPage* new_vp = nullptr;
-        if (va->va_dentry != nullptr) {
-            new_vp = HandleDEntryBackedFault(*this, *va, interval, alignedVirt);
-        }
-        if (new_vp == nullptr) {
-            // We need a new VM page here; this is an anonymous mapping which we need to back
-            new_vp = &vmpage::Allocate(0);
-            new_vp->Zero(*this, *va, alignedVirt);
-        }
-
-        AssignPageToVirtualAddress(*this, *va, interval, alignedVirt, *new_vp);
-        new_vp->Unlock();
-        return Result::Success();
+        // Page is already mapped, but not COW. Bad, reject
+        vp->Unlock();
+        return Result::Failure(EFAULT);
     }
 
-    return Result::Failure(EFAULT);
+    // XXX we expect va_doffset to be page-aligned here (i.e. we can always use a page directly)
+    // this needs to be enforced when making mappings!
+    KASSERT(
+        (va->va_doffset & (PAGE_SIZE - 1)) == 0, "doffset %x not page-aligned",
+        (int)va->va_doffset);
+
+    // If there is a dentry attached here, perhaps we may find what we need in the corresponding
+    // inode
+    VMPage* new_vp = nullptr;
+    if (va->va_dentry != nullptr) {
+        new_vp = HandleDEntryBackedFault(*this, *va, interval, isWriteFault, alignedVirt);
+    }
+    if (new_vp == nullptr) {
+        // We need a new VM page here; this is an anonymous mapping which we need to back
+        new_vp = &vmpage::Allocate(0);
+        new_vp->Zero(*this, *va, alignedVirt);
+    }
+
+    AssignPageToVirtualAddress(*this, *va, interval, alignedVirt, *new_vp);
+    new_vp->Unlock();
+    return Result::Success();
 }
