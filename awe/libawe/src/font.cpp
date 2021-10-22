@@ -29,7 +29,7 @@ namespace awe
         {
             if (ch >= glyphs.size()) ch = '?'; // XXX
             auto& glyph = glyphs[ch];
-            if (glyph.bitmap.empty()) {
+            if (glyph.advance == 0) {
                 int h, w;
                 const auto bitmap = stbtt_GetCodepointBitmap(&fontInfo, 0, scale, ch, &w, &h, 0, 0);
                 float x_shift = 0.0f;
