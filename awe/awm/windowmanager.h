@@ -14,7 +14,7 @@ struct WindowManager final {
     struct EventProcessor;
 
     std::vector<std::unique_ptr<Window>> windows;
-    bool needUpdate{true};
+    awe::Rectangle needUpdate;
     awe::PixelBuffer pixelBuffer;
     std::unique_ptr<Platform> platform;
     std::unique_ptr<EventProcessor> eventProcessor;
@@ -30,6 +30,7 @@ struct WindowManager final {
     Window* FindWindowByHandle(const awe::Handle handle);
     Window* FindWindowByFd(int fd);
 
+    void Invalidate(const awe::Rectangle&);
     void DestroyWindow(Window&);
     void CycleFocus();
 

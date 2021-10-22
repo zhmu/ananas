@@ -30,6 +30,9 @@ class Window
     static inline constexpr int headerHeight = 20;
     static inline constexpr int borderWidth = 1;
 
+    awe::Rectangle GetClientRectangle() const { return { position, clientSize }; }
+    awe::Rectangle GetFrameRectangle() const;
+
     void Draw(awe::PixelBuffer& pb, awe::Font& font, const Palette& palette);
     bool HitsRectangle(const awe::Point& pos) const;
     bool HitsHeaderRectangle(const awe::Point& pos) const;

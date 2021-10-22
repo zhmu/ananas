@@ -34,5 +34,8 @@ namespace awe
 
         void Line(const Point& from, const Point& to, const Colour& colour);
         void Rectangle(const Rectangle& r, const Colour& colour);
+
+        void Blit(const awe::PixelBuffer& source, const awe::Rectangle& sourceRect, const awe::Point& dest);
+        void Blend(const awe::PixelBuffer& src, const awe::Rectangle& srcRect, const awe::Point& dest);
     };
 }

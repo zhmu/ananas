@@ -10,10 +10,14 @@
 #include <cstring>
 #include <ananas/inputmux.h>
 #include "awe/pixelbuffer.h"
+#include "mouse.h"
+
+#include <cstdarg>
 
 namespace
 {
     const awe::Colour mouseColour{ 255, 255, 0 };
+    const awe::Size mouseSize{ mouse::cursorWidth, mouse::cursorHeight };
 
     std::pair<awe::ipc::KeyCode, int> ConvertKeycode(const AIMX_KEY_CODE key)
     {
@@ -78,12 +82,11 @@ struct Platform_Ananas::Impl {
     int consoleFd{-1};
     int inputFd{-1};
     awe::Size size{};
-    using PixelValue = uint32_t;
-    int mouseX{};
-    int mouseY{};
+    awe::Point mousePos;
+    awe::Point renderedMousePos{-1, -1};
     bool mouseLeftButton{};
     bool mouseRightButton{};
-    PixelValue* fb{};
+    std::unique_ptr<awe::PixelBuffer> fb;
 
     Impl()
     {
@@ -102,28 +105,42 @@ struct Platform_Ananas::Impl {
 
         size.height = fbi.fb_height;
         size.width = fbi.fb_width;
-        if (fbi.fb_bpp != sizeof(PixelValue) * 8) throw std::runtime_error("unsupported fb bpp");
+        if (fbi.fb_bpp != sizeof(awe::PixelValue) * 8) throw std::runtime_error("unsupported fb bpp");
 
-        fb = static_cast<PixelValue*>(mmap(NULL, size.width * size.height * sizeof(PixelValue), PROT_READ | PROT_WRITE, MAP_SHARED, consoleFd, 0));
-        if (fb == static_cast<PixelValue*>(MAP_FAILED)) throw std::runtime_error("cannot map fb");
+        auto fbPointer = static_cast<awe::PixelValue*>(mmap(NULL, size.width * size.height * sizeof(awe::PixelValue), PROT_READ | PROT_WRITE, MAP_SHARED, consoleFd, 0));
+        if (fbPointer == static_cast<awe::PixelValue*>(MAP_FAILED)) throw std::runtime_error("cannot map fb");
 
         struct termios ts;
         if (tcgetattr(consoleFd, &ts) < 0) throw std::runtime_error("cannot get term attributes");
         MakeRaw(ts);
         if (tcsetattr(consoleFd, TCSANOW, &ts) < 0) throw std::runtime_error("cannot set term attributes");
+
+        fb = std::make_unique<awe::PixelBuffer>(fbPointer, size);
     }
 
     ~Impl()
     {
-        munmap(fb, size.width * size.height * sizeof(PixelValue));
+        munmap(fb.get(), size.width * size.height * sizeof(awe::PixelValue));
         close(consoleFd);
     }
 
-    void Render(awe::PixelBuffer& pb)
+    void RenderMouseCursor(awe::PixelBuffer& pb, const awe::Point& p)
     {
-        std::memcpy(fb, pb.GetBuffer(), size.height * size.width * sizeof(PixelValue));
-        awe::PixelBuffer fbPb{fb, size};
-        fbPb.FilledRectangle(awe::Rectangle{ mouseX, mouseY, { 10, 10 } }, mouseColour);
+        const awe::Size cursorSize{ mouse::cursorWidth, mouse::cursorHeight };
+
+        awe::PixelBuffer iconBuffer{ const_cast<awe::PixelValue*>(&mouse::icon[0]), cursorSize };
+        fb->Blend(iconBuffer, { {}, cursorSize }, p);
+    }
+
+    void Render(awe::PixelBuffer& pb, const awe::Rectangle& rect)
+    {
+        fb->Blit(pb, rect, rect.point);
+
+        if (renderedMousePos.x >= 0) {
+            fb->Blit(pb, { renderedMousePos, mouseSize }, renderedMousePos);
+        }
+        RenderMouseCursor(*fb, mousePos);
+        renderedMousePos = mousePos;
     }
 
     std::optional<Event> Poll()
@@ -148,30 +165,30 @@ struct Platform_Ananas::Impl {
                 const auto currentLeftDown = (mouse.button & AIMX_BUTTON_LEFT) != 0;
                 const auto currentRightDown = (mouse.button & AIMX_BUTTON_RIGHT) != 0;
 
-                mouseX += mouse.delta_x;
-                mouseY += mouse.delta_y;
-                if (mouseX < 0) mouseX = 0;
-                if (mouseX >= size.width) mouseX = size.width - 1;
-                if (mouseY < 0) mouseY = 0;
-                if (mouseY >= size.height) mouseY = size.height - 1;
+                mousePos.x += mouse.delta_x;
+                mousePos.y += mouse.delta_y;
+                if (mousePos.x < 0) mousePos.x = 0;
+                if (mousePos.x >= size.width) mousePos.x = size.width - 1;
+                if (mousePos.y < 0) mousePos.y = 0;
+                if (mousePos.y >= size.height) mousePos.y = size.height - 1;
 
                 if (mouseLeftButton != currentLeftDown) {
                     if (currentLeftDown) {
                         mouseLeftButton = true;
-                        return event::MouseButtonDown{event::Button::Left, { mouseX, mouseY }};
+                        return event::MouseButtonDown{event::Button::Left, mousePos};
                     }
                     mouseLeftButton = false;
-                    return event::MouseButtonUp{event::Button::Left, { mouseX, mouseY }};
+                    return event::MouseButtonUp{event::Button::Left, mousePos};
                 }
                 if (mouseRightButton != currentRightDown) {
                     if (currentRightDown) {
                         mouseRightButton = true;
-                        return event::MouseButtonDown{event::Button::Right, { mouseX, mouseY }};
+                        return event::MouseButtonDown{event::Button::Right, mousePos};
                     }
                     mouseRightButton = false;
-                    return event::MouseButtonUp{event::Button::Right, { mouseX, mouseY }};
+                    return event::MouseButtonUp{event::Button::Right, mousePos};
                 }
-                return event::MouseMotion{ mouseX, mouseY };
+                return event::MouseMotion{ mousePos };
             }
         }
         return {};
@@ -182,7 +199,7 @@ Platform_Ananas::Platform_Ananas() : impl(std::make_unique<Impl>()) {}
 
 Platform_Ananas::~Platform_Ananas() = default;
 
-void Platform_Ananas::Render(awe::PixelBuffer& fb) { return impl->Render(fb); }
+void Platform_Ananas::Render(awe::PixelBuffer& fb, const awe::Rectangle& rect) { return impl->Render(fb, rect); }
 
 std::optional<Event> Platform_Ananas::Poll() { return impl->Poll(); }
 

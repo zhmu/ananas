@@ -27,9 +27,8 @@ Window::~Window()
 {
     if (shmData != nullptr)
         shmdt(shmData);
-    if (shmId >= 0) {
+    if (shmId >= 0)
         shmctl(shmId, IPC_RMID, NULL);
-    }
 }
 
 void Window::Draw(awe::PixelBuffer& pb, awe::Font& font, const Palette& palette)
@@ -37,13 +36,12 @@ void Window::Draw(awe::PixelBuffer& pb, awe::Font& font, const Palette& palette)
     using namespace awe;
     const auto& headerColour = focus ? palette.focusHeaderColour : palette.noFocusHeaderColour;
 
-    const Rectangle frame{Point{position} - Point{borderWidth, headerHeight},
-                          clientSize + Size{borderWidth, headerHeight}};
+    const auto frame = GetFrameRectangle();
     pb.Rectangle(frame, palette.borderColour);
 
-    const Rectangle header{Point{position} - Point{0, headerHeight} +
-                               Point{borderWidth, borderWidth},
-                           Size{clientSize.width - borderWidth, headerHeight - borderWidth}};
+    const Rectangle header{
+        position - Point{0, headerHeight} + Point{borderWidth, borderWidth},
+        Size{clientSize.width - borderWidth, headerHeight - borderWidth}};
     pb.FilledRectangle(header, headerColour);
 
     const Rectangle client{Point{position}, clientSize};
@@ -53,11 +51,15 @@ void Window::Draw(awe::PixelBuffer& pb, awe::Font& font, const Palette& palette)
 
     if (shmData) {
         auto buffer = pb.GetBuffer();
+        auto bufferOffset = position.y * pb.GetSize().width + position.x;
+        auto shmOffset = 0;
         for (int y = 0; y < clientSize.height; ++y) {
-            const auto offset = (y + position.y) * pb.GetSize().width + position.x;
-            memcpy(
-                &buffer[offset], &shmData[y * clientSize.width],
+            std::memcpy(
+                &buffer[bufferOffset],
+                &shmData[shmOffset],
                 clientSize.width * sizeof(PixelValue));
+            bufferOffset += pb.GetSize().width;
+            shmOffset += clientSize.width;
         }
     }
 }
@@ -76,4 +78,12 @@ bool Window::HitsHeaderRectangle(const awe::Point& pos) const
                                Point{borderWidth, borderWidth},
                            Size{clientSize.width - borderWidth, headerHeight - borderWidth}};
     return In(header, pos);
+}
+
+awe::Rectangle Window::GetFrameRectangle() const
+{
+    using namespace awe;
+    const Rectangle frame{Point{position} - Point{borderWidth, headerHeight},
+                          clientSize + Size{2 * borderWidth, headerHeight + 1}};
+    return frame;
 }

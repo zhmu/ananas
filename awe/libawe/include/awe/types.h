@@ -10,6 +10,13 @@ namespace awe
 
     struct Colour {
         int r{255}, g{255}, b{255}, a{255};
+        static constexpr Colour FromPixelValue(const PixelValue v)
+        {
+            return { static_cast<int>(v & 0xff),
+                     static_cast<int>((v >> 8) & 0xff),
+                     static_cast<int>((v >> 16) & 0xff),
+                     static_cast<int>((v >> 24) & 0xff) };
+        }
 
         constexpr operator PixelValue() const
         {
@@ -26,6 +33,7 @@ namespace awe
     struct Size {
         int width{}, height{};
         bool operator==(const Size&) const = default;
+        bool empty() const { return width <= 0 || height <= 0; }
     };
 
     struct Rectangle {
@@ -33,28 +41,13 @@ namespace awe
         Size size;
 
         bool operator==(const Rectangle&) const = default;
+        bool empty() const { return size.empty(); }
     };
 
     constexpr bool In(const Rectangle& rect, const Point& p)
     {
         return p.x >= rect.point.x && p.x < rect.point.x + rect.size.width && p.y >= rect.point.y &&
                p.y < rect.point.y + rect.size.height;
-    }
-
-    constexpr Rectangle ClipTo(const Rectangle& r, const Rectangle& range)
-    {
-        Rectangle result{r};
-        if (result.point.x < range.point.x) {
-            result.size.width -= range.point.x - result.point.x;
-            result.point.x = range.point.x;
-        }
-        if (result.point.y < range.point.y) {
-            result.size.height -= range.point.y - result.point.y;
-            result.point.y = range.point.y;
-        }
-        result.size.height = std::min(result.size.height, range.size.height);
-        result.size.width = std::min(result.size.width, range.size.width);
-        return result;
     }
 
     constexpr Colour FromPixelValue(const PixelValue v)
@@ -74,6 +67,14 @@ namespace awe
         result.g = static_cast<int>(source1.g * (1.0 - alpha) + source2.g * alpha);
         result.b = static_cast<int>(source1.b * (1.0 - alpha) + source2.b * alpha);
         return result;
+    }
+
+    constexpr awe::PixelValue BlendPixels(const awe::PixelValue src, const awe::PixelValue v)
+    {
+        const auto a = awe::Colour::FromPixelValue(src);
+        const auto b = awe::Colour::FromPixelValue(v);
+        const auto alpha = static_cast<float>(b.a) / 255.0f;
+        return Blend(a, b, alpha);
     }
 
     constexpr bool In(const Size& size, const Point& p) { return In(Rectangle{{}, size}, p); }
@@ -100,4 +101,8 @@ namespace awe
     }
 
     constexpr Size operator-(const Size& s1, const Size& s2) { return s1 + (-s2); }
+
+    Rectangle Combine(const Rectangle& a, const Rectangle& b);
+    Rectangle Intersect(const Rectangle& a, const Rectangle& b);
+    Rectangle ClipTo(const Rectangle& r, const Rectangle& range);
 }

@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
                     awe::ipc::GenericReply reply;
                     if (w != nullptr) {
                         reply.result = awe::ipc::ResultCode::Success;
-                        wm.needUpdate = true;
+                        wm.Invalidate(w->GetClientRectangle());
                     } else {
                         reply.result = awe::ipc::ResultCode::BadHandle;
                     }
@@ -117,7 +117,7 @@ int main(int argc, char* argv[])
         if (auto eventFd = wm.platform->GetEventFd(); eventFd >= 0)
             server.AddClient(eventFd);
 
-#if 1
+#if 0
         pid_t p = fork();
         if (p == 0) {
             char prog[] = "/usr/games/doom";

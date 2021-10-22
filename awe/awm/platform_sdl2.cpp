@@ -162,7 +162,7 @@ Platform_SDL2::Platform_SDL2() : impl(std::make_unique<Impl>()) {}
 
 Platform_SDL2::~Platform_SDL2() = default;
 
-void Platform_SDL2::Render(awe::PixelBuffer& fb) { return impl->Render(fb); }
+void Platform_SDL2::Render(awe::PixelBuffer& fb, const awe::Rectangle&) { return impl->Render(fb); }
 
 std::optional<Event> Platform_SDL2::Poll() { return impl->Poll(); }
 

@@ -8,6 +8,8 @@
 #include <sys/shm.h>
 #include <sys/socket.h>
 
+#include "mouse.h"
+
 #ifdef __Ananas__
 # define FONT_PATH "/usr/share/fonts"
 #else
@@ -21,62 +23,62 @@ struct WindowManager::EventProcessor {
     Window* focusWindow{};
     awe::Point previousPoint{};
 
-    bool operator()(const event::Quit&) { quit = true; return false; }
+    void operator()(const event::Quit&) { quit = true; }
 
-    void ChangeFocus(Window* newWindow)
+    void ChangeFocus(WindowManager& wm, Window* newWindow)
     {
         if (focusWindow) {
+            wm.Invalidate(focusWindow->GetFrameRectangle());
             focusWindow->focus = false;
         }
         focusWindow = newWindow;
         if (focusWindow) {
+            wm.Invalidate(focusWindow->GetFrameRectangle());
             focusWindow->focus = true;
         }
     }
 
-    bool operator()(const event::MouseButtonDown& ev)
+    void operator()(const event::MouseButtonDown& ev)
     {
         if (ev.button == event::Button::Left) {
             if (auto w = wm.FindWindowAt(ev.position); w) {
-                ChangeFocus(w);
+                ChangeFocus(wm, w);
                 if (w->HitsHeaderRectangle(ev.position)) {
                     draggingWindow = w;
                     previousPoint = ev.position;
                 }
-                return true;
             } else {
-                ChangeFocus(nullptr);
-                return true;
+                ChangeFocus(wm, nullptr);
             }
         }
-        return false;
     }
 
-    bool operator()(const event::MouseButtonUp& ev)
+    void operator()(const event::MouseButtonUp& ev)
     {
         if (ev.button == event::Button::Left) {
             draggingWindow = nullptr;
-            return true;
         }
-        return false;
     }
 
-    bool operator()(const event::MouseMotion& ev)
+    void operator()(const event::MouseMotion& ev)
     {
         if (draggingWindow) {
+            wm.Invalidate(draggingWindow->GetFrameRectangle());
             const auto delta = ev.position - previousPoint;
             previousPoint = ev.position;
             draggingWindow->position = draggingWindow->position + delta;
-            return true;
+            wm.Invalidate(draggingWindow->GetFrameRectangle());
         }
-        return true;
+
+        // Ensure the mouse cursor will get drawn
+        wm.Invalidate({ ev.position, { mouse::cursorWidth, mouse::cursorHeight } });
     }
 
-    bool operator()(const event::KeyDown& ev)
+    void operator()(const event::KeyDown& ev)
     {
         if (ev.key == awe::ipc::KeyCode::Tab && ev.mods == awe::ipc::keyModifiers::LeftAlt) {
             wm.CycleFocus();
-            return true;
+            return;
         }
 
         if (focusWindow) {
@@ -89,10 +91,9 @@ struct WindowManager::EventProcessor {
                 printf("send error to fd %d\n", focusWindow->fd);
             }
         }
-        return false;
     }
 
-    bool operator()(const event::KeyUp& ev)
+    void operator()(const event::KeyUp& ev)
     {
         if (focusWindow) {
             awe::ipc::Event event;
@@ -104,14 +105,14 @@ struct WindowManager::EventProcessor {
                 printf("send error to fd %d\n", focusWindow->fd);
             }
         }
-        return false;
     }
 };
 
 WindowManager::WindowManager(std::unique_ptr<Platform> platform)
     : pixelBuffer(platform->GetSize()), platform(std::move(platform)),
       font(FONT_PATH "/Roboto-Regular.ttf", 20),
-      eventProcessor(std::make_unique<EventProcessor>(*this))
+      eventProcessor(std::make_unique<EventProcessor>(*this)),
+      needUpdate{ {}, platform->GetSize() }
 {
 }
 
@@ -119,19 +120,20 @@ WindowManager::~WindowManager() = default;
 
 void WindowManager::Update()
 {
-    pixelBuffer.FilledRectangle({{}, pixelBuffer.GetSize()}, palette.backgroundColour);
+    pixelBuffer.FilledRectangle(needUpdate, palette.backgroundColour);
     for (auto& w : windows) {
+        const auto& frameRect = w->GetFrameRectangle();
+        const auto rectToUpdate = Intersect(needUpdate, frameRect);
+        if (rectToUpdate.empty()) continue;
         w->Draw(pixelBuffer, font, palette);
     }
 }
 
 Window* WindowManager::FindWindowAt(const awe::Point& p)
 {
-    for (auto& w : windows) {
-        if (w->HitsRectangle(p))
-            return w.get();
-    }
-    return nullptr;
+    const auto it = std::find_if(
+        windows.begin(), windows.end(), [&](const auto& w) { return w->HitsRectangle(p); });
+    return it != windows.end() ? it->get() : nullptr;
 }
 
 Window& WindowManager::CreateWindow(const awe::Size& size, int fd)
@@ -144,24 +146,25 @@ Window& WindowManager::CreateWindow(const awe::Size& size, int fd)
 
     auto data = shmat(w->shmId, NULL, 0);
     assert(data != reinterpret_cast<void*>(-1));
-    w->shmData = static_cast<uint32_t*>(data);
+    w->shmData = static_cast<awe::PixelValue*>(data);
     memset(w->shmData, 0, shmDataSize);
+    Invalidate(w->GetFrameRectangle());
 
     windows.push_back(std::move(w));
-    eventProcessor->ChangeFocus(windows.back().get()); // XXX annoying
+    eventProcessor->ChangeFocus(*this, windows.back().get()); // XXX annoying
     return *windows.back();
 }
 
 Window* WindowManager::FindWindowByHandle(const awe::Handle handle)
 {
-    auto it = std::find_if(
+    const auto it = std::find_if(
         windows.begin(), windows.end(), [&](const auto& w) { return w->handle == handle; });
     return it != windows.end() ? it->get() : nullptr;
 }
 
 Window* WindowManager::FindWindowByFd(const int fd)
 {
-    auto it = std::find_if(
+    const auto it = std::find_if(
         windows.begin(), windows.end(), [&](const auto& w) { return w->fd == fd; });
     return it != windows.end() ? it->get() : nullptr;
 }
@@ -171,7 +174,7 @@ void WindowManager::HandlePlatformEvents()
     while (true) {
         const auto event = platform->Poll();
         if (!event) break;
-        needUpdate = std::visit(*eventProcessor, *event) || needUpdate;
+        std::visit(*eventProcessor, *event);
     }
 }
 
@@ -181,10 +184,10 @@ bool WindowManager::Run()
         HandlePlatformEvents();
     }
 
-    if (needUpdate) {
+    if (!needUpdate.empty()) {
         Update();
-        platform->Render(pixelBuffer);
-        needUpdate = false;
+        platform->Render(pixelBuffer, needUpdate);
+        needUpdate = awe::Rectangle{};
     }
 
     return !eventProcessor->quit;
@@ -192,11 +195,11 @@ bool WindowManager::Run()
 
 void WindowManager::DestroyWindow(Window& w)
 {
-    auto it = std::find_if(windows.begin(), windows.end(), [&](auto& p) { return p.get() == &w; });
+    const auto it = std::find_if(windows.begin(), windows.end(), [&](auto& p) { return p.get() == &w; });
     assert(it != windows.end());
 
+    Invalidate((*it)->GetFrameRectangle());
     windows.erase(it);
-    needUpdate = true;
 }
 
 void WindowManager::CycleFocus()
@@ -210,5 +213,10 @@ void WindowManager::CycleFocus()
         it = windows.begin();
     }
 
-    eventProcessor->ChangeFocus(it->get());
+    eventProcessor->ChangeFocus(*this, it->get());
+}
+
+void WindowManager::Invalidate(const awe::Rectangle& r)
+{
+    needUpdate = Combine(needUpdate, r);
 }

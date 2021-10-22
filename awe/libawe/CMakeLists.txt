@@ -8,6 +8,7 @@ add_library(awe
     src/connection.cpp
     src/font.cpp
     src/pixelbuffer.cpp
+    src/types.cpp
     src/window.cpp
 )
 target_include_directories(awe PUBLIC include)
