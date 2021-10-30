@@ -1,15 +1,12 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __SYS_MMAN_H__
-#define __SYS_MMAN_H__
+#pragma once
 
-#include <machine/_types.h>
-#include <ananas/_types/off.h>
-#include <ananas/_types/size.h>
+#include <sys/types.h>
 #include <sys/cdefs.h>
 
 #define PROT_READ (1 << 0)
@@ -39,5 +36,3 @@ int munmap(void*, size_t);
 int mprotect(void*, size_t, int);
 
 __END_DECLS
-
-#endif /* __SYS_MMAN_H__ */

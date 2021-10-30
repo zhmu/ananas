@@ -8,19 +8,19 @@
 #define __ELF_H__
 
 /* Basic datatypes */
-typedef uint32_t Elf32_Addr;
-typedef uint16_t Elf32_Half;
-typedef uint32_t Elf32_Off;
-typedef int32_t Elf32_Sword;
-typedef uint32_t Elf32_Word;
+typedef __uint32_t Elf32_Addr;
+typedef __uint16_t Elf32_Half;
+typedef __uint32_t Elf32_Off;
+typedef __int32_t Elf32_Sword;
+typedef __uint32_t Elf32_Word;
 
-typedef uint64_t Elf64_Addr;
-typedef uint64_t Elf64_Off;
-typedef uint16_t Elf64_Half;
-typedef uint32_t Elf64_Word;
-typedef int32_t Elf64_Sword;
-typedef uint64_t Elf64_Xword;
-typedef int64_t Elf64_Sxword;
+typedef __uint64_t Elf64_Addr;
+typedef __uint64_t Elf64_Off;
+typedef __uint16_t Elf64_Half;
+typedef __uint32_t Elf64_Word;
+typedef __int32_t Elf64_Sword;
+typedef __uint64_t Elf64_Xword;
+typedef __int64_t Elf64_Sxword;
 
 #define EI_NIDENT 16
 

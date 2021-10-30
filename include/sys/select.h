@@ -4,14 +4,10 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
+#pragma once
+
 #include <sys/types.h>
 #include <sys/cdefs.h>
-
-#ifndef __SYS_SELECT_H__
-#define __SYS_SELECT_H__
-
-#include <ananas/_types/timeval.h>
-#include <ananas/_types/fdset.h>
 
 __BEGIN_DECLS
 
@@ -27,5 +23,3 @@ __END_DECLS
 #define FD_ZERO(fdset) do { char* __p = (char*)(fdset); for(size_t __n = 0; __n < sizeof(fd_set); ++__n) { *__p++ = 0; } } while(0)
 
 #define FD_SETSIZE 64 /* XXX */
-
-#endif /* __SYS_SELECT_H__ */

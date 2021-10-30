@@ -13,9 +13,9 @@
  * Directory entry, as returned by the kernel.
  */
 struct VFS_DIRENT {
-    uint32_t de_flags;      /* Flags */
-    uint8_t de_name_length; /* Length of name */
-    ino_t de_inum;          /* Identifier */
+    __uint32_t de_flags;      /* Flags */
+    __uint8_t de_name_length; /* Length of name */
+    __ino_t de_inum;          /* Identifier */
     /*
      * de_name will be stored directly after the fsop.
      */

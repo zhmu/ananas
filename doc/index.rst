@@ -23,6 +23,7 @@ Contents:
    status
    build
    run
+   internals
    hacking
    todo
 

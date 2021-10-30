@@ -1,17 +1,14 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __SIGNAL_H__
-#define __SIGNAL_H__
+#pragma once
 
-#include <machine/_types.h>
-#include <ananas/_types/pid.h>
-#include <ananas/_types/uid.h>
-#include <ananas/signal.h>
+#include <sys/types.h>
 #include <sys/cdefs.h>
+#include <ananas/signal.h>
 
 typedef int sig_atomic_t;
 
@@ -35,5 +32,3 @@ int pthread_sigmask(int how, const sigset_t* set, sigset_t* oset);
 extern const char* const sys_siglist[NSIG];
 
 __END_DECLS
-
-#endif /* __SIGNAL_H__ */

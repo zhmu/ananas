@@ -1,11 +1,12 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef ANANAS_VM_OPTIONS_H
-#define ANANAS_VM_OPTIONS_H
+#pragma once
+
+#include <ananas/types.h>
 
 typedef enum {
     /* Creates a new mapping */
@@ -45,8 +46,6 @@ struct VMOP_OPTIONS {
     int vo_flags;
 
     /* Backing handle/offset - only if VMOP_FLAG_FD is used */
-    fdindex_t vo_fd;
-    off_t vo_offset;
+    int vo_fd;
+    __off_t vo_offset;
 };
-
-#endif /* ANANAS_VM_OPTIONS_H */

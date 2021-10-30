@@ -3,23 +3,23 @@
 # <number> { prototype }
 #
 0 { void exit(int exitcode); }
-1 { Result read(fdindex_t fd, void* buf, size_t len); }
-2 { Result write(fdindex_t fd, const void* buf, size_t len); }
+1 { Result read(int fd, void* buf, size_t len); }
+2 { Result write(int fd, const void* buf, size_t len); }
 3 { Result open(const char* path, int flags, int mode); }
-4 { Result close(fdindex_t fd); }
+4 { Result close(int fd); }
 5 { Result unlink(const char* path); }
-6 { Result seek(fdindex_t fd, off_t* offset, int whence); }
+6 { Result seek(int fd, off_t* offset, int whence); }
 7 { Result clone(int flags); }
 8 { Result waitpid(pid_t pid, int* stat_loc, int options); }
 9 { Result execve(const char* path, const char** argv, const char** envp); }
 10 { Result vmop(struct VMOP_OPTIONS* opts); }
-11 { Result dup(fdindex_t fd); }
+11 { Result dup(int fd); }
 12 { Result rename(const char* oldpath, const char* newpath); }
 13 { Result stat(const char* path, struct stat* buf); }
 14 { Result chdir(const char* path); }
-15 { Result fstat(fdindex_t index, struct stat* buf); }
-16 { Result fchdir(fdindex_t index); }
-17 { Result fcntl(fdindex_t index, int cmd, const void* in, void* out); }
+15 { Result fstat(int index, struct stat* buf); }
+16 { Result fchdir(int index); }
+17 { Result fcntl(int index, int cmd, const void* in, void* out); }
 18 { Result link(const char* oldpath, const char* newpath); }
 19 { Result utime(const char* path, const struct utimbuf* times); }
 20 { Result clock_settime(clockid_t id, const struct timespec* tp); }
@@ -33,15 +33,15 @@
 28 { Result sigsuspend(const sigset_t* sigmask); }
 29 { Result kill(pid_t pid, int sig); }
 30 { Result sigreturn(); }
-31 { Result ioctl(fdindex_t fd, unsigned long op, void* arg1, void* arg2, void* arg3); }
+31 { Result ioctl(int fd, unsigned long op, void* arg1, void* arg2, void* arg3); }
 32 { Result getpgrp(); }
 33 { Result setpgid(pid_t pid, pid_t pgid); }
 34 { Result setsid(); }
-35 { Result dup2(fdindex_t fd, fdindex_t newindex); }
+35 { Result dup2(int fd, int newindex); }
 36 { Result mount(const char* type, const char* source, const char* dir, int flags); }
 37 { Result unmount(const char* dir, int flags); }
 38 { Result statfs(const char* path, struct statfs* buf); }
-39 { Result fstatfs(fdindex_t fd, struct statfs* buf); }
+39 { Result fstatfs(int fd, struct statfs* buf); }
 40 { Result nanosleep(const struct timespec* rqtp, struct timespec* rmtp); }
 41 { Result getsid(pid_t pid); }
 42 { Result getuid(); }

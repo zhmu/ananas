@@ -16,7 +16,7 @@ typedef Elf64_Sym Elf_Sym;
 typedef Elf64_Rela Elf_Rela;
 typedef Elf64_Addr Elf_Addr;
 typedef Elf64_Half Elf_Half;
-typedef uint64_t Elf_BloomWord;
+typedef Elf64_Xword Elf_BloomWord;
 
 #define ELF_R_SYM ELF64_R_SYM
 #define ELF_R_TYPE ELF64_R_TYPE

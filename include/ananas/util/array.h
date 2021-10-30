@@ -4,8 +4,9 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef ANANAS_UTIL_ARRAY_H
-#define ANANAS_UTIL_ARRAY_H
+#pragma once
+
+#include <cstddef>
 
 namespace util
 {
@@ -89,5 +90,3 @@ namespace util
     };
 
 } // namespace util
-
-#endif /* ANANAS_UTIL_ARRAY_H */

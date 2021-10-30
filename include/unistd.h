@@ -1,20 +1,21 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __UNISTD_H__
-#define __UNISTD_H__
+#pragma once
 
-#include <machine/_types.h>
-#include <ananas/_types/off.h>
-#include <ananas/_types/gid.h>
-#include <ananas/_types/size.h>
-#include <ananas/_types/ssize.h>
-#include <ananas/_types/pid.h>
-#include <ananas/_types/uid.h>
+#include <sys/types.h>
 #include <sys/cdefs.h>
+
+#ifndef NULL
+# ifdef __cplusplus
+#  define NULL 0
+# else
+#  define NULL ((void*)0)
+# endif
+#endif
 
 /* XXX We lie and claim to support IEEE Std 1003.1-2001 */
 #define _POSIX_VERSION 200112L
@@ -115,5 +116,3 @@ int gethostname(char* name, size_t namelen);
 int symlink(const char* path1, const char* path2);
 
 __END_DECLS
-
-#endif /* __UNISTD_H__ */

@@ -1,13 +1,14 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2020 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef ANANAS_STATUSCODE_H
-#define ANANAS_STATUSCODE_H
+#pragma once
 
-#include <ananas/_types/statuscode.h>
+#include <ananas/types.h>
+
+typedef __statuscode_t statuscode_t;
 
 // Extracting things from the statuscode_t provided by every systemcall
 // on failure: bit 31 = set, and the error code is contained in the other bits
@@ -32,5 +33,3 @@ static inline statuscode_t ananas_statuscode_make_success(unsigned int val)
 {
     return val & 0x7fffffff;
 }
-
-#endif /* ANANAS_STATUSCODE_H */

@@ -1,14 +1,13 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
 #ifndef __SCHED_H__
 #define __SCHED_H__
 
-#include <machine/_types.h>
-#include <ananas/_types/pid.h>
+#include <sys/types.h>
 #include <time.h>
 
 struct sched_param {

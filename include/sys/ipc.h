@@ -4,13 +4,9 @@
  * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <machine/_types.h>
-#include <ananas/_types/uid.h>
-#include <ananas/_types/gid.h>
-#include <ananas/_types/mode.h>
+#pragma once
 
-#ifndef __SYS_IPC_H__
-#define __SYS_IPC_H__
+#include <sys/types.h>
 
 #define IPC_CREAT 1
 #define IPC_EXCL 2
@@ -25,5 +21,3 @@ struct ipc_perm {
     gid_t cgid;
     mode_t mode;
 };
-
-#endif /* __SYS_IPC_H__ */

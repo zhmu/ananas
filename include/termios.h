@@ -1,18 +1,17 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __TERMIOS_H__
-#define __TERMIOS_H__
+#pragma once
 
 #include <sys/types.h>
 #include <sys/cdefs.h>
 
-typedef uint32_t cc_t;
-typedef uint32_t speed_t;
-typedef uint32_t tcflag_t;
+typedef __uint32_t cc_t;
+typedef __uint32_t speed_t;
+typedef __uint32_t tcflag_t;
 
 /* Subscript names for c_cc array */
 #define VEOF 0     /* EOF charachter */
@@ -132,5 +131,3 @@ int tcflush(int fildes, int queue_selector);
 int tcsendbreak(int fildes, int duration);
 
 __END_DECLS
-
-#endif /* __TERMIOS_H__ */

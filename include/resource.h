@@ -7,8 +7,7 @@
 #ifndef __RESOURCE_H__
 #define __RESOURCE_H__
 
-#include <machine/_types.h>
-#include <ananas/_types/size.h>
+#include <sys/types.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS

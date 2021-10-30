@@ -8,7 +8,6 @@
 #define __DIRENT_H__
 
 #include <ananas/types.h>
-#include <ananas/_types/ino.h>
 #include <sys/cdefs.h>
 
 #define DIRENT_BUFFER_SIZE 4096 /* XXX */
@@ -17,7 +16,7 @@
 #define MAXNAMELEN 255      /* Name cannot be longer than this */
 
 struct dirent {
-    ino_t d_ino;
+    __ino_t d_ino;
     char d_name[MAXNAMELEN + 1];
 };
 

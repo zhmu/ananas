@@ -8,6 +8,7 @@
 #define __SYS_STAT_H__
 
 #include <ananas/stat.h> /* for struct stat and friends */
+#include <sys/types.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS

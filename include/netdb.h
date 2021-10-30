@@ -8,7 +8,7 @@
 #define __NETDB_H__
 
 #include <inttypes.h>
-#include <ananas/_types/socklen.h>
+#include <sys/types.h>
 #include <sys/cdefs.h>
 
 struct hostent {

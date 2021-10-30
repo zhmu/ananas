@@ -1,16 +1,13 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
+#pragma once
+
 #include <sys/types.h>
-
-#ifndef __SYS_SOCKET_H__
-#define __SYS_SOCKET_H__
-
 #include <sys/cdefs.h>
-#include <ananas/_types/socklen.h>
 
 #define AF_INET 1
 #define AF_LOCAL 2
@@ -44,7 +41,3 @@ int socket(int domain, int type, int protocol);
 ssize_t send(int socket, const void* buffer, size_t length, int flags);
 
 __END_DECLS
-
-
-
-#endif /* __SYS_SOCKET_H__ */

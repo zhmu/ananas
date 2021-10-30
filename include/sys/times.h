@@ -7,7 +7,7 @@
 #ifndef SYS_TIMES_H
 #define SYS_TIMES_H
 
-#include <ananas/types.h>
+#include <sys/types.h>
 #include <sys/cdefs.h>
 
 struct tms {

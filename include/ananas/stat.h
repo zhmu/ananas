@@ -4,20 +4,9 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_STAT_H__
-#define __ANANAS_STAT_H__
+#pragma once
 
-#include <machine/_types.h>
-#include <ananas/_types/mode.h>
-#include <ananas/_types/dev.h>
-#include <ananas/_types/uid.h>
-#include <ananas/_types/gid.h>
-#include <ananas/_types/ino.h>
-#include <ananas/_types/off.h>
-#include <ananas/_types/nlink.h>
-#include <ananas/_types/blksize.h>
-#include <ananas/_types/blkcnt.h>
-#include <ananas/_types/time.h>
+#include <ananas/types.h>
 
 #define S_IFMT 0xf000 /* File type */
 #define S_IFSOCK 0xc000
@@ -59,19 +48,17 @@
 #define S_IXOTH 0x0001
 
 struct stat {
-    dev_t st_dev;
-    ino_t st_ino;
-    mode_t st_mode;
-    nlink_t st_nlink;
-    uid_t st_uid;
-    gid_t st_gid;
-    dev_t st_rdev;
-    off_t st_size;
-    time_t st_atime;
-    time_t st_mtime;
-    time_t st_ctime;
-    blksize_t st_blksize;
-    blkcnt_t st_blocks;
+    __dev_t st_dev;
+    __ino_t st_ino;
+    __mode_t st_mode;
+    __nlink_t st_nlink;
+    __uid_t st_uid;
+    __gid_t st_gid;
+    __dev_t st_rdev;
+    __off_t st_size;
+    __time_t st_atime;
+    __time_t st_mtime;
+    __time_t st_ctime;
+    __blksize_t st_blksize;
+    __blkcnt_t st_blocks;
 };
-
-#endif /* __ANANAS_STAT_H__ */

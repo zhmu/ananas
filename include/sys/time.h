@@ -8,7 +8,6 @@
 #define __SYS_TIME_H__
 
 #include <sys/types.h>
-#include <ananas/_types/timeval.h>
 #include <sys/cdefs.h>
 
 #include <sys/select.h>

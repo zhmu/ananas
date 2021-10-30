@@ -1,15 +1,13 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __FCNTL_H__
-#define __FCNTL_H__
+#pragma once
 
-#include <machine/_types.h>
-#include <ananas/_types/mode.h>
 #include <sys/cdefs.h>
+#include <sys/types.h>
 
 /* open() */
 #define O_CREAT (1 << 0)
@@ -42,5 +40,3 @@ int open(const char*, int, ...);
 int fcntl(int fildes, int cmd, ...);
 
 __END_DECLS
-
-#endif /* __FCNTL_H__ */

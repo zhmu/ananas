@@ -49,10 +49,10 @@ cd /work/build/gcc
 make ${MAKE_ARGS} all-gcc
 make install-gcc
 
-# ensure the 'fixed' gcc includes are removed; the supplied limits.h will
-# confuse us (this needs proper fixing - the issue is that the created limits.h
-# will not properly provide _MAX defines which fails the coreutils build)
-rm -rf ${TOOLCHAINDIR}/lib/gcc/${TARGET}/${GCC_VERSION}/include-fixed
+# GCC will not be able to have found our limits.h as it is not installed yet;
+# work around this by cobbling together a limits.h (based on
+# https://linuxfromscratch.org/lfs/view/stable/chapter05/gcc-pass1.html)
+cat ../../src/gcc/gcc/limitx.h ../../src/gcc/gcc/glimits.h  ../../src/gcc/gcc/limity.h > ${TOOLCHAINDIR}/lib/gcc/${TARGET}/${GCC_VERSION}/include-fixed/limits.h
 
 # path the autotools config.sub to recognize our OS; it will be installed in
 # the target image and allow us just to run autoconf to replace the original one

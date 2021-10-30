@@ -7,11 +7,7 @@
 #ifndef __ANANAS_SIGNAL_H__
 #define __ANANAS_SIGNAL_H__
 
-#include <machine/_types.h>
-#include <ananas/_types/sigset.h>
-#include <ananas/_types/gid.h>
-#include <ananas/_types/pid.h>
-#include <ananas/_types/uid.h>
+#include <sys/types.h>
 
 typedef void (*sig_t)(int);
 
