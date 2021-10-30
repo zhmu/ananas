@@ -6,6 +6,7 @@
  */
 #include <ananas/types.h>
 #include <stdarg.h>
+#include <cstddef>
 #include "lib.h"
 
 static const uint8_t hextab[] = "0123456789abcdef";

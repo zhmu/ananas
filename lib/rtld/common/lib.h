@@ -7,7 +7,9 @@
 #ifndef LIB_H
 #define LIB_H
 
-#include <ananas/types.h>
+#include <sys/types.h>
+
+using register_t = long;
 
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2

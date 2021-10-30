@@ -206,7 +206,7 @@ void* memset(void* b, int c, size_t len)
     } while (0)
 
     /* First of all, attempt to align to 32-bit boundary */
-    if (len >= 4 && ((addr_t)b & 3))
+    if (len >= 4 && ((uintptr_t)b & 3))
         DO_SET(uint8_t, len & 3, c);
 
     /* Attempt to set everything using 4 bytes at a time */
@@ -238,7 +238,7 @@ void memcpy(void* dst, const void* src, size_t len)
     auto s = static_cast<const char*>(src);
 
     /* First of all, attempt to align to 32-bit boundary */
-    if (len >= 4 && ((addr_t)dst & 3))
+    if (len >= 4 && ((uintptr_t)dst & 3))
         DO_COPY(uint8_t, len & 3);
 
     /* Attempt to copy everything using 4 bytes at a time */

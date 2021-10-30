@@ -9,6 +9,7 @@
 
 #include <ananas/util/list.h>
 #include <machine/elf.h>
+#include <cstddef>
 
 struct Needed : util::List<Needed>::NodePtr {
     size_t n_name_idx;
@@ -25,7 +26,7 @@ typedef util::List<ObjectListEntry> ObjectList;
  * any shared library we know about.
  */
 struct Object : public util::List<Object>::NodePtr {
-    addr_t o_reloc_base; // Relocated base address
+    uintptr_t o_reloc_base; // Relocated base address
     const char* o_strtab;
     size_t o_strtab_sz;
     Elf_Sym* o_symtab;

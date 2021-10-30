@@ -270,7 +270,7 @@ void parse_dynamic(Object& obj)
                 obj.o_fini = obj.o_reloc_base + dyn->d_un.d_ptr;
                 break;
             case DT_DEBUG:
-                dyn->d_un.d_ptr = (addr_t)&r_debugstate;
+                dyn->d_un.d_ptr = (Elf_Addr)&r_debugstate;
                 break;
             case DT_INIT_ARRAY:
                 obj.o_init_array = obj.o_reloc_base + dyn->d_un.d_ptr;
@@ -395,7 +395,7 @@ void process_relocations_copy(Object& obj)
     }
 }
 
-void rtld_relocate(addr_t base)
+void rtld_relocate(uintptr_t base)
 {
     // Place the object on the stack as we may not be able to access global data yet
     Object temp_obj;
@@ -637,14 +637,14 @@ Object* map_object(int fd, const char* name)
         die("%s: not a (valid) ELF file", name);
 
     // Determine the high and low addresses of the object
-    addr_t v_start = (addr_t)-1;
-    addr_t v_end = 0;
+    uintptr_t v_start = (uintptr_t)-1;
+    uintptr_t v_end = 0;
     {
         auto phdr = reinterpret_cast<const Elf_Phdr*>(static_cast<char*>(first) + ehdr.e_phoff);
         for (unsigned int n = 0; n < ehdr.e_phnum; n++, phdr++) {
             switch (phdr->p_type) {
                 case PT_LOAD:
-                    addr_t last_addr = phdr->p_vaddr + phdr->p_memsz;
+                    uintptr_t last_addr = phdr->p_vaddr + phdr->p_memsz;
                     if (v_start > phdr->p_vaddr)
                         v_start = phdr->p_vaddr;
                     if (last_addr > v_end)
@@ -660,10 +660,10 @@ Object* map_object(int fd, const char* name)
 
     // First, reserve the entire range of memory - we'll update the permissions
     // and actual content later, but this ensures we'll have a continous range
-    addr_t base = reinterpret_cast<addr_t>(mmap(
+    auto base = reinterpret_cast<uintptr_t>(mmap(
         reinterpret_cast<void*>(v_start), v_end - v_start, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE,
         -1, 0));
-    if (base == (addr_t)-1)
+    if (base == (uintptr_t)-1)
         die("%s: unable to allocate range %p-%p", name, v_start, v_end);
     sum("%s: loaded at %p-%p\n", name, base, base + (v_end - v_start));
     dbg("%s: reserved %p-%p\n", name, base, base + (v_end - v_start));
@@ -688,9 +688,9 @@ Object* map_object(int fd, const char* name)
 
             sum("%s: remapping %p-%p from offset %d v_file_len %d\n", name, v_file_base,
                 (v_file_base + v_file_len) - 1, static_cast<int>(offset), v_file_len);
-            addr_t p = reinterpret_cast<addr_t>(
+            auto p = reinterpret_cast<uintptr_t>(
                 mmap(reinterpret_cast<void*>(v_file_base), v_file_len, prot, flags, fd, offset));
-            if (p == (addr_t)-1)
+            if (p == (uintptr_t)-1)
                 die("%s: unable to map %p-%p", name, v_file_base, v_file_base + v_end);
 
             if (phdr->p_filesz >= phdr->p_memsz)
@@ -720,9 +720,9 @@ Object* map_object(int fd, const char* name)
                 v_extra_base + v_extra_len, flags, prot);
             if (v_extra_len == 0)
                 continue;
-            p = reinterpret_cast<addr_t>(
+            p = reinterpret_cast<uintptr_t>(
                 mmap(reinterpret_cast<void*>(v_extra_base), v_extra_len, prot, flags, -1, 0));
-            if (p == (addr_t)-1)
+            if (p == (uintptr_t)-1)
                 die("%s: unable to map %p-%p", name, v_extra_base, v_extra_base + v_extra_len);
 
             // Zero out everything beyond what is file-mapped
@@ -856,7 +856,7 @@ dl_iterate_phdr(int (*callback)(struct dl_phdr_info* info, size_t size, void* da
     return 0;
 }
 
-extern "C" Elf_Addr rtld(register_t* stk, addr_t* exit_func)
+extern "C" Elf_Addr rtld(register_t* stk, uintptr_t* exit_func)
 {
     uint64_t ei_interpreter_base = 0;
     uint64_t ei_phdr = 0;
@@ -879,16 +879,16 @@ extern "C" Elf_Addr rtld(register_t* stk, addr_t* exit_func)
             dbg("auxv tag %d\n", auxv->a_type);
             switch (auxv->a_type) {
                 case AT_BASE:
-                    ei_interpreter_base = reinterpret_cast<addr_t>(auxv->a_un.a_ptr);
+                    ei_interpreter_base = reinterpret_cast<uintptr_t>(auxv->a_un.a_ptr);
                     break;
                 case AT_PHDR:
-                    ei_phdr = reinterpret_cast<addr_t>(auxv->a_un.a_ptr);
+                    ei_phdr = reinterpret_cast<uintptr_t>(auxv->a_un.a_ptr);
                     break;
                 case AT_PHENT:
                     ei_phdr_entries = auxv->a_un.a_val;
                     break;
                 case AT_ENTRY:
-                    ei_entry = reinterpret_cast<addr_t>(auxv->a_un.a_ptr);
+                    ei_entry = reinterpret_cast<uintptr_t>(auxv->a_un.a_ptr);
                     break;
                 default:
                     dbg("unrecognized auxv type %d val %p\n", auxv->a_type, auxv->a_un.a_val);
@@ -1001,6 +1001,6 @@ extern "C" Elf_Addr rtld(register_t* stk, addr_t* exit_func)
      * so best get rid of it so our executable starts with a clean slate)
      */
     dbg("transferring control to %p\n", ei_entry);
-    *exit_func = reinterpret_cast<addr_t>(&run_fini_funcs);
+    *exit_func = reinterpret_cast<uintptr_t>(&run_fini_funcs);
     return ei_entry;
 }
