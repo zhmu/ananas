@@ -4,11 +4,11 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
 #include "kernel/bio.h"
 #include "kernel/device.h"
 #include "kernel/mbr.h"
 #include "slice.h"
+#include <cstdint>
 
 int mbr_process(Device* device, struct BIO* bio)
 {

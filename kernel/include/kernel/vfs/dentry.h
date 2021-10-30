@@ -7,7 +7,7 @@
 #pragma once
 
 #include <ananas/util/list.h>
-#include <ananas/types.h>
+#include "kernel/types.h"
 
 #define DCACHE_MAX_NAME_LEN 255
 

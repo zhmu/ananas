@@ -7,7 +7,7 @@
 #ifndef __SYSCALL_H__
 #define __SYSCALL_H__
 
-#include <ananas/types.h>
+#include "kernel/types.h"
 
 struct SYSCALL_ARGS {
     register_t number;

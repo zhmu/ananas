@@ -6,5 +6,7 @@
  */
 #pragma once
 
+#include <cstdint>
+
 typedef uint64_t dma_addr_t;
 typedef uint64_t dma_size_t;

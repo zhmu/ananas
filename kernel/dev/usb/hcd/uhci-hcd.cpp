@@ -22,7 +22,6 @@
  * the host controller, or HC) will attempt as many as it can before the time
  * runs out; this allows them to be retried if necessary.
  */
-#include <ananas/types.h>
 #include "kernel/dev/pci.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"

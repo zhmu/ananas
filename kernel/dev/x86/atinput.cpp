@@ -4,7 +4,6 @@
  * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
 #include <ananas/util/array.h>
 #include <ananas/inputmux.h>
 #include "kernel/dev/inputmux.h"

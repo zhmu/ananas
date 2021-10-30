@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include "kernel/types.h"
+
 /* amd64-specific per-cpu structure */
 #define MD_PCPU_FIELDS                                                     \
     void* context;                                                         \

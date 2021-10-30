@@ -5,7 +5,6 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <ananas/util/algorithm.h>
-#include <ananas/types.h>
 #include <ananas/errno.h>
 #include "kernel/init.h"
 #include "kernel/kdb.h"

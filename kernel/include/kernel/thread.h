@@ -9,6 +9,7 @@
 #include <ananas/types.h>
 #include <ananas/util/list.h>
 #include "kernel/page.h"
+#include "kernel/refcount.h"
 #include "kernel/schedule.h"
 #include "kernel/sleepqueue.h" // for sleep_queue::Waiter
 #include "kernel/thread_fwd.h"

@@ -4,10 +4,9 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
+#pragma once
 
-#ifndef __FAT_H__
-#define __FAT_H__
+#include <cstdint>
 
 struct FAT16_EPB {
     uint8_t epb_drivenum;  /* drive number */
@@ -107,5 +106,3 @@ struct FAT_FAT32_FSINFO {
     uint8_t fsi_next_free[4];  /* Next free cluster */
     uint8_t fsi_reserved2[12]; /* Reserved */
 } __attribute__((packed));
-
-#endif /* __FAT_H__ */

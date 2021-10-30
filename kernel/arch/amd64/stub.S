@@ -10,8 +10,6 @@
  */
 .text
 
-#include <sys/types.h>
-
 .global __entry, bootstrap_stack
 
 __entry:

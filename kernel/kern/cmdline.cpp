@@ -4,13 +4,11 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
-#include <ananas/bootinfo.h>
 #include "kernel/cmdline.h"
 #include "kernel/lib.h"
 #include "kernel/vm.h"
 
-static char* cmdline = NULL;
+static char* cmdline = nullptr;
 static int cmdline_len = -1;
 
 void cmdline_init(char* bootargs)
@@ -38,8 +36,8 @@ void cmdline_init(char* bootargs)
 const char* cmdline_get_string(const char* key)
 {
     KASSERT(cmdline_len >= 0, "cmdline not initialized");
-    if (cmdline == NULL)
-        return NULL;
+    if (cmdline == nullptr)
+        return nullptr;
 
     const char* cur = cmdline;
     while ((cur - cmdline) < cmdline_len) {
@@ -59,5 +57,5 @@ const char* cmdline_get_string(const char* key)
         return sep;
     }
 
-    return NULL; /* not found */
+    return nullptr; /* not found */
 }

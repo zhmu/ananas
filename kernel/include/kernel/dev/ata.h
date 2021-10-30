@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include <cstdint>
+
 #define ATA_CMD_READ_SECTORS 0x20  /* 28 bit PIO */
 #define ATA_CMD_DMA_READ_EXT 0x25  /* 48 bit DMA */
 #define ATA_CMD_WRITE_SECTORS 0x30 /* 28 bit PIO */

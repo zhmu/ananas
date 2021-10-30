@@ -7,7 +7,6 @@
 /*
  * UHCI root hub
  */
-#include <ananas/types.h>
 #include "kernel/dev/pci.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
@@ -24,6 +23,7 @@
 #include "uhci-reg.h"
 #include "uhci-hcd.h"
 #include "uhci-roothub.h"
+#include <cstdint>
 
 namespace usb
 {

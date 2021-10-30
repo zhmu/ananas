@@ -6,7 +6,6 @@
  */
 #include <ananas/util/algorithm.h>
 #include <machine/param.h>
-#include <ananas/types.h>
 #include "kernel/device.h"
 #include "kernel/irq.h"
 #include "kernel/kdb.h"
@@ -14,6 +13,7 @@
 #include "kernel/pcpu.h"
 #include "kernel/result.h"
 #include "kernel-md/interrupts.h"
+#include <cstdint>
 
 namespace irq
 {

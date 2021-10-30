@@ -126,7 +126,7 @@
 #define ACPI_USE_LOCAL_CACHE
 
 #ifdef KERNEL
-#include <ananas/types.h>
+#include "kernel/types.h"
 #include "kernel/lib.h"
 
 #ifdef __amd64__

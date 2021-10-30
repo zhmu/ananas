@@ -6,7 +6,6 @@
  */
 #pragma once
 
-#include <ananas/types.h>
 #include <ananas/util/list.h>
 
 struct Thread;

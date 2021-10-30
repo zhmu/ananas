@@ -1,13 +1,12 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __FATFS_INODE_H__
-#define __FATFS_INODE_H__
+#pragma once
 
-#include <ananas/types.h>
+#include "kernel/types.h"
 
 class Result;
 struct INode;
@@ -18,5 +17,3 @@ Result fat_read_inode(INode& inode, ino_t inum);
 Result fat_write_inode(INode& inode);
 
 extern struct VFS_INODE_OPS fat_inode_ops;
-
-#endif /* __FATFS_INODE_H__ */

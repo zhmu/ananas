@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <ananas/types.h>
+#include "kernel/types.h"
 
 struct STACKFRAME {
     uint64_t sf_trapno;

@@ -13,7 +13,6 @@
  * We try to keep as much entries in memory as possible, only overwriting
  * them if we really need to.
  */
-#include <ananas/types.h>
 #include "kernel/init.h"
 #include "kernel/kdb.h"
 #include "kernel/lib.h"

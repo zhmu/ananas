@@ -5,7 +5,6 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <ananas/syscalls.h>
-#include <ananas/handle-options.h>
 #include <ananas/errno.h>
 #include <ananas/limits.h>
 #include "kernel/fd.h"

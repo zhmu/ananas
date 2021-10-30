@@ -1,13 +1,12 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __FATFS_H__
-#define __FATFS_H__
+#pragma once
 
-#include <ananas/types.h>
+#include <cstdint>
 
 /*
  * Used to uniquely identify a FAT16 root inode; it appears on a
@@ -81,5 +80,3 @@ struct FAT_INODE_PRIVDATA {
     uint32_t first_cluster;
     uint32_t last_cluster;
 };
-
-#endif /* __FATFS_H__ */

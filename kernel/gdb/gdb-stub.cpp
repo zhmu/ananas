@@ -73,7 +73,7 @@
  *
  ****************************************************************************/
 
-#include <ananas/types.h>
+#include <cstdint>
 #include "kernel/debug-console.h"
 #include "kernel/gdb.h"
 #include "kernel/lib.h"

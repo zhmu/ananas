@@ -5,7 +5,6 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <ananas/errno.h>
-#include <ananas/types.h>
 #include <ananas/util/array.h>
 #include "kernel/console.h"
 #include "kernel/kdb.h"

@@ -27,7 +27,6 @@
  * naive approach by just creating lists for 1ms .. 32ms transfers and hope
  * they won't overflow for now.
  */
-#include <ananas/types.h>
 #include "kernel/dev/pci.h"
 #include "kernel/dma.h"
 #include "kernel/driver.h"
@@ -42,6 +41,7 @@
 #include "ohci-reg.h"
 #include "ohci-roothub.h"
 #include "ohci-hcd.h"
+#include <cstdint>
 
 #include "kernel-md/vm.h" // XXX for KVTOP, which we must remove
 

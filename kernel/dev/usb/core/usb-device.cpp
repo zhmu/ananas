@@ -4,7 +4,6 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
 #include "kernel/device.h"
 #include "kernel/lib.h"
 #include "kernel/list.h"
@@ -16,6 +15,7 @@
 #include "usb-device.h"
 #include "usb-transfer.h"
 #include "../device/usb-hub.h"
+#include <cstdint>
 
 namespace usb
 {

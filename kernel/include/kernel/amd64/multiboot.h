@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <ananas/types.h>
+#include <cstdint>
 
 /* As outlined in
  * https://www.gnu.org/software/grub/manual/multiboot/multiboot.html#Boot-information-format */

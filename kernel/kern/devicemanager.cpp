@@ -244,7 +244,7 @@ namespace device_manager
         SpinlockGuard g(internal::spl_devicequeue);
 
         for (auto& device : internal::deviceList) {
-            if (device.d_Major == major(dev) && device.d_Unit == minor(dev))
+            if (device.d_Major == __dev_t_major(dev) && device.d_Unit == __dev_t_minor(dev))
                 return &device;
         }
         return nullptr;

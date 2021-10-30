@@ -1,16 +1,17 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
 #pragma once
 
-#include <ananas/types.h>
+#include "kernel/types.h"
 #include <ananas/util/list.h>
 #include <ananas/util/locked.h>
 #include <machine/param.h>
 #include "kernel/lock.h"
+#include "kernel/refcount.h"
 
 struct Page;
 

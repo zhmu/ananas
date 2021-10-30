@@ -1,13 +1,12 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef ANANAS_ANKFS_SUPPORT_H
-#define ANANAS_ANKFS_SUPPORT_H
+#pragma once
 
-#include <ananas/types.h>
+#include "kernel/types.h"
 
 struct INode;
 
@@ -67,5 +66,3 @@ namespace ankhfs
     Result HandleRead(struct VFS_FILE* file, void* buf, size_t len, const char* data);
 
 } // namespace ankhfs
-
-#endif // ANANAS_ANKFS_SUPPORT_H

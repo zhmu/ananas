@@ -4,10 +4,9 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
+#pragma once
 
-#ifndef __EXT2_H__
-#define __EXT2_H__
+#include <cstdint>
 
 struct EXT2_SUPERBLOCK {
     uint32_t s_inodes_count;
@@ -190,5 +189,3 @@ struct EXT2_DIRENTRY {
 
 /* Values for old filesystems (that have the good old revision) */
 #define EXT2_GOOD_OLD_INODE_SIZE 128
-
-#endif /* __EXT2_H__ */

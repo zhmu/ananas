@@ -13,7 +13,7 @@
  * useful that I commit it here. If you are bored, feel free to clean this
  * up!
  */
-#include <ananas/types.h>
+#include <cstdint>
 #include <ananas/elf.h>
 #include <ananas/flags.h>
 #include "kernel/pcpu.h"

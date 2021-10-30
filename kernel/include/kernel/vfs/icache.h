@@ -6,9 +6,6 @@
  */
 #pragma once
 
-#include <ananas/types.h>
-#include "kernel/list.h"
-
 struct INode;
 struct VFS_MOUNTED_FS;
 

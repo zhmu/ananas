@@ -1,10 +1,9 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/lib.h"
@@ -48,7 +47,7 @@ namespace ankhfs
                     snprintf(
                         entry, maxLength, "%s", currentDevice->d_Name);
                     inum = make_inum(
-                        SS_Device, makedev(currentDevice->d_Major, currentDevice->d_Unit), 0);
+                        SS_Device, __dev_t_make(currentDevice->d_Major, currentDevice->d_Unit), 0);
                     ++currentDevice;
                     return true;
                 }

@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <ananas/types.h>
+#include "kernel/types.h"
 #include "kernel/vfs/types.h"
 
 #define VFS_MAX_NAME_LEN 255

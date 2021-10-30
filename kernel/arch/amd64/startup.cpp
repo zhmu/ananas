@@ -4,8 +4,6 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
-#include <loader/module.h>
 #include <machine/param.h>
 #include "kernel/cmdline.h"
 #include "kernel/fd.h"

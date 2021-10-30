@@ -4,14 +4,18 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
+#include "kernel/types.h"
 #include <ananas/errno.h>
-#include <ananas/handle-options.h>
 #include "kernel/fd.h"
 #include "kernel/result.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "syscall.h"
+
+// I wonder where these should go...
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
 
 Result sys_seek(const fdindex_t hindex, off_t* offset, const int whence)
 {
@@ -26,13 +30,13 @@ Result sys_seek(const fdindex_t hindex, off_t* offset, const int whence)
     /* Update the offset */
     off_t new_offset;
     switch (whence) {
-        case HCTL_SEEK_WHENCE_SET:
+        case SEEK_SET:
             new_offset = *offset;
             break;
-        case HCTL_SEEK_WHENCE_CUR:
+        case SEEK_CUR:
             new_offset = file->f_offset + *offset;
             break;
-        case HCTL_SEEK_WHENCE_END:
+        case SEEK_END:
             new_offset = file->f_dentry->d_inode->i_sb.st_size - *offset;
             break;
         default:

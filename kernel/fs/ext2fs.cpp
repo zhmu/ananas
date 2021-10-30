@@ -28,7 +28,7 @@
  * The main reference material used is "The Second Extended File System:
  * Internal Layout" by Dave Poirier.
  */
-#include <ananas/types.h>
+#include "kernel/types.h"
 #include <ananas/errno.h>
 #include "kernel/bio.h"
 #include "kernel/init.h"

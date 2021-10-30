@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <ananas/types.h>
+#include <cstdint>
 
 #define SATA_FIS_TYPE_H2D 0x27
 #define SATA_FIS_UPD_C 0x80

@@ -4,7 +4,6 @@
  * Copyright (c) 2009-2019 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
 #include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"

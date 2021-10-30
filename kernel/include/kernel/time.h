@@ -1,18 +1,19 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
 #pragma once
 
-#include <ananas/types.h>
+#include <cstdint>
 #include <sys/time.h>
 
 #define CLOCK_MONOTONIC 0
 #define CLOCK_REALTIME 1
 #define CLOCK_SECONDS 2
 
+// XXX shouldn't this be in sys/time.h ?
 struct tm {
     int tm_sec;
     int tm_min;

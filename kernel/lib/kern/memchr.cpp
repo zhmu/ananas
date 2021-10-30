@@ -4,8 +4,8 @@
  * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
 #include "kernel/lib.h"
+#include <cstdint>
 
 void* memchr(const void* s, int c, size_t n)
 {

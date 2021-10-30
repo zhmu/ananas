@@ -6,11 +6,12 @@
  */
 #pragma once
 
-#include <ananas/types.h>
+#include "kernel/types.h"
 #include <ananas/util/list.h>
 #include <ananas/util/vector.h>
 #include "kernel/lock.h"
 #include "kernel/lib.h"
+#include "kernel/refcount.h"
 #include "kernel/result.h"
 
 struct Process;

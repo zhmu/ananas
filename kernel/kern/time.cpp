@@ -4,12 +4,12 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
 #include "kernel/time.h"
 #include "kernel/lock.h"
 #include "kernel/pcpu.h"
 #include "kernel/schedule.h"
 #include "kernel/thread.h"
+#include <cstdint>
 
 namespace time
 {

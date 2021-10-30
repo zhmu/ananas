@@ -8,7 +8,7 @@
 
 #ifndef ASM
 
-#include <ananas/types.h>
+#include <cstdint>
 #include "kernel-md/frame.h"
 
 /* Details a 64-bit Task State Segment */

@@ -1,13 +1,12 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_OHCI_HCD_H__
-#define __ANANAS_OHCI_HCD_H__
+#pragma once
 
-#include <ananas/types.h>
+#include <cstdint>
 #include "kernel/device.h"
 #include "kernel/irq.h"
 
@@ -118,5 +117,3 @@ namespace usb
     };
 
 } // namespace usb
-
-#endif /* __ANANAS_OHCI_HCD_H__ */

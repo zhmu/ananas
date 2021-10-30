@@ -21,7 +21,6 @@
  *
  * All transitions are managed by scheduler.cpp.
  */
-#include <ananas/types.h>
 #include "kernel/device.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"

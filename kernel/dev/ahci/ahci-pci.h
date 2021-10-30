@@ -4,10 +4,9 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __ANANAS_AHCIPCI_H__
-#define __ANANAS_AHCIPCI_H__
+#pragma once
 
-#include <ananas/types.h>
+#include <cstdint>
 
 namespace ahci
 {
@@ -291,5 +290,3 @@ namespace ahci
 #endif
 
 } // namespace ahci
-
-#endif /* __ANANAS_AHCIPCI_H__ */

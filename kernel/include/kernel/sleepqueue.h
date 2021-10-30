@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <ananas/types.h>
+#include "kernel/types.h"
 #include <ananas/util/list.h>
 #include "kernel/spinlock.h"
 #include "kernel/thread_fwd.h"

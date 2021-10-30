@@ -1,13 +1,11 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef ANANAS_VCONSOLE_H
-#define ANANAS_VCONSOLE_H
+#pragma once
 
-#include <ananas/types.h>
 #include <ananas/util/array.h>
 #include "kernel/device.h"
 #include "kernel/dev/inputmux.h"
@@ -43,5 +41,3 @@ struct VConsole : public Device,
     IVideo* v_Video = nullptr;
     VTTY* activeVTTY = nullptr;
 };
-
-#endif /* ANANAS_VCONSOLE_H */

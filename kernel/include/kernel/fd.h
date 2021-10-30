@@ -1,13 +1,13 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
 #pragma once
 
+#include "kernel/types.h"
 #include <ananas/util/list.h>
-#include <ananas/_types/socklen.h>
 #include <sys/select.h>
 #include "kernel/lock.h"
 #include "kernel/init.h"

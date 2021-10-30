@@ -6,7 +6,6 @@
  */
 #pragma once
 
-#include <ananas/types.h>
 #include "kernel/cdefs.h"
 #include <stdio.h>
 #include <stdlib.h>

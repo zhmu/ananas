@@ -4,7 +4,6 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/types.h>
 #include "kernel/asmsymbols.h"
 #include "kernel/pcpu.h"
 #include "kernel/thread.h"

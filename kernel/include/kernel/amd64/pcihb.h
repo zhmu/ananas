@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <ananas/types.h>
+#include <cstdint>
 #include "kernel-md/io.h"
 #include "kernel/lib.h"
 

@@ -6,7 +6,6 @@
  */
 #pragma once
 
-#include <ananas/types.h>
 #include <ananas/util/ring_buffer.h>
 #include <termios.h>
 #include "kernel/device.h"

@@ -6,8 +6,8 @@
  */
 #pragma once
 
-#include <ananas/types.h>
 #include <ananas/util/vector.h>
+#include "kernel/types.h"
 #include "kernel-md/dma.h"
 
 class Device;
