@@ -81,6 +81,13 @@ namespace
             }
         }
 
+        awe::Rectangle ComputePixelRectangle(const teken_pos_t& p)
+        {
+            const auto x = p.tp_col * s_CharWidth;
+            const auto y = p.tp_row * s_CharHeight;
+            return { { x, y }, { s_CharWidth, s_CharHeight } };
+        }
+
         void PutChar(const teken_pos_t* p, const teken_char_t c, const teken_attr_t* a)
         {
             PixelAt(p->tp_col, p->tp_row) = { c, *a };
@@ -105,12 +112,23 @@ namespace
         void Copy(const teken_rect_t* r, const teken_pos_t* p)
         {
             auto copy_pixel = [&](const int deltaX, const int deltaY) {
+                const teken_pos_t src{
+                    static_cast<teken_unit_t>(r->tr_begin.tp_row + deltaY),
+                    static_cast<teken_unit_t>(r->tr_begin.tp_col + deltaX) };
                 const teken_pos_t dst{
                     static_cast<teken_unit_t>(p->tp_row + deltaY),
                     static_cast<teken_unit_t>(p->tp_col + deltaX) };
+
                 auto& pixel = PixelAt(dst.tp_col, dst.tp_row);
-                pixel = PixelAt(r->tr_begin.tp_col + deltaX, r->tr_begin.tp_row + deltaY);
-                PutChar(&dst, pixel.c, &pixel.a);
+                pixel = PixelAt(src.tp_col, src.tp_row);
+
+                if (cursor.tp_col == src.tp_col && cursor.tp_row == src.tp_row) {
+                    PutChar(&dst, pixel.c, &pixel.a);
+                } else {
+                    const auto srcRect = ComputePixelRectangle(src);
+                    const auto dstRect = ComputePixelRectangle(dst);
+                    pixelBuffer.Blit(pixelBuffer, srcRect, dstRect.point);
+                }
             };
 
             /*
