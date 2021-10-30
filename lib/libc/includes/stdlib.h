@@ -359,6 +359,10 @@ size_t wcstombs(char* _PDCLIB_restrict s, const wchar_t* _PDCLIB_restrict pwcs, 
 
 char* realpath(const char* file_name, char* _PDCLIB_restrict resolved_name);
 
+/* BSD progname support */
+const char* getprogname();
+void setprogname(const char* progname);
+
 /* POSIX pseudo terminal support */
 int posix_openpt(int oflag);
 int grantpt(int fildes);

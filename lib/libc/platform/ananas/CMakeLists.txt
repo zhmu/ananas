@@ -147,6 +147,7 @@ set(SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/termios/tcgetattr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/termios/tcsetattr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/functions/termios/tcsendbreak.c
+	${CMAKE_CURRENT_SOURCE_DIR}/internals/init.c
 	PARENT_SCOPE
 )
 

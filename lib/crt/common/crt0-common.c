@@ -9,6 +9,7 @@
  */
 #include <stdlib.h>
 
+extern void _libc_init(int argc, char** argv, char** envp, char** auxv);
 extern int main(int argc, char** argv, char** envp);
 extern void exit(int);
 char** environ;
@@ -28,6 +29,7 @@ void __start(unsigned long* stk, void (*cleanup)() /* provided by rtld-elf */)
     stk += argc + 1 /* terminating null */;
     environ = (char**)stk++;
     void* auxv = stk;
+    _libc_init(argc, argv, environ, auxv);
     if (&_DYNAMIC != NULL)
         atexit(cleanup);
     atexit(_fini);
