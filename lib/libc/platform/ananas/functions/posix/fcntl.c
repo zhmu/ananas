@@ -8,6 +8,7 @@
 #include <ananas/syscalls.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <unistd.h>
 #include "_map_statuscode.h"
 

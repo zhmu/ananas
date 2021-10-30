@@ -9,8 +9,7 @@
 #include "_PDCLIB_aux.h"
 #include "_PDCLIB_int.h"
 
-#include <ananas/_types/clockid.h>
-#include <ananas/_types/timespec.h>
+#include <sys/types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,9 +23,6 @@ typedef _PDCLIB_size_t size_t;
 #ifndef NULL
 #define NULL _PDCLIB_NULL
 #endif
-
-typedef _PDCLIB_time_t time_t;
-typedef _PDCLIB_clock_t clock_t;
 
 #define CLOCKS_PER_SEC _PDCLIB_CLOCKS_PER_SEC
 #define TIME_UTC _PDCLIB_TIME_UTC

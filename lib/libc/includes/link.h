@@ -1,15 +1,16 @@
 /*-
  * SPDX-License-Identifier: Zlib
  *
- * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
+ * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
 #ifndef ANANAS_LINK_H
 #define ANANAS_LINK_H
 
-#include <ananas/types.h>
+#include <sys/types.h>
 #include <machine/elf.h>
 #include <sys/cdefs.h>
+#include <stdint.h>
 
 struct dl_phdr_info {
     Elf_Addr dlpi_addr;
@@ -19,7 +20,7 @@ struct dl_phdr_info {
 };
 
 struct link_map {
-    addr_t l_addr;      /* base address of library */
+    Elf_Addr l_addr;      /* base address of library */
     const char* l_name; /* absolute path to library */
     const void* l_ld;   /* pointer to .dynamic in library */
     struct link_map* l_next;

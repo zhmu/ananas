@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include "internal.h"
 
 static inline struct pthread_rwlockattr* get_attr(pthread_rwlockattr_t* attr)
 {

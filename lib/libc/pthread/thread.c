@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include "internal.h"
 
 // XXX We need to re-think this once we have actual threads...
 static struct pthread main_pthread;

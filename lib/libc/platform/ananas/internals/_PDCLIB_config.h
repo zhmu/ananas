@@ -8,7 +8,7 @@
    Permission is granted to use, modify, and / or redistribute at will.
 */
 
-#include <machine/_types.h>
+#include <ananas/types.h>
 
 /* -------------------------------------------------------------------------- */
 /* Misc                                                                       */

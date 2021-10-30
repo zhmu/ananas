@@ -6,6 +6,7 @@
  */
 #include <pthread.h>
 #include <errno.h>
+#include "internal.h"
 
 int pthread_attr_init(pthread_attr_t* attr)
 {
