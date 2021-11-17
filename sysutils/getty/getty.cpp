@@ -14,7 +14,7 @@
 #include <fcntl.h>
 #include <iostream>
 #include <unistd.h>
-#include <sys/tty.h>
+#include <ananas/tty.h>
 #include <sys/ioctl.h>
 #include <cstring>
 #include "common/paths.h"

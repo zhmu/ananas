@@ -6,4 +6,9 @@
  */
 #pragma once
 
-#include <sys/termios.h>
+#define IPC_STAT 1
+#define IPC_SET 2
+#define IPC_RMID 3
+
+struct shmid_ds {
+};

@@ -8,7 +8,7 @@
 #define RTLD_H
 
 #include <ananas/util/list.h>
-#include <machine/elf.h>
+#include <ananas/amd64/elf.h>
 #include <cstddef>
 
 struct Needed : util::List<Needed>::NodePtr {

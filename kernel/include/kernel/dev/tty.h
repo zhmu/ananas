@@ -7,7 +7,7 @@
 #pragma once
 
 #include <ananas/util/ring_buffer.h>
-#include <termios.h>
+#include <ananas/termios.h>
 #include "kernel/device.h"
 #include "kernel/lock.h"
 

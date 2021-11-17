@@ -6,4 +6,6 @@
  */
 #pragma once
 
-#include <sys/termios.h>
+typedef struct {
+    long fds_bits[1];
+} fd_set;

@@ -28,6 +28,7 @@ typedef long            __pid_t;
 typedef __SIZE_TYPE__   __socklen_t;
 typedef __uint32_t      __statuscode_t;
 typedef __uint32_t      __suseconds_t;
+typedef __int32_t       __useconds_t;
 typedef __uint64_t      __tick_t;
 typedef __int64_t       __time_t;
 typedef __uint32_t      __uid_t;

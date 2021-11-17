@@ -9,11 +9,11 @@
 
 #include <sys/types.h>
 
-typedef void (*sig_t)(int);
+typedef void (*_sig_func_ptr)(int);
 
-#define SIG_ERR ((sig_t)-1)
-#define SIG_DFL ((sig_t)0)
-#define SIG_IGN ((sig_t)1)
+#define SIG_ERR ((_sig_func_ptr)-1)
+#define SIG_DFL ((_sig_func_ptr)0)
+#define SIG_IGN ((_sig_func_ptr)1)
 
 union sigval {
     int sival_int;
@@ -80,6 +80,7 @@ struct sigaction {
 #define SIGUSR2 31
 #define SIGTHR 32
 #define _SIGLAST SIGTHR
+#define NSIG (_SIGLAST+1)
 
 #define SIG_BLOCK 0
 #define SIG_SETMASK 1

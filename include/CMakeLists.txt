@@ -1,16 +1,24 @@
 project(headers NONE)
 cmake_minimum_required(VERSION 3.9)
 
-install(DIRECTORY .
-	DESTINATION usr/include
-	FILES_MATCHING PATTERN "*.h"
-)
-
-# install our machine-specific headers too
-file(GLOB m ananas/amd64/*.h)
-install(FILES ${m}
-	DESTINATION usr/include/machine
-)
+# XXX do not populate things that ought to be in libc
+if(FALSE)
+    install(DIRECTORY .
+        DESTINATION usr/include
+        FILES_MATCHING PATTERN "*.h"
+    )
+    # install our machine-specific headers too
+    file(GLOB m ananas/amd64/*.h)
+    install(FILES ${m}
+        DESTINATION usr/include/machine
+    )
+else()
+    # kernel headers only
+    install(DIRECTORY ananas
+        DESTINATION usr/include
+        FILES_MATCHING PATTERN "*.h"
+    )
+endif()
 
 # generate syscalls.h from the kern's syscalls.in - we don't care about
 # anything else so just write to /dev/null there

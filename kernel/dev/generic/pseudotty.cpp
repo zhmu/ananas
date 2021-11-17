@@ -12,7 +12,7 @@
 #include "kernel/result.h"
 #include "kernel/dev/tty.h"
 #include "kernel/vfs/types.h"
-#include <sys/tty.h>
+#include <ananas/tty.h>
 
 namespace pseudotty
 {

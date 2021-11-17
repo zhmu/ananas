@@ -8,9 +8,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <machine/param.h> // for PAGE_SIZE
 #include <sys/mman.h>
-#include <machine/elf.h>
+#include <ananas/amd64/param.h> // for PAGE_SIZE
+#include <ananas/amd64/elf.h>
 #include <link.h>
 #include <limits.h>
 #include "lib.h"

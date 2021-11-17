@@ -6,4 +6,8 @@
  */
 #pragma once
 
-#include <sys/termios.h>
+struct timespec {
+    __time_t    tv_sec;         /* seconds */
+    long        tv_nsec;        /* nanoseconds */
+};
+

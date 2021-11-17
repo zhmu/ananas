@@ -9,7 +9,7 @@
  */
 
 #include <ananas/types.h>
-#include <machine/param.h> // for PAGE_SIZE
+#include <ananas/amd64/param.h> // for PAGE_SIZE
 #include <sys/mman.h>
 #include <cstddef>
 #include "lib.h"

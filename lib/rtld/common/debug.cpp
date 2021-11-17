@@ -6,6 +6,7 @@
  */
 #include <ananas/types.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <cstddef>
 #include "lib.h"
 

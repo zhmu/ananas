@@ -87,8 +87,9 @@
 #define ETXTBSY 77
 #define EWOULDBLOCK EAGAIN
 #define EXDEV 78
+#define EFTYPE 79
 
 /* Not in POSIX, but useful nevertheless: last errno we have defined */
-#define ELAST 78
+#define ELAST 79
 
 #endif /* ANANAS_ERRNO_H */

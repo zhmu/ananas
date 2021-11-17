@@ -5,8 +5,8 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <ananas/flags.h>
-#include <sys/tty.h>
-#include <termios.h>
+#include <ananas/tty.h>
+#include <ananas/termios.h>
 #include "kernel/dev/tty.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"

@@ -9,6 +9,8 @@
 
 #include <ananas/types.h>
 
+#define MAXNAMLEN 255
+
 /*
  * Directory entry, as returned by the kernel.
  */

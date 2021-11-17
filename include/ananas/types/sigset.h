@@ -6,4 +6,6 @@
  */
 #pragma once
 
-#include <sys/termios.h>
+typedef struct {
+    unsigned int sig[1];
+} sigset_t;
