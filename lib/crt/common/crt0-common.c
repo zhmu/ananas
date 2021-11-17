@@ -12,7 +12,7 @@
 extern void _libc_init(int argc, char** argv, char** envp, char** auxv);
 extern int main(int argc, char** argv, char** envp);
 extern void exit(int);
-char** environ;
+extern char** environ;
 
 #define __hidden __attribute__((__visibility__("hidden")))
 
