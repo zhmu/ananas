@@ -1,0 +1,1160 @@
+project(c C ASM)
+
+cmake_minimum_required(VERSION 3.9)
+cmake_policy(SET CMP0076 NEW)
+
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE) # ??
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -isystem ${CMAKE_CURRENT_SOURCE_DIR}/sys/ananas")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -isystem ${CMAKE_CURRENT_SOURCE_DIR}/sys/ananas/include")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -isystem ${CMAKE_CURRENT_SOURCE_DIR}/include")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -isystem ${CMAKE_CURRENT_SOURCE_DIR}/posix")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -isystem ${CMAKE_CURRENT_SOURCE_DIR}/../../include")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I.")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-builtin")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostdlib")
+
+# TODO compare this with newlib.h
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMISSING_SYSCALL_NAMES")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_HAVE_LONG_DOUBLE=1")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_MB_CAPABLE")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_MB_LEN_MAX=8")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_LDBL_EQ_DBL")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_NO_POSIX_SPAWN")
+
+set(CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS}")
+
+#reent/sbrkr.c
+#ssp/gets_chk.c
+#stdlib/drand48.c
+#stdlib/erand48.c
+add_library(${PROJECT_NAME} SHARED
+    argz/argz_add.c
+    argz/argz_add_sep.c
+    argz/argz_append.c
+    argz/argz_count.c
+    argz/argz_create.c
+    argz/argz_create_sep.c
+    argz/argz_delete.c
+    argz/argz_extract.c
+    argz/argz_insert.c
+    argz/argz_next.c
+    argz/argz_replace.c
+    argz/argz_stringify.c
+    argz/buf_findstr.c
+    argz/dummy.c
+    argz/envz_add.c
+    argz/envz_entry.c
+    argz/envz_get.c
+    argz/envz_merge.c
+    argz/envz_remove.c
+    argz/envz_strip.c
+    ctype/categories.c
+    ctype/ctype_.c
+    ctype/isalnum.c
+    ctype/isalnum_l.c
+    ctype/isalpha.c
+    ctype/isalpha_l.c
+    ctype/isascii.c
+    ctype/isascii_l.c
+    ctype/isblank.c
+    ctype/isblank_l.c
+    ctype/iscntrl.c
+    ctype/iscntrl_l.c
+    ctype/isdigit.c
+    ctype/isdigit_l.c
+    ctype/islower.c
+    ctype/islower_l.c
+    ctype/isprint.c
+    ctype/isprint_l.c
+    ctype/ispunct.c
+    ctype/ispunct_l.c
+    ctype/isspace.c
+    ctype/isspace_l.c
+    ctype/isupper.c
+    ctype/isupper_l.c
+    ctype/iswalnum.c
+    ctype/iswalnum_l.c
+    ctype/iswalpha.c
+    ctype/iswalpha_l.c
+    ctype/iswblank.c
+    ctype/iswblank_l.c
+    ctype/iswcntrl.c
+    ctype/iswcntrl_l.c
+    ctype/iswctype.c
+    ctype/iswctype_l.c
+    ctype/iswdigit.c
+    ctype/iswdigit_l.c
+    ctype/iswgraph.c
+    ctype/iswgraph_l.c
+    ctype/iswlower.c
+    ctype/iswlower_l.c
+    ctype/iswprint.c
+    ctype/iswprint_l.c
+    ctype/iswpunct.c
+    ctype/iswpunct_l.c
+    ctype/iswspace.c
+    ctype/iswspace_l.c
+    ctype/iswupper.c
+    ctype/iswupper_l.c
+    ctype/iswxdigit.c
+    ctype/iswxdigit_l.c
+    ctype/isxdigit.c
+    ctype/isxdigit_l.c
+    ctype/jp2uc.c
+    ctype/toascii.c
+    ctype/toascii_l.c
+    ctype/tolower.c
+    ctype/tolower_l.c
+    ctype/toupper.c
+    ctype/toupper_l.c
+    ctype/towctrans.c
+    ctype/towctrans_l.c
+    ctype/towlower.c
+    ctype/towlower_l.c
+    ctype/towupper.c
+    ctype/towupper_l.c
+    ctype/wctrans.c
+    ctype/wctrans_l.c
+    ctype/wctype.c
+    ctype/wctype_l.c
+    errno/errno.c
+    iconv/ccs/big5.c
+    iconv/ccs/ccsbi.c
+    iconv/ccs/cns11643_plane1.c
+    iconv/ccs/cns11643_plane14.c
+    iconv/ccs/cns11643_plane2.c
+    iconv/ccs/cp775.c
+    iconv/ccs/cp850.c
+    iconv/ccs/cp852.c
+    iconv/ccs/cp855.c
+    iconv/ccs/cp866.c
+    iconv/ccs/iso_8859_1.c
+    iconv/ccs/iso_8859_10.c
+    iconv/ccs/iso_8859_11.c
+    iconv/ccs/iso_8859_13.c
+    iconv/ccs/iso_8859_14.c
+    iconv/ccs/iso_8859_15.c
+    iconv/ccs/iso_8859_2.c
+    iconv/ccs/iso_8859_3.c
+    iconv/ccs/iso_8859_4.c
+    iconv/ccs/iso_8859_5.c
+    iconv/ccs/iso_8859_6.c
+    iconv/ccs/iso_8859_7.c
+    iconv/ccs/iso_8859_8.c
+    iconv/ccs/iso_8859_9.c
+    iconv/ccs/iso_ir_111.c
+    iconv/ccs/jis_x0201_1976.c
+    iconv/ccs/jis_x0208_1990.c
+    iconv/ccs/jis_x0212_1990.c
+    iconv/ccs/koi8_r.c
+    iconv/ccs/koi8_ru.c
+    iconv/ccs/koi8_u.c
+    iconv/ccs/koi8_uni.c
+    iconv/ccs/ksx1001.c
+    iconv/ccs/win_1250.c
+    iconv/ccs/win_1251.c
+    iconv/ccs/win_1252.c
+    iconv/ccs/win_1253.c
+    iconv/ccs/win_1254.c
+    iconv/ccs/win_1255.c
+    iconv/ccs/win_1256.c
+    iconv/ccs/win_1257.c
+    iconv/ccs/win_1258.c
+    iconv/ces/cesbi.c
+    iconv/ces/euc.c
+    iconv/ces/table-pcs.c
+    iconv/ces/table.c
+    iconv/ces/ucs-2-internal.c
+    iconv/ces/ucs-2.c
+    iconv/ces/ucs-4-internal.c
+    iconv/ces/ucs-4.c
+    iconv/ces/us-ascii.c
+    iconv/ces/utf-16.c
+    iconv/ces/utf-8.c
+    iconv/lib/aliasesbi.c
+    iconv/lib/aliasesi.c
+    iconv/lib/iconv.c
+    iconv/lib/iconvnls.c
+    iconv/lib/nullconv.c
+    iconv/lib/ucsconv.c
+    locale/duplocale.c
+    locale/freelocale.c
+    locale/lctype.c
+    locale/lmessages.c
+    locale/lmonetary.c
+    locale/lnumeric.c
+    locale/locale.c
+    locale/localeconv.c
+    locale/newlocale.c
+    locale/nl_langinfo.c
+    locale/timelocal.c
+    locale/uselocale.c
+    misc/__dprintf.c
+    misc/ffs.c
+    misc/fini.c
+    misc/init.c
+    misc/lock.c
+    misc/unctrl.c
+    reent/closer.c
+    reent/execr.c
+    reent/fcntlr.c
+    reent/fstat64r.c
+    reent/fstatr.c
+    reent/getreent.c
+    reent/gettimeofdayr.c
+    reent/impure.c
+    reent/isattyr.c
+    reent/linkr.c
+    reent/lseek64r.c
+    reent/lseekr.c
+    reent/mkdirr.c
+    reent/open64r.c
+    reent/openr.c
+    reent/readr.c
+    reent/reent.c
+    reent/renamer.c
+    reent/signalr.c
+    reent/signgam.c
+    reent/stat64r.c
+    reent/statr.c
+    reent/timesr.c
+    reent/unlinkr.c
+    reent/writer.c
+    search/bsd_qsort_r.c
+    search/bsearch.c
+    search/hash.c
+    search/hash_bigkey.c
+    search/hash_buf.c
+    search/hash_func.c
+    search/hash_log2.c
+    search/hash_page.c
+    search/hcreate.c
+    search/hcreate_r.c
+    search/ndbm.c
+    search/qsort.c
+    search/qsort_r.c
+    search/tdelete.c
+    search/tdestroy.c
+    search/tfind.c
+    search/tsearch.c
+    search/twalk.c
+    signal/psignal.c
+    signal/raise.c
+    ssp/chk_fail.c
+    ssp/memcpy_chk.c
+    ssp/memmove_chk.c
+    ssp/mempcpy_chk.c
+    ssp/memset_chk.c
+    ssp/snprintf_chk.c
+    ssp/sprintf_chk.c
+    ssp/stack_protector.c
+    ssp/stpcpy_chk.c
+    ssp/stpncpy_chk.c
+    ssp/strcat_chk.c
+    ssp/strcpy_chk.c
+    ssp/strncat_chk.c
+    ssp/strncpy_chk.c
+    ssp/vsnprintf_chk.c
+    ssp/vsprintf_chk.c
+    stdio/asiprintf.c
+    stdio/asniprintf.c
+    stdio/asnprintf.c
+    stdio/asprintf.c
+    stdio/clearerr.c
+    stdio/clearerr_u.c
+    stdio/diprintf.c
+    stdio/dprintf.c
+    stdio/fclose.c
+    stdio/fcloseall.c
+    stdio/fdopen.c
+    stdio/feof.c
+    stdio/feof_u.c
+    stdio/ferror.c
+    stdio/ferror_u.c
+    stdio/fflush.c
+    stdio/fflush_u.c
+    stdio/fgetc.c
+    stdio/fgetc_u.c
+    stdio/fgetpos.c
+    stdio/fgets.c
+    stdio/fgets_u.c
+    stdio/fgetwc.c
+    stdio/fgetwc_u.c
+    stdio/fgetws.c
+    stdio/fgetws_u.c
+    stdio/fileno.c
+    stdio/fileno_u.c
+    stdio/findfp.c
+    stdio/fiprintf.c
+    stdio/fiscanf.c
+    stdio/flags.c
+    stdio/fmemopen.c
+    stdio/fopen.c
+    stdio/fopencookie.c
+    stdio/fprintf.c
+    stdio/fpurge.c
+    stdio/fputc.c
+    stdio/fputc_u.c
+    stdio/fputs.c
+    stdio/fputs_u.c
+    stdio/fputwc.c
+    stdio/fputwc_u.c
+    stdio/fputws.c
+    stdio/fputws_u.c
+    stdio/fread.c
+    stdio/fread_u.c
+    stdio/freopen.c
+    stdio/fscanf.c
+    stdio/fseek.c
+    stdio/fseeko.c
+    stdio/fsetlocking.c
+    stdio/fsetpos.c
+    stdio/ftell.c
+    stdio/ftello.c
+    stdio/funopen.c
+    stdio/fvwrite.c
+    stdio/fwalk.c
+    stdio/fwide.c
+    stdio/fwprintf.c
+    stdio/fwrite.c
+    stdio/fwrite_u.c
+    stdio/fwscanf.c
+    stdio/getc.c
+    stdio/getc_u.c
+    stdio/getchar.c
+    stdio/getchar_u.c
+    stdio/getdelim.c
+    stdio/getline.c
+    stdio/gets.c
+    stdio/getw.c
+    stdio/getwc.c
+    stdio/getwc_u.c
+    stdio/getwchar.c
+    stdio/getwchar_u.c
+    stdio/iprintf.c
+    stdio/iscanf.c
+    stdio/makebuf.c
+    stdio/mktemp.c
+    stdio/open_memstream.c
+    stdio/perror.c
+    stdio/printf.c
+    stdio/putc.c
+    stdio/putc_u.c
+    stdio/putchar.c
+    stdio/putchar_u.c
+    stdio/puts.c
+    stdio/putw.c
+    stdio/putwc.c
+    stdio/putwc_u.c
+    stdio/putwchar.c
+    stdio/putwchar_u.c
+    stdio/refill.c
+    stdio/remove.c
+    stdio/rename.c
+    stdio/rewind.c
+    stdio/rget.c
+    stdio/scanf.c
+    stdio/sccl.c
+    stdio/setbuf.c
+    stdio/setbuffer.c
+    stdio/setlinebuf.c
+    stdio/setvbuf.c
+    stdio/siprintf.c
+    stdio/siscanf.c
+    stdio/sniprintf.c
+    stdio/snprintf.c
+    stdio/sprintf.c
+    stdio/sscanf.c
+    stdio/stdio.c
+    stdio/stdio_ext.c
+    stdio/swprintf.c
+    stdio/swscanf.c
+    stdio/tmpfile.c
+    stdio/tmpnam.c
+    stdio/ungetc.c
+    stdio/ungetwc.c
+    stdio/vasiprintf.c
+    stdio/vasniprintf.c
+    stdio/vasnprintf.c
+    stdio/vasprintf.c
+    stdio/vdiprintf.c
+    stdio/vdprintf.c
+    stdio/vfprintf.c
+    stdio/vfscanf.c
+    stdio/vfwprintf.c
+    stdio/vfwscanf.c
+    stdio/viprintf.c
+    stdio/viscanf.c
+    stdio/vprintf.c
+    stdio/vscanf.c
+    stdio/vsiprintf.c
+    stdio/vsiscanf.c
+    stdio/vsniprintf.c
+    stdio/vsnprintf.c
+    stdio/vsprintf.c
+    stdio/vsscanf.c
+    stdio/vswprintf.c
+    stdio/vswscanf.c
+    stdio/vwprintf.c
+    stdio/vwscanf.c
+    stdio/wbuf.c
+    stdio/wprintf.c
+    stdio/wscanf.c
+    stdio/wsetup.c
+    stdlib/_Exit.c
+    stdlib/__adjust.c
+    stdlib/__atexit.c
+    stdlib/__call_atexit.c
+    stdlib/__exp10.c
+    stdlib/__ten_mu.c
+    stdlib/a64l.c
+    stdlib/abort.c
+    stdlib/abs.c
+    stdlib/aligned_alloc.c
+    stdlib/arc4random.c
+    stdlib/arc4random_uniform.c
+    stdlib/assert.c
+    stdlib/atexit.c
+    stdlib/atof.c
+    stdlib/atoff.c
+    stdlib/atoi.c
+    stdlib/atol.c
+    stdlib/atoll.c
+    stdlib/btowc.c
+    stdlib/calloc.c
+    stdlib/cxa_atexit.c
+    stdlib/cxa_finalize.c
+    stdlib/div.c
+    stdlib/dlmalloc.c
+    stdlib/dtoa.c
+    stdlib/dtoastub.c
+    stdlib/ecvtbuf.c
+    stdlib/efgcvt.c
+    stdlib/envlock.c
+    stdlib/environ.c
+    stdlib/eprintf.c
+    stdlib/exit.c
+    stdlib/gdtoa-gethex.c
+    stdlib/gdtoa-hexnan.c
+    stdlib/getenv.c
+    stdlib/getenv_r.c
+    stdlib/getopt.c
+    stdlib/getsubopt.c
+    stdlib/imaxabs.c
+    stdlib/imaxdiv.c
+    stdlib/itoa.c
+    stdlib/jrand48.c
+    stdlib/l64a.c
+    stdlib/labs.c
+    stdlib/lcong48.c
+    stdlib/ldiv.c
+    stdlib/ldtoa.c
+    stdlib/llabs.c
+    stdlib/lldiv.c
+    stdlib/lrand48.c
+    stdlib/malign.c
+    stdlib/malloc.c
+    stdlib/mblen.c
+    stdlib/mblen_r.c
+    stdlib/mbrlen.c
+    stdlib/mbrtowc.c
+    stdlib/mbsinit.c
+    stdlib/mbsnrtowcs.c
+    stdlib/mbsrtowcs.c
+    stdlib/mbstowcs.c
+    stdlib/mbstowcs_r.c
+    stdlib/mbtowc.c
+    stdlib/mbtowc_r.c
+    stdlib/mlock.c
+    stdlib/mprec.c
+    stdlib/mrand48.c
+    stdlib/msize.c
+    stdlib/mstats.c
+    stdlib/mtrim.c
+    stdlib/nrand48.c
+    stdlib/on_exit.c
+    stdlib/on_exit_args.c
+    stdlib/putenv.c
+    stdlib/putenv_r.c
+    stdlib/quick_exit.c
+    stdlib/rand.c
+    stdlib/rand48.c
+    stdlib/rand_r.c
+    stdlib/random.c
+    stdlib/realloc.c
+    stdlib/reallocarray.c
+    stdlib/reallocf.c
+    stdlib/rpmatch.c
+    stdlib/sb_charsets.c
+    stdlib/seed48.c
+    stdlib/setenv.c
+    stdlib/setenv_r.c
+    stdlib/srand48.c
+    stdlib/strtod.c
+    stdlib/strtodg.c
+    stdlib/strtoimax.c
+    stdlib/strtol.c
+    stdlib/strtold.c
+    stdlib/strtoll.c
+    stdlib/strtoll_r.c
+    stdlib/strtorx.c
+    stdlib/strtoul.c
+    stdlib/strtoull.c
+    stdlib/strtoull_r.c
+    stdlib/strtoumax.c
+    stdlib/system.c
+    stdlib/utoa.c
+    stdlib/valloc.c
+    stdlib/wcrtomb.c
+    stdlib/wcsnrtombs.c
+    stdlib/wcsrtombs.c
+    stdlib/wcstod.c
+    stdlib/wcstoimax.c
+    stdlib/wcstol.c
+    stdlib/wcstold.c
+    stdlib/wcstoll.c
+    stdlib/wcstoll_r.c
+    stdlib/wcstombs.c
+    stdlib/wcstombs_r.c
+    stdlib/wcstoul.c
+    stdlib/wcstoull.c
+    stdlib/wcstoull_r.c
+    stdlib/wcstoumax.c
+    stdlib/wctob.c
+    stdlib/wctomb.c
+    stdlib/wctomb_r.c
+    string/bcmp.c
+    string/bcopy.c
+    string/bzero.c
+    string/explicit_bzero.c
+    string/ffsl.c
+    string/ffsll.c
+    string/fls.c
+    string/flsl.c
+    string/flsll.c
+    string/gnu_basename.c
+    string/index.c
+    string/memccpy.c
+    string/memchr.c
+    string/memcmp.c
+    string/memmem.c
+    string/memmove.c
+    string/mempcpy.c
+    string/memrchr.c
+    string/rawmemchr.c
+    string/rindex.c
+    string/stpcpy.c
+    string/stpncpy.c
+    string/strcasecmp.c
+    string/strcasecmp_l.c
+    string/strcasestr.c
+    string/strcat.c
+    string/strchr.c
+    string/strchrnul.c
+    string/strcmp.c
+    string/strcoll.c
+    string/strcoll_l.c
+    string/strcpy.c
+    string/strcspn.c
+    string/strdup.c
+    string/strdup_r.c
+    string/strerror.c
+    string/strerror_r.c
+    string/strlcat.c
+    string/strlcpy.c
+    string/strlen.c
+    string/strlwr.c
+    string/strncasecmp.c
+    string/strncasecmp_l.c
+    string/strncat.c
+    string/strncmp.c
+    string/strncpy.c
+    string/strndup.c
+    string/strndup_r.c
+    string/strnlen.c
+    string/strnstr.c
+    string/strpbrk.c
+    string/strrchr.c
+    string/strsep.c
+    string/strsignal.c
+    string/strspn.c
+    string/strstr.c
+    string/strtok.c
+    string/strtok_r.c
+    string/strupr.c
+    string/strverscmp.c
+    string/strxfrm.c
+    string/strxfrm_l.c
+    string/swab.c
+    string/timingsafe_bcmp.c
+    string/timingsafe_memcmp.c
+    string/u_strerr.c
+    string/wcpcpy.c
+    string/wcpncpy.c
+    string/wcscasecmp.c
+    string/wcscasecmp_l.c
+    string/wcscat.c
+    string/wcschr.c
+    string/wcscmp.c
+    string/wcscoll.c
+    string/wcscoll_l.c
+    string/wcscpy.c
+    string/wcscspn.c
+    string/wcsdup.c
+    string/wcslcat.c
+    string/wcslcpy.c
+    string/wcslen.c
+    string/wcsncasecmp.c
+    string/wcsncasecmp_l.c
+    string/wcsncat.c
+    string/wcsncmp.c
+    string/wcsncpy.c
+    string/wcsnlen.c
+    string/wcspbrk.c
+    string/wcsrchr.c
+    string/wcsspn.c
+    string/wcsstr.c
+    string/wcstok.c
+    string/wcswidth.c
+    string/wcsxfrm.c
+    string/wcsxfrm_l.c
+    string/wcwidth.c
+    string/wmemchr.c
+    string/wmemcmp.c
+    string/wmemcpy.c
+    string/wmemmove.c
+    string/wmempcpy.c
+    string/wmemset.c
+    string/xpg_strerror_r.c
+    unix/basename.c
+    unix/dirname.c
+    unix/getlogin.c
+    unix/getpwent.c
+    unix/getut.c
+    unix/pread.c
+    unix/pwrite.c
+    unix/sigset.c
+    unix/ttyname.c
+    xdr/dummy.c
+    xdr/xdr.c
+    xdr/xdr_array.c
+    xdr/xdr_float.c
+    xdr/xdr_mem.c
+    xdr/xdr_private.c
+    xdr/xdr_rec.c
+    xdr/xdr_reference.c
+    xdr/xdr_sizeof.c
+    xdr/xdr_stdio.c
+)
+
+target_link_options(${PROJECT_NAME} PRIVATE "LINKER:-nostdlib")
+target_link_options(${PROJECT_NAME} PRIVATE "LINKER:-no-undefined")
+
+# vfprintf.c and others are build multiple times
+target_sources(${PROJECT_NAME} PRIVATE
+    stdio/vfiprintf.c
+    stdio/svfprintf.c
+    stdio/svfiprintf.c
+    stdio/vfiwprintf.c
+    stdio/svfwprintf.c
+    stdio/svfiwprintf.c
+    stdio/vfiscanf.c
+    stdio/svfscanf.c
+    stdio/svfiscanf.c
+    stdio/vfiwscanf.c
+    stdio/svfwscanf.c
+    stdio/svfiwscanf.c
+)
+
+# unused stuff
+set(UNUSED
+    posix/_isatty.c
+    posix/opendir.c
+    posix/readdir.c
+    posix/readdir_r.c
+    posix/closedir.c
+    posix/dirfd.c
+    unix/getpass.c # needs sigblock and friends
+    posix/rewinddir.c
+    posix/scandir.c
+    posix/seekdir.c
+    posix/telldir.c
+    xdr/xdr_float_vax.c
+    string/memcpy.c
+    string/memset.c
+    stdio/nano-vfprintf.c
+    stdio/nano-vfprintf_float.c
+    stdio/nano-vfprintf_i.c
+    stdio/nano-vfscanf.c
+    stdio/nano-vfscanf_float.c
+    stdio/nano-vfscanf_i.c
+    stdlib/nano-mallocr.c
+    time/time.c
+    unix/getcwd.c
+    unix/ttyname_r.c
+    signal/signal.c
+)
+
+# machine dependent
+target_sources(${PROJECT_NAME} PRIVATE
+    machine/x86_64/memcpy.S
+    machine/x86_64/memset.S
+    machine/x86_64/setjmp.S
+)
+
+# Ananas specific
+target_sources(${PROJECT_NAME} PRIVATE
+)
+
+if(TRUE)
+    # posix, needs -D_GNU_SOURCE
+    set(POSIX_SOURCES
+        posix/collate.c
+        posix/collcmp.c
+        posix/creat.c
+        posix/execl.c
+        posix/execle.c
+        posix/execlp.c
+        posix/execv.c
+        posix/execve.c
+        posix/execvp.c
+        posix/fnmatch.c
+        posix/glob.c
+        posix/isatty.c
+        posix/popen.c
+        posix/posix_spawn.c
+        posix/regcomp.c
+        posix/regerror.c
+        posix/regexec.c
+        posix/regfree.c
+        posix/sleep.c
+        posix/usleep.c
+        posix/wordexp.c
+        posix/wordfree.c
+    )
+    target_sources(${PROJECT_NAME} PUBLIC ${POSIX_SOURCES})
+    foreach(_file ${POSIX_SOURCES})
+        set_property(SOURCE ${_file} APPEND PROPERTY COMPILE_DEFINITIONS _GNU_SOURCE)
+    endforeach()
+endif()
+
+if(FALSE)
+    # stdio64, needs -I../stdio
+    set(STDIO64_SOURCES
+        stdio64/dummy.c
+        stdio64/fdopen64.c
+        stdio64/fgetpos64.c
+        stdio64/fopen64.c
+        stdio64/freopen64.c
+        stdio64/fseeko64.c
+        stdio64/fsetpos64.c
+        stdio64/ftello64.c
+        stdio64/stdio64.c
+        stdio64/tmpfile64.c
+    )
+    target_sources(${PROJECT_NAME} PUBLIC ${STDIO64_SOURCES})
+    foreach(_file ${STDIO64_SOURCES})
+        set_property(SOURCE ${_file} APPEND PROPERTY COMPILE_FLAGS -I${CMAKE_CURRENT_SOURCE_DIR}/stdio)
+    endforeach()
+endif()
+
+if(TRUE)
+    # pthread
+    set(PTHREAD_SOURCES
+        pthread/attr.c
+        pthread/cancel.c
+        pthread/cleanup.c
+        pthread/CMakeLists.txt
+        pthread/concurrency.c
+        pthread/condattr.c
+        pthread/cond.c
+        pthread/internal.h
+        pthread/mutexattr.c
+        pthread/mutex.c
+        pthread/once.c
+        pthread/rwlockattr.c
+        pthread/rwlock.c
+        pthread/schedparam.c
+        pthread/signal.c
+        pthread/specific.c
+        pthread/thread.c
+        pthread/tls.c
+    )
+    target_sources(${PROJECT_NAME} PUBLIC ${PTHREAD_SOURCES})
+endif()
+
+if(TRUE)
+    # time, needs -Itime
+    set(TIME_SOURCES
+        time/asctime.c
+        time/asctime_r.c
+        time/clock.c
+        time/ctime.c
+        time/ctime_r.c
+        time/difftime.c
+        time/gettzinfo.c
+        time/gmtime.c
+        time/gmtime_r.c
+        time/lcltime.c
+        time/lcltime_r.c
+        time/mktime.c
+        time/month_lengths.c
+        time/strftime.c
+        time/strptime.c
+        time/tzcalc_limits.c
+        time/tzlock.c
+        time/tzset.c
+        time/tzset_r.c
+        time/tzvars.c
+        time/wcsftime.c
+    )
+    target_sources(${PROJECT_NAME} PUBLIC ${TIME_SOURCES})
+    foreach(_file ${TIME_SOURCES})
+        set_property(SOURCE ${_file} APPEND PROPERTY COMPILE_FLAGS -I${CMAKE_CURRENT_SOURCE_DIR}/time)
+    endforeach()
+endif()
+
+# ananas-specifics
+set(ANANAS_SYS_LIBC
+    sys/ananas/_close.c
+    sys/ananas/_libc_init.c
+    sys/ananas/_isatty.c
+    sys/ananas/_execve.c
+    sys/ananas/_exit.c
+    sys/ananas/_open.c
+    sys/ananas/accept.c
+    sys/ananas/access.c
+    sys/ananas/alarm.c
+    sys/ananas/bind.c
+    sys/ananas/cfgetispeed.c
+    sys/ananas/cfgetospeed.c
+    sys/ananas/cfsetispeed.c
+    sys/ananas/cfsetospeed.c
+    sys/ananas/connect.c
+    sys/ananas/chdir.c
+    sys/ananas/chmod.c
+    sys/ananas/chown.c
+    sys/ananas/clock_gettime.c
+    sys/ananas/clock_getres.c
+    sys/ananas/clock_settime.c
+    sys/ananas/close.c
+    sys/ananas/closedir.c
+    sys/ananas/dup.c
+    sys/ananas/dup2.c
+    sys/ananas/endgrent.c
+    sys/ananas/endservent.c
+    sys/ananas/fchdir.c
+    sys/ananas/fchown.c
+    sys/ananas/fcntl.c
+    sys/ananas/fdatasync.c
+    sys/ananas/flockfile.c
+    sys/ananas/fork.c
+    sys/ananas/fstat.c
+    sys/ananas/fstatfs.c
+    sys/ananas/fsync.c
+    sys/ananas/ftruncate.c
+    sys/ananas/funlockfile.c
+    sys/ananas/gethostbyname.c
+    sys/ananas/ioctl.c
+    sys/ananas/getcwd.c
+    sys/ananas/getdtablesize.c
+    sys/ananas/getegid.c
+    sys/ananas/getentropy.c
+    sys/ananas/geteuid.c
+    sys/ananas/getgroups.c
+    sys/ananas/getgrent.c
+    sys/ananas/getgrnam.c
+    sys/ananas/getgrgid.c
+    sys/ananas/gethostbyaddr.c
+    sys/ananas/gethostbyname.c
+    sys/ananas/gethostname.c
+    sys/ananas/getmntinfo.c
+    sys/ananas/getgid.c
+    sys/ananas/getpid.c
+    sys/ananas/getpgrp.c
+    sys/ananas/getppid.c
+    sys/ananas/getpriority.c
+    sys/ananas/getprogname.c
+    sys/ananas/getrlimit.c
+    sys/ananas/getservent.c
+    sys/ananas/getservbyname.c
+    sys/ananas/getservbyport.c
+    sys/ananas/getsid.c
+    sys/ananas/gettimeofday.c
+    sys/ananas/getuid.c
+    sys/ananas/grantpt.c
+    sys/ananas/h_errno.c
+    sys/ananas/kill.c
+    sys/ananas/link.c
+    sys/ananas/listen.c
+    sys/ananas/lseek.c
+    sys/ananas/lstat.c
+    sys/ananas/mkdir.c
+    sys/ananas/mount.c
+    sys/ananas/mmap.c
+    sys/ananas/mprotect.c
+    sys/ananas/munmap.c
+    sys/ananas/nanosleep.c
+    sys/ananas/open.c
+    sys/ananas/opendir.c
+    sys/ananas/pathconf.c
+    sys/ananas/pipe.c
+    sys/ananas/posix_openpt.c
+    sys/ananas/ptsname.c
+    sys/ananas/read.c
+    sys/ananas/readdir.c
+    sys/ananas/readlink.c
+    sys/ananas/rewinddir.c
+    sys/ananas/rmdir.c
+    sys/ananas/seekdir.c
+    sys/ananas/select.c
+    sys/ananas/send.c
+    sys/ananas/setgrent.c
+    sys/ananas/setpgid.c
+    sys/ananas/setpriority.c
+    sys/ananas/setprogname.c
+    sys/ananas/setrlimit.c
+    sys/ananas/setservent.c
+    sys/ananas/setsid.c
+    sys/ananas/setregid.c
+    sys/ananas/setreuid.c
+    sys/ananas/shmat.c
+    sys/ananas/shmctl.c
+    sys/ananas/shmdt.c
+    sys/ananas/shmget.c
+    sys/ananas/sigaction.c
+    sys/ananas/sigprocmask.c
+    sys/ananas/sigset.c
+    sys/ananas/sigsuspend.c
+    sys/ananas/sleep.c
+    sys/ananas/socket.c
+    sys/ananas/stat.c
+    sys/ananas/stat64.c
+    sys/ananas/statfs.c
+    sys/ananas/sysconf.c
+    sys/ananas/symlink.c
+    sys/ananas/tcgetattr.c
+    sys/ananas/tcsetattr.c
+    sys/ananas/tcdrain.c
+    sys/ananas/tcflow.c
+    sys/ananas/tcflush.c
+    sys/ananas/tcgetpgrp.c
+    sys/ananas/tcsendbreak.c
+    sys/ananas/tcsetpgrp.c
+    sys/ananas/telldir.c
+    sys/ananas/time.c
+    sys/ananas/times.c
+    sys/ananas/ttyname_r.c
+    sys/ananas/umask.c
+    sys/ananas/uname.c
+    sys/ananas/unlink.c
+    sys/ananas/unlockpt.c
+    sys/ananas/unmount.c
+    sys/ananas/utime.c
+    sys/ananas/vfork.c
+    sys/ananas/wait.c
+    sys/ananas/wait3.c
+    sys/ananas/waitpid.c
+    sys/ananas/write.c
+    sys/ananas/sched_getparam.c
+    sys/ananas/sched_get_priority_max.c
+    sys/ananas/sched_get_priority_min.c
+    sys/ananas/sched_getscheduler.c
+    sys/ananas/sched_rr_get_interval.c
+    sys/ananas/sched_setparam.c
+    sys/ananas/sched_setscheduler.c
+    sys/ananas/sched_yield.c
+    sys/ananas/raise.c
+    sys/ananas/signal.c
+    sys/ananas/usleep.c
+)
+target_sources(${PROJECT_NAME} PUBLIC ${ANANAS_SYS_LIBC})
+
+install(TARGETS ${PROJECT_NAME} DESTINATION usr/lib)
+
+add_library(headers INTERFACE)
+
+#include/pthread.h
+set(HEADERS
+    include/_ansi.h
+    include/_newlib_version.h
+    include/_syslist.h
+    include/alloca.h
+    include/ar.h
+    include/argz.h
+    include/assert.h
+    include/complex.h
+    include/cpio.h
+    include/ctype.h
+    include/devctl.h
+    include/dirent.h
+    include/elf.h
+    include/envlock.h
+    include/envz.h
+    include/errno.h
+    include/fastmath.h
+    include/fcntl.h
+    include/fenv.h
+    include/fnmatch.h
+    include/getopt.h
+    include/glob.h
+    include/grp.h
+    include/iconv.h
+    include/ieeefp.h
+    include/inttypes.h
+    include/langinfo.h
+    include/libgen.h
+    include/limits.h
+    include/locale.h
+    include/malloc.h
+    include/math.h
+    include/memory.h
+    include/ndbm.h
+    include/newlib.h
+    include/paths.h
+    include/pwd.h
+    include/reent.h
+    include/regdef.h
+    include/regex.h
+    include/sched.h
+    include/search.h
+    include/setjmp.h
+    include/signal.h
+    include/spawn.h
+    include/stdatomic.h
+    include/stdint.h
+    include/stdio.h
+    include/stdio_ext.h
+    include/stdlib.h
+    include/string.h
+    include/strings.h
+    include/tar.h
+    include/termios.h
+    include/tgmath.h
+    include/threads.h
+    include/time.h
+    include/unctrl.h
+    include/unistd.h
+    include/utime.h
+    include/utmp.h
+    include/wchar.h
+    include/wctype.h
+    include/wordexp.h
+    sys/ananas/include/link.h
+    sys/ananas/include/netdb.h
+    sys/ananas/include/pthread.h
+)
+
+set(HEADERS_NETINET
+    sys/ananas/netinet/in.h
+)
+
+set(HEADERS_MACHINE
+    include/machine/_arc4random.h
+    include/machine/_default_types.h
+    include/machine/_endian.h
+    include/machine/_time.h
+    include/machine/_types.h
+    include/machine/ansi.h
+    include/machine/endian.h
+    include/machine/fastmath.h
+    include/machine/ieeefp.h
+    include/machine/malloc.h
+    include/machine/param.h
+    include/machine/setjmp-dj.h
+    include/machine/setjmp.h
+    include/machine/stdlib.h
+    include/machine/termios.h
+    include/machine/time.h
+    include/machine/types.h
+)
+
+set(HEADERS_RPC
+    include/rpc/types.h
+    include/rpc/xdr.h
+)
+
+#include/sys/_timespec.h
+#include/sys/_timeval.h
+#include/sys/_types.h
+#include/sys/signal.h
+#include/sys/select.h
+#include/sys/errno.h
+#include/sys/dirent.h
+#include/sys/resource.h
+#include/sys/stat.h
+#include/sys/types.h
+#include/sys/features.h
+set(HEADERS_SYS
+    include/sys/_default_fcntl.h
+    include/sys/_intsup.h
+    include/sys/_locale.h
+    include/sys/_pthreadtypes.h
+    include/sys/_sigset.h
+    include/sys/_stdint.h
+    include/sys/_tz_structs.h
+    include/sys/cdefs.h
+    include/sys/config.h
+    include/sys/custom_file.h
+    include/sys/dir.h
+    include/sys/fcntl.h
+    include/sys/fenv.h
+    include/sys/file.h
+    include/sys/iconvnls.h
+    include/sys/lock.h
+    include/sys/param.h
+    include/sys/queue.h
+    include/sys/reent.h
+    include/sys/sched.h
+    include/sys/stdio.h
+    include/sys/string.h
+    include/sys/syslimits.h
+    include/sys/time.h
+    include/sys/timeb.h
+    include/sys/times.h
+    include/sys/timespec.h
+    include/sys/tree.h
+    include/sys/unistd.h
+    include/sys/utime.h
+    include/sys/wait.h
+    sys/ananas/sys/_timespec.h
+    sys/ananas/sys/_timeval.h
+    sys/ananas/sys/_types.h
+    sys/ananas/sys/dirent.h
+    sys/ananas/sys/errno.h
+    sys/ananas/sys/features.h
+    sys/ananas/sys/ioctl.h
+    sys/ananas/sys/ipc.h
+    sys/ananas/sys/mman.h
+    sys/ananas/sys/mount.h
+    sys/ananas/sys/resource.h
+    sys/ananas/sys/select.h
+    sys/ananas/sys/shm.h
+    sys/ananas/sys/signal.h
+    sys/ananas/sys/socket.h
+    sys/ananas/sys/stat.h
+    sys/ananas/sys/termios.h
+    sys/ananas/sys/types.h
+    sys/ananas/sys/un.h
+    sys/ananas/sys/utmp.h
+    sys/ananas/sys/utsname.h
+)
+set(HEADER_SSP
+    include/ssp/ssp.h
+    include/ssp/stdio.h
+    include/ssp/stdlib.h
+    include/ssp/string.h
+    include/ssp/strings.h
+    include/ssp/unistd.h
+    include/ssp/wchar.h
+)
+install(FILES ${HEADERS} DESTINATION usr/include)
+install(FILES ${HEADERS_NETINET} DESTINATION usr/include/netinet)
+install(FILES ${HEADERS_MACHINE} DESTINATION usr/include/machine)
+install(FILES ${HEADERS_RPC} DESTINATION usr/include/rpc)
+install(FILES ${HEADERS_SYS} DESTINATION usr/include/sys)
+install(FILES ${HEADERS_SSP} DESTINATION usr/include/ssp)
+
+#target_link_libraries(${PROJECT_NAME} PRIVATE "-lgcc")
+target_link_libraries(${PROJECT_NAME} PRIVATE "-lsyscall")

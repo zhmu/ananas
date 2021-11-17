@@ -102,7 +102,9 @@ def build_libgcc(conf, project_name, src_path):
     if not os.path.isdir(work_dir):
         os.makedirs(work_dir)
 
-    configure = [ os.path.join(full_src_path, 'configure'),  "--target=" + conf["target"], "--disable-nls", "--without-headers", "--enable-languages=c", "--prefix=" + conf["toolchaindir"], "--with-gmp=" + conf["toolchaindir"], "--disable-libstdcxx", "--disable-build-with-cxx", "--disable-libssp", "--disable-libquadmath", "--with-sysroot=" + conf["sysrootdir"], "--with-gxx-include-dir=" + os.path.join(conf["sysrootdir"], "usr", "include" ,"c++", conf["gcc_version"]), "--without-static-standard-libraries" ]
+    # https://linuxfromscratch.org/lfs/view/stable/chapter05/gcc-pass1.html
+
+    configure = [ os.path.join(full_src_path, 'configure'),  "--target=" + conf["target"], "--disable-nls", "--without-headers", "--enable-languages=c", "--prefix=" + conf["toolchaindir"], "--with-gmp=" + conf["toolchaindir"], "--with-newlib", "--disable-threads", "--disable-libstdcxx", "--disable-build-with-cxx", "--disable-libssp", "--disable-libquadmath", "--with-sysroot=" + conf["sysrootdir"], "--with-gxx-include-dir=" + os.path.join(conf["sysrootdir"], "usr", "include" ,"c++", conf["gcc_version"]), "--without-static-standard-libraries" ]
     logging.debug('running %s' % configure)
     subprocess.run(configure, cwd=work_dir, check=True)
     logging.debug('building %s' % project_name)
@@ -231,19 +233,17 @@ if args.all:
 if targets['bootstrap']:
     logging.info('Bootstrapping...')
     create_bootstrap_toolchain_file(conf['toolchain_txt'], conf)
+    build_using_cmake(conf, 'include', 'include')
+    build_using_cmake(conf, 'libsyscall', 'lib/libsyscall')
 
-    if True:
-        build_using_cmake(conf, 'include', 'include')
-        build_using_cmake(conf, 'libsyscall', 'lib/libsyscall')
-        build_using_cmake(conf, 'libc', 'lib/libc')
-        build_using_cmake(conf, 'libpthread', 'lib/pthread')
-        build_using_cmake(conf, 'crt', 'lib/crt')
-        build_libgcc(conf, 'libgcc', 'external/gcc')
+    build_using_cmake(conf, 'newlib-c', 'lib/newlib-4.1.0/newlib/libc')
+    build_using_cmake(conf, 'newlib-m', 'lib/newlib-4.1.0/newlib/libm')
+    build_using_cmake(conf, 'libpthread', 'lib/pthread')
+    build_using_cmake(conf, 'crt', 'lib/crt')
+    build_libgcc(conf, 'libgcc', 'external/gcc')
 
-        # copy libgcc_s.so to the output directory so that the rtld can find it
-        shutil.copy(os.path.join(conf['toolchaindir'], conf['target'], 'lib', 'libgcc_s.so'), os.path.join(conf['outdir'], 'usr', 'lib'))
-
-        build_using_cmake(conf, 'libm', 'lib/libm')
+    # copy libgcc_s.so to the output directory so that the rtld can find it
+    shutil.copy(os.path.join(conf['toolchaindir'], conf['target'], 'lib', 'libgcc_s.so'), os.path.join(conf['outdir'], 'usr', 'lib'))
 
     build_libstdcxx(conf, 'libstdcxx', 'external/gcc/libstdc++-v3')
     create_final_toolchain_file(conf['toolchain_txt'], conf)
