@@ -1,7 +1,7 @@
 project(sysutils)
 cmake_minimum_required(VERSION 3.9)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -I${CMAKE_CURRENT_SOURCE_DIR}/include")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -I${CMAKE_CURRENT_SOURCE_DIR}/include -D_GNU_SOURCE")
 
 add_subdirectory(hierarchy)
 add_subdirectory(init)
