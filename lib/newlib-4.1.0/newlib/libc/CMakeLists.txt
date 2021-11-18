@@ -1086,6 +1086,7 @@ set(HEADERS_RPC
 #include/sys/stat.h
 #include/sys/types.h
 #include/sys/features.h
+#include/sys/fcntl.h
 set(HEADERS_SYS
     include/sys/_default_fcntl.h
     include/sys/_intsup.h
@@ -1098,7 +1099,6 @@ set(HEADERS_SYS
     include/sys/config.h
     include/sys/custom_file.h
     include/sys/dir.h
-    include/sys/fcntl.h
     include/sys/fenv.h
     include/sys/file.h
     include/sys/iconvnls.h
@@ -1124,6 +1124,7 @@ set(HEADERS_SYS
     sys/ananas/sys/dirent.h
     sys/ananas/sys/errno.h
     sys/ananas/sys/features.h
+    sys/ananas/sys/fcntl.h
     sys/ananas/sys/ioctl.h
     sys/ananas/sys/ipc.h
     sys/ananas/sys/mman.h
