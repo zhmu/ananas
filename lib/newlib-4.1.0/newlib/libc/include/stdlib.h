@@ -340,6 +340,12 @@ _Noreturn void
 const char* getprogname();
 void setprogname(const char* progname);
 
+/* POSIX TTY support */
+int posix_openpt(int flags);
+int grantpt(int fd);
+int unlockpt(int fd);
+char* ptsname(int fildes);
+
 _END_STD_C
 
 #if __SSP_FORTIFY_LEVEL > 0

@@ -11,5 +11,4 @@
 void setgrent()
 {
     errno = ENOENT;
-    return NULL;
 }
