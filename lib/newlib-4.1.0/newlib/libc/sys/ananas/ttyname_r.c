@@ -20,7 +20,7 @@ int ttyname_r(int fildes, char* name, size_t namesize)
     }
     memcpy(name, tty_dev_prefix, tty_dev_prefix_len);
 
-    if (ioctl(fildes, TIOGDNAME, name + tty_dev_prefix_len) < 0) {
+    if (ioctl(fildes, TIOGDNAME, name + tty_dev_prefix_len, namesize - tty_dev_prefix_len - 1) < 0) {
         return errno;
     }
     return 0;
