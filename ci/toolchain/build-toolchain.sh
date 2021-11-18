@@ -45,29 +45,42 @@ make install
 # GCC; we try to build as little as possible (i.e. no libgcc since that depends
 # on libc, which we can't build here)
 mkdir -p /work/build/gcc
+    #--disable-shared
 cd /work/build/gcc
+#../../src/gcc/configure \
+#    --target=${TARGET} \
+#    --prefix=${TOOLCHAINDIR} \
+#    --with-sysroot=${SYSROOTDIR} \
+#    --with-newlib \
+#    --without-headers \
+#    --enable-initfini-array \
+#    --disable-nls \
+#    --disable-multilib \
+#    --disable-decimal-float \
+#    --disable-threads \
+#    --disable-libatomic \
+#    --disable-libgomp \
+#    --disable-libquadmath \
+#    --disable-libssp \
+#    --disable-libvtv \
+#    --disable-libstdcxx \
+#    --enable-languages=c,c++ \
+#    --with-gmp=${TOOLCHAINDIR} \
+#    --with-gxx-include-dir=${SYSROOTDIR}/usr/include/c++/${GCC_VERSION}
 ../../src/gcc/configure \
     --target=${TARGET} \
-    --prefix=${TOOLCHAINDIR} \
-    --with-sysroot=${SYSROOTDIR} \
+    --disable-nls \
     --with-newlib \
     --without-headers \
-    --enable-initfini-array \
-    --disable-nls \
-    --disable-shared \
-    --disable-multilib \
-    --disable-decimal-float \
-    --disable-threads \
-    --disable-libatomic \
-    --disable-libgomp \
-    --disable-libquadmath \
-    --disable-libssp \
-    --disable-libvtv \
+    --enable-languages='c,c++' \
+    --prefix=${TOOLCHAINDIR} \
     --disable-libstdcxx \
-    --enable-languages=c,c++ \
+    --disable-build-with-cxx \
+    --disable-libssp \
+    --disable-libquadmath \
+    --with-sysroot=${SYSROOTDIR} \
     --with-gmp=${TOOLCHAINDIR} \
     --with-gxx-include-dir=${SYSROOTDIR}/usr/include/c++/${GCC_VERSION}
-
 make ${MAKE_ARGS} all-gcc
 make install-gcc
 
