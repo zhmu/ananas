@@ -237,10 +237,10 @@ if targets['bootstrap']:
     build_using_cmake(conf, 'libsyscall', 'lib/libsyscall')
 
     build_using_cmake(conf, 'newlib-c', 'lib/newlib-4.1.0/newlib/libc')
-    build_using_cmake(conf, 'newlib-m', 'lib/newlib-4.1.0/newlib/libm')
     build_using_cmake(conf, 'libpthread', 'lib/pthread')
     build_using_cmake(conf, 'crt', 'lib/crt')
     build_libgcc(conf, 'libgcc', 'external/gcc')
+    build_using_cmake(conf, 'newlib-m', 'lib/newlib-4.1.0/newlib/libm')
 
     # copy libgcc_s.so to the output directory so that the rtld can find it
     shutil.copy(os.path.join(conf['toolchaindir'], conf['target'], 'lib', 'libgcc_s.so'), os.path.join(conf['outdir'], 'usr', 'lib'))
