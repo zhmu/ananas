@@ -537,3 +537,4 @@ target_sources(${PROJECT_NAME} PUBLIC ${LIBM_SOURCES})
 
 install(TARGETS ${PROJECT_NAME} DESTINATION usr/lib)
 target_link_libraries(${PROJECT_NAME} PRIVATE "-lc")
+target_link_libraries(${PROJECT_NAME} PRIVATE "-lgcc")
