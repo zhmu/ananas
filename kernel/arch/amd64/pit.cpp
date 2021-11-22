@@ -41,6 +41,7 @@ void x86_pit_calc_cpuspeed_mhz()
     // output from, which prevents having to use interrupts
     {
         outb(PIT_KBD_B_CTRL, (inb(PIT_KBD_B_CTRL) & PIT_KBD_B_MASK1) | PIT_KBD_B_T2GATE);
+        outb(PIT_MODE_CMD, PIT_CH_CHAN2 | PIT_ACCESS_BOTH);
         const uint16_t count = timerFreq / time::GetPeriodicyInHz();
         outb(PIT_CH2_DATA, (count & 0xff));
         outb(PIT_CH2_DATA, (count >> 8));
@@ -61,13 +62,9 @@ void x86_pit_calc_cpuspeed_mhz()
     // We use the tsc_current value as the boot time
     tsc_boot_time = tsc_current;
     cpuFrequency = ((tsc_current - tsc_base) * time::GetPeriodicyInHz()) / 1000000;
-    if (cpuFrequency < 100) {
-        cpuFrequency = 1000;
-        kprintf(
-            "unable to properly measure CPU frequency (is this an emulator/VM?) - using %d Hz\n",
-            cpuFrequency);
+    if (cpuFrequency < 500) {
+        panic("unable to properly measure CPU frequency using TSC/PIT");
     }
-    kprintf("cpu freq %d\n", cpuFrequency);
 }
 
 void delay(int ms)
