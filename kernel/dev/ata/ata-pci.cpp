@@ -22,7 +22,7 @@ namespace ata
     Result ATAPCI::Attach()
     {
         // Enable busmastering; we need this to be able to do DMA
-        pci_enable_busmaster(*this, 1);
+        pci::EnableBusmaster(*this, 1);
 
         // Grab the PCI DMA I/O port, it is the same for all PCI IDE controllers
         void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 16);

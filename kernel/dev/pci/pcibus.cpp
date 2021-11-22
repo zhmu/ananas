@@ -32,7 +32,8 @@ namespace
 
         unsigned int busno = busResource->r_Base;
         for (unsigned int devno = 0; devno < PCI_MAX_DEVICES; devno++) {
-            uint32_t dev_vendor = pci_read_config(busno, devno, 0, PCI_REG_DEVICEVENDOR, 32);
+            const pci::Identifier pciId{ busno, devno, 0 };
+            auto dev_vendor = pci::ReadConfig<uint32_t>(pciId, PCI_REG_DEVICEVENDOR);
             if ((uint32_t)(dev_vendor & 0xffff) == PCI_NOVENDOR)
                 continue; /* nothing here */
 
@@ -41,11 +42,12 @@ namespace
              * ordinary PCI device or not
              */
             unsigned int max_func = 1;
-            if (pci_read_config(busno, devno, 0, PCI_REG_HEADERTIMER, 32) & PCI_HEADER_MULTI)
+            if (pci::ReadConfig<uint32_t>(pciId, PCI_REG_HEADERTIMER) & PCI_HEADER_MULTI)
                 max_func = PCI_MAX_FUNCS;
 
             for (unsigned int funcno = 0; funcno < max_func; funcno++) {
-                dev_vendor = pci_read_config(busno, devno, funcno, PCI_REG_DEVICEVENDOR, 32);
+                const pci::Identifier pciFuncId{ busno, devno, funcno };
+                dev_vendor = pci::ReadConfig<uint32_t>(pciFuncId, PCI_REG_DEVICEVENDOR);
                 if ((uint32_t)(dev_vendor & 0xffff) == PCI_NOVENDOR)
                     continue; /* nothing here */
 
@@ -53,8 +55,8 @@ namespace
                  * Retrieve the PCI device class; drivers may use this to determine whether
                  * they need to attach.
                  */
-                uint32_t class_revision =
-                    pci_read_config(busno, devno, funcno, PCI_REG_CLASSREVISION, 32);
+                const auto class_revision =
+                    pci::ReadConfig<uint32_t>(pciFuncId, PCI_REG_CLASSREVISION);
 
                 // Collect the PCI resources
                 ResourceSet resourceSet;
@@ -68,7 +70,7 @@ namespace
 
                 /* Walk through the BAR registers */
                 for (unsigned int bar = PCI_REG_BAR0; bar <= PCI_REG_BAR5; bar += 4) {
-                    uint32_t res = pci_read_config(busno, devno, funcno, bar, 32);
+                    const auto res = pci::ReadConfig<uint32_t>(pciFuncId, bar);
                     if (res == 0)
                         continue;
 
@@ -82,9 +84,9 @@ namespace
                      *
                      * Note that we must restore the value once done with it.
                      */
-                    pci_write_config(busno, devno, funcno, bar, 0xffffffff, 32);
-                    uint32_t len = pci_read_config(busno, devno, funcno, bar, 32);
-                    pci_write_config(busno, devno, funcno, bar, res, 32);
+                    pci::WriteConfig<uint32_t>(pciFuncId, bar, 0xffffffff);
+                    auto len = pci::ReadConfig<uint32_t>(pciFuncId, bar);
+                    pci::WriteConfig<uint32_t>(pciFuncId, bar, res);
                     if (len == 0 || len == 0xffffffff)
                         continue;
 
@@ -109,7 +111,7 @@ namespace
                 }
 
                 /* Fetch the IRQ line, if any */
-                uint32_t irq = pci_read_config(busno, devno, funcno, PCI_REG_INTERRUPT, 32) & 0xff;
+                const auto irq = pci::ReadConfig<uint32_t>(pciFuncId, PCI_REG_INTERRUPT) & 0xff;
                 if (irq != 0 && irq != 0xff) {
                     resourceSet.AddResource(Resource(Resource::RT_IRQ, irq, 0));
                 }

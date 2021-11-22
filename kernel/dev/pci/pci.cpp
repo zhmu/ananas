@@ -33,7 +33,8 @@ namespace
              * Attempt to obtain the vendor/device ID of device 0 on this bus. If it
              * does not exist, we assume the bus doesn't exist.
              */
-            uint32_t dev_vendor = pci_read_config(bus, 0, 0, PCI_REG_DEVICEVENDOR, 32);
+            const pci::Identifier pciBusId{ bus, 0, 0 };
+            const auto dev_vendor = pci::ReadConfig<uint32_t>(pciBusId, PCI_REG_DEVICEVENDOR);
             if ((dev_vendor & 0xffff) == PCI_NOVENDOR)
                 continue;
 
@@ -61,37 +62,32 @@ namespace
     };
 
     const RegisterDriver<PCI_Driver> registerDriver;
-
 } // unnamed namespace
 
-void pci_write_cfg(Device& device, uint32_t reg, uint32_t val, int size)
-{
-    ResourceSet& resourceSet = device.d_ResourceSet;
-    auto bus_res = resourceSet.GetResource(Resource::RT_PCI_Bus, 0);
-    auto dev_res = resourceSet.GetResource(Resource::RT_PCI_Device, 0);
-    auto func_res = resourceSet.GetResource(Resource::RT_PCI_Function, 0);
-    KASSERT(bus_res != NULL && dev_res != NULL && func_res != NULL, "missing pci resources");
+namespace pci {
+    namespace detail {
+        Identifier MakePCIIdentifier(const Device& device)
+        {
+            const auto& resourceSet = device.d_ResourceSet;
+            const auto bus_res = resourceSet.GetResource(Resource::RT_PCI_Bus, 0);
+            const auto dev_res = resourceSet.GetResource(Resource::RT_PCI_Device, 0);
+            const auto func_res = resourceSet.GetResource(Resource::RT_PCI_Function, 0);
+            KASSERT(bus_res && dev_res && func_res, "missing pci resources");
+            return {
+                static_cast<pci::BusNo>(bus_res->r_Base),
+                static_cast<pci::DeviceNo>(dev_res->r_Base),
+                static_cast<pci::FuncNo>(func_res->r_Base)
+            };
+        }
+    }
 
-    pci_write_config(bus_res->r_Base, dev_res->r_Base, func_res->r_Base, reg, val, size);
-}
-
-uint32_t pci_read_cfg(Device& device, uint32_t reg, int size)
-{
-    ResourceSet& resourceSet = device.d_ResourceSet;
-    auto bus_res = resourceSet.GetResource(Resource::RT_PCI_Bus, 0);
-    auto dev_res = resourceSet.GetResource(Resource::RT_PCI_Device, 0);
-    auto func_res = resourceSet.GetResource(Resource::RT_PCI_Function, 0);
-    KASSERT(bus_res != NULL && dev_res != NULL && func_res != NULL, "missing pci resources");
-
-    return pci_read_config(bus_res->r_Base, dev_res->r_Base, func_res->r_Base, reg, size);
-}
-
-void pci_enable_busmaster(Device& device, bool on)
-{
-    uint32_t cmd = pci_read_cfg(device, PCI_REG_STATUSCOMMAND, 32);
-    if (on)
-        cmd |= PCI_CMD_BM;
-    else
-        cmd &= ~PCI_CMD_BM;
-    pci_write_cfg(device, PCI_REG_STATUSCOMMAND, cmd, 32);
+    void EnableBusmaster(Device& device, bool on)
+    {
+        auto cmd = ReadConfig<uint32_t>(device, PCI_REG_STATUSCOMMAND);
+        if (on)
+            cmd |= PCI_CMD_BM;
+        else
+            cmd &= ~PCI_CMD_BM;
+        WriteConfig(device, PCI_REG_STATUSCOMMAND, cmd);
+    }
 }

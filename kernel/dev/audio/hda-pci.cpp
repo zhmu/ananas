@@ -359,7 +359,7 @@ namespace hda
             return result;
 
         /* Enable busmastering; all communication is done by DMA */
-        pci_enable_busmaster(*this, 1);
+        pci::EnableBusmaster(*this, 1);
 
         /*
          * We have a memory address and IRQ for the HDA controller; we now need to

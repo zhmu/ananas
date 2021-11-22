@@ -126,7 +126,7 @@ namespace ahci
             return Result::Failure(ENODEV);
 
         /* Enable busmastering; all communication is done by DMA */
-        pci_enable_busmaster(*this, 1);
+        pci::EnableBusmaster(*this, 1);
 
         /* XXX I wonder if the BIOS/OS handoff (10.6) should happen here? */
         if (*(volatile uint32_t*)(res_mem + AHCI_REG_CAP2) & AHCI_CAP2_BOH) {

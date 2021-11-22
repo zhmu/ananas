@@ -672,7 +672,7 @@ namespace usb
         void* res_mem = d_ResourceSet.AllocateResource(Resource::RT_Memory, 4096);
         if (res_mem == nullptr)
             return Result::Failure(ENODEV);
-        pci_enable_busmaster(*this, 1);
+        pci::EnableBusmaster(*this, 1);
 
         /* See if the revision makes sense; if not, we can't attach to this */
         uint32_t rev = *(volatile uint32_t*)((char*)res_mem + OHCI_HCREVISION);

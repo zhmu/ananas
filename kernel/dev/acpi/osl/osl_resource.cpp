@@ -137,16 +137,45 @@ AcpiOsWritePort(ACPI_IO_ADDRESS Address, UINT32 Value, UINT32 Width)
     return AE_OK;
 }
 
+namespace {
+    pci::Identifier AcpiPciIdToIdentifier(ACPI_PCI_ID* PciId)
+    {
+        return { PciId->Bus, PciId->Device, PciId->Function };
+    }
+}
+
 ACPI_STATUS
 AcpiOsReadPciConfiguration(ACPI_PCI_ID* PciId, UINT32 Register, UINT64* Value, UINT32 Width)
 {
-    *Value = pci_read_config(PciId->Bus, PciId->Device, PciId->Function, Register, Width);
-    return AE_OK;
+    const auto pciId = AcpiPciIdToIdentifier(PciId);
+    switch(Width) {
+        case 32:
+            *Value = pci::ReadConfig<uint32_t>(pciId, Register);
+            return AE_OK;
+        case 16:
+            *Value = pci::ReadConfig<uint16_t>(pciId, Register);
+            return AE_OK;
+        case 8:
+            *Value = pci::ReadConfig<uint8_t>(pciId, Register);
+            return AE_OK;
+    }
+    return AE_BAD_PARAMETER;
 }
 
 ACPI_STATUS
 AcpiOsWritePciConfiguration(ACPI_PCI_ID* PciId, UINT32 Register, UINT64 Value, UINT32 Width)
 {
-    pci_write_config(PciId->Bus, PciId->Device, PciId->Function, Register, Value, Width);
-    return AE_OK;
+    const auto pciId = AcpiPciIdToIdentifier(PciId);
+    switch(Width) {
+        case 32:
+            pci::WriteConfig<uint32_t>(pciId, Register, Value);
+            return AE_OK;
+        case 16:
+            pci::WriteConfig<uint16_t>(pciId, Register, Value);
+            return AE_OK;
+        case 8:
+            pci::WriteConfig<uint8_t>(pciId, Register, Value);
+            return AE_OK;
+    }
+    return AE_BAD_PARAMETER;
 }

@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstdint>
+#include "kernel-md/pcihb.h"
 
 class Device;
 
@@ -115,6 +116,24 @@ class Device;
 #define _PCI_REG_RESERVED 0x38
 #define PCI_REG_INTERRUPT 0x3c
 
-void pci_write_cfg(Device& dev, uint32_t reg, uint32_t val, int size);
-uint32_t pci_read_cfg(Device& dev, uint32_t reg, int size);
-void pci_enable_busmaster(Device& dev, bool on);
+namespace pci
+{
+    namespace detail
+    {
+        Identifier MakePCIIdentifier(const Device& device);
+    }
+
+    template<typename T> void WriteConfig(Device& dev, pci::RegisterNo reg, const T val)
+    {
+        const auto id = detail::MakePCIIdentifier(dev);
+        WriteConfig(id, reg, val);
+    }
+
+    template<typename T> T ReadConfig(Device& dev, pci::RegisterNo reg)
+    {
+        const auto id = detail::MakePCIIdentifier(dev);
+        return ReadConfig<T>(id, reg);
+    }
+
+    void EnableBusmaster(Device& dev, bool on);
+}

@@ -11,46 +11,60 @@
 #include "kernel/lib.h"
 
 /* We use PCI configuration mechanism 1 as that is most commonly supported */
-#define PCI_CFG1_ADDR 0xcf8 /* PCI Configuration Mechanism 1 - address port */
-#define PCI_CFG1_ADDR_ENABLE (1 << 31)
-#define PCI_CFG1_DATA 0xcfc /* PCI Configuration Mechanism 1 - data port */
 
-static inline unsigned int pci_make_addr(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg)
-{
-    return PCI_CFG1_ADDR_ENABLE | (bus << 16) | (dev << 11) | (func << 8) | reg;
-}
+namespace pci {
 
-static inline uint32_t
-pci_read_config(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, int width)
-{
-    outl(PCI_CFG1_ADDR, pci_make_addr(bus, dev, func, reg));
-    switch (width) {
-        case 32:
-            return inl(PCI_CFG1_DATA);
-        case 16:
-            return inw(PCI_CFG1_DATA);
-        case 8:
-            return inb(PCI_CFG1_DATA);
-        default:
-            panic("unsupported width %u", width);
+namespace cfg1 {
+    namespace io {
+        static constexpr inline uint32_t Address = 0xcf8;
+        static constexpr inline uint32_t Data = 0xcfc;
+    }
+    namespace addr {
+        static constexpr inline uint32_t Enable = (1 << 31);
     }
 }
 
-static inline void
-pci_write_config(uint32_t bus, uint32_t dev, uint32_t func, uint32_t reg, uint32_t value, int width)
+using BusNo = uint32_t;
+using DeviceNo = uint32_t;
+using FuncNo = uint32_t;
+using RegisterNo = uint32_t;
+
+struct Identifier
 {
-    outl(PCI_CFG1_ADDR, pci_make_addr(bus, dev, func, reg));
-    switch (width) {
-        case 32:
-            outl(PCI_CFG1_DATA, value);
-            break;
-        case 16:
-            outw(PCI_CFG1_DATA, value);
-            break;
-        case 8:
-            outb(PCI_CFG1_DATA, value);
-            break;
-        default:
-            panic("unsupported width %u", width);
+    BusNo bus;
+    DeviceNo device;
+    FuncNo func;
+};
+
+namespace detail {
+    static inline unsigned int MakeAddress(const Identifier& id, const RegisterNo reg)
+    {
+        return cfg1::addr::Enable | (id.bus << 16) | (id.device << 11) | (id.func << 8) | reg;
     }
+
+    template<size_t Width> uint32_t ReadData();
+    template<> inline uint32_t ReadData<4>() { return inl(cfg1::io::Data); }
+    template<> inline uint32_t ReadData<2>() { return inw(cfg1::io::Data); }
+    template<> inline uint32_t ReadData<1>() { return inb(cfg1::io::Data); }
+
+    template<size_t Width> void WriteData(const uint32_t value);
+    template<> inline void WriteData<4>(const uint32_t value) { outl(cfg1::io::Data, value); }
+    template<> inline void WriteData<2>(const uint32_t value) { outw(cfg1::io::Data, value); }
+    template<> inline void WriteData<1>(const uint32_t value) { outb(cfg1::io::Data, value); }
+}
+
+template<typename T> static inline T
+ReadConfig(const Identifier& id, const RegisterNo reg)
+{
+    outl(cfg1::io::Address, detail::MakeAddress(id, reg));
+    return static_cast<T>(detail::ReadData<sizeof(T)>());
+}
+
+template<typename T> static inline void
+WriteConfig(const Identifier& id, const RegisterNo reg, const T value)
+{
+    outl(cfg1::io::Address, detail::MakeAddress(id, reg));
+    detail::WriteData<sizeof(T)>(value);
+}
+
 }

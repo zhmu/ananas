@@ -489,7 +489,10 @@ namespace usb
          * Disable legacy PS/2 support; we do not want it, and it can only interfere
          * with our operations.
          */
-        pci_write_cfg(*this, UHCI_PCI_LEGSUPP, UHCI_LEGSUPP_PIRQEN, 16);
+        pci::WriteConfig<uint16_t>(*this, UHCI_PCI_LEGSUPP, UHCI_LEGSUPP_PIRQEN);
+
+        // Enable DMA
+        pci::EnableBusmaster(*this, 1);
 
         void* res_io = d_ResourceSet.AllocateResource(Resource::RT_IO, 16);
         if (res_io == nullptr)
