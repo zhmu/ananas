@@ -50,7 +50,7 @@ namespace shm {
             page->Deref();
         }
 
-        MutexGuard g(mtx_shm);
+        mtx_shm.AssertLocked();
         allSharedMemory.remove(*this);
     }
 

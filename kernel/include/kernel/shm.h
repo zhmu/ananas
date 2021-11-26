@@ -20,9 +20,10 @@ struct VMArea;
 
 namespace shm
 {
+    // Details a shared memory object which can be shared between multiple
+    // processes and thus is refcounted
     struct SharedMemory final : util::List<SharedMemory>::NodePtr
     {
-        Mutex shm_mtx{"shm"};
         refcount_t shm_refcount{1};
         const int shm_id;
         util::vector<VMPage*> shm_pages;
@@ -38,6 +39,7 @@ namespace shm
 
     struct ProcessSpecificData final
     {
+        // Binds the shared memory object to a process' virtual address space
         struct SharedMemoryMapping
         {
             addr_t virt;
