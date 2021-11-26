@@ -79,14 +79,9 @@ int main(int argc, char* argv[])
                 case awe::ipc::MessageType::UpdateWindow: {
                     auto w = wm.FindWindowByHandle(m.u.updateWindow.handle);
 
-                    awe::ipc::GenericReply reply;
                     if (w != nullptr) {
-                        reply.result = awe::ipc::ResultCode::Success;
                         wm.Invalidate(w->GetClientRectangle());
-                    } else {
-                        reply.result = awe::ipc::ResultCode::BadHandle;
-                    }
-                    return send(fd, &reply, sizeof(reply), 0) == sizeof(reply);
+                    return true;
                 }
                 case awe::ipc::MessageType::SetWindowTitle: {
                     auto w = wm.FindWindowByHandle(m.u.setWindowTitle.handle);

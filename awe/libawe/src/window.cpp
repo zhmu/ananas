@@ -43,10 +43,6 @@ void Window::Invalidate()
     msgUpdateWindow.u.updateWindow.handle = handle;
     if (!connection.Write(msgUpdateWindow))
         throw std::runtime_error("write");
-
-    ipc::GenericReply reply;
-    if (!connection.Read(reply))
-        throw std::runtime_error("read");
 }
 
 namespace window
