@@ -26,9 +26,11 @@ struct WindowManager final {
 
     void Update();
     Window* FindWindowAt(const awe::Point& p);
-    Window& CreateWindow(const awe::Size& size, int fd);
+    Window& CreateWindow(const awe::Point&, const awe::Size&, int fd);
     Window* FindWindowByHandle(const awe::Handle handle);
     Window* FindWindowByFd(int fd);
+
+    awe::Point DeterminePositionFor(const awe::Size&) const;
 
     void Invalidate(const awe::Rectangle&);
     void DestroyWindow(Window&);

@@ -65,7 +65,8 @@ int main(int argc, char* argv[])
 
                     const auto size = awe::Size{static_cast<int>(createWindow.width),
                                                 static_cast<int>(createWindow.height)};
-                    auto& w = wm.CreateWindow(size, fd);
+                    const auto pos = wm.DeterminePositionFor(size);
+                    auto& w = wm.CreateWindow(pos, size, fd);
 
                     awe::ipc::CreateWindowReply reply;
                     reply.result = awe::ipc::ResultCode::Success;
@@ -79,7 +80,7 @@ int main(int argc, char* argv[])
                 case awe::ipc::MessageType::UpdateWindow: {
                     auto w = wm.FindWindowByHandle(m.u.updateWindow.handle);
 
-                    if (w != nullptr) {
+                    if (w != nullptr)
                         wm.Invalidate(w->GetClientRectangle());
                     return true;
                 }
@@ -112,27 +113,7 @@ int main(int argc, char* argv[])
         if (auto eventFd = wm.platform->GetEventFd(); eventFd >= 0)
             server.AddClient(eventFd);
 
-#if 0
-        pid_t p = fork();
-        if (p == 0) {
-            char prog[] = "/usr/games/doom";
-            char arg0[] = "-iwad";
-            char arg1[] = "/usr/share/games/doom/doom1.wad";
-            char* const argv[] = { prog, arg0, arg1, NULL };
-            execv(prog, argv);
-            exit(-1);
-        }
-#endif
-#if 1
-        pid_t q = fork();
-        if (q == 0) {
-            char prog[] = "/usr/bin/awterm";
-            char* const argv[] = { prog, NULL };
-            execv(prog, argv);
-            exit(-1);
-        }
-#endif
-
+        signal(SIGCHLD, SIG_IGN);
         signal(SIGPIPE, SIG_IGN);
         while (true) {
             server.Poll();
