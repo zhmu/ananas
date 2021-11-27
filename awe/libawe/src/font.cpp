@@ -15,6 +15,7 @@ namespace awe
     {
         Impl(const int fontSize, std::unique_ptr<unsigned char[]> fontData)
             : data(std::move(fontData))
+            , height(fontSize)
         {
             stbtt_InitFont(&fontInfo, data.get(), stbtt_GetFontOffsetForIndex(data.get(), 0));
             scale = stbtt_ScaleForPixelHeight(&fontInfo, fontSize);
@@ -48,6 +49,7 @@ namespace awe
         stbtt_fontinfo fontInfo;
         float scale;
         int baseline;
+        const int height;
         std::unique_ptr<unsigned char[]> data;
     };
 
@@ -68,6 +70,7 @@ namespace awe
     Font::~Font() = default;
 
     const Glyph& Font::GetGlyph(int ch) { return impl->GetGlyph(ch); }
+    int Font::GetHeight() const { return impl->height; }
     int Font::GetBaseLine() const { return impl->baseline; }
     float Font::GetScale() const { return impl->scale; }
 

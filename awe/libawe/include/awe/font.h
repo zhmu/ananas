@@ -24,6 +24,7 @@ namespace awe
         Font(const char* path, const int fontSize);
         ~Font();
 
+        int GetHeight() const;
         int GetBaseLine() const;
         float GetScale() const;
         const Glyph& GetGlyph(const int ch);

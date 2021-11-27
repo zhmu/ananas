@@ -2,6 +2,7 @@
 #include "awe/types.h"
 #include "awe/ipc.h"
 #include "window.h"
+#include "wmmenu.h"
 
 #include <cassert>
 #include <cstring>
@@ -44,10 +45,6 @@ void debug_trace(const char* fmt, ...)
 namespace
 {
     constexpr inline auto fontHeight = 20;
-    const awe::Colour wmNormalItemColour{ 0, 0, 0};
-    const awe::Colour wmSelectedItemColour{ 255, 0, 0 };
-    const awe::Colour wmItemTextColour{ 255, 255 };
-    int wmSelectedItemIndex = 0;
 
     void Launch(const char* progname, const std::vector<std::string>& args)
     {
@@ -65,61 +62,10 @@ namespace
         }
     }
 
-    using WMFunc = void(*)();
-    using WMItem = std::pair<std::string_view, WMFunc>;
-    constexpr std::array wmItems{
+    const std::vector wmItems{
         WMItem{ "awterm", []() { Launch("/usr/bin/awterm", { } ); }},
         WMItem{ "DOOM", []() { Launch("/usr/bin/doom", { "-iwad", "/usr/share/games/doom/doom1.wad" } ); }},
     };
-
-    const awe::Size wmSize{ 200, wmItems.size() * fontHeight };
-
-    void RenderWMWindow(Window& w, awe::Font& font, int selectionIndex)
-    {
-        awe::PixelBuffer pb{ w.shmData, w.clientSize };
-
-        int itemIndex = 0;
-        for(const auto& item: wmItems) {
-            const awe::Rectangle itemRect{
-                { 0, itemIndex * fontHeight },
-                { wmSize.width, fontHeight }
-            };
-            pb.FilledRectangle(itemRect, itemIndex == selectionIndex ? wmSelectedItemColour : wmNormalItemColour);
-            awe::font::DrawText(pb, font, itemRect.point,wmItemTextColour, item.first);
-            ++itemIndex;
-        }
-    }
-
-    auto CalculateWMItemIndex(Window& w, const awe::Point& pos)
-    {
-        const auto wmClient = w.GetClientRectangle();
-        return (pos.y - w.position.y) / fontHeight;
-    }
-
-    void OnWMWindowMouseMotion(WindowManager& wm, Window& w, const awe::Point& pos)
-    {
-        wmSelectedItemIndex = CalculateWMItemIndex(w, pos);
-        RenderWMWindow(w, wm.font, wmSelectedItemIndex);
-
-        wm.Invalidate(w.GetClientRectangle());
-    }
-
-    void OnWMMouseLeftButtonDown(Window& w, const awe::Point& pos)
-    {
-        const auto index = CalculateWMItemIndex(w, pos);
-        if (index < 0 || index >= wmItems.size()) return;
-
-        const auto& item = wmItems[index];
-        const auto& fn = item.second;
-        fn();
-    }
-
-    auto& CreateWMWindow(WindowManager& wm, const awe::Point& pos)
-    {
-        auto& window = wm.CreateWindow(pos, wmSize, 0);
-        RenderWMWindow(window, wm.font, wmSelectedItemIndex);
-        return window;
-    }
 }
 
 struct WindowManager::EventProcessor {
@@ -129,7 +75,7 @@ struct WindowManager::EventProcessor {
     Window* focusWindow{};
     awe::Point previousPoint{};
 
-    Window* wmWindow{};
+    std::unique_ptr<WMMenu> wmMenu;
 
     void operator()(const event::Quit&) { quit = true; }
 
@@ -150,9 +96,9 @@ struct WindowManager::EventProcessor {
     {
         if (ev.button == event::Button::Left) {
             if (auto w = wm.FindWindowAt(ev.position); w) {
-                if (w == wmWindow) {
-                    OnWMMouseLeftButtonDown(*wmWindow, ev.position);
-                    CloseWMWindow();
+                if (wmMenu && &wmMenu->GetWindow() == w) {
+                    wmMenu->OnWMMouseLeftButtonDown(ev.position);
+                    wmMenu.reset();
                     return;
                 }
                 ChangeFocus(wm, w);
@@ -169,10 +115,10 @@ struct WindowManager::EventProcessor {
             if (wm.FindWindowAt(ev.position))
                 return;
 
-            if (!wmWindow) {
-                wmWindow = &CreateWMWindow(wm, ev.position);
+            if (!wmMenu) {
+                wmMenu = std::make_unique<WMMenu>(wm, wmItems, ev.position);
             } else {
-                CloseWMWindow();
+                wmMenu.reset();
             }
         }
     }
@@ -189,11 +135,11 @@ struct WindowManager::EventProcessor {
         // Ensure the mouse cursor will get drawn
         wm.Invalidate({ ev.position, { mouse::cursorWidth, mouse::cursorHeight } });
 
-        if (wmWindow) {
-            if (wm.FindWindowAt(ev.position) == wmWindow) {
-                OnWMWindowMouseMotion(wm, *wmWindow, ev.position);
+        if (wmMenu) {
+            if (wm.FindWindowAt(ev.position) == &wmMenu->GetWindow()) {
+                wmMenu->OnWMWindowMouseMotion(ev.position);
             } else {
-                CloseWMWindow();
+                wmMenu.reset();
             }
             return;
         }
@@ -238,13 +184,6 @@ struct WindowManager::EventProcessor {
                 printf("send error to fd %d\n", focusWindow->fd);
             }
         }
-    }
-
-private:
-    void CloseWMWindow()
-    {
-        wm.DestroyWindow(*wmWindow);
-        wmWindow = nullptr;
     }
 };
 
