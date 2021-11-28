@@ -21,8 +21,9 @@ namespace
         waiter.w_signalled = true;
         waitingThread.Resume();
 
-        if (curThread.t_priority < waitingThread.t_priority)
+        if (waitingThread.t_priority < curThread.t_priority) {
             curThread.t_flags |= THREAD_FLAG_RESCHEDULE;
+        }
     }
 } // unnamed namespace
 
