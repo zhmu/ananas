@@ -13,6 +13,7 @@
 
 class Device;
 class Result;
+struct STACKFRAME;
 
 namespace irq
 {
@@ -25,7 +26,7 @@ namespace irq
     class IIRQHandler
     {
       public:
-        virtual void OnIRQ() = 0;
+        virtual void OnIRQ(STACKFRAME&) = 0;
     };
 
     class IIRQCallback
@@ -88,7 +89,7 @@ namespace irq
     Result RegisterIRQ(unsigned int no, IIRQHandler& irqHandler);
     Result RegisterIST(unsigned int no, Device* dev, IIRQCallback& istHandler);
     void Unregister(unsigned int no, Device* dev, ISTHandler& istHandler);
-    void InvokeHandler(unsigned int no);
+    void InvokeHandler(STACKFRAME&, unsigned int no);
     void Dump();
 
 } // namespace irq

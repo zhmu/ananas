@@ -41,13 +41,13 @@ namespace irq
         }
 
         // Must be called with irq.i_lock held
-        void RunIRQHandlers(IRQ& irq, const int no, register_t& state)
+        void RunIRQHandlers(STACKFRAME& sf, IRQ& irq, const int no, register_t& state)
         {
             while(true) {
                 bool awake_thread = false, handled = false;
                 if (irq.i_irqHandler) {
                     irq.i_lock.UnlockUnpremptible(state);
-                    irq.i_irqHandler->OnIRQ();
+                    irq.i_irqHandler->OnIRQ(sf);
                     state = irq.i_lock.LockUnpremptible();
                     handled = true;
                 } else {
@@ -244,7 +244,7 @@ namespace irq
         return Result::Success();
     }
 
-    void InvokeHandler(unsigned int no)
+    void InvokeHandler(STACKFRAME& sf, unsigned int no)
     {
         const auto cpuid = PCPU_GET(cpuid);
         KASSERT(no < irqList.size(), "trying to handle out-of-range irq %u on cpu %d", cpuid, no, cpuid);
@@ -265,7 +265,7 @@ namespace irq
             i.i_flags &= ~flag::Pending;
             i.i_flags |= flag::InProgress;
 
-            RunIRQHandlers(i, no, state);
+            RunIRQHandlers(sf, i, no, state);
             i.i_flags &= ~flag::InProgress;
         }
 

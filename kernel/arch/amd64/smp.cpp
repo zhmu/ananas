@@ -94,7 +94,7 @@ namespace smp
         void IPISource::Acknowledge(int no) { X86_IOAPIC::AcknowledgeAll(); }
 
         struct IPIPeriodicHandler : irq::IIRQHandler {
-            void OnIRQ() override
+            void OnIRQ(STACKFRAME&) override
             {
                 // If we are the BSP, advance time by one tick
                 int cpuid = PCPU_GET(cpuid);
@@ -109,7 +109,7 @@ namespace smp
         } ipiPeriodicHandler;
 
         struct IPIPanicHandler : irq::IIRQHandler {
-            void OnIRQ() override
+            void OnIRQ(STACKFRAME&) override
             {
                 md::interrupts::Disable();
                 while (1)
