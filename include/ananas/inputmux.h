@@ -78,6 +78,13 @@
 #define AIMX_KEY_RIGHT_ALT      162
 #define AIMX_KEY_RIGHT_GUI      163
 
+#define AIMX_KEY_HOME           164
+#define AIMX_KEY_END            165
+#define AIMX_KEY_INSERT         166
+#define AIMX_KEY_DELETE         167
+#define AIMX_KEY_PAGE_UP        168
+#define AIMX_KEY_PAGE_DOWN      169
+
 typedef int AIMX_KEY_CODE;
 
 #define AIMX_MOD_LEFT_CONTROL   (1 << 0)

@@ -21,6 +21,7 @@ namespace
 {
     namespace scancode
     {
+        constexpr uint8_t E0 = 0xe0;
         constexpr uint8_t Escape = 0x01;
         constexpr uint8_t Control = 0x1d; // right-control has 0xe0 prefix
         constexpr uint8_t Tilde = 0x29;
@@ -104,7 +105,7 @@ namespace
         /* 1a */ KeyMap{'[', '{'},
         /* 1b */ KeyMap{']', '}'},
         /* 1c */ KeyMap{0x0d, AIMX_KEY_NONE},
-        /* 1d */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 1d */ KeyMap{AIMX_KEY_LEFT_CONTROL, AIMX_KEY_LEFT_CONTROL},
         /* 1e */ KeyMap{'a', 'A'},
         /* 1f */ KeyMap{'s', 'S'},
         /* 20 */ KeyMap{'d', 'D'},
@@ -131,7 +132,7 @@ namespace
         /* 35 */ KeyMap{'/', '?'},
         /* 36 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
         /* 37 */ KeyMap{'*', '*'},
-        /* 38 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 38 */ KeyMap{AIMX_KEY_LEFT_ALT, AIMX_KEY_LEFT_ALT},
         /* 39 */ KeyMap{' ', ' '},
         /* 3a */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
         /* 3b */ KeyMap{AIMX_KEY_F1, AIMX_KEY_F1},
@@ -166,6 +167,137 @@ namespace
         /* 58 */ KeyMap{AIMX_KEY_F12, AIMX_KEY_F12},
         /* 59 */ KeyMap{AIMX_KEY_NONE, ' '},
         /* 5a */ KeyMap{AIMX_KEY_NONE, ' '},
+        /* 5b */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 5c */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 5d */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 5e */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 5f */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 60 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 61 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 62 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 63 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 64 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 65 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 66 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 67 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 68 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 69 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 6a */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 6b */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 6c */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 6d */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 6e */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 6f */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 70 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 71 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 72 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 73 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 74 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 75 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 76 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 77 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 78 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 79 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 7a */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 7b */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 7c */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 7d */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 7e */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 7f */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+    };
+
+    constexpr util::array<KeyMap, 128> keymapE0 = {
+        /* 00 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 01 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 02 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 03 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 04 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 05 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 06 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 07 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 08 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 09 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 0a */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 0b */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 0c */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 0d */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 0e */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 0f */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 10 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 11 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 12 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 13 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 14 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 15 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 16 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 17 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 18 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 19 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 1a */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 1b */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 1c */ KeyMap{'\n', '\n'},
+        /* 1d */ KeyMap{AIMX_KEY_RIGHT_CONTROL, AIMX_KEY_RIGHT_CONTROL},
+        /* 1e */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 1f */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 20 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 21 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 22 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 23 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 24 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 25 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 26 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 27 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 28 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 29 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 2a */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 2b */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 2c */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 2d */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 2e */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 2f */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 30 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 31 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 32 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 33 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 34 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 35 */ KeyMap{'/', '/'},
+        /* 36 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 37 */ KeyMap{'*', '*'},
+        /* 38 */ KeyMap{AIMX_KEY_RIGHT_ALT, AIMX_KEY_RIGHT_ALT},
+        /* 39 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 3a */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 3b */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 3c */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 3d */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 3e */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 3f */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 40 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 41 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 42 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 43 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 44 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 45 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 46 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 47 */ KeyMap{AIMX_KEY_HOME, AIMX_KEY_HOME},
+        /* 48 */ KeyMap{AIMX_KEY_UP_ARROW, AIMX_KEY_UP_ARROW},
+        /* 49 */ KeyMap{AIMX_KEY_PAGE_UP, AIMX_KEY_PAGE_UP},
+        /* 4a */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 4b */ KeyMap{AIMX_KEY_LEFT_ARROW, AIMX_KEY_LEFT_ARROW},
+        /* 4c */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 4d */ KeyMap{AIMX_KEY_RIGHT_ARROW, AIMX_KEY_RIGHT_ARROW},
+        /* 4e */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 4f */ KeyMap{AIMX_KEY_END, AIMX_KEY_END},
+        /* 50 */ KeyMap{AIMX_KEY_DOWN_ARROW, AIMX_KEY_DOWN_ARROW},
+        /* 51 */ KeyMap{AIMX_KEY_PAGE_DOWN, AIMX_KEY_PAGE_DOWN},
+        /* 52 */ KeyMap{AIMX_KEY_INSERT, AIMX_KEY_INSERT},
+        /* 53 */ KeyMap{AIMX_KEY_DELETE, AIMX_KEY_DELETE},
+        /* 54 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 55 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 56 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 57 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 58 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 59 */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
+        /* 5a */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
         /* 5b */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
         /* 5c */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
         /* 5d */ KeyMap{AIMX_KEY_NONE, AIMX_KEY_NONE},
@@ -289,12 +421,17 @@ namespace
         Spinlock io_lock;
         int kbd_modifiers = 0;
         int aux_state = 0;
+        int prefix = 0;
         util::array<uint8_t, 4> aux_byte;
     };
 
     void ATKeyboard::OnKeyboardIRQ(uint8_t scancode)
     {
         const auto isReleased = (scancode & scancode::ReleasedBit) != 0;
+        if (scancode == scancode::E0) {
+            prefix = scancode;
+            return;
+        }
         scancode &= ~scancode::ReleasedBit;
 
         // Handle setting control, alt, shift flags
@@ -309,25 +446,34 @@ namespace
             switch (scancode) {
                 case scancode::LeftShift:
                     setOrClearModifier(AIMX_MOD_LEFT_SHIFT);
-                    return;
+                    break;
                 case scancode::RightShift:
                     setOrClearModifier(AIMX_MOD_RIGHT_SHIFT);
-                    return;
+                    break;
                 case scancode::Alt:
-                    setOrClearModifier(AIMX_MOD_LEFT_ALT);
-                    return;
+                    if (prefix == scancode::E0)
+                        setOrClearModifier(AIMX_MOD_RIGHT_ALT);
+                    else
+                        setOrClearModifier(AIMX_MOD_LEFT_ALT);
+                    break;
                 case scancode::Control:
-                    setOrClearModifier(AIMX_MOD_LEFT_CONTROL);
-                    return;
+                    if (prefix == scancode::E0)
+                        setOrClearModifier(AIMX_MOD_RIGHT_CONTROL);
+                    else
+                        setOrClearModifier(AIMX_MOD_LEFT_CONTROL);
+                    break;
             }
         }
 
-        if (!isReleased && ProcessSpecialKeys(scancode, kbd_modifiers))
+        if (!isReleased && ProcessSpecialKeys(scancode, kbd_modifiers)) {
+            prefix = 0;
             return;
+        }
 
         // Look up the scancode
-        const auto& key = [](int scancode, int modifiers) {
-            const auto& km = keymap[scancode];
+        const auto& key = [](int prefix, int scancode, int modifiers) {
+            //kprintf("lookup prefix %x scancode %x\n", prefix, scancode);
+            const auto& km = (prefix == scancode::E0) ? keymapE0[scancode] : keymap[scancode];
             if (modifiers & (AIMX_MOD_LEFT_CONTROL | AIMX_MOD_RIGHT_CONTROL))
                 return km.standard;
 
@@ -335,7 +481,8 @@ namespace
                 return km.shift;
 
             return km.standard;
-        }(scancode, kbd_modifiers);
+        }(prefix, scancode, kbd_modifiers);
+        prefix = 0;
 
         if (key != AIMX_KEY_NONE) {
             input_mux::OnEvent({ isReleased ? AIMX_EVENT_KEY_UP : AIMX_EVENT_KEY_DOWN, key, kbd_modifiers });
