@@ -20,7 +20,7 @@ class Device;
 
 namespace irq
 {
-    class IHandler;
+    class IIRQCallback;
 }
 
 namespace dma
@@ -141,7 +141,7 @@ class ISCSIDeviceOperations
 class IBusOperations
 {
   public:
-    virtual Result AllocateIRQ(Device& device, int index, irq::IHandler& handler) = 0;
+    virtual Result AllocateIRQ(Device& device, int index, irq::IIRQCallback&) = 0;
 };
 
 struct CreateDeviceProperties {

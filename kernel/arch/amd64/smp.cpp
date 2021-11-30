@@ -93,8 +93,8 @@ namespace smp
 
         void IPISource::Acknowledge(int no) { X86_IOAPIC::AcknowledgeAll(); }
 
-        struct IPIPeriodicHandler : irq::IHandler {
-            irq::IRQResult OnIRQ() override
+        struct IPIPeriodicHandler : irq::IIRQHandler {
+            void OnIRQ() override
             {
                 // If we are the BSP, advance time by one tick
                 int cpuid = PCPU_GET(cpuid);
@@ -105,19 +105,17 @@ namespace smp
                 // as needed
                 auto& curThread = thread::GetCurrent();
                 curThread.t_flags |= THREAD_FLAG_RESCHEDULE;
-                return irq::IRQResult::Processed;
             }
         } ipiPeriodicHandler;
 
-        struct IPIPanicHandler : irq::IHandler {
-            irq::IRQResult OnIRQ() override
+        struct IPIPanicHandler : irq::IIRQHandler {
+            void OnIRQ() override
             {
                 md::interrupts::Disable();
                 while (1)
                     md::interrupts::Relax();
 
                 /* NOTREACHED */
-                return irq::IRQResult::Processed;
             }
         } ipiPanicHandler;
 
@@ -485,10 +483,10 @@ namespace smp
          * interrupts and this lets us process them as such.
          */
         irq::RegisterSource(ipi_source);
-        if (auto result = irq::Register(SMP_IPI_PANIC, NULL, irq::type::IPI, ipiPanicHandler);
+        if (auto result = irq::RegisterIRQ(SMP_IPI_PANIC, ipiPanicHandler);
             result.IsFailure())
             panic("can't register ipi");
-        if (auto result = irq::Register(SMP_IPI_PERIODIC, NULL, irq::type::IPI, ipiPeriodicHandler);
+        if (auto result = irq::RegisterIRQ(SMP_IPI_PERIODIC, ipiPeriodicHandler);
             result.IsFailure())
             panic("can't register ipi");
         for (auto& ioapic : x86_ioapics) {

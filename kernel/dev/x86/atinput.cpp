@@ -401,7 +401,7 @@ namespace
         return false;
     }
 
-    struct ATKeyboard : public Device, private IDeviceOperations, private irq::IHandler
+    struct ATKeyboard : public Device, private IDeviceOperations, private irq::IIRQCallback
     {
       public:
         using Device::Device;
@@ -549,7 +549,7 @@ namespace
         if (auto result = GetBusDeviceOperations().AllocateIRQ(*this, 0, *this); result.IsFailure())
             return result;
         // Grab IRQ12 for the PS/2 mouse interrupts
-        if (auto result = irq::Register(12, this, irq::type::Default, *this); result.IsFailure())
+        if (auto result = irq::RegisterIST(12, this, *this); result.IsFailure())
             return result;
 
         SpinlockGuard g(io_lock);

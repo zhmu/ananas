@@ -30,7 +30,7 @@ namespace hda
     class HDAPCIDevice : public Device,
                          private IDeviceOperations,
                          private IHDAFunctions,
-                         private irq::IHandler
+                         private irq::IIRQCallback
     {
       public:
         using Device::Device;

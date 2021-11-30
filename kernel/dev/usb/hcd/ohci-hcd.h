@@ -67,7 +67,7 @@ namespace usb
     class OHCI_HCD : public Device,
                      private IDeviceOperations,
                      private IUSBDeviceOperations,
-                     private irq::IHandler
+                     private irq::IIRQCallback
     {
       public:
         using Device::Device;

@@ -30,13 +30,13 @@ namespace
 
         Result Detach() override { return Result::Success(); }
 
-        Result AllocateIRQ(Device& device, int index, irq::IHandler& handler) override
+        Result AllocateIRQ(Device& device, int index, irq::IIRQCallback& callback) override
         {
             void* res_irq = device.d_ResourceSet.AllocateResource(Resource::RT_IRQ, 0);
             if (res_irq == NULL)
                 return Result::Failure(ENODEV);
 
-            return irq::Register((int)(uintptr_t)res_irq, &device, irq::type::Default, handler);
+            return irq::RegisterIST((int)(uintptr_t)res_irq, &device, callback);
         }
     };
 

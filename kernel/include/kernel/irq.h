@@ -16,18 +16,19 @@ class Result;
 
 namespace irq
 {
-    /* Return values for the IRQ handler */
+    /* Return values for the IST handler */
     enum class IRQResult { Ignored, Processed };
 
     // IST's use a dedicated thread to schedule the handlers; ISR's run immediately
-    enum class HandlerType { Unhandled, NotYet, IST, ISR };
-    namespace type {
-        static inline constexpr auto Default = HandlerType::IST;
-        static inline constexpr auto IPI = HandlerType::ISR;
-        static inline constexpr auto Timer =  HandlerType::ISR;
-    }
+    enum class HandlerType { Unhandled, NotYet, IST };
 
-    class IHandler
+    class IIRQHandler
+    {
+      public:
+        virtual void OnIRQ() = 0;
+    };
+
+    class IIRQCallback
     {
       public:
         virtual IRQResult OnIRQ() = 0;
@@ -54,10 +55,10 @@ namespace irq
     };
     using IRQSourceList = util::List<IRQSource>;
 
-    /* Single IRQ handler */
-    struct IRQHandler {
+    /* Single IST handler */
+    struct ISTHandler {
         Device* h_device = nullptr;
-        IHandler* h_handler = nullptr;
+        IIRQCallback* h_callback = nullptr;
         HandlerType h_type{HandlerType::Unhandled};
     };
 
@@ -68,7 +69,8 @@ namespace irq
     struct IRQ {
         Spinlock i_lock;
         IRQSource* i_source{};
-        util::array<IRQHandler, MaxHandlersPerIRQ> i_handler{};
+        IIRQHandler* i_irqHandler{};
+        util::array<ISTHandler, MaxHandlersPerIRQ> i_istHandler{};
         unsigned int i_flags{};
         unsigned int i_count{};
         unsigned int i_straycount{};
@@ -83,8 +85,9 @@ namespace irq
     void RegisterSource(IRQSource& source);
     void UnregisterSource(IRQSource& source);
 
-    Result Register(unsigned int no, Device* dev, HandlerType type, IHandler& irqHandler);
-    void Unregister(unsigned int no, Device* dev, IHandler& irqHandler);
+    Result RegisterIRQ(unsigned int no, IIRQHandler& irqHandler);
+    Result RegisterIST(unsigned int no, Device* dev, IIRQCallback& istHandler);
+    void Unregister(unsigned int no, Device* dev, ISTHandler& istHandler);
     void InvokeHandler(unsigned int no);
     void Dump();
 

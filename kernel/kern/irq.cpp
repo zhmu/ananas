@@ -33,11 +33,11 @@ namespace irq
         constexpr inline int maxStrayCount = 10;
 
         // Must be called with irq.i_lock held
-        IRQHandler* FindFreeHandlerSlot(IRQ& irq)
+        ISTHandler* FindFreeISTHandlerSlot(IRQ& irq)
         {
             auto it = util::find_if(
-                irq.i_handler, [](const auto& ih) { return ih.h_type == HandlerType::Unhandled; });
-            return it != irq.i_handler.end() ? &*it : nullptr;
+                irq.i_istHandler, [](const auto& ih) { return ih.h_type == HandlerType::Unhandled; });
+            return it != irq.i_istHandler.end() ? &*it : nullptr;
         }
 
         // Must be called with irq.i_lock held
@@ -45,17 +45,18 @@ namespace irq
         {
             while(true) {
                 bool awake_thread = false, handled = false;
-                for (const auto& handler : irq.i_handler) {
-                    switch(handler.h_type) {
-                        case HandlerType::ISR:
-                            irq.i_lock.UnlockUnpremptible(state);
-                            if (handler.h_handler->OnIRQ() == IRQResult::Processed)
-                                handled = true;
-                            state = irq.i_lock.LockUnpremptible();
-                            break;
-                        case HandlerType::IST:
-                            awake_thread = true; // need to invoke the IST
-                            break;
+                if (irq.i_irqHandler) {
+                    irq.i_lock.UnlockUnpremptible(state);
+                    irq.i_irqHandler->OnIRQ();
+                    state = irq.i_lock.LockUnpremptible();
+                    handled = true;
+                } else {
+                    for (const auto& handler : irq.i_istHandler) {
+                        switch(handler.h_type) {
+                            case HandlerType::IST:
+                                awake_thread = true; // need to invoke the IST
+                                break;
+                        }
                     }
                 }
 
@@ -135,9 +136,9 @@ namespace irq
                 continue;
             }
             i.i_source = nullptr;
-            for (const auto& handler : i.i_handler)
+            for (const auto& handler : i.i_istHandler)
                 KASSERT(
-                    handler.h_handler == nullptr, "irq %u still registered to this source", num);
+                    handler.h_callback == nullptr, "irq %u still registered to this source", num);
             num++;
         }
 
@@ -158,9 +159,14 @@ namespace irq
                 i.i_semaphore.Wait();
 
                 /* XXX We do need a lock here */
-                for (auto& handler : i.i_handler) {
-                    if (handler.h_type == HandlerType::IST)
-                        handler.h_handler->OnIRQ(); // XXX Maybe we should care about the return code here
+                bool handled = false;
+                for (auto& handler : i.i_istHandler) {
+                    if (handler.h_type == HandlerType::IST && handler.h_callback->OnIRQ() == IRQResult::Processed)
+                        handled = true;
+                }
+                if (!handled && i.i_straycount < maxStrayCount) {
+                    kprintf("stray irq %d reported by ist\n", no);
+                    ++i.i_straycount;
                 }
 
                 /* Unmask the IRQ, we can handle it again now that the IST is done */
@@ -169,7 +175,24 @@ namespace irq
         }
     }
 
-    Result Register(unsigned int no, Device* dev, HandlerType type, IHandler& irqHandler)
+    Result RegisterIRQ(unsigned int no, IIRQHandler& irqHandler)
+    {
+        if (no >= irqList.size())
+            return Result::Failure(ERANGE);
+
+        auto& i = irqList[no];
+        SpinlockUnpremptibleGuard g(i.i_lock);
+        auto is = i.i_source;
+        KASSERT(is != nullptr, "irq %d does not have a source; cannot fire", no);
+        KASSERT(i.i_irqHandler == nullptr, "irq %d already has an IRQ registered", no);
+        i.i_irqHandler = &irqHandler;
+
+        // Unmask the interrupt; the caller shouldn't worry about this
+        is->Unmask(no - is->GetFirstInterruptNumber());
+        return Result::Success();
+    }
+
+    Result RegisterIST(unsigned int no, Device* dev, IIRQCallback& callback)
     {
         if (no >= irqList.size())
             return Result::Failure(ERANGE);
@@ -180,20 +203,21 @@ namespace irq
         auto state = i.i_lock.LockUnpremptible();
         auto is = i.i_source;
         KASSERT(is != nullptr, "irq %d does not have a source; cannot fire", no);
+        KASSERT(i.i_irqHandler == nullptr, "irq %d already has an IRQ registered", no);
 
         // Locate a free slot for the handler
-        IRQHandler* handler = FindFreeHandlerSlot(i);
+        auto handler = FindFreeISTHandlerSlot(i);
         if (handler == nullptr) {
             i.i_lock.UnlockUnpremptible(state);
             return Result::Failure(EEXIST);
         }
 
         handler->h_device = dev;
-        handler->h_handler = &irqHandler;
+        handler->h_callback = &callback;
         handler->h_type = HandlerType::NotYet;
 
         // If we need to create the IST, do so here
-        if (!i.i_thread && type == irq::HandlerType::IST) {
+        if (!i.i_thread) {
             // Release lock as we can't kthread_init() with it
             i.i_lock.UnlockUnpremptible(state);
 
@@ -212,37 +236,12 @@ namespace irq
         }
 
         // Allow the handler to be executed now that it is properly set up
-        handler->h_type = type;
+        handler->h_type = HandlerType::IST;
 
         // Unmask the interrupt; the caller shouldn't worry about this
         is->Unmask(no - is->GetFirstInterruptNumber());
         i.i_lock.UnlockUnpremptible(state);
         return Result::Success();
-    }
-
-    void Unregister(unsigned int no, Device* dev, IHandler& irqHandler)
-    {
-        KASSERT(no < irqList.size(), "interrupt %u out of range", no);
-
-        auto& i = irqList[no];
-        SpinlockUnpremptibleGuard g(i.i_lock);
-        KASSERT(i.i_source != nullptr, "interrupt %u has no source", no);
-
-        bool isUnregistered = false;
-        for (auto& handler : i.i_handler) {
-            if (handler.h_device != dev || handler.h_handler != &irqHandler)
-                continue;
-
-            /* Found a match; unregister it */
-            handler.h_device = nullptr;
-            handler.h_handler = nullptr;
-            handler.h_type = HandlerType::Unhandled;
-            isUnregistered = true;
-        }
-
-        KASSERT(isUnregistered, "interrupt %u not registered", no);
-
-        // XXX We should mask the interrupt, if it has no consumers left
     }
 
     void InvokeHandler(unsigned int no)
@@ -303,7 +302,7 @@ const kdb::RegisterCommand kdbIRQ("irq", "Display IRQ status", [](int, const kdb
     int no = 0;
     for (auto& i : irq::irqList) {
         int banner = 0;
-        for (auto& handler : i.i_handler) {
+        for (auto& handler : i.i_istHandler) {
             if (handler.h_type == irq::HandlerType::Unhandled)
                 continue;
             if (!banner) {
@@ -315,7 +314,7 @@ const kdb::RegisterCommand kdbIRQ("irq", "Display IRQ status", [](int, const kdb
             kprintf(
                 "  device '%s' handler %p type %d\n",
                 (handler.h_device != nullptr) ? handler.h_device->d_Name : "<none>",
-                handler.h_handler, static_cast<int>(handler.h_type));
+                handler.h_callback, static_cast<int>(handler.h_type));
         }
         if (!banner && (i.i_count > 0 || i.i_straycount > 0))
             kprintf(

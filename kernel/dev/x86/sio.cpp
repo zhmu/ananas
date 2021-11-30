@@ -18,7 +18,7 @@ namespace
     // XXX This is a horrible kludge to prevent attaching the console SIO twice...
     bool s_IsConsole = false;
 
-    class SIO : public TTY, private irq::IHandler
+    class SIO : public TTY, private irq::IIRQCallback
     {
       public:
         using TTY::TTY;

@@ -59,7 +59,7 @@ namespace
 
         Result Detach() override { return Result::Success(); }
 
-        Result AllocateIRQ(Device& device, int index, irq::IHandler& handler) override
+        Result AllocateIRQ(Device& device, int index, irq::IIRQCallback& callback) override
         {
             auto res_devno = device.d_ResourceSet.GetResource(Resource::RT_PCI_Device, 0);
             KASSERT(res_devno != nullptr, "here without pci device?");
@@ -81,7 +81,7 @@ namespace
                 interrupt++;
 
             Printf("assigning IRQ %d for device %s", interrupt, device.d_Name);
-            return irq::Register(interrupt, &device, irq::type::Default, handler);
+            return irq::RegisterIST(interrupt, &device, callback);
         }
 
         int LookupPCIInterrupt(int deviceNumber, int pin) const

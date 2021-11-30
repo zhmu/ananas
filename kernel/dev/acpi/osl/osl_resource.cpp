@@ -15,7 +15,7 @@
 #include "kernel-md/pcihb.h"
 #include "../acpica/acpi.h"
 
-struct ACPI_IRQ_INFO : irq::IHandler {
+struct ACPI_IRQ_INFO : irq::IIRQCallback {
     ACPI_OSD_HANDLER i_handler;
     void* i_context;
 
@@ -34,7 +34,7 @@ AcpiOsInstallInterruptHandler(UINT32 InterruptLevel, ACPI_OSD_HANDLER Handler, v
     info->i_handler = Handler;
     info->i_context = Context;
 
-    if (auto result = irq::Register(InterruptLevel, NULL, irq::type::Default, *info);
+    if (auto result = irq::RegisterIST(InterruptLevel, NULL, *info);
         result.IsFailure()) {
         kfree(info);
         return AE_BAD_PARAMETER;

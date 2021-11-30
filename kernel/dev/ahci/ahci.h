@@ -71,7 +71,7 @@ namespace ahci
         Spinlock p_lock;
     };
 
-    class AHCIDevice : public Device, private IDeviceOperations, private irq::IHandler
+    class AHCIDevice : public Device, private IDeviceOperations, private irq::IIRQCallback
     {
         friend class Port;
 
