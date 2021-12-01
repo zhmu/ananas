@@ -1087,6 +1087,7 @@ set(HEADERS_RPC
 #include/sys/types.h
 #include/sys/features.h
 #include/sys/fcntl.h
+#include/sys/times.h
 set(HEADERS_SYS
     include/sys/_default_fcntl.h
     include/sys/_intsup.h
@@ -1112,7 +1113,6 @@ set(HEADERS_SYS
     include/sys/syslimits.h
     include/sys/time.h
     include/sys/timeb.h
-    include/sys/times.h
     include/sys/timespec.h
     include/sys/tree.h
     include/sys/unistd.h
@@ -1136,6 +1136,7 @@ set(HEADERS_SYS
     sys/ananas/sys/socket.h
     sys/ananas/sys/stat.h
     sys/ananas/sys/termios.h
+    sys/ananas/sys/times.h
     sys/ananas/sys/types.h
     sys/ananas/sys/un.h
     sys/ananas/sys/utmp.h
