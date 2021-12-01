@@ -15,7 +15,7 @@ long sysconf(int name)
         case _SC_PAGESIZE:
             return PAGE_SIZE;
         case _SC_CLK_TCK:
-            return 1; /* TODO */
+            return 100; // TODO We need to ask the kernel about this somehow
         case _SC_ARG_MAX:
             return 4096;
         default:

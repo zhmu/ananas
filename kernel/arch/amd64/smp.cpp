@@ -94,12 +94,15 @@ namespace smp
         void IPISource::Acknowledge(int no) { X86_IOAPIC::AcknowledgeAll(); }
 
         struct IPIPeriodicHandler : irq::IIRQHandler {
-            void OnIRQ(STACKFRAME&) override
+            void OnIRQ(STACKFRAME& sf) override
             {
                 // If we are the BSP, advance time by one tick
                 int cpuid = PCPU_GET(cpuid);
                 if (cpuid == 0)
                     time::OnTick();
+
+                const auto tickContext = (sf.sf_cs & 3) == 0 ? process::TickContext::Kernel: process::TickContext::Userland;
+                process::GetCurrent().OnTick(tickContext);
 
                 // Set the reschedule flag of the current thread; this makes the IRQ reschedule us
                 // as needed

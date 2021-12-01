@@ -203,6 +203,13 @@ void Process::Exit(int status)
 {
     if (p_pid == 1) panic("terminating init!");
 
+    if (p_parent) {
+        p_parent->Lock();
+        p_parent->p_times.tms_cutime += p_times.tms_utime;
+        p_parent->p_times.tms_cstime += p_times.tms_stime;
+        p_parent->Unlock();
+    }
+
     // Note that the lock must be held, to prevent a race between Exit() and
     // WaitAndLock()
     p_lock.AssertLocked();
@@ -248,6 +255,18 @@ Result Process::WaitAndLock(int flags, util::locked<Process>& p_out)
         p_child_wait.Wait();
     }
     // NOTREACHED
+}
+
+void Process::OnTick(process::TickContext tc)
+{
+    switch(tc) {
+        case process::TickContext::Userland:
+            ++p_times.tms_utime;
+            break;
+        case process::TickContext::Kernel:
+            ++p_times.tms_stime;
+            break;
+    }
 }
 
 Process* process_lookup_by_id_and_lock(pid_t pid)

@@ -38,20 +38,29 @@ namespace
         return s;
     }
 
+    unsigned int clockTicksPerSecond = 0;
 } // namespace
 
 struct Process {
-    Process(int pid, std::string&& name, const std::string& state)
+    Process(int pid, std::string&& name, const std::string& status)
         : p_pid(pid), p_name(std::move(name))
     {
-        const auto stateFields = util::Split(state);
-        p_state = getField(stateFields, 0, -1);
-        p_ppid = getField(stateFields, 1, -1);
+        const auto statusFields = util::Split(status);
+        p_state = getField(statusFields, 0, -1);
+        p_ppid = getField(statusFields, 1, -1);
+        p_utime = getField(statusFields, 2, 0);
+        p_stime = getField(statusFields, 3, 0);
+        p_cutime = getField(statusFields, 4, 0);
+        p_cstime = getField(statusFields, 5, 0);
     }
 
     int p_pid = 0;
     int p_ppid = 0;
     int p_state = -1;
+    int p_utime{};
+    int p_stime{};
+    int p_cutime{};
+    int p_cstime{};
     std::string p_name;
 };
 
@@ -68,12 +77,25 @@ bool GetProcesses(std::vector<Process>& processes)
 
         const std::string procPath = paths::proc + "/" + std::to_string(pid);
         auto name = readLineFromFile(procPath + "/name");
-        auto state = readLineFromFile(procPath + "/state");
-        processes.push_back(Process(pid, std::move(name), state));
+        auto status = readLineFromFile(procPath + "/status");
+        processes.push_back(Process(pid, std::move(name), status));
     }
 
     closedir(dir);
     return true;
+}
+
+namespace
+{
+    std::string FormatTime(const Process& p)
+    {
+        const auto totalTicks = p.p_utime + p.p_stime;
+        const auto totalSeconds = totalTicks / clockTicksPerSecond;
+
+        std::ostringstream ss;
+        ss << (totalSeconds / 60) << ":" << std::setw(2) << std::setfill('0') << (totalSeconds % 60);
+        return ss.str();
+    }
 }
 
 int main(int argc, char* argv[])
@@ -84,11 +106,14 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    std::cout << "  PID  PPID  ST CMD\n";
+    clockTicksPerSecond = sysconf(_SC_CLK_TCK);
+
+    std::cout << "  PID  PPID  ST TIME CMD\n";
     for (auto& p : processes) {
         std::cout << std::setw(5) << std::setfill(' ') << p.p_pid << " " << std::setw(5)
                   << std::setfill(' ') << p.p_ppid << " " << std::setw(3) << std::setfill(' ')
-                  << p.p_state << " " << p.p_name << "\n";
+                  << p.p_state << " " << std::setw(5) << std::setfill(' ')
+                  << FormatTime(p) << " " << p.p_name << "\n";
     }
 
     // TTY TIME CMD

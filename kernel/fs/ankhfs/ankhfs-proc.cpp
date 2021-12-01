@@ -32,13 +32,13 @@ namespace ankhfs
     {
         constexpr unsigned int subName = 1;
         constexpr unsigned int subVmSpace = 2;
-        constexpr unsigned int subState = 3;
+        constexpr unsigned int subStatus = 3;
         constexpr unsigned int subFdDir = 4;
         constexpr unsigned int subFdEntry = 5;
 
         struct DirectoryEntry proc_entries[] = {{"name", make_inum(SS_Proc, 0, subName)},
                                                 {"vmspace", make_inum(SS_Proc, 0, subVmSpace)},
-                                                {"state", make_inum(SS_Proc, 0, subState)},
+                                                {"status", make_inum(SS_Proc, 0, subStatus)},
                                                 {"fd", make_inum(SS_Proc, 0, subFdDir)},
                                                 {NULL, 0}};
 
@@ -192,11 +192,14 @@ namespace ankhfs
                         }
                         break;
                     }
-                    case subState: {
+                    case subStatus: {
                         // No need to lock the parent, the child should have Ref'ed it
+                        // <state> <pid> <utime> <stime> <cutime> <cstime>
                         snprintf(
-                            result, sizeof(result), "%d %d\n", p->p_state,
-                            p->p_parent != nullptr ? p->p_parent->p_pid : 0);
+                            result, sizeof(result), "%d %d %d %d %d %d\n", p->p_state,
+                            p->p_parent != nullptr ? p->p_parent->p_pid : 0,
+                            p->p_times.tms_utime, p->p_times.tms_stime,
+                            p->p_times.tms_cutime, p->p_times.tms_cstime);
                         break;
                     }
                 }

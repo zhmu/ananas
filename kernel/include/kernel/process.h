@@ -11,6 +11,7 @@
 #include <ananas/util/list.h>
 #include <ananas/util/locked.h>
 #include <ananas/util/refcounted.h>
+#include <ananas/tms.h>
 #include "kernel/lock.h"
 #include "kernel/shm.h" // for ProcessSpecificData
 
@@ -74,6 +75,8 @@ namespace process
     void Initialize();
     Process& GetKernelProcess();
     Process& GetCurrent();
+
+    enum class TickContext { Userland, Kernel };
 } // namespace process
 
 struct Process final : util::refcounted<Process> {
@@ -105,11 +108,14 @@ struct Process final : util::refcounted<Process> {
     process::ProcessGroup* p_group = nullptr;
     shm::ProcessSpecificData p_shm;
 
+    struct tms p_times{};
+
     // Node pointers to maintain membership of several lists
     util::List<Process>::Node p_NodeAll;
     util::List<Process>::Node p_NodeChildren;
     util::List<Process>::Node p_NodeGroup;
 
+    void OnTick(process::TickContext);
     void Exit(int status);
     void SignalExit();
 
