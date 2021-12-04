@@ -14,10 +14,10 @@
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/generic.h"
+#include "kernel/vfs/icache.h"
 #include "kernel/vfs/mount.h"
 
 namespace {
-    constexpr inline auto vfsDebugLookup = false;
     constexpr inline auto maxSymlinkLoops = 20;
 
     void MakeFile(struct VFS_FILE* file, int open_flags, DEntry& dentry)
@@ -28,7 +28,7 @@ namespace {
         file->f_dentry = &dentry;
         file->f_offset = 0;
         file->f_flags = open_flags;
-        if (inode.i_iops->fill_file != NULL)
+        if (inode.i_iops->fill_file != nullptr)
             inode.i_iops->fill_file(inode, file);
     }
 }
@@ -70,10 +70,10 @@ Result vfs_close(Process* p, struct VFS_FILE* file)
 
 Result vfs_read(struct VFS_FILE* file, void* buf, size_t len)
 {
-    KASSERT(file->f_dentry != NULL || file->f_device != NULL, "vfs_read on nonbacked file");
-    if (file->f_device != NULL) {
+    KASSERT(file->f_dentry != nullptr || file->f_device != nullptr, "vfs_read on nonbacked file");
+    if (file->f_device != nullptr) {
         /* Device */
-        if (file->f_device->GetCharDeviceOperations() == NULL)
+        if (file->f_device->GetCharDeviceOperations() == nullptr)
             return Result::Failure(EINVAL);
         else {
             return file->f_device->GetCharDeviceOperations()->Read(*file, buf, len);
@@ -81,7 +81,7 @@ Result vfs_read(struct VFS_FILE* file, void* buf, size_t len)
     }
 
     INode* inode = file->f_dentry->d_inode;
-    if (inode == NULL || inode->i_iops == NULL)
+    if (inode == nullptr || inode->i_iops == nullptr)
         return Result::Failure(EINVAL);
 
     if (!vfs_is_filesystem_sane(inode->i_fs))
@@ -89,21 +89,21 @@ Result vfs_read(struct VFS_FILE* file, void* buf, size_t len)
 
     if (S_ISLNK(inode->i_sb.st_mode)) {
         // Symbolic link
-        if (inode->i_iops->read_link == NULL)
+        if (inode->i_iops->read_link == nullptr)
             return Result::Failure(EINVAL);
         return inode->i_iops->read_link(*inode, static_cast<char*>(buf), len);
     }
 
     if (S_ISREG(inode->i_sb.st_mode)) {
         /* Regular file */
-        if (inode->i_iops->read == NULL)
+        if (inode->i_iops->read == nullptr)
             return Result::Failure(EINVAL);
         return inode->i_iops->read(file, buf, len);
     }
 
     if (S_ISDIR(inode->i_sb.st_mode)) {
         // Directory
-        if (inode->i_iops->readdir == NULL)
+        if (inode->i_iops->readdir == nullptr)
             return Result::Failure(EINVAL);
         return inode->i_iops->readdir(file, buf, len);
     }
@@ -114,8 +114,8 @@ Result vfs_read(struct VFS_FILE* file, void* buf, size_t len)
 
 Result vfs_ioctl(Process* p, struct VFS_FILE* file, unsigned long request, void* args[])
 {
-    KASSERT(file->f_dentry != NULL || file->f_device != NULL, "vfs_ioctl on nonbacked file");
-    if (file->f_device != NULL) {
+    KASSERT(file->f_dentry != nullptr || file->f_device != nullptr, "vfs_ioctl on nonbacked file");
+    if (file->f_device != nullptr) {
         // Device
         if (file->f_device == nullptr)
             return Result::Failure(EINVAL);
@@ -127,17 +127,17 @@ Result vfs_ioctl(Process* p, struct VFS_FILE* file, unsigned long request, void*
 
 Result vfs_write(struct VFS_FILE* file, const void* buf, size_t len)
 {
-    KASSERT(file->f_dentry != NULL || file->f_device != NULL, "vfs_write on nonbacked file");
-    if (file->f_device != NULL) {
+    KASSERT(file->f_dentry != nullptr || file->f_device != nullptr, "vfs_write on nonbacked file");
+    if (file->f_device != nullptr) {
         /* Device */
-        if (file->f_device == NULL || file->f_device->GetCharDeviceOperations() == NULL)
+        if (file->f_device == nullptr || file->f_device->GetCharDeviceOperations() == nullptr)
             return Result::Failure(EINVAL);
         else
             return file->f_device->GetCharDeviceOperations()->Write(*file, buf, len);
     }
 
     INode* inode = file->f_dentry->d_inode;
-    if (inode == NULL || inode->i_iops == NULL)
+    if (inode == nullptr || inode->i_iops == nullptr)
         return Result::Failure(EINVAL);
 
     if (S_ISDIR(inode->i_sb.st_mode)) {
@@ -149,14 +149,14 @@ Result vfs_write(struct VFS_FILE* file, const void* buf, size_t len)
         return Result::Failure(EIO);
 
     /* Regular file */
-    if (inode->i_iops->write == NULL)
+    if (inode->i_iops->write == nullptr)
         return Result::Failure(EINVAL);
     return inode->i_iops->write(file, buf, len);
 }
 
 Result vfs_seek(struct VFS_FILE* file, off_t offset)
 {
-    if (file->f_dentry == NULL || file->f_dentry->d_inode == NULL)
+    if (file->f_dentry == nullptr || file->f_dentry->d_inode == nullptr)
         return Result::Failure(EBADF);
     if (offset > file->f_dentry->d_inode->i_sb.st_size)
         return Result::Failure(ERANGE);
@@ -164,19 +164,23 @@ Result vfs_seek(struct VFS_FILE* file, off_t offset)
     return Result::Success();
 }
 
-static Result vfs_follow_symlink(DEntry*& curdentry)
+namespace
 {
+
+Result vfs_follow_symlink(DEntry*& curdentry)
+{
+    if (!S_ISLNK(curdentry->d_inode->i_sb.st_mode)) return Result::Success();
+
     int symlink_loops = 0;
     while (S_ISLNK(curdentry->d_inode->i_sb.st_mode) && symlink_loops < maxSymlinkLoops) {
         INode& inode = *curdentry->d_inode;
         DEntry* followed_dentry;
         auto result = inode.i_iops->follow_link(inode, *curdentry, followed_dentry);
-        dentry_deref(*curdentry); /* let go of the ref; we are done with it */
-        if (result.IsFailure())
-            return result;
+        if (result.IsFailure()) return result;
 
+        dentry_deref(*curdentry);
         curdentry = followed_dentry;
-        symlink_loops++;
+        ++symlink_loops;
     }
 
     if (symlink_loops == maxSymlinkLoops) {
@@ -188,204 +192,163 @@ static Result vfs_follow_symlink(DEntry*& curdentry)
 
 /*
  * Internally used to perform a lookup from directory entry 'name' to an inode;
- * 'curdentry' is the dentry  to start the lookup relative to, or NULL to
+ * 'curdentry' is the dentry  to start the lookup relative to, or nullptr to
  * start from the root. This fills out the final dcache entry of the lookup; if
  * the last entry of the inode was resolved, final will be non-zero.
  *
- * Note ditem, if not nullptr, will always be referenced; it is the
- * responsibility of the caller to derefence it.
+ * On return of this function, result_dentry will always be referenced if it is not
+ * nullptr; it is the responsibility of the caller to derefence it. This means that
+ * _even if the lookup failed_, there can be dentry to report (more specicially, if
+ * only the final part was not found but the path to it was, this is necessary when
+ * creating new dentries)
  */
-static Result
-vfs_lookup_internal(DEntry* curdentry, const char* name, DEntry*& ditem, bool& final, int flags)
+struct LookupResult {
+    Result result;
+    DEntry* result_dentry = nullptr;
+    bool isFinal = false; // was the entire name resolved?
+};
+
+LookupResult
+vfs_lookup_internal(DEntry* cur_dentry, const char* name, int flags)
 {
-    char tmp[VFS_MAX_NAME_LEN + 1];
-    if constexpr (vfsDebugLookup) {
-        kprintf(
-            "vfs_lookup_internal((): curdentry=(%p,inode %p,mode %x, entry='%s'), name=%s\n", curdentry,
-            curdentry != NULL ? curdentry->d_inode : NULL,
-            (curdentry != NULL && curdentry->d_inode != NULL) ? curdentry->d_inode->i_sb.st_mode : 0,
-            curdentry != NULL ? curdentry->d_entry : "-", name);
-    }
-
-    /* Start with a clean slate */
-    final = false;
-    ditem = nullptr;
-
-    /*
-     * First of all, see if we need to lookup relative to the root; if so,
-     * we must update the current inode.
-     */
-    if (curdentry == NULL || *name == '/') {
-        struct VFS_MOUNTED_FS* fs = vfs_get_rootfs();
-        if (fs == NULL)
-            /* If there is no root filesystem, nothing to do */
-            return Result::Failure(ENOENT);
+    // See if we need to lookup relative to the root; if so, we must update the cur_dentry which
+    // is our current lookup scope
+    if (cur_dentry == nullptr || *name == '/') {
+        const auto fs = vfs_get_rootfs();
+        if (fs == nullptr)
+            return { Result::Failure(ENOENT) }; // no root filesystem available
         if (*name == '/')
             name++;
 
         /* Start by looking up the root inode */
-        curdentry = fs->fs_root_dentry;
-        KASSERT(curdentry != NULL, "no root dentry");
+        cur_dentry = fs->fs_root_dentry;
+        KASSERT(cur_dentry != nullptr, "no root dentry");
     }
+    dentry_ref(*cur_dentry);
 
     /*
-     * Explicitely reference the dentry; this is normally done by the VFS lookup
-     * function when it returns an dentry, but we need some place to start. The
-     * added benefit is that we won't need any exceptions, as we can just free
-     * any inode that doesn't work.
+     * Split 'name' to lookup into 'next_lookup', which is the next item to
+     * look for, and 'name_left', which points to the remainer of 'name' that
+     * we still need to lookup. Once 'name_left' is nullptr, this means we are
+     * at the final piece.
      */
-    dentry_ref(*curdentry);
-
-    /*
-     * Walk through the name to look up; for example, if it is 'a/b/c', we need
-     * to start with the 'a' part, when we find it look at the 'b' part etc.
-     *
-     * In order to do this, next_name is the complete piece to handle 'a/b/c' and
-     * next_lookup is the subpiece of that to handle during the first iteration
-     * ('a'). Once we run out of 'next_name', we are done.
-     */
-    const char* next_name = name;
+    const char* name_left = name;
     const char* next_lookup;
-    while (next_name != NULL && *next_name != '\0' /* for trailing /-es */) {
+    char tmp[VFS_MAX_NAME_LEN + 1];
+    while (name_left != nullptr && *name_left != '\0' /* for trailing /-es */) {
         /*
          * Isolate the next part of the part we have to look up. Note that
          * we consider the input dentry as const, so we can't mess with it;
          * this is why we need to make copies in 'tmp'.
          */
-        char* ptr = strchr(next_name, '/');
-        if (ptr != NULL) {
-            /* There's a slash in the path - must lookup next part */
-            strncpy(tmp, next_name, ptr - next_name);
-            tmp[ptr - next_name] = '\0';
-            next_name = ++ptr;
+        char* ptr = strchr(name_left, '/');
+        if (ptr != nullptr) {
+            // There's a slash in the path - must lookup next part
+            strncpy(tmp, name_left, ptr - name_left);
+            tmp[ptr - name_left] = '\0';
+            name_left = ++ptr;
             next_lookup = tmp;
         } else {
-            next_lookup = next_name;
-            next_name = NULL;
-            /* This has to be the final entry */
-            final = true;
+            // No slashes; this is the final entry
+            next_lookup = name_left;
+            name_left = nullptr;
         }
 
-        // Ensure the dentry points to something still sane
-        if (!vfs_is_filesystem_sane(curdentry->d_fs)) {
-            dentry_deref(*curdentry); /* let go of the ref; we are done with it */
-            return Result::Failure(EIO);
-        }
-
-        /*
-         * If the entry to find is '.', continue to the next one; we are already
-         * there.
-         */
+        // Short-circut '.' which should exist in every directory
         if (strcmp(next_lookup, ".") == 0)
             continue;
 
-        /*
-         * We need to recurse - is this item a symlink? If so, we need to follow
-         * it.
-         */
-        if (auto result = vfs_follow_symlink(curdentry); result.IsFailure())
-            return result;
-
-        /*
-         * We need to recurse; this can only be done if this is a directory, so
-         * refuse if this isn't the case.
-         */
-        if (S_ISDIR(curdentry->d_inode->i_sb.st_mode) == 0) {
-            dentry_deref(*curdentry); /* let go of the ref; we are done with it */
-            return Result::Failure(ENOENT);
+        // Ensure the dentry points to something still sane
+        if (!vfs_is_filesystem_sane(cur_dentry->d_fs)) {
+            dentry_deref(*cur_dentry);
+            return { Result::Failure(EIO) };
         }
 
-        /*
-         * See if the item is in the cache; we will add it otherwise since we we
-         * use the cache to look for items. Note that dcache_lookup() returns a
-         * _reffed_ dentry, which is why we don't take it ourselves.
-         */
-        DEntry* dentry;
-        while (1) {
-            dentry = dcache_lookup(*curdentry, next_lookup);
-            if (dentry != nullptr)
-                break;
-            /* XXX There should be a wakeup signal of some kind */
-            scheduler::Schedule();
-        }
-        if constexpr (vfsDebugLookup) {
-            kprintf(
-                "partial lookup for %p:'%s' -> dentry %p (flags %u)", curdentry, next_lookup, dentry,
-                dentry->d_flags);
-        }
-        ditem = dentry;
-
-        if (dentry->d_flags & DENTRY_FLAG_NEGATIVE) {
-            /* Entry is in the cache as a negative entry; this means we can't find it */
-            dentry_deref(*curdentry); /* release parent, we are done with it */
-            KASSERT(dentry->d_inode == NULL, "negative lookup with inode?");
-            return Result::Failure(ENOENT);
+        // If the current dentry is a symlink, follow it
+        if (auto result = vfs_follow_symlink(cur_dentry); result.IsFailure()) {
+            dentry_deref(*cur_dentry);
+            return { result };
         }
 
-        /* If the entry has a backing inode, we are done and can look up the next part */
-        if (dentry->d_inode != NULL) {
-            dentry_deref(*curdentry); /* release parent, we are done with it */
-            curdentry = dentry; /* and start with the new parent; it's reffed by dcache_lookup() */
+        // We still need to look up 'next_lookup', so stop if we aren't in a
+        // directory
+        if (S_ISDIR(cur_dentry->d_inode->i_sb.st_mode) == 0) {
+            dentry_deref(*cur_dentry);
+            return { Result::Failure(ENOENT) };
+        }
+
+        // Look up 'next_lookup' using the dentry cache. This will always
+        // return a valid dentry, but it could be negative (name does not exist).
+        auto& next_dentry = dcache_lookup(*cur_dentry, next_lookup);
+        if (next_dentry.d_flags & DENTRY_FLAG_NEGATIVE) {
+            // Negative dentry means the name does not exist
+            KASSERT(next_dentry.d_inode == nullptr, "negative lookup with inode?");
+            dentry_deref(*cur_dentry);
+            return { Result::Failure(ENOENT), cur_dentry, name_left == nullptr };
+        }
+
+        // If an inode is present, it means the lookup was succeeded
+        if (next_dentry.d_inode != nullptr) {
+            // Use the dentry as the next lookup base to find 'name_left'
+            dentry_deref(*cur_dentry);
+            cur_dentry = &next_dentry; // transfers ref
             continue;
         }
 
-        /*
-         * If we got here, it means the new dcache entry doesn't have an inode
-         * attached to it; we need to read it.
-         */
+        // No inode available for 'next_lookup', get the current dentry to do
+        // the lookup
         INode* inode;
-        Result result = curdentry->d_inode->i_iops->lookup(*curdentry, inode, next_lookup);
-        dentry_deref(*curdentry); /* we no longer need it */
-        if (result.IsSuccess()) {
-            /*
-             * Lookup worked; we have a single-reffed inode now. We have to hook it
-             * up to the dentry cache, which can re-use the reference we have for it.
-             */
-            dentry->d_inode = inode;
-        } else {
-            /* Lookup failed; make the entry cache negative */
-            dentry->d_flags |= DENTRY_FLAG_NEGATIVE;
-            /* No need to touch ditem; it'll be set already to the new dentry (and we can get to the
-             * parent from there) */
-            return result;
+        auto result = cur_dentry->d_inode->i_iops->lookup(*cur_dentry, inode, next_lookup);
+        dentry_deref(*cur_dentry);
+        if (result.IsFailure()) {
+            // I/O failure make the entry cache negative
+            next_dentry.d_flags |= DENTRY_FLAG_NEGATIVE;
+            // Return where the lookup stopped; this can be used to create new entries
+            // as needed
+            return { result, &next_dentry, name_left == nullptr };
         }
 
-        /* Go one level deeper; we've already dereffed curdentry */
-        curdentry = dentry;
+        // Inode successfully read; connect it to the dentry
+        dcache_set_inode(next_dentry, *inode);
+        vfs_deref_inode(*inode);
+
+        // Go one level deeper; we've already dereffed cur_dentry
+        cur_dentry = &next_dentry;
     }
 
     // Handle with the last follow, if we need to
-    if (curdentry != nullptr && (flags & VFS_LOOKUP_FLAG_NO_FOLLOW) == 0) {
-        auto result = vfs_follow_symlink(curdentry);
-        if (result.IsFailure())
-            return result;
+    if (cur_dentry != nullptr && (flags & VFS_LOOKUP_FLAG_NO_FOLLOW) == 0) {
+        if (const auto result = vfs_follow_symlink(cur_dentry); result.IsFailure()) {
+            dentry_deref(*cur_dentry);
+            return { result, nullptr, true };
+        }
     }
 
-    ditem = curdentry;
-    return Result::Success();
+    // Lookup succeeded
+    return { Result::Success(), cur_dentry, true };
 }
+
+} // unnamed namespace
 
 /*
  * Called to perform a lookup from directory entry 'dentry' to an inode;
- * 'curinode' is the initial inode to start the lookup relative to, or NULL to
+ * 'curinode' is the initial inode to start the lookup relative to, or nullptr to
  * start from the root.
  */
 Result vfs_lookup(DEntry* parent, DEntry*& destentry, const char* dentry, int flags)
 {
-    bool final;
-    Result result = vfs_lookup_internal(parent, dentry, destentry, final, flags);
-    if (result.IsSuccess()) {
-        if constexpr (vfsDebugLookup) {
-            kprintf(
-                "vfs_lookup(): parent=%p,dentry='%s' okay -> dentry %p\n", parent, dentry, destentry);
-        }
-        return result;
+    destentry = nullptr;
+
+    const auto lookupResult = vfs_lookup_internal(parent, dentry, flags);
+    if (lookupResult.result.IsSuccess()) {
+        destentry = lookupResult.result_dentry;
+        return Result::Success();
     }
 
-    /* Lookup failed; dereference the destination if necessary */
-    if (destentry != nullptr)
-        dentry_deref(*destentry);
-    return result;
+    // Lookup failed; dereference the destination if necessary
+    if (lookupResult.result_dentry != nullptr)
+        dentry_deref(*lookupResult.result_dentry);
+    return lookupResult.result;
 }
 
 /*
@@ -393,28 +356,27 @@ Result vfs_lookup(DEntry* parent, DEntry*& destentry, const char* dentry, int fl
  */
 Result vfs_create(DEntry* parent, const char* dentry, int file_flags, int mode, struct VFS_FILE* file)
 {
-    DEntry* de;
-    bool final;
-    Result result = vfs_lookup_internal(parent, dentry, de, final, 0);
-    if (result.IsSuccess() || result.AsErrno() != ENOENT) {
+    const auto lookupResult = vfs_lookup_internal(parent, dentry, 0);
+    if (lookupResult.result.IsSuccess() || lookupResult.result.AsErrno() != ENOENT) {
         /*
          * A 'no file found' error is expected as we are creating the new file; we
          * are using the lookup code in order to obtain the cache item entry.
          */
+        auto result = lookupResult.result;
         if (result.IsSuccess()) {
-            /* The lookup worked?! The file already exists; cancel the ref */
-            KASSERT(de->d_inode != NULL, "successful lookup without inode");
-            dentry_deref(*de);
-            /* Update the error code */
+            // File already exists; drop the result and return EEXIST instead
+            KASSERT(lookupResult.result_dentry->d_inode != nullptr, "successful lookup without inode");
+            dentry_deref(*lookupResult.result_dentry);
             result = Result::Failure(EEXIST);
         }
         return result;
     }
 
-    /* Request failed; if this wasn't the final entry, bail: path is not present */
-    if (!final) {
+    // If we couldn't look up all the way until the final entry, yield the error
+    auto de = lookupResult.result_dentry;
+    if (!lookupResult.isFinal) {
         dentry_deref(*de);
-        return result;
+        return lookupResult.result;
     }
 
     /*
@@ -426,26 +388,31 @@ Result vfs_create(DEntry* parent, const char* dentry, int file_flags, int mode, 
     KASSERT(
         de->d_parent != nullptr && de->d_parent->d_inode != nullptr,
         "attempt to create entry without a parent inode");
-    INode* parentinode = de->d_parent->d_inode;
-    KASSERT(S_ISDIR(parentinode->i_sb.st_mode), "final entry isn't an inode");
+    auto parentinode = de->d_parent->d_inode;
+    KASSERT(S_ISDIR(parentinode->i_sb.st_mode), "final entry isn't a directory");
 
     /* If the filesystem can't create inodes, assume the operation is faulty */
-    if (parentinode->i_iops->create == NULL)
+    if (parentinode->i_iops->create == nullptr) {
+        de->d_flags |= DENTRY_FLAG_NEGATIVE;
+        dentry_deref(*de);
         return Result::Failure(EINVAL);
+    }
 
-    if (!vfs_is_filesystem_sane(parentinode->i_fs))
+    if (!vfs_is_filesystem_sane(parentinode->i_fs)) {
+        de->d_flags |= DENTRY_FLAG_NEGATIVE;
+        dentry_deref(*de);
         return Result::Failure(EIO);
+    }
 
     /* Dear filesystem, create a new inode for us */
-    result = parentinode->i_iops->create(*parentinode, de, mode);
-    if (result.IsFailure()) {
+    if (auto result = parentinode->i_iops->create(*parentinode, de, mode); result.IsFailure()) {
         /* Failure; remark the directory entry (we don't own it anymore) and report the failure */
         de->d_flags |= DENTRY_FLAG_NEGATIVE;
-    } else {
-        /* Success; report the inode we created */
-        MakeFile(file, file_flags, *de);
+        dentry_deref(*de);
+        return result;
     }
-    return result;
+    MakeFile(file, file_flags, *de); // transfers ownership of reffed de
+    return Result::Success();
 }
 
 /*
@@ -479,15 +446,15 @@ Result vfs_grow(struct VFS_FILE* file, off_t size)
 
 Result vfs_unlink(struct VFS_FILE* file)
 {
-    KASSERT(file->f_dentry != NULL, "unlink without dentry?");
+    KASSERT(file->f_dentry != nullptr, "unlink without dentry?");
 
     /* Unlink is relative to the parent; so we'll need to obtain it */
     DEntry* parent = file->f_dentry->d_parent;
-    if (parent == NULL || parent->d_inode == NULL)
+    if (parent == nullptr || parent->d_inode == nullptr)
         return Result::Failure(EINVAL);
 
     INode& inode = *parent->d_inode;
-    if (inode.i_iops->unlink == NULL)
+    if (inode.i_iops->unlink == nullptr)
         return Result::Failure(EINVAL);
 
     if (!vfs_is_filesystem_sane(inode.i_fs))
@@ -506,48 +473,47 @@ Result vfs_unlink(struct VFS_FILE* file)
 
 Result vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest)
 {
-    KASSERT(file->f_dentry != NULL, "rename without dentry?");
+    KASSERT(file->f_dentry != nullptr, "rename without dentry?");
 
     /*
      * Renames are performed using the parent directory's inode - if our parent
      * does not have a rename function, we can avoid looking up things.
      */
-    DEntry* parent_dentry = file->f_dentry->d_parent;
-    if (parent_dentry == NULL || parent_dentry->d_inode == NULL ||
-        parent_dentry->d_inode->i_iops->rename == NULL)
+    auto parent_dentry = file->f_dentry->d_parent;
+    if (parent_dentry == nullptr || parent_dentry->d_inode == nullptr ||
+        parent_dentry->d_inode->i_iops->rename == nullptr)
         return Result::Failure(EINVAL);
 
     /*
      * Look up the new location; we need a dentry to the new location for this to
      * work.
      */
-    DEntry* de;
-    bool final;
-    Result result = vfs_lookup_internal(parent, dest, de, final, 0);
-    if (result.IsSuccess() || result.AsErrno() != ENOENT) {
+    const auto lookupResult = vfs_lookup_internal(parent, dest, 0);
+    if (lookupResult.result.IsSuccess() || lookupResult.result.AsErrno() != ENOENT) {
         /*
          * A 'no file found' error is expected as we are creating a new name here;
          * we are using the lookup code in order to obtain the cache item entry.
          */
+        auto result = lookupResult.result;
         if (result.IsSuccess()) {
-            /* The lookup worked?! The file already exists; cancel the ref */
-            KASSERT(de->d_inode != NULL, "successful lookup without inode");
-            dentry_deref(*de);
-            /* Update the error code */
+            // Destination already exists; can't rename - return EEXIST
+            KASSERT(lookupResult.result_dentry->d_inode != nullptr, "successful lookup without inode");
+            dentry_deref(*lookupResult.result_dentry);
             result = Result::Failure(EEXIST);
         }
         return result;
     }
 
     /* Request failed; if this wasn't the final entry, bail: parent path is not present */
-    if (!final) {
+    auto de = lookupResult.result_dentry;
+    if (!lookupResult.isFinal) {
         dentry_deref(*de);
-        return result;
+        return lookupResult.result;
     }
 
     /* Sanity checks */
-    KASSERT(de->d_parent != NULL, "found dest dentry without parent");
-    KASSERT(de->d_parent->d_inode != NULL, "found dest dentry without inode");
+    KASSERT(de->d_parent != nullptr, "found dest dentry without parent");
+    KASSERT(de->d_parent->d_inode != nullptr, "found dest dentry without inode");
 
     /*
      * Okay, we need to rename file->f_dentry in parent_inode to de. First of all, ensure we
@@ -562,9 +528,7 @@ Result vfs_rename(struct VFS_FILE* file, DEntry* parent, const char* dest)
     }
 
     /* All seems to be in order; ask the filesystem to deal with the change */
-    result = parent_inode->i_iops->rename(*parent_inode, *file->f_dentry, *dest_inode, *de);
-    if (result.IsFailure()) {
-        /* If something went wrong, ensure to free the new dentry */
+    if (auto result = parent_inode->i_iops->rename(*parent_inode, *file->f_dentry, *dest_inode, *de); result.IsFailure()) {
         dentry_deref(*de);
         return result;
     }

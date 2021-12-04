@@ -19,6 +19,7 @@
 #include "kernel/lock.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
+#include "kernel/time.h"
 #include "kernel/vfs/types.h"
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/mount.h"
@@ -104,15 +105,13 @@ DEntry& dcache_create_root_dentry(struct VFS_MOUNTED_FS* fs)
 /*
  *
  * Attempts to look up a given entry for a parent dentry. Returns a referenced
- * dentry entry on success.
- *
- * The only way for this function to return NULL is that the lookup is
- * currently pending; this means the attempt to is be retried.
+ * dentry entry - note that this may be a negative entry if the entry does not
+ * exist.
  *
  * Note that this function must be called with a referenced dentry to ensure it
  * will not go away. This ref is not touched by this function.
  */
-DEntry* dcache_lookup(DEntry& parent, const char* entry)
+DEntry& dcache_lookup(DEntry& parent, const char* entry)
 {
     dcache_lock();
 
@@ -120,6 +119,7 @@ DEntry* dcache_lookup(DEntry& parent, const char* entry)
      * XXX This is just a simple linear search which attempts to avoid
      * overhead by moving recent entries to the start.
      */
+again:
     for (auto& d : dcache_inuse) {
         if (d.d_parent != &parent || strcmp(d.d_entry, entry) != 0)
             continue;
@@ -128,12 +128,12 @@ DEntry* dcache_lookup(DEntry& parent, const char* entry)
          * It's quite possible that this inode is still pending; if that is the
          * case, our caller should sleep and wait for the other caller to finish
          * up.
-         *
-         * XXX We shouldn't burden the caller with this!
          */
         if (d.d_inode == nullptr && (d.d_flags & DENTRY_FLAG_NEGATIVE) == 0) {
             dcache_unlock();
-            return nullptr;
+            delay(1); // XXX We ought to have some form of wakeup here...
+            dcache_lock();
+            goto again;
         }
 
         // Add an extra ref to the dentry; we'll be giving it to the caller. Don't use dentry_ref()
@@ -144,11 +144,11 @@ DEntry* dcache_lookup(DEntry& parent, const char* entry)
         dcache_inuse.remove(d);
         dcache_inuse.push_front(d);
         dcache_unlock();
-        return &d;
+        return d;
     }
 
     // Item was not found; need to make a new one
-    DEntry& d = FindEntryToUse();
+    auto& d = FindEntryToUse();
 
     // Add an explicit ref to the parent dentry; it will be referenced by our new dentry */
     dentry_ref(parent);
@@ -163,7 +163,7 @@ DEntry* dcache_lookup(DEntry& parent, const char* entry)
     strcpy(d.d_entry, entry);
     dcache_inuse.push_front(d);
     dcache_unlock();
-    return &d;
+    return d;
 }
 
 void dcache_purge_old_entries()

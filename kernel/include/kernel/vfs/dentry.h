@@ -28,7 +28,7 @@ struct DEntry : util::List<DEntry>::NodePtr {
 DEntry& dcache_create_root_dentry(struct VFS_MOUNTED_FS* fs);
 
 void dcache_dump();
-DEntry* dcache_lookup(DEntry& parent, const char* entry);
+DEntry& dcache_lookup(DEntry& parent, const char* entry);
 void dcache_purge_old_entries();
 void dcache_set_inode(DEntry& de, INode& inode);
 
