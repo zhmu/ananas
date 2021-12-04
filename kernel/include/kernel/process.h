@@ -59,8 +59,8 @@ namespace process
 
     } // namespace internal
 
-    using ChildrenList = util::List<::Process, internal::ProcessAllNodeAccessor<::Process>>;
-    using ProcessList = util::List<::Process, internal::ProcessChildrenNodeAccessor<::Process>>;
+    using ChildrenList = util::List<::Process, internal::ProcessChildrenNodeAccessor<::Process>>;
+    using ProcessList = util::List<::Process, internal::ProcessAllNodeAccessor<::Process>>;
     using GroupMemberList = util::List<::Process, internal::ProcessGroupNodeAccessor<::Process>>;
 
     // Callbacks so we can organise things when needed
@@ -72,8 +72,8 @@ namespace process
     using CallbackList = util::List<Callback>;
 
     struct ProcessGroup;
-    void Initialize();
-    Process& GetKernelProcess();
+    Process& AllocateKernelProcess();
+    Process& CreateInitProcess();
     Process& GetCurrent();
 
     enum class TickContext { Userland, Kernel };
@@ -81,7 +81,6 @@ namespace process
 
 struct Process final : util::refcounted<Process> {
     Process(VMSpace&);
-    ~Process();
 
     void AssertLocked() { p_lock.AssertLocked(); }
 
@@ -124,13 +123,16 @@ struct Process final : util::refcounted<Process> {
 
     Result Clone(Process*& out_p);
 
-    Result WaitAndLock(int flags, util::locked<Process>& p_out); // transfers reference to caller!
+    Result WaitAndLock(pid_t, int flags, util::locked<Process>& p_out); // transfers reference to caller!
+
+    void ReparentToInit();
 
   private:
     Mutex p_lock{"plock"}; /* Locks the process */
     Semaphore p_child_wait{"pchildwait", 0};
-};
 
-Result process_alloc(Process* parent, Process*& dest);
+    friend class util::detail::default_refcounted_cleanup<Process>;
+    ~Process();
+};
 
 Process* process_lookup_by_id_and_lock(pid_t pid);

@@ -564,9 +564,6 @@ extern "C" void md_startup(const struct MULTIBOOT* multiboot)
     // Initialize the commandline arguments, if we have any
     cmdline_init(boot_args);
 
-    // Create kernel process; must be done before we can create threads
-    process::Initialize();
-
     /*
      * Initialize the per-CPU thread; this needs a working memory allocator, so that is why
      * we delay it.

@@ -66,7 +66,7 @@ namespace
         }
 
         int wstatus;
-        if (wait(&wstatus) < 0)
+        if (waitpid(p, &wstatus, 0) < 0)
             return; // XXX what can we do here?
 
         if (WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 0)

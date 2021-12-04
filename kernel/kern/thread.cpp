@@ -77,17 +77,19 @@ Result thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
 
 Result kthread_alloc(const char* name, kthread_func_t func, void* arg, Thread*& dest)
 {
-    /*
-     * Kernel threads do not have an associated process, and thus no handles,
-     * vmspace and the like.
-     */
-    auto t = new Thread(process::GetKernelProcess());
+    // Give every kthread its own process so we can do proper accounting
+    auto& proc = process::AllocateKernelProcess();
+
+    auto t = new Thread(proc);
     t->t_sched_flags = 0;
     t->t_flags = THREAD_FLAG_KTHREAD;
     t->t_refcount = 1;
     t->t_priority = THREAD_PRIORITY_DEFAULT;
     t->t_affinity = THREAD_AFFINITY_ANY;
     t->SetName(name);
+
+    proc.AddThread(*t);
+    proc.Unlock();
 
     /* Initialize MD-specifics */
     md::thread::InitKernelThread(*t, func, arg);

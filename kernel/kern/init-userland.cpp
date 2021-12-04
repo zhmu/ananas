@@ -128,24 +128,8 @@ namespace
         }
         kprintf(" ok\n");
 
-        Process* proc;
-        if (auto result = process_alloc(nullptr, proc); result.IsFailure()) {
-            kprintf("couldn't create process, %i\n", result.AsStatusCode());
-            thread.Terminate(0);
-        }
-        // Note: proc is locked at this point and has a single ref
-        proc->p_parent = proc; // XXX init is its own parent
-
-        Thread* t;
-        {
-            Result result = thread_alloc(*proc, t, "init", THREAD_ALLOC_DEFAULT);
-            proc->Unlock();
-            if (result.IsFailure()) {
-                kprintf("couldn't create thread, %i\n", result.AsStatusCode());
-                thread.Terminate(0);
-            }
-        }
-
+        auto& proc = process::CreateInitProcess();
+        auto& t = proc.p_mainthread;
         FillInitThread(*t);
         t->Resume();
         thread.Terminate(0);

@@ -21,117 +21,137 @@
 #include "kernel/vmspace.h"
 #include "kernel/vfs/core.h" // for vfs_{init,exit}_process
 
-/* XXX These should be locked */
-
 namespace process
 {
     Mutex process_mtx("process");
     ProcessList process_all;
-    Process* process_kernel;
+}
 
-    namespace
+namespace
+{
+    constexpr auto inline initPid = 1;
+    pid_t process_curpid = initPid + 1;
+    Process* initProcess = nullptr;
+
+    pid_t AllocateProcessID()
     {
-        pid_t process_curpid = 0;
+        /* XXX this is a bit of a kludge for now ... */
+        MutexGuard g(process::process_mtx);
+        return process_curpid++;
+    }
 
-        pid_t AllocateProcessID()
-        {
-            /* XXX this is a bit of a kludge for now ... */
-            MutexGuard g(process_mtx);
-            return process_curpid++;
+    Result AllocateProcess(Process* parent, Process*& dest)
+    {
+        VMSpace* vmspace;
+        if (const auto result = vmspace_create(vmspace); result.IsFailure())
+            return result;
+
+        auto p = new Process(*vmspace);
+        p->p_parent = parent;
+        if (p->p_parent) {
+            p->p_parent->AddReference();
         }
-    } // unnamed namespace
+        p->p_state = PROCESS_STATE_ACTIVE;
+        p->p_pid = AllocateProcessID();
 
-    void Initialize()
-    {
-        KASSERT(process_kernel == nullptr, "process already initialised");
+        // Clone the parent's descriptors
+        if (parent != nullptr) {
+            for (unsigned int n = 0; n < parent->p_fd.size(); n++) {
+                if (parent->p_fd[n] == nullptr)
+                    continue;
 
-        process_kernel = new Process(*kernel_vmspace);
-        process_kernel->p_parent = process_kernel;
-        process_kernel->p_state = PROCESS_STATE_ACTIVE;
-        process_kernel->p_pid = 0;
+                FD* fd_out;
+                fdindex_t index_out;
+                if (const auto result = fd::Clone(*parent, n, nullptr, *p, fd_out, n, index_out); result.IsFailure()) {
+                    p->RemoveReference();
+                    return result;
+                }
+                KASSERT(n == index_out, "cloned fd %d to new fd %d", n, index_out);
+            }
+        }
 
+        /* Run all process initialization callbacks */
+        if (const auto result = vfs_init_process(*p); result.IsFailure()) {
+            p->RemoveReference();
+            return result;
+        }
+
+        /* Grab the parent's lock and insert the child */
+        if (parent != nullptr) {
+            parent->Lock();
+            parent->p_children.push_back(*p);
+            parent->Unlock();
+        }
+
+        process::InitializeProcessGroup(*p, parent);
+
+        // Grab the process right before adding it to the list to ensure
+        // no one can modify it while it is being set up
+        p->Lock();
+
+        /* Finally, add the process to all processes */
         {
             MutexGuard g(process::process_mtx);
-            process::process_all.push_back(*process_kernel);
-            process_curpid = 1;
+            process::process_all.push_back(*p);
         }
-    }
 
-    Process& GetKernelProcess()
-    {
-        KASSERT(process_kernel != nullptr, "processes not initialised");
-        return *process_kernel;
+        dest = p;
+        return Result::Success();
     }
+} // unnamed namespace
 
+namespace process
+{
     Process& GetCurrent()
     {
         auto& t = thread::GetCurrent();
         return t.t_process;
     }
-} // namespace process
 
-static Result process_alloc_ex(Process* parent, Process*& dest)
-{
-    VMSpace* vmspace;
-    if (const auto result = vmspace_create(vmspace); result.IsFailure())
-        return result;
-
-    auto p = new Process(*vmspace);
-    p->p_parent = parent; /* XXX should we take a ref here? */
-    p->p_state = PROCESS_STATE_ACTIVE;
-    p->p_pid = process::AllocateProcessID();
-
-    // Clone the parent's descriptors
-    if (parent != nullptr) {
-        for (unsigned int n = 0; n < parent->p_fd.size(); n++) {
-            if (parent->p_fd[n] == nullptr)
-                continue;
-
-            FD* fd_out;
-            fdindex_t index_out;
-            if (const auto result = fd::Clone(*parent, n, nullptr, *p, fd_out, n, index_out); result.IsFailure()) {
-                delete p;
-                return result;
-            }
-            KASSERT(n == index_out, "cloned fd %d to new fd %d", n, index_out);
-        }
-    }
-
-    /* Run all process initialization callbacks */
-    if (const auto result = vfs_init_process(*p); result.IsFailure()) {
-        delete p;
-        return result;
-    }
-
-    /* Grab the parent's lock and insert the child */
-    if (parent != nullptr) {
-        parent->Lock();
-        parent->p_children.push_back(*p);
-        parent->Unlock();
-    }
-
-    process::InitializeProcessGroup(*p, parent);
-
-    // Grab the process right before adding it to the list to ensure
-    // no one can modify it while it is being set up
-    p->Lock();
-
-    /* Finally, add the process to all processes */
+    Process& AllocateKernelProcess()
     {
-        MutexGuard g(process::process_mtx);
-        process::process_all.push_back(*p);
+        auto p = new Process(*kernel_vmspace);
+        p->p_parent = initProcess;
+        p->p_state = PROCESS_STATE_ACTIVE;
+        p->p_pid = AllocateProcessID();
+
+        p->Lock();
+        {
+            MutexGuard g(process::process_mtx);
+            process::process_all.push_back(*p);
+        }
+        return *p;
     }
 
-    dest = p;
-    return Result::Success();
-}
+    Process& CreateInitProcess()
+    {
+        Process* proc;
+        if (auto result = AllocateProcess(nullptr, proc); result.IsFailure())
+            panic("cannot create init process %d", result.AsStatusCode());
+        proc->p_pid = initPid;
 
-Result process_alloc(Process* parent, Process*& dest) { return process_alloc_ex(parent, dest); }
+        Thread* t;
+        if (auto result = thread_alloc(*proc, t, "init", THREAD_ALLOC_DEFAULT); result.IsFailure())
+            panic("cannot create init thread %d", result.AsStatusCode());
+        proc->Unlock();
+        initProcess = proc;
+
+        // Now that we have an init process, parent all kernel processes to it
+        {
+            MutexGuard g(process::process_mtx);
+            for (auto& p: process::process_all) {
+                p.ReparentToInit();
+            }
+        }
+
+        return *proc;
+    }
+}
 
 Result Process::Clone(Process*& out_p)
 {
     Process* newp;
-    if (const auto result = process_alloc_ex(this, newp); result.IsFailure())
+    if (const auto result = AllocateProcess(this, newp); result.IsFailure())
         return result;
 
     /* Duplicate the vmspace - this should leave the private mappings alone */
@@ -170,7 +190,8 @@ Process::~Process()
     process::AbandonProcessGroup(*this);
 
     // Process is gone - destroy any memory mappings held by it
-    vmspace_destroy(p_vmspace);
+    if (&p_vmspace != kernel_vmspace)
+        vmspace_destroy(p_vmspace);
 
     // Remove the process from the all-process list
     {
@@ -201,13 +222,13 @@ void Process::RemoveThread(Thread& t)
 
 void Process::Exit(int status)
 {
-    if (p_pid == 1) panic("terminating init!");
+    if (p_pid == initPid) panic("terminating init!");
 
     if (p_parent) {
-        p_parent->Lock();
+        if (p_parent != this) p_parent->Lock();
         p_parent->p_times.tms_cutime += p_times.tms_utime;
         p_parent->p_times.tms_cstime += p_times.tms_stime;
-        p_parent->Unlock();
+        if (p_parent != this) p_parent->Unlock();
     }
 
     // Note that the lock must be held, to prevent a race between Exit() and
@@ -217,9 +238,9 @@ void Process::Exit(int status)
     p_exit_status = status;
 }
 
-void Process::SignalExit() { p_parent->p_child_wait.Signal(); }
+void Process::SignalExit() { if (p_parent) p_parent->p_child_wait.Signal(); }
 
-Result Process::WaitAndLock(int flags, util::locked<Process>& p_out)
+Result Process::WaitAndLock(pid_t pid, int flags, util::locked<Process>& p_out)
 {
     if (flags != 0)
         return Result::Failure(EINVAL);
@@ -228,6 +249,9 @@ Result Process::WaitAndLock(int flags, util::locked<Process>& p_out)
     for (;;) {
         Lock();
         for (auto& child : p_children) {
+            if (&child == initProcess) continue;
+            if (pid > 0 && pid != child.p_pid)
+                continue; // not the child the caller asked for
             child.Lock();
             if (child.p_state != PROCESS_STATE_ZOMBIE) {
                 child.Unlock();
@@ -236,6 +260,7 @@ Result Process::WaitAndLock(int flags, util::locked<Process>& p_out)
 
             // Found one; remove it from the parent's list
             p_children.remove(child);
+            RemoveReference(); // the child no longer refers to us
             Unlock();
 
             // Destroy the thread owned by the process
@@ -269,6 +294,35 @@ void Process::OnTick(process::TickContext tc)
     }
 }
 
+void Process::ReparentToInit()
+{
+    KASSERT(initProcess != nullptr, "no init process");
+
+    Lock();
+    if (p_parent == initProcess) {
+        Unlock();
+        return;
+    }
+
+    if (p_parent) {
+        p_parent->Lock();
+        p_parent->p_children.remove(*this);
+        p_parent->Unlock();
+        p_parent->RemoveReference();
+    }
+
+#if 1
+    p_parent = initProcess;
+    p_parent->AddReference();
+    if (p_parent != this)
+        p_parent->Lock();
+    p_parent->p_children.push_back(*this);
+    if (p_parent != this)
+        p_parent->Unlock();
+#endif
+    Unlock();
+}
+
 Process* process_lookup_by_id_and_lock(pid_t pid)
 {
     MutexGuard g(process::process_mtx);
@@ -289,7 +343,7 @@ const kdb::RegisterCommand kdbPs("ps", "Display all processes", [](int, const kd
     for (auto& p : process::process_all) {
         kprintf("process %d (%p): state %d\n", p.p_pid, &p, p.p_state);
         if (auto t = p.p_mainthread; t != nullptr) {
-            kprintf("  thread %p flags 0x%x\n", t, t->t_flags);
+            kprintf("  thread %p name '%s' flags 0x%x\n", t, t->t_name, t->t_flags);
         }
         //p.p_vmspace.Dump();
     }
