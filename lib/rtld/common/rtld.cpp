@@ -40,6 +40,12 @@ namespace
     Objects s_Objects;
     ObjectList s_InitList;
     ObjectList s_FiniList;
+    Object* s_MainObject = nullptr;
+    Elf_Sym s_ZeroSym{
+        .st_info = ELF32_ST_INFO(STB_GLOBAL, STT_NOTYPE),
+        .st_shndx = SHN_UNDEF,
+        .st_value = 0
+    };
 
     Object* AllocateObject(const char* name)
     {
@@ -103,10 +109,10 @@ namespace
         ol.push_front(*ole);
     }
 
-    void ObjectInitializeLookupScope(Object& target, Object& o, Object& main_obj)
+    void ObjectInitializeLookupScope(Object& target, Object& o)
     {
         // Initially, the main executable - we always need to search first
-        ObjectListAppend(target.o_lookup_scope, main_obj);
+        ObjectListAppend(target.o_lookup_scope, *s_MainObject);
 
         // Then, the object itself
         ObjectListAppend(target.o_lookup_scope, o);
@@ -120,7 +126,7 @@ namespace
 
         // Repeat, for all NEEDED things - we need to look at their dependencies as well
         for (auto& needed : o.o_needed) {
-            ObjectInitializeLookupScope(target, *needed.n_object, main_obj);
+            ObjectInitializeLookupScope(target, *needed.n_object);
         }
     }
 
@@ -525,6 +531,11 @@ bool find_symdef(
         }
     }
 
+    // If a weak symbol cannot be found, return the zero symbol
+    if (def_sym == NULL && ELF_ST_BIND(ref_sym.st_info) == STB_WEAK) {
+        def_obj = s_MainObject;
+        def_sym = &s_ZeroSym;
+    }
     return def_sym != nullptr;
 }
 
@@ -913,15 +924,16 @@ extern "C" Elf_Addr rtld(register_t* stk, uintptr_t* exit_func)
     debug |= IsEnvironmentVariableSet("LD_DEBUG");
 
     // Now, locate our executable and process it
-    auto main_obj = AllocateObject(GetProgName());
-    main_obj->o_main = true;
-    main_obj->o_phdr = reinterpret_cast<const Elf_Phdr*>(ei_phdr);
-    main_obj->o_phdr_num = ei_phdr_entries;
-    process_phdr(*main_obj);
-    setup_got(*main_obj);
+    s_MainObject = AllocateObject(GetProgName());
+    s_MainObject->o_main = true;
+    s_MainObject->o_phdr = reinterpret_cast<const Elf_Phdr*>(ei_phdr);
+    s_MainObject->o_phdr_num = ei_phdr_entries;
+
+    process_phdr(*s_MainObject);
+    setup_got(*s_MainObject);
 
     // Hook the main program and the LDSO to the linker map */
-    linkmap_add(*main_obj);
+    linkmap_add(*s_MainObject);
     linkmap_add(*s_Objects.begin());
 
     // Handle LD_LIBRARY_PATH - we'll be loading extra things from here on
@@ -968,7 +980,7 @@ extern "C" Elf_Addr rtld(register_t* stk, uintptr_t* exit_func)
 
     auto& rtld_obj = *s_Objects.begin();
     for (auto& obj : s_Objects) {
-        ObjectInitializeLookupScope(obj, obj, *main_obj);
+        ObjectInitializeLookupScope(obj, obj);
 
         // At the very end, insert the dynamic loader we can provide dl_iterate_phdr
         // and dl...()
@@ -985,14 +997,14 @@ extern "C" Elf_Addr rtld(register_t* stk, uintptr_t* exit_func)
         process_relocations_rela(obj);
         process_relocations_plt(obj);
     }
-    process_relocations_copy(*main_obj);
+    process_relocations_copy(*s_MainObject);
     if (IsEnvironmentVariableSet("LD_LDD")) {
         dump_libs();
         exit(0);
     }
 
     // Create list of init/fini functions and run them prior to the executable itself
-    process_init_fini_funcs(*main_obj);
+    process_init_fini_funcs(*s_MainObject);
     run_init_funcs();
 
     /*
