@@ -72,6 +72,7 @@ cd /work/build/gcc
     --disable-nls \
     --with-newlib \
     --without-headers \
+    --enable-initfini-array \
     --enable-languages='c,c++' \
     --prefix=${TOOLCHAINDIR} \
     --disable-libstdcxx \

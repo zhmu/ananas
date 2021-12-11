@@ -104,7 +104,7 @@ def build_libgcc(conf, project_name, src_path):
 
     # https://linuxfromscratch.org/lfs/view/stable/chapter05/gcc-pass1.html
 
-    configure = [ os.path.join(full_src_path, 'configure'),  "--target=" + conf["target"], "--disable-nls", "--without-headers", "--enable-languages=c", "--prefix=" + conf["toolchaindir"], "--with-gmp=" + conf["toolchaindir"], "--with-newlib", "--disable-threads", "--disable-libstdcxx", "--disable-build-with-cxx", "--disable-libssp", "--disable-libquadmath", "--with-sysroot=" + conf["sysrootdir"], "--with-gxx-include-dir=" + os.path.join(conf["sysrootdir"], "usr", "include" ,"c++", conf["gcc_version"]), "--without-static-standard-libraries" ]
+    configure = [ os.path.join(full_src_path, 'configure'),  "--target=" + conf["target"], "--disable-nls", "--without-headers", "--enable-languages=c", "--prefix=" + conf["toolchaindir"], "--with-gmp=" + conf["toolchaindir"], "--with-newlib", "--disable-threads", "--disable-libstdcxx", "--disable-build-with-cxx", "--disable-libssp", "--disable-libquadmath", "--with-sysroot=" + conf["sysrootdir"], "--with-gxx-include-dir=" + os.path.join(conf["sysrootdir"], "usr", "include" ,"c++", conf["gcc_version"]), "--without-static-standard-libraries", "--enable-initfini-array" ]
     logging.debug('running %s' % configure)
     subprocess.run(configure, cwd=work_dir, check=True)
     logging.debug('building %s' % project_name)
@@ -128,7 +128,7 @@ def build_libstdcxx(conf, project_name, src_path):
     if not os.path.exists(gthr_default_h):
         os.symlink('gthr-posix.h', gthr_default_h)
 
-    configure = [ os.path.join(full_src_path, 'configure'),  "--host=" + conf["target"], "--target=" + conf["target"], "--prefix=" + os.path.join(conf["sysrootdir"], "usr") ]
+    configure = [ os.path.join(full_src_path, 'configure'),  "--host=" + conf["target"], "--target=" + conf["target"], "--prefix=" + os.path.join(conf["sysrootdir"], "usr"), "--enable-initfini-array" ]
     #configure = [ os.path.join(full_src_path, 'configure'),  "--host=" + conf["target"], "--target=" + conf["target"], "--prefix=" + os.path.join(conf["sysrootdir"], "usr"), "--with-sysroot=" + conf["sysrootdir"], "--enable-languages=c,c++" ]
     logging.debug('running %s' % configure)
     subprocess.run(configure, cwd=work_dir, env=env, check=True)
