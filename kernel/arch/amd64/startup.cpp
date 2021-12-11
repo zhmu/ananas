@@ -82,8 +82,18 @@ addr_t video_framebuffer{};
 
 extern "C" void __run_global_ctors();
 
+extern "C" void (*const __init_array_start)(void);
+extern "C" void (*const __init_array_end)(void);
+
 namespace
 {
+    void __run_global_ctors_2()
+    {
+        using InitFn = void(*)();
+        for (uintptr_t p = (uintptr_t)&__init_array_start; p < (uintptr_t)&__init_array_end; p += sizeof(InitFn))
+            (*(InitFn*)p)();
+    }
+
     void* bootstrap_get_pages(addr_t& avail, size_t num)
     {
         void* ptr = (void*)avail;
@@ -543,7 +553,7 @@ extern "C" void md_startup(const struct MULTIBOOT* multiboot)
 
     // Run the constructor list; we can at least handle exceptions and such here,
     // but there's no new/delete yet so do not allocate things from constructors!
-    __run_global_ctors();
+    __run_global_ctors_2();
 
     /*
      * Process the boot information passed by the multiboot stub; this ensures
