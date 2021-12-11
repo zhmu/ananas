@@ -15,8 +15,6 @@ extern int main(int argc, char** argv, char** envp);
 extern void exit(int);
 extern char** environ;
 
-#define __hidden __attribute__((__visibility__("hidden")))
-
 extern void* _DYNAMIC;
 #pragma weak _DYNAMIC
 

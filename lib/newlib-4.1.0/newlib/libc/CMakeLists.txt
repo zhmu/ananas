@@ -1158,5 +1158,7 @@ install(FILES ${HEADERS_RPC} DESTINATION usr/include/rpc)
 install(FILES ${HEADERS_SYS} DESTINATION usr/include/sys)
 install(FILES ${HEADERS_SSP} DESTINATION usr/include/ssp)
 
+add_subdirectory(sys/ananas/crt1)
+
 #target_link_libraries(${PROJECT_NAME} PRIVATE "-lgcc")
 target_link_libraries(${PROJECT_NAME} PRIVATE "-lsyscall")

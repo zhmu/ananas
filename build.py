@@ -238,7 +238,6 @@ if targets['bootstrap']:
 
     build_using_cmake(conf, 'newlib-c', 'lib/newlib-4.1.0/newlib/libc')
     build_using_cmake(conf, 'libpthread', 'lib/pthread')
-    build_using_cmake(conf, 'crt', 'lib/crt')
     build_libgcc(conf, 'libgcc', 'external/gcc')
     build_using_cmake(conf, 'newlib-m', 'lib/newlib-4.1.0/newlib/libm')
 
