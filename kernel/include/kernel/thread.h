@@ -66,10 +66,6 @@ struct Thread {
     struct STACKFRAME* t_frame{};
     unsigned int t_md_flags{};
 
-#define THREAD_MAKE_EXITCODE(a, b) (((a) << 24) | ((b)&0x00ffffff))
-#define THREAD_TERM_SYSCALL 0 /* euthanasia */
-#define THREAD_TERM_SIGNAL 1  /* terminated by signal */
-
     Process& t_process; /* associated process */
 
     int t_priority{}; /* priority (0 highest) */

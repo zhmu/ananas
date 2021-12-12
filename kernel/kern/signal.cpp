@@ -6,6 +6,7 @@
  */
 #include <ananas/signal.h>
 #include <ananas/errno.h>
+#include <ananas/wait.h>
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"
 #include "kernel/processgroup.h"
@@ -158,10 +159,11 @@ namespace signal
                 auto result = md_core_dump(curThread);
                 if (result.IsFailure())
                     kprintf("warning: core dump for process %d failed with status code %x\n", curThread.t_process.p_pid, result.AsStatusCode());
-                // FALLTHROUGH
+                curThread.Terminate(W_MAKE(W_STATUS_SIGNALLED, W_VALUE_COREDUMP | (si.si_signo & 0xff)));
+                break;
             }
             case DefaultAction::Terminate:
-                curThread.Terminate(THREAD_MAKE_EXITCODE(THREAD_TERM_SIGNAL, si.si_signo));
+                curThread.Terminate(W_MAKE(W_STATUS_SIGNALLED, si.si_signo & 0xff));
                 // NOTREACHED
             case DefaultAction::Stop:
                 kprintf("TODO: Stop\n");
