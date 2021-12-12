@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.9)
 set(COMMON_FLAGS "")
 # ensure we don't drag in external things
 set(COMMON_FLAGS "${COMMON_FLAGS} -fno-builtin -nostdlib -nostdinc")
-set(COMMON_FLAGS "${COMMON_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/../include") # for global includes
+set(COMMON_FLAGS "${COMMON_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/../kernel-interface") # for ananas/
 set(COMMON_FLAGS "${COMMON_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/include") # for kernel/
 set(COMMON_FLAGS "${COMMON_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/include/stl")
 set(COMMON_FLAGS "${COMMON_FLAGS} -I${CMAKE_CURRENT_BINARY_DIR}/include")
@@ -91,7 +91,7 @@ add_custom_target(kernel_md_param_h ALL
 add_dependencies(kernel_elf kernel_md_param_h)
 add_custom_target(machine_types_h ALL
 	COMMAND ${CMAKE_COMMAND} -E create_symlink
-	${CMAKE_CURRENT_SOURCE_DIR}/../include/ananas/amd64
+	${CMAKE_CURRENT_SOURCE_DIR}/../kernel-interface/ananas/amd64
 	${CMAKE_CURRENT_BINARY_DIR}/include/machine
 )
 add_dependencies(kernel_elf machine_types_h)

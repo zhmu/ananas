@@ -236,7 +236,7 @@ if args.all:
 if targets['bootstrap']:
     logging.info('Bootstrapping...')
     create_bootstrap_toolchain_file(conf['toolchain_txt'], conf)
-    build_using_cmake(conf, 'include', 'include')
+    build_using_cmake(conf, 'kernel-interface', 'kernel-interface')
     build_using_cmake(conf, 'libsyscall', 'lib/libsyscall')
 
     build_using_cmake(conf, 'newlib-c', 'lib/newlib-4.1.0/newlib/libc')
