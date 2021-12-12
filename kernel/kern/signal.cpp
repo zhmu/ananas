@@ -24,7 +24,7 @@ namespace signal
         Continue,
     };
 
-    constexpr util::array<DefaultAction, 30>  defaultActionForSignal{
+    constexpr util::array<DefaultAction, 31>  defaultActionForSignal{
         DefaultAction::Terminate,         // SIGHUP    1
         DefaultAction::Terminate,         // SIGINT    2
         DefaultAction::TerminateWithCore, // SIGQUIT   3
@@ -40,6 +40,7 @@ namespace signal
         DefaultAction::Terminate,         // SIGPIPE   13
         DefaultAction::Terminate,         // SIGALRM   14
         DefaultAction::Terminate,         // SIGTERM   15
+        DefaultAction::Terminate,         //           16
         DefaultAction::Ignore,            // SIGCHLD   17
         DefaultAction::Continue,          // SIGCONT   18
         DefaultAction::Stop,              // SIGSTOP   19
