@@ -4,8 +4,7 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#ifndef __SYS_SOUND_H__
-#define __SYS_SOUND_H__
+#pragma once
 
 // XXX This is all just a temporary kludge until a more sane
 // format is needed
@@ -22,5 +21,3 @@ struct SOUND_START_ARGS {
     int ss_channels;
     int ss_buffer_length; // in pages
 };
-
-#endif //__SYS_SOUND_H__
