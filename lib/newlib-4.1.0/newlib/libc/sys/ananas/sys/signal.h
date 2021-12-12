@@ -16,5 +16,6 @@ int sigismember(const sigset_t* set, int signo);
 _sig_func_ptr signal(int sig, _sig_func_ptr func);
 int sigprocmask(int how, const sigset_t* set, sigset_t* oset);
 int sigsuspend(const sigset_t* sigmask);
+int sigaltstack(const stack_t* ss, stack_t* old_ss);
 
 __END_DECLS

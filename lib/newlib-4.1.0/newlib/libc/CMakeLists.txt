@@ -924,6 +924,7 @@ set(ANANAS_SYS_LIBC
     sys/ananas/shmdt.c
     sys/ananas/shmget.c
     sys/ananas/sigaction.c
+    sys/ananas/sigaltstack.c
     sys/ananas/sigprocmask.c
     sys/ananas/sigset.c
     sys/ananas/sigsuspend.c
