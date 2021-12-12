@@ -9,7 +9,7 @@
 
 static inline unsigned int signal_mask(int signo)
 {
-    if (signo < SIGHUP || signo >= _SIGLAST)
+    if (signo < SIGHUP || signo >= NSIG)
         return 0;
     return 1 << (signo - 1);
 }

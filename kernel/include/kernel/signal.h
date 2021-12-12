@@ -22,7 +22,7 @@ namespace signal
     {
         inline constexpr bool IsSigalNumberValid(int signo)
         {
-            return signo >= 1 && signo < _SIGLAST;
+            return signo >= 1 && signo < NSIG;
         }
 
         inline constexpr unsigned int GetSignalNumberMask(int signo) { return 1 << (signo - 1); }
@@ -103,7 +103,7 @@ namespace signal
         Set tsd_mask;
 
         /* Signal handlers */
-        Action tsd_action[_SIGLAST];
+        Action tsd_action[NSIG];
 
         Action* GetSignalAction(int sig)
         {

@@ -463,8 +463,12 @@ Result core_dump(Thread* t, struct STACKFRAME* sf)
 {
     Process& proc = t->t_process;
 
-    const char* path = "/dump/core";
+    char path[64];
+    snprintf(path, sizeof(path), "/dump/core.%d", proc.p_pid);
+    path[sizeof(path) - 1] = '\0';
+
     mode_t mode = 0600;
+    kprintf("core_dump: writing coredump to '%s'\n", path);
 
     struct VFS_FILE f;
     if (auto result = vfs_create(proc.p_cwd, path, O_RDWR, mode, &f); result.IsFailure())

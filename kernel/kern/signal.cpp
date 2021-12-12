@@ -24,39 +24,37 @@ namespace signal
         Continue,
     };
 
-    static const DefaultAction defaultActionForSignal[_SIGLAST] = {
-        DefaultAction::Terminate,         /* SIGHUP */
-        DefaultAction::Terminate,         /* SIGINT */
-        DefaultAction::TerminateWithCore, /* SIGQUIT */
-        DefaultAction::TerminateWithCore, /* SIGILL */
-        DefaultAction::TerminateWithCore, /* SIGTRAP */
-        DefaultAction::TerminateWithCore, /* SIGABRT */
-        DefaultAction::TerminateWithCore, /* SIGEMT */
-        DefaultAction::TerminateWithCore, /* SIGFPE */
-        DefaultAction::Terminate,         /* SIGKILL */
-        DefaultAction::TerminateWithCore, /* SIGBUS */
-        DefaultAction::TerminateWithCore, /* SIGSEGV */
-        DefaultAction::TerminateWithCore, /* SIGSYS */
-        DefaultAction::Terminate,         /* SIGPIPE */
-        DefaultAction::Terminate,         /* SIGALRM */
-        DefaultAction::Terminate,         /* SIGTERM */
-        DefaultAction::Ignore,            /* SIGURG */
-        DefaultAction::Stop,              /* SIGSTOP */
-        DefaultAction::Stop,              /* SIGTSTP */
-        DefaultAction::Continue,          /* SIGCONT */
-        DefaultAction::Ignore,            /* SIGCHLD */
-        DefaultAction::Stop,              /* SIGTTIN */
-        DefaultAction::Stop,              /* SIGTTOU */
-        DefaultAction::Terminate,         /* SIGIO */
-        DefaultAction::TerminateWithCore, /* SIGXCPU */
-        DefaultAction::TerminateWithCore, /* SIGXFSZ */
-        DefaultAction::Terminate,         /* SIGVTALRM */
-        DefaultAction::Terminate,         /* SIGPROF */
-        DefaultAction::Ignore,            /* SIGWINCH */
-        DefaultAction::Ignore,            /* SIGINFO */
-        DefaultAction::Terminate,         /* SIGUSR1 */
-        DefaultAction::Terminate,         /* SIGUSR2 */
-        DefaultAction::Terminate,         /* SIGTHR */
+    constexpr util::array<DefaultAction, 30>  defaultActionForSignal{
+        DefaultAction::Terminate,         // SIGHUP    1
+        DefaultAction::Terminate,         // SIGINT    2
+        DefaultAction::TerminateWithCore, // SIGQUIT   3
+        DefaultAction::TerminateWithCore, // SIGILL    4
+        DefaultAction::TerminateWithCore, // SIGTRAP   5
+        DefaultAction::TerminateWithCore, // SIGABRT   6
+        DefaultAction::TerminateWithCore, // SIGBUS    7
+        DefaultAction::TerminateWithCore, // SIGFPE    8
+        DefaultAction::Terminate,         // SIGKILL   9
+        DefaultAction::Terminate,         // SIGUSR1   10
+        DefaultAction::TerminateWithCore, // SIGSEGV   11
+        DefaultAction::Terminate,         // SIGUSR2   12
+        DefaultAction::Terminate,         // SIGPIPE   13
+        DefaultAction::Terminate,         // SIGALRM   14
+        DefaultAction::Terminate,         // SIGTERM   15
+        DefaultAction::Ignore,            // SIGCHLD   17
+        DefaultAction::Continue,          // SIGCONT   18
+        DefaultAction::Stop,              // SIGSTOP   19
+        DefaultAction::Stop,              // SIGTSTP   20
+        DefaultAction::Stop,              // SIGTTIN   21
+        DefaultAction::Stop,              // SIGTTOU   22
+        DefaultAction::Ignore,            // SIGURG    23
+        DefaultAction::TerminateWithCore, // SIGXCPU   24
+        DefaultAction::TerminateWithCore, // SIGXFSZ   25
+        DefaultAction::TerminateWithCore, // SIGVTALRM 26
+        DefaultAction::Terminate,         // SIGPROF   27
+        DefaultAction::Ignore,            // SIGWINCH  28
+        DefaultAction::Terminate,         // SIGIO     29
+        DefaultAction::Terminate,         // SIGPWR    30
+        DefaultAction::TerminateWithCore, // SIGSYS    31
     };
 
     class PendingSignal : public util::List<PendingSignal>::NodePtr
@@ -144,13 +142,21 @@ namespace signal
         return nullptr;
     }
 
+    DefaultAction GetSignalDefaultAction(const int signum)
+    {
+        if (signum <= 0 || signum >= defaultActionForSignal.size())
+            return DefaultAction::Ignore;
+        return defaultActionForSignal[signum - 1];
+    }
+
     void HandleDefaultSignalAction(const siginfo_t& si)
     {
         auto& curThread = thread::GetCurrent();
-        switch (defaultActionForSignal[si.si_signo - 1]) {
+        switch (GetSignalDefaultAction(si.si_signo)) {
             case DefaultAction::TerminateWithCore: {
                 auto result = md_core_dump(curThread);
-                kprintf(">> core dump %d\n", result.AsStatusCode());
+                if (result.IsFailure())
+                    kprintf("warning: core dump for process %d failed with status code %x\n", curThread.t_process.p_pid, result.AsStatusCode());
                 // FALLTHROUGH
             }
             case DefaultAction::Terminate:
