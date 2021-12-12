@@ -4,10 +4,10 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include <ananas/syscalls.h>
 #include <ananas/errno.h>
 #include "kernel/process.h"
 #include "kernel/result.h"
+#include "kernel/syscalls.h"
 #include "kernel/thread.h"
 
 Result sys_clone(const int flags)

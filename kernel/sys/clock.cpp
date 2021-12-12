@@ -6,8 +6,8 @@
  */
 #include "kernel/types.h"
 #include <ananas/errno.h>
-#include <ananas/syscalls.h>
 #include "kernel/result.h"
+#include "kernel/syscalls.h"
 #include "kernel/time.h"
 
 #include "kernel/lib.h"

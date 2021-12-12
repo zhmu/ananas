@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include <sys/types.h>
+#include "kernel/types.h"
 
 static inline void outb(uint16_t port, uint8_t data)
 {

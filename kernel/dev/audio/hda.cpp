@@ -11,7 +11,7 @@
 #include "hda.h"
 #include "verb.h"
 
-#include <sys/sound.h>
+#include <ananas/audio.h>
 #include <machine/param.h>
 #include "hda-pci.h" // XXX
 

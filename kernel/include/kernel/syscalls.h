@@ -4,14 +4,8 @@
  * Copyright (c) 2009-2021 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include "kernel/types.h"
-#include <ananas/errno.h>
-#include <ananas/shm.h>
-#include "kernel/result.h"
-#include "kernel/shm.h"
-#include "syscall.h"
+#pragma once
 
-Result sys_shmdt(const void* shmaddr)
-{
-    return shm::Unmap(shmaddr);
-}
+#include "kernel/types.h"
+#include "kernel/result.h"
+#include <_gen/syscalls.h>

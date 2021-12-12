@@ -5,8 +5,8 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <ananas/errno.h>
-#include <sys/socket.h>
-#include <sys/un.h>
+#include <ananas/socket.h>
+#include <ananas/net/un.h>
 #include "kernel/lib.h"
 #include "kernel/net/socket_local.h"
 #include "kernel/condvar.h"

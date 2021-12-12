@@ -6,7 +6,8 @@
  */
 #include "kernel/types.h"
 #include <ananas/errno.h>
-#include <sys/shm.h>
+#include <ananas/ipc.h>
+#include <ananas/shm.h>
 #include "kernel/result.h"
 #include "kernel/shm.h"
 #include "kernel-md/param.h"

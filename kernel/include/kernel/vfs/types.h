@@ -9,6 +9,7 @@
 #include <ananas/stat.h> /* for 'struct stat' */
 #include <ananas/dirent.h>
 #include <ananas/util/vector.h>
+#include "kernel/types.h"
 #include "kernel/list.h"
 #include "kernel/lock.h"
 #include "kernel/vmpage.h"

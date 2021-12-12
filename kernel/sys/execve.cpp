@@ -5,11 +5,11 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <ananas/errno.h>
-#include <ananas/syscalls.h>
 #include "kernel/exec.h"
 #include "kernel/lib.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
+#include "kernel/syscalls.h"
 #include "kernel/thread.h"
 #include "kernel/vfs/core.h"
 #include "kernel/vfs/dentry.h"

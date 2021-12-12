@@ -5,7 +5,7 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <ananas/errno.h>
-#include <sys/shm.h>
+#include <ananas/shm.h>
 #include "kernel/lib.h"
 #include "kernel/shm.h"
 #include "kernel/process.h"

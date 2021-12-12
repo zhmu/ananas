@@ -6,7 +6,7 @@
  */
 #include "kernel/types.h"
 #include <ananas/errno.h>
-#include <sys/mount.h>
+#include <ananas/mount.h>
 #include "kernel/vfs/dentry.h"
 #include "kernel/vfs/mount.h"
 #include "kernel/device.h"

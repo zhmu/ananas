@@ -13,6 +13,7 @@
 #include <ananas/util/refcounted.h>
 #include <ananas/tms.h>
 #include "kernel/lock.h"
+#include "kernel/types.h"
 #include "kernel/shm.h" // for ProcessSpecificData
 
 struct DEntry;

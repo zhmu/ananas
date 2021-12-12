@@ -7,13 +7,13 @@
 #pragma once
 
 #include <cstdint>
-#include <sys/time.h>
+#include "kernel/types.h"
 
 #define CLOCK_MONOTONIC 0
 #define CLOCK_REALTIME 1
 #define CLOCK_SECONDS 2
 
-// XXX shouldn't this be in sys/time.h ?
+// XXX shouldn't this be in ananas/time.h ?
 struct tm {
     int tm_sec;
     int tm_min;

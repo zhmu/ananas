@@ -8,7 +8,7 @@
 #include <ananas/errno.h>
 #include "kernel/lib.h"
 #include <ananas/util/vector.h>
-#include <sys/select.h>
+#include <ananas/select.h>
 #include "kernel/fd.h"
 #include "kernel/result.h"
 #include "kernel/thread.h"

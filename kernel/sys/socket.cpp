@@ -6,7 +6,7 @@
  */
 #include "kernel/types.h"
 #include <ananas/errno.h>
-#include <sys/socket.h>
+#include <ananas/socket.h>
 #include "kernel/result.h"
 #include "kernel/net/socket_local.h"
 #include "syscall.h"

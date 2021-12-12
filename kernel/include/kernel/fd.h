@@ -8,7 +8,7 @@
 
 #include "kernel/types.h"
 #include <ananas/util/list.h>
-#include <sys/select.h>
+#include <ananas/select.h>
 #include "kernel/lock.h"
 #include "kernel/init.h"
 #include "kernel/vfs/types.h"
