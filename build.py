@@ -174,6 +174,8 @@ parser.add_argument('-s', '--sysutils', action='store_true',
                     help='build system utilities (init, ps, ...)')
 parser.add_argument('-w', '--awe', action='store_true',
                     help='build window environment (awm, ...)')
+parser.add_argument('-t', '--atf', action='store_true',
+                    help='build ananas test framework (atf)')
 parser.add_argument('-i', '--image', help='build disk image')
 
 args = parser.parse_args()
@@ -223,6 +225,7 @@ targets = {
     'kernel': args.kernel,
     'sysutils': args.sysutils,
     'awe': args.awe,
+    'atf': args.atf,
     'image': args.image
 }
 if args.all:
@@ -266,6 +269,9 @@ if targets['kernel']:
 
 if targets['awe']:
     build_using_cmake(conf, 'awe', 'awe')
+
+if targets['atf']:
+    build_using_cmake(conf, 'atf', 'atf')
 
 if targets['image']:
     print('image')
