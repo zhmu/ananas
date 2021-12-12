@@ -28,3 +28,6 @@
 [submodule "external/EASTL"]
 	path = external/EASTL
 	url = https://github.com/zhmu/EASTL.git
+[submodule "external/Catch2"]
+	path = external/Catch2
+	url = https://github.com/zhmu/ananas-Catch2.git
