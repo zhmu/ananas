@@ -93,3 +93,33 @@ Result sys_unmount(const char* dir, const int flags)
 {
     return vfs_unmount(dir);
 }
+
+Result sys_ftruncate(int fildes, off_t length)
+{
+    return Result::Failure(EPERM);
+}
+
+Result sys_umask(mode_t mode)
+{
+    return Result::Success(0777);
+}
+
+Result sys_mkdir(const char* path, mode_t mode)
+{
+    return Result::Failure(EPERM);
+}
+
+Result sys_chmod(const char* path, mode_t mode)
+{
+    return Result::Failure(EPERM);
+}
+
+Result sys_chown(const char* path, uid_t owner, gid_t group)
+{
+    return Result::Failure(EPERM);
+}
+
+Result sys_fchown(int fildes, uid_t owner, gid_t group)
+{
+    return Result::Failure(EPERM);
+}

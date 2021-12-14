@@ -49,3 +49,13 @@ Result sys_getegid()
     auto egid = 0; // TODO
     return Result::Success(egid);
 }
+
+Result sys_setreuid(uid_t ruid, uid_t euid)
+{
+    return Result::Failure(EPERM);
+}
+
+Result sys_setregid(gid_t rgid, gid_t egid)
+{
+    return Result::Failure(EPERM);
+}

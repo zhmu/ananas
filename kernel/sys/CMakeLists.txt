@@ -40,4 +40,6 @@ add_sources(
     socket.cpp
     openpt.cpp
     times.cpp
+    groups.cpp
+    priority.cpp
 )

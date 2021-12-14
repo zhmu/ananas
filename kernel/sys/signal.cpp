@@ -112,3 +112,8 @@ Result sys_kill(const pid_t pid, const int sig)
 
     return Result::Success();
 }
+
+Result sys_sigaltstack(const stack_t* ss, stack_t* old_ss)
+{
+    return Result::Failure(EINVAL);
+}

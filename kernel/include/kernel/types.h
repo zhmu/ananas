@@ -31,4 +31,5 @@ using mode_t = __mode_t;
 using time_t = __time_t;
 using clockid_t = __clockid_t;
 using key_t = __key_t;
+using id_t = __id_t;
 #endif

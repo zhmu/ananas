@@ -39,3 +39,13 @@ Result sys_clock_getres(const int id, struct timespec* res)
 {
     return Result::Failure(EINVAL);
 }
+
+Result sys_setitimer(int which, const struct itimerval* value, struct itimerval* ovalue)
+{
+    return Result::Failure(EINVAL);
+}
+
+Result sys_getitimer(int which, struct itimerval* value)
+{
+    return Result::Failure(EINVAL);
+}

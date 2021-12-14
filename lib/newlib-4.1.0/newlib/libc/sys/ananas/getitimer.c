@@ -6,11 +6,12 @@
  */
 #include <ananas/types.h>
 #include <ananas/syscalls.h>
-#include <unistd.h>
+#include <time.h>
 #include "_map_statuscode.h"
 
-int getgroups(int gidsetsize, gid_t grouplist[])
+int getitimer(int which, struct itimerval* value)
 {
-    statuscode_t status = sys_getgroups(gidsetsize, grouplist);
+    statuscode_t status = sys_getitimer(which, value);
     return map_statuscode(status);
 }
+

@@ -869,6 +869,7 @@ set(ANANAS_SYS_LIBC
     sys/ananas/gethostbyaddr.c
     sys/ananas/gethostbyname.c
     sys/ananas/gethostname.c
+    sys/ananas/getitimer.c
     sys/ananas/getmntinfo.c
     sys/ananas/getgid.c
     sys/ananas/getpid.c
@@ -911,6 +912,8 @@ set(ANANAS_SYS_LIBC
     sys/ananas/select.c
     sys/ananas/send.c
     sys/ananas/setgrent.c
+    sys/ananas/setgroups.c
+    sys/ananas/setitimer.c
     sys/ananas/setpgid.c
     sys/ananas/setpriority.c
     sys/ananas/setprogname.c

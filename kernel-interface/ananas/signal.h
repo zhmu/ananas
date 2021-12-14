@@ -85,14 +85,6 @@ struct sigaction {
 #define SIG_SETMASK 1
 #define SIG_UNBLOCK 2
 
-struct sigaltstack {
-    void* ss_sp;
-    int ss_flags;
-    size_t ss_size;
-};
-
-typedef struct sigaltstack stack_t;
-
 #define MINSIGSTKSZ 2048
 #define SIGSTKSZ 8192
 

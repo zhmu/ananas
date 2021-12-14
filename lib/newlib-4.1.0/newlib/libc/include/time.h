@@ -18,6 +18,9 @@
 /* Get _CLOCKS_PER_SEC_ */
 #include <machine/time.h>
 
+/* Get CLOCK_... */
+#include <ananas/time.h>
+
 #ifndef _CLOCKS_PER_SEC_
 #define _CLOCKS_PER_SEC_ 1000
 #endif
@@ -236,11 +239,8 @@ extern "C" {
 
 /* Manifest Constants, P1003.1b-1993, p. 262 */
 
-#if __GNU_VISIBLE
-#define CLOCK_REALTIME_COARSE	((clockid_t) 0)
-#endif
-
-#define CLOCK_REALTIME		((clockid_t) 1)
+//#define CLOCK_REALTIME_COARSE	((clockid_t) 0)
+//#define CLOCK_REALTIME		((clockid_t) 1)
 
 /* Manifest Constants, P1003.4b/D8, p. 55 */
 
@@ -250,7 +250,7 @@ extern "C" {
    the identifier of the CPU_time clock associated with the PROCESS
    making the function call.  */
 
-#define CLOCK_PROCESS_CPUTIME_ID ((clockid_t) 2)
+//#define CLOCK_PROCESS_CPUTIME_ID ((clockid_t) 2)
 
 #endif
 
@@ -260,7 +260,7 @@ extern "C" {
     the identifier of the CPU_time clock associated with the THREAD
     making the function call.  */
 
-#define CLOCK_THREAD_CPUTIME_ID	((clockid_t) 3)
+//#define CLOCK_THREAD_CPUTIME_ID	((clockid_t) 3)
 
 #endif
 
@@ -270,21 +270,21 @@ extern "C" {
  *  as a clock whose value cannot be set via clock_settime() and which
  *  cannot have backward clock jumps. */
 
-#define CLOCK_MONOTONIC		((clockid_t) 4)
+//#define CLOCK_MONOTONIC		((clockid_t) 4)
 
 #endif
 
 #if __GNU_VISIBLE
 
-#define CLOCK_MONOTONIC_RAW	((clockid_t) 5)
+//#define CLOCK_MONOTONIC_RAW	((clockid_t) 5)
 
-#define CLOCK_MONOTONIC_COARSE	((clockid_t) 6)
+//#define CLOCK_MONOTONIC_COARSE	((clockid_t) 6)
 
-#define CLOCK_BOOTTIME		((clockid_t) 7)
+//#define CLOCK_BOOTTIME		((clockid_t) 7)
 
-#define CLOCK_REALTIME_ALARM	((clockid_t) 8)
+//#define CLOCK_REALTIME_ALARM	((clockid_t) 8)
 
-#define CLOCK_BOOTTIME_ALARM	((clockid_t) 9)
+//#define CLOCK_BOOTTIME_ALARM	((clockid_t) 9)
 
 #endif
 

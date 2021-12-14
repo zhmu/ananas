@@ -6,11 +6,11 @@
  */
 #include <ananas/types.h>
 #include <ananas/syscalls.h>
-#include <unistd.h>
+#include <grp.h>
 #include "_map_statuscode.h"
 
-int getgroups(int gidsetsize, gid_t grouplist[])
+int setgroups(int gidsetsize, const gid_t* list)
 {
-    statuscode_t status = sys_getgroups(gidsetsize, grouplist);
+    statuscode_t status = sys_setgroups(gidsetsize, list);
     return map_statuscode(status);
 }

@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <ananas/syscall-vmops.h>
 #include <ananas/stat.h>
+#include <ananas/signal.h>
 
 struct utimbuf;
 struct Thread;

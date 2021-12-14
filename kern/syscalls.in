@@ -65,3 +65,20 @@
 60 { Result shmget(key_t key, size_t size, int shmflg); }
 61 { Result openpt(int flags); }
 62 { Result times(struct tms* buffer); }
+63 { Result chmod(const char* path, mode_t mode); }
+64 { Result chown(const char* path, uid_t owner, gid_t group); }
+65 { Result fchown(int fildes, uid_t owner, gid_t group); }
+66 { Result mkdir(const char* path, mode_t mode); }
+67 { Result setreuid(uid_t ruid, uid_t euid); }
+68 { Result setregid(gid_t rgid, gid_t egid); }
+69 { Result umask(mode_t mode); }
+70 { Result getpriority(int which, id_t who); }
+71 { Result setpriority(int which, id_t who, int value); }
+72 { Result getrlimit(int resource, struct rlimit* rlim); }
+73 { Result setrlimit(int resource, const struct rlimit* rlim); }
+74 { Result ftruncate(int fildes, off_t length); }
+75 { Result getgroups(int count, gid_t* list); }
+76 { Result setgroups(int count, const gid_t* list); }
+77 { Result sigaltstack(const stack_t* ss, stack_t* old_ss); }
+78 { Result setitimer(int which, const struct itimerval* value, struct itimerval* ovalue); }
+79 { Result getitimer(int which, struct itimerval* value); }

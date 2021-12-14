@@ -41,12 +41,11 @@ typedef __uint64_t      addr_t;
 #endif
 
 #include <ananas/types/fdset.h>
+#include <ananas/types/itimerval.h>
 #include <ananas/types/sigset.h>
 #include <ananas/types/timespec.h>
 #include <ananas/types/timeval.h>
-
-//typedef __uint32_t      __refcount_t;
-//typedef int             __fdindex_t;
+#include <ananas/types/stack.h>
 
 /* __dev_t helpers */
 #define __dev_t_major(d) ((d) >> 16)
