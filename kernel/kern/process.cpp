@@ -239,13 +239,12 @@ void Process::Exit(int status)
     p_exit_status = status;
 }
 
-void Process::SignalChildActivity() { if (p_parent) p_parent->p_child_wait.Signal(); }
+void Process::SignalChildActivity() { if (p_parent) p_parent->p_child_cv.Signal(); }
 
 Result Process::WaitAndLock(pid_t pid, int flags, util::locked<Process>& p_out)
 {
-    // Wait for the first zombie child of this process
+    p_lock.Lock();
     for (;;) {
-        Lock();
         for (auto& child : p_children) {
             if (&child == initProcess) continue;
             if (pid > 0 && pid != child.p_pid)
@@ -259,7 +258,7 @@ Result Process::WaitAndLock(pid_t pid, int flags, util::locked<Process>& p_out)
             // Found one; remove it from the parent's list
             p_children.remove(child);
             RemoveReference(); // the child no longer refers to us
-            Unlock();
+            p_lock.Unlock();
 
             // Destroy the thread owned by the process
             auto t = child.p_mainthread;
@@ -272,16 +271,15 @@ Result Process::WaitAndLock(pid_t pid, int flags, util::locked<Process>& p_out)
             p_out = util::locked<Process>(child);
             return Result::Success();
         }
-        Unlock();
 
-        if (flags & WNOHANG)
+        if (flags & WNOHANG) {
+            p_lock.Unlock();
             return Result::Failure(ECHILD);
+        }
 
         // Nothing good yet; sleep on it
-        kprintf("wait zzz\n");
-        p_child_wait.Wait();
+        p_child_cv.Wait(p_lock);
     }
-    // NOTREACHED
 }
 
 void Process::OnTick(process::TickContext tc)

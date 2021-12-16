@@ -12,6 +12,7 @@
 #include <ananas/util/locked.h>
 #include <ananas/util/refcounted.h>
 #include <ananas/tms.h>
+#include "kernel/condvar.h"
 #include "kernel/lock.h"
 #include "kernel/types.h"
 #include "kernel/shm.h" // for ProcessSpecificData
@@ -130,7 +131,7 @@ struct Process final : util::refcounted<Process> {
 
   private:
     Mutex p_lock{"plock"}; /* Locks the process */
-    Semaphore p_child_wait{"pchildwait", 0};
+    ConditionVariable p_child_cv{"pchildwait"};
 
     friend class util::detail::default_refcounted_cleanup<Process>;
     ~Process();
