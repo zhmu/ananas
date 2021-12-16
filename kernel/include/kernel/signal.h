@@ -7,7 +7,7 @@
 #pragma once
 
 #include <ananas/signal.h>
-#include <ananas/util/list.h>
+#include <ananas/util/queue.h>
 #include "kernel/lock.h"
 #include "kernel/result.h"
 
@@ -91,13 +91,11 @@ namespace signal
         int sa_flags = 0;
     };
 
-    class PendingSignal;
-
     struct ThreadSpecificData {
         Spinlock tsd_lock;
 
-        /* Pending signals (waiting to be delivered) */
-        util::List<PendingSignal> tsd_pending;
+        // Pending signals (waiting to be delivered)
+        util::queue<siginfo_t> tsd_pending;
 
         /* Masked signals */
         Set tsd_mask;
@@ -113,10 +111,6 @@ namespace signal
         }
     };
 
-    Result QueueSignal(Thread& t, int signo);
-    Result QueueSignal(Thread& t, const siginfo_t& siginfo);
-    Result QueueSignal(process::ProcessGroup& pg, const siginfo_t& si);
-    Action* DequeueSignal(Thread& t, siginfo_t& si);
-    void HandleDefaultSignalAction(const siginfo_t& si);
-
+    Result SendSignal(Thread& t, const siginfo_t& siginfo);
+    Result SendSignal(process::ProcessGroup& pg, const siginfo_t& si);
 } // namespace signal

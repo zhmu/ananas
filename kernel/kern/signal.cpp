@@ -14,141 +14,124 @@
 #include "kernel/thread.h"
 
 Result md_core_dump(Thread& t);
+void* md_deliver_signal(struct STACKFRAME* sf, signal::Action* act, siginfo_t& si);
 
 namespace signal
 {
-    enum class DefaultAction {
-        TerminateWithCore,
-        Terminate,
-        Ignore,
-        Stop,
-        Continue,
-    };
-
-    constexpr util::array<DefaultAction, 31>  defaultActionForSignal{
-        DefaultAction::Terminate,         // SIGHUP    1
-        DefaultAction::Terminate,         // SIGINT    2
-        DefaultAction::TerminateWithCore, // SIGQUIT   3
-        DefaultAction::TerminateWithCore, // SIGILL    4
-        DefaultAction::TerminateWithCore, // SIGTRAP   5
-        DefaultAction::TerminateWithCore, // SIGABRT   6
-        DefaultAction::TerminateWithCore, // SIGBUS    7
-        DefaultAction::TerminateWithCore, // SIGFPE    8
-        DefaultAction::Terminate,         // SIGKILL   9
-        DefaultAction::Terminate,         // SIGUSR1   10
-        DefaultAction::TerminateWithCore, // SIGSEGV   11
-        DefaultAction::Terminate,         // SIGUSR2   12
-        DefaultAction::Terminate,         // SIGPIPE   13
-        DefaultAction::Terminate,         // SIGALRM   14
-        DefaultAction::Terminate,         // SIGTERM   15
-        DefaultAction::Terminate,         //           16
-        DefaultAction::Ignore,            // SIGCHLD   17
-        DefaultAction::Continue,          // SIGCONT   18
-        DefaultAction::Stop,              // SIGSTOP   19
-        DefaultAction::Stop,              // SIGTSTP   20
-        DefaultAction::Stop,              // SIGTTIN   21
-        DefaultAction::Stop,              // SIGTTOU   22
-        DefaultAction::Ignore,            // SIGURG    23
-        DefaultAction::TerminateWithCore, // SIGXCPU   24
-        DefaultAction::TerminateWithCore, // SIGXFSZ   25
-        DefaultAction::TerminateWithCore, // SIGVTALRM 26
-        DefaultAction::Terminate,         // SIGPROF   27
-        DefaultAction::Ignore,            // SIGWINCH  28
-        DefaultAction::Terminate,         // SIGIO     29
-        DefaultAction::Terminate,         // SIGPWR    30
-        DefaultAction::TerminateWithCore, // SIGSYS    31
-    };
-
-    class PendingSignal : public util::List<PendingSignal>::NodePtr
+    namespace
     {
-      public:
-        PendingSignal(const siginfo_t& si) : ps_SigInfo(si) {}
+        enum class DefaultAction {
+            TerminateWithCore,
+            Terminate,
+            Ignore,
+            Stop,
+            Continue,
+        };
 
-        const siginfo_t& GetSignalInfo() const { return ps_SigInfo; }
+        constexpr util::array<DefaultAction, 31>  defaultActionForSignal{
+            DefaultAction::Terminate,         // SIGHUP    1
+            DefaultAction::Terminate,         // SIGINT    2
+            DefaultAction::TerminateWithCore, // SIGQUIT   3
+            DefaultAction::TerminateWithCore, // SIGILL    4
+            DefaultAction::TerminateWithCore, // SIGTRAP   5
+            DefaultAction::TerminateWithCore, // SIGABRT   6
+            DefaultAction::TerminateWithCore, // SIGBUS    7
+            DefaultAction::TerminateWithCore, // SIGFPE    8
+            DefaultAction::Terminate,         // SIGKILL   9
+            DefaultAction::Terminate,         // SIGUSR1   10
+            DefaultAction::TerminateWithCore, // SIGSEGV   11
+            DefaultAction::Terminate,         // SIGUSR2   12
+            DefaultAction::Terminate,         // SIGPIPE   13
+            DefaultAction::Terminate,         // SIGALRM   14
+            DefaultAction::Terminate,         // SIGTERM   15
+            DefaultAction::Terminate,         //           16
+            DefaultAction::Ignore,            // SIGCHLD   17
+            DefaultAction::Continue,          // SIGCONT   18
+            DefaultAction::Stop,              // SIGSTOP   19
+            DefaultAction::Stop,              // SIGTSTP   20
+            DefaultAction::Stop,              // SIGTTIN   21
+            DefaultAction::Stop,              // SIGTTOU   22
+            DefaultAction::Ignore,            // SIGURG    23
+            DefaultAction::TerminateWithCore, // SIGXCPU   24
+            DefaultAction::TerminateWithCore, // SIGXFSZ   25
+            DefaultAction::TerminateWithCore, // SIGVTALRM 26
+            DefaultAction::Terminate,         // SIGPROF   27
+            DefaultAction::Ignore,            // SIGWINCH  28
+            DefaultAction::Terminate,         // SIGIO     29
+            DefaultAction::Terminate,         // SIGPWR    30
+            DefaultAction::TerminateWithCore, // SIGSYS    31
+        };
 
-      private:
-        siginfo_t ps_SigInfo;
-    };
-
-    Result QueueSignal(Thread& t, const siginfo_t& siginfo)
-    {
-        if (!detail::IsSigalNumberValid(siginfo.si_signo))
-            return Result::Failure(EINVAL);
-
-        auto newSignal = new PendingSignal(siginfo);
-
+        Result QueueSignal(Thread& t, const siginfo_t& siginfo)
         {
-            auto& tsd = t.t_sigdata;
-            SpinlockGuard sg(tsd.tsd_lock);
-            tsd.tsd_pending.push_back(*newSignal);
+            if (!detail::IsSigalNumberValid(siginfo.si_signo))
+                return Result::Failure(EINVAL);
+
+            {
+                auto& tsd = t.t_sigdata;
+                SpinlockGuard sg(tsd.tsd_lock);
+                tsd.tsd_pending.push(siginfo);
+            }
+
+            t.t_flags |= THREAD_FLAG_SIGPENDING; // XXX this needs a lock?
+            if (t.IsSuspended()) {
+                kprintf("todo pid %d wakkermaken\n", t.t_process.p_pid);
+            }
+            return Result::Success();
         }
 
-        t.t_flags |= THREAD_FLAG_SIGPENDING; // XXX this needs a lock?
-        return Result::Success();
+        DefaultAction GetSignalDefaultAction(const int signum)
+        {
+            if (signum <= 0 || signum >= defaultActionForSignal.size())
+                return DefaultAction::Ignore;
+            return defaultActionForSignal[signum - 1];
+        }
     }
 
-    Result QueueSignal(Thread& t, int signo)
+    Result SendSignal(Thread& t, const siginfo_t& siginfo)
     {
-        siginfo_t si{};
-        si.si_signo = signo;
-        return QueueSignal(t, si);
+        return QueueSignal(t, siginfo);
     }
 
-    Result QueueSignal(process::ProcessGroup& pg, const siginfo_t& si)
+    Result SendSignalToParent(Thread& t, const siginfo_t& siginfo)
+    {
+        auto parent = t.t_process.p_mainthread;
+        return SendSignal(*parent, siginfo);
+    }
+
+    Result SendSignal(process::ProcessGroup& pg, const siginfo_t& si)
     {
         pg.AssertLocked();
         for (auto& p : pg.pg_members) {
             if (p.p_mainthread == nullptr)
                 continue; // XXX we should deliver to all threads in the process
-            if (auto result = QueueSignal(*p.p_mainthread, si); result.IsFailure())
+            if (auto result = SendSignal(*p.p_mainthread, si); result.IsFailure())
                 return result;
         }
 
         return Result::Success();
     }
 
-    Action* DequeueSignal(Thread& t, siginfo_t& si)
+    int DequeueSignal(SpinlockGuard&, ThreadSpecificData& tsd, siginfo_t& si)
     {
-        auto& tsd = t.t_sigdata;
-        SpinlockGuard sg(tsd.tsd_lock);
-
         /*
          * Note that we need to check signal masks and the like when we are
          * about to _deliver_ a signal, so we could end up finding nothing
          * to deliver here!
          */
         while (!tsd.tsd_pending.empty()) {
-            const siginfo_t newSignal = [&] {
-                auto& pendingSignal = tsd.tsd_pending.front();
-                siginfo_t signalCopy = pendingSignal.GetSignalInfo();
-                tsd.tsd_pending.pop_front();
-                delete &pendingSignal;
-                return signalCopy;
-            }();
+            si = tsd.tsd_pending.front();
+            tsd.tsd_pending.pop();
 
-            int signalNumber = newSignal.si_signo;
-            auto sact = tsd.GetSignalAction(signalNumber);
-            if (sact->IsIgnored())
-                continue;
+            const auto signalNumber = si.si_signo;
 
             // If the signal is masked, do not send it
             if (tsd.tsd_mask.Contains(signalNumber))
                 continue;
 
-            si = newSignal;
-            return sact;
+            return signalNumber;
         }
-
-        // Out of signals - clear pending flag
-        t.t_flags &= ~THREAD_FLAG_SIGPENDING; // XXX this needs a lock?
-        return nullptr;
-    }
-
-    DefaultAction GetSignalDefaultAction(const int signum)
-    {
-        if (signum <= 0 || signum >= defaultActionForSignal.size())
-            return DefaultAction::Ignore;
-        return defaultActionForSignal[signum - 1];
+        return 0;
     }
 
     void HandleDefaultSignalAction(const siginfo_t& si)
@@ -179,4 +162,61 @@ namespace signal
         // NOTREACHED
     }
 
+    void* HandleSignal(struct STACKFRAME* sf)
+    {
+        auto& curThread = thread::GetCurrent();
+
+        while(true) {
+            siginfo_t si;
+            Action* act;
+            int signr;
+            {
+                auto& tsd = curThread.t_sigdata;
+                SpinlockGuard sg(tsd.tsd_lock);
+                signr = signal::DequeueSignal(sg, tsd, si);
+                if (!signr) {
+                    // Out of signals - clear pending flag XXX may need a lock
+                    curThread.t_flags &= ~THREAD_FLAG_SIGPENDING;
+                    return nullptr;
+                }
+                act = tsd.GetSignalAction(signr);
+            }
+
+            if ((curThread.t_flags & THREAD_FLAG_PTRACED) != 0 && signr != SIGKILL) {
+                curThread.t_ptrace_sig = signr;
+
+                // Post SIGCHLD to tracer, suspend
+                SendSignalToParent(curThread, { .si_signo = SIGCHLD });
+                curThread.Suspend();
+                scheduler::Schedule();
+
+                // We are back - means the debugger has interfered
+                panic("back from suspend");
+                if (signr == SIGSTOP)
+                    continue;
+
+                signr = curThread.t_ptrace_sig;
+                curThread.t_ptrace_sig = 0;
+                if (signr == 0)
+                    continue; // discard the signal
+
+                si.si_signo = signr;
+            }
+
+            if (act->IsIgnored())
+                continue;
+
+            if (act->sa_handler == SIG_DFL) {
+                signal::HandleDefaultSignalAction(si);
+                return nullptr;
+            }
+
+            return md_deliver_signal(sf, act, si);
+        }
+    }
 } // namespace signal
+
+extern "C" void* handle_signal(struct STACKFRAME* sf)
+{
+    return signal::HandleSignal(sf);
+}

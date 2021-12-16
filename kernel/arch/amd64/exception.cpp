@@ -109,7 +109,9 @@ namespace
             // An userland thread misbehaved - send the signal; we'll fall out of the
             // handler and the thread should be able to catch the signal or we'll invoke
             // the default action
-            signal::QueueSignal(thread::GetCurrent(), map_trapno_to_signal(sf->sf_trapno));
+            siginfo_t si;
+            si.si_signo = map_trapno_to_signal(sf->sf_trapno);
+            signal::SendSignal(thread::GetCurrent(), si);
             return;
         }
 
@@ -189,20 +191,9 @@ Result md_core_dump(Thread& t)
     return core_dump(&t, sf);
 }
 
-extern "C" void* md_invoke_signal(struct STACKFRAME* sf)
+void* md_deliver_signal(struct STACKFRAME* sf, signal::Action* act, siginfo_t& si)
 {
     KASSERT(sf->sf_rsp < KMEM_DIRECT_VA_START, "stack not in userland");
-
-    auto& curThread = thread::GetCurrent();
-    siginfo_t si;
-    signal::Action* act = signal::DequeueSignal(curThread, si);
-    if (act == nullptr)
-        return nullptr;
-    KASSERT(act->sa_handler != SIG_IGN, "attempt to handle ignored signal %d", si.si_signo);
-    if (act->sa_handler == SIG_DFL) {
-        signal::HandleDefaultSignalAction(si);
-        return nullptr;
-    }
 
     // Create a copy of the original stackframe - this is used by md_sigreturn()
     // to restore the complete context

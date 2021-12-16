@@ -88,7 +88,6 @@ Result sys_kill(const pid_t pid, const int sig)
     siginfo_t si{};
     si.si_signo = sig;
     si.si_pid = proc.p_pid;
-
     if (pid <= 0) {
         // Send to all processes whose process group ID is equal to ours (pid==0) or |pid| (pid<0)
         int dest_pgid = pid == 0 ? proc.p_group->pg_id : -pid;
@@ -98,15 +97,15 @@ Result sys_kill(const pid_t pid, const int sig)
             return Result::Failure(ESRCH);
 
         if (sig != 0)
-            signal::QueueSignal(*pg, si);
+            signal::SendSignal(*pg, si);
         pg.Unlock();
     } else /* pid > 0 */ {
         auto p = process_lookup_by_id_and_lock(pid);
-        if (p == nullptr)
+        if (!p)
             return Result::Failure(ESRCH);
 
         if (sig != 0)
-            signal::QueueSignal(*p->p_mainthread, si);
+            signal::SendSignal(*p->p_mainthread, si);
         p->Unlock();
     }
 

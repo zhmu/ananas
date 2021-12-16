@@ -5,6 +5,7 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <ananas/errno.h>
+#include <ananas/wait.h>
 #include <ananas/util/utility.h>
 #include "kernel/fd.h"
 #include "kernel/init.h"
@@ -238,13 +239,10 @@ void Process::Exit(int status)
     p_exit_status = status;
 }
 
-void Process::SignalExit() { if (p_parent) p_parent->p_child_wait.Signal(); }
+void Process::SignalChildActivity() { if (p_parent) p_parent->p_child_wait.Signal(); }
 
 Result Process::WaitAndLock(pid_t pid, int flags, util::locked<Process>& p_out)
 {
-    if (flags != 0)
-        return Result::Failure(EINVAL);
-
     // Wait for the first zombie child of this process
     for (;;) {
         Lock();
@@ -276,7 +274,11 @@ Result Process::WaitAndLock(pid_t pid, int flags, util::locked<Process>& p_out)
         }
         Unlock();
 
+        if (flags & WNOHANG)
+            return Result::Failure(ECHILD);
+
         // Nothing good yet; sleep on it
+        kprintf("wait zzz\n");
         p_child_wait.Wait();
     }
     // NOTREACHED

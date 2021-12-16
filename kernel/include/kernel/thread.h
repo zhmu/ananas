@@ -59,6 +59,7 @@ struct Thread {
     unsigned int t_flags{};
 #define THREAD_FLAG_ZOMBIE 0x0004     /* Thread has no more resources */
 #define THREAD_FLAG_RESCHEDULE 0x0008 /* Thread desires a reschedule */
+#define THREAD_FLAG_PTRACED 0x0010    /* Thread being ptrace()'d by parent */
 #define THREAD_FLAG_TIMEOUT 0x0020    /* Timeout field is valid */
 #define THREAD_FLAG_SIGPENDING 0x0040 /* Signal is pending */
 #define THREAD_FLAG_KTHREAD 0x8000    /* Kernel thread */
@@ -84,6 +85,8 @@ struct Thread {
     tick_t t_timeout{};
 
     signal::ThreadSpecificData t_sigdata;
+
+    int t_ptrace_sig{};               // Pending ptrace signal, if any
 
     bool IsActive() const { return (t_sched_flags & THREAD_SCHED_ACTIVE) != 0; }
 

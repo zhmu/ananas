@@ -281,7 +281,7 @@ void TTY::DeliverSignal(int signo)
     siginfo_t si{};
     si.si_signo = signo;
     tty_foreground_pg->Lock();
-    signal::QueueSignal(*tty_foreground_pg, si);
+    signal::SendSignal(*tty_foreground_pg, si);
     tty_foreground_pg->Unlock();
 }
 

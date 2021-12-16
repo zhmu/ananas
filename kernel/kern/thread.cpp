@@ -197,7 +197,7 @@ void Thread::Terminate(int exitcode)
     scheduler::ExitThread(*this);
 
     // Signal parent in case it is waiting for a child to exit
-    t_process.SignalExit();
+    t_process.SignalChildActivity();
     t_process.Unlock();
 
     scheduler::Schedule();

@@ -117,7 +117,7 @@ struct Process final : util::refcounted<Process> {
 
     void OnTick(process::TickContext);
     void Exit(int status);
-    void SignalExit();
+    void SignalChildActivity();
 
     void AddThread(Thread& t);
     void RemoveThread(Thread& t);

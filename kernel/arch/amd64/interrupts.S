@@ -165,9 +165,9 @@ do_return_signal:
      */
     sti
     movq    %rsp, %rdi
-    call    md_invoke_signal
-    orq %rax, %rax
-    jz  do_return
+    call    handle_signal
+    orq     %rax, %rax
+    jz      do_return
 
     movq    %rax, %rsp
 
