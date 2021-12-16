@@ -7,6 +7,7 @@
 #pragma once
 
 #include <ananas/util/ring_buffer.h>
+#include "kernel/condvar.h"
 #include "kernel/device.h"
 #include "kernel/dev/tty.h"
 
@@ -41,8 +42,9 @@ namespace pseudotty {
 
         static constexpr size_t InputQueueSize = 256;
         util::ring_buffer<char, InputQueueSize> input_queue;
-        Semaphore reader_sem{"tty", 1};
-        Semaphore writer_sem{"tty", 1};
+        Mutex mutex{"tty"};
+        ConditionVariable cv_reader{"ttyread"};
+        ConditionVariable cv_writer{"ttywrite"};
     };
 
     struct Slave : TTY

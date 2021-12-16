@@ -39,14 +39,19 @@ namespace pseudotty
     Result Master::Read(VFS_FILE& file, void* buf, size_t len)
     {
         if (debugPTTY) kprintf("Master::read() len %d\n", len);
+
         auto data = static_cast<char*>(buf);
+        mutex.Lock();
         while (1) {
             if (input_queue.empty()) {
                 /*
                  * Buffer is empty - schedule the thread for a wakeup once we have data.
                  */
-                if (file.f_flags & O_NONBLOCK) return Result::Failure(EAGAIN);
-                reader_sem.Wait();
+                if (file.f_flags & O_NONBLOCK) {
+                    mutex.Unlock();
+                    return Result::Failure(EAGAIN);
+                }
+                cv_reader.Wait(mutex);
                 continue;
             }
 
@@ -61,7 +66,8 @@ namespace pseudotty
                 --len;
             }
             if (debugPTTY) kprintf("Master::Read(): done, num_read %d\n", num_read);
-            writer_sem.Signal(); // bytes have been consumed
+            cv_writer.Signal(); // bytes have been consumed
+            mutex.Unlock();
             return Result::Success(num_read);
         }
     }
@@ -74,6 +80,7 @@ namespace pseudotty
     Result Master::OnInput(const char* buffer, size_t len)
     {
         if (debugPTTY) kprintf("Master::OnInput(): len=%d\n", len);
+        mutex.Lock();
         for (/* nothing */; len > 0; buffer++, len--) {
             char ch = *buffer;
             if (debugPTTY) kprintf("Master::OnInput(): [%c]\n", ch);
@@ -81,14 +88,15 @@ namespace pseudotty
             if (input_queue.full()) {
                 // TODO how to handle nowait?!
                 if (debugPTTY) kprintf("Master::OnInput(): queue is full\n");
-                writer_sem.Wait();
+                cv_writer.Wait(mutex);
                 continue;
             }
 
             // Store the charachter and trigger any readers
             input_queue.push_back(ch);
-            reader_sem.Signal();
+            cv_reader.Signal();
         }
+        mutex.Unlock();
 
         if (debugPTTY) kprintf("Master::OnInput(): done\n");
         return Result::Success();
