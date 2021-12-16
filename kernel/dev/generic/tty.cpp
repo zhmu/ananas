@@ -49,6 +49,7 @@ Result TTY::Read(VFS_FILE& file, void* buf, size_t len)
     /*
      * We must read from a tty. XXX We assume blocking does not apply.
      */
+    tty_mutex.Lock();
     while (1) {
         if ((tty_termios.c_iflag & ICANON) == 0) {
             /* Canonical input is off - handle requests immediately */
@@ -59,8 +60,11 @@ Result TTY::Read(VFS_FILE& file, void* buf, size_t len)
             /*
              * Buffer is empty - schedule the thread for a wakeup once we have data.
              */
-            if (file.f_flags & O_NONBLOCK) return Result::Failure(EAGAIN);
-            tty_waiters.Wait();
+            if (file.f_flags & O_NONBLOCK) {
+                tty_mutex.Unlock();
+                return Result::Failure(EAGAIN);
+            }
+            tty_cv.Wait(tty_mutex);
             continue;
         }
 
@@ -80,7 +84,7 @@ Result TTY::Read(VFS_FILE& file, void* buf, size_t len)
         }
         if (n == in_len) {
             /* Line is not complete - try again later */
-            tty_waiters.Wait();
+            tty_cv.Wait(tty_mutex);
             continue;
         }
 
@@ -93,6 +97,7 @@ Result TTY::Read(VFS_FILE& file, void* buf, size_t len)
             tty_input_queue.pop_front();
             ++num_read, --num_left;
         }
+        tty_mutex.Unlock();
         return Result::Success(num_read);
     }
 
@@ -142,10 +147,13 @@ Result TTY::OnInput(const char* buffer, size_t len)
     for (/* nothing */; len > 0; buffer++, len--) {
         char ch = *buffer;
 
-        // If we are out of buffer space, just eat the charachter XXX possibly unnecessary for
-        // VERASE */
-        if (tty_input_queue.full())
+        // If we are out of buffer space, just eat the charachter XXX possibly
+        // unnecessary for VERAS
+        tty_mutex.Lock();
+        if (tty_input_queue.full()) {
+            tty_mutex.Unlock();
             return Result::Failure(ENOSPC);
+        }
 
         /* Handle CR/NL transformations */
         if ((tty_termios.c_iflag & INLCR) && ch == NL)
@@ -158,14 +166,17 @@ Result TTY::OnInput(const char* buffer, size_t len)
         /* Handle things that need to raise signals */
         if (tty_termios.c_lflag & ISIG) {
             if (ch == tty_termios.c_cc[VINTR]) {
+                tty_mutex.Unlock();
                 DeliverSignal(SIGINT);
                 continue;
             }
             if (ch == tty_termios.c_cc[VQUIT]) {
+                tty_mutex.Unlock();
                 DeliverSignal(SIGQUIT);
                 continue;
             }
             if (ch == tty_termios.c_cc[VSUSP]) {
+                tty_mutex.Unlock();
                 DeliverSignal(SIGTSTP);
                 continue;
             }
@@ -180,7 +191,9 @@ Result TTY::OnInput(const char* buffer, size_t len)
             // Kill; echo a backspace per character
             while (!tty_input_queue.empty()) {
                 tty_input_queue.pop_front();
+                tty_mutex.Unlock();
                 TTY::HandleEcho(8); // XXX will this always work?
+                tty_mutex.Lock();
             }
         } else {
             // Store
@@ -188,10 +201,11 @@ Result TTY::OnInput(const char* buffer, size_t len)
         }
 
         // Handle writing the charachter, if needed
+        tty_mutex.Unlock();
         HandleEcho(ch);
 
         /* If we have waiters, awaken them */
-        tty_waiters.Signal();
+        tty_cv.Signal();
     }
 
     return Result::Success();

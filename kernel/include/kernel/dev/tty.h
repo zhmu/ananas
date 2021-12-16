@@ -8,6 +8,7 @@
 
 #include <ananas/util/ring_buffer.h>
 #include <ananas/termios.h>
+#include "kernel/condvar.h"
 #include "kernel/device.h"
 #include "kernel/lock.h"
 
@@ -56,5 +57,6 @@ class TTY : public Device, private IDeviceOperations, private ICharDeviceOperati
 
     process::Session* tty_session = nullptr;            // session we belong to
     process::ProcessGroup* tty_foreground_pg = nullptr; // foreground process group
-    Semaphore tty_waiters{"tty", 1};
+    Mutex tty_mutex{"tty"};
+    ConditionVariable tty_cv{"ttywait"};
 };
