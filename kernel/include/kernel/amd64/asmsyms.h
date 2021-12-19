@@ -47,12 +47,10 @@
 #define SYSARG_SIZE 0x30
 
 // Thread members
-#define T_FLAGS     0x270
-#define T_FRAME     0x278
-#define T_MDFLAGS   0x280
-
-// Thread flags
-#define T_FLAG_SIGPENDING 0x40
+#define T_FLAGS         0x270
+#define T_SIG_PENDING   0x274
+#define T_FRAME         0x280
+#define T_MDFLAGS       0x288
 
 // Vmspace struct
 #define VMSPACE_MD_PAGEDIR 0x0

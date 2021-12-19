@@ -196,7 +196,8 @@ namespace ankhfs
                         // No need to lock the parent, the child should have Ref'ed it
                         // <state> <pid> <utime> <stime> <cutime> <cstime>
                         snprintf(
-                            result, sizeof(result), "%d %d %d %d %d %d\n", p->p_state,
+                            result, sizeof(result), "%d %d %d %d %d %d\n",
+                            p->p_mainthread ? static_cast<int>(p->p_mainthread->t_state) : -1,
                             p->p_parent != nullptr ? p->p_parent->p_pid : 0,
                             p->p_times.tms_utime, p->p_times.tms_stime,
                             p->p_times.tms_cutime, p->p_times.tms_cstime);

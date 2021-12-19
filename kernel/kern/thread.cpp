@@ -46,14 +46,15 @@ Result thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
     /* First off, allocate the thread itself */
     auto t = new Thread(p);
     p.AddThread(*t);
+    t->t_state = thread::State::Suspended;
     t->t_sched_flags = 0;
     t->t_flags = 0;
     t->t_refcount = 1; /* caller */
     t->SetName(name);
 
     /* Set up CPU affinity and priority */
-    t->t_priority = THREAD_PRIORITY_DEFAULT;
-    t->t_affinity = THREAD_AFFINITY_ANY;
+    t->t_priority = thread::DefaultPriority;
+    t->t_affinity = thread::AnyAffinity;
 
     /* Ask machine-dependant bits to initialize our thread data */
     md::thread::InitUserlandThread(*t, flags);
@@ -81,11 +82,12 @@ Result kthread_alloc(const char* name, kthread_func_t func, void* arg, Thread*& 
     auto& proc = process::AllocateKernelProcess();
 
     auto t = new Thread(proc);
+    t->t_state = thread::State::Suspended;
     t->t_sched_flags = 0;
     t->t_flags = THREAD_FLAG_KTHREAD;
     t->t_refcount = 1;
-    t->t_priority = THREAD_PRIORITY_DEFAULT;
-    t->t_affinity = THREAD_AFFINITY_ANY;
+    t->t_priority = thread::DefaultPriority;
+    t->t_affinity = thread::AnyAffinity;
     t->SetName(name);
 
     proc.AddThread(*t);
@@ -112,7 +114,7 @@ Result kthread_alloc(const char* name, kthread_func_t func, void* arg, Thread*& 
  */
 static void thread_cleanup(Thread& t)
 {
-    KASSERT(!t.IsZombie(), "cleaning up zombie thread %p", &t);
+    KASSERT(t.t_state != thread::State::Zombie, "cleaning up zombie thread %p", &t);
 
     /*
      * Signal anyone waiting on the thread; the terminate information should
@@ -135,7 +137,7 @@ Thread::Thread(Process& process)
 void Thread::Destroy()
 {
     KASSERT(&thread::GetCurrent() != this, "thread_destroy() on current thread");
-    KASSERT(IsZombie(), "thread_destroy() on a non-zombie thread");
+    KASSERT(t_state == thread::State::Zombie, "thread_destroy() on a non-zombie thread");
 
     // Wait until the thread is released by the scheduler
     while(IsActive())
@@ -178,7 +180,7 @@ void Thread::Resume()
 void Thread::Terminate(int exitcode)
 {
     KASSERT(this == &thread::GetCurrent(), "terminate not on current thread");
-    KASSERT(!IsZombie(), "exiting zombie thread");
+    KASSERT(t_state != thread::State::Zombie, "terminating zombie thread");
 
     // Grab the process lock; this ensures WaitAndLock() will be blocked until the
     // thread is completely forgotten by the scheduler
@@ -206,13 +208,13 @@ void Thread::Terminate(int exitcode)
 
 void Thread::SetName(const char* name)
 {
-    if (IsKernel()) {
+    if (t_flags & THREAD_FLAG_KTHREAD) {
         /* Surround kernel thread names by [ ] to clearly identify them */
-        snprintf(t_name, THREAD_MAX_NAME_LEN, "[%s]", name);
+        snprintf(t_name, thread::MaxNameLength, "[%s]", name);
     } else {
-        strncpy(t_name, name, THREAD_MAX_NAME_LEN);
+        strncpy(t_name, name, thread::MaxNameLength);
     }
-    t_name[THREAD_MAX_NAME_LEN] = '\0';
+    t_name[thread::MaxNameLength] = '\0';
 }
 
 Result thread_clone(Process& proc, Thread*& out_thread)
@@ -236,9 +238,11 @@ Result thread_clone(Process& proc, Thread*& out_thread)
     return Result::Success();
 }
 
-struct ThreadWaiter : util::List<ThreadWaiter>::NodePtr {
-    Semaphore tw_sem{"thread-waiter", 0};
-};
+namespace thread {
+    struct Waiter : util::List<Waiter>::NodePtr {
+        Semaphore tw_sem{"thread-waiter", 0};
+    };
+}
 
 void Thread::SignalWaiters()
 {
@@ -253,7 +257,7 @@ void Thread::SignalWaiters()
 
 void Thread::Wait()
 {
-    ThreadWaiter tw;
+    thread::Waiter tw;
 
     {
         SpinlockGuard g(t_lock);

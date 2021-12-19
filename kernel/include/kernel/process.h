@@ -24,9 +24,6 @@ struct FD;
 struct Thread;
 class VMSpace;
 
-#define PROCESS_STATE_ACTIVE 1
-#define PROCESS_STATE_ZOMBIE 2
-
 struct Process;
 
 namespace process
@@ -89,8 +86,6 @@ struct Process final : util::refcounted<Process> {
     void Lock() { p_lock.Lock(); }
 
     void Unlock() { p_lock.Unlock(); }
-
-    unsigned int p_state = 0; /* Process state */
 
     pid_t p_pid = 0;       /* Process ID */
     int p_exit_status = 0; /* Exit status / code */

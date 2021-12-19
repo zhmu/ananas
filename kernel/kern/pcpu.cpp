@@ -23,5 +23,5 @@ void pcpu_init(struct PCPU* pcpu)
      * it must only be run as a last-resort.
      */
     pcpu->idlethread->t_affinity = pcpu->cpuid;
-    pcpu->idlethread->t_priority = THREAD_PRIORITY_IDLE;
+    pcpu->idlethread->t_priority = thread::IdlePriority;
 }

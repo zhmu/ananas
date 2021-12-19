@@ -101,7 +101,7 @@ namespace md::thread
 
     void Free(Thread& t)
     {
-        KASSERT(t.IsZombie(), "cannot free non-zombie thread");
+        KASSERT(t.t_state == ::thread::State::Zombie, "cannot free non-zombie thread");
         KASSERT(&::thread::GetCurrent() != &t, "cannot free current thread");
 
         /*
@@ -116,7 +116,7 @@ namespace md::thread
     Thread& SwitchTo(Thread& new_thread, Thread& old_thread)
     {
         KASSERT(md::interrupts::Save() == 0, "interrupts must be disabled");
-        KASSERT(!new_thread.IsZombie(), "cannot switch to a zombie thread");
+        KASSERT(new_thread.t_state != ::thread::State::Zombie, "cannot switch to a zombie thread");
         KASSERT(&new_thread != &old_thread, "switching to self?");
         KASSERT(new_thread.IsActive(), "new thread isn't running?");
 

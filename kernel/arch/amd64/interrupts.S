@@ -147,7 +147,7 @@ do_exception:
 
 do_return_check_sig:
     movq    %gs:(PCPU_CURTHREAD), %rax
-    testl   $T_FLAG_SIGPENDING, T_FLAGS(%rax)
+    cmpl    $0, T_SIG_PENDING(%rax)
     jz  do_return
 
     /*
@@ -312,7 +312,7 @@ syscall_return:
     jmp do_return
 
 1:  /* If we need to invoke a signal handler, do so... */
-    testl   $T_FLAG_SIGPENDING, T_FLAGS(%rax)
+    cmpl    $0, T_SIG_PENDING(%rax)
     jnz do_return_signal
 
     movq    SF_RAX(%rsp), %rax  /* return value */

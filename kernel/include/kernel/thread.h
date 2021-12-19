@@ -17,17 +17,29 @@
 #include "kernel/vfs/generic.h"
 #include "kernel-md/thread.h"
 
-typedef void (*kthread_func_t)(void*);
+using kthread_func_t = void(*)(void*);
 struct STACKFRAME;
 struct Process;
 class Result;
 
-#define THREAD_MAX_NAME_LEN 32
-#define THREAD_EVENT_EXIT 1
+namespace thread
+{
+    constexpr inline auto MaxNameLength = 32;
 
-struct Thread;
-struct ThreadWaiter;
-typedef util::List<ThreadWaiter> ThreadWaiterList;
+    enum class State {
+        Running,
+        Suspended,
+        Zombie
+    };
+
+    using Priority = int;
+    constexpr inline Priority DefaultPriority = 200;
+    constexpr inline Priority IdlePriority = 255;
+    using Affinity = int;
+    constexpr inline Affinity AnyAffinity = -1;
+
+    struct Waiter;
+}
 
 struct Thread {
     Thread(Process& process);
@@ -43,11 +55,10 @@ struct Thread {
     void SignalWaiters();
     void Wait();
 
-    /* Machine-dependant data - must be first */
-    MD_THREAD_FIELDS
+    MD_THREAD_FIELDS // Machine-dependant data
 
     Spinlock t_lock;                      /* Lock protecting the thread data */
-    char t_name[THREAD_MAX_NAME_LEN + 1] = {}; /* Thread name */
+    char t_name[thread::MaxNameLength + 1] = {}; /* Thread name */
 
     refcount_t t_refcount{}; /* Reference count of the thread, >0 */
 
@@ -57,29 +68,27 @@ struct Thread {
 #define THREAD_SCHED_SUSPENDED 0x0002 /* Thread is currently suspended */
 
     unsigned int t_flags{};
-#define THREAD_FLAG_ZOMBIE 0x0004     /* Thread has no more resources */
-#define THREAD_FLAG_RESCHEDULE 0x0008 /* Thread desires a reschedule */
-#define THREAD_FLAG_PTRACED 0x0010    /* Thread being ptrace()'d by parent */
-#define THREAD_FLAG_TIMEOUT 0x0020    /* Timeout field is valid */
-#define THREAD_FLAG_SIGPENDING 0x0040 /* Signal is pending */
-#define THREAD_FLAG_KTHREAD 0x8000    /* Kernel thread */
+#define THREAD_FLAG_KTHREAD 0x0001    /* Kernel thread */
+#define THREAD_FLAG_RESCHEDULE 0x0002 /* Thread desires a reschedule */
+#define THREAD_FLAG_PTRACED 0x0004    /* Thread being ptrace()'d by parent */
+#define THREAD_FLAG_TIMEOUT 0x0008    /* Timeout field is valid */
+
+    unsigned int t_sig_pending{};   // Is a signal pending?
+    thread::State t_state{thread::State::Running};
 
     struct STACKFRAME* t_frame{};
     unsigned int t_md_flags{};
 
     Process& t_process; /* associated process */
 
-    int t_priority{}; /* priority (0 highest) */
-#define THREAD_PRIORITY_DEFAULT 200
-#define THREAD_PRIORITY_IDLE 255
-    int t_affinity{}; /* thread CPU */
-#define THREAD_AFFINITY_ANY -1
+    thread::Priority t_priority{}; /* priority (0 highest) */
+    thread::Affinity t_affinity{}; /* thread CPU */
 
     util::List<Thread>::Node t_NodeAllThreads;
     util::List<Thread>::Node t_NodeSchedulerList;
 
     /* Waiters to signal on thread changes */
-    ThreadWaiterList t_waitqueue;
+    util::List<thread::Waiter> t_waitqueue;
 
     /* Timeout, when it expires the thread will be scheduled in */
     tick_t t_timeout{};
@@ -92,11 +101,7 @@ struct Thread {
 
     bool IsSuspended() const { return (t_sched_flags & THREAD_SCHED_SUSPENDED) != 0; }
 
-    bool IsZombie() const { return (t_flags & THREAD_FLAG_ZOMBIE) != 0; }
-
     bool IsRescheduling() const { return (t_flags & THREAD_FLAG_RESCHEDULE) != 0; }
-
-    bool IsKernel() const { return (t_flags & THREAD_FLAG_KTHREAD) != 0; }
 
     // Used for threads on the sleepqueue
     util::List<Thread>::Node t_sqchain;

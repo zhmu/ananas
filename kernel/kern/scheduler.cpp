@@ -119,7 +119,7 @@ namespace scheduler
         {
             KASSERT(!sched_runqueue.empty(), "runqueue cannot be empty");
             for (auto& t : sched_runqueue) {
-                if (t.t_affinity != THREAD_AFFINITY_ANY && t.t_affinity != cpuid)
+                if (t.t_affinity != thread::AnyAffinity && t.t_affinity != cpuid)
                     continue; // not possible on this CPU
                 if (t.IsActive() && &t != &curThread)
                     continue;
@@ -205,7 +205,7 @@ namespace scheduler
          * be scheduled anymore because it's on neither runqueue nor sleepqueue; the scheduler won't
          * know about the thread at all.
          */
-        t.t_flags |= THREAD_FLAG_ZOMBIE;
+        t.t_state = thread::State::Zombie;
         /* Let go of the scheduler lock but leave interrupts disabled */
         schedLock.Unlock();
 
@@ -260,7 +260,7 @@ namespace scheduler
          * We must also take care not to re-add zombie threads; these must not be
          * re-added to either scheduler queue.
          */
-        if (!curThread.IsSuspended() && !curThread.IsZombie()) {
+        if (curThread.t_state != thread::State::Suspended && curThread.t_state != thread::State::Zombie) {
             sched_runqueue.remove(curThread);
             AddThreadToRunQueue(curThread);
         }
@@ -313,9 +313,9 @@ namespace
     void kdbPrintThread(Thread& t)
     {
         kprintf(
-            "  thread %p '%s' sched_flags %d flags 0x%x\n", &t, t.t_name, t.t_sched_flags,
+            "  thread %p '%s' state %d sched_flags %d flags 0x%x\n", &t, t.t_name, t.t_state, t.t_sched_flags,
             t.t_flags);
-        kprintf("    process %d state %d\n", t.t_process.p_pid, t.t_process.p_state);
+        kprintf("    process %d\n", t.t_process.p_pid);
         if (auto& w = t.t_sqwaiter; w.w_sq) {
             kprintf(
                 "    sleepqueue %p '%s' thread %p signalled %d\n", w.w_sq, w.w_sq->GetName(),

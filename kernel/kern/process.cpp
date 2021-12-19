@@ -52,7 +52,6 @@ namespace
         if (p->p_parent) {
             p->p_parent->AddReference();
         }
-        p->p_state = PROCESS_STATE_ACTIVE;
         p->p_pid = AllocateProcessID();
 
         // Clone the parent's descriptors
@@ -113,7 +112,6 @@ namespace process
     {
         auto p = new Process(*kernel_vmspace);
         p->p_parent = initProcess;
-        p->p_state = PROCESS_STATE_ACTIVE;
         p->p_pid = AllocateProcessID();
 
         p->Lock();
@@ -235,7 +233,6 @@ void Process::Exit(int status)
     // Note that the lock must be held, to prevent a race between Exit() and
     // WaitAndLock()
     p_lock.AssertLocked();
-    p_state = PROCESS_STATE_ZOMBIE;
     p_exit_status = status;
 }
 
@@ -250,7 +247,10 @@ Result Process::WaitAndLock(pid_t pid, int flags, util::locked<Process>& p_out)
             if (pid > 0 && pid != child.p_pid)
                 continue; // not the child the caller asked for
             child.Lock();
-            if (child.p_state != PROCESS_STATE_ZOMBIE) {
+            auto t = child.p_mainthread;
+            KASSERT(t != nullptr, "child without a main thread?");
+
+            if (t->t_state != thread::State::Zombie) {
                 child.Unlock();
                 continue;
             }
@@ -261,9 +261,6 @@ Result Process::WaitAndLock(pid_t pid, int flags, util::locked<Process>& p_out)
             p_lock.Unlock();
 
             // Destroy the thread owned by the process
-            auto t = child.p_mainthread;
-            KASSERT(t != nullptr, "zombie child without main thread?");
-            KASSERT(t->IsZombie(), "process zombie without zombie threads?");
             KASSERT(t->t_refcount == 0, "zombie child thread still has %d refs", t->t_refcount);
             t->Destroy();
 
@@ -341,9 +338,9 @@ Process* process_lookup_by_id_and_lock(pid_t pid)
 const kdb::RegisterCommand kdbPs("ps", "Display all processes", [](int, const kdb::Argument*) {
     MutexGuard g(process::process_mtx);
     for (auto& p : process::process_all) {
-        kprintf("process %d (%p): state %d\n", p.p_pid, &p, p.p_state);
+        kprintf("process %d (%p)\n", p.p_pid, &p);
         if (auto t = p.p_mainthread; t != nullptr) {
-            kprintf("  thread %p name '%s' flags 0x%x\n", t, t->t_name, t->t_flags);
+            kprintf("  thread %p state %d name '%s' flags 0x%x\n", t, t->t_state, t->t_name, t->t_flags);
         }
         //p.p_vmspace.Dump();
     }

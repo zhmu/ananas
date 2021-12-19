@@ -73,9 +73,9 @@ namespace signal
                 tsd.tsd_pending.push(siginfo);
             }
 
-            t.t_flags |= THREAD_FLAG_SIGPENDING; // XXX this needs a lock?
-            if (t.IsSuspended()) {
-                kprintf("todo pid %d wakkermaken\n", t.t_process.p_pid);
+            t.t_sig_pending = 1; // XXX this needs a lock?
+            if (t.t_state == thread::State::Suspended) {
+                kprintf("todo resume pid %d\n", t.t_process.p_pid);
             }
             return Result::Success();
         }
@@ -95,7 +95,7 @@ namespace signal
 
     Result SendSignalToParent(Thread& t, const siginfo_t& siginfo)
     {
-        auto parent = t.t_process.p_mainthread;
+        auto parent = t.t_process.p_parent->p_mainthread;
         return SendSignal(*parent, siginfo);
     }
 
@@ -176,7 +176,7 @@ namespace signal
                 signr = signal::DequeueSignal(sg, tsd, si);
                 if (!signr) {
                     // Out of signals - clear pending flag XXX may need a lock
-                    curThread.t_flags &= ~THREAD_FLAG_SIGPENDING;
+                    curThread.t_sig_pending = 0;
                     return nullptr;
                 }
                 act = tsd.GetSignalAction(signr);
@@ -184,6 +184,7 @@ namespace signal
 
             if ((curThread.t_flags & THREAD_FLAG_PTRACED) != 0 && signr != SIGKILL) {
                 curThread.t_ptrace_sig = signr;
+                curThread.t_state = thread::State::Suspended;
 
                 // Post SIGCHLD to tracer, suspend
                 SendSignalToParent(curThread, { .si_signo = SIGCHLD });
@@ -197,6 +198,7 @@ namespace signal
 
                 signr = curThread.t_ptrace_sig;
                 curThread.t_ptrace_sig = 0;
+                curThread.t_state = thread::State::Running;
                 if (signr == 0)
                     continue; // discard the signal
 
