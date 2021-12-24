@@ -116,9 +116,9 @@ namespace md::thread
     Thread& SwitchTo(Thread& new_thread, Thread& old_thread)
     {
         KASSERT(md::interrupts::Save() == 0, "interrupts must be disabled");
-        KASSERT(new_thread.t_state != ::thread::State::Zombie, "cannot switch to a zombie thread");
+        KASSERT(new_thread.t_state == ::thread::State::Running, "cannot switch to non-running thread");
         KASSERT(&new_thread != &old_thread, "switching to self?");
-        KASSERT(new_thread.IsActive(), "new thread isn't running?");
+        KASSERT((new_thread.t_sched_flags & THREAD_SCHED_ACTIVE) != 0, "new thread isn't running?");
 
         /*
          * Activate the corresponding kernel stack in the TSS and for the syscall

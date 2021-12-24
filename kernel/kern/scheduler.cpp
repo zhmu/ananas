@@ -75,10 +75,14 @@ namespace scheduler
             if (onRunQueue == What::onRunQueue && onSleepQueue == What::onSleepQueue)
                 return;
             panic(
-                "prove failed: expected onRunQueue %d, onSleepQueue %d but got onRunQueue %d "
+                "prove failed: expected thread %p onRunQueue %d, onSleepQueue %d but got onRunQueue %d "
                 "onSleepQueue %d",
+                &t,
                 What::onRunQueue, What::onSleepQueue, onRunQueue, onSleepQueue);
         }
+
+        bool IsActive(Thread& t) { return (t.t_sched_flags & THREAD_SCHED_ACTIVE) != 0; }
+        bool IsSuspended(Thread& t) { return (t.t_sched_flags & THREAD_SCHED_SUSPENDED) != 0; }
 
         // Must be called with schedLock held
         void AddThreadToRunQueue(Thread& t)
@@ -121,7 +125,7 @@ namespace scheduler
             for (auto& t : sched_runqueue) {
                 if (t.t_affinity != thread::AnyAffinity && t.t_affinity != cpuid)
                     continue; // not possible on this CPU
-                if (t.IsActive() && &t != &curThread)
+                if (IsActive(t) && &t != &curThread)
                     continue;
                 return t;
             }
@@ -152,6 +156,7 @@ namespace scheduler
             Prove<NotOnAnyQueue>(t);
 
             // New threads are initially suspended
+            KASSERT(t.t_state == thread::State::Suspended, "initial thread status not suspended?");
             t.t_sched_flags = THREAD_SCHED_SUSPENDED;
             sched_sleepqueue.push_back(t);
         }
@@ -161,55 +166,15 @@ namespace scheduler
     {
         SchedLockGuard g(schedLock);
 
-        // XXX This condition is likely obsoleted...
-        if (!t.IsSuspended() && scheduler::IsActive())
-            panic("resuming nonsuspended thread %p", &t);
-
-        KASSERT(t.IsSuspended(), "adding non-suspended thread %p", &t);
+        KASSERT(IsSuspended(t), "adding non-suspended thread %p", &t);
         Prove<OnlyOnSleepQueue>(t);
+
+        KASSERT(t.t_sqwaiter.w_sq == nullptr || t.t_sqwaiter.w_signalled, "resuming sleeping thread?");
 
         sched_sleepqueue.remove(t);
         AddThreadToRunQueue(t);
         t.t_sched_flags &= ~THREAD_SCHED_SUSPENDED;
         t.t_flags &= ~THREAD_FLAG_TIMEOUT;
-    }
-
-    void SuspendThread(Thread& t)
-    {
-        SchedLockGuard g(schedLock);
-
-        KASSERT(!t.IsSuspended(), "suspending thread %p that is already suspended", &t);
-        Prove<OnlyOnRunQueue>(t);
-
-        sched_runqueue.remove(t);
-        AddThreadToSleepQueue(t);
-        t.t_sched_flags |= THREAD_SCHED_SUSPENDED;
-    }
-
-    void ExitThread(Thread& t)
-    {
-        /*
-         * Note that interrupts must be disabled - this is important because we are about to
-         * remove the thread from the schedulers runqueue, and it will not be re-added again.
-         * Thus, if a context switch would occur, the final exiting code will not be run.
-         */
-        schedLock.LockUnpremptible();
-
-        Prove<OnlyOnRunQueue>(t);
-        sched_runqueue.remove(t);
-
-        /*
-         * Turn the thread into a zombie; we'll soon be letting go of the scheduler lock, but all
-         * resources are gone and the thread can be destroyed from now on - interrupts are disabled,
-         * so we'll be certain to clear the active flag. A thread which is an inactive zombie won't
-         * be scheduled anymore because it's on neither runqueue nor sleepqueue; the scheduler won't
-         * know about the thread at all.
-         */
-        t.t_state = thread::State::Zombie;
-        /* Let go of the scheduler lock but leave interrupts disabled */
-        schedLock.Unlock();
-
-        // Note: we expect the caller to clean up and reschedule() !
     }
 
     extern "C" void scheduler_release(Thread* old)
@@ -220,9 +185,16 @@ namespace scheduler
         old->t_sched_flags &= ~THREAD_SCHED_ACTIVE;
     }
 
+    void WaitUntilReleased(Thread& t)
+    {
+        while((t.t_sched_flags & THREAD_SCHED_ACTIVE) != 0) {
+            md::interrupts::Pause();
+        }
+    }
+
     void Schedule()
     {
-        auto& curThread = thread::GetCurrent();
+        auto& oldThread = thread::GetCurrent();
         const int cpuid = PCPU_GET(cpuid);
 
         /*
@@ -232,8 +204,27 @@ namespace scheduler
          */
         auto state = schedLock.LockUnpremptible();
 
-        // Cancel any rescheduling as we are about to schedule here
-        curThread.t_flags &= ~THREAD_FLAG_RESCHEDULE;
+        // Update old thread
+        oldThread.t_flags &= ~THREAD_FLAG_RESCHEDULE;
+        switch(oldThread.t_state) {
+            case thread::State::Suspended:
+                // Suspended; remove it from the runqueue
+                KASSERT(&oldThread != PCPU_GET(idlethread), "suspending idle thread");
+                sched_runqueue.remove(oldThread);
+                AddThreadToSleepQueue(oldThread);
+                oldThread.t_sched_flags |= THREAD_SCHED_SUSPENDED;
+                break;
+            case thread::State::Running:
+                // Achieve round-robin scheduling within the same priority by
+                // re-adding the old thread to the run queue
+                sched_runqueue.remove(oldThread);
+                AddThreadToRunQueue(oldThread);
+                break;
+            case thread::State::Zombie:
+                Prove<OnlyOnRunQueue>(oldThread);
+                sched_runqueue.remove(oldThread);
+                break;
+        }
 
         /*
          * See if the first item on the sleepqueue is worth waking up; we'll only
@@ -242,28 +233,14 @@ namespace scheduler
         WakeupSleepingThreads();
 
         // Pick the next thread to schedule
-        auto& newThread = PickNextThreadToSchedule(curThread, cpuid);
+        auto& newThread = PickNextThreadToSchedule(oldThread, cpuid);
 
         // Sanity checks
-        KASSERT(!newThread.IsSuspended(), "activating suspended thread %p", &newThread);
+        KASSERT(!IsSuspended(newThread), "activating suspended thread %p", &newThread);
         KASSERT(
-            &newThread == &curThread || !newThread.IsActive(), "activating active thread %p",
+            &newThread == &oldThread || !IsActive(newThread), "activating active thread %p",
             &newThread);
         Prove<OnlyOnRunQueue>(newThread);
-
-        /*
-         * If the current thread is not suspended, this means it got interrupted
-         * involuntary and must be placed back on the running queue; otherwise it
-         * must have been placed on the runqueue already. We'll add it to the back,
-         * in order to obtain round-robin scheduling within each priority level.
-         *
-         * We must also take care not to re-add zombie threads; these must not be
-         * re-added to either scheduler queue.
-         */
-        if (curThread.t_state != thread::State::Suspended && curThread.t_state != thread::State::Zombie) {
-            sched_runqueue.remove(curThread);
-            AddThreadToRunQueue(curThread);
-        }
 
         /*
          * Schedule our new thread; by marking it as active, it will not be picked up by another
@@ -275,8 +252,8 @@ namespace scheduler
         // Now unlock the scheduler lock but do _not_ enable interrupts
         schedLock.Unlock();
 
-        if (&curThread != &newThread) {
-            auto& prev = md::thread::SwitchTo(newThread, curThread);
+        if (&oldThread != &newThread) {
+            auto& prev = md::thread::SwitchTo(newThread, oldThread);
             scheduler_release(&prev);
         }
 
@@ -313,12 +290,12 @@ namespace
     void kdbPrintThread(Thread& t)
     {
         kprintf(
-            "  thread %p '%s' state %d sched_flags %d flags 0x%x\n", &t, t.t_name, t.t_state, t.t_sched_flags,
-            t.t_flags);
+            "  thread %p '%s' state %d sched_flags %d flags 0x%x\n", &t, t.t_name,
+            t.t_state, t.t_sched_flags, t.t_flags);
         kprintf("    process %d\n", t.t_process.p_pid);
         if (auto& w = t.t_sqwaiter; w.w_sq) {
             kprintf(
-                "    sleepqueue %p '%s' thread %p signalled %d\n", w.w_sq, w.w_sq->GetName(),
+                "    sleepqueue %p '%s' thread %p signalled %d\n", w.w_sq, w.w_lockable->l_name,
                 w.w_thread, w.w_signalled);
         }
     }

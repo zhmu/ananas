@@ -44,15 +44,21 @@ static_assert(SF_ES == offsetof(struct STACKFRAME, sf_es));
 static_assert(SF_SS == offsetof(struct STACKFRAME, sf_ss));
 static_assert(SF_SIZE == sizeof(struct STACKFRAME));
 
-static_assert(T_FRAME == offsetof(Thread, t_frame));
-static_assert(T_FLAGS == offsetof(Thread, t_flags));
-static_assert(T_MDFLAGS == offsetof(Thread, t_md_flags));
-
 static_assert(PCPU_CURTHREAD == offsetof(struct PCPU, curthread));
 static_assert(PCPU_NESTEDIRQ == offsetof(struct PCPU, nested_irq));
 static_assert(PCPU_SYSCALLRSP == offsetof(struct PCPU, syscall_rsp));
 static_assert(PCPU_RSP0 == offsetof(struct PCPU, rsp0));
 
+static_assert(SMP_CPU_SIZE == sizeof(struct X86_CPU));
+static_assert(SMP_CPU_LAPICID == offsetof(struct X86_CPU, cpu_lapic_id));
+static_assert(SMP_CPU_STACK == offsetof(struct X86_CPU, cpu_stack));
+
+static_assert(T_SIG_PENDING == offsetof(Thread, t_sig_pending));
+static_assert(T_MDFLAGS == offsetof(Thread, t_md_flags));
+
+static_assert(VMSPACE_MD_PAGEDIR == offsetof(VMSpace, vs_md_pagedir));
+
+// These must correspond with syscall_handler() in interrupts.S
 static_assert(SYSARG_NUM == offsetof(struct SYSCALL_ARGS, number));
 static_assert(SYSARG_ARG1 == offsetof(struct SYSCALL_ARGS, arg1));
 static_assert(SYSARG_ARG2 == offsetof(struct SYSCALL_ARGS, arg2));
@@ -60,10 +66,3 @@ static_assert(SYSARG_ARG3 == offsetof(struct SYSCALL_ARGS, arg3));
 static_assert(SYSARG_ARG4 == offsetof(struct SYSCALL_ARGS, arg4));
 static_assert(SYSARG_ARG5 == offsetof(struct SYSCALL_ARGS, arg5));
 static_assert(SYSARG_SIZE == sizeof(struct SYSCALL_ARGS));
-
-static_assert(SMP_CPU_SIZE == sizeof(struct X86_CPU));
-static_assert(SMP_CPU_LAPICID == offsetof(struct X86_CPU, cpu_lapic_id));
-static_assert(SMP_CPU_PCPU == offsetof(struct X86_CPU, cpu_pcpu));
-static_assert(SMP_CPU_STACK == offsetof(struct X86_CPU, cpu_stack));
-
-static_assert(VMSPACE_MD_PAGEDIR == offsetof(VMSpace, vs_md_pagedir));

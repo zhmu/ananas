@@ -585,6 +585,7 @@ extern "C" void md_startup(const struct MULTIBOOT* multiboot)
     // Switch stack to idle thread; we'll re-use the bootstrap stack for double faults
     __asm __volatile("movq %0, %%rsp\n" : : "r"(bsp_pcpu.idlethread->md_rsp));
     PCPU_SET(curthread, bsp_pcpu.idlethread);
+    bsp_pcpu.idlethread->t_state = thread::State::Running;
     scheduler::ResumeThread(*bsp_pcpu.idlethread);
 
     // Do ACPI pre-initialization; this prepares for parsing SMP tables

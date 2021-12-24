@@ -41,21 +41,16 @@ namespace
         return process_curpid++;
     }
 
-    Result AllocateProcess(Process* parent, Process*& dest)
+    Result AllocateProcess(Process* parent, Process*& dest, pid_t pid)
     {
         VMSpace* vmspace;
         if (const auto result = vmspace_create(vmspace); result.IsFailure())
             return result;
 
-        auto p = new Process(*vmspace);
-        p->p_parent = parent;
-        if (p->p_parent) {
-            p->p_parent->AddReference();
-        }
-        p->p_pid = AllocateProcessID();
+        auto p = new Process(pid, *vmspace);
 
-        // Clone the parent's descriptors
         if (parent != nullptr) {
+            // Clone the parent's descriptors
             for (unsigned int n = 0; n < parent->p_fd.size(); n++) {
                 if (parent->p_fd[n] == nullptr)
                     continue;
@@ -68,20 +63,18 @@ namespace
                 }
                 KASSERT(n == index_out, "cloned fd %d to new fd %d", n, index_out);
             }
-        }
 
-        /* Run all process initialization callbacks */
-        if (const auto result = vfs_init_process(*p); result.IsFailure()) {
-            p->RemoveReference();
-            return result;
-        }
-
-        /* Grab the parent's lock and insert the child */
-        if (parent != nullptr) {
+            // Grab the parent's lock and insert the child
+            parent->AddReference();
             parent->Lock();
             parent->p_children.push_back(*p);
             parent->Unlock();
+            p->p_parent = parent;
         }
+
+        /* Run all process initialization callbacks */
+        if (const auto result = vfs_init_process(*p); result.IsFailure())
+            panic("vfs_init_process is not supposed to fail %d", result.AsStatusCode());
 
         process::InitializeProcessGroup(*p, parent);
 
@@ -110,9 +103,13 @@ namespace process
 
     Process& AllocateKernelProcess()
     {
-        auto p = new Process(*kernel_vmspace);
-        p->p_parent = initProcess;
-        p->p_pid = AllocateProcessID();
+        auto p = new Process(AllocateProcessID(), *kernel_vmspace);
+        if (initProcess) {
+            p->p_parent = initProcess;
+            initProcess->Lock();
+            initProcess->p_children.push_back(*p);
+            initProcess->Unlock();
+        }
 
         p->Lock();
         {
@@ -125,9 +122,8 @@ namespace process
     Process& CreateInitProcess()
     {
         Process* proc;
-        if (auto result = AllocateProcess(nullptr, proc); result.IsFailure())
+        if (auto result = AllocateProcess(nullptr, proc, initPid); result.IsFailure())
             panic("cannot create init process %d", result.AsStatusCode());
-        proc->p_pid = initPid;
 
         Thread* t;
         if (auto result = thread_alloc(*proc, t, "init", THREAD_ALLOC_DEFAULT); result.IsFailure())
@@ -150,7 +146,7 @@ namespace process
 Result Process::Clone(Process*& out_p)
 {
     Process* newp;
-    if (const auto result = AllocateProcess(this, newp); result.IsFailure())
+    if (const auto result = AllocateProcess(this, newp, AllocateProcessID()); result.IsFailure())
         return result;
 
     /* Duplicate the vmspace - this should leave the private mappings alone */
@@ -163,8 +159,8 @@ Result Process::Clone(Process*& out_p)
     return Result::Success();
 }
 
-Process::Process(VMSpace& vs)
-    : p_vmspace(vs)
+Process::Process(pid_t pid, VMSpace& vs)
+    : p_pid(pid), p_vmspace(vs)
 {
 }
 
@@ -224,10 +220,14 @@ void Process::Exit(int status)
     if (p_pid == initPid) panic("terminating init!");
 
     if (p_parent) {
-        if (p_parent != this) p_parent->Lock();
+        //if (p_parent != this) p_parent->Lock();
         p_parent->p_times.tms_cutime += p_times.tms_utime;
         p_parent->p_times.tms_cstime += p_times.tms_stime;
-        if (p_parent != this) p_parent->Unlock();
+        //if (p_parent != this) p_parent->Unlock();
+    }
+
+    for (auto& child : p_children) {
+        child.ReparentToInit();
     }
 
     // Note that the lock must be held, to prevent a race between Exit() and
@@ -236,14 +236,13 @@ void Process::Exit(int status)
     p_exit_status = status;
 }
 
-void Process::SignalChildActivity() { if (p_parent) p_parent->p_child_cv.Signal(); }
-
 Result Process::WaitAndLock(pid_t pid, int flags, util::locked<Process>& p_out)
 {
     p_lock.Lock();
     for (;;) {
         for (auto& child : p_children) {
             if (&child == initProcess) continue;
+            KASSERT(&child != this, "child of self?");
             if (pid > 0 && pid != child.p_pid)
                 continue; // not the child the caller asked for
             child.Lock();
@@ -261,7 +260,6 @@ Result Process::WaitAndLock(pid_t pid, int flags, util::locked<Process>& p_out)
             p_lock.Unlock();
 
             // Destroy the thread owned by the process
-            KASSERT(t->t_refcount == 0, "zombie child thread still has %d refs", t->t_refcount);
             t->Destroy();
 
             // Note that this transfers the parents reference to the caller!
@@ -274,8 +272,14 @@ Result Process::WaitAndLock(pid_t pid, int flags, util::locked<Process>& p_out)
             return Result::Failure(ECHILD);
         }
 
-        // Nothing good yet; sleep on it
-        p_child_cv.Wait(p_lock);
+        // Nothing yet - schedule away and see if we have better luck next
+        // time. This could maybe be implemented using a condition variable or
+        // similar, but this is very tricky since setting the thread state to
+        // Zombie means the scheduler will _never_ pick the thread up again,
+        // so we can't reliably do anything in between (and we need to have
+        // the Zombie condition here as only then can we destroy a thread,
+        // provided the scheduler isn't active on it...)
+        scheduler::Schedule();
     }
 }
 

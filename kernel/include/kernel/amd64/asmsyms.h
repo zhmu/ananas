@@ -32,10 +32,9 @@
 #define SF_SIZE     0xb8
 
 // SMP_CPU struct
+#define SMP_CPU_SIZE        0x28
 #define SMP_CPU_LAPICID     0x00
 #define SMP_CPU_STACK       0x08
-#define SMP_CPU_PCPU        0x10
-#define SMP_CPU_SIZE        0x28
 
 // Sysarg struct
 #define SYSARG_NUM  0x00
@@ -47,10 +46,8 @@
 #define SYSARG_SIZE 0x30
 
 // Thread members
-#define T_FLAGS         0x270
-#define T_SIG_PENDING   0x274
-#define T_FRAME         0x280
-#define T_MDFLAGS       0x288
+#define T_SIG_PENDING   0x26c
+#define T_MDFLAGS       0x280
 
 // Vmspace struct
 #define VMSPACE_MD_PAGEDIR 0x0

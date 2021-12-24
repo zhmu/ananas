@@ -14,8 +14,7 @@ namespace scheduler
 {
     void InitThread(Thread& t);
     void ResumeThread(Thread& t);
-    void SuspendThread(Thread& t);
-    void ExitThread(Thread& t);
+    void WaitUntilReleased(Thread& t);
 
     void Schedule();
     void Launch();

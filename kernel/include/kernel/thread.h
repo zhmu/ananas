@@ -32,9 +32,12 @@ namespace thread
         Zombie
     };
 
+    // Priority value, 0 is highest
     using Priority = int;
     constexpr inline Priority DefaultPriority = 200;
     constexpr inline Priority IdlePriority = 255;
+
+    // Affinity is a bitmask of CPU's the thread can be scheduled on
     using Affinity = int;
     constexpr inline Affinity AnyAffinity = -1;
 
@@ -43,6 +46,8 @@ namespace thread
 
 struct Thread {
     Thread(Process& process);
+    Thread(const Thread&) = delete;
+    Thread& operator=(const Thread&) = delete;
 
     void SetName(const char* name);
 
@@ -52,15 +57,9 @@ struct Thread {
     void Suspend();
     void Resume();
 
-    void SignalWaiters();
-    void Wait();
-
     MD_THREAD_FIELDS // Machine-dependant data
 
-    Spinlock t_lock;                      /* Lock protecting the thread data */
     char t_name[thread::MaxNameLength + 1] = {}; /* Thread name */
-
-    refcount_t t_refcount{}; /* Reference count of the thread, >0 */
 
     // Scheduler flags are protected by sched_lock
     unsigned int t_sched_flags{};
@@ -74,21 +73,18 @@ struct Thread {
 #define THREAD_FLAG_TIMEOUT 0x0008    /* Timeout field is valid */
 
     unsigned int t_sig_pending{};   // Is a signal pending?
-    thread::State t_state{thread::State::Running};
+    thread::State t_state{thread::State::Suspended};
 
     struct STACKFRAME* t_frame{};
     unsigned int t_md_flags{};
 
     Process& t_process; /* associated process */
 
-    thread::Priority t_priority{}; /* priority (0 highest) */
-    thread::Affinity t_affinity{}; /* thread CPU */
+    thread::Priority t_priority{thread::DefaultPriority};
+    thread::Affinity t_affinity{thread::AnyAffinity};
 
     util::List<Thread>::Node t_NodeAllThreads;
     util::List<Thread>::Node t_NodeSchedulerList;
-
-    /* Waiters to signal on thread changes */
-    util::List<thread::Waiter> t_waitqueue;
 
     /* Timeout, when it expires the thread will be scheduled in */
     tick_t t_timeout{};
@@ -97,15 +93,14 @@ struct Thread {
 
     int t_ptrace_sig{};               // Pending ptrace signal, if any
 
-    bool IsActive() const { return (t_sched_flags & THREAD_SCHED_ACTIVE) != 0; }
-
-    bool IsSuspended() const { return (t_sched_flags & THREAD_SCHED_SUSPENDED) != 0; }
-
     bool IsRescheduling() const { return (t_flags & THREAD_FLAG_RESCHEDULE) != 0; }
 
     // Used for threads on the sleepqueue
     util::List<Thread>::Node t_sqchain;
     sleep_queue::Waiter t_sqwaiter;
+
+private:
+    ~Thread() = default;
 };
 
 Result kthread_alloc(const char* name, kthread_func_t func, void* arg, Thread*& dest);

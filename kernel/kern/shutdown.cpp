@@ -73,7 +73,7 @@ namespace shutdown
 
     bool IsShuttingDown()
     {
-        return shutdownType != ShutdownType::Unknown && !shutdown_thread->IsSuspended();
+        return shutdownType != ShutdownType::Unknown && shutdown_thread->t_state != thread::State::Suspended;
     }
 
     void RequestShutdown(ShutdownType type)

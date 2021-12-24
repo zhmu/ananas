@@ -4,23 +4,6 @@
  * Copyright (c) 2009-2018 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-/*
- * Threads have a current state which is contained in t_flags; possible
- * transitions are:
- *
- *  +-->[suspended]->-+
- *  |       |         |
- *  |       v         |
- *  +-<--[active]     |
- *          |         |
- *          v         |
- *       [zombie]<----+
- *          |
- *          v
- *       [(gone)]
- *
- * All transitions are managed by scheduler.cpp.
- */
 #include "kernel/device.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
@@ -46,15 +29,7 @@ Result thread_alloc(Process& p, Thread*& dest, const char* name, int flags)
     /* First off, allocate the thread itself */
     auto t = new Thread(p);
     p.AddThread(*t);
-    t->t_state = thread::State::Suspended;
-    t->t_sched_flags = 0;
-    t->t_flags = 0;
-    t->t_refcount = 1; /* caller */
     t->SetName(name);
-
-    /* Set up CPU affinity and priority */
-    t->t_priority = thread::DefaultPriority;
-    t->t_affinity = thread::AnyAffinity;
 
     /* Ask machine-dependant bits to initialize our thread data */
     md::thread::InitUserlandThread(*t, flags);
@@ -82,12 +57,7 @@ Result kthread_alloc(const char* name, kthread_func_t func, void* arg, Thread*& 
     auto& proc = process::AllocateKernelProcess();
 
     auto t = new Thread(proc);
-    t->t_state = thread::State::Suspended;
-    t->t_sched_flags = 0;
     t->t_flags = THREAD_FLAG_KTHREAD;
-    t->t_refcount = 1;
-    t->t_priority = thread::DefaultPriority;
-    t->t_affinity = thread::AnyAffinity;
     t->SetName(name);
 
     proc.AddThread(*t);
@@ -109,21 +79,6 @@ Result kthread_alloc(const char* name, kthread_func_t func, void* arg, Thread*& 
     return Result::Success();
 }
 
-/*
- * thread_cleanup() informs everyone about the thread's demise.
- */
-static void thread_cleanup(Thread& t)
-{
-    KASSERT(t.t_state != thread::State::Zombie, "cleaning up zombie thread %p", &t);
-
-    /*
-     * Signal anyone waiting on the thread; the terminate information should
-     * already be set at this point - note that handle_wait() will do additional
-     * checks to ensure the thread is truly gone.
-     */
-    t.SignalWaiters();
-}
-
 Thread::Thread(Process& process)
     : t_process(process)
 {
@@ -139,11 +94,12 @@ void Thread::Destroy()
     KASSERT(&thread::GetCurrent() != this, "thread_destroy() on current thread");
     KASSERT(t_state == thread::State::Zombie, "thread_destroy() on a non-zombie thread");
 
-    // Wait until the thread is released by the scheduler
-    while(IsActive())
-        md::interrupts::Pause();
+    // Wait until the thread is released by the scheduler - this ensures the
+    // thread isn't running on another CPU and makes it safe to free the kernel
+    // stack
+    scheduler::WaitUntilReleased(*this);
 
-    /* Free the machine-dependant bits */
+    // Free the machine-dependant bits
     md::thread::Free(*this);
 
     // Unregister ourselves with the owning process
@@ -158,9 +114,12 @@ void Thread::Destroy()
 
 void Thread::Suspend()
 {
-    KASSERT(!IsSuspended(), "suspending suspended thread %p", this);
     KASSERT(this != PCPU_GET(idlethread), "suspending idle thread");
-    scheduler::SuspendThread(*this);
+    KASSERT(t_state == thread::State::Running, "suspending non-running thread");
+
+    t_state = thread::State::Suspended;
+    // No need to inform the scheduler as it will do the proper handling once
+    // it scheduled away from the now-suspended thread
 }
 
 void thread_sleep_ms(unsigned int ms)
@@ -174,13 +133,15 @@ void thread_sleep_ms(unsigned int ms)
 
 void Thread::Resume()
 {
+    KASSERT(t_state == thread::State::Suspended, "resuming non-suspended thread %p", this);
+    t_state = thread::State::Running;
     scheduler::ResumeThread(*this);
 }
 
 void Thread::Terminate(int exitcode)
 {
     KASSERT(this == &thread::GetCurrent(), "terminate not on current thread");
-    KASSERT(t_state != thread::State::Zombie, "terminating zombie thread");
+    KASSERT(t_state == thread::State::Running, "terminating non-running thread");
 
     // Grab the process lock; this ensures WaitAndLock() will be blocked until the
     // thread is completely forgotten by the scheduler
@@ -191,19 +152,17 @@ void Thread::Terminate(int exitcode)
         t_process.Exit(exitcode);
     }
 
-    // ...
-    thread_cleanup(*this);
-    --t_refcount;
+    md::interrupts::Disable();
 
-    // Ask the scheduler to exit the thread (this transitions to zombie-state)
-    scheduler::ExitThread(*this);
+    // Mark the thread as a zombie - we are running with interrupts disabled, so we can't
+    // get pre-empted away
+    t_state = thread::State::Zombie;
 
     // Signal parent in case it is waiting for a child to exit
-    t_process.SignalChildActivity();
     t_process.Unlock();
 
     scheduler::Schedule();
-    /* NOTREACHED */
+    __builtin_unreachable();
 }
 
 void Thread::SetName(const char* name)
@@ -236,36 +195,6 @@ Result thread_clone(Process& proc, Thread*& out_thread)
     /* Thread is ready to rock */
     out_thread = t;
     return Result::Success();
-}
-
-namespace thread {
-    struct Waiter : util::List<Waiter>::NodePtr {
-        Semaphore tw_sem{"thread-waiter", 0};
-    };
-}
-
-void Thread::SignalWaiters()
-{
-    SpinlockGuard g(t_lock);
-    while (!t_waitqueue.empty()) {
-        auto& tw = t_waitqueue.front();
-        t_waitqueue.pop_front();
-
-        tw.tw_sem.Signal();
-    }
-}
-
-void Thread::Wait()
-{
-    thread::Waiter tw;
-
-    {
-        SpinlockGuard g(t_lock);
-        t_waitqueue.push_back(tw);
-    }
-
-    tw.tw_sem.Wait();
-    /* 'tw' will be removed by SignalWaiters() */
 }
 
 void idle_thread(void*)

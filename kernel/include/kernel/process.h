@@ -79,7 +79,9 @@ namespace process
 } // namespace process
 
 struct Process final : util::refcounted<Process> {
-    Process(VMSpace&);
+    Process(pid_t, VMSpace&);
+    Process(const Process&) = delete;
+    Process& operator=(const Process&) = delete;
 
     void AssertLocked() { p_lock.AssertLocked(); }
 
@@ -87,7 +89,7 @@ struct Process final : util::refcounted<Process> {
 
     void Unlock() { p_lock.Unlock(); }
 
-    pid_t p_pid = 0;       /* Process ID */
+    const pid_t p_pid;     /* Process ID */
     int p_exit_status = 0; /* Exit status / code */
 
     Process* p_parent = nullptr;  /* Parent process, if any */
@@ -113,7 +115,6 @@ struct Process final : util::refcounted<Process> {
 
     void OnTick(process::TickContext);
     void Exit(int status);
-    void SignalChildActivity();
 
     void AddThread(Thread& t);
     void RemoveThread(Thread& t);
@@ -126,7 +127,6 @@ struct Process final : util::refcounted<Process> {
 
   private:
     Mutex p_lock{"plock"}; /* Locks the process */
-    ConditionVariable p_child_cv{"pchildwait"};
 
     friend class util::detail::default_refcounted_cleanup<Process>;
     ~Process();
