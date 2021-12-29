@@ -29,19 +29,35 @@ void thread_trampoline();
 
 namespace md::thread
 {
+    namespace
+    {
+        inline constexpr uint8_t stackMarkerByte = 0x90;
+
+        void AllocateKernelStack(Thread& t)
+        {
+            t.md_kstack_page = page_alloc_length(KERNEL_STACK_SIZE);
+            t.md_kstack = kmem_map(
+                t.md_kstack_page->GetPhysicalAddress(), KERNEL_STACK_SIZE,
+                vm::flag::Read | vm::flag::Write);
+
+            memset(t.md_kstack, stackMarkerByte, KERNEL_STACK_SIZE);
+        }
+
+        void VerifyStack(Thread& t)
+        {
+            const auto stack_min = reinterpret_cast<addr_t>(t.md_kstack);
+            const auto stack_max = stack_min + KERNEL_STACK_SIZE;
+            KASSERT(stack_min < t.md_rsp, "%p: stack out of range (%p <= %p <= %p)", &t, stack_min, t.md_rsp, stack_max);
+            KASSERT(t.md_rsp < stack_max, "%p: stack out of range (%p <= %p <= %p)", &t, stack_min, t.md_rsp, stack_max);
+
+            const auto p = static_cast<uint8_t*>(t.md_kstack);
+            KASSERT(*p == stackMarkerByte, "%p: stack corrupted (%x != %x)", &t, *p, stackMarkerByte);
+        }
+    }
+
     Result InitUserlandThread(Thread& t, int flags)
     {
-        auto& proc = t.t_process;
-
-        /*
-         * Create the kernel stack for this thread; we'll grab a few pages for this
-         * but we won't map all of them to ensure we can catch stack underflow
-         * and overflow.
-         */
-        t.md_kstack_page = page_alloc_length(KERNEL_STACK_SIZE + PAGE_SIZE);
-        t.md_kstack = kmem_map(
-            t.md_kstack_page->GetPhysicalAddress() + PAGE_SIZE, KERNEL_STACK_SIZE,
-            vm::flag::Read | vm::flag::Write);
+        AllocateKernelStack(t);
 
         /* Set up a stackframe so that we can return to the kernel code */
         struct STACKFRAME* sf =
@@ -54,6 +70,7 @@ namespace md::thread
         sf->sf_rflags = 0x200; /* IF */
 
         /* Fill out our MD fields */
+        auto& proc = t.t_process;
         t.md_cr3 = KVTOP(reinterpret_cast<addr_t>(proc.p_vmspace.vs_md_pagedir));
         t.md_rsp = reinterpret_cast<addr_t>(sf);
         t.md_rsp0 = reinterpret_cast<addr_t>(t.md_kstack) + KERNEL_STACK_SIZE;
@@ -63,7 +80,6 @@ namespace md::thread
         /* Initialize FPU state similar to what finit would do */
         t.md_fpu_ctx.fcw = 0x37f;
         t.md_fpu_ctx.ftw = 0xffff;
-
         return Result::Success();
     }
 
@@ -74,10 +90,7 @@ namespace md::thread
          * stack. We do not differentiate between kernel and userland stacks as
          * no kernel thread ever runs userland code.
          */
-        t.md_kstack_page = page_alloc_length(KERNEL_STACK_SIZE + PAGE_SIZE);
-        t.md_kstack = kmem_map(
-            t.md_kstack_page->GetPhysicalAddress() + PAGE_SIZE, KERNEL_STACK_SIZE,
-            vm::flag::Read | vm::flag::Write);
+        AllocateKernelStack(t);
         t.t_md_flags = THREAD_MDFLAG_FULLRESTORE;
 
         /* Set up a stackframe so that we can return to the kernel code */
@@ -119,6 +132,8 @@ namespace md::thread
         KASSERT(new_thread.t_state == ::thread::State::Running, "cannot switch to non-running thread");
         KASSERT(&new_thread != &old_thread, "switching to self?");
         KASSERT((new_thread.t_sched_flags & THREAD_SCHED_ACTIVE) != 0, "new thread isn't running?");
+
+        VerifyStack(new_thread);
 
         /*
          * Activate the corresponding kernel stack in the TSS and for the syscall
@@ -165,6 +180,7 @@ namespace md::thread
             [new_rip] "a"(new_thread.md_rip), "b"(&old_thread), [new_rsp] "c"(new_thread.md_rsp)
             : /* clobber */ "memory", "cc" /* flags */, "rdx", "r8", "r9", "r10", "r11", "r12",
               "r13", "r14", "r15");
+        VerifyStack(old_thread);
         return *prev;
     }
 
