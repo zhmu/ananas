@@ -401,40 +401,40 @@ static void setup_descriptors()
      * Construct the IDT; this ensures we can handle exceptions, which is useful
      * and we'll want to have as soon as possible.
      */
+    const auto setInterruptEntry = [](int nr, const void* handler, bool isIst = false) {
+        const auto entryType = SEG_IGATE_TYPE;
+        SetIDTEntry(idt, nr, entryType, isIst ? 1 : 0, handler);
+    };
+
     memset(idt, 0, sizeof(idt));
-    SetIDTEntry(idt, 0, SEG_TGATE_TYPE, 0, &exception0);
-    SetIDTEntry(idt, 1, SEG_TGATE_TYPE, 0, &exception1);
-    SetIDTEntry(idt, 2, SEG_TGATE_TYPE, 0, &exception2);
-    SetIDTEntry(idt, 3, SEG_TGATE_TYPE, 0, &exception3);
-    SetIDTEntry(idt, 4, SEG_TGATE_TYPE, 0, &exception4);
-    SetIDTEntry(idt, 5, SEG_TGATE_TYPE, 0, &exception5);
-    SetIDTEntry(idt, 6, SEG_TGATE_TYPE, 0, &exception6);
-    SetIDTEntry(idt, 7, SEG_TGATE_TYPE, 0, &exception7);
-    SetIDTEntry(idt, 8, SEG_TGATE_TYPE, 1, &exception8); /* use IST1 for double fault */
-    SetIDTEntry(idt, 9, SEG_TGATE_TYPE, 0, &exception9);
-    SetIDTEntry(idt, 10, SEG_TGATE_TYPE, 0, &exception10);
-    SetIDTEntry(idt, 11, SEG_TGATE_TYPE, 0, &exception11);
-    SetIDTEntry(idt, 12, SEG_TGATE_TYPE, 0, &exception12);
-    SetIDTEntry(idt, 13, SEG_TGATE_TYPE, 0, &exception13);
-    /*
-     * Page fault must disable interrupts to ensure %cr2 (fault address) will not
-     * be overwritten; it will re-enable the interrupt flag when it's safe to do
-     * so.
-     */
-    SetIDTEntry(idt, 14, SEG_IGATE_TYPE, 0, &exception14);
-    SetIDTEntry(idt, 16, SEG_TGATE_TYPE, 0, &exception16);
-    SetIDTEntry(idt, 17, SEG_TGATE_TYPE, 0, &exception17);
-    SetIDTEntry(idt, 18, SEG_TGATE_TYPE, 0, &exception18);
-    SetIDTEntry(idt, 19, SEG_TGATE_TYPE, 0, &exception19);
+    setInterruptEntry(0, &exception0);
+    setInterruptEntry(1, &exception1);
+    setInterruptEntry(2, &exception2);
+    setInterruptEntry(3, &exception3);
+    setInterruptEntry(4, &exception4);
+    setInterruptEntry(5, &exception5);
+    setInterruptEntry(6, &exception6);
+    setInterruptEntry(7, &exception7);
+    setInterruptEntry(8, &exception8, true /* use IST1 for double fault */);
+    setInterruptEntry(9, &exception9);
+    setInterruptEntry(10, &exception10);
+    setInterruptEntry(11, &exception11);
+    setInterruptEntry(12, &exception12);
+    setInterruptEntry(13, &exception13);
+    setInterruptEntry(14, &exception14);
+    setInterruptEntry(16, &exception16);
+    setInterruptEntry(17, &exception17);
+    setInterruptEntry(18, &exception18);
+    setInterruptEntry(19, &exception19);
     // Use interrupt gates for IRQ's so that we can keep track of the nesting
     // XXX We only map IRQ0..31 here; we should map everything or do things on-demand...
     for (int n = 0; n < 32; n++) {
-        SetIDTEntry(idt, (32 + n), SEG_IGATE_TYPE, 0, &lapic_irq_range_1);
+        setInterruptEntry((32 + n), &lapic_irq_range_1);
     }
 
-    SetIDTEntry(idt, SMP_IPI_PERIODIC, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, &ipi_periodic);
-    SetIDTEntry(idt, SMP_IPI_PANIC, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, &ipi_panic);
-    SetIDTEntry(idt, 0xff, SEG_TGATE_TYPE, SEG_DPL_SUPERVISOR, &irq_spurious);
+    setInterruptEntry(SMP_IPI_PERIODIC, &ipi_periodic);
+    setInterruptEntry(SMP_IPI_PANIC, &ipi_panic);
+    setInterruptEntry(0xff, &irq_spurious);
 }
 
 static void setup_cpu(addr_t gdt, addr_t pcpu, TSS& tss)

@@ -88,7 +88,7 @@ irq ## n: \
  * interrupts (the first would correspond to vector 0..31 and these are
  * reserved for exceptions, so we directly handle them using EXCEPTION...).
  *
- * The reason for this check is that it  prevents having a lot of extra code,
+ * The reason for this check is that it prevents having a lot of extra code,
  * as we can simply check the LAPIC ISR register for the first set bit and
  * dispatch that interrupt.
  */
@@ -106,15 +106,8 @@ lapic_irq_range_ ## n: \
 1:  /* Increment the nested IRQ count */ \
     incl    %gs:(PCPU_NESTEDIRQ); \
     \
-    /* Restore the interrupt flag */ \
-    movq    SF_RFLAGS(%rsp), %rax; \
-    testq   $0x200, %rax; \
-    jz  1f; \
-    \
-    sti; \
-    \
-1:  movq    lapic_base, %rdx; \
     /* Read ISR field; */ \
+    movq    lapic_base, %rdx; \
     movl    (LAPIC_ISR + 16 * n)(%rdx), %eax; \
     bsrl    %eax, %eax; \
     jz  lapic_no_irq_pending; \
@@ -197,14 +190,7 @@ do_irq:
 1:  /* Increment the nested IRQ count */
     incl    %gs:(PCPU_NESTEDIRQ)
 
-    /* Restore the interrupt flag */
-    movq    SF_RFLAGS(%rsp), %rax
-    testq   $0x200, %rax
-    jz  1f
-
-    sti
-
-1:  /* Call the interrupt handler! */
+    /* Call the interrupt handler! */
     movq    %rsp, %rdi
     call    interrupt_handler
 
