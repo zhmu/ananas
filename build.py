@@ -241,13 +241,14 @@ if targets['bootstrap']:
 
     build_using_cmake(conf, 'newlib-c', 'lib/newlib-4.1.0/newlib/libc')
     build_using_cmake(conf, 'libpthread', 'lib/pthread')
-    build_libgcc(conf, 'libgcc', 'external/gcc')
+    gcc_src_path = 'external/gcc-' + conf['gcc_version']
+    build_libgcc(conf, 'libgcc', gcc_src_path)
     build_using_cmake(conf, 'newlib-m', 'lib/newlib-4.1.0/newlib/libm')
 
     # copy libgcc_s.so to the output directory so that the rtld can find it
     shutil.copy(os.path.join(conf['toolchaindir'], conf['target'], 'lib', 'libgcc_s.so'), os.path.join(conf['outdir'], 'usr', 'lib'))
 
-    build_libstdcxx(conf, 'libstdcxx', 'external/gcc/libstdc++-v3')
+    build_libstdcxx(conf, 'libstdcxx', gcc_src_path + '/libstdc++-v3')
     create_final_toolchain_file(conf['toolchain_txt'], conf)
     build_using_cmake(conf, 'rtld', 'lib/rtld')
 

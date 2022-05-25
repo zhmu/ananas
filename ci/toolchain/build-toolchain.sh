@@ -45,8 +45,8 @@ make install
 # GCC; we try to build as little as possible (i.e. no libgcc since that depends
 # on libc, which we can't build here)
 mkdir -p /work/build/gcc
-    #--disable-shared
 cd /work/build/gcc
+    #--disable-shared
 #../../src/gcc/configure \
 #    --target=${TARGET} \
 #    --prefix=${TOOLCHAINDIR} \
@@ -67,7 +67,7 @@ cd /work/build/gcc
 #    --enable-languages=c,c++ \
 #    --with-gmp=${TOOLCHAINDIR} \
 #    --with-gxx-include-dir=${SYSROOTDIR}/usr/include/c++/${GCC_VERSION}
-../../src/gcc/configure \
+../../src/gcc-${GCC_VERSION}/configure \
     --target=${TARGET} \
     --disable-nls \
     --with-newlib \
@@ -88,7 +88,7 @@ make install-gcc
 # GCC will not be able to have found our limits.h as it is not installed yet;
 # work around this by cobbling together a limits.h (based on
 # https://linuxfromscratch.org/lfs/view/stable/chapter05/gcc-pass1.html)
-cat ../../src/gcc/gcc/limitx.h ../../src/gcc/gcc/glimits.h  ../../src/gcc/gcc/limity.h > ${TOOLCHAINDIR}/lib/gcc/${TARGET}/${GCC_VERSION}/include-fixed/limits.h
+cat ../../src/gcc-${GCC_VERSION}/gcc/limitx.h ../../src/gcc-${GCC_VERSION}/gcc/glimits.h  ../../src/gcc-${GCC_VERSION}/gcc/limity.h > ${TOOLCHAINDIR}/lib/gcc/${TARGET}/${GCC_VERSION}/include-fixed/limits.h
 
 # path the autotools config.sub to recognize our OS; it will be installed in
 # the target image and allow us just to run autoconf to replace the original one
