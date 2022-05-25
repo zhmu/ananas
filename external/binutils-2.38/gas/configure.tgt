@@ -221,6 +221,7 @@ case ${generic_target} in
   h8300-*-elf)				fmt=elf ;;
   h8300-*-linux*)			fmt=elf em=linux ;;
 
+  i386-*-ananas*)			fmt=elf ;;
   i386-*-beospe*)			fmt=coff em=pe ;;
   i386-*-beos*)				fmt=elf ;;
   i386-*-elfiamcu)			fmt=elf arch=iamcu ;;

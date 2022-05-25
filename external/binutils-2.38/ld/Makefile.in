@@ -950,6 +950,7 @@ ALL_64_EMULATION_SOURCES = \
 	eelf_l1om_fbsd.c \
 	eelf_mipsel_haiku.c \
 	eelf_x86_64.c \
+	eelf_x86_64_ananas.c \
 	eelf_x86_64_cloudabi.c \
 	eelf_x86_64_fbsd.c \
 	eelf_x86_64_haiku.c \
