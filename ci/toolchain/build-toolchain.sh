@@ -24,7 +24,7 @@ make install
 # Binutils
 mkdir -p /work/build/binutils
 cd /work/build/binutils
-../../src/binutils-gdb/configure --target=${TARGET} --disable-nls --disable-werror --prefix=${TOOLCHAINDIR} --with-sysroot=${SYSROOTDIR}
+../../src/binutils-${BINUTILS_VERSION}/configure --target=${TARGET} --disable-nls --disable-werror --prefix=${TOOLCHAINDIR} --with-sysroot=${SYSROOTDIR}
 make ${MAKE_ARGS}
 make install
 

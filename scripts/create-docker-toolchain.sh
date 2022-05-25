@@ -16,7 +16,7 @@ trap "rm -rf ${BUILD_DIR}" EXIT
 echo "Preparing build directory; ${BUILD_DIR}"
 cp ${ROOT}/ci/toolchain/Dockerfile ${BUILD_DIR}
 mkdir -p ${BUILD_DIR}/work/src
-for p in binutils-gdb gcc-12.1.0 gmp mpc mpfr; do
+for p in binutils-2.38 gcc-12.1.0 gmp mpc mpfr; do
     cp -r "${ROOT}/external/$p" ${BUILD_DIR}/work/src;
 done
 cp -r ${ROOT}/conf/settings.sh ${BUILD_DIR}/work
