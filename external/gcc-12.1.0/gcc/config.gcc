@@ -750,6 +750,14 @@ case ${target} in
     "" | yes | posix) thread_file='posix' ;;
   esac
   ;;
+*-*-ananas*)
+  gas=yes
+  gnu_ld=yes
+  default_use_cxa_atexit=yes
+  use_gcc_stdint=wrap
+  extra_options="$extra_options ananas.opt"
+  thread_file='posix'
+  ;;
 *-*-dragonfly*)
   gas=yes
   gnu_ld=yes
@@ -1880,6 +1888,10 @@ i[34567]86-*-darwin*)
 	tmake_file="${tmake_file} ${cpu_type}/t-darwin32-biarch t-slibgcc"
 	tm_file="${cpu_type}/darwin32-biarch.h ${tm_file} "
 	;;
+x86_64-*-ananas*)
+    tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/i386elf.h i386/x86-64.h ananas.h"
+    tmake_file="${tmake_file} t-slibgcc"
+    ;;
 x86_64-*-darwin1[89]* | x86_64-*-darwin2*)
 	# Only 64b from now
 	tm_defines="${tm_defines} TARGET_64BIT_DEFAULT=(OPTION_MASK_ISA_64BIT|OPTION_MASK_ABI_64)"

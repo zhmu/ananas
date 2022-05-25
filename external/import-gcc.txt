@@ -1,0 +1,9 @@
+- Fetch latest source tarball
+- Install libtool 2.2.8 (2.2.7a does not seem available)
+- Port patches
+
+- Update libstdcxx
+
+$ cd libstdc++-v3
+$ libtoolize
+$ autoreconf
