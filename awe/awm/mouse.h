@@ -1,5 +1,8 @@
 #pragma once
 
+#include <array>
+#include <cstdint>
+
 namespace mouse
 {
     constexpr static inline int cursorWidth = 6;

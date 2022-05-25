@@ -4,6 +4,8 @@
 #include <cerrno>
 #include <cstring>
 #include <memory>
+#include <limits>
+#include <array>
 #include <optional>
 
 #include <sys/time.h>

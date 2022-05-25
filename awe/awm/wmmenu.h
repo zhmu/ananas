@@ -2,6 +2,7 @@
 
 #include "awe/types.h"
 #include <string>
+#include <vector>
 
 class Window;
 class WindowManager;
