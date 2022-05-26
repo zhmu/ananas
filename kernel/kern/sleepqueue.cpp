@@ -27,13 +27,11 @@ namespace
     }
 } // unnamed namespace
 
-SleepQueue::SleepQueue(const char* name) : sq_name(name) {}
-
 sleep_queue::Waiter* SleepQueue::DequeueWaiter()
 {
     SpinlockUnpremptibleGuard g(sq_lock);
     if (sq_sleepers.empty())
-        return NULL;
+        return nullptr;
 
     auto& t = sq_sleepers.front();
     sq_sleepers.pop_front();
@@ -56,7 +54,7 @@ void SleepQueue::WakeupAll()
         ;
 }
 
-sleep_queue::Sleeper SleepQueue::PrepareToSleep()
+sleep_queue::Sleeper SleepQueue::PrepareToSleep(Lockable& lockable)
 {
     auto& curThread = thread::GetCurrent();
 
@@ -64,7 +62,7 @@ sleep_queue::Sleeper SleepQueue::PrepareToSleep()
     KASSERT(
         curThread.t_sqwaiter.w_sq == nullptr, "sleeping thread %p that is already sleeping",
         &curThread);
-    curThread.t_sqwaiter = sleep_queue::Waiter{&curThread, this};
+    curThread.t_sqwaiter = sleep_queue::Waiter{&curThread, this, &lockable};
 
     // XXX Maybe we ought to keep the sq_sleepers list sorted?
     sq_sleepers.push_back(curThread);
@@ -72,6 +70,7 @@ sleep_queue::Sleeper SleepQueue::PrepareToSleep()
     return sleep_queue::Sleeper{*this, state};
 }
 
+// Must be called with state = result of sq_lock.LockUnpremptible()
 void SleepQueue::Sleep(register_t state)
 {
     auto& curThread = thread::GetCurrent();
@@ -83,7 +82,7 @@ void SleepQueue::Sleep(register_t state)
         KASSERT(sqwaiter.w_sq == this, "corrupt waiter");
         if (sqwaiter.w_signalled) {
             // We woke up - reset the waiter
-            sqwaiter = sleep_queue::Waiter();
+            sqwaiter = {};
             sq_lock.UnlockUnpremptible(state); // restores interrupts
             return;
         }
@@ -98,6 +97,7 @@ void SleepQueue::Sleep(register_t state)
     // NOTREACHED
 }
 
+// Must be called with state = result of sq_lock.LockUnpremptible()
 void SleepQueue::Unsleep(register_t state)
 {
     auto& curThread = thread::GetCurrent();
@@ -112,7 +112,7 @@ void SleepQueue::Unsleep(register_t state)
             // XXX not sure if this can happen, but no chances for now...
             panic("about to remove already signalled waiter");
         }
-        sqwaiter = sleep_queue::Waiter();
+        sqwaiter = {};
         sq_lock.UnlockUnpremptible(state); // restores interrupts
         return;
     }
@@ -124,10 +124,9 @@ struct sleep_queue::KDB
 {
     KDB(SleepQueue& sq)
     {
-        kprintf("name '%s'\n", sq.GetName());
         for(auto& t: sq.sq_sleepers) {
             auto& w = t.t_sqwaiter;
-            kprintf("   sleeper thread %p: w_thread %p w_sq %p signalled %d\n", &t, w.w_thread, w.w_sq, w.w_signalled);
+            kprintf("   sleeper on '%s' thread %p: w_thread %p w_sq %p signalled %d\n", w.w_lockable->l_name, &t, w.w_thread, w.w_sq, w.w_signalled);
         }
     }
 };

@@ -11,15 +11,16 @@
 #include "kernel/spinlock.h"
 #include "kernel/thread_fwd.h"
 
-struct Mutex;
 struct SleepQueue;
 struct Thread;
+class Lockable;
 
 namespace sleep_queue
 {
     struct Waiter {
         Thread* w_thread = nullptr;
         SleepQueue* w_sq = nullptr;
+        Lockable* w_lockable = nullptr;
         bool w_signalled = false;
     };
 
@@ -32,17 +33,12 @@ struct SleepQueue {
     friend struct sleep_queue::Sleeper;
     friend struct sleep_queue::KDB;
 
-    SleepQueue(const char* name);
     bool WakeupOne();
     void WakeupAll();
 
-    sleep_queue::Sleeper PrepareToSleep();
-
-    const char* GetName() const { return sq_name; }
+    sleep_queue::Sleeper PrepareToSleep(Lockable&);
 
   private:
-    const char* sq_name;
-
     Spinlock sq_lock;
     thread::SleepQueueThreadList sq_sleepers;
 

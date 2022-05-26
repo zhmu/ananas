@@ -6,11 +6,12 @@
  */
 #pragma once
 
+#include "kernel/lock.h"
 #include "kernel/sleepqueue.h"
 
 struct Mutex;
 
-struct ConditionVariable {
+struct ConditionVariable : Lockable {
     ConditionVariable(const char* name);
 
     void Signal();

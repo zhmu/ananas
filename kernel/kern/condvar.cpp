@@ -8,7 +8,7 @@
 #include "kernel/condvar.h"
 #include "kernel/lock.h"
 
-ConditionVariable::ConditionVariable(const char* name) : cv_sleepq(name) {}
+ConditionVariable::ConditionVariable(const char* name) : Lockable(name) {}
 
 void ConditionVariable::Signal() { cv_sleepq.WakeupOne(); }
 
@@ -18,7 +18,7 @@ void ConditionVariable::Wait(Mutex& mutex)
 {
     mutex.AssertLocked();
 
-    auto sleep = cv_sleepq.PrepareToSleep();
+    auto sleep = cv_sleepq.PrepareToSleep(*this);
     mutex.Unlock();
     sleep.Sleep();
     mutex.Lock();

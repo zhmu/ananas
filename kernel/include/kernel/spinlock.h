@@ -18,6 +18,7 @@ class Spinlock final
 {
   public:
     Spinlock();
+    ~Spinlock();
     Spinlock(const Spinlock&) = delete;
     Spinlock& operator=(const Spinlock&) = delete;
 

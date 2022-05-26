@@ -33,6 +33,14 @@ namespace detail
 
 } // namespace detail
 
+class Lockable
+{
+public:
+    Lockable(const char* name) : l_name(name) { }
+
+    const char* l_name;
+};
+
 // Simple guard for the spinlock
 class SpinlockUnpremptibleGuard final
 {
@@ -55,7 +63,7 @@ class SpinlockUnpremptibleGuard final
  * Semaphores are sleepable locks which guard an amount of units of a
  * particular resource.
  */
-class Semaphore final
+class Semaphore final : public Lockable
 {
   public:
     Semaphore(const char* name, int count);
@@ -77,9 +85,10 @@ class Semaphore final
  * lock is already being held. They cannot be used from interrupt context; they
  * are implemented as binary semaphores.
  */
-struct Mutex final {
+struct Mutex final : public Lockable {
   public:
     Mutex(const char* name);
+    ~Mutex();
     Mutex(const Mutex&) = delete;
     Mutex& operator=(const Mutex&) = delete;
 
@@ -91,7 +100,7 @@ struct Mutex final {
     void AssertUnlocked();
 
   private:
-    util::atomic<Thread*> mtx_owner{nullptr};
+    util::atomic<Thread*> mtx_owner;
     SleepQueue mtx_sleepq;
 };
 
