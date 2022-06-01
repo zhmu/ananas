@@ -23,8 +23,9 @@ namespace
 
     namespace mutex
     {
-        Thread* destroyed = reinterpret_cast<Thread*>(reinterpret_cast<void*>(-1ull));
-        Thread* unlocked = nullptr;
+        auto destroyed = reinterpret_cast<Thread*>(reinterpret_cast<void*>(-1ull));
+        auto unlocking = reinterpret_cast<Thread*>(reinterpret_cast<void*>(-2ull));
+        auto unlocked = static_cast<Thread*>(nullptr);
     }
 } // unnamed namespace
 
@@ -97,8 +98,10 @@ Mutex::Mutex(const char* name) : Lockable(name), mtx_owner{ mutex::unlocked } {}
 
 Mutex::~Mutex()
 {
-    KASSERT(mtx_owner.load() == mutex::unlocked, "destroying corrupted mutex %p (%x)", this, mtx_owner.load());
-    mtx_owner = mutex::destroyed;
+    auto expected{mutex::unlocked};
+    if (mtx_owner.compare_exchange_strong(expected, mutex::destroyed)) return;
+
+    panic("destroying corrupted mutex %p (%p)", this, expected);
 }
 
 void Mutex::Lock()
@@ -131,23 +134,26 @@ bool Mutex::TryLock()
 
 void Mutex::Unlock()
 {
-    KASSERT(mtx_owner.load() == &thread::GetCurrent(), "unlocking mutex %p which isn't owned", this);
-    mtx_owner = mutex::unlocked;
-    mtx_sleepq.WakeupOne();
+    DisableInterruptGuard ig;
+
+    auto curThread = &thread::GetCurrent();
+    Thread* value{curThread};
+    if (mtx_owner.compare_exchange_strong(value, mutex::unlocking)) {
+        mtx_sleepq.WakeupOne(ig);
+        mtx_owner = mutex::unlocked;
+        return;
+    }
+
+    panic("unlocking mutex %p which is owned by %p, not us", this, value);
 }
 
 void Mutex::AssertLocked()
 {
     auto curThread = &thread::GetCurrent();
-    Thread* expected{curThread};
-    if (mtx_owner.compare_exchange_strong(expected, curThread)) return;
-    panic("mutex '%s' not held by current thread", l_name);
-}
-
-void Mutex::AssertUnlocked()
-{
-    if (mtx_owner.load() != mutex::unlocked)
-        panic("mutex '%s' held", l_name);
+    Thread* value{curThread};
+    if (!mtx_owner.compare_exchange_strong(value, curThread)) {
+        panic("mutex '%s' not held by current thread, but %p", l_name, value);
+    }
 }
 
 Semaphore::Semaphore(const char* name, int count) : Lockable(name), sem_count(count)
@@ -158,7 +164,9 @@ Semaphore::Semaphore(const char* name, int count) : Lockable(name), sem_count(co
 void Semaphore::Signal()
 {
     ++sem_count;
-    sem_sleepq.WakeupOne();
+
+    DisableInterruptGuard ig;
+    sem_sleepq.WakeupOne(ig);
 }
 
 void Semaphore::Wait()

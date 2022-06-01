@@ -11,6 +11,7 @@
 #include <ananas/util/list.h>
 #include "kernel/sleepqueue.h"
 #include "kernel/spinlock.h"
+#include "kernel-md/interrupts.h"
 
 struct Thread;
 
@@ -82,8 +83,7 @@ class Semaphore final : public Lockable
 
 /*
  * Mutexes are sleepable locks that will suspend the current thread when the
- * lock is already being held. They cannot be used from interrupt context; they
- * are implemented as binary semaphores.
+ * lock is already being held. They cannot be used from interrupt context.
  */
 struct Mutex final : public Lockable {
   public:
@@ -102,6 +102,26 @@ struct Mutex final : public Lockable {
   private:
     util::atomic<Thread*> mtx_owner;
     SleepQueue mtx_sleepq;
+};
+
+// Ensures interrupts are disabled while in scope
+class DisableInterruptGuard {
+    register_t state;
+
+public:
+    DisableInterruptGuard()
+        : state(md::interrupts::Save())
+    {
+        md::interrupts::Disable();
+    }
+
+    ~DisableInterruptGuard()
+    {
+        md::interrupts::Restore(state);
+    }
+
+    DisableInterruptGuard(const DisableInterruptGuard&) = delete;
+    DisableInterruptGuard& operator=(const DisableInterruptGuard&) = delete;
 };
 
 using SpinlockGuard = detail::LockGuard<Spinlock>;

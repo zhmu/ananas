@@ -29,7 +29,7 @@ namespace
 
 sleep_queue::Waiter* SleepQueue::DequeueWaiter()
 {
-    SpinlockUnpremptibleGuard g(sq_lock);
+    SpinlockGuard g(sq_lock);
     if (sq_sleepers.empty())
         return nullptr;
 
@@ -39,7 +39,7 @@ sleep_queue::Waiter* SleepQueue::DequeueWaiter()
     return &t.t_sqwaiter;
 }
 
-bool SleepQueue::WakeupOne()
+bool SleepQueue::WakeupOne(DisableInterruptGuard&)
 {
     auto waiter = DequeueWaiter();
     if (!waiter) return false;
@@ -48,9 +48,9 @@ bool SleepQueue::WakeupOne()
     return true;
 }
 
-void SleepQueue::WakeupAll()
+void SleepQueue::WakeupAll(DisableInterruptGuard& ig)
 {
-    while(WakeupOne())
+    while(WakeupOne(ig))
         ;
 }
 

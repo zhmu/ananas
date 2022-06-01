@@ -10,9 +10,15 @@
 
 ConditionVariable::ConditionVariable(const char* name) : Lockable(name) {}
 
-void ConditionVariable::Signal() { cv_sleepq.WakeupOne(); }
+void ConditionVariable::Signal() {
+    DisableInterruptGuard ig;
+    cv_sleepq.WakeupOne(ig);
+}
 
-void ConditionVariable::Broadcast() { cv_sleepq.WakeupAll(); }
+void ConditionVariable::Broadcast() {
+    DisableInterruptGuard ig;
+    cv_sleepq.WakeupAll(ig);
+}
 
 void ConditionVariable::Wait(Mutex& mutex)
 {

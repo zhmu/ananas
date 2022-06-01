@@ -13,6 +13,7 @@
 
 struct SleepQueue;
 struct Thread;
+class DisableInterruptGuard;
 class Lockable;
 
 namespace sleep_queue
@@ -33,8 +34,8 @@ struct SleepQueue {
     friend struct sleep_queue::Sleeper;
     friend struct sleep_queue::KDB;
 
-    bool WakeupOne();
-    void WakeupAll();
+    bool WakeupOne(DisableInterruptGuard&);
+    void WakeupAll(DisableInterruptGuard&);
 
     sleep_queue::Sleeper PrepareToSleep(Lockable&);
 
