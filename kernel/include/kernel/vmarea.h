@@ -38,6 +38,22 @@ namespace vmarea::flag
  *
  * Note that we'll only fault one page at a time.
  *
+ * The way dentries are mapped to virtual address is:
+ *
+ * 0       va_doffset                               file length
+ * +------------+-------------+-------------------------------+
+ * |            |XXXXXXXXXXXXX|                               |
+ * |            |XXXXXXXXXXXXX|                               |
+ * +------------+-------------+-------------------------------+
+ *             /     |||      \ va_doffset + va_dlength
+ *            /      vvv
+ *     +-------------+---------------+
+ *     |XXXXXXXXXXXXX|000000000000000|
+ *     |XXXXXXXXXXXXX|000000000000000|
+ *     +-------------+---------------+
+ *     0            \
+ *                   \
+ *                    va_dlength
  */
 struct VMArea final : util::List<VMArea>::NodePtr {
     VMArea(addr_t virt, size_t len, int flags);

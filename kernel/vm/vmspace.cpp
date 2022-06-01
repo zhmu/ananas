@@ -7,7 +7,6 @@
 #include "kernel/types.h"
 #include <ananas/errno.h>
 #include "kernel/lib.h"
-#include "kernel/mm.h"
 #include "kernel/process.h"
 #include "kernel/result.h"
 #include "kernel/vmarea.h"
@@ -39,6 +38,13 @@ namespace
         vs.vs_areamap.clear();
     }
 
+    void VerifyDentryOffset(VMArea& va)
+    {
+        KASSERT(
+            (va.va_doffset & (PAGE_SIZE - 1)) == 0, "doffset %x not page-aligned",
+            (int)va.va_doffset);
+    }
+
     void MigratePagesToNewVA(VMArea& va, const VAInterval& interval, VMArea& newVA)
     {
         addr_t currentVa = interval.begin;
@@ -67,6 +73,7 @@ namespace
         const auto delta = newInterval.begin - vaInterval.begin;
         newVA.va_doffset = va.va_doffset + delta;
         newVA.va_dlength = va.va_dlength - delta;
+        VerifyDentryOffset(newVA);
 
         kprintf("UpdateFileMappingOffset: new va %p..%p ==> doffset %p dlength %p\n",
             newInterval.begin, newInterval.end, newVA.va_doffset, newVA.va_dlength);
@@ -187,14 +194,14 @@ Result VMSpace::MapToDentry(
     const VAInterval& va, DEntry& dentry, const DEntryInterval& de, int flags,
     VMArea*& va_out)
 {
+    KASSERT((de.begin & (PAGE_SIZE - 1)) == 0, "offset %d not page-aligned", de.begin);
+
     // Ensure the range we are mapping does not exceed the inode; if this is the case, we silently
     // truncate - but still up to a full page as we can't map anything less
     VAInterval vaInterval{ va };
     if (de.begin + vaInterval.length() > dentry.d_inode->i_sb.st_size) {
         vaInterval.end = vaInterval.begin + RoundUpToPage(dentry.d_inode->i_sb.st_size - de.begin);
     }
-
-    KASSERT((de.begin & (PAGE_SIZE - 1)) == 0, "offset %d not page-aligned", de.begin);
 
     if (auto result = MapTo(vaInterval, flags, va_out); result.IsFailure())
         return result;
@@ -203,6 +210,7 @@ Result VMSpace::MapToDentry(
     va_out->va_dentry = &dentry;
     va_out->va_doffset = de.begin;
     va_out->va_dlength = de.length();
+    VerifyDentryOffset(*va_out);
     return Result::Success();
 }
 
@@ -215,18 +223,10 @@ Result VMSpace::Map(size_t len /* bytes */, uint32_t flags, VMArea*& va_out)
 
 void VMSpace::PrepareForExecute()
 {
-    // Throw all non-MD mappings away - this should only leave the kernel stack in place
-    for (auto it = vs_areamap.begin(); it != vs_areamap.end(); /* nothing */) {
-        auto va = it->value;
-        if (va->va_flags & vm::flag::MD) {
-            ++it;
-            continue;
-        }
-        vs_areamap.remove(va);
-        delete va;
-        it = vs_areamap.begin();
-    }
-
+    // The kernel stack isn't part of this VMSpace, so we can simply throw away
+    // all areas and start from a clean state. The userland stack will be
+    // allocated by ELF64Loader::PrepareForExecute() as needed
+    FreeAllAreas(*this);
 }
 
 void VMSpace::FreeArea(VMArea& va)
@@ -239,7 +239,6 @@ void VMSpace::FreeArea(VMArea& va)
 Result VMSpace::Clone(VMSpace& vs_dest)
 {
     FreeAllAreas(vs_dest);
-    /* Now copy everything over that isn't private */
     for (auto& [srcInterval, va_src ]: vs_areamap) {
         VMArea* va_dst;
         if (auto result = vs_dest.MapTo(srcInterval, va_src->va_flags, va_dst);
@@ -250,12 +249,15 @@ Result VMSpace::Clone(VMSpace& vs_dest)
             va_dst->va_doffset = va_src->va_doffset;
             va_dst->va_dlength = va_src->va_dlength;
             va_dst->va_dentry = va_src->va_dentry;
+            VerifyDentryOffset(*va_dst);
             dentry_ref(*va_dst->va_dentry);
         }
 
-        // Clone the area page-wise
+        // Clone the area by sharing all VMPage's therein
         KASSERT(va_src->va_pages.size() == va_dst->va_pages.size(), "va_pages.size() mismatch");
         auto currentVa = srcInterval.begin;
+        const bool vaIsPrivate = (va_src->va_flags & vm::flag::Private) != 0;
+        const bool vaIsWritable = (va_src->va_flags & vm::flag::Write) != 0;
         for(size_t page_index = 0; page_index < va_src->va_pages.size(); ++page_index, currentVa += PAGE_SIZE) {
             auto vp = va_src->va_pages[page_index];
             if (vp == nullptr) continue;
@@ -265,12 +267,20 @@ Result VMSpace::Clone(VMSpace& vs_dest)
                 vp->GetPage()->p_order == 0, "unexpected %d order page here",
                 vp->GetPage()->p_order);
 
-            auto& new_vp = vp->Clone(*this, *va_src, currentVa);
-            va_dst->va_pages[page_index] = &new_vp;
+            // If the page is promoted within a private or writable area, we
+            // need to COW it
+            const bool isPromoted = (vp->vp_flags & vmpage::flag::Promoted) != 0;
+            if ((vaIsPrivate || vaIsWritable) && isPromoted) {
+                vp->vp_flags &= ~vmpage::flag::Promoted;
+                vp->Map(*this, *va_src, currentVa);
+            }
 
-            // Map the page into the cloned vmspace
-            new_vp.Map(vs_dest, *va_dst, currentVa);
-            if (&new_vp != vp) new_vp.Unlock();
+            // Hook the page up to the destination VMArea; this shares it
+            // between the parent and child
+            vp->Ref();
+            KASSERT(vp->vp_refcount >= 2, "shared page has invalid refcount %d", vp->vp_refcount);
+            va_dst->va_pages[page_index] = vp;
+            vp->Map(vs_dest, *va_dst, currentVa);
             vp->Unlock();
         }
     }
@@ -294,11 +304,10 @@ void VMSpace::Dump()
 {
     for (auto& [ interval, va ]: vs_areamap) {
         kprintf(
-            "  area %p: %p..%p flags %c%c%c%c%c%c%c\n", &va, va->va_virt, va->va_virt + va->va_len - 1,
+            "  area %p: %p..%p flags %c%c%c%c%c%c\n", &va, va->va_virt, va->va_virt + va->va_len - 1,
             (va->va_flags & vm::flag::Read) ? 'r' : '.', (va->va_flags & vm::flag::Write) ? 'w' : '.',
             (va->va_flags & vm::flag::Execute) ? 'x' : '.', (va->va_flags & vm::flag::Kernel) ? 'k' : '.',
-            (va->va_flags & vm::flag::User) ? 'u' : '.', (va->va_flags & vm::flag::Private) ? 'p' : '.',
-            (va->va_flags & vm::flag::MD) ? 'm' : '.');
+            (va->va_flags & vm::flag::User) ? 'u' : '.', (va->va_flags & vm::flag::Private) ? 'p' : '.');
         kprintf("    pages:\n");
         for (auto vp : va->va_pages) {
             if (vp != nullptr) vp->Dump("      ");

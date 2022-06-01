@@ -14,7 +14,6 @@ namespace vm::flag
     inline constexpr auto Kernel = (1 << 3); // kernel-mode mapping
     inline constexpr auto User = (1 << 4); // user-mode mapping
     inline constexpr auto Device = (1 << 5); // device mapping
-    inline constexpr auto Private = (1 << 6); // mapping not shared (used for inodes ??)
-    inline constexpr auto MD = (1 << 31); // machine-dependent mapping
+    inline constexpr auto Private = (1 << 6); // memory will not be shared with parent when fork()-ing
     inline constexpr auto Force = (1 << 30); // force mapping to be made
 }

@@ -17,11 +17,9 @@
 #include "kernel/vfs/dentry.h"
 #include "kernel/vm.h"
 
-#include "kernel/process.h"
-
 namespace
 {
-    Result read_data(DEntry& dentry, void* buf, off_t offset, size_t len)
+    Result PerformDEntryRead(DEntry& dentry, void* buf, off_t offset, size_t len)
     {
         struct VFS_FILE f;
         memset(&f, 0, sizeof(f));
@@ -44,19 +42,23 @@ namespace
     {
         const auto page_index = (virt - interval.begin) / PAGE_SIZE;
         auto& vp = va.va_pages[page_index];
-        if (vp && vp != &vmpage) {
-            vp->AssertLocked();
-            vp->Deref();
-        }
+
+        auto previousVP = vp;
         vp = &vmpage;
         vmpage.Map(vs, va, virt);
+
+        if (previousVP && previousVP != &vmpage) {
+            previousVP->AssertLocked();
+            previousVP->Deref();
+        }
     }
 
+    // The page returned here will be owned by the inode and is shared
     util::locked<VMPage> GetDEntryBackedPage(VMArea& va, const off_t read_off)
     {
         auto vmpage = vmpage::LookupOrCreateINodePage(
                 *va.va_dentry->d_inode, read_off,
-                vmpage::flag::Pending);
+                vmpage::flag::Inode | vmpage::flag::Pending);
         if ((vmpage->vp_flags & vmpage::flag::Pending) == 0)
             return vmpage;
 
@@ -67,14 +69,13 @@ namespace
 
         size_t read_length = PAGE_SIZE;
         if (read_off + read_length > va.va_dentry->d_inode->i_sb.st_size) {
-            // This inode is simply not long enough to cover our read - adjust XXX what when it
-            // grows?
+            // Do not read beyond what is available; the remainder must be
+            // zero-filled
             read_length = va.va_dentry->d_inode->i_sb.st_size - read_off;
-            // Zero out everything after the part we will read so we don't leak any data
             memset(static_cast<char*>(page) + read_length, 0, PAGE_SIZE - read_length);
         }
 
-        const auto result = read_data(*va.va_dentry, page, read_off, read_length);
+        const auto result = PerformDEntryRead(*va.va_dentry, page, read_off, read_length);
         kmem_unmap(page, PAGE_SIZE);
         KASSERT(result.IsSuccess(), "cannot deal with error %d", result.AsStatusCode()); // XXX
 
@@ -86,24 +87,6 @@ namespace
 
     VMPage* HandleDEntryBackedFault(VMSpace& vs, VMArea& va, const VAInterval& interval, const bool isWriteFault, const addr_t alignedVirt)
     {
-        /*
-         * The way dentries are mapped to virtual address is:
-         *
-         * 0       va_doffset                               file length
-         * +------------+-------------+-------------------------------+
-         * |            |XXXXXXXXXXXXX|                               |
-         * |            |XXXXXXXXXXXXX|                               |
-         * +------------+-------------+-------------------------------+
-         *             /     |||      \ va_doffset + va_dlength
-         *            /      vvv
-         *     +-------------+---------------+
-         *     |XXXXXXXXXXXXX|000000000000000|
-         *     |XXXXXXXXXXXXX|000000000000000|
-         *     +-------------+---------------+
-         *     0            \
-         *                   \
-         *                    va_dlength
-         */
         const auto read_off = alignedVirt - va.va_virt; // offset in area, still needs va_doffset added
         if (read_off >= va.va_dlength)
             return nullptr; // outside of dentry; must be zero-filled
@@ -112,48 +95,30 @@ namespace
         // this means we want the entire page
         auto vmpage = GetDEntryBackedPage(va, read_off + va.va_doffset);
 
-        // If the mapping is page-aligned and read-only or shared, we can re-use the
-        // mapping and avoid the entire copy
-        const auto can_reuse_page_as_is =
-            // Reusing means the page resides in the section...
-            (read_off + PAGE_SIZE) <= va.va_dlength &&
-            // ... and we have a page-aligned offset
-            (va.va_doffset & (PAGE_SIZE - 1)) == 0;
-        VMPage* new_vp;
-        if (can_reuse_page_as_is) {
-            // Page can be re-used as-is. If this is a private mapping and we are writing to it,
-            // it means we need to copy it, otherwise we can use it as-is
-            const auto isPrivateMapping = (va.va_flags & vm::flag::Private) != 0;
-            if (isPrivateMapping && isWriteFault) {
-                new_vp = &vmpage->Duplicate();
-            } else {
-                // TODO Support read faults to public mapping here...
-                KASSERT(!isWriteFault, "not yet");
-                KASSERT((vmpage->vp_flags & vmpage::flag::Promoted) == 0, "cannot share promoted dentry page %p", &vmpage);
-                new_vp = vmpage.Extract();
-                new_vp->Ref();
-                return new_vp;
-            }
-        } else {
-            // Cannot re-use; create a new VM page, with appropriate flags based on the va
-            new_vp = &vmpage::Allocate(0);
-
-            // Now copy the parts of the dentry-backed page
-            size_t copy_len =
-                va.va_dlength - read_off; // this is size-left after where we read
-            if (copy_len > PAGE_SIZE)
-                copy_len = PAGE_SIZE;
-            vmpage->CopyExtended(*new_vp, copy_len);
+        const auto is_writable = (va.va_flags & vm::flag::Write) != 0;
+        const auto can_be_shared =
+            // Mapping must completely be backed by the inode (i.e. not zero-padded)
+            ((read_off + PAGE_SIZE) <= va.va_dlength)
+            // And we must not be able to write to it
+            && !is_writable;
+        if (can_be_shared) {
+            vmpage->Ref();
+            return vmpage.Extract();
         }
+
+        // Make a copy
+        size_t copy_len =
+            va.va_dlength - read_off; // this is size-left after where we read
+        if (copy_len > PAGE_SIZE)
+            copy_len = PAGE_SIZE;
+        auto new_vp = &vmpage->Duplicate(copy_len);
         vmpage.Unlock();
         return new_vp;
     }
 } // unnamed namespace
 
-
 void DumpVMSpace(VMSpace& vmspace)
 {
-    auto prev = 0;
     for (auto& [ interval, va ] : vmspace.vs_areamap) {
         kprintf(
             "[%p..%p) (%p..%p) %c%c%c\n",
@@ -164,10 +129,6 @@ void DumpVMSpace(VMSpace& vmspace)
             (va->va_flags & vm::flag::Read) ? 'r' : '-',
             (va->va_flags & vm::flag::Write) ? 'w' : '-',
             (va->va_flags & vm::flag::Execute) ? 'x' : '-');
-        if (prev == interval.begin) {
-            panic("DUP");
-        }
-        prev = interval.begin;
     }
     kprintf("dump end\n");
 }
@@ -187,9 +148,11 @@ Result VMSpace::HandleFault(const addr_t virt, const int fault_flags)
     // See if we have this page mapped
     const auto alignedVirt = virt & ~(PAGE_SIZE - 1);
     if (auto vp = va->LookupVAddrAndLock(alignedVirt); vp != nullptr) {
-        if (isWriteFault && (va->va_flags & vm::flag::Write) != 0) {
-            // Write to a COW page; promote the page and re-map it. If this changes the
-            // VMPage, AssignPageToVirtualAddress() will Deref() the old one
+        const bool areaIsWritable = (va->va_flags & vm::flag::Write) != 0;
+        if (isWriteFault && areaIsWritable) {
+            // Page must be COW'ed - promote the page and re-map it. If this
+            // changes the VMPage, AssignPageToVirtualAddress() will Deref()
+            // the old one
             auto& new_vp = vp->Promote();
             AssignPageToVirtualAddress(*this, *va, interval, alignedVirt, new_vp);
             new_vp.Unlock();
@@ -200,12 +163,6 @@ Result VMSpace::HandleFault(const addr_t virt, const int fault_flags)
         vp->Unlock();
         return Result::Failure(EFAULT);
     }
-
-    // XXX we expect va_doffset to be page-aligned here (i.e. we can always use a page directly)
-    // this needs to be enforced when making mappings!
-    KASSERT(
-        (va->va_doffset & (PAGE_SIZE - 1)) == 0, "doffset %x not page-aligned",
-        (int)va->va_doffset);
 
     // If there is a dentry attached here, perhaps we may find what we need in the corresponding
     // inode

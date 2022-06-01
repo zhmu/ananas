@@ -25,7 +25,7 @@ namespace userland
         // Pre-fault the first page so that we can put stuff in it
         auto stackPageVirt = stackEnd - PAGE_SIZE;
         auto& stack_vp = vmpage::Allocate(0);
-        const auto page_index = (stackPageVirt  - USERLAND_STACK_ADDR) / PAGE_SIZE;
+        const auto page_index = (stackPageVirt - USERLAND_STACK_ADDR) / PAGE_SIZE;
         KASSERT(page_index < va->va_pages.size(), "oeps %d %d", page_index, va->va_pages.size());
         va->va_pages[page_index] = &stack_vp;
         stack_vp.Map(vs, *va, stackPageVirt);
@@ -38,7 +38,7 @@ namespace userland
         VMArea* vaCode;
         vs.MapTo(
             VAInterval{ virt, virt + len },
-            vm::flag::User | vm::flag::Read | vm::flag::Private | vm::flag::Execute, vaCode);
+            vm::flag::User | vm::flag::Read | vm::flag::Execute, vaCode);
 
         // Map code in place
         auto& code_vp = vmpage::Allocate(0);
