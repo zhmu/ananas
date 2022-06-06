@@ -55,7 +55,8 @@ void _panic(const char* file, const char* func, int line, const char* fmt, ...)
     kprintf("\n");
 
     // Throw it over to GDB
-    gdb_enter();
+    while(true)
+        gdb_enter();
 }
 
 extern "C" void __cxa_pure_virtual() { panic("pure virtual call"); }
