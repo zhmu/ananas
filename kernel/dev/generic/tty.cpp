@@ -33,6 +33,7 @@ TTY::TTY(const CreateDeviceProperties& cdp) : Device(cdp)
     tty_termios.c_cc[VKILL] = CTRL('U');
     tty_termios.c_cc[VERASE] = CTRL('H');
     tty_termios.c_cc[VSUSP] = CTRL('Z');
+    tty_termios.c_cc[VQUIT] = CTRL('\\');
 #undef CTRL
     tty_termios.c_iflag = ICRNL | ICANON;
     tty_termios.c_oflag = OPOST | ONLCR;
@@ -164,7 +165,7 @@ Result TTY::OnInput(const char* buffer, size_t len)
             ch = NL;
 
         /* Handle things that need to raise signals */
-        if (tty_termios.c_lflag & ISIG) {
+        if ((tty_termios.c_lflag & ISIG) && ch != 0) {
             if (ch == tty_termios.c_cc[VINTR]) {
                 tty_mutex.Unlock();
                 DeliverSignal(SIGINT);
