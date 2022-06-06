@@ -7,3 +7,4 @@
 #pragma once
 
 void gdb_handle_exception(struct STACKFRAME* sf);
+void gdb_enter();

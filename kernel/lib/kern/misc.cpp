@@ -6,7 +6,7 @@
  */
 #include "kernel/types.h"
 #include <ananas/util/atomic.h>
-#include "kernel/kdb.h"
+#include "kernel/gdb.h"
 #include "kernel/lib.h"
 #include "kernel/schedule.h"
 #include "kernel-md/smp.h" // XXX
@@ -54,11 +54,8 @@ void _panic(const char* file, const char* func, int line, const char* fmt, ...)
     va_end(ap);
     kprintf("\n");
 
-    // TODO If GDB is attached, we'd want to raise an exception so we are
-    // dropped in the debugger
-    //__asm("ud2");
-    for (;;)
-        ;
+    // Throw it over to GDB
+    gdb_enter();
 }
 
 extern "C" void __cxa_pure_virtual() { panic("pure virtual call"); }

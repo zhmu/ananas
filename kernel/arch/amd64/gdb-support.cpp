@@ -5,6 +5,7 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <cstddef>
+#include "kernel/gdb.h"
 #include "kernel-md/frame.h"
 
 size_t gdb_md_get_register_size(int regnum) { return (regnum < 17) ? 8 : 4; }
@@ -82,4 +83,12 @@ int gdb_md_map_signal(struct STACKFRAME* sf)
         default: /* "software generated" */
             return 7;
     }
+}
+
+void gdb_enter()
+{
+    struct STACKFRAME sf{};
+    sf.sf_trapno = 1; // debug exception
+    sf.sf_rip = reinterpret_cast<register_t>(&gdb_enter);
+    gdb_handle_exception(&sf);
 }
