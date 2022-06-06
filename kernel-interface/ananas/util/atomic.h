@@ -9,32 +9,18 @@
 
 namespace util
 {
-    enum class memory_order { relaxed, consume, acquire, release, acq_rel, seq_cst };
+    enum class memory_order {
+        relaxed = __ATOMIC_RELAXED,
+        consume = __ATOMIC_CONSUME,
+        acquire = __ATOMIC_ACQUIRE,
+        release = __ATOMIC_RELEASE,
+        acq_rel = __ATOMIC_ACQ_REL,
+        seq_cst = __ATOMIC_SEQ_CST,
+    };
 
     namespace detail
     {
-        constexpr int to_atomic_memorder(const memory_order mo)
-        {
-            switch (mo) {
-                case memory_order::relaxed:
-                    return __ATOMIC_RELAXED;
-                case memory_order::consume:
-                    return __ATOMIC_CONSUME;
-                case memory_order::acquire:
-                    return __ATOMIC_ACQUIRE;
-                case memory_order::release:
-                    return __ATOMIC_RELEASE;
-                case memory_order::acq_rel:
-                    return __ATOMIC_ACQ_REL;
-                case memory_order::seq_cst:
-                    return __ATOMIC_SEQ_CST;
-                default:
-                    // static_assert(0, "memory order constraint not valid");
-                    return -1;
-            }
-        }
-
-        constexpr memory_order get_default_memory_order()
+        constexpr auto get_default_memory_order()
         {
             // Safest, but also slowest
             return memory_order::seq_cst;
@@ -53,7 +39,7 @@ namespace util
 
         void store(T value, memory_order mo = detail::get_default_memory_order()) noexcept
         {
-            __atomic_store(&a_value, &value, detail::to_atomic_memorder(mo));
+            __atomic_store(&a_value, &value, static_cast<int>(mo));
         }
 
         T operator=(T value) noexcept
@@ -65,7 +51,7 @@ namespace util
         T load(memory_order mo = detail::get_default_memory_order()) const noexcept
         {
             T value;
-            __atomic_load(&a_value, &value, detail::to_atomic_memorder(mo));
+            __atomic_load(&a_value, &value, static_cast<int>(mo));
             return value;
         }
 
@@ -73,33 +59,33 @@ namespace util
 
         T fetch_add(T arg, memory_order mo = detail::get_default_memory_order()) noexcept
         {
-            return __atomic_fetch_add(&a_value, arg, detail::to_atomic_memorder(mo));
+            return __atomic_fetch_add(&a_value, arg, static_cast<int>(mo));
         }
 
         T fetch_sub(T arg, memory_order mo = detail::get_default_memory_order()) noexcept
         {
-            return __atomic_fetch_sub(&a_value, arg, detail::to_atomic_memorder(mo));
+            return __atomic_fetch_sub(&a_value, arg, static_cast<int>(mo));
         }
 
         T fetch_and(T arg, memory_order mo = detail::get_default_memory_order()) noexcept
         {
-            return __atomic_fetch_and(&a_value, arg, detail::to_atomic_memorder(mo));
+            return __atomic_fetch_and(&a_value, arg, static_cast<int>(mo));
         }
 
         T fetch_or(T arg, memory_order mo = detail::get_default_memory_order()) noexcept
         {
-            return __atomic_fetch_or(&a_value, arg, detail::to_atomic_memorder(mo));
+            return __atomic_fetch_or(&a_value, arg, static_cast<int>(mo));
         }
 
         T fetch_xor(T arg, memory_order mo = detail::get_default_memory_order()) noexcept
         {
-            return __atomic_fetch_xor(&a_value, arg, detail::to_atomic_memorder(mo));
+            return __atomic_fetch_xor(&a_value, arg, static_cast<int>(mo));
         }
 
         T exchange(T value, memory_order mo = detail::get_default_memory_order()) noexcept
         {
             T prev;
-            __atomic_exchange(&a_value, &value, &prev, detail::to_atomic_memorder(mo));
+            __atomic_exchange(&a_value, &value, &prev, static_cast<int>(mo));
             return prev;
         }
 
@@ -107,8 +93,9 @@ namespace util
             T& expected, T desired, memory_order success, memory_order failure) noexcept
         {
             return __atomic_compare_exchange(
-                &a_value, &expected, &desired, true, detail::to_atomic_memorder(success),
-                detail::to_atomic_memorder(failure));
+                &a_value, &expected, &desired, true,
+                static_cast<int>(success),
+                static_cast<int>(failure));
         }
 
         bool compare_exchange_weak(
@@ -122,8 +109,8 @@ namespace util
             T& expected, T desired, memory_order success, memory_order failure) noexcept
         {
             return __atomic_compare_exchange(
-                &a_value, &expected, &desired, false, detail::to_atomic_memorder(success),
-                detail::to_atomic_memorder(failure));
+                &a_value, &expected, &desired, false, static_cast<int>(success),
+                static_cast<int>(failure));
         }
 
         bool compare_exchange_strong(
