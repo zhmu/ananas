@@ -38,8 +38,8 @@ namespace
     irq::IRQResult SIO::OnIRQ()
     {
         char ch = inb(sio_port + SIO_REG_DATA);
-
-        OnInput(&ch, 1);
+        if (ch != 0)
+            OnInput(&ch, 1);
         return irq::IRQResult::Processed;
     }
 
