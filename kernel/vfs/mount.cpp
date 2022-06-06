@@ -7,7 +7,6 @@
 #include "kernel/types.h"
 #include "kernel/bio.h"
 #include "kernel/device.h"
-#include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
@@ -192,16 +191,3 @@ Result vfs_unregister_filesystem(VFSFileSystem& fs)
     vfs::fstypes.remove(fs);
     return Result::Success();
 }
-
-const kdb::RegisterCommand
-    kdbMounts("mounts", "Show current mounts", [](int, const kdb::Argument*) {
-        SpinlockGuard g(vfs::spl_fstypes);
-
-        for (unsigned int n = 0; n < vfs::Max_Mounted_FS; n++) {
-            struct VFS_MOUNTED_FS* fs = &vfs::mountedfs[n];
-            if ((fs->fs_flags & VFS_FLAG_INUSE) == 0)
-                continue;
-            kprintf(
-                ">> vfs=%p, flags=0x%x, mountpoint='%s'\n", fs, fs->fs_flags, fs->fs_mountpoint);
-        }
-    });

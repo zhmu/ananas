@@ -10,7 +10,6 @@
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/irq.h"
-#include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"

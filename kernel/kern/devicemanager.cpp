@@ -8,7 +8,6 @@
 #include "kernel/console-driver.h"
 #include "kernel/device.h"
 #include "kernel/driver.h"
-#include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
@@ -278,30 +277,3 @@ static int print_devices(Device* parent, int indent)
     }
     return count;
 }
-
-const kdb::RegisterCommand
-    kdbDevices("devices", "Displays a list of all devices", [](int, const kdb::Argument*) {
-        int count = print_devices(NULL, 0);
-
-        /* See if we have printed everything; if not, our structure is wrong and we should fix this
-         */
-        int n = 0;
-        for (auto& dev : device_manager::internal::deviceList) {
-            n++;
-        }
-        if (n != count)
-            kprintf(
-                "Warning: %d extra device(s) unreachable by walking the device chain!\n",
-                n - count);
-    });
-
-const kdb::RegisterCommand kdbDevDump(
-    "devdump", "s:devname", "Displays a list of all devices", [](int, const kdb::Argument* arg) {
-        auto dev = device_manager::FindDevice(arg[1].a_u.u_string);
-        if (dev == nullptr) {
-            kprintf("device not found\n");
-            return;
-        }
-
-        dev->GetDeviceOperations().DebugDump();
-    });

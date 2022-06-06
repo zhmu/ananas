@@ -32,7 +32,6 @@
  */
 #include <machine/param.h>
 #include "kernel/mm.h"
-#include "kernel/kdb.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
 #include "kernel/lock.h"
@@ -237,19 +236,3 @@ addr_t kmem_get_phys(void* virt)
 
     panic("kmem_get_phys(): va=%p not mapped", va);
 }
-
-const kdb::RegisterCommand
-    kdbKMappings("kmappings", "Display kernel memory mappings", [](int, const kdb::Argument*) {
-        if (kmem_mappings == NULL)
-            return;
-
-        struct KMEM_MAPPING* kmm = kmem_mappings;
-        for (unsigned int n = 0; n < numberOfMappings; n++, kmm++) {
-            if (kmm->kmm_size == 0)
-                break;
-            size_t len = kmm->kmm_size * PAGE_SIZE;
-            kprintf(
-                "mapping: va %p-%p pa %p-%p\n", kmm->kmm_virt, kmm->kmm_virt + len - 1,
-                kmm->kmm_phys, kmm->kmm_phys + len - 1);
-        }
-    });

@@ -12,11 +12,13 @@
 #include "kernel-md/smp.h" // XXX
 #include "kernel-md/interrupts.h"
 
+extern "C" void* __dso_handle;
+void* __dso_handle = nullptr;
+
 namespace
 {
     constexpr addr_t kdb_no_panic = 0;
     util::atomic<addr_t> kdb_panicing{kdb_no_panic};
-
 } // namespace
 
 void _panic(const char* file, const char* func, int line, const char* fmt, ...)
@@ -55,8 +57,6 @@ void _panic(const char* file, const char* func, int line, const char* fmt, ...)
     // TODO If GDB is attached, we'd want to raise an exception so we are
     // dropped in the debugger
     //__asm("ud2");
-
-    kdb::OnPanic();
     for (;;)
         ;
 }
@@ -74,4 +74,10 @@ extern "C" void __cxa_guard_release(__int64_t* guard_object)
 {
     // XXX We ought to actually lock stuff here
     *guard_object = 0;
+}
+
+extern "C" int __cxa_atexit(void (*func)(void*), void* arg, void* dso_handle)
+{
+    // Unnecessary: we never run global destructors
+    return 0;
 }

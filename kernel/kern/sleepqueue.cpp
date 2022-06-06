@@ -4,7 +4,6 @@
  * Copyright (c) 2009-2019 Rink Springer <rink@rink.nu>
  * For conditions of distribution and use, see LICENSE file
  */
-#include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"
 #include "kernel/sleepqueue.h"
@@ -119,20 +118,3 @@ void SleepQueue::Unsleep(register_t state)
 
     panic("unsleep called but caller did not prepare");
 }
-
-struct sleep_queue::KDB
-{
-    KDB(SleepQueue& sq)
-    {
-        for(auto& t: sq.sq_sleepers) {
-            auto& w = t.t_sqwaiter;
-            kprintf("   sleeper on '%s' thread %p: w_thread %p w_sq %p signalled %d\n", w.w_lockable->l_name, &t, w.w_thread, w.w_sq, w.w_signalled);
-        }
-    }
-};
-
-const kdb::RegisterCommand
-    kdbScheduler("sleepq", "i:pointer", "Display sleepqueue status", [](int, const kdb::Argument* arg) {
-        SleepQueue& sq = *reinterpret_cast<SleepQueue*>(arg[1].a_u.u_value);
-        sleep_queue::KDB kdb{sq};
-    });

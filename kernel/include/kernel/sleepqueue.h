@@ -25,14 +25,11 @@ namespace sleep_queue
         bool w_signalled = false;
     };
 
-    struct KDB;
     struct Sleeper;
-
 } // namespace sleep_queue
 
 struct SleepQueue {
     friend struct sleep_queue::Sleeper;
-    friend struct sleep_queue::KDB;
 
     bool WakeupOne(DisableInterruptGuard&);
     void WakeupAll(DisableInterruptGuard&);

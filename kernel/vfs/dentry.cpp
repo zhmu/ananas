@@ -14,7 +14,6 @@
  * them if we really need to.
  */
 #include "kernel/init.h"
-#include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/mm.h"
@@ -285,21 +284,6 @@ size_t dentry_construct_path(char* dest, size_t n, DEntry& dentry)
         dest[len < n ? len : n - 1] = '\0';
     return len;
 }
-
-const kdb::RegisterCommand kdbDCache("dcache", "Show dentry cache", [](int, const kdb::Argument*) {
-    /* XXX Don't lock; this is for debugging purposes only */
-    int n = 0;
-    for (auto& d : dcache_inuse) {
-        kprintf(
-            "dcache_entry=%p, parent=%p, inode=%p, reverse name=%s[%d]", &d, d.d_parent, d.d_inode,
-            d.d_entry, d.d_refcount);
-        for (DEntry* curde = d.d_parent; curde != NULL; curde = curde->d_parent)
-            kprintf(",%s[%d]", curde->d_entry, curde->d_refcount);
-        kprintf("',flags=0x%x, refcount=%d\n", d.d_flags, d.d_refcount);
-        n++;
-    }
-    kprintf("dentry cache contains %u entries\n", n);
-});
 
 namespace
 {

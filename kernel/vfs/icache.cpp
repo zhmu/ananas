@@ -5,7 +5,6 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include "kernel/init.h"
-#include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/mm.h"
@@ -289,17 +288,6 @@ void vfs_dump_inode(INode& inode)
         vp->Dump("    ");
     }
 }
-
-const kdb::RegisterCommand kdbICache("icache", "Show inode cache", [](int, const kdb::Argument*) {
-    int n = 0;
-    for (auto& inode : icache_inuse) {
-        kprintf("inode=%p, inum=%lx\n", &inode, inode.i_inum);
-        if ((inode.i_flags & INODE_FLAG_PENDING) == 0)
-            vfs_dump_inode(inode);
-        n++;
-    }
-    kprintf("Inode cache contains %u entries\n", n);
-});
 
 namespace
 {

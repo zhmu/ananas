@@ -12,7 +12,6 @@
  * scheduler re-add a thread that has expired its timeslice back to the
  * runqueue avoids nasty races (as well as being much easier to follow)
  */
-#include "kernel/kdb.h"
 #include "kernel/lock.h"
 #include "kernel/init.h"
 #include "kernel/lib.h"
@@ -284,31 +283,3 @@ namespace scheduler
     bool IsActive() { return isActive; }
 
 } // namespace scheduler
-
-namespace
-{
-    void kdbPrintThread(Thread& t)
-    {
-        kprintf(
-            "  thread %p '%s' state %d sched_flags %d flags 0x%x\n", &t, t.t_name,
-            t.t_state, t.t_sched_flags, t.t_flags);
-        kprintf("    process %d\n", t.t_process.p_pid);
-        if (auto& w = t.t_sqwaiter; w.w_sq) {
-            kprintf(
-                "    sleepqueue %p '%s' thread %p signalled %d\n", w.w_sq, w.w_lockable->l_name,
-                w.w_thread, w.w_signalled);
-        }
-    }
-} // namespace
-
-const kdb::RegisterCommand
-    kdbScheduler("scheduler", "Display scheduler status", [](int, const kdb::Argument*) {
-        kprintf("runqueue\n");
-        for (auto& s : scheduler::sched_runqueue) {
-            kdbPrintThread(s);
-        }
-        kprintf("sleepqueue\n");
-        for (auto& s : scheduler::sched_sleepqueue) {
-            kdbPrintThread(s);
-        }
-    });

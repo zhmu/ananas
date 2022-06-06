@@ -5,7 +5,6 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include "kernel/lib.h"
-#include "kernel/kdb.h"
 #include "kernel/page.h"
 #include "kernel/lock.h"
 #include "kernel/kmem.h"
@@ -33,7 +32,6 @@ namespace
     int mallocChunksTotal = 0;
     Page* mallocChunksPage = nullptr;
     MallocChunk* mallocChunks = nullptr;
-
 } // namespace
 
 void* operator new(size_t len) { return kmalloc(len); }
@@ -122,21 +120,3 @@ int dlmalloc_free_memory(void* ptr, size_t len)
     panic("cannot find virt %p length %d", ptr, len);
     return -1; /* failure */
 }
-
-const kdb::RegisterCommand
-    kdbMalloc("malloc", "Display malloc chunks", [](int, const kdb::Argument*) {
-        MutexGuard g(mtx_mm);
-
-        size_t total_len = 0;
-        for (int n = 0; n < mallocChunksTotal; n++) {
-            auto& mc = mallocChunks[n];
-            if (!mc.InUse())
-                continue;
-
-            kprintf(
-                "virt %16p phys %16p page %16p len %d\n", mc.mc_virt,
-                mc.mc_page->GetPhysicalAddress(), mc.mc_page, mc.mc_len);
-            total_len += mc.mc_len;
-        }
-        kprintf("Total amount of memory used by malloc(): %d KB\n", total_len / 1024);
-    });

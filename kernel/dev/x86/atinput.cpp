@@ -10,7 +10,6 @@
 #include "kernel/device.h"
 #include "kernel/driver.h"
 #include "kernel/irq.h"
-#include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/result.h"
@@ -379,13 +378,6 @@ namespace
 
     bool ProcessSpecialKeys(int scancode, int kbd_modifiers)
     {
-        // Control-Shift-Escape causes us to drop in KDB
-        if (kbd_modifiers == (AIMX_MOD_LEFT_CONTROL | AIMX_MOD_LEFT_SHIFT) &&
-            scancode == scancode::Escape) {
-            kdb::Enter("keyboard sequence");
-            return true;
-        }
-
         // Control-` / Control-~ triggers a panic
         if (kbd_modifiers == AIMX_MOD_LEFT_CONTROL && scancode == scancode::Tilde) {
             panic("forced by keyboard");

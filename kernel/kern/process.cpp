@@ -9,7 +9,6 @@
 #include <ananas/util/utility.h>
 #include "kernel/fd.h"
 #include "kernel/init.h"
-#include "kernel/kdb.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
@@ -338,14 +337,3 @@ Process* process_lookup_by_id_and_lock(pid_t pid)
     }
     return nullptr;
 }
-
-const kdb::RegisterCommand kdbPs("ps", "Display all processes", [](int, const kdb::Argument*) {
-    MutexGuard g(process::process_mtx);
-    for (auto& p : process::process_all) {
-        kprintf("process %d (%p)\n", p.p_pid, &p);
-        if (auto t = p.p_mainthread; t != nullptr) {
-            kprintf("  thread %p state %d name '%s' flags 0x%x\n", t, t->t_state, t->t_name, t->t_flags);
-        }
-        //p.p_vmspace.Dump();
-    }
-});

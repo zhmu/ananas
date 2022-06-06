@@ -20,8 +20,6 @@
 #include "kernel-md/vm.h"
 #include "../sys/syscall.h"
 
-#include "kernel/kdb.h"
-
 extern void* kernel_pagedir;
 extern "C" {
 void thread_trampoline();

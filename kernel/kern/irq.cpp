@@ -8,7 +8,6 @@
 #include <machine/param.h>
 #include "kernel/device.h"
 #include "kernel/irq.h"
-#include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/pcpu.h"
 #include "kernel/result.h"
@@ -288,37 +287,3 @@ namespace irq
     }
 
 } // namespace irq
-
-const kdb::RegisterCommand kdbIRQ("irq", "Display IRQ status", [](int, const kdb::Argument*) {
-    /* Note: no need to grab locks as the debugger runs with interrupts disabled */
-    kprintf("Registered IRQ sources:\n");
-    for (const auto& is : irq::irqSources) {
-        kprintf(
-            " IRQ %d..%d\n", is.GetFirstInterruptNumber(),
-            is.GetFirstInterruptNumber() + is.GetInterruptCount());
-    }
-
-    kprintf("IRQ handlers:\n");
-    int no = 0;
-    for (auto& i : irq::irqList) {
-        int banner = 0;
-        for (auto& handler : i.i_istHandler) {
-            if (handler.h_type == irq::HandlerType::Unhandled)
-                continue;
-            if (!banner) {
-                kprintf(
-                    " IRQ %d count %u stray %d\n", no, i.i_count,
-                    i.i_straycount);
-                banner = 1;
-            }
-            kprintf(
-                "  device '%s' handler %p type %d\n",
-                (handler.h_device != nullptr) ? handler.h_device->d_Name : "<none>",
-                handler.h_callback, static_cast<int>(handler.h_type));
-        }
-        if (!banner && (i.i_count > 0 || i.i_straycount > 0))
-            kprintf(
-                " IRQ %d count %u stray %d\n", no, i.i_count, i.i_straycount);
-        no++;
-    }
-});

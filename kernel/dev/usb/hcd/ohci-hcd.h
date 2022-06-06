@@ -79,7 +79,6 @@ namespace usb
 
         Result Attach() override;
         Result Detach() override;
-        void DebugDump() override { Dump(); }
 
         Result SetupTransfer(Transfer& xfer) override;
         Result TearDownTransfer(Transfer& xfer) override;

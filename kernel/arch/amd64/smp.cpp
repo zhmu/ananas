@@ -7,7 +7,6 @@
 #include <ananas/util/algorithm.h>
 #include <ananas/errno.h>
 #include "kernel/init.h"
-#include "kernel/kdb.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
@@ -600,23 +599,4 @@ extern "C" void mp_ap_startup(uint32_t lapic_id)
     /* Enable interrupts and become the idle thread; this doesn't return */
     md::interrupts::Enable();
     idle_thread(nullptr);
-}
-
-namespace {
-
-const kdb::RegisterCommand
-    kdbCPU("cpu", "Display CPU status", [](int, const kdb::Argument*) {
-        kprintf("cpu\n");
-        for (int n = 0; n < smp::num_cpus; ++n) {
-            auto& cpu = x86_cpus[n];
-            struct PCPU* pcpu = static_cast<struct PCPU*>(cpu.cpu_pcpu);
-            kprintf(" cpu %d: cpuid %d curthread %p nested_irq %d\n", n,  pcpu->cpuid, pcpu->curthread, pcpu->nested_irq);
-            if (auto t = pcpu->curthread; t) {
-                kprintf("  thread '%s'", t->t_name);
-                kprintf(" process pid %d\n", t->t_process.p_pid);
-                kprintf("\n");
-            }
-        }
-    });
-
 }

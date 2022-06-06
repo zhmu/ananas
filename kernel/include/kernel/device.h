@@ -69,7 +69,6 @@ class IDeviceOperations
   public:
     virtual Result Attach() = 0;
     virtual Result Detach() = 0;
-    virtual void DebugDump() {}
 
     virtual Result Open(Process* proc) { return Result::Success(); }
 

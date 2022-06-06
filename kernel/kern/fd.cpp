@@ -6,7 +6,6 @@
  */
 #include <ananas/errno.h>
 #include "kernel/fd.h"
-#include "kernel/kdb.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
 #include "kernel/lock.h"

@@ -6,7 +6,6 @@
  */
 #include "kernel/pool.h"
 #include "kernel/lib.h"
-#include "kernel/kdb.h"
 #include "kernel/mm.h"
 #include "kernel/vm.h"
 #include "kernel-md/param.h"
@@ -75,19 +74,4 @@ namespace pool
             item = reinterpret_cast<Item*>(reinterpret_cast<char*>(item) + p_ItemSize);
         }
     }
-
-    const kdb::RegisterCommand kdbPool("pool", "Display memory pools", [](int, const kdb::Argument*) {
-        auto countItems = [](auto& p) {
-            size_t count{};
-            for(auto& item: p) { ++count; }
-            return count;
-        };
-
-        for(auto& pool: allPools) {
-            kprintf("pool %p '%s': %d page(s) allocated, %d items available\n",
-             &pool, pool.p_Name,
-             countItems(pool.p_AllocatedPages),
-             countItems(pool.p_AvailableItems));
-        }
-    });
 }

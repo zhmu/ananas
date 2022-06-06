@@ -21,7 +21,7 @@
 #include "kernel/bio.h"
 #include "kernel/device.h"
 #include "kernel/pcpu.h"
-#include "kernel/kdb.h"
+#include "kernel/init.h"
 #include "kernel/lib.h"
 #include "kernel/lock.h"
 #include "kernel/mm.h"
@@ -358,27 +358,3 @@ void bsync()
 {
     // TODO - we do everything sync now so this does not matter
 }
-
-const kdb::RegisterCommand kdbBio("bio", "Display I/O buffers", [](int, const kdb::Argument*) {
-    kprintf("bio dump\n");
-
-    unsigned int freelist_avail = 0;
-    for (auto& bio : bio_freelist) {
-        freelist_avail++;
-    }
-    kprintf("lists: %u total, %u bio's free\n", NumberOfBuffers, freelist_avail);
-
-    kprintf("buckets:");
-    for (unsigned int bucket_num = 0; bucket_num < NumberOfBuckets; bucket_num++) {
-        kprintf("%u =>", bucket_num);
-        {
-            if (!bio_bucket[bucket_num].empty()) {
-                for (auto& bio : bio_bucket[bucket_num])
-                    kprintf(" %u(%d)", bio.b_block, bio.b_cflags);
-            } else {
-                kprintf(" (empty)");
-            }
-            kprintf("\n");
-        }
-    }
-});

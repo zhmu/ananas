@@ -5,7 +5,6 @@
  * For conditions of distribution and use, see LICENSE file
  */
 #include <machine/param.h>
-#include "kernel/kdb.h"
 #include "kernel/kmem.h"
 #include "kernel/lib.h"
 #include "kernel/mm.h"
@@ -276,9 +275,3 @@ static void page_dump(PageZone& z)
         kprintf("%d\n", n);
     }
 }
-
-const kdb::RegisterCommand kdbPages("pages", "Display page zones", [](int, const kdb::Argument*) {
-    for (auto& z : zones) {
-        page_dump(z);
-    }
-});
