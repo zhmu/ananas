@@ -165,7 +165,13 @@ namespace scheduler
     {
         SchedLockGuard g(schedLock);
 
-        KASSERT(IsSuspended(t), "adding non-suspended thread %p", &t);
+        if (!IsSuspended(t)) {
+            // The scheduler never got a chance to actually suspend the
+            // thread. This means it is still on the runqueue and we
+            // don't need to move it
+            Prove<OnlyOnRunQueue>(t);
+            return;
+        }
         Prove<OnlyOnSleepQueue>(t);
 
         KASSERT(t.t_sqwaiter.w_sq == nullptr || t.t_sqwaiter.w_signalled, "resuming sleeping thread?");
