@@ -278,7 +278,9 @@ Result Process::WaitAndLock(pid_t pid, int flags, util::locked<Process>& p_out)
         // so we can't reliably do anything in between (and we need to have
         // the Zombie condition here as only then can we destroy a thread,
         // provided the scheduler isn't active on it...)
-        scheduler::Schedule();
+        p_lock.Unlock();
+        thread_sleep_ms(1);
+        p_lock.Lock();
     }
 }
 
