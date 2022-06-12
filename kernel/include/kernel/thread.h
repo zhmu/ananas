@@ -7,6 +7,7 @@
 #pragma once
 
 #include <ananas/types.h>
+#include <ananas/util/atomic.h>
 #include <ananas/util/list.h>
 #include "kernel/page.h"
 #include "kernel/refcount.h"
@@ -44,6 +45,16 @@ namespace thread
     struct Waiter;
 }
 
+/*
+ * Schedulable thread entity
+ *
+ * t_state is used to store the state the thread _wants to be in_; i.e. for a
+ * thread to go to sleep, set it to State::Suspended.
+ *
+ * t_sched_flags is protected by schedlock and contains the _current_ status of
+ * the thread. schedule() will inspect t_state to determine whether the thread
+ * should be placed on the running or sleeping queue.
+ */
 struct Thread {
     Thread(Process& process);
     Thread(const Thread&) = delete;
@@ -73,7 +84,8 @@ struct Thread {
 #define THREAD_FLAG_TIMEOUT 0x0008    /* Timeout field is valid */
 
     unsigned int t_sig_pending{};   // Is a signal pending?
-    thread::State t_state{thread::State::Suspended};
+
+    util::atomic<thread::State> t_state{thread::State::Suspended};
 
     struct STACKFRAME* t_frame{};
     unsigned int t_md_flags{};
